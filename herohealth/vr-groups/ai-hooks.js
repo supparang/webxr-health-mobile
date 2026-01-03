@@ -1,22 +1,17 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// PACK 15: AI Hooks — deterministic & disabled by default
-// - Does NOT change gameplay by default (safe for research)
-// - Collects telemetry and emits: hha:ai (kind, payload)
-// - Provides seeded RNG for future Pattern Generator / Director
-// Enable only with ?ai=1 in PLAY (run=play). run=research => forced OFF.
+// PACK 15: AI Hooks Module (disabled by default; research-safe)
+// - attach({runMode, seed, enabled})
+// - Director (difficulty suggestions), Coach micro-tips, Pattern generator hooks (seeded)
+// Emits: hha:ai, hha:coach (micro tips), groups:ai (internal)
 
 (function(){
   'use strict';
   const WIN = window;
   const NS = WIN.GroupsVR = WIN.GroupsVR || {};
-  const AI = NS.AIHooks = NS.AIHooks || {};
-
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
 
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
+  // deterministic rng (same as engine style)
   function hashSeed(str){
     str = String(str ?? '');
     let h = 2166136261 >>> 0;
@@ -34,115 +29,179 @@
     };
   }
 
-  let on = false;
-  let runMode = 'play';
-  let seed = '';
-  let rng = null;
-
-  // telemetry snapshot (lightweight)
-  const S = {
-    score:0, combo:0, misses:0,
-    acc:0, grade:'C',
-    storm:false, boss:false,
-    goalPct:0, miniPct:0, miniLeft:0
-  };
-
-  function post(kind, payload){
-    if (!on) return;
-    emit('hha:ai', {
-      kind,
-      ts: Date.now(),
-      runMode,
-      seed,
-      payload: payload || {}
-    });
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
   }
 
-  function detachListeners(){
-    if (!AI._bound) return;
-    AI._bound = false;
+  // ----------------- AI Coach (micro tips) -----------------
+  function createCoach(){
+    let lastAt = 0;
+    let lastKey = '';
+    const minGapMs = 3200;
 
-    WIN.removeEventListener('hha:score', AI._onScore);
-    WIN.removeEventListener('hha:rank',  AI._onRank);
-    WIN.removeEventListener('hha:judge', AI._onJudge);
-    WIN.removeEventListener('groups:progress', AI._onProg);
-    WIN.removeEventListener('quest:update', AI._onQuest);
+    function say(text, mood='neutral', key=''){
+      const t = Date.now();
+      if (t - lastAt < minGapMs) return false;
+      if (key && key === lastKey) return false;
+      lastAt = t; lastKey = key || '';
+
+      emit('hha:coach', { text, mood });
+      emit('hha:ai', { kind:'coach', text, mood, key, ts:t });
+      return true;
+    }
+
+    return { say };
   }
 
-  function attachListeners(){
-    if (AI._bound) return;
-    AI._bound = true;
+  // ----------------- Difficulty Director (suggestions) -----------------
+  // We only compute suggestions. Engine can optionally consume later via setAIMod().
+  function createDirector(rng){
+    let windowN = 0;
+    let goodN = 0;
+    let missN = 0;
+    let lastPushAt = 0;
 
-    AI._onScore = (ev)=>{
-      const d = ev.detail||{};
-      S.score = Number(d.score||0);
-      S.combo = Number(d.combo||0);
-      S.misses= Number(d.misses||0);
-      post('state_score', { score:S.score, combo:S.combo, misses:S.misses });
-    };
+    function feedJudge(kind){
+      windowN++;
+      if (kind==='good' || kind==='boss') goodN++;
+      if (kind==='bad' || kind==='miss') missN++;
+      if (windowN >= 18) evaluate();
+    }
 
-    AI._onRank = (ev)=>{
-      const d = ev.detail||{};
-      S.grade = String(d.grade||S.grade);
-      S.acc   = Number(d.accuracy||S.acc);
-      post('state_rank', { grade:S.grade, acc:S.acc });
-    };
+    function evaluate(){
+      const t = Date.now();
+      const acc = (windowN>0) ? (goodN/windowN) : 0;
+      const pressure = clamp(missN/Math.max(1,windowN), 0, 1);
 
-    AI._onJudge = (ev)=>{
-      const d = ev.detail||{};
-      const k = String(d.kind||'').toLowerCase();
-      // minimal event feed for future explainable coach
-      post('event_judge', { kind:k, text:String(d.text||'') });
-    };
+      // reset window
+      windowN = 0; goodN = 0; missN = 0;
 
-    AI._onProg = (ev)=>{
+      if (t - lastPushAt < 3800) return;
+
+      // compute a small mod suggestion (multiplicative)
+      // fair: if acc high and pressure low -> slightly harder; if pressure high -> ease.
+      let spawnMul = 1.0;
+      let junkMul  = 1.0;
+      let wrongMul = 1.0;
+
+      if (acc >= 0.86 && pressure <= 0.18){
+        spawnMul *= 0.94;  // faster spawn (harder)
+        junkMul  *= 1.05;
+        wrongMul *= 1.05;
+      } else if (pressure >= 0.32){
+        spawnMul *= 1.06;  // slower spawn (easier)
+        junkMul  *= 0.92;
+        wrongMul *= 0.92;
+      } else if (acc <= 0.62){
+        spawnMul *= 1.08;
+        junkMul  *= 0.90;
+        wrongMul *= 0.90;
+      }
+
+      // tiny randomness but deterministic
+      const wobble = (rng()*0.02) - 0.01; // [-0.01..+0.01]
+      spawnMul *= (1.0 + wobble);
+
+      lastPushAt = t;
+      const sug = {
+        kind:'director',
+        spawnMul: Number(spawnMul.toFixed(3)),
+        junkMul:  Number(junkMul.toFixed(3)),
+        wrongMul: Number(wrongMul.toFixed(3)),
+        ts: t
+      };
+
+      emit('hha:ai', sug);
+      emit('groups:ai', sug);
+    }
+
+    return { feedJudge };
+  }
+
+  // ----------------- Pattern Generator (seeded templates) -----------------
+  // This is a hook container; actual spawn patterns can be plugged later.
+  function createPattern(rng){
+    function pickStormFlavor(){
+      const flavors = ['tight','wide','zigzag','burst'];
+      return flavors[(rng()*flavors.length)|0];
+    }
+    function pickBossFlavor(){
+      const flavors = ['steady','rage','fakeout'];
+      return flavors[(rng()*flavors.length)|0];
+    }
+    return { pickStormFlavor, pickBossFlavor };
+  }
+
+  // ----------------- Attach -----------------
+  const AIHooks = (function(){
+    let enabled = false;
+    let runMode = 'play';
+    let seed = '';
+    let rng = null;
+
+    let coach = null;
+    let director = null;
+    let pattern = null;
+
+    function attach(cfg){
+      cfg = cfg || {};
+      runMode = (String(cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
+      seed = String(cfg.seed||'');
+      enabled = !!cfg.enabled && (runMode !== 'research');
+
+      rng = makeRng(hashSeed(seed + '::ai-hooks'));
+
+      coach = createCoach();
+      director = createDirector(rng);
+      pattern = createPattern(rng);
+
+      emit('hha:ai', { kind:'attach', enabled, runMode, seed, ts: Date.now() });
+
+      if (!enabled){
+        // still provide one neutral coach line in cVR practice/play
+        try{
+          coach.say('โหมด AI: ปิด (ปลอดภัยสำหรับวิจัย) ✅', 'neutral', 'ai-off');
+        }catch(_){}
+        return;
+      }
+
+      // greet
+      coach.say('โหมด AI: เปิด ✅ (ปรับความยากแบบยุติธรรม + ทิปสั้น ๆ)', 'happy', 'ai-on');
+
+      // lightweight coach tips from events
+      WIN.addEventListener('groups:progress', onProgress, {passive:true});
+      WIN.addEventListener('hha:judge', onJudge, {passive:true});
+    }
+
+    function onProgress(ev){
+      if (!enabled) return;
       const k = String((ev.detail||{}).kind||'').toLowerCase();
-      if (k==='storm_on') S.storm = true;
-      if (k==='storm_off') S.storm = false;
-      if (k==='boss_spawn') S.boss = true;
-      if (k==='boss_down')  S.boss = false;
-      post('event_progress', { kind:k, storm:S.storm, boss:S.boss });
-    };
+      if (k==='storm_on'){
+        coach.say(`พายุมาแล้ว! โฟกัส “ถูกหมู่” ก่อนความเร็ว 💨`, 'fever', 'tip-storm');
+      }
+      if (k==='boss_spawn'){
+        const f = pattern.pickBossFlavor();
+        coach.say(`บอสมา! จังหวะนี้ “นิ่งแล้วค่อยยิง” (${f}) 👊`, 'fever', 'tip-boss');
+      }
+      if (k==='perfect_switch'){
+        coach.say('สลับหมู่แล้ว! อ่านชื่อหมู่ก่อนยิง 1 วิ 👀', 'neutral', 'tip-switch');
+      }
+    }
 
-    AI._onQuest = (ev)=>{
-      const d = ev.detail||{};
-      const gPct = Number(d.goalPct||0);
-      const mPct = Number(d.miniPct||0);
-      const mLeft= Number(d.miniTimeLeftSec||0);
-      S.goalPct = clamp(gPct,0,100);
-      S.miniPct = clamp(mPct,0,100);
-      S.miniLeft= Math.max(0,mLeft|0);
-      post('state_quest', { goalPct:S.goalPct, miniPct:S.miniPct, miniLeft:S.miniLeft });
-    };
+    function onJudge(ev){
+      if (!enabled) return;
+      const k = String((ev.detail||{}).kind||'').toLowerCase();
+      director.feedJudge(k);
 
-    WIN.addEventListener('hha:score', AI._onScore, {passive:true});
-    WIN.addEventListener('hha:rank',  AI._onRank,  {passive:true});
-    WIN.addEventListener('hha:judge', AI._onJudge, {passive:true});
-    WIN.addEventListener('groups:progress', AI._onProg, {passive:true});
-    WIN.addEventListener('quest:update', AI._onQuest, {passive:true});
-  }
+      // micro tip when repeated bad
+      if (k==='bad' || k==='miss'){
+        coach.say('ถ้าพลาดติด ๆ กัน: ชะลอ 0.5 วิ แล้วค่อยยิงใหม่ 🎯', 'sad', 'tip-reset');
+      }
+    }
 
-  // public API
-  AI.attach = function(cfg){
-    cfg = cfg || {};
-    runMode = (String(cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
-    seed = String(cfg.seed ?? '');
-    const enabled = !!cfg.enabled;
+    return { attach };
+  })();
 
-    // force OFF in research
-    on = (runMode !== 'research') && enabled;
-
-    rng = makeRng(hashSeed(seed + '::aihooks'));
-
-    // bind/unbind
-    detachListeners();
-    if (on) attachListeners();
-
-    post('ai_attach', { on, runMode, seed });
-    return { on, runMode, seed };
-  };
-
-  AI.isOn = function(){ return !!on; };
-  AI.rng = function(){ return rng || Math.random; };
+  NS.AIHooks = AIHooks;
 
 })();
