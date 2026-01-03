@@ -56,8 +56,6 @@
     .small{font-size:12px}
     .k{color:#a7f3d0}
     .warn{color:#fde68a}
-    .ok{color:#86efac}
-    .bad{color:#fda4af}
   </style>
 </head>
 
@@ -95,11 +93,6 @@
             <button class="btn alt" id="btnHub" type="button">กลับ HUB</button>
           </div>
 
-          <div class="actions" style="margin-top:10px;">
-            <button class="btn alt" id="btnCheck" type="button">Self-check (กันจอดำ)</button>
-            <button class="btn alt" id="btnOpenRun" type="button">เปิด Run ตรง ๆ</button>
-          </div>
-
           <div class="hint">
             • <b>Play</b>: มี practice 15s (ไม่ลงโทษ) แล้วค่อยเริ่มจริง<br/>
             • <b>Research</b>: seed คงที่ + ไม่มี practice (ตามมาตรฐาน)<br/>
@@ -107,7 +100,6 @@
           </div>
 
           <div class="last" id="lastBox" style="display:none;"></div>
-          <div class="last" id="checkBox" style="display:none;"></div>
         </div>
 
         <div class="panel">
@@ -160,16 +152,6 @@
   const viewRow = el('viewRow');
   const runRow  = el('runRow');
 
-  const qs = (k,d='')=>{
-    try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; }
-  };
-
-  // ✅ Always point to the canonical run URL (prevents wrong relative path)
-  function runBaseUrl(){
-    return new URL('/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-vr.html', location.origin);
-    // ถ้า repo/root เปลี่ยน ให้แก้แค่บรรทัดนี้
-  }
-
   function setPressed(row, key, val){
     [...row.querySelectorAll('.pill')].forEach(b=>{
       b.setAttribute('aria-pressed', b.dataset[key] === val ? 'true' : 'false');
@@ -189,13 +171,10 @@
     el('diff').value  = localStorage.getItem(LS.diff) || 'normal';
     el('time').value  = localStorage.getItem(LS.time) || '80';
     el('seed').value  = localStorage.getItem(LS.seed) || '';
+    el('hub').value   = localStorage.getItem(LS.hub)  || '';
     el('studyId').value = localStorage.getItem(LS.study) || '';
     el('phase').value   = localStorage.getItem(LS.phase) || '';
     el('cond').value    = localStorage.getItem(LS.cond) || '';
-
-    // ✅ hub: prefer query param hub, then localStorage
-    const hubQ = qs('hub','');
-    el('hub').value = hubQ || localStorage.getItem(LS.hub) || '';
 
     // last summary peek
     try{
@@ -237,89 +216,39 @@
     localStorage.setItem(LS.cond, el('cond').value);
   }
 
-  function buildRunUrl(){
+  function start(){
+    saveFields();
     const view = getPressed(viewRow,'view') || 'mobile';
     const run  = getPressed(runRow,'run')  || 'play';
     const diff = el('diff').value || 'normal';
     const time = el('time').value || '80';
-    const seed = String(el('seed').value || '').trim();
-    const hub  = String(el('hub').value || '').trim();
-    const study= String(el('studyId').value || '').trim();
-    const phase= String(el('phase').value || '').trim();
-    const cond = String(el('cond').value || '').trim();
+    const seed = el('seed').value.trim();
+    const hub  = el('hub').value.trim();
+    const study= el('studyId').value.trim();
+    const phase= el('phase').value.trim();
+    const cond = el('cond').value.trim();
 
-    const url = runBaseUrl();
+    const url = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
     url.searchParams.set('view', view);
     url.searchParams.set('run', run);
     url.searchParams.set('diff', diff);
     url.searchParams.set('time', time);
-
     if(seed) url.searchParams.set('seed', seed);
     if(hub)  url.searchParams.set('hub', hub);
     if(study)url.searchParams.set('studyId', study);
     if(phase)url.searchParams.set('phase', phase);
     if(cond) url.searchParams.set('conditionGroup', cond);
 
-    // ✅ cache-bust กันค้างไฟล์เก่า
-    url.searchParams.set('ts', String(Date.now()));
-    return url;
-  }
-
-  function start(){
-    saveFields();
-    location.href = buildRunUrl().toString();
+    location.href = url.toString();
   }
 
   el('btnStart').addEventListener('click', start);
 
   el('btnHub').addEventListener('click', ()=>{
     saveFields();
-    const hub = String(el('hub').value||'').trim();
+    const hub = el('hub').value.trim();
     if(hub) location.href = hub;
     else alert('ยังไม่ได้ใส่ hub url');
-  });
-
-  el('btnOpenRun').addEventListener('click', ()=>{
-    saveFields();
-    location.href = buildRunUrl().toString();
-  });
-
-  // ✅ Self-check: ถ้าไฟล์ใด 404 = สาเหตุจอดำแทบชัวร์
-  async function checkOne(path){
-    try{
-      const r = await fetch(path, { cache:'no-store' });
-      if(!r.ok) return { ok:false, status:r.status, path };
-      const ct = (r.headers.get('content-type')||'').toLowerCase();
-      return { ok:true, status:r.status, path, ct };
-    }catch(e){
-      return { ok:false, status:0, path, err:String(e?.message||e) };
-    }
-  }
-
-  el('btnCheck').addEventListener('click', async ()=>{
-    const box = el('checkBox');
-    box.style.display = 'block';
-    box.textContent = 'Checking...';
-
-    const base = new URL('/webxr-health-mobile/herohealth/vr-goodjunk/', location.origin);
-    const files = [
-      new URL('goodjunk-vr.html', base).toString(),
-      new URL('goodjunk-vr.boot.js', base).toString(),
-      new URL('goodjunk.safe.js', base).toString(),
-      new URL('../vr/vr-ui.js', base).toString(),
-      new URL('../vr/particles.js', base).toString(),
-    ];
-
-    const results = [];
-    for(const f of files){
-      results.push(await checkOne(f));
-    }
-
-    box.innerHTML = results.map(x=>{
-      const ok = x.ok ? `<span class="ok">OK</span>` : `<span class="bad">FAIL</span>`;
-      const meta = x.ok ? `${x.status} ${x.ct||''}` : `${x.status||''} ${x.err||''}`;
-      return `${ok} <span style="opacity:.9">${x.path}</span><br/><span style="opacity:.7">${meta}</span>`;
-    }).join('<br/>');
   });
 
   pickDefault();
