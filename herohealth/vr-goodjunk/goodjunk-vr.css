@@ -2,19 +2,7 @@
 GoodJunkVR UI — VR-first layout (No HUD blocking) + COMPACT VR HUD + LOW-TIME WARNING (no dizziness)
 ✅ stage uses dvh (fix address-bar jump)
 ✅ reserves space for HUD(top) + fever + controls(bottom)
-✅ VR/cVR collapses HUD -> compact mini HUD (Score/Time/Grade) + Missions Peek
-✅ Low-time warning ring + tick pulse (no shake) + 5s big countdown (soft)
-✅ Fullscreen: body.is-fs -> tighter paddings/heights
-✅ Targets: juicy spawn/pop, readable emoji, mobile-friendly hit box
-✅ cVR strict: disable pointer-events on targets (shoot via crosshair only)
-✅ VRUI safe: do not overlap important controls
-*/
-
-:root{
-  color-scheme: dark;
-  --bg:#020617;
-  --panel:rgba(2,6,23,.76);
-  --panel2:rgba(15,23,42,.70);
+ 
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
