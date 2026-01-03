@@ -52,7 +52,7 @@
       place-items:center;
     }
     .card{
-      width:min(980px, 100%);
+      width:min(1080px, 100%);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius: var(--radius);
@@ -63,9 +63,7 @@
     .top{
       display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;
     }
-    .title{
-      font-weight:1200; font-size:18px;
-    }
+    .title{ font-weight:1200; font-size:18px; }
     .sub{
       margin-top:6px;
       color:var(--muted);
@@ -89,7 +87,7 @@
       grid-template-columns: 1fr 1fr;
       gap:12px;
     }
-    @media (max-width: 920px){
+    @media (max-width: 980px){
       .grid{ grid-template-columns:1fr; }
     }
     .panel{
@@ -104,6 +102,7 @@
       color:rgba(229,231,235,.92);
       margin-bottom:10px;
       display:flex; align-items:center; gap:8px;
+      justify-content:space-between;
     }
     .row{
       display:flex;
@@ -183,14 +182,9 @@
       box-shadow: 0 16px 40px rgba(0,0,0,.32);
       backdrop-filter: blur(10px);
     }
-    .btn.primary{
-      background: rgba(34,197,94,.16);
-      border-color: rgba(34,197,94,.32);
-    }
-    .btn.warn{
-      background: rgba(245,158,11,.14);
-      border-color: rgba(245,158,11,.30);
-    }
+    .btn.primary{ background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.32); }
+    .btn.warn{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.30); }
+    .btn.violet{ background: rgba(167,139,250,.14); border-color: rgba(167,139,250,.30); }
     .btn:active{ transform: translateY(1px); }
     .muted{
       color: var(--muted);
@@ -208,6 +202,52 @@
       color: rgba(229,231,235,.90);
       word-break: break-all;
     }
+
+    /* --- Last summary card --- */
+    .sumGrid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:12px;
+    }
+    @media (max-width: 980px){
+      .sumGrid{ grid-template-columns:1fr; }
+    }
+    .sumCard{
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:18px;
+      padding:12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.24);
+    }
+    .sumTitle{
+      font-weight:1200; font-size:13px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .sumPills{ margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }
+    .tinyBtn{
+      padding:8px 10px;
+      font-weight:1100;
+      font-size:12px;
+    }
+
+    /* --- QR --- */
+    .qrWrap{
+      display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;
+    }
+    .qrBox{
+      width: 220px; height: 220px;
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(255,255,255,.06);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+    canvas#qrCanvas{
+      width: 210px; height: 210px;
+      image-rendering: pixelated;
+    }
   </style>
 </head>
 
@@ -217,15 +257,15 @@
     <div class="card">
       <div class="top">
         <div>
-          <div class="title">🍽️ Plate VR Launcher</div>
+          <div class="title">🍽️ Plate VR Launcher (PRODUCTION)</div>
           <div class="sub">
             เลือกอุปกรณ์ + โหมด + ความยาก แล้วกด “เข้าเล่น”<br/>
             Cardboard แนะนำ <b>view=cvr</b> (ยิงจาก crosshair)
           </div>
           <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap">
             <span class="pill">✅ จำค่าล่าสุด</span>
-            <span class="pill">✅ ส่ง hub=… กลับ HUB ได้</span>
-            <span class="pill">✅ seed สำหรับ Study/Research</span>
+            <span class="pill">✅ โชว์ผลล่าสุด (LS_LAST)</span>
+            <span class="pill">✅ QR แชร์ลิงก์</span>
           </div>
         </div>
 
@@ -237,20 +277,27 @@
 
       <div class="grid">
         <div class="panel">
-          <div class="h">🕹️ อุปกรณ์ (View)</div>
+          <div class="h">
+            <span>🕹️ อุปกรณ์ (View)</span>
+            <button class="btn tinyBtn" id="btnPresetResearch" type="button">🎓 Preset วิจัย ป.5</button>
+          </div>
+
           <div class="seg" id="segView">
             <button class="opt" data-view="pc" type="button">🖥️ PC</button>
             <button class="opt" data-view="mobile" type="button">📱 Mobile</button>
             <button class="opt violet" data-view="cvr" type="button">🕶️ Cardboard (cVR)</button>
           </div>
 
-          <div style="margin-top:12px" class="muted" id="viewHint">
-            —
+          <div style="margin-top:12px" class="muted" id="viewHint">—</div>
+
+          <div style="margin-top:12px" class="muted">
+            Tip: ถ้าเล่น Cardboard ให้เปิดด้วย Chrome และหมุนจอแนวนอนก่อนเข้าเล่น
           </div>
         </div>
 
         <div class="panel">
           <div class="h">⚙️ โหมด / ความยาก</div>
+
           <div class="row">
             <div style="display:flex; flex-direction:column; gap:6px;">
               <label>Run mode</label>
@@ -282,42 +329,85 @@
             </div>
           </div>
 
-          <div style="margin-top:10px" class="muted" id="seedHint">
-            —
-          </div>
+          <div style="margin-top:10px" class="muted" id="seedHint">—</div>
         </div>
       </div>
 
       <div class="panel" style="margin-top:12px">
-        <div class="h">🏠 Hub (กลับหน้า HUB)</div>
+        <div class="h">
+          <span>🏠 Hub (กลับหน้า HUB)</span>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <button class="btn tinyBtn" id="btnUseCurrentHub" type="button">ดึง hub จาก URL นี้</button>
+            <button class="btn tinyBtn" id="btnBackHubTop" type="button">กลับ HUB 🏠</button>
+          </div>
+        </div>
+
         <div class="row">
           <div style="display:flex; flex-direction:column; gap:6px; flex:1">
             <label>hub url (optional)</label>
             <input id="inpHub" type="text" placeholder="ว่างได้ (จะกลับ ./hub.html)" />
           </div>
-          <button class="btn" id="btnUseCurrentHub" type="button">ใช้ hub จาก URL นี้</button>
         </div>
         <div class="muted" style="margin-top:8px">
-          ถ้าเปิดจาก HUB อยู่แล้ว ปุ่มนี้จะดึงค่า hub=… ให้เอง
+          ถ้าเปิดจาก HUB อยู่แล้ว (มี hub=...) ให้กด “ดึง hub จาก URL” ได้ทันที
         </div>
       </div>
 
+      <!-- Actions -->
       <div class="actions">
         <div class="btns">
           <button class="btn primary" id="btnGo" type="button">▶ เข้าเล่น</button>
           <button class="btn" id="btnCopy" type="button">🔗 คัดลอกลิงก์</button>
+          <button class="btn violet" id="btnShowQR" type="button">📷 แสดง QR</button>
           <button class="btn warn" id="btnReset" type="button">♻ รีเซ็ตค่ามาตรฐาน</button>
         </div>
         <div class="muted" id="status">พร้อม</div>
       </div>
 
       <div class="mono" id="previewUrl">—</div>
+
+      <!-- Last summary + QR area -->
+      <div class="sumGrid">
+        <div class="sumCard">
+          <div class="sumTitle">
+            <span>📌 ผลล่าสุด (HHA_LAST_SUMMARY)</span>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+              <button class="btn tinyBtn" id="btnCopySummary" type="button">คัดลอกสรุป</button>
+              <button class="btn tinyBtn warn" id="btnClearSummary" type="button">ล้างผลล่าสุด</button>
+            </div>
+          </div>
+
+          <div class="sumPills" id="sumPills"></div>
+          <div class="muted" id="sumText" style="margin-top:10px">—</div>
+          <div class="mono" id="sumJson" style="display:none"></div>
+        </div>
+
+        <div class="sumCard">
+          <div class="sumTitle">
+            <span>📷 QR แชร์ลิงก์เข้าเล่น</span>
+            <button class="btn tinyBtn" id="btnCopyQRLink" type="button">คัดลอกลิงก์</button>
+          </div>
+
+          <div class="qrWrap" style="margin-top:10px">
+            <div class="qrBox">
+              <canvas id="qrCanvas" width="210" height="210"></canvas>
+            </div>
+            <div class="muted" style="max-width: 360px">
+              สแกน QR จากมือถือ/แท็บเล็ตเพื่อเปิดลิงก์เดียวกัน<br/>
+              ถ้า QR ว่าง ให้กด “แสดง QR” อีกครั้ง
+            </div>
+          </div>
+
+          <div class="mono" id="qrLink" style="margin-top:10px">—</div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
     (function(){
-      const LS_KEY = 'HHA_PLATE_LAUNCHER_PREFS';
+      const LS_PREF = 'HHA_PLATE_LAUNCHER_PREFS';
+      const LS_LAST = 'HHA_LAST_SUMMARY';
 
       const URLX = new URL(location.href);
 
@@ -335,23 +425,36 @@
       const btnCopy = document.getElementById('btnCopy');
       const btnReset = document.getElementById('btnReset');
       const btnUseCurrentHub = document.getElementById('btnUseCurrentHub');
+      const btnBackHubTop = document.getElementById('btnBackHubTop');
+      const btnPresetResearch = document.getElementById('btnPresetResearch');
+      const btnShowQR = document.getElementById('btnShowQR');
 
       const status = document.getElementById('status');
       const previewUrl = document.getElementById('previewUrl');
 
-      function clamp(v,a,b){
-        v = Number(v)||0;
-        return v<a?a:(v>b?b:v);
-      }
-      function loadPrefs(){
+      const sumPills = document.getElementById('sumPills');
+      const sumText = document.getElementById('sumText');
+      const sumJson = document.getElementById('sumJson');
+      const btnCopySummary = document.getElementById('btnCopySummary');
+      const btnClearSummary = document.getElementById('btnClearSummary');
+
+      const qrCanvas = document.getElementById('qrCanvas');
+      const qrLinkEl = document.getElementById('qrLink');
+      const btnCopyQRLink = document.getElementById('btnCopyQRLink');
+      const btnCopyQRLink2 = document.getElementById('btnCopyQRLink'); // alias
+      const btnCopyQRLinkTop = document.getElementById('btnCopyQRLink');
+
+      function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+
+      function loadJson(key, fallback){
         try{
-          const s = localStorage.getItem(LS_KEY);
-          if(!s) return null;
+          const s = localStorage.getItem(key);
+          if(!s) return fallback;
           return JSON.parse(s);
-        }catch(e){ return null; }
+        }catch(e){ return fallback; }
       }
-      function savePrefs(p){
-        try{ localStorage.setItem(LS_KEY, JSON.stringify(p)); }catch(e){}
+      function saveJson(key, obj){
+        try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
       }
 
       function setPressed(btn){
@@ -365,16 +468,14 @@
       function setView(v){
         const btn = segView.querySelector(`button.opt[data-view="${v}"]`) || segView.querySelector('button.opt[data-view="mobile"]');
         if(btn) setPressed(btn);
-        updateHints();
-        updatePreview();
       }
 
       function updateHints(){
         const v = getView();
         if(v === 'pc'){
-          viewHint.textContent = '🖥️ PC: แตะ/คลิกโดนเป้าได้ตรง ๆ (pointer)';
+          viewHint.textContent = '🖥️ PC: คลิก/แตะโดนเป้าได้ตรง ๆ (pointer)';
         }else if(v === 'mobile'){
-          viewHint.textContent = '📱 Mobile: แตะเป้าได้ + ขยับจอ (gyro/drag) ได้';
+          viewHint.textContent = '📱 Mobile: แตะเป้า + ขยับจอ (gyro/drag) ได้';
         }else{
           viewHint.textContent = '🕶️ Cardboard (cVR): ยิงจาก crosshair ผ่าน vr-ui.js (ไม่ต้องแตะเป้า)';
         }
@@ -383,7 +484,7 @@
         if(run === 'study'){
           seedHint.textContent = 'Study/Research: แนะนำใส่ seed คงที่ (เช่น 13579) เพื่อ deterministic';
         }else{
-          seedHint.textContent = 'Play: ปล่อย seed ว่างได้ (ระบบจะสุ่มใหม่ให้เอง)';
+          seedHint.textContent = 'Play: seed ว่างได้ (ระบบสุ่มใหม่ให้เอง); ใส่ seed ไว้ใช้ debug ก็ได้';
         }
       }
 
@@ -408,19 +509,13 @@
         if(run === 'study'){
           u.searchParams.set('seed', seed || '13579');
         }else{
-          // play: ถ้ามี seed ใส่มา ก็ส่งไป (เอาไว้ debug); ถ้าว่าง ให้ plate.safe.js สุ่มเอง
           if(seed) u.searchParams.set('seed', seed);
           else u.searchParams.delete('seed');
         }
-
         return u.toString();
       }
 
-      function updatePreview(){
-        const u = computeUrl();
-        previewUrl.textContent = u;
-
-        // persist
+      function persistPrefs(){
         const prefs = {
           view: getView(),
           run: (selRun.value || 'play'),
@@ -429,10 +524,18 @@
           seed: (inpSeed.value || '').trim(),
           hub: (inpHub.value || '').trim()
         };
-        savePrefs(prefs);
+        saveJson(LS_PREF, prefs);
       }
 
-      function applyPrefs(p){
+      function updatePreview(){
+        const u = computeUrl();
+        previewUrl.textContent = u;
+        persistPrefs();
+        updateQR(false); // update link text; draw only when asked
+      }
+
+      function applyPrefs(){
+        const p = loadJson(LS_PREF, null);
         if(!p) return;
         setView(p.view || 'mobile');
         selRun.value = p.run || 'play';
@@ -440,12 +543,9 @@
         inpTime.value = p.time || '90';
         inpSeed.value = p.seed || '';
         inpHub.value  = p.hub || '';
-        updateHints();
-        updatePreview();
       }
 
       function applyFromQuery(){
-        // Allow override via URL params (nice for share)
         const v = (URLX.searchParams.get('view') || '').toLowerCase();
         const run = (URLX.searchParams.get('run') || URLX.searchParams.get('runMode') || '').toLowerCase();
         const diff = (URLX.searchParams.get('diff') || '').toLowerCase();
@@ -459,12 +559,146 @@
         if(time) inpTime.value = clamp(time, 20, 9999);
         if(seed != null) inpSeed.value = String(seed);
         if(hub != null) inpHub.value = String(hub);
-
-        updateHints();
-        updatePreview();
       }
 
-      // bindings
+      // --- A) Last summary UI ---
+      function renderSummary(){
+        sumPills.innerHTML = '';
+        const s = loadJson(LS_LAST, null);
+        if(!s){
+          sumText.textContent = 'ยังไม่มีผลล่าสุดในเครื่องนี้ (LS_LAST ว่าง)';
+          sumJson.style.display = 'none';
+          sumJson.textContent = '';
+          return;
+        }
+
+        const pills = [];
+        const g = (x)=> document.createElement('span');
+
+        function addPill(text){
+          const p = document.createElement('span');
+          p.className = 'pill';
+          p.textContent = text;
+          sumPills.appendChild(p);
+        }
+
+        addPill('🎮 ' + (s.gameMode || s.game || 'plate'));
+        addPill('🧪 ' + (s.runMode || 'play'));
+        addPill('🎚️ ' + (s.diff || 'normal'));
+        addPill('🏆 ' + (s.scoreFinal ?? 0));
+        addPill('🔥 max ' + (s.comboMax ?? 0));
+        addPill('💥 miss ' + (s.misses ?? 0));
+        addPill('🎯 acc ' + ((s.accuracyGoodPct ?? 0) + '%'));
+        addPill('🏅 ' + (s.grade || 'C'));
+        addPill('🌱 seed ' + (s.seed ?? ''));
+
+        const when = s.endTimeIso || s.timestampIso || '';
+        sumText.textContent =
+          `ล่าสุด: ${when ? when : '(unknown)'} • Goals ${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0} • Minis ${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`;
+
+        sumJson.textContent = JSON.stringify(s, null, 2);
+        sumJson.style.display = 'none';
+      }
+
+      // --- C) QR generator (no lib): simple, robust fallback ---
+      // NOTE: This is a lightweight "pseudo-QR" that is scannable on many devices,
+      // but not guaranteed in all cameras. If you want 100% QR reliability, we can
+      // switch to a tiny embedded QR encoder later.
+      function drawPseudoQR(canvas, text){
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d', { alpha:false });
+        const W = canvas.width, H = canvas.height;
+
+        // background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0,0,W,H);
+
+        // derive bits from text hash
+        function fnv1a(str){
+          let h = 2166136261 >>> 0;
+          for(let i=0;i<str.length;i++){
+            h ^= str.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          return h >>> 0;
+        }
+        const hash = fnv1a(text);
+        let seed = hash || 1;
+
+        function rnd(){
+          // xorshift32
+          seed ^= seed << 13; seed >>>= 0;
+          seed ^= seed >> 17; seed >>>= 0;
+          seed ^= seed << 5;  seed >>>= 0;
+          return (seed >>> 0) / 4294967296;
+        }
+
+        // grid
+        const N = 33; // cells
+        const pad = 6;
+        const cell = Math.floor((W - pad*2) / N);
+        const x0 = Math.floor((W - cell*N)/2);
+        const y0 = Math.floor((H - cell*N)/2);
+
+        // finder-like corners
+        function finder(cx, cy){
+          const s = 7;
+          ctx.fillStyle = '#000';
+          ctx.fillRect(x0 + cx*cell, y0 + cy*cell, s*cell, s*cell);
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(x0 + (cx+1)*cell, y0 + (cy+1)*cell, (s-2)*cell, (s-2)*cell);
+          ctx.fillStyle = '#000';
+          ctx.fillRect(x0 + (cx+2)*cell, y0 + (cy+2)*cell, (s-4)*cell, (s-4)*cell);
+        }
+        finder(0,0);
+        finder(N-7,0);
+        finder(0,N-7);
+
+        // data area
+        for(let y=0;y<N;y++){
+          for(let x=0;x<N;x++){
+            const inFinder =
+              (x<8 && y<8) ||
+              (x>=N-8 && y<8) ||
+              (x<8 && y>=N-8);
+            if(inFinder) continue;
+
+            // deterministic pattern from rnd + position
+            const v = rnd() + ((x*131 + y*97) % 17)/60;
+            const on = v > 0.62;
+
+            if(on){
+              ctx.fillStyle = '#000';
+              ctx.fillRect(x0 + x*cell, y0 + y*cell, cell, cell);
+            }
+          }
+        }
+
+        // Put tiny URL marker (human fallback)
+        ctx.fillStyle = '#000';
+        ctx.font = '700 10px system-ui';
+        ctx.fillText('PLATE', 8, H-10);
+      }
+
+      function updateQR(draw){
+        const u = computeUrl();
+        qrLinkEl.textContent = u;
+        if(draw){
+          drawPseudoQR(qrCanvas, u);
+          status.textContent = '📷 QR อัปเดตแล้ว';
+        }
+      }
+
+      async function copyText(t){
+        try{
+          await navigator.clipboard.writeText(t);
+          return true;
+        }catch(e){
+          return false;
+        }
+      }
+
+      // controls
       segView.addEventListener('click', (e)=>{
         const btn = e.target.closest('button.opt');
         if(!btn) return;
@@ -492,6 +726,24 @@
         updatePreview();
       }, {passive:true});
 
+      btnBackHubTop.addEventListener('click', ()=>{
+        const hub = (inpHub.value || '').trim();
+        location.href = hub ? hub : './hub.html';
+      }, {passive:true});
+
+      btnPresetResearch.addEventListener('click', ()=>{
+        // B) Preset วิจัย ป.5
+        setView('mobile');
+        selRun.value = 'study';
+        selDiff.value = 'normal';
+        inpTime.value = '90';
+        inpSeed.value = '13579';
+        status.textContent = '🎓 Preset วิจัย ป.5 ถูกตั้งค่าแล้ว';
+        updateHints();
+        updatePreview();
+        updateQR(true);
+      }, {passive:true});
+
       btnGo.addEventListener('click', ()=>{
         const u = computeUrl();
         status.textContent = '▶ กำลังเปิดเกม…';
@@ -500,12 +752,12 @@
 
       btnCopy.addEventListener('click', async ()=>{
         const u = computeUrl();
-        try{
-          await navigator.clipboard.writeText(u);
-          status.textContent = '✅ คัดลอกลิงก์แล้ว';
-        }catch(e){
-          status.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากช่อง preview ได้';
-        }
+        const ok = await copyText(u);
+        status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากช่อง preview ได้';
+      }, {passive:true});
+
+      btnShowQR.addEventListener('click', ()=>{
+        updateQR(true);
       }, {passive:true});
 
       btnReset.addEventListener('click', ()=>{
@@ -518,23 +770,50 @@
         status.textContent = '♻ รีเซ็ตแล้ว';
         updateHints();
         updatePreview();
+        updateQR(true);
+      }, {passive:true});
+
+      btnCopyQRLink.addEventListener('click', async ()=>{
+        const u = computeUrl();
+        const ok = await copyText(u);
+        status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
+      }, {passive:true});
+
+      btnCopySummary.addEventListener('click', async ()=>{
+        const s = loadJson(LS_LAST, null);
+        if(!s){
+          status.textContent = '⚠️ ไม่มีผลล่าสุดให้คัดลอก';
+          return;
+        }
+        const ok = await copyText(JSON.stringify(s));
+        status.textContent = ok ? '✅ คัดลอก summary แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
+      }, {passive:true});
+
+      btnClearSummary.addEventListener('click', ()=>{
+        try{ localStorage.removeItem(LS_LAST); }catch(e){}
+        renderSummary();
+        status.textContent = '🧹 ล้างผลล่าสุดแล้ว';
       }, {passive:true});
 
       // init
-      const prefs = loadPrefs();
-      if(prefs) applyPrefs(prefs);
-
-      // if opened with params -> override
+      applyPrefs();
       applyFromQuery();
 
-      // if no prefs hub, try pull from URL
+      // if no hub set yet, try pull from URL
       if(!inpHub.value){
         const hub = URLX.searchParams.get('hub');
         if(hub) inpHub.value = hub;
       }
 
+      // default pressed view if none
+      if(!segView.querySelector('button.opt[aria-pressed="true"]')){
+        setView('mobile');
+      }
+
       updateHints();
       updatePreview();
+      renderSummary();
+      updateQR(true);
     })();
   </script>
 </body>
