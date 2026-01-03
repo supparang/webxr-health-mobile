@@ -1,9 +1,9 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger V2.1.1 — ROW Schema + Dedup + Queue + Beacon + NO-CORS TEXT (PRODUCTION SAFE)
-// ✅ Default endpoint = your new Apps Script
-// ✅ postRows: sendBeacon -> fetch(no-cors) WITHOUT headers (text/plain, no preflight)
-// ✅ Supports payload kind: HHA_ROWS_V21 { rows: [...] }
-// ✅ Queue: mem + localStorage + flush hardened (pagehide/visibilitychange)
+// HHA Cloud Logger V2.2 — ROW Schema + Dedup + Queue + Beacon + text/plain POST (PRODUCTION SAFE)
+// ✅ Default endpoint updated to NEW Apps Script
+// ✅ Prefers text/plain body for POST (matches your Apps Script "A")
+// ✅ Still supports: sendBeacon / fetch keepalive / fetch no-cors
+// ✅ URL override: ?log=ENCODED_ENDPOINT  | disable: ?nolog=1
 
 (function(){
   'use strict';
@@ -11,10 +11,10 @@
   const ROOT = window;
   const DOC  = document;
 
-  if (ROOT.__HHA_CLOUD_LOGGER_V211__) return;
-  ROOT.__HHA_CLOUD_LOGGER_V211__ = true;
+  if (ROOT.__HHA_CLOUD_LOGGER_V22__) return;
+  ROOT.__HHA_CLOUD_LOGGER_V22__ = true;
 
-  // ✅ NEW DEFAULT ENDPOINT (yours)
+  // ✅ NEW endpoint (your Apps Script Web App)
   const DEFAULT_ENDPOINT =
     'https://script.google.com/macros/s/AKfycbzViUBbG-pNLDIXZx7BdFEJj_pf8oFDkRh0_7ryke0nCUdQClPZIZ_k5-qPod14K3DHFA/exec';
 
@@ -26,12 +26,14 @@
   const ENDPOINT = (qs('log', null) || DEFAULT_ENDPOINT);
   const DISABLED = (qs('nolog','0') === '1');
 
-  const LS_KEY = 'HHA_LOG_QUEUE_V21';
-  const MAX_QUEUE = 240;     // memory queue cap
-  const MAX_LS = 160;        // localStorage cap
-  const FLUSH_BATCH = 24;    // send batch size
+  // Queue / persistence
+  const LS_KEY = 'HHA_LOG_QUEUE_V22';
+  const MAX_QUEUE = 240;   // mem queue cap
+  const MAX_LS = 180;      // localStorage cap
+  const FLUSH_BATCH = 24;  // send per batch
 
-  const DEDUP_TTL_MS = 1800;
+  // Dedup
+  const DEDUP_TTL_MS = 1800; // 30 min
   const dedup = new Map();
 
   function safeNowIso(){ try { return new Date().toISOString(); } catch { return ''; } }
@@ -43,6 +45,7 @@
   function safeJson(obj){ try { return JSON.stringify(obj); } catch { return '{"_err":"json"}'; } }
   function safeParse(str){ try { return JSON.parse(str); } catch { return null; } }
 
+  // --- localStorage helpers ---
   function getLS(){
     try{
       const s = localStorage.getItem(LS_KEY);
@@ -73,9 +76,7 @@
     }catch(_){ return []; }
   }
 
-  // -------------------------
-  // Context (hydrate from URL)
-  // -------------------------
+  // --- context (hydrated from URL once, then refined by start/end) ---
   const ctx = {
     sessionId: null,
     startTimeIso: null,
@@ -120,6 +121,7 @@
     return ctx.sessionId;
   }
 
+  // hydrate context from URL once
   (function hydrateFromUrlOnce(){
     try{
       const map = [
@@ -129,6 +131,7 @@
         ['sessionOrder',['sessionOrder']],
         ['blockLabel',['block','blockLabel']],
         ['siteCode',['site','siteCode']],
+
         ['studentKey',['studentKey','sid','student']],
         ['schoolCode',['schoolCode']],
         ['schoolName',['schoolName']],
@@ -162,9 +165,7 @@
     }catch(_){}
   })();
 
-  // -------------------------
-  // Row schema builder
-  // -------------------------
+  // --- row schema (matches your Apps Script FIXED_COLUMNS + logger fields) ---
   function baseRow(){
     return {
       timestampIso: safeNowIso(),
@@ -247,6 +248,7 @@
   function toRowFromStart(d){
     const r = baseRow();
     r.eventType = 'start';
+
     r.projectTag = d.projectTag ?? r.projectTag;
     r.runMode = d.runMode ?? r.runMode;
     r.studyId = d.studyId ?? r.studyId;
@@ -318,13 +320,12 @@
   function toRowFromLog(d){
     const r = baseRow();
     r.eventType = safeStr(d.type || 'log');
+    // keep all detail as extraJson so Apps Script can store in __extraJson or extraJson col
     r.extraJson = safeJson(d);
     return r;
   }
 
-  // -------------------------
-  // Queue + Dedup
-  // -------------------------
+  // --- queue (memory) ---
   const memQ = [];
   function memPush(item){
     if(DISABLED) return;
@@ -334,6 +335,7 @@
     }catch(_){}
   }
 
+  // --- dedup ---
   function makeEventKey(row){
     const sec = safeStr(row.timestampIso).slice(0,19);
     return (
@@ -361,26 +363,44 @@
     }
   }
 
-  // -------------------------
-  // Transport (CORS-safe)
-  // -------------------------
+  // --- transport ---
+  // ✅ IMPORTANT: Apps Script supports A) POST text/plain (recommended)
+  function asPlainBody(payloadObj){
+    // send JSON string, but content-type text/plain
+    return safeJson(payloadObj);
+  }
+
   function sendBeacon(url, bodyStr){
     try{
       if(!navigator.sendBeacon) return false;
-      const blob = new Blob([bodyStr], { type:'text/plain' }); // ✅ text/plain
+      // can be text/plain; Apps Script parses JSON by body anyway
+      const blob = new Blob([bodyStr], { type:'text/plain;charset=utf-8' });
       return navigator.sendBeacon(url, blob);
     }catch(_){ return false; }
   }
 
-  async function sendFetchNoCorsText(url, bodyStr){
+  async function sendFetchKeepalivePlain(url, bodyStr){
     try{
-      // ✅ no headers => browser uses text/plain;charset=UTF-8 (simple request) => no preflight
       await fetch(url, {
         method:'POST',
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        body: bodyStr,
+        keepalive: true,
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      return true;
+    }catch(_){ return false; }
+  }
+
+  async function sendFetchNoCorsPlain(url, bodyStr){
+    try{
+      await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
         body: bodyStr,
         keepalive: true,
         mode: 'no-cors',
-        credentials: 'omit',
       });
       return true;
     }catch(_){ return false; }
@@ -390,15 +410,14 @@
     if(DISABLED) return false;
     if(!rows || !rows.length) return true;
 
-    const payload = { kind: 'HHA_ROWS_V21', count: rows.length, rows };
-    const bodyStr = safeJson(payload);
+    // ✅ payload aligned with cloud-logger row batching
+    const payload = { kind: 'HHA_ROWS_V22', count: rows.length, rows };
+    const bodyStr = asPlainBody(payload);
 
-    // ✅ 1) sendBeacon first
+    // order: beacon -> keepalive -> no-cors
     if(sendBeacon(ENDPOINT, bodyStr)) return true;
-
-    // ✅ 2) fallback no-cors text/plain (no preflight)
-    if(await sendFetchNoCorsText(ENDPOINT, bodyStr)) return true;
-
+    if(await sendFetchKeepalivePlain(ENDPOINT, bodyStr)) return true;
+    if(await sendFetchNoCorsPlain(ENDPOINT, bodyStr)) return true;
     return false;
   }
 
@@ -419,7 +438,7 @@
     flushing = true;
 
     try{
-      // pull from LS first (older first)
+      // pull from LS first (oldest first)
       const fromLS = popLS(maxBatch);
       if(fromLS.length){
         for(const it of fromLS) memQ.unshift(it);
@@ -460,9 +479,7 @@
     try{ setTimeout(()=>{ flushAll(); }, 0); }catch(_){}
   }
 
-  // -------------------------
-  // Apply ctx
-  // -------------------------
+  // --- apply ctx ---
   function applyCtxFromStart(d){
     try{
       ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
@@ -477,9 +494,14 @@
       ctx.phase   = d.phase ?? ctx.phase ?? null;
       ctx.conditionGroup = d.conditionGroup ?? ctx.conditionGroup ?? null;
 
+      if(d.sessionOrder != null) ctx.sessionOrder = d.sessionOrder;
+      if(d.blockLabel   != null) ctx.blockLabel   = d.blockLabel;
+      if(d.siteCode     != null) ctx.siteCode     = d.siteCode;
+
       ensureSessionId();
     }catch(_){}
   }
+
   function applyCtxFromEnd(d){
     try{
       ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
@@ -493,14 +515,16 @@
       ctx.phase   = d.phase ?? ctx.phase ?? null;
       ctx.conditionGroup = d.conditionGroup ?? ctx.conditionGroup ?? null;
 
+      if(d.sessionOrder != null) ctx.sessionOrder = d.sessionOrder;
+      if(d.blockLabel   != null) ctx.blockLabel   = d.blockLabel;
+      if(d.siteCode     != null) ctx.siteCode     = d.siteCode;
+
       if(!ctx.startTimeIso) ctx.startTimeIso = d.startTimeIso ?? safeNowIso();
       ensureSessionId();
     }catch(_){}
   }
 
-  // -------------------------
-  // Event handlers
-  // -------------------------
+  // --- event handlers ---
   function onStart(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
@@ -510,6 +534,7 @@
       flushSoon();
     }catch(_){}
   }
+
   function onEnd(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
@@ -517,9 +542,10 @@
       const row = toRowFromEnd(d);
       if(allowByDedup(row)) memPush(row);
       flushSoon();
-      persistMemQ(); // ✅ ensure LS has end row if leaving quickly
+      persistMemQ();
     }catch(_){}
   }
+
   function onLog(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
@@ -533,7 +559,7 @@
   ROOT.addEventListener('hha:end',   (ev)=> onEnd(ev && ev.detail),   { passive:true });
   ROOT.addEventListener('hha:log',   (ev)=> onLog(ev && ev.detail),   { passive:true });
 
-  // Flush-hardened
+  // flush on pagehide/hidden
   ROOT.addEventListener('pagehide', ()=>{
     try{
       persistMemQ();
@@ -550,7 +576,7 @@
     }catch(_){}
   }, { passive:true });
 
-  // Kick flush
+  // initial kick
   flushSoon();
 
 })();
