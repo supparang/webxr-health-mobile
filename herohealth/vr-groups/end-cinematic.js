@@ -1,136 +1,142 @@
-/* === /herohealth/vr-groups/end-cinematic.js ===
-PACK 30: End Cinematic — PRODUCTION
-✅ Count-up stats on end overlay
-✅ Rank praise line + small confetti (Particles optional)
-✅ Adds class fx-end-cine for CSS
-*/
+// === /herohealth/vr-groups/end-cinematic.js ===
+// PACK 58: End Cinematic + Medal Drop + Rank FX
+// - Works with Particles.js (optional) + effects-pack.js classes
+// - No gameplay impact, safe for research too
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document;
-  if (!DOC) return;
+  const DOC = document;
+  const WIN = window;
 
-  const NS = root.GroupsVR = root.GroupsVR || {};
-  const NOW = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
+  const LS_BEST = 'HHA_GROUPS_BEST'; // best summary cache
 
-  function fxLevel(){
-    try{
-      const L = (NS.FXPerf && NS.FXPerf.getLevel) ? NS.FXPerf.getLevel() : Number(DOC.body.dataset.fxLevel||3);
-      return Number(L)||3;
-    }catch{ return 3; }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  function ensureLayer(){
+    let el = DOC.querySelector('.groups-cine-layer');
+    if (el) return el;
+    el = DOC.createElement('div');
+    el.className = 'groups-cine-layer';
+    el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:170;overflow:hidden;';
+    DOC.body.appendChild(el);
+    return el;
   }
-  function allow(min){ return fxLevel() >= (min||1); }
 
   function hasParticles(){
-    const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
+    const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
     return !!P;
   }
   function celebrate(){
     try{
-      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
-      if (P && typeof P.celebrate==='function') P.celebrate();
+      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
+      P && P.celebrate && P.celebrate();
     }catch(_){}
   }
-  function burst(x,y,n=18){
+  function burst(x,y,n){
     try{
-      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
-      if (P && typeof P.burst==='function') P.burst(x,y,n);
+      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
+      P && P.burst && P.burst(x,y,n||22);
+    }catch(_){}
+  }
+  function popText(x,y,text,cls){
+    try{
+      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
+      P && P.popText && P.popText(x,y,text,cls||'');
     }catch(_){}
   }
 
-  function qsSel(id){
-    return DOC.getElementById(id) || DOC.querySelector('#'+id);
+  function readBest(){
+    try{ return JSON.parse(localStorage.getItem(LS_BEST)||'null'); }catch{ return null; }
+  }
+  function writeBest(s){
+    try{ localStorage.setItem(LS_BEST, JSON.stringify(s)); }catch{}
   }
 
-  function praise(grade, acc){
+  function betterThan(a,b){
+    if (!a) return false;
+    if (!b) return true;
+    // primary: score, secondary: acc, tertiary: miss (lower better)
+    const as = Number(a.scoreFinal||0), bs = Number(b.scoreFinal||0);
+    if (as !== bs) return as > bs;
+    const aa = Number(a.accuracyGoodPct||0), ba = Number(b.accuracyGoodPct||0);
+    if (aa !== ba) return aa > ba;
+    const am = Number(a.misses||0), bm = Number(b.misses||0);
+    return am < bm;
+  }
+
+  function rankEmoji(grade){
     grade = String(grade||'C').toUpperCase();
-    acc = Number(acc||0);
-    if (grade==='SSS') return `🔥 โคตรโหด! ระดับตำนาน (ACC ${acc}%)`;
-    if (grade==='SS')  return `⚡ สายฟ้า! โหดจัด (ACC ${acc}%)`;
-    if (grade==='S')   return `✨ เทพมาก! คุมเกมได้ (ACC ${acc}%)`;
-    if (grade==='A')   return `✅ แน่นมาก! อีกนิดถึง S`;
-    if (grade==='B')   return `👍 ดีเลย! ลองคุมคอมโบเพิ่ม`;
-    return `🙂 เริ่มได้ดี! โฟกัสยิงให้ถูกหมู่`;
+    if (grade==='SSS') return '🏆';
+    if (grade==='SS')  return '🥇';
+    if (grade==='S')   return '🥈';
+    if (grade==='A')   return '🥉';
+    if (grade==='B')   return '🎖️';
+    return '📘';
   }
 
-  function countUp(el, from, to, ms){
-    from = Number(from)||0;
-    to   = Number(to)||0;
-    ms   = Math.max(220, Number(ms)||520);
-
-    const t0 = NOW();
-    const diff = to - from;
-
-    function frame(){
-      const t = NOW();
-      const p = Math.min(1, (t - t0)/ms);
-      // easeOutCubic
-      const e = 1 - Math.pow(1-p, 3);
-      const v = from + diff * e;
-      el.textContent = String(Math.round(v));
-      if (p < 1) requestAnimationFrame(frame);
-      else el.textContent = String(to|0);
-    }
-    requestAnimationFrame(frame);
+  function medalTitle(grade){
+    grade = String(grade||'C').toUpperCase();
+    if (grade==='SSS') return 'LEGEND!';
+    if (grade==='SS')  return 'MASTER!';
+    if (grade==='S')   return 'GREAT!';
+    if (grade==='A')   return 'NICE!';
+    if (grade==='B')   return 'GOOD!';
+    return 'KEEP TRYING!';
   }
 
-  function countUpPct(el, to, ms){
-    to = Number(to)||0;
-    ms = Math.max(240, Number(ms)||560);
-    const t0 = NOW();
-    function frame(){
-      const t = NOW();
-      const p = Math.min(1, (t - t0)/ms);
-      const e = 1 - Math.pow(1-p, 3);
-      const v = to * e;
-      el.textContent = String(Math.round(v)) + '%';
-      if (p < 1) requestAnimationFrame(frame);
-      else el.textContent = String(to|0) + '%';
-    }
-    requestAnimationFrame(frame);
+  function dropMedal(grade, isBest){
+    const layer = ensureLayer();
+    const W = Math.max(320, WIN.innerWidth||360);
+    const cx = W*0.5;
+
+    const wrap = DOC.createElement('div');
+    wrap.className = 'cine-medal' + (isBest ? ' cine-best' : '');
+    wrap.style.left = cx + 'px';
+    wrap.style.top  = '-40px';
+
+    const e = DOC.createElement('div');
+    e.className = 'cine-emoji';
+    e.textContent = rankEmoji(grade);
+
+    const t = DOC.createElement('div');
+    t.className = 'cine-title';
+    t.textContent = medalTitle(grade);
+
+    wrap.appendChild(e);
+    wrap.appendChild(t);
+    layer.appendChild(wrap);
+
+    // burst at settle
+    setTimeout(()=>{
+      const x = cx;
+      const y = Math.max(120, (WIN.innerHeight||640)*0.28);
+      burst(x,y, isBest ? 34 : 26);
+      popText(x,y, isBest ? 'NEW BEST!' : 'CLEAR!', isBest ? 'fx-best' : '');
+      if (hasParticles()) celebrate();
+      try{ navigator.vibrate && navigator.vibrate(isBest ? [25,30,25,50,25] : [18,22,18]); }catch{}
+    }, 520);
+
+    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 2400);
   }
 
-  root.addEventListener('hha:end', (ev)=>{
-    if (!allow(1)) return;
+  // ---- public hook (optional) ----
+  WIN.GroupsVR = WIN.GroupsVR || {};
+  WIN.GroupsVR.Cine = {
+    showEnd: function(summary){
+      const grade = String((summary||{}).grade||'C');
+      const best = readBest();
+      const isBest = betterThan(summary, best);
+      if (isBest) writeBest(summary);
 
-    const d = ev.detail||{};
-    DOC.body.classList.add('fx-end-cine');
-    setTimeout(()=>DOC.body.classList.remove('fx-end-cine'), 1100);
-
-    // Overlay elements exist in groups-vr.html
-    const endLine = qsSel('endLine');
-    const endScore= qsSel('endScore');
-    const endRank = qsSel('endRank');
-    const endAcc  = qsSel('endAcc');
-    const endMiss = qsSel('endMiss');
-
-    const grade = String(d.grade||'C');
-    const acc   = Number(d.accuracyGoodPct ?? 0);
-    const score = Number(d.scoreFinal ?? 0);
-    const miss  = Number(d.misses ?? 0);
-
-    if (endLine) endLine.textContent = praise(grade, acc);
-    if (endRank) endRank.textContent = grade;
-
-    if (endScore) countUp(endScore, 0, score, 720);
-    if (endMiss)  countUp(endMiss,  0, miss,  520);
-    if (endAcc)   countUpPct(endAcc, acc, 680);
-
-    // celebration
-    const x = (root.innerWidth||360)*0.5;
-    const y = (root.innerHeight||640)*0.28;
-    if (hasParticles()){
-      if (grade==='SSS') { burst(x,y,34); celebrate(); }
-      else if (grade==='SS') { burst(x,y,26); celebrate(); }
-      else if (grade==='S') { burst(x,y,22); }
-      else { burst(x,y,16); }
+      try{ DOC.body.classList.add('fx-end'); setTimeout(()=>DOC.body.classList.remove('fx-end'), 900); }catch{}
+      dropMedal(grade, isBest);
     }
+  };
 
-    try{
-      if (grade==='SSS') navigator.vibrate && navigator.vibrate([18,18,18,18]);
-      else if (grade==='SS') navigator.vibrate && navigator.vibrate([16,26,16]);
-      else navigator.vibrate && navigator.vibrate(14);
-    }catch(_){}
+  // auto listen
+  WIN.addEventListener('hha:end', (ev)=>{
+    const s = ev.detail||{};
+    try{ WIN.GroupsVR && WIN.GroupsVR.Cine && WIN.GroupsVR.Cine.showEnd(s); }catch(_){}
   }, {passive:true});
 
-})(typeof window!=='undefined' ? window : globalThis);
+})();
