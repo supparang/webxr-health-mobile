@@ -1,10 +1,10 @@
 /* === /herohealth/vr-groups/boss-ui.js ===
-PACK 27: Boss Micro UI — PRODUCTION
-✅ auto show when boss present (.fg-target.fg-boss)
-✅ weak-state (<=35%) glow
-✅ optional: listens to fx:boss / groups:progress
-✅ optional: if engine emits judge payload with bossHp/bossHpMax -> updates precisely
-Respects: FXPerf level (>=1)
+PACK 34: Boss HP UI — PRODUCTION
+✅ Shows boss bar when boss target exists
+✅ Reads from GroupsVR.GameEngine.targets (bossHp/bossHpMax)
+✅ Adds classes: boss-ui-on / boss-ui-low
+✅ Emits: fx:boss-hp (optional)
+Respects FXPerf (>=1)
 */
 
 (function(root){
@@ -13,6 +13,7 @@ Respects: FXPerf level (>=1)
   if (!DOC) return;
 
   const NS = root.GroupsVR = root.GroupsVR || {};
+  const $  = (q)=> DOC.querySelector(q);
 
   function fxLevel(){
     try{
@@ -21,135 +22,85 @@ Respects: FXPerf level (>=1)
     }catch{ return 3; }
   }
   function allow(min){ return fxLevel() >= (min||1); }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
   function ensureUI(){
-    let ui = DOC.querySelector('.boss-mini');
-    if (ui) return ui;
+    let wrap = $('.bossUI');
+    if (wrap) return wrap;
 
-    ui = DOC.createElement('div');
-    ui.className = 'boss-mini';
-    ui.innerHTML = `
-      <div class="boss-top">
-        <div class="boss-title">👾 BOSS</div>
-        <div class="boss-tag" id="bossTag">HP</div>
+    wrap = DOC.createElement('div');
+    wrap.className = 'bossUI';
+    wrap.innerHTML = `
+      <div class="bossCard">
+        <div class="bossHead">
+          <div class="bossTitle">👾 BOSS</div>
+          <div class="bossHpText"><span id="bossHpNow">0</span>/<span id="bossHpMax">0</span></div>
+        </div>
+        <div class="bossBar"><div class="bossFill" id="bossFill"></div></div>
+        <div class="bossHint" id="bossHint">ยิงให้ถูกหมู่เพื่อแตกบอส!</div>
       </div>
-      <div class="boss-bar"><div class="boss-fill" id="bossFill"></div></div>
-      <div class="boss-hint" id="bossHint">ยิงให้ถูกหมู่เพื่อแตกบอส</div>
     `;
-    DOC.body.appendChild(ui);
-    return ui;
+    DOC.body.appendChild(wrap);
+    return wrap;
   }
 
-  function setUI(on){
-    const ui = ensureUI();
-    ui.classList.toggle('on', !!on);
+  function emit(name, detail){
+    try{ root.dispatchEvent(new CustomEvent(name, {detail})); }catch(_){}
   }
 
-  function setPct(pct){
-    const ui = ensureUI();
-    const fill = ui.querySelector('#bossFill');
-    const tag  = ui.querySelector('#bossTag');
-    pct = clamp(pct, 0, 100);
-    if (fill) fill.style.width = Math.round(pct) + '%';
-    if (tag)  tag.textContent = 'HP ' + Math.round(pct) + '%';
-    ui.classList.toggle('weak', pct <= 35);
-  }
+  let lastBeatAt = 0;
 
-  function setHint(text){
-    const ui = ensureUI();
-    const hint = ui.querySelector('#bossHint');
-    if (hint) hint.textContent = String(text||'');
-  }
+  function tick(){
+    if (!allow(1)) { requestAnimationFrame(tick); return; }
 
-  function findBoss(){
-    try{ return DOC.querySelector('.fg-target.fg-boss'); }catch{ return null; }
-  }
+    const E = NS.GameEngine;
+    const list = (E && Array.isArray(E.targets)) ? E.targets : [];
 
-  // Estimate HP from visual states if no direct hp:
-  // - We can approximate from "weak" class: if weak -> 30%
-  // - else keep last known
-  let lastPct = 100;
-  function updateFromDOM(){
-    const boss = findBoss();
-    if (!boss){
-      setUI(false);
-      lastPct = 100;
-      return;
-    }
-    setUI(true);
-
-    // If engine attaches data-hp/max, use it (optional patch)
-    const hp  = Number(boss.getAttribute('data-hp'));
-    const max = Number(boss.getAttribute('data-hpmax'));
-    if (isFinite(hp) && isFinite(max) && max>0){
-      const pct = clamp((hp/max)*100, 0, 100);
-      lastPct = pct;
-      setPct(pct);
-      return;
+    let boss = null;
+    for (let i=0;i<list.length;i++){
+      const tg = list[i];
+      if (tg && String(tg.kind||'') === 'boss'){
+        boss = tg; break;
+      }
     }
 
-    // fallback: weak class hints
-    const weak = boss.classList.contains('fg-boss-weak');
-    if (weak){
-      lastPct = Math.min(lastPct, 35);
-      setPct(lastPct);
-    }else{
-      // keep stable (don’t jump)
-      setPct(lastPct);
+    const hasBoss = !!boss;
+    DOC.body.classList.toggle('boss-ui-on', hasBoss);
+
+    if (hasBoss){
+      ensureUI();
+      const hp = Math.max(0, Number(boss.bossHp||0));
+      const mx = Math.max(1, Number(boss.bossHpMax||boss.bossHpMax||8));
+      const pct = Math.max(0, Math.min(100, Math.round((hp/mx)*100)));
+
+      const nowEl = DOC.getElementById('bossHpNow');
+      const maxEl = DOC.getElementById('bossHpMax');
+      const fill  = DOC.getElementById('bossFill');
+      if (nowEl) nowEl.textContent = String(hp|0);
+      if (maxEl) maxEl.textContent = String(mx|0);
+      if (fill)  fill.style.width  = pct + '%';
+
+      const low = (pct <= 35);
+      DOC.body.classList.toggle('boss-ui-low', low);
+
+      emit('fx:boss-hp', { hp, mx, pct });
+
+      // subtle heartbeat/haptic when low (rate-limited)
+      const t = (root.performance && performance.now) ? performance.now() : Date.now();
+      if (low && t - lastBeatAt > 980){
+        lastBeatAt = t;
+        try{
+          DOC.body.classList.add('boss-heart');
+          setTimeout(()=>DOC.body.classList.remove('boss-heart'), 160);
+        }catch(_){}
+        if (allow(2)){
+          try{ navigator.vibrate && navigator.vibrate([18,40,18]); }catch(_){}
+        }
+      }
     }
+
+    requestAnimationFrame(tick);
   }
 
-  // Mutation observe boss existence (cheap)
-  const playLayer = DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
-  const mo = new MutationObserver(()=>{
-    if (!allow(1)) return;
-    updateFromDOM();
-  });
-  try{ mo.observe(playLayer, {childList:true, subtree:true}); }catch{}
-
-  // Better updates if judge gives hp payload
-  // Expected: hha:judge {kind:'boss', bossHp, bossHpMax} OR fx:boss {raw:{bossHp...}}
-  function updateFromPayload(d){
-    if (!d) return;
-    const hp  = Number(d.bossHp ?? (d.raw && d.raw.bossHp));
-    const max = Number(d.bossHpMax ?? (d.raw && d.raw.bossHpMax));
-    if (isFinite(hp) && isFinite(max) && max>0){
-      const pct = clamp((hp/max)*100, 0, 100);
-      lastPct = pct;
-      setUI(true);
-      setPct(pct);
-    }
-  }
-
-  root.addEventListener('fx:boss', (ev)=>{
-    if (!allow(1)) return;
-    const d = ev.detail||{};
-    setUI(true);
-    if (d.stage==='spawn'){
-      lastPct = 100;
-      setPct(100);
-      setHint('บอสมาแล้ว! ยิงรัวแต่ให้ถูกหมู่ 👊');
-    }
-    updateFromPayload(d);
-  }, {passive:true});
-
-  root.addEventListener('fx:end', ()=>{
-    if (!allow(1)) return;
-    setUI(false);
-    lastPct = 100;
-  }, {passive:true});
-
-  // Storm can change hint
-  root.addEventListener('fx:storm', ()=>{
-    if (!allow(1)) return;
-    if (findBoss()) setHint('พายุ+บอส! ใจเย็น แล้วยิงให้ชัวร์ 🌪️');
-  }, {passive:true});
-
-  // initial
-  if (allow(1)) updateFromDOM();
-
-  // export
-  NS.BossUI = { setPct, setUI, updateFromDOM };
+  requestAnimationFrame(tick);
 
 })(typeof window!=='undefined' ? window : globalThis);
