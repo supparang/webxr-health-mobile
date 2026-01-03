@@ -1,12 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — PRODUCTION (C+FX PATCH + TWO-EYE + cVR SHOOT) — FULL (LATEST)
+// ✅ FX: supports OLD + NEW Particles API (adapter)
+// ✅ Emits: hha:judge / hha:score / hha:miss / hha:end for global FX Director
 // ✅ MISS = good expired + junk hit (shield blocks junk miss => NO miss)
 // ✅ Play: practice 15s (no penalty) then real play timer resets
 // ✅ Research: deterministic seed, NO practice
 // ✅ RT: avg / median / fast% + breakdown JSON
-// ✅ FX: Particles burst/scorePop/toast (if available) + VR-safe throttle
-// ✅ Low-time: ring + tick pulse + 5s soft countdown overlay
-// ✅ Fever UI: bar + % + shield pills render
 // ✅ VR-safe: no shake in VR/cVR, lighter FX frequency
 // ✅ TWO-EYE: spawn pair L/R in VR/cVR + click/shoot removes BOTH + expire removes BOTH (miss counted once)
 // ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center
@@ -17,10 +16,40 @@
 const ROOT = window;
 const DOC  = document;
 
-const Particles =
+// -------------------------
+// Particles Adapter (OLD + NEW API)
+// -------------------------
+const P0 =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { burstAt(){}, scorePop(){}, celebrate(){}, toast(){} };
+  {};
+
+const Particles = {
+  burstAt(x,y,kind){
+    if (typeof P0.burstAt === 'function') return P0.burstAt(x,y,kind);
+    if (typeof P0.burst === 'function') {
+      const r = (kind==='gold' || kind==='star') ? 64 : (kind==='trap' ? 68 : 56);
+      return P0.burst(x,y,{ r });
+    }
+    if (typeof P0.shockwave === 'function') return P0.shockwave(x,y,{ r: 60 });
+  },
+  scorePop(x,y,text,tag){
+    if (typeof P0.scorePop === 'function') return P0.scorePop(x,y,text,tag);
+    if (typeof P0.popText === 'function') return P0.popText(x,y,String(text||''), String(tag||'score'));
+  },
+  toast(text,tag){
+    if (typeof P0.toast === 'function') return P0.toast(text,tag);
+    if (typeof P0.popText === 'function') return P0.popText(innerWidth/2, innerHeight*0.25, String(text||''), String(tag||'toast'));
+  },
+  celebrate(payload){
+    if (typeof P0.celebrate === 'function') return P0.celebrate(payload);
+    if (typeof P0.burst === 'function') {
+      for(let i=0;i<8;i++){
+        setTimeout(()=>P0.burst(innerWidth/2+(Math.random()*2-1)*160, innerHeight*0.35+(Math.random()*2-1)*90, {r:28+Math.random()*38}), i*45);
+      }
+    }
+  }
+};
 
 function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
@@ -41,6 +70,15 @@ function makeSeededRng(seed){
 function nowMs(){ return performance.now(); }
 function byId(id){ return DOC.getElementById(id); }
 function emit(name, detail){ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }
+
+function rectCenter(el){
+  try{
+    const r = el.getBoundingClientRect();
+    return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
+  }catch(_){
+    return { cx: innerWidth/2, cy: innerHeight/2 };
+  }
+}
 
 function medianOf(arr){
   if(!arr || !arr.length) return 0;
@@ -139,7 +177,7 @@ function setDanger(level01, view){
 }
 
 // -------------------------
-// Practice hint (pack 14)
+// Practice hint
 // -------------------------
 function ensurePracticeHint(){
   let el = DOC.querySelector('.gj-practice');
@@ -210,7 +248,7 @@ function makeFx(view){
 }
 
 // -------------------------
-// Low-time warning UI (CSS-driven)
+// Low-time UI hooks
 // -------------------------
 function lowtimeInit(){
   const ring = DOC.querySelector('.gj-warning-ring');
@@ -228,7 +266,6 @@ function lowtimeApply(ui, timeLeftSec){
   DOC.body.classList.toggle('gj-lowtime', isLow10);
   DOC.body.classList.toggle('gj-lowtime5', isLow5);
 
-  // show countdown only in last 5
   if(ui.overlay && ui.num){
     if(isLow5){
       const s = Math.max(1, Math.ceil(t));
@@ -284,7 +321,7 @@ function shieldRender(ui, shieldSec){
 }
 
 // -------------------------
-// Config
+// Config / Grade / Goal / Mini (คงเดิมจากไฟล์คุณ)
 // -------------------------
 function diffCfg(diff){
   diff = String(diff||'normal').toLowerCase();
@@ -295,7 +332,6 @@ function diffCfg(diff){
   };
   return base[diff] || base.normal;
 }
-
 function gradeFrom({acc, miss, comboMax}){
   const a = Number(acc)||0;
   const m = Number(miss)||0;
@@ -307,10 +343,6 @@ function gradeFrom({acc, miss, comboMax}){
   if(a >= 60 && m <= 8) return 'B';
   return 'C';
 }
-
-// -------------------------
-// Goal + Mini
-// -------------------------
 function pickGoal(cfg){
   return { type:'collect_good', title:'เก็บของดี', target: cfg.goodTarget, cur:0, done:false };
 }
@@ -379,7 +411,7 @@ function createTargetEl(kind, emoji){
   el.dataset.kind = kind;
   el.textContent = emoji;
 
-  // ✅ FALLBACK STYLE (ทำให้เห็นแน่ ๆ แม้ CSS ไม่โหลด)
+  // ✅ fallback style
   el.style.position = 'absolute';
   el.style.transform = 'translate(-50%,-50%)';
   el.style.fontSize = (kind==='star' || kind==='shield') ? '46px' : '52px';
@@ -388,7 +420,6 @@ function createTargetEl(kind, emoji){
   el.style.cursor = 'pointer';
   el.style.zIndex = '5';
   el.style.filter = 'drop-shadow(0 10px 22px rgba(0,0,0,.35))';
-
   el.style.left = '0px';
   el.style.top  = '0px';
   return el;
@@ -473,14 +504,12 @@ function makeInitialState(cfg, opts){
     rng: opts.rng,
     lastSpawnAtMs: 0,
 
-    // RT main
     rtGoodCount:0,
     rtGoodSumMs:0,
     rtGoodFastCount:0,
     rtGoodArr:[],
     rtArrCap:120,
 
-    // RT breakdown
     rtByPhase: {
       practice: { n:0, sum:0, fast:0, arr:[] },
       play:     { n:0, sum:0, fast:0, arr:[] },
@@ -504,12 +533,12 @@ function logEvent(type, payload){ emit('hha:log', { type, ...payload }); }
 // Boot
 // -------------------------
 export function boot(opts={}){
-  const layer = byId('gj-layer');
+  const layer  = byId('gj-layer');
   if(!layer){ console.error('GoodJunkVR: missing #gj-layer'); return; }
 
   const layerR = byId('gj-layer-r'); // right eye layer (VR/cVR)
 
-  // ✅ FALLBACK: ensure layers are clickable & have area even if CSS missing
+  // fallback: ensure layers
   const ensureLayerBox = (el)=>{
     if(!el) return;
     const cs = getComputedStyle(el);
@@ -523,7 +552,6 @@ export function boot(opts={}){
   ensureLayerBox(layer);
   ensureLayerBox(layerR);
 
-  // ✅ FALLBACK CSS: force targets absolute (if your CSS didn’t load)
   if(!DOC.getElementById('gj-fallback-style')){
     const st = DOC.createElement('style');
     st.id = 'gj-fallback-style';
@@ -553,7 +581,6 @@ export function boot(opts={}){
 
   advanceMini(state, 'init');
 
-  // ✅ practice only in play
   state.phase = isResearch ? 'play' : 'practice';
   if(isResearch){
     state.practiceLeft = 0;
@@ -574,18 +601,17 @@ export function boot(opts={}){
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion:'gj-2026-01-03A-fallback-twoeye'
+    gameVersion:'gj-2026-01-03B-fx-director'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
 
-  // practice hint UI
   if(!isResearch){
     showPracticeHint(state.phase === 'practice');
     ensurePracticeHint().querySelector('.gj-skip').onclick = ()=>{ state.practiceLeft = 0; };
   }
 
-  // ✅ AI hooks (OFF default, research OFF)
+  // AI hooks (as-is)
   const ai = (ROOT.HHA_AI && ROOT.HHA_AI.createAIHooks)
     ? ROOT.HHA_AI.createAIHooks({
         enabled: (qs('ai','0') === '1'),
@@ -611,7 +637,7 @@ export function boot(opts={}){
 
   let ended = false;
 
-  // -------- Pair (L/R) management --------
+  // Pair management
   let pairSeq = 1;
   const pairMap = new Map();     // pid -> { kind, l, r, bornAt, expireT }
   const elToPid = new WeakMap(); // element -> pid
@@ -644,6 +670,8 @@ export function boot(opts={}){
 
     const bornAt = Number(targetEl.dataset.bornAt || 0);
     const rt = bornAt ? Math.max(0, tNow - bornAt) : null;
+
+    const { cx, cy } = rectCenter(targetEl);
 
     if(kind === 'good'){
       state.nHitGood++;
@@ -682,12 +710,12 @@ export function boot(opts={}){
       miniOnGoodHit(state, rt);
       if(state.mini && state.mini.done) advanceMini(state, 'done');
 
-      try{
-        const r = targetEl.getBoundingClientRect();
-        const cx = r.left + r.width/2, cy = r.top + r.height/2;
-        fx.burst(cx, cy, 'good');
-        fx.pop(cx, cy, '+10', 'GOOD');
-      }catch(_){}
+      fx.burst(cx, cy, 'good');
+      fx.pop(cx, cy, '+10', 'GOOD');
+
+      // ✅ Global FX director hooks
+      emit('hha:judge', { type:'good', x: cx, y: cy, combo: state.combo, rtMs: rt });
+      emit('hha:score', { score: 10, x: cx, y: cy });
 
       logEvent('hit_good', { rtMs: rt, score: state.score, combo: state.combo });
 
@@ -697,11 +725,13 @@ export function boot(opts={}){
       if(state.phase === 'practice'){
         state.combo = 0;
         miniOnJunkHit(state);
-        try{
-          const r = targetEl.getBoundingClientRect();
-          fx.burst(r.left+r.width/2, r.top+r.height/2, 'trap');
-          fx.pop(r.left+r.width/2, r.top+r.height/2, '', 'NOPE');
-        }catch(_){}
+
+        fx.burst(cx, cy, 'trap');
+        fx.pop(cx, cy, '', 'NOPE');
+
+        emit('hha:judge', { type:'bad', x: cx, y: cy, reason:'hit-junk-practice' });
+        emit('hha:score', { score: 0, x: cx, y: cy });
+
         logEvent('hit_junk_practice', { score: state.score, miss: state.miss });
       }
       else {
@@ -709,22 +739,27 @@ export function boot(opts={}){
           state.nHitJunkGuard++;
           state.score = Math.max(0, state.score - 1);
           state.combo = Math.max(0, state.combo - 1);
-          try{
-            const r = targetEl.getBoundingClientRect();
-            fx.pop(r.left+r.width/2, r.top+r.height/2, '🛡️', 'BLOCK');
-            fx.burst(r.left+r.width/2, r.top+r.height/2, 'power');
-          }catch(_){}
+
+          fx.pop(cx, cy, '🛡️', 'BLOCK');
+          fx.burst(cx, cy, 'power');
+
+          emit('hha:judge', { type:'block', x: cx, y: cy, reason:'shield' });
+          emit('hha:score', { score: -1, x: cx, y: cy });
+
           logEvent('hit_junk_guard', { score: state.score, shieldSec: state.shieldSec });
         }else{
           state.score = Math.max(0, state.score - 6);
           state.miss++;
           state.combo = 0;
           miniOnJunkHit(state);
-          try{
-            const r = targetEl.getBoundingClientRect();
-            fx.pop(r.left+r.width/2, r.top+r.height/2, '', 'MISS');
-            fx.burst(r.left+r.width/2, r.top+r.height/2, 'trap');
-          }catch(_){}
+
+          fx.pop(cx, cy, '', 'MISS');
+          fx.burst(cx, cy, 'trap');
+
+          emit('hha:judge', { type:'bad', x: cx, y: cy, reason:'hit-junk' });
+          emit('hha:score', { score: -6, x: cx, y: cy });
+          emit('hha:miss',  { x: cx, y: cy, reason:'hit-junk' });
+
           logEvent('hit_junk', { score: state.score, miss: state.miss });
         }
       }
@@ -733,27 +768,29 @@ export function boot(opts={}){
       state.score += 18;
       state.miss = Math.max(0, state.miss - 1);
       state.combo = Math.max(state.combo, 1);
-      try{
-        const r = targetEl.getBoundingClientRect();
-        fx.pop(r.left+r.width/2, r.top+r.height/2, '+18', 'STAR');
-        fx.burst(r.left+r.width/2, r.top+r.height/2, 'gold');
-      }catch(_){}
+
+      fx.pop(cx, cy, '+18', 'STAR');
+      fx.burst(cx, cy, 'gold');
+
+      emit('hha:judge', { type:'good', x: cx, y: cy, reason:'star' });
+      emit('hha:score', { score: 18, x: cx, y: cy });
+
       logEvent('pickup_star', { score: state.score, miss: state.miss });
 
     } else if(kind === 'shield'){
       state.shieldSec = Math.max(state.shieldSec, 6);
       state.score += 6;
-      try{
-        const r = targetEl.getBoundingClientRect();
-        fx.pop(r.left+r.width/2, r.top+r.height/2, '+SHIELD', '🛡️');
-        fx.burst(r.left+r.width/2, r.top+r.height/2, 'power');
-      }catch(_){}
+
+      fx.pop(cx, cy, '+SHIELD', '🛡️');
+      fx.burst(cx, cy, 'power');
+
+      emit('hha:judge', { type:'good', x: cx, y: cy, reason:'shield' });
+      emit('hha:score', { score: 6, x: cx, y: cy });
+
       logEvent('pickup_shield', { score: state.score, shieldSec: state.shieldSec });
     }
 
-    // ✅ remove BOTH eyes
     pairRemove(pid);
-
     hudUpdate(state);
 
     const fever01 = feverCompute(state, missLimit);
@@ -771,7 +808,6 @@ export function boot(opts={}){
   layer.addEventListener('click', onTargetClick, { passive:false });
   if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
 
-  // ✅ backup click catcher (กัน pointer-events ซ้อน)
   DOC.addEventListener('click', (e)=>{
     const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
     if(t) onTargetClick({ target: t });
@@ -798,7 +834,7 @@ export function boot(opts={}){
       }
     }
 
-    const pid = nextPid();
+    const pid = String((Math.random()*1e9)|0) + '-' + String(Date.now());
     const emoji = pickEmoji(kind, state.rng);
 
     const elL = createTargetEl(kind, emoji);
@@ -828,7 +864,6 @@ export function boot(opts={}){
       ? randIn(state.rng, 0.95, 1.08)
       : randIn(state.rng, 0.92, 1.18);
 
-    // keep fallback translate(-50%,-50%) and scale it
     elL.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
     if(elR) elR.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
 
@@ -841,7 +876,6 @@ export function boot(opts={}){
     const born = nowMs();
     elL.dataset.bornAt = String(born);
     if(elR) elR.dataset.bornAt = String(born);
-
     state.lastSpawnAtMs = born;
 
     layer.appendChild(elL);
@@ -881,6 +915,10 @@ export function boot(opts={}){
             const fever01 = feverCompute(state, missLimit);
             feverRender(feverUI, fever01);
 
+            // ✅ tell FX director about miss
+            emit('hha:judge', { type:'miss', x: innerWidth/2, y: innerHeight/2, reason:'expire-good' });
+            emit('hha:miss',  { x: innerWidth/2, y: innerHeight/2, reason:'expire-good' });
+
             setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1), view);
             if(state.miss >= missLimit){
               pairRemove(pid);
@@ -898,7 +936,7 @@ export function boot(opts={}){
     if(p0) p0.expireT = expireT;
   }
 
-  // ✅ cVR shoot: pick nearest target to crosshair
+  // cVR shoot
   function pickByCrosshair(lockPx=46){
     const cx = DOC.documentElement.clientWidth * 0.5;
     const cy = DOC.documentElement.clientHeight * 0.5;
@@ -933,11 +971,9 @@ export function boot(opts={}){
   }
   ROOT.addEventListener('hha:shoot', shoot, { passive:true });
 
-  // spawn pacing
+  // pacing
   let lastTick = nowMs();
   let spawnAcc = 0;
-
-  // lowtime tracking
   let lastLowSec = 999;
 
   function tick(){
@@ -946,14 +982,11 @@ export function boot(opts={}){
     const dt = Math.min(0.05, (t - lastTick)/1000);
     lastTick = t;
 
-    // shield countdown
     if(state.shieldSec > 0) state.shieldSec = Math.max(0, state.shieldSec - dt);
-
-    // always render shield pills
     shieldRender(feverUI, state.shieldSec);
 
     if(state.phase === 'practice'){
-      if(!isResearch) showPracticeHint(true);
+      showPracticeHint(true);
 
       state.practiceLeft = Math.max(0, state.practiceLeft - dt);
       miniTick(state, dt);
@@ -961,7 +994,6 @@ export function boot(opts={}){
       state.timeLeftSec = state.practiceLeft;
       hudSetText(HUD.time, Math.ceil(state.timeLeftSec));
 
-      // practice: no lowtime
       DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
       if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
@@ -982,9 +1014,9 @@ export function boot(opts={}){
         state.playedSec = 0;
         state.timeLeftSec = state.timeTotalSec;
         state.graceSec = 5;
-        if(!isResearch) showPracticeHint(false);
-        logEvent('practice_end', {});
-        emit('hha:judge', { label:'START!' });
+        showPracticeHint(false);
+
+        emit('hha:judge', { type:'good', x: innerWidth/2, y: innerHeight*0.25, label:'START!' });
         fx.toast('START!', 'PLAY');
       }
 
@@ -1092,7 +1124,6 @@ export function boot(opts={}){
     DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
     if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
-    // remove all pairs
     for(const pid of pairMap.keys()){
       pairRemove(pid);
     }
@@ -1139,30 +1170,24 @@ export function boot(opts={}){
       goalsTotal: state.goalsTotal,
       miniCleared: state.miniCleared,
       miniTotal: state.miniTotal,
-
       nTargetGoodSpawned: state.nSpawnGood,
       nTargetJunkSpawned: state.nSpawnJunk,
       nTargetStarSpawned: state.nSpawnStar,
       nTargetShieldSpawned: state.nSpawnShield,
-
       nHitGood: state.nHitGood,
       nHitJunk: state.nHitJunk,
       nHitJunkGuard: state.nHitJunkGuard,
       nExpireGood: state.nExpireGood,
-
       accuracyGoodPct: accGood,
       avgRtGoodMs: avgRt,
       medianRtGoodMs: medRt,
       fastHitRatePct: fastPct,
       rtBreakdownJson,
-
       grade,
-
       studyId: opts.studyId || null,
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
-
-      gameVersion:'gj-2026-01-03A-fallback-twoeye',
+      gameVersion:'gj-2026-01-03B-fx-director',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
@@ -1170,6 +1195,7 @@ export function boot(opts={}){
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
+    // ✅ Global end event for FX Director + other systems
     emit('hha:end', summary);
     logEvent('end', summary);
 
@@ -1192,7 +1218,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-03A-fallback-twoeye',
+          gameVersion:'gj-2026-01-03B-fx-director',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
