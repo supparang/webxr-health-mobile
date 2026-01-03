@@ -1,0 +1,47 @@
+/* === /herohealth/vr-groups/impact-trails.css ===
+PACK 43: impact trail + marker
+*/
+
+.groups-impact-layer{ will-change: contents; }
+
+.impact-trail{
+  position:absolute;
+  height:4px;
+  border-radius:999px;
+  transform-origin: left center;
+  opacity:.0;
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,.45));
+}
+.impact-trail.go{
+  opacity:.9;
+  animation: trailWipe 180ms ease-out forwards;
+}
+@keyframes trailWipe{
+  0%{ transform: translate(0,-50%) scaleX(.2) rotate(var(--ang,0deg)); opacity:.2; }
+  100%{ transform: translate(0,-50%) scaleX(1) rotate(var(--ang,0deg)); opacity:0; }
+}
+
+.impact-marker{
+  position:absolute;
+  width:22px; height:22px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.35);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.25), 0 16px 40px rgba(0,0,0,.35);
+  opacity:.95;
+  animation: markerPop 220ms ease-out forwards;
+}
+@keyframes markerPop{
+  0%{ transform: translate(-50%,-50%) scale(.65); opacity:.0; }
+  40%{ opacity:.95; }
+  100%{ transform: translate(-50%,-50%) scale(1.25); opacity:0; }
+}
+
+/* colors */
+.impact-good{ background: rgba(34,197,94,.65); }
+.impact-bad{ background: rgba(239,68,68,.65); }
+.impact-boss{ background: rgba(167,139,250,.70); }
+
+.impact-trail.impact-good{ background: linear-gradient(90deg, rgba(34,197,94,.0), rgba(34,197,94,.85)); }
+.impact-trail.impact-bad{  background: linear-gradient(90deg, rgba(239,68,68,.0), rgba(239,68,68,.85)); }
+.impact-trail.impact-boss{ background: linear-gradient(90deg, rgba(167,139,250,.0), rgba(167,139,250,.92)); }
