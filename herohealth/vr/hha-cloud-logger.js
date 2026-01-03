@@ -1,5 +1,8 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger V2.1 — ROW Schema + Dedup + Queue + Beacon (PRODUCTION SAFE)
+// HHA Cloud Logger V2.1.1 — ROW Schema + Dedup + Queue + Beacon (PRODUCTION SAFE)
+// ✅ Fix CORS: send as text/plain + no-cors (avoid preflight)
+// ✅ Beacon uses text/plain blob
+// ✅ Default endpoint updated (can override by ?log=...)
 // (ตัวเต็มล่าสุด)
 
 (function(){
@@ -8,11 +11,12 @@
   const ROOT = window;
   const DOC  = document;
 
-  if (ROOT.__HHA_CLOUD_LOGGER_V21__) return;
-  ROOT.__HHA_CLOUD_LOGGER_V21__ = true;
+  if (ROOT.__HHA_CLOUD_LOGGER_V211__) return;
+  ROOT.__HHA_CLOUD_LOGGER_V211__ = true;
 
+  // ✅ NEW DEFAULT ENDPOINT (your latest)
   const DEFAULT_ENDPOINT =
-    'https://script.google.com/macros/s/AKfycbxdy-3BjJhn6Fo3kQX9oxHQIlXT7p2OXn-UYfv1MKV5oSW6jYG-RlnAgKlHqrNxxbhmaw/exec';
+    'https://script.google.com/macros/s/AKfycbzViUBbG-pNLDIXZx7BdFEJj_pf8oFDkRh0_7ryke0nCUdQClPZIZ_k5-qPod14K3DHFA/exec';
 
   function qs(k, def=null){
     try { return new URL(location.href).searchParams.get(k) ?? def; }
@@ -348,35 +352,46 @@
     }
   }
 
+  // =========================
+  // ✅ CORS-SAFE SENDERS
+  // =========================
+
+  // IMPORTANT:
+  // - application/json triggers preflight
+  // - Use text/plain;charset=utf-8 to avoid preflight
+  // - mode:'no-cors' makes response opaque, but data reaches Apps Script
   function sendBeacon(url, bodyStr){
     try{
       if(!navigator.sendBeacon) return false;
-      const blob = new Blob([bodyStr], { type:'application/json' });
+      const blob = new Blob([bodyStr], { type:'text/plain;charset=utf-8' });
       return navigator.sendBeacon(url, blob);
     }catch(_){ return false; }
   }
-  async function sendFetchKeepalive(url, bodyStr){
+
+  async function sendFetchNoCorsPlain(url, bodyStr){
     try{
       await fetch(url, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: bodyStr,
+        mode:'no-cors',
         keepalive: true,
-        mode: 'cors',
-        credentials: 'omit',
+        // ✅ simple header -> no preflight
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        body: bodyStr,
+        credentials:'omit',
       });
       return true;
     }catch(_){ return false; }
   }
-  async function sendFetchNoCors(url, bodyStr){
+
+  // (optional) last resort GET payload (no-cors not needed)
+  function sendGetPixel(url, bodyStr){
     try{
-      await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: bodyStr,
-        keepalive: true,
-        mode: 'no-cors',
-      });
+      const u = new URL(url);
+      u.searchParams.set('payload', encodeURIComponent(bodyStr));
+      // tiny image request (GET) — safest but payload length limited
+      const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.src = u.toString();
       return true;
     }catch(_){ return false; }
   }
@@ -388,9 +403,13 @@
     const payload = { kind: 'HHA_ROWS_V21', count: rows.length, rows };
     const bodyStr = safeJson(payload);
 
+    // ✅ order: Beacon -> no-cors plain -> (optional) GET pixel
     if(sendBeacon(ENDPOINT, bodyStr)) return true;
-    if(await sendFetchKeepalive(ENDPOINT, bodyStr)) return true;
-    if(await sendFetchNoCors(ENDPOINT, bodyStr)) return true;
+    if(await sendFetchNoCorsPlain(ENDPOINT, bodyStr)) return true;
+
+    // optional fallback for small payload only
+    if(bodyStr.length < 1700) return sendGetPixel(ENDPOINT, bodyStr);
+
     return false;
   }
 
