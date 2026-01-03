@@ -1,12 +1,10 @@
 /* === /herohealth/vr-groups/fx-perf.js ===
-PACK 21: Performance Guard — PRODUCTION
-✅ FPS monitor (cheap) + auto degrade FX level
-✅ Exposes GroupsVR.FXPerf.getLevel()/setLevel()
-Levels:
-  3 ultra (default)
-  2 normal
-  1 lite
-  0 off
+PACK 33: FX Performance Controller — PRODUCTION
+✅ Estimates FPS (lightweight)
+✅ Sets FX level 1..3 (default 3)
+✅ Exposes GroupsVR.FXPerf.getLevel()
+✅ Writes body[data-fx-level] for CSS gating
+✅ Safe in research (keeps stable, but still can clamp if too low)
 */
 
 (function(root){
@@ -15,72 +13,101 @@ Levels:
   if (!DOC) return;
 
   const NS = root.GroupsVR = root.GroupsVR || {};
+  const NOW = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function now(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
+  const cfg = {
+    sampleMs: 1400,
+    checkEveryMs: 1600,
+    // thresholds (tune)
+    fpsLow: 36,    // <= low => level 1
+    fpsMid: 46,    // <= mid => level 2
+    fpsHigh: 55,   // >= high => level 3
+    minLevel: 1,
+    maxLevel: 3,
+  };
 
-  let level = 3;          // start ultra
-  let auto = true;
+  let level = 3;
+  let lastCheck = 0;
 
-  // rolling FPS
-  let lastT = now();
-  let frames = 0;
-  let fps = 60;
-  let sampleAt = lastT;
-
-  // thresholds
-  const DOWN_1 = 48; // below -> reduce
-  const DOWN_0 = 38;
-  const UP_1   = 55; // above -> recover
-  const UP_2   = 58;
-
-  function applyLevel(){
-    DOC.body.dataset.fxLevel = String(level);
-    DOC.body.classList.toggle('fx-lite', level<=1);
-    DOC.body.classList.toggle('fx-off', level<=0);
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  }
+  function isResearch(){
+    return String(qs('run','play')||'play').toLowerCase() === 'research';
   }
 
-  function setLevel(n, opts={}){
-    level = clamp(n,0,3)|0;
-    if (opts.auto === false) auto = false;
-    if (opts.auto === true) auto = true;
-    applyLevel();
+  function setLevel(n){
+    n = Math.max(cfg.minLevel, Math.min(cfg.maxLevel, Number(n)||3));
+    if (n === level) return;
+    level = n;
+    try{
+      DOC.body.dataset.fxLevel = String(level);
+      DOC.body.setAttribute('data-fx-level', String(level));
+    }catch(_){}
+    try{
+      DOC.body.classList.toggle('fx-low', level===1);
+      DOC.body.classList.toggle('fx-mid', level===2);
+      DOC.body.classList.toggle('fx-full', level===3);
+    }catch(_){}
   }
 
-  function getLevel(){ return level|0; }
-  function getFps(){ return Math.round(fps); }
-
-  function tick(){
-    frames++;
-    const t = now();
-    const dt = t - lastT;
-    lastT = t;
-
-    if (t - sampleAt >= 650){
-      fps = (frames * 1000) / Math.max(1, (t - sampleAt));
-      frames = 0;
-      sampleAt = t;
-
-      if (auto){
-        // degrade
-        if (fps < DOWN_0 && level > 0) level = Math.max(0, level - 1);
-        else if (fps < DOWN_1 && level > 1) level = Math.max(1, level - 1);
-
-        // recover (slow)
-        if (fps > UP_2 && level < 3) level = Math.min(3, level + 1);
-        else if (fps > UP_1 && level < 2) level = Math.min(2, level + 1);
-
-        applyLevel();
+  function measureFps(ms){
+    ms = Math.max(800, Number(ms)||1200);
+    return new Promise((resolve)=>{
+      let frames = 0;
+      const t0 = NOW();
+      function step(){
+        frames++;
+        if (NOW() - t0 >= ms){
+          const fps = frames / ((NOW()-t0)/1000);
+          resolve(fps);
+          return;
+        }
+        requestAnimationFrame(step);
       }
+      requestAnimationFrame(step);
+    });
+  }
+
+  async function loop(){
+    const t = NOW();
+    if (t - lastCheck < cfg.checkEveryMs){
+      requestAnimationFrame(loop);
+      return;
+    }
+    lastCheck = t;
+
+    const fps = await measureFps(cfg.sampleMs);
+
+    // research: keep stable (prefer 2–3) unless truly low
+    if (isResearch()){
+      if (fps <= cfg.fpsLow) setLevel(1);
+      else setLevel(2);
+      requestAnimationFrame(loop);
+      return;
     }
 
-    root.requestAnimationFrame(tick);
+    // play: adaptive
+    if (fps <= cfg.fpsLow) setLevel(1);
+    else if (fps <= cfg.fpsMid) setLevel(2);
+    else if (fps >= cfg.fpsHigh) setLevel(3);
+
+    requestAnimationFrame(loop);
   }
 
-  // public API
-  NS.FXPerf = { setLevel, getLevel, getFps };
+  // init
+  try{
+    DOC.body.dataset.fxLevel = DOC.body.dataset.fxLevel || '3';
+    level = Number(DOC.body.dataset.fxLevel)||3;
+    setLevel(level);
+  }catch(_){}
 
-  applyLevel();
-  root.requestAnimationFrame(tick);
+  NS.FXPerf = {
+    getLevel: ()=> level,
+    setLevel,
+    config: cfg
+  };
+
+  requestAnimationFrame(loop);
 
 })(typeof window!=='undefined' ? window : globalThis);
