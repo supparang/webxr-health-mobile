@@ -1,159 +1,129 @@
-/* === /herohealth/vr-groups/view-helper.js ===
-GroupsVR View Helper
-✅ cVR strict fallback shooter (center screen) if vr-ui doesn't emit hha:shoot
-✅ try fullscreen + orientation lock for Cardboard
-✅ iOS gyro permission helper (optional button)
-Expose: window.GroupsVR.ViewHelper.{init, tryImmersiveForCVR}
-*/
+// === /herohealth/vr-groups/view-helper.js ===
+// View Helper — PRODUCTION
+// (12) fullscreen/orientation helper + view-cvr strict assist
+// ✅ init({view})
+// ✅ best-effort fullscreen
+// ✅ best-effort landscape lock (mobile/cVR)
+// ✅ tryImmersiveForCVR(): พยายาม enter VR (A-Frame) แบบสุภาพ (ไม่พังถ้าไม่ได้)
+// ✅ safe CSS variables for viewport
 
 (function(root){
   'use strict';
-  const NS = (root.GroupsVR = root.GroupsVR || {});
+
   const DOC = root.document;
   if (!DOC) return;
 
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  const NS = root.GroupsVR = root.GroupsVR || {};
+  const ViewHelper = NS.ViewHelper = NS.ViewHelper || {};
 
-  function isIOS(){
-    const ua = navigator.userAgent || '';
-    return /iPhone|iPad|iPod/i.test(ua);
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  function isMobile(){
+    const ua = (navigator.userAgent||'').toLowerCase();
+    return /android|iphone|ipad|ipod|mobile/.test(ua);
   }
 
-  async function enterFullscreen(){
+  function setCssViewportVars(){
     try{
-      const el = DOC.documentElement;
-      if (el.requestFullscreen) await el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-      return true;
-    }catch(_){ return false; }
+      const vw = Math.max(1, root.innerWidth||1);
+      const vh = Math.max(1, root.innerHeight||1);
+      DOC.documentElement.style.setProperty('--vw', vw+'px');
+      DOC.documentElement.style.setProperty('--vh', vh+'px');
+    }catch(_){}
+  }
+
+  function requestFs(el){
+    try{
+      el = el || DOC.documentElement;
+      const f = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (f) return f.call(el);
+    }catch(_){}
+    return Promise.resolve();
   }
 
   async function lockLandscape(){
     try{
-      if (screen.orientation && screen.orientation.lock){
-        await screen.orientation.lock('landscape');
-        return true;
+      const so = screen && screen.orientation;
+      if (so && so.lock) await so.lock('landscape');
+    }catch(_){}
+  }
+
+  function bindResize(){
+    try{
+      root.addEventListener('resize', setCssViewportVars, {passive:true});
+      root.addEventListener('orientationchange', ()=>{
+        setTimeout(setCssViewportVars, 80);
+      }, {passive:true});
+      setCssViewportVars();
+    }catch(_){}
+  }
+
+  function ensureCVRStrict(){
+    // “strict” ที่สำคัญของ cVR จริงๆ = ยิงจาก crosshair (vr-ui.js) + ปิด pointer events ของเป้า (ใน CSS ทำแล้ว)
+    // ตรงนี้ช่วยแค่เรื่อง UX: แตะจอแล้วพยายาม fullscreen + lock landscape
+    function onFirstTouch(){
+      DOC.removeEventListener('touchstart', onFirstTouch, {passive:true});
+      requestFs(DOC.documentElement);
+      lockLandscape();
+    }
+    try{
+      DOC.addEventListener('touchstart', onFirstTouch, {passive:true, once:true});
+    }catch(_){}
+  }
+
+  function getAFrameScene(){
+    try{
+      // AFRAME.scenes[0] มักจะมีในหน้า run
+      if (root.AFRAME && root.AFRAME.scenes && root.AFRAME.scenes.length) return root.AFRAME.scenes[0];
+      const s = DOC.querySelector('a-scene');
+      return s && s.object3D ? s : null;
+    }catch(_){}
+    return null;
+  }
+
+  async function tryImmersiveForCVR(){
+    // best-effort: ไม่บังคับ, ถ้า browser/gesture ไม่อนุญาตก็เงียบ
+    try{
+      await requestFs(DOC.documentElement);
+      await lockLandscape();
+    }catch(_){}
+
+    try{
+      const scene = getAFrameScene();
+      if (scene && typeof scene.enterVR === 'function'){
+        // ต้องมี user gesture บางเครื่องถึงจะเข้าได้
+        scene.enterVR();
       }
     }catch(_){}
-    return false;
-  }
-
-  // iOS gyro permission
-  function needsGyroPermission(){
-    return isIOS() && typeof DeviceOrientationEvent !== 'undefined'
-      && typeof DeviceOrientationEvent.requestPermission === 'function';
-  }
-
-  function ensureGyroBtn(){
-    let btn = DOC.getElementById('gyroBtn');
-    if (btn) return btn;
-
-    btn = DOC.createElement('button');
-    btn.id = 'gyroBtn';
-    btn.type = 'button';
-    btn.textContent = '🧭 Enable Gyro';
-    btn.style.cssText = `
-      position:fixed; left:12px; bottom:12px;
-      z-index:115;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(15,23,42,.65);
-      color:#e5e7eb;
-      font: 900 13px/1 system-ui;
-      cursor:pointer;
-      -webkit-tap-highlight-color: transparent;
-    `;
-    DOC.body.appendChild(btn);
-
-    btn.addEventListener('click', async ()=>{
-      try{
-        const res = await DeviceOrientationEvent.requestPermission();
-        if (res === 'granted'){
-          btn.remove();
-        }else{
-          btn.textContent = '⚠️ Gyro denied';
-        }
-      }catch(_){
-        btn.textContent = '⚠️ Gyro failed';
-      }
-    });
-
-    return btn;
-  }
-
-  // Detect if vr-ui exists in DOM
-  function hasVrUi(){
-    return !!DOC.querySelector('.hha-vr-ui, .hha-vrui, .hha-vrui-root, .vr-ui');
-  }
-
-  // fallback shooter for cVR
-  function bindFallbackShoot(lockPx){
-    if (bindFallbackShoot._done) return;
-    bindFallbackShoot._done = true;
-
-    let sawShootEvent = false;
-    root.addEventListener('hha:shoot', ()=>{ sawShootEvent = true; }, {passive:true});
-
-    // if vr-ui exists we usually don't need fallback
-    const maybeSkip = hasVrUi();
-
-    function fire(){
-      // if vr-ui is present and events are flowing -> skip
-      if (maybeSkip && sawShootEvent) return;
-
-      const x = (root.innerWidth||360) * 0.5;
-      const y = (root.innerHeight||640) * 0.5;
-      try{
-        root.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ x, y, lockPx } }));
-      }catch(_){}
-    }
-
-    // For cVR, tapping anywhere triggers a shot from crosshair
-    root.addEventListener('pointerdown', (e)=>{
-      // ignore if end overlay is open
-      const end = DOC.getElementById('endOverlay');
-      if (end && !end.classList.contains('hidden')) return;
-      // fire on any tap
-      fire();
-    }, {passive:true});
-  }
-
-  // Try immersive: fullscreen + landscape (first gesture)
-  function tryImmersiveForCVR(){
-    if (tryImmersiveForCVR._done) return;
-    tryImmersiveForCVR._done = true;
-
-    const once = async ()=>{
-      try{
-        await enterFullscreen();
-        await lockLandscape();
-      }catch(_){}
-      root.removeEventListener('pointerdown', once, true);
-      root.removeEventListener('keydown', once, true);
-    };
-
-    root.addEventListener('pointerdown', once, true);
-    root.addEventListener('keydown', once, true);
   }
 
   function init(opts){
     opts = opts || {};
-    const view = String(opts.view||'').toLowerCase();
-    const lockPx = clamp((root.HHA_VRUI_CONFIG && root.HHA_VRUI_CONFIG.lockPx) ? root.HHA_VRUI_CONFIG.lockPx : 92, 40, 160);
+    const view = String(opts.view||'mobile').toLowerCase();
 
-    if (needsGyroPermission()){
-      ensureGyroBtn();
+    bindResize();
+
+    // mobile/cvr: ช่วยเรื่อง orientation
+    if (view === 'mobile' || view === 'cvr'){
+      if (isMobile()){
+        // พยายาม lock landscape หลังมี gesture (บางเครื่องต้อง)
+        DOC.addEventListener('touchstart', ()=> lockLandscape(), {passive:true, once:true});
+      }
     }
 
     if (view === 'cvr'){
-      // strict fallback shooter
-      bindFallbackShoot(lockPx);
-      // try fullscreen/orientation
-      tryImmersiveForCVR();
+      ensureCVRStrict();
     }
+
+    // ทำ marker class เผื่อ debug
+    try{
+      DOC.body && DOC.body.classList.add('vh-inited');
+    }catch(_){}
   }
 
-  NS.ViewHelper = { init, tryImmersiveForCVR };
-
-})(typeof window !== 'undefined' ? window : globalThis);
+  ViewHelper.init = init;
+  ViewHelper.requestFs = requestFs;
+  ViewHelper.lockLandscape = lockLandscape;
+  ViewHelper.tryImmersiveForCVR = tryImmersiveForCVR;
+  ViewHelper.isMobile = isMobile;
+})(window);
