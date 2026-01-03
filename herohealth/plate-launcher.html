@@ -248,7 +248,6 @@
   <div class="bg"></div>
 
   <div class="wrap">
-    <!-- top -->
     <div class="top">
       <div>
         <div class="title">
@@ -270,10 +269,8 @@
       </div>
     </div>
 
-    <!-- main -->
     <div class="panel">
       <div class="grid">
-        <!-- left: settings -->
         <div>
           <div class="sectionTitle">⚙️ ตั้งค่าเกม</div>
 
@@ -314,7 +311,6 @@
           </div>
         </div>
 
-        <!-- right: mode cards -->
         <div>
           <div class="sectionTitle">🎮 เลือกโหมดเข้าเล่น</div>
 
@@ -342,7 +338,7 @@
             <div class="modeCard">
               <div>
                 <div class="modeName">🕶️ Cardboard (cVR)</div>
-                <div class="modeDesc">ยิงจาก crosshair (vr-ui.js) • มีปุ่ม RECENTER/ปรับ offset</div>
+                <div class="modeDesc">ยิงจาก crosshair (vr-ui.js) • ใช้ RECENTER เพื่อเล็งให้ตรง</div>
               </div>
               <div class="modeActions">
                 <button class="btn cyan" data-view="cvr">เข้าเล่น ▶</button>
@@ -361,13 +357,12 @@
           </div>
 
           <div class="hint">
-            Tip: ถ้าเล่น Cardboard ให้เลือก cVR แล้วเข้าเกม → กด ENTER VR ได้ตามอุปกรณ์ (ถ้ารองรับ) หรือยิงด้วย crosshair ได้เลย
+            Tip: เล่น Cardboard เลือก cVR → ในเกมยิงจาก crosshair ได้เลย (ไม่ต้องแตะเป้า)
           </div>
         </div>
       </div>
     </div>
 
-    <!-- footer -->
     <div class="footer">
       <div class="mono" id="dbg">—</div>
       <div class="row">
@@ -445,60 +440,37 @@
 
       function buildUrl(view){
         const { run, diff, time, seed } = currentCfg();
-
         const u = new URL(gameUrl.toString());
         u.searchParams.set('view', view || 'mobile');
         u.searchParams.set('run', run);
         u.searchParams.set('diff', diff);
         u.searchParams.set('time', String(time));
-
-        // seed rules: play can change / study should keep deterministic
         u.searchParams.set('seed', String(seed));
-
-        if(hub){
-          u.searchParams.set('hub', hub);
-        }
-
-        // for future versioning
-        // u.searchParams.set('v','PLATE_2026_01');
-
+        if(hub) u.searchParams.set('hub', hub);
         return u.toString();
       }
 
       function refreshUI(){
         const { run, diff, time } = currentCfg();
-
         badgeRun.textContent  = 'run=' + run;
         badgeDiff.textContent = 'diff=' + diff;
         badgeTime.textContent = 'time=' + time;
-
         outUrl.textContent = buildUrl('mobile');
-
         saveLast(currentCfg());
-
         dbg.textContent = 'URL: ' + location.href;
       }
 
-      // init priority: query > last > defaults
       const usedQuery = !!(qs('run') || qs('diff') || qs('time') || qs('seed'));
-      if(usedQuery){
-        applyFromQuery();
-      }else{
-        const ok = applyFromLast();
-        if(!ok) applyFromQuery();
-      }
+      if(usedQuery) applyFromQuery();
+      else if(!applyFromLast()) applyFromQuery();
       refreshUI();
 
-      // bind change
       [selRun, selDiff, inpTime, inpSeed].forEach(el=>{
         el.addEventListener('input', refreshUI, { passive:true });
         el.addEventListener('change', refreshUI, { passive:true });
       });
 
-      // seed controls
       document.getElementById('btnNewSeed').addEventListener('click', ()=>{
-        const { run } = currentCfg();
-        // allow new seed any time, but warn conceptually (not blocking)
         inpSeed.value = String(nowSeed());
         refreshUI();
       }, { passive:true });
@@ -511,35 +483,25 @@
         refreshUI();
       }, { passive:true });
 
-      // open view
       document.querySelectorAll('button[data-view]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
           const view = btn.getAttribute('data-view') || 'mobile';
-          // if play and seed is default-ish, auto randomize to make play fresh
           const cfg = currentCfg();
-          if(cfg.run === 'play'){
-            // keep user's chosen seed if they changed it; otherwise randomize
-            // heuristic: if seed is 13579, treat as default
-            if(String(cfg.seed) === '13579'){
-              inpSeed.value = String(nowSeed());
-              refreshUI();
-            }
+          if(cfg.run === 'play' && String(cfg.seed) === '13579'){
+            inpSeed.value = String(nowSeed());
+            refreshUI();
           }
           location.href = buildUrl(view);
         }, { passive:true });
       });
 
-      // quick open play mobile
       document.getElementById('btnOpenPlayMobile').addEventListener('click', ()=>{
         selRun.value = 'play';
-        if(String(currentCfg().seed) === '13579'){
-          inpSeed.value = String(nowSeed());
-        }
+        if(String(currentCfg().seed) === '13579') inpSeed.value = String(nowSeed());
         refreshUI();
         location.href = buildUrl('mobile');
       }, { passive:true });
 
-      // copy link
       document.getElementById('btnCopy').addEventListener('click', async ()=>{
         try{
           await navigator.clipboard.writeText(outUrl.textContent || buildUrl('mobile'));
@@ -549,7 +511,6 @@
         }
       }, { passive:true });
 
-      // back hub
       document.getElementById('btnBackHub').addEventListener('click', ()=>{
         if(hub) location.href = hub;
         else location.href = './hub.html';
