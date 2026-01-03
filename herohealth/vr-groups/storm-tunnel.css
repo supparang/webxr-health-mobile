@@ -1,0 +1,43 @@
+/* === /herohealth/vr-groups/storm-tunnel.css ===
+PACK 47: storm vignette + safe shake
+*/
+
+.storm-tunnel{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 70; /* under vr-ui (80) but above HUD base (40) */
+  opacity: 0;
+  transition: opacity .18s ease-out;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(2,6,23,0) 0%,
+      rgba(2,6,23,0) 40%,
+      rgba(34,211,238,.10) 62%,
+      rgba(2,6,23,.62) 78%,
+      rgba(2,6,23,.82) 100%);
+  mix-blend-mode: screen;
+}
+
+body.groups-storm .storm-tunnel,
+body.storm-on .storm-tunnel{
+  opacity: .95;
+  animation: stormSpin 2.4s linear infinite;
+}
+
+@keyframes stormSpin{
+  from{ transform: rotate(0deg) scale(1.02); }
+  to{ transform: rotate(360deg) scale(1.02); }
+}
+
+/* subtle shake (safe) */
+body.storm-shake .playLayer{
+  animation: stormShake 120ms ease-in-out infinite;
+}
+@keyframes stormShake{
+  0%{ transform: translate(0,0); }
+  25%{ transform: translate(1px,-1px); }
+  50%{ transform: translate(-1px,1px); }
+  75%{ transform: translate(1px,1px); }
+  100%{ transform: translate(0,0); }
+}
