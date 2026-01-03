@@ -1,0 +1,7 @@
+/* === /herohealth/vr-groups/recoil-kick.css ===
+PACK 41: micro kick styling
+*/
+.playLayer.fx-kick{
+  will-change: transform;
+  transition: transform 70ms ease-out;
+}
