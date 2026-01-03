@@ -1,5 +1,5 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — VR-first layout (No HUD blocking) + COMPACT VR HUD + LOW-TIME WARNING (no dizziness)
+GoodJunkVR UI — VR-first layout (No HUD blocking) + COMPACT VR HUD + LOW-TIME WARNING (no dizziness) — V2
 ✅ stage uses dvh (fix address-bar jump)
 ✅ reserves space for HUD(top) + fever + controls(bottom)
 ✅ VR/cVR collapses HUD -> compact mini HUD (Score/Time/Grade) + Missions Peek
@@ -8,6 +8,7 @@ GoodJunkVR UI — VR-first layout (No HUD blocking) + COMPACT VR HUD + LOW-TIME 
 ✅ Targets: juicy spawn/pop, readable emoji, mobile-friendly hit box
 ✅ cVR strict: disable pointer-events on targets (shoot via crosshair only)
 ✅ VRUI safe: do not overlap important controls
+✅ Z-INDEX PLAN: stage(10) < fever(70) < controls(75) < hud(80) < fx(90) < miniHud(105) < overlays(116+)
 */
 
 :root{
@@ -90,7 +91,7 @@ html,body{
   border-radius:var(--r-lg);
   padding:12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.35);
-  pointer-events:auto;
+  pointer-events:auto; /* allow buttons */
 }
 
 .hud-title{
@@ -294,7 +295,12 @@ html,body{
   border:1px solid rgba(148,163,184,.18);
   overflow:hidden;
 }
-.fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); transition: width .18s ease; }
+.fever-fill{
+  height:100%;
+  width:0%;
+  background: rgba(34,197,94,.85);
+  transition: width .18s ease;
+}
 .fever-text{ text-align:right; font-weight:1200; }
 
 .shield-row{
@@ -322,6 +328,7 @@ html,body{
   touch-action: manipulation;
 }
 
+/* two-eye containers */
 .gj-eye{
   position:absolute;
   top:0; bottom:0;
@@ -335,8 +342,10 @@ html,body{
   position:absolute;
   inset:0;
 }
+.gj-layer{ pointer-events:auto; }
 .gj-crosshair{ pointer-events:none; }
 
+/* crosshair */
 .gj-crosshair::before{
   content:"";
   position:absolute;
@@ -366,6 +375,7 @@ html,body{
   opacity:0;
   filter: drop-shadow(0 12px 22px var(--t-shadow));
   border-radius: 18px;
+  z-index:5;
   transition:
     transform 160ms ease,
     opacity 160ms ease,
@@ -404,6 +414,12 @@ body.view-mobile .gj-target{
   width: 72px;
   height: 72px;
   font-size: 46px;
+}
+
+/* ✅ cVR strict: shoot only */
+body.view-cvr-strict .gj-target,
+body.view-cvr .gj-target{
+  /* allow CSS mode switch via class if you want */
 }
 body.view-cvr-strict .gj-target{
   pointer-events:none !important;
@@ -506,13 +522,14 @@ body.gj-tick .gj-lowtime-num{
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
+/* VR/cVR: collapse HUD, keep bottom UI compact */
 body.view-vr, body.view-cvr{
   --hudH: 0px;
   --feverH: 70px;
   --ctrlH: 84px;
 }
 
-/* VR/cVR split */
+/* two-eye split */
 body.view-vr .eye-r,
 body.view-cvr .eye-r{ display:block; }
 body.view-vr .eye-l,
