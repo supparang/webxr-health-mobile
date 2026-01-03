@@ -7,326 +7,19 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Optional: external CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (for ENTER VR / EXIT / RECENTER) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Logger + Universal VR UI -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
   <script src="./vr/vr-ui.js" defer></script>
 
   <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.58);
-      --panel2:rgba(15,23,42,.60);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --radius:18px;
-      --pill:999px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; height:100%; width:100%; overflow:hidden; background:var(--bg); color:var(--text);
-      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-    }
-
-    a-scene{ position:fixed; inset:0; z-index:0; }
-
-    .bg{
-      position:fixed; inset:0; z-index:1;
-      background:
-        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
-        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-      pointer-events:none;
-    }
-
-    /* spawn layer */
-    #plate-layer{
-      position:fixed; inset:0;
-      z-index:10;
-      pointer-events:auto;
-      touch-action:none;
-      user-select:none;
-    }
-
-    #hitFx{
-      position:fixed; inset:0;
-      z-index:12;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .12s ease;
-    }
-
-    /* =========================
-       HUD v2 (mobile-first)
-       ========================= */
-
-    /* TOP (read-only) */
-    #hudTop{
-      position:fixed;
-      left:12px; right:12px;
-      top: calc(10px + var(--sat));
-      z-index:40;
-      pointer-events:none; /* IMPORTANT: do not block hits */
-      display:grid;
-      gap:10px;
-    }
-
-    .topbar{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap:10px;
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.22);
-      backdrop-filter: blur(10px);
-    }
-    .stat{ display:grid; gap:2px; align-content:center; }
-    .stat .k{ font:800 11px/1 system-ui; color:var(--muted); letter-spacing:.2px; }
-    .stat .v{ font:1000 18px/1.1 system-ui; color:var(--text); }
-    .stat.center{ text-align:center; }
-    .stat.right{ text-align:right; }
-
-    .feverCard{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.20);
-      backdrop-filter: blur(10px);
-    }
-    .feverHead{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .feverLabel{ font:1000 12px/1 system-ui; color:var(--text); }
-    .feverMeta{ font:900 12px/1 system-ui; color:var(--muted); }
-    .feverBar{
-      margin-top:8px;
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.12);
-      border:1px solid rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-    /* id must match JS */
-    #uiFeverFill{
-      display:block;
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background: linear-gradient(90deg, rgba(34,197,94,.90), rgba(245,158,11,.90), rgba(239,68,68,.92));
-    }
-
-    /* MINI+GOAL compact (above coach) */
-    #miniPanel{
-      position:fixed;
-      left:12px; right:12px;
-      bottom: calc(168px + var(--sab));
-      z-index:38;
-      pointer-events:none;
-    }
-    .miniCard{
-      pointer-events:none;
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.22);
-      backdrop-filter: blur(10px);
-      display:grid;
-      gap:8px;
-    }
-    .row2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      align-items:center;
-    }
-    .label{ font:900 11px/1 system-ui; color:rgba(229,231,235,.92); }
-    .line{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:6px 10px;
-      border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.52);
-      font-weight:1000;
-      font-size:12px;
-      white-space:nowrap;
-    }
-    .bar{
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.10);
-      border:1px solid rgba(148,163,184,.14);
-      overflow:hidden;
-      flex:1;
-      min-width:120px;
-    }
-    .bar > i{ display:block; height:100%; width:0%; background:rgba(34,197,94,.85); }
-
-    /* COACH compact */
-    #coachPanel{
-      position:fixed;
-      left:12px; right:12px;
-      bottom: calc(92px + var(--sab));
-      z-index:39;
-      pointer-events:none;
-    }
-    .coachCard{
-      pointer-events:none;
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.22);
-      backdrop-filter: blur(10px);
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .coachLeft{
-      display:flex; gap:10px; align-items:center;
-      min-width: 220px;
-    }
-    .coachLeft img{
-      width:42px; height:42px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.50);
-      object-fit:cover;
-    }
-    .coachTitle{ font:900 11px/1 system-ui; color:rgba(229,231,235,.92); }
-    #coachMsg{ font-weight:1000; }
-
-    .coachHint{
-      font:900 12px/1.25 system-ui;
-      color:var(--muted);
-      text-align:right;
-      max-width: 360px;
-    }
-
-    /* BOTTOM BUTTONS: two rows */
-    #hudBtns{
-      position:fixed;
-      left:12px; right:12px;
-      bottom: calc(10px + var(--sab));
-      z-index:60;
-      display:grid;
-      gap:10px;
-      pointer-events:auto;
-    }
-    .btnRow{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      align-items:center;
-    }
-    .btnRow3{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap:10px;
-      align-items:center;
-    }
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:16px;
-      padding:12px 12px;
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.20);
-      color:rgba(229,231,235,.95);
-      font: 1000 13px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 16px 40px rgba(0,0,0,.30);
-      backdrop-filter: blur(10px);
-      cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
-      user-select:none;
-    }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
-    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
-
-    /* Boss/Storm small float top-right */
-    #bossHud, #stormHud{
-      position:fixed;
-      right:12px;
-      top: calc(116px + var(--sat));
-      z-index:50;
-      display:none;
-      pointer-events:none;
-      width:min(220px, 62vw);
-    }
-    #stormHud{ top: calc(186px + var(--sat)); }
-
-    .bossCard, .stormCard{
-      background:rgba(15,23,42,.64);
-      border:1px solid rgba(148,163,184,.22);
-      border-radius:16px;
-      padding:10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.22);
-      backdrop-filter: blur(10px);
-    }
-    #bossTitle, #stormTitle{ font-weight:1000; font-size:12px; }
-    #bossHint, #stormHint{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
-    #bossProg, #stormProg{ margin-top:8px; font-weight:1100; }
-
-    /* overlays */
-    #startOverlay, #hudPaused, #resultBackdrop{
-      position:fixed; inset:0;
-      z-index:70;
-      display:none;
-      place-items:center;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-    }
-    .panelCard{
-      width:min(980px, 100%);
-      background:rgba(2,6,23,.78);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:16px;
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
-    }
-
-    /* FX layers required by JS */
-    #bossFx, #stormFx{
-      position:fixed; inset:0;
-      pointer-events:none;
-      z-index:55;
-      display:none;
-    }
-
-    @media (max-width: 920px){
-      .topbar{ grid-template-columns: 1fr 1fr 1fr; }
-    }
-    @media (max-height: 680px){
-      #miniPanel{ bottom: calc(156px + var(--sab)); }
-      #coachPanel{ bottom: calc(86px + var(--sab)); }
-      .coachHint{ display:none; }
+    /* สำคัญ: กัน HUD บัง VR UI (เผื่อ vr-ui.js สร้างปุ่มซ้อนบนจอ) */
+    .hha-vrui, #hha-vrui, .vrui, #vrui, [data-vrui]{
+      position: fixed !important;
+      z-index: 220 !important;
     }
   </style>
 
@@ -336,7 +29,6 @@
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene (enterVR/exit/recenter work) -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
     <a-entity id="rig" position="0 0 0">
       <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
@@ -345,225 +37,215 @@
 
   <div class="bg"></div>
 
-  <!-- FX layers required by JS -->
   <div id="stormFx"></div>
   <div id="bossFx"></div>
 
-  <div id="plate-layer" aria-label="plate targets layer"></div>
-  <div id="hitFx"></div>
+  <div class="stage">
+    <div id="plate-layer" aria-label="plate targets layer"></div>
+    <div id="hitFx"></div>
 
-  <!-- HUD TOP (v2) -->
-  <div id="hudTop">
-    <div class="topbar">
-      <div class="stat">
-        <div class="k">🏆 SCORE</div>
-        <div class="v" id="uiScore">0</div>
+    <div class="hudTop" id="hudTop">
+      <div class="card">
+        <div class="t">คะแนน / คอมโบ / พลาด</div>
+        <div class="v">
+          <span class="pill">🏆 <span id="uiScore">0</span></span>
+          <span class="pill">🔥 <span id="uiCombo">0</span> (<span class="muted">max</span> <span id="uiComboMax">0</span>)</span>
+          <span class="pill">💥 <span id="uiMiss">0</span></span>
+        </div>
       </div>
 
-      <div class="stat center">
-        <div class="k">🔥 COMBO</div>
-        <div class="v"><span id="uiCombo">0</span> <span style="font:900 12px/1 system-ui;color:var(--muted)"> (max <span id="uiComboMax">0</span>)</span></div>
+      <div class="card small">
+        <div class="t">จาน 5 หมู่ / ความแม่นยำ / เกรด</div>
+        <div class="v">
+          <span class="pill">🍽️ <span id="uiPlateHave">0</span>/5</span>
+          <span class="pill">🎯 <span id="uiAcc">0%</span></span>
+          <span class="pill">🏅 <span id="uiGrade">C</span></span>
+        </div>
       </div>
 
-      <div class="stat right">
-        <div class="k">⏱ TIME</div>
-        <div class="v"><span id="uiTime">0</span>s</div>
+      <div class="card small">
+        <div class="t">เวลา / Fever / Shield</div>
+        <div class="v">
+          <span class="pill">⏱️ <span id="uiTime">0</span>s</span>
+          <span class="pill">🛡️ <span id="uiShieldN">0</span></span>
+        </div>
+        <div class="v" style="margin-top:8px">
+          <span class="muted">FEVER</span>
+          <div class="bar" style="flex:1; min-width:140px">
+            <i id="uiFeverFill"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="t">จำนวนที่เก็บได้ (5 หมู่)</div>
+        <div class="v">
+          <span class="pill">🥦 <span id="uiG1">0</span></span>
+          <span class="pill">🍎 <span id="uiG2">0</span></span>
+          <span class="pill">🐟 <span id="uiG3">0</span></span>
+          <span class="pill">🍚 <span id="uiG4">0</span></span>
+          <span class="pill">🥑 <span id="uiG5">0</span></span>
+        </div>
       </div>
     </div>
 
-    <div class="feverCard">
-      <div class="feverHead">
-        <div class="feverLabel">FEVER</div>
-        <div class="feverMeta">💥 <span id="uiMiss">0</span> • 🍽️ <span id="uiPlateHave">0</span>/5 • 🎯 <span id="uiAcc">0%</span> • 🥇 <span id="uiGrade">C</span> • 🛡 <span id="uiShieldN">0</span></div>
-      </div>
-      <div class="feverBar">
-        <i id="uiFeverFill"></i>
+    <div id="stormHud">
+      <div class="stormCard">
+        <div class="t" id="stormTitle">🌪️ STORM</div>
+        <div class="stormLine" id="stormHint">—</div>
+        <div class="stormProg" id="stormProg">—</div>
       </div>
     </div>
-  </div>
 
-  <!-- Storm HUD (MATCH IDs) -->
-  <div id="stormHud">
-    <div class="stormCard">
-      <div id="stormTitle">🌪️ STORM</div>
-      <div id="stormHint">—</div>
-      <div id="stormProg">—</div>
-    </div>
-  </div>
-
-  <!-- Boss HUD (MATCH IDs) -->
-  <div id="bossHud">
-    <div class="bossCard">
-      <div id="bossTitle">👹 BOSS</div>
-      <div id="bossHint">—</div>
-      <div id="bossProg">—</div>
-    </div>
-  </div>
-
-  <!-- GOAL + MINI (compact) -->
-  <div id="miniPanel">
-    <div class="miniCard">
-      <div class="row2">
-        <div>
-          <div class="label">🎯 GOAL</div>
+    <div id="miniPanel">
+      <div class="questCard">
+        <div class="questCol">
+          <div class="k">🎯 GOAL</div>
           <div style="font-weight:1100" id="uiGoalTitle">—</div>
-          <div class="line" style="margin-top:6px">
+          <div class="questRow">
             <span class="pill"><span id="uiGoalCount">0/0</span></span>
-            <div class="bar"><i id="uiGoalFill" style="width:0%"></i></div>
+            <div class="bar" style="width:200px"><i id="uiGoalFill" style="width:0%"></i></div>
           </div>
         </div>
 
-        <div>
-          <div class="label">⚡ MINI</div>
+        <div class="questCol">
+          <div class="k">⚡ MINI</div>
           <div style="font-weight:1100" id="uiMiniTitle">—</div>
-          <div class="line" style="margin-top:6px">
+          <div class="questRow">
             <span class="pill">⏳ <span id="uiMiniTime">--</span></span>
             <span class="pill">✅ <span id="uiMiniCount">0/0</span></span>
-            <div class="bar"><i id="uiMiniFill" style="width:0%; background:rgba(245,158,11,.85)"></i></div>
+            <div class="bar" style="width:200px">
+              <i id="uiMiniFill" style="width:0%; background:rgba(245,158,11,.85)"></i>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <div class="label">💡 Hint</div>
-        <div id="uiHint" style="color:rgba(148,163,184,.95); font-weight:900; font-size:12px; line-height:1.25;">
-          เติมจานให้ครบ 5 หมู่ แล้วคุมความแม่นยำ!
+        <div class="questCol" style="min-width:260px">
+          <div class="k">💡 Hint</div>
+          <div class="hint" id="uiHint">เติมจานให้ครบ 5 หมู่ แล้วคุมความแม่นยำ!</div>
         </div>
       </div>
-
-      <!-- groups row (still keep ids for JS) -->
-      <div class="line" style="opacity:.95">
-        <span class="pill">🥦 <span id="uiG1">0</span></span>
-        <span class="pill">🍎 <span id="uiG2">0</span></span>
-        <span class="pill">🐟 <span id="uiG3">0</span></span>
-        <span class="pill">🍚 <span id="uiG4">0</span></span>
-        <span class="pill">🥑 <span id="uiG5">0</span></span>
-      </div>
     </div>
-  </div>
 
-  <!-- COACH (compact) -->
-  <div id="coachPanel">
-    <div class="coachCard">
-      <div class="coachLeft">
-        <img id="coachImg" src="./img/coach-neutral.png" alt="coach" />
-        <div>
-          <div class="coachTitle">🧑‍🏫 Coach</div>
-          <div id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+    <div id="coachPanel">
+      <div class="questCard" style="justify-content:space-between">
+        <div style="display:flex; gap:10px; align-items:center; min-width:260px;">
+          <img id="coachImg" src="./img/coach-neutral.png" alt="coach"
+               style="width:44px;height:44px;border-radius:14px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.50);object-fit:cover" />
+          <div>
+            <div class="k">🧑‍🏫 Coach</div>
+            <div id="coachMsg" style="font-weight:1100">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+          </div>
+        </div>
+        <div class="hint" style="text-align:right; max-width:360px" id="uiCvrHint">
+          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
         </div>
       </div>
-      <div class="coachHint">
-        ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
+    </div>
+
+    <div id="bossHud">
+      <div class="bossCard">
+        <div class="t" id="bossTitle">👹 BOSS</div>
+        <div class="bossLine" id="bossHint">—</div>
+        <div class="bossProg" id="bossProg">—</div>
       </div>
     </div>
-  </div>
 
-  <!-- Buttons (keep ids used by JS) -->
-  <div id="hudBtns">
-    <div class="btnRow3">
-      <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
-      <!-- vr-ui.js will also create EXIT/RECENTER buttons; we keep our own for non-vr usage -->
+    <div id="hudBtns">
+      <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
+      <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
     </div>
-    <div class="btnRow">
-      <!-- IMPORTANT: JS binds #btnStart (hidden) -->
-      <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
-      <!-- reserved row: leave space so VR-UI doesn't overlap too much on tiny screens -->
-      <button class="btn primary" id="btnStartGhost" type="button" style="opacity:.0; pointer-events:none">—</button>
-    </div>
-  </div>
 
-  <!-- Start overlay -->
-  <div id="startOverlay" style="display:grid">
-    <div class="panelCard">
-      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start">
-        <div>
-          <div style="font-weight:1200; font-size:18px">🍽️ Balanced Plate VR</div>
-          <div style="margin-top:6px; color:var(--muted); font-weight:900; line-height:1.35; font-size:13px">
-            โหมด: <b id="uiRunPreview">play</b> • ระดับ: <b id="uiDiffPreview">normal</b> • เวลา: <b id="uiTimePreview">90</b>s
-            <br/>Play = Adaptive ON • Study = Seeded & Adaptive OFF
+    <div id="startOverlay" style="display:grid">
+      <div class="panelCard">
+        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start">
+          <div>
+            <div style="font-weight:1200; font-size:18px">🍽️ Balanced Plate VR</div>
+            <div style="margin-top:6px; color:var(--muted); font-weight:900; line-height:1.35; font-size:13px">
+              โหมด: <b id="uiRunPreview">play</b> • ระดับ: <b id="uiDiffPreview">normal</b> • เวลา: <b id="uiTimePreview">90</b>s
+              <br/>Play = Adaptive ON + Practice 15s • Study = Seeded & Adaptive OFF
+            </div>
           </div>
-        </div>
-        <div style="color:var(--muted); font-weight:900; font-size:13px; text-align:right">
-          Tip: Cardboard ใช้ <b>view=cvr</b><br/>ยิงจาก crosshair ได้เลย
-        </div>
-      </div>
-
-      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
-        <button class="btn primary" id="btnStartMain" type="button">เริ่มเกม ▶</button>
-        <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์นี้ 🔗</button>
-        <button class="btn warn" id="btnGoLauncher" type="button">ไปหน้า Launcher 🧭</button>
-      </div>
-
-      <div id="startDbg" style="margin-top:10px; color:var(--muted); font-weight:900; font-size:12px"></div>
-    </div>
-  </div>
-
-  <!-- Paused overlay -->
-  <div id="hudPaused">
-    <div class="panelCard" style="width:min(520px,100%); text-align:center">
-      <div style="font-weight:1200; font-size:18px">⏸ Paused</div>
-      <div style="margin-top:6px; color:var(--muted); font-weight:900">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
-      <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
-        <button class="btn primary" onclick="document.getElementById('btnPause').click()">▶ เล่นต่อ</button>
-        <button class="btn warn" onclick="document.getElementById('btnRestart').click()">♻ เริ่มใหม่</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Result overlay -->
-  <div id="resultBackdrop">
-    <div class="panelCard">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start">
-        <div>
-          <div style="font-weight:1200; font-size:18px">🏁 สรุปผล</div>
-          <div style="margin-top:6px; color:var(--muted); font-weight:900">
-            Mode: <b id="rMode">—</b> • Grade: <b id="rGrade">—</b>
+          <div style="color:var(--muted); font-weight:900; font-size:13px; text-align:right">
+            Tip: Cardboard ใช้ <b>view=cvr</b><br/>ยิงจาก crosshair ได้เลย
           </div>
         </div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
-          <button class="btn primary" id="btnPlayAgain" type="button">เล่นอีกครั้ง ▶</button>
-          <button class="btn" id="btnBackHub" type="button">กลับ HUB 🏠</button>
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+          <button class="btn primary" id="btnStartMain" type="button">เริ่มเกม ▶</button>
+          <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์นี้ 🔗</button>
+          <button class="btn warn" id="btnGoLauncher" type="button">ไปหน้า Launcher 🧭</button>
         </div>
+
+        <div id="startDbg" style="margin-top:10px; color:var(--muted); font-weight:900; font-size:12px"></div>
       </div>
-
-      <div style="margin-top:12px; display:grid; grid-template-columns: 1.1fr .9fr; gap:12px">
-        <div style="background:rgba(15,23,42,.62); border:1px solid var(--stroke); border-radius:18px; padding:12px">
-          <div style="font-weight:1000; font-size:12px">ภาพรวม</div>
-          <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center">
-            <span class="pill">🏆 <span id="rScore">0</span></span>
-            <span class="pill">🔥 Max Combo <b id="rMaxCombo">0</b></span>
-            <span class="pill">💥 Miss <b id="rMiss">0</b></span>
-            <span class="pill">⚡ Perfect <b id="rPerfect">0%</b></span>
-            <span class="pill">🎯 Goals <b id="rGoals">0/0</b></span>
-            <span class="pill">⚡ Minis <b id="rMinis">0/0</b></span>
-          </div>
-        </div>
-
-        <div style="background:rgba(15,23,42,.62); border:1px solid var(--stroke); border-radius:18px; padding:12px">
-          <div style="font-weight:1000; font-size:12px">5 หมู่ที่เก็บได้</div>
-          <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center">
-            <span class="pill">🥦 <b id="rG1">0</b></span>
-            <span class="pill">🍎 <b id="rG2">0</b></span>
-            <span class="pill">🐟 <b id="rG3">0</b></span>
-            <span class="pill">🍚 <b id="rG4">0</b></span>
-            <span class="pill">🥑 <b id="rG5">0</b></span>
-            <span class="pill">Σ <b id="rGTotal">0</b></span>
-          </div>
-        </div>
-      </div>
-
-      <style>
-        @media (max-width: 920px){
-          #resultBackdrop > .panelCard > div[style*="grid-template-columns"]{ grid-template-columns: 1fr !important; }
-        }
-      </style>
     </div>
+
+    <div id="hudPaused">
+      <div class="panelCard" style="width:min(520px,100%); text-align:center">
+        <div style="font-weight:1200; font-size:18px">⏸ Paused</div>
+        <div style="margin-top:6px; color:var(--muted); font-weight:900">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
+        <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
+          <button class="btn primary" onclick="document.getElementById('btnPause').click()">▶ เล่นต่อ</button>
+          <button class="btn warn" onclick="document.getElementById('btnRestart').click()">♻ เริ่มใหม่</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultBackdrop">
+      <div class="panelCard">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start">
+          <div>
+            <div style="font-weight:1200; font-size:18px">🏁 สรุปผล</div>
+            <div style="margin-top:6px; color:var(--muted); font-weight:900">
+              Mode: <b id="rMode">—</b> • Grade: <b id="rGrade">—</b>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+            <button class="btn primary" id="btnPlayAgain" type="button">เล่นอีกครั้ง ▶</button>
+            <button class="btn" id="btnBackHub" type="button">กลับ HUB 🏠</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; display:grid; grid-template-columns: 1.1fr .9fr; gap:12px">
+          <div style="background:var(--panel2); border:1px solid var(--stroke); border-radius:18px; padding:12px">
+            <div class="t">ภาพรวม</div>
+            <div class="v" style="margin-top:10px">
+              <span class="pill">🏆 <span id="rScore">0</span></span>
+              <span class="pill">🔥 Max Combo <b id="rMaxCombo">0</b></span>
+              <span class="pill">💥 Miss <b id="rMiss">0</b></span>
+              <span class="pill">⚡ Perfect <b id="rPerfect">0%</b></span>
+              <span class="pill">🎯 Goals <b id="rGoals">0/0</b></span>
+              <span class="pill">⚡ Minis <b id="rMinis">0/0</b></span>
+            </div>
+          </div>
+
+          <div style="background:var(--panel2); border:1px solid var(--stroke); border-radius:18px; padding:12px">
+            <div class="t">5 หมู่ที่เก็บได้</div>
+            <div class="v" style="margin-top:10px">
+              <span class="pill">🥦 <b id="rG1">0</b></span>
+              <span class="pill">🍎 <b id="rG2">0</b></span>
+              <span class="pill">🐟 <b id="rG3">0</b></span>
+              <span class="pill">🍚 <b id="rG4">0</b></span>
+              <span class="pill">🥑 <b id="rG5">0</b></span>
+              <span class="pill">Σ <b id="rGTotal">0</b></span>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          @media (max-width: 920px){
+            #resultBackdrop > .panelCard > div[style*="grid-template-columns"]{ grid-template-columns: 1fr !important; }
+          }
+        </style>
+      </div>
+    </div>
+
   </div>
 
-  <!-- Start overlay bridge -->
   <script>
     (function(){
       const btnStartMain = document.getElementById('btnStartMain');
@@ -596,7 +278,6 @@
     })();
   </script>
 
-  <!-- RUN GAME -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </body>
 </html>
