@@ -1,9 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — V3 (UI-start event + safe pending + VR UI preload + FX wait)
-// ✅ listens: hha:ui-start (from startOverlay)
-// ✅ supports: __HHA_PENDING_START__ (if overlay clicked before module loads)
-// ✅ VR/cVR: preload ../vr/vr-ui.js
-// ✅ waits briefly for Particles so FX won't be missing
+// GoodJunkVR Boot — V2.1 (safe UI-start + VR UI preload + FX wait + flush-hardened)
 
 'use strict';
 
@@ -40,76 +36,39 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-// ✅ wait a bit so FX module is ready (prevents “effect missing”)
-async function waitForFxReady(timeoutMs=650){
+async function waitForFxReady(timeoutMs=600){
   const t0 = performance.now();
   while(performance.now() - t0 < timeoutMs){
-    const P =
-      (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-      ROOT.Particles;
-    if(P && (typeof P.burstAt === 'function' || typeof P.scorePop === 'function' || typeof P.toast === 'function')) {
-      return true;
-    }
+    const P = (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || ROOT.Particles;
+    if(P && (typeof P.burstAt === 'function' || typeof P.scorePop === 'function')) return true;
     await new Promise(r=>setTimeout(r, 30));
   }
   return false;
 }
 
-// Build engine payload from (a) UI-start detail, then (b) URL params fallback
-function buildPayload(detail={}){
-  const view = normalizeView(detail.view || qs('view','mobile'));
-
-  // prefer explicit detail, fallback to URL
-  const diff = String(detail.diff ?? qs('diff','normal') ?? 'normal');
-  const run  = String(detail.run  ?? qs('run','play')   ?? 'play');
-
-  // time
-  const t = detail.time ?? qs('time','80');
-  const time = Math.max(20, Number(t || 80));
-
-  // seed/hub
-  const seed = (detail.seed != null && String(detail.seed).trim() !== '') ? String(detail.seed).trim() : qs('seed', null);
-  const hub  = (detail.hub  != null && String(detail.hub ).trim() !== '') ? String(detail.hub ).trim() : qs('hub',  null);
-
-  // study/meta (prefer detail then URL)
-  const studyId = detail.studyId ?? qs('study', qs('studyId', null));
-  const phase   = detail.phase   ?? qs('phase', null);
-  const conditionGroup = detail.conditionGroup ?? qs('cond', qs('conditionGroup', null));
-
-  // optional extras (logger already hydrates from URL too, but we pass through for completeness)
-  const sessionOrder = detail.sessionOrder ?? qs('sessionOrder', null);
-  const blockLabel   = detail.blockLabel   ?? qs('block', qs('blockLabel', null));
-  const siteCode     = detail.siteCode     ?? qs('site', qs('siteCode', null));
-
-  return {
-    view,
-    diff,
-    run,
-    time,
-    seed,
-    hub,
-
-    studyId,
-    phase,
-    conditionGroup,
-
-    sessionOrder,
-    blockLabel,
-    siteCode,
-  };
-}
-
-async function startEngineFrom(detail={}){
+async function startEngine(opts={}){
   if(started) return;
   started = true;
 
-  const payload = buildPayload(detail);
-  setBodyView(payload.view);
+  const view = normalizeView(opts.view || qs('view','mobile'));
+  setBodyView(view);
 
-  if(payload.view === 'vr' || payload.view === 'cvr') ensureVrUi();
+  if(view === 'vr' || view === 'cvr') ensureVrUi();
 
-  // ✅ give particles a short chance to load
-  await waitForFxReady(650);
+  await waitForFxReady(600);
+
+  const payload = {
+    view,
+    diff: (qs('diff','normal')||'normal'),
+    run:  (qs('run','play')||'play'),
+    time: Number(qs('time','80')||80),
+    seed: qs('seed', null),
+    hub:  qs('hub', null),
+
+    studyId: qs('study', qs('studyId', null)),
+    phase: qs('phase', null),
+    conditionGroup: qs('cond', qs('conditionGroup', null)),
+  };
 
   console.debug('[GoodJunkVR boot] start', payload);
 
@@ -120,39 +79,43 @@ async function startEngineFrom(detail={}){
   }
 }
 
-// ✅ If overlay clicked before boot module loaded
+// overlay might fire before module loaded
 function consumePendingStart(){
-  if(started) return;
   const d = ROOT.__HHA_PENDING_START__;
-  if(d){
+  if(d && !started){
     ROOT.__HHA_PENDING_START__ = null;
-    startEngineFrom(d);
+    startEngine({ view: d.view });
   }
 }
 
-// ✅ listen: NEW event from overlay wiring
+// ✅ listen: UI start (from overlay script)
 ROOT.addEventListener('hha:ui-start', (ev)=>{
-  startEngineFrom(ev?.detail || {});
+  const view = ev?.detail?.view || qs('view','mobile');
+  startEngine({ view });
 }, { passive:true });
 
-// ✅ recover pending start once DOM ready
 if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
   queueMicrotask(consumePendingStart);
 }else{
   DOC.addEventListener('DOMContentLoaded', consumePendingStart, { once:true });
 }
 
-// ✅ preload VR UI when user clicks "Enter VR" on overlay
+// preload VR UI when user clicks Enter VR
 ROOT.addEventListener('hha:enter-cvr', ()=>{
   ensureVrUi();
 }, { passive:true });
 
-// ✅ safety fallback: if overlay missing -> autostart
+// safety fallback: autostart if overlay missing
 setTimeout(()=>{
   if(started) return;
   const overlay = DOC.getElementById('startOverlay');
   if(!overlay){
     console.warn('[GoodJunkVR boot] overlay missing -> autostart');
-    startEngineFrom({ view: qs('view','mobile') });
+    startEngine({ view: qs('view','mobile') });
   }
-}, 950);
+}, 900);
+
+// ✅ flush-hardened on pagehide (extra safety)
+ROOT.addEventListener('pagehide', ()=>{
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:flush-all', { detail:{ reason:'pagehide' } })); }catch(_){}
+}, { passive:true });
