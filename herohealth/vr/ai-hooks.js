@@ -1,253 +1,201 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HeroHealth — AI Hooks (OFF by default)
-// Purpose: provide deterministic + audit-friendly hook points for:
-// 1) Difficulty Director (adaptive fairness)
-// 2) Coach Micro-tips (explainable + rate limit)
-// 3) Pattern Generator (spawn/boss/storm patterns) seeded
-//
-// ✅ Default: ALL disabled unless explicitly enabled
-// ✅ Research mode: FORCE deterministic + adaptive OFF (unless explicitly override)
-// ✅ Emits optional hha:ai event for logging/audit
+// HHA AI Hooks — PRODUCTION (default OFF in study/research)
+// Provides: window.HHA_AI = { init(), emit(), tip(), pattern(), difficulty() }
+// - Deterministic-friendly: uses provided seed + runMode gating
+// - Rate-limited micro tips
+// - Pure hooks: does NOT force gameplay; only suggests + emits events (hha:ai)
 
-'use strict';
+(function(){
+  'use strict';
+  const WIN = window;
+  const DOC = document;
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-
-function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
-function emit(name, detail){
-  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-}
-
-// -------- deterministic RNG --------
-function hashStr(s){
-  s=String(s||''); let h=2166136261;
-  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
-  return (h>>>0);
-}
-function makeRng(seedStr){
-  let x = hashStr(seedStr) || 123456789;
-  return function(){
-    x ^= x << 13; x >>>= 0;
-    x ^= x >> 17; x >>>= 0;
-    x ^= x << 5;  x >>>= 0;
-    return (x>>>0) / 4294967296;
-  };
-}
-
-// -------- core factory --------
-export function createAIHooks(opts={}){
-  const game = String(opts.game || qs('gameMode','game') || 'game');
-  const runMode = String(opts.runMode || qs('run', qs('runMode','play')) || 'play').toLowerCase();
-  const isResearch = (runMode === 'research' || runMode === 'study');
-
-  // master switches (URL can override)
-  // ai=off/on/auto
-  // aiDirector=off/on
-  // aiCoach=off/on
-  // aiPattern=off/on
-  const aiQ = String(qs('ai','auto')).toLowerCase();
-  const dirQ = String(qs('aiDirector','auto')).toLowerCase();
-  const coachQ = String(qs('aiCoach','auto')).toLowerCase();
-  const patQ = String(qs('aiPattern','auto')).toLowerCase();
-
-  function qOn(v){
-    return (v==='on'||v==='1'||v==='true'||v==='yes');
-  }
-  function qOff(v){
-    return (v==='off'||v==='0'||v==='false'||v==='no');
+  function nowMs(){ return (WIN.performance && performance.now) ? performance.now() : Date.now(); }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
   }
 
-  // defaults: all off, but allow "ai=on" to enable (except research forces adaptive off)
-  const enabledMaster =
-    qOn(aiQ) ? true :
-    qOff(aiQ) ? false :
-    false; // auto => off (safe)
+  // simple seeded rng for deterministic plans (mulberry32)
+  function mulberry32(seed){
+    let t = (seed >>> 0) || 1;
+    return function(){
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
-  const enabledDirector =
-    qOn(dirQ) ? true :
-    qOff(dirQ) ? false :
-    enabledMaster;
-
-  const enabledCoach =
-    qOn(coachQ) ? true :
-    qOff(coachQ) ? false :
-    enabledMaster;
-
-  const enabledPattern =
-    qOn(patQ) ? true :
-    qOff(patQ) ? false :
-    enabledMaster;
-
-  // deterministic seed: prefer explicit seed param
-  const seed = String(opts.seed || qs('seed', qs('sessionId', qs('studentKey','')) + '|' + qs('ts', Date.now())));
-
-  // Research: force director OFF unless explicitly forced on (still deterministic)
-  const directorActive = isResearch ? qOn(dirQ) : enabledDirector;
-  const coachActive    = enabledCoach;   // coach tips can be allowed in play; in research you might keep off via URL
-  const patternActive  = enabledPattern;
-
-  // internal RNG for pattern decisions (separate stream)
-  const rng = makeRng(`${seed}|aihooks|${game}`);
-
-  // State snapshot for audit
   const H = {
-    game, runMode, isResearch,
-    seed,
-    enabled: {
-      master: enabledMaster,
-      director: directorActive,
-      coach: coachActive,
-      pattern: patternActive
-    },
-    director: {
-      // difficulty scalar: 0..1 (0 easy -> 1 hard)
-      k: clamp(Number(opts.k ?? 0.5), 0, 1),
-      // smoothing
-      emaSkill: 0.45
-    },
-    coach: {
-      lastTipAt: 0,
-      cooldownMs: clamp(Number(opts.cooldownMs ?? 3000), 800, 20000),
-      maxPerRun: clamp(Number(opts.maxTips ?? 12), 0, 50),
-      sent: 0
-    },
-    pattern: {
-      // you can store phase indexes etc.
-      stormPhase: 0,
-      bossPhase: 0
-    },
-    last: {
-      t: 0,
-      metrics: null
-    }
+    game: 'unknown',
+    runMode: 'play',
+    diff: 'normal',
+    seed: 1,
+    enabled: true,         // overall AI hooks (play default true, study default false)
+    coachEnabled: true,
+    difficultyEnabled: true,
+    patternEnabled: true,
+
+    tipCooldownMs: 6500,
+    lastTipMs: 0,
+
+    rng: mulberry32(1),
+    _inited: false,
   };
 
-  function audit(type, data){
-    emit('hha:ai', {
-      game: H.game,
-      runMode: H.runMode,
-      seed: H.seed,
-      type,
-      data
+  function init(cfg){
+    cfg = cfg || {};
+    H.game = cfg.game || H.game;
+    H.runMode = cfg.runMode || H.runMode;
+    H.diff = cfg.diff || H.diff;
+    H.seed = Number(cfg.seed)||H.seed;
+
+    // default gating: OFF for study/research unless explicitly enabled
+    const isStudy = (String(H.runMode).toLowerCase() === 'study' || String(H.runMode).toLowerCase() === 'research');
+    const defaultEnabled = !isStudy;
+
+    H.enabled = (cfg.enabled != null) ? !!cfg.enabled : defaultEnabled;
+    H.coachEnabled = (cfg.coachEnabled != null) ? !!cfg.coachEnabled : defaultEnabled;
+    H.difficultyEnabled = (cfg.difficultyEnabled != null) ? !!cfg.difficultyEnabled : defaultEnabled;
+    H.patternEnabled = (cfg.patternEnabled != null) ? !!cfg.patternEnabled : true; // allow plans in study too (safe)
+
+    H.tipCooldownMs = clamp(cfg.tipCooldownMs || H.tipCooldownMs, 1500, 20000);
+    H.lastTipMs = 0;
+
+    H.rng = mulberry32(H.seed);
+
+    H._inited = true;
+    emit('hha:ai', { game:H.game, type:'init', runMode:H.runMode, diff:H.diff, seed:H.seed,
+      enabled:H.enabled, coachEnabled:H.coachEnabled, difficultyEnabled:H.difficultyEnabled, patternEnabled:H.patternEnabled
     });
   }
 
-  // ---------- Difficulty Director ----------
-  // Input: metrics -> output suggested tuning scalars
-  function directorSuggest(metrics){
-    if (!H.enabled.director) return null;
+  function aiEmit(type, data){
+    if(!H._inited) init({});
+    emit('hha:ai', { game:H.game, type, ...(data||{}) });
+  }
 
-    // skill: 0..1, frustration: 0..1, fatigue: 0..1
-    const skill = clamp(metrics?.skill ?? 0.5, 0, 1);
-    const frustration = clamp(metrics?.frustration ?? 0.3, 0, 1);
-    const fatigue = clamp(metrics?.fatigue ?? 0.2, 0, 1);
+  // ---------------- AI Coach micro tips (rate-limited) ----------------
+  function tip(key, msg, mood, extra){
+    if(!H._inited) init({});
+    if(!H.enabled || !H.coachEnabled) return false;
 
-    // smoothing skill
-    H.director.emaSkill = H.director.emaSkill*0.88 + skill*0.12;
+    const t = nowMs();
+    if(t - H.lastTipMs < H.tipCooldownMs) return false;
+    H.lastTipMs = t;
 
-    // fairness rule: don’t ramp hard when frustration high or fatigue high
-    let targetK = H.director.emaSkill;              // base by skill
-    targetK -= 0.30*frustration;
-    targetK -= 0.18*fatigue;
-    targetK = clamp(targetK, 0, 1);
+    aiEmit('coach-tip', { key, msg, mood: mood||'neutral', ...(extra||{}) });
 
-    // ease-in/out
-    H.director.k = H.director.k*0.90 + targetK*0.10;
+    // also emit a generic coach event so game can show it easily
+    emit('hha:coach', { game:H.game, msg, mood: mood||'neutral', key });
+    return true;
+  }
 
-    // translate to concrete knobs (generic)
-    const out = {
-      difficultyK: H.director.k,                   // 0..1
-      spawnMul: clamp(1.00 + (H.director.k-0.5)*0.35, 0.82, 1.22),
-      sizeMul:  clamp(1.00 - (H.director.k-0.5)*0.28, 0.82, 1.20),
-      badMul:   clamp(1.00 + (H.director.k-0.5)*0.30, 0.80, 1.25),
-      aimAssistMul: clamp(1.00 - (H.director.k-0.5)*0.25, 0.80, 1.25)
+  // ---------------- Difficulty Director (suggest only) ----------------
+  // This returns "suggested" multipliers and rationale. Game may apply or ignore.
+  function difficulty(signal){
+    if(!H._inited) init({});
+    if(!H.enabled || !H.difficultyEnabled) return null;
+
+    signal = signal || {};
+    const acc = clamp(signal.acc || 0, 0, 100);
+    const miss = clamp(signal.miss || 0, 0, 999);
+    const fever = clamp(signal.fever || 0, 0, 100);
+    const rtAvg = clamp(signal.rtAvg || 800, 100, 4000);
+
+    // Fair + smooth: small steps only
+    let sizeMul = 1.0;
+    if(acc < 65) sizeMul = 1.12;
+    else if(acc < 75) sizeMul = 1.06;
+    else if(acc > 92) sizeMul = 0.94;
+    else if(acc > 86) sizeMul = 0.97;
+
+    let spawnMul = 1.0;
+    if(acc > 90 && rtAvg < 520 && miss <= 2) spawnMul = 1.08;
+    else if(acc < 68 || miss >= 7) spawnMul = 0.92;
+
+    let junkMul = 1.0;
+    if(acc > 90 && miss <= 2) junkMul = 1.06;
+    else if(acc < 70 || fever >= 85) junkMul = 0.93;
+
+    // Fever safety: bias towards stability
+    if(fever >= 85){
+      spawnMul = Math.min(spawnMul, 1.0);
+      junkMul  = Math.min(junkMul, 1.0);
+      sizeMul  = Math.max(sizeMul, 1.0);
+    }
+
+    const sug = {
+      sizeMul: clamp(sizeMul, 0.90, 1.18),
+      spawnMul: clamp(spawnMul, 0.85, 1.12),
+      junkMul: clamp(junkMul, 0.90, 1.12),
     };
 
-    audit('director:suggest', { in:{skill,frustration,fatigue}, out });
-    return out;
-  }
-
-  // ---------- Coach Micro-tips ----------
-  function coachMaybeTip(metrics, rules=[]){
-    if (!H.enabled.coach) return null;
-
-    const now = performance.now();
-    if (H.coach.sent >= H.coach.maxPerRun) return null;
-    if (now - H.coach.lastTipAt < H.coach.cooldownMs) return null;
-
-    // rules: array of { when:(m)=>bool, tip:{code,msg,why,action} }
-    for (const r of (rules||[])){
-      try{
-        if (r && typeof r.when==='function' && r.when(metrics)){
-          H.coach.lastTipAt = now;
-          H.coach.sent++;
-          const tip = r.tip || { code:'tip', msg:'Keep going', why:'', action:'' };
-          audit('coach:tip', tip);
-          return tip;
-        }
-      }catch(_){}
-    }
-    return null;
-  }
-
-  // ---------- Pattern Generator ----------
-  // Provide deterministic decisions: next kind mix / storm schedule / boss phase etc.
-  function patternPick(name, choices){
-    // choices: [{w:0.5, v:'good'}, ...]
-    if (!H.enabled.pattern) return null;
-    const arr = Array.isArray(choices) ? choices : [];
-    const sum = arr.reduce((a,c)=>a+Math.max(0,Number(c.w||0)), 0) || 1;
-    let r = rng() * sum;
-    for (const c of arr){
-      const w = Math.max(0, Number(c.w||0));
-      r -= w;
-      if (r <= 0) { audit('pattern:pick', { name, v:c.v }); return c.v; }
-    }
-    const v = arr[arr.length-1]?.v;
-    audit('pattern:pick', { name, v });
-    return v;
-  }
-
-  function patternNextStorm(baseSec, jitterSec=1.0){
-    if (!H.enabled.pattern) return null;
-    const j = (rng()*2-1) * jitterSec;
-    const v = Math.max(3, Number(baseSec||10) + j);
-    audit('pattern:stormSchedule', { baseSec, jitterSec, v });
-    return v;
-  }
-
-  // ---------- lifecycle ----------
-  function onStart(meta={}){
-    H.last.t = performance.now();
-    audit('start', { meta, enabled:H.enabled });
-  }
-  function onUpdate(metrics={}){
-    H.last.metrics = metrics;
-    H.last.t = performance.now();
-    return {
-      director: directorSuggest(metrics),
-      // coach tip is opt-in via coachMaybeTip(rules)
+    const rationale = {
+      acc, miss, fever, rtAvg,
+      why: (fever>=85) ? 'fever-safety' :
+           (acc<70) ? 'assist-accuracy' :
+           (acc>90 && rtAvg<520) ? 'challenge-skill' : 'steady'
     };
+
+    aiEmit('difficulty-suggest', { suggest: sug, rationale });
+    return { suggest: sug, rationale };
   }
-  function onEnd(summary={}){
-    audit('end', { summary, coachSent:H.coach.sent, directorK:H.director.k });
+
+  // ---------------- Pattern Generator (seeded plan) ----------------
+  // Emits plans for storm/boss/spawn sequences; game can optionally adopt.
+  function pattern(mode, ctx){
+    if(!H._inited) init({});
+    if(!H.patternEnabled) return null;
+
+    ctx = ctx || {};
+    const rng = mulberry32((Number(ctx.seed)||H.seed) ^ 0x9E3779B9);
+
+    const plan = { mode, seed: Number(ctx.seed)||H.seed, steps: [] };
+
+    if(mode === 'storm'){
+      const cycles = clamp(ctx.cyclesPlanned || 3, 1, 5);
+      for(let i=0;i<cycles;i++){
+        plan.steps.push({
+          cycle: i+1,
+          atSec: (ctx.marks && ctx.marks[i]) ? ctx.marks[i] : Math.round(18 + i*22 + rng()*6),
+          needGood: clamp(Math.round((ctx.baseNeedGood||9) + rng()*2), 8, 12),
+          durationSec: clamp(Math.round((ctx.baseDuration||7) + rng()*1), 6, 9),
+          forbidJunk: !!ctx.forbidJunk
+        });
+      }
+    } else if(mode === 'boss'){
+      plan.steps.push({
+        atSec: Math.round(ctx.atSec || 55),
+        needGood: clamp(ctx.needGood || 9, 7, 12),
+        durationSec: clamp(ctx.durationSec || 10, 8, 14),
+        forbidJunk: true
+      });
+    } else if(mode === 'spawn'){
+      // spawn rhythm hints (non-binding)
+      const blocks = clamp(ctx.blocks || 4, 1, 8);
+      for(let i=0;i<blocks;i++){
+        plan.steps.push({
+          block:i+1,
+          secFrom: Math.round((ctx.secFrom||0) + i*(ctx.blockLen||18)),
+          secTo: Math.round((ctx.secFrom||0) + (i+1)*(ctx.blockLen||18)),
+          bias: (rng()<0.5) ? 'good-streak' : 'mixed',
+          note: 'hint-only'
+        });
+      }
+    }
+
+    aiEmit('pattern-plan', { plan });
+    return plan;
   }
 
-  return {
-    meta: () => ({ game:H.game, runMode:H.runMode, isResearch:H.isResearch, seed:H.seed, enabled:H.enabled }),
-    audit,
-    onStart,
-    onUpdate,
-    onEnd,
-
-    directorSuggest,
-    coachMaybeTip,
-
-    patternPick,
-    patternNextStorm
+  WIN.HHA_AI = {
+    init,
+    emit: aiEmit,
+    tip,
+    difficulty,
+    pattern
   };
-}
+
+})();
