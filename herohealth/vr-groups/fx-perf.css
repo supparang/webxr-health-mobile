@@ -1,0 +1,11 @@
+/* === /herohealth/vr-groups/fx-perf.css ===
+PACK 33: CSS gating by fx level
+*/
+
+body[data-fx-level="1"] .storm-wind{ display:none !important; }
+body[data-fx-level="1"] .fx-nearmiss-layer{ display:none !important; }
+
+body[data-fx-level="2"] .storm-wind{ opacity:.85; }
+body[data-fx-level="2"] .fx-streak{ height:2px; }
+
+body[data-fx-level="1"] .groups-fx-layer{ opacity:.75; } /* still allow shockwave minimal */
