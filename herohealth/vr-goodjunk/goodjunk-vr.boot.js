@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — V2.1 (safe UI-start + VR UI preload + FX wait + flush-hardened)
+// GoodJunkVR Boot — V2.2 (safe UI-start + VR UI preload + FX wait (NEW API) + flush-hardened)
 
 'use strict';
 
@@ -36,11 +36,20 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-async function waitForFxReady(timeoutMs=600){
+async function waitForFxReady(timeoutMs=800){
+  // NEW: accept both "old" (burstAt/scorePop) and "new" (burst/popText/shockwave)
   const t0 = performance.now();
   while(performance.now() - t0 < timeoutMs){
     const P = (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || ROOT.Particles;
-    if(P && (typeof P.burstAt === 'function' || typeof P.scorePop === 'function')) return true;
+    if(P){
+      const ok =
+        (typeof P.burstAt === 'function') ||
+        (typeof P.scorePop === 'function') ||
+        (typeof P.burst === 'function') ||
+        (typeof P.popText === 'function') ||
+        (typeof P.shockwave === 'function');
+      if(ok) return true;
+    }
     await new Promise(r=>setTimeout(r, 30));
   }
   return false;
@@ -55,7 +64,8 @@ async function startEngine(opts={}){
 
   if(view === 'vr' || view === 'cvr') ensureVrUi();
 
-  await waitForFxReady(600);
+  // wait for particles + director (best-effort)
+  await waitForFxReady(800);
 
   const payload = {
     view,
