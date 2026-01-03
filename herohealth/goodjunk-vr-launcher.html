@@ -1,9 +1,3 @@
-<!-- === /herohealth/goodjunk-vr-launcher.html ===
-GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
-✅ Remembers last view
-✅ Pass-through all query params to goodjunk-vr.html
-✅ Optional HUB button if hub=... exists
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -16,232 +10,320 @@ GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.80);
-      --panel2:rgba(15,23,42,.68);
+      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --radius:22px;
-      --pill:999px;
+      --text:#e5e7eb; --muted:#94a3b8;
+      --accent:#22c55e; --warn:#f59e0b; --cyan:#22d3ee; --violet:#a78bfa;
+      --r:22px; --pill:999px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
     }
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,sans-serif; }
-    .wrap{
-      min-height:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;
       background:
-        radial-gradient(circle at 20% 10%, rgba(34,211,238,.09), transparent 60%),
-        radial-gradient(circle at 85% 85%, rgba(34,197,94,.08), transparent 55%),
-        radial-gradient(circle at 50% 55%, rgba(168,85,247,.06), transparent 55%),
-        #020617;
-    }
-    .card{
-      width:min(760px, 94vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:28px;
-      padding:16px;
-      box-shadow: 0 22px 70px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-    }
-    .head{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-    .title{ font-weight:1100; font-size:22px; letter-spacing:.2px; }
-    .sub{ margin-top:4px; color:var(--muted); font-weight:850; font-size:12px; }
-    .meta{
-      margin-top:10px;
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      color:rgba(229,231,235,.92);
-      font-weight:900;
-      font-size:12px;
-      line-height:1.35;
-      word-break:break-word;
-    }
-    .grid{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap:10px;
-    }
-    .btn{
-      width:100%;
-      height:72px;
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
+        radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
+        radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
+        var(--bg);
       color:var(--text);
-      cursor:pointer;
-      text-align:left;
-      padding:12px 14px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn .k{ font-weight:1100; font-size:15px; }
-    .btn .d{ margin-top:4px; color:var(--muted); font-weight:850; font-size:12px; }
-    .btn.primary{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.14); }
-    .btn.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.12); }
-
-    .row{
-      margin-top:12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .pill{
-      border-radius: var(--pill);
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(15,23,42,.55);
-      color:rgba(229,231,235,.92);
-      height:36px;
-      padding:0 12px;
-      font-weight:950;
-      cursor:pointer;
-    }
-    .hint{ color:var(--muted); font-weight:850; font-size:12px; }
-
-    @media (max-width:720px){
-      .grid{ grid-template-columns: 1fr; }
-      .btn{ height:auto; }
-    }
+    .wrap{min-height:100%;padding:calc(18px + var(--sat)) 16px calc(18px + var(--sab));
+      display:flex;align-items:center;justify-content:center;}
+    .card{width:min(920px, 96vw);background:rgba(2,6,23,.72);border:1px solid var(--stroke);border-radius:var(--r);
+      box-shadow:0 20px 60px rgba(0,0,0,.45);padding:18px;}
+    .top{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;}
+    .title{font-size:26px;font-weight:1100;letter-spacing:.2px}
+    .sub{margin-top:6px;color:var(--muted);font-weight:900;line-height:1.35}
+    .grid{margin-top:14px;display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .panel{background:rgba(15,23,42,.55);border:1px solid var(--stroke);border-radius:18px;padding:14px}
+    .h{font-weight:1100;margin:0 0 10px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .pill{border:1px solid var(--stroke);background:rgba(2,6,23,.55);color:var(--text);
+      padding:10px 12px;border-radius:var(--pill);font-weight:1000;cursor:pointer}
+    .pill[aria-pressed="true"]{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.12)}
+    .pill:active{transform:translateY(1px)}
+    label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-top:10px}
+    input,select{width:100%;margin-top:6px;background:rgba(2,6,23,.62);border:1px solid var(--stroke);
+      border-radius:14px;color:var(--text);padding:12px;font-weight:900;outline:none}
+    .actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{flex:1;min-width:220px;height:54px;border-radius:16px;border:1px solid rgba(34,197,94,.38);
+      background:rgba(34,197,94,.16);color:#eafff3;font-weight:1100;font-size:16px;cursor:pointer}
+    .btn.alt{border-color:rgba(148,163,184,.22);background:rgba(2,6,23,.55);color:var(--text)}
+    .hint{margin-top:10px;color:var(--muted);font-size:12px;font-weight:900;line-height:1.35}
+    .last{margin-top:12px;padding:12px;border-radius:16px;border:1px dashed rgba(148,163,184,.25);color:var(--muted);font-weight:900;line-height:1.35}
+    code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;}
+    .small{font-size:12px}
+    .k{color:#a7f3d0}
+    .warn{color:#fde68a}
+    .ok{color:#86efac}
+    .bad{color:#fda4af}
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="head">
+      <div class="top">
         <div>
-          <div class="title">🥦🍟 GoodJunkVR — เลือกโหมดเล่น</div>
-          <div class="sub">PC / Mobile / Cardboard (cVR) — จำค่าโหมดล่าสุดอัตโนมัติ</div>
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="pill" id="btnPlayLast" type="button">▶ เล่นโหมดล่าสุด</button>
-          <button class="pill" id="btnHub" type="button" style="display:none;">🏠 HUB</button>
+          <div class="title">🥦🍎 GoodJunkVR</div>
+          <div class="sub">
+            เลือก <span class="k">อุปกรณ์ (view)</span> + <span class="k">โหมด (run)</span> แล้วกด Start<br/>
+            <span class="small">Tip: Cardboard/cVR แนะนำแนวนอน + Fullscreen</span>
+          </div>
         </div>
       </div>
-
-      <div class="meta" id="metaBox">loading…</div>
 
       <div class="grid">
-        <button class="btn" id="btnPC" type="button">
-          <div class="k">🖥 PC</div>
-          <div class="d">คลิกเป้า / ยิงได้ • HUD เต็ม</div>
-        </button>
+        <div class="panel">
+          <h3 class="h">1) อุปกรณ์ (view)</h3>
+          <div class="row" id="viewRow">
+            <button class="pill" data-view="pc" type="button">🖥️ PC</button>
+            <button class="pill" data-view="mobile" type="button">📱 Mobile</button>
+            <button class="pill" data-view="vr" type="button">🕶️ Cardboard VR</button>
+            <button class="pill" data-view="cvr" type="button">🎯 cVR (Crosshair)</button>
+          </div>
 
-        <button class="btn primary" id="btnMobile" type="button">
-          <div class="k">📱 Mobile</div>
-          <div class="d">แตะเป้า / ปุ่มยิง • เหมาะมือถือแนวตั้ง</div>
-        </button>
+          <h3 class="h" style="margin-top:14px;">2) โหมด (run)</h3>
+          <div class="row" id="runRow">
+            <button class="pill" data-run="play" type="button">🎮 Play</button>
+            <button class="pill" data-run="research" type="button">🧪 Research</button>
+          </div>
 
-        <button class="btn warn" id="btnCVR" type="button">
-          <div class="k">🕶 Cardboard (cVR)</div>
-          <div class="d">จอแยก 2 ตา • ยิงจาก crosshair กลางจอ</div>
-        </button>
-      </div>
+          <div class="actions">
+            <button class="btn" id="btnStart" type="button">START ▶</button>
+            <button class="btn alt" id="btnHub" type="button">กลับ HUB</button>
+          </div>
 
-      <div class="row">
-        <div class="hint">Tip: Cardboard แนะนำ “หมุนแนวนอน + Fullscreen” เพื่อให้นิ่ง</div>
-        <button class="pill" id="btnOpenRun" type="button">เปิดหน้าเกมตรง ๆ</button>
+          <div class="actions" style="margin-top:10px;">
+            <button class="btn alt" id="btnCheck" type="button">Self-check (กันจอดำ)</button>
+            <button class="btn alt" id="btnOpenRun" type="button">เปิด Run ตรง ๆ</button>
+          </div>
+
+          <div class="hint">
+            • <b>Play</b>: มี practice 15s (ไม่ลงโทษ) แล้วค่อยเริ่มจริง<br/>
+            • <b>Research</b>: seed คงที่ + ไม่มี practice (ตามมาตรฐาน)<br/>
+            • Run จริง: <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code>
+          </div>
+
+          <div class="last" id="lastBox" style="display:none;"></div>
+          <div class="last" id="checkBox" style="display:none;"></div>
+        </div>
+
+        <div class="panel">
+          <h3 class="h">ตั้งค่า</h3>
+
+          <label>ความยาก (diff)</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+
+          <label>เวลา (วินาที)</label>
+          <input id="time" type="number" min="20" step="5" value="80"/>
+
+          <label>seed (เว้นว่าง = auto / Research แนะนำใส่)</label>
+          <input id="seed" type="number" placeholder="เช่น 12345"/>
+
+          <label>hub url (กลับหน้าฮับ)</label>
+          <input id="hub" type="text" placeholder="เช่น https://.../herohealth/hub.html"/>
+
+          <label>studyId / phase / conditionGroup (optional)</label>
+          <input id="studyId" type="text" placeholder="studyId"/>
+          <input id="phase" type="text" placeholder="phase"/>
+          <input id="cond" type="text" placeholder="conditionGroup"/>
+
+          <div class="hint" style="margin-top:12px;">
+            <b class="warn">Note:</b> ถ้ากด “กลับ HUB” แล้วไม่ไป แปลว่ายังไม่ใส่ hub url
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <script>
-    const RUN_URL = './goodjunk-vr.html';
+<script>
+(function(){
+  const LS = {
+    view:'HHA_GJ_VIEW',
+    run:'HHA_GJ_RUN',
+    diff:'HHA_GJ_DIFF',
+    time:'HHA_GJ_TIME',
+    seed:'HHA_GJ_SEED',
+    hub:'HHA_GJ_HUB',
+    study:'HHA_GJ_STUDY',
+    phase:'HHA_GJ_PHASE',
+    cond:'HHA_GJ_COND',
+  };
 
-    function qs(k, def=null){
-      try { return new URL(location.href).searchParams.get(k) ?? def; }
-      catch { return def; }
-    }
+  const el = (id)=>document.getElementById(id);
+  const viewRow = el('viewRow');
+  const runRow  = el('runRow');
 
-    function getParams(){
-      try{
-        const u = new URL(location.href);
-        u.searchParams.delete('view');
-        return u.searchParams;
-      }catch(e){
-        return new URLSearchParams();
-      }
-    }
+  const qs = (k,d='')=>{
+    try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; }
+  };
 
-    function buildRunUrl(view){
-      const sp = getParams();
-      if (view) sp.set('view', view);
-      return RUN_URL + (sp.toString() ? ('?' + sp.toString()) : '');
-    }
+  // ✅ Always point to the canonical run URL (prevents wrong relative path)
+  function runBaseUrl(){
+    return new URL('/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-vr.html', location.origin);
+    // ถ้า repo/root เปลี่ยน ให้แก้แค่บรรทัดนี้
+  }
 
-    function setMeta(){
-      const sp = getParams();
-      const diff = sp.get('diff') || 'normal';
-      const time = sp.get('time') || '80';
-      const run  = sp.get('run')  || 'play';
-      const end  = sp.get('end')  || 'time';
-      const ch   = sp.get('ch') || sp.get('challenge') || 'rush';
-      const hub  = sp.get('hub') || '';
-      const seed = sp.get('seed') || '';
-      const miss = sp.get('miss') || '';
-
-      const meta = [
-        `diff=${diff}`,
-        `time=${time}s`,
-        `run=${run}`,
-        `end=${end}`,
-        `ch=${ch}`,
-        hub ? `hub=✓` : `hub=—`,
-        seed ? `seed=${seed}` : `seed=—`,
-        miss ? `miss=${miss}` : `miss=—`
-      ].join(' • ');
-
-      document.getElementById('metaBox').textContent = meta;
-
-      const btnHub = document.getElementById('btnHub');
-      if (hub){
-        btnHub.style.display = 'inline-flex';
-        btnHub.addEventListener('click', ()=> location.href = hub);
-      }
-    }
-
-    function saveLast(view){
-      try{ localStorage.setItem('HHA_LAST_VIEW', view); }catch(e){}
-    }
-    function getLast(){
-      try{ return String(localStorage.getItem('HHA_LAST_VIEW')||''); }catch(e){}
-      return '';
-    }
-
-    function go(view){
-      saveLast(view);
-      location.href = buildRunUrl(view);
-    }
-
-    setMeta();
-
-    document.getElementById('btnPC').addEventListener('click', ()=>go('pc'));
-    document.getElementById('btnMobile').addEventListener('click', ()=>go('mobile'));
-    document.getElementById('btnCVR').addEventListener('click', ()=>go('cvr'));
-
-    document.getElementById('btnOpenRun').addEventListener('click', ()=>{
-      location.href = buildRunUrl('');
+  function setPressed(row, key, val){
+    [...row.querySelectorAll('.pill')].forEach(b=>{
+      b.setAttribute('aria-pressed', b.dataset[key] === val ? 'true' : 'false');
     });
+  }
+  function getPressed(row, key){
+    const b = row.querySelector('.pill[aria-pressed="true"]');
+    return b ? b.dataset[key] : null;
+  }
 
-    document.getElementById('btnPlayLast').addEventListener('click', ()=>{
-      const last = (getLast() || '').toLowerCase();
-      if (last === 'pc' || last === 'mobile' || last === 'vr' || last === 'cvr') go(last);
-      else go(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'pc');
-    });
-  </script>
+  function pickDefault(){
+    const view = localStorage.getItem(LS.view) || 'mobile';
+    const run  = localStorage.getItem(LS.run)  || 'play';
+    setPressed(viewRow,'view',view);
+    setPressed(runRow,'run',run);
+
+    el('diff').value  = localStorage.getItem(LS.diff) || 'normal';
+    el('time').value  = localStorage.getItem(LS.time) || '80';
+    el('seed').value  = localStorage.getItem(LS.seed) || '';
+    el('studyId').value = localStorage.getItem(LS.study) || '';
+    el('phase').value   = localStorage.getItem(LS.phase) || '';
+    el('cond').value    = localStorage.getItem(LS.cond) || '';
+
+    // ✅ hub: prefer query param hub, then localStorage
+    const hubQ = qs('hub','');
+    el('hub').value = hubQ || localStorage.getItem(LS.hub) || '';
+
+    // last summary peek
+    try{
+      const last = localStorage.getItem('HHA_LAST_SUMMARY');
+      if(last){
+        const j = JSON.parse(last);
+        if(j && j.projectTag === 'GoodJunkVR'){
+          const box = el('lastBox');
+          box.style.display = 'block';
+          box.innerHTML =
+            `ผลล่าสุด: <b>${j.grade || '-'}</b> | score <b>${j.scoreFinal || 0}</b> | miss <b>${j.misses || 0}</b>` +
+            ` <span style="opacity:.75">(${j.reason || ''})</span>`;
+        }
+      }
+    }catch(_){}
+  }
+
+  viewRow.addEventListener('click', (e)=>{
+    const b = e.target.closest('.pill'); if(!b) return;
+    const v = b.dataset.view;
+    localStorage.setItem(LS.view, v);
+    setPressed(viewRow,'view',v);
+  });
+
+  runRow.addEventListener('click', (e)=>{
+    const b = e.target.closest('.pill'); if(!b) return;
+    const r = b.dataset.run;
+    localStorage.setItem(LS.run, r);
+    setPressed(runRow,'run',r);
+  });
+
+  function saveFields(){
+    localStorage.setItem(LS.diff, el('diff').value);
+    localStorage.setItem(LS.time, el('time').value);
+    localStorage.setItem(LS.seed, el('seed').value);
+    localStorage.setItem(LS.hub,  el('hub').value);
+    localStorage.setItem(LS.study, el('studyId').value);
+    localStorage.setItem(LS.phase, el('phase').value);
+    localStorage.setItem(LS.cond, el('cond').value);
+  }
+
+  function buildRunUrl(){
+    const view = getPressed(viewRow,'view') || 'mobile';
+    const run  = getPressed(runRow,'run')  || 'play';
+    const diff = el('diff').value || 'normal';
+    const time = el('time').value || '80';
+    const seed = String(el('seed').value || '').trim();
+    const hub  = String(el('hub').value || '').trim();
+    const study= String(el('studyId').value || '').trim();
+    const phase= String(el('phase').value || '').trim();
+    const cond = String(el('cond').value || '').trim();
+
+    const url = runBaseUrl();
+    url.searchParams.set('view', view);
+    url.searchParams.set('run', run);
+    url.searchParams.set('diff', diff);
+    url.searchParams.set('time', time);
+
+    if(seed) url.searchParams.set('seed', seed);
+    if(hub)  url.searchParams.set('hub', hub);
+    if(study)url.searchParams.set('studyId', study);
+    if(phase)url.searchParams.set('phase', phase);
+    if(cond) url.searchParams.set('conditionGroup', cond);
+
+    // ✅ cache-bust กันค้างไฟล์เก่า
+    url.searchParams.set('ts', String(Date.now()));
+    return url;
+  }
+
+  function start(){
+    saveFields();
+    location.href = buildRunUrl().toString();
+  }
+
+  el('btnStart').addEventListener('click', start);
+
+  el('btnHub').addEventListener('click', ()=>{
+    saveFields();
+    const hub = String(el('hub').value||'').trim();
+    if(hub) location.href = hub;
+    else alert('ยังไม่ได้ใส่ hub url');
+  });
+
+  el('btnOpenRun').addEventListener('click', ()=>{
+    saveFields();
+    location.href = buildRunUrl().toString();
+  });
+
+  // ✅ Self-check: ถ้าไฟล์ใด 404 = สาเหตุจอดำแทบชัวร์
+  async function checkOne(path){
+    try{
+      const r = await fetch(path, { cache:'no-store' });
+      if(!r.ok) return { ok:false, status:r.status, path };
+      const ct = (r.headers.get('content-type')||'').toLowerCase();
+      return { ok:true, status:r.status, path, ct };
+    }catch(e){
+      return { ok:false, status:0, path, err:String(e?.message||e) };
+    }
+  }
+
+  el('btnCheck').addEventListener('click', async ()=>{
+    const box = el('checkBox');
+    box.style.display = 'block';
+    box.textContent = 'Checking...';
+
+    const base = new URL('/webxr-health-mobile/herohealth/vr-goodjunk/', location.origin);
+    const files = [
+      new URL('goodjunk-vr.html', base).toString(),
+      new URL('goodjunk-vr.boot.js', base).toString(),
+      new URL('goodjunk.safe.js', base).toString(),
+      new URL('../vr/vr-ui.js', base).toString(),
+      new URL('../vr/particles.js', base).toString(),
+    ];
+
+    const results = [];
+    for(const f of files){
+      results.push(await checkOne(f));
+    }
+
+    box.innerHTML = results.map(x=>{
+      const ok = x.ok ? `<span class="ok">OK</span>` : `<span class="bad">FAIL</span>`;
+      const meta = x.ok ? `${x.status} ${x.ct||''}` : `${x.status||''} ${x.err||''}`;
+      return `${ok} <span style="opacity:.9">${x.path}</span><br/><span style="opacity:.7">${meta}</span>`;
+    }).join('<br/>');
+  });
+
+  pickDefault();
+})();
+</script>
 </body>
 </html>
