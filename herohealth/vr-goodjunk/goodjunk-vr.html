@@ -10,8 +10,9 @@
   <!-- UI -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
+  <!-- Global FX + FX Director + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
   <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- Boot (module) -->
@@ -192,6 +193,10 @@
       // ✅ กัน start เกิดก่อน boot.js โหลด
       window.__HHA_PENDING_START__ = { view };
 
+      // ✅ boot V2.2 listens this
+      window.dispatchEvent(new CustomEvent('hha:ui-start', { detail:{ view } }));
+
+      // ✅ backward compatibility (safe; boot has started guard)
       window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
     }
 
