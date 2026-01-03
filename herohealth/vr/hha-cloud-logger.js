@@ -1,12 +1,6 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
 // HHA Cloud Logger V2.1 — ROW Schema + Dedup + Queue + Beacon (PRODUCTION SAFE)
-// ✅ Flatten into sheet-like columns (rows[])
-// ✅ Safe: never throws, gameplay never breaks
-// ✅ Queue in mem + localStorage, flush on pagehide/hidden
-// ✅ Transport: sendBeacon -> fetch keepalive -> fetch no-cors
-// ✅ Endpoint: ?log= overrides DEFAULT_ENDPOINT
-// ✅ Disable: ?nolog=1
-// ✅ Dedup: basic eventKey (prevents rapid duplicates)
+// (ตัวเต็มล่าสุด)
 
 (function(){
   'use strict';
@@ -17,9 +11,6 @@
   if (ROOT.__HHA_CLOUD_LOGGER_V21__) return;
   ROOT.__HHA_CLOUD_LOGGER_V21__ = true;
 
-  // -------------------------
-  // Config
-  // -------------------------
   const DEFAULT_ENDPOINT =
     'https://script.google.com/macros/s/AKfycbxdy-3BjJhn6Fo3kQX9oxHQIlXT7p2OXn-UYfv1MKV5oSW6jYG-RlnAgKlHqrNxxbhmaw/exec';
 
@@ -36,13 +27,9 @@
   const MAX_LS = 160;
   const FLUSH_BATCH = 24;
 
-  // Dedup
   const DEDUP_TTL_MS = 1800;
-  const dedup = new Map(); // key -> lastTs
+  const dedup = new Map();
 
-  // -------------------------
-  // Safe helpers
-  // -------------------------
   function safeNowIso(){ try { return new Date().toISOString(); } catch { return ''; } }
   function safeStr(x){ try { return (x==null)?'':String(x); } catch { return ''; } }
   function safeNum(x, def=0){
@@ -82,9 +69,6 @@
     }catch(_){ return []; }
   }
 
-  // -------------------------
-  // Context (fill from start/end)
-  // -------------------------
   const ctx = {
     sessionId: null,
     startTimeIso: null,
@@ -95,7 +79,6 @@
     seed: null,
     gameVersion: null,
 
-    // study metadata
     studyId: null,
     phase: null,
     conditionGroup: null,
@@ -103,7 +86,6 @@
     blockLabel: null,
     siteCode: null,
 
-    // student/profile (optional)
     studentKey: null,
     schoolCode: null,
     schoolName: null,
@@ -131,7 +113,7 @@
     return ctx.sessionId;
   }
 
-  function hydrateFromUrlOnce(){
+  (function hydrateFromUrlOnce(){
     try{
       const map = [
         ['studyId',['study','studyId']],
@@ -171,12 +153,8 @@
         }
       }
     }catch(_){}
-  }
-  hydrateFromUrlOnce();
+  })();
 
-  // -------------------------
-  // Sheet ROW schema (flat)
-  // -------------------------
   function baseRow(){
     return {
       timestampIso: safeNowIso(),
@@ -334,9 +312,6 @@
     return r;
   }
 
-  // -------------------------
-  // Queue (memory)
-  // -------------------------
   const memQ = [];
   function memPush(item){
     if(DISABLED) return;
@@ -346,9 +321,6 @@
     }catch(_){}
   }
 
-  // -------------------------
-  // Dedup
-  // -------------------------
   function makeEventKey(row){
     const sec = safeStr(row.timestampIso).slice(0,19);
     return (
@@ -376,9 +348,6 @@
     }
   }
 
-  // -------------------------
-  // Transport
-  // -------------------------
   function sendBeacon(url, bodyStr){
     try{
       if(!navigator.sendBeacon) return false;
@@ -386,7 +355,6 @@
       return navigator.sendBeacon(url, blob);
     }catch(_){ return false; }
   }
-
   async function sendFetchKeepalive(url, bodyStr){
     try{
       await fetch(url, {
@@ -400,7 +368,6 @@
       return true;
     }catch(_){ return false; }
   }
-
   async function sendFetchNoCors(url, bodyStr){
     try{
       await fetch(url, {
@@ -424,13 +391,9 @@
     if(sendBeacon(ENDPOINT, bodyStr)) return true;
     if(await sendFetchKeepalive(ENDPOINT, bodyStr)) return true;
     if(await sendFetchNoCors(ENDPOINT, bodyStr)) return true;
-
     return false;
   }
 
-  // -------------------------
-  // Flush logic
-  // -------------------------
   let flushing = false;
 
   function persistMemQ(){
@@ -488,9 +451,6 @@
     try{ setTimeout(()=>{ flushAll(); }, 0); }catch(_){}
   }
 
-  // -------------------------
-  // Event handlers
-  // -------------------------
   function applyCtxFromStart(d){
     try{
       ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
@@ -508,7 +468,6 @@
       ensureSessionId();
     }catch(_){}
   }
-
   function applyCtxFromEnd(d){
     try{
       ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
@@ -536,7 +495,6 @@
       flushSoon();
     }catch(_){}
   }
-
   function onEnd(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
@@ -547,7 +505,6 @@
       persistMemQ();
     }catch(_){}
   }
-
   function onLog(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
