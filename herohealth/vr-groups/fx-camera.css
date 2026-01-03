@@ -1,0 +1,112 @@
+/* === /herohealth/vr-groups/fx-camera.css ===
+PACK 24: Safe micro-shake + boss heartbeat vignette
+Respects: body[data-fx-level], prefers-reduced-motion handled in JS
+*/
+
+/* OFF */
+body[data-fx-level="0"]{ --fxShake: 0px; }
+body[data-fx-level="0"] .fx-vignette{ display:none !important; }
+
+/* micro shake via playLayer (not the whole body to avoid UI jitter too much) */
+.playLayer{ will-change: transform; }
+
+/* ultra subtle defaults */
+:root{
+  --fxKickS: 1.2px;
+  --fxKickM: 2.0px;
+  --fxKickL: 2.8px;
+}
+
+/* GOOD: tiny pop */
+body.fx-kick-good .playLayer{
+  animation: fxKickGood .14s ease-out both;
+}
+@keyframes fxKickGood{
+  0%{ transform: translate(0,0) scale(1); }
+  55%{ transform: translate(0,-1px) scale(1.004); }
+  100%{ transform: translate(0,0) scale(1); }
+}
+
+/* BAD: a bit heavier */
+body.fx-kick-bad .playLayer{
+  animation: fxKickBad .20s ease-out both;
+}
+@keyframes fxKickBad{
+  0%{ transform: translate(0,0); }
+  35%{ transform: translate(-2px,1px); }
+  70%{ transform: translate(2px,-1px); }
+  100%{ transform: translate(0,0); }
+}
+
+/* BOSS: punch */
+body.fx-kick-boss .playLayer{
+  animation: fxKickBoss .22s cubic-bezier(.2,.9,.2,1) both;
+}
+@keyframes fxKickBoss{
+  0%{ transform: translate(0,0) scale(1); }
+  35%{ transform: translate(0,2px) scale(1.01); }
+  75%{ transform: translate(0,-1px) scale(1.006); }
+  100%{ transform: translate(0,0) scale(1); }
+}
+
+/* PERFECT: sparkle surge */
+body.fx-kick-perfect .playLayer{
+  animation: fxKickPerfect .22s ease-out both;
+}
+@keyframes fxKickPerfect{
+  0%{ transform: translate(0,0) scale(1); }
+  40%{ transform: translate(1px,-1px) scale(1.012); }
+  100%{ transform: translate(0,0) scale(1); }
+}
+
+/* MISS: tiny nudge */
+body.fx-kick-miss .playLayer{
+  animation: fxKickMiss .16s ease-out both;
+}
+@keyframes fxKickMiss{
+  0%{ transform: translate(0,0); }
+  40%{ transform: translate(1px,0); }
+  100%{ transform: translate(0,0); }
+}
+
+/* STORM kick */
+body.fx-storm-kick .playLayer{
+  animation: fxStormKick .42s ease-out both;
+}
+@keyframes fxStormKick{
+  0%{ transform: translate(0,0); }
+  30%{ transform: translate(0,1px); }
+  60%{ transform: translate(0,-1px); }
+  100%{ transform: translate(0,0); }
+}
+
+/* END kick */
+body.fx-end-kick .playLayer{
+  animation: fxEndKick .52s ease-out both;
+}
+@keyframes fxEndKick{
+  0%{ transform: translate(0,0) scale(1); }
+  30%{ transform: translate(0,2px) scale(1.01); }
+  100%{ transform: translate(0,0) scale(1); }
+}
+
+/* ----- Boss heartbeat vignette overlay ----- */
+.fx-vignette{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:70;
+  opacity:0;
+  transition: opacity .18s ease;
+  background:
+    radial-gradient(circle at center, transparent 55%, rgba(167,139,250,.10) 78%, rgba(167,139,250,.18) 100%);
+}
+
+body.fx-boss-live .fx-vignette{
+  opacity:1;
+  animation: bossBeat 1.0s ease-in-out infinite;
+}
+@keyframes bossBeat{
+  0%,100%{ transform: scale(1); filter: saturate(1); }
+  50%{ transform: scale(1.02); filter: saturate(1.05); }
+}
