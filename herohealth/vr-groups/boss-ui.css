@@ -1,99 +1,89 @@
 /* === /herohealth/vr-groups/boss-ui.css ===
-PACK 27: Boss mini UI (top-center, non-blocking)
+PACK 34: Boss HUD
 */
 
-body[data-fx-level="0"] .boss-mini{ display:none !important; }
-
-.boss-mini{
-  position:fixed;
-  top: calc(146px + var(--sat)); /* sits under HUD+quest but above play */
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(420px, 92vw);
-  z-index: 55;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .18s ease, transform .18s ease;
-  filter: drop-shadow(0 14px 30px rgba(0,0,0,.35));
+.bossUI{
+  position: fixed;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(132px + var(--sat));
+  z-index: 60;
+  pointer-events: none;
+  display: none;
+  justify-content: center;
 }
 
-.boss-mini.on{
-  opacity:1;
-  transform: translateX(-50%) translateY(0);
-}
+body.boss-ui-on .bossUI{ display:flex; }
 
-.boss-top{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  padding: 10px 12px 8px;
-  border-radius: 18px 18px 14px 14px;
-  background: rgba(2,6,23,.62);
-  border: 1px solid rgba(148,163,184,.16);
+.bossCard{
+  width: min(520px, 100%);
+  padding: 12px 12px 10px;
+  border-radius: 22px;
+  background: rgba(2,6,23,.72);
+  border: 1px solid rgba(148,163,184,.18);
+  box-shadow: 0 18px 44px rgba(0,0,0,.40);
   backdrop-filter: blur(10px);
 }
 
-.boss-title{
-  font-weight:1000;
-  font-size:12px;
-  letter-spacing:.6px;
-  color: rgba(167,139,250,.95);
-}
-.boss-tag{
-  font-weight:1000;
-  font-size:12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(167,139,250,.30);
-  background: rgba(15,23,42,.55);
-  color: var(--text);
+.bossHead{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.boss-bar{
-  margin-top:8px;
+.bossTitle{
+  font-weight: 1000;
+  letter-spacing:.2px;
+}
+.bossHpText{
+  font-weight: 1000;
+  color: rgba(167,139,250,.95);
+}
+
+.bossBar{
+  margin-top: 10px;
   height: 12px;
   border-radius: 999px;
-  overflow:hidden;
+  overflow: hidden;
   background: rgba(148,163,184,.12);
   border: 1px solid rgba(148,163,184,.14);
 }
-
-.boss-fill{
+.bossFill{
   height:100%;
-  width: 100%;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(167,139,250,.90), rgba(34,211,238,.82));
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(167,139,250,.92), rgba(34,211,238,.82));
   box-shadow: 0 0 0 1px rgba(167,139,250,.16) inset;
-  transition: width .12s linear;
 }
 
-.boss-hint{
-  margin-top:8px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(2,6,23,.52);
-  border: 1px solid rgba(148,163,184,.14);
-  color: var(--muted);
+.bossHint{
+  margin-top: 8px;
   font-weight: 900;
   font-size: 12px;
-  backdrop-filter: blur(10px);
+  color: var(--muted);
 }
 
-/* weak state glow */
-.boss-mini.weak .boss-fill{
-  background: linear-gradient(90deg, rgba(245,158,11,.92), rgba(239,68,68,.78));
+/* low warning */
+body.boss-ui-low .bossCard{
+  border-color: rgba(245,158,11,.45);
+  box-shadow: 0 0 0 2px rgba(245,158,11,.10), 0 18px 44px rgba(0,0,0,.40);
 }
-.boss-mini.weak{
-  animation: bossWeakPulse 1.0s ease-in-out infinite;
-}
-@keyframes bossWeakPulse{
-  0%,100%{ filter: drop-shadow(0 14px 30px rgba(0,0,0,.35)); }
-  50%{ filter: drop-shadow(0 16px 34px rgba(245,158,11,.10)); }
+body.boss-ui-low .bossHpText{
+  color: rgba(245,158,11,.95);
 }
 
-/* compact on very small height */
-@media (max-height: 620px){
-  .boss-mini{ top: calc(130px + var(--sat)); }
-  .boss-hint{ display:none; }
+/* heartbeat */
+body.boss-heart .bossCard{
+  animation: bossBeat .16s ease-out;
+}
+@keyframes bossBeat{
+  0%{ transform: scale(1); }
+  60%{ transform: scale(1.01); }
+  100%{ transform: scale(1); }
+}
+
+/* keep on small screens */
+@media (max-width:420px){
+  .bossUI{ top: calc(180px + var(--sat)); }
 }
