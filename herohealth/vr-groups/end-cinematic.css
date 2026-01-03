@@ -1,0 +1,30 @@
+/* === /herohealth/vr-groups/end-cinematic.css ===
+PACK 30: Cinematic reveal for end overlay (subtle)
+*/
+
+body.fx-end-cine .overlay{
+  animation: endFadeIn .28s ease-out;
+}
+
+@keyframes endFadeIn{
+  from{ opacity:.0; transform: translateY(6px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+
+body.fx-end-cine .panel{
+  animation: endPanelPop .34s ease-out;
+}
+
+@keyframes endPanelPop{
+  from{ transform: scale(.96); box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+  to{ transform: scale(1); box-shadow: 0 24px 70px rgba(0,0,0,.55); }
+}
+
+/* punch the title slightly */
+body.fx-end-cine .title{
+  animation: endTitle .42s ease-out;
+}
+@keyframes endTitle{
+  from{ transform: translateY(-2px); letter-spacing: .8px; }
+  to{ transform: translateY(0); letter-spacing: .2px; }
+}
