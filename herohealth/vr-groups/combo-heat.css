@@ -1,0 +1,41 @@
+/* === /herohealth/vr-groups/combo-heat.css ===
+PACK 51: combo heat ambience (safe)
+uses: --heat (0..1)
+*/
+
+:root{
+  --heat: 0;
+}
+
+/* global ambience */
+body.heat-on{
+  /* slight saturation feel */
+  filter: saturate(calc(1 + var(--heat)*0.18));
+}
+
+/* targets glow with heat */
+body.heat-on .fg-target{
+  box-shadow:
+    0 18px 42px rgba(0,0,0,.45),
+    0 0 calc(18px * var(--heat)) rgba(34,197,94, calc(.05 + var(--heat)*.18)),
+    0 0 calc(22px * var(--heat)) rgba(34,211,238, calc(.04 + var(--heat)*.14));
+  border-color: rgba(148,163,184, calc(.22 + var(--heat)*.10));
+}
+
+/* HUD accent when hot */
+body.heat-on .pill{
+  border-color: rgba(34,197,94, calc(.18 + var(--heat)*.22));
+  box-shadow:
+    0 0 0 2px rgba(34,197,94, calc(var(--heat)*.10)),
+    0 10px 28px rgba(0,0,0,.30);
+}
+
+/* clutch + heat = spicy */
+body.clutch.heat-on .pill{
+  border-color: rgba(245,158,11, calc(.30 + var(--heat)*.20));
+}
+
+/* optional micro bloom at high heat */
+body.heat-on[style*="--heat: 1"] .playLayer{
+  filter: drop-shadow(0 0 18px rgba(167,139,250,.10));
+}
