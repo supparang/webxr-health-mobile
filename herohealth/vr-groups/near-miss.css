@@ -1,0 +1,24 @@
+/* === /herohealth/vr-groups/near-miss.css ===
+PACK 32: streak + subtle edge flare
+*/
+
+.fx-streak{
+  position:absolute;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34,211,238,.0), rgba(34,211,238,.65), rgba(34,197,94,.0));
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.35));
+  opacity: .0;
+  transform-origin: left center;
+  animation: streakIn .36s ease-out forwards;
+}
+
+@keyframes streakIn{
+  0%{ opacity:0; transform: translate(0,-50%) scaleX(.55); }
+  20%{ opacity:1; }
+  100%{ opacity:0; transform: translate(0,-50%) scaleX(1.0); }
+}
+
+body.fx-nearmiss .hud{
+  filter: drop-shadow(0 0 10px rgba(34,211,238,.08));
+}
