@@ -1,92 +1,96 @@
-/* === /herohealth/vr-groups/combo-ladder.js ===
-PACK 42: Combo Ladder + SSS Moment — PRODUCTION
-✅ Reads hha:score (combo) + hha:rank (grade)
-✅ Emits hha:judge kind=streak/perfect to drive effects-pack
-✅ Uses Particles popText/celebrate if available and FX level allows
-*/
+// === /herohealth/vr-groups/combo-ladder.js ===
+// PACK 63: Combo Ladder + Callouts + Small Bonuses
+// Uses hha:score events -> reads combo, triggers hha:judge streak + particles
+// Bonus is applied by emitting groups:bonus for engine (optional)
+// If engine doesn't handle bonus, still shows FX (safe)
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document; if(!DOC) return;
-  const NS = root.GroupsVR = root.GroupsVR || {};
+  const WIN = window;
+  const DOC = document;
 
-  function fxLevel(){
-    try{ return (NS.FXPerf && NS.FXPerf.getLevel) ? NS.FXPerf.getLevel() : Number(DOC.body.dataset.fxLevel||2); }
-    catch{ return 2; }
+  function addCls(c, ms){
+    try{ DOC.body.classList.add(c); setTimeout(()=>DOC.body.classList.remove(c), ms||420); }catch(_){}
   }
-  function allow(min){ return fxLevel() >= (min||1); }
-
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
-  }
-
   function hasParticles(){
-    const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
+    const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
     return !!P;
-  }
-  function pop(x,y,text){
-    try{
-      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
-      if (P && typeof P.popText==='function') P.popText(x,y,text,'');
-    }catch(_){}
   }
   function celebrate(){
     try{
-      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
-      if (P && typeof P.celebrate==='function') P.celebrate();
+      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
+      P && P.celebrate && P.celebrate();
+    }catch(_){}
+  }
+  function popText(x,y,text,cls){
+    try{
+      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
+      P && P.popText && P.popText(x,y,text,cls||'');
     }catch(_){}
   }
 
-  const marks = [
-    { c:6,  label:'NICE!' },
-    { c:10, label:'HOT!' },
-    { c:14, label:'INSANE!' },
-    { c:18, label:'GODLIKE!' }
+  const steps = [
+    { combo: 6,  label:'COMBO x6',  bonus: 40 },
+    { combo: 10, label:'COMBO x10', bonus: 80 },
+    { combo: 14, label:'COMBO x14', bonus: 120 },
+    { combo: 18, label:'COMBO x18', bonus: 170 },
   ];
 
-  let lastCombo = 0;
-  let fired = {};
+  let lastFired = 0;
+  let fired = new Set();
 
-  function onCombo(combo){
-    combo = Number(combo)||0;
-    if (combo < lastCombo) { fired = {}; } // reset when combo breaks
-    lastCombo = combo;
-
-    for (const m of marks){
-      if (combo >= m.c && !fired[m.c]){
-        fired[m.c] = true;
-
-        // drive existing effects-pack
-        emit('hha:judge', { kind:'streak', text:m.label });
-
-        if (allow(2) && hasParticles()){
-          pop(innerWidth*0.5, innerHeight*0.42, m.label);
-          if (allow(3) && m.c >= 14) celebrate();
-        }
-      }
-    }
+  function reset(){
+    fired = new Set();
+    lastFired = 0;
   }
 
-  // listen score
-  root.addEventListener('hha:score', (ev)=>{
-    const d = ev.detail||{};
-    onCombo(d.combo);
-  }, {passive:true});
+  function center(){
+    return { x:(WIN.innerWidth||360)/2, y:Math.max(120, (WIN.innerHeight||640)*0.26) };
+  }
 
-  // SSS moment on end: if grade S/SS/SSS
-  root.addEventListener('hha:end', (ev)=>{
-    const d = ev.detail||{};
-    const g = String(d.grade||'').toUpperCase();
-    if (!allow(2)) return;
+  WIN.addEventListener('hha:start', reset, {passive:true});
+  WIN.addEventListener('hha:end', reset, {passive:true});
 
-    if (g === 'S' || g === 'SS' || g === 'SSS'){
-      emit('hha:judge', { kind:'perfect', text:`${g} MOMENT` });
-      if (hasParticles()){
-        pop(innerWidth*0.5, innerHeight*0.32, `${g} MOMENT`);
-        if (allow(3)) celebrate();
+  WIN.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail||{};
+    const combo = Number(d.combo||0);
+
+    // anti-spam window
+    const t = (performance.now?performance.now():Date.now());
+    if (t - lastFired < 650) return;
+
+    // if combo dropped, allow future steps again (but not instant spam)
+    if (combo <= 1 && fired.size){
+      fired.clear();
+      return;
+    }
+
+    for (const s of steps){
+      if (combo === s.combo && !fired.has(s.combo)){
+        fired.add(s.combo);
+        lastFired = t;
+
+        addCls('fx-combo', 520);
+        const {x,y} = center();
+
+        if (hasParticles()){
+          popText(x,y, s.label + ` +${s.bonus}`, 'fx-combo');
+          celebrate();
+        }
+
+        try{ navigator.vibrate && navigator.vibrate([14,18,14,28,14]); }catch(_){}
+
+        // optional: tell engine to add bonus (engine may or may not listen)
+        try{
+          WIN.dispatchEvent(new CustomEvent('groups:bonus', { detail:{ amount:s.bonus, reason:'combo', combo:s.combo } }));
+        }catch(_){}
+
+        // also emit judge streak for effects-pack.js
+        try{
+          WIN.dispatchEvent(new CustomEvent('hha:judge', { detail:{ kind:'streak', text:s.label } }));
+        }catch(_){}
+        break;
       }
-      DOC.body.classList.add('fx-sss');
-      setTimeout(()=>DOC.body.classList.remove('fx-sss'), 1100);
     }
   }, {passive:true});
 
