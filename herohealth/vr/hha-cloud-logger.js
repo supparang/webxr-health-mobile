@@ -103,7 +103,7 @@
     blockLabel: null,
     siteCode: null,
 
-    // student/profile (optional, if passed by game or URL)
+    // student/profile (optional)
     studentKey: null,
     schoolCode: null,
     schoolName: null,
@@ -131,10 +131,8 @@
     return ctx.sessionId;
   }
 
-  // Pull optional identity from URL (non-breaking)
   function hydrateFromUrlOnce(){
     try{
-      // only fill missing values
       const map = [
         ['studyId',['study','studyId']],
         ['phase',['phase']],
@@ -232,7 +230,6 @@
       startTimeIso: ctx.startTimeIso || null,
       endTimeIso: null,
 
-      // student/profile
       studentKey: ctx.studentKey || null,
       schoolCode: ctx.schoolCode || null,
       schoolName: ctx.schoolName || null,
@@ -253,7 +250,6 @@
       healthDetail: ctx.healthDetail || null,
       consentParent: ctx.consentParent || null,
 
-      // raw (optional)
       rtBreakdownJson: null,
       extraJson: null,
       eventType: null,
@@ -276,8 +272,6 @@
 
     r.durationPlannedSec = safeNum(d.durationPlannedSec, null);
     r.startTimeIso = d.startTimeIso ?? r.startTimeIso;
-
-    // keep ctx in sync
     return r;
   }
 
@@ -312,11 +306,11 @@
     r.miniCleared  = safeNum(d.miniCleared, null);
     r.miniTotal    = safeNum(d.miniTotal, null);
 
-    r.nTargetGoodSpawned   = safeNum(d.nTargetGoodSpawned, null);
-    r.nTargetJunkSpawned   = safeNum(d.nTargetJunkSpawned, null);
-    r.nTargetStarSpawned   = safeNum(d.nTargetStarSpawned, null);
-    r.nTargetDiamondSpawned= safeNum(d.nTargetDiamondSpawned, null);
-    r.nTargetShieldSpawned = safeNum(d.nTargetShieldSpawned, null);
+    r.nTargetGoodSpawned    = safeNum(d.nTargetGoodSpawned, null);
+    r.nTargetJunkSpawned    = safeNum(d.nTargetJunkSpawned, null);
+    r.nTargetStarSpawned    = safeNum(d.nTargetStarSpawned, null);
+    r.nTargetDiamondSpawned = safeNum(d.nTargetDiamondSpawned, null);
+    r.nTargetShieldSpawned  = safeNum(d.nTargetShieldSpawned, null);
 
     r.nHitGood      = safeNum(d.nHitGood, null);
     r.nHitJunk      = safeNum(d.nHitJunk, null);
@@ -330,15 +324,12 @@
     r.fastHitRatePct  = (d.fastHitRatePct!=null) ? Number(d.fastHitRatePct) : null;
 
     r.rtBreakdownJson = d.rtBreakdownJson ?? null;
-
     return r;
   }
 
   function toRowFromLog(d){
     const r = baseRow();
     r.eventType = safeStr(d.type || 'log');
-    // keep it lightweight; store raw into extraJson
-    // (Apps Script สามารถเลือก ignore ได้)
     r.extraJson = safeJson(d);
     return r;
   }
@@ -359,21 +350,19 @@
   // Dedup
   // -------------------------
   function makeEventKey(row){
-    // stable-ish key: sessionId + eventType + (reason/score/miss) + second
-    const sec = safeStr(row.timestampIso).slice(0,19); // up to seconds
-    const key =
+    const sec = safeStr(row.timestampIso).slice(0,19);
+    return (
       safeStr(row.sessionId) + '|' +
       safeStr(row.eventType) + '|' +
       safeStr(row.reason) + '|' +
       safeStr(row.scoreFinal) + '|' +
       safeStr(row.misses) + '|' +
-      sec;
-    return key;
+      sec
+    );
   }
   function allowByDedup(row){
     try{
       const now = Date.now();
-      // cleanup
       for(const [k,t] of dedup.entries()){
         if(now - t > DEDUP_TTL_MS) dedup.delete(k);
       }
@@ -429,11 +418,7 @@
     if(DISABLED) return false;
     if(!rows || !rows.length) return true;
 
-    const payload = {
-      kind: 'HHA_ROWS_V21',
-      count: rows.length,
-      rows
-    };
+    const payload = { kind: 'HHA_ROWS_V21', count: rows.length, rows };
     const bodyStr = safeJson(payload);
 
     if(sendBeacon(ENDPOINT, bodyStr)) return true;
@@ -463,7 +448,6 @@
     flushing = true;
 
     try{
-      // merge LS -> memQ (prepend)
       const fromLS = popLS(maxBatch);
       if(fromLS.length){
         for(const it of fromLS) memQ.unshift(it);
@@ -527,7 +511,6 @@
 
   function applyCtxFromEnd(d){
     try{
-      // keep some ctx for late logs
       ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
       ctx.runMode    = d.runMode ?? ctx.runMode ?? null;
       ctx.view       = d.device ?? d.view ?? ctx.view ?? null;
@@ -569,7 +552,6 @@
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
       const row = toRowFromLog(d);
-      // logs can be noisy — dedup still ok
       if(allowByDedup(row)) memPush(row);
       if(memQ.length % 10 === 0) flushSoon();
     }catch(_){}
@@ -595,7 +577,6 @@
     }catch(_){}
   }, { passive:true });
 
-  // boot flush
   flushSoon();
 
 })();
