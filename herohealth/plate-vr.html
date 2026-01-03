@@ -7,28 +7,271 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- External CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
+  <!-- FX + Logger + Universal VR UI -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
   <script src="./vr/vr-ui.js" defer></script>
 
   <style>
-    /* สำคัญ: กัน HUD บัง VR UI (เผื่อ vr-ui.js สร้างปุ่มซ้อนบนจอ) */
-    .hha-vrui, #hha-vrui, .vrui, #vrui, [data-vrui]{
-      position: fixed !important;
-      z-index: 220 !important;
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --radius:18px;
+      --pill:999px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; height:100%; width:100%;
+      overflow:hidden;
+      background:var(--bg);
+      color:var(--text);
+      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+    }
+
+    a-scene{ position:fixed; inset:0; z-index:0; }
+
+    .bg{
+      position:fixed; inset:0; z-index:1;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
+        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
+        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
+        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+      pointer-events:none;
+    }
+
+    .stage{
+      position:fixed; inset:0; z-index:2;
+      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+    }
+
+    /* spawn layer */
+    #plate-layer{
+      position:fixed; inset:0;
+      z-index:10;
+      pointer-events:auto;
+      touch-action:none;
+      user-select:none;
+    }
+
+    #hitFx{
+      position:fixed; inset:0;
+      z-index:12;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+    }
+
+    .hudTop{
+      position:fixed;
+      left:10px; right:10px;
+      top: calc(10px + var(--sat));
+      z-index:30;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:flex-start;
+      pointer-events:none;
+    }
+
+    .card{
+      pointer-events:auto;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+      min-width: 220px;
+    }
+    .card.small{ min-width: 180px; }
+    .t{ font-weight:1000; font-size:12px; color:rgba(229,231,235,.92); }
+    .v{ margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px;
+      border-radius:var(--pill);
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.56);
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .muted{ color:var(--muted); font-weight:900; }
+
+    .bar{
+      width:160px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.10);
+      border:1px solid rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block; height:100%;
+      width:0%;
+      background:rgba(34,197,94,.85);
+    }
+
+    #miniPanel, #coachPanel{
+      position:fixed;
+      left:10px; right:10px;
+      z-index:28;
+      pointer-events:none;
+    }
+    #miniPanel{ top: calc(84px + var(--sat)); }
+    #coachPanel{ bottom: calc(72px + var(--sab)); }
+
+    .questCard{
+      pointer-events:auto;
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
+      backdrop-filter: blur(10px);
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .questCol{ display:flex; flex-direction:column; gap:6px; min-width:220px; }
+    .questRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
+    .hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
+
+    #hudBtns{
+      position:fixed;
+      right:10px;
+      bottom: calc(10px + var(--sab));
+      z-index:40;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:none;
+    }
+    .btn{
+      pointer-events:auto;
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:10px 12px;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.20);
+      color:rgba(229,231,235,.95);
+      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
+
+    /* overlays */
+    #startOverlay, #hudPaused, #resultBackdrop{
+      position:fixed; inset:0;
+      z-index:70;
+      display:none;
+      place-items:center;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+    }
+    .panelCard{
+      width:min(980px, 100%);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.42);
+    }
+
+    /* Boss/Storm FX layers (JS toggles classes) */
+    #bossFx, #stormFx{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:55;
+      display:none;
+    }
+
+    /* Boss HUD (ids must match JS) */
+    #bossHud{
+      position:fixed;
+      left:10px;
+      bottom: calc(10px + var(--sab));
+      z-index:42;
+      display:none;
+      pointer-events:none;
+    }
+    .bossCard{
+      pointer-events:auto;
+      background:rgba(15,23,42,.72);
+      border:1px solid rgba(167,139,250,.28);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
+      min-width: 280px;
+    }
+    .bossLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
+    .bossProg{ margin-top:8px; font-weight:1100; }
+
+    /* Storm HUD (ids must match JS) */
+    #stormHud{
+      position:fixed;
+      left:10px;
+      top: calc(10px + var(--sat));
+      z-index:43;
+      display:none;
+      pointer-events:none;
+      transform: translateY(54px); /* ใต้ HUD top */
+    }
+    .stormCard{
+      pointer-events:auto;
+      background:rgba(15,23,42,.72);
+      border:1px solid rgba(34,211,238,.28);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
+      min-width: 320px;
+    }
+    .stormLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
+    .stormProg{ margin-top:8px; font-weight:1100; }
+
+    @media (max-width: 920px){
+      .card{ min-width: 170px; }
+      .bar{ width:140px; }
+      #stormHud{ transform: translateY(62px); }
     }
   </style>
 
   <script>
+    /* Universal VR UI lockPx (crosshair assist) */
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
 </head>
 
 <body>
+  <!-- Minimal A-Frame scene (enterVR/exit/recenter work) -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
     <a-entity id="rig" position="0 0 0">
       <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
@@ -37,6 +280,7 @@
 
   <div class="bg"></div>
 
+  <!-- FX layers required by JS -->
   <div id="stormFx"></div>
   <div id="bossFx"></div>
 
@@ -44,6 +288,7 @@
     <div id="plate-layer" aria-label="plate targets layer"></div>
     <div id="hitFx"></div>
 
+    <!-- HUD TOP -->
     <div class="hudTop" id="hudTop">
       <div class="card">
         <div class="t">คะแนน / คอมโบ / พลาด</div>
@@ -89,6 +334,7 @@
       </div>
     </div>
 
+    <!-- Storm HUD -->
     <div id="stormHud">
       <div class="stormCard">
         <div class="t" id="stormTitle">🌪️ STORM</div>
@@ -97,6 +343,7 @@
       </div>
     </div>
 
+    <!-- GOAL + MINI -->
     <div id="miniPanel">
       <div class="questCard">
         <div class="questCol">
@@ -123,10 +370,12 @@
         <div class="questCol" style="min-width:260px">
           <div class="k">💡 Hint</div>
           <div class="hint" id="uiHint">เติมจานให้ครบ 5 หมู่ แล้วคุมความแม่นยำ!</div>
+          <div class="hint" id="uiCvrHint" style="margin-top:6px">Cardboard: view=cvr ยิงจาก crosshair</div>
         </div>
       </div>
     </div>
 
+    <!-- COACH -->
     <div id="coachPanel">
       <div class="questCard" style="justify-content:space-between">
         <div style="display:flex; gap:10px; align-items:center; min-width:260px;">
@@ -137,12 +386,13 @@
             <div id="coachMsg" style="font-weight:1100">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
           </div>
         </div>
-        <div class="hint" style="text-align:right; max-width:360px" id="uiCvrHint">
+        <div class="hint" style="text-align:right; max-width:360px">
           ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
         </div>
       </div>
     </div>
 
+    <!-- Boss HUD -->
     <div id="bossHud">
       <div class="bossCard">
         <div class="t" id="bossTitle">👹 BOSS</div>
@@ -151,6 +401,7 @@
       </div>
     </div>
 
+    <!-- Buttons -->
     <div id="hudBtns">
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
@@ -158,6 +409,7 @@
       <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
     </div>
 
+    <!-- Start overlay -->
     <div id="startOverlay" style="display:grid">
       <div class="panelCard">
         <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start">
@@ -165,7 +417,7 @@
             <div style="font-weight:1200; font-size:18px">🍽️ Balanced Plate VR</div>
             <div style="margin-top:6px; color:var(--muted); font-weight:900; line-height:1.35; font-size:13px">
               โหมด: <b id="uiRunPreview">play</b> • ระดับ: <b id="uiDiffPreview">normal</b> • เวลา: <b id="uiTimePreview">90</b>s
-              <br/>Play = Adaptive ON + Practice 15s • Study = Seeded & Adaptive OFF
+              <br/>Play = Adaptive ON • Study = Seeded & Adaptive OFF
             </div>
           </div>
           <div style="color:var(--muted); font-weight:900; font-size:13px; text-align:right">
@@ -183,6 +435,7 @@
       </div>
     </div>
 
+    <!-- Paused overlay -->
     <div id="hudPaused">
       <div class="panelCard" style="width:min(520px,100%); text-align:center">
         <div style="font-weight:1200; font-size:18px">⏸ Paused</div>
@@ -194,6 +447,7 @@
       </div>
     </div>
 
+    <!-- Result overlay -->
     <div id="resultBackdrop">
       <div class="panelCard">
         <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start">
@@ -243,9 +497,9 @@
         </style>
       </div>
     </div>
-
   </div>
 
+  <!-- Start overlay bridge -->
   <script>
     (function(){
       const btnStartMain = document.getElementById('btnStartMain');
@@ -278,6 +532,7 @@
     })();
   </script>
 
+  <!-- RUN GAME -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </body>
 </html>
