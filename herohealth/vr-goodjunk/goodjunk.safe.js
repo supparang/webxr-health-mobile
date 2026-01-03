@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — PRODUCTION (C+FX PATCH: lowtime + fever/shield UI + VR-safe FX)
+// GoodJunkVR — PRODUCTION (C+FX PATCH + TWO-EYE + cVR SHOOT)
 // ✅ MISS = good expired + junk hit (shield blocks junk miss => NO miss)
 // ✅ Play: practice 15s (no penalty) then real play timer resets
 // ✅ Research: deterministic seed, NO practice
@@ -8,6 +8,8 @@
 // ✅ Low-time: ring + tick pulse + 5s soft countdown overlay
 // ✅ Fever UI: bar + % + shield pills render
 // ✅ VR-safe: no shake in VR/cVR, lighter FX frequency
+// ✅ TWO-EYE: spawn pair L/R in VR/cVR + click/shoot removes BOTH + expire removes BOTH (miss counted once)
+// ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center
 
 'use strict';
 
@@ -236,10 +238,7 @@ function lowtimeApply(ui, timeLeftSec){
     }
   }
 }
-
-// tick pulse: toggle body.gj-tick briefly once per second in lowtime window
 function lowtimeTickPulse(secCeil){
-  // only pulse for 10..1
   if(secCeil <= 10 && secCeil >= 1){
     DOC.body.classList.add('gj-tick');
     setTimeout(()=> DOC.body.classList.remove('gj-tick'), 90);
@@ -258,11 +257,9 @@ function feverInit(){
     pills: byId('shieldPills'),
   };
 }
-
-// fever model: miss ratio + small pressure from junk hits (capped)
 function feverCompute(state, missLimit){
   const missP = clamp(state.miss / Math.max(1, missLimit), 0, 1);
-  const junkP = clamp(state.nHitJunk / 14, 0, 0.25); // gentle extra pressure
+  const junkP = clamp(state.nHitJunk / 14, 0, 0.25);
   return clamp(missP + junkP, 0, 1);
 }
 function feverRender(ui, fever01){
@@ -271,12 +268,10 @@ function feverRender(ui, fever01){
   if(ui.fill) ui.fill.style.width = `${pct}%`;
   if(ui.text) ui.text.textContent = `${pct}%`;
 }
-
-// show shield as pills per 2s (max 6s => 3 pills)
 function shieldRender(ui, shieldSec){
   if(!ui || !ui.pills) return;
   const s = Math.max(0, Number(shieldSec)||0);
-  const n = clamp(Math.ceil(s / 2), 0, 4); // up to 4 pills if future buff
+  const n = clamp(Math.ceil(s / 2), 0, 4);
   const arr = [];
   for(let i=0;i<n;i++) arr.push('🛡️');
   ui.pills.innerHTML = arr.length ? arr.map(x=>`<span style="display:inline-flex;align-items:center;justify-content:center;
@@ -395,7 +390,14 @@ function pickEmoji(kind, rng){
   const arr = (kind==='good') ? good : junk;
   return arr[Math.floor(rng()*arr.length)] || (kind==='good'?'🍎':'🍟');
 }
-function removeEl(el){ try{ el.classList.add('gone'); setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 160); }catch(_){ try{ el.remove(); }catch(__){} } }
+function removeEl(el){
+  try{
+    el.classList.add('gone');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 160);
+  }catch(_){
+    try{ el.remove(); }catch(__){}
+  }
+}
 
 // -------------------------
 // RT buckets
@@ -493,6 +495,8 @@ export function boot(opts={}){
   const layer = byId('gj-layer');
   if(!layer){ console.error('GoodJunkVR: missing #gj-layer'); return; }
 
+  const layerR = byId('gj-layer-r'); // ✅ right eye layer (VR/cVR)
+
   const view = String(opts.view||'mobile');
   const diff = String(opts.diff||'normal').toLowerCase();
   const run  = String(opts.run||'play').toLowerCase();
@@ -532,7 +536,7 @@ export function boot(opts={}){
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion:'gj-2026-01-02Cfx'
+    gameVersion:'gj-2026-01-02D-twoeye'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
@@ -570,15 +574,38 @@ export function boot(opts={}){
   const activeTargets = new Set();
   let ended = false;
 
+  // -------- Pair (L/R) management --------
+  let pairSeq = 1;
+  const pairMap = new Map();     // pid -> { kind, l, r, bornAt, expireT }
+  const elToPid = new WeakMap(); // element -> pid
+  function nextPid(){ return String(pairSeq++); }
+  function pairRemove(pid){
+    const p = pairMap.get(pid);
+    if(!p) return;
+    pairMap.delete(pid);
+    if(p.expireT){ try{ clearTimeout(p.expireT); }catch(_){} }
+    if(p.l){ try{ activeTargets.delete(p.l); removeEl(p.l); }catch(_){} }
+    if(p.r){ try{ activeTargets.delete(p.r); removeEl(p.r); }catch(_){} }
+  }
+  function pairFromEl(el){ return el ? elToPid.get(el) : null; }
+
   function onTargetClick(e){
-    const el = e.target;
-    if(!el || !el.dataset) return;
+    const el0 = e?.target;
+    if(!el0) return;
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
-    const kind = el.dataset.kind;
+    const targetEl = el0.closest ? el0.closest('.gj-target') : el0;
+    if(!targetEl || !targetEl.dataset) return;
+
+    const pid = pairFromEl(targetEl) || targetEl.dataset.pid || null;
+    if(!pid) return;
+    const p = pairMap.get(pid);
+    if(!p) return;
+
+    const kind = p.kind;
     const tNow = nowMs();
 
-    const bornAt = Number(el.dataset.bornAt || 0);
+    const bornAt = Number(targetEl.dataset.bornAt || 0);
     const rt = bornAt ? Math.max(0, tNow - bornAt) : null;
 
     if(kind === 'good'){
@@ -619,7 +646,7 @@ export function boot(opts={}){
       if(state.mini && state.mini.done) advanceMini(state, 'done');
 
       try{
-        const r = el.getBoundingClientRect();
+        const r = targetEl.getBoundingClientRect();
         const cx = r.left + r.width/2, cy = r.top + r.height/2;
         fx.burst(cx, cy, 'good');
         fx.pop(cx, cy, '+10', 'GOOD');
@@ -634,7 +661,7 @@ export function boot(opts={}){
         state.combo = 0;
         miniOnJunkHit(state);
         try{
-          const r = el.getBoundingClientRect();
+          const r = targetEl.getBoundingClientRect();
           fx.burst(r.left+r.width/2, r.top+r.height/2, 'trap');
           fx.pop(r.left+r.width/2, r.top+r.height/2, '', 'NOPE');
         }catch(_){}
@@ -646,7 +673,7 @@ export function boot(opts={}){
           state.score = Math.max(0, state.score - 1);
           state.combo = Math.max(0, state.combo - 1);
           try{
-            const r = el.getBoundingClientRect();
+            const r = targetEl.getBoundingClientRect();
             fx.pop(r.left+r.width/2, r.top+r.height/2, '🛡️', 'BLOCK');
             fx.burst(r.left+r.width/2, r.top+r.height/2, 'power');
           }catch(_){}
@@ -657,7 +684,7 @@ export function boot(opts={}){
           state.combo = 0;
           miniOnJunkHit(state);
           try{
-            const r = el.getBoundingClientRect();
+            const r = targetEl.getBoundingClientRect();
             fx.pop(r.left+r.width/2, r.top+r.height/2, '', 'MISS');
             fx.burst(r.left+r.width/2, r.top+r.height/2, 'trap');
           }catch(_){}
@@ -670,7 +697,7 @@ export function boot(opts={}){
       state.miss = Math.max(0, state.miss - 1);
       state.combo = Math.max(state.combo, 1);
       try{
-        const r = el.getBoundingClientRect();
+        const r = targetEl.getBoundingClientRect();
         fx.pop(r.left+r.width/2, r.top+r.height/2, '+18', 'STAR');
         fx.burst(r.left+r.width/2, r.top+r.height/2, 'gold');
       }catch(_){}
@@ -680,22 +707,22 @@ export function boot(opts={}){
       state.shieldSec = Math.max(state.shieldSec, 6);
       state.score += 6;
       try{
-        const r = el.getBoundingClientRect();
+        const r = targetEl.getBoundingClientRect();
         fx.pop(r.left+r.width/2, r.top+r.height/2, '+SHIELD', '🛡️');
         fx.burst(r.left+r.width/2, r.top+r.height/2, 'power');
       }catch(_){}
       logEvent('pickup_shield', { score: state.score, shieldSec: state.shieldSec });
     }
 
-    removeEl(el);
+    // ✅ remove BOTH eyes
+    pairRemove(pid);
+
     hudUpdate(state);
 
-    // refresh fever/shield UI
     const fever01 = feverCompute(state, missLimit);
     feverRender(feverUI, fever01);
     shieldRender(feverUI, state.shieldSec);
 
-    // danger UI only matters in play
     if(state.phase === 'play'){
       setDanger(clamp((state.miss / Math.max(1, missLimit)), 0, 1), view);
       if(state.miss >= missLimit){
@@ -705,6 +732,7 @@ export function boot(opts={}){
   }
 
   layer.addEventListener('click', onTargetClick, { passive:false });
+  if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
 
   function spawnOne(forceKind=null){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
@@ -727,8 +755,14 @@ export function boot(opts={}){
       }
     }
 
+    const pid = nextPid();
     const emoji = pickEmoji(kind, state.rng);
-    const el = createTargetEl(kind, emoji);
+
+    const elL = createTargetEl(kind, emoji);
+    elL.dataset.pid = pid;
+
+    const elR = layerR ? createTargetEl(kind, emoji) : null;
+    if(elR) elR.dataset.pid = pid;
 
     const W = DOC.documentElement.clientWidth;
     const H = DOC.documentElement.clientHeight;
@@ -736,13 +770,21 @@ export function boot(opts={}){
 
     const x = randIn(state.rng, 0.18, 0.82) * W;
     const y = randIn(state.rng, 0.25, 0.78) * H;
-    el.style.left = `${x}px`;
-    el.style.top  = `${Math.max(topPad, y)}px`;
+
+    elL.style.left = `${x}px`;
+    elL.style.top  = `${Math.max(topPad, y)}px`;
+
+    if(elR){
+      elR.style.left = `${x}px`;
+      elR.style.top  = `${Math.max(topPad, y)}px`;
+    }
 
     const s = (kind==='star' || kind==='shield')
       ? randIn(state.rng, 0.95, 1.08)
       : randIn(state.rng, 0.92, 1.18);
-    el.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
+
+    elL.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
+    if(elR) elR.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
 
     const mobileMul = (view==='mobile') ? 1.18 : 1.0;
     let lifeMs;
@@ -751,23 +793,35 @@ export function boot(opts={}){
     else lifeMs = randIn(state.rng, 1200, 2000) * mobileMul;
 
     const born = nowMs();
-    el.dataset.bornAt = String(born);
+    elL.dataset.bornAt = String(born);
+    if(elR) elR.dataset.bornAt = String(born);
+
     state.lastSpawnAtMs = born;
 
-    layer.appendChild(el);
-    requestAnimationFrame(()=> el.classList.add('spawn'));
-    activeTargets.add(el);
+    layer.appendChild(elL);
+    if(layerR && elR) layerR.appendChild(elR);
+
+    requestAnimationFrame(()=> elL.classList.add('spawn'));
+    if(elR) requestAnimationFrame(()=> elR.classList.add('spawn'));
+
+    activeTargets.add(elL);
+    if(elR) activeTargets.add(elR);
+
+    pairMap.set(pid, { kind, l: elL, r: elR, bornAt: born, expireT: 0 });
+    elToPid.set(elL, pid);
+    if(elR) elToPid.set(elR, pid);
 
     if(kind==='good') state.nSpawnGood++;
     else if(kind==='junk') state.nSpawnJunk++;
     else if(kind==='star') state.nSpawnStar++;
     else if(kind==='shield') state.nSpawnShield++;
 
-    setTimeout(()=>{
-      if(!activeTargets.has(el) || ended) return;
-      activeTargets.delete(el);
+    const expireT = setTimeout(()=>{
+      if(ended) return;
+      const p = pairMap.get(pid);
+      if(!p) return;
 
-      if(el.dataset.kind === 'good' && (state.phase==='practice' || state.phase==='play')){
+      if(p.kind === 'good' && (state.phase==='practice' || state.phase==='play')){
         if(state.phase === 'practice'){
           state.nExpireGood++;
           logEvent('expire_good_practice', {});
@@ -786,16 +840,56 @@ export function boot(opts={}){
 
             setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1), view);
             if(state.miss >= missLimit){
-              removeEl(el);
+              pairRemove(pid);
               endGame('missLimit');
               return;
             }
           }
         }
       }
-      removeEl(el);
+
+      pairRemove(pid);
+
     }, Math.floor(lifeMs));
+
+    const p0 = pairMap.get(pid);
+    if(p0) p0.expireT = expireT;
   }
+
+  // ✅ cVR shoot: pick nearest target to crosshair
+  function pickByCrosshair(lockPx=46){
+    const cx = DOC.documentElement.clientWidth * 0.5;
+    const cy = DOC.documentElement.clientHeight * 0.5;
+    let bestPid = null;
+    let bestD2 = lockPx * lockPx;
+
+    for(const [pid, p] of pairMap.entries()){
+      const el = p?.l;
+      if(!el) continue;
+      const r = el.getBoundingClientRect();
+      const tx = r.left + r.width/2;
+      const ty = r.top  + r.height/2;
+      const dx = tx - cx;
+      const dy = ty - cy;
+      const d2 = dx*dx + dy*dy;
+      if(d2 <= bestD2){
+        bestD2 = d2;
+        bestPid = pid;
+      }
+    }
+    return bestPid;
+  }
+  function shoot(){
+    if(state.phase !== 'practice' && state.phase !== 'play') return;
+    const lock = (view === 'cvr' || view === 'vr') ? 58 : 46;
+    const pid = pickByCrosshair(lock);
+    if(!pid) return;
+    const p = pairMap.get(pid);
+    const el = p?.l;
+    if(!el) return;
+    onTargetClick({ target: el });
+  }
+  ROOT.addEventListener('hha:shoot', shoot, { passive:true });
 
   // spawn pacing
   let lastTick = nowMs();
@@ -854,7 +948,6 @@ export function boot(opts={}){
 
       hudUpdate(state);
 
-      // fever in practice: show gentle (based on misses only; mostly 0)
       const fever01 = feverCompute(state, missLimit);
       feverRender(feverUI, fever01);
     }
@@ -863,12 +956,10 @@ export function boot(opts={}){
       state.timeLeftSec = Math.max(0, state.timeTotalSec - state.playedSec);
       state.graceSec = Math.max(0, state.graceSec - dt);
 
-      // ✅ Low-time UI
       lowtimeApply(lowUI, state.timeLeftSec);
       const secCeil = Math.ceil(state.timeLeftSec);
       if(secCeil !== lastLowSec){
         lastLowSec = secCeil;
-        // pulse once per second in 10..1 window
         if(secCeil <= 10 && secCeil >= 1) lowtimeTickPulse(secCeil);
       }
 
@@ -906,13 +997,11 @@ export function boot(opts={}){
 
       setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1), view);
 
-      // fever render
       const fever01 = feverCompute(state, missLimit);
       feverRender(feverUI, fever01);
 
       hudUpdate(state);
 
-      // ✅ AI update (~1s)
       if(ai && ai.enabled){
         aiAcc += dt;
         if(aiAcc >= 1.0){
@@ -958,11 +1047,13 @@ export function boot(opts={}){
     state.phase = 'end';
     setDanger(0, view);
 
-    // cleanup lowtime classes
     DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
     if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
-    activeTargets.forEach(el=>removeEl(el));
+    // remove all pairs
+    for(const pid of pairMap.keys()){
+      pairRemove(pid);
+    }
     activeTargets.clear();
 
     const denom = (state.nHitGood + state.nExpireGood);
@@ -1030,7 +1121,7 @@ export function boot(opts={}){
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
 
-      gameVersion:'gj-2026-01-02Cfx',
+      gameVersion:'gj-2026-01-02D-twoeye',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
@@ -1060,7 +1151,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-02Cfx',
+          gameVersion:'gj-2026-01-02D-twoeye',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
