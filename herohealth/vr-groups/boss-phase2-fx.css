@@ -1,0 +1,27 @@
+/* === /herohealth/vr-groups/boss-phase2-fx.css ===
+PACK 38: phase2 visual
+*/
+
+body.fx-boss2 .bossCard{
+  border-color: rgba(239,68,68,.55) !important;
+  box-shadow: 0 0 0 2px rgba(239,68,68,.12), 0 18px 44px rgba(0,0,0,.40) !important;
+}
+
+body.fx-boss2 .bossFill{
+  background: linear-gradient(90deg, rgba(239,68,68,.90), rgba(245,158,11,.82));
+}
+
+body.fx-boss2 .bossUI{
+  animation: boss2Kick .22s ease-out;
+}
+@keyframes boss2Kick{
+  0%{ transform: translateX(0); }
+  35%{ transform: translateX(-2px); }
+  70%{ transform: translateX(2px); }
+  100%{ transform: translateX(0); }
+}
+
+/* rage glow on boss target itself (CSS only, safe) */
+body.boss-ui-low .fg-boss{
+  box-shadow: 0 0 0 2px rgba(245,158,11,.14), 0 0 26px rgba(239,68,68,.18), var(--glow);
+}
