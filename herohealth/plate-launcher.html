@@ -1,3 +1,11 @@
+<!-- === /herohealth/plate-launcher.html ===
+Balanced Plate VR — Launcher (PRODUCTION)
+✅ PC/Mobile/Cardboard (cVR) entry
+✅ Remembers last settings (localStorage)
+✅ Builds run URL -> ./plate-vr.html?view=...&run=...&diff=...&time=...&seed=...&hub=...
+✅ Copy link + Open
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -31,1019 +39,520 @@
     }
 
     *{ box-sizing:border-box; }
-    html, body{ height:100%; }
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+    html,body{
+      margin:0; width:100%; height:100%;
+      overflow:hidden;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+    }
+
+    .bg{
+      position:fixed; inset:0;
       background:
-        radial-gradient(circle at 15% 10%, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(circle at 85% 20%, rgba(167,139,250,.12), transparent 58%),
-        radial-gradient(circle at 50% 95%, rgba(34,197,94,.12), transparent 55%),
-        var(--bg);
-      color: var(--text);
-      overflow-x:hidden;
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
+        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
+        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
+        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+      pointer-events:none;
     }
 
     .wrap{
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      position:fixed; inset:0;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
     }
 
-    header{
+    .container{
+      width:min(1020px, 100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .hero{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.40);
+      backdrop-filter: blur(10px);
+    }
+
+    .hTop{
       display:flex;
-      align-items:flex-start;
       justify-content:space-between;
       gap:12px;
-      margin-bottom: 14px;
+      flex-wrap:wrap;
+      align-items:flex-start;
     }
-    .brand{
-      display:flex; gap:10px; align-items:center;
-    }
-    .logo{
-      width:42px; height:42px; border-radius:14px;
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 55%),
-        linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.20));
-      border:1px solid rgba(148,163,184,.20);
-      box-shadow: 0 18px 48px rgba(0,0,0,.30);
-    }
-    h1{
-      margin:0;
-      font-size: 18px;
+
+    .title{
+      font-weight:1200;
+      font-size:18px;
       letter-spacing:.2px;
-      line-height:1.25;
     }
+
     .sub{
-      margin-top:4px;
-      color: var(--muted);
-      font-size: 12.5px;
+      margin-top:6px;
+      color:var(--muted);
+      font-weight:900;
+      font-size:13px;
       line-height:1.35;
+      max-width: 760px;
     }
-
-    .topActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      align-items:center;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap: 14px;
-    }
-    @media (max-width: 920px){
-      .grid{ grid-template-columns: 1fr; }
-    }
-
-    .card{
-      background: var(--panel);
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: var(--radius);
-      box-shadow: 0 18px 52px rgba(0,0,0,.32);
-      overflow:hidden;
-    }
-    .cardHd{
-      padding: 14px 14px 10px 14px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      background:
-        radial-gradient(circle at 20% 20%, rgba(34,211,238,.08), transparent 40%),
-        rgba(2,6,23,.55);
-      border-bottom: 1px solid rgba(148,163,184,.14);
-    }
-    .cardHd .title{
-      font-weight: 800;
-      letter-spacing:.2px;
-      font-size: 14px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .cardBd{ padding: 14px; }
-
-    .row{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    @media (max-width: 520px){
-      .row{ grid-template-columns: 1fr; }
-    }
-
-    label{
-      display:block;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    input, select{
-      width:100%;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(148,163,184,.18);
-      outline: none;
-      color: var(--text);
-      background:
-        radial-gradient(circle at 20% 20%, rgba(255,255,255,.06), transparent 40%),
-        rgba(15,23,42,.62);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-    }
-    input::placeholder{ color: rgba(148,163,184,.75); }
-    input:focus, select:focus{
-      border-color: rgba(34,211,238,.35);
-      box-shadow: 0 0 0 3px rgba(34,211,238,.12);
-    }
-
-    .seg{
-      display:flex;
-      gap: 8px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-    .seg .opt{
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.62);
-      color: var(--text);
-      padding: 10px 12px;
-      border-radius: 999px;
-      cursor:pointer;
-      font-weight: 800;
-      letter-spacing:.2px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-    }
-    .seg .opt[aria-pressed="true"]{
-      border-color: rgba(34,197,94,.35);
-      background:
-        radial-gradient(circle at 20% 20%, rgba(34,197,94,.16), transparent 50%),
-        rgba(15,23,42,.72);
-      box-shadow: 0 0 0 3px rgba(34,197,94,.10), inset 0 1px 0 rgba(255,255,255,.08);
-    }
-
-    .hint{
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height:1.35;
-    }
-
-    .btns{
-      display:flex;
-      flex-wrap:wrap;
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    .btn{
-      appearance:none;
-      border: 1px solid rgba(148,163,184,.18);
-      color: var(--text);
-      background: rgba(15,23,42,.65);
-      border-radius: 16px;
-      padding: 10px 12px;
-      cursor:pointer;
-      font-weight: 800;
-      letter-spacing:.15px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      box-shadow: 0 16px 48px rgba(0,0,0,.28);
-      user-select:none;
-    }
-    .btn:hover{ filter: brightness(1.08); }
-    .btn:active{ transform: translateY(1px); }
-
-    .btn.primary{
-      border-color: rgba(34,197,94,.30);
-      background:
-        radial-gradient(circle at 20% 20%, rgba(34,197,94,.16), transparent 48%),
-        rgba(15,23,42,.70);
-    }
-    .btn.cyan{
-      border-color: rgba(34,211,238,.32);
-      background:
-        radial-gradient(circle at 20% 20%, rgba(34,211,238,.16), transparent 48%),
-        rgba(15,23,42,.70);
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.32);
-      background:
-        radial-gradient(circle at 20% 20%, rgba(245,158,11,.16), transparent 48%),
-        rgba(15,23,42,.70);
-    }
-    .btn.bad{
-      border-color: rgba(239,68,68,.30);
-      background:
-        radial-gradient(circle at 20% 20%, rgba(239,68,68,.16), transparent 48%),
-        rgba(15,23,42,.70);
-    }
-
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-      line-height: 1.35;
-      word-break: break-all;
-    }
-    .previewBox{
-      padding: 12px;
-      border-radius: 16px;
-      border: 1px dashed rgba(148,163,184,.22);
-      background: rgba(2,6,23,.40);
-    }
-
-    .status{
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height:1.35;
-    }
-
-    .qrWrap{
-      display:grid;
-      grid-template-columns: 160px 1fr;
-      gap: 12px;
-      align-items:center;
-    }
-    @media (max-width: 520px){
-      .qrWrap{ grid-template-columns: 1fr; }
-    }
-    canvas{
-      width: 160px;
-      height: 160px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background:#fff;
-    }
-    .qrLink{
-      display:block;
-      color: var(--text);
-      text-decoration:none;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.62);
-      padding: 10px 12px;
-    }
-    .qrLink:hover{ filter:brightness(1.08); }
 
     .pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,.18);
-      background:
-        radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
-        rgba(15,23,42,.68);
-      color: var(--text);
-      font-weight: 800;
-      font-size: 12px;
-      box-shadow: 0 16px 48px rgba(0,0,0,.28);
-      margin: 6px 8px 0 0;
+      padding:8px 10px;
+      border-radius:var(--pill);
+      background:rgba(15,23,42,.56);
+      border:1px solid rgba(148,163,184,.20);
+      font-weight:1000;
+      font-size:12px;
+      color:rgba(229,231,235,.95);
+      white-space:nowrap;
     }
 
-    pre{
-      margin: 10px 0 0 0;
-      padding: 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.50);
-      color: var(--text);
-      overflow:auto;
-      max-height: 280px;
-      display:none;
+    .grid{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:14px;
     }
 
-    .tiny{
-      font-size: 11.5px;
-      color: var(--muted);
+    .card{
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:14px;
+      box-shadow: 0 20px 70px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+    }
+
+    .k{
+      font-weight:1100;
+      font-size:12px;
+      color:rgba(229,231,235,.92);
+    }
+    .muted{ color:var(--muted); font-weight:900; }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:10px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:10px 12px;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.20);
+      color:rgba(229,231,235,.95);
+      font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      box-shadow: 0 16px 40px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+      transition: transform .08s ease;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{
+      background:rgba(34,197,94,.14);
+      border-color:rgba(34,197,94,.30);
+    }
+    .btn.cyan{
+      background:rgba(34,211,238,.14);
+      border-color:rgba(34,211,238,.30);
+    }
+    .btn.warn{
+      background:rgba(245,158,11,.14);
+      border-color:rgba(245,158,11,.30);
+    }
+    .btn.bad{
+      background:rgba(239,68,68,.14);
+      border-color:rgba(239,68,68,.30);
+    }
+    .btn.ghost{
+      background:rgba(15,23,42,.42);
+    }
+
+    .seg{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+    .seg .btn{
+      border-radius:14px;
+      padding:10px 12px;
+      min-width: 140px;
+      text-align:center;
+    }
+    .seg .btn.on{
+      outline:2px solid rgba(34,197,94,.35);
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.12);
+    }
+
+    .field{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:10px;
+    }
+    label{
+      font-weight:1000;
+      font-size:12px;
+      color:rgba(229,231,235,.92);
+    }
+    select, input{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color:rgba(229,231,235,.95);
+      border-radius:14px;
+      padding:10px 10px;
+      font-weight:1000;
+      font-size:12px;
+      outline:none;
+    }
+    input[type="number"]{ width: 120px; }
+    input[type="text"]{ width: min(520px, 100%); flex:1; }
+
+    .preview{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.18);
+      color:rgba(229,231,235,.92);
+      font-weight:900;
+      font-size:12px;
       line-height:1.35;
+      overflow:auto;
+      white-space:nowrap;
+    }
+
+    .note{
+      margin-top:10px;
+      color:rgba(148,163,184,.95);
+      font-weight:900;
+      font-size:12px;
+      line-height:1.35;
+    }
+
+    @media (max-width: 920px){
+      .grid{ grid-template-columns: 1fr; }
+      .seg .btn{ min-width: 120px; }
     }
   </style>
 </head>
 
 <body>
+  <div class="bg"></div>
+
   <div class="wrap">
-    <header>
-      <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
-        <div>
-          <h1>🍽️ HeroHealth — Balanced Plate VR Launcher</h1>
-          <div class="sub">เลือกโหมดเล่น/วิจัย + อุปกรณ์ + ทำลิงก์/QR แบบสแกนได้จริง</div>
-        </div>
-      </div>
-
-      <div class="topActions">
-        <button id="btnBackHubTop" class="btn cyan" type="button">🏠 กลับ HUB</button>
-        <button id="btnPresetResearch" class="btn warn" type="button">🎓 Preset วิจัย ป.5</button>
-      </div>
-    </header>
-
-    <div class="grid">
-      <!-- LEFT: Controls -->
-      <section class="card">
-        <div class="cardHd">
-          <div class="title">⚙️ ตั้งค่าเกม</div>
-          <div class="tiny">plate-vr.html</div>
-        </div>
-        <div class="cardBd">
+    <div class="container">
+      <div class="hero">
+        <div class="hTop">
           <div>
-            <label>อุปกรณ์ / View</label>
-            <div id="segView" class="seg" role="group" aria-label="View">
-              <button class="opt" data-view="pc" type="button" aria-pressed="false">🖥️ PC</button>
-              <button class="opt" data-view="mobile" type="button" aria-pressed="true">📱 Mobile</button>
-              <button class="opt" data-view="cvr" type="button" aria-pressed="false">🕶️ Cardboard (cVR)</button>
+            <div class="title">🍽️ HeroHealth — Balanced Plate VR</div>
+            <div class="sub">
+              เลือกโหมดเล่น + อุปกรณ์ แล้วกด <b>START</b> เพื่อเข้าเกม<br/>
+              <span class="pill">Play = Adaptive ON</span>
+              <span class="pill">Study/Research = Seeded & Adaptive OFF</span>
+              <span class="pill">Cardboard แนะนำ <b>view=cvr</b> ยิงจาก crosshair</span>
             </div>
-            <div id="viewHint" class="hint">📱 Mobile: แตะเป้า + ขยับจอ (gyro/drag) ได้</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+            <button class="btn ghost" id="btnBackHubTop" type="button">🏠 กลับ HUB</button>
+            <button class="btn cyan" id="btnCopyTop" type="button">🔗 Copy Link</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="k">🕹️ เลือกอุปกรณ์ (view)</div>
+          <div class="seg" id="segView">
+            <button class="btn" data-view="pc" type="button">🖥️ PC</button>
+            <button class="btn" data-view="mobile" type="button">📱 Mobile</button>
+            <button class="btn" data-view="cvr" type="button">🕶️ Cardboard (cVR)</button>
           </div>
 
-          <div class="row" style="margin-top:12px;">
-            <div>
-              <label>Run Mode</label>
-              <select id="selRun">
-                <option value="play">play (Adaptive ON)</option>
-                <option value="study">study/research (deterministic)</option>
-              </select>
-              <div id="seedHint" class="hint">Play: seed ว่างได้ (ระบบสุ่มใหม่ให้เอง); ใส่ seed ไว้ใช้ debug ก็ได้</div>
-            </div>
+          <div class="field">
+            <label for="selRun">โหมด</label>
+            <select id="selRun">
+              <option value="play">play</option>
+              <option value="study">study</option>
+            </select>
 
-            <div>
-              <label>Difficulty</label>
-              <select id="selDiff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-              <div class="hint">ค่าเริ่มต้นแนะนำ: normal (วิจัยก็ใช้ได้)</div>
-            </div>
+            <label for="selDiff">ระดับ</label>
+            <select id="selDiff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+
+            <label for="inpTime">เวลา (s)</label>
+            <input id="inpTime" type="number" min="20" max="9999" step="5" value="90" />
+          </div>
+
+          <div class="field">
+            <label for="inpSeed">seed</label>
+            <input id="inpSeed" type="number" inputmode="numeric" placeholder="เช่น 13579 (สำหรับ study)" />
+            <button class="btn" id="btnRandSeed" type="button">🎲 Random (Play)</button>
+          </div>
+
+          <div class="field">
+            <label for="inpHub">hub</label>
+            <input id="inpHub" type="text" placeholder="วาง URL ของ HUB (ถ้ามี)" />
           </div>
 
           <div class="row">
-            <div>
-              <label>เวลา (วินาที)</label>
-              <input id="inpTime" type="number" min="20" max="9999" value="90" />
-            </div>
-            <div>
-              <label>Seed (เว้นว่างได้ใน Play)</label>
-              <input id="inpSeed" type="text" placeholder="เช่น 13579" value="" />
-            </div>
+            <button class="btn primary" id="btnStart" type="button">▶ START เข้าเกม</button>
+            <button class="btn warn" id="btnOpen" type="button">🧭 เปิด Run ในแท็บนี้</button>
+            <button class="btn cyan" id="btnCopy" type="button">🔗 คัดลอกลิงก์</button>
           </div>
 
-          <div>
-            <label>Hub URL (ปุ่มกลับ HUB ในเกมจะวิ่งกลับมาที่นี่)</label>
-            <input id="inpHub" type="text" placeholder="https://…/herohealth/hub.html" value="" />
-            <div class="btns">
-              <button id="btnUseCurrentHub" class="btn" type="button">🧷 ใช้ hub จาก URL ปัจจุบัน</button>
-              <button id="btnReset" class="btn" type="button">♻️ รีเซ็ต</button>
-            </div>
-          </div>
+          <div class="preview" id="urlPreview">—</div>
 
-          <div class="card" style="margin-top:14px;">
-            <div class="cardHd">
-              <div class="title">🔗 Preview URL</div>
-              <div class="tiny">คัดลอก/เปิด/สร้าง QR</div>
-            </div>
-            <div class="cardBd">
-              <div class="previewBox mono" id="previewUrl">—</div>
-              <div class="btns">
-                <button id="btnGo" class="btn primary" type="button">▶️ เข้าเล่น</button>
-                <button id="btnCopy" class="btn" type="button">📋 Copy link</button>
-                <button id="btnShowQR" class="btn cyan" type="button">📷 อัปเดต QR</button>
-              </div>
-              <div id="status" class="status">พร้อมใช้งาน</div>
-              <div class="tiny">Tip: ถ้าลิงก์ยาวมาก ๆ แล้วกล้องสแกนช้า ให้ลดพารามิเตอร์/สั้นลิงก์</div>
-            </div>
+          <div class="note">
+            ✅ <b>Cardboard</b>: ใช้ <b>view=cvr</b> แล้วเข้า <b>ENTER VR</b> ในหน้าเกม (vr-ui.js) <br/>
+            ✅ <b>Study</b>: ใส่ seed คงที่เพื่อ deterministic (เช่น 13579) <br/>
+            ✅ <b>Play</b>: seed จะสุ่มเพื่อความสนุก (หรือกด Random)
           </div>
         </div>
-      </section>
 
-      <!-- RIGHT: QR + Summary -->
-      <section class="card">
-        <div class="cardHd">
-          <div class="title">📷 QR + ผลล่าสุด</div>
-          <div class="tiny">localStorage</div>
-        </div>
-        <div class="cardBd">
-          <div class="card" style="margin-bottom:14px;">
-            <div class="cardHd">
-              <div class="title">📷 QR (สแกนได้จริง)</div>
-              <div class="tiny">Canvas QR</div>
-            </div>
-            <div class="cardBd">
-              <div class="qrWrap">
-                <canvas id="qrCanvas" width="320" height="320" aria-label="QR code"></canvas>
-                <div>
-                  <a id="qrLink" class="qrLink mono" href="#" target="_blank" rel="noopener">—</a>
-                  <div class="btns" style="margin-top:10px;">
-                    <button id="btnCopyQRLink" class="btn" type="button">📋 Copy link</button>
-                  </div>
-                  <div class="tiny">สแกนจากอีกเครื่อง หรือแคปหน้าจอไปส่งกลุ่มนักศึกษาได้เลย</div>
-                </div>
-              </div>
-            </div>
+        <div class="card">
+          <div class="k">🧠 Tips / Debug</div>
+          <div class="row" style="margin-top:12px">
+            <span class="pill">📌 จำค่าล่าสุดอัตโนมัติ</span>
+            <span class="pill">🧩 ส่งพารามิเตอร์ครบ</span>
+            <span class="pill">⚙️ ช่วยสร้างลิงก์พร้อมใช้</span>
           </div>
 
-          <div class="card">
-            <div class="cardHd">
-              <div class="title">🧾 ผลล่าสุด (LS_LAST)</div>
-              <div class="tiny">HHA_LAST_SUMMARY</div>
-            </div>
-            <div class="cardBd">
-              <div id="sumPills"></div>
-              <div id="sumText" class="status">—</div>
-              <div class="btns">
-                <button id="btnCopySummary" class="btn" type="button">📋 คัดลอก summary JSON</button>
-                <button id="btnClearSummary" class="btn bad" type="button">🧹 ล้างผลล่าสุด</button>
-                <button id="btnToggleSummary" class="btn" type="button">🧾 แสดง/ซ่อน JSON</button>
-              </div>
-              <pre id="sumJson" class="mono"></pre>
-              <div class="tiny" style="margin-top:10px;">
-                * ถ้า “ผลล่าสุดว่าง” แปลว่าเครื่องนี้ยังไม่เคยจบเกม Plate หรือ LS ถูกล้าง
-              </div>
-            </div>
+          <div class="note" id="dbg" style="margin-top:12px">
+            —
           </div>
 
+          <div class="row" style="margin-top:12px">
+            <button class="btn bad" id="btnReset" type="button">🧼 ล้างค่าที่จำ</button>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 
   <script>
-  (function(){
-    const LS_PREF = 'HHA_PLATE_LAUNCHER_PREFS';
-    const LS_LAST = 'HHA_LAST_SUMMARY';
+    (function(){
+      const LS_KEY = 'HHA_PLATE_LAUNCHER';
 
-    const URLX = new URL(location.href);
+      const segView = document.getElementById('segView');
+      const selRun = document.getElementById('selRun');
+      const selDiff = document.getElementById('selDiff');
+      const inpTime = document.getElementById('inpTime');
+      const inpSeed = document.getElementById('inpSeed');
+      const inpHub = document.getElementById('inpHub');
 
-    const segView = document.getElementById('segView');
-    const selRun  = document.getElementById('selRun');
-    const selDiff = document.getElementById('selDiff');
-    const inpTime = document.getElementById('inpTime');
-    const inpSeed = document.getElementById('inpSeed');
-    const inpHub  = document.getElementById('inpHub');
+      const btnStart = document.getElementById('btnStart');
+      const btnOpen = document.getElementById('btnOpen');
+      const btnCopy = document.getElementById('btnCopy');
+      const btnCopyTop = document.getElementById('btnCopyTop');
+      const btnBackHubTop = document.getElementById('btnBackHubTop');
+      const btnRandSeed = document.getElementById('btnRandSeed');
+      const btnReset = document.getElementById('btnReset');
 
-    const viewHint = document.getElementById('viewHint');
-    const seedHint = document.getElementById('seedHint');
+      const urlPreview = document.getElementById('urlPreview');
+      const dbg = document.getElementById('dbg');
 
-    const btnGo = document.getElementById('btnGo');
-    const btnCopy = document.getElementById('btnCopy');
-    const btnReset = document.getElementById('btnReset');
-    const btnUseCurrentHub = document.getElementById('btnUseCurrentHub');
-    const btnBackHubTop = document.getElementById('btnBackHubTop');
-    const btnPresetResearch = document.getElementById('btnPresetResearch');
-    const btnShowQR = document.getElementById('btnShowQR');
-
-    const status = document.getElementById('status');
-    const previewUrl = document.getElementById('previewUrl');
-
-    const sumPills = document.getElementById('sumPills');
-    const sumText = document.getElementById('sumText');
-    const sumJson = document.getElementById('sumJson');
-    const btnCopySummary = document.getElementById('btnCopySummary');
-    const btnClearSummary = document.getElementById('btnClearSummary');
-    const btnToggleSummary = document.getElementById('btnToggleSummary');
-
-    const qrCanvas = document.getElementById('qrCanvas');
-    const qrLinkEl = document.getElementById('qrLink');
-    const btnCopyQRLink = document.getElementById('btnCopyQRLink');
-
-    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-
-    function loadJson(key, fallback){
-      try{
-        const s = localStorage.getItem(key);
-        if(!s) return fallback;
-        return JSON.parse(s);
-      }catch(e){ return fallback; }
-    }
-    function saveJson(key, obj){
-      try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
-    }
-
-    function setPressed(btn){
-      const buttons = segView.querySelectorAll('button.opt');
-      buttons.forEach(b=> b.setAttribute('aria-pressed', b===btn ? 'true' : 'false'));
-    }
-    function getView(){
-      const b = segView.querySelector('button.opt[aria-pressed="true"]');
-      return b ? (b.getAttribute('data-view') || 'mobile') : 'mobile';
-    }
-    function setView(v){
-      const btn = segView.querySelector(`button.opt[data-view="${v}"]`) || segView.querySelector('button.opt[data-view="mobile"]');
-      if(btn) setPressed(btn);
-    }
-
-    function updateHints(){
-      const v = getView();
-      if(v === 'pc') viewHint.textContent = '🖥️ PC: คลิก/แตะโดนเป้าได้ตรง ๆ (pointer)';
-      else if(v === 'mobile') viewHint.textContent = '📱 Mobile: แตะเป้า + ขยับจอ (gyro/drag) ได้';
-      else viewHint.textContent = '🕶️ Cardboard (cVR): ยิงจาก crosshair ผ่าน vr-ui.js (ไม่ต้องแตะเป้า)';
-
-      const run = (selRun.value || 'play').toLowerCase();
-      seedHint.textContent =
-        (run === 'study')
-          ? 'Study/Research: แนะนำใส่ seed คงที่ (เช่น 13579) เพื่อ deterministic'
-          : 'Play: seed ว่างได้ (ระบบสุ่มใหม่ให้เอง); ใส่ seed ไว้ใช้ debug ก็ได้';
-    }
-
-    function computeUrl(){
-      const v = getView();
-      const run = (selRun.value || 'play').toLowerCase();
-      const diff = (selDiff.value || 'normal').toLowerCase();
-      const time = clamp(inpTime.value || 90, 20, 9999);
-      const seed = (inpSeed.value || '').trim();
-      const hub  = (inpHub.value || '').trim();
-
-      const u = new URL('./plate-vr.html', location.href);
-      u.searchParams.set('view', v);
-      u.searchParams.set('run', run);
-      u.searchParams.set('diff', diff);
-      u.searchParams.set('time', String(time));
-      if(hub) u.searchParams.set('hub', hub);
-
-      if(run === 'study'){
-        u.searchParams.set('seed', seed || '13579');
-      }else{
-        if(seed) u.searchParams.set('seed', seed);
-        else u.searchParams.delete('seed');
-      }
-      return u.toString();
-    }
-
-    function persistPrefs(){
-      const prefs = {
-        view: getView(),
-        run: (selRun.value || 'play'),
-        diff: (selDiff.value || 'normal'),
-        time: String(clamp(inpTime.value || 90, 20, 9999)),
-        seed: (inpSeed.value || '').trim(),
-        hub: (inpHub.value || '').trim()
-      };
-      saveJson(LS_PREF, prefs);
-    }
-
-    function updatePreview(){
-      const u = computeUrl();
-      previewUrl.textContent = u;
-      persistPrefs();
-      updateQR(false);
-    }
-
-    function applyPrefs(){
-      const p = loadJson(LS_PREF, null);
-      if(!p) return;
-      setView(p.view || 'mobile');
-      selRun.value = p.run || 'play';
-      selDiff.value = p.diff || 'normal';
-      inpTime.value = p.time || '90';
-      inpSeed.value = p.seed || '';
-      inpHub.value  = p.hub || '';
-    }
-
-    function applyFromQuery(){
-      const v = (URLX.searchParams.get('view') || '').toLowerCase();
-      const run = (URLX.searchParams.get('run') || URLX.searchParams.get('runMode') || '').toLowerCase();
-      const diff = (URLX.searchParams.get('diff') || '').toLowerCase();
-      const time = URLX.searchParams.get('time');
-      const seed = URLX.searchParams.get('seed');
-      const hub = URLX.searchParams.get('hub');
-
-      if(v) setView(v);
-      if(run) selRun.value = run;
-      if(diff) selDiff.value = diff;
-      if(time) inpTime.value = clamp(time, 20, 9999);
-      if(seed != null) inpSeed.value = String(seed);
-      if(hub != null) inpHub.value = String(hub);
-    }
-
-    // -----------------------------
-    // Last summary UI
-    // -----------------------------
-    function renderSummary(){
-      sumPills.innerHTML = '';
-      const s = loadJson(LS_LAST, null);
-      if(!s){
-        sumText.textContent = 'ยังไม่มีผลล่าสุดในเครื่องนี้ (HHA_LAST_SUMMARY ว่าง)';
-        sumJson.style.display = 'none';
-        sumJson.textContent = '';
-        return;
-      }
-
-      function addPill(text){
-        const p = document.createElement('span');
-        p.className = 'pill';
-        p.textContent = text;
-        sumPills.appendChild(p);
-      }
-
-      addPill('🎮 ' + (s.gameMode || s.game || 'plate'));
-      addPill('🧪 ' + (s.runMode || 'play'));
-      addPill('🎚️ ' + (s.diff || 'normal'));
-      addPill('🏆 ' + (s.scoreFinal ?? 0));
-      addPill('🔥 max ' + (s.comboMax ?? 0));
-      addPill('💥 miss ' + (s.misses ?? 0));
-      addPill('🎯 acc ' + ((s.accuracyGoodPct ?? 0) + '%'));
-      addPill('🏅 ' + (s.grade || 'C'));
-      addPill('🌱 seed ' + (s.seed ?? ''));
-
-      const when = s.endTimeIso || s.timestampIso || '';
-      sumText.textContent =
-        `ล่าสุด: ${when ? when : '(unknown)'} • Goals ${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0} • Minis ${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`;
-
-      sumJson.textContent = JSON.stringify(s, null, 2);
-      sumJson.style.display = 'none';
-    }
-
-    // -----------------------------
-    // REAL QR CODE (canvas) — tiny embedded encoder
-    // -----------------------------
-    function makeQRMatrix(text){
-      function utf8Bytes(str){
-        const out = [];
-        for (let i=0;i<str.length;i++){
-          let c = str.charCodeAt(i);
-          if (c < 0x80) out.push(c);
-          else if (c < 0x800){ out.push(0xC0 | (c>>6), 0x80 | (c & 0x3F)); }
-          else if (c >= 0xD800 && c <= 0xDBFF){
-            const hi = c;
-            const lo = str.charCodeAt(++i);
-            const cp = 0x10000 + ((hi-0xD800)<<10) + (lo-0xDC00);
-            out.push(
-              0xF0 | (cp>>18),
-              0x80 | ((cp>>12)&0x3F),
-              0x80 | ((cp>>6)&0x3F),
-              0x80 | (cp&0x3F)
-            );
-          }else{
-            out.push(0xE0 | (c>>12), 0x80 | ((c>>6)&0x3F), 0x80 | (c&0x3F));
-          }
-        }
-        return out;
-      }
-
-      const bytes = utf8Bytes(text);
-      const ver = (bytes.length <= 86) ? 5 : 6; // v5/v6 level M
-      const size = 17 + ver*4;
-
-      // GF256 for RS
-      const GF_EXP = new Uint8Array(512);
-      const GF_LOG = new Uint8Array(256);
-      (function initGF(){
-        let x = 1;
-        for(let i=0;i<255;i++){
-          GF_EXP[i] = x;
-          GF_LOG[x] = i;
-          x <<= 1;
-          if(x & 0x100) x ^= 0x11d;
-        }
-        for(let i=255;i<512;i++) GF_EXP[i] = GF_EXP[i-255];
-      })();
-      function gfMul(a,b){
-        if(a===0||b===0) return 0;
-        return GF_EXP[GF_LOG[a] + GF_LOG[b]];
-      }
-      function rsGenerator(deg){
-        let poly = [1];
-        for(let i=0;i<deg;i++){
-          const a = GF_EXP[i];
-          const next = new Array(poly.length+1).fill(0);
-          for(let j=0;j<poly.length;j++){
-            next[j] ^= gfMul(poly[j], a);
-            next[j+1] ^= poly[j];
-          }
-          poly = next;
-        }
-        return poly;
-      }
-      function rsEncode(data, ecLen){
-        const gen = rsGenerator(ecLen);
-        const msg = data.slice();
-        msg.push(...new Array(ecLen).fill(0));
-        for(let i=0;i<data.length;i++){
-          const coef = msg[i];
-          if(coef===0) continue;
-          for(let j=0;j<gen.length;j++){
-            msg[i+j] ^= gfMul(gen[j], coef);
-          }
-        }
-        return msg.slice(msg.length-ecLen);
-      }
-
-      // Version params (byte mode, EC=M) — simplified 2 blocks
-      const params = {
-        5: { dataCW: 86, ecCW: 24, blocks: 2 },
-        6: { dataCW: 108, ecCW: 28, blocks: 2 },
-      }[ver];
-
-      function pushBits(arr, val, n){
-        for(let i=n-1;i>=0;i--) arr.push((val>>i)&1);
-      }
-
-      const bits = [];
-      pushBits(bits, 0b0100, 4);                 // mode: byte
-      pushBits(bits, bytes.length, (ver<=9)?8:16);
-      for(const b of bytes) pushBits(bits, b, 8);
-      pushBits(bits, 0, 4);                      // terminator
-      while(bits.length % 8) bits.push(0);
-
-      const cws = [];
-      for(let i=0;i<bits.length;i+=8){
-        let v=0;
-        for(let j=0;j<8;j++) v = (v<<1) | bits[i+j];
-        cws.push(v);
-      }
-
-      const PAD0 = 0xEC, PAD1 = 0x11;
-      let padToggle = 0;
-      while(cws.length < params.dataCW){
-        cws.push(padToggle ? PAD1 : PAD0);
-        padToggle ^= 1;
-      }
-
-      const blocks = [];
-      const per = Math.floor(params.dataCW / params.blocks);
-      let idx = 0;
-      for(let b=0;b<params.blocks;b++){
-        const take = (b===params.blocks-1) ? (params.dataCW-idx) : per;
-        blocks.push(cws.slice(idx, idx+take));
-        idx += take;
-      }
-
-      const ecBlocks = blocks.map(bl => rsEncode(bl, params.ecCW / params.blocks));
-
-      // interleave
-      const inter = [];
-      const maxData = Math.max(...blocks.map(b=>b.length));
-      for(let i=0;i<maxData;i++){
-        for(const b of blocks) if(i<b.length) inter.push(b[i]);
-      }
-      const maxEc = Math.max(...ecBlocks.map(b=>b.length));
-      for(let i=0;i<maxEc;i++){
-        for(const b of ecBlocks) if(i<b.length) inter.push(b[i]);
-      }
-
-      const stream = [];
-      for(const cw of inter) pushBits(stream, cw, 8);
-
-      const m = Array.from({length:size}, ()=>Array(size).fill(null));
-      function set(x,y,v){ if(x>=0&&y>=0&&x<size&&y<size) m[y][x]=v; }
-
-      // finders
-      function finder(x,y){
-        for(let dy=-1;dy<=7;dy++){
-          for(let dx=-1;dx<=7;dx++){
-            const xx=x+dx, yy=y+dy;
-            const on =
-              (dx>=0&&dx<=6&&dy>=0&&dy<=6) &&
-              (dx===0||dx===6||dy===0||dy===6 || (dx>=2&&dx<=4&&dy>=2&&dy<=4));
-            set(xx,yy,on?1:0);
-          }
-        }
-      }
-      finder(0,0); finder(size-7,0); finder(0,size-7);
-
-      // timing
-      for(let i=8;i<size-8;i++){
-        set(i,6, (i%2)?0:1);
-        set(6,i, (i%2)?0:1);
-      }
-
-      // dark module
-      set(8, size-8, 1);
-
-      // reserve format areas
-      for(let i=0;i<9;i++){
-        if(m[8][i]===null) set(i,8,0);
-        if(m[i][8]===null) set(8,i,0);
-        if(m[8][size-1-i]===null) set(size-1-i,8,0);
-        if(m[size-1-i][8]===null) set(8,size-1-i,0);
-      }
-
-      // alignment (v5: 6,30) (v6: 6,34)
-      const ap = (ver===5) ? [6, 30] : [6, 34];
-      function align(cx,cy){
-        for(let dy=-2;dy<=2;dy++){
-          for(let dx=-2;dx<=2;dx++){
-            const xx=cx+dx, yy=cy+dy;
-            const dist = Math.max(Math.abs(dx),Math.abs(dy));
-            set(xx,yy, (dist===2 || (dx===0 && dy===0)) ? 1 : 0);
-          }
-        }
-      }
-      for(let i=0;i<ap.length;i++){
-        for(let j=0;j<ap.length;j++){
-          const cx=ap[i], cy=ap[j];
-          const nearFinder =
-            (cx===6 && cy===6) ||
-            (cx===6 && cy===size-7) ||
-            (cx===size-7 && cy===6);
-          if(!nearFinder) align(cx,cy);
-        }
-      }
-
-      // data placement with mask 0
-      let bitIdx=0;
-      let dirUp=true;
-      for(let x=size-1; x>0; x-=2){
-        if(x===6) x--;
-        for(let k=0;k<size;k++){
-          const y = dirUp ? (size-1-k) : k;
-          for(let dx=0;dx<2;dx++){
-            const xx = x-dx;
-            if(m[y][xx]!==null) continue;
-            const bit = (bitIdx < stream.length) ? stream[bitIdx++] : 0;
-            const masked = ((xx + y) % 2 === 0) ? (bit ^ 1) : bit;
-            m[y][xx] = masked;
-          }
-        }
-        dirUp = !dirUp;
-      }
-
-      // format info for (EC=M, mask 0) => 0x5412
-      const format = 0x5412;
-      function formatBit(i){ return (format >> i) & 1; }
-
-      const coords1 = [
-        [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[7,8],[8,8],[8,7],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0]
-      ];
-      for(let i=0;i<15;i++){
-        const b = formatBit(14-i);
-        const [x,y] = coords1[i];
-        m[y][x] = b;
-      }
-      const coords2 = [
-        [size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[size-8,8],
-        [8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]
-      ];
-      for(let i=0;i<15;i++){
-        const b = formatBit(14-i);
-        const [x,y] = coords2[i];
-        m[y][x] = b;
-      }
-
-      return m;
-    }
-
-    function drawQR(canvas, text){
-      const ctx = canvas.getContext('2d', { alpha:false });
-      const W = canvas.width, H = canvas.height;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0,0,W,H);
-
-      const mat = makeQRMatrix(text);
-      const N = mat.length;
-
-      const pad = 12;
-      const cell = Math.floor((Math.min(W,H) - pad*2) / N);
-      const x0 = Math.floor((W - cell*N)/2);
-      const y0 = Math.floor((H - cell*N)/2);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0,0,W,H);
-
-      ctx.fillStyle = '#000000';
-      for(let y=0;y<N;y++){
-        for(let x=0;x<N;x++){
-          if(mat[y][x]===1){
-            ctx.fillRect(x0 + x*cell, y0 + y*cell, cell, cell);
-          }
-        }
-      }
-    }
-
-    function updateQR(draw){
-      const u = computeUrl();
-      qrLinkEl.textContent = u;
-      qrLinkEl.href = u;
-      if(draw){
+      function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+      function safeGet(){
         try{
-          drawQR(qrCanvas, u);
-          status.textContent = '📷 QR (จริง) อัปเดตแล้ว';
+          const s = localStorage.getItem(LS_KEY);
+          return s ? JSON.parse(s) : null;
+        }catch(e){ return null; }
+      }
+      function safeSet(o){
+        try{ localStorage.setItem(LS_KEY, JSON.stringify(o)); }catch(e){}
+      }
+
+      function getView(){
+        const on = segView.querySelector('.btn.on');
+        return on ? (on.getAttribute('data-view')||'mobile') : 'mobile';
+      }
+      function setView(v){
+        const bs = segView.querySelectorAll('.btn[data-view]');
+        bs.forEach(b=>{
+          const ok = (b.getAttribute('data-view') === v);
+          b.classList.toggle('on', ok);
+        });
+      }
+
+      function parseHubFromUrl(){
+        try{
+          const u = new URL(location.href);
+          return u.searchParams.get('hub') || '';
+        }catch(e){ return ''; }
+      }
+
+      function buildUrl(){
+        const view = getView();
+        const run = (selRun.value || 'play').toLowerCase();
+        const diff = (selDiff.value || 'normal').toLowerCase();
+        const time = clamp(inpTime.value || 90, 20, 9999);
+
+        let seed = inpSeed.value;
+        if(run === 'study'){
+          seed = String(clamp(seed || 13579, 1, 2147483647));
+        }else{
+          // play
+          seed = String(seed || (Date.now() ^ Math.floor(Math.random()*1e9)));
+        }
+
+        const u = new URL('./plate-vr.html', location.href);
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', String(time));
+        u.searchParams.set('seed', seed);
+
+        const hub = inpHub.value.trim();
+        if(hub) u.searchParams.set('hub', hub);
+
+        return u.toString();
+      }
+
+      function saveState(){
+        const st = {
+          view: getView(),
+          run: selRun.value,
+          diff: selDiff.value,
+          time: Number(inpTime.value)||90,
+          seed: inpSeed.value ? String(inpSeed.value) : '',
+          hub: inpHub.value || ''
+        };
+        safeSet(st);
+      }
+
+      function applyState(st){
+        if(!st) return;
+        setView(st.view || 'mobile');
+        if(st.run) selRun.value = st.run;
+        if(st.diff) selDiff.value = st.diff;
+        if(st.time) inpTime.value = st.time;
+        if(st.seed != null) inpSeed.value = st.seed;
+        if(st.hub != null) inpHub.value = st.hub;
+      }
+
+      function refresh(){
+        const u = buildUrl();
+        urlPreview.textContent = u;
+
+        const run = (selRun.value||'play').toLowerCase();
+        if(run === 'study'){
+          btnRandSeed.disabled = true;
+          btnRandSeed.style.opacity = 0.6;
+        }else{
+          btnRandSeed.disabled = false;
+          btnRandSeed.style.opacity = 1;
+        }
+
+        dbg.textContent = 'URL: ' + u;
+        saveState();
+      }
+
+      // ---- bind view buttons
+      segView.addEventListener('click', (e)=>{
+        const b = e.target.closest('.btn[data-view]');
+        if(!b) return;
+        setView(b.getAttribute('data-view'));
+        refresh();
+      });
+
+      // ---- bind controls
+      ['change','input'].forEach(ev=>{
+        selRun.addEventListener(ev, refresh, {passive:true});
+        selDiff.addEventListener(ev, refresh, {passive:true});
+        inpTime.addEventListener(ev, refresh, {passive:true});
+        inpSeed.addEventListener(ev, refresh, {passive:true});
+        inpHub.addEventListener(ev, refresh, {passive:true});
+      });
+
+      btnRandSeed.addEventListener('click', ()=>{
+        if((selRun.value||'play').toLowerCase() !== 'play') return;
+        inpSeed.value = String(Date.now() ^ Math.floor(Math.random()*1e9));
+        refresh();
+      }, {passive:true});
+
+      async function copyUrl(){
+        const u = buildUrl();
+        try{
+          await navigator.clipboard.writeText(u);
+          dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
         }catch(e){
-          status.textContent = '⚠️ วาด QR ไม่สำเร็จ (ลองสั้นลิงก์/ลดพารามิเตอร์)';
+          dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่อง URL ได้';
         }
       }
-    }
 
-    async function copyText(t){
-      try{ await navigator.clipboard.writeText(t); return true; }
-      catch(e){ return false; }
-    }
+      btnCopy.addEventListener('click', copyUrl, {passive:true});
+      btnCopyTop.addEventListener('click', copyUrl, {passive:true});
 
-    // controls
-    segView.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button.opt');
-      if(!btn) return;
-      setPressed(btn);
-      updateHints();
-      updatePreview();
-    }, {passive:true});
+      btnStart.addEventListener('click', ()=>{
+        // open in new tab
+        const u = buildUrl();
+        window.open(u, '_blank', 'noopener');
+      }, {passive:true});
 
-    [selRun, selDiff].forEach(el=>{
-      el.addEventListener('change', ()=>{ updateHints(); updatePreview(); }, {passive:true});
-    });
-    [inpTime, inpSeed, inpHub].forEach(el=>{
-      el.addEventListener('input', ()=>{ updateHints(); updatePreview(); }, {passive:true});
-      el.addEventListener('change', ()=>{ updateHints(); updatePreview(); }, {passive:true});
-    });
+      btnOpen.addEventListener('click', ()=>{
+        location.href = buildUrl();
+      }, {passive:true});
 
-    btnUseCurrentHub.addEventListener('click', ()=>{
-      const hub = URLX.searchParams.get('hub');
-      if(hub){ inpHub.value = hub; status.textContent = '✅ ดึง hub จาก URL แล้ว'; }
-      else{ status.textContent = '⚠️ URL นี้ไม่มี hub=…'; }
-      updatePreview();
-    }, {passive:true});
+      btnBackHubTop.addEventListener('click', ()=>{
+        const hub = (inpHub.value||'').trim();
+        if(hub){
+          location.href = hub;
+        }else{
+          location.href = './hub.html';
+        }
+      }, {passive:true});
 
-    btnBackHubTop.addEventListener('click', ()=>{
-      const hub = (inpHub.value || '').trim();
-      location.href = hub ? hub : './hub.html';
-    }, {passive:true});
+      btnReset.addEventListener('click', ()=>{
+        try{ localStorage.removeItem(LS_KEY); }catch(e){}
+        // defaults
+        setView('mobile');
+        selRun.value = 'play';
+        selDiff.value = 'normal';
+        inpTime.value = 90;
+        inpSeed.value = '';
+        inpHub.value = parseHubFromUrl();
+        refresh();
+        dbg.textContent = '🧼 ล้างค่าที่จำแล้ว';
+      }, {passive:true});
 
-    btnPresetResearch.addEventListener('click', ()=>{
-      setView('mobile');
-      selRun.value = 'study';
-      selDiff.value = 'normal';
-      inpTime.value = '90';
-      inpSeed.value = '13579';
-      status.textContent = '🎓 Preset วิจัย ป.5 ถูกตั้งค่าแล้ว';
-      updateHints();
-      updatePreview();
-      updateQR(true);
-    }, {passive:true});
+      // ---- init from URL + localStorage
+      const fromUrlHub = parseHubFromUrl();
+      const st = safeGet();
+      applyState(st);
+      if(!inpHub.value && fromUrlHub) inpHub.value = fromUrlHub;
 
-    btnGo.addEventListener('click', ()=>{
-      const u = computeUrl();
-      status.textContent = '▶ กำลังเปิดเกม…';
-      location.href = u;
-    }, {passive:true});
+      // choose a good default view based on device
+      if(!st || !st.view){
+        const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||'');
+        setView(isMobile ? 'mobile' : 'pc');
+      }
 
-    btnCopy.addEventListener('click', async ()=>{
-      const u = computeUrl();
-      const ok = await copyText(u);
-      status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากช่อง preview ได้';
-    }, {passive:true});
-
-    btnShowQR.addEventListener('click', ()=> updateQR(true), {passive:true});
-
-    btnReset.addEventListener('click', ()=>{
-      setView('mobile');
-      selRun.value = 'play';
-      selDiff.value = 'normal';
-      inpTime.value = '90';
-      inpSeed.value = '';
-      inpHub.value = URLX.searchParams.get('hub') || '';
-      status.textContent = '♻ รีเซ็ตแล้ว';
-      updateHints();
-      updatePreview();
-      updateQR(true);
-    }, {passive:true});
-
-    btnCopyQRLink.addEventListener('click', async ()=>{
-      const u = computeUrl();
-      const ok = await copyText(u);
-      status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
-    }, {passive:true});
-
-    btnCopySummary.addEventListener('click', async ()=>{
-      const s = loadJson(LS_LAST, null);
-      if(!s){ status.textContent = '⚠️ ไม่มีผลล่าสุดให้คัดลอก'; return; }
-      const ok = await copyText(JSON.stringify(s));
-      status.textContent = ok ? '✅ คัดลอก summary แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
-    }, {passive:true});
-
-    btnClearSummary.addEventListener('click', ()=>{
-      try{ localStorage.removeItem(LS_LAST); }catch(e){}
-      renderSummary();
-      status.textContent = '🧹 ล้างผลล่าสุดแล้ว';
-    }, {passive:true});
-
-    btnToggleSummary.addEventListener('click', ()=>{
-      const show = (sumJson.style.display !== 'block');
-      sumJson.style.display = show ? 'block' : 'none';
-      status.textContent = show ? '🧾 แสดง JSON แล้ว' : '🧾 ซ่อน JSON แล้ว';
-    }, {passive:true});
-
-    // init
-    applyPrefs();
-    applyFromQuery();
-
-    if(!inpHub.value){
-      const hub = URLX.searchParams.get('hub');
-      if(hub) inpHub.value = hub;
-    }
-    if(!segView.querySelector('button.opt[aria-pressed="true"]')) setView('mobile');
-
-    updateHints();
-    updatePreview();
-    renderSummary();
-    updateQR(true);
-  })();
+      refresh();
+    })();
   </script>
 </body>
 </html>
