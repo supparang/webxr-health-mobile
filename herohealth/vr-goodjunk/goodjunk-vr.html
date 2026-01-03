@@ -1,4 +1,3 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html (FULL / UPDATED) === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,6 +7,25 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- ✅ CRITICAL: hide A-Frame default UI even if CSS 404 -->
+  <style>
+    .a-enter-vr, .a-enter-ar { display:none !important; }
+    /* tiny debug overlay */
+    #gj-debug{
+      position:fixed; left:10px; right:10px;
+      bottom:10px; z-index:9999;
+      background:rgba(2,6,23,.78);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:14px;
+      padding:10px 12px;
+      color:#e5e7eb;
+      font: 900 12px/1.35 system-ui;
+      display:none;
+      backdrop-filter: blur(6px);
+      white-space: pre-wrap;
+    }
+  </style>
+
   <!-- A-Frame (ช่วยให้ Enter VR เสถียร) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
@@ -15,18 +33,12 @@
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- CSS (cache-bust) -->
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260103A" />
-
-  <!-- ✅ Hide A-Frame default EnterVR UI + force overlay top (safety) -->
-  <style>
-    .a-enter-vr, .a-enter-ar { display:none !important; }
-    .start-overlay{ position:fixed; inset:0; z-index:200; }
-  </style>
+  <!-- ✅ CSS (UI ทั้งหมด) -->
+  <link rel="stylesheet" href="./goodjunk-vr.css" />
 </head>
 
 <body class="view-mobile">
-  <!-- minimal aframe scene (we just need WebXR stack) -->
+  <!-- minimal aframe scene -->
   <a-scene embedded vr-mode-ui="enabled:false"
     style="position:fixed; inset:0; width:1px; height:1px; opacity:0; pointer-events:none;">
     <a-entity camera position="0 1.6 0"></a-entity>
@@ -47,11 +59,10 @@
         <span class="muted">VR/cVR: เล็งกลางจอแล้วแตะยิง</span>
       </div>
       <div class="start-meta" id="startMeta"></div>
-
       <button class="btn-start" id="btnStart" type="button">Start</button>
       <button class="btn-start" id="btnStartVR" type="button"
         style="margin-top:10px;background:rgba(34,211,238,.14);border-color:rgba(34,211,238,.30);">
-        Enter VR
+        Enter VR / cVR
       </button>
     </div>
   </div>
@@ -76,6 +87,7 @@
       </div>
     </div>
 
+    <!-- (optional) quest area -->
     <div class="hud-mid" style="display:none;">
       <div class="hud-quest">
         <div class="q-row">
@@ -138,47 +150,29 @@
     <button class="btn-shoot" id="btnShoot" type="button">ยิง / TAP</button>
   </div>
 
-  <!-- ✅ Error overlay (shows module/404/MIME issues on mobile) -->
-  <script>
-  (function(){
-    const box = document.createElement('div');
-    box.id = 'hhaErr';
-    box.style.cssText = `
-      position:fixed; left:10px; right:10px; top:10px;
-      z-index:9999; padding:10px 12px;
-      border-radius:14px;
-      background:rgba(239,68,68,.14);
-      border:1px solid rgba(239,68,68,.35);
-      color:#ffe4e6;
-      font: 900 12px/1.35 system-ui;
-      white-space:pre-wrap;
-      display:none;
-    `;
-    document.addEventListener('DOMContentLoaded', ()=> document.body.appendChild(box), { once:true });
-    function show(msg){
-      box.style.display='block';
-      box.textContent = 'BOOT ERROR:\n' + msg;
-    }
-    window.addEventListener('error', (e)=>{
-      show((e?.message||'error') + '\n' + (e?.filename||'') + ':' + (e?.lineno||0));
-    });
-    window.addEventListener('unhandledrejection', (e)=>{
-      const r = e?.reason;
-      show((r?.message||String(r||'promise rejection')));
-    });
-    window.__HHA_SHOW_ERR__ = show;
-  })();
-  </script>
+  <!-- Debug -->
+  <div id="gj-debug"></div>
 
-  <!-- ✅ Boot loader (cache-bust + catch) -->
-  <script type="module">
-    import('./goodjunk-vr.boot.js?v=20260103A')
-      .catch(e => (window.__HHA_SHOW_ERR__ ? window.__HHA_SHOW_ERR__(e?.message||String(e)) : alert(e)));
-  </script>
+  <!-- Boot -->
+  <script type="module" src="./goodjunk-vr.boot.js"></script>
 
-  <!-- UI wiring (hha:start + shoot + peek + hideHUD) -->
   <script>
     (function(){
+      const dbg = document.getElementById('gj-debug');
+      function showDbg(msg){
+        if(!dbg) return;
+        dbg.style.display = 'block';
+        dbg.textContent = msg;
+      }
+
+      // ✅ catch errors => tell us why it becomes black screen / no targets
+      window.addEventListener('error', (e)=>{
+        showDbg('JS ERROR:\n' + (e?.message || e) + '\n' + (e?.filename || '') + ':' + (e?.lineno || ''));
+      });
+      window.addEventListener('unhandledrejection', (e)=>{
+        showDbg('PROMISE ERROR:\n' + (e?.reason?.message || e?.reason || e));
+      });
+
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
       const btnStart = document.getElementById('btnStart');
       const btnStartVR= document.getElementById('btnStartVR');
@@ -192,16 +186,19 @@
 
       function start(){
         overlay.style.display = 'none';
+        // ✅ fire ONLY ONCE (UI start)
         window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
       }
 
       btnStart.addEventListener('click', start);
 
       btnStartVR.addEventListener('click', ()=>{
+        // preload vr-ui.js (crosshair + enter/exit/recenter)
         window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
         start();
       });
 
+      // TAP -> hha:shoot for cVR
       document.getElementById('btnShoot').addEventListener('click', ()=>{
         window.dispatchEvent(new CustomEvent('hha:shoot'));
       });
@@ -218,6 +215,7 @@
         document.body.classList.toggle('hud-hidden');
       });
 
+      // mirror HUD -> mini peek
       const pg = document.getElementById('peekGoal');
       const pm = document.getElementById('peekMini');
       setInterval(()=>{
@@ -229,6 +227,15 @@
         document.getElementById('hud-time-mini').textContent  = document.getElementById('hud-time')?.textContent || '0';
         document.getElementById('hud-grade-mini').textContent = document.getElementById('hud-grade')?.textContent || '—';
       }, 250);
+
+      // ✅ quick health check: if CSS failed to load => warn
+      setTimeout(()=>{
+        const s = getComputedStyle(document.body);
+        const bg = s.backgroundImage || '';
+        if(!bg || bg === 'none'){
+          showDbg('WARN:\nCSS อาจไม่โหลด (background none)\nเช็คว่า ./goodjunk-vr.css 404 หรือไม่');
+        }
+      }, 1200);
     })();
   </script>
 </body>
