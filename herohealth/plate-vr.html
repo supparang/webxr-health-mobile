@@ -1,3 +1,12 @@
+<!-- === /herohealth/plate-vr.html ===
+Balanced Plate VR — RUN (PRODUCTION+)
+✅ Uses ./plate/plate.safe.js (module)
+✅ Uses ./plate/plate-vr.css (external)
+✅ A-Frame for Enter VR / Exit / Recenter
+✅ Includes: particles.js + hha-cloud-logger.js + vr-ui.js
+✅ Has storm/boss HUD ids matching plate.safe.js
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -47,7 +56,6 @@
       font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
     }
 
-    /* A-Frame scene behind DOM UI */
     a-scene{ position:fixed; inset:0; z-index:0; }
 
     .bg{
@@ -72,11 +80,6 @@
       pointer-events:auto;
       touch-action:none;
       user-select:none;
-    }
-
-    /* In cVR mode: must NOT click targets; shoot via crosshair */
-    body.view-cvr #plate-layer{
-      pointer-events:none !important;
     }
 
     #hitFx{
@@ -163,12 +166,11 @@
     .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
     .hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
 
-    /* Buttons (local HUD) */
     #hudBtns{
       position:fixed;
       right:10px;
       bottom: calc(10px + var(--sab));
-      z-index:40; /* keep below vr-ui (usually 120+) */
+      z-index:40;
       display:flex;
       gap:8px;
       flex-wrap:wrap;
@@ -250,7 +252,7 @@
       z-index:43;
       display:none;
       pointer-events:none;
-      transform: translateY(54px); /* under HUD top */
+      transform: translateY(54px); /* ใต้ HUD top */
     }
     .stormCard{
       pointer-events:auto;
@@ -269,13 +271,10 @@
       .bar{ width:140px; }
       #stormHud{ transform: translateY(62px); }
     }
-
-    /* If vr-ui.js already provides its own buttons, hide our manual EnterVR to avoid duplicates */
-    body.has-vr-ui #btnEnterVR{ display:none !important; }
   </style>
 
   <script>
-    // Universal VR UI lockPx (crosshair assist)
+    /* Universal VR UI lockPx (crosshair assist) */
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
 </head>
@@ -509,90 +508,41 @@
     </div>
   </div>
 
-  <!-- Boot helpers: set body class view-* + bridge start overlay + sync previews -->
+  <!-- Start overlay bridge -->
   <script>
     (function(){
-      function qs(k, def=null){
-        try { return new URL(location.href).searchParams.get(k) ?? def; }
-        catch { return def; }
-      }
-      function setBodyView(view){
-        const b = document.body;
-        b.classList.remove('view-pc','view-mobile','view-cvr','view-vr');
-        if(view === 'pc') b.classList.add('view-pc');
-        else if(view === 'cvr') b.classList.add('view-cvr');
-        else if(view === 'vr') b.classList.add('view-vr');
-        else b.classList.add('view-mobile');
-      }
+      const btnStartMain = document.getElementById('btnStartMain');
+      const dbg = document.getElementById('startDbg');
+      const btnCopy = document.getElementById('btnCopyLink');
+      const btnGoLauncher = document.getElementById('btnGoLauncher');
 
-      // view class for pointer-events policy
-      setBodyView((qs('view','mobile') || 'mobile').toLowerCase());
+      if(dbg) dbg.textContent = 'URL: ' + location.href;
 
-      // detect vr-ui presence (avoid duplicate EnterVR buttons)
-      window.addEventListener('DOMContentLoaded', ()=>{
-        // vr-ui.js usually injects .hha-vrui / .vrui layer. We mark body if found.
-        const has = document.querySelector('.hha-vrui, .vr-ui, .vrui, [data-vr-ui]');
-        if(has) document.body.classList.add('has-vr-ui');
+      // ✅ Prefer calling JS exposed start if available, else click hidden btnStart
+      btnStartMain?.addEventListener('click', ()=>{
+        if(typeof window.__PLATE_START__ === 'function'){
+          window.__PLATE_START__();
+          return;
+        }
+        const b = document.getElementById('btnStart');
+        if(b) b.click();
+      }, {passive:true});
 
-        const dbg = document.getElementById('startDbg');
-        if(dbg) dbg.textContent = 'URL: ' + location.href;
+      btnCopy?.addEventListener('click', async ()=>{
+        try{
+          await navigator.clipboard.writeText(location.href);
+          if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
+        }catch(e){
+          if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้';
+        }
+      }, {passive:true});
 
-        // preview overlay labels
-        const run = (qs('run','play') || 'play').toLowerCase();
-        const diff = (qs('diff','normal') || 'normal').toLowerCase();
-        const time = (qs('time','90') || '90');
-        const seed = qs('seed','');
-
-        const elRun = document.getElementById('uiRunPreview');
-        const elDiff = document.getElementById('uiDiffPreview');
-        const elTime = document.getElementById('uiTimePreview');
-        if(elRun) elRun.textContent = run;
-        if(elDiff) elDiff.textContent = diff;
-        if(elTime) elTime.textContent = time;
-
-        // start overlay bridge
-        const btnStartMain = document.getElementById('btnStartMain');
-        const btnCopy = document.getElementById('btnCopyLink');
-        const btnGoLauncher = document.getElementById('btnGoLauncher');
-
-        btnStartMain?.addEventListener('click', ()=>{
-          // engine will wire #btnStart; trigger it
-          const b = document.getElementById('btnStart');
-          if(b) b.click();
-        }, {passive:true});
-
-        btnCopy?.addEventListener('click', async ()=>{
-          try{
-            await navigator.clipboard.writeText(location.href);
-            if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
-          }catch(e){
-            if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้';
-          }
-        }, {passive:true});
-
-        btnGoLauncher?.addEventListener('click', ()=>{
-          const u = new URL('./plate-launcher.html', location.href);
-          const hub = qs('hub', '');
-          if(hub) u.searchParams.set('hub', hub);
-          // keep selected params
-          u.searchParams.set('view', qs('view','mobile'));
-          u.searchParams.set('run', qs('run','play'));
-          u.searchParams.set('diff', qs('diff','normal'));
-          u.searchParams.set('time', qs('time','90'));
-          if(seed) u.searchParams.set('seed', seed);
-          location.href = u.toString();
-        }, {passive:true});
-
-        // optional manual Enter VR fallback:
-        const btnEnter = document.getElementById('btnEnterVR');
-        btnEnter?.addEventListener('click', ()=>{
-          // try A-Frame enter VR
-          try{
-            const scene = document.querySelector('a-scene');
-            if(scene && scene.enterVR) scene.enterVR();
-          }catch(_){}
-        }, {passive:true});
-      });
+      btnGoLauncher?.addEventListener('click', ()=>{
+        const u = new URL('./plate-launcher.html', location.href);
+        const hub = new URL(location.href).searchParams.get('hub');
+        if(hub) u.searchParams.set('hub', hub);
+        location.href = u.toString();
+      }, {passive:true});
     })();
   </script>
 
