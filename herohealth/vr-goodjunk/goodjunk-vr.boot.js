@@ -1,4 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
+// GoodJunkVR Boot — LATEST (safe start + VR UI preload + black-screen recovery)
+// ✅ waits for hha:start from overlay, but also auto-start fallback if overlay missing
+// ✅ preloads vr-ui.js when view=cvr or on hha:enter-cvr
+// ✅ prevents “start fired before boot loaded” via __HHA_PENDING_START__
+// ✅ adds tiny diagnostics to console for quick debugging
+
 'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
@@ -34,14 +40,6 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-function consumePendingStart(){
-  const d = ROOT.__HHA_PENDING_START__;
-  if(d && !started){
-    ROOT.__HHA_PENDING_START__ = null;
-    startEngine({ view: d.view });
-  }
-}
-
 function startEngine(opts={}){
   if(started) return;
   started = true;
@@ -49,9 +47,10 @@ function startEngine(opts={}){
   const view = normalizeView(opts.view || qs('view','mobile'));
   setBodyView(view);
 
-  ensureVrUi();
+  // preload vr-ui for VR/cVR
+  if(view === 'vr' || view === 'cvr') ensureVrUi();
 
-  engineBoot({
+  const payload = {
     view,
     diff: (qs('diff','normal')||'normal'),
     run:  (qs('run','play')||'play'),
@@ -62,20 +61,51 @@ function startEngine(opts={}){
     studyId: qs('study', qs('studyId', null)),
     phase: qs('phase', null),
     conditionGroup: qs('cond', qs('conditionGroup', null)),
-  });
+  };
+
+  console.debug('[GoodJunkVR boot] start', payload);
+
+  try{
+    engineBoot(payload);
+  }catch(err){
+    console.error('GoodJunkVR engineBoot error:', err);
+  }
 }
 
+// ✅ If overlay fired start before boot loaded
+function consumePendingStart(){
+  const d = ROOT.__HHA_PENDING_START__;
+  if(d && !started){
+    ROOT.__HHA_PENDING_START__ = null;
+    startEngine({ view: d.view });
+  }
+}
+
+// ✅ listen: hha:start from overlay
 ROOT.addEventListener('hha:start', (ev)=>{
   const view = ev?.detail?.view || qs('view','mobile');
   startEngine({ view });
 }, { passive:true });
 
+// ✅ recover pending start
 if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
   queueMicrotask(consumePendingStart);
 }else{
   DOC.addEventListener('DOMContentLoaded', consumePendingStart, { once:true });
 }
 
+// ✅ preload VR UI when user clicks "Enter VR" on overlay
 ROOT.addEventListener('hha:enter-cvr', ()=>{
   ensureVrUi();
 }, { passive:true });
+
+// ✅ safety fallback (กัน “จอดำเพราะไม่มีใคร dispatch hha:start”)
+// - ถ้า 900ms แล้วยังไม่ started และไม่มี start overlay ให้เริ่มเอง
+setTimeout(()=>{
+  if(started) return;
+  const overlay = DOC.getElementById('startOverlay');
+  if(!overlay){
+    console.warn('[GoodJunkVR boot] overlay missing -> autostart');
+    startEngine({ view: qs('view','mobile') });
+  }
+}, 900);
