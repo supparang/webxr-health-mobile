@@ -1,0 +1,19 @@
+/* === /herohealth/vr-groups/slowmo-micro.css ===
+PACK 44: visual slowmo (no logic impact)
+*/
+
+body.fx-slowmo .fg-target::after{
+  animation-duration: 1.8s !important;
+}
+body.fx-slowmo .fg-target.spawn{
+  animation-duration: 260ms !important;
+}
+body.fx-slowmo .fg-target.hit{
+  animation-duration: 240ms !important;
+}
+body.fx-slowmo .playLayer{
+  filter: saturate(1.08) contrast(1.05);
+}
+body.fx-slowmo .hud .pill{
+  box-shadow: 0 0 0 2px rgba(167,139,250,.10), var(--soft);
+}
