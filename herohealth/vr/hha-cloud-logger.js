@@ -1,9 +1,10 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger V2.2 — ROW Schema + Dedup + Queue + Beacon + text/plain POST (PRODUCTION SAFE)
-// ✅ Default endpoint updated to NEW Apps Script
-// ✅ Prefers text/plain body for POST (matches your Apps Script "A")
-// ✅ Still supports: sendBeacon / fetch keepalive / fetch no-cors
-// ✅ URL override: ?log=ENCODED_ENDPOINT  | disable: ?nolog=1
+// HHA Cloud Logger V2.2 — ROW Schema + Dedup + Queue + Beacon + Flush Event (PRODUCTION SAFE)
+// ✅ POST JSON/text/plain (Apps Script doPost รองรับ)
+// ✅ Queue in-memory + localStorage
+// ✅ Dedup TTL
+// ✅ Flush-hardened: listens hha:flush-all
+// ✅ Endpoint override: ?log=...
 
 (function(){
   'use strict';
@@ -14,9 +15,11 @@
   if (ROOT.__HHA_CLOUD_LOGGER_V22__) return;
   ROOT.__HHA_CLOUD_LOGGER_V22__ = true;
 
-  // ✅ NEW endpoint (your Apps Script Web App)
+  // ---------------------------
+  // Config
+  // ---------------------------
   const DEFAULT_ENDPOINT =
-    'https://script.google.com/macros/s/AKfycbzViUBbG-pNLDIXZx7BdFEJj_pf8oFDkRh0_7ryke0nCUdQClPZIZ_k5-qPod14K3DHFA/exec';
+    'https://script.google.com/macros/s/AKfycbxdy-3BjJhn6Fo3kQX9oxHQIlXT7p2OXn-UYfv1MKV5oSW6jYG-RlnAgKlHqrNxxbhmaw/exec';
 
   function qs(k, def=null){
     try { return new URL(location.href).searchParams.get(k) ?? def; }
@@ -26,26 +29,44 @@
   const ENDPOINT = (qs('log', null) || DEFAULT_ENDPOINT);
   const DISABLED = (qs('nolog','0') === '1');
 
-  // Queue / persistence
   const LS_KEY = 'HHA_LOG_QUEUE_V22';
-  const MAX_QUEUE = 240;   // mem queue cap
-  const MAX_LS = 180;      // localStorage cap
-  const FLUSH_BATCH = 24;  // send per batch
+  const MAX_QUEUE = 260;   // in-memory cap
+  const MAX_LS    = 180;   // localStorage cap
+  const FLUSH_BATCH = 24;
 
-  // Dedup
-  const DEDUP_TTL_MS = 1800; // 30 min
+  const DEDUP_TTL_MS = 1800; // 1.8s in ms? (kept same behavior style)
   const dedup = new Map();
 
+  // Apps Script cell limit guard (client-side truncate)
+  const MAX_FIELD_LEN = 45000;
+
+  // ---------------------------
+  // Safe helpers
+  // ---------------------------
   function safeNowIso(){ try { return new Date().toISOString(); } catch { return ''; } }
   function safeStr(x){ try { return (x==null)?'':String(x); } catch { return ''; } }
   function safeNum(x, def=0){
     const n = Number(x);
     return Number.isFinite(n) ? n : def;
   }
-  function safeJson(obj){ try { return JSON.stringify(obj); } catch { return '{"_err":"json"}'; } }
-  function safeParse(str){ try { return JSON.parse(str); } catch { return null; } }
+  function safeJson(obj){
+    try { return JSON.stringify(obj); }
+    catch { return '{"_err":"json"}'; }
+  }
+  function safeParse(str){
+    try { return JSON.parse(str); }
+    catch { return null; }
+  }
 
-  // --- localStorage helpers ---
+  function clampStr(v){
+    const s = safeStr(v);
+    if(s.length <= MAX_FIELD_LEN) return s;
+    return s.slice(0, MAX_FIELD_LEN) + '…';
+  }
+
+  // ---------------------------
+  // LS queue
+  // ---------------------------
   function getLS(){
     try{
       const s = localStorage.getItem(LS_KEY);
@@ -76,7 +97,9 @@
     }catch(_){ return []; }
   }
 
-  // --- context (hydrated from URL once, then refined by start/end) ---
+  // ---------------------------
+  // Context (session-level)
+  // ---------------------------
   const ctx = {
     sessionId: null,
     startTimeIso: null,
@@ -121,7 +144,7 @@
     return ctx.sessionId;
   }
 
-  // hydrate context from URL once
+  // hydrate optional profile from URL once
   (function hydrateFromUrlOnce(){
     try{
       const map = [
@@ -131,7 +154,6 @@
         ['sessionOrder',['sessionOrder']],
         ['blockLabel',['block','blockLabel']],
         ['siteCode',['site','siteCode']],
-
         ['studentKey',['studentKey','sid','student']],
         ['schoolCode',['schoolCode']],
         ['schoolName',['schoolName']],
@@ -165,7 +187,9 @@
     }catch(_){}
   })();
 
-  // --- row schema (matches your Apps Script FIXED_COLUMNS + logger fields) ---
+  // ---------------------------
+  // Row schema (matches your Apps Script FIXED_COLUMNS)
+  // ---------------------------
   function baseRow(){
     return {
       timestampIso: safeNowIso(),
@@ -250,17 +274,17 @@
     r.eventType = 'start';
 
     r.projectTag = d.projectTag ?? r.projectTag;
-    r.runMode = d.runMode ?? r.runMode;
-    r.studyId = d.studyId ?? r.studyId;
-    r.phase = d.phase ?? r.phase;
+    r.runMode    = d.runMode ?? r.runMode;
+    r.studyId    = d.studyId ?? r.studyId;
+    r.phase      = d.phase ?? r.phase;
     r.conditionGroup = d.conditionGroup ?? r.conditionGroup;
 
-    r.gameMode = d.view ?? r.gameMode;
-    r.device = d.view ?? r.device;
-    r.diff = d.diff ?? r.diff;
-    r.gameVersion = d.gameVersion ?? r.gameVersion;
+    r.gameMode   = d.view ?? r.gameMode;
+    r.device     = d.view ?? r.device;
+    r.diff       = d.diff ?? r.diff;
+    r.gameVersion= d.gameVersion ?? r.gameVersion;
 
-    r.durationPlannedSec = safeNum(d.durationPlannedSec, null);
+    r.durationPlannedSec = (d.durationPlannedSec!=null) ? Number(d.durationPlannedSec) : null;
     r.startTimeIso = d.startTimeIso ?? r.startTimeIso;
     return r;
   }
@@ -270,42 +294,42 @@
     r.eventType = 'end';
 
     r.projectTag = d.projectTag ?? r.projectTag;
-    r.runMode = d.runMode ?? r.runMode;
-    r.studyId = d.studyId ?? r.studyId;
-    r.phase = d.phase ?? r.phase;
+    r.runMode    = d.runMode ?? r.runMode;
+    r.studyId    = d.studyId ?? r.studyId;
+    r.phase      = d.phase ?? r.phase;
     r.conditionGroup = d.conditionGroup ?? r.conditionGroup;
 
-    r.gameMode = d.device ?? d.view ?? r.gameMode;
-    r.device = d.device ?? d.view ?? r.device;
-    r.diff = d.diff ?? r.diff;
-    r.gameVersion = d.gameVersion ?? r.gameVersion;
+    r.gameMode   = d.device ?? d.view ?? r.gameMode;
+    r.device     = d.device ?? d.view ?? r.device;
+    r.diff       = d.diff ?? r.diff;
+    r.gameVersion= d.gameVersion ?? r.gameVersion;
 
     r.reason = d.reason ?? null;
     r.startTimeIso = d.startTimeIso ?? r.startTimeIso;
-    r.endTimeIso = d.endTimeIso ?? safeNowIso();
+    r.endTimeIso   = d.endTimeIso ?? safeNowIso();
 
-    r.durationPlannedSec = safeNum(d.durationPlannedSec, null);
-    r.durationPlayedSec  = safeNum(d.durationPlayedSec, null);
+    r.durationPlannedSec = (d.durationPlannedSec!=null) ? Number(d.durationPlannedSec) : null;
+    r.durationPlayedSec  = (d.durationPlayedSec!=null) ? Number(d.durationPlayedSec) : null;
 
-    r.scoreFinal = safeNum(d.scoreFinal, null);
-    r.comboMax   = safeNum(d.comboMax, null);
-    r.misses     = safeNum(d.misses, null);
+    r.scoreFinal = (d.scoreFinal!=null) ? Number(d.scoreFinal) : null;
+    r.comboMax   = (d.comboMax!=null)   ? Number(d.comboMax)   : null;
+    r.misses     = (d.misses!=null)     ? Number(d.misses)     : null;
 
-    r.goalsCleared = safeNum(d.goalsCleared, null);
-    r.goalsTotal   = safeNum(d.goalsTotal, null);
-    r.miniCleared  = safeNum(d.miniCleared, null);
-    r.miniTotal    = safeNum(d.miniTotal, null);
+    r.goalsCleared = (d.goalsCleared!=null) ? Number(d.goalsCleared) : null;
+    r.goalsTotal   = (d.goalsTotal!=null)   ? Number(d.goalsTotal)   : null;
+    r.miniCleared  = (d.miniCleared!=null)  ? Number(d.miniCleared)  : null;
+    r.miniTotal    = (d.miniTotal!=null)    ? Number(d.miniTotal)    : null;
 
-    r.nTargetGoodSpawned    = safeNum(d.nTargetGoodSpawned, null);
-    r.nTargetJunkSpawned    = safeNum(d.nTargetJunkSpawned, null);
-    r.nTargetStarSpawned    = safeNum(d.nTargetStarSpawned, null);
-    r.nTargetDiamondSpawned = safeNum(d.nTargetDiamondSpawned, null);
-    r.nTargetShieldSpawned  = safeNum(d.nTargetShieldSpawned, null);
+    r.nTargetGoodSpawned    = (d.nTargetGoodSpawned!=null) ? Number(d.nTargetGoodSpawned) : null;
+    r.nTargetJunkSpawned    = (d.nTargetJunkSpawned!=null) ? Number(d.nTargetJunkSpawned) : null;
+    r.nTargetStarSpawned    = (d.nTargetStarSpawned!=null) ? Number(d.nTargetStarSpawned) : null;
+    r.nTargetDiamondSpawned = (d.nTargetDiamondSpawned!=null) ? Number(d.nTargetDiamondSpawned) : null;
+    r.nTargetShieldSpawned  = (d.nTargetShieldSpawned!=null) ? Number(d.nTargetShieldSpawned) : null;
 
-    r.nHitGood      = safeNum(d.nHitGood, null);
-    r.nHitJunk      = safeNum(d.nHitJunk, null);
-    r.nHitJunkGuard = safeNum(d.nHitJunkGuard, null);
-    r.nExpireGood   = safeNum(d.nExpireGood, null);
+    r.nHitGood      = (d.nHitGood!=null) ? Number(d.nHitGood) : null;
+    r.nHitJunk      = (d.nHitJunk!=null) ? Number(d.nHitJunk) : null;
+    r.nHitJunkGuard = (d.nHitJunkGuard!=null) ? Number(d.nHitJunkGuard) : null;
+    r.nExpireGood   = (d.nExpireGood!=null) ? Number(d.nExpireGood) : null;
 
     r.accuracyGoodPct = (d.accuracyGoodPct!=null) ? Number(d.accuracyGoodPct) : null;
     r.junkErrorPct    = (d.junkErrorPct!=null) ? Number(d.junkErrorPct) : null;
@@ -314,28 +338,37 @@
     r.fastHitRatePct  = (d.fastHitRatePct!=null) ? Number(d.fastHitRatePct) : null;
 
     r.rtBreakdownJson = d.rtBreakdownJson ?? null;
+
     return r;
   }
 
   function toRowFromLog(d){
     const r = baseRow();
     r.eventType = safeStr(d.type || 'log');
-    // keep all detail as extraJson so Apps Script can store in __extraJson or extraJson col
     r.extraJson = safeJson(d);
     return r;
   }
 
-  // --- queue (memory) ---
-  const memQ = [];
-  function memPush(item){
-    if(DISABLED) return;
+  // truncate string fields in row (client-side)
+  function sanitizeRow(row){
     try{
-      memQ.push(item);
-      if(memQ.length > MAX_QUEUE) memQ.splice(0, memQ.length - MAX_QUEUE);
-    }catch(_){}
+      const out = {};
+      for(const k of Object.keys(row)){
+        const v = row[k];
+        if(v == null){ out[k] = null; continue; }
+        if(typeof v === 'string') out[k] = clampStr(v);
+        else if(typeof v === 'object') out[k] = clampStr(safeJson(v));
+        else out[k] = v;
+      }
+      return out;
+    }catch(_){
+      return row;
+    }
   }
 
-  // --- dedup ---
+  // ---------------------------
+  // Dedup
+  // ---------------------------
   function makeEventKey(row){
     const sec = safeStr(row.timestampIso).slice(0,19);
     return (
@@ -363,27 +396,22 @@
     }
   }
 
-  // --- transport ---
-  // ✅ IMPORTANT: Apps Script supports A) POST text/plain (recommended)
-  function asPlainBody(payloadObj){
-    // send JSON string, but content-type text/plain
-    return safeJson(payloadObj);
-  }
-
+  // ---------------------------
+  // Transport
+  // ---------------------------
   function sendBeacon(url, bodyStr){
     try{
       if(!navigator.sendBeacon) return false;
-      // can be text/plain; Apps Script parses JSON by body anyway
-      const blob = new Blob([bodyStr], { type:'text/plain;charset=utf-8' });
+      const blob = new Blob([bodyStr], { type:'text/plain' }); // ✅ Apps Script accepts text/plain
       return navigator.sendBeacon(url, blob);
     }catch(_){ return false; }
   }
 
-  async function sendFetchKeepalivePlain(url, bodyStr){
+  async function sendFetchKeepalive(url, bodyStr){
     try{
       await fetch(url, {
         method:'POST',
-        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // ✅ avoid preflight in many cases
         body: bodyStr,
         keepalive: true,
         mode: 'cors',
@@ -393,7 +421,7 @@
     }catch(_){ return false; }
   }
 
-  async function sendFetchNoCorsPlain(url, bodyStr){
+  async function sendFetchNoCors(url, bodyStr){
     try{
       await fetch(url, {
         method:'POST',
@@ -410,15 +438,26 @@
     if(DISABLED) return false;
     if(!rows || !rows.length) return true;
 
-    // ✅ payload aligned with cloud-logger row batching
+    // ✅ ส่งเป็น JSON string (Apps Script parsePayloadFromPost_ จะ parse ได้)
     const payload = { kind: 'HHA_ROWS_V22', count: rows.length, rows };
-    const bodyStr = asPlainBody(payload);
+    const bodyStr = safeJson(payload);
 
-    // order: beacon -> keepalive -> no-cors
     if(sendBeacon(ENDPOINT, bodyStr)) return true;
-    if(await sendFetchKeepalivePlain(ENDPOINT, bodyStr)) return true;
-    if(await sendFetchNoCorsPlain(ENDPOINT, bodyStr)) return true;
+    if(await sendFetchKeepalive(ENDPOINT, bodyStr)) return true;
+    if(await sendFetchNoCors(ENDPOINT, bodyStr)) return true;
     return false;
+  }
+
+  // ---------------------------
+  // Queue / Flush
+  // ---------------------------
+  const memQ = [];
+  function memPush(item){
+    if(DISABLED) return;
+    try{
+      memQ.push(item);
+      if(memQ.length > MAX_QUEUE) memQ.splice(0, memQ.length - MAX_QUEUE);
+    }catch(_){}
   }
 
   let flushing = false;
@@ -438,7 +477,7 @@
     flushing = true;
 
     try{
-      // pull from LS first (oldest first)
+      // pull from LS first (oldest)
       const fromLS = popLS(maxBatch);
       if(fromLS.length){
         for(const it of fromLS) memQ.unshift(it);
@@ -468,7 +507,7 @@
 
   async function flushAll(){
     if(DISABLED) return;
-    for(let i=0;i<7;i++){
+    for(let i=0;i<8;i++){
       const ok = await flushOnce(FLUSH_BATCH);
       if(!ok) break;
       if(memQ.length === 0 && getLS().length === 0) break;
@@ -479,24 +518,22 @@
     try{ setTimeout(()=>{ flushAll(); }, 0); }catch(_){}
   }
 
-  // --- apply ctx ---
+  // ---------------------------
+  // Apply ctx
+  // ---------------------------
   function applyCtxFromStart(d){
     try{
-      ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
-      ctx.runMode    = d.runMode ?? ctx.runMode ?? null;
-      ctx.view       = d.view ?? ctx.view ?? null;
-      ctx.diff       = d.diff ?? ctx.diff ?? null;
-      ctx.seed       = d.seed ?? ctx.seed ?? null;
-      ctx.gameVersion= d.gameVersion ?? ctx.gameVersion ?? null;
-      ctx.startTimeIso = d.startTimeIso ?? ctx.startTimeIso ?? safeNowIso();
+      ctx.projectTag  = d.projectTag ?? ctx.projectTag ?? null;
+      ctx.runMode     = d.runMode ?? ctx.runMode ?? null;
+      ctx.view        = d.view ?? ctx.view ?? null;
+      ctx.diff        = d.diff ?? ctx.diff ?? null;
+      ctx.seed        = d.seed ?? ctx.seed ?? null;
+      ctx.gameVersion = d.gameVersion ?? ctx.gameVersion ?? null;
+      ctx.startTimeIso= d.startTimeIso ?? ctx.startTimeIso ?? safeNowIso();
 
       ctx.studyId = d.studyId ?? ctx.studyId ?? null;
       ctx.phase   = d.phase ?? ctx.phase ?? null;
       ctx.conditionGroup = d.conditionGroup ?? ctx.conditionGroup ?? null;
-
-      if(d.sessionOrder != null) ctx.sessionOrder = d.sessionOrder;
-      if(d.blockLabel   != null) ctx.blockLabel   = d.blockLabel;
-      if(d.siteCode     != null) ctx.siteCode     = d.siteCode;
 
       ensureSessionId();
     }catch(_){}
@@ -504,32 +541,30 @@
 
   function applyCtxFromEnd(d){
     try{
-      ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
-      ctx.runMode    = d.runMode ?? ctx.runMode ?? null;
-      ctx.view       = d.device ?? d.view ?? ctx.view ?? null;
-      ctx.diff       = d.diff ?? ctx.diff ?? null;
-      ctx.seed       = d.seed ?? ctx.seed ?? null;
-      ctx.gameVersion= d.gameVersion ?? ctx.gameVersion ?? null;
+      ctx.projectTag  = d.projectTag ?? ctx.projectTag ?? null;
+      ctx.runMode     = d.runMode ?? ctx.runMode ?? null;
+      ctx.view        = d.device ?? d.view ?? ctx.view ?? null;
+      ctx.diff        = d.diff ?? ctx.diff ?? null;
+      ctx.seed        = d.seed ?? ctx.seed ?? null;
+      ctx.gameVersion = d.gameVersion ?? ctx.gameVersion ?? null;
 
       ctx.studyId = d.studyId ?? ctx.studyId ?? null;
       ctx.phase   = d.phase ?? ctx.phase ?? null;
       ctx.conditionGroup = d.conditionGroup ?? ctx.conditionGroup ?? null;
-
-      if(d.sessionOrder != null) ctx.sessionOrder = d.sessionOrder;
-      if(d.blockLabel   != null) ctx.blockLabel   = d.blockLabel;
-      if(d.siteCode     != null) ctx.siteCode     = d.siteCode;
 
       if(!ctx.startTimeIso) ctx.startTimeIso = d.startTimeIso ?? safeNowIso();
       ensureSessionId();
     }catch(_){}
   }
 
-  // --- event handlers ---
+  // ---------------------------
+  // Event handlers
+  // ---------------------------
   function onStart(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
       applyCtxFromStart(d);
-      const row = toRowFromStart(d);
+      const row = sanitizeRow(toRowFromStart(d));
       if(allowByDedup(row)) memPush(row);
       flushSoon();
     }catch(_){}
@@ -539,8 +574,10 @@
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
       applyCtxFromEnd(d);
-      const row = toRowFromEnd(d);
+      const row = sanitizeRow(toRowFromEnd(d));
       if(allowByDedup(row)) memPush(row);
+
+      // end: flush ASAP + persist
       flushSoon();
       persistMemQ();
     }catch(_){}
@@ -549,17 +586,28 @@
   function onLog(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
-      const row = toRowFromLog(d);
+      const row = sanitizeRow(toRowFromLog(d));
       if(allowByDedup(row)) memPush(row);
       if(memQ.length % 10 === 0) flushSoon();
     }catch(_){}
   }
 
+  // ---------------------------
+  // Listen
+  // ---------------------------
   ROOT.addEventListener('hha:start', (ev)=> onStart(ev && ev.detail), { passive:true });
   ROOT.addEventListener('hha:end',   (ev)=> onEnd(ev && ev.detail),   { passive:true });
   ROOT.addEventListener('hha:log',   (ev)=> onLog(ev && ev.detail),   { passive:true });
 
-  // flush on pagehide/hidden
+  // ✅ NEW: flush-hardened event
+  ROOT.addEventListener('hha:flush-all', ()=>{
+    try{
+      persistMemQ();
+      flushAll();
+    }catch(_){}
+  }, { passive:true });
+
+  // Page lifecycle
   ROOT.addEventListener('pagehide', ()=>{
     try{
       persistMemQ();
@@ -576,7 +624,7 @@
     }catch(_){}
   }, { passive:true });
 
-  // initial kick
+  // kick
   flushSoon();
 
 })();
