@@ -16,9 +16,43 @@
 
   <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
+
+  <!-- ✅ DEBUG HUD: show runtime errors on-screen (mobile friendly) -->
+  <style>
+    .dbg-hud{
+      position:fixed; left:10px; right:10px; top:10px;
+      z-index:9999; pointer-events:none;
+      font:900 12px/1.35 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+      color:#fff;
+      text-shadow:0 2px 10px rgba(0,0,0,.55);
+    }
+    .dbg-hud .card{
+      pointer-events:none;
+      background:rgba(2,6,23,.80);
+      border:1px solid rgba(148,163,184,.25);
+      border-radius:14px;
+      padding:10px 12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      display:none;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .dbg-hud .card.show{display:block;}
+    .dbg-hud .t{opacity:.8;margin-bottom:6px}
+    .dbg-hud .bad{color:#fda4af}
+    .dbg-hud .ok{color:#86efac}
+  </style>
 </head>
 
 <body class="view-mobile">
+  <!-- ✅ debug hud -->
+  <div class="dbg-hud" aria-hidden="true">
+    <div class="card" id="dbgCard">
+      <div class="t">GoodJunkVR Debug</div>
+      <div id="dbgText"></div>
+    </div>
+  </div>
+
   <!-- minimal aframe scene -->
   <a-scene embedded vr-mode-ui="enabled:false"
     style="position:fixed; inset:0; width:1px; height:1px; opacity:0; pointer-events:none;">
@@ -115,11 +149,12 @@
   <!-- STAGE -->
   <div id="gj-stage">
     <div class="gj-eye eye-l">
-      <div class="gj-layer" id="gj-layer"></div>
+      <!-- ✅ ensure layer has size even if css breaks -->
+      <div class="gj-layer" id="gj-layer" style="min-height:60vh; min-width:60vw;"></div>
       <div class="gj-crosshair"></div>
     </div>
     <div class="gj-eye eye-r">
-      <div class="gj-layer" id="gj-layer-r"></div>
+      <div class="gj-layer" id="gj-layer-r" style="min-height:60vh; min-width:60vw;"></div>
       <div class="gj-crosshair"></div>
     </div>
   </div>
@@ -135,6 +170,32 @@
   <script>
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
+      // ✅ auto-set view class from query (prevents css mismatch)
+      (function syncViewClass(){
+        const v = String(qs('view','mobile')||'mobile').toLowerCase();
+        const view = (v==='pc'||v==='vr'||v==='cvr') ? v : 'mobile';
+        document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+        document.body.classList.add('view-'+view);
+      })();
+
+      // ✅ debug hud helpers
+      const dbgCard = document.getElementById('dbgCard');
+      const dbgText = document.getElementById('dbgText');
+      const showDbg = (msg)=>{ dbgCard.classList.add('show'); dbgText.textContent = msg; };
+      const addDbg  = (msg)=>{
+        dbgCard.classList.add('show');
+        dbgText.textContent = (dbgText.textContent ? (dbgText.textContent + "\n") : "") + msg;
+      };
+
+      window.addEventListener('error', (e)=>{
+        showDbg("❌ JS error:\n" + (e?.message||e) + "\n@ " + (e?.filename||'') + ":" + (e?.lineno||'') );
+      });
+      window.addEventListener('unhandledrejection', (e)=>{
+        const r = e?.reason;
+        showDbg("❌ Unhandled rejection:\n" + (r?.message || String(r||e)));
+      });
+
       const btnStart = document.getElementById('btnStart');
       const btnStartVR= document.getElementById('btnStartVR');
       const overlay  = document.getElementById('startOverlay');
@@ -145,9 +206,24 @@
       const run  = qs('run','play');
       meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
 
+      let started = false;
+
       function start(){
         overlay.style.display = 'none';
+        started = true;
         window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
+
+        // ✅ watchdog: if no targets show soon, warn about loader/engine issues
+        setTimeout(()=>{
+          const layer = document.getElementById('gj-layer');
+          const n = layer ? layer.children.length : 0;
+          if(n === 0){
+            addDbg("⚠️ Start แล้วแต่ยังไม่เห็น target ใน #gj-layer\n- เช็กว่า goodjunk-vr.boot.js / goodjunk.safe.js โหลดผ่าน\n- ถ้าเห็น error บนนี้ แปลว่าไฟล์พัง/404");
+          }else{
+            // optional success ping
+            // addDbg("✅ targets: " + n);
+          }
+        }, 2000);
       }
 
       btnStart.addEventListener('click', start);
@@ -184,6 +260,14 @@
         document.getElementById('hud-time-mini').textContent  = document.getElementById('hud-time')?.textContent || '0';
         document.getElementById('hud-grade-mini').textContent = document.getElementById('hud-grade')?.textContent || '—';
       }, 250);
+
+      // ✅ quick hint if user never starts
+      setTimeout(()=>{
+        if(!started && (qs('autostart','0')==='1')){
+          try{ start(); }catch(_){}
+        }
+      }, 50);
+
     })();
   </script>
 </body>
