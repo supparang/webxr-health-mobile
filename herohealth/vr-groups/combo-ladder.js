@@ -1,84 +1,93 @@
 /* === /herohealth/vr-groups/combo-ladder.js ===
-PACK 28: Combo Ladder — PRODUCTION
-✅ Tracks combo streak by reading hha:score
-✅ Emits fx:combo-tier when reaching milestones
-✅ Tiered celebration: S / SS / SSS style
-✅ Safe: rate-limited, respects FXPerf level
-Requires: fx-router.js (recommended) but can work without
+PACK 42: Combo Ladder + SSS Moment — PRODUCTION
+✅ Reads hha:score (combo) + hha:rank (grade)
+✅ Emits hha:judge kind=streak/perfect to drive effects-pack
+✅ Uses Particles popText/celebrate if available and FX level allows
 */
 
 (function(root){
   'use strict';
-  const DOC = root.document;
-  if (!DOC) return;
-
+  const DOC = root.document; if(!DOC) return;
   const NS = root.GroupsVR = root.GroupsVR || {};
-  const NOW = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
   function fxLevel(){
-    try{
-      const L = (NS.FXPerf && NS.FXPerf.getLevel) ? NS.FXPerf.getLevel() : Number(DOC.body.dataset.fxLevel||3);
-      return Number(L)||3;
-    }catch{ return 3; }
+    try{ return (NS.FXPerf && NS.FXPerf.getLevel) ? NS.FXPerf.getLevel() : Number(DOC.body.dataset.fxLevel||2); }
+    catch{ return 2; }
   }
   function allow(min){ return fxLevel() >= (min||1); }
 
   function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, {detail})); }catch(_){}
+    try{ root.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
   }
 
-  // milestones -> tier label
-  const MILE = [
-    { n: 6,  tier: 'S',   text: 'S COMBO!'   },
-    { n: 10, tier: 'SS',  text: 'SS COMBO!!' },
-    { n: 14, tier: 'SSS', text: 'SSS COMBO!!!' }
+  function hasParticles(){
+    const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
+    return !!P;
+  }
+  function pop(x,y,text){
+    try{
+      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
+      if (P && typeof P.popText==='function') P.popText(x,y,text,'');
+    }catch(_){}
+  }
+  function celebrate(){
+    try{
+      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
+      if (P && typeof P.celebrate==='function') P.celebrate();
+    }catch(_){}
+  }
+
+  const marks = [
+    { c:6,  label:'NICE!' },
+    { c:10, label:'HOT!' },
+    { c:14, label:'INSANE!' },
+    { c:18, label:'GODLIKE!' }
   ];
 
-  let curCombo = 0;
   let lastCombo = 0;
-  let lastTierAt = 0;
+  let fired = {};
 
-  function tierFor(combo){
-    for (let i = MILE.length - 1; i >= 0; i--){
-      if (combo >= MILE[i].n) return MILE[i];
-    }
-    return null;
-  }
+  function onCombo(combo){
+    combo = Number(combo)||0;
+    if (combo < lastCombo) { fired = {}; } // reset when combo breaks
+    lastCombo = combo;
 
-  // listen score to know combo, misses
-  root.addEventListener('hha:score', (ev)=>{
-    const d = ev.detail||{};
-    curCombo = Number(d.combo||0) || 0;
+    for (const m of marks){
+      if (combo >= m.c && !fired[m.c]){
+        fired[m.c] = true;
 
-    // reset detection (miss)
-    if (curCombo === 0 && lastCombo > 0){
-      emit('fx:combo-reset', { t: NOW(), prev:lastCombo });
-    }
+        // drive existing effects-pack
+        emit('hha:judge', { kind:'streak', text:m.label });
 
-    // tier bump detection
-    const t = NOW();
-    const A = tierFor(curCombo);
-    const B = tierFor(lastCombo);
-
-    const newTier = A && (!B || A.n > B.n);
-    if (newTier && allow(2)){
-      if (t - lastTierAt > 500){
-        lastTierAt = t;
-        emit('fx:combo-tier', { t, combo:curCombo, tier:A.tier, text:A.text, milestone:A.n });
-        // also map to generic combo event (for older effect packs)
-        emit('fx:combo', { t, combo:curCombo, tier:A.tier, text:A.text });
+        if (allow(2) && hasParticles()){
+          pop(innerWidth*0.5, innerHeight*0.42, m.label);
+          if (allow(3) && m.c >= 14) celebrate();
+        }
       }
     }
+  }
 
-    lastCombo = curCombo;
+  // listen score
+  root.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail||{};
+    onCombo(d.combo);
   }, {passive:true});
 
-  // clutch: last 3 seconds -> stronger vibe (without strobing)
-  root.addEventListener('hha:time', (ev)=>{
-    const left = Number((ev.detail||{}).left ?? 0);
-    DOC.body.classList.toggle('fx-clutch', left>0 && left<=3);
+  // SSS moment on end: if grade S/SS/SSS
+  root.addEventListener('hha:end', (ev)=>{
+    const d = ev.detail||{};
+    const g = String(d.grade||'').toUpperCase();
+    if (!allow(2)) return;
+
+    if (g === 'S' || g === 'SS' || g === 'SSS'){
+      emit('hha:judge', { kind:'perfect', text:`${g} MOMENT` });
+      if (hasParticles()){
+        pop(innerWidth*0.5, innerHeight*0.32, `${g} MOMENT`);
+        if (allow(3)) celebrate();
+      }
+      DOC.body.classList.add('fx-sss');
+      setTimeout(()=>DOC.body.classList.remove('fx-sss'), 1100);
+    }
   }, {passive:true});
 
-  NS.ComboLadder = { tierFor };
-
-})(typeof window!=='undefined' ? window : globalThis);
+})();
