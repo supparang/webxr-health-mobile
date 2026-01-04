@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — PlateVR Launcher</title>
+  <title>HeroHealth — Balanced Plate VR Launcher</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
@@ -17,12 +17,8 @@
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
       --radius:22px;
       --pill:999px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -31,182 +27,127 @@
 
     *{ box-sizing:border-box; }
     html,body{
-      margin:0;
-      width:100%;
-      height:100%;
-      overflow:hidden;
+      margin:0; width:100%; height:100%;
       background:var(--bg);
       color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
     }
 
     .bg{
       position:fixed; inset:0;
       background:
-        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-        radial-gradient(circle at 88% 18%, rgba(167,139,250,.10), transparent 42%),
-        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
+        radial-gradient(circle at 15% 10%, rgba(34,211,238,.14), transparent 42%),
+        radial-gradient(circle at 85% 20%, rgba(167,139,250,.12), transparent 44%),
         linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
       pointer-events:none;
     }
 
     .wrap{
-      position:fixed; inset:0;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
+      position:relative;
+      min-height:100%;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar))
+               calc(18px + var(--sab)) calc(18px + var(--sal));
+      display:grid;
+      place-items:center;
     }
 
-    .container{
-      width:min(980px, 100%);
-      margin:0 auto;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
-    .hero{
-      display:flex;
-      justify-content:space-between;
-      gap:14px;
-      flex-wrap:wrap;
-      align-items:flex-start;
-      padding:14px 16px;
+    .panel{
+      width:min(980px,100%);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
-      box-shadow:0 26px 90px rgba(0,0,0,.42);
-      backdrop-filter: blur(10px);
+      padding:18px;
+      box-shadow: 0 30px 100px rgba(0,0,0,.45);
+      backdrop-filter: blur(12px);
     }
-    .title{
+
+    h1{
+      margin:0;
+      font-size:22px;
       font-weight:1200;
-      font-size:18px;
-      letter-spacing:.2px;
     }
     .sub{
       margin-top:6px;
       color:var(--muted);
       font-weight:900;
-      font-size:13px;
-      line-height:1.35;
+      font-size:14px;
     }
 
     .grid{
+      margin-top:16px;
       display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-    }
-    @media (max-width: 920px){
-      .grid{ grid-template-columns:1fr; }
+      grid-template-columns: repeat(auto-fit, minmax(240px,1fr));
+      gap:14px;
     }
 
     .card{
       background:var(--panel2);
       border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:14px 16px;
-      box-shadow:0 18px 60px rgba(0,0,0,.26);
-      backdrop-filter: blur(10px);
+      border-radius:18px;
+      padding:14px;
     }
 
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:10px;
-    }
-
-    .k{
-      font-weight:1100;
-      font-size:12px;
-      color:rgba(229,231,235,.92);
-    }
+    .t{ font-weight:1100; font-size:13px; }
+    .v{ margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; }
 
     .pill{
       display:inline-flex;
+      align-items:center;
       gap:8px;
-      align-items:center;
-      padding:8px 10px;
+      padding:8px 12px;
       border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.65);
       font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.95);
-      white-space:nowrap;
+      cursor:pointer;
+      user-select:none;
     }
+    .pill input{ accent-color: var(--accent); }
 
-    label{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.92);
-      min-width: 180px;
-      flex: 1;
-    }
-
-    select, input{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.55);
-      color:rgba(229,231,235,.95);
-      border-radius:14px;
-      padding:10px 12px;
+    select, input[type="number"]{
+      background:rgba(2,6,23,.65);
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      color:var(--text);
+      padding:8px 10px;
       font-weight:900;
-      font-size:13px;
-      outline:none;
     }
 
-    .btns{
+    .actions{
+      margin-top:18px;
       display:flex;
-      gap:10px;
       flex-wrap:wrap;
+      gap:12px;
+      justify-content:space-between;
       align-items:center;
-      justify-content:flex-end;
-      margin-top:10px;
     }
 
     .btn{
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:12px 14px;
-      background:rgba(2,6,23,.70);
+      padding:12px 16px;
+      background:rgba(2,6,23,.72);
       border:1px solid rgba(148,163,184,.20);
       color:rgba(229,231,235,.95);
-      font: 1100 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      box-shadow: 0 16px 40px rgba(0,0,0,.32);
-      backdrop-filter: blur(10px);
+      font-weight:1100;
       cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
-      user-select:none;
+      box-shadow: 0 18px 44px rgba(0,0,0,.32);
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.32); }
-    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.32); }
-    .btn.bad{ background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.30); }
+    .btn.primary{
+      background:rgba(34,197,94,.18);
+      border-color:rgba(34,197,94,.35);
+    }
+    .btn.warn{
+      background:rgba(245,158,11,.18);
+      border-color:rgba(245,158,11,.35);
+    }
 
-    .note{
+    .foot{
       margin-top:10px;
-      color:rgba(148,163,184,.95);
-      font-weight:900;
+      color:var(--muted);
       font-size:12px;
-      line-height:1.35;
-    }
-
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 11px;
-      word-break: break-all;
-      color: rgba(148,163,184,.92);
-      background: rgba(2,6,23,.45);
-      border: 1px dashed rgba(148,163,184,.20);
-      border-radius: 14px;
-      padding: 10px 12px;
-      margin-top: 10px;
+      font-weight:900;
     }
   </style>
 </head>
@@ -215,227 +156,93 @@
   <div class="bg"></div>
 
   <div class="wrap">
-    <div class="container">
-
-      <div class="hero">
-        <div>
-          <div class="title">🍽️ Balanced Plate VR — Launcher</div>
-          <div class="sub">
-            เลือกโหมดเข้าเล่นให้ชัดเจน (PC / Mobile / Cardboard)<br/>
-            Play = Adaptive ON • Study = Seeded & Adaptive OFF • Cardboard แนะนำ <b>view=cvr</b>
-          </div>
-        </div>
-        <div class="row">
-          <span class="pill">🎯 Goals 2</span>
-          <span class="pill">⚡ Mini (Storm + Rush + Boss*)</span>
-          <span class="pill">🛡️ Shield + Fever</span>
-        </div>
-      </div>
+    <div class="panel">
+      <h1>🍽️ Balanced Plate VR</h1>
+      <div class="sub">Launcher • เลือกโหมด / ระดับ / อุปกรณ์</div>
 
       <div class="grid">
-
         <div class="card">
-          <div class="k">1) โหมด / ความยาก / เวลา</div>
-          <div class="row">
-            <label>
-              Run Mode
-              <select id="runMode">
-                <option value="play">play (Adaptive ON)</option>
-                <option value="study">study (Seeded, Adaptive OFF)</option>
-              </select>
+          <div class="t">🎮 โหมดการเล่น</div>
+          <div class="v">
+            <label class="pill">
+              <input type="radio" name="run" value="play" checked />
+              Play (Adaptive AI)
             </label>
-
-            <label>
-              Difficulty
-              <select id="diff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
+            <label class="pill">
+              <input type="radio" name="run" value="study" />
+              Study / Research
             </label>
-
-            <label>
-              Time (sec)
-              <input id="timeSec" type="number" min="20" max="9999" value="90" />
-            </label>
-          </div>
-
-          <div class="row">
-            <label>
-              Seed (ใช้ใน study / หรือจะ fix ใน play ก็ได้)
-              <input id="seed" type="number" value="13579" />
-            </label>
-
-            <label>
-              Hub URL (กลับ HUB)
-              <input id="hub" type="url" placeholder="https://.../hub.html" />
-            </label>
-          </div>
-
-          <div class="note">
-            *Boss จะถูกปิดใน <b>study</b> (เพื่อความนิ่งและเทียบผลได้ง่าย) • Storm มี 2–3 รอบตามโหมด
           </div>
         </div>
 
         <div class="card">
-          <div class="k">2) เลือกอุปกรณ์เข้าเล่น</div>
-          <div class="row">
-            <label>
-              View
-              <select id="view">
-                <option value="pc">pc</option>
-                <option value="mobile" selected>mobile</option>
-                <option value="vr">vr</option>
-                <option value="cvr">cvr (Cardboard ยิงจาก crosshair)</option>
-              </select>
-            </label>
-
-            <label>
-              Style (optional)
-              <select id="style">
-                <option value="">(default)</option>
-                <option value="mix">mix</option>
-                <option value="clean">clean</option>
-              </select>
-            </label>
+          <div class="t">📊 ระดับความยาก</div>
+          <div class="v">
+            <select id="diff">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
           </div>
-
-          <div class="btns">
-            <button class="btn primary" id="btnPlay">▶ เปิดเกม</button>
-            <button class="btn" id="btnCopy">คัดลอกลิงก์ 🔗</button>
-            <button class="btn warn" id="btnReset">รีเซ็ตค่าหน้า Launcher ♻</button>
-          </div>
-
-          <div class="note">
-            ถ้าเข้า Cardboard: แนะนำเปิดด้วย <b>view=cvr</b> จะยิงจาก crosshair ผ่าน vr-ui.js ได้เลย
-          </div>
-
-          <div class="mono" id="previewUrl">—</div>
         </div>
 
-      </div>
+        <div class="card">
+          <div class="t">⏱️ เวลา (วินาที)</div>
+          <div class="v">
+            <input id="time" type="number" min="30" max="300" value="90" />
+          </div>
+        </div>
 
-      <div class="card">
-        <div class="k">3) ตัวช่วย / ทิปแก้ปัญหาเร็ว</div>
-        <div class="note">
-          • ถ้า “เป้าโผล่รวมมุมเดียว” ให้ลองกด Refresh แล้วรอ 1–2 วินาที (layout stabilize) หรือกด Pause/Resume หนึ่งครั้ง<br/>
-          • มือถือบางรุ่นต้องแตะหน้าจอ 1 ครั้งก่อนเสียง/gyro จะทำงาน (iOS โดยเฉพาะ)<br/>
-          • ถ้าจะให้ deterministic 100% ใน play ให้ใส่ seed คงที่ (แต่ adaptive ยังปรับได้)
+        <div class="card">
+          <div class="t">🕶️ อุปกรณ์</div>
+          <div class="v">
+            <select id="view">
+              <option value="mobile">Mobile</option>
+              <option value="pc">PC</option>
+              <option value="vr">VR Headset</option>
+              <option value="cvr">Cardboard</option>
+            </select>
+          </div>
         </div>
       </div>
 
+      <div class="actions">
+        <button class="btn primary" id="btnPlay">▶ เข้าเกม</button>
+        <button class="btn warn" id="btnCopy">คัดลอกลิงก์ 🔗</button>
+      </div>
+
+      <div class="foot" id="dbg"></div>
     </div>
   </div>
 
   <script>
     (function(){
-      const LS = 'HHA_PLATE_LAUNCHER_PREFS';
-
-      const elRun  = document.getElementById('runMode');
-      const elDiff = document.getElementById('diff');
-      const elTime = document.getElementById('timeSec');
-      const elSeed = document.getElementById('seed');
-      const elHub  = document.getElementById('hub');
-      const elView = document.getElementById('view');
-      const elStyle= document.getElementById('style');
-
-      const btnPlay = document.getElementById('btnPlay');
-      const btnCopy = document.getElementById('btnCopy');
-      const btnReset= document.getElementById('btnReset');
-      const preview = document.getElementById('previewUrl');
-
-      function load(){
-        try{
-          const o = JSON.parse(localStorage.getItem(LS) || '{}');
-          if(o.run) elRun.value = o.run;
-          if(o.diff) elDiff.value = o.diff;
-          if(o.time) elTime.value = o.time;
-          if(o.seed) elSeed.value = o.seed;
-          if(o.hub)  elHub.value  = o.hub;
-          if(o.view) elView.value = o.view;
-          if(o.style!=null) elStyle.value = o.style;
-        }catch(e){}
-      }
-
-      function save(){
-        try{
-          const o = {
-            run: elRun.value,
-            diff: elDiff.value,
-            time: Number(elTime.value)||90,
-            seed: Number(elSeed.value)||13579,
-            hub: elHub.value||'',
-            view: elView.value,
-            style: elStyle.value||''
-          };
-          localStorage.setItem(LS, JSON.stringify(o));
-        }catch(e){}
-      }
+      const qs = id => document.getElementById(id);
+      const dbg = qs('dbg');
 
       function buildUrl(){
-        const base = new URL('./plate-vr.html', location.href);
-        base.searchParams.set('view', elView.value);
-        base.searchParams.set('run', elRun.value);
-        base.searchParams.set('diff', elDiff.value);
-        base.searchParams.set('time', String(Math.max(20, Number(elTime.value)||90)));
-
-        const seed = Number(elSeed.value)||13579;
-        if(elRun.value === 'study'){
-          base.searchParams.set('seed', String(seed));
-        }else{
-          // play: only set seed if user typed something explicit (keep deterministic if needed)
-          if(String(elSeed.value).trim() !== ''){
-            base.searchParams.set('seed', String(seed));
-          }
-        }
-
-        if(elStyle.value) base.searchParams.set('style', elStyle.value);
-        if(elHub.value) base.searchParams.set('hub', elHub.value);
-
-        return base.toString();
+        const u = new URL('./plate-vr.html', location.href);
+        const run = document.querySelector('input[name="run"]:checked')?.value || 'play';
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', qs('diff').value);
+        u.searchParams.set('time', qs('time').value);
+        u.searchParams.set('view', qs('view').value);
+        const hub = new URL(location.href).searchParams.get('hub');
+        if(hub) u.searchParams.set('hub', hub);
+        return u.toString();
       }
 
-      function refresh(){
-        const u = buildUrl();
-        if(preview) preview.textContent = u;
-      }
-
-      // Read hub from query param if launcher opened from HUB
-      (function readFromQuery(){
+      qs('btnPlay').onclick = ()=> location.href = buildUrl();
+      qs('btnCopy').onclick = async ()=>{
         try{
-          const q = new URL(location.href).searchParams;
-          const hub = q.get('hub');
-          if(hub) elHub.value = hub;
-        }catch(e){}
-      })();
-
-      load();
-      refresh();
-
-      [elRun, elDiff, elTime, elSeed, elHub, elView, elStyle].forEach(el=>{
-        el.addEventListener('input', ()=>{ save(); refresh(); }, {passive:true});
-        el.addEventListener('change', ()=>{ save(); refresh(); }, {passive:true});
-      });
-
-      btnPlay.addEventListener('click', ()=>{
-        save();
-        location.href = buildUrl();
-      }, {passive:true});
-
-      btnCopy.addEventListener('click', async ()=>{
-        const u = buildUrl();
-        try{
-          await navigator.clipboard.writeText(u);
-          preview.textContent = '✅ คัดลอกลิงก์แล้ว: ' + u;
-        }catch(e){
-          preview.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่องนี้ได้: ' + u;
+          await navigator.clipboard.writeText(buildUrl());
+          dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
+        }catch{
+          dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ';
         }
-      }, {passive:true});
+      };
 
-      btnReset.addEventListener('click', ()=>{
-        try{ localStorage.removeItem(LS); }catch(e){}
-        location.reload();
-      }, {passive:true});
+      dbg.textContent = 'พร้อมเริ่ม • ' + location.href;
     })();
   </script>
 </body>
