@@ -28,15 +28,10 @@
       --sal: env(safe-area-inset-left, 0px);
     }
     *{ box-sizing:border-box; }
-    html,body{
-      height:100%; margin:0;
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-    }
+    html,body{ height:100%; margin:0; background: radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
+                                 radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+                                 var(--bg);
+              color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
     .wrap{
       min-height:100%;
       padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
@@ -110,8 +105,7 @@
       color:#eafff3;
     }
     .hint{
-      margin-top:10px; font-size:12px; color:var(--muted);
-      font-weight:800; line-height:1.45;
+      margin-top:10px; font-size:12px; color:var(--muted); font-weight:800; line-height:1.45;
     }
     .chip{
       display:inline-flex; align-items:center; gap:8px;
@@ -123,14 +117,14 @@
       font-size:12px;
       color: var(--text);
     }
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .footer{
       padding: 0 18px 18px;
       display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
       color:var(--muted); font-size:12px; font-weight:800;
     }
+    .minirow{ display:flex; gap:10px; flex-wrap:wrap; }
+    a{ color: var(--cyan); text-decoration:none; font-weight:1000; }
   </style>
 </head>
 <body>
@@ -141,7 +135,7 @@
           <div class="title">HeroHealth — GoodJunkVR Launcher</div>
           <div class="sub">เลือกอุปกรณ์ + โหมดเล่น + ความยาก แล้วกดเข้าเกมได้เลย</div>
         </div>
-        <div class="row">
+        <div class="minirow">
           <div class="chip">🎮 <span id="lastMode">—</span></div>
           <div class="chip">🔁 <span id="lastDiff">—</span></div>
           <div class="chip">⏱️ <span id="lastTime">—</span></div>
@@ -253,27 +247,20 @@
         }catch(_){}
       }
 
-      // ✅ FIX: base path is /herohealth/vr-goodjunk/goodjunk-vr.html (option 2)
       function build(view){
-        const here = new URL(location.href);
-        const baseUrl = new URL('./vr-goodjunk/goodjunk-vr.html', here);
-
+        // ✅ FIX PATH: launcher is in /herohealth/ so game is in /herohealth/vr-goodjunk/
+        const base = './vr-goodjunk/goodjunk-vr.html';
         const p = new URLSearchParams();
         p.set('view', view);
         p.set('run', els.run.value);
         p.set('diff', els.diff.value);
         p.set('time', String(Math.max(20, Math.min(300, Number(els.time.value||80)))));
-
         const hub = els.hub.value.trim();
         if(hub) p.set('hub', hub);
-
         const seed = els.seed.value.trim();
         if(seed) p.set('seed', seed);
-
         p.set('ts', String(Date.now()));
-
-        baseUrl.search = p.toString();
-        return baseUrl.toString();
+        return base + '?' + p.toString();
       }
 
       function refreshPreview(){
@@ -296,7 +283,8 @@
         btn.addEventListener('click', ()=>{
           const view = btn.getAttribute('data-view');
           save();
-          location.href = build(view);
+          const url = build(view);
+          location.href = url;
         });
       });
     })();
