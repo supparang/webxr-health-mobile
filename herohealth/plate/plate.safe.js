@@ -96,7 +96,6 @@ const layer = qs('plate-layer');
 const hitFx = qs('hitFx');
 
 const btnStart = qs('btnStart');
-const btnStartMain = qs('btnStartMain'); // ✅ PATCH: allow direct start from overlay
 const startOverlay = qs('startOverlay');
 const btnPause = qs('btnPause');
 const hudPaused = qs('hudPaused');
@@ -123,7 +122,6 @@ const bossFx    = qs('bossFx');
 const stormHud   = qs('stormHud');
 const stormTitle = qs('stormTitle');
 const stormHint  = qs('stormHint');
-const stormProg  = qs('stormProg'); // ✅ used in updateStormHud
 const stormFx    = qs('stormFx');
 
 if(!layer){
@@ -145,6 +143,8 @@ if(!layer){
     @keyframes pfxTick { 0%{transform:scale(1)} 50%{transform:scale(1.03)} 100%{transform:scale(1)} }
     #hitFx.pfx-hit-good{opacity:1; background:radial-gradient(circle at center, rgba(34,197,94,.18), transparent 55%);}
     #hitFx.pfx-hit-bad {opacity:1; background:radial-gradient(circle at center, rgba(239,68,68,.18), transparent 55%);}
+
+    /* storm/boss extra */
     #stormFx.storm-panic{ filter:brightness(1.25); }
     #bossFx.boss-panic{ filter:brightness(1.25); }
   `;
@@ -368,6 +368,7 @@ let tStartMs = 0;
 let tLastTickMs = 0;
 let tLeftSec = Number(timePlannedSec) || 90;
 
+// logger needs startTimeIso/endTimeIso
 let startTimeIso = '';
 
 let score = 0;
@@ -434,6 +435,7 @@ let storm = {
 };
 
 function computeMinisPlanned(){
+  // ✅ mini = storm cycles + plate rush + boss (play only)
   const stormCycles = isStudy ? 2 : 3;
   const rushCount   = 1;
   const bossCount   = isStudy ? 0 : 1;
@@ -608,6 +610,7 @@ function emitQuestUpdate(){
     setText('uiGoalTitle', '—'); setText('uiGoalCount', '0/0');
   }
 
+  // ✅ mini counter real
   setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal,1)}`);
 
   if(activeMini){
@@ -869,7 +872,7 @@ function hitFromShoot(x, y, lockPx){
 
 // ------------------------- Boss (MATCH HTML ids) -------------------------
 function startBoss(){
-  if(isStudy) return;
+  if(isStudy) return; // ✅ study ปิด boss
   if(boss.active) return;
 
   boss.active = true;
@@ -929,7 +932,7 @@ function finishBoss(ok, reason){
 
   if(ok){
     score += boss.bonus;
-    miniCleared++;
+    miniCleared++; // ✅ boss counts as mini
     emit('hha:celebrate', { game:'plate', kind:'boss' });
     coach(`ชนะบอส! +${boss.bonus} คะแนน 🔥`, 'happy');
     judge('👹✅ BOSS WIN!', 'good');
@@ -961,10 +964,7 @@ function startStormCycle(){
   storm.forbidJunk = !isStudy && (fever >= 70);
 
   if(stormHud) stormHud.style.display = 'block';
-  if(stormFx){
-    stormFx.style.display = 'block';
-    stormFx.classList.add('storm-on');
-  }
+  if(stormFx) stormFx.style.display = 'block';
 
   if(stormTitle) stormTitle.textContent = `🌪️ STORM ${storm.cycleIndex+1}/${storm.cyclesPlanned}`;
   if(stormHint){
@@ -991,15 +991,9 @@ function stormTimeLeft(){
 function updateStormHud(){
   if(!storm.active) return;
   const tl = stormTimeLeft();
-
-  const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
   if(stormHint){
+    const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
     stormHint.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
-  }
-
-  // ✅ PATCH: update stormProg element too (HTML has it)
-  if(stormProg){
-    stormProg.textContent = `GOOD ${storm.hitGood}/${storm.needGood} • ${Math.ceil(tl||0)}s`;
   }
 
   const mf = qs('uiMiniFill');
@@ -1023,7 +1017,7 @@ function finishStorm(ok, reason){
 
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-panic','storm-on');
+    stormFx.classList.remove('storm-panic');
     stormFx.style.display = 'none';
   }
 
@@ -1062,6 +1056,7 @@ function onHit(id){
     combo++;
     comboMax = Math.max(comboMax, combo);
 
+    // storm progress
     if(storm.active){
       storm.hitGood++;
       if(storm.hitGood >= storm.needGood){
@@ -1088,6 +1083,7 @@ function onHit(id){
     fxPulse('good');
     coolFever(base.feverDownGood);
 
+    // boss progress
     if(boss.active && !boss.done){
       boss.hitGood++;
       updateBossHud();
@@ -1107,6 +1103,7 @@ function onHit(id){
   } else if(kind === 'junk'){
     ensureShieldActive();
 
+    // storm forbid junk
     if(storm.active && storm.forbidJunk){
       if(shieldActive){
         shield = Math.max(0, shield - 1);
@@ -1126,6 +1123,7 @@ function onHit(id){
       return;
     }
 
+    // boss forbid junk
     if(boss.active && !boss.done && boss.forbidJunk){
       if(shieldActive){
         shield = Math.max(0, shield - 1);
@@ -1238,6 +1236,7 @@ function updateAdaptive(){
 
   emit('hha:adaptive', { game:'plate', adapt:{...adapt}, acc, rtAvg });
 
+  // ✅ AI signal (explainable)
   AI.emit('difficulty-signal', {
     acc, miss, fever, rtAvg,
     adapt:{...adapt},
@@ -1266,6 +1265,7 @@ function tick(){
     tLeftSec = newLeft;
   }
 
+  // plate-rush mini timer FX
   if(activeMini){
     const tl = miniTimeLeft();
     if(tl != null){
@@ -1409,12 +1409,6 @@ function bootButtons(){
     startGame();
   }, { passive:true });
 
-  // ✅ PATCH: allow starting directly from overlay main button
-  on(btnStartMain, 'click', async ()=>{
-    await requestGyroPermission();
-    startGame();
-  }, { passive:true });
-
   on(ROOT, 'beforeunload', ()=>{
     try{ flushHardened('beforeunload'); }catch(err){}
   });
@@ -1504,7 +1498,7 @@ function resetState(){
   }
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-panic','storm-on');
+    stormFx.classList.remove('storm-panic');
     stormFx.style.display = 'none';
   }
 }
@@ -1610,7 +1604,7 @@ function buildSummary(reason){
     goalsCleared,
     goalsTotal,
     miniCleared,
-    miniTotal: minisTotal,
+    miniTotal: minisTotal, // ✅ real
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
@@ -1719,7 +1713,7 @@ async function endGame(reason){
   const summary = buildSummary(reason);
   storeSummary(summary);
 
-  emit('hha:end', summary);
+  emit('hha:end', summary); // ✅ summary direct
   emit('hha:celebrate', { game:'plate', kind:'end' });
 
   coach('จบเกมแล้ว! ดูสรุปผลได้เลย 🏁', (summary.grade==='C'?'sad':'happy'));
