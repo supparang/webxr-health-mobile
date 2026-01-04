@@ -1,3 +1,7 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
+✅ Loads: goodjunk-vr.css + particles + hha-cloud-logger + hha-fx-director + boot(module)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -10,71 +14,107 @@
   <!-- UI -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
+  <!-- Global FX + Cloud Logger + FX Director (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
+  <script src="../vr/hha-fx-director.js" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
-  <!-- ✅ Layout variables (default baseline; engine will use #gj-stage rect anyway) -->
   <style>
-    :root{
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-
-      /* dynamic measured offsets (JS will update) */
-      --gj-top-dyn: 0px;     /* reserved space above playfield (HUD etc.) */
-      --gj-bot-dyn: 0px;     /* reserved space below playfield (controls etc.) */
-
-      /* extra safety margin around play rect */
-      --gj-pad-x: 12px;
-      --gj-pad-y: 10px;
+    /* --- minimal extras for run page --- */
+    .gj-topbar{
+      position:fixed; left:10px; right:10px;
+      top: calc(10px + var(--sat, 0px));
+      z-index:110;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      pointer-events:none;
     }
-
-    /* ✅ Stage is the ONLY spawn-safe playfield */
-    #gj-stage{
-      position: fixed;
-      inset: 0;
-      z-index: 20;
-      overflow: hidden;
-
-      /* Safe-area + dynamic reserved zones */
-      padding-top:  calc(var(--sat) + var(--gj-top-dyn) + var(--gj-pad-y));
-      padding-right:calc(var(--sar) + var(--gj-pad-x));
-      padding-bottom:calc(var(--sab) + var(--gj-bot-dyn) + var(--gj-pad-y));
-      padding-left: calc(var(--sal) + var(--gj-pad-x));
-
-      /* let targets be positioned in layers inside */
-      pointer-events: none;
+    .gj-topbar .left, .gj-topbar .right{display:flex; gap:10px; align-items:center;}
+    .gj-chip{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.62);
+      color:#e5e7eb;
+      border-radius:999px;
+      padding:9px 12px;
+      font: 900 12px/1 system-ui;
+      backdrop-filter: blur(6px);
     }
-
-    /* layers catch clicks */
-    #gj-layer, #gj-layer-r{ pointer-events:auto; }
-
-    /* ✅ If HUD hidden, stage uses no top reserve */
-    body.hud-hidden{
-      --gj-top-dyn: 0px;
+    .gj-chip.btn{
+      cursor:pointer;
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.10);
     }
+    .gj-chip.btn:active{ transform: translateY(1px); }
 
-    /* ✅ In VR/cVR, we keep playfield maximal (HUD hidden) */
-    body.view-vr, body.view-cvr{
-      --gj-top-dyn: 0px;
+    /* End summary overlay */
+    .gj-end{
+      position:fixed; inset:0; z-index:220;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.86);
+      backdrop-filter: blur(10px);
     }
-
-    /* ✅ ensure overlays can sit above playfield */
-    #startOverlay{ z-index: 200; }
+    .gj-end .card{
+      width:min(760px,92vw);
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.80);
+      border-radius: 22px;
+      padding: 16px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      color:#e5e7eb;
+    }
+    .gj-end .title{font: 1200 22px/1.1 system-ui; }
+    .gj-end .sub{margin-top:6px;color:#94a3b8;font: 900 12px/1.35 system-ui;}
+    .gj-end .grid{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    @media (max-width:720px){ .gj-end .grid{grid-template-columns:1fr;} }
+    .gj-end .stat{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.45);
+      border-radius: 16px;
+      padding: 10px 12px;
+      display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+      font: 900 12px/1 system-ui;
+      color:#e5e7eb;
+    }
+    .gj-end .stat b{font-size:16px;}
+    .gj-end .actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;}
+    .gj-end .btn{
+      min-width: 210px;
+      height: 52px;
+      border-radius: 16px;
+      border: 1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.16);
+      color:#eafff3;
+      font: 1100 16px/1 system-ui;
+      cursor:pointer;
+    }
+    .gj-end .btn.alt{
+      border-color: rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color:#e5e7eb;
+    }
   </style>
 </head>
 
 <body class="view-mobile">
 
+  <!-- TOPBAR -->
+  <div class="gj-topbar" aria-hidden="false">
+    <div class="left">
+      <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
+    </div>
+    <div class="right">
+      <button class="gj-chip btn" id="btnBackHub" type="button">↩ กลับ HUB</button>
+    </div>
+  </div>
+
   <!-- LOW TIME WARNING RING -->
   <div class="gj-warning-ring" aria-hidden="true"></div>
 
-  <!-- VR MINI HUD (show only in VR/cVR) -->
+  <!-- VR MINI HUD -->
   <div class="vr-mini-hud" id="vrMiniHud">
     <div class="mini-row">
       <div class="mini-pill"><span>SCORE</span><b id="miniScore">0</b></div>
@@ -152,8 +192,8 @@
     </div>
   </div>
 
-  <!-- ✅ STAGE = playfield safe rect (engine spawns inside this) -->
-  <div id="gj-stage" aria-hidden="false">
+  <!-- STAGE -->
+  <div id="gj-stage">
     <div class="gj-eye eye-l">
       <div class="gj-layer" id="gj-layer"></div>
       <div class="gj-crosshair" id="crosshairL"></div>
@@ -166,7 +206,7 @@
   </div>
 
   <!-- CONTROLS -->
-  <div class="hha-controls" id="controlsBox">
+  <div class="hha-controls">
     <button class="btn-shoot" id="btnShoot" type="button">ยิง / TAP</button>
   </div>
 
@@ -175,185 +215,108 @@
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- START OVERLAY -->
-  <div id="startOverlay" style="
-    position:fixed; inset:0; z-index:200;
-    display:flex; align-items:center; justify-content:center;
-    background: rgba(2,6,23,.86); backdrop-filter: blur(10px);
-  ">
-    <div style="
-      width:min(720px,92vw);
-      background: rgba(2,6,23,.82);
-      border:1px solid rgba(148,163,184,.20);
-      border-radius: 22px;
-      padding:18px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.45);
-    ">
-      <div style="font-size:26px;font-weight:1200;">GoodJunkVR</div>
-      <div id="startMeta" style="margin-top:8px;color:#94a3b8;font-weight:900;font-size:12px;">—</div>
+  <!-- END SUMMARY -->
+  <div class="gj-end" id="endOverlay" aria-hidden="true">
+    <div class="card">
+      <div class="title" id="endTitle">Completed</div>
+      <div class="sub" id="endSub">—</div>
 
-      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="btnStart" type="button" style="
-          border:1px solid rgba(34,197,94,.30);
-          background: rgba(34,197,94,.16);
-          color:#eafff3;
-          border-radius: 14px;
-          padding:12px 16px;
-          font-weight:1200;
-          font-size:16px;
-        ">Start</button>
-
-        <button id="btnStartVR" type="button" style="
-          border:1px solid rgba(34,211,238,.30);
-          background: rgba(34,211,238,.14);
-          color:#e9fbff;
-          border-radius: 14px;
-          padding:12px 16px;
-          font-weight:1200;
-          font-size:16px;
-        ">Enter VR</button>
+      <div class="grid">
+        <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
+        <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
+        <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
+        <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
       </div>
 
-      <div style="margin-top:12px;color:#94a3b8;font-weight:900;font-size:12px;">
-        Mobile: แตะเป้าได้ / VR(cVR): เล็งกลางจอแล้วแตะ “ยิง”
+      <div class="actions">
+        <button class="btn" id="endBackHub" type="button">กลับ HUB</button>
+        <button class="btn alt" id="endReplay" type="button">เล่นอีกครั้ง</button>
+      </div>
+
+      <div class="sub" style="margin-top:10px;">
+        * ถ้าเปิดโหมด Research ให้ตรวจใน Google Sheet ว่ามี row start/end ครบ
       </div>
     </div>
   </div>
 
-  <!-- ✅ INLINE UI + LAYOUT WIRING -->
+  <!-- INLINE UI WIRING -->
   <script>
   (function(){
     const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
-    const overlay   = document.getElementById('startOverlay');
-    const meta      = document.getElementById('startMeta');
-    const btnStart  = document.getElementById('btnStart');
-    const btnStartVR= document.getElementById('btnStartVR');
-
-    const peek = document.getElementById('peek');
-    const btnMissions = document.getElementById('btnMissions');
-    const btnPeek = document.getElementById('btnPeek');
-    const btnHideHud = document.getElementById('btnHideHud');
-
-    const hud = document.getElementById('hud');
-    const fever = document.getElementById('feverBox');
-    const controls = document.getElementById('controlsBox');
+    const byId = (id)=>document.getElementById(id);
 
     const view = qs('view','mobile');
-    const diff = qs('diff','normal');
     const run  = qs('run','play');
-    meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
+    const diff = qs('diff','normal');
+    const time = qs('time','80');
+    const hub = qs('hub', null);
 
-    // --------- START overlay -> boot -----------
-    function start(){
-      overlay.style.display = 'none';
-      window.__HHA_PENDING_START__ = { view };
-      window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
-      // layout after overlay hides
-      requestAnimationFrame(()=>measureAndApply());
-      setTimeout(measureAndApply, 80);
-    }
-    btnStart.addEventListener('click', start);
+    const chip = byId('chipMeta');
+    if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
 
-    btnStartVR.addEventListener('click', ()=>{
-      window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
-      start();
+    byId('btnBackHub')?.addEventListener('click', ()=>{
+      if(hub) location.href = hub;
+      else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
 
-    // shoot button => engine listens via event
-    document.getElementById('btnShoot').addEventListener('click', ()=>{
+    byId('btnShoot')?.addEventListener('click', ()=>{
       window.dispatchEvent(new CustomEvent('hha:shoot'));
     });
 
-    // mission peek close by any tap
-    if(peek) peek.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
+    const peek = byId('peek');
+    peek?.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
 
-    function openPeek(){
-      if(!peek) return;
-      peek.setAttribute('aria-hidden','false');
+    byId('btnMissions')?.addEventListener('click', ()=>{
+      peek?.setAttribute('aria-hidden','false');
       try{
-        document.getElementById('peekGoal').textContent =
-          (document.getElementById('hud-goal')?.textContent || '—') + ' ' +
-          (document.getElementById('hud-goal-cur')?.textContent || '0') + '/' +
-          (document.getElementById('hud-goal-target')?.textContent || '0');
-        document.getElementById('peekMini').textContent =
-          document.getElementById('hud-mini')?.textContent || '—';
+        byId('peekGoal').textContent =
+          (byId('hud-goal')?.textContent || '—') + ' ' +
+          (byId('hud-goal-cur')?.textContent || '0') + '/' +
+          (byId('hud-goal-target')?.textContent || '0');
+        byId('peekMini').textContent =
+          byId('hud-mini')?.textContent || '—';
       }catch(_){}
-    }
-
-    if(btnMissions) btnMissions.addEventListener('click', openPeek);
-    if(btnPeek) btnPeek.addEventListener('click', openPeek);
-
-    if(btnHideHud) btnHideHud.addEventListener('click', ()=>{
-      document.body.classList.toggle('hud-hidden');
-      measureAndApply();
-      setTimeout(measureAndApply, 60);
     });
+    byId('btnPeek')?.addEventListener('click', ()=> byId('btnMissions')?.click());
+    byId('btnHideHud')?.addEventListener('click', ()=> document.body.classList.toggle('hud-hidden'));
 
-    // ✅ sync mini HUD from main HUD (VR/cVR)
     setInterval(()=>{
-      const s = document.getElementById('hud-score')?.textContent || '0';
-      const t = document.getElementById('hud-time')?.textContent || '0';
-      const g = document.getElementById('hud-grade')?.textContent || '—';
-      const ms = document.getElementById('miniScore'); if(ms) ms.textContent = s;
-      const mt = document.getElementById('miniTime');  if(mt) mt.textContent = t;
-      const mg = document.getElementById('miniGrade'); if(mg) mg.textContent = g;
+      const s = byId('hud-score')?.textContent || '0';
+      const t = byId('hud-time')?.textContent || '0';
+      const g = byId('hud-grade')?.textContent || '—';
+      const ms = byId('miniScore'); if(ms) ms.textContent = s;
+      const mt = byId('miniTime');  if(mt) mt.textContent = t;
+      const mg = byId('miniGrade'); if(mg) mg.textContent = g;
     }, 180);
 
-    // --------- ✅ LAYOUT MEASURE: reserve space so targets never go under HUD/controls ----------
-    function px(n){ return Math.max(0, Math.round(n)) + 'px'; }
-
-    function rect(el){
+    const endOverlay = byId('endOverlay');
+    function showEnd(d){
       try{
-        if(!el) return null;
-        const st = getComputedStyle(el);
-        if(st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity)===0) return null;
-        return el.getBoundingClientRect();
-      }catch(_){ return null; }
-    }
-
-    function measureAndApply(){
-      try{
-        const b = document.body;
-        const v = (b.classList.contains('view-vr') ? 'vr' :
-                  b.classList.contains('view-cvr') ? 'cvr' :
-                  b.classList.contains('view-pc') ? 'pc' : 'mobile');
-
-        // In VR/cVR: we don’t reserve top dyn (HUD hidden in CSS)
-        if(v==='vr' || v==='cvr' || b.classList.contains('hud-hidden')){
-          document.documentElement.style.setProperty('--gj-top-dyn', '0px');
-        }else{
-          const rh = rect(hud);
-          const rf = rect(fever);
-          let top = 0;
-          if(rh) top = Math.max(top, rh.bottom);
-          // fever usually bottom-right; shouldn’t affect top reserved, but keep safety if it overlaps top
-          if(rf && rf.top < top) top = Math.max(top, rf.bottom);
-          // reserve until bottom edge of top overlays
-          document.documentElement.style.setProperty('--gj-top-dyn', px(top));
-        }
-
-        // Bottom reserve from controls (shoot button), and any bottom overlays
-        let bot = 0;
-        const rc = rect(controls);
-        if(rc){
-          bot = Math.max(bot, (window.innerHeight - rc.top));
-        }
-        // low time overlay is center; ignore
-
-        document.documentElement.style.setProperty('--gj-bot-dyn', px(bot));
+        if(!endOverlay) return;
+        byId('endTitle').textContent = (d?.reason === 'missLimit') ? 'Game Over' : 'Completed';
+        byId('endSub').textContent = `reason=${d?.reason || '-'} | mode=${d?.runMode || run} | view=${d?.device || view}`;
+        byId('endGrade').textContent = d?.grade || '—';
+        byId('endScore').textContent = String(d?.scoreFinal ?? 0);
+        byId('endMiss').textContent  = String(d?.misses ?? 0);
+        byId('endTime').textContent  = String(Math.round(Number(d?.durationPlayedSec||0)));
+        endOverlay.style.display = 'flex';
+        endOverlay.setAttribute('aria-hidden','false');
       }catch(_){}
     }
 
-    // run early (even before start)
-    measureAndApply();
-    window.addEventListener('resize', ()=>{ measureAndApply(); setTimeout(measureAndApply, 80); }, { passive:true });
-    window.addEventListener('orientationchange', ()=>{ setTimeout(measureAndApply, 120); }, { passive:true });
+    window.addEventListener('hha:end', (ev)=>{
+      showEnd(ev?.detail || null);
+    }, { passive:true });
 
-    // if view class changes (boot.js), remeasure
-    const mo = new MutationObserver(()=>{ measureAndApply(); });
-    mo.observe(document.body, { attributes:true, attributeFilter:['class'] });
+    byId('endBackHub')?.addEventListener('click', ()=>{
+      try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
+      if(hub) location.href = hub;
+      else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
+    });
 
+    byId('endReplay')?.addEventListener('click', ()=>{
+      location.reload();
+    });
   })();
   </script>
 
