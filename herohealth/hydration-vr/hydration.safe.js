@@ -1,11 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION++ (FULL) — AIM + FX + 3-STAGE + AI DIRECTOR + DECOY + EVENTS CSV
+// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
 // ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
 // ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
-// ✅ AI Difficulty Director: directorK + Path A/B/C + bossType
-// ✅ Decoy: fair deception (no instant fail) + behavior logging
-// ✅ Research: event stream EV + download events.csv
+// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
+// ✅ (1) Perfect Window Multiplier (End x2 / Boss x3) + logs
+// ✅ (2) RT + Heatmap (avg/median, per-cell spawn/hit/miss) for research
+// ✅ (3) Boss Pattern: chain / alternate + decoy 🫧 (real feel) + logs
 
 'use strict';
 
@@ -28,42 +29,16 @@ function setText(id, v){
   if (el) el.textContent = String(v);
 }
 
-/* -------------------- Event stream (research) -------------------- */
-const EV = [];
-const EV_MAX = 4000;
-
-function nowSec(){
-  try{ return performance.now()/1000; }catch(_){ return Date.now()/1000; }
-}
-function pushEv(type, data={}){
+// ---------- lightweight event buffer (research / debug) ----------
+function pushEv(type, data){
   try{
-    const e = { t: Number(nowSec().toFixed(3)), type, ...(data||{}) };
-    EV.push(e);
-    if (EV.length > EV_MAX) EV.splice(0, EV.length - EV_MAX);
+    if (!S.events) S.events = [];
+    S.events.push({ t: Date.now(), type, ...(data||{}) });
+    if (S.events.length > 400) S.events.splice(0, S.events.length-400);
   }catch(_){}
 }
-function eventsToCSV(arr){
-  const rows = Array.isArray(arr) ? arr : [];
-  if (!rows.length) return 't,type\n';
-  const keys = new Set(['t','type']);
-  for (const r of rows){
-    if (!r) continue;
-    for (const k of Object.keys(r)) keys.add(k);
-  }
-  const cols = Array.from(keys);
-  const esc = (v)=>{
-    const s = String(v ?? '');
-    if (/[,"\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
-    return s;
-  };
-  let out = cols.join(',') + '\n';
-  for (const r of rows){
-    out += cols.map(c=>esc(r?.[c])).join(',') + '\n';
-  }
-  return out;
-}
 
-/* ---------- CSV / copy ---------- */
+// ---------- CSV / copy ----------
 function toCSVRow(obj){
   const keys = Object.keys(obj);
   const esc = (v)=>{
@@ -103,7 +78,7 @@ async function copyToClipboard(text){
   return false;
 }
 
-/* -------------------- View / layers -------------------- */
+// -------------------- View / layers --------------------
 function isCardboard(){
   try{ return DOC.body.classList.contains('cardboard'); }catch(_){ return false; }
 }
@@ -135,7 +110,7 @@ function centerPoint(){
   return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
 }
 
-/* -------------------- FX Helpers (Particles + DOM shock) -------------------- */
+// -------------------- FX Helpers (Particles + DOM shock) --------------------
 function pulseBody(cls, ms=140){
   try{
     DOC.body.classList.add(cls);
@@ -157,6 +132,10 @@ function shockAt(x, y){
   pf.appendChild(el);
   setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
 }
+function shockAtCenter(){
+  const { cx, cy } = centerPoint();
+  shockAt(cx, cy);
+}
 function popScore(text='+10'){
   try{
     const P = window.Particles || (window.GAME_MODULES && window.GAME_MODULES.Particles);
@@ -169,7 +148,7 @@ function popScore(text='+10'){
   pulseBody('hha-hitfx', 140);
 }
 
-/* -------------------- Audio tick (no file needed) -------------------- */
+// -------------------- Audio tick (no file needed) --------------------
 let AC=null;
 function ensureAC(){
   try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
@@ -190,7 +169,7 @@ function tickBeep(freq=900, dur=0.045, vol=0.06){
   }catch(_){}
 }
 
-/* -------------------- Config -------------------- */
+// -------------------- Config --------------------
 const diff = String(qs('diff','normal')).toLowerCase();
 const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
 const timeLimit = clamp(parseInt(qs('time', qs('durationPlannedSec', 70)),10) || 70, 20, 600);
@@ -201,7 +180,7 @@ const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 const logEndpoint = String(qs('log','') || '');
 
-/* RNG deterministic-ish */
+// RNG deterministic-ish
 function hashStr(s){
   s=String(s||''); let h=2166136261;
   for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -218,11 +197,7 @@ function makeRng(seedStr){
 }
 const rng = makeRng(seed);
 
-function pickFrom(arr){
-  return arr[Math.floor(rng()*arr.length)];
-}
-
-/* -------------------- State -------------------- */
+// -------------------- State --------------------
 const S = {
   started:false,
   ended:false,
@@ -257,7 +232,7 @@ const S = {
 
   greenHold:0,
 
-  /* Storm/Mini */
+  // Storm/Mini
   stormActive:false,
   stormLeftSec:0,
   stormCycle:0,
@@ -276,7 +251,7 @@ const S = {
     gotHitByBad:false
   },
 
-  /* Boss-mini */
+  // Boss-mini
   bossEnabled:true,
   bossActive:false,
   bossNeed:2,
@@ -285,39 +260,32 @@ const S = {
   bossWindowSec:2.2,
   bossClearCount:0,
 
-  /* End window fx */
+  // Boss pattern
+  bossType: String(qs('boss','alternate')).toLowerCase(), // 'chain'|'alternate'
+  bossPattern: { nextAt:0, chainLeft:0, altFlip:0 },
+
+  // End window fx
   endFxOn:false,
   endFxTickAt:0,
 
-  /* AI Director */
-  directorK:0.45,   // 0..1
-  path:'',          // A/B/C
-  bossType:'',      // chain/alternate
+  adaptiveOn: (run !== 'research'),
+  adaptK:0,
 
-  /* Mission stage */
+  // Mission stage
   stage:1,
   stage1Done:false,
   stage2Done:false,
-  stage3Done:false
-};
+  stage3Done:false,
 
-/* resolve path + bossType (allow override) */
-function resolvePath(){
-  const p = String(qs('path','')).toUpperCase();
-  if (p==='A'||p==='B'||p==='C') return p;
-  return pickFrom(['A','B','C']);
-}
-function resolveBossType(){
-  const b = String(qs('boss','')).toLowerCase();
-  if (b==='chain' || b==='alternate') return b;
-  const p = S.path || 'A';
-  if (p==='A') return 'chain';
-  if (p==='B') return 'alternate';
-  return (rng()<0.5 ? 'chain' : 'alternate');
-}
-S.path = resolvePath();
-S.bossType = resolveBossType();
-pushEv('meta', { path:S.path, bossType:S.bossType, diff, run, seed });
+  /* (1) Perfect window bonus tracking */
+  perfect: { endHits:0, bossHits:0, endBonus:0, bossBonus:0 },
+
+  /* (2) Research: RT + Heatmap */
+  rt: { goodMs: [], avgGoodMs: 0, medianGoodMs: 0 },
+  heat: { cols: 5, rows: 3, spawn: [], hitGood: [], hitBad: [], missGood: [] },
+
+  events: []
+};
 
 const TUNE = (() => {
   const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
@@ -338,11 +306,14 @@ const TUNE = (() => {
     goodLifeMs: diff==='hard'? 930 : 1080,
     badLifeMs:  diff==='hard'? 980 : 1120,
     shieldLifeMs:1350,
+    decoyLifeMs: diff==='hard'? 980 : 1150,
+
     stormEverySec,
     stormDurSec,
     stormSpawnMul: diff==='hard'? 0.56 : 0.64,
     endWindowSec:1.2,
     bossWindowSec: diff==='hard'? 2.4 : 2.2,
+
     nudgeToMid:5.0,
     badPush:8.0,
     missPenalty:1,
@@ -353,7 +324,47 @@ const TUNE = (() => {
 S.endWindowSec = TUNE.endWindowSec;
 S.bossWindowSec = TUNE.bossWindowSec;
 
-/* -------------------- Water helpers -------------------- */
+// -------------------- Heatmap / RT helpers --------------------
+function initHeat(){
+  const n = S.heat.cols * S.heat.rows;
+  const mk = ()=> Array.from({length:n}, ()=>0);
+  S.heat.spawn = mk();
+  S.heat.hitGood = mk();
+  S.heat.hitBad = mk();
+  S.heat.missGood = mk();
+}
+function heatIndexFromRect(rect){
+  const pf = getPlayfieldRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top  + rect.height/2;
+
+  const x = clamp((cx - pf.left)/Math.max(1,pf.width), 0, 0.9999);
+  const y = clamp((cy - pf.top)/Math.max(1,pf.height),0, 0.9999);
+
+  const c = Math.min(S.heat.cols-1, Math.floor(x * S.heat.cols));
+  const r = Math.min(S.heat.rows-1, Math.floor(y * S.heat.rows));
+  return r*S.heat.cols + c;
+}
+function medianOf(arr){
+  const a = (arr||[]).slice().sort((x,y)=>x-y);
+  if (!a.length) return 0;
+  const mid = Math.floor(a.length/2);
+  return (a.length%2) ? a[mid] : (a[mid-1]+a[mid])/2;
+}
+function avgOf(arr){
+  if (!arr || !arr.length) return 0;
+  let s=0; for (const v of arr) s += v;
+  return s/arr.length;
+}
+
+// -------------------- Perfect multiplier (1) --------------------
+function perfectMult(){
+  const endX  = (S.stormActive && S.inEndWindow && S.miniState.blockedInEnd) ? 2.0 : 1.0;
+  const bossX = (S.bossEnabled && S.bossActive) ? 3.0 : 1.0;
+  return { endX, bossX };
+}
+
+// -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
 function nudgeWaterGood(){
   const mid=55, d=mid - S.waterPct;
@@ -368,7 +379,7 @@ function pushWaterBad(){
   updateZone();
 }
 
-/* -------------------- Accuracy/Grade -------------------- */
+// -------------------- Accuracy/Grade --------------------
 function computeAccuracy(){
   return clamp((S.nHitGood / Math.max(1,S.nGoodSpawn))*100, 0, 100);
 }
@@ -384,32 +395,7 @@ function computeGrade(){
   return 'C';
 }
 
-/* -------------------- AI Difficulty Director -------------------- */
-function updateDirectorK(dt){
-  const accK   = clamp(computeAccuracy()/100, 0, 1);
-  const comboK = clamp(S.combo/22, 0, 1);
-
-  const played = Math.max(1, (timeLimit - S.leftSec) + 1);
-  const missRate = clamp(S.misses / played, 0, 1);
-  const frus = clamp(missRate*0.75 + (1-accK)*0.25, 0, 1);
-
-  let k = clamp(accK*0.70 + comboK*0.30, 0, 1);
-
-  if (S.stormActive) k = clamp(k - 0.08, 0, 1);
-  if (S.bossEnabled && S.bossActive) k = clamp(k - 0.06, 0, 1);
-
-  k = clamp(k - frus*0.18, 0, 1);
-
-  const alpha = clamp(dt*0.55, 0.02, 0.08);
-  const prev = S.directorK;
-  S.directorK = prev*(1-alpha) + k*alpha;
-
-  if ((EV.length % 60) === 0){
-    pushEv('director', { k:Number(S.directorK.toFixed(3)), acc:Number(accK.toFixed(3)), frus:Number(frus.toFixed(3)) });
-  }
-}
-
-/* -------------------- UI sync -------------------- */
+// -------------------- UI sync --------------------
 function syncWaterPanelDOM(){
   const bar = DOC.getElementById('water-bar');
   const pct = DOC.getElementById('water-pct');
@@ -426,12 +412,10 @@ function setStage(n){
   emit('hha:coach', { type:'stage', stage: S.stage });
   tickBeep(1200, 0.06, 0.07);
   pulseBody('hha-hitfx', 180);
-  pushEv('stage', { stage:S.stage });
 }
 
 function syncHUD(){
   const grade = computeGrade();
-
   setText('stat-score', S.score|0);
   setText('stat-combo', S.combo|0);
   setText('stat-miss', S.misses|0);
@@ -439,11 +423,6 @@ function syncHUD(){
   setText('stat-grade', grade);
   setText('storm-left', S.stormActive ? (S.stormLeftSec|0) : 0);
   setText('shield-count', S.shield|0);
-
-  // ✅ AI badges
-  setText('ui-path', S.path || '—');
-  setText('ui-ai', Number((S.directorK||0).toFixed(2)));
-  setText('ui-boss', S.bossType || '—');
 
   // Stage logic
   S.stage1Done = (S.greenHold >= TUNE.greenTargetSec);
@@ -467,7 +446,8 @@ function syncHUD(){
       const m = S.miniState;
       const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
       setText('quest-line3', `Storm Mini: LOW/HIGH + BLOCK${bossTxt}`);
-      setText('quest-line4', `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
+      setText('quest-line4',
+        `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
         + (m.gotHitByBad ? ' • FAIL: HIT BAD' : '')
       );
     } else {
@@ -504,10 +484,7 @@ function syncHUD(){
     stormCycles:S.stormCycle|0,
     stormSuccess:S.stormSuccess|0,
     bossClearCount:S.bossClearCount|0,
-    stage:S.stage|0,
-    path:S.path,
-    directorK:Number(S.directorK.toFixed(3)),
-    bossType:S.bossType
+    stage:S.stage|0
   });
 
   emit('quest:update', {
@@ -519,7 +496,7 @@ function syncHUD(){
   });
 }
 
-/* -------------------- Target style (inject once) -------------------- */
+// -------------------- Target style (inject once) --------------------
 (function injectTargetStyle(){
   if (DOC.getElementById('hvr-target-style')) return;
   const st = DOC.createElement('style');
@@ -547,7 +524,7 @@ function syncHUD(){
   .hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
-  .hvr-target.decoy{ outline: 2px dotted rgba(168,85,247,.35); }
+  .hvr-target.decoy{ outline: 2px dashed rgba(168,85,247,.22); opacity:.95; }
   .hvr-target.bossbad{
     outline: 2px dashed rgba(239,68,68,.35);
     box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
@@ -555,7 +532,7 @@ function syncHUD(){
   DOC.head.appendChild(st);
 })();
 
-/* -------------------- Spawn helpers -------------------- */
+// -------------------- Spawn helpers --------------------
 function pickXY(){
   const r = getPlayfieldRect();
   const pad=22;
@@ -571,16 +548,15 @@ function pickXY(){
 }
 function targetSize(){
   let s = TUNE.sizeBase;
-
-  // directorK: เก่งขึ้น -> เป้าเล็กลง
-  s *= (1.06 - 0.26*S.directorK);
-
-  // path flavor
-  if (S.path==='B') s *= 1.06;
-  if (S.path==='A') s *= 0.98;
-
+  if (S.adaptiveOn){
+    const acc = computeAccuracy()/100;
+    const c = clamp(S.combo/20, 0, 1);
+    const k = clamp(acc*0.7 + c*0.3, 0, 1);
+    S.adaptK = k;
+    s = s * (1.02 - 0.22*k);
+  }
   if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
-  return clamp(s,44,90);
+  return clamp(s,44,86);
 }
 
 let lastHitAt=0;
@@ -603,7 +579,7 @@ function spawn(kind){
   const life =
     kind==='good' ? TUNE.goodLifeMs :
     kind==='shield' ? TUNE.shieldLifeMs :
-    kind==='decoy' ? Math.round(TUNE.badLifeMs*0.85) :
+    kind==='decoy' ? TUNE.decoyLifeMs :
     TUNE.badLifeMs;
 
   let killed=false;
@@ -614,6 +590,8 @@ function spawn(kind){
     el.className = `hvr-target ${kind}` + (isBossBad ? ' bossbad' : '');
     el.dataset.kind = kind;
     if (isBossBad) el.dataset.boss='1';
+
+    el.dataset.spawnTs = String(performance.now()); // RT
 
     el.style.setProperty('--x', xPct.toFixed(2)+'%');
     el.style.setProperty('--y', yPct.toFixed(2)+'%');
@@ -643,7 +621,16 @@ function spawn(kind){
       S.nExpireGood++;
       S.combo=0;
       S.streakGood=0;
-      pushEv('expire_good', { miss:S.misses|0 });
+
+      // heat miss for good
+      try{
+        const rr = nodes[0]?.getBoundingClientRect?.();
+        if (rr){
+          const idx = heatIndexFromRect(rr);
+          S.heat.missGood[idx] = (S.heat.missGood[idx]||0) + 1;
+        }
+      }catch(_){}
+
       syncHUD();
     }
   }
@@ -656,27 +643,44 @@ function spawn(kind){
 
     kill('hit');
 
+    // RT + Heat idx
+    let rtMs = 0;
+    try{
+      const st = Number(srcEl?.dataset?.spawnTs || 0);
+      if (st>0) rtMs = Math.max(0, performance.now() - st);
+    }catch(_){}
+    let hIdx=-1;
+    try{
+      const rr = srcEl?.getBoundingClientRect?.();
+      if (rr) hIdx = heatIndexFromRect(rr);
+    }catch(_){}
+
     const r = srcEl?.getBoundingClientRect?.();
     const hx = r ? (r.left + r.width/2) : centerPoint().cx;
     const hy = r ? (r.top + r.height/2) : centerPoint().cy;
 
-    pushEv('hit', { kind, storm:S.stormActive?1:0, end:S.inEndWindow?1:0, boss:S.bossActive?1:0 });
-
-    if (kind==='decoy'){
-      S.nHitDecoy++;
-      S.score += 1;
-      S.combo = Math.max(0, S.combo-1);
-      emit('hha:judge', { kind:'decoy' });
-      pulseBody('hha-hitfx', 90);
-      popScore('+1');
-      pushEv('decoy_hit', { combo:S.combo|0 });
-      syncHUD();
-      return;
-    }
-
     if (kind==='good'){
       S.nHitGood++;
-      const add = 10 + Math.min(15, (S.combo|0));
+
+      const base = 10 + Math.min(15, (S.combo|0));
+      const { endX, bossX } = perfectMult();
+      let add = base;
+
+      if (endX > 1){
+        const bonus = Math.round(base*(endX-1));
+        S.perfect.endHits++;
+        S.perfect.endBonus += bonus;
+        add += bonus;
+        pushEv('perfect_end', { bonus, base });
+      }
+      if (bossX > 1){
+        const bonus = Math.round(base*(bossX-1));
+        S.perfect.bossHits++;
+        S.perfect.bossBonus += bonus;
+        add += bonus;
+        pushEv('perfect_boss', { bonus, base });
+      }
+
       S.score += add;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
@@ -685,10 +689,20 @@ function spawn(kind){
       S.streakGood++;
       S.streakMax = Math.max(S.streakMax, S.streakGood);
 
+      if (rtMs>0){
+        S.rt.goodMs.push(rtMs);
+        if (S.rt.goodMs.length > 1200) S.rt.goodMs.splice(0, S.rt.goodMs.length-1200);
+        pushEv('rt_good', { rtMs: Math.round(rtMs), idx:hIdx });
+      }
+      if (hIdx>=0){
+        S.heat.hitGood[hIdx] = (S.heat.hitGood[hIdx]||0) + 1;
+      }
+
       emit('hha:judge', { kind:'good' });
       pulseBody('hha-hitfx', 140);
       popScore('+'+add);
-    } else if (kind==='shield'){
+    }
+    else if (kind==='shield'){
       S.score += 6;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
@@ -696,7 +710,21 @@ function spawn(kind){
       emit('hha:judge', { kind:'shield' });
       pulseBody('hha-hitfx', 120);
       popScore('+6');
-    } else {
+    }
+    else if (kind==='decoy'){
+      // 🫧 decoy: หลอก/เสียจังหวะ — ไม่กิน shield, นับเป็น miss เล็ก ๆ
+      S.nHitDecoy++;
+      S.misses++;
+      S.combo=0;
+      S.streakGood=0;
+      S.score = Math.max(0, S.score-3);
+      if (hIdx>=0) S.heat.hitBad[hIdx] = (S.heat.hitBad[hIdx]||0) + 1;
+      emit('hha:judge', { kind:'miss' });
+      pulseBody('hha-hitfx', 120);
+      popScore('-3');
+    }
+    else {
+      // bad
       S.streakGood=0;
 
       if (S.shield>0){
@@ -722,6 +750,10 @@ function spawn(kind){
 
         if (S.stormActive) S.miniState.gotHitByBad = true;
 
+        if (hIdx>=0){
+          S.heat.hitBad[hIdx] = (S.heat.hitBad[hIdx]||0) + 1;
+        }
+
         emit('hha:judge', { kind:'bad' });
         shockAt(hx, hy);
         pulseBody('hha-hitfx', 160);
@@ -737,68 +769,42 @@ function spawn(kind){
     L.appendChild(el);
   }
 
+  // heat spawn count
+  setTimeout(()=>{
+    try{
+      const r0 = nodes[0]?.getBoundingClientRect?.();
+      if (r0){
+        const idx = heatIndexFromRect(r0);
+        S.heat.spawn[idx] = (S.heat.spawn[idx]||0) + 1;
+      }
+    }catch(_){}
+  }, 0);
+
   setTimeout(()=>kill('expire'), life);
 }
 
-/* -------------------- Storm + spawn loop -------------------- */
+// -------------------- Storm + spawn loop --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-
-  // directorK: เก่งขึ้น -> ถี่ขึ้น
-  base *= (1.05 - 0.35*S.directorK);
-
-  // path flavor
-  if (S.path==='A') base *= 0.92;
-  else if (S.path==='B') base *= 1.02;
-  else base *= 0.97;
-
+  if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
-
-  return clamp(base, 190, 1300);
+  return clamp(base, 210, 1200);
 }
-
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
-  // directorK: เก่งขึ้น -> bad เพิ่ม / shield ลดนิด
-  pBad += 0.06 * S.directorK;
-  pSh  -= 0.03 * S.directorK;
-  pGood = 1 - pBad - pSh;
-
-  // path flavor
-  if (S.path==='A'){ pBad += 0.03; pGood -= 0.02; pSh -= 0.01; }
-  if (S.path==='B'){ pSh += 0.02; pBad -= 0.02; }
-
-  // storm overrides
   if (S.stormActive){
-    pGood -= 0.12;
-    pBad  += 0.10;
-    pSh   += 0.02;
+    pGood=0.52; pBad=0.38; pSh=0.10;
     if (S.bossEnabled && S.bossActive){
-      pBad += 0.08;
-      pGood -= 0.08;
+      pBad += 0.10;
+      pGood -= 0.10;
     }
   }
-
-  if (diff==='hard'){ pBad += 0.03; pGood -= 0.03; }
-
-  // Decoy (fair deception) in storm/boss for A/C
-  let pD = 0;
-  if (S.stormActive && (S.path==='A' || S.path==='C')) pD = 0.06 + 0.04*S.directorK;
-  if (S.bossEnabled && S.bossActive) pD += 0.05;
-
-  pGood = clamp(pGood - pD, 0.35, 0.85);
-
-  // normalize safety
-  pGood = clamp(pGood, 0.35, 0.85);
-  pBad  = clamp(pBad,  0.10, 0.55);
-  pSh   = clamp(1 - pGood - pBad - pD, 0.03, 0.18);
-  pD    = clamp(pD, 0.00, 0.18);
+  if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
 
   const r=rng();
   if (r<pSh) return 'shield';
-  if (r<pSh+pD) return 'decoy';
-  if (r<pSh+pD+pBad) return 'bad';
+  if (r<pSh+pBad) return 'bad';
   return 'good';
 }
 
@@ -827,6 +833,10 @@ function enterStorm(){
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
+  S.bossPattern.nextAt = 0;
+  S.bossPattern.chainLeft = 0;
+  S.bossPattern.altFlip = 0;
+
   if (S.waterZone==='GREEN'){
     S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -7 : +7), 0, 100);
     updateZone();
@@ -835,7 +845,6 @@ function enterStorm(){
   setEndFx(false);
   S.endFxTickAt = 0;
 
-  pushEv('storm_enter', { cycle:S.stormCycle|0 });
   emit('hha:judge', { kind:'storm' });
   syncHUD();
 }
@@ -853,17 +862,18 @@ function exitStorm(){
   setEndFx(false);
   DOC.body.classList.remove('hha-bossfx');
 
+  S.bossPattern.nextAt = 0;
+  S.bossPattern.chainLeft = 0;
+  S.bossPattern.altFlip = 0;
+
   const ok = passMiniThisStorm();
   if (ok && !S.miniState.doneThisStorm){
     S.miniState.doneThisStorm=true;
     S.stormSuccess++;
     S.score += 40;
-    pushEv('storm_pass', { cycle:S.stormCycle|0 });
     emit('hha:judge', { kind:'streak' });
     pulseBody('hha-hitfx', 180);
     popScore('+40');
-  } else {
-    pushEv('storm_fail', { cycle:S.stormCycle|0, hitBad: S.miniState.gotHitByBad?1:0 });
   }
 
   // boss bonus success
@@ -872,7 +882,6 @@ function exitStorm(){
     S.bossClearCount++;
     S.stormSuccess++;
     S.score += 50;
-    pushEv('boss_clear', { need:S.bossNeed|0, blocked:S.bossBlocked|0 });
     emit('hha:judge', { kind:'perfect' });
     pulseBody('hha-hitfx', 200);
     popScore('+50');
@@ -880,6 +889,36 @@ function exitStorm(){
 
   S.bossActive=false;
   syncHUD();
+}
+
+// (3) Boss pattern driver
+function scheduleBossPattern(){
+  const now = performance.now();
+  if (!S.bossActive) return;
+
+  if (S.bossPattern.nextAt <= 0) S.bossPattern.nextAt = now;
+  if (now < S.bossPattern.nextAt) return;
+
+  if (S.bossType === 'chain'){
+    if (S.bossPattern.chainLeft <= 0){
+      S.bossPattern.chainLeft = 2 + Math.floor(rng()*3); // 2..4
+      pushEv('boss_chain_start', { n:S.bossPattern.chainLeft });
+    }
+    spawn('bad'); // 🌩️ when bossActive
+    S.bossPattern.chainLeft--;
+    S.bossPattern.nextAt = now + (diff==='hard' ? 170 : 210) + rng()*60;
+  } else {
+    const flip = (S.bossPattern.altFlip++ % 2);
+    if (flip===0){
+      spawn('bad');
+      S.bossPattern.nextAt = now + (diff==='hard'?220:260) + rng()*80;
+    } else {
+      const kind = (rng()<0.55) ? 'decoy' : 'shield';
+      spawn(kind);
+      pushEv('boss_alt_mid', { kind });
+      S.bossPattern.nextAt = now + (diff==='hard'?260:320) + rng()*120;
+    }
+  }
 }
 
 function tickStorm(dt){
@@ -900,7 +939,6 @@ function tickStorm(dt){
     if (now - S.endFxTickAt > interval){
       S.endFxTickAt = now;
       tickBeep(900 + (1-rate)*500, 0.04, 0.05);
-      if ((EV.length % 25) === 0) pushEv('end_window_tick', { left:Number(S.stormLeftSec.toFixed(2)) });
     }
   } else {
     setEndFx(false);
@@ -908,12 +946,8 @@ function tickStorm(dt){
 
   // Boss window
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
-  const prevBoss = S.bossActive;
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
-  if (!prevBoss && S.bossActive){
-    pushEv('boss_window', { type:S.bossType, need:S.bossNeed|0 });
-  }
 
   // mini zone
   const zoneOK = (S.waterZone !== 'GREEN');
@@ -924,10 +958,13 @@ function tickStorm(dt){
   S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
 
+  // ✅ Boss pattern (real)
+  scheduleBossPattern();
+
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-/* -------------------- Summary / logging -------------------- */
+// -------------------- Summary / logging --------------------
 async function sendLog(payload){
   if (!logEndpoint) return;
   try{
@@ -1020,7 +1057,6 @@ function bindSummaryButtons(){
   const btnClose = DOC.getElementById('btnCloseSummary');
   const btnCopy = DOC.getElementById('btnCopyJSON');
   const btnCSV = DOC.getElementById('btnDownloadCSV');
-  const btnEv = DOC.getElementById('btnDownloadEvents');
 
   DOC.querySelectorAll('.btnBackHub').forEach(btn=>{
     btn.addEventListener('click', ()=> location.href = hub);
@@ -1044,33 +1080,27 @@ function bindSummaryButtons(){
     if (!raw) return;
     let obj=null;
     try{ obj=JSON.parse(raw); }catch(_){ return; }
-    downloadText(`hha_hydration_summary_${(obj.sessionId||'session')}_${Date.now()}.csv`, toCSVRow(obj), 'text/csv');
-  });
-
-  btnEv?.addEventListener('click', ()=>{
-    const raw = localStorage.getItem('HHA_LAST_EVENTS') || '';
-    let arr=null;
-    try{ arr = raw ? JSON.parse(raw) : EV; }catch(_){ arr = EV; }
-    downloadText(`hha_hydration_events_${(sessionId||'session')}_${Date.now()}.csv`, eventsToCSV(arr), 'text/csv');
+    downloadText(`hha_hydration_${(obj.sessionId||'session')}_${Date.now()}.csv`, toCSVRow(obj), 'text/csv');
   });
 }
 
-/* -------------------- AI Coach -------------------- */
+// -------------------- AI Coach --------------------
 const AICOACH = createAICoach({
   emit,
   game:'hydration',
   cooldownMs: 3000
 });
 
-/* -------------------- Storm schedule -------------------- */
+// -------------------- Storm schedule --------------------
 function nextStormSchedule(){
   const base = TUNE.stormEverySec;
   return base + (rng()*2-1)*1.2;
 }
+
 let spawnTimer=0;
 let nextStormIn=0;
 
-/* -------------------- Aim Assist for cVR (crosshair) -------------------- */
+// -------------------- Aim Assist for cVR (crosshair) --------------------
 function hitTestAtCenter(lockPx){
   const { cx, cy } = centerPoint();
   const targets = Array.from(DOC.querySelectorAll('.hvr-target'));
@@ -1110,9 +1140,6 @@ function aimLockPx(){
   px += Math.min(18, AIM.streakMiss*4);
   px -= Math.min(10, AIM.streakHit*1.6);
 
-  // also listen directorK: skill high -> lock smaller (fair)
-  px *= (1.06 - 0.14*S.directorK);
-
   return clamp(px, AIM.min, AIM.max);
 }
 function registerShot(hit){
@@ -1130,8 +1157,6 @@ window.addEventListener('hha:shoot', ()=>{
   const lockPx = aimLockPx();
   const el = hitTestAtCenter(lockPx);
 
-  pushEv('shoot', { lockPx: Number(lockPx.toFixed(1)), hit: el?1:0, combo:S.combo|0, k:Number(S.directorK.toFixed(3)) });
-
   if (!el){
     registerShot(false);
     emit('hha:judge', { kind:'miss' });
@@ -1143,11 +1168,9 @@ window.addEventListener('hha:shoot', ()=>{
   try{ el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true })); }catch(_){}
 }, { passive:true });
 
-/* -------------------- Update loop -------------------- */
+// -------------------- Update loop --------------------
 function update(dt){
   if (!S.started || S.ended) return;
-
-  updateDirectorK(dt);
 
   S.leftSec = Math.max(0, S.leftSec - dt);
 
@@ -1171,7 +1194,7 @@ function update(dt){
     spawnTimer += nextSpawnDelay();
   }
 
-  // HUD + AI Coach
+  // HUD + AI
   syncHUD();
 
   AICOACH.onUpdate({
@@ -1194,6 +1217,10 @@ async function endGame(reason){
   S.ended = true;
   setEndFx(false);
   DOC.body.classList.remove('hha-bossfx');
+
+  // compute RT summary
+  S.rt.avgGoodMs = avgOf(S.rt.goodMs);
+  S.rt.medianGoodMs = medianOf(S.rt.goodMs);
 
   const grade = computeGrade();
   const acc = computeAccuracy();
@@ -1232,34 +1259,34 @@ async function endGame(reason){
     greenHoldSec: Number(S.greenHold||0),
     reason: reason || 'end',
 
-    // ✅ research extras
-    path: S.path,
-    directorK: Number(S.directorK.toFixed(3)),
-    bossType: S.bossType,
+    // (2) RT + Heatmap
+    avgRtGoodMs: Math.round(S.rt.avgGoodMs),
+    medianRtGoodMs: Math.round(S.rt.medianGoodMs),
+    heatCols: S.heat.cols,
+    heatRows: S.heat.rows,
+    heatSpawn: S.heat.spawn,
+    heatHitGood: S.heat.hitGood,
+    heatHitBad: S.heat.hitBad,
+    heatMissGood: S.heat.missGood,
 
-    nTargetGoodSpawned: S.nGoodSpawn|0,
-    nTargetJunkSpawned: S.nBadSpawn|0,
-    nTargetShieldSpawned: S.nShieldSpawn|0,
-    nTargetDecoySpawned: S.nDecoySpawn|0,
+    // (1) Perfect
+    perfectEndHits: S.perfect.endHits|0,
+    perfectBossHits: S.perfect.bossHits|0,
+    perfectEndBonus: S.perfect.endBonus|0,
+    perfectBossBonus: S.perfect.bossBonus|0,
 
-    nHitGood: S.nHitGood|0,
-    nHitJunk: S.nHitBad|0,
-    nHitJunkGuard: S.nHitBadGuard|0,
+    // extra counts
+    nDecoySpawned: S.nDecoySpawn|0,
     nHitDecoy: S.nHitDecoy|0,
-    nExpireGood: S.nExpireGood|0,
 
-    device: (DOC.body.classList.contains('view-mobile')?'mobile':DOC.body.classList.contains('cardboard')?'cardboard':DOC.body.classList.contains('view-cvr')?'cvr':'pc'),
-    gameVersion: 'hydration.safe.js@prod++',
-    eventsCount: EV.length|0
+    // debug (keep light)
+    bossType: S.bossType || 'alternate'
   };
 
   try{
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
     localStorage.setItem('hha_last_summary', JSON.stringify(summary));
-    localStorage.setItem('HHA_LAST_EVENTS', JSON.stringify(EV));
   }catch(_){}
-
-  pushEv('end', { reason: summary.reason, score:summary.scoreFinal|0, grade:summary.grade });
 
   emit('hha:end', summary);
   AICOACH.onEnd(summary);
@@ -1275,7 +1302,8 @@ function boot(){
   syncWaterPanelDOM();
   bindSummaryButtons();
 
-  // initial schedule
+  initHeat();
+
   spawnTimer = 320;
   nextStormIn = nextStormSchedule();
 
@@ -1284,9 +1312,6 @@ function boot(){
     S.started=true;
     S.t0=performance.now();
     S.lastTick=S.t0;
-
-    pushEv('start', { view: (DOC.body.classList.contains('view-cvr')?'cvr':DOC.body.classList.contains('cardboard')?'cardboard':DOC.body.classList.contains('view-mobile')?'mobile':'pc') });
-
     syncHUD();
     AICOACH.onStart();
 
