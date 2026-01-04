@@ -37,7 +37,6 @@
     html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     a{ color:inherit; }
 
-    /* Background soft glow */
     body::before{
       content:"";
       position:fixed; inset:0;
@@ -183,9 +182,7 @@
     /* cVR (crosshair ยิงกลางจอ) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
-    body.view-cvr #hydration-layer{
-      pointer-events:none; /* สำคัญ: ยิงจากกลางจอ ไม่แตะเป้าโดยตรง */
-    }
+    body.view-cvr #hydration-layer{ pointer-events:none; } /* ยิงจากกลางจอ */
     .crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -341,7 +338,6 @@
     }
 
     /* ---------------- FX HOOKS ---------------- */
-    /* End-window FX hook (hydration.safe.js toggles body.hha-endfx) */
     body.hha-endfx{
       animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
     }
@@ -353,14 +349,12 @@
       0%,100%{ transform: translate3d(0,0,0); }
       50%{ transform: translate3d(0,1px,0); }
     }
-
     body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
     @keyframes hitPulse{
       0%{ filter: brightness(1); }
       60%{ filter: brightness(1.12) saturate(1.10); }
       100%{ filter: brightness(1); }
     }
-
     body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
     @keyframes bossFlash{
       0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
@@ -407,6 +401,50 @@
       border-color: rgba(34,211,238,.28);
       background: rgba(34,211,238,.10);
     }
+
+    /* ✅ B) Cardboard HUD: ย่อ/ชิดขอบ/โปร่งขึ้น ไม่บังกลางจอ */
+    body.cardboard .hud{
+      padding: 6px;
+      gap:8px;
+    }
+    body.cardboard .panel{
+      padding:10px;
+      background: rgba(2,6,23,.62);
+      box-shadow: 0 12px 44px rgba(0,0,0,.35);
+    }
+    body.cardboard .questLine{ font-size:12px; }
+    body.cardboard .k{ font-size:11px; }
+    body.cardboard .v{ font-size:18px; }
+    body.cardboard .statBox{ padding:8px 10px; }
+    body.cardboard .pill{ padding:7px 9px; }
+    body.cardboard .ck{ padding:7px 9px; font-size:11px; }
+    /* ลดความสูง panel ใน cardboard */
+    body.cardboard .panel.questPanel,
+    body.cardboard .panel.waterPanel{
+      max-height: 42vh;
+      overflow:hidden;
+    }
+
+    /* ✅ Practice badge */
+    #practiceBadge{
+      position:fixed;
+      left:50%;
+      top: calc(56px + var(--sat));
+      transform: translateX(-50%);
+      z-index:111;
+      pointer-events:none;
+      display:none;
+    }
+    #practiceBadge .pwrap{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      border-radius:999px;
+      background:rgba(245,158,11,.14);
+      border:1px solid rgba(245,158,11,.28);
+      backdrop-filter: blur(10px);
+      box-shadow:0 18px 70px rgba(0,0,0,.40);
+      font-weight:900;
+    }
   </style>
 </head>
 
@@ -429,6 +467,13 @@
   <!-- Crosshair for cVR -->
   <div class="crosshair" aria-hidden="true"></div>
 
+  <!-- ✅ Practice badge -->
+  <div id="practiceBadge" aria-hidden="true">
+    <div class="pwrap">
+      🧪 PRACTICE <span id="practiceLeft">15</span>s (ไม่นับคะแนน/ไม่นับสถิติ)
+    </div>
+  </div>
+
   <!-- HUD -->
   <div class="hud">
     <div class="panel">
@@ -448,14 +493,14 @@
       </div>
     </div>
 
-    <div class="panel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
+    <div class="panel questPanel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
       <div class="questTitle">ภารกิจ Hydration 💧</div>
       <div class="questLine" id="quest-line1">Stage 1/3 ...</div>
       <div class="questLine" id="quest-line2">—</div>
       <div class="questLine muted" id="quest-line3">—</div>
       <div class="questLine muted" id="quest-line4">—</div>
 
-      <!-- ✅ Quest Progress (NEW) -->
+      <!-- Quest Progress -->
       <div style="margin-top:10px" class="pill">
         <span style="opacity:.9">Stage 1</span>
         <b id="qS1Txt">0/0s</b>
@@ -521,7 +566,9 @@
 • PC: เมาส์/คลิก
 • Mobile: แตะหน้าจอ
 • VR Cardboard: จอแยกซ้าย–ขวา + fullscreen/landscape (best-effort)
-• cVR: crosshair กลางจอ + แตะเพื่อยิง (เหมาะกับ Cardboard แบบ strict ยิงจากกลางจอ)</p>
+• cVR: crosshair กลางจอ + แตะเพื่อยิง
+
+✅ Cardboard/cVR จะมี PRACTICE 15s ก่อนเริ่มจริง (ไม่นับคะแนน/ไม่นับสถิติ)</p>
         </div>
       </div>
 
@@ -571,6 +618,11 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
           <div class="kv"><div class="k2">Storm Cycles</div><div class="v2" id="rStormCycles">0</div></div>
           <div class="kv"><div class="k2">Storm Success</div><div class="v2" id="rStormOk">0</div></div>
           <div class="kv"><div class="k2">Storm Rate</div><div class="v2" id="rStormRate">0%</div></div>
+
+          <!-- ✅ A) RT metrics -->
+          <div class="kv"><div class="k2">Avg RT (Good)</div><div class="v2" id="rAvgRt">0 ms</div></div>
+          <div class="kv"><div class="k2">Median RT (Good)</div><div class="v2" id="rMedRt">0 ms</div></div>
+
           <div class="kv"><div class="k2" id="rTier">Tier:</div><div></div></div>
         </div>
       </div>
@@ -588,7 +640,7 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     </div>
   </div>
 
-  <!-- ✅ Toast + Callout (NEW) -->
+  <!-- Toast + Callout -->
   <div id="toast" style="position:fixed;left:50%;top:calc(12px + var(--sat));transform:translateX(-50%);
   z-index:110;pointer-events:none;display:none;">
     <div style="background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);
