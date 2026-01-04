@@ -6,253 +6,414 @@
   <title>HeroHealth — GoodJunkVR Launcher</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --accent:#22c55e; --warn:#f59e0b; --cyan:#22d3ee; --violet:#a78bfa;
-      --r:22px; --pill:999px;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.22);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
+      --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{margin:0;height:100%;
-      background:
-        radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
-        radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; background: radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
+                                 radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+                                 var(--bg);
+              color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    .wrap{
+      min-height:100%;
+      padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      display:flex; align-items:center; justify-content:center;
     }
-    .wrap{min-height:100%;padding:calc(18px + var(--sat)) 16px calc(18px + var(--sab));
-      display:flex;align-items:center;justify-content:center;}
-    .card{width:min(920px, 96vw);background:rgba(2,6,23,.72);border:1px solid var(--stroke);border-radius:var(--r);
-      box-shadow:0 20px 60px rgba(0,0,0,.45);padding:18px;}
-    .top{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;}
-    .title{font-size:26px;font-weight:1100;letter-spacing:.2px}
-    .sub{margin-top:6px;color:var(--muted);font-weight:900;line-height:1.35}
-    .grid{margin-top:14px;display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
-    @media (max-width:900px){.grid{grid-template-columns:1fr}}
-    .panel{background:rgba(15,23,42,.55);border:1px solid var(--stroke);border-radius:18px;padding:14px}
-    .h{font-weight:1100;margin:0 0 10px}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .pill{border:1px solid var(--stroke);background:rgba(2,6,23,.55);color:var(--text);
-      padding:10px 12px;border-radius:var(--pill);font-weight:1000;cursor:pointer}
-    .pill[aria-pressed="true"]{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.12)}
-    .pill:active{transform:translateY(1px)}
-    label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-top:10px}
-    input,select{width:100%;margin-top:6px;background:rgba(2,6,23,.62);border:1px solid var(--stroke);
-      border-radius:14px;color:var(--text);padding:12px;font-weight:900;outline:none}
-    .actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
-    .btn{flex:1;min-width:220px;height:54px;border-radius:16px;border:1px solid rgba(34,197,94,.38);
-      background:rgba(34,197,94,.16);color:#eafff3;font-weight:1100;font-size:16px;cursor:pointer}
-    .btn.alt{border-color:rgba(148,163,184,.22);background:rgba(2,6,23,.55);color:var(--text)}
-    .hint{margin-top:10px;color:var(--muted);font-size:12px;font-weight:900;line-height:1.35}
-    .last{margin-top:12px;padding:12px;border-radius:16px;border:1px dashed rgba(148,163,184,.25);color:var(--muted);font-weight:900;line-height:1.35}
-    code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;}
-    .small{font-size:12px}
-    .k{color:#a7f3d0}
-    .warn{color:#fde68a}
+    .card{
+      width:min(920px, 96vw);
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: 0 22px 60px rgba(0,0,0,.45);
+      overflow:hidden;
+    }
+    .head{
+      padding:18px 18px 14px;
+      display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      background: linear-gradient(180deg, rgba(34,197,94,.10), transparent 60%);
+    }
+    .title{ font-size:20px; font-weight:1100; letter-spacing:.2px; }
+    .sub{ margin-top:6px; color:var(--muted); font-weight:700; font-size:12px; }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px;
+      padding:14px 18px 18px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+    .panel{
+      background: var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius: 18px;
+      padding:14px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    label{ font-size:12px; font-weight:1000; color:var(--muted); }
+    select, input{
+      height:44px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.24);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      padding: 0 12px;
+      font-weight:900;
+      outline:none;
+    }
+    input{ width: 140px; }
+    .btns{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:10px;
+      margin-top:12px;
+    }
+    @media (max-width: 520px){
+      .btns{ grid-template-columns:1fr; }
+    }
+    button{
+      height:54px;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      font-weight:1100;
+      font-size:15px;
+      cursor:pointer;
+    }
+    button.primary{
+      border-color: rgba(34,197,94,.38);
+      background: rgba(34,197,94,.14);
+      color:#eafff3;
+    }
+    button.ghost{
+      height:44px;
+      border-radius:14px;
+      font-weight:1100;
+      font-size:13px;
+      border-color: rgba(148,163,184,.20);
+      background: rgba(2,6,23,.35);
+      color:#e5e7eb;
+    }
+    .hint{
+      margin-top:10px; font-size:12px; color:var(--muted); font-weight:800; line-height:1.45;
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid rgba(148,163,184,.22);
+      padding: 8px 12px;
+      border-radius: var(--pill);
+      background: rgba(2,6,23,.45);
+      font-weight:900;
+      font-size:12px;
+      color: var(--text);
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .footer{
+      padding: 0 18px 18px;
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+      color:var(--muted); font-size:12px; font-weight:800;
+    }
+    .minirow{ display:flex; gap:10px; flex-wrap:wrap; }
+    a{ color: var(--cyan); text-decoration:none; font-weight:1000; }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="top">
+      <div class="head">
         <div>
-          <div class="title">🥦🍎 GoodJunkVR</div>
-          <div class="sub">
-            เลือก <span class="k">อุปกรณ์ (view)</span> + <span class="k">โหมด (run)</span> แล้วกด Start<br/>
-            <span class="small">Tip: Cardboard/cVR แนะนำแนวนอน + Fullscreen</span>
-          </div>
+          <div class="title">HeroHealth — GoodJunkVR Launcher</div>
+          <div class="sub">เลือกอุปกรณ์ + โหมดเล่น + ความยาก แล้วกดเข้าเกมได้เลย</div>
+        </div>
+        <div class="minirow">
+          <div class="chip">🎮 <span id="lastMode">—</span></div>
+          <div class="chip">🔁 <span id="lastDiff">—</span></div>
+          <div class="chip">⏱️ <span id="lastTime">—</span></div>
         </div>
       </div>
 
       <div class="grid">
         <div class="panel">
-          <h3 class="h">1) อุปกรณ์ (view)</h3>
-          <div class="row" id="viewRow">
-            <button class="pill" data-view="pc" type="button">🖥️ PC</button>
-            <button class="pill" data-view="mobile" type="button">📱 Mobile</button>
-            <button class="pill" data-view="vr" type="button">🕶️ Cardboard VR</button>
-            <button class="pill" data-view="cvr" type="button">🎯 cVR (Crosshair)</button>
+          <div class="row" style="justify-content:space-between;">
+            <div style="flex:1; min-width:240px;">
+              <label>HUB URL (กลับหน้า HUB หลังจบเกม)</label><br/>
+              <input id="hub" class="mono" style="width:min(100%, 620px);" placeholder="https://.../hub.html" />
+              <div class="hint" style="margin-top:6px;">
+                ทิป: ถ้าเปิดหน้านี้มาจาก HUB แล้วช่องว่าง ระบบจะเดา HUB ให้จาก <span class="mono">document.referrer</span>
+              </div>
+            </div>
           </div>
 
-          <h3 class="h" style="margin-top:14px;">2) โหมด (run)</h3>
-          <div class="row" id="runRow">
-            <button class="pill" data-run="play" type="button">🎮 Play</button>
-            <button class="pill" data-run="research" type="button">🧪 Research</button>
+          <div class="row" style="margin-top:12px;">
+            <div style="min-width:180px;">
+              <label>โหมด (run)</label><br/>
+              <select id="run">
+                <option value="play">play (Adaptive ON)</option>
+                <option value="research">research (Deterministic)</option>
+              </select>
+            </div>
+            <div style="min-width:180px;">
+              <label>ความยาก (diff)</label><br/>
+              <select id="diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+            <div style="min-width:180px;">
+              <label>เวลาเล่น (sec)</label><br/>
+              <input id="time" type="number" min="20" max="300" value="80" />
+            </div>
+            <div style="min-width:240px;">
+              <label>seed (research แนะนำ)</label><br/>
+              <div class="row" style="gap:8px; margin-top:6px;">
+                <input id="seed" class="mono" placeholder="เช่น 2026-01-04A" style="width:240px;" />
+                <button class="ghost" id="btnSeed" type="button">🎲 Gen</button>
+              </div>
+              <div class="hint" style="margin-top:6px;">
+                * ถ้า seed เป็น “ข้อความ” Launcher จะ hash ให้เป็น “ตัวเลข” เพื่อให้ deterministic จริง
+              </div>
+            </div>
           </div>
 
-          <div class="actions">
-            <button class="btn" id="btnStart" type="button">START ▶</button>
-            <button class="btn alt" id="btnHub" type="button">กลับ HUB</button>
+          <div class="btns">
+            <button class="primary" data-view="pc">🖥️ เข้าแบบ PC</button>
+            <button class="primary" data-view="mobile">📱 เข้าแบบ Mobile</button>
+            <button class="primary" data-view="cvr">📦 เข้าแบบ Cardboard (cVR)</button>
+            <button class="primary" data-view="vr">🥽 เข้าแบบ VR (WebXR)</button>
           </div>
 
           <div class="hint">
-            • <b>Play</b>: มี practice 15s (ไม่ลงโทษ) แล้วค่อยเริ่มจริง<br/>
-            • <b>Research</b>: seed คงที่ + ไม่มี practice (ตามมาตรฐาน)<br/>
-            • Run จริง: <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code>
+            - PC/Mobile: แตะ/คลิกเป้าได้เลย<br/>
+            - cVR/VR: ยิงจาก <b>กลางจอ (crosshair)</b> โดย <span class="mono">vr-ui.js</span> จะยิง event <b>hha:shoot</b><br/>
+            - โหมด research: ควรใส่ seed เพื่อให้ซ้ำรอบได้เหมือนเดิม
           </div>
-
-          <div class="last" id="lastBox" style="display:none;"></div>
         </div>
 
         <div class="panel">
-          <h3 class="h">ตั้งค่า</h3>
+          <div class="row" style="justify-content:space-between;align-items:center;">
+            <div style="font-weight:1100;">พรีวิวลิงก์ที่จะเปิด</div>
+            <div class="chip">view: <span id="lastView" class="mono">mobile</span></div>
+          </div>
 
-          <label>ความยาก (diff)</label>
-          <select id="diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
+          <div id="preview" class="mono" style="margin-top:10px;font-size:12px;line-height:1.45;color:#cbd5e1;word-break:break-all;">
+            —
+          </div>
 
-          <label>เวลา (วินาที)</label>
-          <input id="time" type="number" min="20" step="5" value="80"/>
-
-          <label>seed (เว้นว่าง = auto / Research แนะนำใส่)</label>
-          <input id="seed" type="number" placeholder="เช่น 12345"/>
-
-          <label>hub url (กลับหน้าฮับ)</label>
-          <input id="hub" type="text" placeholder="เช่น https://.../herohealth/hub.html"/>
-
-          <label>studyId / phase / conditionGroup (optional)</label>
-          <input id="studyId" type="text" placeholder="studyId"/>
-          <input id="phase" type="text" placeholder="phase"/>
-          <input id="cond" type="text" placeholder="conditionGroup"/>
-
-          <div class="hint" style="margin-top:12px;">
-            <b class="warn">Note:</b> ถ้ากด “กลับ HUB” แล้วไม่ไป แปลว่ายังไม่ใส่ hub url
+          <div class="hint">
+            ถ้ากดจาก HUB แล้วเข้าไม่ได้ ให้ลองเปิดผ่าน Launcher นี้ก่อนเพื่อเช็คพารามิเตอร์
+            <span class="mono">view/diff/time/run/seed/hub</span>
           </div>
         </div>
+      </div>
+
+      <div class="footer">
+        <div>© HeroHealth Academy — GoodJunkVR</div>
+        <div>ไฟล์เกม: <span class="mono" id="runPath">/herohealth/goodjunk-vr.html</span></div>
       </div>
     </div>
   </div>
 
-<script>
-(function(){
-  const LS = {
-    view:'HHA_GJ_VIEW',
-    run:'HHA_GJ_RUN',
-    diff:'HHA_GJ_DIFF',
-    time:'HHA_GJ_TIME',
-    seed:'HHA_GJ_SEED',
-    hub:'HHA_GJ_HUB',
-    study:'HHA_GJ_STUDY',
-    phase:'HHA_GJ_PHASE',
-    cond:'HHA_GJ_COND',
-  };
+  <script>
+    (function(){
+      const $ = (id)=>document.getElementById(id);
+      const LS_KEY = 'GJ_LAUNCHER_LAST';
 
-  const el = (id)=>document.getElementById(id);
-  const viewRow = el('viewRow');
-  const runRow  = el('runRow');
+      // ✅ IMPORTANT: Make RUN path robust (relative to current file)
+      // If launcher is /herohealth/goodjunk-vr-launcher.html then run becomes /herohealth/goodjunk-vr.html
+      const RUN_URL = new URL('./goodjunk-vr.html', location.href);
 
-  function setPressed(row, key, val){
-    [...row.querySelectorAll('.pill')].forEach(b=>{
-      b.setAttribute('aria-pressed', b.dataset[key] === val ? 'true' : 'false');
-    });
-  }
-  function getPressed(row, key){
-    const b = row.querySelector('.pill[aria-pressed="true"]');
-    return b ? b.dataset[key] : null;
-  }
+      const els = {
+        hub: $('hub'),
+        run: $('run'),
+        diff: $('diff'),
+        time: $('time'),
+        seed: $('seed'),
+        btnSeed: $('btnSeed'),
+        preview: $('preview'),
+        lastMode: $('lastMode'),
+        lastDiff: $('lastDiff'),
+        lastTime: $('lastTime'),
+        lastView: $('lastView'),
+        runPath: $('runPath'),
+      };
 
-  function pickDefault(){
-    const view = localStorage.getItem(LS.view) || 'mobile';
-    const run  = localStorage.getItem(LS.run)  || 'play';
-    setPressed(viewRow,'view',view);
-    setPressed(runRow,'run',run);
+      let lastView = 'mobile';
 
-    el('diff').value  = localStorage.getItem(LS.diff) || 'normal';
-    el('time').value  = localStorage.getItem(LS.time) || '80';
-    el('seed').value  = localStorage.getItem(LS.seed) || '';
-    el('hub').value   = localStorage.getItem(LS.hub)  || '';
-    el('studyId').value = localStorage.getItem(LS.study) || '';
-    el('phase').value   = localStorage.getItem(LS.phase) || '';
-    el('cond').value    = localStorage.getItem(LS.cond) || '';
-
-    // last summary peek
-    try{
-      const last = localStorage.getItem('HHA_LAST_SUMMARY');
-      if(last){
-        const j = JSON.parse(last);
-        if(j && j.projectTag === 'GoodJunkVR'){
-          const box = el('lastBox');
-          box.style.display = 'block';
-          box.innerHTML =
-            `ผลล่าสุด: <b>${j.grade || '-'}</b> | score <b>${j.scoreFinal || 0}</b> | miss <b>${j.misses || 0}</b>` +
-            ` <span style="opacity:.75">(${j.reason || ''})</span>`;
+      // -------- helpers --------
+      function safeReferrerHub(){
+        // Guess hub from referrer if it contains /hub or ends with hub.html
+        try{
+          const r = document.referrer || '';
+          if(!r) return '';
+          const u = new URL(r);
+          const path = (u.pathname || '').toLowerCase();
+          if(path.includes('hub') || path.endsWith('hub.html')) return u.toString();
+          return '';
+        }catch(_){
+          return '';
         }
       }
-    }catch(_){}
-  }
 
-  viewRow.addEventListener('click', (e)=>{
-    const b = e.target.closest('.pill'); if(!b) return;
-    const v = b.dataset.view;
-    localStorage.setItem(LS.view, v);
-    setPressed(viewRow,'view',v);
-  });
+      // ✅ String seed -> uint32 hash (FNV-1a)
+      function hashSeedToU32(str){
+        str = String(str||'');
+        let h = 2166136261 >>> 0;
+        for(let i=0;i<str.length;i++){
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
 
-  runRow.addEventListener('click', (e)=>{
-    const b = e.target.closest('.pill'); if(!b) return;
-    const r = b.dataset.run;
-    localStorage.setItem(LS.run, r);
-    setPressed(runRow,'run',r);
-  });
+      function genSeedText(){
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        const da = String(d.getDate()).padStart(2,'0');
+        const base = `${y}${m}${da}-${els.diff.value}-${Number(els.time.value||80)}s`;
+        // Add short random to avoid accidental collisions if user wants
+        const r = Math.floor(Math.random()*9000+1000);
+        return `${base}-${r}`;
+      }
 
-  function saveFields(){
-    localStorage.setItem(LS.diff, el('diff').value);
-    localStorage.setItem(LS.time, el('time').value);
-    localStorage.setItem(LS.seed, el('seed').value);
-    localStorage.setItem(LS.hub,  el('hub').value);
-    localStorage.setItem(LS.study, el('studyId').value);
-    localStorage.setItem(LS.phase, el('phase').value);
-    localStorage.setItem(LS.cond, el('cond').value);
-  }
+      function load(){
+        try{
+          const s = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
 
-  function start(){
-    saveFields();
-    const view = getPressed(viewRow,'view') || 'mobile';
-    const run  = getPressed(runRow,'run')  || 'play';
-    const diff = el('diff').value || 'normal';
-    const time = el('time').value || '80';
-    const seed = el('seed').value.trim();
-    const hub  = el('hub').value.trim();
-    const study= el('studyId').value.trim();
-    const phase= el('phase').value.trim();
-    const cond = el('cond').value.trim();
+          // auto hub from referrer if empty
+          const guessedHub = safeReferrerHub();
 
-    const url = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-    url.searchParams.set('view', view);
-    url.searchParams.set('run', run);
-    url.searchParams.set('diff', diff);
-    url.searchParams.set('time', time);
-    if(seed) url.searchParams.set('seed', seed);
-    if(hub)  url.searchParams.set('hub', hub);
-    if(study)url.searchParams.set('studyId', study);
-    if(phase)url.searchParams.set('phase', phase);
-    if(cond) url.searchParams.set('conditionGroup', cond);
+          if(s.hub) els.hub.value = s.hub;
+          else if(!els.hub.value && guessedHub) els.hub.value = guessedHub;
 
-    location.href = url.toString();
-  }
+          if(s.run) els.run.value = s.run;
+          if(s.diff) els.diff.value = s.diff;
+          if(s.time) els.time.value = s.time;
+          if(s.seed) els.seed.value = s.seed;
+        }catch(_){}
+      }
 
-  el('btnStart').addEventListener('click', start);
+      function save(){
+        try{
+          localStorage.setItem(LS_KEY, JSON.stringify({
+            hub: els.hub.value.trim(),
+            run: els.run.value,
+            diff: els.diff.value,
+            time: Number(els.time.value||80),
+            seed: els.seed.value.trim(),
+            lastView
+          }));
+        }catch(_){}
+      }
 
-  el('btnHub').addEventListener('click', ()=>{
-    saveFields();
-    const hub = el('hub').value.trim();
-    if(hub) location.href = hub;
-    else alert('ยังไม่ได้ใส่ hub url');
-  });
+      function build(view){
+        lastView = view || lastView || 'mobile';
+        const p = new URLSearchParams();
 
-  pickDefault();
-})();
-</script>
+        p.set('view', lastView);
+        p.set('run', els.run.value);
+        p.set('diff', els.diff.value);
+
+        const t = Math.max(20, Math.min(300, Number(els.time.value||80)));
+        p.set('time', String(t));
+
+        const hub = els.hub.value.trim();
+        if(hub) p.set('hub', hub);
+
+        // ✅ Deterministic seed: if research and seed empty -> auto
+        let seedText = els.seed.value.trim();
+        if(els.run.value === 'research' && !seedText){
+          seedText = genSeedText();
+          els.seed.value = seedText;
+        }
+
+        // ✅ Convert string seed into numeric seed (so engine Number(seed) is OK)
+        if(seedText){
+          const u32 = hashSeedToU32(seedText);
+          p.set('seed', String(u32));
+          // keep original for human trace
+          p.set('seedText', seedText);
+        }
+
+        // allow ts fallback cache-bust
+        p.set('ts', String(Date.now()));
+
+        const u = new URL(RUN_URL.toString());
+        u.search = p.toString();
+        return u.toString();
+      }
+
+      function refreshPreview(){
+        const url = build(lastView || 'mobile');
+        els.preview.textContent = url;
+
+        els.lastMode.textContent = els.run.value;
+        els.lastDiff.textContent = els.diff.value;
+        els.lastTime.textContent = (Number(els.time.value||80)) + 's';
+        els.lastView.textContent = lastView || 'mobile';
+        els.runPath.textContent = RUN_URL.pathname;
+      }
+
+      // init
+      load();
+      try{
+        const s = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
+        if(s.lastView) lastView = s.lastView;
+      }catch(_){}
+      refreshPreview();
+
+      // events
+      ['hub','run','diff','time','seed'].forEach(id=>{
+        $(id).addEventListener('input', ()=>{ save(); refreshPreview(); });
+        $(id).addEventListener('change', ()=>{ save(); refreshPreview(); });
+      });
+
+      els.btnSeed.addEventListener('click', ()=>{
+        els.seed.value = genSeedText();
+        save();
+        refreshPreview();
+      });
+
+      document.querySelectorAll('button[data-view]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const view = btn.getAttribute('data-view') || 'mobile';
+          save();
+          const url = build(view);
+          location.href = url;
+        });
+      });
+
+      // Extra: Enter key in hub/seed -> open mobile
+      ['hub','seed'].forEach(id=>{
+        $(id).addEventListener('keydown', (e)=>{
+          if(e.key === 'Enter'){
+            e.preventDefault();
+            save();
+            location.href = build('mobile');
+          }
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
