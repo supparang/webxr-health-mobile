@@ -10,7 +10,7 @@
   <!-- UI -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + Cloud Logger (must load before boot) -->
+  <!-- Global FX + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
@@ -72,7 +72,7 @@
         </div>
         <div class="q-progress" id="hud-mini">—</div>
 
-        <!-- combo slot (optional) -->
+        <!-- (optional) combo slot for engine (safe even if hidden) -->
         <div style="display:none" id="hud-combo">0</div>
       </div>
     </div>
@@ -102,7 +102,7 @@
     </div>
   </div>
 
-  <!-- STAGE -->
+  <!-- STAGE (playfield) -->
   <div id="gj-stage">
     <div class="gj-eye eye-l">
       <div class="gj-layer" id="gj-layer"></div>
@@ -116,7 +116,7 @@
   </div>
 
   <!-- CONTROLS -->
-  <div class="hha-controls">
+  <div class="hha-controls" id="controlsBar">
     <button class="btn-shoot" id="btnShoot" type="button">ยิง / TAP</button>
   </div>
 
@@ -170,28 +170,74 @@
     </div>
   </div>
 
-  <!-- INLINE UI WIRING -->
+  <!-- INLINE UI WIRING + DYNAMIC SAFE PLAY AREA -->
   <script>
   (function(){
     const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-    const overlay   = document.getElementById('startOverlay');
-    const meta      = document.getElementById('startMeta');
-    const btnStart  = document.getElementById('btnStart');
-    const btnStartVR= document.getElementById('btnStartVR');
+    const overlay    = document.getElementById('startOverlay');
+    const meta       = document.getElementById('startMeta');
+    const btnStart   = document.getElementById('btnStart');
+    const btnStartVR = document.getElementById('btnStartVR');
 
     const view = qs('view','mobile');
     const diff = qs('diff','normal');
     const run  = qs('run','play');
     meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
 
+    // ===== Dynamic safe area: compute real top/bottom UI height =====
+    function clamp(n,min,max){ n = Number(n)||0; return n<min?min:(n>max?max:n); }
+
+    function updateSafePlayArea(){
+      try{
+        const hud = document.getElementById('hud');
+        const fever = document.getElementById('feverBox');
+        const controls = document.getElementById('controlsBar');
+
+        const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+
+        // top = bottom edge of HUD (รวม quest) + padding
+        let top = 0;
+        if(hud && hud.offsetParent !== null){
+          const r = hud.getBoundingClientRect();
+          top = Math.max(0, r.bottom) + 10;
+        }
+
+        // bottom = height of fever + controls + padding
+        let bottom = 0;
+        if(fever && fever.offsetParent !== null){
+          bottom += fever.getBoundingClientRect().height;
+        }
+        if(controls && controls.offsetParent !== null){
+          bottom += controls.getBoundingClientRect().height;
+        }
+        bottom += 10;
+
+        // guard: อย่ากินพื้นที่เล่นเกินไป
+        top = clamp(top, 60, Math.max(80, vh * 0.55));
+        bottom = clamp(bottom, 80, Math.max(120, vh * 0.45));
+
+        // apply vars
+        document.documentElement.style.setProperty('--gj-top-dyn', top + 'px');
+        document.documentElement.style.setProperty('--gj-bot-dyn', bottom + 'px');
+      }catch(_){}
+    }
+
+    // update on load/resize/orientation + HUD toggle
+    window.addEventListener('resize', ()=>setTimeout(updateSafePlayArea, 60), { passive:true });
+    window.addEventListener('orientationchange', ()=>setTimeout(updateSafePlayArea, 120), { passive:true });
+
+    // run once after paint
+    requestAnimationFrame(()=>setTimeout(updateSafePlayArea, 60));
+    setInterval(updateSafePlayArea, 650); // กัน layout กระพริบจาก font/load/VRUI
+
     function start(){
       overlay.style.display = 'none';
 
-      // ✅ prevent start before boot.js loaded
+      // ✅ กัน start เกิดก่อน boot.js โหลด
       window.__HHA_PENDING_START__ = { view };
 
-      // ✅ start engine via boot listener
+      // emit start (logger listens)
       window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
     }
 
@@ -229,9 +275,10 @@
 
     document.getElementById('btnHideHud').addEventListener('click', ()=>{
       document.body.classList.toggle('hud-hidden');
+      setTimeout(updateSafePlayArea, 60);
     });
 
-    // ✅ sync VR mini HUD from main HUD values
+    // ✅ sync mini HUD from main HUD (VR/cVR)
     setInterval(()=>{
       const s = document.getElementById('hud-score')?.textContent || '0';
       const t = document.getElementById('hud-time')?.textContent || '0';
