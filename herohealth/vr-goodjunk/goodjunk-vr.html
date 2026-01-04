@@ -1,9 +1,3 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
-✅ params: view, run, diff, time, seed, hub, studyId, phase, conditionGroup, ai, aiApply
-✅ loads: goodjunk-vr.css + particles + hha-fx-director + hha-cloud-logger + boot(module)
-✅ end summary overlay + back hub
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -16,106 +10,74 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
   <!-- UI -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + FX Director + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
+  <!-- Global FX + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
   <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
-  <style>
-    /* --- minimal extras for run page --- */
-    .gj-topbar{
-      position:fixed; left:10px; right:10px;
-      top: calc(10px + var(--sat, 0px));
-      z-index:110;
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      pointer-events:none;
-    }
-    .gj-topbar .left, .gj-topbar .right{display:flex; gap:10px; align-items:center;}
-    .gj-chip{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.62);
-      color:#e5e7eb;
-      border-radius:999px;
-      padding:9px 12px;
-      font: 900 12px/1 system-ui;
-      backdrop-filter: blur(6px);
-      max-width: 92vw;
-      overflow:hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .gj-chip.btn{
-      cursor:pointer;
-      border-color: rgba(34,197,94,.28);
-      background: rgba(34,197,94,.10);
-    }
-    .gj-chip.btn:active{ transform: translateY(1px); }
+  <!-- ✅ Pre-layout: compute dynamic safe paddings EARLY (before engine boot) -->
+  <script>
+  (function(){
+    const DOC = document;
 
-    /* End summary overlay */
-    .gj-end{
-      position:fixed; inset:0; z-index:220;
-      display:none;
-      align-items:center; justify-content:center;
-      background: rgba(2,6,23,.86);
-      backdrop-filter: blur(10px);
+    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+    function compute(){
+      const hud = DOC.getElementById('hud');
+      const fever = DOC.getElementById('feverBox');
+      const controls = DOC.querySelector('.hha-controls');
+      const vh = Math.max(480, DOC.documentElement.clientHeight || 640);
+
+      let hudBottom = 0;
+      try{
+        if(hud){
+          const r = hud.getBoundingClientRect();
+          hudBottom = Math.max(0, r.bottom);
+        }
+      }catch(_){}
+
+      let bottomTop = vh;
+      try{
+        const tops = [];
+        if(fever){
+          const r = fever.getBoundingClientRect();
+          tops.push(r.top);
+        }
+        if(controls){
+          const r = controls.getBoundingClientRect();
+          tops.push(r.top);
+        }
+        bottomTop = tops.length ? Math.min.apply(null, tops) : vh;
+      }catch(_){ bottomTop = vh; }
+
+      const topPad = Math.round(Math.max(80, hudBottom + 14));
+      const botPad = Math.round(Math.max(120, (vh - bottomTop) + 14));
+
+      try{
+        DOC.documentElement.style.setProperty('--gj-top-dyn', topPad + 'px');
+        DOC.documentElement.style.setProperty('--gj-bot-dyn', botPad + 'px');
+      }catch(_){}
     }
-    .gj-end .card{
-      width:min(760px,92vw);
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.80);
-      border-radius: 22px;
-      padding: 16px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.45);
-      color:#e5e7eb;
+
+    // run early + loop briefly to settle fonts/layout
+    let n = 0;
+    function loop(){
+      compute();
+      n++;
+      if(n < 18) requestAnimationFrame(loop);
     }
-    .gj-end .title{font: 1200 22px/1.1 system-ui; }
-    .gj-end .sub{margin-top:6px;color:#94a3b8;font: 900 12px/1.35 system-ui;}
-    .gj-end .grid{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    @media (max-width:720px){ .gj-end .grid{grid-template-columns:1fr;} }
-    .gj-end .stat{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.45);
-      border-radius: 16px;
-      padding: 10px 12px;
-      display:flex; align-items:baseline; justify-content:space-between; gap:10px;
-      font: 900 12px/1 system-ui;
-      color:#e5e7eb;
-    }
-    .gj-end .stat b{font-size:16px;}
-    .gj-end .actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;}
-    .gj-end .btn{
-      min-width: 210px;
-      height: 52px;
-      border-radius: 16px;
-      border: 1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.16);
-      color:#eafff3;
-      font: 1100 16px/1 system-ui;
-      cursor:pointer;
-    }
-    .gj-end .btn.alt{
-      border-color: rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color:#e5e7eb;
-    }
-  </style>
+    requestAnimationFrame(loop);
+
+    window.addEventListener('resize', ()=>{ compute(); }, { passive:true });
+    window.addEventListener('orientationchange', ()=>{ setTimeout(compute, 120); }, { passive:true });
+    DOC.addEventListener('visibilitychange', ()=>{ if(DOC.visibilityState==='visible') setTimeout(compute, 60); }, { passive:true });
+  })();
+  </script>
 </head>
 
-<body class="view-mobile">
-
-  <!-- TOPBAR -->
-  <div class="gj-topbar" aria-hidden="false">
-    <div class="left">
-      <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
-    </div>
-    <div class="right">
-      <button class="gj-chip btn" id="btnBackHub" type="button">↩ กลับ HUB</button>
-    </div>
-  </div>
+<body>
 
   <!-- LOW TIME WARNING RING -->
   <div class="gj-warning-ring" aria-hidden="true"></div>
@@ -136,6 +98,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
       <div class="hud-badge">
         <div class="hud-title">GoodJunkVR</div>
         <div class="hud-sub" id="hudSub">ยิงดีเลี่ยง “ขยะ”</div>
+
         <div class="viewbar">
           <button class="pill ghost" id="btnMissions" type="button">Missions</button>
           <button class="pill ghost" id="btnHideHud" type="button">Hide HUD</button>
@@ -154,7 +117,9 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
       <div class="hud-quest">
         <div class="q-row">
           <div class="q-title" id="hud-goal">—</div>
-          <div class="q-count"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
+          <div class="q-count">
+            <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span>
+          </div>
         </div>
         <div class="q-progress" id="goalDesc">—</div>
 
@@ -166,6 +131,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
         </div>
         <div class="q-progress" id="hud-mini">—</div>
 
+        <!-- (optional) combo slot for engine (safe even if hidden) -->
         <div style="display:none" id="hud-combo">0</div>
       </div>
     </div>
@@ -188,6 +154,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
       <div class="fever-bar"><div class="fever-fill" id="feverFill"></div></div>
       <div class="fever-text" id="feverText">0%</div>
     </div>
+
     <div class="shield-row">
       <div class="shield-label">SHIELD</div>
       <div class="shield-pills" id="shieldPills">—</div>
@@ -200,6 +167,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
       <div class="gj-layer" id="gj-layer"></div>
       <div class="gj-crosshair" id="crosshairL"></div>
     </div>
+
     <div class="gj-eye eye-r">
       <div class="gj-layer" id="gj-layer-r"></div>
       <div class="gj-crosshair" id="crosshairR"></div>
@@ -216,26 +184,49 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- END SUMMARY -->
-  <div class="gj-end" id="endOverlay" aria-hidden="true">
-    <div class="card">
-      <div class="title" id="endTitle">Completed</div>
-      <div class="sub" id="endSub">—</div>
+  <!-- START OVERLAY -->
+  <div id="startOverlay" style="
+    position:fixed; inset:0; z-index:200;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(2,6,23,.86); backdrop-filter: blur(10px);
+  ">
+    <div style="
+      width:min(720px,92vw);
+      background: rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.20);
+      border-radius: 22px;
+      padding:18px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    ">
+      <div style="font-size:26px;font-weight:1200;">GoodJunkVR</div>
+      <div id="startMeta" style="margin-top:8px;color:#94a3b8;font-weight:900;font-size:12px;">—</div>
 
-      <div class="grid">
-        <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
-        <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
-        <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
-        <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="btnStart" type="button" style="
+          border:1px solid rgba(34,197,94,.30);
+          background: rgba(34,197,94,.16);
+          color:#eafff3;
+          border-radius: 14px;
+          padding:12px 16px;
+          font-weight:1200;
+          font-size:16px;
+          cursor:pointer;
+        ">Start</button>
+
+        <button id="btnStartVR" type="button" style="
+          border:1px solid rgba(34,211,238,.30);
+          background: rgba(34,211,238,.14);
+          color:#e9fbff;
+          border-radius: 14px;
+          padding:12px 16px;
+          font-weight:1200;
+          font-size:16px;
+          cursor:pointer;
+        ">Enter VR</button>
       </div>
 
-      <div class="actions">
-        <button class="btn" id="endBackHub" type="button">กลับ HUB</button>
-        <button class="btn alt" id="endReplay" type="button">เล่นอีกครั้ง</button>
-      </div>
-
-      <div class="sub" style="margin-top:10px;">
-        * ถ้าเปิดโหมด Research ให้ตรวจใน Google Sheet ว่ามี row start/end ครบ
+      <div style="margin-top:12px;color:#94a3b8;font-weight:900;font-size:12px;">
+        Mobile: แตะเป้าได้ / VR(cVR): เล็งกลางจอแล้วแตะ “ยิง”
       </div>
     </div>
   </div>
@@ -244,75 +235,73 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
   <script>
   (function(){
     const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-    const byId = (id)=>document.getElementById(id);
+
+    const overlay   = document.getElementById('startOverlay');
+    const meta      = document.getElementById('startMeta');
+    const btnStart  = document.getElementById('btnStart');
+    const btnStartVR= document.getElementById('btnStartVR');
 
     const view = qs('view','mobile');
-    const run  = qs('run','play');
     const diff = qs('diff','normal');
-    const time = qs('time','80');
-    const hub = qs('hub', null);
+    const run  = qs('run','play');
+    meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
 
-    const chip = byId('chipMeta');
-    if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
+    function start(){
+      overlay.style.display = 'none';
 
-    byId('btnBackHub')?.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
-      else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
+      // ✅ กัน start เกิดก่อน boot.js โหลด
+      window.__HHA_PENDING_START__ = { view };
+
+      // NOTE: boot.js listens to hha:start; engine will emit real hha:start later too
+      window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
+    }
+
+    btnStart.addEventListener('click', start);
+
+    btnStartVR.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
+      start();
     });
 
-    byId('btnShoot')?.addEventListener('click', ()=>{
+    // shoot button => engine listens via event (cVR/VR via vr-ui.js, mobile via this)
+    document.getElementById('btnShoot').addEventListener('click', ()=>{
       window.dispatchEvent(new CustomEvent('hha:shoot'));
     });
 
-    const peek = byId('peek');
-    peek?.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
+    // mission peek close by any tap
+    const peek = document.getElementById('peek');
+    peek.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
 
-    byId('btnMissions')?.addEventListener('click', ()=>{
-      peek?.setAttribute('aria-hidden','false');
+    document.getElementById('btnMissions').addEventListener('click', ()=>{
+      peek.setAttribute('aria-hidden','false');
+      // show current mission text (mirror HUD to peek)
       try{
-        byId('peekGoal').textContent =
-          (byId('hud-goal')?.textContent || '—') + ' ' +
-          (byId('hud-goal-cur')?.textContent || '0') + '/' +
-          (byId('hud-goal-target')?.textContent || '0');
-        byId('peekMini').textContent = byId('hud-mini')?.textContent || '—';
+        document.getElementById('peekGoal').textContent =
+          (document.getElementById('hud-goal')?.textContent || '—') + ' ' +
+          (document.getElementById('hud-goal-cur')?.textContent || '0') + '/' +
+          (document.getElementById('hud-goal-target')?.textContent || '0');
+        document.getElementById('peekMini').textContent =
+          document.getElementById('hud-mini')?.textContent || '—';
       }catch(_){}
     });
-    byId('btnPeek')?.addEventListener('click', ()=> byId('btnMissions')?.click());
-    byId('btnHideHud')?.addEventListener('click', ()=> document.body.classList.toggle('hud-hidden'));
 
+    document.getElementById('btnPeek').addEventListener('click', ()=>{
+      document.getElementById('btnMissions').click();
+    });
+
+    document.getElementById('btnHideHud').addEventListener('click', ()=>{
+      document.body.classList.toggle('hud-hidden');
+    });
+
+    // ✅ sync mini HUD from main HUD (VR/cVR)
     setInterval(()=>{
-      const s = byId('hud-score')?.textContent || '0';
-      const t = byId('hud-time')?.textContent || '0';
-      const g = byId('hud-grade')?.textContent || '—';
-      const ms = byId('miniScore'); if(ms) ms.textContent = s;
-      const mt = byId('miniTime');  if(mt) mt.textContent = t;
-      const mg = byId('miniGrade'); if(mg) mg.textContent = g;
+      const s = document.getElementById('hud-score')?.textContent || '0';
+      const t = document.getElementById('hud-time')?.textContent || '0';
+      const g = document.getElementById('hud-grade')?.textContent || '—';
+      const ms = document.getElementById('miniScore'); if(ms) ms.textContent = s;
+      const mt = document.getElementById('miniTime');  if(mt) mt.textContent = t;
+      const mg = document.getElementById('miniGrade'); if(mg) mg.textContent = g;
     }, 180);
-
-    const endOverlay = byId('endOverlay');
-    function showEnd(d){
-      try{
-        if(!endOverlay) return;
-        byId('endTitle').textContent = (d?.reason === 'missLimit') ? 'Game Over' : 'Completed';
-        byId('endSub').textContent = `reason=${d?.reason || '-'} | mode=${d?.runMode || run} | view=${d?.device || view}`;
-        byId('endGrade').textContent = d?.grade || '—';
-        byId('endScore').textContent = String(d?.scoreFinal ?? 0);
-        byId('endMiss').textContent  = String(d?.misses ?? 0);
-        byId('endTime').textContent  = String(Math.round(Number(d?.durationPlayedSec||0)));
-        endOverlay.style.display = 'flex';
-        endOverlay.setAttribute('aria-hidden','false');
-      }catch(_){}
-    }
-
-    window.addEventListener('hha:end', (ev)=> showEnd(ev?.detail || null), { passive:true });
-
-    byId('endBackHub')?.addEventListener('click', ()=>{
-      try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
-      if(hub) location.href = hub;
-      else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
-    });
-
-    byId('endReplay')?.addEventListener('click', ()=> location.reload());
   })();
   </script>
 
