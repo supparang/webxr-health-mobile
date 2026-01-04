@@ -1,8 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — PRODUCTION (C+FX PATCH + TWO-EYE + cVR SHOOT) — FULL (LATEST)
-// ✅ FIX: anti double-hit (click duplicate / two-layer duplicate / doc click duplicate)
-// ✅ Two-eye L/R clickable safely (no double scoring)
-// ✅ Emits: hha:danger (level01) for global FX director
+// GoodJunkVR — PRODUCTION (LATEST) — Storm/Boss/Rage + BossWave + RageDrain + Two-eye + cVR shoot + anti double-hit
+// Rules:
+//  - timeLeft <= 30s => STORM
+//  - miss >= 4 => BOSS
+//  - miss >= 5 => RAGE
+//  - BossWave: periodic junk waves in boss/rage
+//  - RageDrain: if no good hit for a short grace, score drains periodically
+//  - TWO-EYE: spawn L/R pair; click either removes both; score counted once
+//  - Anti-double: pidHandled set prevents double scoring from double click/shoot
 
 'use strict';
 
@@ -72,7 +77,6 @@ function rectCenter(el){
     return { cx: innerWidth/2, cy: innerHeight/2 };
   }
 }
-
 function medianOf(arr){
   if(!arr || !arr.length) return 0;
   const a = arr.slice().sort((x,y)=>x-y);
@@ -85,7 +89,7 @@ function medianOf(arr){
 // -------------------------
 const HUD = {
   score: byId('hud-score'),
-  combo: byId('hud-combo'), // optional
+  combo: byId('hud-combo'),
   miss:  byId('hud-miss'),
   time:  byId('hud-time'),
   grade: byId('hud-grade'),
@@ -110,7 +114,7 @@ function hudUpdate(state){
 }
 
 // -------------------------
-// UX: Danger warning overlay (VR-safe)
+// Danger warning overlay (VR-safe)
 // -------------------------
 function ensureDangerLayer(){
   let el = DOC.querySelector('.gj-danger');
@@ -148,7 +152,6 @@ function ensureDangerLayer(){
   return el;
 }
 function isVRView(view){ return view === 'vr' || view === 'cvr'; }
-
 function setDanger(level01, view){
   const layer = ensureDangerLayer();
   const lv = clamp(level01, 0, 1);
@@ -156,15 +159,15 @@ function setDanger(level01, view){
     layer.style.opacity = '0';
     layer.style.animation = 'none';
     DOC.body.classList.remove('gj-shake');
-  }else{
-    layer.style.opacity = String(0.10 + 0.22*lv);
-    layer.style.animation = `gjPulse ${lv>0.75?0.55:0.75}s ease-in-out infinite`;
-    if(!isVRView(view) && lv > 0.82) DOC.body.classList.add('gj-shake');
-    else DOC.body.classList.remove('gj-shake');
+    return;
   }
+  layer.style.opacity = String(0.10 + 0.22*lv);
+  layer.style.animation = `gjPulse ${lv>0.75?0.55:0.75}s ease-in-out infinite`;
 
-  // ✅ feed global FX director (overheat)
-  emit('hha:danger', { level: lv, view });
+  if(!isVRView(view) && lv > 0.82) DOC.body.classList.add('gj-shake');
+  else DOC.body.classList.remove('gj-shake');
+
+  emit('hha:danger', { level: lv });
 }
 
 // -------------------------
@@ -242,16 +245,17 @@ function makeFx(view){
 // Low-time UI hooks
 // -------------------------
 function lowtimeInit(){
-  const ring = DOC.querySelector('.gj-warning-ring');
   const overlay = DOC.querySelector('.gj-lowtime-overlay');
   const num = byId('gj-lowtime-num');
-  return { ring, overlay, num };
+  return { overlay, num };
 }
 function lowtimeApply(ui, timeLeftSec){
   if(!ui) return;
   const t = Math.max(0, Number(timeLeftSec)||0);
+
   const isLow10 = t > 0 && t <= 10.0;
   const isLow5  = t > 0 && t <= 5.05;
+
   DOC.body.classList.toggle('gj-lowtime', isLow10);
   DOC.body.classList.toggle('gj-lowtime5', isLow5);
 
@@ -399,6 +403,7 @@ function createTargetEl(kind, emoji){
   el.dataset.kind = kind;
   el.textContent = emoji;
 
+  // fallback style
   el.style.position = 'absolute';
   el.style.transform = 'translate(-50%,-50%)';
   el.style.fontSize = (kind==='star' || kind==='shield') ? '46px' : '52px';
@@ -511,10 +516,78 @@ function makeInitialState(cfg, opts){
 
     __aiSpawnMul: 1.0,
     __aiJunkDelta: 0.0,
+
+    // Boss wave
+    bossWaveCd: 0,
+    bossWaveLeft: 0,
+
+    // Rage drain
+    rageGrace: 0,
+    rageDrainAcc: 0,
   };
 }
 
 function logEvent(type, payload){ emit('hha:log', { type, ...payload }); }
+
+// -------------------------
+// Phase System (storm/boss/rage)
+// -------------------------
+let __phase = 'normal';
+
+function applyPhaseBody(){
+  DOC.body.classList.toggle('gj-storm', __phase === 'storm');
+  DOC.body.classList.toggle('gj-boss',  __phase === 'boss');
+  DOC.body.classList.toggle('gj-rage',  __phase === 'rage');
+}
+
+function computePhase(state){
+  // requirements:
+  // timeLeft <= 30 => storm
+  // miss >= 4 => boss
+  // miss >= 5 => rage
+  if(state.miss >= 5) return 'rage';
+  if(state.miss >= 4) return 'boss';
+  if(state.timeLeftSec <= 30.0) return 'storm';
+  return 'normal';
+}
+
+function phaseDifficulty(cfg, state){
+  // returns multipliers; keep deterministic and "fair"
+  // (storm/boss/rage make it tighter, but not impossible)
+  const p = __phase;
+
+  let spawnMul = 1.0;
+  let junkAdd  = 0.0;
+  let lifeMul  = 1.0;
+  let sizeMul  = 1.0;
+
+  if(p === 'storm'){
+    spawnMul = 1.12;
+    junkAdd  = 0.05;
+    lifeMul  = 0.93;
+    sizeMul  = 0.98;
+  } else if(p === 'boss'){
+    spawnMul = 1.20;
+    junkAdd  = 0.08;
+    lifeMul  = 0.88;
+    sizeMul  = 0.97;
+  } else if(p === 'rage'){
+    spawnMul = 1.28;
+    junkAdd  = 0.12;
+    lifeMul  = 0.82;
+    sizeMul  = 0.95;
+  }
+
+  // protect mobile slightly
+  if(state.__view === 'mobile'){
+    spawnMul *= 0.93;
+    junkAdd  *= 0.75;
+    lifeMul  *= 1.06;
+    sizeMul  *= 1.02;
+  }
+
+  return { spawnMul, junkAdd, lifeMul, sizeMul };
+}
 
 // -------------------------
 // Boot
@@ -522,8 +595,7 @@ function logEvent(type, payload){ emit('hha:log', { type, ...payload }); }
 export function boot(opts={}){
   const layer  = byId('gj-layer');
   if(!layer){ console.error('GoodJunkVR: missing #gj-layer'); return; }
-
-  const layerR = byId('gj-layer-r'); // right eye layer (VR/cVR)
+  const layerR = byId('gj-layer-r'); // right eye layer
 
   const ensureLayerBox = (el)=>{
     if(!el) return;
@@ -560,6 +632,7 @@ export function boot(opts={}){
   const cfg = diffCfg(diff);
   const timeSec = Math.max(20, Number(opts.time)||80) * (cfg.timeMul||1);
   const state = makeInitialState(cfg, { timeSec, rng });
+  state.__view = view;
 
   const fx = makeFx(view);
   const lowUI = lowtimeInit();
@@ -587,7 +660,7 @@ export function boot(opts={}){
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion:'gj-2026-01-04-anti-double'
+    gameVersion:'gj-2026-01-04-storm-boss-rage'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
@@ -603,32 +676,19 @@ export function boot(opts={}){
   let pairSeq = 1;
   const pairMap = new Map();     // pid -> { kind, l, r, bornAt, expireT }
   const elToPid = new WeakMap(); // element -> pid
-  function nextPid(){ return String(pairSeq++); } // (keep)
+  const pidHandled = new Set();  // ✅ anti double scoring
+
+  function nextPid(){ return String(pairSeq++); }
   function pairRemove(pid){
     const p = pairMap.get(pid);
     if(!p) return;
     pairMap.delete(pid);
+    pidHandled.delete(pid);
     if(p.expireT){ try{ clearTimeout(p.expireT); }catch(_){} }
     if(p.l){ try{ removeEl(p.l); }catch(_){} }
     if(p.r){ try{ removeEl(p.r); }catch(_){} }
   }
   function pairFromEl(el){ return el ? elToPid.get(el) : null; }
-
-  // ✅ FIX: anti double-hit lock (pid processed once)
-  const hitLock = new Map(); // pid -> ts
-  function lockPid(pid, ttlMs=140){
-    const now = Date.now();
-    const last = hitLock.get(pid) || 0;
-    if(now - last < ttlMs) return false; // already processed
-    hitLock.set(pid, now);
-    // prune occasionally
-    if(hitLock.size > 200){
-      for(const [k,t] of hitLock.entries()){
-        if(now - t > 800) hitLock.delete(k);
-      }
-    }
-    return true;
-  }
 
   function onTargetClick(e){
     const el0 = e?.target;
@@ -640,17 +700,19 @@ export function boot(opts={}){
 
     const pid = pairFromEl(targetEl) || targetEl.dataset.pid || null;
     if(!pid) return;
-
-    // ✅ block duplicates (L/R bubble / doc / shoot spam)
-    if(!lockPid(pid, (view==='vr' || view==='cvr') ? 170 : 130)) return;
-
     const p = pairMap.get(pid);
     if(!p) return;
 
+    // ✅ anti double-hit (click L then R / shoot + click same frame)
+    if(pidHandled.has(pid)) return;
+    pidHandled.add(pid);
+
     const kind = p.kind;
     const tNow = nowMs();
+
     const bornAt = Number(targetEl.dataset.bornAt || 0);
     const rt = bornAt ? Math.max(0, tNow - bornAt) : null;
+
     const { cx, cy } = rectCenter(targetEl);
 
     if(kind === 'good'){
@@ -658,6 +720,9 @@ export function boot(opts={}){
       state.score += 10;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
+
+      // ✅ Rage: good hit gives grace (stop drain briefly)
+      state.rageGrace = 1.2;
 
       if(rt != null){
         state.rtGoodCount++;
@@ -712,7 +777,8 @@ export function boot(opts={}){
         emit('hha:score', { score: 0, x: cx, y: cy });
 
         logEvent('hit_junk_practice', { score: state.score, miss: state.miss });
-      } else {
+      }
+      else {
         if(state.shieldSec > 0){
           state.nHitJunkGuard++;
           state.score = Math.max(0, state.score - 1);
@@ -747,6 +813,9 @@ export function boot(opts={}){
       state.miss = Math.max(0, state.miss - 1);
       state.combo = Math.max(state.combo, 1);
 
+      // mild grace
+      state.rageGrace = Math.max(state.rageGrace, 0.6);
+
       fx.pop(cx, cy, '+18', 'STAR');
       fx.burst(cx, cy, 'gold');
 
@@ -758,6 +827,8 @@ export function boot(opts={}){
     } else if(kind === 'shield'){
       state.shieldSec = Math.max(state.shieldSec, 6);
       state.score += 6;
+
+      state.rageGrace = Math.max(state.rageGrace, 0.6);
 
       fx.pop(cx, cy, '+SHIELD', '🛡️');
       fx.burst(cx, cy, 'power');
@@ -783,41 +854,84 @@ export function boot(opts={}){
     }
   }
 
-  // ✅ attach handlers (2 layers) + stop propagation to prevent duplicates
-  function handleClick(ev){
+  // ✅ 2 ฝั่งคลิกได้
+  layer.addEventListener('click', onTargetClick, { passive:false });
+  if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
+
+  // extra safety: document click (if target event bubbles oddly)
+  DOC.addEventListener('click', (e)=>{
+    const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
+    if(t) onTargetClick({ target: t });
+  }, { passive:false });
+
+  // -------------------------
+  // BossWave + RageDrain helpers
+  // -------------------------
+  function bossWavePlan(){
+    const isRage = (__phase === 'rage');
+    const gap = isRage
+      ? randIn(state.rng, 5.2, 7.4)
+      : randIn(state.rng, 6.2, 8.6);
+    state.bossWaveCd = gap;
+
+    const n = isRage
+      ? (state.rng() < 0.55 ? 3 : 4)
+      : (state.rng() < 0.70 ? 2 : 3);
+
+    state.bossWaveLeft = n;
+
     try{
-      ev.preventDefault();
-      ev.stopPropagation();
+      emit('hha:judge', { type:'bad', x: innerWidth/2, y: innerHeight*0.18, reason:'wave' });
+      fx.toast(isRage ? '🔥 RAGE WAVE!' : '⚔️ BOSS WAVE!', isRage ? 'RAGE' : 'BOSS');
     }catch(_){}
-    onTargetClick(ev);
   }
-  layer.addEventListener('click', handleClick, { passive:false, capture:true });
-  if(layerR) layerR.addEventListener('click', handleClick, { passive:false, capture:true });
 
-  // ❌ REMOVE: document click forwarding (this is a common double-trigger source)
-  // DOC.addEventListener('click', (e)=>{ ... });
-
+  // -------------------------
+  // Spawn
+  // -------------------------
   function spawnOne(forceKind=null){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
+    // update phase before deciding spawn
+    const np = computePhase(state);
+    if(np !== __phase){
+      __phase = np;
+      applyPhaseBody();
+      // soft announce (not spam)
+      if(__phase === 'storm') fx.toast('🌪️ STORM!', 'STORM');
+      if(__phase === 'boss')  fx.toast('⚔️ BOSS!', 'BOSS');
+      if(__phase === 'rage')  fx.toast('🔥 RAGE!', 'RAGE');
+    }
+
     let kind = forceKind;
+
+    const pd = phaseDifficulty(cfg, state);
+
     if(!kind){
       const r = state.rng();
-      const starP = cfg.starP ?? 0.06;
-      const shieldP = cfg.shieldP ?? 0.05;
+      const starP0 = cfg.starP ?? 0.06;
+      const shieldP0 = cfg.shieldP ?? 0.05;
 
-      if(r < shieldP) kind = 'shield';
-      else if(r < shieldP + starP) kind = 'star';
-      else {
+      // slightly reduce powerups in boss/rage (still possible)
+      const powerMul = (__phase === 'rage') ? 0.82 : (__phase === 'boss' ? 0.90 : 1.0);
+      const shieldP = shieldP0 * powerMul;
+      const starP   = starP0   * powerMul;
+
+      if(r < shieldP){
+        kind = 'shield';
+      } else if(r < shieldP + starP){
+        kind = 'star';
+      } else {
         const baseJR = (cfg.junkRatio ?? 0.40);
         const aiJR = clamp(baseJR + (state.__aiJunkDelta || 0), 0.18, 0.70);
-        kind = (state.rng() < aiJR) ? 'junk' : 'good';
+        const phaseJR = clamp(aiJR + (pd.junkAdd || 0), 0.18, 0.74);
+        kind = (state.rng() < phaseJR) ? 'junk' : 'good';
       }
     }
 
-    const pid = nextPid(); // ✅ stable pid (no random/time concat)
-
+    const pid = nextPid();
     const emoji = pickEmoji(kind, state.rng);
+
     const elL = createTargetEl(kind, emoji);
     elL.dataset.pid = pid;
 
@@ -841,18 +955,24 @@ export function boot(opts={}){
       elR.style.top  = `${Math.max(topPad, y)}px`;
     }
 
-    const s = (kind==='star' || kind==='shield')
+    const sizeMul = pd.sizeMul || 1.0;
+    const sBase = (kind==='star' || kind==='shield')
       ? randIn(state.rng, 0.95, 1.08)
       : randIn(state.rng, 0.92, 1.18);
+
+    const s = sBase * sizeMul;
 
     elL.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
     if(elR) elR.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
 
     const mobileMul = (view==='mobile') ? 1.18 : 1.0;
+
     let lifeMs;
     if(kind==='good') lifeMs = randIn(state.rng, 1500, 2400) * mobileMul;
     else if(kind==='junk') lifeMs = randIn(state.rng, 1300, 2200) * mobileMul;
     else lifeMs = randIn(state.rng, 1200, 2000) * mobileMul;
+
+    lifeMs *= (pd.lifeMul || 1.0);
 
     const born = nowMs();
     elL.dataset.bornAt = String(born);
@@ -883,8 +1003,11 @@ export function boot(opts={}){
         if(state.phase === 'practice'){
           state.nExpireGood++;
           logEvent('expire_good_practice', {});
-        }else{
-          if(state.graceSec <= 0){
+        }
+        else {
+          if(state.graceSec > 0){
+            // no miss during grace
+          }else{
             state.nExpireGood++;
             state.miss++;
             state.combo = 0;
@@ -905,6 +1028,7 @@ export function boot(opts={}){
           }
         }
       }
+
       pairRemove(pid);
     }, Math.floor(lifeMs));
 
@@ -912,7 +1036,8 @@ export function boot(opts={}){
     if(p0) p0.expireT = expireT;
   }
 
-  // cVR shoot
+  // cVR shoot (anti spam)
+  let __shootLock = 0;
   function pickByCrosshair(lockPx=46){
     const cx = DOC.documentElement.clientWidth * 0.5;
     const cy = DOC.documentElement.clientHeight * 0.5;
@@ -937,6 +1062,11 @@ export function boot(opts={}){
   }
   function shoot(){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
+
+    const t = nowMs();
+    if(t - __shootLock < 85) return; // ✅ กันยิงซ้ำถี่เกิน
+    __shootLock = t;
+
     const lock = (view === 'cvr' || view === 'vr') ? 58 : 46;
     const pid = pickByCrosshair(lock);
     if(!pid) return;
@@ -951,6 +1081,10 @@ export function boot(opts={}){
   let lastTick = nowMs();
   let spawnAcc = 0;
   let lastLowSec = 999;
+
+  // init wave timers
+  state.bossWaveCd = 4.2;
+  state.bossWaveLeft = 0;
 
   function tick(){
     if(ended) return;
@@ -973,7 +1107,8 @@ export function boot(opts={}){
       DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
       if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
-      const pps = (view==='mobile') ? (cfg.spawnPps * 0.85) : (cfg.spawnPps * 0.95);
+      const pps0 = (cfg.spawnPps || 2.0);
+      const pps = (view==='mobile') ? (pps0 * 0.85) : (pps0 * 0.95);
       spawnAcc += dt * pps;
 
       const cap = (view==='mobile') ? 2 : 3;
@@ -990,8 +1125,13 @@ export function boot(opts={}){
         state.playedSec = 0;
         state.timeLeftSec = state.timeTotalSec;
         state.graceSec = 5;
-        showPracticeHint(false);
 
+        state.bossWaveCd = 4.2;
+        state.bossWaveLeft = 0;
+        state.rageGrace = 0;
+        state.rageDrainAcc = 0;
+
+        showPracticeHint(false);
         emit('hha:judge', { type:'good', x: innerWidth/2, y: innerHeight*0.25, label:'START!' });
         fx.toast('START!', 'PLAY');
       }
@@ -1000,12 +1140,21 @@ export function boot(opts={}){
 
       const fever01 = feverCompute(state, missLimit);
       feverRender(feverUI, fever01);
-      setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1), view);
     }
     else if(state.phase === 'play'){
       state.playedSec += dt;
       state.timeLeftSec = Math.max(0, state.timeTotalSec - state.playedSec);
       state.graceSec = Math.max(0, state.graceSec - dt);
+
+      // phase update
+      const np = computePhase(state);
+      if(np !== __phase){
+        __phase = np;
+        applyPhaseBody();
+        if(__phase === 'storm') fx.toast('🌪️ STORM!', 'STORM');
+        if(__phase === 'boss')  fx.toast('⚔️ BOSS!', 'BOSS');
+        if(__phase === 'rage')  fx.toast('🔥 RAGE!', 'RAGE');
+      }
 
       lowtimeApply(lowUI, state.timeLeftSec);
       const secCeil = Math.ceil(state.timeLeftSec);
@@ -1022,14 +1171,40 @@ export function boot(opts={}){
         return;
       }
 
+      // Boss Wave scheduler
+      if(__phase === 'boss' || __phase === 'rage'){
+        state.bossWaveCd = Math.max(0, (state.bossWaveCd || 0) - dt);
+        if(state.bossWaveCd <= 0 && (state.bossWaveLeft || 0) <= 0){
+          bossWavePlan();
+        }
+        if((state.bossWaveLeft || 0) > 0){
+          state.burstQueue = Math.max(state.burstQueue, 1);
+          if(state.burstCooldown <= 0.01){
+            state.bossWaveLeft = Math.max(0, state.bossWaveLeft - 1);
+          }
+        }
+      }
+
+      // base spawn
       const basePps = (cfg.spawnPps || 2.0);
-      const pps = (view==='mobile') ? (basePps * 0.90) : basePps;
+      const aiApply = (qs('aiApply','0') === '1');
+      const mulAi = (aiApply && !isResearch) ? (state.__aiSpawnMul || 1.0) : 1.0;
+
+      const pd = phaseDifficulty(cfg, state);
+      const mulPhase = pd.spawnMul || 1.0;
+
+      const pps = (view==='mobile')
+        ? (basePps * 0.90 * mulAi * mulPhase)
+        : (basePps * mulAi * mulPhase);
+
       spawnAcc += dt * pps;
 
+      // burstQueue spawn (force junk if wave left)
       if(state.burstQueue > 0){
         state.burstCooldown = Math.max(0, state.burstCooldown - dt);
         if(state.burstCooldown <= 0){
-          spawnOne();
+          const force = ((state.bossWaveLeft || 0) > 0) ? 'junk' : null;
+          spawnOne(force);
           state.burstQueue--;
           state.burstCooldown = 0.12;
         }
@@ -1043,11 +1218,38 @@ export function boot(opts={}){
         spawned++;
       }
 
-      const fever01 = feverCompute(state, missLimit);
-      feverRender(feverUI, fever01);
+      // Rage Drain
+      if(__phase === 'rage'){
+        state.rageGrace = Math.max(0, (state.rageGrace || 0) - dt);
+        if(state.rageGrace <= 0){
+          state.rageDrainAcc = (state.rageDrainAcc || 0) + dt;
+          const period = 0.85;
+          while(state.rageDrainAcc >= period){
+            state.rageDrainAcc -= period;
+            state.score = Math.max(0, state.score - 2);
+            state.combo = 0;
+
+            emit('hha:judge', { type:'bad', x: innerWidth/2, y: innerHeight*0.22, reason:'rage-drain' });
+            emit('hha:score', { score: -2, x: innerWidth/2, y: innerHeight*0.22 });
+            fx.pop(innerWidth/2, innerHeight*0.22, '-2', 'RAGE');
+
+            logEvent('rage_drain', { score: state.score });
+          }
+        }
+      }
+
       setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1), view);
 
+      const fever01 = feverCompute(state, missLimit);
+      feverRender(feverUI, fever01);
+
       hudUpdate(state);
+
+      // end by missLimit
+      if(state.miss >= missLimit){
+        endGame('missLimit');
+        return;
+      }
     }
 
     requestAnimationFrame(tick);
@@ -1061,10 +1263,15 @@ export function boot(opts={}){
     state.phase = 'end';
     setDanger(0, view);
 
-    DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
+    state.rageGrace = 0;
+    state.rageDrainAcc = 0;
+
+    DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick','gj-storm','gj-boss','gj-rage');
     if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
-    for(const pid of pairMap.keys()) pairRemove(pid);
+    for(const pid of pairMap.keys()){
+      pairRemove(pid);
+    }
 
     const denom = (state.nHitGood + state.nExpireGood);
     const accGood = denom > 0 ? (state.nHitGood / denom) * 100 : 0;
@@ -1125,7 +1332,7 @@ export function boot(opts={}){
       studyId: opts.studyId || null,
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
-      gameVersion:'gj-2026-01-04-anti-double',
+      gameVersion:'gj-2026-01-04-storm-boss-rage',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
@@ -1155,7 +1362,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-04-anti-double',
+          gameVersion:'gj-2026-01-04-storm-boss-rage',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
