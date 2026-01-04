@@ -4,10 +4,9 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
 ✅ HUD: soft neon, better contrast, safe-area
 ✅ Boss/Storm: fx classes (boss-on/boss-panic), storm pulse
 ✅ Result: crisp grade badge
-✅ cVR: crosshair shooting-friendly (optional strict pointer settings)
+✅ view-cvr: prevent overlay clicks on targets in strict modes (optional)
 */
 
-/* ---------- base theme ---------- */
 :root{
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
@@ -29,22 +28,10 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-}
 
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
-/* If you rely on this CSS from anywhere, keep body sane */
-html, body{
-  margin:0;
-  padding:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+  /* target feel */
+  --t-shadow: 0 18px 48px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);
+  --t-bg: rgba(2,6,23,.56);
 }
 
 /* ---------- micro glow helpers ---------- */
@@ -64,7 +51,7 @@ html, body{
   100%{ filter:brightness(1); }
 }
 @keyframes hhaPop {
-  0%{ transform: translateZ(0) scale(.86); opacity:.0; }
+  0%{ transform: translateZ(0) scale(.86); opacity:0; }
   40%{ transform: translateZ(0) scale(1.06); opacity:1; }
   100%{ transform: translateZ(0) scale(1); opacity:1; }
 }
@@ -75,6 +62,18 @@ html, body{
   75%{ transform: translateZ(0) rotate(1deg); }
   100%{ transform: translateZ(0) rotate(0deg); }
 }
+@keyframes hhaFloat {
+  0%{ transform: translateZ(0) translateY(0); }
+  50%{ transform: translateZ(0) translateY(-2px); }
+  100%{ transform: translateZ(0) translateY(0); }
+}
+
+/* ---------- global smoothing ---------- */
+html, body{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button{ font-family: inherit; }
 
 /* ---------- Targets feel (emoji clarity + VR-ish depth) ---------- */
 #plate-layer .plateTarget{
@@ -83,24 +82,22 @@ html, body{
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
     radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
-    rgba(2,6,23,.56) !important;
+    var(--t-bg) !important;
   backdrop-filter: blur(10px) saturate(1.15);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    inset 0 1px 0 rgba(255,255,255,.08);
-
+  box-shadow: var(--t-shadow);
   animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
   transform: translateZ(0);
-
   text-shadow: 0 2px 0 rgba(0,0,0,.25);
+
+  /* emoji crisp */
   font-variation-settings: "wght" 900;
-
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  /* improve tapping */
-  touch-action:none;
+  -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  user-select:none;
+  outline:none;
+
+  /* prevent accidental scroll in mobile */
+  touch-action: none;
 }
 #plate-layer .plateTarget:active{
   transform: translateZ(0) scale(.98);
@@ -128,34 +125,22 @@ html, body{
     0 18px 52px rgba(0,0,0,.32),
     0 0 26px rgba(34,211,238,.14),
     inset 0 1px 0 rgba(255,255,255,.08);
-}
-
-/* optional: a tiny “depth ring” */
-#plate-layer .plateTarget::after{
-  content:"";
-  position:absolute;
-  inset: 9%;
-  border-radius:999px;
-  border:1px dashed rgba(148,163,184,.12);
-  pointer-events:none;
-  opacity:.55;
+  animation: hhaPop .14s ease-out 0s 1, hhaFloat 1.3s ease-in-out .12s infinite;
 }
 
 /* ---------- HUD polish ---------- */
-.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard, .panelCard{
+.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
   box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
 }
-.card, .questCard, .panelCard{
-  backdrop-filter: blur(10px) saturate(1.05);
-}
-
 .pill{
   background:
     radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
     rgba(15,23,42,.68) !important;
+  border-color: rgba(148,163,184,.18) !important;
 }
 .bar{
   background: rgba(148,163,184,.10) !important;
+  border-color: rgba(148,163,184,.14) !important;
 }
 .bar > i{
   box-shadow: 0 0 18px rgba(34,197,94,.16);
@@ -178,9 +163,9 @@ html, body{
 .btn.warn:hover{ filter:brightness(1.1); }
 .btn.bad:hover{ filter:brightness(1.05); }
 
-/* keep important overlays readable */
-#startOverlay, #hudPaused, #resultBackdrop{
-  backdrop-filter: blur(10px);
+/* Prevent VR UI buttons being blocked by overlays */
+#hudBtns, .hudTop, #miniPanel, #coachPanel, #bossHud, #stormHud{
+  isolation: isolate;
 }
 
 /* ---------- Boss / Storm FX (hook for plate.safe.js toggles) ---------- */
@@ -216,12 +201,12 @@ html, body{
     radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
   animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
-/* in case JS adds storm-panic */
 #stormFx.storm-panic{
   filter:brightness(1.25);
+  animation: hhaWarnPulse .18s ease-in-out 0s infinite;
 }
 
-/* ---------- Result grade badge (crisp) ---------- */
+/* ---------- Result grade badge ---------- */
 #rGrade{
   display:inline-block;
   padding:6px 12px;
@@ -231,60 +216,18 @@ html, body{
   box-shadow: 0 14px 40px rgba(0,0,0,.25);
 }
 
-/* grade highlights (optional) */
-#rGrade, #uiGrade{
-  letter-spacing:.5px;
-  text-transform:uppercase;
-}
-body.grade-SSS #rGrade,
-body.grade-SS  #rGrade,
-body.grade-S   #rGrade{
-  border-color: rgba(34,197,94,.28);
-  box-shadow: 0 14px 40px rgba(0,0,0,.25), 0 0 22px rgba(34,197,94,.16);
-}
-body.grade-A #rGrade{
-  border-color: rgba(34,211,238,.28);
-  box-shadow: 0 14px 40px rgba(0,0,0,.25), 0 0 22px rgba(34,211,238,.14);
-}
-body.grade-B #rGrade{
-  border-color: rgba(245,158,11,.28);
-  box-shadow: 0 14px 40px rgba(0,0,0,.25), 0 0 22px rgba(245,158,11,.12);
-}
-body.grade-C #rGrade{
-  border-color: rgba(239,68,68,.22);
-  box-shadow: 0 14px 40px rgba(0,0,0,.25), 0 0 22px rgba(239,68,68,.10);
-}
-
-/* ---------- cVR helpers ---------- */
-/* default: keep as-is (tap also works). If you want strict cVR (ยิงอย่างเดียว), เปิดคอมเมนต์ด้านล่าง */
-
-/*
-body.view-cvr #plate-layer .plateTarget{
-  pointer-events:none !important;
-}
-body.view-cvr #plate-layer{
-  pointer-events:none !important;
-}
+/* ---------- Optional: view-cvr strict (crosshair shooting) ----------
+   ถ้าอยาก “ห้ามแตะเป้า” ใน Cardboard เพื่อบังคับยิงจาก crosshair เท่านั้น:
+   เปิดบรรทัด pointer-events:none ด้านล่างได้
 */
-
-/* However, DO keep UI clickable in cVR */
-body.view-cvr #hudBtns,
-body.view-cvr .hudTop,
-body.view-cvr #miniPanel,
-body.view-cvr #coachPanel,
-body.view-cvr #startOverlay,
-body.view-cvr #hudPaused,
-body.view-cvr #resultBackdrop{
-  pointer-events:none;
-}
-body.view-cvr #hudBtns .btn,
-body.view-cvr #startOverlay .btn,
-body.view-cvr #hudPaused .btn,
-body.view-cvr #resultBackdrop .btn{
-  pointer-events:auto;
+body.view-cvr #plate-layer{
+  /* pointer-events:none; */ /* <- เปิดถ้าต้องการ strict */
 }
 
-/* ---------- small screens tweaks ---------- */
+/* Make start overlay / result overlay readable on small devices */
 @media (max-width: 920px){
-  .bar{ width:140px; }
+  #miniPanel .questCard, #coachPanel .questCard{ gap:8px; }
+  #miniPanel .questCol{ min-width: 180px; }
+  #miniPanel .bar{ width: 180px !important; }
+  #miniPanel .hint{ font-size: 12px; }
 }
