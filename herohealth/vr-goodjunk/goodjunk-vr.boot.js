@@ -80,8 +80,11 @@ async function startEngine(opts={}){
 
   console.debug('[GoodJunkVR boot] start', payload);
 
-  try{ engineBoot(payload); }
-  catch(err){ console.error('GoodJunkVR engineBoot error:', err); }
+  try{
+    engineBoot(payload);
+  }catch(err){
+    console.error('GoodJunkVR engineBoot error:', err);
+  }
 }
 
 function consumePendingStart(){
@@ -103,7 +106,9 @@ if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
   DOC.addEventListener('DOMContentLoaded', consumePendingStart, { once:true });
 }
 
-ROOT.addEventListener('hha:enter-cvr', ()=> ensureVrUi(), { passive:true });
+ROOT.addEventListener('hha:enter-cvr', ()=>{
+  ensureVrUi();
+}, { passive:true });
 
 setTimeout(()=>{
   if(started) return;
