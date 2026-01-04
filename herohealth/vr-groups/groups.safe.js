@@ -1,1068 +1,998 @@
-// === /herohealth/vr-groups/groups.safe.js ===
-// Food Groups VR — SAFE Engine (Standalone) — PRODUCTION
-// ✅ PC / Mobile / Cardboard (cVR)
-// ✅ Listens to hha:shoot (from ../vr/vr-ui.js) for crosshair shooting (aim assist lockPx)
-// ✅ Adaptive only in PLAY, deterministic in RESEARCH (seeded RNG)
-// ✅ Dynamic safe spawn rect (avoid HUD/Quest/Power/Coach)
-// ✅ Storm + Boss phases + Powerups (star/ice/diamond/shield)
-// ✅ Quest bridge: GroupsVR.createGroupsQuest (groups-quests.js) + emits quest:update via quest module
-// ✅ Emits:
-//   - hha:start, hha:score, hha:time, hha:rank, hha:fever, hha:coach, hha:judge, hha:end, hha:celebrate
-//   - groups:power, groups:progress
-// Note: UI Enter VR button is from ../vr/vr-ui.js (ensure script path + not blocked by overlays)
+/* === B: /herohealth/vr-groups/groups.safe.js ===
+Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue
+✅ FIX spawn bounds: no corner-clump, no out-of-screen
+✅ Hit radius scales by size + view (cVR assist)
+✅ miniTotal/miniCleared tracked in summary (true counts)
+✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
+✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
+✅ runMode: play | research | practice
+   - research: deterministic seed + adaptive OFF + AI OFF
+   - practice: deterministic seed + adaptive OFF + AI OFF + does NOT trigger end overlay in A
+✅ PACK 15: optional AI director/pattern hooks (only when AIHooks attaches and runMode=play)
+*/
 
-(function(root){
+(function (root) {
   'use strict';
+
   const DOC = root.document;
   if (!DOC) return;
 
-  const NS = (root.GroupsVR = root.GroupsVR || {});
-  const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{} };
-  const emitProgress = (detail)=> emit('groups:progress', detail||{});
+  const NS = root.GroupsVR = root.GroupsVR || {};
 
-  // ---------- Seeded RNG ----------
-  function xmur3(str){
-    str = String(str||'seed');
-    let h = 1779033703 ^ str.length;
-    for (let i=0;i<str.length;i++){
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h << 13) | (h >>> 19);
+  // ---------------- Utils ----------------
+  function clamp(v, a, b) { v = Number(v); if (!isFinite(v)) v = a; return v < a ? a : (v > b ? b : v); }
+  function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
+
+  function hashSeed(str) {
+    str = String(str ?? '');
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
     }
-    return function(){
-      h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
-      h ^= (h >>> 16);
-      return h >>> 0;
-    };
-  }
-  function sfc32(a,b,c,d){
-    return function(){
-      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-      let t = (a + b) | 0;
-      a = b ^ (b >>> 9);
-      b = (c + (c << 3)) | 0;
-      c = (c << 21) | (c >>> 11);
-      d = (d + 1) | 0;
-      t = (t + d) | 0;
-      c = (c + t) | 0;
-      return (t >>> 0) / 4294967296;
-    };
-  }
-  function makeRng(seed){
-    const gen = xmur3(seed);
-    return sfc32(gen(), gen(), gen(), gen());
+    return h >>> 0;
   }
 
-  // ---------- Helpers ----------
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
-  function styleNorm(s){
-    s = String(s||'mix').toLowerCase();
-    return (s==='hard'||s==='feel'||s==='mix') ? s : 'mix';
+  function makeRng(seedU32) {
+    let s = (seedU32 >>> 0) || 1;
+    return function rand() {
+      s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
   }
-  function rankFromAcc(acc){
-    if (acc >= 95) return 'SSS';
-    if (acc >= 90) return 'SS';
-    if (acc >= 85) return 'S';
-    if (acc >= 75) return 'A';
-    if (acc >= 60) return 'B';
+
+  function pick(rng, arr) {
+    return arr[(rng() * arr.length) | 0];
+  }
+
+  function emit(name, detail) {
+    try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
+  }
+
+  function cssSet(el, k, v) {
+    try { el.style.setProperty(k, v); } catch (_) {}
+  }
+
+  function addBodyClass(c, on) {
+    DOC.body.classList.toggle(c, !!on);
+  }
+
+  function getViewFromBodyOrParam(v) {
+    const b = DOC.body;
+    const cls = (b && b.className) ? b.className : '';
+    if (String(v || '').includes('cvr') || cls.includes('view-cvr')) return 'cvr';
+    if (String(v || '').includes('vr')  || cls.includes('view-vr'))  return 'vr';
+    if (String(v || '').includes('pc')  || cls.includes('view-pc'))  return 'pc';
+    return 'mobile';
+  }
+
+  // ---------------- Content ----------------
+  const GROUPS = [
+    { key: 'fruit',   th: 'ผลไม้',     emoji: ['🍎','🍌','🍊','🍇','🍉','🍍','🥭','🍐'] },
+    { key: 'veg',     th: 'ผัก',       emoji: ['🥦','🥕','🥬','🍅','🥒','🌽','🧅','🍆'] },
+    { key: 'protein', th: 'โปรตีน',    emoji: ['🍗','🥚','🐟','🫘','🥜','🍤','🍖','🧀'] },
+    { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
+    { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
+  ];
+
+  const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
+
+  // ---------------- Difficulty presets ----------------
+  function diffPreset(diff) {
+    diff = String(diff || 'normal').toLowerCase();
+    if (diff === 'easy') {
+      return {
+        time: 90,
+        baseSpawnMs: 780,
+        stormEverySec: 26,
+        stormLenSec: 7,
+        targetSize: 1.02,
+        wrongRate: 0.22,
+        junkRate: 0.12,
+        bossHp: 6,
+        powerThreshold: 7,
+        goalTargets: 16,
+        goalsTotal: 2,
+      };
+    }
+    if (diff === 'hard') {
+      return {
+        time: 90,
+        baseSpawnMs: 560,
+        stormEverySec: 22,
+        stormLenSec: 8,
+        targetSize: 0.92,
+        wrongRate: 0.32,
+        junkRate: 0.18,
+        bossHp: 10,
+        powerThreshold: 9,
+        goalTargets: 22,
+        goalsTotal: 2,
+      };
+    }
+    return {
+      time: 90,
+      baseSpawnMs: 650,
+      stormEverySec: 24,
+      stormLenSec: 7,
+      targetSize: 0.98,
+      wrongRate: 0.27,
+      junkRate: 0.15,
+      bossHp: 8,
+      powerThreshold: 8,
+      goalTargets: 19,
+      goalsTotal: 2,
+    };
+  }
+
+  function gradeFrom(accPct, misses, score) {
+    accPct = Number(accPct) || 0;
+    misses = Number(misses) || 0;
+    score  = Number(score)  || 0;
+
+    const mPenalty = Math.min(18, misses * 2.2);
+    const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.2);
+    const v = accPct - mPenalty + sBoost;
+
+    if (v >= 92) return 'SSS';
+    if (v >= 86) return 'SS';
+    if (v >= 80) return 'S';
+    if (v >= 72) return 'A';
+    if (v >= 62) return 'B';
     return 'C';
   }
-  function median(arr){
-    if (!arr || !arr.length) return 0;
-    const a = arr.slice().sort((x,y)=>x-y);
-    const mid = (a.length/2)|0;
-    return (a.length%2) ? a[mid] : (a[mid-1]+a[mid])*0.5;
+
+  // ---------------- Spawn bounds (PACK 26) ----------------
+  function computePlayRect(view) {
+    const W = Math.max(320, root.innerWidth  || 360);
+    const H = Math.max(420, root.innerHeight || 640);
+
+    const padTopBase = 150;   // HUD + quest
+    const padBotBase = 130;   // power
+    const padLeftBase= 210;   // coach card
+    const padRight   = 24;
+
+    const padTop  = clamp(padTopBase, 110, Math.round(H * 0.28));
+    const padBot  = clamp(padBotBase, 96,  Math.round(H * 0.26));
+    const padLeft = clamp(padLeftBase, 120, Math.round(W * 0.52));
+
+    const extraCenter = (view === 'cvr') ? 22 : 0;
+
+    let xMin = 12 + extraCenter;
+    let xMax = W - padRight - extraCenter;
+    let yMin = 12 + Math.round(H * 0.02);
+    let yMax = H - 12;
+
+    xMin = Math.max(xMin, padLeft);
+    yMin = Math.max(yMin, padTop);
+    yMax = Math.min(yMax, H - padBot);
+
+    const minW = Math.max(120, Math.round(W * 0.34));
+    const minH = Math.max(140, Math.round(H * 0.34));
+
+    if ((xMax - xMin) < minW) {
+      const relax = Math.round((minW - (xMax - xMin)) * 0.55);
+      xMin = Math.max(10, xMin - relax);
+      xMax = Math.min(W - 10, xMax + relax);
+    }
+    if ((yMax - yMin) < minH) {
+      const relax = Math.round((minH - (yMax - yMin)) * 0.55);
+      yMin = Math.max(10, yMin - relax);
+      yMax = Math.min(H - 10, yMax + relax);
+    }
+
+    xMin = clamp(xMin, 8, W - 60);
+    xMax = clamp(xMax, 60, W - 8);
+    yMin = clamp(yMin, 8, H - 80);
+    yMax = clamp(yMax, 80, H - 8);
+
+    if (xMax <= xMin + 8) { xMin = 12; xMax = W - 12; }
+    if (yMax <= yMin + 8) { yMin = 12; yMax = H - 12; }
+
+    return { W, H, xMin, xMax, yMin, yMax };
   }
 
-  // ---------- Content ----------
-  const SONG = {
-    1:'หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ดช่วยให้เติบโตแข็งขัน 💪',
-    2:'หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง ⚡',
-    3:'หมู่ 3 กินผักต่างๆ สารอาหารมากมายกินเป็นอาจิณ 🥦',
-    4:'หมู่ 4 กินผลไม้ สีเขียวเหลืองบ้างมีวิตามิน 🍎',
-    5:'หมู่ 5 อย่าได้ลืมกิน ไขมันทั้งสิ้น อบอุ่นร่างกาย 🥑'
-  };
+  // ---------------- Engine ----------------
+  function Engine() {
+    this.layerEl = null;
+    this.running = false;
 
-  const GROUPS = {
-    1:{ label:'หมู่ 1', emoji:['🥛','🥚','🍗','🐟','🥜','🫘'] },
-    2:{ label:'หมู่ 2', emoji:['🍚','🍞','🥔','🍠','🥖','🍜'] },
-    3:{ label:'หมู่ 3', emoji:['🥦','🥬','🥕','🌽','🥒','🍆'] },
-    4:{ label:'หมู่ 4', emoji:['🍎','🍌','🍊','🍉','🍓','🍍'] },
-    5:{ label:'หมู่ 5', emoji:['🥑','🫒','🧈','🥥','🧀','🌰'] }
-  };
+    this.cfg = null;
+    this.view = 'mobile';
+    this.rng = null;
 
-  const JUNK_EMOJI  = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭'];
-  const DECOY_EMOJI = ['🎭','🌀','✨','🌈','🎈'];
+    this.startAt = 0;
+    this.lastTick = 0;
+    this.leftSec = 0;
 
-  const PWR = {
-    star:{ emoji:'⭐', label:'OVERDRIVE' },
-    ice:{  emoji:'❄️', label:'FREEZE' },
-    diamond:{ emoji:'💎', label:'MAGNET' },
-    shield:{ emoji:'🛡️', label:'SHIELD' },
-  };
+    this.score = 0;
+    this.combo = 0;
+    this.comboMax = 0;
+    this.misses = 0;
 
-  function goalNeed(diff){
-    diff = String(diff||'normal').toLowerCase();
-    if (diff==='easy') return 6;
-    if (diff==='hard') return 10;
-    return 8;
-  }
+    // counts
+    this.nTargetGoodSpawned = 0;
+    this.nTargetWrongSpawned = 0;
+    this.nTargetJunkSpawned = 0;
+    this.nTargetBossSpawned = 0;
+    this.nHitGood = 0;
+    this.nHitWrong = 0;
+    this.nHitJunk = 0;
+    this.nExpireGood = 0;
+    this.nExpireWrong = 0;
+    this.nExpireJunk = 0;
 
-  function diffParams(diff){
-    diff = String(diff||'normal').toLowerCase();
-    const thr = goalNeed(diff);
-    if (diff === 'easy') return { spawnMs:900, ttl:1750, size:1.05, powerThr:thr, junk:0.10, decoy:0.08, stormDur:6, bossHp:3, perfectMs:320 };
-    if (diff === 'hard') return { spawnMs:680, ttl:1450, size:0.92, powerThr:thr, junk:0.16, decoy:0.12, stormDur:7, bossHp:4, perfectMs:270 };
-    return                 { spawnMs:780, ttl:1600, size:1.00, powerThr:thr, junk:0.12, decoy:0.10, stormDur:6, bossHp:3, perfectMs:295 };
-  }
+    this.hitGoodForAcc = 0;
+    this.totalJudgedForAcc = 0;
 
-  // ---------- Engine State ----------
-  const engine = {
-    layerEl:null,
-    running:false,
-    ended:false,
+    // gameplay
+    this.activeGroupIdx = 0;
+    this.powerCharge = 0;
 
-    runMode:'play',
-    diff:'normal',
-    style:'mix',
-    timeSec:90,
-    seed:'seed',
-    rng:Math.random,
+    this.stormOn = false;
+    this.stormUntil = 0;
+    this.nextStormAt = 0;
 
-    // VR feel (DOM drift)
-    vx:0, vy:0,
-
-    left:90,
-    score:0,
-    combo:0,
-    comboMax:0,
-    misses:0,
-
-    hitGood:0,
-    hitAll:0,
-
-    // counters
-    nTargetGoodSpawned:0,
-    nTargetWrongSpawned:0,
-    nTargetJunkSpawned:0,
-    nTargetDecoySpawned:0,
-    nTargetBossSpawned:0,
-    nTargetStarSpawned:0,
-    nTargetIceSpawned:0,
-    nTargetDiamondSpawned:0,
-    nTargetShieldSpawned:0,
-
-    nHitGood:0,
-    nHitWrong:0,
-    nHitJunk:0,
-    nHitDecoy:0,
-    nHitBoss:0,
-    nHitJunkGuard:0,
-    nExpireGood:0,
-
-    // RT metrics
-    rtList:[],
-    fastHits:0,
-
-    groupId:1,
-    groupClean:true,
-
-    // fever/shield
-    fever:0,
-    shield:0,
-    feverTickLast:0,
-
-    // power
-    power:0,
-    powerThr:8,
-
-    // spawn/ttl
-    ttlMs:1600,
-    sizeBase:1.0,
-    adapt:{ spawnMs:780, ttl:1600, size:1.0, junkBias:0.12, decoyBias:0.10, bossEvery:18000 },
-
-    // storm
-    storm:false,
-    stormUntilMs:0,
-    nextStormAtMs:0,
-    stormDurSec:6,
-    stormPattern:'wave',
-    stormSpawnIdx:0,
-
-    // boss
-    bossAlive:false,
-    bossHp:0,
-    bossHpMax:3,
-    nextBossAtMs:0,
-    bossPhase:1,
-    _bossEl:null,
-
-    // buffs
-    magnetUntil:0,
-    freezeUntil:0,
-    overUntil:0,
-
-    // timers
-    spawnTimer:0,
-    tickTimer:0,
+    this.spawnTmr = 0;
+    this.spawnEveryMs = 650;
 
     // quest
-    quest:null,
-    _questBound:false,
+    this.goalsTotal = 2;
+    this.goalIndex = 0;
+    this.goalNow = 0;
+    this.goalNeed = 18;
 
-    // listeners bound once
-    _boundShoot:false,
-    _boundVr:false
+    // mini
+    this.mini = null;
+    this.nextMiniAt = 0;
+    this.miniTotal = 0;
+    this.miniCleared = 0;
+
+    // targets
+    this.targets = [];
+    this._id = 0;
+
+    // coach
+    this.coachLastAt = 0;
+  }
+
+  Engine.prototype.setLayerEl = function (el) {
+    this.layerEl = el;
   };
 
-  function scoreMult(){ return (now() < engine.overUntil) ? 2 : 1; }
+  Engine.prototype.start = function (diff, opts) {
+    opts = opts || {};
+    const rm = String(opts.runMode || 'play').toLowerCase();
+    const runMode = (rm === 'research') ? 'research' : (rm === 'practice' ? 'practice' : 'play');
+    const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
+    const preset  = diffPreset(diff);
 
-  function emitCoach(text, mood){ emit('hha:coach', { text:String(text||''), mood:mood||'neutral' }); }
-  function emitFever(){ emit('hha:fever', { feverPct: Math.round(engine.fever)|0, shield: engine.shield|0 }); }
+    const timeSec = clamp(opts.time ?? preset.time, 5, 180);
 
-  function updateRank(){
-    const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
-    emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
-  }
-  function updateScore(){
-    emit('hha:score', { score: engine.score|0, combo: engine.combo|0, comboMax: engine.comboMax|0, misses: engine.misses|0 });
-    updateRank();
-  }
-  function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
-  function updatePower(){ emit('groups:power', { charge: engine.power|0, threshold: engine.powerThr|0 }); }
+    this.cfg = {
+      diff: String(diff || 'normal').toLowerCase(),
+      runMode,
+      seed: seedIn,
+      timeSec,
+      preset,
+    };
 
-  // ---------- Quest bridge ----------
-  function ensureQuest(){
-    if (engine.quest) return engine.quest;
-    const maker = NS.createGroupsQuest;
-    if (typeof maker !== 'function') return null;
+    this.view = getViewFromBodyOrParam(opts.view);
 
-    engine.quest = maker({
-      runMode: engine.runMode,
-      diff: engine.diff,
-      style: engine.style,
-      seed: engine.seed
-    });
+    // deterministic always (play can still be "random" by seed)
+    this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
-    if (!engine._questBound && engine.quest && typeof engine.quest.onProgress === 'function'){
-      engine._questBound = true;
-      root.addEventListener('groups:progress', (ev)=>{
-        try{ engine.quest && engine.quest.onProgress(ev); }catch{}
-      }, { passive:true });
+    this.spawnEveryMs = preset.baseSpawnMs;
+    this.leftSec = Math.round(timeSec);
+
+    this.score = 0;
+    this.combo = 0;
+    this.comboMax = 0;
+    this.misses = 0;
+
+    this.nTargetGoodSpawned = 0;
+    this.nTargetWrongSpawned = 0;
+    this.nTargetJunkSpawned = 0;
+    this.nTargetBossSpawned = 0;
+    this.nHitGood = 0;
+    this.nHitWrong = 0;
+    this.nHitJunk = 0;
+    this.nExpireGood = 0;
+    this.nExpireWrong = 0;
+    this.nExpireJunk = 0;
+    this.hitGoodForAcc = 0;
+    this.totalJudgedForAcc = 0;
+
+    this.targets = [];
+    this._id = 0;
+
+    this.activeGroupIdx = (this.rng() * GROUPS.length) | 0;
+    this.powerCharge = 0;
+
+    this.goalIndex = 0;
+    this.goalsTotal = preset.goalsTotal;
+    this.goalNeed = preset.goalTargets;
+    this.goalNow = 0;
+
+    this.mini = null;
+    this.miniTotal = 0;
+    this.miniCleared = 0;
+    this.nextMiniAt = nowMs() + 14000;
+
+    this.stormOn = false;
+    this.stormUntil = 0;
+    this.nextStormAt = nowMs() + preset.stormEverySec * 1000;
+
+    this.running = true;
+    this.startAt = nowMs();
+    this.lastTick = this.startAt;
+
+    emit('hha:time', { left: this.leftSec });
+    emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
+    this._emitRank();
+    this._emitCoach((runMode==='practice') ? 'โหมดฝึก 15 วิ ลองเล็งแล้วแตะยิง 🎯' : 'เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
+    this._emitPower();
+    this._emitQuestUpdate();
+
+    this._installInput();
+    this._loop();
+  };
+
+  Engine.prototype._installInput = function () {
+    const self = this;
+    if (!this._onShoot) {
+      this._onShoot = function () {
+        if (!self.running) return;
+        self._shootCrosshair();
+      };
+      root.addEventListener('hha:shoot', this._onShoot, { passive: true });
     }
-    return engine.quest;
-  }
+  };
 
-  function questStart(){
-    const q = ensureQuest();
-    try{ q && q.start && q.start(); }catch{}
-    try{ q && q.pushUpdate && q.pushUpdate(); }catch{}
-  }
-  function questStop(){
-    try{ engine.quest && engine.quest.stop && engine.quest.stop(); }catch{}
-  }
+  Engine.prototype._loop = function () {
+    const self = this;
+    function frame() {
+      if (!self.running) return;
 
-  // ---------- Dynamic safe spawn rect ----------
-  function rectOf(sel){
-    const el = DOC.querySelector(sel);
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    if (!r || r.width<=0 || r.height<=0) return null;
-    return r;
-  }
+      const t = nowMs();
+      self.lastTick = t;
 
-  function safeSpawnRect(){
-    const W = root.innerWidth || 360;
-    const H = root.innerHeight || 640;
+      self._tickTime(t);
+      self._tickStorm(t);
+      self._tickMini(t);
+      self._tickSpawn(t);
+      self._tickExpire(t);
 
-    let top = 150, bot = 190, left = 16, right = 16;
-
-    const hud   = rectOf('.hud');
-    const quest = rectOf('.questTop');
-    const power = rectOf('.powerWrap');
-    const coach = rectOf('.coachWrap');
-
-    if (hud) top = Math.max(top, hud.bottom + 12);
-    if (power) bot = Math.max(bot, (H - power.top) + 12);
-    if (coach) bot = Math.max(bot, (H - coach.top) + 12);
-
-    if (quest) right = Math.max(right, (W - quest.left) + 12);
-    if (coach) right = Math.max(right, (W - coach.left) + 12);
-
-    top = clamp(top, 90, H*0.55);
-    bot = clamp(bot, 120, H*0.55);
-    left = clamp(left, 8, W*0.25);
-    right = clamp(right, 8, W*0.35);
-
-    const x0 = left;
-    const x1 = Math.max(x0+40, W - right);
-    const y0 = top;
-    const y1 = Math.max(y0+40, H - bot);
-    return { x0,x1,y0,y1,W,H };
-  }
-
-  // ---------- DOM target ----------
-  function setXY(el, x, y){
-    el.style.setProperty('--x', x.toFixed(1)+'px');
-    el.style.setProperty('--y', y.toFixed(1)+'px');
-    el.dataset._x = String(x);
-    el.dataset._y = String(y);
-  }
-
-  function randPos(){
-    const r = safeSpawnRect();
-    const x = r.x0 + engine.rng()*(r.x1 - r.x0);
-    const y = r.y0 + engine.rng()*(r.y1 - r.y0);
-    return { x, y };
-  }
-
-  function stormPos(){
-    const r = safeSpawnRect();
-    const cx = r.W * 0.5;
-    const cy = (r.y0 + r.y1) * 0.5;
-    const idx = (engine.stormSpawnIdx++);
-
-    const jx = (engine.rng()-0.5) * 26;
-    const jy = (engine.rng()-0.5) * 22;
-
-    if (engine.stormPattern === 'wave'){
-      const t = (idx % 28) / 28;
-      const x = r.x0 + t*(r.x1 - r.x0);
-      const y = cy + Math.sin((idx*0.55)) * ((r.y1 - r.y0)*0.22);
-      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+      requestAnimationFrame(frame);
     }
-    if (engine.stormPattern === 'spiral'){
-      const a = idx * 0.62;
-      const rad = clamp(28 + idx*5.0, 28, Math.min(r.x1-r.x0, r.y1-r.y0)*0.40);
-      const x = cx + Math.cos(a)*rad;
-      const y = cy + Math.sin(a)*rad;
-      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
-    }
-    const corners = [
-      {x:r.x0+26, y:r.y0+26},
-      {x:r.x1-26, y:r.y0+26},
-      {x:r.x0+26, y:r.y1-26},
-      {x:r.x1-26, y:r.y1-26},
-      {x:cx, y:r.y0+22},
-      {x:cx, y:r.y1-22},
-    ];
-    const c = corners[(engine.rng()*corners.length)|0];
-    const x = c.x + (engine.rng()-0.5)*120;
-    const y = c.y + (engine.rng()-0.5)*110;
-    return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
-  }
+    requestAnimationFrame(frame);
+  };
 
-  function removeTarget(el){
-    if (!el) return;
-    try{ root.clearTimeout(el._ttlTimer); }catch{}
-    el.classList.add('hit');
-    root.setTimeout(()=> el.remove(), 220);
-  }
+  Engine.prototype._tickTime = function (t) {
+    const elapsed = (t - this.startAt) / 1000;
+    const left = Math.max(0, Math.ceil(this.cfg.timeSec - elapsed));
+    if (left !== this.leftSec) {
+      this.leftSec = left;
+      emit('hha:time', { left: left });
 
-  function addTypeClass(el, type){
-    el.classList.remove('fg-good','fg-wrong','fg-junk','fg-decoy','fg-boss');
-    if (type === 'good') el.classList.add('fg-good');
-    else if (type === 'wrong') el.classList.add('fg-wrong');
-    else if (type === 'junk') el.classList.add('fg-junk');
-    else if (type === 'decoy') el.classList.add('fg-decoy');
-    else if (type === 'boss') el.classList.add('fg-boss');
-  }
-
-  function makeTarget(type, emoji, x, y, s){
-    const layer = engine.layerEl;
-    if (!layer) return null;
-
-    const el = DOC.createElement('div');
-    el.className = 'fg-target spawn';
-    el.dataset.emoji = emoji || '✨';
-    el.dataset.type = type;
-    el.dataset.spawnAt = String(now());
-
-    addTypeClass(el, type);
-    if (type === 'good') el.dataset.groupId = String(engine.groupId);
-
-    setXY(el, x, y);
-    el.style.setProperty('--s', s.toFixed(3));
-
-    // direct tap (PC/Mobile); cVR will have pointer-events:none via CSS
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault?.();
-      hitTarget(el, 'tap');
-    }, { passive:false });
-
-    // TTL expire -> miss only when GOOD expires
-    const ttl = engine.ttlMs;
-    el._ttlTimer = root.setTimeout(()=>{
-      if (!el.isConnected) return;
-      if (type === 'good'){
-        engine.nExpireGood++;
-        engine.misses++; engine.combo = 0; engine.groupClean = false;
-        engine.fever = clamp(engine.fever + 10, 0, 100);
-        emit('hha:judge', { kind:'MISS' });
-        updateScore();
-        emitFever();
+      if (this.cfg.runMode !== 'practice'){
+        if (left === 10) this._emitCoach('อีก 10 วิ! เร่งขึ้น! 🔥', 'fever');
+        if (left <= 3 && left > 0) addBodyClass('clutch', true);
       }
-      el.classList.add('out');
-      root.setTimeout(()=> el.remove(), 220);
-    }, ttl);
 
-    return el;
-  }
-
-  // ---------- Game mechanics ----------
-  function setGroup(id){
-    engine.groupId = id;
-    engine.groupClean = true;
-    emitCoach(SONG[id] || `ต่อไป หมู่ ${id}!`, 'happy');
-  }
-
-  function perfectSwitchBonus(){
-    if (!engine.groupClean) return;
-    emitProgress({ kind:'perfect_switch' });
-    emit('hha:celebrate', { kind:'mini', title:'Perfect Switch!' });
-  }
-
-  function switchGroup(){
-    perfectSwitchBonus();
-    const next = (engine.groupId % 5) + 1;
-    setGroup(next);
-    emitProgress({ kind:'group_swap' });
-    engine.power = 0;
-    updatePower();
-  }
-
-  function addPower(n){
-    engine.power = clamp(engine.power + (n|0), 0, engine.powerThr);
-    updatePower();
-    if (engine.power >= engine.powerThr) switchGroup();
-  }
-
-  // ---------- Storm ----------
-  function chooseStormPattern(){
-    if (engine.style === 'feel') return 'wave';
-    if (engine.style === 'hard') return 'spiral';
-    return (engine.rng() < 0.5) ? 'burst' : 'wave';
-  }
-
-  function enterStorm(){
-    engine.storm = true;
-    engine.stormUntilMs = now() + engine.stormDurSec*1000;
-    engine.stormPattern = chooseStormPattern();
-    engine.stormSpawnIdx = 0;
-
-    DOC.body.classList.add('groups-storm');
-    emitProgress({ kind:'storm_on' });
-    emit('hha:judge', { kind:'boss', text:'STORM!' });
-  }
-
-  function exitStorm(){
-    engine.storm = false;
-    engine.stormUntilMs = 0;
-    DOC.body.classList.remove('groups-storm','groups-storm-urgent');
-    emitProgress({ kind:'storm_off' });
-
-    const gap = (engine.runMode==='research')
-      ? (18000 + engine.rng()*6000)
-      : (16000 + engine.rng()*12000);
-    engine.nextStormAtMs = now() + gap;
-  }
-
-  // ---------- Boss ----------
-  function tryBossSpawn(){
-    if (engine.bossAlive) return;
-    if (now() < engine.nextBossAtMs) return;
-
-    engine.bossAlive = true;
-    engine.bossHp = engine.bossHpMax;
-    engine.bossPhase = 1;
-
-    const p = engine.storm ? stormPos() : randPos();
-    const s = 1.25 * engine.sizeBase;
-
-    const el = makeTarget('boss','👑',p.x,p.y,s);
-    if (!el) return;
-
-    el.dataset.hp = String(engine.bossHp);
-    el.classList.add('fg-boss');
-    engine.layerEl.appendChild(el);
-    engine._bossEl = el;
-
-    engine.nTargetBossSpawned++;
-    emitProgress({ kind:'boss_spawn' });
-    emit('hha:judge', { kind:'boss', text:'BOSS!' });
-
-    const base = (engine.runMode==='research') ? 20000 : clamp(engine.adapt.bossEvery, 14000, 26000);
-    engine.nextBossAtMs = now() + base;
-  }
-
-  function spawnBossDecoys(){
-    const boss = engine._bossEl;
-    if (!boss || !boss.isConnected) return;
-    const br = boss.getBoundingClientRect();
-    const bx = br.left + br.width*0.5;
-    const by = br.top + br.height*0.5;
-    const n = (engine.rng() < 0.55) ? 1 : 2;
-    for (let i=0;i<n;i++){
-      const ang = engine.rng()*Math.PI*2;
-      const rad = 90 + engine.rng()*70;
-      const x = bx + Math.cos(ang)*rad;
-      const y = by + Math.sin(ang)*rad;
-      const p = safeSpawnRect();
-      const ex = clamp(x, p.x0, p.x1);
-      const ey = clamp(y, p.y0, p.y1);
-      const el = makeTarget('decoy', DECOY_EMOJI[(engine.rng()*DECOY_EMOJI.length)|0], ex, ey, engine.sizeBase*0.95);
-      if (el){
-        engine.layerEl.appendChild(el);
-        engine.nTargetDecoySpawned++;
+      if (left === 0) {
+        addBodyClass('clutch', false);
+        this._end(this.cfg.runMode==='practice' ? 'practice' : 'time');
       }
     }
-  }
+  };
 
-  function bossTeleport(){
-    const boss = engine._bossEl;
-    if (!boss || !boss.isConnected) return;
-    const p = engine.storm ? stormPos() : randPos();
-    setXY(boss, p.x, p.y);
-    boss.classList.add('fg-boss-hurt');
-    setTimeout(()=> boss.classList.remove('fg-boss-hurt'), 220);
-    emit('hha:judge', { kind:'boss', text:'SHIFT!' });
-  }
+  Engine.prototype._tickStorm = function (t) {
+    const p = this.cfg.preset;
+    if (this.cfg.runMode === 'practice') return; // no storm in practice
 
-  function hitBoss(el){
-    emitProgress({ type:'hit', correct:true });
-
-    engine.hitAll++;
-    engine.combo = clamp(engine.combo + 1, 0, 9999);
-    engine.comboMax = Math.max(engine.comboMax, engine.combo);
-    emitProgress({ kind:'combo', combo: engine.combo });
-
-    engine.bossHp = Math.max(0, engine.bossHp - 1);
-    el.dataset.hp = String(engine.bossHp);
-
-    engine.score += Math.round(160 * scoreMult());
-    engine.nHitBoss++;
-    updateScore();
-
-    if (engine.bossHp === Math.max(1, engine.bossHpMax-1) && engine.bossPhase < 2){
-      engine.bossPhase = 2;
-      spawnBossDecoys();
-      emit('hha:judge', { kind:'boss', text:'PHASE 2!' });
-    }
-    if (engine.bossHp === 1 && engine.bossPhase < 3){
-      engine.bossPhase = 3;
-      el.classList.add('fg-boss-weak');
-      bossTeleport();
-      emit('hha:judge', { kind:'boss', text:'PHASE 3!' });
+    if (!this.stormOn && t >= this.nextStormAt) {
+      this.stormOn = true;
+      this.stormUntil = t + p.stormLenSec * 1000;
+      addBodyClass('groups-storm', true);
+      emit('groups:progress', { kind: 'storm_on' });
+      this._emitCoach('พายุมาแล้ว! เป้าจะถี่ขึ้น 🌪️', 'fever');
+      emit('hha:judge', { kind:'storm', text:'STORM' });
     }
 
-    if (engine.bossHp <= 0){
-      engine.bossAlive = false;
-      emitProgress({ kind:'boss_down' });
-      emit('hha:celebrate', { kind:'goal', title:'BOSS DOWN!' });
-      removeTarget(el);
-    }else{
-      el.classList.add('fg-boss-hurt');
-      setTimeout(()=> el.classList.remove('fg-boss-hurt'), 220);
-    }
-  }
+    if (this.stormOn) {
+      const leftMs = this.stormUntil - t;
+      addBodyClass('groups-storm-urgent', leftMs > 0 && leftMs <= 2500);
 
-  // ---------- Powerups ----------
-  function setBuffClass(){
-    DOC.body.classList.toggle('groups-overdrive', now() < engine.overUntil);
-    DOC.body.classList.toggle('groups-freeze', now() < engine.freezeUntil);
-  }
+      if (t >= this.stormUntil) {
+        this.stormOn = false;
+        addBodyClass('groups-storm', false);
+        addBodyClass('groups-storm-urgent', false);
 
-  function takePowerup(tp){
-    const t = now();
-    if (tp === 'star'){
-      engine.overUntil = t + 8000;
-      emit('hha:judge', { kind:'good', text:'OVERDRIVE x2!' });
-      emit('hha:celebrate', { kind:'mini', title:'OVERDRIVE!' });
-    }else if (tp === 'ice'){
-      engine.freezeUntil = t + 7000;
-      emit('hha:judge', { kind:'good', text:'FREEZE!' });
-    }else if (tp === 'diamond'){
-      engine.magnetUntil = t + 7000;
-      emit('hha:judge', { kind:'good', text:'MAGNET!' });
-    }else if (tp === 'shield'){
-      engine.shield = clamp(engine.shield + 1, 0, 2);
-      emitFever();
-      emit('hha:judge', { kind:'good', text:'SHIELD +' });
-    }
-    setBuffClass();
-  }
+        this._spawnBoss();
 
-  // ---------- Aim assist (TapShoot) ----------
-  function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
-
-  function pickTargetNear(x,y, lockPx){
-    const layer = engine.layerEl;
-    if (!layer) return null;
-    const list = layer.querySelectorAll('.fg-target');
-    let lock = clamp(lockPx, 40, 180);
-
-    // magnet buff makes aim assist a bit wider (still fair)
-    if (now() < engine.magnetUntil) lock = clamp(lock + 26, 60, 220);
-
-    const lock2 = lock*lock;
-    let best = null;
-    let bestD = Infinity;
-
-    list.forEach(el=>{
-      if (!el || !el.isConnected) return;
-      if (el.classList.contains('hit') || el.classList.contains('out')) return;
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width*0.5;
-      const cy = r.top + r.height*0.5;
-      const d = dist2(x,y,cx,cy);
-      if (d <= lock2 && d < bestD){
-        bestD = d;
-        best = el;
+        this.nextStormAt = t + p.stormEverySec * 1000;
+        emit('groups:progress', { kind: 'storm_off' });
+        this._emitCoach('พายุผ่านแล้ว! เก็บแต้มต่อ ✨', 'happy');
       }
-    });
+    }
+  };
 
-    return best;
-  }
+  Engine.prototype._tickMini = function (t) {
+    if (this.cfg.runMode === 'practice') return; // keep it simple
 
-  function bindShootOnce(){
-    if (engine._boundShoot) return;
-    engine._boundShoot = true;
-    root.addEventListener('hha:shoot', (ev)=>{
-      if (!engine.running || engine.ended) return;
-      const d = ev.detail||{};
-      const x = Number(d.x);
-      const y = Number(d.y);
-      const lockPx = clamp(Number(d.lockPx||86), 40, 200);
-      if (!isFinite(x) || !isFinite(y)) return;
+    if (!this.mini && t >= this.nextMiniAt) {
+      const forbidJunk = (this.rng() < 0.55);
+      const need = (this.cfg.diff === 'hard') ? 6 : (this.cfg.diff === 'easy' ? 4 : 5);
+      const durMs = (this.cfg.diff === 'hard') ? 8500 : 9000;
 
-      const el = pickTargetNear(x,y, lockPx);
-      if (el) hitTarget(el, 'shoot');
-      else emit('hha:judge', { kind:'MISS', text:'MISS!' });
-    }, { passive:true });
-  }
+      this.mini = { on:true, now:0, need, leftMs:durMs, forbidJunk, ok:true, startedAt:t };
+      this.miniTotal += 1;
 
-  function bindVrEventsOnce(){
-    if (engine._boundVr) return;
-    engine._boundVr = true;
-    root.addEventListener('hha:vr', (ev)=>{
-      const d = ev.detail||{};
-      if (d.state === 'reset'){
-        engine.vx = 0; engine.vy = 0;
-        if (engine.layerEl){
-          engine.layerEl.style.setProperty('--vx', '0px');
-          engine.layerEl.style.setProperty('--vy', '0px');
+      this._emitQuestUpdate();
+      this._emitCoach(
+        forbidJunk
+          ? `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ และห้ามโดนขยะ!`
+          : `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`,
+        'neutral'
+      );
+    }
+
+    if (this.mini && this.mini.on) {
+      const passed = t - this.mini.startedAt;
+      const leftMs = Math.max(0, this.mini.leftMs - passed);
+
+      if (leftMs <= 0) {
+        const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
+
+        if (ok) {
+          this.score += 180;
+          this.combo += 1;
+          this.comboMax = Math.max(this.comboMax, this.combo);
+          emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180', x: root.innerWidth*0.5, y: root.innerHeight*0.32 });
+          this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
+          this.miniCleared += 1;
+        } else {
+          this.combo = 0;
+          this.misses += 1;
+          emit('hha:judge', { kind: 'miss', text: 'MINI FAIL', x: root.innerWidth*0.5, y: root.innerHeight*0.32 });
+          this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
         }
+
+        this.mini = null;
+        this._emitScore();
+        this._emitRank();
+        this._emitQuestUpdate();
+
+        this.nextMiniAt = t + 22000 + ((this.rng() * 6000) | 0);
+      } else {
+        this._emitQuestUpdate(leftMs);
       }
-    }, { passive:true });
-  }
-
-  // ---------- Hit logic ----------
-  function addRT(rtMs, perfectMs){
-    if (!isFinite(rtMs) || rtMs <= 0) return;
-    engine.rtList.push(rtMs);
-    if (rtMs <= 280) engine.fastHits++;
-    if (rtMs <= perfectMs){
-      emit('hha:judge', { kind:'good', text:'PERFECT!' });
-      engine.score += Math.round(60 * scoreMult());
-      emit('hha:celebrate', { kind:'mini', title:'PERFECT!' });
-    }else if (rtMs <= perfectMs + 80){
-      emit('hha:judge', { kind:'good', text:'NICE!' });
-      engine.score += Math.round(20 * scoreMult());
     }
-  }
+  };
 
-  function hitTarget(el, via){
-    if (!engine.running || engine.ended) return;
-    if (!el || !el.isConnected) return;
+  Engine.prototype._tickSpawn = function (t) {
+    if (!this.layerEl) return;
 
-    let type = String(el.dataset.type||'').toLowerCase();
-
-    if (type === 'boss'){ hitBoss(el); return; }
-
-    if (type === 'star' || type === 'ice' || type === 'diamond' || type === 'shield'){
-      takePowerup(type);
-      removeTarget(el);
-      return;
-    }
-
-    if (type === 'good'){
-      const gid = Number(el.dataset.groupId)||0;
-      if (gid && gid !== engine.groupId) type = 'wrong';
-    }
-
-    engine.hitAll++;
-
-    const dp = diffParams(engine.diff);
-    const spawnedAt = Number(el.dataset.spawnAt||0);
-    const rt = spawnedAt ? (now() - spawnedAt) : 0;
-
-    if (type === 'good'){
-      emitProgress({ type:'hit', correct:true });
-      emitProgress({ kind:'hit_good' });
-
-      engine.hitGood++;
-      engine.nHitGood++;
-
-      addRT(rt, dp.perfectMs);
-
-      engine.combo = clamp(engine.combo + 1, 0, 9999);
-      engine.comboMax = Math.max(engine.comboMax, engine.combo);
-      emitProgress({ kind:'combo', combo: engine.combo });
-
-      if (engine.left <= 10){
-        DOC.body.classList.add('clutch');
-        engine.score += Math.round(35 * scoreMult());
-      }
-
-      engine.score += Math.round((110 + engine.combo*3) * scoreMult());
-      engine.fever = clamp(engine.fever - 3, 0, 100);
-
-      updateScore();
-      emitFever();
-
-      addPower(1);
-      removeTarget(el);
-      return;
-    }
-
-    const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
-    if (badLike){
-      if (type === 'junk' && engine.shield > 0){
-        engine.shield = Math.max(0, engine.shield - 1);
-        engine.nHitJunkGuard++;
-        emitFever();
-        emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
-        removeTarget(el);
-        return;
-      }
-
-      emitProgress({ type:'hit', correct:false });
-      emitProgress({ kind:'hit_bad' });
-
-      if (type === 'junk') engine.nHitJunk++;
-      else if (type === 'wrong') engine.nHitWrong++;
-      else engine.nHitDecoy++;
-
-      engine.misses++;
-      engine.combo = 0;
-      engine.groupClean = false;
-
-      engine.fever = clamp(engine.fever + (type==='junk'?18:12), 0, 100);
-      emitFever();
-
-      emit('hha:judge', { kind:'bad', text:(type==='junk'?'JUNK!':(type==='wrong'?'WRONG!':'DECOY!')) });
-
-      updateScore();
-      removeTarget(el);
-      return;
-    }
-  }
-
-  // ---------- Spawn decision ----------
-  function choosePowerType(){
-    const r = engine.rng();
-    if (r < 0.40) return 'star';
-    if (r < 0.70) return 'ice';
-    if (r < 0.88) return 'diamond';
-    return 'shield';
-  }
-
-  function chooseType(){
-    const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
-    const baseD = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
-
-    const feverK = clamp(engine.fever/100, 0, 1);
-    const j = clamp(baseJ + feverK*0.04, 0.06, 0.26);
-    const d = clamp(baseD + feverK*0.03, 0.05, 0.22);
-
-    const pu = engine.storm ? 0.020 : 0.013;
-    if (engine.rng() < pu) return choosePowerType();
-
-    const r = engine.rng();
-    if (r < j) return 'junk';
-    if (r < j + d) return 'decoy';
-
-    if (engine.rng() < (engine.storm ? 0.20 : 0.14)) return 'wrong';
-    return 'good';
-  }
-
-  function chooseEmoji(tp){
-    if (tp === 'junk') return JUNK_EMOJI[(engine.rng()*JUNK_EMOJI.length)|0];
-    if (tp === 'decoy') return DECOY_EMOJI[(engine.rng()*DECOY_EMOJI.length)|0];
-    if (tp === 'star') return PWR.star.emoji;
-    if (tp === 'ice')  return PWR.ice.emoji;
-    if (tp === 'diamond') return PWR.diamond.emoji;
-    if (tp === 'shield') return PWR.shield.emoji;
-
-    if (tp === 'good') return GROUPS[engine.groupId].emoji[(engine.rng()*GROUPS[engine.groupId].emoji.length)|0];
-
-    const other = [];
-    for (let g=1; g<=5; g++){
-      if (g === engine.groupId) continue;
-      other.push(...GROUPS[g].emoji);
-    }
-    return other[(engine.rng()*other.length)|0] || '✨';
-  }
-
-  function incSpawn(tp){
-    if (tp === 'good') engine.nTargetGoodSpawned++;
-    else if (tp === 'wrong') engine.nTargetWrongSpawned++;
-    else if (tp === 'junk') engine.nTargetJunkSpawned++;
-    else if (tp === 'decoy') engine.nTargetDecoySpawned++;
-    else if (tp === 'star') engine.nTargetStarSpawned++;
-    else if (tp === 'ice') engine.nTargetIceSpawned++;
-    else if (tp === 'diamond') engine.nTargetDiamondSpawned++;
-    else if (tp === 'shield') engine.nTargetShieldSpawned++;
-  }
-
-  function spawnOne(){
-    if (!engine.running || engine.ended) return;
-    const layer = engine.layerEl;
-    if (!layer) return;
-
-    tryBossSpawn();
-
-    const tp = chooseType();
-    const em = chooseEmoji(tp);
-    const p = engine.storm ? stormPos() : randPos();
-    const s = engine.sizeBase * (tp==='boss'?1.25:1.0);
-
-    const el = makeTarget(tp, em, p.x, p.y, s);
-    if (el){
-      incSpawn(tp);
-      layer.appendChild(el);
-    }
-  }
-
-  function loopSpawn(){
-    if (!engine.running || engine.ended) return;
-
-    spawnOne();
-
-    const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
-    let sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
-    if (now() < engine.freezeUntil) sMs *= 1.10;
-
-    engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
-  }
-
-  // ---------- Tick loop ----------
-  function feverTick(){
-    const t = now();
-    if (!engine.feverTickLast) engine.feverTickLast = t;
-    const dt = Math.min(0.25, Math.max(0, (t - engine.feverTickLast)/1000));
-    engine.feverTickLast = t;
-
-    const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
-    const cool = 7.5 * (0.6 + clamp(engine.combo/18,0,1)*0.6 + clamp(acc,0,1)*0.3);
-    engine.fever = clamp(engine.fever - cool*dt, 0, 100);
-    emitFever();
-  }
-
-  function loopTick(){
-    if (!engine.running || engine.ended) return;
-
-    if (!engine.storm && now() >= engine.nextStormAtMs) enterStorm();
-    if (engine.storm && now() >= engine.stormUntilMs){
-      exitStorm();
-    }else if (engine.storm){
-      const leftMs = engine.stormUntilMs - now();
-      if (leftMs <= 3200) DOC.body.classList.add('groups-storm-urgent');
-    }
+    const p = this.cfg.preset;
+    const base = p.baseSpawnMs;
 
     // adaptive only in play
-    if (engine.runMode === 'play'){
-      const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
-      const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
-      engine.adapt.spawnMs  = clamp(820 - heat*260, 480, 880);
-      engine.adapt.ttl      = clamp(1680 - heat*260, 1250, 1750);
-      engine.ttlMs          = engine.adapt.ttl;
-      engine.adapt.junkBias = clamp(0.11 + heat*0.06, 0.08, 0.22);
-      engine.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
-      engine.adapt.bossEvery= clamp(20000 - heat*6000, 14000, 22000);
+    let speed = 1.0;
+    if (this.cfg.runMode === 'play') {
+      const acc = this._accuracyPct();
+      if (acc >= 85) speed *= 0.92;
+      if (this.combo >= 8) speed *= 0.90;
+      if (this.misses >= 8) speed *= 1.12;
+    }
+    if (this.stormOn) speed *= 0.78;
+
+    // PACK 15: AI director multiplier (only play)
+    let aiMul = 1.0;
+    try{
+      const A = root.GroupsVR && root.GroupsVR.__ai;
+      if (A && A.director && this.cfg.runMode === 'play'){
+        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this.misses);
+      }
+    }catch(_){}
+
+    const every = clamp(base * speed * aiMul, 360, 980);
+
+    if (t - this.spawnTmr >= every) {
+      this.spawnTmr = t;
+      this._spawnOne();
+    }
+  };
+
+  Engine.prototype._tickExpire = function (t) {
+    for (let i = this.targets.length - 1; i >= 0; i--) {
+      const tg = this.targets[i];
+      if (t >= tg.expireAt) {
+        if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
+        else if (tg.kind === 'wrong') { this.nExpireWrong++; }
+        else if (tg.kind === 'junk') { this.nExpireJunk++; }
+        this._removeTarget(i, 'expire');
+      }
+    }
+  };
+
+  Engine.prototype._spawnOne = function () {
+    const p = this.cfg.preset;
+
+    let kind = 'good';
+    const r = this.rng();
+
+    let wrongRate = p.wrongRate;
+    let junkRate  = p.junkRate;
+
+    // PACK 15: pattern bias (only play)
+    if (this.cfg.runMode === 'play'){
+      try{
+        const A = root.GroupsVR && root.GroupsVR.__ai;
+        if (A && A.pattern){
+          const bias = Number(A.pattern.bias && A.pattern.bias()) || 0;
+          wrongRate = clamp(wrongRate + bias, 0.05, 0.55);
+          junkRate  = clamp(junkRate  - bias, 0.04, 0.40);
+        }
+      }catch(_){}
     }
 
-    if (engine.left <= 10) DOC.body.classList.add('clutch');
-    else DOC.body.classList.remove('clutch');
+    // mild scaling only in play
+    if (this.cfg.runMode === 'play') {
+      wrongRate = clamp(wrongRate + Math.min(0.10, this.combo * 0.006), 0.05, 0.55);
+      junkRate  = clamp(junkRate  + Math.min(0.08, this.combo * 0.004), 0.04, 0.40);
+      if (this.misses >= 8) { wrongRate *= 0.88; junkRate *= 0.85; }
+    }
 
-    setBuffClass();
-    feverTick();
+    if (r < junkRate) kind = 'junk';
+    else if (r < junkRate + wrongRate) kind = 'wrong';
 
-    engine.left = Math.max(0, engine.left - 0.14);
-    updateTime();
+    const gActive = GROUPS[this.activeGroupIdx];
+    const gOther  = pick(this.rng, GROUPS.filter((_, idx) => idx !== this.activeGroupIdx));
 
-    if (engine.left <= 0){ endGame('time'); return; }
+    let emoji = '🍽️';
+    let cls = 'fg-target';
 
-    engine.tickTimer = root.setTimeout(loopTick, 140);
-  }
+    if (kind === 'good') {
+      emoji = pick(this.rng, gActive.emoji);
+      cls += ' fg-good';
+      this.nTargetGoodSpawned++;
+    } else if (kind === 'wrong') {
+      emoji = pick(this.rng, gOther.emoji);
+      cls += ' fg-wrong';
+      this.nTargetWrongSpawned++;
+    } else {
+      emoji = pick(this.rng, JUNK);
+      cls += ' fg-junk';
+      this.nTargetJunkSpawned++;
+    }
 
-  function clearAllTargets(){
-    const layer = engine.layerEl;
-    if (!layer) return;
-    const list = layer.querySelectorAll('.fg-target');
-    list.forEach(el=>{
-      try{ root.clearTimeout(el._ttlTimer); }catch{}
-      el.remove();
+    const size = p.targetSize * (kind === 'junk' ? 0.98 : 1.0);
+    const lifeMs = this.stormOn ? 2400 : 3100;
+
+    this._spawnDomTarget({ kind, emoji, cls, size, lifeMs });
+  };
+
+  Engine.prototype._spawnBoss = function () {
+    const p = this.cfg.preset;
+    const gActive = GROUPS[this.activeGroupIdx];
+
+    const emoji = pick(this.rng, gActive.emoji);
+    const hp = p.bossHp;
+
+    this.nTargetBossSpawned++;
+    this._spawnDomTarget({
+      kind: 'boss',
+      emoji,
+      cls: 'fg-target fg-boss',
+      size: 1.0,
+      lifeMs: 7000,
+      bossHp: hp,
+      bossHpMax: hp
     });
-  }
 
-  function endGame(reason){
-    if (engine.ended) return;
-    engine.ended = true;
-    engine.running = false;
+    emit('groups:progress', { kind: 'boss_spawn' });
+    emit('hha:judge', { kind:'boss', text:'BOSS' });
+    this._emitCoach('บอสมา! ยิงให้ถูกหมู่เพื่อแตกบอส 👊', 'fever');
 
-    try{ root.clearTimeout(engine.spawnTimer); }catch{}
-    try{ root.clearTimeout(engine.tickTimer); }catch{}
-    clearAllTargets();
-    questStop();
+    // AI explainable tip (optional)
+    try{
+      const A = root.GroupsVR && root.GroupsVR.__ai;
+      if (A && A.tip && this.cfg.runMode==='play') A.tip('บอสต้องยิงหลายครั้ง อย่าหยุดมือ 💥', 'fever');
+    }catch(_){}
+  };
 
-    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze','clutch','mini-urgent');
+  Engine.prototype._spawnDomTarget = function (spec) {
+    const layer = this.layerEl;
+    if (!layer) return;
 
-    const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
-    const grade = rankFromAcc(acc);
+    const view = this.view || getViewFromBodyOrParam();
+    const R = computePlayRect(view);
 
-    let qs = null;
-    try{ qs = engine.quest && engine.quest.getState ? engine.quest.getState() : null; }catch{}
+    const x = clamp((this.rng() * (R.xMax - R.xMin)) + R.xMin, 8, R.W - 8);
+    const y = clamp((this.rng() * (R.yMax - R.yMin)) + R.yMin, 8, R.H - 8);
 
-    const avgRt = engine.rtList.length ? Math.round(engine.rtList.reduce((a,b)=>a+b,0)/engine.rtList.length) : 0;
-    const medRt = engine.rtList.length ? Math.round(median(engine.rtList)) : 0;
-    const fastRate = engine.rtList.length ? Math.round((engine.fastHits/engine.rtList.length)*100) : 0;
+    const el = DOC.createElement('div');
+    el.className = spec.cls + ' spawn';
+    el.setAttribute('data-emoji', spec.emoji);
 
-    const junkErrorPct = engine.hitAll > 0 ? Math.round((engine.nHitJunk/engine.hitAll)*100) : 0;
+    cssSet(el, '--x', x.toFixed(1) + 'px');
+    cssSet(el, '--y', y.toFixed(1) + 'px');
+    cssSet(el, '--s', String(spec.size ?? 1));
 
-    emit('hha:end', {
-      reason: reason || 'end',
+    const id = (++this._id);
+    const born = nowMs();
 
-      scoreFinal: engine.score|0,
-      comboMax: engine.comboMax|0,
-      misses: engine.misses|0,
+    const s = Number(spec.size ?? 1) || 1;
+    const baseR = (spec.kind === 'boss') ? 66 : 48;
+    const assist = (view === 'cvr') ? 1.10 : 1.0;
+    const rHit = Math.round(baseR * s * assist);
 
-      accuracyGoodPct: acc|0,
-      junkErrorPct: junkErrorPct|0,
+    const tg = {
+      id, el,
+      kind: spec.kind,
+      emoji: spec.emoji,
+      x, y, r: rHit,
+      bornAt: born,
+      expireAt: born + (spec.lifeMs || 3000),
+      bossHp: spec.bossHp || 0,
+      bossHpMax: spec.bossHpMax || 0
+    };
 
-      avgRtGoodMs: avgRt|0,
-      medianRtGoodMs: medRt|0,
-      fastHitRatePct: fastRate|0,
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._hitTargetById(id, 'tap');
+    }, { passive: false });
 
+    layer.appendChild(el);
+    setTimeout(() => { try { el.classList.remove('spawn'); } catch (_) {} }, 160);
+
+    this.targets.push(tg);
+  };
+
+  Engine.prototype._removeTarget = function (idx, why) {
+    const tg = this.targets[idx];
+    if (!tg) return;
+
+    try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
+    setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
+
+    this.targets.splice(idx, 1);
+  };
+
+  Engine.prototype._hitTargetById = function (id, via) {
+    if (!this.running) return;
+    const t = nowMs();
+    for (let i = 0; i < this.targets.length; i++) {
+      if (this.targets[i].id === id) {
+        const tg = this.targets[i];
+        this._onHit(tg, i, via, t);
+        return;
+      }
+    }
+  };
+
+  Engine.prototype._shootCrosshair = function () {
+    const cx = (root.innerWidth || 0) * 0.5;
+    const cy = (root.innerHeight || 0) * 0.5;
+
+    let bestI = -1;
+    let bestD = 1e9;
+
+    for (let i = 0; i < this.targets.length; i++) {
+      const tg = this.targets[i];
+      const dx = (tg.x - cx);
+      const dy = (tg.y - cy);
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= tg.r && d < bestD) { bestD = d; bestI = i; }
+    }
+
+    if (bestI >= 0) {
+      const tg = this.targets[bestI];
+      this._onHit(tg, bestI, 'shoot', nowMs());
+    } else {
+      this.combo = 0;
+      emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
+      this._emitScore();
+      this._emitRank();
+    }
+  };
+
+  Engine.prototype._onHit = function (tg, idx, via, t) {
+    const p = this.cfg.preset;
+    const gActive = GROUPS[this.activeGroupIdx];
+
+    if (tg.kind === 'boss') {
+      tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
+      try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
+
+      emit('hha:judge', { kind: 'boss', text: `BOSS -1`, x: tg.x, y: tg.y });
+
+      if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) {
+        try { tg.el.classList.add('fg-boss-weak'); } catch (_) {}
+      }
+
+      if (tg.bossHp <= 0) {
+        this.score += 320;
+        this.combo += 2;
+        this.comboMax = Math.max(this.comboMax, this.combo);
+        this.powerCharge = Math.min(p.powerThreshold, this.powerCharge + 2);
+
+        emit('hha:judge', { kind: 'good', text: 'BOSS DOWN +320', x: tg.x, y: tg.y });
+        emit('groups:progress', { kind: 'boss_down' });
+        this._emitCoach('บอสแตกแล้ว! โหดมาก! 💥', 'happy');
+
+        this._removeTarget(idx, 'hit');
+        this._emitScore();
+        this._emitPower();
+        this._emitRank();
+        this._advanceQuestOnGood(2);
+        this._maybeSwitchGroup();
+      }
+      return;
+    }
+
+    if (tg.kind === 'good') {
+      this.nHitGood++;
+      this.hitGoodForAcc++;
+      this.totalJudgedForAcc++;
+
+      this.combo += 1;
+      this.comboMax = Math.max(this.comboMax, this.combo);
+
+      const add = 20 + Math.min(24, this.combo * 1.6);
+      this.score += Math.round(add);
+
+      this.powerCharge = Math.min(p.powerThreshold, this.powerCharge + 1);
+
+      emit('hha:judge', { kind: 'good', text: `+${Math.round(add)}`, x: tg.x, y: tg.y });
+
+      if (this.mini && this.mini.on) this.mini.now += 1;
+
+      this._advanceQuestOnGood(1);
+      this._maybeSwitchGroup();
+
+      this._removeTarget(idx, 'hit');
+      this._emitScore();
+      this._emitPower();
+      this._emitRank();
+      this._emitQuestUpdate();
+
+      if (this.cfg.runMode==='play'){
+        if (this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
+        try{
+          const A = root.GroupsVR && root.GroupsVR.__ai;
+          if (A && A.tip && this.combo===10) A.tip('คอมโบ 10! ดีมาก รักษาจังหวะต่อ 🔥', 'happy');
+        }catch(_){}
+      }
+      return;
+    }
+
+    if (tg.kind === 'wrong') {
+      this.nHitWrong++;
+      this.totalJudgedForAcc++;
+
+      this.combo = 0;
+      this._onMiss('wrong');
+      this.score = Math.max(0, this.score - 12);
+
+      emit('hha:judge', { kind: 'bad', text: '-12', x: tg.x, y: tg.y });
+
+      this._removeTarget(idx, 'hit');
+      this._emitScore();
+      this._emitRank();
+      this._emitQuestUpdate();
+      this._emitCoach(`ไม่ใช่หมู่ “${gActive.th}” นะ!`, 'sad');
+      return;
+    }
+
+    // junk
+    this.nHitJunk++;
+    this.totalJudgedForAcc++;
+
+    if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
+
+    this.combo = 0;
+    this._onMiss('junk');
+    this.score = Math.max(0, this.score - 18);
+
+    emit('hha:judge', { kind: 'bad', text: '-18', x: tg.x, y: tg.y });
+
+    this._removeTarget(idx, 'hit');
+    this._emitScore();
+    this._emitRank();
+    this._emitQuestUpdate();
+    this._emitCoach('โดนขยะ! ระวัง! 🗑️', 'sad');
+  };
+
+  Engine.prototype._onMiss = function (why) {
+    this.misses += 1;
+    emit('groups:progress', { kind: 'miss', why });
+  };
+
+  Engine.prototype._maybeSwitchGroup = function () {
+    const p = this.cfg.preset;
+    if (this.powerCharge < p.powerThreshold) return;
+
+    const prev = this.activeGroupIdx;
+    let next = prev;
+    for (let k = 0; k < 6; k++) {
+      next = (this.rng() * GROUPS.length) | 0;
+      if (next !== prev) break;
+    }
+    this.activeGroupIdx = next;
+    this.powerCharge = 0;
+
+    emit('groups:progress', { kind: 'perfect_switch' });
+    emit('hha:judge', { kind:'perfect', text:'SWITCH', x: root.innerWidth*0.5, y: root.innerHeight*0.62 });
+    this._emitPower();
+    this._emitQuestUpdate();
+    this._emitCoach(`สลับหมู่แล้ว! เป้าถัดไปคือ “${GROUPS[next].th}”`, 'neutral');
+  };
+
+  Engine.prototype._advanceQuestOnGood = function (inc) {
+    if (this.cfg.runMode === 'practice') return; // practice: no goal chaining
+
+    inc = Number(inc) || 1;
+    this.goalNow += inc;
+
+    if (this.goalNow >= this.goalNeed) {
+      this.goalIndex += 1;
+      this.goalNow = 0;
+
+      this.score += 240;
+      this.combo += 1;
+      this.comboMax = Math.max(this.comboMax, this.combo);
+
+      emit('hha:judge', { kind: 'good', text: 'GOAL CLEAR +240', x: root.innerWidth*0.5, y: root.innerHeight*0.28 });
+      this._emitScore();
+      this._emitRank();
+      this._emitCoach('GOAL ผ่าน! เก่งมาก! ✅', 'happy');
+
+      if (this.goalIndex >= this.goalsTotal) {
+        this._end('all-goals');
+      } else {
+        if (this.cfg.runMode === 'play') {
+          this.goalNeed = Math.round(this.goalNeed * 1.08);
+          this.cfg.preset.baseSpawnMs = clamp(this.cfg.preset.baseSpawnMs * 0.97, 420, 920);
+        }
+        this._emitQuestUpdate();
+      }
+    } else {
+      this._emitQuestUpdate();
+    }
+  };
+
+  Engine.prototype._accuracyPct = function () {
+    const denom = Math.max(1, this.totalJudgedForAcc);
+    return Math.round((this.hitGoodForAcc / denom) * 100);
+  };
+
+  Engine.prototype._emitScore = function () {
+    emit('hha:score', { score: this.score | 0, combo: this.combo | 0, misses: this.misses | 0 });
+  };
+
+  Engine.prototype._emitRank = function () {
+    const acc = this._accuracyPct();
+    const grade = gradeFrom(acc, this.misses, this.score);
+    emit('hha:rank', { grade, accuracy: acc });
+  };
+
+  Engine.prototype._emitPower = function () {
+    const thr = this.cfg.preset.powerThreshold;
+    emit('groups:power', { charge: this.powerCharge | 0, threshold: thr | 0 });
+  };
+
+  Engine.prototype._emitQuestUpdate = function (miniLeftMs) {
+    const g = GROUPS[this.activeGroupIdx];
+    const goalTitle = (this.cfg.runMode==='practice') ? 'โหมดฝึก: ยิงให้โดนเป้า' : `ยิงให้ถูกหมู่ “${g.th}”`;
+    const goalNow = (this.cfg.runMode==='practice') ? 0 : (this.goalNow | 0);
+    const goalTotal = (this.cfg.runMode==='practice') ? 1 : (this.goalNeed | 0);
+
+    let miniTitle = '—';
+    let miniNow = 0, miniTotal = 1, miniPct = 0;
+    let miniTimeLeftSec = 0;
+
+    if (this.mini && this.mini.on) {
+      miniTitle = this.mini.forbidJunk
+        ? `MINI: ถูก ${this.mini.need} และห้ามโดนขยะ`
+        : `MINI: ถูก ${this.mini.need} ภายในเวลา`;
+      miniNow = this.mini.now | 0;
+      miniTotal = this.mini.need | 0;
+      miniPct = clamp((miniNow / Math.max(1, miniTotal)) * 100, 0, 100);
+
+      const t = nowMs();
+      const left = (miniLeftMs != null)
+        ? Number(miniLeftMs)
+        : Math.max(0, (this.mini.leftMs - (t - this.mini.startedAt)));
+      miniTimeLeftSec = Math.ceil(left / 1000);
+    }
+
+    emit('quest:update', {
+      goalTitle,
+      goalNow,
+      goalTotal,
+      goalPct: clamp((goalNow / Math.max(1, goalTotal)) * 100, 0, 100),
+
+      miniTitle,
+      miniNow,
+      miniTotal,
+      miniPct,
+      miniTimeLeftSec,
+
+      groupKey: g.key,
+      groupName: g.th,
+      goalIndex: this.goalIndex,
+      goalsTotal: this.goalsTotal,
+
+      miniCountTotal: this.miniTotal,
+      miniCountCleared: this.miniCleared
+    });
+  };
+
+  Engine.prototype._emitCoach = function (text, mood) {
+    const t = nowMs();
+    if (t - this.coachLastAt < 450) return;
+    this.coachLastAt = t;
+    emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
+  };
+
+  Engine.prototype._end = function (reason) {
+    if (!this.running) return;
+    this.running = false;
+
+    for (let i = 0; i < this.targets.length; i++) {
+      try { this.targets[i].el.remove(); } catch (_) {}
+    }
+    this.targets = [];
+
+    const acc = this._accuracyPct();
+    const grade = gradeFrom(acc, this.misses, this.score);
+
+    const endAt = nowMs();
+    const playedSec = Math.max(0, Math.round((endAt - this.startAt) / 1000));
+
+    const summary = {
+      reason: String(reason || 'end'),
+      scoreFinal: this.score | 0,
+      comboMax: this.comboMax | 0,
+      misses: this.misses | 0,
+      accuracyGoodPct: acc,
       grade,
 
-      goalsCleared: qs ? (qs.goalsCleared|0) : 0,
-      goalsTotal:   qs ? (qs.goalsTotal|0)   : 0,
-      miniCleared:  qs ? (qs.miniCleared|0)  : 0,
-      miniTotal:    qs ? (qs.miniTotal|0)    : 0,
+      goalsCleared: Math.min(this.goalsTotal, this.goalIndex + (this.goalNow >= this.goalNeed ? 1 : 0)),
+      goalsTotal: this.goalsTotal,
 
-      // counters
-      nTargetGoodSpawned: engine.nTargetGoodSpawned|0,
-      nTargetWrongSpawned: engine.nTargetWrongSpawned|0,
-      nTargetJunkSpawned: engine.nTargetJunkSpawned|0,
-      nTargetDecoySpawned: engine.nTargetDecoySpawned|0,
-      nTargetBossSpawned: engine.nTargetBossSpawned|0,
-      nTargetStarSpawned: engine.nTargetStarSpawned|0,
-      nTargetIceSpawned: engine.nTargetIceSpawned|0,
-      nTargetDiamondSpawned: engine.nTargetDiamondSpawned|0,
-      nTargetShieldSpawned: engine.nTargetShieldSpawned|0,
+      miniCleared: this.miniCleared | 0,
+      miniTotal: this.miniTotal | 0,
 
-      nHitGood: engine.nHitGood|0,
-      nHitWrong: engine.nHitWrong|0,
-      nHitJunk: engine.nHitJunk|0,
-      nHitDecoy: engine.nHitDecoy|0,
-      nHitBoss: engine.nHitBoss|0,
-      nHitJunkGuard: engine.nHitJunkGuard|0,
-      nExpireGood: engine.nExpireGood|0,
+      durationPlayedSec: playedSec,
+      durationPlannedSec: this.cfg.timeSec | 0,
 
-      diff: engine.diff,
-      runMode: engine.runMode,
-      style: engine.style,
-      seed: engine.seed
-    });
-  }
+      nTargetGoodSpawned: this.nTargetGoodSpawned | 0,
+      nTargetJunkSpawned: this.nTargetJunkSpawned | 0,
+      nTargetWrongSpawned: this.nTargetWrongSpawned | 0,
+      nTargetBossSpawned: this.nTargetBossSpawned | 0,
 
-  // ---------- Public API ----------
-  function setLayerEl(el){
-    engine.layerEl = el || null;
-    if (engine.layerEl){
-      engine.layerEl.style.setProperty('--vx', engine.vx.toFixed(1)+'px');
-      engine.layerEl.style.setProperty('--vy', engine.vy.toFixed(1)+'px');
-    }
-  }
+      nHitGood: this.nHitGood | 0,
+      nHitJunk: this.nHitJunk | 0,
+      nHitWrong: this.nHitWrong | 0,
 
-  function start(diff, cfg){
-    cfg = cfg || {};
-    engine.runMode = (String(cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
-    engine.diff = String(diff || cfg.diff || 'normal').toLowerCase();
-    engine.style = styleNorm(cfg.style || 'mix');
-    engine.timeSec = clamp(cfg.time ?? 90, 30, 180);
-    engine.seed = String(cfg.seed || Date.now());
-    engine.rng = makeRng(engine.seed);
+      nExpireGood: this.nExpireGood | 0,
+      nExpireJunk: this.nExpireJunk | 0,
+      nExpireWrong: this.nExpireWrong | 0,
 
-    const dp = diffParams(engine.diff);
+      runMode: this.cfg.runMode,
+      diff: this.cfg.diff,
+      seed: this.cfg.seed
+    };
 
-    engine.running = true;
-    engine.ended = false;
+    emit('hha:end', summary);
+    this._emitCoach((this.cfg.runMode==='practice') ? 'จบฝึกแล้ว! กำลังเข้าเกมจริง…' : 'จบเกมแล้ว! กดเล่นอีกครั้งได้เลย 🏁', 'happy');
+  };
 
-    engine.left = engine.timeSec;
-    engine.score = 0; engine.combo = 0; engine.comboMax = 0;
-    engine.misses = 0; engine.hitGood = 0; engine.hitAll = 0;
-
-    engine.nTargetGoodSpawned=0; engine.nTargetWrongSpawned=0; engine.nTargetJunkSpawned=0; engine.nTargetDecoySpawned=0;
-    engine.nTargetBossSpawned=0; engine.nTargetStarSpawned=0; engine.nTargetIceSpawned=0; engine.nTargetDiamondSpawned=0; engine.nTargetShieldSpawned=0;
-    engine.nHitGood=0; engine.nHitWrong=0; engine.nHitJunk=0; engine.nHitDecoy=0; engine.nHitBoss=0; engine.nHitJunkGuard=0; engine.nExpireGood=0;
-
-    engine.rtList = [];
-    engine.fastHits = 0;
-
-    engine.powerThr = dp.powerThr;
-    engine.power = 0;
-
-    engine.sizeBase = dp.size;
-    engine.ttlMs = dp.ttl;
-
-    engine.storm = false;
-    engine.stormDurSec = dp.stormDur;
-    engine.nextStormAtMs = now() + (engine.runMode==='research' ? (15000 + engine.rng()*4000) : (12000 + engine.rng()*11000));
-    engine.stormPattern = (engine.style==='hard'?'spiral':engine.style==='feel'?'wave':'burst');
-    engine.stormSpawnIdx = 0;
-
-    engine.bossAlive = false;
-    engine.bossHpMax = dp.bossHp;
-    engine.nextBossAtMs = now() + 14000;
-
-    engine.groupId = 1;
-    engine.groupClean = true;
-
-    engine.fever = 0;
-    engine.shield = 0;
-    engine.feverTickLast = 0;
-
-    engine.magnetUntil = 0;
-    engine.freezeUntil = 0;
-    engine.overUntil = 0;
-    setBuffClass();
-
-    bindShootOnce();
-    bindVrEventsOnce();
-
-    updateTime();
-    updatePower();
-    updateScore();
-    emitFever();
-    emitCoach(SONG[1], 'neutral');
-
-    // quest
-    engine.quest = null;
-    engine._questBound = false;
-    questStart();
-
-    emit('hha:start', { runMode: engine.runMode, diff: engine.diff, style: engine.style, time: engine.timeSec, seed: engine.seed });
-    emit('hha:celebrate', { kind:'goal', title:'เริ่มเกม! 🎵' });
-
-    loopSpawn();
-    loopTick();
-  }
-
-  function stop(reason){ endGame(reason || 'stop'); }
-
-  NS.GameEngine = { start, stop, setLayerEl };
+  // ---------------- Export ----------------
+  NS.GameEngine = new Engine();
 
 })(typeof window !== 'undefined' ? window : globalThis);
