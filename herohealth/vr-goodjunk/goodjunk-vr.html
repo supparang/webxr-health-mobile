@@ -1,9 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
 ✅ Reads params: view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log, nolog
 ✅ Loads: goodjunk-vr.css + particles + fx-director + cloud-logger + boot(module)
-✅ Supports hha:shoot (cVR) + two-eye (#gj-layer + #gj-layer-r)
-✅ Back HUB button + End Summary overlay
+✅ Uses vr-ui.js (loaded by boot when view=vr/cvr) + supports hha:shoot event
+✅ Has Back HUB + End Summary overlay
+✅ PATCH: body view set from URL (no fixed view-mobile)
+✅ PATCH: listen hha:end on window+document+body
+✅ PATCH: flush-hardened back hub (delay + pagehide/visibilitychange)
 -->
 <!doctype html>
 <html lang="th">
@@ -26,7 +29,6 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
   <style>
-    /* --- minimal extras for run page --- */
     .gj-topbar{
       position:fixed; left:10px; right:10px;
       top: calc(10px + var(--sat, 0px));
@@ -59,7 +61,10 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
       align-items:center; justify-content:center;
       background: rgba(2,6,23,.86);
       backdrop-filter: blur(10px);
+      pointer-events:auto;
     }
+    .gj-end[aria-hidden="true"]{ pointer-events:none; }
+
     .gj-end .card{
       width:min(760px,92vw);
       border:1px solid rgba(148,163,184,.20);
@@ -102,7 +107,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
   </style>
 </head>
 
-<body class="view-mobile">
+<body>
 
   <!-- TOPBAR -->
   <div class="gj-topbar" aria-hidden="false">
@@ -248,22 +253,44 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
     const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
     const byId = (id)=>document.getElementById(id);
 
-    const view = qs('view','mobile');
+    const view = (qs('view','mobile')||'mobile').toLowerCase();
     const run  = qs('run','play');
     const diff = qs('diff','normal');
     const time = qs('time','80');
     const hub = qs('hub', null);
 
+    // ✅ PATCH: set body view class from URL (do NOT lock view-mobile)
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(
+      view==='pc' ? 'view-pc' :
+      view==='vr' ? 'view-vr' :
+      view==='cvr'? 'view-cvr' : 'view-mobile'
+    );
+
     const chip = byId('chipMeta');
     if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
 
+    // ✅ flush-hardened helpers
+    function hardFlush(){
+      try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
+    }
+    async function flushThenGo(url){
+      hardFlush();
+      setTimeout(()=>{ location.href = url; }, 260);
+    }
+    window.addEventListener('pagehide', hardFlush, { passive:true });
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'hidden') hardFlush();
+    }, { passive:true });
+
     byId('btnBackHub')?.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
+      if(hub) flushThenGo(hub);
       else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
 
+    // ✅ include shoot detail (useful for logger/AI hooks)
     byId('btnShoot')?.addEventListener('click', ()=>{
-      window.dispatchEvent(new CustomEvent('hha:shoot'));
+      window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'btn', view } }));
     });
 
     const peek = byId('peek');
@@ -283,6 +310,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
     byId('btnPeek')?.addEventListener('click', ()=> byId('btnMissions')?.click());
     byId('btnHideHud')?.addEventListener('click', ()=> document.body.classList.toggle('hud-hidden'));
 
+    // mirror HUD to VR mini HUD
     setInterval(()=>{
       const s = byId('hud-score')?.textContent || '0';
       const t = byId('hud-time')?.textContent || '0';
@@ -307,11 +335,15 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FULL)
       }catch(_){}
     }
 
-    window.addEventListener('hha:end', (ev)=> showEnd(ev?.detail || null), { passive:true });
+    function onEnd(ev){ showEnd(ev?.detail || null); }
+
+    // ✅ PATCH: listen hha:end from multiple targets
+    window.addEventListener('hha:end', onEnd, { passive:true });
+    document.addEventListener('hha:end', onEnd, { passive:true });
+    document.body?.addEventListener('hha:end', onEnd, { passive:true });
 
     byId('endBackHub')?.addEventListener('click', ()=>{
-      try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
-      if(hub) location.href = hub;
+      if(hub) flushThenGo(hub);
       else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
 
