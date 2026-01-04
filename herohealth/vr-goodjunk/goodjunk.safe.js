@@ -10,6 +10,7 @@
 // ✅ TWO-EYE: spawn pair L/R in VR/cVR + click/shoot removes BOTH + expire removes BOTH (miss counted once)
 // ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center
 // ✅ FALLBACK: target visible even if CSS fails (force absolute + injected fallback styles)
+// ✅ PATCH A: anti double-hit (click/shoot/document bubbling) + accept only L target
 
 'use strict';
 
@@ -321,7 +322,7 @@ function shieldRender(ui, shieldSec){
 }
 
 // -------------------------
-// Config / Grade / Goal / Mini (คงเดิมจากไฟล์คุณ)
+// Config / Grade / Goal / Mini
 // -------------------------
 function diffCfg(diff){
   diff = String(diff||'normal').toLowerCase();
@@ -568,6 +569,15 @@ export function boot(opts={}){
   const run  = String(opts.run||'play').toLowerCase();
   const isResearch = (run === 'research');
 
+  // ✅ crosshair in VR/cVR: force center (both eyes)
+  (function fixCrosshairSplit(){
+    if(view!=='vr' && view!=='cvr') return;
+    const l = DOC.getElementById('crosshairL');
+    const r = DOC.getElementById('crosshairR');
+    if(l){ l.style.left='50%'; l.style.top='50%'; }
+    if(r){ r.style.left='50%'; r.style.top='50%'; }
+  })();
+
   const seed = opts.seed != null ? Number(opts.seed) : (isResearch ? 12345 : Date.now());
   const rng = makeSeededRng(seed);
 
@@ -637,10 +647,28 @@ export function boot(opts={}){
 
   let ended = false;
 
+  // -------------------------
+  // INPUT GUARD (anti double-hit) — PATCH A
+  // -------------------------
+  let inputLockUntil = 0;
+  let lastHitPid = null;
+  let lastHitAt = 0;
+
+  function canAcceptHit(pid){
+    const t = performance.now();
+    if(t < inputLockUntil) return false;
+    if(pid && pid === lastHitPid && (t - lastHitAt) < 140) return false;
+    inputLockUntil = t + 70;
+    lastHitPid = pid;
+    lastHitAt = t;
+    return true;
+  }
+
   // Pair management
   let pairSeq = 1;
   const pairMap = new Map();     // pid -> { kind, l, r, bornAt, expireT }
   const elToPid = new WeakMap(); // element -> pid
+
   function nextPid(){ return String(pairSeq++); }
   function pairRemove(pid){
     const p = pairMap.get(pid);
@@ -653,6 +681,8 @@ export function boot(opts={}){
   function pairFromEl(el){ return el ? elToPid.get(el) : null; }
 
   function onTargetClick(e){
+    try{ e?.preventDefault?.(); e?.stopPropagation?.(); }catch(_){}
+
     const el0 = e?.target;
     if(!el0) return;
     if(state.phase !== 'practice' && state.phase !== 'play') return;
@@ -662,8 +692,15 @@ export function boot(opts={}){
 
     const pid = pairFromEl(targetEl) || targetEl.dataset.pid || null;
     if(!pid) return;
+
     const p = pairMap.get(pid);
     if(!p) return;
+
+    // ✅ PATCH A: กันยิงซ้ำ/ดับเบิลอีเวนต์
+    if(!canAcceptHit(pid)) return;
+
+    // ✅ PATCH A: รับเฉพาะฝั่ง L (กันคลิก R ซ้อน)
+    if(p.l && targetEl !== p.l) return;
 
     const kind = p.kind;
     const tNow = nowMs();
@@ -713,7 +750,6 @@ export function boot(opts={}){
       fx.burst(cx, cy, 'good');
       fx.pop(cx, cy, '+10', 'GOOD');
 
-      // ✅ Global FX director hooks
       emit('hha:judge', { type:'good', x: cx, y: cy, combo: state.combo, rtMs: rt });
       emit('hha:score', { score: 10, x: cx, y: cy });
 
@@ -805,13 +841,12 @@ export function boot(opts={}){
     }
   }
 
+  // ✅ Keep ONLY ONE click source: LEFT layer
   layer.addEventListener('click', onTargetClick, { passive:false });
-  if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
 
-  DOC.addEventListener('click', (e)=>{
-    const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
-    if(t) onTargetClick({ target: t });
-  }, { passive:false });
+  // (PATCH A) ❌ REMOVE these to avoid double-hit:
+  // if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
+  // DOC.addEventListener('click', ...)  // removed
 
   function spawnOne(forceKind=null){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
@@ -834,6 +869,7 @@ export function boot(opts={}){
       }
     }
 
+    // keep pid deterministic-ish for pair map usage
     const pid = String((Math.random()*1e9)|0) + '-' + String(Date.now());
     const emoji = pickEmoji(kind, state.rng);
 
@@ -915,7 +951,6 @@ export function boot(opts={}){
             const fever01 = feverCompute(state, missLimit);
             feverRender(feverUI, fever01);
 
-            // ✅ tell FX director about miss
             emit('hha:judge', { type:'miss', x: innerWidth/2, y: innerHeight/2, reason:'expire-good' });
             emit('hha:miss',  { x: innerWidth/2, y: innerHeight/2, reason:'expire-good' });
 
@@ -938,13 +973,18 @@ export function boot(opts={}){
 
   // cVR shoot
   function pickByCrosshair(lockPx=46){
-    const cx = DOC.documentElement.clientWidth * 0.5;
-    const cy = DOC.documentElement.clientHeight * 0.5;
+    const W = DOC.documentElement.clientWidth;
+    const H = DOC.documentElement.clientHeight;
+
+    // ✅ In VR/cVR (two-eye) use LEFT eye center (half-left)
+    const cx = (view==='vr' || view==='cvr') ? (W * 0.25) : (W * 0.5);
+    const cy = H * 0.5;
+
     let bestPid = null;
     let bestD2 = lockPx * lockPx;
 
     for(const [pid, p] of pairMap.entries()){
-      const el = p?.l;
+      const el = p?.l; // ✅ evaluate L only (stable)
       if(!el) continue;
       const r = el.getBoundingClientRect();
       const tx = r.left + r.width/2;
@@ -959,15 +999,23 @@ export function boot(opts={}){
     }
     return bestPid;
   }
+
   function shoot(){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
-    const lock = (view === 'cvr' || view === 'vr') ? 58 : 46;
+
+    // ✅ lockPx adaptive based on HALF screen
+    const W = DOC.documentElement.clientWidth;
+    const halfW = Math.max(1, W * 0.5);
+    let lock = Math.round(halfW * 0.06);
+    lock = clamp(lock, 44, 78);
+
     const pid = pickByCrosshair(lock);
     if(!pid) return;
+
     const p = pairMap.get(pid);
     const el = p?.l;
     if(!el) return;
-    onTargetClick({ target: el });
+    onTargetClick({ target: el, preventDefault(){}, stopPropagation(){} });
   }
   ROOT.addEventListener('hha:shoot', shoot, { passive:true });
 
@@ -1195,7 +1243,6 @@ export function boot(opts={}){
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
-    // ✅ Global end event for FX Director + other systems
     emit('hha:end', summary);
     logEvent('end', summary);
 
