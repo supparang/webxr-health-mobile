@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — V2 (safe start + VR UI preload + FX wait)
+// GoodJunkVR Boot — V2.2 (safe UI-start + VR UI preload + FX wait + flush-hardened) — FULL
 
 'use strict';
 
@@ -36,13 +36,19 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-async function waitForFxReady(timeoutMs=600){
+async function waitForFxReady(timeoutMs=800){
   const t0 = performance.now();
   while(performance.now() - t0 < timeoutMs){
-    const P =
-      (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-      ROOT.Particles;
-    if(P && (typeof P.burstAt === 'function' || typeof P.scorePop === 'function')) return true;
+    const P = (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || ROOT.Particles;
+    if(P){
+      const ok =
+        (typeof P.burstAt === 'function') ||
+        (typeof P.scorePop === 'function') ||
+        (typeof P.burst === 'function') ||
+        (typeof P.popText === 'function') ||
+        (typeof P.shockwave === 'function');
+      if(ok) return true;
+    }
     await new Promise(r=>setTimeout(r, 30));
   }
   return false;
@@ -57,7 +63,7 @@ async function startEngine(opts={}){
 
   if(view === 'vr' || view === 'cvr') ensureVrUi();
 
-  await waitForFxReady(600);
+  await waitForFxReady(800);
 
   const payload = {
     view,
@@ -89,7 +95,7 @@ function consumePendingStart(){
   }
 }
 
-ROOT.addEventListener('hha:start', (ev)=>{
+ROOT.addEventListener('hha:ui-start', (ev)=>{
   const view = ev?.detail?.view || qs('view','mobile');
   startEngine({ view });
 }, { passive:true });
@@ -100,9 +106,7 @@ if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
   DOC.addEventListener('DOMContentLoaded', consumePendingStart, { once:true });
 }
 
-ROOT.addEventListener('hha:enter-cvr', ()=>{
-  ensureVrUi();
-}, { passive:true });
+ROOT.addEventListener('hha:enter-cvr', ()=> ensureVrUi(), { passive:true });
 
 setTimeout(()=>{
   if(started) return;
@@ -112,3 +116,7 @@ setTimeout(()=>{
     startEngine({ view: qs('view','mobile') });
   }
 }, 900);
+
+ROOT.addEventListener('pagehide', ()=>{
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:flush-all', { detail:{ reason:'pagehide' } })); }catch(_){}
+}, { passive:true });
