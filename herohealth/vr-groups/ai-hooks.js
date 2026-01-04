@@ -1,25 +1,22 @@
-/* === /herohealth/vr-groups/ai-hooks.js ===
-Pack15: AI Hooks (disabled by default; enable with ?ai=1 in play)
-Goals:
-  (1) AI Difficulty Director (fair/adaptive) -> emits hha:adaptive suggestions (engine may ignore)
-  (2) AI Coach micro-tips (explainable, rate-limited) -> emits hha:coach
-  (3) AI Pattern Generator hooks (seeded) -> placeholder events for future storm/boss/pattern
-Deterministic: seed-based RNG. Research mode: always disabled.
-API:
-  window.GroupsVR.AIHooks.attach({runMode, seed, enabled})
-  window.GroupsVR.AIHooks.detach()
-  window.GroupsVR.AIHooks.getSnapshot()
-*/
+// === /herohealth/vr-groups/ai-hooks.js ===
+// GroupsVR AI Hooks — PACK 15 (PRODUCTION-SAFE)
+// ✅ Default: OFF (enabled only with ?ai=1 in play)
+// ✅ Research: ALWAYS OFF (even if ai=1)
+// ✅ Deterministic-ready: receives seed + can use seeded RNG if needed later
+// ✅ Provides attach/detach + hook points:
+//    - Difficulty Director (adaptive pacing)  [stub]
+//    - AI Coach micro-tips (explainable)      [stub, rate-limited]
+//    - Pattern Generator (storm/boss/spawn)  [stub]
+//
+// This file MUST NEVER break the game if AI is disabled.
+// Exports: window.GroupsVR.AIHooks
 
 (function (root) {
   'use strict';
-  const DOC = root.document;
-  if (!DOC) return;
-
   const NS = root.GroupsVR = root.GroupsVR || {};
 
-  function nowMs(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  // ---------------- Utilities ----------------
+  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
 
   function hashSeed(str) {
     str = String(str ?? '');
@@ -37,211 +34,154 @@ API:
       return s / 4294967296;
     };
   }
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+
+  function emit(name, detail) {
+    try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
 
+  // ---------------- State ----------------
   const S = {
-    on: false,
+    attached: false,
     enabled: false,
     runMode: 'play',
     seed: '',
     rng: null,
 
-    // live stats
+    // live metrics (from events)
     score: 0,
     combo: 0,
     misses: 0,
     acc: 0,
-    grade: 'C',
+    left: 0,
 
-    // timing
+    // rate-limit coach tips
     lastTipAt: 0,
-    lastDirectorAt: 0,
-
-    // traces
-    lastAdaptive: null,
-    lastTip: null,
+    tipCooldownMs: 4500,
   };
 
-  function explainableTip(){
-    // deterministic but context-aware
-    const acc = S.acc|0;
-    const combo = S.combo|0;
-    const misses = S.misses|0;
-
-    // pick bucket
-    let bucket = 'steady';
-    if (acc < 60) bucket = 'aim';
-    else if (misses >= 8) bucket = 'calm';
-    else if (combo >= 8) bucket = 'combo';
-    else if (acc >= 85) bucket = 'push';
-
-    const tips = {
-      aim: [
-        'ทิป: เล็งให้ “หยุดนิ่ง” ครึ่งวินาทีก่อนยิง จะตรงขึ้นมาก 🎯',
-        'ทิป: ถ้าพลาดบ่อย ลองยิงเฉพาะ “ใกล้กลางจอ” ก่อน แล้วค่อยกวาดออกข้าง',
-        'ทิป: เจอขยะเยอะ ให้ “รอเป้าถูกหมู่” โผล่แล้วค่อยยิง ไม่ต้องรีบ'
-      ],
-      calm: [
-        'ทิป: พลาดเริ่มเยอะแล้ว—ชะลอ 10% แล้วคุมความแม่นก่อน 🔥',
-        'ทิป: ถ้าเสียจังหวะ ให้รีเซ็ตคอมโบด้วย “ยิงชัวร์” 2 ครั้งติดก่อน',
-        'ทิป: โหมดพายุ/บอส อย่าลากสายตาไกล—คุมวงกลาง'
-      ],
-      combo: [
-        'ทิป: คอมโบมาแล้ว! โฟกัสเป้า “ถูกหมู่เท่านั้น” แล้วแต้มจะพุ่ง 🚀',
-        'ทิป: รักษาคอมโบด้วยการยิงเป้าที่อายุยังเยอะก่อน (ไม่โลภตัวไกล)',
-        'ทิป: พอคอมโบสูง ให้เลือกเป้าขนาดใหญ่/ใกล้ก่อนเพื่อความชัวร์'
-      ],
-      push: [
-        'ทิป: แม่นมาก! ลองเพิ่มจังหวะยิงให้ถี่ขึ้นอีกนิด 🏎️',
-        'ทิป: ตอนนี้คุมเกมได้—เก็บบอสให้ไวเพื่อโบนัสหนัก ๆ 💥',
-        'ทิป: ดีมาก! ถ้าอยาก S/SS ให้ลด MISS โดยไม่ยิงมั่ว'
-      ],
-      steady: [
-        'ทิป: คุมจังหวะ “มอง-เล็ง-ยิง” เป็นลูป จะนิ่งและแม่นขึ้น',
-        'ทิป: ถ้ารู้สึกเอียง ให้กด RECENTER แล้วค่อยลุยต่อ',
-        'ทิป: ระวังขยะ—ถ้าไม่แน่ใจ “ไม่ยิงดีกว่า”'
-      ]
-    };
-
-    const arr = tips[bucket] || tips.steady;
-    const idx = Math.floor((S.rng ? S.rng() : Math.random()) * arr.length);
-    return arr[idx];
+  // ---------------- Hooks: Difficulty Director (stub) ----------------
+  // In future, can call into engine (if engine exposes setters).
+  function difficultyDirectorTick() {
+    // ✅ safe no-op now
+    // Idea: observe acc/combo/misses/left and suggest spawn pacing or target mix.
   }
 
-  // (1) Difficulty Director: propose spawn multiplier (engine may ignore)
-  function directorStep(){
-    const t = nowMs();
-    if (t - S.lastDirectorAt < 1800) return; // rate-limit
-    S.lastDirectorAt = t;
-
-    // fairness logic: do not punish low performers too hard
-    let spawnMul = 1.0;
-    let reason = 'steady';
-
-    if (S.runMode !== 'play') return;
-
-    if (S.acc >= 88 && S.combo >= 8) { spawnMul = 0.90; reason = 'player_strong'; }
-    else if (S.acc >= 82 && S.combo >= 6) { spawnMul = 0.94; reason = 'player_good'; }
-    else if (S.acc < 60 || S.misses >= 10) { spawnMul = 1.10; reason = 'needs_help'; }
-    else if (S.misses >= 7) { spawnMul = 1.06; reason = 'stabilize'; }
-
-    // clamp fairness
-    spawnMul = clamp(spawnMul, 0.88, 1.14);
-
-    S.lastAdaptive = { spawnMul, reason, ts: Date.now() };
-    emit('hha:adaptive', S.lastAdaptive);
-    emit('hha:ai', { kind:'director', ...S.lastAdaptive });
-  }
-
-  // (2) AI Coach micro-tips
-  function maybeTip(){
-    const t = nowMs();
-    if (t - S.lastTipAt < 6500) return; // rate-limit tips
-    if (S.runMode !== 'play') return;
+  // ---------------- Hooks: AI Coach (explainable micro-tips) ----------------
+  function maybeCoachTip(reason) {
     if (!S.enabled) return;
+    const now = Date.now();
+    if (now - S.lastTipAt < S.tipCooldownMs) return;
+    S.lastTipAt = now;
 
-    // only tip when meaningful
-    const gate = (S.combo === 0 && S.misses >= 3) || (S.combo >= 7) || (S.acc < 65) || (S.acc >= 85);
-    if (!gate) return;
+    // Micro tips: short, explainable, never spam
+    let text = '';
+    let mood = 'neutral';
 
-    const text = explainableTip();
-    S.lastTipAt = t;
-    S.lastTip = { text, ts: Date.now() };
-
-    emit('hha:coach', { text, mood: (S.acc >= 85 ? 'happy' : (S.acc < 60 ? 'sad' : 'neutral')) });
-    emit('hha:ai', { kind:'coach', tip:text, ts: Date.now() });
-  }
-
-  // (3) Pattern Generator hooks (placeholder)
-  function patternHook(evName, detail){
-    if (!S.enabled) return;
-    // deterministic token for future patterns
-    const token = Math.floor((S.rng ? S.rng() : Math.random()) * 1e9);
-    emit('hha:ai', { kind:'pattern', event: evName, token, ts: Date.now(), detail: detail || null });
-  }
-
-  function onScore(ev){
-    const d = ev.detail || {};
-    S.score = Number(d.score ?? S.score) || 0;
-    S.combo = Number(d.combo ?? S.combo) || 0;
-    S.misses = Number(d.misses ?? S.misses) || 0;
-    directorStep();
-    maybeTip();
-  }
-  function onRank(ev){
-    const d = ev.detail || {};
-    S.grade = String(d.grade ?? S.grade);
-    S.acc = Number(d.accuracy ?? S.acc) || 0;
-    directorStep();
-    maybeTip();
-  }
-  function onProgress(ev){
-    const k = String((ev.detail||{}).kind||'');
-    if (!k) return;
-    if (k === 'storm_on' || k === 'boss_spawn' || k === 'boss_down') {
-      patternHook('groups:progress', { kind:k });
+    if (reason === 'miss_spike') {
+      text = 'ทิป: ช้าลงนิดนึง เล็งให้ตรง “หมู่ที่ต้องยิง” ก่อนค่อยยิง 🎯';
+      mood = 'sad';
+    } else if (reason === 'good_streak') {
+      text = 'ทิป: คอมโบมาแล้ว! รักษาจังหวะเดิมไว้ แล้วค่อยเร่ง 🔥';
+      mood = 'happy';
+    } else if (reason === 'low_acc') {
+      text = 'ทิป: ดูสีขอบเป้าให้ทัน — เขียวคือถูกหมู่, เหลืองคือผิดหมู่, แดงคือขยะ';
+      mood = 'neutral';
+    } else if (reason === 'clutch') {
+      text = 'ทิป: ช่วงท้าย ให้ยิง “เป้าใกล้กลางจอ” ก่อน จะพลาดน้อยลง ✅';
+      mood = 'fever';
+    } else {
+      text = 'ทิป: ถ้าเริ่มหลุดคอมโบ ให้รีเซ็ตจังหวะ 1–2 วินาทีแล้วค่อยยิงต่อ ✨';
+      mood = 'neutral';
     }
+
+    emit('hha:coach', { text, mood });
   }
 
-  function attach({ runMode, seed, enabled } = {}){
-    const rm = (String(runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
-    if (rm === 'research') {
-      // hard-disable in research
-      detach();
-      S.on = true;
-      S.enabled = false;
-      S.runMode = 'research';
-      S.seed = String(seed||'');
-      S.rng = makeRng(hashSeed(S.seed + '::aihooks'));
-      emit('hha:ai', { kind:'attach', enabled:false, runMode:'research' });
+  // ---------------- Hooks: Pattern Generator (stub) ----------------
+  // Placeholder for deterministic spawn patterns (storm waves/boss bursts)
+  function patternDirectorTick() {
+    // ✅ safe no-op now
+  }
+
+  // ---------------- Event listeners ----------------
+  function onScore(ev) {
+    const d = ev.detail || {};
+    S.score = Number(d.score || 0);
+    S.combo = Number(d.combo || 0);
+    S.misses = Number(d.misses || 0);
+
+    if (!S.enabled) return;
+
+    // heuristics
+    if (S.combo >= 8 && (S.rng && S.rng() < 0.15)) maybeCoachTip('good_streak');
+    if (S.misses >= 6 && (S.rng && S.rng() < 0.12)) maybeCoachTip('miss_spike');
+
+    difficultyDirectorTick();
+  }
+
+  function onRank(ev) {
+    const d = ev.detail || {};
+    S.acc = Number(d.accuracy || 0);
+
+    if (!S.enabled) return;
+    if (S.acc > 0 && S.acc < 55 && (S.rng && S.rng() < 0.18)) maybeCoachTip('low_acc');
+  }
+
+  function onTime(ev) {
+    const d = ev.detail || {};
+    S.left = Number(d.left || 0);
+
+    if (!S.enabled) return;
+    if (S.left > 0 && S.left <= 10 && (S.rng && S.rng() < 0.22)) maybeCoachTip('clutch');
+
+    patternDirectorTick();
+  }
+
+  // ---------------- Public API ----------------
+  function attach(cfg) {
+    cfg = cfg || {};
+    const runMode = String(cfg.runMode || 'play').toLowerCase();
+    const requested = !!cfg.enabled;
+
+    // ✅ research OFF hard
+    const enabled = (runMode !== 'research') && requested;
+
+    S.runMode = runMode;
+    S.enabled = enabled;
+    S.seed = String(cfg.seed || '');
+    S.rng = makeRng(hashSeed(S.seed + '::aihooks'));
+
+    if (S.attached) {
+      // already attached: just update enabled state
+      if (enabled) emit('hha:coach', { text: 'AI (ทดลอง) เปิดแล้ว 🤖', mood: 'happy' });
       return;
     }
 
-    S.on = true;
-    S.enabled = !!enabled;
-    S.runMode = 'play';
-    S.seed = String(seed||Date.now());
-    S.rng = makeRng(hashSeed(S.seed + '::aihooks'));
+    // attach listeners (lightweight, safe)
+    try {
+      root.addEventListener('hha:score', onScore, { passive: true });
+      root.addEventListener('hha:rank',  onRank,  { passive: true });
+      root.addEventListener('hha:time',  onTime,  { passive: true });
+    } catch (_) {}
 
-    // reset timing
-    S.lastTipAt = 0;
-    S.lastDirectorAt = 0;
+    S.attached = true;
 
-    root.addEventListener('hha:score', onScore, { passive:true });
-    root.addEventListener('hha:rank', onRank, { passive:true });
-    root.addEventListener('groups:progress', onProgress, { passive:true });
-
-    emit('hha:ai', { kind:'attach', enabled:S.enabled, runMode:S.runMode, seed:S.seed });
+    if (enabled) {
+      emit('hha:coach', { text: 'AI (ทดลอง) เปิดแล้ว: ปรับตามการเล่น + ทิปสั้น ๆ ✨', mood: 'happy' });
+    }
   }
 
-  function detach(){
-    try{ root.removeEventListener('hha:score', onScore); }catch(_){}
-    try{ root.removeEventListener('hha:rank', onRank); }catch(_){}
-    try{ root.removeEventListener('groups:progress', onProgress); }catch(_){}
-
-    S.on = false;
+  function detach() {
+    if (!S.attached) return;
+    try {
+      root.removeEventListener('hha:score', onScore);
+      root.removeEventListener('hha:rank', onRank);
+      root.removeEventListener('hha:time', onTime);
+    } catch (_) {}
+    S.attached = false;
     S.enabled = false;
-    emit('hha:ai', { kind:'detach', ts: Date.now() });
   }
 
-  function getSnapshot(){
-    return {
-      on: S.on,
-      enabled: S.enabled,
-      runMode: S.runMode,
-      seed: S.seed,
-      score: S.score,
-      combo: S.combo,
-      misses: S.misses,
-      acc: S.acc,
-      grade: S.grade,
-      lastAdaptive: S.lastAdaptive,
-      lastTip: S.lastTip
-    };
-  }
-
-  NS.AIHooks = { attach, detach, getSnapshot };
+  NS.AIHooks = { attach, detach };
 
 })(typeof window !== 'undefined' ? window : globalThis);
