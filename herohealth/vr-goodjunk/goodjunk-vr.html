@@ -1,6 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
-✅ Loads: goodjunk-vr.css + particles + hha-cloud-logger + hha-fx-director + boot(module)
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST)
+✅ Reads params: view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log, nolog
+✅ Loads: goodjunk-vr.css + particles + fx-director + cloud-logger + boot(module)
+✅ Uses vr-ui.js (loaded by boot when view=vr/cvr) + supports hha:shoot event
+✅ Has Back HUB + End Summary overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -14,16 +17,15 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
   <!-- UI -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + Cloud Logger + FX Director (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
+  <!-- Global FX + FX Director + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
   <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/hha-fx-director.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
   <style>
-    /* --- minimal extras for run page --- */
     .gj-topbar{
       position:fixed; left:10px; right:10px;
       top: calc(10px + var(--sat, 0px));
@@ -114,7 +116,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
   <!-- LOW TIME WARNING RING -->
   <div class="gj-warning-ring" aria-hidden="true"></div>
 
-  <!-- VR MINI HUD -->
+  <!-- VR MINI HUD (show only in VR/cVR) -->
   <div class="vr-mini-hud" id="vrMiniHud">
     <div class="mini-row">
       <div class="mini-pill"><span>SCORE</span><b id="miniScore">0</b></div>
@@ -314,9 +316,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
       else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
 
-    byId('endReplay')?.addEventListener('click', ()=>{
-      location.reload();
-    });
+    byId('endReplay')?.addEventListener('click', ()=> location.reload());
   })();
   </script>
 
