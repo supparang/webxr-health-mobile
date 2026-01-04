@@ -1,10 +1,11 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — ALL-IN CSS (PRODUCTION) — PACK 26
+Food Groups VR — ALL-IN CSS (PRODUCTION) — PACK 26 + ULTRA FX
 ✅ HUD/Quest/Power/Coach layout (PC/Mobile/cVR)
 ✅ cVR strict: targets pointer-events:none + shoot from crosshair (hha:shoot)
 ✅ playLayer true fullscreen + safe-area
 ✅ FIX overlap: keep vr-ui buttons clickable + avoid HUD blocking
 ✅ Targets: spawn / hit / out animations + boss states
+✅ ULTRA FX: body.fx-* + shockwaves + screen kick + mini urgent + boss heartbeat
 */
 
 :root{
@@ -30,14 +31,17 @@ Food Groups VR — ALL-IN CSS (PRODUCTION) — PACK 26
   --radius:22px;
   --pill:999px;
 
-  /* play bounds / feel */
-  --tapRing: rgba(34,197,94,0.20);
+  /* feel */
   --glow: 0 18px 42px rgba(0,0,0,.45);
   --soft: 0 10px 28px rgba(0,0,0,.30);
 
   /* target base sizes (scaled by --s in element) */
   --tSize: 76px;
   --tFont: 40px;
+
+  /* FX strength knobs */
+  --kick: 6px;
+  --shake: 10px;
 }
 
 /* reset */
@@ -77,7 +81,7 @@ html,body{
   position:fixed;
   inset:0;
   z-index:20;
-  pointer-events:none; /* targets are clickable individually (except cVR strict) */
+  pointer-events:none;
   overflow:hidden;
 }
 
@@ -89,7 +93,7 @@ html,body{
   display:flex;
   justify-content:space-between;
   gap:10px;
-  pointer-events:none; /* do not block hits */
+  pointer-events:none;
 }
 
 .hudLeft, .hudRight{
@@ -195,12 +199,17 @@ body.clutch .pill{
 
 /* mini urgent */
 body.mini-urgent .questCard:nth-child(2){
-  border-color: rgba(245,158,11,.45);
-  box-shadow: 0 0 0 2px rgba(245,158,11,.10), var(--soft);
+  border-color: rgba(245,158,11,.55);
+  box-shadow: 0 0 0 2px rgba(245,158,11,.12), var(--soft);
+  animation: miniPulse .55s ease-in-out infinite;
+}
+@keyframes miniPulse{
+  0%,100%{ transform: translateZ(0) scale(1); }
+  50%{ transform: translateZ(0) scale(1.01); }
 }
 body.groups-storm-urgent .questCard:nth-child(1){
-  border-color: rgba(34,211,238,.45);
-  box-shadow: 0 0 0 2px rgba(34,211,238,.10), var(--soft);
+  border-color: rgba(34,211,238,.55);
+  box-shadow: 0 0 0 2px rgba(34,211,238,.12), var(--soft);
 }
 
 /* ---------------- Power ---------------- */
@@ -304,6 +313,7 @@ body.groups-storm-urgent .questCard:nth-child(1){
   border: 2px solid rgba(148,163,184,.22);
   box-shadow: var(--glow);
   backdrop-filter: blur(6px);
+  will-change: transform, opacity, filter;
 }
 
 .fg-target::before{
@@ -326,10 +336,7 @@ body.groups-storm-urgent .questCard:nth-child(1){
   animation: ringSpin 1.2s linear infinite;
   pointer-events:none;
 }
-
-@keyframes ringSpin{
-  to{ transform: rotate(360deg); }
-}
+@keyframes ringSpin{ to{ transform: rotate(360deg); } }
 
 /* types */
 .fg-good{ border-color: rgba(34,197,94,.42); }
@@ -356,9 +363,7 @@ body.groups-storm-urgent .questCard:nth-child(1){
 }
 
 /* boss hurt/weak */
-.fg-boss-hurt{
-  animation: bossHurt .12s ease-in-out;
-}
+.fg-boss-hurt{ animation: bossHurt .12s ease-in-out; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
   50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.08)); }
@@ -370,26 +375,18 @@ body.groups-storm-urgent .questCard:nth-child(1){
 }
 
 /* spawn / hit / out */
-.fg-target.spawn{
-  animation: popIn .16s ease-out;
-}
+.fg-target.spawn{ animation: popIn .16s ease-out; }
 @keyframes popIn{
-  from{ transform: translate(-50%,-50%) scale(0.72); opacity:.0; }
+  from{ transform: translate(-50%,-50%) scale(0.72); opacity:0; }
   to{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
 }
-
-.fg-target.hit{
-  animation: popHit .18s ease-out forwards;
-}
+.fg-target.hit{ animation: popHit .18s ease-out forwards; }
 @keyframes popHit{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
   50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.18)); opacity:1; }
   100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.75)); opacity:0; }
 }
-
-.fg-target.out{
-  animation: fadeOut .22s ease-in forwards;
-}
+.fg-target.out{ animation: fadeOut .22s ease-in forwards; }
 @keyframes fadeOut{
   from{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
   to{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.82)); opacity:0; }
@@ -404,7 +401,7 @@ body.groups-storm .fg-target::after{
   opacity:.70;
 }
 
-/* ---------------- Overlay End ---------------- */
+/* ---------------- Overlay ---------------- */
 .overlay{
   inset:0;
   display:flex;
@@ -488,16 +485,15 @@ body.groups-storm .fg-target::after{
   font-weight: 800;
 }
 
+/* Allow overlays to be clickable */
+.overlay, .panel, .btn{ pointer-events:auto; }
+
 /* ---------------- Views ---------------- */
 body.view-pc .coachWrap{ width: 320px; }
 body.view-pc .questTop{ grid-template-columns: 1fr 1fr; }
 body.view-pc .hudLeft, body.view-pc .hudRight{ max-width: 46%; }
 
 body.view-mobile .coachWrap{ width: min(320px, 64vw); }
-
-body.view-vr .hud, body.view-vr .questTop, body.view-vr .powerWrap, body.view-vr .coachWrap{
-  transform: translateZ(0);
-}
 
 /* ✅ cVR strict: disable pointer events on targets (shoot only from crosshair) */
 body.view-cvr .playLayer{ pointer-events:none; }
@@ -506,8 +502,9 @@ body.view-cvr .fg-target{
   cursor: default !important;
 }
 
-/* Allow end overlay buttons to be clickable */
-.overlay, .panel, .btn{ pointer-events:auto; }
+/* Ensure vr-ui buttons not blocked */
+.hha-vr-ui *{ pointer-events:auto !important; }
+.hha-crosshair{ pointer-events:none !important; }
 
 /* Responsive tightening */
 @media (max-width: 420px){
@@ -516,12 +513,101 @@ body.view-cvr .fg-target{
   .coachWrap{ top: calc(220px + var(--sat)); width: min(320px, 92vw); }
   .hudLeft, .hudRight{ max-width: 100%; }
 }
-
 @media (max-height: 620px){
   .coachWrap{ top: calc(152px + var(--sat)); }
   .powerWrap{ bottom: calc(10px + var(--sab)); }
 }
 
-/* Ensure vr-ui buttons not blocked by our UI */
-.hha-vr-ui *{ pointer-events:auto !important; }
-.hha-crosshair{ pointer-events:none !important; }
+/* =========================================================
+   ULTRA FX (fix "Effect หายเกลี้ยง")
+   ========================================================= */
+
+/* FX layer used by effects-pack.js */
+.groups-fx-layer{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 140;
+  overflow: hidden;
+}
+
+/* Shockwave element */
+.fx-shock{
+  position:absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  transform: translate(-50%,-50%) scale(0.3);
+  opacity: .0;
+  filter: blur(.2px);
+  animation: shock .52s ease-out forwards;
+  border: 2px solid rgba(34,211,238,.65);
+  box-shadow: 0 0 0 2px rgba(34,211,238,.08), 0 0 28px rgba(34,211,238,.18);
+}
+
+.fx-green{ border-color: rgba(34,197,94,.75); box-shadow: 0 0 0 2px rgba(34,197,94,.10), 0 0 28px rgba(34,197,94,.18); }
+.fx-red{ border-color: rgba(239,68,68,.78); box-shadow: 0 0 0 2px rgba(239,68,68,.10), 0 0 28px rgba(239,68,68,.18); }
+.fx-cyan{ border-color: rgba(34,211,238,.78); box-shadow: 0 0 0 2px rgba(34,211,238,.10), 0 0 28px rgba(34,211,238,.18); }
+.fx-violet{ border-color: rgba(167,139,250,.78); box-shadow: 0 0 0 2px rgba(167,139,250,.10), 0 0 28px rgba(167,139,250,.18); }
+
+@keyframes shock{
+  0%{ transform: translate(-50%,-50%) scale(0.25); opacity:0; }
+  25%{ opacity: .95; }
+  100%{ transform: translate(-50%,-50%) scale(2.6); opacity:0; }
+}
+
+/* body fx pulses */
+@keyframes kickX{
+  0%{ transform: translate3d(0,0,0); }
+  25%{ transform: translate3d(var(--kick),0,0); }
+  50%{ transform: translate3d(calc(var(--kick) * -1),0,0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+@keyframes kickY{
+  0%{ transform: translate3d(0,0,0); }
+  25%{ transform: translate3d(0,calc(var(--kick) * -1),0); }
+  50%{ transform: translate3d(0,var(--kick),0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+@keyframes glowGood{
+  0%{ box-shadow: 0 0 0 0 rgba(34,197,94,.0) inset; }
+  40%{ box-shadow: 0 0 0 3px rgba(34,197,94,.16) inset; }
+  100%{ box-shadow: 0 0 0 0 rgba(34,197,94,.0) inset; }
+}
+@keyframes glowBad{
+  0%{ box-shadow: 0 0 0 0 rgba(239,68,68,.0) inset; }
+  40%{ box-shadow: 0 0 0 3px rgba(239,68,68,.18) inset; }
+  100%{ box-shadow: 0 0 0 0 rgba(239,68,68,.0) inset; }
+}
+@keyframes glowPerfect{
+  0%{ box-shadow: 0 0 0 0 rgba(167,139,250,.0) inset; }
+  40%{ box-shadow: 0 0 0 3px rgba(167,139,250,.18) inset; }
+  100%{ box-shadow: 0 0 0 0 rgba(167,139,250,.0) inset; }
+}
+@keyframes endPulse{
+  0%{ background: rgba(2,6,23,.72); }
+  50%{ background: rgba(2,6,23,.78); }
+  100%{ background: rgba(2,6,23,.72); }
+}
+
+/* Apply FX to top-level overlays subtly */
+body.fx-hit .hud{ animation: kickX .14s ease-out; }
+body.fx-good .questTop{ animation: glowGood .22s ease-out; }
+body.fx-bad .questTop{ animation: glowBad .26s ease-out; }
+body.fx-block .hud{ animation: kickY .12s ease-out; }
+body.fx-perfect .hudRight{ animation: glowPerfect .52s ease-out; }
+body.fx-combo .hudLeft{ animation: glowGood .42s ease-out; }
+body.fx-storm .playLayer{ animation: kickX .18s ease-out; }
+body.fx-boss .playLayer{ animation: kickY .18s ease-out; }
+body.fx-miss .hudLeft{ animation: kickX .10s ease-out; }
+body.fx-end .overlay-end{ animation: endPulse .9s ease-in-out; }
+
+/* storm / boss ambient */
+body.groups-storm-on .questTop{ animation: glowPerfect .55s ease-out; }
+body.groups-boss-on .hudRight{ animation: glowPerfect .7s ease-out; }
+
+/* calibration overlay (if present) */
+body.calibration .overlay-cal{ display:flex; }
+.overlay-cal.hidden{ display:none; }
