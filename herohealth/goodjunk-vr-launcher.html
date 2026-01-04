@@ -28,10 +28,15 @@
       --sal: env(safe-area-inset-left, 0px);
     }
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; background: radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
-                                 radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
-                                 var(--bg);
-              color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    html,body{
+      height:100%; margin:0;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    }
     .wrap{
       min-height:100%;
       padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
@@ -104,17 +109,9 @@
       background: rgba(34,197,94,.14);
       color:#eafff3;
     }
-    button.ghost{
-      height:44px;
-      border-radius:14px;
-      font-weight:1100;
-      font-size:13px;
-      border-color: rgba(148,163,184,.20);
-      background: rgba(2,6,23,.35);
-      color:#e5e7eb;
-    }
     .hint{
-      margin-top:10px; font-size:12px; color:var(--muted); font-weight:800; line-height:1.45;
+      margin-top:10px; font-size:12px; color:var(--muted);
+      font-weight:800; line-height:1.45;
     }
     .chip{
       display:inline-flex; align-items:center; gap:8px;
@@ -126,14 +123,14 @@
       font-size:12px;
       color: var(--text);
     }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
     .footer{
       padding: 0 18px 18px;
       display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
       color:var(--muted); font-size:12px; font-weight:800;
     }
-    .minirow{ display:flex; gap:10px; flex-wrap:wrap; }
-    a{ color: var(--cyan); text-decoration:none; font-weight:1000; }
   </style>
 </head>
 <body>
@@ -144,7 +141,7 @@
           <div class="title">HeroHealth — GoodJunkVR Launcher</div>
           <div class="sub">เลือกอุปกรณ์ + โหมดเล่น + ความยาก แล้วกดเข้าเกมได้เลย</div>
         </div>
-        <div class="minirow">
+        <div class="row">
           <div class="chip">🎮 <span id="lastMode">—</span></div>
           <div class="chip">🔁 <span id="lastDiff">—</span></div>
           <div class="chip">⏱️ <span id="lastTime">—</span></div>
@@ -157,9 +154,6 @@
             <div style="flex:1; min-width:240px;">
               <label>HUB URL (กลับหน้า HUB หลังจบเกม)</label><br/>
               <input id="hub" class="mono" style="width:min(100%, 620px);" placeholder="https://.../hub.html" />
-              <div class="hint" style="margin-top:6px;">
-                ทิป: ถ้าเปิดหน้านี้มาจาก HUB แล้วช่องว่าง ระบบจะเดา HUB ให้จาก <span class="mono">document.referrer</span>
-              </div>
             </div>
           </div>
 
@@ -184,14 +178,8 @@
               <input id="time" type="number" min="20" max="300" value="80" />
             </div>
             <div style="min-width:240px;">
-              <label>seed (research แนะนำ)</label><br/>
-              <div class="row" style="gap:8px; margin-top:6px;">
-                <input id="seed" class="mono" placeholder="เช่น 2026-01-04A" style="width:240px;" />
-                <button class="ghost" id="btnSeed" type="button">🎲 Gen</button>
-              </div>
-              <div class="hint" style="margin-top:6px;">
-                * ถ้า seed เป็น “ข้อความ” Launcher จะ hash ให้เป็น “ตัวเลข” เพื่อให้ deterministic จริง
-              </div>
+              <label>seed (ใส่เฉพาะ research แนะนำ)</label><br/>
+              <input id="seed" class="mono" placeholder="เช่น 2026-01-04A" style="width:240px;" />
             </div>
           </div>
 
@@ -210,25 +198,19 @@
         </div>
 
         <div class="panel">
-          <div class="row" style="justify-content:space-between;align-items:center;">
-            <div style="font-weight:1100;">พรีวิวลิงก์ที่จะเปิด</div>
-            <div class="chip">view: <span id="lastView" class="mono">mobile</span></div>
-          </div>
-
+          <div style="font-weight:1100;">พรีวิวลิงก์ที่จะเปิด</div>
           <div id="preview" class="mono" style="margin-top:10px;font-size:12px;line-height:1.45;color:#cbd5e1;word-break:break-all;">
             —
           </div>
-
           <div class="hint">
-            ถ้ากดจาก HUB แล้วเข้าไม่ได้ ให้ลองเปิดผ่าน Launcher นี้ก่อนเพื่อเช็คพารามิเตอร์
-            <span class="mono">view/diff/time/run/seed/hub</span>
+            ถ้ากดจาก HUB แล้วเข้าไม่ได้ ให้ลองเปิดผ่าน Launcher นี้ก่อนเพื่อเช็คพารามิเตอร์ <span class="mono">view/diff/time/run/seed/hub</span>
           </div>
         </div>
       </div>
 
       <div class="footer">
         <div>© HeroHealth Academy — GoodJunkVR</div>
-        <div>ไฟล์เกม: <span class="mono" id="runPath">/herohealth/goodjunk-vr.html</span></div>
+        <div>ไฟล์เกม: <span class="mono">/herohealth/vr-goodjunk/goodjunk-vr.html</span></div>
       </div>
     </div>
   </div>
@@ -237,82 +219,28 @@
     (function(){
       const $ = (id)=>document.getElementById(id);
       const LS_KEY = 'GJ_LAUNCHER_LAST';
-
-      // ✅ IMPORTANT: Make RUN path robust (relative to current file)
-      // If launcher is /herohealth/goodjunk-vr-launcher.html then run becomes /herohealth/goodjunk-vr.html
-      const RUN_URL = new URL('./goodjunk-vr.html', location.href);
-
       const els = {
         hub: $('hub'),
         run: $('run'),
         diff: $('diff'),
         time: $('time'),
         seed: $('seed'),
-        btnSeed: $('btnSeed'),
         preview: $('preview'),
         lastMode: $('lastMode'),
         lastDiff: $('lastDiff'),
         lastTime: $('lastTime'),
-        lastView: $('lastView'),
-        runPath: $('runPath'),
       };
-
-      let lastView = 'mobile';
-
-      // -------- helpers --------
-      function safeReferrerHub(){
-        // Guess hub from referrer if it contains /hub or ends with hub.html
-        try{
-          const r = document.referrer || '';
-          if(!r) return '';
-          const u = new URL(r);
-          const path = (u.pathname || '').toLowerCase();
-          if(path.includes('hub') || path.endsWith('hub.html')) return u.toString();
-          return '';
-        }catch(_){
-          return '';
-        }
-      }
-
-      // ✅ String seed -> uint32 hash (FNV-1a)
-      function hashSeedToU32(str){
-        str = String(str||'');
-        let h = 2166136261 >>> 0;
-        for(let i=0;i<str.length;i++){
-          h ^= str.charCodeAt(i);
-          h = Math.imul(h, 16777619);
-        }
-        return h >>> 0;
-      }
-
-      function genSeedText(){
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth()+1).padStart(2,'0');
-        const da = String(d.getDate()).padStart(2,'0');
-        const base = `${y}${m}${da}-${els.diff.value}-${Number(els.time.value||80)}s`;
-        // Add short random to avoid accidental collisions if user wants
-        const r = Math.floor(Math.random()*9000+1000);
-        return `${base}-${r}`;
-      }
 
       function load(){
         try{
           const s = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
-
-          // auto hub from referrer if empty
-          const guessedHub = safeReferrerHub();
-
           if(s.hub) els.hub.value = s.hub;
-          else if(!els.hub.value && guessedHub) els.hub.value = guessedHub;
-
           if(s.run) els.run.value = s.run;
           if(s.diff) els.diff.value = s.diff;
           if(s.time) els.time.value = s.time;
           if(s.seed) els.seed.value = s.seed;
         }catch(_){}
       }
-
       function save(){
         try{
           localStorage.setItem(LS_KEY, JSON.stringify({
@@ -321,96 +249,54 @@
             diff: els.diff.value,
             time: Number(els.time.value||80),
             seed: els.seed.value.trim(),
-            lastView
           }));
         }catch(_){}
       }
 
+      // ✅ FIX: base path is /herohealth/vr-goodjunk/goodjunk-vr.html (option 2)
       function build(view){
-        lastView = view || lastView || 'mobile';
-        const p = new URLSearchParams();
+        const here = new URL(location.href);
+        const baseUrl = new URL('./vr-goodjunk/goodjunk-vr.html', here);
 
-        p.set('view', lastView);
+        const p = new URLSearchParams();
+        p.set('view', view);
         p.set('run', els.run.value);
         p.set('diff', els.diff.value);
-
-        const t = Math.max(20, Math.min(300, Number(els.time.value||80)));
-        p.set('time', String(t));
+        p.set('time', String(Math.max(20, Math.min(300, Number(els.time.value||80)))));
 
         const hub = els.hub.value.trim();
         if(hub) p.set('hub', hub);
 
-        // ✅ Deterministic seed: if research and seed empty -> auto
-        let seedText = els.seed.value.trim();
-        if(els.run.value === 'research' && !seedText){
-          seedText = genSeedText();
-          els.seed.value = seedText;
-        }
+        const seed = els.seed.value.trim();
+        if(seed) p.set('seed', seed);
 
-        // ✅ Convert string seed into numeric seed (so engine Number(seed) is OK)
-        if(seedText){
-          const u32 = hashSeedToU32(seedText);
-          p.set('seed', String(u32));
-          // keep original for human trace
-          p.set('seedText', seedText);
-        }
-
-        // allow ts fallback cache-bust
         p.set('ts', String(Date.now()));
 
-        const u = new URL(RUN_URL.toString());
-        u.search = p.toString();
-        return u.toString();
+        baseUrl.search = p.toString();
+        return baseUrl.toString();
       }
 
       function refreshPreview(){
-        const url = build(lastView || 'mobile');
+        const url = build('mobile');
         els.preview.textContent = url;
-
         els.lastMode.textContent = els.run.value;
         els.lastDiff.textContent = els.diff.value;
         els.lastTime.textContent = (Number(els.time.value||80)) + 's';
-        els.lastView.textContent = lastView || 'mobile';
-        els.runPath.textContent = RUN_URL.pathname;
       }
 
-      // init
       load();
-      try{
-        const s = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
-        if(s.lastView) lastView = s.lastView;
-      }catch(_){}
       refreshPreview();
 
-      // events
       ['hub','run','diff','time','seed'].forEach(id=>{
         $(id).addEventListener('input', ()=>{ save(); refreshPreview(); });
         $(id).addEventListener('change', ()=>{ save(); refreshPreview(); });
       });
 
-      els.btnSeed.addEventListener('click', ()=>{
-        els.seed.value = genSeedText();
-        save();
-        refreshPreview();
-      });
-
       document.querySelectorAll('button[data-view]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
-          const view = btn.getAttribute('data-view') || 'mobile';
+          const view = btn.getAttribute('data-view');
           save();
-          const url = build(view);
-          location.href = url;
-        });
-      });
-
-      // Extra: Enter key in hub/seed -> open mobile
-      ['hub','seed'].forEach(id=>{
-        $(id).addEventListener('keydown', (e)=>{
-          if(e.key === 'Enter'){
-            e.preventDefault();
-            save();
-            location.href = build('mobile');
-          }
+          location.href = build(view);
         });
       });
     })();
