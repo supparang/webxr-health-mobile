@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — PRODUCTION (LATEST) — PATCHED
+// GoodJunkVR — PRODUCTION (LATEST)
 // Storm/Boss/Rage + BossWave + RageDrain + Two-eye + cVR shoot + anti double-hit
-// Rules (PLAY ONLY):
+// Rules:
 //  - timeLeft <= 30s => STORM
 //  - miss >= 4 => BOSS
 //  - miss >= 5 => RAGE
@@ -9,10 +9,9 @@
 //  - RageDrain: if no good hit for a short grace, score drains periodically
 //  - TWO-EYE: spawn L/R pair; click either removes both; score counted once
 //  - Anti-double: pidHandled set prevents double scoring from double click/shoot
-// PATCH:
-//  - Phase system ONLY in state.phase==='play' (practice won't trigger STORM)
-//  - Reset __phase to normal on endGame
-//  - Emit hha:end BEFORE storage/FX, and wrap in try/catch blocks
+//
+// ✅ PATCH: HUD-safe spawn uses CSS vars --gj-top-safe / --gj-bottom-safe (measured by HTML helper)
+// ✅ PATCH: goalDesc + miniTimer update if present
 
 'use strict';
 
@@ -102,20 +101,49 @@ const HUD = {
   goalCur: byId('hud-goal-cur'),
   goalTarget: byId('hud-goal-target'),
   mini:  byId('hud-mini'),
+  goalDesc: byId('goalDesc'),
+  miniTimer: byId('miniTimer'),
 };
 function hudSetText(el, v){ if(el) el.textContent = String(v); }
+
 function hudUpdate(state){
   hudSetText(HUD.score, state.score);
   hudSetText(HUD.combo, state.combo);
   hudSetText(HUD.miss,  state.miss);
   hudSetText(HUD.time,  state.timeLeftSec > 0 ? Math.ceil(state.timeLeftSec) : 0);
   hudSetText(HUD.grade, state.grade || '—');
+
   if(state.goal){
     hudSetText(HUD.goal, state.goal.title);
     hudSetText(HUD.goalCur, state.goal.cur);
     hudSetText(HUD.goalTarget, state.goal.target);
+
+    if(HUD.goalDesc){
+      const done = !!state.goal.done;
+      HUD.goalDesc.textContent = done
+        ? `✅ สำเร็จแล้ว (${state.goal.cur}/${state.goal.target})`
+        : `ทำให้ครบ (${state.goal.cur}/${state.goal.target})`;
+    }
+  }else{
+    if(HUD.goalDesc) HUD.goalDesc.textContent = '—';
   }
-  hudSetText(HUD.mini, state.mini ? `${state.mini.title} (${Math.floor(state.mini.cur)}/${state.mini.target})` : '—');
+
+  if(state.mini){
+    const cur = (state.mini.type==='avoid_junk') ? Math.floor(state.mini.cur) : Math.floor(state.mini.cur);
+    hudSetText(HUD.mini, `${state.mini.title} (${cur}/${state.mini.target})`);
+    if(HUD.miniTimer){
+      // For avoid_junk mini, show remaining-ish; else show —
+      if(state.mini.type==='avoid_junk'){
+        const left = Math.max(0, Math.ceil(state.mini.target - state.mini.cur));
+        HUD.miniTimer.textContent = `เหลือ ${left}s`;
+      }else{
+        HUD.miniTimer.textContent = '—';
+      }
+    }
+  }else{
+    hudSetText(HUD.mini, '—');
+    if(HUD.miniTimer) HUD.miniTimer.textContent = '—';
+  }
 }
 
 // -------------------------
@@ -250,7 +278,7 @@ function makeFx(view){
 // Low-time UI hooks
 // -------------------------
 function lowtimeInit(){
-  const overlay = DOC.querySelector('.gj-lowtime-overlay');
+  const overlay = DOC.querySelector('.gj-lowtime-overlay') || byId('lowTimeOverlay');
   const num = byId('gj-lowtime-num');
   return { overlay, num };
 }
@@ -546,9 +574,6 @@ function applyPhaseBody(){
 }
 
 function computePhase(state){
-  // ✅ PATCH: phase system only during REAL play
-  if(state.phase !== 'play') return 'normal';
-
   if(state.miss >= 5) return 'rage';
   if(state.miss >= 4) return 'boss';
   if(state.timeLeftSec <= 30.0) return 'storm';
@@ -592,12 +617,39 @@ function phaseDifficulty(cfg, state){
 }
 
 // -------------------------
+// HUD-safe bounds helpers (uses CSS vars from HTML helper)
+// -------------------------
+function readCssPxVar(name, fallbackPx){
+  try{
+    const v = getComputedStyle(DOC.documentElement).getPropertyValue(name).trim();
+    if(!v) return Number(fallbackPx)||0;
+    // allow "140px" or "calc(...)" -> try parse float from computed value
+    const n = parseFloat(v.replace('px',''));
+    return Number.isFinite(n) ? n : (Number(fallbackPx)||0);
+  }catch(_){
+    return Number(fallbackPx)||0;
+  }
+}
+function hudSafeBounds(){
+  const W = DOC.documentElement.clientWidth || innerWidth;
+  const H = DOC.documentElement.clientHeight || innerHeight;
+  const topSafe = Math.max(0, readCssPxVar('--gj-top-safe', 140));
+  const bottomSafe = Math.max(0, readCssPxVar('--gj-bottom-safe', 120));
+  // keep some air from edges
+  const left = 18;
+  const right = W - 18;
+  const top = topSafe;
+  const bottom = Math.max(top + 60, H - bottomSafe);
+  return { W, H, left, right, top, bottom };
+}
+
+// -------------------------
 // Boot
 // -------------------------
 export function boot(opts={}){
   const layer  = byId('gj-layer');
   if(!layer){ console.error('GoodJunkVR: missing #gj-layer'); return; }
-  const layerR = byId('gj-layer-r');
+  const layerR = byId('gj-layer-r'); // right eye layer
 
   const ensureLayerBox = (el)=>{
     if(!el) return;
@@ -640,10 +692,6 @@ export function boot(opts={}){
   const lowUI = lowtimeInit();
   const feverUI = feverInit();
 
-  // init phase clean
-  __phase = 'normal';
-  applyPhaseBody();
-
   advanceMini(state, 'init');
 
   state.phase = isResearch ? 'play' : 'practice';
@@ -680,9 +728,9 @@ export function boot(opts={}){
 
   // Pair management
   let pairSeq = 1;
-  const pairMap = new Map();
-  const elToPid = new WeakMap();
-  const pidHandled = new Set();
+  const pairMap = new Map();     // pid -> { kind, l, r, bornAt, expireT }
+  const elToPid = new WeakMap(); // element -> pid
+  const pidHandled = new Set();  // ✅ anti double scoring
 
   function nextPid(){ return String(pairSeq++); }
   function pairRemove(pid){
@@ -709,6 +757,7 @@ export function boot(opts={}){
     const p = pairMap.get(pid);
     if(!p) return;
 
+    // ✅ anti double-hit
     if(pidHandled.has(pid)) return;
     pidHandled.add(pid);
 
@@ -726,6 +775,7 @@ export function boot(opts={}){
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
 
+      // ✅ Rage: good hit gives grace
       state.rageGrace = 1.2;
 
       if(rt != null){
@@ -817,6 +867,7 @@ export function boot(opts={}){
       state.miss = Math.max(0, state.miss - 1);
       state.combo = Math.max(state.combo, 1);
 
+      // mild grace
       state.rageGrace = Math.max(state.rageGrace, 0.6);
 
       fx.pop(cx, cy, '+18', 'STAR');
@@ -857,9 +908,11 @@ export function boot(opts={}){
     }
   }
 
+  // ✅ 2 ฝั่งคลิกได้
   layer.addEventListener('click', onTargetClick, { passive:false });
   if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
 
+  // extra safety: document click (if target event bubbles oddly)
   DOC.addEventListener('click', (e)=>{
     const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
     if(t) onTargetClick({ target: t });
@@ -893,7 +946,7 @@ export function boot(opts={}){
   function spawnOne(forceKind=null){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
-    // update phase before deciding spawn (PLAY only due to computePhase patch)
+    // update phase before deciding spawn
     const np = computePhase(state);
     if(np !== __phase){
       __phase = np;
@@ -937,21 +990,18 @@ export function boot(opts={}){
     const elR = layerR ? createTargetEl(kind, emoji) : null;
     if(elR) elR.dataset.pid = pid;
 
-    const W = DOC.documentElement.clientWidth;
-    const H = DOC.documentElement.clientHeight;
+    const { W, H, left, right, top, bottom } = hudSafeBounds();
 
-    const sat = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--sat').replace('px',''))||0;
-    const topPad = 130 + sat;
-
-    const x = randIn(state.rng, 0.18, 0.82) * W;
-    const y = randIn(state.rng, 0.25, 0.78) * H;
+    // spawn in safe rect
+    const x = randIn(state.rng, 0.0, 1.0) * (right - left) + left;
+    const y = randIn(state.rng, 0.0, 1.0) * (bottom - top) + top;
 
     elL.style.left = `${x}px`;
-    elL.style.top  = `${Math.max(topPad, y)}px`;
+    elL.style.top  = `${y}px`;
 
     if(elR){
       elR.style.left = `${x}px`;
-      elR.style.top  = `${Math.max(topPad, y)}px`;
+      elR.style.top  = `${y}px`;
     }
 
     const sizeMul = pd.sizeMul || 1.0;
@@ -1130,10 +1180,6 @@ export function boot(opts={}){
         state.rageGrace = 0;
         state.rageDrainAcc = 0;
 
-        // clean phase at play start
-        __phase = 'normal';
-        applyPhaseBody();
-
         showPracticeHint(false);
         emit('hha:judge', { type:'good', x: innerWidth/2, y: innerHeight*0.25, label:'START!' });
         fx.toast('START!', 'PLAY');
@@ -1149,7 +1195,7 @@ export function boot(opts={}){
       state.timeLeftSec = Math.max(0, state.timeTotalSec - state.playedSec);
       state.graceSec = Math.max(0, state.graceSec - dt);
 
-      // phase update (PLAY only via computePhase)
+      // phase update
       const np = computePhase(state);
       if(np !== __phase){
         __phase = np;
@@ -1265,10 +1311,6 @@ export function boot(opts={}){
     state.phase = 'end';
     setDanger(0, view);
 
-    // ✅ reset phase (avoid sticky)
-    __phase = 'normal';
-    applyPhaseBody();
-
     state.rageGrace = 0;
     state.rageDrainAcc = 0;
 
@@ -1344,14 +1386,13 @@ export function boot(opts={}){
       hub: opts.hub || null,
     };
 
-    // ✅ PATCH: emit end BEFORE any risky ops
-    try{ emit('hha:end', summary); }catch(_){}
-    try{ logEvent('end', summary); }catch(_){}
-
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
-    try{ fx.celebrate({ kind:'END', intensity:1.2 }); }catch(_){}
-    try{ fx.toast(`GRADE ${grade}`, 'RESULT'); }catch(_){}
+    emit('hha:end', summary);
+    logEvent('end', summary);
+
+    fx.celebrate({ kind:'END', intensity:1.2 });
+    fx.toast(`GRADE ${grade}`, 'RESULT');
   }
 
   ROOT.addEventListener('hha:force-end', (ev)=> endGame(ev?.detail?.reason || 'force'), { passive:true });
