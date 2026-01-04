@@ -1,16 +1,21 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
 GoodJunkVR — PRODUCTION UI (HHA Standard)
-✅ PC/Mobile/VR/cVR body view classes
-✅ Layers: gj-layer + gj-layer-r (two-eye) + HUD + fever + lowtime overlay
-✅ Safe-area friendly + z-index not blocking FX director/particles
+✅ PC/Mobile/VR/cVR view classes
+✅ TWO-EYE layers (#gj-layer + #gj-layer-r) enabled in VR/cVR
+✅ HUD + Fever + Lowtime overlay + Warning ring + Missions peek
+✅ Safe-area friendly
+✅ z-index sane with particles.js + hha-fx-director.js
 */
 
+/* ---------- Theme ---------- */
 :root{
   color-scheme: dark;
+
   --bg:#020617;
   --panel: rgba(2,6,23,.78);
   --panel2: rgba(15,23,42,.70);
   --stroke: rgba(148,163,184,.18);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -35,52 +40,59 @@ html, body{
   height:100%;
   margin:0;
   overflow:hidden;
-  background: radial-gradient(circle at 20% 0%, rgba(56,189,248,0.12), transparent 55%),
-              radial-gradient(circle at 90% 90%, rgba(34,197,94,0.10), transparent 60%),
-              var(--bg);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(56,189,248,0.12), transparent 55%),
+    radial-gradient(circle at 90% 90%, rgba(34,197,94,0.10), transparent 60%),
+    var(--bg);
   color: var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",Roboto,sans-serif;
 }
 
-/* View modes */
+/* ---------- View modes (hooks) ---------- */
 body.view-pc{}
 body.view-mobile{}
 body.view-vr{}
 body.view-cvr{}
 
-/* ---- Stage ---- */
+/* ---------- Stage ---------- */
 #gj-stage{
   position: fixed;
   inset: 0;
   overflow: hidden;
 }
 
-/* Two-eye layers (targets mount) */
+/* Eye wrappers (optional; safe) */
+.gj-eye{
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ---------- TWO-EYE layers (targets mount) ---------- */
 #gj-layer,
 #gj-layer-r{
   position: fixed;
   inset: 0;
   pointer-events: auto;
-  z-index: 10;
+  z-index: 10; /* gameplay base */
 }
 
-/* optional: in VR/cVR, split view feel (still DOM-based) */
-body.view-vr #gj-layer,
-body.view-cvr #gj-layer{
-  /* no-op by default; keep full screen */
-}
-body.view-vr #gj-layer-r,
+/* ✅ Enable TWO-EYE in VR/cVR (do NOT hide right layer) */
+body.view-vr  #gj-layer-r,
 body.view-cvr #gj-layer-r{
-  display:none;
+  display:block;
+  opacity: .98;
 }
 
-/* You can enable true "two-eye" DOM duplication by uncomment:
-body.view-vr #gj-layer-r,
-body.view-cvr #gj-layer-r{ display:block; opacity:.98; }
-body.view-vr #gj-layer{ filter: saturate(1.02); }
-*/
+/* Small stereo-ish polish (very light, safe) */
+body.view-vr  #gj-layer{ filter: saturate(1.02); }
+body.view-cvr #gj-layer{ filter: saturate(1.02); }
 
-/* ---- Targets ---- */
+/* Optional: if you want to show right layer slightly dimmer */
+body.view-vr  #gj-layer-r{ filter: saturate(1.02) brightness(.98); }
+body.view-cvr #gj-layer-r{ filter: saturate(1.02) brightness(.98); }
+
+/* ---------- Targets ---------- */
 .gj-target{
   position:absolute;
   transform: translate(-50%,-50%);
@@ -93,35 +105,136 @@ body.view-vr #gj-layer{ filter: saturate(1.02); }
   z-index: 12;
   line-height: 1;
 }
-.gj-target.spawn{
-  opacity: 1;
-}
+
+.gj-target.spawn{ opacity: 1; }
+
 .gj-target.gone{
   opacity: 0;
   transform: translate(-50%,-50%) scale(0.88);
 }
 
-/* Small polish */
-.gj-target[data-kind="good"]{ filter: drop-shadow(0 12px 26px rgba(34,197,94,.18)) drop-shadow(0 10px 22px rgba(0,0,0,.35)); }
-.gj-target[data-kind="junk"]{ filter: drop-shadow(0 12px 26px rgba(239,68,68,.18)) drop-shadow(0 10px 22px rgba(0,0,0,.35)); }
-.gj-target[data-kind="star"]{ filter: drop-shadow(0 12px 26px rgba(245,158,11,.22)) drop-shadow(0 10px 22px rgba(0,0,0,.35)); }
-.gj-target[data-kind="shield"]{ filter: drop-shadow(0 12px 26px rgba(34,211,238,.22)) drop-shadow(0 10px 22px rgba(0,0,0,.35)); }
+/* Kind glow */
+.gj-target[data-kind="good"]{
+  filter:
+    drop-shadow(0 12px 26px rgba(34,197,94,.18))
+    drop-shadow(0 10px 22px rgba(0,0,0,.35));
+}
+.gj-target[data-kind="junk"]{
+  filter:
+    drop-shadow(0 12px 26px rgba(239,68,68,.18))
+    drop-shadow(0 10px 22px rgba(0,0,0,.35));
+}
+.gj-target[data-kind="star"]{
+  filter:
+    drop-shadow(0 12px 26px rgba(245,158,11,.22))
+    drop-shadow(0 10px 22px rgba(0,0,0,.35));
+}
+.gj-target[data-kind="shield"]{
+  filter:
+    drop-shadow(0 12px 26px rgba(34,211,238,.22))
+    drop-shadow(0 10px 22px rgba(0,0,0,.35));
+}
 
-/* ---- HUD ---- */
-.gj-hud{
+/* ---------- Crosshair (optional) ---------- */
+.gj-crosshair{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%,-50%);
+  border-radius: 999px;
+  pointer-events:none;
+  z-index: 35;
+  opacity: .0;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.18);
+}
+
+/* Show crosshair only in VR/cVR (can be overridden by vr-ui.js) */
+body.view-vr  .gj-crosshair,
+body.view-cvr .gj-crosshair{
+  opacity: .35;
+}
+
+/* ---------- HUD (main) ---------- */
+/* Note: your HTML uses .hha-hud; keep alias .gj-hud too */
+.hha-hud, .gj-hud{
   position: fixed;
   left: calc(12px + var(--sal));
   right: calc(12px + var(--sar));
   top: calc(12px + var(--sat));
-  z-index: 60; /* below FX director (9998/9999) but above game */
+  z-index: 60; /* above targets, below FX director layers */
   display:flex;
   gap:10px;
   align-items:flex-start;
   justify-content:space-between;
-  pointer-events:none;
+  pointer-events:none; /* buttons will re-enable */
 }
 
-.gj-card{
+/* hide HUD toggle */
+body.hud-hidden .hha-hud{ display:none !important; }
+
+/* Top layout */
+.hud-top{
+  width:100%;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  justify-content:space-between;
+  flex-wrap:wrap;
+}
+
+.hud-badge{
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  min-width: 220px;
+  pointer-events:auto; /* buttons inside clickable */
+}
+
+.hud-title{
+  font: 1100 16px/1.1 system-ui;
+  letter-spacing:.2px;
+}
+.hud-sub{
+  margin-top:6px;
+  font: 900 12px/1.35 system-ui;
+  color: var(--muted);
+}
+
+/* Pills row */
+.viewbar{
+  margin-top:10px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.pill{
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.55);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 10px;
+  font: 1000 12px/1 system-ui;
+  cursor:pointer;
+}
+.pill.ghost{
+  background: rgba(148,163,184,.12);
+}
+.pill:active{ transform: translateY(1px); }
+
+/* Stats cards */
+.hud-stats{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  pointer-events:none;
+}
+.hud-stat{
+  min-width: 86px;
   background: var(--panel);
   border: 1px solid var(--stroke);
   border-radius: 18px;
@@ -129,59 +242,96 @@ body.view-vr #gj-layer{ filter: saturate(1.02); }
   backdrop-filter: blur(8px);
   box-shadow: 0 12px 40px rgba(0,0,0,.28);
 }
-
-.gj-left{ display:flex; gap:10px; align-items:stretch; }
-.gj-right{ display:flex; gap:10px; align-items:stretch; }
-
-.gj-metrics{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-.gj-metric{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  min-width: 66px;
-}
-.gj-metric .k{
+.hud-stat .k{
   font: 900 11px/1 system-ui;
   letter-spacing:.2px;
   color: var(--muted);
 }
-.gj-metric .v{
-  font: 1000 18px/1.05 system-ui;
+.hud-stat .v{
+  margin-top:4px;
+  font: 1100 18px/1.05 system-ui;
   color: var(--text);
 }
 #hud-grade{
-  font: 1100 18px/1 system-ui;
-  letter-spacing:.8px;
+  letter-spacing:.6px;
 }
 
-/* Goal / Mini */
-.gj-quests{
-  min-width: 220px;
-}
-.gj-quests .row{
+/* Mid quest panel */
+.hud-mid{
+  width:100%;
+  margin-top:10px;
   display:flex;
-  justify-content:space-between;
-  gap:8px;
+  justify-content:flex-start;
+}
+.hud-quest{
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  min-width: min(520px, 92vw);
+  pointer-events:none;
+}
+.q-row{
+  display:flex;
   align-items:center;
-  margin-top:6px;
+  justify-content:space-between;
+  gap:10px;
 }
-.gj-quests .title{
-  font: 900 12px/1.2 system-ui;
-  color: var(--text);
-  opacity: .95;
+.q-title{
+  font: 1000 13px/1.2 system-ui;
 }
-.gj-quests .prog{
-  font: 1000 12px/1 system-ui;
+.q-title.mini{
+  color: var(--muted);
+  letter-spacing:.3px;
+}
+.q-count{
+  font: 1100 12px/1 system-ui;
   color: var(--muted);
 }
-#hud-mini{ font: 900 12px/1.2 system-ui; color: var(--muted); }
+.q-progress{
+  margin-top:6px;
+  font: 900 12px/1.35 system-ui;
+  color: var(--muted);
+}
+#hud-mini{
+  font: 900 12px/1.35 system-ui;
+  color: var(--muted);
+}
 
-/* ---- Fever ---- */
-.gj-fever{
+/* ---------- Missions peek ---------- */
+.gj-peek{
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity 140ms ease;
+}
+.gj-peek[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
+}
+.peek-card{
+  width:min(520px, 92vw);
+  background: rgba(2,6,23,.82);
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
+}
+.peek-title{ font: 1100 16px/1.1 system-ui; }
+.peek-sub{ margin-top:8px; color: var(--muted); font: 900 12px/1.4 system-ui; }
+.peek-mini{ margin-top:8px; color: var(--text); font: 1000 13px/1.35 system-ui; }
+.peek-tip{ margin-top:10px; color: var(--muted); font: 900 12px/1.35 system-ui; opacity:.9; }
+
+/* ---------- Fever box ---------- */
+.hha-fever{
   position: fixed;
   left: calc(12px + var(--sal));
   right: calc(12px + var(--sar));
@@ -189,48 +339,64 @@ body.view-vr #gj-layer{ filter: saturate(1.02); }
   z-index: 60;
   pointer-events:none;
   display:flex;
-  justify-content:space-between;
-  gap: 10px;
-  align-items:flex-end;
+  flex-direction:column;
+  gap:10px;
 }
-.gj-fever .bar{
-  flex:1;
-  background: rgba(15,23,42,.55);
+
+.fever-row, .shield-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  justify-content:space-between;
+  background: rgba(2,6,23,.60);
   border: 1px solid rgba(148,163,184,.18);
   border-radius: 16px;
-  overflow:hidden;
-  height: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.22);
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.22);
 }
-#feverFill{
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(245,158,11,.92), rgba(239,68,68,.92));
-}
-.gj-fever .meta{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-#feverText{
+
+.fever-label, .shield-label{
   font: 1000 12px/1 system-ui;
   color: var(--muted);
-  background: rgba(2,6,23,.65);
-  border: 1px solid rgba(148,163,184,.18);
-  border-radius: 12px;
-  padding: 7px 10px;
+  letter-spacing:.4px;
 }
-#shieldPills{
+.fever-bar{
+  flex:1;
+  height: 16px;
+  border-radius: 999px;
+  overflow:hidden;
+  background: rgba(15,23,42,.55);
+  border: 1px solid rgba(148,163,184,.18);
+}
+.fever-fill{
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg,
+    rgba(34,197,94,.92),
+    rgba(245,158,11,.92),
+    rgba(239,68,68,.92)
+  );
+}
+.fever-text{
+  font: 1100 12px/1 system-ui;
+  color: var(--muted);
+  min-width: 44px;
+  text-align:right;
+}
+.shield-pills{
   display:flex;
   gap:8px;
   align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
 }
 
-/* ---- Low time overlay ---- */
+/* ---------- Low time overlay ---------- */
 .gj-lowtime-overlay{
   position: fixed;
   inset: 0;
-  z-index: 80; /* still below FX director */
+  z-index: 80; /* below overlay=200, above HUD=60 */
   display:flex;
   align-items:center;
   justify-content:center;
@@ -240,13 +406,14 @@ body.view-vr #gj-layer{ filter: saturate(1.02); }
   background: radial-gradient(circle at 50% 50%, rgba(0,0,0,.18), rgba(0,0,0,.42));
 }
 .gj-lowtime-overlay[aria-hidden="false"]{ opacity: 1; }
-#gj-lowtime-num{
+
+.gj-lowtime-num{
   font: 1200 72px/1 system-ui;
   letter-spacing: 1px;
   text-shadow: 0 10px 30px rgba(0,0,0,.55);
 }
 
-/* warning ring (optional DOM element) */
+/* Warning ring */
 .gj-warning-ring{
   position: fixed;
   inset: 18px;
@@ -256,6 +423,7 @@ body.view-vr #gj-layer{ filter: saturate(1.02); }
   opacity:0;
   box-shadow: inset 0 0 0 0 rgba(245,158,11,.0);
 }
+
 body.gj-lowtime .gj-warning-ring{
   opacity: 1;
   animation: gjRing 0.75s ease-in-out infinite;
@@ -270,59 +438,109 @@ body.gj-lowtime5 .gj-warning-ring{
   filter: saturate(1.05);
 }
 
-/* tick pulse */
+/* Tick pulse */
 body.gj-tick{
   filter: brightness(1.05) contrast(1.02);
 }
 
-/* ---- Start overlay (optional) ---- */
-#startOverlay{
+/* ---------- Controls (shoot button) ---------- */
+.hha-controls{
   position: fixed;
-  inset: 0;
-  z-index: 90;
+  left: 0;
+  right: 0;
+  bottom: calc(10px + var(--sab));
   display:flex;
-  align-items:center;
   justify-content:center;
-  padding: 18px;
-  background: radial-gradient(circle at 30% 0%, rgba(56,189,248,.12), transparent 55%),
-              radial-gradient(circle at 90% 90%, rgba(34,197,94,.10), transparent 60%),
-              rgba(2,6,23,.70);
-  backdrop-filter: blur(10px);
+  z-index: 65;
+  pointer-events:none;
 }
-#startOverlay .panel{
-  width:min(520px, 94vw);
-  border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.72);
-  padding: 14px 14px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.40);
-}
-#startOverlay h1{
-  margin: 0 0 8px 0;
-  font: 1100 18px/1.1 system-ui;
-}
-#startOverlay p{
-  margin: 0 0 10px 0;
-  color: var(--muted);
-  font: 700 13px/1.45 system-ui;
-}
-#startOverlay .actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-#startOverlay button{
-  border: 0;
-  border-radius: 14px;
-  padding: 10px 12px;
-  font: 1000 13px/1 system-ui;
-  color: var(--text);
-  background: rgba(148,163,184,.16);
-}
-#startOverlay button.primary{
-  background: rgba(34,197,94,.18);
-  outline: 1px solid rgba(34,197,94,.24);
+.btn-shoot{
+  pointer-events:auto;
+  border: 1px solid rgba(34,211,238,.30);
+  background: rgba(34,211,238,.14);
+  color:#e9fbff;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font: 1100 14px/1 system-ui;
+  cursor:pointer;
+  box-shadow: 0 14px 40px rgba(0,0,0,.35);
 }
 
-/* ---- Make sure nothing blocks FX director/particles layers ---- */
-.gj-danger{ z-index: 40; } /* already inline but keep safe */
+/* In VR/cVR: usually shoot comes from vr-ui.js tap-to-shoot; you may hide this button */
+body.view-vr  .hha-controls,
+body.view-cvr .hha-controls{
+  display:none;
+}
+
+/* ---------- VR Mini HUD ---------- */
+.vr-mini-hud{
+  position: fixed;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(12px + var(--sat));
+  z-index: 62;
+  display:none;
+  pointer-events:none;
+}
+body.view-vr  .vr-mini-hud,
+body.view-cvr .vr-mini-hud{
+  display:block;
+}
+
+.mini-row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+  pointer-events:none;
+}
+.mini-pill{
+  display:flex;
+  gap:8px;
+  align-items:baseline;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(8px);
+}
+.mini-pill span{
+  font: 900 10px/1 system-ui;
+  color: var(--muted);
+  letter-spacing:.25px;
+}
+.mini-pill b{
+  font: 1100 14px/1 system-ui;
+  color: var(--text);
+}
+.mini-btn{
+  pointer-events:auto;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(148,163,184,.12);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 10px;
+  font: 1000 12px/1 system-ui;
+  cursor:pointer;
+}
+
+/* In VR/cVR hide the big HUD by default (optional). Comment out if you want both. */
+body.view-vr  .hha-hud,
+body.view-cvr .hha-hud{
+  display:none;
+}
+
+/* ---------- Start overlay safety (HTML uses inline styles, keep fallback) ---------- */
+#startOverlay{
+  z-index: 200;
+}
+
+/* ---------- Ensure nothing blocks FX layers ---------- */
+.gj-danger{ z-index: 40; } /* danger layer is created in JS; keep below HUD */
+
+/* ---------- Responsive tweaks ---------- */
+@media (max-width: 520px){
+  .hud-stat{ min-width: 78px; }
+  .hud-quest{ min-width: min(92vw, 520px); }
+  .gj-lowtime-num{ font-size: 62px; }
+}
