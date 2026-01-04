@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/practice-tutorial.js ===
-// PACK 68: Practice Tutorial (15s) — prompts + checklist (cVR only)
+// PACK 14: Practice Tutorial (15s) — prompts + checklist (cVR only)
 
 (function(){
   'use strict';
@@ -17,6 +17,7 @@
   }
 
   const S = { good:0, bad:0, didSwitch:false };
+
   function ensure(){
     let el = DOC.querySelector('.practice-hud');
     if (el) return el;
@@ -36,6 +37,7 @@
     DOC.body.appendChild(el);
     return el;
   }
+
   function show(){ ensure().classList.remove('hidden'); }
   function hide(){ ensure().classList.add('hidden'); }
 
@@ -45,12 +47,14 @@
     const txt = el.textContent.replace('✅','⬜');
     el.textContent = ok ? txt.replace('⬜','✅') : txt;
   }
+
   function coach(text, mood='neutral'){
     try{ WIN.dispatchEvent(new CustomEvent('hha:coach',{detail:{text,mood}})); }catch(_){}
   }
 
   function boot(){
     if (!isPractice()) return;
+
     show();
     coach('โหมดฝึก 15 วิ: ยิงถูกให้ได้ 3 ครั้ง แล้วอย่าโดนขยะนะ!', 'neutral');
 
