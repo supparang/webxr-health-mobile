@@ -17,67 +17,59 @@
   <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
-  <!-- ✅ Pre-layout: compute dynamic safe paddings EARLY (before engine boot) -->
-  <script>
-  (function(){
-    const DOC = document;
+  <!-- ✅ Layout variables (default baseline; engine will use #gj-stage rect anyway) -->
+  <style>
+    :root{
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
 
-    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+      /* dynamic measured offsets (JS will update) */
+      --gj-top-dyn: 0px;     /* reserved space above playfield (HUD etc.) */
+      --gj-bot-dyn: 0px;     /* reserved space below playfield (controls etc.) */
 
-    function compute(){
-      const hud = DOC.getElementById('hud');
-      const fever = DOC.getElementById('feverBox');
-      const controls = DOC.querySelector('.hha-controls');
-      const vh = Math.max(480, DOC.documentElement.clientHeight || 640);
-
-      let hudBottom = 0;
-      try{
-        if(hud){
-          const r = hud.getBoundingClientRect();
-          hudBottom = Math.max(0, r.bottom);
-        }
-      }catch(_){}
-
-      let bottomTop = vh;
-      try{
-        const tops = [];
-        if(fever){
-          const r = fever.getBoundingClientRect();
-          tops.push(r.top);
-        }
-        if(controls){
-          const r = controls.getBoundingClientRect();
-          tops.push(r.top);
-        }
-        bottomTop = tops.length ? Math.min.apply(null, tops) : vh;
-      }catch(_){ bottomTop = vh; }
-
-      const topPad = Math.round(Math.max(80, hudBottom + 14));
-      const botPad = Math.round(Math.max(120, (vh - bottomTop) + 14));
-
-      try{
-        DOC.documentElement.style.setProperty('--gj-top-dyn', topPad + 'px');
-        DOC.documentElement.style.setProperty('--gj-bot-dyn', botPad + 'px');
-      }catch(_){}
+      /* extra safety margin around play rect */
+      --gj-pad-x: 12px;
+      --gj-pad-y: 10px;
     }
 
-    // run early + loop briefly to settle fonts/layout
-    let n = 0;
-    function loop(){
-      compute();
-      n++;
-      if(n < 18) requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
+    /* ✅ Stage is the ONLY spawn-safe playfield */
+    #gj-stage{
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      overflow: hidden;
 
-    window.addEventListener('resize', ()=>{ compute(); }, { passive:true });
-    window.addEventListener('orientationchange', ()=>{ setTimeout(compute, 120); }, { passive:true });
-    DOC.addEventListener('visibilitychange', ()=>{ if(DOC.visibilityState==='visible') setTimeout(compute, 60); }, { passive:true });
-  })();
-  </script>
+      /* Safe-area + dynamic reserved zones */
+      padding-top:  calc(var(--sat) + var(--gj-top-dyn) + var(--gj-pad-y));
+      padding-right:calc(var(--sar) + var(--gj-pad-x));
+      padding-bottom:calc(var(--sab) + var(--gj-bot-dyn) + var(--gj-pad-y));
+      padding-left: calc(var(--sal) + var(--gj-pad-x));
+
+      /* let targets be positioned in layers inside */
+      pointer-events: none;
+    }
+
+    /* layers catch clicks */
+    #gj-layer, #gj-layer-r{ pointer-events:auto; }
+
+    /* ✅ If HUD hidden, stage uses no top reserve */
+    body.hud-hidden{
+      --gj-top-dyn: 0px;
+    }
+
+    /* ✅ In VR/cVR, we keep playfield maximal (HUD hidden) */
+    body.view-vr, body.view-cvr{
+      --gj-top-dyn: 0px;
+    }
+
+    /* ✅ ensure overlays can sit above playfield */
+    #startOverlay{ z-index: 200; }
+  </style>
 </head>
 
-<body>
+<body class="view-mobile">
 
   <!-- LOW TIME WARNING RING -->
   <div class="gj-warning-ring" aria-hidden="true"></div>
@@ -131,7 +123,6 @@
         </div>
         <div class="q-progress" id="hud-mini">—</div>
 
-        <!-- (optional) combo slot for engine (safe even if hidden) -->
         <div style="display:none" id="hud-combo">0</div>
       </div>
     </div>
@@ -161,8 +152,8 @@
     </div>
   </div>
 
-  <!-- STAGE -->
-  <div id="gj-stage">
+  <!-- ✅ STAGE = playfield safe rect (engine spawns inside this) -->
+  <div id="gj-stage" aria-hidden="false">
     <div class="gj-eye eye-l">
       <div class="gj-layer" id="gj-layer"></div>
       <div class="gj-crosshair" id="crosshairL"></div>
@@ -175,7 +166,7 @@
   </div>
 
   <!-- CONTROLS -->
-  <div class="hha-controls">
+  <div class="hha-controls" id="controlsBox">
     <button class="btn-shoot" id="btnShoot" type="button">ยิง / TAP</button>
   </div>
 
@@ -210,7 +201,6 @@
           padding:12px 16px;
           font-weight:1200;
           font-size:16px;
-          cursor:pointer;
         ">Start</button>
 
         <button id="btnStartVR" type="button" style="
@@ -221,7 +211,6 @@
           padding:12px 16px;
           font-weight:1200;
           font-size:16px;
-          cursor:pointer;
         ">Enter VR</button>
       </div>
 
@@ -231,7 +220,7 @@
     </div>
   </div>
 
-  <!-- INLINE UI WIRING -->
+  <!-- ✅ INLINE UI + LAYOUT WIRING -->
   <script>
   (function(){
     const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
@@ -241,21 +230,29 @@
     const btnStart  = document.getElementById('btnStart');
     const btnStartVR= document.getElementById('btnStartVR');
 
+    const peek = document.getElementById('peek');
+    const btnMissions = document.getElementById('btnMissions');
+    const btnPeek = document.getElementById('btnPeek');
+    const btnHideHud = document.getElementById('btnHideHud');
+
+    const hud = document.getElementById('hud');
+    const fever = document.getElementById('feverBox');
+    const controls = document.getElementById('controlsBox');
+
     const view = qs('view','mobile');
     const diff = qs('diff','normal');
     const run  = qs('run','play');
     meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
 
+    // --------- START overlay -> boot -----------
     function start(){
       overlay.style.display = 'none';
-
-      // ✅ กัน start เกิดก่อน boot.js โหลด
       window.__HHA_PENDING_START__ = { view };
-
-      // NOTE: boot.js listens to hha:start; engine will emit real hha:start later too
       window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
+      // layout after overlay hides
+      requestAnimationFrame(()=>measureAndApply());
+      setTimeout(measureAndApply, 80);
     }
-
     btnStart.addEventListener('click', start);
 
     btnStartVR.addEventListener('click', ()=>{
@@ -263,18 +260,17 @@
       start();
     });
 
-    // shoot button => engine listens via event (cVR/VR via vr-ui.js, mobile via this)
+    // shoot button => engine listens via event
     document.getElementById('btnShoot').addEventListener('click', ()=>{
       window.dispatchEvent(new CustomEvent('hha:shoot'));
     });
 
     // mission peek close by any tap
-    const peek = document.getElementById('peek');
-    peek.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
+    if(peek) peek.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
 
-    document.getElementById('btnMissions').addEventListener('click', ()=>{
+    function openPeek(){
+      if(!peek) return;
       peek.setAttribute('aria-hidden','false');
-      // show current mission text (mirror HUD to peek)
       try{
         document.getElementById('peekGoal').textContent =
           (document.getElementById('hud-goal')?.textContent || '—') + ' ' +
@@ -283,14 +279,15 @@
         document.getElementById('peekMini').textContent =
           document.getElementById('hud-mini')?.textContent || '—';
       }catch(_){}
-    });
+    }
 
-    document.getElementById('btnPeek').addEventListener('click', ()=>{
-      document.getElementById('btnMissions').click();
-    });
+    if(btnMissions) btnMissions.addEventListener('click', openPeek);
+    if(btnPeek) btnPeek.addEventListener('click', openPeek);
 
-    document.getElementById('btnHideHud').addEventListener('click', ()=>{
+    if(btnHideHud) btnHideHud.addEventListener('click', ()=>{
       document.body.classList.toggle('hud-hidden');
+      measureAndApply();
+      setTimeout(measureAndApply, 60);
     });
 
     // ✅ sync mini HUD from main HUD (VR/cVR)
@@ -302,6 +299,61 @@
       const mt = document.getElementById('miniTime');  if(mt) mt.textContent = t;
       const mg = document.getElementById('miniGrade'); if(mg) mg.textContent = g;
     }, 180);
+
+    // --------- ✅ LAYOUT MEASURE: reserve space so targets never go under HUD/controls ----------
+    function px(n){ return Math.max(0, Math.round(n)) + 'px'; }
+
+    function rect(el){
+      try{
+        if(!el) return null;
+        const st = getComputedStyle(el);
+        if(st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity)===0) return null;
+        return el.getBoundingClientRect();
+      }catch(_){ return null; }
+    }
+
+    function measureAndApply(){
+      try{
+        const b = document.body;
+        const v = (b.classList.contains('view-vr') ? 'vr' :
+                  b.classList.contains('view-cvr') ? 'cvr' :
+                  b.classList.contains('view-pc') ? 'pc' : 'mobile');
+
+        // In VR/cVR: we don’t reserve top dyn (HUD hidden in CSS)
+        if(v==='vr' || v==='cvr' || b.classList.contains('hud-hidden')){
+          document.documentElement.style.setProperty('--gj-top-dyn', '0px');
+        }else{
+          const rh = rect(hud);
+          const rf = rect(fever);
+          let top = 0;
+          if(rh) top = Math.max(top, rh.bottom);
+          // fever usually bottom-right; shouldn’t affect top reserved, but keep safety if it overlaps top
+          if(rf && rf.top < top) top = Math.max(top, rf.bottom);
+          // reserve until bottom edge of top overlays
+          document.documentElement.style.setProperty('--gj-top-dyn', px(top));
+        }
+
+        // Bottom reserve from controls (shoot button), and any bottom overlays
+        let bot = 0;
+        const rc = rect(controls);
+        if(rc){
+          bot = Math.max(bot, (window.innerHeight - rc.top));
+        }
+        // low time overlay is center; ignore
+
+        document.documentElement.style.setProperty('--gj-bot-dyn', px(bot));
+      }catch(_){}
+    }
+
+    // run early (even before start)
+    measureAndApply();
+    window.addEventListener('resize', ()=>{ measureAndApply(); setTimeout(measureAndApply, 80); }, { passive:true });
+    window.addEventListener('orientationchange', ()=>{ setTimeout(measureAndApply, 120); }, { passive:true });
+
+    // if view class changes (boot.js), remeasure
+    const mo = new MutationObserver(()=>{ measureAndApply(); });
+    mo.observe(document.body, { attributes:true, attributeFilter:['class'] });
+
   })();
   </script>
 
