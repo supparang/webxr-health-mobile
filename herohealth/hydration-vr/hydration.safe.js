@@ -1,11 +1,8 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
-// ✅ Quest UI: stage bar + storm checklist + boss bar + toast + callout
-// ✅ Spawn feel: anti-repeat + center-bias in End/Boss
-// ✅ Storm wave burst + EndWindow FX + Boss flash
-// ✅ cVR Aim Assist lockPx adaptive + anti-spam + fair
-// ✅ Research metrics: avg/median RT + spawn/hit counts in summary
-// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
+// Hydration SAFE — PRODUCTION (FULL) — A+B+C
+// ✅ A) Summary shows Avg/Median RT
+// ✅ B) Cardboard HUD less intrusive (handled in HTML CSS; logic safe)
+// ✅ C) Practice 15s for Cardboard/cVR (no scoring / no logging / auto reset)
 
 'use strict';
 
@@ -124,7 +121,7 @@ function centerPoint(){
   return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
 }
 
-// -------------------- FX Helpers (Particles + DOM shock) --------------------
+// -------------------- FX Helpers --------------------
 function pulseBody(cls, ms=140){
   try{
     DOC.body.classList.add(cls);
@@ -158,7 +155,7 @@ function popScore(text='+10'){
   pulseBody('hha-hitfx', 140);
 }
 
-// -------------------- Audio tick (no file needed) --------------------
+// -------------------- Audio tick --------------------
 let AC=null;
 function ensureAC(){
   try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
@@ -201,6 +198,15 @@ function showCallout(on, text='BLOCK NOW!'){
   el.style.display = on ? 'block' : 'none';
 }
 
+// -------------------- Practice badge --------------------
+function setPracticeBadge(on, leftSec){
+  const badge = DOC.getElementById('practiceBadge');
+  const left  = DOC.getElementById('practiceLeft');
+  if (!badge) return;
+  if (left) left.textContent = String(Math.max(0, Math.ceil(leftSec||0)));
+  badge.style.display = on ? 'block' : 'none';
+}
+
 // -------------------- Config --------------------
 const diff = String(qs('diff','normal')).toLowerCase();
 const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
@@ -212,7 +218,11 @@ const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 const logEndpoint = String(qs('log','') || '');
 
-// RNG deterministic-ish
+// ✅ Practice only for Cardboard/cVR
+const PRACTICE_ENABLED = (isCardboard() || isCVR());
+const PRACTICE_SEC = clamp(parseInt(qs('practice', 15),10) || 15, 0, 45);
+
+// RNG
 function hashStr(s){
   s=String(s||''); let h=2166136261;
   for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -263,14 +273,12 @@ const S = {
 
   greenHold:0,
 
-  // Storm/Mini
   stormActive:false,
   stormLeftSec:0,
   stormCycle:0,
   stormSuccess:0,
 
   stormWaveT:0,
-
   endWindowSec:1.2,
   inEndWindow:false,
 
@@ -284,7 +292,6 @@ const S = {
     gotHitByBad:false
   },
 
-  // Boss-mini
   bossEnabled:true,
   bossActive:false,
   bossNeed:2,
@@ -293,18 +300,20 @@ const S = {
   bossWindowSec:2.2,
   bossClearCount:0,
 
-  // End window fx
   endFxOn:false,
   endFxTickAt:0,
 
   adaptiveOn: (run !== 'research'),
   adaptK:0,
 
-  // Mission stage
   stage:1,
   stage1Done:false,
   stage2Done:false,
-  stage3Done:false
+  stage3Done:false,
+
+  // ✅ C) Practice
+  practice: (PRACTICE_ENABLED && PRACTICE_SEC > 0),
+  practiceLeft: PRACTICE_SEC,
 };
 
 const TUNE = (() => {
@@ -393,20 +402,16 @@ function setStage(n){
 }
 
 function syncQuestBars(){
-  // Stage1 bar
   const s1pct = clamp((S.greenHold / Math.max(1e-6, TUNE.greenTargetSec))*100, 0, 100);
   setText('qS1Txt', `${S.greenHold.toFixed(1)}/${TUNE.greenTargetSec.toFixed(0)}s`);
   setWidth('qS1Bar', s1pct);
 
-  // Stage2
   setText('qS2Txt', `${Math.min(1,S.stormSuccess|0)}/1`);
 
-  // Boss progress (within current storm)
   const bossPct = clamp((S.bossBlocked / Math.max(1,S.bossNeed))*100, 0, 100);
   setWidth('qBossBar', bossPct);
   setText('qS3Txt', `${Math.min(1,S.bossClearCount|0)}/1`);
 
-  // checklist (storm)
   const sc = DOC.getElementById('stormChecklist');
   if (sc) sc.style.opacity = S.stormActive ? '1' : '0.45';
 
@@ -415,35 +420,44 @@ function syncQuestBars(){
   setCk('ckPress', !!m.pressureOK);
   setCk('ckEnd', !!m.endWindow);
   setCk('ckBlock', !!m.blockedInEnd);
-  // no-bad: OK when NOT hit bad; BAD when got hit
   const noBad = !m.gotHitByBad;
   setCk('ckNoBad', noBad, !noBad);
 
-  // show block callout only in end window during storm
   showCallout(!!(S.stormActive && S.inEndWindow), 'BLOCK NOW!');
 }
 
 function syncHUD(){
+  // ✅ Practice badge
+  setPracticeBadge(!!S.practice, S.practiceLeft);
+
   const grade = computeGrade();
   setText('stat-score', S.score|0);
   setText('stat-combo', S.combo|0);
   setText('stat-miss', S.misses|0);
-  setText('stat-time', S.leftSec|0);
-  setText('stat-grade', grade);
+  setText('stat-time', S.practice ? '—' : (S.leftSec|0));
+  setText('stat-grade', S.practice ? 'P' : grade);
+
   setText('storm-left', S.stormActive ? (S.stormLeftSec|0) : 0);
   setText('shield-count', S.shield|0);
 
-  // Stage logic
-  S.stage1Done = (S.greenHold >= TUNE.greenTargetSec);
-  S.stage2Done = (S.stormSuccess >= 1);
-  S.stage3Done = (S.bossClearCount >= 1);
+  // Stage logic (skip during practice)
+  if (!S.practice){
+    S.stage1Done = (S.greenHold >= TUNE.greenTargetSec);
+    S.stage2Done = (S.stormSuccess >= 1);
+    S.stage3Done = (S.bossClearCount >= 1);
 
-  if (!S.stage1Done) setStage(1);
-  else if (!S.stage2Done) setStage(2);
-  else if (!S.stage3Done) setStage(3);
+    if (!S.stage1Done) setStage(1);
+    else if (!S.stage2Done) setStage(2);
+    else if (!S.stage3Done) setStage(3);
+  }
 
   // Stage text
-  if (S.stage === 1){
+  if (S.practice){
+    setText('quest-line1', `🧪 PRACTICE ${Math.max(0,Math.ceil(S.practiceLeft))}s (ไม่นับคะแนน/ไม่นับสถิติ)`);
+    setText('quest-line2', `ยิง 💧 เพื่อคุม Water ให้เข้า GREEN + ลอง BLOCK ด้วย 🛡️`);
+    setText('quest-line3', `โหมดฝึก: ไม่มี Storm/Boss, คะแนนไม่ขึ้น`);
+    setText('quest-line4', `ครบเวลาแล้วเริ่มเกมจริงอัตโนมัติ`);
+  } else if (S.stage === 1){
     setText('quest-line1', `Stage 1/3: คุม GREEN ให้ครบ ${TUNE.greenTargetSec|0}s (สะสม)`);
     setText('quest-line2', `GREEN: ${S.greenHold.toFixed(1)} / ${TUNE.greenTargetSec.toFixed(0)}s`);
     setText('quest-line3', `ทิป: ยิง 💧 ให้คุมสมดุลน้ำให้อยู่ GREEN นาน ๆ`);
@@ -481,7 +495,7 @@ function syncHUD(){
     comboMax:S.comboMax|0,
     misses:S.misses|0,
     accuracyGoodPct: computeAccuracy(),
-    grade,
+    grade: (S.practice ? 'P' : grade),
     waterPct:S.waterPct,
     waterZone:S.waterZone,
     shield:S.shield|0,
@@ -490,7 +504,8 @@ function syncHUD(){
     stormCycles:S.stormCycle|0,
     stormSuccess:S.stormSuccess|0,
     bossClearCount:S.bossClearCount|0,
-    stage:S.stage|0
+    stage:S.stage|0,
+    practice: !!S.practice
   });
 
   emit('quest:update', {
@@ -498,7 +513,8 @@ function syncHUD(){
     goalsTotal: 1,
     miniCleared: S.stormSuccess|0,
     miniTotal: S.stormCycle|0,
-    miniUrgent: S.stormActive && S.inEndWindow
+    miniUrgent: S.stormActive && S.inEndWindow,
+    practice: !!S.practice
   });
 }
 
@@ -575,15 +591,20 @@ function pickXY(){
 
 function targetSize(){
   let s = TUNE.sizeBase;
-  if (S.adaptiveOn){
+
+  // Practice: bigger for comfort
+  if (S.practice) s *= 1.08;
+
+  if (S.adaptiveOn && !S.practice){
     const acc = computeAccuracy()/100;
     const c = clamp(S.combo/20, 0, 1);
     const k = clamp(acc*0.7 + c*0.3, 0, 1);
     S.adaptK = k;
     s = s * (1.02 - 0.22*k);
   }
+
   if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
-  return clamp(s,44,86);
+  return clamp(s,44,90);
 }
 
 let lastHitAt=0;
@@ -598,9 +619,11 @@ function spawn(kind){
   const s = targetSize();
   const isBossBad = (kind==='bad' && S.bossEnabled && S.bossActive);
 
-  if (kind==='good') S.nGoodSpawn++;
-  if (kind==='bad') S.nBadSpawn++;
-  if (kind==='shield') S.nShieldSpawn++;
+  if (!S.practice){
+    if (kind==='good') S.nGoodSpawn++;
+    if (kind==='bad') S.nBadSpawn++;
+    if (kind==='shield') S.nShieldSpawn++;
+  }
 
   const life =
     kind==='good' ? TUNE.goodLifeMs :
@@ -639,7 +662,7 @@ function spawn(kind){
     killed=true;
     for (const n of nodes){ try{ n.remove(); }catch(_){ } }
 
-    if (reason==='expire' && kind==='good'){
+    if (reason==='expire' && kind==='good' && !S.practice){
       S.misses += TUNE.missPenalty;
       S.nExpireGood++;
       S.combo=0;
@@ -660,10 +683,18 @@ function spawn(kind){
     const hx = r ? (r.left + r.width/2) : centerPoint().cx;
     const hy = r ? (r.top + r.height/2) : centerPoint().cy;
 
+    // ✅ Practice: feedback only (no score/no stats/no RT)
+    if (S.practice){
+      if (kind==='good'){ pulseBody('hha-hitfx', 90); tickBeep(1100, 0.03, 0.04); }
+      else if (kind==='shield'){ pulseBody('hha-hitfx', 90); tickBeep(900, 0.03, 0.04); }
+      else { shockAt(hx, hy); tickBeep(240, 0.04, 0.05); }
+      return;
+    }
+
     if (kind==='good'){
       S.nHitGood++;
 
-      // ✅ RT capture (good only)
+      // RT
       let rt = null;
       try{
         const sp = Number(srcEl?.dataset?.spawnAt || 0);
@@ -747,19 +778,28 @@ function spawn(kind){
 // -------------------- Storm + spawn loop --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-  if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
+
+  // Practice: slower & calmer
+  if (S.practice) base *= 1.12;
+
+  if (S.adaptiveOn && !S.practice) base *= (1.00 - 0.25*S.adaptK);
 
   if (S.stormActive){
     base *= TUNE.stormSpawnMul;
 
-    // ✅ burst wave: every ~1.2s create a quick burst feel
-    const w = (Math.sin(S.stormWaveT * Math.PI * 2 / 1.2) + 1) / 2; // 0..1
+    const w = (Math.sin(S.stormWaveT * Math.PI * 2 / 1.2) + 1) / 2;
     base *= (0.82 - 0.18*w);
   }
 
-  return clamp(base, 190, 1200);
+  return clamp(base, 200, 1300);
 }
+
 function pickKind(){
+  // Practice: only good/shield (no bad)
+  if (S.practice){
+    return (rng() < 0.16) ? 'shield' : 'good';
+  }
+
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
   if (S.stormActive){
@@ -784,6 +824,8 @@ function setEndFx(on){
 }
 
 function enterStorm(){
+  if (S.practice) return; // ✅ no storm in practice
+
   S.stormActive=true;
   S.stormLeftSec=TUNE.stormDurSec;
   S.stormCycle++;
@@ -969,6 +1011,10 @@ function fillSummary(sum){
   set('rStormOk', sum.stormSuccess|0);
   set('rStormRate', `${Number(sum.stormRatePct||0).toFixed(0)}%`);
 
+  // ✅ A) RT metrics shown
+  set('rAvgRt', `${sum.avgRtGoodMs|0} ms`);
+  set('rMedRt', `${sum.medianRtGoodMs|0} ms`);
+
   const tier=computeTier(sum);
   const {tips,next}=buildTips(sum);
   const rTips=DOC.getElementById('rTips');
@@ -1031,7 +1077,7 @@ function nextStormSchedule(){
 let spawnTimer=0;
 let nextStormIn=0;
 
-// -------------------- Aim Assist for cVR (crosshair) --------------------
+// -------------------- Aim Assist for cVR --------------------
 function hitTestAtCenter(lockPx){
   const { cx, cy } = centerPoint();
   const targets = Array.from(DOC.querySelectorAll('.hvr-target'));
@@ -1058,6 +1104,8 @@ function hitTestAtCenter(lockPx){
 const AIM = { base:56, min:32, max:86, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
 
 function aimLockPx(){
+  if (S.practice) return 72;
+
   const accK = clamp(computeAccuracy()/100, 0, 1);
   const comboK = clamp(S.combo/22, 0, 1);
   let skill = clamp(accK*0.72 + comboK*0.28, 0, 1);
@@ -1095,12 +1143,15 @@ window.addEventListener('hha:shoot', ()=>{
 
   if (!el){
     registerShot(false);
-    // ✅ cVR miss costs tiny pressure
-    S.score = Math.max(0, S.score - 1);
-    S.combo = 0;
-    emit('hha:judge', { kind:'miss' });
-    pulseBody('hha-hitfx', 90);
-    syncHUD();
+    if (!S.practice){
+      S.score = Math.max(0, S.score - 1);
+      S.combo = 0;
+      emit('hha:judge', { kind:'miss' });
+      pulseBody('hha-hitfx', 90);
+      syncHUD();
+    } else {
+      tickBeep(280, 0.03, 0.04);
+    }
     return;
   }
 
@@ -1108,10 +1159,81 @@ window.addEventListener('hha:shoot', ()=>{
   try{ el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true })); }catch(_){}
 }, { passive:true });
 
+// -------------------- Practice reset -> Real run --------------------
+function clearAllTargets(){
+  try{
+    DOC.querySelectorAll('.hvr-target').forEach(el=>{ try{ el.remove(); }catch(_){ } });
+  }catch(_){}
+}
+
+function resetForRealRun(){
+  // clear targets + reset stats
+  clearAllTargets();
+
+  S.practice = false;
+  S.practiceLeft = 0;
+  setPracticeBadge(false, 0);
+
+  S.leftSec = timeLimit;
+
+  S.score=0; S.combo=0; S.comboMax=0; S.misses=0;
+  S.nGoodSpawn=0; S.nBadSpawn=0; S.nShieldSpawn=0;
+  S.nHitGood=0; S.nHitBad=0; S.nHitBadGuard=0; S.nExpireGood=0;
+  S.rtGood = [];
+  S.streakGood=0; S.streakMax=0;
+
+  S.waterPct=50; updateZone();
+  S.shield=0;
+
+  S.greenHold=0;
+
+  S.stormActive=false; S.stormLeftSec=0; S.stormCycle=0; S.stormSuccess=0;
+  S.stormWaveT=0;
+  S.inEndWindow=false;
+  S.miniState={
+    zoneOK:false, pressure:0, pressureOK:false, endWindow:false, blockedInEnd:false, doneThisStorm:false, gotHitByBad:false
+  };
+
+  S.bossActive=false; S.bossNeed=2; S.bossBlocked=0; S.bossDoneThisStorm=false; S.bossClearCount=0;
+
+  S.stage=1; S.stage1Done=false; S.stage2Done=false; S.stage3Done=false;
+
+  // restart schedules
+  spawnTimer = 240;
+  nextStormIn = nextStormSchedule();
+
+  toast('✅ START REAL RUN!', 900);
+  tickBeep(1300, 0.06, 0.07);
+  pulseBody('hha-hitfx', 180);
+  syncHUD();
+}
+
 // -------------------- Update loop --------------------
 function update(dt){
   if (!S.started || S.ended) return;
 
+  // Practice countdown
+  if (S.practice){
+    S.practiceLeft = Math.max(0, S.practiceLeft - dt);
+    setPracticeBadge(true, S.practiceLeft);
+
+    // spawn only calm targets; no storm
+    spawnTimer -= dt*1000;
+    while (spawnTimer <= 0){
+      spawn(pickKind());
+      spawnTimer += nextSpawnDelay();
+    }
+
+    syncHUD();
+
+    if (S.practiceLeft <= 0.0001){
+      toast('🔥 GO!', 650);
+      resetForRealRun();
+    }
+    return;
+  }
+
+  // real run
   S.leftSec = Math.max(0, S.leftSec - dt);
 
   if (S.waterZone==='GREEN') S.greenHold += dt;
@@ -1152,6 +1274,7 @@ function update(dt){
 async function endGame(reason){
   if (S.ended) return;
   S.ended = true;
+
   setEndFx(false);
   DOC.body.classList.remove('hha-bossfx');
   showCallout(false);
@@ -1193,7 +1316,7 @@ async function endGame(reason){
     greenHoldSec: Number(S.greenHold||0),
     reason: reason || 'end',
 
-    // ✅ research metrics
+    // ✅ A) research metrics
     avgRtGoodMs: Math.round(avg(S.rtGood || [])),
     medianRtGoodMs: Math.round(median(S.rtGood || [])),
 
@@ -1226,7 +1349,8 @@ function boot(){
   syncWaterPanelDOM();
   bindSummaryButtons();
 
-  spawnTimer = 320;
+  // init schedules
+  spawnTimer = 280;
   nextStormIn = nextStormSchedule();
 
   window.addEventListener('hha:start', ()=>{
@@ -1234,9 +1358,16 @@ function boot(){
     S.started=true;
     S.t0=performance.now();
     S.lastTick=S.t0;
+
+    if (S.practice){
+      toast(`🧪 PRACTICE ${PRACTICE_SEC}s`, 950);
+      tickBeep(900, 0.05, 0.06);
+    } else {
+      toast('✅ START!', 700);
+    }
+
     syncHUD();
     AICOACH.onStart();
-    toast('✅ START!', 700);
 
     function raf(t){
       if (S.ended) return;
