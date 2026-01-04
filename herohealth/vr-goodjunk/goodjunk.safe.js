@@ -1,5 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — PRODUCTION (C+FX PATCH + TWO-EYE + cVR SHOOT) — FULL (LATEST)
+// ✅ Anti-double-hit A: pid guard + doc click capture stopPropagation + shoot cooldown
 // ✅ FX: supports OLD + NEW Particles API (adapter)
 // ✅ Emits: hha:judge / hha:score / hha:miss / hha:end for global FX Director
 // ✅ MISS = good expired + junk hit (shield blocks junk miss => NO miss)
@@ -8,9 +9,8 @@
 // ✅ RT: avg / median / fast% + breakdown JSON
 // ✅ VR-safe: no shake in VR/cVR, lighter FX frequency
 // ✅ TWO-EYE: spawn pair L/R in VR/cVR + click/shoot removes BOTH + expire removes BOTH (miss counted once)
-// ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center (LEFT eye center)
+// ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center
 // ✅ FALLBACK: target visible even if CSS fails (force absolute + injected fallback styles)
-// ✅ PATCH A+: BOTH layers clickable + anti double-hit (pid/time guard) + no document click listener
 
 'use strict';
 
@@ -93,7 +93,7 @@ function medianOf(arr){
 // -------------------------
 const HUD = {
   score: byId('hud-score'),
-  combo: byId('hud-combo'), // (optional)
+  combo: byId('hud-combo'),
   miss:  byId('hud-miss'),
   time:  byId('hud-time'),
   grade: byId('hud-grade'),
@@ -155,9 +155,7 @@ function ensureDangerLayer(){
   }
   return el;
 }
-function isVRView(view){
-  return view === 'vr' || view === 'cvr';
-}
+function isVRView(view){ return view === 'vr' || view === 'cvr'; }
 function setDanger(level01, view){
   const layer = ensureDangerLayer();
   const lv = clamp(level01, 0, 1);
@@ -169,11 +167,8 @@ function setDanger(level01, view){
   }
   layer.style.opacity = String(0.10 + 0.22*lv);
   layer.style.animation = `gjPulse ${lv>0.75?0.55:0.75}s ease-in-out infinite`;
-
-  // ✅ VR-safe: NO shake in VR/cVR
   if(!isVRView(view) && lv > 0.82) DOC.body.classList.add('gj-shake');
   else DOC.body.classList.remove('gj-shake');
-
   emit('hha:danger', { level: lv });
 }
 
@@ -239,12 +234,8 @@ function makeFx(view){
       lastPopAt = t;
       try{ Particles.scorePop && Particles.scorePop(cx, cy, text, tag); }catch(_){}
     },
-    toast(text,tag){
-      try{ Particles.toast && Particles.toast(text, tag); }catch(_){}
-    },
-    celebrate(payload){
-      try{ Particles.celebrate && Particles.celebrate(payload); }catch(_){}
-    }
+    toast(text,tag){ try{ Particles.toast && Particles.toast(text, tag); }catch(_){} },
+    celebrate(payload){ try{ Particles.celebrate && Particles.celebrate(payload); }catch(_){} }
   };
 }
 
@@ -289,11 +280,7 @@ function lowtimeTickPulse(secCeil){
 // Fever + Shield UI render
 // -------------------------
 function feverInit(){
-  return {
-    fill: byId('feverFill'),
-    text: byId('feverText'),
-    pills: byId('shieldPills'),
-  };
+  return { fill: byId('feverFill'), text: byId('feverText'), pills: byId('shieldPills') };
 }
 function feverCompute(state, missLimit){
   const missP = clamp(state.miss / Math.max(1, missLimit), 0, 1);
@@ -333,9 +320,7 @@ function diffCfg(diff){
   return base[diff] || base.normal;
 }
 function gradeFrom({acc, miss, comboMax}){
-  const a = Number(acc)||0;
-  const m = Number(miss)||0;
-  const c = Number(comboMax)||0;
+  const a = Number(acc)||0, m = Number(miss)||0, c = Number(comboMax)||0;
   if(a >= 92 && m <= 2 && c >= 10) return 'SSS';
   if(a >= 88 && m <= 3) return 'SS';
   if(a >= 82 && m <= 4) return 'S';
@@ -343,9 +328,7 @@ function gradeFrom({acc, miss, comboMax}){
   if(a >= 60 && m <= 8) return 'B';
   return 'C';
 }
-function pickGoal(cfg){
-  return { type:'collect_good', title:'เก็บของดี', target: cfg.goodTarget, cur:0, done:false };
-}
+function pickGoal(cfg){ return { type:'collect_good', title:'เก็บของดี', target: cfg.goodTarget, cur:0, done:false }; }
 function pickMiniSequence(){
   return [
     { type:'streak_good', title:'เก็บดีติดกัน', target:3, cur:0, done:false },
@@ -354,17 +337,14 @@ function pickMiniSequence(){
   ];
 }
 function resetMini(m){ m.cur=0; m.done=false; }
-
 function miniOnGoodHit(state, rtMs){
   const m = state.mini; if(!m || m.done) return;
   if(m.type==='streak_good'){
-    m.cur++;
-    if(m.cur>=m.target){ m.done=true; state.miniCleared++; emit('quest:update',{mini:m}); }
+    m.cur++; if(m.cur>=m.target){ m.done=true; state.miniCleared++; emit('quest:update',{mini:m}); }
   }else if(m.type==='fast_hits'){
     const thr = 560;
     if(rtMs!=null && rtMs<=thr){
-      m.cur++;
-      if(m.cur>=m.target){ m.done=true; state.miniCleared++; emit('quest:update',{mini:m}); }
+      m.cur++; if(m.cur>=m.target){ m.done=true; state.miniCleared++; emit('quest:update',{mini:m}); }
     }
   }
 }
@@ -388,18 +368,11 @@ function miniTick(state, dtSec){
 function advanceMini(state, cause='init'){
   if(state.mini && !state.mini.done) return;
   state.miniIndex++;
-  if(state.miniIndex >= state.miniSeq.length){
-    state.mini = null;
-    return;
-  }
+  if(state.miniIndex >= state.miniSeq.length){ state.mini = null; return; }
   state.mini = state.miniSeq[state.miniIndex];
   resetMini(state.mini);
   emit('quest:update',{mini:state.mini});
-
-  if(cause !== 'init'){
-    state.burstQueue = Math.max(state.burstQueue, 3);
-    state.burstCooldown = 0.0;
-  }
+  if(cause !== 'init'){ state.burstQueue = Math.max(state.burstQueue, 3); state.burstCooldown = 0.0; }
 }
 
 // -------------------------
@@ -411,7 +384,6 @@ function createTargetEl(kind, emoji){
   el.dataset.kind = kind;
   el.textContent = emoji;
 
-  // ✅ fallback style
   el.style.position = 'absolute';
   el.style.transform = 'translate(-50%,-50%)';
   el.style.fontSize = (kind==='star' || kind==='shield') ? '46px' : '52px';
@@ -536,9 +508,8 @@ export function boot(opts={}){
   const layer  = byId('gj-layer');
   if(!layer){ console.error('GoodJunkVR: missing #gj-layer'); return; }
 
-  const layerR = byId('gj-layer-r'); // right eye layer (VR/cVR)
+  const layerR = byId('gj-layer-r');
 
-  // fallback: ensure layers
   const ensureLayerBox = (el)=>{
     if(!el) return;
     const cs = getComputedStyle(el);
@@ -601,7 +572,7 @@ export function boot(opts={}){
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion:'gj-2026-01-04A-bothclick'
+    gameVersion:'gj-2026-01-04A-antiDouble'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
@@ -637,28 +608,12 @@ export function boot(opts={}){
 
   let ended = false;
 
-  // -------------------------
-  // INPUT GUARD (anti double-hit) — for BOTH L/R
-  // -------------------------
-  let inputLockUntil = 0;
-  let lastHitPid = null;
-  let lastHitAt = 0;
-
-  function canAcceptHit(pid){
-    const t = performance.now();
-    if(t < inputLockUntil) return false;
-    // pid-based: กัน L/R ยิง pid เดิมติดกัน
-    if(pid && pid === lastHitPid && (t - lastHitAt) < 160) return false;
-    inputLockUntil = t + 75;
-    lastHitPid = pid;
-    lastHitAt = t;
-    return true;
-  }
-
   // Pair management
   let pairSeq = 1;
   const pairMap = new Map();     // pid -> { kind, l, r, bornAt, expireT }
   const elToPid = new WeakMap(); // element -> pid
+
+  function nextPid(){ return String(pairSeq++); }
   function pairRemove(pid){
     const p = pairMap.get(pid);
     if(!p) return;
@@ -669,9 +624,29 @@ export function boot(opts={}){
   }
   function pairFromEl(el){ return el ? elToPid.get(el) : null; }
 
-  function onTargetClick(e){
-    try{ e?.preventDefault?.(); e?.stopPropagation?.(); }catch(_){}
+  // ------------------------------------------------------------
+  // ✅ A) Anti-double-hit guard (pid-based)
+  // - Prevents double scoring when both eyes / bubbling / doc click fire together
+  // ------------------------------------------------------------
+  const __pidConsumedAt = new Map(); // pid -> ms
+  function consumePidOnce(pid){
+    if(!pid) return false;
+    const t = performance.now();
+    const last = __pidConsumedAt.get(pid);
+    if(last != null && (t - last) < 350) return false;
+    __pidConsumedAt.set(pid, t);
+    if(__pidConsumedAt.size > 300){
+      for(const [k, v] of __pidConsumedAt.entries()){
+        if(t - v > 2500) __pidConsumedAt.delete(k);
+      }
+    }
+    return true;
+  }
 
+  // Extra: guard shoot spam
+  let __lastShootAt = 0;
+
+  function onTargetClick(e){
     const el0 = e?.target;
     if(!el0) return;
     if(state.phase !== 'practice' && state.phase !== 'play') return;
@@ -682,11 +657,11 @@ export function boot(opts={}){
     const pid = pairFromEl(targetEl) || targetEl.dataset.pid || null;
     if(!pid) return;
 
+    // ✅ A) one-hit-per-pid (สำคัญมาก)
+    if(!consumePidOnce(pid)) return;
+
     const p = pairMap.get(pid);
     if(!p) return;
-
-    // ✅ anti double-hit
-    if(!canAcceptHit(pid)) return;
 
     const kind = p.kind;
     const tNow = nowMs();
@@ -755,8 +730,7 @@ export function boot(opts={}){
         emit('hha:score', { score: 0, x: cx, y: cy });
 
         logEvent('hit_junk_practice', { score: state.score, miss: state.miss });
-      }
-      else {
+      } else {
         if(state.shieldSec > 0){
           state.nHitJunkGuard++;
           state.score = Math.max(0, state.score - 1);
@@ -821,18 +795,21 @@ export function boot(opts={}){
 
     if(state.phase === 'play'){
       setDanger(clamp((state.miss / Math.max(1, missLimit)), 0, 1), view);
-      if(state.miss >= missLimit){
-        endGame('missLimit');
-      }
+      if(state.miss >= missLimit) endGame('missLimit');
     }
   }
 
-  // ✅ BOTH layers clickable (and guarded)
+  // ✅ click handlers (2 ฝั่ง)
   layer.addEventListener('click', onTargetClick, { passive:false });
   if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
 
-  // ❌ NO document click listener (avoid double fire)
-  // DOC.addEventListener('click', ...) removed
+  // ✅ capture doc click เพื่อกัน bubbling ซ้อน
+  DOC.addEventListener('click', (e)=>{
+    const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
+    if(!t) return;
+    try{ e.preventDefault(); e.stopPropagation(); }catch(_){}
+    onTargetClick({ target: t });
+  }, { capture:true, passive:false });
 
   function spawnOne(forceKind=null){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
@@ -844,11 +821,9 @@ export function boot(opts={}){
       const starP = cfg.starP ?? 0.06;
       const shieldP = cfg.shieldP ?? 0.05;
 
-      if(r < shieldP){
-        kind = 'shield';
-      } else if(r < shieldP + starP){
-        kind = 'star';
-      } else {
+      if(r < shieldP) kind = 'shield';
+      else if(r < shieldP + starP) kind = 'star';
+      else {
         const baseJR = (cfg.junkRatio ?? 0.40);
         const aiJR = clamp(baseJR + (state.__aiJunkDelta || 0), 0.18, 0.70);
         kind = (state.rng() < aiJR) ? 'junk' : 'good';
@@ -897,6 +872,7 @@ export function boot(opts={}){
     const born = nowMs();
     elL.dataset.bornAt = String(born);
     if(elR) elR.dataset.bornAt = String(born);
+    state.lastSpawnAtMs = born;
 
     layer.appendChild(elL);
     if(layerR && elR) layerR.appendChild(elR);
@@ -922,8 +898,11 @@ export function boot(opts={}){
         if(state.phase === 'practice'){
           state.nExpireGood++;
           logEvent('expire_good_practice', {});
-        } else {
-          if(state.graceSec <= 0){
+        }
+        else {
+          if(state.graceSec > 0){
+            // no miss during grace
+          }else{
             state.nExpireGood++;
             state.miss++;
             state.combo = 0;
@@ -952,13 +931,10 @@ export function boot(opts={}){
     if(p0) p0.expireT = expireT;
   }
 
-  // cVR shoot: use LEFT eye center (half-left)
+  // cVR shoot
   function pickByCrosshair(lockPx=46){
-    const W = DOC.documentElement.clientWidth;
-    const H = DOC.documentElement.clientHeight;
-    const cx = (view==='vr' || view==='cvr') ? (W * 0.25) : (W * 0.5);
-    const cy = H * 0.5;
-
+    const cx = DOC.documentElement.clientWidth * 0.5;
+    const cy = DOC.documentElement.clientHeight * 0.5;
     let bestPid = null;
     let bestD2 = lockPx * lockPx;
 
@@ -978,22 +954,20 @@ export function boot(opts={}){
     }
     return bestPid;
   }
-
   function shoot(){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
-    const W = DOC.documentElement.clientWidth;
-    const halfW = Math.max(1, W * 0.5);
-    let lock = Math.round(halfW * 0.06);
-    lock = clamp(lock, 44, 78);
+    const t = performance.now();
+    if(t - __lastShootAt < (isVRView(view) ? 85 : 55)) return; // ✅ กันยิงรัว
+    __lastShootAt = t;
 
+    const lock = (view === 'cvr' || view === 'vr') ? 58 : 46;
     const pid = pickByCrosshair(lock);
     if(!pid) return;
-
     const p = pairMap.get(pid);
     const el = p?.l;
     if(!el) return;
-    onTargetClick({ target: el, preventDefault(){}, stopPropagation(){} });
+    onTargetClick({ target: el });
   }
   ROOT.addEventListener('hha:shoot', shoot, { passive:true });
 
@@ -1106,7 +1080,6 @@ export function boot(opts={}){
         aiAcc += dt;
         if(aiAcc >= 1.0){
           aiAcc = 0;
-
           const denom = (state.nHitGood + state.nExpireGood);
           const accGood = denom > 0 ? (state.nHitGood / denom) * 100 : 0;
 
@@ -1150,9 +1123,7 @@ export function boot(opts={}){
     DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
     if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
-    for(const pid of pairMap.keys()){
-      pairRemove(pid);
-    }
+    for(const pid of pairMap.keys()) pairRemove(pid);
 
     const denom = (state.nHitGood + state.nExpireGood);
     const accGood = denom > 0 ? (state.nHitGood / denom) * 100 : 0;
@@ -1213,7 +1184,7 @@ export function boot(opts={}){
       studyId: opts.studyId || null,
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
-      gameVersion:'gj-2026-01-04A-bothclick',
+      gameVersion:'gj-2026-01-04A-antiDouble',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
@@ -1243,7 +1214,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-04A-bothclick',
+          gameVersion:'gj-2026-01-04A-antiDouble',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
