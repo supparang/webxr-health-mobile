@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — V2.2 (safe UI-start + VR UI preload + FX wait (NEW API) + flush-hardened)
+// GoodJunkVR Boot — V2 (safe start + VR UI preload + FX wait)
 
 'use strict';
 
@@ -36,20 +36,14 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-async function waitForFxReady(timeoutMs=800){
-  // NEW: accept both "old" (burstAt/scorePop) and "new" (burst/popText/shockwave)
+// ✅ wait a bit so FX module is ready (prevents “effect missing”)
+async function waitForFxReady(timeoutMs=600){
   const t0 = performance.now();
   while(performance.now() - t0 < timeoutMs){
-    const P = (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || ROOT.Particles;
-    if(P){
-      const ok =
-        (typeof P.burstAt === 'function') ||
-        (typeof P.scorePop === 'function') ||
-        (typeof P.burst === 'function') ||
-        (typeof P.popText === 'function') ||
-        (typeof P.shockwave === 'function');
-      if(ok) return true;
-    }
+    const P =
+      (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+      ROOT.Particles;
+    if(P && (typeof P.burstAt === 'function' || typeof P.scorePop === 'function')) return true;
     await new Promise(r=>setTimeout(r, 30));
   }
   return false;
@@ -64,8 +58,8 @@ async function startEngine(opts={}){
 
   if(view === 'vr' || view === 'cvr') ensureVrUi();
 
-  // wait for particles + director (best-effort)
-  await waitForFxReady(800);
+  // ✅ give particles a short chance to load
+  await waitForFxReady(600);
 
   const payload = {
     view,
@@ -89,7 +83,7 @@ async function startEngine(opts={}){
   }
 }
 
-// overlay might fire before module loaded
+// ✅ If overlay fired start before boot loaded
 function consumePendingStart(){
   const d = ROOT.__HHA_PENDING_START__;
   if(d && !started){
@@ -98,24 +92,25 @@ function consumePendingStart(){
   }
 }
 
-// ✅ listen: UI start (from overlay script)
-ROOT.addEventListener('hha:ui-start', (ev)=>{
+// ✅ listen: hha:start from overlay
+ROOT.addEventListener('hha:start', (ev)=>{
   const view = ev?.detail?.view || qs('view','mobile');
   startEngine({ view });
 }, { passive:true });
 
+// ✅ recover pending start
 if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
   queueMicrotask(consumePendingStart);
 }else{
   DOC.addEventListener('DOMContentLoaded', consumePendingStart, { once:true });
 }
 
-// preload VR UI when user clicks Enter VR
+// ✅ preload VR UI when user clicks "Enter VR" on overlay
 ROOT.addEventListener('hha:enter-cvr', ()=>{
   ensureVrUi();
 }, { passive:true });
 
-// safety fallback: autostart if overlay missing
+// ✅ safety fallback
 setTimeout(()=>{
   if(started) return;
   const overlay = DOC.getElementById('startOverlay');
@@ -124,8 +119,3 @@ setTimeout(()=>{
     startEngine({ view: qs('view','mobile') });
   }
 }, 900);
-
-// ✅ flush-hardened on pagehide (extra safety)
-ROOT.addEventListener('pagehide', ()=>{
-  try{ ROOT.dispatchEvent(new CustomEvent('hha:flush-all', { detail:{ reason:'pagehide' } })); }catch(_){}
-}, { passive:true });
