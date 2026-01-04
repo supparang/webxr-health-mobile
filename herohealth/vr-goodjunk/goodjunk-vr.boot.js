@@ -1,80 +1,122 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — V2 (safe start + VR UI preload + FX wait) — PATCHED
-// ✅ Set body view from URL
-// ✅ VR UI auto load for vr/cvr
-// ✅ Wait for FX layer best-effort
-// ✅ Autostart if no overlay
+// GoodJunkVR Boot — PRODUCTION (LATEST)
+// ✅ sets view class (pc/mobile/vr/cvr)
+// ✅ ensures cVR uses split layer (aria-hidden toggle)
+// ✅ loads vr-ui.js only for vr/cvr (crosshair + enter/exit/recenter + hha:shoot)
+// ✅ waits for FX (Particles) briefly before starting engine
+// ✅ hooks keyboard shoot (Space/Enter) for testing
+// ✅ calls goodjunk.safe.js boot(payload)
+// ✅ start-once guard
 
 'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
+const DOC = document;
 const ROOT = window;
-const DOC  = document;
 
 function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
+
 function normalizeView(v){
-  v = String(v||'').toLowerCase();
-  if(v==='pc') return 'pc';
-  if(v==='vr') return 'vr';
-  if(v==='cvr') return 'cvr';
+  v = String(v || '').toLowerCase();
+  if(v === 'pc') return 'pc';
+  if(v === 'vr') return 'vr';
+  if(v === 'cvr') return 'cvr';
   return 'mobile';
 }
+
 function setBodyView(view){
   const b = DOC.body;
-  if(!b) return;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add('view-'+view);
+  b.classList.add('view-' + view);
 }
 
-let started = false;
+function applyView(){
+  const view = normalizeView(qs('view','mobile'));
+  setBodyView(view);
 
+  // toggle R layer aria for accessibility
+  const r = DOC.getElementById('gj-layer-r');
+  if(r){
+    r.setAttribute('aria-hidden', view === 'cvr' ? 'false' : 'true');
+  }
+  return view;
+}
+
+// --- VR UI loader (only for vr/cvr) ---
 function ensureVrUi(){
   if(ROOT.__HHA_VRUI_LOADED) return;
   ROOT.__HHA_VRUI_LOADED = true;
+
+  // if already in DOM, don't inject again
+  const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js') || (s.src || '').endsWith('vr-ui.js'));
+  if(exists) return;
+
   const s = DOC.createElement('script');
   s.src = '../vr/vr-ui.js';
   s.defer = true;
   DOC.head.appendChild(s);
 }
 
-async function waitForFxReady(timeoutMs=600){
+// --- FX ready wait (Particles adapter in safe.js uses window.Particles or window.GAME_MODULES.Particles) ---
+async function waitForFxReady(timeoutMs=650){
   const t0 = performance.now();
   while(performance.now() - t0 < timeoutMs){
     const P =
       (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
       ROOT.Particles;
     if(P && (typeof P.burstAt === 'function' || typeof P.scorePop === 'function' || typeof P.popText === 'function')) return true;
-    await new Promise(r=>setTimeout(r, 30));
+    await new Promise(r => setTimeout(r, 30));
   }
   return false;
 }
 
-async function startEngine(opts={}){
-  if(started) return;
-  started = true;
+// --- debug keys ---
+function bindDebugKeys(){
+  if(ROOT.__GJ_DEBUG_KEYS__) return;
+  ROOT.__GJ_DEBUG_KEYS__ = true;
 
-  const view = normalizeView(opts.view || qs('view','mobile'));
-  setBodyView(view);
+  ROOT.addEventListener('keydown', (e)=>{
+    const k = e.key || '';
+    if(k === ' ' || k === 'Enter'){
+      e.preventDefault?.();
+      try{ ROOT.dispatchEvent(new CustomEvent('hha:shoot')); }catch(_){}
+    }
+  }, { passive:false });
+}
 
+// --- start once ---
+let __started = false;
+
+async function start(){
+  if(__started) return;
+  __started = true;
+
+  const view = applyView();
+  bindDebugKeys();
+
+  // VR/cVR: ensure vr-ui (crosshair + enter/exit/recenter)
   if(view === 'vr' || view === 'cvr') ensureVrUi();
 
-  await waitForFxReady(600);
+  // Wait FX briefly (particles.js is defer)
+  await waitForFxReady(650);
 
+  // Engine boot with payload (optional overrides)
   const payload = {
     view,
-    diff: (qs('diff','normal')||'normal'),
-    run:  (qs('run','play')||'play'),
-    time: Number(qs('time','80')||80),
+    diff: String(qs('diff','normal') || 'normal'),
+    run:  String(qs('run','play') || 'play'),
+    time: Number(qs('time','80') || 80),
     seed: qs('seed', null),
     hub:  qs('hub', null),
 
-    studyId: qs('study', qs('studyId', null)),
+    // research/meta passthrough
+    studyId: qs('studyId', qs('study', null)),
     phase: qs('phase', null),
-    conditionGroup: qs('cond', qs('conditionGroup', null)),
+    conditionGroup: qs('conditionGroup', qs('cond', null)),
   };
 
   console.debug('[GoodJunkVR boot] start', payload);
@@ -82,38 +124,22 @@ async function startEngine(opts={}){
   try{
     engineBoot(payload);
   }catch(err){
-    console.error('GoodJunkVR engineBoot error:', err);
+    console.error('[GoodJunkVR boot] engineBoot error:', err);
+  }
+
+  // gentle tip (optional) — does not require any coach UI, only emits event
+  if(view === 'vr' || view === 'cvr'){
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:coach', { detail:{
+        kind:'tip',
+        msg:'โหมด VR: เล็งกลางจอแล้วแตะ/คลิกเพื่อยิง (crosshair) — ระบบ spawn แบบ HUD-safe แล้ว',
+      }}));
+    }catch(_){}
   }
 }
 
-function consumePendingStart(){
-  const d = ROOT.__HHA_PENDING_START__;
-  if(d && !started){
-    ROOT.__HHA_PENDING_START__ = null;
-    startEngine({ view: d.view });
-  }
-}
-
-ROOT.addEventListener('hha:start', (ev)=>{
-  const view = ev?.detail?.view || qs('view','mobile');
-  startEngine({ view });
-}, { passive:true });
-
-if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
-  queueMicrotask(consumePendingStart);
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', start, { once:true });
 }else{
-  DOC.addEventListener('DOMContentLoaded', consumePendingStart, { once:true });
+  start();
 }
-
-ROOT.addEventListener('hha:enter-cvr', ()=>{
-  ensureVrUi();
-}, { passive:true });
-
-setTimeout(()=>{
-  if(started) return;
-  const overlay = DOC.getElementById('startOverlay');
-  if(!overlay){
-    console.warn('[GoodJunkVR boot] overlay missing -> autostart');
-    startEngine({ view: qs('view','mobile') });
-  }
-}, 900);
