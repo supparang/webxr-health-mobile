@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Balanced Plate VR Launcher</title>
+  <title>HeroHealth — Plate VR Launcher</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
   <style>
     :root{
+      color-scheme: dark;
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
       --panel2:rgba(15,23,42,.70);
@@ -17,8 +18,12 @@
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
       --radius:22px;
       --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -27,127 +32,156 @@
 
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; width:100%; height:100%;
-      background:var(--bg);
-      color:var(--text);
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
       font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
 
     .bg{
       position:fixed; inset:0;
       background:
-        radial-gradient(circle at 15% 10%, rgba(34,211,238,.14), transparent 42%),
-        radial-gradient(circle at 85% 20%, rgba(167,139,250,.12), transparent 44%),
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
+        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
+        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
         linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
       pointer-events:none;
     }
 
     .wrap{
-      position:relative;
-      min-height:100%;
-      padding: calc(18px + var(--sat)) calc(18px + var(--sar))
-               calc(18px + var(--sab)) calc(18px + var(--sal));
+      position:fixed; inset:0;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
       display:grid;
       place-items:center;
-    }
-
-    .panel{
-      width:min(980px,100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:18px;
-      box-shadow: 0 30px 100px rgba(0,0,0,.45);
-      backdrop-filter: blur(12px);
-    }
-
-    h1{
-      margin:0;
-      font-size:22px;
-      font-weight:1200;
-    }
-    .sub{
-      margin-top:6px;
-      color:var(--muted);
-      font-weight:900;
-      font-size:14px;
-    }
-
-    .grid{
-      margin-top:16px;
-      display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px,1fr));
-      gap:14px;
+      z-index:2;
     }
 
     .card{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:14px;
+      width:min(980px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.42);
+      backdrop-filter: blur(12px);
     }
 
-    .t{ font-weight:1100; font-size:13px; }
-    .v{ margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; }
+    .head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+
+    .title{
+      font-weight:1200;
+      font-size:18px;
+    }
+    .sub{
+      margin-top:6px;
+      color: var(--muted);
+      font-weight:900;
+      line-height:1.35;
+      font-size:13px;
+      max-width: 720px;
+    }
+
+    .grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:12px;
+    }
+
+    .panel{
+      background: var(--panel2);
+      border: 1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 12px;
+    }
+
+    .k{
+      font-weight:1100;
+      font-size:12px;
+      color: rgba(229,231,235,.92);
+      margin-bottom:10px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
 
     .pill{
       display:inline-flex;
-      align-items:center;
       gap:8px;
-      padding:8px 12px;
-      border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.65);
-      font-weight:1000;
-      cursor:pointer;
-      user-select:none;
-    }
-    .pill input{ accent-color: var(--accent); }
-
-    select, input[type="number"]{
-      background:rgba(2,6,23,.65);
-      border:1px solid var(--stroke);
-      border-radius:12px;
-      color:var(--text);
-      padding:8px 10px;
-      font-weight:900;
-    }
-
-    .actions{
-      margin-top:18px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      justify-content:space-between;
       align-items:center;
+      padding: 8px 10px;
+      border-radius: var(--pill);
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.66);
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .inp, select{
+      appearance:none;
+      border:none;
+      outline:none;
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(2,6,23,.55);
+      border: 1px solid rgba(148,163,184,.18);
+      color: rgba(229,231,235,.96);
+      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      min-width: 180px;
     }
 
     .btn{
       appearance:none;
       border:none;
-      border-radius:999px;
-      padding:12px 16px;
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.20);
-      color:rgba(229,231,235,.95);
-      font-weight:1100;
+      border-radius: 999px;
+      padding: 10px 12px;
+      background: rgba(2,6,23,.70);
+      border: 1px solid rgba(148,163,184,.20);
+      color: rgba(229,231,235,.95);
+      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
       cursor:pointer;
-      box-shadow: 0 18px 44px rgba(0,0,0,.32);
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
     }
-    .btn.primary{
-      background:rgba(34,197,94,.18);
-      border-color:rgba(34,197,94,.35);
-    }
-    .btn.warn{
-      background:rgba(245,158,11,.18);
-      border-color:rgba(245,158,11,.35);
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.32); }
+    .btn.warn{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.32); }
+    .btn.bad{ background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.32); }
+
+    .hint{
+      margin-top:10px;
+      color: rgba(148,163,184,.95);
+      font-weight:900;
+      font-size:12px;
+      line-height:1.35;
     }
 
-    .foot{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      color: rgba(148,163,184,.95);
+      word-break: break-all;
+    }
+
+    @media (max-width: 920px){
+      .grid{ grid-template-columns: 1fr; }
+      .inp, select{ min-width: 160px; }
     }
   </style>
 </head>
@@ -156,93 +190,193 @@
   <div class="bg"></div>
 
   <div class="wrap">
-    <div class="panel">
-      <h1>🍽️ Balanced Plate VR</h1>
-      <div class="sub">Launcher • เลือกโหมด / ระดับ / อุปกรณ์</div>
+    <div class="card">
+      <div class="head">
+        <div>
+          <div class="title">🍽️ Balanced Plate VR — Launcher</div>
+          <div class="sub">
+            เลือกโหมดเข้าเล่นให้ชัดเจน: <b>PC</b> / <b>Mobile</b> / <b>VR</b> / <b>Cardboard (cVR)</b><br/>
+            Play = Adaptive ON • Study/Research = Seeded & Adaptive OFF
+          </div>
+        </div>
+        <div class="sub" style="text-align:right">
+          Tip: Cardboard ใช้ <b>view=cvr</b> ยิงจาก crosshair (vr-ui.js)
+        </div>
+      </div>
 
       <div class="grid">
-        <div class="card">
-          <div class="t">🎮 โหมดการเล่น</div>
-          <div class="v">
-            <label class="pill">
-              <input type="radio" name="run" value="play" checked />
-              Play (Adaptive AI)
-            </label>
-            <label class="pill">
-              <input type="radio" name="run" value="study" />
-              Study / Research
-            </label>
+        <!-- LEFT: Settings -->
+        <div class="panel">
+          <div class="k">⚙️ ตั้งค่าเกม</div>
+          <div class="row">
+            <span class="pill">โหมด
+              <select id="runSel">
+                <option value="play">play</option>
+                <option value="study">study</option>
+              </select>
+            </span>
+
+            <span class="pill">ระดับ
+              <select id="diffSel">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </span>
+
+            <span class="pill">เวลา (s)
+              <input id="timeInp" class="inp" type="number" min="20" max="9999" value="90" />
+            </span>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <span class="pill">Seed
+              <input id="seedInp" class="inp" type="number" placeholder="ปล่อยว่าง = auto" />
+            </span>
+            <span class="pill">Hub URL
+              <input id="hubInp" class="inp" type="text" placeholder="เช่น .../hub.html" style="min-width:320px" />
+            </span>
+          </div>
+
+          <div class="hint">
+            • ถ้า run=study แล้วไม่ใส่ seed → ใช้ค่า default (คุม deterministic)<br/>
+            • ถ้า run=play แล้วไม่ใส่ seed → random ทุกครั้ง
           </div>
         </div>
 
-        <div class="card">
-          <div class="t">📊 ระดับความยาก</div>
-          <div class="v">
-            <select id="diff">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
+        <!-- RIGHT: Entry buttons -->
+        <div class="panel">
+          <div class="k">🚪 เข้าเล่น</div>
+          <div class="row">
+            <button class="btn primary" id="btnMobile">📱 Mobile</button>
+            <button class="btn" id="btnPC">🖥️ PC</button>
+            <button class="btn" id="btnVR">🕶️ VR</button>
+            <button class="btn warn" id="btnCVR">📦 Cardboard (cVR)</button>
           </div>
-        </div>
 
-        <div class="card">
-          <div class="t">⏱️ เวลา (วินาที)</div>
-          <div class="v">
-            <input id="time" type="number" min="30" max="300" value="90" />
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="btnCopy">คัดลอกลิงก์ 🔗</button>
+            <button class="btn bad" id="btnHub">กลับ HUB 🏠</button>
           </div>
-        </div>
 
-        <div class="card">
-          <div class="t">🕶️ อุปกรณ์</div>
-          <div class="v">
-            <select id="view">
-              <option value="mobile">Mobile</option>
-              <option value="pc">PC</option>
-              <option value="vr">VR Headset</option>
-              <option value="cvr">Cardboard</option>
-            </select>
-          </div>
+          <div class="hint">ลิงก์ที่จะเปิด:</div>
+          <div class="mono" id="outUrl">—</div>
         </div>
       </div>
-
-      <div class="actions">
-        <button class="btn primary" id="btnPlay">▶ เข้าเกม</button>
-        <button class="btn warn" id="btnCopy">คัดลอกลิงก์ 🔗</button>
-      </div>
-
-      <div class="foot" id="dbg"></div>
     </div>
   </div>
 
   <script>
     (function(){
-      const qs = id => document.getElementById(id);
-      const dbg = qs('dbg');
+      const LS_KEY = 'HHA_PLATE_LAUNCHER_LAST';
+      const qs = (id)=>document.getElementById(id);
 
-      function buildUrl(){
+      const runSel = qs('runSel');
+      const diffSel = qs('diffSel');
+      const timeInp = qs('timeInp');
+      const seedInp = qs('seedInp');
+      const hubInp  = qs('hubInp');
+      const outUrl  = qs('outUrl');
+
+      const btnMobile = qs('btnMobile');
+      const btnPC  = qs('btnPC');
+      const btnVR  = qs('btnVR');
+      const btnCVR = qs('btnCVR');
+
+      const btnCopy = qs('btnCopy');
+      const btnHub  = qs('btnHub');
+
+      function load(){
+        try{
+          const s = localStorage.getItem(LS_KEY);
+          if(!s) return;
+          const o = JSON.parse(s);
+          if(o.run) runSel.value = o.run;
+          if(o.diff) diffSel.value = o.diff;
+          if(o.time) timeInp.value = o.time;
+          if(o.seed !== undefined) seedInp.value = o.seed;
+          if(o.hub) hubInp.value = o.hub;
+        }catch(e){}
+      }
+
+      function save(){
+        try{
+          localStorage.setItem(LS_KEY, JSON.stringify({
+            run: runSel.value,
+            diff: diffSel.value,
+            time: timeInp.value,
+            seed: seedInp.value,
+            hub: hubInp.value
+          }));
+        }catch(e){}
+      }
+
+      function makeUrl(view){
         const u = new URL('./plate-vr.html', location.href);
-        const run = document.querySelector('input[name="run"]:checked')?.value || 'play';
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', qs('diff').value);
-        u.searchParams.set('time', qs('time').value);
-        u.searchParams.set('view', qs('view').value);
-        const hub = new URL(location.href).searchParams.get('hub');
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', (runSel.value||'play'));
+        u.searchParams.set('diff', (diffSel.value||'normal'));
+        u.searchParams.set('time', String(Math.max(20, Number(timeInp.value)||90)));
+
+        const seedRaw = seedInp.value.trim();
+        if(seedRaw){
+          u.searchParams.set('seed', seedRaw);
+        }else{
+          // study without seed => keep empty (plate.safe.js uses default)
+          u.searchParams.delete('seed');
+        }
+
+        const hub = hubInp.value.trim();
         if(hub) u.searchParams.set('hub', hub);
+        else u.searchParams.delete('hub');
+
         return u.toString();
       }
 
-      qs('btnPlay').onclick = ()=> location.href = buildUrl();
-      qs('btnCopy').onclick = async ()=>{
-        try{
-          await navigator.clipboard.writeText(buildUrl());
-          dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
-        }catch{
-          dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ';
-        }
-      };
+      function updatePreview(){
+        const u = makeUrl('mobile');
+        outUrl.textContent = u;
+      }
 
-      dbg.textContent = 'พร้อมเริ่ม • ' + location.href;
+      function go(view){
+        save();
+        location.href = makeUrl(view);
+      }
+
+      // init from query (optional)
+      try{
+        const ux = new URL(location.href);
+        const hubQ = ux.searchParams.get('hub');
+        if(hubQ) hubInp.value = hubQ;
+      }catch(e){}
+
+      load();
+      updatePreview();
+
+      [runSel,diffSel,timeInp,seedInp,hubInp].forEach(el=>{
+        el.addEventListener('input', ()=>{ updatePreview(); }, {passive:true});
+        el.addEventListener('change', ()=>{ updatePreview(); }, {passive:true});
+      });
+
+      btnMobile.addEventListener('click', ()=>go('mobile'), {passive:true});
+      btnPC.addEventListener('click', ()=>go('pc'), {passive:true});
+      btnVR.addEventListener('click', ()=>go('vr'), {passive:true});
+      btnCVR.addEventListener('click', ()=>go('cvr'), {passive:true});
+
+      btnCopy.addEventListener('click', async ()=>{
+        try{
+          await navigator.clipboard.writeText(makeUrl('mobile'));
+          outUrl.textContent = '✅ คัดลอกแล้ว: ' + makeUrl('mobile');
+        }catch(e){
+          outUrl.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจาก URL preview ได้';
+        }
+      }, {passive:true});
+
+      btnHub.addEventListener('click', ()=>{
+        const hub = hubInp.value.trim();
+        if(hub) location.href = hub;
+        else location.href = './hub.html';
+      }, {passive:true});
     })();
   </script>
 </body>
