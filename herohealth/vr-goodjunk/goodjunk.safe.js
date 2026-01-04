@@ -8,9 +8,9 @@
 // ✅ RT: avg / median / fast% + breakdown JSON
 // ✅ VR-safe: no shake in VR/cVR, lighter FX frequency
 // ✅ TWO-EYE: spawn pair L/R in VR/cVR + click/shoot removes BOTH + expire removes BOTH (miss counted once)
-// ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center
+// ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center (LEFT eye center)
 // ✅ FALLBACK: target visible even if CSS fails (force absolute + injected fallback styles)
-// ✅ PATCH A: anti double-hit (click/shoot/document bubbling) + accept only L target
+// ✅ PATCH A+: BOTH layers clickable + anti double-hit (pid/time guard) + no document click listener
 
 'use strict';
 
@@ -252,10 +252,9 @@ function makeFx(view){
 // Low-time UI hooks
 // -------------------------
 function lowtimeInit(){
-  const ring = DOC.querySelector('.gj-warning-ring');
   const overlay = DOC.querySelector('.gj-lowtime-overlay');
   const num = byId('gj-lowtime-num');
-  return { ring, overlay, num };
+  return { overlay, num };
 }
 function lowtimeApply(ui, timeLeftSec){
   if(!ui) return;
@@ -569,15 +568,6 @@ export function boot(opts={}){
   const run  = String(opts.run||'play').toLowerCase();
   const isResearch = (run === 'research');
 
-  // ✅ crosshair in VR/cVR: force center (both eyes)
-  (function fixCrosshairSplit(){
-    if(view!=='vr' && view!=='cvr') return;
-    const l = DOC.getElementById('crosshairL');
-    const r = DOC.getElementById('crosshairR');
-    if(l){ l.style.left='50%'; l.style.top='50%'; }
-    if(r){ r.style.left='50%'; r.style.top='50%'; }
-  })();
-
   const seed = opts.seed != null ? Number(opts.seed) : (isResearch ? 12345 : Date.now());
   const rng = makeSeededRng(seed);
 
@@ -611,7 +601,7 @@ export function boot(opts={}){
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion:'gj-2026-01-03B-fx-director'
+    gameVersion:'gj-2026-01-04A-bothclick'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
@@ -648,7 +638,7 @@ export function boot(opts={}){
   let ended = false;
 
   // -------------------------
-  // INPUT GUARD (anti double-hit) — PATCH A
+  // INPUT GUARD (anti double-hit) — for BOTH L/R
   // -------------------------
   let inputLockUntil = 0;
   let lastHitPid = null;
@@ -657,8 +647,9 @@ export function boot(opts={}){
   function canAcceptHit(pid){
     const t = performance.now();
     if(t < inputLockUntil) return false;
-    if(pid && pid === lastHitPid && (t - lastHitAt) < 140) return false;
-    inputLockUntil = t + 70;
+    // pid-based: กัน L/R ยิง pid เดิมติดกัน
+    if(pid && pid === lastHitPid && (t - lastHitAt) < 160) return false;
+    inputLockUntil = t + 75;
     lastHitPid = pid;
     lastHitAt = t;
     return true;
@@ -668,8 +659,6 @@ export function boot(opts={}){
   let pairSeq = 1;
   const pairMap = new Map();     // pid -> { kind, l, r, bornAt, expireT }
   const elToPid = new WeakMap(); // element -> pid
-
-  function nextPid(){ return String(pairSeq++); }
   function pairRemove(pid){
     const p = pairMap.get(pid);
     if(!p) return;
@@ -696,11 +685,8 @@ export function boot(opts={}){
     const p = pairMap.get(pid);
     if(!p) return;
 
-    // ✅ PATCH A: กันยิงซ้ำ/ดับเบิลอีเวนต์
+    // ✅ anti double-hit
     if(!canAcceptHit(pid)) return;
-
-    // ✅ PATCH A: รับเฉพาะฝั่ง L (กันคลิก R ซ้อน)
-    if(p.l && targetEl !== p.l) return;
 
     const kind = p.kind;
     const tNow = nowMs();
@@ -841,12 +827,12 @@ export function boot(opts={}){
     }
   }
 
-  // ✅ Keep ONLY ONE click source: LEFT layer
+  // ✅ BOTH layers clickable (and guarded)
   layer.addEventListener('click', onTargetClick, { passive:false });
+  if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
 
-  // (PATCH A) ❌ REMOVE these to avoid double-hit:
-  // if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
-  // DOC.addEventListener('click', ...)  // removed
+  // ❌ NO document click listener (avoid double fire)
+  // DOC.addEventListener('click', ...) removed
 
   function spawnOne(forceKind=null){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
@@ -869,7 +855,6 @@ export function boot(opts={}){
       }
     }
 
-    // keep pid deterministic-ish for pair map usage
     const pid = String((Math.random()*1e9)|0) + '-' + String(Date.now());
     const emoji = pickEmoji(kind, state.rng);
 
@@ -912,7 +897,6 @@ export function boot(opts={}){
     const born = nowMs();
     elL.dataset.bornAt = String(born);
     if(elR) elR.dataset.bornAt = String(born);
-    state.lastSpawnAtMs = born;
 
     layer.appendChild(elL);
     if(layerR && elR) layerR.appendChild(elR);
@@ -938,11 +922,8 @@ export function boot(opts={}){
         if(state.phase === 'practice'){
           state.nExpireGood++;
           logEvent('expire_good_practice', {});
-        }
-        else {
-          if(state.graceSec > 0){
-            // no miss during grace
-          }else{
+        } else {
+          if(state.graceSec <= 0){
             state.nExpireGood++;
             state.miss++;
             state.combo = 0;
@@ -971,12 +952,10 @@ export function boot(opts={}){
     if(p0) p0.expireT = expireT;
   }
 
-  // cVR shoot
+  // cVR shoot: use LEFT eye center (half-left)
   function pickByCrosshair(lockPx=46){
     const W = DOC.documentElement.clientWidth;
     const H = DOC.documentElement.clientHeight;
-
-    // ✅ In VR/cVR (two-eye) use LEFT eye center (half-left)
     const cx = (view==='vr' || view==='cvr') ? (W * 0.25) : (W * 0.5);
     const cy = H * 0.5;
 
@@ -984,7 +963,7 @@ export function boot(opts={}){
     let bestD2 = lockPx * lockPx;
 
     for(const [pid, p] of pairMap.entries()){
-      const el = p?.l; // ✅ evaluate L only (stable)
+      const el = p?.l;
       if(!el) continue;
       const r = el.getBoundingClientRect();
       const tx = r.left + r.width/2;
@@ -1003,7 +982,6 @@ export function boot(opts={}){
   function shoot(){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
-    // ✅ lockPx adaptive based on HALF screen
     const W = DOC.documentElement.clientWidth;
     const halfW = Math.max(1, W * 0.5);
     let lock = Math.round(halfW * 0.06);
@@ -1235,7 +1213,7 @@ export function boot(opts={}){
       studyId: opts.studyId || null,
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
-      gameVersion:'gj-2026-01-03B-fx-director',
+      gameVersion:'gj-2026-01-04A-bothclick',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
@@ -1265,7 +1243,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-03B-fx-director',
+          gameVersion:'gj-2026-01-04A-bothclick',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
