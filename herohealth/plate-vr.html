@@ -1,11 +1,3 @@
-<!-- === /herohealth/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
-✅ Uses external CSS: ./plate/plate-vr.css (UI Polish + FX classes)
-✅ A-Frame scene for Enter VR / Exit / Recenter (via vr-ui.js)
-✅ Includes: particles.js + hha-cloud-logger.js + vr-ui.js
-✅ Start overlay with link copy + go launcher
-✅ PATCH: Storm/Boss FX class auto-on + stormProg mirror (bridge)
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -165,12 +157,11 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
     .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
     .hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
 
-    /* Buttons */
     #hudBtns{
       position:fixed;
       right:10px;
       bottom: calc(10px + var(--sab));
-      z-index:140; /* ✅ กันทับ ENTER VR UI */
+      z-index:40;
       display:flex;
       gap:8px;
       flex-wrap:wrap;
@@ -199,7 +190,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
     /* overlays */
     #startOverlay, #hudPaused, #resultBackdrop{
       position:fixed; inset:0;
-      z-index:170;
+      z-index:70;
       display:none;
       place-items:center;
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
@@ -215,7 +206,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
       box-shadow: 0 26px 90px rgba(0,0,0,.42);
     }
 
-    /* Boss/Storm FX layers (JS toggles display; bridge toggles class) */
+    /* Boss/Storm FX layers (JS toggles classes) */
     #bossFx, #stormFx{
       position:fixed; inset:0;
       pointer-events:none;
@@ -228,7 +219,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
       position:fixed;
       left:10px;
       bottom: calc(10px + var(--sab));
-      z-index:120; /* ✅ กันชนกับ VR UI */
+      z-index:42;
       display:none;
       pointer-events:none;
     }
@@ -249,7 +240,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
       position:fixed;
       left:10px;
       top: calc(10px + var(--sat));
-      z-index:121;
+      z-index:43;
       display:none;
       pointer-events:none;
       transform: translateY(54px); /* ใต้ HUD top */
@@ -412,9 +403,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- hidden internal start button (JS binds this) -->
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
-
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
       <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
@@ -540,66 +529,6 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
         if(hub) u.searchParams.set('hub', hub);
         location.href = u.toString();
       }, {passive:true});
-    })();
-  </script>
-
-  <!-- ✅ PATCH BRIDGE:
-       - add/remove FX classes storm-on/boss-on automatically from display state
-       - mirror stormHint -> stormProg so stormProg updates even if JS doesn't set it
-  -->
-  <script>
-    (function(){
-      function byId(id){ return document.getElementById(id); }
-      const stormFx = byId('stormFx');
-      const bossFx  = byId('bossFx');
-      const stormHud = byId('stormHud');
-      const stormHint = byId('stormHint');
-      const stormProg = byId('stormProg');
-
-      function isShown(el){
-        if(!el) return false;
-        const st = getComputedStyle(el);
-        return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
-      }
-
-      function syncFx(){
-        try{
-          if(stormFx){
-            const on = isShown(stormFx);
-            stormFx.classList.toggle('storm-on', on);
-          }
-          if(bossFx){
-            const on = isShown(bossFx);
-            bossFx.classList.toggle('boss-on', on);
-          }
-        }catch(_){}
-      }
-
-      function syncStormProg(){
-        try{
-          if(!stormProg || !stormHint) return;
-          // ถ้า stormHud แสดงอยู่ ให้ mirror เป็น progress บรรทัดล่าง
-          if(stormHud && isShown(stormHud)){
-            const txt = (stormHint.textContent || '').trim();
-            stormProg.textContent = txt ? txt : '—';
-          }else{
-            // ไม่จำเป็นต้องเคลียร์ แต่ให้คงไว้ก็ได้
-          }
-        }catch(_){}
-      }
-
-      // observe style/class changes
-      const obs = new MutationObserver(()=>{ syncFx(); syncStormProg(); });
-      [stormFx, bossFx, stormHud, stormHint].forEach(el=>{
-        if(!el) return;
-        obs.observe(el, { attributes:true, childList:true, subtree:true });
-      });
-
-      // also poll lightly (covers cases where only computed style changes)
-      setInterval(()=>{ syncFx(); syncStormProg(); }, 160);
-
-      // initial
-      syncFx(); syncStormProg();
     })();
   </script>
 
