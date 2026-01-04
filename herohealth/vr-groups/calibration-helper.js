@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/calibration-helper.js ===
-// PACK 67: Cardboard Calibration / Recenter Helper (safe, UI-only)
+// PACK 13: Cardboard Calibration / Recenter Helper (safe, UI-only)
 
 (function(){
   'use strict';
@@ -62,6 +62,7 @@
 
   function boot(){
     if (!isCVR()) return;
+
     const off = String(qs('calib','1')||'1'); // default ON
     if (off === '0' || off === 'false') return;
 
