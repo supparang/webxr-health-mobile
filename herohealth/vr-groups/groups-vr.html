@@ -1,11 +1,13 @@
-<!-- === /herohealth/vr-groups/groups-vr.html ===
+<!-- === A: /herohealth/vr-groups/groups-vr.html ===
 GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
-✅ Practice 15s (cVR) then auto start real run
+✅ PACK 13: Calibration overlay for cVR (blocks game start until user confirms)
+✅ PACK 14: Practice 15s (cVR) then auto start real run
+✅ PACK 15: AI hooks attach (OFF by default; enable ?ai=1 in play only)
+✅ FX: particles.js + effects-pack.js (shockwave + classes + vibrate + optional Particles)
 ✅ Flush-hardened logging (?log=...)
 ✅ Research ctx passthrough
-✅ Uses groups.safe.js (standalone engine) — no GameEngine.js dependency
-✅ PATCH: waitForEngine timeout-safe + always init ViewHelper before start + robust layer mount
+✅ Standalone engine: groups.safe.js -> window.GroupsVR.GameEngine
 -->
 <!doctype html>
 <html lang="th">
@@ -29,10 +31,13 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>         <!-- AI hooks (disabled by default; use ?ai=1 in play) -->
+  <script src="./ai-hooks.js" defer></script>         <!-- ✅ PACK 15 -->
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
+
+  <!-- ✅ FX Pack (must be BEFORE engine to listen early) -->
+  <script src="./effects-pack.js" defer></script>
 
   <!-- ✅ Standalone engine -->
   <script src="./groups.safe.js" defer></script>
@@ -55,9 +60,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <div class="pill"><span class="lbl">❌ MISS</span><span id="vMiss" class="val">0</span></div>
     </div>
     <div class="hudRight">
-      <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
+      <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">—</span></div>
       <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
-      <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
+      <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">LOAD</span></div>
     </div>
   </div>
 
@@ -104,6 +109,25 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
+
+  <!-- ✅ PACK 13: Calibration overlay -->
+  <div id="calOverlay" class="overlay overlay-cal hidden">
+    <div class="panel">
+      <div class="title">🧭 Calibration (Cardboard)</div>
+      <div class="sub" id="calText">
+        ถือมือถือให้นิ่ง หันหน้าไปทิศที่ต้องการ แล้วกด RECENTER (ปุ่มด้านล่างจาก vr-ui.js)
+        จากนั้นแตะ “เริ่ม”
+      </div>
+
+      <div class="row">
+        <button id="btnCalStart" class="btn btn-strong" type="button">✅ เริ่ม</button>
+      </div>
+
+      <div class="note">
+        เคล็ดลับ: วางศอกแนบลำตัว ลดสั่น • ถ้ากากบาทไม่ตรงกลาง ให้กด RECENTER
+      </div>
+    </div>
+  </div>
 
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
@@ -154,16 +178,16 @@ GroupsVR Run (PC/Mobile/Cardboard)
   function aiEnabled(){
     const run = String(qs('run','play')||'play').toLowerCase();
     const on  = String(qs('ai','0')||'0');
-    if (run === 'research') return false;      // ✅ research: ไม่ใช้ adaptive
+    if (run === 'research') return false;      // research: hard OFF
     return (on === '1' || on === 'true');
   }
 
   function getPracticeSec(view){
     const p = String(qs('practice','0')||'0');
     let sec = Number(p)||0;
-    if (p === '1') sec = 15;                  // ✅ practice=1 => 15s
+    if (p === '1') sec = 15;                  // practice=1 => 15s
     sec = clamp(sec, 0, 30);
-    if (view !== 'cvr') sec = 0;              // ✅ practice เฉพาะ cVR
+    if (view !== 'cvr') sec = 0;              // practice เฉพาะ cVR
     return sec;
   }
 
@@ -182,8 +206,23 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
+  // ---------- PACK 13: calibration gate ----------
+  let isCalibrating = false;
+  function setCalibrating(on){
+    isCalibrating = !!on;
+    DOC.body.classList.toggle('calibration', isCalibrating);
+    $('calOverlay').classList.toggle('hidden', !isCalibrating);
+    if (isCalibrating){
+      $('vRank').textContent = '—';
+      $('vAcc').textContent  = '0%';
+      $('vMode').textContent = 'CAL';
+      $('coachText').textContent = 'ตั้งทิศทางก่อน แล้วค่อยเริ่ม ✅';
+    }
+  }
+
   // ---------- HUD binds ----------
   window.addEventListener('hha:score', (ev)=>{
+    if (isCalibrating) return;
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
     $('vCombo').textContent = String(d.combo ?? 0);
@@ -191,11 +230,13 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }, {passive:true});
 
   window.addEventListener('hha:time', (ev)=>{
+    if (isCalibrating) return;
     const d = ev.detail||{};
     $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
   }, {passive:true});
 
   window.addEventListener('hha:rank', (ev)=>{
+    if (isCalibrating) return;
     const d = ev.detail||{};
     $('vRank').textContent = String(d.grade ?? 'C');
     $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
@@ -214,6 +255,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }, {passive:true});
 
   window.addEventListener('groups:power', (ev)=>{
+    if (isCalibrating) return;
     const d = ev.detail||{};
     const cur = Number(d.charge||0);
     const thr = Math.max(1, Number(d.threshold||8));
@@ -223,6 +265,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }, {passive:true});
 
   window.addEventListener('quest:update', (ev)=>{
+    if (isCalibrating) return;
     const d = ev.detail||{};
     const gTitle = String(d.goalTitle||'—');
     const gNow   = Number(d.goalNow||0);
@@ -347,6 +390,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
       return;
     }
 
+    // ignore practice summary in UI overlay (real only)
+    if (String(d.runMode||'') === 'practice') return;
+
     lastSummary = buildBaseSummary(d, endIso);
     saveLast(lastSummary);
     postNow(lastSummary);
@@ -431,13 +477,15 @@ GroupsVR Run (PC/Mobile/Cardboard)
     practiceActive = true;
     practiceDone = false;
     $('vMode').textContent = 'PRACTICE';
+    $('vRank').textContent = '—';
+    $('vAcc').textContent  = '0%';
 
     const seedP = String(cfg.seed) + '-practice';
     startIso = new Date().toISOString();
 
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
-    E.start(cfg.diff, { runMode:'play', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
+    E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP, view:'cvr' });
 
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
@@ -458,7 +506,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode: run, diff, style, time, seed });
+    E.start(diff, { runMode: run, diff, style, time, seed, view });
 
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
@@ -480,11 +528,23 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     const practiceSec = getPracticeSec(view);
 
+    // ✅ PACK 13: calibration gate for cVR
+    if (view === 'cvr'){
+      setCalibrating(true);
+      $('btnCalStart').addEventListener('click', ()=>{
+        setCalibrating(false);
+        waitForEngine((E)=>{
+          if (practiceSec > 0){
+            startPractice(E, { diff, style, seed, practiceSec });
+            return;
+          }
+          startReal(E);
+        });
+      }, { once:true });
+      return; // stop auto start
+    }
+
     waitForEngine((E)=>{
-      if (view === 'cvr' && practiceSec > 0){
-        startPractice(E, { diff, style, seed, practiceSec });
-        return;
-      }
       startReal(E);
     });
   }
