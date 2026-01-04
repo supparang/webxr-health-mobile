@@ -1,5 +1,5 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA Global FX Director — PRODUCTION
+// HHA Global FX Director — PRODUCTION (FULL)
 // Listens to HHA events and triggers visual feedback consistently across all games.
 // Requires: ../vr/particles.js (optional but recommended)
 
@@ -156,7 +156,7 @@
     fxShock(x,y, 66);
   });
 
-  DOC.addEventListener('hha:celebrate', ()=>{ fxCelebrate(); });
+  DOC.addEventListener('hha:celebrate', ()=> fxCelebrate());
 
   DOC.addEventListener('hha:end', ()=>{
     addBodyCls('fx-endblink', 760);
@@ -170,5 +170,4 @@
     setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'bad', x:x-80, y:y+20 } })), 260);
     setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:end')), 520);
   };
-
 })();
