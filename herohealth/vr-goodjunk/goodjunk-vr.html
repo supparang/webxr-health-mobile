@@ -1,8 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (MATCHED WITH Boot V2.2)
 ✅ Reads params: view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log, nolog
 ✅ Loads: goodjunk-vr.css + particles + hha-cloud-logger + boot(module)
 ✅ Uses vr-ui.js (loaded by boot when view=vr/cvr) + supports hha:shoot event
+✅ Has Start Overlay (id=startOverlay) to match boot fallback + iOS/Android autoplay-safe
 ✅ Has Back HUB button + End Summary overlay (safe)
 -->
 <!doctype html>
@@ -50,6 +51,47 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
       background: rgba(34,197,94,.10);
     }
     .gj-chip.btn:active{ transform: translateY(1px); }
+
+    /* Start overlay (match boot.js id=startOverlay) */
+    .gj-start{
+      position:fixed; inset:0; z-index:230;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(2,6,23,.86);
+      backdrop-filter: blur(10px);
+    }
+    .gj-start .card{
+      width:min(720px,92vw);
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.80);
+      border-radius: 22px;
+      padding: 16px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      color:#e5e7eb;
+    }
+    .gj-start .title{font: 1200 22px/1.1 system-ui; }
+    .gj-start .sub{margin-top:6px;color:#94a3b8;font: 900 12px/1.35 system-ui;}
+    .gj-start .actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;}
+    .gj-start .btn{
+      min-width: 210px;
+      height: 52px;
+      border-radius: 16px;
+      border: 1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.16);
+      color:#eafff3;
+      font: 1100 16px/1 system-ui;
+      cursor:pointer;
+    }
+    .gj-start .btn.alt{
+      border-color: rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color:#e5e7eb;
+    }
+    .gj-start .hint{
+      margin-top:10px;
+      color:#cbd5e1;
+      font: 900 12px/1.45 system-ui;
+      opacity:.9;
+    }
 
     /* End summary overlay */
     .gj-end{
@@ -103,7 +145,26 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
 
 <body class="view-mobile">
 
-  <!-- TOPBAR (VR UI buttons have their own layer; this is just helpful in PC/Mobile) -->
+  <!-- START OVERLAY (matches boot.js) -->
+  <div class="gj-start" id="startOverlay" aria-hidden="false">
+    <div class="card">
+      <div class="title">GoodJunkVR</div>
+      <div class="sub" id="startSub">—</div>
+
+      <div class="actions">
+        <button class="btn" id="btnStart" type="button">▶ Start</button>
+        <button class="btn alt" id="btnEnterCvr" type="button">🕶️ Enter cVR</button>
+        <button class="btn alt" id="btnStartNoOverlay" type="button">Skip Overlay</button>
+      </div>
+
+      <div class="hint">
+        • โหมด VR/cVR จะโหลด vr-ui.js อัตโนมัติ (Enter VR/Exit/Recenter + crosshair + tap-to-shoot)<br/>
+        • ถ้าเป็นมือถือ แนะนำกด Start เพื่อให้เสียง/เต็มจอทำงานเนียนขึ้น
+      </div>
+    </div>
+  </div>
+
+  <!-- TOPBAR -->
   <div class="gj-topbar" aria-hidden="false">
     <div class="left">
       <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
@@ -116,7 +177,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
   <!-- LOW TIME WARNING RING -->
   <div class="gj-warning-ring" aria-hidden="true"></div>
 
-  <!-- VR MINI HUD (show only in VR/cVR) -->
+  <!-- VR MINI HUD -->
   <div class="vr-mini-hud" id="vrMiniHud">
     <div class="mini-row">
       <div class="mini-pill"><span>SCORE</span><b id="miniScore">0</b></div>
@@ -165,7 +226,6 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
         </div>
         <div class="q-progress" id="hud-mini">—</div>
 
-        <!-- (optional) combo slot for engine (safe even if hidden) -->
         <div style="display:none" id="hud-combo">0</div>
       </div>
     </div>
@@ -252,12 +312,42 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
     const run  = qs('run','play');
     const diff = qs('diff','normal');
     const time = qs('time','80');
-
-    const hub = qs('hub', null);
+    const hub  = qs('hub', null);
 
     // chip meta
     const chip = byId('chipMeta');
     if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
+
+    // start overlay meta
+    const startSub = byId('startSub');
+    if(startSub) startSub.textContent = `พร้อมเริ่ม · view=${view} · run=${run} · diff=${diff} · time=${time}`;
+
+    // Start overlay buttons -> talk to boot.js
+    const startOverlay = byId('startOverlay');
+    function hideStart(){
+      if(!startOverlay) return;
+      startOverlay.style.display = 'none';
+      startOverlay.setAttribute('aria-hidden','true');
+    }
+
+    byId('btnStart')?.addEventListener('click', ()=>{
+      hideStart();
+      window.dispatchEvent(new CustomEvent('hha:ui-start', { detail:{ view } }));
+    });
+
+    // preload VR UI + start (useful for cVR)
+    byId('btnEnterCvr')?.addEventListener('click', ()=>{
+      // tell boot to preload VR UI
+      window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
+      hideStart();
+      window.dispatchEvent(new CustomEvent('hha:ui-start', { detail:{ view: (view==='cvr'?'cvr':'cvr') } }));
+    });
+
+    // allow bypass overlay (boot has autostart fallback too)
+    byId('btnStartNoOverlay')?.addEventListener('click', ()=>{
+      hideStart();
+      window.dispatchEvent(new CustomEvent('hha:ui-start', { detail:{ view } }));
+    });
 
     // Back HUB button (top)
     byId('btnBackHub')?.addEventListener('click', ()=>{
@@ -326,7 +416,6 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
     });
 
     byId('endReplay')?.addEventListener('click', ()=>{
-      // reload current url (replay same params)
       location.reload();
     });
 
