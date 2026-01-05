@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Balanced Plate VR Launcher</title>
+  <title>HeroHealth — Plate VR Launcher</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
@@ -33,15 +33,15 @@
 
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; height:100%; width:100%;
+      margin:0; padding:0; width:100%; height:100%;
       overflow:hidden;
       background: var(--bg);
       color: var(--text);
-      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      font-family: system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
 
     .bg{
-      position:fixed; inset:0;
+      position:fixed; inset:0; z-index:0;
       background:
         radial-gradient(circle at 12% 10%, rgba(34,211,238,.14), transparent 40%),
         radial-gradient(circle at 88% 20%, rgba(167,139,250,.12), transparent 42%),
@@ -51,162 +51,226 @@
     }
 
     .wrap{
-      position:fixed; inset:0;
+      position:fixed; inset:0; z-index:1;
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      display:grid;
-      place-items:center;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
     }
 
-    .card{
+    .container{
       width:min(980px, 100%);
-      border-radius: var(--radius);
-      border:1px solid var(--stroke);
-      background: var(--panel);
-      box-shadow: 0 30px 110px rgba(0,0,0,.42);
-      backdrop-filter: blur(12px);
-      padding: 16px;
+      margin: 0 auto;
+      display:grid;
+      gap:12px;
     }
 
     .top{
       display:flex;
-      justify-content:space-between;
       gap:12px;
-      flex-wrap:wrap;
       align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
     }
 
     .title{
-      font-weight:1200;
+      display:flex; gap:10px; align-items:center;
+    }
+    .badge{
+      width:44px; height:44px;
+      border-radius:16px;
+      display:grid; place-items:center;
+      background: rgba(34,197,94,.14);
+      border:1px solid rgba(34,197,94,.28);
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
+      font-size:22px;
+    }
+    h1{
+      margin:0;
       font-size:18px;
+      font-weight:1200;
       letter-spacing:.2px;
     }
     .sub{
-      margin-top:6px;
+      margin-top:4px;
       color: var(--muted);
       font-weight:900;
       font-size:13px;
       line-height:1.35;
     }
 
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding: 8px 10px;
-      border-radius: var(--pill);
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.58);
-      font-weight:1000;
-      font-size:12px;
-      white-space:nowrap;
-    }
-
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1.05fr .95fr;
-      gap:12px;
-    }
-
-    .panel{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: var(--panel2);
-      padding:12px;
-    }
-
-    .h{
-      font-weight:1100;
-      font-size:12px;
-      color: rgba(229,231,235,.92);
-      margin-bottom:10px;
+    .card{
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.34);
+      backdrop-filter: blur(10px);
     }
 
     .row{
       display:flex;
-      flex-wrap:wrap;
       gap:10px;
+      flex-wrap:wrap;
       align-items:center;
-      margin-bottom:10px;
+      justify-content:space-between;
     }
 
-    .label{
-      font-weight:1000;
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 920px){
+      .grid2{ grid-template-columns: 1fr; }
+    }
+
+    .k{
+      font-weight:1100;
       font-size:12px;
-      color: rgba(229,231,235,.90);
-      margin-right:6px;
+      color: rgba(229,231,235,.92);
+      letter-spacing:.2px;
     }
 
-    select, input{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      outline:none;
-      min-width: 160px;
-    }
-    input[type="number"]{ min-width: 120px; }
-
-    .btns{
-      margin-top:12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding: 11px 12px;
-      background: rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
-      color: rgba(229,231,235,.95);
-      font: 1100 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 16px 44px rgba(0,0,0,.34);
-      backdrop-filter: blur(10px);
-      cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
-      user-select:none;
-    }
-    .btn:active{ transform: translateY(1px); }
-
-    .btn.primary{
-      background: rgba(34,197,94,.14);
-      border-color: rgba(34,197,94,.32);
-    }
-    .btn.warn{
-      background: rgba(245,158,11,.14);
-      border-color: rgba(245,158,11,.32);
-    }
-
-    .help{
-      margin-top:10px;
-      color: var(--muted);
+    .hint{
+      margin-top:6px;
+      color: rgba(148,163,184,.95);
       font-weight:900;
       font-size:12px;
       line-height:1.35;
     }
 
-    .code{
-      margin-top:10px;
-      padding:10px;
-      border-radius:14px;
-      border:1px dashed rgba(148,163,184,.22);
-      background: rgba(2,6,23,.45);
-      color: rgba(229,231,235,.92);
-      font: 900 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      white-space: pre-wrap;
-      word-break: break-word;
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:8px 10px;
+      border-radius: var(--pill);
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.56);
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
     }
 
+    .btns{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:12px 14px;
+      background: rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.20);
+      color: rgba(229,231,235,.95);
+      font: 1000 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      box-shadow: 0 16px 44px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.30); }
+    .btn.warn{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.30); }
+    .btn.bad{ background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.28); }
+    .btn.ghost{ background: rgba(15,23,42,.35); }
+
+    .optGrid{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width: 920px){ .optGrid{ grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 520px){ .optGrid{ grid-template-columns: 1fr; } }
+
+    .opt{
+      text-align:left;
+      padding:12px;
+      border-radius:18px;
+      background: rgba(15,23,42,.50);
+      border:1px solid rgba(148,163,184,.18);
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      box-shadow: 0 16px 44px rgba(0,0,0,.20);
+    }
+    .opt:hover{ border-color: rgba(34,197,94,.28); }
+    .opt.sel{
+      border-color: rgba(34,197,94,.40);
+      box-shadow: 0 16px 44px rgba(34,197,94,.12), 0 16px 44px rgba(0,0,0,.24);
+    }
+    .optT{
+      font-weight:1200;
+      font-size:13px;
+      display:flex; gap:8px; align-items:center;
+    }
+    .optD{
+      margin-top:6px;
+      color: rgba(148,163,184,.95);
+      font-weight:900;
+      font-size:12px;
+      line-height:1.3;
+    }
+
+    .fieldRow{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
     @media (max-width: 920px){
-      .grid{ grid-template-columns: 1fr; }
-      select, input{ min-width: 140px; }
+      .fieldRow{ grid-template-columns: 1fr; }
+    }
+
+    .field{
+      background: rgba(15,23,42,.45);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 16px;
+      padding:10px;
+    }
+    label{
+      display:block;
+      font-weight:1000;
+      font-size:12px;
+      color: rgba(229,231,235,.92);
+      margin-bottom:6px;
+    }
+    select, input{
+      width:100%;
+      padding:10px 10px;
+      border-radius: 12px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color: rgba(229,231,235,.95);
+      font: 1000 13px/1.2 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      outline:none;
+    }
+    input::placeholder{ color: rgba(148,163,184,.75); }
+
+    .sep{
+      height:1px;
+      background: rgba(148,163,184,.14);
+      margin: 10px 0;
+    }
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      color: rgba(229,231,235,.88);
+      word-break: break-all;
+      line-height: 1.35;
+    }
+
+    .footer{
+      color: rgba(148,163,184,.90);
+      font-weight:900;
+      font-size:12px;
+      line-height:1.35;
+      padding-bottom: 12px;
     }
   </style>
 </head>
@@ -215,231 +279,317 @@
   <div class="bg"></div>
 
   <div class="wrap">
-    <div class="card">
+    <div class="container">
+
       <div class="top">
-        <div>
-          <div class="title">🍽️ Balanced Plate VR — Launcher</div>
-          <div class="sub">
-            เลือกโหมดเล่น + ระดับ + เวลา + seed แล้วกด “Start” เพื่อเข้าเกม (plate-vr.html)
-            <br/>Play = Adaptive ON • Study = Seeded & Adaptive OFF
+        <div class="title">
+          <div class="badge">🍽️</div>
+          <div>
+            <h1>Balanced Plate VR — Launcher</h1>
+            <div class="sub">
+              เลือกอุปกรณ์ + โหมด + ระดับ + เวลา แล้วกดเข้าเล่นได้ทันที
+              <br/>Play = Adaptive ON • Study = Seeded & Adaptive OFF
+            </div>
           </div>
         </div>
-        <div class="pill" id="pillHub">🏠 HUB: <span id="hubLabel">—</span></div>
+
+        <div class="btns">
+          <button class="btn ghost" id="btnToHub" type="button">🏠 กลับ HUB</button>
+          <button class="btn warn" id="btnReset" type="button">♻ รีเซ็ตค่าที่จำ</button>
+        </div>
       </div>
 
-      <div class="grid">
-        <!-- Left: Options -->
-        <div class="panel">
-          <div class="h">⚙️ ตั้งค่าเกม</div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <div class="k">1) เลือกอุปกรณ์ (view)</div>
+            <div class="hint">PC / Mobile / VR / Cardboard (cVR ยิงจาก crosshair ผ่าน vr-ui.js)</div>
+          </div>
+        </div>
 
-          <div class="row">
-            <div class="label">View</div>
-            <select id="selView">
-              <option value="pc">PC</option>
-              <option value="mobile" selected>Mobile</option>
-              <option value="vr">VR (WebXR)</option>
-              <option value="cvr">Cardboard (cVR)</option>
-            </select>
+        <div class="optGrid" id="viewGrid">
+          <div class="opt" data-view="pc">
+            <div class="optT">🖥️ PC</div>
+            <div class="optD">เมาส์/จอใหญ่ • เหมาะทดสอบ</div>
+          </div>
+          <div class="opt" data-view="mobile">
+            <div class="optT">📱 Mobile</div>
+            <div class="optD">แตะยิง • Gyro/Drag VR-feel</div>
+          </div>
+          <div class="opt" data-view="vr">
+            <div class="optT">🕶️ VR</div>
+            <div class="optD">Enter VR (WebXR) • มีปุ่ม Recenter</div>
+          </div>
+          <div class="opt" data-view="cvr">
+            <div class="optT">📦 Cardboard</div>
+            <div class="optD">ยิงจาก crosshair • เหมาะ cVR</div>
+          </div>
+        </div>
 
-            <div class="label">Run</div>
+        <div class="sep"></div>
+
+        <div class="k">2) ตั้งค่าเกม</div>
+        <div class="fieldRow">
+          <div class="field">
+            <label for="selRun">โหมด (run)</label>
             <select id="selRun">
-              <option value="play" selected>Play</option>
-              <option value="study">Study</option>
+              <option value="play">play (Adaptive ON)</option>
+              <option value="study">study (Seeded + Adaptive OFF)</option>
             </select>
           </div>
 
-          <div class="row">
-            <div class="label">Diff</div>
+          <div class="field">
+            <label for="selDiff">ระดับ (diff)</label>
             <select id="selDiff">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
             </select>
+          </div>
 
-            <div class="label">Time</div>
-            <input id="inTime" type="number" min="20" max="9999" step="5" value="90" />
+          <div class="field">
+            <label for="inpTime">เวลา (วินาที)</label>
+            <input id="inpTime" type="number" min="20" max="9999" value="90" />
+          </div>
+        </div>
 
-            <div class="label">Seed</div>
-            <input id="inSeed" type="number" step="1" value="13579" />
+        <div class="fieldRow">
+          <div class="field">
+            <label for="inpSeed">seed (ถ้าเว้นว่าง: play จะสุ่มเอง)</label>
+            <input id="inpSeed" type="number" placeholder="เช่น 13579" />
+          </div>
+
+          <div class="field" style="grid-column: span 2;">
+            <label>Hub (พารามิเตอร์ hub=...)</label>
+            <div class="mono" id="hubPreview">—</div>
+            <div class="hint">ถ้ามาจาก HUB อยู่แล้ว ระบบจะรับค่า hub มาให้เอง</div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row" style="gap:12px">
+          <div style="min-width:280px">
+            <div class="k">3) ลิงก์ที่จะเข้าเล่น</div>
+            <div class="hint">กดเข้าเล่น หรือคัดลอกลิงก์</div>
           </div>
 
           <div class="btns">
-            <button class="btn primary" id="btnStart" type="button">▶ Start</button>
-            <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ 🔗</button>
-            <button class="btn warn" id="btnHub" type="button">กลับ HUB 🏠</button>
-            <button class="btn" id="btnReset" type="button">รีเซ็ตค่า</button>
-          </div>
-
-          <div class="help">
-            • Cardboard ใช้ <b>view=cvr</b> แล้วยิงจาก crosshair (vr-ui.js จะส่ง hha:shoot ให้เกม)<br/>
-            • โหมด Study แนะนำใส่ seed คงที่ เพื่อ deterministic (ตัวอย่าง 13579)
+            <button class="btn primary" id="btnPlay" type="button">▶ เข้าเล่น (Run)</button>
+            <button class="btn" id="btnCopy" type="button">🔗 คัดลอกลิงก์</button>
+            <button class="btn bad" id="btnOpen" type="button">↗ เปิดแท็บใหม่</button>
           </div>
         </div>
 
-        <!-- Right: Preview / Link -->
-        <div class="panel">
-          <div class="h">🔎 ลิงก์ที่จะเข้าเล่น</div>
-          <div class="pill">ปลายทาง: <b>plate-vr.html</b></div>
-          <div class="code" id="outUrl">—</div>
-          <div class="help" id="outNote">—</div>
-        </div>
+        <div class="mono" id="linkPreview" style="margin-top:10px">—</div>
+        <div class="hint" id="msg" style="margin-top:8px">พร้อมแล้ว เลือก view แล้วกดเข้าเล่นได้เลย</div>
       </div>
+
+      <div class="footer">
+        Tips:
+        <span class="pill">Cardboard ใช้ view=cvr</span>
+        <span class="pill">Play จะสุ่ม seed ใหม่ (ถ้าไม่กำหนด)</span>
+        <span class="pill">Study แนะนำกำหนด seed เดิมเพื่อทำซ้ำได้</span>
+      </div>
+
     </div>
   </div>
 
   <script>
     (function(){
-      const LS_KEY = 'HHA_PLATE_LAUNCHER_LAST';
+      const LS_KEY = 'HHA_PLATE_LAUNCHER_V1';
 
-      function qs(id){ return document.getElementById(id); }
-      function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-      function safeStr(s, d){ return (s==null || s==='') ? d : String(s); }
+      const q = new URL(location.href).searchParams;
+      const hub = q.get('hub') || '';
 
-      const selView = qs('selView');
-      const selRun  = qs('selRun');
-      const selDiff = qs('selDiff');
-      const inTime  = qs('inTime');
-      const inSeed  = qs('inSeed');
+      const viewGrid = document.getElementById('viewGrid');
+      const selRun = document.getElementById('selRun');
+      const selDiff = document.getElementById('selDiff');
+      const inpTime = document.getElementById('inpTime');
+      const inpSeed = document.getElementById('inpSeed');
 
-      const outUrl  = qs('outUrl');
-      const outNote = qs('outNote');
+      const hubPreview = document.getElementById('hubPreview');
+      const linkPreview = document.getElementById('linkPreview');
+      const msg = document.getElementById('msg');
 
-      const btnStart = qs('btnStart');
-      const btnCopy  = qs('btnCopy');
-      const btnHub   = qs('btnHub');
-      const btnReset = qs('btnReset');
+      const btnPlay = document.getElementById('btnPlay');
+      const btnCopy = document.getElementById('btnCopy');
+      const btnOpen = document.getElementById('btnOpen');
+      const btnReset = document.getElementById('btnReset');
+      const btnToHub = document.getElementById('btnToHub');
 
-      const hubLabel = qs('hubLabel');
+      let state = {
+        view: 'mobile',
+        run: 'play',
+        diff: 'normal',
+        time: 90,
+        seed: '',
+        hub: hub
+      };
 
-      const urlx = new URL(location.href);
-      const hub = urlx.searchParams.get('hub') || '';
-      hubLabel.textContent = hub ? 'attached' : 'none';
-
-      function loadLast(){
+      function load(){
         try{
-          const raw = localStorage.getItem(LS_KEY);
-          if(!raw) return null;
-          return JSON.parse(raw);
-        }catch(e){ return null; }
+          const s = localStorage.getItem(LS_KEY);
+          if(!s) return;
+          const o = JSON.parse(s);
+          if(!o) return;
+          state = { ...state, ...o };
+        }catch(e){}
       }
-      function saveLast(obj){
-        try{ localStorage.setItem(LS_KEY, JSON.stringify(obj)); }catch(e){}
-      }
-
-      function buildUrl(){
-        const view = selView.value || 'mobile';
-        const run  = selRun.value  || 'play';
-        const diff = selDiff.value || 'normal';
-
-        const time = clamp(inTime.value, 20, 9999);
-        inTime.value = String(time);
-
-        let seed = Number(inSeed.value);
-        if(!isFinite(seed) || seed === 0) seed = 13579;
-        inSeed.value = String(Math.trunc(seed));
-
-        // If play: allow seed random by default? Here we respect input, but add note.
-        const u = new URL('./plate-vr.html', location.href);
-        u.searchParams.set('view', view);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', String(time));
-
-        // always pass seed (your plate.safe.js respects seedParam; play can still use it)
-        u.searchParams.set('seed', String(Math.trunc(seed)));
-
-        if(hub) u.searchParams.set('hub', hub);
-
-        // persist
-        saveLast({ view, run, diff, time, seed: Math.trunc(seed), hub: hub || '' });
-
-        return u.toString();
+      function save(){
+        try{
+          localStorage.setItem(LS_KEY, JSON.stringify(state));
+        }catch(e){}
       }
 
-      function render(){
-        const u = buildUrl();
-        outUrl.textContent = u;
+      function setSelectedView(v){
+        state.view = v;
+        const opts = viewGrid.querySelectorAll('.opt');
+        opts.forEach(el=>{
+          el.classList.toggle('sel', el.getAttribute('data-view') === v);
+        });
+        save();
+        buildLink();
+      }
 
-        const run = selRun.value || 'play';
-        const view = selView.value || 'mobile';
+      function buildLink(){
+        const base = new URL('./plate-vr.html', location.href);
 
-        let note = '';
-        if(view === 'cvr'){
-          note += '✅ cVR: ยิงจาก crosshair ได้เลย (vr-ui.js)\\n';
-        }
-        if(run === 'study'){
-          note += '✅ Study: deterministic seed + adaptive OFF (ตาม plate.safe.js)\\n';
+        // query
+        base.searchParams.set('view', state.view || 'mobile');
+        base.searchParams.set('run', state.run || 'play');
+        base.searchParams.set('diff', state.diff || 'normal');
+        base.searchParams.set('time', String(Math.max(20, Number(state.time)||90)));
+
+        const run = (state.run || 'play').toLowerCase();
+        const seedRaw = (state.seed || '').trim();
+
+        if(seedRaw){
+          base.searchParams.set('seed', seedRaw);
         }else{
-          note += '✅ Play: adaptive ON (ตาม plate.safe.js)\\n';
+          // play => seed auto; study => default 13579
+          if(run === 'study' || run === 'research'){
+            base.searchParams.set('seed', '13579');
+          }else{
+            base.searchParams.set('seed', String(Date.now() ^ (Math.random()*1e9)));
+          }
         }
-        if(!hub){
-          note += 'ℹ️ ไม่มี hub แนบมา (สามารถเปิดจาก HUB แล้วส่ง ?hub=... มาได้)\\n';
+
+        if(state.hub){
+          base.searchParams.set('hub', state.hub);
         }
-        outNote.textContent = note.trim();
+
+        const url = base.toString();
+        linkPreview.textContent = url;
+
+        const v = state.view;
+        const vHint =
+          v === 'pc' ? 'PC (จอใหญ่)' :
+          v === 'vr' ? 'VR (Enter VR)' :
+          v === 'cvr' ? 'Cardboard (ยิงจาก crosshair)' :
+          'Mobile (แตะยิง)';
+
+        msg.textContent = `พร้อมเข้าเล่น: ${vHint} • run=${state.run} • diff=${state.diff} • time=${state.time}s`;
+        hubPreview.textContent = state.hub || '—';
+        return url;
       }
 
-      function applyFrom(obj){
-        if(!obj) return;
-        if(obj.view) selView.value = obj.view;
-        if(obj.run)  selRun.value  = obj.run;
-        if(obj.diff) selDiff.value = obj.diff;
-        if(obj.time) inTime.value  = String(obj.time);
-        if(obj.seed) inSeed.value  = String(obj.seed);
+      function syncUI(){
+        // select view
+        setSelectedView(state.view || 'mobile');
+
+        selRun.value = state.run || 'play';
+        selDiff.value = state.diff || 'normal';
+        inpTime.value = String(state.time || 90);
+        inpSeed.value = (state.seed || '');
+
+        hubPreview.textContent = state.hub || '—';
+        buildLink();
       }
 
-      // load from URL override
-      const vQ = urlx.searchParams.get('view');
-      const rQ = urlx.searchParams.get('run');
-      const dQ = urlx.searchParams.get('diff');
-      const tQ = urlx.searchParams.get('time');
-      const sQ = urlx.searchParams.get('seed');
+      // init load
+      load();
+      if(hub) state.hub = hub; // override by url
+      save();
 
-      const last = loadLast();
-      applyFrom(last);
+      // view click
+      viewGrid.addEventListener('click', (e)=>{
+        const opt = e.target.closest('.opt');
+        if(!opt) return;
+        setSelectedView(opt.getAttribute('data-view') || 'mobile');
+      }, { passive:true });
 
-      if(vQ) selView.value = vQ;
-      if(rQ) selRun.value  = rQ;
-      if(dQ) selDiff.value = dQ;
-      if(tQ) inTime.value  = String(tQ);
-      if(sQ) inSeed.value  = String(sQ);
+      // fields
+      selRun.addEventListener('change', ()=>{
+        state.run = selRun.value || 'play';
+        save();
+        buildLink();
+      }, { passive:true });
 
-      // bind
-      [selView, selRun, selDiff, inTime, inSeed].forEach(el=>{
-        el.addEventListener('input', render, { passive:true });
-        el.addEventListener('change', render, { passive:true });
-      });
+      selDiff.addEventListener('change', ()=>{
+        state.diff = selDiff.value || 'normal';
+        save();
+        buildLink();
+      }, { passive:true });
 
-      btnStart.addEventListener('click', ()=>{
-        location.href = buildUrl();
+      inpTime.addEventListener('input', ()=>{
+        state.time = Math.max(20, Number(inpTime.value)||90);
+        save();
+        buildLink();
+      }, { passive:true });
+
+      inpSeed.addEventListener('input', ()=>{
+        state.seed = String(inpSeed.value || '').trim();
+        save();
+        buildLink();
+      }, { passive:true });
+
+      // actions
+      btnPlay.addEventListener('click', ()=>{
+        const url = buildLink();
+        location.href = url;
+      }, { passive:true });
+
+      btnOpen.addEventListener('click', ()=>{
+        const url = buildLink();
+        window.open(url, '_blank');
       }, { passive:true });
 
       btnCopy.addEventListener('click', async ()=>{
+        const url = buildLink();
         try{
-          await navigator.clipboard.writeText(buildUrl());
-          outNote.textContent = '✅ คัดลอกลิงก์แล้ว';
+          await navigator.clipboard.writeText(url);
+          msg.textContent = '✅ คัดลอกลิงก์แล้ว';
         }catch(e){
-          outNote.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่องลิงก์ได้';
+          msg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากช่องลิงก์ได้';
         }
       }, { passive:true });
 
-      btnHub.addEventListener('click', ()=>{
-        if(hub){
-          location.href = hub;
+      btnReset.addEventListener('click', ()=>{
+        try{ localStorage.removeItem(LS_KEY); }catch(e){}
+        state = {
+          view:'mobile',
+          run:'play',
+          diff:'normal',
+          time:90,
+          seed:'',
+          hub: hub || ''
+        };
+        save();
+        syncUI();
+        msg.textContent = '♻ รีเซ็ตค่าแล้ว';
+      }, { passive:true });
+
+      btnToHub.addEventListener('click', ()=>{
+        if(state.hub){
+          location.href = state.hub;
         }else{
           location.href = './hub.html';
         }
       }, { passive:true });
 
-      btnReset.addEventListener('click', ()=>{
-        selView.value = 'mobile';
-        selRun.value = 'play';
-        selDiff.value = 'normal';
-        inTime.value = '90';
-        inSeed.value = '13579';
-        render();
-      }, { passive:true });
-
-      render();
+      // first render
+      syncUI();
     })();
   </script>
 </body>
