@@ -1,187 +1,195 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// GroupsVR AI Hooks — PACK 15 (PRODUCTION-SAFE)
-// ✅ Default: OFF (enabled only with ?ai=1 in play)
-// ✅ Research: ALWAYS OFF (even if ai=1)
-// ✅ Deterministic-ready: receives seed + can use seeded RNG if needed later
-// ✅ Provides attach/detach + hook points:
-//    - Difficulty Director (adaptive pacing)  [stub]
-//    - AI Coach micro-tips (explainable)      [stub, rate-limited]
-//    - Pattern Generator (storm/boss/spawn)  [stub]
-//
-// This file MUST NEVER break the game if AI is disabled.
-// Exports: window.GroupsVR.AIHooks
+// AI Hooks — PRODUCTION-SAFE (STEP 7)
+// ✅ disabled by default
+// ✅ enabled only when attach({enabled:true, runMode:'play'})
+// ✅ deterministic: uses provided seed -> local rng
+// Provides:
+// - director: spawnSpeedMul(), ratesBias(), stormPlan()
+// - pattern: bias() (wrong/junk skew)
+// - tip: micro tips w/ cooldown, explainable
 
-(function (root) {
+(function(){
   'use strict';
-  const NS = root.GroupsVR = root.GroupsVR || {};
+  const WIN = window;
+  const NS  = WIN.GroupsVR = WIN.GroupsVR || {};
 
-  // ---------------- Utilities ----------------
-  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
-
-  function hashSeed(str) {
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function hashSeed(str){
     str = String(str ?? '');
     let h = 2166136261 >>> 0;
-    for (let i = 0; i < str.length; i++) {
+    for (let i=0;i<str.length;i++){
       h ^= str.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
-    return h >>> 0;
+    return h>>>0;
   }
-  function makeRng(seedU32) {
-    let s = (seedU32 >>> 0) || 1;
-    return function rand() {
+  function makeRng(seedU32){
+    let s = (seedU32>>>0) || 1;
+    return function(){
       s = (Math.imul(1664525, s) + 1013904223) >>> 0;
       return s / 4294967296;
     };
   }
-
-  function emit(name, detail) {
-    try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, {detail})); }catch(_){}
   }
 
-  // ---------------- State ----------------
-  const S = {
-    attached: false,
-    enabled: false,
-    runMode: 'play',
-    seed: '',
-    rng: null,
-
-    // live metrics (from events)
-    score: 0,
-    combo: 0,
-    misses: 0,
-    acc: 0,
-    left: 0,
-
-    // rate-limit coach tips
-    lastTipAt: 0,
-    tipCooldownMs: 4500,
+  // ---------------- Tip system (rate-limit) ----------------
+  function TipBus(){
+    this.lastAt = 0;
+    this.coolMs = 1800; // default
+  }
+  TipBus.prototype.say = function(text, mood){
+    const t = (performance && performance.now) ? performance.now() : Date.now();
+    if (t - this.lastAt < this.coolMs) return;
+    this.lastAt = t;
+    emit('hha:coach', { text: String(text||''), mood: String(mood||'neutral') });
   };
 
-  // ---------------- Hooks: Difficulty Director (stub) ----------------
-  // In future, can call into engine (if engine exposes setters).
-  function difficultyDirectorTick() {
-    // ✅ safe no-op now
-    // Idea: observe acc/combo/misses/left and suggest spawn pacing or target mix.
+  // ---------------- Director ----------------
+  function Director(rng){
+    this.rng = rng;
+    // fairness limits
+    this.minMul = 0.82;
+    this.maxMul = 1.18;
+
+    // dynamic bias accumulator (smooth)
+    this.bias = 0; // - => easier, + => harder
   }
 
-  // ---------------- Hooks: AI Coach (explainable micro-tips) ----------------
-  function maybeCoachTip(reason) {
-    if (!S.enabled) return;
-    const now = Date.now();
-    if (now - S.lastTipAt < S.tipCooldownMs) return;
-    S.lastTipAt = now;
+  Director.prototype._updateBias = function(acc, combo, misses, leftSec, rageOn){
+    // acc high => harder, low => easier
+    let b = 0;
 
-    // Micro tips: short, explainable, never spam
-    let text = '';
-    let mood = 'neutral';
+    if (acc >= 90) b += 0.22;
+    else if (acc >= 82) b += 0.12;
+    else if (acc <= 62) b -= 0.20;
+    else if (acc <= 70) b -= 0.10;
 
-    if (reason === 'miss_spike') {
-      text = 'ทิป: ช้าลงนิดนึง เล็งให้ตรง “หมู่ที่ต้องยิง” ก่อนค่อยยิง 🎯';
-      mood = 'sad';
-    } else if (reason === 'good_streak') {
-      text = 'ทิป: คอมโบมาแล้ว! รักษาจังหวะเดิมไว้ แล้วค่อยเร่ง 🔥';
-      mood = 'happy';
-    } else if (reason === 'low_acc') {
-      text = 'ทิป: ดูสีขอบเป้าให้ทัน — เขียวคือถูกหมู่, เหลืองคือผิดหมู่, แดงคือขยะ';
-      mood = 'neutral';
-    } else if (reason === 'clutch') {
-      text = 'ทิป: ช่วงท้าย ให้ยิง “เป้าใกล้กลางจอ” ก่อน จะพลาดน้อยลง ✅';
-      mood = 'fever';
-    } else {
-      text = 'ทิป: ถ้าเริ่มหลุดคอมโบ ให้รีเซ็ตจังหวะ 1–2 วินาทีแล้วค่อยยิงต่อ ✨';
-      mood = 'neutral';
+    // combo => harder (reward skill)
+    if (combo >= 10) b += 0.14;
+    else if (combo >= 6) b += 0.08;
+
+    // misses => ease a bit
+    if (misses >= 10) b -= 0.18;
+    else if (misses >= 7) b -= 0.10;
+
+    // near end => spice but not cruel
+    if (leftSec <= 15 && leftSec > 0) b += 0.06;
+
+    // rage on => already hard, don't over-stack
+    if (rageOn) b -= 0.05;
+
+    // smooth
+    this.bias = clamp(this.bias * 0.72 + b * 0.28, -0.35, 0.35);
+    return this.bias;
+  };
+
+  // Spawn speed multiplier (used in groups.safe.js)
+  Director.prototype.spawnSpeedMul = function(acc, combo, misses, leftSec, rageOn){
+    const b = this._updateBias(acc, combo, misses, leftSec, rageOn);
+    // bias>0 => faster spawn => mul <1
+    // bias<0 => slower spawn => mul >1
+    const mul = clamp(1.0 - b, this.minMul, this.maxMul);
+    return mul;
+  };
+
+  // Rate bias for wrong/junk in _spawnOne
+  // returns bias in [-0.12..+0.12] where + => more wrong, less junk
+  Director.prototype.ratesBias = function(acc, combo, misses){
+    let v = 0;
+    if (acc >= 88) v += 0.06;
+    if (combo >= 8) v += 0.05;
+    if (misses >= 8) v -= 0.07;
+    return clamp(v, -0.10, 0.10);
+  };
+
+  // Storm plan: adjust stormEverySec / stormLenSec slightly
+  Director.prototype.stormPlan = function(baseEverySec, baseLenSec, acc, combo, misses){
+    let every = baseEverySec;
+    let len   = baseLenSec;
+
+    if (acc >= 88 && combo >= 6){
+      every = baseEverySec - 2; // more frequent
+      len   = baseLenSec + 1;
+    } else if (acc <= 70 || misses >= 9){
+      every = baseEverySec + 2; // less frequent
+      len   = Math.max(5, baseLenSec - 1);
     }
 
-    emit('hha:coach', { text, mood });
+    // add deterministic jitter
+    const j = (this.rng() - 0.5) * 1.2; // -0.6..+0.6
+    every = clamp(every + j, 16, 40);
+    len   = clamp(len + (this.rng()<0.5?-0.2:0.2), 5, 10);
+
+    return { stormEverySec: every, stormLenSec: len };
+  };
+
+  // ---------------- Pattern Director ----------------
+  function Pattern(rng){
+    this.rng = rng;
+    this._bias = 0;
+    this._mode = 'neutral'; // neutral | storm | boss | rage
+    this._until = 0;
   }
+  Pattern.prototype.setMode = function(mode, ms){
+    const t = (performance && performance.now) ? performance.now() : Date.now();
+    this._mode = String(mode||'neutral');
+    this._until = t + (Number(ms)||0);
+  };
+  Pattern.prototype.bias = function(){
+    const t = (performance && performance.now) ? performance.now() : Date.now();
+    if (t > this._until) this._mode = 'neutral';
 
-  // ---------------- Hooks: Pattern Generator (stub) ----------------
-  // Placeholder for deterministic spawn patterns (storm waves/boss bursts)
-  function patternDirectorTick() {
-    // ✅ safe no-op now
-  }
+    // + => more wrong, less junk
+    if (this._mode === 'storm') return 0.06;
+    if (this._mode === 'boss')  return 0.04;
+    if (this._mode === 'rage')  return 0.08;
+    return 0;
+  };
 
-  // ---------------- Event listeners ----------------
-  function onScore(ev) {
-    const d = ev.detail || {};
-    S.score = Number(d.score || 0);
-    S.combo = Number(d.combo || 0);
-    S.misses = Number(d.misses || 0);
+  // ---------------- AIHooks façade ----------------
+  const Tip = new TipBus();
 
-    if (!S.enabled) return;
+  NS.AIHooks = {
+    attach(opts){
+      opts = opts || {};
+      const enabled = !!opts.enabled;
+      const runMode = String(opts.runMode||'play');
+      if (!enabled || runMode !== 'play'){
+        delete NS.__ai;
+        return;
+      }
 
-    // heuristics
-    if (S.combo >= 8 && (S.rng && S.rng() < 0.15)) maybeCoachTip('good_streak');
-    if (S.misses >= 6 && (S.rng && S.rng() < 0.12)) maybeCoachTip('miss_spike');
+      const seed = String(opts.seed || Date.now());
+      const rng  = makeRng(hashSeed(seed + '::AIHooks::Groups'));
 
-    difficultyDirectorTick();
-  }
+      const director = new Director(rng);
+      const pattern  = new Pattern(rng);
 
-  function onRank(ev) {
-    const d = ev.detail || {};
-    S.acc = Number(d.accuracy || 0);
+      NS.__ai = { enabled:true, seed, rng, director, pattern, tip: (text,mood)=>{
+        Tip.say(text,mood);
+      } };
 
-    if (!S.enabled) return;
-    if (S.acc > 0 && S.acc < 55 && (S.rng && S.rng() < 0.18)) maybeCoachTip('low_acc');
-  }
+      // listen for progress events to switch pattern mode
+      WIN.addEventListener('groups:progress', (ev)=>{
+        const d = ev.detail||{};
+        const k = String(d.kind||'').toLowerCase();
+        if (!NS.__ai || !NS.__ai.enabled) return;
 
-  function onTime(ev) {
-    const d = ev.detail || {};
-    S.left = Number(d.left || 0);
+        if (k==='storm_on') pattern.setMode('storm', 9000);
+        if (k==='boss_spawn') pattern.setMode('boss', 9000);
+        if (k==='rage_on') pattern.setMode('rage', 12000);
 
-    if (!S.enabled) return;
-    if (S.left > 0 && S.left <= 10 && (S.rng && S.rng() < 0.22)) maybeCoachTip('clutch');
+        // explainable tips (not spam)
+        if (k==='storm_on') NS.__ai.tip('พายุ = เป้าถี่ขึ้น ลองเล็งก่อนแล้วค่อยยิง 🎯', 'fever');
+        if (k==='boss_phase2') NS.__ai.tip('บอส PHASE2 ระวัง DECOY! อย่ายิงมั่ว 🌀', 'fever');
+        if (k==='rage_storm_burst') NS.__ai.tip('RAGE storm มา! โฟกัสหมู่เดียว ยิงคม ๆ 🔥', 'fever');
+      }, {passive:true});
 
-    patternDirectorTick();
-  }
-
-  // ---------------- Public API ----------------
-  function attach(cfg) {
-    cfg = cfg || {};
-    const runMode = String(cfg.runMode || 'play').toLowerCase();
-    const requested = !!cfg.enabled;
-
-    // ✅ research OFF hard
-    const enabled = (runMode !== 'research') && requested;
-
-    S.runMode = runMode;
-    S.enabled = enabled;
-    S.seed = String(cfg.seed || '');
-    S.rng = makeRng(hashSeed(S.seed + '::aihooks'));
-
-    if (S.attached) {
-      // already attached: just update enabled state
-      if (enabled) emit('hha:coach', { text: 'AI (ทดลอง) เปิดแล้ว 🤖', mood: 'happy' });
-      return;
+      // boot tip
+      NS.__ai.tip('AI Director เปิดแล้ว: ความโหดจะปรับตามผลงานคุณ 😈', 'happy');
     }
+  };
 
-    // attach listeners (lightweight, safe)
-    try {
-      root.addEventListener('hha:score', onScore, { passive: true });
-      root.addEventListener('hha:rank',  onRank,  { passive: true });
-      root.addEventListener('hha:time',  onTime,  { passive: true });
-    } catch (_) {}
-
-    S.attached = true;
-
-    if (enabled) {
-      emit('hha:coach', { text: 'AI (ทดลอง) เปิดแล้ว: ปรับตามการเล่น + ทิปสั้น ๆ ✨', mood: 'happy' });
-    }
-  }
-
-  function detach() {
-    if (!S.attached) return;
-    try {
-      root.removeEventListener('hha:score', onScore);
-      root.removeEventListener('hha:rank', onRank);
-      root.removeEventListener('hha:time', onTime);
-    } catch (_) {}
-    S.attached = false;
-    S.enabled = false;
-  }
-
-  NS.AIHooks = { attach, detach };
-
-})(typeof window !== 'undefined' ? window : globalThis);
+})();
