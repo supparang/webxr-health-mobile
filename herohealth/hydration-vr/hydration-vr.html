@@ -175,13 +175,19 @@
     body.cardboard #playfield{ display:none; }
     body.cardboard #cbPlayfield{ display:block; }
 
+    /* cVR (single crosshair center) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
     body.view-cvr #hydration-layer{ pointer-events:none; }
 
+    /* Cardboard strict shoot: split + disable direct touch on targets */
+    body.view-cbstrict #playfield{ display:none; }
+    body.view-cbstrict #cbPlayfield{ display:block; }
+    body.view-cbstrict .cbLayer{ pointer-events:none; } /* สำคัญ: ยิงจาก crosshair เท่านั้น */
+
+    /* Crosshair styles */
     .crosshair{
       position:fixed;
-      left:50%; top:50%;
       transform:translate(-50%,-50%);
       z-index:95;
       pointer-events:none;
@@ -204,8 +210,27 @@
       width:4px; height:4px;
       background:rgba(34,211,238,.95);
     }
-    body.view-cvr .crosshair{ display:block; }
 
+    /* show crosshair */
+    body.view-cvr .crosshair{ display:block; left:50%; top:50%; }
+
+    /* dual crosshair for cardboard strict */
+    #crosshairL, #crosshairR{ display:none; }
+    body.view-cbstrict #crosshairL,
+    body.view-cbstrict #crosshairR{ display:block; top:50%; }
+    body.view-cbstrict #crosshairL{ left:25%; }
+    body.view-cbstrict #crosshairR{ left:75%; }
+
+    /* Rage FX hook (from safe.js) */
+    body.hha-ragefx{
+      animation: ragePulse .35s ease-in-out infinite;
+    }
+    @keyframes ragePulse{
+      0%,100%{ filter: saturate(1) contrast(1); }
+      50%{ filter: saturate(1.10) contrast(1.05); }
+    }
+
+    /* Summary */
     #resultBackdrop{
       position:fixed;
       inset:0;
@@ -310,7 +335,10 @@
     <div class="cbHalf right"><div id="hydration-layerR" class="cbLayer"></div></div>
   </div>
 
-  <div class="crosshair" aria-hidden="true"></div>
+  <!-- crosshair single (cVR) + dual (cb strict) -->
+  <div class="crosshair" id="crosshairC" aria-hidden="true"></div>
+  <div class="crosshair" id="crosshairL" aria-hidden="true"></div>
+  <div class="crosshair" id="crosshairR" aria-hidden="true"></div>
 
   <div class="hud">
     <div class="panel">
@@ -416,31 +444,35 @@
 
     // view class
     const b = document.body;
-    b.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
-    if (view === 'mobile') b.classList.add('view-mobile');
-    else if (view === 'cardboard') b.classList.add('cardboard');
+    b.classList.remove('view-pc','view-mobile','cardboard','view-cvr','view-cbstrict');
+
+    // ✅ cardboard = strict crosshair ยิงกลางจอ (PATCH 1)
+    if (view === 'cardboard') b.classList.add('view-cbstrict');
     else if (view === 'cvr') b.classList.add('view-cvr');
+    else if (view === 'mobile') b.classList.add('view-mobile');
     else b.classList.add('view-pc');
 
     // layers map
     const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
-    if (b.classList.contains('cardboard')) cfg.layers = ['hydration-layerL','hydration-layerR'];
+    if (b.classList.contains('view-cbstrict')) cfg.layers = ['hydration-layerL','hydration-layerR'];
     else cfg.layers = ['hydration-layer'];
 
     // back fallback
     document.getElementById('btnBack')?.addEventListener('click', ()=> location.href = hub || launcher);
 
-    // ✅ cVR ยิงแน่นอน: แตะ/คลิกทั้งจอ = hha:shoot
+    // ✅ ยิงแน่นอน: แตะ/คลิก = hha:shoot (ทั้ง cVR และ cardboard strict)
     function fireShoot(){
       try{ window.dispatchEvent(new CustomEvent('hha:shoot')); }catch(_){}
     }
-    if (b.classList.contains('view-cvr')){
+
+    const shootMode = b.classList.contains('view-cvr') || b.classList.contains('view-cbstrict');
+    if (shootMode){
       window.addEventListener('pointerdown', (ev)=>{
-        // ไม่ไปชนปุ่ม summary
         const t = ev.target;
         if (t && t.closest && t.closest('#resultBackdrop')) return;
         fireShoot();
       }, {passive:true});
+
       window.addEventListener('keydown', (ev)=>{
         if (ev.code === 'Space' || ev.code === 'Enter') fireShoot();
       });
