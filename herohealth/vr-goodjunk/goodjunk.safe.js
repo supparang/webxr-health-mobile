@@ -1,11 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — PRODUCTION (HUD-safe spawn + PC/Mobile/VR/cVR + Storm/Boss/Rage + AI hooks)
-// ✅ HUD-safe spawn uses CSS vars: --gj-top-safe / --gj-bottom-safe
+// ✅ HUD-safe spawn uses CSS vars: --gj-top-safe / --gj-bottom-safe (auto-measured here)
 // ✅ miss = goodExpired + junkHit (junk blocked by Shield does NOT count as miss)
 // ✅ time<=30 => storm, miss>=4 => boss, miss>=5 => rage
 // ✅ Emits: hha:start, hha:time, hha:score, hha:judge, quest:update, hha:coach, hha:end, hha:flush
 // ✅ Research: deterministic seed + adaptive OFF
-// ✅ Play: adaptive ON (simple Difficulty Director)
+// ✅ Play: adaptive ON (simple Difficulty Director + Adaptive Target Size Director)
 
 'use strict';
 
@@ -13,6 +13,7 @@ const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
 function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
+function lerp(a,b,t){ return a + (b-a)*t; }
 function now(){ return performance?.now ? performance.now() : Date.now(); }
 
 function hashSeedToU32(seed){
@@ -63,6 +64,145 @@ function setText(id, txt){
   if(el) el.textContent = String(txt);
 }
 
+/* -----------------------------------------------------------
+   HUD-safe auto measure (ไม่ต้องพึ่ง helper ใน HTML)
+----------------------------------------------------------- */
+function measureHudSafe(){
+  try{
+    const de = DOC.documentElement;
+    const H = ROOT.innerHeight || 800;
+
+    const topbar = DOC.querySelector('.gj-topbar');
+    const hud     = byId('hud');        // .hha-hud
+    const vrMini  = byId('vrMiniHud');  // VR mini hud
+    const fever   = byId('feverBox');   // bottom-left block
+    const controls= DOC.querySelector('.hha-controls');
+
+    let topSafe = 140;
+    if(topbar && topbar.getBoundingClientRect){
+      topSafe = Math.max(topSafe, Math.ceil(topbar.getBoundingClientRect().bottom) + 10);
+    }
+    if(hud && hud.getBoundingClientRect && !DOC.body.classList.contains('hud-hidden')){
+      // HUD occupies top area; include its bottom
+      topSafe = Math.max(topSafe, Math.ceil(hud.getBoundingClientRect().bottom) + 10);
+    }
+    if(vrMini && vrMini.getBoundingClientRect && (DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr'))){
+      topSafe = Math.max(topSafe, Math.ceil(vrMini.getBoundingClientRect().bottom) + 10);
+    }
+
+    let bottomSafe = 120;
+    if(fever && fever.getBoundingClientRect){
+      const fr = fever.getBoundingClientRect();
+      if(fr.height > 0){
+        bottomSafe = Math.max(bottomSafe, Math.ceil(H - fr.top) + 10);
+      }
+    }
+    if(controls && controls.getBoundingClientRect){
+      const cr = controls.getBoundingClientRect();
+      if(cr.height > 0){
+        bottomSafe = Math.max(bottomSafe, Math.ceil(H - cr.top) + 10);
+      }
+    }
+
+    de.style.setProperty('--gj-top-safe', Math.max(90, topSafe) + 'px');
+    de.style.setProperty('--gj-bottom-safe', Math.max(90, bottomSafe) + 'px');
+  }catch(_){}
+}
+
+/* -----------------------------------------------------------
+   Adaptive Target Size Director (PLAY only)
+   - Base by diff + slight bump for VR/cVR
+   - Adjust by skill (acc + miss pressure + RT)
+   - Smooth + help boost on miss burst
+----------------------------------------------------------- */
+function makeSizeDirector({ runMode, diff, view }){
+  const isPlay = (runMode === 'play');
+  const baseByDiff = { easy:112, normal:96, hard:84 };
+  let base = baseByDiff[diff] || 96;
+  if(view === 'vr' || view === 'cvr') base += 10;
+
+  // scale for different target types
+  function typeMul(type){
+    if(type === 'boss')   return 1.28;
+    if(type === 'shield') return 0.95;
+    if(type === 'star')   return 0.92;
+    return 1.0; // good/junk
+  }
+
+  let scaleCur = 1.0;
+  let scaleTarget = 1.0;
+
+  let goodHit=0, goodExpire=0, missShot=0, junkHit=0;
+  let rtArr = [];
+  let missRecent = [];
+  let helpBoostUntil = 0;
+  let lastTick = 0;
+
+  function pushRT(ms){
+    if(!Number.isFinite(ms)) return;
+    rtArr.push(ms);
+    if(rtArr.length > 25) rtArr.shift();
+  }
+  function medianRT(){
+    if(!rtArr.length) return 900;
+    const a = rtArr.slice().sort((x,y)=>x-y);
+    return a[Math.floor(a.length/2)];
+  }
+  function noteMissBurst(ts){
+    missRecent.push(ts);
+    const cut = ts - 12000;
+    while(missRecent.length && missRecent[0] < cut) missRecent.shift();
+
+    if(missRecent.length >= 2 && (ts - missRecent[missRecent.length-2]) < 3000){
+      helpBoostUntil = ts + 2500;
+    }
+  }
+  function skillScore(){
+    const denom = goodHit + goodExpire + missShot + junkHit;
+    const acc = denom > 0 ? (goodHit / denom) : 0.65;
+
+    const ts = now();
+    const missRate = missRecent.length / 12; // per sec window
+    const missPenalty = clamp(missRate / 0.35, 0, 1);
+
+    const rt = medianRT();
+    const rtNorm = clamp((rt - 450) / 650, 0, 1);
+
+    let s = 0.62*acc + 0.23*(1-rtNorm) + 0.15*(1-missPenalty);
+    if(ts < helpBoostUntil) s = Math.min(s, 0.35);
+    return clamp(s, 0, 1);
+  }
+  function computeTargetScale(){
+    if(!isPlay) return 1.0;
+    const s = skillScore();
+    // s=0 => 1.16 (bigger), s=1 => 0.82 (smaller)
+    return clamp(1.16 - 0.34*s, 0.78, 1.18);
+  }
+
+  function tick(ts){
+    if(!isPlay) return;
+    if(ts - lastTick < 2000) return;
+    lastTick = ts;
+    scaleTarget = computeTargetScale();
+  }
+
+  function getSpawnSizePx(type){
+    scaleCur = lerp(scaleCur, scaleTarget, 0.18);
+    const px = Math.round(base * scaleCur * typeMul(type));
+    return clamp(px, 56, 160);
+  }
+
+  return {
+    tick,
+    getSpawnSizePx,
+    onGoodHit(){ goodHit++; },
+    onGoodExpire(){ goodExpire++; noteMissBurst(now()); },
+    onMissShot(){ missShot++; noteMissBurst(now()); },
+    onJunkHit(){ junkHit++; noteMissBurst(now()); },
+    onRT(ms){ pushRT(ms); },
+  };
+}
+
 function boot(opts={}){
   const sp = qsFromLocation();
 
@@ -91,6 +231,14 @@ function boot(opts={}){
     return;
   }
 
+  // measure safe zones now + on resize
+  measureHudSafe();
+  ROOT.addEventListener('resize', ()=>{ measureHudSafe(); }, { passive:true });
+  ROOT.addEventListener('orientationchange', ()=>{ measureHudSafe(); }, { passive:true });
+  setTimeout(measureHudSafe, 0);
+  setTimeout(measureHudSafe, 120);
+  setTimeout(measureHudSafe, 350);
+
   // ---------- Config ----------
   const DIFF = {
     easy:   { spawnMs: 860, ttlGood: 1400, ttlJunk: 1400, junkP: 0.22, shieldP: 0.06, missLimit: 7 },
@@ -117,7 +265,7 @@ function boot(opts={}){
   let nSpawnGood = 0, nSpawnJunk = 0, nSpawnShield = 0, nSpawnStar = 0;
   let nHitGood = 0, nHitJunk = 0, nHitJunkGuard = 0, nExpireGood = 0;
 
-  let fever = 0;                // 0..100
+  let fever = 0;                // 0..100 (pressure gauge)
   let shield = 0;               // integer charges
 
   let stormOn = false;
@@ -127,6 +275,9 @@ function boot(opts={}){
   // simple reaction time tracking (for adaptive)
   let lastGoodSpawnAt = 0;
   const rtSamples = [];
+
+  // NEW: adaptive target size director (PLAY only)
+  const sizeDirector = makeSizeDirector({ runMode: run, diff, view });
 
   // quests (simple, self-contained)
   const GOALS = [
@@ -187,7 +338,6 @@ function boot(opts={}){
     setText('hud-goal-target', goalTarget);
     setText('miniTimer', miniRemain ? `${miniRemain}s` : '—');
 
-    // emit quest:update for global UI/listeners
     emit('quest:update', {
       goalTitle: byId('hud-goal')?.textContent || '',
       goalCur, goalTarget,
@@ -254,7 +404,6 @@ function boot(opts={}){
     if(miniRemain > 0){
       miniRemain -= 1;
       if(miniRemain <= 0){
-        // mini fails silently => rotate
         miniIndex++;
         pickMini();
       }
@@ -329,19 +478,27 @@ function boot(opts={}){
 
     // boss inject
     if(bossOn && !activeBossExists()){
-      // spawn boss occasionally
       if(rng() < 0.16){
         type = 'boss';
         el.dataset.type = 'boss';
         emoji = '💀';
         ttl = 2200;
         hp = rageOn ? 5 : 4;
-        el.style.fontSize = '72px';
-        el.style.filter = 'drop-shadow(0 18px 26px rgba(239,68,68,.22))';
       }
     }
 
     el.textContent = emoji;
+
+    // NEW: adaptive target size (PLAY only) + type-based multiplier
+    const sizePx = sizeDirector.getSpawnSizePx(type);
+    el.style.width = sizePx + 'px';
+    el.style.height = sizePx + 'px';
+    el.style.fontSize = Math.round(sizePx * 0.86) + 'px';
+    el.style.lineHeight = sizePx + 'px';
+
+    if(type === 'boss'){
+      el.style.filter = 'drop-shadow(0 18px 26px rgba(239,68,68,.22))';
+    }
 
     // position in host
     const x = randRange(rect.x0, rect.x1);
@@ -384,13 +541,16 @@ function boot(opts={}){
     if(!t || !playing) return;
     if(t.type === 'good'){
       nExpireGood++;
-      // ✅ miss += goodExpired
       misses++;
       combo = 0;
       addBodyPulse('gj-good-expire', 180);
       emit('hha:judge', { kind:'miss', reason:'goodExpired' });
-      if(inNoMissWindow()){ noMissUntil = 0; } // fail no-miss mini
+      if(inNoMissWindow()){ noMissUntil = 0; }
       setFever(fever + 6);
+
+      // NEW: size director learns from expire
+      sizeDirector.onGoodExpire();
+
       updatePhases();
       updateHUD();
     }
@@ -401,7 +561,6 @@ function boot(opts={}){
     const t = active.get(id);
     if(!t || !playing) return;
 
-    // boss needs multi-hit
     if(t.type === 'boss'){
       t.hp = Math.max(0, (t.hp||1) - 1);
       emit('hha:judge', { kind:'boss', msg:`BOSS HIT (${t.hp})` });
@@ -429,18 +588,20 @@ function boot(opts={}){
         if(rt > 0 && rt < 5000){
           rtSamples.push(rt);
           if(rtSamples.length > 20) rtSamples.shift();
+
+          // NEW: feed size director RT
+          sizeDirector.onRT(rt);
         }
       }
+
+      // NEW: size director
+      sizeDirector.onGoodHit();
 
       // goal progress
       const g = GOALS[goalIndex % GOALS.length];
       if(g.key === 'collectGood'){
         goalCur = Math.min(goalTarget, goalCur + 1);
         if(goalCur >= goalTarget) completeGoal();
-      } else if(g.key === 'noJunk'){
-        // goalCur = junkHits during this goal; updated elsewhere
-      } else {
-        // survive goal uses time end
       }
 
       // mini progress
@@ -458,7 +619,6 @@ function boot(opts={}){
         if(combo >= m.need) completeMini();
       }
 
-      // fever (good reduces a bit)
       setFever(fever - 2);
 
       emit('hha:score', { delta:10, score });
@@ -474,32 +634,32 @@ function boot(opts={}){
       nHitJunk++;
 
       if(shield > 0){
-        // ✅ blocked => not miss
         setShield(shield - 1);
         nHitJunkGuard++;
         emit('hha:judge', { kind:'block', reason:'shield' });
         emit('hha:coach', { kind:'tip', msg:'โล่ช่วยบล็อกขยะ! ดีมาก 🛡️' });
         score += 2;
       }else{
-        // ✅ miss += junkHit
         misses++;
         combo = 0;
         addBodyPulse('gj-junk-hit', 220);
         emit('hha:judge', { kind:'bad', reason:'junkHit' });
 
+        // NEW: size director learns from junk hit
+        sizeDirector.onJunkHit();
+
         // update "noJunk" goal progress
         const g = GOALS[goalIndex % GOALS.length];
         if(g.key === 'noJunk'){
-          goalCur = Math.min(goalTarget+99, goalCur + 1); // count junk hits in this goal
+          goalCur = Math.min(goalTarget+99, goalCur + 1);
           setGoalText(`GOAL ${goalIndex+1}: หลบขยะให้ดี`, `โดนขยะไปแล้ว ${goalCur}/${goalTarget} ครั้ง`);
           if(goalCur > goalTarget){
-            // failed this goal => move on (pressure)
             emit('hha:coach', { kind:'warn', msg:'โดนขยะเกินแล้ว! ไป GOAL ถัดไปนะ' });
             completeGoal();
           }
         }
 
-        if(inNoMissWindow()){ noMissUntil = 0; } // fail no-miss mini
+        if(inNoMissWindow()){ noMissUntil = 0; }
         setFever(fever + 12);
         score = Math.max(0, score - 6);
       }
@@ -540,14 +700,12 @@ function boot(opts={}){
     const cx = r.width/2;
     const cy = r.height/2;
 
-    // find topmost target whose box contains center (host L only; for cVR we mirror by spawning both)
     let bestId = null;
     for(const [id, t] of active.entries()){
       if(t.host !== 'L') continue;
       const el = t.el;
       if(!el || !el.isConnected) continue;
       const br = el.getBoundingClientRect();
-      // translate viewport to host local
       const x = (br.left - r.left);
       const y = (br.top  - r.top);
       const w = br.width, h = br.height;
@@ -560,14 +718,19 @@ function boot(opts={}){
     if(bestId){
       hitTarget(bestId);
       if(isCVR){
-        // also hit mirrored target on R if exists
         const rid = bestId.replace('-L','-R');
         if(active.has(rid)) hitTarget(rid);
       }
     }else{
-      // optional miss-shot feedback (ไม่รวมใน miss หลัก เพื่อไม่ทำโหดเกินสำหรับ ป.5)
       addBodyPulse('gj-miss-shot', 120);
       emit('hha:judge', { kind:'miss', reason:'missShot', src: detail?.source || 'shoot' });
+
+      // NEW: let size director feel miss-shot (แต่ยังไม่เพิ่ม MISS หลัก)
+      sizeDirector.onMissShot();
+
+      // optional tiny fever pressure
+      setFever(fever + 1);
+      updateHUD();
     }
   }
 
@@ -588,7 +751,7 @@ function boot(opts={}){
       rageOn = true;
       emit('hha:judge', { kind:'rage' });
       emit('hha:coach', { kind:'warn', msg:'🔥 Rage! เกมโหดขึ้นแล้ว!' });
-      DOC.body.classList.add('gj-lowtime5'); // ใช้ ring แดงให้ดูเดือดขึ้น
+      DOC.body.classList.add('gj-lowtime5');
     }
   }
 
@@ -596,7 +759,7 @@ function boot(opts={}){
   let spawnMs = DIFF.spawnMs;
   function adaptiveStep(){
     if(research) return; // OFF in research
-    // every ~6s adjust spawn speed by performance
+
     const goodTotal = Math.max(1, nHitGood + nExpireGood);
     const accGood = nHitGood / goodTotal;
     const rtAvg = rtSamples.length ? (rtSamples.reduce((a,b)=>a+b,0)/rtSamples.length) : 9999;
@@ -621,7 +784,6 @@ function boot(opts={}){
     t0 = now();
     lastTick = t0;
 
-    // init UI
     setFever(0);
     setShield(0);
 
@@ -638,30 +800,24 @@ function boot(opts={}){
       seed: research ? String(seedRaw ?? seedU32) : null,
     });
 
-    // shoot event
     ROOT.addEventListener('hha:shoot', (e)=>shootAtCenter(e?.detail || null));
 
     // spawn loop
     spawnTimer = setInterval(()=>{
       if(!playing) return;
-
-      // in cVR => spawn BOTH (L and R) so crosshair hit can mirror
       spawnOne(layerL, 'L');
       if(view === 'cvr' && layerR) spawnOne(layerR, 'R');
-
     }, spawnMs);
 
     // second tick
     secondTimer = setInterval(()=>{
       if(!playing) return;
 
-      const t = now();
-      const dt = (t - lastTick) / 1000;
-      lastTick = t;
+      // update adaptive size director periodically (PLAY only)
+      sizeDirector.tick(now());
 
       timeLeft = Math.max(0, timeLeft - 1);
 
-      // lowtime visual tick
       if(timeLeft <= 5){
         DOC.body.classList.add('gj-lowtime5');
         const num = byId('gj-lowtime-num');
@@ -678,19 +834,14 @@ function boot(opts={}){
       if(timeLeft <= 0){
         end('time');
       }
-
-      // miss limit end
       if(misses >= DIFF.missLimit){
         end('missLimit');
       }
-
     }, 1000);
 
-    // adaptive step
     adaptiveTimer = setInterval(()=>{
       adaptiveStep();
 
-      // update spawn interval if changed (restart timer)
       if(!research && spawnTimer){
         clearInterval(spawnTimer);
         spawnTimer = setInterval(()=>{
@@ -710,7 +861,6 @@ function boot(opts={}){
       clearInterval(spawnTimer); clearInterval(secondTimer); clearInterval(adaptiveTimer);
     }catch(_){}
 
-    // cleanup targets
     for(const id of Array.from(active.keys())) removeTarget(id);
 
     const grade = gradeFrom();
@@ -744,15 +894,11 @@ function boot(opts={}){
       endTimeIso: new Date().toISOString(),
     };
 
-    // store latest summary (HHA standard)
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-    }catch(_){}
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
     emit('hha:end', summary);
     emit('hha:flush', { reason:'end' });
 
-    // friendly coach message
     emit('hha:coach', {
       kind:'end',
       msg: (reason==='missLimit')
@@ -761,10 +907,8 @@ function boot(opts={}){
     });
   }
 
-  // expose minimal API for debugging
   ROOT.GoodJunkVR = { end };
 
-  // start now
   start();
 }
 
