@@ -1,12 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
-✅ Reads params: view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log, nolog
-✅ Loads: goodjunk-vr.css + particles + fx-director + cloud-logger + boot(module)
-✅ Uses vr-ui.js (loaded by boot when view=vr/cvr) + supports hha:shoot event
-✅ Has Back HUB + End Summary overlay
-✅ PATCH: body view set from URL (no fixed view-mobile)
-✅ PATCH: listen hha:end on window+document+body
-✅ PATCH: flush-hardened back hub (delay + pagehide/visibilitychange)
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
+✅ Loads CSS from ./goodjunk-vr.css
+✅ Loads globals from ../vr/*
+✅ Boot from ./goodjunk-vr.boot.js
+✅ HUD-safe measure -> sets --gj-top-safe / --gj-bottom-safe for safe.js spawn
+✅ Back HUB + End Summary overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -17,10 +15,10 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- UI -->
+  <!-- UI CSS (อยู่โฟลเดอร์เดียวกัน) -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + FX Director + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
+  <!-- Global FX + FX Director + Cloud Logger (ต้องมาก่อน boot) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
@@ -46,6 +44,10 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
       padding:9px 12px;
       font: 900 12px/1 system-ui;
       backdrop-filter: blur(6px);
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .gj-chip.btn{
       cursor:pointer;
@@ -107,7 +109,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
   </style>
 </head>
 
-<body>
+<body class="gj">
 
   <!-- TOPBAR -->
   <div class="gj-topbar" aria-hidden="false">
@@ -119,10 +121,10 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
     </div>
   </div>
 
-  <!-- LOW TIME WARNING RING -->
+  <!-- LOW TIME WARNING RING (optional class used by CSS if present) -->
   <div class="gj-warning-ring" aria-hidden="true"></div>
 
-  <!-- VR MINI HUD (show only in VR/cVR) -->
+  <!-- VR MINI HUD -->
   <div class="vr-mini-hud" id="vrMiniHud">
     <div class="mini-row">
       <div class="mini-pill"><span>SCORE</span><b id="miniScore">0</b></div>
@@ -259,7 +261,6 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
     const time = qs('time','80');
     const hub = qs('hub', null);
 
-    // ✅ PATCH: set body view class from URL (do NOT lock view-mobile)
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
       view==='pc' ? 'view-pc' :
@@ -270,11 +271,10 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
     const chip = byId('chipMeta');
     if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
 
-    // ✅ flush-hardened helpers
     function hardFlush(){
       try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
     }
-    async function flushThenGo(url){
+    function flushThenGo(url){
       hardFlush();
       setTimeout(()=>{ location.href = url; }, 260);
     }
@@ -288,7 +288,6 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
       else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
 
-    // ✅ include shoot detail (useful for logger/AI hooks)
     byId('btnShoot')?.addEventListener('click', ()=>{
       window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'btn', view } }));
     });
@@ -310,7 +309,6 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
     byId('btnPeek')?.addEventListener('click', ()=> byId('btnMissions')?.click());
     byId('btnHideHud')?.addEventListener('click', ()=> document.body.classList.toggle('hud-hidden'));
 
-    // mirror HUD to VR mini HUD
     setInterval(()=>{
       const s = byId('hud-score')?.textContent || '0';
       const t = byId('hud-time')?.textContent || '0';
@@ -334,10 +332,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
         endOverlay.setAttribute('aria-hidden','false');
       }catch(_){}
     }
-
     function onEnd(ev){ showEnd(ev?.detail || null); }
-
-    // ✅ PATCH: listen hha:end from multiple targets
     window.addEventListener('hha:end', onEnd, { passive:true });
     document.addEventListener('hha:end', onEnd, { passive:true });
     document.body?.addEventListener('hha:end', onEnd, { passive:true });
@@ -346,8 +341,36 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (LATEST PATCHED)
       if(hub) flushThenGo(hub);
       else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
-
     byId('endReplay')?.addEventListener('click', ()=> location.reload());
+  })();
+  </script>
+
+  <!-- HUD-safe measure: sets --gj-top-safe/--gj-bottom-safe for safe.js spawn -->
+  <script>
+  (function(){
+    function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+    function updateSafe(){
+      try{
+        const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+        const hud   = document.getElementById('hud');
+        const fever = document.getElementById('feverBox');
+        const ctrl  = document.querySelector('.hha-controls');
+
+        const topH = (hud?.getBoundingClientRect().height || 0);
+        const botH = Math.max(
+          fever?.getBoundingClientRect().height || 0,
+          ctrl?.getBoundingClientRect().height || 0
+        );
+
+        document.documentElement.style.setProperty('--gj-top-safe', px(topH + 14 + sat));
+        document.documentElement.style.setProperty('--gj-bottom-safe', px(botH + 18));
+      }catch(_){}
+    }
+    window.addEventListener('resize', updateSafe, {passive:true});
+    window.addEventListener('orientationchange', updateSafe, {passive:true});
+    setTimeout(updateSafe, 0);
+    setTimeout(updateSafe, 120);
+    setTimeout(updateSafe, 350);
   })();
   </script>
 
