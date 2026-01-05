@@ -1,9 +1,3 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/VR/cVR) — MATCHED with goodjunk-vr.css (gj-hud-top/bot)
-✅ HUD-safe spawn vars (--gj-top-safe/--gj-bottom-safe)
-✅ Crosshair shoot via hha:shoot (vr-ui.js)
-✅ Params: view, run, diff, time, seed, hub, studyId, phase, conditionGroup
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -16,7 +10,7 @@ GoodJunkVR RUN (PC/Mobile/VR/cVR) — MATCHED with goodjunk-vr.css (gj-hud-top/b
   <!-- A-Frame for Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS (MATCHED) -->
+  <!-- CSS (MATCHED A) -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
   <!-- Global FX + Logger + Universal VR UI -->
@@ -37,6 +31,18 @@ GoodJunkVR RUN (PC/Mobile/VR/cVR) — MATCHED with goodjunk-vr.css (gj-hud-top/b
     style="position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0.001">
     <a-entity camera position="0 1.6 0"></a-entity>
   </a-scene>
+
+  <!-- TOPBAR (HHA Standard actions) -->
+  <div class="gj-topbar">
+    <div class="left">
+      <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
+    </div>
+    <div class="right">
+      <button class="gj-btn" id="btnMissions" type="button">Missions</button>
+      <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
+      <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
+    </div>
+  </div>
 
   <!-- HUD (Top) -->
   <header class="gj-hud-top" id="gjHudTop">
@@ -110,6 +116,30 @@ GoodJunkVR RUN (PC/Mobile/VR/cVR) — MATCHED with goodjunk-vr.css (gj-hud-top/b
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
+  <!-- END SUMMARY (HHA Standard) -->
+  <div class="gj-end" id="endOverlay" aria-hidden="true">
+    <div class="card">
+      <div class="title" id="endTitle">Completed</div>
+      <div class="sub" id="endSub">—</div>
+
+      <div class="grid">
+        <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
+        <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
+        <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
+        <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="endBackHub" type="button">กลับ HUB</button>
+        <button class="btn alt" id="endReplay" type="button">เล่นอีกครั้ง</button>
+      </div>
+
+      <div class="sub" style="margin-top:10px;">
+        * โหมด Research: แนะนำใส่ seed เพื่อให้ซ้ำรอบได้เหมือนเดิม
+      </div>
+    </div>
+  </div>
+
   <!-- HUD-safe measure helper: update CSS vars so spawns never overlap HUD -->
   <script>
     (function(){
@@ -130,6 +160,86 @@ GoodJunkVR RUN (PC/Mobile/VR/cVR) — MATCHED with goodjunk-vr.css (gj-hud-top/b
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 350);
+    })();
+  </script>
+
+  <!-- UI wiring: hub/back/end/peek/hide + flush-hardened -->
+  <script>
+    (function(){
+      const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+      const byId = (id)=>document.getElementById(id);
+
+      const view = (qs('view','mobile')||'mobile').toLowerCase();
+      const run  = qs('run','play');
+      const diff = qs('diff','normal');
+      const time = qs('time','80');
+      const hub  = (qs('hub','')||'').trim() || null;
+
+      // body view class (boot ก็ทำ แต่ทำซ้ำเพื่อความชัวร์)
+      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      document.body.classList.add(
+        view==='pc' ? 'view-pc' :
+        view==='vr' ? 'view-vr' :
+        view==='cvr'? 'view-cvr' : 'view-mobile'
+      );
+
+      const chip = byId('chipMeta');
+      if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
+
+      function hardFlush(){
+        try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
+      }
+      function flushThenGo(url){
+        hardFlush();
+        setTimeout(()=>{ location.href = url; }, 260);
+      }
+      window.addEventListener('pagehide', hardFlush, { passive:true });
+      document.addEventListener('visibilitychange', ()=>{
+        if(document.visibilityState === 'hidden') hardFlush();
+      }, { passive:true });
+
+      byId('btnBackHub')?.addEventListener('click', ()=>{
+        if(hub) flushThenGo(hub);
+        else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
+      });
+
+      // Missions peek (VR/cVR ใช้ show-missions 4 วิ)
+      byId('btnMissions')?.addEventListener('click', ()=>{
+        document.body.classList.add('show-missions');
+        setTimeout(()=>document.body.classList.remove('show-missions'), 4200);
+      });
+
+      // Hide HUD
+      byId('btnHideHud')?.addEventListener('click', ()=>{
+        document.body.classList.toggle('hud-hidden');
+      });
+
+      // End overlay
+      const endOverlay = byId('endOverlay');
+      function showEnd(d){
+        try{
+          if(!endOverlay) return;
+          byId('endTitle').textContent = (d?.reason === 'missLimit') ? 'Game Over' : 'Completed';
+          byId('endSub').textContent = `reason=${d?.reason||'-'} | mode=${d?.runMode||run} | view=${d?.device||view}`;
+          byId('endGrade').textContent = d?.grade || '—';
+          byId('endScore').textContent = String(d?.scoreFinal ?? 0);
+          byId('endMiss').textContent  = String(d?.misses ?? 0);
+          byId('endTime').textContent  = String(Math.round(Number(d?.durationPlayedSec||0)));
+          endOverlay.style.display = 'flex';
+          endOverlay.setAttribute('aria-hidden','false');
+        }catch(_){}
+      }
+      function onEnd(ev){ showEnd(ev?.detail || null); }
+
+      window.addEventListener('hha:end', onEnd, { passive:true });
+      document.addEventListener('hha:end', onEnd, { passive:true });
+      document.body?.addEventListener('hha:end', onEnd, { passive:true });
+
+      byId('endBackHub')?.addEventListener('click', ()=>{
+        if(hub) flushThenGo(hub);
+        else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
+      });
+      byId('endReplay')?.addEventListener('click', ()=> location.reload());
     })();
   </script>
 </body>
