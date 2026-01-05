@@ -1,3 +1,4 @@
+<!-- === /herohealth/goodjunk-vr-launcher.html (PATCH: base path to /vr-goodjunk/) === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -21,7 +22,6 @@
       --violet:#a78bfa;
       --radius:22px;
       --pill:999px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -247,8 +247,8 @@
         }catch(_){}
       }
 
+      // ✅ PATCH: correct base to folder
       function build(view){
-        // ✅ FIX PATH: launcher is in /herohealth/ so game is in /herohealth/vr-goodjunk/
         const base = './vr-goodjunk/goodjunk-vr.html';
         const p = new URLSearchParams();
         p.set('view', view);
@@ -283,8 +283,7 @@
         btn.addEventListener('click', ()=>{
           const view = btn.getAttribute('data-view');
           save();
-          const url = build(view);
-          location.href = url;
+          location.href = build(view);
         });
       });
     })();
