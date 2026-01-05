@@ -1,4 +1,4 @@
-/* === /herohealth/vr-groups/groups-vr.css ===
+/* === D: /herohealth/vr-groups/groups-vr.css ===
 Food Groups VR — ALL-IN CSS (PRODUCTION + ULTRA FX)
 ✅ HUD/Quest/Power/Coach layout (PC/Mobile/cVR)
 ✅ cVR strict: targets pointer-events:none + shoot from crosshair (hha:shoot)
@@ -81,9 +81,16 @@ html,body{
   position:fixed;
   inset:0;
   z-index:20;
-  pointer-events:none; /* targets are clickable individually (except cVR strict) */
+
+  /* ✅ PATCH: ต้อง auto ไม่งั้นคลิกเป้าไม่ได้ */
+  pointer-events:auto;
+
   overflow:hidden;
+  background: transparent;
 }
+
+/* ✅ โหดแบบ safe: ให้คลิกได้เฉพาะ "เป้า" เท่านั้น */
+.playLayer *{ pointer-events:none; }
 
 /* ---------------- HUD ---------------- */
 .hud{
@@ -303,6 +310,7 @@ body.groups-storm-urgent .questCard:nth-child(1){
   align-items:center;
   justify-content:center;
 
+  /* ✅ เป้ารับคลิกได้ (แต่ playLayer * ถูกปิดไว้แล้ว -> เราเปิดให้เฉพาะเป้า) */
   pointer-events:auto;
   cursor:pointer;
   user-select:none;
