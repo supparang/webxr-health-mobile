@@ -81,9 +81,7 @@
       gap:14px;
       margin-top:14px;
     }
-    @media (max-width: 820px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    @media (max-width: 820px){ .grid{ grid-template-columns: 1fr; } }
     .panel{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
@@ -154,7 +152,7 @@
 
     <div class="grid">
       <div class="panel">
-        <div class="pill">✅ 2 ไฟล์: Launcher → Run</div>
+        <div class="pill">✅ Launcher → Run (พาไป /hydration-vr/hydration-run.html)</div>
         <div class="btnRow">
           <button class="btn" id="btnPC">🖥️ PC</button>
           <button class="btn" id="btnMobile">📱 Mobile</button>
@@ -164,7 +162,7 @@
         </div>
 
         <div class="small muted" style="margin-top:12px;">
-          ทิป: ถ้าเข้าแว่นแล้วเอียง/ไม่เต็มจอ ให้เลือกโหมดใหม่อีกครั้ง (ต้องกดจากปุ่มเพื่อให้ fullscreen/landscape ติด)
+          ทิป: fullscreen/landscape จะ “ติด” ได้ดีที่สุดเมื่อเริ่มจากปุ่ม (user gesture)
         </div>
       </div>
 
@@ -173,9 +171,9 @@
         <div class="kv"><div class="k">diff</div><div class="v"><code id="vDiff">normal</code></div></div>
         <div class="kv"><div class="k">time</div><div class="v"><code id="vTime">70</code></div></div>
         <div class="kv"><div class="k">run</div><div class="v"><code id="vRun">play</code></div></div>
-        <div class="kv"><div class="k">seed/ts</div><div class="v"><code id="vTS">-</code></div></div>
+        <div class="kv"><div class="k">ts</div><div class="v"><code id="vTS">-</code></div></div>
         <div class="small muted" style="margin-top:10px;">
-          Launcher จะส่งต่อ query ทั้งหมดไปหน้า Run เพื่อไม่ทำให้ระบบวิจัย/ล็อกพัง
+          Launcher จะ copy query ทั้งหมดไปหน้า Run เพื่อไม่ทำให้ study/log พัง
         </div>
       </div>
     </div>
@@ -213,10 +211,9 @@
     }
 
     function go(view){
-      // ไปหน้า Run: /herohealth/hydration-vr/hydration-run.html
       const runUrl = new URL('./hydration-vr/hydration-run.html', location.href);
 
-      // copy all params (สำคัญ: study/log ต่าง ๆ)
+      // copy all params
       const cur = new URL(location.href);
       cur.searchParams.forEach((v,k)=> runUrl.searchParams.set(k,v));
 
@@ -227,7 +224,7 @@
     }
 
     async function goVR(view){
-      await enterFullAndLandscape(); // ต้องเกิดจาก user gesture ถึงจะมีโอกาสติด
+      await enterFullAndLandscape();
       go(view);
     }
 
