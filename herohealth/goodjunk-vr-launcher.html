@@ -1,4 +1,3 @@
-<!-- === /herohealth/goodjunk-vr-launcher.html (PATCH: base path to /vr-goodjunk/) === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -22,6 +21,7 @@
       --violet:#a78bfa;
       --radius:22px;
       --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -124,7 +124,6 @@
       color:var(--muted); font-size:12px; font-weight:800;
     }
     .minirow{ display:flex; gap:10px; flex-wrap:wrap; }
-    a{ color: var(--cyan); text-decoration:none; font-weight:1000; }
   </style>
 </head>
 <body>
@@ -196,9 +195,6 @@
           <div id="preview" class="mono" style="margin-top:10px;font-size:12px;line-height:1.45;color:#cbd5e1;word-break:break-all;">
             —
           </div>
-          <div class="hint">
-            ถ้ากดจาก HUB แล้วเข้าไม่ได้ ให้ลองเปิดผ่าน Launcher นี้ก่อนเพื่อเช็คพารามิเตอร์ <span class="mono">view/diff/time/run/seed/hub</span>
-          </div>
         </div>
       </div>
 
@@ -247,7 +243,7 @@
         }catch(_){}
       }
 
-      // ✅ PATCH: correct base to folder
+      // ✅ A: correct base path to folder
       function build(view){
         const base = './vr-goodjunk/goodjunk-vr.html';
         const p = new URLSearchParams();
