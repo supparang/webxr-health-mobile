@@ -1,5 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — PRODUCTION (LATEST) — Storm/Boss/Rage + BossWave + RageDrain + Two-eye + cVR shoot + anti double-hit
+// ✅ HUD-safe spawn using CSS vars: --gj-top-safe / --gj-bottom-safe (measured by run HTML helper)
 // Rules:
 //  - timeLeft <= 30s => STORM
 //  - miss >= 4 => BOSS
@@ -82,47 +83,6 @@ function medianOf(arr){
   const a = arr.slice().sort((x,y)=>x-y);
   const n = a.length, m = (n/2)|0;
   return (n%2) ? a[m] : (a[m-1] + a[m]) / 2;
-}
-
-/* =========================================================
-   ✅ HUD SAFE VAR → px (calc-proof) + spawn bounds
-   - This makes --gj-top-safe / --gj-bottom-safe usable even when they are calc(...)
-   - Works across Android/Chrome/Samsung/Firefox etc.
-========================================================= */
-function cssVarPx(name, fallbackPx){
-  try{
-    const el = DOC.createElement('div');
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
-    el.style.top = '-9999px';
-    el.style.width = '0px';
-    el.style.height = `var(${name})`;
-    el.style.pointerEvents = 'none';
-    el.style.opacity = '0';
-    DOC.body.appendChild(el);
-    const h = el.getBoundingClientRect().height;
-    el.remove();
-    if(Number.isFinite(h) && h > 0) return h;
-  }catch(_){}
-  return Number(fallbackPx)||0;
-}
-
-function hudSafeBounds(){
-  const W = DOC.documentElement.clientWidth || innerWidth;
-  const H = DOC.documentElement.clientHeight || innerHeight;
-
-  const topSafe = Math.max(0, cssVarPx('--gj-top-safe', 140));
-  const bottomSafe = Math.max(0, cssVarPx('--gj-bottom-safe', 120));
-
-  const edge = 18;
-  const left = edge;
-  const right = W - edge;
-
-  // add extra headroom; bottom includes targetPad in spawn clamp too
-  const top = Math.min(H - 80, topSafe);
-  const bottom = Math.max(top + 80, H - bottomSafe);
-
-  return { W, H, left, right, top, bottom, topSafe, bottomSafe };
 }
 
 // -------------------------
@@ -613,6 +573,7 @@ function phaseDifficulty(cfg, state){
     sizeMul  = 0.95;
   }
 
+  // protect mobile slightly
   if(state.__view === 'mobile'){
     spawnMul *= 0.93;
     junkAdd  *= 0.75;
@@ -621,6 +582,23 @@ function phaseDifficulty(cfg, state){
   }
 
   return { spawnMul, junkAdd, lifeMul, sizeMul };
+}
+
+// -------------------------
+// ✅ HUD-safe helpers (reads CSS vars measured by run HTML helper)
+// -------------------------
+function readCssPxVar(name, fallbackPx){
+  try{
+    const v = getComputedStyle(DOC.documentElement).getPropertyValue(name);
+    const n = parseFloat(String(v||'').replace('px',''));
+    if(Number.isFinite(n) && n >= 0) return n;
+  }catch(_){}
+  return Number(fallbackPx)||0;
+}
+function getSafeInsets(){
+  const topSafe = readCssPxVar('--gj-top-safe', 150);
+  const botSafe = readCssPxVar('--gj-bottom-safe', 120);
+  return { topSafe, botSafe };
 }
 
 // -------------------------
@@ -737,6 +715,7 @@ export function boot(opts={}){
     const p = pairMap.get(pid);
     if(!p) return;
 
+    // ✅ anti double-hit
     if(pidHandled.has(pid)) return;
     pidHandled.add(pid);
 
@@ -963,6 +942,31 @@ export function boot(opts={}){
     const elR = layerR ? createTargetEl(kind, emoji) : null;
     if(elR) elR.dataset.pid = pid;
 
+    const W = DOC.documentElement.clientWidth;
+    const H = DOC.documentElement.clientHeight;
+
+    // ✅ HUD-safe insets from CSS vars
+    const { topSafe, botSafe } = getSafeInsets();
+
+    // playable vertical range
+    const yMin = Math.max(0, topSafe + 6);
+    const yMax = Math.max(yMin + 40, H - botSafe - 6);
+
+    // horizontal range (keep away from edges a bit)
+    const xMin = W * 0.14;
+    const xMax = W * 0.86;
+
+    const x = randIn(state.rng, xMin, xMax);
+    const y = randIn(state.rng, yMin, yMax);
+
+    elL.style.left = `${x}px`;
+    elL.style.top  = `${y}px`;
+
+    if(elR){
+      elR.style.left = `${x}px`;
+      elR.style.top  = `${y}px`;
+    }
+
     const sizeMul = pd.sizeMul || 1.0;
     const sBase = (kind==='star' || kind==='shield')
       ? randIn(state.rng, 0.95, 1.08)
@@ -970,28 +974,8 @@ export function boot(opts={}){
 
     const s = sBase * sizeMul;
 
-    // ✅ HUD-safe bounds (calc-proof) + dynamic padding by target size
-    const B = hudSafeBounds();
-
-    const baseSize = (kind==='star' || kind==='shield') ? 46 : 52;
-    const approxR = (baseSize * s) * 0.55;
-    const pad = Math.max(18, Math.min(60, approxR));
-
-    let x = randIn(state.rng, 0.0, 1.0) * (B.right - B.left) + B.left;
-    let y = randIn(state.rng, 0.0, 1.0) * (B.bottom - B.top) + B.top;
-
-    x = clamp(x, B.left + pad, B.right - pad);
-    y = clamp(y, B.top  + pad, B.bottom - pad);
-
-    elL.style.left = `${x}px`;
-    elL.style.top  = `${y}px`;
     elL.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
-
-    if(elR){
-      elR.style.left = `${x}px`;
-      elR.style.top  = `${y}px`;
-      elR.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
-    }
+    if(elR) elR.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
 
     const mobileMul = (view==='mobile') ? 1.18 : 1.0;
 
@@ -1198,6 +1182,7 @@ export function boot(opts={}){
         return;
       }
 
+      // Boss Wave scheduler
       if(__phase === 'boss' || __phase === 'rage'){
         state.bossWaveCd = Math.max(0, (state.bossWaveCd || 0) - dt);
         if(state.bossWaveCd <= 0 && (state.bossWaveLeft || 0) <= 0){
@@ -1211,6 +1196,7 @@ export function boot(opts={}){
         }
       }
 
+      // base spawn
       const basePps = (cfg.spawnPps || 2.0);
       const aiApply = (qs('aiApply','0') === '1');
       const mulAi = (aiApply && !isResearch) ? (state.__aiSpawnMul || 1.0) : 1.0;
@@ -1224,6 +1210,7 @@ export function boot(opts={}){
 
       spawnAcc += dt * pps;
 
+      // burstQueue spawn (force junk if wave left)
       if(state.burstQueue > 0){
         state.burstCooldown = Math.max(0, state.burstCooldown - dt);
         if(state.burstCooldown <= 0){
@@ -1242,6 +1229,7 @@ export function boot(opts={}){
         spawned++;
       }
 
+      // Rage Drain
       if(__phase === 'rage'){
         state.rageGrace = Math.max(0, (state.rageGrace || 0) - dt);
         if(state.rageGrace <= 0){
