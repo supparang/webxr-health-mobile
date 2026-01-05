@@ -37,6 +37,7 @@
     html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     a{ color:inherit; }
 
+    /* Background soft glow */
     body::before{
       content:"";
       position:fixed; inset:0;
@@ -102,6 +103,7 @@
       align-items:center;
       color:rgba(229,231,235,.92);
       font-size:12px;
+      flex-wrap:wrap;
     }
     .pill{
       display:inline-flex; align-items:center; gap:8px;
@@ -109,7 +111,17 @@
       border-radius:var(--pill);
       background:rgba(15,23,42,.55);
       border:1px solid rgba(148,163,184,.14);
+      min-width: 120px;
+      justify-content:space-between;
     }
+
+    /* ✅ E3.9: Boost pill (แสดงเฉพาะตอน active) */
+    .pill.boost{
+      border-color: rgba(34,197,94,.26);
+      background: rgba(34,197,94,.14);
+      display:none;
+    }
+    body.boost-on .pill.boost{ display:inline-flex; }
 
     .waterPanel .top{
       display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
@@ -182,7 +194,9 @@
     /* cVR (crosshair ยิงกลางจอ) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
-    body.view-cvr #hydration-layer{ pointer-events:none; } /* ยิงจากกลางจอ */
+    body.view-cvr #hydration-layer{
+      pointer-events:none; /* สำคัญ: ยิงจากกลางจอ ไม่แตะเป้าโดยตรง */
+    }
     .crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -349,12 +363,14 @@
       0%,100%{ transform: translate3d(0,0,0); }
       50%{ transform: translate3d(0,1px,0); }
     }
+
     body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
     @keyframes hitPulse{
       0%{ filter: brightness(1); }
       60%{ filter: brightness(1.12) saturate(1.10); }
       100%{ filter: brightness(1); }
     }
+
     body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
     @keyframes bossFlash{
       0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
@@ -379,72 +395,6 @@
       0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; }
       100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
     }
-
-    /* ✅ Checklist UI */
-    .ck{
-      padding:8px 10px;
-      border-radius:14px;
-      background:rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.14);
-      font-size:12px;
-      color:rgba(229,231,235,.92);
-    }
-    .ck.ok{
-      border-color: rgba(34,197,94,.28);
-      background: rgba(34,197,94,.12);
-    }
-    .ck.bad{
-      border-color: rgba(239,68,68,.32);
-      background: rgba(239,68,68,.10);
-    }
-    .ck-warn.ok{
-      border-color: rgba(34,211,238,.28);
-      background: rgba(34,211,238,.10);
-    }
-
-    /* ✅ B) Cardboard HUD: ย่อ/ชิดขอบ/โปร่งขึ้น ไม่บังกลางจอ */
-    body.cardboard .hud{
-      padding: 6px;
-      gap:8px;
-    }
-    body.cardboard .panel{
-      padding:10px;
-      background: rgba(2,6,23,.62);
-      box-shadow: 0 12px 44px rgba(0,0,0,.35);
-    }
-    body.cardboard .questLine{ font-size:12px; }
-    body.cardboard .k{ font-size:11px; }
-    body.cardboard .v{ font-size:18px; }
-    body.cardboard .statBox{ padding:8px 10px; }
-    body.cardboard .pill{ padding:7px 9px; }
-    body.cardboard .ck{ padding:7px 9px; font-size:11px; }
-    /* ลดความสูง panel ใน cardboard */
-    body.cardboard .panel.questPanel,
-    body.cardboard .panel.waterPanel{
-      max-height: 42vh;
-      overflow:hidden;
-    }
-
-    /* ✅ Practice badge */
-    #practiceBadge{
-      position:fixed;
-      left:50%;
-      top: calc(56px + var(--sat));
-      transform: translateX(-50%);
-      z-index:111;
-      pointer-events:none;
-      display:none;
-    }
-    #practiceBadge .pwrap{
-      display:inline-flex; align-items:center; gap:10px;
-      padding:10px 12px;
-      border-radius:999px;
-      background:rgba(245,158,11,.14);
-      border:1px solid rgba(245,158,11,.28);
-      backdrop-filter: blur(10px);
-      box-shadow:0 18px 70px rgba(0,0,0,.40);
-      font-weight:900;
-    }
   </style>
 </head>
 
@@ -467,13 +417,6 @@
   <!-- Crosshair for cVR -->
   <div class="crosshair" aria-hidden="true"></div>
 
-  <!-- ✅ Practice badge -->
-  <div id="practiceBadge" aria-hidden="true">
-    <div class="pwrap">
-      🧪 PRACTICE <span id="practiceLeft">15</span>s (ไม่นับคะแนน/ไม่นับสถิติ)
-    </div>
-  </div>
-
   <!-- HUD -->
   <div class="hud">
     <div class="panel">
@@ -493,46 +436,19 @@
       </div>
     </div>
 
-    <div class="panel questPanel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
+    <div class="panel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
       <div class="questTitle">ภารกิจ Hydration 💧</div>
       <div class="questLine" id="quest-line1">Stage 1/3 ...</div>
       <div class="questLine" id="quest-line2">—</div>
       <div class="questLine muted" id="quest-line3">—</div>
       <div class="questLine muted" id="quest-line4">—</div>
 
-      <!-- Quest Progress -->
-      <div style="margin-top:10px" class="pill">
-        <span style="opacity:.9">Stage 1</span>
-        <b id="qS1Txt">0/0s</b>
-      </div>
-      <div class="barWrap" style="height:10px;margin-top:8px;">
-        <div id="qS1Bar" style="height:100%;width:0%;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));"></div>
-      </div>
-
-      <div style="margin-top:10px" class="pill">
-        <span style="opacity:.9">Storm Mini</span>
-        <b id="qS2Txt">0/1</b>
-      </div>
-
-      <div id="stormChecklist" style="margin-top:8px;display:grid;gap:6px;">
-        <div class="ck" id="ckZone">⬜ LOW/HIGH (ไม่ GREEN)</div>
-        <div class="ck" id="ckPress">⬜ Pressure OK</div>
-        <div class="ck" id="ckEnd">⬜ End Window</div>
-        <div class="ck" id="ckBlock">⬜ BLOCK in End</div>
-        <div class="ck ck-warn" id="ckNoBad">⬜ ห้ามโดน BAD</div>
-      </div>
-
-      <div style="margin-top:10px" class="pill">
-        <span style="opacity:.9">Boss</span>
-        <b id="qS3Txt">0/1</b>
-      </div>
-      <div class="barWrap" style="height:10px;margin-top:8px;">
-        <div id="qBossBar" style="height:100%;width:0%;background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.92));"></div>
-      </div>
-
       <div class="miniRow">
         <div class="pill">Storm <b id="storm-left">0</b></div>
         <div class="pill">Shield <b id="shield-count">0</b></div>
+
+        <!-- ✅ E3.9: Boost indicator -->
+        <div class="pill boost">BOOST <b id="boost-left">0</b></div>
       </div>
     </div>
 
@@ -566,9 +482,7 @@
 • PC: เมาส์/คลิก
 • Mobile: แตะหน้าจอ
 • VR Cardboard: จอแยกซ้าย–ขวา + fullscreen/landscape (best-effort)
-• cVR: crosshair กลางจอ + แตะเพื่อยิง
-
-✅ Cardboard/cVR จะมี PRACTICE 15s ก่อนเริ่มจริง (ไม่นับคะแนน/ไม่นับสถิติ)</p>
+• cVR: crosshair กลางจอ + แตะเพื่อยิง (เหมาะกับ Cardboard แบบ strict ยิงจากกลางจอ)</p>
         </div>
       </div>
 
@@ -585,6 +499,8 @@
 Stage1) คุม GREEN ให้ครบเวลาที่กำหนด (สะสม)
 Stage2) ผ่าน Storm Mini อย่างน้อย 1 พายุ: ทำให้น้ำไม่ GREEN (LOW/HIGH) + BLOCK ช่วง End Window และห้ามโดน BAD ตอนพายุ
 Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss Window) จะมี 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบตามจำนวน
+
+E3.9: ผ่านพายุแบบ “สะอาด” (ไม่โดน BAD เลย) = ได้ BOOST ช่วงสั้น 🔥
       </div>
     </div>
   </div>
@@ -610,6 +526,10 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
           <div class="kv"><div class="k2">Miss</div><div class="v2" id="rMiss">0</div></div>
           <div class="kv"><div class="k2">Goals</div><div class="v2" id="rGoals">0/1</div></div>
           <div class="kv"><div class="k2">Minis</div><div class="v2" id="rMinis">0/0</div></div>
+
+          <!-- ✅ E3.9: Flow + Pattern -->
+          <div class="kv"><div class="k2">Flow</div><div class="v2" id="rFlow">0</div></div>
+          <div class="kv"><div class="k2">Pattern</div><div class="v2" id="rPattern">-</div></div>
         </div>
 
         <div class="panel" style="margin:0;">
@@ -618,11 +538,6 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
           <div class="kv"><div class="k2">Storm Cycles</div><div class="v2" id="rStormCycles">0</div></div>
           <div class="kv"><div class="k2">Storm Success</div><div class="v2" id="rStormOk">0</div></div>
           <div class="kv"><div class="k2">Storm Rate</div><div class="v2" id="rStormRate">0%</div></div>
-
-          <!-- ✅ A) RT metrics -->
-          <div class="kv"><div class="k2">Avg RT (Good)</div><div class="v2" id="rAvgRt">0 ms</div></div>
-          <div class="kv"><div class="k2">Median RT (Good)</div><div class="v2" id="rMedRt">0 ms</div></div>
-
           <div class="kv"><div class="k2" id="rTier">Tier:</div><div></div></div>
         </div>
       </div>
@@ -637,25 +552,6 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
           <button class="btn" id="btnDownloadCSV">⬇️ Download CSV</button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Toast + Callout -->
-  <div id="toast" style="position:fixed;left:50%;top:calc(12px + var(--sat));transform:translateX(-50%);
-  z-index:110;pointer-events:none;display:none;">
-    <div style="background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);
-    padding:10px 12px;border-radius:999px;backdrop-filter:blur(10px);
-    font-weight:900;box-shadow:0 18px 70px rgba(0,0,0,.4);">
-      <span id="toastTxt">—</span>
-    </div>
-  </div>
-
-  <div id="callout" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
-  z-index:109;pointer-events:none;display:none;">
-    <div style="padding:12px 16px;border-radius:18px;font-weight:900;
-    background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.28);
-    box-shadow:0 24px 90px rgba(0,0,0,.55);">
-      <span id="calloutTxt">BLOCK NOW!</span>
     </div>
   </div>
 
@@ -694,11 +590,21 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     document.getElementById('btnCardboard')?.addEventListener('click', ()=>go('cardboard'));
     document.getElementById('btnCVR')?.addEventListener('click', ()=>go('cvr'));
 
+    // If already has view=..., hide overlay + start
     const view = String(qs('view','')).toLowerCase();
     if (view){
       document.getElementById('startOverlay')?.classList.add('hide');
       window.dispatchEvent(new CustomEvent('hha:start'));
     }
+
+    // ✅ E3.9: listen boost update from safe.js (optional)
+    window.addEventListener('hha:boost', (ev)=>{
+      const d = ev.detail || {};
+      const left = Number(d.leftSec||0);
+      const el = document.getElementById('boost-left');
+      if (el) el.textContent = String(Math.max(0, Math.ceil(left)));
+      document.body.classList.toggle('boost-on', left > 0.05);
+    });
   })();
   </script>
 
