@@ -1,10 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
-✅ Loads CSS from ./goodjunk-vr.css
-✅ Loads globals from ../vr/*
-✅ Boot from ./goodjunk-vr.boot.js
-✅ HUD-safe measure -> sets --gj-top-safe / --gj-bottom-safe for safe.js spawn
-✅ Back HUB + End Summary overlay
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR/VR) — PRODUCTION (ULTRA PATCH)
+✅ Reads params: view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log, nolog
+✅ Loads: goodjunk-vr.css + particles + fx-director + cloud-logger + boot(module)
+✅ Loads vr-ui.js ONLY when view=vr/cvr (handled by boot)
+✅ Has Back HUB + End Summary overlay
+✅ VR-friendly Missions: hold 1s to peek (press&hold; release to close)
+✅ Rules: time<=30 => storm, miss>=4 => boss, miss>=5 => rage
 -->
 <!doctype html>
 <html lang="th">
@@ -15,98 +16,16 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- UI CSS (อยู่โฟลเดอร์เดียวกัน) -->
+  <!-- UI -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + FX Director + Cloud Logger (ต้องมาก่อน boot) -->
+  <!-- Global FX + FX Director + Cloud Logger (must be before boot) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
-
-  <style>
-    .gj-topbar{
-      position:fixed; left:10px; right:10px;
-      top: calc(10px + var(--sat, 0px));
-      z-index:110;
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      pointer-events:none;
-    }
-    .gj-topbar .left, .gj-topbar .right{display:flex; gap:10px; align-items:center;}
-    .gj-chip{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.62);
-      color:#e5e7eb;
-      border-radius:999px;
-      padding:9px 12px;
-      font: 900 12px/1 system-ui;
-      backdrop-filter: blur(6px);
-      max-width: 92vw;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .gj-chip.btn{
-      cursor:pointer;
-      border-color: rgba(34,197,94,.28);
-      background: rgba(34,197,94,.10);
-    }
-    .gj-chip.btn:active{ transform: translateY(1px); }
-
-    /* End summary overlay */
-    .gj-end{
-      position:fixed; inset:0; z-index:220;
-      display:none;
-      align-items:center; justify-content:center;
-      background: rgba(2,6,23,.86);
-      backdrop-filter: blur(10px);
-      pointer-events:auto;
-    }
-    .gj-end[aria-hidden="true"]{ pointer-events:none; }
-
-    .gj-end .card{
-      width:min(760px,92vw);
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.80);
-      border-radius: 22px;
-      padding: 16px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.45);
-      color:#e5e7eb;
-    }
-    .gj-end .title{font: 1200 22px/1.1 system-ui; }
-    .gj-end .sub{margin-top:6px;color:#94a3b8;font: 900 12px/1.35 system-ui;}
-    .gj-end .grid{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    @media (max-width:720px){ .gj-end .grid{grid-template-columns:1fr;} }
-    .gj-end .stat{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.45);
-      border-radius: 16px;
-      padding: 10px 12px;
-      display:flex; align-items:baseline; justify-content:space-between; gap:10px;
-      font: 900 12px/1 system-ui;
-      color:#e5e7eb;
-    }
-    .gj-end .stat b{font-size:16px;}
-    .gj-end .actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;}
-    .gj-end .btn{
-      min-width: 210px;
-      height: 52px;
-      border-radius: 16px;
-      border: 1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.16);
-      color:#eafff3;
-      font: 1100 16px/1 system-ui;
-      cursor:pointer;
-    }
-    .gj-end .btn.alt{
-      border-color: rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color:#e5e7eb;
-    }
-  </style>
 </head>
 
 <body class="gj">
@@ -115,16 +34,17 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
   <div class="gj-topbar" aria-hidden="false">
     <div class="left">
       <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
+      <div class="gj-chip danger" id="chipPhase" style="display:none">—</div>
     </div>
     <div class="right">
       <button class="gj-chip btn" id="btnBackHub" type="button">↩ กลับ HUB</button>
     </div>
   </div>
 
-  <!-- LOW TIME WARNING RING (optional class used by CSS if present) -->
+  <!-- WARNING RING (storm / rage / boss) -->
   <div class="gj-warning-ring" aria-hidden="true"></div>
 
-  <!-- VR MINI HUD -->
+  <!-- VR MINI HUD (show only in VR/cVR) -->
   <div class="vr-mini-hud" id="vrMiniHud">
     <div class="mini-row">
       <div class="mini-pill"><span>SCORE</span><b id="miniScore">0</b></div>
@@ -184,7 +104,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
       <div class="peek-title">Missions</div>
       <div class="peek-sub" id="peekGoal">—</div>
       <div class="peek-mini" id="peekMini">—</div>
-      <div class="peek-tip" id="peekTip">แตะ/ยิงเพื่อปิด</div>
+      <div class="peek-tip" id="peekTip">ปล่อยเพื่อปิด</div>
     </div>
   </div>
 
@@ -199,6 +119,17 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
     <div class="shield-row">
       <div class="shield-label">SHIELD</div>
       <div class="shield-pills" id="shieldPills">—</div>
+    </div>
+  </div>
+
+  <!-- MINI FEVER (only when HUD hidden) -->
+  <div class="mini-fever" id="miniFever" aria-hidden="true">
+    <div class="mf-row">
+      <span class="mf-k">FEVER</span><b id="mfPct">0%</b>
+    </div>
+    <div class="mf-bar"><div class="mf-fill" id="mfFill"></div></div>
+    <div class="mf-row">
+      <span class="mf-k">🛡️</span><b id="mfShield">—</b>
     </div>
   </div>
 
@@ -244,7 +175,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
       </div>
 
       <div class="sub" style="margin-top:10px;">
-        * ถ้าเปิดโหมด Research ให้ตรวจใน Google Sheet ว่ามี row start/end ครบ
+        * โหมด Research: ตรวจใน Google Sheet ว่ามี row start/end ครบ
       </div>
     </div>
   </div>
@@ -261,6 +192,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
     const time = qs('time','80');
     const hub = qs('hub', null);
 
+    // set body view class from URL
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
       view==='pc' ? 'view-pc' :
@@ -271,6 +203,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
     const chip = byId('chipMeta');
     if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
 
+    // flush-hardened helpers
     function hardFlush(){
       try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
     }
@@ -288,27 +221,75 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
       else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
 
+    // shoot button (PC/Mobile)
     byId('btnShoot')?.addEventListener('click', ()=>{
       window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'btn', view } }));
     });
 
-    const peek = byId('peek');
-    peek?.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
+    // Hide HUD => show mini fever
+    const miniFever = byId('miniFever');
+    byId('btnHideHud')?.addEventListener('click', ()=>{
+      document.body.classList.toggle('hud-hidden');
+      const on = document.body.classList.contains('hud-hidden');
+      if(miniFever){
+        miniFever.setAttribute('aria-hidden', on ? 'false' : 'true');
+      }
+    });
 
-    byId('btnMissions')?.addEventListener('click', ()=>{
-      peek?.setAttribute('aria-hidden','false');
+    // Missions peek: VR-friendly hold 1s to open; release to close
+    const peek = byId('peek');
+    let holdTimer = null;
+    let holding = false;
+
+    function openPeek(){
+      if(!peek) return;
+      peek.setAttribute('aria-hidden','false');
       try{
         byId('peekGoal').textContent =
           (byId('hud-goal')?.textContent || '—') + ' ' +
           (byId('hud-goal-cur')?.textContent || '0') + '/' +
           (byId('hud-goal-target')?.textContent || '0');
-        byId('peekMini').textContent =
-          byId('hud-mini')?.textContent || '—';
+        byId('peekMini').textContent = byId('hud-mini')?.textContent || '—';
       }catch(_){}
-    });
-    byId('btnPeek')?.addEventListener('click', ()=> byId('btnMissions')?.click());
-    byId('btnHideHud')?.addEventListener('click', ()=> document.body.classList.toggle('hud-hidden'));
+    }
+    function closePeek(){
+      if(!peek) return;
+      peek.setAttribute('aria-hidden','true');
+    }
+    function startHold(){
+      holding = true;
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(()=>{
+        if(holding) openPeek();
+      }, 1000);
+    }
+    function endHold(){
+      holding = false;
+      clearTimeout(holdTimer);
+      // release => close (if open)
+      closePeek();
+    }
 
+    // tap to close peek
+    peek?.addEventListener('click', closePeek);
+
+    // button handlers (support pointer events)
+    const btnM = byId('btnMissions');
+    const btnP = byId('btnPeek');
+    [btnM, btnP].forEach(btn=>{
+      if(!btn) return;
+      btn.addEventListener('pointerdown', startHold);
+      btn.addEventListener('pointerup', endHold);
+      btn.addEventListener('pointercancel', endHold);
+      btn.addEventListener('pointerleave', endHold);
+      // quick click fallback (mobile): open briefly 1.2s then close
+      btn.addEventListener('click', ()=>{
+        openPeek();
+        setTimeout(closePeek, 1200);
+      });
+    });
+
+    // mirror HUD to VR mini HUD
     setInterval(()=>{
       const s = byId('hud-score')?.textContent || '0';
       const t = byId('hud-time')?.textContent || '0';
@@ -316,6 +297,14 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
       const ms = byId('miniScore'); if(ms) ms.textContent = s;
       const mt = byId('miniTime');  if(mt) mt.textContent = t;
       const mg = byId('miniGrade'); if(mg) mg.textContent = g;
+
+      // mini fever mirror
+      const fp = byId('feverText')?.textContent || '0%';
+      const ff = byId('feverFill')?.style.width || '0%';
+      const sh = byId('shieldPills')?.textContent || '—';
+      const mfPct = byId('mfPct'); if(mfPct) mfPct.textContent = fp;
+      const mfFill = byId('mfFill'); if(mfFill) mfFill.style.width = ff;
+      const mfShield = byId('mfShield'); if(mfShield) mfShield.textContent = sh;
     }, 180);
 
     const endOverlay = byId('endOverlay');
@@ -332,6 +321,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
         endOverlay.setAttribute('aria-hidden','false');
       }catch(_){}
     }
+
     function onEnd(ev){ showEnd(ev?.detail || null); }
     window.addEventListener('hha:end', onEnd, { passive:true });
     document.addEventListener('hha:end', onEnd, { passive:true });
@@ -342,35 +332,6 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (FOLDER PATH OK)
       else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
     });
     byId('endReplay')?.addEventListener('click', ()=> location.reload());
-  })();
-  </script>
-
-  <!-- HUD-safe measure: sets --gj-top-safe/--gj-bottom-safe for safe.js spawn -->
-  <script>
-  (function(){
-    function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-    function updateSafe(){
-      try{
-        const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-        const hud   = document.getElementById('hud');
-        const fever = document.getElementById('feverBox');
-        const ctrl  = document.querySelector('.hha-controls');
-
-        const topH = (hud?.getBoundingClientRect().height || 0);
-        const botH = Math.max(
-          fever?.getBoundingClientRect().height || 0,
-          ctrl?.getBoundingClientRect().height || 0
-        );
-
-        document.documentElement.style.setProperty('--gj-top-safe', px(topH + 14 + sat));
-        document.documentElement.style.setProperty('--gj-bottom-safe', px(botH + 18));
-      }catch(_){}
-    }
-    window.addEventListener('resize', updateSafe, {passive:true});
-    window.addEventListener('orientationchange', updateSafe, {passive:true});
-    setTimeout(updateSafe, 0);
-    setTimeout(updateSafe, 120);
-    setTimeout(updateSafe, 350);
   })();
   </script>
 
