@@ -1,8 +1,8 @@
 // === /herohealth/vr/hha-fx-director.js ===
 // HHA Global FX Director — PRODUCTION (FIXED)
-// ✅ Listens on BOTH window + document (important!)
-// ✅ Reacts to: hha:judge, hha:score, hha:miss, hha:celebrate, hha:end
-// ✅ Extra: hha:storm / hha:boss / hha:rage (GoodJunk triggers)
+// ✅ Listen on BOTH window + document (สำคัญ!)
+// ✅ Reacts: hha:judge, hha:score, hha:miss, hha:celebrate, hha:end
+// ✅ Extra: hha:storm / hha:boss / hha:rage
 // Requires: ../vr/particles.js (PRODUCTION recommended)
 
 (function(){
@@ -12,7 +12,6 @@
   if(!DOC || WIN.__HHA_FX_DIRECTOR__) return;
   WIN.__HHA_FX_DIRECTOR__ = true;
 
-  // --- inject css + vignette ---
   (function(){
     const id='hha-fx-director-style';
     if(DOC.getElementById(id)) return;
@@ -31,7 +30,6 @@
       body.fx-endblink{animation:hhaEndBlink 760ms ease;}
       @keyframes hhaEndBlink{0%{filter:none}30%{filter:brightness(1.15) contrast(1.06)}100%{filter:none}}
 
-      /* extra intensity */
       body.fx-storm{animation:hhaStormPulse 900ms ease-in-out infinite;}
       @keyframes hhaStormPulse{0%,100%{filter:contrast(1)}50%{filter:contrast(1.06)}}
 
@@ -105,6 +103,7 @@
     }else if(t==='miss'){
       addBodyCls('fx-miss',240);
       shock(x,y,70);
+      burst(x,y,'bad');
     }else if(t==='block'){
       addBodyCls('fx-hit-good',160);
       burst(x,y,'shield');
@@ -147,18 +146,14 @@
     target.addEventListener('hha:miss',  onMiss,  {passive:true});
     target.addEventListener('hha:celebrate', ()=>celebrate(), {passive:true});
     target.addEventListener('hha:end',   onEnd,   {passive:true});
-
-    // extra states
     target.addEventListener('hha:storm', onStorm, {passive:true});
     target.addEventListener('hha:boss',  onBoss,  {passive:true});
     target.addEventListener('hha:rage',  onRage,  {passive:true});
   }
 
-  // ✅ IMPORTANT: listen both
   listen(WIN);
   listen(DOC);
 
-  // debug helper
   WIN.HHA_FX_TEST = function(){
     const x=innerWidth/2, y=innerHeight/2;
     WIN.dispatchEvent(new CustomEvent('hha:judge',{detail:{type:'good',x,y,combo:6}}));
