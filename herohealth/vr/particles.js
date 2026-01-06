@@ -53,11 +53,6 @@
         box-shadow: 0 10px 26px rgba(0,0,0,.55);
         transform: translate(-50%,-50%);
         will-change: transform, opacity;
-        animation: hhaDot 520ms ease-out forwards;
-      }
-      @keyframes hhaDot{
-        0%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-        100%{ opacity:0; transform:translate(-50%,-50%) scale(.25); }
       }
 
       .hha-fx-ring{
@@ -67,13 +62,7 @@
         transform: translate(-50%,-50%);
         opacity:.95;
         will-change: transform, opacity;
-        animation: hhaRing 520ms ease-out forwards;
         box-shadow: 0 10px 26px rgba(0,0,0,.45);
-      }
-      @keyframes hhaRing{
-        0%{ opacity:.95; transform:translate(-50%,-50%) scale(.25); }
-        70%{ opacity:.65; transform:translate(-50%,-50%) scale(1); }
-        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.25); }
       }
     `;
     doc.head.appendChild(st);
@@ -94,7 +83,8 @@
 
   function scorePop(x,y,text){
     const s = String(text ?? '');
-    const big = (s.includes('+') && Number(s.replace('+',''))>=50);
+    const n = Number(s.replace('+','').replace('-',''));
+    const big = Number.isFinite(n) && n >= 50;
     popText(x,y,s, big ? 'big' : 'score');
   }
 
@@ -103,13 +93,16 @@
     const k = String(kind||'good');
     const n = (k==='bad')? 14 : (k==='diamond'? 18 : 12);
     const r0 = (k==='bad')? 34 : (k==='diamond'? 46 : 38);
+
     for(let i=0;i<n;i++){
       const dot = doc.createElement('div');
       dot.className = 'hha-fx-dot';
+
       const a = (Math.PI*2) * (i/n) + (Math.random()*0.6-0.3);
       const r = r0 + Math.random()*26;
       const dx = Math.cos(a) * r;
       const dy = Math.sin(a) * r;
+
       dot.style.left = (Number(x)||0) + 'px';
       dot.style.top  = (Number(y)||0) + 'px';
       dot.style.background =
@@ -118,27 +111,38 @@
         (k==='shield') ? 'rgba(130,220,255,.92)' :
         (k==='diamond') ? 'rgba(200,160,255,.92)' :
         'rgba(160,255,190,.92)';
-      dot.style.animationDuration = (440 + Math.random()*220) + 'ms';
+
+      const dur = 480 + Math.random()*200;
+
       dot.animate([
         { transform:`translate(-50%,-50%) translate(0px,0px) scale(1)`, opacity:1 },
-        { transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) scale(.35)`, opacity:0 }
-      ], { duration: 520, easing:'cubic-bezier(.2,.9,.2,1)', fill:'forwards' });
+        { transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) scale(.32)`, opacity:0 }
+      ], { duration: dur, easing:'cubic-bezier(.2,.9,.2,1)', fill:'forwards' });
+
       layer.appendChild(dot);
-      setTimeout(()=>{ try{ dot.remove(); }catch(_){ } }, 700);
+      setTimeout(()=>{ try{ dot.remove(); }catch(_){ } }, dur + 80);
     }
   }
 
   function shockwave(x,y,opt){
     const layer = ensureLayer();
-    const r = clamp(opt?.r ?? 64, 26, 160);
+    const r = clamp(opt?.r ?? 64, 26, 180);
     const ring = doc.createElement('div');
     ring.className = 'hha-fx-ring';
     ring.style.left = (Number(x)||0) + 'px';
     ring.style.top  = (Number(y)||0) + 'px';
     ring.style.width  = (r*2) + 'px';
     ring.style.height = (r*2) + 'px';
+
+    const dur = 520 + Math.random()*80;
+    ring.animate([
+      { transform:'translate(-50%,-50%) scale(.25)', opacity:.95 },
+      { transform:'translate(-50%,-50%) scale(1.02)', opacity:.55, offset:0.7 },
+      { transform:'translate(-50%,-50%) scale(1.28)', opacity:0 }
+    ], { duration: dur, easing:'ease-out', fill:'forwards' });
+
     layer.appendChild(ring);
-    setTimeout(()=>{ try{ ring.remove(); }catch(_){ } }, 650);
+    setTimeout(()=>{ try{ ring.remove(); }catch(_){ } }, dur + 60);
   }
 
   function celebrate(){
@@ -146,7 +150,7 @@
     for(let i=0;i<10;i++){
       setTimeout(()=>{
         burstAt(cx + (Math.random()*2-1)*180, cy + (Math.random()*2-1)*90, 'good');
-        shockwave(cx + (Math.random()*2-1)*90, cy + (Math.random()*2-1)*60, { r: 70 + Math.random()*40 });
+        shockwave(cx + (Math.random()*2-1)*90, cy + (Math.random()*2-1)*60, { r: 72 + Math.random()*46 });
       }, i*55);
     }
   }
