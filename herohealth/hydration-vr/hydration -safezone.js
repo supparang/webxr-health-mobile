@@ -1,9 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safezone.js ===
-// Hydration HUD-SAFE Auto — PRODUCTION (C)
-// ✅ Measure HUD occupied zones (top/left/right/bottom) in px
-// ✅ Expose: window.HHA_SAFE = { top, right, bottom, left } (px)
-// ✅ Auto-updates on resize/orientation/fullscreen
-// ✅ Works with PC/Mobile/cVR/Cardboard (cardboard uses #cbPlayfield rect)
+// HUD Safezone Auto-Measure — PRODUCTION
+// ✅ Measure HUD panels & reserve safe insets (top/right/bottom/left)
+// ✅ Works for PC/Mobile/cVR + Cardboard (split L/R)
+// ✅ Exposes: window.HHA_SAFE = { insetsPx, playRect, measure() }
+// ✅ Writes CSS vars on :root:
+//    --hvr-safe-top / --hvr-safe-right / --hvr-safe-bottom / --hvr-safe-left
+// ✅ Optional debug: add ?safeDebug=1 to draw playRect overlay
 
 (function(){
   'use strict';
@@ -12,139 +14,169 @@
   if (!DOC || WIN.__HHA_HYDRATION_SAFEZONE__) return;
   WIN.__HHA_HYDRATION_SAFEZONE__ = true;
 
-  const clamp = (v,min,max)=> v<min?min:(v>max?max:v);
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const safeDebug = String(qs('safeDebug','0')) === '1';
+
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  function rootStyleSet(k,v){
+    try{ DOC.documentElement.style.setProperty(k, v); }catch(_){}
+  }
 
   function getPlayfieldEl(){
-    try{
-      const b = DOC.body;
-      if (b && b.classList.contains('cardboard')) return DOC.getElementById('cbPlayfield');
-      return DOC.getElementById('playfield');
-    }catch(_){ return DOC.getElementById('playfield'); }
+    const body = DOC.body;
+    if (body && body.classList.contains('cardboard')) return DOC.getElementById('cbPlayfield');
+    return DOC.getElementById('playfield');
   }
 
-  function safeNum(n){ n=Number(n)||0; return isFinite(n)?n:0; }
-
-  function rectOf(el){
-    try{
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      if (!r || !isFinite(r.width) || !isFinite(r.height)) return null;
-      return r;
-    }catch(_){ return null; }
+  function getHUD(){
+    return DOC.querySelector('.hud');
   }
 
-  // union rects helper
-  function expandBox(box, r){
-    if (!box) return { l:r.left, t:r.top, r:r.right, b:r.bottom };
-    return {
-      l: Math.min(box.l, r.left),
-      t: Math.min(box.t, r.top),
-      r: Math.max(box.r, r.right),
-      b: Math.max(box.b, r.bottom),
-    };
+  function collectPanels(){
+    // ทุก panel ใน HUD ถือเป็น "พื้นที่กันเกิดเป้า"
+    // แต่ถ้าอยากยกเว้นบางอัน ให้เพิ่ม data-safe="ignore"
+    return Array.from(DOC.querySelectorAll('.hud .panel')).filter(el=>{
+      return el && el.isConnected && el.getAttribute('data-safe') !== 'ignore';
+    });
   }
 
-  function computeSafe(){
+  function rectIntersect(a,b){
+    const x1 = Math.max(a.left, b.left);
+    const y1 = Math.max(a.top, b.top);
+    const x2 = Math.min(a.right, b.right);
+    const y2 = Math.min(a.bottom, b.bottom);
+    const w = Math.max(0, x2-x1);
+    const h = Math.max(0, y2-y1);
+    return { left:x1, top:y1, right:x2, bottom:y2, width:w, height:h };
+  }
+
+  function measure(){
     const pf = getPlayfieldEl();
-    const pfr = rectOf(pf) || { left:0, top:0, right:WIN.innerWidth, bottom:WIN.innerHeight, width:WIN.innerWidth, height:WIN.innerHeight };
+    if (!pf) return null;
 
-    // default paddings (never 0) for comfort
-    const basePad = 14;
+    const pfRect = pf.getBoundingClientRect();
+    const w = Math.max(1, pfRect.width);
+    const h = Math.max(1, pfRect.height);
 
-    // collect HUD blocks
-    const hud = DOC.querySelector('.hud');
-    const startOverlay = DOC.getElementById('startOverlay');
-    const resultBackdrop = DOC.getElementById('resultBackdrop');
+    const panels = collectPanels();
+    let top=0, right=0, bottom=0, left=0;
 
-    // If overlay is visible, we don't need to reserve HUD safe area (game not running)
-    const overlayVisible = (startOverlay && !startOverlay.classList.contains('hide') && getComputedStyle(startOverlay).display !== 'none')
-                        || (resultBackdrop && !resultBackdrop.hidden);
+    // เผื่อ padding กันเป้าชิดขอบ/ชิด HUD
+    const PAD = 14;
 
-    // baseline safe insets from env(safe-area-inset-*) are already in CSS,
-    // but we add a small extra basePad.
-    let safe = { top: basePad, right: basePad, bottom: basePad, left: basePad };
+    for (const p of panels){
+      const r = p.getBoundingClientRect();
+      const inter = rectIntersect(pfRect, r);
+      if (inter.width <= 0 || inter.height <= 0) continue;
 
-    if (!overlayVisible && hud){
-      // We measure panels that may cover playfield:
-      // Strategy: find all ".panel" inside HUD and union their rects by edge zones.
-      // Then compute occupied thickness from each edge.
-      const panels = Array.from(hud.querySelectorAll('.panel'));
-      let topBox=null, leftBox=null, rightBox=null, bottomBox=null;
-
-      for (const el of panels){
-        const r = rectOf(el);
-        if (!r) continue;
-
-        // classify panel by proximity to edges inside playfield
-        const nearTop = (r.top - pfr.top) < (pfr.height * 0.35);
-        const nearBottom = (pfr.bottom - r.bottom) < (pfr.height * 0.35);
-        const nearLeft = (r.left - pfr.left) < (pfr.width * 0.35);
-        const nearRight = (pfr.right - r.right) < (pfr.width * 0.35);
-
-        if (nearTop) topBox = expandBox(topBox, r);
-        if (nearBottom) bottomBox = expandBox(bottomBox, r);
-        if (nearLeft) leftBox = expandBox(leftBox, r);
-        if (nearRight) rightBox = expandBox(rightBox, r);
+      // ถ้าชนด้านบนของ playfield -> เพิ่ม top inset
+      if (inter.top <= pfRect.top + 2){
+        top = Math.max(top, inter.bottom - pfRect.top);
       }
-
-      // thickness = occupied distance from edge
-      if (topBox) safe.top = Math.max(safe.top, safeNum(topBox.b - pfr.top) + 10);
-      if (bottomBox) safe.bottom = Math.max(safe.bottom, safeNum(pfr.bottom - bottomBox.t) + 10);
-      if (leftBox) safe.left = Math.max(safe.left, safeNum(leftBox.r - pfr.left) + 10);
-      if (rightBox) safe.right = Math.max(safe.right, safeNum(pfr.right - rightBox.l) + 10);
-
-      // Special: cVR crosshair/vr-ui buttons are usually at top-left; reserve a bit more on top
-      try{
-        if (DOC.body.classList.contains('view-cvr')){
-          safe.top = Math.max(safe.top, 64);
-        }
-      }catch(_){}
+      // ชนด้านล่าง
+      if (inter.bottom >= pfRect.bottom - 2){
+        bottom = Math.max(bottom, pfRect.bottom - inter.top);
+      }
+      // ชนด้านซ้าย
+      if (inter.left <= pfRect.left + 2){
+        left = Math.max(left, inter.right - pfRect.left);
+      }
+      // ชนด้านขวา
+      if (inter.right >= pfRect.right - 2){
+        right = Math.max(right, pfRect.right - inter.left);
+      }
     }
 
-    // Cap so we never kill play space
-    safe.top = clamp(safe.top, basePad, Math.max(basePad, pfr.height * 0.45));
-    safe.bottom = clamp(safe.bottom, basePad, Math.max(basePad, pfr.height * 0.45));
-    safe.left = clamp(safe.left, basePad, Math.max(basePad, pfr.width * 0.45));
-    safe.right = clamp(safe.right, basePad, Math.max(basePad, pfr.width * 0.45));
+    // + padding
+    top += PAD; right += PAD; bottom += PAD; left += PAD;
 
-    // expose globally
-    WIN.HHA_SAFE = safe;
+    // กันเหลือพื้นที่เล่นน้อยเกิน: relax อัตโนมัติ
+    const minW = 220;
+    const minH = 220;
+    let playLeft = pfRect.left + left;
+    let playTop  = pfRect.top + top;
+    let playRight = pfRect.right - right;
+    let playBottom= pfRect.bottom - bottom;
 
-    // Also export CSS vars for debugging/optional use
-    try{
-      DOC.documentElement.style.setProperty('--hha-safe-top', safe.top+'px');
-      DOC.documentElement.style.setProperty('--hha-safe-right', safe.right+'px');
-      DOC.documentElement.style.setProperty('--hha-safe-bottom', safe.bottom+'px');
-      DOC.documentElement.style.setProperty('--hha-safe-left', safe.left+'px');
-    }catch(_){}
+    if ((playRight - playLeft) < minW){
+      const need = minW - (playRight - playLeft);
+      left = Math.max(0, left - need/2);
+      right= Math.max(0, right- need/2);
+      playLeft = pfRect.left + left;
+      playRight= pfRect.right - right;
+    }
+    if ((playBottom - playTop) < minH){
+      const need = minH - (playBottom - playTop);
+      top = Math.max(0, top - need/2);
+      bottom = Math.max(0, bottom - need/2);
+      playTop = pfRect.top + top;
+      playBottom = pfRect.bottom - bottom;
+    }
 
-    // optional event
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:safe', { detail: safe }));
-    }catch(_){}
+    // write CSS vars (px)
+    rootStyleSet('--hvr-safe-top', top.toFixed(0)+'px');
+    rootStyleSet('--hvr-safe-right', right.toFixed(0)+'px');
+    rootStyleSet('--hvr-safe-bottom', bottom.toFixed(0)+'px');
+    rootStyleSet('--hvr-safe-left', left.toFixed(0)+'px');
+
+    const out = {
+      insetsPx:{ top, right, bottom, left },
+      playRect:{
+        left: playLeft, top: playTop,
+        right: playRight, bottom: playBottom,
+        width: Math.max(1, playRight-playLeft),
+        height: Math.max(1, playBottom-playTop)
+      },
+      pfRect:{ left:pfRect.left, top:pfRect.top, right:pfRect.right, bottom:pfRect.bottom, width:w, height:h }
+    };
+
+    // debug overlay
+    if (safeDebug){
+      let dbg = DOC.getElementById('hha-safe-debug');
+      if (!dbg){
+        dbg = DOC.createElement('div');
+        dbg.id = 'hha-safe-debug';
+        dbg.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99998;';
+        DOC.body.appendChild(dbg);
+      }
+      dbg.innerHTML = `
+        <div style="position:fixed;left:${out.playRect.left}px;top:${out.playRect.top}px;width:${out.playRect.width}px;height:${out.playRect.height}px;
+          border:2px dashed rgba(34,211,238,.85);border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.12) inset;"></div>
+      `;
+    }
+
+    return out;
   }
 
-  // Run with debounce
-  let t=null;
-  function schedule(){
-    if (t) clearTimeout(t);
-    t = setTimeout(computeSafe, 90);
+  // public API
+  const API = WIN.HHA_SAFE || (WIN.HHA_SAFE = {});
+  API.insetsPx = { top:0,right:0,bottom:0,left:0 };
+  API.playRect = null;
+  API.measure = function(){
+    const m = measure();
+    if (m){
+      API.insetsPx = m.insetsPx;
+      API.playRect = m.playRect;
+    }
+    return m;
+  };
+
+  function scheduleMeasure(){
+    // วัดหลายเฟส: DOM ready + หลังเริ่มเกม + หลัง resize/orientation/fullscreen
+    API.measure();
+    setTimeout(()=>API.measure(), 120);
+    setTimeout(()=>API.measure(), 420);
   }
 
-  WIN.addEventListener('resize', schedule);
-  WIN.addEventListener('orientationchange', schedule);
-  DOC.addEventListener('fullscreenchange', schedule);
-  WIN.addEventListener('pageshow', schedule);
+  WIN.addEventListener('resize', ()=>setTimeout(API.measure, 120));
+  WIN.addEventListener('orientationchange', ()=>setTimeout(API.measure, 160));
+  WIN.addEventListener('fullscreenchange', ()=>setTimeout(API.measure, 120));
+  WIN.addEventListener('hha:start', ()=>setTimeout(scheduleMeasure, 60), { once:false });
 
-  // If HUD changes (class toggles), we can re-measure periodically short time
-  let pulseN=0;
-  function pulse(){
-    pulseN++;
-    computeSafe();
-    if (pulseN < 12) setTimeout(pulse, 220);
+  if (DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', scheduleMeasure, { once:true });
+  } else {
+    scheduleMeasure();
   }
-
-  // init
-  computeSafe();
-  pulse();
 })();
