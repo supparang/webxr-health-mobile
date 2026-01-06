@@ -1,11 +1,10 @@
-// === /herohealth/hydration-vr/hydration.autoview.js ===
-// Hydration Auto View Detect — PRODUCTION (NO OVERRIDE)
-// ✅ No menu, no ?view= override (ignored on purpose)
-// ✅ Decide view: pc / mobile / cardboard / cvr
-// ✅ Cardboard when: (fullscreen+landscape+mobile) OR (query hint ?cardboard=1) [optional - remove if you want]
-// ✅ cVR when: mobile + (gyro present) + (not split cardboard)  => crosshair + tap-to-shoot
-// ✅ Expose: window.HHA_VIEW = { mode, layers }
-// ✅ Emits: hha:start once DOM ready (after view applied)
+// === /herohealth/hydration-vr/hydration.auto-view.js ===
+// Hydration Auto View Detector — PRODUCTION (NO OVERRIDE)
+// ✅ Auto sets body classes: view-pc / view-mobile / cardboard / view-cvr
+// ✅ Ignores ?view= (NO override)
+// ✅ Remembers last auto-detected view (stability) but still adapts if device changes
+// ✅ Provides window.HHA_VIEWMODE = { view, reason, isTouch, isSmall, isAndroid, isIOS }
+// ✅ Works with hydration-vr.loader.js mapping layers
 
 (function(){
   'use strict';
@@ -14,119 +13,176 @@
   if (!DOC || WIN.__HHA_HYDRATION_AUTOVIEW__) return;
   WIN.__HHA_HYDRATION_AUTOVIEW__ = true;
 
-  const body = DOC.body;
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const LS_KEY = 'HHA_HYDRATION_LAST_VIEW';
+  const now = Date.now();
 
-  // IMPORTANT: "ห้าม override"
-  // We IGNORE ?view= completely.
-  // (Optional hint: allow ?cardboard=1 for debugging; comment out if you want super strict)
-  const hintCardboard = String(qs('cardboard','')||'').toLowerCase()==='1';
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function safeLower(s){ return String(s||'').toLowerCase(); }
 
-  function isMobile(){
-    const ua = navigator.userAgent || '';
-    const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
-    const small = Math.min(screen.width||9999, screen.height||9999) <= 820;
-    return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && small);
+  function uaInfo(){
+    const ua = safeLower(navigator.userAgent || '');
+    const isAndroid = /android/.test(ua);
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+    const isMobileUA = /mobi|android|iphone|ipad|ipod/.test(ua);
+    return { ua, isAndroid, isIOS, isMobileUA };
   }
 
-  function isLandscape(){
+  function screenInfo(){
+    const w = Math.max(1, WIN.innerWidth || DOC.documentElement.clientWidth || 1);
+    const h = Math.max(1, WIN.innerHeight|| DOC.documentElement.clientHeight|| 1);
+    const min = Math.min(w,h);
+    const max = Math.max(w,h);
+    const isSmall = min <= 520;     // phones
+    const isTabletish = (min > 520 && min <= 900);
+    const isLandscape = w >= h;
+    return { w,h,min,max,isSmall,isTabletish,isLandscape };
+  }
+
+  function touchInfo(){
+    const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+    return { isTouch };
+  }
+
+  function isProbablyCardboard(){
+    // Heuristic:
+    // - Android + touch + small screen + landscape -> likely in cardboard browser
+    // - OR very narrow height (status bars hidden) + fullscreen suggests headset use
+    const { isAndroid } = uaInfo();
+    const { isSmall, isLandscape, h } = screenInfo();
+    const { isTouch } = touchInfo();
+    const isFS = !!DOC.fullscreenElement;
+
+    if (isAndroid && isTouch && isSmall && isLandscape) return { yes:true, reason:'android+touch+small+landscape' };
+    if (isAndroid && isTouch && isFS && h <= 520 && isLandscape) return { yes:true, reason:'fullscreen+landscape+shortH' };
+    return { yes:false, reason:'no' };
+  }
+
+  function isProbablyCVR(){
+    // cVR = strict crosshair shooting.
+    // Heuristic: if cardboard-like AND touch -> prefer cVR (strict) to avoid touching targets in split.
+    // But we keep "cardboard split" separate class; cVR is for single view strict crosshair.
+    // Here we decide cVR when:
+    // - touch + landscape + small + (user likely wants strict) AND NOT in split
+    const { isAndroid } = uaInfo();
+    const { isSmall, isLandscape } = screenInfo();
+    const { isTouch } = touchInfo();
+    if (isAndroid && isTouch && isSmall && isLandscape) return { yes:true, reason:'android small landscape => prefer cVR strict' };
+    return { yes:false, reason:'no' };
+  }
+
+  function hardSetBody(view){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
+    if (view === 'cardboard') b.classList.add('cardboard');
+    else if (view === 'cvr') b.classList.add('view-cvr');
+    else if (view === 'mobile') b.classList.add('view-mobile');
+    else b.classList.add('view-pc');
+  }
+
+  function stableKeyForDevice(){
+    const { isAndroid, isIOS, isMobileUA } = uaInfo();
+    const { w,h } = screenInfo();
+    const { isTouch } = touchInfo();
+    return [isAndroid?'a':'x', isIOS?'i':'x', isMobileUA?'m':'x', isTouch?'t':'x', clamp(w,0,9999), clamp(h,0,9999)].join('|');
+  }
+
+  function loadLast(){
     try{
-      const o = screen.orientation?.type || '';
-      if (/landscape/.test(o)) return true;
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || !obj.view) return null;
+      // expire after 7 days
+      if (obj.at && (now - obj.at) > 7*24*3600*1000) return null;
+      return obj;
+    }catch(_){ return null; }
+  }
+
+  function saveLast(view, reason){
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        view, reason, at: now,
+        dev: stableKeyForDevice()
+      }));
     }catch(_){}
-    return (WIN.innerWidth > WIN.innerHeight);
   }
 
-  function isFullscreen(){
-    return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
-  }
+  function decide(){
+    const U = uaInfo();
+    const S = screenInfo();
+    const T = touchInfo();
 
-  function hasGyro(){
-    // presence heuristic (permission on iOS may be denied; still ok)
-    return ('DeviceOrientationEvent' in WIN) || ('DeviceMotionEvent' in WIN);
-  }
+    // Base decision
+    let view = 'pc';
+    let reason = 'default';
 
-  function chooseMode(){
-    const mobile = isMobile();
-    const land = isLandscape();
-    const fs = isFullscreen();
-
-    // Cardboard split: mobile + landscape + fullscreen (common in your flow)
-    if (hintCardboard) return 'cardboard';
-    if (mobile && land && fs) return 'cardboard';
-
-    // cVR strict: mobile + gyro-ish (even without fullscreen) -> crosshair tap-to-shoot
-    if (mobile && hasGyro()) return 'cvr';
-
-    // Mobile normal
-    if (mobile) return 'mobile';
-
-    // Desktop
-    return 'pc';
-  }
-
-  function applyBodyMode(mode){
-    body.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
-    if (mode === 'cardboard') body.classList.add('cardboard');
-    else if (mode === 'cvr') body.classList.add('view-cvr');
-    else if (mode === 'mobile') body.classList.add('view-mobile');
-    else body.classList.add('view-pc');
-  }
-
-  function setLayers(){
-    const cfg = WIN.HHA_VIEW || (WIN.HHA_VIEW = {});
-    if (body.classList.contains('cardboard')){
-      cfg.layers = ['hydration-layerL','hydration-layerR'];
-    } else {
-      cfg.layers = ['hydration-layer'];
+    // If touch + mobile UA -> mobile
+    if (T.isTouch && U.isMobileUA){
+      view = 'mobile';
+      reason = 'touch+mobileUA';
     }
-  }
 
-  function hideStartOverlayIfAny(){
-    const ov = DOC.getElementById('startOverlay');
-    if (!ov) return;
-    ov.classList.add('hide');
-    ov.style.display = 'none';
-  }
-
-  function init(){
-    const mode = chooseMode();
-    applyBodyMode(mode);
-    setLayers();
-    hideStartOverlayIfAny();
-
-    const cfg = WIN.HHA_VIEW || (WIN.HHA_VIEW = {});
-    cfg.mode = mode;
-    cfg.noOverride = true;
-
-    // Start once after view applied
-    setTimeout(()=>{ 
-      try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
-    }, 50);
-  }
-
-  // re-evaluate on fullscreen/orientation change (e.g., user enters fullscreen -> switch to cardboard)
-  function reEval(){
-    const prev = (WIN.HHA_VIEW && WIN.HHA_VIEW.mode) || '';
-    const next = chooseMode();
-    if (next && next !== prev){
-      applyBodyMode(next);
-      setLayers();
-      const cfg = WIN.HHA_VIEW || (WIN.HHA_VIEW = {});
-      cfg.mode = next;
-
-      // NOTE: we do NOT restart game here; safe.js already started
-      // This is just layout/layers for future spawns.
+    // If phone in landscape on Android => prefer cVR strict (better for cardboard-like usage)
+    const cvr = isProbablyCVR();
+    if (cvr.yes){
+      view = 'cvr';
+      reason = 'cvr:' + cvr.reason;
     }
+
+    // If strongly looks like split-cardboard, use cardboard split
+    // (split is visually obvious; use it when we are confident)
+    const cb = isProbablyCardboard();
+    if (cb.yes){
+      view = 'cardboard';
+      reason = 'cardboard:' + cb.reason;
+    }
+
+    // Tablet: keep mobile unless non-touch
+    if (!T.isTouch && !U.isMobileUA){
+      view = 'pc';
+      reason = 'nonTouchDesktop';
+    }
+
+    // Stability: if same device key and last exists, keep last view
+    const last = loadLast();
+    if (last && last.dev === stableKeyForDevice()){
+      // keep last view unless current strongly says split-cardboard
+      if (view !== 'cardboard'){
+        view = last.view;
+        reason = 'stickLast:' + (last.reason || 'last');
+      }
+    }
+
+    return { view, reason, ...U, ...S, ...T };
   }
 
-  WIN.addEventListener('fullscreenchange', ()=>setTimeout(reEval, 80));
-  WIN.addEventListener('orientationchange', ()=>setTimeout(reEval, 120));
-  WIN.addEventListener('resize', ()=>setTimeout(reEval, 160));
+  function apply(){
+    const d = decide();
+    hardSetBody(d.view);
+    WIN.HHA_VIEWMODE = {
+      view: d.view,
+      reason: d.reason,
+      isTouch: d.isTouch,
+      isSmall: d.isSmall,
+      isAndroid: d.isAndroid,
+      isIOS: d.isIOS
+    };
+    saveLast(d.view, d.reason);
+  }
 
+  // Apply ASAP
   if (DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', init, { once:true });
+    DOC.addEventListener('DOMContentLoaded', apply, { once:true });
   } else {
-    init();
+    apply();
   }
+
+  // Re-evaluate on rotate/resize (but throttle)
+  let t=null;
+  function onChange(){
+    if (t) clearTimeout(t);
+    t = setTimeout(()=>apply(), 120);
+  }
+  WIN.addEventListener('resize', onChange, { passive:true });
+  WIN.addEventListener('orientationchange', onChange, { passive:true });
 })();
