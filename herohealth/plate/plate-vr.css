@@ -5,13 +5,9 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
 ✅ Boss/Storm: fx classes (boss-on/boss-panic), storm pulse
 ✅ Result: crisp grade badge
 ✅ View: pc / mobile / vr / cvr (body.view-*)
-✅ HUD hide toggle: body.hud-hidden
-✅ HUD-safe vars: --plate-top-safe / --plate-bottom-safe (for safe spawn)
 */
 
 :root{
-  color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
@@ -32,49 +28,38 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* computed safe for spawner */
-  --plate-top-safe: 110px;     /* will be overridden by safe.js measure if you add later */
-  --plate-bottom-safe: 92px;   /* will be overridden by safe.js measure if you add later */
 }
 
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
+/* ---------- base resets ---------- */
+*{ box-sizing:border-box; }
 html,body{
+  margin:0;
   width:100%;
   height:100%;
-  margin:0;
-  padding:0;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
+button{ font-family:inherit; }
 
-/* -------------------- View modes -------------------- */
-body.view-pc{ }
-body.view-mobile{ }
-body.view-vr{ }
-body.view-cvr{ }
+/* ---------- view helpers ---------- */
+body.view-pc   { --plate-scale: 1.00; }
+body.view-mobile{ --plate-scale: 1.00; }
+body.view-vr   { --plate-scale: 1.06; }
+body.view-cvr  { --plate-scale: 1.08; }
 
-/* cVR strict: targets shouldn't block pointer (shoot from crosshair via vr-ui.js) */
-body.view-cvr #plate-layer .plateTarget{
-  pointer-events:none;
+body.view-vr #uiCvrHint,
+body.view-cvr #uiCvrHint{ display:block; }
+body.view-pc #uiCvrHint,
+body.view-mobile #uiCvrHint{ display:none; }
+
+/* Prevent HUD blocking VR UI buttons area (vr-ui.js usually z=100+) */
+#hudBtns, #hudTop, #miniPanel, #coachPanel, #bossHud, #stormHud{
+  max-width: min(1200px, calc(100vw - 20px));
 }
 
-/* optional debug: hide HUD to inspect spawn */
-body.hud-hidden #hudTop,
-body.hud-hidden #miniPanel,
-body.hud-hidden #coachPanel,
-body.hud-hidden #hudBtns,
-body.hud-hidden #bossHud,
-body.hud-hidden #stormHud{
-  display:none !important;
-}
-
-/* -------------------- Micro glow helpers -------------------- */
+/* ---------- micro glow helpers ---------- */
 @keyframes hhaGlow {
   0% { box-shadow: 0 16px 44px rgba(0,0,0,.26), 0 0 0 rgba(34,197,94,0); }
   50%{ box-shadow: 0 18px 52px rgba(0,0,0,.30), 0 0 28px rgba(34,197,94,.18); }
@@ -103,60 +88,28 @@ body.hud-hidden #stormHud{
   100%{ transform: translateZ(0) rotate(0deg); }
 }
 
-/* -------------------- Stage helpers -------------------- */
-#plate-layer{
-  position:fixed;
-  inset:0;
-  z-index:10;
-  pointer-events:auto;
-  touch-action:none;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* hit overlay (JS toggles pfx-hit-good / pfx-hit-bad) */
-#hitFx{
-  position:fixed;
-  inset:0;
-  z-index:12;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .12s ease;
-}
-
-/* -------------------- Targets feel (emoji clarity + VR-ish depth) -------------------- */
+/* ---------- Targets feel (emoji clarity + VR-ish depth) ---------- */
 #plate-layer .plateTarget{
-  position:absolute;
-  display:grid;
-  place-items:center;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  outline:none;
-
   border-radius:999px !important;
   border:1px solid rgba(148,163,184,.20) !important;
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
     radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
     rgba(2,6,23,.56) !important;
-
   backdrop-filter: blur(10px) saturate(1.15);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
     inset 0 1px 0 rgba(255,255,255,.08);
-
   animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
-  transform: translateZ(0);
-
-  /* emoji clarity */
-  font-variation-settings: "wght" 900;
+  transform: translateZ(0) scale(var(--plate-scale,1));
   text-shadow: 0 2px 0 rgba(0,0,0,.25);
+  font-variation-settings: "wght" 900;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  will-change: transform, opacity;
 }
-
 #plate-layer .plateTarget:active{
-  transform: translateZ(0) scale(.98);
+  transform: translateZ(0) scale(calc(var(--plate-scale,1) * .98));
 }
 
 /* Kind-specific vibe */
@@ -183,8 +136,8 @@ body.hud-hidden #stormHud{
     inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* -------------------- HUD polish (generic classes used in plate-vr.html inline) -------------------- */
-.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
+/* ---------- HUD polish ---------- */
+.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard, .panelCard{
   box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
 }
 
@@ -192,10 +145,12 @@ body.hud-hidden #stormHud{
   background:
     radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
     rgba(15,23,42,.68) !important;
+  border: 1px solid rgba(148,163,184,.18) !important;
 }
 
 .bar{
   background: rgba(148,163,184,.10) !important;
+  border: 1px solid rgba(148,163,184,.14) !important;
 }
 .bar > i{
   box-shadow: 0 0 18px rgba(34,197,94,.16);
@@ -218,10 +173,9 @@ body.hud-hidden #stormHud{
 .btn.warn:hover{ filter:brightness(1.1); }
 .btn.bad:hover{ filter:brightness(1.05); }
 
-/* -------------------- Boss / Storm FX (JS toggles classes) -------------------- */
+/* ---------- Boss / Storm FX (hook for plate.safe.js toggles) ---------- */
 #bossFx{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   pointer-events:none;
   z-index:58;
   opacity:0;
@@ -238,8 +192,7 @@ body.hud-hidden #stormHud{
 }
 
 #stormFx{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   pointer-events:none;
   z-index:57;
   opacity:0;
@@ -254,7 +207,11 @@ body.hud-hidden #stormHud{
   animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
 
-/* Result grade badge */
+/* panic fallback class used by JS injected css too */
+#stormFx.storm-panic{ filter:brightness(1.25); }
+#bossFx.boss-panic{ filter:brightness(1.25); }
+
+/* ---------- Result grade badge (optional feel) ---------- */
 #rGrade{
   display:inline-block;
   padding:6px 12px;
@@ -264,15 +221,27 @@ body.hud-hidden #stormHud{
   box-shadow: 0 14px 40px rgba(0,0,0,.25);
 }
 
-/* -------------------- Small responsive tweaks -------------------- */
+/* ---------- small responsive polish ---------- */
 @media (max-width: 920px){
-  :root{
-    --plate-top-safe: 120px;
-    --plate-bottom-safe: 100px;
+  .card{ border-radius: 18px; }
+  .pill{ font-size:12px; }
+  #miniPanel .bar{ width: 180px !important; }
+}
+@media (max-width: 520px){
+  #miniPanel .questCard{
+    gap:8px;
   }
+  #miniPanel .questCol{ min-width: 180px !important; }
+  #miniPanel .bar{ width: 160px !important; }
 }
 
-/* -------------------- Safety: keep VR UI buttons clickable --------------------
-vr-ui.js adds fixed UI; ensure we don't kill pointer-events globally.
-(we only set pointer-events:none on wrappers in HTML, children are auto)
-*/
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  #plate-layer .plateTarget{
+    animation: none !important;
+  }
+  .btn.primary{ animation:none !important; }
+  #stormFx.storm-on, #bossFx.boss-panic{
+    animation:none !important;
+  }
+}
