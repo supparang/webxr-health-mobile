@@ -24,7 +24,9 @@ Includes: storm/boss/rage classes + hud safe vars
 }
 
 *{ box-sizing:border-box; }
-html,body{ margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+html,body{
+  margin:0; width:100%; height:100%; overflow:hidden;
+  background:var(--bg); color:var(--text);
   font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
 }
 
@@ -63,10 +65,10 @@ html,body{ margin:0; width:100%; height:100%; overflow:hidden; background:var(--
 .gj-eye{ position:absolute; inset:0; }
 .gj-eye.eye-r{ display:none; }
 body.view-vr .gj-eye.eye-r,
-body.view-cvr .gj-eye.eye-r{ display:block; opacity:.0001; } /* keep dom for engine clone */
-.gj-layer{
-  position:absolute; inset:0;
-}
+body.view-cvr .gj-eye.eye-r{ display:block; opacity:.0001; }
+
+.gj-layer{ position:absolute; inset:0; }
+
 .gj-crosshair{
   position:absolute; left:50%; top:50%;
   width:18px; height:18px;
@@ -83,7 +85,7 @@ body.view-vr .gj-crosshair{ opacity:.85; }
 .gj-target{
   position:absolute;
   transform: translate(-50%,-50%) scale(.92);
-  opacity:.0;
+  opacity:0;
   filter: drop-shadow(0 18px 22px rgba(0,0,0,.35));
   user-select:none;
   cursor:pointer;
@@ -100,9 +102,8 @@ body.view-vr .gj-crosshair{ opacity:.85; }
   z-index:110;
   pointer-events:none;
 }
-.hud-top{
-  display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
-}
+.hud-top{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
+
 .hud-badge{
   pointer-events:auto;
   width:min(520px, 62vw);
@@ -114,6 +115,7 @@ body.view-vr .gj-crosshair{ opacity:.85; }
 }
 .hud-title{ font: 1200 18px/1.1 system-ui; }
 .hud-sub{ margin-top:6px; color:var(--muted); font: 900 12px/1.3 system-ui; }
+
 .viewbar{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
 .pill{
   pointer-events:auto;
@@ -163,8 +165,8 @@ body.view-vr .gj-crosshair{ opacity:.85; }
 .q-timer{ color:var(--warn); font: 1100 12px/1 system-ui; }
 
 /* hide HUD */
-body.hud-hidden .hha-hud{ opacity:.0; pointer-events:none; }
-body.hud-hidden .hha-fever{ opacity:.0; pointer-events:none; }
+body.hud-hidden .hha-hud,
+body.hud-hidden .hha-fever{ opacity:0; pointer-events:none; }
 body.hud-hidden .gj-topbar{ opacity:.65; }
 
 /* ---------- fever ---------- */
@@ -184,7 +186,7 @@ body.hud-hidden .gj-topbar{ opacity:.65; }
 .fever-label{ font: 1100 12px/1 system-ui; color:var(--muted); }
 .fever-bar{ flex:1; height:10px; border-radius:999px; background: rgba(148,163,184,.16); overflow:hidden; }
 .fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
-.fever-text{ width:52px; text-align:right; font: 1100 12px/1 system-ui; color:var(--text); }
+.fever-text{ width:52px; text-align:right; font: 1100 12px/1 system-ui; }
 
 .shield-row{ margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .shield-label{ font: 1100 12px/1 system-ui; color:var(--muted); }
@@ -227,8 +229,7 @@ body.hud-hidden .gj-topbar{ opacity:.65; }
   padding: 14px;
 }
 .peek-title{ font: 1200 18px/1.1 system-ui; }
-.peek-sub{ margin-top:8px; color:rgba(255,255,255,.86); font: 1000 13px/1.35 system-ui; }
-.peek-mini{ margin-top:8px; color:rgba(255,255,255,.86); font: 1000 13px/1.35 system-ui; }
+.peek-sub,.peek-mini{ margin-top:8px; color:rgba(255,255,255,.86); font: 1000 13px/1.35 system-ui; }
 .peek-tip{ margin-top:10px; color:var(--muted); font: 900 12px/1.3 system-ui; }
 
 /* ---------- lowtime overlay ---------- */
@@ -240,21 +241,15 @@ body.hud-hidden .gj-topbar{ opacity:.65; }
   backdrop-filter: blur(6px);
 }
 .gj-lowtime-overlay[aria-hidden="true"]{ display:none; }
-.gj-lowtime-num{
-  font: 1400 84px/1 system-ui;
-  text-shadow: 0 18px 60px rgba(0,0,0,.55);
-}
+.gj-lowtime-num{ font: 1400 84px/1 system-ui; text-shadow: 0 18px 60px rgba(0,0,0,.55); }
 
-/* ---------- storm / boss / rage (visual only; director adds hha-* classes too) ---------- */
-body.gj-storm .gj-warning-ring,
-body.gj-boss .gj-warning-ring,
-body.gj-rage .gj-warning-ring{
+/* ---------- storm / boss / rage ring ---------- */
+.gj-warning-ring{
   position:fixed; inset:0;
   z-index:105;
   pointer-events:none;
-  opacity:.0;
+  opacity:0;
 }
-
 body.gj-storm .gj-warning-ring{
   opacity:.28;
   background: radial-gradient(circle at 50% 50%,
@@ -267,7 +262,6 @@ body.gj-storm .gj-warning-ring{
   0%,100%{ opacity:.22; }
   50%{ opacity:.36; }
 }
-
 body.gj-boss .gj-warning-ring{
   opacity:.30;
   background: radial-gradient(circle at 50% 50%,
@@ -280,7 +274,6 @@ body.gj-boss .gj-warning-ring{
   0%,100%{ opacity:.24; }
   50%{ opacity:.40; }
 }
-
 body.gj-rage .gj-warning-ring{
   opacity:.34;
   background: radial-gradient(circle at 50% 50%,
