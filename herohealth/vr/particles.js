@@ -9,7 +9,6 @@
   if (!doc || root.__HHA_PARTICLES__) return;
   root.__HHA_PARTICLES__ = true;
 
-  // ---------- layer ----------
   function ensureLayer(){
     let layer = doc.querySelector('.hha-fx-layer');
     if (layer) return layer;
@@ -20,7 +19,6 @@
     return layer;
   }
 
-  // ---------- style ----------
   (function injectStyle(){
     if (doc.getElementById('hha-particles-style')) return;
     const st = doc.createElement('style');
@@ -97,7 +95,6 @@
     doc.head.appendChild(st);
   })();
 
-  // ---------- helpers ----------
   function clamp(v,min,max){ return v<min?min:(v>max?max:v); }
   function rnd(a,b){ return a + (b-a)*Math.random(); }
 
@@ -114,7 +111,8 @@
 
   function scorePop(x,y,text){
     const t = String(text ?? '');
-    const big = (t.includes('+') && Number(t.replace('+','')) >= 20) || t.includes('PERFECT');
+    const n = Number(t.replace('+',''));
+    const big = (Number.isFinite(n) && n >= 50) || t.includes('PERFECT') || t.includes('BLOCK') || t.includes('MISS');
     popText(x,y,t, big ? 'big' : 'score');
   }
 
@@ -134,10 +132,9 @@
       const tx = x + Math.cos(ang)*dist;
       const ty = y + Math.sin(ang)*dist;
 
-      d.style.setProperty('--tx', `${tx - x - 50}px`); // because transform baseline uses -50%
+      d.style.setProperty('--tx', `${tx - x - 50}px`);
       d.style.setProperty('--ty', `${ty - y - 50}px`);
 
-      // subtle variation (no hard-coded palette; still looks good)
       d.style.background = `rgba(255,255,255,${rnd(.65,.95)})`;
       d.style.width = `${rnd(7,12)}px`;
       d.style.height = d.style.width;
@@ -156,13 +153,10 @@
     layer.appendChild(w);
     setTimeout(()=>{ try{ w.remove(); }catch(_){ } }, 650);
 
-    // also add burst for impact
     burst(x,y,{ r: Number(opts.r ?? 56), n: Number(opts.n ?? 10) });
   }
 
   function burstAt(x,y,kind='good'){
-    // kind reserved for future (game signature can override)
-    // keep core consistent
     if(kind === 'bad') shockwave(x,y,{ r: 64, n: 12 });
     else if(kind === 'block') burst(x,y,{ r: 44, n: 10 });
     else if(kind === 'star') shockwave(x,y,{ r: 72, n: 12 });
@@ -197,11 +191,9 @@
       setTimeout(()=>{ try{ c.remove(); }catch(_){ } }, 980);
     }
 
-    // extra pop
     popText(cx, cy + 14, '🎉', 'big');
   }
 
-  // expose
   root.Particles = root.Particles || {};
   root.Particles.popText = popText;
   root.Particles.scorePop = scorePop;
@@ -210,7 +202,6 @@
   root.Particles.burstAt = burstAt;
   root.Particles.celebrate = celebrate;
 
-  // keep compatibility for root.GAME_MODULES.Particles
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = root.Particles;
 })(window);
