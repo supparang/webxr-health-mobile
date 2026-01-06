@@ -4,11 +4,14 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
 ✅ HUD: soft neon, better contrast, safe-area
 ✅ Boss/Storm: fx classes (boss-on/boss-panic), storm pulse
 ✅ Result: crisp grade badge
-✅ PATCH: safe-zone to reduce HUD overlap + view-cvr strict pointer behavior
+✅ View: pc / mobile / vr / cvr (body.view-*)
+✅ HUD hide toggle: body.hud-hidden
+✅ HUD-safe vars: --plate-top-safe / --plate-bottom-safe (for safe spawn)
 */
 
-/* ---------------- Tokens ---------------- */
 :root{
+  color-scheme: dark;
+
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
@@ -25,75 +28,53 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
   --radius:18px;
   --pill:999px;
 
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* target sizing helpers */
-  --tMin: 38px;
-  --tMax: 86px;
-
-  /* HUD safe zone padding */
-  --hudPad: 10px;
-
-  /* z-index map (match plate-vr.html) */
-  --zScene: 0;
-  --zBg: 1;
-  --zStage: 2;
-  --zTargets: 10;
-  --zHitFx: 12;
-
-  --zFxStormBoss: 55;
-  --zFxStorm: 57;
-  --zFxBoss: 58;
-
-  --zHud: 30;
-  --zMiniCoach: 28;
-  --zBtns: 40;
-  --zBossHud: 42;
-  --zStormHud: 43;
-
-  --zOverlay: 70;
+  /* computed safe for spawner */
+  --plate-top-safe: 110px;     /* will be overridden by safe.js measure if you add later */
+  --plate-bottom-safe: 92px;   /* will be overridden by safe.js measure if you add later */
 }
 
-/* ---------------- Base ---------------- */
 *,
 *::before,
 *::after{ box-sizing:border-box; }
 
-html, body{
-  margin:0;
-  padding:0;
+html,body{
   width:100%;
   height:100%;
+  margin:0;
+  padding:0;
   overflow:hidden;
-  color:var(--text);
   background:var(--bg);
+  color:var(--text);
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-/* ---------------- View modes (for JS / VR UI consistency) ---------------- */
-body.view-pc{}
-body.view-mobile{}
-body.view-vr{}
-body.view-cvr{}
+/* -------------------- View modes -------------------- */
+body.view-pc{ }
+body.view-mobile{ }
+body.view-vr{ }
+body.view-cvr{ }
 
-/* In cVR mode: targets should NOT capture pointer aggressively (shoot via crosshair) */
-body.view-cvr #plate-layer{
-  touch-action:none;
-}
+/* cVR strict: targets shouldn't block pointer (shoot from crosshair via vr-ui.js) */
 body.view-cvr #plate-layer .plateTarget{
-  pointer-events:none; /* strict: do not block crosshair/tap-to-shoot */
+  pointer-events:none;
 }
 
-/* In normal (pc/mobile) allow tap */
-body:not(.view-cvr) #plate-layer .plateTarget{
-  pointer-events:auto;
+/* optional debug: hide HUD to inspect spawn */
+body.hud-hidden #hudTop,
+body.hud-hidden #miniPanel,
+body.hud-hidden #coachPanel,
+body.hud-hidden #hudBtns,
+body.hud-hidden #bossHud,
+body.hud-hidden #stormHud{
+  display:none !important;
 }
 
-/* ---------------- Micro Glow Helpers ---------------- */
+/* -------------------- Micro glow helpers -------------------- */
 @keyframes hhaGlow {
   0% { box-shadow: 0 16px 44px rgba(0,0,0,.26), 0 0 0 rgba(34,197,94,0); }
   50%{ box-shadow: 0 18px 52px rgba(0,0,0,.30), 0 0 28px rgba(34,197,94,.18); }
@@ -122,24 +103,43 @@ body:not(.view-cvr) #plate-layer .plateTarget{
   100%{ transform: translateZ(0) rotate(0deg); }
 }
 
-/* ---------------- Targets feel (emoji clarity + VR-ish depth) ---------------- */
+/* -------------------- Stage helpers -------------------- */
 #plate-layer{
   position:fixed;
   inset:0;
-  z-index:var(--zTargets);
+  z-index:10;
   pointer-events:auto;
   touch-action:none;
   user-select:none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* default target styling (JS also sets inline but this makes it consistent) */
+/* hit overlay (JS toggles pfx-hit-good / pfx-hit-bad) */
+#hitFx{
+  position:fixed;
+  inset:0;
+  z-index:12;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .12s ease;
+}
+
+/* -------------------- Targets feel (emoji clarity + VR-ish depth) -------------------- */
 #plate-layer .plateTarget{
+  position:absolute;
+  display:grid;
+  place-items:center;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  outline:none;
+
   border-radius:999px !important;
   border:1px solid rgba(148,163,184,.20) !important;
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
     radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
     rgba(2,6,23,.56) !important;
+
   backdrop-filter: blur(10px) saturate(1.15);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
@@ -147,15 +147,15 @@ body:not(.view-cvr) #plate-layer .plateTarget{
 
   animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
   transform: translateZ(0);
-  text-shadow: 0 2px 0 rgba(0,0,0,.25);
 
+  /* emoji clarity */
+  font-variation-settings: "wght" 900;
+  text-shadow: 0 2px 0 rgba(0,0,0,.25);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-variation-settings: "wght" 900;
 }
 
-/* press */
-body:not(.view-cvr) #plate-layer .plateTarget:active{
+#plate-layer .plateTarget:active{
   transform: translateZ(0) scale(.98);
 }
 
@@ -183,39 +183,17 @@ body:not(.view-cvr) #plate-layer .plateTarget:active{
     inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* Emoji clarity: a touch bigger on mobile */
-body.view-mobile #plate-layer .plateTarget{
-  font-size: 28px;
-}
-body.view-pc #plate-layer .plateTarget{
-  font-size: 28px;
-}
-body.view-vr #plate-layer .plateTarget,
-body.view-cvr #plate-layer .plateTarget{
-  font-size: 30px;
-}
-
-/* ---------------- HUD polish ---------------- */
-.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard, .panelCard{
+/* -------------------- HUD polish (generic classes used in plate-vr.html inline) -------------------- */
+.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
   box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
 }
 
-.card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  backdrop-filter: blur(10px);
-}
-
-/* pills */
 .pill{
   background:
     radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
     rgba(15,23,42,.68) !important;
-  border:1px solid rgba(148,163,184,.18);
 }
 
-/* bars */
 .bar{
   background: rgba(148,163,184,.10) !important;
 }
@@ -240,11 +218,12 @@ body.view-cvr #plate-layer .plateTarget{
 .btn.warn:hover{ filter:brightness(1.1); }
 .btn.bad:hover{ filter:brightness(1.05); }
 
-/* ---------------- Boss / Storm FX (hook for plate.safe.js toggles) ---------------- */
+/* -------------------- Boss / Storm FX (JS toggles classes) -------------------- */
 #bossFx{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   pointer-events:none;
-  z-index:var(--zFxBoss);
+  z-index:58;
   opacity:0;
   transition: opacity .15s ease;
 }
@@ -259,9 +238,10 @@ body.view-cvr #plate-layer .plateTarget{
 }
 
 #stormFx{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   pointer-events:none;
-  z-index:var(--zFxStorm);
+  z-index:57;
   opacity:0;
   transition: opacity .15s ease;
 }
@@ -273,11 +253,8 @@ body.view-cvr #plate-layer .plateTarget{
     radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
   animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
-#stormFx.storm-panic{
-  filter:brightness(1.25);
-}
 
-/* ---------------- Result grade badge ---------------- */
+/* Result grade badge */
 #rGrade{
   display:inline-block;
   padding:6px 12px;
@@ -287,45 +264,15 @@ body.view-cvr #plate-layer .plateTarget{
   box-shadow: 0 14px 40px rgba(0,0,0,.25);
 }
 
-/* ---------------- HUD safe zones (assist JS safe spawn) ---------------- */
-/* Give HUD panels a tiny outline so dev can see overlap if needed (optional) */
-.hudTop,
-#miniPanel,
-#coachPanel,
-#hudBtns,
-#bossHud,
-#stormHud{
-  /* no pointer changes here; HTML sets pointer-events; JS uses rects */
-}
-
-/* Reduce chance HUD blocks taps: allow taps through containers but not buttons/panels */
-.hudTop{ pointer-events:none; }
-.hudTop .card{ pointer-events:auto; }
-
-#miniPanel, #coachPanel{ pointer-events:none; }
-#miniPanel .questCard, #coachPanel .questCard{ pointer-events:auto; }
-
-#hudBtns{ pointer-events:none; }
-#hudBtns .btn{ pointer-events:auto; }
-
-/* In cVR, make HUD non-blocking more aggressively (shoot via crosshair) */
-body.view-cvr .hudTop,
-body.view-cvr #miniPanel,
-body.view-cvr #coachPanel{
-  pointer-events:none !important;
-}
-body.view-cvr #hudBtns{ pointer-events:auto !important; } /* still need Pause/Restart/EnterVR */
-
-/* ---------------- Mobile tightening ---------------- */
+/* -------------------- Small responsive tweaks -------------------- */
 @media (max-width: 920px){
-  .card{ min-width: 170px !important; }
-  .bar{ width:140px !important; }
+  :root{
+    --plate-top-safe: 120px;
+    --plate-bottom-safe: 100px;
+  }
 }
 
-/* ---------------- Small phones ---------------- */
-@media (max-width: 420px){
-  :root{ --hudPad: 8px; }
-  .pill{ padding:6px 9px; }
-  .card{ padding:9px 10px; }
-  .btn{ padding:10px 12px; }
-}
+/* -------------------- Safety: keep VR UI buttons clickable --------------------
+vr-ui.js adds fixed UI; ensure we don't kill pointer-events globally.
+(we only set pointer-events:none on wrappers in HTML, children are auto)
+*/
