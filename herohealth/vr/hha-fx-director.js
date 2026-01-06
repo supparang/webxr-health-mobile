@@ -1,5 +1,5 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA Global FX Director — PRODUCTION (FULL)
+// HHA Global FX Director — PRODUCTION
 // Listens to HHA events and triggers visual feedback consistently across all games.
 // Requires: ../vr/particles.js (optional but recommended)
 
@@ -10,6 +10,7 @@
   if (!DOC || ROOT.__HHA_FX_DIRECTOR__) return;
   ROOT.__HHA_FX_DIRECTOR__ = true;
 
+  // ---------- inject CSS ----------
   (function injectCss(){
     const id = 'hha-fx-director-style';
     if (DOC.getElementById(id)) return;
@@ -17,30 +18,66 @@
     st.id = id;
     st.textContent = `
       .hha-fx-vignette{
-        position:fixed; inset:-20px; pointer-events:none; z-index:9998;
+        position:fixed; inset:-24px; pointer-events:none; z-index:9998;
         opacity:0; transition: opacity 160ms ease;
-        filter: blur(0.2px);
       }
       .hha-fx-vignette::before{
         content:""; position:absolute; inset:0;
-        background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,.32) 74%, rgba(0,0,0,.58) 100%);
+        background: radial-gradient(circle at 50% 50%,
+          rgba(0,0,0,0) 44%,
+          rgba(0,0,0,.34) 74%,
+          rgba(0,0,0,.62) 100%);
       }
-      body.fx-hit-good .hha-fx-vignette{ opacity: .22; }
-      body.fx-hit-bad  .hha-fx-vignette{ opacity: .38; }
-      body.fx-miss     .hha-fx-vignette{ opacity: .34; }
+
+      body.fx-hit-good .hha-fx-vignette{ opacity: .18; }
+      body.fx-hit-bad  .hha-fx-vignette{ opacity: .42; }
+      body.fx-miss     .hha-fx-vignette{ opacity: .36; }
 
       body.fx-kick{ animation: hhaKick 120ms ease; }
       @keyframes hhaKick{
         0%{ transform: translate3d(0,0,0); }
-        40%{ transform: translate3d(0.8px,-0.8px,0); }
+        40%{ transform: translate3d(1.1px,-1.1px,0); }
         100%{ transform: translate3d(0,0,0); }
       }
 
-      body.fx-endblink{ animation: hhaEndBlink 700ms ease; }
+      body.fx-shake{ animation: hhaShake 180ms ease; }
+      @keyframes hhaShake{
+        0%{ transform: translate3d(0,0,0); }
+        20%{ transform: translate3d(1.2px,0,0); }
+        55%{ transform: translate3d(-1.2px,0,0); }
+        100%{ transform: translate3d(0,0,0); }
+      }
+
+      body.fx-endblink{ animation: hhaEndBlink 760ms ease; }
       @keyframes hhaEndBlink{
         0%{ filter:none; }
-        30%{ filter: brightness(1.15) contrast(1.05); }
+        30%{ filter: brightness(1.20) contrast(1.08); }
         100%{ filter:none; }
+      }
+
+      /* global modes */
+      body.hha-storm{
+        animation: hhaStormGlow 1.25s ease-in-out infinite;
+      }
+      @keyframes hhaStormGlow{
+        0%,100%{ filter:none; }
+        50%{ filter: contrast(1.06) brightness(1.06); }
+      }
+
+      body.hha-boss{
+        animation: hhaBossPulse 980ms ease-in-out infinite;
+      }
+      @keyframes hhaBossPulse{
+        0%,100%{ filter:none; }
+        50%{ filter: contrast(1.08) brightness(1.03); }
+      }
+
+      body.hha-rage{
+        animation: hhaRage 520ms ease-in-out infinite;
+      }
+      @keyframes hhaRage{
+        0%,100%{ transform:translate3d(0,0,0); filter: contrast(1.10) brightness(1.04); }
+        50%{ transform:translate3d(.9px,-.9px,0); filter: contrast(1.18) brightness(1.06); }
       }
     `;
     DOC.head.appendChild(st);
@@ -71,8 +108,8 @@
     const d = detail || {};
     const t = (d.type || d.kind || d.result || d.judge || d.hitType || '').toString().toLowerCase();
     if (t.includes('perfect')) return 'perfect';
-    if (t.includes('good') || t.includes('correct') || t.includes('hitgood')) return 'good';
-    if (t.includes('bad') || t.includes('junk') || t.includes('wrong') || t.includes('hitjunk')) return 'bad';
+    if (t.includes('good') || t.includes('correct')) return 'good';
+    if (t.includes('bad') || t.includes('junk') || t.includes('wrong')) return 'bad';
     if (t.includes('miss') || t.includes('expire')) return 'miss';
     if (t.includes('block') || t.includes('guard') || t.includes('shield')) return 'block';
     return t || 'good';
@@ -108,6 +145,7 @@
     }
   }
 
+  // judge
   DOC.addEventListener('hha:judge', (e)=>{
     const d = e?.detail || {};
     const { x, y } = pickXY(d);
@@ -126,20 +164,23 @@
       fxPop(x,y, 'PERFECT!', 'perfect');
     } else if (t === 'bad'){
       addBodyCls('fx-hit-bad', 220);
-      addBodyCls('fx-kick', 120);
+      addBodyCls('fx-shake', 180);
       fxShock(x,y, 64);
     } else if (t === 'miss'){
       addBodyCls('fx-miss', 220);
+      addBodyCls('fx-shake', 180);
       fxBurst(x,y, 58);
     } else if (t === 'block'){
       addBodyCls('fx-hit-good', 140);
       fxBurst(x,y, 44);
+      fxPop(x,y, 'BLOCK', 'big');
     } else {
       addBodyCls('fx-hit-good', 140);
       fxBurst(x,y, 46);
     }
   });
 
+  // score
   DOC.addEventListener('hha:score', (e)=>{
     const d = e?.detail || {};
     const { x, y } = pickXY(d);
@@ -149,25 +190,20 @@
     }
   });
 
-  DOC.addEventListener('hha:miss', (e)=>{
-    const d = e?.detail || {};
-    const { x, y } = pickXY(d);
-    addBodyCls('fx-miss', 240);
-    fxShock(x,y, 66);
-  });
-
+  // celebrate/end
   DOC.addEventListener('hha:celebrate', ()=> fxCelebrate());
-
   DOC.addEventListener('hha:end', ()=>{
     addBodyCls('fx-endblink', 760);
     setTimeout(()=>fxCelebrate(), 220);
   });
 
-  ROOT.HHA_FX_TEST = function(){
-    const x = innerWidth/2, y = innerHeight/2;
-    DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'good', x, y, combo:6 } }));
-    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:score',{ detail:{ score:25, x:x+80, y:y-20 } })), 120);
-    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'bad', x:x-80, y:y+20 } })), 260);
-    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:end')), 520);
-  };
+  // modes
+  DOC.addEventListener('hha:storm', ()=> DOC.body.classList.add('hha-storm'));
+  DOC.addEventListener('hha:boss',  ()=> DOC.body.classList.add('hha-boss'));
+  DOC.addEventListener('hha:rage',  ()=> DOC.body.classList.add('hha-rage'));
+
+  DOC.addEventListener('hha:mode-clear', ()=>{
+    DOC.body.classList.remove('hha-storm','hha-boss','hha-rage');
+  });
+
 })();
