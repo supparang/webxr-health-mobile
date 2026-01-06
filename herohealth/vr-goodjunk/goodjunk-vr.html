@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
-✅ Loads: goodjunk-vr.css + particles + hha-fx-director + hha-cloud-logger + boot(module)
+GoodJunkVR RUN (PC/Mobile/VR/cVR) — PRODUCTION
+✅ Loads: goodjunk-vr.css + particles + fx-director + cloud-logger + boot(module)
 ✅ hub fallback: ../hub.html when hub param missing
 -->
 <!doctype html>
@@ -14,18 +14,16 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
 
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Core FX + Director + Logger -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="view-mobile">
 
-  <div class="gj-topbar" aria-hidden="false">
+  <div class="gj-topbar">
     <div class="left">
       <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
     </div>
@@ -140,10 +138,8 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
     const diff = qs('diff','normal');
     const time = qs('time','80');
 
-    // ✅ hub fallback
     const hub = qs('hub', '../hub.html');
 
-    // body view class (avoid hardcoded view-mobile)
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
       view==='pc'?'view-pc':
@@ -155,32 +151,27 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION
     const chip = byId('chipMeta');
     if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
 
-    byId('btnBackHub')?.addEventListener('click', ()=>{
-      location.href = hub;
-    });
-
-    byId('btnShoot')?.addEventListener('click', ()=>{
-      window.dispatchEvent(new CustomEvent('hha:shoot'));
-    });
+    byId('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
+    byId('btnShoot')?.addEventListener('click', ()=> window.dispatchEvent(new CustomEvent('hha:shoot')));
 
     const peek = byId('peek');
     peek?.addEventListener('click', ()=> peek.setAttribute('aria-hidden','true'));
 
-    byId('btnMissions')?.addEventListener('click', ()=>{
+    function openPeek(){
       peek?.setAttribute('aria-hidden','false');
       try{
         byId('peekGoal').textContent =
           (byId('hud-goal')?.textContent || '—') + ' ' +
           (byId('hud-goal-cur')?.textContent || '0') + '/' +
           (byId('hud-goal-target')?.textContent || '0');
-        byId('peekMini').textContent =
-          byId('hud-mini')?.textContent || '—';
+        byId('peekMini').textContent = byId('hud-mini')?.textContent || '—';
       }catch(_){}
-    });
-    byId('btnPeek')?.addEventListener('click', ()=> byId('btnMissions')?.click());
+    }
+
+    byId('btnMissions')?.addEventListener('click', openPeek);
+    byId('btnPeek')?.addEventListener('click', openPeek);
     byId('btnHideHud')?.addEventListener('click', ()=> document.body.classList.toggle('hud-hidden'));
 
-    // sync mini HUD (VR/cVR)
     setInterval(()=>{
       const s = byId('hud-score')?.textContent || '0';
       const t = byId('hud-time')?.textContent || '0';
