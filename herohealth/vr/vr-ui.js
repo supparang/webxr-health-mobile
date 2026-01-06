@@ -1,10 +1,11 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — PRODUCTION
+// Universal VR UI — PRODUCTION (STRICT AUTO MODE)
+// ✅ NO query override: does NOT read ?view=
+// ✅ Uses body classes only: view-vr / view-cvr / in-vr
 // ✅ Adds: ENTER VR / EXIT / RECENTER buttons
-// ✅ Crosshair overlay + tap-to-shoot (for mobile/cVR)
+// ✅ Crosshair overlay + tap-to-shoot
 // ✅ Emits: hha:shoot {x,y,lockPx,source}
-// ✅ Supports view=cvr strict (aim from center screen)
-// ✅ Config: window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 }
+// ✅ Bridges A-Frame a-scene enter/exit-vr -> window emits hha:enter-vr / hha:exit-vr
 
 (function(){
   'use strict';
@@ -17,14 +18,13 @@
   const CFG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
   const qs = (s)=>DOC.querySelector(s);
 
-  function getView(){
-    try{
-      const v = new URL(location.href).searchParams.get('view');
-      return (v||'').toLowerCase();
-    }catch(_){ return ''; }
+  // STRICT: no URL-based view
+  function inCVR(){ return DOC.body.classList.contains('view-cvr'); }
+  function inVR(){
+    return DOC.body.classList.contains('view-vr')
+      || DOC.body.classList.contains('view-cvr')
+      || DOC.body.classList.contains('in-vr');
   }
-  function inCVR(){ return getView() === 'cvr' || DOC.body.classList.contains('view-cvr'); }
-  function inVR(){ return DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr') || DOC.body.classList.contains('in-vr'); }
 
   function emitShoot(x,y, source){
     try{
@@ -68,7 +68,6 @@
       }
       .hha-vrui .btn:active{ transform: translateY(1px); }
 
-      /* crosshair */
       .hha-crosshair{
         position:fixed; left:50%; top:50%;
         width:26px; height:26px;
@@ -157,9 +156,7 @@
   const scene = ()=>DOC.querySelector('a-scene');
 
   function setHint(on){
-    try{
-      UI.root.classList.toggle('show-hint', !!on);
-    }catch(_){}
+    try{ UI.root.classList.toggle('show-hint', !!on); }catch(_){}
   }
 
   // ---------- VR controls ----------
@@ -177,7 +174,6 @@
   }
   function recenter(){
     try{
-      // A-Frame: try camera rig reset
       const rig = DOC.getElementById('rig');
       if(rig){
         rig.setAttribute('position', '0 0 0');
@@ -207,9 +203,7 @@
     emitShoot(x, y, 'crosshair');
   }
 
-  // On pointer/tap: in cVR strict -> always shoot from center
   WIN.addEventListener('pointerdown', (e)=>{
-    // ignore clicks on buttons
     const t = e && e.target;
     if(t && t.closest && t.closest('.hha-vrui .btn')) return;
 
@@ -219,7 +213,6 @@
       return;
     }
 
-    // normal mobile: shoot at tap point (still helps lockPx)
     if(!canShoot()) return;
     const x = Number(e.clientX)||((WIN.innerWidth||360)/2);
     const y = Number(e.clientY)||((WIN.innerHeight||640)/2);
@@ -232,19 +225,41 @@
     UI.cross.style.display = show ? 'block' : 'none';
     setHint(inCVR());
   }
+
   refresh();
-  WIN.addEventListener('hashchange', refresh, { passive:true });
-  WIN.addEventListener('popstate', refresh, { passive:true });
   WIN.addEventListener('resize', refresh, { passive:true });
 
-  // detect A-Frame VR state toggles
-  WIN.addEventListener('enter-vr', ()=>{
+  // ---------- Bridge A-Frame VR state to window (STRICT AUTO) ----------
+  let _vrState = false;
+
+  function emitEnterVRBridge(source){
+    if(_vrState) return;
+    _vrState = true;
     DOC.body.classList.add('in-vr');
     refresh();
-  });
-  WIN.addEventListener('exit-vr', ()=>{
+    try{ WIN.dispatchEvent(new CustomEvent('hha:enter-vr', { detail:{ source: source || 'scene' } })); }catch(_){}
+  }
+
+  function emitExitVRBridge(source){
+    if(!_vrState) return;
+    _vrState = false;
     DOC.body.classList.remove('in-vr');
     refresh();
-  });
+    try{ WIN.dispatchEvent(new CustomEvent('hha:exit-vr', { detail:{ source: source || 'scene' } })); }catch(_){}
+  }
+
+  function bindSceneVrEvents(){
+    try{
+      const sc = scene();
+      if(!sc || sc.__HHA_BOUND_VR_EVENTS__) return;
+      sc.__HHA_BOUND_VR_EVENTS__ = true;
+      sc.addEventListener('enter-vr', ()=>emitEnterVRBridge('aframe-scene'), { passive:true });
+      sc.addEventListener('exit-vr',  ()=>emitExitVRBridge('aframe-scene'),  { passive:true });
+    }catch(_){}
+  }
+
+  bindSceneVrEvents();
+  setTimeout(bindSceneVrEvents, 250);
+  setTimeout(bindSceneVrEvents, 900);
 
 })();
