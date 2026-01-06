@@ -1,10 +1,12 @@
 // === /herohealth/hydration-vr/hydration.pattern.js ===
-// Hydration Pattern Generator — PRODUCTION (D)
-// ✅ Seeded pattern RNG (optional pass-in rng)
-// ✅ Anti-repeat: remembers recent cells + repels last positions
-// ✅ Patterns: grid9 / grid16 / ring / mix
-// ✅ Works with safe margins: window.HHA_SAFE (from hydration.safezone.js)
-// ✅ Expose: window.HHA_PATTERN.pickPoint(playRect, opts) -> {xPct,yPct}
+// Hydration Pattern Generator — PRODUCTION
+// ✅ Seeded (deterministic) using URL seed/sessionId/ts
+// ✅ HUD-safe spawn points from window.HHA_SAFE.playRect
+// ✅ Provides: window.HHA_PATTERN.pickPoint(mode) -> {x,y,xPct,yPct,tag}
+// ✅ Modes: 'normal' | 'storm' | 'boss'
+// ✅ Avoids repeating same cell, adds "rhythm" (rings / sweeps / bursts)
+// ✅ Cardboard-safe: points are normalized in playfield %, safe for L/R layers
+// ✅ Debug: ?patDebug=1 draws tiny dots
 
 (function(){
   'use strict';
@@ -13,8 +15,12 @@
   if (!DOC || WIN.__HHA_HYDRATION_PATTERN__) return;
   WIN.__HHA_HYDRATION_PATTERN__ = true;
 
-  const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const patDebug = String(qs('patDebug','0')) === '1';
 
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  // ------- deterministic RNG (same as safe.js style) -------
   function hashStr(s){
     s=String(s||''); let h=2166136261;
     for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -30,176 +36,206 @@
     };
   }
 
-  // internal state
-  const ST = {
-    rng: null,
-    lastPts: [],       // recent points [{x,y}]
-    lastCells: [],     // recent cell ids
-    step: 0
-  };
+  const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
+  const ts = String(qs('ts', Date.now()));
+  const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
+  const rng = makeRng(seed + '|pattern');
 
-  function ensureRng(seed){
-    if (!ST.rng) ST.rng = makeRng(seed || String(Date.now()));
-    return ST.rng;
+  function getPlayfieldEl(){
+    const body = DOC.body;
+    if (body && body.classList.contains('cardboard')) return DOC.getElementById('cbPlayfield');
+    return DOC.getElementById('playfield');
   }
 
-  function safeMargins(playRect){
-    const s = WIN.HHA_SAFE || { top:14,right:14,bottom:14,left:14 };
-    const base=22;
-    const top = Math.max(base, s.top|0);
-    const right = Math.max(base, s.right|0);
-    const bottom = Math.max(base, s.bottom|0);
-    const left = Math.max(base, s.left|0);
-    // cap so never kill play space
+  function getPfRect(){
+    const pf = getPlayfieldEl();
+    const r = pf?.getBoundingClientRect?.();
+    return r || { left:0, top:0, width:1, height:1 };
+  }
+
+  function getPlayRect(){
+    // from safezone
+    const R = WIN.HHA_SAFE?.playRect;
+    if (R && R.width > 80 && R.height > 80) return R;
+
+    // fallback: playfield inner rect
+    const pf = getPfRect();
+    const pad = 20;
     return {
-      top: clamp(top, base, playRect.h*0.48),
-      right: clamp(right, base, playRect.w*0.48),
-      bottom: clamp(bottom, base, playRect.h*0.48),
-      left: clamp(left, base, playRect.w*0.48),
+      left: pf.left + pad,
+      top: pf.top + pad,
+      right: pf.left + pf.width - pad,
+      bottom: pf.top + pf.height - pad,
+      width: Math.max(1, pf.width - pad*2),
+      height: Math.max(1, pf.height - pad*2),
     };
   }
 
-  function playInnerRect(playRect){
-    const m = safeMargins(playRect);
-    const x0 = playRect.x + m.left;
-    const y0 = playRect.y + m.top;
-    const w  = Math.max(1, playRect.w - m.left - m.right);
-    const h  = Math.max(1, playRect.h - m.top - m.bottom);
-    return { x:x0, y:y0, w, h, m };
-  }
+  // ------- grid + memory (avoid same cell repeats) -------
+  const MEM = {
+    lastIdx: -1,
+    last2Idx: -1,
+    ringPhase: 0,
+    sweepPhase: 0,
+    burstK: 0
+  };
 
-  function dist(ax,ay,bx,by){
-    const dx=ax-bx, dy=ay-by;
-    return Math.hypot(dx,dy);
-  }
-
-  // repel from last points (soft)
-  function repelScore(x,y){
-    let score=0;
-    const pts = ST.lastPts;
-    for (let i=0;i<pts.length;i++){
-      const p=pts[i];
-      const d = dist(x,y,p.x,p.y);
-      // strong penalty if very near
-      score += (d < 90 ? (90-d) : 0);
-    }
-    return score;
-  }
-
-  function remember(x,y, cellId){
-    ST.lastPts.unshift({x,y});
-    if (ST.lastPts.length > 7) ST.lastPts.pop();
-    ST.lastCells.unshift(cellId);
-    if (ST.lastCells.length > 10) ST.lastCells.pop();
-  }
-
-  function pickFromGrid(inner, gx, gy, rng){
-    const cellW = inner.w / gx;
-    const cellH = inner.h / gy;
-
-    // try some candidates, avoid recent cells
-    let best=null, bestScore=1e9;
-
-    for (let t=0; t<18; t++){
-      const cx = Math.floor(rng()*gx);
-      const cy = Math.floor(rng()*gy);
-      const id = `${gx}x${gy}:${cx},${cy}`;
-
-      // avoid repetition
-      if (ST.lastCells.includes(id) && t < 12) continue;
-
-      // within cell with jitter
-      const jx = (rng()*0.70 + 0.15);
-      const jy = (rng()*0.70 + 0.15);
-      const x = inner.x + cx*cellW + jx*cellW;
-      const y = inner.y + cy*cellH + jy*cellH;
-
-      const score = repelScore(x,y);
-      if (score < bestScore){
-        bestScore = score;
-        best = { x, y, cellId:id };
+  function grid9Points(rect){
+    const xs = [0.17, 0.50, 0.83];
+    const ys = [0.18, 0.50, 0.82];
+    const pts=[];
+    for (let j=0;j<3;j++){
+      for (let i=0;i<3;i++){
+        pts.push({
+          x: rect.left + rect.width * xs[i],
+          y: rect.top  + rect.height* ys[j],
+          tag:`g${i}${j}`,
+          idx: j*3+i
+        });
       }
     }
-
-    // fallback: any
-    if (!best){
-      const cx = Math.floor(rng()*gx);
-      const cy = Math.floor(rng()*gy);
-      const id = `${gx}x${gy}:${cx},${cy}`;
-      const x = inner.x + (cx + 0.5)*cellW;
-      const y = inner.y + (cy + 0.5)*cellH;
-      best = { x, y, cellId:id };
-    }
-    return best;
+    return pts;
   }
 
-  function pickFromRing(inner, rng){
-    // ring around center with jitter
-    const cx = inner.x + inner.w/2;
-    const cy = inner.y + inner.h/2;
-
-    const Rmin = Math.min(inner.w, inner.h) * 0.18;
-    const Rmax = Math.min(inner.w, inner.h) * 0.46;
-
-    let best=null, bestScore=1e9;
-
-    for (let t=0; t<16; t++){
-      const ang = (rng()*Math.PI*2);
-      const rr = Rmin + (Rmax-Rmin)*(rng()*0.9 + 0.1);
-      let x = cx + Math.cos(ang)*rr;
-      let y = cy + Math.sin(ang)*rr;
-
-      // clamp inside
-      x = clamp(x, inner.x, inner.x + inner.w);
-      y = clamp(y, inner.y, inner.y + inner.h);
-
-      const score = repelScore(x,y);
-      if (score < bestScore){
-        bestScore = score;
-        best = { x, y, cellId: `ring:${(ang*100)|0}:${(rr)|0}` };
-      }
-    }
-    return best;
-  }
-
-  function pickMix(inner, rng){
-    // deterministic-ish cycling: grid9 -> ring -> grid16 -> grid9 ...
-    const k = ST.step++ % 4;
-    if (k === 1) return pickFromRing(inner, rng);
-    if (k === 2) return pickFromGrid(inner, 4, 4, rng);
-    return pickFromGrid(inner, 3, 3, rng);
-  }
-
-  function toPct(playRect, x, y){
-    const xPct = ((x - playRect.x) / Math.max(1, playRect.w)) * 100;
-    const yPct = ((y - playRect.y) / Math.max(1, playRect.h)) * 100;
+  function toPct(x,y){
+    const pf = getPfRect();
+    const xPct = ((x - pf.left)/Math.max(1,pf.width))*100;
+    const yPct = ((y - pf.top )/Math.max(1,pf.height))*100;
     return { xPct, yPct };
   }
 
-  // Public API
-  WIN.HHA_PATTERN = {
-    setSeed(seedStr){
-      ST.rng = makeRng(seedStr || String(Date.now()));
-      ST.lastPts.length = 0;
-      ST.lastCells.length = 0;
-      ST.step = 0;
-    },
-    pickPoint(playRect, opts){
-      // playRect: {x,y,w,h} in px
-      const rng = (opts && opts.rng) ? opts.rng : ensureRng((opts && opts.seed) || 'hydration');
-      const inner = playInnerRect(playRect);
+  // ------- choreography patterns -------
+  function pickGrid9(rect, biasCenter=0.10){
+    const pts = grid9Points(rect);
 
-      const mode = String((opts && opts.mode) || 'mix').toLowerCase();
-      let pick=null;
+    // weights: base uniform, optional center bias
+    const w = new Array(9).fill(1);
+    if (biasCenter > 0) w[4] += biasCenter*9;
 
-      if (mode === 'grid9') pick = pickFromGrid(inner, 3, 3, rng);
-      else if (mode === 'grid16') pick = pickFromGrid(inner, 4, 4, rng);
-      else if (mode === 'ring') pick = pickFromRing(inner, rng);
-      else pick = pickMix(inner, rng);
+    // discourage repeats
+    if (MEM.lastIdx >= 0) w[MEM.lastIdx] *= 0.18;
+    if (MEM.last2Idx >= 0) w[MEM.last2Idx] *= 0.45;
 
-      const pct = toPct(playRect, pick.x, pick.y);
-      remember(pick.x, pick.y, pick.cellId);
-      return pct;
+    // roulette
+    let sum = 0;
+    for (let i=0;i<9;i++) sum += w[i];
+    let r = rng()*sum;
+    let pick = 4;
+    for (let i=0;i<9;i++){
+      r -= w[i];
+      if (r <= 0){ pick=i; break; }
     }
-  };
+
+    MEM.last2Idx = MEM.lastIdx;
+    MEM.lastIdx = pick;
+
+    const p = pts[pick];
+    return { x:p.x, y:p.y, tag:p.tag, idx:pick };
+  }
+
+  function ring(rect){
+    // 8 points around center (like a ring), rotates phase
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    const rad = Math.min(rect.width, rect.height) * (0.28 + rng()*0.06);
+    const n = 8;
+    MEM.ringPhase = (MEM.ringPhase + 1) % n;
+    const k = MEM.ringPhase;
+
+    const ang = (Math.PI*2)*(k/n) + (rng()*0.08 - 0.04);
+    const x = cx + Math.cos(ang)*rad;
+    const y = cy + Math.sin(ang)*rad;
+
+    return { x, y, tag:'ring', idx:-1 };
+  }
+
+  function sweep(rect){
+    // left->right or right->left sweep, with slight jitter
+    const dir = (Math.floor(rng()*2)===0) ? 1 : -1;
+    const steps = 6;
+    MEM.sweepPhase = (MEM.sweepPhase + 1) % steps;
+
+    const t = MEM.sweepPhase/(steps-1);
+    const x = dir>0
+      ? rect.left + rect.width*(0.10 + 0.80*t)
+      : rect.left + rect.width*(0.90 - 0.80*t);
+
+    const y = rect.top + rect.height*(0.25 + rng()*0.55);
+    return { x, y, tag:'sweep', idx:-1 };
+  }
+
+  function burst(rect){
+    // 3 quick picks near a chosen anchor cell (feels like "combo chance")
+    // burstK cycles within 0..2
+    MEM.burstK = (MEM.burstK + 1) % 3;
+
+    const anchor = pickGrid9(rect, 0.18);
+    const jx = (rng()*2-1) * rect.width * (0.035 + 0.02*MEM.burstK);
+    const jy = (rng()*2-1) * rect.height* (0.035 + 0.02*MEM.burstK);
+    return { x: anchor.x + jx, y: anchor.y + jy, tag:'burst', idx:anchor.idx };
+  }
+
+  function jitter(rect, p){
+    // clamp inside playRect
+    const x = clamp(p.x, rect.left+6, rect.left+rect.width-6);
+    const y = clamp(p.y, rect.top +6, rect.top +rect.height-6);
+    return { x, y };
+  }
+
+  function pickPoint(mode='normal'){
+    const rect = getPlayRect();
+
+    let p;
+    if (mode === 'boss'){
+      // boss: ring + tighter center bias (dramatic)
+      p = (rng()<0.55) ? ring(rect) : pickGrid9(rect, 0.35);
+    } else if (mode === 'storm'){
+      // storm: sweep + burst mix (pressure)
+      const r = rng();
+      if (r < 0.35) p = sweep(rect);
+      else if (r < 0.70) p = burst(rect);
+      else p = pickGrid9(rect, 0.12);
+    } else {
+      // normal: grid + occasional ring
+      p = (rng()<0.18) ? ring(rect) : pickGrid9(rect, 0.16);
+    }
+
+    const pj = jitter(rect, p);
+    const pct = toPct(pj.x, pj.y);
+
+    if (patDebug){
+      try{
+        let layer = DOC.getElementById('hha-pat-debug');
+        if (!layer){
+          layer = DOC.createElement('div');
+          layer.id = 'hha-pat-debug';
+          layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99997;';
+          DOC.body.appendChild(layer);
+        }
+        const dot = DOC.createElement('div');
+        dot.style.cssText = `
+          position:fixed;left:${pj.x}px;top:${pj.y}px;
+          width:6px;height:6px;border-radius:99px;
+          background:rgba(34,211,238,.95);
+          transform:translate(-50%,-50%);
+          box-shadow:0 8px 18px rgba(0,0,0,.35);
+          opacity:.9;
+        `;
+        layer.appendChild(dot);
+        setTimeout(()=>{ try{ dot.remove(); }catch(_){ } }, 600);
+      }catch(_){}
+    }
+
+    return {
+      x: pj.x, y: pj.y,
+      xPct: pct.xPct, yPct: pct.yPct,
+      tag: p.tag || 'grid'
+    };
+  }
+
+  // Public API
+  WIN.HHA_PATTERN = WIN.HHA_PATTERN || {};
+  WIN.HHA_PATTERN.seed = seed;
+  WIN.HHA_PATTERN.pickPoint = pickPoint;
+  WIN.HHA_PATTERN.getPlayRect = getPlayRect;
 })();
