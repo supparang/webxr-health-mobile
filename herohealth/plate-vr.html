@@ -243,7 +243,7 @@
       z-index:43;
       display:none;
       pointer-events:none;
-      transform: translateY(54px); /* under HUD top */
+      transform: translateY(54px); /* ใต้ HUD top */
     }
     .stormCard{
       pointer-events:auto;
@@ -267,6 +267,19 @@
   <script>
     /* Universal VR UI lockPx (crosshair assist) */
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
+
+    /* PATCH: auto detect view only when view param missing (NO override) */
+    (function(){
+      try{
+        const u = new URL(location.href);
+        const v = (u.searchParams.get('view')||'').toLowerCase();
+        if(v) return; // do not override
+        const ua = navigator.userAgent || '';
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+        u.searchParams.set('view', isMobile ? 'mobile' : 'pc');
+        history.replaceState(null,'',u.toString());
+      }catch(e){}
+    })();
   </script>
 </head>
 
@@ -403,9 +416,8 @@
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- IMPORTANT: JS listens on #btnStart -->
+      <!-- PATCH: keep legacy btnStart but hidden (JS uses it); startOverlay uses direct hook below -->
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
-
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
       <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
@@ -511,11 +523,6 @@
 
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
-      btnStartMain?.addEventListener('click', ()=>{
-        const b = document.getElementById('btnStart');
-        if(b) b.click();
-      }, {passive:true});
-
       btnCopy?.addEventListener('click', async ()=>{
         try{
           await navigator.clipboard.writeText(location.href);
@@ -523,18 +530,58 @@
         }catch(e){
           if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้';
         }
-      }, {passive:true});
+      }, { passive:true });
 
       btnGoLauncher?.addEventListener('click', ()=>{
         const u = new URL('./plate-launcher.html', location.href);
         const hub = new URL(location.href).searchParams.get('hub');
         if(hub) u.searchParams.set('hub', hub);
         location.href = u.toString();
-      }, {passive:true});
+      }, { passive:true });
+
+      /* PATCH: Start should always work even if legacy btnStart is hidden.
+         plate.safe.js binds btnStart click → startGame().
+         We'll call startGame() directly if exposed; else trigger legacy btnStart. */
+      btnStartMain?.addEventListener('click', ()=>{
+        try{
+          // type="module" puts functions in module scope; not on window by default.
+          // So we rely on hidden btnStart if plate.safe.js bound it.
+          const b = document.getElementById('btnStart');
+          if(b) b.click();
+        }catch(e){}
+      }, { passive:true });
     })();
   </script>
 
   <!-- RUN GAME -->
   <script type="module" src="./plate/plate.safe.js"></script>
+
+  <!-- PATCH: storm/boss fx class helpers (in case JS only toggles display) -->
+  <script>
+    (function(){
+      // This is a lightweight bridge: when stormHud/bossHud shown, apply corresponding FX "on" class.
+      // JS already toggles bossFx.classList.add('boss-on') but stormFx used display only in some builds.
+      const stormFx = document.getElementById('stormFx');
+      const bossFx  = document.getElementById('bossFx');
+
+      const mo = new MutationObserver(()=>{
+        try{
+          const sHud = document.getElementById('stormHud');
+          const bHud = document.getElementById('bossHud');
+
+          const sOn = sHud && getComputedStyle(sHud).display !== 'none';
+          const bOn = bHud && getComputedStyle(bHud).display !== 'none';
+
+          if(stormFx){
+            stormFx.classList.toggle('storm-on', !!sOn);
+          }
+          if(bossFx){
+            bossFx.classList.toggle('boss-on', !!bOn);
+          }
+        }catch(e){}
+      });
+      mo.observe(document.documentElement, { attributes:true, childList:true, subtree:true });
+    })();
+  </script>
 </body>
 </html>
