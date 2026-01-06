@@ -10,7 +10,6 @@
   if (!DOC || ROOT.__HHA_FX_DIRECTOR__) return;
   ROOT.__HHA_FX_DIRECTOR__ = true;
 
-  // ---------- inject CSS ----------
   (function injectCss(){
     const id = 'hha-fx-director-style';
     if (DOC.getElementById(id)) return;
@@ -28,7 +27,6 @@
           rgba(0,0,0,.34) 74%,
           rgba(0,0,0,.62) 100%);
       }
-
       body.fx-hit-good .hha-fx-vignette{ opacity: .18; }
       body.fx-hit-bad  .hha-fx-vignette{ opacity: .42; }
       body.fx-miss     .hha-fx-vignette{ opacity: .36; }
@@ -55,26 +53,19 @@
         100%{ filter:none; }
       }
 
-      /* global modes */
-      body.hha-storm{
-        animation: hhaStormGlow 1.25s ease-in-out infinite;
-      }
+      body.hha-storm{ animation: hhaStormGlow 1.25s ease-in-out infinite; }
       @keyframes hhaStormGlow{
         0%,100%{ filter:none; }
         50%{ filter: contrast(1.06) brightness(1.06); }
       }
 
-      body.hha-boss{
-        animation: hhaBossPulse 980ms ease-in-out infinite;
-      }
+      body.hha-boss{ animation: hhaBossPulse 980ms ease-in-out infinite; }
       @keyframes hhaBossPulse{
         0%,100%{ filter:none; }
         50%{ filter: contrast(1.08) brightness(1.03); }
       }
 
-      body.hha-rage{
-        animation: hhaRage 520ms ease-in-out infinite;
-      }
+      body.hha-rage{ animation: hhaRage 520ms ease-in-out infinite; }
       @keyframes hhaRage{
         0%,100%{ transform:translate3d(0,0,0); filter: contrast(1.10) brightness(1.04); }
         50%{ transform:translate3d(.9px,-.9px,0); filter: contrast(1.18) brightness(1.06); }
@@ -95,7 +86,6 @@
   }
 
   function num(v){ v = Number(v); return Number.isFinite(v) ? v : null; }
-
   function pickXY(detail){
     const d = detail || {};
     const x = num(d.x) ?? num(d.px) ?? num(d.clientX) ?? num(d.cx);
@@ -118,23 +108,19 @@
   function particles(){
     return ROOT.Particles || ROOT.GAME_MODULES?.Particles || null;
   }
-
   function fxBurst(x,y,r){
     const P = particles();
     if (P?.burst) P.burst(x,y,{r});
   }
-
   function fxShock(x,y,r){
     const P = particles();
     if (P?.shockwave) P.shockwave(x,y,{r});
     else fxBurst(x,y,r);
   }
-
   function fxPop(x,y,text,cls){
     const P = particles();
     if (P?.popText) P.popText(x,y,text,cls);
   }
-
   function fxCelebrate(){
     const P = particles();
     if (P?.celebrate) P.celebrate();
@@ -145,7 +131,6 @@
     }
   }
 
-  // judge
   DOC.addEventListener('hha:judge', (e)=>{
     const d = e?.detail || {};
     const { x, y } = pickXY(d);
@@ -180,7 +165,6 @@
     }
   });
 
-  // score
   DOC.addEventListener('hha:score', (e)=>{
     const d = e?.detail || {};
     const { x, y } = pickXY(d);
@@ -190,14 +174,12 @@
     }
   });
 
-  // celebrate/end
   DOC.addEventListener('hha:celebrate', ()=> fxCelebrate());
   DOC.addEventListener('hha:end', ()=>{
     addBodyCls('fx-endblink', 760);
     setTimeout(()=>fxCelebrate(), 220);
   });
 
-  // modes
   DOC.addEventListener('hha:storm', ()=> DOC.body.classList.add('hha-storm'));
   DOC.addEventListener('hha:boss',  ()=> DOC.body.classList.add('hha-boss'));
   DOC.addEventListener('hha:rage',  ()=> DOC.body.classList.add('hha-rage'));
@@ -205,5 +187,4 @@
   DOC.addEventListener('hha:mode-clear', ()=>{
     DOC.body.classList.remove('hha-storm','hha-boss','hha-rage');
   });
-
 })();
