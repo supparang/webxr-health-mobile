@@ -10,7 +10,7 @@
   <!-- External CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (for ENTER VR / EXIT / RECENTER via vr-ui.js) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
@@ -36,6 +36,9 @@
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
+
+      /* PATCH 2: reserve area for vr-ui.js buttons (top-left) */
+      --vrui-safe-top: 54px; /* enough for ENTER/EXIT/RECENTER cluster */
     }
 
     *{ box-sizing:border-box; }
@@ -47,7 +50,6 @@
       font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
     }
 
-    /* A-Frame sits behind UI; ENTER VR is handled by vr-ui.js buttons */
     a-scene{ position:fixed; inset:0; z-index:0; }
 
     .bg{
@@ -85,7 +87,7 @@
     .hudTop{
       position:fixed;
       left:10px; right:10px;
-      top: calc(10px + var(--sat));
+      top: calc(10px + var(--sat) + var(--vrui-safe-top)); /* PATCH 2: push under VRUI */
       z-index:30;
       display:flex;
       flex-wrap:wrap;
@@ -140,7 +142,8 @@
       z-index:28;
       pointer-events:none;
     }
-    #miniPanel{ top: calc(84px + var(--sat)); }
+    /* PATCH 2: align panel under VRUI+HUD safely */
+    #miniPanel{ top: calc(84px + var(--sat) + var(--vrui-safe-top)); }
     #coachPanel{ bottom: calc(72px + var(--sab)); }
 
     .questCard{
@@ -240,7 +243,7 @@
     #stormHud{
       position:fixed;
       left:10px;
-      top: calc(10px + var(--sat));
+      top: calc(10px + var(--sat) + var(--vrui-safe-top)); /* PATCH 2 */
       z-index:43;
       display:none;
       pointer-events:none;
@@ -404,9 +407,8 @@
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- NOTE: plate.safe.js expects #btnStart to exist -->
-      <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
-
+      <!-- PATCH 1: keep btnStart present & clickable (safe.js uses it) -->
+      <button class="btn primary" id="btnStart" type="button">▶ START</button>
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
       <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
@@ -495,9 +497,7 @@
 
         <style>
           @media (max-width: 920px){
-            #resultBackdrop > .panelCard > div[style*="grid-template-columns"]{
-              grid-template-columns: 1fr !important;
-            }
+            #resultBackdrop > .panelCard > div[style*="grid-template-columns"]{ grid-template-columns: 1fr !important; }
           }
         </style>
       </div>
@@ -512,12 +512,18 @@
       const btnCopy = document.getElementById('btnCopyLink');
       const btnGoLauncher = document.getElementById('btnGoLauncher');
 
+      /* PATCH 1: ensure #btnStart exists and is visible while overlay is shown */
+      const btnStart = document.getElementById('btnStart');
+      if(btnStart){
+        btnStart.style.display = 'inline-flex';
+      }
+
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
       btnStartMain?.addEventListener('click', ()=>{
         const b = document.getElementById('btnStart');
         if(b) b.click();
-      }, { passive:true });
+      }, {passive:true});
 
       btnCopy?.addEventListener('click', async ()=>{
         try{
@@ -526,14 +532,14 @@
         }catch(e){
           if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้';
         }
-      }, { passive:true });
+      }, {passive:true});
 
       btnGoLauncher?.addEventListener('click', ()=>{
         const u = new URL('./plate-launcher.html', location.href);
         const hub = new URL(location.href).searchParams.get('hub');
         if(hub) u.searchParams.set('hub', hub);
         location.href = u.toString();
-      }, { passive:true });
+      }, {passive:true});
     })();
   </script>
 
