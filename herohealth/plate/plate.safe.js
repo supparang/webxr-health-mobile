@@ -10,7 +10,6 @@
 // ✅ Universal VR UI: listens to hha:shoot (crosshair/tap-to-shoot) and hits nearest target within lockPx
 // ✅ NEW: Storm Cycles mini (real miniTotal) + Boss HUD ids match plate-vr.html
 // ✅ NEW: AI hooks + explainable micro-tips (rate limited), deterministic pattern plan
-// ✅ PATCH: Start button robust (bind btnStartMain + fallback) + FX classes storm-on/boss-on applied
 
 'use strict';
 
@@ -96,8 +95,8 @@ let adapt = { sizeMul: 1.0, spawnMul: 1.0, junkMul: 1.0 };
 const layer = qs('plate-layer');
 const hitFx = qs('hitFx');
 
-const btnStart = qs('btnStart');           // hidden small start
-const btnStartMain = qs('btnStartMain');   // overlay main start (robust)
+const btnStart = qs('btnStart');         // HUD button (may be hidden)
+const btnStartMain = qs('btnStartMain'); // start overlay main
 const startOverlay = qs('startOverlay');
 
 const btnPause = qs('btnPause');
@@ -125,7 +124,7 @@ const bossFx    = qs('bossFx');
 const stormHud   = qs('stormHud');
 const stormTitle = qs('stormTitle');
 const stormHint  = qs('stormHint');
-const stormProg  = qs('stormProg');
+const stormProg  = qs('stormProg'); // ✅ PATCH: update this
 const stormFx    = qs('stormFx');
 
 if(!layer){
@@ -147,6 +146,8 @@ if(!layer){
     @keyframes pfxTick { 0%{transform:scale(1)} 50%{transform:scale(1.03)} 100%{transform:scale(1)} }
     #hitFx.pfx-hit-good{opacity:1; background:radial-gradient(circle at center, rgba(34,197,94,.18), transparent 55%);}
     #hitFx.pfx-hit-bad {opacity:1; background:radial-gradient(circle at center, rgba(239,68,68,.18), transparent 55%);}
+
+    /* storm/boss extra */
     #stormFx.storm-panic{ filter:brightness(1.25); }
     #bossFx.boss-panic{ filter:brightness(1.25); }
   `;
@@ -885,7 +886,7 @@ function startBoss(){
   if(bossHud) bossHud.style.display = 'block';
   if(bossFx){
     bossFx.style.display = 'block';
-    bossFx.classList.add('boss-on');     // ✅ important
+    bossFx.classList.add('boss-on');
     bossFx.classList.remove('boss-panic');
   }
 
@@ -928,7 +929,7 @@ function finishBoss(ok, reason){
 
   if(bossHud) bossHud.style.display = 'none';
   if(bossFx){
-    bossFx.classList.remove('boss-on','boss-panic'); // ✅ important
+    bossFx.classList.remove('boss-on','boss-panic');
     bossFx.style.display = 'none';
   }
 
@@ -966,17 +967,18 @@ function startStormCycle(){
   storm.forbidJunk = !isStudy && (fever >= 70);
 
   if(stormHud) stormHud.style.display = 'block';
-  if(stormFx){
-    stormFx.style.display = 'block';
-    stormFx.classList.add('storm-on');   // ✅ important
-    stormFx.classList.remove('storm-panic');
-  }
+  if(stormFx) stormFx.style.display = 'block';
 
   if(stormTitle) stormTitle.textContent = `🌪️ STORM ${storm.cycleIndex+1}/${storm.cyclesPlanned}`;
   if(stormHint){
     stormHint.textContent = storm.forbidJunk
       ? `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s (ห้ามโดนขยะ!)`
       : `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s`;
+  }
+
+  // ✅ PATCH: stormProg visible line
+  if(stormProg){
+    stormProg.textContent = `GOOD ${storm.hitGood}/${storm.needGood}`;
   }
 
   judge('🌪️ STORM START!', 'warn');
@@ -997,14 +999,15 @@ function stormTimeLeft(){
 function updateStormHud(){
   if(!storm.active) return;
   const tl = stormTimeLeft();
-
-  if(stormProg){
-    const a = storm.forbidJunk ? ' • ห้ามโดนขยะ' : '';
-    stormProg.textContent = `${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
-  }
   if(stormHint){
     const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
     stormHint.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
+  }
+
+  // ✅ PATCH: update stormProg too
+  if(stormProg){
+    const a = storm.forbidJunk ? ' • NO JUNK' : '';
+    stormProg.textContent = `${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
   }
 
   const mf = qs('uiMiniFill');
@@ -1028,7 +1031,7 @@ function finishStorm(ok, reason){
 
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-panic','storm-on'); // ✅ important
+    stormFx.classList.remove('storm-panic');
     stormFx.style.display = 'none';
   }
 
@@ -1072,6 +1075,8 @@ function onHit(id){
       storm.hitGood++;
       if(storm.hitGood >= storm.needGood){
         finishStorm(true, 'need-met');
+      }else{
+        updateStormHud();
       }
     }
 
@@ -1345,15 +1350,11 @@ function tick(){
     maybeSpawnShield();
   }
 
-  // expire (PATCH: collect ids first to avoid iteration weirdness)
-  const toExpire = [];
+  // expire
   for(const [id, tObj] of targets){
     if((t - tObj.bornMs) >= tObj.lifeMs){
-      toExpire.push(id);
+      onExpireTarget(id);
     }
-  }
-  for(const id of toExpire){
-    onExpireTarget(id);
   }
 
   // AI micro tips (rate limited)
@@ -1419,16 +1420,13 @@ function bootButtons(){
     location.href = u.toString();
   }, { passive:true });
 
-  // ✅ robust start: bind both
-  on(btnStart, 'click', async ()=>{
+  // ✅ start can be triggered from either HUD or overlay main
+  const startHandler = async ()=>{
     await requestGyroPermission();
     startGame();
-  }, { passive:true });
-
-  on(btnStartMain, 'click', async ()=>{
-    await requestGyroPermission();
-    startGame();
-  }, { passive:true });
+  };
+  on(btnStart, 'click', startHandler, { passive:true });
+  on(btnStartMain, 'click', startHandler, { passive:true });
 
   on(ROOT, 'beforeunload', ()=>{
     try{ flushHardened('beforeunload'); }catch(err){}
@@ -1519,9 +1517,12 @@ function resetState(){
   }
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-on','storm-panic');
+    stormFx.classList.remove('storm-panic');
     stormFx.style.display = 'none';
   }
+
+  // make start overlay visible
+  if(startOverlay) startOverlay.style.display = 'grid';
 }
 
 function startGame(){
@@ -1625,7 +1626,7 @@ function buildSummary(reason){
     goalsCleared,
     goalsTotal,
     miniCleared,
-    miniTotal: minisTotal,
+    miniTotal: minisTotal, // ✅ real
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
@@ -1757,12 +1758,6 @@ async function endGame(reason){
   setText('uiDiffPreview', diff);
   setText('uiTimePreview', timePlannedSec);
   setText('uiRunPreview', runMode);
-
-  // ✅ optional: make hidden start usable if needed
-  if(btnStart){
-    // keep hidden if you want; uncomment if you want it visible always
-    // btnStart.style.display = 'inline-flex';
-  }
 
   try{ refreshLayout(); }catch(e){}
   resetState();
