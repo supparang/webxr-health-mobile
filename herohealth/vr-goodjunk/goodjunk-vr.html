@@ -1,3 +1,8 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
+✅ Loads: goodjunk-vr.css + particles + fx-director + logger + vr-ui + boot(module)
+✅ STRICT AUTO view handled by boot.js (ignores ?view=)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,14 +12,15 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame for Enter VR reliability -->
+  <!-- A-Frame (optional: Enter VR reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS (FINAL matched) -->
+  <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Global FX + Logger + Universal VR UI -->
+  <!-- FX + FX Director + Logger + VR UI -->
   <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
@@ -23,7 +29,7 @@
 </head>
 
 <body class="gj">
-  <!-- minimal A-Frame scene (kept tiny) -->
+  <!-- minimal A-Frame scene (tiny + hidden) -->
   <a-scene
     embedded
     renderer="colorManagement:true; physicallyCorrectLights:false"
@@ -104,13 +110,13 @@
     </div>
   </footer>
 
-  <!-- Playfield (L / R for cVR) -->
+  <!-- Playfield -->
   <main class="gj-field" id="gjField" aria-label="GoodJunk playfield">
     <div id="gj-layer" class="gj-layer" aria-hidden="false"></div>
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
   </main>
 
-  <!-- Missions peek overlay (เติมให้ครบแล้ว ✅) -->
+  <!-- Missions peek overlay -->
   <div class="gj-peek" aria-hidden="true" id="missionsPeek">
     <div class="peek-card" role="dialog" aria-label="Missions">
       <div class="peek-title">🎯 Missions</div>
@@ -126,7 +132,7 @@
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- END SUMMARY (HHA Standard) -->
+  <!-- END SUMMARY -->
   <div class="gj-end" id="endOverlay" aria-hidden="true">
     <div class="card">
       <div class="title" id="endTitle">Completed</div>
@@ -150,54 +156,23 @@
     </div>
   </div>
 
-  <!-- HUD-safe measure helper -->
-  <script>
-    (function(){
-      function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-      function updateSafe(){
-        try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-          const top = document.getElementById('gjHudTop');
-          const bot = document.getElementById('gjHudBot');
-          const topH = (top?.getBoundingClientRect().height || 0);
-          const botH = (bot?.getBoundingClientRect().height || 0);
-          document.documentElement.style.setProperty('--gj-top-safe', px(topH + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(botH + 16));
-        }catch(_){}
-      }
-      window.addEventListener('resize', updateSafe, {passive:true});
-      window.addEventListener('orientationchange', updateSafe, {passive:true});
-      setTimeout(updateSafe, 0);
-      setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 350);
-    })();
-  </script>
-
-  <!-- UI wiring -->
+  <!-- UI wiring (no view override here) -->
   <script>
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
       const byId = (id)=>document.getElementById(id);
 
-      const view = (qs('view','mobile')||'mobile').toLowerCase();
       const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
       const hub  = (qs('hub','')||'').trim() || null;
 
-      // body view class
-      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      document.body.classList.add(
-        view==='pc' ? 'view-pc' :
-        view==='vr' ? 'view-vr' :
-        view==='cvr'? 'view-cvr' : 'view-mobile'
-      );
-
       const chip = byId('chipMeta');
-      if(chip) chip.textContent = `GoodJunkVR · view=${view} · run=${run} · diff=${diff} · time=${time}`;
+      if(chip) chip.textContent = `GoodJunkVR · run=${run} · diff=${diff} · time=${time}`;
 
       function hardFlush(){
         try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
+        try{ document.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
       }
       function flushThenGo(url){
         hardFlush();
@@ -213,44 +188,30 @@
         else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
       });
 
-      // Missions peek (show 4.2s)
       const peek = byId('missionsPeek');
       byId('btnMissions')?.addEventListener('click', ()=>{
         document.body.classList.add('show-missions');
-        if(peek) peek.setAttribute('aria-hidden','false');
+        peek?.setAttribute('aria-hidden','false');
+
+        // เติมข้อความจาก HUD
+        try{
+          byId('peekGoal').textContent =
+            `GOAL: ${(byId('hud-goal')?.textContent||'—')} ${(byId('hud-goal-cur')?.textContent||'0')}/${(byId('hud-goal-target')?.textContent||'0')}`;
+          byId('peekMini').textContent =
+            `MINI: ${(byId('hud-mini')?.textContent||'—')}`;
+        }catch(_){}
+
         setTimeout(()=>{
           document.body.classList.remove('show-missions');
-          if(peek) peek.setAttribute('aria-hidden','true');
+          peek?.setAttribute('aria-hidden','true');
         }, 4200);
       });
 
-      // Hide HUD
       byId('btnHideHud')?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
+        // ให้ boot.js วัด safe ใหม่เอง
+        try{ window.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: document.body.dataset.view || 'mobile' }})); }catch(_){}
       });
-
-      // End overlay
-      const endOverlay = byId('endOverlay');
-      function showEnd(d){
-        try{
-          if(!endOverlay) return;
-          byId('endTitle').textContent = (d?.reason === 'missLimit') ? 'Game Over' : 'Completed';
-          byId('endSub').textContent = `reason=${d?.reason||'-'} | mode=${d?.runMode||run} | view=${d?.device||view}`;
-          byId('endGrade').textContent = d?.grade || '—';
-          byId('endScore').textContent = String(d?.scoreFinal ?? 0);
-          byId('endMiss').textContent  = String(d?.misses ?? 0);
-          byId('endTime').textContent  = String(Math.round(Number(d?.durationPlayedSec||0)));
-
-          // ✅ no “random inline style” on load; only set when showing
-          endOverlay.setAttribute('aria-hidden','false');
-          endOverlay.style.display = 'flex';
-        }catch(_){}
-      }
-      function onEnd(ev){ showEnd(ev?.detail || null); }
-
-      window.addEventListener('hha:end', onEnd, { passive:true });
-      document.addEventListener('hha:end', onEnd, { passive:true });
-      document.body?.addEventListener('hha:end', onEnd, { passive:true });
 
       byId('endBackHub')?.addEventListener('click', ()=>{
         if(hub) flushThenGo(hub);
