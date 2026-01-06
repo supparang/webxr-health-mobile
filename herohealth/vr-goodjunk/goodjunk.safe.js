@@ -3,11 +3,15 @@
 // ✅ Mobile / PC / VR(Cardboard) / cVR
 // ✅ HUD-safe spawn via CSS vars: --gj-top-safe / --gj-bottom-safe
 // ✅ Miss definition: miss = good expired + junk hit; Shield-blocked junk does NOT count as miss
-// ✅ Mini "เก็บให้ไว" -> instant pass (fast_hits) with view-based threshold
+// ✅ Mini "เก็บให้ไว" -> instant pass (fast_hits) with view-based threshold (updated on view switch)
 // ✅ FX states: timeLeft<=30 => STORM, miss>=4 => BOSS, miss>=5 => RAGE
 // ✅ Emits to BOTH window+document: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:miss, hha:end, hha:celebrate
 // ✅ End summary + back-to-HUB + save last summary (HHA_LAST_SUMMARY)
 // ✅ Logger: hha:start / hha:end compatible with hha-cloud-logger.js V2+
+// ✅ PATCH(A): End overlay controlled by aria-hidden ONLY (no style.display)
+// ✅ PATCH(A): live view (pc/mobile/vr/cvr) from body.dataset.view for shoot/summary
+// ✅ PATCH(A): hide end overlay at start (prevents stuck overlay)
+// ✅ PATCH(A): fast_hits thresholds update on hha:view (enter/exit VR)
 
 'use strict';
 
@@ -24,6 +28,11 @@ export function boot(payload = {}) {
   function emit(name, detail){
     try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
     try{ DOC.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+  }
+
+  // ✅ PATCH(A): read current view live (boot may switch to vr/cvr later)
+  function liveView(){
+    return String(DOC.body?.dataset?.view || payload.view || qs('view','mobile') || 'mobile').toLowerCase();
   }
 
   // rng (deterministic for research)
@@ -108,50 +117,10 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-01-06fx';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-01-06fx_A';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const rng = makeSeededRng(String(seed));
-  const isVR  = (view === 'vr');
-  const isCVR = (view === 'cvr');
-
-  // difficulty tuning (base)
-  const DIFF_BASE = (() => {
-    if(diff==='easy') return {
-      spawnPerSec: 1.05,
-      junkRate: 0.22,
-      starRate: 0.08,
-      shieldRate: 0.06,
-      goodLifeMs: 2100,
-      junkPenaltyMiss: 1,
-      goodScore: 12,
-      junkPenaltyScore: -10,
-      missLimit: 12,
-    };
-    if(diff==='hard') return {
-      spawnPerSec: 1.55,
-      junkRate: 0.32,
-      starRate: 0.06,
-      shieldRate: 0.045,
-      goodLifeMs: 1500,
-      junkPenaltyMiss: 1,
-      goodScore: 14,
-      junkPenaltyScore: -14,
-      missLimit: 9,
-    };
-    return { // normal
-      spawnPerSec: 1.25,
-      junkRate: 0.27,
-      starRate: 0.07,
-      shieldRate: 0.055,
-      goodLifeMs: 1800,
-      junkPenaltyMiss: 1,
-      goodScore: 13,
-      junkPenaltyScore: -12,
-      missLimit: 10,
-    };
-  })();
-
   const adaptiveOn = (runMode !== 'research');
 
   // ----------------------- UI refs -----------------------
@@ -237,6 +206,43 @@ export function boot(payload = {}) {
     endTimeIso: null,
   };
 
+  // ----------------------- difficulty tuning (base) -----------------------
+  const DIFF_BASE = (() => {
+    if(diff==='easy') return {
+      spawnPerSec: 1.05,
+      junkRate: 0.22,
+      starRate: 0.08,
+      shieldRate: 0.06,
+      goodLifeMs: 2100,
+      junkPenaltyMiss: 1,
+      goodScore: 12,
+      junkPenaltyScore: -10,
+      missLimit: 12,
+    };
+    if(diff==='hard') return {
+      spawnPerSec: 1.55,
+      junkRate: 0.32,
+      starRate: 0.06,
+      shieldRate: 0.045,
+      goodLifeMs: 1500,
+      junkPenaltyMiss: 1,
+      goodScore: 14,
+      junkPenaltyScore: -14,
+      missLimit: 9,
+    };
+    return { // normal
+      spawnPerSec: 1.25,
+      junkRate: 0.27,
+      starRate: 0.07,
+      shieldRate: 0.055,
+      goodLifeMs: 1800,
+      junkPenaltyMiss: 1,
+      goodScore: 13,
+      junkPenaltyScore: -12,
+      missLimit: 10,
+    };
+  })();
+
   // ----------------------- fast mini config -----------------------
   function fastCfgByView(v){
     if(v==='pc')  return { thrMs: 440, target: 2, timeLimitSec: 10 };
@@ -253,6 +259,22 @@ export function boot(payload = {}) {
       { type:'fast_hits',   title:'เก็บให้ไว', target: fast.target, cur:0, done:false,
         thrMs: fast.thrMs, timeLimitSec: fast.timeLimitSec, leftSec: fast.timeLimitSec }
     ];
+  }
+
+  function applyFastCfgToSeq(v){
+    const fast = fastCfgByView(v);
+    if(!state.miniSeq || !state.miniSeq.length) return;
+    for(const m of state.miniSeq){
+      if(m && m.type === 'fast_hits'){
+        m.thrMs = fast.thrMs;
+        m.target = fast.target;
+        m.timeLimitSec = fast.timeLimitSec;
+        if(m === state.mini){
+          resetMini(m);
+        }
+      }
+    }
+    setMiniText();
   }
 
   function resetMini(m){
@@ -785,7 +807,10 @@ export function boot(payload = {}) {
     const cx = Math.floor(DOC.documentElement.clientWidth/2);
     const cy = Math.floor(DOC.documentElement.clientHeight/2);
 
-    const R = (isCVR || isVR) ? 86 : 70;
+    // ✅ PATCH(A): decide by LIVE view (after enter/exit VR)
+    const v = liveView();
+    const R = (v === 'cvr' || v === 'vr') ? 86 : 70;
+
     let best = null;
     let bestD = 1e9;
 
@@ -899,6 +924,7 @@ export function boot(payload = {}) {
   const endMiss = byId('endMiss');
   const endTime = byId('endTime');
 
+  // ✅ PATCH(A): aria-hidden only (CSS decides display)
   function showEndOverlay(summary){
     if(!endOverlay) return;
     try{
@@ -906,10 +932,11 @@ export function boot(payload = {}) {
       endSub && (endSub.textContent = `reason=${summary.reason} | mode=${summary.runMode} | view=${summary.device}`);
       endGrade && (endGrade.textContent = summary.grade || '—');
       endScore && (endScore.textContent = String(summary.scoreFinal ?? 0));
-      endMiss && (endMiss.textContent = String(summary.misses ?? 0));
-      endTime && (endTime.textContent = String(Math.round(Number(summary.durationPlayedSec||0))));
+      endMiss && (endMiss.textContent  = String(summary.misses ?? 0));
+      endTime && (endTime.textContent  = String(Math.round(Number(summary.durationPlayedSec||0))));
+
+      endOverlay.removeAttribute('style');
       endOverlay.setAttribute('aria-hidden','false');
-      endOverlay.style.display = 'flex';
     }catch(_){}
   }
 
@@ -945,10 +972,12 @@ export function boot(payload = {}) {
     setGradeText(grade);
     state.endTimeIso = new Date().toISOString();
 
+    const vNow = liveView(); // ✅ PATCH(A)
+
     const summary = {
       projectTag: PROJECT_TAG,
       gameVersion: GAME_VERSION,
-      device: deviceLabel(DOC.body.dataset.view || view),
+      device: deviceLabel(vNow),
       runMode,
       diff,
       seed,
@@ -999,7 +1028,7 @@ export function boot(payload = {}) {
       phase,
       conditionGroup,
       device: summary.device,
-      view: DOC.body.dataset.view || view,
+      view: vNow,
       diff,
       seed,
       gameVersion: GAME_VERSION,
@@ -1116,7 +1145,7 @@ export function boot(payload = {}) {
     state.goalsTotal = state.goals.length;
     setGoalText();
 
-    state.miniSeq = pickMiniSequence(DOC.body.dataset.view || view);
+    state.miniSeq = pickMiniSequence(liveView());
     state.miniTotal = state.miniSeq.length;
     state.miniIndex = 0;
     state.mini = state.miniSeq[state.miniIndex];
@@ -1130,6 +1159,14 @@ export function boot(payload = {}) {
     if(state.started) return;
     state.started = true;
 
+    // ✅ PATCH(A): make sure end overlay is hidden at start
+    try{
+      if(endOverlay){
+        endOverlay.setAttribute('aria-hidden','true');
+        endOverlay.removeAttribute('style');
+      }
+    }catch(_){}
+
     state.tStart = now();
     state.startTimeIso = new Date().toISOString();
 
@@ -1141,8 +1178,8 @@ export function boot(payload = {}) {
       studyId,
       phase,
       conditionGroup,
-      view: DOC.body.dataset.view || view,
-      device: deviceLabel(DOC.body.dataset.view || view),
+      view: liveView(),
+      device: deviceLabel(liveView()),
       diff,
       seed,
       gameVersion: GAME_VERSION,
@@ -1157,6 +1194,14 @@ export function boot(payload = {}) {
 
     requestAnimationFrame(tick);
   }
+
+  // ✅ PATCH(A): update fast mini threshold when view switches (enter/exit VR)
+  ROOT.addEventListener('hha:view', (ev)=>{
+    try{
+      const v = String(ev?.detail?.view || liveView() || 'mobile').toLowerCase();
+      applyFastCfgToSeq(v);
+    }catch(_){}
+  }, { passive:true });
 
   start();
 
