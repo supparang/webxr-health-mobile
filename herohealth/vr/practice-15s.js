@@ -1,308 +1,165 @@
-// === /herohealth/vr/practice-15s.js ===
-// Practice Mode (15s) — overlay + gate start
-// Emits:
-//  - hha:practice_begin { durationSec }
-//  - hha:practice_end { reason, stats }
-//  - hha:start (when practice finishes unless user cancels)
-// Listens:
-//  - hha:judge (kind: good/shield/bad/block/miss) for live scoring
-// Usage:
-//  const P = initPracticeGate({ durationSec:15, auto:true });
-//  P.maybeStart();  // call once at boot
+// === /herohealth/vr/particles.js ===
+// HHA Particles V2 — PRODUCTION
+// ✅ popText(x,y,text,cls)
+// ✅ burst(x,y,{r, n})
+// ✅ shockwave(x,y,{r})
+// ✅ celebrate()
+// Also exposes compat wrappers: scorePop, burstAt
 
-'use strict';
+(function(root){
+  'use strict';
+  const doc = root.document;
+  if (!doc || root.__HHA_PARTICLES_V2__) return;
+  root.__HHA_PARTICLES_V2__ = true;
 
-function emit(name, detail){
-  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-}
-
-function ensureStyle(){
-  if (document.getElementById('hha-practice-style')) return;
-  const st=document.createElement('style');
-  st.id='hha-practice-style';
-  st.textContent=`
-  .hha-practice{
-    position:fixed; inset:0; z-index:125;
-    display:flex; align-items:center; justify-content:center;
-    padding: calc(18px + env(safe-area-inset-top,0px)) 18px calc(18px + env(safe-area-inset-bottom,0px)) 18px;
-    background: rgba(2,6,23,.78);
-    backdrop-filter: blur(10px);
-    pointer-events:auto;
-  }
-  .hha-practice[hidden]{ display:none; }
-  .hha-practice-card{
-    width:min(980px,100%);
-    border-radius:22px;
-    border:1px solid rgba(148,163,184,.18);
-    background: rgba(2,6,23,.72);
-    box-shadow: 0 24px 90px rgba(0,0,0,.55);
-    padding:16px;
-  }
-  .hha-practice-top{
-    display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
-  }
-  .hha-practice-title{
-    margin:0;
-    font:900 16px/1.2 system-ui;
-    color: rgba(229,231,235,.95);
-  }
-  .hha-practice-sub{
-    margin:6px 0 0 0;
-    color: rgba(148,163,184,.95);
-    font:600 13px/1.35 system-ui;
-    white-space:pre-line;
-  }
-  .hha-practice-grid{
-    margin-top:12px;
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:12px;
-  }
-  .hha-practice-panel{
-    background: rgba(15,23,42,.62);
-    border:1px solid rgba(148,163,184,.14);
-    border-radius:18px;
-    padding:12px;
-  }
-  .hha-k{ font:700 12px/1.2 system-ui; color: rgba(148,163,184,.95); }
-  .hha-v{ font:900 22px/1 system-ui; color: rgba(229,231,235,.95); margin-top:6px; }
-  .hha-row{ display:flex; justify-content:space-between; gap:10px; margin-top:10px; }
-  .hha-pill{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:8px 10px;
-    border-radius:999px;
-    border:1px solid rgba(148,163,184,.14);
-    background: rgba(2,6,23,.45);
-    font:900 12px/1 system-ui;
-    color: rgba(229,231,235,.92);
-  }
-  .hha-goals{
-    margin-top:8px;
-    font:800 13px/1.35 system-ui;
-    color: rgba(229,231,235,.92);
-    white-space:pre-line;
-  }
-  .hha-practice-btns{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
-  .hha-btn{
-    appearance:none;
-    border:1px solid rgba(148,163,184,.18);
-    background: rgba(15,23,42,.62);
-    color: rgba(229,231,235,.92);
-    padding:10px 12px;
-    border-radius:14px;
-    font:900 13px/1 system-ui;
-    cursor:pointer;
-    user-select:none;
-  }
-  .hha-btn.primary{
-    border-color: rgba(34,197,94,.28);
-    background: rgba(34,197,94,.16);
-  }
-  .hha-btn.cyan{
-    border-color: rgba(34,211,238,.28);
-    background: rgba(34,211,238,.12);
-  }
-  `;
-  document.head.appendChild(st);
-}
-
-export function initPracticeGate(opts = {}){
-  ensureStyle();
-
-  const durationSec = Math.max(8, Number(opts.durationSec ?? 15));
-  const auto = String(opts.auto ?? '1') !== '0';
-
-  let overlay = document.getElementById('hhaPractice');
-  if (!overlay){
-    overlay = document.createElement('div');
-    overlay.id='hhaPractice';
-    overlay.className='hha-practice';
-    overlay.hidden = true;
-    overlay.innerHTML = `
-      <div class="hha-practice-card">
-        <div class="hha-practice-top">
-          <div>
-            <p class="hha-practice-title">Practice Mode — วอร์มมือก่อนเข้าเกมจริง</p>
-            <p class="hha-practice-sub" id="hhaPracticeSub">15s Warm-up: ยิง 💧 + เก็บ 🛡️ + เลี่ยง 🥤</p>
-          </div>
-          <div class="hha-pill">⏱️ <span id="hhaPracticeT">15</span>s</div>
-        </div>
-
-        <div class="hha-practice-grid">
-          <div class="hha-practice-panel">
-            <div class="hha-k">Practice Score</div>
-            <div class="hha-v" id="hhaPracticeScore">0</div>
-            <div class="hha-row">
-              <div class="hha-pill">Combo <b id="hhaPracticeCombo">0</b></div>
-              <div class="hha-pill">Miss <b id="hhaPracticeMiss">0</b></div>
-            </div>
-          </div>
-
-          <div class="hha-practice-panel">
-            <div class="hha-k">Checklist (แนะนำ)</div>
-            <div class="hha-goals" id="hhaPracticeGoals">
-• ยิง 💧 ให้ได้อย่างน้อย 8 ครั้ง
-• เก็บ 🛡️ อย่างน้อย 1
-• อย่ายิง/โดน 🥤 เกิน 2 ครั้ง
-            </div>
-            <div class="hha-row">
-              <div class="hha-pill">💧 <b id="hhaPracticeGood">0</b></div>
-              <div class="hha-pill">🛡️ <b id="hhaPracticeShield">0</b></div>
-              <div class="hha-pill">🥤 <b id="hhaPracticeBad">0</b></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="hha-practice-btns">
-          <button class="hha-btn cyan" id="hhaPracticeStart">▶ Start Practice</button>
-          <button class="hha-btn" id="hhaPracticeSkip">⏭️ Skip to Real Game</button>
-          <button class="hha-btn primary" id="hhaPracticeGoNow">✅ Start Real Game Now</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
+  function ensureLayer(){
+    let layer = doc.querySelector('.hha-fx-layer');
+    if (layer) return layer;
+    layer = doc.createElement('div');
+    layer.className = 'hha-fx-layer';
+    layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:90;overflow:hidden;';
+    doc.body.appendChild(layer);
+    return layer;
   }
 
-  const elT = overlay.querySelector('#hhaPracticeT');
-  const elScore = overlay.querySelector('#hhaPracticeScore');
-  const elCombo = overlay.querySelector('#hhaPracticeCombo');
-  const elMiss = overlay.querySelector('#hhaPracticeMiss');
-  const elGood = overlay.querySelector('#hhaPracticeGood');
-  const elShield = overlay.querySelector('#hhaPracticeShield');
-  const elBad = overlay.querySelector('#hhaPracticeBad');
-  const btnStart = overlay.querySelector('#hhaPracticeStart');
-  const btnSkip  = overlay.querySelector('#hhaPracticeSkip');
-  const btnGoNow = overlay.querySelector('#hhaPracticeGoNow');
+  function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
 
-  const ST = {
-    active:false,
-    tLeft: durationSec,
-    score:0,
-    combo:0,
-    miss:0,
-    good:0,
-    shield:0,
-    bad:0
-  };
-
-  function sync(){
-    if (elT) elT.textContent = String(Math.ceil(ST.tLeft));
-    if (elScore) elScore.textContent = String(ST.score|0);
-    if (elCombo) elCombo.textContent = String(ST.combo|0);
-    if (elMiss) elMiss.textContent = String(ST.miss|0);
-    if (elGood) elGood.textContent = String(ST.good|0);
-    if (elShield) elShield.textContent = String(ST.shield|0);
-    if (elBad) elBad.textContent = String(ST.bad|0);
-  }
-
-  function open(){
-    overlay.hidden = false;
-    ST.active = false;
-    ST.tLeft = durationSec;
-    ST.score = ST.combo = ST.miss = ST.good = ST.shield = ST.bad = 0;
-    sync();
-  }
-
-  function close(){
-    overlay.hidden = true;
-  }
-
-  let rafId=0;
-  let last=0;
-
-  function onJudge(ev){
-    if (!ST.active) return;
-    const d = ev.detail || {};
-    const k = String(d.kind||'').toLowerCase();
-
-    if (k==='good'){
-      ST.good++;
-      ST.combo++;
-      ST.score += (10 + Math.min(10, ST.combo));
-    } else if (k==='shield'){
-      ST.shield++;
-      ST.combo++;
-      ST.score += 8;
-    } else if (k==='bad'){
-      ST.bad++;
-      ST.miss++;
-      ST.combo = 0;
-      ST.score = Math.max(0, ST.score - 8);
-    } else if (k==='block'){
-      // ถือว่า “ทำได้ดี” แต่ไม่เพิ่ม checklist bad
-      ST.combo++;
-      ST.score += 4;
-    } else if (k==='miss'){
-      ST.miss++;
-      ST.combo = 0;
-    }
-    sync();
-  }
-
-  function end(reason='timeup'){
-    if (!ST.active) return;
-    ST.active = false;
-    cancelAnimationFrame(rafId);
-    window.removeEventListener('hha:judge', onJudge);
-
-    const stats = {
-      durationSec,
-      score: ST.score|0,
-      combo: ST.combo|0,
-      miss: ST.miss|0,
-      good: ST.good|0,
-      shield: ST.shield|0,
-      bad: ST.bad|0
-    };
-
-    emit('hha:practice_end', { reason, stats });
-    close();
-
-    // start real game
-    emit('hha:start', { from:'practice', reason });
-  }
-
-  function start(){
-    if (ST.active) return;
-    ST.active = true;
-    ST.tLeft = durationSec;
-    sync();
-
-    emit('hha:practice_begin', { durationSec });
-
-    window.addEventListener('hha:judge', onJudge);
-
-    last = performance.now();
-    function tick(t){
-      if (!ST.active) return;
-      const dt = Math.min(0.05, Math.max(0.01, (t-last)/1000));
-      last = t;
-      ST.tLeft = Math.max(0, ST.tLeft - dt);
-      sync();
-      if (ST.tLeft <= 0.001){
-        end('timeup');
-        return;
+  // ---------- CSS ----------
+  (function inject(){
+    const id='hha-particles-v2-style';
+    if(doc.getElementById(id)) return;
+    const st = doc.createElement('style');
+    st.id=id;
+    st.textContent = `
+      .hha-pop{
+        position:absolute;
+        transform: translate(-50%,-50%);
+        font: 1000 16px/1 system-ui;
+        color:#fff;
+        text-shadow: 0 10px 24px rgba(0,0,0,.55);
+        opacity:.98;
+        will-change: transform, opacity, filter;
+        animation: hhaPop 560ms ease-out forwards;
       }
-      rafId = requestAnimationFrame(tick);
+      .hha-pop.big{ font-size:20px; }
+      .hha-pop.perfect{ font-size:22px; letter-spacing:.6px; }
+      @keyframes hhaPop{
+        0%{ transform:translate(-50%,-50%) scale(.92); opacity:.90; }
+        60%{ transform:translate(-50%,-70%) scale(1.18); opacity:1; }
+        100%{ transform:translate(-50%,-92%) scale(1.05); opacity:0; filter: blur(.2px); }
+      }
+
+      .hha-dot{
+        position:absolute;
+        width:8px; height:8px;
+        border-radius:999px;
+        transform: translate(-50%,-50%);
+        opacity:.95;
+        will-change: transform, opacity;
+        animation: hhaDot 520ms ease-out forwards;
+        box-shadow: 0 14px 28px rgba(0,0,0,.35);
+      }
+      @keyframes hhaDot{
+        0%{ opacity:.98; transform: translate(-50%,-50%) scale(1); }
+        100%{ opacity:0; transform: translate(var(--dx), var(--dy)) scale(.65); }
+      }
+
+      .hha-wave{
+        position:absolute;
+        width: 20px; height: 20px;
+        border-radius:999px;
+        transform: translate(-50%,-50%) scale(.4);
+        border: 2px solid rgba(255,255,255,.72);
+        opacity:.55;
+        filter: blur(.1px);
+        will-change: transform, opacity;
+        animation: hhaWave 520ms ease-out forwards;
+      }
+      @keyframes hhaWave{
+        0%{ opacity:.55; transform: translate(-50%,-50%) scale(.35); }
+        100%{ opacity:0; transform: translate(-50%,-50%) scale(3.4); }
+      }
+    `;
+    doc.head.appendChild(st);
+  })();
+
+  // ---------- API ----------
+  function popText(x,y,text,cls){
+    const layer = ensureLayer();
+    const el = doc.createElement('div');
+    el.className = 'hha-pop' + (cls?(' '+cls):'');
+    el.textContent = String(text ?? '');
+    el.style.left = (Number(x)||0) + 'px';
+    el.style.top  = (Number(y)||0) + 'px';
+    layer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 650);
+  }
+
+  function burst(x,y,opts={}){
+    const layer = ensureLayer();
+    const r = clamp(opts.r ?? 52, 18, 140);
+    const n = clamp(opts.n ?? 12, 6, 28);
+    const cx = Number(x)|| (innerWidth/2);
+    const cy = Number(y)|| (innerHeight/2);
+
+    for(let i=0;i<n;i++){
+      const a = (Math.PI*2) * (i/n) + (Math.random()*0.28);
+      const dist = r * (0.65 + Math.random()*0.55);
+      const dx = Math.cos(a) * dist;
+      const dy = Math.sin(a) * dist;
+
+      const dot = doc.createElement('div');
+      dot.className = 'hha-dot';
+      dot.style.left = cx + 'px';
+      dot.style.top  = cy + 'px';
+      dot.style.setProperty('--dx', (dx)+'px');
+      dot.style.setProperty('--dy', (dy)+'px');
+      // no fixed colors: let browser pick default; (we keep white-ish via border/shadow feel)
+      dot.style.background = 'rgba(255,255,255,.92)';
+      dot.style.width = (6 + Math.random()*6) + 'px';
+      dot.style.height= dot.style.width;
+      layer.appendChild(dot);
+
+      setTimeout(()=>{ try{ dot.remove(); }catch(_){ } }, 600);
     }
-    rafId = requestAnimationFrame(tick);
   }
 
-  btnStart?.addEventListener('click', start);
-  btnSkip?.addEventListener('click', ()=>{
-    // ไม่เก็บสถิติ practice
-    close();
-    emit('hha:practice_end', { reason:'skip', stats:null });
-    emit('hha:start', { from:'practice', reason:'skip' });
-  });
-  btnGoNow?.addEventListener('click', ()=>{
-    end('manual');
-  });
+  function shockwave(x,y,opts={}){
+    const layer = ensureLayer();
+    const cx = Number(x)|| (innerWidth/2);
+    const cy = Number(y)|| (innerHeight/2);
 
-  function maybeStart(){
-    if (!auto) return;
-    open();
+    const w = doc.createElement('div');
+    w.className = 'hha-wave';
+    w.style.left = cx + 'px';
+    w.style.top  = cy + 'px';
+    layer.appendChild(w);
+    setTimeout(()=>{ try{ w.remove(); }catch(_){ } }, 650);
+
+    // add a small burst too
+    burst(cx,cy,{ r: clamp(opts.r ?? 64, 22, 160), n: 10 });
   }
 
-  return { open, close, start, end, maybeStart };
-}
+  function celebrate(){
+    const cx = innerWidth/2;
+    const cy = innerHeight*0.32;
+    for(let i=0;i<10;i++){
+      setTimeout(()=>{
+        burst(cx + (Math.random()*2-1)*200, cy + (Math.random()*2-1)*120, { r: 26 + Math.random()*56, n: 10 + Math.floor(Math.random()*10) });
+        popText(cx + (Math.random()*2-1)*120, cy + (Math.random()*2-1)*70, '✨', 'big');
+      }, i*55);
+    }
+  }
+
+  // expose
+  root.Particles = root.Particles || {};
+  root.Particles.popText = popText;
+  root.Particles.burst = burst;
+  root.Particles.shockwave = shockwave;
+  root.Particles.celebrate = celebrate;
+
+  // compat wrappers (for older calls)
+  root.Particles.scorePop = (x,y,text)=> popText(x,y,text,'score');
+  root.Particles.burstAt  = (x,y,kind)=> burst(x,y,{ r: (kind==='bad'?72:56), n: (kind==='diamond'?18:12) });
+
+})(window);
