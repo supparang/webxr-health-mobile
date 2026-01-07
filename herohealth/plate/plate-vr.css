@@ -1,11 +1,10 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — PRODUCTION CSS (HHA Standard UI)
+Balanced Plate VR — PRODUCTION CSS (HHA Standard)
 ✅ supports view: pc / mobile / vr / cvr (body.view-*)
-✅ supports HUD hide toggle (body.hud-hidden)
-✅ stage layer safe-area + spawn-safe vars
-✅ targets: .plateTarget (size/pos driven by JS inline styles)
-✅ keeps vr-ui buttons clickable (z-index discipline)
-✅ cVR strict friendly: target pointer-events can remain ON (shoot system hits nearest)
+✅ supports HUD safe layout (top/bottom safe + vr-ui buttons clickable)
+✅ targets: .plateTarget (JS sets inline size/pos; CSS adds anim/feel)
+✅ cVR strict: targets pointer-events:none (shoot from crosshair via hha:shoot)
+✅ FX hooks: boss/storm layers + hit pulse + panic
 */
 
 :root{
@@ -24,7 +23,6 @@ Balanced Plate VR — PRODUCTION CSS (HHA Standard UI)
   --violet:#a78bfa;
 
   --radius:18px;
-  --radius2:22px;
   --pill:999px;
 
   /* safe-area */
@@ -33,90 +31,70 @@ Balanced Plate VR — PRODUCTION CSS (HHA Standard UI)
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* HUD-safe bands (used by safe.js/engine if needed) */
-  --plate-top-safe: calc(78px + var(--sat));
-  --plate-bottom-safe: calc(86px + var(--sab));
+  /* HUD safe slots for spawn logic (plate.safe.js measures from DOM anyway)
+     แต่เผื่อ debug/override */
+  --plate-top-safe: calc(120px + var(--sat));
+  --plate-bottom-safe: calc(110px + var(--sab));
 
-  /* target style */
-  --t-bg: rgba(2,6,23,.55);
-  --t-stroke: rgba(148,163,184,.18);
+  /* target feel */
   --t-shadow: 0 18px 44px rgba(0,0,0,.28);
+  --t-bg: rgba(2,6,23,.55);
+  --t-bd: rgba(148,163,184,.18);
 
-  /* motion */
-  --ease: cubic-bezier(.2,.8,.2,1);
+  /* FX intensity */
+  --fx-dim: rgba(2,6,23,.22);
 }
 
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
-html, body{
+/* ------------------------------------------------------------------ */
+/* global reset helpers */
+*{ box-sizing:border-box; }
+html,body{ width:100%; height:100%; }
+body{
   margin:0;
-  width:100%;
-  height:100%;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
 }
 
-button{
-  font: inherit;
-}
-
-/* =========================================================
-   View modes
-   ========================================================= */
+/* ------------------------------------------------------------------ */
+/* View modes */
 body.view-pc{
-  --plate-top-safe: 78px;
-  --plate-bottom-safe: 80px;
+  --plate-top-safe: 120px;
+  --plate-bottom-safe: 110px;
 }
 body.view-mobile{
-  --plate-top-safe: calc(78px + var(--sat));
-  --plate-bottom-safe: calc(86px + var(--sab));
+  --plate-top-safe: calc(128px + var(--sat));
+  --plate-bottom-safe: calc(118px + var(--sab));
 }
 body.view-vr{
-  --plate-top-safe: 72px;
-  --plate-bottom-safe: 72px;
+  /* ใน VR ปกติ HUD จะยังอยู่ แต่ควรเว้น safe มากขึ้นให้ยิงง่าย */
+  --plate-top-safe: calc(140px + var(--sat));
+  --plate-bottom-safe: calc(130px + var(--sab));
 }
 body.view-cvr{
-  --plate-top-safe: 72px;
-  --plate-bottom-safe: 72px;
+  /* cVR: ยิงจาก crosshair, ไม่ต้องแตะเป้า */
+  --plate-top-safe: calc(150px + var(--sat));
+  --plate-bottom-safe: calc(140px + var(--sab));
 }
 
-/* HUD hide (for debugging / research) */
-body.hud-hidden #hudTop,
-body.hud-hidden #miniPanel,
-body.hud-hidden #coachPanel,
-body.hud-hidden #hudBtns,
-body.hud-hidden #bossHud,
-body.hud-hidden #stormHud{
-  display:none !important;
+/* ------------------------------------------------------------------ */
+/* Keep Universal VR UI buttons always clickable */
+.hha-vr-ui,
+.hha-vr-ui *{
+  pointer-events:auto !important;
+}
+.hha-vr-ui{
+  z-index: 9999 !important;
 }
 
-/* =========================================================
-   Layers & z-index discipline
-   IMPORTANT: vr-ui.js mounts its own UI (enter/exit/recenter/crosshair).
-   Keep our HUD below those buttons if needed, but never block clicks.
-   ========================================================= */
-
-/* A-Frame scene behind */
-a-scene{ position:fixed; inset:0; z-index:0; }
-
-/* background overlay */
-.bg{ position:fixed; inset:0; z-index:1; pointer-events:none; }
-
-/* stage container */
-.stage{
-  position:fixed;
-  inset:0;
-  z-index:2;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+/* กัน HUD ไปทับ VR UI มุมขวาบน */
+#hudTop, .hudTop{
+  padding-right: 132px; /* เผื่อพื้นที่ปุ่ม EnterVR/Exit/Recenter ของ vr-ui.js */
 }
 
-/* spawn layer */
+/* ------------------------------------------------------------------ */
+/* Spawn layer */
 #plate-layer{
   position:fixed;
   inset:0;
@@ -125,19 +103,116 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   touch-action:none;
   user-select:none;
   -webkit-user-select:none;
-  transform: translateZ(0);
 }
 
-/* hit overlay */
+/* cVR strict: เป้าไม่รับคลิก (ยิงจาก crosshair) */
+body.view-cvr #plate-layer .plateTarget{
+  pointer-events:none !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Targets */
+.plateTarget{
+  position:absolute;
+  display:grid;
+  place-items:center;
+
+  border-radius:999px;
+  border: 1px solid var(--t-bd);
+  background: var(--t-bg);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--t-shadow);
+
+  font-weight: 1000;
+  line-height:1;
+  transform: translateZ(0);
+
+  cursor:pointer;
+  -webkit-tap-highlight-color: transparent;
+  outline:none;
+
+  /* animation */
+  animation: platePop .16s ease-out both;
+  will-change: transform, opacity, filter;
+}
+
+/* spawn pop */
+@keyframes platePop{
+  from{ transform:scale(.86); opacity:.0; filter:blur(1px); }
+  to  { transform:scale(1);   opacity:1;   filter:none; }
+}
+
+/* gentle float */
+.plateTarget::after{
+  content:'';
+  position:absolute;
+  inset:-10%;
+  border-radius:999px;
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.06), transparent 55%);
+  pointer-events:none;
+}
+
+/* hover/active */
+@media (hover:hover){
+  .plateTarget:hover{
+    filter: brightness(1.08);
+    transform: scale(1.02);
+  }
+}
+.plateTarget:active{
+  transform: scale(.98);
+}
+
+/* kind styling hooks (JS sets data-kind) */
+.plateTarget[data-kind="good"]{
+  border-color: rgba(34,197,94,.25);
+}
+.plateTarget[data-kind="junk"]{
+  border-color: rgba(239,68,68,.25);
+}
+.plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.28);
+}
+
+/* hit feedback classes (plate.safe.js uses fxPulse on #hitFx,
+   แต่เรายังให้ target flash ได้ถ้าอยากใช้ในอนาคต) */
+.plateTarget.hit-good{ animation: plateHitGood .18s ease-out both; }
+.plateTarget.hit-bad { animation: plateHitBad  .18s ease-out both; }
+
+@keyframes plateHitGood{
+  0%{ transform:scale(1); }
+  60%{ transform:scale(1.10); filter:brightness(1.22); }
+  100%{ transform:scale(.92); opacity:0; }
+}
+@keyframes plateHitBad{
+  0%{ transform:scale(1); }
+  60%{ transform:scale(1.06); filter:brightness(1.18) saturate(1.1); }
+  100%{ transform:scale(.92); opacity:0; }
+}
+
+/* despawn fade (ถ้าจะใส่ class ตอน expire) */
+.plateTarget.fade-out{
+  animation: plateFade .16s ease-out both;
+}
+@keyframes plateFade{
+  from{ opacity:1; transform:scale(1); }
+  to{ opacity:0; transform:scale(.92); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Hit FX overlay */
 #hitFx{
   position:fixed;
   inset:0;
   z-index:12;
   pointer-events:none;
+  opacity:0;
+  transition: opacity .12s ease;
 }
 
-/* storm/boss FX layers (under overlays, above play) */
-#stormFx, #bossFx{
+/* ------------------------------------------------------------------ */
+/* Boss / Storm FX layers */
+#bossFx, #stormFx{
   position:fixed;
   inset:0;
   z-index:55;
@@ -145,163 +220,92 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   display:none;
 }
 
-/* overlays sit above HUD */
-#startOverlay,
-#hudPaused,
-#resultBackdrop{
-  z-index:70;
-}
-
-/* HUD zones */
-#hudTop{ z-index:30; }
-#miniPanel{ z-index:28; }
-#coachPanel{ z-index:28; }
-#hudBtns{ z-index:40; }
-#bossHud{ z-index:42; }
-#stormHud{ z-index:43; }
-
-/* =========================================================
-   Targets
-   ========================================================= */
-.plateTarget{
-  appearance:none;
-  border:none;
-  cursor:pointer;
-
-  width:56px; height:56px; /* JS overrides */
-  border-radius:999px;
-  border:1px solid var(--t-stroke);
-  background: var(--t-bg);
-  backdrop-filter: blur(8px);
-  box-shadow: var(--t-shadow);
-
-  display:grid;
-  place-items:center;
-
-  font-weight: 900;
-  font-size: 28px; /* JS may override by style */
-  line-height: 1;
-
-  transform: translateZ(0);
-  transition: transform .12s var(--ease), filter .12s var(--ease), opacity .12s var(--ease);
-  -webkit-tap-highlight-color: transparent;
-  user-select:none;
-}
-
-.plateTarget:active{
-  transform: translateZ(0) scale(.96);
-}
-
-.plateTarget[data-kind="good"]{
-  filter: drop-shadow(0 0 0 rgba(34,197,94,0));
-}
-.plateTarget[data-kind="junk"]{
-  filter: drop-shadow(0 0 0 rgba(239,68,68,0));
-}
-.plateTarget[data-kind="shield"]{
-  filter: drop-shadow(0 0 0 rgba(34,211,238,0));
-}
-
-/* pop-in/out */
-@keyframes platePopIn{
-  0%{ transform: translateZ(0) scale(.6); opacity:0; }
-  100%{ transform: translateZ(0) scale(1); opacity:1; }
-}
-@keyframes platePopOut{
-  0%{ transform: translateZ(0) scale(1); opacity:1; }
-  100%{ transform: translateZ(0) scale(.55); opacity:0; }
-}
-
-/* optional classes if JS adds later */
-.plateTarget.spawn-in{ animation: platePopIn .14s var(--ease) 0s 1 both; }
-.plateTarget.hit-out{ animation: platePopOut .12s var(--ease) 0s 1 both; }
-
-/* =========================================================
-   Storm / Boss FX (simple visual atmosphere)
-   ========================================================= */
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 45%),
-    radial-gradient(circle at 80% 60%, rgba(34,211,238,.08), transparent 50%),
-    linear-gradient(180deg, rgba(2,6,23,.05), rgba(2,6,23,.16));
-}
-#stormFx.storm-panic{
-  filter: brightness(1.18) saturate(1.05);
-}
-
+/* Boss ambience */
 #bossFx.boss-on{
   display:block;
   background:
-    radial-gradient(circle at 30% 25%, rgba(167,139,250,.10), transparent 45%),
-    radial-gradient(circle at 70% 70%, rgba(167,139,250,.08), transparent 50%),
-    linear-gradient(180deg, rgba(2,6,23,.08), rgba(2,6,23,.20));
+    radial-gradient(circle at 18% 20%, rgba(167,139,250,.14), transparent 45%),
+    radial-gradient(circle at 82% 26%, rgba(239,68,68,.10), transparent 45%),
+    linear-gradient(180deg, rgba(2,6,23,.12), rgba(2,6,23,.36));
+  animation: bossBreath 1.4s ease-in-out infinite;
+}
+@keyframes bossBreath{
+  0%,100%{ filter:brightness(1.0); }
+  50%{ filter:brightness(1.06); }
 }
 #bossFx.boss-panic{
-  filter: brightness(1.20) saturate(1.07);
+  animation: bossPanic .6s ease-in-out infinite;
+}
+@keyframes bossPanic{
+  0%,100%{ filter:brightness(1.05) contrast(1.02); }
+  50%{ filter:brightness(1.18) contrast(1.06); }
 }
 
-/* =========================================================
-   Make sure vr-ui buttons remain clickable
-   - vr-ui.js usually uses z-index ~ 95/100 (varies).
-   - We guarantee we don't overlay with pointer-events.
-   ========================================================= */
-#hudTop,
-#miniPanel,
-#coachPanel,
-#bossHud,
-#stormHud{
+/* Storm ambience */
+#stormFx{
+  display:none;
+}
+#stormFx{
+  background:
+    radial-gradient(circle at 30% 18%, rgba(34,211,238,.12), transparent 45%),
+    radial-gradient(circle at 70% 30%, rgba(59,130,246,.10), transparent 52%),
+    linear-gradient(180deg, rgba(2,6,23,.10), rgba(2,6,23,.36));
+}
+#stormFx.storm-panic{
+  filter:brightness(1.18);
+}
+body .storm-on #stormFx,
+#stormFx.storm-on{
+  display:block;
+  animation: stormWobble 1.2s ease-in-out infinite;
+}
+@keyframes stormWobble{
+  0%,100%{ transform: translate3d(0,0,0); }
+  50%{ transform: translate3d(0,-1px,0); }
+}
+
+/* ------------------------------------------------------------------ */
+/* HUD spacing helpers (optional) */
+#miniPanel, #coachPanel{
   pointer-events:none;
 }
-#hudTop .card,
 #miniPanel .questCard,
 #coachPanel .questCard,
-#bossHud .bossCard,
-#stormHud .stormCard{
+.hudTop .card{
   pointer-events:auto;
 }
 
-/* In cVR, don't allow targets to block essential UI buttons (best effort)
-   If you ever need strict "shoot only" with no tapping on targets:
-   body.view-cvr #plate-layer { pointer-events:none; }
-   but we keep it ON by default for hybrid mobile/cVR.
-*/
-body.view-cvr #plate-layer{
-  pointer-events:auto;
-}
-
-/* =========================================================
-   Responsive tweaks
-   ========================================================= */
+/* ------------------------------------------------------------------ */
+/* Responsive adjustments */
 @media (max-width: 920px){
-  :root{
-    --radius: 18px;
-  }
-  .plateTarget{
-    font-size: 26px;
-  }
+  #hudTop, .hudTop{ padding-right: 140px; }
 }
 
-@media (max-width: 560px){
-  .plateTarget{
-    font-size: 24px;
-  }
+@media (max-width: 420px){
+  #hudTop, .hudTop{ gap:8px; }
+  #hudTop .card{ padding:9px 10px; }
+  #miniPanel .questCard{ padding:9px 10px; }
+  #coachPanel .questCard{ padding:9px 10px; }
 }
 
-/* landscape mobile (more room) */
-@media (max-height: 520px) and (orientation: landscape){
+/* Landscape mobile: ลดความสูง HUD ให้พื้นที่เล่นมากขึ้น */
+@media (max-height: 520px) and (orientation:landscape){
   body.view-mobile{
-    --plate-top-safe: calc(62px + var(--sat));
-    --plate-bottom-safe: calc(64px + var(--sab));
+    --plate-top-safe: calc(98px + var(--sat));
+    --plate-bottom-safe: calc(86px + var(--sab));
   }
+  #miniPanel{ top: calc(70px + var(--sat)); }
+  #coachPanel{ bottom: calc(58px + var(--sab)); }
 }
 
-/* =========================================================
-   Accessibility / reduced motion
-   ========================================================= */
+/* cVR: เพิ่มขนาดข้อความเป้าให้เด่นขึ้นนิด (JS set font inline แต่ช่วยให้คม) */
+body.view-cvr .plateTarget{
+  text-shadow: 0 2px 0 rgba(0,0,0,.35);
+}
+
+/* ------------------------------------------------------------------ */
+/* Accessibility / reduced motion */
 @media (prefers-reduced-motion: reduce){
-  .plateTarget{
-    transition: none !important;
-    animation: none !important;
-  }
+  .plateTarget{ animation:none !important; }
+  #bossFx.boss-on, #stormFx.storm-on{ animation:none !important; }
 }
