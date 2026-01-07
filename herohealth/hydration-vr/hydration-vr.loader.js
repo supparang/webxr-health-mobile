@@ -1,129 +1,119 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Folder Loader — AUTO DETECT (B)
-// ✅ No menu, no query override (ignores ?view=...)
-// ✅ Sets body classes: view-pc / view-mobile / view-cvr
-// ✅ Toggles Cardboard on real WebXR enter-vr
-// ✅ Maps layers for hydration.safe.js via window.HHA_VIEW.layers
-// ✅ Imports ./hydration.safe.js
-// ✅ Shows readable overlay on failure
+// HydrationVR Folder Loader — AUTO DETECT (NO OVERRIDE)
+// ✅ Auto-detect view: pc / mobile / cardboard / cvr
+// ✅ Ignores ?view=... (hard lock)  <-- ห้าม override
+// ✅ Supports Cardboard split layers via window.HHA_VIEW.layers
+// ✅ Shows readable overlay on import failure
+// ✅ (optional) loads Universal VR UI if present: ../vr/vr-ui.js
 
 'use strict';
 
 (function(){
   const q = new URLSearchParams(location.search);
-  const v = q.get('v') || q.get('ts') || '';
+  const bust = q.get('v') || q.get('ts') || '';
 
   function withBust(p){
-    if (!v) return p;
-    return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v);
+    if (!bust) return p;
+    return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(bust);
   }
 
   const body = document.body;
 
-  // ---------------- Auto Detect (NO OVERRIDE) ----------------
-  function isLikelyMobile(){
+  // ------------------ HARD RULE: no user override ------------------
+  // ignore q.get('view') entirely.
+
+  function isMobileUA(){
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  }
+
+  function isProbablyCardboard(){
+    // Heuristic:
+    // 1) if in fullscreen + landscape on mobile, likely cardboard attempt
+    // 2) if URL contains "cardboard" in path (optional)
+    // 3) if user previously played cardboard (persist)
     try{
-      const ua = navigator.userAgent || '';
-      const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-      const small = Math.min(window.innerWidth||9999, window.innerHeight||9999) < 760;
-      return coarse || small || /Android|iPhone|iPad|iPod/i.test(ua);
-    }catch(_){
-      return false;
-    }
+      const last = localStorage.getItem('HHA_LAST_VIEW') || '';
+      if (last === 'cardboard') return true;
+    }catch(_){}
+
+    const mobile = isMobileUA();
+    const fs = !!document.fullscreenElement;
+    const land = (screen.orientation && String(screen.orientation.type||'').includes('landscape')) ||
+                 (window.matchMedia && matchMedia('(orientation: landscape)').matches);
+
+    // if mobile + fullscreen + landscape => cardboard-ish
+    return !!(mobile && fs && land);
   }
 
-  function setBodyBaseView(){
-    body.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
-    if (isLikelyMobile()){
-      // default mobile = touch mode (not strict crosshair)
-      body.classList.add('view-mobile');
-    } else {
-      body.classList.add('view-pc');
-    }
+  function isCVRMode(){
+    // Heuristic: if mobile + no pointer precision (touch) and we want strict crosshair shooting
+    // Use persisted preference ONLY from system decisions (not query)
+    try{
+      const last = localStorage.getItem('HHA_LAST_VIEW') || '';
+      if (last === 'cvr') return true;
+    }catch(_){}
+
+    const mobile = isMobileUA();
+    // If device has no fine pointer, default to cVR when not cardboard split
+    const fine = window.matchMedia && matchMedia('(pointer:fine)').matches;
+    return !!(mobile && !fine);
   }
 
-  function setLayers(){
+  function detectView(){
+    // Priority:
+    // 1) If WebXR immersive active => treat as cvr (crosshair) OR pc (but we keep simple)
+    // 2) If likely cardboard => cardboard split
+    // 3) If mobile touch => cvr (strict aim) as default for kids device
+    // 4) Else pc
+    const xr = navigator.xr;
+    // If XR supported and session already active, we still keep DOM engine; treat as cvr
+    if (xr) {
+      // can't reliably check active session here; keep as hint only
+    }
+
+    if (isProbablyCardboard()) return 'cardboard';
+    if (isCVRMode()) return 'cvr';
+    if (isMobileUA()) return 'mobile';
+    return 'pc';
+  }
+
+  const view = detectView();
+
+  function setBodyView(){
+    body.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
+    if (view === 'mobile') body.classList.add('view-mobile');
+    else if (view === 'cardboard') body.classList.add('cardboard');
+    else if (view === 'cvr') body.classList.add('view-cvr');
+    else body.classList.add('view-pc');
+
+    try{ localStorage.setItem('HHA_LAST_VIEW', view); }catch(_){}
+  }
+  setBodyView();
+
+  // map layers for safe.js
+  (function setLayers(){
     const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
-    // In cardboard => use L/R layers. Otherwise single.
     if (body.classList.contains('cardboard')){
       cfg.layers = ['hydration-layerL','hydration-layerR'];
     } else {
       cfg.layers = ['hydration-layer'];
     }
-  }
+  })();
 
-  setBodyBaseView();
-  setLayers();
+  // optional: preload Universal VR UI if exists (same standard as other games)
+  // (vr-ui.js adds enter/exit/recenter + emits hha:shoot)
+  (function maybeLoadVRUI(){
+    // Only load for cvr/cardboard/mobile (safe to load anywhere but keep minimal)
+    const need = body.classList.contains('view-cvr') || body.classList.contains('cardboard') || body.classList.contains('view-mobile');
+    if (!need) return;
+    const s = document.createElement('script');
+    s.src = withBust('../vr/vr-ui.js');
+    s.defer = true;
+    s.onerror = ()=>{};
+    document.head.appendChild(s);
+  })();
 
-  // ---------------- WebXR Enter VR => Cardboard + strict crosshair ----------------
-  // We do NOT read ?view=... at all.
-  function bindAFrameEnterExit(){
-    try{
-      const scene = document.querySelector('a-scene');
-      if (!scene) return;
-
-      scene.addEventListener('enter-vr', ()=>{
-        // Real immersive session entered -> Cardboard mode ON
-        body.classList.add('cardboard');
-        // In cardboard we want strict crosshair shooting behavior (cVR)
-        body.classList.remove('view-pc','view-mobile');
-        body.classList.add('view-cvr');
-        setLayers();
-
-        // show cb container, hide normal playfield
-        const cb = document.getElementById('cb');
-        const pf = document.getElementById('playfield');
-        if (cb) cb.classList.add('on');
-        if (pf) pf.classList.add('off');
-      });
-
-      scene.addEventListener('exit-vr', ()=>{
-        // back to base mode
-        body.classList.remove('cardboard','view-cvr');
-        setBodyBaseView();
-        setLayers();
-
-        const cb = document.getElementById('cb');
-        const pf = document.getElementById('playfield');
-        if (cb) cb.classList.remove('on');
-        if (pf) pf.classList.remove('off');
-      });
-    }catch(_){}
-  }
-
-  // Some devices need a moment before scene exists
-  setTimeout(bindAFrameEnterExit, 80);
-  setTimeout(bindAFrameEnterExit, 500);
-
-  // Optional: if user uses Cardboard viewer without WebXR,
-  // they can still play in strict crosshair by "view-cvr" automatic trigger
-  // when device is mobile + fullscreen + landscape.
-  function maybeEnableCVRSoft(){
-    try{
-      if (!isLikelyMobile()) return;
-      // only if not in VR already
-      if (body.classList.contains('cardboard')) return;
-
-      const landscape = (window.innerWidth || 0) > (window.innerHeight || 0);
-      const fs = !!document.fullscreenElement;
-      if (landscape && fs){
-        body.classList.remove('view-mobile','view-pc');
-        body.classList.add('view-cvr');
-        setLayers();
-      } else if (body.classList.contains('view-cvr')) {
-        // revert to mobile if conditions not met
-        body.classList.remove('view-cvr');
-        body.classList.add('view-mobile');
-        setLayers();
-      }
-    }catch(_){}
-  }
-
-  window.addEventListener('resize', maybeEnableCVRSoft);
-  document.addEventListener('fullscreenchange', maybeEnableCVRSoft);
-  setTimeout(maybeEnableCVRSoft, 250);
-
-  // ---------------- Failure overlay ----------------
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, (m)=>({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -135,7 +125,8 @@
     el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
     el.innerHTML = `
       <div style="max-width:900px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (folder loader)</h2>
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (AUTO loader)</h2>
+        <div style="opacity:.9;margin-bottom:10px">Detected view: <code>${escapeHtml(view)}</code></div>
         <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
         <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
         <div style="margin:12px 0 8px 0;font-weight:700">Tried paths:</div>
