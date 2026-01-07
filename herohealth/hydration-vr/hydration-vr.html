@@ -7,19 +7,11 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame: needed for reliable ENTER VR / EXIT (vr-ui.js uses it) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
   <!-- Global FX + optional logger -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
-  <script>
-    // optional config (vr-ui.js will merge defaults)
-    // Note: hydration.safe.js does its own adaptive aim-lock; this config is mostly for global behavior.
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-  </script>
   <script src="../vr/vr-ui.js" defer></script>
 
   <style>
@@ -42,10 +34,22 @@
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
+
+      /* HUD-safe rails (กัน HUD บังพื้นที่เล่น) */
+      --hudTopSafe: calc(12px + var(--sat) + 96px);
+      --hudBotSafe: calc(12px + var(--sab) + 16px);
+      --hudSideSafe: calc(12px + max(var(--sal), var(--sar)) + 8px);
     }
 
     *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    html,body{
+      margin:0; padding:0;
+      width:100%; height:100%;
+      overflow:hidden;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
     a{ color:inherit; }
 
     /* Background soft glow */
@@ -150,59 +154,113 @@
     }
 
     /* ---------- Playfield ---------- */
-    #playfield, #cbPlayfield{
+    #playfield{
       position:fixed;
       inset:0;
       z-index:10;
       overflow:hidden;
       touch-action:manipulation;
     }
+
+    /* กัน HUD บัง: สร้าง SAFE RECT ให้เป้าไปเกิด */
     #hydration-layer{
-      position:absolute; inset:0;
-      pointer-events:auto;
-    }
-
-    /* cardboard: split L/R */
-    #cbPlayfield{ display:none; }
-    .cbHalf{
       position:absolute;
-      top:0; bottom:0;
-      width:50%;
-      overflow:hidden;
+      left: var(--hudSideSafe);
+      right: var(--hudSideSafe);
+      top: var(--hudTopSafe);
+      bottom: var(--hudBotSafe);
       pointer-events:auto;
     }
-    .cbHalf.left{ left:0; }
-    .cbHalf.right{ right:0; }
-    .cbLayer{
-      position:absolute; inset:0;
-      pointer-events:auto;
-    }
-    .cbHalf::before{
-      content:"";
-      position:absolute; inset:0;
-      background: radial-gradient(circle at center, transparent 58%, rgba(0,0,0,.45) 100%);
-      pointer-events:none;
-      z-index:2;
-    }
 
-    /* view modes */
-    body.view-pc #playfield{ display:block; }
-    body.view-mobile #playfield{ display:block; }
-    body.cardboard #playfield{ display:none; }
-    body.cardboard #cbPlayfield{ display:block; }
-
-    /* cVR strict: targets NOT directly clickable (shoot from crosshair via hha:shoot) */
-    body.view-cvr #playfield{ display:block; }
-    body.view-cvr #cbPlayfield{ display:none; }
+    /* cVR strict: ยิงจากกลางจอ => ไม่แตะเป้าโดยตรง */
     body.view-cvr #hydration-layer{
-      pointer-events:none; /* สำคัญ: ยิงจากกลางจอ */
+      pointer-events:none;
+    }
+
+    /* ---------- Tap-to-start Overlay (NO MENU) ---------- */
+    #startOverlay{
+      position:fixed;
+      inset:0;
+      z-index:120;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+      background:rgba(2,6,23,.86);
+      backdrop-filter: blur(10px);
+    }
+    #startOverlay.hide{ display:none; }
+
+    .card{
+      width:min(980px, 100%);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.70);
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
+      padding:18px;
+    }
+    .header{
+      display:flex; gap:14px; align-items:center;
+      margin-bottom:12px;
+    }
+    .logo{
+      width:52px; height:52px; border-radius:14px;
+      background:rgba(34,211,238,.12);
+      border:1px solid rgba(34,211,238,.18);
+      display:flex; align-items:center; justify-content:center;
+      font-size:26px;
+      flex:0 0 auto;
+    }
+    .title{ font-size:18px; font-weight:900; margin:0; }
+    .sub{
+      margin:4px 0 0 0;
+      color:rgba(148,163,184,.95);
+      font-size:13px;
+      line-height:1.35;
+      white-space:pre-line;
+    }
+
+    .btnRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+    .btn{
+      pointer-events:auto;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.62);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:900;
+      font-size:13px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn.primary{
+      border-color: rgba(34,197,94,.26);
+      background: rgba(34,197,94,.16);
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.26);
+      background: rgba(245,158,11,.14);
+    }
+
+    .note{
+      margin-top:12px;
+      font-size:12px;
+      color:rgba(229,231,235,.85);
+      line-height:1.35;
+      white-space:pre-line;
     }
 
     /* ---------- End Summary ---------- */
     #resultBackdrop{
       position:fixed;
       inset:0;
-      z-index:120;
+      z-index:140;
       background:rgba(2,6,23,.74);
       backdrop-filter: blur(10px);
       display:flex;
@@ -257,12 +315,14 @@
       0%,100%{ transform: translate3d(0,0,0); }
       50%{ transform: translate3d(0,1px,0); }
     }
+
     body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
     @keyframes hitPulse{
       0%{ filter: brightness(1); }
       60%{ filter: brightness(1.12) saturate(1.10); }
       100%{ filter: brightness(1); }
     }
+
     body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
     @keyframes bossFlash{
       0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
@@ -288,28 +348,23 @@
       100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
     }
 
-    /* --- Ensure VR UI buttons always clickable above HUD --- */
-    #hha-vr-ui, .hha-vr-ui, .hha-vrui, .vr-ui, .vrui-root{
-      z-index: 200 !important;
-      pointer-events: auto !important;
+    /* Mobile tighten HUD safe rails a bit */
+    @media (max-width: 720px){
+      :root{
+        --hudTopSafe: calc(10px + var(--sat) + 92px);
+        --hudBotSafe: calc(10px + var(--sab) + 14px);
+        --hudSideSafe: calc(10px + max(var(--sal), var(--sar)) + 6px);
+      }
+      .v{ font-size:19px; }
+      .questLine{ font-size:12.5px; }
     }
   </style>
 </head>
 
-<body class="view-pc">
-  <!-- PLAYFIELD (PC/Mobile/cVR) -->
+<body>
+  <!-- PLAYFIELD -->
   <div id="playfield">
     <div id="hydration-layer"></div>
-  </div>
-
-  <!-- PLAYFIELD (Cardboard split) -->
-  <div id="cbPlayfield">
-    <div class="cbHalf left">
-      <div id="hydration-layerL" class="cbLayer"></div>
-    </div>
-    <div class="cbHalf right">
-      <div id="hydration-layerR" class="cbLayer"></div>
-    </div>
   </div>
 
   <!-- HUD -->
@@ -357,10 +412,35 @@
         </div>
       </div>
       <div class="barWrap"><div id="water-bar"></div></div>
-      <div class="waterTip" id="water-tip">Tip: เก็บ Shield ก่อนพายุ แล้วรอ End Window เพื่อ BLOCK</div>
+      <div class="waterTip" id="water-tip">Tip: เก็บ 🛡️ ก่อนพายุ แล้ว BLOCK ช่วงท้าย (End Window)</div>
     </div>
 
     <div style="grid-column:1 / span 2; grid-row:3;"></div>
+  </div>
+
+  <!-- START OVERLAY (NO MENU) -->
+  <div id="startOverlay">
+    <div class="card">
+      <div class="header">
+        <div class="logo">💧</div>
+        <div>
+          <p class="title">HeroHealth — Hydration VR</p>
+          <p class="sub" id="detectText">กำลังตรวจจับอุปกรณ์…</p>
+        </div>
+      </div>
+
+      <div class="btnRow">
+        <button class="btn primary" id="btnStart">▶️ เริ่มเล่น (Tap/Click 1 ครั้ง)</button>
+        <button class="btn warn" id="btnBackHub">🏠 Back HUB</button>
+      </div>
+
+      <div class="note">
+ผ่าน 3 Stage:
+Stage1) คุม Water ให้อยู่ GREEN ให้ครบเวลาที่กำหนด (สะสม)
+Stage2) STORM: ต้องทำให้ไม่ GREEN (LOW/HIGH) + “BLOCK” ช่วงท้าย End Window และห้ามโดน BAD ตอนพายุ
+Stage3) BOSS: ช่วงท้ายพายุจะมี 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบตามจำนวน
+      </div>
+    </div>
   </div>
 
   <!-- END SUMMARY -->
@@ -370,7 +450,7 @@
         <h2>สรุปผลการเล่น</h2>
         <div class="btnRow" style="margin:0;">
           <button class="btn" id="btnRetry">🔁 Retry</button>
-          <button class="btn warn btnBackHub">🏠 Back HUB</button>
+          <button class="btn warn" id="btnBackHub2">🏠 Back HUB</button>
           <button class="btn" id="btnCloseSummary">✖ Close</button>
         </div>
       </div>
@@ -409,7 +489,77 @@
     </div>
   </div>
 
-  <!-- Loader (AUTO DETECT + NO OVERRIDE) -->
-  <script type="module" src="./hydration-vr.loader.js"></script>
+  <!-- Start + fullscreen/orientation helper (NO VIEW OVERRIDE) -->
+  <script>
+    (function(){
+      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const hub = String(qs('hub','../hub.html'));
+
+      const ov = document.getElementById('startOverlay');
+      const detectText = document.getElementById('detectText');
+
+      function detectLabel(){
+        const b = document.body;
+        if (b.classList.contains('view-cvr')) return 'ตรวจจับแล้ว: 🎯 cVR (Crosshair ยิงกลางจอ) — แตะเพื่อยิง';
+        if (b.classList.contains('view-mobile')) return 'ตรวจจับแล้ว: 📱 Mobile — แตะเป้าเพื่อเก็บคะแนน';
+        if (b.classList.contains('cardboard')) return 'ตรวจจับแล้ว: 🕶️ Cardboard Split — (โหมดนี้เปิดจากภายนอกเท่านั้น)';
+        return 'ตรวจจับแล้ว: 🖥️ PC — คลิก/แตะเป้าเพื่อเล่น';
+      }
+
+      // wait a beat (loader sets classes)
+      setTimeout(()=>{ if(detectText) detectText.textContent = detectLabel(); }, 120);
+
+      function goHub(){ location.href = hub; }
+      document.getElementById('btnBackHub')?.addEventListener('click', goHub);
+      document.getElementById('btnBackHub2')?.addEventListener('click', goHub);
+
+      async function enterFullBestEffort(){
+        try{
+          const el = document.documentElement;
+          if (!document.fullscreenElement && el.requestFullscreen){
+            await el.requestFullscreen({ navigationUI:'hide' });
+          }
+        }catch(_){}
+        try{
+          if (screen.orientation && screen.orientation.lock){
+            await screen.orientation.lock('landscape');
+          }
+        }catch(_){}
+      }
+
+      document.getElementById('btnStart')?.addEventListener('click', async ()=>{
+        // On mobile/cVR: best-effort fullscreen + landscape (must be user gesture)
+        const b = document.body;
+        if (b.classList.contains('view-mobile') || b.classList.contains('view-cvr')){
+          await enterFullBestEffort();
+        }
+        if (ov) ov.classList.add('hide');
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      });
+
+      // Safety: tap anywhere on overlay also starts
+      ov?.addEventListener('pointerdown', async (ev)=>{
+        const t = ev.target;
+        // don't double-trigger if clicking buttons
+        if (t && (t.id === 'btnStart' || t.id === 'btnBackHub')) return;
+        const b = document.body;
+        if (b.classList.contains('view-mobile') || b.classList.contains('view-cvr')){
+          await enterFullBestEffort();
+        }
+        if (ov) ov.classList.add('hide');
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      }, { passive:false });
+
+      // Retry button handled by hydration.safe.js, but keep a fallback
+      document.getElementById('btnRetry')?.addEventListener('click', ()=>{
+        const u = new URL(location.href);
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      });
+    })();
+  </script>
+
+  <!-- Loader -->
+  <script src="./hydration-vr.loader.js"></script>
 </body>
 </html>
