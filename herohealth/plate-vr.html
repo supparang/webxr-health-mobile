@@ -1,10 +1,9 @@
 <!-- === /herohealth/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
-✅ PC/Mobile/VR/cVR via query view=
-✅ Uses: ./plate/plate-vr.css (external)
+Balanced Plate VR — RUN (PRODUCTION+)
+✅ Works: PC / Mobile / Cardboard(cVR) / VR
+✅ Uses: ./plate/plate-vr.css + ./plate/plate.safe.js
 ✅ Uses: ./vr/particles.js + ./vr/hha-cloud-logger.js + ./vr/vr-ui.js
-✅ Uses: ./plate/plate.safe.js (module)
-✅ FIX: ensure #btnStart exists (bridge btnStartMain -> btnStart)
+✅ IDs aligned with plate.safe.js (boss/storm/goal/mini/result)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,10 +14,10 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- External CSS -->
+  <!-- External CSS (Polish) -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (for ENTER VR / EXIT / RECENTER reliability) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER via vr-ui.js reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
@@ -251,7 +250,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
       z-index:43;
       display:none;
       pointer-events:none;
-      transform: translateY(54px); /* ใต้ HUD top */
+      transform: translateY(54px); /* under HUD top */
     }
     .stormCard{
       pointer-events:auto;
@@ -411,7 +410,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- ✅ IMPORTANT: btnStart exists (hidden) used by plate.safe.js / start overlay bridge -->
+      <!-- hidden: engine uses this id -->
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
 
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
