@@ -7,9 +7,20 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- A-Frame: needed for reliable ENTER VR / EXIT (vr-ui.js uses it) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
   <!-- Global FX + optional logger -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
+  <script>
+    // optional config (vr-ui.js will merge defaults)
+    // Note: hydration.safe.js does its own adaptive aim-lock; this config is mostly for global behavior.
+    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
+  </script>
+  <script src="../vr/vr-ui.js" defer></script>
 
   <style>
     :root{
@@ -37,6 +48,7 @@
     html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     a{ color:inherit; }
 
+    /* Background soft glow */
     body::before{
       content:"";
       position:fixed; inset:0;
@@ -48,6 +60,7 @@
       z-index:0;
     }
 
+    /* ---------- HUD layout ---------- */
     .hud{
       position:fixed;
       inset:0;
@@ -136,6 +149,7 @@
       line-height:1.25;
     }
 
+    /* ---------- Playfield ---------- */
     #playfield, #cbPlayfield{
       position:fixed;
       inset:0;
@@ -148,6 +162,7 @@
       pointer-events:auto;
     }
 
+    /* cardboard: split L/R */
     #cbPlayfield{ display:none; }
     .cbHalf{
       position:absolute;
@@ -170,67 +185,20 @@
       z-index:2;
     }
 
+    /* view modes */
     body.view-pc #playfield{ display:block; }
     body.view-mobile #playfield{ display:block; }
     body.cardboard #playfield{ display:none; }
     body.cardboard #cbPlayfield{ display:block; }
 
-    /* cVR (single crosshair center) */
+    /* cVR strict: targets NOT directly clickable (shoot from crosshair via hha:shoot) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
-    body.view-cvr #hydration-layer{ pointer-events:none; }
-
-    /* Cardboard strict shoot: split + disable direct touch on targets */
-    body.view-cbstrict #playfield{ display:none; }
-    body.view-cbstrict #cbPlayfield{ display:block; }
-    body.view-cbstrict .cbLayer{ pointer-events:none; } /* สำคัญ: ยิงจาก crosshair เท่านั้น */
-
-    /* Crosshair styles */
-    .crosshair{
-      position:fixed;
-      transform:translate(-50%,-50%);
-      z-index:95;
-      pointer-events:none;
-      width:22px; height:22px;
-      opacity:.92;
-      filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
-      display:none;
-    }
-    .crosshair::before, .crosshair::after{
-      content:"";
-      position:absolute; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-    }
-    .crosshair::before{
-      width:18px; height:18px;
-      border:2px solid rgba(229,231,235,.85);
-    }
-    .crosshair::after{
-      width:4px; height:4px;
-      background:rgba(34,211,238,.95);
+    body.view-cvr #hydration-layer{
+      pointer-events:none; /* สำคัญ: ยิงจากกลางจอ */
     }
 
-    /* show crosshair */
-    body.view-cvr .crosshair{ display:block; left:50%; top:50%; }
-
-    /* dual crosshair for cardboard strict */
-    #crosshairL, #crosshairR{ display:none; }
-    body.view-cbstrict #crosshairL,
-    body.view-cbstrict #crosshairR{ display:block; top:50%; }
-    body.view-cbstrict #crosshairL{ left:25%; }
-    body.view-cbstrict #crosshairR{ left:75%; }
-
-    /* Rage FX hook (from safe.js) */
-    body.hha-ragefx{
-      animation: ragePulse .35s ease-in-out infinite;
-    }
-    @keyframes ragePulse{
-      0%,100%{ filter: saturate(1) contrast(1); }
-      50%{ filter: saturate(1.10) contrast(1.05); }
-    }
-
-    /* Summary */
+    /* ---------- End Summary ---------- */
     #resultBackdrop{
       position:fixed;
       inset:0;
@@ -277,13 +245,29 @@
       line-height:1.3;
     }
 
-    body.hha-endfx{ animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite; }
-    @keyframes endBlink{ 0%,100%{ filter: brightness(1); } 50%{ filter: brightness(1.08) saturate(1.06);} }
-    @keyframes endShake{ 0%,100%{ transform: translate3d(0,0,0);} 50%{ transform: translate3d(0,1px,0);} }
+    /* ---------------- FX HOOKS ---------------- */
+    body.hha-endfx{
+      animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
+    }
+    @keyframes endBlink{
+      0%,100%{ filter: brightness(1); }
+      50%{ filter: brightness(1.08) saturate(1.06); }
+    }
+    @keyframes endShake{
+      0%,100%{ transform: translate3d(0,0,0); }
+      50%{ transform: translate3d(0,1px,0); }
+    }
     body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
-    @keyframes hitPulse{ 0%{ filter: brightness(1);} 60%{ filter: brightness(1.12) saturate(1.10);} 100%{ filter: brightness(1);} }
+    @keyframes hitPulse{
+      0%{ filter: brightness(1); }
+      60%{ filter: brightness(1.12) saturate(1.10); }
+      100%{ filter: brightness(1); }
+    }
     body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
-    @keyframes bossFlash{ 0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0);} 50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04);} }
+    @keyframes bossFlash{
+      0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
+      50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); }
+    }
 
     .hha-shock{
       position:absolute;
@@ -304,42 +288,31 @@
       100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
     }
 
-    .btn{
-      pointer-events:auto;
-      appearance:none;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.62);
-      color:var(--text);
-      padding:10px 12px;
-      border-radius:14px;
-      font-weight:900;
-      font-size:13px;
-      cursor:pointer;
-      user-select:none;
+    /* --- Ensure VR UI buttons always clickable above HUD --- */
+    #hha-vr-ui, .hha-vr-ui, .hha-vrui, .vr-ui, .vrui-root{
+      z-index: 200 !important;
+      pointer-events: auto !important;
     }
-    .btn.warn{
-      border-color: rgba(245,158,11,.26);
-      background: rgba(245,158,11,.14);
-    }
-    .btnRow{ display:flex; flex-wrap:wrap; gap:10px; }
   </style>
 </head>
 
 <body class="view-pc">
+  <!-- PLAYFIELD (PC/Mobile/cVR) -->
   <div id="playfield">
     <div id="hydration-layer"></div>
   </div>
 
+  <!-- PLAYFIELD (Cardboard split) -->
   <div id="cbPlayfield">
-    <div class="cbHalf left"><div id="hydration-layerL" class="cbLayer"></div></div>
-    <div class="cbHalf right"><div id="hydration-layerR" class="cbLayer"></div></div>
+    <div class="cbHalf left">
+      <div id="hydration-layerL" class="cbLayer"></div>
+    </div>
+    <div class="cbHalf right">
+      <div id="hydration-layerR" class="cbLayer"></div>
+    </div>
   </div>
 
-  <!-- crosshair single (cVR) + dual (cb strict) -->
-  <div class="crosshair" id="crosshairC" aria-hidden="true"></div>
-  <div class="crosshair" id="crosshairL" aria-hidden="true"></div>
-  <div class="crosshair" id="crosshairR" aria-hidden="true"></div>
-
+  <!-- HUD -->
   <div class="hud">
     <div class="panel">
       <div class="statGrid">
@@ -390,13 +363,14 @@
     <div style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
+  <!-- END SUMMARY -->
   <div id="resultBackdrop" hidden>
     <div class="resultCard">
       <div class="resultTop">
         <h2>สรุปผลการเล่น</h2>
         <div class="btnRow" style="margin:0;">
           <button class="btn" id="btnRetry">🔁 Retry</button>
-          <button class="btn warn" id="btnBack">🏠 Back</button>
+          <button class="btn warn btnBackHub">🏠 Back HUB</button>
           <button class="btn" id="btnCloseSummary">✖ Close</button>
         </div>
       </div>
@@ -435,54 +409,7 @@
     </div>
   </div>
 
-  <script>
-  (function(){
-    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-    const view = String(qs('view','pc')).toLowerCase();
-    const hub = String(qs('hub','../hub.html'));
-    const launcher = '../hydration-vr.html';
-
-    // view class
-    const b = document.body;
-    b.classList.remove('view-pc','view-mobile','cardboard','view-cvr','view-cbstrict');
-
-    // ✅ cardboard = strict crosshair ยิงกลางจอ (PATCH 1)
-    if (view === 'cardboard') b.classList.add('view-cbstrict');
-    else if (view === 'cvr') b.classList.add('view-cvr');
-    else if (view === 'mobile') b.classList.add('view-mobile');
-    else b.classList.add('view-pc');
-
-    // layers map
-    const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
-    if (b.classList.contains('view-cbstrict')) cfg.layers = ['hydration-layerL','hydration-layerR'];
-    else cfg.layers = ['hydration-layer'];
-
-    // back fallback
-    document.getElementById('btnBack')?.addEventListener('click', ()=> location.href = hub || launcher);
-
-    // ✅ ยิงแน่นอน: แตะ/คลิก = hha:shoot (ทั้ง cVR และ cardboard strict)
-    function fireShoot(){
-      try{ window.dispatchEvent(new CustomEvent('hha:shoot')); }catch(_){}
-    }
-
-    const shootMode = b.classList.contains('view-cvr') || b.classList.contains('view-cbstrict');
-    if (shootMode){
-      window.addEventListener('pointerdown', (ev)=>{
-        const t = ev.target;
-        if (t && t.closest && t.closest('#resultBackdrop')) return;
-        fireShoot();
-      }, {passive:true});
-
-      window.addEventListener('keydown', (ev)=>{
-        if (ev.code === 'Space' || ev.code === 'Enter') fireShoot();
-      });
-    }
-
-    // auto start
-    setTimeout(()=> window.dispatchEvent(new CustomEvent('hha:start')), 30);
-  })();
-  </script>
-
+  <!-- Loader (AUTO DETECT + NO OVERRIDE) -->
   <script type="module" src="./hydration-vr.loader.js"></script>
 </body>
 </html>
