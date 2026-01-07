@@ -1,7 +1,7 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
-✅ Loads: goodjunk-vr.css + particles + fx-director + logger + vr-ui + boot(module)
-✅ STRICT AUTO view handled by boot.js (ignores ?view=)
+GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION (Matched)
+✅ Uses: goodjunk-vr.css (ULTRA) + particles.js (V2) + hha-fx-director.js + hha-cloud-logger.js + vr-ui.js + boot(module)
+✅ IDs match goodjunk.safe.js: hud-* , feverFill/Text , shieldPills , lowTimeOverlay/gj-lowtime-num , gj-layer/gj-layer-r
 -->
 <!doctype html>
 <html lang="th">
@@ -12,24 +12,27 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional: Enter VR reliability) -->
+  <!-- A-Frame minimal (Enter VR reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- FX + FX Director + Logger + VR UI -->
+  <!-- FX (ต้องมาก่อน director) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-fx-director.js" defer></script>
+
+  <!-- Logger + Universal VR UI -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Boot -->
+  <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="gj">
-  <!-- minimal A-Frame scene (tiny + hidden) -->
+
+  <!-- tiny a-scene (hidden, only for WebXR plumbing) -->
   <a-scene
     embedded
     renderer="colorManagement:true; physicallyCorrectLights:false"
@@ -51,7 +54,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
   </div>
 
   <!-- HUD TOP -->
-  <header class="gj-hud-top" id="gjHudTop">
+  <header class="gj-hud-top" id="gjHudTop" aria-label="HUD Top">
     <div class="hud-row">
       <div class="hud-pill">
         <div class="hud-label">SCORE</div>
@@ -96,7 +99,7 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
   </header>
 
   <!-- HUD BOTTOM -->
-  <footer class="gj-hud-bot" id="gjHudBot">
+  <footer class="gj-hud-bot" id="gjHudBot" aria-label="HUD Bottom">
     <div class="meter">
       <div class="meter-title">FEVER</div>
       <div class="meter-bar"><div class="meter-fill" id="feverFill"></div></div>
@@ -110,29 +113,29 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
     </div>
   </footer>
 
-  <!-- Playfield -->
+  <!-- PLAYFIELD -->
   <main class="gj-field" id="gjField" aria-label="GoodJunk playfield">
     <div id="gj-layer" class="gj-layer" aria-hidden="false"></div>
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
   </main>
 
-  <!-- Missions peek overlay -->
+  <!-- Missions Peek -->
   <div class="gj-peek" aria-hidden="true" id="missionsPeek">
     <div class="peek-card" role="dialog" aria-label="Missions">
       <div class="peek-title">🎯 Missions</div>
       <div class="peek-sub" id="peekGoal">GOAL: —</div>
       <div class="peek-mini" id="peekMini">MINI: —</div>
-      <div class="peek-tip">Tip: โหมด VR/cVR ยิงจากเป้าเล็งกลางจอ (tap-to-shoot)</div>
+      <div class="peek-tip">Tip: VR/cVR ยิงจากเป้าเล็งกลางจอ (tap-to-shoot)</div>
     </div>
   </div>
 
-  <!-- low time overlay -->
+  <!-- LOW TIME -->
   <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
     <div class="gj-lowtime-ring"></div>
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- END SUMMARY -->
+  <!-- END SUMMARY (page overlay) -->
   <div class="gj-end" id="endOverlay" aria-hidden="true">
     <div class="card">
       <div class="title" id="endTitle">Completed</div>
@@ -146,8 +149,8 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
       </div>
 
       <div class="actions">
-        <button class="btn" id="endBackHub" type="button">กลับ HUB</button>
         <button class="btn alt" id="endReplay" type="button">เล่นอีกครั้ง</button>
+        <button class="btn" id="endBackHub" type="button">กลับ HUB</button>
       </div>
 
       <div class="sub" style="margin-top:10px;">
@@ -156,7 +159,57 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
     </div>
   </div>
 
-  <!-- UI wiring (no view override here) -->
+  <!-- HUD-safe measure => set --gj-top-safe/--gj-bottom-safe -->
+  <script>
+    (function(){
+      function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+      function h(el){ try{ return el ? el.getBoundingClientRect().height : 0; }catch(_){ return 0; } }
+
+      function updateSafe(){
+        try{
+          const root = document.documentElement;
+          const cs = getComputedStyle(root);
+          const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
+          const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+
+          const top = document.getElementById('gjHudTop');
+          const bot = document.getElementById('gjHudBot');
+          const topbar = document.querySelector('.gj-topbar');
+
+          let topSafe = Math.max(h(topbar), h(top)) + 14 + sat;
+          let botSafe = h(bot) + 16 + sab;
+
+          if(document.body.classList.contains('hud-hidden')){
+            topSafe = Math.max(76 + sat, h(topbar) + 10 + sat);
+            botSafe = Math.max(76 + sab, h(bot) + 10 + sab);
+          }
+
+          root.style.setProperty('--gj-top-safe', px(topSafe));
+          root.style.setProperty('--gj-bottom-safe', px(botSafe));
+        }catch(_){}
+      }
+
+      window.addEventListener('resize', updateSafe, {passive:true});
+      window.addEventListener('orientationchange', updateSafe, {passive:true});
+      window.addEventListener('hha:view', ()=>{ setTimeout(updateSafe,0); setTimeout(updateSafe,120); }, {passive:true});
+
+      setTimeout(updateSafe, 0);
+      setTimeout(updateSafe, 120);
+      setTimeout(updateSafe, 360);
+      setInterval(updateSafe, 1200);
+
+      // when toggle HUD
+      document.addEventListener('click', (e)=>{
+        if(e?.target?.id === 'btnHideHud'){
+          setTimeout(updateSafe, 20);
+          setTimeout(updateSafe, 180);
+          setTimeout(updateSafe, 420);
+        }
+      }, {passive:true});
+    })();
+  </script>
+
+  <!-- UI wiring -->
   <script>
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
@@ -168,57 +221,74 @@ GoodJunkVR RUN (PC/Mobile/Cardboard/cVR) — PRODUCTION FULL
       const hub  = (qs('hub','')||'').trim() || null;
 
       const chip = byId('chipMeta');
-      if(chip) chip.textContent = `GoodJunkVR · run=${run} · diff=${diff} · time=${time}`;
+      if(chip){
+        chip.textContent = `GoodJunkVR · run=${run} · diff=${diff} · time=${time}`;
+      }
 
-      function hardFlush(){
+      function flush(){
         try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
-        try{ document.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
       }
-      function flushThenGo(url){
-        hardFlush();
-        setTimeout(()=>{ location.href = url; }, 260);
+      function go(url){
+        flush();
+        setTimeout(()=>{ location.href = url; }, 220);
       }
-      window.addEventListener('pagehide', hardFlush, { passive:true });
+
+      window.addEventListener('pagehide', flush, {passive:true});
       document.addEventListener('visibilitychange', ()=>{
-        if(document.visibilityState === 'hidden') hardFlush();
-      }, { passive:true });
+        if(document.visibilityState === 'hidden') flush();
+      }, {passive:true});
 
       byId('btnBackHub')?.addEventListener('click', ()=>{
-        if(hub) flushThenGo(hub);
+        if(hub) go(hub);
         else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
       });
 
+      // Missions peek
       const peek = byId('missionsPeek');
       byId('btnMissions')?.addEventListener('click', ()=>{
-        document.body.classList.add('show-missions');
-        peek?.setAttribute('aria-hidden','false');
-
-        // เติมข้อความจาก HUD
         try{
-          byId('peekGoal').textContent =
-            `GOAL: ${(byId('hud-goal')?.textContent||'—')} ${(byId('hud-goal-cur')?.textContent||'0')}/${(byId('hud-goal-target')?.textContent||'0')}`;
-          byId('peekMini').textContent =
-            `MINI: ${(byId('hud-mini')?.textContent||'—')}`;
+          byId('peekGoal').textContent = `GOAL: ${(byId('hud-goal')?.textContent||'—')} ${(byId('hud-goal-cur')?.textContent||'0')}/${(byId('hud-goal-target')?.textContent||'0')}`;
+          byId('peekMini').textContent = `MINI: ${(byId('hud-mini')?.textContent||'—')}`;
         }catch(_){}
-
+        document.body.classList.add('show-missions');
+        if(peek) peek.setAttribute('aria-hidden','false');
         setTimeout(()=>{
           document.body.classList.remove('show-missions');
-          peek?.setAttribute('aria-hidden','true');
+          if(peek) peek.setAttribute('aria-hidden','true');
         }, 4200);
       });
 
+      // Hide HUD
       byId('btnHideHud')?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
-        // ให้ boot.js วัด safe ใหม่เอง
-        try{ window.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: document.body.dataset.view || 'mobile' }})); }catch(_){}
       });
 
+      // End overlay
+      const endOverlay = byId('endOverlay');
+      function showEnd(d){
+        try{
+          if(!endOverlay) return;
+          const reason = d?.reason || '-';
+          byId('endTitle').textContent = (reason === 'miss-limit' || reason === 'missLimit') ? 'Game Over' : 'Completed';
+          byId('endSub').textContent = `reason=${reason} | mode=${d?.runMode||run} | view=${d?.device||d?.view||'-'}`;
+          byId('endGrade').textContent = d?.grade || '—';
+          byId('endScore').textContent = String(d?.scoreFinal ?? 0);
+          byId('endMiss').textContent  = String(d?.misses ?? 0);
+          byId('endTime').textContent  = String(Math.round(Number(d?.durationPlayedSec||0)));
+
+          endOverlay.setAttribute('aria-hidden','false');
+          endOverlay.style.display = 'flex';
+        }catch(_){}
+      }
+      window.addEventListener('hha:end', (ev)=> showEnd(ev?.detail||null), {passive:true});
+
       byId('endBackHub')?.addEventListener('click', ()=>{
-        if(hub) flushThenGo(hub);
+        if(hub) go(hub);
         else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
       });
       byId('endReplay')?.addEventListener('click', ()=> location.reload());
     })();
   </script>
+
 </body>
 </html>
