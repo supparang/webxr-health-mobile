@@ -8,7 +8,7 @@
 // ✅ Emits to BOTH window+document: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:miss, hha:end, hha:celebrate
 // ✅ End summary + back-to-HUB + save last summary (HHA_LAST_SUMMARY)
 // ✅ Logger: hha:start / hha:end compatible with hha-cloud-logger.js V2+
-// ✅ Grade: SSS / SS / S / A / B / C using normalizedScore (STD SCORE)
+// ✅ NEW: Grade = SSS, SS, S, A, B, C + Grade FX (play default ON, research default OFF)
 
 'use strict';
 
@@ -94,9 +94,8 @@ export function boot(payload = {}) {
     try{ P?.shockwave?.(x,y,{r}); }catch(_){ fxBurst(x,y,'good'); }
   }
 
-  // ----------------------- config (STRICT) -----------------------
-  // ✅ DO NOT READ ?view= (boot decides)
-  const view = String(payload.view || 'mobile').toLowerCase();
+  // ----------------------- config -----------------------
+  const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
   const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
   const runMode = String(payload.run || qs('run','play') || 'play').toLowerCase(); // play | research
   const durationPlannedSec = clamp(Number(payload.time ?? qs('time','80') ?? 80) || 80, 20, 300);
@@ -110,7 +109,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-01-07_SSS';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-01-07_gradeFX';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const rng = makeSeededRng(String(seed));
@@ -155,35 +154,6 @@ export function boot(payload = {}) {
   })();
 
   const adaptiveOn = (runMode !== 'research');
-
-  // ----------------------- grading (SSS/SS/S/A/B/C) -----------------------
-  function normalizedScore(score, durationPlannedSec){
-    const base = 80;
-    const t = Math.max(20, Number(durationPlannedSec)||80);
-    return Math.round((Number(score)||0) * (base / t));
-  }
-  function gradeFrom(scoreForGrade, miss, diff='normal'){
-    const score = Number(scoreForGrade)||0;
-    const m = Number(miss)||0;
-
-    const adj =
-      diff==='easy' ? -40 :
-      diff==='hard' ? +40 : 0;
-
-    if(m <= 1 && score >= (620 + adj)) return 'SSS';
-    if(m <= 2 && score >= (560 + adj)) return 'SS';
-    if(m <= 3 && score >= (500 + adj)) return 'S';
-    if(m <= 5 && score >= (430 + adj)) return 'A';
-    if(m <= 7 && score >= (340 + adj)) return 'B';
-    return 'C';
-  }
-  function medalFromGrade(g){
-    return g==='SSS' ? '👑' :
-           g==='SS'  ? '🏆' :
-           g==='S'   ? '🥇' :
-           g==='A'   ? '🥈' :
-           g==='B'   ? '🥉' : '🎯';
-  }
 
   // ----------------------- UI refs -----------------------
   const HUD = {
@@ -267,6 +237,111 @@ export function boot(payload = {}) {
     startTimeIso: new Date().toISOString(),
     endTimeIso: null,
   };
+
+  // ----------------------- Grade FX (play default ON; research default OFF) -----------------------
+  function isFxEnabled(){
+    const fxQ = (qs('fx', null) ?? qs('vfx', null));
+    if(runMode === 'research') return (fxQ === '1' || fxQ === 'true');
+    if(fxQ == null) return true;
+    return (fxQ === '1' || fxQ === 'true');
+  }
+
+  function gradeFxTier(g){
+    if(g === 'SSS') return 5;
+    if(g === 'SS')  return 4;
+    if(g === 'S')   return 3;
+    if(g === 'A')   return 2;
+    if(g === 'B')   return 1;
+    return 0;
+  }
+
+  function medalFromGrade(g){
+    if(g==='SSS') return '🏆';
+    if(g==='SS')  return '🥇';
+    if(g==='S')   return '🥈';
+    if(g==='A')   return '🥉';
+    if(g==='B')   return '⭐';
+    return '✅';
+  }
+
+  function applyGradeBodyFx(g){
+    const b = DOC.body;
+    b.classList.remove('gj-grade-sss','gj-grade-ss','gj-grade-s','gj-grade-a','gj-grade-b','gj-grade-c');
+    b.classList.add(
+      g==='SSS'?'gj-grade-sss':
+      g==='SS' ?'gj-grade-ss':
+      g==='S'  ?'gj-grade-s':
+      g==='A'  ?'gj-grade-a':
+      g==='B'  ?'gj-grade-b':'gj-grade-c'
+    );
+    b.classList.add('gj-grade-pulse');
+    setTimeout(()=>b.classList.remove('gj-grade-pulse'), 650);
+  }
+
+  function playGradeSound(g){
+    const sfxQ = (qs('sfx', null) ?? qs('sound', null));
+    if(sfxQ === '0' || sfxQ === 'false') return;
+    if(runMode === 'research' && !(qs('sfx','0') === '1')) return;
+
+    try{
+      const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
+      if(!AC) return;
+      const ctx = new AC();
+
+      const tier = gradeFxTier(g);
+      const base = (tier>=5)? 784 : (tier>=4)? 659 : (tier>=3)? 587 : (tier>=2)? 523 : (tier>=1)? 440 : 330;
+
+      const seq = (tier>=5) ? [1, 1.25, 1.5, 2] :
+                  (tier>=4) ? [1, 1.25, 1.5] :
+                  (tier>=3) ? [1, 1.2, 1.4] :
+                  (tier>=2) ? [1, 1.2] :
+                  (tier>=1) ? [1] : [0.8];
+
+      let t = ctx.currentTime + 0.02;
+      seq.forEach((m)=>{
+        const o = ctx.createOscillator();
+        const gNode = ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(base * m, t);
+        gNode.gain.setValueAtTime(0.0001, t);
+        gNode.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+        gNode.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+
+        o.connect(gNode).connect(ctx.destination);
+        o.start(t);
+        o.stop(t + 0.18);
+        t += 0.14;
+      });
+
+      setTimeout(()=>{ try{ ctx.close(); }catch(_){ } }, 1400);
+    }catch(_){}
+  }
+
+  function celebrateGrade(g){
+    if(!isFxEnabled()) return;
+
+    applyGradeBodyFx(g);
+    playGradeSound(g);
+
+    const cx = innerWidth/2;
+    const cy = innerHeight*0.40;
+
+    const tier = gradeFxTier(g);
+    const reps = Math.max(1, tier);
+
+    // If particles.js has no celebrate(), fallback bursts
+    for(let i=0;i<reps;i++){
+      setTimeout(()=>{
+        const x = cx + (i - reps/2) * 70;
+        const y = cy + (i%2? 30 : -10);
+        fxShock(x,y, 80 + i*10);
+        fxBurst(x,y, (tier>=4)?'good':'star');
+        fxScorePop(x,y, g);
+      }, i*120);
+    }
+
+    emit('hha:celebrate', { kind:'grade', grade:g, tier, medal: medalFromGrade(g) });
+  }
 
   // ----------------------- fast mini config -----------------------
   function fastCfgByView(v){
@@ -442,15 +517,9 @@ export function boot(payload = {}) {
       }
       if(HUD.lowTimeNum && t<=5){
         HUD.lowTimeNum.textContent = String(Math.ceil(t));
-        DOC.body.classList.add('gj-lowtime5');
-        DOC.body.classList.add('gj-tick');
-        setTimeout(()=>DOC.body.classList.remove('gj-tick'), 90);
-      }else{
-        DOC.body.classList.remove('gj-lowtime5');
       }
     }else{
       DOC.body.classList.remove('gj-lowtime');
-      DOC.body.classList.remove('gj-lowtime5');
       HUD.lowTimeOverlay && HUD.lowTimeOverlay.setAttribute('aria-hidden','true');
     }
   }
@@ -809,7 +878,7 @@ export function boot(payload = {}) {
     if(state.ended) return;
 
     const t = performance.now();
-    if(t - lastShotAt < 95) return;
+    if(t - lastShotAt < 95) return; // ✅ กันยิงซ้อน
     lastShotAt = t;
 
     const cx = Math.floor(DOC.documentElement.clientWidth/2);
@@ -896,7 +965,7 @@ export function boot(payload = {}) {
     return clamp(r, 0.8, 2.25);
   }
 
-  // ----------------------- summary metrics -----------------------
+  // ----------------------- grading / summary -----------------------
   function calcAccuracyGoodPct(){
     if(state.nTargetGoodSpawned <= 0) return null;
     return Math.round((state.nHitGood / Math.max(1, state.nTargetGoodSpawned)) * 1000) / 10;
@@ -911,7 +980,25 @@ export function boot(payload = {}) {
     return Math.round((fast / state.rtGood.length) * 1000) / 10;
   }
 
-  // ----------------------- end overlay wiring -----------------------
+  // ✅ NEW Grade: SSS/SS/S/A/B/C (diff-aware)
+  function gradeFrom(score, miss, diffTag='normal'){
+    const adj = (diffTag==='easy') ? -40 : (diffTag==='hard') ? +40 : 0;
+
+    const SSS_SCORE = 560 + adj;
+    const SS_SCORE  = 520 + adj;
+    const S_SCORE   = 480 + adj;
+    const A_SCORE   = 420 + adj;
+    const B_SCORE   = 340 + adj;
+
+    if(miss <= 1 && score >= SSS_SCORE) return 'SSS';
+    if(miss <= 2 && score >= SS_SCORE)  return 'SS';
+    if(miss <= 3 && score >= S_SCORE)   return 'S';
+    if(miss <= 5 && score >= A_SCORE)   return 'A';
+    if(miss <= 7 && score >= B_SCORE)   return 'B';
+    return 'C';
+  }
+
+  // ----------------------- end overlay wiring (existing DOM) -----------------------
   const endOverlay = byId('endOverlay');
   const endTitle = byId('endTitle');
   const endSub = byId('endSub');
@@ -919,8 +1006,6 @@ export function boot(payload = {}) {
   const endScore = byId('endScore');
   const endMiss = byId('endMiss');
   const endTime = byId('endTime');
-  const endMedal = byId('endMedal');
-  const endScoreNorm = byId('endScoreNorm');
 
   function showEndOverlay(summary){
     if(!endOverlay) return;
@@ -928,9 +1013,7 @@ export function boot(payload = {}) {
       endTitle && (endTitle.textContent = (summary.reason === 'miss-limit') ? 'Game Over' : 'Completed');
       endSub && (endSub.textContent = `reason=${summary.reason} | mode=${summary.runMode} | view=${summary.device}`);
       endGrade && (endGrade.textContent = summary.grade || '—');
-      endMedal && (endMedal.textContent = summary.medal || '—');
       endScore && (endScore.textContent = String(summary.scoreFinal ?? 0));
-      endScoreNorm && (endScoreNorm.textContent = String(summary.scoreNorm ?? summary.scoreFinal ?? 0));
       endMiss && (endMiss.textContent = String(summary.misses ?? 0));
       endTime && (endTime.textContent = String(Math.round(Number(summary.durationPlayedSec||0))));
       endOverlay.setAttribute('aria-hidden','false');
@@ -946,6 +1029,7 @@ export function boot(payload = {}) {
     for(const tObj of state.targets.values()) removeTarget(tObj);
     state.targets.clear();
 
+    // survive goal completes at end if miss <= limit
     if(state.goal && state.goal.type==='survive' && !state.goal.done){
       if(state.miss <= DIFF_BASE.missLimit){
         state.goal.done = true;
@@ -965,11 +1049,14 @@ export function boot(payload = {}) {
     const medianRtGoodMs = median(state.rtGood);
     const fastHitRatePct = calcFastHitRatePct();
 
-    const scoreNorm = normalizedScore(scoreFinal, durationPlannedSec);
-    const grade = gradeFrom(scoreNorm, misses, diff);
+    const grade = gradeFrom(scoreFinal, misses, diff);
     const medal = medalFromGrade(grade);
 
     setGradeText(grade);
+
+    // ✅ Grade FX (play default ON; research default OFF)
+    try{ celebrateGrade(grade); }catch(_){}
+
     state.endTimeIso = new Date().toISOString();
 
     const summary = {
@@ -985,7 +1072,6 @@ export function boot(payload = {}) {
       durationPlayedSec: Math.round(durationPlannedSec - state.timeLeftSec),
 
       scoreFinal,
-      scoreNorm,
       comboMax,
       misses,
 
@@ -1017,6 +1103,8 @@ export function boot(payload = {}) {
 
       grade,
       medal,
+      gradeTier: gradeFxTier(grade),
+      fxEnabled: isFxEnabled(),
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
@@ -1037,7 +1125,6 @@ export function boot(payload = {}) {
       durationPlayedSec: summary.durationPlayedSec,
 
       scoreFinal,
-      scoreNorm,
       comboMax,
       misses,
 
@@ -1070,9 +1157,12 @@ export function boot(payload = {}) {
 
       grade,
       medal,
+      gradeTier: summary.gradeTier,
+      fxEnabled: summary.fxEnabled,
     });
 
-    emit('hha:celebrate', { kind:'end', grade });
+    emit('hha:celebrate', { kind:'end', grade, medal });
+
     showEndOverlay(summary);
   }
 
