@@ -1,268 +1,313 @@
 // === /herohealth/hydration-vr/hydration.hud-safe.js ===
-// HUD-SAFE Spawn Helper — PRODUCTION
-// ✅ Compute safe play-rect excluding HUD panels (best-effort, responsive)
-// ✅ Works for PC/Mobile/cVR
-// ✅ Debug overlay toggle (no URL override): localStorage HHA_DEBUG_SAFE=1
-// ✅ Recomputes on resize/orientation/fullscreen
+// Hydration HUD-SAFE spawn helper — PRODUCTION
+// ✅ Computes safe spawn area inside playfield while avoiding HUD overlay rects
+// ✅ Works for PC/Mobile/cVR/Cardboard (playfieldSelector differs)
+// ✅ Auto-relax when playfield too small or HUD covers too much
+// ✅ Optional debug overlay: localStorage.HHA_DEBUG_SAFE = "1"
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
-
-function clamp(v, a, b){ v = Number(v)||0; return v < a ? a : (v > b ? b : v); }
+function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
 function rectOf(el){
-  const r = el?.getBoundingClientRect?.();
-  if (!r) return null;
-  return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
+  try{
+    if (!el || !el.getBoundingClientRect) return null;
+    const r = el.getBoundingClientRect();
+    if (!r || !(r.width>0 && r.height>0)) return null;
+    return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
+  }catch(_){ return null; }
 }
 
-function isVisiblePanelRect(r){
-  if (!r) return false;
-  if (r.width < 8 || r.height < 8) return false;
-  if (!isFinite(r.left+r.top+r.right+r.bottom)) return false;
-  return true;
+function intersects(a,b){
+  return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
 }
 
-function computeCuts(playRect, panelRects){
-  const pr = playRect;
-  const cx = pr.left + pr.width/2;
-  const cy = pr.top + pr.height/2;
+function inflate(r, pad){
+  return {
+    left: r.left - pad,
+    top: r.top - pad,
+    right: r.right + pad,
+    bottom: r.bottom + pad,
+    width: r.width + pad*2,
+    height: r.height + pad*2
+  };
+}
 
-  let topCut=0, bottomCut=0, leftCut=0, rightCut=0;
+function pointInRect(x,y,r){
+  return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+}
 
-  // heuristic bands
-  const topBandY = pr.top + pr.height*0.38;
-  const botBandY = pr.top + pr.height*0.62;
-  const leftBandX = pr.left + pr.width*0.38;
-  const rightBandX = pr.left + pr.width*0.62;
-
-  for (const r of panelRects){
-    if (!isVisiblePanelRect(r)) continue;
-
-    // top panels
-    if (r.top <= topBandY){
-      topCut = Math.max(topCut, clamp(r.bottom - pr.top, 0, pr.height));
+// Merge overlapping rects (simple O(n^2) union-ish)
+function mergeRects(rects){
+  const out = [];
+  for (const r0 of rects){
+    if (!r0) continue;
+    let r = {...r0};
+    let merged = false;
+    for (let i=0;i<out.length;i++){
+      const a = out[i];
+      // if overlap (or near), merge
+      const near = inflate(a, 6);
+      if (intersects(near, r)){
+        out[i] = {
+          left: Math.min(a.left, r.left),
+          top: Math.min(a.top, r.top),
+          right: Math.max(a.right, r.right),
+          bottom: Math.max(a.bottom, r.bottom),
+          width: 0,
+          height: 0
+        };
+        out[i].width = out[i].right - out[i].left;
+        out[i].height = out[i].bottom - out[i].top;
+        merged = true;
+        break;
+      }
     }
-    // bottom panels
-    if (r.bottom >= botBandY){
-      bottomCut = Math.max(bottomCut, clamp(pr.bottom - r.top, 0, pr.height));
-    }
-
-    // left panels (ignore huge overlays)
-    if (r.left <= leftBandX && r.width < pr.width*0.75){
-      leftCut = Math.max(leftCut, clamp(r.right - pr.left, 0, pr.width));
-    }
-    // right panels
-    if (r.right >= rightBandX && r.width < pr.width*0.75){
-      rightCut = Math.max(rightCut, clamp(pr.right - r.left, 0, pr.width));
+    if (!merged){
+      r.width = r.right - r.left;
+      r.height = r.bottom - r.top;
+      out.push(r);
     }
   }
-
-  // soften: don't over-cut the center (keeps play area usable)
-  const maxSide = pr.width*0.42;
-  const maxTop  = pr.height*0.42;
-  const maxBot  = pr.height*0.42;
-
-  leftCut  = clamp(leftCut, 0, maxSide);
-  rightCut = clamp(rightCut, 0, maxSide);
-  topCut   = clamp(topCut, 0, maxTop);
-  bottomCut= clamp(bottomCut, 0, maxBot);
-
-  // If cuts would crush the center, relax them proportionally
-  const remW = pr.width - leftCut - rightCut;
-  const remH = pr.height - topCut - bottomCut;
-
-  if (remW < pr.width*0.42){
-    const over = (pr.width*0.42 - remW);
-    leftCut  = Math.max(0, leftCut - over*0.5);
-    rightCut = Math.max(0, rightCut - over*0.5);
-  }
-  if (remH < pr.height*0.42){
-    const over = (pr.height*0.42 - remH);
-    topCut    = Math.max(0, topCut - over*0.5);
-    bottomCut = Math.max(0, bottomCut - over*0.5);
-  }
-
-  return { topCut, bottomCut, leftCut, rightCut, cx, cy };
-}
-
-function ensureDebugLayer(){
-  let el = DOC.getElementById('hha-safe-debug');
-  if (el) return el;
-  el = DOC.createElement('div');
-  el.id = 'hha-safe-debug';
-  el.style.cssText = `
-    position:fixed; inset:0; z-index:200;
-    pointer-events:none; display:none;
-  `;
-  el.innerHTML = `
-    <div id="hha-safe-pr" style="position:absolute;border:2px dashed rgba(34,211,238,.55);border-radius:16px;"></div>
-    <div id="hha-safe-sr" style="position:absolute;border:2px solid rgba(34,197,94,.55);border-radius:16px;"></div>
-    <div id="hha-safe-dot" style="position:absolute;width:10px;height:10px;border-radius:999px;background:rgba(245,158,11,.95);transform:translate(-50%,-50%);"></div>
-    <div id="hha-safe-label" style="
-      position:absolute; left:12px; top:12px;
-      font: 800 12px/1.25 system-ui;
-      color: rgba(229,231,235,.95);
-      background: rgba(2,6,23,.75);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:12px;
-      padding:8px 10px;
-      max-width:min(560px, calc(100% - 24px));
-      white-space:pre-line;
-    "></div>
-  `;
-  DOC.body.appendChild(el);
-  return el;
-}
-
-function setRectBox(id, r){
-  const el = DOC.getElementById(id);
-  if (!el || !r) return;
-  el.style.left = r.left + 'px';
-  el.style.top  = r.top + 'px';
-  el.style.width  = Math.max(0, r.width) + 'px';
-  el.style.height = Math.max(0, r.height) + 'px';
-}
-
-function setDot(id, x, y){
-  const el = DOC.getElementById(id);
-  if (!el) return;
-  el.style.left = x + 'px';
-  el.style.top  = y + 'px';
-}
-
-function setLabel(text){
-  const el = DOC.getElementById('hha-safe-label');
-  if (!el) return;
-  el.textContent = String(text || '');
+  return out;
 }
 
 export function createHudSafezone(opts = {}){
-  const playfieldSelector = String(opts.playfieldSelector || '#playfield');
-  const hudSelector = String(opts.hudSelector || '.hud');
-  const pad = clamp(opts.pad ?? 22, 8, 80);
-  const minW = clamp(opts.minW ?? 220, 120, 800);
-  const minH = clamp(opts.minH ?? 220, 120, 800);
+  const DOC = document;
 
-  let lastSafe = null;
+  const CFG = Object.assign({
+    playfieldSelector: '#playfield',
+    hudSelector: '.hud',
+    pad: 22,         // inner padding inside playfield
+    hudPad: 14,      // extra padding around HUD rects (so targets don't kiss edges)
+    minW: 240,
+    minH: 240
+  }, opts || {});
 
-  function getRects(){
-    const pf = DOC.querySelector(playfieldSelector);
-    const hud = DOC.querySelector(hudSelector);
+  let debug = false;
+  let debugEl = null;
+  let last = { pf:null, huds:[], safe:null };
 
-    const pr = rectOf(pf) || { left:0, top:0, right:1, bottom:1, width:1, height:1 };
-    const panels = hud ? Array.from(hud.querySelectorAll('.panel')) : [];
-    const panelRects = panels.map(rectOf).filter(Boolean);
-
-    return { pf, hud, pr, panelRects };
+  function getPlayfieldEl(){
+    return DOC.querySelector(CFG.playfieldSelector);
+  }
+  function getHudEls(){
+    // capture hud root + notable children (buttons/quest panels/etc.)
+    const hudRoot = DOC.querySelector(CFG.hudSelector);
+    if (!hudRoot) return [];
+    const els = [hudRoot, ...hudRoot.querySelectorAll('*')];
+    // keep only elements that have box & are visible-ish
+    return els.filter(el=>{
+      try{
+        const st = getComputedStyle(el);
+        if (st.display==='none' || st.visibility==='hidden' || Number(st.opacity||'1')<=0.02) return false;
+        if (st.pointerEvents==='none' && el !== hudRoot) return false; // ignore non-interactive tiny spans
+        const r = el.getBoundingClientRect();
+        return r && r.width>6 && r.height>6;
+      }catch(_){ return false; }
+    });
   }
 
   function compute(){
-    const { pr, panelRects } = getRects();
+    const pf = getPlayfieldEl();
+    const pfRect = rectOf(pf);
+    if (!pfRect) return null;
 
-    const cuts = computeCuts(pr, panelRects);
+    const pad = CFG.pad;
+    const inner = {
+      left: pfRect.left + pad,
+      top: pfRect.top + pad,
+      right: pfRect.right - pad,
+      bottom: pfRect.bottom - pad
+    };
+    inner.width = Math.max(1, inner.right - inner.left);
+    inner.height = Math.max(1, inner.bottom - inner.top);
 
-    const left  = pr.left + cuts.leftCut + pad;
-    const top   = pr.top  + cuts.topCut  + pad;
-    const right = pr.right - cuts.rightCut - pad;
-    const bottom= pr.bottom- cuts.bottomCut- pad;
+    // collect hud rects that intersect playfield area
+    let hudRects = [];
+    const hudEls = getHudEls();
+    for (const el of hudEls){
+      const r = rectOf(el);
+      if (!r) continue;
+      // must intersect playfield to matter
+      if (!intersects(r, pfRect)) continue;
+      hudRects.push(inflate(r, CFG.hudPad));
+    }
+    hudRects = mergeRects(hudRects);
 
-    let w = right - left;
-    let h = bottom - top;
+    // Decide "safeRect" baseline: inner playfield
+    // If HUD covers huge area, we still allow spawn by sampling+rejecting against hudRects.
+    // But we can also try to carve out a safe band if HUD mainly sits at top/bottom.
+    const safe = { ...inner };
 
-    // If too small, relax to centered safe area
-    if (w < minW || h < minH){
-      const cx = pr.left + pr.width/2;
-      const cy = pr.top + pr.height/2;
-      const ww = Math.max(minW, pr.width*0.55);
-      const hh = Math.max(minH, pr.height*0.55);
-      w = Math.min(pr.width - pad*2, ww);
-      h = Math.min(pr.height - pad*2, hh);
-      lastSafe = {
-        playRect: pr,
-        safeRect: {
-          left: cx - w/2,
-          top:  cy - h/2,
-          width: w,
-          height: h,
-          right: cx + w/2,
-          bottom: cy + h/2
-        },
-        center: { cx, cy },
-        cuts
-      };
-      return lastSafe;
+    // relax logic: if playfield too small, lower hudPad and pad
+    const tiny = (pfRect.width < CFG.minW || pfRect.height < CFG.minH);
+    const relax = tiny ? 1 : 0;
+
+    last = { pf:pfRect, huds:hudRects, safe, relax };
+
+    return { pfRect, inner, hudRects, safe, relax };
+  }
+
+  function pickXY(rngFn){
+    const rng = typeof rngFn === 'function' ? rngFn : Math.random;
+    const data = compute();
+    if (!data) return { xPct:50, yPct:50 };
+
+    const { pfRect, inner, hudRects, relax } = data;
+
+    // when relax: shrink hud padding effect
+    const localHudRects = relax ? hudRects.map(r=>inflate(r, -Math.min(CFG.hudPad-2, 10))) : hudRects;
+
+    // rejection sampling inside inner rect
+    // try many times, then progressively relax (allow closer to HUD) to avoid "spawn at one spot"
+    const maxTry = 90;
+    let ok = null;
+
+    for (let i=0;i<maxTry;i++){
+      const rx = (rng()+rng())/2; // center-biased
+      const ry = (rng()+rng())/2;
+      const x = inner.left + rx * inner.width;
+      const y = inner.top + ry * inner.height;
+
+      // Check not in any HUD rect
+      let blocked = false;
+      for (const hr of localHudRects){
+        if (pointInRect(x,y,hr)){ blocked = true; break; }
+      }
+
+      // progressive relax: after 45 tries, ignore smallest hud rects; after 70 tries, accept anything
+      if (blocked){
+        if (i > 45){
+          // ignore tiny hud blocks
+          const bigOnly = localHudRects.filter(r=>(r.width*r.height) > 12000);
+          blocked = false;
+          for (const hr of bigOnly){
+            if (pointInRect(x,y,hr)){ blocked = true; break; }
+          }
+        }
+        if (i > 70) blocked = false;
+      }
+
+      if (!blocked){
+        ok = { x, y };
+        break;
+      }
     }
 
-    lastSafe = {
-      playRect: pr,
-      safeRect: { left, top, width:w, height:h, right, bottom },
-      center: { cx: pr.left + pr.width/2, cy: pr.top + pr.height/2 },
-      cuts
+    // fallback: center of inner
+    if (!ok){
+      ok = {
+        x: inner.left + inner.width/2,
+        y: inner.top + inner.height/2
+      };
+    }
+
+    // convert to % of playfield rect (NOT inner)
+    const xPct = ((ok.x - pfRect.left)/Math.max(1,pfRect.width))*100;
+    const yPct = ((ok.y - pfRect.top)/Math.max(1,pfRect.height))*100;
+
+    return {
+      xPct: clamp(xPct, 2, 98),
+      yPct: clamp(yPct, 2, 98)
     };
-    return lastSafe;
   }
 
-  function getSafeRect(){
-    return compute().safeRect;
-  }
-
-  function pickXY(rng){
-    const st = compute();
-    const sr = st.safeRect;
-    const pr = st.playRect;
-
-    // weighted center-ish
-    const rx = (rng() + rng())/2;
-    const ry = (rng() + rng())/2;
-
-    const x = sr.left + rx * sr.width;
-    const y = sr.top  + ry * sr.height;
-
-    const xPct = ((x - pr.left)/Math.max(1, pr.width))*100;
-    const yPct = ((y - pr.top )/Math.max(1, pr.height))*100;
-
-    return { x, y, xPct, yPct, safe: sr, play: pr, meta: st };
-  }
-
-  function debugEnabled(){
-    try{ return String(localStorage.getItem('HHA_DEBUG_SAFE')||'') === '1'; }catch(_){ return false; }
+  function ensureDebugEl(){
+    if (debugEl && debugEl.isConnected) return debugEl;
+    const el = DOC.createElement('div');
+    el.id = 'hha-safe-debug';
+    el.style.cssText = `
+      position:fixed; inset:0; z-index:9998; pointer-events:none;
+      font-family:system-ui; color:#e5e7eb;
+    `;
+    el.innerHTML = `
+      <div style="position:absolute;left:10px;bottom:10px;background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.22);border-radius:12px;padding:8px 10px;font-size:12px;line-height:1.35">
+        <div style="font-weight:800">SAFE SPAWN DEBUG</div>
+        <div style="opacity:.85">playfield: <span id="hhaD_pf">-</span></div>
+        <div style="opacity:.85">huds: <span id="hhaD_hud">-</span></div>
+        <div style="opacity:.85">relax: <span id="hhaD_rx">-</span></div>
+        <div style="opacity:.75;margin-top:4px">ปิด: localStorage.removeItem('HHA_DEBUG_SAFE')</div>
+      </div>
+      <div id="hhaD_layer" style="position:absolute;inset:0;"></div>
+    `;
+    DOC.body.appendChild(el);
+    debugEl = el;
+    return el;
   }
 
   function renderDebug(){
-    const on = debugEnabled();
-    const layer = ensureDebugLayer();
-    layer.style.display = on ? 'block' : 'none';
-    if (!on) return;
+    try{
+      debug = String(localStorage.getItem('HHA_DEBUG_SAFE')||'') === '1';
+    }catch(_){ debug=false; }
 
-    const st = compute();
-    setRectBox('hha-safe-pr', st.playRect);
-    setRectBox('hha-safe-sr', st.safeRect);
-    setDot('hha-safe-dot', st.center.cx, st.center.cy);
+    if (!debug){
+      if (debugEl) { try{ debugEl.remove(); }catch(_){ } }
+      debugEl = null;
+      return;
+    }
 
-    const c = st.cuts || {};
-    setLabel(
-      `HUD-SAFE DEBUG (localStorage HHA_DEBUG_SAFE=1)\n` +
-      `safeRect: ${st.safeRect.width.toFixed(0)}x${st.safeRect.height.toFixed(0)}\n` +
-      `cuts: top=${(c.topCut||0).toFixed(0)} bottom=${(c.bottomCut||0).toFixed(0)} left=${(c.leftCut||0).toFixed(0)} right=${(c.rightCut||0).toFixed(0)}`
-    );
+    const el = ensureDebugEl();
+    const layer = el.querySelector('#hhaD_layer');
+    if (!layer) return;
+
+    // compute latest & draw rects
+    const data = compute();
+    if (!data) return;
+
+    const { pfRect, inner, hudRects, relax } = data;
+
+    el.querySelector('#hhaD_pf').textContent = `${Math.round(pfRect.width)}x${Math.round(pfRect.height)}`;
+    el.querySelector('#hhaD_hud').textContent = String(hudRects.length);
+    el.querySelector('#hhaD_rx').textContent = relax ? 'YES' : 'NO';
+
+    // clear & draw
+    layer.innerHTML = '';
+
+    function box(r, stroke, fill, label){
+      const b = DOC.createElement('div');
+      b.style.cssText = `
+        position:fixed;
+        left:${r.left}px; top:${r.top}px;
+        width:${Math.max(1,r.right-r.left)}px;
+        height:${Math.max(1,r.bottom-r.top)}px;
+        border:2px solid ${stroke};
+        background:${fill};
+        border-radius:10px;
+        box-sizing:border-box;
+      `;
+      if (label){
+        const t = DOC.createElement('div');
+        t.textContent = label;
+        t.style.cssText = `position:absolute;left:6px;top:4px;font-size:11px;font-weight:800;text-shadow:0 2px 0 rgba(0,0,0,.35)`;
+        b.appendChild(t);
+      }
+      layer.appendChild(b);
+    }
+
+    box(pfRect, 'rgba(34,211,238,.75)', 'rgba(34,211,238,.06)', 'PLAYFIELD');
+    box(inner,  'rgba(34,197,94,.75)', 'rgba(34,197,94,.06)', 'INNER');
+    hudRects.forEach((r,i)=>box(r, 'rgba(249,115,115,.75)', 'rgba(249,115,115,.08)', i===0?'HUD':'' ));
   }
 
-  // auto update debug on events
-  const reflow = ()=>setTimeout(renderDebug, 80);
-  window.addEventListener('resize', reflow, { passive:true });
-  window.addEventListener('orientationchange', reflow, { passive:true });
-  window.addEventListener('fullscreenchange', reflow, { passive:true });
+  // auto re-render debug on resize/orientation/fullscreen
+  let dbgT = 0;
+  function scheduleDebug(){
+    const now = performance.now();
+    if (now - dbgT < 120) return;
+    dbgT = now;
+    renderDebug();
+  }
+  window.addEventListener('resize', scheduleDebug);
+  window.addEventListener('orientationchange', scheduleDebug);
+  document.addEventListener('fullscreenchange', scheduleDebug);
 
-  // initial paint (if enabled)
+  // initial
   setTimeout(renderDebug, 60);
 
   return {
-    compute,
-    getSafeRect,
     pickXY,
+    compute,
     renderDebug
   };
 }
