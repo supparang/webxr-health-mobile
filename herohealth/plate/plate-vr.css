@@ -4,7 +4,7 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
 ✅ HUD: soft neon, better contrast, safe-area
 ✅ Boss/Storm: fx classes (boss-on/boss-panic), storm pulse
 ✅ Result: crisp grade badge
-✅ Works with: /herohealth/plate-vr.html + /herohealth/plate/plate.safe.js
+✅ View: pc / mobile / vr / cvr
 */
 
 :root{
@@ -30,60 +30,108 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* HUD safe paddings (optional if you later want JS safe-measure) */
-  --hudSafeTop: calc(10px + var(--sat));
-  --hudSafeBottom: calc(10px + var(--sab));
-
-  /* z-layers (keep consistent) */
-  --z-scene: 0;
-  --z-bg: 1;
-  --z-stage: 2;
-
-  --z-targets: 10;
-  --z-hitfx: 12;
-
-  --z-panels: 28;     /* goal/mini/coach */
-  --z-hudtop: 30;
-  --z-bossfx: 55;
-  --z-stormfx: 57;
-  --z-bossHud: 42;
-  --z-stormHud: 43;
-  --z-buttons: 40;
-
-  --z-overlays: 70;
 }
 
-/* ---------- base ---------- */
 *,
 *::before,
-*::after{
-  box-sizing:border-box;
-}
+*::after{ box-sizing:border-box; }
 
-html, body{
+html,body{
   margin:0;
-  padding:0;
   width:100%;
   height:100%;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+  font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* A-Frame scene sits behind everything */
-a-scene{
+/* ---------- Base layers (match plate-vr.html) ---------- */
+.bg{
   position:fixed;
   inset:0;
-  z-index:var(--z-scene);
+  z-index:1;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
+    radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
+    radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
+    linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
 }
 
-/* ---------- universal helpers ---------- */
-.muted{ color:var(--muted); font-weight:900; }
+.stage{
+  position:fixed;
+  inset:0;
+  z-index:2;
+  padding:
+    calc(10px + var(--sat))
+    calc(10px + var(--sar))
+    calc(10px + var(--sab))
+    calc(10px + var(--sal));
+}
 
-.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
-  box-shadow: 0 16px 48px rgba(0,0,0,.28);
+/* spawn layer */
+#plate-layer{
+  position:fixed;
+  inset:0;
+  z-index:10;
+  pointer-events:auto;
+  touch-action:none;
+  user-select:none;
+  transform: translateZ(0);
+}
+
+/* hit overlay */
+#hitFx{
+  position:fixed;
+  inset:0;
+  z-index:12;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .12s ease;
+}
+
+/* Keep A-Frame behind UI */
+a-scene{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:0 !important;
+}
+
+/* ---------- UI primitives ---------- */
+.card, .pill, .questCard, .panelCard{
+  border-radius: var(--radius);
+  border:1px solid var(--stroke);
+  backdrop-filter: blur(10px) saturate(1.1);
+}
+
+.card, .questCard, .panelCard{
+  box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
+}
+
+.card{
+  pointer-events:auto;
+  background:var(--panel);
+  padding:10px 12px;
+  min-width:220px;
+}
+
+.card.small{ min-width:180px; }
+
+.t{
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(229,231,235,.92);
+}
+
+.v{
+  margin-top:6px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
 }
 
 .pill{
@@ -92,75 +140,169 @@ a-scene{
   align-items:center;
   padding:6px 10px;
   border-radius:var(--pill);
-  border:1px solid var(--stroke);
   background:
     radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
-    rgba(15,23,42,.68);
+    rgba(15,23,42,.68) !important;
   font-weight:1000;
   font-size:12px;
   white-space:nowrap;
 }
 
-/* Bars */
+.muted{
+  color:var(--muted);
+  font-weight:900;
+}
+
+/* bars */
 .bar{
   height:10px;
   border-radius:999px;
-  background: rgba(148,163,184,.10);
+  background: rgba(148,163,184,.10) !important;
   border:1px solid rgba(148,163,184,.14);
   overflow:hidden;
 }
+
 .bar > i{
   display:block;
   height:100%;
   width:0%;
-  background: rgba(34,197,94,.85);
+  background:rgba(34,197,94,.85);
   box-shadow: 0 0 18px rgba(34,197,94,.16);
 }
-.bar.warn > i{ background: rgba(245,158,11,.85); box-shadow: 0 0 18px rgba(245,158,11,.16); }
-.bar.bad  > i{ background: rgba(239,68,68,.85); box-shadow: 0 0 18px rgba(239,68,68,.14); }
+
+.bar.warn > i{ box-shadow: 0 0 18px rgba(245,158,11,.16); }
+.bar.bad  > i{ box-shadow: 0 0 18px rgba(239,68,68,.14); }
 
 /* Fever bar should feel dangerous */
 .bar.bad{
   background:
-    linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08));
+    linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08)) !important;
 }
-
 #uiFeverFill{
   background: linear-gradient(90deg, rgba(245,158,11,.80), rgba(239,68,68,.85)) !important;
   box-shadow: 0 0 18px rgba(239,68,68,.16) !important;
 }
 
-/* Buttons */
+/* ---------- HUD placement ---------- */
+.hudTop{
+  position:fixed;
+  left:10px;
+  right:10px;
+  top: calc(10px + var(--sat));
+  z-index:30;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:flex-start;
+  pointer-events:none;
+}
+
+#miniPanel, #coachPanel{
+  position:fixed;
+  left:10px;
+  right:10px;
+  z-index:28;
+  pointer-events:none;
+}
+
+#miniPanel{ top: calc(84px + var(--sat)); }
+#coachPanel{ bottom: calc(72px + var(--sab)); }
+
+.questCard{
+  pointer-events:auto;
+  background:var(--panel2);
+  padding:10px 12px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.26);
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.questCol{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:220px;
+}
+
+.questRow{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.k{
+  font-weight:1100;
+  font-size:12px;
+  color:rgba(229,231,235,.92);
+}
+
+.hint{
+  font-weight:900;
+  font-size:12px;
+  color:rgba(148,163,184,.95);
+  line-height:1.25;
+}
+
+/* Buttons block */
+#hudBtns{
+  position:fixed;
+  right:10px;
+  bottom: calc(10px + var(--sab));
+  z-index:80; /* important: above HUD so it stays clickable */
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  pointer-events:none;
+}
+
 .btn{
+  pointer-events:auto;
   appearance:none;
   border:none;
   border-radius:999px;
   padding:10px 12px;
-  background: rgba(2,6,23,.70);
+  background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.20);
-  color: rgba(229,231,235,.95);
+  color:rgba(229,231,235,.95);
   font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
   box-shadow: 0 16px 40px rgba(0,0,0,.32);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px) saturate(1.1);
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
   user-select:none;
 }
+
 .btn:active{ transform: translateY(1px); }
-.btn.primary{
-  background: rgba(34,197,94,.14);
-  border-color: rgba(34,197,94,.30);
+.btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+.btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
+.btn.bad{ background:rgba(239,68,68,.14); border-color:rgba(239,68,68,.30); }
+
+/* ---------- overlays ---------- */
+#startOverlay, #hudPaused, #resultBackdrop{
+  position:fixed;
+  inset:0;
+  z-index:70;
+  display:none;
+  place-items:center;
+  padding:
+    calc(14px + var(--sat))
+    calc(14px + var(--sar))
+    calc(14px + var(--sab))
+    calc(14px + var(--sal));
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
 }
-.btn.warn{
-  background: rgba(245,158,11,.14);
-  border-color: rgba(245,158,11,.30);
+
+.panelCard{
+  width:min(980px, 100%);
+  background:var(--panel);
+  border-radius:22px;
+  padding:16px;
+  box-shadow: 0 26px 90px rgba(0,0,0,.42);
 }
-.btn.bad{
-  background: rgba(239,68,68,.14);
-  border-color: rgba(239,68,68,.30);
-}
-.btn.warn:hover{ filter:brightness(1.1); }
-.btn.bad:hover{ filter:brightness(1.05); }
 
 /* ---------- micro glow helpers ---------- */
 @keyframes hhaGlow {
@@ -191,33 +333,6 @@ a-scene{
   100%{ transform: translateZ(0) rotate(0deg); }
 }
 
-/* ---------- Layers & safe click rules ---------- */
-
-/* Stage wrapper is created in plate-vr.html inline CSS.
-   We only reinforce expected z-index order here. */
-.bg{ z-index:var(--z-bg); }
-.stage{ z-index:var(--z-stage); }
-
-/* Spawn layer: should be below HUD, above bg */
-#plate-layer{
-  z-index: var(--z-targets);
-}
-
-/* hit fx sits above targets but below HUD */
-#hitFx{
-  z-index: var(--z-hitfx);
-}
-
-/* Top HUD & panels: above playfield; pointer-events handled by HTML */
-#hudTop, .hudTop{ z-index: var(--z-hudtop); }
-#miniPanel, #coachPanel{ z-index: var(--z-panels); }
-#hudBtns{ z-index: var(--z-buttons); }
-
-/* Overlays always top */
-#startOverlay, #hudPaused, #resultBackdrop{
-  z-index: var(--z-overlays);
-}
-
 /* ---------- Targets feel (emoji clarity + VR-ish depth) ---------- */
 #plate-layer .plateTarget{
   border-radius:999px !important;
@@ -236,12 +351,8 @@ a-scene{
   font-variation-settings: "wght" 900;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  /* make touch feel snappy */
-  touch-action: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
+
 #plate-layer .plateTarget:active{
   transform: translateZ(0) scale(.98);
 }
@@ -277,16 +388,19 @@ a-scene{
   position:fixed;
   inset:0;
   pointer-events:none;
-  z-index:var(--z-bossfx);
+  z-index:58;
   opacity:0;
   transition: opacity .15s ease;
+  display:none; /* JS toggles */
 }
+
 #bossFx.boss-on{
   opacity:1;
   background:
     radial-gradient(circle at 50% 50%, rgba(167,139,250,.10), transparent 55%),
     radial-gradient(circle at 50% 90%, rgba(239,68,68,.10), transparent 55%);
 }
+
 #bossFx.boss-panic{
   animation: hhaBadPulse .22s ease-in-out 0s infinite;
 }
@@ -295,10 +409,12 @@ a-scene{
   position:fixed;
   inset:0;
   pointer-events:none;
-  z-index:var(--z-stormfx);
+  z-index:57;
   opacity:0;
   transition: opacity .15s ease;
+  display:none; /* JS toggles */
 }
+
 #stormFx.storm-on{
   opacity:1;
   background:
@@ -308,9 +424,20 @@ a-scene{
   animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
 
-/* JS fallback class in plate.safe.js injects .storm-panic/.boss-panic brightness too */
-#stormFx.storm-panic{ filter:brightness(1.25); }
-#bossFx.boss-panic{ filter:brightness(1.25); }
+#stormFx.storm-panic{
+  filter:brightness(1.25);
+}
+
+/* ---------- Boss / Storm HUD cards (if present) ---------- */
+#bossHud{
+  z-index:82;
+  pointer-events:none;
+}
+
+#stormHud{
+  z-index:83;
+  pointer-events:none;
+}
 
 /* ---------- Result grade badge (optional feel) ---------- */
 #rGrade{
@@ -322,19 +449,29 @@ a-scene{
   box-shadow: 0 14px 40px rgba(0,0,0,.25);
 }
 
-/* ---------- Responsive tighten ---------- */
-@media (max-width: 920px){
-  .pill{ font-size:12px; }
-  .bar{ height:10px; }
+/* ---------- View tuning ---------- */
+body.view-pc #uiCvrHint{ display:none; }
+body.view-mobile #uiCvrHint{ display:none; }
+body.view-vr #uiCvrHint{ display:none; }
+
+/* cVR: targets should not eat pointer events (shoot from crosshair) */
+body.view-cvr #plate-layer{
+  pointer-events:none;
+}
+body.view-cvr #plate-layer .plateTarget{
+  pointer-events:none !important;
 }
 
-/* ---------- Accessibility / motion ---------- */
-@media (prefers-reduced-motion: reduce){
-  #plate-layer .plateTarget{
-    animation: none !important;
-  }
-  #stormFx.storm-on,
-  #bossFx.boss-on{
-    animation: none !important;
-  }
+/* Keep vr-ui controls clickable above everything */
+#hha-vrui-root,
+.hha-vrui-root{
+  z-index:95 !important;
+}
+
+/* ---------- Responsive tweak ---------- */
+@media (max-width: 920px){
+  .card{ min-width:170px; }
+  .card.small{ min-width:160px; }
+  .pill{ font-size:12px; }
+  #miniPanel{ top: calc(92px + var(--sat)); }
 }
