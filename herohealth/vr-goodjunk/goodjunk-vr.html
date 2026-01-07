@@ -1,9 +1,3 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
-✅ Includes: particles.js(V2) + hha-fx-director.js + cloud logger + vr-ui + boot(module)
-✅ A-Frame tiny scene for Enter VR reliability (buttons from vr-ui.js)
-✅ HUD-safe vars: --gj-top-safe / --gj-bottom-safe (measured by boot + fallback helper)
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -13,26 +7,23 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./goodjunk-vr.css" />
-
-  <!-- A-Frame for Enter VR reliability (tiny hidden scene) -->
+  <!-- A-Frame for Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX CORE (must load before gameplay events fire) -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-fx-director.js" defer></script>
+  <!-- CSS (FINAL matched) -->
+  <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Logger + Universal VR UI -->
+  <!-- Global FX + Logger + Universal VR UI -->
+  <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Boot (module) -->
+  <!-- Boot -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="gj">
-  <!-- Minimal A-Frame scene (kept tiny; lets vr-ui.js Enter VR be reliable on some browsers) -->
+  <!-- minimal A-Frame scene (kept tiny) -->
   <a-scene
     embedded
     renderer="colorManagement:true; physicallyCorrectLights:false"
@@ -41,7 +32,7 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
     <a-entity camera position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- TOPBAR -->
+  <!-- TOPBAR (HHA Standard actions) -->
   <div class="gj-topbar">
     <div class="left">
       <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
@@ -53,7 +44,7 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
     </div>
   </div>
 
-  <!-- HUD TOP -->
+  <!-- HUD (Top) -->
   <header class="gj-hud-top" id="gjHudTop">
     <div class="hud-row">
       <div class="hud-pill">
@@ -98,7 +89,7 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
     </div>
   </header>
 
-  <!-- HUD BOTTOM -->
+  <!-- HUD (Bottom) -->
   <footer class="gj-hud-bot" id="gjHudBot">
     <div class="meter">
       <div class="meter-title">FEVER</div>
@@ -119,15 +110,15 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
   </main>
 
-  <!-- Missions peek overlay -->
-  <div class="gj-peek" aria-hidden="true" id="missionsPeek">
-    <div class="peek-card" role="dialog" aria-label="Missions">
+  <!-- MISSIONS PEEK (overlay) -->
+  <section class="gj-peek" id="peekOverlay" aria-hidden="true">
+    <div class="peek-card">
       <div class="peek-title">🎯 Missions</div>
       <div class="peek-sub" id="peekGoal">GOAL: —</div>
       <div class="peek-mini" id="peekMini">MINI: —</div>
-      <div class="peek-tip">Tip: โหมด VR/cVR ยิงจากเป้าเล็งกลางจอ (tap-to-shoot)</div>
+      <div class="peek-tip">ทริค: ⭐ ลด MISS • 🛡️ บล็อกขยะ • เก็บดีให้ไว!</div>
     </div>
-  </div>
+  </section>
 
   <!-- low time overlay -->
   <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
@@ -136,14 +127,16 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
   </div>
 
   <!-- END SUMMARY (HHA Standard) -->
-  <div class="gj-end" id="endOverlay" aria-hidden="true" style="display:none;">
+  <div class="gj-end" id="endOverlay" aria-hidden="true">
     <div class="card">
       <div class="title" id="endTitle">Completed</div>
       <div class="sub" id="endSub">—</div>
 
       <div class="grid">
         <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
+        <div class="stat"><span>MEDAL</span><b id="endMedal">—</b></div>
         <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
+        <div class="stat"><span>STD SCORE</span><b id="endScoreNorm">0</b></div>
         <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
         <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
       </div>
@@ -159,32 +152,7 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
     </div>
   </div>
 
-  <!-- Fallback HUD-safe measure helper (boot has its own; this is safety net) -->
-  <script>
-    (function(){
-      function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-      function updateSafe(){
-        try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-          const sab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
-          const top = document.getElementById('gjHudTop');
-          const bot = document.getElementById('gjHudBot');
-          const topH = (top?.getBoundingClientRect().height || 0);
-          const botH = (bot?.getBoundingClientRect().height || 0);
-          document.documentElement.style.setProperty('--gj-top-safe', px(topH + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(botH + 16 + sab));
-        }catch(_){}
-      }
-      window.addEventListener('resize', updateSafe, {passive:true});
-      window.addEventListener('orientationchange', updateSafe, {passive:true});
-      setTimeout(updateSafe, 0);
-      setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 350);
-      setInterval(updateSafe, 1200);
-    })();
-  </script>
-
-  <!-- UI wiring (HUB/Missions/HUD/End) -->
+  <!-- UI wiring: hub/back/end/peek/hide + flush-hardened -->
   <script>
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
@@ -194,10 +162,6 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
       const diff = qs('diff','normal');
       const time = qs('time','80');
       const hub  = (qs('hub','')||'').trim() || null;
-
-      // Chip meta (actual view is decided by boot — strict auto)
-      const chip = byId('chipMeta');
-      if(chip) chip.textContent = `GoodJunkVR · run=${run} · diff=${diff} · time=${time}`;
 
       function hardFlush(){
         try{ window.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
@@ -211,46 +175,50 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
         if(document.visibilityState === 'hidden') hardFlush();
       }, { passive:true });
 
+      // top chip meta (use auto view from boot)
+      const chip = byId('chipMeta');
+      function updateChip(){
+        const v = document.body?.dataset?.view || '-';
+        if(chip) chip.textContent = `GoodJunkVR · view=${v} · run=${run} · diff=${diff} · time=${time}`;
+      }
+      window.addEventListener('hha:view', updateChip, {passive:true});
+      setTimeout(updateChip, 50);
+
       byId('btnBackHub')?.addEventListener('click', ()=>{
         if(hub) flushThenGo(hub);
         else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
       });
 
-      // Missions peek (show 4.2s)
-      const peek = byId('missionsPeek');
-      byId('btnMissions')?.addEventListener('click', ()=>{
-        document.body.classList.add('show-missions');
-        if(peek) peek.setAttribute('aria-hidden','false');
+      // Missions peek (show overlay 4.2s)
+      const peek = byId('peekOverlay');
+      const peekGoal = byId('peekGoal');
+      const peekMini = byId('peekMini');
+
+      function showPeek(goalTxt, miniTxt){
+        if(peekGoal) peekGoal.textContent = `GOAL: ${goalTxt || '—'}`;
+        if(peekMini) peekMini.textContent = `MINI: ${miniTxt || '—'}`;
+        if(peek){
+          peek.setAttribute('aria-hidden','false');
+          document.body.classList.add('show-missions');
+        }
         setTimeout(()=>{
-          document.body.classList.remove('show-missions');
           if(peek) peek.setAttribute('aria-hidden','true');
+          document.body.classList.remove('show-missions');
         }, 4200);
+      }
+
+      byId('btnMissions')?.addEventListener('click', ()=>{
+        // if safe.js already wrote to HUD ids, read them
+        const g = byId('hud-goal')?.textContent || '—';
+        const md = byId('hud-mini')?.textContent || '—';
+        showPeek(g, md);
       });
 
       // Hide HUD
       byId('btnHideHud')?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
+        try{ window.dispatchEvent(new CustomEvent('hha:hud', {detail:{hidden: document.body.classList.contains('hud-hidden')}})); }catch(_){}
       });
-
-      // Keep peek text updated from quest events if available
-      function setPeek(d){
-        try{
-          const g = d?.goal || null;
-          const m = d?.mini || null;
-          byId('peekGoal') && (byId('peekGoal').textContent = `GOAL: ${g?.title || '—'}`);
-          if(m){
-            const s = (m.type==='fast_hits')
-              ? `${m.title}: ${m.cur||0}/${m.target||0} (≤${m.thrMs||'-'}ms)`
-              : (m.type==='avoid_junk')
-                ? `${m.title}: ${Math.ceil(m.cur||0)}/${m.target||0}s`
-                : `${m.title}: ${m.cur||0}/${m.target||0}`;
-            byId('peekMini') && (byId('peekMini').textContent = `MINI: ${s}`);
-          }else{
-            byId('peekMini') && (byId('peekMini').textContent = 'MINI: —');
-          }
-        }catch(_){}
-      }
-      window.addEventListener('quest:update', (ev)=> setPeek(ev?.detail||null), { passive:true });
 
       // End overlay
       const endOverlay = byId('endOverlay');
@@ -258,19 +226,22 @@ GoodJunkVR Run — PRODUCTION (FX restored + boss/rage + strict auto)
         try{
           if(!endOverlay) return;
           byId('endTitle').textContent = (d?.reason === 'miss-limit') ? 'Game Over' : 'Completed';
-          byId('endSub').textContent = `reason=${d?.reason||'-'} | mode=${d?.runMode||run} | view=${d?.device||'-'}`;
+          byId('endSub').textContent = `reason=${d?.reason||'-'} | mode=${d?.runMode||run} | view=${d?.device||document.body.dataset.view||'-'}`;
           byId('endGrade').textContent = d?.grade || '—';
+          byId('endMedal').textContent = d?.medal || '—';
           byId('endScore').textContent = String(d?.scoreFinal ?? 0);
+          byId('endScoreNorm').textContent = String(d?.scoreNorm ?? d?.scoreFinal ?? 0);
           byId('endMiss').textContent  = String(d?.misses ?? 0);
           byId('endTime').textContent  = String(Math.round(Number(d?.durationPlayedSec||0)));
-
           endOverlay.style.display = 'flex';
           endOverlay.setAttribute('aria-hidden','false');
         }catch(_){}
       }
       function onEnd(ev){ showEnd(ev?.detail || null); }
+
       window.addEventListener('hha:end', onEnd, { passive:true });
       document.addEventListener('hha:end', onEnd, { passive:true });
+      document.body?.addEventListener('hha:end', onEnd, { passive:true });
 
       byId('endBackHub')?.addEventListener('click', ()=>{
         if(hub) flushThenGo(hub);
