@@ -1,10 +1,9 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — PRODUCTION CSS (HHA Standard)
-✅ supports view: pc / mobile / vr / cvr (body.view-*)
-✅ supports HUD safe layout (top/bottom safe + vr-ui buttons clickable)
-✅ targets: .plateTarget (JS sets inline size/pos; CSS adds anim/feel)
-✅ cVR strict: targets pointer-events:none (shoot from crosshair via hha:shoot)
-✅ FX hooks: boss/storm layers + hit pulse + panic
+Balanced Plate VR — PRODUCTION+ (HHA Standard UI)
+✅ PC/Mobile/VR/cVR
+✅ HUD-safe spawn friendly (JS uses bounding rects)
+✅ Plays nice with vr-ui.js overlay buttons
+✅ Boss/Storm FX classes used by plate.safe.js
 */
 
 :root{
@@ -19,10 +18,11 @@ Balanced Plate VR — PRODUCTION CSS (HHA Standard)
   --accent:#22c55e;
   --warn:#f59e0b;
   --bad:#ef4444;
-  --cyan:#22d3ee;
   --violet:#a78bfa;
+  --cyan:#22d3ee;
 
   --radius:18px;
+  --radius-lg:22px;
   --pill:999px;
 
   /* safe-area */
@@ -31,281 +31,207 @@ Balanced Plate VR — PRODUCTION CSS (HHA Standard)
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* HUD safe slots for spawn logic (plate.safe.js measures from DOM anyway)
-     แต่เผื่อ debug/override */
-  --plate-top-safe: calc(120px + var(--sat));
-  --plate-bottom-safe: calc(110px + var(--sab));
-
-  /* target feel */
-  --t-shadow: 0 18px 44px rgba(0,0,0,.28);
-  --t-bg: rgba(2,6,23,.55);
-  --t-bd: rgba(148,163,184,.18);
-
-  /* FX intensity */
-  --fx-dim: rgba(2,6,23,.22);
+  /* baseline tap */
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* ------------------------------------------------------------------ */
-/* global reset helpers */
-*{ box-sizing:border-box; }
-html,body{ width:100%; height:100%; }
-body{
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+html, body{
+  width:100%;
+  height:100%;
   margin:0;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-/* ------------------------------------------------------------------ */
-/* View modes */
-body.view-pc{
-  --plate-top-safe: 120px;
-  --plate-bottom-safe: 110px;
-}
-body.view-mobile{
-  --plate-top-safe: calc(128px + var(--sat));
-  --plate-bottom-safe: calc(118px + var(--sab));
-}
-body.view-vr{
-  /* ใน VR ปกติ HUD จะยังอยู่ แต่ควรเว้น safe มากขึ้นให้ยิงง่าย */
-  --plate-top-safe: calc(140px + var(--sat));
-  --plate-bottom-safe: calc(130px + var(--sab));
-}
-body.view-cvr{
-  /* cVR: ยิงจาก crosshair, ไม่ต้องแตะเป้า */
-  --plate-top-safe: calc(150px + var(--sat));
-  --plate-bottom-safe: calc(140px + var(--sab));
+body{
+  /* Make sure overlays/vr-ui clickable: */
+  position:relative;
 }
 
-/* ------------------------------------------------------------------ */
-/* Keep Universal VR UI buttons always clickable */
-.hha-vr-ui,
-.hha-vr-ui *{
-  pointer-events:auto !important;
-}
-.hha-vr-ui{
-  z-index: 9999 !important;
-}
-
-/* กัน HUD ไปทับ VR UI มุมขวาบน */
-#hudTop, .hudTop{
-  padding-right: 132px; /* เผื่อพื้นที่ปุ่ม EnterVR/Exit/Recenter ของ vr-ui.js */
-}
-
-/* ------------------------------------------------------------------ */
-/* Spawn layer */
-#plate-layer{
-  position:fixed;
-  inset:0;
-  z-index:10;
-  pointer-events:auto;
-  touch-action:none;
-  user-select:none;
+/* prevent text selection / callout in game feel */
+body, button, .pill{
   -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
 }
 
-/* cVR strict: เป้าไม่รับคลิก (ยิงจาก crosshair) */
+/* ---------------------------------------
+   View flags (set by plate.safe.js)
+---------------------------------------- */
+body.view-mobile{}
+body.view-pc{}
+body.view-vr{}
+body.view-cvr{}
+
+/* cVR strict: do not allow tapping targets if you want pure crosshair-only.
+   NOTE: plate.safe.js already supports hha:shoot; keeping taps enabled is OK.
+   If you want strict no-tap in cVR, uncomment below.
+*/
+/*
 body.view-cvr #plate-layer .plateTarget{
   pointer-events:none !important;
 }
+*/
 
-/* ------------------------------------------------------------------ */
-/* Targets */
+/* ---------------------------------------
+   Targets
+---------------------------------------- */
 .plateTarget{
-  position:absolute;
-  display:grid;
-  place-items:center;
-
-  border-radius:999px;
-  border: 1px solid var(--t-bd);
-  background: var(--t-bg);
-  backdrop-filter: blur(8px);
-  box-shadow: var(--t-shadow);
-
-  font-weight: 1000;
-  line-height:1;
-  transform: translateZ(0);
-
+  /* JS assigns geometry inline; keep only behavior & transitions here */
   cursor:pointer;
-  -webkit-tap-highlight-color: transparent;
-  outline:none;
-
-  /* animation */
-  animation: platePop .16s ease-out both;
-  will-change: transform, opacity, filter;
+  touch-action:none;
+  transition: transform .08s ease, filter .08s ease, opacity .12s ease;
+  will-change: transform, opacity;
 }
 
-/* spawn pop */
-@keyframes platePop{
-  from{ transform:scale(.86); opacity:.0; filter:blur(1px); }
-  to  { transform:scale(1);   opacity:1;   filter:none; }
-}
-
-/* gentle float */
-.plateTarget::after{
-  content:'';
-  position:absolute;
-  inset:-10%;
-  border-radius:999px;
-  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.06), transparent 55%);
-  pointer-events:none;
-}
-
-/* hover/active */
-@media (hover:hover){
-  .plateTarget:hover{
-    filter: brightness(1.08);
-    transform: scale(1.02);
-  }
-}
 .plateTarget:active{
-  transform: scale(.98);
+  transform: translateZ(0) scale(0.96);
 }
 
-/* kind styling hooks (JS sets data-kind) */
+/* Kind hints (optional) */
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.25);
+  box-shadow: 0 18px 44px rgba(0,0,0,.28), 0 0 0 1px rgba(34,197,94,.06) inset;
 }
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.25);
+  box-shadow: 0 18px 44px rgba(0,0,0,.28), 0 0 0 1px rgba(239,68,68,.06) inset;
 }
 .plateTarget[data-kind="shield"]{
-  border-color: rgba(34,211,238,.28);
+  box-shadow: 0 18px 44px rgba(0,0,0,.28), 0 0 0 1px rgba(34,211,238,.08) inset;
 }
 
-/* hit feedback classes (plate.safe.js uses fxPulse on #hitFx,
-   แต่เรายังให้ target flash ได้ถ้าอยากใช้ในอนาคต) */
-.plateTarget.hit-good{ animation: plateHitGood .18s ease-out both; }
-.plateTarget.hit-bad { animation: plateHitBad  .18s ease-out both; }
-
-@keyframes plateHitGood{
-  0%{ transform:scale(1); }
-  60%{ transform:scale(1.10); filter:brightness(1.22); }
-  100%{ transform:scale(.92); opacity:0; }
-}
-@keyframes plateHitBad{
-  0%{ transform:scale(1); }
-  60%{ transform:scale(1.06); filter:brightness(1.18) saturate(1.1); }
-  100%{ transform:scale(.92); opacity:0; }
-}
-
-/* despawn fade (ถ้าจะใส่ class ตอน expire) */
-.plateTarget.fade-out{
-  animation: plateFade .16s ease-out both;
-}
-@keyframes plateFade{
-  from{ opacity:1; transform:scale(1); }
-  to{ opacity:0; transform:scale(.92); }
-}
-
-/* ------------------------------------------------------------------ */
-/* Hit FX overlay */
-#hitFx{
-  position:fixed;
-  inset:0;
-  z-index:12;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .12s ease;
-}
-
-/* ------------------------------------------------------------------ */
-/* Boss / Storm FX layers */
-#bossFx, #stormFx{
-  position:fixed;
-  inset:0;
-  z-index:55;
-  pointer-events:none;
-  display:none;
-}
-
-/* Boss ambience */
-#bossFx.boss-on{
-  display:block;
-  background:
-    radial-gradient(circle at 18% 20%, rgba(167,139,250,.14), transparent 45%),
-    radial-gradient(circle at 82% 26%, rgba(239,68,68,.10), transparent 45%),
-    linear-gradient(180deg, rgba(2,6,23,.12), rgba(2,6,23,.36));
-  animation: bossBreath 1.4s ease-in-out infinite;
-}
-@keyframes bossBreath{
-  0%,100%{ filter:brightness(1.0); }
-  50%{ filter:brightness(1.06); }
-}
-#bossFx.boss-panic{
-  animation: bossPanic .6s ease-in-out infinite;
-}
-@keyframes bossPanic{
-  0%,100%{ filter:brightness(1.05) contrast(1.02); }
-  50%{ filter:brightness(1.18) contrast(1.06); }
-}
-
-/* Storm ambience */
-#stormFx{
-  display:none;
-}
-#stormFx{
-  background:
-    radial-gradient(circle at 30% 18%, rgba(34,211,238,.12), transparent 45%),
-    radial-gradient(circle at 70% 30%, rgba(59,130,246,.10), transparent 52%),
-    linear-gradient(180deg, rgba(2,6,23,.10), rgba(2,6,23,.36));
-}
-#stormFx.storm-panic{
-  filter:brightness(1.18);
-}
-body .storm-on #stormFx,
-#stormFx.storm-on{
-  display:block;
-  animation: stormWobble 1.2s ease-in-out infinite;
-}
-@keyframes stormWobble{
-  0%,100%{ transform: translate3d(0,0,0); }
-  50%{ transform: translate3d(0,-1px,0); }
-}
-
-/* ------------------------------------------------------------------ */
-/* HUD spacing helpers (optional) */
-#miniPanel, #coachPanel{
-  pointer-events:none;
-}
+/* ---------------------------------------
+   HUD readability helpers
+---------------------------------------- */
+.hudTop .card,
 #miniPanel .questCard,
 #coachPanel .questCard,
-.hudTop .card{
+#bossHud .bossCard,
+#stormHud .stormCard{
+  backface-visibility:hidden;
+  transform: translateZ(0);
+}
+
+/* keep important overlays above play layer */
+#hudBtns{ z-index: 40; }
+#bossHud{ z-index: 42; }
+#stormHud{ z-index: 43; }
+
+/* vr-ui.js usually uses its own z-index; ensure our HUD doesn't block it */
+.hha-vrui,
+#hha-vrui,
+.hha-vr-ui,
+.hha-vrui-root{
+  z-index: 60 !important;
+}
+
+/* In case vr-ui uses fixed buttons corner, allow click-through where needed */
+.hudTop, #miniPanel, #coachPanel, #bossHud, #stormHud{
+  pointer-events:none;
+}
+.hudTop .card,
+#miniPanel .questCard,
+#coachPanel .questCard,
+#bossHud .bossCard,
+#stormHud .stormCard{
   pointer-events:auto;
 }
 
-/* ------------------------------------------------------------------ */
-/* Responsive adjustments */
-@media (max-width: 920px){
-  #hudTop, .hudTop{ padding-right: 140px; }
+/* ---------------------------------------
+   FX: boss/storm layers (classes toggled by JS)
+---------------------------------------- */
+#bossFx{
+  background:
+    radial-gradient(circle at 22% 18%, rgba(167,139,250,.16), transparent 48%),
+    radial-gradient(circle at 82% 78%, rgba(239,68,68,.10), transparent 54%),
+    linear-gradient(180deg, rgba(2,6,23,.10), rgba(2,6,23,.24));
+  opacity:0;
+  transition: opacity .16s ease, filter .16s ease;
 }
 
-@media (max-width: 420px){
-  #hudTop, .hudTop{ gap:8px; }
-  #hudTop .card{ padding:9px 10px; }
-  #miniPanel .questCard{ padding:9px 10px; }
-  #coachPanel .questCard{ padding:9px 10px; }
+#stormFx{
+  background:
+    radial-gradient(circle at 18% 22%, rgba(34,211,238,.18), transparent 52%),
+    radial-gradient(circle at 78% 82%, rgba(34,197,94,.10), transparent 56%),
+    linear-gradient(180deg, rgba(2,6,23,.10), rgba(2,6,23,.24));
+  opacity:0;
+  transition: opacity .16s ease, filter .16s ease;
 }
 
-/* Landscape mobile: ลดความสูง HUD ให้พื้นที่เล่นมากขึ้น */
-@media (max-height: 520px) and (orientation:landscape){
-  body.view-mobile{
-    --plate-top-safe: calc(98px + var(--sat));
-    --plate-bottom-safe: calc(86px + var(--sab));
+/* boss on */
+#bossFx.boss-on{
+  opacity:1;
+}
+#bossFx.boss-panic{
+  filter: brightness(1.18) saturate(1.08);
+}
+
+/* storm panic */
+#stormFx.storm-panic{
+  opacity:1;
+  filter: brightness(1.18) saturate(1.06);
+}
+
+/* ---------------------------------------
+   Micro FX classes (fallbacks; JS may also inject)
+---------------------------------------- */
+.pfx-shake{ animation:pfxShake .18s ease-in-out 0s 2; }
+@keyframes pfxShake{
+  0%{transform:translate(0,0)}
+  25%{transform:translate(2px,0)}
+  50%{transform:translate(-2px,1px)}
+  75%{transform:translate(1px,-1px)}
+  100%{transform:translate(0,0)}
+}
+
+.pfx-blink{ animation:pfxBlink .26s ease-in-out 0s 6; }
+@keyframes pfxBlink{
+  0%,100%{filter:none}
+  50%{filter:brightness(1.35)}
+}
+
+.pfx-tick{ animation:pfxTick .12s linear 0s 1; }
+@keyframes pfxTick{
+  0%{transform:scale(1)}
+  50%{transform:scale(1.03)}
+  100%{transform:scale(1)}
+}
+
+/* ---------------------------------------
+   Responsive tweaks
+---------------------------------------- */
+@media (max-width: 520px){
+  /* tighten HUD a bit */
+  .hudTop{
+    gap:8px;
   }
-  #miniPanel{ top: calc(70px + var(--sat)); }
-  #coachPanel{ bottom: calc(58px + var(--sab)); }
+  .hudTop .card{
+    min-width: 160px !important;
+    padding:9px 10px !important;
+  }
+  #miniPanel .questCard,
+  #coachPanel .questCard{
+    padding:9px 10px !important;
+  }
 }
 
-/* cVR: เพิ่มขนาดข้อความเป้าให้เด่นขึ้นนิด (JS set font inline แต่ช่วยให้คม) */
-body.view-cvr .plateTarget{
-  text-shadow: 0 2px 0 rgba(0,0,0,.35);
+/* Landscape phone */
+@media (max-height: 520px){
+  #coachPanel{
+    bottom: calc(56px + var(--sab)) !important;
+  }
 }
 
-/* ------------------------------------------------------------------ */
-/* Accessibility / reduced motion */
+/* ---------------------------------------
+   Accessibility / reduced motion
+---------------------------------------- */
 @media (prefers-reduced-motion: reduce){
-  .plateTarget{ animation:none !important; }
-  #bossFx.boss-on, #stormFx.storm-on{ animation:none !important; }
+  *{ animation:none !important; transition:none !important; }
 }
