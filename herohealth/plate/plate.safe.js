@@ -968,6 +968,7 @@ function startStormCycle(){
   if(stormFx){
     stormFx.style.display = 'block';
     stormFx.classList.add('storm-on');
+    stormFx.classList.remove('storm-panic');
   }
 
   if(stormTitle) stormTitle.textContent = `🌪️ STORM ${storm.cycleIndex+1}/${storm.cyclesPlanned}`;
@@ -976,7 +977,7 @@ function startStormCycle(){
       ? `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s (ห้ามโดนขยะ!)`
       : `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s`;
   }
-  if(stormProg) stormProg.textContent = `เหลือ ${storm.durationSec}s • GOOD 0/${storm.needGood}`;
+  if(stormProg) stormProg.textContent = `GOOD 0/${storm.needGood}`;
 
   judge('🌪️ STORM START!', 'warn');
   coach('พายุมาแล้ว! เก็บ GOOD ให้ทัน! 🌪️', (fever>70?'fever':'neutral'));
@@ -996,7 +997,6 @@ function stormTimeLeft(){
 function updateStormHud(){
   if(!storm.active) return;
   const tl = stormTimeLeft();
-
   if(stormHint){
     const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
     stormHint.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
@@ -1024,7 +1024,7 @@ function finishStorm(ok, reason){
 
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-panic','storm-on');
+    stormFx.classList.remove('storm-on','storm-panic');
     stormFx.style.display = 'none';
   }
 
@@ -1506,7 +1506,7 @@ function resetState(){
   }
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-panic','storm-on');
+    stormFx.classList.remove('storm-on','storm-panic');
     stormFx.style.display = 'none';
   }
 }
