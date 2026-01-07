@@ -1,11 +1,8 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION
-// Listens: hha:judge, hha:score, hha:miss, hha:celebrate
-// Requires: ../vr/particles.js (Particles / GAME_MODULES.Particles)
-//
-// ✅ Works across all games (GoodJunk/Hydration/Plate/Groups)
-// ✅ Safe: no-throw, no dependencies
-// ✅ Small rate-limit to prevent FX spam
+// HHA FX Director — PRODUCTION (safe, no deps)
+// Listens: hha:score / hha:judge / hha:miss / hha:celebrate / hha:stage
+// Requires: Particles.popText at minimum (from ../vr/particles.js)
+// Optional: Particles.burst / Particles.confetti / Particles.ping (if you extend later)
 
 (function(root){
   'use strict';
@@ -13,151 +10,116 @@
   if(!DOC || root.__HHA_FX_DIRECTOR__) return;
   root.__HHA_FX_DIRECTOR__ = true;
 
+  const Particles = root.Particles || root.GAME_MODULES?.Particles || {};
   const clamp = (v,min,max)=> (v<min?min:(v>max?max:v));
-  const now = ()=> performance.now();
 
-  function P(){
-    return (root.GAME_MODULES && root.GAME_MODULES.Particles) || root.Particles || null;
+  function has(fn){ return typeof Particles[fn] === 'function'; }
+  function pop(x,y,text){
+    if(has('popText')) Particles.popText(x,y,text);
   }
 
-  function getXY(d){
-    const W = DOC.documentElement.clientWidth || innerWidth || 1;
-    const H = DOC.documentElement.clientHeight || innerHeight || 1;
-    let x = Number(d?.x);
-    let y = Number(d?.y);
-
-    if(!Number.isFinite(x)) x = W * 0.5;
-    if(!Number.isFinite(y)) y = H * 0.42;
-
-    // keep inside screen a bit
-    x = clamp(x, 18, W-18);
-    y = clamp(y, 18, H-18);
-    return { x,y };
+  function kick(ms=90){
+    try{
+      DOC.body.classList.add('fx-kick');
+      setTimeout(()=>DOC.body.classList.remove('fx-kick'), ms);
+    }catch(_){}
   }
 
-  // small rate limit per channel
-  const RL = {
-    scoreAt: 0,
-    judgeAt: 0,
-    missAt: 0,
-    celebAt: 0
-  };
-
-  function safeCall(fn, ...args){
-    try{ fn && fn(...args); }catch(_){}
+  function vib(pattern){
+    try{
+      if(!('vibrate' in navigator)) return;
+      navigator.vibrate(pattern);
+    }catch(_){}
   }
 
-  function onScore(ev){
-    const t = now();
-    if(t - RL.scoreAt < 60) return; // avoid spam
-    RL.scoreAt = t;
-
+  function scoreHandler(ev){
     const d = ev?.detail || {};
-    const {x,y} = getXY(d);
-    const delta = Number(d.delta || 0);
+    const delta = Number(d.delta||0);
+    if(!delta) return;
 
-    const p = P();
-    if(!p) return;
+    const x = clamp(Number(d.x)|| (innerWidth/2), 12, innerWidth-12);
+    const y = clamp(Number(d.y)|| (innerHeight*0.45), 12, innerHeight-12);
 
-    const text = (delta>0) ? `+${delta}` : String(delta);
-    safeCall(p.scorePop || p.popText, x, y, text, delta>0 ? 'good' : 'bad');
-  }
-
-  function onMiss(ev){
-    const t = now();
-    if(t - RL.missAt < 90) return;
-    RL.missAt = t;
-
-    const d = ev?.detail || {};
-    const {x,y} = getXY(d);
-    const p = P();
-    if(!p) return;
-
-    safeCall(p.burstAt, x, y, 'bad');
-    safeCall(p.popText, x, y, 'MISS');
-  }
-
-  function onJudge(ev){
-    const t = now();
-    if(t - RL.judgeAt < 40) return;
-    RL.judgeAt = t;
-
-    const d = ev?.detail || {};
-    const type = String(d.type || '').toLowerCase();
-    const label = String(d.label || '');
-
-    const {x,y} = getXY(d);
-    const combo = Number(d.combo || 0);
-
-    const p = P();
-    if(!p) return;
-
-    if(type === 'perfect'){
-      safeCall(p.burstAt, x, y, 'perfect');
-      safeCall(p.popText, x, y, label || 'PERFECT');
-      if(combo >= 10) safeCall(p.popText, x, y-26, `COMBO ${combo}`);
-      return;
+    if(delta > 0){
+      pop(x,y, `+${delta}`);
+      if(delta >= 30) { kick(120); vib([20]); }
+      else vib([10]);
+    }else{
+      pop(x,y, `${delta}`);
+      kick(100);
+      vib([15,40,15]);
     }
+  }
+
+  function judgeHandler(ev){
+    const d = ev?.detail || {};
+    const type = String(d.type||'').toLowerCase();
+    const label = String(d.label||'').trim();
+    const x = clamp(Number(d.x)|| (innerWidth/2), 12, innerWidth-12);
+    const y = clamp(Number(d.y)|| (innerHeight*0.46), 12, innerHeight-12);
+
     if(type === 'good'){
-      safeCall(p.burstAt, x, y, 'good');
-      if(label) safeCall(p.popText, x, y, label);
+      pop(x,y, label || 'GOOD');
+      vib([8]);
       return;
     }
-    if(type === 'bad'){
-      safeCall(p.burstAt, x, y, 'bad');
-      if(label) safeCall(p.popText, x, y, label);
+    if(type === 'perfect'){
+      pop(x,y, label || 'PERFECT');
+      kick(120);
+      vib([15,35,15]);
       return;
     }
     if(type === 'block'){
-      safeCall(p.burstAt, x, y, 'block');
-      safeCall(p.popText, x, y, label || 'BLOCK');
+      pop(x,y, label || 'BLOCK');
+      vib([12]);
+      return;
+    }
+    if(type === 'bad'){
+      pop(x,y, label || 'OOPS');
+      kick(140);
+      vib([25,40,25]);
       return;
     }
     if(type === 'miss'){
-      safeCall(p.burstAt, x, y, 'bad');
-      return;
+      // small subtle
+      if(label && label !== '—') pop(x,y, label);
+      vib([10]);
     }
-
-    // default: tiny hint
-    if(label) safeCall(p.popText, x, y, label);
   }
 
-  function onCelebrate(ev){
-    const t = now();
-    if(t - RL.celebAt < 350) return;
-    RL.celebAt = t;
-
+  function missHandler(ev){
     const d = ev?.detail || {};
-    const kind = String(d.kind || 'end');
-    const grade = String(d.grade || '');
-
-    const p = P();
-    if(!p) return;
-
-    safeCall(p.celebrate, { kind, grade });
+    const x = clamp(Number(d.x)|| (innerWidth/2), 12, innerWidth-12);
+    const y = clamp(Number(d.y)|| (innerHeight*0.48), 12, innerHeight-12);
+    pop(x,y,'MISS');
+    kick(150);
+    vib([22,40,22]);
   }
 
-  // Listen on BOTH window + document (you already use both in your ecosystem)
-  root.addEventListener('hha:score', onScore, { passive:true });
-  root.addEventListener('hha:judge', onJudge, { passive:true });
-  root.addEventListener('hha:miss',  onMiss,  { passive:true });
-  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+  function celebrateHandler(ev){
+    const d = ev?.detail || {};
+    const kind = String(d.kind||'').toLowerCase();
+    if(kind === 'mini'){
+      pop(innerWidth/2, innerHeight*0.30, 'MINI CLEAR!');
+      vib([15,30,15]);
+    }else if(kind === 'end'){
+      pop(innerWidth/2, innerHeight*0.28, 'FINISH!');
+      vib([25,40,25]);
+    }
+  }
 
-  DOC.addEventListener('hha:score', onScore, { passive:true });
-  DOC.addEventListener('hha:judge', onJudge, { passive:true });
-  DOC.addEventListener('hha:miss',  onMiss,  { passive:true });
-  DOC.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+  function stageHandler(ev){
+    const d = ev?.detail || {};
+    const stage = String(d.stage||'').toLowerCase();
+    if(stage === 'storm') pop(innerWidth/2, innerHeight*0.20, 'STORM!');
+    if(stage === 'boss')  pop(innerWidth/2, innerHeight*0.20, 'BOSS!');
+    if(stage === 'rage')  pop(innerWidth/2, innerHeight*0.20, 'RAGE!');
+  }
 
-  // quick test helper
-  root.HHA_FX_TEST = function(){
-    const W = DOC.documentElement.clientWidth || innerWidth || 360;
-    const H = DOC.documentElement.clientHeight || innerHeight || 640;
-    const x = W*0.5, y = H*0.45;
+  root.addEventListener('hha:score', scoreHandler, { passive:true });
+  root.addEventListener('hha:judge', judgeHandler, { passive:true });
+  root.addEventListener('hha:miss',  missHandler,  { passive:true });
+  root.addEventListener('hha:celebrate', celebrateHandler, { passive:true });
+  root.addEventListener('hha:stage', stageHandler, { passive:true });
 
-    try{ root.dispatchEvent(new CustomEvent('hha:score',{detail:{delta:+12,x,y}})); }catch(_){}
-    try{ root.dispatchEvent(new CustomEvent('hha:judge',{detail:{type:'perfect',x,y: y-40, combo:12, label:'PERFECT'}})); }catch(_){}
-    try{ root.dispatchEvent(new CustomEvent('hha:miss',{detail:{x:x+40,y:y+30}})); }catch(_){}
-    try{ root.dispatchEvent(new CustomEvent('hha:celebrate',{detail:{kind:'end', grade:'A'}})); }catch(_){}
-    return 'FX_TEST fired';
-  };
 })(window);
