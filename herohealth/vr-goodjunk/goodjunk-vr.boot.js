@@ -1,11 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (ULTRA + STRICT AUTO)
-// ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
+// ✅ NO MENU, NO OVERRIDE (base view auto)
 // ✅ Auto base view: pc / mobile
-// ✅ Uses ../vr/vr-ui.js (already included in run html)
-// ✅ Auto-switch on Enter/Exit VR via hha:enter-vr / hha:exit-vr:
-//    - mobile -> cvr
-//    - desktop -> vr
+// ✅ VR UI optional (if navigator.xr)
+// ✅ WAIT FX READY: ensures particles + fx-director before engine
 // ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
 // ✅ Debug keys: Space/Enter => hha:shoot
 // ✅ Boots engine: goodjunk.safe.js
@@ -29,24 +27,68 @@ function setBodyView(view){
   const b = DOC.body;
   b.classList.add('gj');
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
   if(view === 'pc') b.classList.add('view-pc');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'cvr') b.classList.add('view-cvr');
   else b.classList.add('view-mobile');
 
   const r = DOC.getElementById('gj-layer-r');
-  if(r){
-    r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
-  }
+  if(r) r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
 
   DOC.body.dataset.view = view;
-
-  try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view } })); }catch(_){}
 }
 
 function baseAutoView(){
   return isMobileUA() ? 'mobile' : 'pc';
+}
+
+function loadScriptOnce(src){
+  return new Promise((resolve)=>{
+    const exists = Array.from(DOC.scripts||[]).some(s => (s.src||'').includes(src));
+    if(exists) return resolve(true);
+    const s = DOC.createElement('script');
+    s.src = src;
+    s.defer = true;
+    s.onload = ()=> resolve(true);
+    s.onerror = ()=> resolve(false);
+    DOC.head.appendChild(s);
+  });
+}
+
+async function ensureFxReady(){
+  // if particles already present -> ok
+  if(WIN.Particles || WIN.GAME_MODULES?.Particles) return true;
+
+  // try load particles.js relative to this folder
+  // NOTE: goodjunk-vr.html already includes particles normally, this is fallback
+  await loadScriptOnce('../vr/particles.js');
+
+  // ensure director exists too (fallback)
+  if(!WIN.__HHA_FX_DIRECTOR__){
+    await loadScriptOnce('../vr/hha-fx-director.js');
+  }
+
+  // small wait for defer script execution
+  for(let i=0;i<20;i++){
+    if(WIN.Particles || WIN.GAME_MODULES?.Particles) return true;
+    await new Promise(r=>setTimeout(r, 25));
+  }
+  return false;
+}
+
+function ensureVrUiLoaded(){
+  if(!navigator.xr) return;
+  if(WIN.__HHA_VR_UI_LOADED__) return;
+  WIN.__HHA_VR_UI_LOADED__ = true;
+
+  const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
+  if(exists) return;
+
+  const s = DOC.createElement('script');
+  s.src = '../vr/vr-ui.js';
+  s.defer = true;
+  s.onerror = ()=> console.warn('[GoodJunkVR] vr-ui.js failed to load');
+  DOC.head.appendChild(s);
 }
 
 function bindVrAutoSwitch(){
@@ -54,9 +96,11 @@ function bindVrAutoSwitch(){
 
   function onEnter(){
     setBodyView(isMobileUA() ? 'cvr' : 'vr');
+    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
   }
   function onExit(){
     setBodyView(base);
+    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
   }
 
   WIN.addEventListener('hha:enter-vr', onEnter, { passive:true });
@@ -86,22 +130,24 @@ function hudSafeMeasure(){
       const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
 
       const topbar  = DOC.querySelector('.gj-topbar');
-      const hudTop  = DOC.getElementById('gjHudTop');
-      const hudBot  = DOC.getElementById('gjHudBot');
+      const hudTop  = DOC.getElementById('gjHudTop') || DOC.getElementById('hud');
+      const hudBot  = DOC.getElementById('gjHudBot') || DOC.getElementById('feverBox');
+      const controls= DOC.querySelector('.hha-controls');
 
       let topSafe = 0;
       topSafe = Math.max(topSafe, h(topbar));
       topSafe = Math.max(topSafe, h(hudTop));
-      topSafe += (14 + sat);
+      topSafe = Math.max(72 + sat, topSafe + 14 + sat);
 
       let bottomSafe = 0;
       bottomSafe = Math.max(bottomSafe, h(hudBot));
-      bottomSafe += (16 + sab);
+      bottomSafe = Math.max(bottomSafe, h(controls));
+      bottomSafe = Math.max(76 + sab, bottomSafe + 16 + sab);
 
       const hudHidden = DOC.body.classList.contains('hud-hidden');
       if(hudHidden){
         topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
-        bottomSafe = Math.max(76 + sab, 76 + sab);
+        bottomSafe = Math.max(76 + sab, h(hudBot) + 10 + sab);
       }
 
       root.style.setProperty('--gj-top-safe', px(topSafe));
@@ -112,31 +158,31 @@ function hudSafeMeasure(){
   WIN.addEventListener('resize', update, { passive:true });
   WIN.addEventListener('orientationchange', update, { passive:true });
 
-  WIN.addEventListener('hha:hud', ()=>{
-    setTimeout(update, 30);
-    setTimeout(update, 180);
-    setTimeout(update, 420);
-  }, { passive:true });
-
   WIN.addEventListener('hha:view', ()=>{
     setTimeout(update, 0);
-    setTimeout(update, 120);
-    setTimeout(update, 350);
+    setTimeout(update, 140);
+    setTimeout(update, 360);
   }, { passive:true });
 
   setTimeout(update, 0);
-  setTimeout(update, 120);
-  setTimeout(update, 350);
+  setTimeout(update, 140);
+  setTimeout(update, 360);
   setInterval(update, 1200);
 }
 
-function start(){
-  const view = baseAutoView(); // ✅ STRICT AUTO BASE VIEW
+async function start(){
+  const view = baseAutoView();
   setBodyView(view);
 
+  ensureVrUiLoaded();
   bindVrAutoSwitch();
   bindDebugKeys();
   hudSafeMeasure();
+
+  const fxOk = await ensureFxReady();
+  if(!fxOk){
+    console.warn('[GoodJunkVR] FX not ready (particles missing). Game will still run.');
+  }
 
   engineBoot({
     view,
