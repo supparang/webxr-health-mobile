@@ -2,7 +2,7 @@
 // GoodJunkVR Boot — PRODUCTION (ULTRA + STRICT AUTO)
 // ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
 // ✅ Auto base view: pc / mobile
-// ✅ Loads ../vr/vr-ui.js automatically when WebXR is available (navigator.xr)
+// ✅ Uses ../vr/vr-ui.js (already included in run html)
 // ✅ Auto-switch on Enter/Exit VR via hha:enter-vr / hha:exit-vr:
 //    - mobile -> cvr
 //    - desktop -> vr
@@ -29,59 +29,39 @@ function setBodyView(view){
   const b = DOC.body;
   b.classList.add('gj');
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+
   if(view === 'pc') b.classList.add('view-pc');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'cvr') b.classList.add('view-cvr');
   else b.classList.add('view-mobile');
 
-  // aria for right eye (only meaningful in cVR split)
   const r = DOC.getElementById('gj-layer-r');
   if(r){
     r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
   }
 
   DOC.body.dataset.view = view;
+
+  try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view } })); }catch(_){}
 }
 
 function baseAutoView(){
   return isMobileUA() ? 'mobile' : 'pc';
 }
 
-function ensureVrUiLoaded(){
-  // Load only if WebXR exists (so ENTER VR UI makes sense)
-  if(!navigator.xr) return;
-
-  if(WIN.__HHA_VR_UI_LOADED__) return;
-  WIN.__HHA_VR_UI_LOADED__ = true;
-
-  const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
-  if(exists) return;
-
-  const s = DOC.createElement('script');
-  s.src = '../vr/vr-ui.js';
-  s.defer = true;
-  s.onerror = ()=> console.warn('[GoodJunkVR] vr-ui.js failed to load');
-  DOC.head.appendChild(s);
-}
-
 function bindVrAutoSwitch(){
   const base = baseAutoView();
 
   function onEnter(){
-    // Enter VR: mobile => cvr, desktop => vr
     setBodyView(isMobileUA() ? 'cvr' : 'vr');
-    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
   }
   function onExit(){
     setBodyView(base);
-    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
   }
 
-  // STRICT: only listen to HHA events (emitted by vr-ui.js bridge)
   WIN.addEventListener('hha:enter-vr', onEnter, { passive:true });
   WIN.addEventListener('hha:exit-vr',  onExit,  { passive:true });
 
-  // Expose hook if needed
   WIN.HHA_GJ_resetView = onExit;
 }
 
@@ -106,26 +86,22 @@ function hudSafeMeasure(){
       const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
 
       const topbar  = DOC.querySelector('.gj-topbar');
-      const hud     = DOC.getElementById('hud');
-      const miniHud = DOC.getElementById('vrMiniHud');
-      const fever   = DOC.getElementById('feverBox');
-      const controls= DOC.querySelector('.hha-controls');
+      const hudTop  = DOC.getElementById('gjHudTop');
+      const hudBot  = DOC.getElementById('gjHudBot');
 
       let topSafe = 0;
       topSafe = Math.max(topSafe, h(topbar));
-      topSafe = Math.max(topSafe, h(miniHud));
-      topSafe = Math.max(topSafe, h(hud) * 0.55);
+      topSafe = Math.max(topSafe, h(hudTop));
       topSafe += (14 + sat);
 
       let bottomSafe = 0;
-      bottomSafe = Math.max(bottomSafe, h(fever));
-      bottomSafe = Math.max(bottomSafe, h(controls));
+      bottomSafe = Math.max(bottomSafe, h(hudBot));
       bottomSafe += (16 + sab);
 
       const hudHidden = DOC.body.classList.contains('hud-hidden');
       if(hudHidden){
         topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
-        bottomSafe = Math.max(76 + sab, h(fever) + 10 + sab);
+        bottomSafe = Math.max(76 + sab, 76 + sab);
       }
 
       root.style.setProperty('--gj-top-safe', px(topSafe));
@@ -136,16 +112,12 @@ function hudSafeMeasure(){
   WIN.addEventListener('resize', update, { passive:true });
   WIN.addEventListener('orientationchange', update, { passive:true });
 
-  // when HUD toggles
-  WIN.addEventListener('click', (e)=>{
-    if(e?.target?.id === 'btnHideHud'){
-      setTimeout(update, 30);
-      setTimeout(update, 180);
-      setTimeout(update, 420);
-    }
+  WIN.addEventListener('hha:hud', ()=>{
+    setTimeout(update, 30);
+    setTimeout(update, 180);
+    setTimeout(update, 420);
   }, { passive:true });
 
-  // when view switches (enter/exit vr)
   WIN.addEventListener('hha:view', ()=>{
     setTimeout(update, 0);
     setTimeout(update, 120);
@@ -159,17 +131,15 @@ function hudSafeMeasure(){
 }
 
 function start(){
-  // STRICT AUTO BASE VIEW (pc/mobile) — never read ?view=
-  const view = baseAutoView();
+  const view = baseAutoView(); // ✅ STRICT AUTO BASE VIEW
   setBodyView(view);
 
-  ensureVrUiLoaded();
   bindVrAutoSwitch();
   bindDebugKeys();
   hudSafeMeasure();
 
   engineBoot({
-    view, // base view; will become cvr/vr after enter
+    view,
     diff: qs('diff','normal'),
     run: qs('run','play'),
     time: qs('time','80'),
