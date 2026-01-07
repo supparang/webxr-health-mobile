@@ -1,13 +1,11 @@
 <!-- === /herohealth/plate-vr.html ===
 HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
-✅ Uses: ./plate/plate-vr.css + ./plate/plate.safe.js
-✅ Uses: ./vr/vr-ui.js (EnterVR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
-✅ Uses: ./vr/particles.js (FX layer) + ./vr/hha-cloud-logger.js (cloud logger)
-✅ IDs match plate.safe.js: plate-layer, hitFx, hudTop, miniPanel, coachPanel, hudBtns,
-   bossHud/bossTitle/bossHint/bossProg/bossFx, stormHud/stormTitle/stormHint/stormProg/stormFx,
-   startOverlay/btnStart/btnStartMain/btnCopyLink/btnGoLauncher/hudPaused/resultBackdrop/btnPlayAgain/btnBackHub
+✅ PC/Mobile/VR/cVR via query view=
+✅ Uses: ./plate/plate-vr.css (external)
+✅ Uses: ./vr/particles.js + ./vr/hha-cloud-logger.js + ./vr/vr-ui.js
+✅ Uses: ./plate/plate.safe.js (module)
+✅ FIX: ensure #btnStart exists (bridge btnStartMain -> btnStart)
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -20,7 +18,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
   <!-- External CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (for ENTER VR / EXIT / RECENTER) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
@@ -413,8 +411,9 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- IMPORTANT: plate.safe.js binds to btnStart -->
+      <!-- ✅ IMPORTANT: btnStart exists (hidden) used by plate.safe.js / start overlay bridge -->
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
+
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
       <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
@@ -520,7 +519,6 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION+
 
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
-      // ✅ IMPORTANT: delegates to #btnStart which plate.safe.js listens to
       btnStartMain?.addEventListener('click', ()=>{
         const b = document.getElementById('btnStart');
         if(b) b.click();
