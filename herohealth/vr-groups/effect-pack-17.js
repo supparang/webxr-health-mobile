@@ -1,94 +1,143 @@
-// === /herohealth/vr-groups/effects-pack-17.js ===
-// PACK 17: Aim-sparkle (cVR), Boss weak warn, End rank reveal
-// Optional: particles.js
+/* === /herohealth/vr-groups/effects-pack.js ===
+GroupsVR FX Driver — PACK 44 (ULTRA FX)
+✅ Listens to: hha:judge, groups:progress, hha:end, hha:score
+✅ Applies body classes: fx-hit/fx-good/fx-bad/fx-perfect/fx-combo/fx-storm/fx-boss/fx-end/fx-miss
+✅ Rate-limit + auto clear timers (no flicker)
+*/
 
 (function(){
   'use strict';
-  const DOC = document;
   const WIN = window;
+  const DOC = document;
+  if (!DOC) return;
 
-  function hasParticles(){
-    const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
-    return !!P;
-  }
-  function burst(x,y,n=16){
-    try{
-      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
-      if (P && typeof P.burst==='function') P.burst(x,y,n);
-    }catch(_){}
-  }
-  function popText(x,y,t,cls=''){
-    try{
-      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles);
-      if (P && typeof P.popText==='function') P.popText(x,y,t,cls);
-    }catch(_){}
-  }
+  const NS = WIN.GroupsVR = WIN.GroupsVR || {};
+  if (NS.__FX_LOADED__) return;
+  NS.__FX_LOADED__ = true;
 
-  function addCls(c, ms){
-    try{
-      DOC.body.classList.add(c);
-      setTimeout(()=>DOC.body.classList.remove(c), ms||260);
-    }catch(_){}
+  const body = DOC.body;
+
+  // ----- helpers -----
+  function on(cls){ body.classList.add(cls); }
+  function off(cls){ body.classList.remove(cls); }
+  function has(cls){ return body.classList.contains(cls); }
+
+  const timers = Object.create(null);
+
+  function pulse(cls, ms){
+    ms = Math.max(60, Number(ms)||160);
+    on(cls);
+    clearTimeout(timers[cls]);
+    timers[cls] = setTimeout(()=>off(cls), ms);
   }
 
-  // --- determine view ---
-  function isCVR(){
-    const cls = DOC.body.className || '';
-    if (cls.includes('view-cvr')) return true;
-    try{
-      const v = new URL(location.href).searchParams.get('view') || '';
-      return String(v).toLowerCase().includes('cvr');
-    }catch{ return false; }
+  function hold(cls, onoff){
+    if (onoff) on(cls);
+    else off(cls);
   }
 
-  // --- center position ---
-  function centerXY(){
-    return { x: WIN.innerWidth/2, y: WIN.innerHeight/2 };
+  // layered hit pulse (hit + good/bad/miss etc.)
+  function hit(kind){
+    pulse('fx-hit', 140);
+    if (kind === 'good') pulse('fx-good', 170);
+    else if (kind === 'bad') pulse('fx-bad', 190);
+    else if (kind === 'miss') pulse('fx-miss', 190);
   }
 
-  // --- Aim sparkle on successful hit in cVR (judge good/boss) ---
+  // combo driver
+  let lastCombo = 0;
+  function updateCombo(combo){
+    combo = Number(combo)||0;
+    lastCombo = combo;
+    // เปิด fx-combo เมื่อ combo >= 6 (เด็กป.5 มันส์กำลังดี)
+    hold('fx-combo', combo >= 6);
+  }
+
+  // storm/boss hold
+  function setStorm(onoff){
+    hold('fx-storm', !!onoff);
+  }
+  function setBoss(onoff){
+    hold('fx-boss', !!onoff);
+  }
+
+  // ----- event wiring -----
+  // 1) judge feedback (pop text) = best source for hit/bad/boss/perfect/miss
   WIN.addEventListener('hha:judge', (ev)=>{
-    if (!isCVR()) return;
-
-    const d = ev.detail||{};
+    const d = ev.detail || {};
     const k = String(d.kind||'').toLowerCase();
-    if (k !== 'good' && k !== 'boss') return;
 
-    const {x,y} = centerXY();
+    // kinds used in groups.safe.js:
+    // good, bad, boss, miss, perfect, storm (optional)
+    if (k === 'good'){
+      hit('good');
+    } else if (k === 'bad'){
+      hit('bad');
+    } else if (k === 'miss'){
+      hit('miss');
+    } else if (k === 'boss'){
+      // boss hit = strong pulse + hold boss briefly
+      hit('bad'); // boss feels heavy
+      pulse('fx-boss', 320);
+    } else if (k === 'perfect'){
+      pulse('fx-perfect', 420);
+    } else if (k === 'storm'){
+      pulse('fx-storm', 260);
+    }
+  }, { passive:true });
 
-    addCls('fx-aim', 260);
+  // 2) progress events: storm_on/off, boss_spawn/down, perfect_switch, miss
+  WIN.addEventListener('groups:progress', (ev)=>{
+    const d = ev.detail || {};
+    const kind = String(d.kind||'').toLowerCase();
 
-    // particles burst at crosshair (looks like sparkle)
-    if (hasParticles()){
-      burst(x,y, (k==='boss') ? 26 : 18);
-      popText(x,y, (k==='boss') ? 'HIT!' : '+', '');
+    if (kind === 'storm_on'){
+      setStorm(true);
+      pulse('fx-storm', 320);
+    }
+    if (kind === 'storm_off'){
+      setStorm(false);
     }
 
-    try{ navigator.vibrate && navigator.vibrate(k==='boss' ? 18 : 10); }catch{}
-  }, {passive:true});
+    if (kind === 'boss_spawn'){
+      setBoss(true);
+      pulse('fx-boss', 420);
+    }
+    if (kind === 'boss_down'){
+      // keep boss for a moment then release
+      pulse('fx-boss', 380);
+      clearTimeout(timers.__bossRelease);
+      timers.__bossRelease = setTimeout(()=>setBoss(false), 520);
+      pulse('fx-perfect', 360);
+    }
 
-  // --- Boss weak warning (engine adds fg-boss-weak class on target) ---
-  // We listen for judge boss and check if any boss has weak class.
-  let warned = false;
-  WIN.addEventListener('hha:judge', ()=>{
-    try{
-      const weak = DOC.querySelector('.fg-boss.fg-boss-weak');
-      if (weak && !warned){
-        warned = true;
-        addCls('fx-boss-weak', 900);
-        if (hasParticles()){
-          const r = weak.getBoundingClientRect();
-          burst(r.left + r.width/2, r.top + r.height/2, 22);
-          popText(r.left + r.width/2, r.top + r.height/2, 'ALMOST!', '');
-        }
-        setTimeout(()=>{ warned = false; }, 650);
-      }
-    }catch(_){}
-  }, {passive:true});
+    if (kind === 'perfect_switch'){
+      pulse('fx-perfect', 520);
+    }
 
-  // --- End rank reveal animation ---
-  WIN.addEventListener('hha:end', ()=>{
-    addCls('fx-rank-reveal', 1200);
-  }, {passive:true});
+    if (kind === 'miss'){
+      hit('miss');
+    }
+  }, { passive:true });
+
+  // 3) score updates (combo)
+  WIN.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail || {};
+    updateCombo(d.combo);
+  }, { passive:true });
+
+  // 4) end
+  WIN.addEventListener('hha:end', (ev)=>{
+    // practice should NOT show big end FX overlay in A; but FX driver is safe anyway
+    pulse('fx-end', 700);
+    // clear holds so screen returns to normal after overlay
+    clearTimeout(timers.__endClear);
+    timers.__endClear = setTimeout(()=>{
+      off('fx-storm'); off('fx-boss'); off('fx-combo');
+    }, 900);
+  }, { passive:true });
+
+  // expose (optional)
+  NS.FX = { pulse, hold, hit };
 
 })();
