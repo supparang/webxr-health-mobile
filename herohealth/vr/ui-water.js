@@ -1,165 +1,148 @@
 // === /herohealth/vr/ui-water.js ===
-// Water UI — PRODUCTION (robust + compatible)
-// ✅ ensureWaterGauge(): safe inject minimal gauge if missing (optional use)
-// ✅ setWaterGauge(pct, opts?): updates UI (#water-bar/#water-pct/#water-zone/#water-tip + optional injected gauge)
-// ✅ zoneFrom(pct): LOW / GREEN / HIGH
-// ✅ emits: hha:water {pct, zone}
+// Water Gauge UI — PRODUCTION (DOM + lightweight)
+// ✅ ensureWaterGauge(): creates hidden gauge if missing (safe for all games)
+// ✅ setWaterGauge(pct): updates HUD gauge (and optional #water-bar/#water-pct/#water-zone if present)
+// ✅ zoneFrom(pct): returns 'LOW' | 'GREEN' | 'HIGH' (simple thresholds)
 //
 // Notes:
-// - Hydration page already has its own Water panel. This module will just update it if present.
-// - If a page doesn't include the panel, ensureWaterGauge() can inject a small corner gauge.
-//
+// - Hydration.safe.js already updates #water-bar etc in its own HUD,
+//   but we keep this module generic for re-use across games.
+
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function qs(k, def=null){
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; }
-}
-function emit(name, detail){
-  try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
-}
-function getEl(id){
-  try{ return DOC.getElementById(id); }catch(_){ return null; }
+function clamp(v, a, b){
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
 }
 
-const CFG = {
-  // threshold can be tuned; default gives GREEN as a mid band
-  greenMin: 40,
-  greenMax: 70,
-
-  // for injected gauge only
-  injectedId: 'hha-water-mini',
-  injectedBarId: 'hha-water-mini-bar',
-  injectedTxtId: 'hha-water-mini-txt',
-  injectedZoneId:'hha-water-mini-zone'
-};
-
-// Allow overrides via global config if desired
-(function loadConfig(){
-  try{
-    const g = ROOT.HHA_WATER_CONFIG;
-    if (g && typeof g === 'object'){
-      if (Number.isFinite(g.greenMin)) CFG.greenMin = clamp(g.greenMin, 0, 100);
-      if (Number.isFinite(g.greenMax)) CFG.greenMax = clamp(g.greenMax, 0, 100);
-    }
-  }catch(_){}
-})();
-
+// Simple zone thresholds (tweakable)
 export function zoneFrom(pct){
-  pct = clamp(pct, 0, 100);
-  if (pct < CFG.greenMin) return 'LOW';
-  if (pct > CFG.greenMax) return 'HIGH';
-  return 'GREEN';
+  const p = clamp(pct, 0, 100);
+  // GREEN band around mid hydration
+  if (p >= 40 && p <= 70) return 'GREEN';
+  if (p < 40) return 'LOW';
+  return 'HIGH';
 }
 
-function defaultTip(zone){
-  // Simple, kid-friendly tips (hydration-themed)
-  if (zone === 'GREEN') return 'ดีมาก! คุมให้อยู่ GREEN ต่อไป แล้วลากคอมโบยาว ๆ ✅';
-  if (zone === 'LOW')   return 'LOW: ยิง 💧 เพิ่มเพื่อดันกลับเข้า GREEN';
-  if (zone === 'HIGH')  return 'HIGH: ระวังน้ำ “สูงเกิน” ยิง 💧 อย่างพอดีเพื่อกลับเข้า GREEN';
-  return '—';
-}
-
-// Inject a minimal corner gauge (only if main UI not present)
-export function ensureWaterGauge(){
-  if (!DOC || !DOC.body) return null;
-
-  // If page already has water panel (your hydration uses #water-bar/#water-pct/#water-zone), skip inject
-  if (getEl('water-bar') || getEl('water-pct') || getEl('water-zone')) return null;
-
-  // If already injected, return it
-  const exists = DOC.getElementById(CFG.injectedId);
-  if (exists) return exists;
-
-  // Inject CSS once
-  if (!DOC.getElementById('hha-water-mini-style')){
-    const st = DOC.createElement('style');
-    st.id = 'hha-water-mini-style';
-    st.textContent = `
-      #${CFG.injectedId}{
-        position:fixed;
-        right:12px;
-        top:12px;
-        z-index:96;
-        width:170px;
-        padding:10px 10px;
-        border-radius:16px;
-        background:rgba(2,6,23,.72);
-        border:1px solid rgba(148,163,184,.18);
-        box-shadow: 0 18px 70px rgba(0,0,0,.45);
-        backdrop-filter: blur(10px);
-        font: 800 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        color: rgba(229,231,235,.92);
-        pointer-events:none;
-      }
-      #${CFG.injectedId} .row{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
-      #${CFG.injectedId} .muted{ font-weight:700; color:rgba(148,163,184,.95); }
-      #${CFG.injectedId} .big{ font-size:18px; font-weight:900; }
-      #${CFG.injectedId} .bar{
-        margin-top:8px;
-        height:10px;
-        border-radius:999px;
-        background:rgba(148,163,184,.18);
-        overflow:hidden;
-        border:1px solid rgba(148,163,184,.12);
-      }
-      #${CFG.injectedId} .bar > div{
-        height:100%;
-        width:50%;
-        background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-      }
-    `;
-    DOC.head.appendChild(st);
+function ensureStyle(){
+  if (!DOC || DOC.getElementById('hha-water-style')) return;
+  const st = DOC.createElement('style');
+  st.id = 'hha-water-style';
+  st.textContent = `
+  .hha-water{
+    position: fixed;
+    left: calc(10px + env(safe-area-inset-left,0px));
+    bottom: calc(10px + env(safe-area-inset-bottom,0px));
+    z-index: 60;
+    pointer-events:none;
+    display:none;
+    width: 180px;
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,.18);
+    background: rgba(2,6,23,.60);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 18px 70px rgba(0,0,0,.42);
+    padding: 10px;
+    color: #e5e7eb;
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
   }
-
-  // Create node
-  const box = DOC.createElement('div');
-  box.id = CFG.injectedId;
-  box.innerHTML = `
-    <div class="row">
-      <div class="muted">Water</div>
-      <div class="big"><span id="${CFG.injectedTxtId}">50</span><span class="muted">%</span></div>
-    </div>
-    <div class="row" style="margin-top:4px">
-      <div class="muted">Zone</div>
-      <div><b id="${CFG.injectedZoneId}">GREEN</b></div>
-    </div>
-    <div class="bar"><div id="${CFG.injectedBarId}"></div></div>
+  body.hha-show-water .hha-water{ display:block; }
+  .hha-water .top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:10px;
+  }
+  .hha-water .ttl{
+    font-weight:900;
+    font-size: 12px;
+    letter-spacing:.2px;
+    opacity:.95;
+  }
+  .hha-water .pct{
+    font-weight:900;
+    font-size: 16px;
+  }
+  .hha-water .zone{
+    margin-top: 2px;
+    font-size: 11px;
+    opacity:.85;
+  }
+  .hha-water .bar{
+    margin-top: 8px;
+    height: 10px;
+    border-radius: 999px;
+    overflow:hidden;
+    border: 1px solid rgba(148,163,184,.12);
+    background: rgba(148,163,184,.16);
+  }
+  .hha-water .fill{
+    height: 100%;
+    width: 50%;
+    background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+  }
+  .hha-water.low  .fill{ background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95)); }
+  .hha-water.high .fill{ background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95)); }
   `;
-  DOC.body.appendChild(box);
-  return box;
+  DOC.head.appendChild(st);
 }
 
-export function setWaterGauge(pct, opts = {}){
-  pct = clamp(pct, 0, 100);
-  const zone = String(opts.zone || zoneFrom(pct));
-  const tip  = String(opts.tip || defaultTip(zone));
+function ensureEl(){
+  if (!DOC) return null;
+  let el = DOC.querySelector('.hha-water');
+  if (el) return el;
 
-  // Update Hydration page elements if present
-  const bar = getEl('water-bar');
-  const txt = getEl('water-pct');
-  const zEl = getEl('water-zone');
-  const tipEl = getEl('water-tip');
+  ensureStyle();
 
-  if (bar) bar.style.width = pct.toFixed(0) + '%';
-  if (txt) txt.textContent = String(pct|0);
-  if (zEl) zEl.textContent = zone;
-  if (tipEl && (opts.setTip !== false)) tipEl.textContent = tip;
+  el = DOC.createElement('div');
+  el.className = 'hha-water';
+  el.innerHTML = `
+    <div class="top">
+      <div class="ttl">Water</div>
+      <div class="pct"><span class="pctVal">50</span>%</div>
+    </div>
+    <div class="zone">Zone <b class="zoneVal">GREEN</b></div>
+    <div class="bar"><div class="fill"></div></div>
+  `;
+  DOC.body.appendChild(el);
+  return el;
+}
 
-  // Update injected mini gauge if present (or inject if asked)
-  if (opts.ensure === true) ensureWaterGauge();
+// Public: create gauge (hidden by default unless body has class hha-show-water)
+export function ensureWaterGauge(){
+  const el = ensureEl();
+  return !!el;
+}
 
-  const ibar = getEl(CFG.injectedBarId);
-  const itxt = getEl(CFG.injectedTxtId);
-  const izon = getEl(CFG.injectedZoneId);
+// Public: update gauge + also update optional in-page HUD ids if present
+export function setWaterGauge(pct){
+  if (!DOC) return;
 
-  if (ibar) ibar.style.width = pct.toFixed(0) + '%';
-  if (itxt) itxt.textContent = String(pct|0);
-  if (izon) izon.textContent = zone;
+  const p = clamp(pct, 0, 100);
+  const z = zoneFrom(p);
 
-  emit('hha:water', { pct, zone, tip });
-  return { pct, zone, tip };
+  // update optional hydration HUD if exists
+  const bar = DOC.getElementById('water-bar');
+  const pctEl = DOC.getElementById('water-pct');
+  const zoneEl = DOC.getElementById('water-zone');
+  if (bar) bar.style.width = `${p.toFixed(0)}%`;
+  if (pctEl) pctEl.textContent = String(p|0);
+  if (zoneEl) zoneEl.textContent = z;
+
+  // update generic gauge (if present/created)
+  const el = ensureEl();
+  if (!el) return;
+
+  el.classList.toggle('low', z==='LOW');
+  el.classList.toggle('high', z==='HIGH');
+  el.classList.toggle('green', z==='GREEN');
+
+  const fill = el.querySelector('.fill');
+  const pv = el.querySelector('.pctVal');
+  const zv = el.querySelector('.zoneVal');
+
+  if (fill) fill.style.width = `${p.toFixed(0)}%`;
+  if (pv) pv.textContent = String(p|0);
+  if (zv) zv.textContent = z;
 }
