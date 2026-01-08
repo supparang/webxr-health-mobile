@@ -967,7 +967,7 @@ function startStormCycle(){
   if(stormHud) stormHud.style.display = 'block';
   if(stormFx){
     stormFx.style.display = 'block';
-    // ✅ CSS hook
+    // ✅ sync with CSS optional "storm-on"
     stormFx.classList.add('storm-on');
   }
 
@@ -977,7 +977,9 @@ function startStormCycle(){
       ? `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s (ห้ามโดนขยะ!)`
       : `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s`;
   }
-  if(stormProg) stormProg.textContent = `เหลือ ${storm.durationSec}s • GOOD 0/${storm.needGood}`;
+  if(stormProg){
+    stormProg.textContent = `เหลือ ${storm.durationSec}s • GOOD 0/${storm.needGood}`;
+  }
 
   judge('🌪️ STORM START!', 'warn');
   coach('พายุมาแล้ว! เก็บ GOOD ให้ทัน! 🌪️', (fever>70?'fever':'neutral'));
@@ -997,13 +999,13 @@ function stormTimeLeft(){
 function updateStormHud(){
   if(!storm.active) return;
   const tl = stormTimeLeft();
-
   if(stormHint){
     const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
     stormHint.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
   }
   if(stormProg){
-    stormProg.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}`;
+    const a = storm.forbidJunk ? ' • NO JUNK' : '';
+    stormProg.textContent = `GOOD ${storm.hitGood}/${storm.needGood}${a}`;
   }
 
   const mf = qs('uiMiniFill');
@@ -1027,7 +1029,7 @@ function finishStorm(ok, reason){
 
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-on','storm-panic');
+    stormFx.classList.remove('storm-panic','storm-on');
     stormFx.style.display = 'none';
   }
 
@@ -1508,7 +1510,7 @@ function resetState(){
   }
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-on','storm-panic');
+    stormFx.classList.remove('storm-panic','storm-on');
     stormFx.style.display = 'none';
   }
 }
