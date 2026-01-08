@@ -1,9 +1,9 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR — RUN (PRODUCTION+)
-✅ Works: PC / Mobile / VR(Cardboard) / cVR (shoot from crosshair via vr-ui.js)
-✅ Loads: plate/plate-vr.css + plate/plate.safe.js
-✅ Includes: A-Frame + particles + cloud logger + vr-ui
-✅ UI ids match plate.safe.js (Boss/Storm/HUD/Result)
+Balanced Plate VR (RUN) — PRODUCTION+
+✅ Uses: ./plate/plate-vr.css + ./plate/plate.safe.js
+✅ A-Frame (Enter VR reliability) + Universal VR UI (vr-ui.js)
+✅ FX + Logger
+✅ Boss/Storm HUD ids match plate.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -17,7 +17,7 @@ Balanced Plate VR — RUN (PRODUCTION+)
   <!-- External CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (for ENTER VR / EXIT / RECENTER via vr-ui.js reliability) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
@@ -111,7 +111,6 @@ Balanced Plate VR — RUN (PRODUCTION+)
       min-width: 220px;
     }
     .card.small{ min-width: 180px; }
-
     .t{ font-weight:1000; font-size:12px; color:rgba(229,231,235,.92); }
     .v{ margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 
@@ -194,7 +193,6 @@ Balanced Plate VR — RUN (PRODUCTION+)
     .btn:active{ transform: translateY(1px); }
     .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
     .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
-    .btn.bad{ background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.26); }
 
     /* overlays */
     #startOverlay, #hudPaused, #resultBackdrop{
@@ -412,8 +410,8 @@ Balanced Plate VR — RUN (PRODUCTION+)
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- NOTE: JS expects btnStart id -->
-      <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
+      <!-- ✅ This is the REAL start button that plate.safe.js binds -->
+      <button class="btn primary" id="btnStart" type="button">▶ START</button>
 
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
@@ -437,6 +435,7 @@ Balanced Plate VR — RUN (PRODUCTION+)
         </div>
 
         <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+          <!-- ✅ overlay start -->
           <button class="btn primary" id="btnStartMain" type="button">เริ่มเกม ▶</button>
           <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์นี้ 🔗</button>
           <button class="btn warn" id="btnGoLauncher" type="button">ไปหน้า Launcher 🧭</button>
@@ -452,8 +451,8 @@ Balanced Plate VR — RUN (PRODUCTION+)
         <div style="font-weight:1200; font-size:18px">⏸ Paused</div>
         <div style="margin-top:6px; color:var(--muted); font-weight:900">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
         <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
-          <button class="btn primary" type="button" id="btnResumeOverlay">▶ เล่นต่อ</button>
-          <button class="btn warn" type="button" id="btnRestartOverlay">♻ เริ่มใหม่</button>
+          <button class="btn primary" onclick="document.getElementById('btnPause').click()">▶ เล่นต่อ</button>
+          <button class="btn warn" onclick="document.getElementById('btnRestart').click()">♻ เริ่มใหม่</button>
         </div>
       </div>
     </div>
@@ -475,7 +474,7 @@ Balanced Plate VR — RUN (PRODUCTION+)
           </div>
         </div>
 
-        <div style="margin-top:12px; display:grid; grid-template-columns: 1.1fr .9fr; gap:12px" id="resultGrid">
+        <div style="margin-top:12px; display:grid; grid-template-columns: 1.1fr .9fr; gap:12px">
           <div style="background:var(--panel2); border:1px solid var(--stroke); border-radius:18px; padding:12px">
             <div class="t">ภาพรวม</div>
             <div class="v" style="margin-top:10px">
@@ -503,29 +502,27 @@ Balanced Plate VR — RUN (PRODUCTION+)
 
         <style>
           @media (max-width: 920px){
-            #resultGrid{ grid-template-columns: 1fr !important; }
+            #resultBackdrop > .panelCard > div[style*="grid-template-columns"]{ grid-template-columns: 1fr !important; }
           }
         </style>
       </div>
     </div>
   </div>
 
-  <!-- Start overlay bridge + overlay helper buttons -->
+  <!-- Start overlay bridge -->
   <script>
     (function(){
+      const btnStartMain = document.getElementById('btnStartMain');
       const dbg = document.getElementById('startDbg');
       const btnCopy = document.getElementById('btnCopyLink');
       const btnGoLauncher = document.getElementById('btnGoLauncher');
-      const btnStartMain = document.getElementById('btnStartMain');
-
-      const btnResumeOverlay = document.getElementById('btnResumeOverlay');
-      const btnRestartOverlay = document.getElementById('btnRestartOverlay');
 
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
       btnStartMain?.addEventListener('click', ()=>{
+        // ✅ bridge to real start button (plate.safe.js listens on #btnStart)
         const b = document.getElementById('btnStart');
-        b?.click();
+        if(b) b.click();
       }, {passive:true});
 
       btnCopy?.addEventListener('click', async ()=>{
@@ -542,14 +539,6 @@ Balanced Plate VR — RUN (PRODUCTION+)
         const hub = new URL(location.href).searchParams.get('hub');
         if(hub) u.searchParams.set('hub', hub);
         location.href = u.toString();
-      }, {passive:true});
-
-      // paused overlay helpers
-      btnResumeOverlay?.addEventListener('click', ()=>{
-        document.getElementById('btnPause')?.click();
-      }, {passive:true});
-      btnRestartOverlay?.addEventListener('click', ()=>{
-        document.getElementById('btnRestart')?.click();
       }, {passive:true});
     })();
   </script>
