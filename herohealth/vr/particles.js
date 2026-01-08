@@ -1,12 +1,5 @@
 // === /herohealth/vr/particles.js ===
 // HHA Particles — PRODUCTION (ULTRA, shared by all games)
-// Provides:
-// - popText(x,y,text,cls?)
-// - burst(x,y,{r?,n?,life?})
-// - shockwave(x,y,{r?})
-// - celebrate()
-// - scorePop(x,y,text)   (alias -> popText)
-// - burstAt(x,y,kind)    (alias -> burst/shockwave mix)
 
 (function (root) {
   'use strict';
@@ -14,7 +7,6 @@
   if (!doc || root.__HHA_PARTICLES__) return;
   root.__HHA_PARTICLES__ = true;
 
-  // ---------- layer ----------
   function ensureLayer(){
     let layer = doc.querySelector('.hha-fx-layer');
     if (layer) return layer;
@@ -28,7 +20,6 @@
     return layer;
   }
 
-  // ---------- css once ----------
   (function injectCss(){
     const id = 'hha-particles-style';
     if(doc.getElementById(id)) return;
@@ -72,7 +63,7 @@
       }
 
       .hha-wave{
-        position:absolute; left:0; top:0;
+        position:absolute;
         width: 12px; height: 12px;
         border-radius:999px;
         transform: translate(-50%,-50%);
@@ -90,7 +81,6 @@
     doc.head.appendChild(st);
   })();
 
-  // ---------- helpers ----------
   function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
   function rnd(a,b){ return a + (b-a)*Math.random(); }
 
@@ -120,7 +110,6 @@
       dot.style.top  = `${Math.round(y)}px`;
       dot.style.setProperty('--dx', `${Math.round(dx)}px`);
       dot.style.setProperty('--dy', `${Math.round(dy)}px`);
-      // simple palette without hardcoding: use opacity to vary
       dot.style.background = `rgba(255,255,255,${rnd(0.55,0.95)})`;
       dot.style.width = `${Math.round(rnd(5,9))}px`;
       dot.style.height = dot.style.width;
@@ -153,7 +142,6 @@
     }
   }
 
-  // aliases expected by some engines
   function scorePop(x,y,text){ popText(x,y,text,'score'); }
   function burstAt(x,y,kind){
     if(kind==='bad') { shockwave(x,y,{r:64}); burst(x,y,{r:58,n:14}); return; }
@@ -161,19 +149,17 @@
     if(kind==='star'){ burst(x,y,{r:52,n:16}); shockwave(x,y,{r:58}); return; }
     if(kind==='shield'){ burst(x,y,{r:46,n:14}); return; }
     if(kind==='diamond'){ shockwave(x,y,{r:78}); burst(x,y,{r:66,n:18}); return; }
-    // good default
     shockwave(x,y,{r:56}); burst(x,y,{r:48,n:14});
   }
 
   root.Particles = root.Particles || {};
-  root.Particles.popText  = popText;
-  root.Particles.burst    = burst;
-  root.Particles.shockwave= shockwave;
-  root.Particles.celebrate= celebrate;
-  root.Particles.scorePop = scorePop;
-  root.Particles.burstAt  = burstAt;
+  root.Particles.popText   = popText;
+  root.Particles.burst     = burst;
+  root.Particles.shockwave = shockwave;
+  root.Particles.celebrate = celebrate;
+  root.Particles.scorePop  = scorePop;
+  root.Particles.burstAt   = burstAt;
 
-  // also expose for modules registry
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = root.Particles;
 
