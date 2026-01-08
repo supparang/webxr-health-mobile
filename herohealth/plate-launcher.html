@@ -1,10 +1,10 @@
-<!-- === /herohealth/plate/plate-launcher.html ===
+<!-- === /herohealth/plate-launcher.html ===
 Balanced Plate VR — Launcher (PRODUCTION)
-✅ Choose view: pc / mobile / cvr / vr
-✅ Persists last selection
-✅ Pass-through: hub, run, diff, time, seed
-✅ One-tap "Start" opens plate-vr.html with correct params
+✅ Choose: view (pc/mobile/vr/cvr), run (play/study), diff, time, seed
+✅ Remembers last settings (localStorage)
+✅ Builds run URL: ./plate-vr.html?... and passes hub
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -12,7 +12,7 @@ Balanced Plate VR — Launcher (PRODUCTION)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Plate VR Launcher</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
   <style>
     :root{
@@ -26,8 +26,7 @@ Balanced Plate VR — Launcher (PRODUCTION)
       --accent:#22c55e;
       --warn:#f59e0b;
       --bad:#ef4444;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
+
       --radius:22px;
       --pill:999px;
 
@@ -36,162 +35,161 @@ Balanced Plate VR — Launcher (PRODUCTION)
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; width:100%; height:100%;
-      overflow:hidden;
+      margin:0; height:100%; width:100%;
       background:var(--bg);
       color:var(--text);
-      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
+
     .bg{
-      position:fixed; inset:0;
+      position:fixed; inset:0; pointer-events:none;
       background:
-        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 42%),
-        radial-gradient(circle at 88% 18%, rgba(167,139,250,.12), transparent 44%),
-        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 50%),
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
+        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
+        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
         linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-      pointer-events:none;
     }
+
     .wrap{
-      position:fixed; inset:0;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      position:relative;
+      min-height:100%;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
       display:grid;
       place-items:center;
     }
+
     .card{
       width:min(980px, 100%);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
-      overflow:hidden;
-    }
-    .head{
+      box-shadow: 0 26px 90px rgba(0,0,0,.40);
+      backdrop-filter: blur(12px);
       padding:16px;
-      border-bottom:1px solid var(--stroke);
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      align-items:flex-start;
     }
+
+    .top{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
     .title{
       font-weight:1200;
       font-size:18px;
-      display:flex; gap:10px; align-items:center;
+      letter-spacing:.2px;
+      display:flex;
+      gap:10px;
+      align-items:center;
     }
     .sub{
       margin-top:6px;
-      color:var(--muted);
       font-weight:900;
-      line-height:1.35;
+      color:var(--muted);
       font-size:13px;
+      line-height:1.35;
+      max-width:680px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:var(--pill);
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.56);
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
     }
 
     .grid{
+      margin-top:14px;
       display:grid;
-      grid-template-columns: 1.1fr .9fr;
+      grid-template-columns: 1fr 1fr;
       gap:12px;
-      padding:16px;
     }
+
     .box{
       background:var(--panel2);
       border:1px solid var(--stroke);
       border-radius:18px;
       padding:12px;
     }
-    .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
-    .hint{ margin-top:6px; font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.35; }
 
-    .modes{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
-    .mode{
-      appearance:none;
-      width:100%;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.55);
-      color:var(--text);
-      border-radius:18px;
-      padding:12px;
-      text-align:left;
-      cursor:pointer;
-      box-shadow: 0 18px 44px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
-      -webkit-tap-highlight-color: transparent;
-      user-select:none;
-      transition: transform .08s ease, border-color .12s ease, background .12s ease;
-    }
-    .mode:active{ transform: translateY(1px); }
-    .mode .h{
-      display:flex; justify-content:space-between; gap:10px; align-items:center;
-      font-weight:1200; font-size:14px;
-    }
-    .mode .d{
-      margin-top:6px;
-      color:var(--muted);
-      font-weight:900;
-      font-size:12px;
-      line-height:1.35;
-    }
-    .mode.sel{
-      border-color: rgba(34,197,94,.36);
-      background: rgba(34,197,94,.10);
-    }
-    .tag{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:5px 10px;
-      border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.52);
-      font-size:12px;
+    .k{
       font-weight:1100;
+      font-size:12px;
       color:rgba(229,231,235,.92);
-      white-space:nowrap;
-    }
-    .tag.good{ border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.12); }
-    .tag.warn{ border-color:rgba(245,158,11,.30); background:rgba(245,158,11,.12); }
-    .row{
-      margin-top:10px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
-    }
-    label{
+      margin-bottom:8px;
       display:flex;
       gap:8px;
       align-items:center;
-      font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.92);
     }
-    select, input{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.55);
-      color:rgba(229,231,235,.95);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1000;
-      font-size:12px;
-      outline:none;
-    }
-    input{ width:110px; }
-    .btns{
-      padding:16px;
-      border-top:1px solid var(--stroke);
+
+    .row{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      justify-content:space-between;
       align-items:center;
+    }
+
+    .opt{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:10px 12px;
+      background:rgba(2,6,23,.60);
+      border:1px solid rgba(148,163,184,.20);
+      color:rgba(229,231,235,.95);
+      font: 1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      transition: transform .06s ease, filter .12s ease, border-color .12s ease;
+    }
+    .opt:active{ transform: translateY(1px); }
+    .opt.on{
+      border-color: rgba(34,197,94,.45);
+      background: rgba(34,197,94,.12);
+      filter: brightness(1.08);
+    }
+    .opt.warn.on{
+      border-color: rgba(245,158,11,.55);
+      background: rgba(245,158,11,.14);
+    }
+
+    .field{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    input[type="number"], input[type="text"]{
+      width: 120px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.60);
+      color:var(--text);
+      font-weight:1000;
+      outline:none;
+    }
+    input[type="text"]{ width: 180px; }
+
+    .actions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
     }
     .btn{
       appearance:none;
@@ -199,34 +197,45 @@ Balanced Plate VR — Launcher (PRODUCTION)
       border-radius:999px;
       padding:12px 14px;
       background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
+      border:1px solid rgba(148,163,184,.22);
       color:rgba(229,231,235,.95);
-      font: 1100 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 16px 40px rgba(0,0,0,.32);
-      backdrop-filter: blur(10px);
+      font: 1100 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
       cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
       user-select:none;
-      white-space:nowrap;
+      -webkit-tap-highlight-color:transparent;
+      box-shadow: 0 16px 44px rgba(0,0,0,.30);
     }
+    .btn:active{ transform: translateY(1px); }
     .btn.primary{
       background:rgba(34,197,94,.14);
-      border-color:rgba(34,197,94,.30);
+      border-color:rgba(34,197,94,.34);
     }
     .btn.warn{
       background:rgba(245,158,11,.14);
-      border-color:rgba(245,158,11,.30);
+      border-color:rgba(245,158,11,.34);
     }
-    .smallmuted{
+
+    .urlbox{
+      margin-top:12px;
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:10px 12px;
+      font-weight:900;
+      color:rgba(229,231,235,.92);
+      word-break: break-all;
+      font-size:12px;
+    }
+    .hint{
+      margin-top:8px;
       color:var(--muted);
       font-weight:900;
       font-size:12px;
       line-height:1.35;
     }
 
-    @media (max-width: 920px){
+    @media (max-width: 880px){
       .grid{ grid-template-columns: 1fr; }
-      .modes{ grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -236,92 +245,91 @@ Balanced Plate VR — Launcher (PRODUCTION)
 
   <div class="wrap">
     <div class="card">
-      <div class="head">
+      <div class="top">
         <div>
           <div class="title">🍽️ Balanced Plate VR — Launcher</div>
           <div class="sub">
-            เลือกโหมดเข้าเล่นที่เหมาะกับอุปกรณ์ แล้วกดเริ่มเกมได้ทันที<br/>
-            <span class="tag good">Play = Adaptive ON</span>
-            <span class="tag">Study = Seeded & Adaptive OFF</span>
+            เลือกโหมดเข้าเล่นให้ชัด (PC / Mobile / VR / Cardboard)<br/>
+            <span class="pill">Play = Adaptive ON</span>
+            <span class="pill">Study = Seeded & Adaptive OFF</span>
           </div>
         </div>
-        <div class="smallmuted" id="autoHint">กำลังตรวจจับอุปกรณ์…</div>
+
+        <div class="row">
+          <span class="pill">🎮 เกม: <b>Plate</b></span>
+          <span class="pill">🧭 HUB: <b id="hubLabel">—</b></span>
+        </div>
       </div>
 
       <div class="grid">
         <div class="box">
-          <div class="k">🎮 เลือกโหมดเข้าเล่น</div>
-          <div class="hint">
-            แนะนำ: มือถือแนวนอน = Mobile • Cardboard = cVR (ยิงจาก crosshair) • PC = PC
+          <div class="k">📱 View / อุปกรณ์</div>
+          <div class="row" id="viewRow">
+            <button class="opt" data-view="pc" type="button">🖥 PC</button>
+            <button class="opt on" data-view="mobile" type="button">📱 Mobile</button>
+            <button class="opt" data-view="vr" type="button">🕶 VR</button>
+            <button class="opt warn" data-view="cvr" type="button">📦 Cardboard (cVR)</button>
           </div>
 
-          <div class="modes" id="modes">
-            <button class="mode" data-view="pc" type="button">
-              <div class="h"><span>🖥️ PC</span><span class="tag">เมาส์/คลิก</span></div>
-              <div class="d">เหมาะสำหรับคอมพิวเตอร์/โน้ตบุ๊ก (จอใหญ่)</div>
-            </button>
-
-            <button class="mode" data-view="mobile" type="button">
-              <div class="h"><span>📱 Mobile</span><span class="tag good">แนะนำ</span></div>
-              <div class="d">แตะเพื่อยิง + VR-feel (ลาก/ไจโร)</div>
-            </button>
-
-            <button class="mode" data-view="cvr" type="button">
-              <div class="h"><span>🕶️ Cardboard (cVR)</span><span class="tag warn">crosshair</span></div>
-              <div class="d">ใช้ vr-ui ยิงจากกลางจอ (เหมาะกับ Cardboard)</div>
-            </button>
-
-            <button class="mode" data-view="vr" type="button">
-              <div class="h"><span>🥽 VR</span><span class="tag">Enter VR</span></div>
-              <div class="d">โหมด VR (WebXR) — กด ENTER VR ในเกม</div>
-            </button>
+          <div class="hint">
+            • cVR: ยิงจาก crosshair (vr-ui.js) <br/>
+            • VR: ใช้ ENTER VR ในหน้าเกม หรือปุ่มจาก vr-ui.js
           </div>
         </div>
 
         <div class="box">
-          <div class="k">⚙️ ตั้งค่าเกม</div>
-          <div class="hint">ค่านี้จะถูกส่งไปหน้า Run และจำไว้ครั้งถัดไป</div>
+          <div class="k">⚙️ Run / Difficulty / Time</div>
 
-          <div class="row">
-            <label>Run
-              <select id="selRun">
-                <option value="play">play</option>
-                <option value="study">study</option>
-              </select>
-            </label>
-
-            <label>Difficulty
-              <select id="selDiff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </label>
-
-            <label>Time (s)
-              <input id="inpTime" inputmode="numeric" value="90" />
-            </label>
+          <div class="row" id="runRow" style="margin-bottom:10px">
+            <button class="opt on" data-run="play" type="button">▶ Play</button>
+            <button class="opt" data-run="study" type="button">🧪 Study</button>
           </div>
 
-          <div class="row">
-            <label>Seed
-              <input id="inpSeed" inputmode="numeric" value="13579" />
-            </label>
-            <button class="btn" id="btnRandSeed" type="button">สุ่ม seed 🎲</button>
+          <div class="row" id="diffRow" style="margin-bottom:10px">
+            <button class="opt" data-diff="easy" type="button">🙂 Easy</button>
+            <button class="opt on" data-diff="normal" type="button">😎 Normal</button>
+            <button class="opt" data-diff="hard" type="button">💀 Hard</button>
           </div>
 
-          <div class="hint" id="seedHint">
-            Play: seed ใช้ได้ (เพื่อ reproducible) แต่ Adaptive ยัง ON • Study: seed บังคับ + Adaptive OFF
+          <div class="field">
+            <span class="pill">⏱ เวลา (s)</span>
+            <input id="timeInput" type="number" min="20" max="9999" step="5" value="90" />
+            <button class="opt" id="time90" type="button">90</button>
+            <button class="opt" id="time70" type="button">70</button>
+            <button class="opt" id="time120" type="button">120</button>
           </div>
+        </div>
+
+        <div class="box">
+          <div class="k">🌱 Seed (Research-friendly)</div>
+          <div class="field">
+            <span class="pill">seed</span>
+            <input id="seedInput" type="text" value="13579" />
+            <button class="opt" id="btnSeedNow" type="button">สุ่ม (Now)</button>
+            <button class="opt" id="btnSeedStudy" type="button">Study=13579</button>
+          </div>
+          <div class="hint">
+            • Study: seed ควรคงที่เพื่อความเที่ยง (deterministic) <br/>
+            • Play: seed เปลี่ยนได้เพื่อความสนุก/หลากหลาย
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="k">🔗 ผลลัพธ์ลิงก์ (Run URL)</div>
+          <div class="urlbox" id="urlBox">—</div>
+          <div class="hint" id="dbg">—</div>
         </div>
       </div>
 
-      <div class="btns">
-        <div class="smallmuted" id="linkPreview">—</div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <div class="actions">
+        <div class="row">
+          <button class="btn primary" id="btnStart" type="button">เริ่มเกม ▶</button>
+          <button class="btn" id="btnOpenNew" type="button">เปิดแท็บใหม่ 🧭</button>
           <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ 🔗</button>
-          <button class="btn warn" id="btnBack" type="button">กลับ HUB 🏠</button>
-          <button class="btn primary" id="btnGo" type="button">เริ่มเกม ▶</button>
+        </div>
+
+        <div class="row">
+          <button class="btn warn" id="btnBackHub" type="button">กลับ HUB 🏠</button>
         </div>
       </div>
     </div>
@@ -329,201 +337,192 @@ Balanced Plate VR — Launcher (PRODUCTION)
 
   <script>
     (function(){
-      const LS = 'HHA_PLATE_LAUNCHER_PREFS';
+      const LS_KEY = 'HHA_PLATE_LAUNCHER_PREFS';
 
-      const modes = Array.from(document.querySelectorAll('.mode'));
-      const autoHint = document.getElementById('autoHint');
+      const qs = (id)=>document.getElementById(id);
+      const urlBox = qs('urlBox');
+      const dbg = qs('dbg');
 
-      const selRun = document.getElementById('selRun');
-      const selDiff = document.getElementById('selDiff');
-      const inpTime = document.getElementById('inpTime');
-      const inpSeed = document.getElementById('inpSeed');
-      const btnRandSeed = document.getElementById('btnRandSeed');
+      const hubLabel = qs('hubLabel');
 
-      const linkPreview = document.getElementById('linkPreview');
-      const btnCopy = document.getElementById('btnCopy');
-      const btnBack = document.getElementById('btnBack');
-      const btnGo = document.getElementById('btnGo');
+      const viewRow = qs('viewRow');
+      const runRow  = qs('runRow');
+      const diffRow = qs('diffRow');
 
-      function clamp(n,a,b){ n = Number(n)||0; return n<a?a:(n>b?b:n); }
+      const timeInput = qs('timeInput');
+      const seedInput = qs('seedInput');
+
+      const btnStart   = qs('btnStart');
+      const btnOpenNew = qs('btnOpenNew');
+      const btnCopy    = qs('btnCopy');
+      const btnBackHub = qs('btnBackHub');
+
+      const btnSeedNow   = qs('btnSeedNow');
+      const btnSeedStudy = qs('btnSeedStudy');
+
+      const time90  = qs('time90');
+      const time70  = qs('time70');
+      const time120 = qs('time120');
+
+      const baseRunPath = './plate-vr.html';
+
+      // Hub param passthrough
+      const URLX = new URL(location.href);
+      const hub = URLX.searchParams.get('hub') || '';
+      hubLabel.textContent = hub ? 'attached' : 'none';
 
       function loadPrefs(){
         try{
-          const s = localStorage.getItem(LS);
+          const s = localStorage.getItem(LS_KEY);
           if(!s) return null;
           return JSON.parse(s);
         }catch(e){ return null; }
       }
       function savePrefs(p){
-        try{ localStorage.setItem(LS, JSON.stringify(p)); }catch(e){}
+        try{ localStorage.setItem(LS_KEY, JSON.stringify(p)); }catch(e){}
       }
 
-      function urlParam(name){
-        try{ return new URL(location.href).searchParams.get(name); }catch(e){ return null; }
-      }
-
-      function detectSuggestedView(){
-        const ua = navigator.userAgent || '';
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-        const w = window.innerWidth || 360;
-        const h = window.innerHeight || 640;
-
-        // If user is in headset/cardboard they usually open with view=cvr already, but here launcher suggests
-        const hinted = urlParam('view');
-        if(hinted) return hinted.toLowerCase();
-
-        if(isMobile){
-          // landscape suggests mobile; user can switch to cVR manually
-          return 'mobile';
-        }
-        // Desktop
-        return 'pc';
-      }
-
-      let state = {
-        view: 'mobile',
-        run: 'play',
-        diff: 'normal',
-        time: 90,
-        seed: 13579
-      };
-
-      // hydrate from prefs
-      const pref = loadPrefs();
-      if(pref && typeof pref === 'object'){
-        state = Object.assign(state, pref);
-      }
-
-      // hydrate from URL if present
-      const hub = urlParam('hub') || '';
-      const uRun = (urlParam('run') || '').toLowerCase();
-      const uDiff = (urlParam('diff') || '').toLowerCase();
-      const uTime = urlParam('time');
-      const uSeed = urlParam('seed');
-
-      if(uRun) state.run = uRun;
-      if(uDiff) state.diff = uDiff;
-      if(uTime != null) state.time = clamp(uTime, 20, 9999);
-      if(uSeed != null) state.seed = Number(uSeed)||state.seed;
-
-      // suggest view
-      const suggested = detectSuggestedView();
-      state.view = state.view || suggested;
-
-      function markSelected(){
-        modes.forEach(b=>{
-          const v = b.getAttribute('data-view');
-          b.classList.toggle('sel', v === state.view);
+      function pickBtn(container, attr, value){
+        const btns = container.querySelectorAll('button.opt');
+        btns.forEach(b=>{
+          const v = b.getAttribute(attr);
+          b.classList.toggle('on', v === value);
         });
-        if(autoHint){
-          const map = { pc:'🖥️ แนะนำ: PC', mobile:'📱 แนะนำ: Mobile', cvr:'🕶️ แนะนำ: Cardboard (cVR)', vr:'🥽 แนะนำ: VR' };
-          autoHint.textContent = map[suggested] ? (map[suggested] + ' • เลือกได้เอง') : 'เลือกโหมดเข้าเล่นได้เลย';
+      }
+
+      function getSelected(container, attr, fallback){
+        const on = container.querySelector('button.opt.on');
+        const v = on ? on.getAttribute(attr) : null;
+        return (v || fallback);
+      }
+
+      function clamp(v, a, b){
+        v = Number(v)||0;
+        return v<a?a:(v>b?b:v);
+      }
+
+      function buildUrl(){
+        const view = getSelected(viewRow, 'data-view', 'mobile');
+        const run  = getSelected(runRow,  'data-run',  'play');
+        const diff = getSelected(diffRow, 'data-diff', 'normal');
+
+        const time = clamp(timeInput.value, 20, 9999);
+        timeInput.value = String(time);
+
+        let seed = String(seedInput.value || '').trim();
+        if(!seed){
+          seed = (run === 'study') ? '13579' : String(Date.now());
+          seedInput.value = seed;
         }
+
+        const u = new URL(baseRunPath, location.href);
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', String(time));
+        u.searchParams.set('seed', seed);
+
+        if(hub){
+          u.searchParams.set('hub', hub);
+        }
+
+        // persist
+        savePrefs({ view, run, diff, time, seed });
+
+        const out = u.toString();
+        urlBox.textContent = out;
+
+        // small debug
+        dbg.textContent = `view=${view} • run=${run} • diff=${diff} • time=${time}s • seed=${seed}`;
+
+        return out;
       }
 
-      function syncControls(){
-        if(selRun) selRun.value = state.run;
-        if(selDiff) selDiff.value = state.diff;
-        if(inpTime) inpTime.value = String(state.time);
-        if(inpSeed) inpSeed.value = String(state.seed);
-      }
+      function bindPick(container, attr){
+        container.addEventListener('click', (e)=>{
+          const b = e.target && e.target.closest ? e.target.closest('button.opt') : null;
+          if(!b || !container.contains(b)) return;
+          const v = b.getAttribute(attr);
+          if(!v) return;
 
-      function buildRunUrl(){
-        const runUrl = new URL('./plate-vr.html', location.href);
+          // toggle on
+          container.querySelectorAll('button.opt').forEach(x=>x.classList.remove('on'));
+          b.classList.add('on');
 
-        runUrl.searchParams.set('view', state.view);
-        runUrl.searchParams.set('run', state.run);
-        runUrl.searchParams.set('diff', state.diff);
-        runUrl.searchParams.set('time', String(clamp(state.time, 20, 9999)));
-
-        // Study enforces deterministic
-        if(state.run === 'study'){
-          runUrl.searchParams.set('seed', String(Number(state.seed)||13579));
-        }else{
-          // allow seed param if provided; otherwise omit (fresh randomness in engine)
-          if(String(state.seed || '') !== ''){
-            runUrl.searchParams.set('seed', String(Number(state.seed)||Date.now()));
+          // if switching run mode, enforce seed hint
+          if(attr === 'data-run'){
+            const run = v;
+            if(run === 'study'){
+              if(!seedInput.value || String(seedInput.value).trim()==='') seedInput.value = '13579';
+            }
           }
-        }
 
-        if(hub) runUrl.searchParams.set('hub', hub);
-        return runUrl.toString();
+          buildUrl();
+        }, {passive:true});
       }
 
-      function updatePreview(){
-        const url = buildRunUrl();
-        if(linkPreview) linkPreview.textContent = 'Link: ' + url;
-        savePrefs(state);
+      // init defaults
+      const prefs = loadPrefs();
+      if(prefs){
+        if(prefs.view) pickBtn(viewRow, 'data-view', prefs.view);
+        if(prefs.run)  pickBtn(runRow,  'data-run',  prefs.run);
+        if(prefs.diff) pickBtn(diffRow, 'data-diff', prefs.diff);
+        if(prefs.time) timeInput.value = String(prefs.time);
+        if(prefs.seed) seedInput.value = String(prefs.seed);
       }
 
-      // Bind mode buttons
-      modes.forEach(b=>{
-        b.addEventListener('click', ()=>{
-          state.view = b.getAttribute('data-view') || 'mobile';
-          markSelected();
-          updatePreview();
-        }, { passive:true });
-      });
+      bindPick(viewRow, 'data-view');
+      bindPick(runRow,  'data-run');
+      bindPick(diffRow, 'data-diff');
 
-      // Controls
-      selRun?.addEventListener('change', ()=>{
-        state.run = selRun.value;
-        // Study should keep deterministic seed visible
-        if(state.run === 'study' && (!state.seed || isNaN(Number(state.seed)))) state.seed = 13579;
-        syncControls();
-        updatePreview();
-      });
+      timeInput.addEventListener('input', ()=> buildUrl(), {passive:true});
 
-      selDiff?.addEventListener('change', ()=>{
-        state.diff = selDiff.value;
-        updatePreview();
-      });
+      time90.addEventListener('click', ()=>{ timeInput.value='90'; buildUrl(); }, {passive:true});
+      time70.addEventListener('click', ()=>{ timeInput.value='70'; buildUrl(); }, {passive:true});
+      time120.addEventListener('click', ()=>{ timeInput.value='120'; buildUrl(); }, {passive:true});
 
-      inpTime?.addEventListener('change', ()=>{
-        state.time = clamp(inpTime.value, 20, 9999);
-        syncControls();
-        updatePreview();
-      });
+      btnSeedNow.addEventListener('click', ()=>{
+        seedInput.value = String(Date.now() ^ (Math.random()*1e9));
+        buildUrl();
+      }, {passive:true});
 
-      inpSeed?.addEventListener('change', ()=>{
-        const v = Number(inpSeed.value);
-        state.seed = isNaN(v) ? 13579 : v;
-        syncControls();
-        updatePreview();
-      });
+      btnSeedStudy.addEventListener('click', ()=>{
+        seedInput.value = '13579';
+        // also switch run to study visually (nice UX)
+        pickBtn(runRow, 'data-run', 'study');
+        buildUrl();
+      }, {passive:true});
 
-      btnRandSeed?.addEventListener('click', ()=>{
-        state.seed = Math.floor(Date.now() % 100000000);
-        syncControls();
-        updatePreview();
-      }, { passive:true });
+      btnStart.addEventListener('click', ()=>{
+        const u = buildUrl();
+        location.href = u;
+      }, {passive:true});
 
-      btnCopy?.addEventListener('click', async ()=>{
-        const url = buildRunUrl();
+      btnOpenNew.addEventListener('click', ()=>{
+        const u = buildUrl();
+        window.open(u, '_blank', 'noopener');
+      }, {passive:true});
+
+      btnCopy.addEventListener('click', async ()=>{
+        const u = buildUrl();
         try{
-          await navigator.clipboard.writeText(url);
-          if(linkPreview) linkPreview.textContent = '✅ คัดลอกแล้ว: ' + url;
+          await navigator.clipboard.writeText(u);
+          dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
         }catch(e){
-          if(linkPreview) linkPreview.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้: ' + url;
+          dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่อง URL ได้';
         }
-      }, { passive:true });
+      }, {passive:true});
 
-      btnBack?.addEventListener('click', ()=>{
+      btnBackHub.addEventListener('click', ()=>{
         if(hub){
           location.href = hub;
         }else{
-          location.href = '../hub.html';
+          location.href = './hub.html';
         }
-      }, { passive:true });
+      }, {passive:true});
 
-      btnGo?.addEventListener('click', ()=>{
-        location.href = buildRunUrl();
-      }, { passive:true });
-
-      // init
-      markSelected();
-      syncControls();
-      updatePreview();
+      // first render
+      buildUrl();
     })();
   </script>
 </body>
