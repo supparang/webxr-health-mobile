@@ -1,6 +1,6 @@
 // === /herohealth/vr/particles.js ===
-// HHA Particles — PRODUCTION (Unified FX for all games)
-// Provides: window.Particles.{popText,burst,shockwave,celebrate,scorePop,burstAt}
+// HHA Particles — ULTRA (burst/shockwave/celebrate/popText/scorePop)
+// Safe DOM-only FX layer, no canvas. Works across all games.
 
 (function (root) {
   'use strict';
@@ -8,7 +8,6 @@
   if (!doc || root.__HHA_PARTICLES__) return;
   root.__HHA_PARTICLES__ = true;
 
-  // ---------- layer ----------
   function ensureLayer(){
     let layer = doc.querySelector('.hha-fx-layer');
     if (layer) return layer;
@@ -19,133 +18,170 @@
     return layer;
   }
 
-  // ---------- css ----------
-  const st = doc.createElement('style');
-  st.textContent = `
-    .hha-fx-pop{
-      position:absolute; transform:translate(-50%,-50%);
-      font: 1000 18px/1 system-ui; color:#fff;
-      text-shadow: 0 10px 30px rgba(0,0,0,.55);
-      opacity:.98; will-change: transform, opacity;
-      animation: hhaPop 560ms ease-out forwards;
-      padding:6px 10px; border-radius:999px;
-      background: rgba(15,23,42,.22);
-      border: 1px solid rgba(148,163,184,.18);
-      backdrop-filter: blur(8px);
-      letter-spacing: .2px;
-    }
-    .hha-fx-pop.big{ font-size:22px; }
-    .hha-fx-pop.perfect{ font-size:22px; background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
-    .hha-fx-pop.bad{ background: rgba(239,68,68,.16); border-color: rgba(239,68,68,.26); }
-    .hha-fx-pop.score{ background: rgba(59,130,246,.14); border-color: rgba(59,130,246,.24); }
-    .hha-fx-pop.block{ background: rgba(34,211,238,.12); border-color: rgba(34,211,238,.22); }
+  function injectCss(){
+    const id = 'hha-particles-style';
+    if (doc.getElementById(id)) return;
+    const st = doc.createElement('style');
+    st.id = id;
+    st.textContent = `
+      .hha-fx-layer{contain:layout style paint;}
+      .hha-pop{
+        position:absolute; transform:translate(-50%,-50%);
+        font: 1000 18px/1 system-ui; color:#fff;
+        text-shadow: 0 10px 26px rgba(0,0,0,.55);
+        will-change: transform, opacity, filter;
+        opacity:.98;
+        animation: hhaPop 560ms ease-out forwards;
+        letter-spacing:.2px;
+      }
+      .hha-pop.big{ font-size:22px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)); }
+      .hha-pop.perfect{ font-size:24px; }
+      .hha-pop.bad{ filter: saturate(1.2) brightness(1.05); }
+      .hha-pop.block{ filter: saturate(.9) brightness(1.1); }
+      @keyframes hhaPop{
+        0%{ transform:translate(-50%,-50%) scale(.92); opacity:.95; }
+        55%{ transform:translate(-50%,-82%) scale(1.18); opacity:1; }
+        100%{ transform:translate(-50%,-108%) scale(1.05); opacity:0; }
+      }
 
-    @keyframes hhaPop{
-      0%{ transform:translate(-50%,-50%) scale(.9); opacity:.95; }
-      60%{ transform:translate(-50%,-78%) scale(1.15); opacity:1; }
-      100%{ transform:translate(-50%,-104%) scale(1.02); opacity:0; }
-    }
+      .hha-burst{
+        position:absolute; transform:translate(-50%,-50%);
+        width:12px;height:12px;border-radius:999px;
+        opacity:.98; mix-blend-mode:screen;
+        will-change: transform, opacity, filter;
+        animation: hhaBurst 520ms ease-out forwards;
+      }
+      @keyframes hhaBurst{
+        0%{ transform:translate(-50%,-50%) scale(.7); opacity:.95; }
+        70%{ transform:translate(-50%,-50%) scale(1.55); opacity:.85; }
+        100%{ transform:translate(-50%,-50%) scale(2.0); opacity:0; }
+      }
 
-    .hha-fx-dot{
-      position:absolute; width:8px; height:8px; border-radius:999px;
-      transform:translate(-50%,-50%);
-      opacity:.95;
-      filter: drop-shadow(0 10px 20px rgba(0,0,0,.55));
-      will-change: transform, opacity;
-      animation: hhaDot 520ms ease-out forwards;
-    }
-    @keyframes hhaDot{
-      0%{ transform:translate(-50%,-50%) scale(1); opacity:.95; }
-      100%{ transform:translate(var(--dx), var(--dy)) scale(.85); opacity:0; }
-    }
+      .hha-shock{
+        position:absolute; transform:translate(-50%,-50%);
+        width:18px;height:18px;border-radius:999px;
+        border:2px solid rgba(255,255,255,.75);
+        box-shadow: 0 0 0 2px rgba(255,255,255,.08) inset;
+        opacity:.9;
+        will-change: transform, opacity, filter;
+        animation: hhaShock 540ms ease-out forwards;
+      }
+      @keyframes hhaShock{
+        0%{ transform:translate(-50%,-50%) scale(.35); opacity:.92; }
+        70%{ transform:translate(-50%,-50%) scale(2.2); opacity:.55; }
+        100%{ transform:translate(-50%,-50%) scale(3.0); opacity:0; }
+      }
 
-    .hha-fx-ring{
-      position:absolute; left:0; top:0;
-      width:120px; height:120px; border-radius:999px;
-      transform:translate(-50%,-50%) scale(.35);
-      border: 3px solid rgba(255,255,255,.72);
-      box-shadow: 0 0 0 2px rgba(0,0,0,.08) inset;
-      opacity:.75; will-change: transform, opacity;
-      animation: hhaRing 520ms ease-out forwards;
-      mix-blend-mode: screen;
-    }
-    @keyframes hhaRing{
-      0%{ transform:translate(-50%,-50%) scale(.25); opacity:.75; }
-      100%{ transform:translate(-50%,-50%) scale(1.25); opacity:0; }
-    }
-  `;
-  doc.head.appendChild(st);
+      .hha-confetti{
+        position:absolute; width:10px; height:10px; border-radius:3px;
+        opacity:.95; will-change: transform, opacity;
+        animation: hhaConfetti 980ms ease-out forwards;
+        filter: drop-shadow(0 10px 16px rgba(0,0,0,.35));
+      }
+      @keyframes hhaConfetti{
+        0%{ transform: translate3d(0,0,0) rotate(0deg); opacity:.98; }
+        80%{ opacity:.9; }
+        100%{ transform: translate3d(var(--dx, 0px), var(--dy, 520px), 0) rotate(260deg); opacity:0; }
+      }
+    `;
+    doc.head.appendChild(st);
+  }
 
-  // ---------- helpers ----------
-  function rand(a,b){ return a + Math.random()*(b-a); }
   function popText(x,y,text,cls){
+    injectCss();
     const layer = ensureLayer();
     const el = doc.createElement('div');
-    el.className = 'hha-fx-pop' + (cls ? ` ${cls}` : '');
-    el.textContent = text;
-    el.style.left = x + 'px';
-    el.style.top  = y + 'px';
+    el.className = 'hha-pop' + (cls ? ' ' + cls : '');
+    el.textContent = String(text ?? '');
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top  = `${Math.round(y)}px`;
     layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
-  }
-
-  function burst(x,y, opts={}){
-    const layer = ensureLayer();
-    const r = Number(opts.r)||46;
-    const n = Math.max(8, Math.min(22, Math.round(r/3)));
-    for(let i=0;i<n;i++){
-      const el = doc.createElement('div');
-      el.className = 'hha-fx-dot';
-      const ang = (Math.PI*2) * (i/n) + rand(-0.12,0.12);
-      const dist = rand(r*0.55, r*1.15);
-      const dx = Math.cos(ang)*dist;
-      const dy = Math.sin(ang)*dist;
-      el.style.left = x + 'px';
-      el.style.top  = y + 'px';
-      el.style.setProperty('--dx', (dx)+'px');
-      el.style.setProperty('--dy', (dy)+'px');
-      layer.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
-    }
-  }
-
-  function shockwave(x,y, opts={}){
-    const layer = ensureLayer();
-    const r = Number(opts.r)||60;
-    const ring = doc.createElement('div');
-    ring.className = 'hha-fx-ring';
-    ring.style.left = x + 'px';
-    ring.style.top  = y + 'px';
-    ring.style.width = (r*2) + 'px';
-    ring.style.height= (r*2) + 'px';
-    layer.appendChild(ring);
-    setTimeout(()=>{ try{ ring.remove(); }catch(_){ } }, 700);
-    burst(x,y,{r: Math.max(28, r*0.7)});
-  }
-
-  function celebrate(){
-    const cx = innerWidth/2, cy = innerHeight*0.35;
-    for(let i=0;i<10;i++){
-      setTimeout(()=> burst(cx + rand(-180,180), cy + rand(-90,90), {r: rand(30,70)}), i*45);
-    }
-    popText(cx, cy-10, '🎉', 'big');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 650);
   }
 
   function scorePop(x,y,text){
-    popText(x,y,text, (String(text).includes('-')?'bad':'score'));
+    const t = String(text ?? '');
+    const cls = (t.includes('+') && t.length>=3) ? 'big' : 'score';
+    popText(x,y,t,cls);
   }
 
+  function burst(x,y,opts={}){
+    injectCss();
+    const layer = ensureLayer();
+    const r = Math.max(10, Math.min(120, Number(opts.r ?? 52)));
+    const el = doc.createElement('div');
+    el.className = 'hha-burst';
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top  = `${Math.round(y)}px`;
+
+    // “kind” tint via filter (no explicit colors needed)
+    const kind = String(opts.kind || '').toLowerCase();
+    if(kind.includes('bad') || kind.includes('junk')) el.style.filter = 'hue-rotate(325deg) saturate(1.25)';
+    else if(kind.includes('star')) el.style.filter = 'hue-rotate(55deg) saturate(1.1)';
+    else if(kind.includes('shield') || kind.includes('block')) el.style.filter = 'hue-rotate(190deg) saturate(1.05)';
+    else if(kind.includes('diamond')) el.style.filter = 'hue-rotate(285deg) saturate(1.25)';
+    else el.style.filter = 'hue-rotate(0deg) saturate(1.05)';
+
+    el.style.width = `${Math.round(r*0.22)}px`;
+    el.style.height= `${Math.round(r*0.22)}px`;
+    layer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 600);
+  }
+
+  function shockwave(x,y,opts={}){
+    injectCss();
+    const layer = ensureLayer();
+    const r = Math.max(20, Math.min(160, Number(opts.r ?? 70)));
+    const el = doc.createElement('div');
+    el.className = 'hha-shock';
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top  = `${Math.round(y)}px`;
+    el.style.width  = `${Math.round(r*0.28)}px`;
+    el.style.height = `${Math.round(r*0.28)}px`;
+    layer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 650);
+  }
+
+  function celebrate(){
+    injectCss();
+    const layer = ensureLayer();
+    const W = innerWidth, H = innerHeight;
+    const n = 26;
+
+    for(let i=0;i<n;i++){
+      const el = doc.createElement('div');
+      el.className = 'hha-confetti';
+
+      const x = (W*0.18) + Math.random()*(W*0.64);
+      const y = H*0.06 + Math.random()*(H*0.14);
+
+      el.style.left = `${Math.round(x)}px`;
+      el.style.top  = `${Math.round(y)}px`;
+
+      const dx = (Math.random()*2-1) * 260;
+      const dy = 420 + Math.random()*420;
+      el.style.setProperty('--dx', `${Math.round(dx)}px`);
+      el.style.setProperty('--dy', `${Math.round(dy)}px`);
+
+      // tint variety without hardcoding palette
+      el.style.filter = `hue-rotate(${Math.floor(Math.random()*360)}deg) saturate(1.25)`;
+
+      layer.appendChild(el);
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 1100);
+    }
+  }
+
+  // Convenience: burstAt(kind)
   function burstAt(x,y,kind='good'){
-    if(kind==='bad' || kind==='junk') shockwave(x,y,{r:66});
-    else if(kind==='shield' || kind==='block') burst(x,y,{r:44});
-    else if(kind==='diamond') shockwave(x,y,{r:78});
-    else if(kind==='star') burst(x,y,{r:58});
-    else shockwave(x,y,{r:56});
+    burst(x,y,{ r: 58, kind });
+    shockwave(x,y,{ r: 74 });
   }
 
   root.Particles = root.Particles || {};
-  Object.assign(root.Particles, { popText, burst, shockwave, celebrate, scorePop, burstAt });
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = root.Particles;
-
+  root.Particles.popText = popText;
+  root.Particles.scorePop = scorePop;
+  root.Particles.burst = burst;
+  root.Particles.shockwave = shockwave;
+  root.Particles.celebrate = celebrate;
+  root.Particles.burstAt = burstAt;
 })(window);
