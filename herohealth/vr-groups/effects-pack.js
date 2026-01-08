@@ -1,211 +1,151 @@
-// === C: /herohealth/vr-groups/effects-pack.js ===
-// Ultra FX Pack — PRODUCTION (safe)
-// - Body FX classes: fx-hit/fx-good/fx-bad/fx-block/fx-perfect/fx-combo/fx-storm/fx-boss/fx-end/fx-miss
-// - Shockwave DOM + (optional) Particles.js integration
-// - Mini urgent + boss heartbeat + screen kick (subtle, safe)
-// Requires: ../vr/particles.js (optional)
+/* === /herohealth/vr-groups/effects-pack.js ===
+GroupsVR FX Pack — PRODUCTION (PACK 37)
+✅ Listen to: hha:judge / groups:progress / hha:score / hha:end
+✅ Adds body classes: fx-hit fx-good fx-bad fx-miss fx-perfect fx-combo fx-storm fx-boss fx-end
+✅ Auto-clear with timeout (no sticky)
+✅ Safe: rate-limited + won't block input
+*/
 
-(function(){
+(function(root){
   'use strict';
-  const DOC = document;
-  const WIN = window;
+  const DOC = root.document;
+  if (!DOC) return;
 
-  // ---------- helpers ----------
-  function addCls(c, ms){
+  const BODY = DOC.body;
+
+  // prevent double load
+  if (root.__HHA_GROUPS_FX_LOADED__) return;
+  root.__HHA_GROUPS_FX_LOADED__ = true;
+
+  function addFx(cls, ms){
+    ms = Math.max(60, Number(ms)||160);
     try{
-      DOC.body.classList.add(c);
-      setTimeout(()=>DOC.body.classList.remove(c), ms||180);
+      BODY.classList.add(cls);
+      clearTimeout(addFx._tmr?.[cls]);
+      addFx._tmr = addFx._tmr || Object.create(null);
+      addFx._tmr[cls] = setTimeout(()=>{ 
+        try{ BODY.classList.remove(cls); }catch(_){}
+      }, ms);
     }catch(_){}
   }
 
-  function ensureFxLayer(){
-    let layer = DOC.querySelector('.groups-fx-layer');
-    if (layer) return layer;
-    layer = DOC.createElement('div');
-    layer.className = 'groups-fx-layer';
-    layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:140;overflow:hidden;';
-    DOC.body.appendChild(layer);
-    return layer;
+  function setFx(cls, on){
+    try{ BODY.classList.toggle(cls, !!on); }catch(_){}
   }
 
-  function shockwave(x,y, kind='cyan'){
-    const layer = ensureFxLayer();
-    const el = DOC.createElement('div');
-    el.className = 'fx-shock fx-' + kind;
-    el.style.left = x + 'px';
-    el.style.top  = y + 'px';
-    layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch{} }, 520);
+  // combo glow threshold
+  let lastCombo = 0;
+  let comboOn = false;
+
+  // soft rate limit
+  let lastJudgeAt = 0;
+  function canJudge(){
+    const t = (root.performance && performance.now) ? performance.now() : Date.now();
+    if (t - lastJudgeAt < 55) return false;
+    lastJudgeAt = t;
+    return true;
   }
 
-  function xyFromDetail(d){
-    const cx = WIN.innerWidth/2, cy = WIN.innerHeight/2;
-    if (d && typeof d.x === 'number' && typeof d.y === 'number') return {x:d.x, y:d.y};
-    if (d && d.ev && typeof d.ev.clientX === 'number') return {x:d.ev.clientX, y:d.ev.clientY};
-    return {x:cx, y:cy};
-  }
-
-  // ---------- optional Particles.js ----------
-  function getParticles(){
-    return WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || null;
-  }
-  function hasParticles(){
-    const P = getParticles();
-    return !!P;
-  }
-  function popText(x,y,text,cls=''){
-    try{
-      const P = getParticles();
-      if (P && typeof P.popText==='function') P.popText(x,y,text,cls);
-    }catch(_){}
-  }
-  function burst(x,y,n=18){
-    try{
-      const P = getParticles();
-      if (P && typeof P.burst==='function') P.burst(x,y,n);
-    }catch(_){}
-  }
-  function celebrate(){
-    try{
-      const P = getParticles();
-      if (P && typeof P.celebrate==='function') P.celebrate();
-    }catch(_){}
-  }
-
-  // ---------- inject minimal CSS for shockwaves (so FX always visible) ----------
-  (function injectCss(){
-    if (DOC.querySelector('#groupsFxPackCss')) return;
-    const st = DOC.createElement('style');
-    st.id = 'groupsFxPackCss';
-    st.textContent = `
-      .groups-fx-layer .fx-shock{
-        position:absolute;
-        width:16px; height:16px;
-        border-radius:999px;
-        transform: translate(-50%,-50%) scale(0.8);
-        opacity:0.85;
-        pointer-events:none;
-        filter: blur(0.2px);
-        animation: fxShock .52s ease-out forwards;
-      }
-      .fx-shock.fx-green{ box-shadow: 0 0 0 2px rgba(34,197,94,.55), 0 0 34px rgba(34,197,94,.25); }
-      .fx-shock.fx-red{ box-shadow: 0 0 0 2px rgba(239,68,68,.58), 0 0 34px rgba(239,68,68,.25); }
-      .fx-shock.fx-cyan{ box-shadow: 0 0 0 2px rgba(34,211,238,.58), 0 0 34px rgba(34,211,238,.25); }
-      .fx-shock.fx-violet{ box-shadow: 0 0 0 2px rgba(167,139,250,.58), 0 0 34px rgba(167,139,250,.25); }
-      @keyframes fxShock{
-        0%{ transform: translate(-50%,-50%) scale(0.7); opacity:.85; }
-        65%{ transform: translate(-50%,-50%) scale(8.5); opacity:.22; }
-        100%{ transform: translate(-50%,-50%) scale(11.0); opacity:0; }
-      }
-
-      /* subtle screen kick via filter */
-      body.fx-hit .playLayer{ filter: brightness(1.08) contrast(1.05); }
-      body.fx-bad .playLayer{ filter: hue-rotate(-8deg) saturate(1.12); }
-      body.fx-good .playLayer{ filter: saturate(1.08) brightness(1.06); }
-
-      /* end flash */
-      body.fx-end .playLayer{ filter: brightness(1.10) saturate(1.10); }
-    `;
-    DOC.head.appendChild(st);
-  })();
-
-  // ---------- hooks ----------
-  WIN.addEventListener('hha:judge', (ev)=>{
-    const d = ev.detail||{};
+  // ---------- hha:judge => hit/good/bad/perfect/miss ----------
+  root.addEventListener('hha:judge', (ev)=>{
+    if (!canJudge()) return;
+    const d = ev.detail || {};
     const k = String(d.kind||'').toLowerCase();
-    const {x,y} = xyFromDetail(d);
 
-    if (k==='good'){
-      addCls('fx-hit', 140);
-      addCls('fx-good', 220);
-      shockwave(x,y,'green');
-      if (hasParticles()){
-        popText(x,y,String(d.text||'+'),'');
-        burst(x,y,16);
-      }
-      try{ navigator.vibrate && navigator.vibrate(12); }catch{}
+    // common hit kick
+    addFx('fx-hit', 140);
+
+    if (k === 'good'){
+      addFx('fx-good', 170);
+      return;
+    }
+    if (k === 'bad'){
+      addFx('fx-bad', 190);
+      return;
+    }
+    if (k === 'miss'){
+      addFx('fx-miss', 190);
+      addFx('fx-bad', 190);
+      return;
+    }
+    if (k === 'perfect'){
+      addFx('fx-perfect', 210);
+      addFx('fx-good', 170);
+      return;
+    }
+    if (k === 'storm'){
+      // some engines may emit storm here too
+      addFx('fx-storm', 380);
+      return;
+    }
+    if (k === 'boss'){
+      addFx('fx-boss', 320);
+      return;
+    }
+  }, { passive:true });
+
+  // ---------- groups:progress => storm/boss states ----------
+  root.addEventListener('groups:progress', (ev)=>{
+    const d = ev.detail || {};
+    const kind = String(d.kind||'').toLowerCase();
+
+    if (kind === 'storm_on'){
+      setFx('fx-storm', true);
+      addFx('fx-storm', 420);
+      return;
+    }
+    if (kind === 'storm_off'){
+      setFx('fx-storm', false);
       return;
     }
 
-    if (k==='bad'){
-      addCls('fx-hit', 160);
-      addCls('fx-bad', 260);
-      shockwave(x,y,'red');
-      if (hasParticles()){ burst(x,y,10); }
-      try{ navigator.vibrate && navigator.vibrate([20,40,20]); }catch{}
+    if (kind === 'boss_spawn'){
+      setFx('fx-boss', true);
+      addFx('fx-boss', 420);
       return;
     }
-
-    if (k==='block'){
-      addCls('fx-hit', 120);
-      addCls('fx-block', 240);
-      shockwave(x,y,'cyan');
-      if (hasParticles()){ popText(x,y,'BLOCK',''); burst(x,y,14); }
-      try{ navigator.vibrate && navigator.vibrate([12,20,12]); }catch{}
+    if (kind === 'boss_down'){
+      addFx('fx-perfect', 260);
+      addFx('fx-good', 180);
+      // keep boss fx off after down
+      setFx('fx-boss', false);
       return;
     }
-
-    if (k==='perfect'){
-      addCls('fx-perfect', 520);
-      shockwave(x,y,'violet');
-      if (hasParticles()){ popText(x,y,'PERFECT',''); burst(x,y,22); }
-      try{ navigator.vibrate && navigator.vibrate([18,28,18]); }catch{}
+    if (kind === 'perfect_switch'){
+      addFx('fx-perfect', 260);
+      addFx('fx-good', 160);
       return;
     }
-
-    if (k==='storm'){
-      addCls('fx-storm', 900);
+    if (kind === 'miss'){
+      addFx('fx-miss', 190);
+      addFx('fx-bad', 190);
       return;
     }
+  }, { passive:true });
 
-    if (k==='boss'){
-      addCls('fx-boss', 900);
-      return;
+  // ---------- hha:score => combo highlight ----------
+  root.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail || {};
+    const combo = Number(d.combo || 0) || 0;
+
+    // combo glow after 6
+    const should = (combo >= 6);
+    if (should !== comboOn){
+      comboOn = should;
+      setFx('fx-combo', comboOn);
     }
 
-    if (k==='streak'){
-      addCls('fx-combo', 420);
-      if (hasParticles()){ celebrate(); }
-      return;
+    // little burst at new high combo jump
+    if (combo > lastCombo && combo >= 8){
+      addFx('fx-perfect', 160);
     }
+    lastCombo = combo;
+  }, { passive:true });
 
-    if (k==='miss'){
-      addCls('fx-miss', 180);
-      shockwave(x,y,'cyan');
-      if (hasParticles()){ popText(x,y,'MISS',''); }
-      return;
-    }
-  }, {passive:true});
+  // ---------- hha:end => end vignette ----------
+  root.addEventListener('hha:end', ()=>{
+    setFx('fx-end', true);
+    // keep end until user closes overlay or restarts
+  }, { passive:true });
 
-  // urgent flags from quest:update
-  WIN.addEventListener('quest:update', (ev)=>{
-    const d = ev.detail||{};
-    const left = Number(d.miniTimeLeftSec||0);
-    DOC.body.classList.toggle('groups-mini-urgent', left>0 && left<=3);
-  }, {passive:true});
-
-  // groups progress
-  WIN.addEventListener('groups:progress', (ev)=>{
-    const k = String((ev.detail||{}).kind||'').toLowerCase();
-    if (k==='storm_on'){
-      DOC.body.classList.add('groups-storm-on');
-      setTimeout(()=>DOC.body.classList.remove('groups-storm-on'), 1200);
-    }
-    if (k==='boss_spawn'){
-      DOC.body.classList.add('groups-boss-on');
-      setTimeout(()=>DOC.body.classList.remove('groups-boss-on'), 1600);
-    }
-    if (k==='perfect_switch'){
-      addCls('fx-perfect', 520);
-    }
-  }, {passive:true});
-
-  // end celebration
-  WIN.addEventListener('hha:end', (ev)=>{
-    const d = (ev && ev.detail) || {};
-    if (String(d.runMode||'') === 'practice') return; // don't flash end for practice
-    addCls('fx-end', 900);
-    try{ if (hasParticles()) celebrate(); }catch{}
-  }, {passive:true});
-
-})();
+})(typeof window !== 'undefined' ? window : globalThis);
