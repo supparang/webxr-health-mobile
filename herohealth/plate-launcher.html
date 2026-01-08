@@ -1,10 +1,10 @@
 <!-- === /herohealth/plate-launcher.html ===
-Balanced Plate VR — Launcher (PRODUCTION)
-✅ Choose: view (pc/mobile/vr/cvr), run (play/study), diff, time, seed
+Balanced Plate VR — Launcher (PRODUCTION+)
+✅ PC / Mobile / VR / Cardboard(cVR)
 ✅ Remembers last settings (localStorage)
-✅ Builds run URL: ./plate-vr.html?... and passes hub
+✅ Builds run link -> /herohealth/plate-vr.html?view=...&run=...&diff=...&time=...&seed=...&hub=...
+✅ Suggests view by auto-detect (no forced override)
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -26,7 +26,8 @@ Balanced Plate VR — Launcher (PRODUCTION)
       --accent:#22c55e;
       --warn:#f59e0b;
       --bad:#ef4444;
-
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
       --radius:22px;
       --pill:999px;
 
@@ -35,301 +36,236 @@ Balanced Plate VR — Launcher (PRODUCTION)
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; height:100%; width:100%;
+      margin:0; width:100%; height:100%;
       background:var(--bg);
       color:var(--text);
       font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
-
     .bg{
-      position:fixed; inset:0; pointer-events:none;
+      position:fixed; inset:0;
       background:
         radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
         radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
         radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
         linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+      pointer-events:none;
     }
-
     .wrap{
       position:relative;
       min-height:100%;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
       display:grid;
       place-items:center;
     }
-
     .card{
-      width:min(980px, 100%);
+      width:min(1040px, 100%);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
-      box-shadow: 0 26px 90px rgba(0,0,0,.40);
-      backdrop-filter: blur(12px);
-      padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.42);
+      backdrop-filter: blur(10px);
+      overflow:hidden;
     }
-
-    .top{
+    .head{
+      padding:16px 16px 10px;
       display:flex;
       gap:12px;
       align-items:flex-start;
       justify-content:space-between;
       flex-wrap:wrap;
+      border-bottom:1px solid rgba(148,163,184,.12);
     }
-
     .title{
       font-weight:1200;
       font-size:18px;
       letter-spacing:.2px;
-      display:flex;
-      gap:10px;
-      align-items:center;
     }
     .sub{
       margin-top:6px;
-      font-weight:900;
       color:var(--muted);
+      font-weight:900;
       font-size:13px;
-      line-height:1.35;
-      max-width:680px;
+      line-height:1.4;
     }
-
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
+      display:inline-flex; gap:8px; align-items:center;
+      padding:7px 10px;
       border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(15,23,42,.56);
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.52);
       font-weight:1000;
       font-size:12px;
       white-space:nowrap;
     }
-
     .grid{
-      margin-top:14px;
+      padding:14px 16px 16px;
       display:grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1.05fr .95fr;
       gap:12px;
     }
-
-    .box{
+    .panel{
       background:var(--panel2);
-      border:1px solid var(--stroke);
+      border:1px solid rgba(148,163,184,.14);
       border-radius:18px;
       padding:12px;
     }
-
     .k{
       font-weight:1100;
       font-size:12px;
       color:rgba(229,231,235,.92);
-      margin-bottom:8px;
-      display:flex;
-      gap:8px;
-      align-items:center;
     }
-
     .row{
+      margin-top:10px;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
-    }
-
-    .opt{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:10px 12px;
-      background:rgba(2,6,23,.60);
-      border:1px solid rgba(148,163,184,.20);
-      color:rgba(229,231,235,.95);
-      font: 1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-      transition: transform .06s ease, filter .12s ease, border-color .12s ease;
-    }
-    .opt:active{ transform: translateY(1px); }
-    .opt.on{
-      border-color: rgba(34,197,94,.45);
-      background: rgba(34,197,94,.12);
-      filter: brightness(1.08);
-    }
-    .opt.warn.on{
-      border-color: rgba(245,158,11,.55);
-      background: rgba(245,158,11,.14);
-    }
-
-    .field{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    input[type="number"], input[type="text"]{
-      width: 120px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.60);
-      color:var(--text);
-      font-weight:1000;
-      outline:none;
-    }
-    input[type="text"]{ width: 180px; }
-
-    .actions{
-      margin-top:14px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
     }
     .btn{
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:12px 14px;
+      padding:10px 12px;
       background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.22);
+      border:1px solid rgba(148,163,184,.20);
       color:rgba(229,231,235,.95);
-      font: 1100 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      font: 1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      box-shadow: 0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
       cursor:pointer;
-      user-select:none;
       -webkit-tap-highlight-color:transparent;
-      box-shadow: 0 16px 44px rgba(0,0,0,.30);
+      user-select:none;
     }
     .btn:active{ transform: translateY(1px); }
-    .btn.primary{
-      background:rgba(34,197,94,.14);
-      border-color:rgba(34,197,94,.34);
-    }
-    .btn.warn{
-      background:rgba(245,158,11,.14);
-      border-color:rgba(245,158,11,.34);
-    }
+    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
+    .btn.cyan{ background:rgba(34,211,238,.12); border-color:rgba(34,211,238,.26); }
+    .btn.violet{ background:rgba(167,139,250,.12); border-color:rgba(167,139,250,.26); }
 
-    .urlbox{
-      margin-top:12px;
+    select,input{
+      appearance:none;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.20);
       background:rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
+      color:rgba(229,231,235,.95);
       padding:10px 12px;
-      font-weight:900;
-      color:rgba(229,231,235,.92);
-      word-break: break-all;
-      font-size:12px;
+      font: 1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      outline:none;
     }
+    label{ display:flex; flex-direction:column; gap:6px; }
     .hint{
-      margin-top:8px;
-      color:var(--muted);
+      color:rgba(148,163,184,.95);
       font-weight:900;
       font-size:12px;
       line-height:1.35;
     }
-
-    @media (max-width: 880px){
-      .grid{ grid-template-columns: 1fr; }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-weight:800;
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+      word-break:break-all;
+    }
+    @media (max-width: 920px){
+      .grid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
 
 <body>
   <div class="bg"></div>
-
   <div class="wrap">
     <div class="card">
-      <div class="top">
+      <div class="head">
         <div>
           <div class="title">🍽️ Balanced Plate VR — Launcher</div>
           <div class="sub">
-            เลือกโหมดเข้าเล่นให้ชัด (PC / Mobile / VR / Cardboard)<br/>
-            <span class="pill">Play = Adaptive ON</span>
-            <span class="pill">Study = Seeded & Adaptive OFF</span>
+            เลือกอุปกรณ์/โหมด แล้วกด “เริ่มเล่น” ได้เลย<br/>
+            <span class="pill" id="suggestPill">🤖 Suggest: —</span>
+            <span class="pill">🎯 Play = Adaptive ON</span>
+            <span class="pill">🧪 Study = Seeded & Adaptive OFF</span>
           </div>
         </div>
-
-        <div class="row">
-          <span class="pill">🎮 เกม: <b>Plate</b></span>
-          <span class="pill">🧭 HUB: <b id="hubLabel">—</b></span>
+        <div class="row" style="margin-top:0">
+          <button class="btn" id="btnOpenHub" type="button">🏠 HUB</button>
+          <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ 🔗</button>
+          <button class="btn warn" id="btnReset" type="button">รีเซ็ตค่า ♻</button>
         </div>
       </div>
 
       <div class="grid">
-        <div class="box">
-          <div class="k">📱 View / อุปกรณ์</div>
-          <div class="row" id="viewRow">
-            <button class="opt" data-view="pc" type="button">🖥 PC</button>
-            <button class="opt on" data-view="mobile" type="button">📱 Mobile</button>
-            <button class="opt" data-view="vr" type="button">🕶 VR</button>
-            <button class="opt warn" data-view="cvr" type="button">📦 Cardboard (cVR)</button>
+        <!-- Left: device + quick launch -->
+        <div class="panel">
+          <div class="k">🕹️ เลือกอุปกรณ์ / มุมมอง</div>
+          <div class="row">
+            <button class="btn violet" data-view="pc" type="button">🖥️ PC</button>
+            <button class="btn cyan" data-view="mobile" type="button">📱 Mobile</button>
+            <button class="btn" data-view="vr" type="button">🕶 VR</button>
+            <button class="btn" data-view="cvr" type="button">📦 Cardboard (cVR)</button>
+          </div>
+          <div class="hint" style="margin-top:10px">
+            • cVR ยิงจาก crosshair ผ่าน <b>vr-ui.js</b> (ห้ามเล็ง/แตะเป้าโดยตรงก็ยังได้)<br/>
+            • VR ใช้ปุ่ม ENTER VR ในหน้า Run ได้เลย
           </div>
 
-          <div class="hint">
-            • cVR: ยิงจาก crosshair (vr-ui.js) <br/>
-            • VR: ใช้ ENTER VR ในหน้าเกม หรือปุ่มจาก vr-ui.js
+          <div class="row" style="margin-top:12px">
+            <button class="btn primary" id="btnPlay" type="button">▶ เริ่มเล่น</button>
+            <button class="btn" id="btnOpenLast" type="button">เปิด Run ล่าสุด</button>
           </div>
+
+          <div class="hint" style="margin-top:10px">ลิงก์ที่จะเปิด:</div>
+          <div class="mono" id="outUrl">—</div>
         </div>
 
-        <div class="box">
-          <div class="k">⚙️ Run / Difficulty / Time</div>
+        <!-- Right: settings -->
+        <div class="panel">
+          <div class="k">⚙ ตั้งค่าเกม</div>
 
-          <div class="row" id="runRow" style="margin-bottom:10px">
-            <button class="opt on" data-run="play" type="button">▶ Play</button>
-            <button class="opt" data-run="study" type="button">🧪 Study</button>
+          <div class="row">
+            <label style="min-width:200px">
+              <span class="hint">View</span>
+              <select id="selView">
+                <option value="mobile">mobile</option>
+                <option value="pc">pc</option>
+                <option value="vr">vr</option>
+                <option value="cvr">cvr</option>
+              </select>
+            </label>
+
+            <label style="min-width:200px">
+              <span class="hint">Run mode</span>
+              <select id="selRun">
+                <option value="play">play</option>
+                <option value="study">study</option>
+              </select>
+            </label>
+
+            <label style="min-width:200px">
+              <span class="hint">Difficulty</span>
+              <select id="selDiff">
+                <option value="easy">easy</option>
+                <option value="normal">normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </label>
+
+            <label style="min-width:200px">
+              <span class="hint">Time (sec)</span>
+              <input id="inpTime" type="number" inputmode="numeric" min="20" max="9999" value="90" />
+            </label>
+
+            <label style="min-width:200px">
+              <span class="hint">Seed (optional)</span>
+              <input id="inpSeed" type="number" inputmode="numeric" placeholder="ปล่อยว่าง = auto" />
+            </label>
           </div>
 
-          <div class="row" id="diffRow" style="margin-bottom:10px">
-            <button class="opt" data-diff="easy" type="button">🙂 Easy</button>
-            <button class="opt on" data-diff="normal" type="button">😎 Normal</button>
-            <button class="opt" data-diff="hard" type="button">💀 Hard</button>
+          <div class="hint" style="margin-top:10px">
+            • Play: ถ้าไม่ใส่ seed จะสุ่มให้ (ทุกครั้งต่างกัน)<br/>
+            • Study: ถ้าไม่ใส่ seed จะใช้ค่าเริ่มต้น (คงที่)
           </div>
-
-          <div class="field">
-            <span class="pill">⏱ เวลา (s)</span>
-            <input id="timeInput" type="number" min="20" max="9999" step="5" value="90" />
-            <button class="opt" id="time90" type="button">90</button>
-            <button class="opt" id="time70" type="button">70</button>
-            <button class="opt" id="time120" type="button">120</button>
-          </div>
-        </div>
-
-        <div class="box">
-          <div class="k">🌱 Seed (Research-friendly)</div>
-          <div class="field">
-            <span class="pill">seed</span>
-            <input id="seedInput" type="text" value="13579" />
-            <button class="opt" id="btnSeedNow" type="button">สุ่ม (Now)</button>
-            <button class="opt" id="btnSeedStudy" type="button">Study=13579</button>
-          </div>
-          <div class="hint">
-            • Study: seed ควรคงที่เพื่อความเที่ยง (deterministic) <br/>
-            • Play: seed เปลี่ยนได้เพื่อความสนุก/หลากหลาย
-          </div>
-        </div>
-
-        <div class="box">
-          <div class="k">🔗 ผลลัพธ์ลิงก์ (Run URL)</div>
-          <div class="urlbox" id="urlBox">—</div>
-          <div class="hint" id="dbg">—</div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <div class="row">
-          <button class="btn primary" id="btnStart" type="button">เริ่มเกม ▶</button>
-          <button class="btn" id="btnOpenNew" type="button">เปิดแท็บใหม่ 🧭</button>
-          <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ 🔗</button>
-        </div>
-
-        <div class="row">
-          <button class="btn warn" id="btnBackHub" type="button">กลับ HUB 🏠</button>
         </div>
       </div>
     </div>
@@ -337,192 +273,170 @@ Balanced Plate VR — Launcher (PRODUCTION)
 
   <script>
     (function(){
-      const LS_KEY = 'HHA_PLATE_LAUNCHER_PREFS';
+      const LS_KEY = 'HHA_PLATE_LAUNCH_OPTS';
 
-      const qs = (id)=>document.getElementById(id);
-      const urlBox = qs('urlBox');
-      const dbg = qs('dbg');
+      const selView = document.getElementById('selView');
+      const selRun  = document.getElementById('selRun');
+      const selDiff = document.getElementById('selDiff');
+      const inpTime = document.getElementById('inpTime');
+      const inpSeed = document.getElementById('inpSeed');
 
-      const hubLabel = qs('hubLabel');
+      const outUrl  = document.getElementById('outUrl');
+      const suggest = document.getElementById('suggestPill');
 
-      const viewRow = qs('viewRow');
-      const runRow  = qs('runRow');
-      const diffRow = qs('diffRow');
+      const btnPlay = document.getElementById('btnPlay');
+      const btnOpenLast = document.getElementById('btnOpenLast');
+      const btnCopy = document.getElementById('btnCopy');
+      const btnReset = document.getElementById('btnReset');
+      const btnOpenHub = document.getElementById('btnOpenHub');
 
-      const timeInput = qs('timeInput');
-      const seedInput = qs('seedInput');
+      const DEFAULT_STUDY_SEED = 13579;
 
-      const btnStart   = qs('btnStart');
-      const btnOpenNew = qs('btnOpenNew');
-      const btnCopy    = qs('btnCopy');
-      const btnBackHub = qs('btnBackHub');
-
-      const btnSeedNow   = qs('btnSeedNow');
-      const btnSeedStudy = qs('btnSeedStudy');
-
-      const time90  = qs('time90');
-      const time70  = qs('time70');
-      const time120 = qs('time120');
-
-      const baseRunPath = './plate-vr.html';
-
-      // Hub param passthrough
-      const URLX = new URL(location.href);
-      const hub = URLX.searchParams.get('hub') || '';
-      hubLabel.textContent = hub ? 'attached' : 'none';
-
-      function loadPrefs(){
+      function clamp(v,a,b){
+        v = Number(v)||0;
+        return v<a?a:(v>b?b:v);
+      }
+      function load(){
         try{
           const s = localStorage.getItem(LS_KEY);
           if(!s) return null;
           return JSON.parse(s);
         }catch(e){ return null; }
       }
-      function savePrefs(p){
-        try{ localStorage.setItem(LS_KEY, JSON.stringify(p)); }catch(e){}
+      function save(obj){
+        try{ localStorage.setItem(LS_KEY, JSON.stringify(obj)); }catch(e){}
+      }
+      function detectSuggestView(){
+        const ua = navigator.userAgent || '';
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+        // lightweight heuristic: if WebXR present, suggest vr (still user chooses)
+        const hasXR = !!navigator.xr;
+        if(hasXR && isMobile) return 'cvr';
+        if(hasXR) return 'vr';
+        return isMobile ? 'mobile' : 'pc';
       }
 
-      function pickBtn(container, attr, value){
-        const btns = container.querySelectorAll('button.opt');
-        btns.forEach(b=>{
-          const v = b.getAttribute(attr);
-          b.classList.toggle('on', v === value);
-        });
-      }
-
-      function getSelected(container, attr, fallback){
-        const on = container.querySelector('button.opt.on');
-        const v = on ? on.getAttribute(attr) : null;
-        return (v || fallback);
-      }
-
-      function clamp(v, a, b){
-        v = Number(v)||0;
-        return v<a?a:(v>b?b:v);
+      function hubFromUrl(){
+        try{
+          const u = new URL(location.href);
+          return u.searchParams.get('hub') || '';
+        }catch(e){ return ''; }
       }
 
       function buildUrl(){
-        const view = getSelected(viewRow, 'data-view', 'mobile');
-        const run  = getSelected(runRow,  'data-run',  'play');
-        const diff = getSelected(diffRow, 'data-diff', 'normal');
+        const view = (selView.value || 'mobile').toLowerCase();
+        const run  = (selRun.value || 'play').toLowerCase();
+        const diff = (selDiff.value || 'normal').toLowerCase();
+        const time = clamp(inpTime.value || 90, 20, 9999);
 
-        const time = clamp(timeInput.value, 20, 9999);
-        timeInput.value = String(time);
+        let seedRaw = String(inpSeed.value || '').trim();
+        let seed = seedRaw ? Number(seedRaw) : null;
 
-        let seed = String(seedInput.value || '').trim();
-        if(!seed){
-          seed = (run === 'study') ? '13579' : String(Date.now());
-          seedInput.value = seed;
+        if(run === 'study'){
+          if(!seed) seed = DEFAULT_STUDY_SEED;
+        }else{
+          // play
+          if(!seed){
+            seed = (Date.now() ^ (Math.random()*1e9)) | 0;
+          }
         }
 
-        const u = new URL(baseRunPath, location.href);
+        const hub = hubFromUrl();
+        const u = new URL('./plate-vr.html', location.href);
         u.searchParams.set('view', view);
         u.searchParams.set('run', run);
         u.searchParams.set('diff', diff);
         u.searchParams.set('time', String(time));
-        u.searchParams.set('seed', seed);
+        u.searchParams.set('seed', String(seed));
+        if(hub) u.searchParams.set('hub', hub);
 
-        if(hub){
-          u.searchParams.set('hub', hub);
-        }
+        const opts = { view, run, diff, time, seed: String(seed), hub };
+        save(opts);
 
-        // persist
-        savePrefs({ view, run, diff, time, seed });
-
-        const out = u.toString();
-        urlBox.textContent = out;
-
-        // small debug
-        dbg.textContent = `view=${view} • run=${run} • diff=${diff} • time=${time}s • seed=${seed}`;
-
-        return out;
+        return { url: u.toString(), opts };
       }
 
-      function bindPick(container, attr){
-        container.addEventListener('click', (e)=>{
-          const b = e.target && e.target.closest ? e.target.closest('button.opt') : null;
-          if(!b || !container.contains(b)) return;
-          const v = b.getAttribute(attr);
-          if(!v) return;
+      function refresh(){
+        const { url, opts } = buildUrl();
+        if(outUrl) outUrl.textContent = url;
+        if(suggest){
+          const sv = detectSuggestView();
+          suggest.textContent = '🤖 Suggest: ' + sv.toUpperCase();
+        }
+        return { url, opts };
+      }
 
-          // toggle on
-          container.querySelectorAll('button.opt').forEach(x=>x.classList.remove('on'));
-          b.classList.add('on');
+      // load last
+      const last = load();
+      if(last){
+        selView.value = last.view || 'mobile';
+        selRun.value  = last.run  || 'play';
+        selDiff.value = last.diff || 'normal';
+        inpTime.value = String(last.time || 90);
+        if(last.seed) inpSeed.value = String(last.seed);
+      }else{
+        selView.value = detectSuggestView();
+        selRun.value = 'play';
+        selDiff.value = 'normal';
+        inpTime.value = '90';
+      }
 
-          // if switching run mode, enforce seed hint
-          if(attr === 'data-run'){
-            const run = v;
-            if(run === 'study'){
-              if(!seedInput.value || String(seedInput.value).trim()==='') seedInput.value = '13579';
-            }
-          }
-
-          buildUrl();
+      // bind view buttons
+      document.querySelectorAll('button[data-view]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          selView.value = b.getAttribute('data-view') || 'mobile';
+          refresh();
         }, {passive:true});
-      }
+      });
 
-      // init defaults
-      const prefs = loadPrefs();
-      if(prefs){
-        if(prefs.view) pickBtn(viewRow, 'data-view', prefs.view);
-        if(prefs.run)  pickBtn(runRow,  'data-run',  prefs.run);
-        if(prefs.diff) pickBtn(diffRow, 'data-diff', prefs.diff);
-        if(prefs.time) timeInput.value = String(prefs.time);
-        if(prefs.seed) seedInput.value = String(prefs.seed);
-      }
+      [selView, selRun, selDiff, inpTime, inpSeed].forEach(el=>{
+        el?.addEventListener('change', refresh, {passive:true});
+        el?.addEventListener('input', refresh, {passive:true});
+      });
 
-      bindPick(viewRow, 'data-view');
-      bindPick(runRow,  'data-run');
-      bindPick(diffRow, 'data-diff');
-
-      timeInput.addEventListener('input', ()=> buildUrl(), {passive:true});
-
-      time90.addEventListener('click', ()=>{ timeInput.value='90'; buildUrl(); }, {passive:true});
-      time70.addEventListener('click', ()=>{ timeInput.value='70'; buildUrl(); }, {passive:true});
-      time120.addEventListener('click', ()=>{ timeInput.value='120'; buildUrl(); }, {passive:true});
-
-      btnSeedNow.addEventListener('click', ()=>{
-        seedInput.value = String(Date.now() ^ (Math.random()*1e9));
-        buildUrl();
+      btnPlay?.addEventListener('click', ()=>{
+        const { url } = refresh();
+        location.href = url;
       }, {passive:true});
 
-      btnSeedStudy.addEventListener('click', ()=>{
-        seedInput.value = '13579';
-        // also switch run to study visually (nice UX)
-        pickBtn(runRow, 'data-run', 'study');
-        buildUrl();
+      btnOpenLast?.addEventListener('click', ()=>{
+        const s = load();
+        if(s && outUrl && outUrl.textContent && outUrl.textContent !== '—'){
+          location.href = outUrl.textContent;
+          return;
+        }
+        const { url } = refresh();
+        location.href = url;
       }, {passive:true});
 
-      btnStart.addEventListener('click', ()=>{
-        const u = buildUrl();
-        location.href = u;
-      }, {passive:true});
-
-      btnOpenNew.addEventListener('click', ()=>{
-        const u = buildUrl();
-        window.open(u, '_blank', 'noopener');
-      }, {passive:true});
-
-      btnCopy.addEventListener('click', async ()=>{
-        const u = buildUrl();
+      btnCopy?.addEventListener('click', async ()=>{
+        const { url } = refresh();
         try{
-          await navigator.clipboard.writeText(u);
-          dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
+          await navigator.clipboard.writeText(url);
+          if(outUrl) outUrl.textContent = '✅ คัดลอกแล้ว: ' + url;
         }catch(e){
-          dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่อง URL ได้';
+          if(outUrl) outUrl.textContent = '⚠️ คัดลอกไม่ได้ — คัดลอกจากนี่: ' + url;
         }
       }, {passive:true});
 
-      btnBackHub.addEventListener('click', ()=>{
-        if(hub){
-          location.href = hub;
-        }else{
-          location.href = './hub.html';
-        }
+      btnReset?.addEventListener('click', ()=>{
+        try{ localStorage.removeItem(LS_KEY); }catch(e){}
+        selView.value = detectSuggestView();
+        selRun.value = 'play';
+        selDiff.value = 'normal';
+        inpTime.value = '90';
+        inpSeed.value = '';
+        refresh();
       }, {passive:true});
 
-      // first render
-      buildUrl();
+      btnOpenHub?.addEventListener('click', ()=>{
+        const hub = hubFromUrl();
+        if(hub){ location.href = hub; return; }
+        location.href = './hub.html';
+      }, {passive:true});
+
+      // first paint
+      refresh();
     })();
   </script>
 </body>
