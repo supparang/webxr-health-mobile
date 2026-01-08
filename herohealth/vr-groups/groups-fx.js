@@ -1,182 +1,192 @@
 /* === /herohealth/vr-groups/groups.fx.js ===
-GroupsVR FX Hook — PRODUCTION (PACK 57)
-✅ Adds short-lived body classes: fx-hit/fx-good/fx-bad/fx-miss/fx-storm/fx-boss/fx-end/fx-combo/fx-perfect
-✅ Hooks events: hha:judge, hha:score, hha:time, groups:progress, hha:end
-✅ Optional Particles.popText / celebrate if particles.js loaded (window.Particles)
+GroupsVR FX Router — PRODUCTION (Research-safe)
+✅ Listens: hha:judge, groups:progress, hha:rank, hha:end, quest:update
+✅ Toggles body classes: fx-hit/fx-good/fx-bad/fx-perfect/fx-combo/fx-storm/fx-boss/fx-end/fx-miss
+✅ Persistent: storm/boss (auto release)
+✅ Research-safe: auto OFF in run=research|practice
 */
 
-(function(root){
+(function (root) {
   'use strict';
+
   const DOC = root.document;
-  if(!DOC) return;
-  if(root.__HHA_GROUPS_FX__) return;
-  root.__HHA_GROUPS_FX__ = true;
+  if (!DOC) return;
+  if (root.__HHA_GROUPS_FX_LOADED__) return;
+  root.__HHA_GROUPS_FX_LOADED__ = true;
+
+  const qs = (k, d = null) => {
+    try { return new URL(location.href).searchParams.get(k) ?? d; }
+    catch { return d; }
+  };
+
+  function runMode(){
+    const r = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
+    if (r.includes('research')) return 'research';
+    if (r.includes('practice')) return 'practice';
+    return 'play';
+  }
+
+  const CFG = Object.assign({
+    // ✅ set false to hard disable (or set true by default)
+    enabled: true,
+
+    // pulse durations
+    hitMs: 140,
+    goodMs: 220,
+    badMs: 240,
+    missMs: 220,
+    perfectMs: 260,
+    comboMs: 420,
+    endMs: 520,
+
+    // persistent max durations (safety)
+    stormMaxMs: 12000,
+    bossMaxMs: 12000,
+
+    // minimal cooldowns to avoid spam
+    minGapMs: 70,
+  }, root.HHA_GROUPS_FX_CONFIG || {});
+
+  // auto disable for research/practice
+  const RM = runMode();
+  if (RM !== 'play') CFG.enabled = false;
+
+  // expose for debugging
+  root.GroupsVR = root.GroupsVR || {};
+  root.GroupsVR.__fx = { enabled: CFG.enabled, runMode: RM };
 
   const body = DOC.body;
 
-  // ---------- helpers ----------
-  const timers = new Map();
-  function flash(cls, ms){
-    try{
-      body.classList.add(cls);
-      if(timers.has(cls)) clearTimeout(timers.get(cls));
-      timers.set(cls, setTimeout(()=> {
-        try{ body.classList.remove(cls); }catch(_){}
-        timers.delete(cls);
-      }, ms || 160));
-    }catch(_){}
+  function add(cls){ body.classList.add(cls); }
+  function rem(cls){ body.classList.remove(cls); }
+
+  function pulse(cls, ms){
+    if (!CFG.enabled) return;
+    add(cls);
+    root.clearTimeout(pulse._t && pulse._t[cls]);
+    pulse._t = pulse._t || {};
+    pulse._t[cls] = root.setTimeout(() => rem(cls), ms);
   }
 
-  function pop(x,y,text,kind){
-    try{
-      const P = root.Particles;
-      if(P && typeof P.popText === 'function'){
-        P.popText(x,y,text, kind || '');
-      }
-    }catch(_){}
-  }
-
-  function celebrate(){
-    try{
-      const P = root.Particles;
-      if(P && typeof P.celebrate === 'function'){
-        P.celebrate();
-      }
-    }catch(_){}
-  }
-
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  // combo detector (soft)
-  let lastCombo = 0;
-  let lastScore = 0;
-
-  // storm/boss states
-  let stormOn = false;
-
-  // ---------- event handlers ----------
-  root.addEventListener('hha:judge', (ev)=>{
-    const d = (ev && ev.detail) || {};
-    const kind = String(d.kind||'');
-    const text = String(d.text||'');
-    const x = clamp(d.x, 0, root.innerWidth||0);
-    const y = clamp(d.y, 0, root.innerHeight||0);
-
-    // always a small "hit" flash
-    if(kind) flash('fx-hit', 140);
-
-    if(kind === 'good'){
-      flash('fx-good', 170);
-      pop(x,y, text || 'GOOD', 'good');
-    } else if(kind === 'bad'){
-      flash('fx-bad', 190);
-      pop(x,y, text || 'BAD', 'bad');
-    } else if(kind === 'miss'){
-      flash('fx-miss', 210);
-      flash('fx-bad', 170);
-      pop(x,y, text || 'MISS', 'miss');
-    } else if(kind === 'boss'){
-      flash('fx-boss', 220);
-      pop(x,y, text || 'BOSS', 'boss');
-    } else if(kind === 'storm'){
-      flash('fx-storm', 240);
-      pop(x||((root.innerWidth||0)*0.5), y||((root.innerHeight||0)*0.25), text || 'STORM', 'storm');
-    } else if(kind === 'perfect'){
-      flash('fx-perfect', 240);
-      pop(x,y, text || 'PERFECT', 'perfect');
+  function latch(cls, on, maxMs){
+    if (!CFG.enabled) return;
+    if (on){
+      add(cls);
+      root.clearTimeout(latch._t && latch._t[cls]);
+      latch._t = latch._t || {};
+      latch._t[cls] = root.setTimeout(() => rem(cls), maxMs || 8000);
     } else {
-      // fallback
-      if(text) pop(x||((root.innerWidth||0)*0.5), y||((root.innerHeight||0)*0.3), text, 'info');
+      rem(cls);
+      if (latch._t && latch._t[cls]) root.clearTimeout(latch._t[cls]);
     }
-  }, { passive:true });
+  }
 
-  root.addEventListener('hha:score', (ev)=>{
+  // rate-limit
+  let lastAnyAt = 0;
+  function allow(){
+    const t = (root.performance && performance.now) ? performance.now() : Date.now();
+    if (t - lastAnyAt < CFG.minGapMs) return false;
+    lastAnyAt = t;
+    return true;
+  }
+
+  // ---------------- Event mapping ----------------
+
+  // hha:judge {kind,text,...}
+  root.addEventListener('hha:judge', (ev) => {
+    if (!CFG.enabled) return;
+    if (!allow()) return;
+
     const d = (ev && ev.detail) || {};
-    const score = Number(d.score)||0;
-    const combo = Number(d.combo)||0;
+    const k = String(d.kind || '').toLowerCase();
 
-    // combo pulse when rising
-    if(combo >= 6 && combo > lastCombo){
-      flash('fx-combo', 220);
-      // show small hint sometimes
-      if(combo === 6 || combo === 10 || combo === 15){
-        pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.18, `COMBO ${combo}!`, 'combo');
-      }
-    }
+    // generic hit pulse
+    if (k) pulse('fx-hit', CFG.hitMs);
 
-    // score jump (tiny good glow)
-    if(score > lastScore && (score - lastScore) >= 40){
-      flash('fx-good', 140);
-    }
-
-    lastCombo = combo;
-    lastScore = score;
+    if (k === 'good' || k === 'celebrate') pulse('fx-good', CFG.goodMs);
+    else if (k === 'bad') pulse('fx-bad', CFG.badMs);
+    else if (k === 'miss') pulse('fx-miss', CFG.missMs);
+    else if (k === 'perfect') pulse('fx-perfect', CFG.perfectMs);
+    else if (k === 'storm') latch('fx-storm', true, CFG.stormMaxMs);
+    else if (k === 'boss') latch('fx-boss', true, CFG.bossMaxMs);
   }, { passive:true });
 
-  root.addEventListener('groups:progress', (ev)=>{
+  // groups:progress {kind,...}
+  root.addEventListener('groups:progress', (ev) => {
+    if (!CFG.enabled) return;
     const d = (ev && ev.detail) || {};
-    const k = String(d.kind||'');
+    const kind = String(d.kind || '').toLowerCase();
 
-    if(k === 'storm_on'){
-      stormOn = true;
-      flash('fx-storm', 520);
-      try{ body.classList.add('fx-storm'); }catch(_){}
+    if (kind === 'storm_on'){
+      latch('fx-storm', true, CFG.stormMaxMs);
+      body.classList.add('groups-storm'); // already used by CSS
     }
-    if(k === 'storm_off'){
-      stormOn = false;
-      try{ body.classList.remove('fx-storm'); }catch(_){}
-      flash('fx-good', 180);
+    if (kind === 'storm_off'){
+      latch('fx-storm', false);
+      body.classList.remove('groups-storm');
     }
-    if(k === 'boss_spawn'){
-      flash('fx-boss', 520);
-      try{ body.classList.add('fx-boss'); }catch(_){}
+    if (kind === 'boss_spawn'){
+      latch('fx-boss', true, CFG.bossMaxMs);
     }
-    if(k === 'boss_down'){
-      flash('fx-good', 260);
-      flash('fx-perfect', 260);
-      try{ body.classList.remove('fx-boss'); }catch(_){}
-      pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.22, 'BOSS DOWN!', 'good');
+    if (kind === 'boss_down'){
+      latch('fx-boss', false);
+      pulse('fx-good', CFG.goodMs);
+      pulse('fx-perfect', CFG.perfectMs);
     }
-    if(k === 'perfect_switch'){
-      flash('fx-perfect', 260);
+    if (kind === 'perfect_switch'){
+      pulse('fx-perfect', CFG.perfectMs);
+      pulse('fx-combo', CFG.comboMs);
     }
-    if(k === 'miss'){
-      flash('fx-miss', 240);
-      flash('fx-bad', 180);
+    if (kind === 'miss'){
+      pulse('fx-miss', CFG.missMs);
+      pulse('fx-bad', CFG.badMs);
     }
   }, { passive:true });
 
-  root.addEventListener('hha:time', (ev)=>{
+  // hha:rank {grade, accuracy}
+  root.addEventListener('hha:rank', (ev) => {
+    if (!CFG.enabled) return;
     const d = (ev && ev.detail) || {};
-    const left = Number(d.left)||0;
+    const g = String(d.grade || '').toUpperCase();
 
-    // clutch vibe
-    if(left <= 10 && left > 0){
-      flash('fx-end', 160);
-    }
-    // ensure storm class doesn’t get stuck if any edge case
-    if(left === 0){
-      try{ body.classList.remove('fx-storm'); }catch(_){}
-      try{ body.classList.remove('fx-boss'); }catch(_){}
+    // combo-ish excitement for high ranks
+    if (g === 'S' || g === 'SS' || g === 'SSS'){
+      pulse('fx-combo', CFG.comboMs);
     }
   }, { passive:true });
 
-  root.addEventListener('hha:end', (ev)=>{
-    const s = (ev && ev.detail) || {};
-    flash('fx-end', 650);
-    try{ body.classList.remove('fx-storm'); }catch(_){}
-    try{ body.classList.remove('fx-boss'); }catch(_){}
+  // quest:update -> mini urgent flash (optional)
+  root.addEventListener('quest:update', (ev) => {
+    if (!CFG.enabled) return;
+    const d = (ev && ev.detail) || {};
+    const left = Number(d.miniTimeLeftSec || 0);
 
-    const grade = String(s.grade||'');
-    const score = Number(s.scoreFinal||0);
-    const acc   = Number(s.accuracyGoodPct||0);
+    // mark urgent when <=3 sec
+    body.classList.toggle('groups-mini-urgent', (left > 0 && left <= 3));
+  }, { passive:true });
 
-    // big pop
-    pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.22, `GRADE ${grade}`, 'end');
-    pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.30, `SCORE ${score} • ACC ${acc}%`, 'end');
+  // hha:end -> end pulse + clear latches
+  root.addEventListener('hha:end', (ev) => {
+    const d = (ev && ev.detail) || {};
+    const rm = String(d.runMode || RM || 'play').toLowerCase();
 
-    // fireworks
-    celebrate();
+    // always clear persistent visual classes
+    latch('fx-storm', false);
+    latch('fx-boss', false);
+    body.classList.remove('groups-storm','groups-mini-urgent');
+
+    if (rm !== 'play') return; // research/practice: keep quiet
+
+    if (!CFG.enabled) return;
+    pulse('fx-end', CFG.endMs);
+
+    // fireworks for S and above (if Particles exists)
+    const grade = String(d.grade || '').toUpperCase();
+    if (grade === 'S' || grade === 'SS' || grade === 'SSS'){
+      try{
+        root.Particles && root.Particles.celebrate && root.Particles.celebrate();
+      }catch(_){}
+    }
   }, { passive:true });
 
 })(typeof window !== 'undefined' ? window : globalThis);
