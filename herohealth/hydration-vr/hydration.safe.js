@@ -1,16 +1,15 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
-// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
-// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE + AI HOOKS)
+// ✅ Auto layers via window.HHA_VIEW.layers from boot
+// ✅ cVR strict: hha:shoot -> aim assist lockPx adaptive (fair + deterministic for research)
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+beep, pop score
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
-// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
-// ✅ NEW: HUD-SAFE spawn (avoid targets under HUD panels) + debug safe-rect
+// ✅ AI Hooks: Difficulty Director + Pattern Generator (PLAY only; research OFF)
 
 'use strict';
 
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createAICoach } from '../vr/ai-coach.js';
-import { createHudSafezone } from './hydration.hud-safe.js'; // ✅ NEW
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
@@ -93,7 +92,7 @@ function getPlayfieldEl(){
 function getPlayfieldRect(){
   const pf = getPlayfieldEl();
   const r = pf?.getBoundingClientRect();
-  return r || { left:0, top:0, width:1, height:1, right:1, bottom:1 };
+  return r || { left:0, top:0, width:1, height:1 };
 }
 function centerPoint(){
   const r = getPlayfieldRect();
@@ -121,10 +120,6 @@ function shockAt(x, y){
   el.style.setProperty('--y', yPct.toFixed(2)+'%');
   pf.appendChild(el);
   setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
-}
-function shockAtCenter(){
-  const { cx, cy } = centerPoint();
-  shockAt(cx, cy);
 }
 function popScore(text='+10'){
   try{
@@ -168,9 +163,8 @@ const hub = String(qs('hub','../hub.html'));
 const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
 const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
-const logEndpoint = String(qs('log','') || '');
 
-// RNG deterministic-ish
+// RNG deterministic-ish (game core)
 function hashStr(s){
   s=String(s||''); let h=2166136261;
   for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -186,6 +180,11 @@ function makeRng(seedStr){
   };
 }
 const rng = makeRng(seed);
+
+// -------------------- AI Hooks (E) --------------------
+function getAI(){
+  try{ return window.HHA_AI || null; }catch(_){ return null; }
+}
 
 // -------------------- State --------------------
 const S = {
@@ -294,34 +293,6 @@ const TUNE = (() => {
 })();
 S.endWindowSec = TUNE.endWindowSec;
 S.bossWindowSec = TUNE.bossWindowSec;
-
-// -------------------- NEW: HUD-SAFE Spawn helper --------------------
-// เปิด debug: localStorage.setItem('HHA_DEBUG_SAFE','1') แล้วรีเฟรช
-// ปิด debug: localStorage.removeItem('HHA_DEBUG_SAFE')
-let SAFE_MAIN = null; // for #playfield
-let SAFE_CB   = null; // for #cbPlayfield
-
-function ensureSafezone(){
-  if (!SAFE_MAIN){
-    SAFE_MAIN = createHudSafezone({
-      playfieldSelector:'#playfield',
-      hudSelector:'.hud',
-      pad:22,
-      minW:240,
-      minH:240
-    });
-  }
-  if (!SAFE_CB){
-    SAFE_CB = createHudSafezone({
-      playfieldSelector:'#cbPlayfield',
-      hudSelector:'.hud',
-      pad:22,
-      minW:240,
-      minH:240
-    });
-  }
-  return isCardboard() ? SAFE_CB : SAFE_MAIN;
-}
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
@@ -489,13 +460,46 @@ function syncHUD(){
   DOC.head.appendChild(st);
 })();
 
-// -------------------- Spawn helpers --------------------
-// ✅ UPDATED: HUD-safe pickXY using hydration.hud-safe.js
+// -------------------- Spawn helpers (G + AI pattern) --------------------
 function pickXY(){
-  const SAFE = ensureSafezone();
-  const out = SAFE.pickXY(rng);
-  // returns percent relative to whole playfield
-  return { xPct: out.xPct, yPct: out.yPct };
+  const r = getPlayfieldRect();
+  const pad=22;
+
+  const w=Math.max(1, r.width - pad*2);
+  const h=Math.max(1, r.height - pad*2);
+
+  // base random (triangular)
+  let rx=(rng()+rng())/2;
+  let ry=(rng()+rng())/2;
+
+  // AI region bias (grid9) + jitter (PLAY only)
+  const AI = getAI();
+  if (AI?.enabled){
+    const hint = AI.pattern.nextHint({
+      stormActive: !!S.stormActive,
+      bossActive: !!(S.bossEnabled && S.bossActive),
+      viewMode: (window.HHA_VIEW?.mode || '')
+    });
+
+    const region = hint.region|0; // 0..8
+    const gx = region % 3;
+    const gy = Math.floor(region / 3);
+
+    // center of grid cell with jitter
+    const cellW = 1/3, cellH = 1/3;
+    rx = (gx + 0.5)*cellW + (rng()*0.18 - 0.09);
+    ry = (gy + 0.5)*cellH + (rng()*0.18 - 0.09);
+
+    rx = clamp(rx, 0.06, 0.94);
+    ry = clamp(ry, 0.06, 0.94);
+  }
+
+  const x = pad + rx*w;
+  const y = pad + ry*h;
+
+  const xPct = (x/Math.max(1,r.width))*100;
+  const yPct = (y/Math.max(1,r.height))*100;
+  return { xPct, yPct };
 }
 
 function targetSize(){
@@ -508,6 +512,18 @@ function targetSize(){
     s = s * (1.02 - 0.22*k);
   }
   if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
+
+  // AI difficulty size multiplier (H)
+  const AI = getAI();
+  if (AI?.enabled){
+    const dd = AI.difficulty.suggest({
+      skill: clamp((computeAccuracy()/100)*0.7 + clamp(S.combo/20,0,1)*0.3, 0, 1),
+      fatigue: clamp((timeLimit - S.leftSec)/Math.max(1,timeLimit), 0, 1),
+      frustration: clamp((S.misses/Math.max(1,(timeLimit - S.leftSec)+5))*0.7 + (1-(computeAccuracy()/100))*0.3, 0, 1)
+    });
+    if (dd) s *= dd.sizeMul;
+  }
+
   return clamp(s,44,86);
 }
 
@@ -650,13 +666,35 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Storm + spawn loop --------------------
+// -------------------- Storm + spawn loop (F + AI tempo/difficulty) --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
+
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
+
+  const AI = getAI();
+  if (AI?.enabled){
+    const hint = AI.pattern.nextHint({
+      stormActive: !!S.stormActive,
+      bossActive: !!(S.bossEnabled && S.bossActive),
+      viewMode: (window.HHA_VIEW?.mode || '')
+    });
+    base *= clamp(1.05 - (hint.tempo*0.55), 0.62, 1.12);
+
+    const dd = AI.difficulty.suggest({
+      skill: clamp((computeAccuracy()/100)*0.7 + clamp(S.combo/20,0,1)*0.3, 0, 1),
+      fatigue: clamp((timeLimit - S.leftSec)/Math.max(1,timeLimit), 0, 1),
+      frustration: clamp((S.misses/Math.max(1,(timeLimit - S.leftSec)+5))*0.7 + (1-(computeAccuracy()/100))*0.3, 0, 1)
+    });
+    if (dd){
+      base *= dd.spawnMul;
+    }
+  }
+
   return clamp(base, 210, 1200);
 }
+
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
@@ -759,7 +797,6 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
-  // End window FX + beep
   if (inEnd){
     setEndFx(true);
     const now = performance.now();
@@ -790,19 +827,7 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-// -------------------- Summary / logging --------------------
-async function sendLog(payload){
-  if (!logEndpoint) return;
-  try{
-    await fetch(logEndpoint, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload),
-      keepalive:true
-    });
-  }catch(_){}
-}
-
+// -------------------- Summary --------------------
 function computeTier(sum){
   const g=String(sum.grade||'C');
   const acc=Number(sum.accuracyGoodPct||0);
@@ -938,9 +963,7 @@ function hitTestAtCenter(lockPx){
     const r = el.getBoundingClientRect();
     const x = r.left + r.width/2;
     const y = r.top + r.height/2;
-    const dx = x - cx;
-    const dy = y - cy;
-    const d = Math.hypot(dx, dy);
+    const d = Math.hypot(x - cx, y - cy);
 
     if (d <= lockPx && d < bestD){
       bestD = d;
@@ -1020,7 +1043,7 @@ function update(dt){
     spawnTimer += nextSpawnDelay();
   }
 
-  // HUD + AI
+  // HUD + AI Coach
   syncHUD();
 
   AICOACH.onUpdate({
@@ -1090,19 +1113,11 @@ async function endGame(reason){
   emit('hha:end', summary);
   AICOACH.onEnd(summary);
 
-  await sendLog(summary);
+  // ✅ Cloud logger (hha-cloud-logger.js) จะดัก hha:end แล้วส่งเอง (Apps Script)
   fillSummary(summary);
 }
 
 function boot(){
-  // ✅ ensure safezone instances early
-  ensureSafezone();
-
-  // Optional: if debug enabled, render once (helper auto-updates on resize/fs)
-  try{
-    ensureSafezone().renderDebug?.();
-  }catch(_){}
-
   ensureWaterGauge();
   setWaterGauge(S.waterPct);
   updateZone();
