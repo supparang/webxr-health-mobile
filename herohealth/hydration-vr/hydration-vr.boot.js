@@ -1,9 +1,9 @@
 // === /herohealth/hydration-vr/hydration-vr.boot.js ===
 // HydrationVR Boot — AUTO-DETECT (NO URL OVERRIDE)
-// ✅ PC / Mobile / cVR strict / Cardboard split (heuristic)
-// ✅ Maps window.HHA_VIEW.layers
-// ✅ Start overlay -> hha:start
-// ✅ Fullscreen best-effort for mobile/cVR/cardboard
+// ✅ PC / Mobile / cVR strict auto
+// ✅ Cardboard split via gesture preference (Fullscreen button pressed twice) — still no menu
+// ✅ Toast hint: show when in fullscreen landscape (cVR) to teach split toggle
+// ✅ Maps window.HHA_VIEW.layers for hydration.safe.js
 
 'use strict';
 
@@ -21,9 +21,8 @@ function isLandscape(){
   return (WIN.innerWidth > WIN.innerHeight);
 }
 function isFullscreen(){
-  return !!DOC.fullscreenElement || (String(DOC.fullscreenElement||'') !== '');
+  return !!DOC.fullscreenElement || matchMedia('(display-mode: fullscreen)').matches;
 }
-
 async function enterFullLandscape(){
   try{
     const el = DOC.documentElement;
@@ -36,27 +35,32 @@ async function enterFullLandscape(){
   }catch(_){}
 }
 
-/**
- * Heuristic:
- * - PC => view-pc
- * - Mobile portrait => view-mobile
- * - Mobile landscape + fullscreen => prefer cVR (strict) (better feel + no split artifacts)
- * - Mobile landscape + NOT fullscreen but very wide => still mobile
- * - Cardboard split mode:
- *    เราเปิดเมื่อ (mobile + landscape + fullscreen + url has "cb=1" in hash/localStorage) ❗
- *    แต่ “ห้าม override URL” -> ใช้ localStorage flag ที่เปิดจาก gesture ปุ่ม Fullscreen เท่านั้น
- */
+/* ===== toast hint ===== */
+let toastEl=null;
+function ensureToast(){
+  if (toastEl) return toastEl;
+  toastEl = DOC.createElement('div');
+  toastEl.className = 'hha-toast';
+  toastEl.textContent = '';
+  DOC.body.appendChild(toastEl);
+  return toastEl;
+}
+function toast(msg, ms=2400){
+  const el = ensureToast();
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el.__t);
+  el.__t = setTimeout(()=>el.classList.remove('show'), ms);
+}
+
 function detectMode(){
   const mobile = isMobileUA();
-
   if (!mobile) return 'pc';
 
-  // if user previously opted cardboard via localStorage (not via URL) — still "no override"
-  const cbPref = (localStorage.getItem('HHA_HYDRATION_PREF') || '').toLowerCase();
-  if (cbPref === 'cardboard') return 'cardboard';
+  const pref = (localStorage.getItem('HHA_HYDRATION_PREF') || '').toLowerCase();
+  if (pref === 'cardboard') return 'cardboard';
 
-  // prefer cVR when landscape+fullscreen (best for strict crosshair shooting)
-  if (isLandscape() && (isFullscreen() || matchMedia('(display-mode: fullscreen)').matches)){
+  if (isLandscape() && isFullscreen()){
     return 'cvr';
   }
   return 'mobile';
@@ -71,7 +75,7 @@ function applyMode(mode){
   else if (mode === 'mobile') b.classList.add('view-mobile');
   else b.classList.add('view-pc');
 
-  // map layers for hydration.safe.js
+  // map layers
   const cfg = WIN.HHA_VIEW || (WIN.HHA_VIEW = {});
   if (mode === 'cardboard'){
     cfg.layers = ['hydration-layerL','hydration-layerR'];
@@ -86,45 +90,66 @@ function bindUI(){
     btn.addEventListener('click', ()=> location.href = hub);
   });
 
+  let lastFullPressAt = 0;
+
   DOC.getElementById('btnEnterFull')?.addEventListener('click', async ()=>{
-    // gesture: allow user to “push” into fullscreen (helps cVR detection)
+    const t = Date.now();
+    const double = (t - lastFullPressAt) < 800; // double press gesture
+    lastFullPressAt = t;
+
     await enterFullLandscape();
 
-    // If user is in fullscreen+landscape and wants stronger VR feel, still keep cVR by default.
-    // BUT allow “cardboard split preference” via a second press (gesture-based, not URL).
-    const cur = (WIN.HHA_VIEW?.mode || detectMode());
-    if (cur === 'cvr' && isLandscape() && isFullscreen()){
-      // optional: second press toggles to cardboard split
+    // After entering full landscape, default cVR
+    let mode = detectMode();
+    applyMode(mode);
+
+    // if double press while in cVR fullscreen landscape => toggle cardboard preference
+    if (double && isLandscape() && isFullscreen()){
       const prev = (localStorage.getItem('HHA_HYDRATION_PREF') || '').toLowerCase();
       const next = (prev === 'cardboard') ? '' : 'cardboard';
       if (next) localStorage.setItem('HHA_HYDRATION_PREF', next);
       else localStorage.removeItem('HHA_HYDRATION_PREF');
-      applyMode(detectMode());
+
+      mode = detectMode();
+      applyMode(mode);
+
+      toast(mode === 'cardboard'
+        ? '🕶️ Cardboard Split ON (จอแยกซ้าย–ขวา)'
+        : '🎯 cVR strict ON (ยิงจาก crosshair)', 2200);
+    } else {
+      // gentle hint when in fullscreen landscape but not cardboard
+      if (detectMode() === 'cvr'){
+        toast('Tip: กด ⛶ Fullscreen “สองครั้งเร็ว ๆ” เพื่อสลับ Cardboard Split', 2600);
+      }
     }
   });
 
   DOC.getElementById('btnStart')?.addEventListener('click', async ()=>{
-    // start gesture
-    const mode = detectMode();
+    // Start gesture: apply mode again (fresh), and try fullscreen for VR feel
+    let mode = detectMode();
     applyMode(mode);
 
-    // if mobile and going into cvr/cardboard: try fullscreen+landscape
     if (mode === 'cvr' || mode === 'cardboard'){
       await enterFullLandscape();
+      mode = detectMode();
+      applyMode(mode);
     }
 
-    // hide overlay + start
     DOC.getElementById('startOverlay')?.classList.add('hide');
     WIN.dispatchEvent(new CustomEvent('hha:start'));
+
+    if (mode === 'cvr'){
+      toast('🎯 cVR strict: แตะเพื่อยิง (aim assist จะล็อกเป้าให้)', 2000);
+    } else if (mode === 'cardboard'){
+      toast('🕶️ Cardboard Split: ยิง/แตะเพื่อเล่น (แนะนำเต็มจอแนวนอน)', 2000);
+    }
   });
 }
 
 (function init(){
-  // default apply once (still shows overlay)
   applyMode(detectMode());
   bindUI();
 
-  // Re-detect on rotate (but keep stable while playing)
   let started = false;
   WIN.addEventListener('hha:start', ()=>{ started = true; }, { once:true });
 
