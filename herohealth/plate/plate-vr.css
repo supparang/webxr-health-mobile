@@ -6,7 +6,6 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
 ✅ Result: crisp grade badge
 */
 
-/* ---------- Tokens ---------- */
 :root{
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
@@ -28,30 +27,9 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* Spawn safety fine-tune (optional; JS already avoids HUD by rects) */
-  --plate-top-safe: calc(10px + var(--sat));
-  --plate-bottom-safe: calc(10px + var(--sab));
 }
 
-/* ---------- Base ---------- */
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
-html,body{
-  margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-}
-
-button{ font-family: inherit; }
-
-/* ---------- Micro anim helpers ---------- */
+/* ---------- micro glow helpers ---------- */
 @keyframes hhaGlow {
   0% { box-shadow: 0 16px 44px rgba(0,0,0,.26), 0 0 0 rgba(34,197,94,0); }
   50%{ box-shadow: 0 18px 52px rgba(0,0,0,.30), 0 0 28px rgba(34,197,94,.18); }
@@ -79,54 +57,23 @@ button{ font-family: inherit; }
   75%{ transform: translateZ(0) rotate(1deg); }
   100%{ transform: translateZ(0) rotate(0deg); }
 }
-@keyframes hhaHitPop{
-  0%{ transform: translateZ(0) scale(1); opacity:1; }
-  55%{ transform: translateZ(0) scale(1.14); opacity:.92; }
-  100%{ transform: translateZ(0) scale(.92); opacity:0; }
-}
-@keyframes hhaOut{
-  0%{ transform: translateZ(0) scale(1); opacity:1; }
-  100%{ transform: translateZ(0) scale(.86); opacity:0; }
-}
-
-/* ---------- Stage layer hints ---------- */
-#plate-layer{
-  /* hint: keep it snappy */
-  transform: translateZ(0);
-  will-change: transform;
-}
 
 /* ---------- Targets feel (emoji clarity + VR-ish depth) ---------- */
 #plate-layer .plateTarget{
-  appearance:none;
-  border:1px solid rgba(148,163,184,.20) !important;
   border-radius:999px !important;
+  border:1px solid rgba(148,163,184,.20) !important;
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
     radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
     rgba(2,6,23,.56) !important;
-
   backdrop-filter: blur(10px) saturate(1.15);
-
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
     inset 0 1px 0 rgba(255,255,255,.08);
-
   animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
-
   transform: translateZ(0);
   text-shadow: 0 2px 0 rgba(0,0,0,.25);
-
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  /* emoji crisp */
   font-variation-settings: "wght" 900;
-  line-height:1;
-  user-select:none;
-  -webkit-tap-highlight-color:transparent;
-
-  cursor:pointer;
 }
 #plate-layer .plateTarget:active{
   transform: translateZ(0) scale(.98);
@@ -156,41 +103,31 @@ button{ font-family: inherit; }
     inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* Optional: hit/out classes (if you ever add in JS later) */
-#plate-layer .plateTarget.is-hit{
-  animation: hhaHitPop .18s ease-out 0s 1 !important;
-}
-#plate-layer .plateTarget.is-out{
-  animation: hhaOut .14s ease-out 0s 1 !important;
+/* make emoji look crisp */
+#plate-layer .plateTarget{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ---------- HUD polish (shared class hooks used by your run HTML) ---------- */
-.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard, .panelCard{
+/* ---------- HUD polish ---------- */
+.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
   box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
 }
-
 .pill{
   background:
     radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
     rgba(15,23,42,.68) !important;
-  border:1px solid rgba(148,163,184,.18) !important;
 }
-
-.muted{ color:var(--muted) !important; }
-
 .bar{
   background: rgba(148,163,184,.10) !important;
-  border:1px solid rgba(148,163,184,.14) !important;
 }
 .bar > i{
   box-shadow: 0 0 18px rgba(34,197,94,.16);
 }
-
-/* warn/bad bar glows */
 .bar.warn > i{ box-shadow: 0 0 18px rgba(245,158,11,.16); }
 .bar.bad  > i{ box-shadow: 0 0 18px rgba(239,68,68,.14); }
 
-/* Fever should feel dangerous */
+/* Fever bar should feel dangerous */
 .bar.bad{
   background:
     linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08)) !important;
@@ -204,12 +141,6 @@ button{ font-family: inherit; }
 .btn.primary{ animation: hhaGlow 2.2s ease-in-out 0s infinite; }
 .btn.warn:hover{ filter:brightness(1.1); }
 .btn.bad:hover{ filter:brightness(1.05); }
-
-/* Keep VR UI buttons clickable even with overlays */
-.hha-vrui,
-.hha-vrui *{
-  pointer-events:auto;
-}
 
 /* ---------- Boss / Storm FX (hook for plate.safe.js toggles) ---------- */
 #bossFx{
@@ -244,9 +175,6 @@ button{ font-family: inherit; }
     radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
   animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
-#stormFx.storm-panic{
-  filter:brightness(1.25);
-}
 
 /* ---------- Result grade badge (optional feel) ---------- */
 #rGrade{
@@ -256,11 +184,4 @@ button{ font-family: inherit; }
   border:1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.70);
   box-shadow: 0 14px 40px rgba(0,0,0,.25);
-}
-
-/* ---------- Mobile tuning ---------- */
-@media (max-width: 520px){
-  #plate-layer .plateTarget{
-    text-shadow: 0 2px 0 rgba(0,0,0,.28);
-  }
 }
