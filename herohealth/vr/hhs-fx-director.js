@@ -1,6 +1,5 @@
 // === /herohealth/vr/hha-fx-director.js ===
 // HHA Global FX Director — PRODUCTION (ULTRA)
-// Requires: ../vr/particles.js (recommended)
 
 (function(){
   'use strict';
@@ -9,7 +8,6 @@
   if(!DOC || ROOT.__HHA_FX_DIRECTOR__) return;
   ROOT.__HHA_FX_DIRECTOR__ = true;
 
-  // ---------- inject minimal CSS ----------
   (function injectCss(){
     const id = 'hha-fx-director-style';
     if (DOC.getElementById(id)) return;
@@ -73,7 +71,6 @@
     if (t.includes('block') || t.includes('guard') || t.includes('shield')) return 'block';
     if (t.includes('miss') || t.includes('expire')) return 'miss';
     if (t.includes('bad') || t.includes('junk') || t.includes('wrong') || t.includes('oops') || t.includes('fake')) return 'bad';
-    if (t.includes('good') || t.includes('correct') || t.includes('hitgood') || t.includes('goal') || t.includes('mini')) return 'good';
     return 'good';
   }
 
@@ -103,7 +100,6 @@
     }
   }
 
-  // ---------- listeners ----------
   DOC.addEventListener('hha:judge', (e)=>{
     const d = e?.detail || {};
     const { x, y } = pickXY(d);
@@ -156,19 +152,9 @@
   });
 
   DOC.addEventListener('hha:celebrate', ()=> fxCelebrate());
-
   DOC.addEventListener('hha:end', ()=>{
     addBodyCls('fx-endblink', 760);
     setTimeout(()=>fxCelebrate(), 220);
   });
-
-  // quick test
-  ROOT.HHA_FX_TEST = function(){
-    const x = innerWidth/2, y = innerHeight/2;
-    DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'good', x, y, combo:6, label:'WEAK! -3' } }));
-    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:score',{ detail:{ delta:25, x:x+90, y:y-20 } })), 130);
-    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'bad', x:x-90, y:y+20, label:'FAKE!' } })), 280);
-    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:end')), 560);
-  };
 
 })();
