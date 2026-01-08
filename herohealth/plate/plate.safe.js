@@ -967,8 +967,8 @@ function startStormCycle(){
   if(stormHud) stormHud.style.display = 'block';
   if(stormFx){
     stormFx.style.display = 'block';
+    // ✅ CSS hook
     stormFx.classList.add('storm-on');
-    stormFx.classList.remove('storm-panic');
   }
 
   if(stormTitle) stormTitle.textContent = `🌪️ STORM ${storm.cycleIndex+1}/${storm.cyclesPlanned}`;
@@ -977,7 +977,7 @@ function startStormCycle(){
       ? `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s (ห้ามโดนขยะ!)`
       : `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s`;
   }
-  if(stormProg) stormProg.textContent = `GOOD 0/${storm.needGood}`;
+  if(stormProg) stormProg.textContent = `เหลือ ${storm.durationSec}s • GOOD 0/${storm.needGood}`;
 
   judge('🌪️ STORM START!', 'warn');
   coach('พายุมาแล้ว! เก็บ GOOD ให้ทัน! 🌪️', (fever>70?'fever':'neutral'));
@@ -997,11 +997,14 @@ function stormTimeLeft(){
 function updateStormHud(){
   if(!storm.active) return;
   const tl = stormTimeLeft();
+
   if(stormHint){
     const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
     stormHint.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
   }
-  if(stormProg) stormProg.textContent = `GOOD ${storm.hitGood}/${storm.needGood}`;
+  if(stormProg){
+    stormProg.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}`;
+  }
 
   const mf = qs('uiMiniFill');
   if(mf){
@@ -1066,7 +1069,6 @@ function onHit(id){
     // storm progress
     if(storm.active){
       storm.hitGood++;
-      updateStormHud();
       if(storm.hitGood >= storm.needGood){
         finishStorm(true, 'need-met');
       }
