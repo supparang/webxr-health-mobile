@@ -1,188 +1,182 @@
 /* === /herohealth/vr-groups/groups.fx.js ===
-Food Groups VR — FX Controller (ULTRA FX glue)
-✅ Adds/removes body classes: fx-hit fx-good fx-bad fx-perfect fx-combo fx-storm fx-boss fx-end fx-miss
-✅ Listens: hha:judge, groups:progress, hha:score, hha:end
-✅ Rate-limited + safe in research/practice (softer)
+GroupsVR FX Hook — PRODUCTION (PACK 57)
+✅ Adds short-lived body classes: fx-hit/fx-good/fx-bad/fx-miss/fx-storm/fx-boss/fx-end/fx-combo/fx-perfect
+✅ Hooks events: hha:judge, hha:score, hha:time, groups:progress, hha:end
+✅ Optional Particles.popText / celebrate if particles.js loaded (window.Particles)
 */
 
 (function(root){
   'use strict';
   const DOC = root.document;
-  if (!DOC || !DOC.body) return;
+  if(!DOC) return;
+  if(root.__HHA_GROUPS_FX__) return;
+  root.__HHA_GROUPS_FX__ = true;
 
-  const BODY = DOC.body;
+  const body = DOC.body;
 
-  // -------- helpers --------
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+  // ---------- helpers ----------
+  const timers = new Map();
+  function flash(cls, ms){
+    try{
+      body.classList.add(cls);
+      if(timers.has(cls)) clearTimeout(timers.get(cls));
+      timers.set(cls, setTimeout(()=> {
+        try{ body.classList.remove(cls); }catch(_){}
+        timers.delete(cls);
+      }, ms || 160));
+    }catch(_){}
   }
 
-  function runMode(){
-    const r = String(qs('run','play')||'play').toLowerCase();
-    // A ส่ง runMode เข้า engine แต่ฝั่ง FX ดู param ก็พอ
-    return (r === 'research') ? 'research' : 'play';
-  }
-  function view(){
-    return String(qs('view','mobile')||'mobile').toLowerCase();
-  }
-
-  function addCls(c){ try{ BODY.classList.add(c); }catch(_){} }
-  function rmCls(c){ try{ BODY.classList.remove(c); }catch(_){} }
-  function pulse(c, ms){
-    addCls(c);
-    clearTimeout(T[c]);
-    T[c] = setTimeout(()=> rmCls(c), ms);
+  function pop(x,y,text,kind){
+    try{
+      const P = root.Particles;
+      if(P && typeof P.popText === 'function'){
+        P.popText(x,y,text, kind || '');
+      }
+    }catch(_){}
   }
 
-  const T = Object.create(null);
-  const RM = runMode();
-  const VW = view();
-
-  // research/practice: softer & shorter
-  const SOFT = (RM === 'research');
-
-  // tune durations
-  const DUR = {
-    hit:   SOFT ? 90  : 140,
-    good:  SOFT ? 110 : 180,
-    bad:   SOFT ? 130 : 220,
-    miss:  SOFT ? 140 : 260,
-    perfect: SOFT ? 120 : 220,
-    combo: SOFT ? 300 : 600,
-    storm: SOFT ? 520 : 900,
-    boss:  SOFT ? 520 : 900,
-    end:   SOFT ? 420 : 800
-  };
-
-  // global cooldown to avoid flicker spam
-  let lastPulseAt = 0;
-  function okPulse(minGapMs){
-    const now = Date.now();
-    if (now - lastPulseAt < minGapMs) return false;
-    lastPulseAt = now;
-    return true;
+  function celebrate(){
+    try{
+      const P = root.Particles;
+      if(P && typeof P.celebrate === 'function'){
+        P.celebrate();
+      }
+    }catch(_){}
   }
 
-  // -------- core reactions --------
-  function onJudge(detail){
-    detail = detail || {};
-    const kind = String(detail.kind||'').toLowerCase();
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-    // allow more frequent hit pulses in cVR (because shooting is tap)
-    const gap = (VW === 'cvr') ? 40 : 65;
-    if (!okPulse(gap)) return;
+  // combo detector (soft)
+  let lastCombo = 0;
+  let lastScore = 0;
 
-    // Always: micro "hit"
-    pulse('fx-hit', DUR.hit);
+  // storm/boss states
+  let stormOn = false;
 
-    if (kind === 'good'){
-      pulse('fx-good', DUR.good);
-      return;
-    }
-    if (kind === 'perfect'){
-      pulse('fx-perfect', DUR.perfect);
-      return;
-    }
-    if (kind === 'boss'){
-      pulse('fx-boss', DUR.boss);
-      return;
-    }
-    if (kind === 'bad'){
-      pulse('fx-bad', DUR.bad);
-      return;
-    }
-    if (kind === 'miss'){
-      pulse('fx-miss', DUR.miss);
-      pulse('fx-bad',  DUR.bad);
-      return;
-    }
-    if (kind === 'storm'){
-      pulse('fx-storm', DUR.storm);
-      return;
-    }
-  }
+  // ---------- event handlers ----------
+  root.addEventListener('hha:judge', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    const kind = String(d.kind||'');
+    const text = String(d.text||'');
+    const x = clamp(d.x, 0, root.innerWidth||0);
+    const y = clamp(d.y, 0, root.innerHeight||0);
 
-  function onProgress(detail){
-    detail = detail || {};
-    const k = String(detail.kind||'').toLowerCase();
+    // always a small "hit" flash
+    if(kind) flash('fx-hit', 140);
 
-    if (k === 'storm_on'){
-      addCls('fx-storm');
-      clearTimeout(T.__stormOff);
-      // keep storm glow for duration-ish; engine will send storm_off later but we also safety-timeout
-      T.__stormOff = setTimeout(()=> rmCls('fx-storm'), SOFT ? 1800 : 2600);
-      return;
+    if(kind === 'good'){
+      flash('fx-good', 170);
+      pop(x,y, text || 'GOOD', 'good');
+    } else if(kind === 'bad'){
+      flash('fx-bad', 190);
+      pop(x,y, text || 'BAD', 'bad');
+    } else if(kind === 'miss'){
+      flash('fx-miss', 210);
+      flash('fx-bad', 170);
+      pop(x,y, text || 'MISS', 'miss');
+    } else if(kind === 'boss'){
+      flash('fx-boss', 220);
+      pop(x,y, text || 'BOSS', 'boss');
+    } else if(kind === 'storm'){
+      flash('fx-storm', 240);
+      pop(x||((root.innerWidth||0)*0.5), y||((root.innerHeight||0)*0.25), text || 'STORM', 'storm');
+    } else if(kind === 'perfect'){
+      flash('fx-perfect', 240);
+      pop(x,y, text || 'PERFECT', 'perfect');
+    } else {
+      // fallback
+      if(text) pop(x||((root.innerWidth||0)*0.5), y||((root.innerHeight||0)*0.3), text, 'info');
     }
-    if (k === 'storm_off'){
-      rmCls('fx-storm');
-      return;
-    }
+  }, { passive:true });
 
-    if (k === 'boss_spawn'){
-      addCls('fx-boss');
-      clearTimeout(T.__bossOff);
-      T.__bossOff = setTimeout(()=> rmCls('fx-boss'), SOFT ? 1600 : 2400);
-      return;
-    }
-    if (k === 'boss_down'){
-      pulse('fx-good', DUR.good);
-      pulse('fx-hit',  DUR.hit);
-      rmCls('fx-boss');
-      return;
+  root.addEventListener('hha:score', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    const score = Number(d.score)||0;
+    const combo = Number(d.combo)||0;
+
+    // combo pulse when rising
+    if(combo >= 6 && combo > lastCombo){
+      flash('fx-combo', 220);
+      // show small hint sometimes
+      if(combo === 6 || combo === 10 || combo === 15){
+        pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.18, `COMBO ${combo}!`, 'combo');
+      }
     }
 
-    if (k === 'perfect_switch'){
-      pulse('fx-perfect', DUR.perfect);
-      pulse('fx-combo',   DUR.combo);
-      return;
+    // score jump (tiny good glow)
+    if(score > lastScore && (score - lastScore) >= 40){
+      flash('fx-good', 140);
     }
 
-    if (k === 'miss'){
-      pulse('fx-miss', DUR.miss);
-      pulse('fx-bad',  DUR.bad);
-      return;
+    lastCombo = combo;
+    lastScore = score;
+  }, { passive:true });
+
+  root.addEventListener('groups:progress', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    const k = String(d.kind||'');
+
+    if(k === 'storm_on'){
+      stormOn = true;
+      flash('fx-storm', 520);
+      try{ body.classList.add('fx-storm'); }catch(_){}
     }
-  }
-
-  let lastComboBucket = 0;
-  function onScore(detail){
-    detail = detail || {};
-    const combo = Number(detail.combo||0);
-
-    // bucket combo so it doesn't spam
-    // bucket: 0-5 => 0, 6-9 => 1, 10-13 => 2, 14+ => 3
-    let b = 0;
-    if (combo >= 6 && combo <= 9) b = 1;
-    else if (combo >= 10 && combo <= 13) b = 2;
-    else if (combo >= 14) b = 3;
-
-    if (b > 0 && b !== lastComboBucket){
-      lastComboBucket = b;
-      pulse('fx-combo', DUR.combo);
-      // mild highlight for good streak
-      pulse('fx-good', SOFT ? 90 : 120);
+    if(k === 'storm_off'){
+      stormOn = false;
+      try{ body.classList.remove('fx-storm'); }catch(_){}
+      flash('fx-good', 180);
     }
-    if (combo === 0){
-      lastComboBucket = 0;
+    if(k === 'boss_spawn'){
+      flash('fx-boss', 520);
+      try{ body.classList.add('fx-boss'); }catch(_){}
     }
-  }
+    if(k === 'boss_down'){
+      flash('fx-good', 260);
+      flash('fx-perfect', 260);
+      try{ body.classList.remove('fx-boss'); }catch(_){}
+      pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.22, 'BOSS DOWN!', 'good');
+    }
+    if(k === 'perfect_switch'){
+      flash('fx-perfect', 260);
+    }
+    if(k === 'miss'){
+      flash('fx-miss', 240);
+      flash('fx-bad', 180);
+    }
+  }, { passive:true });
 
-  function onEnd(){
-    addCls('fx-end');
-    clearTimeout(T.__endOff);
-    T.__endOff = setTimeout(()=> rmCls('fx-end'), DUR.end);
+  root.addEventListener('hha:time', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    const left = Number(d.left)||0;
 
-    // clear long-running modes
-    rmCls('fx-storm');
-    rmCls('fx-boss');
-  }
+    // clutch vibe
+    if(left <= 10 && left > 0){
+      flash('fx-end', 160);
+    }
+    // ensure storm class doesn’t get stuck if any edge case
+    if(left === 0){
+      try{ body.classList.remove('fx-storm'); }catch(_){}
+      try{ body.classList.remove('fx-boss'); }catch(_){}
+    }
+  }, { passive:true });
 
-  // -------- attach listeners --------
-  try{
-    root.addEventListener('hha:judge', (ev)=> onJudge(ev.detail), {passive:true});
-    root.addEventListener('groups:progress', (ev)=> onProgress(ev.detail), {passive:true});
-    root.addEventListener('hha:score', (ev)=> onScore(ev.detail), {passive:true});
-    root.addEventListener('hha:end', ()=> onEnd(), {passive:true});
-  }catch(_){}
+  root.addEventListener('hha:end', (ev)=>{
+    const s = (ev && ev.detail) || {};
+    flash('fx-end', 650);
+    try{ body.classList.remove('fx-storm'); }catch(_){}
+    try{ body.classList.remove('fx-boss'); }catch(_){}
+
+    const grade = String(s.grade||'');
+    const score = Number(s.scoreFinal||0);
+    const acc   = Number(s.accuracyGoodPct||0);
+
+    // big pop
+    pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.22, `GRADE ${grade}`, 'end');
+    pop((root.innerWidth||0)*0.5, (root.innerHeight||0)*0.30, `SCORE ${score} • ACC ${acc}%`, 'end');
+
+    // fireworks
+    celebrate();
+  }, { passive:true });
+
 })(typeof window !== 'undefined' ? window : globalThis);
