@@ -1,11 +1,10 @@
 <!-- === /herohealth/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN)
-✅ Works with: /plate/plate.safe.js + /plate/plate-vr.css
-✅ Boss/Storm HUD + FX ids match JS
-✅ Start overlay bridge: btnStartMain -> hidden btnStart
-✅ Safe-spawn geometry refs: hudTop/miniPanel/coachPanel/hudBtns
+Balanced Plate VR — RUN (PRODUCTION+)
+✅ Works: PC / Mobile / VR(Cardboard) / cVR (shoot from crosshair via vr-ui.js)
+✅ Loads: plate/plate-vr.css + plate/plate.safe.js
+✅ Includes: A-Frame + particles + cloud logger + vr-ui
+✅ UI ids match plate.safe.js (Boss/Storm/HUD/Result)
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,10 +14,10 @@ HeroHealth — Balanced Plate VR (RUN)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- External CSS (UI polish + target feel + fx) -->
+  <!-- External CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (ENTER VR / EXIT / RECENTER reliability via vr-ui.js) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER via vr-ui.js reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
@@ -27,7 +26,34 @@ HeroHealth — Balanced Plate VR (RUN)
   <script src="./vr/vr-ui.js" defer></script>
 
   <style>
-    /* Base layout only (avoid fighting plate-vr.css) */
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --radius:18px;
+      --pill:999px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; height:100%; width:100%;
+      overflow:hidden;
+      background:var(--bg);
+      color:var(--text);
+      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+    }
+
     a-scene{ position:fixed; inset:0; z-index:0; }
 
     .bg{
@@ -45,7 +71,7 @@ HeroHealth — Balanced Plate VR (RUN)
       padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
     }
 
-    /* Spawn layer (JS uses #plate-layer) */
+    /* spawn layer */
     #plate-layer{
       position:fixed; inset:0;
       z-index:10;
@@ -54,7 +80,6 @@ HeroHealth — Balanced Plate VR (RUN)
       user-select:none;
     }
 
-    /* Hit pulse layer */
     #hitFx{
       position:fixed; inset:0;
       z-index:12;
@@ -63,7 +88,6 @@ HeroHealth — Balanced Plate VR (RUN)
       transition: opacity .12s ease;
     }
 
-    /* HUD TOP */
     .hudTop{
       position:fixed;
       left:10px; right:10px;
@@ -76,17 +100,18 @@ HeroHealth — Balanced Plate VR (RUN)
       pointer-events:none;
     }
 
-    /* Cards & pills (lightweight; main polish comes from plate-vr.css) */
     .card{
       pointer-events:auto;
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
       padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
       backdrop-filter: blur(10px);
       min-width: 220px;
     }
     .card.small{ min-width: 180px; }
+
     .t{ font-weight:1000; font-size:12px; color:rgba(229,231,235,.92); }
     .v{ margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 
@@ -116,7 +141,6 @@ HeroHealth — Balanced Plate VR (RUN)
       background:rgba(34,197,94,.85);
     }
 
-    /* GOAL/MINI + COACH */
     #miniPanel, #coachPanel{
       position:fixed;
       left:10px; right:10px;
@@ -132,6 +156,7 @@ HeroHealth — Balanced Plate VR (RUN)
       border:1px solid var(--stroke);
       border-radius:var(--radius);
       padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
       backdrop-filter: blur(10px);
       display:flex; gap:10px; align-items:center; flex-wrap:wrap;
     }
@@ -140,7 +165,6 @@ HeroHealth — Balanced Plate VR (RUN)
     .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
     .hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
 
-    /* Buttons */
     #hudBtns{
       position:fixed;
       right:10px;
@@ -151,8 +175,28 @@ HeroHealth — Balanced Plate VR (RUN)
       flex-wrap:wrap;
       pointer-events:none;
     }
+    .btn{
+      pointer-events:auto;
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:10px 12px;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.20);
+      color:rgba(229,231,235,.95);
+      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
+    .btn.bad{ background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.26); }
 
-    /* Overlays */
+    /* overlays */
     #startOverlay, #hudPaused, #resultBackdrop{
       position:fixed; inset:0;
       z-index:70;
@@ -168,9 +212,10 @@ HeroHealth — Balanced Plate VR (RUN)
       border:1px solid var(--stroke);
       border-radius:22px;
       padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.42);
     }
 
-    /* Boss/Storm FX layers (JS toggles classes on these ids) */
+    /* Boss/Storm FX layers (JS toggles classes) */
     #bossFx, #stormFx{
       position:fixed; inset:0;
       pointer-events:none;
@@ -178,7 +223,7 @@ HeroHealth — Balanced Plate VR (RUN)
       display:none;
     }
 
-    /* Boss HUD */
+    /* Boss HUD (ids must match JS) */
     #bossHud{
       position:fixed;
       left:10px;
@@ -193,12 +238,13 @@ HeroHealth — Balanced Plate VR (RUN)
       border:1px solid rgba(167,139,250,.28);
       border-radius:18px;
       padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
       min-width: 280px;
     }
     .bossLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
     .bossProg{ margin-top:8px; font-weight:1100; }
 
-    /* Storm HUD */
+    /* Storm HUD (ids must match JS) */
     #stormHud{
       position:fixed;
       left:10px;
@@ -206,7 +252,7 @@ HeroHealth — Balanced Plate VR (RUN)
       z-index:43;
       display:none;
       pointer-events:none;
-      transform: translateY(54px); /* below top HUD row */
+      transform: translateY(54px); /* ใต้ HUD top */
     }
     .stormCard{
       pointer-events:auto;
@@ -214,6 +260,7 @@ HeroHealth — Balanced Plate VR (RUN)
       border:1px solid rgba(34,211,238,.28);
       border-radius:18px;
       padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
       min-width: 320px;
     }
     .stormLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
@@ -224,10 +271,6 @@ HeroHealth — Balanced Plate VR (RUN)
       .bar{ width:140px; }
       #stormHud{ transform: translateY(62px); }
     }
-    @media (max-width: 420px){
-      .bar{ width:130px; }
-      .questCol{ min-width: 190px; }
-    }
   </style>
 
   <script>
@@ -237,7 +280,7 @@ HeroHealth — Balanced Plate VR (RUN)
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene (enterVR/exit/recenter via vr-ui.js buttons) -->
+  <!-- Minimal A-Frame scene (enterVR/exit/recenter work) -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
     <a-entity id="rig" position="0 0 0">
       <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
@@ -270,7 +313,7 @@ HeroHealth — Balanced Plate VR (RUN)
         <div class="v">
           <span class="pill">🍽️ <span id="uiPlateHave">0</span>/5</span>
           <span class="pill">🎯 <span id="uiAcc">0%</span></span>
-          <span class="pill"><span id="rGrade" style="display:none">C</span>🏅 <span id="uiGrade">C</span></span>
+          <span class="pill">🏅 <span id="uiGrade">C</span></span>
         </div>
       </div>
 
@@ -367,9 +410,9 @@ HeroHealth — Balanced Plate VR (RUN)
       </div>
     </div>
 
-    <!-- Buttons (bottom-right) -->
+    <!-- Buttons -->
     <div id="hudBtns">
-      <!-- hidden real start (safe.js binds id=btnStart) -->
+      <!-- NOTE: JS expects btnStart id -->
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
 
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
@@ -409,8 +452,8 @@ HeroHealth — Balanced Plate VR (RUN)
         <div style="font-weight:1200; font-size:18px">⏸ Paused</div>
         <div style="margin-top:6px; color:var(--muted); font-weight:900">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
         <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
-          <button class="btn primary" onclick="document.getElementById('btnPause').click()">▶ เล่นต่อ</button>
-          <button class="btn warn" onclick="document.getElementById('btnRestart').click()">♻ เริ่มใหม่</button>
+          <button class="btn primary" type="button" id="btnResumeOverlay">▶ เล่นต่อ</button>
+          <button class="btn warn" type="button" id="btnRestartOverlay">♻ เริ่มใหม่</button>
         </div>
       </div>
     </div>
@@ -422,7 +465,7 @@ HeroHealth — Balanced Plate VR (RUN)
           <div>
             <div style="font-weight:1200; font-size:18px">🏁 สรุปผล</div>
             <div style="margin-top:6px; color:var(--muted); font-weight:900">
-              Mode: <b id="rMode">—</b> • Grade: <b id="rGrade2">—</b>
+              Mode: <b id="rMode">—</b> • Grade: <b id="rGrade">—</b>
             </div>
           </div>
 
@@ -432,7 +475,7 @@ HeroHealth — Balanced Plate VR (RUN)
           </div>
         </div>
 
-        <div style="margin-top:12px; display:grid; grid-template-columns: 1.1fr .9fr; gap:12px">
+        <div style="margin-top:12px; display:grid; grid-template-columns: 1.1fr .9fr; gap:12px" id="resultGrid">
           <div style="background:var(--panel2); border:1px solid var(--stroke); border-radius:18px; padding:12px">
             <div class="t">ภาพรวม</div>
             <div class="v" style="margin-top:10px">
@@ -460,26 +503,29 @@ HeroHealth — Balanced Plate VR (RUN)
 
         <style>
           @media (max-width: 920px){
-            #resultBackdrop > .panelCard > div[style*="grid-template-columns"]{ grid-template-columns: 1fr !important; }
+            #resultGrid{ grid-template-columns: 1fr !important; }
           }
         </style>
       </div>
     </div>
   </div>
 
-  <!-- Start overlay bridge -->
+  <!-- Start overlay bridge + overlay helper buttons -->
   <script>
     (function(){
-      const btnStartMain = document.getElementById('btnStartMain');
       const dbg = document.getElementById('startDbg');
       const btnCopy = document.getElementById('btnCopyLink');
       const btnGoLauncher = document.getElementById('btnGoLauncher');
+      const btnStartMain = document.getElementById('btnStartMain');
+
+      const btnResumeOverlay = document.getElementById('btnResumeOverlay');
+      const btnRestartOverlay = document.getElementById('btnRestartOverlay');
 
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
       btnStartMain?.addEventListener('click', ()=>{
         const b = document.getElementById('btnStart');
-        if(b) b.click();
+        b?.click();
       }, {passive:true});
 
       btnCopy?.addEventListener('click', async ()=>{
@@ -497,24 +543,18 @@ HeroHealth — Balanced Plate VR (RUN)
         if(hub) u.searchParams.set('hub', hub);
         location.href = u.toString();
       }, {passive:true});
+
+      // paused overlay helpers
+      btnResumeOverlay?.addEventListener('click', ()=>{
+        document.getElementById('btnPause')?.click();
+      }, {passive:true});
+      btnRestartOverlay?.addEventListener('click', ()=>{
+        document.getElementById('btnRestart')?.click();
+      }, {passive:true});
     })();
   </script>
 
   <!-- RUN GAME -->
   <script type="module" src="./plate/plate.safe.js"></script>
-
-  <!-- Patch: mirror grade into result header id=rGrade2 (safe.js writes rGrade)
-       keep both: if safe.js uses rGrade, we show same in rGrade2.
-  -->
-  <script>
-    (function(){
-      const g = document.getElementById('rGrade');
-      const g2 = document.getElementById('rGrade2');
-      if(!g || !g2) return;
-      const obs = new MutationObserver(()=>{ g2.textContent = g.textContent || '—'; });
-      obs.observe(g, { childList:true, characterData:true, subtree:true });
-      g2.textContent = g.textContent || '—';
-    })();
-  </script>
 </body>
 </html>
