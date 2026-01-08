@@ -1,151 +1,143 @@
 /* === /herohealth/vr-groups/effects-pack.js ===
-GroupsVR FX Pack — PRODUCTION (PACK 37)
-✅ Listen to: hha:judge / groups:progress / hha:score / hha:end
-✅ Adds body classes: fx-hit fx-good fx-bad fx-miss fx-perfect fx-combo fx-storm fx-boss fx-end
-✅ Auto-clear with timeout (no sticky)
-✅ Safe: rate-limited + won't block input
+GroupsVR FX Driver — PACK 44 (ULTRA FX)
+✅ Listens to: hha:judge, groups:progress, hha:end, hha:score
+✅ Applies body classes: fx-hit/fx-good/fx-bad/fx-perfect/fx-combo/fx-storm/fx-boss/fx-end/fx-miss
+✅ Rate-limit + auto clear timers (no flicker)
 */
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document;
+  const WIN = window;
+  const DOC = document;
   if (!DOC) return;
 
-  const BODY = DOC.body;
+  const NS = WIN.GroupsVR = WIN.GroupsVR || {};
+  if (NS.__FX_LOADED__) return;
+  NS.__FX_LOADED__ = true;
 
-  // prevent double load
-  if (root.__HHA_GROUPS_FX_LOADED__) return;
-  root.__HHA_GROUPS_FX_LOADED__ = true;
+  const body = DOC.body;
 
-  function addFx(cls, ms){
+  // ----- helpers -----
+  function on(cls){ body.classList.add(cls); }
+  function off(cls){ body.classList.remove(cls); }
+  function has(cls){ return body.classList.contains(cls); }
+
+  const timers = Object.create(null);
+
+  function pulse(cls, ms){
     ms = Math.max(60, Number(ms)||160);
-    try{
-      BODY.classList.add(cls);
-      clearTimeout(addFx._tmr?.[cls]);
-      addFx._tmr = addFx._tmr || Object.create(null);
-      addFx._tmr[cls] = setTimeout(()=>{ 
-        try{ BODY.classList.remove(cls); }catch(_){}
-      }, ms);
-    }catch(_){}
+    on(cls);
+    clearTimeout(timers[cls]);
+    timers[cls] = setTimeout(()=>off(cls), ms);
   }
 
-  function setFx(cls, on){
-    try{ BODY.classList.toggle(cls, !!on); }catch(_){}
+  function hold(cls, onoff){
+    if (onoff) on(cls);
+    else off(cls);
   }
 
-  // combo glow threshold
+  // layered hit pulse (hit + good/bad/miss etc.)
+  function hit(kind){
+    pulse('fx-hit', 140);
+    if (kind === 'good') pulse('fx-good', 170);
+    else if (kind === 'bad') pulse('fx-bad', 190);
+    else if (kind === 'miss') pulse('fx-miss', 190);
+  }
+
+  // combo driver
   let lastCombo = 0;
-  let comboOn = false;
-
-  // soft rate limit
-  let lastJudgeAt = 0;
-  function canJudge(){
-    const t = (root.performance && performance.now) ? performance.now() : Date.now();
-    if (t - lastJudgeAt < 55) return false;
-    lastJudgeAt = t;
-    return true;
+  function updateCombo(combo){
+    combo = Number(combo)||0;
+    lastCombo = combo;
+    // เปิด fx-combo เมื่อ combo >= 6 (เด็กป.5 มันส์กำลังดี)
+    hold('fx-combo', combo >= 6);
   }
 
-  // ---------- hha:judge => hit/good/bad/perfect/miss ----------
-  root.addEventListener('hha:judge', (ev)=>{
-    if (!canJudge()) return;
+  // storm/boss hold
+  function setStorm(onoff){
+    hold('fx-storm', !!onoff);
+  }
+  function setBoss(onoff){
+    hold('fx-boss', !!onoff);
+  }
+
+  // ----- event wiring -----
+  // 1) judge feedback (pop text) = best source for hit/bad/boss/perfect/miss
+  WIN.addEventListener('hha:judge', (ev)=>{
     const d = ev.detail || {};
     const k = String(d.kind||'').toLowerCase();
 
-    // common hit kick
-    addFx('fx-hit', 140);
-
+    // kinds used in groups.safe.js:
+    // good, bad, boss, miss, perfect, storm (optional)
     if (k === 'good'){
-      addFx('fx-good', 170);
-      return;
-    }
-    if (k === 'bad'){
-      addFx('fx-bad', 190);
-      return;
-    }
-    if (k === 'miss'){
-      addFx('fx-miss', 190);
-      addFx('fx-bad', 190);
-      return;
-    }
-    if (k === 'perfect'){
-      addFx('fx-perfect', 210);
-      addFx('fx-good', 170);
-      return;
-    }
-    if (k === 'storm'){
-      // some engines may emit storm here too
-      addFx('fx-storm', 380);
-      return;
-    }
-    if (k === 'boss'){
-      addFx('fx-boss', 320);
-      return;
+      hit('good');
+    } else if (k === 'bad'){
+      hit('bad');
+    } else if (k === 'miss'){
+      hit('miss');
+    } else if (k === 'boss'){
+      // boss hit = strong pulse + hold boss briefly
+      hit('bad'); // boss feels heavy
+      pulse('fx-boss', 320);
+    } else if (k === 'perfect'){
+      pulse('fx-perfect', 420);
+    } else if (k === 'storm'){
+      pulse('fx-storm', 260);
     }
   }, { passive:true });
 
-  // ---------- groups:progress => storm/boss states ----------
-  root.addEventListener('groups:progress', (ev)=>{
+  // 2) progress events: storm_on/off, boss_spawn/down, perfect_switch, miss
+  WIN.addEventListener('groups:progress', (ev)=>{
     const d = ev.detail || {};
     const kind = String(d.kind||'').toLowerCase();
 
     if (kind === 'storm_on'){
-      setFx('fx-storm', true);
-      addFx('fx-storm', 420);
-      return;
+      setStorm(true);
+      pulse('fx-storm', 320);
     }
     if (kind === 'storm_off'){
-      setFx('fx-storm', false);
-      return;
+      setStorm(false);
     }
 
     if (kind === 'boss_spawn'){
-      setFx('fx-boss', true);
-      addFx('fx-boss', 420);
-      return;
+      setBoss(true);
+      pulse('fx-boss', 420);
     }
     if (kind === 'boss_down'){
-      addFx('fx-perfect', 260);
-      addFx('fx-good', 180);
-      // keep boss fx off after down
-      setFx('fx-boss', false);
-      return;
+      // keep boss for a moment then release
+      pulse('fx-boss', 380);
+      clearTimeout(timers.__bossRelease);
+      timers.__bossRelease = setTimeout(()=>setBoss(false), 520);
+      pulse('fx-perfect', 360);
     }
+
     if (kind === 'perfect_switch'){
-      addFx('fx-perfect', 260);
-      addFx('fx-good', 160);
-      return;
+      pulse('fx-perfect', 520);
     }
+
     if (kind === 'miss'){
-      addFx('fx-miss', 190);
-      addFx('fx-bad', 190);
-      return;
+      hit('miss');
     }
   }, { passive:true });
 
-  // ---------- hha:score => combo highlight ----------
-  root.addEventListener('hha:score', (ev)=>{
+  // 3) score updates (combo)
+  WIN.addEventListener('hha:score', (ev)=>{
     const d = ev.detail || {};
-    const combo = Number(d.combo || 0) || 0;
-
-    // combo glow after 6
-    const should = (combo >= 6);
-    if (should !== comboOn){
-      comboOn = should;
-      setFx('fx-combo', comboOn);
-    }
-
-    // little burst at new high combo jump
-    if (combo > lastCombo && combo >= 8){
-      addFx('fx-perfect', 160);
-    }
-    lastCombo = combo;
+    updateCombo(d.combo);
   }, { passive:true });
 
-  // ---------- hha:end => end vignette ----------
-  root.addEventListener('hha:end', ()=>{
-    setFx('fx-end', true);
-    // keep end until user closes overlay or restarts
+  // 4) end
+  WIN.addEventListener('hha:end', (ev)=>{
+    // practice should NOT show big end FX overlay in A; but FX driver is safe anyway
+    pulse('fx-end', 700);
+    // clear holds so screen returns to normal after overlay
+    clearTimeout(timers.__endClear);
+    timers.__endClear = setTimeout(()=>{
+      off('fx-storm'); off('fx-boss'); off('fx-combo');
+    }, 900);
   }, { passive:true });
 
-})(typeof window !== 'undefined' ? window : globalThis);
+  // expose (optional)
+  NS.FX = { pulse, hold, hit };
+
+})();
