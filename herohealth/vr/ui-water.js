@@ -1,105 +1,95 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge UI — PRODUCTION
-// ✅ ensureWaterGauge() creates HUD gauge if missing
-// ✅ setWaterGauge(pct) updates gauge
-// ✅ zoneFrom(pct) -> 'LOW' | 'GREEN' | 'HIGH'
+// HHA Water Gauge UI — PRODUCTION (shared)
+// ✅ zoneFrom(pct): LOW / GREEN / HIGH
+// ✅ ensureWaterGauge(): creates fallback mini gauge if page doesn't provide
+// ✅ setWaterGauge(pct): updates both fallback + any known DOM ids if present
+//
+// Supported DOM ids (optional):
+// - #water-bar, #water-pct, #water-zone, #water-tip
+//
+// Notes: ไม่บังคับ UI ของเกม แต่ช่วยให้ทุกเกมใช้มาตรฐานเดียวกัน
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
-
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+const WIN = window;
+const DOC = document;
 
 export function zoneFrom(pct){
-  pct = clamp(pct,0,100);
-  // simple symmetric bands around mid
-  if (pct < 45) return 'LOW';
-  if (pct > 65) return 'HIGH';
+  const p = Math.max(0, Math.min(100, Number(pct)||0));
+  // ปรับ threshold ได้ถ้าต้องการ
+  if (p < 45) return 'LOW';
+  if (p > 65) return 'HIGH';
   return 'GREEN';
 }
 
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function qs(sel){ try{ return DOC.querySelector(sel); } catch(_) { return null; } }
+
+let FALLBACK = null;
+
 export function ensureWaterGauge(){
-  if (!DOC) return null;
+  if (!DOC || FALLBACK) return FALLBACK;
 
-  // if already exists, return it
-  const existing = DOC.querySelector('.hha-water');
-  if (existing) return existing;
+  // ถ้าเกมมี panel ของตัวเองอยู่แล้ว ก็ไม่จำเป็นต้องสร้าง fallback
+  const hasNative = DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone');
+  if (hasNative) return null;
 
-  // place inside HUD if exists, else body
-  const hud = DOC.querySelector('.hud');
+  // create fallback mini badge (top-left)
   const wrap = DOC.createElement('div');
-  wrap.className = 'hha-water';
+  wrap.className = 'hha-water-fallback';
   wrap.style.cssText = `
-    position:fixed;
-    right: calc(12px + env(safe-area-inset-right, 0px));
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    z-index:55;
-    width: 180px;
+    position:fixed; left:12px; top:12px; z-index:70;
+    padding:10px 12px; border-radius:16px;
+    background: rgba(2,6,23,.72);
+    border: 1px solid rgba(148,163,184,.18);
+    backdrop-filter: blur(10px);
+    color:#e5e7eb;
+    font: 800 12px/1.2 system-ui;
     pointer-events:none;
-    font: 800 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-    color: rgba(226,232,240,.95);
+    box-shadow: 0 18px 70px rgba(0,0,0,.35);
+    min-width: 160px;
   `;
-
   wrap.innerHTML = `
-    <div style="
-      background: rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      padding:10px 10px 10px 10px;
-      box-shadow: 0 22px 70px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-    ">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-        <div style="font-weight:1000; letter-spacing:.2px;">💧 Water</div>
-        <div class="hha-water-zone" style="color:rgba(148,163,184,.95); font-weight:900;">GREEN</div>
-      </div>
-
-      <div style="margin-top:8px; height:10px; border-radius:999px; overflow:hidden;
-        border:1px solid rgba(148,163,184,.16); background: rgba(2,6,23,.55);">
-        <div class="hha-water-bar" style="
-          height:100%;
-          width:50%;
-          border-radius:999px;
-          background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(34,211,238,.75));
-        "></div>
-      </div>
-
-      <div style="margin-top:8px; display:flex; justify-content:space-between; gap:10px; font-weight:900;">
-        <div class="hha-water-pct">50%</div>
-        <div style="color:rgba(148,163,184,.95); font-weight:800;">LOW • GREEN • HIGH</div>
-      </div>
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;">
+      <div>Water</div>
+      <div><span class="wPct">50</span><span style="opacity:.75">%</span></div>
+    </div>
+    <div style="margin-top:6px;opacity:.85">Zone <b class="wZone">GREEN</b></div>
+    <div style="margin-top:8px;height:8px;border-radius:999px;background:rgba(148,163,184,.18);overflow:hidden;border:1px solid rgba(148,163,184,.12)">
+      <div class="wBar" style="height:100%;width:50%;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95))"></div>
     </div>
   `;
-
-  (hud || DOC.body).appendChild(wrap);
-  return wrap;
+  DOC.body.appendChild(wrap);
+  FALLBACK = wrap;
+  return FALLBACK;
 }
 
-export function setWaterGauge(pct){
-  if (!DOC) return;
+export function setWaterGauge(pct, tipText){
+  const p = clamp(pct, 0, 100);
+  const zone = zoneFrom(p);
 
-  pct = clamp(pct,0,100);
-  const zone = zoneFrom(pct);
+  // update native HUD if present
+  const bar = DOC.getElementById('water-bar');
+  const pctEl = DOC.getElementById('water-pct');
+  const zoneEl = DOC.getElementById('water-zone');
+  const tipEl = DOC.getElementById('water-tip');
 
-  const wrap = DOC.querySelector('.hha-water') || ensureWaterGauge();
-  if (!wrap) return;
+  if (bar) bar.style.width = p.toFixed(0) + '%';
+  if (pctEl) pctEl.textContent = String(p|0);
+  if (zoneEl) zoneEl.textContent = String(zone);
 
-  const bar  = wrap.querySelector('.hha-water-bar');
-  const zp   = wrap.querySelector('.hha-water-zone');
-  const pp   = wrap.querySelector('.hha-water-pct');
-
-  if (bar) bar.style.width = pct.toFixed(0) + '%';
-  if (zp)  zp.textContent  = zone;
-  if (pp)  pp.textContent  = pct.toFixed(0) + '%';
-
-  // subtle border glow by zone
-  const card = wrap.firstElementChild;
-  if (card){
-    const c =
-      (zone === 'GREEN') ? 'rgba(34,197,94,.22)' :
-      (zone === 'LOW')   ? 'rgba(34,211,238,.22)' :
-                           'rgba(245,158,11,.22)';
-    card.style.borderColor = c;
+  if (tipEl && typeof tipText === 'string' && tipText.trim()) {
+    tipEl.textContent = tipText.trim();
   }
+
+  // update fallback if exists
+  if (!FALLBACK) return;
+  try{
+    const wPct = FALLBACK.querySelector('.wPct');
+    const wZone = FALLBACK.querySelector('.wZone');
+    const wBar = FALLBACK.querySelector('.wBar');
+    if (wPct) wPct.textContent = String(p|0);
+    if (wZone) wZone.textContent = zone;
+    if (wBar) wBar.style.width = p.toFixed(0) + '%';
+  }catch(_){}
 }
