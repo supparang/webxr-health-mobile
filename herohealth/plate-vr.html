@@ -1,10 +1,3 @@
-<!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR (RUN) — PRODUCTION+
-✅ Uses: ./plate/plate-vr.css + ./plate/plate.safe.js
-✅ A-Frame (Enter VR reliability) + Universal VR UI (vr-ui.js)
-✅ FX + Logger
-✅ Boss/Storm HUD ids match plate.safe.js
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -17,7 +10,7 @@ Balanced Plate VR (RUN) — PRODUCTION+
   <!-- External CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (for ENTER VR / EXIT / RECENTER reliability) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
@@ -410,9 +403,7 @@ Balanced Plate VR (RUN) — PRODUCTION+
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- ✅ This is the REAL start button that plate.safe.js binds -->
-      <button class="btn primary" id="btnStart" type="button">▶ START</button>
-
+      <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
       <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
@@ -435,7 +426,6 @@ Balanced Plate VR (RUN) — PRODUCTION+
         </div>
 
         <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
-          <!-- ✅ overlay start -->
           <button class="btn primary" id="btnStartMain" type="button">เริ่มเกม ▶</button>
           <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์นี้ 🔗</button>
           <button class="btn warn" id="btnGoLauncher" type="button">ไปหน้า Launcher 🧭</button>
@@ -520,7 +510,6 @@ Balanced Plate VR (RUN) — PRODUCTION+
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
       btnStartMain?.addEventListener('click', ()=>{
-        // ✅ bridge to real start button (plate.safe.js listens on #btnStart)
         const b = document.getElementById('btnStart');
         if(b) b.click();
       }, {passive:true});
