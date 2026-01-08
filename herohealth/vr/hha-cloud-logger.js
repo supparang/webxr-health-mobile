@@ -1,313 +1,250 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened + queue + research-friendly)
-//
-// ✅ Usage:
-//   - Add <script src="../vr/hha-cloud-logger.js" defer></script>
-//   - Provide endpoint with ?log=YOUR_ENDPOINT
-//   - Emit events OR call window.HHA_LOGGER.send(payload)
-//
-// ✅ Auto hooks (best-effort):
-//   - listens: hha:end, hha:log, hha:flush
-//   - flush on: pagehide, visibilitychange(hidden), beforeunload (best-effort)
-//
-// ✅ Research helpers:
-//   - auto reads URL params: studyId, phase, conditionGroup, sessionOrder, blockLabel, siteCode, ...
-//   - attaches device info + page url + referrer
-//   - keeps queue in localStorage when network fails
-//
-// Payload format is flexible; logger will:
-// - merge baseCtx + payload
-// - ensure timestampIso, sessionId, gameMode, runMode etc if provided
-// - POST JSON with keepalive
-//
-// Notes:
-// - This is not "guaranteed" delivery (browser limitations) but hardened.
-//
+// HHA Cloud Logger — PRODUCTION (flush-hardened, keepalive)
+// ✅ Auto-capture summary from: hha:end, HHA_LAST_SUMMARY (localStorage)
+// ✅ Send to endpoint from URL param: ?log=...  (POST JSON)
+// ✅ Also supports legacy: ?logq=... (GET querystring) for simple GAS
+// ✅ Queue + retry (light) + keepalive + sendBeacon fallback
+// ✅ Flush on: pagehide / visibilitychange / beforeunload
+// ✅ Safe: never throws; no dependency
+
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
-
   if (!WIN || !DOC) return;
-  if (WIN.__HHA_CLOUD_LOGGER__) return;
-  WIN.__HHA_CLOUD_LOGGER__ = true;
+  if (WIN.__HHA_CLOUD_LOGGER_LOADED__) return;
+  WIN.__HHA_CLOUD_LOGGER_LOADED__ = true;
 
-  // -------------------- helpers --------------------
-  const qs = (k, d=null)=>{
-    try { return new URL(location.href).searchParams.get(k) ?? d; }
-    catch(_){ return d; }
+  const qs = (k, def=null)=>{
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch(_){ return def; }
   };
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  const ENDPOINT_JSON = String(qs('log','') || '').trim();   // POST JSON
+  const ENDPOINT_QS   = String(qs('logq','') || '').trim();  // GET querystring (legacy)
+  const MODE          = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
+  const GAME          = String(qs('gameMode','') || '').toLowerCase();
+  const SESSION_ID    = String(qs('sessionId', qs('studentKey','')) || '');
 
-  function nowIso(){
-    try { return new Date().toISOString(); } catch(_){ return ''; }
-  }
+  // enable if endpoint exists
+  const ENABLED = !!(ENDPOINT_JSON || ENDPOINT_QS);
+
+  // Queue in memory + persisted (best-effort)
+  const STORE_KEY = 'HHA_LOG_QUEUE_V1';
+  const QUEUE = [];
 
   function safeJsonParse(s){
-    try{ return JSON.parse(s); }catch(_){ return null; }
+    try{ return JSON.parse(String(s||'')); }catch(_){ return null; }
   }
-
-  function safeJsonStringify(o){
-    try{ return JSON.stringify(o); }catch(_){ return ''; }
-  }
-
-  function getDevice(){
-    const ua = navigator.userAgent || '';
-    const plat = navigator.platform || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-    const isIOS = /iPhone|iPad|iPod/i.test(ua);
-    const isAndroid = /Android/i.test(ua);
-    const isVR = !!(navigator.xr);
-    return {
-      ua,
-      platform: plat,
-      isMobile,
-      isIOS,
-      isAndroid,
-      hasWebXR: isVR,
-      lang: navigator.language || '',
-      tz: (Intl && Intl.DateTimeFormat) ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
-    };
-  }
-
-  function inferView(){
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v) return v;
-    // fallback heuristics from body class
-    try{
-      const b = DOC.body;
-      if (b && b.classList.contains('cardboard')) return 'cardboard';
-      if (b && b.classList.contains('view-cvr')) return 'cvr';
-      if (b && b.classList.contains('view-mobile')) return 'mobile';
-    }catch(_){}
-    return 'pc';
-  }
-
-  // -------------------- base context from URL --------------------
-  const BASE_CTX = {
-    timestampIso: qs('timestampIso', nowIso()),
-    projectTag: qs('projectTag', 'HeroHealth'),
-    runMode: qs('runMode', qs('run', 'play')),
-    studyId: qs('studyId',''),
-    phase: qs('phase',''),
-    conditionGroup: qs('conditionGroup',''),
-    sessionOrder: qs('sessionOrder',''),
-    blockLabel: qs('blockLabel',''),
-    siteCode: qs('siteCode',''),
-    schoolYear: qs('schoolYear',''),
-    semester: qs('semester',''),
-    sessionId: qs('sessionId', qs('studentKey','') || ''),
-    studentKey: qs('studentKey',''),
-    schoolCode: qs('schoolCode',''),
-    schoolName: qs('schoolName',''),
-    classRoom: qs('classRoom',''),
-    studentNo: qs('studentNo',''),
-    nickName: qs('nickName',''),
-    gender: qs('gender',''),
-    age: qs('age',''),
-    gradeLevel: qs('gradeLevel', qs('grade','')),
-    heightCm: qs('heightCm',''),
-    weightKg: qs('weightKg',''),
-    bmi: qs('bmi',''),
-    bmiGroup: qs('bmiGroup',''),
-    vrExperience: qs('vrExperience',''),
-    gameFrequency: qs('gameFrequency',''),
-    handedness: qs('handedness',''),
-    visionIssue: qs('visionIssue',''),
-    healthDetail: qs('healthDetail',''),
-    consentParent: qs('consentParent',''),
-
-    // game controls
-    gameMode: qs('gameMode',''),
-    diff: qs('diff',''),
-    durationPlannedSec: qs('durationPlannedSec', qs('time','')),
-    seed: qs('seed',''),
-    hub: qs('hub',''),
-    view: inferView(),
-
-    // env
-    pageUrl: String(location.href),
-    referrer: String(document.referrer || ''),
-  };
-
-  const DEVICE = getDevice();
-
-  // -------------------- endpoint + queue --------------------
-  const ENDPOINT = String(qs('log','') || '').trim();
-  const ENABLED = !!ENDPOINT;
-
-  const LS_KEY = 'HHA_LOG_QUEUE_V1';
-  const MAX_QUEUE = 80; // keep bounded
-  const SEND_TIMEOUT_MS = 5200;
 
   function loadQueue(){
     try{
-      const raw = localStorage.getItem(LS_KEY);
+      const raw = localStorage.getItem(STORE_KEY);
       const arr = safeJsonParse(raw);
-      return Array.isArray(arr) ? arr : [];
-    }catch(_){ return []; }
+      if (Array.isArray(arr)){
+        for (const it of arr){
+          if (it && typeof it === 'object') QUEUE.push(it);
+        }
+      }
+    }catch(_){}
   }
-
-  function saveQueue(q){
+  function saveQueue(){
     try{
-      localStorage.setItem(LS_KEY, safeJsonStringify(q));
+      localStorage.setItem(STORE_KEY, JSON.stringify(QUEUE.slice(0, 50)));
     }catch(_){}
   }
 
-  let queue = loadQueue();
-
-  function enqueue(item){
-    queue.push(item);
-    if (queue.length > MAX_QUEUE) queue = queue.slice(queue.length - MAX_QUEUE);
-    saveQueue(queue);
-  }
-
-  // -------------------- network send --------------------
-  function withTimeout(promise, ms){
-    let t;
-    const timeout = new Promise((_,rej)=>{
-      t = setTimeout(()=>rej(new Error('timeout')), ms);
-    });
-    return Promise.race([promise, timeout]).finally(()=>clearTimeout(t));
-  }
-
-  async function postJson(payload){
-    if (!ENABLED) return { ok:false, disabled:true };
-    const body = safeJsonStringify(payload);
-    if (!body) return { ok:false, error:'stringify_failed' };
-
-    // prefer fetch keepalive
-    const ctrl = (WIN.AbortController) ? new AbortController() : null;
-    const sig = ctrl ? ctrl.signal : undefined;
-
-    const p = fetch(ENDPOINT, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body,
-      keepalive:true,
-      signal:sig
-    });
-
-    try{
-      const res = await withTimeout(p, SEND_TIMEOUT_MS);
-      return { ok: !!(res && res.ok), status: res && res.status };
-    }catch(err){
-      try{ ctrl && ctrl.abort(); }catch(_){}
-      return { ok:false, error: String(err && (err.message||err)) };
+  function compact(obj){
+    // remove undefined / functions / huge strings
+    const out = {};
+    for (const k in obj){
+      const v = obj[k];
+      if (v === undefined) continue;
+      if (typeof v === 'function') continue;
+      if (typeof v === 'string' && v.length > 8000) out[k] = v.slice(0,8000);
+      else out[k] = v;
     }
-  }
-
-  // -------------------- public API --------------------
-  function buildPayload(data){
-    const d = (data && typeof data === 'object') ? data : { value:data };
-
-    // merge context shallow
-    const out = Object.assign({}, BASE_CTX, d);
-
-    // normalize some fields (optional)
-    if (!out.timestampIso) out.timestampIso = nowIso();
-    if (!out.runMode) out.runMode = qs('runMode', qs('run','play')) || 'play';
-    if (!out.view) out.view = inferView();
-    if (!out.device) out.device = DEVICE;
-    if (!out.gameVersion) out.gameVersion = qs('ver', qs('v','')) || '';
-    if (!out.sessionId && out.studentKey) out.sessionId = out.studentKey;
-
     return out;
   }
 
-  async function send(data, { flush=false } = {}){
-    const payload = buildPayload(data);
+  function withMeta(payload){
+    const base = {
+      timestampClientIso: new Date().toISOString(),
+      page: location.pathname + location.search,
+      referrer: DOC.referrer || '',
+      ua: navigator.userAgent || '',
+      runMode: payload.runMode || MODE,
+      gameMode: payload.gameMode || GAME || payload.game || '',
+      sessionId: payload.sessionId || SESSION_ID || '',
+      seed: payload.seed || String(qs('seed','') || ''),
+      diff: payload.diff || String(qs('diff','') || ''),
+      studyId: payload.studyId || String(qs('studyId','') || ''),
+      phase: payload.phase || String(qs('phase','') || ''),
+      conditionGroup: payload.conditionGroup || String(qs('conditionGroup','') || ''),
+      sessionOrder: payload.sessionOrder || String(qs('sessionOrder','') || '')
+    };
+    return compact(Object.assign(base, payload));
+  }
 
-    // always store last summary for convenience (when looks like end summary)
+  function enqueue(payload){
+    const item = withMeta(payload || {});
+    // de-dupe: if same sessionId+gameMode+reason+scoreFinal close, keep last
     try{
-      if (payload.gameMode && (payload.scoreFinal!=null || payload.reason)){
-        localStorage.setItem('HHA_LAST_SUMMARY', safeJsonStringify(payload));
-        localStorage.setItem('hha_last_summary', safeJsonStringify(payload));
+      const key = `${item.sessionId}|${item.gameMode}|${item.reason||''}|${item.scoreFinal||''}`;
+      item.__key = key;
+      const idx = QUEUE.findIndex(x => x && x.__key === key);
+      if (idx >= 0) QUEUE[idx] = item;
+      else QUEUE.push(item);
+      // cap
+      while (QUEUE.length > 50) QUEUE.shift();
+      saveQueue();
+    }catch(_){}
+  }
+
+  function toQueryString(obj){
+    const p = new URLSearchParams();
+    for (const k in obj){
+      const v = obj[k];
+      if (v === undefined || v === null) continue;
+      p.set(k, String(v));
+    }
+    return p.toString();
+  }
+
+  async function postJSON(url, payload){
+    // prefer fetch keepalive
+    try{
+      await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload),
+        keepalive:true,
+        cache:'no-store',
+        credentials:'omit'
+      });
+      return true;
+    }catch(_){}
+
+    // fallback sendBeacon (needs Blob)
+    try{
+      if (navigator.sendBeacon){
+        const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+        const ok = navigator.sendBeacon(url, blob);
+        if (ok) return true;
       }
     }catch(_){}
 
-    // if disabled, just queue (so you can later re-enable by adding ?log=)
-    if (!ENABLED){
-      enqueue({ t: Date.now(), payload });
-      return { ok:false, disabled:true, queued:true };
-    }
-
-    const res = await postJson(payload);
-    if (!res.ok){
-      enqueue({ t: Date.now(), payload });
-      return { ok:false, queued:true, res };
-    }
-
-    // on success, optionally try flush queue
-    if (flush) await flushQueue();
-    return { ok:true, res };
+    return false;
   }
 
-  async function flushQueue(){
-    if (!ENABLED) return { ok:false, disabled:true, count: queue.length };
-    if (!queue.length) return { ok:true, count:0 };
+  async function getQS(url, payload){
+    try{
+      const full = url + (url.includes('?') ? '&' : '?') + toQueryString(payload);
+      // keepalive for GET is not standardized, but fetch still may work
+      await fetch(full, { method:'GET', keepalive:true, cache:'no-store', credentials:'omit' });
+      return true;
+    }catch(_){}
+    // sendBeacon fallback (GET not supported by sendBeacon) => return false
+    return false;
+  }
 
-    const startCount = queue.length;
-    const keep = [];
+  async function sendOne(item){
+    if (!item) return true;
+    if (!ENABLED) return true;
 
-    for (let i=0;i<queue.length;i++){
-      const item = queue[i];
-      const payload = item && item.payload ? item.payload : item;
-      const res = await postJson(payload);
-      if (!res.ok) keep.push(item);
+    // choose endpoint priority: JSON first
+    if (ENDPOINT_JSON){
+      const ok = await postJSON(ENDPOINT_JSON, item);
+      if (ok) return true;
     }
-
-    queue = keep;
-    saveQueue(queue);
-
-    return { ok:true, countSent: startCount - keep.length, countRemain: keep.length };
+    if (ENDPOINT_QS){
+      const ok2 = await getQS(ENDPOINT_QS, item);
+      if (ok2) return true;
+    }
+    return false;
   }
 
-  // -------------------- hooks --------------------
-  // Event: hha:end => send + flush
-  WIN.addEventListener('hha:end', (ev)=>{
-    const detail = ev && ev.detail ? ev.detail : null;
-    send(detail || { type:'end' }, { flush:true });
-  });
+  let flushing = false;
+  let lastFlushAt = 0;
 
-  // Event: hha:log => send (no force flush)
-  WIN.addEventListener('hha:log', (ev)=>{
-    const detail = ev && ev.detail ? ev.detail : null;
-    send(detail || { type:'log' }, { flush:false });
-  });
+  async function flushQueue(reason='flush'){
+    if (!ENABLED) return;
+    const t = Date.now();
+    if (flushing) return;
+    if (t - lastFlushAt < 350) return; // throttle
+    lastFlushAt = t;
+    flushing = true;
 
-  // Event: hha:flush => flush queue
-  WIN.addEventListener('hha:flush', ()=>{
-    flushQueue();
-  });
+    try{
+      // send oldest first
+      for (let i=0; i<QUEUE.length; ){
+        const item = QUEUE[i];
+        // stamp flush reason (non-destructive)
+        if (item && !item.__flushReason) item.__flushReason = reason;
 
-  // Flush on lifecycle changes
-  function bestEffortFlush(){
-    // try sendBeacon if tiny? We keep JSON via fetch keepalive (already best effort)
-    flushQueue();
+        const ok = await sendOne(item);
+        if (ok){
+          QUEUE.splice(i,1);
+          saveQueue();
+          continue;
+        }
+        // stop on first failure (avoid hammer)
+        break;
+      }
+    }catch(_){}
+    finally{
+      flushing = false;
+    }
   }
 
-  DOC.addEventListener('visibilitychange', ()=>{
-    if (DOC.visibilityState === 'hidden') bestEffortFlush();
-  });
+  // --- Hook events ---
+  function onEnd(ev){
+    const payload = (ev && ev.detail) ? ev.detail : null;
+    if (!payload || typeof payload !== 'object') return;
+    enqueue(payload);
+    flushQueue('hha:end');
+  }
 
-  WIN.addEventListener('pagehide', bestEffortFlush);
-  WIN.addEventListener('beforeunload', bestEffortFlush);
+  // if game stores HHA_LAST_SUMMARY, we can enqueue on boot
+  function bootEnqueueLast(){
+    try{
+      const raw = localStorage.getItem('HHA_LAST_SUMMARY') || localStorage.getItem('hha_last_summary') || '';
+      const obj = safeJsonParse(raw);
+      if (obj && typeof obj === 'object'){
+        // only enqueue if same session not already logged (basic)
+        enqueue(obj);
+      }
+    }catch(_){}
+  }
 
-  // initial flush shortly after load
-  setTimeout(()=>{ flushQueue(); }, 1200);
+  // flush on lifecycle
+  function bindLifecycleFlush(){
+    DOC.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden') flushQueue('visibility:hidden');
+    });
+    WIN.addEventListener('pagehide', ()=> flushQueue('pagehide'));
+    WIN.addEventListener('beforeunload', ()=> flushQueue('beforeunload'));
+    // mobile safari sometimes uses freeze
+    WIN.addEventListener('freeze', ()=> flushQueue('freeze'));
+  }
 
-  // expose
+  // public API (optional)
   WIN.HHA_LOGGER = {
-    enabled: ENABLED,
-    endpoint: ENDPOINT,
-    baseCtx: BASE_CTX,
-    device: DEVICE,
-    send,
+    enqueue,
     flush: flushQueue,
-    queueSize: ()=>queue.length
+    enabled: ENABLED,
+    endpoint: ENDPOINT_JSON || ENDPOINT_QS || ''
   };
 
+  // init
+  loadQueue();
+  if (ENABLED){
+    bootEnqueueLast();
+    bindLifecycleFlush();
+    // listen summary end events
+    WIN.addEventListener('hha:end', onEnd);
+    // initial flush attempt
+    flushQueue('boot');
+  }
 })();
