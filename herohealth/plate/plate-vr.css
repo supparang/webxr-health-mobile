@@ -4,9 +4,9 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
 ✅ HUD: soft neon, better contrast, safe-area
 ✅ Boss/Storm: fx classes (boss-on/boss-panic), storm pulse
 ✅ Result: crisp grade badge
-✅ Compatible with plate-vr.html inline UI
 */
 
+/* ---------- Theme tokens ---------- */
 :root{
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
@@ -30,14 +30,24 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
   --sal: env(safe-area-inset-left, 0px);
 }
 
-/* ---------- global hygiene ---------- */
-*{ box-sizing:border-box; }
-html, body{
-  -webkit-text-size-adjust: 100%;
-  text-rendering: optimizeLegibility;
+/* ---------- base hygiene ---------- */
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
-button{
-  font-synthesis-weight: none;
+
+/* safer tap */
+button, .btn, .pill{
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ---------- micro glow helpers ---------- */
@@ -85,11 +95,14 @@ button{
   transform: translateZ(0);
   text-shadow: 0 2px 0 rgba(0,0,0,.25);
   font-variation-settings: "wght" 900;
+  outline:none !important;
+
+  /* crisp emoji */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  will-change: transform, filter;
 }
 
+/* touch feedback */
 #plate-layer .plateTarget:active{
   transform: translateZ(0) scale(.98);
 }
@@ -118,8 +131,8 @@ button{
     inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* ---------- HUD polish (works with inline .card/.pill/.bar in plate-vr.html) ---------- */
-.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard, .panelCard, .bossCard, .stormCard{
+/* ---------- HUD polish ---------- */
+.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
   box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
 }
 
@@ -186,12 +199,11 @@ button{
     radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
   animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
+#stormFx.storm-panic{
+  filter:brightness(1.18);
+}
 
-/* plate.safe.js also toggles storm-panic class via fallback CSS injection */
-#stormFx.storm-panic{ filter:brightness(1.25); }
-#bossFx.boss-panic{ filter:brightness(1.25); }
-
-/* ---------- Result grade badge (optional feel) ---------- */
+/* ---------- Result grade badge ---------- */
 #rGrade{
   display:inline-block;
   padding:6px 12px;
