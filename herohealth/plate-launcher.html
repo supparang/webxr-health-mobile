@@ -1,3 +1,11 @@
+<!-- === /herohealth/plate-launcher.html ===
+Balanced Plate VR Launcher — PRODUCTION+
+✅ PC / Mobile / VR / cVR (Cardboard)
+✅ Remembers last settings (localStorage)
+✅ Builds clean run link to plate-vr.html
+✅ Pass-through hub + seed + run/diff/time
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -9,15 +17,19 @@
 
   <style>
     :root{
+      color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.82);
+      --panel:rgba(2,6,23,.78);
       --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
-      --radius:18px;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
       --pill:999px;
 
       --sat: env(safe-area-inset-top, 0px);
@@ -28,136 +40,166 @@
 
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; width:100%; height:100%;
-      background:var(--bg); color:var(--text);
+      margin:0; height:100%; width:100%;
+      overflow:hidden;
+      background:var(--bg);
+      color:var(--text);
       font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
     }
 
     .bg{
-      position:fixed; inset:0; z-index:0;
+      position:fixed; inset:0;
       background:
-        radial-gradient(circle at 15% 10%, rgba(34,211,238,.12), transparent 40%),
-        radial-gradient(circle at 85% 20%, rgba(167,139,250,.12), transparent 42%),
-        radial-gradient(circle at 50% 90%, rgba(34,197,94,.10), transparent 45%),
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
+        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
+        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
         linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+      pointer-events:none;
     }
 
     .wrap{
-      position:relative; z-index:1;
-      min-height:100%;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar))
-               calc(14px + var(--sab)) calc(14px + var(--sal));
-      display:grid;
-      place-items:center;
+      position:fixed; inset:0;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
     }
 
     .card{
-      width:min(920px,100%);
+      width:min(1100px, 100%);
+      margin:0 auto;
       background:var(--panel);
       border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:16px;
-      box-shadow:0 26px 90px rgba(0,0,0,.45);
+      border-radius:var(--radius);
+      padding:14px;
+      box-shadow: 0 24px 90px rgba(0,0,0,.42);
       backdrop-filter: blur(10px);
     }
 
-    .header{
-      display:flex; justify-content:space-between; gap:12px;
-      align-items:flex-start; flex-wrap:wrap;
+    .top{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      justify-content:space-between;
     }
+
     .title{
-      font-weight:1200; font-size:20px;
+      font-weight:1200;
+      font-size:18px;
+      letter-spacing:.2px;
     }
-    .subtitle{
+    .sub{
       margin-top:6px;
-      color:var(--muted); font-weight:900; font-size:13px;
+      color:var(--muted);
+      font-weight:900;
+      font-size:13px;
       line-height:1.35;
     }
 
-    .grid{
-      margin-top:16px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:14px;
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:var(--pill);
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.60);
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
     }
 
-    .box{
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+
+    .panel{
       background:var(--panel2);
       border:1px solid var(--stroke);
       border-radius:18px;
       padding:12px;
     }
 
-    .k{
-      font-weight:1100; font-size:13px;
-      margin-bottom:8px;
+    .h{
+      font-weight:1100;
+      font-size:12px;
+      color:rgba(229,231,235,.92);
+      margin-bottom:10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
     .row{
-      display:flex; gap:8px; flex-wrap:wrap;
-    }
-
-    .pill{
-      padding:8px 12px;
-      border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.60);
-      font-weight:1000;
-      font-size:12px;
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-    }
-    .pill.active{
-      background:rgba(34,197,94,.18);
-      border-color:rgba(34,197,94,.35);
-    }
-
-    .field{
-      width:100%;
-      padding:8px 10px;
-      border-radius:12px;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.60);
-      color:var(--text);
-      font-weight:900;
-    }
-
-    .actions{
-      margin-top:16px;
-      display:flex; gap:10px; flex-wrap:wrap;
-      justify-content:space-between; align-items:center;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
     }
 
     .btn{
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:12px 16px;
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      font-weight:1200;
+      padding:10px 12px;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.20);
+      color:rgba(229,231,235,.95);
+      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
       cursor:pointer;
-      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
     }
-    .btn.primary{
-      background:rgba(34,197,94,.18);
-      border-color:rgba(34,197,94,.35);
-    }
-    .btn.warn{
-      background:rgba(245,158,11,.18);
-      border-color:rgba(245,158,11,.35);
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
+    .btn.bad{ background:rgba(239,68,68,.14); border-color:rgba(239,68,68,.30); }
+
+    select, input{
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.20);
+      color:rgba(229,231,235,.95);
+      border-radius:14px;
+      padding:10px 10px;
+      font-weight:950;
+      outline:none;
     }
 
-    .hint{
-      margin-top:10px;
-      color:var(--muted);
+    .muted{ color:var(--muted); font-weight:900; }
+    .small{ font-size:12px; }
+
+    .preview{
+      margin-top:12px;
+      border-top:1px solid rgba(148,163,184,.12);
+      padding-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .linkBox{
+      flex:1;
+      min-width: 260px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      color:rgba(229,231,235,.92);
       font-weight:900;
       font-size:12px;
+      overflow:auto;
+      white-space:nowrap;
     }
 
-    @media (max-width:720px){
+    @media (max-width: 920px){
       .grid{ grid-template-columns: 1fr; }
     }
   </style>
@@ -168,147 +210,268 @@
 
   <div class="wrap">
     <div class="card">
-      <div class="header">
+      <div class="top">
         <div>
           <div class="title">🍽️ Balanced Plate VR — Launcher</div>
-          <div class="subtitle">
-            เลือกโหมดเล่น / อุปกรณ์ / ระดับ / เวลา  
-            <br/>Play = Adaptive ON • Study = Seeded & Adaptive OFF
+          <div class="sub">
+            เลือกโหมด/เวลา/ระดับ/อุปกรณ์ แล้วกด “เริ่มเล่น”<br/>
+            <span class="muted">Tip:</span> Cardboard ให้ใช้ <b>view=cvr</b> (ยิงจาก crosshair ผ่าน vr-ui.js)
           </div>
         </div>
-        <div class="subtitle" style="text-align:right">
-          Cardboard แนะนำ <b>view=cvr</b><br/>
-          ยิงจาก crosshair
+        <div class="row">
+          <span class="pill">🧠 Play = Adaptive ON</span>
+          <span class="pill">🧪 Study = Seeded + Adaptive OFF</span>
         </div>
       </div>
 
       <div class="grid">
-        <!-- MODE -->
-        <div class="box">
-          <div class="k">🎮 โหมด</div>
-          <div class="row" data-group="run">
-            <div class="pill active" data-val="play">Play</div>
-            <div class="pill" data-val="study">Study</div>
+        <!-- Settings -->
+        <div class="panel">
+          <div class="h">⚙️ ตั้งค่าเล่น</div>
+
+          <div class="row">
+            <span class="pill">โหมด</span>
+            <select id="runMode">
+              <option value="play">play</option>
+              <option value="study">study</option>
+            </select>
+
+            <span class="pill">ระดับ</span>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal">normal</option>
+              <option value="hard">hard</option>
+            </select>
+
+            <span class="pill">เวลา (วินาที)</span>
+            <input id="time" type="number" min="20" max="9999" step="5" value="90" style="width:120px" />
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <span class="pill">seed</span>
+            <input id="seed" type="number" inputmode="numeric" placeholder="(auto)" style="width:180px" />
+            <button class="btn" id="btnNewSeed" type="button">🎲 สุ่ม seed</button>
+            <a class="btn" id="btnBackHub" href="./hub.html" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">🏠 HUB</a>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <span class="pill">hub</span>
+            <input id="hub" type="text" placeholder="(optional)" style="flex:1; min-width:220px" />
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <span class="pill">v (optional)</span>
+            <input id="ver" type="text" placeholder="เช่น 2026-01-08" style="flex:1; min-width:220px" />
           </div>
         </div>
 
-        <!-- VIEW -->
-        <div class="box">
-          <div class="k">🕶️ อุปกรณ์ / View</div>
-          <div class="row" data-group="view">
-            <div class="pill active" data-val="mobile">Mobile</div>
-            <div class="pill" data-val="pc">PC</div>
-            <div class="pill" data-val="cvr">Cardboard</div>
-            <div class="pill" data-val="vr">VR</div>
+        <!-- Device / view -->
+        <div class="panel">
+          <div class="h">📱 อุปกรณ์ (view)</div>
+
+          <div class="row">
+            <button class="btn" data-view="pc" type="button">🖥️ PC</button>
+            <button class="btn" data-view="mobile" type="button">📱 Mobile</button>
+            <button class="btn" data-view="vr" type="button">🕶 VR</button>
+            <button class="btn" data-view="cvr" type="button">📦 Cardboard (cVR)</button>
           </div>
-        </div>
 
-        <!-- DIFFICULTY -->
-        <div class="box">
-          <div class="k">⚙️ ระดับความยาก</div>
-          <div class="row" data-group="diff">
-            <div class="pill" data-val="easy">Easy</div>
-            <div class="pill active" data-val="normal">Normal</div>
-            <div class="pill" data-val="hard">Hard</div>
+          <div class="row" style="margin-top:10px">
+            <span class="pill">เลือกตอนนี้</span>
+            <span class="pill" id="viewNow">mobile</span>
+            <span class="pill"><span class="muted">ระบบยิง:</span> touch/crosshair</span>
           </div>
-        </div>
 
-        <!-- TIME -->
-        <div class="box">
-          <div class="k">⏱️ เวลาเล่น (วินาที)</div>
-          <input id="timeInput" class="field" type="number" min="30" step="10" value="90" />
-        </div>
-
-        <!-- SEED -->
-        <div class="box">
-          <div class="k">🌱 Seed (ใช้ใน Study)</div>
-          <input id="seedInput" class="field" type="number" placeholder="เว้นว่าง = สุ่มอัตโนมัติ" />
-        </div>
-
-        <!-- HUB -->
-        <div class="box">
-          <div class="k">🏠 HUB (กลับหน้า)</div>
-          <input id="hubInput" class="field" type="url"
-                 placeholder="เช่น https://.../herohealth/hub.html" />
+          <div class="row" style="margin-top:10px">
+            <div class="small muted" id="detectNote"></div>
+          </div>
         </div>
       </div>
 
-      <div class="actions">
-        <div>
-          <button class="btn primary" id="btnStart">เริ่มเกม ▶</button>
-          <button class="btn" id="btnCopy">คัดลอกลิงก์ 🔗</button>
+      <!-- Preview + actions -->
+      <div class="preview">
+        <div style="min-width:220px">
+          <div class="h" style="margin-bottom:6px">🔗 ลิงก์ที่จะเปิด</div>
+          <div class="linkBox" id="linkBox">—</div>
         </div>
-        <button class="btn warn" id="btnBackHub">กลับ HUB</button>
+
+        <div class="row">
+          <button class="btn primary" id="btnPlay" type="button">▶ เริ่มเล่น</button>
+          <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ 🔗</button>
+          <button class="btn warn" id="btnOpenNew" type="button">เปิดแท็บใหม่ ↗</button>
+        </div>
       </div>
 
-      <div class="hint" id="dbg">—</div>
+      <div class="row" style="margin-top:10px">
+        <div class="small muted" id="status"></div>
+      </div>
     </div>
   </div>
 
   <script>
     (function(){
-      const state = {
-        run:'play',
-        view:'mobile',
-        diff:'normal'
-      };
+      const LS_KEY = 'HHA_PLATE_LAUNCHER_LAST';
 
-      function qs(sel){ return document.querySelector(sel); }
-      function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
+      const $ = (id)=>document.getElementById(id);
+      const runMode = $('runMode');
+      const diff = $('diff');
+      const time = $('time');
+      const seed = $('seed');
+      const hub = $('hub');
+      const ver = $('ver');
 
-      qsa('[data-group]').forEach(g=>{
-        g.addEventListener('click', e=>{
-          const p = e.target.closest('.pill');
-          if(!p) return;
-          const group = g.getAttribute('data-group');
-          qsa('[data-group="'+group+'"] .pill').forEach(x=>x.classList.remove('active'));
-          p.classList.add('active');
-          state[group] = p.getAttribute('data-val');
-          updateDbg();
-        });
-      });
+      const viewNow = $('viewNow');
+      const linkBox = $('linkBox');
+      const status = $('status');
+      const detectNote = $('detectNote');
 
-      function buildUrl(){
+      const btnPlay = $('btnPlay');
+      const btnCopy = $('btnCopy');
+      const btnOpenNew = $('btnOpenNew');
+      const btnNewSeed = $('btnNewSeed');
+
+      let view = 'mobile';
+
+      function clamp(v,a,b){
+        v = Number(v)||0;
+        return v<a?a:(v>b?b:v);
+      }
+
+      function getParam(name, def=''){
+        try { return new URL(location.href).searchParams.get(name) ?? def; }
+        catch { return def; }
+      }
+
+      function detectViewBestEffort(){
+        // ไม่บังคับ—เป็นแค่คำแนะนำเริ่มต้น
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+        const isXr = !!(navigator.xr);
+        if(isXr && isMobile) return 'vr';
+        if(isMobile) return 'mobile';
+        return 'pc';
+      }
+
+      function loadLast(){
+        try{
+          const s = localStorage.getItem(LS_KEY);
+          if(!s) return null;
+          return JSON.parse(s);
+        }catch(e){ return null; }
+      }
+
+      function saveLast(){
+        try{
+          const obj = {
+            runMode: runMode.value,
+            diff: diff.value,
+            time: clamp(time.value,20,9999),
+            seed: seed.value ? Number(seed.value)||'' : '',
+            hub: hub.value || '',
+            ver: ver.value || '',
+            view
+          };
+          localStorage.setItem(LS_KEY, JSON.stringify(obj));
+        }catch(e){}
+      }
+
+      function buildLink(){
         const u = new URL('./plate-vr.html', location.href);
-        u.searchParams.set('run', state.run);
-        u.searchParams.set('view', state.view);
-        u.searchParams.set('diff', state.diff);
 
-        const t = Number(qs('#timeInput').value||90);
-        if(t) u.searchParams.set('time', t);
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', (runMode.value||'play'));
+        u.searchParams.set('diff', (diff.value||'normal'));
+        u.searchParams.set('time', String(clamp(time.value,20,9999)));
 
-        const seed = qs('#seedInput').value;
-        if(seed) u.searchParams.set('seed', seed);
+        const s = seed.value;
+        if(s !== '' && s != null){
+          u.searchParams.set('seed', String(Number(s)||0));
+        }else{
+          // ถ้า play ไม่ใส่ก็ได้ แต่ใส่ให้ deterministic ได้
+          // (ถ้าคุณอยาก "ไม่ส่ง seed" ใน play ให้ลบ 3 บรรทัดนี้)
+          if((runMode.value||'play') === 'study') u.searchParams.set('seed', '13579');
+        }
 
-        const hub = qs('#hubInput').value;
-        if(hub) u.searchParams.set('hub', hub);
+        const hb = hub.value || getParam('hub','');
+        if(hb) u.searchParams.set('hub', hb);
+
+        if(ver.value) u.searchParams.set('v', ver.value);
 
         return u.toString();
       }
 
-      function updateDbg(){
-        qs('#dbg').textContent = buildUrl();
+      function render(){
+        viewNow.textContent = view;
+        const link = buildLink();
+        linkBox.textContent = link;
+        saveLast();
       }
 
-      qs('#btnStart').addEventListener('click', ()=>{
-        location.href = buildUrl();
+      function setStatus(msg){
+        if(status) status.textContent = msg || '';
+      }
+
+      // init from url/hub
+      const hubFromUrl = getParam('hub','');
+      if(hubFromUrl) hub.value = hubFromUrl;
+
+      // restore last
+      const last = loadLast();
+      if(last){
+        if(last.runMode) runMode.value = last.runMode;
+        if(last.diff) diff.value = last.diff;
+        if(last.time) time.value = last.time;
+        if(last.seed !== undefined && last.seed !== null && last.seed !== '') seed.value = last.seed;
+        if(last.hub) hub.value = last.hub;
+        if(last.ver) ver.value = last.ver;
+        if(last.view) view = last.view;
+      }else{
+        view = detectViewBestEffort();
+      }
+
+      detectNote.textContent = 'แนะนำเริ่มต้น: ' + view + ' (ปรับได้)';
+      render();
+
+      // bind
+      document.querySelectorAll('[data-view]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          view = b.getAttribute('data-view') || 'mobile';
+          setStatus('เปลี่ยน view เป็น ' + view);
+          render();
+        }, {passive:true});
       });
 
-      qs('#btnCopy').addEventListener('click', async ()=>{
+      [runMode,diff,time,seed,hub,ver].forEach(el=>{
+        el?.addEventListener('input', ()=>{ render(); }, {passive:true});
+        el?.addEventListener('change', ()=>{ render(); }, {passive:true});
+      });
+
+      btnNewSeed?.addEventListener('click', ()=>{
+        const v = (Date.now() ^ (Math.random()*1e9)) | 0;
+        seed.value = String(Math.abs(v));
+        setStatus('สุ่ม seed แล้ว');
+        render();
+      }, {passive:true});
+
+      btnPlay?.addEventListener('click', ()=>{
+        const link = buildLink();
+        setStatus('กำลังเปิดเกม...');
+        location.href = link;
+      }, {passive:true});
+
+      btnOpenNew?.addEventListener('click', ()=>{
+        const link = buildLink();
+        window.open(link, '_blank', 'noopener');
+        setStatus('เปิดแท็บใหม่แล้ว');
+      }, {passive:true});
+
+      btnCopy?.addEventListener('click', async ()=>{
         try{
-          await navigator.clipboard.writeText(buildUrl());
-          qs('#dbg').textContent = '✅ คัดลอกลิงก์แล้ว';
+          await navigator.clipboard.writeText(buildLink());
+          setStatus('✅ คัดลอกลิงก์แล้ว');
         }catch(e){
-          qs('#dbg').textContent = '⚠️ คัดลอกไม่สำเร็จ';
+          setStatus('⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่องลิงก์ได้');
         }
-      });
-
-      qs('#btnBackHub').addEventListener('click', ()=>{
-        const hub = qs('#hubInput').value;
-        if(hub) location.href = hub;
-      });
-
-      updateDbg();
+      }, {passive:true});
     })();
   </script>
 </body>
