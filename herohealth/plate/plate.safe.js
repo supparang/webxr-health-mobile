@@ -160,6 +160,7 @@ function fxPulse(kind){
   fxPulse._t = setTimeout(()=>{ hitFx.classList.remove('pfx-hit-good','pfx-hit-bad'); }, 140);
 }
 function fxShake(){
+  if(!DOC.body) return;
   DOC.body.classList.remove('pfx-shake');
   void DOC.body.offsetWidth;
   DOC.body.classList.add('pfx-shake');
@@ -167,6 +168,7 @@ function fxShake(){
   fxShake._t = setTimeout(()=>DOC.body.classList.remove('pfx-shake'), 450);
 }
 function fxBlink(){
+  if(!DOC.body) return;
   DOC.body.classList.remove('pfx-blink');
   void DOC.body.offsetWidth;
   DOC.body.classList.add('pfx-blink');
@@ -174,6 +176,7 @@ function fxBlink(){
   fxBlink._t = setTimeout(()=>DOC.body.classList.remove('pfx-blink'), 1800);
 }
 function fxTick(){
+  if(!DOC.body) return;
   DOC.body.classList.remove('pfx-tick');
   void DOC.body.offsetWidth;
   DOC.body.classList.add('pfx-tick');
@@ -268,6 +271,7 @@ function bindDragLook(){
   }, { passive:true });
   on(ROOT, 'pointerup', ()=>{ look.dragging = false; }, { passive:true });
 }
+
 // ------------------------- Safe spawn geometry (avoid HUD overlap) -------------------------
 function rectOf(el){
   if(!el) return null;
@@ -659,6 +663,7 @@ function updateGoals(){
 
   emitQuestUpdate();
 }
+
 // ------------------------- Fever/Shield logic -------------------------
 function addFever(amount){
   fever = clamp(fever + (Number(amount)||0), 0, 100);
@@ -964,13 +969,22 @@ function startStormCycle(){
   storm.forbidJunk = !isStudy && (fever >= 70);
 
   if(stormHud) stormHud.style.display = 'block';
-  if(stormFx) stormFx.style.display = 'block';
+  if(stormFx){
+    stormFx.style.display = 'block';
+    // ✅ IMPORTANT: CSS expects storm-on
+    stormFx.classList.add('storm-on');
+    stormFx.classList.remove('storm-panic');
+  }
 
   if(stormTitle) stormTitle.textContent = `🌪️ STORM ${storm.cycleIndex+1}/${storm.cyclesPlanned}`;
   if(stormHint){
     stormHint.textContent = storm.forbidJunk
       ? `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s (ห้ามโดนขยะ!)`
       : `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s`;
+  }
+
+  if(stormProg){
+    stormProg.textContent = `${storm.durationSec}s • GOOD 0/${storm.needGood}`;
   }
 
   judge('🌪️ STORM START!', 'warn');
@@ -991,9 +1005,13 @@ function stormTimeLeft(){
 function updateStormHud(){
   if(!storm.active) return;
   const tl = stormTimeLeft();
+
   if(stormHint){
     const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
     stormHint.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
+  }
+  if(stormProg){
+    stormProg.textContent = `${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}`;
   }
 
   const mf = qs('uiMiniFill');
@@ -1017,7 +1035,7 @@ function finishStorm(ok, reason){
 
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-panic');
+    stormFx.classList.remove('storm-panic','storm-on');
     stormFx.style.display = 'none';
   }
 
@@ -1040,6 +1058,7 @@ function finishStorm(ok, reason){
   emitQuestUpdate();
   updateHUD();
 }
+
 // ------------------------- Hit / Miss handling -------------------------
 function onHit(id){
   const t = targets.get(id);
@@ -1283,7 +1302,7 @@ function tick(){
     }
   }
 
-  // --- Storm scheduler (deterministic feel) ---
+  // --- Storm scheduler ---
   if(!storm.active){
     const played = (nowMs() - tStartMs)/1000;
     const marks = isStudy ? [18, 42] : [20, 45, 70];
@@ -1358,6 +1377,7 @@ function tick(){
 
   requestAnimationFrame(tick);
 }
+
 // ------------------------- Pause / Start / Restart / VR -------------------------
 function setPaused(p){
   paused = !!p;
@@ -1489,14 +1509,17 @@ function resetState(){
   clearAllTargets();
   if(resultBackdrop) resultBackdrop.style.display = 'none';
   if(hudPaused) hudPaused.style.display = 'none';
-  if(bossHud) hudBoss.style.display = 'none';
+
+  // ✅ FIX: bossHud (not hudBoss)
+  if(bossHud) bossHud.style.display = 'none';
   if(bossFx){
     bossFx.classList.remove('boss-on','boss-panic');
     bossFx.style.display = 'none';
   }
+
   if(stormHud) stormHud.style.display = 'none';
   if(stormFx){
-    stormFx.classList.remove('storm-panic');
+    stormFx.classList.remove('storm-panic','storm-on');
     stormFx.style.display = 'none';
   }
 }
