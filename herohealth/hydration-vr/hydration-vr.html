@@ -1,3 +1,4 @@
+<!-- === /herohealth/hydration-vr/hydration-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,13 +8,10 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- FX + Logger + Universal VR UI (ยิง hha:shoot สำหรับ cVR) -->
+  <!-- Global FX + optional logger + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- ✅ Auto-detect view (NO OVERRIDE / ignore ?view=) -->
-  <script src="../vr/view-auto.js" defer></script>
 
   <style>
     :root{
@@ -41,6 +39,7 @@
     html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     a{ color:inherit; }
 
+    /* Background soft glow */
     body::before{
       content:"";
       position:fixed; inset:0;
@@ -177,49 +176,22 @@
       z-index:2;
     }
 
-    /* view modes (driven by view-auto.js) */
+    /* view modes */
     body.view-pc #playfield{ display:block; }
     body.view-mobile #playfield{ display:block; }
     body.cardboard #playfield{ display:none; }
     body.cardboard #cbPlayfield{ display:block; }
 
-    /* cVR strict: shoot from crosshair, don't click targets */
+    /* cVR strict: ยิงกลางจอจาก vr-ui.js (ห้ามกดเป้าตรง ๆ) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
     body.view-cvr #hydration-layer{ pointer-events:none; }
 
-    .crosshair{
-      position:fixed;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      z-index:95;
-      pointer-events:none;
-      width:22px; height:22px;
-      opacity:.92;
-      filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
-      display:none;
-    }
-    .crosshair::before, .crosshair::after{
-      content:"";
-      position:absolute; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-    }
-    .crosshair::before{
-      width:18px; height:18px;
-      border:2px solid rgba(229,231,235,.85);
-    }
-    .crosshair::after{
-      width:4px; height:4px;
-      background:rgba(34,211,238,.95);
-    }
-    body.view-cvr .crosshair{ display:block; }
-
-    /* ---------- Start Overlay (NO mode menu) ---------- */
+    /* ---------- Start Overlay ---------- */
     #startOverlay{
       position:fixed;
       inset:0;
-      z-index:100;
+      z-index:110;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -256,12 +228,8 @@
       line-height:1.35;
       white-space:pre-line;
     }
-    .btnRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:14px;
-    }
+
+    .btnRow{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
     .btn{
       pointer-events:auto;
       appearance:none;
@@ -283,12 +251,25 @@
       border-color: rgba(245,158,11,.26);
       background: rgba(245,158,11,.14);
     }
-    .note{
+
+    .pillInfo{
       margin-top:12px;
+      display:flex; flex-wrap:wrap; gap:10px;
+      align-items:center;
+      color:rgba(229,231,235,.92);
       font-size:12px;
-      color:rgba(229,231,235,.85);
-      line-height:1.35;
-      white-space:pre-line;
+    }
+    .tag{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+    }
+    code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: rgba(229,231,235,.92);
     }
 
     /* ---------- End Summary ---------- */
@@ -338,7 +319,7 @@
       line-height:1.3;
     }
 
-    /* FX hooks */
+    /* ---------------- FX HOOKS ---------------- */
     body.hha-endfx{ animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite; }
     @keyframes endBlink{ 0%,100%{ filter: brightness(1); } 50%{ filter: brightness(1.08) saturate(1.06); } }
     @keyframes endShake{ 0%,100%{ transform: translate3d(0,0,0); } 50%{ transform: translate3d(0,1px,0); } }
@@ -378,16 +359,9 @@
 
   <!-- PLAYFIELD (Cardboard split) -->
   <div id="cbPlayfield">
-    <div class="cbHalf left">
-      <div id="hydration-layerL" class="cbLayer"></div>
-    </div>
-    <div class="cbHalf right">
-      <div id="hydration-layerR" class="cbLayer"></div>
-    </div>
+    <div class="cbHalf left"><div id="hydration-layerL" class="cbLayer"></div></div>
+    <div class="cbHalf right"><div id="hydration-layerR" class="cbLayer"></div></div>
   </div>
-
-  <!-- Crosshair for cVR -->
-  <div class="crosshair" aria-hidden="true"></div>
 
   <!-- HUD -->
   <div class="hud">
@@ -440,29 +414,40 @@
     <div style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
-  <!-- START OVERLAY (tap-to-start only) -->
-  <div id="startOverlay" role="dialog" aria-modal="true">
+  <!-- START OVERLAY (NO MODE MENU) -->
+  <div id="startOverlay">
     <div class="card">
       <div class="header">
         <div class="logo">💧</div>
         <div>
           <p class="title">HeroHealth — Hydration VR</p>
-          <p class="sub">ระบบจะตรวจจับโหมดให้เองอัตโนมัติ (PC / Mobile / Cardboard / cVR)
-• cVR: ยิงจาก crosshair กลางจอ (แตะ/คลิกเพื่อยิง)
-• Cardboard split: เข้า fullscreen + landscape แล้วระบบจะสลับให้อัตโนมัติ</p>
+          <p class="sub" id="startSub">
+กติกาเร็ว ๆ:
+• ยิง 💧 เพื่อคุมให้น้ำอยู่โซน GREEN (Stage 1)
+• ตอนพายุ (Storm) ต้องทำให้น้ำ “ไม่ GREEN” (LOW/HIGH) + BLOCK ช่วงท้าย End Window (Stage 2)
+• ช่วง Boss Window ให้ BLOCK 🌩️ ให้ครบ (Stage 3)
+
+โหมดอัตโนมัติ: loader จะเลือก PC/Mobile ให้เอง
+ถ้าจะเข้า Cardboard หรือ cVR ให้เปิดด้วยพารามิเตอร์:
+<code>?view=cardboard</code> หรือ <code>?view=cvr</code>
+          </p>
         </div>
       </div>
 
+      <div class="pillInfo">
+        <span class="tag">View: <b id="viewTag">—</b></span>
+        <span class="tag">Diff: <b id="diffTag">—</b></span>
+        <span class="tag">Run: <b id="runTag">—</b></span>
+      </div>
+
       <div class="btnRow">
-        <button class="btn primary" id="btnStart">▶ Tap to Start</button>
+        <button class="btn primary" id="btnStart">▶ START</button>
         <button class="btn warn" id="btnBackHub">🏠 Back HUB</button>
       </div>
 
-      <div class="note">
-ทิปผ่าน Stage:
-Stage1) คุม GREEN ให้ครบเวลาที่กำหนด (สะสม)
-Stage2) ผ่าน Storm Mini อย่างน้อย 1 พายุ: ทำให้น้ำไม่ GREEN (LOW/HIGH) + BLOCK ช่วง End Window และห้ามโดน BAD ตอนพายุ
-Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss Window) จะมี 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบตามจำนวน
+      <div class="pillInfo" style="opacity:.9">
+        <span class="tag">Tip: cVR จะยิงจาก crosshair (vr-ui.js) • แตะเพื่อยิง</span>
+        <span class="tag">Cardboard: แนะนำ Fullscreen + หมุนแนวนอน</span>
       </div>
     </div>
   </div>
@@ -513,35 +498,57 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     </div>
   </div>
 
-  <!-- Start + Hub + Retry helpers -->
+  <!-- Boot helpers: Start + Hub + Fullscreen best effort -->
   <script>
   (function(){
     const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
     const hub = String(qs('hub','../hub.html'));
+    const view = String(qs('view','pc')).toLowerCase();
+    const diff = String(qs('diff','normal')).toLowerCase();
+    const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
+
+    const setTxt=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
+    setTxt('viewTag', view);
+    setTxt('diffTag', diff);
+    setTxt('runTag', run);
 
     function goHub(){ location.href = hub; }
-
     document.getElementById('btnBackHub')?.addEventListener('click', goHub);
     document.getElementById('btnBackHub2')?.addEventListener('click', goHub);
 
-    // Tap-to-start (also good place to request fullscreen on mobile if you want later)
-    const startBtn = document.getElementById('btnStart');
-    startBtn?.addEventListener('click', ()=>{
-      const ov = document.getElementById('startOverlay');
-      ov?.classList.add('hide');
+    async function enterFull(){
+      try{
+        const el = document.documentElement;
+        if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({navigationUI:'hide'});
+      }catch(_){}
+      try{
+        if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+      }catch(_){}
+    }
+
+    document.getElementById('btnStart')?.addEventListener('click', async ()=>{
+      // For cardboard/cVR: try fullscreen/landscape (must be user gesture)
+      if (view === 'cardboard' || view === 'cvr'){
+        await enterFull();
+      }
+      document.getElementById('startOverlay')?.classList.add('hide');
       window.dispatchEvent(new CustomEvent('hha:start'));
     });
 
-    // If something hides overlay elsewhere, auto start
-    setTimeout(()=>{
-      const ov = document.getElementById('startOverlay');
-      const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
-      if (hidden) window.dispatchEvent(new CustomEvent('hha:start'));
-    }, 800);
+    // Optional: allow quick retry from overlay by key
+    window.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter'){
+        const ov = document.getElementById('startOverlay');
+        const shown = ov && !ov.classList.contains('hide');
+        if (shown){
+          document.getElementById('btnStart')?.click();
+        }
+      }
+    });
   })();
   </script>
 
-  <!-- Loader -->
+  <!-- Loader (auto-detect view + import safe.js) -->
   <script type="module" src="./hydration-vr.loader.js"></script>
 </body>
 </html>
