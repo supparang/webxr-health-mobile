@@ -1,22 +1,19 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — ALL-IN CSS (PRODUCTION)
-✅ HUD / Goal / Mini / Coach / Buttons
-✅ Target spawn safe-rect via CSS vars:
-   --pv-top-safe, --pv-bottom-safe, --pv-left-safe, --pv-right-safe
-✅ PC / Mobile / VR / cVR (crosshair shoot)
-✅ FX classes: fx-hit fx-good fx-bad fx-perfect fx-combo fx-storm fx-boss fx-end
+Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
+✅ Targets: pop/glow/wobble, better emoji clarity, hit feedback
+✅ HUD: soft neon, better contrast, safe-area
+✅ Boss/Storm: fx classes (boss-on/boss-panic), storm pulse
+✅ Result: crisp grade badge
 */
 
 :root{
-  color-scheme: dark;
-
-  /* base theme (run html can override) */
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
+
   --accent:#22c55e;
   --warn:#f59e0b;
   --bad:#ef4444;
@@ -26,301 +23,165 @@ Balanced Plate VR — ALL-IN CSS (PRODUCTION)
   --radius:18px;
   --pill:999px;
 
-  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* ✅ Spawn-safe padding (สำคัญ: กัน HUD บัง) */
-  --pv-top-safe: calc(168px + var(--sat));   /* ใต้ HUD Top + gap */
-  --pv-bottom-safe: calc(160px + var(--sab));/* เหนือ Coach/Buttons */
-  --pv-left-safe: calc(14px + var(--sal));
-  --pv-right-safe: calc(14px + var(--sar));
-
-  /* target sizing */
-  --pv-size: 104px;     /* base target */
-  --pv-size-junk: 108px;
-  --pv-size-star: 92px;
-  --pv-size-diamond: 86px;
-  --pv-size-shield: 96px;
-
-  /* hit ring */
-  --pv-ring: rgba(148,163,184,.22);
-  --pv-ring2: rgba(34,197,94,.24);
-
-  /* motion */
-  --pv-pop: 160ms;
-  --pv-fade: 180ms;
-
-  /* z-index plan (match run html) */
-  --z-target: 10;
-  --z-fx: 12;
 }
 
-/* ------------ base reset ------------ */
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
-html,body{
-  width:100%;
-  height:100%;
-  margin:0;
-  overflow:hidden;
-  background:var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+/* ---------- micro glow helpers ---------- */
+@keyframes hhaGlow {
+  0% { box-shadow: 0 16px 44px rgba(0,0,0,.26), 0 0 0 rgba(34,197,94,0); }
+  50%{ box-shadow: 0 18px 52px rgba(0,0,0,.30), 0 0 28px rgba(34,197,94,.18); }
+  100%{ box-shadow: 0 16px 44px rgba(0,0,0,.26), 0 0 0 rgba(34,197,94,0); }
+}
+@keyframes hhaWarnPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.20); }
+  100%{ filter:brightness(1); }
+}
+@keyframes hhaBadPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.22); }
+  100%{ filter:brightness(1); }
+}
+@keyframes hhaPop {
+  0%{ transform: translateZ(0) scale(.86); opacity:.0; }
+  40%{ transform: translateZ(0) scale(1.06); opacity:1; }
+  100%{ transform: translateZ(0) scale(1); opacity:1; }
+}
+@keyframes hhaWobble {
+  0%{ transform: translateZ(0) rotate(0deg); }
+  25%{ transform: translateZ(0) rotate(1.4deg); }
+  50%{ transform: translateZ(0) rotate(-1.4deg); }
+  75%{ transform: translateZ(0) rotate(1deg); }
+  100%{ transform: translateZ(0) rotate(0deg); }
 }
 
-#plate-layer{
-  position:fixed;
-  inset:0;
-  z-index:var(--z-target);
-  touch-action:none;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
+/* ---------- Targets feel (emoji clarity + VR-ish depth) ---------- */
+#plate-layer .plateTarget{
+  border-radius:999px !important;
+  border:1px solid rgba(148,163,184,.20) !important;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
+    radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
+    rgba(2,6,23,.56) !important;
+  backdrop-filter: blur(10px) saturate(1.15);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
+  transform: translateZ(0);
+  text-shadow: 0 2px 0 rgba(0,0,0,.25);
+  font-variation-settings: "wght" 900;
+}
+#plate-layer .plateTarget:active{
+  transform: translateZ(0) scale(.98);
 }
 
-/* ------------ view classes (set by JS) ------------ */
-body.view-pc{
-  --pv-size: 112px;
-  --pv-size-junk: 116px;
-  --pv-top-safe: calc(168px + var(--sat));
-  --pv-bottom-safe: calc(150px + var(--sab));
+/* Kind-specific vibe */
+#plate-layer .plateTarget[data-kind="good"]{
+  border-color: rgba(34,197,94,.30) !important;
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(34,197,94,.12),
+    inset 0 1px 0 rgba(255,255,255,.08);
 }
-body.view-mobile{
-  --pv-size: 98px;
-  --pv-size-junk: 104px;
-  --pv-top-safe: calc(176px + var(--sat));
-  --pv-bottom-safe: calc(170px + var(--sab));
+#plate-layer .plateTarget[data-kind="junk"]{
+  border-color: rgba(239,68,68,.28) !important;
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(239,68,68,.12),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.2s ease-in-out .12s infinite;
 }
-body.view-vr{
-  --pv-size: 106px;
-  --pv-size-junk: 110px;
-  --pv-top-safe: calc(160px + var(--sat));
-  --pv-bottom-safe: calc(150px + var(--sab));
-}
-body.view-cvr{
-  --pv-size: 110px;
-  --pv-size-junk: 114px;
-  --pv-top-safe: calc(168px + var(--sat));
-  --pv-bottom-safe: calc(160px + var(--sab));
+#plate-layer .plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.34) !important;
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(34,211,238,.14),
+    inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* ------------ target base ------------ */
-.pv-target{
-  position:absolute;
-  left: var(--x, 50%);
-  top:  var(--y, 50%);
-  width: var(--s, var(--pv-size));
-  height: var(--s, var(--pv-size));
-  transform: translate(-50%,-50%) scale(var(--k, 1));
-  border-radius: 999px;
-  display:grid;
-  place-items:center;
-  cursor:pointer;
-  user-select:none;
+/* make emoji look crisp */
+#plate-layer .plateTarget{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  background: rgba(15,23,42,.55);
+/* ---------- HUD polish ---------- */
+.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
+  box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
+}
+.pill{
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
+    rgba(15,23,42,.68) !important;
+}
+.bar{
+  background: rgba(148,163,184,.10) !important;
+}
+.bar > i{
+  box-shadow: 0 0 18px rgba(34,197,94,.16);
+}
+.bar.warn > i{ box-shadow: 0 0 18px rgba(245,158,11,.16); }
+.bar.bad  > i{ box-shadow: 0 0 18px rgba(239,68,68,.14); }
+
+/* Fever bar should feel dangerous */
+.bar.bad{
+  background:
+    linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08)) !important;
+}
+#uiFeverFill{
+  background: linear-gradient(90deg, rgba(245,158,11,.80), rgba(239,68,68,.85)) !important;
+  box-shadow: 0 0 18px rgba(239,68,68,.16) !important;
+}
+
+/* Buttons */
+.btn.primary{ animation: hhaGlow 2.2s ease-in-out 0s infinite; }
+.btn.warn:hover{ filter:brightness(1.1); }
+.btn.bad:hover{ filter:brightness(1.05); }
+
+/* ---------- Boss / Storm FX (hook for plate.safe.js toggles) ---------- */
+#bossFx{
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:58;
+  opacity:0;
+  transition: opacity .15s ease;
+}
+#bossFx.boss-on{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.10), transparent 55%),
+    radial-gradient(circle at 50% 90%, rgba(239,68,68,.10), transparent 55%);
+}
+#bossFx.boss-panic{
+  animation: hhaBadPulse .22s ease-in-out 0s infinite;
+}
+
+#stormFx{
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:57;
+  opacity:0;
+  transition: opacity .15s ease;
+}
+#stormFx.storm-on{
+  opacity:1;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.12), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%),
+    radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
+  animation: hhaWarnPulse .32s ease-in-out 0s infinite;
+}
+
+/* ---------- Result grade badge (optional feel) ---------- */
+#rGrade{
+  display:inline-block;
+  padding:6px 12px;
+  border-radius:999px;
   border:1px solid rgba(148,163,184,.18);
-  box-shadow: 0 18px 60px rgba(0,0,0,.38);
-  backdrop-filter: blur(10px);
-
-  animation: pv-in var(--pv-pop) ease-out;
-  will-change: transform, opacity;
-}
-
-@keyframes pv-in{
-  from{ transform: translate(-50%,-50%) scale(.86); opacity:.0; }
-  to  { transform: translate(-50%,-50%) scale(1);   opacity:1; }
-}
-
-.pv-target::before{
-  content:"";
-  position:absolute;
-  inset: -8px;
-  border-radius: inherit;
-  border: 2px solid var(--pv-ring);
-  opacity:.45;
-  filter: blur(.2px);
-}
-
-.pv-target::after{
-  content:"";
-  position:absolute;
-  inset:-16px;
-  border-radius: inherit;
-  border: 1px dashed rgba(148,163,184,.22);
-  opacity:.32;
-  transform: rotate(var(--rot, 0deg));
-}
-
-/* icon */
-.pv-ico{
-  font-size: 42px;
-  line-height:1;
-  filter: drop-shadow(0 6px 18px rgba(0,0,0,.36));
-}
-
-/* label (optional) */
-.pv-lab{
-  position:absolute;
-  bottom:-18px;
-  left:50%;
-  transform: translateX(-50%);
-  font-size: 11px;
-  font-weight: 1000;
-  color: rgba(229,231,235,.92);
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(2,6,23,.62);
-  border:1px solid rgba(148,163,184,.16);
-  white-space: nowrap;
-}
-
-/* ------------ types ------------ */
-.pv-good{
-  background: rgba(34,197,94,.12);
-  border-color: rgba(34,197,94,.26);
-}
-.pv-good::before{ border-color: rgba(34,197,94,.35); }
-.pv-good::after{ border-color: rgba(34,197,94,.25); }
-
-.pv-junk{
-  width: var(--s, var(--pv-size-junk));
-  height: var(--s, var(--pv-size-junk));
-  background: rgba(239,68,68,.12);
-  border-color: rgba(239,68,68,.26);
-}
-.pv-junk::before{ border-color: rgba(239,68,68,.35); }
-.pv-junk::after{ border-color: rgba(239,68,68,.25); }
-
-.pv-star{
-  width: var(--s, var(--pv-size-star));
-  height: var(--s, var(--pv-size-star));
-  background: rgba(245,158,11,.12);
-  border-color: rgba(245,158,11,.28);
-}
-.pv-star::before{ border-color: rgba(245,158,11,.40); }
-.pv-star::after{ border-color: rgba(245,158,11,.25); }
-
-.pv-diamond{
-  width: var(--s, var(--pv-size-diamond));
-  height: var(--s, var(--pv-size-diamond));
-  background: rgba(34,211,238,.10);
-  border-color: rgba(34,211,238,.28);
-}
-.pv-diamond::before{ border-color: rgba(34,211,238,.42); }
-.pv-diamond::after{ border-color: rgba(34,211,238,.26); }
-
-.pv-shield{
-  width: var(--s, var(--pv-size-shield));
-  height: var(--s, var(--pv-size-shield));
-  background: rgba(167,139,250,.10);
-  border-color: rgba(167,139,250,.28);
-}
-.pv-shield::before{ border-color: rgba(167,139,250,.42); }
-.pv-shield::after{ border-color: rgba(167,139,250,.26); }
-
-/* ------------ hit/expire animations ------------ */
-.pv-hit{
-  animation: pv-hit 220ms ease-out forwards;
-}
-@keyframes pv-hit{
-  0%{ transform: translate(-50%,-50%) scale(1); opacity:1; }
-  60%{ transform: translate(-50%,-50%) scale(1.08); opacity:1; }
-  100%{ transform: translate(-50%,-50%) scale(.82); opacity:0; }
-}
-
-.pv-expire{
-  animation: pv-expire var(--pv-fade) ease-out forwards;
-}
-@keyframes pv-expire{
-  from{ opacity:1; transform: translate(-50%,-50%) scale(1); }
-  to  { opacity:0; transform: translate(-50%,-50%) scale(.86); }
-}
-
-/* ------------ combo glow ------------ */
-body.fx-combo .hudTop .card{
-  box-shadow: 0 18px 70px rgba(34,197,94,.18), 0 18px 60px rgba(0,0,0,.28);
-}
-body.fx-combo #plate-layer{
-  filter: saturate(1.06);
-}
-
-/* ------------ storm effect ------------ */
-body.fx-storm .bg{
-  filter: brightness(1.08) saturate(1.14);
-}
-body.fx-storm #stormFx{
-  display:block !important;
-  background:
-    radial-gradient(circle at 30% 20%, rgba(34,211,238,.18), transparent 55%),
-    radial-gradient(circle at 70% 30%, rgba(56,189,248,.14), transparent 58%),
-    radial-gradient(circle at 50% 80%, rgba(34,197,94,.10), transparent 62%);
-  animation: pv-storm 1.2s ease-in-out infinite alternate;
-}
-@keyframes pv-storm{
-  from{ transform: translateY(0px); opacity:.75; }
-  to  { transform: translateY(-6px); opacity:1; }
-}
-
-/* ------------ boss effect ------------ */
-body.fx-boss #bossFx{
-  display:block !important;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(167,139,250,.18), transparent 60%),
-    radial-gradient(circle at 80% 40%, rgba(239,68,68,.12), transparent 62%);
-  animation: pv-boss 900ms ease-in-out infinite alternate;
-}
-@keyframes pv-boss{
-  from{ transform: scale(1); opacity:.78; }
-  to  { transform: scale(1.02); opacity:1; }
-}
-
-/* ------------ perfect flash ------------ */
-body.fx-perfect #hitFx{
-  opacity:1;
-  background: radial-gradient(circle at 50% 50%, rgba(245,158,11,.14), transparent 55%);
-}
-body.fx-good #hitFx{
-  opacity:1;
-  background: radial-gradient(circle at 50% 50%, rgba(34,197,94,.14), transparent 55%);
-}
-body.fx-bad #hitFx{
-  opacity:1;
-  background: radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), transparent 55%);
-}
-
-/* ------------ end overlay effect ------------ */
-body.fx-end .bg{
-  filter: brightness(1.10) saturate(1.12);
-}
-body.fx-end #plate-layer{
-  filter: blur(1px) saturate(1.03);
-}
-
-/* ------------ accessibility / reduced motion ------------ */
-@media (prefers-reduced-motion: reduce){
-  .pv-target,
-  .pv-hit,
-  .pv-expire{
-    animation:none !important;
-  }
-  body.fx-storm #stormFx,
-  body.fx-boss #bossFx{
-    animation:none !important;
-  }
-}
-
-/* ------------ small screens tweak ------------ */
-@media (max-width: 420px){
-  :root{
-    --pv-size: 92px;
-    --pv-size-junk: 98px;
-    --pv-top-safe: calc(186px + var(--sat));
-    --pv-bottom-safe: calc(176px + var(--sab));
-  }
-  .pv-ico{ font-size: 38px; }
+  background: rgba(15,23,42,.70);
+  box-shadow: 0 14px 40px rgba(0,0,0,.25);
 }
