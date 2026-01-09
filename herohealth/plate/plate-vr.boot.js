@@ -1,127 +1,120 @@
 // === /herohealth/plate/plate-vr.boot.js ===
-// Balanced Plate VR Boot — PRODUCTION
-// ✅ View modes: PC / Mobile / VR / cVR (via ?view=pc|mobile|vr|cvr)
-// ✅ Fullscreen handling + body.is-fs
-// ✅ URL params preview fill (diff/time/run) if missing
-// ✅ Safe: does not assume load order beyond DOMContentLoaded
+// PlateVR Boot — PRODUCTION (Auto-detect view, no menu)
+// ✅ Auto detect: PC / Mobile / VR / Cardboard / cVR strict
+// ✅ Sets body classes: view-pc, view-mobile, cardboard, view-cvr
+// ✅ Sets window.HHA_VIEW.layers for safe.js
+// ✅ Dispatches hha:start when ready
+// ✅ Then imports ./plate-vr.loader.js (which imports plate.safe.js)
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
+(function(){
+  const WIN = window;
+  const DOC = document;
+  if (!WIN || !DOC) return;
+  if (WIN.__PLATE_VR_BOOT__) return;
+  WIN.__PLATE_VR_BOOT__ = true;
 
-function qs(k, def=null){
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }
-  catch(e){ return def; }
-}
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-function setBodyView(view){
-  const b = DOC.body;
-  if(!b) return;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add(`view-${view}`);
-}
-
-function detectView(){
-  // explicit override
-  const v = String(qs('view','')||'').toLowerCase();
-  if(v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
-
-  // infer
-  const ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
-  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-  // if WebXR session active later, we will flip to vr/cvr via enterVR hook
-  return isMobile ? 'mobile' : 'pc';
-}
-
-function isFs(){
-  return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
-}
-async function enterFs(){
-  try{
-    const el = DOC.documentElement;
-    if(el.requestFullscreen) await el.requestFullscreen();
-    else if(el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-  }catch(_){}
-}
-function syncFsClass(){
-  try{
-    if(!DOC.body) return;
-    DOC.body.classList.toggle('is-fs', isFs());
-  }catch(_){}
-}
-
-function wireFsEvents(){
-  DOC.addEventListener('fullscreenchange', syncFsClass, { passive:true });
-  DOC.addEventListener('webkitfullscreenchange', syncFsClass, { passive:true });
-  syncFsClass();
-}
-
-function ensurePreview(){
-  // Fill preview pills if not already set
-  try{
-    const u = new URL(location.href);
-    const diff = (u.searchParams.get('diff') || 'normal');
-    const time = (u.searchParams.get('time') || '90');
-    const run  = (u.searchParams.get('run') || u.searchParams.get('runMode') || 'play');
-
-    const a = DOC.getElementById('uiDiffPreview'); if(a && !a.textContent) a.textContent = String(diff);
-    const b = DOC.getElementById('uiTimePreview'); if(b && !b.textContent) b.textContent = String(time);
-    const c = DOC.getElementById('uiRunPreview');  if(c && !c.textContent) c.textContent  = String(run);
-  }catch(_){}
-}
-
-function wireEnterVrButtons(){
-  // page already has btnEnterVR & btnEnterVR2; this keeps them consistent
-  function enterVR(){
-    try{
-      const scene = DOC.querySelector('a-scene');
-      if(scene && scene.enterVR) scene.enterVR();
-    }catch(_){}
+  // ---------- detect ----------
+  function isMobileUA(){
+    const ua = (navigator.userAgent||'').toLowerCase();
+    return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
   }
-  const b1 = DOC.getElementById('btnEnterVR');
-  const b2 = DOC.getElementById('btnEnterVR2');
-  if(b1) b1.addEventListener('click', enterVR, { passive:true });
-  if(b2) b2.addEventListener('click', enterVR, { passive:true });
+  function hasXR(){
+    try{ return !!(navigator.xr); }catch(_){ return false; }
+  }
+  function isInWebXR(){
+    // A-Frame may not be used here; fallback to best effort
+    // If you later use A-Frame, you can refine by checking scene.is('vr-mode')
+    return false;
+  }
+  function wantsCVR(){
+    // explicit query flag wins (but we don't show UI)
+    const v = String(qs('view','')).toLowerCase();
+    if (v === 'cvr') return true;
+    // optional: allow ?cvr=1
+    const c = String(qs('cvr','')).toLowerCase();
+    if (c === '1' || c === 'true') return true;
+    return false;
+  }
+  function wantsCardboard(){
+    const v = String(qs('view','')).toLowerCase();
+    if (v === 'cardboard') return true;
+    const cb = String(qs('cardboard','')).toLowerCase();
+    if (cb === '1' || cb === 'true') return true;
+    return false;
+  }
 
-  // After XR enters, set body view
-  // (A-Frame emits enter-vr / exit-vr on scene)
-  try{
-    const scene = DOC.querySelector('a-scene');
-    if(scene){
-      scene.addEventListener('enter-vr', ()=>{
-        // If cardboard style, you may want view=cvr later; default to vr
-        const cur = DOC.body?.classList.contains('view-cvr') ? 'cvr' : 'vr';
-        setBodyView(cur);
-      });
-      scene.addEventListener('exit-vr', ()=>{
-        setBodyView(detectView());
-      });
+  // ---------- apply view ----------
+  function setBodyView(mode){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
+
+    if (mode === 'mobile') b.classList.add('view-mobile');
+    else if (mode === 'cardboard') b.classList.add('cardboard');
+    else if (mode === 'cvr') b.classList.add('view-cvr');
+    else b.classList.add('view-pc');
+  }
+
+  function mapLayers(){
+    const cfg = WIN.HHA_VIEW || (WIN.HHA_VIEW = {});
+    if (DOC.body.classList.contains('cardboard')){
+      cfg.layers = ['plate-layerL','plate-layerR'];
+    } else {
+      cfg.layers = ['plate-layer'];
     }
-  }catch(_){}
-}
+  }
 
-function wireStartOverlayFsHint(){
-  // Optional: enter fullscreen on start for better mobile/vr feel
-  const btnStart = DOC.getElementById('btnStart');
-  if(!btnStart) return;
-  btnStart.addEventListener('click', async ()=>{
-    // On mobile browsers, fullscreen often improves play
-    if(!isFs()) await enterFs();
-    syncFsClass();
-  }, { passive:true });
-}
+  // ---------- auto decide ----------
+  function decide(){
+    const explicit = String(qs('view','')).toLowerCase();
+    if (explicit === 'pc' || explicit === 'mobile' || explicit === 'cardboard' || explicit === 'cvr') return explicit;
 
-function init(){
-  setBodyView(detectView());
-  wireFsEvents();
-  ensurePreview();
-  wireEnterVrButtons();
-  wireStartOverlayFsHint();
-}
+    // if user wants strict cVR (shoot from center)
+    if (wantsCVR()) return 'cvr';
+    if (wantsCardboard()) return 'cardboard';
 
-if(DOC && DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', init, { passive:true });
-}else{
-  init();
-}
+    // If mobile: default to mobile (touch)
+    if (isMobileUA()) return 'mobile';
+
+    // default pc
+    return 'pc';
+  }
+
+  // ---------- hide old overlay if exists ----------
+  function hideStartOverlay(){
+    const ov = DOC.getElementById('startOverlay');
+    if (!ov) return;
+    ov.classList.add('hide');
+  }
+
+  // ---------- bootstrap ----------
+  const mode = decide();
+  setBodyView(mode);
+  mapLayers();
+  hideStartOverlay();
+
+  // start event (safe.js listens)
+  // small delay so DOM is ready and body class applied
+  setTimeout(()=>{ 
+    try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
+  }, 30);
+
+  // now load actual loader (which imports plate.safe.js)
+  import('./plate-vr.loader.js').catch((err)=>{
+    // readable fail overlay
+    const el = DOC.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
+    el.innerHTML = `
+      <div style="max-width:900px;margin:0 auto">
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ PlateVR: boot import failed</h2>
+        <div style="opacity:.9;margin-bottom:10px">URL: <code>${String(location.href).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]))}</code></div>
+        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${String(err && (err.stack||err.message||err))}</pre>
+      </div>
+    `;
+    DOC.body.appendChild(el);
+  });
+
+})();
