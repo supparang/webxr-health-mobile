@@ -95,14 +95,12 @@
     return false;
   }
 
-  // main handler
   function play(type, opts){
     const t = String(type||'').toLowerCase();
     const o = opts || {};
     const x = ('xPct' in o) ? o.xPct : ('x' in o ? o.x : 50);
     const y = ('yPct' in o) ? o.yPct : ('y' in o ? o.y : 50);
 
-    // pop score text (optional)
     if (o.text) popTextAtCenter(o.text);
 
     if (t === 'hit' || t === 'good' || t === 'shield'){
@@ -150,7 +148,6 @@
     }
   }
 
-  // public API
   const API = {
     pulse: (type, opts)=>play(type, opts),
     shock: (xPct,yPct)=>shock(xPct,yPct),
@@ -159,7 +156,6 @@
   };
   WIN.HHA_FX = API;
 
-  // event bridge
   WIN.addEventListener('hha:fx', (ev)=>{
     const d = ev && ev.detail ? ev.detail : null;
     if (!d) return;
