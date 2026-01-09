@@ -1,15 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (ULTRA + STRICT AUTO)
-// ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
-// ✅ Auto base view: pc / mobile (UA-based)
-// ✅ Auto-load vr-ui.js ONLY when WebXR is available (navigator.xr)
-// ✅ Auto-switch on Enter/Exit VR via hha:enter-vr / hha:exit-vr:
+// GoodJunkVR Boot — PRODUCTION (STRICT AUTO)
+// ✅ ignores ?view= entirely
+// ✅ Auto base view: pc / mobile
+// ✅ Auto-load ../vr/vr-ui.js only when WebXR exists
+// ✅ Auto-switch on hha:enter-vr / hha:exit-vr:
 //    - mobile -> cvr
 //    - desktop -> vr
-// ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
-// ✅ Debug keys: Space/Enter => hha:shoot
+// ✅ Measures HUD-safe -> sets --gj-top-safe / --gj-bottom-safe
 // ✅ Boots engine: goodjunk.safe.js
-// ✅ Pass-through: run/diff/time/seed/hub/studyId/phase/conditionGroup
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -30,33 +28,23 @@ function setBodyView(view){
   const b = DOC.body;
   b.classList.add('gj');
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
   if(view === 'pc') b.classList.add('view-pc');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'cvr') b.classList.add('view-cvr');
   else b.classList.add('view-mobile');
 
-  // right eye layer: only meaningful in cVR split
   const r = DOC.getElementById('gj-layer-r');
-  if(r){
-    r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
-  }
+  if(r) r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
 
-  b.dataset.view = view;
+  DOC.body.dataset.view = view;
 }
 
-function baseAutoView(){
-  return isMobileUA() ? 'mobile' : 'pc';
-}
+function baseAutoView(){ return isMobileUA() ? 'mobile' : 'pc'; }
 
 function ensureVrUiLoaded(){
-  // Load only if WebXR exists (so ENTER VR UI makes sense)
   if(!navigator.xr) return;
-
   if(WIN.__HHA_VR_UI_LOADED__) return;
-  WIN.__HHA_VR_UI_LOADED__ = true;
 
-  // If html already includes it, don't inject duplicate
   const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
   if(exists) return;
 
@@ -69,39 +57,19 @@ function ensureVrUiLoaded(){
 
 function bindVrAutoSwitch(){
   const base = baseAutoView();
-
   function onEnter(){
-    // Enter VR: mobile => cvr, desktop => vr
     setBodyView(isMobileUA() ? 'cvr' : 'vr');
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }}));
-    }catch(_){}
+    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
   }
   function onExit(){
     setBodyView(base);
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }}));
-    }catch(_){}
+    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
   }
-
-  // STRICT: only listen to HHA events (emitted by vr-ui.js bridge)
   WIN.addEventListener('hha:enter-vr', onEnter, { passive:true });
   WIN.addEventListener('hha:exit-vr',  onExit,  { passive:true });
-
-  // Expose hook (optional)
   WIN.HHA_GJ_resetView = onExit;
 }
 
-function bindDebugKeys(){
-  WIN.addEventListener('keydown', (e)=>{
-    const k = e.key || '';
-    if(k === ' ' || k === 'Enter'){
-      try{ WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'key' } })); }catch(_){}
-    }
-  }, { passive:true });
-}
-
-// Measure HUD/topbar/controls/fever to set safe spawn margins
 function hudSafeMeasure(){
   const root = DOC.documentElement;
   const px = (n)=> Math.max(0, Math.round(Number(n)||0)) + 'px';
@@ -113,12 +81,11 @@ function hudSafeMeasure(){
       const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
       const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
 
-      // elements that may eat top/bottom space
       const topbar  = DOC.querySelector('.gj-topbar');
-      const hud     = DOC.getElementById('hud') || DOC.getElementById('gjHudTop');
-      const miniHud = DOC.getElementById('vrMiniHud'); // optional chip/hint
-      const fever   = DOC.getElementById('feverBox') || DOC.querySelector('.gj-hud-bot');
-      const controls= DOC.querySelector('.hha-controls'); // optional cluster
+      const hud     = DOC.getElementById('hud');
+      const miniHud = DOC.getElementById('vrMiniHud');
+      const fever   = DOC.getElementById('feverBox');
+      const controls= DOC.querySelector('.hha-controls');
 
       let topSafe = 0;
       topSafe = Math.max(topSafe, h(topbar));
@@ -131,11 +98,10 @@ function hudSafeMeasure(){
       bottomSafe = Math.max(bottomSafe, h(controls));
       bottomSafe += (16 + sab);
 
-      // when HUD hidden, keep minimal margins
       const hudHidden = DOC.body.classList.contains('hud-hidden');
       if(hudHidden){
         topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
-        bottomSafe = Math.max(76 + sab, (h(fever) * 0.55) + 10 + sab);
+        bottomSafe = Math.max(76 + sab, h(fever) + 10 + sab);
       }
 
       root.style.setProperty('--gj-top-safe', px(topSafe));
@@ -145,17 +111,6 @@ function hudSafeMeasure(){
 
   WIN.addEventListener('resize', update, { passive:true });
   WIN.addEventListener('orientationchange', update, { passive:true });
-
-  // when HUD toggles (top buttons)
-  WIN.addEventListener('click', (e)=>{
-    if(e?.target?.id === 'btnHideHud' || e?.target?.id === 'btnHideHud2'){
-      setTimeout(update, 30);
-      setTimeout(update, 180);
-      setTimeout(update, 420);
-    }
-  }, { passive:true });
-
-  // when view switches (enter/exit vr)
   WIN.addEventListener('hha:view', ()=>{
     setTimeout(update, 0);
     setTimeout(update, 120);
@@ -169,25 +124,20 @@ function hudSafeMeasure(){
 }
 
 function start(){
-  // STRICT AUTO BASE VIEW (pc/mobile) — never read ?view=
   const view = baseAutoView();
   setBodyView(view);
 
-  // Only inject vr-ui if WebXR exists; if HTML already includes it, still okay.
   ensureVrUiLoaded();
   bindVrAutoSwitch();
-  bindDebugKeys();
   hudSafeMeasure();
 
   engineBoot({
-    view, // base view; will become cvr/vr after enter
+    view,
     diff: qs('diff','normal'),
     run: qs('run','play'),
     time: qs('time','80'),
     seed: qs('seed', null),
     hub: qs('hub', null),
-
-    // study passthrough (logger)
     studyId: qs('studyId', qs('study', null)),
     phase: qs('phase', null),
     conditionGroup: qs('conditionGroup', qs('cond', null)),
