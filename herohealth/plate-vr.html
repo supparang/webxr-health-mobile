@@ -1,10 +1,9 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR (RUN) — PRODUCTION+
-✅ Uses ./plate/plate.safe.js
-✅ Uses vr-ui.js (EnterVR/Exit/Recenter + crosshair + tap-to-shoot emits hha:shoot)
-✅ Boss/Storm HUD ids match JS
-✅ Start overlay bridge -> clicks #btnStart (the REAL button)
-✅ HUD-safe layout (JS computes playRect + noSpawnRects)
+Balanced Plate VR — RUN (PRODUCTION+)
+✅ Works: PC / Mobile / VR / Cardboard(cVR)
+✅ Uses: ./plate/plate.safe.js (HHA Standard + Storm/Boss + AI hooks)
+✅ Uses: ./vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ PATCH: stormProg wired + cVR strict pointer-events off (shoot only)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,7 +14,7 @@ Balanced Plate VR (RUN) — PRODUCTION+
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- External CSS -->
+  <!-- External CSS (optional shared) -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
   <!-- A-Frame (for ENTER VR / EXIT / RECENTER reliability) -->
@@ -79,6 +78,31 @@ Balanced Plate VR (RUN) — PRODUCTION+
       pointer-events:auto;
       touch-action:none;
       user-select:none;
+    }
+
+    /* ✅ cVR strict: ยิงอย่างเดียว (กันแตะเป้าเอง) */
+    body.view-cvr #plate-layer{
+      pointer-events:none;
+      touch-action:none;
+    }
+    /* แต่ปุ่ม HUD ยังต้องกดได้ */
+    body.view-cvr .hudTop,
+    body.view-cvr #miniPanel,
+    body.view-cvr #coachPanel,
+    body.view-cvr #hudBtns,
+    body.view-cvr #bossHud,
+    body.view-cvr #stormHud{
+      pointer-events:none;
+    }
+    body.view-cvr .card,
+    body.view-cvr .questCard,
+    body.view-cvr .btn,
+    body.view-cvr #startOverlay,
+    body.view-cvr #hudPaused,
+    body.view-cvr #resultBackdrop,
+    body.view-cvr #bossHud .bossCard,
+    body.view-cvr #stormHud .stormCard{
+      pointer-events:auto;
     }
 
     #hitFx{
@@ -214,15 +238,17 @@ Balanced Plate VR (RUN) — PRODUCTION+
       box-shadow: 0 26px 90px rgba(0,0,0,.42);
     }
 
-    /* Boss/Storm FX layers (JS toggles classes) */
+    /* Boss/Storm FX layers */
     #bossFx, #stormFx{
       position:fixed; inset:0;
       pointer-events:none;
       z-index:55;
       display:none;
     }
+    #stormFx.storm-panic{ filter:brightness(1.25); }
+    #bossFx.boss-panic{ filter:brightness(1.25); }
 
-    /* Boss HUD (ids must match JS) */
+    /* Boss HUD */
     #bossHud{
       position:fixed;
       left:10px;
@@ -243,7 +269,7 @@ Balanced Plate VR (RUN) — PRODUCTION+
     .bossLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
     .bossProg{ margin-top:8px; font-weight:1100; }
 
-    /* Storm HUD (ids must match JS) */
+    /* Storm HUD */
     #stormHud{
       position:fixed;
       left:10px;
@@ -251,7 +277,7 @@ Balanced Plate VR (RUN) — PRODUCTION+
       z-index:43;
       display:none;
       pointer-events:none;
-      transform: translateY(54px); /* ใต้ HUD top */
+      transform: translateY(54px);
     }
     .stormCard{
       pointer-events:auto;
@@ -279,7 +305,7 @@ Balanced Plate VR (RUN) — PRODUCTION+
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene (enterVR/exit/recenter work) -->
+  <!-- Minimal A-Frame scene -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
     <a-entity id="rig" position="0 0 0">
       <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
@@ -411,8 +437,8 @@ Balanced Plate VR (RUN) — PRODUCTION+
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- ✅ IMPORTANT: This is the REAL start button plate.safe.js binds to -->
-      <button class="btn primary" id="btnStart" type="button">▶ START</button>
+      <!-- ✅ internal only (bridge from overlay) -->
+      <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
 
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
@@ -519,10 +545,9 @@ Balanced Plate VR (RUN) — PRODUCTION+
 
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
-      // start overlay -> real start button
       btnStartMain?.addEventListener('click', ()=>{
         const b = document.getElementById('btnStart');
-        b?.click();
+        if(b) b.click();
       }, {passive:true});
 
       btnCopy?.addEventListener('click', async ()=>{
@@ -540,6 +565,28 @@ Balanced Plate VR (RUN) — PRODUCTION+
         if(hub) u.searchParams.set('hub', hub);
         location.href = u.toString();
       }, {passive:true});
+    })();
+  </script>
+
+  <!-- ✅ PATCH: wire stormProg text even if JS forgets (fallback) -->
+  <script>
+    // If plate.safe.js doesn't update #stormProg, we keep it mirrored from stormHint when storm shows.
+    (function(){
+      const stormHud = document.getElementById('stormHud');
+      const stormHint = document.getElementById('stormHint');
+      const stormProg = document.getElementById('stormProg');
+      if(!stormHud || !stormHint || !stormProg) return;
+
+      const obs = new MutationObserver(()=>{
+        if(getComputedStyle(stormHud).display !== 'none'){
+          // If prog is empty, mirror hint (fallback)
+          if(!stormProg.textContent || stormProg.textContent.trim() === '—'){
+            stormProg.textContent = stormHint.textContent || '—';
+          }
+        }
+      });
+      obs.observe(stormHud, { attributes:true, attributeFilter:['style','class'] });
+      obs.observe(stormHint, { childList:true, characterData:true, subtree:true });
     })();
   </script>
 
