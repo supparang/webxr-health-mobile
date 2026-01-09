@@ -1,184 +1,175 @@
 // === /herohealth/vr/particles.js ===
-// HHA Particles — UNIFIED (ULTRA)
-// ✅ Creates .hha-fx-layer
-// ✅ API:
-//    - popText(x,y,text,cls?)
-//    - scorePop(x,y,text,cls?)
-//    - burstAt(x,y,kind?)
-//    - celebrate(kind?)
-// ✅ Safe + lightweight, no deps
+// HHA Particles — PRODUCTION (Unified FX)
+// ✅ popText(x,y,text,cls?)
+// ✅ burstAt(x,y,kind?)  kind: good|bad|block|star|shield|diamond
+// ✅ celebrate(kind?)    kind: end|boss|mini
+// ✅ One global layer .hha-fx-layer
 
-(function(root){
+(function (root) {
   'use strict';
-  const DOC = root.document;
-  if(!DOC || root.__HHA_PARTICLES__) return;
+  const doc = root.document;
+  if (!doc || root.__HHA_PARTICLES__) return;
   root.__HHA_PARTICLES__ = true;
 
-  function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
-  function rnd(a,b){ return a + Math.random()*(b-a); }
-
   function ensureLayer(){
-    let layer = DOC.querySelector('.hha-fx-layer');
-    if(layer) return layer;
-    layer = DOC.createElement('div');
+    let layer = doc.querySelector('.hha-fx-layer');
+    if (layer) return layer;
+    layer = doc.createElement('div');
     layer.className = 'hha-fx-layer';
     layer.style.cssText = [
-      'position:fixed','inset:0','pointer-events:none','z-index:120',
-      'overflow:hidden','contain:layout paint style'
+      'position:fixed',
+      'inset:0',
+      'pointer-events:none',
+      'z-index:190',
+      'overflow:hidden'
     ].join(';');
-    DOC.body.appendChild(layer);
+    doc.body.appendChild(layer);
     return layer;
   }
 
-  function addStyle(){
-    if(DOC.getElementById('hhaParticlesStyle')) return;
-    const st = DOC.createElement('style');
-    st.id = 'hhaParticlesStyle';
-    st.textContent = `
-      @keyframes hhaPop {
-        0% { transform:translate(-50%,-50%) scale(.88); opacity:.92; filter:blur(0px); }
-        60%{ transform:translate(-50%,-78%) scale(1.18); opacity:1; }
-        100%{ transform:translate(-50%,-98%) scale(1.05); opacity:0; filter:blur(.2px); }
-      }
-      @keyframes hhaBurst {
-        0% { transform:translate(-50%,-50%) scale(.7); opacity:.92; }
-        45%{ transform:translate(-50%,-50%) scale(1.05); opacity:1; }
-        100%{ transform:translate(-50%,-50%) scale(1.35); opacity:0; }
-      }
-      @keyframes hhaConfetti {
-        0% { transform:translate3d(0,0,0) rotate(0deg); opacity:1; }
-        100% { transform:translate3d(var(--dx), var(--dy), 0) rotate(var(--dr)); opacity:0; }
-      }
-      .hha-pop {
-        position:absolute;
-        transform:translate(-50%,-50%);
-        font: 1000 18px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-        color:#fff;
-        text-shadow: 0 10px 24px rgba(0,0,0,.55);
-        opacity:.98;
-        will-change: transform, opacity;
-        animation: hhaPop 520ms ease-out forwards;
-        padding:6px 10px;
-        border-radius: 999px;
-        background: rgba(2,6,23,.25);
-        border: 1px solid rgba(148,163,184,.18);
-        backdrop-filter: blur(6px);
-      }
-      .hha-pop.hha-score { font-size: 20px; }
-      .hha-pop.hha-judge { font-size: 18px; letter-spacing:.4px; }
-      .hha-pop.hha-grade { font-size: 26px; padding:10px 14px; }
-
-      .hha-burst {
-        position:absolute;
-        transform:translate(-50%,-50%);
-        width: 76px; height: 76px;
-        border-radius: 999px;
-        opacity:.9;
-        will-change: transform, opacity;
-        animation: hhaBurst 460ms ease-out forwards;
-        border: 2px solid rgba(255,255,255,.65);
-        box-shadow: 0 10px 26px rgba(0,0,0,.35);
-      }
-      .hha-burst.good { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.85); }
-      .hha-burst.bad  { background: rgba(239,68,68,.16); border-color: rgba(239,68,68,.85); }
-      .hha-burst.star { background: rgba(250,204,21,.14); border-color: rgba(250,204,21,.85); }
-      .hha-burst.shield { background: rgba(56,189,248,.14); border-color: rgba(56,189,248,.85); }
-      .hha-burst.diamond{ background: rgba(167,139,250,.14); border-color: rgba(167,139,250,.85); }
-      .hha-burst.block { background: rgba(148,163,184,.16); border-color: rgba(148,163,184,.9); }
-
-      .hha-confetti {
-        position:absolute;
-        width:10px; height:10px;
-        border-radius: 4px;
-        opacity: 1;
-        will-change: transform, opacity;
-        animation: hhaConfetti 900ms ease-out forwards;
-        box-shadow: 0 10px 18px rgba(0,0,0,.25);
-      }
-
-      body.hha-judge-pulse .hha-fx-layer { filter: saturate(1.03) contrast(1.03); }
-      body.hha-celebrate { animation: hhaCelebrShake 520ms ease; }
-      @keyframes hhaCelebrShake{
-        0%{ transform: translate3d(0,0,0); }
-        20%{ transform: translate3d(1px,-1px,0); }
-        40%{ transform: translate3d(-1px,1px,0); }
-        60%{ transform: translate3d(1px,1px,0); }
-        80%{ transform: translate3d(-1px,-1px,0); }
-        100%{ transform: translate3d(0,0,0); }
-      }
-      body.hha-shake { animation: hhaCelebrShake 220ms ease; }
-    `;
-    DOC.head.appendChild(st);
+  function el(tag, cls){
+    const e = doc.createElement(tag);
+    if(cls) e.className = cls;
+    return e;
   }
-
-  addStyle();
 
   function popText(x,y,text,cls){
     const layer = ensureLayer();
-    const el = DOC.createElement('div');
-    el.className = 'hha-pop' + (cls ? (' ' + cls) : '');
-    el.textContent = String(text ?? '');
-    el.style.left = Math.round(x) + 'px';
-    el.style.top  = Math.round(y) + 'px';
-    layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 680);
-  }
-
-  function scorePop(x,y,text,cls){
-    popText(x,y,text, (cls ? (cls + ' hha-score') : 'hha-score'));
+    const e = el('div', 'hha-pop ' + (cls || ''));
+    e.textContent = text;
+    e.style.left = Math.round(x) + 'px';
+    e.style.top  = Math.round(y) + 'px';
+    layer.appendChild(e);
+    setTimeout(()=>{ try{ e.remove(); }catch(_){ } }, 760);
   }
 
   function burstAt(x,y,kind){
     const layer = ensureLayer();
-    const el = DOC.createElement('div');
-    el.className = 'hha-burst ' + String(kind||'good');
-    el.style.left = Math.round(x) + 'px';
-    el.style.top  = Math.round(y) + 'px';
-    layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
+    const k = (kind||'good');
+    const n = (k==='block') ? 10 : (k==='diamond' ? 18 : 14);
+    for(let i=0;i<n;i++){
+      const p = el('i', 'hha-burst hha-' + k);
+      const ang = Math.random()*Math.PI*2;
+      const dist = (k==='diamond') ? (32 + Math.random()*42) : (22 + Math.random()*34);
+      const dx = Math.cos(ang)*dist;
+      const dy = Math.sin(ang)*dist;
+      p.style.left = Math.round(x) + 'px';
+      p.style.top  = Math.round(y) + 'px';
+      p.style.setProperty('--dx', dx.toFixed(1)+'px');
+      p.style.setProperty('--dy', dy.toFixed(1)+'px');
+      p.style.setProperty('--rot', (Math.random()*260 - 130).toFixed(1)+'deg');
+      p.style.setProperty('--s', (0.85 + Math.random()*0.6).toFixed(2));
+      layer.appendChild(p);
+      setTimeout(()=>{ try{ p.remove(); }catch(_){ } }, 680);
+    }
   }
 
   function celebrate(kind){
     const layer = ensureLayer();
-    const W = DOC.documentElement.clientWidth;
-    const H = DOC.documentElement.clientHeight;
-
-    const n = (kind === 'end') ? 26 : 18;
+    const k = (kind||'end');
+    const n = (k==='boss') ? 26 : (k==='mini' ? 18 : 22);
+    const W = doc.documentElement.clientWidth;
+    const H = doc.documentElement.clientHeight;
     for(let i=0;i<n;i++){
-      const c = DOC.createElement('div');
-      c.className = 'hha-confetti';
-
-      const x = rnd(W*0.15, W*0.85);
-      const y = rnd(H*0.12, H*0.35);
-
+      const c = el('i', 'hha-confetti hha-c-' + k);
+      const x = Math.random()*W;
+      const y = -20 - Math.random()*80;
       c.style.left = Math.round(x) + 'px';
       c.style.top  = Math.round(y) + 'px';
-
-      const dx = rnd(-140, 140) + 'px';
-      const dy = rnd(160, 380) + 'px';
-      const dr = rnd(-280, 280) + 'deg';
-      c.style.setProperty('--dx', dx);
-      c.style.setProperty('--dy', dy);
-      c.style.setProperty('--dr', dr);
-
-      // random color via HSL (no fixed palette)
-      const hue = Math.floor(rnd(0, 360));
-      c.style.background = `hsla(${hue}, 95%, 62%, .95)`;
-
+      c.style.setProperty('--fall', (H + 200 + Math.random()*220).toFixed(0)+'px');
+      c.style.setProperty('--dur', (900 + Math.random()*900).toFixed(0)+'ms');
+      c.style.setProperty('--rot', (Math.random()*720 - 360).toFixed(0)+'deg');
+      c.style.setProperty('--sx', (Math.random()*180 - 90).toFixed(0)+'px');
       layer.appendChild(c);
-      setTimeout(()=>{ try{ c.remove(); }catch(_){ } }, 980);
+      setTimeout(()=>{ try{ c.remove(); }catch(_){ } }, 2200);
     }
   }
 
-  // Expose unified API
+  // CSS (no colors hardcoded in JS; CSS handles)
+  const st = doc.createElement('style');
+  st.textContent = `
+    .hha-pop{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      font: 1000 16px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+      color:#fff;
+      text-shadow: 0 10px 26px rgba(0,0,0,.55);
+      opacity:.98;
+      will-change: transform, opacity;
+      animation: hhaPop 640ms ease-out forwards;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(2,6,23,.22);
+      border: 1px solid rgba(148,163,184,.14);
+    }
+    @keyframes hhaPop{
+      0%{ transform:translate(-50%,-45%) scale(.86); opacity:.0; }
+      14%{ opacity:.98; }
+      70%{ transform:translate(-50%,-85%) scale(1.12); opacity:1; }
+      100%{ transform:translate(-50%,-110%) scale(1.04); opacity:0; }
+    }
+
+    .hha-burst{
+      position:absolute;
+      width:8px; height:8px;
+      transform: translate(-50%,-50%);
+      border-radius: 999px;
+      opacity:.95;
+      will-change: transform, opacity;
+      animation: hhaBurst 640ms cubic-bezier(.22,.9,.25,1) forwards;
+      background: rgba(34,197,94,.95);
+      box-shadow: 0 10px 18px rgba(0,0,0,.25);
+    }
+    .hha-burst.hha-bad{ background: rgba(239,68,68,.95); }
+    .hha-burst.hha-block{ background: rgba(148,163,184,.95); }
+    .hha-burst.hha-star{ background: rgba(245,158,11,.95); }
+    .hha-burst.hha-shield{ background: rgba(34,211,238,.95); }
+    .hha-burst.hha-diamond{ background: rgba(167,139,250,.95); }
+
+    @keyframes hhaBurst{
+      0%{ transform:translate(-50%,-50%) scale(.65) rotate(0deg); opacity:0; }
+      10%{ opacity:1; }
+      100%{
+        transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+                   scale(var(--s)) rotate(var(--rot));
+        opacity:0;
+      }
+    }
+
+    .hha-confetti{
+      position:absolute;
+      width:10px; height:14px;
+      border-radius: 4px;
+      opacity:.92;
+      background: rgba(34,197,94,.85);
+      transform: translate(-50%,-50%);
+      animation: hhaFall var(--dur) ease-in forwards;
+      box-shadow: 0 14px 30px rgba(0,0,0,.28);
+      will-change: transform, opacity;
+    }
+    .hha-confetti.hha-c-boss{ background: rgba(239,68,68,.85); }
+    .hha-confetti.hha-c-mini{ background: rgba(34,211,238,.85); }
+
+    @keyframes hhaFall{
+      0%{ transform: translate(-50%,-50%) rotate(0deg); opacity:0; }
+      8%{ opacity:1; }
+      100%{
+        transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--fall))) rotate(var(--rot));
+        opacity:0;
+      }
+    }
+  `;
+  doc.head.appendChild(st);
+
+  root.GAME_MODULES = root.GAME_MODULES || {};
+  root.GAME_MODULES.Particles = root.GAME_MODULES.Particles || {};
+  root.GAME_MODULES.Particles.popText = popText;
+  root.GAME_MODULES.Particles.burstAt = burstAt;
+  root.GAME_MODULES.Particles.celebrate = celebrate;
+
   root.Particles = root.Particles || {};
   root.Particles.popText = popText;
-  root.Particles.scorePop = scorePop;
   root.Particles.burstAt = burstAt;
   root.Particles.celebrate = celebrate;
-
-  // Also expose to GAME_MODULES convention
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = root.Particles;
 
 })(window);
