@@ -1,11 +1,10 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR Run — PRODUCTION+
-✅ Works with: /herohealth/plate/plate.safe.js (the one you pasted)
-✅ IDs match: hudTop/miniPanel/coachPanel/hudBtns/plate-layer/hitFx
-✅ Boss: bossHud bossTitle bossHint bossProg bossFx
-✅ Storm: stormHud stormTitle stormHint stormFx (plus stormProg placeholder)
-✅ Uses: particles.js + hha-cloud-logger.js + vr-ui.js
-✅ A-Frame minimal scene for EnterVR reliability
+Balanced Plate VR (RUN) — PRODUCTION+
+✅ Uses ./plate/plate.safe.js
+✅ Uses vr-ui.js (EnterVR/Exit/Recenter + crosshair + tap-to-shoot emits hha:shoot)
+✅ Boss/Storm HUD ids match JS
+✅ Start overlay bridge -> clicks #btnStart (the REAL button)
+✅ HUD-safe layout (JS computes playRect + noSpawnRects)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,10 +15,10 @@ Balanced Plate VR Run — PRODUCTION+
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- External CSS (optional, you can keep empty or use for extra theme) -->
+  <!-- External CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- A-Frame (Enter VR / Exit / Recenter) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
@@ -412,7 +411,7 @@ Balanced Plate VR Run — PRODUCTION+
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- ✅ IMPORTANT: plate.safe.js listens to #btnStart. Keep it real & clickable. -->
+      <!-- ✅ IMPORTANT: This is the REAL start button plate.safe.js binds to -->
       <button class="btn primary" id="btnStart" type="button">▶ START</button>
 
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
@@ -520,7 +519,7 @@ Balanced Plate VR Run — PRODUCTION+
 
       if(dbg) dbg.textContent = 'URL: ' + location.href;
 
-      // ✅ Bridge: main overlay start -> real #btnStart (plate.safe.js listens here)
+      // start overlay -> real start button
       btnStartMain?.addEventListener('click', ()=>{
         const b = document.getElementById('btnStart');
         b?.click();
