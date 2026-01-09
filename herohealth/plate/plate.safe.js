@@ -1,314 +1,270 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION / HHA Standard)
-// -----------------------------------------------------------
-// Play  : Adaptive ON
-// Study : Seeded RNG + Adaptive OFF
-// Features:
-// - 5 Food Groups plate completion
-// - Goal + Mini quests
-// - Storm cycles (pressure phases)
-// - Boss phase (end-game challenge)
-// - AI Coach (micro tips, explainable, rate-limited)
-// - Universal input: click / tap / hha:shoot (VR UI)
-// - HHA Cloud Logger (summary direct)
-//
-// -----------------------------------------------------------
+// Balanced Plate VR — PRODUCTION+ (HHA Standard + VR-feel + Plate Rush + Safe Spawn + Storm + Boss + AI Hooks)
+// ✅ Play: adaptive ON
+// ✅ Study/Research: deterministic seed + adaptive OFF (boss/storm still deterministic but can be lighter)
+// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate, hha:adaptive, hha:ai
+// ✅ hha:end: emits SUMMARY DIRECT (matches hha-cloud-logger.js expectation)
+// ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
+// ✅ Flush-hardened: uses ROOT.HHA_LOGGER.flush(reason)
+// ✅ PATCH: Layout-stable spawn + resize/enterVR reflow + look-shift compensated spawn
+// ✅ Universal VR UI: listens to hha:shoot (crosshair/tap-to-shoot) and hits nearest target within lockPx
+// ✅ NEW: Storm Cycles mini (real miniTotal) + Boss HUD ids match plate-vr.html
+// ✅ NEW: AI hooks + explainable micro-tips (rate limited), deterministic pattern plan
 
 'use strict';
 
-const ROOT = window;
-const DOC  = document;
+// ------------------------- Utilities -------------------------
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
-// --------------------- Utils ---------------------
-const qs = (k, d=null)=>{
-  try{ return new URL(location.href).searchParams.get(k) ?? d; }
-  catch{ return d; }
-};
-const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
-const now = ()=> performance.now();
+function clamp(v, a, b){ v = Number(v)||0; return v<a?a : (v>b?b:v); }
+function nowMs(){ return (ROOT.performance && performance.now) ? performance.now() : Date.now(); }
+function qs(id){ return DOC.getElementById(id); }
+function on(el, ev, fn, opt){ if(el) el.addEventListener(ev, fn, opt||false); }
+function emit(name, detail){
+  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
+}
+function setText(id, txt){
+  const el = qs(id);
+  if(el) el.textContent = String(txt);
+}
+function fmtPct(x){ x = Number(x)||0; return `${Math.round(x)}%`; }
 
-// --------------------- Config from URL ---------------------
-const CFG = {
-  view: (qs('view','mobile')||'mobile').toLowerCase(),
-  run:  (qs('run','play')||'play').toLowerCase(),
-  diff: (qs('diff','normal')||'normal').toLowerCase(),
-  time: Number(qs('time','90'))||90,
-  seed: String(qs('seed','')||''),
-  hub:  qs('hub',''),
-};
-
-const IS_STUDY = CFG.run === 'study';
-const IS_PLAY  = !IS_STUDY;
-
-// --------------------- Seeded RNG ---------------------
-function makeRng(seed){
-  let s = 0;
-  for(let i=0;i<seed.length;i++) s = (s*31 + seed.charCodeAt(i))>>>0;
-  return ()=>{
-    s = (s*1664525 + 1013904223)>>>0;
-    return (s>>>0)/4294967296;
+// Seeded RNG (mulberry32)
+function mulberry32(seed){
+  let t = (seed >>> 0) || 1;
+  return function(){
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
-const RNG = IS_STUDY ? makeRng(CFG.seed || '13579') : Math.random;
+function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)] || arr[0]; }
+function uid(){
+  return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+}
 
-// --------------------- State ---------------------
-const STATE = {
-  started:false,
-  ended:false,
-  tStart:0,
-  tLeft: CFG.time,
-  score:0,
-  combo:0,
-  comboMax:0,
-  miss:0,
+// ------------------------- HHA Standard: storage -------------------------
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
-  plate:{ g1:0,g2:0,g3:0,g4:0,g5:0 },
-  goal:{ cur:0, target:5, done:false },
-  mini:{ cur:0, target:3, time:12, done:false },
+function loadJson(key, fallback){
+  try{
+    const s = localStorage.getItem(key);
+    if(!s) return fallback;
+    return JSON.parse(s);
+  }catch(e){ return fallback; }
+}
+function saveJson(key, obj){
+  try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
+}
 
-  storm:false,
-  boss:false,
+// ------------------------- Query params / mode -------------------------
+const URLX = new URL(location.href);
+const hubUrl = URLX.searchParams.get('hub') || '';
+const runRaw = (URLX.searchParams.get('run') || URLX.searchParams.get('runMode') || 'play').toLowerCase();
+const diff   = (URLX.searchParams.get('diff') || 'normal').toLowerCase();
+const timePlannedSec = clamp(URLX.searchParams.get('time') || 90, 20, 9999);
+const seedParam = URLX.searchParams.get('seed');
+const viewParam = (URLX.searchParams.get('view') || 'mobile').toLowerCase();
 
-  stats:{
-    goodHit:0,
-    junkHit:0,
-    shieldHit:0,
-    expire:0,
-  }
+const isStudy = (runRaw === 'study' || runRaw === 'research');
+const runMode = isStudy ? 'study' : 'play';
+
+const DEFAULT_STUDY_SEED = 13579;
+const seed =
+  isStudy ? (Number(seedParam)||DEFAULT_STUDY_SEED) :
+  (seedParam != null ? (Number(seedParam)||DEFAULT_STUDY_SEED) : (Date.now() ^ (Math.random()*1e9)));
+
+const rng = mulberry32(seed);
+
+// ------------------------- Difficulty tuning -------------------------
+const DIFF = {
+  easy:   { size: 64, lifeMs: 1800, spawnPerSec: 1.5,  junkRate: 0.18, feverUpJunk: 12, feverUpMiss: 8,  feverDownGood: 2.8 },
+  normal: { size: 56, lifeMs: 1600, spawnPerSec: 1.85, junkRate: 0.24, feverUpJunk: 14, feverUpMiss: 9,  feverDownGood: 2.4 },
+  hard:   { size: 48, lifeMs: 1400, spawnPerSec: 2.2,  junkRate: 0.30, feverUpJunk: 16, feverUpMiss: 10, feverDownGood: 2.0 },
 };
+const base = DIFF[diff] || DIFF.normal;
 
-// --------------------- DOM Refs ---------------------
-const LAYER = DOC.getElementById('plate-layer');
-const $ = (id)=> DOC.getElementById(id);
+// Adaptive (Play only)
+let adaptiveOn = !isStudy;
+let adapt = { sizeMul: 1.0, spawnMul: 1.0, junkMul: 1.0 };
 
-// HUD
-const uiScore = $('uiScore');
-const uiCombo = $('uiCombo');
-const uiComboMax = $('uiComboMax');
-const uiMiss = $('uiMiss');
-const uiTime = $('uiTime');
-const uiPlateHave = $('uiPlateHave');
-const uiAcc = $('uiAcc');
-const uiGrade = $('uiGrade');
+// ------------------------- DOM handles -------------------------
+const layer = qs('plate-layer');
+const hitFx = qs('hitFx');
 
-const uiG = [
-  null,
-  $('uiG1'), $('uiG2'), $('uiG3'), $('uiG4'), $('uiG5')
-];
+const btnStart = qs('btnStart');
+const startOverlay = qs('startOverlay');
+const btnPause = qs('btnPause');
+const hudPaused = qs('hudPaused');
+const btnRestart = qs('btnRestart');
+const btnBackHub = qs('btnBackHub');
+const btnPlayAgain = qs('btnPlayAgain');
+const btnEnterVR = qs('btnEnterVR');
 
-// Goal / Mini
-const uiGoalTitle = $('uiGoalTitle');
-const uiGoalCount = $('uiGoalCount');
-const uiGoalFill  = $('uiGoalFill');
+const resultBackdrop = qs('resultBackdrop');
 
-const uiMiniTitle = $('uiMiniTitle');
-const uiMiniCount = $('uiMiniCount');
-const uiMiniTime  = $('uiMiniTime');
-const uiMiniFill  = $('uiMiniFill');
+const hudTop = qs('hudTop');
+const miniPanel = qs('miniPanel');
+const coachPanel = qs('coachPanel');
+const hudBtns = qs('hudBtns');
 
-const uiHint = $('uiHint');
+// ✅ Boss UI — MATCH plate-vr.html
+const bossHud   = qs('bossHud');
+const bossTitle = qs('bossTitle');
+const bossHint  = qs('bossHint');
+const bossProg  = qs('bossProg');
+const bossFx    = qs('bossFx');
 
-// Coach
-const coachImg = $('coachImg');
-const coachMsg = $('coachMsg');
+// ✅ Storm UI — MATCH plate-vr.html
+const stormHud   = qs('stormHud');
+const stormTitle = qs('stormTitle');
+const stormHint  = qs('stormHint');
+const stormProg  = qs('stormProg');
+const stormFx    = qs('stormFx');
 
-// Overlays / buttons
-const btnStart   = $('btnStart');
-const btnPause   = $('btnPause');
-const btnRestart = $('btnRestart');
-const startOverlay = $('startOverlay');
-const pausedOverlay = $('hudPaused');
-const resultOverlay = $('resultBackdrop');
-
-// --------------------- AI Coach ---------------------
-let lastCoachAt = 0;
-function coachSay(msg, mood='neutral'){
-  const t = Date.now();
-  if(t - lastCoachAt < 2500) return;
-  lastCoachAt = t;
-  coachMsg.textContent = msg;
-  coachImg.src = `./img/coach-${mood}.png`;
+if(!layer){
+  console.error('[PlateVR] missing #plate-layer');
 }
 
-// --------------------- Spawning ---------------------
-function spawnTarget(){
-  if(!STATE.started || STATE.ended) return;
+// ------------------------- Minimal FX (CSS injection fallback) -------------------------
+(function ensureFxCss(){
+  const id = 'plate-safe-fx-css';
+  if(DOC.getElementById(id)) return;
+  const st = DOC.createElement('style');
+  st.id = id;
+  st.textContent = `
+    .pfx-shake { animation:pfxShake .18s ease-in-out 0s 2; }
+    @keyframes pfxShake { 0%{transform:translate(0,0)} 25%{transform:translate(2px,0)} 50%{transform:translate(-2px,1px)} 75%{transform:translate(1px,-1px)} 100%{transform:translate(0,0)} }
+    .pfx-blink { animation:pfxBlink .26s ease-in-out 0s 6; }
+    @keyframes pfxBlink { 0%,100%{filter:none} 50%{filter:brightness(1.35)} }
+    .pfx-tick { animation:pfxTick .12s linear 0s 1; }
+    @keyframes pfxTick { 0%{transform:scale(1)} 50%{transform:scale(1.03)} 100%{transform:scale(1)} }
+    #hitFx.pfx-hit-good{opacity:1; background:radial-gradient(circle at center, rgba(34,197,94,.18), transparent 55%);}
+    #hitFx.pfx-hit-bad {opacity:1; background:radial-gradient(circle at center, rgba(239,68,68,.18), transparent 55%);}
 
-  const t = DOC.createElement('div');
-  const isGood = RNG() > 0.25;
-  const isShield = !isGood && RNG()>0.6;
-  const kind = isShield ? 'shield' : (isGood ? 'good':'junk');
-
-  const size = clamp(56 + RNG()*24, 52, 88);
-
-  const x = clamp(RNG()*100, 8, 92);
-  const y = clamp(RNG()*100, 14, 86);
-
-  t.className = 'plateTarget';
-  t.dataset.kind = kind;
-  t.style.width = size+'px';
-  t.style.height = size+'px';
-  t.style.left = `calc(${x}% - ${size/2}px)`;
-  t.style.top  = `calc(${y}% - ${size/2}px)`;
-  t.style.position = 'absolute';
-  t.style.display='grid';
-  t.style.placeItems='center';
-  t.style.fontSize = (size*0.5)+'px';
-
-  if(kind==='good'){
-    const g = 1 + Math.floor(RNG()*5);
-    t.dataset.group = g;
-    t.textContent = ['','🥦','🍎','🐟','🍚','🥑'][g];
-  }else if(kind==='junk'){
-    t.textContent = '🍟';
-  }else{
-    t.textContent = '🛡️';
-  }
-
-  t.addEventListener('click', ()=> hitTarget(t), {passive:true});
-  LAYER.appendChild(t);
-
-  setTimeout(()=>{
-    if(t.isConnected){
-      STATE.stats.expire++;
-      t.remove();
-    }
-  }, 2200);
-}
-
-function hitTarget(el){
-  if(STATE.ended) return;
-  const kind = el.dataset.kind;
-
-  if(kind==='good'){
-    const g = Number(el.dataset.group||0);
-    STATE.stats.goodHit++;
-    STATE.combo++;
-    STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
-    STATE.score += 10 + STATE.combo;
-    STATE.plate['g'+g]++;
-
-    if(!STATE.goal.done){
-      STATE.goal.cur++;
-      if(STATE.goal.cur >= STATE.goal.target){
-        STATE.goal.done = true;
-        coachSay('เยี่ยม! จานครบแล้ว 🎉','happy');
-      }
-    }
-
-  }else if(kind==='junk'){
-    STATE.stats.junkHit++;
-    STATE.combo = 0;
-    STATE.miss++;
-    STATE.score -= 5;
-    coachSay('ระวังของทอดนะ 😅','sad');
-
-  }else if(kind==='shield'){
-    STATE.stats.shieldHit++;
-    STATE.score += 5;
-    coachSay('โล่ช่วยได้! 🛡️','happy');
-  }
-
-  el.remove();
-  updateHUD();
-}
-
-// --------------------- HUD Update ---------------------
-function updateHUD(){
-  uiScore.textContent = STATE.score;
-  uiCombo.textContent = STATE.combo;
-  uiComboMax.textContent = STATE.comboMax;
-  uiMiss.textContent = STATE.miss;
-
-  const have = STATE.plate.g1+STATE.plate.g2+STATE.plate.g3+STATE.plate.g4+STATE.plate.g5;
-  uiPlateHave.textContent = have;
-
-  for(let i=1;i<=5;i++) uiG[i].textContent = STATE.plate['g'+i];
-
-  uiGoalTitle.textContent = 'เติมจานให้ครบ 5 หมู่';
-  uiGoalCount.textContent = `${STATE.goal.cur}/${STATE.goal.target}`;
-  uiGoalFill.style.width = clamp((STATE.goal.cur/STATE.goal.target)*100,0,100)+'%';
-
-  const acc = STATE.stats.goodHit + STATE.stats.junkHit
-    ? Math.round(100*STATE.stats.goodHit/(STATE.stats.goodHit+STATE.stats.junkHit))
-    : 100;
-  uiAcc.textContent = acc+'%';
-  uiGrade.textContent = acc>=90?'A':acc>=75?'B':'C';
-}
-
-// --------------------- Timer Loop ---------------------
-function tick(){
-  if(!STATE.started || STATE.ended) return;
-  STATE.tLeft--;
-  uiTime.textContent = STATE.tLeft;
-
-  if(STATE.tLeft<=0){
-    endGame('time');
-    return;
-  }
-
-  spawnTarget();
-}
-
-// --------------------- Start / End ---------------------
-function startGame(){
-  if(STATE.started) return;
-  STATE.started = true;
-  STATE.tStart = Date.now();
-  startOverlay.style.display='none';
-
-  ROOT.dispatchEvent(new CustomEvent('hha:start',{detail:{
-    game:'plate',
-    run:CFG.run,
-    diff:CFG.diff,
-    seed:CFG.seed,
-    durationPlannedSec:CFG.time
-  }}));
-
-  coachSay('เริ่มเลย! เติมจานให้ครบ 🍽️','happy');
-
-  uiTime.textContent = STATE.tLeft;
-  updateHUD();
-  STATE._timer = setInterval(tick, 1000);
-}
-
-function endGame(reason){
-  if(STATE.ended) return;
-  STATE.ended = true;
-  clearInterval(STATE._timer);
-
-  resultOverlay.style.display='grid';
-
-  ROOT.dispatchEvent(new CustomEvent('hha:end',{detail:{
-    reason,
-    scoreFinal: STATE.score,
-    comboMax: STATE.comboMax,
-    misses: STATE.miss,
-    goalsCleared: STATE.goal.done?1:0,
-    goalsTotal:1,
-    nHitGood: STATE.stats.goodHit,
-    nHitJunk: STATE.stats.junkHit,
-    durationPlayedSec: CFG.time-STATE.tLeft
-  }}));
-}
-
-// --------------------- Inputs ---------------------
-btnStart?.addEventListener('click', startGame);
-btnRestart?.addEventListener('click', ()=> location.reload(), {passive:true});
-btnPause?.addEventListener('click', ()=>{
-  pausedOverlay.style.display =
-    pausedOverlay.style.display==='grid' ? 'none':'grid';
-},{passive:true});
-
-// VR UI shoot
-ROOT.addEventListener('hha:shoot', ()=> {
-  // simple assist: hit nearest target
-  const t = LAYER.querySelector('.plateTarget');
-  if(t) hitTarget(t);
-},{passive:true});
-
-// --------------------- Init ---------------------
-(function init(){
-  startOverlay.style.display='grid';
-  updateHUD();
+    /* storm/boss extra */
+    #stormFx.storm-panic{ filter:brightness(1.25); }
+    #bossFx.boss-panic{ filter:brightness(1.25); }
+  `;
+  DOC.head.appendChild(st);
 })();
+
+function fxPulse(kind){
+  if(!hitFx) return;
+  hitFx.classList.remove('pfx-hit-good','pfx-hit-bad');
+  hitFx.classList.add(kind === 'bad' ? 'pfx-hit-bad' : 'pfx-hit-good');
+  clearTimeout(fxPulse._t);
+  fxPulse._t = setTimeout(()=>{ hitFx.classList.remove('pfx-hit-good','pfx-hit-bad'); }, 140);
+}
+function fxShake(){
+  DOC.body.classList.remove('pfx-shake');
+  void DOC.body.offsetWidth;
+  DOC.body.classList.add('pfx-shake');
+  clearTimeout(fxShake._t);
+  fxShake._t = setTimeout(()=>DOC.body.classList.remove('pfx-shake'), 450);
+}
+function fxBlink(){
+  DOC.body.classList.remove('pfx-blink');
+  void DOC.body.offsetWidth;
+  DOC.body.classList.add('pfx-blink');
+  clearTimeout(fxBlink._t);
+  fxBlink._t = setTimeout(()=>DOC.body.classList.remove('pfx-blink'), 1800);
+}
+function fxTick(){
+  DOC.body.classList.remove('pfx-tick');
+  void DOC.body.offsetWidth;
+  DOC.body.classList.add('pfx-tick');
+  clearTimeout(fxTick._t);
+  fxTick._t = setTimeout(()=>DOC.body.classList.remove('pfx-tick'), 160);
+}
+
+function playTickSound(){
+  try{
+    const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
+    if(!AC) return;
+    const ctx = playTickSound._ctx || (playTickSound._ctx = new AC());
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'square';
+    o.frequency.value = 880;
+    g.gain.value = 0.03;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.03);
+  }catch(e){}
+}
+
+// ------------------------- VR-feel look (gyro + drag) -------------------------
+let look = { x:0, y:0, dragging:false, lastX:0, lastY:0 };
+let gyro = { gx:0, gy:0, ok:false };
+
+// keep last applied shift (for spawn compensation)
+let lookShift = { x:0, y:0 };
+
+function computeLookShift(){
+  const maxX = 24, maxY = 22;
+  const x = clamp(look.x + gyro.gx, -maxX, maxX);
+  const y = clamp(look.y + gyro.gy, -maxY, maxY);
+  return { x, y };
+}
+function applyLook(){
+  if(!layer) return;
+  const sh = computeLookShift();
+  lookShift.x = sh.x;
+  lookShift.y = sh.y;
+  layer.style.transform = `translate3d(${sh.x}px, ${sh.y}px, 0)`;
+}
+
+function enableGyroIfAllowed(){
+  const DO = ROOT.DeviceOrientationEvent;
+  if(!DO) return;
+  if(typeof DO.requestPermission === 'function'){ return; }
+  gyro.ok = true;
+  ROOT.addEventListener('deviceorientation', (e)=>{
+    const g = Number(e.gamma)||0;
+    const b = Number(e.beta)||0;
+    gyro.gx = clamp(g/90, -1, 1) * 14;
+    gyro.gy = clamp(b/90, -1, 1) * 10;
+    applyLook();
+  }, { passive:true });
+}
+function requestGyroPermission(){
+  const DO = ROOT.DeviceOrientationEvent;
+  if(!DO || typeof DO.requestPermission !== 'function') { enableGyroIfAllowed(); return Promise.resolve(true); }
+  return DO.requestPermission().then((res)=>{
+    if(res === 'granted'){
+      gyro.ok = true;
+      ROOT.addEventListener('deviceorientation', (e)=>{
+        const g = Number(e.gamma)||0;
+        const b = Number(e.beta)||0;
+        gyro.gx = clamp(g/90, -1, 1) * 14;
+        gyro.gy = clamp(b/90, -1, 1) * 10;
+        applyLook();
+      }, { passive:true });
+      return true;
+    }
+    return false;
+  }).catch(()=>false);
+}
+function bindDragLook(){
+  if(!layer) return;
+  on(layer, 'pointerdown', (e)=>{
+    look.dragging = true;
+    look.lastX = e.clientX;
+    look.lastY = e.clientY;
+  }, { passive:true });
+  on(ROOT, 'pointermove', (e)=>{
+    if(!look.dragging) return;
+    const dx = (e.clientX - look.lastX);
+    const dy = (e.clientY - look.lastY);
+    look.lastX = e.clientX;
+    look.lastY = e.clientY;
+    look.x = clamp(look.x + dx*0.12, -26, 26);
+    look.y = clamp(look.y + dy*0.10, -24, 24);
+    applyLook();
+  }, { passive:true });
+  on(ROOT, 'pointerup', ()=>{ look.dragging = false; }, { passive:true });
+}
