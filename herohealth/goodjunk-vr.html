@@ -2,8 +2,8 @@
 GoodJunkVR RUN — PRODUCTION (CLEAN)
 ✅ Uses ./vr-goodjunk/goodjunk-vr.css
 ✅ Uses ./vr-goodjunk/goodjunk-vr.boot.js (auto view + auto vr-ui load)
-✅ FX: ./vr/particles.js + ./vr/hha-fx-director.js
-✅ Logger optional: ./vr/hha-cloud-logger.js
+✅ FX: ./vr/particles.js + ./vr/hha-fx-director.js (ONE TIME)
+✅ Optional logger: ./vr/hha-cloud-logger.js
 -->
 <!doctype html>
 <html lang="th">
@@ -14,24 +14,23 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (Enter VR reliability; vr-ui.js uses WebXR bridge) -->
+  <!-- A-Frame (Enter VR reliability; vr-ui.js bridge uses WebXR) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- External CSS -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
-  <!-- Global FX (MUST come before boot) -->
+  <!-- Global FX (MUST be before boot) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-fx-director.js" defer></script>
 
   <!-- Optional logger -->
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Small HTML-only patches -->
+  <!-- Tiny HTML patches only -->
   <style>
     .gj-topbar, .gj-topbar * { pointer-events:auto; }
 
-    /* Controls cluster (boot uses .hha-controls height for safe spawn) */
     .hha-controls{
       position:fixed;
       right: calc(10px + var(--sar));
@@ -43,16 +42,13 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
       pointer-events:auto;
     }
 
-    /* Low-time overlay: show via aria-hidden (safe.js toggles aria-hidden) */
+    /* Low-time overlay patch: show via aria-hidden */
     #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
     #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
       opacity:1 !important;
       transform: scale(1) !important;
     }
   </style>
-
-  <!-- Boot (module) -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="gj">
@@ -65,34 +61,21 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
       <span class="gj-chip" id="chipDiff">diff: —</span>
     </div>
     <div class="right">
-      <button class="gj-btn" id="btnMissions" type="button" aria-label="ภารกิจ">ภารกิจ</button>
-      <button class="gj-btn" id="btnHideHud" type="button" aria-label="ซ่อน HUD">ซ่อน HUD</button>
-      <button class="gj-btn" id="btnRestartTop" type="button" aria-label="เริ่มใหม่">เริ่มใหม่</button>
-      <button class="gj-btn primary" id="btnHubTop" type="button" aria-label="กลับ HUB">กลับ HUB</button>
+      <button class="gj-btn" id="btnMissions" type="button">ภารกิจ</button>
+      <button class="gj-btn" id="btnHideHud" type="button">ซ่อน HUD</button>
+      <button class="gj-btn" id="btnRestartTop" type="button">เริ่มใหม่</button>
+      <button class="gj-btn primary" id="btnHubTop" type="button">กลับ HUB</button>
     </div>
   </div>
 
   <!-- HUD TOP -->
   <div class="gj-hud-top" id="hud" aria-label="HUD">
     <div class="hud-row">
-      <div class="hud-pill grade">
-        <div class="hud-label">GRADE</div>
-        <div class="hud-value" id="hud-grade">—</div>
-      </div>
-      <div class="hud-pill">
-        <div class="hud-label">SCORE</div>
-        <div class="hud-value" id="hud-score">0</div>
-      </div>
-      <div class="hud-pill warn">
-        <div class="hud-label">TIME</div>
-        <div class="hud-value" id="hud-time">0</div>
-      </div>
-      <div class="hud-pill">
-        <div class="hud-label">MISS</div>
-        <div class="hud-value" id="hud-miss">0</div>
-      </div>
+      <div class="hud-pill grade"><div class="hud-label">GRADE</div><div class="hud-value" id="hud-grade">—</div></div>
+      <div class="hud-pill"><div class="hud-label">SCORE</div><div class="hud-value" id="hud-score">0</div></div>
+      <div class="hud-pill warn"><div class="hud-label">TIME</div><div class="hud-value" id="hud-time">0</div></div>
+      <div class="hud-pill"><div class="hud-label">MISS</div><div class="hud-value" id="hud-miss">0</div></div>
 
-      <!-- boot safe-measure uses this -->
       <div id="vrMiniHud" class="gj-chip" style="align-self:center;">
         🎯 VR: ยิงจากกลางจอ (แตะ/กดเพื่อยิง)
       </div>
@@ -111,11 +94,21 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
       <div class="quest-card mini">
         <div class="q-title">MINI: <span id="hud-mini">—</span></div>
         <div class="q-desc">⏱ <span id="miniTimer">—</span></div>
-        <div class="q-bar">
-          <div class="q-hint">ผ่านแล้วจะสลับ MINI ใหม่ทันที</div>
-        </div>
+        <div class="q-bar"><div class="q-hint">ผ่านแล้วจะสลับ MINI ใหม่ทันที</div></div>
       </div>
     </div>
+  </div>
+
+  <!-- Boss HUD (optional but recommended) -->
+  <div class="gj-boss-hud" id="bossHud" aria-hidden="true">
+    <div class="row">
+      <div class="icon" id="bossIcon">👹</div>
+      <div class="meta">
+        <div class="t" id="bossTitle">BOSS</div>
+        <div class="s" id="bossState">—</div>
+      </div>
+    </div>
+    <div class="bar"><div class="fill" id="bossHpFill"></div></div>
   </div>
 
   <!-- PLAYFIELD -->
@@ -128,9 +121,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
   <div class="gj-hud-bot" aria-label="Meters">
     <div class="meter" id="feverBox">
       <div class="meter-title">FEVER / SHIELD</div>
-      <div class="meter-bar" aria-label="Fever bar">
-        <div class="meter-fill" id="feverFill" style="width:0%"></div>
-      </div>
+      <div class="meter-bar"><div class="meter-fill" id="feverFill" style="width:0%"></div></div>
       <div class="meter-num">Fever: <span id="feverText">0%</span></div>
       <div class="meter-shield">Shield: <span id="shieldPills">—</span></div>
       <div class="meter-tip">⭐ ลด MISS / 🛡️ กันขยะ (กันแล้วไม่เป็น MISS)</div>
@@ -146,7 +137,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
     </div>
   </div>
 
-  <!-- Controls cluster (optional) -->
+  <!-- Optional control cluster -->
   <div class="hha-controls" aria-label="Quick controls">
     <button class="gj-btn" id="btnMissions2" type="button">ภารกิจ</button>
     <button class="gj-btn" id="btnHideHud2" type="button">ซ่อน HUD</button>
@@ -162,25 +153,23 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
     </div>
   </div>
 
-  <!-- LOW TIME OVERLAY -->
+  <!-- LOW TIME -->
   <div class="gj-lowtime-overlay" id="lowTimeOverlay" aria-hidden="true">
     <div class="gj-lowtime-ring"></div>
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- END SUMMARY (safe.js toggles aria-hidden=false + fills fields) -->
+  <!-- END SUMMARY placeholder (safe.js will also show its own overlay) -->
   <div class="gj-end" id="endOverlay" aria-hidden="true">
     <div class="card">
       <div class="title" id="endTitle">Completed</div>
       <div class="sub" id="endSub">—</div>
-
       <div class="grid">
         <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
         <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
         <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
         <div class="stat"><span>TIME (sec)</span><b id="endTime">0</b></div>
       </div>
-
       <div class="actions">
         <button class="btn" id="btnRestartEnd" type="button">เล่นอีกครั้ง</button>
         <button class="btn alt" id="btnBackHub" type="button">กลับ HUB</button>
@@ -188,7 +177,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
     </div>
   </div>
 
-  <!-- A-FRAME minimal scene -->
+  <!-- A-FRAME minimal scene (offscreen) -->
   <a-scene
     id="xrScene"
     embedded
@@ -199,61 +188,45 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
     <a-entity camera look-controls="enabled:false"></a-entity>
   </a-scene>
 
-  <!-- UI WIRING (no duplicate end overlay listeners here) -->
+  <!-- UI WIRING -->
   <script>
     (function(){
       const DOC = document;
+      const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
 
-      function qs(k, def=null){
-        try { return new URL(location.href).searchParams.get(k) ?? def; }
-        catch { return def; }
-      }
-      const byId = (id)=>DOC.getElementById(id);
+      const chipMode = DOC.getElementById('chipMode');
+      const chipDiff = DOC.getElementById('chipDiff');
 
-      const chipMode = byId('chipMode');
-      const chipDiff = byId('chipDiff');
+      const btnMissions  = DOC.getElementById('btnMissions');
+      const btnMissions2 = DOC.getElementById('btnMissions2');
+      const btnHideHud   = DOC.getElementById('btnHideHud');
+      const btnHideHud2  = DOC.getElementById('btnHideHud2');
+      const btnRestartTop= DOC.getElementById('btnRestartTop');
+      const btnHubTop    = DOC.getElementById('btnHubTop');
 
-      const btnMissions   = byId('btnMissions');
-      const btnMissions2  = byId('btnMissions2');
-      const btnHideHud    = byId('btnHideHud');
-      const btnHideHud2   = byId('btnHideHud2');
-      const btnRestartTop = byId('btnRestartTop');
-      const btnHubTop     = byId('btnHubTop');
+      const missionsPeek = DOC.getElementById('missionsPeek');
+      const peekGoal     = DOC.getElementById('peekGoal');
+      const peekMini     = DOC.getElementById('peekMini');
 
-      const missionsPeek  = byId('missionsPeek');
-      const peekGoal      = byId('peekGoal');
-      const peekMini      = byId('peekMini');
+      const btnRestartEnd= DOC.getElementById('btnRestartEnd');
+      const btnBackHub   = DOC.getElementById('btnBackHub');
 
-      const btnRestartEnd = byId('btnRestartEnd');
-      const btnBackHub    = byId('btnBackHub');
+      function hubUrl(){ return qs('hub', './hub.html') || './hub.html'; }
 
-      const run = qs('run','play');
-      const diff= qs('diff','normal');
+      chipMode && (chipMode.textContent = `mode: ${qs('run','play')}`);
+      chipDiff && (chipDiff.textContent = `diff: ${qs('diff','normal')}`);
 
-      chipMode && (chipMode.textContent = `mode: ${run}`);
-      chipDiff && (chipDiff.textContent = `diff: ${diff}`);
-
-      function hubUrl(){
-        return qs('hub', './hub.html') || './hub.html';
-      }
-
-      // hide HUD
       function syncHudBtn(){
         const hidden = DOC.body.classList.contains('hud-hidden');
         const label = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
-        btnHideHud  && (btnHideHud.textContent  = label);
-        btnHideHud2 && (btnHideHud2.textContent = label);
+        if(btnHideHud)  btnHideHud.textContent  = label;
+        if(btnHideHud2) btnHideHud2.textContent = label;
       }
-      function toggleHud(){
-        DOC.body.classList.toggle('hud-hidden');
-        syncHudBtn();
-        try{ window.dispatchEvent(new CustomEvent('hha:ui', { detail:{ hudHidden: DOC.body.classList.contains('hud-hidden') } })); }catch(_){}
-      }
-      btnHideHud  && btnHideHud.addEventListener('click', toggleHud);
+      function toggleHud(){ DOC.body.classList.toggle('hud-hidden'); syncHudBtn(); }
+      btnHideHud && btnHideHud.addEventListener('click', toggleHud);
       btnHideHud2 && btnHideHud2.addEventListener('click', toggleHud);
       syncHudBtn();
 
-      // missions peek
       function showMissions(on){
         if(on){
           DOC.body.classList.add('show-missions');
@@ -263,23 +236,18 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
           missionsPeek && missionsPeek.setAttribute('aria-hidden','true');
         }
       }
-      function toggleMissions(){
-        showMissions(!DOC.body.classList.contains('show-missions'));
-      }
-      btnMissions  && btnMissions.addEventListener('click', toggleMissions);
+      function toggleMissions(){ showMissions(!DOC.body.classList.contains('show-missions')); }
+      btnMissions && btnMissions.addEventListener('click', toggleMissions);
       btnMissions2 && btnMissions2.addEventListener('click', toggleMissions);
 
-      missionsPeek && missionsPeek.addEventListener('click', (e)=>{
-        if(e.target === missionsPeek) showMissions(false);
-      });
+      missionsPeek && missionsPeek.addEventListener('click', (e)=>{ if(e.target === missionsPeek) showMissions(false); });
 
-      // restart / hub
       btnRestartTop && btnRestartTop.addEventListener('click', ()=> location.reload());
       btnRestartEnd && btnRestartEnd.addEventListener('click', ()=> location.reload());
+
       btnHubTop && btnHubTop.addEventListener('click', ()=> location.href = hubUrl());
       btnBackHub && btnBackHub.addEventListener('click', ()=> location.href = hubUrl());
 
-      // update peek text from quest:update
       function safeText(x){ return (x==null) ? '—' : String(x); }
       function onQuestUpdate(ev){
         try{
@@ -288,7 +256,9 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
 
           if(peekGoal){
             if(goal){
-              peekGoal.textContent = `GOAL: ${safeText(goal.title)} (${safeText(goal.cur)}/${safeText(goal.target)})`;
+              const cur = safeText(goal.cur);
+              const tar = safeText(goal.target);
+              peekGoal.textContent = `GOAL: ${safeText(goal.title)} (${cur}/${tar})`;
             }else peekGoal.textContent = 'GOAL: —';
           }
 
@@ -304,9 +274,58 @@ GoodJunkVR RUN — PRODUCTION (CLEAN)
         }catch(_){}
       }
       window.addEventListener('quest:update', onQuestUpdate, { passive:true });
-      document.addEventListener('quest:update', onQuestUpdate, { passive:true });
+
+      // Boss HUD binding
+      (function(){
+        const hud = DOC.getElementById('bossHud');
+        const fill = DOC.getElementById('bossHpFill');
+        const title = DOC.getElementById('bossTitle');
+        const state = DOC.getElementById('bossState');
+        const icon = DOC.getElementById('bossIcon');
+        function setVisible(on){ hud && hud.setAttribute('aria-hidden', on ? 'false' : 'true'); }
+
+        function onBoss(ev){
+          const d = ev?.detail || {};
+          const active = !!d.active;
+          setVisible(active);
+          if(!active) return;
+
+          const hp = Number(d.hp ?? 0);
+          const hpMax = Math.max(1, Number(d.hpMax ?? 1));
+          const pct = Math.max(0, Math.min(100, (hp / hpMax) * 100));
+          if(fill) fill.style.width = pct.toFixed(1) + '%';
+
+          const ph = Number(d.phase||1);
+          const p2 = (ph===2);
+          const left = Number(d.phase2Left||0);
+
+          const armorOpen = !!d.armorOpen;
+          const decoyOn = !!d.decoyOn;
+          const stunT = Number(d.stunT||0);
+
+          if(title) title.textContent = d.rage ? 'BOSS (RAGE)' : 'BOSS';
+
+          if(state){
+            const parts = [];
+            parts.push(p2 ? `Phase 2${left>0 ? ` (${left.toFixed(1)}s)` : ''}` : 'Phase 1');
+            if(p2) parts.push(armorOpen ? 'Armor: OPEN' : 'Armor: CLOSED');
+            if(p2) parts.push(decoyOn ? 'Decoy: ON' : 'Decoy: OFF');
+            if(stunT > 0) parts.push(`STUN ${stunT.toFixed(1)}s`);
+            state.textContent = parts.join(' · ');
+          }
+
+          if(icon) icon.textContent = d.rage ? '😈' : '👹';
+          DOC.body.classList.toggle('gj-stun', stunT > 0.05);
+        }
+
+        window.addEventListener('hha:boss', onBoss, { passive:true });
+      })();
+
     })();
   </script>
+
+  <!-- BOOT (module) -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 
 </body>
 </html>
