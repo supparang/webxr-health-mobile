@@ -1,126 +1,55 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (shared across all games)
-// ✅ Standardize FX calls (Particles.scorePop / burstAt / celebrate)
-// ✅ Body flags helpers: tempClass / setFlag
-// ✅ Listens to events:
-//    - hha:judge {label}
-//    - hha:celebrate {kind,grade}
-//    - hha:fx {type,x,y,text,kind}
-// ✅ Safe even if Particles missing
+// HHA FX Director — PRODUCTION
+// ✅ listens: hha:judge, hha:celebrate
+// ✅ adds body pulses: gj-mini-clear, gj-junk-hit, gj-boss-bonk, etc
+// ✅ optional: route judge labels to Particles.popText
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document;
-  if(!DOC || root.__HHA_FX_DIRECTOR__) return;
-  root.__HHA_FX_DIRECTOR__ = true;
+  const WIN = window;
+  const DOC = document;
+  if(!DOC || WIN.__HHA_FX_DIRECTOR__) return;
+  WIN.__HHA_FX_DIRECTOR__ = true;
 
-  function now(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
+  const P = ()=> (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
 
-  function setFlag(cls, on){
-    try{ DOC.body.classList.toggle(cls, !!on); }catch(_){}
-  }
-
-  function tempClass(cls, ms){
+  function pulseBody(cls, ms){
     try{
       DOC.body.classList.add(cls);
-      setTimeout(()=>DOC.body.classList.remove(cls), Math.max(60, ms||220));
+      setTimeout(()=>DOC.body.classList.remove(cls), ms||180);
     }catch(_){}
   }
 
-  function P(){
-    return (root.GAME_MODULES && root.GAME_MODULES.Particles) || root.Particles || null;
-  }
-
-  function pop(x,y,text,cls){
+  function popCenter(text, cls){
     const p = P();
-    try{
-      if(p && typeof p.popText === 'function') p.popText(x,y,text,cls);
-      else if(p && typeof p.scorePop === 'function') p.scorePop(x,y,text,cls);
-    }catch(_){}
+    if(!p || typeof p.popText!=='function') return;
+    const x = DOC.documentElement.clientWidth/2;
+    const y = DOC.documentElement.clientHeight*0.22;
+    p.popText(x,y,text,cls||'hha-judge');
   }
 
-  function scorePop(x,y,text,cls){
-    const p = P();
-    try{
-      if(p && typeof p.scorePop === 'function') p.scorePop(x,y,text,cls);
-      else pop(x,y,text,cls);
-    }catch(_){}
-  }
-
-  function burstAt(x,y,kind){
-    const p = P();
-    try{
-      if(p && typeof p.burstAt === 'function') p.burstAt(x,y,kind);
-    }catch(_){}
-  }
-
-  function celebrate(kind){
-    const p = P();
-    try{
-      if(p && typeof p.celebrate === 'function') p.celebrate(kind);
-      else {
-        // fallback vibe
-        tempClass('hha-celebrate', 520);
-      }
-    }catch(_){}
-  }
-
-  // ---------------- event handlers ----------------
-  function onJudge(ev){
+  WIN.addEventListener('hha:judge', (ev)=>{
     const d = ev?.detail || {};
-    const label = String(d.label || '').trim();
+    const label = String(d.label||'').trim();
     if(!label) return;
 
-    // screen position: top center
-    const x = Math.floor(DOC.documentElement.clientWidth/2);
-    const y = Math.floor(DOC.documentElement.clientHeight*0.22);
+    // map -> body pulses
+    if(label.includes('MINI')) pulseBody('gj-mini-clear', 220);
+    if(label.includes('OOPS') || label.includes('MISS')) pulseBody('gj-junk-hit', 220);
+    if(label.includes('BOSS')) pulseBody('gj-boss-on', 240);
+    if(label.includes('PHASE')) pulseBody('gj-phase', 260);
+    if(label.includes('RAGE')) pulseBody('gj-rage-pulse', 260);
 
-    scorePop(x,y,label,'hha-judge');
-    tempClass('hha-judge-pulse', 180);
-  }
+    // pop
+    popCenter(label, 'hha-judge');
+  }, { passive:true });
 
-  function onCelebrate(ev){
-    const d = ev?.detail || {};
-    const kind = String(d.kind || 'end');
-    celebrate(kind);
+  WIN.addEventListener('hha:celebrate', (ev)=>{
+    const kind = ev?.detail?.kind || 'end';
+    const p = P();
+    try{ p?.celebrate?.(kind); }catch(_){}
+    if(kind==='boss') pulseBody('gj-boss-down', 420);
+    if(kind==='mini') pulseBody('gj-mini-clear', 220);
+  }, { passive:true });
 
-    // End grade pop
-    if(d.grade){
-      const x = Math.floor(DOC.documentElement.clientWidth/2);
-      const y = Math.floor(DOC.documentElement.clientHeight*0.28);
-      pop(x,y,`GRADE ${d.grade}`,'hha-grade');
-    }
-  }
-
-  function onFx(ev){
-    const d = ev?.detail || {};
-    const type = String(d.type||'').toLowerCase();
-    const x = Number(d.x);
-    const y = Number(d.y);
-    const text = d.text;
-
-    const okXY = Number.isFinite(x) && Number.isFinite(y);
-    const xx = okXY ? x : Math.floor(DOC.documentElement.clientWidth/2);
-    const yy = okXY ? y : Math.floor(DOC.documentElement.clientHeight*0.22);
-
-    if(type === 'pop' && text!=null) pop(xx,yy,String(text),'hha-pop');
-    else if(type === 'score' && text!=null) scorePop(xx,yy,String(text),'hha-score');
-    else if(type === 'burst') burstAt(xx,yy,String(d.kind||'good'));
-    else if(type === 'shake') tempClass('hha-shake', Number(d.ms)||220);
-  }
-
-  // Bind listeners
-  root.addEventListener('hha:judge', onJudge, { passive:true });
-  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  root.addEventListener('hha:fx', onFx, { passive:true });
-
-  // expose small API
-  root.HHA_FX = root.HHA_FX || {};
-  root.HHA_FX.setFlag = setFlag;
-  root.HHA_FX.tempClass = tempClass;
-  root.HHA_FX.pop = pop;
-  root.HHA_FX.scorePop = scorePop;
-  root.HHA_FX.burstAt = burstAt;
-  root.HHA_FX.celebrate = celebrate;
-
-})(window);
+})();
