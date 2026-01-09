@@ -1,266 +1,361 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — PRODUCTION+ CSS
-✅ Target feel: pop/float/hit/miss
-✅ Safe-area + HUD-safe (works with plate.safe.js safe spawn)
-✅ View modes: view-pc / view-mobile / view-vr / view-cvr
-✅ Boss/Storm FX layers: #bossFx / #stormFx + panic classes
-✅ Overlays: start/paused/result
+Balanced Plate VR — PRODUCTION+ (HHA Standard UI)
+✅ PC / Mobile / VR / cVR
+✅ Safe-area + HUD-safe layering
+✅ Target animations + hit feedback
+✅ Storm/Boss FX classes (toggled by JS on #stormFx/#bossFx)
+✅ cVR strict helper (targets still clickable on mobile; shooting via hha:shoot works)
 */
 
+/* ------------------------------------------------------------
+   Base
+------------------------------------------------------------ */
 :root{
   color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
-
   --accent:#22c55e;
-  --accent2:#22d3ee;
-  --violet:#a78bfa;
   --warn:#f59e0b;
   --bad:#ef4444;
-
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
   --radius:18px;
   --pill:999px;
 
-  /* Safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* Target defaults (JS overrides inline size/pos) */
-  --t-glow: 0 18px 44px rgba(0,0,0,.28);
-  --t-stroke: rgba(148,163,184,.18);
+  /* target */
+  --t-shadow: 0 18px 44px rgba(0,0,0,.28);
   --t-bg: rgba(2,6,23,.55);
+  --t-ring: rgba(148,163,184,.18);
 
-  /* Touch feel */
-  --tap: rgba(255,255,255,.06);
+  /* z-stack guard */
+  --z-scene: 0;
+  --z-bg: 1;
+  --z-stage: 2;
+  --z-layer: 10;
+  --z-hitfx: 12;
+  --z-hud: 30;
+  --z-storm: 55;
+  --z-overlay: 70;
 }
 
-/* Base */
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
 html,body{
+  margin:0;
   width:100%;
   height:100%;
-  margin:0;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-/* Prevent long-press menu on mobile */
-*{
-  -webkit-tap-highlight-color: transparent;
-}
-
-body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-/* ---------- Targets ---------- */
-.plateTarget{
-  appearance:none;
-  border:1px solid var(--t-stroke);
-  background: var(--t-bg);
-  color: var(--text);
-  border-radius: 999px;
-  box-shadow: var(--t-glow);
-  backdrop-filter: blur(10px);
-  cursor:pointer;
+/* ------------------------------------------------------------
+   View flags (set by JS)
+------------------------------------------------------------ */
+body.view-pc{}
+body.view-mobile{}
+body.view-vr{}
+body.view-cvr{}
 
+/* ------------------------------------------------------------
+   A-Frame scene should stay behind UI always
+------------------------------------------------------------ */
+a-scene{
+  position:fixed;
+  inset:0;
+  z-index: var(--z-scene);
+}
+
+/* ------------------------------------------------------------
+   Plate Layer (targets host)
+------------------------------------------------------------ */
+#plate-layer{
+  position:fixed;
+  inset:0;
+  z-index: var(--z-layer);
+  pointer-events:auto;
+  touch-action:none;
   user-select:none;
   -webkit-user-select:none;
-  touch-action:none;
-
-  /* animation base */
-  transform: translateZ(0) scale(1);
-  will-change: transform, filter, opacity;
-  transition: transform .08s ease, filter .12s ease, opacity .12s ease;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateZ(0);
 }
 
-/* Subtle floating (keeps alive feel) */
+#hitFx{
+  position:fixed;
+  inset:0;
+  z-index: var(--z-hitfx);
+  pointer-events:none;
+  opacity:0;
+}
+
+/* ------------------------------------------------------------
+   Targets
+------------------------------------------------------------ */
 .plateTarget{
-  animation: plateFloat 1.25s ease-in-out infinite;
-}
-@keyframes plateFloat{
-  0%,100%{ transform: translateZ(0) translateY(0) scale(1); }
-  50%{ transform: translateZ(0) translateY(-2px) scale(1); }
+  appearance:none;
+  border:none;
+  padding:0;
+  margin:0;
+  cursor:pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  /* JS sets size/pos/emoji */
+  display:grid;
+  place-items:center;
+
+  background: var(--t-bg);
+  border: 1px solid var(--t-ring);
+  border-radius: 999px;
+  box-shadow: var(--t-shadow);
+  backdrop-filter: blur(8px);
+
+  transform: translateZ(0);
+  will-change: transform, opacity, filter;
+
+  animation: tPop .14s ease-out both, tFloat 1.6s ease-in-out .12s infinite;
 }
 
-/* Press feedback */
 .plateTarget:active{
-  transform: translateZ(0) scale(.96);
-  filter: brightness(1.1);
+  transform: translateZ(0) scale(.985);
 }
 
-/* Focus (keyboard/pc) */
-.plateTarget:focus-visible{
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(34,211,238,.35), var(--t-glow);
+@keyframes tPop{
+  from{ transform: scale(.74); opacity:.0; filter: blur(2px); }
+  to  { transform: scale(1); opacity:1; filter: blur(0); }
 }
 
-/* Kind styling via data-kind */
+@keyframes tFloat{
+  0%{ transform: translateY(0) }
+  50%{ transform: translateY(-2px) }
+  100%{ transform: translateY(0) }
+}
+
+/* Type hints (optional) */
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.24);
+  border-color: rgba(34,197,94,.28);
 }
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.22);
-  background: rgba(2,6,23,.52);
+  border-color: rgba(239,68,68,.28);
+  box-shadow: 0 18px 44px rgba(239,68,68,.06), var(--t-shadow);
 }
 .plateTarget[data-kind="shield"]{
-  border-color: rgba(34,211,238,.26);
-  background: rgba(2,6,23,.50);
+  border-color: rgba(34,211,238,.28);
+  box-shadow: 0 18px 44px rgba(34,211,238,.06), var(--t-shadow);
 }
 
-/* Hover for PC */
-@media (hover:hover){
-  .plateTarget:hover{
-    filter: brightness(1.12);
-    transform: translateZ(0) scale(1.02);
+/* cVR strict: targets should NOT steal pointer events when using crosshair shooting */
+body.view-cvr #plate-layer{
+  pointer-events:none;
+}
+body.view-cvr .plateTarget{
+  pointer-events:none;
+}
+
+/* In VR mode we also prefer shooting via crosshair, but allow if needed */
+body.view-vr .plateTarget{
+  /* keep clickable just in case; can be switched off later */
+}
+
+/* ------------------------------------------------------------
+   HUD cards micro polish
+------------------------------------------------------------ */
+.hudTop,
+#miniPanel,
+#coachPanel,
+#hudBtns,
+#bossHud,
+#stormHud{
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.card,
+.questCard,
+.panelCard,
+.bossCard,
+.stormCard{
+  backdrop-filter: blur(10px);
+}
+
+/* ------------------------------------------------------------
+   Buttons (HUD)
+------------------------------------------------------------ */
+#hudBtns{
+  pointer-events:none; /* container */
+}
+#hudBtns .btn{
+  pointer-events:auto;
+}
+
+.btn{
+  transition: transform .06s ease, filter .12s ease, opacity .12s ease;
+}
+.btn:hover{ filter: brightness(1.06); }
+.btn:active{ transform: translateY(1px); }
+
+/* Don't let HUD buttons block VR-UI (ENTER/EXIT/RECENTER) */
+.hha-vrui,
+.hha-vrui *{
+  pointer-events:auto !important;
+}
+
+/* If vr-ui.js places buttons top-left, keep our HUD away slightly on small screens */
+@media (max-width: 420px){
+  .hudTop{ padding-top: 2px; }
+}
+
+/* ------------------------------------------------------------
+   Overlays
+------------------------------------------------------------ */
+#startOverlay,
+#hudPaused,
+#resultBackdrop{
+  z-index: var(--z-overlay);
+}
+
+#startOverlay .panelCard,
+#hudPaused .panelCard,
+#resultBackdrop .panelCard{
+  animation: panelIn .18s ease-out both;
+}
+
+@keyframes panelIn{
+  from{ transform: translateY(10px) scale(.985); opacity:.0; }
+  to  { transform: translateY(0) scale(1); opacity:1; }
+}
+
+/* ------------------------------------------------------------
+   Storm FX
+------------------------------------------------------------ */
+#stormFx{
+  z-index: var(--z-storm);
+  display:none;
+}
+
+#stormFx::before{
+  content:"";
+  position:absolute;
+  inset:-40px;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(34,211,238,.22), transparent 55%),
+    radial-gradient(circle at 80% 35%, rgba(34,211,238,.16), transparent 58%),
+    radial-gradient(circle at 55% 85%, rgba(34,211,238,.10), transparent 62%);
+  opacity:.0;
+  filter: blur(0px);
+  transform: translateZ(0);
+}
+
+#stormFx{
+  /* base subtle motion */
+  animation: stormBreathe 2.8s ease-in-out infinite;
+}
+
+@keyframes stormBreathe{
+  0%{ filter: saturate(1) brightness(1); }
+  50%{ filter: saturate(1.06) brightness(1.02); }
+  100%{ filter: saturate(1) brightness(1); }
+}
+
+/* JS toggles this class */
+#stormFx.storm-panic::before{
+  opacity:.65;
+  animation: stormPulse .55s ease-in-out infinite;
+}
+@keyframes stormPulse{
+  0%{ transform: scale(1); filter: blur(0px) brightness(1); }
+  50%{ transform: scale(1.02); filter: blur(1px) brightness(1.05); }
+  100%{ transform: scale(1); filter: blur(0px) brightness(1); }
+}
+
+/* Keep HUD readable during storm */
+#stormFx.storm-panic{
+  mix-blend-mode: screen;
+}
+
+/* ------------------------------------------------------------
+   Boss FX
+------------------------------------------------------------ */
+#bossFx{
+  z-index: var(--z-storm);
+  display:none;
+}
+
+#bossFx::before{
+  content:"";
+  position:absolute;
+  inset:-40px;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(167,139,250,.18), transparent 58%),
+    radial-gradient(circle at 80% 30%, rgba(167,139,250,.14), transparent 60%),
+    radial-gradient(circle at 50% 90%, rgba(239,68,68,.10), transparent 62%);
+  opacity:.0;
+  transform: translateZ(0);
+}
+
+#bossFx.boss-on::before{
+  opacity:.55;
+  animation: bossGlow 1.4s ease-in-out infinite;
+}
+@keyframes bossGlow{
+  0%{ filter: brightness(1) saturate(1); transform: scale(1); }
+  50%{ filter: brightness(1.05) saturate(1.08); transform: scale(1.01); }
+  100%{ filter: brightness(1) saturate(1); transform: scale(1); }
+}
+
+#bossFx.boss-panic::before{
+  opacity:.75;
+  animation: bossPanic .42s ease-in-out infinite;
+}
+@keyframes bossPanic{
+  0%{ transform: translate(0,0) scale(1); }
+  25%{ transform: translate(2px,-1px) scale(1.01); }
+  50%{ transform: translate(-2px,1px) scale(1.02); }
+  75%{ transform: translate(1px,1px) scale(1.01); }
+  100%{ transform: translate(0,0) scale(1); }
+}
+
+/* ------------------------------------------------------------
+   Accessibility / Motion
+------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{
+    animation: none !important;
+  }
+  #stormFx,
+  #bossFx{
+    animation:none !important;
+  }
+  #stormFx::before,
+  #bossFx::before{
+    animation:none !important;
   }
 }
 
-/* ---------- View modes ---------- */
-/* PC: slightly larger click comfort */
-body.view-pc .plateTarget{
-  filter: saturate(1.05);
+/* ------------------------------------------------------------
+   Small screen tweaks
+------------------------------------------------------------ */
+@media (max-width: 920px){
+  /* keep more play area */
+  #miniPanel{ top: calc(92px + var(--sat)); }
+  #coachPanel{ bottom: calc(66px + var(--sab)); }
 }
 
-/* Mobile: stronger contrast */
-body.view-mobile .plateTarget{
-  filter: saturate(1.08);
-}
-
-/* VR & cVR: prevent accidental pointer block by UI; targets stay tappable by shoot hit-test anyway */
-body.view-cvr .plateTarget{
-  /* In strict cVR, you can keep pointer events ON or OFF.
-     If you want pure crosshair shooting only, uncomment next line:
-     pointer-events: none;
-  */
-}
-
-/* ---------- Hit FX overlay (JS toggles classes on #hitFx) ---------- */
-#hitFx{
-  opacity:0;
-}
-#hitFx.pfx-hit-good{
-  opacity:1;
-}
-#hitFx.pfx-hit-bad{
-  opacity:1;
-}
-
-/* ---------- HUD polish (optional) ---------- */
-.hudTop .card,
-#miniPanel .questCard,
-#coachPanel .questCard{
-  box-shadow: 0 18px 60px rgba(0,0,0,.28);
-}
-
-/* Make HUD a bit tighter on small screens */
 @media (max-width: 520px){
-  .hudTop{ gap:8px; }
-  .hudTop .card{ padding:9px 10px; border-radius:16px; min-width: 160px; }
-  #miniPanel{ top: calc(90px + var(--sat)); }
-  #coachPanel{ bottom: calc(80px + var(--sab)); }
-}
-
-/* ---------- Boss / Storm FX layers ---------- */
-#stormFx, #bossFx{
-  opacity:0;
-  transition: opacity .22s ease, filter .22s ease;
-}
-
-/* When JS sets display:block, we fade in using :not([style*="display: none"]) trick is unreliable,
-   so we make them visible by class toggles where possible. */
-#bossFx.boss-on{
-  opacity:1;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(167,139,250,.12), transparent 40%),
-    radial-gradient(circle at 72% 26%, rgba(245,158,11,.08), transparent 42%),
-    radial-gradient(circle at 50% 82%, rgba(239,68,68,.08), transparent 48%),
-    linear-gradient(180deg, rgba(2,6,23,.0), rgba(2,6,23,.10));
-}
-#bossFx.boss-panic{
-  filter: brightness(1.25) saturate(1.12);
-  animation: bossPulse .55s ease-in-out infinite;
-}
-@keyframes bossPulse{
-  0%,100%{ transform: translateZ(0) scale(1); }
-  50%{ transform: translateZ(0) scale(1.01); }
-}
-
-#stormFx{
-  background:
-    radial-gradient(circle at 10% 20%, rgba(34,211,238,.10), transparent 42%),
-    radial-gradient(circle at 90% 30%, rgba(167,139,250,.08), transparent 45%),
-    radial-gradient(circle at 50% 90%, rgba(34,197,94,.07), transparent 50%),
-    linear-gradient(180deg, rgba(2,6,23,.0), rgba(2,6,23,.12));
-}
-#stormFx.storm-panic{
-  opacity:1;
-  filter: brightness(1.25) saturate(1.10);
-  animation: stormWobble .6s ease-in-out infinite;
-}
-@keyframes stormWobble{
-  0%,100%{ transform: translateZ(0) rotate(0deg); }
-  50%{ transform: translateZ(0) rotate(.15deg); }
-}
-
-/* Ensure when visible but without panic class, still readable */
-#stormFx{
-  opacity:.85;
-}
-#bossFx{
-  opacity:.90;
-}
-
-/* ---------- Overlays ---------- */
-#startOverlay, #hudPaused, #resultBackdrop{
-  animation: overlayIn .14s ease-out 0s 1;
-}
-@keyframes overlayIn{
-  from{ opacity:0; transform: translateY(4px); }
-  to{ opacity:1; transform: translateY(0); }
-}
-
-/* Buttons: small extra feedback */
-.btn{
-  transition: transform .08s ease, filter .12s ease, background .12s ease, border-color .12s ease;
-}
-.btn:hover{
-  filter: brightness(1.08);
-}
-.btn:active{
-  filter: brightness(1.12);
-}
-
-/* ---------- Accessibility ---------- */
-@media (prefers-reduced-motion: reduce){
-  .plateTarget{ animation: none; }
-  #bossFx.boss-panic, #stormFx.storm-panic{ animation: none; }
-  #startOverlay, #hudPaused, #resultBackdrop{ animation: none; }
-}
-
-/* ---------- Safety: keep VR UI buttons above targets ---------- */
-/* vr-ui.js typically injects its own elements with high z-index; this ensures targets never jump above overlays */
-#plate-layer{ z-index:10; }
-#hitFx{ z-index:12; }
-.hudTop{ z-index:30; }
-#miniPanel{ z-index:28; }
-#coachPanel{ z-index:28; }
-#hudBtns{ z-index:40; }
-#bossHud{ z-index:42; }
-#stormHud{ z-index:43; }
-#bossFx, #stormFx{ z-index:55; }
-#startOverlay, #hudPaused, #resultBackdrop{ z-index:70; }
-
-/* ---------- Nice touch: tiny sparkle on perfect feel (optional hook) ---------- */
-body.pfx-blink .plateTarget[data-kind="good"]{
-  filter: brightness(1.08);
+  /* compress cards slightly */
+  .card{ min-width: 170px; }
 }
