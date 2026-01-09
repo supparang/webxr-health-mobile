@@ -4,46 +4,353 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Hydration VR</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./hydration-vr/hydration-vr.css" />
+  <!-- Global FX + Cloud logger + Universal VR UI (ยิง hha:shoot) -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <script>
+    // config for vr-ui.js (optional)
+    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
+  </script>
+  <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- A-Frame (Enter VR reliability for vr-ui) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --radius:18px;
+      --pill:999px;
 
-  <!-- Global FX + Cloud Logger + Universal VR UI -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-  <script src="./vr/vr-ui.js" defer></script>
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
 
-  <!-- Boot (auto detect) -->
-  <script type="module" src="./hydration-vr/hydration-vr.boot.js"></script>
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    a{ color:inherit; }
 
-  <!-- Game SAFE -->
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
+    /* Background soft glow */
+    body::before{
+      content:"";
+      position:fixed; inset:0;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(circle at 85% 75%, rgba(34,197,94,.10), transparent 60%),
+        radial-gradient(circle at 40% 90%, rgba(168,85,247,.08), transparent 60%);
+      pointer-events:none;
+      z-index:0;
+    }
+
+    /* ---------- HUD layout ---------- */
+    .hud{
+      position:fixed;
+      inset:0;
+      z-index:50;
+      pointer-events:none;
+      padding:
+        calc(12px + var(--sat)) calc(12px + var(--sar))
+        calc(12px + var(--sab)) calc(12px + var(--sal));
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr auto;
+      gap:12px;
+    }
+
+    .panel{
+      pointer-events:none;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: 0 18px 70px rgba(0,0,0,.40);
+      backdrop-filter: blur(10px);
+      padding:12px 12px;
+    }
+
+    .statGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      align-items:stretch;
+    }
+    .statBox{
+      display:flex; justify-content:space-between; align-items:baseline;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+    }
+    .k{ font-size:12px; color:var(--muted); letter-spacing:.2px; }
+    .v{ font-size:20px; font-weight:900; }
+
+    .questTitle{ font-weight:900; letter-spacing:.2px; margin:0 0 6px 0; }
+    .questLine{ margin:2px 0; color:rgba(229,231,235,.92); font-size:13px; line-height:1.25; }
+    .questLine.muted{ color:rgba(148,163,184,.95); }
+
+    .miniRow{
+      margin-top:10px;
+      display:flex;
+      gap:10px;
+      justify-content:space-between;
+      align-items:center;
+      color:rgba(229,231,235,.92);
+      font-size:12px;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:var(--pill);
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+    }
+
+    .waterPanel .top{
+      display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+    }
+    .waterPanel h3{ margin:0; font-size:14px; font-weight:900; letter-spacing:.2px; }
+    .waterPanel .zone{ margin-top:4px; color:rgba(148,163,184,.95); font-size:12px; }
+    .barWrap{
+      margin-top:10px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.12);
+    }
+    #water-bar{
+      height:100%;
+      width:50%;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+    }
+    .waterTip{
+      margin-top:10px;
+      font-size:12px;
+      color:rgba(229,231,235,.85);
+      white-space:pre-line;
+      line-height:1.25;
+    }
+
+    /* ---------- Playfield ---------- */
+    #playfield, #cbPlayfield{
+      position:fixed;
+      inset:0;
+      z-index:10;
+      overflow:hidden;
+      touch-action:manipulation;
+    }
+    #hydration-layer{
+      position:absolute; inset:0;
+      pointer-events:auto;
+    }
+
+    /* cardboard: split L/R */
+    #cbPlayfield{ display:none; }
+    .cbHalf{
+      position:absolute;
+      top:0; bottom:0;
+      width:50%;
+      overflow:hidden;
+      pointer-events:auto;
+    }
+    .cbHalf.left{ left:0; }
+    .cbHalf.right{ right:0; }
+    .cbLayer{
+      position:absolute; inset:0;
+      pointer-events:auto;
+    }
+    .cbHalf::before{
+      content:"";
+      position:absolute; inset:0;
+      background: radial-gradient(circle at center, transparent 58%, rgba(0,0,0,.45) 100%);
+      pointer-events:none;
+      z-index:2;
+    }
+
+    /* view modes (loader จะจัด class ให้) */
+    body.view-pc #playfield{ display:block; }
+    body.view-mobile #playfield{ display:block; }
+    body.cardboard #playfield{ display:none; }
+    body.cardboard #cbPlayfield{ display:block; }
+
+    /* cVR strict: ยิงจาก crosshair (vr-ui.js) */
+    body.view-cvr #playfield{ display:block; }
+    body.view-cvr #cbPlayfield{ display:none; }
+    body.view-cvr #hydration-layer{ pointer-events:none; }
+
+    /* ---------- START (Tap-to-start only) ---------- */
+    #startOverlay{
+      position:fixed;
+      inset:0;
+      z-index:140;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+      background:rgba(2,6,23,.86);
+      backdrop-filter: blur(10px);
+    }
+    #startOverlay.hide{ display:none; }
+
+    .card{
+      width:min(940px, 100%);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.70);
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
+      padding:18px;
+    }
+    .header{
+      display:flex; gap:14px; align-items:center;
+      margin-bottom:14px;
+    }
+    .logo{
+      width:52px; height:52px; border-radius:14px;
+      background:rgba(34,211,238,.12);
+      border:1px solid rgba(34,211,238,.18);
+      display:flex; align-items:center; justify-content:center;
+      font-size:26px;
+    }
+    .title{ font-size:18px; font-weight:900; margin:0; }
+    .sub{
+      margin:4px 0 0 0;
+      color:rgba(148,163,184,.95);
+      font-size:13px;
+      line-height:1.35;
+      white-space:pre-line;
+    }
+    .btnRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+    .btn{
+      pointer-events:auto;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.62);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:900;
+      font-size:13px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn.primary{
+      border-color: rgba(34,197,94,.26);
+      background: rgba(34,197,94,.16);
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.26);
+      background: rgba(245,158,11,.14);
+    }
+    .note{
+      margin-top:12px;
+      font-size:12px;
+      color:rgba(229,231,235,.85);
+      line-height:1.35;
+      white-space:pre-line;
+    }
+
+    /* ---------- End Summary ---------- */
+    #resultBackdrop{
+      position:fixed;
+      inset:0;
+      z-index:160;
+      background:rgba(2,6,23,.74);
+      backdrop-filter: blur(10px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+    }
+    #resultBackdrop[hidden]{ display:none; }
+
+    .resultCard{
+      width:min(980px, 100%);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.74);
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
+      padding:16px;
+    }
+    .resultTop{
+      display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
+    }
+    .resultTop h2{ margin:0; font-size:16px; font-weight:900; }
+    .resultGrid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    .kv{ display:flex; justify-content:space-between; gap:10px; margin:6px 0; }
+    .kv .k2{ color:rgba(148,163,184,.95); font-size:12px; }
+    .kv .v2{ font-weight:900; }
+    pre{
+      margin:10px 0 0 0;
+      white-space:pre-wrap;
+      background:rgba(15,23,42,.70);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:14px;
+      padding:10px;
+      color:rgba(229,231,235,.92);
+      font-size:12px;
+      line-height:1.3;
+    }
+
+    /* ---------------- FX HOOKS ---------------- */
+    body.hha-endfx{
+      animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
+    }
+    @keyframes endBlink{ 0%,100%{ filter: brightness(1); } 50%{ filter: brightness(1.08) saturate(1.06); } }
+    @keyframes endShake{ 0%,100%{ transform: translate3d(0,0,0); } 50%{ transform: translate3d(0,1px,0); } }
+
+    body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
+    @keyframes hitPulse{ 0%{ filter: brightness(1); } 60%{ filter: brightness(1.12) saturate(1.10); } 100%{ filter: brightness(1); } }
+
+    body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
+    @keyframes bossFlash{ 0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); } 50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); } }
+
+    .hha-shock{
+      position:absolute;
+      left: var(--x,50%);
+      top: var(--y,50%);
+      width: 10px; height:10px;
+      transform: translate(-50%,-50%);
+      border-radius:999px;
+      border:2px solid rgba(34,211,238,.55);
+      pointer-events:none;
+      opacity:0.9;
+      animation: shock 420ms ease-out forwards;
+      filter: blur(.2px);
+      z-index:40;
+    }
+    @keyframes shock{ 0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; } 100%{ transform: translate(-50%,-50%) scale(18); opacity:0; } }
+  </style>
 </head>
 
-<body class="view-auto">
-  <!-- Minimal A-Frame scene (hidden) to keep WebXR entry stable -->
-  <a-scene
-    embedded
-    renderer="antialias: true; alpha: true;"
-    xr-mode-ui="enabled: false"
-    style="position:fixed; inset:0; width:1px; height:1px; opacity:0; pointer-events:none;">
-    <a-entity camera position="0 1.6 0"></a-entity>
-  </a-scene>
-
-  <!-- Crosshair for cVR -->
-  <div class="crosshair" aria-hidden="true"></div>
-
-  <!-- Playfield single -->
+<body class="view-pc">
+  <!-- PLAYFIELD (PC/Mobile/cVR) -->
   <div id="playfield">
-    <div id="hydration-layer" aria-label="hydration-layer"></div>
+    <div id="hydration-layer"></div>
   </div>
 
-  <!-- Cardboard split -->
+  <!-- PLAYFIELD (Cardboard split) -->
   <div id="cbPlayfield">
     <div class="cbHalf left">
       <div id="hydration-layerL" class="cbLayer"></div>
@@ -55,119 +362,127 @@
 
   <!-- HUD -->
   <div class="hud">
-    <!-- Stats panel -->
-    <div class="panel" style="grid-column:1; grid-row:1;">
+    <div class="panel">
       <div class="statGrid">
-        <div class="statBox"><div class="k">SCORE</div><div class="v" id="stat-score">0</div></div>
-        <div class="statBox"><div class="k">TIME</div><div class="v"><span id="stat-time">0</span>s</div></div>
-        <div class="statBox"><div class="k">COMBO</div><div class="v" id="stat-combo">0</div></div>
-        <div class="statBox"><div class="k">MISS</div><div class="v" id="stat-miss">0</div></div>
-        <div class="statBox"><div class="k">GRADE</div><div class="v" id="stat-grade">C</div></div>
-        <div class="statBox"><div class="k">SHIELD</div><div class="v"><span id="shield-count">0</span></div></div>
+        <div class="statBox"><div class="k">Score</div><div class="v" id="stat-score">0</div></div>
+        <div class="statBox"><div class="k">Combo</div><div class="v" id="stat-combo">0</div></div>
       </div>
+    </div>
+
+    <div class="panel">
+      <div class="statGrid">
+        <div class="statBox"><div class="k">Time</div><div class="v" id="stat-time">0</div></div>
+        <div class="statBox"><div class="k">Miss</div><div class="v" id="stat-miss">0</div></div>
+      </div>
+      <div style="margin-top:10px" class="statBox">
+        <div class="k">Grade</div><div class="v" id="stat-grade">C</div>
+      </div>
+    </div>
+
+    <div class="panel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
+      <div class="questTitle">ภารกิจ Hydration 💧</div>
+      <div class="questLine" id="quest-line1">Stage 1/3 ...</div>
+      <div class="questLine" id="quest-line2">—</div>
+      <div class="questLine muted" id="quest-line3">—</div>
+      <div class="questLine muted" id="quest-line4">—</div>
 
       <div class="miniRow">
-        <div class="pill">🌀 Storm <b id="storm-left">0</b>s</div>
+        <div class="pill">Storm <b id="storm-left">0</b></div>
+        <div class="pill">Shield <b id="shield-count">0</b></div>
       </div>
     </div>
 
-    <!-- Quest panel -->
-    <div class="panel" style="grid-column:2; grid-row:1;">
-      <div class="questTitle">🎯 ภารกิจ</div>
-      <div class="questLine" id="quest-line1">—</div>
-      <div class="questLine muted" id="quest-line2">—</div>
-      <div class="questLine" id="quest-line3">—</div>
-      <div class="questLine muted" id="quest-line4">—</div>
-    </div>
-
-    <!-- Water panel (extra detail; main gauge also appears bottom-right) -->
-    <div class="panel waterPanel" style="grid-column:2; grid-row:2;">
+    <div class="panel waterPanel" style="grid-column:2 / span 1; grid-row:2; align-self:end;">
       <div class="top">
         <div>
-          <h3>💧 Water Balance</h3>
-          <div class="zone">ZONE: <b id="water-zone">GREEN</b> • <span id="water-pct">50</span>%</div>
+          <h3>Water</h3>
+          <div class="zone">Zone <b id="water-zone">GREEN</b></div>
         </div>
-        <div class="pill">Tip: คุม GREEN แล้วเตรียม Storm</div>
+        <div style="text-align:right">
+          <div style="font-weight:900; font-size:22px;">
+            <span id="water-pct">50</span><span style="font-size:14px;color:rgba(148,163,184,.95)">%</span>
+          </div>
+        </div>
       </div>
       <div class="barWrap"><div id="water-bar"></div></div>
-      <div class="waterTip">Storm Mini: ต้องออกจาก GREEN → LOW/HIGH แล้ว BLOCK ช่วงท้าย</div>
+      <div class="waterTip" id="water-tip">Tip: เก็บ Shield ก่อนพายุ แล้วรอ End Window เพื่อ BLOCK</div>
     </div>
 
-    <!-- empty spacer -->
-    <div style="grid-column:1; grid-row:2;"></div>
+    <div style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
-  <!-- Start overlay -->
+  <!-- START (Tap-to-start only) -->
   <div id="startOverlay">
     <div class="card">
       <div class="header">
         <div class="logo">💧</div>
         <div>
-          <h1 class="title">Hydration VR</h1>
-          <p class="sub">
-โหมดอัตโนมัติ: PC / Mobile / cVR strict / Cardboard Split
-• cVR strict: ยิงจาก crosshair (แตะหน้าจอเพื่อยิง)
-• Cardboard: กด ⛶ Fullscreen "สองครั้งเร็ว ๆ" เพื่อสลับ split
-          </p>
+          <p class="title">HeroHealth — Hydration VR</p>
+          <p class="sub" id="startSub">กำลังเตรียมโหมด...</p>
         </div>
       </div>
 
       <div class="btnRow">
-        <button class="btn primary" id="btnStart">▶ Start</button>
-        <button class="btn warn" id="btnEnterFull">⛶ Fullscreen (VR Feel)</button>
-        <button class="btn btnBackHub">↩ กลับ HUB</button>
+        <button class="btn primary" id="btnStart">▶ START</button>
+        <button class="btn warn" id="btnBackHub">🏠 Back HUB</button>
       </div>
 
-      <div class="note">
-ภารกิจ 3 Stage:
-1) คุม GREEN ให้สะสมครบ
-2) ผ่าน Storm Mini อย่างน้อย 1 พายุ (LOW/HIGH + BLOCK ท้ายพายุ)
-3) เคลียร์ BOSS (BLOCK 🌩️ ให้ครบใน Boss Window)
+      <div class="note" id="startNote">
+• PC: คลิกที่เป้า
+• Mobile: แตะที่เป้า
+• cVR: ยิงจาก crosshair กลางจอ (แตะเพื่อยิง)
+• Cardboard: จอแยกซ้าย–ขวา + fullscreen/landscape (best-effort)
       </div>
     </div>
   </div>
 
-  <!-- Result Summary -->
+  <!-- END SUMMARY -->
   <div id="resultBackdrop" hidden>
     <div class="resultCard">
       <div class="resultTop">
-        <h2>✅ สรุปผลการเล่น</h2>
-        <div class="btnRow" style="margin:0; gap:8px;">
-          <button class="btn" id="btnCopyJSON">Copy JSON</button>
-          <button class="btn" id="btnDownloadCSV">Download CSV</button>
-          <button class="btn" id="btnRetry">Retry</button>
-          <button class="btn btnBackHub">Back HUB</button>
-          <button class="btn" id="btnCloseSummary">Close</button>
+        <h2>สรุปผลการเล่น</h2>
+        <div class="btnRow" style="margin:0;">
+          <button class="btn" id="btnRetry">🔁 Retry</button>
+          <button class="btn warn" id="btnBackHub2">🏠 Back HUB</button>
+          <button class="btn" id="btnCloseSummary">✖ Close</button>
         </div>
       </div>
 
       <div class="resultGrid">
-        <div class="panel">
+        <div class="panel" style="margin:0;">
           <div class="kv"><div class="k2">Score</div><div class="v2" id="rScore">0</div></div>
           <div class="kv"><div class="k2">Grade</div><div class="v2" id="rGrade">C</div></div>
           <div class="kv"><div class="k2">Accuracy</div><div class="v2" id="rAcc">0%</div></div>
           <div class="kv"><div class="k2">Combo Max</div><div class="v2" id="rComboMax">0</div></div>
           <div class="kv"><div class="k2">Miss</div><div class="v2" id="rMiss">0</div></div>
-          <div class="kv"><div class="k2">Tier</div><div class="v2" id="rTier">—</div></div>
+          <div class="kv"><div class="k2">Goals</div><div class="v2" id="rGoals">0/1</div></div>
+          <div class="kv"><div class="k2">Minis</div><div class="v2" id="rMinis">0/0</div></div>
         </div>
 
-        <div class="panel">
-          <div class="kv"><div class="k2">Goals</div><div class="v2" id="rGoals">0/0</div></div>
-          <div class="kv"><div class="k2">Mini (Storm)</div><div class="v2" id="rMinis">0/0</div></div>
-          <div class="kv"><div class="k2">GREEN Hold</div><div class="v2" id="rGreen">0.0s</div></div>
+        <div class="panel" style="margin:0;">
+          <div class="kv"><div class="k2">GREEN Hold</div><div class="v2" id="rGreen">0s</div></div>
           <div class="kv"><div class="k2">Streak Max</div><div class="v2" id="rStreak">0</div></div>
           <div class="kv"><div class="k2">Storm Cycles</div><div class="v2" id="rStormCycles">0</div></div>
-          <div class="kv"><div class="k2">Storm Pass</div><div class="v2" id="rStormOk">0</div></div>
+          <div class="kv"><div class="k2">Storm Success</div><div class="v2" id="rStormOk">0</div></div>
           <div class="kv"><div class="k2">Storm Rate</div><div class="v2" id="rStormRate">0%</div></div>
+          <div class="kv"><div class="k2" id="rTier">Tier:</div><div></div></div>
         </div>
       </div>
 
       <div class="panel" style="margin-top:12px;">
-        <div class="questTitle">🧠 AI Coach Tips</div>
+        <div class="kv"><div class="k2">Tips</div></div>
         <pre id="rTips">—</pre>
-        <div class="questLine muted">Next focus: <b id="rNext">—</b></div>
+        <div class="kv" style="margin-top:10px;"><div class="k2">Next</div><div class="v2" id="rNext">—</div></div>
+
+        <div class="btnRow">
+          <button class="btn" id="btnCopyJSON">📋 Copy JSON</button>
+          <button class="btn" id="btnDownloadCSV">⬇️ Download CSV</button>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- Loader (Auto-detect + Cardboard helper) -->
+  <script type="module" src="./hydration-vr.loader.js"></script>
 </body>
 </html>
