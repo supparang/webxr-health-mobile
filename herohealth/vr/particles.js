@@ -1,21 +1,12 @@
 // === /herohealth/vr/particles.js ===
-// HHA Particles — ULTRA (shared across all games)
-// ✅ One global FX layer (.hha-fx-layer)
-// ✅ Text pop (supports cls)
-// ✅ Burst confetti dots
-// ✅ Ring shockwave
-// ✅ Screen sparkle + celebrate
-// ✅ Safe: no dependencies, auto clamps, auto remove nodes
-//
-// Usage:
-//   Particles.popText(x,y,'+10','fx-good')
-//   Particles.burst(x,y,{n:14, life:520})
-//   Particles.shockwave(x,y,{r:140, life:420})
-//   Particles.celebrate({n:30})
-//
+// HHA Particles — ULTRA (shared FX layer for all games)
+// ✅ popText(x,y,text,cls)
+// ✅ burst(x,y,{r,n})
+// ✅ shockwave(x,y,{r})
+// ✅ celebrate()
 // Notes:
-// - Works great with hha-fx-director body classes.
-// - For mobile, pass x/y from pointer event clientX/clientY.
+// - Safe: auto-creates .hha-fx-layer
+// - No external deps
 
 (function (root) {
   'use strict';
@@ -23,11 +14,8 @@
   if (!doc || root.__HHA_PARTICLES__) return;
   root.__HHA_PARTICLES__ = true;
 
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const rand  = (a,b) => a + Math.random()*(b-a);
-  const now   = () => (root.performance && performance.now) ? performance.now() : Date.now();
-
-  function ensureLayer(){
+  // ---------- layer ----------
+  function ensureLayer() {
     let layer = doc.querySelector('.hha-fx-layer');
     if (layer) return layer;
     layer = doc.createElement('div');
@@ -36,283 +24,209 @@
       'position:fixed',
       'inset:0',
       'pointer-events:none',
-      'z-index:190',  // above playfield, under topbar (200)
+      'z-index:90',
       'overflow:hidden',
-      'contain:layout paint style'
+      'contain:layout style paint',
     ].join(';');
     doc.body.appendChild(layer);
     return layer;
   }
 
-  function ensureStyle(){
-    if (doc.getElementById('hhaParticlesStyle')) return;
+  // ---------- helpers ----------
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const rand = (a, b) => a + (b - a) * Math.random();
 
+  function addEl(html) {
+    const layer = ensureLayer();
+    const tmp = doc.createElement('div');
+    tmp.innerHTML = html;
+    const el = tmp.firstElementChild;
+    layer.appendChild(el);
+    return el;
+  }
+
+  function styleOnce() {
+    if (doc.getElementById('hha-particles-style')) return;
     const st = doc.createElement('style');
-    st.id = 'hhaParticlesStyle';
+    st.id = 'hha-particles-style';
     st.textContent = `
-      .hha-fx-layer{ }
-      .hha-fx-text{
-        position:absolute;
-        transform: translate(-50%,-50%);
-        font: 1000 18px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-        color:#fff;
-        text-shadow: 0 10px 26px rgba(0,0,0,.55);
-        opacity:.98;
-        will-change: transform, opacity, filter;
-        filter: drop-shadow(0 14px 30px rgba(0,0,0,.40));
-        animation: hhaPopText 560ms cubic-bezier(.2,.9,.2,1) forwards;
+      .hha-pop{
+        position:absolute; transform:translate(-50%,-50%);
+        font: 900 18px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color:#fff; text-shadow:0 10px 28px rgba(0,0,0,.55);
+        opacity:.98; will-change: transform, opacity;
+        animation: hhaPop 560ms ease-out forwards;
+        letter-spacing:.2px;
       }
-      .hha-fx-text.fx-good{ color:#eafff3; text-shadow: 0 10px 26px rgba(34,197,94,.18), 0 10px 26px rgba(0,0,0,.55); }
-      .hha-fx-text.fx-bad{  color:#ffecec; text-shadow: 0 10px 26px rgba(239,68,68,.18), 0 10px 26px rgba(0,0,0,.55); }
-      .hha-fx-text.fx-warn{ color:#fff7d6; text-shadow: 0 10px 26px rgba(245,158,11,.18), 0 10px 26px rgba(0,0,0,.55); }
-      .hha-fx-text.fx-violet{ color:#f4edff; text-shadow: 0 10px 26px rgba(167,139,250,.18), 0 10px 26px rgba(0,0,0,.55); }
+      .hha-pop.big{ font-size:22px; }
+      .hha-pop.perfect{ font-size:20px; transform:translate(-50%,-50%) scale(1.05); }
+      .hha-pop.score{ }
+      .hha-pop.block{ opacity:.95; }
+      .hha-pop.bad{ opacity:.95; }
 
-      @keyframes hhaPopText{
-        0%{ transform:translate(-50%,-50%) scale(.90); opacity:.20; filter: blur(.25px); }
-        55%{ transform:translate(-50%,-78%) scale(1.22); opacity:1; filter:none; }
-        100%{ transform:translate(-50%,-104%) scale(1.06); opacity:0; filter: blur(.12px); }
+      @keyframes hhaPop{
+        0%{ transform:translate(-50%,-50%) scale(.92); opacity:.92; }
+        55%{ transform:translate(-50%,-78%) scale(1.14); opacity:1; }
+        100%{ transform:translate(-50%,-96%) scale(1.05); opacity:0; }
       }
 
-      .hha-fx-dot{
-        position:absolute;
-        width:10px; height:10px;
-        border-radius:999px;
+      .hha-burst-dot{
+        position:absolute; left:0; top:0;
+        width:8px; height:8px; border-radius:999px;
         background: rgba(255,255,255,.92);
+        box-shadow: 0 10px 30px rgba(0,0,0,.35);
         transform: translate(-50%,-50%);
         will-change: transform, opacity;
-        opacity: .98;
-        filter: drop-shadow(0 10px 22px rgba(0,0,0,.40));
+        animation: hhaDot 520ms cubic-bezier(.2,.9,.2,1) forwards;
+        opacity:1;
+      }
+      @keyframes hhaDot{
+        0%{ opacity:1; transform:translate(var(--x0), var(--y0)) scale(.9); }
+        85%{ opacity:1; transform:translate(var(--x1), var(--y1)) scale(1); }
+        100%{ opacity:0; transform:translate(var(--x1), var(--y1)) scale(.7); }
       }
 
-      .hha-fx-ring{
-        position:absolute;
-        transform: translate(-50%,-50%);
-        width: 10px; height: 10px;
-        border-radius:999px;
-        border: 3px solid rgba(255,255,255,.40);
-        box-shadow: 0 0 30px rgba(255,255,255,.10), inset 0 0 26px rgba(255,255,255,.08);
-        will-change: transform, opacity, width, height;
-        opacity: .95;
-        pointer-events:none;
-      }
-
-      .hha-fx-spark{
-        position:absolute;
-        width: 6px; height: 6px;
-        border-radius: 3px;
-        background: rgba(255,255,255,.92);
-        transform: translate(-50%,-50%) rotate(0deg);
-        opacity:.9;
-        filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+      .hha-shock{
+        position:absolute; left:0; top:0;
+        width:18px; height:18px; border-radius:999px;
+        border: 2px solid rgba(255,255,255,.55);
+        transform: translate(-50%,-50%) scale(.3);
         will-change: transform, opacity;
+        animation: hhaShock 560ms ease-out forwards;
+        opacity:.95;
+      }
+      @keyframes hhaShock{
+        0%{ opacity:.85; transform:translate(var(--x), var(--y)) scale(.25); filter:blur(.2px); }
+        70%{ opacity:.55; transform:translate(var(--x), var(--y)) scale(var(--s)); }
+        100%{ opacity:0; transform:translate(var(--x), var(--y)) scale(calc(var(--s) * 1.12)); }
+      }
+
+      .hha-cele-dot{
+        position:absolute; width:9px; height:9px; border-radius:999px;
+        background: rgba(255,255,255,.94);
+        transform: translate(-50%,-50%);
+        will-change: transform, opacity;
+        animation: hhaCele 900ms cubic-bezier(.18,.86,.22,1) forwards;
+        opacity:1;
+      }
+      @keyframes hhaCele{
+        0%{ opacity:1; transform:translate(var(--sx), var(--sy)) scale(.85); }
+        65%{ opacity:1; transform:translate(var(--mx), var(--my)) scale(1); }
+        100%{ opacity:0; transform:translate(var(--ex), var(--ey)) scale(.8); }
       }
     `;
     doc.head.appendChild(st);
   }
 
-  function add(el){
-    ensureStyle();
+  // ---------- API ----------
+  function popText(x, y, text, cls) {
+    styleOnce();
+    x = Number(x) || innerWidth / 2;
+    y = Number(y) || innerHeight / 2;
+    const safe = String(text ?? '');
+    const c = String(cls || '').trim();
+
+    const el = addEl(
+      `<div class="hha-pop ${c}">${safe.replace(/</g, '&lt;')}</div>`
+    );
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+
+    setTimeout(() => {
+      try { el.remove(); } catch (_) {}
+    }, 650);
+  }
+
+  function burst(x, y, opts = {}) {
+    styleOnce();
+    x = Number(x) || innerWidth / 2;
+    y = Number(y) || innerHeight / 2;
+    const r = clamp(Number(opts.r ?? 52) || 52, 18, 140);
+    const n = clamp(Number(opts.n ?? 10) || 10, 6, 22);
+
     const layer = ensureLayer();
-    layer.appendChild(el);
-    return el;
+    for (let i = 0; i < n; i++) {
+      const ang = (Math.PI * 2 * i) / n + rand(-0.22, 0.22);
+      const d1 = rand(r * 0.55, r * 0.95);
+      const x1 = x + Math.cos(ang) * d1;
+      const y1 = y + Math.sin(ang) * d1;
+
+      const dot = doc.createElement('div');
+      dot.className = 'hha-burst-dot';
+      dot.style.left = '0px';
+      dot.style.top = '0px';
+      dot.style.setProperty('--x0', `${x}px`);
+      dot.style.setProperty('--y0', `${y}px`);
+      dot.style.setProperty('--x1', `${x1}px`);
+      dot.style.setProperty('--y1', `${y1}px`);
+      dot.style.width = `${rand(6, 10)}px`;
+      dot.style.height = dot.style.width;
+      layer.appendChild(dot);
+
+      setTimeout(() => {
+        try { dot.remove(); } catch (_) {}
+      }, 650);
+    }
   }
 
-  function safeRemove(el){
-    try{ el && el.remove && el.remove(); }catch(_){}
+  function shockwave(x, y, opts = {}) {
+    styleOnce();
+    x = Number(x) || innerWidth / 2;
+    y = Number(y) || innerHeight / 2;
+    const r = clamp(Number(opts.r ?? 70) || 70, 28, 180);
+    const s = clamp(r / 18, 1.6, 10.0);
+
+    const el = addEl(`<div class="hha-shock"></div>`);
+    el.style.setProperty('--x', `${x}px`);
+    el.style.setProperty('--y', `${y}px`);
+    el.style.setProperty('--s', String(s));
+
+    setTimeout(() => {
+      try { el.remove(); } catch (_) {}
+    }, 700);
+
+    // tiny burst to feel "impact"
+    burst(x, y, { r: clamp(r * 0.6, 22, 120), n: 8 });
   }
 
-  function popText(x, y, text, cls=''){
-    try{
-      x = clamp(Number(x)||0, 0, root.innerWidth||9999);
-      y = clamp(Number(y)||0, 0, root.innerHeight||9999);
+  function celebrate() {
+    styleOnce();
+    const layer = ensureLayer();
+    const cx = innerWidth / 2;
+    const cy = innerHeight * 0.35;
 
-      const el = doc.createElement('div');
-      el.className = 'hha-fx-text' + (cls ? (' ' + cls) : '');
-      el.textContent = String(text ?? '');
-      el.style.left = x + 'px';
-      el.style.top  = y + 'px';
+    const shots = 14;
+    for (let i = 0; i < shots; i++) {
+      const sx = cx + rand(-40, 40);
+      const sy = cy + rand(-30, 30);
+      const ex = cx + rand(-220, 220);
+      const ey = cy + rand(-160, 160);
+      const mx = (sx + ex) / 2 + rand(-40, 40);
+      const my = (sy + ey) / 2 - rand(40, 130);
 
-      add(el);
-      setTimeout(()=>safeRemove(el), 700);
-      return el;
-    }catch(_){ return null; }
+      const dot = doc.createElement('div');
+      dot.className = 'hha-cele-dot';
+      dot.style.left = '0px';
+      dot.style.top = '0px';
+      dot.style.setProperty('--sx', `${sx}px`);
+      dot.style.setProperty('--sy', `${sy}px`);
+      dot.style.setProperty('--mx', `${mx}px`);
+      dot.style.setProperty('--my', `${my}px`);
+      dot.style.setProperty('--ex', `${ex}px`);
+      dot.style.setProperty('--ey', `${ey}px`);
+      dot.style.width = `${rand(7, 11)}px`;
+      dot.style.height = dot.style.width;
+      layer.appendChild(dot);
+
+      setTimeout(() => {
+        try { dot.remove(); } catch (_) {}
+      }, 1200);
+    }
   }
 
-  function burst(x,y, opt={}){
-    try{
-      x = clamp(Number(x)||0, 0, root.innerWidth||9999);
-      y = clamp(Number(y)||0, 0, root.innerHeight||9999);
-
-      const n = clamp(Number(opt.n)||16, 6, 44);
-      const life = clamp(Number(opt.life)||540, 220, 1400);
-      const spread = clamp(Number(opt.spread)||140, 70, 260);
-      const sizeMin = clamp(Number(opt.sizeMin)||7, 3, 14);
-      const sizeMax = clamp(Number(opt.sizeMax)||12, sizeMin, 22);
-      const grav = clamp(Number(opt.grav)||0.86, 0.15, 2.2);
-      const drift = clamp(Number(opt.drift)||0.55, 0.05, 1.4);
-
-      const t0 = now();
-      const dots = [];
-
-      for(let i=0;i<n;i++){
-        const dot = doc.createElement('div');
-        dot.className = 'hha-fx-dot';
-        const s = rand(sizeMin,sizeMax);
-        dot.style.width = s + 'px';
-        dot.style.height = s + 'px';
-        dot.style.left = x + 'px';
-        dot.style.top  = y + 'px';
-
-        // random pastel-ish white + slight tint via box-shadow
-        const hue = rand(0, 360);
-        dot.style.background = `hsla(${hue}, 85%, 70%, .92)`;
-        dot.style.boxShadow = `0 0 0 2px hsla(${hue}, 90%, 60%, .12), 0 10px 22px rgba(0,0,0,.35)`;
-
-        add(dot);
-
-        const a = rand(0, Math.PI*2);
-        const v = rand(spread*0.42, spread);
-        const vx = Math.cos(a) * v * drift;
-        const vy = Math.sin(a) * v - rand(40, 120);
-        const rot = rand(-220, 220);
-
-        dots.push({ el: dot, vx, vy, rot, s });
-      }
-
-      function tick(){
-        const t = now() - t0;
-        const p = clamp(t / life, 0, 1);
-
-        for(const d of dots){
-          const dx = d.vx * (t/1000);
-          const dy = (d.vy * (t/1000)) + (grav * 980 * (t/1000)*(t/1000) * 0.15);
-          const o  = 1 - p;
-
-          d.el.style.transform =
-            `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${d.rot * (t/1000)}deg)`;
-          d.el.style.opacity = String(clamp(o, 0, 1));
-        }
-
-        if(p < 1) root.requestAnimationFrame(tick);
-        else dots.forEach(d=>safeRemove(d.el));
-      }
-
-      root.requestAnimationFrame(tick);
-    }catch(_){}
-  }
-
-  function shockwave(x,y,opt={}){
-    try{
-      x = clamp(Number(x)||0, 0, root.innerWidth||9999);
-      y = clamp(Number(y)||0, 0, root.innerHeight||9999);
-
-      const r = clamp(Number(opt.r)||160, 80, 520);
-      const life = clamp(Number(opt.life)||420, 200, 1200);
-      const thick = clamp(Number(opt.thick)||3, 1, 8);
-      const alpha = clamp(Number(opt.alpha)||0.42, 0.10, 0.90);
-
-      const ring = doc.createElement('div');
-      ring.className = 'hha-fx-ring';
-      ring.style.left = x + 'px';
-      ring.style.top  = y + 'px';
-      ring.style.borderWidth = thick + 'px';
-      ring.style.borderColor = `rgba(255,255,255,${alpha})`;
-
-      add(ring);
-
-      const t0 = now();
-      function tick(){
-        const t = now() - t0;
-        const p = clamp(t / life, 0, 1);
-
-        const rr = 10 + (r * p);
-        ring.style.width = rr + 'px';
-        ring.style.height = rr + 'px';
-        ring.style.opacity = String(1 - p);
-        ring.style.transform = `translate(-50%,-50%) scale(${0.92 + p*0.22})`;
-
-        if(p < 1) root.requestAnimationFrame(tick);
-        else safeRemove(ring);
-      }
-      root.requestAnimationFrame(tick);
-    }catch(_){}
-  }
-
-  function sparkle(x,y,opt={}){
-    try{
-      x = clamp(Number(x)||0, 0, root.innerWidth||9999);
-      y = clamp(Number(y)||0, 0, root.innerHeight||9999);
-
-      const n = clamp(Number(opt.n)||14, 6, 40);
-      const life = clamp(Number(opt.life)||520, 220, 1200);
-      const spread = clamp(Number(opt.spread)||170, 80, 320);
-      const t0 = now();
-
-      const sp = [];
-      for(let i=0;i<n;i++){
-        const el = doc.createElement('div');
-        el.className = 'hha-fx-spark';
-        const s = rand(5, 9);
-        el.style.width = s + 'px';
-        el.style.height = s + 'px';
-        el.style.left = x + 'px';
-        el.style.top  = y + 'px';
-        const hue = rand(0,360);
-        el.style.background = `hsla(${hue}, 88%, 80%, .92)`;
-        add(el);
-
-        const a = rand(0, Math.PI*2);
-        const v = rand(spread*0.35, spread);
-        const vx = Math.cos(a) * v;
-        const vy = Math.sin(a) * v;
-        const rot = rand(-280, 280);
-        sp.push({el,vx,vy,rot});
-      }
-
-      function tick(){
-        const t = now() - t0;
-        const p = clamp(t / life, 0, 1);
-        const ease = (1 - Math.pow(1-p, 3)); // easeOutCubic
-        for(const s of sp){
-          const dx = s.vx * (ease) * 0.85;
-          const dy = s.vy * (ease) * 0.85;
-          s.el.style.transform =
-            `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${s.rot*ease}deg) scale(${1 - p*0.25})`;
-          s.el.style.opacity = String(1 - p);
-        }
-        if(p < 1) root.requestAnimationFrame(tick);
-        else sp.forEach(s=>safeRemove(s.el));
-      }
-      root.requestAnimationFrame(tick);
-    }catch(_){}
-  }
-
-  function celebrate(opt={}){
-    try{
-      const w = root.innerWidth || 800;
-      const h = root.innerHeight || 600;
-
-      const n = clamp(Number(opt.n)||26, 10, 60);
-      const y = clamp(Number(opt.y)||Math.round(h*0.32), 40, h-40);
-
-      // center shockwave + sparkles + burst
-      shockwave(w*0.5, y, { r: clamp(Number(opt.r)||220, 120, 520), life: 520, alpha: 0.35, thick: 3 });
-      sparkle(w*0.5, y, { n: Math.round(n*0.65), spread: 260, life: 720 });
-      burst(w*0.5, y, { n, spread: 220, life: 820, grav: 0.92, drift: 0.62 });
-
-      // left & right small pops
-      popText(w*0.35, y + 20, '✨', 'fx-violet');
-      popText(w*0.65, y + 20, '✨', 'fx-violet');
-    }catch(_){}
-  }
-
-  // Public API
   root.Particles = root.Particles || {};
-  root.Particles.ensureLayer = ensureLayer;
   root.Particles.popText = popText;
   root.Particles.burst = burst;
   root.Particles.shockwave = shockwave;
-  root.Particles.sparkle = sparkle;
   root.Particles.celebrate = celebrate;
-
 })(window);
