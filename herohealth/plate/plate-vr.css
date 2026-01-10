@@ -1,18 +1,20 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — PRODUCTION+ (HHA Standard UI)
-✅ PC/Mobile/VR/cVR layouts + safe-area
-✅ HUD/Quest/Boss/Storm/Coach panels
-✅ Prevent HUD blocking VR-UI buttons
-✅ Targets readable + tap friendly
-✅ FX layer + hit pop
+Balanced Plate VR — PRODUCTION (HHA Standard UI)
+✅ Layout: PC / Mobile / VR / cVR
+✅ FIX: HUD never blocks targets (pointer-events + safe spawn pad)
+✅ FIX: keep vr-ui buttons clickable (z-index lanes)
+✅ GOAL + MINI bars visible + mini timer pressure
+✅ FX toast (hitFx) + coach overlay
+✅ Safe-area insets (Android notch)
 */
 
 :root{
   color-scheme: dark;
+
   --bg:#020617;
   --panel:rgba(2,6,23,.82);
-  --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.22);
+  --panel2:rgba(15,23,42,.70);
+  --stroke:rgba(148,163,184,.20);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -25,485 +27,339 @@ Balanced Plate VR — PRODUCTION+ (HHA Standard UI)
   --radius:22px;
   --pill:999px;
 
-  /* safe-area */
+  /* Safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* HUD spacing rules */
-  --hudTopH: 132px;          /* top reserved area */
-  --hudBottomH: 106px;       /* bottom reserved area */
-  --sidePad: 12px;
+  /* Playfield padding => must match safe spawn padding in JS (approx) */
+  --pad-top: 112px;
+  --pad-bottom: 124px;
+  --pad-side: 18px;
 
-  /* plate targets */
-  --targetSize: 56px;
-  --targetFont: 28px;
-  --targetShadow: 0 10px 28px rgba(0,0,0,.38);
+  /* Z lanes */
+  --z-scene: 1;
+  --z-target: 40;
+  --z-hud: 70;
+  --z-vrui: 85;   /* vr-ui.js overlay/buttons */
+  --z-fx: 90;     /* particles/hitFx */
+  --z-modal: 120; /* end overlay if any */
 }
 
-/* ---------- base ---------- */
 *{ box-sizing:border-box; }
+
 html,body{
-  width:100%; height:100%;
-  margin:0; padding:0;
+  width:100%;
+  height:100%;
+  margin:0;
+  padding:0;
   overflow:hidden;
-  background: radial-gradient(circle at 15% 10%, rgba(34,211,238,.16), transparent 52%),
-              radial-gradient(circle at 90% 80%, rgba(167,139,250,.16), transparent 56%),
-              linear-gradient(180deg, #020617, #020617);
+  background:
+    radial-gradient(900px 560px at 12% 10%, rgba(34,211,238,.12), transparent 55%),
+    radial-gradient(860px 520px at 92% 86%, rgba(167,139,250,.11), transparent 60%),
+    radial-gradient(780px 520px at 62% 30%, rgba(34,197,94,.08), transparent 55%),
+    var(--bg);
   color:var(--text);
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  -webkit-tap-highlight-color: transparent;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
 }
 
-a{ color:inherit; }
-
-/* ---------- background scene slot (if any) ---------- */
-#sceneRoot{
-  position:fixed; inset:0;
-  z-index:0;
+/* --------- Root wrappers --------- */
+#app{
+  position:fixed;
+  inset:0;
+  padding: calc(var(--sat) + 0px) calc(var(--sar) + 0px) calc(var(--sab) + 0px) calc(var(--sal) + 0px);
 }
 
-/* ---------- play layer ---------- */
+/* The host where targets spawn */
 #plate-layer{
   position:fixed;
   inset:0;
-  z-index:2;
-  /* reserved space so targets don't spawn under HUD */
-  padding:
-    calc(var(--sat) + var(--hudTopH)) 
-    calc(var(--sar) + 10px)
-    calc(var(--sab) + var(--hudBottomH))
-    calc(var(--sal) + 10px);
-  touch-action: manipulation;
+  z-index: var(--z-scene);
+  /* IMPORTANT: allow targets clickable */
+  pointer-events: none; /* host ignores events; targets are fixed positioned */
 }
 
-/* if you want targets allowed behind HUD in PC (optional):
-body.view-pc #plate-layer{ padding-top: calc(var(--sat) + 118px); } */
+/* Targets are fixed-positioned; make them clickable */
+.plate-target{
+  z-index: var(--z-target);
+  pointer-events: auto;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
 
-/* ---------- targets ---------- */
-.plateTarget{
-  border:1px solid rgba(148,163,184,.28);
-  background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(15,23,42,.72));
-  color:#fff;
-  box-shadow: var(--targetShadow);
+/* Optional: soft breathing ring for targets */
+.plate-target .tile{
+  position:relative;
   display:grid;
   place-items:center;
-  cursor:pointer;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action: manipulation;
-  transform: translateZ(0);
-  transition: transform .08s ease, filter .08s ease, opacity .12s ease;
+  filter: drop-shadow(0 18px 45px rgba(0,0,0,.35));
 }
-.plateTarget:active{
-  transform: scale(.96);
-  filter: brightness(1.1);
+.plate-target.is-good .tile{
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.35),
+    0 0 0 6px rgba(34,197,94,.10);
 }
-.plateTarget.fx-good{
-  border-color: rgba(34,197,94,.45);
-  box-shadow: 0 14px 38px rgba(34,197,94,.12), var(--targetShadow);
-}
-.plateTarget.fx-bad{
-  border-color: rgba(239,68,68,.45);
-  box-shadow: 0 14px 38px rgba(239,68,68,.12), var(--targetShadow);
+.plate-target.is-bad .tile{
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.35),
+    0 0 0 6px rgba(239,68,68,.10);
 }
 
-/* ---------- HUD wrappers ---------- */
-#hudTop,
-#hudBtns,
-#bossHud,
-#stormHud,
-#miniPanel,
-#coachPanel{
+.plate-target:active .tile{
+  transform: scale(.95);
+  transition: transform 80ms ease;
+}
+
+.tile-label{
+  pointer-events:none;
+  text-shadow: 0 2px 0 rgba(0,0,0,.35);
+}
+
+/* --------- HUD lane (must NOT block targets) --------- */
+#hud{
   position:fixed;
-  z-index:40; /* keep above targets */
-  pointer-events:none; /* IMPORTANT: don't block targets */
-}
-#hudTop * ,
-#hudBtns * ,
-#bossHud * ,
-#stormHud * ,
-#miniPanel * ,
-#coachPanel * { pointer-events:auto; }
-
-/* Keep VR-UI buttons always clickable (vr-ui.js usually uses z-index 120) */
-.hha-vrui,
-.hha-vrui *{
-  pointer-events:auto !important;
+  left:0; right:0;
+  top:0;
+  z-index: var(--z-hud);
+  padding:
+    calc(var(--sat) + 10px)
+    calc(var(--sar) + 12px)
+    10px
+    calc(var(--sal) + 12px);
+  pointer-events: none; /* ✅ HUD never blocks targets */
 }
 
-/* ---------- Top HUD ---------- */
-#hudTop{
-  left: calc(var(--sal) + var(--sidePad));
-  right: calc(var(--sar) + var(--sidePad));
-  top: calc(var(--sat) + 10px);
+.hud-row{
   display:flex;
   gap:10px;
-  align-items:stretch;
+  align-items:center;
   justify-content:space-between;
 }
 
-.hudCard{
+.hud-pill{
+  pointer-events:none;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
   background: var(--panel);
   border:1px solid var(--stroke);
-  border-radius: var(--radius);
-  box-shadow: 0 20px 50px rgba(0,0,0,.25);
-  padding:10px 12px;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 55px rgba(0,0,0,.38);
 }
 
-#hudMain{
-  flex:1;
-  min-width: 0;
+.hud-stat{
   display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:space-between;
-}
-
-.hudStat{
-  display:flex;
-  gap:8px;
   align-items:baseline;
-  min-width: 0;
+  gap:8px;
 }
-.hudLabel{
+.hud-stat .k{
+  color: var(--muted);
+  font-weight:800;
   font-size:12px;
-  color:var(--muted);
-  letter-spacing:.3px;
+  letter-spacing:.2px;
 }
-.hudValue{
+.hud-stat .v{
+  font-weight:950;
   font-size:18px;
-  font-weight:900;
-}
-.hudTiny{
-  font-size:12px;
-  color:var(--muted);
 }
 
-/* fever */
-#uiFeverWrap{
-  width: 120px;
-  height: 12px;
-  border-radius: 999px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.55);
-  overflow:hidden;
-}
-#uiFeverFill{
-  height:100%;
-  width:0%;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95), rgba(239,68,68,.95));
+/* Score/Combo/Time blocks */
+#uiScore, #uiCombo, #uiTime{
+  font-variant-numeric: tabular-nums;
 }
 
-/* grade chip */
-#uiGradeChip{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  height:30px;
-  padding:0 12px;
-  border-radius: var(--pill);
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.65);
-  font-weight:900;
-}
-
-/* ---------- Mini panel (goal/mini) ---------- */
-#miniPanel{
-  left: calc(var(--sal) + var(--sidePad));
-  right: calc(var(--sar) + var(--sidePad));
-  top: calc(var(--sat) + 86px);
-  display:flex;
+/* --------- Goal + Mini bars --------- */
+#questbar{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
   gap:10px;
-  align-items:stretch;
-  justify-content:space-between;
+  pointer-events:none;
 }
 
-#miniPanel .miniCard{
-  flex:1;
-  min-width:0;
+.q-card{
   background: var(--panel2);
   border:1px solid var(--stroke);
   border-radius: var(--radius);
-  padding:10px 12px;
+  padding: 10px 12px;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 55px rgba(0,0,0,.33);
 }
 
-.miniTitle{
-  font-size:12px;
-  color:var(--muted);
-}
-.miniText{
-  margin-top:4px;
-  font-size:14px;
-  font-weight:800;
-  line-height:1.25;
-  word-break:break-word;
-}
-.miniProg{
-  margin-top:8px;
-  height:10px;
-  border-radius:999px;
-  background: rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.18);
-  overflow:hidden;
-}
-.miniProg > i{
-  display:block;
-  height:100%;
-  width:0%;
-  background: linear-gradient(90deg, rgba(34,211,238,.9), rgba(167,139,250,.9));
-}
-
-/* ---------- Coach panel ---------- */
-#coachPanel{
-  left: calc(var(--sal) + var(--sidePad));
-  bottom: calc(var(--sab) + 12px);
-  width:min(520px, calc(100vw - (var(--sal) + var(--sar) + 2*var(--sidePad))));
-}
-#coachPanel .coachCard{
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
-  background: rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: var(--radius);
-  padding:10px 12px;
-  backdrop-filter: blur(10px);
-}
-#coachAvatar{
-  width:42px; height:42px;
-  border-radius: 14px;
-  display:grid;
-  place-items:center;
-  background: rgba(15,23,42,.7);
-  border:1px solid rgba(148,163,184,.18);
-  font-size:22px;
-}
-#coachMsg{
-  font-size:14px;
-  line-height:1.25;
-  font-weight:800;
-}
-#coachHint{
-  margin-top:3px;
-  font-size:12px;
-  color:var(--muted);
-}
-
-/* ---------- HUD Buttons bottom-right ---------- */
-#hudBtns{
-  right: calc(var(--sar) + var(--sidePad));
-  bottom: calc(var(--sab) + 12px);
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:flex-end;
-}
-.hudBtn{
-  pointer-events:auto;
-  appearance:none;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.72);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius: var(--pill);
-  font-weight:900;
-  letter-spacing:.2px;
-  cursor:pointer;
-  box-shadow: 0 14px 34px rgba(0,0,0,.22);
-  transition: transform .08s ease, filter .08s ease;
-}
-.hudBtn:active{ transform: scale(.98); }
-.hudBtn.primary{
-  border-color: rgba(34,197,94,.35);
-  background: rgba(34,197,94,.18);
-}
-.hudBtn.warn{
-  border-color: rgba(245,158,11,.35);
-  background: rgba(245,158,11,.16);
-}
-.hudBtn.bad{
-  border-color: rgba(239,68,68,.35);
-  background: rgba(239,68,68,.16);
-}
-
-/* ---------- Boss / Storm HUD (top center) ---------- */
-#bossHud, #stormHud{
-  left: 50%;
-  transform: translateX(-50%);
-  top: calc(var(--sat) + 10px);
-  width: min(520px, calc(100vw - (var(--sal) + var(--sar) + 40px)));
-}
-#stormHud{ top: calc(var(--sat) + 54px); }
-
-.phaseCard{
-  background: rgba(2,6,23,.64);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: var(--radius);
-  padding:10px 12px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 48px rgba(0,0,0,.22);
-}
-.phaseTop{
+.q-title{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
+  margin-bottom:8px;
 }
-.phaseTitle{
-  font-weight:1000;
-  letter-spacing:.2px;
-}
-.phaseHint{
+.q-title .t{
+  font-weight:950;
   font-size:12px;
-  color:var(--muted);
-  text-align:right;
+  letter-spacing:.25px;
+  color:#cbd5e1;
 }
-.phaseProg{
-  margin-top:8px;
+.q-title .sub{
+  font-size:11px;
+  color: var(--muted);
+  font-weight:800;
+}
+
+.q-text{
+  font-size:12px;
+  font-weight:800;
+  color:#e5e7eb;
+  opacity:.95;
+  line-height:1.25;
+  margin-bottom:10px;
+}
+
+/* progress bar */
+.q-bar{
   height:10px;
-  border-radius:999px;
-  background: rgba(15,23,42,.55);
+  border-radius: var(--pill);
+  background: rgba(148,163,184,.12);
   border:1px solid rgba(148,163,184,.18);
   overflow:hidden;
 }
-.phaseProg > i{
-  display:block;
+.q-fill{
   height:100%;
   width:0%;
-  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
+  border-radius: var(--pill);
+  transition: width 160ms ease, opacity 160ms ease;
 }
+#uiGoalFill{ background: rgba(34,197,94,.85); }
+#uiMiniFill{ background: rgba(34,211,238,.85); }
 
-/* ---------- Start overlay / Pause overlay / Result ---------- */
-#startOverlay,
-#hudPaused,
-#resultBackdrop{
+/* --------- Coach overlay --------- */
+#coach{
   position:fixed;
-  inset:0;
-  z-index:80;
-  display:grid;
-  place-items:center;
-  padding: calc(var(--sat) + 16px) calc(var(--sar) + 16px)
-           calc(var(--sab) + 16px) calc(var(--sal) + 16px);
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(6px);
+  left:0; right:0;
+  bottom:0;
+  z-index: var(--z-hud);
+  padding:
+    10px
+    calc(var(--sar) + 12px)
+    calc(var(--sab) + 12px)
+    calc(var(--sal) + 12px);
+  pointer-events:none; /* coach does not block targets */
 }
 
-#hudPaused{ display:none; }
-#resultBackdrop{ display:none; }
-
-.modal{
-  width:min(720px, 100%);
-  background: rgba(2,6,23,.90);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 26px;
-  padding: 18px 18px;
-  box-shadow: 0 30px 90px rgba(0,0,0,.35);
-}
-.modal h1{
-  margin:0;
-  font-size:20px;
-  letter-spacing:.2px;
-}
-.modal p{
-  margin:10px 0 0 0;
-  color:var(--muted);
-  line-height:1.35;
-}
-.modal .row{
-  margin-top:14px;
+.coach-card{
+  margin-left:auto;
+  max-width: min(560px, 96vw);
+  background: rgba(2,6,23,.78);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius: 24px;
+  padding: 12px 14px;
   display:flex;
-  flex-wrap:wrap;
   gap:10px;
   align-items:center;
-  justify-content:flex-end;
-}
-.modal .bigBtn{
-  appearance:none;
-  border:none;
-  padding:12px 14px;
-  border-radius: var(--pill);
-  font-weight:1000;
-  cursor:pointer;
-  background: rgba(34,197,94,.18);
-  border:1px solid rgba(34,197,94,.35);
-  color:var(--text);
-}
-.modal .bigBtn.secondary{
-  background: rgba(15,23,42,.65);
-  border:1px solid rgba(148,163,184,.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 18px 60px rgba(0,0,0,.38);
 }
 
-/* ---------- FX Layer / Hit pop ---------- */
+.coach-dot{
+  width:12px; height:12px;
+  border-radius: 999px;
+  background: rgba(34,197,94,.85);
+  box-shadow: 0 0 0 6px rgba(34,197,94,.12);
+  flex: 0 0 auto;
+}
+#coachMsg{
+  font-size:13px;
+  font-weight:850;
+  color:#e5e7eb;
+  line-height:1.25;
+}
+
+/* --------- Hit FX toast --------- */
 #hitFx{
   position:fixed;
-  inset:0;
-  z-index:70;
-  pointer-events:none;
-  overflow:hidden;
-}
-.fxPop{
-  position:absolute;
-  transform: translate(-50%,-50%);
-  font: 1000 18px/1 system-ui;
-  color:#fff;
-  text-shadow: 0 6px 18px rgba(0,0,0,.35);
-  animation: popUp .55s ease both;
-}
-@keyframes popUp{
-  0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
-  20%{ opacity:1; transform:translate(-50%,-62%) scale(1.05); }
-  100%{ opacity:0; transform:translate(-50%,-92%) scale(.92); }
-}
-
-/* ---------- Responsive tuning ---------- */
-@media (max-width: 520px){
-  :root{
-    --hudTopH: 142px;
-    --hudBottomH: 116px;
-    --targetSize: 58px;
-  }
-  #hudTop{ gap:8px; }
-  .hudCard{ padding:10px 10px; border-radius: 18px; }
-  #uiFeverWrap{ width: 92px; }
-  #coachPanel{ width: min(100%, calc(100vw - (var(--sal)+var(--sar) + 24px))); }
-  .hudBtn{ padding:10px 11px; }
-}
-
-@media (min-width: 980px){
-  :root{
-    --hudTopH: 122px;
-    --hudBottomH: 96px;
-    --targetSize: 54px;
-  }
-}
-
-/* ---------- View mode tweaks ---------- */
-body.view-vr #coachPanel,
-body.view-cvr #coachPanel{
-  left: 50%;
+  left:50%;
+  top: calc(var(--sat) + 74px);
   transform: translateX(-50%);
-  bottom: calc(var(--sab) + 12px);
-  width: min(640px, calc(100vw - (var(--sal)+var(--sar) + 40px)));
+  z-index: var(--z-fx);
+  pointer-events:none;
+  padding: 10px 14px;
+  border-radius: var(--pill);
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.70);
+  box-shadow: 0 18px 55px rgba(0,0,0,.38);
+  font-weight:950;
+  opacity: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
 }
-body.view-cvr #plate-layer{
-  /* cVR: keep bigger safe margins to reduce nausea + avoid HUD */
-  padding:
-    calc(var(--sat) + var(--hudTopH) + 6px)
-    calc(var(--sar) + 14px)
-    calc(var(--sab) + var(--hudBottomH) + 10px)
-    calc(var(--sal) + 14px);
+#hitFx[aria-hidden="false"]{
+  opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
+}
+#hitFx.fx-good{ border-color: rgba(34,197,94,.35); }
+#hitFx.fx-bad{ border-color: rgba(239,68,68,.35); }
+#hitFx.fx-ok{ border-color: rgba(34,211,238,.35); }
+
+/* --------- vr-ui lane: always clickable --------- */
+/* vr-ui.js normally injects elements like .hha-vr-ui, #hha-enter-vr etc. */
+.hha-vr-ui,
+#hha-enter-vr,
+#hha-exit-vr,
+#hha-recenter{
+  z-index: var(--z-vrui) !important;
+  pointer-events: auto !important; /* ✅ must remain clickable */
 }
 
-/* ---------- Accessibility ---------- */
-button:focus-visible{
-  outline: 2px solid rgba(34,211,238,.85);
-  outline-offset: 2px;
+/* Ensure HUD never overlays vr-ui controls */
+#hud, #coach{ z-index: var(--z-hud); }
+#hud *{ pointer-events:none; } /* double safety */
+
+/* --------- Responsive tuning --------- */
+@media (max-width: 480px){
+  :root{
+    --pad-top: 104px;
+    --pad-bottom: 116px;
+    --pad-side: 14px;
+  }
+  .hud-pill{ padding: 9px 10px; border-radius: 18px; }
+  .hud-stat .v{ font-size: 17px; }
+  #questbar{ grid-template-columns: 1fr; }
+  #hitFx{ top: calc(var(--sat) + 68px); }
 }
 
-/* ---------- Optional hide panels in VR to increase play area ---------- */
-body.view-vr .hudLabel,
-body.view-vr .hudTiny{ display:none; }
+@media (min-width: 900px){
+  #hud{ padding-left: 18px; padding-right: 18px; }
+  #questbar{ grid-template-columns: 1.1fr .9fr; }
+}
+
+/* --------- View modes: cVR/VR tweaks --------- */
+body.view-cvr #hud,
+body.view-vr #hud{
+  /* in VR, keep HUD a bit smaller */
+}
+body.view-cvr .q-text,
+body.view-vr .q-text{
+  font-size: 11.5px;
+}
+body.view-cvr #hitFx,
+body.view-vr #hitFx{
+  top: calc(var(--sat) + 62px);
+}
+
+/* In strict cVR, target labels shouldn't steal focus; targets are shot via crosshair */
+body.view-cvr .tile-label{
+  opacity: .92;
+}
+
+/* --------- Accessibility / reduced motion --------- */
+@media (prefers-reduced-motion: reduce){
+  #hitFx,
+  .q-fill,
+  .plate-target .tile{
+    transition: none !important;
+  }
+}
