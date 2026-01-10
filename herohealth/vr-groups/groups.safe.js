@@ -1,16 +1,14 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
-✅ A: DOM-safe spawn (real UI safezones) → no HUD overlap
-✅ B: Miss standard + dedupe + mini_fail not counted as miss (breakdown separated)
-✅ C: Rank SSS/SS/S/A/B/C with soft miss gates (kid-friendly + fair)
-✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
-✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
-         groups:power, groups:progress, hha:judge, hha:end
+Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones)
+✅ FIX Miss: ใช้มาตรฐาน HHA_Miss (dedupe กันนับซ้ำ)
+✅ FIX Spawn: ใช้ HHA_SafeZones (กันเป้าไปอยู่ใต้ HUD/Quest/Power/Coach/VR-UI)
+✅ shoot_miss: “ไม่เพิ่ม Miss” (default) => ยิงพลาดแค่คอมโบหลุด (เหมาะ ป.5)
+✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
    - practice: deterministic seed + adaptive OFF + AI OFF
-✅ PACK 15: optional AI director/pattern hooks (only when AIHooks attaches and runMode=play)
-✅ PACK 49: Miss Pressure levels (0-3) drives difficulty + FX + coach tips
+✅ Rank: SSS, SS, S, A, B, C (Miss ถูกถ่วงหนักขึ้น)
+✅ Summary: include missBreakdown (แยกผิด/ขยะ/หมดเวลา/ยิงวืด/etc.) เพื่อหลังบ้าน
 */
 
 (function (root) {
@@ -134,79 +132,72 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     };
   }
 
-  // ✅ C: Rank function + soft miss gates
+  // ---------------- Rank (SSS..C) ----------------
+  // ✅ ให้ Miss มีผลชัด: เด็กป.5 ยิงมั่ว = Rank ตกจริง
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    const mPenalty = Math.min(34, misses * 2.8);
+    const mPenalty = Math.min(38, misses * 3.0);  // หนักขึ้นอีกนิด
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.0);
     const v = accPct - mPenalty + sBoost;
 
-    // base rank
-    let g =
-      (v >= 94) ? 'SSS' :
-      (v >= 88) ? 'SS'  :
-      (v >= 80) ? 'S'   :
-      (v >= 70) ? 'A'   :
-      (v >= 58) ? 'B'   : 'C';
-
-    // ✅ soft gate by misses (กันกรณี Miss เยอะแล้วได้ S/SSS)
-    if (misses >= 18 && (g === 'SSS' || g === 'SS' || g === 'S')) g = 'A';
-    if (misses >= 12 && (g === 'SSS' || g === 'SS')) g = 'S';
-    if (misses >= 9  && (g === 'SSS')) g = 'SS';
-
-    return g;
+    if (v >= 94) return 'SSS';
+    if (v >= 88) return 'SS';
+    if (v >= 80) return 'S';
+    if (v >= 70) return 'A';
+    if (v >= 58) return 'B';
+    return 'C';
   }
 
-  // ---------------- Spawn bounds fallback (เดิม) ----------------
-  function computePlayRect(view) {
-    const W = Math.max(320, root.innerWidth  || 360);
-    const H = Math.max(420, root.innerHeight || 640);
+  // ---------------- SafeZones (UI-aware spawn bounds) ----------------
+  function makeSafeZones(){
+    const SZ = root.HHA_SafeZones;
+    if (!SZ || !SZ.compute || !SZ.pickSafePoint) return null;
 
-    const padTopBase = 150;
-    const padBotBase = 130;
-    const padLeftBase= 210;
-    const padRight   = 24;
+    const selectors = [
+      '.hud',
+      '.questTop',
+      '.powerWrap',
+      '.coachWrap',
+      '.hha-vr-ui',
+      '.overlay'
+    ];
 
-    const padTop  = clamp(padTopBase, 110, Math.round(H * 0.28));
-    const padBot  = clamp(padBotBase, 96,  Math.round(H * 0.26));
-    const padLeft = clamp(padLeftBase, 120, Math.round(W * 0.52));
-    const extraCenter = (view === 'cvr') ? 22 : 0;
+    let cache = null;
+    let cacheAt = 0;
 
-    let xMin = 12 + extraCenter;
-    let xMax = W - padRight - extraCenter;
-    let yMin = 12 + Math.round(H * 0.02);
-    let yMax = H - 12;
-
-    xMin = Math.max(xMin, padLeft);
-    yMin = Math.max(yMin, padTop);
-    yMax = Math.min(yMax, H - padBot);
-
-    const minW = Math.max(120, Math.round(W * 0.34));
-    const minH = Math.max(140, Math.round(H * 0.34));
-
-    if ((xMax - xMin) < minW) {
-      const relax = Math.round((minW - (xMax - xMin)) * 0.55);
-      xMin = Math.max(10, xMin - relax);
-      xMax = Math.min(W - 10, xMax + relax);
-    }
-    if ((yMax - yMin) < minH) {
-      const relax = Math.round((minH - (yMax - yMin)) * 0.55);
-      yMin = Math.max(10, yMin - relax);
-      yMax = Math.min(H - 10, yMax + relax);
+    function recompute(force){
+      const t = nowMs();
+      if (!force && cache && (t - cacheAt) < 650) return cache;
+      cacheAt = t;
+      cache = SZ.compute({
+        selectors,
+        uiPad: 10,     // กันห่างขอบ UI
+        edgePad: 12    // กันชิดขอบจอ
+      });
+      return cache;
     }
 
-    xMin = clamp(xMin, 8, W - 60);
-    xMax = clamp(xMax, 60, W - 8);
-    yMin = clamp(yMin, 8, H - 80);
-    yMax = clamp(yMax, 80, H - 8);
+    function pickPoint(rng, radius){
+      const c = recompute(false);
+      const p = SZ.pickSafePoint({
+        playRect: c.playRect,
+        excludeRects: c.excludeRects,
+        rng,
+        tries: 90,
+        radius: radius
+      });
+      return { x:p.x, y:p.y, W:c.W, H:c.H };
+    }
 
-    if (xMax <= xMin + 8) { xMin = 12; xMax = W - 12; }
-    if (yMax <= yMin + 8) { yMin = 12; yMax = H - 12; }
+    function hardRefresh(){ recompute(true); }
 
-    return { W, H, xMin, xMax, yMin, yMax };
+    root.addEventListener('resize', ()=>hardRefresh(), {passive:true});
+    root.addEventListener('orientationchange', ()=>hardRefresh(), {passive:true});
+
+    return { pickPoint, hardRefresh };
   }
 
   // ---------------- Engine ----------------
@@ -225,14 +216,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     this.score = 0;
     this.combo = 0;
     this.comboMax = 0;
-    this.misses = 0;
 
-    // ✅ B: miss breakdown + standard counter (dedupe)
-    this.missBreakdown = { wrong:0, junk:0, expire_good:0, mini_fail:0 };
+    // ✅ Miss Standard
     this.missCounter = null;
 
-    // ✅ PACK 49: pressure
-    this.pressure = 0;
+    // PACK 49: pressure
+    this.pressure = 0;        // 0..3
     this._lastPressureTip = 0;
 
     // counts
@@ -240,9 +229,11 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -278,14 +269,28 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
 
     // coach
     this.coachLastAt = 0;
+
+    // safezones
+    this.safeZones = null;
   }
 
   Engine.prototype.setLayerEl = function (el) {
     this.layerEl = el;
   };
 
+  Engine.prototype._getMisses = function(){
+    if (this.missCounter && this.missCounter.get) return (this.missCounter.get()|0);
+    return 0;
+  };
+
+  Engine.prototype._setMisses = function(n){
+    if (this.missCounter && this.missCounter.set) return (this.missCounter.set(n)|0);
+    return 0;
+  };
+
+  // PACK 49: map misses -> pressure 0..3
   Engine.prototype._calcPressure = function(){
-    const m = this.misses|0;
+    const m = this._getMisses();
     if (m >= 14) return 3;
     if (m >= 9)  return 2;
     if (m >= 5)  return 1;
@@ -307,7 +312,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
       if (p===3) flashBodyFx('fx-bad', 280);
     }
 
-    emit('groups:progress', { kind:'pressure', level:p, misses:this.misses|0 });
+    emit('groups:progress', { kind:'pressure', level:p, misses:this._getMisses() });
 
     const t = nowMs();
     if (t - this._lastPressureTip > 2500 && this.cfg && this.cfg.runMode==='play'){
@@ -324,7 +329,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     const runMode = (rm === 'research') ? 'research' : (rm === 'practice' ? 'practice' : 'play');
     const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
     const preset  = diffPreset(diff);
-
     const timeSec = clamp(opts.time ?? preset.time, 5, 180);
 
     this.cfg = {
@@ -340,30 +344,27 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     // deterministic always
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
+    // ✅ Miss Counter rules:
+    // - wrong_hit / junk_hit / expire => นับเป็น Miss
+    // - shoot_miss => ไม่เพิ่ม Miss (แค่คอมโบหลุด)
+    const MC = root.HHA_Miss && root.HHA_Miss.createCounter;
+    this.missCounter = MC ? MC({
+      gameTag: 'GroupsVR',
+      dedupeMs: 360,
+      rules: {
+        wrongHitCounts: true,
+        junkHitCounts: true,
+        goodExpiredCounts: true,
+        shootMissCounts: false
+      }
+    }) : null;
+
     this.leftSec = Math.round(timeSec);
 
     this.score = 0;
     this.combo = 0;
     this.comboMax = 0;
-    this.misses = 0;
-
-    // ✅ B: reset breakdown + init miss counter (dedupe)
-    this.missBreakdown = { wrong:0, junk:0, expire_good:0, mini_fail:0 };
-    if (root.HHA_Miss && root.HHA_Miss.createCounter){
-      this.missCounter = root.HHA_Miss.createCounter({
-        gameTag: 'GroupsVR',
-        dedupeMs: 380,
-        rules: {
-          goodExpiredCounts:false,
-          junkHitCounts:false,
-          wrongHitCounts:true,
-          shootMissCounts:false
-        }
-      });
-      this.missCounter.set(0);
-    } else {
-      this.missCounter = null;
-    }
+    this._setMisses(0);
 
     this.pressure = 0;
     this._lastPressureTip = 0;
@@ -375,12 +376,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
+
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
@@ -409,8 +413,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     this.lastTick = this.startAt;
     this.spawnTmr = 0;
 
+    // ✅ SafeZones init
+    this.safeZones = makeSafeZones();
+    if (this.safeZones && this.safeZones.hardRefresh) this.safeZones.hardRefresh();
+
     emit('hha:time', { left: this.leftSec });
-    emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
+    emit('hha:score', { score: this.score, combo: this.combo, misses: this._getMisses() });
     this._emitRank();
     this._emitCoach((runMode==='practice') ? 'โหมดฝึก 15 วิ ลองเล็งแล้วแตะยิง 🎯' : 'เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
     this._emitPower();
@@ -541,8 +549,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
           this.miniCleared += 1;
         } else {
           this.combo = 0;
-          // ✅ B: mini_fail นับแยก ไม่กลายเป็น MISS
-          this._onMiss('mini_fail', null);
+
+          // ✅ mini_fail: count as miss (but dedupe-safe)
+          this._onMiss('mini_fail', 'mini');
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL', x: root.innerWidth*0.5, y: root.innerHeight*0.32 });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
         }
@@ -570,7 +579,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
       const acc = this._accuracyPct();
       if (acc >= 85) speed *= 0.92;
       if (this.combo >= 8) speed *= 0.90;
-      if (this.misses >= 8) speed *= 1.10;
+      if (this._getMisses() >= 8) speed *= 1.10;
     }
     if (this.stormOn) speed *= 0.78;
 
@@ -585,7 +594,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     try{
       const A = root.GroupsVR && root.GroupsVR.__ai;
       if (A && A.director && this.cfg.runMode === 'play'){
-        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this.misses);
+        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this._getMisses());
       }
     }catch(_){}
 
@@ -601,9 +610,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     for (let i = this.targets.length - 1; i >= 0; i--) {
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
-        if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good', tg.id); }
-        else if (tg.kind === 'wrong') { this.nExpireWrong++; }
-        else if (tg.kind === 'junk') { this.nExpireJunk++; }
+        if (tg.kind === 'good') {
+          this.nExpireGood++;
+          // ✅ good expire counts miss (standard)
+          this._onMiss('expire_good', tg.id);
+        } else if (tg.kind === 'wrong') {
+          this.nExpireWrong++;
+        } else if (tg.kind === 'junk') {
+          this.nExpireJunk++;
+        }
         this._removeTarget(i, 'expire');
       }
     }
@@ -638,7 +653,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     if (this.cfg.runMode === 'play') {
       wrongRate = clamp(wrongRate + Math.min(0.10, this.combo * 0.006), 0.05, 0.58);
       junkRate  = clamp(junkRate  + Math.min(0.08, this.combo * 0.004), 0.04, 0.42);
-      if (this.misses >= 8) { wrongRate *= 0.90; junkRate *= 0.88; }
+      if (this._getMisses() >= 8) { wrongRate *= 0.90; junkRate *= 0.88; }
     }
 
     wrongRate = clamp(wrongRate, 0.05, 0.60);
@@ -686,7 +701,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
   Engine.prototype._spawnBoss = function () {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
-
     const emoji = pick(this.rng, gActive.emoji);
 
     let hp = p.bossHp;
@@ -717,40 +731,28 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     }catch(_){}
   };
 
-  // ✅ A: DOM-safe spawn (no overlap with real UI)
   Engine.prototype._spawnDomTarget = function (spec) {
     const layer = this.layerEl;
     if (!layer) return;
 
     const view = this.view || getViewFromBodyOrParam();
 
-    let x, y;
+    const s = Number(spec.size ?? 1) || 1;
+    const baseR = (spec.kind === 'boss') ? 66 : 48;
+    const assist = (view === 'cvr') ? 1.10 : 1.0;
+    const rHit = Math.round(baseR * s * assist);
 
-    const SZ = root.HHA_SafeZones;
-    if (SZ){
-      const z = SZ.compute({
-        uiPad: 14,
-        edgePad: 12,
-        selectors: ['.hud','.questTop','.powerWrap','.coachWrap','.hha-vr-ui','.overlay']
-      });
-
-      const s = Number(spec.size ?? 1) || 1;
-      const basePx = (spec.kind === 'boss') ? 82 : 76;
-      const radius = Math.max(20, (basePx * s) * 0.52);
-
-      const pt = SZ.pickSafePoint({
-        playRect: z.playRect,
-        excludeRects: z.excludeRects,
-        rng: this.rng || Math.random,
-        tries: 100,
-        radius
-      });
-
+    // ✅ pick point using UI SafeZones if available
+    let x = 0, y = 0;
+    if (this.safeZones && this.safeZones.pickPoint){
+      const pt = this.safeZones.pickPoint(this.rng, Math.max(28, Math.min(92, rHit)));
       x = pt.x; y = pt.y;
     } else {
-      const R = computePlayRect(view);
-      x = clamp((this.rng() * (R.xMax - R.xMin)) + R.xMin, 8, R.W - 8);
-      y = clamp((this.rng() * (R.yMax - R.yMin)) + R.yMin, 8, R.H - 8);
+      // fallback: simple bounds
+      const W = Math.max(320, root.innerWidth  || 360);
+      const H = Math.max(420, root.innerHeight || 640);
+      x = clamp((this.rng() * (W - 60)) + 30, 8, W - 8);
+      y = clamp((this.rng() * (H - 180)) + 120, 8, H - 8);
     }
 
     const el = DOC.createElement('div');
@@ -763,11 +765,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
 
     const id = (++this._id);
     const born = nowMs();
-
-    const s2 = Number(spec.size ?? 1) || 1;
-    const baseR = (spec.kind === 'boss') ? 66 : 48;
-    const assist = (view === 'cvr') ? 1.10 : 1.0;
-    const rHit = Math.round(baseR * s2 * assist);
 
     const tg = {
       id, el,
@@ -833,8 +830,18 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // shoot miss: ไม่ใช่ MISS ตามมาตรฐาน (แค่คอมโบหลุด)
+      // ✅ ยิงวืด: ไม่เพิ่ม Miss (มาตรฐาน HHA) — แค่คอมโบหลุด
       this.combo = 0;
+
+      // เก็บ breakdown ได้ (แต่ rules shoot_missCounts=false => Miss ไม่เพิ่ม)
+      try{
+        this.missCounter && this.missCounter.count && this.missCounter.count({
+          kind:'shoot_miss',
+          targetId: 'none',
+          tsMs: nowMs()
+        });
+      }catch(_){}
+
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
       this._emitScore();
@@ -923,7 +930,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
       this.totalJudgedForAcc++;
 
       this.combo = 0;
-      this._onMiss('wrong', tg.id);
+      this._onMiss('wrong_hit', tg.id);
       this.score = Math.max(0, this.score - 12);
 
       emit('hha:judge', { kind: 'bad', text: '-12', x: tg.x, y: tg.y });
@@ -944,7 +951,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
 
     this.combo = 0;
-    this._onMiss('junk', tg.id);
+    this._onMiss('junk_hit', tg.id);
     this.score = Math.max(0, this.score - 18);
 
     emit('hha:judge', { kind: 'bad', text: '-18', x: tg.x, y: tg.y });
@@ -957,45 +964,30 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     this._emitCoach('โดนขยะ! ระวัง! 🗑️', 'sad');
   };
 
-  // ✅ B: Miss standard + dedupe + mini_fail separated
-  Engine.prototype._onMiss = function (why, targetId) {
-    why = String(why || 'miss');
+  // ✅ Miss Standard + Pressure update
+  Engine.prototype._onMiss = function (kind, targetId) {
+    // kind: wrong_hit | junk_hit | expire | shoot_miss | other
+    const ts = nowMs();
+    try{
+      this.missCounter && this.missCounter.count && this.missCounter.count({
+        kind: (kind === 'expire_good') ? 'expire' : String(kind || 'other'),
+        targetId: (targetId == null) ? '' : String(targetId),
+        tsMs: ts
+      });
+    }catch(_){}
 
-    // mini_fail: นับแยก ไม่ดัน misses/pressure
-    if (why === 'mini_fail'){
-      this.missBreakdown.mini_fail++;
-      emit('groups:progress', { kind:'mini_fail', why });
-      return;
-    }
-
-    if (why === 'wrong') this.missBreakdown.wrong++;
-    else if (why === 'junk') this.missBreakdown.junk++;
-    else if (why === 'expire_good') this.missBreakdown.expire_good++;
-
-    if (this.missCounter){
-      const kind =
-        (why === 'wrong') ? 'wrong_hit' :
-        (why === 'junk')  ? 'junk_hit'  :
-        (why === 'expire_good') ? 'expire' :
-        'miss';
-
-      this.missCounter.count({ kind, targetId: targetId ?? null });
-      this.misses = this.missCounter.get() | 0;
-    } else {
-      this.misses += 1;
-    }
-
-    emit('groups:progress', { kind: 'miss', why, misses: this.misses|0 });
+    emit('groups:progress', { kind: 'miss', why: String(kind||'other') });
 
     if (this.cfg && this.cfg.runMode==='play'){
       const p = this._calcPressure();
       this._applyPressure(p);
     }
 
+    const m = this._getMisses();
     if (this.cfg && this.cfg.runMode==='play'){
-      if ((this.misses|0) === 5)  this._emitCoach('เริ่มพลาดแล้วนะ ลอง “หยุด-เล็ง-ยิง” 👌', 'neutral');
-      if ((this.misses|0) === 9)  this._emitCoach('พลาดเยอะขึ้น! โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever');
-      if ((this.misses|0) === 14) this._emitCoach('โหมดโหด! อย่ายิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
+      if (m === 5)  this._emitCoach('เริ่มพลาดแล้วนะ ลอง “หยุด-เล็ง-ยิง” 👌', 'neutral');
+      if (m === 9)  this._emitCoach('พลาดเยอะขึ้น! โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever');
+      if (m === 14) this._emitCoach('โหมดโหด! อย่ายิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
     }
   };
 
@@ -1060,12 +1052,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
   };
 
   Engine.prototype._emitScore = function () {
-    emit('hha:score', { score: this.score | 0, combo: this.combo | 0, misses: this.misses | 0 });
+    emit('hha:score', { score: this.score | 0, combo: this.combo | 0, misses: this._getMisses() });
   };
 
   Engine.prototype._emitRank = function () {
     const acc = this._accuracyPct();
-    const grade = gradeFrom(acc, this.misses, this.score);
+    const grade = gradeFrom(acc, this._getMisses(), this.score);
     emit('hha:rank', { grade, accuracy: acc });
   };
 
@@ -1138,16 +1130,20 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
     this.targets = [];
 
     const acc = this._accuracyPct();
-    const grade = gradeFrom(acc, this.misses, this.score);
+    const misses = this._getMisses();
+    const grade = gradeFrom(acc, misses, this.score);
 
     const endAt = nowMs();
     const playedSec = Math.max(0, Math.round((endAt - this.startAt) / 1000));
+
+    const missBreakdown = (this.missCounter && this.missCounter.getBreakdown) ? this.missCounter.getBreakdown() : null;
 
     const summary = {
       reason: String(reason || 'end'),
       scoreFinal: this.score | 0,
       comboMax: this.comboMax | 0,
-      misses: this.misses | 0,
+      misses: misses | 0,
+      missBreakdown: missBreakdown,  // ✅ สำคัญ: หลังบ้านแยกสาเหตุ Miss ได้
       accuracyGoodPct: acc,
       grade,
 
@@ -1156,12 +1152,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — MERGED A+B+C
 
       miniCleared: this.miniCleared | 0,
       miniTotal: this.miniTotal | 0,
-
-      // ✅ B: extra breakdown (for research / backend)
-      missWrong: this.missBreakdown.wrong | 0,
-      missJunk: this.missBreakdown.junk | 0,
-      missExpireGood: this.missBreakdown.expire_good | 0,
-      miniFailCount: this.missBreakdown.mini_fail | 0,
 
       durationPlayedSec: playedSec,
       durationPlannedSec: this.cfg.timeSec | 0,
