@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Badge Collection</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.20);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; min-height:100vh;
+      padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    }
+    .wrap{ max-width: 980px; margin:0 auto; }
+    .card{
+      border:1px solid var(--stroke);
+      background: var(--panel);
+      border-radius: var(--radius);
+      box-shadow: 0 22px 60px rgba(0,0,0,.45);
+      overflow:hidden;
+    }
+    .head{
+      padding:16px 16px 12px;
+      display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      background: linear-gradient(180deg, rgba(34,197,94,.10), transparent 60%);
+    }
+    .title{ font-size:20px; font-weight:1100; }
+    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:12px; line-height:1.4; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      height:46px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      font-weight:1100;
+      cursor:pointer;
+      padding:0 12px;
+    }
+    .btn.primary{
+      border-color: rgba(34,197,94,.38);
+      background: rgba(34,197,94,.14);
+      color:#eafff3;
+    }
+    .body{ padding:14px 16px 16px; }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:10px;
+    }
+    @media (max-width:820px){ .grid{ grid-template-columns:1fr; } }
+    .item{
+      border:1px solid rgba(148,163,184,.18);
+      background: var(--panel2);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .top{
+      display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    }
+    .badge{ font-weight:1200; font-size:14px; }
+    .grade{ font-weight:1300; font-size:18px; }
+    .meta{ margin-top:6px; color:var(--muted); font-weight:800; font-size:12px; line-height:1.35; }
+    .stats{ margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 999px;
+      padding:6px 10px;
+      font-weight:1000;
+      font-size:12px;
+      color:#cbd5e1;
+      background: rgba(2,6,23,.38);
+    }
+    .empty{
+      border:1px dashed rgba(148,163,184,.22);
+      border-radius: 18px;
+      padding: 14px;
+      color: var(--muted);
+      font-weight:900;
+      background: rgba(2,6,23,.35);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <div>
+          <div class="title">🏆 HeroHealth — Badge Collection</div>
+          <div class="sub">สะสมรางวัลจากการเล่นเกม (เก็บในเครื่องนี้ด้วย localStorage)</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnBack">↩ กลับ</button>
+          <button class="btn primary" id="btnClear">ล้างคอลเลกชัน</button>
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="row" style="justify-content:space-between;">
+          <div class="sub">รายการล่าสุด: <b id="count">0</b> รายการ</div>
+          <div class="row">
+            <button class="btn" data-filter="ALL">ทั้งหมด</button>
+            <button class="btn" data-filter="GoodJunkVR">GoodJunk</button>
+            <button class="btn" data-filter="S">S+</button>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+        <div id="list" class="grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const KEY = 'HHA_BADGE_COLLECTION';
+      const $ = (id)=>document.getElementById(id);
+      const list = $('list');
+      const count = $('count');
+
+      function read(){
+        try{ return JSON.parse(localStorage.getItem(KEY) || '[]') || []; }
+        catch{ return []; }
+      }
+      function write(arr){
+        try{ localStorage.setItem(KEY, JSON.stringify(arr||[])); }catch(_){}
+      }
+
+      function fmtTs(iso){
+        try{
+          const d = new Date(iso);
+          return d.toLocaleString('th-TH', { hour12:false });
+        }catch(_){ return iso||'-'; }
+      }
+
+      function isSPlus(g){
+        g = String(g||'').toUpperCase();
+        return (g==='S' || g==='SS' || g==='SSS');
+      }
+
+      function render(filter='ALL'){
+        const arr = read();
+        count.textContent = arr.length;
+
+        let items = arr.slice().reverse(); // ล่าสุดก่อน
+        if(filter === 'GoodJunkVR') items = items.filter(x => x.projectTag === 'GoodJunkVR');
+        if(filter === 'S') items = items.filter(x => isSPlus(x.grade));
+
+        if(!items.length){
+          list.innerHTML = `<div class="empty">ยังไม่มีรางวัลเลย — ลองเล่นเกมให้จบสักรอบก่อนนะ ✨</div>`;
+          return;
+        }
+
+        list.innerHTML = items.map(x=>{
+          const acc = (x.accuracyGoodPct==null) ? '—' : (x.accuracyGoodPct + '%');
+          const junk= (x.junkErrorPct==null) ? '—' : (x.junkErrorPct + '%');
+          return `
+            <div class="item">
+              <div class="top">
+                <div class="badge">${x.title || 'REWARD'}${x.badge ? ' · '+x.badge : ''}</div>
+                <div class="grade">${String(x.grade||'—')}</div>
+              </div>
+              <div class="meta">
+                ${x.projectTag || '-'} · ${fmtTs(x.ts)}<br/>
+                diff=${x.diff||'-'} · mode=${x.runMode||'-'} · device=${x.device||'-'}
+              </div>
+              <div class="stats">
+                <div class="pill">Score: ${x.scoreFinal ?? 0}</div>
+                <div class="pill">Miss: ${x.misses ?? 0}</div>
+                <div class="pill">Acc: ${acc}</div>
+                <div class="pill">Junk: ${junk}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      document.querySelectorAll('button[data-filter]').forEach(b=>{
+        b.addEventListener('click', ()=> render(b.getAttribute('data-filter')));
+      });
+
+      $('btnBack').addEventListener('click', ()=>{
+        // ถ้ามี history ก็ back ไม่งั้นไป hub ถ้ารู้
+        if(history.length > 1) history.back();
+        else location.href = './hub.html';
+      });
+
+      $('btnClear').addEventListener('click', ()=>{
+        if(confirm('ล้างคอลเลกชันทั้งหมด?')){
+          write([]);
+          render();
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
