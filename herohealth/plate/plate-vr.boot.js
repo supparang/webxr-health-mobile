@@ -1,9 +1,10 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
+// PlateVR Boot — PRODUCTION (PATCHED)
 // ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
+// ✅ End overlay: aria-hidden only + body.hha-end-open
+// ✅ Guard: ignore premature hha:end before real start
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
@@ -24,8 +25,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -50,10 +49,24 @@ function pct(n){
   return `${Math.round(n)}%`;
 }
 
+/** ✅ Standard: aria-hidden ONLY + body class to coordinate HUD/VRUI CSS */
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
+
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+
+  // body flag for CSS hooks (hide HUD, disable VR UI, etc.)
+  DOC.body.classList.toggle('hha-end-open', !!open);
+
+  // optional: focus panel for accessibility
+  if(open){
+    try{
+      const panel = ov.querySelector('.endPanel');
+      if(panel) panel.setAttribute('tabindex','-1');
+      panel?.focus?.();
+    }catch{}
+  }
 }
 
 function showCoach(msg, meta='Coach'){
@@ -67,7 +80,6 @@ function showCoach(msg, meta='Coach'){
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
-  // auto hide
   clearTimeout(WIN.__HHA_COACH_TO__);
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
@@ -104,7 +116,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -138,7 +149,6 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      // keep same query params
       location.reload();
     });
   }
@@ -150,6 +160,14 @@ function wireEndControls(){
   }
 }
 
+/**
+ * ✅ Guard logic:
+ * - We only allow end overlay AFTER "real start"
+ * - Define "real start" as:
+ *   (a) first hha:time event with leftSec > 0, OR
+ *   (b) explicit hha:start event (if engine emits), OR
+ *   (c) after a short warmup delay AND we received any gameplay event
+ */
 function wireEndSummary(){
   const kScore = DOC.getElementById('kScore');
   const kAcc   = DOC.getElementById('kAcc');
@@ -158,13 +176,50 @@ function wireEndSummary(){
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
+  let realStarted = false;
+  let anyGameplaySignal = false;
+
+  // signal: explicit start (if engine provides)
+  WIN.addEventListener('hha:start', ()=>{ realStarted = true; }, { passive:true });
+
+  // signal: time left becomes > 0
+  WIN.addEventListener('hha:time', (e)=>{
+    const d = e.detail || {};
+    const t = Number(d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
+    if(t > 0) realStarted = true;
+  }, { passive:true });
+
+  // signal: any score/judge/quest update indicates gameplay loop is alive
+  WIN.addEventListener('hha:score', ()=>{ anyGameplaySignal = true; }, { passive:true });
+  WIN.addEventListener('hha:judge', ()=>{ anyGameplaySignal = true; }, { passive:true });
+  WIN.addEventListener('quest:update', ()=>{ anyGameplaySignal = true; }, { passive:true });
+
+  // warmup: after 900ms, if we saw any gameplay signal, treat as started
+  setTimeout(()=>{
+    if(anyGameplaySignal) realStarted = true;
+  }, 900);
+
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+
+    // ✅ HARD GUARD: ignore premature end
+    // - engine sometimes emits end during init/boot fail/0 sec
+    const reason = String(d.reason || d.endReason || '').toLowerCase();
+    const allowByReason =
+      reason.includes('time') || reason.includes('timeout') ||
+      reason.includes('complete') || reason.includes('goal') ||
+      reason.includes('miss') || reason.includes('fail') ||
+      reason.includes('abort') || reason.includes('force');
+
+    if(!realStarted && !allowByReason){
+      console.warn('[PlateVR] Ignored premature hha:end before real start', d);
+      return;
+    }
+
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -176,24 +231,22 @@ function wireEndSummary(){
 }
 
 function buildEngineConfig(){
-  // standard params
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
   const time = clamp(qs('time','70'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // research passthrough (optional)
-  const cfg = {
-    view, runMode: run, diff,
+  return {
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // endpoints / tags
     hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '', // if caller passes ?log=... we can use it inside engine/logger
+    logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -205,8 +258,6 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -217,10 +268,8 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
@@ -228,7 +277,6 @@ ready(()=>{
   // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
