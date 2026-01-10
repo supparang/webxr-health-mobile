@@ -1,150 +1,142 @@
-/* === /herohealth/vr/miss-standard.js ===
+/* === A: /herohealth/vr/miss-standard.js ===
 HHA Miss Standard — PRODUCTION
-✅ Unified miss counting with dedupe (anti double-count)
-✅ Pluggable rules per game
-✅ API:
-   - window.HHA_Miss.createCounter({gameTag, dedupeMs, rules})
-   - counter.count({kind, targetId, tsMs, meta}) -> newValue
-   - counter.set(n), counter.get()
-   - counter.getBreakdown(), counter.reset()
-Kinds (recommended):
- - 'wrong_hit'   : hit wrong (counts miss)
- - 'junk_hit'    : hit junk (counts miss unless rules say no)
- - 'expire'      : good expired (counts miss unless rules say no)
- - 'shoot_miss'  : shot into empty (counts miss only if rules say yes)
- - 'other'       : fallback
+✅ createCounter({gameTag,dedupeMs,rules})
+✅ count({kind,targetId,tsMs}) -> {misses, breakdown}
+✅ get(), set(n), getBreakdown()
+✅ Dedupe: กันนับซ้ำกรณี event ซ้ำ/คลิกซ้อน/expire+remove ชนกัน
+✅ Breakdown: wrong_hit, junk_hit, expire, shoot_miss, mini, other
+Rules:
+- wrongHitCounts, junkHitCounts, goodExpiredCounts, shootMissCounts (default: true,true,true,false)
 */
 
 (function(root){
   'use strict';
-  const WIN = root;
-  const DOC = root.document;
+  const WIN = root || window;
 
-  function nowMs(){ return (WIN.performance && performance.now) ? performance.now() : Date.now(); }
-  function clampInt(v,a,b){
-    v = (v|0);
-    if (v < a) return a;
-    if (v > b) return b;
-    return v;
+  if (WIN.HHA_Miss && WIN.HHA_Miss.createCounter) return;
+
+  function nowMs(){
+    return (WIN.performance && performance.now) ? performance.now() : Date.now();
   }
 
-  function safeStr(x){ try{ return String(x ?? ''); }catch(_){ return ''; } }
+  function clamp(n,a,b){
+    n = Number(n); if(!isFinite(n)) n = a;
+    return n<a?a:(n>b?b:n);
+  }
 
-  function makeDedupeKey(kind, targetId){
-    const k = safeStr(kind).toLowerCase();
-    const t = (targetId == null) ? '' : safeStr(targetId);
-    return k + '::' + t;
+  function normalizeKind(k){
+    k = String(k||'other').toLowerCase();
+    if (k === 'wrong' || k === 'wronghit' || k === 'wrong_hit') return 'wrong_hit';
+    if (k === 'junk' || k === 'junkhit' || k === 'junk_hit') return 'junk_hit';
+    if (k === 'expire' || k === 'expired' || k === 'expire_good' || k === 'expire_good_target') return 'expire';
+    if (k === 'shoot' || k === 'shootmiss' || k === 'shoot_miss') return 'shoot_miss';
+    if (k === 'mini' || k === 'mini_fail' || k === 'mini_fail_miss') return 'mini';
+    return 'other';
   }
 
   function defaultRules(){
     return {
-      // whether each source contributes to "misses" (HUD miss metric)
       wrongHitCounts: true,
       junkHitCounts: true,
       goodExpiredCounts: true,
-      shootMissCounts: false,   // usually NO for HHA (ยิงพลาด = คอมโบหลุด)
+      shootMissCounts: false
     };
+  }
+
+  function shouldCount(kind, rules){
+    if (kind === 'wrong_hit')  return !!rules.wrongHitCounts;
+    if (kind === 'junk_hit')   return !!rules.junkHitCounts;
+    if (kind === 'expire')     return !!rules.goodExpiredCounts;
+    if (kind === 'shoot_miss') return !!rules.shootMissCounts;
+    if (kind === 'mini')       return true;      // mini_fail นับ miss เสมอ
+    return true;                                // other นับ
+  }
+
+  function makeKey(gameTag, kind, targetId){
+    const g = String(gameTag || 'HHA');
+    const k = String(kind || 'other');
+    const t = String(targetId || '');
+    return g + '|' + k + '|' + t;
   }
 
   function createCounter(cfg){
     cfg = cfg || {};
+    const gameTag = String(cfg.gameTag || 'HHA');
+    const dedupeMs = clamp(cfg.dedupeMs ?? 320, 120, 1200);
     const rules = Object.assign(defaultRules(), cfg.rules || {});
-    const dedupeMs = Math.max(0, Number(cfg.dedupeMs ?? 350) || 0);
 
     let misses = 0;
 
-    // breakdown is optional but useful for research/back-end
     const breakdown = {
       wrong_hit: 0,
       junk_hit: 0,
       expire: 0,
       shoot_miss: 0,
+      mini: 0,
       other: 0
     };
 
     // dedupe map: key -> lastTsMs
-    const lastSeen = new Map();
+    const seen = new Map();
 
-    function shouldCount(kind){
-      kind = safeStr(kind).toLowerCase();
-      if (kind === 'wrong_hit') return !!rules.wrongHitCounts;
-      if (kind === 'junk_hit')  return !!rules.junkHitCounts;
-      if (kind === 'expire')    return !!rules.goodExpiredCounts;
-      if (kind === 'shoot_miss')return !!rules.shootMissCounts;
-      return true;
-    }
-
-    function bumpBreakdown(kind){
-      kind = safeStr(kind).toLowerCase();
-      if (breakdown.hasOwnProperty(kind)) breakdown[kind] += 1;
-      else breakdown.other += 1;
-    }
-
-    function count(evt){
-      evt = evt || {};
-      const kind = safeStr(evt.kind || 'other').toLowerCase();
-      const targetId = evt.targetId ?? null;
-      const ts = Number(evt.tsMs ?? nowMs());
-
-      // dedupe: same (kind,targetId) in short window -> ignore
-      const key = makeDedupeKey(kind, targetId);
-      const prev = lastSeen.get(key);
-      if (prev != null && (ts - prev) >= 0 && (ts - prev) <= dedupeMs){
-        return misses;
+    function gc(ts){
+      // กวาดของเก่า (กัน map โต)
+      if (seen.size < 120) return;
+      const cutoff = ts - (dedupeMs * 4);
+      for (const [k,v] of seen.entries()){
+        if (v < cutoff) seen.delete(k);
       }
-      lastSeen.set(key, ts);
-
-      // record breakdown always (even if not counted) => can be changed if you prefer
-      bumpBreakdown(kind);
-
-      if (!shouldCount(kind)) return misses;
-
-      misses += 1;
-      return misses;
-    }
-
-    function set(n){
-      misses = clampInt(Number(n)||0, 0, 999999);
-      return misses;
     }
 
     function get(){ return misses|0; }
+    function set(n){ misses = Math.max(0, Number(n)||0)|0; return misses; }
 
     function getBreakdown(){
-      // return copy
+      // copy (กันโดนแก้จากภายนอก)
       return {
         wrong_hit: breakdown.wrong_hit|0,
         junk_hit: breakdown.junk_hit|0,
         expire: breakdown.expire|0,
         shoot_miss: breakdown.shoot_miss|0,
+        mini: breakdown.mini|0,
         other: breakdown.other|0
       };
     }
 
-    function reset(){
-      misses = 0;
-      breakdown.wrong_hit = 0;
-      breakdown.junk_hit = 0;
-      breakdown.expire = 0;
-      breakdown.shoot_miss = 0;
-      breakdown.other = 0;
-      lastSeen.clear();
-      return misses;
+    function count(evt){
+      evt = evt || {};
+      const ts = (evt.tsMs != null) ? Number(evt.tsMs) : nowMs();
+      const kind = normalizeKind(evt.kind);
+      const targetId = (evt.targetId == null) ? '' : String(evt.targetId);
+
+      // dedupe: ถ้า kind+targetId ซ้ำในช่วงสั้นๆ -> ignore
+      const key = makeKey(gameTag, kind, targetId);
+      const last = seen.get(key) || -1e18;
+      if ((ts - last) < dedupeMs){
+        return { misses:get(), breakdown:getBreakdown(), deduped:true, kind };
+      }
+      seen.set(key, ts);
+      gc(ts);
+
+      // apply rule
+      if (!shouldCount(kind, rules)){
+        // ถึงไม่เพิ่ม miss ก็เก็บ breakdown ได้ (เช่น shoot_miss)
+        if (breakdown[kind] != null) breakdown[kind] += 1;
+        else breakdown.other += 1;
+
+        return { misses:get(), breakdown:getBreakdown(), counted:false, kind };
+      }
+
+      misses += 1;
+      if (breakdown[kind] != null) breakdown[kind] += 1;
+      else breakdown.other += 1;
+
+      return { misses:get(), breakdown:getBreakdown(), counted:true, kind };
     }
 
-    return {
-      gameTag: safeStr(cfg.gameTag || ''),
-      rules,
-      dedupeMs,
-      count,
-      set,
-      get,
-      getBreakdown,
-      reset
-    };
+    return { gameTag, rules, dedupeMs, get, set, count, getBreakdown };
   }
 
-  WIN.HHA_Miss = WIN.HHA_Miss || {};
-  WIN.HHA_Miss.createCounter = createCounter;
+  WIN.HHA_Miss = { createCounter };
 
 })(typeof window !== 'undefined' ? window : globalThis);
