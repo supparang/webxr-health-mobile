@@ -1,189 +1,247 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (Standard, shared across all games)
-// ✅ Listens: hha:judge, hha:boss, hha:celebrate, hha:end
-// ✅ Uses: window.Particles (or window.GAME_MODULES.Particles) if present
-// ✅ Adds: body classes for boss/phase/rage/stun/armor (CSS hooks)
-// ✅ Rate-limit to prevent spam in mobile
-//
-// Usage: include AFTER particles.js
-// <script src="./vr/particles.js" defer></script>
-// <script src="./vr/hha-fx-director.js" defer></script>
+// HHA FX Director — PRODUCTION (universal)
+// ✅ Standard FX mapping for ALL HeroHealth games
+// ✅ Listens: hha:judge / hha:celebrate / hha:coach / hha:time / hha:end
+// ✅ Applies: body fx classes (fx-good/bad/miss/block/star/diamond/boss/rage/phase2/storm/end)
+// ✅ Optional "point FX": uses x,y to spawn text via Particles.popText (if present)
+// ✅ Rate-limit to avoid spam
+// ✅ Safe with missing dependencies (Particles optional)
 
-(function (root) {
+(function(root){
   'use strict';
-  const WIN = root;
   const DOC = root.document;
-  if (!DOC || WIN.__HHA_FX_DIRECTOR__) return;
-  WIN.__HHA_FX_DIRECTOR__ = true;
+  if(!DOC || root.__HHA_FX_DIRECTOR__) return;
+  root.__HHA_FX_DIRECTOR__ = true;
 
-  const CFG = Object.assign({
-    judgeCooldownMs: 90,
-    bigCooldownMs: 420,
-    debug: false
-  }, WIN.HHA_FX_CFG || {});
+  const cfg = Object.assign({
+    // global throttles
+    minGapMs: 70,
+    classHoldMs: 140,
+    bigHoldMs: 220,
+    coachHoldMs: 520,
 
-  function log(...a){ if(CFG.debug) console.log('[FX]', ...a); }
+    // point text
+    enablePointText: true,
+    // if judge label is too long, trim
+    maxLabelLen: 18,
+  }, root.HHA_FX_CONFIG || {});
 
-  function getParticles(){
-    return (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
+  const BODY = DOC.body || DOC.documentElement;
+
+  const clamp = (v,min,max)=> (v<min?min:(v>max?max:v));
+  const now = ()=> performance.now();
+
+  function fx(){
+    // Prefer GAME_MODULES.Particles (your newer standard), fallback to window.Particles
+    return (root.GAME_MODULES && root.GAME_MODULES.Particles) || root.Particles || null;
   }
 
-  function now(){ return performance.now(); }
+  function popText(x,y,text,cls){
+    if(!cfg.enablePointText) return;
+    const P = fx();
+    if(!P) return;
+    const t = String(text ?? '').trim();
+    if(!t) return;
 
-  // ---- rate limit ----
-  let lastJudgeAt = 0;
-  let lastBigAt = 0;
+    const safe = (t.length > cfg.maxLabelLen) ? (t.slice(0, cfg.maxLabelLen) + '…') : t;
 
-  function allowJudge(){
+    try{
+      // Compatibility: popText(x,y,text,cls?) or scorePop(x,y,text,cls?)
+      if(typeof P.popText === 'function'){
+        // some variants accept cls, some not
+        try{ P.popText(x,y,safe,cls); } catch(_){ P.popText(x,y,safe); }
+      } else if(typeof P.scorePop === 'function'){
+        try{ P.scorePop(x,y,safe,cls); } catch(_){ P.scorePop(x,y,safe); }
+      }
+    }catch(_){}
+  }
+
+  // ---- class helpers ----
+  let lastAt = 0;
+
+  function pulse(cls, holdMs){
     const t = now();
-    if(t - lastJudgeAt < CFG.judgeCooldownMs) return false;
-    lastJudgeAt = t;
-    return true;
-  }
-  function allowBig(){
-    const t = now();
-    if(t - lastBigAt < CFG.bigCooldownMs) return false;
-    lastBigAt = t;
-    return true;
+    if(t - lastAt < cfg.minGapMs) return;
+    lastAt = t;
+
+    try{
+      BODY.classList.add(cls);
+      setTimeout(()=>{ try{ BODY.classList.remove(cls); }catch(_){ } }, holdMs || cfg.classHoldMs);
+    }catch(_){}
   }
 
-  function centerXY(){
-    const w = DOC.documentElement.clientWidth || 360;
-    const h = DOC.documentElement.clientHeight || 640;
-    return { x: w/2, y: h/2 };
+  function setFlag(cls, on){
+    try{
+      if(on) BODY.classList.add(cls);
+      else BODY.classList.remove(cls);
+    }catch(_){}
   }
 
-  function setBodyFlag(cls, on){
-    try{ DOC.body.classList.toggle(cls, !!on); }catch(_){}
+  // ---- event mappings ----
+  function normType(t){
+    return String(t || '').toLowerCase().trim();
   }
 
-  // ------------------------------------------------------------
-  // 1) hha:judge (micro feedback)
-  // detail: {label, kind, x, y}
-  // kind: good/bad/miss/block/fever/boss/rage/phase/armor/decoy/start/...
-  // ------------------------------------------------------------
   function onJudge(ev){
-    if(!allowJudge()) return;
-    const d = ev?.detail || {};
-    const P = getParticles();
-    if(!P) return;
+    const d = ev && ev.detail ? ev.detail : {};
+    const type = normType(d.type);
+    const label = (d.label != null) ? String(d.label) : '';
 
-    const c = centerXY();
-    const x = Number(d.x ?? c.x);
-    const y = Number(d.y ?? c.y);
-    const kind = String(d.kind || '').toLowerCase();
-    const label = (d.label == null) ? '' : String(d.label);
+    // Point position (if any)
+    const x = (typeof d.x === 'number') ? d.x : null;
+    const y = (typeof d.y === 'number') ? d.y : null;
 
-    // text
-    if(label){
-      try{
-        if(P.popText) P.popText(x, y, label, kind ? ('fx-' + kind) : '');
-        else if(P.pop) P.pop(x, y, label);
-      }catch(_){}
+    // Common aliases
+    const kind = normType(d.kind);
+
+    // --- map types to FX classes ---
+    // small pulses
+    if(type === 'good'){
+      pulse('fx-good', cfg.classHoldMs);
+      if(x!=null && y!=null) popText(x,y,label || '+', 'fx-good');
+      return;
     }
 
-    // bursts
-    try{
-      if(P.burstAt){
-        if(kind === 'good') P.burstAt(x,y,'good');
-        else if(kind === 'bad' || kind === 'miss') P.burstAt(x,y,'bad');
-        else if(kind === 'block') P.burstAt(x,y,'block');
-        else if(kind === 'fever') P.burstAt(x,y,'perfect');
-        else if(kind === 'boss' || kind === 'rage') P.burstAt(x,y,'boss');
-      }
-    }catch(_){}
-
-    // tiny class pulse for CSS
-    if(kind){
-      const cls = 'hha-judge-' + kind;
-      setBodyFlag(cls, true);
-      setTimeout(()=>setBodyFlag(cls,false), 180);
+    if(type === 'bad' || type === 'oops' || kind === 'junk'){
+      pulse('fx-bad', cfg.classHoldMs);
+      pulse('fx-kick', 110);
+      if(x!=null && y!=null) popText(x,y,label || 'OOPS', 'fx-bad');
+      return;
     }
 
-    log('judge', d);
+    if(type === 'miss' || type === 'expire' || type === 'missshot'){
+      pulse('fx-miss', cfg.classHoldMs);
+      if(x!=null && y!=null) popText(x,y,label || 'MISS', 'fx-miss');
+      return;
+    }
+
+    if(type === 'block' || type === 'guard'){
+      pulse('fx-block', cfg.classHoldMs);
+      if(x!=null && y!=null) popText(x,y,label || 'BLOCK', 'fx-block');
+      return;
+    }
+
+    if(type === 'star'){
+      pulse('fx-star', cfg.classHoldMs);
+      if(x!=null && y!=null) popText(x,y,label || 'STAR', 'fx-star');
+      return;
+    }
+
+    if(type === 'shield'){
+      pulse('fx-shield', cfg.classHoldMs);
+      if(x!=null && y!=null) popText(x,y,label || 'SHIELD', 'fx-shield');
+      return;
+    }
+
+    if(type === 'diamond'){
+      pulse('fx-diamond', cfg.bigHoldMs);
+      if(x!=null && y!=null) popText(x,y,label || 'DIAMOND', 'fx-diamond');
+      return;
+    }
+
+    if(type === 'combo' || type === 'perfect'){
+      pulse('fx-combo', cfg.classHoldMs);
+      if(x!=null && y!=null) popText(x,y,label || 'COMBO', 'fx-combo');
+      return;
+    }
+
+    // boss / rage / phase2 / storm are often flags (continuous) BUT can also pulse
+    if(type === 'boss'){
+      pulse('fx-boss', cfg.bigHoldMs);
+      if(x!=null && y!=null && label) popText(x,y,label, 'fx-boss');
+      return;
+    }
+
+    if(type === 'rage'){
+      pulse('fx-rage', cfg.bigHoldMs);
+      return;
+    }
+
+    if(type === 'phase2'){
+      pulse('fx-phase2', cfg.bigHoldMs);
+      return;
+    }
+
+    if(type === 'storm'){
+      pulse('fx-storm', cfg.bigHoldMs);
+      return;
+    }
+
+    if(type === 'goal'){
+      pulse('fx-goal', cfg.bigHoldMs);
+      return;
+    }
+
+    if(type === 'mini'){
+      pulse('fx-mini', cfg.bigHoldMs);
+      return;
+    }
+
+    if(type === 'warn'){
+      pulse('fx-warn', cfg.classHoldMs);
+      return;
+    }
+
+    // fallback: if label exists, show a tiny pop (optional)
+    if(label && x!=null && y!=null){
+      popText(x,y,label,'');
+    }
   }
 
-  // ------------------------------------------------------------
-  // 2) hha:boss (state -> CSS hooks)
-  // detail: {active,hp,hpMax,phase,armorOpen,decoyOn,stunT,rage}
-  // ------------------------------------------------------------
-  function onBoss(ev){
-    const d = ev?.detail || {};
-    const active = !!d.active;
-
-    setBodyFlag('hha-boss', active);
-    setBodyFlag('hha-rage',  active && !!d.rage);
-    setBodyFlag('hha-armor', active && !!d.armorOpen);
-    setBodyFlag('hha-decoy', active && !!d.decoyOn);
-    setBodyFlag('hha-stun',  active && (Number(d.stunT||0) > 0.02));
-
-    // phase hooks
-    const ph = Number(d.phase || 0);
-    setBodyFlag('hha-phase1', active && ph === 1);
-    setBodyFlag('hha-phase2', active && ph === 2);
-
-    log('boss', d);
-  }
-
-  // ------------------------------------------------------------
-  // 3) celebrate / end (big FX)
-  // ------------------------------------------------------------
   function onCelebrate(ev){
-    if(!allowBig()) return;
-    const d = ev?.detail || {};
-    const P = getParticles();
-    if(!P) return;
+    const d = ev && ev.detail ? ev.detail : {};
+    const kind = normType(d.kind);
 
-    const c = centerXY();
-    const kind = String(d.kind || 'win').toLowerCase();
-
-    try{
-      if(P.celebrate) P.celebrate(kind);
-      if(P.burstAt){
-        P.burstAt(c.x, c.y, (kind==='boss') ? 'boss' : 'perfect');
-      }
-    }catch(_){}
-
-    setBodyFlag('hha-celebrate', true);
-    setTimeout(()=>setBodyFlag('hha-celebrate', false), 650);
-
-    log('celebrate', d);
+    if(kind === 'mini'){
+      pulse('fx-mini', cfg.bigHoldMs);
+      return;
+    }
+    if(kind === 'end'){
+      pulse('fx-end', 520);
+      return;
+    }
+    if(kind === 'perfect'){
+      pulse('fx-perfect', cfg.bigHoldMs);
+      return;
+    }
+    // generic celebrate
+    pulse('fx-celebrate', cfg.bigHoldMs);
   }
 
-  function onEnd(ev){
-    if(!allowBig()) return;
-    const d = ev?.detail || {};
-    const P = getParticles();
-    if(!P) return;
-
-    const c = centerXY();
-    const reason = String(d.reason || '').toLowerCase();
-
-    try{
-      if(reason === 'misslimit' || reason === 'gameover'){
-        if(P.burstAt) P.burstAt(c.x, c.y, 'bad');
-        if(P.popText) P.popText(c.x, c.y, 'GAME OVER', 'fx-end fx-bad');
-      }else{
-        if(P.burstAt) P.burstAt(c.x, c.y, 'perfect');
-        if(P.popText) P.popText(c.x, c.y, 'COMPLETED!', 'fx-end fx-good');
-      }
-    }catch(_){}
-
-    log('end', d);
+  function onCoach(ev){
+    // If you emit hha:coach {msg, kind}
+    pulse('fx-coach', cfg.coachHoldMs);
   }
 
-  // ------------------------------------------------------------
-  // bind (window + document for safety)
-  // ------------------------------------------------------------
-  function bind(tgt){
+  function onTime(ev){
+    // Optional low-time vibe for any game:
+    // if time <= 10, add fx-lowtime; if <=5 add fx-lowtime5
     try{
-      tgt.addEventListener('hha:judge', onJudge, { passive:true });
-      tgt.addEventListener('hha:boss', onBoss, { passive:true });
-      tgt.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-      tgt.addEventListener('hha:end', onEnd, { passive:true });
+      const d = ev && ev.detail ? ev.detail : {};
+      const t = Number(d.t);
+      if(!Number.isFinite(t)) return;
+
+      setFlag('fx-lowtime', t <= 10);
+      setFlag('fx-lowtime5', t <= 5);
     }catch(_){}
   }
-  bind(WIN);
-  bind(DOC);
+
+  function onEnd(){
+    pulse('fx-end', 520);
+  }
+
+  // ---- bind listeners ----
+  root.addEventListener('hha:judge', onJudge, { passive:true });
+  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+  root.addEventListener('hha:coach', onCoach, { passive:true });
+  root.addEventListener('hha:time', onTime, { passive:true });
+  root.addEventListener('hha:end', onEnd, { passive:true });
+
+  // also support document dispatch (some pages dispatch on document)
+  DOC.addEventListener('hha:judge', onJudge, { passive:true });
+  DOC.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+  DOC.addEventListener('hha:coach', onCoach, { passive:true });
+  DOC.addEventListener('hha:time', onTime, { passive:true });
+  DOC.addEventListener('hha:end', onEnd, { passive:true });
 
 })(window);
