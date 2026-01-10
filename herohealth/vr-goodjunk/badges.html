@@ -1,0 +1,241 @@
+<!-- === /herohealth/vr-goodjunk/badges.html === -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Achievements</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.22);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --radius:22px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; background:
+      radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
+      radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+      var(--bg);
+      color:var(--text);
+      font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    }
+    .wrap{
+      min-height:100%;
+      padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      display:flex; align-items:flex-start; justify-content:center;
+    }
+    .card{
+      width:min(980px, 98vw);
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: 0 22px 60px rgba(0,0,0,.45);
+      overflow:hidden;
+    }
+    .head{
+      padding:18px 18px 14px;
+      display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      background: linear-gradient(180deg, rgba(34,197,94,.10), transparent 60%);
+    }
+    .title{ font-size:20px; font-weight:1100; letter-spacing:.2px; }
+    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:12px; line-height:1.45; }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid rgba(148,163,184,.22);
+      padding: 8px 12px;
+      border-radius: var(--pill);
+      background: rgba(2,6,23,.45);
+      font-weight:900;
+      font-size:12px;
+      color: var(--text);
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+      padding: 0 18px 18px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .btn{
+      height:46px; border-radius: 16px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      font-weight:1100;
+      cursor:pointer;
+      padding:0 14px;
+    }
+    .btn.primary{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.14);
+      color:#eafff3;
+    }
+    .list{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.45);
+      border-radius: 18px;
+      padding: 10px;
+    }
+    .item{
+      display:flex; gap:12px; align-items:flex-start;
+      padding: 10px 10px;
+      border-radius: 16px;
+      border:1px solid transparent;
+    }
+    .item + .item{ margin-top:8px; }
+    .item.locked{
+      opacity:.65;
+      border-color: rgba(148,163,184,.12);
+      background: rgba(2,6,23,.30);
+    }
+    .item.unlocked{
+      border-color: rgba(34,197,94,.22);
+      background: rgba(34,197,94,.08);
+    }
+    .icon{
+      width:42px; height:42px;
+      border-radius: 14px;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.18);
+      font-size:20px;
+      flex:0 0 auto;
+    }
+    .meta{ flex:1; }
+    .name{ font-weight:1100; }
+    .desc{ margin-top:4px; color:var(--muted); font-weight:850; font-size:12px; line-height:1.35; }
+    .tag{
+      margin-left:auto;
+      font: 1100 12px/1 system-ui;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.18);
+      color: var(--muted);
+      background: rgba(2,6,23,.45);
+      flex:0 0 auto;
+    }
+    .item.unlocked .tag{
+      border-color: rgba(34,197,94,.28);
+      color:#dcfce7;
+      background: rgba(34,197,94,.10);
+    }
+    .foot{
+      padding: 0 18px 18px;
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+      color:var(--muted); font-size:12px; font-weight:850;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <div>
+          <div class="title">🏆 HeroHealth — Achievements</div>
+          <div class="sub">
+            แสดงรายการตราปลดล็อกของ GoodJunkVR (อ่านจาก <span class="mono">localStorage</span>)<br/>
+            * ถ้าล้างแคช/เปลี่ยนเครื่อง ตราจะหาย (ถ้าจะทำถาวรจริง ให้ sync ไป Google Sheet/บัญชีภายหลัง)
+          </div>
+        </div>
+        <div class="row" style="gap:10px;">
+          <div class="chip">✅ ปลดแล้ว: <span id="nUnlocked">0</span></div>
+          <div class="chip">🔒 เหลือ: <span id="nLocked">0</span></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="row">
+          <div class="chip">ที่เก็บ: <span class="mono">HHA_ACHIEVEMENTS</span></div>
+          <div class="row" style="gap:10px;">
+            <button class="btn" id="btnBack">↩ กลับ</button>
+            <button class="btn primary" id="btnReset">ล้าง Achievements</button>
+          </div>
+        </div>
+
+        <div class="list" id="list">—</div>
+      </div>
+
+      <div class="foot">
+        <div>© HeroHealth Academy</div>
+        <div>ไฟล์: <span class="mono">/herohealth/vr-goodjunk/badges.html</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const ACHV = [
+        { id:'gj_first_clear',  name:'First Clear',  icon:'🎉', desc:'เล่นจบ 1 รอบ (ไม่ว่าจะเกรดอะไร)' },
+        { id:'gj_no_junk',      name:'No Junk',      icon:'🧼', desc:'จบรอบแบบไม่โดนขยะเลย (Hit junk = 0)' },
+        { id:'gj_low_miss',     name:'Low Miss',     icon:'🛡️', desc:'MISS ไม่เกิน 2' },
+        { id:'gj_combo_20',     name:'Combo 20+',    icon:'⚡', desc:'Combo Max ≥ 20' },
+        { id:'gj_speedy',       name:'Speedy',       icon:'⏱️', desc:'Fast-hit rate ≥ 50%' },
+        { id:'gj_s_rank',       name:'S Rank',       icon:'⭐', desc:'ได้เกรด S / SS / SSS' },
+        { id:'gj_ss_rank',      name:'SS Rank',      icon:'🔥', desc:'ได้เกรด SS / SSS' },
+        { id:'gj_sss_rank',     name:'SSS Rank',     icon:'👑', desc:'ได้เกรด SSS' },
+      ];
+
+      const LS_ACHV = 'HHA_ACHIEVEMENTS';
+
+      const $ = (id)=>document.getElementById(id);
+
+      function readUnlocked(){
+        try{ return JSON.parse(localStorage.getItem(LS_ACHV)||'{}') || {}; }
+        catch(_){ return {}; }
+      }
+
+      function render(){
+        const unlocked = readUnlocked();
+        const list = $('list');
+        const unlockedIds = new Set(Object.keys(unlocked).filter(k=>unlocked[k]));
+        const nU = ACHV.filter(a=>unlockedIds.has(a.id)).length;
+        const nL = ACHV.length - nU;
+
+        $('nUnlocked').textContent = String(nU);
+        $('nLocked').textContent = String(nL);
+
+        list.innerHTML = ACHV.map(a=>{
+          const ok = unlockedIds.has(a.id);
+          return `
+            <div class="item ${ok?'unlocked':'locked'}">
+              <div class="icon">${a.icon||'🏅'}</div>
+              <div class="meta">
+                <div class="name">${ok?'✅':'🔒'} ${a.name}</div>
+                <div class="desc">${a.desc||''}</div>
+                <div class="desc"><span class="mono">${a.id}</span></div>
+              </div>
+              <div class="tag">${ok?'UNLOCKED':'LOCKED'}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      $('btnBack').addEventListener('click', ()=> history.back());
+
+      $('btnReset').addEventListener('click', ()=>{
+        if(confirm('ล้าง Achievements ทั้งหมด? (จะกลับเป็น LOCKED)')){
+          try{ localStorage.removeItem(LS_ACHV); }catch(_){}
+          render();
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
