@@ -1,11 +1,11 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR — RUN (PRODUCTION / HHA Standard)
-✅ PC/Mobile/Cardboard/cVR (auto detect by boot/safe)
-✅ Uses plate-vr.css (HUD/Quest/Coach/FX) + never blocks targets
-✅ Uses Universal VR UI (/herohealth/vr/vr-ui.js) => ENTER VR/EXIT/RECENTER + crosshair tap-to-shoot (hha:shoot)
-✅ Flush-hardened cloud logging (/herohealth/vr/hha-cloud-logger.js) via ?log=
-✅ HHA Standard end summary + back HUB + save last summary
-✅ Research deterministic seed passthrough
+Balanced Plate VR Run — PRODUCTION (HHA Standard)
+✅ Uses ./plate-vr.css
+✅ Uses ./plate.safe.js (engine)
+✅ Uses ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair shoot => hha:shoot)
+✅ Uses ../vr/hha-cloud-logger.js (flush-hardened)
+✅ Auto view detect (NO menu, NO override)
+✅ End overlay controlled by aria-hidden only
 -->
 <!doctype html>
 <html lang="th">
@@ -14,270 +14,329 @@ Balanced Plate VR — RUN (PRODUCTION / HHA Standard)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <meta name="theme-color" content="#020617" />
 
-  <!-- CSS -->
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
   <link rel="stylesheet" href="./plate-vr.css" />
 
-  <!-- (Optional) A-Frame minimal scene helps WebXR "Enter VR" reliability on some browsers -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    /* minimal fallback if css fails */
+    body{ background:#020617; }
+  </style>
 
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot) -->
+  <!-- Universal VR UI config (must be BEFORE vr-ui.js) -->
   <script>
-    // Global config for vr-ui
+    // IMPORTANT: do not allow user override via query
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
+
+  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Logger (flush-hardened) -->
+  <!-- Logger (reads ?log= endpoint) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
-
-  <!-- Game engine -->
-  <script type="module" src="./plate.safe.js"></script>
-
-  <style>
-    /* Minimal A-Frame scene hidden behind DOM game (for XR entry) */
-    .xr-scene-wrap{
-      position:fixed; inset:0;
-      z-index:0;
-      pointer-events:none;
-      opacity:0;
-    }
-    .xr-scene-wrap a-scene{ width:100%; height:100%; }
-  </style>
 </head>
 
-<body class="view-auto">
-  <!-- A-Frame helper scene -->
-  <div class="xr-scene-wrap" aria-hidden="true">
-    <a-scene
-      embedded
-      renderer="colorManagement:true; physicallyCorrectLights:true"
-      vr-mode-ui="enabled:false"
-    >
-      <a-entity camera position="0 1.6 0"></a-entity>
-      <a-sky color="#000"></a-sky>
-    </a-scene>
-  </div>
+<body class="view-auto" data-game="plate">
 
-  <div id="app">
-    <!-- Host layer for targets -->
-    <div id="plate-layer" aria-hidden="false"></div>
-
-    <!-- HUD (pointer-events none by CSS) -->
-    <div id="hud" aria-hidden="false">
-      <div class="hud-row">
-        <div class="hud-pill">
-          <div class="hud-stat">
-            <span class="k">SCORE</span>
-            <span class="v" id="uiScore">0</span>
-          </div>
-          <div class="hud-stat" style="margin-left:10px;">
-            <span class="k">COMBO</span>
-            <span class="v" id="uiCombo">0</span>
-          </div>
-        </div>
-
-        <div class="hud-pill">
-          <div class="hud-stat">
-            <span class="k">TIME</span>
-            <span class="v" id="uiTime">0:00</span>
-          </div>
-        </div>
+  <!-- ===================== HUD (non-blocking) ===================== -->
+  <header id="hud" aria-label="HUD">
+    <div class="hud-row">
+      <!-- Left: stats -->
+      <div class="chip" id="chipScore">
+        <span class="k">SCORE</span>
+        <span class="v" id="vScore">0</span>
       </div>
 
-      <div id="questbar">
-        <!-- GOAL -->
-        <div class="q-card" id="goalCard">
-          <div class="q-title">
-            <div class="t">GOAL</div>
-            <div class="sub" id="uiGoalMeta">0/0</div>
-          </div>
-          <div class="q-text" id="uiGoalText">—</div>
-          <div class="q-bar"><div class="q-fill" id="uiGoalFill"></div></div>
-        </div>
+      <div class="chip" id="chipTime">
+        <span class="k">TIME</span>
+        <span class="v" id="vTime">0</span>
+      </div>
 
-        <!-- MINI -->
-        <div class="q-card" id="miniCard">
-          <div class="q-title">
-            <div class="t">MINI QUEST</div>
-            <div class="sub"><span id="uiMiniMeta">0/0</span> • <span id="uiMiniTimer">--</span></div>
-          </div>
-          <div class="q-text" id="uiMiniText">—</div>
-          <div class="q-bar"><div class="q-fill" id="uiMiniFill"></div></div>
+      <div class="chip" id="chipCombo">
+        <span class="k">COMBO</span>
+        <span class="v" id="vCombo">0</span>
+      </div>
+
+      <!-- Center: GOAL -->
+      <section class="quest" id="goalCard" aria-label="Goal">
+        <div class="quest-title">
+          <div class="t">GOAL</div>
+          <div class="m"><span id="goalCur">0</span>/<span id="goalTarget">0</span></div>
         </div>
+        <div class="bar" aria-hidden="true"><i id="goalBar"></i></div>
+        <div class="quest-sub">
+          <div id="goalText">—</div>
+          <div class="mini-timer" id="goalTag" aria-hidden="false">MAIN</div>
+        </div>
+      </section>
+
+      <!-- Right: MINI -->
+      <section class="quest" id="miniCard" aria-label="Mini Quest">
+        <div class="quest-title">
+          <div class="t">MINI</div>
+          <div class="m"><span id="miniCur">0</span>/<span id="miniTarget">0</span></div>
+        </div>
+        <div class="bar" aria-hidden="true"><i id="miniBar"></i></div>
+        <div class="quest-sub">
+          <div id="miniText">—</div>
+          <div class="mini-timer" id="miniTimer" aria-hidden="false"><span id="miniLeft">0</span>s</div>
+        </div>
+      </section>
+    </div>
+  </header>
+
+  <!-- ===================== Play Layer (DOM targets spawned here) ===================== -->
+  <main id="plate-layer" aria-label="Play Layer"></main>
+
+  <!-- ===================== Coach ===================== -->
+  <aside id="coachCard" aria-hidden="true" aria-label="Coach">
+    <div id="coachDot" aria-hidden="true"></div>
+    <div id="coachMsg">—</div>
+  </aside>
+
+  <!-- ===================== Hit FX (center toast) ===================== -->
+  <div id="hitFx" class="hitfx" aria-hidden="true">+0</div>
+
+  <!-- ===================== End Overlay (aria-hidden drives visibility) ===================== -->
+  <section id="endOverlay" aria-hidden="true" role="dialog" aria-label="Summary">
+    <div class="end-card">
+      <h2 class="end-title" id="endTitle">สรุปผล</h2>
+
+      <div class="end-grid" aria-label="Metrics">
+        <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+        <div class="end-item"><div class="k">ACCURACY</div><div class="v" id="endAcc">0%</div></div>
+        <div class="end-item"><div class="k">GOALS</div><div class="v" id="endGoal">0/0</div></div>
+        <div class="end-item"><div class="k">MINI</div><div class="v" id="endMini">0/0</div></div>
+        <div class="end-item"><div class="k">MISSES</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">DURATION</div><div class="v" id="endDur">0s</div></div>
+      </div>
+
+      <div class="end-actions">
+        <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
+        <button class="btn warn" id="btnBackHub" type="button">กลับ HUB</button>
+        <button class="btn primary" id="btnCloseEnd" type="button">ปิด</button>
       </div>
     </div>
+  </section>
 
-    <!-- Coach -->
-    <div id="coach" aria-hidden="false">
-      <div class="coach-card" id="coachCard" aria-hidden="true">
-        <div class="coach-dot" id="coachDot"></div>
-        <div id="coachMsg">—</div>
-      </div>
-    </div>
+  <!-- ===================== Boot (safe engine) ===================== -->
+  <script type="module">
+    import { boot as bootPlate } from './plate.safe.js';
 
-    <!-- Hit FX -->
-    <div id="hitFx" aria-hidden="true">+10</div>
+    // ---------- Query helpers ----------
+    function q(k, def=null){
+      try { return new URL(location.href).searchParams.get(k) ?? def; }
+      catch { return def; }
+    }
+    function qNum(k, def=0){
+      const v = Number(q(k, def));
+      return Number.isFinite(v) ? v : def;
+    }
+    function lower(s){ return (s||'').toLowerCase(); }
 
-    <!-- End overlay (HHA Standard) -->
-    <div id="endOverlay" aria-hidden="true" style="
-      position:fixed; inset:0; z-index:120;
-      display:grid; place-items:center;
-      padding: calc(env(safe-area-inset-top,0px) + 14px)
-               calc(env(safe-area-inset-right,0px) + 14px)
-               calc(env(safe-area-inset-bottom,0px) + 14px)
-               calc(env(safe-area-inset-left,0px) + 14px);
-      background: rgba(2,6,23,.72);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    ">
-      <div style="
-        width:min(720px, 96vw);
-        border-radius:24px;
-        border:1px solid rgba(148,163,184,.22);
-        background: rgba(2,6,23,.86);
-        box-shadow: 0 18px 70px rgba(0,0,0,.50);
-        padding:16px 16px 14px;
-      ">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div style="font-weight:950;font-size:16px;">สรุปผลการเล่น</div>
-          <div id="endReason" style="color:#94a3b8;font-weight:800;font-size:12px;">—</div>
-        </div>
+    // ---------- Auto view detect (NO override) ----------
+    function detectView(){
+      // Use heuristics only (DO NOT trust query view)
+      const ua = navigator.userAgent || '';
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1);
+      // cVR: user may enter split mode from hub param, but we still don't read view override
+      const hinted = lower(q('view','')); // allowed only for cvr strict when launcher sets it
+      if (hinted === 'cvr') return 'cvr'; // only cvr allowed as "special mode"
+      return isMobile ? 'mobile' : 'pc';
+    }
+    function applyViewClass(view){
+      const b = document.body;
+      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-auto');
+      if (view === 'cvr') b.classList.add('view-cvr');
+      else if (view === 'mobile') b.classList.add('view-mobile');
+      else b.classList.add('view-pc');
+    }
 
-        <div id="endSummary" style="
-          margin-top:12px;
-          display:grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap:10px;
-        "></div>
+    const view = detectView();
+    applyViewClass(view);
 
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
-          <button id="btnRestart" style="
-            appearance:none;border:1px solid rgba(148,163,184,.22);
-            background: rgba(15,23,42,.65);
-            color:#e5e7eb;font-weight:950;
-            padding:10px 14px;border-radius:999px;
-          ">เล่นอีกครั้ง</button>
+    // ---------- Game context ----------
+    const runMode = lower(q('run','play'));          // play | study
+    const diff    = lower(q('diff','normal'));       // easy|normal|hard
+    const timeSec = qNum('time', 70);                // duration planned
+    const seedQ   = qNum('seed', 0);
+    const seed    = seedQ > 0 ? seedQ : Date.now();  // research may pass fixed seed
+    const hub     = q('hub','../hub.html');
+    const logUrl  = q('log', null);                  // Apps Script endpoint
 
-          <button id="btnBackHub" style="
-            appearance:none;border:1px solid rgba(34,197,94,.35);
-            background: rgba(34,197,94,.14);
-            color:#e5e7eb;font-weight:950;
-            padding:10px 14px;border-radius:999px;
-          ">กลับหน้า HUB</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-  (function(){
-    'use strict';
-
-    const DOC = document;
-    const qs = (k, def=null) => { try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
-
-    // ---------- URL params (HHA Standard passthrough) ----------
-    const hub = qs('hub', '');
-    const run = (qs('run','play')||'play').toLowerCase(); // play | research | study
-    const diff = (qs('diff','normal')||'normal').toLowerCase();
-    const time = Number(qs('time','70')||70);
-    const seed = qs('seed','');
-    const log = qs('log',''); // endpoint for hha-cloud-logger.js
-    const studyId = qs('studyId','');
-    const phase = qs('phase','');
-    const conditionGroup = qs('conditionGroup','');
-    const sessionOrder = qs('sessionOrder','');
-    const blockLabel = qs('blockLabel','');
-
-    // Expose context for plate.safe.js (if it reads window.HHA_RUN_CONTEXT)
-    window.HHA_RUN_CONTEXT = {
-      gameId: 'plate',
-      hub, run, diff, time, seed,
-      log, studyId, phase, conditionGroup, sessionOrder, blockLabel
+    // expose for logger + engine
+    window.HHA_CTX = {
+      game: 'plate',
+      view,
+      runMode,
+      diff,
+      durationPlannedSec: timeSec,
+      seed,
+      hub,
+      logUrl
     };
 
-    // ---------- View class (best-effort; engine may set too) ----------
-    function setViewClass(v){
-      const b = DOC.body;
-      b.classList.remove('view-auto','view-pc','view-mobile','view-vr','view-cvr');
-      b.classList.add('view-' + v);
-    }
-    setViewClass('auto');
+    // ---------- UI refs ----------
+    const $ = (s)=>document.querySelector(s);
+    const vScore = $('#vScore');
+    const vTime  = $('#vTime');
+    const vCombo = $('#vCombo');
 
-    // ---------- End summary helpers ----------
-    const endOverlay = DOC.getElementById('endOverlay');
-    const endSummary = DOC.getElementById('endSummary');
-    const endReason = DOC.getElementById('endReason');
+    // Quest cards
+    const goalText = $('#goalText');
+    const goalCur  = $('#goalCur');
+    const goalTarget = $('#goalTarget');
+    const goalBar = $('#goalBar');
 
-    function card(k,v){
-      const el = DOC.createElement('div');
-      el.style.cssText = `
-        border:1px solid rgba(148,163,184,.18);
-        background: rgba(15,23,42,.55);
-        border-radius:18px;
-        padding:10px 12px;
-      `;
-      el.innerHTML = `
-        <div style="color:#94a3b8;font-weight:850;font-size:11px;letter-spacing:.2px;">${k}</div>
-        <div style="font-weight:950;font-size:16px;margin-top:3px;font-variant-numeric:tabular-nums;">${v}</div>
-      `;
-      return el;
-    }
+    const miniText = $('#miniText');
+    const miniCur  = $('#miniCur');
+    const miniTarget = $('#miniTarget');
+    const miniBar = $('#miniBar');
+    const miniLeft = $('#miniLeft');
 
+    // Coach & fx
+    const coachCard = $('#coachCard');
+    const coachMsg  = $('#coachMsg');
+    const hitFx = $('#hitFx');
+
+    // End overlay
+    const endOverlay = $('#endOverlay');
+    const endScore = $('#endScore');
+    const endAcc   = $('#endAcc');
+    const endGoal  = $('#endGoal');
+    const endMini  = $('#endMini');
+    const endMiss  = $('#endMiss');
+    const endDur   = $('#endDur');
+
+    // Buttons
+    const btnRestart = $('#btnRestart');
+    const btnBackHub = $('#btnBackHub');
+    const btnCloseEnd = $('#btnCloseEnd');
+
+    // ---------- End overlay helpers ----------
     function showEnd(summary){
-      // Save last summary (HHA Standard)
-      try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      }catch(e){}
-
-      // Render cards
-      endSummary.innerHTML = '';
-      endSummary.appendChild(card('SCORE', summary.scoreFinal ?? 0));
-      endSummary.appendChild(card('COMBO MAX', summary.comboMax ?? 0));
-      endSummary.appendChild(card('ACCURACY', (summary.accuracyGoodPct!=null ? (Number(summary.accuracyGoodPct).toFixed(0)+'%') : '—')));
-      endSummary.appendChild(card('GOALS', `${summary.goalsCleared ?? 0}/${summary.goalsTotal ?? 0}`));
-      endSummary.appendChild(card('MINI', `${summary.miniCleared ?? 0}/${summary.miniTotal ?? 0}`));
-      endSummary.appendChild(card('MISSES', summary.misses ?? 0));
-
-      endReason.textContent = summary.reason || 'end';
+      // summary is produced by plate.safe.js
+      endScore.textContent = String(summary?.scoreFinal ?? 0);
+      endAcc.textContent   = String(summary?.accuracyGoodPct ?? 0) + '%';
+      endGoal.textContent  = `${summary?.goalsCleared ?? 0}/${summary?.goalsTotal ?? 0}`;
+      endMini.textContent  = `${summary?.miniCleared ?? 0}/${summary?.miniTotal ?? 0}`;
+      endMiss.textContent  = String(summary?.misses ?? 0);
+      endDur.textContent   = String(summary?.durationPlayedSec ?? 0) + 's';
 
       endOverlay.setAttribute('aria-hidden','false');
     }
+    function hideEnd(){
+      endOverlay.setAttribute('aria-hidden','true');
+    }
 
-    // Listen from engine (plate.safe.js) — should dispatch hha:end with detail.summary
-    window.addEventListener('hha:end', (ev)=>{
-      const detail = ev?.detail || {};
-      const summary = detail.summary || detail || {};
-      showEnd(summary);
+    // ---------- Buttons ----------
+    btnRestart.addEventListener('click', ()=>{
+      // keep same params but refresh seed for play; keep seed for study unless provided
+      const u = new URL(location.href);
+      if (runMode === 'play'){
+        u.searchParams.set('seed', String(Date.now()));
+      }
+      location.href = u.toString();
     });
 
-    // Back HUB (preserve hub param)
-    DOC.getElementById('btnBackHub').addEventListener('click', ()=>{
-      const target = hub ? decodeURIComponent(hub) : '../hub.html';
-      // Keep a backlink hint for hub if needed
-      try{
-        const u = new URL(target, location.href);
-        u.searchParams.set('from', 'plate');
-        location.href = u.toString();
-      }catch{
-        location.href = target;
+    btnBackHub.addEventListener('click', ()=>{
+      // flush-hardened logger will catch pagehide; also we emit force_end
+      try { window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'back-hub' }})); } catch {}
+      const u = new URL(hub, location.href);
+      location.href = u.toString();
+    });
+
+    btnCloseEnd.addEventListener('click', hideEnd);
+
+    // ---------- HUD event listeners ----------
+    window.addEventListener('hha:score', (e)=>{
+      const d = e.detail || {};
+      if (vScore) vScore.textContent = String(d.score ?? d.value ?? 0);
+      if (vCombo) vCombo.textContent = String(d.combo ?? 0);
+      if (hitFx && d.toast){
+        hitFx.textContent = d.toast;
+        hitFx.classList.toggle('fx-good', !!d.good);
+        hitFx.classList.toggle('fx-bad', !!d.bad);
+        hitFx.classList.toggle('fx-perfect', !!d.perfect);
+        hitFx.setAttribute('aria-hidden','false');
+        clearTimeout(hitFx.__t);
+        hitFx.__t = setTimeout(()=>hitFx.setAttribute('aria-hidden','true'), 320);
       }
     });
 
-    // Restart (reload keeping same params)
-    DOC.getElementById('btnRestart').addEventListener('click', ()=>{
-      location.reload();
+    window.addEventListener('hha:time', (e)=>{
+      const d = e.detail || {};
+      if (vTime) vTime.textContent = String(d.left ?? d.value ?? 0);
     });
 
-    // If logger endpoint provided, tell logger (it reads ?log= by itself normally)
-    // but we can emit a ping so dev sees it
-    if (log){
-      window.dispatchEvent(new CustomEvent('hha:log:status', { detail: { ok:true, endpoint: log } }));
-    }
+    window.addEventListener('quest:update', (e)=>{
+      const qd = (e.detail || {});
+      const g = qd.goal || {};
+      const m = qd.mini || {};
 
-  })();
+      // goal
+      if (goalText) goalText.textContent = g.text ?? '—';
+      if (goalCur) goalCur.textContent = String(g.cur ?? 0);
+      if (goalTarget) goalTarget.textContent = String(g.target ?? 0);
+      if (goalBar){
+        const pct = (g.target>0) ? Math.max(0, Math.min(100, (g.cur/g.target)*100)) : 0;
+        goalBar.style.width = pct.toFixed(1)+'%';
+      }
+
+      // mini
+      if (miniText) miniText.textContent = m.text ?? '—';
+      if (miniCur) miniCur.textContent = String(m.cur ?? 0);
+      if (miniTarget) miniTarget.textContent = String(m.target ?? 0);
+      if (miniBar){
+        const pct = (m.target>0) ? Math.max(0, Math.min(100, (m.cur/m.target)*100)) : 0;
+        miniBar.style.width = pct.toFixed(1)+'%';
+      }
+      if (miniLeft) miniLeft.textContent = String(m.leftSec ?? 0);
+    });
+
+    window.addEventListener('hha:coach', (e)=>{
+      const d = e.detail || {};
+      if (!coachCard || !coachMsg) return;
+      coachMsg.textContent = d.text ?? '—';
+      coachCard.setAttribute('aria-hidden','false');
+      clearTimeout(coachCard.__t);
+      coachCard.__t = setTimeout(()=>coachCard.setAttribute('aria-hidden','true'), d.ms ?? 1800);
+    });
+
+    // Engine end -> show summary + store last summary + emit to logger
+    window.addEventListener('hha:end', (e)=>{
+      const summary = e.detail || {};
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+          game:'plate',
+          at: new Date().toISOString(),
+          summary
+        }));
+      }catch{}
+
+      showEnd(summary);
+
+      // logger picks up this event too (optional)
+      try{ window.dispatchEvent(new CustomEvent('hha:log', { detail: summary })); }catch{}
+    });
+
+    // ---------- Start engine ----------
+    bootPlate({
+      host: document.querySelector('#plate-layer'),
+      runMode,
+      diff,
+      durationPlannedSec: timeSec,
+      seed,
+      view,
+      hub
+    });
+
+    // ---------- Logger endpoint passthrough ----------
+    // hha-cloud-logger reads ?log= but also allow from ctx
+    if (logUrl){
+      window.HHA_LOG_ENDPOINT = logUrl;
+    }
   </script>
 </body>
 </html>
