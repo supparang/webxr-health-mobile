@@ -1,9 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
-// ✅ Universal VR UI compatible: listens hha:shoot (crosshair/tap-to-shoot)
-// ✅ Cloud Logger compatible: emits hha:end summary (logger sends it)
-// ✅ Optional direct send removed by default (avoid duplicate posting)
-// ✅ Cardboard layers via window.HHA_VIEW.layers from boot
+// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
+// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
+// ✅ PATCH A1: Spawn Safe-Zone (avoid HUD + safe-area)
 
 'use strict';
 
@@ -120,6 +121,10 @@ function shockAt(x, y){
   pf.appendChild(el);
   setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
 }
+function shockAtCenter(){
+  const { cx, cy } = centerPoint();
+  shockAt(cx, cy);
+}
 function popScore(text='+10'){
   try{
     const P = window.Particles || (window.GAME_MODULES && window.GAME_MODULES.Particles);
@@ -162,6 +167,7 @@ const hub = String(qs('hub','../hub.html'));
 const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
 const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
+const logEndpoint = String(qs('log','') || '');
 
 // RNG deterministic-ish
 function hashStr(s){
@@ -455,19 +461,42 @@ function syncHUD(){
 })();
 
 // -------------------- Spawn helpers --------------------
+// ✅ PATCH A1: spawn within safe play-zone (avoid HUD + safe-area)
+// - keeps targets away from top stat panels + bottom gesture area
 function pickXY(){
   const r = getPlayfieldRect();
-  const pad=22;
-  const w=Math.max(1, r.width - pad*2);
-  const h=Math.max(1, r.height - pad*2);
-  const rx=(rng()+rng())/2;
-  const ry=(rng()+rng())/2;
-  const x = pad + rx*w;
-  const y = pad + ry*h;
+
+  const rootStyle = getComputedStyle(document.documentElement);
+  const sat = parseFloat(rootStyle.getPropertyValue('--sat')) || 0;
+  const sab = parseFloat(rootStyle.getPropertyValue('--sab')) || 0;
+
+  // tune these once; works across PC/Mobile/cVR and Cardboard split
+  const safeTop = 140 + sat;   // top HUD stack height
+  const safeBottom = 44 + sab; // bottom gesture room
+  const safeSide = 18;
+
+  const pad = 22;
+
+  const left = pad + safeSide;
+  const right = r.width - pad - safeSide;
+  const top = pad + safeTop;
+  const bottom = r.height - pad - safeBottom;
+
+  const w = Math.max(1, right - left);
+  const h = Math.max(1, bottom - top);
+
+  // soft center bias (nice distribution)
+  const rx = (rng()+rng())/2;
+  const ry = (rng()+rng())/2;
+
+  const x = left + rx*w;
+  const y = top + ry*h;
+
   const xPct = (x/Math.max(1,r.width))*100;
   const yPct = (y/Math.max(1,r.height))*100;
   return { xPct, yPct };
 }
+
 function targetSize(){
   let s = TUNE.sizeBase;
   if (S.adaptiveOn){
@@ -760,7 +789,19 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-// -------------------- Summary / tier / tips --------------------
+// -------------------- Summary / logging --------------------
+async function sendLog(payload){
+  if (!logEndpoint) return;
+  try{
+    await fetch(logEndpoint, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+      keepalive:true
+    });
+  }catch(_){}
+}
+
 function computeTier(sum){
   const g=String(sum.grade||'C');
   const acc=Number(sum.accuracyGoodPct||0);
@@ -1046,10 +1087,10 @@ async function endGame(reason){
     localStorage.setItem('hha_last_summary', JSON.stringify(summary));
   }catch(_){}
 
-  // ✅ Cloud logger will catch this and POST (flush-hardened)
   emit('hha:end', summary);
-
   AICOACH.onEnd(summary);
+
+  await sendLog(summary);
   fillSummary(summary);
 }
 
@@ -1086,12 +1127,12 @@ function boot(){
     endGame(d.reason || 'force');
   });
 
-  // safety: if boot already fired start before safe loaded (rare), start anyway
+  // If overlay already hidden somehow, auto-start
+  const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
-    if (!S.started){
-      try{ window.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
-    }
-  }, 900);
+    const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
+    if (hidden && !S.started) window.dispatchEvent(new CustomEvent('hha:start'));
+  }, 600);
 }
 
 boot();
