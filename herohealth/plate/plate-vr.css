@@ -1,20 +1,20 @@
 /* === /herohealth/plate/plate-vr.css ===
 Balanced Plate VR — PRODUCTION (HHA Standard UI)
-✅ Layout: PC / Mobile / VR / cVR
-✅ FIX: HUD never blocks targets (pointer-events + safe spawn pad)
-✅ FIX: keep vr-ui buttons clickable (z-index lanes)
-✅ GOAL + MINI bars visible + mini timer pressure
-✅ FX toast (hitFx) + coach overlay
-✅ Safe-area insets (Android notch)
+✅ Fullscreen play layer + safe-area
+✅ HUD/Quest top bars (non-blocking)
+✅ Targets: good/junk/star/diamond sizes + hit feedback
+✅ cVR strict crosshair shooting friendly
+✅ End overlay ready (controlled by aria-hidden from safe.js)
 */
 
 :root{
   color-scheme: dark;
 
   --bg:#020617;
-  --panel:rgba(2,6,23,.82);
+  --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
-  --stroke:rgba(148,163,184,.20);
+  --stroke:rgba(148,163,184,.18);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -24,342 +24,414 @@ Balanced Plate VR — PRODUCTION (HHA Standard UI)
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
-  --radius:22px;
+  --radius:20px;
   --pill:999px;
 
-  /* Safe area */
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Playfield padding => must match safe spawn padding in JS (approx) */
-  --pad-top: 112px;
-  --pad-bottom: 124px;
-  --pad-side: 18px;
+  /* layout */
+  --hudTop: calc(12px + var(--sat));
+  --hudPad: 12px;
+  --hudGap: 10px;
 
-  /* Z lanes */
-  --z-scene: 1;
-  --z-target: 40;
-  --z-hud: 70;
-  --z-vrui: 85;   /* vr-ui.js overlay/buttons */
-  --z-fx: 90;     /* particles/hitFx */
-  --z-modal: 120; /* end overlay if any */
+  /* reserve space so targets won't spawn under HUD (mode-factory safeZones uses HUD rect) */
+  --hudReserve: 132px;  /* tuned: PC */
+  --hudReserveMobile: 150px;
+
+  /* target size */
+  --tgt: 104px;
+  --tgtMobile: 118px;
+  --tgtSmall: 92px;
+
+  /* z-index map */
+  --z-play: 10;
+  --z-hud: 40;
+  --z-vrui: 60;   /* vr-ui.js buttons */
+  --z-fx: 90;
+  --z-end: 120;
 }
 
 *{ box-sizing:border-box; }
 
-html,body{
-  width:100%;
-  height:100%;
-  margin:0;
-  padding:0;
+html, body{
+  margin:0; padding:0;
+  width:100%; height:100%;
   overflow:hidden;
   background:
-    radial-gradient(900px 560px at 12% 10%, rgba(34,211,238,.12), transparent 55%),
-    radial-gradient(860px 520px at 92% 86%, rgba(167,139,250,.11), transparent 60%),
-    radial-gradient(780px 520px at 62% 30%, rgba(34,197,94,.08), transparent 55%),
+    radial-gradient(circle at 20% 10%, rgba(34,211,238,.10), transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba(167,139,250,.10), transparent 60%),
+    radial-gradient(circle at 30% 90%, rgba(34,197,94,.10), transparent 55%),
     var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
 }
 
-/* --------- Root wrappers --------- */
-#app{
-  position:fixed;
-  inset:0;
-  padding: calc(var(--sat) + 0px) calc(var(--sar) + 0px) calc(var(--sab) + 0px) calc(var(--sal) + 0px);
-}
-
-/* The host where targets spawn */
+/* ---------- Play Layer ---------- */
 #plate-layer{
   position:fixed;
   inset:0;
-  z-index: var(--z-scene);
-  /* IMPORTANT: allow targets clickable */
-  pointer-events: none; /* host ignores events; targets are fixed positioned */
+  padding: calc(var(--hudReserve) + var(--hudTop)) 16px calc(16px + var(--sab)) 16px;
+  z-index: var(--z-play);
+  overflow:hidden;
+
+  /* prevent accidental browser gestures */
+  touch-action:none;
 }
 
-/* Targets are fixed-positioned; make them clickable */
-.plate-target{
-  z-index: var(--z-target);
-  pointer-events: auto;
-  outline: none;
-  -webkit-tap-highlight-color: transparent;
+/* Mobile reserve more top space */
+body.view-mobile #plate-layer,
+@media (max-width: 720px){
+  #plate-layer{
+    padding-top: calc(var(--hudReserveMobile) + var(--hudTop));
+    padding-left: max(14px, var(--sal));
+    padding-right: max(14px, var(--sar));
+  }
 }
 
-/* Optional: soft breathing ring for targets */
-.plate-target .tile{
-  position:relative;
-  display:grid;
-  place-items:center;
-  filter: drop-shadow(0 18px 45px rgba(0,0,0,.35));
-}
-.plate-target.is-good .tile{
-  box-shadow:
-    0 18px 55px rgba(0,0,0,.35),
-    0 0 0 6px rgba(34,197,94,.10);
-}
-.plate-target.is-bad .tile{
-  box-shadow:
-    0 18px 55px rgba(0,0,0,.35),
-    0 0 0 6px rgba(239,68,68,.10);
-}
-
-.plate-target:active .tile{
-  transform: scale(.95);
-  transition: transform 80ms ease;
-}
-
-.tile-label{
-  pointer-events:none;
-  text-shadow: 0 2px 0 rgba(0,0,0,.35);
-}
-
-/* --------- HUD lane (must NOT block targets) --------- */
+/* ---------- HUD (non-blocking) ---------- */
 #hud{
   position:fixed;
   left:0; right:0;
   top:0;
+  padding: var(--hudTop) max(var(--hudPad), var(--sal)) 0 max(var(--hudPad), var(--sal));
   z-index: var(--z-hud);
-  padding:
-    calc(var(--sat) + 10px)
-    calc(var(--sar) + 12px)
-    10px
-    calc(var(--sal) + 12px);
-  pointer-events: none; /* ✅ HUD never blocks targets */
+
+  /* CRITICAL: do not block clicks/shooting on targets */
+  pointer-events:none;
 }
 
 .hud-row{
   display:flex;
-  gap:10px;
-  align-items:center;
+  gap: var(--hudGap);
+  align-items:stretch;
   justify-content:space-between;
+  flex-wrap:wrap;
 }
 
-.hud-pill{
+/* Small stat chips */
+.chip{
   pointer-events:none;
+  background: linear-gradient(180deg, var(--panel), rgba(2,6,23,.55));
+  border:1px solid var(--stroke);
+  border-radius: var(--pill);
+  padding: 10px 14px;
   display:flex;
   align-items:center;
   gap:10px;
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  background: var(--panel);
-  border:1px solid var(--stroke);
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 16px 55px rgba(0,0,0,.38);
 }
 
-.hud-stat{
-  display:flex;
-  align-items:baseline;
-  gap:8px;
-}
-.hud-stat .k{
-  color: var(--muted);
-  font-weight:800;
-  font-size:12px;
-  letter-spacing:.2px;
-}
-.hud-stat .v{
-  font-weight:950;
-  font-size:18px;
-}
+.chip .k{ color:var(--muted); font-weight:700; font-size:12px; letter-spacing:.3px; }
+.chip .v{ font-weight:900; font-size:16px; }
 
-/* Score/Combo/Time blocks */
-#uiScore, #uiCombo, #uiTime{
-  font-variant-numeric: tabular-nums;
-}
-
-/* --------- Goal + Mini bars --------- */
-#questbar{
-  margin-top:10px;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
+/* Main quest cards */
+.quest{
   pointer-events:none;
-}
-
-.q-card{
-  background: var(--panel2);
+  flex: 1 1 360px;
+  min-width: 320px;
+  background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.55));
   border:1px solid var(--stroke);
   border-radius: var(--radius);
-  padding: 10px 12px;
+  padding: 12px 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 16px 55px rgba(0,0,0,.33);
 }
 
-.q-title{
+.quest-title{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
   margin-bottom:8px;
 }
-.q-title .t{
-  font-weight:950;
-  font-size:12px;
-  letter-spacing:.25px;
-  color:#cbd5e1;
-}
-.q-title .sub{
-  font-size:11px;
-  color: var(--muted);
-  font-weight:800;
-}
-
-.q-text{
-  font-size:12px;
-  font-weight:800;
-  color:#e5e7eb;
+.quest-title .t{
+  font-weight:900;
+  font-size:13px;
+  color:var(--text);
+  letter-spacing:.2px;
   opacity:.95;
-  line-height:1.25;
-  margin-bottom:10px;
+}
+.quest-title .m{
+  font-weight:900;
+  font-size:12px;
+  color:var(--muted);
 }
 
-/* progress bar */
-.q-bar{
-  height:10px;
+/* Progress bar */
+.bar{
+  width:100%;
+  height: 10px;
   border-radius: var(--pill);
-  background: rgba(148,163,184,.12);
-  border:1px solid rgba(148,163,184,.18);
+  background: rgba(148,163,184,.16);
   overflow:hidden;
+  border:1px solid rgba(148,163,184,.12);
 }
-.q-fill{
+.bar > i{
+  display:block;
   height:100%;
   width:0%;
   border-radius: var(--pill);
-  transition: width 160ms ease, opacity 160ms ease;
-}
-#uiGoalFill{ background: rgba(34,197,94,.85); }
-#uiMiniFill{ background: rgba(34,211,238,.85); }
-
-/* --------- Coach overlay --------- */
-#coach{
-  position:fixed;
-  left:0; right:0;
-  bottom:0;
-  z-index: var(--z-hud);
-  padding:
-    10px
-    calc(var(--sar) + 12px)
-    calc(var(--sab) + 12px)
-    calc(var(--sal) + 12px);
-  pointer-events:none; /* coach does not block targets */
+  background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(34,211,238,.9));
+  box-shadow: 0 0 0 1px rgba(34,197,94,.25) inset;
 }
 
-.coach-card{
-  margin-left:auto;
-  max-width: min(560px, 96vw);
-  background: rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius: 24px;
-  padding: 12px 14px;
+.quest-sub{
+  margin-top:8px;
   display:flex;
-  gap:10px;
   align-items:center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 18px 60px rgba(0,0,0,.38);
+  justify-content:space-between;
+  gap:8px;
+  color:var(--muted);
+  font-weight:800;
+  font-size:12px;
 }
 
-.coach-dot{
+/* mini timer pill */
+.mini-timer{
+  background: rgba(34,211,238,.12);
+  border:1px solid rgba(34,211,238,.22);
+  padding: 4px 10px;
+  border-radius: var(--pill);
+  color: #bff5ff;
+}
+
+/* ---------- Coach ---------- */
+#coachCard{
+  position:fixed;
+  left: 12px;
+  bottom: calc(12px + var(--sab));
+  z-index: var(--z-hud);
+  background: linear-gradient(180deg, rgba(2,6,23,.85), rgba(15,23,42,.70));
+  border:1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  max-width: min(520px, calc(100vw - 24px));
+  display:flex;
+  align-items:center;
+  gap:10px;
+  box-shadow: 0 16px 50px rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+
+  pointer-events:none;
+  transform: translateY(8px);
+  opacity: 0;
+  transition: .22s ease;
+}
+#coachCard[aria-hidden="false"]{
+  opacity: 1;
+  transform: translateY(0);
+}
+#coachDot{
   width:12px; height:12px;
-  border-radius: 999px;
-  background: rgba(34,197,94,.85);
-  box-shadow: 0 0 0 6px rgba(34,197,94,.12);
-  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.12);
 }
 #coachMsg{
-  font-size:13px;
-  font-weight:850;
-  color:#e5e7eb;
+  font-weight:900;
+  font-size:14px;
   line-height:1.25;
+  color:var(--text);
 }
 
-/* --------- Hit FX toast --------- */
+/* ---------- Targets ---------- */
+.tgt{
+  position:absolute;
+  width: var(--tgt);
+  height: var(--tgt);
+  border-radius: 999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.18), transparent 58%),
+              linear-gradient(180deg, rgba(15,23,42,.80), rgba(2,6,23,.70));
+  box-shadow: 0 18px 45px rgba(0,0,0,.36);
+  backdrop-filter: blur(8px);
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  /* clickable */
+  pointer-events:auto;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* spawn animation */
+  transform: translate(-50%,-50%) scale(.60);
+  opacity: 0;
+  animation: popin .18s ease forwards;
+}
+@keyframes popin{
+  to{ transform: translate(-50%,-50%) scale(1); opacity: 1; }
+}
+
+.tgt .emoji{
+  font-size: 42px;
+  filter: drop-shadow(0 10px 16px rgba(0,0,0,.35));
+}
+
+/* mobile bigger targets for kids */
+body.view-mobile .tgt,
+@media (max-width: 720px){
+  .tgt{ width: var(--tgtMobile); height: var(--tgtMobile); }
+  .tgt .emoji{ font-size: 46px; }
+}
+
+/* kinds */
+.tgt.good{
+  border-color: rgba(34,197,94,.22);
+  box-shadow: 0 18px 45px rgba(34,197,94,.12), 0 18px 45px rgba(0,0,0,.32);
+}
+.tgt.junk{
+  border-color: rgba(239,68,68,.22);
+  box-shadow: 0 18px 45px rgba(239,68,68,.12), 0 18px 45px rgba(0,0,0,.32);
+  animation: popin .18s ease forwards, wobble 1.2s ease-in-out infinite;
+}
+@keyframes wobble{
+  0%,100%{ transform: translate(-50%,-50%) scale(1) rotate(-1deg); }
+  50%{ transform: translate(-50%,-50%) scale(1) rotate(1deg); }
+}
+
+.tgt.star{
+  border-color: rgba(245,158,11,.28);
+  box-shadow: 0 18px 45px rgba(245,158,11,.14), 0 18px 45px rgba(0,0,0,.30);
+}
+.tgt.diamond{
+  border-color: rgba(34,211,238,.28);
+  box-shadow: 0 18px 45px rgba(34,211,238,.16), 0 18px 45px rgba(0,0,0,.30);
+}
+
+/* hit feedback (optional classes if you add in JS later) */
+.tgt.hit{
+  animation: hit .14s ease forwards;
+}
+@keyframes hit{
+  to{ transform: translate(-50%,-50%) scale(.86); opacity:.2; }
+}
+
+/* ---------- Hit FX ---------- */
 #hitFx{
   position:fixed;
-  left:50%;
-  top: calc(var(--sat) + 74px);
-  transform: translateX(-50%);
   z-index: var(--z-fx);
-  pointer-events:none;
+  left:50%; top:50%;
+  transform: translate(-50%,-50%);
   padding: 10px 14px;
   border-radius: var(--pill);
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.70);
-  box-shadow: 0 18px 55px rgba(0,0,0,.38);
-  font-weight:950;
-  opacity: 0;
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-#hitFx[aria-hidden="false"]{
-  opacity: 1;
-  transform: translateX(-50%) translateY(-2px);
-}
-#hitFx.fx-good{ border-color: rgba(34,197,94,.35); }
-#hitFx.fx-bad{ border-color: rgba(239,68,68,.35); }
-#hitFx.fx-ok{ border-color: rgba(34,211,238,.35); }
+  font-weight: 1000;
+  font-size: 18px;
+  letter-spacing: .2px;
 
-/* --------- vr-ui lane: always clickable --------- */
-/* vr-ui.js normally injects elements like .hha-vr-ui, #hha-enter-vr etc. */
-.hha-vr-ui,
-#hha-enter-vr,
-#hha-exit-vr,
-#hha-recenter{
-  z-index: var(--z-vrui) !important;
-  pointer-events: auto !important; /* ✅ must remain clickable */
+  background: rgba(2,6,23,.72);
+  border:1px solid rgba(148,163,184,.20);
+  box-shadow: 0 16px 55px rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+
+  pointer-events:none;
+  opacity:0;
 }
+#hitFx[aria-hidden="false"]{ opacity:1; }
 
-/* Ensure HUD never overlays vr-ui controls */
-#hud, #coach{ z-index: var(--z-hud); }
-#hud *{ pointer-events:none; } /* double safety */
-
-/* --------- Responsive tuning --------- */
-@media (max-width: 480px){
-  :root{
-    --pad-top: 104px;
-    --pad-bottom: 116px;
-    --pad-side: 14px;
-  }
-  .hud-pill{ padding: 9px 10px; border-radius: 18px; }
-  .hud-stat .v{ font-size: 17px; }
-  #questbar{ grid-template-columns: 1fr; }
-  #hitFx{ top: calc(var(--sat) + 68px); }
+.hitfx.fx-good{
+  border-color: rgba(34,197,94,.26);
+}
+.hitfx.fx-bad{
+  border-color: rgba(239,68,68,.28);
+}
+.hitfx.fx-perfect{
+  border-color: rgba(245,158,11,.28);
 }
 
-@media (min-width: 900px){
-  #hud{ padding-left: 18px; padding-right: 18px; }
-  #questbar{ grid-template-columns: 1.1fr .9fr; }
+/* ---------- Make sure VR UI buttons stay clickable ---------- */
+/* vr-ui.js typically uses fixed buttons; ensure HUD doesn't cover them */
+.hha-vrui,
+.hha-vrui *{
+  pointer-events:auto;
+}
+#hud{ z-index: var(--z-hud); }
+.hha-vrui{ z-index: var(--z-vrui) !important; }
+
+/* ---------- End Overlay (if exists in HTML) ---------- */
+#endOverlay{
+  position:fixed;
+  inset:0;
+  z-index: var(--z-end);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: max(16px, var(--sal)) max(16px, var(--sar)) max(16px, var(--sab)) max(16px, var(--sal));
+  background: rgba(2,6,23,.72);
+  backdrop-filter: blur(10px);
+  opacity:0;
+  pointer-events:none;
+  transition: .22s ease;
+}
+#endOverlay[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
 }
 
-/* --------- View modes: cVR/VR tweaks --------- */
-body.view-cvr #hud,
-body.view-vr #hud{
-  /* in VR, keep HUD a bit smaller */
-}
-body.view-cvr .q-text,
-body.view-vr .q-text{
-  font-size: 11.5px;
-}
-body.view-cvr #hitFx,
-body.view-vr #hitFx{
-  top: calc(var(--sat) + 62px);
+.end-card{
+  width:min(720px, 100%);
+  background: linear-gradient(180deg, rgba(15,23,42,.86), rgba(2,6,23,.72));
+  border:1px solid rgba(148,163,184,.18);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.45);
+  padding: 18px 18px 16px;
 }
 
-/* In strict cVR, target labels shouldn't steal focus; targets are shot via crosshair */
-body.view-cvr .tile-label{
-  opacity: .92;
+.end-title{
+  font-weight:1000;
+  font-size:18px;
+  margin:0 0 10px;
+}
+.end-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+.end-item{
+  background: rgba(148,163,184,.08);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+.end-item .k{ color:var(--muted); font-weight:900; font-size:12px; }
+.end-item .v{ font-weight:1000; font-size:16px; margin-top:2px; }
+
+.end-actions{
+  margin-top: 12px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.btn{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.65);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 1000;
+  cursor:pointer;
+}
+.btn.primary{
+  border-color: rgba(34,197,94,.25);
+  background: rgba(34,197,94,.12);
+}
+.btn.warn{
+  border-color: rgba(245,158,11,.25);
+  background: rgba(245,158,11,.12);
 }
 
-/* --------- Accessibility / reduced motion --------- */
+/* ---------- Accessibility / reduced motion ---------- */
 @media (prefers-reduced-motion: reduce){
-  #hitFx,
-  .q-fill,
-  .plate-target .tile{
-    transition: none !important;
-  }
+  *{ animation:none !important; transition:none !important; }
 }
