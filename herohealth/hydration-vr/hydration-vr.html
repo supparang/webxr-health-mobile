@@ -1,8 +1,9 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration VR RUN — PRODUCTION (HHA Standard)
+Hydration VR RUN — PRODUCTION (HHA Standard + WebXR ready)
 ✅ NO mode menu (auto-detect default)
 ✅ Supports: PC / Mobile / Cardboard Split (?view=cardboard) / cVR (?view=cvr)
-✅ Uses Universal VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot => hha:shoot)
+✅ WebXR VR "real": A-Frame minimal scene for Enter VR reliability
+✅ Universal VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot => hha:shoot)
 ✅ Cloud logging: ../vr/hha-cloud-logger.js (flush-hardened)
 ✅ Boot: hydration-vr.boot.js (view + layers + start)
 -->
@@ -15,13 +16,15 @@ Hydration VR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- A-Frame (minimal scene for WebXR Enter VR reliability) -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+
   <!-- Global FX + logger -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
   <script>
-    // Tune VR UI (optional)
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
@@ -52,7 +55,6 @@ Hydration VR RUN — PRODUCTION (HHA Standard)
     html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     a{ color:inherit; }
 
-    /* Background soft glow */
     body::before{
       content:"";
       position:fixed; inset:0;
@@ -63,6 +65,20 @@ Hydration VR RUN — PRODUCTION (HHA Standard)
       pointer-events:none;
       z-index:0;
     }
+
+    /* ---------- A-Frame minimal scene layer ---------- */
+    /* Keep it behind DOM playfield + HUD, but present for WebXR session */
+    .hha-xr-scene{
+      position:fixed !important;
+      inset:0 !important;
+      width:100% !important;
+      height:100% !important;
+      z-index:1 !important;
+      pointer-events:none !important; /* DO NOT block DOM game */
+      opacity:0.0001; /* effectively invisible but alive */
+    }
+    /* In real VR session, keep it alive (still invisible is ok) */
+    body.in-xr .hha-xr-scene{ opacity:0.0001; }
 
     /* ---------- HUD layout ---------- */
     .hud{
@@ -198,9 +214,7 @@ Hydration VR RUN — PRODUCTION (HHA Standard)
     /* cVR strict: targets not clickable; shoot from crosshair (vr-ui emits hha:shoot) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
-    body.view-cvr #hydration-layer{
-      pointer-events:none;
-    }
+    body.view-cvr #hydration-layer{ pointer-events:none; }
 
     /* ---------- End Summary ---------- */
     #resultBackdrop{
@@ -273,31 +287,14 @@ Hydration VR RUN — PRODUCTION (HHA Standard)
       background: rgba(245,158,11,.14);
     }
 
-    /* ---------------- FX HOOKS ---------------- */
-    body.hha-endfx{
-      animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
-    }
-    @keyframes endBlink{
-      0%,100%{ filter: brightness(1); }
-      50%{ filter: brightness(1.08) saturate(1.06); }
-    }
-    @keyframes endShake{
-      0%,100%{ transform: translate3d(0,0,0); }
-      50%{ transform: translate3d(0,1px,0); }
-    }
-
+    /* FX hook classes used by hydration.safe.js */
+    body.hha-endfx{ animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite; }
+    @keyframes endBlink{ 0%,100%{ filter: brightness(1);} 50%{ filter: brightness(1.08) saturate(1.06);} }
+    @keyframes endShake{ 0%,100%{ transform: translate3d(0,0,0);} 50%{ transform: translate3d(0,1px,0);} }
     body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
-    @keyframes hitPulse{
-      0%{ filter: brightness(1); }
-      60%{ filter: brightness(1.12) saturate(1.10); }
-      100%{ filter: brightness(1); }
-    }
-
+    @keyframes hitPulse{ 0%{ filter: brightness(1);} 60%{ filter: brightness(1.12) saturate(1.10);} 100%{ filter: brightness(1);} }
     body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
-    @keyframes bossFlash{
-      0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
-      50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); }
-    }
+    @keyframes bossFlash{ 0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0);} 50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04);} }
 
     .hha-shock{
       position:absolute;
@@ -321,6 +318,17 @@ Hydration VR RUN — PRODUCTION (HHA Standard)
 </head>
 
 <body class="view-pc">
+  <!-- A-Frame minimal scene (required for WebXR ENTER VR reliability) -->
+  <a-scene class="hha-xr-scene"
+           embedded
+           renderer="antialias:true; alpha:true; colorManagement:true;"
+           xr-mode-ui="enabled:false"
+           vr-mode-ui="enabled:false">
+    <a-entity id="hhaRig" position="0 1.6 0">
+      <a-camera id="hhaCam" wasd-controls-enabled="false" look-controls="enabled:true"></a-camera>
+    </a-entity>
+  </a-scene>
+
   <!-- PLAYFIELD (PC/Mobile/cVR) -->
   <div id="playfield">
     <div id="hydration-layer"></div>
@@ -432,6 +440,25 @@ Hydration VR RUN — PRODUCTION (HHA Standard)
       </div>
     </div>
   </div>
+
+  <!-- WebXR session hook: tag body.in-xr for layout tuning if needed -->
+  <script>
+    (function(){
+      const scene = document.querySelector('a-scene');
+      if(!scene) return;
+
+      function setXR(on){
+        try{ document.body.classList.toggle('in-xr', !!on); }catch(_){}
+      }
+
+      scene.addEventListener('enter-vr', ()=>setXR(true));
+      scene.addEventListener('exit-vr', ()=>setXR(false));
+
+      // Also: if WebXR session changes
+      scene.addEventListener('enter-ar', ()=>setXR(true));
+      scene.addEventListener('exit-ar', ()=>setXR(false));
+    })();
+  </script>
 
   <!-- BOOT (auto detect view + set layers + start) -->
   <script type="module" src="./hydration-vr.boot.js"></script>
