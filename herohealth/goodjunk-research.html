@@ -1,0 +1,417 @@
+<!-- === /herohealth/goodjunk-research.html ===
+GoodJunkVR Research Launcher — NO VIEW MENU (STRICT AUTO)
+✅ ไม่ให้เลือก view (ไม่ override) — ให้ boot auto-detect
+✅ กรอก research params: studyId/phase/conditionGroup/studentKey ฯลฯ
+✅ จำค่าล่าสุดด้วย localStorage
+✅ ปุ่มเริ่มเกม + random seed / fixed seed
+✅ ส่งต่อไป /herohealth/goodjunk-vr.html (ตัว RUN)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GoodJunkVR Research Launcher</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel: rgba(2,6,23,.78);
+      --panel2: rgba(15,23,42,.70);
+      --stroke: rgba(148,163,184,.20);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --radius:20px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; height:100%; background: radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
+                                       radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+                                       var(--bg);
+              color:var(--text); font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    .wrap{ min-height:100%; padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(20px + var(--sab)) calc(14px + var(--sal)); display:flex; justify-content:center; }
+    .card{
+      width:min(980px, 96vw);
+      background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.62));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding:16px;
+    }
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    }
+    .title{ font-size:20px; font-weight:1000; letter-spacing:.2px; }
+    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:12px; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.55);
+      border-radius: var(--pill);
+      padding:8px 12px;
+      color:var(--muted);
+      font-weight:900;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 860px){ .grid{ grid-template-columns: 1fr; } }
+    .panel{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 18px;
+      padding:12px;
+    }
+    .panel h3{
+      margin:0 0 10px 0;
+      font-size:13px;
+      letter-spacing:.15px;
+      color:var(--text);
+      font-weight:1000;
+      display:flex; align-items:center; gap:8px;
+    }
+    .row{
+      display:grid;
+      grid-template-columns: 160px 1fr;
+      gap:10px;
+      align-items:center;
+      padding:7px 0;
+      border-bottom:1px dashed rgba(148,163,184,.12);
+    }
+    .row:last-child{ border-bottom:none; }
+    .lab{ color:var(--muted); font-weight:900; font-size:12px; }
+    input, select{
+      width:100%;
+      height:44px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      padding: 0 12px;
+      font-weight:900;
+      outline:none;
+    }
+    input::placeholder{ color: rgba(148,163,184,.55); font-weight:800; }
+    .actions{
+      margin-top:14px;
+      display:flex; gap:10px; flex-wrap:wrap;
+    }
+    .btn{
+      height:52px;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      font-weight:1100;
+      padding:0 14px;
+      cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center; gap:10px;
+      min-width: 180px;
+    }
+    .btn.primary{
+      border-color: rgba(34,197,94,.40);
+      background: rgba(34,197,94,.16);
+      color:#eafff3;
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.35);
+      background: rgba(245,158,11,.12);
+    }
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-weight:850;
+      font-size:12px;
+      line-height:1.4;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div>
+          <div class="title">🧪 GoodJunkVR — Research Launcher</div>
+          <div class="sub">
+            ไม่มีเมนูเลือก <b>view</b> (ไม่ override) • ให้ <b>boot auto-detect</b> เองตามมาตรฐาน
+          </div>
+        </div>
+        <div class="pill">Target: <span class="mono" id="targetRun">./goodjunk-vr.html</span></div>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h3>⚙️ Game Settings</h3>
+
+          <div class="row">
+            <div class="lab">run</div>
+            <select id="runMode">
+              <option value="research">research</option>
+              <option value="play">play</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="lab">diff</div>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="lab">time (sec)</div>
+            <input id="time" inputmode="numeric" placeholder="เช่น 80" value="80" />
+          </div>
+
+          <div class="row">
+            <div class="lab">seed</div>
+            <input id="seed" class="mono" placeholder="ปล่อยว่าง = auto" />
+          </div>
+
+          <div class="row">
+            <div class="lab">hub</div>
+            <input id="hub" class="mono" placeholder="./hub.html หรือ URL เต็ม" value="./hub.html" />
+          </div>
+
+          <div class="actions">
+            <button class="btn warn" id="btnSeedNow" type="button">🎲 ตั้ง seed = now()</button>
+            <button class="btn" id="btnClearSeed" type="button">🧹 ล้าง seed</button>
+          </div>
+
+          <div class="hint">
+            • ถ้า <b>run=research</b> แนะนำใส่ seed เพื่อให้ “ซ้ำรอบ” ได้เหมือนเดิม<br/>
+            • view จะถูกจัดเองโดย <b>goodjunk-vr.boot.js</b> (STRICT AUTO)
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>📋 Research Params</h3>
+
+          <div class="row">
+            <div class="lab">studyId</div>
+            <input id="studyId" placeholder="เช่น HHA_GJ_01" />
+          </div>
+          <div class="row">
+            <div class="lab">phase</div>
+            <input id="phase" placeholder="เช่น pre / post / p1 / p2" />
+          </div>
+          <div class="row">
+            <div class="lab">conditionGroup</div>
+            <input id="conditionGroup" placeholder="เช่น A / B / C" />
+          </div>
+
+          <div class="row">
+            <div class="lab">siteCode</div>
+            <input id="siteCode" placeholder="เช่น SCH01" />
+          </div>
+
+          <div class="row">
+            <div class="lab">studentKey</div>
+            <input id="studentKey" placeholder="รหัสนิรนาม เช่น S001" />
+          </div>
+
+          <div class="row">
+            <div class="lab">extra</div>
+            <input id="extra" class="mono" placeholder="เช่น sessionOrder=1&block=P1 (optional)" />
+          </div>
+
+          <div class="actions">
+            <button class="btn" id="btnSave" type="button">💾 Save (จำค่า)</button>
+            <button class="btn" id="btnReset" type="button">♻️ Reset form</button>
+          </div>
+
+          <div class="hint">
+            • ค่าพวกนี้จะถูกส่งไปกับ URL เพื่อให้ logger เก็บลงชีตได้<br/>
+            • extra ใช้ใส่ query เพิ่มเองแบบ <span class="mono">k=v&k2=v2</span>
+          </div>
+        </section>
+      </div>
+
+      <div class="actions" style="margin-top:16px;">
+        <button class="btn primary" id="btnStart" type="button">🚀 เริ่มเกม (Go)</button>
+        <button class="btn" id="btnCopy" type="button">📎 Copy URL</button>
+      </div>
+
+      <div class="hint" style="margin-top:12px;">
+        URL Preview: <span class="mono" id="preview"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const LS_KEY = 'HHA_GJ_LAUNCHER_V1';
+      const $ = (id)=>document.getElementById(id);
+
+      const runMode = $('runMode');
+      const diff = $('diff');
+      const time = $('time');
+      const seed = $('seed');
+      const hub = $('hub');
+
+      const studyId = $('studyId');
+      const phase = $('phase');
+      const conditionGroup = $('conditionGroup');
+      const siteCode = $('siteCode');
+      const studentKey = $('studentKey');
+      const extra = $('extra');
+
+      const preview = $('preview');
+
+      function clampInt(v, def, min, max){
+        const n = Math.floor(Number(v));
+        if(!Number.isFinite(n)) return def;
+        return Math.max(min, Math.min(max, n));
+      }
+
+      function buildUrl(){
+        const base = './goodjunk-vr.html';
+        const p = new URLSearchParams();
+
+        p.set('run', (runMode.value || 'research').toLowerCase());
+        p.set('diff', (diff.value || 'normal').toLowerCase());
+        p.set('time', String(clampInt(time.value, 80, 20, 300)));
+
+        const seedVal = (seed.value || '').trim();
+        if(seedVal) p.set('seed', seedVal);
+
+        const hubVal = (hub.value || '').trim();
+        if(hubVal) p.set('hub', hubVal);
+
+        const s1 = (studyId.value || '').trim(); if(s1) p.set('studyId', s1);
+        const s2 = (phase.value || '').trim(); if(s2) p.set('phase', s2);
+        const s3 = (conditionGroup.value || '').trim(); if(s3) p.set('conditionGroup', s3);
+
+        const s4 = (siteCode.value || '').trim(); if(s4) p.set('siteCode', s4);
+        const s5 = (studentKey.value || '').trim(); if(s5) p.set('studentKey', s5);
+
+        // allow raw extra query
+        const ex = (extra.value || '').trim();
+        if(ex){
+          ex.split('&').forEach(pair=>{
+            const [k,v] = pair.split('=');
+            if(k && v != null){
+              try{ p.set(k.trim(), v.trim()); }catch(_){}
+            }
+          });
+        }
+
+        // helpful timestamp (optional) – NOT view override
+        p.set('ts', String(Date.now()));
+
+        return base + '?' + p.toString();
+      }
+
+      function updatePreview(){
+        preview.textContent = buildUrl();
+      }
+
+      function save(){
+        const data = {
+          run: runMode.value, diff: diff.value, time: time.value, seed: seed.value, hub: hub.value,
+          studyId: studyId.value, phase: phase.value, conditionGroup: conditionGroup.value,
+          siteCode: siteCode.value, studentKey: studentKey.value, extra: extra.value,
+        };
+        try{ localStorage.setItem(LS_KEY, JSON.stringify(data)); }catch(_){}
+      }
+
+      function load(){
+        try{
+          const raw = localStorage.getItem(LS_KEY);
+          if(!raw) return;
+          const d = JSON.parse(raw);
+          if(d.run) runMode.value = d.run;
+          if(d.diff) diff.value = d.diff;
+          if(d.time) time.value = d.time;
+          if(d.seed != null) seed.value = d.seed;
+          if(d.hub) hub.value = d.hub;
+
+          if(d.studyId != null) studyId.value = d.studyId;
+          if(d.phase != null) phase.value = d.phase;
+          if(d.conditionGroup != null) conditionGroup.value = d.conditionGroup;
+
+          if(d.siteCode != null) siteCode.value = d.siteCode;
+          if(d.studentKey != null) studentKey.value = d.studentKey;
+          if(d.extra != null) extra.value = d.extra;
+        }catch(_){}
+      }
+
+      function resetForm(){
+        runMode.value = 'research';
+        diff.value = 'normal';
+        time.value = '80';
+        seed.value = '';
+        hub.value = './hub.html';
+        studyId.value = '';
+        phase.value = '';
+        conditionGroup.value = '';
+        siteCode.value = '';
+        studentKey.value = '';
+        extra.value = '';
+        updatePreview();
+      }
+
+      // events
+      [runMode,diff,time,seed,hub,studyId,phase,conditionGroup,siteCode,studentKey,extra].forEach(el=>{
+        el.addEventListener('input', updatePreview, {passive:true});
+        el.addEventListener('change', updatePreview, {passive:true});
+      });
+
+      $('btnSeedNow').addEventListener('click', ()=>{
+        seed.value = String(Date.now());
+        updatePreview();
+      });
+
+      $('btnClearSeed').addEventListener('click', ()=>{
+        seed.value = '';
+        updatePreview();
+      });
+
+      $('btnSave').addEventListener('click', ()=>{
+        save();
+        updatePreview();
+        alert('Saved ✅');
+      });
+
+      $('btnReset').addEventListener('click', ()=>{
+        resetForm();
+      });
+
+      $('btnCopy').addEventListener('click', async ()=>{
+        const url = buildUrl();
+        try{
+          await navigator.clipboard.writeText(url);
+          alert('Copied ✅');
+        }catch(_){
+          prompt('Copy this URL:', url);
+        }
+      });
+
+      $('btnStart').addEventListener('click', ()=>{
+        save();
+        location.href = buildUrl();
+      });
+
+      // init
+      load();
+      updatePreview();
+    })();
+  </script>
+</body>
+</html>
