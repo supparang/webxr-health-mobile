@@ -1,3 +1,4 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,85 +16,54 @@
 
   <!-- Global FX + Logger + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Boot -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
-  <!-- Small patch styles for NEW summary blocks -->
   <style>
-    /* END summary extras (safe even if CSS already handles) */
-    .gj-end .section{
+    :root{
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sat: env(safe-area-inset-top, 0px);
+    }
+    /* Keep top buttons clickable */
+    .gj-topbar, .gj-topbar * { pointer-events:auto; }
+
+    /* Low-time overlay patch: show via aria-hidden (safe.js / ui toggles aria-hidden) */
+    #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
+    #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
+      opacity:1 !important;
+      transform: scale(1) !important;
+    }
+
+    /* End tips block */
+    .gj-end .tips{
       margin-top:12px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.35);
-      border-radius: 18px;
-      padding: 12px;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.50);
+      color:#cbd5e1;
+      text-align:left;
+      line-height:1.5;
+      font-weight:800;
+      font-size:12px;
     }
-    .gj-end .sec-title{
-      font: 1100 13px/1 system-ui;
+    .gj-end .tips .t-title{
       color:#e5e7eb;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
+      font-weight:1100;
+      margin-bottom:6px;
+      letter-spacing:.2px;
     }
-    .gj-end .sec-sub{
-      margin-top:6px;
-      font: 900 12px/1.35 system-ui;
-      color:#94a3b8;
+    .gj-end .tips ul{
+      margin:0;
+      padding-left:18px;
     }
-    .gj-end .rubric-grid{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-    }
-    @media (max-width:720px){ .gj-end .rubric-grid{ grid-template-columns:1fr; } }
-    .gj-end .rubric-item{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.45);
-      border-radius: 16px;
-      padding: 10px 12px;
-      display:flex;
-      align-items:baseline;
-      justify-content:space-between;
-      gap:10px;
-      color:#e5e7eb;
-      font: 950 12px/1 system-ui;
-    }
-    .gj-end .rubric-item b{ font-size: 16px; }
-    .gj-end .ins-list{
-      margin-top:10px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .gj-end .ins{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.45);
-      border-radius: 14px;
-      padding: 10px 12px;
-      color:#e5e7eb;
-      font: 900 12px/1.35 system-ui;
-    }
-    .gj-end .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.45);
-      padding: 6px 10px;
-      border-radius: 999px;
-      color:#e5e7eb;
-      font: 1100 12px/1 system-ui;
-      white-space:nowrap;
-    }
-    .gj-end .grade-big{
-      font: 1300 28px/1 system-ui;
-      letter-spacing:.5px;
-    }
+    .gj-end .tips li{ margin:4px 0; }
   </style>
 </head>
 
@@ -191,60 +161,31 @@
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- END SUMMARY (HHA Standard + Rubric + Insights) -->
+  <!-- END SUMMARY (HHA Standard) -->
   <div class="gj-end" id="endOverlay" aria-hidden="true">
     <div class="card">
       <div class="title" id="endTitle">Completed</div>
       <div class="sub" id="endSub">—</div>
 
-      <!-- headline badges -->
-      <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-        <span class="pill">🏅 Final Grade: <span class="grade-big" id="endGrade">—</span></span>
-        <span class="pill">🎖️ Rubric: <b id="endRubricTotal">—</b>/100</span>
-        <span class="pill">🎯 ScoreNorm80: <b id="endScoreNorm80">—</b></span>
-      </div>
+      <div class="grid">
+        <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
+        <div class="stat"><span>RUBRIC</span><b id="endRubric">—</b></div>
 
-      <div class="grid" style="margin-top:12px;">
         <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
+        <div class="stat"><span>SCORE (N80)</span><b id="endNorm80">—</b></div>
+
         <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
         <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
-        <div class="stat"><span>COMBO MAX</span><b id="endComboMax">—</b></div>
 
-        <!-- Research-friendly -->
         <div class="stat"><span>ACCURACY</span><b id="endAcc">—</b></div>
         <div class="stat"><span>JUNK ERROR</span><b id="endJunk">—</b></div>
         <div class="stat"><span>AVG RT</span><b id="endAvgRt">—</b></div>
-        <div class="stat"><span>MED RT</span><b id="endMedRt">—</b></div>
-        <div class="stat"><span>FAST HIT</span><b id="endFast">—</b></div>
-        <div class="stat"><span>GOALS</span><b id="endGoals">—</b></div>
-        <div class="stat"><span>MINI</span><b id="endMini">—</b></div>
-        <div class="stat"><span>DEVICE</span><b id="endDevice">—</b></div>
+        <div class="stat"><span>COMBO MAX</span><b id="endComboMax">—</b></div>
       </div>
 
-      <!-- rubric breakdown -->
-      <div class="section" id="secRubric">
-        <div class="sec-title">
-          <span>📊 Rubric Breakdown (ครูอ่านง่าย)</span>
-          <span class="pill">รวม: <b id="endRubricTotal2">—</b>/100</span>
-        </div>
-        <div class="sec-sub">Performance + Safety + Accuracy + Speed</div>
-        <div class="rubric-grid">
-          <div class="rubric-item"><span>Performance</span><b id="endRubricPerf">—</b></div>
-          <div class="rubric-item"><span>Safety (MISS)</span><b id="endRubricSafe">—</b></div>
-          <div class="rubric-item"><span>Accuracy</span><b id="endRubricAcc">—</b></div>
-          <div class="rubric-item"><span>Speed</span><b id="endRubricSpeed">—</b></div>
-        </div>
-      </div>
-
-      <!-- insights -->
-      <div class="section" id="secInsights">
-        <div class="sec-title">
-          <span>🧠 สรุปสั้น ๆ (แนะนำให้เด็กปรับ)</span>
-          <span class="pill">Top Tips</span>
-        </div>
-        <div class="ins-list" id="endInsights">
-          <div class="ins">—</div>
-        </div>
+      <div class="tips" id="endTips" aria-hidden="true">
+        <div class="t-title">💡 คำแนะนำ</div>
+        <ul id="endTipsList"></ul>
       </div>
 
       <div class="actions">
@@ -286,7 +227,6 @@
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
       const byId = (id)=>document.getElementById(id);
-      const setText = (id, v)=>{ const el=byId(id); if(el) el.textContent = (v==null || v==='') ? '—' : String(v); };
 
       const view = (qs('view','mobile')||'mobile').toLowerCase();
       const run  = qs('run','play');
@@ -322,7 +262,7 @@
         else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
       });
 
-      // Missions peek (show-missions 4 วิ)
+      // Missions peek (VR/cVR ใช้ show-missions 4 วิ)
       byId('btnMissions')?.addEventListener('click', ()=>{
         document.body.classList.add('show-missions');
         setTimeout(()=>document.body.classList.remove('show-missions'), 4200);
@@ -333,23 +273,33 @@
         document.body.classList.toggle('hud-hidden');
       });
 
-      // Grade mapping: legacy grade (D/C/B/A/S) -> new (C/B/A/S/SS/SSS)
-      // หมายเหตุ: ถ้า engine ส่ง gradeSSS มาแล้ว จะใช้ตรงนั้นเลย
-      function mapGradeToTier(d){
-        const g = String(d?.gradeTier || d?.gradeSSS || d?.grade || '').toUpperCase().trim();
-        if(g === 'SSS' || g === 'SS' || g === 'S' || g === 'A' || g === 'B' || g === 'C') return g;
-
-        // fallback from legacy
-        if(g === 'S') return 'S';
-        if(g === 'A') return 'A';
-        if(g === 'B') return 'B';
-        if(g === 'C') return 'C';
-        if(g === 'D' || g === '-') return 'C';
-        return 'C';
-      }
-
       // End overlay
       const endOverlay = byId('endOverlay');
+
+      function safeJsonParse(s){
+        try{ return JSON.parse(String(s||'')); }catch(_){ return null; }
+      }
+
+      function setTips(insightsJson){
+        const tipsBox = byId('endTips');
+        const ul = byId('endTipsList');
+        if(!tipsBox || !ul) return;
+
+        ul.innerHTML = '';
+        const arr = safeJsonParse(insightsJson);
+        if(Array.isArray(arr) && arr.length){
+          for(const t of arr.slice(0,4)){
+            const li = document.createElement('li');
+            li.textContent = String(t);
+            ul.appendChild(li);
+          }
+          tipsBox.setAttribute('aria-hidden','false');
+          tipsBox.style.display = '';
+        }else{
+          tipsBox.setAttribute('aria-hidden','true');
+          tipsBox.style.display = 'none';
+        }
+      }
 
       function showEnd(d){
         try{
@@ -366,81 +316,31 @@
           byId('endSub').textContent =
             `reason=${reason} | mode=${d?.runMode || d?.run || '-'} | view=${d?.device || d?.view || '-'}`;
 
-          // grade
-          const gradeTier = mapGradeToTier(d);
-          setText('endGrade', gradeTier);
+          // primary
+          byId('endGrade').textContent = d?.gradeTier || d?.grade || '—';
+          byId('endScore').textContent = String(scoreFinal);
+          byId('endMiss').textContent  = String(misses);
+          byId('endTime').textContent  = String(played);
 
-          // base stats
-          setText('endScore', scoreFinal);
-          setText('endMiss',  misses);
-          setText('endTime',  played);
-          setText('endComboMax', d?.comboMax);
+          // ✅ new: norm80 + rubric
+          const n80 = d?.scoreNorm80;
+          const rub = safeJsonParse(d?.rubricJson);
+          byId('endNorm80') && (byId('endNorm80').textContent = (n80==null) ? '—' : String(n80));
+          byId('endRubric') && (byId('endRubric').textContent = (rub?.total==null) ? '—' : String(rub.total));
 
           // research stats
           const acc = d?.accuracyGoodPct;
           const junk = d?.junkErrorPct;
           const avgRt = d?.avgRtGoodMs;
-          const medRt = d?.medianRtGoodMs;
-          const fast = d?.fastHitRatePct;
+          const comboMax = d?.comboMax;
 
-          setText('endAcc',   (acc==null) ? '—' : `${acc}%`);
-          setText('endJunk',  (junk==null)? '—' : `${junk}%`);
-          setText('endAvgRt', (avgRt==null)?'—' : `${avgRt}ms`);
-          setText('endMedRt', (medRt==null)?'—' : `${medRt}ms`);
-          setText('endFast',  (fast==null)?'—' : `${fast}%`);
+          byId('endAcc') && (byId('endAcc').textContent = (acc==null) ? '—' : `${acc}%`);
+          byId('endJunk') && (byId('endJunk').textContent = (junk==null) ? '—' : `${junk}%`);
+          byId('endAvgRt') && (byId('endAvgRt').textContent = (avgRt==null) ? '—' : `${avgRt}ms`);
+          byId('endComboMax') && (byId('endComboMax').textContent = (comboMax==null) ? '—' : String(comboMax));
 
-          // goals/minis
-          const gc = d?.goalsCleared, gt = d?.goalsTotal;
-          const mc = d?.miniCleared,  mt = d?.miniTotal;
-          setText('endGoals', (gc==null || gt==null) ? '—' : `${gc}/${gt}`);
-          setText('endMini',  (mc==null || mt==null) ? '—' : `${mc}/${mt}`);
-
-          // device / scoreNorm80
-          setText('endDevice', d?.device || d?.view || '—');
-          setText('endScoreNorm80', d?.scoreNorm80 ?? '—');
-
-          // rubric JSON
-          let rubric = null;
-          try{
-            rubric = JSON.parse(d?.rubricJson || d?.rubric || 'null');
-          }catch(_){ rubric = null; }
-
-          if(rubric && typeof rubric === 'object'){
-            setText('endRubricTotal', rubric.total);
-            setText('endRubricTotal2', rubric.total);
-            setText('endRubricPerf', rubric.perf);
-            setText('endRubricSafe', rubric.safe);
-            setText('endRubricAcc', rubric.accuracy);
-            setText('endRubricSpeed', rubric.speed);
-          }else{
-            setText('endRubricTotal', '—');
-            setText('endRubricTotal2', '—');
-            setText('endRubricPerf', '—');
-            setText('endRubricSafe', '—');
-            setText('endRubricAcc', '—');
-            setText('endRubricSpeed', '—');
-          }
-
-          // insights JSON
-          let ins = null;
-          try{
-            ins = JSON.parse(d?.insightsJson || d?.insights || 'null');
-          }catch(_){ ins = null; }
-
-          const box = byId('endInsights');
-          if(box){
-            if(Array.isArray(ins) && ins.length){
-              box.innerHTML = ins.slice(0,4).map(s=>`<div class="ins">${String(s)}</div>`).join('');
-            }else{
-              // fallback insights จากค่าที่มี
-              const arr = [];
-              if(junk!=null && junk >= 18) arr.push('โดนขยะบ่อย: โฟกัส “แยกของดีกับขยะ” ก่อนยิง');
-              if(acc!=null && acc < 55) arr.push('เก็บของดีพลาดเยอะ: เล็งใกล้กลางจอ + รอเป้าโผล่เต็ม');
-              if(misses >= 7) arr.push('MISS สูง: ชะลอมือ 0.2 วิ + ใช้ 🛡️ ให้คุ้ม');
-              if(!arr.length) arr.push('ทำได้ดี! ลองลด MISS ลงอีกนิดเพื่อไต่ SS/SSS');
-              box.innerHTML = arr.slice(0,4).map(s=>`<div class="ins">${String(s)}</div>`).join('');
-            }
-          }
+          // tips
+          setTips(d?.insightsJson);
 
           endOverlay.style.display = 'flex';
           endOverlay.setAttribute('aria-hidden','false');
