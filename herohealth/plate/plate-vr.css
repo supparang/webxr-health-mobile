@@ -1,20 +1,18 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — HHA Standard UI (PRODUCTION)
-- Fullscreen play layer + safe-area
-- HUD top (Goal/Mini) + Stats/Buttons
-- Boss/Storm overlays
-- Start/Result overlays
-- VR-UI friendly: keep buttons clickable, avoid HUD overlap
+Balanced Plate VR — PRODUCTION+ (HHA Standard UI)
+✅ PC/Mobile/VR/cVR layouts + safe-area
+✅ HUD/Quest/Boss/Storm/Coach panels
+✅ Prevent HUD blocking VR-UI buttons
+✅ Targets readable + tap friendly
+✅ FX layer + hit pop
 */
 
 :root{
   color-scheme: dark;
-
   --bg:#020617;
-  --panel: rgba(2,6,23,.78);
-  --panel2: rgba(15,23,42,.72);
-  --stroke: rgba(148,163,184,.20);
-
+  --panel:rgba(2,6,23,.82);
+  --panel2:rgba(15,23,42,.72);
+  --stroke:rgba(148,163,184,.22);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -27,640 +25,485 @@ Balanced Plate VR — HHA Standard UI (PRODUCTION)
   --radius:22px;
   --pill:999px;
 
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* play rect padding */
-  --play-pad-top: calc(10px + var(--sat));
-  --play-pad-bottom: calc(12px + var(--sab));
-  --play-pad-side: 12px;
+  /* HUD spacing rules */
+  --hudTopH: 132px;          /* top reserved area */
+  --hudBottomH: 106px;       /* bottom reserved area */
+  --sidePad: 12px;
 
-  /* reserved space for VR-UI buttons (top-left) */
-  --vrui-safe-left: 110px;   /* enter/recenter buttons area */
-  --vrui-safe-top: 64px;
+  /* plate targets */
+  --targetSize: 56px;
+  --targetFont: 28px;
+  --targetShadow: 0 10px 28px rgba(0,0,0,.38);
 }
 
+/* ---------- base ---------- */
 *{ box-sizing:border-box; }
 html,body{
-  width:100%;
-  height:100%;
-  margin:0;
-  padding:0;
+  width:100%; height:100%;
+  margin:0; padding:0;
   overflow:hidden;
-  background:
-    radial-gradient(circle at top left, rgba(34,211,238,.18), transparent 58%),
-    radial-gradient(circle at bottom right, rgba(167,139,250,.16), transparent 55%),
-    radial-gradient(circle at 30% 70%, rgba(34,197,94,.10), transparent 60%),
-    var(--bg);
+  background: radial-gradient(circle at 15% 10%, rgba(34,211,238,.16), transparent 52%),
+              radial-gradient(circle at 90% 80%, rgba(167,139,250,.16), transparent 56%),
+              linear-gradient(180deg, #020617, #020617);
   color:var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* ---------- View helpers (boot can set body classes) ---------- */
-body.view-pc{}
-body.view-mobile{}
-body.view-vr{}
-body.view-cvr{}
+a{ color:inherit; }
 
-/* ---------- Play layer (targets spawn here via JS) ---------- */
+/* ---------- background scene slot (if any) ---------- */
+#sceneRoot{
+  position:fixed; inset:0;
+  z-index:0;
+}
+
+/* ---------- play layer ---------- */
 #plate-layer{
   position:fixed;
   inset:0;
-  z-index:10;
-  overflow:hidden;
+  z-index:2;
+  /* reserved space so targets don't spawn under HUD */
+  padding:
+    calc(var(--sat) + var(--hudTopH)) 
+    calc(var(--sar) + 10px)
+    calc(var(--sab) + var(--hudBottomH))
+    calc(var(--sal) + 10px);
   touch-action: manipulation;
+}
+
+/* if you want targets allowed behind HUD in PC (optional):
+body.view-pc #plate-layer{ padding-top: calc(var(--sat) + 118px); } */
+
+/* ---------- targets ---------- */
+.plateTarget{
+  border:1px solid rgba(148,163,184,.28);
+  background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(15,23,42,.72));
+  color:#fff;
+  box-shadow: var(--targetShadow);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
   user-select:none;
   -webkit-user-select:none;
-
-  /* padding used by engine to compute bounds (if it reads CSS vars) */
-  padding:
-    var(--play-pad-top)
-    calc(var(--play-pad-side) + var(--sar))
-    var(--play-pad-bottom)
-    calc(var(--play-pad-side) + var(--sal));
+  touch-action: manipulation;
+  transform: translateZ(0);
+  transition: transform .08s ease, filter .08s ease, opacity .12s ease;
+}
+.plateTarget:active{
+  transform: scale(.96);
+  filter: brightness(1.1);
+}
+.plateTarget.fx-good{
+  border-color: rgba(34,197,94,.45);
+  box-shadow: 0 14px 38px rgba(34,197,94,.12), var(--targetShadow);
+}
+.plateTarget.fx-bad{
+  border-color: rgba(239,68,68,.45);
+  box-shadow: 0 14px 38px rgba(239,68,68,.12), var(--targetShadow);
 }
 
-/* Make sure A-Frame embedded doesn't block clicks */
-a-scene{ pointer-events:none !important; }
-
-/* ---------- FX layer ---------- */
-#hitFx{
+/* ---------- HUD wrappers ---------- */
+#hudTop,
+#hudBtns,
+#bossHud,
+#stormHud,
+#miniPanel,
+#coachPanel{
   position:fixed;
-  inset:0;
-  z-index:90;
-  pointer-events:none;
+  z-index:40; /* keep above targets */
+  pointer-events:none; /* IMPORTANT: don't block targets */
+}
+#hudTop * ,
+#hudBtns * ,
+#bossHud * ,
+#stormHud * ,
+#miniPanel * ,
+#coachPanel * { pointer-events:auto; }
+
+/* Keep VR-UI buttons always clickable (vr-ui.js usually uses z-index 120) */
+.hha-vrui,
+.hha-vrui *{
+  pointer-events:auto !important;
 }
 
-/* ---------- HUD Top (Goal/Mini) ---------- */
-.hud-top{
-  position:fixed;
-  top:calc(10px + var(--sat));
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  z-index:60;
+/* ---------- Top HUD ---------- */
+#hudTop{
+  left: calc(var(--sal) + var(--sidePad));
+  right: calc(var(--sar) + var(--sidePad));
+  top: calc(var(--sat) + 10px);
   display:flex;
   gap:10px;
   align-items:stretch;
-  pointer-events:none; /* so targets behind are clickable */
+  justify-content:space-between;
 }
 
-.hud-chip{
-  flex:1;
-  min-width:0;
+.hudCard{
   background: var(--panel);
   border:1px solid var(--stroke);
   border-radius: var(--radius);
+  box-shadow: 0 20px 50px rgba(0,0,0,.25);
   padding:10px 12px;
-  box-shadow: 0 12px 30px rgba(0,0,0,.35);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
 }
 
-.hud-title{
-  font-weight:900;
-  letter-spacing:.08em;
-  font-size:12px;
-  color:var(--muted);
-  margin-bottom:6px;
-}
-
-.hud-row{
+#hudMain{
+  flex:1;
+  min-width: 0;
   display:flex;
+  gap:10px;
   align-items:center;
   justify-content:space-between;
+}
+
+.hudStat{
+  display:flex;
   gap:8px;
+  align-items:baseline;
+  min-width: 0;
 }
-
-.hud-main{
-  font-weight:900;
-  font-size:14px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-
-.hud-right{ display:flex; gap:8px; align-items:center; }
-.hud-count{
-  font-weight:900;
+.hudLabel{
   font-size:12px;
   color:var(--muted);
-  white-space:nowrap;
+  letter-spacing:.3px;
+}
+.hudValue{
+  font-size:18px;
+  font-weight:900;
+}
+.hudTiny{
+  font-size:12px;
+  color:var(--muted);
 }
 
-.hud-bar{
-  height:10px;
-  margin-top:8px;
-  border-radius: var(--pill);
-  background: rgba(148,163,184,.12);
-  border: 1px solid rgba(148,163,184,.16);
+/* fever */
+#uiFeverWrap{
+  width: 120px;
+  height: 12px;
+  border-radius: 999px;
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.55);
   overflow:hidden;
 }
-
-.hud-fill{
+#uiFeverFill{
   height:100%;
   width:0%;
-  border-radius: var(--pill);
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-  transition: width .18s ease;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95), rgba(239,68,68,.95));
 }
 
-/* ---------- Mini hint panel ---------- */
-.mini-panel{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top:calc(96px + var(--sat));
-  z-index:55;
-  display:flex;
+/* grade chip */
+#uiGradeChip{
+  display:inline-flex;
+  align-items:center;
   justify-content:center;
-  pointer-events:none;
+  height:30px;
+  padding:0 12px;
+  border-radius: var(--pill);
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.65);
+  font-weight:900;
 }
 
-.mini-hint{
-  max-width:740px;
-  width:100%;
+/* ---------- Mini panel (goal/mini) ---------- */
+#miniPanel{
+  left: calc(var(--sal) + var(--sidePad));
+  right: calc(var(--sar) + var(--sidePad));
+  top: calc(var(--sat) + 86px);
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  justify-content:space-between;
+}
+
+#miniPanel .miniCard{
+  flex:1;
+  min-width:0;
   background: var(--panel2);
   border:1px solid var(--stroke);
   border-radius: var(--radius);
   padding:10px 12px;
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
-  backdrop-filter: blur(8px);
-}
-
-.mini-tag{
-  flex:0 0 auto;
-  font-weight:900;
-  font-size:12px;
-  padding:4px 10px;
-  border-radius: var(--pill);
-  background: rgba(34,211,238,.16);
-  border:1px solid rgba(34,211,238,.22);
-  color:#e6fbff;
-}
-
-.mini-text{
-  font-size:13px;
-  font-weight:700;
-  color:var(--text);
-  line-height:1.2;
-}
-
-/* ---------- Coach panel ---------- */
-.coach-panel{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  bottom:calc(10px + var(--sab));
-  z-index:58;
-  pointer-events:none;
-}
-
-.coach-card{
-  display:flex;
-  gap:10px;
-  align-items:flex-end;
-}
-
-.coach-img{
-  width:56px;
-  height:56px;
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.25);
-  background: rgba(2,6,23,.45);
-  object-fit:cover;
-  box-shadow: 0 10px 26px rgba(0,0,0,.30);
-}
-
-.coach-bubble{
-  max-width: 320px;
-  background: rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 18px;
-  padding:10px 12px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.32);
-}
-
-.coach-name{
-  font-weight:900;
-  font-size:12px;
-  letter-spacing:.04em;
-  color:var(--muted);
-  margin-bottom:4px;
-}
-
-.coach-msg{
-  font-weight:800;
-  font-size:13px;
-  line-height:1.2;
-}
-
-/* ---------- HUD Buttons/Stats ---------- */
-.hud-btns{
-  position:fixed;
-  right:calc(10px + var(--sar));
-  bottom:calc(10px + var(--sab));
-  z-index:70; /* above targets; but keep stats area pointer-friendly */
-  width:min(460px, calc(100vw - 20px - var(--sal) - var(--sar)));
-  pointer-events:auto;
-}
-
-.stats{
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap:8px;
-  margin-bottom:10px;
-}
-
-.stat{
-  background: var(--panel);
-  border:1px solid var(--stroke);
-  border-radius: 16px;
-  padding:8px 10px;
-  box-shadow: 0 10px 24px rgba(0,0,0,.28);
-  backdrop-filter: blur(8px);
-}
-
-.stat .k{
-  font-weight:900;
-  font-size:10px;
-  letter-spacing:.10em;
-  color:var(--muted);
-}
-.stat .v{
-  font-weight:1000;
-  font-size:16px;
-  margin-top:2px;
-}
-
-.bars{
-  display:flex;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-.bar{
-  flex:1;
-  background: var(--panel);
-  border:1px solid var(--stroke);
-  border-radius: 16px;
-  padding:8px 10px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.26);
-}
-
-.bar-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  font-weight:900;
-  font-size:11px;
-  letter-spacing:.08em;
-  color:var(--muted);
-  margin-bottom:8px;
-}
-
-.bar-track{
-  height:10px;
-  border-radius: var(--pill);
-  background: rgba(148,163,184,.12);
-  border:1px solid rgba(148,163,184,.16);
-  overflow:hidden;
-}
-
-.bar-fill{
-  height:100%;
-  width:0%;
-  border-radius: var(--pill);
-  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
-  transition: width .16s ease;
-}
-
-.groups{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-bottom:10px;
-}
-
-.g{
-  background: rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius: var(--pill);
-  padding:6px 10px;
-  font-weight:900;
-  font-size:12px;
-  backdrop-filter: blur(6px);
-}
-
-.actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  justify-content:flex-end;
-}
-
-.btn{
-  appearance:none;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.78);
-  color:var(--text);
-  border-radius: 16px;
-  padding:10px 12px;
-  font-weight:900;
-  font-size:13px;
-  cursor:pointer;
-  box-shadow: 0 10px 22px rgba(0,0,0,.26);
-  backdrop-filter: blur(8px);
-  transition: transform .08s ease, filter .12s ease;
-}
-.btn:active{ transform: translateY(1px) scale(.99); }
-.btn:hover{ filter: brightness(1.08); }
-
-.btn.primary{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.35);
-}
-.btn.ghost{
-  background: rgba(15,23,42,.60);
-  border-color: rgba(148,163,184,.20);
-}
-.btn.danger{
-  background: rgba(239,68,68,.16);
-  border-color: rgba(239,68,68,.35);
-}
-
-.muted{ color:var(--muted); }
-
-/* ---------- Pause overlay ---------- */
-.overlay{
-  position:fixed;
-  inset:0;
-  z-index:120;
-  background: rgba(0,0,0,.55);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-}
-.overlay-card{
-  width:min(520px, 100%);
-  background: rgba(2,6,23,.86);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 26px;
-  padding:18px 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.50);
-  text-align:center;
-}
-.overlay-title{
-  font-size:22px;
-  font-weight:1000;
-  margin-bottom:8px;
-}
-.overlay-text{
-  color:var(--muted);
-  font-weight:800;
-}
-
-/* ---------- Start overlay ---------- */
-.start-overlay{
-  position:fixed;
-  inset:0;
-  z-index:140;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-  background: radial-gradient(circle at 50% 40%, rgba(34,197,94,.14), rgba(2,6,23,.92) 60%);
-}
-
-.start-card{
-  width:min(680px, 100%);
-  background: rgba(2,6,23,.88);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 28px;
-  padding:18px 16px 16px;
-  box-shadow: 0 24px 70px rgba(0,0,0,.58);
-}
-.start-card .brand{
-  font-weight:1000;
-  letter-spacing:.10em;
-  color: rgba(34,211,238,.95);
-  font-size:12px;
-}
-.start-card .title{
-  font-weight:1000;
-  font-size:26px;
-  margin:6px 0 10px;
-}
-.start-card .sub{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  color:var(--muted);
-  font-weight:900;
-  font-size:12px;
-  margin-bottom:12px;
-}
-.tips{
-  display:grid;
-  gap:8px;
-  margin-bottom:14px;
-}
-.tip{
-  background: rgba(15,23,42,.60);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding:10px 12px;
-  font-weight:900;
-  font-size:13px;
-}
-.start-actions{
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-.note{
-  margin-top:10px;
-  font-weight:800;
-  font-size:12px;
-  color:var(--muted);
-}
-
-/* ---------- Boss / Storm overlays ---------- */
-.boss-hud,.storm-hud{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top:calc(160px + var(--sat));
-  z-index:95;
-  pointer-events:none;
-  display:flex;
-  justify-content:center;
-}
-.boss-card,.storm-card{
-  width:min(740px, 100%);
-  background: rgba(2,6,23,.82);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 24px;
-  padding:12px 14px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.45);
-  backdrop-filter: blur(8px);
-}
-.boss-title{ font-weight:1000; font-size:16px; color: rgba(239,68,68,.95); }
-.storm-title{ font-weight:1000; font-size:16px; color: rgba(34,211,238,.95); }
-.boss-hint,.storm-hint{ margin-top:6px; font-weight:900; color:var(--text); }
-.boss-prog,.storm-prog{ margin-top:6px; font-weight:900; color:var(--muted); font-size:12px; }
-
-.boss-fx,.storm-fx{
-  position:fixed;
-  inset:0;
-  z-index:94;
-  pointer-events:none;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(239,68,68,.10), transparent 55%);
-  mix-blend-mode: screen;
-}
-.storm-fx{
-  background:
-    radial-gradient(circle at 50% 50%, rgba(34,211,238,.12), transparent 55%);
-}
-
-/* ---------- Result overlay ---------- */
-.result-backdrop{
-  position:fixed;
-  inset:0;
-  z-index:150;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-  background: rgba(0,0,0,.60);
-}
-
-.result-card{
-  width:min(720px, 100%);
-  background: rgba(2,6,23,.90);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 30px;
-  padding:16px 16px 14px;
-  box-shadow: 0 26px 78px rgba(0,0,0,.62);
   backdrop-filter: blur(10px);
 }
 
-.result-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
-  gap:10px;
-  margin-bottom:12px;
-}
-.result-title{
-  font-weight:1000;
-  font-size:24px;
-}
-.result-mode{
-  color:var(--muted);
-  font-weight:900;
+.miniTitle{
   font-size:12px;
-}
-
-.grade{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font-weight:1000;
-  letter-spacing:.08em;
-  margin-bottom:12px;
-}
-.grade-badge{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-width:48px;
-  padding:6px 12px;
-  border-radius: var(--pill);
-  background: rgba(167,139,250,.18);
-  border:1px solid rgba(167,139,250,.30);
-  font-size:14px;
-}
-
-.grid{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap:10px;
-  margin-bottom:14px;
-}
-.cell{
-  background: rgba(15,23,42,.60);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding:10px 12px;
-}
-.cell .k{
   color:var(--muted);
-  font-weight:900;
-  letter-spacing:.08em;
-  font-size:11px;
 }
-.cell .v{
-  font-weight:1000;
-  font-size:18px;
+.miniText{
   margin-top:4px;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.25;
+  word-break:break-word;
 }
-
-.plate-break .k{
-  color:var(--muted);
-  font-weight:900;
-  letter-spacing:.08em;
-  font-size:11px;
-  margin-bottom:8px;
-}
-.groups2{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  font-weight:1000;
-  background: rgba(15,23,42,.60);
+.miniProg{
+  margin-top:8px;
+  height:10px;
+  border-radius:999px;
+  background: rgba(15,23,42,.55);
   border:1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding:10px 12px;
+  overflow:hidden;
+}
+.miniProg > i{
+  display:block;
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(34,211,238,.9), rgba(167,139,250,.9));
 }
 
-.result-actions{
+/* ---------- Coach panel ---------- */
+#coachPanel{
+  left: calc(var(--sal) + var(--sidePad));
+  bottom: calc(var(--sab) + 12px);
+  width:min(520px, calc(100vw - (var(--sal) + var(--sar) + 2*var(--sidePad))));
+}
+#coachPanel .coachCard{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  background: rgba(2,6,23,.72);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius: var(--radius);
+  padding:10px 12px;
+  backdrop-filter: blur(10px);
+}
+#coachAvatar{
+  width:42px; height:42px;
+  border-radius: 14px;
+  display:grid;
+  place-items:center;
+  background: rgba(15,23,42,.7);
+  border:1px solid rgba(148,163,184,.18);
+  font-size:22px;
+}
+#coachMsg{
+  font-size:14px;
+  line-height:1.25;
+  font-weight:800;
+}
+#coachHint{
+  margin-top:3px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+/* ---------- HUD Buttons bottom-right ---------- */
+#hudBtns{
+  right: calc(var(--sar) + var(--sidePad));
+  bottom: calc(var(--sab) + 12px);
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-end;
+}
+.hudBtn{
+  pointer-events:auto;
+  appearance:none;
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.72);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius: var(--pill);
+  font-weight:900;
+  letter-spacing:.2px;
+  cursor:pointer;
+  box-shadow: 0 14px 34px rgba(0,0,0,.22);
+  transition: transform .08s ease, filter .08s ease;
+}
+.hudBtn:active{ transform: scale(.98); }
+.hudBtn.primary{
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.18);
+}
+.hudBtn.warn{
+  border-color: rgba(245,158,11,.35);
+  background: rgba(245,158,11,.16);
+}
+.hudBtn.bad{
+  border-color: rgba(239,68,68,.35);
+  background: rgba(239,68,68,.16);
+}
+
+/* ---------- Boss / Storm HUD (top center) ---------- */
+#bossHud, #stormHud{
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--sat) + 10px);
+  width: min(520px, calc(100vw - (var(--sal) + var(--sar) + 40px)));
+}
+#stormHud{ top: calc(var(--sat) + 54px); }
+
+.phaseCard{
+  background: rgba(2,6,23,.64);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius: var(--radius);
+  padding:10px 12px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 48px rgba(0,0,0,.22);
+}
+.phaseTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.phaseTitle{
+  font-weight:1000;
+  letter-spacing:.2px;
+}
+.phaseHint{
+  font-size:12px;
+  color:var(--muted);
+  text-align:right;
+}
+.phaseProg{
+  margin-top:8px;
+  height:10px;
+  border-radius:999px;
+  background: rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.18);
+  overflow:hidden;
+}
+.phaseProg > i{
+  display:block;
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
+}
+
+/* ---------- Start overlay / Pause overlay / Result ---------- */
+#startOverlay,
+#hudPaused,
+#resultBackdrop{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  display:grid;
+  place-items:center;
+  padding: calc(var(--sat) + 16px) calc(var(--sar) + 16px)
+           calc(var(--sab) + 16px) calc(var(--sal) + 16px);
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(6px);
+}
+
+#hudPaused{ display:none; }
+#resultBackdrop{ display:none; }
+
+.modal{
+  width:min(720px, 100%);
+  background: rgba(2,6,23,.90);
+  border:1px solid rgba(148,163,184,.22);
+  border-radius: 26px;
+  padding: 18px 18px;
+  box-shadow: 0 30px 90px rgba(0,0,0,.35);
+}
+.modal h1{
+  margin:0;
+  font-size:20px;
+  letter-spacing:.2px;
+}
+.modal p{
+  margin:10px 0 0 0;
+  color:var(--muted);
+  line-height:1.35;
+}
+.modal .row{
   margin-top:14px;
   display:flex;
-  gap:10px;
-  justify-content:flex-end;
   flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-end;
+}
+.modal .bigBtn{
+  appearance:none;
+  border:none;
+  padding:12px 14px;
+  border-radius: var(--pill);
+  font-weight:1000;
+  cursor:pointer;
+  background: rgba(34,197,94,.18);
+  border:1px solid rgba(34,197,94,.35);
+  color:var(--text);
+}
+.modal .bigBtn.secondary{
+  background: rgba(15,23,42,.65);
+  border:1px solid rgba(148,163,184,.22);
+}
+
+/* ---------- FX Layer / Hit pop ---------- */
+#hitFx{
+  position:fixed;
+  inset:0;
+  z-index:70;
+  pointer-events:none;
+  overflow:hidden;
+}
+.fxPop{
+  position:absolute;
+  transform: translate(-50%,-50%);
+  font: 1000 18px/1 system-ui;
+  color:#fff;
+  text-shadow: 0 6px 18px rgba(0,0,0,.35);
+  animation: popUp .55s ease both;
+}
+@keyframes popUp{
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
+  20%{ opacity:1; transform:translate(-50%,-62%) scale(1.05); }
+  100%{ opacity:0; transform:translate(-50%,-92%) scale(.92); }
 }
 
 /* ---------- Responsive tuning ---------- */
 @media (max-width: 520px){
-  .hud-top{ gap:8px; }
-  .hud-chip{ padding:9px 10px; border-radius: 18px; }
-  .hud-main{ font-size:13px; }
-  .mini-panel{ top: calc(102px + var(--sat)); }
-  .coach-bubble{ max-width: 260px; }
-  .stats{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-  .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  :root{
+    --hudTopH: 142px;
+    --hudBottomH: 116px;
+    --targetSize: 58px;
+  }
+  #hudTop{ gap:8px; }
+  .hudCard{ padding:10px 10px; border-radius: 18px; }
+  #uiFeverWrap{ width: 92px; }
+  #coachPanel{ width: min(100%, calc(100vw - (var(--sal)+var(--sar) + 24px))); }
+  .hudBtn{ padding:10px 11px; }
 }
 
-/* ---------- cVR strict: keep HUD from blocking crosshair gameplay ---------- */
-body.view-cvr .hud-btns{ width:min(420px, calc(100vw - 20px)); }
-body.view-cvr .hud-top{ pointer-events:none; }
-body.view-cvr .mini-panel{ pointer-events:none; }
-body.view-cvr .coach-panel{ pointer-events:none; }
+@media (min-width: 980px){
+  :root{
+    --hudTopH: 122px;
+    --hudBottomH: 96px;
+    --targetSize: 54px;
+  }
+}
 
-/* ---------- VR-UI friendliness (top-left reserved area) ---------- */
-/* keep goal/minibar away from vr-ui buttons zone */
-.hud-top{
-  padding-left: calc(var(--vrui-safe-left));
+/* ---------- View mode tweaks ---------- */
+body.view-vr #coachPanel,
+body.view-cvr #coachPanel{
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--sab) + 12px);
+  width: min(640px, calc(100vw - (var(--sal)+var(--sar) + 40px)));
 }
-@media (max-width: 520px){
-  :root{ --vrui-safe-left: 104px; }
-  .hud-top{ padding-left: calc(var(--vrui-safe-left)); }
+body.view-cvr #plate-layer{
+  /* cVR: keep bigger safe margins to reduce nausea + avoid HUD */
+  padding:
+    calc(var(--sat) + var(--hudTopH) + 6px)
+    calc(var(--sar) + 14px)
+    calc(var(--sab) + var(--hudBottomH) + 10px)
+    calc(var(--sal) + 14px);
 }
+
+/* ---------- Accessibility ---------- */
+button:focus-visible{
+  outline: 2px solid rgba(34,211,238,.85);
+  outline-offset: 2px;
+}
+
+/* ---------- Optional hide panels in VR to increase play area ---------- */
+body.view-vr .hudLabel,
+body.view-vr .hudTiny{ display:none; }
