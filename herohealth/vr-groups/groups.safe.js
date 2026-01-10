@@ -1,14 +1,13 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones)
-✅ FIX Miss: ใช้มาตรฐาน HHA_Miss (dedupe กันนับซ้ำ)
-✅ FIX Spawn: ใช้ HHA_SafeZones (กันเป้าไปอยู่ใต้ HUD/Quest/Power/Coach/VR-UI)
-✅ shoot_miss: “ไม่เพิ่ม Miss” (default) => ยิงพลาดแค่คอมโบหลุด (เหมาะ ป.5)
+Food Groups VR — SAFE (PRODUCTION) — WITH:
+✅ A: Miss Standard (HHA_Miss) + breakdown + dedupe
+✅ C: UI SafeZones (HHA_SafeZones) => spawn never under HUD/Quest/Coach/Power/VR UI
+✅ Fix: Miss inflated because targets spawned under UI -> solved by safezones
+✅ Fix: optional rule: expire_good counts as miss (toggleable)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
-   - practice: deterministic seed + adaptive OFF + AI OFF
-✅ Rank: SSS, SS, S, A, B, C (Miss ถูกถ่วงหนักขึ้น)
-✅ Summary: include missBreakdown (แยกผิด/ขยะ/หมดเวลา/ยิงวืด/etc.) เพื่อหลังบ้าน
+   - practice: deterministic + NO storm + NO mini (or mini optional) + no rank pressure
 */
 
 (function (root) {
@@ -26,36 +25,23 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
   function hashSeed(str) {
     str = String(str ?? '');
     let h = 2166136261 >>> 0;
-    for (let i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
     return h >>> 0;
   }
 
   function makeRng(seedU32) {
     let s = (seedU32 >>> 0) || 1;
-    return function rand() {
-      s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-      return s / 4294967296;
-    };
+    return function rand() { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
   }
 
-  function pick(rng, arr) {
-    return arr[(rng() * arr.length) | 0];
-  }
+  function pick(rng, arr) { return arr[(rng() * arr.length) | 0]; }
 
   function emit(name, detail) {
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
 
-  function cssSet(el, k, v) {
-    try { el.style.setProperty(k, v); } catch (_) {}
-  }
-
-  function addBodyClass(c, on) {
-    DOC.body.classList.toggle(c, !!on);
-  }
+  function cssSet(el, k, v) { try { el.style.setProperty(k, v); } catch (_) {} }
+  function addBodyClass(c, on) { DOC.body.classList.toggle(c, !!on); }
 
   function flashBodyFx(cls, ms){
     try{
@@ -81,7 +67,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
     { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
   ];
-
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
   // ---------------- Difficulty presets ----------------
@@ -132,14 +117,16 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     };
   }
 
-  // ---------------- Rank (SSS..C) ----------------
-  // ✅ ให้ Miss มีผลชัด: เด็กป.5 ยิงมั่ว = Rank ตกจริง
+  // ---------------- Grade logic ----------------
+  // NOTE: โหมดเกมโชว์ SSS/SS/S/A/B/C ได้
+  // โหมดวิจัย: บันทึกตัวเลขแยก (accuracy, misses, score) แล้วค่อยคำนวณทีหลังได้
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    const mPenalty = Math.min(38, misses * 3.0);  // หนักขึ้นอีกนิด
+    // ให้ Miss ลงโทษชัด (กัน Miss 20+ ยังได้ S)
+    const mPenalty = Math.min(34, misses * 2.8);
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.0);
     const v = accPct - mPenalty + sBoost;
 
@@ -151,53 +138,47 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     return 'C';
   }
 
-  // ---------------- SafeZones (UI-aware spawn bounds) ----------------
-  function makeSafeZones(){
-    const SZ = root.HHA_SafeZones;
-    if (!SZ || !SZ.compute || !SZ.pickSafePoint) return null;
-
-    const selectors = [
+  // ---------------- SafeZones helpers (C) ----------------
+  function safeZoneSelectors(){
+    // กันเป้าไม่ให้ทับ UI จริง ๆ
+    // เพิ่ม/ลดได้ตาม layout ของคุณ
+    return [
       '.hud',
       '.questTop',
       '.powerWrap',
       '.coachWrap',
       '.hha-vr-ui',
-      '.overlay'
+      '.hha-crosshair',
+      '.overlay' // ตอน overlay เปิด ไม่ควร spawn อยู่แล้ว แต่กันไว้
     ];
+  }
 
-    let cache = null;
-    let cacheAt = 0;
+  function computeSafe(view){
+    const SZ = root.HHA_SafeZones;
+    if (!SZ || !SZ.compute) return null;
 
-    function recompute(force){
-      const t = nowMs();
-      if (!force && cache && (t - cacheAt) < 650) return cache;
-      cacheAt = t;
-      cache = SZ.compute({
-        selectors,
-        uiPad: 10,     // กันห่างขอบ UI
-        edgePad: 12    // กันชิดขอบจอ
-      });
-      return cache;
-    }
+    // cVR ให้กันพื้นที่กลางเพิ่มนิด (crosshair)
+    const edgePad = (view === 'cvr') ? 18 : 12;
+    const uiPad   = (view === 'cvr') ? 12 : 10;
 
-    function pickPoint(rng, radius){
-      const c = recompute(false);
-      const p = SZ.pickSafePoint({
-        playRect: c.playRect,
-        excludeRects: c.excludeRects,
-        rng,
-        tries: 90,
-        radius: radius
-      });
-      return { x:p.x, y:p.y, W:c.W, H:c.H };
-    }
+    return SZ.compute({
+      selectors: safeZoneSelectors(),
+      uiPad,
+      edgePad
+    });
+  }
 
-    function hardRefresh(){ recompute(true); }
+  function pickSafePointSafe(safe, rng, radius){
+    const SZ = root.HHA_SafeZones;
+    if (!safe || !SZ || !SZ.pickSafePoint) return null;
 
-    root.addEventListener('resize', ()=>hardRefresh(), {passive:true});
-    root.addEventListener('orientationchange', ()=>hardRefresh(), {passive:true});
-
-    return { pickPoint, hardRefresh };
+    return SZ.pickSafePoint({
+      playRect: safe.playRect,
+      excludeRects: safe.excludeRects,
+      rng,
+      tries: 110,
+      radius: radius || 44
+    });
   }
 
   // ---------------- Engine ----------------
@@ -217,11 +198,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     this.combo = 0;
     this.comboMax = 0;
 
-    // ✅ Miss Standard
-    this.missCounter = null;
+    // ✅ Miss Counter (A)
+    this.missCounter = null;      // HHA_Miss counter
+    this.misses = 0;              // cached from counter
 
-    // PACK 49: pressure
-    this.pressure = 0;        // 0..3
+    // pressure (optional)
+    this.pressure = 0;
     this._lastPressureTip = 0;
 
     // counts
@@ -229,11 +211,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -267,30 +247,97 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     this.targets = [];
     this._id = 0;
 
+    // safezones cache (C)
+    this.safe = null;
+    this._safeLastAt = 0;
+
     // coach
     this.coachLastAt = 0;
-
-    // safezones
-    this.safeZones = null;
   }
 
   Engine.prototype.setLayerEl = function (el) {
     this.layerEl = el;
   };
 
-  Engine.prototype._getMisses = function(){
-    if (this.missCounter && this.missCounter.get) return (this.missCounter.get()|0);
-    return 0;
+  Engine.prototype._accuracyPct = function () {
+    const denom = Math.max(1, this.totalJudgedForAcc);
+    return Math.round((this.hitGoodForAcc / denom) * 100);
   };
 
-  Engine.prototype._setMisses = function(n){
-    if (this.missCounter && this.missCounter.set) return (this.missCounter.set(n)|0);
-    return 0;
+  Engine.prototype._emitScore = function () {
+    emit('hha:score', { score: this.score | 0, combo: this.combo | 0, misses: this.misses | 0 });
   };
 
-  // PACK 49: map misses -> pressure 0..3
+  Engine.prototype._emitRank = function () {
+    const acc = this._accuracyPct();
+    const grade = gradeFrom(acc, this.misses, this.score);
+    emit('hha:rank', { grade, accuracy: acc });
+  };
+
+  Engine.prototype._emitPower = function () {
+    const thr = this.cfg.preset.powerThreshold;
+    emit('groups:power', { charge: this.powerCharge | 0, threshold: thr | 0 });
+  };
+
+  Engine.prototype._emitCoach = function (text, mood) {
+    const t = nowMs();
+    if (t - this.coachLastAt < 450) return;
+    this.coachLastAt = t;
+    emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
+  };
+
+  // ---------- Miss Standard (A) ----------
+  Engine.prototype._initMissCounter = function(){
+    const M = root.HHA_Miss;
+    // fallback ถ้าไม่ได้ include miss-standard.js
+    if (!M || !M.createCounter){
+      this.missCounter = null;
+      this.misses = 0;
+      return;
+    }
+
+    const run = this.cfg.runMode;
+
+    // ✅ แนะนำสำหรับเด็ก ป.5:
+    // - wrong/junk นับแน่นอน
+    // - expire_good “นับได้” แต่ถ้าคุณยังอยากลดโหด ให้ปิดเป็น false ได้
+    // - shoot miss ไม่ควรนับ (เพราะเด็กจะยิงตอนเป้าไม่อยู่)
+    const goodExpireCounts = (run === 'play'); // ถ้าอยาก “ไม่ให้นับ expire เป็น miss” -> เปลี่ยนเป็น false
+    this.missCounter = M.createCounter({
+      gameTag: 'GroupsVR',
+      dedupeMs: 360,
+      rules: {
+        wrongHitCounts: true,
+        junkHitCounts: true,
+        goodExpiredCounts: goodExpireCounts,
+        shootMissCounts: false
+      }
+    });
+
+    this.missCounter.set(0);
+    this.misses = 0;
+  };
+
+  Engine.prototype._countMiss = function(kind, targetId){
+    if (this.cfg && this.cfg.runMode === 'practice'){
+      // practice ไม่กดดัน: ไม่เพิ่ม miss
+      return;
+    }
+
+    if (this.missCounter){
+      const r = this.missCounter.count({ kind, targetId, tsMs: nowMs() });
+      this.misses = this.missCounter.get() | 0;
+      // ส่ง breakdown ให้หลังบ้านได้ (optional)
+      emit('groups:progress', { kind:'miss_counted', missKind:r.kind, misses:this.misses, breakdown:this.missCounter.getBreakdown() });
+    }else{
+      // fallback แบบเดิม
+      this.misses = (this.misses|0) + 1;
+    }
+  };
+
+  // ---------- Pressure (optional) ----------
   Engine.prototype._calcPressure = function(){
-    const m = this._getMisses();
+    const m = this.misses|0;
     if (m >= 14) return 3;
     if (m >= 9)  return 2;
     if (m >= 5)  return 1;
@@ -307,22 +354,57 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     addBodyClass('press-3', p>=3);
 
     if (this.cfg && this.cfg.runMode === 'play'){
-      if (p===1) flashBodyFx('fx-miss', 220);
-      if (p===2) flashBodyFx('fx-bad', 240);
-      if (p===3) flashBodyFx('fx-bad', 280);
+      if (p>=1) flashBodyFx('fx-miss', 220);
+      if (p>=2) flashBodyFx('fx-bad', 240);
+      if (p>=3) flashBodyFx('fx-bad', 280);
     }
 
-    emit('groups:progress', { kind:'pressure', level:p, misses:this._getMisses() });
+    emit('groups:progress', { kind:'pressure', level:p, misses:this.misses|0 });
 
     const t = nowMs();
     if (t - this._lastPressureTip > 2500 && this.cfg && this.cfg.runMode==='play'){
       this._lastPressureTip = t;
       if (p===1) this._emitCoach('เริ่มพลาดบ่อยแล้วนะ ตั้งสติ + เล็งก่อนยิง 👀', 'neutral');
       if (p===2) this._emitCoach('โหมดกดดัน! ช้าลงนิด เล็งให้ตรงหมู่ก่อน 🔥', 'fever');
-      if (p===3) this._emitCoach('อันตราย! ห้ามยิงมั่ว เดี๋ยวคะแนนร่วง 😤', 'sad');
+      if (p===3) this._emitCoach('อันตราย! ห้ามยิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
     }
   };
 
+  Engine.prototype._onMiss = function (why, targetId) {
+    emit('groups:progress', { kind:'miss', why });
+
+    // ✅ ใช้มาตรฐานนับ Miss
+    const k =
+      (why === 'wrong') ? 'wrong_hit' :
+      (why === 'junk') ? 'junk_hit' :
+      (why === 'expire_good') ? 'expire' :
+      (why === 'mini_fail') ? 'mini' :
+      'other';
+
+    this._countMiss(k, targetId);
+
+    if (this.cfg && this.cfg.runMode==='play'){
+      const p = this._calcPressure();
+      this._applyPressure(p);
+    }
+
+    // โค้ชเตือนเป็นระยะ
+    if (this.cfg && this.cfg.runMode==='play'){
+      if ((this.misses|0) === 5)  this._emitCoach('เริ่มพลาดแล้วนะ ลอง “หยุด-เล็ง-ยิง” 👌', 'neutral');
+      if ((this.misses|0) === 9)  this._emitCoach('พลาดเยอะขึ้น! โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever');
+      if ((this.misses|0) === 14) this._emitCoach('โหมดโหด! อย่ายิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
+    }
+  };
+
+  // ---------- SafeZones cache refresh ----------
+  Engine.prototype._refreshSafe = function(force){
+    const t = nowMs();
+    if (!force && (t - this._safeLastAt) < 450) return;
+    this._safeLastAt = t;
+    this.safe = computeSafe(this.view);
+  };
+
+  // ---------------- Start ----------------
   Engine.prototype.start = function (diff, opts) {
     opts = opts || {};
     const rm = String(opts.runMode || 'play').toLowerCase();
@@ -331,56 +413,29 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     const preset  = diffPreset(diff);
     const timeSec = clamp(opts.time ?? preset.time, 5, 180);
 
-    this.cfg = {
-      diff: String(diff || 'normal').toLowerCase(),
-      runMode,
-      seed: seedIn,
-      timeSec,
-      preset,
-    };
-
+    this.cfg = { diff: String(diff || 'normal').toLowerCase(), runMode, seed: seedIn, timeSec, preset };
     this.view = getViewFromBodyOrParam(opts.view);
 
     // deterministic always
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
-
-    // ✅ Miss Counter rules:
-    // - wrong_hit / junk_hit / expire => นับเป็น Miss
-    // - shoot_miss => ไม่เพิ่ม Miss (แค่คอมโบหลุด)
-    const MC = root.HHA_Miss && root.HHA_Miss.createCounter;
-    this.missCounter = MC ? MC({
-      gameTag: 'GroupsVR',
-      dedupeMs: 360,
-      rules: {
-        wrongHitCounts: true,
-        junkHitCounts: true,
-        goodExpiredCounts: true,
-        shootMissCounts: false
-      }
-    }) : null;
-
     this.leftSec = Math.round(timeSec);
 
+    // reset
     this.score = 0;
     this.combo = 0;
     this.comboMax = 0;
-    this._setMisses(0);
 
     this.pressure = 0;
     this._lastPressureTip = 0;
-    addBodyClass('press-1', false);
-    addBodyClass('press-2', false);
-    addBodyClass('press-3', false);
+    addBodyClass('press-1', false); addBodyClass('press-2', false); addBodyClass('press-3', false);
 
     this.nTargetGoodSpawned = 0;
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -413,12 +468,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     this.lastTick = this.startAt;
     this.spawnTmr = 0;
 
-    // ✅ SafeZones init
-    this.safeZones = makeSafeZones();
-    if (this.safeZones && this.safeZones.hardRefresh) this.safeZones.hardRefresh();
+    // ✅ init safezones + miss counter
+    this._refreshSafe(true);
+    this._initMissCounter();
 
     emit('hha:time', { left: this.leftSec });
-    emit('hha:score', { score: this.score, combo: this.combo, misses: this._getMisses() });
+    this._emitScore();
     this._emitRank();
     this._emitCoach((runMode==='practice') ? 'โหมดฝึก 15 วิ ลองเล็งแล้วแตะยิง 🎯' : 'เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
     this._emitPower();
@@ -428,6 +483,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     this._loop();
   };
 
+  // ---------------- Input ----------------
   Engine.prototype._installInput = function () {
     const self = this;
     if (!this._onShoot) {
@@ -439,6 +495,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     }
   };
 
+  // ---------------- Loop ----------------
   Engine.prototype._loop = function () {
     const self = this;
     function frame() {
@@ -446,6 +503,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
 
       const t = nowMs();
       self.lastTick = t;
+
+      // safezones refresh occasionally (รองรับ rotate / resize / UI animate)
+      self._refreshSafe(false);
 
       self._tickTime(t);
       self._tickStorm(t);
@@ -549,9 +609,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
           this.miniCleared += 1;
         } else {
           this.combo = 0;
-
-          // ✅ mini_fail: count as miss (but dedupe-safe)
-          this._onMiss('mini_fail', 'mini');
+          this._onMiss('mini_fail', 'mini'); // ✅ miss standard
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL', x: root.innerWidth*0.5, y: root.innerHeight*0.32 });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
         }
@@ -579,7 +637,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
       const acc = this._accuracyPct();
       if (acc >= 85) speed *= 0.92;
       if (this.combo >= 8) speed *= 0.90;
-      if (this._getMisses() >= 8) speed *= 1.10;
+      if (this.misses >= 8) speed *= 1.10;
     }
     if (this.stormOn) speed *= 0.78;
 
@@ -594,7 +652,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     try{
       const A = root.GroupsVR && root.GroupsVR.__ai;
       if (A && A.director && this.cfg.runMode === 'play'){
-        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this._getMisses());
+        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this.misses);
       }
     }catch(_){}
 
@@ -612,7 +670,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
       if (t >= tg.expireAt) {
         if (tg.kind === 'good') {
           this.nExpireGood++;
-          // ✅ good expire counts miss (standard)
+          // ✅ expire good = miss (ถ้าเปิด rule goodExpiredCounts)
           this._onMiss('expire_good', tg.id);
         } else if (tg.kind === 'wrong') {
           this.nExpireWrong++;
@@ -624,6 +682,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     }
   };
 
+  // ---------------- Spawn ----------------
   Engine.prototype._spawnOne = function () {
     const p = this.cfg.preset;
 
@@ -653,7 +712,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     if (this.cfg.runMode === 'play') {
       wrongRate = clamp(wrongRate + Math.min(0.10, this.combo * 0.006), 0.05, 0.58);
       junkRate  = clamp(junkRate  + Math.min(0.08, this.combo * 0.004), 0.04, 0.42);
-      if (this._getMisses() >= 8) { wrongRate *= 0.90; junkRate *= 0.88; }
+      if (this.misses >= 8) { wrongRate *= 0.90; junkRate *= 0.88; }
     }
 
     wrongRate = clamp(wrongRate, 0.05, 0.60);
@@ -682,13 +741,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
       this.nTargetJunkSpawned++;
     }
 
+    // target size/life
     let size = p.targetSize * (kind === 'junk' ? 0.98 : 1.0);
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 2) size *= 0.96;
       if (this.pressure === 3) size *= 0.93;
     }
 
-    let lifeMs = this.stormOn ? 2400 : 3100;
+    // ✅ เพิ่ม life เล็กน้อยเพื่อกัน “โดนบังแล้ว expire รัว”
+    let lifeMs = this.stormOn ? 2550 : 3300;
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 1) lifeMs = Math.round(lifeMs * 0.95);
       if (this.pressure === 2) lifeMs = Math.round(lifeMs * 0.90);
@@ -715,7 +776,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
       emoji,
       cls: 'fg-target fg-boss',
       size: 1.0,
-      lifeMs: 7000,
+      lifeMs: 7200,
       bossHp: hp,
       bossHpMax: hp
     });
@@ -724,11 +785,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     emit('hha:judge', { kind:'boss', text:'BOSS' });
     addBodyClass('fx-boss', true);
     this._emitCoach('บอสมา! ยิงให้ถูกหมู่เพื่อแตกบอส 👊', 'fever');
-
-    try{
-      const A = root.GroupsVR && root.GroupsVR.__ai;
-      if (A && A.tip && this.cfg.runMode==='play') A.tip('บอสต้องยิงหลายครั้ง อย่าหยุดมือ 💥', 'fever');
-    }catch(_){}
   };
 
   Engine.prototype._spawnDomTarget = function (spec) {
@@ -737,22 +793,23 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
 
     const view = this.view || getViewFromBodyOrParam();
 
+    // ✅ SafeZones pick point (C)
+    this._refreshSafe(false);
     const s = Number(spec.size ?? 1) || 1;
     const baseR = (spec.kind === 'boss') ? 66 : 48;
     const assist = (view === 'cvr') ? 1.10 : 1.0;
     const rHit = Math.round(baseR * s * assist);
 
-    // ✅ pick point using UI SafeZones if available
     let x = 0, y = 0;
-    if (this.safeZones && this.safeZones.pickPoint){
-      const pt = this.safeZones.pickPoint(this.rng, Math.max(28, Math.min(92, rHit)));
+    const pt = pickSafePointSafe(this.safe, this.rng, rHit);
+    if (pt){
       x = pt.x; y = pt.y;
-    } else {
-      // fallback: simple bounds
+    }else{
+      // fallback ถ้าไม่มี safezones
       const W = Math.max(320, root.innerWidth  || 360);
       const H = Math.max(420, root.innerHeight || 640);
-      x = clamp((this.rng() * (W - 60)) + 30, 8, W - 8);
-      y = clamp((this.rng() * (H - 180)) + 120, 8, H - 8);
+      x = clamp((this.rng() * (W - 24)) + 12, 8, W - 8);
+      y = clamp((this.rng() * (H - 24)) + 12, 8, H - 8);
     }
 
     const el = DOC.createElement('div');
@@ -811,6 +868,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     }
   };
 
+  // ✅ cVR ยิงจาก crosshair: "ยิงพลาด" ไม่ควรนับ miss (เด็กจะกดถี่)
   Engine.prototype._shootCrosshair = function () {
     const cx = (root.innerWidth || 0) * 0.5;
     const cy = (root.innerHeight || 0) * 0.5;
@@ -830,30 +888,26 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงวืด: ไม่เพิ่ม Miss (มาตรฐาน HHA) — แค่คอมโบหลุด
       this.combo = 0;
-
-      // เก็บ breakdown ได้ (แต่ rules shoot_missCounts=false => Miss ไม่เพิ่ม)
-      try{
-        this.missCounter && this.missCounter.count && this.missCounter.count({
-          kind:'shoot_miss',
-          targetId: 'none',
-          tsMs: nowMs()
-        });
-      }catch(_){}
-
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
+
+      // ถ้าอยากเก็บ breakdown ยิงพลาดหลังบ้าน (แต่ไม่เพิ่ม miss) -> count kind shoot_miss
+      if (this.missCounter){
+        this.missCounter.count({ kind:'shoot_miss', targetId:'', tsMs: nowMs() });
+        emit('groups:progress', { kind:'shoot_miss', breakdown:this.missCounter.getBreakdown() });
+      }
+
       this._emitScore();
       this._emitRank();
     }
   };
 
+  // ---------------- Hit logic ----------------
   Engine.prototype._onHit = function (tg, idx, via, t) {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
 
-    // boss
     if (tg.kind === 'boss') {
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
@@ -886,7 +940,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
       return;
     }
 
-    // good
     if (tg.kind === 'good') {
       this.nHitGood++;
       this.hitGoodForAcc++;
@@ -897,7 +950,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
 
       const add = 20 + Math.min(24, this.combo * 1.6);
       this.score += Math.round(add);
-
       this.powerCharge = Math.min(p.powerThreshold, this.powerCharge + 1);
 
       emit('hha:judge', { kind: 'good', text: `+${Math.round(add)}`, x: tg.x, y: tg.y });
@@ -916,21 +968,16 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
 
       if (this.cfg.runMode==='play'){
         if (this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
-        try{
-          const A = root.GroupsVR && root.GroupsVR.__ai;
-          if (A && A.tip && this.combo===10) A.tip('คอมโบ 10! ดีมาก รักษาจังหวะต่อ 🔥', 'happy');
-        }catch(_){}
       }
       return;
     }
 
-    // wrong
     if (tg.kind === 'wrong') {
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
       this.combo = 0;
-      this._onMiss('wrong_hit', tg.id);
+      this._onMiss('wrong', tg.id);
       this.score = Math.max(0, this.score - 12);
 
       emit('hha:judge', { kind: 'bad', text: '-12', x: tg.x, y: tg.y });
@@ -951,7 +998,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
 
     this.combo = 0;
-    this._onMiss('junk_hit', tg.id);
+    this._onMiss('junk', tg.id);
     this.score = Math.max(0, this.score - 18);
 
     emit('hha:judge', { kind: 'bad', text: '-18', x: tg.x, y: tg.y });
@@ -962,33 +1009,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     this._emitRank();
     this._emitQuestUpdate();
     this._emitCoach('โดนขยะ! ระวัง! 🗑️', 'sad');
-  };
-
-  // ✅ Miss Standard + Pressure update
-  Engine.prototype._onMiss = function (kind, targetId) {
-    // kind: wrong_hit | junk_hit | expire | shoot_miss | other
-    const ts = nowMs();
-    try{
-      this.missCounter && this.missCounter.count && this.missCounter.count({
-        kind: (kind === 'expire_good') ? 'expire' : String(kind || 'other'),
-        targetId: (targetId == null) ? '' : String(targetId),
-        tsMs: ts
-      });
-    }catch(_){}
-
-    emit('groups:progress', { kind: 'miss', why: String(kind||'other') });
-
-    if (this.cfg && this.cfg.runMode==='play'){
-      const p = this._calcPressure();
-      this._applyPressure(p);
-    }
-
-    const m = this._getMisses();
-    if (this.cfg && this.cfg.runMode==='play'){
-      if (m === 5)  this._emitCoach('เริ่มพลาดแล้วนะ ลอง “หยุด-เล็ง-ยิง” 👌', 'neutral');
-      if (m === 9)  this._emitCoach('พลาดเยอะขึ้น! โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever');
-      if (m === 14) this._emitCoach('โหมดโหด! อย่ายิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
-    }
   };
 
   Engine.prototype._maybeSwitchGroup = function () {
@@ -1046,26 +1066,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     }
   };
 
-  Engine.prototype._accuracyPct = function () {
-    const denom = Math.max(1, this.totalJudgedForAcc);
-    return Math.round((this.hitGoodForAcc / denom) * 100);
-  };
-
-  Engine.prototype._emitScore = function () {
-    emit('hha:score', { score: this.score | 0, combo: this.combo | 0, misses: this._getMisses() });
-  };
-
-  Engine.prototype._emitRank = function () {
-    const acc = this._accuracyPct();
-    const grade = gradeFrom(acc, this._getMisses(), this.score);
-    emit('hha:rank', { grade, accuracy: acc });
-  };
-
-  Engine.prototype._emitPower = function () {
-    const thr = this.cfg.preset.powerThreshold;
-    emit('groups:power', { charge: this.powerCharge | 0, threshold: thr | 0 });
-  };
-
   Engine.prototype._emitQuestUpdate = function (miniLeftMs) {
     const g = GROUPS[this.activeGroupIdx];
     const goalTitle = (this.cfg.runMode==='practice') ? 'โหมดฝึก: ยิงให้โดนเป้า' : `ยิงให้ถูกหมู่ “${g.th}”`;
@@ -1113,13 +1113,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     });
   };
 
-  Engine.prototype._emitCoach = function (text, mood) {
-    const t = nowMs();
-    if (t - this.coachLastAt < 450) return;
-    this.coachLastAt = t;
-    emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
-  };
-
+  // ---------------- End ----------------
   Engine.prototype._end = function (reason) {
     if (!this.running) return;
     this.running = false;
@@ -1130,20 +1124,18 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
     this.targets = [];
 
     const acc = this._accuracyPct();
-    const misses = this._getMisses();
-    const grade = gradeFrom(acc, misses, this.score);
+    const grade = gradeFrom(acc, this.misses, this.score);
 
     const endAt = nowMs();
     const playedSec = Math.max(0, Math.round((endAt - this.startAt) / 1000));
 
-    const missBreakdown = (this.missCounter && this.missCounter.getBreakdown) ? this.missCounter.getBreakdown() : null;
+    const breakdown = this.missCounter ? this.missCounter.getBreakdown() : null;
 
     const summary = {
       reason: String(reason || 'end'),
       scoreFinal: this.score | 0,
       comboMax: this.comboMax | 0,
-      misses: misses | 0,
-      missBreakdown: missBreakdown,  // ✅ สำคัญ: หลังบ้านแยกสาเหตุ Miss ได้
+      misses: this.misses | 0,
       accuracyGoodPct: acc,
       grade,
 
@@ -1173,7 +1165,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — ULTRA (Miss Standard + UI SafeZones
       diff: this.cfg.diff,
       seed: this.cfg.seed,
 
-      pressureLevel: this.pressure|0
+      pressureLevel: this.pressure|0,
+
+      // ✅ เพิ่ม breakdown เพื่อ “หลังบ้าน”
+      missBreakdown: breakdown || undefined
     };
 
     emit('hha:end', summary);
