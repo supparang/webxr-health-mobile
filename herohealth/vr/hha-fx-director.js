@@ -1,142 +1,165 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — shared, game-agnostic
+// HHA Global FX Director — PRODUCTION
+// Requires: ../vr/particles.js
 
 (function(){
   'use strict';
-  const WIN = window;
+  const ROOT = window;
   const DOC = document;
-  if(!DOC || WIN.__HHA_FX_DIRECTOR__) return;
-  WIN.__HHA_FX_DIRECTOR__ = true;
+  if (!DOC || ROOT.__HHA_FX_DIRECTOR__) return;
+  ROOT.__HHA_FX_DIRECTOR__ = true;
 
-  const FX = { storm:false, boss:false, rage:false };
+  (function injectCss(){
+    const id = 'hha-fx-director-style';
+    if (DOC.getElementById(id)) return;
+    const st = DOC.createElement('style');
+    st.id = id;
+    st.textContent = `
+      .hha-fx-vignette{
+        position:fixed; inset:-20px; pointer-events:none; z-index:9998;
+        opacity:0; transition: opacity 160ms ease;
+        filter: blur(0.2px);
+      }
+      .hha-fx-vignette::before{
+        content:""; position:absolute; inset:0;
+        background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,.32) 74%, rgba(0,0,0,.58) 100%);
+      }
+      body.fx-hit-good .hha-fx-vignette{ opacity: .22; }
+      body.fx-hit-bad  .hha-fx-vignette{ opacity: .40; }
+      body.fx-miss     .hha-fx-vignette{ opacity: .36; }
+
+      /* storm/rage extra mood */
+      body.gj-storm .hha-fx-vignette{ opacity: .18; }
+      body.gj-rage  .hha-fx-vignette{ opacity: .32; }
+
+      body.fx-kick{ animation: hhaKick 120ms ease; }
+      @keyframes hhaKick{
+        0%{ transform: translate3d(0,0,0); }
+        40%{ transform: translate3d(0.8px,-0.8px,0); }
+        100%{ transform: translate3d(0,0,0); }
+      }
+
+      body.fx-endblink{ animation: hhaEndBlink 700ms ease; }
+      @keyframes hhaEndBlink{
+        0%{ filter:none; }
+        30%{ filter: brightness(1.15) contrast(1.05); }
+        100%{ filter:none; }
+      }
+    `;
+    DOC.head.appendChild(st);
+
+    const vg = DOC.createElement('div');
+    vg.className = 'hha-fx-vignette';
+    DOC.body.appendChild(vg);
+  })();
+
+  function addBodyCls(c, ms){
+    try{
+      DOC.body.classList.add(c);
+      setTimeout(()=>DOC.body.classList.remove(c), ms||180);
+    }catch(_){}
+  }
+
+  function num(v){ v = Number(v); return Number.isFinite(v) ? v : null; }
+
+  function pickXY(detail){
+    const d = detail || {};
+    const x = num(d.x) ?? num(d.px) ?? num(d.clientX) ?? num(d.cx);
+    const y = num(d.y) ?? num(d.py) ?? num(d.clientY) ?? num(d.cy);
+    if (x != null && y != null) return { x, y };
+    return { x: innerWidth/2, y: innerHeight/2 };
+  }
+
+  function pickType(detail){
+    const d = detail || {};
+    const t = (d.type || d.kind || d.result || d.judge || d.hitType || '').toString().toLowerCase();
+    if (t.includes('perfect')) return 'perfect';
+    if (t.includes('good') || t.includes('correct') || t.includes('hitgood')) return 'good';
+    if (t.includes('bad') || t.includes('junk') || t.includes('wrong') || t.includes('hitjunk')) return 'bad';
+    if (t.includes('miss') || t.includes('expire')) return 'miss';
+    if (t.includes('block') || t.includes('guard') || t.includes('shield')) return 'block';
+    return t || 'good';
+  }
 
   function particles(){
-    return (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
+    return ROOT.Particles || ROOT.GAME_MODULES?.Particles || null;
   }
-  function burst(kind){
-    const P = particles(); if(!P) return;
-    const cx = Math.floor(DOC.documentElement.clientWidth/2);
-    const cy = Math.floor(DOC.documentElement.clientHeight/2);
-    try{ P.ringPulse(kind); }catch(_){}
-    try{ P.burstAt(cx, cy, kind); }catch(_){}
-  }
-  function shake(i, ms){
+  function fxBurst(x,y,r){
     const P = particles();
-    try{ P && P.shake && P.shake(i, ms); }catch(_){}
+    if (P?.burst) P.burst(x,y,{r});
   }
-
-  function setMode(mode, on){
-    const b = DOC.body; if(!b) return;
-
-    if(mode === 'storm'){
-      FX.storm = !!on; b.classList.toggle('fx-storm', FX.storm);
-      if(FX.storm){ burst('storm'); shake(6, 220); }
-      return;
-    }
-    if(mode === 'boss'){
-      FX.boss = !!on; b.classList.toggle('fx-boss', FX.boss);
-      if(FX.boss){ burst('boss'); shake(10, 280); }
-      return;
-    }
-    if(mode === 'rage'){
-      FX.rage = !!on; b.classList.toggle('fx-rage', FX.rage);
-      if(FX.rage){ burst('rage'); shake(14, 340); }
-      return;
-    }
+  function fxShock(x,y,r){
+    const P = particles();
+    if (P?.shockwave) P.shockwave(x,y,{r});
+    else fxBurst(x,y,r);
   }
-
-  function onJudge(ev){
-    const label = (ev?.detail?.label) ? String(ev.detail.label) : '';
-    const P = particles(); if(!P) return;
-
-    const cx = Math.floor(DOC.documentElement.clientWidth/2);
-    const cy = Math.floor(DOC.documentElement.clientHeight/2);
-
-    if(/GOAL|MINI/.test(label)){
-      try{ P.scorePop(cx, cy-120, label, 'good'); }catch(_){}
-      try{ P.celebrate('mini'); }catch(_){}
-      return;
-    }
-    if(/BLOCK/.test(label)){
-      try{ P.scorePop(cx, cy-110, 'BLOCK!', 'block'); }catch(_){}
-      return;
-    }
-    if(/OOPS|MISS/.test(label)){
-      try{ P.scorePop(cx, cy-110, label, 'bad'); }catch(_){}
-      shake(6, 180);
-      return;
-    }
+  function fxPop(x,y,text,cls){
+    const P = particles();
+    if (P?.popText) P.popText(x,y,text,cls);
   }
-
-  function onCelebrate(ev){
-    const kind = String(ev?.detail?.kind || 'end');
-    const grade = String(ev?.detail?.grade || '');
-    const P = particles(); if(!P) return;
-
-    if(kind === 'end'){
-      try{ P.celebrate('end'); }catch(_){}
-      if(grade && grade !== '—'){
-        const cx = Math.floor(DOC.documentElement.clientWidth/2);
-        const cy = Math.floor(DOC.documentElement.clientHeight/2);
-        try{ P.scorePop(cx, cy-140, `GRADE ${grade}`, 'diamond'); }catch(_){}
+  function fxCelebrate(){
+    const P = particles();
+    if (P?.celebrate) P.celebrate();
+    else{
+      for(let i=0;i<8;i++){
+        setTimeout(()=>fxBurst(innerWidth/2 + (Math.random()*2-1)*160, innerHeight*0.35 + (Math.random()*2-1)*90, 22 + Math.random()*40), i*45);
       }
-    }else{
-      try{ P.celebrate(kind); }catch(_){}
     }
   }
 
-  function onFx(ev){
-    const d = ev?.detail || {};
-    const mode = String(d.mode || '').toLowerCase();
-    const on = !!d.on;
-    if(mode) setMode(mode, on);
-  }
+  DOC.addEventListener('hha:judge', (e)=>{
+    const d = e?.detail || {};
+    const { x, y } = pickXY(d);
+    const t = pickType(d);
 
-  const st = DOC.createElement('style');
-  st.textContent = `
-    body.fx-storm .gj-field{ filter: saturate(1.12) contrast(1.03); }
-    body.fx-boss  .gj-field{ filter: saturate(1.20) contrast(1.08); }
-    body.fx-rage  .gj-field{ filter: saturate(1.28) contrast(1.12); }
-
-    body.fx-storm::before,
-    body.fx-boss::before,
-    body.fx-rage::before{
-      content:""; position:fixed; inset:0;
-      pointer-events:none; z-index:70;
-      mix-blend-mode: screen;
+    if (t === 'good'){
+      addBodyCls('fx-hit-good', 180);
+      addBodyCls('fx-kick', 120);
+      fxShock(x,y, 56);
+      const combo = Number(d.combo || d.comboNow || d.comboCount || 0);
+      if (combo >= 5) fxBurst(x,y, 34);
+    } else if (t === 'perfect'){
+      addBodyCls('fx-hit-good', 200);
+      addBodyCls('fx-kick', 120);
+      fxShock(x,y, 72);
+      fxPop(x,y, 'PERFECT!', 'perfect');
+    } else if (t === 'bad'){
+      addBodyCls('fx-hit-bad', 220);
+      addBodyCls('fx-kick', 120);
+      fxShock(x,y, 64);
+    } else if (t === 'miss'){
+      addBodyCls('fx-miss', 220);
+      fxBurst(x,y, 58);
+    } else if (t === 'block'){
+      addBodyCls('fx-hit-good', 140);
+      fxBurst(x,y, 44);
+    } else {
+      addBodyCls('fx-hit-good', 140);
+      fxBurst(x,y, 46);
     }
+  });
 
-    body.fx-storm::before{
-      opacity:.14;
-      background:
-        radial-gradient(circle at 50% 40%, rgba(34,211,238,.22), transparent 55%),
-        radial-gradient(circle at 15% 85%, rgba(167,139,250,.12), transparent 60%);
-      animation: hhaStormGlow 1.2s ease-in-out infinite alternate;
+  DOC.addEventListener('hha:score', (e)=>{
+    const d = e?.detail || {};
+    const { x, y } = pickXY(d);
+    const sc = Number(d.score ?? d.delta ?? d.add ?? d.value ?? 0);
+    if (Number.isFinite(sc) && sc !== 0){
+      fxPop(x, y, (sc>0?`+${sc}`:`${sc}`), sc>=50?'big':'score');
     }
-    @keyframes hhaStormGlow{ from{opacity:.10;} to{opacity:.18;} }
+  });
 
-    body.fx-boss::before{
-      opacity:.16;
-      background:
-        radial-gradient(circle at 50% 40%, rgba(245,158,11,.22), transparent 55%),
-        radial-gradient(circle at 70% 86%, rgba(239,68,68,.10), transparent 60%);
-      animation: hhaBossGlow .9s ease-in-out infinite alternate;
-    }
-    @keyframes hhaBossGlow{ from{opacity:.12;} to{opacity:.20;} }
+  DOC.addEventListener('hha:miss', (e)=>{
+    const d = e?.detail || {};
+    const { x, y } = pickXY(d);
+    addBodyCls('fx-miss', 240);
+    fxShock(x,y, 66);
+  });
 
-    body.fx-rage::before{
-      opacity:.18;
-      background:
-        radial-gradient(circle at 50% 42%, rgba(239,68,68,.24), transparent 55%),
-        radial-gradient(circle at 20% 84%, rgba(245,158,11,.10), transparent 60%);
-      animation: hhaRageGlow .65s ease-in-out infinite alternate;
-    }
-    @keyframes hhaRageGlow{ from{opacity:.14;} to{opacity:.22;} }
-  `;
-  DOC.head.appendChild(st);
+  DOC.addEventListener('hha:celebrate', ()=> fxCelebrate());
 
-  WIN.addEventListener('hha:judge', onJudge, { passive:true });
-  WIN.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  WIN.addEventListener('hha:fx', onFx, { passive:true });
+  DOC.addEventListener('hha:end', ()=>{
+    addBodyCls('fx-endblink', 760);
+    setTimeout(()=>fxCelebrate(), 220);
+  });
 
 })();
