@@ -1,98 +1,67 @@
-// === /herohealth/vr-groups/research-ctx.js ===
-// Research Context — PRODUCTION
-// ✅ GroupsVR.getResearchCtx(): ดึง context สำหรับวิจัยจาก query params
-// ✅ รองรับ ctx= (JSON encoded) + fields เดี่ยวๆ (studyId/phase/conditionGroup/...)
-// ✅ เก็บซ้ำ localStorage (optional) เพื่อความเสถียรข้ามหน้า
+/* === /herohealth/vr-groups/research-ctx.js ===
+Research Context — PRODUCTION
+✅ getResearchCtx() reads url params (studyId, phase, conditionGroup, sessionOrder, blockLabel, siteCode, schoolCode, etc.)
+✅ Does not assume any param exists (safe)
+*/
 
 (function(root){
   'use strict';
-  const DOC = root.document;
-  if (!DOC) return;
-
   const NS = root.GroupsVR = root.GroupsVR || {};
-  const LS_KEY = 'HHA_RESEARCH_CTX';
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+  function qsAll(){
+    try { return new URL(location.href).searchParams; }
+    catch { return new URLSearchParams(); }
   }
 
-  function safeJsonParse(s){
-    try{ return JSON.parse(s); }catch{ return null; }
+  function pick(params, key, def=''){
+    const v = params.get(key);
+    return (v == null) ? def : String(v);
   }
 
-  function loadSaved(){
-    try{ return safeJsonParse(localStorage.getItem(LS_KEY)||'') || {}; }catch{ return {}; }
-  }
-  function saveCtx(ctx){
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(ctx||{})); }catch(_){}
-  }
-
-  // whitelist ที่ “ปลอดภัยและใช้จริง” ในงานวิจัย
-  const FIELDS = [
-    'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-    'siteCode','schoolYear','semester','sessionId',
-    'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-    'gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
-    'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
-    'teacher','deviceTag'
-  ];
-
-  function pickFromParams(){
-    const out = {};
-    for (const k of FIELDS){
-      const v = qs(k, null);
-      if (v !== null && String(v).trim() !== '') out[k] = v;
-    }
-    return out;
-  }
-
-  function parseCtxParam(){
-    const raw = qs('ctx','');
-    if (!raw) return null;
-
-    // ctx อาจจะเป็น encodeURIComponent(JSON)
-    let s = raw;
-    try{ s = decodeURIComponent(raw); }catch(_){}
-    const obj = safeJsonParse(s);
-    if (obj && typeof obj === 'object') return obj;
-
-    return null;
-  }
-
-  function normalize(ctx){
-    ctx = ctx || {};
-    // แปลงตัวเลขบางตัวถ้าเป็นไปได้
-    const numKeys = ['sessionOrder','age','heightCm','weightKg','bmi','schoolYear','semester'];
-    for (const k of numKeys){
-      if (ctx[k] == null) continue;
-      const n = Number(ctx[k]);
-      if (!Number.isNaN(n)) ctx[k] = n;
-    }
-    return ctx;
+  function pickNum(params, key, def=0){
+    const v = params.get(key);
+    const n = Number(v);
+    return isFinite(n) ? n : def;
   }
 
   function getResearchCtx(){
-    // 1) ctx=JSON มาก่อน
-    const fromCtx = parseCtxParam() || {};
-    // 2) fields เดี่ยวๆ
-    const fromFields = pickFromParams();
-    // 3) saved fallback
-    const saved = loadSaved();
+    const p = qsAll();
 
-    // รวมลำดับ: saved < fields < ctxParam (ctxParam ชนะสุด)
-    const merged = Object.assign({}, saved, fromFields, fromCtx);
+    // ✅ core research keys (match sheet schema if you want)
+    const ctx = {
+      runMode: pick(p,'run','play'),
+      studyId: pick(p,'studyId',''),
+      phase: pick(p,'phase',''),
+      conditionGroup: pick(p,'conditionGroup',''),
+      sessionOrder: pick(p,'sessionOrder',''),
+      blockLabel: pick(p,'blockLabel',''),
 
-    // ถ้า run=play ก็ยังส่งได้ (บางงานเก็บ metadata เหมือนกัน)
-    const run = String(qs('run','play')||'play').toLowerCase();
-    merged.runMode = merged.runMode || run;
+      siteCode: pick(p,'siteCode',''),
+      schoolYear: pick(p,'schoolYear',''),
+      semester: pick(p,'semester',''),
 
-    // เก็บไว้
-    const norm = normalize(merged);
-    saveCtx(norm);
+      studentKey: pick(p,'studentKey',''),
+      schoolCode: pick(p,'schoolCode',''),
+      schoolName: pick(p,'schoolName',''),
+      classRoom: pick(p,'classRoom',''),
+      studentNo: pick(p,'studentNo',''),
+      nickName: pick(p,'nickName',''),
 
-    return norm;
+      gender: pick(p,'gender',''),
+      age: pickNum(p,'age',0),
+      gradeLevel: pick(p,'gradeLevel',''),
+
+      vrExperience: pick(p,'vrExperience',''),
+      gameFrequency: pick(p,'gameFrequency',''),
+      handedness: pick(p,'handedness',''),
+      visionIssue: pick(p,'visionIssue',''),
+      healthDetail: pick(p,'healthDetail',''),
+      consentParent: pick(p,'consentParent','')
+    };
+
+    return ctx;
   }
 
   NS.getResearchCtx = getResearchCtx;
-})(window);
+
+})(typeof window !== 'undefined' ? window : globalThis);
