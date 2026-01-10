@@ -1,10 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE + AI HOOKS)
-// ✅ Auto layers via window.HHA_VIEW.layers from boot
-// ✅ cVR strict: hha:shoot -> aim assist lockPx adaptive (fair + deterministic for research)
-// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+beep, pop score
-// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
-// ✅ AI Hooks: Difficulty Director + Pattern Generator (PLAY only; research OFF)
+// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
+// ✅ Universal VR UI compatible: listens hha:shoot (crosshair/tap-to-shoot)
+// ✅ Cloud Logger compatible: emits hha:end summary (logger sends it)
+// ✅ Optional direct send removed by default (avoid duplicate posting)
+// ✅ Cardboard layers via window.HHA_VIEW.layers from boot
 
 'use strict';
 
@@ -164,7 +163,7 @@ const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
 const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 
-// RNG deterministic-ish (game core)
+// RNG deterministic-ish
 function hashStr(s){
   s=String(s||''); let h=2166136261;
   for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -180,11 +179,6 @@ function makeRng(seedStr){
   };
 }
 const rng = makeRng(seed);
-
-// -------------------- AI Hooks (E) --------------------
-function getAI(){
-  try{ return window.HHA_AI || null; }catch(_){ return null; }
-}
 
 // -------------------- State --------------------
 const S = {
@@ -460,48 +454,20 @@ function syncHUD(){
   DOC.head.appendChild(st);
 })();
 
-// -------------------- Spawn helpers (G + AI pattern) --------------------
+// -------------------- Spawn helpers --------------------
 function pickXY(){
   const r = getPlayfieldRect();
   const pad=22;
-
   const w=Math.max(1, r.width - pad*2);
   const h=Math.max(1, r.height - pad*2);
-
-  // base random (triangular)
-  let rx=(rng()+rng())/2;
-  let ry=(rng()+rng())/2;
-
-  // AI region bias (grid9) + jitter (PLAY only)
-  const AI = getAI();
-  if (AI?.enabled){
-    const hint = AI.pattern.nextHint({
-      stormActive: !!S.stormActive,
-      bossActive: !!(S.bossEnabled && S.bossActive),
-      viewMode: (window.HHA_VIEW?.mode || '')
-    });
-
-    const region = hint.region|0; // 0..8
-    const gx = region % 3;
-    const gy = Math.floor(region / 3);
-
-    // center of grid cell with jitter
-    const cellW = 1/3, cellH = 1/3;
-    rx = (gx + 0.5)*cellW + (rng()*0.18 - 0.09);
-    ry = (gy + 0.5)*cellH + (rng()*0.18 - 0.09);
-
-    rx = clamp(rx, 0.06, 0.94);
-    ry = clamp(ry, 0.06, 0.94);
-  }
-
+  const rx=(rng()+rng())/2;
+  const ry=(rng()+rng())/2;
   const x = pad + rx*w;
   const y = pad + ry*h;
-
   const xPct = (x/Math.max(1,r.width))*100;
   const yPct = (y/Math.max(1,r.height))*100;
   return { xPct, yPct };
 }
-
 function targetSize(){
   let s = TUNE.sizeBase;
   if (S.adaptiveOn){
@@ -512,18 +478,6 @@ function targetSize(){
     s = s * (1.02 - 0.22*k);
   }
   if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
-
-  // AI difficulty size multiplier (H)
-  const AI = getAI();
-  if (AI?.enabled){
-    const dd = AI.difficulty.suggest({
-      skill: clamp((computeAccuracy()/100)*0.7 + clamp(S.combo/20,0,1)*0.3, 0, 1),
-      fatigue: clamp((timeLimit - S.leftSec)/Math.max(1,timeLimit), 0, 1),
-      frustration: clamp((S.misses/Math.max(1,(timeLimit - S.leftSec)+5))*0.7 + (1-(computeAccuracy()/100))*0.3, 0, 1)
-    });
-    if (dd) s *= dd.sizeMul;
-  }
-
   return clamp(s,44,86);
 }
 
@@ -666,35 +620,13 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Storm + spawn loop (F + AI tempo/difficulty) --------------------
+// -------------------- Storm + spawn loop --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
-
-  const AI = getAI();
-  if (AI?.enabled){
-    const hint = AI.pattern.nextHint({
-      stormActive: !!S.stormActive,
-      bossActive: !!(S.bossEnabled && S.bossActive),
-      viewMode: (window.HHA_VIEW?.mode || '')
-    });
-    base *= clamp(1.05 - (hint.tempo*0.55), 0.62, 1.12);
-
-    const dd = AI.difficulty.suggest({
-      skill: clamp((computeAccuracy()/100)*0.7 + clamp(S.combo/20,0,1)*0.3, 0, 1),
-      fatigue: clamp((timeLimit - S.leftSec)/Math.max(1,timeLimit), 0, 1),
-      frustration: clamp((S.misses/Math.max(1,(timeLimit - S.leftSec)+5))*0.7 + (1-(computeAccuracy()/100))*0.3, 0, 1)
-    });
-    if (dd){
-      base *= dd.spawnMul;
-    }
-  }
-
   return clamp(base, 210, 1200);
 }
-
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
@@ -797,6 +729,7 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
+  // End window FX + beep
   if (inEnd){
     setEndFx(true);
     const now = performance.now();
@@ -827,7 +760,7 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-// -------------------- Summary --------------------
+// -------------------- Summary / tier / tips --------------------
 function computeTier(sum){
   const g=String(sum.grade||'C');
   const acc=Number(sum.accuracyGoodPct||0);
@@ -963,7 +896,9 @@ function hitTestAtCenter(lockPx){
     const r = el.getBoundingClientRect();
     const x = r.left + r.width/2;
     const y = r.top + r.height/2;
-    const d = Math.hypot(x - cx, y - cy);
+    const dx = x - cx;
+    const dy = y - cy;
+    const d = Math.hypot(dx, dy);
 
     if (d <= lockPx && d < bestD){
       bestD = d;
@@ -973,6 +908,7 @@ function hitTestAtCenter(lockPx){
   return best;
 }
 
+// adaptive lockPx state
 const AIM = { base:56, min:32, max:86, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
 
 function aimLockPx(){
@@ -1043,7 +979,7 @@ function update(dt){
     spawnTimer += nextSpawnDelay();
   }
 
-  // HUD + AI Coach
+  // HUD + AI
   syncHUD();
 
   AICOACH.onUpdate({
@@ -1110,10 +1046,10 @@ async function endGame(reason){
     localStorage.setItem('hha_last_summary', JSON.stringify(summary));
   }catch(_){}
 
+  // ✅ Cloud logger will catch this and POST (flush-hardened)
   emit('hha:end', summary);
-  AICOACH.onEnd(summary);
 
-  // ✅ Cloud logger (hha-cloud-logger.js) จะดัก hha:end แล้วส่งเอง (Apps Script)
+  AICOACH.onEnd(summary);
   fillSummary(summary);
 }
 
@@ -1150,12 +1086,12 @@ function boot(){
     endGame(d.reason || 'force');
   });
 
-  // If overlay already hidden somehow, auto-start
-  const ov = DOC.getElementById('startOverlay');
+  // safety: if boot already fired start before safe loaded (rare), start anyway
   setTimeout(()=>{
-    const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
-    if (hidden && !S.started) window.dispatchEvent(new CustomEvent('hha:start'));
-  }, 600);
+    if (!S.started){
+      try{ window.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
+    }
+  }, 900);
 }
 
 boot();
