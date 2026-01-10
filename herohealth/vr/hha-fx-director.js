@@ -1,216 +1,174 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA Global FX Director — ULTRA (shared mapping for all games)
-// Requires: ../vr/particles.js (recommended)
-// Listens: hha:judge, hha:score, hha:miss, hha:celebrate, hha:end
+// HHA FX Director — shared, game-agnostic
+// ✅ Listens: hha:judge, hha:celebrate, hha:fx
+// ✅ Applies body classes: fx-storm / fx-boss / fx-rage + pulses
+// ✅ Uses window.Particles when available
+// ✅ Safe: no dependencies
 
-(function () {
+(function(){
   'use strict';
-  const ROOT = window;
+  const WIN = window;
   const DOC = document;
-  if (!DOC || ROOT.__HHA_FX_DIRECTOR__) return;
-  ROOT.__HHA_FX_DIRECTOR__ = true;
+  if(!DOC || WIN.__HHA_FX_DIRECTOR__) return;
+  WIN.__HHA_FX_DIRECTOR__ = true;
 
-  // ---------- inject minimal CSS ----------
-  (function injectCss() {
-    const id = 'hha-fx-director-style';
-    if (DOC.getElementById(id)) return;
-
-    const st = DOC.createElement('style');
-    st.id = id;
-    st.textContent = `
-      .hha-fx-vignette{
-        position:fixed; inset:-20px; pointer-events:none; z-index:9998;
-        opacity:0; transition: opacity 140ms ease;
-        filter: blur(0.2px);
-      }
-      .hha-fx-vignette::before{
-        content:""; position:absolute; inset:0;
-        background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,.32) 74%, rgba(0,0,0,.58) 100%);
-      }
-
-      body.fx-hit-good .hha-fx-vignette{ opacity: .22; }
-      body.fx-hit-bad  .hha-fx-vignette{ opacity: .40; }
-      body.fx-miss     .hha-fx-vignette{ opacity: .34; }
-      body.fx-boss     .hha-fx-vignette{ opacity: .30; }
-      body.fx-rage     .hha-fx-vignette{ opacity: .45; }
-
-      body.fx-kick{ animation: hhaKick 120ms ease; }
-      @keyframes hhaKick{
-        0%{ transform: translate3d(0,0,0); }
-        40%{ transform: translate3d(1px,-1px,0); }
-        100%{ transform: translate3d(0,0,0); }
-      }
-
-      body.fx-endblink{ animation: hhaEndBlink 720ms ease; }
-      @keyframes hhaEndBlink{
-        0%{ filter:none; }
-        30%{ filter: brightness(1.15) contrast(1.05); }
-        100%{ filter:none; }
-      }
-    `;
-    DOC.head.appendChild(st);
-
-    const vg = DOC.createElement('div');
-    vg.className = 'hha-fx-vignette';
-    DOC.body.appendChild(vg);
-  })();
-
-  // ---------- helpers ----------
-  const num = (v) => {
-    v = Number(v);
-    return Number.isFinite(v) ? v : null;
+  const FX = {
+    storm: false,
+    boss: false,
+    rage: false,
   };
 
-  function addBodyCls(c, ms) {
-    try {
-      DOC.body.classList.add(c);
-      setTimeout(() => DOC.body.classList.remove(c), ms || 180);
-    } catch (_) {}
+  function particles(){
+    return (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
+  }
+  function burst(kind){
+    const P = particles();
+    if(!P) return;
+    const cx = Math.floor(DOC.documentElement.clientWidth/2);
+    const cy = Math.floor(DOC.documentElement.clientHeight/2);
+    try{ P.ringPulse(kind); }catch(_){}
+    try{ P.burstAt(cx, cy, kind); }catch(_){}
+  }
+  function shake(i, ms){
+    const P = particles();
+    try{ P && P.shake && P.shake(i, ms); }catch(_){}
   }
 
-  function pickXY(detail) {
-    const d = detail || {};
-    const x = num(d.x) ?? num(d.px) ?? num(d.clientX) ?? num(d.cx);
-    const y = num(d.y) ?? num(d.py) ?? num(d.clientY) ?? num(d.cy);
-    if (x != null && y != null) return { x, y };
-    return { x: innerWidth / 2, y: innerHeight / 2 };
+  function setMode(mode, on){
+    const b = DOC.body;
+    if(!b) return;
+
+    if(mode === 'storm'){
+      FX.storm = !!on;
+      b.classList.toggle('fx-storm', FX.storm);
+      if(FX.storm) { burst('storm'); shake(6, 200); }
+      return;
+    }
+    if(mode === 'boss'){
+      FX.boss = !!on;
+      b.classList.toggle('fx-boss', FX.boss);
+      if(FX.boss) { burst('boss'); shake(10, 260); }
+      return;
+    }
+    if(mode === 'rage'){
+      FX.rage = !!on;
+      b.classList.toggle('fx-rage', FX.rage);
+      if(FX.rage) { burst('rage'); shake(14, 320); }
+      return;
+    }
   }
 
-  function pickType(detail) {
-    const d = detail || {};
-    const t = (d.type || d.kind || d.result || d.judge || d.hitType || '').toString().toLowerCase();
-    if (t.includes('perfect')) return 'perfect';
-    if (t.includes('good') || t.includes('correct')) return 'good';
-    if (t.includes('bad') || t.includes('junk') || t.includes('wrong')) return 'bad';
-    if (t.includes('miss') || t.includes('expire')) return 'miss';
-    if (t.includes('block') || t.includes('guard') || t.includes('shield')) return 'block';
-    if (t.includes('boss')) return 'boss';
-    if (t.includes('rage')) return 'rage';
-    if (t.includes('storm')) return 'storm';
-    return t || 'good';
+  // Judge micro FX
+  function onJudge(ev){
+    const label = (ev && ev.detail && ev.detail.label) ? String(ev.detail.label) : '';
+    const P = particles();
+    if(!P) return;
+
+    const cx = Math.floor(DOC.documentElement.clientWidth/2);
+    const cy = Math.floor(DOC.documentElement.clientHeight/2);
+
+    // light touch: pop at center for key labels
+    if(/GOAL|MINI/.test(label)){
+      try{ P.scorePop(cx, cy-120, label, 'good'); }catch(_){}
+      try{ P.celebrate('mini'); }catch(_){}
+      return;
+    }
+    if(/BLOCK/.test(label)){
+      try{ P.scorePop(cx, cy-110, 'BLOCK!', 'block'); }catch(_){}
+      return;
+    }
+    if(/OOPS|MISS/.test(label)){
+      try{ P.scorePop(cx, cy-110, label, 'bad'); }catch(_){}
+      shake(6, 180);
+      return;
+    }
   }
 
-  function P() {
-    return ROOT.Particles || ROOT.GAME_MODULES?.Particles || null;
-  }
+  function onCelebrate(ev){
+    const kind = (ev && ev.detail && ev.detail.kind) ? String(ev.detail.kind) : 'end';
+    const grade = (ev && ev.detail && ev.detail.grade) ? String(ev.detail.grade) : '';
+    const P = particles();
+    if(!P) return;
 
-  function fxBurst(x, y, r) {
-    const p = P();
-    if (p?.burst) p.burst(x, y, { r });
-  }
-
-  function fxShock(x, y, r) {
-    const p = P();
-    if (p?.shockwave) p.shockwave(x, y, { r });
-    else fxBurst(x, y, r);
-  }
-
-  function fxPop(x, y, text, cls) {
-    const p = P();
-    if (p?.popText) p.popText(x, y, text, cls);
-  }
-
-  function fxCelebrate() {
-    const p = P();
-    if (p?.celebrate) p.celebrate();
-    else {
-      // fallback
-      for (let i = 0; i < 8; i++) {
-        setTimeout(
-          () => fxBurst(innerWidth / 2 + (Math.random() * 2 - 1) * 160, innerHeight * 0.35 + (Math.random() * 2 - 1) * 90, 28 + Math.random() * 60),
-          i * 45
-        );
+    if(kind === 'end'){
+      try{ P.celebrate('end'); }catch(_){}
+      if(grade && grade !== '—'){
+        const cx = Math.floor(DOC.documentElement.clientWidth/2);
+        const cy = Math.floor(DOC.documentElement.clientHeight/2);
+        try{ P.scorePop(cx, cy-140, `GRADE ${grade}`, 'diamond'); }catch(_){}
       }
+    }else{
+      try{ P.celebrate(kind); }catch(_){}
     }
   }
 
-  // ---------- event listeners ----------
-  DOC.addEventListener('hha:judge', (e) => {
-    const d = e?.detail || {};
-    const { x, y } = pickXY(d);
-    const t = pickType(d);
+  function onFx(ev){
+    const d = (ev && ev.detail) ? ev.detail : {};
+    const mode = String(d.mode || '').toLowerCase();
+    const on = !!d.on;
+    if(mode) setMode(mode, on);
+  }
 
-    const combo = Number(d.combo || d.comboNow || d.comboCount || 0);
+  // install styles for body modes (visual atmosphere)
+  const st = DOC.createElement('style');
+  st.textContent = `
+    body.fx-storm .gj-field{ filter: saturate(1.12) contrast(1.03); }
+    body.fx-boss  .gj-field{ filter: saturate(1.20) contrast(1.08); }
+    body.fx-rage  .gj-field{ filter: saturate(1.28) contrast(1.12); }
 
-    if (t === 'good') {
-      addBodyCls('fx-hit-good', 180);
-      addBodyCls('fx-kick', 120);
-      fxShock(x, y, 58);
-      if (combo >= 5) fxBurst(x, y, 40);
-
-    } else if (t === 'perfect') {
-      addBodyCls('fx-hit-good', 220);
-      addBodyCls('fx-kick', 120);
-      fxShock(x, y, 78);
-      fxPop(x, y, 'PERFECT!', 'perfect');
-
-    } else if (t === 'bad') {
-      addBodyCls('fx-hit-bad', 240);
-      addBodyCls('fx-kick', 120);
-      fxShock(x, y, 66);
-
-    } else if (t === 'miss') {
-      addBodyCls('fx-miss', 240);
-      fxBurst(x, y, 64);
-
-    } else if (t === 'block') {
-      addBodyCls('fx-hit-good', 160);
-      fxBurst(x, y, 46);
-      fxPop(x, y, 'BLOCK', 'block');
-
-    } else if (t === 'boss') {
-      addBodyCls('fx-boss', 380);
-      addBodyCls('fx-kick', 120);
-      fxShock(x, y, 86);
-      fxPop(x, y, 'BOSS!', 'big');
-
-    } else if (t === 'rage') {
-      addBodyCls('fx-rage', 520);
-      addBodyCls('fx-kick', 120);
-      fxShock(x, y, 96);
-      fxPop(x, y, 'RAGE!', 'big');
-
-    } else if (t === 'storm') {
-      addBodyCls('fx-boss', 220);
-      fxBurst(x, y, 56);
-      fxPop(x, y, 'STORM!', 'big');
-
-    } else {
-      addBodyCls('fx-hit-good', 160);
-      fxBurst(x, y, 52);
+    body.fx-storm::before,
+    body.fx-boss::before,
+    body.fx-rage::before{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:70;
+      opacity:0;
+      transition: opacity .25s ease;
+      mix-blend-mode: screen;
     }
-  });
 
-  DOC.addEventListener('hha:score', (e) => {
-    const d = e?.detail || {};
-    const { x, y } = pickXY(d);
-    const delta = Number(d.delta ?? d.add ?? d.value ?? 0);
-    if (Number.isFinite(delta) && delta !== 0) {
-      fxPop(x, y, (delta > 0 ? `+${delta}` : `${delta}`), Math.abs(delta) >= 50 ? 'big' : 'score');
+    body.fx-storm::before{
+      opacity:.14;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(34,211,238,.22), transparent 55%),
+        radial-gradient(circle at 15% 85%, rgba(167,139,250,.12), transparent 60%);
+      animation: hhaStormGlow 1.2s ease-in-out infinite alternate;
     }
-  });
+    @keyframes hhaStormGlow{
+      from{ opacity:.10; }
+      to{ opacity:.18; }
+    }
 
-  DOC.addEventListener('hha:miss', (e) => {
-    const d = e?.detail || {};
-    const { x, y } = pickXY(d);
-    addBodyCls('fx-miss', 240);
-    fxShock(x, y, 72);
-  });
+    body.fx-boss::before{
+      opacity:.16;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(245,158,11,.22), transparent 55%),
+        radial-gradient(circle at 70% 86%, rgba(239,68,68,.10), transparent 60%);
+      animation: hhaBossGlow .9s ease-in-out infinite alternate;
+    }
+    @keyframes hhaBossGlow{
+      from{ opacity:.12; }
+      to{ opacity:.20; }
+    }
 
-  DOC.addEventListener('hha:celebrate', () => fxCelebrate());
+    body.fx-rage::before{
+      opacity:.18;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(239,68,68,.24), transparent 55%),
+        radial-gradient(circle at 20% 84%, rgba(245,158,11,.10), transparent 60%);
+      animation: hhaRageGlow .65s ease-in-out infinite alternate;
+    }
+    @keyframes hhaRageGlow{
+      from{ opacity:.14; }
+      to{ opacity:.22; }
+    }
+  `;
+  DOC.head.appendChild(st);
 
-  DOC.addEventListener('hha:end', () => {
-    addBodyCls('fx-endblink', 760);
-    setTimeout(() => fxCelebrate(), 220);
-  });
+  // listeners
+  WIN.addEventListener('hha:judge', onJudge, { passive:true });
+  WIN.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+  WIN.addEventListener('hha:fx', onFx, { passive:true });
 
-  // dev probe
-  ROOT.HHA_FX_TEST = function () {
-    const x = innerWidth / 2, y = innerHeight / 2;
-    DOC.dispatchEvent(new CustomEvent('hha:judge', { detail: { type: 'good', x, y, combo: 6 } }));
-    setTimeout(() => DOC.dispatchEvent(new CustomEvent('hha:score', { detail: { delta: 25, x: x + 80, y: y - 20 } })), 120);
-    setTimeout(() => DOC.dispatchEvent(new CustomEvent('hha:judge', { detail: { type: 'bad', x: x - 80, y: y + 20 } })), 260);
-    setTimeout(() => DOC.dispatchEvent(new CustomEvent('hha:judge', { detail: { type: 'boss', x, y } })), 380);
-    setTimeout(() => DOC.dispatchEvent(new CustomEvent('hha:end')), 620);
-  };
 })();
