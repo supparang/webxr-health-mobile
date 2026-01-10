@@ -1,102 +1,121 @@
-// === /herohealth/vr-groups/flush-log.js ===
-// Flush-hardened logger — PRODUCTION
-// ✅ postSummary(summary): send to ?log=... (GAS/endpoint) with keepalive/beacon
-// ✅ bindFlushOnLeave(getLastSummaryFn): flush on pagehide/visibilitychange/beforeunload
+/* === /herohealth/vr-groups/flush-log.js ===
+Flush Log — PRODUCTION (simple)
+✅ postSummary(summary) -> POST JSON to ?log=...
+✅ offline queue localStorage
+✅ flush on pagehide/visibilitychange/beforeunload
+*/
+
 (function(root){
   'use strict';
-  const NS = (root.GroupsVR = root.GroupsVR || {});
+  const NS = root.GroupsVR = root.GroupsVR || {};
+  const DOC = root.document;
+
+  const LS_QUEUE = 'HHA_LOG_QUEUE_V1';
 
   function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
 
-  const LOG_URL = String(qs('log','')||'');
-  const QKEY = 'HHA_PENDING_LOGS_GROUPS';
+  function getEndpoint(){
+    return String(qs('log','')||'').trim();
+  }
 
   function loadQueue(){
-    try{ return JSON.parse(localStorage.getItem(QKEY)||'[]') || []; }
-    catch{ return []; }
+    try{ return JSON.parse(localStorage.getItem(LS_QUEUE)||'[]'); }catch{ return []; }
   }
   function saveQueue(q){
-    try{ localStorage.setItem(QKEY, JSON.stringify((q||[]).slice(0, 80))); }catch{}
+    try{ localStorage.setItem(LS_QUEUE, JSON.stringify(q.slice(0,100))); }catch{}
   }
-  function enqueue(summary){
+
+  function enqueue(payload){
     const q = loadQueue();
-    q.unshift(summary);
+    q.push(payload);
     saveQueue(q);
   }
 
-  async function sendOnce(summary){
-    if (!LOG_URL) return false;
-    const payload = JSON.stringify(summary||{});
-    // Try beacon first
+  function dequeueAll(){
+    const q = loadQueue();
+    saveQueue([]);
+    return q;
+  }
+
+  async function sendOnce(url, payload){
+    const body = JSON.stringify(payload);
+
+    // 1) sendBeacon
     try{
       if (navigator.sendBeacon){
-        const ok = navigator.sendBeacon(LOG_URL, new Blob([payload], {type:'application/json'}));
+        const ok = navigator.sendBeacon(url, new Blob([body], { type:'application/json' }));
         if (ok) return true;
       }
     }catch(_){}
-    // Fallback fetch keepalive
+
+    // 2) fetch keepalive
     try{
-      const res = await fetch(LOG_URL, {
+      const res = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: payload,
-        keepalive:true,
-        mode:'cors'
+        body,
+        keepalive:true
       });
-      return !!res && res.ok;
-    }catch(_){
+      return !!(res && res.ok);
+    }catch(_){}
+    return false;
+  }
+
+  async function flush(){
+    const url = getEndpoint();
+    if (!url) return false;
+
+    const q = dequeueAll();
+    if (!q.length) return true;
+
+    let okAll = true;
+    for (const item of q){
+      const ok = await sendOnce(url, item);
+      if (!ok){
+        okAll = false;
+        enqueue(item); // put back
+      }
+    }
+    return okAll;
+  }
+
+  async function postSummary(summary){
+    const url = getEndpoint();
+    if (!url){
+      // no endpoint -> just keep local history
       return false;
     }
+
+    // push then flush best-effort
+    enqueue(summary);
+    await flush();
+    return true;
   }
 
-  async function flushQueue(){
-    if (!LOG_URL) return;
-    const q = loadQueue();
-    if (!q.length) return;
-
-    const remain = [];
-    for (let i=0;i<q.length;i++){
-      const ok = await sendOnce(q[i]);
-      if (!ok) remain.push(q[i]);
-    }
-    saveQueue(remain);
-  }
-
-  function postSummary(summary){
-    try{
-      if (!summary) return;
-      enqueue(summary);
-      // attempt immediate send, but keep queue if fail
-      flushQueue();
-    }catch(_){}
-  }
-
-  function bindFlushOnLeave(getLastSummaryFn){
-    async function doFlush(){
+  function bindFlushOnLeave(getLastSummary){
+    if (!DOC) return;
+    const doFlush = ()=>{
+      // ensure last summary is queued (if any)
       try{
-        const s = getLastSummaryFn && getLastSummaryFn();
+        const s = getLastSummary && getLastSummary();
         if (s) enqueue(s);
       }catch(_){}
-      try{ await flushQueue(); }catch(_){}
-    }
+      flush();
+    };
+
+    DOC.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden') doFlush();
+    }, { passive:true });
 
     root.addEventListener('pagehide', doFlush, { passive:true });
-    root.addEventListener('visibilitychange', ()=>{
-      if (document.visibilityState === 'hidden') doFlush();
-    }, { passive:true });
     root.addEventListener('beforeunload', doFlush, { passive:true });
-
-    // also flush when page becomes visible again (helps after offline)
-    root.addEventListener('focus', ()=>{ flushQueue(); }, { passive:true });
-
-    // kick once
-    flushQueue();
   }
 
   NS.postSummary = postSummary;
+  NS.flushQueue = flush;
   NS.bindFlushOnLeave = bindFlushOnLeave;
 
 })(typeof window !== 'undefined' ? window : globalThis);
