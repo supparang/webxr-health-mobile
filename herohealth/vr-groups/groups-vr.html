@@ -1,4 +1,4 @@
-<!-- === A: /herohealth/vr-groups/groups-vr.html ===
+<!-- === /herohealth/vr-groups/groups-vr.html ===
 GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
 ✅ PACK 13: Calibration helper (cVR) 2-step: recenter -> shoot test 3
@@ -7,7 +7,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Flush-hardened logging (?log=...)
 ✅ Research ctx passthrough
 ✅ Uses groups.safe.js (standalone engine) — no GameEngine.js dependency
-✅ PATCH: waitForEngine timeout-safe + always init ViewHelper before start + robust layer mount
+✅ PATCH: Real SafeZones (DOMRect) + Rank split (gradeGame/gradeResearch) + Miss fair for kids
 -->
 <!doctype html>
 <html lang="th">
@@ -28,11 +28,14 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
   <script src="../vr/vr-ui.js" defer></script>
 
+  <!-- ✅ Safezones helper (DOMRect) -->
+  <script src="./groups.safezones.js" defer></script>
+
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>         <!-- PACK 15 (stub/safe) -->
-  <script src="./effects-pack.js" defer></script>     <!-- FX pack (optional but recommended) -->
+  <script src="./ai-hooks.js" defer></script>
+  <script src="./effects-pack.js" defer></script>
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
@@ -146,7 +149,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
       <div class="grid2">
         <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
-        <div class="stat"><div class="k">Rank</div><div id="endRank" class="v">C</div></div>
+        <div class="stat"><div class="k">Rank (Game)</div><div id="endRank" class="v">C</div></div>
         <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
         <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
       </div>
@@ -187,16 +190,16 @@ GroupsVR Run (PC/Mobile/Cardboard)
   function aiEnabled(){
     const run = String(qs('run','play')||'play').toLowerCase();
     const on  = String(qs('ai','0')||'0');
-    if (run === 'research') return false;      // ✅ research: ปิดแน่นอน
+    if (run === 'research') return false;
     return (on === '1' || on === 'true');
   }
 
   function getPracticeSec(view){
     const p = String(qs('practice','0')||'0');
     let sec = Number(p)||0;
-    if (p === '1') sec = 15;                  // ✅ practice=1 => 15s
+    if (p === '1') sec = 15;
     sec = clamp(sec, 0, 30);
-    if (view !== 'cvr') sec = 0;              // ✅ practice เฉพาะ cVR
+    if (view !== 'cvr') sec = 0;
     return sec;
   }
 
@@ -230,7 +233,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   window.addEventListener('hha:rank', (ev)=>{
     const d = ev.detail||{};
-    $('vRank').textContent = String(d.grade ?? 'C');
+    // ✅ แสดง rank เกมเป็นหลัก
+    $('vRank').textContent = String(d.gradeGame ?? d.grade ?? 'C');
     $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
   }, {passive:true});
 
@@ -282,40 +286,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // ---------- Audio hooks ----------
-  function hookAudio(){
-    const A = window.GroupsVR && window.GroupsVR.Audio;
-    if (!A) return;
-
-    try{ A.unlock && A.unlock(); }catch{}
-
-    window.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail||{};
-      const k = String(d.kind||'').toLowerCase();
-      if (k==='good') A.good();
-      else if (k==='bad') A.bad();
-      else if (k==='boss') A.boss();
-      else if (k==='miss') A.bad();
-    }, {passive:true});
-
-    window.addEventListener('groups:progress', (ev)=>{
-      const d = ev.detail||{};
-      const kind = String(d.kind||'');
-      if (kind==='storm_on') A.storm();
-      if (kind==='boss_spawn') A.boss();
-      if (kind==='perfect_switch') A.good();
-    }, {passive:true});
-
-    let tmr = 0;
-    function tickLoop(){
-      clearTimeout(tmr);
-      const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
-      if (urgent) A.tick();
-      tmr = setTimeout(tickLoop, urgent ? 420 : 650);
-    }
-    tickLoop();
-  }
-
   // ---------- Summary / History / Logger ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
@@ -331,9 +301,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
       localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
     }catch{}
   }
-
-  let practiceActive = false;
-  let practiceDone = false;
 
   function buildBaseSummary(d, endIso){
     const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
@@ -365,6 +332,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     B && B(()=>lastSummary);
   }catch(_){}
 
+  let practiceActive = false;
+  let practiceDone = false;
+
   window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
@@ -386,8 +356,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     $('endOverlay').classList.remove('hidden');
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
+
+    // ✅ โชว์ rank เกมเป็นหลัก
     $('endScore').textContent = String(d.scoreFinal ?? 0);
-    $('endRank').textContent  = String(d.grade ?? 'C');
+    $('endRank').textContent  = String(d.gradeGame ?? d.grade ?? 'C');
     $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
     $('endMiss').textContent  = String(d.misses ?? 0);
 
@@ -403,7 +375,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  // ✅ กลับ launcher (ไฟล์ launcher คือ ../groups-vr.html)
   $('btnBackLauncher').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
@@ -460,7 +431,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // ---------- PACK 13: Calibration 2-step (cVR) ----------
+  // ---------- PACK 13: Calibration ----------
   const cal = { on:false, step:0, shots:0, done:false };
 
   function showCal(on){
@@ -499,24 +470,18 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  function startCalibrationIfNeeded(view, runMode){
+  function startCalibrationIfNeeded(view){
     if (view !== 'cvr') return false;
-    // ถ้าอยาก “ไม่ทำ calibration ใน research” ให้เปิดบรรทัดนี้:
-    // if (runMode === 'research') return false;
-
     cal.on = true;
     cal.done = false;
     cal.shots = 0;
-
     showCal(true);
     setCalStep(1);
-
     try{
       window.dispatchEvent(new CustomEvent('hha:coach', {
         detail:{ text:'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood:'neutral' }
       }));
     }catch(_){}
-
     return true;
   }
 
@@ -526,52 +491,31 @@ GroupsVR Run (PC/Mobile/Cardboard)
     showCal(false);
   }
 
-  // นับยิงใน calibration step 2
-  try{
-    window.addEventListener('hha:shoot', ()=>{
-      if (!cal.on) return;
-      if (cal.step !== 2) return;
-      cal.shots = Math.min(3, (cal.shots|0) + 1);
-      setCalStep(2);
-      try{
-        window.dispatchEvent(new CustomEvent('hha:coach', {
-          detail:{ text:`Calibration ยิงแล้ว ${cal.shots}/3`, mood:'neutral' }
-        }));
-      }catch(_){}
-    }, {passive:true});
-  }catch(_){}
+  window.addEventListener('hha:shoot', ()=>{
+    if (!cal.on) return;
+    if (cal.step !== 2) return;
+    cal.shots = Math.min(3, (cal.shots|0) + 1);
+    setCalStep(2);
+  }, {passive:true});
 
-  // buttons
-  try{
-    $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
-      if (!cal.on) return;
-      if (cal.step === 1){
-        setCalStep(2);
-        try{
-          window.dispatchEvent(new CustomEvent('hha:coach', {
-            detail:{ text:'ต่อไป: ยิงทดสอบ 3 ครั้ง (แตะจอ) 🎯', mood:'neutral' }
-          }));
-        }catch(_){}
-        return;
-      }
-      if (cal.step === 2 && cal.shots >= 3){
-        finishCalibration();
-        // หลัง calibration → ไป practice/real ตาม flow
-        waitForEngine((E)=> startAfterCalibration(E));
-      }
-    });
-
-    $('btnCalSkip') && $('btnCalSkip').addEventListener('click', ()=>{
-      if (!cal.on) return;
+  $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
+    if (!cal.on) return;
+    if (cal.step === 1){ setCalStep(2); return; }
+    if (cal.step === 2 && cal.shots >= 3){
       finishCalibration();
       waitForEngine((E)=> startAfterCalibration(E));
-    });
-  }catch(_){}
+    }
+  });
+
+  $('btnCalSkip') && $('btnCalSkip').addEventListener('click', ()=>{
+    if (!cal.on) return;
+    finishCalibration();
+    waitForEngine((E)=> startAfterCalibration(E));
+  });
 
   function startAfterCalibration(E){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const practiceSec = getPracticeSec(view);
-
     if (view === 'cvr' && practiceSec > 0){
       const diff = String(qs('diff','normal')||'normal').toLowerCase();
       const style= String(qs('style','mix')||'mix').toLowerCase();
@@ -582,7 +526,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     startReal(E);
   }
 
-  // ---------- PACK 14: Practice then real ----------
+  // ---------- Practice then real ----------
   function startPractice(E, cfg){
     practiceActive = true;
     practiceDone = false;
@@ -593,17 +537,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
-    E.start(cfg.diff, { runMode:'play', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
+    E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP, view:'cvr' });
 
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
-    }catch(_){}
-
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{ text:`Practice ${cfg.practiceSec}s: ลองยิงให้แม่นก่อนเข้าเกมจริง!`, mood:'happy' }
-      }));
     }catch(_){}
   }
 
@@ -620,7 +558,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode: run, diff, style, time, seed });
+    E.start(diff, { runMode: run, diff, style, time, seed, view });
 
     // PACK 15: AI hooks attach (safe)
     try{
@@ -634,23 +572,18 @@ GroupsVR Run (PC/Mobile/Cardboard)
   // ---------- Start ----------
   function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const style= String(qs('style','mix')||'mix').toLowerCase();
-    const seed = String(qs('seed', Date.now()) || Date.now());
-
     setView(view);
-    hookAudio();
     initViewHelper(view);
 
-    const practiceSec = getPracticeSec(view);
-
-    // ✅ PACK 13 gate: cVR ต้อง calibration ก่อน
-    const gated = startCalibrationIfNeeded(view, run);
+    const gated = startCalibrationIfNeeded(view);
     if (gated) return;
 
     waitForEngine((E)=>{
+      const practiceSec = getPracticeSec(view);
       if (view === 'cvr' && practiceSec > 0){
+        const diff = String(qs('diff','normal')||'normal').toLowerCase();
+        const style= String(qs('style','mix')||'mix').toLowerCase();
+        const seed = String(qs('seed', Date.now()) || Date.now());
         startPractice(E, { diff, style, seed, practiceSec });
         return;
       }
