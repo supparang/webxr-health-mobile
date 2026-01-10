@@ -17,7 +17,6 @@
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
-      --bad:#ef4444;
       --cyan:#22d3ee;
       --violet:#a78bfa;
       --radius:22px;
@@ -29,22 +28,17 @@
       --sal: env(safe-area-inset-left, 0px);
     }
     *{ box-sizing:border-box; }
-    html,body{
-      height:100%; margin:0;
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-    }
+    html,body{ height:100%; margin:0; background: radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
+                                 radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+                                 var(--bg);
+              color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
     .wrap{
       min-height:100%;
       padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
       display:flex; align-items:center; justify-content:center;
     }
     .card{
-      width:min(960px, 96vw);
+      width:min(920px, 96vw);
       background: var(--panel);
       border:1px solid var(--stroke);
       border-radius: var(--radius);
@@ -57,10 +51,10 @@
       background: linear-gradient(180deg, rgba(34,197,94,.10), transparent 60%);
     }
     .title{ font-size:20px; font-weight:1100; letter-spacing:.2px; }
-    .sub{ margin-top:6px; color:var(--muted); font-weight:700; font-size:12px; line-height:1.35; }
+    .sub{ margin-top:6px; color:var(--muted); font-weight:700; font-size:12px; }
     .grid{
       display:grid;
-      grid-template-columns: 1.25fr .75fr;
+      grid-template-columns: 1.2fr .8fr;
       gap:14px;
       padding:14px 18px 18px;
     }
@@ -85,7 +79,7 @@
       font-weight:900;
       outline:none;
     }
-    input{ width: 160px; }
+    input{ width: 140px; }
     .btns{
       display:grid;
       grid-template-columns: repeat(2, 1fr);
@@ -110,16 +104,6 @@
       background: rgba(34,197,94,.14);
       color:#eafff3;
     }
-    button.alt{
-      border-color: rgba(34,211,238,.28);
-      background: rgba(34,211,238,.10);
-    }
-    button.warn{
-      border-color: rgba(245,158,11,.30);
-      background: rgba(245,158,11,.10);
-    }
-    button:active{ transform: translateY(1px); }
-
     .hint{
       margin-top:10px; font-size:12px; color:var(--muted); font-weight:800; line-height:1.45;
     }
@@ -132,15 +116,6 @@
       font-weight:900;
       font-size:12px;
       color: var(--text);
-      white-space:nowrap;
-    }
-    .chip.badge{
-      border-color: rgba(34,197,94,.22);
-      background: rgba(34,197,94,.10);
-    }
-    .chip.warn{
-      border-color: rgba(245,158,11,.30);
-      background: rgba(245,158,11,.10);
     }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .footer{
@@ -148,50 +123,7 @@
       display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
       color:var(--muted); font-size:12px; font-weight:800;
     }
-    .minirow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-
-    details{
-      margin-top:12px;
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 16px;
-      background: rgba(2,6,23,.35);
-      padding: 10px 12px;
-    }
-    summary{
-      cursor:pointer;
-      font-weight:1100;
-      color:#dbeafe;
-      outline:none;
-      list-style:none;
-    }
-    summary::-webkit-details-marker{ display:none; }
-    .minihelp{
-      margin-top:8px;
-      color: var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.45;
-    }
-    .err{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius: 14px;
-      border:1px solid rgba(239,68,68,.30);
-      background: rgba(239,68,68,.08);
-      color:#fecaca;
-      font-weight:900;
-      display:none;
-    }
-    .ok{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius: 14px;
-      border:1px solid rgba(34,197,94,.26);
-      background: rgba(34,197,94,.08);
-      color:#bbf7d0;
-      font-weight:900;
-      display:none;
-    }
+    .minirow{ display:flex; gap:10px; flex-wrap:wrap; }
   </style>
 </head>
 <body>
@@ -200,17 +132,12 @@
       <div class="head">
         <div>
           <div class="title">HeroHealth — GoodJunkVR Launcher</div>
-          <div class="sub">
-            เลือกโหมด/ความยาก/เวลา แล้วกดเข้าเกมได้เลย •
-            <b>VR/cVR ยิงจากกลางจอ (crosshair)</b> •
-            โหมด research แนะนำให้ใส่ seed
-          </div>
+          <div class="sub">เลือกอุปกรณ์ + โหมดเล่น + ความยาก + Grade Mode แล้วกดเข้าเกมได้เลย</div>
         </div>
-
         <div class="minirow">
-          <div class="chip badge">🧭 view: <span id="lastView">—</span></div>
-          <div class="chip">🎮 run: <span id="lastMode">—</span></div>
-          <div class="chip">🔁 diff: <span id="lastDiff">—</span></div>
+          <div class="chip">🎮 <span id="lastMode">—</span></div>
+          <div class="chip">🔁 <span id="lastDiff">—</span></div>
+          <div class="chip">🏅 <span id="lastGM">—</span></div>
           <div class="chip">⏱️ <span id="lastTime">—</span></div>
         </div>
       </div>
@@ -220,7 +147,7 @@
           <div class="row" style="justify-content:space-between;">
             <div style="flex:1; min-width:240px;">
               <label>HUB URL (กลับหน้า HUB หลังจบเกม)</label><br/>
-              <input id="hub" class="mono" style="width:min(100%, 680px);" placeholder="https://.../hub.html" />
+              <input id="hub" class="mono" style="width:min(100%, 620px);" placeholder="https://.../hub.html" />
             </div>
           </div>
 
@@ -247,57 +174,33 @@
               <input id="time" type="number" min="20" max="300" value="80" />
             </div>
 
-            <div style="min-width:260px;">
-              <label>seed (แนะนำสำหรับ research)</label><br/>
-              <input id="seed" class="mono" placeholder="เช่น 2026-01-08A" style="width:260px;" />
+            <div style="min-width:240px;">
+              <label>seed (ใส่เฉพาะ research แนะนำ)</label><br/>
+              <input id="seed" class="mono" placeholder="เช่น 2026-01-04A" style="width:240px;" />
+            </div>
+
+            <div style="min-width:240px;">
+              <label>gradeMode (SSS/SS/S/A/B/C)</label><br/>
+              <select id="gradeMode">
+                <option value="friendly">friendly (เด็ก ป.5 ไม่ท้อ)</option>
+                <option value="balanced" selected>balanced (แฟร์/วิจัย)</option>
+                <option value="competitive">competitive (แข่งโหด)</option>
+              </select>
             </div>
           </div>
-
-          <details id="researchBox">
-            <summary>🧪 Research params (studyId/phase/cond/…)</summary>
-            <div class="row" style="margin-top:10px;">
-              <div style="min-width:220px;">
-                <label>studyId</label><br/>
-                <input id="studyId" class="mono" placeholder="เช่น GJ-CRU-001" style="width:220px;" />
-              </div>
-              <div style="min-width:220px;">
-                <label>phase</label><br/>
-                <input id="phase" class="mono" placeholder="pre / post / follow" style="width:220px;" />
-              </div>
-              <div style="min-width:220px;">
-                <label>conditionGroup (cond)</label><br/>
-                <input id="conditionGroup" class="mono" placeholder="A / B / C" style="width:220px;" />
-              </div>
-              <div style="min-width:220px;">
-                <label>sessionOrder</label><br/>
-                <input id="sessionOrder" type="number" min="1" max="99" placeholder="1" style="width:220px;" />
-              </div>
-              <div style="min-width:220px;">
-                <label>blockLabel</label><br/>
-                <input id="blockLabel" class="mono" placeholder="Block-1" style="width:220px;" />
-              </div>
-            </div>
-            <div class="minihelp">
-              - ค่านี้จะถูกส่งไปกับ URL เป็น query params (ให้ logger เก็บในชีตได้)<br/>
-              - ถ้าไม่ได้ใช้วิจัย ปล่อยว่างได้ทั้งหมด
-            </div>
-          </details>
 
           <div class="btns">
-            <button class="primary" data-view="auto">✨ เข้าแบบ Auto-detect</button>
-            <button class="alt" data-view="pc">🖥️ PC</button>
-            <button class="alt" data-view="mobile">📱 Mobile</button>
-            <button class="warn" data-view="cvr">📦 Cardboard (cVR)</button>
-            <button class="warn" data-view="vr">🥽 VR (WebXR)</button>
+            <button class="primary" data-view="pc">🖥️ เข้าแบบ PC</button>
+            <button class="primary" data-view="mobile">📱 เข้าแบบ Mobile</button>
+            <button class="primary" data-view="cvr">📦 เข้าแบบ Cardboard (cVR)</button>
+            <button class="primary" data-view="vr">🥽 เข้าแบบ VR (WebXR)</button>
           </div>
-
-          <div id="msgErr" class="err"></div>
-          <div id="msgOk" class="ok"></div>
 
           <div class="hint">
             - PC/Mobile: แตะ/คลิกเป้าได้เลย<br/>
             - cVR/VR: ยิงจาก <b>กลางจอ (crosshair)</b> โดย <span class="mono">vr-ui.js</span> จะยิง event <b>hha:shoot</b><br/>
-            - run=research: ถ้าไม่ใส่ seed ระบบจะใส่ seed ให้อัตโนมัติ (แก้ได้)
+            - Research: ใส่ seed + แนะนำ gradeMode=balanced เพื่อเทียบผลได้แฟร์<br/>
+            - Play เด็ก ป.5: แนะนำ gradeMode=friendly
           </div>
         </div>
 
@@ -305,15 +208,6 @@
           <div style="font-weight:1100;">พรีวิวลิงก์ที่จะเปิด</div>
           <div id="preview" class="mono" style="margin-top:10px;font-size:12px;line-height:1.45;color:#cbd5e1;word-break:break-all;">
             —
-          </div>
-
-          <div class="minirow" style="margin-top:12px;">
-            <div class="chip">🔎 detected: <span id="detected">—</span></div>
-            <div class="chip">📌 base: <span class="mono" id="basePath">—</span></div>
-          </div>
-
-          <div class="minihelp" style="margin-top:10px;">
-            Tip: ถ้าเล่นจาก HUB อยู่แล้ว ให้ใส่ HUB URL ไว้ จะได้กลับได้ทันทีหลังจบเกม
           </div>
         </div>
       </div>
@@ -328,63 +222,30 @@
   <script>
     (function(){
       const $ = (id)=>document.getElementById(id);
-      const LS_KEY = 'GJ_LAUNCHER_LAST_V2';
-
+      const LS_KEY = 'GJ_LAUNCHER_LAST';
       const els = {
         hub: $('hub'),
         run: $('run'),
         diff: $('diff'),
         time: $('time'),
         seed: $('seed'),
-
-        studyId: $('studyId'),
-        phase: $('phase'),
-        conditionGroup: $('conditionGroup'),
-        sessionOrder: $('sessionOrder'),
-        blockLabel: $('blockLabel'),
-
+        gradeMode: $('gradeMode'),
         preview: $('preview'),
-        detected: $('detected'),
-        basePath: $('basePath'),
-
-        lastView: $('lastView'),
         lastMode: $('lastMode'),
         lastDiff: $('lastDiff'),
+        lastGM: $('lastGM'),
         lastTime: $('lastTime'),
-
-        msgErr: $('msgErr'),
-        msgOk: $('msgOk'),
-        researchBox: $('researchBox'),
       };
 
-      function isMobileUA(){
-        const ua = String(navigator.userAgent||'').toLowerCase();
-        return /android|iphone|ipad|ipod/.test(ua);
-      }
-      function detectView(){
-        // NOTE: เราไม่เดา "vr/cvr" จาก UA เพราะบางเครื่องเป็น mobile แต่ต้องเล่น cVR
-        // Auto จะเลือก pc/mobile เท่านั้น (ปลอดภัยสุด)
-        return isMobileUA() ? 'mobile' : 'pc';
-      }
-
-      function clamp(n, a, b){
-        n = Number(n)||0;
-        return Math.max(a, Math.min(b, n));
-      }
-
-      function showErr(msg){
-        els.msgOk.style.display = 'none';
-        els.msgErr.textContent = msg;
-        els.msgErr.style.display = 'block';
-      }
-      function showOk(msg){
-        els.msgErr.style.display = 'none';
-        els.msgOk.textContent = msg;
-        els.msgOk.style.display = 'block';
-      }
-      function clearMsg(){
-        els.msgErr.style.display = 'none';
-        els.msgOk.style.display = 'none';
+      function applySmartDefaults(){
+        // play => friendly, research => balanced (แต่ user เลือก override ได้)
+        const r = els.run.value;
+        if(r === 'play' && !localStorage.getItem(LS_KEY)){
+          els.gradeMode.value = 'friendly';
+        }
+        if(r === 'research'){
+          els.gradeMode.value = 'balanced';
+        }
       }
 
       function load(){
@@ -395,155 +256,73 @@
           if(s.diff) els.diff.value = s.diff;
           if(s.time) els.time.value = s.time;
           if(s.seed) els.seed.value = s.seed;
-
-          if(s.studyId) els.studyId.value = s.studyId;
-          if(s.phase) els.phase.value = s.phase;
-          if(s.conditionGroup) els.conditionGroup.value = s.conditionGroup;
-          if(s.sessionOrder != null) els.sessionOrder.value = s.sessionOrder;
-          if(s.blockLabel) els.blockLabel.value = s.blockLabel;
-
-          if(s.researchOpen) els.researchBox.open = true;
-          if(s.lastView) els.lastView.textContent = s.lastView;
+          if(s.gradeMode) els.gradeMode.value = s.gradeMode;
         }catch(_){}
       }
-
-      function save(extra={}){
+      function save(){
         try{
-          const cur = {
+          localStorage.setItem(LS_KEY, JSON.stringify({
             hub: els.hub.value.trim(),
             run: els.run.value,
             diff: els.diff.value,
-            time: clamp(els.time.value||80, 20, 300),
+            time: Number(els.time.value||80),
             seed: els.seed.value.trim(),
-
-            studyId: els.studyId.value.trim(),
-            phase: els.phase.value.trim(),
-            conditionGroup: els.conditionGroup.value.trim(),
-            sessionOrder: (els.sessionOrder.value==='' ? '' : String(clamp(els.sessionOrder.value, 1, 99))),
-            blockLabel: els.blockLabel.value.trim(),
-
-            researchOpen: !!els.researchBox.open,
-          };
-          localStorage.setItem(LS_KEY, JSON.stringify(Object.assign(cur, extra)));
+            gradeMode: els.gradeMode.value,
+          }));
         }catch(_){}
-      }
-
-      function ensureSeedIfResearch(){
-        if(els.run.value !== 'research') return;
-        const seed = els.seed.value.trim();
-        if(seed) return;
-        // auto seed ที่อ่านง่ายและ reproducible ในห้องเรียน
-        const d = new Date();
-        const pad = (n)=> String(n).padStart(2,'0');
-        const auto = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}A`;
-        els.seed.value = auto;
-        showOk('ใส่ seed ให้อัตโนมัติสำหรับ research แล้ว ✅ (แก้ได้)');
       }
 
       function build(view){
         const base = './vr-goodjunk/goodjunk-vr.html';
         const p = new URLSearchParams();
-
-        // view
         p.set('view', view);
-
-        // run/diff/time
         p.set('run', els.run.value);
         p.set('diff', els.diff.value);
-        p.set('time', String(clamp(els.time.value||80, 20, 300)));
+        p.set('time', String(Math.max(20, Math.min(300, Number(els.time.value||80)))));
+        p.set('gradeMode', els.gradeMode.value);
 
-        // hub
         const hub = els.hub.value.trim();
         if(hub) p.set('hub', hub);
 
-        // seed (optional; but recommended for research)
         const seed = els.seed.value.trim();
         if(seed) p.set('seed', seed);
 
-        // research params (optional)
-        const studyId = els.studyId.value.trim();
-        const phase = els.phase.value.trim();
-        const cond = els.conditionGroup.value.trim();
-        const sessionOrder = String(els.sessionOrder.value||'').trim();
-        const blockLabel = els.blockLabel.value.trim();
-
-        if(studyId) p.set('studyId', studyId);
-        if(phase) p.set('phase', phase);
-        if(cond) p.set('conditionGroup', cond);
-        if(sessionOrder) p.set('sessionOrder', sessionOrder);
-        if(blockLabel) p.set('blockLabel', blockLabel);
-
-        // always ts (cache-bust + run id helper)
         p.set('ts', String(Date.now()));
-
         return base + '?' + p.toString();
       }
 
-      function refreshPreview(previewView){
-        clearMsg();
-        ensureSeedIfResearch();
-
-        const detected = detectView();
-        els.detected.textContent = detected;
-        els.basePath.textContent = './vr-goodjunk/goodjunk-vr.html';
-
-        const v = previewView || (els.lastView.textContent && els.lastView.textContent !== '—' ? els.lastView.textContent : detected);
-        els.preview.textContent = build(v);
-
+      function refreshPreview(){
+        const url = build('mobile');
+        els.preview.textContent = url;
         els.lastMode.textContent = els.run.value;
         els.lastDiff.textContent = els.diff.value;
-        els.lastTime.textContent = clamp(els.time.value||80, 20, 300) + 's';
+        els.lastGM.textContent = els.gradeMode.value;
+        els.lastTime.textContent = (Number(els.time.value||80)) + 's';
       }
 
-      function normalizeView(view){
-        const v = String(view||'').toLowerCase();
-        if(v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
-        return detectView();
-      }
-
-      // init
       load();
-      const initView = normalizeView(els.lastView.textContent === '—' ? null : els.lastView.textContent);
-      els.lastView.textContent = initView;
-      refreshPreview(initView);
+      applySmartDefaults();
+      refreshPreview();
 
-      // bind inputs
-      ['hub','run','diff','time','seed','studyId','phase','conditionGroup','sessionOrder','blockLabel'].forEach(id=>{
-        $(id).addEventListener('input', ()=>{ save({ lastView: els.lastView.textContent }); refreshPreview(els.lastView.textContent); });
-        $(id).addEventListener('change', ()=>{ save({ lastView: els.lastView.textContent }); refreshPreview(els.lastView.textContent); });
-      });
-
-      // auto detect button + explicit view buttons
-      document.querySelectorAll('button[data-view]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          const raw = btn.getAttribute('data-view');
-          const detected = detectView();
-          const view = (raw === 'auto') ? detected : normalizeView(raw);
-
-          // for VR/cVR: quick nudge
-          if(view === 'vr' || view === 'cvr'){
-            showOk('โหมด VR/cVR: ยิงจากกลางจอ (crosshair) ✅');
+      ['hub','run','diff','time','seed','gradeMode'].forEach(id=>{
+        $(id).addEventListener('input', ()=>{ save(); refreshPreview(); });
+        $(id).addEventListener('change', ()=>{
+          // ถ้าเปลี่ยน run ให้ช่วยชี้แนะโหมดเกรด
+          if(id==='run'){
+            if(els.run.value==='research') els.gradeMode.value='balanced';
+            if(els.run.value==='play' && els.gradeMode.value==='balanced') els.gradeMode.value='friendly';
           }
-
-          // enforce seed if research
-          ensureSeedIfResearch();
-
-          // persist + go
-          els.lastView.textContent = view;
-          save({ lastView: view });
-          location.href = build(view);
+          save(); refreshPreview();
         });
       });
 
-      // keep preview in sync with lastView chip click (optional)
-      els.lastView.parentElement?.addEventListener?.('click', ()=>{
-        const v = normalizeView(els.lastView.textContent);
-        refreshPreview(v);
+      document.querySelectorAll('button[data-view]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const view = btn.getAttribute('data-view');
+          save();
+          location.href = build(view);
+        });
       });
-
-      // if user opens/closes research box -> save
-      els.researchBox.addEventListener('toggle', ()=>{ save({ lastView: els.lastView.textContent }); });
-
     })();
   </script>
 </body>
