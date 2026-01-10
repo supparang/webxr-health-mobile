@@ -1,273 +1,155 @@
-/* === /herohealth/vr/ui-safezones.js ===
+/* === C: /herohealth/vr/ui-safezones.js ===
 HHA UI SafeZones — PRODUCTION
-✅ Computes "playRect" = usable spawn area (screen minus UI)
-✅ Extracts exclude rects from selectors (HUD/Quest/Power/Coach/VR-UI/Overlays)
-✅ Picks safe spawn point avoiding overlaps (circle-vs-rect)
-✅ API:
-   - window.HHA_SafeZones.compute({selectors, uiPad, edgePad})
-   - window.HHA_SafeZones.pickSafePoint({playRect, excludeRects, rng, tries, radius})
-Returns:
-   { W,H, playRect:{xMin,xMax,yMin,yMax}, excludeRects:[{xMin,xMax,yMin,yMax}] }
+✅ compute({selectors, uiPad, edgePad}) => {W,H, playRect, excludeRects}
+✅ pickSafePoint({playRect, excludeRects, rng, tries, radius}) => {x,y}
+✅ ใช้ DOMRects จาก element จริงเพื่อกันเป้าไปทับ HUD/Quest/Coach/Power/VR UI
+Notes:
+- uiPad: กันห่างขอบ UI เพิ่มอีกเล็กน้อย
+- edgePad: กันชิดขอบจอ
+- radius: กันเป้าทับ UI (เผื่อวง hit radius)
 */
 
 (function(root){
   'use strict';
-  const WIN = root;
-  const DOC = root.document;
+  const WIN = root || window;
+  const DOC = WIN.document;
   if (!DOC) return;
 
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function rectNormalize(r){
-    const x1 = Math.min(r.xMin, r.xMax);
-    const x2 = Math.max(r.xMin, r.xMax);
-    const y1 = Math.min(r.yMin, r.yMax);
-    const y2 = Math.max(r.yMin, r.yMax);
-    return { xMin:x1, xMax:x2, yMin:y1, yMax:y2 };
+  if (WIN.HHA_SafeZones && WIN.HHA_SafeZones.compute) return;
+
+  function clamp(n,a,b){
+    n = Number(n); if(!isFinite(n)) n = a;
+    return n<a?a:(n>b?b:n);
   }
 
-  function rectInflate(r, pad){
+  function rectIntersect(a,b){
+    return !(a.x2 <= b.x1 || a.x1 >= b.x2 || a.y2 <= b.y1 || a.y1 >= b.y2);
+  }
+
+  function inflateRect(r, pad){
     pad = Number(pad)||0;
-    return rectNormalize({
-      xMin: r.xMin - pad,
-      xMax: r.xMax + pad,
-      yMin: r.yMin - pad,
-      yMax: r.yMax + pad
-    });
+    return { x1:r.x1-pad, y1:r.y1-pad, x2:r.x2+pad, y2:r.y2+pad };
   }
 
-  function rectClampToScreen(r, W, H){
-    return rectNormalize({
-      xMin: clamp(r.xMin, 0, W),
-      xMax: clamp(r.xMax, 0, W),
-      yMin: clamp(r.yMin, 0, H),
-      yMax: clamp(r.yMax, 0, H),
-    });
+  function normRectFromDOMRect(dr){
+    const x1 = dr.left;
+    const y1 = dr.top;
+    const x2 = dr.right;
+    const y2 = dr.bottom;
+    return { x1, y1, x2, y2 };
   }
 
-  function rectArea(r){
-    const w = Math.max(0, r.xMax - r.xMin);
-    const h = Math.max(0, r.yMax - r.yMin);
-    return w*h;
-  }
-
-  function rectIntersects(a,b){
-    return !(a.xMax <= b.xMin || a.xMin >= b.xMax || a.yMax <= b.yMin || a.yMin >= b.yMax);
-  }
-
-  function mergeRects(rects){
-    // simple iterative union merging for overlaps (keeps list short)
-    const out = [];
-    for (let i=0;i<rects.length;i++){
-      let r = rects[i];
-      let merged = false;
-
-      for (let j=0;j<out.length;j++){
-        const o = out[j];
-        if (rectIntersects(r, o)){
-          out[j] = rectNormalize({
-            xMin: Math.min(o.xMin, r.xMin),
-            xMax: Math.max(o.xMax, r.xMax),
-            yMin: Math.min(o.yMin, r.yMin),
-            yMax: Math.max(o.yMax, r.yMax),
-          });
-          merged = true;
-          break;
-        }
-      }
-
-      if (!merged) out.push(r);
-    }
-
-    // second pass in case unions created new overlaps
-    let changed = true;
-    while (changed){
-      changed = false;
-      for (let i=0;i<out.length;i++){
-        for (let j=i+1;j<out.length;j++){
-          if (rectIntersects(out[i], out[j])){
-            out[i] = rectNormalize({
-              xMin: Math.min(out[i].xMin, out[j].xMin),
-              xMax: Math.max(out[i].xMax, out[j].xMax),
-              yMin: Math.min(out[i].yMin, out[j].yMin),
-              yMax: Math.max(out[i].yMax, out[j].yMax),
-            });
-            out.splice(j,1);
-            changed = true;
-            j--;
-          }
-        }
-      }
-    }
-
-    return out;
-  }
-
-  // circle-rect overlap test
-  function circleHitsRect(cx, cy, radius, r){
-    const x = clamp(cx, r.xMin, r.xMax);
-    const y = clamp(cy, r.yMin, r.yMax);
-    const dx = cx - x;
-    const dy = cy - y;
-    return (dx*dx + dy*dy) <= (radius*radius);
+  function inRect(x,y,r){
+    return x>=r.x1 && x<=r.x2 && y>=r.y1 && y<=r.y2;
   }
 
   function compute(opts){
     opts = opts || {};
+    const selectors = Array.isArray(opts.selectors) ? opts.selectors : [];
+    const uiPad = clamp(opts.uiPad ?? 10, 0, 48);
+    const edgePad = clamp(opts.edgePad ?? 12, 0, 64);
+
     const W = Math.max(320, WIN.innerWidth  || 360);
     const H = Math.max(420, WIN.innerHeight || 640);
 
-    const uiPad  = clamp(opts.uiPad  ?? 12, 0, 64);
-    const edgePad= clamp(opts.edgePad?? 12, 0, 64);
+    const playRect = {
+      x1: edgePad,
+      y1: edgePad,
+      x2: W - edgePad,
+      y2: H - edgePad
+    };
 
-    const selectors = Array.isArray(opts.selectors) && opts.selectors.length
-      ? opts.selectors
-      : ['.hud','.questTop','.powerWrap','.coachWrap','.hha-vr-ui','.overlay'];
+    const excludeRects = [];
 
-    // base playRect: inset from edges a bit
-    let playRect = rectNormalize({
-      xMin: edgePad,
-      xMax: W - edgePad,
-      yMin: edgePad,
-      yMax: H - edgePad
-    });
-
-    // collect exclude rects from visible UI elements
-    const ex = [];
-    for (let s of selectors){
+    for (const sel of selectors){
       try{
-        const els = DOC.querySelectorAll(s);
-        els.forEach(el=>{
+        const list = DOC.querySelectorAll(sel);
+        if (!list || !list.length) continue;
+        for (const el of list){
+          // ignore hidden
           const st = WIN.getComputedStyle(el);
-          if (!st) return;
-          if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity||'1') === 0) return;
+          if (!st || st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) continue;
 
-          const rect = el.getBoundingClientRect();
-          if (!rect || rect.width <= 1 || rect.height <= 1) return;
+          const dr = el.getBoundingClientRect();
+          // ignore tiny
+          if (!dr || (dr.width < 2 && dr.height < 2)) continue;
 
-          // ignore if fully offscreen
-          if (rect.right <= 0 || rect.left >= W || rect.bottom <= 0 || rect.top >= H) return;
+          let r = normRectFromDOMRect(dr);
+          r = inflateRect(r, uiPad);
 
-          const r = rectClampToScreen(rectInflate({
-            xMin: rect.left,
-            xMax: rect.right,
-            yMin: rect.top,
-            yMax: rect.bottom
-          }, uiPad), W, H);
+          // clamp to viewport
+          r.x1 = clamp(r.x1, 0, W);
+          r.x2 = clamp(r.x2, 0, W);
+          r.y1 = clamp(r.y1, 0, H);
+          r.y2 = clamp(r.y2, 0, H);
 
-          if (rectArea(r) >= 40) ex.push(r);
-        });
+          // ignore if outside
+          if (r.x2 <= 0 || r.y2 <= 0 || r.x1 >= W || r.y1 >= H) continue;
+
+          excludeRects.push(r);
+        }
       }catch(_){}
     }
-
-    const excludeRects = mergeRects(ex);
-
-    // shrink playRect by "hard bars" that likely occupy full width/height near edges
-    // heuristic: if a rect touches an edge and is thick enough -> carve it out
-    for (const r of excludeRects){
-      const touchTop = r.yMin <= edgePad + 2;
-      const touchBot = r.yMax >= H - (edgePad + 2);
-      const touchLeft= r.xMin <= edgePad + 2;
-      const touchRight=r.xMax >= W - (edgePad + 2);
-
-      const w = r.xMax - r.xMin;
-      const h = r.yMax - r.yMin;
-
-      if (touchTop && w >= W*0.55 && h >= 36){
-        playRect.yMin = Math.max(playRect.yMin, r.yMax + 6);
-      }
-      if (touchBot && w >= W*0.55 && h >= 36){
-        playRect.yMax = Math.min(playRect.yMax, r.yMin - 6);
-      }
-      if (touchLeft && h >= H*0.40 && w >= 60){
-        playRect.xMin = Math.max(playRect.xMin, r.xMax + 6);
-      }
-      if (touchRight && h >= H*0.40 && w >= 60){
-        playRect.xMax = Math.min(playRect.xMax, r.xMin - 6);
-      }
-    }
-
-    // minimum sanity size (avoid dead tiny playfield)
-    const minW = Math.max(120, Math.round(W * 0.34));
-    const minH = Math.max(140, Math.round(H * 0.34));
-
-    if ((playRect.xMax - playRect.xMin) < minW){
-      const mid = (playRect.xMin + playRect.xMax) * 0.5;
-      playRect.xMin = clamp(mid - minW*0.5, edgePad, W-edgePad-minW);
-      playRect.xMax = playRect.xMin + minW;
-    }
-    if ((playRect.yMax - playRect.yMin) < minH){
-      const mid = (playRect.yMin + playRect.yMax) * 0.5;
-      playRect.yMin = clamp(mid - minH*0.5, edgePad, H-edgePad-minH);
-      playRect.yMax = playRect.yMin + minH;
-    }
-
-    playRect = rectClampToScreen(playRect, W, H);
 
     return { W, H, playRect, excludeRects };
   }
 
   function pickSafePoint(opts){
     opts = opts || {};
-    const playRect = opts.playRect || {xMin:12,xMax:(WIN.innerWidth||360)-12,yMin:12,yMax:(WIN.innerHeight||640)-12};
+    const playRect = opts.playRect || {x1:12,y1:12,x2:(WIN.innerWidth||360)-12,y2:(WIN.innerHeight||640)-12};
     const excludeRects = Array.isArray(opts.excludeRects) ? opts.excludeRects : [];
     const rng = (typeof opts.rng === 'function') ? opts.rng : Math.random;
-    const tries = Math.max(10, Number(opts.tries ?? 80) || 80);
-    const radius = clamp(opts.radius ?? 34, 8, 140);
+    const tries = clamp(opts.tries ?? 80, 10, 240);
+    const radius = clamp(opts.radius ?? 40, 0, 140);
 
-    // valid area with radius margin
-    const xMin = playRect.xMin + radius;
-    const xMax = playRect.xMax - radius;
-    const yMin = playRect.yMin + radius;
-    const yMax = playRect.yMax - radius;
+    // shrink playRect by radius so target circle stays inside
+    const pr = {
+      x1: playRect.x1 + radius,
+      y1: playRect.y1 + radius,
+      x2: playRect.x2 - radius,
+      y2: playRect.y2 - radius
+    };
 
-    // if too tight, relax radius a bit
-    let rxMin=xMin, rxMax=xMax, ryMin=yMin, ryMax=yMax;
-    if (rxMax <= rxMin + 4){
-      const mid = (playRect.xMin + playRect.xMax)*0.5;
-      rxMin = clamp(mid - 40, playRect.xMin+6, playRect.xMax-86);
-      rxMax = rxMin + 80;
-    }
-    if (ryMax <= ryMin + 4){
-      const mid = (playRect.yMin + playRect.yMax)*0.5;
-      ryMin = clamp(mid - 50, playRect.yMin+6, playRect.yMax-106);
-      ryMax = ryMin + 100;
+    // fallback if too small
+    if ((pr.x2 - pr.x1) < 60 || (pr.y2 - pr.y1) < 60){
+      const cx = (playRect.x1 + playRect.x2) * 0.5;
+      const cy = (playRect.y1 + playRect.y2) * 0.5;
+      return { x: cx, y: cy };
     }
 
-    // try random samples
+    function bad(x,y){
+      for (const r0 of excludeRects){
+        const r = inflateRect(r0, radius); // กันวงกลมชน UI
+        if (inRect(x,y,r)) return true;
+      }
+      return false;
+    }
+
     for (let i=0;i<tries;i++){
-      const x = rxMin + (rxMax - rxMin) * rng();
-      const y = ryMin + (ryMax - ryMin) * rng();
-
-      let ok = true;
-      for (const r of excludeRects){
-        if (circleHitsRect(x, y, radius, r)){ ok = false; break; }
-      }
-      if (ok) return { x, y };
+      const x = pr.x1 + rng() * (pr.x2 - pr.x1);
+      const y = pr.y1 + rng() * (pr.y2 - pr.y1);
+      if (!bad(x,y)) return { x, y };
     }
 
-    // fallback: center-ish scan grid
-    const steps = 8;
-    let best = { x:(rxMin+rxMax)/2, y:(ryMin+ryMax)/2, bad:1e9 };
-    for (let gy=0; gy<=steps; gy++){
-      for (let gx=0; gx<=steps; gx++){
-        const x = rxMin + (rxMax-rxMin) * (gx/steps);
-        const y = ryMin + (ryMax-ryMin) * (gy/steps);
-        let bad = 0;
-        for (const r of excludeRects){
-          if (circleHitsRect(x,y,radius,r)) bad += 1;
-        }
-        if (bad < best.bad){
-          best = { x, y, bad };
-          if (bad === 0) return { x, y };
-        }
+    // fail-safe: หา “มุมที่ปลอดภัยที่สุด” แบบง่าย
+    let best = { x:(pr.x1+pr.x2)/2, y:(pr.y1+pr.y2)/2, score:-1e9 };
+    for (let k=0;k<18;k++){
+      const x = pr.x1 + rng() * (pr.x2 - pr.x1);
+      const y = pr.y1 + rng() * (pr.y2 - pr.y1);
+      let s = 0;
+      for (const r0 of excludeRects){
+        const r = inflateRect(r0, radius);
+        // ให้คะแนนสูงเมื่อไกลจาก UI
+        const dx = (x < r.x1) ? (r.x1 - x) : (x > r.x2 ? (x - r.x2) : 0);
+        const dy = (y < r.y1) ? (r.y1 - y) : (y > r.y2 ? (y - r.y2) : 0);
+        const d = Math.sqrt(dx*dx + dy*dy);
+        s += d;
       }
+      if (s > best.score) best = { x, y, score:s };
     }
-
     return { x: best.x, y: best.y };
   }
 
-  WIN.HHA_SafeZones = WIN.HHA_SafeZones || {};
-  WIN.HHA_SafeZones.compute = compute;
-  WIN.HHA_SafeZones.pickSafePoint = pickSafePoint;
+  WIN.HHA_SafeZones = { compute, pickSafePoint };
 
 })(typeof window !== 'undefined' ? window : globalThis);
