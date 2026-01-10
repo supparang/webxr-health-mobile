@@ -1,12 +1,3 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR Run — PRODUCTION (HHA Standard)
-✅ Uses ./plate-vr.css
-✅ Uses ./plate.safe.js (engine)
-✅ Uses ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair shoot => hha:shoot)
-✅ Uses ../vr/hha-cloud-logger.js (flush-hardened)
-✅ Auto view detect (NO menu, NO override)
-✅ End overlay controlled by aria-hidden only
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,329 +5,123 @@ Balanced Plate VR Run — PRODUCTION (HHA Standard)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#020617" />
-
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <!-- A-Frame: helps WebXR Enter VR reliability -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- CSS -->
   <link rel="stylesheet" href="./plate-vr.css" />
 
-  <style>
-    /* minimal fallback if css fails */
-    body{ background:#020617; }
-  </style>
-
-  <!-- Universal VR UI config (must be BEFORE vr-ui.js) -->
-  <script>
-    // IMPORTANT: do not allow user override via query
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-  </script>
-
-  <!-- Universal VR UI -->
+  <!-- Global FX + Logger + Universal VR UI -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Logger (reads ?log= endpoint) -->
-  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <!-- Boot -->
+  <script type="module" src="./plate.boot.js"></script>
 </head>
 
-<body class="view-auto" data-game="plate">
+<body class="view-pc">
+  <div id="app">
+    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
+    <a-scene
+      embedded
+      renderer="antialias:true; colorManagement:true"
+      xr-mode-ui="enabled:false"
+      style="position:fixed; inset:0; z-index:0; opacity:0; pointer-events:none;"
+    >
+      <a-entity camera position="0 1.6 0"></a-entity>
+    </a-scene>
 
-  <!-- ===================== HUD (non-blocking) ===================== -->
-  <header id="hud" aria-label="HUD">
-    <div class="hud-row">
-      <!-- Left: stats -->
-      <div class="chip" id="chipScore">
-        <span class="k">SCORE</span>
-        <span class="v" id="vScore">0</span>
+    <!-- Playfield (targets spawn inside this rect) -->
+    <div id="plate-layer" aria-label="playfield"></div>
+
+    <!-- HUD -->
+    <div id="hud" aria-label="hud">
+      <div class="hudRow">
+        <div class="chip score">
+          <span class="lbl">SCORE</span>
+          <span class="val" id="hudScore">0</span>
+        </div>
+        <div class="chip time">
+          <span class="lbl">TIME</span>
+          <span class="val" id="hudTime">0</span>
+        </div>
+        <div class="chip combo">
+          <span class="lbl">COMBO</span>
+          <span class="val" id="hudCombo">0</span>
+        </div>
       </div>
 
-      <div class="chip" id="chipTime">
-        <span class="k">TIME</span>
-        <span class="v" id="vTime">0</span>
-      </div>
-
-      <div class="chip" id="chipCombo">
-        <span class="k">COMBO</span>
-        <span class="v" id="vCombo">0</span>
-      </div>
-
-      <!-- Center: GOAL -->
-      <section class="quest" id="goalCard" aria-label="Goal">
-        <div class="quest-title">
-          <div class="t">GOAL</div>
-          <div class="m"><span id="goalCur">0</span>/<span id="goalTarget">0</span></div>
+      <div class="card" id="questCard">
+        <div class="cardTitle">
+          <div class="t">🎯 ภารกิจ</div>
+          <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
         </div>
-        <div class="bar" aria-hidden="true"><i id="goalBar"></i></div>
-        <div class="quest-sub">
-          <div id="goalText">—</div>
-          <div class="mini-timer" id="goalTag" aria-hidden="false">MAIN</div>
+
+        <!-- GOAL -->
+        <div class="qItem" id="goalItem">
+          <div class="qText">
+            <div class="name" id="goalName">Goal</div>
+            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
+          </div>
+          <div class="qProg">
+            <div class="qNums" id="goalNums">0/1</div>
+            <div class="bar"><i id="goalBar"></i></div>
+          </div>
         </div>
-      </section>
 
-      <!-- Right: MINI -->
-      <section class="quest" id="miniCard" aria-label="Mini Quest">
-        <div class="quest-title">
-          <div class="t">MINI</div>
-          <div class="m"><span id="miniCur">0</span>/<span id="miniTarget">0</span></div>
+        <!-- MINI -->
+        <div class="qItem" id="miniItem">
+          <div class="qText">
+            <div class="name" id="miniName">Mini Quest</div>
+            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
+          </div>
+          <div class="qProg">
+            <div class="qNums" id="miniNums">0/1</div>
+            <div class="bar"><i id="miniBar"></i></div>
+          </div>
         </div>
-        <div class="bar" aria-hidden="true"><i id="miniBar"></i></div>
-        <div class="quest-sub">
-          <div id="miniText">—</div>
-          <div class="mini-timer" id="miniTimer" aria-hidden="false"><span id="miniLeft">0</span>s</div>
-        </div>
-      </section>
-    </div>
-  </header>
-
-  <!-- ===================== Play Layer (DOM targets spawned here) ===================== -->
-  <main id="plate-layer" aria-label="Play Layer"></main>
-
-  <!-- ===================== Coach ===================== -->
-  <aside id="coachCard" aria-hidden="true" aria-label="Coach">
-    <div id="coachDot" aria-hidden="true"></div>
-    <div id="coachMsg">—</div>
-  </aside>
-
-  <!-- ===================== Hit FX (center toast) ===================== -->
-  <div id="hitFx" class="hitfx" aria-hidden="true">+0</div>
-
-  <!-- ===================== End Overlay (aria-hidden drives visibility) ===================== -->
-  <section id="endOverlay" aria-hidden="true" role="dialog" aria-label="Summary">
-    <div class="end-card">
-      <h2 class="end-title" id="endTitle">สรุปผล</h2>
-
-      <div class="end-grid" aria-label="Metrics">
-        <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">ACCURACY</div><div class="v" id="endAcc">0%</div></div>
-        <div class="end-item"><div class="k">GOALS</div><div class="v" id="endGoal">0/0</div></div>
-        <div class="end-item"><div class="k">MINI</div><div class="v" id="endMini">0/0</div></div>
-        <div class="end-item"><div class="k">MISSES</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-item"><div class="k">DURATION</div><div class="v" id="endDur">0s</div></div>
-      </div>
-
-      <div class="end-actions">
-        <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
-        <button class="btn warn" id="btnBackHub" type="button">กลับ HUB</button>
-        <button class="btn primary" id="btnCloseEnd" type="button">ปิด</button>
       </div>
     </div>
-  </section>
 
-  <!-- ===================== Boot (safe engine) ===================== -->
-  <script type="module">
-    import { boot as bootPlate } from './plate.safe.js';
+    <!-- Coach bubble (optional) -->
+    <div id="coachCard" aria-hidden="true">
+      <div class="inner">
+        <div id="coachMsg">…</div>
+        <div class="meta" id="coachMeta">Coach</div>
+      </div>
+    </div>
 
-    // ---------- Query helpers ----------
-    function q(k, def=null){
-      try { return new URL(location.href).searchParams.get(k) ?? def; }
-      catch { return def; }
-    }
-    function qNum(k, def=0){
-      const v = Number(q(k, def));
-      return Number.isFinite(v) ? v : def;
-    }
-    function lower(s){ return (s||'').toLowerCase(); }
+    <!-- End Overlay -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="endPanel">
+        <div class="endTitle">
+          <h2 id="endTitle">สรุปผล</h2>
+          <div class="tag" id="endTag">PlateVR</div>
+        </div>
 
-    // ---------- Auto view detect (NO override) ----------
-    function detectView(){
-      // Use heuristics only (DO NOT trust query view)
-      const ua = navigator.userAgent || '';
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1);
-      // cVR: user may enter split mode from hub param, but we still don't read view override
-      const hinted = lower(q('view','')); // allowed only for cvr strict when launcher sets it
-      if (hinted === 'cvr') return 'cvr'; // only cvr allowed as "special mode"
-      return isMobile ? 'mobile' : 'pc';
-    }
-    function applyViewClass(view){
-      const b = document.body;
-      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-auto');
-      if (view === 'cvr') b.classList.add('view-cvr');
-      else if (view === 'mobile') b.classList.add('view-mobile');
-      else b.classList.add('view-pc');
-    }
+        <div class="endGrid">
+          <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
+          <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
+          <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
+          <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
+          <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
+          <div class="kpi"><div class="k">Miss</div><div class="v" id="kMiss">0</div></div>
+        </div>
 
-    const view = detectView();
-    applyViewClass(view);
+        <div class="endBtns">
+          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    // ---------- Game context ----------
-    const runMode = lower(q('run','play'));          // play | study
-    const diff    = lower(q('diff','normal'));       // easy|normal|hard
-    const timeSec = qNum('time', 70);                // duration planned
-    const seedQ   = qNum('seed', 0);
-    const seed    = seedQ > 0 ? seedQ : Date.now();  // research may pass fixed seed
-    const hub     = q('hub','../hub.html');
-    const logUrl  = q('log', null);                  // Apps Script endpoint
-
-    // expose for logger + engine
-    window.HHA_CTX = {
-      game: 'plate',
-      view,
-      runMode,
-      diff,
-      durationPlannedSec: timeSec,
-      seed,
-      hub,
-      logUrl
-    };
-
-    // ---------- UI refs ----------
-    const $ = (s)=>document.querySelector(s);
-    const vScore = $('#vScore');
-    const vTime  = $('#vTime');
-    const vCombo = $('#vCombo');
-
-    // Quest cards
-    const goalText = $('#goalText');
-    const goalCur  = $('#goalCur');
-    const goalTarget = $('#goalTarget');
-    const goalBar = $('#goalBar');
-
-    const miniText = $('#miniText');
-    const miniCur  = $('#miniCur');
-    const miniTarget = $('#miniTarget');
-    const miniBar = $('#miniBar');
-    const miniLeft = $('#miniLeft');
-
-    // Coach & fx
-    const coachCard = $('#coachCard');
-    const coachMsg  = $('#coachMsg');
-    const hitFx = $('#hitFx');
-
-    // End overlay
-    const endOverlay = $('#endOverlay');
-    const endScore = $('#endScore');
-    const endAcc   = $('#endAcc');
-    const endGoal  = $('#endGoal');
-    const endMini  = $('#endMini');
-    const endMiss  = $('#endMiss');
-    const endDur   = $('#endDur');
-
-    // Buttons
-    const btnRestart = $('#btnRestart');
-    const btnBackHub = $('#btnBackHub');
-    const btnCloseEnd = $('#btnCloseEnd');
-
-    // ---------- End overlay helpers ----------
-    function showEnd(summary){
-      // summary is produced by plate.safe.js
-      endScore.textContent = String(summary?.scoreFinal ?? 0);
-      endAcc.textContent   = String(summary?.accuracyGoodPct ?? 0) + '%';
-      endGoal.textContent  = `${summary?.goalsCleared ?? 0}/${summary?.goalsTotal ?? 0}`;
-      endMini.textContent  = `${summary?.miniCleared ?? 0}/${summary?.miniTotal ?? 0}`;
-      endMiss.textContent  = String(summary?.misses ?? 0);
-      endDur.textContent   = String(summary?.durationPlayedSec ?? 0) + 's';
-
-      endOverlay.setAttribute('aria-hidden','false');
-    }
-    function hideEnd(){
-      endOverlay.setAttribute('aria-hidden','true');
-    }
-
-    // ---------- Buttons ----------
-    btnRestart.addEventListener('click', ()=>{
-      // keep same params but refresh seed for play; keep seed for study unless provided
-      const u = new URL(location.href);
-      if (runMode === 'play'){
-        u.searchParams.set('seed', String(Date.now()));
-      }
-      location.href = u.toString();
-    });
-
-    btnBackHub.addEventListener('click', ()=>{
-      // flush-hardened logger will catch pagehide; also we emit force_end
-      try { window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'back-hub' }})); } catch {}
-      const u = new URL(hub, location.href);
-      location.href = u.toString();
-    });
-
-    btnCloseEnd.addEventListener('click', hideEnd);
-
-    // ---------- HUD event listeners ----------
-    window.addEventListener('hha:score', (e)=>{
-      const d = e.detail || {};
-      if (vScore) vScore.textContent = String(d.score ?? d.value ?? 0);
-      if (vCombo) vCombo.textContent = String(d.combo ?? 0);
-      if (hitFx && d.toast){
-        hitFx.textContent = d.toast;
-        hitFx.classList.toggle('fx-good', !!d.good);
-        hitFx.classList.toggle('fx-bad', !!d.bad);
-        hitFx.classList.toggle('fx-perfect', !!d.perfect);
-        hitFx.setAttribute('aria-hidden','false');
-        clearTimeout(hitFx.__t);
-        hitFx.__t = setTimeout(()=>hitFx.setAttribute('aria-hidden','true'), 320);
-      }
-    });
-
-    window.addEventListener('hha:time', (e)=>{
-      const d = e.detail || {};
-      if (vTime) vTime.textContent = String(d.left ?? d.value ?? 0);
-    });
-
-    window.addEventListener('quest:update', (e)=>{
-      const qd = (e.detail || {});
-      const g = qd.goal || {};
-      const m = qd.mini || {};
-
-      // goal
-      if (goalText) goalText.textContent = g.text ?? '—';
-      if (goalCur) goalCur.textContent = String(g.cur ?? 0);
-      if (goalTarget) goalTarget.textContent = String(g.target ?? 0);
-      if (goalBar){
-        const pct = (g.target>0) ? Math.max(0, Math.min(100, (g.cur/g.target)*100)) : 0;
-        goalBar.style.width = pct.toFixed(1)+'%';
-      }
-
-      // mini
-      if (miniText) miniText.textContent = m.text ?? '—';
-      if (miniCur) miniCur.textContent = String(m.cur ?? 0);
-      if (miniTarget) miniTarget.textContent = String(m.target ?? 0);
-      if (miniBar){
-        const pct = (m.target>0) ? Math.max(0, Math.min(100, (m.cur/m.target)*100)) : 0;
-        miniBar.style.width = pct.toFixed(1)+'%';
-      }
-      if (miniLeft) miniLeft.textContent = String(m.leftSec ?? 0);
-    });
-
-    window.addEventListener('hha:coach', (e)=>{
-      const d = e.detail || {};
-      if (!coachCard || !coachMsg) return;
-      coachMsg.textContent = d.text ?? '—';
-      coachCard.setAttribute('aria-hidden','false');
-      clearTimeout(coachCard.__t);
-      coachCard.__t = setTimeout(()=>coachCard.setAttribute('aria-hidden','true'), d.ms ?? 1800);
-    });
-
-    // Engine end -> show summary + store last summary + emit to logger
-    window.addEventListener('hha:end', (e)=>{
-      const summary = e.detail || {};
-      try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-          game:'plate',
-          at: new Date().toISOString(),
-          summary
-        }));
-      }catch{}
-
-      showEnd(summary);
-
-      // logger picks up this event too (optional)
-      try{ window.dispatchEvent(new CustomEvent('hha:log', { detail: summary })); }catch{}
-    });
-
-    // ---------- Start engine ----------
-    bootPlate({
-      host: document.querySelector('#plate-layer'),
-      runMode,
-      diff,
-      durationPlannedSec: timeSec,
-      seed,
-      view,
-      hub
-    });
-
-    // ---------- Logger endpoint passthrough ----------
-    // hha-cloud-logger reads ?log= but also allow from ctx
-    if (logUrl){
-      window.HHA_LOG_ENDPOINT = logUrl;
-    }
-  </script>
+  <!-- NOTE:
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
+  -->
 </body>
 </html>
