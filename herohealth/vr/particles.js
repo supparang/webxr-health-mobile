@@ -1,8 +1,5 @@
 // === /herohealth/vr/particles.js ===
 // HHA Particles — ULTRA (shared FX core)
-// ✅ One global FX layer (.hha-fx-layer)
-// ✅ API: scorePop(x,y,text,cls), burstAt(x,y,kind), shake(intensity,ms), ringPulse(kind), celebrate(kind)
-// ✅ Safe: no dependencies, no canvas, pure DOM + CSS animations
 
 (function (root) {
   'use strict';
@@ -39,24 +36,21 @@
   function scorePop(x,y,text,cls=''){
     x = clamp(x, 0, doc.documentElement.clientWidth);
     y = clamp(y, 0, doc.documentElement.clientHeight);
-
     const el = addEl(`
       <div class="hha-pop ${cls}" style="left:${x}px;top:${y}px;">
         ${String(text||'')}
       </div>
     `);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 760);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 820);
   }
 
   function burstAt(x,y,kind='good'){
     x = clamp(x, 0, doc.documentElement.clientWidth);
     y = clamp(y, 0, doc.documentElement.clientHeight);
 
-    // main burst
     const el = addEl(`<div class="hha-burst hha-burst-${kind}" style="left:${x}px;top:${y}px;"></div>`);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 560);
 
-    // sparks
     const n = (kind==='boss' || kind==='rage') ? 18 : 12;
     for(let i=0;i<n;i++){
       const a = (Math.PI * 2) * (i/n);
@@ -64,17 +58,16 @@
       const dx = Math.cos(a) * (d * (0.55 + Math.random()*0.55));
       const dy = Math.sin(a) * (d * (0.55 + Math.random()*0.55));
       const s = addEl(`<div class="hha-spark hha-spark-${kind}" style="left:${x}px;top:${y}px;--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;"></div>`);
-      setTimeout(()=>{ try{ s.remove(); }catch(_){ } }, 520);
+      setTimeout(()=>{ try{ s.remove(); }catch(_){ } }, 560);
     }
   }
 
   function ringPulse(kind='storm'){
-    // big ring center screen (good for STORM/BOSS/RAGE)
     const w = doc.documentElement.clientWidth;
     const h = doc.documentElement.clientHeight;
     const x = Math.floor(w/2), y = Math.floor(h/2);
     const el = addEl(`<div class="hha-ring hha-ring-${kind}" style="left:${x}px;top:${y}px;"></div>`);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 720);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 760);
   }
 
   function shake(intensity=8, ms=260){
@@ -97,49 +90,27 @@
       const dx = (Math.random()*2-1) * 140;
       const rot = Math.floor(Math.random()*240-120);
       const t = addEl(`<div class="hha-confetti hha-confetti-${kind}" style="left:${x}px;top:-10px;--dx:${dx.toFixed(1)}px;--rot:${rot}deg;"></div>`);
-      setTimeout(()=>{ try{ t.remove(); }catch(_){ } }, 1500);
+      setTimeout(()=>{ try{ t.remove(); }catch(_){ } }, 1550);
     }
   }
 
   function celebrate(kind='mini'){
-    if(kind==='mini'){
-      ringPulse('mini');
-      shake(6, 200);
-      confetti('mini');
-      return;
-    }
-    if(kind==='boss'){
-      ringPulse('boss');
-      shake(10, 260);
-      confetti('boss');
-      return;
-    }
-    if(kind==='rage'){
-      ringPulse('rage');
-      shake(14, 320);
-      confetti('rage');
-      return;
-    }
-    // end / default
-    ringPulse('end');
-    shake(8, 260);
-    confetti('end');
+    if(kind==='mini'){ ringPulse('mini'); shake(6, 220); confetti('mini'); return; }
+    if(kind==='boss'){ ringPulse('boss'); shake(10, 280); confetti('boss'); return; }
+    if(kind==='rage'){ ringPulse('rage'); shake(14, 340); confetti('rage'); return; }
+    ringPulse('end'); shake(8, 280); confetti('end');
   }
 
-  // styles
   const st = doc.createElement('style');
   st.textContent = `
     .hha-pop{
-      position:absolute;
-      transform: translate(-50%,-50%);
+      position:absolute; transform: translate(-50%,-50%);
       font: 1000 18px/1 system-ui;
-      color:#fff;
+      color:#fff; opacity:.98;
       text-shadow: 0 10px 26px rgba(0,0,0,.55);
-      opacity:.98;
       will-change: transform, opacity, filter;
-      animation: hhaPop 720ms cubic-bezier(.16,.84,.16,1) forwards;
-      padding: 4px 10px;
-      border-radius: 999px;
+      animation: hhaPop 760ms cubic-bezier(.16,.84,.16,1) forwards;
+      padding: 4px 10px; border-radius: 999px;
       background: rgba(2,6,23,.18);
       border: 1px solid rgba(148,163,184,.16);
       backdrop-filter: blur(6px);
@@ -157,18 +128,15 @@
     }
 
     .hha-burst{
-      position:absolute;
-      width: 18px; height: 18px;
+      position:absolute; width: 18px; height: 18px;
       transform: translate(-50%,-50%);
-      border-radius: 999px;
-      opacity: .95;
-      animation: hhaBurst 520ms ease-out forwards;
+      border-radius: 999px; opacity: .95;
+      animation: hhaBurst 560ms ease-out forwards;
       will-change: transform, opacity, box-shadow;
       background: rgba(255,255,255,.22);
-      box-shadow: 0 0 0 0 rgba(255,255,255,.0);
     }
-    .hha-burst-good{ background: rgba(34,197,94,.22); box-shadow: 0 0 0 0 rgba(34,197,94,.0); }
-    .hha-burst-bad{ background: rgba(239,68,68,.22); box-shadow: 0 0 0 0 rgba(239,68,68,.0); }
+    .hha-burst-good{ background: rgba(34,197,94,.22); }
+    .hha-burst-bad{ background: rgba(239,68,68,.22); }
     .hha-burst-star{ background: rgba(245,158,11,.22); }
     .hha-burst-shield{ background: rgba(34,211,238,.18); }
     .hha-burst-diamond{ background: rgba(167,139,250,.22); }
@@ -176,21 +144,20 @@
     .hha-burst-rage{ background: rgba(239,68,68,.22); }
 
     @keyframes hhaBurst{
-      0%{ transform:translate(-50%,-50%) scale(.8); opacity:.9; box-shadow: 0 0 0 0 rgba(255,255,255,0); }
-      70%{ transform:translate(-50%,-50%) scale(2.2); opacity:.8; box-shadow: 0 0 0 26px rgba(255,255,255,.0); }
-      100%{ transform:translate(-50%,-50%) scale(2.6); opacity:0; box-shadow: 0 0 0 42px rgba(255,255,255,0); }
+      0%{ transform:translate(-50%,-50%) scale(.8); opacity:.9; }
+      70%{ transform:translate(-50%,-50%) scale(2.2); opacity:.8; }
+      100%{ transform:translate(-50%,-50%) scale(2.6); opacity:0; }
     }
 
     .hha-spark{
-      position:absolute;
-      width: 6px; height: 6px;
+      position:absolute; width: 6px; height: 6px;
       border-radius: 999px;
       transform: translate(-50%,-50%);
-      background: rgba(255,255,255,.85);
       opacity:.95;
       will-change: transform, opacity;
-      animation: hhaSpark 520ms ease-out forwards;
+      animation: hhaSpark 560ms ease-out forwards;
       filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+      background: rgba(255,255,255,.85);
     }
     .hha-spark-good{ background: rgba(34,197,94,.92); }
     .hha-spark-bad{ background: rgba(239,68,68,.92); }
@@ -208,17 +175,16 @@
     }
 
     .hha-ring{
-      position:absolute;
-      width: 24px; height:24px;
+      position:absolute; width: 24px; height:24px;
       border-radius: 999px;
       transform: translate(-50%,-50%);
       border: 2px solid rgba(255,255,255,.30);
       opacity:.9;
-      animation: hhaRing 720ms ease-out forwards;
+      animation: hhaRing 760ms ease-out forwards;
       will-change: transform, opacity;
       filter: drop-shadow(0 18px 45px rgba(0,0,0,.45));
     }
-    .hha-ring-mini{ border-color: rgba(34,197,94,.38); box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    .hha-ring-mini{ border-color: rgba(34,197,94,.38); }
     .hha-ring-storm{ border-color: rgba(34,211,238,.40); }
     .hha-ring-boss{ border-color: rgba(245,158,11,.42); }
     .hha-ring-rage{ border-color: rgba(239,68,68,.44); }
@@ -231,15 +197,13 @@
     }
 
     .hha-confetti{
-      position:absolute;
-      width: 10px; height: 14px;
-      border-radius: 4px;
-      opacity:.95;
+      position:absolute; width: 10px; height: 14px;
+      border-radius: 4px; opacity:.95;
       will-change: transform, opacity;
       transform: translate(-50%,-50%);
-      animation: hhaConfetti 1450ms cubic-bezier(.12,.86,.18,1) forwards;
-      background: rgba(255,255,255,.85);
+      animation: hhaConfetti 1500ms cubic-bezier(.12,.86,.18,1) forwards;
       filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+      background: rgba(255,255,255,.85);
     }
     .hha-confetti-mini{ background: rgba(34,197,94,.92); }
     .hha-confetti-boss{ background: rgba(245,158,11,.92); }
@@ -252,10 +216,7 @@
       100%{ transform:translate(-50%,-50%) translate(var(--dx), 980px) rotate(var(--rot)); opacity:0; }
     }
 
-    /* Screen shake (applied to body) */
-    body.hha-shake{
-      animation: hhaShake 110ms linear infinite;
-    }
+    body.hha-shake{ animation: hhaShake 110ms linear infinite; }
     @keyframes hhaShake{
       0%{ transform: translate(0,0); }
       20%{ transform: translate(calc(var(--hha-shake)*.6), calc(var(--hha-shake)*-.35)); }
@@ -267,7 +228,6 @@
   `;
   doc.head.appendChild(st);
 
-  // expose
   root.Particles = root.Particles || {};
   root.Particles.scorePop = scorePop;
   root.Particles.burstAt = burstAt;
@@ -275,7 +235,6 @@
   root.Particles.ringPulse = ringPulse;
   root.Particles.celebrate = celebrate;
 
-  // also in GAME_MODULES for your engines
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = root.Particles;
 
