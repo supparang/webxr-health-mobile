@@ -1,11 +1,11 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR — RUN (PRODUCTION)
-✅ Uses: ./plate-vr.css
-✅ Uses: ./plate.safe.js (engine)
-✅ Auto loads Universal VR UI: ../vr/vr-ui.js
-✅ Supports: view=auto|pc|mobile|vr|cvr (auto default)
-✅ HHA Standard: hub/back + last summary localStorage + URL passthrough
-✅ Cloud Logger ready (?log=...)
+Balanced Plate VR — RUN (PRODUCTION / HHA Standard)
+✅ PC/Mobile/Cardboard/cVR (auto detect by boot/safe)
+✅ Uses plate-vr.css (HUD/Quest/Coach/FX) + never blocks targets
+✅ Uses Universal VR UI (/herohealth/vr/vr-ui.js) => ENTER VR/EXIT/RECENTER + crosshair tap-to-shoot (hha:shoot)
+✅ Flush-hardened cloud logging (/herohealth/vr/hha-cloud-logger.js) via ?log=
+✅ HHA Standard end summary + back HUB + save last summary
+✅ Research deterministic seed passthrough
 -->
 <!doctype html>
 <html lang="th">
@@ -16,286 +16,268 @@ Balanced Plate VR — RUN (PRODUCTION)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- CSS -->
   <link rel="stylesheet" href="./plate-vr.css" />
 
-  <!-- Universal VR UI (Enter VR / Exit / Recenter + crosshair + tap-to-shoot) -->
+  <!-- (Optional) A-Frame minimal scene helps WebXR "Enter VR" reliability on some browsers -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot) -->
   <script>
-    // MUST NOT override user's choice; default is auto
+    // Global config for vr-ui
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Optional: FX (if your project already uses it; safe to omit) -->
-  <script src="../vr/particles.js" defer></script>
-
-  <!-- Cloud logger (optional; uses ?log= endpoint) -->
+  <!-- Logger (flush-hardened) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
+  <!-- Game engine -->
+  <script type="module" src="./plate.safe.js"></script>
+
   <style>
-    /* minimal host IDs used by engine */
-    #plate-layer { position:fixed; inset:0; }
+    /* Minimal A-Frame scene hidden behind DOM game (for XR entry) */
+    .xr-scene-wrap{
+      position:fixed; inset:0;
+      z-index:0;
+      pointer-events:none;
+      opacity:0;
+    }
+    .xr-scene-wrap a-scene{ width:100%; height:100%; }
   </style>
 </head>
 
 <body class="view-auto">
-  <!-- Optional background slot -->
-  <div id="sceneRoot" aria-hidden="true"></div>
+  <!-- A-Frame helper scene -->
+  <div class="xr-scene-wrap" aria-hidden="true">
+    <a-scene
+      embedded
+      renderer="colorManagement:true; physicallyCorrectLights:true"
+      vr-mode-ui="enabled:false"
+    >
+      <a-entity camera position="0 1.6 0"></a-entity>
+      <a-sky color="#000"></a-sky>
+    </a-scene>
+  </div>
 
-  <!-- PLAY LAYER: targets spawn inside -->
-  <div id="plate-layer" aria-label="play layer"></div>
+  <div id="app">
+    <!-- Host layer for targets -->
+    <div id="plate-layer" aria-hidden="false"></div>
 
-  <!-- ===== HUD TOP ===== -->
-  <div id="hudTop" aria-hidden="false">
-    <div id="hudMain" class="hudCard">
-      <div class="hudStat">
-        <div class="hudLabel">คะแนน</div>
-        <div id="uiScore" class="hudValue">0</div>
-      </div>
+    <!-- HUD (pointer-events none by CSS) -->
+    <div id="hud" aria-hidden="false">
+      <div class="hud-row">
+        <div class="hud-pill">
+          <div class="hud-stat">
+            <span class="k">SCORE</span>
+            <span class="v" id="uiScore">0</span>
+          </div>
+          <div class="hud-stat" style="margin-left:10px;">
+            <span class="k">COMBO</span>
+            <span class="v" id="uiCombo">0</span>
+          </div>
+        </div>
 
-      <div class="hudStat">
-        <div class="hudLabel">คอมโบ</div>
-        <div id="uiCombo" class="hudValue">0</div>
-      </div>
-
-      <div class="hudStat" style="min-width:150px;">
-        <div class="hudLabel">เวลา</div>
-        <div id="uiTime" class="hudValue">00:00</div>
-        <div class="hudTiny" id="uiTimeHint">เหลือเวลา</div>
-      </div>
-
-      <div class="hudStat" style="min-width:150px; justify-content:flex-end;">
-        <div class="hudLabel">FEVER</div>
-        <div id="uiFeverWrap" aria-label="fever bar">
-          <div id="uiFeverFill"></div>
+        <div class="hud-pill">
+          <div class="hud-stat">
+            <span class="k">TIME</span>
+            <span class="v" id="uiTime">0:00</span>
+          </div>
         </div>
       </div>
 
-      <div class="hudStat" style="justify-content:flex-end;">
-        <div id="uiGradeChip">Diff</div>
+      <div id="questbar">
+        <!-- GOAL -->
+        <div class="q-card" id="goalCard">
+          <div class="q-title">
+            <div class="t">GOAL</div>
+            <div class="sub" id="uiGoalMeta">0/0</div>
+          </div>
+          <div class="q-text" id="uiGoalText">—</div>
+          <div class="q-bar"><div class="q-fill" id="uiGoalFill"></div></div>
+        </div>
+
+        <!-- MINI -->
+        <div class="q-card" id="miniCard">
+          <div class="q-title">
+            <div class="t">MINI QUEST</div>
+            <div class="sub"><span id="uiMiniMeta">0/0</span> • <span id="uiMiniTimer">--</span></div>
+          </div>
+          <div class="q-text" id="uiMiniText">—</div>
+          <div class="q-bar"><div class="q-fill" id="uiMiniFill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coach -->
+    <div id="coach" aria-hidden="false">
+      <div class="coach-card" id="coachCard" aria-hidden="true">
+        <div class="coach-dot" id="coachDot"></div>
+        <div id="coachMsg">—</div>
+      </div>
+    </div>
+
+    <!-- Hit FX -->
+    <div id="hitFx" aria-hidden="true">+10</div>
+
+    <!-- End overlay (HHA Standard) -->
+    <div id="endOverlay" aria-hidden="true" style="
+      position:fixed; inset:0; z-index:120;
+      display:grid; place-items:center;
+      padding: calc(env(safe-area-inset-top,0px) + 14px)
+               calc(env(safe-area-inset-right,0px) + 14px)
+               calc(env(safe-area-inset-bottom,0px) + 14px)
+               calc(env(safe-area-inset-left,0px) + 14px);
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    ">
+      <div style="
+        width:min(720px, 96vw);
+        border-radius:24px;
+        border:1px solid rgba(148,163,184,.22);
+        background: rgba(2,6,23,.86);
+        box-shadow: 0 18px 70px rgba(0,0,0,.50);
+        padding:16px 16px 14px;
+      ">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="font-weight:950;font-size:16px;">สรุปผลการเล่น</div>
+          <div id="endReason" style="color:#94a3b8;font-weight:800;font-size:12px;">—</div>
+        </div>
+
+        <div id="endSummary" style="
+          margin-top:12px;
+          display:grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap:10px;
+        "></div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
+          <button id="btnRestart" style="
+            appearance:none;border:1px solid rgba(148,163,184,.22);
+            background: rgba(15,23,42,.65);
+            color:#e5e7eb;font-weight:950;
+            padding:10px 14px;border-radius:999px;
+          ">เล่นอีกครั้ง</button>
+
+          <button id="btnBackHub" style="
+            appearance:none;border:1px solid rgba(34,197,94,.35);
+            background: rgba(34,197,94,.14);
+            color:#e5e7eb;font-weight:950;
+            padding:10px 14px;border-radius:999px;
+          ">กลับหน้า HUB</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ===== GOAL / MINI ===== -->
-  <div id="miniPanel" aria-hidden="false">
-    <div class="miniCard">
-      <div class="miniTitle">GOAL</div>
-      <div id="uiGoalText" class="miniText">—</div>
-      <div class="miniProg" aria-label="goal progress"><i id="uiGoalFill"></i></div>
-    </div>
+  <script>
+  (function(){
+    'use strict';
 
-    <div class="miniCard">
-      <div class="miniTitle">MINI QUEST</div>
-      <div id="uiMiniText" class="miniText">—</div>
-      <div class="miniProg" aria-label="mini progress"><i id="uiMiniFill"></i></div>
-    </div>
-  </div>
+    const DOC = document;
+    const qs = (k, def=null) => { try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
 
-  <!-- ===== Boss / Storm (optional) ===== -->
-  <div id="bossHud" aria-hidden="true">
-    <div class="phaseCard">
-      <div class="phaseTop">
-        <div class="phaseTitle" id="uiBossTitle">BOSS</div>
-        <div class="phaseHint" id="uiBossHint">—</div>
-      </div>
-      <div class="phaseProg"><i id="uiBossFill"></i></div>
-    </div>
-  </div>
+    // ---------- URL params (HHA Standard passthrough) ----------
+    const hub = qs('hub', '');
+    const run = (qs('run','play')||'play').toLowerCase(); // play | research | study
+    const diff = (qs('diff','normal')||'normal').toLowerCase();
+    const time = Number(qs('time','70')||70);
+    const seed = qs('seed','');
+    const log = qs('log',''); // endpoint for hha-cloud-logger.js
+    const studyId = qs('studyId','');
+    const phase = qs('phase','');
+    const conditionGroup = qs('conditionGroup','');
+    const sessionOrder = qs('sessionOrder','');
+    const blockLabel = qs('blockLabel','');
 
-  <div id="stormHud" aria-hidden="true">
-    <div class="phaseCard">
-      <div class="phaseTop">
-        <div class="phaseTitle" id="uiStormTitle">STORM</div>
-        <div class="phaseHint" id="uiStormHint">—</div>
-      </div>
-      <div class="phaseProg"><i id="uiStormFill"></i></div>
-    </div>
-  </div>
+    // Expose context for plate.safe.js (if it reads window.HHA_RUN_CONTEXT)
+    window.HHA_RUN_CONTEXT = {
+      gameId: 'plate',
+      hub, run, diff, time, seed,
+      log, studyId, phase, conditionGroup, sessionOrder, blockLabel
+    };
 
-  <!-- ===== COACH ===== -->
-  <div id="coachPanel" aria-hidden="false">
-    <div class="coachCard">
-      <div id="coachAvatar" aria-hidden="true">🙂</div>
-      <div>
-        <div id="coachMsg">พร้อมแล้ว! เลือกอาหารให้จานสมดุลนะ</div>
-        <div id="coachHint">แตะ/ยิงที่เป้า • โหมด VR ใช้ crosshair กลางจอ</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== BUTTONS ===== -->
-  <div id="hudBtns" aria-hidden="false">
-    <button class="hudBtn secondary" id="btnPause" type="button">⏸ หยุด</button>
-    <button class="hudBtn warn" id="btnRestart" type="button">↻ เริ่มใหม่</button>
-    <button class="hudBtn" id="btnBackHub" type="button">↩ กลับ HUB</button>
-  </div>
-
-  <!-- ===== HIT FX ===== -->
-  <div id="hitFx" aria-hidden="true"></div>
-
-  <!-- ===== START OVERLAY ===== -->
-  <div id="startOverlay" aria-hidden="false">
-    <div class="modal">
-      <h1>Balanced Plate VR</h1>
-      <p id="startDesc">
-        แตะ/ยิงเพื่อเลือก “อาหารที่เหมาะสม” ให้จานสมดุลตามเป้าหมาย •
-        โหมด VR ใช้จุดเล็งกลางจอ (crosshair)
-      </p>
-
-      <div class="row">
-        <button class="bigBtn secondary" id="btnHow" type="button">วิธีเล่น</button>
-        <button class="bigBtn" id="btnStart" type="button">เริ่มเล่น ▶</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== PAUSED ===== -->
-  <div id="hudPaused" aria-hidden="true">
-    <div class="modal">
-      <h1>หยุดชั่วคราว</h1>
-      <p>พักได้เลย แล้วค่อยกลับมาเล่นต่อ</p>
-      <div class="row">
-        <button class="bigBtn secondary" id="btnResume" type="button">เล่นต่อ</button>
-        <button class="bigBtn secondary" id="btnPauseRestart" type="button">เริ่มใหม่</button>
-        <button class="bigBtn" id="btnPauseHub" type="button">กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== RESULT ===== -->
-  <div id="resultBackdrop" aria-hidden="true">
-    <div class="modal">
-      <h1>สรุปผล</h1>
-      <p id="resultSummary">—</p>
-      <div class="row">
-        <button class="bigBtn secondary" id="btnResultRestart" type="button">เล่นอีกครั้ง</button>
-        <button class="bigBtn" id="btnResultHub" type="button">กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== Engine boot ===== -->
-  <script type="module">
-    import { boot as plateBoot } from './plate.safe.js';
-
-    function qs(k, def=null){
-      try{ return new URL(location.href).searchParams.get(k) ?? def; }
-      catch{ return def; }
-    }
-    function clampStr(v, arr, def){
-      v = (v||'').toLowerCase();
-      return arr.includes(v) ? v : def;
-    }
-    function setBodyView(view){
-      const b = document.body;
+    // ---------- View class (best-effort; engine may set too) ----------
+    function setViewClass(v){
+      const b = DOC.body;
       b.classList.remove('view-auto','view-pc','view-mobile','view-vr','view-cvr');
-      b.classList.add('view-' + view);
+      b.classList.add('view-' + v);
     }
-    function autoView(){
-      // DON'T override if user provided view=
-      const forced = (qs('view','')||'').toLowerCase();
-      if(forced){
-        return clampStr(forced, ['pc','mobile','vr','cvr','auto'], 'auto');
-      }
-      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
-      const isNarrow = Math.min(innerWidth, innerHeight) <= 540;
-      return (isTouch && isNarrow) ? 'mobile' : 'pc';
+    setViewClass('auto');
+
+    // ---------- End summary helpers ----------
+    const endOverlay = DOC.getElementById('endOverlay');
+    const endSummary = DOC.getElementById('endSummary');
+    const endReason = DOC.getElementById('endReason');
+
+    function card(k,v){
+      const el = DOC.createElement('div');
+      el.style.cssText = `
+        border:1px solid rgba(148,163,184,.18);
+        background: rgba(15,23,42,.55);
+        border-radius:18px;
+        padding:10px 12px;
+      `;
+      el.innerHTML = `
+        <div style="color:#94a3b8;font-weight:850;font-size:11px;letter-spacing:.2px;">${k}</div>
+        <div style="font-weight:950;font-size:16px;margin-top:3px;font-variant-numeric:tabular-nums;">${v}</div>
+      `;
+      return el;
     }
 
-    // --- URL context (HHA standard passthrough) ---
-    const hub = qs('hub','../hub.html');
-    const run = clampStr(qs('run','play'), ['play','study','research'], 'play');
-    const diff = clampStr(qs('diff','normal'), ['easy','normal','hard'], 'normal');
-    const time = Math.max(20, Number(qs('time','70'))||70);
-    const seed = Number(qs('seed','0')) || 0;
-
-    const view = autoView();
-    setBodyView(view);
-
-    // UI chips
-    const chip = document.getElementById('uiGradeChip');
-    chip.textContent = `${diff.toUpperCase()} • ${run.toUpperCase()}`;
-
-    // buttons basic
-    const startOverlay = document.getElementById('startOverlay');
-    const paused = document.getElementById('hudPaused');
-    const result = document.getElementById('resultBackdrop');
-
-    const goHub = ()=>{
-      // flush-hardened convention: store last link for hub
-      const u = new URL(hub, location.href);
-      u.searchParams.set('last', location.href);
-      location.href = u.toString();
-    };
-
-    document.getElementById('btnBackHub').onclick = goHub;
-    document.getElementById('btnPauseHub').onclick = goHub;
-    document.getElementById('btnResultHub').onclick = goHub;
-
-    document.getElementById('btnRestart').onclick = ()=> location.reload();
-    document.getElementById('btnPauseRestart').onclick = ()=> location.reload();
-    document.getElementById('btnResultRestart').onclick = ()=> location.reload();
-
-    document.getElementById('btnHow').onclick = ()=>{
-      alert("วิธีเล่น:\n- แตะ/ยิงเป้าอาหารให้ถูกตามภารกิจ\n- โหมด VR ใช้ crosshair กลางจอ + tap-to-shoot\n- ทำ GOAL และ MINI QUEST ให้ครบเพื่อโบนัส");
-    };
-
-    // pause toggle
-    document.getElementById('btnPause').onclick = ()=>{
-      paused.style.display = 'grid';
-      paused.setAttribute('aria-hidden','false');
-      // let engine know (optional)
-      window.dispatchEvent(new CustomEvent('hha:pause'));
-    };
-    document.getElementById('btnResume').onclick = ()=>{
-      paused.style.display = 'none';
-      paused.setAttribute('aria-hidden','true');
-      window.dispatchEvent(new CustomEvent('hha:resume'));
-    };
-
-    // start
-    document.getElementById('btnStart').onclick = ()=>{
-      startOverlay.style.display = 'none';
-      startOverlay.setAttribute('aria-hidden','true');
-      window.dispatchEvent(new CustomEvent('hha:start'));
-    };
-
-    // listen end summary from engine
-    window.addEventListener('hha:end', (ev)=>{
+    function showEnd(summary){
+      // Save last summary (HHA Standard)
       try{
-        const d = ev.detail || {};
-        const s = [
-          `คะแนน: ${d.scoreFinal ?? d.score ?? 0}`,
-          `คอมโบสูงสุด: ${d.comboMax ?? d.combo ?? 0}`,
-          `พลาด: ${d.misses ?? 0}`,
-          `GOAL: ${(d.goalsCleared ?? 0)}/${(d.goalsTotal ?? 0)}`,
-          `MINI: ${(d.miniCleared ?? 0)}/${(d.miniTotal ?? 0)}`
-        ].join(" • ");
-        document.getElementById('resultSummary').textContent = s;
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      }catch(e){}
 
-        // Store last summary (HHA standard)
-        const payload = {
-          game:'plate',
-          at: new Date().toISOString(),
-          url: location.href,
-          summary: d
-        };
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-      }catch{}
-      result.style.display = 'grid';
-      result.setAttribute('aria-hidden','false');
+      // Render cards
+      endSummary.innerHTML = '';
+      endSummary.appendChild(card('SCORE', summary.scoreFinal ?? 0));
+      endSummary.appendChild(card('COMBO MAX', summary.comboMax ?? 0));
+      endSummary.appendChild(card('ACCURACY', (summary.accuracyGoodPct!=null ? (Number(summary.accuracyGoodPct).toFixed(0)+'%') : '—')));
+      endSummary.appendChild(card('GOALS', `${summary.goalsCleared ?? 0}/${summary.goalsTotal ?? 0}`));
+      endSummary.appendChild(card('MINI', `${summary.miniCleared ?? 0}/${summary.miniTotal ?? 0}`));
+      endSummary.appendChild(card('MISSES', summary.misses ?? 0));
+
+      endReason.textContent = summary.reason || 'end';
+
+      endOverlay.setAttribute('aria-hidden','false');
+    }
+
+    // Listen from engine (plate.safe.js) — should dispatch hha:end with detail.summary
+    window.addEventListener('hha:end', (ev)=>{
+      const detail = ev?.detail || {};
+      const summary = detail.summary || detail || {};
+      showEnd(summary);
     });
 
-    // boot engine (safe)
-    plateBoot({
-      host: '#plate-layer',
-      hub,
-      runMode: run,
-      diff,
-      durationPlannedSec: time,
-      seed: seed || Date.now(),
-      view
+    // Back HUB (preserve hub param)
+    DOC.getElementById('btnBackHub').addEventListener('click', ()=>{
+      const target = hub ? decodeURIComponent(hub) : '../hub.html';
+      // Keep a backlink hint for hub if needed
+      try{
+        const u = new URL(target, location.href);
+        u.searchParams.set('from', 'plate');
+        location.href = u.toString();
+      }catch{
+        location.href = target;
+      }
     });
+
+    // Restart (reload keeping same params)
+    DOC.getElementById('btnRestart').addEventListener('click', ()=>{
+      location.reload();
+    });
+
+    // If logger endpoint provided, tell logger (it reads ?log= by itself normally)
+    // but we can emit a ping so dev sees it
+    if (log){
+      window.dispatchEvent(new CustomEvent('hha:log:status', { detail: { ok:true, endpoint: log } }));
+    }
+
+  })();
   </script>
 </body>
 </html>
