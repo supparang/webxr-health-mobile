@@ -1,6 +1,6 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + Layout (PRODUCTION) — FULL
+   Balanced Plate VR — UI + FX (PRODUCTION)
    HHA Standard
 ========================================================= */
 
@@ -20,7 +20,6 @@
   --violet:#a78bfa;
 
   --radius:18px;
-  --radiusLg:22px;
   --pill:999px;
 
   /* safe area */
@@ -28,13 +27,6 @@
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* layout tuning */
-  --hudW: min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
-  --hudGap: 10px;
-
-  /* keep clear area for Universal VR UI buttons (ENTER/EXIT/RECENTER) */
-  --vruiReserveB: 84px; /* approx button row height */
 }
 
 /* ---------------------------------------------------------
@@ -55,7 +47,6 @@ html,body{
 #app{
   position:fixed;
   inset:0;
-  overflow:hidden;
 }
 
 /* ---------------------------------------------------------
@@ -69,16 +60,27 @@ html,body{
   touch-action:none;
 }
 
-/* Target */
+/* safety: do not let HUD block VR buttons/crosshair too much */
+body.view-cvr #plate-layer,
+body.view-vr #plate-layer{
+  /* keep as full screen - crosshair shooting is handled by vr-ui.js */
+}
+
 .plateTarget{
   position:absolute;
+  left:var(--x, 50%);
+  top:var(--y, 50%);
+  width:var(--s, 56px);
+  height:var(--s, 56px);
+
   display:grid;
   place-items:center;
   border-radius:999px;
+
   font-size:28px;
   font-weight:900;
   user-select:none;
-  -webkit-user-select:none;
+  -webkit-tap-highlight-color: transparent;
   cursor:pointer;
 
   background:
@@ -90,14 +92,12 @@ html,body{
     0 18px 48px rgba(0,0,0,.32),
     inset 0 1px 0 rgba(255,255,255,.08);
 
-  transform: translate(-50%, -50%);
-  will-change: transform, opacity;
+  transform: translate(-50%,-50%);
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
+}
 
-  left: var(--x, 50%);
-  top:  var(--y, 50%);
-  width: var(--s, 56px);
-  height: var(--s, 56px);
+.plateTarget:active{
+  transform: translate(-50%,-50%) scale(.98);
 }
 
 .plateTarget[data-kind="good"]{
@@ -129,8 +129,58 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Generic Cards / Pills / Bars
+   HUD Layout
 --------------------------------------------------------- */
+#hud{
+  position:fixed;
+  left:calc(12px + var(--sal));
+  right:calc(12px + var(--sar));
+  top:calc(10px + var(--sat));
+  z-index:40;
+  pointer-events:none; /* only buttons inside should re-enable */
+}
+
+.hudRow{
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+
+/* chips */
+.chip{
+  pointer-events:none;
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(2,6,23,.62);
+  backdrop-filter:blur(10px);
+  box-shadow:0 16px 50px rgba(0,0,0,.25);
+}
+
+.chip .lbl{
+  font-size:11px;
+  font-weight:900;
+  color:var(--muted);
+  letter-spacing:.08em;
+}
+
+.chip .val{
+  font-size:16px;
+  font-weight:1000;
+  color:var(--text);
+}
+
+.chip.time .val{ color:var(--cyan); }
+.chip.combo .val{ color:var(--violet); }
+.chip.score .val{ color:var(--accent); }
+
+/* cards/panels */
 .card,.questCard,.panelCard{
   background:var(--panel);
   border:1px solid var(--stroke);
@@ -139,16 +189,78 @@ html,body{
   backdrop-filter:blur(10px);
 }
 
-.pill{
-  display:inline-flex;
-  gap:8px;
+#questCard{
+  pointer-events:none;
+  padding:12px 12px;
+  max-width:520px;
+}
+
+.cardTitle{
+  display:flex;
   align-items:center;
-  padding:6px 10px;
-  border-radius:var(--pill);
-  border:1px solid var(--stroke);
-  background:rgba(15,23,42,.60);
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.cardTitle .t{
+  font-weight:1000;
+  font-size:14px;
+}
+
+.cardTitle .hint{
   font-weight:900;
   font-size:12px;
+  color:var(--muted);
+  text-align:right;
+}
+
+/* quest items */
+.qItem{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 10px;
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.42);
+  margin-top:8px;
+}
+
+.qText{
+  min-width:0;
+}
+
+.qText .name{
+  font-weight:1000;
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.qText .sub{
+  margin-top:2px;
+  font-weight:800;
+  font-size:12px;
+  color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.qProg{
+  width:160px;
+  flex:0 0 auto;
+  text-align:right;
+}
+
+.qNums{
+  font-weight:1000;
+  font-size:12px;
+  color:var(--text);
+  margin-bottom:6px;
 }
 
 .bar{
@@ -157,274 +269,13 @@ html,body{
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
+
 .bar>i{
   display:block;
   height:100%;
   width:0%;
   background:var(--accent);
   transition:width .25s ease;
-}
-
-/* ---------------------------------------------------------
-   HUD
---------------------------------------------------------- */
-#hud{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  top:  calc(12px + var(--sat));
-  width: var(--hudW);
-  z-index:40;
-  display:flex;
-  flex-direction:column;
-  gap: var(--hudGap);
-
-  /* CRITICAL: never block targets */
-  pointer-events:none;
-}
-#hud *{ pointer-events:none; }
-
-.hudRow{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
-}
-
-.chip{
-  display:inline-flex;
-  align-items:baseline;
-  gap:8px;
-  padding:8px 10px;
-  border-radius:14px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.55);
-  box-shadow: 0 12px 40px rgba(0,0,0,.22);
-  backdrop-filter: blur(10px);
-}
-
-.chip .lbl{
-  font-weight:900;
-  font-size:12px;
-  letter-spacing:.4px;
-  color: rgba(226,232,240,.9);
-}
-.chip .val{
-  font-weight:1000;
-  font-size:18px;
-  line-height:1;
-}
-
-.chip.score{ border-color:rgba(34,197,94,.22); }
-.chip.time{  border-color:rgba(34,211,238,.20); }
-.chip.combo{ border-color:rgba(167,139,250,.22); }
-
-#questCard{ padding: 12px; }
-
-.cardTitle{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-.cardTitle .t{
-  font-weight:1000;
-  font-size:16px;
-}
-.cardTitle .hint{
-  color: var(--muted);
-  font-weight:800;
-  font-size:12px;
-  max-width: 62%;
-  text-align:right;
-}
-
-.qItem{
-  display:grid;
-  grid-template-columns: 1fr 140px;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 14px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.35);
-}
-.qItem + .qItem{ margin-top: 10px; }
-
-.qText .name{
-  font-weight:1000;
-  font-size:14px;
-}
-.qText .sub{
-  margin-top:2px;
-  color: var(--muted);
-  font-weight:800;
-  font-size:12px;
-}
-
-.qProg{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  align-items:stretch;
-  justify-content:center;
-}
-.qNums{
-  text-align:right;
-  font-weight:1000;
-  font-size:12px;
-  color: rgba(226,232,240,.9);
-}
-
-/* ---------------------------------------------------------
-   Coach bubble
---------------------------------------------------------- */
-#coachCard{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  bottom: calc(12px + var(--sab) + var(--vruiReserveB));
-  z-index:60;
-  width: min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
-  pointer-events:none;
-  opacity:0;
-  transform: translateY(8px);
-  transition: opacity .18s ease, transform .18s ease;
-}
-#coachCard .inner{
-  background: rgba(2,6,23,.78);
-  border: 1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-  padding: 10px 12px;
-}
-#coachMsg{
-  font-weight:1000;
-  font-size:14px;
-  line-height:1.25;
-}
-#coachMeta{
-  margin-top:6px;
-  color: var(--muted);
-  font-weight:900;
-  font-size:12px;
-}
-#coachCard.show{
-  opacity:1;
-  transform: translateY(0);
-}
-
-/* ---------------------------------------------------------
-   End Overlay
---------------------------------------------------------- */
-#endOverlay{
-  position:fixed;
-  inset:0;
-  z-index:85;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:
-    calc(18px + var(--sat))
-    calc(18px + var(--sar))
-    calc(18px + var(--sab))
-    calc(18px + var(--sal));
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(8px);
-  opacity:0;
-  pointer-events:none;
-  transition: opacity .18s ease;
-}
-
-#endOverlay[aria-hidden="false"]{
-  opacity:1;
-  pointer-events:auto;
-}
-
-.endPanel{
-  width: min(640px, 100%);
-  background: rgba(2,6,23,.88);
-  border: 1px solid rgba(148,163,184,.20);
-  border-radius: var(--radiusLg);
-  box-shadow: 0 24px 80px rgba(0,0,0,.45);
-  padding: 16px;
-}
-
-.endTitle{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:12px;
-}
-.endTitle h2{
-  margin:0;
-  font-size:22px;
-  font-weight:1000;
-}
-.endTitle .tag{
-  display:inline-flex;
-  align-items:center;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.20);
-  background: rgba(15,23,42,.55);
-  color: rgba(226,232,240,.92);
-  font-weight:1000;
-  font-size:12px;
-}
-
-.endGrid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 12px 0 14px;
-}
-
-.kpi{
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.35);
-  padding: 10px 12px;
-}
-.kpi .k{
-  color: var(--muted);
-  font-weight:900;
-  font-size:12px;
-}
-.kpi .v{
-  margin-top:4px;
-  font-weight:1100;
-  font-size:18px;
-}
-
-.endBtns{
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-
-/* ---------------------------------------------------------
-   Buttons
---------------------------------------------------------- */
-.btn{
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:10px 14px;
-  font-weight:1000;
-  font-size:12px;
-  cursor:pointer;
-  color: var(--text);
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
-}
-.btn:active{ transform: translateY(1px); }
-
-.btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
 }
 
 /* ---------------------------------------------------------
@@ -440,9 +291,13 @@ html,body{
 
 #bossFx.boss-on{
   display:block;
-  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
 }
-#bossFx.boss-panic{ animation:pulseBad .25s infinite; }
+
+#bossFx.boss-panic{
+  animation:pulseBad .25s infinite;
+}
 
 #stormFx.storm-on{
   display:block;
@@ -458,61 +313,172 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Universal VR UI overlap control
-   - hide HUD + coach during end overlay
-   - disable VR UI clicks when end overlay open
+   Coach bubble
 --------------------------------------------------------- */
-body.hha-end-open #hud{ display:none !important; }
-body.hha-end-open #coachCard{ display:none !important; }
-body.hha-end-open .hha-vrui,
-body.hha-end-open .hha-vrui *{
-  pointer-events:none !important;
+#coachCard{
+  position:fixed;
+  left:50%;
+  bottom:calc(16px + var(--sab));
+  transform:translateX(-50%);
+  z-index:70;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .18s ease, transform .18s ease;
+}
+
+#coachCard.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(-6px);
+}
+
+#coachCard .inner{
+  max-width:min(560px, calc(100vw - 24px));
+  background:rgba(2,6,23,.78);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius:18px;
+  box-shadow:0 22px 80px rgba(0,0,0,.35);
+  backdrop-filter:blur(10px);
+  padding:10px 12px;
+  text-align:center;
+}
+
+#coachMsg{
+  font-weight:1000;
+  font-size:14px;
+}
+
+#coachCard .meta{
+  margin-top:4px;
+  font-weight:900;
+  font-size:12px;
+  color:var(--muted);
 }
 
 /* ---------------------------------------------------------
-   Responsive
+   End Overlay
+--------------------------------------------------------- */
+#endOverlay{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  display:grid;
+  place-items:center;
+  background:rgba(2,6,23,.72);
+  backdrop-filter:blur(10px);
+  pointer-events:auto;
+  opacity:1;
+}
+
+#endOverlay[aria-hidden="true"]{
+  display:none;
+}
+
+.endPanel{
+  width:min(720px, calc(100vw - 24px));
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.20);
+  background:rgba(2,6,23,.86);
+  box-shadow:0 26px 120px rgba(0,0,0,.50);
+  padding:16px;
+}
+
+.endTitle{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.endTitle h2{
+  margin:0;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.endTitle .tag{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.20);
+  background:rgba(15,23,42,.55);
+  font-weight:1000;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.endGrid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:10px;
+  margin-top:10px;
+}
+
+.kpi{
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.42);
+  padding:12px;
+}
+
+.kpi .k{
+  font-weight:900;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.kpi .v{
+  margin-top:4px;
+  font-weight:1100;
+  font-size:18px;
+  color:var(--text);
+}
+
+.endBtns{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top:14px;
+}
+
+/* Buttons */
+.btn{
+  pointer-events:auto;
+  appearance:none;
+  border:none;
+  border-radius:999px;
+  padding:10px 14px;
+  font-weight:1000;
+  font-size:12px;
+  cursor:pointer;
+  color:var(--text);
+  background:rgba(2,6,23,.70);
+  border:1px solid rgba(148,163,184,.22);
+  backdrop-filter:blur(10px);
+}
+
+.btn:active{ transform:translateY(1px); }
+
+.btn.primary{
+  background:rgba(34,197,94,.18);
+  border-color:rgba(34,197,94,.35);
+}
+
+/* ---------------------------------------------------------
+   Responsive tuning
 --------------------------------------------------------- */
 @media (max-width:900px){
-  :root{
-    --hudW: min(520px, calc(100vw - 16px - var(--sal) - var(--sar)));
-    --hudGap: 8px;
-    --vruiReserveB: 92px;
-  }
-
-  #hud{
-    left: calc(8px + var(--sal));
-    top:  calc(8px + var(--sat));
-  }
-
   .plateTarget{ font-size:24px; }
-  .chip .val{ font-size:16px; }
-  .cardTitle .hint{ max-width: 58%; }
-
-  .qItem{
-    grid-template-columns: 1fr 128px;
-    padding: 9px;
-  }
-
-  #coachCard{
-    left: calc(8px + var(--sal));
-    bottom: calc(8px + var(--sab) + var(--vruiReserveB));
-  }
-
-  .endPanel{ padding: 14px; }
-  .endTitle h2{ font-size:20px; }
+  .qProg{ width:140px; }
+  #questCard{ max-width:unset; }
+  .endGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width:420px){
+@media (max-width:520px){
+  .chip{ padding:9px 11px; }
+  .chip .val{ font-size:15px; }
+  .qItem{ padding:9px 9px; }
+  .qText .name{ font-size:12px; }
+  .qText .sub{ font-size:11px; }
+  .qProg{ width:120px; }
   .endGrid{ grid-template-columns: 1fr; }
-  .endBtns{ justify-content:stretch; }
-  .endBtns .btn{ flex:1; }
-}
-
-/* ---------------------------------------------------------
-   Reduced motion
---------------------------------------------------------- */
-@media (prefers-reduced-motion: reduce){
-  .plateTarget{ animation:none; }
-  #coachCard{ transition:none; }
-  #endOverlay{ transition:none; }
 }
