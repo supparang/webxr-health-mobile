@@ -1,3 +1,4 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -145,20 +146,67 @@
     </div>
   </div>
 
-  <!-- UI wiring: hub/back/end/peek/hide + flush -->
+  <!-- ✅ HUD-safe measure helper: include TOPBAR + HUD + vr-ui controls -->
+  <script>
+    (function(){
+      function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+
+      function updateSafe(){
+        try{
+          const root = document.documentElement;
+          const cs = getComputedStyle(root);
+          const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
+          const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+
+          const topbar = document.querySelector('.gj-topbar');
+          const topHud = document.getElementById('gjHudTop');
+          const botHud = document.getElementById('gjHudBot');
+          const controls = document.querySelector('.hha-controls'); // injected by vr-ui.js
+
+          const topbarH = (topbar?.getBoundingClientRect().height || 0);
+          const topHudH = (topHud?.getBoundingClientRect().height || 0);
+          const botHudH = (botHud?.getBoundingClientRect().height || 0);
+          const controlsH = (controls?.getBoundingClientRect().height || 0);
+
+          // If HUD hidden: keep a small safe area (topbar still there)
+          const hudHidden = document.body.classList.contains('hud-hidden');
+          const topSafe = hudHidden
+            ? (topbarH + 12 + sat)
+            : (topbarH + topHudH + 14 + sat);
+
+          // Bottom safe: include HUD bottom + controls height (avoid spawn under controls)
+          const bottomSafe = hudHidden
+            ? (controlsH + 14 + sab)
+            : (botHudH + controlsH + 16 + sab);
+
+          root.style.setProperty('--gj-top-safe', px(topSafe));
+          root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
+        }catch(_){}
+      }
+
+      window.addEventListener('resize', updateSafe, {passive:true});
+      window.addEventListener('orientationchange', updateSafe, {passive:true});
+
+      // run a few times to settle (fonts / injected controls)
+      setTimeout(updateSafe, 0);
+      setTimeout(updateSafe, 120);
+      setTimeout(updateSafe, 350);
+      setTimeout(updateSafe, 900);
+      setInterval(updateSafe, 1500);
+    })();
+  </script>
+
+  <!-- UI wiring: hub/back/end + hide HUD triggers safe recalculation -->
   <script>
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
       const byId = (id)=>document.getElementById(id);
 
       const view = (qs('view','mobile')||'mobile').toLowerCase();
-      const run  = (qs('run','play')||'play').toLowerCase();
+      const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
       const hub  = (qs('hub','')||'').trim() || null;
-
-      // kids layout auto: mobile+play
-      if(view === 'mobile' && run === 'play') document.body.classList.add('hud-kids');
 
       document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
       document.body.classList.add(
@@ -194,12 +242,17 @@
 
       byId('btnHideHud')?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
+        // ✅ force safe-area re-measure after layout changes
+        setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); }catch(_){ } }, 30);
+        setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); }catch(_){ } }, 200);
       });
 
       const endOverlay = byId('endOverlay');
+
       function showEnd(d){
         try{
           if(!endOverlay) return;
+
           const reason = d?.reason || d?.endReason || '-';
           const scoreFinal = (d?.scoreFinal ?? d?.score ?? 0);
           const misses = (d?.misses ?? d?.miss ?? 0);
@@ -221,10 +274,10 @@
           const avgRt = d?.avgRtGoodMs;
           const comboMax = d?.comboMax;
 
-          if(byId('endAcc')) byId('endAcc').textContent = (acc==null) ? '—' : `${acc}%`;
-          if(byId('endJunk')) byId('endJunk').textContent = (junk==null) ? '—' : `${junk}%`;
-          if(byId('endAvgRt')) byId('endAvgRt').textContent = (avgRt==null) ? '—' : `${avgRt}ms`;
-          if(byId('endComboMax')) byId('endComboMax').textContent = (comboMax==null) ? '—' : String(comboMax);
+          byId('endAcc') && (byId('endAcc').textContent = (acc==null) ? '—' : `${acc}%`);
+          byId('endJunk') && (byId('endJunk').textContent = (junk==null) ? '—' : `${junk}%`);
+          byId('endAvgRt') && (byId('endAvgRt').textContent = (avgRt==null) ? '—' : `${avgRt}ms`);
+          byId('endComboMax') && (byId('endComboMax').textContent = (comboMax==null) ? '—' : String(comboMax));
 
           endOverlay.style.display = 'flex';
           endOverlay.setAttribute('aria-hidden','false');
@@ -232,8 +285,10 @@
       }
 
       function onEnd(ev){ showEnd(ev?.detail || null); }
+
       window.addEventListener('hha:end', onEnd, { passive:true });
       document.addEventListener('hha:end', onEnd, { passive:true });
+      document.body?.addEventListener('hha:end', onEnd, { passive:true });
 
       byId('endBackHub')?.addEventListener('click', ()=>{
         if(hub) flushThenGo(hub);
