@@ -3,9 +3,9 @@
 // ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only + body.hha-end-open
+// ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -24,6 +24,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
+  // Do not offer UI override.
+  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -43,7 +45,7 @@ function clamp(v, a, b){
   return v < a ? a : (v > b ? b : v);
 }
 
-function pctInt(n){
+function pct(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
@@ -52,7 +54,6 @@ function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-  DOC.body.classList.toggle('hha-end-open', !!open);
 }
 
 function showCoach(msg, meta='Coach'){
@@ -63,7 +64,6 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
-
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -103,6 +103,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -135,7 +136,9 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      location.reload();
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -160,7 +163,7 @@ function wireEndSummary(){
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctInt(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -173,20 +176,20 @@ function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','70'), 10, 999);
+
+  // ✅ DEFAULT TIME = 90 (ยัง override ได้ด้วย ?time=)
+  const time = clamp(qs('time','90'), 10, 999);
+
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  return {
-    view,
-    runMode: run,
-    diff,
+  const cfg = {
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough (optional)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -198,6 +201,8 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
+
+  return cfg;
 }
 
 function ready(fn){
