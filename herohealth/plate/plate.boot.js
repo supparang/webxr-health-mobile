@@ -67,7 +67,6 @@ function showCoach(msg, meta='Coach'){
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
-  // auto hide
   clearTimeout(WIN.__HHA_COACH_TO__);
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
@@ -104,7 +103,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -137,10 +135,7 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      // keep same query params
-      location.reload();
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -164,7 +159,6 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -176,24 +170,23 @@ function wireEndSummary(){
 }
 
 function buildEngineConfig(){
-  // standard params
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','70'), 10, 999);
+
+  // ✅ default time -> 90 (override ได้ด้วย ?time=)
+  const time = clamp(qs('time','90'), 10, 999);
+
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // research passthrough (optional)
-  const cfg = {
+  return {
     view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // endpoints / tags
     hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '', // if caller passes ?log=... we can use it inside engine/logger
+    logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -205,8 +198,6 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -216,19 +207,14 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
