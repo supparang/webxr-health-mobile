@@ -1,266 +1,238 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (shared across games)
-// ✅ Normalizes FX API across Particles versions
-// ✅ Reacts to events: hha:judge, hha:celebrate, hha:coach
-// ✅ Adds safe screen pulse / shake (CSS-independent)
-// ✅ Works even if some game CSS is missing
+// HHA FX Director — PRODUCTION (unified feel across games)
+// ✅ Adds short-lived body classes for punchy feedback:
+//    fx-hit-good, fx-hit-bad, fx-miss, fx-kick, fx-endblink
+// ✅ Optional continuous pressure states (used by GoodJunk first):
+//    gj-storm, gj-boss, gj-rage   (set via events)
+// ✅ Listens to:
+//    - hha:judge  {label, kind?}  (GOOD!/OOPS!/MISS!/BLOCK!/GOAL!/MINI CLEAR!/FAST PASS!)
+//    - hha:celebrate {kind, grade}
+//    - hha:time   {t} (optional low-time pulse)
+//    - hha:ai     {storm?, boss?, rage?}  (boolean flags)
+//    - hha:fx     {type, on?, ms?} (manual override)
+// ✅ Safe: no dependencies, idempotent load guard
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document;
-  if(!DOC || root.__HHA_FX_DIRECTOR__) return;
-  root.__HHA_FX_DIRECTOR__ = true;
+  const WIN = window;
+  const DOC = document;
+  if(!DOC || WIN.__HHA_FX_DIRECTOR__) return;
+  WIN.__HHA_FX_DIRECTOR__ = true;
 
-  const now = ()=> (root.performance ? performance.now() : Date.now());
+  const BODY = DOC.body || DOC.documentElement;
 
-  // -------------------- FX layer helpers --------------------
-  function ensureLayer(){
-    let layer = DOC.querySelector('.hha-fx-layer');
-    if(layer) return layer;
-    layer = DOC.createElement('div');
-    layer.className = 'hha-fx-layer';
-    layer.style.cssText = `
-      position:fixed; inset:0;
-      pointer-events:none;
-      z-index: 200;
-      overflow:hidden;
-    `;
-    DOC.body.appendChild(layer);
-    return layer;
-  }
+  const clamp = (v,min,max)=> (v<min?min:(v>max?max:v));
+  const now = ()=> performance.now();
 
-  function ensureStyles(){
-    if(DOC.getElementById('hha-fx-director-style')) return;
-    const st = DOC.createElement('style');
-    st.id = 'hha-fx-director-style';
-    st.textContent = `
-      @keyframes hhaFxPop{
-        0%{ transform:translate(-50%,-50%) scale(.92); opacity:.95; }
-        65%{ transform:translate(-50%,-72%) scale(1.18); opacity:1; }
-        100%{ transform:translate(-50%,-90%) scale(1.05); opacity:0; }
-      }
-      @keyframes hhaFxBurst{
-        0%{ transform:translate(-50%,-50%) scale(.7); opacity:.8; }
-        60%{ transform:translate(-50%,-50%) scale(1.25); opacity:.35; }
-        100%{ transform:translate(-50%,-50%) scale(1.45); opacity:0; }
-      }
-      @keyframes hhaFxPulse{
-        0%{ opacity:0; }
-        35%{ opacity:1; }
-        100%{ opacity:0; }
-      }
-      @keyframes hhaFxShake{
-        0%{ transform:translate3d(0,0,0); }
-        25%{ transform:translate3d(-1px,0,0); }
-        55%{ transform:translate3d(1px,0,0); }
-        75%{ transform:translate3d(-1px,0,0); }
-        100%{ transform:translate3d(0,0,0); }
-      }
-      .hha-fx-pop{
-        position:absolute;
-        left: var(--x, 50%);
-        top: var(--y, 50%);
-        transform: translate(-50%,-50%);
-        font: 1000 18px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-        letter-spacing: .2px;
-        color:#fff;
-        text-shadow: 0 10px 26px rgba(0,0,0,.55);
-        will-change: transform, opacity;
-        animation: hhaFxPop 560ms ease-out forwards;
-        padding: 8px 10px;
-        border-radius: 14px;
-        background: rgba(2,6,23,.35);
-        border: 1px solid rgba(148,163,184,.20);
-        backdrop-filter: blur(6px);
-        white-space:nowrap;
-      }
-      .hha-fx-burst{
-        position:absolute;
-        left: var(--x, 50%);
-        top: var(--y, 50%);
-        width: 86px; height: 86px;
-        transform: translate(-50%,-50%);
-        border-radius: 999px;
-        background: radial-gradient(circle, rgba(34,197,94,.18), transparent 60%);
-        border: 1px solid rgba(34,197,94,.25);
-        will-change: transform, opacity;
-        animation: hhaFxBurst 520ms ease-out forwards;
-      }
-      .hha-fx-burst.bad{
-        background: radial-gradient(circle, rgba(239,68,68,.18), transparent 60%);
-        border-color: rgba(239,68,68,.25);
-      }
-      .hha-fx-burst.star{
-        background: radial-gradient(circle, rgba(245,158,11,.18), transparent 60%);
-        border-color: rgba(245,158,11,.25);
-      }
-      .hha-fx-burst.shield{
-        background: radial-gradient(circle, rgba(59,130,246,.18), transparent 60%);
-        border-color: rgba(59,130,246,.25);
-      }
-      .hha-fx-burst.diamond{
-        background: radial-gradient(circle, rgba(168,85,247,.20), transparent 60%);
-        border-color: rgba(168,85,247,.25);
-      }
-      .hha-fx-pulse{
-        position:fixed; inset:0;
-        pointer-events:none;
-        z-index: 210;
-        background: radial-gradient(circle at 50% 35%, rgba(34,197,94,.14), transparent 60%);
-        animation: hhaFxPulse 260ms ease-out forwards;
-      }
-      .hha-fx-pulse.bad{
-        background: radial-gradient(circle at 50% 35%, rgba(239,68,68,.16), transparent 60%);
-      }
-      .hha-fx-pulse.warn{
-        background: radial-gradient(circle at 50% 35%, rgba(245,158,11,.14), transparent 60%);
-      }
-      .hha-fx-shake{
-        animation: hhaFxShake 220ms ease-out 1;
-      }
-    `;
-    DOC.head.appendChild(st);
-  }
-
-  ensureStyles();
-
-  // -------------------- Particles adapter --------------------
-  function getParticles(){
-    // support both global shapes:
-    // - window.Particles.popText / burstAt / scorePop / celebrate
-    // - window.GAME_MODULES.Particles...
-    return (root.GAME_MODULES && root.GAME_MODULES.Particles) || root.Particles || null;
-  }
-
-  function popText(x, y, text, tone){
-    const P = getParticles();
-    // if game provides its own, prefer it
+  // ----- class helpers -----
+  const timers = new Map();
+  function pulseClass(cls, ms){
     try{
-      if(P){
-        if(typeof P.scorePop === 'function') return P.scorePop(x,y,text);
-        if(typeof P.popText  === 'function') return P.popText(x,y,text);
-      }
+      BODY.classList.add(cls);
+      const prev = timers.get(cls);
+      if(prev) clearTimeout(prev);
+      const t = setTimeout(()=>{
+        try{ BODY.classList.remove(cls); }catch(_){}
+        timers.delete(cls);
+      }, clamp(ms||0, 60, 2000));
+      timers.set(cls, t);
     }catch(_){}
+  }
+  function setStateClass(cls, on){
+    try{
+      if(on) BODY.classList.add(cls);
+      else BODY.classList.remove(cls);
+    }catch(_){}
+  }
 
-    // fallback DOM FX
-    const layer = ensureLayer();
-    const el = DOC.createElement('div');
-    el.className = 'hha-fx-pop';
-    el.textContent = String(text ?? '');
-    el.style.setProperty('--x', `${Math.floor(x)}px`);
-    el.style.setProperty('--y', `${Math.floor(y)}px`);
+  // ----- optional micro "kick" transform -----
+  // Keep it subtle; CSS can amplify if needed.
+  let kickLock = 0;
+  function kick(ms=120){
+    const t = now();
+    if(t < kickLock) return;
+    kickLock = t + 80;
+    pulseClass('fx-kick', ms);
+  }
 
-    if(tone === 'bad'){
-      el.style.borderColor = 'rgba(239,68,68,.25)';
-      el.style.background  = 'rgba(127,29,29,.25)';
-    } else if(tone === 'warn'){
-      el.style.borderColor = 'rgba(245,158,11,.25)';
-      el.style.background  = 'rgba(120,53,15,.22)';
+  // ----- map judge labels -> fx types -----
+  function fxFromJudgeLabel(label){
+    const s = String(label||'').toUpperCase();
+    if(s.includes('GOOD')) return 'good';
+    if(s.includes('BLOCK')) return 'block';
+    if(s.includes('OOPS') || s.includes('BAD') || s.includes('JUNK')) return 'bad';
+    if(s.includes('MISS')) return 'miss';
+    if(s.includes('GOAL')) return 'goal';
+    if(s.includes('MINI')) return 'mini';
+    if(s.includes('FAST')) return 'mini';
+    return 'neutral';
+  }
+
+  function applyFx(type){
+    // unify durations
+    if(type === 'good'){
+      pulseClass('fx-hit-good', 160);
+      kick(110);
+      return;
     }
-
-    layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 900);
+    if(type === 'bad'){
+      pulseClass('fx-hit-bad', 180);
+      kick(140);
+      return;
+    }
+    if(type === 'miss'){
+      pulseClass('fx-miss', 220);
+      kick(160);
+      return;
+    }
+    if(type === 'mini' || type === 'goal'){
+      // celebratory ping, not too aggressive
+      pulseClass('fx-hit-good', 140);
+      pulseClass('fx-endblink', 140);
+      return;
+    }
+    if(type === 'block'){
+      pulseClass('fx-hit-good', 120);
+      return;
+    }
+    // neutral
+    pulseClass('fx-endblink', 120);
   }
 
-  function burstAt(x,y,kind){
-    const P = getParticles();
-    try{
-      if(P && typeof P.burstAt === 'function') return P.burstAt(x,y,kind);
-    }catch(_){}
-
-    const layer = ensureLayer();
-    const el = DOC.createElement('div');
-    el.className = 'hha-fx-burst ' + (kind || '');
-    el.style.setProperty('--x', `${Math.floor(x)}px`);
-    el.style.setProperty('--y', `${Math.floor(y)}px`);
-    layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
-  }
-
-  function pulse(kind){
-    const layer = ensureLayer();
-    const el = DOC.createElement('div');
-    el.className = 'hha-fx-pulse ' + (kind || '');
-    layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 420);
-  }
-
-  function shakeOnce(){
-    try{
-      DOC.body.classList.add('hha-fx-shake');
-      setTimeout(()=>DOC.body.classList.remove('hha-fx-shake'), 260);
-    }catch(_){}
-  }
-
-  // -------------------- event routing --------------------
-  function centerXY(){
-    const W = DOC.documentElement.clientWidth || 360;
-    const H = DOC.documentElement.clientHeight || 640;
-    return { x: Math.floor(W/2), y: Math.floor(H*0.32) };
-  }
-
+  // ----- event handlers -----
   function onJudge(ev){
     const d = ev?.detail || {};
-    const label = String(d.label || '').trim();
-    if(!label) return;
+    const label = d.label || d.text || '';
+    const kind = d.kind || fxFromJudgeLabel(label);
 
-    const c = centerXY();
-    // tone mapping
-    let tone = '';
-    if(/MISS|OOPS|BAD|RAGE|BOSS/i.test(label)) tone = 'bad';
-    else if(/STORM|WARN/i.test(label)) tone = 'warn';
+    // apply body fx
+    applyFx(kind);
 
-    popText(c.x, c.y, label, tone);
-
-    if(tone === 'bad') { pulse('bad'); shakeOnce(); }
-    else if(tone === 'warn') pulse('warn');
-    else pulse('');
+    // Allow GoodJunk local pulses (optional): if safe.js uses these too.
+    // We keep director generic; but can add light mapping for common cues:
+    const up = String(label||'').toUpperCase();
+    if(up.includes('MINI')){
+      pulseClass('gj-mini-clear', 220);
+    }else if(up.includes('OOPS') || up.includes('JUNK')){
+      pulseClass('gj-junk-hit', 220);
+    }else if(up.includes('MISS')){
+      pulseClass('gj-good-expire', 180);
+    }
   }
 
   function onCelebrate(ev){
     const d = ev?.detail || {};
-    const kind = String(d.kind || '').toLowerCase();
-    const c = centerXY();
-
-    if(kind === 'storm'){
-      burstAt(c.x, c.y, 'star'); // ใช้โทนเหลือง/ส้ม
-      pulse('warn');
-      popText(c.x, c.y, 'STORM!', 'warn');
-      return;
-    }
-    if(kind === 'boss'){
-      burstAt(c.x, c.y, 'bad');
-      pulse('bad');
-      popText(c.x, c.y, 'BOSS!', 'bad');
-      shakeOnce();
-      return;
-    }
+    const kind = String(d.kind||'').toLowerCase();
+    // end celebration + grade flash
     if(kind === 'end'){
-      burstAt(c.x, c.y, 'diamond');
-      pulse('');
+      pulseClass('fx-endblink', 420);
+      pulseClass('fx-hit-good', 240);
       return;
     }
-    // generic
-    burstAt(c.x, c.y, kind || 'good');
+    if(kind === 'mini' || kind === 'goal'){
+      pulseClass('fx-endblink', 220);
+      pulseClass('fx-hit-good', 180);
+      return;
+    }
+    // generic celebrate
+    pulseClass('fx-endblink', 200);
   }
 
-  function onCoach(ev){
+  // optional low-time pulse if a game emits hha:time frequently
+  let lastLowPulse = 0;
+  function onTime(ev){
     const d = ev?.detail || {};
-    const msg = String(d.msg || '').trim();
-    if(!msg) return;
-    const c = centerXY();
-    popText(c.x, Math.floor(c.y + 34), msg, '');
+    const t = Number(d.t);
+    if(!Number.isFinite(t)) return;
+    // Pulse a subtle warning under 10s
+    if(t <= 10){
+      const n = now();
+      if(n - lastLowPulse > 650){
+        lastLowPulse = n;
+        pulseClass('fx-miss', 120);
+      }
+    }
   }
 
-  // bind
-  root.addEventListener('hha:judge', onJudge, { passive:true });
-  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  root.addEventListener('hha:coach', onCoach, { passive:true });
+  // AI/state channel: drive Storm/Boss/Rage
+  function onAI(ev){
+    const d = ev?.detail || {};
+    // accept multiple key names
+    const storm = !!(d.storm ?? d.isStorm ?? d.phaseStorm);
+    const boss  = !!(d.boss  ?? d.isBoss  ?? d.phaseBoss);
+    const rage  = !!(d.rage  ?? d.isRage  ?? d.phaseRage);
 
-  // expose tiny API (optional)
-  root.HHA_FX = {
-    popText, burstAt, pulse, shakeOnce,
-    t0: now()
-  };
+    // For GoodJunk we use gj-* class (already defined in goodjunk-vr.css)
+    setStateClass('gj-storm', storm);
+    setStateClass('gj-boss',  boss);
+    setStateClass('gj-rage',  rage);
 
-})(window);
+    // Also offer generic equivalents for other games (in case you add CSS later)
+    setStateClass('hha-storm', storm);
+    setStateClass('hha-boss',  boss);
+    setStateClass('hha-rage',  rage);
+  }
+
+  // manual: hha:fx {type:'good'|'bad'|'miss'|'mini'|'goal'|'block'|'neutral' , on?, ms?}
+  function onFx(ev){
+    const d = ev?.detail || {};
+    const type = String(d.type||'').toLowerCase();
+    const on = (d.on === undefined) ? true : !!d.on;
+    const ms = Number(d.ms||0);
+
+    // state toggles
+    if(type === 'storm' || type === 'boss' || type === 'rage'){
+      const cls = (type === 'storm') ? 'gj-storm' : (type === 'boss') ? 'gj-boss' : 'gj-rage';
+      setStateClass(cls, on);
+      setStateClass(`hha-${type}`, on);
+      return;
+    }
+
+    if(!on) return;
+
+    if(type === 'good' || type === 'bad' || type === 'miss' || type === 'mini' || type === 'goal' || type === 'block'){
+      // override durations if provided
+      if(ms > 0){
+        if(type==='good') pulseClass('fx-hit-good', ms);
+        else if(type==='bad') pulseClass('fx-hit-bad', ms);
+        else if(type==='miss') pulseClass('fx-miss', ms);
+        else if(type==='block') pulseClass('fx-hit-good', ms);
+        else { pulseClass('fx-endblink', ms); pulseClass('fx-hit-good', Math.round(ms*0.7)); }
+        kick(Math.min(180, Math.max(90, Math.round(ms*0.7))));
+        return;
+      }
+      applyFx(type);
+      return;
+    }
+
+    // unknown => blink
+    pulseClass('fx-endblink', ms>0?ms:140);
+  }
+
+  // ----- bind listeners (window + document) -----
+  function bind(target){
+    try{
+      target.addEventListener('hha:judge', onJudge, { passive:true });
+      target.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+      target.addEventListener('hha:time', onTime, { passive:true });
+      target.addEventListener('hha:ai', onAI, { passive:true });
+      target.addEventListener('hha:fx', onFx, { passive:true });
+    }catch(_){}
+  }
+  bind(WIN);
+  bind(DOC);
+
+  // Minimal inline style for ultra-safe keyframes (in case some pages don't include CSS hooks)
+  // We keep it tiny: only for fx-endblink fallback.
+  const st = DOC.createElement('style');
+  st.textContent = `
+    body.fx-endblink{ animation: hhaEndBlink 240ms ease; }
+    @keyframes hhaEndBlink{
+      0%{ filter:none; }
+      40%{ filter: brightness(1.04) contrast(1.02); }
+      100%{ filter:none; }
+    }
+  `;
+  DOC.head.appendChild(st);
+
+})();
