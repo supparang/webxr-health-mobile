@@ -1,12 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCHED)
+// PlateVR Boot — PRODUCTION
 // ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only + body.hha-end-open
-// ✅ Guard: ignore premature hha:end before real start
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -44,29 +43,16 @@ function clamp(v, a, b){
   return v < a ? a : (v > b ? b : v);
 }
 
-function pct(n){
+function pctInt(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
-/** ✅ Standard: aria-hidden ONLY + body class to coordinate HUD/VRUI CSS */
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
-
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-
-  // body flag for CSS hooks (hide HUD, disable VR UI, etc.)
   DOC.body.classList.toggle('hha-end-open', !!open);
-
-  // optional: focus panel for accessibility
-  if(open){
-    try{
-      const panel = ov.querySelector('.endPanel');
-      if(panel) panel.setAttribute('tabindex','-1');
-      panel?.focus?.();
-    }catch{}
-  }
 }
 
 function showCoach(msg, meta='Coach'){
@@ -77,6 +63,7 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -148,9 +135,7 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload();
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -160,14 +145,6 @@ function wireEndControls(){
   }
 }
 
-/**
- * ✅ Guard logic:
- * - We only allow end overlay AFTER "real start"
- * - Define "real start" as:
- *   (a) first hha:time event with leftSec > 0, OR
- *   (b) explicit hha:start event (if engine emits), OR
- *   (c) after a short warmup delay AND we received any gameplay event
- */
 function wireEndSummary(){
   const kScore = DOC.getElementById('kScore');
   const kAcc   = DOC.getElementById('kAcc');
@@ -176,52 +153,14 @@ function wireEndSummary(){
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
-  let realStarted = false;
-  let anyGameplaySignal = false;
-
-  // signal: explicit start (if engine provides)
-  WIN.addEventListener('hha:start', ()=>{ realStarted = true; }, { passive:true });
-
-  // signal: time left becomes > 0
-  WIN.addEventListener('hha:time', (e)=>{
-    const d = e.detail || {};
-    const t = Number(d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    if(t > 0) realStarted = true;
-  }, { passive:true });
-
-  // signal: any score/judge/quest update indicates gameplay loop is alive
-  WIN.addEventListener('hha:score', ()=>{ anyGameplaySignal = true; }, { passive:true });
-  WIN.addEventListener('hha:judge', ()=>{ anyGameplaySignal = true; }, { passive:true });
-  WIN.addEventListener('quest:update', ()=>{ anyGameplaySignal = true; }, { passive:true });
-
-  // warmup: after 900ms, if we saw any gameplay signal, treat as started
-  setTimeout(()=>{
-    if(anyGameplaySignal) realStarted = true;
-  }, 900);
-
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-
-    // ✅ HARD GUARD: ignore premature end
-    // - engine sometimes emits end during init/boot fail/0 sec
-    const reason = String(d.reason || d.endReason || '').toLowerCase();
-    const allowByReason =
-      reason.includes('time') || reason.includes('timeout') ||
-      reason.includes('complete') || reason.includes('goal') ||
-      reason.includes('miss') || reason.includes('fail') ||
-      reason.includes('abort') || reason.includes('force');
-
-    if(!realStarted && !allowByReason){
-      console.warn('[PlateVR] Ignored premature hha:end before real start', d);
-      return;
-    }
-
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctInt(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -247,6 +186,7 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // passthrough (optional)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -274,7 +214,6 @@ ready(()=>{
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
   try{
