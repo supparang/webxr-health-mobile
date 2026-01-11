@@ -1,24 +1,30 @@
 // === /herohealth/vr/ui-water.js ===
-// HHA Water UI — PRODUCTION
-// ✅ ensureWaterGauge(): creates a compact gauge (if not present)
-// ✅ setWaterGauge(pct): updates gauge value + zone label + CSS states
-// ✅ zoneFrom(pct): returns GREEN | LOW | HIGH based on thresholds
+// Universal Water UI — PRODUCTION
+// ✅ ensureWaterGauge(): สร้างแถบ Water Gauge แบบ fixed (ไม่บังคับให้ใช้ ถ้าเกมมี panel เองก็ได้)
+// ✅ setWaterGauge(pct): อัปเดต % + สี/โซน
+// ✅ zoneFrom(pct): GREEN | LOW | HIGH (simple & stable)
+// ✅ Does NOT depend on frameworks/modules, safe for ES module import
 //
 // Notes:
-// - Works with your Hydration HTML waterPanel (#water-bar/#water-pct/#water-zone) too.
-// - If those DOM nodes exist, we update them directly.
-// - If not, we create a small floating gauge overlay (safe for other games).
+// - Hydration.safe.js ของคุณเรียก ensureWaterGauge(), setWaterGauge(), zoneFrom()
+// - ถ้าใน HTML มี panel ของคุณเอง (เช่น #water-bar / #water-zone / #water-pct) ก็ยังใช้ร่วมได้
+// - Gauge นี้เป็น "fallback / global overlay" เผื่อเกมไหนยังไม่มี panel
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function clamp(v,a,b){
+  v = Number(v)||0;
+  return v<a?a:(v>b?b:v);
+}
 
 export function zoneFrom(pct){
   const p = clamp(pct, 0, 100);
-  // Tune thresholds as you like
+  // ปรับ threshold ให้ “เล่นสนุก” และเข้าใจง่าย:
+  // - GREEN: ช่วงสมดุล
+  // - LOW/HIGH: ออกนอกสมดุล (เข้าเงื่อนไข Storm mini ของคุณ)
   if (p >= 40 && p <= 70) return 'GREEN';
   if (p < 40) return 'LOW';
   return 'HIGH';
@@ -29,147 +35,137 @@ function ensureStyle(){
   const st = DOC.createElement('style');
   st.id = 'hha-water-style';
   st.textContent = `
-  .hha-water-gauge{
-    position:fixed;
-    right: calc(12px + env(safe-area-inset-right, 0px));
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    z-index: 88;
-    width: 220px;
-    max-width: 58vw;
-    pointer-events:none;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  }
-  .hha-water-card{
-    border-radius: 16px;
-    border: 1px solid rgba(148,163,184,.18);
-    background: rgba(2,6,23,.68);
-    box-shadow: 0 18px 70px rgba(0,0,0,.40);
-    backdrop-filter: blur(10px);
-    padding: 10px 12px;
-    color: rgba(229,231,235,.95);
-  }
-  .hha-water-top{
-    display:flex; justify-content:space-between; align-items:baseline; gap:10px;
-  }
-  .hha-water-title{
-    font-weight: 900;
-    font-size: 12px;
-    letter-spacing: .2px;
-    opacity: .95;
-  }
-  .hha-water-zone{
-    font-weight: 900;
-    font-size: 12px;
-    letter-spacing: .3px;
-    padding: 3px 8px;
-    border-radius: 999px;
-    border: 1px solid rgba(148,163,184,.14);
-    background: rgba(15,23,42,.55);
-  }
-  .hha-water-pct{
-    margin-top: 8px;
-    font-size: 18px;
-    font-weight: 900;
-    letter-spacing: .2px;
-  }
-  .hha-water-barwrap{
-    margin-top: 8px;
-    height: 10px;
-    border-radius: 999px;
-    overflow:hidden;
-    background: rgba(148,163,184,.18);
-    border: 1px solid rgba(148,163,184,.12);
-  }
-  .hha-water-bar{
-    height:100%;
-    width:50%;
-    background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-    transform-origin: left center;
-  }
+    .hha-water{
+      position:fixed;
+      right: calc(12px + env(safe-area-inset-right,0px));
+      bottom: calc(12px + env(safe-area-inset-bottom,0px));
+      z-index: 85;
+      width: min(320px, 48vw);
+      pointer-events:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    .hha-water .card{
+      background: rgba(2,6,23,.70);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 18px;
+      padding: 10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 70px rgba(0,0,0,.40);
+    }
+    .hha-water .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:10px;
+    }
+    .hha-water .title{
+      font-weight:900;
+      letter-spacing:.2px;
+      font-size: 13px;
+      color: rgba(229,231,235,.96);
+    }
+    .hha-water .zone{
+      font-size: 12px;
+      color: rgba(148,163,184,.95);
+      margin-top: 3px;
+    }
+    .hha-water .pct{
+      font-weight: 900;
+      font-size: 18px;
+      color: rgba(229,231,235,.96);
+      text-align:right;
+      line-height:1;
+    }
+    .hha-water .barWrap{
+      margin-top:10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.18);
+      overflow:hidden;
+      border: 1px solid rgba(148,163,184,.12);
+    }
+    .hha-water .bar{
+      height:100%;
+      width:50%;
+      transition: width 120ms linear;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+    }
 
-  /* zone tint */
-  .hha-water-gauge[data-zone="GREEN"] .hha-water-zone{
-    border-color: rgba(34,197,94,.22);
-    background: rgba(34,197,94,.14);
-  }
-  .hha-water-gauge[data-zone="LOW"] .hha-water-zone{
-    border-color: rgba(245,158,11,.22);
-    background: rgba(245,158,11,.14);
-  }
-  .hha-water-gauge[data-zone="HIGH"] .hha-water-zone{
-    border-color: rgba(239,68,68,.22);
-    background: rgba(239,68,68,.14);
-  }`;
+    /* Zone accent */
+    .hha-water[data-zone="GREEN"] .bar{
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+    }
+    .hha-water[data-zone="LOW"] .bar{
+      background: linear-gradient(90deg, rgba(56,189,248,.92), rgba(59,130,246,.95));
+    }
+    .hha-water[data-zone="HIGH"] .bar{
+      background: linear-gradient(90deg, rgba(245,158,11,.92), rgba(239,68,68,.95));
+    }
+
+    /* Hide in case game already has its own bigger panel (optional toggle) */
+    body.hha-hide-global-water .hha-water{ display:none !important; }
+  `;
   DOC.head.appendChild(st);
 }
 
-function findOrCreateGauge(){
+function buildGauge(){
   if (!DOC) return null;
-
-  // If Hydration page already has explicit elements, we don't need a floating gauge.
-  const hasHydrationPanel =
-    DOC.getElementById('water-bar') ||
-    DOC.getElementById('water-pct') ||
-    DOC.getElementById('water-zone');
-
-  if (hasHydrationPanel) return null;
-
-  let root = DOC.querySelector('.hha-water-gauge');
-  if (root) return root;
-
   ensureStyle();
 
+  let root = DOC.querySelector('.hha-water');
+  if (root) return root;
+
   root = DOC.createElement('div');
-  root.className = 'hha-water-gauge';
-  root.setAttribute('data-zone','GREEN');
+  root.className = 'hha-water';
+  root.dataset.zone = 'GREEN';
+
   root.innerHTML = `
-    <div class="hha-water-card">
-      <div class="hha-water-top">
-        <div class="hha-water-title">Water</div>
-        <div class="hha-water-zone" id="__hha_water_zone">GREEN</div>
+    <div class="card">
+      <div class="top">
+        <div>
+          <div class="title">Water</div>
+          <div class="zone">Zone <b class="z">GREEN</b></div>
+        </div>
+        <div class="pct"><span class="p">50</span>%</div>
       </div>
-      <div class="hha-water-pct"><span id="__hha_water_pct">50</span>%</div>
-      <div class="hha-water-barwrap"><div class="hha-water-bar" id="__hha_water_bar"></div></div>
+      <div class="barWrap"><div class="bar"></div></div>
     </div>
   `;
+
   DOC.body.appendChild(root);
   return root;
 }
 
 export function ensureWaterGauge(){
-  // safe no-op if Hydration panel exists
-  try{
-    findOrCreateGauge();
-  }catch(_){}
+  // สร้างเฉพาะเมื่อมี body แล้ว
+  if (!DOC || !DOC.body) return null;
+  return buildGauge();
 }
 
 export function setWaterGauge(pct){
+  if (!DOC || !DOC.body) return;
+
   const p = clamp(pct, 0, 100);
-  const zone = zoneFrom(p);
+  const z = zoneFrom(p);
 
-  // 1) If Hydration page has explicit elements, update them.
-  const bar = DOC?.getElementById('water-bar');
-  const pctEl = DOC?.getElementById('water-pct');
-  const zoneEl = DOC?.getElementById('water-zone');
-
-  if (bar) bar.style.width = p.toFixed(0) + '%';
-  if (pctEl) pctEl.textContent = String(p|0);
-  if (zoneEl) zoneEl.textContent = zone;
-
-  // 2) Otherwise update floating gauge (if created).
-  const gauge = findOrCreateGauge();
-  if (gauge){
-    gauge.setAttribute('data-zone', zone);
-    const gBar = DOC.getElementById('__hha_water_bar');
-    const gPct = DOC.getElementById('__hha_water_pct');
-    const gZone = DOC.getElementById('__hha_water_zone');
-    if (gBar) gBar.style.width = p.toFixed(0) + '%';
-    if (gPct) gPct.textContent = String(p|0);
-    if (gZone) gZone.textContent = zone;
+  // Update global gauge (fallback overlay)
+  const g = buildGauge();
+  if (g){
+    g.dataset.zone = z;
+    const pEl = g.querySelector('.p');
+    const zEl = g.querySelector('.z');
+    const bar = g.querySelector('.bar');
+    if (pEl) pEl.textContent = String(p|0);
+    if (zEl) zEl.textContent = z;
+    if (bar) bar.style.width = `${p.toFixed(0)}%`;
   }
 
-  // expose last values for debug/other modules
-  try{
-    ROOT.__HHA_WATER__ = { pct: p, zone };
-  }catch(_){}
+  // Also update common IDs if present in the game's HUD panel
+  const idPct  = DOC.getElementById('water-pct');
+  const idZone = DOC.getElementById('water-zone');
+  const idBar  = DOC.getElementById('water-bar');
+
+  if (idPct)  idPct.textContent  = String(p|0);
+  if (idZone) idZone.textContent = z;
+  if (idBar)  idBar.style.width  = `${p.toFixed(0)}%`;
 }
