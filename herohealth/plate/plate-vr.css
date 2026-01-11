@@ -31,7 +31,6 @@
 
   /* layout tuning */
   --hudW: min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
-  --hudPadX: 12px;
   --hudGap: 10px;
 
   /* keep clear area for Universal VR UI buttons (ENTER/EXIT/RECENTER) */
@@ -72,7 +71,7 @@ html,body{
 
 /* Target */
 .plateTarget{
-  position:absolute; /* mode-factory typically sets --x/--y or left/top */
+  position:absolute;
   display:grid;
   place-items:center;
   border-radius:999px;
@@ -94,10 +93,7 @@ html,body{
   transform: translate(-50%, -50%);
   will-change: transform, opacity;
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
-}
 
-/* if engine uses css vars */
-.plateTarget{
   left: var(--x, 50%);
   top:  var(--y, 50%);
   width: var(--s, 56px);
@@ -170,20 +166,21 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   HUD (Top-left)
+   HUD
 --------------------------------------------------------- */
 #hud{
   position:fixed;
   left: calc(12px + var(--sal));
   top:  calc(12px + var(--sat));
   width: var(--hudW);
-  z-index:40; /* above playfield */
+  z-index:40;
   display:flex;
   flex-direction:column;
   gap: var(--hudGap);
-  pointer-events:none; /* HUD should not block targets */
-}
 
+  /* CRITICAL: never block targets */
+  pointer-events:none;
+}
 #hud *{ pointer-events:none; }
 
 .hudRow{
@@ -221,9 +218,7 @@ html,body{
 .chip.time{  border-color:rgba(34,211,238,.20); }
 .chip.combo{ border-color:rgba(167,139,250,.22); }
 
-#questCard{
-  padding: 12px;
-}
+#questCard{ padding: 12px; }
 
 .cardTitle{
   display:flex;
@@ -281,7 +276,7 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Coach bubble (bottom-left)
+   Coach bubble
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
@@ -317,7 +312,6 @@ html,body{
   opacity:1;
   transform: translateY(0);
 }
-#coachCard[aria-hidden="true"]{ display:block; }
 
 /* ---------------------------------------------------------
    End Overlay
@@ -432,13 +426,9 @@ html,body{
   background:rgba(34,197,94,.18);
   border-color:rgba(34,197,94,.35);
 }
-.btn.warn{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.35);
-}
 
 /* ---------------------------------------------------------
-   Boss / Storm FX layers (optional)
+   Boss / Storm FX layers
 --------------------------------------------------------- */
 #bossFx,#stormFx{
   position:fixed;
@@ -447,6 +437,7 @@ html,body{
   z-index:55;
   display:none;
 }
+
 #bossFx.boss-on{
   display:block;
   background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
@@ -468,14 +459,9 @@ html,body{
 
 /* ---------------------------------------------------------
    Universal VR UI overlap control
-   - vr-ui.js usually injects .hha-vrui and crosshair overlay
+   - hide HUD + coach during end overlay
+   - disable VR UI clicks when end overlay open
 --------------------------------------------------------- */
-
-/* Always keep playfield touchable: HUD is pointer-events:none already */
-
-/* When end overlay is open:
-   - hide HUD + coach (so summary panel is clear)
-   - disable VR UI clicks to prevent accidental exit/recenter */
 body.hha-end-open #hud{ display:none !important; }
 body.hha-end-open #coachCard{ display:none !important; }
 body.hha-end-open .hha-vrui,
@@ -483,13 +469,8 @@ body.hha-end-open .hha-vrui *{
   pointer-events:none !important;
 }
 
-/* If vr-ui is at bottom, reserve space so coach isn't covered */
-body.view-mobile #coachCard{
-  bottom: calc(12px + var(--sab) + var(--vruiReserveB));
-}
-
 /* ---------------------------------------------------------
-   Responsive tuning
+   Responsive
 --------------------------------------------------------- */
 @media (max-width:900px){
   :root{
@@ -504,9 +485,7 @@ body.view-mobile #coachCard{
   }
 
   .plateTarget{ font-size:24px; }
-
   .chip .val{ font-size:16px; }
-
   .cardTitle .hint{ max-width: 58%; }
 
   .qItem{
@@ -524,10 +503,6 @@ body.view-mobile #coachCard{
 }
 
 @media (max-width:420px){
-  .hudRow{ gap:8px; }
-  .chip{ padding:7px 9px; border-radius:13px; }
-  .cardTitle .t{ font-size:15px; }
-  .qItem{ grid-template-columns: 1fr 118px; }
   .endGrid{ grid-template-columns: 1fr; }
   .endBtns{ justify-content:stretch; }
   .endBtns .btn{ flex:1; }
