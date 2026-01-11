@@ -5,7 +5,8 @@
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Logger context bridge for hha-cloud-logger.js (window.HHA_LOG_CTX)
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -132,9 +133,7 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
-  }
+  if(btnRestart) btnRestart.addEventListener('click', ()=> location.reload());
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
@@ -185,6 +184,10 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // optional: log per-hit events (0/1)
+    logEvents: (qs('events','0') === '1'),
+
+    // context passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -208,8 +211,10 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  setBodyView(cfg.view);
+  // ✅ Bridge to hha-cloud-logger.js (ให้ logger อ่าน context ได้ชัวร์)
+  WIN.HHA_LOG_CTX = Object.assign({ gameMode:'plate' }, cfg);
 
+  setBodyView(cfg.view);
   wireHUD();
   wireEndControls();
   wireEndSummary();
