@@ -22,7 +22,7 @@
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </head>
 
-<body class="gj hud-kids">
+<body class="gj">
   <!-- minimal A-Frame scene (kept tiny) -->
   <a-scene
     embedded
@@ -38,33 +38,9 @@
       <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
     </div>
     <div class="right">
-      <!-- Kids-first: show only menu (others go inside menu) -->
-      <button class="gj-menu-btn" id="btnMenu" type="button">☰ เมนู</button>
-
-      <!-- (Desktop/Research can still show these if you want; kids hides them via CSS) -->
       <button class="gj-btn" id="btnMissions" type="button">Missions</button>
       <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
       <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
-    </div>
-  </div>
-
-  <!-- MENU OVERLAY -->
-  <div class="gj-menu" id="gjMenu" aria-hidden="true">
-    <div class="panel">
-      <div class="title">เมนู</div>
-      <div class="sub">เด็กเล่น: หน้าจอโล่ง • ครู/วิจัย: กดดูรายละเอียดได้</div>
-
-      <div class="btns">
-        <button class="mbtn primary" id="mMissions" type="button">🎯 ดู Missions (4 วิ)</button>
-        <button class="mbtn" id="mToggleHud" type="button">🧩 ซ่อน/แสดง HUD</button>
-        <button class="mbtn" id="mToggleDetails" type="button">🔎 แสดง/ซ่อนรายละเอียด</button>
-        <button class="mbtn" id="mBackHub" type="button">↩ กลับ HUB</button>
-        <button class="mbtn" id="mClose" type="button">ปิดเมนู</button>
-      </div>
-
-      <div class="sub" style="margin-top:10px;">
-        * โหมด Research: ใส่ seed เพื่อให้ซ้ำรอบได้เหมือนเดิม
-      </div>
     </div>
   </div>
 
@@ -107,7 +83,7 @@
         <div class="q-desc" id="hud-mini">—</div>
         <div class="q-bar">
           <div class="q-num" id="miniTimer">—</div>
-          <div class="q-hint">ผ่านแล้วจะสลับ MINI ทันที</div>
+          <div class="q-hint">เด็กป.5: ผ่านแล้วจะสลับ MINI ทันที</div>
         </div>
       </div>
     </div>
@@ -152,17 +128,15 @@
         <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
         <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
 
-        <!-- details (hidden by default; toggled via body.end-more) -->
-        <div class="stat more"><span>ACCURACY</span><b id="endAcc">—</b></div>
-        <div class="stat more"><span>JUNK ERROR</span><b id="endJunk">—</b></div>
-        <div class="stat more"><span>AVG RT</span><b id="endAvgRt">—</b></div>
-        <div class="stat more"><span>COMBO MAX</span><b id="endComboMax">—</b></div>
+        <div class="stat"><span>ACCURACY</span><b id="endAcc">—</b></div>
+        <div class="stat"><span>JUNK ERROR</span><b id="endJunk">—</b></div>
+        <div class="stat"><span>AVG RT</span><b id="endAvgRt">—</b></div>
+        <div class="stat"><span>COMBO MAX</span><b id="endComboMax">—</b></div>
       </div>
 
       <div class="actions">
         <button class="btn" id="endBackHub" type="button">กลับ HUB</button>
         <button class="btn alt" id="endReplay" type="button">เล่นอีกครั้ง</button>
-        <button class="btn alt" id="endDetails" type="button">รายละเอียด</button>
       </div>
 
       <div class="sub" style="margin-top:10px;">
@@ -171,47 +145,21 @@
     </div>
   </div>
 
-  <!-- SAFE SPAWN MEASURE: keeps targets off HUD -->
-  <script>
-    (function(){
-      function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-      function updateSafe(){
-        try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-          const top = document.getElementById('gjHudTop');
-          const bot = document.getElementById('gjHudBot');
-          const topH = (top?.getBoundingClientRect().height || 0);
-          const botH = (bot?.getBoundingClientRect().height || 0);
-          document.documentElement.style.setProperty('--gj-top-safe', px(topH + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(botH + 16));
-        }catch(_){}
-      }
-      window.addEventListener('resize', updateSafe, {passive:true});
-      window.addEventListener('orientationchange', updateSafe, {passive:true});
-      setTimeout(updateSafe, 0);
-      setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 350);
-    })();
-  </script>
-
-  <!-- UI wiring: menu / missions / back hub / end details -->
+  <!-- UI wiring: hub/back/end/peek/hide + flush -->
   <script>
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
       const byId = (id)=>document.getElementById(id);
 
       const view = (qs('view','mobile')||'mobile').toLowerCase();
-      const run  = qs('run','play');
+      const run  = (qs('run','play')||'play').toLowerCase();
       const diff = qs('diff','normal');
       const time = qs('time','80');
       const hub  = (qs('hub','')||'').trim() || null;
 
-      // Kids-first by default (play), research auto shows details ON
-      if(String(run).toLowerCase() === 'research'){
-        document.body.classList.add('end-more'); // show details at end
-      }
+      // kids layout auto: mobile+play
+      if(view === 'mobile' && run === 'play') document.body.classList.add('hud-kids');
 
-      // ensure view class
       document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
       document.body.classList.add(
         view==='pc' ? 'view-pc' :
@@ -234,98 +182,64 @@
         if(document.visibilityState === 'hidden') hardFlush();
       }, { passive:true });
 
-      // Menu open/close
-      const menu = byId('gjMenu');
-      function openMenu(){
-        document.body.classList.add('menu-open');
-        menu?.setAttribute('aria-hidden','false');
-      }
-      function closeMenu(){
-        document.body.classList.remove('menu-open');
-        menu?.setAttribute('aria-hidden','true');
-      }
-
-      byId('btnMenu')?.addEventListener('click', openMenu);
-      byId('mClose')?.addEventListener('click', closeMenu);
-
-      // Close when tap backdrop
-      menu?.addEventListener('click', (e)=>{
-        if(e.target === menu) closeMenu();
-      });
-
-      // Missions peek (4s)
-      function missionsPeek(){
-        document.body.classList.add('show-missions');
-        setTimeout(()=>document.body.classList.remove('show-missions'), 4200);
-      }
-      byId('btnMissions')?.addEventListener('click', missionsPeek);
-      byId('mMissions')?.addEventListener('click', ()=>{ closeMenu(); missionsPeek(); });
-
-      // Hide HUD
-      function toggleHud(){
-        document.body.classList.toggle('hud-hidden');
-      }
-      byId('btnHideHud')?.addEventListener('click', toggleHud);
-      byId('mToggleHud')?.addEventListener('click', ()=>{ toggleHud(); closeMenu(); });
-
-      // Back hub
-      function backHub(){
+      byId('btnBackHub')?.addEventListener('click', ()=>{
         if(hub) flushThenGo(hub);
         else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
-      }
-      byId('btnBackHub')?.addEventListener('click', backHub);
-      byId('mBackHub')?.addEventListener('click', ()=>{ closeMenu(); backHub(); });
-      byId('endBackHub')?.addEventListener('click', backHub);
+      });
 
-      // End replay
-      byId('endReplay')?.addEventListener('click', ()=> location.reload());
+      byId('btnMissions')?.addEventListener('click', ()=>{
+        document.body.classList.add('show-missions');
+        setTimeout(()=>document.body.classList.remove('show-missions'), 4200);
+      });
 
-      // Details toggle (menu + end)
-      function toggleDetails(){
-        document.body.classList.toggle('end-more');
-      }
-      byId('mToggleDetails')?.addEventListener('click', ()=>{ toggleDetails(); closeMenu(); });
-      byId('endDetails')?.addEventListener('click', toggleDetails);
+      byId('btnHideHud')?.addEventListener('click', ()=>{
+        document.body.classList.toggle('hud-hidden');
+      });
 
-      // End overlay fill
       const endOverlay = byId('endOverlay');
       function showEnd(d){
-        if(!endOverlay) return;
+        try{
+          if(!endOverlay) return;
+          const reason = d?.reason || d?.endReason || '-';
+          const scoreFinal = (d?.scoreFinal ?? d?.score ?? 0);
+          const misses = (d?.misses ?? d?.miss ?? 0);
+          const played = Math.round(Number(d?.durationPlayedSec ?? d?.durationPlayed ?? 0));
 
-        const reason = d?.reason || d?.endReason || '-';
-        const scoreFinal = (d?.scoreFinal ?? d?.score ?? 0);
-        const misses = (d?.misses ?? d?.miss ?? 0);
-        const played = Math.round(Number(d?.durationPlayedSec ?? d?.durationPlayed ?? 0));
+          byId('endTitle').textContent =
+            (reason === 'miss-limit' || reason === 'missLimit') ? 'Game Over' : 'Completed';
 
-        byId('endTitle').textContent =
-          (reason === 'miss-limit' || reason === 'missLimit') ? 'Game Over' : 'Completed';
+          byId('endSub').textContent =
+            `reason=${reason} | mode=${d?.runMode || d?.run || '-'} | view=${d?.device || d?.view || '-'}`;
 
-        byId('endSub').textContent =
-          `reason=${reason} | mode=${d?.runMode || d?.run || '-'} | view=${d?.device || d?.view || '-'}`;
+          byId('endGrade').textContent = d?.grade || '—';
+          byId('endScore').textContent = String(scoreFinal);
+          byId('endMiss').textContent  = String(misses);
+          byId('endTime').textContent  = String(played);
 
-        byId('endGrade').textContent = d?.grade || '—';
-        byId('endScore').textContent = String(scoreFinal);
-        byId('endMiss').textContent  = String(misses);
-        byId('endTime').textContent  = String(played);
+          const acc = d?.accuracyGoodPct;
+          const junk = d?.junkErrorPct;
+          const avgRt = d?.avgRtGoodMs;
+          const comboMax = d?.comboMax;
 
-        // details
-        const acc = d?.accuracyGoodPct;
-        const junk = d?.junkErrorPct;
-        const avgRt = d?.avgRtGoodMs;
-        const comboMax = d?.comboMax;
+          if(byId('endAcc')) byId('endAcc').textContent = (acc==null) ? '—' : `${acc}%`;
+          if(byId('endJunk')) byId('endJunk').textContent = (junk==null) ? '—' : `${junk}%`;
+          if(byId('endAvgRt')) byId('endAvgRt').textContent = (avgRt==null) ? '—' : `${avgRt}ms`;
+          if(byId('endComboMax')) byId('endComboMax').textContent = (comboMax==null) ? '—' : String(comboMax);
 
-        byId('endAcc') && (byId('endAcc').textContent = (acc==null) ? '—' : `${acc}%`);
-        byId('endJunk') && (byId('endJunk').textContent = (junk==null) ? '—' : `${junk}%`);
-        byId('endAvgRt') && (byId('endAvgRt').textContent = (avgRt==null) ? '—' : `${avgRt}ms`);
-        byId('endComboMax') && (byId('endComboMax').textContent = (comboMax==null) ? '—' : String(comboMax));
-
-        endOverlay.style.display = 'flex';
-        endOverlay.setAttribute('aria-hidden','false');
+          endOverlay.style.display = 'flex';
+          endOverlay.setAttribute('aria-hidden','false');
+        }catch(_){}
       }
 
       function onEnd(ev){ showEnd(ev?.detail || null); }
       window.addEventListener('hha:end', onEnd, { passive:true });
       document.addEventListener('hha:end', onEnd, { passive:true });
+
+      byId('endBackHub')?.addEventListener('click', ()=>{
+        if(hub) flushThenGo(hub);
+        else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
+      });
+      byId('endReplay')?.addEventListener('click', ()=> location.reload());
     })();
   </script>
 </body>
