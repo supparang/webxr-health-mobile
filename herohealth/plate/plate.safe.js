@@ -3,11 +3,12 @@
 // HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive ON (future hooks)
+//   - play: adaptive ON
 //   - research/study: deterministic seed + adaptive OFF
 // ✅ Emits:
 //   hha:start, hha:score, hha:time, quest:update,
 //   hha:coach, hha:judge, hha:end
+// ✅ Supports: Boss phase, Storm phase (hooks)
 // ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
 // ------------------------------------------------
 
@@ -15,16 +16,17 @@
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
 
-const WIN = window;
-const DOC = document;
-
 /* ------------------------------------------------
  * Utilities
  * ------------------------------------------------ */
+const WIN = window;
+
 const clamp = (v, a, b) => {
   v = Number(v) || 0;
   return v < a ? a : (v > b ? b : v);
 };
+
+const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
   let t = seed >>> 0;
@@ -34,14 +36,6 @@ function seededRng(seed){
     r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function emit(name, detail){
-  WIN.dispatchEvent(new CustomEvent(name, { detail }));
-}
-
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
 }
 
 /* ------------------------------------------------
@@ -59,9 +53,10 @@ const STATE = {
   timeLeft:0,
   timer:null,
 
-  // 5 หมู่ (นับว่าแต่ละหมู่เคยเก็บแล้วหรือยัง)
-  g:[0,0,0,0,0],
+  // plate groups (5 หมู่)
+  g:[0,0,0,0,0], // index 0-4
 
+  // quest
   goal:{
     name:'เติมจานให้ครบ 5 หมู่',
     sub:'เก็บอาหารให้ครบทุกหมู่',
@@ -77,31 +72,29 @@ const STATE = {
     done:false
   },
 
+  // counters
   hitGood:0,
   hitJunk:0,
   expireGood:0,
 
+  // mode / cfg
   cfg:null,
   rng:Math.random,
 
-  spawner:null
+  // spawn
+  engine:null
 };
 
 /* ------------------------------------------------
- * HUD emitters
+ * Event helpers
  * ------------------------------------------------ */
-function emitScore(){
-  emit('hha:score', {
-    score: STATE.score,
-    combo: STATE.combo,
-    comboMax: STATE.comboMax
-  });
+function emit(name, detail){
+  WIN.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-function emitTime(){
-  emit('hha:time', { leftSec: STATE.timeLeft });
-}
-
+/* ------------------------------------------------
+ * Quest update
+ * ------------------------------------------------ */
 function emitQuest(){
   emit('quest:update', {
     goal:{
@@ -122,11 +115,22 @@ function emitQuest(){
 }
 
 /* ------------------------------------------------
- * Scoring helpers
+ * Coach helper
+ * ------------------------------------------------ */
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
+}
+
+/* ------------------------------------------------
+ * Score helpers
  * ------------------------------------------------ */
 function addScore(v){
-  STATE.score += (Number(v)||0);
-  emitScore();
+  STATE.score += v;
+  emit('hha:score', {
+    score: STATE.score,
+    combo: STATE.combo,
+    comboMax: STATE.comboMax
+  });
 }
 
 function addCombo(){
@@ -138,6 +142,9 @@ function resetCombo(){
   STATE.combo = 0;
 }
 
+/* ------------------------------------------------
+ * Accuracy
+ * ------------------------------------------------ */
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
   if(total <= 0) return 1;
@@ -153,8 +160,6 @@ function endGame(reason='timeup'){
   STATE.running = false;
   clearInterval(STATE.timer);
 
-  const accPct = Math.round(accuracy() * 100);
-
   emit('hha:end', {
     reason,
     scoreFinal: STATE.score,
@@ -166,9 +171,8 @@ function endGame(reason='timeup'){
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
-    accuracyGoodPct: accPct,
+    accuracyGoodPct: pct(accuracy() * 100),
 
-    // group counts
     g1: STATE.g[0],
     g2: STATE.g[1],
     g3: STATE.g[2],
@@ -181,12 +185,15 @@ function endGame(reason='timeup'){
  * Timer
  * ------------------------------------------------ */
 function startTimer(){
-  emitTime();
+  emit('hha:time', { leftSec: STATE.timeLeft });
+
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
     STATE.timeLeft--;
-    emitTime();
-    if(STATE.timeLeft <= 0) endGame('timeup');
+    emit('hha:time', { leftSec: STATE.timeLeft });
+    if(STATE.timeLeft <= 0){
+      endGame('timeup');
+    }
   }, 1000);
 }
 
@@ -195,13 +202,12 @@ function startTimer(){
  * ------------------------------------------------ */
 function onHitGood(groupIndex){
   STATE.hitGood++;
-  const gi = clamp(groupIndex, 0, 4);
-  STATE.g[gi]++;
+  STATE.g[groupIndex]++;
 
   addCombo();
   addScore(100 + STATE.combo * 5);
 
-  // goal: number of groups that have at least 1 hit
+  // goal progress
   if(!STATE.goal.done){
     STATE.goal.cur = STATE.g.filter(v=>v>0).length;
     if(STATE.goal.cur >= STATE.goal.target){
@@ -210,7 +216,7 @@ function onHitGood(groupIndex){
     }
   }
 
-  // mini: accuracy >= 80
+  // mini (accuracy)
   const accPct = accuracy() * 100;
   STATE.mini.cur = Math.round(accPct);
   if(!STATE.mini.done && accPct >= STATE.mini.target){
@@ -219,7 +225,6 @@ function onHitGood(groupIndex){
   }
 
   emitQuest();
-  emitScore();
 }
 
 function onHitJunk(){
@@ -228,58 +233,37 @@ function onHitJunk(){
   resetCombo();
   addScore(-50);
   coach('ระวัง! ของหวาน/ทอด ⚠️');
-  emitQuest();
 }
 
 function onExpireGood(){
   STATE.expireGood++;
   STATE.miss++;
   resetCombo();
-  emitScore();
 }
 
 /* ------------------------------------------------
- * Spawn logic (mode-factory)
+ * Spawn logic
  * ------------------------------------------------ */
-function pickGroupIndex(){
-  // fair-ish: prefer missing groups first
-  const missing = [];
-  for(let i=0;i<5;i++) if(STATE.g[i] <= 0) missing.push(i);
-  if(missing.length) return missing[Math.floor(STATE.rng()*missing.length)];
-  return Math.floor(STATE.rng()*5);
-}
-
 function makeSpawner(mount){
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
-
-    spawnRate: STATE.cfg.diff === 'hard' ? 700 : (STATE.cfg.diff === 'easy' ? 1000 : 900),
-    sizeRange: [44, 64],
-
-    kinds: [
+    spawnRate: STATE.cfg.diff === 'hard' ? 700 : 900,
+    sizeRange:[44,64],
+    kinds:[
       { kind:'good', weight:0.7 },
       { kind:'junk', weight:0.3 }
     ],
-
     onHit:(t)=>{
       if(t.kind === 'good'){
-        const gi = (t.groupIndex != null) ? t.groupIndex : pickGroupIndex();
+        const gi = t.groupIndex ?? (Math.floor(STATE.rng()*5));
         onHitGood(gi);
       }else{
         onHitJunk();
       }
     },
-
     onExpire:(t)=>{
       if(t.kind === 'good') onExpireGood();
-    },
-
-    // If mode-factory supports onSpawn, we attach groupIndex early (harmless if ignored)
-    onSpawn:(t)=>{
-      if(t && t.kind === 'good'){
-        t.groupIndex = pickGroupIndex();
-      }
     }
   });
 }
@@ -291,8 +275,6 @@ export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
   STATE.cfg = cfg;
-
-  // reset state
   STATE.running = true;
   STATE.ended = false;
 
@@ -300,11 +282,9 @@ export function boot({ mount, cfg }){
   STATE.combo = 0;
   STATE.comboMax = 0;
   STATE.miss = 0;
-
   STATE.hitGood = 0;
   STATE.hitJunk = 0;
   STATE.expireGood = 0;
-
   STATE.g = [0,0,0,0,0];
 
   STATE.goal.cur = 0;
@@ -319,6 +299,7 @@ export function boot({ mount, cfg }){
     STATE.rng = Math.random;
   }
 
+  // ✅ default engine fallback = 90
   STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
 
   emit('hha:start', {
@@ -330,10 +311,9 @@ export function boot({ mount, cfg }){
   });
 
   emitQuest();
-  emitScore();
   startTimer();
 
-  STATE.spawner = makeSpawner(mount);
+  STATE.engine = makeSpawner(mount);
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
 }
