@@ -34,6 +34,10 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
+    <!-- Optional FX layers -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
+
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
@@ -120,8 +124,8 @@
   </div>
 
   <!-- NOTE:
-    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js will set view class and boot the engine.
+    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay.
+    plate.boot.js sets view class and boots the engine.
   -->
 </body>
 </html>
