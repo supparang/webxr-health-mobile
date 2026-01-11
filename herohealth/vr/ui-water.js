@@ -1,147 +1,200 @@
 // === /herohealth/vr/ui-water.js ===
-// Water UI + Zone helper — PRODUCTION (ESM)
-// ✅ zoneFrom(pct) => 'LOW' | 'GREEN' | 'HIGH'
-// ✅ ensureWaterGauge() : สร้าง overlay gauge ถ้าไม่มี DOM panel
-// ✅ setWaterGauge(pct) : sync ทั้ง overlay + DOM panel (ถ้ามี #water-bar/#water-pct/#water-zone)
-// ✅ ไม่บังคับ CSS (ทำงานได้แม้ไม่มีไฟล์ css แยก)
+// HHA Water UI — PRODUCTION (Shared)
+// ✅ ensureWaterGauge(): inject minimal DOM gauge if not present
+// ✅ setWaterGauge(pct): update gauge + emits hha:water
+// ✅ zoneFrom(pct): GREEN / LOW / HIGH (tunable thresholds)
+// ✅ Safe for any game (Hydration/Plate/GoodJunk/Groups can reuse)
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
-export function clamp(v, a, b){
+function clamp(v,a,b){
   v = Number(v) || 0;
   return v < a ? a : (v > b ? b : v);
 }
 
+function emit(name, detail){
+  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+
+// --- thresholds (feel free to tune) ---
+// GREEN is the "balanced" zone
+// LOW  : too low hydration
+// HIGH : too high hydration
+const TH = {
+  greenMin: 42,
+  greenMax: 68
+};
+
 export function zoneFrom(pct){
-  const p = clamp(pct, 0, 100);
-  // โซนกลาง 45–65 (ปรับได้ง่ายและ “จับรู้สึก”)
-  if (p < 45) return 'LOW';
-  if (p > 65) return 'HIGH';
+  pct = clamp(pct, 0, 100);
+  if (pct < TH.greenMin) return 'LOW';
+  if (pct > TH.greenMax) return 'HIGH';
   return 'GREEN';
 }
 
-function ensureStyleOnce(){
-  if (!DOC || DOC.getElementById('hha-water-style')) return;
+// -------------------- DOM Gauge (optional overlay) --------------------
+// NOTE: In your Hydration HTML you already have water panel (#water-bar/#water-zone/#water-pct)
+// This module provides a small fixed gauge too (if you want), but it will NOT conflict.
+// It only injects if not present and you can disable by setting window.HHA_WATERUI.disable = true
+
+function qs(sel, root=DOC){ try{ return root.querySelector(sel); }catch(_){ return null; } }
+
+function ensureHost(){
+  if (!DOC) return null;
+  let host = DOC.querySelector('.hha-water-ui');
+  if (host) return host;
+
+  const cfg = ROOT.HHA_WATERUI || {};
+  if (cfg.disable) return null;
+
+  host = DOC.createElement('div');
+  host.className = 'hha-water-ui';
+  host.innerHTML = `
+    <div class="hha-water-card" role="status" aria-label="Water gauge">
+      <div class="hha-water-top">
+        <div class="hha-water-title">Water</div>
+        <div class="hha-water-zone">GREEN</div>
+      </div>
+      <div class="hha-water-bar">
+        <div class="hha-water-fill"></div>
+      </div>
+      <div class="hha-water-bottom">
+        <div class="hha-water-pct">50%</div>
+        <div class="hha-water-hint">คุมให้อยู่ GREEN</div>
+      </div>
+    </div>
+  `;
+
+  DOC.body.appendChild(host);
+  injectStyleOnce();
+  return host;
+}
+
+function injectStyleOnce(){
+  if (DOC.getElementById('hha-water-ui-style')) return;
   const st = DOC.createElement('style');
-  st.id = 'hha-water-style';
+  st.id = 'hha-water-ui-style';
   st.textContent = `
-  .hha-water-gauge{
+  .hha-water-ui{
     position:fixed;
     left:12px;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    z-index: 60;
-    width: 210px;
+    bottom:12px;
+    z-index:60;
     pointer-events:none;
-    color: rgba(229,231,235,.95);
-    font: 800 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-    text-shadow: 0 6px 22px rgba(0,0,0,.45);
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
   }
-  .hha-water-gauge .box{
-    background: rgba(2,6,23,.70);
-    border: 1px solid rgba(148,163,184,.18);
+  .hha-water-card{
+    width: 180px;
     border-radius: 16px;
-    backdrop-filter: blur(10px);
+    border: 1px solid rgba(148,163,184,.16);
+    background: rgba(2,6,23,.62);
     box-shadow: 0 18px 70px rgba(0,0,0,.40);
+    backdrop-filter: blur(10px);
     padding: 10px 10px;
+    color: rgba(229,231,235,.92);
   }
-  .hha-water-gauge .row{
-    display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  .hha-water-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:8px;
   }
-  .hha-water-gauge .lbl{ opacity:.82; font-weight:800; letter-spacing:.2px; }
-  .hha-water-gauge .val{ font-size:18px; font-weight:1000; }
-  .hha-water-gauge .sub{ margin-top:4px; opacity:.78; font-weight:900; }
-  .hha-water-gauge .barWrap{
-    margin-top:8px;
+  .hha-water-title{
+    font-weight:900;
+    font-size:12px;
+    letter-spacing:.2px;
+    opacity:.92;
+  }
+  .hha-water-zone{
+    font-weight:900;
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:999px;
+    border:1px solid rgba(148,163,184,.14);
+    background: rgba(15,23,42,.55);
+  }
+  .hha-water-bar{
     height:10px;
     border-radius:999px;
     overflow:hidden;
-    background: rgba(148,163,184,.18);
-    border:1px solid rgba(148,163,184,.12);
+    background: rgba(148,163,184,.16);
+    border:1px solid rgba(148,163,184,.10);
   }
-  .hha-water-gauge .bar{
+  .hha-water-fill{
     height:100%;
     width:50%;
     background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
   }
-  .hha-water-gauge[data-zone="LOW"]  .bar{ background: linear-gradient(90deg, rgba(59,130,246,.95), rgba(34,211,238,.92)); }
-  .hha-water-gauge[data-zone="GREEN"] .bar{ background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95)); }
-  .hha-water-gauge[data-zone="HIGH"] .bar{ background: linear-gradient(90deg, rgba(245,158,11,.92), rgba(239,68,68,.92)); }
+  .hha-water-bottom{
+    margin-top:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:10px;
+    opacity:.92;
+  }
+  .hha-water-pct{
+    font-weight:900;
+    font-size:12px;
+  }
+  .hha-water-hint{
+    font-size:11px;
+    color: rgba(148,163,184,.95);
+  }
 
-  /* mobile friendly */
-  @media (max-width: 520px){
-    .hha-water-gauge{ width: 180px; left:10px; }
-    .hha-water-gauge .val{ font-size:16px; }
+  /* zone color hint (subtle) */
+  .hha-water-ui.zone-GREEN .hha-water-zone{ border-color: rgba(34,197,94,.22); background: rgba(34,197,94,.10); }
+  .hha-water-ui.zone-LOW   .hha-water-zone{ border-color: rgba(245,158,11,.24); background: rgba(245,158,11,.10); }
+  .hha-water-ui.zone-HIGH  .hha-water-zone{ border-color: rgba(239,68,68,.24);  background: rgba(239,68,68,.10);  }
+
+  /* safe-area */
+  @supports(padding: max(0px)){
+    .hha-water-ui{
+      left: max(12px, env(safe-area-inset-left, 0px));
+      bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    }
   }
   `;
   DOC.head.appendChild(st);
 }
 
-let gaugeEl = null;
-
 export function ensureWaterGauge(){
-  if (!DOC) return null;
-
-  // ถ้าในหน้าเกมมี DOM panel ของคุณอยู่แล้ว (#water-bar ฯลฯ) ก็ไม่จำเป็นต้องสร้าง overlay
-  const hasPanel = DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone');
-  if (hasPanel) return null;
-
-  ensureStyleOnce();
-  if (gaugeEl && gaugeEl.isConnected) return gaugeEl;
-
-  gaugeEl = DOC.createElement('div');
-  gaugeEl.className = 'hha-water-gauge';
-  gaugeEl.dataset.zone = 'GREEN';
-  gaugeEl.innerHTML = `
-    <div class="box">
-      <div class="row">
-        <div class="lbl">Water</div>
-        <div class="val"><span data-wpct>50</span><span style="font-size:12px;opacity:.75">%</span></div>
-      </div>
-      <div class="sub">Zone <b data-wzone>GREEN</b></div>
-      <div class="barWrap"><div class="bar" data-wbar></div></div>
-    </div>
-  `;
-  DOC.body.appendChild(gaugeEl);
-  return gaugeEl;
+  return ensureHost();
 }
 
 export function setWaterGauge(pct){
-  if (!DOC) return;
+  pct = clamp(pct, 0, 100);
+  const zone = zoneFrom(pct);
 
-  const p = clamp(pct, 0, 100);
-  const z = zoneFrom(p);
+  // optional mini-gauge
+  const host = ensureHost();
+  if (host){
+    host.classList.toggle('zone-GREEN', zone === 'GREEN');
+    host.classList.toggle('zone-LOW', zone === 'LOW');
+    host.classList.toggle('zone-HIGH', zone === 'HIGH');
 
-  // 1) Sync overlay gauge (ถ้ามี)
-  if (!gaugeEl || !gaugeEl.isConnected){
-    // ถ้าหน้าไม่มี panel ก็สร้าง overlay ให้เอง
-    ensureWaterGauge();
+    const fill = qs('.hha-water-fill', host);
+    const zEl  = qs('.hha-water-zone', host);
+    const pEl  = qs('.hha-water-pct', host);
+    const hEl  = qs('.hha-water-hint', host);
+
+    if (fill) fill.style.width = pct.toFixed(0) + '%';
+    if (zEl)  zEl.textContent = zone;
+    if (pEl)  pEl.textContent = pct.toFixed(0) + '%';
+
+    if (hEl){
+      hEl.textContent =
+        zone === 'GREEN' ? 'คุมให้อยู่ GREEN' :
+        zone === 'LOW'   ? 'LOW: เพิ่มน้ำด้วย 💧' :
+                           'HIGH: ลดด้วย 🥤';
+    }
   }
-  if (gaugeEl && gaugeEl.isConnected){
-    gaugeEl.dataset.zone = z;
-    const wp = gaugeEl.querySelector('[data-wpct]');
-    const wz = gaugeEl.querySelector('[data-wzone]');
-    const wb = gaugeEl.querySelector('[data-wbar]');
-    if (wp) wp.textContent = String(p|0);
-    if (wz) wz.textContent = z;
-    if (wb) wb.style.width = (p.toFixed(0) + '%');
-  }
 
-  // 2) Sync DOM panel ของ Hydration page (ของคุณมีอยู่แล้ว)
-  const bar = DOC.getElementById('water-bar');
-  const wpct = DOC.getElementById('water-pct');
-  const wzone = DOC.getElementById('water-zone');
-  if (bar) bar.style.width = (p.toFixed(0) + '%');
-  if (wpct) wpct.textContent = String(p|0);
-  if (wzone) wzone.textContent = z;
-
-  // 3) Optional tip slot
-  const tip = DOC.getElementById('water-tip');
-  if (tip){
-    // ไม่ยัดเยียด — แค่ช่วยบอกสั้น ๆ
-    if (z === 'GREEN') tip.textContent = 'Tip: คุมให้อยู่ GREEN แล้วเก็บ 🛡️ รอทำ Storm Mini';
-    else tip.textContent = 'Tip: ตอนพายุให้ “ไม่ GREEN” แล้ว BLOCK ช่วง End Window';
-  }
+  // notify
+  emit('hha:water', { pct, zone });
+  return { pct, zone };
 }
