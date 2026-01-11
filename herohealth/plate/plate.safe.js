@@ -1,15 +1,20 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION)
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — PATCHED
 // HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive ON
+//   - play: adaptive ON (hook-ready; not used here)
 //   - research/study: deterministic seed + adaptive OFF
 // ✅ Emits:
 //   hha:start, hha:score, hha:time, quest:update,
 //   hha:coach, hha:judge, hha:end
 // ✅ Supports: Boss phase, Storm phase (hooks)
 // ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
+// ✅ PATCH:
+//   - clearInterval before starting timer (no double timer)
+//   - harden timeLeft parsing (min 10s, integer)
+//   - safe reboot: stop previous spawner if exists
+//   - emit initial score/time once on start
 // ------------------------------------------------
 
 'use strict';
@@ -20,7 +25,6 @@ import { boot as spawnBoot } from '../vr/mode-factory.js';
  * Utilities
  * ------------------------------------------------ */
 const WIN = window;
-const DOC = document;
 
 const clamp = (v, a, b) => {
   v = Number(v) || 0;
@@ -37,6 +41,12 @@ function seededRng(seed){
     r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+function toInt(v, def){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return def;
+  return Math.trunc(n);
 }
 
 /* ------------------------------------------------
@@ -82,8 +92,11 @@ const STATE = {
   cfg:null,
   rng:Math.random,
 
-  // spawn
-  engine:null
+  // spawn engine instance
+  engine:null,
+
+  // boot guard
+  bootNonce:0
 };
 
 /* ------------------------------------------------
@@ -125,13 +138,17 @@ function coach(msg, tag='Coach'){
 /* ------------------------------------------------
  * Score helpers
  * ------------------------------------------------ */
-function addScore(v){
-  STATE.score += v;
+function emitScore(){
   emit('hha:score', {
     score: STATE.score,
     combo: STATE.combo,
     comboMax: STATE.comboMax
   });
+}
+
+function addScore(v){
+  STATE.score += v;
+  emitScore();
 }
 
 function addCombo(){
@@ -153,13 +170,17 @@ function accuracy(){
 }
 
 /* ------------------------------------------------
- * End game
+ * End game (flush-hardened)
  * ------------------------------------------------ */
 function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
   STATE.running = false;
-  clearInterval(STATE.timer);
+
+  if(STATE.timer){
+    clearInterval(STATE.timer);
+    STATE.timer = null;
+  }
 
   emit('hha:end', {
     reason,
@@ -183,15 +204,33 @@ function endGame(reason='timeup'){
 }
 
 /* ------------------------------------------------
- * Timer
+ * Timer (no double interval)
  * ------------------------------------------------ */
 function startTimer(){
+  // ✅ prevent stacked timers
+  if(STATE.timer){
+    clearInterval(STATE.timer);
+    STATE.timer = null;
+  }
+
+  // emit initial time immediately
   emit('hha:time', { leftSec: STATE.timeLeft });
 
+  const myNonce = STATE.bootNonce;
+
   STATE.timer = setInterval(()=>{
-    if(!STATE.running) return;
-    STATE.timeLeft--;
+    // if reboot happened, kill this timer
+    if(myNonce !== STATE.bootNonce){
+      clearInterval(STATE.timer);
+      STATE.timer = null;
+      return;
+    }
+
+    if(!STATE.running || STATE.ended) return;
+
+    STATE.timeLeft = Math.max(0, (toInt(STATE.timeLeft, 0) - 1));
     emit('hha:time', { leftSec: STATE.timeLeft });
+
     if(STATE.timeLeft <= 0){
       endGame('timeup');
     }
@@ -202,6 +241,8 @@ function startTimer(){
  * Hit handlers
  * ------------------------------------------------ */
 function onHitGood(groupIndex){
+  if(STATE.ended) return;
+
   STATE.hitGood++;
   STATE.g[groupIndex]++;
 
@@ -229,17 +270,32 @@ function onHitGood(groupIndex){
 }
 
 function onHitJunk(){
+  if(STATE.ended) return;
+
   STATE.hitJunk++;
   STATE.miss++;
   resetCombo();
   addScore(-50);
+
+  // optional: keep mini accuracy live on junk hit too
+  const accPct = accuracy() * 100;
+  STATE.mini.cur = Math.round(accPct);
+
   coach('ระวัง! ของหวาน/ทอด ⚠️');
+  emitQuest();
 }
 
 function onExpireGood(){
+  if(STATE.ended) return;
+
   STATE.expireGood++;
   STATE.miss++;
   resetCombo();
+
+  // update mini accuracy too
+  const accPct = accuracy() * 100;
+  STATE.mini.cur = Math.round(accPct);
+  emitQuest();
 }
 
 /* ------------------------------------------------
@@ -256,29 +312,54 @@ function makeSpawner(mount){
       { kind:'junk', weight:0.3 }
     ],
     onHit:(t)=>{
+      if(STATE.ended) return;
+
       if(t.kind === 'good'){
-        const gi = t.groupIndex ?? (Math.floor(STATE.rng()*5));
-        onHitGood(gi);
+        const gi = (t.groupIndex != null) ? t.groupIndex : Math.floor(STATE.rng()*5);
+        onHitGood(clamp(gi, 0, 4));
       }else{
         onHitJunk();
       }
     },
     onExpire:(t)=>{
+      if(STATE.ended) return;
       if(t.kind === 'good') onExpireGood();
     }
   });
 }
 
 /* ------------------------------------------------
- * Main boot
+ * Main boot (safe reboot)
  * ------------------------------------------------ */
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
-  STATE.cfg = cfg;
+  // ✅ safe reboot: stop old spawner if exists
+  try{
+    if(STATE.engine && typeof STATE.engine.stop === 'function'){
+      STATE.engine.stop();
+    }else if(STATE.engine && typeof STATE.engine.destroy === 'function'){
+      STATE.engine.destroy();
+    }
+  }catch(err){
+    console.warn('[PlateVR] stop old engine failed', err);
+  }
+  STATE.engine = null;
+
+  // ✅ clear old timer
+  if(STATE.timer){
+    clearInterval(STATE.timer);
+    STATE.timer = null;
+  }
+
+  // bump nonce to invalidate old timers
+  STATE.bootNonce++;
+
+  STATE.cfg = cfg || {};
   STATE.running = true;
   STATE.ended = false;
 
+  // reset stats
   STATE.score = 0;
   STATE.combo = 0;
   STATE.comboMax = 0;
@@ -288,31 +369,39 @@ export function boot({ mount, cfg }){
   STATE.expireGood = 0;
   STATE.g = [0,0,0,0,0];
 
+  // reset quests
   STATE.goal.cur = 0;
   STATE.goal.done = false;
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
   // RNG
-  if(cfg.runMode === 'research' || cfg.runMode === 'study'){
-    STATE.rng = seededRng(cfg.seed || Date.now());
+  const runMode = String(cfg.runMode || 'play').toLowerCase();
+  if(runMode === 'research' || runMode === 'study'){
+    STATE.rng = seededRng(toInt(cfg.seed, Date.now()) || Date.now());
   }else{
     STATE.rng = Math.random;
   }
 
-  STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
+  // ✅ Hardened timeLeft:
+  // prefer cfg.durationPlannedSec; fallback to ?time passes through boot.js anyway
+  const rawTime = (cfg.durationPlannedSec != null) ? cfg.durationPlannedSec : 90;
+  STATE.timeLeft = clamp(toInt(rawTime, 90), 10, 999);
 
   emit('hha:start', {
     game:'plate',
-    runMode: cfg.runMode,
-    diff: cfg.diff,
+    runMode,
+    diff: String(cfg.diff || 'normal').toLowerCase(),
     seed: cfg.seed,
     durationPlannedSec: STATE.timeLeft
   });
 
+  // initial UI state
   emitQuest();
+  emitScore();
   startTimer();
 
+  // start spawner LAST (after timer/UI ready)
   STATE.engine = makeSpawner(mount);
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
