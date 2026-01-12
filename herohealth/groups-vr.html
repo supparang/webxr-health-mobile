@@ -1,94 +1,203 @@
+<!-- === C: /herohealth/groups-vr.html ===
+GroupsVR Launcher (ONE-BUTTON + AUTO-DETECT) — PRODUCTION
+✅ No override UI (no dropdowns)
+✅ Auto-detect view: pc | mobile | cvr (Cardboard) best-effort
+✅ Remembers last params (diff/style/time/run/ai) but user can't change via UI
+✅ Pass-through hub/log + any extra params
+✅ Redirects to: ./vr-groups/groups-vr.html?...
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR (Launcher)</title>
+  <title>HeroHealth — GroupsVR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+
   <style>
     :root{
-      color-scheme:dark;
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --radius:22px; --pill:999px;
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --radius:22px;
+      --pill:999px;
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
+      --shadow: 0 18px 48px rgba(0,0,0,.55);
     }
-    *{box-sizing:border-box}
-    html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--text);font-family:system-ui}
-    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; height:100%; width:100%;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    .wrap{
+      min-height:100%;
+      display:grid;
+      place-items:center;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+    }
     .card{
-      width:min(640px,100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:26px;
-      padding:16px;
-      box-shadow:0 24px 70px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
+      width:min(560px, 100%);
+      border-radius: 28px;
+      background: rgba(2,6,23,.78);
+      border: 1px solid rgba(148,163,184,.18);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      padding: 18px;
     }
-    .title{font-weight:1000;font-size:22px}
-    .sub{margin-top:6px;color:var(--muted);font-weight:800;font-size:13px;line-height:1.35}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-    .pill{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:12px 14px;border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.62);
-      font-weight:950;
+    .top{
+      display:flex;
+      gap:12px;
+      align-items:center;
     }
-    .pill small{color:var(--muted);font-weight:900}
-    .row{display:flex;gap:10px;margin-top:12px}
+    .badge{
+      width:54px;height:54px;
+      border-radius:18px;
+      display:grid;place-items:center;
+      background: rgba(34,197,94,.14);
+      border:1px solid rgba(34,197,94,.22);
+      font-size:30px;
+    }
+    .h1{
+      font-weight: 1000;
+      font-size: 20px;
+      letter-spacing:.2px;
+      margin:0;
+    }
+    .sub{
+      margin:6px 0 0;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .grid{
+      margin-top: 14px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .stat{
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(15,23,42,.60);
+      border:1px solid rgba(148,163,184,.14);
+    }
+    .k{
+      font-weight: 900;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .v{
+      margin-top: 4px;
+      font-weight: 1000;
+      font-size: 16px;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .row{
+      margin-top: 14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
     .btn{
-      flex:1 1 auto;
-      display:inline-flex;align-items:center;justify-content:center;gap:8px;
-      padding:12px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.20);
-      background:rgba(15,23,42,.65);color:var(--text);font-weight:1000;cursor:pointer;
+      flex: 1 1 220px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding: 14px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.60);
+      color: var(--text);
+      font-weight: 1000;
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
     }
-    .btn-strong{background:rgba(34,197,94,.20);border-color:rgba(34,197,94,.35)}
-    .btn:active{transform:translateY(1px)}
-    .note{margin-top:10px;color:var(--muted);font-weight:800;font-size:12px}
-    @media (max-width:520px){ .grid{grid-template-columns:1fr} }
+    .btn:active{ transform: translateY(1px); }
+    .btn-strong{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.35);
+    }
+    .btn-ghost{
+      background: rgba(2,6,23,.40);
+    }
+    .note{
+      margin-top: 12px;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius: var(--pill);
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.52);
+      font-weight: 1000;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .pill b{ color: rgba(34,197,94,.95); }
+    @media (max-width: 420px){
+      .grid{ grid-template-columns: 1fr; }
+      .h1{ font-size: 18px; }
+    }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <div class="card">
-      <div class="title">🥦 Food Groups VR</div>
-      <div class="sub">
-        โหมดนี้ “auto-detect” แล้วพาไปหน้าเล่นทันที<br/>
-        (เปลี่ยนค่าถ้าต้องการ แล้วกดเริ่ม)
+    <div class="card" role="main" aria-label="GroupsVR Launcher">
+      <div class="top">
+        <div class="badge" aria-hidden="true">🥦</div>
+        <div>
+          <h1 class="h1">Food Groups VR</h1>
+          <p class="sub">
+            กด <span class="pill"><b>START</b></span> เพื่อเข้าเกมทันที • ระบบจะตรวจอุปกรณ์ให้อัตโนมัติ
+          </p>
+        </div>
       </div>
 
-      <div class="grid">
-        <div class="pill">
-          <span>🎚️ Difficulty</span>
-          <span>
-            <small id="vDiff">normal</small>
-          </span>
+      <div class="grid" aria-label="Detected settings">
+        <div class="stat">
+          <div class="k">Detected View</div>
+          <div id="vView" class="v">—</div>
         </div>
-        <div class="pill">
-          <span>⏱️ Time</span>
-          <span><small id="vTime">90</small>s</span>
-        </div>
-        <div class="pill">
-          <span>🎨 Style</span>
-          <span><small id="vStyle">mix</small></span>
-        </div>
-        <div class="pill">
-          <span>🧠 AI</span>
-          <span><small id="vAi">0</small></span>
+        <div class="stat">
+          <div class="k">Run / Diff / Time</div>
+          <div id="vCfg" class="v">—</div>
         </div>
       </div>
 
       <div class="row">
-        <button id="btnStart" class="btn btn-strong" type="button">🚀 เริ่มเล่น</button>
-        <button id="btnReset" class="btn" type="button">♻️ Reset</button>
+        <button id="btnStart" class="btn btn-strong" type="button">▶️ START</button>
+        <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
       </div>
 
       <div class="note">
-        ทิป: ถ้าเข้า Cardboard/cVR ให้เพิ่ม <b>?view=cvr</b> หรือเปิดผ่าน HUB ที่ตั้งค่าไว้แล้ว
+        <div>• Cardboard (cVR): เข้าแล้วแตะจอเพื่อยิงจาก crosshair</div>
+        <div>• Research mode ปิด AI อัตโนมัติ</div>
       </div>
     </div>
   </div>
@@ -96,92 +205,146 @@
 <script>
 (function(){
   'use strict';
+
   const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
 
-  const LS = 'HHA_GROUPS_LAST';
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
-  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const LS_KEY = 'HHA_GROUPSVR_LAST_PARAMS';
 
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+
+  function setText(id, v){
+    const el = $(id);
+    if (el) el.textContent = String(v ?? '—');
+  }
+
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  // ---------- AUTO DETECT (no user override UI) ----------
   function detectView(){
+    // 1) If URL explicitly forces view (from hub or teacher link) - still allowed as “external control”
+    //    but there is NO UI to change it here.
     const forced = String(qs('view','')||'').toLowerCase();
-    if (forced) return forced;
+    if (forced === 'pc' || forced === 'mobile' || forced === 'vr' || forced === 'cvr') return forced;
 
-    // very simple heuristic
-    const isMobile = matchMedia && matchMedia('(pointer:coarse)').matches;
-    const w = Math.max(320, innerWidth||360);
-    const h = Math.max(420, innerHeight||640);
+    // 2) Heuristic
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints||0) >= 2;
 
-    // if opened inside "split/cvr" environment user usually passes view=cvr, so default to mobile/pc
-    if (!isMobile && w >= 900) return 'pc';
+    // If mobile + looks like stereo/cardboard intent (common hints)
+    const hasStereoHint = /Cardboard|VR|OculusBrowser|SamsungBrowser/i.test(ua);
+
+    // Default:
+    if (!isMobile) return 'pc';
+    // If user opened from a “Cardboard” context, prefer cvr
+    if (hasStereoHint) return 'cvr';
     return 'mobile';
   }
 
-  function load(){
-    try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch{ return {}; }
+  // ---------- PARAMS (from query OR last saved) ----------
+  function loadLast(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; }
+    catch{ return {}; }
   }
-  function save(obj){
-    try{ localStorage.setItem(LS, JSON.stringify(obj||{})); }catch{}
+
+  function saveLast(obj){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(obj||{})); }catch{}
   }
 
-  const last = Object.assign({
-    diff: 'normal',
-    time: 90,
-    style:'mix',
-    ai: '0',
-    run: 'play'
-  }, load());
+  function buildRunParams(){
+    const last = loadLast();
 
-  // allow override from URL
-  last.diff  = String(qs('diff', last.diff) || last.diff).toLowerCase();
-  last.style = String(qs('style', last.style) || last.style).toLowerCase();
-  last.ai    = String(qs('ai', last.ai) || last.ai);
-  last.run   = String(qs('run', last.run) || last.run).toLowerCase();
-  last.time  = clamp(qs('time', last.time), 30, 180);
+    // prefer explicit query, else last, else defaults
+    const run   = String(qs('run',   last.run   ?? 'play') || 'play').toLowerCase();
+    const diff  = String(qs('diff',  last.diff  ?? 'normal') || 'normal').toLowerCase();
+    const style = String(qs('style', last.style ?? 'mix') || 'mix').toLowerCase();
+    const time  = clamp(qs('time',   last.time  ?? 90), 30, 180);
 
-  DOC.getElementById('vDiff').textContent = last.diff;
-  DOC.getElementById('vTime').textContent = String(last.time);
-  DOC.getElementById('vStyle').textContent = last.style;
-  DOC.getElementById('vAi').textContent = last.ai;
+    const seedIn = qs('seed', last.seed ?? '');
+    const seed = (seedIn && String(seedIn).trim()) ? String(seedIn) : String(Date.now());
 
-  function start(){
-    const view = detectView();
+    // AI: default 0, research forced off later at run page too
+    const ai = String(qs('ai', last.ai ?? '0') || '0');
+
+    // practice: if teacher passes it, we forward it (run page already restricts to cvr)
+    const practice = String(qs('practice', last.practice ?? '0') || '0');
+
+    // hub/log passthrough
     const hub = String(qs('hub','')||'');
     const log = String(qs('log','')||'');
 
-    const seed = String(qs('seed', Date.now()) || Date.now());
+    // view: forced via query allowed; else detected here
+    const view = detectView();
 
-    save(last);
+    // Save (so next time one-button start continues same plan)
+    saveLast({ run, diff, style, time, seed, ai, practice });
 
-    const u = new URL('./vr-groups/groups-vr.html', location.href);
-    u.searchParams.set('view', view);
-    u.searchParams.set('run', last.run);
-    u.searchParams.set('diff', last.diff);
-    u.searchParams.set('style', last.style);
-    u.searchParams.set('time', String(last.time));
-    u.searchParams.set('seed', seed);
-    u.searchParams.set('ai', last.ai);
-
-    if (hub) u.searchParams.set('hub', hub);
-    if (log) u.searchParams.set('log', log);
-
-    // passthrough extra params
-    const sp = new URL(location.href).searchParams;
-    sp.forEach((v,k)=>{
-      if (['view','run','diff','style','time','seed','ai','hub','log'].includes(k)) return;
-      u.searchParams.set(k,v);
-    });
-
-    location.href = u.toString();
+    return { view, run, diff, style, time, seed, ai, practice, hub, log };
   }
 
-  DOC.getElementById('btnStart').addEventListener('click', start);
-  DOC.getElementById('btnReset').addEventListener('click', ()=>{
-    try{ localStorage.removeItem(LS); }catch{}
-    location.reload();
-  });
+  function buildTargetUrl(p){
+    // target = ./vr-groups/groups-vr.html
+    const u = new URL('./vr-groups/groups-vr.html', location.href);
 
-  // auto-start if ?autostart=1
-  if (String(qs('autostart','0')||'0') === '1') start();
+    u.searchParams.set('view', p.view);
+    u.searchParams.set('run', p.run);
+    u.searchParams.set('diff', p.diff);
+    u.searchParams.set('style', p.style);
+    u.searchParams.set('time', String(p.time));
+    u.searchParams.set('seed', String(p.seed));
+
+    // forward ai/practice if present
+    if (p.ai != null) u.searchParams.set('ai', String(p.ai));
+    if (p.practice != null) u.searchParams.set('practice', String(p.practice));
+
+    if (p.hub) u.searchParams.set('hub', p.hub);
+    if (p.log) u.searchParams.set('log', p.log);
+
+    // pass-through any extra params (studentKey, studyId, etc.)
+    try{
+      const sp = new URL(location.href).searchParams;
+      sp.forEach((v,k)=>{
+        if (['view','run','diff','style','time','seed','ai','practice','hub','log'].includes(k)) return;
+        u.searchParams.set(k, v);
+      });
+    }catch(_){}
+
+    return u.toString();
+  }
+
+  // ---------- UI ----------
+  const P = buildRunParams();
+  setText('vView', P.view.toUpperCase());
+  setText('vCfg', `${P.run.toUpperCase()} / ${P.diff.toUpperCase()} / ${P.time}s`);
+
+  // Hub button
+  const hub = P.hub;
+  const btnHub = $('btnHub');
+  if (btnHub){
+    btnHub.style.display = hub ? 'inline-flex' : 'none';
+    btnHub.addEventListener('click', ()=>{
+      if (hub) location.href = hub;
+    });
+  }
+
+  // Start
+  const btnStart = $('btnStart');
+  if (btnStart){
+    btnStart.addEventListener('click', ()=>{
+      const url = buildTargetUrl(P);
+      location.href = url;
+    });
+  }
+
+  // Optional: auto-start if teacher wants hands-free: ?autostart=1
+  const autostart = String(qs('autostart','0')||'0');
+  if (autostart === '1' || autostart === 'true'){
+    setTimeout(()=>{ try{ btnStart && btnStart.click(); }catch(_){} }, 250);
+  }
+
 })();
 </script>
 </body>
