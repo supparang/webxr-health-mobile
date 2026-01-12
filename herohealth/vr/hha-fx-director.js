@@ -1,450 +1,354 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (shared, event-driven)
-// ✅ Standardizes VFX across all games
-// ✅ Listens to HHA events and triggers Particles + body FX classes
-// ✅ Storm/Boss/Rage rules (as agreed):
-//    - timeLeft <= 30s => fx-storm
-//    - miss >= 4      => fx-boss
-//    - miss >= 5      => fx-rage
-//
-// Events supported:
-// - hha:judge   { label, kind?, x?, y? }  => pop/score/burst + shake/vignette
-// - hha:score   { score, delta? }        => small feedback
-// - hha:time    { t }                    => storm toggle
-// - quest:update{ goal, mini }           => optional subtle feedback
-// - hha:celebrate { kind, grade? }       => celebrate
-// - hha:end     { ... summary ... }      => end celebrate + freeze flags
-// - hha:view / hha:enter-vr / hha:exit-vr => intensity per view
-//
-// Safe:
-// - No hard dependency: if Particles missing, it quietly no-ops.
-// - Avoids overriding game CSS; only adds/removes body classes.
-// - Throttled to prevent spam.
+// HHA FX Director — PRODUCTION (Shared for ALL games)
+// ✅ Rules (default):
+//    - timeLeftSec <= 30  => STORM
+//    - miss >= 4          => BOSS
+//    - miss >= 5          => RAGE
+// ✅ Boss model (optional): HP by diff 10/12/14, Phase2 lasts 6s
+// ✅ Adds body classes: fx-storm, fx-boss, fx-rage, fx-lowtime, fx-hit-good, fx-hit-bad, fx-block, fx-mini, fx-end
+// ✅ Hooks:
+//    - listens: hha:time, hha:judge, quest:update, hha:end, hha:log
+//    - exposes: window.HHA_FX.setBossHP(hp), window.HHA_FX.hitBoss(dmg=1), window.HHA_FX.reset()
+// Config (optional):
+//    window.HHA_FX_CFG = {
+//      stormAtSec: 30,
+//      bossAtMiss: 4,
+//      rageAtMiss: 5,
+//      lowTimeAtSec: 10,
+//      pulseMs: 160,
+//      bossHP: { easy:10, normal:12, hard:14 },
+//      bossPhase2Sec: 6,
+//      bossDmgPerGood: 1,
+//      bossHitFxEvery: 1, // 1 = every hit
+//    }
 
-(function () {
+(function(root){
   'use strict';
-  const WIN = window;
-  const DOC = document;
-  if (!DOC || WIN.__HHA_FX_DIRECTOR__) return;
-  WIN.__HHA_FX_DIRECTOR__ = true;
+  const DOC = root.document;
+  if(!DOC || root.__HHA_FX_DIRECTOR__) return;
+  root.__HHA_FX_DIRECTOR__ = true;
 
   const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
-  const now = ()=> (WIN.performance ? performance.now() : Date.now());
-  const qs = (k, d=null)=> { try{ return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } };
+  const now = ()=> performance.now();
 
-  // ------------------------------------------------------------
-  // Config (tunable)
-  // ------------------------------------------------------------
   const CFG = Object.assign({
     stormAtSec: 30,
     bossAtMiss: 4,
     rageAtMiss: 5,
+    lowTimeAtSec: 10,
+    pulseMs: 160,
 
-    // hit feedback
-    judgeCooldownMs: 70,
-    burstCooldownMs: 90,
+    bossHP: { easy:10, normal:12, hard:14 },
+    bossPhase2Sec: 6,
+    bossDmgPerGood: 1,
+    bossHitFxEvery: 1,
+  }, root.HHA_FX_CFG || {});
 
-    // motion
-    shakeMs: 170,
-    shakePowerBase: 5,
+  const B = DOC.body;
 
-    // view multipliers
-    viewMul: {
-      pc: 1.0,
-      mobile: 1.0,
-      vr: 0.85,
-      cvr: 0.85,
-    },
-
-    // default center if x/y not provided
-    defaultXY: 'center', // 'center' | 'random'
-  }, WIN.HHA_FX_CONFIG || {});
-
-  // ------------------------------------------------------------
-  // State
-  // ------------------------------------------------------------
+  // -------- state --------
   const S = {
-    view: (DOC.body?.dataset?.view) || (qs('view', null) || '').toLowerCase() || null,
-    timeLeft: null,      // seconds
-    miss: null,          // integer
-    ended: false,
+    timeLeftSec: null,
+    miss: 0,
+    diff: 'normal',
+    runMode: 'play',
+    view: null,
 
+    // boss model (optional)
+    bossActive: false,
+    bossRage: false,
+    bossHP: 0,
+    bossHPMax: 0,
+    bossPhase: 1,
+    bossPhase2Left: 0,
+
+    // rate limits
+    lastPulseAt: 0,
     lastJudgeAt: 0,
-    lastBurstAt: 0,
-    lastShakeAt: 0,
-
-    // last pointer pos (for fallback)
-    px: null,
-    py: null,
+    lastStormBeatAt: 0,
   };
 
-  // ------------------------------------------------------------
-  // Helpers
-  // ------------------------------------------------------------
-  function getView(){
-    const b = DOC.body;
-    const dv = (b && b.dataset && b.dataset.view) ? b.dataset.view : '';
-    const v = String(dv || S.view || qs('view', null) || '').toLowerCase();
-    if(v === 'pc' || v === 'vr' || v === 'cvr') return v;
-    if(v === 'mobile') return 'mobile';
-    // infer
-    return /android|iphone|ipad|ipod/i.test(navigator.userAgent||'') ? 'mobile' : 'pc';
+  // -------- helpers --------
+  function setCls(name,on){
+    try{ B.classList.toggle(name, !!on); }catch(_){}
   }
-
-  function mul(){
-    const v = getView();
-    return CFG.viewMul[v] ?? 1.0;
-  }
-
-  function Particles(){
-    return (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
-  }
-
-  function viewport(){
-    return {
-      W: DOC.documentElement.clientWidth || 1,
-      H: DOC.documentElement.clientHeight || 1,
-    };
-  }
-
-  function pickXY(detail){
-    const {W,H} = viewport();
-
-    // explicit
-    const x = Number(detail?.x ?? detail?.clientX);
-    const y = Number(detail?.y ?? detail?.clientY);
-    if(Number.isFinite(x) && Number.isFinite(y)) return { x: clamp(x,0,W), y: clamp(y,0,H) };
-
-    // last pointer
-    if(Number.isFinite(S.px) && Number.isFinite(S.py)) return { x: clamp(S.px,0,W), y: clamp(S.py,0,H) };
-
-    // default
-    if(CFG.defaultXY === 'random'){
-      return { x: Math.random()*W, y: Math.random()*H };
-    }
-    return { x: W/2, y: H/2 };
-  }
-
-  function setBodyFlag(cls, on){
-    const b = DOC.body;
-    if(!b) return;
-    if(on) b.classList.add(cls);
-    else b.classList.remove(cls);
-  }
-
-  function applyPhaseFlags(){
-    // storm
-    if(S.timeLeft != null){
-      setBodyFlag('fx-storm', (S.timeLeft <= CFG.stormAtSec));
-      setBodyFlag('fx-storm2', (S.timeLeft <= 12)); // optional deeper storm
-    }
-
-    // boss / rage
-    if(S.miss != null){
-      setBodyFlag('fx-boss', (S.miss >= CFG.bossAtMiss));
-      setBodyFlag('fx-rage', (S.miss >= CFG.rageAtMiss));
-    }
-
-    // freeze after end
-    if(S.ended){
-      setBodyFlag('fx-storm', false);
-      setBodyFlag('fx-storm2', false);
-      // boss/rage may remain as a "result state" (optional) — keep them
-    }
-  }
-
-  // micro shake (CSS transform on body via class)
-  function ensureShakeStyle(){
-    if(DOC.getElementById('hhaFxDirectorStyle')) return;
-    const st = DOC.createElement('style');
-    st.id = 'hhaFxDirectorStyle';
-    st.textContent = `
-      body.fx-shake{
-        animation: hhaShake var(--hha-shake-ms, 170ms) ease-in-out 1;
-      }
-      @keyframes hhaShake{
-        0%{ transform: translate3d(0,0,0); }
-        15%{ transform: translate3d(calc(var(--hha-shake-x, 4px)*-1), calc(var(--hha-shake-y, 3px)), 0); }
-        35%{ transform: translate3d(calc(var(--hha-shake-x, 4px)), calc(var(--hha-shake-y, 3px)*-1), 0); }
-        55%{ transform: translate3d(calc(var(--hha-shake-x, 4px)*-1), calc(var(--hha-shake-y, 3px)*-1), 0); }
-        75%{ transform: translate3d(calc(var(--hha-shake-x, 4px)), calc(var(--hha-shake-y, 3px)), 0); }
-        100%{ transform: translate3d(0,0,0); }
-      }
-    `;
-    DOC.head.appendChild(st);
-  }
-
-  function shake(kind){
-    if(S.ended) return;
+  function pulse(name, ms){
+    ms = Math.max(60, Number(ms)||CFG.pulseMs);
     const t = now();
-    if(t - S.lastShakeAt < 140) return;
-    S.lastShakeAt = t;
+    // rate limit pulses per-class
+    if(t - S.lastPulseAt < 55) return;
+    S.lastPulseAt = t;
 
-    ensureShakeStyle();
-    const b = DOC.body;
-    if(!b) return;
-
-    const m = mul();
-    const base = CFG.shakePowerBase * m;
-
-    const rage = b.classList.contains('fx-rage');
-    const boss = b.classList.contains('fx-boss');
-    const storm= b.classList.contains('fx-storm');
-
-    let pow = base;
-    if(storm) pow *= 1.10;
-    if(boss)  pow *= 1.18;
-    if(rage)  pow *= 1.28;
-
-    if(kind === 'bad' || kind === 'junk') pow *= 1.25;
-    if(kind === 'block') pow *= 0.85;
-    if(kind === 'star' || kind === 'shield') pow *= 0.75;
-
-    const sx = clamp((pow * (0.8 + Math.random()*0.6)), 2, 12);
-    const sy = clamp((pow * (0.6 + Math.random()*0.6)), 2, 10);
-    b.style.setProperty('--hha-shake-x', sx.toFixed(1) + 'px');
-    b.style.setProperty('--hha-shake-y', sy.toFixed(1) + 'px');
-    b.style.setProperty('--hha-shake-ms', clamp(CFG.shakeMs * (0.95 + Math.random()*0.2), 120, 260).toFixed(0) + 'ms');
-
-    b.classList.remove('fx-shake');
-    // restart animation
-    void b.offsetWidth;
-    b.classList.add('fx-shake');
-    setTimeout(()=>{ try{ b.classList.remove('fx-shake'); }catch(_){ } }, 320);
-  }
-
-  function vignetteFlash(intensity){
-    // Particles has vignette support (if particles.js ultra)
     try{
-      const v = DOC.querySelector('.hha-fx-vignette');
-      if(!v) return;
-      const a = clamp(Number(intensity)||0.25, 0.12, 0.55);
-      v.style.opacity = String(a);
-      setTimeout(()=>{ try{ v.style.opacity = '0'; }catch(_){ } }, 170);
+      B.classList.add(name);
+      setTimeout(()=>{ try{ B.classList.remove(name); }catch(_){ } }, ms);
     }catch(_){}
   }
 
-  function inferKindFromLabel(label){
-    const s = String(label||'').toLowerCase();
-    if(s.includes('oops') || s.includes('miss') || s.includes('fail')) return 'bad';
-    if(s.includes('block')) return 'block';
-    if(s.includes('star')) return 'star';
-    if(s.includes('shield')) return 'shield';
-    if(s.includes('diamond')) return 'diamond';
-    if(s.includes('perfect') || s.includes('good') || s.includes('+')) return 'good';
-    return 'good';
+  function readQs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
   }
 
-  // ------------------------------------------------------------
-  // Event handlers
-  // ------------------------------------------------------------
-  function onJudge(ev){
-    if(S.ended) return;
-    const t = now();
-    if(t - S.lastJudgeAt < CFG.judgeCooldownMs) return;
-    S.lastJudgeAt = t;
+  function inferDiff(){
+    const d = String(readQs('diff','normal')||'normal').toLowerCase();
+    if(d==='easy'||d==='hard'||d==='normal') return d;
+    return 'normal';
+  }
 
-    const d = ev?.detail || {};
-    const label = d.label ?? d.text ?? d.msg ?? '';
-    const kind = (d.kind || inferKindFromLabel(label)).toLowerCase();
-    const P = Particles();
-    const p = pickXY(d);
+  function ensureBossHP(){
+    const map = CFG.bossHP || {easy:10,normal:12,hard:14};
+    const hp = Number(map[S.diff] ?? map.normal ?? 12) || 12;
+    S.bossHPMax = hp;
+    if(!S.bossHP) S.bossHP = hp;
+  }
 
-    // intensity scales with phases
-    const b = DOC.body;
-    const storm = b?.classList?.contains('fx-storm');
-    const boss  = b?.classList?.contains('fx-boss');
-    const rage  = b?.classList?.contains('fx-rage');
-
-    const m = mul();
-    let waveSize = 160 * m;
-    let burstCount = 12 * m;
-    let dur = 520;
-
-    if(storm){ waveSize *= 1.08; burstCount *= 1.06; }
-    if(boss){  waveSize *= 1.14; burstCount *= 1.12; dur += 40; }
-    if(rage){  waveSize *= 1.22; burstCount *= 1.18; dur += 70; }
-
-    // choose which effects
-    try{
-      if(P){
-        // central burst on meaningful judge labels
-        if(t - S.lastBurstAt >= CFG.burstCooldownMs){
-          S.lastBurstAt = t;
-
-          // default emoji by kind
-          const emoji =
-            (kind==='bad' || kind==='junk') ? '💥' :
-            (kind==='block') ? '🛡️' :
-            (kind==='star') ? '⭐' :
-            (kind==='shield') ? '🛡️' :
-            (kind==='diamond') ? '💎' :
-            (String(label).includes('+')) ? '✨' : '✅';
-
-          P.burstAt(p.x, p.y, {
-            kind,
-            emoji,
-            count: Math.round(clamp(burstCount, 8, 26)),
-            size: (kind==='bad'||kind==='junk') ? 26 : 22,
-            durMs: dur,
-            wave: true,
-            waveSize: Math.round(clamp(waveSize, 120, 320)),
-          });
-        }
-
-        // text pop
-        if(label){
-          const txt = String(label).slice(0, 24);
-          if(P.scorePop && (txt.includes('+') || kind==='diamond')) P.scorePop(p.x, p.y, txt, kind);
-          else if(P.popText) P.popText(p.x, p.y, txt, '');
-        }
-      }
-    }catch(_){}
-
-    // shake + vignette
-    if(kind==='bad' || kind==='junk'){
-      shake('bad');
-      vignetteFlash(0.38 * m);
-      try{
-        // a small miss mark
-        Particles()?.missX?.(p.x, p.y, { kind:'bad', emoji:'✖', durMs: 520 });
-      }catch(_){}
-    }else if(kind==='block'){
-      shake('block');
-      vignetteFlash(0.18 * m);
+  function enterStorm(on){
+    setCls('fx-storm', on);
+    if(on){
+      // slight vignette for tension (if Particles supports)
+      try{ root.Particles?.vignette?.(true, 1); }catch(_){}
     }else{
-      vignetteFlash(0.14 * m);
+      try{ root.Particles?.vignette?.(false, 1); }catch(_){}
     }
   }
 
-  function onScore(ev){
-    if(S.ended) return;
-    const d = ev?.detail || {};
-    // optional: subtle feedback on big delta
-    const delta = Number(d.delta);
-    if(!Number.isFinite(delta)) return;
-    if(Math.abs(delta) < 20) return;
-
-    try{
-      const P = Particles();
-      if(!P || !P.scorePop) return;
-      const p = pickXY(d);
-      const kind = delta > 0 ? 'good' : 'bad';
-      P.scorePop(p.x, p.y, (delta>0?`+${delta}`:`${delta}`), kind);
-    }catch(_){}
+  function enterBoss(on){
+    S.bossActive = !!on;
+    setCls('fx-boss', on);
+    if(on){
+      ensureBossHP();
+      // boss start boom
+      try{ root.Particles?.burstAt?.(DOC.documentElement.clientWidth/2, DOC.documentElement.clientHeight*0.22, 'bad'); }catch(_){}
+      pulse('fx-boss-in', 260);
+    }else{
+      S.bossPhase = 1;
+      S.bossPhase2Left = 0;
+      S.bossHP = 0;
+      S.bossHPMax = 0;
+      setCls('fx-boss-p2', false);
+      setCls('fx-boss-dead', false);
+    }
   }
 
+  function enterRage(on){
+    S.bossRage = !!on;
+    setCls('fx-rage', on);
+    if(on){
+      try{ root.Particles?.vignette?.(true, 3); }catch(_){}
+      pulse('fx-rage-in', 260);
+    }else{
+      // if boss still active, keep some vignette
+      try{ root.Particles?.vignette?.(S.bossActive || (S.timeLeftSec!=null && S.timeLeftSec<=CFG.stormAtSec), S.bossActive?2:1); }catch(_){}
+    }
+  }
+
+  function applyTimeFX(){
+    const t = S.timeLeftSec;
+    if(t == null) return;
+
+    // low time (<=10) purely visual (separate from storm)
+    setCls('fx-lowtime', t <= CFG.lowTimeAtSec);
+
+    // storm
+    enterStorm(t <= CFG.stormAtSec);
+
+    // heartbeat beat for storm (visual tick)
+    if(t <= CFG.stormAtSec){
+      const nt = now();
+      if(nt - S.lastStormBeatAt > (t<=10 ? 520 : 760)){
+        S.lastStormBeatAt = nt;
+        pulse('fx-storm-beat', 140);
+      }
+    }
+  }
+
+  function applyMissFX(){
+    // boss trigger
+    if(!S.bossActive && S.miss >= CFG.bossAtMiss){
+      enterBoss(true);
+    }
+    // rage trigger
+    if(!S.bossRage && S.miss >= CFG.rageAtMiss){
+      enterRage(true);
+    }
+  }
+
+  // -------- boss damage model (optional hook) --------
+  function hitBoss(dmg=1){
+    if(!S.bossActive) return;
+    ensureBossHP();
+
+    dmg = Math.max(0, Number(dmg)||1);
+    S.bossHP = clamp(S.bossHP - dmg, 0, S.bossHPMax);
+
+    // hit feedback
+    pulse('fx-boss-hit', 120);
+
+    // Phase2 when HP low (<= 40%) => lasts 6s
+    if(S.bossPhase === 1 && S.bossHPMax > 0 && (S.bossHP / S.bossHPMax) <= 0.40){
+      S.bossPhase = 2;
+      S.bossPhase2Left = CFG.bossPhase2Sec;
+      setCls('fx-boss-p2', true);
+      pulse('fx-boss-p2-in', 220);
+      try{ root.Particles?.burstAt?.(DOC.documentElement.clientWidth/2, DOC.documentElement.clientHeight*0.22, 'diamond'); }catch(_){}
+    }
+
+    // dead
+    if(S.bossHP <= 0){
+      setCls('fx-boss-dead', true);
+      pulse('fx-boss-dead', 320);
+      try{ root.Particles?.celebrate?.('boss'); }catch(_){}
+      // keep class for a moment then exit boss mode
+      setTimeout(()=> enterBoss(false), 900);
+    }
+  }
+
+  function setBossHP(hp){
+    S.bossHP = Math.max(0, Number(hp)||0);
+    S.bossHPMax = Math.max(S.bossHPMax, S.bossHP);
+  }
+
+  // -------- event handlers --------
   function onTime(ev){
     const d = ev?.detail || {};
     const t = Number(d.t);
-    if(Number.isFinite(t)) S.timeLeft = t;
-    applyPhaseFlags();
-  }
-
-  function onQuestUpdate(_ev){
-    // keep minimal (no spam); you can add subtle tick later if you want
-  }
-
-  function onEnd(ev){
-    if(S.ended) return;
-    S.ended = true;
-    applyPhaseFlags();
-
-    const d = ev?.detail || {};
-    const grade = String(d.grade||'').toUpperCase();
-
-    // end celebration
-    try{
-      const P = Particles();
-      if(P && P.celebrate){
-        const kind =
-          (grade==='S') ? 'diamond' :
-          (grade==='A') ? 'good' :
-          (grade==='B') ? 'star' :
-          (grade==='C') ? 'shield' : 'bad';
-        P.celebrate({ kind, count: 18, durMs: 820, vignetteOpacity: 0.25, emoji: '🎉' });
+    if(Number.isFinite(t)){
+      S.timeLeftSec = t;
+      applyTimeFX();
+      // phase2 countdown (boss)
+      if(S.bossActive && S.bossPhase === 2 && S.bossPhase2Left > 0){
+        // decrease roughly by delta? we only have absolute time, so do coarse tick
+        S.bossPhase2Left = Math.max(0, S.bossPhase2Left - 0.25);
+        if(S.bossPhase2Left <= 0){
+          // phase2 ends but boss continues
+          setCls('fx-boss-p2', false);
+          S.bossPhase = 1; // allow re-enter? keep simple: drop to phase1 visuals
+        }
       }
-    }catch(_){}
-  }
-
-  function onView(ev){
-    const d = ev?.detail || {};
-    const v = String(d.view || '').toLowerCase();
-    if(v) S.view = v;
-  }
-
-  // track last pointer for fallback XY
-  function onPointer(ev){
-    try{
-      S.px = ev.clientX;
-      S.py = ev.clientY;
-    }catch(_){}
-  }
-
-  // ------------------------------------------------------------
-  // Optional: allow games to push miss count (for boss/rage flags)
-  // ------------------------------------------------------------
-  function onMissUpdate(ev){
-    const d = ev?.detail || {};
-    const m = Number(d.miss ?? d.misses);
-    if(Number.isFinite(m)){
-      S.miss = Math.max(0, Math.floor(m));
-      applyPhaseFlags();
     }
   }
 
-  // some games may only emit hha:end summary with misses — capture it too
-  function onEndSummaryMiss(ev){
+  function onJudge(ev){
     const d = ev?.detail || {};
-    if(d && d.misses != null){
-      const m = Number(d.misses);
-      if(Number.isFinite(m)) S.miss = Math.max(0, Math.floor(m));
-      applyPhaseFlags();
+    const label = String(d.label || '').toLowerCase();
+    const t = now();
+    if(t - S.lastJudgeAt < 35) return;
+    S.lastJudgeAt = t;
+
+    if(label.includes('good') || label.includes('perfect') || label.includes('nice')){
+      pulse('fx-hit-good', 120);
+      // optional: boss takes damage when player hits good during boss/rage
+      if(S.bossActive){
+        hitBoss(CFG.bossDmgPerGood || 1);
+      }
+      return;
+    }
+    if(label.includes('oops') || label.includes('miss') || label.includes('bad')){
+      pulse('fx-hit-bad', 140);
+      return;
+    }
+    if(label.includes('block')){
+      pulse('fx-block', 120);
+      return;
+    }
+    if(label.includes('mini')){
+      pulse('fx-mini', 240);
+      try{ root.Particles?.celebrate?.('mini'); }catch(_){}
+      return;
+    }
+    if(label.includes('goal')){
+      pulse('fx-goal', 220);
+      return;
     }
   }
 
-  // ------------------------------------------------------------
-  // Bind
-  // ------------------------------------------------------------
-  WIN.addEventListener('pointerdown', onPointer, { passive:true });
-  WIN.addEventListener('pointermove', onPointer, { passive:true });
+  function onLog(ev){
+    // allow game to feed miss changes via hha:log {type:'miss', value:n}
+    const d = ev?.detail || {};
+    if(d && d.type === 'miss'){
+      const m = Number(d.value);
+      if(Number.isFinite(m)){
+        S.miss = Math.max(0, Math.floor(m));
+        applyMissFX();
+      }
+    }
+    // allow explicit mode info
+    if(d && d.type === 'meta'){
+      if(d.diff) S.diff = String(d.diff).toLowerCase();
+      if(d.runMode) S.runMode = String(d.runMode).toLowerCase();
+    }
+  }
 
-  WIN.addEventListener('hha:judge', onJudge, { passive:true });
-  WIN.addEventListener('hha:score', onScore, { passive:true });
-  WIN.addEventListener('hha:time',  onTime,  { passive:true });
-  WIN.addEventListener('quest:update', onQuestUpdate, { passive:true });
-  WIN.addEventListener('hha:celebrate', function(ev){
-    // passthrough
-    try{
-      const d = ev?.detail || {};
-      const P = Particles();
-      if(P && P.celebrate) P.celebrate(d);
-    }catch(_){}
-  }, { passive:true });
+  function onEnd(){
+    setCls('fx-end', true);
+    pulse('fx-end-in', 380);
+    try{ root.Particles?.celebrate?.('end'); }catch(_){}
+    setTimeout(()=> setCls('fx-end', false), 1600);
+    // soften overlays
+    try{ root.Particles?.vignette?.(false, 1); }catch(_){}
+  }
 
-  WIN.addEventListener('hha:end', function(ev){
-    onEndSummaryMiss(ev);
-    onEnd(ev);
-  }, { passive:true });
+  function onQuestUpdate(ev){
+    // no heavy logic, but gives consistent tiny pulse
+    const d = ev?.detail || {};
+    if(d && d.mini && d.mini.done){
+      pulse('fx-mini', 220);
+    }
+  }
 
-  // view bridge from vr-ui.js
-  WIN.addEventListener('hha:view', onView, { passive:true });
-  WIN.addEventListener('hha:enter-vr', ()=> onView({ detail:{ view: /android|iphone|ipad|ipod/i.test(navigator.userAgent||'') ? 'cvr' : 'vr' } }), { passive:true });
-  WIN.addEventListener('hha:exit-vr',  ()=> onView({ detail:{ view: /android|iphone|ipad|ipod/i.test(navigator.userAgent||'') ? 'mobile' : 'pc' } }), { passive:true });
+  // -------- init --------
+  function init(){
+    S.diff = inferDiff();
+    S.runMode = String(readQs('run','play')||'play').toLowerCase();
 
-  // optional miss update channel (recommended for GoodJunk)
-  WIN.addEventListener('hha:miss', onMissUpdate, { passive:true });
+    // allow view from body dataset (boot may set)
+    S.view = DOC.body?.dataset?.view || readQs('view', null);
 
-  // ------------------------------------------------------------
-  // Boot-time inference (if query params exist)
-  // ------------------------------------------------------------
-  (function init(){
-    S.view = getView();
+    // listen events
+    root.addEventListener('hha:time', onTime, { passive:true });
+    root.addEventListener('hha:judge', onJudge, { passive:true });
+    root.addEventListener('quest:update', onQuestUpdate, { passive:true });
+    root.addEventListener('hha:end', onEnd, { passive:true });
+    root.addEventListener('hha:log', onLog, { passive:true });
 
-    // If the game doesn't emit hha:miss, boss/rage can still be updated by
-    // adding a tiny hook in safe.js: emit('hha:miss', { miss: state.miss })
-    // We'll still keep storm based on hha:time.
-    applyPhaseFlags();
-  })();
+    // initial FX reset
+    setCls('fx-storm', false);
+    setCls('fx-boss', false);
+    setCls('fx-rage', false);
+    setCls('fx-lowtime', false);
+    setCls('fx-end', false);
+  }
 
-})();
+  // public hooks for games
+  root.HHA_FX = {
+    reset(){
+      enterStorm(false);
+      enterBoss(false);
+      enterRage(false);
+      setCls('fx-lowtime', false);
+      setCls('fx-end', false);
+    },
+    setMiss(m){
+      S.miss = Math.max(0, Math.floor(Number(m)||0));
+      applyMissFX();
+    },
+    setTimeLeft(t){
+      S.timeLeftSec = Number(t);
+      applyTimeFX();
+    },
+    setBossHP,
+    hitBoss,
+    getState(){
+      return JSON.parse(JSON.stringify({
+        timeLeftSec:S.timeLeftSec, miss:S.miss, diff:S.diff,
+        bossActive:S.bossActive, bossRage:S.bossRage,
+        bossHP:S.bossHP, bossHPMax:S.bossHPMax,
+        bossPhase:S.bossPhase, bossPhase2Left:S.bossPhase2Left
+      }));
+    }
+  };
+
+  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init);
+  else init();
+
+})(window);
