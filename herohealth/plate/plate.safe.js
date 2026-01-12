@@ -1,14 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — SAFE ENGINE (PRODUCTION)
-// HHA Standard + FUN PACK (Boss Decoy + Boss Survival Mini + Celebrate)
-// ------------------------------------------------
-// ✅ Play / Research modes
-//   - play: boss+storm ON (fun), phase switching
-//   - research/study: deterministic seed + boss/storm OFF by default (no surprise difficulty)
-// ✅ Emits:
-//   hha:start, hha:score, hha:time, quest:update,
-//   hha:coach, hha:judge, hha:end
-// ✅ Optional event stream when ?events=1 via hha:event
+// HHA Standard + FUN PACK A/B/C
+// A) Shield power-up (block 1 junk hit)
+// B) Boss Swap (screen swap/shake trick during boss)
+// C) Rank S/A/B/C in end summary
 // ------------------------------------------------
 
 'use strict';
@@ -16,6 +11,7 @@
 import { boot as spawnBoot } from '../vr/mode-factory.js';
 
 const WIN = window;
+const DOC = document;
 
 const clamp = (v, a, b) => {
   v = Number(v) || 0;
@@ -48,35 +44,19 @@ const STATE = {
   // groups
   g:[0,0,0,0,0],
 
-  // quest (goal + mini)
-  goal:{
-    name:'เติมจานให้ครบ 5 หมู่',
-    sub:'เก็บอาหารให้ครบทุกหมู่',
-    cur:0,
-    target:5,
-    done:false
-  },
-  mini:{
-    // default mini (accuracy) before boss overrides it
-    name:'ความแม่นยำ',
-    sub:'คุมความแม่น ≥ 80%',
-    cur:0,
-    target:80,
-    done:false
-  },
+  // quest
+  goal:{ name:'เติมจานให้ครบ 5 หมู่', sub:'เก็บอาหารให้ครบทุกหมู่', cur:0, target:5, done:false },
+  mini:{ name:'ความแม่นยำ', sub:'คุมความแม่น ≥ 80%', cur:0, target:80, done:false },
 
-  // boss mini (survive without junk)
-  bossMini:{
-    active:false,
-    done:false,
-    cur:0,
-    target:10,  // seconds
-    timer:null
-  },
+  // boss mini: survive
+  bossMini:{ active:false, done:false, cur:0, target:10, timer:null },
 
   hitGood:0,
   hitJunk:0,
   expireGood:0,
+
+  // NEW: shield
+  shield:0,
 
   cfg:null,
   rng:Math.random,
@@ -89,33 +69,17 @@ const STATE = {
   _bossApplied:false,
   _stormApplied:false,
 
-  // decoy system
+  // decoy (flip kind temporarily)
   decoyOn:false,
-  decoyUntil:0,        // ms epoch
-  decoyCooldownUntil:0 // ms epoch
+  decoyUntil:0,
+  decoyCooldownUntil:0,
+
+  // NEW: boss swap trick
+  swapCooldownUntil:0
 };
 
 function emit(name, detail){
   WIN.dispatchEvent(new CustomEvent(name, { detail }));
-}
-
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
-}
-
-function setFx(id, clsOn, on){
-  const el = document.getElementById(id);
-  if(!el) return;
-  if(on) el.classList.add(clsOn);
-  else el.classList.remove(clsOn);
-}
-
-function celebrate(){
-  try{
-    if(WIN.Particles && typeof WIN.Particles.celebrate === 'function'){
-      WIN.Particles.celebrate();
-    }
-  }catch(_){}
 }
 
 function maybeLogEvent(type, data={}){
@@ -129,12 +93,31 @@ function maybeLogEvent(type, data={}){
     combo: STATE.combo,
     bossOn: STATE.bossOn,
     stormOn: STATE.stormOn,
-    decoyOn: STATE.decoyOn
+    decoyOn: STATE.decoyOn,
+    shield: STATE.shield
   }, data));
 }
 
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
+}
+
+function setFx(id, clsOn, on){
+  const el = DOC.getElementById(id);
+  if(!el) return;
+  if(on) el.classList.add(clsOn);
+  else el.classList.remove(clsOn);
+}
+
+function celebrate(){
+  try{
+    if(WIN.Particles && typeof WIN.Particles.celebrate === 'function'){
+      WIN.Particles.celebrate();
+    }
+  }catch(_){}
+}
+
 function emitQuest(){
-  // During boss: show boss mini as "mini quest" for clarity
   const useBossMini = STATE.bossMini.active && !STATE.bossMini.done;
 
   emit('quest:update', {
@@ -161,16 +144,24 @@ function emitQuest(){
   });
 }
 
+function emitScore(){
+  emit('hha:score', { score: STATE.score, combo: STATE.combo, comboMax: STATE.comboMax, shield: STATE.shield });
+}
+
+function emitShield(){
+  emit('hha:shield', { shield: STATE.shield });
+}
+
 function addScore(v){
   STATE.score += v;
-  emit('hha:score', { score: STATE.score, combo: STATE.combo, comboMax: STATE.comboMax });
+  emitScore();
 }
 
 function addCombo(){
   STATE.combo++;
   STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
 }
-function resetCombo(){ STATE.combo = 0; }
+function resetCombo(){ STATE.combo = 0; emitScore(); }
 
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
@@ -178,13 +169,28 @@ function accuracy(){
   return STATE.hitGood / total;
 }
 
+function computeRank(endDetail){
+  // Simple & kid-friendly (objective)
+  const acc = Number(endDetail.accuracyGoodPct ?? 0);
+  const miss = Number(endDetail.misses ?? 0);
+  const goalOk = (endDetail.goalsCleared ?? 0) >= 1;
+  const miniOk = (endDetail.miniCleared ?? 0) >= 1;
+
+  // S: complete goal + (acc≥85) + miss<=2
+  if(goalOk && acc >= 85 && miss <= 2) return 'S';
+  // A: goal + (acc≥75) + miss<=4
+  if(goalOk && acc >= 75 && miss <= 4) return 'A';
+  // B: goal OR (acc≥65)
+  if(goalOk || acc >= 65) return 'B';
+  // C: otherwise (still show encouragement via coach)
+  return 'C';
+}
+
 function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
   STATE.running = false;
   clearInterval(STATE.timer);
-
-  // clear boss mini timer
   try{ clearInterval(STATE.bossMini.timer); }catch(_){}
   STATE.bossMini.timer = null;
 
@@ -192,7 +198,7 @@ function endGame(reason='timeup'){
   setFx('bossFx','boss-panic', false);
   setFx('stormFx','storm-on', false);
 
-  emit('hha:end', {
+  const endDetail = {
     reason,
     gameMode:'plate',
     scoreFinal: STATE.score,
@@ -201,6 +207,7 @@ function endGame(reason='timeup'){
 
     goalsCleared: STATE.goal.done ? 1 : 0,
     goalsTotal: 1,
+
     miniCleared: (STATE.bossMini.done || STATE.mini.done) ? 1 : 0,
     miniTotal: 1,
 
@@ -209,59 +216,31 @@ function endGame(reason='timeup'){
     g1: STATE.g[0], g2: STATE.g[1], g3: STATE.g[2], g4: STATE.g[3], g5: STATE.g[4],
 
     bossOn: STATE.bossOn,
-    stormOn: STATE.stormOn
-  });
+    stormOn: STATE.stormOn,
+    shieldLeft: STATE.shield
+  };
+
+  endDetail.rank = computeRank(endDetail);
+
+  emit('hha:end', endDetail);
+
+  // final encouragement (optional)
+  if(endDetail.rank === 'S') coach('โหดมาก! เก่งสุด ๆ ระดับ S 🌟', 'Coach');
+  else if(endDetail.rank === 'A') coach('สุดยอด! ได้ A แล้ว 👍', 'Coach');
+  else if(endDetail.rank === 'B') coach('ดีมาก! อีกนิดเดียวได้ A แน่ 💪', 'Coach');
+  else coach('ไม่เป็นไร รอบหน้าทำได้ดีกว่าเดิมแน่ 😊', 'Coach');
+
+  maybeLogEvent('end', endDetail);
 }
 
 /* -----------------------------
-   Spawner rebuild helpers
-------------------------------*/
-function rebuildSpawner({ spawnRate, goodW, junkW }){
-  try{
-    if(STATE.engine && typeof STATE.engine.destroy === 'function') STATE.engine.destroy();
-    else if(STATE.engine && typeof STATE.engine.stop === 'function') STATE.engine.stop();
-  }catch(_){}
-
-  STATE.engine = spawnBoot({
-    mount: STATE.engineMount,
-    seed: STATE.cfg.seed,
-    spawnRate,
-    sizeRange:[44,64],
-    kinds:[
-      { kind:'good', weight: goodW },
-      { kind:'junk', weight: junkW }
-    ],
-    onHit:(t)=>{
-      // ✅ decoy flip: temporarily invert kind when decoyOn
-      const kind = (STATE.decoyOn)
-        ? (t.kind === 'good' ? 'junk' : 'good')
-        : t.kind;
-
-      if(kind === 'good'){
-        const gi = t.groupIndex ?? Math.floor(STATE.rng()*5);
-        onHitGood(gi);
-      }else{
-        onHitJunk();
-      }
-    },
-    onExpire:(t)=>{
-      // expire handling: if decoyOn and this is a "good" visually but treated as junk, we should not count expireGood
-      // keep it simple: expire only penalizes if underlying t.kind is good AND decoy is OFF.
-      if(!STATE.decoyOn && t.kind === 'good') onExpireGood();
-    }
-  });
-}
-
-/* -----------------------------
-   Boss / Storm
+   Boss mini (survive)
 ------------------------------*/
 function startBossMini(){
   if(STATE.bossMini.active || STATE.bossMini.done) return;
-
   STATE.bossMini.active = true;
   STATE.bossMini.cur = 0;
 
-  // clear existing
   try{ clearInterval(STATE.bossMini.timer); }catch(_){}
   STATE.bossMini.timer = setInterval(()=>{
     if(!STATE.running || STATE.ended) return;
@@ -274,11 +253,9 @@ function startBossMini(){
       STATE.bossMini.done = true;
       STATE.bossMini.active = false;
 
-      // big reward + celebrate
       addScore(350);
       celebrate();
       coach('สุดยอด! รอดบอสครบ 10 วิ 🎉 +350', 'Boss');
-
       maybeLogEvent('bossmini_complete', { bonus:350 });
       emitQuest();
     }
@@ -289,6 +266,36 @@ function startBossMini(){
   emitQuest();
 }
 
+/* -----------------------------
+   Spawner rebuild
+------------------------------*/
+function rebuildSpawner({ spawnRate, goodW, junkW, shieldW }){
+  try{
+    if(STATE.engine && typeof STATE.engine.destroy === 'function') STATE.engine.destroy();
+    else if(STATE.engine && typeof STATE.engine.stop === 'function') STATE.engine.stop();
+  }catch(_){}
+
+  STATE.engine = spawnBoot({
+    mount: STATE.engineMount,
+    seed: STATE.cfg.seed,
+    spawnRate,
+    sizeRange:[44,64],
+    kinds:[
+      { kind:'good',   weight: goodW },
+      { kind:'junk',   weight: junkW },
+      { kind:'shield', weight: shieldW }
+    ],
+    onHit:(t)=> onHitTarget(t),
+    onExpire:(t)=>{
+      // expire penalty only for real good when decoy OFF
+      if(!STATE.decoyOn && t.kind === 'good') onExpireGood();
+    }
+  });
+}
+
+/* -----------------------------
+   Boss / Storm phases
+------------------------------*/
 function applyBossIfNeeded(){
   const run = (STATE.cfg?.runMode || 'play').toLowerCase();
   if(run !== 'play') return;
@@ -304,13 +311,12 @@ function applyBossIfNeeded(){
   const bossRate = Math.max(620, Math.round(baseRate * 0.92));
 
   setFx('bossFx','boss-on', true);
-  coach('👿 BOSS มาแล้ว! ของหวาน/ทอดเยอะขึ้น!', 'Boss');
+  coach('👿 BOSS มาแล้ว! ระวังของหวาน/ทอด + ของลวง + สลับจอ!', 'Boss');
 
-  // boss mix
-  rebuildSpawner({ spawnRate: bossRate, goodW:0.58, junkW:0.42 });
-  maybeLogEvent('phase_boss_on', { bossRate, goodW:0.58, junkW:0.42 });
+  // boss mix (more junk + some shield)
+  rebuildSpawner({ spawnRate: bossRate, goodW:0.56, junkW:0.38, shieldW:0.06 });
+  maybeLogEvent('phase_boss_on', { bossRate });
 
-  // start boss mini right away (once)
   startBossMini();
 }
 
@@ -330,16 +336,14 @@ function applyStormIfNeeded(){
   setFx('bossFx','boss-panic', true);
   coach('⏱️ ช่วงท้าย! เร่งนิด ๆ แล้วนะ', 'System');
 
-  if(STATE.bossOn) rebuildSpawner({ spawnRate: stormRate, goodW:0.58, junkW:0.42 });
-  else rebuildSpawner({ spawnRate: stormRate, goodW:0.70, junkW:0.30 });
+  if(STATE.bossOn) rebuildSpawner({ spawnRate: stormRate, goodW:0.56, junkW:0.38, shieldW:0.06 });
+  else rebuildSpawner({ spawnRate: stormRate, goodW:0.70, junkW:0.27, shieldW:0.03 });
 
   maybeLogEvent('phase_storm_on', { stormRate });
 }
 
 /* -----------------------------
-   Decoy (Boss trick)
-   - every ~7-11s in boss: turn ON for 2-3s
-   - cooldown so it doesn't spam
+   Decoy + Swap tick
 ------------------------------*/
 function maybeDecoyTick(){
   const run = (STATE.cfg?.runMode || 'play').toLowerCase();
@@ -348,36 +352,60 @@ function maybeDecoyTick(){
 
   const now = Date.now();
 
-  // turn off if expired
   if(STATE.decoyOn && now >= STATE.decoyUntil){
     STATE.decoyOn = false;
-    coach('✅ ของลวงหายไปแล้ว เล่นต่อได้', 'Boss');
+    DOC.body.classList.remove('decoy-on');
+    coach('✅ ของลวงหายไปแล้ว', 'Boss');
     maybeLogEvent('decoy_off', {});
     return;
   }
-
-  // if still on, do nothing
   if(STATE.decoyOn) return;
-
-  // cooldown
   if(now < STATE.decoyCooldownUntil) return;
 
-  // random trigger chance (gentle): about once every ~7-11 seconds
-  // we use RNG but keep it stable-ish
-  const p = 0.14; // tick per second => expected ~7s
+  // about once every ~7-11s
+  const p = 0.14;
   if(STATE.rng() > p) return;
 
-  // enable decoy for 2-3s
   const dur = 2000 + Math.floor(STATE.rng()*1200);
   STATE.decoyOn = true;
   STATE.decoyUntil = now + dur;
 
-  // cooldown next window 7-11s
   const cd = 7000 + Math.floor(STATE.rng()*4000);
   STATE.decoyCooldownUntil = now + cd;
 
-  coach('😵 ของลวงมา! ระวังดี ๆ (สลับดี/ไม่ดีชั่วคราว)', 'Boss');
+  DOC.body.classList.add('decoy-on');
+  coach('😵 ของลวงมา! (สลับดี/ไม่ดีชั่วคราว)', 'Boss');
   maybeLogEvent('decoy_on', { durMs: dur, cooldownMs: cd });
+}
+
+function bossSwapTrick(){
+  const run = (STATE.cfg?.runMode || 'play').toLowerCase();
+  if(run !== 'play') return;
+  if(!STATE.bossOn) return;
+  if(!STATE.engineMount) return;
+
+  const now = Date.now();
+  if(now < STATE.swapCooldownUntil) return;
+
+  // cooldown 9-13s
+  STATE.swapCooldownUntil = now + (9000 + Math.floor(STATE.rng()*4000));
+
+  // visual swap: quick "left-right flip feel" by translating playfield
+  try{
+    const el = STATE.engineMount;
+    const dir = (STATE.rng() < 0.5) ? -1 : 1;
+    el.animate(
+      [
+        { transform:'translateX(0px)' },
+        { transform:`translateX(${dir * 90}px)` },
+        { transform:`translateX(${dir * -70}px)` },
+        { transform:'translateX(0px)' }
+      ],
+      { duration: 520, easing: 'cubic-bezier(.2,.9,.2,1)' }
+    );
+    coach('🔄 SWAP!', 'Boss');
+    maybeLogEvent('boss_swap', { dir });
+  }catch(_){}
 }
 
 /* -----------------------------
@@ -391,12 +419,11 @@ function startTimer(){
 
     STATE.timeLeft--;
 
-    // phases
     applyBossIfNeeded();
     applyStormIfNeeded();
 
-    // decoy tick (boss trick)
     maybeDecoyTick();
+    bossSwapTrick();
 
     emit('hha:time', { leftSec: STATE.timeLeft });
 
@@ -414,20 +441,17 @@ function onHitGood(groupIndex){
   addCombo();
   addScore(100 + STATE.combo * 5);
 
-  // goal
   if(!STATE.goal.done){
     STATE.goal.cur = STATE.g.filter(v=>v>0).length;
     if(STATE.goal.cur >= STATE.goal.target){
       STATE.goal.done = true;
       celebrate();
       coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉', 'Coach');
-
-      // boss can trigger immediately after goal done
       applyBossIfNeeded();
     }
   }
 
-  // mini (accuracy) only when bossMini not active
+  // accuracy mini (only if bossMini not running)
   if(!(STATE.bossMini.active || STATE.bossMini.done)){
     const accPct = accuracy() * 100;
     STATE.mini.cur = Math.round(accPct);
@@ -443,13 +467,23 @@ function onHitGood(groupIndex){
 }
 
 function onHitJunk(){
+  // Shield blocks junk
+  if(STATE.shield > 0){
+    STATE.shield--;
+    emitShield();
+    addScore(20); // tiny reward for using shield
+    coach('🛡️ Shield กันไว้แล้ว!', 'Coach');
+    maybeLogEvent('shield_block', {});
+    // boss mini: still counts as "not hit junk" because it blocked
+    return;
+  }
+
   STATE.hitJunk++;
   STATE.miss++;
   resetCombo();
 
   addScore(STATE.bossOn ? -70 : -50);
 
-  // if boss mini active, fail it immediately
   if(STATE.bossMini.active && !STATE.bossMini.done){
     STATE.bossMini.active = false;
     try{ clearInterval(STATE.bossMini.timer); }catch(_){}
@@ -473,6 +507,39 @@ function onExpireGood(){
   maybeLogEvent('expire_good', {});
 }
 
+function onHitShield(){
+  // cap shield to keep it fair for kids (ไม่โกง)
+  const before = STATE.shield;
+  STATE.shield = clamp(STATE.shield + 1, 0, 2);
+  if(STATE.shield > before){
+    addScore(120);
+    celebrate();
+    coach('🛡️ ได้ Shield +1!', 'Coach');
+  }else{
+    addScore(40);
+    coach('🛡️ Shield เต็มแล้ว!', 'Coach');
+  }
+  emitShield();
+  maybeLogEvent('hit_shield', { shield: STATE.shield });
+}
+
+function onHitTarget(t){
+  // decoy flips good/junk temporarily (shield unaffected)
+  const effectiveKind =
+    (STATE.decoyOn && (t.kind === 'good' || t.kind === 'junk'))
+      ? (t.kind === 'good' ? 'junk' : 'good')
+      : t.kind;
+
+  if(effectiveKind === 'good'){
+    const gi = t.groupIndex ?? Math.floor(STATE.rng()*5);
+    onHitGood(gi);
+  }else if(effectiveKind === 'junk'){
+    onHitJunk();
+  }else{
+    onHitShield();
+  }
+}
+
 /* -----------------------------
    Base spawner
 ------------------------------*/
@@ -485,21 +552,11 @@ function makeSpawner(mount){
     spawnRate: baseRate,
     sizeRange:[44,64],
     kinds:[
-      { kind:'good', weight:0.7 },
-      { kind:'junk', weight:0.3 }
+      { kind:'good',   weight:0.70 },
+      { kind:'junk',   weight:0.27 },
+      { kind:'shield', weight:0.03 }
     ],
-    onHit:(t)=>{
-      const kind = (STATE.decoyOn)
-        ? (t.kind === 'good' ? 'junk' : 'good')
-        : t.kind;
-
-      if(kind === 'good'){
-        const gi = t.groupIndex ?? Math.floor(STATE.rng()*5);
-        onHitGood(gi);
-      }else{
-        onHitJunk();
-      }
-    },
+    onHit:(t)=> onHitTarget(t),
     onExpire:(t)=>{
       if(!STATE.decoyOn && t.kind === 'good') onExpireGood();
     }
@@ -526,6 +583,7 @@ export function boot({ mount, cfg }){
   STATE.hitGood = 0;
   STATE.hitJunk = 0;
   STATE.expireGood = 0;
+
   STATE.g = [0,0,0,0,0];
 
   STATE.goal.cur = 0;
@@ -540,6 +598,9 @@ export function boot({ mount, cfg }){
   try{ clearInterval(STATE.bossMini.timer); }catch(_){}
   STATE.bossMini.timer = null;
 
+  STATE.shield = 0;
+  emitShield();
+
   STATE.bossOn = false;
   STATE.stormOn = false;
   STATE._bossApplied = false;
@@ -548,6 +609,9 @@ export function boot({ mount, cfg }){
   STATE.decoyOn = false;
   STATE.decoyUntil = 0;
   STATE.decoyCooldownUntil = 0;
+  DOC.body.classList.remove('decoy-on');
+
+  STATE.swapCooldownUntil = 0;
 
   setFx('bossFx','boss-on', false);
   setFx('bossFx','boss-panic', false);
@@ -558,7 +622,7 @@ export function boot({ mount, cfg }){
     ? seededRng(cfg.seed || Date.now())
     : Math.random;
 
-  // ✅ keep 90 as friendly default (boot.js sets time=90 already)
+  // default 90 (from boot.js)
   STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
 
   emit('hha:start', {
