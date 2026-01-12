@@ -1,186 +1,432 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration VR — PRODUCTION CSS
-✅ PC/Mobile/Cardboard/cVR
-✅ Safe-area insets
-✅ HUD safe zone (targets won't be covered)
-✅ Playfield + layers + target click ok
+Hydration VR — PRODUCTION UI (PC/Mobile/Cardboard/cVR)
+✅ HUD layout safe-area + does NOT block vr-ui buttons
+✅ Playfield full screen
+✅ cVR strict: targets pointer-events none (shoot via hha:shoot)
+✅ Start overlay + End summary card
+✅ FX hooks: hha-endfx / hha-hitfx / hha-bossfx + shockwave
 */
 
 :root{
   color-scheme: dark;
   --bg:#020617;
-  --panel:rgba(2,6,23,.72);
-  --panel2:rgba(15,23,42,.62);
+  --panel:rgba(2,6,23,.78);
+  --panel2:rgba(15,23,42,.72);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
-
   --accent:#22c55e;
-  --cyan:#22d3ee;
-  --bad:#ef4444;
   --warn:#f59e0b;
-  --violet:#a78bfa;
-
+  --bad:#ef4444;
+  --cyan:#22d3ee;
   --radius:18px;
   --pill:999px;
 
   /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
-  /* HUD geometry (tweakable) */
-  --hud-top: 170px;   /* top HUD+quest total height */
-  --hud-bottom: 68px; /* bottom bar height */
-  --pad: 12px;
-
-  /* play safe padding so targets don't spawn under HUD */
-  --safe-top: calc(var(--hud-top) + var(--sat) + 8px);
-  --safe-bottom: calc(var(--hud-bottom) + var(--sab) + 10px);
-  --safe-left: calc(var(--sal) + 12px);
-  --safe-right: calc(var(--sar) + 12px);
+  /* reserve area for vr-ui buttons (enter/exit/recenter) */
+  --vrui-reserve-top: 64px;
+  --vrui-reserve-left: 160px; /* กันปุ่มซ้ายบนของ vr-ui */
 }
 
-/* ---------- base ---------- */
 *{ box-sizing:border-box; }
-html, body{
-  width:100%;
-  height:100%;
-  margin:0;
-  padding:0;
+html,body{
+  margin:0; padding:0;
+  width:100%; height:100%;
   overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
+a{ color:inherit; }
+
+body::before{
+  content:"";
+  position:fixed; inset:0;
   background:
-    radial-gradient(circle at top left, rgba(34,211,238,.12), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(168,85,247,.10), transparent 60%),
-    var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-
-/* allow pointerdown on targets; but UI overlay blocks by default */
-.safeTap{
+    radial-gradient(circle at 20% 15%, rgba(34,211,238,.12), transparent 55%),
+    radial-gradient(circle at 85% 75%, rgba(34,197,94,.10), transparent 60%),
+    radial-gradient(circle at 40% 90%, rgba(168,85,247,.08), transparent 60%);
   pointer-events:none;
+  z-index:0;
 }
 
-/* ---------- view classes ---------- */
-body.view-pc {}
-body.view-mobile {}
-body.cardboard {}
-body.view-cvr {}
-
-/* ---------- play area ---------- */
-.playwrap{
+/* ---------- Playfield ---------- */
+#playfield, #cbPlayfield{
   position:fixed;
   inset:0;
   z-index:10;
-}
-
-#playfield,
-#cbPlayfield{
-  position:absolute;
-  inset:0;
   overflow:hidden;
+  touch-action:manipulation;
 }
-
-/* Cardboard (split eye) */
-body.cardboard #cbPlayfield{ display:block !important; }
-body.cardboard #playfield{ display:none !important; }
-
-/* Non-cardboard */
-body:not(.cardboard) #cbPlayfield{ display:none !important; }
-body:not(.cardboard) #playfield{ display:block !important; }
-
-.layer{
-  position:absolute;
-  inset:0;
-  pointer-events:none; /* layer itself not clickable */
-}
-
-/* Targets inside layer clickable */
-.layer .hvr-target{
+#hydration-layer{
+  position:absolute; inset:0;
   pointer-events:auto;
 }
 
-/* ---------- HUD / UI ---------- */
+/* cardboard split */
+#cbPlayfield{ display:none; }
+.cbHalf{
+  position:absolute;
+  top:0; bottom:0;
+  width:50%;
+  overflow:hidden;
+  pointer-events:auto;
+}
+.cbHalf.left{ left:0; }
+.cbHalf.right{ right:0; }
+.cbLayer{ position:absolute; inset:0; pointer-events:auto; }
+
+.cbHalf::before{
+  content:"";
+  position:absolute; inset:0;
+  background: radial-gradient(circle at center, transparent 58%, rgba(0,0,0,.45) 100%);
+  pointer-events:none;
+  z-index:2;
+}
+
+/* view modes */
+body.view-pc #playfield{ display:block; }
+body.view-mobile #playfield{ display:block; }
+body.cardboard #playfield{ display:none; }
+body.cardboard #cbPlayfield{ display:block; }
+
+/* cVR strict */
+body.view-cvr #playfield{ display:block; }
+body.view-cvr #cbPlayfield{ display:none; }
+body.view-cvr #hydration-layer{ pointer-events:none; }
+
+/* crosshair */
+.crosshair{
+  position:fixed;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  z-index:95;
+  pointer-events:none;
+  width:22px; height:22px;
+  opacity:.92;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
+  display:none;
+}
+.crosshair::before,.crosshair::after{
+  content:"";
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+}
+.crosshair::before{
+  width:18px; height:18px;
+  border:2px solid rgba(229,231,235,.85);
+}
+.crosshair::after{
+  width:4px; height:4px;
+  background:rgba(34,211,238,.95);
+}
+body.view-cvr .crosshair{ display:block; }
+
+/* ---------- HUD ---------- */
 .hud{
   position:fixed;
   inset:0;
-  z-index:30;
-  pointer-events:none; /* default: don't block targets */
+  z-index:50;
+  pointer-events:none;
+
+  /* ✅ เว้นพื้นที่กัน vr-ui */
+  padding:
+    calc(12px + var(--sat) + var(--vrui-reserve-top))
+    calc(12px + var(--sar))
+    calc(12px + var(--sab))
+    calc(12px + var(--sal) + var(--vrui-reserve-left));
+
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  gap:12px;
 }
 
-/* individual panels clickable */
-.hud .panel{
-  pointer-events:auto;
-}
-
-/* make quest box compact on small screens */
-@media (max-width: 520px){
+@media (max-width: 560px){
   :root{
-    --hud-top: 190px; /* slightly taller due to wrap */
+    --vrui-reserve-left: 0px; /* มือถือจอแคบ ขยับ HUD ให้เต็มได้ */
+    --vrui-reserve-top: 74px;
+  }
+  .hud{
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
   }
 }
 
-/* ---------- spawn safe-zone support ---------- */
-/* We expose a visual debug outline when needed */
-body.debug-safezone::before{
-  content:"";
-  position:fixed;
-  left:var(--safe-left);
-  top:var(--safe-top);
-  right:var(--safe-right);
-  bottom:var(--safe-bottom);
-  border:1px dashed rgba(34,211,238,.28);
-  border-radius: 18px;
+.panel{
   pointer-events:none;
-  z-index:9;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  box-shadow: 0 18px 70px rgba(0,0,0,.40);
+  backdrop-filter: blur(10px);
+  padding:12px 12px;
 }
 
-/* ---------- Start overlay ---------- */
+.statGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  align-items:stretch;
+}
+.statBox{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.14);
+}
+.k{ font-size:12px; color:var(--muted); letter-spacing:.2px; }
+.v{ font-size:20px; font-weight:900; }
+
+.questTitle{ font-weight:900; letter-spacing:.2px; margin:0 0 6px 0; }
+.questLine{ margin:2px 0; color:rgba(229,231,235,.92); font-size:13px; line-height:1.25; }
+.questLine.muted{ color:rgba(148,163,184,.95); }
+
+.miniRow{
+  margin-top:10px;
+  display:flex;
+  gap:10px;
+  justify-content:space-between;
+  align-items:center;
+  color:rgba(229,231,235,.92);
+  font-size:12px;
+  flex-wrap:wrap;
+}
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border-radius:var(--pill);
+  background:rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.waterPanel .top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+}
+.waterPanel h3{ margin:0; font-size:14px; font-weight:900; letter-spacing:.2px; }
+.waterPanel .zone{ margin-top:4px; color:rgba(148,163,184,.95); font-size:12px; }
+.barWrap{
+  margin-top:10px;
+  height:10px;
+  border-radius:999px;
+  background:rgba(148,163,184,.18);
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.12);
+}
+#water-bar{
+  height:100%;
+  width:50%;
+  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+}
+.waterTip{
+  margin-top:10px;
+  font-size:12px;
+  color:rgba(229,231,235,.85);
+  white-space:pre-line;
+  line-height:1.25;
+}
+
+/* ---------- Start Overlay ---------- */
 #startOverlay{
-  animation: fadeIn .18s ease-out both;
+  position:fixed;
+  inset:0;
+  z-index:100;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: calc(18px + var(--sat)) calc(18px + var(--sar))
+           calc(18px + var(--sab)) calc(18px + var(--sal));
+  background:rgba(2,6,23,.86);
+  backdrop-filter: blur(10px);
 }
-@keyframes fadeIn{
-  from{ opacity:0; transform: translateY(6px); }
-  to{ opacity:1; transform: translateY(0); }
+#startOverlay.hide{ display:none; }
+
+.card{
+  width:min(940px, 100%);
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.70);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  padding:18px;
+}
+.header{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin-bottom:14px;
+}
+.logo{
+  width:52px; height:52px;
+  border-radius:14px;
+  background:rgba(34,211,238,.12);
+  border:1px solid rgba(34,211,238,.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:26px;
+}
+.title{ font-size:18px; font-weight:900; margin:0; }
+.sub{
+  margin:4px 0 0 0;
+  color:rgba(148,163,184,.95);
+  font-size:13px;
+  line-height:1.35;
+  white-space:pre-line;
+}
+.btnRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:14px;
+}
+.btn{
+  pointer-events:auto;
+  appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(15,23,42,.62);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:14px;
+  font-weight:900;
+  font-size:13px;
+  cursor:pointer;
+  user-select:none;
+}
+.btn.primary{
+  border-color: rgba(34,197,94,.26);
+  background: rgba(34,197,94,.16);
+}
+.btn.cyan{
+  border-color: rgba(34,211,238,.26);
+  background: rgba(34,211,238,.12);
+}
+.btn.warn{
+  border-color: rgba(245,158,11,.26);
+  background: rgba(245,158,11,.14);
+}
+.note{
+  margin-top:12px;
+  font-size:12px;
+  color:rgba(229,231,235,.85);
+  line-height:1.35;
+  white-space:pre-line;
 }
 
-/* ---------- Result overlay ---------- */
-#resultBackdrop[hidden]{ display:none !important; }
+/* ---------- End Summary ---------- */
+#resultBackdrop{
+  position:fixed;
+  inset:0;
+  z-index:120;
+  background:rgba(2,6,23,.74);
+  backdrop-filter: blur(10px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: calc(16px + var(--sat)) calc(16px + var(--sar))
+           calc(16px + var(--sab)) calc(16px + var(--sal));
+}
+#resultBackdrop[hidden]{ display:none; }
 
-/* ---------- VR UI friendliness ---------- */
-/* Ensure VR UI buttons never hide behind HUD */
-.hha-vrui,
-#hha-vrui,
-.hha-vr-ui{
-  z-index: 80 !important;
+.resultCard{
+  width:min(980px, 100%);
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.74);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  padding:16px;
+}
+.resultTop{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+.resultTop h2{ margin:0; font-size:16px; font-weight:900; }
+
+.resultGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+@media (max-width: 700px){
+  .resultGrid{ grid-template-columns: 1fr; }
 }
 
-/* On mobile, enlarge tap targets a bit */
-body.view-mobile .btn{
-  padding: 12px 16px;
-  font-size: 14px;
+.kv{ display:flex; justify-content:space-between; gap:10px; margin:6px 0; }
+.kv .k2{ color:rgba(148,163,184,.95); font-size:12px; }
+.kv .v2{ font-weight:900; }
+
+pre{
+  margin:10px 0 0 0;
+  white-space:pre-wrap;
+  background:rgba(15,23,42,.70);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:14px;
+  padding:10px;
+  color:rgba(229,231,235,.92);
+  font-size:12px;
+  line-height:1.3;
 }
 
-/* ---------- target style fallback (safe.js injects main style) ---------- */
-/* Keep this light; safe.js injects its own .hvr-target CSS. */
-.hvr-target{
-  touch-action: none;
+/* ---------------- FX HOOKS ---------------- */
+body.hha-endfx{
+  animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
+}
+@keyframes endBlink{
+  0%,100%{ filter: brightness(1); }
+  50%{ filter: brightness(1.08) saturate(1.06); }
+}
+@keyframes endShake{
+  0%,100%{ transform: translate3d(0,0,0); }
+  50%{ transform: translate3d(0,1px,0); }
 }
 
-/* ---------- End FX classes used by safe.js ---------- */
-body.hha-endfx .hvr-target{
-  filter: saturate(1.08);
-}
-body.hha-bossfx .hvr-target.bad,
-body.hha-bossfx .hvr-target.bossbad{
-  outline-color: rgba(239,68,68,.42);
+body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
+@keyframes hitPulse{
+  0%{ filter: brightness(1); }
+  60%{ filter: brightness(1.12) saturate(1.10); }
+  100%{ filter: brightness(1); }
 }
 
-/* ---------- Accessibility ---------- */
-button:focus-visible{
-  outline: 2px solid rgba(34,211,238,.45);
-  outline-offset: 2px;
-  border-radius: var(--pill);
+body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
+@keyframes bossFlash{
+  0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
+  50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); }
+}
+
+/* shockwave */
+.hha-shock{
+  position:absolute;
+  left: var(--x,50%);
+  top: var(--y,50%);
+  width: 10px; height:10px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  border:2px solid rgba(34,211,238,.55);
+  pointer-events:none;
+  opacity:0.9;
+  animation: shock 420ms ease-out forwards;
+  filter: blur(.2px);
+  z-index:40;
+}
+@keyframes shock{
+  0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; }
+  100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
 }
