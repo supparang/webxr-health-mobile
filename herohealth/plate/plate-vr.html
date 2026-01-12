@@ -34,12 +34,12 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- Playfield (targets spawn inside this rect) -->
-    <div id="plate-layer" aria-label="playfield"></div>
+    <!-- FX Layers (Boss/Storm) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
 
-    <!-- FX layers (optional hooks) -->
-    <div id="bossFx"></div>
-    <div id="stormFx"></div>
+    <!-- Playfield -->
+    <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
     <div id="hud" aria-label="hud">
@@ -55,6 +55,12 @@
         <div class="chip combo">
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
+        </div>
+
+        <!-- NEW: Shield -->
+        <div class="chip shield" id="hudShieldWrap" aria-hidden="true">
+          <span class="lbl">SHIELD</span>
+          <span class="val" id="hudShield">0</span>
         </div>
       </div>
 
@@ -90,7 +96,7 @@
       </div>
     </div>
 
-    <!-- Coach bubble (optional) -->
+    <!-- Coach bubble -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
@@ -103,6 +109,10 @@
       <div class="endPanel">
         <div class="endTitle">
           <h2 id="endTitle">สรุปผล</h2>
+
+          <!-- NEW: Rank badge -->
+          <div id="rGrade" aria-label="rank">—</div>
+
           <div class="tag" id="endTag">PlateVR</div>
         </div>
 
@@ -123,9 +133,6 @@
     </div>
   </div>
 
-  <!-- NOTE:
-    vr-ui.js inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js auto-detect view and boots the engine.
-  -->
+  <!-- vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay -->
 </body>
 </html>
