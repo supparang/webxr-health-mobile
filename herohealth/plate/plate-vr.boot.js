@@ -1,11 +1,8 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION
 // ✅ Auto view detect (no UI override)
-// ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Logger context bridge for hha-cloud-logger.js (window.HHA_LOG_CTX)
+// ✅ Wires HUD listeners (+ Shield)
+// ✅ End overlay shows Rank (#rGrade)
 // ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
@@ -43,12 +40,10 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
 function pct(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
-
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
@@ -78,6 +73,9 @@ function wireHUD(){
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
 
+  const hudShieldWrap = DOC.getElementById('hudShieldWrap');
+  const hudShield = DOC.getElementById('hudShield');
+
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
   const goalNums = DOC.getElementById('goalNums');
@@ -92,6 +90,13 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+
+    // NEW: Shield HUD can piggyback on score event too
+    if(d.shield != null && hudShield){
+      const s = Math.max(0, Number(d.shield)||0);
+      hudShield.textContent = String(s);
+      if(hudShieldWrap) hudShieldWrap.setAttribute('aria-hidden', s>0 ? 'false' : 'true');
+    }
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -126,6 +131,15 @@ function wireHUD(){
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
+
+  // NEW: dedicated shield event (optional)
+  WIN.addEventListener('hha:shield', (e)=>{
+    const d = e.detail || {};
+    if(!hudShield) return;
+    const s = Math.max(0, Number(d.shield)||0);
+    hudShield.textContent = String(s);
+    if(hudShieldWrap) hudShieldWrap.setAttribute('aria-hidden', s>0 ? 'false' : 'true');
+  });
 }
 
 function wireEndControls(){
@@ -133,7 +147,9 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  if(btnRestart) btnRestart.addEventListener('click', ()=> location.reload());
+  if(btnRestart){
+    btnRestart.addEventListener('click', ()=> location.reload());
+  }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
@@ -149,6 +165,7 @@ function wireEndSummary(){
   const kGoals = DOC.getElementById('kGoals');
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
+  const rGrade = DOC.getElementById('rGrade');
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
@@ -162,6 +179,13 @@ function wireEndSummary(){
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
+    // NEW: Rank
+    if(rGrade){
+      const g = (d.rank || d.grade || '—');
+      rGrade.textContent = String(g);
+      rGrade.setAttribute('data-rank', String(g).toUpperCase());
+    }
+
     setOverlayOpen(true);
   });
 }
@@ -171,12 +195,11 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default time = 90
+  // ✅ default 90 (friendly for ป.5) — caller can override ?time=
   const time = clamp(qs('time','90'), 10, 999);
-
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  const cfg = {
+  return {
     view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
@@ -184,10 +207,9 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // optional: log per-hit events (0/1)
+    // optional: events=1 for event stream
     logEvents: (qs('events','0') === '1'),
 
-    // context passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -199,8 +221,6 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -210,22 +230,15 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-
-  // ✅ Bridge to hha-cloud-logger.js (ให้ logger อ่าน context ได้ชัวร์)
-  WIN.HHA_LOG_CTX = Object.assign({ gameMode:'plate' }, cfg);
-
   setBodyView(cfg.view);
+
   wireHUD();
   wireEndControls();
   wireEndSummary();
-
   setOverlayOpen(false);
 
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
