@@ -3,92 +3,155 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR (Launcher)</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-  <style>
-    :root{
-      color-scheme:dark;
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --radius:22px; --pill:999px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--text);font-family:system-ui}
-    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
-    .card{
-      width:min(640px,100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:26px;
-      padding:16px;
-      box-shadow:0 24px 70px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-    }
-    .title{font-weight:1000;font-size:22px}
-    .sub{margin-top:6px;color:var(--muted);font-weight:800;font-size:13px;line-height:1.35}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-    .pill{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:12px 14px;border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.62);
-      font-weight:950;
-    }
-    .pill small{color:var(--muted);font-weight:900}
-    .row{display:flex;gap:10px;margin-top:12px}
-    .btn{
-      flex:1 1 auto;
-      display:inline-flex;align-items:center;justify-content:center;gap:8px;
-      padding:12px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.20);
-      background:rgba(15,23,42,.65);color:var(--text);font-weight:1000;cursor:pointer;
-    }
-    .btn-strong{background:rgba(34,197,94,.20);border-color:rgba(34,197,94,.35)}
-    .btn:active{transform:translateY(1px)}
-    .note{margin-top:10px;color:var(--muted);font-weight:800;font-size:12px}
-    @media (max-width:520px){ .grid{grid-template-columns:1fr} }
-  </style>
+  <title>HeroHealth — Food Groups VR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- A-Frame: minimal scene for WebXR Enter VR reliability -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- FX + Universal VR UI -->
+  <script src="../vr/particles.js" defer></script>
+  <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
+  <script src="../vr/vr-ui.js" defer></script>
+
+  <!-- Groups modules -->
+  <script src="./audio.js" defer></script>
+  <script src="./groups-quests.js" defer></script>
+  <script src="./ai-hooks.js" defer></script>
+  <script src="./effects-pack.js" defer></script>
+  <script src="./research-ctx.js" defer></script>
+  <script src="./flush-log.js" defer></script>
+  <script src="./view-helper.js" defer></script>
+
+  <!-- ✅ Standalone engine -->
+  <script src="./groups.safe.js" defer></script>
 </head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="title">🥦 Food Groups VR</div>
-      <div class="sub">
-        โหมดนี้ “auto-detect” แล้วพาไปหน้าเล่นทันที<br/>
-        (เปลี่ยนค่าถ้าต้องการ แล้วกดเริ่ม)
+
+<body class="view-mobile">
+  <!-- XR Scene (behind DOM) -->
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
+    <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
+    <a-sky color="#020617"></a-sky>
+  </a-scene>
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hudLeft">
+      <div class="pill"><span class="lbl">⏳ TIME</span><span id="vTime" class="val">90</span></div>
+      <div class="pill"><span class="lbl">⭐ SCORE</span><span id="vScore" class="val">0</span></div>
+      <div class="pill"><span class="lbl">🔥 COMBO</span><span id="vCombo" class="val">0</span></div>
+      <!-- ✅ เด็กเห็น “Hard Miss” เท่านั้น -->
+      <div class="pill"><span class="lbl">❌ MISS</span><span id="vMiss" class="val">0</span></div>
+    </div>
+    <div class="hudRight">
+      <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
+      <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
+      <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
+    </div>
+  </div>
+
+  <!-- Quest -->
+  <div class="questTop">
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="goalTitle">GOAL</div>
+        <div class="tag" id="goalCount">0/1</div>
+      </div>
+      <div class="bar"><div id="goalFill" class="fill"></div></div>
+      <div class="qSub" id="goalSub">—</div>
+    </div>
+
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="miniTitle">MINI</div>
+        <div class="tag"><span class="miniTime" id="miniTime">—</span></div>
+      </div>
+      <div class="bar"><div id="miniFill" class="fill"></div></div>
+      <div class="qSub" id="miniSub">—</div>
+    </div>
+  </div>
+
+  <!-- Power -->
+  <div class="powerWrap">
+    <div class="powerCard">
+      <div class="pHead">⚡ Power</div>
+      <div class="bar powerBar"><div id="pFill" class="fill"></div></div>
+      <div class="pFoot"><span id="pCur">0</span>/<span id="pThr">8</span> → ครบแล้วจะสลับหมู่</div>
+    </div>
+  </div>
+
+  <!-- Coach -->
+  <div class="coachWrap">
+    <div class="coachCard">
+      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
+      <div class="coachBubble">
+        <div class="coachName">🥦 Coach</div>
+        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Play Layer -->
+  <div id="playLayer" class="playLayer"></div>
+
+  <!-- Calibration overlay (cVR only) -->
+  <div id="calOverlay" class="overlay overlay-cal hidden">
+    <div class="panel calPanel">
+      <div class="title">🧭 Calibration (Cardboard)</div>
+      <div id="calSub" class="sub">
+        Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า
       </div>
 
-      <div class="grid">
-        <div class="pill">
-          <span>🎚️ Difficulty</span>
-          <span>
-            <small id="vDiff">normal</small>
-          </span>
+      <div class="grid2" style="margin-top:14px;">
+        <div class="stat">
+          <div class="k">Step</div>
+          <div id="calStep" class="v">1/2</div>
         </div>
-        <div class="pill">
-          <span>⏱️ Time</span>
-          <span><small id="vTime">90</small>s</span>
-        </div>
-        <div class="pill">
-          <span>🎨 Style</span>
-          <span><small id="vStyle">mix</small></span>
-        </div>
-        <div class="pill">
-          <span>🧠 AI</span>
-          <span><small id="vAi">0</small></span>
+        <div class="stat">
+          <div class="k">Shots</div>
+          <div id="calShots" class="v">0/3</div>
         </div>
       </div>
 
-      <div class="row">
-        <button id="btnStart" class="btn btn-strong" type="button">🚀 เริ่มเล่น</button>
-        <button id="btnReset" class="btn" type="button">♻️ Reset</button>
+      <div class="row" style="margin-top:12px;">
+        <button id="btnCalNext" class="btn btn-strong" type="button">✅ ต่อไป</button>
+        <button id="btnCalSkip" class="btn btn-ghost" type="button">⏭️ ข้าม</button>
       </div>
 
-      <div class="note">
-        ทิป: ถ้าเข้า Cardboard/cVR ให้เพิ่ม <b>?view=cvr</b> หรือเปิดผ่าน HUB ที่ตั้งค่าไว้แล้ว
+      <div class="note" style="margin-top:10px;">
+        cVR: แตะจอเพื่อยิงจาก crosshair • ใช้ RECENTER เพื่อปรับศูนย์มุมมอง
+      </div>
+    </div>
+  </div>
+
+  <!-- End overlay -->
+  <div id="endOverlay" class="overlay overlay-end hidden">
+    <div class="panel">
+      <div class="title">🏁 จบเกม</div>
+      <div id="endLine" class="sub">—</div>
+
+      <div class="grid2">
+        <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
+        <div class="stat"><div class="k">Rank</div><div id="endRank" class="v">C</div></div>
+        <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
+        <!-- ✅ เด็กเห็น Hard miss -->
+        <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
+      </div>
+
+      <div class="row row2">
+        <button id="btnRestart" class="btn btn-strong" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="btnCopy" class="btn" type="button">📋 Copy JSON</button>
+      </div>
+      <div class="row row2">
+        <button id="btnBackLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
+        <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        Cardboard (cVR): แตะจอเพื่อยิงจาก crosshair • ปุ่ม ENTER VR/RECENTER อยู่ UI ของ vr-ui.js
       </div>
     </div>
   </div>
@@ -97,91 +160,484 @@
 (function(){
   'use strict';
   const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
 
-  const LS = 'HHA_GROUPS_LAST';
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
-  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  function detectView(){
-    const forced = String(qs('view','')||'').toLowerCase();
-    if (forced) return forced;
-
-    // very simple heuristic
-    const isMobile = matchMedia && matchMedia('(pointer:coarse)').matches;
-    const w = Math.max(320, innerWidth||360);
-    const h = Math.max(420, innerHeight||640);
-
-    // if opened inside "split/cvr" environment user usually passes view=cvr, so default to mobile/pc
-    if (!isMobile && w >= 900) return 'pc';
-    return 'mobile';
+  function setView(view){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    b.classList.add('view-'+view);
   }
 
-  function load(){
-    try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch{ return {}; }
+  function aiEnabled(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const on  = String(qs('ai','0')||'0');
+    if (run === 'research') return false;
+    return (on === '1' || on === 'true');
   }
-  function save(obj){
-    try{ localStorage.setItem(LS, JSON.stringify(obj||{})); }catch{}
+
+  function getPracticeSec(view){
+    const p = String(qs('practice','0')||'0');
+    let sec = Number(p)||0;
+    if (p === '1') sec = 15;
+    sec = clamp(sec, 0, 30);
+    if (view !== 'cvr') sec = 0;
+    return sec;
   }
 
-  const last = Object.assign({
-    diff: 'normal',
-    time: 90,
-    style:'mix',
-    ai: '0',
-    run: 'play'
-  }, load());
+  async function copyText(text){
+    try { await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch {
+      try{
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select();
+        DOC.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
+    }
+  }
 
-  // allow override from URL
-  last.diff  = String(qs('diff', last.diff) || last.diff).toLowerCase();
-  last.style = String(qs('style', last.style) || last.style).toLowerCase();
-  last.ai    = String(qs('ai', last.ai) || last.ai);
-  last.run   = String(qs('run', last.run) || last.run).toLowerCase();
-  last.time  = clamp(qs('time', last.time), 30, 180);
+  // ---------- HUD binds ----------
+  window.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail||{};
+    $('vScore').textContent = String(d.score ?? 0);
+    $('vCombo').textContent = String(d.combo ?? 0);
+    // ✅ เด็กเห็น hard miss
+    $('vMiss').textContent  = String(d.missHard ?? d.misses ?? 0);
+  }, {passive:true});
 
-  DOC.getElementById('vDiff').textContent = last.diff;
-  DOC.getElementById('vTime').textContent = String(last.time);
-  DOC.getElementById('vStyle').textContent = last.style;
-  DOC.getElementById('vAi').textContent = last.ai;
+  window.addEventListener('hha:time', (ev)=>{
+    const d = ev.detail||{};
+    $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
+  }, {passive:true});
 
-  function start(){
-    const view = detectView();
+  window.addEventListener('hha:rank', (ev)=>{
+    const d = ev.detail||{};
+    $('vRank').textContent = String(d.grade ?? 'C');
+    $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
+  }, {passive:true});
+
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev.detail||{};
+    $('coachText').textContent = String(d.text||'');
+    const mood = String(d.mood||'neutral');
+    const img =
+      (mood==='happy') ? '../img/coach-happy.png' :
+      (mood==='sad')   ? '../img/coach-sad.png' :
+      (mood==='fever') ? '../img/coach-fever.png' :
+                        '../img/coach-neutral.png';
+    $('coachImg').src = img;
+  }, {passive:true});
+
+  window.addEventListener('groups:power', (ev)=>{
+    const d = ev.detail||{};
+    const cur = Number(d.charge||0);
+    const thr = Math.max(1, Number(d.threshold||8));
+    $('pCur').textContent = String(cur|0);
+    $('pThr').textContent = String(thr|0);
+    $('pFill').style.width = Math.round((cur/thr)*100) + '%';
+  }, {passive:true});
+
+  window.addEventListener('quest:update', (ev)=>{
+    const d = ev.detail||{};
+    const gTitle = String(d.goalTitle||'—');
+    const gNow   = Number(d.goalNow||0);
+    const gTot   = Math.max(1, Number(d.goalTotal||1));
+    const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
+
+    const mTitle = String(d.miniTitle||'—');
+    const mNow   = Number(d.miniNow||0);
+    const mTot   = Math.max(1, Number(d.miniTotal||1));
+    const mPct   = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
+    const mLeft  = Number(d.miniTimeLeftSec||0);
+
+    $('goalTitle').textContent = '🎯 GOAL';
+    $('goalCount').textContent = `${gNow}/${gTot}`;
+    $('goalFill').style.width = Math.round(gPct) + '%';
+    $('goalSub').textContent = gTitle;
+
+    $('miniTitle').textContent = '⚡ MINI';
+    $('miniFill').style.width = Math.round(mPct) + '%';
+    $('miniSub').textContent = mTitle;
+    $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
+
+    const urgent = (mLeft>0 && mLeft<=3);
+    DOC.body.classList.toggle('mini-urgent', urgent);
+  }, {passive:true});
+
+  // ---------- Audio hooks ----------
+  function hookAudio(){
+    const A = window.GroupsVR && window.GroupsVR.Audio;
+    if (!A) return;
+
+    try{ A.unlock && A.unlock(); }catch{}
+
+    window.addEventListener('hha:judge', (ev)=>{
+      const d = ev.detail||{};
+      const k = String(d.kind||'').toLowerCase();
+      if (k==='good') A.good();
+      else if (k==='bad') A.bad();
+      else if (k==='boss') A.boss();
+      else if (k==='miss') A.bad();
+    }, {passive:true});
+
+    window.addEventListener('groups:progress', (ev)=>{
+      const d = ev.detail||{};
+      const kind = String(d.kind||'');
+      if (kind==='storm_on') A.storm();
+      if (kind==='boss_spawn') A.boss();
+      if (kind==='perfect_switch') A.good();
+    }, {passive:true});
+
+    let tmr = 0;
+    function tickLoop(){
+      clearTimeout(tmr);
+      const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
+      if (urgent) A.tick();
+      tmr = setTimeout(tickLoop, urgent ? 420 : 650);
+    }
+    tickLoop();
+  }
+
+  // ---------- Summary / History / Logger ----------
+  const LS_LAST = 'HHA_LAST_SUMMARY';
+  const LS_HIST = 'HHA_SUMMARY_HISTORY';
+
+  let lastSummary = null;
+  let startIso = new Date().toISOString();
+
+  function saveLast(summary){
+    try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
+    try{
+      const hist = JSON.parse(localStorage.getItem(LS_HIST)||'[]');
+      hist.unshift(summary);
+      localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
+    }catch{}
+  }
+
+  let practiceActive = false;
+  let practiceDone = false;
+
+  function buildBaseSummary(d, endIso){
+    const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
+    return Object.assign({
+      timestampIso: endIso,
+      projectTag: 'HeroHealth',
+      gameTag: 'GroupsVR',
+      runMode: String(qs('run','play')||'play'),
+      diff: String(qs('diff','normal')||'normal'),
+      style: String(qs('style','mix')||'mix'),
+      view: String(qs('view','mobile')||'mobile'),
+      durationPlannedSec: Number(qs('time',90)||90),
+      startTimeIso: startIso,
+      endTimeIso: endIso,
+      seed: String(qs('seed','')||'')
+    }, ctx, d||{});
+  }
+
+  function postNow(summary){
+    try{
+      const P = window.GroupsVR && window.GroupsVR.postSummary;
+      P && P(summary);
+    }catch(_){}
+  }
+
+  try{
+    const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
+    B && B(()=>lastSummary);
+  }catch(_){}
+
+  window.addEventListener('hha:end', (ev)=>{
+    const d = ev.detail||{};
+    const endIso = new Date().toISOString();
+
+    // practice chain → auto start real run
+    if (practiceActive && !practiceDone){
+      practiceDone = true;
+      practiceActive = false;
+      const E = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function'){
+        setTimeout(()=> startReal(E), 180);
+      }
+      return;
+    }
+
+    lastSummary = buildBaseSummary(d, endIso);
+    saveLast(lastSummary);
+    postNow(lastSummary);
+
+    $('endOverlay').classList.remove('hidden');
+    $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
+    $('endScore').textContent = String(d.scoreFinal ?? 0);
+    $('endRank').textContent  = String(d.grade ?? 'C');
+    $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
+    $('endMiss').textContent  = String(d.missHard ?? d.misses ?? 0); // ✅ เด็กเห็น Hard miss
+
     const hub = String(qs('hub','')||'');
-    const log = String(qs('log','')||'');
+    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
+  }, {passive:true});
 
-    const seed = String(qs('seed', Date.now()) || Date.now());
+  $('btnRestart').addEventListener('click', ()=> location.reload());
 
-    save(last);
+  $('btnCopy').addEventListener('click', async ()=>{
+    if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
+    const ok = await copyText(JSON.stringify(lastSummary, null, 2));
+    alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  });
 
-    const u = new URL('./vr-groups/groups-vr.html', location.href);
-    u.searchParams.set('view', view);
-    u.searchParams.set('run', last.run);
-    u.searchParams.set('diff', last.diff);
-    u.searchParams.set('style', last.style);
-    u.searchParams.set('time', String(last.time));
-    u.searchParams.set('seed', seed);
-    u.searchParams.set('ai', last.ai);
-
+  // ✅ กลับ launcher
+  $('btnBackLauncher').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    const u = new URL('../groups-vr.html', location.href);
     if (hub) u.searchParams.set('hub', hub);
+
+    const log = String(qs('log','')||'');
     if (log) u.searchParams.set('log', log);
 
-    // passthrough extra params
     const sp = new URL(location.href).searchParams;
     sp.forEach((v,k)=>{
-      if (['view','run','diff','style','time','seed','ai','hub','log'].includes(k)) return;
+      if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
+      if (k==='hub' || k==='log') return;
       u.searchParams.set(k,v);
     });
 
     location.href = u.toString();
-  }
-
-  DOC.getElementById('btnStart').addEventListener('click', start);
-  DOC.getElementById('btnReset').addEventListener('click', ()=>{
-    try{ localStorage.removeItem(LS); }catch{}
-    location.reload();
   });
 
-  // auto-start if ?autostart=1
-  if (String(qs('autostart','0')||'0') === '1') start();
+  $('btnHub').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+    location.href = hub;
+  });
+
+  // ---------- Engine helpers ----------
+  function waitForEngine(cb){
+    const t0 = Date.now();
+    const it = setInterval(()=>{
+      const E = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function'){
+        clearInterval(it);
+        cb(E);
+        return;
+      }
+      if (Date.now() - t0 > 7000){
+        clearInterval(it);
+        try{
+          window.dispatchEvent(new CustomEvent('hha:coach', {
+            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js). เช็ค path/ชื่อไฟล์ แล้วรีเฟรชอีกครั้ง', mood:'sad' }
+          }));
+        }catch(_){}
+      }
+    }, 60);
+  }
+
+  function getLayerEl(){
+    return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
+  }
+
+  function initViewHelper(view){
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.init && H.init({ view });
+    }catch(_){}
+  }
+
+  // ---------- Calibration 2-step (cVR) ----------
+  const cal = { on:false, step:0, shots:0, done:false };
+
+  function showCal(on){
+    const el = $('calOverlay');
+    if (!el) return;
+    el.classList.toggle('hidden', !on);
+    DOC.body.classList.toggle('calibration', !!on);
+  }
+
+  function setCalStep(step){
+    cal.step = step;
+    const stepEl = $('calStep');
+    const subEl  = $('calSub');
+    const shotsEl= $('calShots');
+    const nextBt = $('btnCalNext');
+
+    if (stepEl) stepEl.textContent = `${step}/2`;
+    if (shotsEl) shotsEl.textContent = `${cal.shots}/3`;
+
+    if (subEl){
+      if (step === 1){
+        subEl.innerHTML = `Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า`;
+      }else{
+        subEl.innerHTML = `Step 2/2: ลองยิง <b>3 ครั้ง</b> (แตะจอ) เพื่อทดสอบ crosshair`;
+      }
+    }
+
+    if (nextBt){
+      if (step === 1){
+        nextBt.textContent = '✅ ต่อไป';
+        nextBt.disabled = false;
+      }else{
+        nextBt.textContent = (cal.shots>=3) ? '🚀 เริ่มเลย' : 'ยิงให้ครบ 3 ครั้ง';
+        nextBt.disabled = (cal.shots < 3);
+      }
+    }
+  }
+
+  function startCalibrationIfNeeded(view, runMode){
+    if (view !== 'cvr') return false;
+
+    cal.on = true;
+    cal.done = false;
+    cal.shots = 0;
+
+    showCal(true);
+    setCalStep(1);
+
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail:{ text:'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood:'neutral' }
+      }));
+    }catch(_){}
+
+    return true;
+  }
+
+  function finishCalibration(){
+    cal.on = false;
+    cal.done = true;
+    showCal(false);
+  }
+
+  window.addEventListener('hha:shoot', ()=>{
+    if (!cal.on) return;
+    if (cal.step !== 2) return;
+    cal.shots = Math.min(3, (cal.shots|0) + 1);
+    setCalStep(2);
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail:{ text:`Calibration ยิงแล้ว ${cal.shots}/3`, mood:'neutral' }
+      }));
+    }catch(_){}
+  }, {passive:true});
+
+  $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
+    if (!cal.on) return;
+    if (cal.step === 1){
+      setCalStep(2);
+      try{
+        window.dispatchEvent(new CustomEvent('hha:coach', {
+          detail:{ text:'ต่อไป: ยิงทดสอบ 3 ครั้ง (แตะจอ) 🎯', mood:'neutral' }
+        }));
+      }catch(_){}
+      return;
+    }
+    if (cal.step === 2 && cal.shots >= 3){
+      finishCalibration();
+      waitForEngine((E)=> startAfterCalibration(E));
+    }
+  });
+
+  $('btnCalSkip') && $('btnCalSkip').addEventListener('click', ()=>{
+    if (!cal.on) return;
+    finishCalibration();
+    waitForEngine((E)=> startAfterCalibration(E));
+  });
+
+  function startAfterCalibration(E){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const practiceSec = getPracticeSec(view);
+
+    if (view === 'cvr' && practiceSec > 0){
+      const diff = String(qs('diff','normal')||'normal').toLowerCase();
+      const style= String(qs('style','mix')||'mix').toLowerCase();
+      const seed = String(qs('seed', Date.now()) || Date.now());
+      startPractice(E, { diff, style, seed, practiceSec });
+      return;
+    }
+    startReal(E);
+  }
+
+  // ---------- Practice then real ----------
+  function startPractice(E, cfg){
+    practiceActive = true;
+    practiceDone = false;
+    $('vMode').textContent = 'PRACTICE';
+
+    const seedP = String(cfg.seed) + '-practice';
+    startIso = new Date().toISOString();
+
+    initViewHelper('cvr');
+    E.setLayerEl(getLayerEl());
+    E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP, view:'cvr' });
+
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
+    }catch(_){}
+
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail:{ text:`Practice ${cfg.practiceSec}s: ลองยิงให้แม่นก่อนเข้าเกมจริง!`, mood:'happy' }
+      }));
+    }catch(_){}
+  }
+
+  function startReal(E){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const style= String(qs('style','mix')||'mix').toLowerCase();
+    const time = clamp(qs('time',90), 30, 180);
+    const seed = String(qs('seed', Date.now()) || Date.now());
+
+    $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
+    startIso = new Date().toISOString();
+
+    initViewHelper(view);
+    E.setLayerEl(getLayerEl());
+    E.start(diff, { runMode: run, diff, style, time, seed, view });
+
+    try{
+      const AI = window.GroupsVR && window.GroupsVR.AIHooks;
+      if (AI && AI.attach){
+        AI.attach({ runMode: run, seed, enabled: aiEnabled() && run!=='research' });
+      }
+    }catch(_){}
+  }
+
+  // ---------- Start ----------
+  function startFromParams(){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+
+    setView(view);
+    hookAudio();
+    initViewHelper(view);
+
+    const practiceSec = getPracticeSec(view);
+
+    const gated = startCalibrationIfNeeded(view, run);
+    if (gated) return;
+
+    waitForEngine((E)=>{
+      if (view === 'cvr' && practiceSec > 0){
+        const diff = String(qs('diff','normal')||'normal').toLowerCase();
+        const style= String(qs('style','mix')||'mix').toLowerCase();
+        const seed = String(qs('seed', Date.now()) || Date.now());
+        startPractice(E, { diff, style, seed, practiceSec });
+        return;
+      }
+      startReal(E);
+    });
+  }
+
+  startFromParams();
 })();
 </script>
 </body>
