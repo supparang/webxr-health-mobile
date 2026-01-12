@@ -1,178 +1,171 @@
 // === /herohealth/vr/ui-water.js ===
-// HHA Water UI — PRODUCTION (shared module)
-// ✅ ensureWaterGauge({ mount?, position?, zIndex? })
-// ✅ setWaterGauge(pct, { silent? })
-// ✅ zoneFrom(pct) -> 'LOW' | 'GREEN' | 'HIGH'
-// ✅ Non-invasive: won't break custom HUD; can be hidden if not used
-// ✅ Safe-area aware + avoid VR-UI buttons area (top-left)
+// HHA Water Gauge — PRODUCTION (safe, HUD-friendly)
+// ✅ ensureWaterGauge(): creates minimal corner gauge if not present
+// ✅ setWaterGauge(pct, opts?): updates UI + body classes
+// ✅ zoneFrom(pct): returns 'LOW'|'GREEN'|'HIGH'
+// Works standalone; if your game already has a water panel, this is harmless.
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
+const WIN = (typeof window !== 'undefined') ? window : globalThis;
+const DOC = WIN.document;
 
-const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+const ID_ROOT = 'hha-watergauge';
+const ID_BAR  = 'hha-watergauge-bar';
+const ID_TXT  = 'hha-watergauge-txt';
+const ID_ZONE = 'hha-watergauge-zone';
+
+function clamp(v, a, b){
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
+}
 
 export function zoneFrom(pct){
-  const p = clamp(pct, 0, 100);
-  // ปรับ threshold ได้ทีหลัง แต่ตอนนี้เน้น "คุม GREEN"
-  if (p < 45) return 'LOW';
-  if (p > 65) return 'HIGH';
+  pct = clamp(pct, 0, 100);
+  // tuned for hydration game mid around 55
+  if (pct < 42) return 'LOW';
+  if (pct > 72) return 'HIGH';
   return 'GREEN';
 }
 
-function ensureStyle(){
-  if (!DOC || DOC.getElementById('hha-water-style')) return;
+function injectStyleOnce(){
+  if (!DOC || DOC.getElementById('hha-watergauge-style')) return;
   const st = DOC.createElement('style');
-  st.id = 'hha-water-style';
+  st.id = 'hha-watergauge-style';
   st.textContent = `
-    .hha-water{
-      position: fixed;
+    /* HHA WaterGauge (corner) */
+    #${ID_ROOT}{
+      position:fixed;
       left: calc(12px + env(safe-area-inset-left, 0px));
-      top:  calc(12px + env(safe-area-inset-top, 0px) + 54px); /* เว้นปุ่ม VR-UI ด้านบน */
-      z-index: 88; /* ต่ำกว่า vr-ui(โดยมาก 90-100) แต่สูงกว่า playfield */
-      width: min(280px, calc(100vw - 24px));
-      pointer-events: none;
-      user-select: none;
-    }
-    body.view-cvr .hha-water{ top: calc(12px + env(safe-area-inset-top,0px) + 54px); }
-    body.cardboard .hha-water{ top: calc(12px + env(safe-area-inset-top,0px) + 54px); }
-
-    .hha-water .card{
-      background: rgba(2,6,23,.62);
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      z-index: 46; /* lower than vr-ui (95) & most HUD (50) */
+      pointer-events:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: rgba(229,231,235,.92);
+      background: rgba(2,6,23,.55);
       border: 1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      padding: 10px 12px;
       backdrop-filter: blur(10px);
-      box-shadow: 0 18px 70px rgba(0,0,0,.40);
+      border-radius: 16px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      padding: 10px 10px;
+      min-width: 170px;
     }
-    .hha-water .row{
-      display:flex; justify-content:space-between; align-items:baseline;
+    #${ID_ROOT} .row{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
       gap:10px;
+      margin-bottom:8px;
+      letter-spacing:.2px;
     }
-    .hha-water .title{
-      font-weight: 900;
-      letter-spacing: .2px;
-      font-size: 13px;
-      color: rgba(229,231,235,.95);
-      display:flex; align-items:center; gap:8px;
-    }
-    .hha-water .meta{
-      font-weight: 900;
-      font-size: 13px;
-      color: rgba(229,231,235,.95);
-    }
-    .hha-water .meta .pct{
-      font-size: 18px;
-      margin-right: 4px;
-    }
-    .hha-water .zone{
-      margin-top: 6px;
-      font-size: 12px;
+    #${ID_ROOT} .k{
+      font-size:12px;
       color: rgba(148,163,184,.95);
+      font-weight:800;
     }
-    .hha-water .bar{
-      margin-top: 9px;
+    #${ID_ROOT} .v{
+      font-size:16px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    #${ID_ROOT} .barWrap{
       height: 10px;
       border-radius: 999px;
+      overflow:hidden;
       background: rgba(148,163,184,.18);
-      overflow: hidden;
       border: 1px solid rgba(148,163,184,.12);
     }
-    .hha-water .fill{
-      height: 100%;
-      width: 50%;
+    #${ID_BAR}{
+      height:100%;
+      width:50%;
       background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-      transition: width 120ms linear;
-    }
-    .hha-water .hint{
-      margin-top: 8px;
-      font-size: 11px;
-      line-height: 1.25;
-      color: rgba(229,231,235,.85);
-      white-space: pre-line;
+      transform-origin:left center;
     }
 
-    /* zone tint */
-    .hha-water[data-zone="LOW"]  .fill{ background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95)); }
-    .hha-water[data-zone="HIGH"] .fill{ background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95)); }
-    .hha-water[data-zone="GREEN"] .fill{ background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95)); }
+    /* zone tint hooks (optional) */
+    body.hha-zone-low  #${ID_BAR}{ background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95)); }
+    body.hha-zone-green #${ID_BAR}{ background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95)); }
+    body.hha-zone-high #${ID_BAR}{ background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(249,115,22,.95)); }
   `;
   DOC.head.appendChild(st);
 }
 
-function ensureNode(opts={}){
+function buildGauge(){
   if (!DOC) return null;
-  ensureStyle();
+  injectStyleOnce();
 
-  let wrap = DOC.querySelector('.hha-water');
-  if (wrap) return wrap;
+  const root = DOC.createElement('div');
+  root.id = ID_ROOT;
 
-  wrap = DOC.createElement('div');
-  wrap.className = 'hha-water';
-  wrap.setAttribute('data-zone', 'GREEN');
-  wrap.innerHTML = `
-    <div class="card">
-      <div class="row">
-        <div class="title"><span aria-hidden="true">💧</span><span>Water</span></div>
-        <div class="meta"><span class="pct" id="hhaWaterPct">50</span><span>%</span></div>
-      </div>
-      <div class="zone">Zone <b id="hhaWaterZone">GREEN</b></div>
-      <div class="bar"><div class="fill" id="hhaWaterFill"></div></div>
-      <div class="hint" id="hhaWaterHint">คุมให้อยู่ GREEN ให้ได้นาน ๆ</div>
-    </div>
-  `;
+  const row = DOC.createElement('div');
+  row.className = 'row';
 
-  // mount
-  const mount = opts.mount && typeof opts.mount === 'string'
-    ? DOC.querySelector(opts.mount)
-    : (opts.mount instanceof Element ? opts.mount : DOC.body);
+  const left = DOC.createElement('div');
+  left.className = 'k';
+  left.textContent = 'Water';
 
-  (mount || DOC.body).appendChild(wrap);
+  const right = DOC.createElement('div');
+  right.className = 'v';
+  right.innerHTML = `<span id="${ID_TXT}">50</span><span style="font-size:12px;opacity:.85">%</span> • <span id="${ID_ZONE}">GREEN</span>`;
 
-  // optional position override
-  if (opts.position === 'top-right'){
-    wrap.style.left = 'auto';
-    wrap.style.right = 'calc(12px + env(safe-area-inset-right, 0px))';
-  }
-  if (Number.isFinite(opts.zIndex)) wrap.style.zIndex = String(opts.zIndex|0);
+  row.appendChild(left);
+  row.appendChild(right);
 
-  return wrap;
+  const barWrap = DOC.createElement('div');
+  barWrap.className = 'barWrap';
+
+  const bar = DOC.createElement('div');
+  bar.id = ID_BAR;
+
+  barWrap.appendChild(bar);
+
+  root.appendChild(row);
+  root.appendChild(barWrap);
+
+  return root;
 }
 
-// Public: create if not exists
-export function ensureWaterGauge(opts={}){
-  return ensureNode(opts);
+export function ensureWaterGauge(){
+  if (!DOC) return null;
+
+  // If your hydration HUD already has its own panel (#water-bar etc.), we still
+  // allow this corner gauge — but you can opt out by setting window.HHA_WATERGAUGE_DISABLED = true.
+  if (WIN.HHA_WATERGAUGE_DISABLED) return null;
+
+  let el = DOC.getElementById(ID_ROOT);
+  if (el) return el;
+
+  el = buildGauge();
+  if (!el) return null;
+
+  DOC.body.appendChild(el);
+  return el;
 }
 
-// Public: update percentage + derived zone + hint optional
-export function setWaterGauge(pct, opts={}){
+export function setWaterGauge(pct, opts = {}){
   if (!DOC) return;
-  const wrap = ensureNode(opts);
-  if (!wrap) return;
 
-  const p = clamp(pct, 0, 100);
-  const z = zoneFrom(p);
+  pct = clamp(pct, 0, 100);
+  const zone = String(opts.zone || zoneFrom(pct));
 
-  const elPct  = DOC.getElementById('hhaWaterPct');
-  const elZone = DOC.getElementById('hhaWaterZone');
-  const elFill = DOC.getElementById('hhaWaterFill');
+  // ensure exists (safe)
+  const root = ensureWaterGauge();
 
-  if (elPct) elPct.textContent = String(p|0);
-  if (elZone) elZone.textContent = z;
-  if (elFill) elFill.style.width = `${p.toFixed(0)}%`;
-
-  wrap.setAttribute('data-zone', z);
-
-  if (opts.hint){
-    const elHint = DOC.getElementById('hhaWaterHint');
-    if (elHint) elHint.textContent = String(opts.hint);
+  // update corner gauge if present
+  if (root){
+    const bar = DOC.getElementById(ID_BAR);
+    const txt = DOC.getElementById(ID_TXT);
+    const zEl = DOC.getElementById(ID_ZONE);
+    if (bar) bar.style.width = pct.toFixed(0) + '%';
+    if (txt) txt.textContent = String(pct|0);
+    if (zEl) zEl.textContent = zone;
   }
 
-  if (!opts.silent){
-    // hook เผื่อเกมอื่นอยากฟัง event
-    try{
-      ROOT.dispatchEvent(new CustomEvent('hha:water', { detail:{ pct:p, zone:z } }));
-    }catch(_){}
-  }
+  // body classes for theming elsewhere
+  try{
+    DOC.body.classList.remove('hha-zone-low','hha-zone-green','hha-zone-high');
+    if (zone === 'LOW') DOC.body.classList.add('hha-zone-low');
+    else if (zone === 'HIGH') DOC.body.classList.add('hha-zone-high');
+    else DOC.body.classList.add('hha-zone-green');
+  }catch(_){}
 }
