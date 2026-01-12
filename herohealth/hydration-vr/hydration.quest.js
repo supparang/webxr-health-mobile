@@ -1,291 +1,104 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
-// Hydration Quest — Goals sequential + Minis chain (PRODUCTION) — PATCHED
-// Emits:
-// - onUpdate(payload)  -> now includes BOTH (old fields) + (quest:update friendly fields)
-// - onCelebrate(kind:'goal'|'mini', payload)
-//
-// ✅ Add: tick(nowSec?) for timer minis (call each second from engine)
-// ✅ Make timer minis deterministic even if Date.now jitter
-// ✅ Provide quest:update fields: title, line1..line4, goalText, goalProgress, miniText, stateText
+// Hydration Quest (SHIM/ADAPTER) — PRODUCTION
+// ✅ Backward compatible: exports createHydrationQuest()
+// ✅ Works with hydration.safe.js which already owns mission logic
+// ✅ Adds: optional helper to reformat quest lines + emits quest:update passthrough
+// ✅ Safe to include even if unused
 
 'use strict';
 
+const WIN = (typeof window !== 'undefined') ? window : globalThis;
+
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+
+/**
+ * createHydrationQuest(opts?)
+ * - If your engine used to call this, it will still work.
+ * - In current Hydration SAFE, mission logic is inside hydration.safe.js.
+ *   This adapter just provides a consistent interface and optional formatting.
+ */
 export function createHydrationQuest(opts = {}){
-  const onUpdate = typeof opts.onUpdate === 'function' ? opts.onUpdate : ()=>{};
-  const onCelebrate = typeof opts.onCelebrate === 'function' ? opts.onCelebrate : ()=>{};
+  const CFG = Object.assign({
+    gameMode: 'hydration',
+    // if you want, you can pass DOM ids for legacy UI
+    ui: {
+      line1: 'quest-line1',
+      line2: 'quest-line2',
+      line3: 'quest-line3',
+      line4: 'quest-line4'
+    }
+  }, opts || {});
 
-  // optional: allow external clock (sec) for deterministic research mode
-  const useExternalClock = !!opts.useExternalClock;
-
-  const goals = [
-    { title:'เก็บน้ำดี 12 ครั้ง', need:12, kind:'good' },
-    { title:'Perfect 6 ครั้ง', need:6, kind:'perfect' },
-    { title:'คอมโบถึง 15', need:15, kind:'combo' }
-  ];
-
-  const minis = [
-    { title:'No-Junk Zone (8 วิ ห้ามโดนขยะ)', need:8, kind:'timerNoJunk' },
-    { title:'Water Rush (เก็บน้ำดี 6 ภายใน 9 วิ)', need:6, kind:'rushGood', window:9 },
-    { title:'Shield Save (บล็อกเลเซอร์/ขยะ 1 ครั้ง)', need:1, kind:'shieldBlock' },
-    { title:'Streak Perfect (Perfect ติดกัน 4)', need:4, kind:'streakPerfect' },
-    { title:'Endurance (คอมโบ 20 ก่อนหมดเวลา)', need:20, kind:'combo' }
-  ];
-
-  const Q = {
-    goalsAll: goals,
-    minisAll: minis,
-    goalIndex: 0,
-    miniIndex: 0,
-
+  const S = {
+    active: true,
+    stage: 1,
     goalsCleared: 0,
-    minisCleared: 0,
-
-    curGoalCount: 0,
-    curMiniCount: 0,
-
-    combo: 0,
-    noJunkUntil: 0,
-    rushUntil: 0,
-    rushStart: 0,
-    streakPerfect: 0,
-
-    // tick clock
-    lastTickSec: 0,
-    startedAtSec: 0,
+    goalsTotal: 1,
+    miniCleared: 0,
+    miniTotal: 0,
+    miniUrgent: false
   };
 
-  function activeGoal(){ return Q.goalsAll[Q.goalIndex] || null; }
-  function activeMini(){ return Q.minisAll[Q.miniIndex] || null; }
+  function updateFromSafe(payload){
+    if (!payload || typeof payload !== 'object') return;
 
-  function buildCompatPayload(){
-    const g = activeGoal();
-    const m = activeMini();
+    // Accept either quest:update payload or hha:score payload
+    if (payload.stage != null) S.stage = clamp(payload.stage,1,3)|0;
 
-    const goalTitle = g ? g.title : 'ALL CLEAR';
-    const miniTitle = m ? m.title : '—';
+    if (payload.goalsCleared != null) S.goalsCleared = payload.goalsCleared|0;
+    if (payload.goalsTotal != null) S.goalsTotal = payload.goalsTotal|0;
 
-    const goalProg = g ? `${Q.curGoalCount}/${g.need}` : `—`;
-    const miniProg = m ? `${Q.curMiniCount}/${m.need}` : `—`;
+    if (payload.miniCleared != null) S.miniCleared = payload.miniCleared|0;
+    if (payload.miniTotal != null) S.miniTotal = payload.miniTotal|0;
 
-    // quest:update friendly (line1..line4)
-    const title = `Hydration Quest`;
-    const line1 = g ? `Goal: ${g.title}` : `Goal: ALL CLEAR ✅`;
-    const line2 = g ? `Progress: ${goalProg}` : `Progress: —`;
-    const line3 = m ? `Mini: ${m.title}` : `Mini: —`;
-    const line4 = m ? `State: ${miniProg}` : `State: —`;
+    if (payload.miniUrgent != null) S.miniUrgent = !!payload.miniUrgent;
 
-    return {
-      // original fields
-      goalTitle,
-      miniTitle,
-      goalsCleared: Q.goalsCleared,
-      goalsTotal: Q.goalsAll.length,
-      minisCleared: Q.minisCleared,
-      miniTotal: Q.minisAll.length,
-      goalProg,
-      miniProg,
-
-      // compatibility fields for your HUD binder / cache system
-      title,
-      line1,
-      line2,
-      line3,
-      line4,
-
-      goalText: line1,
-      goalProgress: goalProg,
-      miniText: line3,
-      stateText: line4,
-    };
+    // Passthrough normalized quest update (useful for shared HUD/analytics)
+    emit('quest:update', {
+      gameMode: CFG.gameMode,
+      stage: S.stage,
+      goalsCleared: S.goalsCleared,
+      goalsTotal: S.goalsTotal,
+      miniCleared: S.miniCleared,
+      miniTotal: S.miniTotal,
+      miniUrgent: S.miniUrgent
+    });
   }
 
-  function emit(){
-    onUpdate(buildCompatPayload());
+  // Listen to hydration.safe.js events if present
+  const onQuestUpdate = (ev)=> updateFromSafe(ev?.detail);
+  const onScore = (ev)=> updateFromSafe(ev?.detail);
+
+  try{
+    WIN.addEventListener('quest:update', onQuestUpdate);
+    WIN.addEventListener('hha:score', onScore);
+  }catch(_){}
+
+  function dispose(){
+    if (!S.active) return;
+    S.active = false;
+    try{
+      WIN.removeEventListener('quest:update', onQuestUpdate);
+      WIN.removeEventListener('hha:score', onScore);
+    }catch(_){}
   }
 
-  function clearGoal(){
-    const g = activeGoal();
-    if (!g) return;
-    Q.goalsCleared++;
-    Q.goalIndex++;
-    Q.curGoalCount = 0;
-    onCelebrate('goal', { title: g.title });
-    emit();
-  }
-
-  function clearMini(){
-    const m = activeMini();
-    if (!m) return;
-    Q.minisCleared++;
-    Q.miniIndex++;
-    Q.curMiniCount = 0;
-
-    // reset mini state
-    Q.rushUntil = 0;
-    Q.noJunkUntil = 0;
-    Q.streakPerfect = 0;
-
-    onCelebrate('mini', { title: m.title });
-    emit();
-  }
-
-  // ✅ tick with stable clock
-  function tick(nowSec){
-    const m = activeMini();
-    if (!m) return;
-
-    const t = (useExternalClock && Number.isFinite(nowSec))
-      ? Number(nowSec)
-      : (Date.now()/1000);
-
-    if (!Q.startedAtSec) Q.startedAtSec = t;
-    if (!Q.lastTickSec) Q.lastTickSec = t;
-
-    // guard
-    if (t < Q.lastTickSec) Q.lastTickSec = t;
-    Q.lastTickSec = t;
-
-    if (m.kind === 'timerNoJunk'){
-      if (Q.noJunkUntil > 0){
-        const left = Math.max(0, Q.noJunkUntil - t);
-        Q.curMiniCount = Math.round((m.need - left));
-        if (left <= 0){
-          Q.curMiniCount = m.need;
-          clearMini();
-        } else emit();
-      }
-    }
-
-    if (m.kind === 'rushGood'){
-      if (Q.rushUntil > 0 && t > Q.rushUntil){
-        // failed rush → restart
-        Q.rushUntil = 0;
-        Q.curMiniCount = 0;
-        emit();
-      }
-    }
-  }
-
-  function onHit(ev){
-    // ev: {kind:'good'|'junk'|'power', perfect:boolean}
-    const g = activeGoal();
-    const m = activeMini();
-    const now = Date.now()/1000;
-
-    // ----- goals -----
-    if (g){
-      if (g.kind === 'good' && ev.kind === 'good'){
-        Q.curGoalCount++;
-        if (Q.curGoalCount >= g.need) clearGoal(); else emit();
-      }
-      if (g.kind === 'perfect' && ev.perfect){
-        Q.curGoalCount++;
-        if (Q.curGoalCount >= g.need) clearGoal(); else emit();
-      }
-      // combo handled via setCombo
-    }
-
-    // ----- minis -----
-    if (m){
-      if (m.kind === 'timerNoJunk'){
-        // start timer when first good hit
-        if (Q.noJunkUntil <= 0 && ev.kind === 'good'){
-          Q.noJunkUntil = now + m.need;
-          Q.curMiniCount = 0;
-          emit();
-        }
-        // if junk happens -> fail
-        if (ev.kind === 'junk'){
-          Q.noJunkUntil = 0;
-          Q.curMiniCount = 0;
-          emit();
-        }
-      }
-
-      if (m.kind === 'rushGood'){
-        if (ev.kind === 'good'){
-          if (Q.rushUntil <= 0){
-            Q.rushStart = now;
-            Q.rushUntil = now + (m.window || 9);
-            Q.curMiniCount = 0;
-          }
-          Q.curMiniCount++;
-          if (Q.curMiniCount >= m.need){
-            clearMini();
-          } else emit();
-        }
-        if (ev.kind === 'junk'){
-          Q.rushUntil = 0;
-          Q.curMiniCount = 0;
-          emit();
-        }
-      }
-
-      if (m.kind === 'streakPerfect'){
-        if (ev.perfect){
-          Q.streakPerfect++;
-          Q.curMiniCount = Q.streakPerfect;
-          if (Q.curMiniCount >= m.need) clearMini(); else emit();
-        } else if (ev.kind === 'good'){
-          Q.streakPerfect = 0;
-          Q.curMiniCount = 0;
-          emit();
-        }
-        if (ev.kind === 'junk'){
-          Q.streakPerfect = 0;
-          Q.curMiniCount = 0;
-          emit();
-        }
-      }
-      // shieldBlock handled via onSpecial
-      // combo handled via setCombo
-    }
-
-    // keep timers updated
-    tick();
-  }
-
-  function onSpecial(name){
-    const m = activeMini();
-    if (!m) return;
-
-    if (m.kind === 'shieldBlock' && name === 'shieldBlock'){
-      Q.curMiniCount = 1;
-      clearMini();
-      return;
-    }
-  }
-
-  function setCombo(combo){
-    Q.combo = Math.max(0, combo|0);
-
-    // goal combo
-    const g = activeGoal();
-    if (g && g.kind === 'combo'){
-      Q.curGoalCount = Math.max(Q.curGoalCount, Q.combo);
-      if (Q.curGoalCount >= g.need) clearGoal(); else emit();
-    }
-
-    // mini combo
-    const m = activeMini();
-    if (m && m.kind === 'combo'){
-      Q.curMiniCount = Math.max(Q.curMiniCount, Q.combo);
-      if (Q.curMiniCount >= m.need) clearMini(); else emit();
-    }
-  }
-
-  // initial emit
-  emit();
-
+  // Legacy-friendly API surface
   return {
-    get goalsCleared(){ return Q.goalsCleared; },
-    get goalsTotal(){ return Q.goalsAll.length; },
-    get minisCleared(){ return Q.minisCleared; },
-    get miniTotal(){ return Q.minisAll.length; },
-
-    tick,
-    onHit,
-    onSpecial,
-    setCombo,
+    getState: ()=>Object.assign({}, S),
+    setStage: (n)=>{ S.stage = clamp(n,1,3)|0; },
+    setGoal: (cleared,total)=>{
+      S.goalsCleared = cleared|0; S.goalsTotal = Math.max(1,total|0);
+      emit('quest:update', { gameMode: CFG.gameMode, stage:S.stage, goalsCleared:S.goalsCleared, goalsTotal:S.goalsTotal });
+    },
+    setMini: (cleared,total,urgent=false)=>{
+      S.miniCleared = cleared|0; S.miniTotal = Math.max(0,total|0); S.miniUrgent = !!urgent;
+      emit('quest:update', { gameMode: CFG.gameMode, stage:S.stage, miniCleared:S.miniCleared, miniTotal:S.miniTotal, miniUrgent:S.miniUrgent });
+    },
+    dispose
   };
 }
