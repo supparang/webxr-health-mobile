@@ -1,12 +1,11 @@
-/* === /herohealth/vr-groups/groups-vr.css ===
+/* === D: /herohealth/vr-groups/groups-vr.css ===
 Food Groups VR — ALL-IN CSS (PRODUCTION + ULTRA FX)
 ✅ HUD/Quest/Power/Coach layout (PC/Mobile/cVR)
-✅ Mobile/PC: click/tap targets works (playLayer pointer-events:auto, but UI pointer-events:none)
 ✅ cVR strict: targets pointer-events:none + shoot from crosshair (hha:shoot)
-✅ Keep vr-ui buttons clickable (EnterVR/Exit/Recenter)
-✅ Targets: spawn/hit/out animations + boss states
-✅ FX: fx-hit/fx-good/fx-bad/fx-perfect/fx-storm/fx-boss/fx-end/fx-miss
-✅ Pressure: press-1/2/3 classes (from engine)
+✅ playLayer true fullscreen + safe-area
+✅ FIX overlap: keep vr-ui buttons clickable + avoid HUD blocking
+✅ Targets: spawn / hit / out animations + boss states
+✅ FX classes: fx-hit/fx-good/fx-bad/fx-block/fx-perfect/fx-combo/fx-storm/fx-boss/fx-end/fx-miss
 */
 
 :root{
@@ -32,7 +31,8 @@ Food Groups VR — ALL-IN CSS (PRODUCTION + ULTRA FX)
   --radius:22px;
   --pill:999px;
 
-  /* play feel */
+  /* play bounds / feel */
+  --tapRing: rgba(34,197,94,0.20);
   --glow: 0 18px 42px rgba(0,0,0,.45);
   --soft: 0 10px 28px rgba(0,0,0,.30);
 
@@ -47,15 +47,12 @@ Food Groups VR — ALL-IN CSS (PRODUCTION + ULTRA FX)
 /* reset */
 *{ box-sizing:border-box; }
 html,body{
-  width:100%;
-  height:100%;
-  margin:0;
-  padding:0;
+  width:100%; height:100%;
+  margin:0; padding:0;
   overflow:hidden;
-  background:
-    radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
-    var(--bg);
+  background: radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+              radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
+              var(--bg);
   color:var(--text);
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   touch-action: manipulation;
@@ -74,32 +71,25 @@ html,body{
   z-index:40;
 }
 
-/* Keep vr-ui always above */
+/* Keep vr-ui (EnterVR/Exit/Recenter + crosshair) always above */
 .hha-vr-ui, .hha-crosshair{
   z-index:80 !important;
 }
-.hha-vr-ui *{ pointer-events:auto !important; }
-.hha-crosshair{ pointer-events:none !important; }
 
-/* Play layer: above XR but below HUD */
+/* Play layer on top of XR but under HUD */
 .playLayer{
   position:fixed;
   inset:0;
   z-index:20;
-  pointer-events:auto; /* ✅ must be auto or targets won't receive clicks */
+
+  /* ✅ PATCH: ต้อง auto ไม่งั้นคลิกเป้าไม่ได้ */
+  pointer-events:auto;
+
   overflow:hidden;
   background: transparent;
 }
 
-/* ✅ HARD rule: UI must NOT block hits */
-.hud, .questTop, .coachWrap, .powerWrap{
-  pointer-events:none;
-}
-.hud *, .questTop *, .coachWrap *, .powerWrap *{
-  pointer-events:none;
-}
-
-/* ✅ Only targets should be clickable inside playLayer */
+/* ✅ โหดแบบ safe: ให้คลิกได้เฉพาะ "เป้า" เท่านั้น */
 .playLayer *{ pointer-events:none; }
 
 /* ---------------- HUD ---------------- */
@@ -110,6 +100,7 @@ html,body{
   display:flex;
   justify-content:space-between;
   gap:10px;
+  pointer-events:none; /* do not block hits */
 }
 
 .hudLeft, .hudRight{
@@ -122,37 +113,33 @@ html,body{
 .pill{
   display:flex;
   align-items:center;
-  gap:10px;
+  gap:8px;
   padding:10px 12px;
   border-radius: var(--pill);
   background: rgba(2,6,23,.72);
   border: 1px solid rgba(148,163,184,.18);
   box-shadow: var(--soft);
+  pointer-events:none;
   backdrop-filter: blur(10px);
 }
 
 .pill .lbl{
-  font-weight:900;
+  font-weight:800;
   font-size:12px;
-  letter-spacing:.5px;
+  letter-spacing:.4px;
   color: var(--muted);
 }
 .pill .val{
-  font-weight:1000;
+  font-weight:900;
   font-size:16px;
   color: var(--text);
 }
 
-/* clutch (last seconds) */
+/* clutch state */
 body.clutch .pill{
   border-color: rgba(245,158,11,.40);
   box-shadow: 0 0 0 2px rgba(245,158,11,.10), var(--soft);
 }
-
-/* pressure visual (subtle) */
-body.press-1 .pill{ border-color: rgba(245,158,11,.28); }
-body.press-2 .pill{ border-color: rgba(239,68,68,.28); }
-body.press-3 .pill{ border-color: rgba(239,68,68,.42); box-shadow: 0 0 0 2px rgba(239,68,68,.10), var(--soft); }
 
 /* ---------------- Quest ---------------- */
 .questTop{
@@ -162,6 +149,7 @@ body.press-3 .pill{ border-color: rgba(239,68,68,.42); box-shadow: 0 0 0 2px rgb
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap:10px;
+  pointer-events:none;
 }
 
 .questCard{
@@ -178,13 +166,12 @@ body.press-3 .pill{ border-color: rgba(239,68,68,.42); box-shadow: 0 0 0 2px rgb
   justify-content:space-between;
   align-items:center;
   gap:10px;
-  font-weight:1000;
+  font-weight:900;
   letter-spacing:.2px;
-  font-size:13px;
 }
-
+.qTitle #goalTitle, .qTitle #miniTitle{ font-size:13px; color: var(--text); }
 .tag{
-  font-weight:1000;
+  font-weight:900;
   font-size:12px;
   padding:6px 10px;
   border-radius: var(--pill);
@@ -213,20 +200,57 @@ body.press-3 .pill{ border-color: rgba(239,68,68,.42); box-shadow: 0 0 0 2px rgb
   margin-top:8px;
   font-size:12px;
   color: var(--muted);
-  font-weight:800;
+  font-weight:700;
   min-height: 16px;
 }
 
-/* mini urgent */
-body.mini-urgent .questCard:nth-child(2){
+/* mini urgent (support both class names) */
+body.mini-urgent .questCard:nth-child(2),
+body.groups-mini-urgent .questCard:nth-child(2){
   border-color: rgba(245,158,11,.45);
   box-shadow: 0 0 0 2px rgba(245,158,11,.10), var(--soft);
 }
 
-/* storm urgent */
+/* storm urgent highlight */
 body.groups-storm-urgent .questCard:nth-child(1){
   border-color: rgba(34,211,238,.45);
   box-shadow: 0 0 0 2px rgba(34,211,238,.10), var(--soft);
+}
+
+/* ---------------- Power ---------------- */
+.powerWrap{
+  bottom: calc(14px + var(--sab));
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  display:flex;
+  justify-content:center;
+  pointer-events:none;
+}
+
+.powerCard{
+  width:min(520px, 100%);
+  padding:12px 12px 10px;
+  border-radius: var(--radius);
+  background: rgba(2,6,23,.72);
+  border: 1px solid rgba(148,163,184,.18);
+  box-shadow: var(--soft);
+  backdrop-filter: blur(10px);
+}
+
+.pHead{
+  font-weight:900;
+  color: var(--text);
+  font-size:13px;
+}
+.powerBar{ margin-top:10px; height:12px; }
+.powerBar .fill{
+  background: linear-gradient(90deg, rgba(167,139,250,.90), rgba(34,211,238,.82));
+}
+.pFoot{
+  margin-top:8px;
+  font-size:12px;
+  font-weight:800;
+  color: var(--muted);
 }
 
 /* ---------------- Coach ---------------- */
@@ -234,6 +258,7 @@ body.groups-storm-urgent .questCard:nth-child(1){
   left: calc(12px + var(--sal));
   top: calc(164px + var(--sat));
   width: min(320px, 58vw);
+  pointer-events:none;
 }
 
 .coachCard{
@@ -260,51 +285,16 @@ body.groups-storm-urgent .questCard:nth-child(1){
 
 .coachBubble{ flex: 1 1 auto; }
 .coachName{
-  font-weight:1000;
+  font-weight:900;
   font-size:12px;
   color: rgba(34,197,94,.95);
   margin-bottom:4px;
 }
 .coachText{
-  font-weight:900;
+  font-weight:800;
   font-size:13px;
   color: var(--text);
   line-height:1.25;
-}
-
-/* ---------------- Power ---------------- */
-.powerWrap{
-  bottom: calc(14px + var(--sab));
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  display:flex;
-  justify-content:center;
-}
-
-.powerCard{
-  width:min(520px, 100%);
-  padding:12px 12px 10px;
-  border-radius: var(--radius);
-  background: rgba(2,6,23,.72);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: var(--soft);
-  backdrop-filter: blur(10px);
-}
-
-.pHead{
-  font-weight:1000;
-  color: var(--text);
-  font-size:13px;
-}
-.powerBar{ margin-top:10px; height:12px; }
-.powerBar .fill{
-  background: linear-gradient(90deg, rgba(167,139,250,.90), rgba(34,211,238,.82));
-}
-.pFoot{
-  margin-top:8px;
-  font-size:12px;
-  font-weight:900;
-  color: var(--muted);
 }
 
 /* ---------------- Targets ---------------- */
@@ -320,10 +310,10 @@ body.groups-storm-urgent .questCard:nth-child(1){
   align-items:center;
   justify-content:center;
 
-  pointer-events:auto; /* ✅ allow clicking target */
+  /* ✅ เป้ารับคลิกได้ (แต่ playLayer * ถูกปิดไว้แล้ว -> เราเปิดให้เฉพาะเป้า) */
+  pointer-events:auto;
   cursor:pointer;
   user-select:none;
-  -webkit-tap-highlight-color: transparent;
 
   background: rgba(15,23,42,.78);
   border: 2px solid rgba(148,163,184,.22);
@@ -359,7 +349,6 @@ body.groups-storm-urgent .questCard:nth-child(1){
 .fg-junk{ border-color: rgba(239,68,68,.52); }
 .fg-junk::after{ border-color: rgba(239,68,68,.35); }
 
-/* boss */
 .fg-boss{
   width: calc(var(--tSize) * 1.05);
   height: calc(var(--tSize) * 1.05);
@@ -377,6 +366,8 @@ body.groups-storm-urgent .questCard:nth-child(1){
   0%,100%{ transform: scale(1); opacity:.55; }
   50%{ transform: scale(1.06); opacity:.85; }
 }
+
+/* boss hurt/weak */
 .fg-boss-hurt{ animation: bossHurt .12s ease-in-out; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
@@ -391,7 +382,7 @@ body.groups-storm-urgent .questCard:nth-child(1){
 /* spawn / hit / out */
 .fg-target.spawn{ animation: popIn .16s ease-out; }
 @keyframes popIn{
-  from{ transform: translate(-50%,-50%) scale(0.72); opacity:0; }
+  from{ transform: translate(-50%,-50%) scale(0.72); opacity:.0; }
   to{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
 }
 
@@ -426,7 +417,6 @@ body.groups-storm .fg-target::after{
   padding: 18px;
   background: rgba(2,6,23,.72);
   backdrop-filter: blur(10px);
-  pointer-events:auto;
 }
 .overlay.hidden{ display:none; }
 
@@ -437,7 +427,6 @@ body.groups-storm .fg-target::after{
   border: 1px solid rgba(148,163,184,.20);
   box-shadow: 0 24px 70px rgba(0,0,0,.55);
   padding: 16px;
-  pointer-events:auto;
 }
 .title{
   font-size: 20px;
@@ -447,7 +436,7 @@ body.groups-storm .fg-target::after{
 .sub{
   margin-top: 6px;
   color: var(--muted);
-  font-weight: 900;
+  font-weight: 800;
   font-size: 13px;
 }
 .grid2{
@@ -473,7 +462,7 @@ body.groups-storm .fg-target::after{
   font-size: 20px;
 }
 
-.row{ display:flex; gap:10px; margin-top: 12px; }
+.row{ display:flex; gap:10px; margin-top: 10px; }
 .row2{ justify-content:space-between; }
 .btn{
   flex:1 1 auto;
@@ -488,7 +477,6 @@ body.groups-storm .fg-target::after{
   color: var(--text);
   font-weight: 1000;
   cursor:pointer;
-  pointer-events:auto;
 }
 .btn:active{ transform: translateY(1px); }
 .btn-strong{
@@ -499,23 +487,31 @@ body.groups-storm .fg-target::after{
 .note{
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 /* ---------------- Views ---------------- */
 body.view-pc .coachWrap{ width: 320px; }
+body.view-pc .questTop{ grid-template-columns: 1fr 1fr; }
 body.view-pc .hudLeft, body.view-pc .hudRight{ max-width: 46%; }
 
 body.view-mobile .coachWrap{ width: min(320px, 64vw); }
 
-/* ✅ cVR strict: shoot only from crosshair */
+body.view-vr .hud, body.view-vr .questTop, body.view-vr .powerWrap, body.view-vr .coachWrap{
+  transform: translateZ(0);
+}
+
+/* ✅ cVR strict: disable pointer events on targets (shoot only from crosshair) */
 body.view-cvr .playLayer{ pointer-events:none; }
 body.view-cvr .fg-target{
   pointer-events:none !important;
   cursor: default !important;
 }
 
-/* Responsive */
+/* Allow end overlay buttons to be clickable */
+.overlay, .panel, .btn{ pointer-events:auto; }
+
+/* Responsive tightening */
 @media (max-width: 420px){
   :root{ --tSize: 70px; --tFont: 38px; }
   .questTop{ grid-template-columns: 1fr; top: calc(70px + var(--sat)); }
@@ -528,28 +524,40 @@ body.view-cvr .fg-target{
   .powerWrap{ bottom: calc(10px + var(--sab)); }
 }
 
-/* ===================== ULTRA FX ===================== */
+/* Ensure vr-ui buttons not blocked by our UI */
+.hha-vr-ui *{ pointer-events:auto !important; }
+.hha-crosshair{ pointer-events:none !important; }
 
-/* vignette */
+/* ===================== ULTRA FX (body classes) ===================== */
+
+/* vignette layer (cheap) */
 body::before{
   content:'';
   position:fixed; inset:0;
   pointer-events:none;
-  z-index:18; /* under targets (20) but above XR (0) */
+  z-index:18; /* under playLayer targets (20) but above XR (0) */
   background: radial-gradient(circle at center,
     rgba(0,0,0,0) 40%,
     var(--fxVig) 100%);
-  opacity: 0;
+  opacity: .0;
   transition: opacity .18s ease;
 }
+
 body.fx-hit::before{ opacity:.18; }
-body.fx-miss::before{ opacity:.20; }
 body.fx-bad::before{ opacity:.26; }
 body.fx-end::before{ opacity:.22; }
 body.fx-storm::before{ opacity:.20; }
 body.fx-boss::before{ opacity:.22; }
 
-/* quick kick */
+body.fx-hit .playLayer{ filter: brightness(1.08) contrast(1.05); }
+body.fx-good .playLayer{ filter: saturate(1.08) brightness(1.06); }
+body.fx-bad .playLayer{ filter: hue-rotate(-8deg) saturate(1.12) brightness(0.98); }
+body.fx-end .playLayer{ filter: brightness(1.10) saturate(1.10); }
+
+body.fx-perfect .questTop .fill{ filter: brightness(1.08) saturate(1.12); }
+body.fx-combo .pill{ box-shadow: 0 0 0 2px rgba(167,139,250,.12), var(--soft); }
+
+/* subtle screen kick (very safe) */
 @keyframes fxKick{
   0%{ transform: translate3d(0,0,0); }
   35%{ transform: translate3d(1px,-1px,0); }
@@ -558,7 +566,6 @@ body.fx-boss::before{ opacity:.22; }
 }
 body.fx-hit .playLayer{ animation: fxKick .14s linear; }
 body.fx-bad .playLayer{ animation: fxKick .16s linear; }
-body.fx-miss .playLayer{ animation: fxKick .14s linear; }
 
 /* storm pulse */
 @keyframes fxStormPulse{
@@ -567,7 +574,7 @@ body.fx-miss .playLayer{ animation: fxKick .14s linear; }
 }
 body.fx-storm .playLayer{ animation: fxStormPulse .9s ease-in-out; }
 
-/* boss beat */
+/* boss heartbeat */
 @keyframes fxBossBeat{
   0%,100%{ filter: brightness(1.02); }
   40%{ filter: brightness(1.10) saturate(1.14); }
