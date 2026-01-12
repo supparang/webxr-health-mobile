@@ -1,17 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (HHA Standard + Boss++ Patch A+B+C)
+// GoodJunkVR SAFE — PRODUCTION (HHA Standard + Boss++ Patch A+B+C + Layout Safe)
 // ✅ Mobile / PC / VR(Cardboard) / cVR
 // ✅ HUD-safe spawn via CSS vars: --gj-top-safe / --gj-bottom-safe
+// ✅ Avoid VR-UI buttons via CSS vars: --hha-vrui-w / --hha-vrui-h (from vr-ui.js)
 // ✅ Miss definition: miss = good expired + junk hit; Shield-blocked junk does NOT count as miss
 // ✅ Mini "เก็บให้ไว" -> instant pass (fast_hits) with view-based threshold
-// ✅ Global FX events: hha:time(timeLeftSec) / hha:score(score,misses) / hha:judge(kind,misses,deltaMiss,...)
-// ✅ Boss++:
-//    - miss >= 4 => BOSS starts
-//    - miss >= 5 => RAGE (boss faster / phase2 harsher)
-//    - HP: easy 10 / normal 12 / hard 14
-//    - phase2 last 6s (spawn faster + more junk + boss teleports faster)
+// ✅ Global FX events: hha:time / hha:score / hha:judge / hha:end
+// ✅ Boss++: miss>=4 start, miss>=5 rage, phase2 last 6s, HP by diff
 // ✅ End summary + back-to-HUB + save last summary (HHA_LAST_SUMMARY)
-// ✅ Logger compatible with hha-cloud-logger.js
 
 'use strict';
 
@@ -172,10 +168,8 @@ export function boot(payload = {}) {
     };
   })();
 
-  // play vs research (adaptive off in research)
   const adaptiveOn = (runMode !== 'research');
 
-  // Boss thresholds (as requested)
   const FX_THRESH = {
     stormSec: 30,
     bossMiss: 4,
@@ -227,10 +221,8 @@ export function boot(payload = {}) {
     combo: 0,
     comboMax: 0,
 
-    // misses (HHA standard for GoodJunk: good expired + junk hit)
     miss: 0,
 
-    // counts
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
@@ -242,15 +234,12 @@ export function boot(payload = {}) {
     nHitJunkGuard: 0,
     nExpireGood: 0,
 
-    // reaction times
-    rtGood: [],  // ms
+    rtGood: [],
     rtBreakdown: { lt300:0, lt450:0, lt700:0, ge700:0 },
 
-    // fever / shield
-    fever: 0, // 0-100
-    shield: 0, // integer pills
+    fever: 0,
+    shield: 0,
 
-    // quest
     goals: [],
     goal: null,
     goalsCleared: 0,
@@ -262,11 +251,9 @@ export function boot(payload = {}) {
     miniSeq: [],
     miniIndex: 0,
 
-    // spawn
     spawnAcc: 0,
-    targets: new Map(), // id => targetObj
+    targets: new Map(),
 
-    // boss++ (Patch A+B+C)
     boss: {
       active:false,
       hp: 0,
@@ -274,15 +261,14 @@ export function boot(payload = {}) {
       endsAtMs: 0,
       phase2AtMs: 0,
       lastWarpMs: 0,
-      warpEveryMs: 720,      // phase1 default
-      warpEveryMsP2: 460,    // phase2 faster
-      warpEveryMsRage: 420,  // rage phase2 fastest
-      totalSec: 14,          // boss fight length (fair but intense)
+      warpEveryMs: 720,
+      warpEveryMsP2: 460,
+      warpEveryMsRage: 420,
+      totalSec: 14,
       phase2Sec: FX_THRESH.phase2Sec,
-      targetId: null,        // boss target id
+      targetId: null,
     },
 
-    // session
     sessionId: null,
     startTimeIso: new Date().toISOString(),
     endTimeIso: null,
@@ -293,7 +279,7 @@ export function boot(payload = {}) {
     if(view==='pc')  return { thrMs: 440, target: 2, timeLimitSec: 10 };
     if(view==='cvr') return { thrMs: 460, target: 2, timeLimitSec: 10 };
     if(view==='vr')  return { thrMs: 480, target: 2, timeLimitSec: 10 };
-    return { thrMs: 470, target: 2, timeLimitSec: 10 }; // mobile
+    return { thrMs: 470, target: 2, timeLimitSec: 10 };
   }
 
   function pickMiniSequence(view='mobile'){
@@ -423,7 +409,6 @@ export function boot(payload = {}) {
     const before = state.miss;
     state.miss = Math.max(0, Math.floor(v));
     if(HUD.miss) HUD.miss.textContent = String(state.miss);
-    // keep score event updated for global FX director
     if(state.miss !== before) emit('hha:score', { score: state.score, misses: state.miss });
   }
   function setTimeLeft(sec){
@@ -490,20 +475,51 @@ export function boot(payload = {}) {
     }catch(_){ return fallbackPx; }
   }
 
+  function getLayer(){
+    return (DOC.body?.classList.contains('view-cvr') && LAYER_R) ? LAYER_L : LAYER_L;
+  }
+
   function getSafeRect(){
-    const W = DOC.documentElement.clientWidth;
-    const H = DOC.documentElement.clientHeight;
+    const layer = getLayer();
+    if(!layer){
+      const W = DOC.documentElement.clientWidth;
+      const H = DOC.documentElement.clientHeight;
+      return { W,H, xMin:0, xMax:W, yMin:0, yMax:H, layerLeft:0, layerTop:0 };
+    }
+
+    const r = layer.getBoundingClientRect();
+    const W = Math.max(1, Math.floor(r.width));
+    const H = Math.max(1, Math.floor(r.height));
 
     const sat = readRootPxVar('--sat', 0);
     const topSafe = readRootPxVar('--gj-top-safe', 130 + sat);
     const botSafe = readRootPxVar('--gj-bottom-safe', 120);
 
-    const xMin = Math.floor(W * 0.12);
-    const xMax = Math.floor(W * 0.88);
-    const yMin = Math.floor(topSafe);
-    const yMax = Math.floor(Math.max(yMin + 120, H - botSafe));
+    let insetX = Math.max(14, Math.floor(W * 0.06));
+    let insetY = Math.max(14, Math.floor(H * 0.06));
 
-    return { W,H, xMin,xMax, yMin,yMax };
+    // ✅ avoid VR-UI button cluster (top-left) if present
+    const vruiH = readRootPxVar('--hha-vrui-h', 0);
+    const vruiW = readRootPxVar('--hha-vrui-w', 0);
+    insetY = Math.max(insetY, vruiH + 10);
+    insetX = Math.max(insetX, Math.min(90, Math.floor(vruiW * 0.35)));
+
+    const xMin = clamp(insetX, 0, W - 10);
+    const xMax = clamp(W - insetX, xMin + 10, W);
+    const yMin = clamp(topSafe + insetY, 0, H - 10);
+    const yMax = clamp(H - (botSafe + insetY), yMin + 10, H);
+
+    return {
+      W, H,
+      xMin, xMax, yMin, yMax,
+      layerLeft: Math.floor(r.left),
+      layerTop:  Math.floor(r.top),
+    };
+  }
+
+  function localToClient(x,y){
+    const rect = getSafeRect();
+    return { cx: rect.layerLeft + x, cy: rect.layerTop + y };
   }
 
   // ----------------------- targets -----------------------
@@ -515,11 +531,10 @@ export function boot(payload = {}) {
     star:   ['⭐'],
     shield: ['🛡️'],
     diamond:['💎'],
-    boss:   ['🦠'], // boss icon
+    boss:   ['🦠'],
   };
 
   function makeTargetKind(){
-    // If boss active, occasionally inject extra junk pressure (fairly)
     const bossOn = state.boss.active;
 
     const diamondW = (diff==='hard') ? 0.012 : 0.015;
@@ -528,11 +543,10 @@ export function boot(payload = {}) {
     let junkW   = DIFF.junkRate;
 
     if(bossOn){
-      // during boss: slightly more junk + slightly less shield
       const isP2 = bossIsPhase2();
       junkW = clamp(junkW + (isP2 ? 0.10 : 0.06), 0.05, 0.60);
       shieldW = clamp(shieldW - (isP2 ? 0.018 : 0.012), 0.01, 0.10);
-      starW = clamp(starW + (isP2 ? 0.01 : 0.006), 0.03, 0.14); // give more chance to recover
+      starW = clamp(starW + (isP2 ? 0.01 : 0.006), 0.03, 0.14);
     }
 
     const goodW = Math.max(0.01, 1 - (junkW + starW + shieldW + diamondW));
@@ -554,7 +568,7 @@ export function boot(payload = {}) {
     const id = opts.id || `t${++targetSeq}`;
 
     const elL = DOC.createElement('div');
-    elL.className = 'gj-target spawn';
+    elL.className = 'gj-target';
     elL.dataset.id = id;
     elL.dataset.kind = kind;
     elL.textContent = opts.emoji || pickEmoji(kind);
@@ -583,7 +597,7 @@ export function boot(payload = {}) {
       data: opts.data || null,
     };
 
-    // pointer hit
+    // pointer hit (PC/Mobile) — note: in cVR CSS should set pointer-events:none
     elL.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       onTargetHit(tObj, { via:'tap', clientX: ev.clientX, clientY: ev.clientY });
@@ -721,7 +735,7 @@ export function boot(payload = {}) {
     }
   }
 
-  // ----------------------- boss++ (Patch A+B+C) -----------------------
+  // ----------------------- boss++ -----------------------
   function bossIsPhase2(){
     if(!state.boss.active) return false;
     return now() >= state.boss.phase2AtMs;
@@ -729,7 +743,6 @@ export function boot(payload = {}) {
 
   function bossEnsure(){
     if(state.boss.active) return;
-    // trigger when miss >= 4
     if(state.miss < FX_THRESH.bossMiss) return;
 
     state.boss.active = true;
@@ -741,13 +754,11 @@ export function boot(payload = {}) {
     state.boss.phase2AtMs = state.boss.endsAtMs - state.boss.phase2Sec * 1000;
     state.boss.lastWarpMs = 0;
 
-    // spawn boss target (big, persistent)
     const rect = getSafeRect();
     const x = Math.floor(randIn(rng, rect.xMin, rect.xMax));
     const y = Math.floor(randIn(rng, rect.yMin, rect.yMax));
     const size = clamp(86 + randIn(rng, -6, 10), 78, 104);
 
-    // boss uses special kind "boss"
     const bossId = `boss${++targetSeq}`;
     state.boss.targetId = bossId;
 
@@ -759,13 +770,14 @@ export function boot(payload = {}) {
       data: { hp: state.boss.hp, hpMax: state.boss.hpMax }
     });
 
-    // announce
     emit('hha:judge', { kind:'boss', label:'BOSS!', misses: state.miss, deltaMiss:0 });
     bodyPulse('gj-boss-start', 360);
-    fxBurst(x,y,'bad');
-    fxPop(x, y-10, 'BOSS!', 'big');
 
-    // small reward: give 1 shield so kids still have chance
+    // ✅ FIX: FX uses client coords
+    const cc = localToClient(x, y);
+    fxBurst(cc.cx, cc.cy,'bad');
+    fxPop(cc.cx, cc.cy-10, 'BOSS!', 'big');
+
     addShield(1);
   }
 
@@ -783,7 +795,6 @@ export function boot(payload = {}) {
     if(state.boss.lastWarpMs && (t - state.boss.lastWarpMs) < every) return;
     state.boss.lastWarpMs = t;
 
-    // move boss to new safe position
     const bossObj = state.targets.get(state.boss.targetId);
     if(!bossObj || bossObj.hit) return;
 
@@ -808,10 +819,8 @@ export function boot(payload = {}) {
   function bossTick(){
     if(!state.boss.active) return;
 
-    // if boss time over => penalty but still fair
     const t = now();
     if(t >= state.boss.endsAtMs){
-      // boss failed => +1 miss (pressure), remove boss, continue run
       const before = state.miss;
       setMiss(state.miss + 1);
       updateGoalsOnMiss();
@@ -825,32 +834,25 @@ export function boot(payload = {}) {
       return;
     }
 
-    // phase2 highlight
-    if(bossIsPhase2()){
-      DOC.body.classList.add('gj-boss-p2');
-    }else{
-      DOC.body.classList.remove('gj-boss-p2');
-    }
+    if(bossIsPhase2()) DOC.body.classList.add('gj-boss-p2');
+    else DOC.body.classList.remove('gj-boss-p2');
 
-    // warp movement
     bossWarpIfNeeded();
   }
 
-  function bossHit(metaX, metaY){
+  function bossHit(clientX, clientY){
     if(!state.boss.active) return false;
     const bossObj = state.targets.get(state.boss.targetId);
     if(!bossObj || bossObj.hit) return false;
 
     state.boss.hp = Math.max(0, state.boss.hp - 1);
 
-    // Visual
-    fxBurst(metaX, metaY, 'good');
-    fxPop(metaX, metaY-6, `-${1} HP`, 'score');
+    fxBurst(clientX, clientY, 'good');
+    fxPop(clientX, clientY-6, `-1 HP`, 'score');
     bodyPulse('gj-boss-hit', 140);
 
     emit('hha:judge', { kind:'boss', label:'HIT BOSS', misses: state.miss, deltaMiss:0, bossHp: state.boss.hp, bossHpMax: state.boss.hpMax });
 
-    // If boss down => reward
     if(state.boss.hp <= 0){
       bossEnd(true);
     }
@@ -866,7 +868,6 @@ export function boot(payload = {}) {
     DOC.body.classList.remove('gj-boss-p2');
 
     if(win){
-      // rewards (fair): +score bonus + reduce miss by 1 (not below 0) + shield + celebrate
       const bonus = 80;
       setScore(state.score + bonus);
       setMiss(Math.max(0, state.miss - 1));
@@ -878,7 +879,6 @@ export function boot(payload = {}) {
       fxPop(DOC.documentElement.clientWidth/2, DOC.documentElement.clientHeight*0.30, `BOSS DOWN +${bonus}`, 'big');
       bodyPulse('gj-boss-down', 360);
     }else{
-      // no extra penalty beyond tick
       addFever(10);
     }
   }
@@ -888,9 +888,7 @@ export function boot(payload = {}) {
     state.combo++;
     if(state.combo > state.comboMax) state.comboMax = state.combo;
   }
-  function resetCombo(){
-    state.combo = 0;
-  }
+  function resetCombo(){ state.combo = 0; }
 
   function onTargetHit(tObj, meta={}){
     if(!tObj || tObj.hit || state.ended) return;
@@ -903,9 +901,7 @@ export function boot(payload = {}) {
     const px = meta.clientX ?? tObj.x;
     const py = meta.clientY ?? tObj.y;
 
-    // boss direct hit
     if(kind === 'boss'){
-      // boss never disappears on a hit; we just "consume" this tap as boss hit and keep it
       tObj.hit = false; // keep alive
       bossHit(px, py);
       return;
@@ -998,27 +994,24 @@ export function boot(payload = {}) {
     setMiniText();
     removeTarget(tObj);
 
-    // Boss trigger check after any miss increases
     bossEnsure();
 
-    // end conditions
     if(state.miss >= DIFF.missLimit){
       endGame('miss-limit');
     }
   }
 
-  // cVR shooting (crosshair center)
+  // cVR/VR shooting (crosshair center)
   function shootCrosshair(){
     if(state.ended) return;
     const cx = Math.floor(DOC.documentElement.clientWidth/2);
     const cy = Math.floor(DOC.documentElement.clientHeight/2);
 
-    // boss priority: if boss is near crosshair, hit boss first
     if(state.boss.active){
       const bossObj = state.targets.get(state.boss.targetId);
       if(bossObj && !bossObj.hit){
         const dBoss = Math.hypot(bossObj.x - cx, bossObj.y - cy);
-        const bossR = (state.miss >= FX_THRESH.rageMiss) ? 92 : 100; // rage: tighter
+        const bossR = (state.miss >= FX_THRESH.rageMiss) ? 92 : 100;
         if(dBoss <= bossR){
           bossHit(cx, cy);
           return;
@@ -1033,9 +1026,7 @@ export function boot(payload = {}) {
     for(const t of state.targets.values()){
       if(t.hit) continue;
       if(t.kind === 'boss') continue;
-      const dx = (t.x - cx);
-      const dy = (t.y - cy);
-      const d = Math.hypot(dx,dy);
+      const d = Math.hypot((t.x - cx),(t.y - cy));
       if(d < R && d < bestD){
         bestD = d;
         best = t;
@@ -1057,14 +1048,12 @@ export function boot(payload = {}) {
     const t = now();
     for(const tObj of state.targets.values()){
       if(tObj.hit) continue;
-      if(tObj.kind === 'boss') continue; // boss never expires
+      if(tObj.kind === 'boss') continue;
 
-      const age = t - tObj.bornAt;
-      if(age >= tObj.lifeMs){
+      if((t - tObj.bornAt) >= tObj.lifeMs){
         tObj.hit = true;
-        const kind = tObj.kind;
 
-        if(kind === 'good'){
+        if(tObj.kind === 'good'){
           state.nExpireGood++;
           resetCombo();
           addFever(6);
@@ -1117,7 +1106,6 @@ export function boot(payload = {}) {
       if(state.timeLeftSec <= 10) r *= 1.15;
     }
 
-    // Boss pressure (still fair)
     if(bossOn){
       r *= isP2 ? (isRage ? 1.55 : 1.40) : 1.18;
     }
@@ -1148,7 +1136,6 @@ export function boot(payload = {}) {
   }
 
   function showEndOverlay(summary){
-    // (same as your previous version)
     const ov = DOC.createElement('div');
     ov.id = 'hhaEndOverlay';
     ov.style.cssText = `
@@ -1241,7 +1228,6 @@ export function boot(payload = {}) {
     if(state.ended) return;
     state.ended = true;
 
-    // cleanup boss + targets
     if(state.boss.active) bossEnd(false);
     for(const tObj of state.targets.values()) removeTarget(tObj);
     state.targets.clear();
@@ -1340,33 +1326,26 @@ export function boot(payload = {}) {
 
     state.tNow = t;
 
-    // time
     state.timeLeftSec -= dt;
     if(state.timeLeftSec < 0) state.timeLeftSec = 0;
     setTimeLeft(state.timeLeftSec);
     updateLowTimeFx();
 
-    // boss tick
     bossEnsure();
     bossTick();
 
-    // mini tick
     tickMini(dt);
 
-    // spawn
     state.spawnAcc += dt * spawnRate();
     while(state.spawnAcc >= 1){
       state.spawnAcc -= 1;
       spawnOne();
       if(adaptiveOn && state.timeLeftSec <= 8 && rng() < 0.12) spawnOne();
-      // during boss phase2, allow a tiny extra spawn burst (intense)
       if(state.boss.active && bossIsPhase2() && rng() < 0.18) spawnOne();
     }
 
-    // expiry
     expireTargets();
 
-    // end by time
     if(state.timeLeftSec <= 0){
       endGame('timeup');
       return;
@@ -1433,7 +1412,6 @@ export function boot(payload = {}) {
 
   start();
 
-  // ----------------------- visibility flush helpers -----------------------
   DOC.addEventListener('visibilitychange', ()=>{
     try{
       if(DOC.visibilityState === 'hidden' && !state.ended){
@@ -1450,6 +1428,5 @@ export function boot(payload = {}) {
     }catch(_){}
   }, { passive:true });
 
-  // expose debug
   ROOT.__GJ_STATE__ = state;
 }
