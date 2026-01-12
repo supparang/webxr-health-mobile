@@ -1,14 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — PACK G
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — PACK H
 // HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive ON
-//   - research/study: deterministic seed + adaptive OFF
-// ✅ Emits:
-//   hha:start, hha:score, hha:time, quest:update,
-//   hha:coach, hha:judge, hha:end
+// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:end
 // ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot) — LOCK HITTEST (cVR strict)
+// ✅ PACK H: aim-lock glow + miss FX + tiny beep
 // ------------------------------------------------
 
 'use strict';
@@ -26,7 +23,8 @@ const clamp = (v, a, b) => {
   return v < a ? a : (v > b ? b : v);
 };
 
-const pct = (n) => Math.round((Number(n) || 0s0er0) * 100) / 100;
+// ✅ FIX: percent helper
+const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
   let t = seed >>> 0;
@@ -85,7 +83,9 @@ const STATE = {
   spawner:null,
 
   // shoot
-  shootBound:false
+  shootBound:false,
+  lastLockEl:null,
+  missFxAt:0
 };
 
 /* ------------------------------------------------
@@ -253,7 +253,58 @@ function onExpireGood(){
 }
 
 /* ------------------------------------------------
- * SHOOT (Crosshair lock) — PACK G
+ * PACK H: tiny beep + miss flash
+ * ------------------------------------------------ */
+let __HHA_AC = null;
+function beep(freq=520, ms=55, gain=0.04){
+  try{
+    const AC = WIN.AudioContext || WIN.webkitAudioContext;
+    if(!AC) return;
+    __HHA_AC = __HHA_AC || new AC();
+    const ctx = __HHA_AC;
+
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.value = gain;
+
+    o.connect(g);
+    g.connect(ctx.destination);
+
+    const t0 = ctx.currentTime;
+    g.gain.setValueAtTime(gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+
+    o.start(t0);
+    o.stop(t0 + ms/1000);
+  }catch(_){}
+}
+
+function flashMiss(){
+  const now = Date.now();
+  if(now - STATE.missFxAt < 140) return; // rate-limit
+  STATE.missFxAt = now;
+
+  DOC.body.classList.add('fx-miss');
+  clearTimeout(WIN.__HHA_PLATE_MISS_TO__);
+  WIN.__HHA_PLATE_MISS_TO__ = setTimeout(()=>{
+    DOC.body.classList.remove('fx-miss');
+  }, 120);
+
+  // Particles text (if present)
+  try{
+    const P = WIN.Particles;
+    if(P && typeof P.popText === 'function'){
+      P.popText(innerWidth*0.5, innerHeight*0.52, 'MISS', 'fx-missText');
+    }
+  }catch(_){}
+
+  beep(460, 60, 0.045);
+}
+
+/* ------------------------------------------------
+ * SHOOT (Crosshair lock) — PACK H
  * ------------------------------------------------ */
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
@@ -266,8 +317,8 @@ function pickTargetNearPoint(px, py, lockPx){
   const els = layer.querySelectorAll('.plateTarget');
   if(!els || !els.length) return null;
 
-  const rLock2 = (Number(lockPx)||28);
-  const lock2 = rLock2 * rLock2;
+  const rLock = (Number(lockPx)||28);
+  const lock2 = rLock * rLock;
 
   let bestEl = null;
   let bestD2 = Infinity;
@@ -284,6 +335,20 @@ function pickTargetNearPoint(px, py, lockPx){
   }
   if(bestEl && bestD2 <= lock2) return bestEl;
   return null;
+}
+
+function glowLock(el){
+  if(!el) return;
+  if(STATE.lastLockEl && STATE.lastLockEl !== el){
+    try{ STATE.lastLockEl.classList.remove('aim-lock'); }catch(_){}
+  }
+  STATE.lastLockEl = el;
+
+  el.classList.add('aim-lock');
+  clearTimeout(el.__aimLockTO__);
+  el.__aimLockTO__ = setTimeout(()=>{
+    try{ el.classList.remove('aim-lock'); }catch(_){}
+  }, 120);
 }
 
 function bindShootOnce(){
@@ -304,15 +369,16 @@ function bindShootOnce(){
       aimX = innerWidth * 0.5;
       aimY = innerHeight * 0.5;
     }else{
-      // fallback center if not provided
       if(!isFinite(aimX)) aimX = innerWidth * 0.5;
       if(!isFinite(aimY)) aimY = innerHeight * 0.5;
     }
 
     const el = pickTargetNearPoint(aimX, aimY, lockPx);
     if(el){
-      // programmatic click works even when pointer-events:none (cVR strict)
+      glowLock(el);
       try{ el.click(); }catch(_){}
+    }else{
+      flashMiss();
     }
   }, { passive:true });
 }
@@ -325,23 +391,18 @@ function makeSpawner(mount){
     mount,
     seed: STATE.cfg.seed,
 
-    // speed baseline (diff)
     spawnRate: STATE.cfg.diff === 'hard' ? 700 : 900,
     expireMs: 1800,
 
-    // IMPORTANT: plate uses its own class
     targetClass: 'plateTarget',
-
     sizeRange:[44,64],
     kinds:[
       { kind:'good', weight:0.7 },
       { kind:'junk', weight:0.3 }
     ],
 
-    // optional: avoid HUD area (ถ้าต้องการเพิ่ม selector ก็เติมได้เลย)
     safeSelectors: ['#hud', '#endOverlay', '.hha-vr-ui', '.vr-ui', '#vrui'],
 
-    // Assign groupIndex for good items (deterministic if research)
     assignGroupIndex: ({ kind, rng })=>{
       if(kind !== 'good') return null;
       const rr = (typeof rng === 'function') ? rng() : Math.random();
@@ -395,7 +456,6 @@ export function boot({ mount, cfg }){
 
   STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
 
-  // bind shoot once (crosshair lock)
   bindShootOnce();
 
   emit('hha:start', {
