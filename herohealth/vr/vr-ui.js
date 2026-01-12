@@ -1,23 +1,18 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — PRODUCTION (layout-safe + auto-detect + no surprises)
+// Universal VR UI — PRODUCTION (auto-detect + no-override)
 // ✅ Adds: ENTER VR / EXIT / RECENTER buttons (WebXR via A-Frame if present)
 // ✅ Crosshair overlay + tap-to-shoot (mobile/cVR)
 // ✅ Emits: hha:shoot { x,y, lockPx, source }
-// ✅ view=cvr strict => shoot from center (targets should pointer-events:none in game CSS)
-// ✅ Applies body view classes:
-//    - if ?view= is present => respect it
-//    - else => best-effort auto-detect
-// ✅ Exposes CSS var: --hha-vrui-h (px) for game safe-area calculations
+// ✅ view=cvr strict => pointer-events disabled on targets is recommended (game-side)
+// ✅ Auto-detect device/orientation (best-effort) WITHOUT overriding explicit ?view=
+// ✅ Publishes CSS vars: --hha-vrui-w / --hha-vrui-h (so games can avoid spawning under buttons)
 //
 // Config (optional):
-// window.HHA_VRUI_CONFIG = {
-//   lockPx: 28,
-//   cooldownMs: 90,
-//   showRecenter: true,
-//   showExit: true,
-//   anchor: 'bl' | 'br' | 'tl' | 'tr',   // default 'bl' (bottom-left)
-//   autoApplyView: true                   // default true
-// }
+// window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90, showRecenter:true, showExit:true }
+//
+// Notes:
+// - For A-Frame reliability, include aframe.min.js in the page.
+// - If A-Frame isn't present, ENTER VR will be hidden gracefully.
 
 (function(){
   'use strict';
@@ -32,28 +27,26 @@
     lockPx: 28,
     cooldownMs: 90,
     showRecenter: true,
-    showExit: true,
-    anchor: 'bl',
-    autoApplyView: true
+    showExit: true
   }, WIN.HHA_VRUI_CONFIG || {});
 
   const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
   function emit(name, detail){
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  // ---------- view detection ----------
-  function detectViewAuto(){
+  // ---------- view detection (NO OVERRIDE) ----------
+  // If user provided ?view=..., respect it.
+  function detectView(){
+    const explicit = String(qs('view','')).toLowerCase();
+    if (explicit) return explicit;
+
     const isTouch = ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
     const w = Math.max(1, WIN.innerWidth||1);
     const h = Math.max(1, WIN.innerHeight||1);
     const landscape = w >= h;
 
-    // Heuristic:
-    // - Touch portrait => mobile
-    // - Touch landscape wide => cVR-ish usage (split-screen) => cvr
     if (isTouch){
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
@@ -61,19 +54,10 @@
     return 'pc';
   }
 
-  function resolveView(){
-    const explicit = String(qs('view','')).toLowerCase().trim();
-    if (explicit) return explicit; // respect ?view=
-    return detectViewAuto();
-  }
-
   function applyViewClasses(view){
     const b = DOC.body;
     if (!b) return;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
-
-    // map:
-    // pc/mobile/cvr/vr/cardboard
+    b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
     if (view === 'mobile') b.classList.add('view-mobile');
     else if (view === 'cvr') b.classList.add('view-cvr');
     else if (view === 'vr') b.classList.add('view-vr');
@@ -81,55 +65,32 @@
     else b.classList.add('view-pc');
   }
 
-  if (CFG.autoApplyView){
-    applyViewClasses(resolveView());
+  const initialView = detectView();
+  if (!String(qs('view','')).toLowerCase()){
+    applyViewClasses(initialView);
   }
 
   // ---------- DOM UI ----------
-  function ensureStyle(){
-    if (DOC.getElementById('hha-vrui-style')) return;
+  function ensureRoot(){
+    let root = DOC.querySelector('.hha-vrui');
+    if (root) return root;
+
+    root = DOC.createElement('div');
+    root.className = 'hha-vrui';
+    root.style.cssText = `
+      position:fixed;
+      left: calc(10px + env(safe-area-inset-left, 0px));
+      top:  calc(10px + env(safe-area-inset-top, 0px));
+      z-index: 110;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      pointer-events:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    `;
 
     const style = DOC.createElement('style');
-    style.id = 'hha-vrui-style';
     style.textContent = `
-      :root{
-        --hha-vrui-h: 0px;
-      }
-
-      .hha-vrui{
-        position:fixed;
-        z-index: 210;
-        display:flex;
-        gap:10px;
-        align-items:center;
-        pointer-events:none;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        padding: 0;
-      }
-
-      /* ✅ Default anchor = bottom-left (กันชน topbar/HUD) */
-      .hha-vrui[data-anchor="bl"]{
-        left:  calc(10px + env(safe-area-inset-left, 0px));
-        bottom:calc(10px + env(safe-area-inset-bottom, 0px));
-      }
-      .hha-vrui[data-anchor="br"]{
-        right: calc(10px + env(safe-area-inset-right, 0px));
-        bottom:calc(10px + env(safe-area-inset-bottom, 0px));
-      }
-      .hha-vrui[data-anchor="tl"]{
-        left: calc(10px + env(safe-area-inset-left, 0px));
-        top:  calc(10px + env(safe-area-inset-top, 0px));
-      }
-      .hha-vrui[data-anchor="tr"]{
-        right:calc(10px + env(safe-area-inset-right, 0px));
-        top:  calc(10px + env(safe-area-inset-top, 0px));
-      }
-
-      /* ✅ Mobile: ให้ปุ่ม “เรียงขึ้นบรรทัดใหม่” ได้ กันชนเวลายาว */
-      @media (max-width: 520px){
-        .hha-vrui{ flex-wrap: wrap; max-width: calc(100vw - 20px); }
-      }
-
       .hha-vrui .btn{
         pointer-events:auto;
         appearance:none;
@@ -158,13 +119,11 @@
         border-color: rgba(245,158,11,.30);
         background: rgba(245,158,11,.14);
       }
-
-      /* Crosshair */
       .hha-crosshair{
         position:fixed;
         left:50%; top:50%;
         transform: translate(-50%,-50%);
-        z-index: 120;
+        z-index: 95;
         pointer-events:none;
         width: 22px; height: 22px;
         opacity: .92;
@@ -188,18 +147,6 @@
       body.view-cvr .hha-crosshair{ display:block; }
     `;
     DOC.head.appendChild(style);
-  }
-
-  function ensureRoot(){
-    ensureStyle();
-
-    let root = DOC.querySelector('.hha-vrui');
-    if (root) return root;
-
-    root = DOC.createElement('div');
-    root.className = 'hha-vrui';
-    root.id = 'hhaVrUi';
-    root.setAttribute('data-anchor', String(CFG.anchor||'bl'));
     DOC.body.appendChild(root);
 
     // crosshair
@@ -210,26 +157,6 @@
       DOC.body.appendChild(ch);
     }
 
-    // expose height to CSS var for safe-area usage
-    const setH = ()=>{
-      try{
-        const r = root.getBoundingClientRect();
-        DOC.documentElement.style.setProperty('--hha-vrui-h', Math.max(0, Math.ceil(r.height||0)) + 'px');
-      }catch(_){}
-    };
-    setTimeout(setH, 0);
-    setTimeout(setH, 120);
-    setTimeout(setH, 320);
-
-    try{
-      const ro = new ResizeObserver(()=>setH());
-      ro.observe(root);
-    }catch(_){
-      WIN.addEventListener('resize', setH, { passive:true });
-      WIN.addEventListener('orientationchange', setH, { passive:true });
-    }
-
-    emit('hha:vrui:ready', { ts: Date.now(), anchor: root.getAttribute('data-anchor') });
     return root;
   }
 
@@ -261,12 +188,10 @@
 
   function recenter(){
     emit('hha:recenter', { ts: Date.now() });
-    // best-effort: zero roll/pitch (do not fight user's yaw)
     try{
       const cam = DOC.querySelector('[camera]');
-      if (cam && cam.object3D && cam.object3D.rotation){
-        cam.object3D.rotation.x = 0;
-        cam.object3D.rotation.z = 0;
+      if (cam && cam.object3D){
+        cam.object3D.rotation.set(0, cam.object3D.rotation.y, 0);
       }
     }catch(_){}
   }
@@ -291,7 +216,7 @@
     const isTouch = ev.pointerType === 'touch' || ev.type === 'touchstart';
     const src = viewIsCVR ? 'cvr' : (isTouch ? 'touch' : 'mouse');
 
-    // Only shoot-from-center in cVR strict
+    // strict: only auto-shoot in cVR
     if (viewIsCVR){
       try{ ev.preventDefault(); }catch(_){}
       fire(src);
@@ -316,7 +241,6 @@
   btnEnter.textContent = 'ENTER VR';
   btnEnter.addEventListener('click', ()=>{
     if (!tryEnterVR()){
-      // fallback: fullscreen (optional)
       try{
         const el = DOC.documentElement;
         if (!DOC.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI:'hide' });
@@ -338,22 +262,32 @@
   btnRecenter.textContent = 'RECENTER';
   btnRecenter.addEventListener('click', ()=> recenter());
 
-  // ENTER VR only meaningful when a-scene exists
-  if (hasAFrameScene()) root.appendChild(btnEnter);
-
+  const showEnter = hasAFrameScene();
+  if (showEnter) root.appendChild(btnEnter);
   if (CFG.showExit) root.appendChild(btnExit);
   if (CFG.showRecenter) root.appendChild(btnRecenter);
 
-  // ---------- keep view in sync (auto only; still respects explicit ?view=) ----------
-  function onResize(){
-    if (!CFG.autoApplyView) return;
+  // ✅ Publish VR-UI size as CSS vars so games can avoid spawning under the buttons
+  function publishSafe(){
+    try{
+      const r = root.getBoundingClientRect();
+      DOC.documentElement.style.setProperty('--hha-vrui-w', Math.ceil(r.width) + 'px');
+      DOC.documentElement.style.setProperty('--hha-vrui-h', Math.ceil(r.height) + 'px');
+    }catch(_){}
+  }
+  setTimeout(publishSafe, 0);
+  setTimeout(publishSafe, 120);
+  setTimeout(publishSafe, 320);
+  WIN.addEventListener('resize', publishSafe, { passive:true });
+  WIN.addEventListener('orientationchange', publishSafe, { passive:true });
 
-    // if explicit view exists => keep it
-    const explicit = String(qs('view','')).toLowerCase().trim();
-    const v = explicit || detectViewAuto();
+  // ---------- keep view in sync (auto only, still no override) ----------
+  function onResize(){
+    if (String(qs('view','')).toLowerCase()) return; // no override
+    const v = detectView();
     applyViewClasses(v);
   }
-  WIN.addEventListener('resize', ()=>{ try{ onResize(); }catch(_){ } }, { passive:true });
-  WIN.addEventListener('orientationchange', ()=>{ try{ onResize(); }catch(_){ } }, { passive:true });
+  WIN.addEventListener('resize', ()=>{ try{ onResize(); publishSafe(); }catch(_){ } }, { passive:true });
+  WIN.addEventListener('orientationchange', ()=>{ try{ onResize(); publishSafe(); }catch(_){ } }, { passive:true });
 
 })();
