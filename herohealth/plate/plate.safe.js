@@ -1,11 +1,12 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — PACK H
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — PACK H + I
 // HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
-// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
 // ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot) — LOCK HITTEST (cVR strict)
 // ✅ PACK H: aim-lock glow + miss FX + tiny beep
+// ✅ PACK I: judge FX + perfect window + hit SFX (good/junk/perfect) + combo juice
 // ------------------------------------------------
 
 'use strict';
@@ -23,7 +24,7 @@ const clamp = (v, a, b) => {
   return v < a ? a : (v > b ? b : v);
 };
 
-// ✅ FIX: percent helper
+// percent helper
 const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
@@ -35,6 +36,8 @@ function seededRng(seed){
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+function nowMs(){ return Date.now(); }
 
 /* ------------------------------------------------
  * Engine state
@@ -85,7 +88,10 @@ const STATE = {
   // shoot
   shootBound:false,
   lastLockEl:null,
-  missFxAt:0
+
+  // fx/sfx rate-limit
+  missFxAt:0,
+  judgeFxAt:0
 };
 
 /* ------------------------------------------------
@@ -143,6 +149,7 @@ function addScore(v){
 function addCombo(){
   STATE.combo++;
   STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
+  emitScore();
 }
 
 function resetCombo(){
@@ -168,7 +175,6 @@ function endGame(reason='timeup'){
   STATE.running = false;
   clearInterval(STATE.timer);
 
-  // stop spawner
   try{ STATE.spawner?.stop?.(); }catch(_){}
 
   emit('hha:end', {
@@ -209,14 +215,108 @@ function startTimer(){
 }
 
 /* ------------------------------------------------
+ * PACK I: Judge + SFX
+ * ------------------------------------------------ */
+function judge(kind, x, y, extra={}){
+  const t = nowMs();
+  if(t - STATE.judgeFxAt < 35) return; // กันรัว
+  STATE.judgeFxAt = t;
+
+  emit('hha:judge', { kind, x, y, ...extra });
+
+  // Particles text
+  try{
+    const P = WIN.Particles;
+    if(P && typeof P.popText === 'function'){
+      if(kind === 'perfect') P.popText(x, y, 'PERFECT!', 'fx-perfectText');
+      else if(kind === 'good') P.popText(x, y, 'GOOD!', 'fx-goodText');
+      else if(kind === 'bad') P.popText(x, y, 'OOPS!', 'fx-badText');
+      else if(kind === 'miss') P.popText(x, y, 'MISS', 'fx-missText');
+    }
+  }catch(_){}
+}
+
+// tiny synth
+let __HHA_AC = null;
+function tone(freq=520, ms=55, gain=0.04, type='sine'){
+  try{
+    const AC = WIN.AudioContext || WIN.webkitAudioContext;
+    if(!AC) return;
+    __HHA_AC = __HHA_AC || new AC();
+    const ctx = __HHA_AC;
+
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.value = gain;
+
+    o.connect(g);
+    g.connect(ctx.destination);
+
+    const t0 = ctx.currentTime;
+    g.gain.setValueAtTime(gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+
+    o.start(t0);
+    o.stop(t0 + ms/1000);
+  }catch(_){}
+}
+
+function sfxPerfect(){ tone(860, 55, 0.05, 'triangle'); }
+function sfxGood(){ tone(650, 45, 0.045, 'sine'); }
+function sfxBad(){ tone(210, 65, 0.05, 'square'); }
+function sfxMiss(){ tone(460, 60, 0.045, 'sine'); }
+
+/* ------------------------------------------------
+ * PACK H: miss flash + aim-lock glow
+ * ------------------------------------------------ */
+function flashMiss(){
+  const t = nowMs();
+  if(t - STATE.missFxAt < 140) return;
+  STATE.missFxAt = t;
+
+  DOC.body.classList.add('fx-miss');
+  clearTimeout(WIN.__HHA_PLATE_MISS_TO__);
+  WIN.__HHA_PLATE_MISS_TO__ = setTimeout(()=>{
+    DOC.body.classList.remove('fx-miss');
+  }, 120);
+
+  sfxMiss();
+}
+
+function glowLock(el){
+  if(!el) return;
+  if(STATE.lastLockEl && STATE.lastLockEl !== el){
+    try{ STATE.lastLockEl.classList.remove('aim-lock'); }catch(_){}
+  }
+  STATE.lastLockEl = el;
+
+  el.classList.add('aim-lock');
+  clearTimeout(el.__aimLockTO__);
+  el.__aimLockTO__ = setTimeout(()=>{
+    try{ el.classList.remove('aim-lock'); }catch(_){}
+  }, 120);
+}
+
+/* ------------------------------------------------
  * Hit handlers
  * ------------------------------------------------ */
-function onHitGood(groupIndex){
+function onHitGood(groupIndex, hitMeta={}){
   STATE.hitGood++;
   STATE.g[groupIndex]++;
 
-  addCombo();
-  addScore(100 + STATE.combo * 5);
+  // judge kind from meta
+  // perfect = very close to center, good = normal
+  if(hitMeta.perfect){
+    addCombo();
+    addScore(140 + STATE.combo * 7);     // perfect: more juice
+    sfxPerfect();
+  }else{
+    addCombo();
+    addScore(100 + STATE.combo * 5);
+    sfxGood();
+  }
 
   // goal progress
   if(!STATE.goal.done){
@@ -238,12 +338,13 @@ function onHitGood(groupIndex){
   emitQuest();
 }
 
-function onHitJunk(){
+function onHitJunk(hitMeta={}){
   STATE.hitJunk++;
   STATE.miss++;
   resetCombo();
-  addScore(-50);
+  addScore(-60);
   coach('ระวัง! ของหวาน/ทอด ⚠️');
+  sfxBad();
 }
 
 function onExpireGood(){
@@ -253,58 +354,7 @@ function onExpireGood(){
 }
 
 /* ------------------------------------------------
- * PACK H: tiny beep + miss flash
- * ------------------------------------------------ */
-let __HHA_AC = null;
-function beep(freq=520, ms=55, gain=0.04){
-  try{
-    const AC = WIN.AudioContext || WIN.webkitAudioContext;
-    if(!AC) return;
-    __HHA_AC = __HHA_AC || new AC();
-    const ctx = __HHA_AC;
-
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.value = freq;
-    g.gain.value = gain;
-
-    o.connect(g);
-    g.connect(ctx.destination);
-
-    const t0 = ctx.currentTime;
-    g.gain.setValueAtTime(gain, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
-
-    o.start(t0);
-    o.stop(t0 + ms/1000);
-  }catch(_){}
-}
-
-function flashMiss(){
-  const now = Date.now();
-  if(now - STATE.missFxAt < 140) return; // rate-limit
-  STATE.missFxAt = now;
-
-  DOC.body.classList.add('fx-miss');
-  clearTimeout(WIN.__HHA_PLATE_MISS_TO__);
-  WIN.__HHA_PLATE_MISS_TO__ = setTimeout(()=>{
-    DOC.body.classList.remove('fx-miss');
-  }, 120);
-
-  // Particles text (if present)
-  try{
-    const P = WIN.Particles;
-    if(P && typeof P.popText === 'function'){
-      P.popText(innerWidth*0.5, innerHeight*0.52, 'MISS', 'fx-missText');
-    }
-  }catch(_){}
-
-  beep(460, 60, 0.045);
-}
-
-/* ------------------------------------------------
- * SHOOT (Crosshair lock) — PACK H
+ * SHOOT (Crosshair lock) — PERFECT window
  * ------------------------------------------------ */
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
@@ -333,22 +383,10 @@ function pickTargetNearPoint(px, py, lockPx){
       bestEl = el;
     }
   }
-  if(bestEl && bestD2 <= lock2) return bestEl;
-  return null;
-}
-
-function glowLock(el){
-  if(!el) return;
-  if(STATE.lastLockEl && STATE.lastLockEl !== el){
-    try{ STATE.lastLockEl.classList.remove('aim-lock'); }catch(_){}
+  if(bestEl && bestD2 <= lock2){
+    return { el: bestEl, bestD2, px, py };
   }
-  STATE.lastLockEl = el;
-
-  el.classList.add('aim-lock');
-  clearTimeout(el.__aimLockTO__);
-  el.__aimLockTO__ = setTimeout(()=>{
-    try{ el.classList.remove('aim-lock'); }catch(_){}
-  }, 120);
+  return null;
 }
 
 function bindShootOnce(){
@@ -365,7 +403,7 @@ function bindShootOnce(){
     let aimX = Number(d.x);
     let aimY = Number(d.y);
 
-    if(STATE.cfg?.view === 'cvr' || (DOC.body && DOC.body.classList.contains('view-cvr'))){
+    if(STATE.cfg?.view === 'cvr' || DOC.body.classList.contains('view-cvr')){
       aimX = innerWidth * 0.5;
       aimY = innerHeight * 0.5;
     }else{
@@ -373,12 +411,26 @@ function bindShootOnce(){
       if(!isFinite(aimY)) aimY = innerHeight * 0.5;
     }
 
-    const el = pickTargetNearPoint(aimX, aimY, lockPx);
-    if(el){
+    const pick = pickTargetNearPoint(aimX, aimY, lockPx);
+    if(pick){
+      const { el, bestD2 } = pick;
       glowLock(el);
+
+      // PERFECT window: within 0.45 * lock radius
+      const perfectR = Math.max(6, lockPx * 0.45);
+      const perfect = bestD2 <= (perfectR * perfectR);
+
+      // store hint on element for click path
+      el.__hitMeta__ = { perfect, aimX, aimY, lockPx };
+
+      // click to trigger spawner's onHit
       try{ el.click(); }catch(_){}
+
+      // judge FX at crosshair point (more arcade)
+      judge(perfect ? 'perfect' : 'good', aimX, aimY, { perfect });
     }else{
       flashMiss();
+      judge('miss', aimX, aimY);
     }
   }, { passive:true });
 }
@@ -391,14 +443,14 @@ function makeSpawner(mount){
     mount,
     seed: STATE.cfg.seed,
 
-    spawnRate: STATE.cfg.diff === 'hard' ? 700 : 900,
-    expireMs: 1800,
+    spawnRate: STATE.cfg.diff === 'hard' ? 680 : 860,  // PACK I: เร็วขึ้นนิด ๆ
+    expireMs: 1750,
 
     targetClass: 'plateTarget',
     sizeRange:[44,64],
     kinds:[
-      { kind:'good', weight:0.7 },
-      { kind:'junk', weight:0.3 }
+      { kind:'good', weight:0.72 },
+      { kind:'junk', weight:0.28 }
     ],
 
     safeSelectors: ['#hud', '#endOverlay', '.hha-vr-ui', '.vr-ui', '#vrui'],
@@ -410,13 +462,23 @@ function makeSpawner(mount){
     },
 
     onHit:(t)=>{
+      // PACK I: hitMeta (จาก shoot) จะอยู่บน element
+      const hitMeta = t.el?.__hitMeta__ || {};
       if(t.kind === 'good'){
         const gi = t.groupIndex ?? (Math.floor(STATE.rng()*5));
-        onHitGood(clamp(gi,0,4));
+        onHitGood(clamp(gi,0,4), hitMeta);
       }else{
-        onHitJunk();
+        onHitJunk(hitMeta);
+        // judge bad at element center (ถ้าไม่ได้มาจาก shoot)
+        try{
+          const r = t.el?.getBoundingClientRect?.();
+          if(r) judge('bad', r.left + r.width/2, r.top + r.height/2);
+        }catch(_){}
       }
+      // cleanup meta
+      try{ if(t.el) t.el.__hitMeta__ = null; }catch(_){}
     },
+
     onExpire:(t)=>{
       if(t.kind === 'good') onExpireGood();
     }
