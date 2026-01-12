@@ -1,12 +1,14 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration VR — PRODUCTION UI (PC/Mobile/Cardboard/cVR)
-✅ HUD layout safe-area + does NOT block vr-ui buttons
-✅ Playfield full screen
-✅ cVR strict: targets pointer-events none (shoot via hha:shoot)
-✅ Start overlay + End summary card
-✅ FX hooks: hha-endfx / hha-hitfx / hha-bossfx + shockwave
+HydrationVR — PRODUCTION CSS (PC/Mobile/Cardboard/cVR)
+✅ HUD safe-area + non-blocking (pointer-events:none)
+✅ Playfield full-screen, targets on layers
+✅ cVR strict: targets pointer-events:none (shoot from crosshair via vr-ui.js -> hha:shoot)
+✅ Cardboard split: L/R layers + vignette
+✅ Target animations + readability
+✅ Result overlay polish
 */
 
+/* ---------- Root tokens ---------- */
 :root{
   color-scheme: dark;
   --bg:#020617;
@@ -28,9 +30,10 @@ Hydration VR — PRODUCTION UI (PC/Mobile/Cardboard/cVR)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* reserve area for vr-ui buttons (enter/exit/recenter) */
-  --vrui-reserve-top: 64px;
-  --vrui-reserve-left: 160px; /* กันปุ่มซ้ายบนของ vr-ui */
+  /* gameplay spacing (avoid HUD overlap zone) */
+  --play-pad-top: calc(12px + var(--sat));
+  --play-pad-bottom: calc(12px + var(--sab));
+  --play-pad-x: calc(12px + max(var(--sal), var(--sar)));
 }
 
 *{ box-sizing:border-box; }
@@ -44,6 +47,7 @@ html,body{
 }
 a{ color:inherit; }
 
+/* Soft background glow */
 body::before{
   content:"";
   position:fixed; inset:0;
@@ -63,16 +67,19 @@ body::before{
   overflow:hidden;
   touch-action:manipulation;
 }
-#hydration-layer{
-  position:absolute; inset:0;
+
+#hydration-layer,
+#hydration-layerL,
+#hydration-layerR{
+  position:absolute;
+  inset:0;
   pointer-events:auto;
 }
 
-/* cardboard split */
+/* Cardboard split */
 #cbPlayfield{ display:none; }
 .cbHalf{
-  position:absolute;
-  top:0; bottom:0;
+  position:absolute; top:0; bottom:0;
   width:50%;
   overflow:hidden;
   pointer-events:auto;
@@ -81,6 +88,7 @@ body::before{
 .cbHalf.right{ right:0; }
 .cbLayer{ position:absolute; inset:0; pointer-events:auto; }
 
+/* Vignette */
 .cbHalf::before{
   content:"";
   position:absolute; inset:0;
@@ -89,7 +97,7 @@ body::before{
   z-index:2;
 }
 
-/* view modes */
+/* View modes */
 body.view-pc #playfield{ display:block; }
 body.view-mobile #playfield{ display:block; }
 body.cardboard #playfield{ display:none; }
@@ -98,9 +106,11 @@ body.cardboard #cbPlayfield{ display:block; }
 /* cVR strict */
 body.view-cvr #playfield{ display:block; }
 body.view-cvr #cbPlayfield{ display:none; }
-body.view-cvr #hydration-layer{ pointer-events:none; }
+body.view-cvr #hydration-layer{
+  pointer-events:none; /* ยิงจาก crosshair */
+}
 
-/* crosshair */
+/* ---------- Crosshair (fallback) ---------- */
 .crosshair{
   position:fixed;
   left:50%; top:50%;
@@ -112,7 +122,7 @@ body.view-cvr #hydration-layer{ pointer-events:none; }
   filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
   display:none;
 }
-.crosshair::before,.crosshair::after{
+.crosshair::before, .crosshair::after{
   content:"";
   position:absolute; left:50%; top:50%;
   transform:translate(-50%,-50%);
@@ -134,33 +144,19 @@ body.view-cvr .crosshair{ display:block; }
   inset:0;
   z-index:50;
   pointer-events:none;
-
-  /* ✅ เว้นพื้นที่กัน vr-ui */
   padding:
-    calc(12px + var(--sat) + var(--vrui-reserve-top))
-    calc(12px + var(--sar))
-    calc(12px + var(--sab))
-    calc(12px + var(--sal) + var(--vrui-reserve-left));
-
+    calc(12px + var(--sat)) calc(12px + var(--sar))
+    calc(12px + var(--sab)) calc(12px + var(--sal));
   display:grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto 1fr auto;
   gap:12px;
 }
 
-@media (max-width: 560px){
-  :root{
-    --vrui-reserve-left: 0px; /* มือถือจอแคบ ขยับ HUD ให้เต็มได้ */
-    --vrui-reserve-top: 74px;
-  }
-  .hud{
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr auto;
-  }
-}
+/* Keep VR-UI buttons clickable: HUD never catches clicks */
+.hud *{ pointer-events:none; }
 
 .panel{
-  pointer-events:none;
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
@@ -176,9 +172,7 @@ body.view-cvr .crosshair{ display:block; }
   align-items:stretch;
 }
 .statBox{
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
+  display:flex; justify-content:space-between; align-items:baseline;
   gap:10px;
   padding:10px 12px;
   border-radius:14px;
@@ -200,12 +194,9 @@ body.view-cvr .crosshair{ display:block; }
   align-items:center;
   color:rgba(229,231,235,.92);
   font-size:12px;
-  flex-wrap:wrap;
 }
 .pill{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
+  display:inline-flex; align-items:center; gap:8px;
   padding:8px 10px;
   border-radius:var(--pill);
   background:rgba(15,23,42,.55);
@@ -213,10 +204,7 @@ body.view-cvr .crosshair{ display:block; }
 }
 
 .waterPanel .top{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  align-items:flex-start;
+  display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
 }
 .waterPanel h3{ margin:0; font-size:14px; font-weight:900; letter-spacing:.2px; }
 .waterPanel .zone{ margin-top:4px; color:rgba(148,163,184,.95); font-size:12px; }
@@ -241,7 +229,46 @@ body.view-cvr .crosshair{ display:block; }
   line-height:1.25;
 }
 
-/* ---------- Start Overlay ---------- */
+/* ---------- Targets (base) ---------- */
+.hvr-target{
+  position:absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  transform: translate(-50%,-50%);
+  width: var(--s, 64px);
+  height: var(--s, 64px);
+  display:flex; align-items:center; justify-content:center;
+  font-size: calc(var(--s,64px) * 0.55);
+  border-radius: 999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.50);
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
+  user-select:none;
+  -webkit-user-select:none;
+  cursor:pointer;
+  pointer-events:auto;
+  will-change: transform, filter, opacity;
+  animation: hvrPop .18s ease-out 1;
+}
+@keyframes hvrPop{
+  from{ transform:translate(-50%,-50%) scale(.78); opacity:.0; }
+  to{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+}
+
+.hvr-target.good{ outline:2px solid rgba(34,197,94,.18); }
+.hvr-target.bad{ outline:2px solid rgba(239,68,68,.18); }
+.hvr-target.shield{ outline:2px solid rgba(34,211,238,.18); }
+
+.hvr-target.bossbad{
+  outline:2px dashed rgba(239,68,68,.35);
+  box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
+}
+
+/* cVR strict: disable pointer on targets; safe.js triggers via dispatch PointerEvent */
+body.view-cvr .hvr-target{ pointer-events:none !important; }
+
+/* ---------- Start overlay ---------- */
 #startOverlay{
   position:fixed;
   inset:0;
@@ -249,8 +276,7 @@ body.view-cvr .crosshair{ display:block; }
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(18px + var(--sat)) calc(18px + var(--sar))
-           calc(18px + var(--sab)) calc(18px + var(--sal));
+  padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
   background:rgba(2,6,23,.86);
   backdrop-filter: blur(10px);
 }
@@ -265,19 +291,14 @@ body.view-cvr .crosshair{ display:block; }
   padding:18px;
 }
 .header{
-  display:flex;
-  gap:14px;
-  align-items:center;
+  display:flex; gap:14px; align-items:center;
   margin-bottom:14px;
 }
 .logo{
-  width:52px; height:52px;
-  border-radius:14px;
+  width:52px; height:52px; border-radius:14px;
   background:rgba(34,211,238,.12);
   border:1px solid rgba(34,211,238,.18);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:flex; align-items:center; justify-content:center;
   font-size:26px;
 }
 .title{ font-size:18px; font-weight:900; margin:0; }
@@ -288,6 +309,7 @@ body.view-cvr .crosshair{ display:block; }
   line-height:1.35;
   white-space:pre-line;
 }
+
 .btnRow{
   display:flex;
   flex-wrap:wrap;
@@ -307,18 +329,10 @@ body.view-cvr .crosshair{ display:block; }
   cursor:pointer;
   user-select:none;
 }
-.btn.primary{
-  border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.16);
-}
-.btn.cyan{
-  border-color: rgba(34,211,238,.26);
-  background: rgba(34,211,238,.12);
-}
-.btn.warn{
-  border-color: rgba(245,158,11,.26);
-  background: rgba(245,158,11,.14);
-}
+.btn.primary{ border-color: rgba(34,197,94,.26); background: rgba(34,197,94,.16); }
+.btn.cyan{ border-color: rgba(34,211,238,.26); background: rgba(34,211,238,.12); }
+.btn.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.14); }
+
 .note{
   margin-top:12px;
   font-size:12px;
@@ -327,7 +341,7 @@ body.view-cvr .crosshair{ display:block; }
   white-space:pre-line;
 }
 
-/* ---------- End Summary ---------- */
+/* ---------- End summary ---------- */
 #resultBackdrop{
   position:fixed;
   inset:0;
@@ -337,8 +351,7 @@ body.view-cvr .crosshair{ display:block; }
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(16px + var(--sat)) calc(16px + var(--sar))
-           calc(16px + var(--sab)) calc(16px + var(--sal));
+  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
 }
 #resultBackdrop[hidden]{ display:none; }
 
@@ -351,11 +364,7 @@ body.view-cvr .crosshair{ display:block; }
   padding:16px;
 }
 .resultTop{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  align-items:flex-start;
-  flex-wrap:wrap;
+  display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
 }
 .resultTop h2{ margin:0; font-size:16px; font-weight:900; }
 
@@ -365,10 +374,6 @@ body.view-cvr .crosshair{ display:block; }
   grid-template-columns: 1fr 1fr;
   gap:12px;
 }
-@media (max-width: 700px){
-  .resultGrid{ grid-template-columns: 1fr; }
-}
-
 .kv{ display:flex; justify-content:space-between; gap:10px; margin:6px 0; }
 .kv .k2{ color:rgba(148,163,184,.95); font-size:12px; }
 .kv .v2{ font-weight:900; }
@@ -385,7 +390,7 @@ pre{
   line-height:1.3;
 }
 
-/* ---------------- FX HOOKS ---------------- */
+/* ---------- FX HOOKS (matched with hydration.safe.js) ---------- */
 body.hha-endfx{
   animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
 }
@@ -397,21 +402,18 @@ body.hha-endfx{
   0%,100%{ transform: translate3d(0,0,0); }
   50%{ transform: translate3d(0,1px,0); }
 }
-
 body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
 @keyframes hitPulse{
   0%{ filter: brightness(1); }
   60%{ filter: brightness(1.12) saturate(1.10); }
   100%{ filter: brightness(1); }
 }
-
 body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
 @keyframes bossFlash{
   0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
   50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); }
 }
 
-/* shockwave */
 .hha-shock{
   position:absolute;
   left: var(--x,50%);
@@ -429,4 +431,24 @@ body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
 @keyframes shock{
   0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; }
   100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
+}
+
+/* ---------- Responsive tweaks ---------- */
+@media (max-width: 720px){
+  .hud{
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+  }
+  /* stack panels */
+  .hud > .panel:nth-child(1){ grid-column:1; }
+  .hud > .panel:nth-child(2){ grid-column:1; }
+  /* quest + water */
+  .hud > .panel:nth-child(3){ grid-column:1; }
+  .hud > .panel:nth-child(4){ grid-column:1; align-self:stretch; }
+  .resultGrid{ grid-template-columns: 1fr; }
+}
+
+@media (max-height: 520px){
+  .panel{ padding:10px; }
+  .v{ font-size:18px; }
 }
