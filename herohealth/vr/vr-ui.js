@@ -1,12 +1,18 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — PRODUCTION (AUTO DETECT, NO OVERRIDE)
-// ✅ Adds: ENTER VR / EXIT / RECENTER buttons (A-Frame/WebXR best-effort)
-// ✅ Adds: Crosshair overlay + tap-to-shoot => emits hha:shoot {x,y,lockPx,source}
-// ✅ AUTO: determines view from URL (?view=...), device hints, and XR availability (best-effort)
-// ✅ IMPORTANT: does NOT change or override user's view param. It only adapts UI behavior.
-// ✅ Supports view=cvr strict: shoot from center screen (crosshair), no target pointer needed.
-// Config:
-//   window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90, showCrosshairOnMobile: false }
+// Universal VR UI — PRODUCTION (auto-detect + no-override)
+// ✅ Adds: ENTER VR / EXIT / RECENTER buttons (WebXR via A-Frame if present)
+// ✅ Crosshair overlay + tap-to-shoot (mobile/cVR)
+// ✅ Emits: hha:shoot { x,y, lockPx, source }
+// ✅ view=cvr strict => pointer-events disabled on targets is recommended (game-side)
+// ✅ Auto-detect device/orientation (best-effort) WITHOUT overriding explicit ?view=
+// ✅ Publishes CSS vars: --hha-vrui-w / --hha-vrui-h (so games can avoid spawning under buttons)
+//
+// Config (optional):
+// window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90, showRecenter:true, showExit:true }
+//
+// Notes:
+// - For A-Frame reliability, include aframe.min.js in the page.
+// - If A-Frame isn't present, ENTER VR will be hidden gracefully.
 
 (function(){
   'use strict';
@@ -17,83 +23,118 @@
   if (WIN.__HHA_VRUI_LOADED__) return;
   WIN.__HHA_VRUI_LOADED__ = true;
 
-  const CFG = Object.assign(
-    { lockPx: 28, cooldownMs: 90, showCrosshairOnMobile: false },
-    WIN.HHA_VRUI_CONFIG || {}
-  );
+  const CFG = Object.assign({
+    lockPx: 28,
+    cooldownMs: 90,
+    showRecenter: true,
+    showExit: true
+  }, WIN.HHA_VRUI_CONFIG || {});
 
   const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const emit = (name, detail)=>{ try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){ } };
-  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-  // ----------------- Detect view (do NOT override) -----------------
-  function getView(){
-    const v = String(qs('view','') || '').toLowerCase().trim();
-    if (v) return v; // respect param if provided
-    // best-effort fallback when no param:
-    // - if on mobile: 'mobile'
-    // - else: 'pc'
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-    return isMobile ? 'mobile' : 'pc';
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  const VIEW = getView();
-  const IS_CVR = (VIEW === 'cvr' || VIEW === 'view-cvr');
-  const IS_MOBILE = (VIEW === 'mobile' || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||''));
+  // ---------- view detection (NO OVERRIDE) ----------
+  // If user provided ?view=..., respect it.
+  function detectView(){
+    const explicit = String(qs('view','')).toLowerCase();
+    if (explicit) return explicit;
 
-  // ----------------- DOM + style -----------------
-  function ensureStyle(){
-    if (DOC.getElementById('hha-vrui-style')) return;
-    const st = DOC.createElement('style');
-    st.id = 'hha-vrui-style';
-    st.textContent = `
-      .hha-vrui{
-        position:fixed;
-        top: calc(10px + env(safe-area-inset-top,0px));
-        right: calc(10px + env(safe-area-inset-right,0px));
-        z-index: 9999;
-        display:flex;
-        gap:10px;
+    const isTouch = ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
+    const w = Math.max(1, WIN.innerWidth||1);
+    const h = Math.max(1, WIN.innerHeight||1);
+    const landscape = w >= h;
+
+    if (isTouch){
+      if (landscape && w >= 740) return 'cvr';
+      return 'mobile';
+    }
+    return 'pc';
+  }
+
+  function applyViewClasses(view){
+    const b = DOC.body;
+    if (!b) return;
+    b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
+    if (view === 'mobile') b.classList.add('view-mobile');
+    else if (view === 'cvr') b.classList.add('view-cvr');
+    else if (view === 'vr') b.classList.add('view-vr');
+    else if (view === 'cardboard') b.classList.add('cardboard');
+    else b.classList.add('view-pc');
+  }
+
+  const initialView = detectView();
+  if (!String(qs('view','')).toLowerCase()){
+    applyViewClasses(initialView);
+  }
+
+  // ---------- DOM UI ----------
+  function ensureRoot(){
+    let root = DOC.querySelector('.hha-vrui');
+    if (root) return root;
+
+    root = DOC.createElement('div');
+    root.className = 'hha-vrui';
+    root.style.cssText = `
+      position:fixed;
+      left: calc(10px + env(safe-area-inset-left, 0px));
+      top:  calc(10px + env(safe-area-inset-top, 0px));
+      z-index: 110;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      pointer-events:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    `;
+
+    const style = DOC.createElement('style');
+    style.textContent = `
+      .hha-vrui .btn{
         pointer-events:auto;
-        user-select:none;
-      }
-      .hha-vrui button{
         appearance:none;
         border:1px solid rgba(148,163,184,.22);
-        background: rgba(2,6,23,.64);
-        color: rgba(229,231,235,.92);
-        padding:10px 12px;
+        background: rgba(2,6,23,.62);
+        color: rgba(229,231,235,.96);
+        padding: 10px 12px;
         border-radius: 14px;
-        font: 900 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-        cursor:pointer;
+        font-weight: 900;
+        font-size: 12.5px;
+        cursor: pointer;
+        user-select:none;
         backdrop-filter: blur(10px);
-        box-shadow: 0 18px 70px rgba(0,0,0,.38);
+        box-shadow: 0 16px 50px rgba(0,0,0,.35);
       }
-      .hha-vrui button:active{ transform: translateY(1px); }
-      .hha-vrui .btn-primary{
+      .hha-vrui .btn:active{ transform: translateY(1px); }
+      .hha-vrui .btn.primary{
         border-color: rgba(34,197,94,.28);
         background: rgba(34,197,94,.16);
       }
-      .hha-vrui .btn-warn{
-        border-color: rgba(245,158,11,.28);
+      .hha-vrui .btn.cyan{
+        border-color: rgba(34,211,238,.28);
+        background: rgba(34,211,238,.14);
+      }
+      .hha-vrui .btn.warn{
+        border-color: rgba(245,158,11,.30);
         background: rgba(245,158,11,.14);
       }
       .hha-crosshair{
         position:fixed;
         left:50%; top:50%;
         transform: translate(-50%,-50%);
-        z-index: 9500;
+        z-index: 95;
         pointer-events:none;
-        width:22px; height:22px;
-        opacity:.92;
+        width: 22px; height: 22px;
+        opacity: .92;
         filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
         display:none;
       }
-      .hha-crosshair::before, .hha-crosshair::after{
+      .hha-crosshair::before,.hha-crosshair::after{
         content:"";
         position:absolute; left:50%; top:50%;
         transform: translate(-50%,-50%);
-        border-radius:999px;
+        border-radius: 999px;
       }
       .hha-crosshair::before{
         width:18px; height:18px;
@@ -103,192 +144,150 @@
         width:4px; height:4px;
         background: rgba(34,211,238,.95);
       }
-
-      /* tap surface: full screen but pointer-events only for taps (won't block HUD that uses pointer-events:none) */
-      .hha-tap-surface{
-        position:fixed; inset:0;
-        z-index: 9400;
-        background: transparent;
-        pointer-events:none;
-      }
-      .hha-tap-surface.on{
-        pointer-events:auto;
-      }
+      body.view-cvr .hha-crosshair{ display:block; }
     `;
-    DOC.head.appendChild(st);
-  }
+    DOC.head.appendChild(style);
+    DOC.body.appendChild(root);
 
-  function ensureUI(){
-    ensureStyle();
-
-    let root = DOC.querySelector('.hha-vrui');
-    if (!root){
-      root = DOC.createElement('div');
-      root.className = 'hha-vrui';
-      root.innerHTML = `
-        <button class="btn-primary" data-act="enter">ENTER VR</button>
-        <button data-act="exit">EXIT</button>
-        <button class="btn-warn" data-act="recenter">RECENTER</button>
-      `;
-      DOC.body.appendChild(root);
+    // crosshair
+    let ch = DOC.querySelector('.hha-crosshair');
+    if (!ch){
+      ch = DOC.createElement('div');
+      ch.className = 'hha-crosshair';
+      DOC.body.appendChild(ch);
     }
 
-    let cross = DOC.querySelector('.hha-crosshair');
-    if (!cross){
-      cross = DOC.createElement('div');
-      cross.className = 'hha-crosshair';
-      cross.setAttribute('aria-hidden','true');
-      DOC.body.appendChild(cross);
-    }
-
-    let tap = DOC.querySelector('.hha-tap-surface');
-    if (!tap){
-      tap = DOC.createElement('div');
-      tap.className = 'hha-tap-surface';
-      tap.setAttribute('aria-hidden','true');
-      DOC.body.appendChild(tap);
-    }
-
-    return { root, cross, tap };
+    return root;
   }
 
-  const UI = ensureUI();
-
-  // Show crosshair rules:
-  // - Always show on cVR
-  // - Optional on mobile if configured
-  if (IS_CVR || (IS_MOBILE && !!CFG.showCrosshairOnMobile)){
-    UI.cross.style.display = 'block';
+  function hasAFrameScene(){
+    try{ return !!DOC.querySelector('a-scene'); }catch(_){ return false; }
   }
 
-  // tap-to-shoot:
-  // - enable in cVR always
-  // - enable in mobile (if crosshair mobile enabled) OR if game wants it via window.HHA_VRUI_TAP = true
-  const TAP_ENABLED = IS_CVR || (!!CFG.showCrosshairOnMobile) || !!WIN.HHA_VRUI_TAP;
-  if (TAP_ENABLED) UI.tap.classList.add('on');
-
-  // ----------------- A-Frame / WebXR best-effort actions -----------------
-  function findScene(){
-    // A-Frame scene tag is <a-scene>, but some games might not use it.
-    return DOC.querySelector('a-scene');
-  }
-
-  async function enterVR(){
-    // Best-effort: A-Frame
+  function tryEnterVR(){
     try{
-      const sc = findScene();
-      if (sc && sc.enterVR) { sc.enterVR(); return; }
-    }catch(_){}
-
-    // Best-effort: WebXR direct (only if app already sets up)
-    try{
-      // no-op if not available
-      if (navigator.xr && navigator.xr.requestSession){
-        // cannot start a session without a proper XR render loop in app
-        // so we only emit hint event for engines that implement it.
-        emit('hha:vr:enter', { source:'vr-ui' });
+      const scene = DOC.querySelector('a-scene');
+      if (scene && typeof scene.enterVR === 'function'){
+        scene.enterVR();
+        return true;
       }
     }catch(_){}
+    return false;
   }
 
-  async function exitVR(){
+  function tryExitVR(){
     try{
-      const sc = findScene();
-      if (sc && sc.exitVR) { sc.exitVR(); return; }
+      const scene = DOC.querySelector('a-scene');
+      if (scene && typeof scene.exitVR === 'function'){
+        scene.exitVR();
+        return true;
+      }
     }catch(_){}
-    try{ emit('hha:vr:exit', { source:'vr-ui' }); }catch(_){}
+    return false;
   }
 
   function recenter(){
-    // Universal recenter event hook (your games can listen if needed)
-    emit('hha:recenter', { source:'vr-ui' });
-
-    // If A-Frame has camera rig, some devs set look-controls + reset yaw; we can only hint.
+    emit('hha:recenter', { ts: Date.now() });
     try{
-      const sc = findScene();
-      if (sc) sc.emit && sc.emit('recenter');
+      const cam = DOC.querySelector('[camera]');
+      if (cam && cam.object3D){
+        cam.object3D.rotation.set(0, cam.object3D.rotation.y, 0);
+      }
     }catch(_){}
   }
 
-  // Buttons
-  UI.root.addEventListener('click', (ev)=>{
-    const btn = ev.target && ev.target.closest && ev.target.closest('button[data-act]');
-    if (!btn) return;
-    const act = btn.getAttribute('data-act');
-    if (act === 'enter') enterVR();
-    if (act === 'exit') exitVR();
-    if (act === 'recenter') recenter();
-  });
-
-  // ----------------- Tap / Shoot emission -----------------
+  // ---------- Tap-to-shoot / click-to-shoot ----------
   let lastShotAt = 0;
+  function fire(source='tap'){
+    const t = performance.now();
+    if (t - lastShotAt < Math.max(40, CFG.cooldownMs|0)) return;
+    lastShotAt = t;
 
-  function shootFromTap(clientX, clientY, src='tap'){
-    const now = performance.now();
-    if (now - lastShotAt < clamp(CFG.cooldownMs, 30, 400)) return;
-    lastShotAt = now;
-
-    const r = DOC.documentElement.getBoundingClientRect();
-    const x = clamp(clientX ?? (r.left + r.width/2), r.left, r.left + r.width);
-    const y = clamp(clientY ?? (r.top + r.height/2), r.top, r.top + r.height);
-
-    emit('hha:shoot', {
-      x, y,
-      lockPx: clamp(CFG.lockPx, 10, 140),
-      source: src
-    });
+    const x = (WIN.innerWidth||0)/2;
+    const y = (WIN.innerHeight||0)/2;
+    emit('hha:shoot', { x, y, lockPx: CFG.lockPx|0, source });
   }
 
-  // cVR strict: always shoot from center (ignore tap position)
-  function shootCenter(src='cvr'){
-    const r = DOC.documentElement.getBoundingClientRect();
-    shootFromTap(r.left + r.width/2, r.top + r.height/2, src);
-  }
+  function onPointerDown(ev){
+    const b = DOC.body;
+    if (!b) return;
 
-  // Tap surface listeners (pointerdown)
-  UI.tap.addEventListener('pointerdown', (ev)=>{
-    // DO NOT block default scrolling if not needed
-    try{ ev.preventDefault(); }catch(_){}
-    if (IS_CVR){
-      shootCenter('cvr');
-    } else {
-      shootFromTap(ev.clientX, ev.clientY, 'tap');
+    const viewIsCVR = b.classList.contains('view-cvr');
+    const isTouch = ev.pointerType === 'touch' || ev.type === 'touchstart';
+    const src = viewIsCVR ? 'cvr' : (isTouch ? 'touch' : 'mouse');
+
+    // strict: only auto-shoot in cVR
+    if (viewIsCVR){
+      try{ ev.preventDefault(); }catch(_){}
+      fire(src);
     }
-  }, { passive:false });
+  }
 
-  // Also support keyboard for PC testing
-  WIN.addEventListener('keydown', (ev)=>{
-    if (ev.key === ' ' || ev.code === 'Space'){
-      if (IS_CVR) shootCenter('kb');
-      else {
-        const r = DOC.documentElement.getBoundingClientRect();
-        shootFromTap(r.left + r.width/2, r.top + r.height/2, 'kb');
+  DOC.addEventListener('pointerdown', onPointerDown, { passive:false });
+
+  WIN.addEventListener('keydown', (e)=>{
+    if (e.code === 'Space'){
+      if (DOC.body && DOC.body.classList.contains('view-cvr')){
+        fire('key');
       }
     }
   });
 
-  // ----------------- XR availability hint (optional UX) -----------------
-  // We do NOT change view, but we can disable ENTER VR button if clearly unavailable.
-  (async function(){
-    const enterBtn = UI.root.querySelector('button[data-act="enter"]');
-    if (!enterBtn) return;
+  // ---------- Build UI buttons ----------
+  const root = ensureRoot();
 
-    // If A-Frame scene exists, keep enabled (A-Frame handles XR availability internally)
-    if (findScene()) return;
+  const btnEnter = DOC.createElement('button');
+  btnEnter.className = 'btn primary';
+  btnEnter.textContent = 'ENTER VR';
+  btnEnter.addEventListener('click', ()=>{
+    if (!tryEnterVR()){
+      try{
+        const el = DOC.documentElement;
+        if (!DOC.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI:'hide' });
+      }catch(_){}
+    }
+  });
 
-    // Otherwise, check WebXR support (best-effort)
+  const btnExit = DOC.createElement('button');
+  btnExit.className = 'btn warn';
+  btnExit.textContent = 'EXIT';
+  btnExit.addEventListener('click', ()=>{
+    if (!tryExitVR()){
+      try{ if (DOC.fullscreenElement && DOC.exitFullscreen) DOC.exitFullscreen(); }catch(_){}
+    }
+  });
+
+  const btnRecenter = DOC.createElement('button');
+  btnRecenter.className = 'btn cyan';
+  btnRecenter.textContent = 'RECENTER';
+  btnRecenter.addEventListener('click', ()=> recenter());
+
+  const showEnter = hasAFrameScene();
+  if (showEnter) root.appendChild(btnEnter);
+  if (CFG.showExit) root.appendChild(btnExit);
+  if (CFG.showRecenter) root.appendChild(btnRecenter);
+
+  // ✅ Publish VR-UI size as CSS vars so games can avoid spawning under the buttons
+  function publishSafe(){
     try{
-      if (navigator.xr && navigator.xr.isSessionSupported){
-        const ok = await navigator.xr.isSessionSupported('immersive-vr');
-        if (!ok){
-          enterBtn.style.opacity = '.55';
-          enterBtn.title = 'WebXR VR not supported on this device/browser';
-        }
-      } else {
-        enterBtn.style.opacity = '.55';
-        enterBtn.title = 'WebXR not available';
-      }
+      const r = root.getBoundingClientRect();
+      DOC.documentElement.style.setProperty('--hha-vrui-w', Math.ceil(r.width) + 'px');
+      DOC.documentElement.style.setProperty('--hha-vrui-h', Math.ceil(r.height) + 'px');
     }catch(_){}
-  })();
+  }
+  setTimeout(publishSafe, 0);
+  setTimeout(publishSafe, 120);
+  setTimeout(publishSafe, 320);
+  WIN.addEventListener('resize', publishSafe, { passive:true });
+  WIN.addEventListener('orientationchange', publishSafe, { passive:true });
+
+  // ---------- keep view in sync (auto only, still no override) ----------
+  function onResize(){
+    if (String(qs('view','')).toLowerCase()) return; // no override
+    const v = detectView();
+    applyViewClasses(v);
+  }
+  WIN.addEventListener('resize', ()=>{ try{ onResize(); publishSafe(); }catch(_){ } }, { passive:true });
+  WIN.addEventListener('orientationchange', ()=>{ try{ onResize(); publishSafe(); }catch(_){ } }, { passive:true });
 
 })();
