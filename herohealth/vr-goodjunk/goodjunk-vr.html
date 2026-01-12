@@ -16,6 +16,7 @@
 
   <!-- Global FX + Logger + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-fx-director.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
@@ -34,7 +35,7 @@
   </a-scene>
 
   <!-- TOPBAR -->
-  <div class="gj-topbar">
+  <div class="gj-topbar" id="gjTopbar">
     <div class="left">
       <div class="gj-chip" id="chipMeta">GoodJunkVR</div>
     </div>
@@ -105,7 +106,7 @@
     </div>
   </footer>
 
-  <!-- Playfield (L / R for cVR) -->
+  <!-- Playfield -->
   <main class="gj-field" id="gjField" aria-label="GoodJunk playfield">
     <div id="gj-layer" class="gj-layer" aria-hidden="false"></div>
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
@@ -146,11 +147,10 @@
     </div>
   </div>
 
-  <!-- ✅ HUD-safe measure helper: include TOPBAR + HUD + vr-ui controls -->
+  <!-- HUD-safe measure helper (PATCHED: more accurate reads) -->
   <script>
     (function(){
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-
       function updateSafe(){
         try{
           const root = document.documentElement;
@@ -158,45 +158,40 @@
           const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
           const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
 
-          const topbar = document.querySelector('.gj-topbar');
+          const topbar = document.getElementById('gjTopbar');
           const topHud = document.getElementById('gjHudTop');
           const botHud = document.getElementById('gjHudBot');
-          const controls = document.querySelector('.hha-controls'); // injected by vr-ui.js
+          const controls = document.querySelector('.hha-controls');
+
+          // ✅ force layout reads (mobile browsers)
+          topbar && topbar.getBoundingClientRect();
+          topHud && topHud.getBoundingClientRect();
+          botHud && botHud.getBoundingClientRect();
+          controls && controls.getBoundingClientRect();
 
           const topbarH = (topbar?.getBoundingClientRect().height || 0);
-          const topHudH = (topHud?.getBoundingClientRect().height || 0);
-          const botHudH = (botHud?.getBoundingClientRect().height || 0);
-          const controlsH = (controls?.getBoundingClientRect().height || 0);
+          const topH = (topHud?.getBoundingClientRect().height || 0);
+          const botH = (botHud?.getBoundingClientRect().height || 0);
+          const ctlH = (controls?.getBoundingClientRect().height || 0);
 
-          // If HUD hidden: keep a small safe area (topbar still there)
-          const hudHidden = document.body.classList.contains('hud-hidden');
-          const topSafe = hudHidden
-            ? (topbarH + 12 + sat)
-            : (topbarH + topHudH + 14 + sat);
+          // top safe = topbar + top hud + padding + safe inset top
+          root.style.setProperty('--gj-top-safe', px(topbarH + topH + 14 + sat));
 
-          // Bottom safe: include HUD bottom + controls height (avoid spawn under controls)
-          const bottomSafe = hudHidden
-            ? (controlsH + 14 + sab)
-            : (botHudH + controlsH + 16 + sab);
-
-          root.style.setProperty('--gj-top-safe', px(topSafe));
-          root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
+          // bottom safe = bottom hud + padding + controls (vr-ui) + safe inset bottom
+          // (controls can be present even on mobile)
+          root.style.setProperty('--gj-bottom-safe', px(botH + 14 + Math.min(96, ctlH + 10) + sab));
         }catch(_){}
       }
-
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
-
-      // run a few times to settle (fonts / injected controls)
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 350);
-      setTimeout(updateSafe, 900);
-      setInterval(updateSafe, 1500);
+      setInterval(updateSafe, 1200);
     })();
   </script>
 
-  <!-- UI wiring: hub/back/end + hide HUD triggers safe recalculation -->
+  <!-- UI wiring: hub/back/end/peek/hide + flush-hardened -->
   <script>
     (function(){
       const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
@@ -242,9 +237,6 @@
 
       byId('btnHideHud')?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
-        // ✅ force safe-area re-measure after layout changes
-        setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); }catch(_){ } }, 30);
-        setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); }catch(_){ } }, 200);
       });
 
       const endOverlay = byId('endOverlay');
@@ -285,7 +277,6 @@
       }
 
       function onEnd(ev){ showEnd(ev?.detail || null); }
-
       window.addEventListener('hha:end', onEnd, { passive:true });
       document.addEventListener('hha:end', onEnd, { passive:true });
       document.body?.addEventListener('hha:end', onEnd, { passive:true });
