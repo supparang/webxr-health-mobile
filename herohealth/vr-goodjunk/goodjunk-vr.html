@@ -1,3 +1,13 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
+GoodJunkVR RUN — PRODUCTION (Folder-run)
+Root launcher: /herohealth/goodjunk-vr.html
+✅ Loads: ./goodjunk-vr.css
+✅ Loads: ../vr/particles.js (optional FX)
+✅ Loads: ../vr/hha-cloud-logger.js
+✅ Loads: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
+✅ Boots: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
+✅ Measures HUD => sets --gj-top-safe / --gj-bottom-safe (spawn safe)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,159 +18,190 @@
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <link rel="stylesheet" href="./goodjunk-vr.css" />
-
-  <style>
-    :root{
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-
-      /* defaults; จะถูกสคริปต์วัด HUD แล้วทับอีกที */
-      --gj-top-safe: 140px;
-      --gj-bottom-safe: 130px;
-    }
-    html,body{ width:100%; height:100%; margin:0; overflow:hidden; background:#020617; }
-    .gj-stage{ position:fixed; inset:0; z-index:10; overflow:hidden; touch-action:manipulation; user-select:none; }
-    .gj-layer{ position:absolute; inset:0; pointer-events:auto; }
-
-    /* cVR split */
-    body.view-cvr .gj-layer{ width:50%; }
-    #gj-layer{ left:0; }
-    #gj-layer-r{ right:0; left:auto; display:none; }
-    body.view-cvr #gj-layer-r{ display:block; }
-
-    /* cVR strict: ยิงจาก crosshair (vr-ui.js) */
-    body.view-cvr .gj-target{ pointer-events:none !important; }
-
-    .gj-hud{
-      position:fixed;
-      left: calc(10px + var(--sal));
-      right: calc(10px + var(--sar));
-      top: calc(10px + var(--sat));
-      z-index: 80;
-      pointer-events:none;
-      font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      color:#e5e7eb;
-    }
-    .gj-hud-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .gj-pill{
-      background: rgba(2,6,23,.62);
-      border: 1px solid rgba(148,163,184,.22);
-      border-radius: 999px;
-      padding: 8px 10px;
-      font-weight: 900;
-      font-size: 12px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 55px rgba(0,0,0,.35);
-    }
-    .gj-pill strong{ font-size: 14px; }
-    .gj-spacer{ flex:1; min-width: 10px; }
-
-    .gj-bars{ margin-top:10px; display:grid; grid-template-columns:1fr; gap:8px; }
-    .gj-card{ background: rgba(2,6,23,.58); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:10px 12px; }
-    .gj-card .t{ color:#94a3b8; font-weight:1000; font-size:11px; letter-spacing:.3px; }
-    .gj-card .v{ font-weight:1200; font-size:14px; margin-top:4px; }
-    .gj-meter{ margin-top:8px; height:10px; border-radius:999px; background: rgba(148,163,184,.16); overflow:hidden; }
-    #feverFill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
-
-    #lowTimeOverlay{
-      position:fixed; inset:0; z-index:160;
-      display:flex; align-items:center; justify-content:center;
-      background: radial-gradient(circle at center, rgba(239,68,68,.20), rgba(2,6,23,.0) 60%);
-      backdrop-filter: blur(6px);
-      pointer-events:none;
-    }
-    #lowTimeOverlay[aria-hidden="true"]{ display:none; }
-    #gj-lowtime-num{ font-size:84px; font-weight:1400; color:rgba(255,255,255,.92); text-shadow:0 18px 55px rgba(0,0,0,.45); }
-
-    a-scene{ position:fixed !important; inset:0 !important; z-index:0 !important; }
-  </style>
-
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- global modules -->
+  <!-- Global modules -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- boot -->
-  <script type="module" src="./goodjunk-vr.boot.js"></script>
+  <!-- Boot -->
+  <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="gj">
+  <!-- A-Frame minimal scene (behind UI) -->
   <a-scene
     embedded
     vr-mode-ui="enabled:false"
     renderer="colorManagement:true; physicallyCorrectLights:false"
-    style="background:transparent;">
+    style="background: transparent;"
+  >
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- HUD (ids must match goodjunk.safe.js) -->
-  <div class="gj-hud" id="gjHud" aria-hidden="false">
-    <div class="gj-hud-row">
-      <div class="gj-pill">SCORE <strong id="hud-score">0</strong></div>
-      <div class="gj-pill">TIME <strong id="hud-time">0</strong></div>
-      <div class="gj-pill">MISS <strong id="hud-miss">0</strong></div>
-      <div class="gj-spacer"></div>
-      <div class="gj-pill">GRADE <strong id="hud-grade">—</strong></div>
-      <div class="gj-pill">🛡️ <strong id="shieldPills">—</strong></div>
+  <!-- TOPBAR -->
+  <header class="gj-topbar" id="gjTopbar">
+    <div class="left">
+      <div class="gj-chip">
+        <b>GoodJunkVR</b>
+        <span style="opacity:.75" id="gjChipMeta">view=auto · run=play</span>
+      </div>
+    </div>
+    <div class="right">
+      <button class="gj-btn" id="btnMissions" type="button">Missions</button>
+      <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
+      <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
+    </div>
+  </header>
+
+  <!-- HUD TOP -->
+  <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
+    <div class="hud-row">
+      <div class="hud-pill">
+        <div class="hud-label">SCORE</div>
+        <div class="hud-value" id="hud-score">0</div>
+      </div>
+      <div class="hud-pill">
+        <div class="hud-label">TIME</div>
+        <div class="hud-value"><span id="hud-time">0</span>s</div>
+      </div>
+      <div class="hud-pill warn">
+        <div class="hud-label">MISS</div>
+        <div class="hud-value" id="hud-miss">0</div>
+      </div>
+      <div class="hud-pill grade">
+        <div class="hud-label">GRADE</div>
+        <div class="hud-value" id="hud-grade">—</div>
+      </div>
     </div>
 
-    <div class="gj-bars">
-      <div class="gj-card">
-        <div class="t">GOAL</div>
-        <div class="v">
-          <span id="hud-goal">—</span>
-          <span style="opacity:.8"> (</span><span id="hud-goal-cur">0</span><span style="opacity:.8">/</span><span id="hud-goal-target">0</span><span style="opacity:.8">)</span>
+    <div class="quest-row">
+      <div class="quest-card goal">
+        <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
+        <div class="q-desc" id="goalDesc">—</div>
+        <div class="q-bar">
+          <div class="q-num"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
+          <div class="q-hint">ทำให้ครบแล้วไป GOAL ต่อ</div>
         </div>
-        <div class="t" id="goalDesc" style="margin-top:6px;">—</div>
       </div>
 
-      <div class="gj-card">
-        <div class="t">MINI</div>
-        <div class="v"><span id="hud-mini">—</span></div>
-        <div class="t" style="margin-top:6px;">TIMER: <span id="miniTimer">—</span></div>
-      </div>
-
-      <div class="gj-card" id="gjHudBot">
-        <div class="t">FEVER</div>
-        <div class="v"><span id="feverText">0%</span></div>
-        <div class="gj-meter"><div id="feverFill"></div></div>
+      <div class="quest-card mini">
+        <div class="q-title">MINI</div>
+        <div class="q-desc" id="hud-mini">—</div>
+        <div class="q-bar">
+          <div class="q-num" id="miniTimer">—</div>
+          <div class="q-hint">ผ่านแล้วสลับทันที</div>
+        </div>
       </div>
     </div>
+  </section>
+
+  <!-- HUD BOTTOM -->
+  <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
+    <div class="meter fever" id="gjHudFever">
+      <div class="meter-title">FEVER</div>
+      <div class="meter-bar"><div class="meter-fill" id="feverFill"></div></div>
+      <div class="meter-num"><span id="feverText">0%</span> <span style="opacity:.7">ยิ่งสูงยิ่งเสี่ยง</span></div>
+    </div>
+
+    <div class="meter shield" id="gjHudShield">
+      <div class="meter-title">SHIELD</div>
+      <div class="meter-shield" id="shieldPills">—</div>
+      <div class="meter-tip">🛡️ บล็อคขยะ = ไม่เป็น MISS</div>
+    </div>
+  </section>
+
+  <!-- PLAYFIELD -->
+  <main class="gj-field" id="gj-field">
+    <div id="gj-layer" class="gj-layer"></div>
+    <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
+  </main>
+
+  <!-- MISSIONS PEEK -->
+  <section class="gj-peek" id="missionsPeek" aria-hidden="true">
+    <div class="peek-card">
+      <div class="peek-title">Missions</div>
+      <div class="peek-sub"><b>GOAL:</b> <span id="peekGoal">—</span></div>
+      <div class="peek-mini"><b>MINI:</b> <span id="peekMini">—</span></div>
+      <div class="peek-tip">แตะหน้าจอ/กดปุ่ม Missions อีกครั้งเพื่อปิด</div>
+    </div>
+  </section>
+
+  <!-- Low time overlay -->
+  <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
+    <div class="gj-lowtime-ring"></div>
+    <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <div id="lowTimeOverlay" aria-hidden="true">
-    <div id="gj-lowtime-num">5</div>
-  </div>
-
-  <div class="gj-stage" id="gj-stage">
-    <div class="gj-layer" id="gj-layer"></div>
-    <div class="gj-layer" id="gj-layer-r"></div>
-  </div>
-
-  <!-- ✅ วัด HUD แล้วตั้ง safe-zone กัน spawn ชน HUD -->
+  <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
+      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const hub = qs('hub', null);
+
+      const btnBack = document.getElementById('btnBackHub');
+      const btnHide = document.getElementById('btnHideHud');
+      const btnMis  = document.getElementById('btnMissions');
+
+      const chipMeta = document.getElementById('gjChipMeta');
+      const peek = document.getElementById('missionsPeek');
+      const peekGoal = document.getElementById('peekGoal');
+      const peekMini = document.getElementById('peekMini');
+
+      // meta text
+      const v = qs('view','auto');
+      const run  = qs('run','play');
+      const diff = qs('diff','normal');
+      const time = qs('time','80');
+      if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
+
+      btnBack?.addEventListener('click', ()=>{
+        if(hub) location.href = hub;
+        else alert('ยังไม่ได้ใส่ hub url');
+      });
+
+      btnHide?.addEventListener('click', ()=>{
+        document.body.classList.toggle('hud-hidden');
+        setTimeout(updateSafe, 0);
+      });
+
+      function toggleMissions(){
+        document.body.classList.toggle('show-missions');
+        const shown = document.body.classList.contains('show-missions');
+        peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
+        if(shown){
+          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
+          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
+        }
+      }
+
+      btnMis?.addEventListener('click', toggleMissions);
+      peek?.addEventListener('click', toggleMissions);
+
+      // ✅ measure HUD => set safe spawn vars (used by goodjunk.safe.js getSafeRect)
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-          const hud = document.getElementById('gjHud');
-          const bot = document.getElementById('gjHudBot');
-          const topH = (hud?.getBoundingClientRect().height || 0);
-          const botH = (bot?.getBoundingClientRect().height || 0);
-          document.documentElement.style.setProperty('--gj-top-safe', px(topH + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(90, botH + 18)));
+
+          const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
+          const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
+          const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
+
+          // top safe: topbar + hudTop + padding + safe-area
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 16 + sat));
+
+          // bottom safe: hudBot + padding (ขั้นต่ำกันแนว nav bar)
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(110, hudBot + 18)));
         }catch(_){}
       }
+
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 350);
+      setTimeout(updateSafe, 360);
     })();
   </script>
 </body>
