@@ -3,283 +3,65 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --radius:24px;
-      --pill:999px;
-      --soft: 0 10px 28px rgba(0,0,0,.30);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ width:100%; height:100%; margin:0;
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    }
-    .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding:18px; }
-    .card{
-      width:min(560px, 100%);
-      background: rgba(2,6,23,.80);
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: 26px;
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      padding: 16px;
-      backdrop-filter: blur(10px);
-    }
-    .title{ font-size:20px; font-weight:1000; letter-spacing:.2px; }
-    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
-    .grid{ margin-top:14px; display:grid; gap:10px; }
-    .row{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
-    .btn{
-      flex:1 1 180px;
-      display:inline-flex; align-items:center; justify-content:center; gap:8px;
-      padding: 12px 12px;
-      border-radius: 18px;
-      border: 1px solid rgba(148,163,184,.20);
-      background: rgba(15,23,42,.65);
-      color: var(--text);
-      font-weight: 1000;
-      cursor:pointer;
-      box-shadow: var(--soft);
-    }
-    .btn-strong{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.32); }
-    .btn-ghost{ background: rgba(2,6,23,.35); }
-    .pill{
-      display:flex; justify-content:space-between; align-items:center;
-      padding: 10px 12px; border-radius: var(--pill);
-      background: rgba(2,6,23,.65);
-      border: 1px solid rgba(148,163,184,.16);
-      box-shadow: var(--soft);
-      font-weight:900; font-size:13px;
-    }
-    .pill span{ color:var(--muted); font-weight:900; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; color:rgba(148,163,184,.95); }
-    .hint{ margin-top:10px; color:var(--muted); font-weight:800; font-size:12px; }
-    .sep{ height:1px; background: rgba(148,163,184,.12); margin:12px 0; }
+  <title>HeroHealth — GoodJunkVR Launcher</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" />
 
-    .overlay{
-      position:fixed; inset:0; display:none;
-      align-items:center; justify-content:center;
-      padding:18px;
-      background: rgba(2,6,23,.78);
-      backdrop-filter: blur(10px);
-    }
-    .overlay.show{ display:flex; }
+  <style>
+    :root{ color-scheme: dark; --bg:#020617; --panel:rgba(15,23,42,.72); --stroke:rgba(148,163,184,.22); --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; }
+    html,body{ margin:0; height:100%; background: radial-gradient(circle at 20% 15%, rgba(34,211,238,.18), transparent 55%), linear-gradient(180deg,#020617,#020617); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    .wrap{ min-height:100%; display:grid; place-items:center; padding:22px; }
+    .card{ width:min(720px,94vw); background:var(--panel); border:1px solid var(--stroke); border-radius:22px; padding:18px; box-shadow:0 18px 55px rgba(0,0,0,.45); }
+    .h{ font-size:22px; font-weight:1200; }
+    .sub{ margin-top:8px; color:var(--muted); font-weight:900; font-size:13px; }
+    .row{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    .btn{ flex:1; min-width:220px; height:54px; border-radius:16px; border:1px solid rgba(148,163,184,.22); background:rgba(2,6,23,.55); color:var(--text); font-weight:1200; font-size:16px; cursor:pointer; }
+    .btn.primary{ border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.14); }
+    .meta{ margin-top:12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; color:rgba(229,231,235,.88); background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:14px; padding:10px; overflow:auto; }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="title">Food Groups VR</div>
-      <div class="sub" id="subText">กำลังตรวจจับอุปกรณ์…</div>
-
-      <div class="sep"></div>
-
-      <div class="grid">
-        <div class="pill"><span>View</span><div id="vView">—</div></div>
-        <div class="pill"><span>Start Mode</span><div id="vStart">—</div></div>
-        <div class="pill"><span>Run</span><div id="vRun">—</div></div>
-        <div class="pill"><span>Diff</span><div id="vDiff">—</div></div>
-        <div class="pill"><span>Time</span><div id="vTime">—</div></div>
-        <div class="pill"><span>AI</span><div id="vAI">—</div></div>
-        <div class="pill"><span>Seed</span><div class="mono" id="vSeed">—</div></div>
-      </div>
+      <div class="h">GoodJunkVR</div>
+      <div class="sub">Launcher (root) → ส่งต่อไป <b>/vr-goodjunk/goodjunk.html</b> พร้อมพารามิเตอร์ทั้งหมด</div>
 
       <div class="row">
-        <button class="btn btn-strong" id="btnGo" type="button">▶ เริ่ม</button>
-        <button class="btn btn-ghost" id="btnForceAuto" type="button">⚡ Auto (ไม่แตะ)</button>
-        <button class="btn btn-ghost" id="btnForceTap" type="button">🖐 Tap-to-start</button>
+        <button class="btn primary" id="btnStart">เริ่มเล่น (Auto)</button>
+        <button class="btn" id="btnBack">กลับ HUB</button>
       </div>
 
-      <div class="hint">
-        ตัวเลือกพารามิเตอร์ (ใช้กับ HUB ได้เลย):<br/>
-        <span class="mono">?auto=1</span> เด้งเข้าเกมทันที •
-        <span class="mono">?tap=1</span> บังคับแตะก่อนเข้า •
-        <span class="mono">?cvr=1</span> มือถือบังคับเป็น cVR<br/>
-        หมายเหตุ: ENTER VR ต้องกดเองในหน้าเกม (ข้อกำหนด WebXR)
-      </div>
+      <div class="meta" id="meta">…</div>
     </div>
   </div>
 
-  <div class="overlay" id="tapOverlay">
-    <div class="card">
-      <div class="title">แตะเพื่อเริ่ม</div>
-      <div class="sub" id="tapSub">ระบบจะพาเข้าเกม</div>
-      <div class="row">
-        <button class="btn btn-strong" id="btnTapStart" type="button">▶ เข้าเกม</button>
-        <button class="btn btn-ghost" id="btnCancel" type="button">ยกเลิก</button>
-      </div>
-      <div class="hint">แตะครั้งนี้ช่วย unlock gesture ให้ fullscreen/เสียง (ถ้ามี) ทำงานเสถียรกว่า</div>
-    </div>
-  </div>
+  <script>
+    (function(){
+      const url = new URL(location.href);
+      const hub = url.searchParams.get('hub');
 
-<script>
-(function(){
-  'use strict';
-  const DOC = document;
-  const $ = (id)=>DOC.getElementById(id);
+      // ส่งต่อทุก query แบบเดิมเป๊ะ (ไม่แก้ view)
+      const runUrl = new URL('./vr-goodjunk/goodjunk.html', location.href);
+      for (const [k,v] of url.searchParams.entries()) runUrl.searchParams.set(k, v);
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function qOn(k){
-    const v = String(qs(k,'')||'').toLowerCase();
-    return (v==='1' || v==='true' || v==='yes' || v==='on');
-  }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+      // ถ้าไม่มี time ให้ default 80
+      if(!runUrl.searchParams.get('time')) runUrl.searchParams.set('time','80');
+      if(!runUrl.searchParams.get('diff')) runUrl.searchParams.set('diff','normal');
+      if(!runUrl.searchParams.get('run'))  runUrl.searchParams.set('run','play');
 
-  // ---------- Start policy (1–2) ----------
-  // default = tap-to-start (recommended)
-  // ?auto=1 => immediate redirect
-  // ?tap=1  => force tap overlay
-  function startPolicy(){
-    if (qOn('auto')) return 'auto';
-    if (qOn('tap'))  return 'tap';
-    return 'tap';
-  }
+      document.getElementById('meta').textContent = runUrl.toString();
 
-  // ---------- Detect (3 included) ----------
-  // ?cvr=1 => on mobile => cvr
-  function detectViewAuto(){
-    const vp = String(qs('view','')||'').toLowerCase();
-    if (vp) return vp;
+      document.getElementById('btnStart').addEventListener('click', ()=> location.href = runUrl.toString());
+      document.getElementById('btnBack').addEventListener('click', ()=>{
+        if(hub) location.href = hub;
+        else history.back();
+      });
 
-    const isMobile = matchMedia('(pointer:coarse)').matches || (navigator.maxTouchPoints||0) > 0;
-    const isSmall  = (Math.min(innerWidth||0, innerHeight||0) <= 520);
-
-    // 3) mobile auto cVR toggle
-    const forceCvr = qOn('cvr');
-
-    if (isMobile && forceCvr && isSmall) return 'cvr';
-    return isMobile ? 'mobile' : 'pc';
-  }
-
-  function aiFromParams(run){
-    const a = String(qs('ai','0')||'0').toLowerCase();
-    if (run === 'research') return '0';
-    return (a==='1' || a==='true' || a==='on') ? '1' : '0';
-  }
-
-  // ---------- Params ----------
-  const P = {
-    view:'mobile', run:'play', diff:'normal', style:'mix', time:90,
-    seed:String(Date.now()), ai:'0', hub:null,
-    start:'tap'
-  };
-
-  function computeParams(){
-    P.start = startPolicy();
-
-    P.view  = detectViewAuto();
-    P.run   = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-    P.diff  = String(qs('diff','normal')||'normal').toLowerCase();
-    P.style = String(qs('style','mix')||'mix').toLowerCase();
-    P.time  = clamp(qs('time', 90), 30, 180);
-    P.seed  = String(qs('seed', Date.now()) || Date.now());
-    P.hub   = qs('hub', null);
-    P.ai    = aiFromParams(P.run);
-  }
-
-  function setText(){
-    $('vView').textContent  = P.view;
-    $('vStart').textContent = (P.start==='auto') ? 'AUTO' : 'TAP';
-    $('vRun').textContent   = P.run.toUpperCase();
-    $('vDiff').textContent  = P.diff.toUpperCase();
-    $('vTime').textContent  = String(P.time);
-    $('vAI').textContent    = (P.ai==='1') ? 'ON' : 'OFF';
-    $('vSeed').textContent  = P.seed;
-
-    $('subText').textContent =
-      (P.start==='auto')
-        ? 'โหมด Auto: กำลังพาเข้าเกม…'
-        : 'โหมด Tap-to-start: แตะเริ่มเพื่อเข้าเกม';
-
-    $('tapSub').textContent =
-      (P.view==='cvr')
-        ? 'ตรวจพบ Cardboard (cVR) — แตะแล้วเข้าเกม'
-        : (P.view==='pc')
-          ? 'ตรวจพบ PC — แตะแล้วเข้าเกม'
-          : 'ตรวจพบ Mobile — แตะแล้วเข้าเกม';
-  }
-
-  function buildRunUrl(){
-    const base = './vr-groups/groups-vr.html';
-    const u = new URL(base, location.href);
-
-    u.searchParams.set('view', P.view);
-    u.searchParams.set('run', P.run);
-    u.searchParams.set('diff', P.diff);
-    u.searchParams.set('style', P.style);
-    u.searchParams.set('time', String(P.time));
-    u.searchParams.set('seed', P.seed);
-    u.searchParams.set('ai', P.ai);
-    if (P.hub) u.searchParams.set('hub', P.hub);
-
-    return u.toString();
-  }
-
-  function showTap(on){
-    $('tapOverlay').classList.toggle('show', !!on);
-  }
-
-  function go(){
-    location.href = buildRunUrl();
-  }
-
-  function goAuto(){
-    // replace: back button won't return to this page (nice for UX)
-    location.replace(buildRunUrl());
-  }
-
-  function boot(){
-    computeParams();
-    setText();
-
-    $('btnGo').addEventListener('click', ()=>{
-      if (P.start === 'auto') goAuto();
-      else showTap(true);
-    }, {passive:true});
-
-    $('btnTapStart').addEventListener('click', go, {passive:true});
-    $('btnCancel').addEventListener('click', ()=>showTap(false), {passive:true});
-
-    $('btnForceAuto').addEventListener('click', ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('auto','1');
-      u.searchParams.delete('tap');
-      location.href = u.toString();
-    }, {passive:true});
-
-    $('btnForceTap').addEventListener('click', ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('tap','1');
-      u.searchParams.delete('auto');
-      location.href = u.toString();
-    }, {passive:true});
-
-    // 1) Auto redirect immediately (no tap)
-    if (P.start === 'auto') {
-      // small delay for UI paint (very tiny)
-      setTimeout(goAuto, 30);
-    }
-  }
-
-  boot();
-})();
-</script>
+      // auto-redirect ถ้ามาจาก hub แล้วอยากเข้าทันที: ใส่ ?autostart=1
+      if(runUrl.searchParams.get('autostart') === '1'){
+        location.replace(runUrl.toString());
+      }
+    })();
+  </script>
 </body>
 </html>
