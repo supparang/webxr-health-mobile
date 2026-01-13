@@ -1,8 +1,12 @@
-<!-- =========================================================
+<!-- ======================================================
      /herohealth/plate/plate-vr.html
      Balanced Plate VR — RUN (PRODUCTION)
-     HHA Standard
-========================================================== -->
+     ✅ A-Frame minimal scene for Enter VR reliability
+     ✅ Uses: ./plate-vr.css
+     ✅ Loads: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+     ✅ Adds FX layers: #bossFx / #stormFx (matches CSS)
+     ✅ HHA Standard HUD + End overlay + Coach
+====================================================== -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -10,7 +14,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#020617" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame: helps WebXR Enter VR reliability -->
@@ -30,7 +33,6 @@
 
 <body class="view-pc">
   <div id="app">
-
     <!-- Minimal A-Frame scene (hidden) for Enter VR -->
     <a-scene
       embedded
@@ -41,31 +43,31 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- FX hooks (optional) -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
-
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
+
+    <!-- FX layers (match CSS; optional hooks) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
 
     <!-- HUD -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
-        <div class="chip score" aria-label="score">
+        <div class="chip score">
           <span class="lbl">SCORE</span>
           <span class="val" id="hudScore">0</span>
         </div>
-        <div class="chip time" aria-label="time">
+        <div class="chip time">
           <span class="lbl">TIME</span>
           <span class="val" id="hudTime">0</span>
         </div>
-        <div class="chip combo" aria-label="combo">
+        <div class="chip combo">
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
         </div>
       </div>
 
-      <div class="card" id="questCard" aria-label="quests">
+      <div class="card" id="questCard">
         <div class="cardTitle">
           <div class="t">🎯 ภารกิจ</div>
           <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
@@ -84,7 +86,7 @@
         </div>
 
         <!-- MINI -->
-        <div class="qItem" id="miniItem">
+        <div class="qItem" id="miniItem" style="margin-top:8px;">
           <div class="qText">
             <div class="name" id="miniName">Mini Quest</div>
             <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
@@ -107,7 +109,7 @@
 
     <!-- End Overlay -->
     <div id="endOverlay" aria-hidden="true">
-      <div class="endPanel" role="dialog" aria-modal="true" aria-label="สรุปผลการเล่น">
+      <div class="endPanel">
         <div class="endTitle">
           <h2 id="endTitle">สรุปผล</h2>
           <div class="tag" id="endTag">PlateVR</div>
@@ -123,17 +125,16 @@
         </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
+          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- NOTE:
-    - vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    - plate.boot.js will set view class and boot the engine.
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
