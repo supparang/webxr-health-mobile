@@ -1,20 +1,18 @@
+// =========================================================
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — SAFE ENGINE (PRODUCTION)
-// HHA Standard (PATCH: Mini Spotlight + Missing Guidance + Plate Rush)
-// ------------------------------------------------
+// HHA Standard
+// ---------------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive ON (light)
+//   - play: adaptive ON (soft)
 //   - research/study: deterministic seed + adaptive OFF
 // ✅ Emits:
 //   hha:start, hha:score, hha:time, quest:update,
-//   hha:coach, hha:judge, hha:end
-// ✅ Supports: Boss/Storm hooks placeholders
-// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
-// ✅ NEW:
-//   A) Mini Quest = "เติมหมู่ที่ขาด (12 วิ) 0/2" (spotlight + bonus)
-//   B) Guidance: bias good hit -> missing groups during Mini (soft assist, no auto-aim)
-//   C) Plate Rush: last 15s => score x2, miss won't break combo (still counts miss)
-// ------------------------------------------------
+//   hha:coach, hha:judge, hha:shield, hha:end
+// ✅ Shield: blocks junk hit (blocked => NOT count as Miss)
+// ✅ Mini Quest: "เติมหมู่ที่ขาดใน 12 วิ" + reward time bonus
+// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot) handled by mode-factory
+// =========================================================
 
 'use strict';
 
@@ -31,8 +29,6 @@ const clamp = (v, a, b) => {
   return v < a ? a : (v > b ? b : v);
 };
 
-const pct2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
-
 function seededRng(seed){
   let t = seed >>> 0;
   return function(){
@@ -43,33 +39,16 @@ function seededRng(seed){
   };
 }
 
-function pickOne(arr, rng=Math.random){
-  if(!arr || !arr.length) return null;
-  return arr[Math.floor(rng()*arr.length)];
+function nowMs(){ return Date.now(); }
+
+function emit(name, detail){
+  WIN.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-/* ------------------------------------------------
- * Group metadata (5 หมู่) — ใช้สำหรับ guidance/ข้อความ
- * หมายเหตุ: icon ไม่ได้บังคับ UI แต่ส่งให้ HUD ได้ถ้าจะใช้ภายหลัง
- * ------------------------------------------------ */
-const GROUPS = [
-  { key:'g1', name:'ข้าว-แป้ง', icon:'🍚' },
-  { key:'g2', name:'ผัก',      icon:'🥦' },
-  { key:'g3', name:'ผลไม้',    icon:'🍎' },
-  { key:'g4', name:'โปรตีน',   icon:'🍗' },
-  { key:'g5', name:'นม',       icon:'🥛' },
-];
-
-function missingGroupIndices(){
-  const miss = [];
-  for(let i=0;i<5;i++){
-    if((STATE.g[i]||0) <= 0) miss.push(i);
-  }
-  return miss;
-}
-
-function missingIcons(){
-  return missingGroupIndices().map(i=>GROUPS[i]?.icon || '•').join(' ');
+function pct2(n){
+  // keep 2 decimals max for logs
+  n = Number(n) || 0;
+  return Math.round(n * 100) / 100;
 }
 
 /* ------------------------------------------------
@@ -82,126 +61,130 @@ const STATE = {
   score:0,
   combo:0,
   comboMax:0,
+
+  // Miss definition (HHA): miss = good expired + junk hit (blocked junk NOT count)
   miss:0,
 
+  // shield
+  shield:0,
+
+  // time
   timeLeft:0,
   timer:null,
+  startedAtMs:0,
+  endedAtMs:0,
 
-  // plate groups (5 หมู่)
+  // groups (5 หมู่)
   g:[0,0,0,0,0], // index 0-4
+  // hits/exp
+  hitGood:0,
+  hitJunk:0,
+  hitJunkBlocked:0,
+  expireGood:0,
 
-  // quest (Goal = เติมครบ 5 หมู่)
+  // quest
   goal:{
     name:'เติมจานให้ครบ 5 หมู่',
-    sub:'เก็บอาหารให้ครบทุกหมู่',
+    sub:'เก็บอาหารให้ครบทุกหมู่ (อย่างน้อยหมู่ละ 1)',
     cur:0,
     target:5,
     done:false
   },
 
-  // mini quest (จะถูก “เปลี่ยนรูปแบบ” ให้ตรงภาพ: เติมหมู่ที่ขาด (12 วิ) 0/2)
   mini:{
-    name:'เติมหมู่ที่ขาด (12 วิ)',
-    sub:'พลาดได้ ไม่เป็นไร! ลองใหม่รอบหน้า ...',
+    // Mini quest แบบ “เติมหมู่ที่ขาด”
+    name:'มินิเควส: เติมหมู่ที่ขาด',
+    sub:'เก็บเฉพาะหมู่ที่ยังไม่มีให้ครบ ภายใน 12 วิ',
     cur:0,
-    target:2,
+    target:0, // จะตั้งตอนเริ่ม mini
     done:false,
-
-    // runtime
     active:false,
+    timeLeft:0,
     windowSec:12,
-    leftSec:0,
-    hitsNeed:2,     // เท่ากับ target
-    hitsGot:0
+    missingMask:[false,false,false,false,false],
+    rewardTimeSec:6, // ✅ รางวัลเพิ่มเวลา (เหตุผลของ “ยืดเวลา”)
+    rewardScore:250
   },
-
-  // phases
-  rush:{
-    on:false,
-    startAtSec:15,   // last 15s
-  },
-
-  // counters
-  hitGood:0,
-  hitJunk:0,
-  expireGood:0,
 
   // mode / cfg
   cfg:null,
   rng:Math.random,
 
-  // spawn
-  engine:null
+  // spawner handle
+  engine:null,
+
+  // adaptive knobs (soft)
+  baseSpawnRateMs:900,
+  curSpawnRateMs:900
 };
 
 /* ------------------------------------------------
- * Event helpers
+ * Score / HUD emits
  * ------------------------------------------------ */
-function emit(name, detail){
-  WIN.dispatchEvent(new CustomEvent(name, { detail }));
+function pushScore(){
+  emit('hha:score', {
+    score: STATE.score,
+    combo: STATE.combo,
+    comboMax: STATE.comboMax,
+    shield: STATE.shield
+  });
+}
+
+function pushShield(){
+  emit('hha:shield', { left: STATE.shield });
+  pushScore();
+}
+
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
+}
+
+function judge(kind, note=''){
+  // kind: good/junk/block/miss/perfect/bonus
+  emit('hha:judge', { kind, note, score: STATE.score, combo: STATE.combo, shield: STATE.shield });
 }
 
 /* ------------------------------------------------
- * Coach helper (rate-limit เบา ๆ)
+ * Accuracy
  * ------------------------------------------------ */
-let __coachTo = 0;
-function coach(msg, tag='Coach', coolMs=650){
-  const now = Date.now();
-  if(now - __coachTo < coolMs) return;
-  __coachTo = now;
-  emit('hha:coach', { msg, tag });
+function accuracy(){
+  // "good accuracy" = good hits / (good hits + junk hits + good expires)
+  const denom = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
+  if(denom <= 0) return 1;
+  return STATE.hitGood / denom;
 }
 
 /* ------------------------------------------------
  * Quest update
  * ------------------------------------------------ */
 function emitQuest(){
-  const missIdx = missingGroupIndices();
-  const missTxt = missIdx.length ? `ยังขาด: ${missingIcons()}` : 'ครบแล้ว!';
-  // Goal.sub อัปเดตตามสิ่งที่ขาด (เหมือนภาพ)
-  const goalSub = STATE.goal.done ? 'ครบทุกหมู่แล้ว 🎉' : missTxt;
-
   emit('quest:update', {
     goal:{
       name: STATE.goal.name,
-      sub: goalSub,
+      sub: STATE.goal.sub,
       cur: STATE.goal.cur,
       target: STATE.goal.target,
-      missing: missIdx,         // เผื่อ UI อยากใช้ภายหลัง
-      missingIcons: missingIcons()
+      done: STATE.goal.done
     },
     mini:{
       name: STATE.mini.name,
       sub: STATE.mini.sub,
       cur: STATE.mini.cur,
-      target: STATE.mini.target,
+      target: Math.max(1, Number(STATE.mini.target)||1),
       done: STATE.mini.done,
       active: STATE.mini.active,
-      leftSec: STATE.mini.leftSec
-    },
-    rush:{
-      on: STATE.rush.on,
-      leftSec: Math.max(0, Math.min(STATE.timeLeft, STATE.rush.startAtSec))
+      timeLeft: STATE.mini.timeLeft
     },
     allDone: STATE.goal.done && STATE.mini.done
   });
 }
 
 /* ------------------------------------------------
- * Score helpers
+ * Combo / Score helpers
  * ------------------------------------------------ */
-function emitScore(){
-  emit('hha:score', {
-    score: STATE.score,
-    combo: STATE.combo,
-    comboMax: STATE.comboMax,
-    rushOn: STATE.rush.on
-  });
-}
-
 function addScore(v){
-  STATE.score += v;
-  emitScore();
+  STATE.score = Math.max(-999999, STATE.score + (Number(v)||0));
+  pushScore();
 }
 
 function addCombo(){
@@ -214,70 +197,114 @@ function resetCombo(){
 }
 
 /* ------------------------------------------------
- * Accuracy
+ * Mini quest control
  * ------------------------------------------------ */
-function accuracy(){
-  const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
-  if(total <= 0) return 1;
-  return STATE.hitGood / total;
+function computeMissingMask(){
+  const mask = [false,false,false,false,false];
+  for(let i=0;i<5;i++){
+    if((STATE.g[i]||0) <= 0) mask[i] = true;
+  }
+  return mask;
 }
 
-/* ------------------------------------------------
- * Mini Quest controls (เติมหมู่ที่ขาด 12 วิ 0/2)
- * ------------------------------------------------ */
-function startMiniWindow(){
-  if(STATE.mini.done) return;
-  if(STATE.mini.active) return;
+function countMissing(mask){
+  let c = 0;
+  for(let i=0;i<5;i++) if(mask[i]) c++;
+  return c;
+}
+
+function startMiniIfEligible(){
+  if(STATE.mini.done || STATE.mini.active) return;
+
+  // เริ่ม mini เมื่อผู้เล่นเริ่มมี progress แล้ว (กันเริ่มตั้งแต่ยังไม่เล่น)
+  if(STATE.hitGood < 2) return;
+
+  const mask = computeMissingMask();
+  const need = countMissing(mask);
+
+  // ถ้าเหลือขาด 0 หรือ 1 หมู่ ก็ไม่ต้อง mini (มันง่ายเกิน)
+  if(need <= 1) return;
 
   STATE.mini.active = true;
-  STATE.mini.leftSec = STATE.mini.windowSec;
-  STATE.mini.hitsGot = 0;
-
-  STATE.mini.name = `เติมหมู่ที่ขาด (${STATE.mini.windowSec} วิ)`;
-  STATE.mini.target = STATE.mini.hitsNeed;
+  STATE.mini.timeLeft = STATE.mini.windowSec;
+  STATE.mini.missingMask = mask;
+  STATE.mini.target = need;
   STATE.mini.cur = 0;
 
-  coach('โอกาสโบนัส! รีบเติมหมู่ที่ขาด ✨', 'Coach', 0);
+  coach('มินิเควสมาแล้ว! เติม “หมู่ที่ขาด” ให้ครบใน 12 วิ ⏱️', 'Mini');
   emitQuest();
 }
 
-function stopMiniWindow(failed=false){
+function tickMini(){
   if(!STATE.mini.active) return;
-  STATE.mini.active = false;
-  STATE.mini.leftSec = 0;
+  STATE.mini.timeLeft = Math.max(0, (STATE.mini.timeLeft||0) - 1);
 
-  if(failed && !STATE.mini.done){
-    // โทนตามภาพ: “พลาดได้ ไม่เป็นไร...”
-    STATE.mini.sub = 'พลาดได้ ไม่เป็นไร! ลองใหม่รอบหน้า ...';
-    coach('ไม่เป็นไร รอบหน้าลองใหม่ได้ 👍', 'Coach');
+  if(STATE.mini.timeLeft <= 0){
+    // fail mini (ไม่ทำให้จบเกม แค่จบมินิ)
+    STATE.mini.active = false;
+    coach('มินิเควสหมดเวลา! ไม่เป็นไร ลุยต่อได้ 💪', 'Mini');
+    emitQuest();
+  }else{
+    emitQuest();
   }
-  emitQuest();
 }
 
-function completeMiniWindow(){
+function miniHit(groupIndex){
+  if(!STATE.mini.active) return;
   if(STATE.mini.done) return;
-  STATE.mini.done = true;
-  STATE.mini.active = false;
-  STATE.mini.leftSec = 0;
-  STATE.mini.cur = STATE.mini.target;
 
-  // โบนัส (เบา ๆ แต่รู้สึกคุ้ม): +250 คะแนน + เพิ่มเวลา +5 วิ (ถ้าไม่ใช่ research ก็ได้เหมือนกัน)
-  addScore(250);
-  STATE.timeLeft = clamp(STATE.timeLeft + 5, 0, 999);
-  emit('hha:time', { leftSec: STATE.timeLeft, bonus:true });
+  const gi = clamp(groupIndex, 0, 4);
+  if(STATE.mini.missingMask[gi]){
+    // ทำหมู่ที่ขาดสำเร็จครั้งแรกของหมู่นั้น
+    STATE.mini.missingMask[gi] = false;
+    STATE.mini.cur = clamp((STATE.mini.cur||0) + 1, 0, 999);
 
-  coach('สุดยอด! โบนัสคะแนน + เวลาเพิ่ม 🎁', 'Coach', 0);
-  emitQuest();
+    judge('bonus', 'เติมหมู่ที่ขาด!');
+    emitQuest();
+
+    if(STATE.mini.cur >= STATE.mini.target){
+      STATE.mini.done = true;
+      STATE.mini.active = false;
+
+      // ✅ Reward: เพิ่มเวลา + คะแนน + (โอกาสได้ Shield 1)
+      const addT = Number(STATE.mini.rewardTimeSec)||0;
+      if(addT > 0){
+        STATE.timeLeft += addT; // <<<<<< เหตุผล “ยืดเวลา”
+        emit('hha:time', { leftSec: STATE.timeLeft, bonus:addT });
+      }
+      addScore(Number(STATE.mini.rewardScore)||0);
+
+      // โบนัส Shield เล็กน้อยให้เด็กเล่นสนุก/รู้สึกปลอดภัย
+      STATE.shield = clamp(STATE.shield + 1, 0, 9);
+      pushShield();
+
+      coach(`เยี่ยม! มินิเควสผ่าน ✅ +${addT}s +Shield`, 'Mini');
+      emitQuest();
+    }
+  }
 }
 
 /* ------------------------------------------------
- * Rush controls (15 วิท้าย)
+ * Adaptive (soft)
  * ------------------------------------------------ */
-function startRush(){
-  if(STATE.rush.on) return;
-  STATE.rush.on = true;
-  coach('PLATE RUSH! 15 วิท้าย 🔥 คะแนน x2', 'Coach', 0);
-  emitQuest();
+function updateAdaptive(){
+  if(!STATE.cfg) return;
+  const isStudy = (STATE.cfg.runMode === 'research' || STATE.cfg.runMode === 'study');
+  if(isStudy) return; // ✅ ปิด adaptive ในวิจัย
+
+  // ปรับเบา ๆ ตาม performance: ถ้าแม่น+คอมโบสูง -> เร่งเล็กน้อย
+  const acc = accuracy();          // 0..1
+  const c   = STATE.comboMax || 0;
+
+  let rate = STATE.baseSpawnRateMs;
+  if(acc >= 0.85 && c >= 6) rate *= 0.85;
+  else if(acc >= 0.80 && c >= 4) rate *= 0.90;
+  else if(acc <= 0.60) rate *= 1.08;
+
+  STATE.curSpawnRateMs = clamp(rate, 520, 1200);
+  if(STATE.engine && typeof STATE.engine.setSpawnRate === 'function'){
+    STATE.engine.setSpawnRate(STATE.curSpawnRateMs);
+  }
 }
 
 /* ------------------------------------------------
@@ -287,33 +314,49 @@ function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
   STATE.running = false;
+  STATE.endedAtMs = nowMs();
+
   clearInterval(STATE.timer);
 
-  // ถ้า mini กำลังรันอยู่ ให้ปิด
-  if(STATE.mini.active && !STATE.mini.done){
-    stopMiniWindow(true);
-  }
+  const durationPlayedSec = Math.max(0, Math.round((STATE.endedAtMs - STATE.startedAtMs)/1000));
 
   emit('hha:end', {
     reason,
+
+    // basic
     scoreFinal: STATE.score,
     comboMax: STATE.comboMax,
     misses: STATE.miss,
 
+    // quest
     goalsCleared: STATE.goal.done ? 1 : 0,
     goalsTotal: 1,
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
+    // metrics
     accuracyGoodPct: pct2(accuracy() * 100),
+    hitGood: STATE.hitGood,
+    hitJunk: STATE.hitJunk,
+    hitJunkBlocked: STATE.hitJunkBlocked,
+    expireGood: STATE.expireGood,
 
+    // group coverage
     g1: STATE.g[0],
     g2: STATE.g[1],
     g3: STATE.g[2],
     g4: STATE.g[3],
     g5: STATE.g[4],
 
-    rushOn: STATE.rush.on
+    // timing
+    durationPlannedSec: Number(STATE.cfg?.durationPlannedSec)||0,
+    durationPlayedSec,
+
+    // context passthrough
+    runMode: STATE.cfg?.runMode || '',
+    diff: STATE.cfg?.diff || '',
+    seed: Number(STATE.cfg?.seed)||0,
+    deviceView: STATE.cfg?.view || ''
   });
 }
 
@@ -322,7 +365,6 @@ function endGame(reason='timeup'){
  * ------------------------------------------------ */
 function startTimer(){
   emit('hha:time', { leftSec: STATE.timeLeft });
-  emitQuest();
 
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
@@ -330,30 +372,24 @@ function startTimer(){
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
 
-    // Rush trigger
-    if(!STATE.rush.on && STATE.timeLeft === STATE.rush.startAtSec){
-      startRush();
-    }
-
-    // Mini countdown
-    if(STATE.mini.active){
-      STATE.mini.leftSec--;
-      // update mini nums live
-      STATE.mini.cur = STATE.mini.hitsGot;
-      emitQuest();
-
-      if(STATE.mini.leftSec <= 0){
-        // หมดเวลา mini แล้วยังไม่ครบ => fail แล้วจบช่วง
-        if(!STATE.mini.done){
-          stopMiniWindow(true);
-        }
-      }else if(STATE.mini.leftSec <= 3){
-        coach('อีกนิดเดียว! ⏳', 'Coach', 900);
-      }
-    }
+    // ✅ Mini tick
+    tickMini();
 
     if(STATE.timeLeft <= 0){
       endGame('timeup');
+      return;
+    }
+
+    // ✅ ลองเริ่ม mini หลังผ่านไปนิดนึง (กันขึ้นเร็วเกิน)
+    // เริ่มได้ช่วงเวลาเหลือ <= 2/3 ของทั้งหมด
+    const planned = Number(STATE.cfg?.durationPlannedSec)||90;
+    if(STATE.timeLeft <= Math.round(planned * 0.66)){
+      startMiniIfEligible();
+    }
+
+    // ✅ adaptive update (soft)
+    if((STATE.timeLeft % 3) === 0){
+      updateAdaptive();
     }
   }, 1000);
 }
@@ -361,83 +397,80 @@ function startTimer(){
 /* ------------------------------------------------
  * Hit handlers
  * ------------------------------------------------ */
-function scoreGoodBase(){
-  // base 100 + combo scaling
-  const base = 100 + STATE.combo * 5;
-  // Rush: x2
-  return STATE.rush.on ? Math.round(base * 2) : base;
-}
-
-function scoreJunkPenalty(){
-  // Rush: เบาลงนิด (เด็กไม่ท้อ) แต่ยังโดนลบ
-  return STATE.rush.on ? -30 : -50;
+function updateGoalProgress(){
+  if(STATE.goal.done) return;
+  STATE.goal.cur = STATE.g.filter(v => (v||0) > 0).length;
+  if(STATE.goal.cur >= STATE.goal.target){
+    STATE.goal.done = true;
+    coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉', 'Goal');
+  }
 }
 
 function onHitGood(groupIndex){
   STATE.hitGood++;
 
-  // บันทึกหมู่
-  STATE.g[groupIndex]++;
+  const gi = clamp(groupIndex, 0, 4);
+  STATE.g[gi] = (STATE.g[gi] || 0) + 1;
+
   addCombo();
 
-  addScore(scoreGoodBase());
+  // ✅ คะแนน: ให้รู้สึก “เร่งนิด ๆ” ตามคอมโบ
+  addScore(100 + Math.min(80, STATE.combo * 6));
+  judge('good', 'เก่งมาก!');
 
-  // Goal progress = จำนวนหมู่ที่ “เคยได้แล้ว”
-  if(!STATE.goal.done){
-    STATE.goal.cur = STATE.g.filter(v=>v>0).length;
-    if(STATE.goal.cur >= STATE.goal.target){
-      STATE.goal.done = true;
-      coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉', 'Coach', 0);
-      // ถ้าครบ goal แล้ว mini ยังไม่เริ่ม/ไม่จบ ก็ไม่บังคับ
-    }
-  }
+  // goal progress
+  updateGoalProgress();
 
-  // Mini progress (ต้อง “ยิงโดนหมู่ที่ขาด” ในช่วง 12 วิ)
-  if(STATE.mini.active && !STATE.mini.done){
-    // mini: นับเฉพาะการเติมหมู่ที่ยังขาด (ก่อนยิงครั้งนี้)
-    // แต่เราเลือก groupIndex จาก missing อยู่แล้วตอน mini (ดู makeSpawner/onHit)
-    // เพื่อความชัวร์: ถ้าหมู่ก่อนหน้า "เคยมีแล้ว" ก็ไม่นับ
-    // วิธี: ถ้าหลังเพิ่มแล้วค่ากลายเป็น 1 แปลว่า "เพิ่งเติมหมู่นี้"
-    if(STATE.g[groupIndex] === 1){
-      STATE.mini.hitsGot++;
-      STATE.mini.cur = STATE.mini.hitsGot;
-      if(STATE.mini.hitsGot >= STATE.mini.hitsNeed){
-        completeMiniWindow();
-      }else{
-        emitQuest();
-      }
-    }else{
-      // ยิงซ้ำหมู่เดิมใน mini -> ไม่เสีย แต่ไม่เพิ่ม
-      emitQuest();
-    }
-  }
+  // mini quest progress (เติมหมู่ที่ขาด)
+  miniHit(gi);
 
+  // อัปเดต quest
   emitQuest();
 }
 
 function onHitJunk(){
-  STATE.hitJunk++;
-  STATE.miss++;
+  // ✅ Shield block
+  if((STATE.shield||0) > 0){
+    STATE.shield--;
+    STATE.hitJunkBlocked++;
+    pushShield();
 
-  // Rush: "Miss ไม่ตัด Combo" แต่ยังนับ miss
-  if(!STATE.rush.on){
     resetCombo();
+    judge('block', 'Shield กันไว้!');
+    coach('Shield กันของทอด/หวานไว้แล้ว 🛡️', 'Shield');
+
+    // blocked junk => NOT miss, NOT hitJunk
+    emitQuest();
+    return;
   }
 
-  addScore(scoreJunkPenalty());
+  // real junk hit
+  STATE.hitJunk++;
+  STATE.miss++;          // ✅ miss counts here
+  resetCombo();
+
+  addScore(-60);
+  judge('junk', 'ของทอด/หวาน!');
   coach('ระวัง! ของหวาน/ทอด ⚠️', 'Coach');
+
+  emitQuest();
+}
+
+function onHitShield(){
+  // pickup
+  STATE.shield = clamp((STATE.shield||0) + 1, 0, 9);
+  pushShield();
+  addScore(80);
+  judge('bonus', '+Shield');
+  coach('ได้ Shield! ครั้งหน้าพลาดจะถูกกันไว้ 🛡️', 'Power');
   emitQuest();
 }
 
 function onExpireGood(){
   STATE.expireGood++;
-  STATE.miss++;
-
-  // Rush: ไม่ตัด combo
-  if(!STATE.rush.on){
-    resetCombo();
-  }
-
+  STATE.miss++;          // ✅ miss counts here
+  resetCombo();
+  judge('miss', 'พลาด!');
   emitQuest();
 }
 
@@ -447,50 +480,46 @@ function onExpireGood(){
 function makeSpawner(mount){
   const diff = (STATE.cfg?.diff || 'normal').toLowerCase();
 
-  // ความเร็ว baseline
-  const baseRate =
-    diff === 'hard' ? 700 :
-    diff === 'easy' ? 980 :
-    880;
+  STATE.baseSpawnRateMs = (diff === 'hard') ? 720 : (diff === 'easy' ? 980 : 860);
+  STATE.curSpawnRateMs  = STATE.baseSpawnRateMs;
 
-  // note: เราไม่เดา API ของ mode-factory เกินจำเป็น
-  // => ใช้ spawnBoot แบบเดิม แต่ “soft guidance” ทำที่ groupIndex assignment ตอน hit good
+  // โอกาส shield pickup เล็กน้อย
+  const shieldW = (diff === 'hard') ? 0.08 : 0.10;
 
   return spawnBoot({
     mount,
-    seed: STATE.cfg.seed,
 
-    spawnRate: baseRate,
-    sizeRange:[44,64],
-    kinds:[
-      { kind:'good', weight:0.7 },
-      { kind:'junk', weight:0.3 }
+    // IMPORTANT: mode-factory supports seeded RNG by cfg.seed
+    seed: Number(STATE.cfg?.seed) || Date.now(),
+
+    // pass view if your mode-factory uses it (safe if ignored)
+    view: STATE.cfg?.view || 'pc',
+
+    spawnRate: STATE.curSpawnRateMs,
+    sizeRange: [44, 66],
+
+    // Kinds: good/junk/shield
+    kinds: [
+      { kind:'good',   weight: 0.70 },
+      { kind:'junk',   weight: 0.30 - shieldW },
+      { kind:'shield', weight: shieldW }
     ],
 
+    // hooks
     onHit:(t)=>{
+      if(!t) return;
       if(t.kind === 'good'){
-        // --- Soft Guidance (B):
-        // ถ้าอยู่ใน Mini (12 วิ) => bias ให้ไปหมู่ที่ขาด (เพื่อให้เด็ก "ผ่าน mini" ได้จริง)
-        // ไม่ได้ auto-aim แค่ตอนบันทึกหมู่ที่ได้จากการยิง
-        let gi = t.groupIndex;
-
-        const missIdx = missingGroupIndices();
-        if(STATE.mini.active && missIdx.length){
-          // เลือกจากหมู่ที่ขาดเป็นหลัก (85%)
-          gi = (STATE.rng() < 0.85) ? pickOne(missIdx, STATE.rng) : (gi ?? Math.floor(STATE.rng()*5));
-        }else if(gi == null){
-          // นอก mini ก็สุ่มปกติ (หรือใช้ที่มากับ target ถ้ามี)
-          gi = Math.floor(STATE.rng()*5);
-        }
-
+        const gi = (t.groupIndex != null) ? Number(t.groupIndex) : Math.floor(STATE.rng()*5);
         onHitGood(gi);
+      }else if(t.kind === 'shield'){
+        onHitShield();
       }else{
         onHitJunk();
       }
     },
 
     onExpire:(t)=>{
-      if(t.kind === 'good') onExpireGood();
+      if(t && t.kind === 'good') onExpireGood();
     }
   });
 }
@@ -501,89 +530,71 @@ function makeSpawner(mount){
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
-  STATE.cfg = cfg;
+  // cfg
+  STATE.cfg = cfg || {};
+  const runMode = (STATE.cfg.runMode || 'play').toLowerCase();
+
+  // init
   STATE.running = true;
   STATE.ended = false;
 
-  // reset stats
   STATE.score = 0;
   STATE.combo = 0;
   STATE.comboMax = 0;
   STATE.miss = 0;
+
+  STATE.shield = 0;
+
   STATE.hitGood = 0;
   STATE.hitJunk = 0;
+  STATE.hitJunkBlocked = 0;
   STATE.expireGood = 0;
+
   STATE.g = [0,0,0,0,0];
 
-  // reset goal
   STATE.goal.cur = 0;
   STATE.goal.done = false;
 
-  // reset mini
+  STATE.mini.cur = 0;
+  STATE.mini.target = 0;
   STATE.mini.done = false;
   STATE.mini.active = false;
-  STATE.mini.leftSec = 0;
-  STATE.mini.hitsGot = 0;
-  STATE.mini.hitsNeed = 2;
-  STATE.mini.windowSec = 12;
-  STATE.mini.name = `เติมหมู่ที่ขาด (${STATE.mini.windowSec} วิ)`;
-  STATE.mini.sub = 'พลาดได้ ไม่เป็นไร! ลองใหม่รอบหน้า ...';
-  STATE.mini.target = STATE.mini.hitsNeed;
-  STATE.mini.cur = 0;
+  STATE.mini.timeLeft = 0;
+  STATE.mini.missingMask = [false,false,false,false,false];
 
-  // rush
-  STATE.rush.on = false;
-  STATE.rush.startAtSec = 15;
-
-  // RNG: research => deterministic
-  if(cfg.runMode === 'research' || cfg.runMode === 'study'){
-    STATE.rng = seededRng(cfg.seed || Date.now());
+  // RNG
+  if(runMode === 'research' || runMode === 'study'){
+    STATE.rng = seededRng(Number(STATE.cfg.seed) || Date.now());
   }else{
     STATE.rng = Math.random;
   }
 
-  // เวลา: ถ้าคุณลังเล 70 vs 90
-  // - เด็ก ป.5: 90 ดีมากสำหรับ "เก็บครบ 5 หมู่ + เจอ Mini 12 วิ + Rush 15 วิท้าย"
-  // - แต่ยังคงให้ query time override ได้
-  STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
+  // Time: default 90 (แต่ boot.js จะส่ง durationPlannedSec มาแล้ว)
+  STATE.timeLeft = Number(STATE.cfg.durationPlannedSec) || 90;
+
+  // start times
+  STATE.startedAtMs = nowMs();
+  STATE.endedAtMs = 0;
 
   emit('hha:start', {
     game:'plate',
-    runMode: cfg.runMode,
-    diff: cfg.diff,
-    seed: cfg.seed,
-    durationPlannedSec: STATE.timeLeft
+    runMode,
+    diff: (STATE.cfg.diff || 'normal'),
+    seed: Number(STATE.cfg.seed) || 0,
+    durationPlannedSec: STATE.timeLeft,
+    view: STATE.cfg.view || 'pc'
   });
 
-  emitScore();
+  // initial UI
+  pushScore();
+  pushShield();
   emitQuest();
-  startTimer();
 
+  // boot spawner
   STATE.engine = makeSpawner(mount);
 
-  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'Coach', 0);
+  // timer
+  startTimer();
 
-  // Trigger mini แบบ “เหมือนภาพ”:
-  // เมื่อ goal progress ถึง 3/5 (เริ่มรู้สึกใกล้สำเร็จ) จะเปิด Mini 12 วิ
-  // เพื่อเร่งให้ “เติมหมู่ที่ขาด” (target=2 หมู่)
-  // (ถ้าคุณอยากให้เริ่มที่ 2/5 หรือ 4/5 บอกได้)
-  const __miniTriggerCheck = ()=>{
-    if(STATE.ended || !STATE.running) return;
-    if(STATE.goal.done || STATE.mini.done) return;
-
-    // ถ้าครบ 3 หมู่แล้ว และยังขาดอย่างน้อย 2 หมู่ => เปิด mini
-    if(STATE.goal.cur >= 3){
-      const missIdx = missingGroupIndices();
-      if(missIdx.length >= 2){
-        startMiniWindow();
-      }
-    }
-  };
-
-  // hook: หลังเริ่มเกม 1 วิ ตรวจ trigger ครั้งแรก (กัน goal.cur ยัง 0)
-  setTimeout(__miniTriggerCheck, 1000);
-
-  // hook: ทุกครั้งที่ quest update (จาก hit) ก็ตรวจ trigger
-  // (ง่ายสุด: แทรกใน onHitGood ตอน emitQuest ก็พอ แต่กันพลาดด้วย listener เล็ก ๆ)
-  WIN.addEventListener('quest:update', __miniTriggerCheck, { passive:true });
+  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'Coach');
 }
