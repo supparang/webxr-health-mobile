@@ -233,13 +233,11 @@ GroupsVR Launcher (ROOT)
   }
 
   async function detectView(){
-    // auto detect แบบ “ปลอดภัย”: pc/mobile เป็นหลัก
-    // (cvr/vr ต้องอาศัยผู้ใช้ตั้งเองผ่าน force=1 ถ้าจะทดสอบ)
     let v = isMobile() ? 'mobile' : 'pc';
     try{
       if (navigator.xr && navigator.xr.isSessionSupported){
         const ok = await navigator.xr.isSessionSupported('immersive-vr');
-        if (ok) v = isMobile() ? 'vr' : 'vr';
+        if (ok) v = 'vr';
       }
     }catch(_){}
     return v;
@@ -282,7 +280,6 @@ GroupsVR Launcher (ROOT)
     const seed = String(($('seed').value||'').trim());
     if (seed) u.searchParams.set('seed', seed);
 
-    // view
     const force = String(qs('force','0')||'0');
     if (force === '1'){
       $('forceBox').style.display = '';
@@ -292,7 +289,6 @@ GroupsVR Launcher (ROOT)
       u.searchParams.set('view', viewDetected);
     }
 
-    // pass-through extras (อยากส่งอะไรเพิ่มก็ส่งได้)
     spIn.forEach((v,k)=>{
       if (['hub','log','run','diff','style','time','seed','ai','practice','view','force'].includes(k)) return;
       u.searchParams.set(k,v);
@@ -314,7 +310,6 @@ GroupsVR Launcher (ROOT)
 
   (async ()=>{
     applyParamsIntoUI();
-
     const detected = await detectView();
     $('vDetected').textContent = detected.toUpperCase();
 
