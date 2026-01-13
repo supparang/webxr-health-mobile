@@ -1,35 +1,32 @@
-// =========================================================
-// /herohealth/plate/plate.boot.js
-// PlateVR Boot — PRODUCTION (HHA Standard)
-// =========================================================
-// ✅ Auto view detect (no UI override)
+// === /herohealth/plate/plate.boot.js ===
+// PlateVR Boot — PRODUCTION
+// ✅ Auto view detect (no UI override menu)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
-// ✅ Default time = 90s (tunable via ?time=...)
-// =========================================================
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Default time = 90 (ONLY if ?time not provided)
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def = null) => {
+const qs = (k, def=null)=>{
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
 
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
+  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  // Allow force by query (for experiments), but NO UI menu.
-  const forced = (qs('view','') || '').toLowerCase();
+  // No UI override. Allow query force for experiments only.
+  const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
@@ -44,12 +41,12 @@ function setBodyView(view){
 }
 
 function clamp(v, a, b){
-  v = Number(v) || 0;
+  v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
 
 function pct(n){
-  n = Number(n) || 0;
+  n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
@@ -107,7 +104,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -144,6 +141,7 @@ function wireEndControls(){
       location.reload(); // keep same query params
     });
   }
+
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
@@ -178,31 +176,29 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play') || 'play').toLowerCase();
-  const diff = (qs('diff','normal') || 'normal').toLowerCase();
 
-  // ✅ default 90s
-  // ✅ strict numeric parse (avoid "90 " / "90s" weirdness)
-  const timeRaw = qs('time', '90');
-  const timeNum = clamp(parseInt(String(timeRaw).replace(/[^\d]/g,''), 10) || 90, 10, 999);
+  // standard params
+  const run  = (qs('run','play')||'play').toLowerCase();      // play | research | study
+  const diff = (qs('diff','normal')||'normal').toLowerCase(); // easy | normal | hard
 
-  const seedRaw = qs('seed', '');
-  const seedNum = Number(seedRaw) || Date.now();
+  // ✅ Default time = 90 ONLY when not provided
+  const timeParam = qs('time', null);
+  const time = clamp((timeParam==null ? 90 : timeParam), 10, 999);
+
+  const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
     view,
     runMode: run,
     diff,
-
-    // ✅ single source of truth for duration
-    durationPlannedSec: Number(timeNum),
-    seed: Number(seedNum),
+    durationPlannedSec: Number(time),
+    seed: Number(seed),
 
     // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // research passthrough (optional)
+    // context passthrough (optional)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -224,14 +220,18 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
+  // set view class
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
+  // ensure end overlay closed at start
   setOverlayOpen(false);
 
+  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
