@@ -1,345 +1,186 @@
-<!-- === C: /herohealth/groups-vr.html ===
-GroupsVR Launcher (ONE-BUTTON + Auto-detect) — PRODUCTION
-✅ ปุ่มเดียว START (ไม่ให้เลือกเมนู/ไม่ override)
-✅ Auto-detect view: pc | mobile  (ถ้ามี ?view=... จะส่งต่อให้ตามนั้น)
-✅ ส่งพารามิเตอร์ทั้งหมดต่อไปหน้า Run: /herohealth/vr-groups/groups-vr.html
-✅ เติม seed อัตโนมัติถ้าไม่มี
-✅ รองรับ hub=... / log=... passthrough
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — GroupsVR Launcher</title>
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.68);
-      --stroke:rgba(148,163,184,.20);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --warn:#f59e0b;
-      --radius:22px;
-      --pill:999px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.20); --text:#e5e7eb; --muted:#94a3b8;
+      --accent:#22c55e; --warn:#f59e0b; --violet:#a78bfa; --radius:22px; --pill:999px;
+      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
     }
-
-    *{ box-sizing:border-box; }
-    html,body{
-      width:100%; height:100%;
-      margin:0; padding:0;
-      overflow:hidden;
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    *{box-sizing:border-box;}
+    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+    body{
       background:
-        radial-gradient(circle at top left, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
         radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
         var(--bg);
-      color:var(--text);
     }
-
-    .wrap{
-      position:fixed; inset:0;
-      padding:
-        calc(18px + var(--sat))
-        calc(18px + var(--sar))
-        calc(18px + var(--sab))
-        calc(18px + var(--sal));
-      display:grid;
-      place-items:center;
-    }
-
+    .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));}
     .card{
-      width:min(720px, 100%);
-      border-radius: calc(var(--radius) + 6px);
-      background: rgba(2,6,23,.72);
-      border: 1px solid var(--stroke);
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      overflow:hidden;
+      width:min(560px, 100%);
+      border-radius:28px;
+      background:rgba(2,6,23,.78);
+      border:1px solid var(--stroke);
+      box-shadow:0 24px 70px rgba(0,0,0,.55);
+      padding:18px;
+      backdrop-filter: blur(12px);
     }
-
-    .head{
-      padding:18px 18px 12px;
-      border-bottom: 1px solid rgba(148,163,184,.14);
-      background: linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.10));
-    }
-
-    .brand{
-      display:flex;
-      gap:12px;
-      align-items:center;
-    }
-    .logo{
-      width:56px; height:56px;
-      border-radius:18px;
-      background: rgba(15,23,42,.68);
-      border: 1px solid rgba(148,163,184,.18);
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      box-shadow: 0 10px 28px rgba(0,0,0,.28);
-    }
-    .title{
-      font-weight:1000;
-      letter-spacing:.2px;
-      font-size:20px;
-      line-height:1.1;
-    }
-    .sub{
-      margin-top:4px;
-      color:var(--muted);
-      font-weight:800;
-      font-size:13px;
-    }
-
-    .body{
-      padding:16px 18px 18px;
-      display:grid;
-      gap:14px;
-    }
-
-    .grid2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-    }
-
-    .stat{
-      padding:12px;
-      border-radius: 18px;
-      background: rgba(15,23,42,.58);
-      border: 1px solid rgba(148,163,184,.16);
-    }
-    .k{
-      font-weight:900;
-      font-size:12px;
-      color:var(--muted);
-      letter-spacing:.2px;
-    }
-    .v{
-      margin-top:4px;
-      font-weight:1000;
-      font-size:18px;
-    }
-
-    .btnRow{
-      display:flex;
-      gap:10px;
-      margin-top:4px;
-    }
-
-    button{
-      appearance:none;
-      border:0;
-      border-radius: 18px;
-      padding:14px 14px;
-      font-weight:1000;
-      cursor:pointer;
-      color:var(--text);
-      background: rgba(15,23,42,.65);
-      border: 1px solid rgba(148,163,184,.20);
-      box-shadow: 0 10px 28px rgba(0,0,0,.25);
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      flex:1 1 auto;
-    }
-    button:active{ transform: translateY(1px); }
-    .primary{
-      background: rgba(34,197,94,.20);
-      border-color: rgba(34,197,94,.35);
-    }
-    .ghost{
-      background: rgba(2,6,23,.40);
-    }
-
-    .note{
-      color:var(--muted);
-      font-weight:800;
-      font-size:12px;
-      line-height:1.4;
-      background: rgba(2,6,23,.38);
-      border: 1px dashed rgba(148,163,184,.18);
-      border-radius: 18px;
-      padding:12px;
-    }
-
-    .hint{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:9px 11px;
-      border-radius: var(--pill);
-      background: rgba(2,6,23,.58);
-      border: 1px solid rgba(148,163,184,.16);
-      color: var(--muted);
-      font-weight:900;
-      font-size:12px;
-      letter-spacing:.2px;
-    }
-    .pill b{ color:var(--text); }
-
-    @media (max-width:520px){
-      .grid2{ grid-template-columns: 1fr; }
-      .logo{ width:52px; height:52px; }
-      .title{ font-size:18px; }
-    }
+    .title{font-weight:1000;font-size:22px;letter-spacing:.2px}
+    .sub{margin-top:6px;color:var(--muted);font-weight:800;font-size:13px;line-height:1.35}
+    .grid{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .box{padding:12px;border-radius:18px;background:rgba(15,23,42,.60);border:1px solid rgba(148,163,184,.16);}
+    label{display:block;font-weight:900;font-size:12px;color:var(--muted);margin-bottom:6px}
+    select,input{width:100%;padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,.20);
+      background:rgba(2,6,23,.55);color:var(--text);font-weight:900;}
+    .row{margin-top:12px;display:flex;gap:10px;}
+    .btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:12px;border-radius:18px;border:1px solid rgba(148,163,184,.20);
+      background:rgba(15,23,42,.65);color:var(--text);font-weight:1000;cursor:pointer;}
+    .btn-strong{background:rgba(34,197,94,.20);border-color:rgba(34,197,94,.35);}
+    .btn-ghost{background:rgba(2,6,23,.40);}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--pill);
+      border:1px solid rgba(148,163,184,.20);background:rgba(15,23,42,.55);font-weight:900;font-size:12px;color:var(--text);}
+    .meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+    .hint{margin-top:10px;color:var(--muted);font-weight:800;font-size:12px}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="head">
-        <div class="brand">
-          <div class="logo">🍽️</div>
-          <div>
-            <div class="title">Food Groups VR</div>
-            <div class="sub">กด START เพื่อเริ่มเกม (ระบบตรวจอัตโนมัติ)</div>
-          </div>
-        </div>
+<div class="wrap">
+  <div class="card">
+    <div class="title">🥦 Food Groups VR</div>
+    <div class="sub">ยิงให้ถูก “หมู่ที่กำหนด” • เก็บ Power เพื่อสลับหมู่ • มี Storm + Boss</div>
+
+    <div class="meta">
+      <span class="pill" id="pillView">view: —</span>
+      <span class="pill" id="pillSeed">seed: —</span>
+    </div>
+
+    <div class="grid">
+      <div class="box">
+        <label>Run</label>
+        <select id="run">
+          <option value="play" selected>play</option>
+          <option value="research">research</option>
+        </select>
+      </div>
+      <div class="box">
+        <label>Difficulty</label>
+        <select id="diff">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
       </div>
 
-      <div class="body">
-        <div class="grid2">
-          <div class="stat">
-            <div class="k">Detect View</div>
-            <div class="v" id="vView">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">Params</div>
-            <div class="v" id="vParams">—</div>
-          </div>
-        </div>
-
-        <div class="hint">
-          <div class="pill">🎯 diff: <b id="pDiff">—</b></div>
-          <div class="pill">⏳ time: <b id="pTime">—</b>s</div>
-          <div class="pill">🧪 run: <b id="pRun">—</b></div>
-          <div class="pill">🎨 style: <b id="pStyle">—</b></div>
-          <div class="pill">🤖 ai: <b id="pAi">—</b></div>
-        </div>
-
-        <div class="btnRow">
-          <button class="primary" id="btnStart" type="button">🚀 START</button>
-          <button class="ghost" id="btnHub" type="button" style="display:none;">🏠 HUB</button>
-        </div>
-
-        <div class="note" id="note">
-          • มือถือ: แนะนำแนวนอน (Landscape)<br/>
-          • Cardboard/cVR: เข้าเกมแล้วใช้ปุ่ม <b>RECENTER</b> ใน vr-ui.js และแตะจอเพื่อยิงจาก crosshair<br/>
-          • โหมดวิจัย: ai ถูกปิดอัตโนมัติในหน้า Run
-        </div>
+      <div class="box">
+        <label>Style</label>
+        <select id="style">
+          <option value="feel" selected>feel</option>
+          <option value="mix">mix</option>
+        </select>
+      </div>
+      <div class="box">
+        <label>Time (sec)</label>
+        <select id="time">
+          <option value="70">70</option>
+          <option value="90" selected>90</option>
+          <option value="110">110</option>
+        </select>
       </div>
     </div>
+
+    <div class="row">
+      <button class="btn btn-strong" id="btnStart" type="button">🚀 เริ่มเลย</button>
+      <button class="btn" id="btnPractice" type="button">🎯 Practice 15s (cVR)</button>
+    </div>
+    <div class="row">
+      <button class="btn btn-ghost" id="btnHub" type="button">🏠 กลับ HUB</button>
+      <button class="btn btn-ghost" id="btnCopy" type="button">📋 Copy link</button>
+    </div>
+
+    <div class="hint">
+      Tip: ถ้าเข้าโหมด Cardboard (cVR) ระบบในหน้า run จะมี Calibration 2 ขั้น + Practice ก่อนเข้าเกมจริง
+    </div>
   </div>
+</div>
 
 <script>
 (function(){
   'use strict';
-  const DOC = document;
+  const $ = (id)=>document.getElementById(id);
+  function qs(k, def=null){ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } }
 
-  const qs = (k, def=null)=>{
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  };
-
-  function isMobile(){
-    const ua = navigator.userAgent || '';
-    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    return /Android|iPhone|iPad|iPod/i.test(ua) || touch && (Math.min(innerWidth, innerHeight) <= 820);
-  }
-
-  // ✅ Auto-detect (ไม่ override)
-  // - ถ้ามี ?view=... ให้ส่งต่อค่านั้น
-  // - ไม่งั้น: mobile/pc
   function detectView(){
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v) return v;                 // ส่งต่อ ถ้าคนใส่มาเอง
-    return isMobile() ? 'mobile' : 'pc';
+    // heuristic: mobile vs pc (cVR จะมาจาก view-helper + user เข้าจอแยกตาเอง)
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width,screen.height) < 820);
+    return isMobile ? 'mobile' : 'pc';
+  }
+  function seedNow(){
+    const s = qs('seed','') || String(Date.now());
+    return String(s);
   }
 
-  function ensureDefaults(sp){
-    if (!sp.get('run'))  sp.set('run','play');
-    if (!sp.get('diff')) sp.set('diff','easy');
-    if (!sp.get('style'))sp.set('style','feel');
-    if (!sp.get('time')) sp.set('time','90');
-    if (!sp.get('ai'))   sp.set('ai','0');
-    if (!sp.get('seed')) sp.set('seed', String(Date.now()));
-  }
+  const view = qs('view','') || detectView();
+  const seed = seedNow();
+  $('pillView').textContent = 'view: ' + view;
+  $('pillSeed').textContent = 'seed: ' + seed;
 
-  function buildRunUrl(){
+  // hydrate defaults from URL if present
+  const run  = qs('run','play');  if (run) $('run').value = run;
+  const diff = qs('diff','normal'); if (diff) $('diff').value = diff;
+  const style= qs('style','feel'); if (style) $('style').value = style;
+  const time = qs('time','90'); if (time) $('time').value = time;
+
+  function buildRunUrl(practice){
     const u = new URL('./vr-groups/groups-vr.html', location.href);
-    const sp = new URL(location.href).searchParams;
+    u.searchParams.set('view', view);
+    u.searchParams.set('run', $('run').value);
+    u.searchParams.set('diff', $('diff').value);
+    u.searchParams.set('style', $('style').value);
+    u.searchParams.set('time', $('time').value);
+    u.searchParams.set('seed', seed);
 
-    // clone params
-    const out = new URLSearchParams();
-    sp.forEach((v,k)=> out.set(k,v));
+    // passthrough hub/log from launcher
+    const hub = qs('hub',''); if (hub) u.searchParams.set('hub', hub);
+    const log = qs('log',''); if (log) u.searchParams.set('log', log);
 
-    // auto view if missing
-    if (!out.get('view')) out.set('view', detectView());
+    // practice only for cVR flow (หน้า run จะ ignore ถ้าไม่ใช่ cvr)
+    if (practice) u.searchParams.set('practice', '1');
 
-    ensureDefaults(out);
+    // keep ai=0 default (research forced OFF anyway in run page)
+    const ai = qs('ai','0'); u.searchParams.set('ai', ai);
 
-    // write
-    out.forEach((v,k)=> u.searchParams.set(k,v));
     return u.toString();
   }
 
-  // UI
-  const view = detectView();
-  DOC.getElementById('vView').textContent = view;
-  const sp = new URL(location.href).searchParams;
-  const run = String(sp.get('run')||'play');
-  const diff= String(sp.get('diff')||'easy');
-  const style=String(sp.get('style')||'feel');
-  const time= String(sp.get('time')||'90');
-  const ai  = String(sp.get('ai')||'0');
+  $('btnStart').addEventListener('click', ()=> location.href = buildRunUrl(false));
+  $('btnPractice').addEventListener('click', ()=> location.href = buildRunUrl(true));
 
-  DOC.getElementById('pRun').textContent = run;
-  DOC.getElementById('pDiff').textContent = diff;
-  DOC.getElementById('pStyle').textContent = style;
-  DOC.getElementById('pTime').textContent = time;
-  DOC.getElementById('pAi').textContent = ai;
-
-  // show hub button if hub param exists
-  const hub = String(sp.get('hub')||'');
-  const btnHub = DOC.getElementById('btnHub');
-  if (hub){
-    btnHub.style.display = 'inline-flex';
-    btnHub.addEventListener('click', ()=> location.href = hub);
-  }
-
-  // params preview (compact)
-  const preview = [];
-  ['view','run','diff','style','time','seed','ai','practice'].forEach(k=>{
-    const v = sp.get(k);
-    if (v != null) preview.push(`${k}=${v}`);
-  });
-  DOC.getElementById('vParams').textContent = preview.length ? preview.join(' • ') : '—';
-
-  // start
-  DOC.getElementById('btnStart').addEventListener('click', ()=>{
-    location.href = buildRunUrl();
+  $('btnHub').addEventListener('click', ()=>{
+    const hub = qs('hub','');
+    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+    location.href = hub;
   });
 
+  $('btnCopy').addEventListener('click', async ()=>{
+    const link = buildRunUrl(false);
+    try{
+      await navigator.clipboard.writeText(link);
+      alert('คัดลอกลิงก์แล้ว ✅');
+    }catch{
+      prompt('Copy link:', link);
+    }
+  });
 })();
 </script>
 </body>
