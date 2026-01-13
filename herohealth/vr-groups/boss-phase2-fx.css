@@ -1,27 +1,533 @@
-/* === /herohealth/vr-groups/boss-phase2-fx.css ===
-PACK 38: phase2 visual
-*/
+/* =========================================================
+   /herohealth/plate/plate-vr.css
+   Balanced Plate VR — UI + FX (PRODUCTION)
+   HHA Standard (PC/Mobile/VR/cVR)
+========================================================= */
 
-body.fx-boss2 .bossCard{
-  border-color: rgba(239,68,68,.55) !important;
-  box-shadow: 0 0 0 2px rgba(239,68,68,.12), 0 18px 44px rgba(0,0,0,.40) !important;
+:root{
+  --bg:#020617;
+  --panel:rgba(2,6,23,.78);
+  --panel2:rgba(15,23,42,.70);
+  --stroke:rgba(148,163,184,.18);
+
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+
+  --accent:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
+
+  --radius:18px;
+  --pill:999px;
+
+  /* safe area */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+
+  /* layout tuning */
+  --hudTop: calc(var(--sat) + 10px);
+  --hudSide: calc(var(--sal) + 10px);
+  --hudGap: 10px;
+
+  /* reserve space for HUD so targets won't spawn under it */
+  --playTopPad: 170px;     /* PC default */
+  --playBottomPad: 12px;
+
+  /* target sizing base */
+  --tMin: 46px;
+  --tMax: 66px;
+
+  /* readability */
+  --shadow: 0 18px 60px rgba(0,0,0,.28);
 }
 
-body.fx-boss2 .bossFill{
-  background: linear-gradient(90deg, rgba(239,68,68,.90), rgba(245,158,11,.82));
+/* ---------------------------------------------------------
+   Global
+--------------------------------------------------------- */
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-body.fx-boss2 .bossUI{
-  animation: boss2Kick .22s ease-out;
-}
-@keyframes boss2Kick{
-  0%{ transform: translateX(0); }
-  35%{ transform: translateX(-2px); }
-  70%{ transform: translateX(2px); }
-  100%{ transform: translateX(0); }
+#app{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
 }
 
-/* rage glow on boss target itself (CSS only, safe) */
-body.boss-ui-low .fg-boss{
-  box-shadow: 0 0 0 2px rgba(245,158,11,.14), 0 0 26px rgba(239,68,68,.18), var(--glow);
+/* ---------------------------------------------------------
+   Playfield (Targets spawn here)
+   IMPORTANT: leave top padding so HUD doesn't block targets.
+--------------------------------------------------------- */
+#plate-layer{
+  position:fixed;
+  inset:0;
+  z-index:10;
+  pointer-events:auto;
+  touch-action:none;
+
+  /* ✅ reserve safe area for HUD + bottom */
+  padding:
+    calc(var(--playTopPad) + var(--sat))
+    calc(12px + var(--sar))
+    calc(var(--playBottomPad) + var(--sab))
+    calc(12px + var(--sal));
+}
+
+/* ---------------------------------------------------------
+   Target (plateTarget)
+--------------------------------------------------------- */
+.plateTarget{
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  font-size:28px;
+  font-weight:900;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  cursor:pointer;
+
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
+    rgba(2,6,23,.60);
+
+  border:1px solid var(--stroke);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.08);
+
+  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
+}
+
+.plateTarget:active{
+  transform:scale(.96);
+}
+
+.plateTarget[data-kind="good"]{
+  border-color:rgba(34,197,94,.35);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 24px rgba(34,197,94,.18);
+}
+
+.plateTarget[data-kind="junk"]{
+  border-color:rgba(239,68,68,.35);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 24px rgba(239,68,68,.20);
+  animation-duration:1.2s; /* faster wobble */
+}
+
+@keyframes pop{
+  0%{ transform:scale(.85); opacity:0 }
+  100%{ transform:scale(1); opacity:1 }
+}
+
+@keyframes wobble{
+  0%{ transform:rotate(0deg) }
+  25%{ transform:rotate(1.2deg) }
+  50%{ transform:rotate(-1.2deg) }
+  75%{ transform:rotate(.8deg) }
+  100%{ transform:rotate(0deg) }
+}
+
+/* ---------------------------------------------------------
+   HUD (top)
+   ✅ keep VR UI buttons clickable: do not cover full width with pointer events
+--------------------------------------------------------- */
+#hud{
+  position:fixed;
+  top:var(--hudTop);
+  left:var(--hudSide);
+  right:calc(var(--sar) + 10px);
+  z-index:70;
+  pointer-events:none; /* ✅ allow clicks to pass unless on interactive elements */
+  display:flex;
+  flex-direction:column;
+  gap:var(--hudGap);
+}
+
+.hudRow{
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  pointer-events:none;
+}
+
+/* chips */
+.chip{
+  pointer-events:none;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+  padding:10px 12px;
+  border-radius:var(--radius);
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(10px);
+  min-width:92px;
+}
+
+.chip .lbl{
+  font-size:11px;
+  letter-spacing:.08em;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.chip .val{
+  font-size:18px;
+  font-weight:1000;
+  line-height:1;
+}
+
+.chip.score .val{ color:#fff; }
+.chip.time .val{ color:rgba(34,211,238,1); }
+.chip.combo .val{ color:rgba(167,139,250,1); }
+
+/* quest card */
+.card{
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(10px);
+  pointer-events:none;
+}
+
+#questCard{
+  padding:12px 12px 10px;
+  max-width:540px;
+  pointer-events:none;
+}
+
+.cardTitle{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+.cardTitle .t{
+  font-weight:1000;
+  font-size:14px;
+}
+
+.cardTitle .hint{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:320px;
+}
+
+.qItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 10px;
+  border-radius:14px;
+  background:rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.14);
+  margin-top:8px;
+}
+
+.qText .name{
+  font-weight:1000;
+  font-size:13px;
+}
+
+.qText .sub{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+  margin-top:2px;
+}
+
+.qProg{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:6px;
+  min-width:140px;
+}
+
+.qNums{
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(226,232,240,.95);
+}
+
+.bar{
+  height:10px;
+  width:140px;
+  border-radius:999px;
+  background:rgba(148,163,184,.12);
+  overflow:hidden;
+}
+
+.bar>i{
+  display:block;
+  height:100%;
+  width:0%;
+  background:var(--accent);
+  transition:width .25s ease;
+}
+
+/* ---------------------------------------------------------
+   Coach bubble (bottom-center)
+--------------------------------------------------------- */
+#coachCard{
+  position:fixed;
+  left:50%;
+  bottom:calc(var(--sab) + 16px);
+  transform:translateX(-50%) translateY(16px);
+  z-index:85;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .18s ease, transform .18s ease;
+}
+
+#coachCard .inner{
+  max-width:min(680px, calc(100vw - 24px));
+  padding:12px 14px;
+  border-radius:18px;
+  background:rgba(2,6,23,.80);
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  backdrop-filter:blur(10px);
+}
+
+#coachMsg{
+  font-weight:900;
+  font-size:14px;
+}
+
+#coachMeta{
+  margin-top:6px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+
+#coachCard.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+
+/* ---------------------------------------------------------
+   Boss / Storm FX layers (optional)
+--------------------------------------------------------- */
+#bossFx,#stormFx{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:55;
+  display:none;
+}
+
+#bossFx.boss-on{
+  display:block;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+}
+
+#bossFx.boss-panic{
+  animation:pulseBad .25s infinite;
+}
+
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
+}
+
+@keyframes pulseBad{
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.25) }
+  100%{ filter:brightness(1) }
+}
+
+/* ---------------------------------------------------------
+   End Overlay
+--------------------------------------------------------- */
+#endOverlay{
+  position:fixed;
+  inset:0;
+  z-index:95;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(2,6,23,.72);
+  backdrop-filter:blur(10px);
+  opacity:1;
+  pointer-events:auto;
+}
+
+#endOverlay[aria-hidden="true"]{
+  opacity:0;
+  pointer-events:none;
+}
+
+.endPanel{
+  width:min(820px, calc(100vw - 24px));
+  border-radius:22px;
+  padding:16px;
+  background:rgba(2,6,23,.86);
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow:0 22px 90px rgba(0,0,0,.45);
+}
+
+.endTitle{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:10px;
+}
+
+.endTitle h2{
+  margin:0;
+  font-size:20px;
+  font-weight:1000;
+}
+
+.endTitle .tag{
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(226,232,240,.95);
+  background:rgba(15,23,42,.75);
+  border:1px solid rgba(148,163,184,.18);
+}
+
+.endGrid{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:10px;
+}
+
+.kpi{
+  border-radius:18px;
+  padding:12px 12px;
+  background:rgba(15,23,42,.60);
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.kpi .k{
+  color:var(--muted);
+  font-weight:900;
+  font-size:12px;
+}
+
+.kpi .v{
+  margin-top:6px;
+  font-weight:1000;
+  font-size:18px;
+}
+
+.endBtns{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+/* buttons */
+.btn{
+  appearance:none;
+  border:none;
+  border-radius:999px;
+  padding:10px 14px;
+  font-weight:1000;
+  font-size:12px;
+  cursor:pointer;
+  color:var(--text);
+  background:rgba(2,6,23,.70);
+  border:1px solid rgba(148,163,184,.22);
+  backdrop-filter:blur(10px);
+}
+
+.btn.primary{
+  background:rgba(34,197,94,.18);
+  border-color:rgba(34,197,94,.35);
+}
+
+.btn.warn{
+  background:rgba(245,158,11,.18);
+  border-color:rgba(245,158,11,.35);
+}
+
+/* ---------------------------------------------------------
+   Responsive tuning
+--------------------------------------------------------- */
+@media (max-width: 900px){
+  :root{
+    --playTopPad: 190px; /* quest card taller on mobile */
+    --tMin: 48px;
+    --tMax: 72px;
+  }
+  .plateTarget{ font-size:24px; }
+  #questCard{ max-width: 100%; }
+  .cardTitle .hint{ max-width: 220px; }
+  .endGrid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+}
+
+@media (max-width: 420px){
+  :root{
+    --playTopPad: 205px;
+  }
+  .chip{ min-width:84px; padding:9px 10px; }
+  .chip .val{ font-size:17px; }
+  .bar{ width:130px; }
+}
+
+/* ---------------------------------------------------------
+   View modes
+--------------------------------------------------------- */
+body.view-pc{
+  --playTopPad: 170px;
+}
+
+body.view-mobile{
+  --playTopPad: 190px;
+}
+
+body.view-vr,
+body.view-cvr{
+  /* VR/cVR: ให้พื้นที่เล่นโล่งขึ้น */
+  --playTopPad: 150px;
+}
+
+/* cVR strict: targets should still be tappable,
+   but we must not block VR UI overlays */
+body.view-cvr #hud{
+  right:calc(var(--sar) + 10px);
+}
+
+/* ---------------------------------------------------------
+   Safety: keep A-Frame canvas hidden (we already set opacity:0 inline)
+--------------------------------------------------------- */
+a-scene{
+  pointer-events:none !important;
 }
