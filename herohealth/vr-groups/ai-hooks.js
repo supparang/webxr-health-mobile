@@ -1,32 +1,31 @@
 /* === /herohealth/vr-groups/ai-hooks.js ===
-Food Groups VR — AI Hooks (SAFE / EXPLAINABLE / SEEDED)
+Food Groups VR — AI Hooks (SAFE / EXPLAINABLE / SEEDED) + PATTERN PACKS
 ✅ Disabled by default (only attaches when enabled=true)
-✅ Play-only: runMode must be 'play'
-✅ Seeded deterministic: derived from provided seed
+✅ Play-only (runMode must be 'play')
+✅ Seeded deterministic (seed -> rng)
 ✅ Expose:
   - GroupsVR.AIHooks.attach({runMode, seed, enabled})
-  - GroupsVR.__ai.director.spawnSpeedMul(accPct, combo, misses)
-  - GroupsVR.__ai.pattern.bias()  // small bias for wrong/junk mix
-  - GroupsVR.__ai.tip(text, mood, meta) // rate-limit + explainable coach
-Notes:
-- Research/practice: NEVER attach
-- Bias is intentionally small to keep fairness
+  - GroupsVR.__ai.director.spawnSpeedMul(accPct, combo, misses, meta)
+  - GroupsVR.__ai.pattern.nextPos(rect, meta, kind)  // NEW
+  - GroupsVR.__ai.pattern.bias(meta)
+  - GroupsVR.__ai.tip(text, mood, meta)
 */
 
 (function (root) {
   'use strict';
 
-  const DOC = root.document;
   const NS = root.GroupsVR = root.GroupsVR || {};
 
   function emit(name, detail) {
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
-
   function clamp(v, a, b) {
     v = Number(v);
     if (!isFinite(v)) v = a;
     return v < a ? a : (v > b ? b : v);
+  }
+  function nowMs() {
+    return (root.performance && performance.now) ? performance.now() : Date.now();
   }
 
   // ---------- seeded rng ----------
@@ -39,7 +38,6 @@ Notes:
     }
     return h >>> 0;
   }
-
   function makeRng(seedU32) {
     let s = (seedU32 >>> 0) || 1;
     return function rand() {
@@ -48,17 +46,9 @@ Notes:
     };
   }
 
-  function nowMs() {
-    return (root.performance && performance.now) ? performance.now() : Date.now();
-  }
-
-  // ---------- Micro Coach (rate-limit + explainable) ----------
+  // ---------- Micro Coach ----------
   function createCoach(rng, opts) {
-    const cfg = Object.assign({
-      minGapMs: 2600,   // rate-limit
-      maxPerMin: 10,    // safety
-    }, opts || {});
-
+    const cfg = Object.assign({ minGapMs: 2600, maxPerMin: 10 }, opts || {});
     let lastAt = 0;
     let windowStart = 0;
     let countInWindow = 0;
@@ -70,87 +60,39 @@ Notes:
       return true;
     }
 
-    function moodFrom(meta) {
-      const p = Number(meta && meta.pressureLevel);
-      if (p >= 3) return 'sad';
-      if (p >= 2) return 'fever';
-      if (p >= 1) return 'neutral';
-      return 'happy';
-    }
-
     function tip(text, mood, meta) {
       const t = nowMs();
       if (!canTalk(t)) return false;
-
       lastAt = t;
       countInWindow++;
 
-      const why = (meta && meta.why) ? String(meta.why) : '';
-      const explain = (meta && meta.explain) ? String(meta.explain) : '';
-
-      // Keep it short & kid-friendly (ป.5)
+      const explain = meta && meta.explain ? String(meta.explain) : '';
       let msg = String(text || '').trim();
       if (explain) msg += `\n(${explain})`;
-      if (why) msg += `\n#${why}`;
 
-      emit('hha:coach', {
-        text: msg,
-        mood: String(mood || moodFrom(meta) || 'neutral')
-      });
+      emit('hha:coach', { text: msg, mood: String(mood || 'neutral') });
       return true;
     }
 
     function nudgePack(state) {
-      // state: {accPct, combo, misses, pressureLevel}
-      const a = state.accPct|0;
-      const c = state.combo|0;
-      const m = state.misses|0;
-      const p = state.pressureLevel|0;
+      const a = state.accPct|0, c = state.combo|0, m = state.misses|0, p = state.pressureLevel|0;
+      if (p >= 3) return tip('หยุด-เล็ง-ยิง 🎯', 'sad', { explain:'พลาดเยอะ → ช้าลงนิดเพื่อแม่น' });
+      if (p === 2) return tip('โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever', { explain:'กันโดนผิดหมู่/ขยะ' });
+      if (a < 55 && m >= 4) return tip('ดู GOAL แล้วค่อยยิง 👀', 'neutral', { explain:`ความแม่น ${a}%` });
+      if (c >= 8 && a >= 75) return tip('คอมโบมาแล้ว! เก็บต่อ 💪', 'happy', { explain:`combo ${c}` });
 
-      // deterministic selection
       const r = rng();
-
-      if (p >= 3) {
-        return tip('หยุด 0.5 วิแล้วค่อยยิง 🎯', 'sad', {
-          why: 'pressure3',
-          explain: 'Miss เยอะ → ช้าลงนิดเพื่อความแม่น'
-        });
-      }
-      if (p === 2) {
-        return tip('เล็งหมู่ให้ชัวร์ก่อนยิง 🔥', 'fever', {
-          why: 'pressure2',
-          explain: 'ยิงมั่วจะโดนผิดหมู่/ขยะ'
-        });
-      }
-      if (a < 55 && m >= 4) {
-        return tip('ดูชื่อหมู่บน GOAL แล้วค่อยยิง 👀', 'neutral', {
-          why: 'low-acc',
-          explain: `ความแม่น ${a}%`
-        });
-      }
-      if (c >= 8 && a >= 75) {
-        return tip('คอมโบสวยมาก! รักษาจังหวะต่อ 💪', 'happy', {
-          why: 'combo',
-          explain: `combo ${c}`
-        });
-      }
-
-      // random small variety (still deterministic)
-      if (r < 0.33) return tip('ถ้าไม่มั่นใจ “อย่ายิง” ก่อน 👌', 'neutral', { why:'discipline', explain:'กันพลาด' });
-      if (r < 0.66) return tip('ยิงช้าแต่ชัวร์ ดีกว่ายิงเร็วแล้วพลาด 😄', 'neutral', { why:'pace', explain:'ช้า=แม่น' });
-      return tip('โฟกัสแค่ “หมู่ที่ถูก” ก่อนนะ 🎯', 'happy', { why:'focus', explain:'ลดสิ่งรบกวน' });
+      if (r < 0.33) return tip('ไม่มั่นใจ “อย่ายิง” ก่อน 👌', 'neutral', { explain:'กันพลาด' });
+      if (r < 0.66) return tip('ยิงช้าแต่ชัวร์ ดีกว่ายิงเร็วแล้วพลาด 😄', 'neutral', { explain:'ช้า=แม่น' });
+      return tip('โฟกัสแค่ “หมู่ที่ถูก” 🎯', 'happy', { explain:'ลดสิ่งรบกวน' });
     }
 
     return { tip, nudgePack };
   }
 
-  // ---------- Difficulty Director (fair & smooth) ----------
+  // ---------- Difficulty Director ----------
   function createDirector(rng, coach) {
-    // smoothed estimates to avoid jitter
-    let emaAcc = 70;      // %
-    let emaMiss = 0;      // count proxy
-    let emaCombo = 0;
-
+    let emaAcc = 70, emaMiss = 0, emaCombo = 0;
     let lastDecisionAt = 0;
     let lastMul = 1.0;
 
@@ -158,54 +100,41 @@ Notes:
       const a = clamp(accPct, 0, 100);
       const c = clamp(combo, 0, 30);
       const m = clamp(misses, 0, 99);
-
-      // EWMA smoothing
       const k = 0.12;
       emaAcc = emaAcc + (a - emaAcc) * k;
       emaCombo = emaCombo + (c - emaCombo) * k;
-      emaMiss = emaMiss + ((m) - emaMiss) * 0.10;
-
+      emaMiss = emaMiss + (m - emaMiss) * 0.10;
       return { emaAcc, emaCombo, emaMiss };
     }
 
     function spawnSpeedMul(accPct, combo, misses, meta) {
       const t = nowMs();
       const s = update(accPct, combo, misses);
-
-      // decide at most every 900ms
       if (t - lastDecisionAt < 900) return lastMul;
       lastDecisionAt = t;
 
-      // base difficulty target: keep “flow”
-      // higher acc/combo -> faster spawns (mul < 1)
-      // high misses -> slower spawns (mul > 1)
       let mul = 1.0;
-
-      // performance component
       mul *= (s.emaAcc >= 85) ? 0.90 : (s.emaAcc >= 75 ? 0.95 : (s.emaAcc <= 55 ? 1.10 : 1.02));
-
-      // combo component
       if (s.emaCombo >= 10) mul *= 0.92;
       else if (s.emaCombo >= 6) mul *= 0.96;
 
-      // miss component
       if (s.emaMiss >= 14) mul *= 1.14;
       else if (s.emaMiss >= 9) mul *= 1.10;
       else if (s.emaMiss >= 5) mul *= 1.06;
 
-      // small deterministic wobble to avoid robotic feel (±2%)
       const wobble = (rng() * 0.04) - 0.02;
       mul *= (1 + wobble);
 
-      // clamp for fairness (do not become impossible)
       mul = clamp(mul, 0.82, 1.18);
 
-      // occasional explainable coach nudge
       if (coach && coach.nudgePack) {
-        const p = Number(meta && meta.pressureLevel) || 0;
-        // nudge on meaningful swings only
         if (Math.abs(mul - lastMul) > 0.06 && rng() < 0.55) {
-          coach.nudgePack({ accPct: Math.round(s.emaAcc), combo: combo|0, misses: misses|0, pressureLevel: p });
+          coach.nudgePack({
+            accPct: Math.round(s.emaAcc),
+            combo: combo|0,
+            misses: misses|0,
+            pressureLevel: Number(meta && meta.pressureLevel) || 0
+          });
         }
       }
 
@@ -216,39 +145,123 @@ Notes:
     return { spawnSpeedMul };
   }
 
-  // ---------- Pattern Generator (bias only; engine-safe) ----------
+  // ---------- Pattern Packs ----------
   function createPattern(rng) {
-    // bias affects wrongRate (+bias) and junkRate (-bias) inside engine
-    // keep tiny to preserve fairness
     let phase = 0;
     let lastAt = 0;
 
-    function bias(meta) {
+    function _center(rect) {
+      return { x: (rect.xMin + rect.xMax) * 0.5, y: (rect.yMin + rect.yMax) * 0.5 };
+    }
+
+    function _randIn(rect) {
+      return {
+        x: rect.xMin + rng() * (rect.xMax - rect.xMin),
+        y: rect.yMin + rng() * (rect.yMax - rect.yMin),
+      };
+    }
+
+    function _ring(rect, meta) {
+      const c = _center(rect);
+      const w = (rect.xMax - rect.xMin);
+      const h = (rect.yMax - rect.yMin);
+      const rad = clamp(Math.min(w, h) * (0.28 + rng()*0.12), 90, 240);
+
+      const storm = !!(meta && meta.stormOn);
+      // storm: angle sweeping feel
+      const a = (storm ? (phase * 0.9) : (rng()*Math.PI*2));
+      const x = c.x + Math.cos(a) * rad;
+      const y = c.y + Math.sin(a) * rad * 0.75;
+      return { x, y, explain: storm ? 'แพทเทิร์นวงแหวนช่วงพายุ' : 'แพทเทิร์นวงแหวน' };
+    }
+
+    function _sweep(rect, meta) {
+      const w = rect.xMax - rect.xMin;
+      const c = _center(rect);
+
+      // sweep left->right->left
+      const t = (phase % 6) / 5; // 0..1
+      const dir = (Math.floor(phase/6) % 2 === 0) ? 1 : -1;
+      const x = rect.xMin + (dir>0 ? t*w : (1-t)*w);
+
+      // y slightly around center
+      const y = clamp(c.y + (rng()*120 - 60), rect.yMin, rect.yMax);
+      return { x, y, explain: 'แพทเทิร์นกวาดซ้าย-ขวา' };
+    }
+
+    function _clusterNearCrosshair(rect, meta) {
+      const cx = (root.innerWidth || rect.W || 360) * 0.5;
+      const cy = (root.innerHeight|| rect.H || 640) * 0.5;
+
+      const p = Number(meta && meta.pressureLevel) || 0;
+      const spread = (p >= 2) ? 140 : 210; // pressure สูง -> เกิดใกล้ขึ้นช่วยให้ไม่พัง
+
+      const x = clamp(cx + (rng()*2-1)*spread, rect.xMin, rect.xMax);
+      const y = clamp(cy + (rng()*2-1)*spread*0.72, rect.yMin, rect.yMax);
+      return { x, y, explain: p>=2 ? 'ช่วยให้เกิดใกล้จุดเล็ง (pressure สูง)' : 'แพทเทิร์นกระจุกใกล้จุดเล็ง' };
+    }
+
+    function _corners(rect) {
+      // 4 corners cycling
+      const c = phase % 4;
+      const pad = 10 + rng()*18;
+      const x = (c===0||c===2) ? (rect.xMin+pad) : (rect.xMax-pad);
+      const y = (c===0||c===1) ? (rect.yMin+pad) : (rect.yMax-pad);
+      return { x, y, explain: 'แพทเทิร์นมุม' };
+    }
+
+    function nextPos(rect, meta, kind) {
       const t = nowMs();
-      if (t - lastAt > 2200) {
+      if (t - lastAt > 850) {
         lastAt = t;
-        // deterministic phase stepping
-        phase = (phase + 1 + ((rng()*2)|0)) % 7;
+        phase = (phase + 1 + ((rng()*3)|0)) % 24;
       }
 
-      // base bias table (small)
-      const table = [ -0.03, -0.015, 0.0, 0.02, 0.035, 0.015, -0.01 ];
-      let b = table[phase] || 0;
+      const storm = !!(meta && meta.stormOn);
+      const p = Number(meta && meta.pressureLevel) || 0;
 
-      // if player is struggling, bias toward fewer wrong (reduce b)
-      const acc = Number(meta && meta.accPct);
-      const miss = Number(meta && meta.misses);
-      if (isFinite(acc) && acc < 55) b -= 0.02;
-      if (isFinite(miss) && miss >= 10) b -= 0.02;
+      // Boss: bias to center-ish for readability
+      if (kind === 'boss') {
+        const c = _center(rect);
+        const x = clamp(c.x + (rng()*140 - 70), rect.xMin, rect.xMax);
+        const y = clamp(c.y + (rng()*140 - 70), rect.yMin, rect.yMax);
+        return { x, y, explain:'บอสเกิดกลางจอเพื่ออ่านง่าย' };
+      }
 
-      // clamp small
+      // pressure high -> cluster near crosshair more often (help recovery)
+      if (p >= 2 && rng() < 0.58) return _clusterNearCrosshair(rect, meta);
+
+      // storm -> more sweep/ring
+      if (storm) {
+        const r = rng();
+        if (r < 0.45) return _sweep(rect, meta);
+        if (r < 0.80) return _ring(rect, meta);
+        if (r < 0.92) return _corners(rect);
+        return _randIn(rect);
+      }
+
+      // normal play rotation
+      const r = rng();
+      if (r < 0.28) return _ring(rect, meta);
+      if (r < 0.50) return _sweep(rect, meta);
+      if (r < 0.72) return _clusterNearCrosshair(rect, meta);
+      if (r < 0.86) return _corners(rect);
+      return _randIn(rect);
+    }
+
+    function bias(meta) {
+      // same as before, keep tiny
+      let b = 0;
+      const p = Number(meta && meta.pressureLevel) || 0;
+      // if struggling -> reduce wrong a bit (bias negative)
+      if (p >= 2) b -= 0.02;
       return clamp(b, -0.06, 0.06);
     }
 
-    return { bias };
+    return { nextPos, bias };
   }
 
-  // ---------- Public AIHooks ----------
+  // ---------- Public ----------
   NS.AIHooks = NS.AIHooks || {};
 
   NS.AIHooks.attach = function attach(opts) {
@@ -256,15 +269,8 @@ Notes:
     const runMode = String(opts.runMode || '').toLowerCase();
     const enabled = !!opts.enabled;
 
-    // HARD RULE: never in research/practice
-    if (runMode !== 'play') {
-      NS.__ai = null;
-      return { ok:false, reason:'runMode-not-play' };
-    }
-    if (!enabled) {
-      NS.__ai = null;
-      return { ok:false, reason:'disabled' };
-    }
+    if (runMode !== 'play') { NS.__ai = null; return { ok:false, reason:'runMode-not-play' }; }
+    if (!enabled) { NS.__ai = null; return { ok:false, reason:'disabled' }; }
 
     const seed = String(opts.seed ?? Date.now());
     const rng = makeRng(hashSeed(seed + '::ai-hooks::groups'));
@@ -273,20 +279,15 @@ Notes:
     const pattern = createPattern(rng);
     const director = createDirector(rng, coach);
 
-    // expose in a single object used by engine
     NS.__ai = {
       enabled: true,
       seed,
       director,
       pattern,
-      tip: function (text, mood, meta) {
-        return coach.tip(text, mood, meta);
-      }
+      tip: function (text, mood, meta) { return coach.tip(text, mood, meta); }
     };
 
-    // announce once
-    coach.tip('AI ช่วยปรับความยากแล้ว 🤖✨', 'happy', { why:'ai-on', explain:'โหมดเล่นเท่านั้น (วิจัยปิด)' });
-
+    coach.tip('AI Pattern เปิดแล้ว! เป้าจะ “เป็นแพทเทิร์น” มากขึ้น 🤖🎯', 'happy', { explain:'โหมดเล่นเท่านั้น (วิจัยปิด)' });
     return { ok:true, reason:'attached', seed };
   };
 
