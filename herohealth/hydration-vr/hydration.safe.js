@@ -1,10 +1,13 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
+// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE + KIDS + SINGLE-LOGGER)
 // ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
 // ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
 // ✅ Cardboard layers via window.HHA_VIEW.layers from loader
 // ✅ PATCH A1: Spawn Safe-Zone (avoid HUD + safe-area)
+// ✅ NEW: Kids-friendly presets (kids=1&kidspreset=easy|normal|hard)
+// ✅ NEW: Kids UI hints (water hints + body classes water-low/high/green)
+// ✅ NEW: Single logger (use hha-cloud-logger.js via hha:end only; no duplicate fetch)
 
 'use strict';
 
@@ -121,10 +124,6 @@ function shockAt(x, y){
   pf.appendChild(el);
   setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
 }
-function shockAtCenter(){
-  const { cx, cy } = centerPoint();
-  shockAt(cx, cy);
-}
 function popScore(text='+10'){
   try{
     const P = window.Particles || (window.GAME_MODULES && window.GAME_MODULES.Particles);
@@ -167,7 +166,25 @@ const hub = String(qs('hub','../hub.html'));
 const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
 const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
-const logEndpoint = String(qs('log','') || '');
+
+// -------------------- Kids presets --------------------
+const kids = (() => {
+  const k = String(qs('kids','0')).toLowerCase();
+  return (k === '1' || k === 'true' || k === 'yes' || k === 'on');
+})();
+
+const kidsPreset = (() => {
+  const p = String(qs('kidspreset','')).toLowerCase().trim();
+  if (p === 'easy' || p === 'normal' || p === 'hard') return p;
+  if (diff === 'easy') return 'easy';
+  if (diff === 'hard') return 'hard';
+  return 'normal';
+})();
+
+try{
+  document.body.classList.toggle('kids', !!kids);
+  document.body.dataset.kidspreset = kidsPreset;
+}catch(_){}
 
 // RNG deterministic-ish
 function hashStr(s){
@@ -261,16 +278,65 @@ const S = {
 };
 
 const TUNE = (() => {
-  const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
-  const spawnBaseMs = diff==='easy' ? 680 : diff==='hard' ? 480 : 580;
-  const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
-  const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
+  // base
+  const baseSize = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
+  const baseSpawn = diff==='easy' ? 680 : diff==='hard' ? 480 : 580;
 
+  const baseStormEvery = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
+  const baseStormDur = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
+
+  // green target seconds
   const greenTarget = clamp(
     Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
     18,
     Math.max(18, timeLimit-8)
   );
+
+  // kids-friendly tuning (preset-based)
+  let K = {
+    sizeMul: 1, nudgeToMidMul: 1, badPushMul: 1, pressureNeedMul: 1,
+    stormEveryAdd: 0, stormDurAdd: 0, spawnSlowMul: 1
+  };
+
+  if (kids){
+    if (kidsPreset === 'easy'){
+      K = {
+        sizeMul: 1.16,
+        nudgeToMidMul: 0.62,
+        badPushMul: 1.10,
+        pressureNeedMul: 0.80,
+        stormEveryAdd: +3.0,
+        stormDurAdd: -0.5,
+        spawnSlowMul: 1.14
+      };
+    } else if (kidsPreset === 'hard'){
+      K = {
+        sizeMul: 1.06,
+        nudgeToMidMul: 0.78,
+        badPushMul: 1.22,
+        pressureNeedMul: 0.92,
+        stormEveryAdd: +1.0,
+        stormDurAdd: -0.2,
+        spawnSlowMul: 1.04
+      };
+    } else { // normal
+      K = {
+        sizeMul: 1.10,
+        nudgeToMidMul: 0.72,
+        badPushMul: 1.18,
+        pressureNeedMul: 0.86,
+        stormEveryAdd: +2.0,
+        stormDurAdd: -0.3,
+        spawnSlowMul: 1.08
+      };
+    }
+  }
+
+  const sizeBase = baseSize * K.sizeMul;
+  const spawnBaseMs = baseSpawn * K.spawnSlowMul;
+
+  const stormEverySec = baseStormEvery + K.stormEveryAdd;
+  const stormDurSec = baseStormDur + K.stormDurAdd;
 
   return {
     sizeBase,
@@ -284,11 +350,11 @@ const TUNE = (() => {
     stormSpawnMul: diff==='hard'? 0.56 : 0.64,
     endWindowSec:1.2,
     bossWindowSec: diff==='hard'? 2.4 : 2.2,
-    nudgeToMid:5.0,
-    badPush:8.0,
+    nudgeToMid: 5.0 * K.nudgeToMidMul,
+    badPush: 8.0 * K.badPushMul,
     missPenalty:1,
     greenTargetSec: greenTarget,
-    pressureNeed: diff==='easy' ? 0.75 : diff==='hard' ? 1.0 : 0.9
+    pressureNeed: (diff==='easy' ? 0.75 : diff==='hard' ? 1.0 : 0.9) * K.pressureNeedMul
   };
 })();
 S.endWindowSec = TUNE.endWindowSec;
@@ -344,6 +410,43 @@ function setStage(n){
   pulseBody('hha-hitfx', 180);
 }
 
+function syncKidHints(){
+  if (!kids) return;
+
+  // ถ้ามี element เฉพาะใน DOM ก็ใช้เลย (คุณสามารถใส่ใน panel water ได้)
+  const hint = DOC.getElementById('water-hint');
+  const arrow = DOC.getElementById('water-arrow');
+
+  let msg = '';
+  let arr = '';
+  if (S.waterZone === 'LOW'){
+    msg = 'น้ำต่ำ — ยิง 🥤 น้อยลง / เก็บ 💧 ให้มากขึ้น';
+    arr = '⬆️';
+  } else if (S.waterZone === 'HIGH'){
+    msg = 'น้ำสูง — ระวัง 🥤 / ยิง 💧 ให้แม่น';
+    arr = '⬇️';
+  } else {
+    msg = 'โซน GREEN ดีมาก! รักษาไว้';
+    arr = '✅';
+  }
+
+  if (hint) hint.textContent = msg;
+  else {
+    // fallback: โชว์ใน quest-line3 เมื่อ stage1
+    if (S.stage === 1){
+      setText('quest-line3', `ทิป: ${arr} ${msg}`);
+    }
+  }
+
+  if (arrow) arrow.textContent = arr;
+
+  try{
+    DOC.body.classList.toggle('water-low', S.waterZone==='LOW');
+    DOC.body.classList.toggle('water-high', S.waterZone==='HIGH');
+    DOC.body.classList.toggle('water-green', S.waterZone==='GREEN');
+  }catch(_){}
+}
+
 function syncHUD(){
   const grade = computeGrade();
   setText('stat-score', S.score|0);
@@ -395,8 +498,10 @@ function syncHUD(){
     }
   }
 
+  // Small gauge + your panel
   setWaterGauge(S.waterPct);
   syncWaterPanelDOM();
+  syncKidHints();
 
   emit('hha:score', {
     score:S.score|0,
@@ -507,7 +612,7 @@ function targetSize(){
     s = s * (1.02 - 0.22*k);
   }
   if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
-  return clamp(s,44,86);
+  return clamp(s,44,92);
 }
 
 let lastHitAt=0;
@@ -654,7 +759,7 @@ function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
-  return clamp(base, 210, 1200);
+  return clamp(base, 210, 1400);
 }
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
@@ -789,19 +894,7 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-// -------------------- Summary / logging --------------------
-async function sendLog(payload){
-  if (!logEndpoint) return;
-  try{
-    await fetch(logEndpoint, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload),
-      keepalive:true
-    });
-  }catch(_){}
-}
-
+// -------------------- Summary helpers --------------------
 function computeTier(sum){
   const g=String(sum.grade||'C');
   const acc=Number(sum.accuracyGoodPct||0);
@@ -913,7 +1006,7 @@ function bindSummaryButtons(){
 const AICOACH = createAICoach({
   emit,
   game:'hydration',
-  cooldownMs: 3000
+  cooldownMs: kids ? 3800 : 3000
 });
 
 // -------------------- Storm schedule --------------------
@@ -949,7 +1042,6 @@ function hitTestAtCenter(lockPx){
   return best;
 }
 
-// adaptive lockPx state
 const AIM = { base:56, min:32, max:86, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
 
 function aimLockPx(){
@@ -965,6 +1057,10 @@ function aimLockPx(){
   let px = AIM.base * (1.18 - 0.55*AIM.emaSkill);
   px += Math.min(18, AIM.streakMiss*4);
   px -= Math.min(10, AIM.streakHit*1.6);
+
+  // kids: ช่วยนิดนึง แต่ยัง fair
+  if (kids && kidsPreset === 'easy') px += 6;
+  if (kids && kidsPreset === 'normal') px += 3;
 
   return clamp(px, AIM.min, AIM.max);
 }
@@ -1057,6 +1153,8 @@ async function endGame(reason){
     sessionId: sessionId || '',
     gameMode:'hydration',
     diff,
+    kids: kids ? 1 : 0,
+    kidsPreset,
     seed,
     durationPlannedSec: timeLimit,
     durationPlayedSec: timeLimit,
@@ -1087,10 +1185,10 @@ async function endGame(reason){
     localStorage.setItem('hha_last_summary', JSON.stringify(summary));
   }catch(_){}
 
+  // ✅ single source of truth: hha-cloud-logger.js listens to this
   emit('hha:end', summary);
-  AICOACH.onEnd(summary);
 
-  await sendLog(summary);
+  AICOACH.onEnd(summary);
   fillSummary(summary);
 }
 
