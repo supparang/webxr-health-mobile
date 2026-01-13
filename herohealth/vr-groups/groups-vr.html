@@ -1,163 +1,623 @@
-<!-- === A: /herohealth/vr-groups/groups-vr.html ===
-GroupsVR Run (PC/Mobile/Cardboard)
-✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
-✅ PACK 13: Calibration helper (cVR) 2-step: recenter -> shoot test 3
-✅ PACK 14: Practice 15s (cVR) then auto start real run
-✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
-✅ Flush-hardened logging (?log=...)
-✅ Research ctx passthrough
-✅ Uses groups.safe.js (standalone engine)
+<!-- === C: /herohealth/groups-vr.html ===
+GroupsVR Launcher — PRODUCTION (Tap-to-start + Auto detect)
+✅ Big "Start" button (gesture required) -> unlock audio + fullscreen + best-effort landscape
+✅ Auto detect view (pc/mobile) + optional cardboard=1 -> cvr (for hub button usage)
+✅ Chips: run/diff/time/style/ai (ai disabled in research)
+✅ Advanced (teacher/backstage) collapsible: studentKey/siteCode/studyId/phase/conditionGroup/sessionOrder...
+✅ Passthrough hub/log and any unknown params to run page
+✅ Navigates to: ./vr-groups/groups-vr.html
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups VR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <title>HeroHealth — GroupsVR</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --radius:22px;
+      --pill:999px;
 
-  <link rel="stylesheet" href="./groups-vr.css" />
-
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <script src="../vr/particles.js" defer></script>
-  <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
-  <script src="../vr/vr-ui.js" defer></script>
-
-  <script src="./audio.js" defer></script>
-  <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>
-  <script src="./effects-pack.js" defer></script>
-  <script src="./research-ctx.js" defer></script>
-  <script src="./flush-log.js" defer></script>
-  <script src="./view-helper.js" defer></script>
-  <script src="./groups.safe.js" defer></script>
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    body{
+      overflow:hidden;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
+        var(--bg);
+    }
+    .wrap{
+      position:relative;
+      height:100%;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      display:grid;
+      place-items:center;
+    }
+    .card{
+      width:min(760px, 100%);
+      border-radius: 26px;
+      background: rgba(2,6,23,.82);
+      border: 1px solid rgba(148,163,184,.18);
+      box-shadow: 0 24px 70px rgba(0,0,0,.55);
+      padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+    .top{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding: 6px 4px 12px;
+    }
+    .brand{
+      display:flex; flex-direction:column; gap:4px;
+    }
+    .brand .t{ font-weight:1000; letter-spacing:.2px; font-size:18px; }
+    .brand .s{ font-weight:800; color:var(--muted); font-size:12px; }
+    .chiprow{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 10px; border-radius: var(--pill);
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.55);
+      color: var(--text);
+      font-weight:900;
+      font-size:12px;
+      user-select:none;
+      cursor:pointer;
+    }
+    .chip[aria-pressed="true"]{
+      border-color: rgba(34,197,94,.38);
+      box-shadow: 0 0 0 2px rgba(34,197,94,.10);
+      background: rgba(34,197,94,.12);
+    }
+    .chip.bad[aria-pressed="true"]{
+      border-color: rgba(239,68,68,.40);
+      box-shadow: 0 0 0 2px rgba(239,68,68,.10);
+      background: rgba(239,68,68,.10);
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 12px;
+    }
+    .panel{
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.52);
+      border: 1px solid rgba(148,163,184,.14);
+      padding: 12px;
+    }
+    .panel h3{
+      margin:0 0 8px 0;
+      font-size:13px;
+      letter-spacing:.2px;
+      font-weight:1000;
+    }
+    .muted{ color:var(--muted); font-weight:800; font-size:12px; line-height:1.35; }
+    .big{
+      margin-top: 10px;
+      width:100%;
+      border-radius: 22px;
+      border: 1px solid rgba(34,197,94,.38);
+      background: rgba(34,197,94,.18);
+      color: var(--text);
+      font-weight: 1000;
+      font-size: 20px;
+      padding: 16px 14px;
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      box-shadow: 0 14px 40px rgba(0,0,0,.45);
+      user-select:none;
+    }
+    .big:active{ transform: translateY(1px); }
+    .row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .kv{
+      display:flex; gap:8px; flex-wrap:wrap;
+      font-size:12px; font-weight:900; color:var(--muted);
+    }
+    .kv b{ color:var(--text); }
+    details{
+      margin-top: 10px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.45);
+      overflow:hidden;
+    }
+    summary{
+      cursor:pointer;
+      padding: 10px 12px;
+      font-weight:1000;
+      list-style:none;
+      user-select:none;
+    }
+    summary::-webkit-details-marker{ display:none; }
+    .adv{
+      padding: 10px 12px 12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .field{
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .field label{ font-size:11px; font-weight:900; color:var(--muted); }
+    .field input, .field select{
+      width:100%;
+      padding: 10px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.55);
+      color: var(--text);
+      font-weight:900;
+      outline:none;
+    }
+    .footer{
+      margin-top: 10px;
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;
+      padding: 4px 2px 0;
+    }
+    .linkbtn{
+      cursor:pointer;
+      border-radius: 16px;
+      padding: 10px 12px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.35);
+      color: var(--text);
+      font-weight:1000;
+      font-size:13px;
+      user-select:none;
+    }
+    .linkbtn:active{ transform: translateY(1px); }
+    .hint{
+      font-size:12px; font-weight:900; color:var(--muted);
+    }
+    @media (max-width: 780px){
+      .grid{ grid-template-columns: 1fr; }
+      .adv{ grid-template-columns: 1fr; }
+      .chiprow{ justify-content:flex-start; }
+    }
+  </style>
 </head>
-
-<body class="view-mobile">
-
-  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
-    <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
-    <a-sky color="#020617"></a-sky>
-  </a-scene>
-
-  <div class="hud">
-    <div class="hudLeft">
-      <div class="pill"><span class="lbl">⏳ TIME</span><span id="vTime" class="val">90</span></div>
-      <div class="pill"><span class="lbl">⭐ SCORE</span><span id="vScore" class="val">0</span></div>
-      <div class="pill"><span class="lbl">🔥 COMBO</span><span id="vCombo" class="val">0</span></div>
-      <div class="pill"><span class="lbl">❌ MISS</span><span id="vMiss" class="val">0</span></div>
-    </div>
-    <div class="hudRight">
-      <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
-      <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
-      <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
-    </div>
-  </div>
-
-  <div class="questTop">
-    <div class="questCard">
-      <div class="qTitle">
-        <div id="goalTitle">GOAL</div>
-        <div class="tag" id="goalCount">0/1</div>
-      </div>
-      <div class="bar"><div id="goalFill" class="fill"></div></div>
-      <div class="qSub" id="goalSub">—</div>
-    </div>
-
-    <div class="questCard">
-      <div class="qTitle">
-        <div id="miniTitle">MINI</div>
-        <div class="tag"><span class="miniTime" id="miniTime">—</span></div>
-      </div>
-      <div class="bar"><div id="miniFill" class="fill"></div></div>
-      <div class="qSub" id="miniSub">—</div>
-    </div>
-  </div>
-
-  <div class="powerWrap">
-    <div class="powerCard">
-      <div class="pHead">⚡ Power</div>
-      <div class="bar powerBar"><div id="pFill" class="fill"></div></div>
-      <div class="pFoot"><span id="pCur">0</span>/<span id="pThr">8</span> → ครบแล้วจะสลับหมู่</div>
-    </div>
-  </div>
-
-  <div class="coachWrap">
-    <div class="coachCard">
-      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
-      <div class="coachBubble">
-        <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="playLayer" class="playLayer"></div>
-
-  <div id="calOverlay" class="overlay overlay-cal hidden">
-    <div class="panel calPanel">
-      <div class="title">🧭 Calibration (Cardboard)</div>
-      <div id="calSub" class="sub">
-        Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า
-      </div>
-
-      <div class="grid2" style="margin-top:14px;">
-        <div class="stat">
-          <div class="k">Step</div>
-          <div id="calStep" class="v">1/2</div>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div class="brand">
+          <div class="t">🥦 HeroHealth — Food Groups VR</div>
+          <div class="s">กด “เริ่มเล่น” แล้วเข้าเกมทันที (ระบบจะตรวจอุปกรณ์ให้อัตโนมัติ)</div>
         </div>
-        <div class="stat">
-          <div class="k">Shots</div>
-          <div id="calShots" class="v">0/3</div>
+        <div class="chiprow" id="detectChips">
+          <span class="chip" id="chipDevice">📱 mobile</span>
+          <span class="chip" id="chipView">👁 view: mobile</span>
         </div>
       </div>
 
-      <div class="row" style="margin-top:12px;">
-        <button id="btnCalNext" class="btn btn-strong" type="button">✅ ต่อไป</button>
-        <button id="btnCalSkip" class="btn btn-ghost" type="button">⏭️ ข้าม</button>
-      </div>
+      <div class="grid">
+        <div class="panel">
+          <h3>🎮 เริ่มเล่น</h3>
+          <div class="muted">
+            เพื่อให้ “เสียง / Fullscreen / VR” ทำงานถูกต้อง ต้องแตะก่อนเสมอ<br>
+            ปุ่มนี้จะ: unlock → fullscreen(มือถือ) → best-effort แนวนอน → เข้าเกม
+          </div>
 
-      <div class="note" style="margin-top:10px;">
-        cVR: แตะจอเพื่อยิงจาก crosshair • ใช้ RECENTER เพื่อปรับศูนย์มุมมอง
-      </div>
-    </div>
-  </div>
+          <button class="big" id="btnStart" type="button">▶ เริ่มเล่น (Tap-to-start)</button>
 
-  <div id="endOverlay" class="overlay overlay-end hidden">
-    <div class="panel">
-      <div class="title">🏁 จบเกม</div>
-      <div id="endLine" class="sub">—</div>
+          <div class="row" style="margin-top:12px;">
+            <span class="chip" id="runPlay" aria-pressed="true">🕹 PLAY</span>
+            <span class="chip" id="runResearch" aria-pressed="false">🧪 RESEARCH</span>
+            <span class="chip bad" id="runPractice" aria-pressed="false" title="สำหรับครู/ทดสอบ">⏱ PRACTICE</span>
+          </div>
 
-      <div class="grid2">
-        <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
-        <div class="stat"><div class="k">Rank</div><div id="endRank" class="v">C</div></div>
-        <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
-        <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
-      </div>
+          <div class="row">
+            <span class="chip" id="diffEasy" aria-pressed="true">🟢 easy</span>
+            <span class="chip" id="diffNormal" aria-pressed="false">🟡 normal</span>
+            <span class="chip" id="diffHard" aria-pressed="false">🔴 hard</span>
+          </div>
 
-      <div class="row row2">
-        <button id="btnRestart" class="btn btn-strong" type="button">🔁 เล่นอีกครั้ง</button>
-        <button id="btnCopy" class="btn" type="button">📋 Copy JSON</button>
-      </div>
-      <div class="row row2">
-        <button id="btnBackLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
-        <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
-      </div>
+          <div class="row">
+            <span class="chip" id="time70" aria-pressed="false">⏳ 70s</span>
+            <span class="chip" id="time90" aria-pressed="true">⏳ 90s</span>
+          </div>
 
-      <div class="note" style="margin-top:10px;">
-        Cardboard (cVR): แตะจอเพื่อยิงจาก crosshair • ปุ่ม ENTER VR/RECENTER อยู่ UI ของ vr-ui.js
+          <div class="row">
+            <span class="chip" id="styleFeel" aria-pressed="true">✨ feel</span>
+            <span class="chip" id="styleMix" aria-pressed="false">🎛 mix</span>
+          </div>
+
+          <div class="row">
+            <span class="chip" id="aiOff" aria-pressed="true">🤖 AI: off</span>
+            <span class="chip" id="aiOn" aria-pressed="false">🤖 AI: on</span>
+          </div>
+
+          <div class="kv" id="summaryLine" style="margin-top:10px;">
+            โหมด: <b id="vRun">play</b> • diff: <b id="vDiff">easy</b> • time: <b id="vTime">90</b>s • style: <b id="vStyle">feel</b> • ai: <b id="vAi">0</b>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>🧭 ตรวจอุปกรณ์ (Auto)</h3>
+          <div class="muted" id="detectText">กำลังตรวจอุปกรณ์…</div>
+
+          <details>
+            <summary>⚙ ตั้งค่าครู/หลังบ้าน (พับได้)</summary>
+            <div class="adv">
+              <div class="field">
+                <label>hub (กลับ HUB)</label>
+                <input id="fHub" placeholder="ใส่ hub url หรือปล่อยว่าง" />
+              </div>
+              <div class="field">
+                <label>log (Apps Script endpoint)</label>
+                <input id="fLog" placeholder="ใส่ log url หรือปล่อยว่าง" />
+              </div>
+
+              <div class="field">
+                <label>seed</label>
+                <input id="fSeed" placeholder="ปล่อยว่าง = สุ่มจากเวลา" />
+              </div>
+              <div class="field">
+                <label>practice (cVR only) 0/1/15</label>
+                <input id="fPractice" placeholder="0" />
+              </div>
+
+              <div class="field">
+                <label>studyId</label>
+                <input id="fStudyId" placeholder="เช่น STUDY-001" />
+              </div>
+              <div class="field">
+                <label>phase</label>
+                <input id="fPhase" placeholder="pre / post / followup" />
+              </div>
+
+              <div class="field">
+                <label>conditionGroup</label>
+                <input id="fCond" placeholder="A / B / C" />
+              </div>
+              <div class="field">
+                <label>sessionOrder</label>
+                <input id="fSessOrder" placeholder="1,2,3..." />
+              </div>
+
+              <div class="field">
+                <label>studentKey</label>
+                <input id="fStudentKey" placeholder="เช่น SCH01-G5-001" />
+              </div>
+              <div class="field">
+                <label>siteCode</label>
+                <input id="fSiteCode" placeholder="เช่น SCH01" />
+              </div>
+
+              <div class="field" style="grid-column:1/-1;">
+                <label>หมายเหตุ: ใส่ cardboard=1 ใน URL ของ Launcher หากต้องการให้เข้า view=cvr อัตโนมัติ (ใช้จากปุ่มใน HUB ได้)</label>
+                <input value="ตัวอย่าง: .../groups-vr.html?cardboard=1&hub=...&log=..." readonly />
+              </div>
+            </div>
+          </details>
+
+          <div class="footer">
+            <button class="linkbtn" id="btnCopyLink" type="button">🔗 คัดลอกลิงก์เข้าเกม</button>
+            <button class="linkbtn" id="btnLast" type="button">📌 ผลล่าสุด (HHA_LAST_SUMMARY)</button>
+            <span class="hint" id="hintLine">ต้องแตะ “เริ่มเล่น” เพื่อให้ Fullscreen/เสียงทำงาน</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
 <script>
-/* (โค้ด JS ภายใน A ตัวเต็มยาวมาก)
-   👉 ใช้ “ตัว A ที่ผมแปะให้เมื่อกี้” ได้เลย 1:1 (เหมือนกัน)
-   ถ้าคุณอยากให้ผม “แปะ A ทั้งไฟล์รวม JS ทั้งหมด” อีกรอบในบล็อกเดียว บอกได้ทันที
-   ตอนนี้ผมเว้นไว้เพื่อไม่ให้ซ้ำซ้อน/หนักเกินในข้อความเดียว
-*/
+(function(){
+  'use strict';
+  const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
+
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch(_){ return def; }
+  }
+  function isMobile(){
+    const ua = navigator.userAgent || '';
+    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
+    return touch && /Android|iPhone|iPad|iPod/i.test(ua);
+  }
+  async function xrSupported(){
+    try{
+      if (!navigator.xr || !navigator.xr.isSessionSupported) return false;
+      return await navigator.xr.isSessionSupported('immersive-vr');
+    }catch(_){ return false; }
+  }
+
+  // ---------------- State (defaults for ป.5) ----------------
+  const st = {
+    run: 'play',        // play | research | practice
+    diff: 'easy',       // easy | normal | hard
+    time: 90,           // 70 | 90
+    style:'feel',       // feel | mix
+    ai: 0,              // 0/1 (forced 0 in research)
+    view: 'mobile',     // pc | mobile | cvr
+    device: 'mobile',
+    xr: false
+  };
+
+  // ---------------- UI helpers ----------------
+  function setPressed(id, on){
+    const el = $(id);
+    if(!el) return;
+    el.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function syncLine(){
+    $('vRun').textContent = st.run;
+    $('vDiff').textContent = st.diff;
+    $('vTime').textContent = String(st.time);
+    $('vStyle').textContent = st.style;
+    $('vAi').textContent = String(st.ai);
+
+    // AI forced off in research/practice
+    const aiLocked = (st.run !== 'play');
+    $('aiOn').style.opacity  = aiLocked ? .45 : 1;
+    $('aiOff').style.opacity = 1;
+    $('aiOn').style.pointerEvents = aiLocked ? 'none' : 'auto';
+  }
+
+  function pickRun(run){
+    st.run = run;
+    setPressed('runPlay', run==='play');
+    setPressed('runResearch', run==='research');
+    setPressed('runPractice', run==='practice');
+
+    if (run !== 'play'){
+      st.ai = 0;
+      setPressed('aiOff', true);
+      setPressed('aiOn', false);
+    }
+    syncLine();
+  }
+  function pickDiff(d){
+    st.diff = d;
+    setPressed('diffEasy', d==='easy');
+    setPressed('diffNormal', d==='normal');
+    setPressed('diffHard', d==='hard');
+    syncLine();
+  }
+  function pickTime(t){
+    st.time = t;
+    setPressed('time70', t===70);
+    setPressed('time90', t===90);
+    syncLine();
+  }
+  function pickStyle(s){
+    st.style = s;
+    setPressed('styleFeel', s==='feel');
+    setPressed('styleMix', s==='mix');
+    syncLine();
+  }
+  function pickAi(v){
+    if (st.run !== 'play') return;
+    st.ai = v ? 1 : 0;
+    setPressed('aiOff', st.ai===0);
+    setPressed('aiOn', st.ai===1);
+    syncLine();
+  }
+
+  // ---------------- Detect ----------------
+  async function detect(){
+    st.device = isMobile() ? 'mobile' : 'pc';
+    st.xr = await xrSupported();
+
+    // view policy:
+    // - default: mobile->mobile, pc->pc
+    // - optional: cardboard=1 (from hub button) -> cvr
+    const cb = String(qs('cardboard','0')||'0');
+    if (st.device==='mobile' && (cb==='1' || cb==='true')) st.view = 'cvr';
+    else st.view = (st.device==='pc') ? 'pc' : 'mobile';
+
+    $('chipDevice').textContent = st.device==='pc' ? '🖥 pc' : '📱 mobile';
+    $('chipView').textContent = `👁 view: ${st.view}`;
+
+    const lines = [];
+    lines.push(`อุปกรณ์: ${st.device==='pc'?'PC/Notebook':'Mobile/Tablet'}`);
+    lines.push(`WebXR immersive-vr: ${st.xr ? 'รองรับ ✅ (กด ENTER VR ในเกมได้)' : 'ไม่แน่ใจ/ไม่รองรับ (ยังเล่นแบบจอได้)'}`);
+    lines.push(`โหมดมุมมองที่จะใช้: ${st.view.toUpperCase()}`);
+    if (st.view==='cvr') lines.push(`cVR: ยิงจาก crosshair (แตะจอ) + มี Calibration/Practice ตามที่ตั้งไว้`);
+    $('detectText').innerHTML = lines.map(s=>`• ${s}`).join('<br>');
+  }
+
+  // ---------------- Tap-to-start prerequisites ----------------
+  function tryUnlockAudio(){
+    try{
+      const a = DOC.createElement('audio');
+      a.src = 'data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA'; // tiny noop
+      a.volume = 0;
+      a.play().then(()=>{ try{ a.pause(); }catch(_){} }).catch(()=>{});
+    }catch(_){}
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC){
+        const ctx = new AC();
+        ctx.resume && ctx.resume().catch(()=>{});
+      }
+    }catch(_){}
+  }
+
+  async function tryFullscreen(){
+    try{
+      if (!DOC.documentElement.requestFullscreen) return false;
+      await DOC.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      return true;
+    }catch(_){ return false; }
+  }
+
+  async function tryLandscapeLock(){
+    try{
+      if (!screen.orientation || !screen.orientation.lock) return false;
+      await screen.orientation.lock('landscape');
+      return true;
+    }catch(_){ return false; }
+  }
+
+  // ---------------- Build run URL ----------------
+  function buildRunUrl(){
+    const u = new URL('./vr-groups/groups-vr.html', location.href);
+
+    // core
+    u.searchParams.set('view', st.view);
+    u.searchParams.set('run', st.run);
+    u.searchParams.set('diff', st.diff);
+    u.searchParams.set('style', st.style);
+    u.searchParams.set('time', String(st.time));
+    u.searchParams.set('ai', String(st.ai));
+
+    // seed
+    const seed = String($('fSeed').value || qs('seed','') || Date.now());
+    u.searchParams.set('seed', seed);
+
+    // hub/log passthrough (priority: form > query)
+    const hub = String($('fHub').value || qs('hub','') || '');
+    const log = String($('fLog').value || qs('log','') || '');
+    if (hub) u.searchParams.set('hub', hub);
+    if (log) u.searchParams.set('log', log);
+
+    // practice param (only meaningful in cvr)
+    const practice = String($('fPractice').value || qs('practice','') || '');
+    if (practice) u.searchParams.set('practice', practice);
+
+    // teacher/backstage fields
+    const extras = {
+      studyId: $('fStudyId').value,
+      phase: $('fPhase').value,
+      conditionGroup: $('fCond').value,
+      sessionOrder: $('fSessOrder').value,
+      studentKey: $('fStudentKey').value,
+      siteCode: $('fSiteCode').value
+    };
+    Object.keys(extras).forEach(k=>{
+      const v = String(extras[k] || qs(k,'') || '').trim();
+      if (v) u.searchParams.set(k, v);
+    });
+
+    // passthrough unknown params from current URL (do not override our core)
+    try{
+      const sp = new URL(location.href).searchParams;
+      sp.forEach((v,k)=>{
+        if (u.searchParams.has(k)) return;
+        if (k==='cardboard') return;
+        u.searchParams.set(k, v);
+      });
+    }catch(_){}
+
+    return u.toString();
+  }
+
+  // ---------------- Copy link ----------------
+  async function copyText(text){
+    try{ await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch{
+      try{
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select();
+        DOC.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
+    }
+  }
+
+  // ---------------- Events ----------------
+  $('runPlay').addEventListener('click', ()=>pickRun('play'));
+  $('runResearch').addEventListener('click', ()=>pickRun('research'));
+  $('runPractice').addEventListener('click', ()=>pickRun('practice'));
+
+  $('diffEasy').addEventListener('click', ()=>pickDiff('easy'));
+  $('diffNormal').addEventListener('click', ()=>pickDiff('normal'));
+  $('diffHard').addEventListener('click', ()=>pickDiff('hard'));
+
+  $('time70').addEventListener('click', ()=>pickTime(70));
+  $('time90').addEventListener('click', ()=>pickTime(90));
+
+  $('styleFeel').addEventListener('click', ()=>pickStyle('feel'));
+  $('styleMix').addEventListener('click', ()=>pickStyle('mix'));
+
+  $('aiOff').addEventListener('click', ()=>pickAi(0));
+  $('aiOn').addEventListener('click', ()=>pickAi(1));
+
+  $('btnCopyLink').addEventListener('click', async ()=>{
+    const url = buildRunUrl();
+    const ok = await copyText(url);
+    alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  });
+
+  $('btnLast').addEventListener('click', ()=>{
+    try{
+      const s = localStorage.getItem('HHA_LAST_SUMMARY');
+      if (!s){ alert('ยังไม่มีผลล่าสุด'); return; }
+      // แสดงแบบย่อ
+      const d = JSON.parse(s);
+      alert(`ผลล่าสุด\nScore: ${d.scoreFinal ?? 0}\nRank: ${d.grade ?? '-'}\nAcc: ${(d.accuracyGoodPct ?? 0)}%\nMiss: ${d.misses ?? 0}`);
+    }catch(_){
+      alert('อ่าน HHA_LAST_SUMMARY ไม่ได้');
+    }
+  });
+
+  $('btnStart').addEventListener('click', async ()=>{
+    // gesture chain
+    tryUnlockAudio();
+
+    // fullscreen/landscape only meaningful on mobile/cvr
+    if (st.device==='mobile'){
+      await tryFullscreen();
+      await tryLandscapeLock();
+    }
+
+    // final: go run
+    const url = buildRunUrl();
+    location.href = url;
+  });
+
+  // ---------------- Init from query (optional) ----------------
+  // allow preselect by URL but keep defaults if absent
+  const qRun  = String(qs('run','')||'').toLowerCase();
+  const qDiff = String(qs('diff','')||'').toLowerCase();
+  const qTime = Number(qs('time','')) || 0;
+  const qStyle= String(qs('style','')||'').toLowerCase();
+  const qAi   = String(qs('ai','')||'');
+
+  if (qRun==='research' || qRun==='practice') pickRun(qRun); else pickRun('play');
+  if (qDiff==='normal' || qDiff==='hard') pickDiff(qDiff); else if(qDiff==='easy') pickDiff('easy');
+  if (qTime===70 || qTime===90) pickTime(qTime);
+  if (qStyle==='mix' || qStyle==='feel') pickStyle(qStyle);
+  if (qAi==='1' || qAi==='true') pickAi(1); else pickAi(0);
+
+  // preload hub/log/seed into advanced fields
+  $('fHub').value = String(qs('hub','')||'');
+  $('fLog').value = String(qs('log','')||'');
+  $('fSeed').value = String(qs('seed','')||'');
+  $('fPractice').value = String(qs('practice','')||'');
+  $('fStudyId').value = String(qs('studyId','')||'');
+  $('fPhase').value = String(qs('phase','')||'');
+  $('fCond').value = String(qs('conditionGroup','')||'');
+  $('fSessOrder').value = String(qs('sessionOrder','')||'');
+  $('fStudentKey').value = String(qs('studentKey','')||'');
+  $('fSiteCode').value = String(qs('siteCode','')||'');
+
+  syncLine();
+  detect();
+
+})();
 </script>
 </body>
 </html>
