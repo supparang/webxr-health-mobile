@@ -26,7 +26,6 @@ function detectViewNoOverride(){
   const landscape = w >= h;
 
   if (isTouch){
-    // heuristic: wide-landscape touch -> cVR
     if (landscape && w >= 740) return 'cvr';
     return 'mobile';
   }
@@ -54,7 +53,6 @@ function hookWebXR(){
 
     scene.addEventListener('enter-vr', ()=>{
       const explicit = normalizeView(qs('view',''));
-      // ถ้าผู้ใช้ตั้ง view=mobile/pc เอง ก็ไม่ฝืน; แต่ถ้า auto/cvr ให้สลับเป็น vr เมื่อเข้า WebXR จริง
       if(!explicit || explicit === 'vr' || explicit === 'cvr'){
         view = 'vr';
         applyBodyView('vr');
@@ -63,7 +61,6 @@ function hookWebXR(){
 
     scene.addEventListener('exit-vr', ()=>{
       const explicit = normalizeView(qs('view',''));
-      // ออกจาก VR -> กลับตาม explicit หรือ auto-detect
       const next = explicit || detectViewNoOverride();
       view = next;
       applyBodyView(next);
