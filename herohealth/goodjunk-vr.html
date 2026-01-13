@@ -1,201 +1,285 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER (ROOT ONLY)
-✅ Redirect to: ./vr-goodjunk/goodjunk-vr.html
-✅ Preserves query params (?hub&run&diff&time&seed&studyId&phase&cond&view...)
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR Launcher</title>
+  <title>HeroHealth — GroupsVR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
       color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.20);
+      --panel:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --violet:#a78bfa;
-      --radius:22px;
+      --accent:#22c55e;
+      --radius:24px;
       --pill:999px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --soft: 0 10px 28px rgba(0,0,0,.30);
     }
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0; width:100%; height:100%;
+    html,body{ width:100%; height:100%; margin:0;
       background:
-        radial-gradient(circle at 18% 12%, rgba(34,211,238,.16), transparent 55%),
-        radial-gradient(circle at 80% 86%, rgba(167,139,250,.14), transparent 60%),
-        linear-gradient(180deg, #020617 0%, #020617 100%);
+        radial-gradient(circle at top left, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
+        var(--bg);
       color:var(--text);
-      font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
-    .wrap{
-      height:100%;
-      padding: calc(16px + var(--sat)) calc(14px + var(--sar))
-               calc(18px + var(--sab)) calc(14px + var(--sal));
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
+    .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding:18px; }
     .card{
-      width:min(820px, 94vw);
-      border-radius: var(--radius);
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 18px 55px rgba(0,0,0,.45);
-      padding:18px;
+      width:min(560px, 100%);
+      background: rgba(2,6,23,.80);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 26px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.55);
+      padding: 16px;
+      backdrop-filter: blur(10px);
     }
-    .top{
-      display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
-      flex-wrap:wrap;
-    }
-    .title{
-      font-size:22px; font-weight:1300;
-    }
-    .sub{
-      margin-top:6px; color:var(--muted); font-weight:900; font-size:12px;
-      line-height:1.4;
-    }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px;
-      border-radius: var(--pill);
-      background: var(--panel2);
-      border:1px solid rgba(148,163,184,.16);
-      font-weight:900; font-size:12px;
-    }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:12px;
-    }
-    .box{
+    .title{ font-size:20px; font-weight:1000; letter-spacing:.2px; }
+    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
+    .grid{ margin-top:14px; display:grid; gap:10px; }
+    .row{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+    .btn{
+      flex:1 1 180px;
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding: 12px 12px;
       border-radius: 18px;
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.16);
-      padding:12px;
-    }
-    .k{ color:var(--muted); font-weight:1000; font-size:11px; letter-spacing:.3px; }
-    .v{ margin-top:6px; font-weight:1100; font-size:14px; line-height:1.4; }
-    .actions{
-      margin-top:14px;
-      display:flex; gap:10px; flex-wrap:wrap;
-    }
-    button{
-      height:54px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.60);
-      color:var(--text);
-      font-weight:1200;
-      font-size:16px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      font-weight: 1000;
       cursor:pointer;
-      flex:1; min-width:240px;
-      transition: transform 120ms cubic-bezier(.16,1,.3,1), border-color 120ms;
+      box-shadow: var(--soft);
     }
-    button:hover{ transform: translateY(-1px); border-color: rgba(148,163,184,.32); }
-    button:active{ transform: translateY(0px) scale(.98); }
-    .primary{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.14);
+    .btn-strong{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.32); }
+    .btn-ghost{ background: rgba(2,6,23,.35); }
+    .pill{
+      display:flex; justify-content:space-between; align-items:center;
+      padding: 10px 12px; border-radius: var(--pill);
+      background: rgba(2,6,23,.65);
+      border: 1px solid rgba(148,163,184,.16);
+      box-shadow: var(--soft);
+      font-weight:900; font-size:13px;
     }
-    .hint{
-      margin-top:12px; color:var(--muted); font-weight:900; font-size:12px;
+    .pill span{ color:var(--muted); font-weight:900; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; color:rgba(148,163,184,.95); }
+    .hint{ margin-top:10px; color:var(--muted); font-weight:800; font-size:12px; }
+    .sep{ height:1px; background: rgba(148,163,184,.12); margin:12px 0; }
+
+    .overlay{
+      position:fixed; inset:0; display:none;
+      align-items:center; justify-content:center;
+      padding:18px;
+      background: rgba(2,6,23,.78);
+      backdrop-filter: blur(10px);
     }
-    @media (max-width: 760px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    .overlay.show{ display:flex; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="top">
-        <div>
-          <div class="title">GoodJunkVR</div>
-          <div class="sub">
-            โหมดเล่นจะ auto-detect อุปกรณ์ให้เอง (PC / Mobile / cVR / VR) และใช้ปุ่ม ENTER VR จาก vr-ui.js
-          </div>
-        </div>
-        <div class="pill" id="metaPill">loading…</div>
-      </div>
+      <div class="title">Food Groups VR</div>
+      <div class="sub" id="subText">กำลังตรวจจับอุปกรณ์…</div>
+
+      <div class="sep"></div>
 
       <div class="grid">
-        <div class="box">
-          <div class="k">สิ่งที่ต้องทำ</div>
-          <div class="v">
-            ✅ เก็บของดีให้ทัน ⏱️<br/>
-            ❌ ห้ามแตะขยะ (โดนขยะ = MISS)<br/>
-            🛡️ Shield บล็อคขยะได้ (บล็อคแล้ว “ไม่เป็น MISS”)<br/>
-            ⭐ ช่วยลด MISS และช่วยเอาตัวรอด<br/>
-            🦠 ถ้าเริ่มบอส ให้ยิงบอสให้ HP หมดเพื่อรับโบนัส
-          </div>
-        </div>
-
-        <div class="box">
-          <div class="k">พารามิเตอร์</div>
-          <div class="v" id="paramBox">—</div>
-        </div>
+        <div class="pill"><span>View</span><div id="vView">—</div></div>
+        <div class="pill"><span>Start Mode</span><div id="vStart">—</div></div>
+        <div class="pill"><span>Run</span><div id="vRun">—</div></div>
+        <div class="pill"><span>Diff</span><div id="vDiff">—</div></div>
+        <div class="pill"><span>Time</span><div id="vTime">—</div></div>
+        <div class="pill"><span>AI</span><div id="vAI">—</div></div>
+        <div class="pill"><span>Seed</span><div class="mono" id="vSeed">—</div></div>
       </div>
 
-      <div class="actions">
-        <button class="primary" id="btnStart" type="button">เริ่มเล่น</button>
-        <button id="btnBackHub" type="button">↩ กลับ HUB</button>
+      <div class="row">
+        <button class="btn btn-strong" id="btnGo" type="button">▶ เริ่ม</button>
+        <button class="btn btn-ghost" id="btnForceAuto" type="button">⚡ Auto (ไม่แตะ)</button>
+        <button class="btn btn-ghost" id="btnForceTap" type="button">🖐 Tap-to-start</button>
       </div>
 
       <div class="hint">
-        หมายเหตุ: ถ้าต้องการบังคับ view เอง ใช้ <b>?view=pc</b> หรือ <b>?view=mobile</b> หรือ <b>?view=cvr</b> หรือ <b>?view=vr</b>
+        ตัวเลือกพารามิเตอร์ (ใช้กับ HUB ได้เลย):<br/>
+        <span class="mono">?auto=1</span> เด้งเข้าเกมทันที •
+        <span class="mono">?tap=1</span> บังคับแตะก่อนเข้า •
+        <span class="mono">?cvr=1</span> มือถือบังคับเป็น cVR<br/>
+        หมายเหตุ: ENTER VR ต้องกดเองในหน้าเกม (ข้อกำหนด WebXR)
       </div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const hub = qs('hub', null);
+  <div class="overlay" id="tapOverlay">
+    <div class="card">
+      <div class="title">แตะเพื่อเริ่ม</div>
+      <div class="sub" id="tapSub">ระบบจะพาเข้าเกม</div>
+      <div class="row">
+        <button class="btn btn-strong" id="btnTapStart" type="button">▶ เข้าเกม</button>
+        <button class="btn btn-ghost" id="btnCancel" type="button">ยกเลิก</button>
+      </div>
+      <div class="hint">แตะครั้งนี้ช่วย unlock gesture ให้ fullscreen/เสียง (ถ้ามี) ทำงานเสถียรกว่า</div>
+    </div>
+  </div>
 
-      const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-      // preserve all query params
-      const cur = new URL(location.href);
-      cur.searchParams.forEach((v,k)=> runUrl.searchParams.set(k,v));
+<script>
+(function(){
+  'use strict';
+  const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
 
-      const view = qs('view','auto');
-      const run  = qs('run','play');
-      const diff = qs('diff','normal');
-      const time = qs('time','80');
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function qOn(k){
+    const v = String(qs(k,'')||'').toLowerCase();
+    return (v==='1' || v==='true' || v==='yes' || v==='on');
+  }
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-      const metaPill = document.getElementById('metaPill');
-      const paramBox = document.getElementById('paramBox');
+  // ---------- Start policy (1–2) ----------
+  // default = tap-to-start (recommended)
+  // ?auto=1 => immediate redirect
+  // ?tap=1  => force tap overlay
+  function startPolicy(){
+    if (qOn('auto')) return 'auto';
+    if (qOn('tap'))  return 'tap';
+    return 'tap';
+  }
 
-      if(metaPill) metaPill.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
-      if(paramBox) paramBox.innerHTML =
-        `view=<b>${view}</b><br/>run=<b>${run}</b><br/>diff=<b>${diff}</b><br/>time=<b>${time}</b>s`;
+  // ---------- Detect (3 included) ----------
+  // ?cvr=1 => on mobile => cvr
+  function detectViewAuto(){
+    const vp = String(qs('view','')||'').toLowerCase();
+    if (vp) return vp;
 
-      document.getElementById('btnStart')?.addEventListener('click', ()=>{
-        location.href = runUrl.toString();
-      });
+    const isMobile = matchMedia('(pointer:coarse)').matches || (navigator.maxTouchPoints||0) > 0;
+    const isSmall  = (Math.min(innerWidth||0, innerHeight||0) <= 520);
 
-      document.getElementById('btnBackHub')?.addEventListener('click', ()=>{
-        if(hub) location.href = hub;
-        else alert('ยังไม่ได้ใส่ hub url');
-      });
-    })();
-  </script>
+    // 3) mobile auto cVR toggle
+    const forceCvr = qOn('cvr');
+
+    if (isMobile && forceCvr && isSmall) return 'cvr';
+    return isMobile ? 'mobile' : 'pc';
+  }
+
+  function aiFromParams(run){
+    const a = String(qs('ai','0')||'0').toLowerCase();
+    if (run === 'research') return '0';
+    return (a==='1' || a==='true' || a==='on') ? '1' : '0';
+  }
+
+  // ---------- Params ----------
+  const P = {
+    view:'mobile', run:'play', diff:'normal', style:'mix', time:90,
+    seed:String(Date.now()), ai:'0', hub:null,
+    start:'tap'
+  };
+
+  function computeParams(){
+    P.start = startPolicy();
+
+    P.view  = detectViewAuto();
+    P.run   = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    P.diff  = String(qs('diff','normal')||'normal').toLowerCase();
+    P.style = String(qs('style','mix')||'mix').toLowerCase();
+    P.time  = clamp(qs('time', 90), 30, 180);
+    P.seed  = String(qs('seed', Date.now()) || Date.now());
+    P.hub   = qs('hub', null);
+    P.ai    = aiFromParams(P.run);
+  }
+
+  function setText(){
+    $('vView').textContent  = P.view;
+    $('vStart').textContent = (P.start==='auto') ? 'AUTO' : 'TAP';
+    $('vRun').textContent   = P.run.toUpperCase();
+    $('vDiff').textContent  = P.diff.toUpperCase();
+    $('vTime').textContent  = String(P.time);
+    $('vAI').textContent    = (P.ai==='1') ? 'ON' : 'OFF';
+    $('vSeed').textContent  = P.seed;
+
+    $('subText').textContent =
+      (P.start==='auto')
+        ? 'โหมด Auto: กำลังพาเข้าเกม…'
+        : 'โหมด Tap-to-start: แตะเริ่มเพื่อเข้าเกม';
+
+    $('tapSub').textContent =
+      (P.view==='cvr')
+        ? 'ตรวจพบ Cardboard (cVR) — แตะแล้วเข้าเกม'
+        : (P.view==='pc')
+          ? 'ตรวจพบ PC — แตะแล้วเข้าเกม'
+          : 'ตรวจพบ Mobile — แตะแล้วเข้าเกม';
+  }
+
+  function buildRunUrl(){
+    const base = './vr-groups/groups-vr.html';
+    const u = new URL(base, location.href);
+
+    u.searchParams.set('view', P.view);
+    u.searchParams.set('run', P.run);
+    u.searchParams.set('diff', P.diff);
+    u.searchParams.set('style', P.style);
+    u.searchParams.set('time', String(P.time));
+    u.searchParams.set('seed', P.seed);
+    u.searchParams.set('ai', P.ai);
+    if (P.hub) u.searchParams.set('hub', P.hub);
+
+    return u.toString();
+  }
+
+  function showTap(on){
+    $('tapOverlay').classList.toggle('show', !!on);
+  }
+
+  function go(){
+    location.href = buildRunUrl();
+  }
+
+  function goAuto(){
+    // replace: back button won't return to this page (nice for UX)
+    location.replace(buildRunUrl());
+  }
+
+  function boot(){
+    computeParams();
+    setText();
+
+    $('btnGo').addEventListener('click', ()=>{
+      if (P.start === 'auto') goAuto();
+      else showTap(true);
+    }, {passive:true});
+
+    $('btnTapStart').addEventListener('click', go, {passive:true});
+    $('btnCancel').addEventListener('click', ()=>showTap(false), {passive:true});
+
+    $('btnForceAuto').addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('auto','1');
+      u.searchParams.delete('tap');
+      location.href = u.toString();
+    }, {passive:true});
+
+    $('btnForceTap').addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('tap','1');
+      u.searchParams.delete('auto');
+      location.href = u.toString();
+    }, {passive:true});
+
+    // 1) Auto redirect immediately (no tap)
+    if (P.start === 'auto') {
+      // small delay for UI paint (very tiny)
+      setTimeout(goAuto, 30);
+    }
+  }
+
+  boot();
+})();
+</script>
 </body>
 </html>
