@@ -1,163 +1,139 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge UI — PRODUCTION (small + safe)
-// ✅ ensureWaterGauge(): สร้าง widget ถ้ายังไม่มี
-// ✅ setWaterGauge(pct): อัปเดตค่า 0..100 + สีตาม zone
-// ✅ zoneFrom(pct): GREEN / LOW / HIGH
-//
-// Notes:
-// - ออกแบบให้ "ไม่ชน" HUD ที่คุณทำเอง (คุณมี panel Water อยู่แล้ว)
-// - ตัวนี้เป็น gauge เล็กมุมล่างซ้าย (z-index ต่ำกว่า HUD)
-// - ถ้าคุณไม่อยากให้โชว์เลย: ใส่ ?water=0 หรือ window.HHA_WATER_UI=false
+// Water Gauge UI — PRODUCTION (ESM + window fallback)
+// ✅ ensureWaterGauge(), setWaterGauge(), zoneFrom()
+// ✅ Works with `import { ... } from '../vr/ui-water.js'`
+// ✅ Also attaches to window.* for non-module usage
 
-(function(){
-  'use strict';
+'use strict';
 
-  const WIN = window;
-  const DOC = document;
-  if (!WIN || !DOC) return;
+const WIN = (typeof window !== 'undefined') ? window : globalThis;
+const DOC = WIN.document;
 
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+const qs = (k, def = null) => {
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch (_) { return def; }
+};
+const clamp = (v, a, b) => { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); };
 
-  function zoneFrom(pct){
-    pct = clamp(pct,0,100);
-    // โซนตัวอย่าง: GREEN 40–70, ต่ำกว่า = LOW, สูงกว่า = HIGH
-    if (pct < 40) return 'LOW';
-    if (pct > 70) return 'HIGH';
-    return 'GREEN';
-  }
+export function zoneFrom(pct){
+  pct = clamp(pct, 0, 100);
+  if (pct < 40) return 'LOW';
+  if (pct > 70) return 'HIGH';
+  return 'GREEN';
+}
 
-  const STYLE_ID = 'hha-water-ui-style';
-  const ROOT_ID  = 'hha-water-ui';
+const STYLE_ID = 'hha-water-ui-style';
+const ROOT_ID  = 'hha-water-ui';
 
-  function injectStyle(){
-    if (DOC.getElementById(STYLE_ID)) return;
-    const st = DOC.createElement('style');
-    st.id = STYLE_ID;
-    st.textContent = `
-      .hha-water-ui{
-        position: fixed;
-        left: calc(10px + env(safe-area-inset-left, 0px));
-        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-        z-index: 35; /* ต่ำกว่า HUD (คุณใช้ 50) */
-        pointer-events: none;
-        display: grid;
-        gap: 6px;
-        width: 170px;
-        padding: 10px 10px;
-        border-radius: 16px;
-        border: 1px solid rgba(148,163,184,.14);
-        background: rgba(2,6,23,.55);
-        backdrop-filter: blur(10px);
-        box-shadow: 0 18px 60px rgba(0,0,0,.35);
-        font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-        color: rgba(229,231,235,.92);
-      }
-      .hha-water-ui[hidden]{ display:none !important; }
-      .hha-water-ui .row{
-        display:flex; align-items:baseline; justify-content:space-between;
-        gap: 10px;
-      }
-      .hha-water-ui .title{
-        font-weight: 900;
-        letter-spacing: .2px;
-        font-size: 12px;
-        opacity: .95;
-      }
-      .hha-water-ui .pct{
-        font-weight: 900;
-        font-size: 16px;
-      }
-      .hha-water-ui .zone{
-        font-size: 12px;
-        color: rgba(148,163,184,.95);
-      }
-      .hha-water-ui .bar{
-        height: 10px;
-        border-radius: 999px;
-        overflow: hidden;
-        background: rgba(148,163,184,.18);
-        border: 1px solid rgba(148,163,184,.10);
-      }
-      .hha-water-ui .fill{
-        height: 100%;
-        width: 50%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-        transform-origin: left center;
-      }
-      .hha-water-ui.low .fill{
-        background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95));
-      }
-      .hha-water-ui.high .fill{
-        background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
-      }
-    `;
-    DOC.head.appendChild(st);
-  }
+function injectStyle(){
+  if (!DOC || DOC.getElementById(STYLE_ID)) return;
+  const st = DOC.createElement('style');
+  st.id = STYLE_ID;
+  st.textContent = `
+    .hha-water-ui{
+      position: fixed;
+      left: calc(10px + env(safe-area-inset-left, 0px));
+      bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      z-index: 35;
+      pointer-events: none;
+      display: grid;
+      gap: 6px;
+      width: 170px;
+      padding: 10px 10px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color: rgba(229,231,235,.92);
+    }
+    .hha-water-ui[hidden]{ display:none !important; }
+    .hha-water-ui .row{
+      display:flex; align-items:baseline; justify-content:space-between;
+      gap: 10px;
+    }
+    .hha-water-ui .title{ font-weight: 900; letter-spacing:.2px; font-size:12px; opacity:.95; }
+    .hha-water-ui .pct{ font-weight: 900; font-size:16px; }
+    .hha-water-ui .zone{ font-size:12px; color: rgba(148,163,184,.95); }
+    .hha-water-ui .bar{
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(148,163,184,.18);
+      border: 1px solid rgba(148,163,184,.10);
+    }
+    .hha-water-ui .fill{
+      height: 100%;
+      width: 50%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+      transform-origin: left center;
+    }
+    .hha-water-ui.low .fill{
+      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95));
+    }
+    .hha-water-ui.high .fill{
+      background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
+    }
+  `;
+  DOC.head.appendChild(st);
+}
 
-  function ensureWaterGauge(){
-    // allow disable
-    const q = String(qs('water','1')).toLowerCase();
-    if (q === '0' || q === 'false' || WIN.HHA_WATER_UI === false) return null;
+export function ensureWaterGauge(){
+  if (!DOC) return null;
 
-    injectStyle();
+  const q = String(qs('water', '1')).toLowerCase();
+  if (q === '0' || q === 'false' || WIN.HHA_WATER_UI === false) return null;
 
-    let root = DOC.getElementById(ROOT_ID);
-    if (root) return root;
+  injectStyle();
 
-    root = DOC.createElement('div');
-    root.id = ROOT_ID;
-    root.className = 'hha-water-ui';
+  let root = DOC.getElementById(ROOT_ID);
+  if (root) return root;
 
-    root.innerHTML = `
-      <div class="row">
-        <div class="title">Water Gauge</div>
-        <div class="pct"><span id="hhaWaterPct">50</span>%</div>
-      </div>
-      <div class="row">
-        <div class="zone">Zone: <b id="hhaWaterZone">GREEN</b></div>
-      </div>
-      <div class="bar"><div class="fill" id="hhaWaterFill"></div></div>
-    `;
+  root = DOC.createElement('div');
+  root.id = ROOT_ID;
+  root.className = 'hha-water-ui';
+  root.innerHTML = `
+    <div class="row">
+      <div class="title">Water Gauge</div>
+      <div class="pct"><span id="hhaWaterPct">50</span>%</div>
+    </div>
+    <div class="row">
+      <div class="zone">Zone: <b id="hhaWaterZone">GREEN</b></div>
+    </div>
+    <div class="bar"><div class="fill" id="hhaWaterFill"></div></div>
+  `;
+  DOC.body.appendChild(root);
+  return root;
+}
 
-    DOC.body.appendChild(root);
-    return root;
-  }
+export function setWaterGauge(pct){
+  if (!DOC) return;
+  pct = clamp(pct, 0, 100);
 
-  function setWaterGauge(pct){
-    pct = clamp(pct,0,100);
+  const root = DOC.getElementById(ROOT_ID) || ensureWaterGauge();
+  if (!root) return;
 
-    const root = DOC.getElementById(ROOT_ID) || ensureWaterGauge();
-    if (!root) return;
+  const z = zoneFrom(pct);
 
-    const z = zoneFrom(pct);
+  const pctEl = DOC.getElementById('hhaWaterPct');
+  const zEl   = DOC.getElementById('hhaWaterZone');
+  const fill  = DOC.getElementById('hhaWaterFill');
 
-    const pctEl = DOC.getElementById('hhaWaterPct');
-    const zEl   = DOC.getElementById('hhaWaterZone');
-    const fill  = DOC.getElementById('hhaWaterFill');
+  if (pctEl) pctEl.textContent = String(pct | 0);
+  if (zEl) zEl.textContent = z;
+  if (fill) fill.style.width = pct.toFixed(0) + '%';
 
-    if (pctEl) pctEl.textContent = String(pct|0);
-    if (zEl) zEl.textContent = z;
+  root.classList.remove('low', 'high', 'green');
+  if (z === 'LOW') root.classList.add('low');
+  else if (z === 'HIGH') root.classList.add('high');
+  else root.classList.add('green');
+}
 
-    if (fill) fill.style.width = pct.toFixed(0) + '%';
-
-    root.classList.remove('low','high','green');
-    if (z === 'LOW') root.classList.add('low');
-    else if (z === 'HIGH') root.classList.add('high');
-    else root.classList.add('green');
-  }
-
-  // Export (ESM-friendly via named exports)
-  // If imported as module, bundlers will use exports below.
-  // If loaded by normal <script>, attach to window.
+// window fallback (optional)
+try{
   WIN.ensureWaterGauge = ensureWaterGauge;
   WIN.setWaterGauge = setWaterGauge;
   WIN.zoneFrom = zoneFrom;
-
-  // ESM exports shim (ignored in non-module contexts)
-  try{
-    // eslint-disable-next-line no-undef
-    export { ensureWaterGauge, setWaterGauge, zoneFrom };
-  }catch(_){}
-})();
+}catch(_){}
