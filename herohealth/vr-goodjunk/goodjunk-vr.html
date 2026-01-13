@@ -1,12 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (Folder-run)
-Root launcher: /herohealth/goodjunk-vr.html
-✅ Loads: ./goodjunk-vr.css
-✅ Loads: ../vr/particles.js (optional FX)
-✅ Loads: ../vr/hha-cloud-logger.js
-✅ Loads: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
-✅ Boots: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ Measures HUD => sets --gj-top-safe / --gj-bottom-safe (spawn safe)
+✅ CSS: ./goodjunk-vr.css
+✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
+✅ A-Frame minimal scene for Enter VR reliability
 -->
 <!doctype html>
 <html lang="th">
@@ -20,12 +17,9 @@ Root launcher: /herohealth/goodjunk-vr.html
   <link rel="stylesheet" href="./goodjunk-vr.css" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global modules -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- Boot -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 </head>
 
@@ -124,7 +118,7 @@ Root launcher: /herohealth/goodjunk-vr.html
       <div class="peek-title">Missions</div>
       <div class="peek-sub"><b>GOAL:</b> <span id="peekGoal">—</span></div>
       <div class="peek-mini"><b>MINI:</b> <span id="peekMini">—</span></div>
-      <div class="peek-tip">แตะหน้าจอ/กดปุ่ม Missions อีกครั้งเพื่อปิด</div>
+      <div class="peek-tip">แตะหน้าจอ/กด Missions อีกครั้งเพื่อปิด</div>
     </div>
   </section>
 
@@ -149,7 +143,6 @@ Root launcher: /herohealth/goodjunk-vr.html
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
 
-      // meta text
       const v = qs('view','auto');
       const run  = qs('run','play');
       const diff = qs('diff','normal');
@@ -175,11 +168,10 @@ Root launcher: /herohealth/goodjunk-vr.html
           peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
         }
       }
-
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ measure HUD => set safe spawn vars (used by goodjunk.safe.js getSafeRect)
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
       function updateSafe(){
         try{
@@ -189,14 +181,10 @@ Root launcher: /herohealth/goodjunk-vr.html
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          // top safe: topbar + hudTop + padding + safe-area
           document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 16 + sat));
-
-          // bottom safe: hudBot + padding (ขั้นต่ำกันแนว nav bar)
           document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(110, hudBot + 18)));
         }catch(_){}
       }
-
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
       setTimeout(updateSafe, 0);
