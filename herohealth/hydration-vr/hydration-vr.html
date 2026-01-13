@@ -3,184 +3,206 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HydrationVR</title>
+  <title>HeroHealth — Hydration Quest VR</title>
   <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS ของเกม -->
   <link rel="stylesheet" href="./hydration-vr.css" />
 
-  <!-- ✅ Global (เหมือนเกมอื่น) -->
+  <!-- Global utilities -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- ✅ Loader: จัด view + layers + import hydration.safe.js -->
-  <script type="module" src="./hydration-vr.loader.js"></script>
+  <!-- Water gauge helper (optional, you already use setWaterGauge) -->
+  <script defer src="../vr/ui-water.js"></script>
+
+  <!-- AI coach -->
+  <script defer src="../vr/ai-coach.js"></script>
+
+  <!-- SAFE engine -->
+  <script type="module" defer src="./hydration.safe.js"></script>
+
+  <script>
+    (function(){
+      'use strict';
+      const DOC=document;
+
+      const qs=(k,def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+
+      function autoDetectView(){
+        // if explicit view => use it
+        const v = String(qs('view','')||'').toLowerCase();
+        if (v) return v;
+
+        // Cardboard heuristics
+        const w = Math.min(window.innerWidth, window.innerHeight);
+        const h = Math.max(window.innerWidth, window.innerHeight);
+
+        // If very small width and tall: likely mobile portrait -> mobile
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+        if (!isMobile) return 'pc';
+
+        // Default for mobile: mobile (user can choose ?view=cvr or ?view=cardboard)
+        return 'mobile';
+      }
+
+      function setBodyView(view){
+        const b = DOC.body;
+        b.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
+        if (view === 'pc') b.classList.add('view-pc');
+        else if (view === 'cvr') b.classList.add('view-cvr');
+        else if (view === 'cardboard') b.classList.add('cardboard');
+        else b.classList.add('view-mobile');
+
+        // Cardboard uses split layers
+        const isCB = b.classList.contains('cardboard');
+        DOC.documentElement.classList.toggle('is-cardboard', isCB);
+      }
+
+      // expose layers to hydration.safe.js (it reads window.HHA_VIEW.layers)
+      function setupLayers(){
+        const b = DOC.body;
+        const isCB = b.classList.contains('cardboard');
+
+        // main
+        const main = DOC.getElementById('hydration-layer');
+        const L = DOC.getElementById('hydration-layerL');
+        const R = DOC.getElementById('hydration-layerR');
+
+        if (isCB){
+          // show L/R, hide main
+          if (main) main.style.display='none';
+          if (L) L.style.display='block';
+          if (R) R.style.display='block';
+          window.HHA_VIEW = { layers: ['hydration-layerL','hydration-layerR'] };
+        }else{
+          if (main) main.style.display='block';
+          if (L) L.style.display='none';
+          if (R) R.style.display='none';
+          window.HHA_VIEW = { layers: ['hydration-layer'] };
+        }
+      }
+
+      function boot(){
+        const view = autoDetectView();
+        setBodyView(view);
+        setupLayers();
+
+        // Optional: set gameMode for logger context
+        window.HHA_LOGGER_GAME = 'hydration';
+      }
+
+      if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot, {once:true});
+      else boot();
+    })();
+  </script>
 </head>
 
 <body class="view-mobile">
 
-  <!-- =========================================================
-       IMPORT ERROR PANEL (เหมือนภาพ)
-       ========================================================= -->
-  <section id="importError" hidden
-    style="position:fixed; inset:0; z-index:9999; padding:18px 16px; color:#e5e7eb;
-           background: radial-gradient(1200px 700px at 30% 20%, rgba(239,68,68,.20), transparent 60%),
-                       radial-gradient(900px 650px at 70% 80%, rgba(34,211,238,.16), transparent 55%),
-                       #020617;">
-    <div style="max-width:980px; margin:0 auto; padding:14px 12px;">
-      <div style="display:flex; gap:10px; align-items:center; font:900 20px/1.2 system-ui;">
-        <span style="color:#ef4444">✖</span>
-        <span>HydrationVR: import failed (loader)</span>
+  <!-- Start Overlay -->
+  <div id="startOverlay" class="overlay">
+    <div class="overlay-card">
+      <div class="title">Hydration Quest</div>
+      <div class="subtitle">
+        ยิง 💧 เพื่อคุม “น้ำในร่างกาย” ให้อยู่โซน <b>GREEN</b><br/>
+        ช่วงพายุให้ทำ Mini: <b>LOW/HIGH + BLOCK 🛡️ ช่วงท้าย</b>
       </div>
 
-      <div style="margin-top:10px; opacity:.9; font:600 13px/1.45 system-ui;">
-        <div><b>URL:</b> <span data-k="url"></span></div>
-        <div style="margin-top:6px;"><b>baseURL:</b> <span data-k="base"></span></div>
+      <div class="hintline">
+        <span class="pill">🎯 เป้าหมาย: คุม GREEN + ผ่าน Storm Mini + เคลียร์ BOSS</span>
       </div>
 
-      <div style="margin-top:14px; font:800 14px/1.4 system-ui;">Tried paths:</div>
-      <pre data-k="tried"
-           style="margin:8px 0 0; padding:12px; border-radius:14px; white-space:pre-wrap;
-                  background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.18);
-                  font:600 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;"></pre>
-
-      <div style="margin-top:14px; font:800 14px/1.4 system-ui;">Error:</div>
-      <pre data-k="err"
-           style="margin:8px 0 0; padding:12px; border-radius:14px; white-space:pre-wrap;
-                  background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.18);
-                  font:600 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;"></pre>
-
-      <div style="margin-top:12px; opacity:.85; font:600 13px/1.55 system-ui;">
-        Tip: เช็ค path ไฟล์ + case-sensitive (GitHub Pages) และดู Network tab ว่า 404 หรือ CORS
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       START OVERLAY
-       ========================================================= -->
-  <div id="startOverlay" class="startOverlay">
-    <div class="startCard">
-      <div class="title">Hydration Quest VR</div>
-      <div class="sub">คุมโซนน้ำให้ “GREEN” แล้วผ่าน Storm Mini + Boss</div>
-
-      <div class="chips">
-        <span class="chip">PC / Mobile / Cardboard</span>
-        <span class="chip">Aim Assist (cVR)</span>
-        <span class="chip">3-Stage Mission</span>
+      <div class="actions">
+        <button id="btnStart" class="btn primary">เริ่มเล่น</button>
+        <a class="btn ghost" id="btnBackHub" href="../hub.html">กลับ HUB</a>
       </div>
 
-      <button id="btnStart" class="btnPrimary">▶ เริ่มเล่น</button>
-
-      <div class="hint">
-        ถ้าเข้าโหมด Cardboard: ใส่ <b>?view=cvr</b> หรือ <b>?cardboard=1</b>
+      <div class="fineprint">
+        โหมดวิจัย: ใส่ <code>&run=research&seed=...</code> • Kids: <code>&kids=1</code> • เวลา: <code>&time=70</code>
       </div>
     </div>
   </div>
 
-  <!-- =========================================================
-       HUD / PANELS
-       (IDs ต้องตรงกับ hydration.safe.js)
-       ========================================================= -->
+  <!-- HUD -->
   <div class="hud">
-    <div class="hudLeft">
-      <div class="stat"><span>Score</span><b id="stat-score">0</b></div>
-      <div class="stat"><span>Combo</span><b id="stat-combo">0</b></div>
-      <div class="stat"><span>Miss</span><b id="stat-miss">0</b></div>
+    <div class="hud-row top">
+      <div class="stat">Score <b id="stat-score">0</b></div>
+      <div class="stat">Combo <b id="stat-combo">0</b></div>
+      <div class="stat">Miss <b id="stat-miss">0</b></div>
+      <div class="stat">Time <b id="stat-time">0</b></div>
+      <div class="stat grade">Grade <b id="stat-grade">C</b></div>
     </div>
 
-    <div class="hudCenter">
-      <div class="stat big"><span>Time</span><b id="stat-time">0</b></div>
-      <div class="stat big"><span>Grade</span><b id="stat-grade">C</b></div>
-    </div>
+    <div class="hud-row mid">
+      <div class="panel quest">
+        <div class="qline" id="quest-line1">Stage 1/3: ...</div>
+        <div class="qline" id="quest-line2"></div>
+        <div class="qline" id="quest-line3"></div>
+        <div class="qline" id="quest-line4"></div>
+      </div>
 
-    <div class="hudRight">
-      <div class="stat"><span>Storm</span><b id="storm-left">0</b></div>
-      <div class="stat"><span>Shield</span><b id="shield-count">0</b></div>
+      <div class="panel water">
+        <div class="water-title">Water</div>
+        <div class="waterbar">
+          <div class="fill" id="water-bar" style="width:50%"></div>
+        </div>
+        <div class="watermeta">
+          <span><b id="water-pct">50</b>%</span>
+          <span>Zone: <b id="water-zone">GREEN</b></span>
+        </div>
+      </div>
+
+      <div class="panel mini">
+        <div class="mini-title">Storm</div>
+        <div class="mini-meta">Left: <b id="storm-left">0</b>s</div>
+        <div class="mini-meta">Shield: <b id="shield-count">0</b></div>
+      </div>
     </div>
   </div>
 
-  <!-- Quest lines -->
-  <section class="questPanel">
-    <div class="qLine" id="quest-line1">Stage 1/3: ...</div>
-    <div class="qLine" id="quest-line2"></div>
-    <div class="qLine" id="quest-line3"></div>
-    <div class="qLine" id="quest-line4"></div>
-  </section>
-
-  <!-- Water panel (hydration.safe.js syncWaterPanelDOM uses these IDs) -->
-  <section class="waterPanel">
-    <div class="wTop">
-      <div class="wTitle">Water</div>
-      <div class="wPct"><span id="water-pct">50</span>%</div>
-    </div>
-    <div class="wBar"><div id="water-bar" class="wFill"></div></div>
-    <div class="wZone">Zone: <b id="water-zone">GREEN</b></div>
-  </section>
-
-  <!-- =========================================================
-       PLAYFIELD + LAYERS (สำคัญมาก)
-       - non-cardboard ใช้ playfield + hydration-layer
-       - cardboard ใช้ cbPlayfield + hydration-layerL/R
-       ========================================================= -->
-  <main id="playfield" class="playfield">
+  <!-- Playfields -->
+  <div id="playfield" class="playfield">
     <div id="hydration-layer" class="layer"></div>
-  </main>
+  </div>
 
-  <!-- Cardboard playfield (ซ่อนไว้ก่อน loader จะเปิดเอง) -->
-  <main id="cbPlayfield" class="cbPlayfield" style="display:none;">
-    <div class="cbEye">
-      <div id="hydration-layerL" class="layer"></div>
-    </div>
-    <div class="cbEye">
-      <div id="hydration-layerR" class="layer"></div>
-    </div>
-  </main>
+  <!-- Cardboard split playfield -->
+  <div id="cbPlayfield" class="cbPlayfield">
+    <div class="cbCol"><div id="hydration-layerL" class="layer"></div></div>
+    <div class="cbCol"><div id="hydration-layerR" class="layer"></div></div>
+  </div>
 
-  <!-- =========================================================
-       RESULT SUMMARY (IDs ต้องตรง hydration.safe.js: fillSummary/bindSummaryButtons)
-       ========================================================= -->
+  <!-- Result Summary -->
   <div id="resultBackdrop" class="resultBackdrop" hidden>
     <div class="resultCard">
-      <div class="resultHead">
-        <div class="resultTitle">สรุปผล</div>
-        <button id="btnCloseSummary" class="btnGhost">✕ Close</button>
-      </div>
+      <div class="resultTitle">ผลการเล่น</div>
 
       <div class="resultGrid">
-        <div class="box">
-          <div class="row"><span>Score</span><b id="rScore">0</b></div>
-          <div class="row"><span>Grade</span><b id="rGrade">C</b></div>
-          <div class="row"><span>Accuracy</span><b id="rAcc">0%</b></div>
-          <div class="row"><span>Combo Max</span><b id="rComboMax">0</b></div>
-          <div class="row"><span>Miss</span><b id="rMiss">0</b></div>
-          <div class="row"><span>Goals</span><b id="rGoals">0/1</b></div>
-          <div class="row"><span>Minis</span><b id="rMinis">0/0</b></div>
-        </div>
-
-        <div class="box">
-          <div class="row"><span>GREEN Hold</span><b id="rGreen">0s</b></div>
-          <div class="row"><span>Streak Max</span><b id="rStreak">0</b></div>
-          <div class="row"><span>Storm Cycles</span><b id="rStormCycles">0</b></div>
-          <div class="row"><span>Storm Success</span><b id="rStormOk">0</b></div>
-          <div class="row"><span>Storm Rate</span><b id="rStormRate">0%</b></div>
-          <div class="row"><span>Tier</span><b id="rTier">Tier: -</b></div>
-        </div>
+        <div class="rItem">Score <b id="rScore">0</b></div>
+        <div class="rItem">Grade <b id="rGrade">C</b></div>
+        <div class="rItem">Accuracy <b id="rAcc">0%</b></div>
+        <div class="rItem">ComboMax <b id="rComboMax">0</b></div>
+        <div class="rItem">Miss <b id="rMiss">0</b></div>
+        <div class="rItem">Goals <b id="rGoals">0/0</b></div>
+        <div class="rItem">Minis <b id="rMinis">0/0</b></div>
+        <div class="rItem">GREEN <b id="rGreen">0s</b></div>
+        <div class="rItem">Streak <b id="rStreak">0</b></div>
+        <div class="rItem">Storm <b id="rStormCycles">0</b></div>
+        <div class="rItem">Pass <b id="rStormOk">0</b></div>
+        <div class="rItem">Rate <b id="rStormRate">0%</b></div>
       </div>
 
-      <pre id="rTips" class="tips"></pre>
-      <div class="nextLine"><span>Next:</span> <b id="rNext"></b></div>
+      <div class="resultTier" id="rTier">Tier: Beginner</div>
+      <pre class="resultTips" id="rTips"></pre>
+      <div class="resultNext">Next: <b id="rNext"></b></div>
 
-      <div class="resultBtns">
-        <button id="btnRetry" class="btnPrimary">↻ Retry</button>
-
-        <button id="btnCopyJSON" class="btnGhost">📋 Copy JSON</button>
-        <button id="btnDownloadCSV" class="btnGhost">⬇ Download CSV</button>
-
-        <!-- ✅ ตามมาตรฐาน: กลับ HUB -->
-        <button class="btnGhost btnBackHub">↩ กลับ HUB</button>
+      <div class="resultActions">
+        <button id="btnRetry" class="btn primary">เล่นอีกครั้ง</button>
+        <button id="btnCopyJSON" class="btn ghost">Copy JSON</button>
+        <button id="btnDownloadCSV" class="btn ghost">Download CSV</button>
+        <button class="btn ghost btnBackHub">กลับ HUB</button>
+        <button id="btnCloseSummary" class="btn danger">ปิด</button>
       </div>
     </div>
   </div>
