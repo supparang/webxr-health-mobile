@@ -1,85 +1,56 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
 'use strict';
 
-(function(){
+(async function(){
   const q = new URLSearchParams(location.search);
-  const v = q.get('v') || q.get('ts') || '';
+  const bust = q.get('v') || q.get('ts') || String(Date.now());
 
-  function withBust(p){
-    if (!v) return p;
-    return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v);
+  const candidates = [
+    `./hydration.safe.js?v=${encodeURIComponent(bust)}`
+  ];
+
+  async function fetchOk(url){
+    try{
+      const r = await fetch(url, { cache:'no-store' });
+      return { ok:r.ok, status:r.status };
+    }catch(e){
+      return { ok:false, status:0, err:e };
+    }
   }
 
-  const view = String(q.get('view') || '').toLowerCase();
-  const body = document.body;
-
-  body.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
-  if (view === 'mobile') body.classList.add('view-mobile');
-  else if (view === 'cardboard') body.classList.add('cardboard');
-  else if (view === 'cvr') body.classList.add('view-cvr');
-  else body.classList.add('view-pc');
-
-  // map layers for safe.js
-  (function setLayers(){
-    const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
-    cfg.layers = body.classList.contains('cardboard')
-      ? ['hydration-layerL','hydration-layerR']
-      : ['hydration-layer'];
-  })();
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, (m)=>({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[m]));
-  }
-
-  function showFail(err, tried){
+  function showFail(lines, err){
     const el = document.createElement('div');
     el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
     el.innerHTML = `
-      <div style="max-width:920px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (loader)</h2>
-        <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
-        <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
-        <div style="margin:12px 0 8px 0;font-weight:700">Tried paths (prechecked):</div>
-        <ol style="line-height:1.6">${tried.map(s=>`<li><code>${escapeHtml(s)}</code></li>`).join('')}</ol>
+      <div style="max-width:900px;margin:0 auto">
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed</h2>
+        <div style="opacity:.9;margin-bottom:10px">URL: <code>${location.href}</code></div>
+        <div style="margin:12px 0 8px 0;font-weight:700">Checks:</div>
+        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${lines.join('\n')}</pre>
         <div style="margin:12px 0 6px 0;font-weight:700">Error:</div>
-        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(String(err && (err.stack || err.message || err)))}</pre>
+        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${String(err && (err.stack||err.message||err))}</pre>
+        <div style="opacity:.8;margin-top:10px">Tip: ถ้า hydration.safe.js OK แต่พัง ให้เปิดดู Network จะเห็น 404 ที่ ../vr/ui-water.js หรือ ../vr/ai-coach.js</div>
       </div>
     `;
     document.body.appendChild(el);
   }
 
-  // ✅ ใส่ candidates ตาม “ตำแหน่งที่อาจอยู่จริง”
-  const candidates = [
-    './hydration.safe.js',
-    './js/hydration.safe.js',
-    '../hydration.safe.js',
-    '../hydration-vr/hydration.safe.js',
-  ].map(withBust);
+  const logs = [];
+  for (const url of candidates){
+    const chk = await fetchOk(url);
+    logs.push(`${url}  -> ${chk.ok ? 'OK' : 'FAIL'} ${chk.status ? '(HTTP '+chk.status+')' : ''}`);
+    if (!chk.ok) continue;
 
-  async function exists(url){
     try{
-      const r = await fetch(url, { method:'GET', cache:'no-store' });
-      return r.ok;
-    }catch(_){ return false; }
+      await import(url);
+      logs.push('import() -> OK');
+      return;
+    }catch(err){
+      logs.push('import() -> ERROR (มักเกิดจาก dependency 404 หรือ export ชื่อไม่ตรง)');
+      showFail(logs, err);
+      return;
+    }
   }
 
-  (async()=>{
-    const tried=[];
-    for (const p of candidates){
-      const ok = await exists(p);
-      tried.push(`${p}  → ${ok ? 'OK' : '404/FAIL'}`);
-      if (!ok) continue;
-      try{
-        await import(p);
-        return;
-      }catch(err){
-        tried.push(`import(${p}) → ERROR`);
-        showFail(err, tried);
-        return;
-      }
-    }
-    showFail(new Error('All candidate imports failed (404 or network).'), tried);
-  })();
+  showFail(logs, new Error('hydration.safe.js not found on Pages (404)'));
 })();
