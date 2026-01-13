@@ -1,6 +1,6 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HHA Standard)
-// ✅ Auto view detect (no UI override menu)
+// PlateVR Boot — PRODUCTION
+// ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
@@ -80,8 +80,6 @@ function wireHUD(){
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
 
-  const hudHint  = DOC.getElementById('hudHint');
-
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
   const goalNums = DOC.getElementById('goalNums');
@@ -101,19 +99,12 @@ function wireHUD(){
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    const sec = Math.max(0, Math.ceil(Number(t)||0));
-    if(hudTime) hudTime.textContent = String(sec);
-
-    // optional: show a short hint when time is low
-    if(hudHint && sec > 0 && sec <= 12){
-      hudHint.textContent = `⏳ เหลือเวลา ${sec}s — เร่งเก็บให้ครบ!`;
-    }
+    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
   });
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
-
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -123,7 +114,6 @@ function wireHUD(){
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
@@ -132,14 +122,6 @@ function wireHUD(){
       const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
-
-      // keep hint aligned with mini target (optional)
-      if(hudHint && m.sub) hudHint.textContent = String(m.sub);
-    }
-
-    // If allDone, nudge the player (doesn't auto-end; engine decides)
-    if(d.allDone && hudHint){
-      hudHint.textContent = '✅ ภารกิจครบ! เก็บเพิ่มทำคะแนนได้เลย';
     }
   });
 
@@ -199,7 +181,7 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default time: 90 (ดีสำหรับ Plate: ให้มีเวลาทำ goal+คุมความแม่น + เด็ก ป.5 ไม่อึดเกิน)
+  // ✅ Default 90 sec (เด็ก ป.5 เล่นจบรอบได้ทัน + เห็น progression ชัด)
   const time = clamp(qs('time','90'), 10, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
