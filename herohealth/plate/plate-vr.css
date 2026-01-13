@@ -1,10 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION)
+   Balanced Plate VR — UI + FX (PRODUCTION | FIX HUD/VRUI)
    HHA Standard
-   ✅ HUD safe + not blocking targets
-   ✅ Mobile/cVR safe-area
-   ✅ Keep vr-ui buttons clickable
 ========================================================= */
 
 :root{
@@ -31,16 +28,22 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* layout sizing */
-  --hudTopH: 132px;     /* top row + breathing */
-  --hudBottomH: 14px;   /* reserved bottom, small */
-  --hudSideW: 12px;
+  /* HUD size hints */
+  --hudTopPad: 12px;
+  --hudSidePad: 12px;
+  --hudGap: 10px;
 
-  /* playfield rect (inset from screen) */
-  --pf-top: calc(var(--sat) + var(--hudTopH));
-  --pf-right: calc(var(--sar) + var(--hudSideW));
-  --pf-bottom: calc(var(--sab) + var(--hudBottomH));
-  --pf-left: calc(var(--sal) + var(--hudSideW));
+  /* reserved space for top HUD row + quest card (used as safe-zone) */
+  --hudSafeTop: 180px;   /* will be overridden per view */
+  --hudSafeLeft: 0px;
+  --hudSafeRight: 0px;
+  --hudSafeBottom: 0px;
+
+  /* plate playfield padding to avoid UI overlap */
+  --pfTop: 0px;
+  --pfRight: 0px;
+  --pfBottom: 0px;
+  --pfLeft: 0px;
 }
 
 /* ---------------------------------------------------------
@@ -58,14 +61,6 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-body{
-  /* ensure overlay stacking works */
-  position:relative;
-}
-
-/* ---------------------------------------------------------
-   App wrapper
---------------------------------------------------------- */
 #app{
   position:fixed;
   inset:0;
@@ -73,35 +68,41 @@ body{
 }
 
 /* ---------------------------------------------------------
-   Playfield (spawn area)
-   IMPORTANT: limit clickable area to play rect so HUD doesn't block.
+   Layers order (important)
+   - A-Frame scene: z=0 (hidden)
+   - Targets layer: z=10
+   - HUD: z=40
+   - FX layers: z=55+
+   - VR UI (injected by vr-ui.js): usually z=80+ (we ensure it stays clickable)
+   - End overlay: z=120
+--------------------------------------------------------- */
+
+/* ---------------------------------------------------------
+   Spawn Layer (Targets)
+   - We add padding variables to keep targets away from HUD/vr-ui.
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
-  top:var(--pf-top);
-  right:var(--pf-right);
-  bottom:var(--pf-bottom);
-  left:var(--pf-left);
-
+  inset:0;
   z-index:10;
-  pointer-events:auto;
   touch-action:none;
 
-  /* helps some mobile browsers with event coords */
-  transform: translateZ(0);
+  /* Playfield padding: safe-area + HUD safe zones + vr-ui top buttons */
+  padding-top:  calc(var(--pfTop)    + var(--sat));
+  padding-right:calc(var(--pfRight)  + var(--sar));
+  padding-bottom:calc(var(--pfBottom)+ var(--sab));
+  padding-left: calc(var(--pfLeft)   + var(--sal));
+
+  pointer-events:auto;
 }
 
-/* Optional: show debug border by adding body.debug */
-body.debug #plate-layer{
-  outline:2px dashed rgba(34,211,238,.35);
-  outline-offset:4px;
+/* cVR strict: targets shouldn't capture taps (shoot from crosshair) */
+body.view-cvr #plate-layer{
+  pointer-events:none;
 }
 
-/* ---------------------------------------------------------
-   Targets
---------------------------------------------------------- */
+/* Targets ------------------------------------------------ */
 .plateTarget{
-  position:absolute; /* mode-factory typically sets left/top */
   display:grid;
   place-items:center;
   border-radius:999px;
@@ -109,9 +110,6 @@ body.debug #plate-layer{
   font-weight:900;
   user-select:none;
   cursor:pointer;
-
-  width:64px;
-  height:64px;
 
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
@@ -122,8 +120,9 @@ body.debug #plate-layer{
     0 18px 48px rgba(0,0,0,.32),
     inset 0 1px 0 rgba(255,255,255,.08);
 
-  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
+  transform:translate(-50%,-50%);
   will-change: transform, opacity;
+  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
 }
 
 .plateTarget[data-kind="good"]{
@@ -142,91 +141,91 @@ body.debug #plate-layer{
 }
 
 @keyframes pop{
-  0%{ transform:scale(.85); opacity:0 }
-  100%{ transform:scale(1); opacity:1 }
+  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
+  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
 
 @keyframes wobble{
-  0%{ transform:rotate(0deg) }
-  25%{ transform:rotate(1.2deg) }
-  50%{ transform:rotate(-1.2deg) }
-  75%{ transform:rotate(.8deg) }
-  100%{ transform:rotate(0deg) }
+  0%{ transform:translate(-50%,-50%) rotate(0deg) }
+  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
+  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
+  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
+  100%{ transform:translate(-50%,-50%) rotate(0deg) }
 }
 
-/* tap feedback */
-.plateTarget:active{
-  transform: scale(.96);
+/* quick feedback classes (if engine adds) */
+.plateTarget.hit{
+  animation: hitPop .18s ease-out forwards;
+}
+@keyframes hitPop{
+  0%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
+  100%{ transform:translate(-50%,-50%) scale(1.18); opacity:0 }
 }
 
 /* ---------------------------------------------------------
-   HUD (overlay) — pointer-events: none so it never blocks targets
-   BUT: interactive elements (buttons) re-enable pointer-events.
+   HUD
 --------------------------------------------------------- */
 #hud{
   position:fixed;
   inset:0;
-  z-index:60; /* above playfield, below vr-ui buttons if those use higher z */
-  pointer-events:none;
+  z-index:40;
+  pointer-events:none; /* IMPORTANT: HUD must not block targets/vr-ui */
 }
 
 /* Top row chips */
-#hud .hudRow{
+.hudRow{
   position:fixed;
-  top:calc(var(--sat) + 10px);
-  left:calc(var(--sal) + 12px);
-  right:calc(var(--sar) + 12px);
-
+  top: calc(var(--hudTopPad) + var(--sat));
+  left: calc(var(--hudSidePad) + var(--sal));
+  right: calc(var(--hudSidePad) + var(--sar));
   display:flex;
-  gap:10px;
+  gap:var(--hudGap);
   justify-content:flex-start;
-  align-items:center;
-  flex-wrap:wrap;
+  align-items:stretch;
+  pointer-events:none;
 }
 
 /* Chip */
 .chip{
   pointer-events:none;
   display:flex;
-  gap:8px;
-  align-items:baseline;
+  flex-direction:column;
+  justify-content:center;
+  gap:2px;
+
+  min-width: 92px;
   padding:10px 12px;
-  border-radius:999px;
-
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-  backdrop-filter: blur(10px);
-  box-shadow:0 16px 48px rgba(0,0,0,.25);
-
-  font-weight:900;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border:1px solid var(--stroke);
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+  backdrop-filter:blur(10px);
 }
+
 .chip .lbl{
+  font-weight:900;
   font-size:11px;
-  color:var(--muted);
   letter-spacing:.08em;
+  color:var(--muted);
 }
+
 .chip .val{
+  font-weight:950;
   font-size:18px;
-  line-height:1;
 }
+
+.chip.score .val{ color: var(--accent); }
+.chip.time  .val{ color: var(--cyan); }
+.chip.combo .val{ color: var(--violet); }
 
 /* Quest card */
 #questCard{
   position:fixed;
-  top:calc(var(--sat) + 58px);
-  left:calc(var(--sal) + 12px);
-  width:min(520px, calc(100vw - var(--sal) - var(--sar) - 24px));
-  padding:12px 12px;
-
-  pointer-events:none;
-}
-
-.card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
+  top: calc(var(--hudTopPad) + var(--sat) + 58px);
+  left: calc(var(--hudSidePad) + var(--sal));
+  width: min(420px, calc(100vw - (var(--hudSidePad) * 2) - var(--sal) - var(--sar)));
+  padding:12px;
+  pointer-events:none; /* don't block! */
 }
 
 .cardTitle{
@@ -236,57 +235,68 @@ body.debug #plate-layer{
   gap:10px;
   margin-bottom:10px;
 }
+
 .cardTitle .t{
-  font-weight:1000;
+  font-weight:950;
   font-size:14px;
 }
+
 .cardTitle .hint{
-  font-size:12px;
+  font-weight:800;
+  font-size:11px;
   color:var(--muted);
   text-align:right;
-  max-width:60%;
+  max-width: 58%;
 }
 
+/* quest item rows */
 .qItem{
   display:flex;
-  align-items:center;
-  justify-content:space-between;
   gap:10px;
-  padding:10px 10px;
+  align-items:center;
+  padding:10px;
   border-radius:14px;
   border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.55);
-  margin-top:8px;
+  background: rgba(15,23,42,.45);
 }
 
+.qItem + .qItem{ margin-top:8px; }
+
+.qText{ flex:1; min-width:0; }
 .qText .name{
-  font-weight:1000;
-  font-size:13px;
+  font-weight:950;
+  font-size:12px;
 }
 .qText .sub{
-  font-size:12px;
+  font-weight:800;
+  font-size:11px;
   color:var(--muted);
   margin-top:2px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .qProg{
-  min-width:170px;
-  text-align:right;
+  width: 120px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:flex-end;
 }
 .qNums{
-  font-weight:1000;
-  font-size:12px;
-  color:var(--text);
-  margin-bottom:6px;
+  font-weight:950;
+  font-size:11px;
+  color:var(--muted);
 }
-
 .bar{
+  width:100%;
   height:10px;
   border-radius:999px;
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
-.bar > i{
+.bar>i{
   display:block;
   height:100%;
   width:0%;
@@ -300,149 +310,49 @@ body.debug #plate-layer{
 #coachCard{
   position:fixed;
   left:50%;
-  bottom:calc(var(--sab) + 16px);
-  transform:translateX(-50%) translateY(18px);
-  z-index:80;
-  opacity:0;
+  bottom: calc(18px + var(--sab));
+  transform:translateX(-50%);
+  z-index:70;
+
+  width: min(520px, calc(100vw - 24px));
+  padding:0;
   pointer-events:none;
+
+  opacity:0;
+  filter: blur(2px);
+  transition: opacity .18s ease, filter .18s ease, transform .18s ease;
 }
 
 #coachCard .inner{
-  background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:20px;
-  padding:12px 14px;
-  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius: 20px;
+  box-shadow:0 18px 70px rgba(0,0,0,.34);
   backdrop-filter: blur(10px);
-  min-width:min(620px, calc(100vw - 24px));
+  padding:12px 14px;
 }
 
 #coachMsg{
-  font-weight:900;
+  font-weight:950;
   font-size:14px;
   line-height:1.25;
 }
+
 #coachMeta{
   margin-top:6px;
-  font-size:12px;
+  font-weight:900;
+  font-size:11px;
   color:var(--muted);
-  font-weight:800;
 }
 
 #coachCard.show{
   opacity:1;
-  transform:translateX(-50%) translateY(0);
-  transition:opacity .14s ease, transform .14s ease;
+  filter:none;
+  transform:translateX(-50%) translateY(-2px);
 }
 
 /* ---------------------------------------------------------
-   End Overlay
---------------------------------------------------------- */
-#endOverlay{
-  position:fixed;
-  inset:0;
-  z-index:120;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding:calc(var(--sat) + 14px) calc(var(--sar) + 14px)
-           calc(var(--sab) + 14px) calc(var(--sal) + 14px);
-  background:rgba(2,6,23,.78);
-  backdrop-filter: blur(10px);
-}
-
-#endOverlay[aria-hidden="false"]{
-  display:flex;
-}
-
-.endPanel{
-  width:min(720px, 100%);
-  background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:22px;
-  box-shadow:0 26px 80px rgba(0,0,0,.45);
-  padding:16px 16px;
-}
-
-.endTitle{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-}
-.endTitle h2{
-  margin:0;
-  font-size:20px;
-  font-weight:1000;
-}
-.endTitle .tag{
-  padding:6px 10px;
-  border-radius:999px;
-  background:rgba(15,23,42,.70);
-  border:1px solid rgba(148,163,184,.18);
-  color:var(--muted);
-  font-weight:900;
-  font-size:12px;
-}
-
-.endGrid{
-  margin-top:14px;
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:10px;
-}
-
-.kpi{
-  background:rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:16px;
-  padding:10px 12px;
-}
-.kpi .k{
-  color:var(--muted);
-  font-size:12px;
-  font-weight:900;
-  letter-spacing:.04em;
-}
-.kpi .v{
-  margin-top:6px;
-  font-size:18px;
-  font-weight:1000;
-}
-
-.endBtns{
-  margin-top:14px;
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-
-/* Buttons (end overlay uses pointer-events) */
-.btn{
-  pointer-events:auto;
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:10px 14px;
-  font-weight:1000;
-  font-size:13px;
-  cursor:pointer;
-  color:var(--text);
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
-}
-
-.btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
-}
-
-.btn:active{ transform: scale(.98); }
-
-/* ---------------------------------------------------------
-   FX Layers (boss/storm placeholders)
+   FX layers (optional)
 --------------------------------------------------------- */
 #bossFx,#stormFx{
   position:fixed;
@@ -454,7 +364,8 @@ body.debug #plate-layer{
 
 #bossFx.boss-on{
   display:block;
-  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
 }
 #bossFx.boss-panic{
   animation:pulseBad .25s infinite;
@@ -474,47 +385,215 @@ body.debug #plate-layer{
 }
 
 /* ---------------------------------------------------------
-   Responsive tuning
+   End Overlay
 --------------------------------------------------------- */
-@media (max-width: 900px){
-  :root{
-    --hudTopH: 148px; /* มือถือให้เผื่อพื้นที่มากขึ้น */
-    --hudSideW: 10px;
-  }
+#endOverlay{
+  position:fixed;
+  inset:0;
+  z-index:120;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  background: rgba(2,6,23,.74);
+  backdrop-filter: blur(10px);
 
-  .plateTarget{
-    font-size:24px;
-    width:72px;
-    height:72px;
-  }
-
-  #questCard{
-    width:calc(100vw - var(--sal) - var(--sar) - 24px);
-  }
-
-  .endGrid{
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .18s ease;
 }
 
-/* cVR / VR: เผื่อปุ่ม vr-ui ด้านบน (ENTER VR/EXIT/RECENTER) */
-body.view-cvr :root,
-body.view-vr :root{
-  --hudTopH: 162px;
+#endOverlay[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.endPanel{
+  width:min(720px, 100%);
+  border-radius: 24px;
+  border:1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.86);
+  box-shadow:0 30px 120px rgba(0,0,0,.55);
+  padding:16px;
+}
+
+.endTitle{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.endTitle h2{
+  margin:0;
+  font-size:20px;
+  font-weight:950;
+}
+
+.endTitle .tag{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+  font-weight:900;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.endGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:10px;
+}
+
+.kpi{
+  padding:12px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.45);
+}
+.kpi .k{
+  font-weight:900;
+  font-size:11px;
+  color:var(--muted);
+  letter-spacing:.05em;
+}
+.kpi .v{
+  margin-top:4px;
+  font-weight:950;
+  font-size:18px;
+}
+
+.endBtns{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.btn{
+  appearance:none;
+  border:none;
+  border-radius:999px;
+  padding:10px 14px;
+  font-weight:950;
+  font-size:12px;
+  cursor:pointer;
+  color:var(--text);
+  background:rgba(2,6,23,.70);
+  border:1px solid rgba(148,163,184,.22);
+  backdrop-filter:blur(10px);
+}
+
+.btn.primary{
+  background:rgba(34,197,94,.18);
+  border-color:rgba(34,197,94,.35);
 }
 
 /* ---------------------------------------------------------
-   Ensure vr-ui buttons remain clickable
-   (vr-ui.js usually uses its own z-index; we keep HUD non-interactive)
+   Make sure vr-ui injected buttons stay clickable
+   - vr-ui.js typically adds fixed buttons. We force them above HUD.
 --------------------------------------------------------- */
+
+/* common ids/classes you used in vr-ui.js earlier: best effort */
 .hha-vrui,
 .hha-vrui *{
   pointer-events:auto;
 }
 
+.hha-vrui{
+  position:fixed;
+  z-index:90 !important; /* above HUD (40) and FX (55) */
+}
+
+/* if vr-ui injects buttons by id */
+#hhaEnterVrBtn,
+#hhaExitVrBtn,
+#hhaRecenterBtn{
+  position:fixed;
+  z-index:95 !important;
+  pointer-events:auto !important;
+}
+
+/* crosshair overlay should be above targets but not block buttons */
+.hha-crosshair{
+  z-index:88 !important;
+  pointer-events:none !important;
+}
+
 /* ---------------------------------------------------------
-   Optional: reduce motion for accessibility
+   Responsive tuning + safe playfield padding per view
+   KEY: set --pfTop etc. so targets avoid HUD zone.
 --------------------------------------------------------- */
-@media (prefers-reduced-motion: reduce){
-  .plateTarget{ animation: pop .14s ease-out; }
+
+/* PC default */
+body.view-pc{
+  --hudSafeTop: 190px;
+  --pfTop: 200px;      /* keep away from top HUD+quest */
+  --pfRight: 10px;
+  --pfBottom: 16px;
+  --pfLeft: 10px;
+}
+
+/* Mobile (portrait) */
+body.view-mobile{
+  --hudTopPad: 10px;
+  --hudSidePad: 10px;
+  --hudSafeTop: 220px;
+
+  --pfTop: 232px;      /* more space for chips+quest in portrait */
+  --pfRight: 10px;
+  --pfBottom: 18px;
+  --pfLeft: 10px;
+}
+
+/* VR (not cardboard split) */
+body.view-vr{
+  --hudSafeTop: 160px;
+  --pfTop: 170px;
+  --pfRight: 12px;
+  --pfBottom: 18px;
+  --pfLeft: 12px;
+}
+
+/* Cardboard (cVR) — HUD tends to feel larger, keep center clean */
+body.view-cvr{
+  --hudSafeTop: 150px;
+  --pfTop: 160px;
+  --pfRight: 14px;
+  --pfBottom: 22px;
+  --pfLeft: 14px;
+}
+
+/* Small screens */
+@media (max-width: 420px){
+  .chip{ min-width: 84px; padding:9px 10px; }
+  .chip .val{ font-size:17px; }
+  #questCard{ width: calc(100vw - 20px - var(--sal) - var(--sar)); }
+  .qProg{ width: 108px; }
+  .plateTarget{ font-size:24px; }
+}
+
+/* Landscape phones */
+@media (max-height: 460px){
+  body.view-mobile{
+    --hudSafeTop: 150px;
+    --pfTop: 160px;
+  }
+  #questCard{
+    top: calc(var(--hudTopPad) + var(--sat) + 52px);
+    padding:10px;
+  }
+  .qText .sub{ display:none; }
+}
+
+/* ---------------------------------------------------------
+   Accessibility
+--------------------------------------------------------- */
+:focus{ outline:none; }
+button:focus-visible{
+  outline:2px solid rgba(34,197,94,.55);
+  outline-offset:2px;
 }
