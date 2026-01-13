@@ -1,200 +1,79 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (HHA Standard)
-✅ Loads: ./vr-goodjunk/goodjunk-vr.css
-✅ Loads: ./vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
-✅ Loads: ./vr/particles.js (optional FX)
-✅ Boots engine via ./vr-goodjunk/goodjunk-vr.boot.js -> ./vr-goodjunk/goodjunk.safe.js
-✅ A-Frame minimal scene for WebXR Enter VR reliability
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR</title>
+  <title>HeroHealth — GoodJunkVR Launcher</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
-  <!-- Main CSS (your existing file) -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
-
-  <!-- Minimal safety CSS if css missing some bits -->
   <style>
-    :root{
-      /* safe-area */
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-
-      /* GoodJunk safe spawn defaults (can be overridden by your css) */
-      --gj-top-safe: 140px;
-      --gj-bottom-safe: 130px;
-    }
-    html,body{ width:100%; height:100%; margin:0; overflow:hidden; background:#020617; }
-    /* Two-eye layers for cVR (right layer optional) */
-    .gj-stage{
-      position:fixed; inset:0; z-index:10;
-      display:block;
-      overflow:hidden;
-      touch-action:manipulation;
-      user-select:none;
-    }
-    .gj-layer{
-      position:absolute; inset:0;
-      pointer-events:auto;
-    }
-    /* cVR split view */
-    body.view-cvr .gj-layer{ width:50%; }
-    #gj-layer{ left:0; }
-    #gj-layer-r{ right:0; left:auto; display:none; }
-    body.view-cvr #gj-layer-r{ display:block; }
-
-    /* ✅ important for cVR: targets should not steal taps; shooting comes from crosshair (vr-ui.js) */
-    body.view-cvr .gj-target{ pointer-events:none !important; }
-    body.view-vr .gj-target{ pointer-events:none !important; } /* optional: VR taps via crosshair too */
-
-    /* HUD skeleton (IDs must exist for safe.js) */
-    .gj-hud{
-      position:fixed;
-      left: calc(10px + var(--sal));
-      right: calc(10px + var(--sar));
-      top: calc(10px + var(--sat));
-      z-index: 80;
-      pointer-events:none;
-      font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      color:#e5e7eb;
-    }
-    .gj-hud-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .gj-pill{
-      pointer-events:none;
-      background: rgba(2,6,23,.62);
-      border: 1px solid rgba(148,163,184,.22);
-      border-radius: 999px;
-      padding: 8px 10px;
-      font-weight: 900;
-      font-size: 12px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 55px rgba(0,0,0,.35);
-    }
-    .gj-pill strong{ font-size: 14px; }
-    .gj-spacer{ flex:1; min-width: 10px; }
-    .gj-bars{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:8px;
-    }
-    .gj-card{
-      background: rgba(2,6,23,.58);
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      padding: 10px 12px;
-      pointer-events:none;
-    }
-    .gj-card .t{ color:#94a3b8; font-weight: 1000; font-size: 11px; letter-spacing:.3px;}
-    .gj-card .v{ font-weight:1200; font-size: 14px; margin-top:4px;}
-    .gj-meter{
-      margin-top:8px;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.16);
-      overflow:hidden;
-    }
-    #feverFill{
-      height:100%;
-      width:0%;
-      background: rgba(34,197,94,.85);
-    }
-
-    /* Low time overlay (5s) */
-    #lowTimeOverlay{
-      position:fixed; inset:0; z-index:160;
-      display:flex; align-items:center; justify-content:center;
-      background: radial-gradient(circle at center, rgba(239,68,68,.20), rgba(2,6,23,.0) 60%);
-      backdrop-filter: blur(6px);
-      pointer-events:none;
-    }
-    #lowTimeOverlay[aria-hidden="true"]{ display:none; }
-    #gj-lowtime-num{
-      font-size: 84px;
-      font-weight: 1400;
-      color: rgba(255,255,255,.92);
-      text-shadow: 0 18px 55px rgba(0,0,0,.45);
-    }
-
-    /* A-Frame scene sits behind everything */
-    a-scene{ position:fixed !important; inset:0 !important; z-index:0 !important; }
+    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{width:min(720px,94vw);border:1px solid rgba(148,163,184,.22);border-radius:22px;background:rgba(2,6,23,.78);padding:18px;box-shadow:0 18px 55px rgba(0,0,0,.45)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.55);color:#e5e7eb;
+      padding:12px 14px;border-radius:16px;font-weight:1000;cursor:pointer}
+    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
+    .muted{color:#94a3b8;font-weight:900;font-size:12px}
+    .pill{display:inline-block;border:1px solid rgba(148,163,184,.18);border-radius:999px;padding:6px 10px;background:rgba(2,6,23,.55);font-weight:900;font-size:12px}
   </style>
-
-  <!-- A-Frame for WebXR Enter VR reliability -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
-
-<body class="view-mobile">
-  <!-- Minimal A-Frame scene (behind UI) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement: true; physicallyCorrectLights: false"
-    style="background: transparent;"
-  >
-    <a-entity camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
-  </a-scene>
-
-  <!-- HUD (IDs must match goodjunk.safe.js) -->
-  <div class="gj-hud" aria-hidden="false">
-    <div class="gj-hud-row">
-      <div class="gj-pill">SCORE <strong id="hud-score">0</strong></div>
-      <div class="gj-pill">TIME <strong id="hud-time">0</strong></div>
-      <div class="gj-pill">MISS <strong id="hud-miss">0</strong></div>
-      <div class="gj-spacer"></div>
-      <div class="gj-pill">GRADE <strong id="hud-grade">—</strong></div>
-      <div class="gj-pill">🛡️ <strong id="shieldPills">—</strong></div>
-    </div>
-
-    <div class="gj-bars">
-      <div class="gj-card">
-        <div class="t">GOAL</div>
-        <div class="v">
-          <span id="hud-goal">—</span>
-          <span style="opacity:.8"> (</span><span id="hud-goal-cur">0</span><span style="opacity:.8">/</span><span id="hud-goal-target">0</span><span style="opacity:.8">)</span>
-        </div>
-        <div class="t" id="goalDesc" style="margin-top:6px;">—</div>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div style="font-size:20px;font-weight:1200;">GoodJunkVR</div>
+      <div class="muted" style="margin-top:6px;">
+        Root = Launcher · Run อยู่ใน <span class="pill">/herohealth/vr-goodjunk/</span>
       </div>
 
-      <div class="gj-card">
-        <div class="t">MINI</div>
-        <div class="v"><span id="hud-mini">—</span></div>
-        <div class="t" style="margin-top:6px;">TIMER: <span id="miniTimer">—</span></div>
+      <div class="row">
+        <button class="btn primary" id="btnPlay">เริ่มเล่น (Auto-detect)</button>
+        <button class="btn" id="btnResearch">Research (seeded)</button>
+        <button class="btn" id="btnPC">PC</button>
+        <button class="btn" id="btnMobile">Mobile</button>
+        <button class="btn" id="btnCVR">Cardboard (cVR)</button>
+        <button class="btn" id="btnVR">VR (WebXR)</button>
       </div>
 
-      <div class="gj-card">
-        <div class="t">FEVER</div>
-        <div class="v"><span id="feverText">0%</span></div>
-        <div class="gj-meter"><div id="feverFill"></div></div>
+      <div class="muted" style="margin-top:12px;line-height:1.4;">
+        - Auto-detect จะไม่ใส่ <b>view=</b> ให้ (ปล่อย vr-ui.js ตัดสินใจเอง)<br/>
+        - ถ้ากดโหมดเฉพาะ จะส่ง <b>?view=pc/mobile/cvr/vr</b> ไปให้ชัดเจน
       </div>
     </div>
   </div>
 
-  <!-- Low time overlay (used in safe.js) -->
-  <div id="lowTimeOverlay" aria-hidden="true">
-    <div id="gj-lowtime-num">5</div>
-  </div>
+  <script>
+    (function(){
+      const qs=(k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d} };
+      const base = './vr-goodjunk/goodjunk-vr.html';
 
-  <!-- Gameplay layers -->
-  <div class="gj-stage" id="gj-stage">
-    <div class="gj-layer" id="gj-layer"></div>
-    <div class="gj-layer" id="gj-layer-r"></div>
-  </div>
+      function go(params){
+        const u = new URL(base, location.href);
+        for(const [k,v] of Object.entries(params||{})){
+          if(v==null || v==='') continue;
+          u.searchParams.set(k,String(v));
+        }
+        // ส่ง hub ไปต่อถ้ามี
+        const hub = qs('hub','');
+        if(hub) u.searchParams.set('hub', hub);
+        location.href = u.toString();
+      }
 
-  <!-- Optional FX -->
-  <script src="./vr/particles.js"></script>
+      const common = {
+        run: qs('run','play'),
+        diff: qs('diff','normal'),
+        time: qs('time','80'),
+        seed: qs('seed','')
+      };
 
-  <!-- Universal VR UI -->
-  <script src="./vr/vr-ui.js"></script>
+      document.getElementById('btnPlay').onclick = ()=> go(common); // ไม่ใส่ view => auto-detect
+      document.getElementById('btnResearch').onclick = ()=> go(Object.assign({}, common, { run:'research', seed: common.seed || Date.now() }));
 
-  <!-- Boot -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+      document.getElementById('btnPC').onclick = ()=> go(Object.assign({}, common, { view:'pc' }));
+      document.getElementById('btnMobile').onclick = ()=> go(Object.assign({}, common, { view:'mobile' }));
+      document.getElementById('btnCVR').onclick = ()=> go(Object.assign({}, common, { view:'cvr' }));
+      document.getElementById('btnVR').onclick = ()=> go(Object.assign({}, common, { view:'vr' }));
+    })();
+  </script>
 </body>
 </html>
