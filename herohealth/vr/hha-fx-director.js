@@ -1,304 +1,158 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (Universal)
-// ✅ Works with ../vr/particles.js (minimal or full)
-// ✅ Listens: hha:judge, hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ Adds body pulses / classes + safe rate-limit
-// ✅ Boss++ hooks: sets body classes: gj-boss / gj-rage / gj-storm (generic also: hha-boss/hha-rage/hha-storm)
-// ✅ Does NOT require per-game imports (plain script)
-
-(function(root){
+// HHA FX Director — PRODUCTION (GoodJunk Boss++ friendly)
+// listens: hha:boss, hha:storm, hha:judge, hha:time
+(function(){
   'use strict';
+  const WIN = window;
+  const DOC = document;
+  if(!DOC || WIN.__HHA_FX_DIRECTOR__) return;
+  WIN.__HHA_FX_DIRECTOR__ = true;
 
-  const DOC = root.document;
-  if(!DOC || root.__HHA_FX_DIRECTOR__) return;
-  root.__HHA_FX_DIRECTOR__ = true;
+  const qs = (s)=>DOC.querySelector(s);
 
-  const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
-
-  // ------------------------------------------------------------
-  // Helpers
-  // ------------------------------------------------------------
-  function safeNum(x, d=0){
-    const n = Number(x);
-    return Number.isFinite(n) ? n : d;
+  function ensureFxLayer(){
+    let el = qs('.hha-fx-director-layer');
+    if(el) return el;
+    el = DOC.createElement('div');
+    el.className = 'hha-fx-director-layer';
+    el.style.cssText = `
+      position:fixed; inset:0; pointer-events:none; z-index:199;
+    `;
+    const flash = DOC.createElement('div');
+    flash.className = 'hha-fx-flash';
+    flash.style.cssText = `
+      position:absolute; inset:0; opacity:0;
+      background: radial-gradient(circle at 50% 30%, rgba(167,139,250,.22), rgba(2,6,23,0) 55%),
+                  radial-gradient(circle at 50% 70%, rgba(239,68,68,.16), rgba(2,6,23,0) 62%);
+      transition: opacity .14s ease;
+    `;
+    const vign = DOC.createElement('div');
+    vign.className = 'hha-fx-vignette';
+    vign.style.cssText = `
+      position:absolute; inset:-2px; opacity:0;
+      background: radial-gradient(circle at 50% 45%, rgba(0,0,0,0), rgba(0,0,0,.35) 70%, rgba(0,0,0,.55));
+      transition: opacity .18s ease;
+    `;
+    el.appendChild(flash);
+    el.appendChild(vign);
+    DOC.body.appendChild(el);
+    return el;
   }
-  function clamp(v, a, b){
-    v = safeNum(v, a);
-    return v < a ? a : (v > b ? b : v);
-  }
-  function body(){ return DOC.body; }
 
-  // Add a class briefly (pulse)
-  function pulse(cls, ms=160){
-    const b = body(); if(!b) return;
-    b.classList.add(cls);
-    setTimeout(()=>{ try{ b.classList.remove(cls); }catch(_){} }, ms);
+  function pulseFlash(strength=1){
+    const layer = ensureFxLayer();
+    const flash = layer.querySelector('.hha-fx-flash');
+    if(!flash) return;
+    flash.style.opacity = String(Math.min(0.85, 0.25 + 0.35*strength));
+    setTimeout(()=>{ try{ flash.style.opacity='0'; }catch(_){} }, 120);
   }
 
-  // Persistent state classes (boss/storm/rage)
-  function setStateClass(cls, on){
-    const b = body(); if(!b) return;
-    if(on) b.classList.add(cls);
-    else b.classList.remove(cls);
+  function setVignette(on, strength=1){
+    const layer = ensureFxLayer();
+    const v = layer.querySelector('.hha-fx-vignette');
+    if(!v) return;
+    v.style.opacity = on ? String(Math.min(0.75, 0.18 + 0.22*strength)) : '0';
   }
 
-  // ------------------------------------------------------------
-  // Particles fallback (if minimal particles.js only has popText)
-  // ------------------------------------------------------------
-  const P = root.Particles || {};
-  function popText(x,y,text){
+  function shake(ms=180, cls='hha-fx-shake'){
     try{
-      if(P && typeof P.popText === 'function'){
-        P.popText(x,y,text);
-        return true;
-      }
-    }catch(_){}
-    return false;
-  }
-
-  // Safe screen center pop
-  function popCenter(text){
-    const w = root.innerWidth || 360;
-    const h = root.innerHeight || 640;
-    popText(w*0.5, h*0.42, text);
-  }
-
-  // ------------------------------------------------------------
-  // Rate limit (avoid spam)
-  // ------------------------------------------------------------
-  const RL = {
-    judge: 0,
-    score: 0,
-    coach: 0,
-    time: 0
-  };
-  function ok(key, gapMs){
-    const t = now();
-    if(t - (RL[key]||0) >= gapMs){
-      RL[key] = t;
-      return true;
-    }
-    return false;
-  }
-
-  // ------------------------------------------------------------
-  // Interpret judge events across games
-  // ------------------------------------------------------------
-  function kindFromJudge(d){
-    // Typical: good / junk / perfect / miss / block / expire / star / shield
-    const k = String(d?.kind || d?.judge || d?.type || '').toLowerCase();
-    if(k) return k;
-
-    // fallback heuristics
-    if(safeNum(d?.deltaMiss,0) > 0) return 'miss';
-    if(safeNum(d?.deltaScore,0) < 0) return 'bad';
-    if(safeNum(d?.deltaScore,0) > 0) return 'good';
-    return 'tick';
-  }
-
-  // ------------------------------------------------------------
-  // Boss/Storm/Rage state inference hooks
-  // ------------------------------------------------------------
-  // These can be driven explicitly by detail.phase/state, or inferred by tags.
-  function updateCombatState(d){
-    const state = String(d?.state || d?.phase || d?.mode || '').toLowerCase();
-    const tag   = String(d?.tag || d?.flag || '').toLowerCase();
-
-    // explicit on/off booleans supported too
-    const bossOn  = (d?.boss === true) || state.includes('boss')  || tag.includes('boss');
-    const rageOn  = (d?.rage === true) || state.includes('rage')  || tag.includes('rage');
-    const stormOn = (d?.storm=== true) || state.includes('storm') || tag.includes('storm');
-
-    // generic classes (all games)
-    setStateClass('hha-boss', bossOn);
-    setStateClass('hha-rage', rageOn);
-    setStateClass('hha-storm', stormOn);
-
-    // per GoodJunk hooks (css already has these)
-    setStateClass('gj-boss', bossOn);
-    setStateClass('gj-rage', rageOn);
-    setStateClass('gj-storm', stormOn);
-  }
-
-  // ------------------------------------------------------------
-  // Event handlers
-  // ------------------------------------------------------------
-  function onJudge(ev){
-    if(!ok('judge', 40)) return; // very fast events allowed but throttled
-    const d = ev?.detail || null;
-    const k = kindFromJudge(d);
-
-    // Try to read screen position if provided
-    const x = safeNum(d?.x, NaN);
-    const y = safeNum(d?.y, NaN);
-    const hasXY = Number.isFinite(x) && Number.isFinite(y);
-
-    // state updates (boss/rage/storm)
-    updateCombatState(d);
-
-    // Core pulses (GoodJunk CSS listens to these too)
-    if(k === 'junk' || k === 'bad'){
-      pulse('gj-junk-hit', 240);
-      pulse('hha-junk-hit', 240);
-      if(hasXY) popText(x,y,'💥'); else popCenter('💥');
-      return;
-    }
-    if(k === 'block' || k === 'guard'){
-      pulse('hha-block', 160);
-      if(hasXY) popText(x,y,'🛡️'); else popCenter('🛡️');
-      return;
-    }
-    if(k === 'miss' || k === 'expire'){
-      // GoodJunk uses good expired as miss too
-      pulse('gj-good-expire', 190);
-      pulse('hha-miss', 190);
-      if(hasXY) popText(x,y,'⚠️'); else popCenter('⚠️');
-      return;
-    }
-    if(k === 'perfect'){
-      pulse('hha-perfect', 160);
-      if(hasXY) popText(x,y,'✨'); else popCenter('✨');
-      return;
-    }
-    if(k === 'star'){
-      pulse('hha-star', 160);
-      if(hasXY) popText(x,y,'⭐'); else popCenter('⭐');
-      return;
-    }
-    if(k === 'shield'){
-      pulse('hha-shield', 160);
-      if(hasXY) popText(x,y,'🛡️+'); else popCenter('🛡️+');
-      return;
-    }
-    if(k === 'mini' || k === 'mini_clear' || k === 'mini-clear'){
-      pulse('gj-mini-clear', 240);
-      pulse('hha-mini-clear', 240);
-      if(hasXY) popText(x,y,'✅ MINI'); else popCenter('✅ MINI');
-      return;
-    }
-
-    // default gentle tick
-    pulse('gj-tick', 140);
-    pulse('hha-tick', 140);
-  }
-
-  function onScore(ev){
-    if(!ok('score', 120)) return;
-    const d = ev?.detail || null;
-    // optional: show score pop when big delta
-    const ds = safeNum(d?.deltaScore, 0);
-    if(Math.abs(ds) >= 80){
-      popCenter(ds > 0 ? `+${ds}` : `${ds}`);
-      pulse('hha-score-pop', 180);
-    }
-  }
-
-  function onTime(ev){
-    // time updates can be frequent; handle low-time carefully
-    const d = ev?.detail || null;
-    const tLeft = safeNum(d?.timeLeftSec, safeNum(d?.t, NaN));
-    if(!Number.isFinite(tLeft)) return;
-
-    // only react around last 6 seconds (you asked Phase2-6s)
-    // 6..1 => lowtime ring already handled by game, but add body tint for drama
-    if(tLeft <= 6 && tLeft > 1){
-      if(ok('time', 220)){
-        setStateClass('gj-lowtime', true);
-        pulse('gj-tick', 120);
-      }
-    }
-    if(tLeft <= 5){
-      setStateClass('gj-lowtime5', true);
-    }else{
-      setStateClass('gj-lowtime5', false);
-    }
-    if(tLeft > 6){
-      setStateClass('gj-lowtime', false);
-      setStateClass('gj-lowtime5', false);
-    }
-  }
-
-  function onQuestUpdate(ev){
-    // update peek text? UI does that already; here we can celebrate milestones
-    const d = ev?.detail || null;
-    const goal = d?.goal || null;
-    const mini = d?.mini || null;
-
-    // Celebrate goal complete (generic hint)
-    if(goal && goal.done === true){
-      pulse('hha-goal-clear', 220);
-      // limit celebration pop
-      if(ok('coach', 420)) popCenter('🎯 GOAL ✅');
-    }
-    if(mini && mini.done === true){
-      pulse('hha-mini-clear', 220);
-      pulse('gj-mini-clear', 240);
-      if(ok('coach', 420)) popCenter('✅ MINI!');
-    }
-  }
-
-  function onCoach(ev){
-    // optional sparkle when coach speaks (avoid spam)
-    if(!ok('coach', 900)) return;
-    const d = ev?.detail || null;
-    const msg = String(d?.text || d?.msg || '').trim();
-    if(!msg) return;
-    pulse('hha-coach', 180);
-    // short popup only
-    const short = msg.length > 16 ? (msg.slice(0,16) + '…') : msg;
-    popCenter('💬 ' + short);
-  }
-
-  function onEnd(ev){
-    const d = ev?.detail || null;
-    updateCombatState({ boss:false, rage:false, storm:false });
-
-    // cleanup lowtime states
-    setStateClass('gj-lowtime', false);
-    setStateClass('gj-lowtime5', false);
-
-    // final celebration pulse
-    const reason = String(d?.reason || '').toLowerCase();
-    if(reason === 'misslimit' || reason === 'gameover'){
-      pulse('hha-end-bad', 240);
-      popCenter('💥');
-    }else{
-      pulse('hha-end-good', 240);
-      popCenter('🎉');
-    }
-  }
-
-  // ------------------------------------------------------------
-  // Bind listeners (window + document)
-  // ------------------------------------------------------------
-  function bind(target){
-    try{
-      target.addEventListener('hha:judge', onJudge, { passive:true });
-      target.addEventListener('hha:score', onScore, { passive:true });
-      target.addEventListener('hha:time',  onTime,  { passive:true });
-      target.addEventListener('quest:update', onQuestUpdate, { passive:true });
-      target.addEventListener('hha:coach', onCoach, { passive:true });
-      target.addEventListener('hha:end', onEnd, { passive:true });
+      DOC.body.classList.add(cls);
+      setTimeout(()=>DOC.body.classList.remove(cls), ms);
     }catch(_){}
   }
-  bind(root);
-  bind(DOC);
 
-  // Also accept legacy/custom names if some game emits differently
-  function alias(){
-    root.addEventListener('hha:celebrate', (ev)=>{
-      pulse('hha-mini-clear', 220);
-      popCenter('🎉');
-    }, { passive:true });
+  // add tiny shake keyframes (once)
+  (function injectCss(){
+    const id='hha-fx-director-css';
+    if(DOC.getElementById(id)) return;
+    const st=DOC.createElement('style');
+    st.id=id;
+    st.textContent = `
+      @keyframes hhaShake {
+        0%{ transform: translateX(0) }
+        25%{ transform: translateX(-4px) }
+        50%{ transform: translateX(4px) }
+        75%{ transform: translateX(-3px) }
+        100%{ transform: translateX(0) }
+      }
+      body.hha-fx-shake{ animation: hhaShake .18s ease; }
+      body.hha-fx-shake2{ animation: hhaShake .26s ease; }
+    `;
+    DOC.head.appendChild(st);
+  })();
+
+  // Phase2 pulser
+  let phase2Timer = null;
+  function startPhase2Pulse(sec=6){
+    stopPhase2Pulse();
+    const tEnd = Date.now() + Math.max(1, sec)*1000;
+    phase2Timer = setInterval(()=>{
+      if(Date.now() >= tEnd){
+        stopPhase2Pulse();
+        return;
+      }
+      pulseFlash(1.15);
+      shake(120,'hha-fx-shake');
+    }, 520); // ถี่พอดี “เร้าใจ” แต่ไม่เวียนหัว
   }
-  alias();
-
-  // Debug helper (optional): press `\` to force a pop
-  root.addEventListener('keydown', (e)=>{
-    if(e.key === '\\'){
-      popCenter('FX OK');
-      pulse('hha-tick', 140);
+  function stopPhase2Pulse(){
+    if(phase2Timer){
+      clearInterval(phase2Timer);
+      phase2Timer = null;
     }
-  }, { passive:true });
+  }
 
-})(window);
+  // Listen boss
+  WIN.addEventListener('hha:boss', (ev)=>{
+    const d = ev?.detail || {};
+    const on = !!d.on;
+    if(on){
+      pulseFlash(1.2);
+      shake(240,'hha-fx-shake2');
+      // ช่วยให้ safezone update ถ้า html expose ไว้
+      try{ if(typeof WIN.HHA_UPDATE_SAFEZONE==='function') WIN.HHA_UPDATE_SAFEZONE(); }catch(_){}
+      if(d.phase === 2){
+        startPhase2Pulse(Number(d.phase2Sec)||6);
+      }else{
+        stopPhase2Pulse();
+      }
+    }else{
+      stopPhase2Pulse();
+      setVignette(false);
+      pulseFlash(0.6);
+      try{ if(typeof WIN.HHA_UPDATE_SAFEZONE==='function') WIN.HHA_UPDATE_SAFEZONE(); }catch(_){}
+    }
+  }, {passive:true});
+
+  // Listen storm
+  WIN.addEventListener('hha:storm', (ev)=>{
+    const d = ev?.detail || {};
+    const on = !!d.on;
+    setVignette(on, 1.0);
+    if(on){
+      pulseFlash(0.9);
+      shake(160,'hha-fx-shake');
+    }
+  }, {passive:true});
+
+  // Judge sparks (tiny)
+  WIN.addEventListener('hha:judge', (ev)=>{
+    const d = ev?.detail || {};
+    const t = String(d.type||'');
+    if(t==='bad' || t==='miss'){
+      pulseFlash(0.85);
+    }else if(t==='perfect'){
+      pulseFlash(0.55);
+    }
+  }, {passive:true});
+
+  // Lowtime tick helper (optional)
+  WIN.addEventListener('hha:time', (ev)=>{
+    const t = Number(ev?.detail?.timeLeftSec ?? ev?.detail?.t ?? 999);
+    if(t <= 5 && t > 0){
+      // อย่าถี่เกิน: ให้ lowTimeOverlay ของคุณทำหลักอยู่แล้ว
+      // ที่นี่แค่เติมจังหวะให้รู้สึก "บีบ"
+      if(Math.abs(t - Math.round(t)) < 0.04) pulseFlash(0.25);
+    }
+  }, {passive:true});
+})();
