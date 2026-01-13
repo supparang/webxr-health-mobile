@@ -1,12 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION
-// ✅ Auto view detect (no UI override menu)
+// ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
-// ✅ Default time = 90 (ONLY if ?time not provided)
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -20,12 +19,13 @@ const qs = (k, def=null)=>{
 
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  // No UI override. Allow query force for experiments only.
+  // Do not offer UI override.
+  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -64,10 +64,10 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
-
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
+  // auto hide
   clearTimeout(WIN.__HHA_COACH_TO__);
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
@@ -104,7 +104,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -138,10 +138,10 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
+      // keep same query params
+      location.reload();
     });
   }
-
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
@@ -164,6 +164,7 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
+    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -175,30 +176,28 @@ function wireEndSummary(){
 }
 
 function buildEngineConfig(){
-  const view = getViewAuto();
-
   // standard params
-  const run  = (qs('run','play')||'play').toLowerCase();      // play | research | study
-  const diff = (qs('diff','normal')||'normal').toLowerCase(); // easy | normal | hard
+  const view = getViewAuto();
+  const run  = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ Default time = 90 ONLY when not provided
-  const timeParam = qs('time', null);
-  const time = clamp((timeParam==null ? 90 : timeParam), 10, 999);
+  // ✅ ค่า default ที่ "เหมาะกับเด็ก ป.5" มากกว่า 70 คือ 90 วินาที (คุมแรงกดดัน + ยังมีเวลาทำเป้าหมาย 5 หมู่)
+  // - ถ้าคุณส่ง ?time=70 ก็จะยึดตามนั้น
+  const time = clamp(qs('time','90'), 10, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  return {
-    view,
-    runMode: run,
-    diff,
+  // research passthrough (optional)
+  const cfg = {
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     // endpoints / tags
     hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '',
+    logEndpoint: qs('log','') || '', // if caller passes ?log=... we can use it inside engine/logger
 
-    // context passthrough (optional)
+    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -210,6 +209,8 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
+
+  return cfg;
 }
 
 function ready(fn){
