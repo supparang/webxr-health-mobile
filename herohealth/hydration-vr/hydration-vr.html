@@ -9,203 +9,202 @@
 
   <link rel="stylesheet" href="./hydration-vr.css" />
 
-  <!-- Global utilities -->
+  <!-- Global (non-module) -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- Water gauge helper (optional, you already use setWaterGauge) -->
   <script defer src="../vr/ui-water.js"></script>
-
-  <!-- AI coach -->
   <script defer src="../vr/ai-coach.js"></script>
 
-  <!-- SAFE engine -->
+  <!-- SAFE ENGINE (module because it imports) -->
   <script type="module" defer src="./hydration.safe.js"></script>
 
   <script>
+    // Minimal, non-overriding view classes:
+    // - If user/loader sets body class already: keep it
+    // - Else: default to mobile-friendly
     (function(){
-      'use strict';
-      const DOC=document;
-
-      const qs=(k,def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-
-      function autoDetectView(){
-        // if explicit view => use it
-        const v = String(qs('view','')||'').toLowerCase();
-        if (v) return v;
-
-        // Cardboard heuristics
-        const w = Math.min(window.innerWidth, window.innerHeight);
-        const h = Math.max(window.innerWidth, window.innerHeight);
-
-        // If very small width and tall: likely mobile portrait -> mobile
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
-        if (!isMobile) return 'pc';
-
-        // Default for mobile: mobile (user can choose ?view=cvr or ?view=cardboard)
-        return 'mobile';
-      }
-
-      function setBodyView(view){
-        const b = DOC.body;
-        b.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
-        if (view === 'pc') b.classList.add('view-pc');
-        else if (view === 'cvr') b.classList.add('view-cvr');
-        else if (view === 'cardboard') b.classList.add('cardboard');
-        else b.classList.add('view-mobile');
-
-        // Cardboard uses split layers
-        const isCB = b.classList.contains('cardboard');
-        DOC.documentElement.classList.toggle('is-cardboard', isCB);
-      }
-
-      // expose layers to hydration.safe.js (it reads window.HHA_VIEW.layers)
-      function setupLayers(){
-        const b = DOC.body;
-        const isCB = b.classList.contains('cardboard');
-
-        // main
-        const main = DOC.getElementById('hydration-layer');
-        const L = DOC.getElementById('hydration-layerL');
-        const R = DOC.getElementById('hydration-layerR');
-
-        if (isCB){
-          // show L/R, hide main
-          if (main) main.style.display='none';
-          if (L) L.style.display='block';
-          if (R) R.style.display='block';
-          window.HHA_VIEW = { layers: ['hydration-layerL','hydration-layerR'] };
-        }else{
-          if (main) main.style.display='block';
-          if (L) L.style.display='none';
-          if (R) R.style.display='none';
-          window.HHA_VIEW = { layers: ['hydration-layer'] };
-        }
-      }
-
-      function boot(){
-        const view = autoDetectView();
-        setBodyView(view);
-        setupLayers();
-
-        // Optional: set gameMode for logger context
-        window.HHA_LOGGER_GAME = 'hydration';
-      }
-
-      if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot, {once:true});
-      else boot();
+      const b=document.body;
+      if(!b) return;
+      const has = (c)=>b.classList.contains(c);
+      if(has('view-pc')||has('view-mobile')||has('view-cvr')||has('cardboard')) return;
+      // default
+      b.classList.add('view-mobile');
     })();
   </script>
 </head>
 
 <body class="view-mobile">
+  <!-- Playfield (PC/Mobile/cVR) -->
+  <main id="playfield" class="playfield" aria-label="Hydration playfield">
+    <div id="hydration-layer" class="layer"></div>
+  </main>
 
-  <!-- Start Overlay -->
-  <div id="startOverlay" class="overlay">
-    <div class="overlay-card">
-      <div class="title">Hydration Quest</div>
-      <div class="subtitle">
-        ยิง 💧 เพื่อคุม “น้ำในร่างกาย” ให้อยู่โซน <b>GREEN</b><br/>
-        ช่วงพายุให้ทำ Mini: <b>LOW/HIGH + BLOCK 🛡️ ช่วงท้าย</b>
+  <!-- Cardboard playfield (L/R) - shown only when body.cardboard -->
+  <main id="cbPlayfield" class="cb-playfield" aria-label="Hydration cardboard playfield">
+    <div class="cb-eye cb-left"><div id="hydration-layerL" class="layer"></div></div>
+    <div class="cb-eye cb-right"><div id="hydration-layerR" class="layer"></div></div>
+  </main>
+
+  <!-- START OVERLAY -->
+  <section id="startOverlay" class="overlay">
+    <div class="panel">
+      <div class="brand">
+        <div class="logo">💧</div>
+        <div>
+          <div class="title">Hydration Quest</div>
+          <div class="subtitle">ยิง 💧 คุมสมดุล • ผ่านพายุ • เคลียร์บอส</div>
+        </div>
       </div>
 
-      <div class="hintline">
-        <span class="pill">🎯 เป้าหมาย: คุม GREEN + ผ่าน Storm Mini + เคลียร์ BOSS</span>
+      <div class="hint">
+        <div class="chip">PC: คลิกยิง</div>
+        <div class="chip">Mobile: แตะยิง</div>
+        <div class="chip">cVR: ยิงจากเป้ากลางจอ</div>
+        <div class="chip">Cardboard: ENTER VR แล้วเล่น</div>
       </div>
 
-      <div class="actions">
-        <button id="btnStart" class="btn primary">เริ่มเล่น</button>
-        <a class="btn ghost" id="btnBackHub" href="../hub.html">กลับ HUB</a>
+      <div class="row">
+        <button id="btnStart" class="btn btnPrimary" type="button">เริ่มเล่น</button>
+        <button class="btn btnGhost btnBackHub" type="button">กลับ HUB</button>
       </div>
 
-      <div class="fineprint">
-        โหมดวิจัย: ใส่ <code>&run=research&seed=...</code> • Kids: <code>&kids=1</code> • เวลา: <code>&time=70</code>
+      <div class="small">
+        * โหมดวิจัย: ใส่ <code>&run=research</code> และ <code>&seed=...</code> (ระบบจะ deterministic)
       </div>
     </div>
-  </div>
+  </section>
 
   <!-- HUD -->
-  <div class="hud">
-    <div class="hud-row top">
-      <div class="stat">Score <b id="stat-score">0</b></div>
-      <div class="stat">Combo <b id="stat-combo">0</b></div>
-      <div class="stat">Miss <b id="stat-miss">0</b></div>
-      <div class="stat">Time <b id="stat-time">0</b></div>
-      <div class="stat grade">Grade <b id="stat-grade">C</b></div>
-    </div>
-
-    <div class="hud-row mid">
-      <div class="panel quest">
-        <div class="qline" id="quest-line1">Stage 1/3: ...</div>
-        <div class="qline" id="quest-line2"></div>
-        <div class="qline" id="quest-line3"></div>
-        <div class="qline" id="quest-line4"></div>
-      </div>
-
-      <div class="panel water">
-        <div class="water-title">Water</div>
-        <div class="waterbar">
-          <div class="fill" id="water-bar" style="width:50%"></div>
+  <aside class="hud" aria-label="HUD">
+    <div class="hudTop">
+      <div class="statCard">
+        <div class="statRow">
+          <div class="stat">
+            <div class="k">SCORE</div>
+            <div class="v" id="stat-score">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">COMBO</div>
+            <div class="v" id="stat-combo">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">MISS</div>
+            <div class="v" id="stat-miss">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">TIME</div>
+            <div class="v"><span id="stat-time">0</span>s</div>
+          </div>
+          <div class="stat">
+            <div class="k">GRADE</div>
+            <div class="v" id="stat-grade">C</div>
+          </div>
         </div>
-        <div class="watermeta">
-          <span><b id="water-pct">50</b>%</span>
-          <span>Zone: <b id="water-zone">GREEN</b></span>
+
+        <div class="subRow">
+          <div class="mini">
+            <span class="tag">STORM</span>
+            <b id="storm-left">0</b>s
+          </div>
+          <div class="mini">
+            <span class="tag">SHIELD</span>
+            <b id="shield-count">0</b>
+          </div>
         </div>
       </div>
 
-      <div class="panel mini">
-        <div class="mini-title">Storm</div>
-        <div class="mini-meta">Left: <b id="storm-left">0</b>s</div>
-        <div class="mini-meta">Shield: <b id="shield-count">0</b></div>
+      <!-- Water panel (engine updates these ids) -->
+      <div class="waterCard">
+        <div class="waterHead">
+          <div class="waterTitle">Water</div>
+          <div class="waterMeta"><b id="water-pct">50</b>% • <span id="water-zone">GREEN</span></div>
+        </div>
+        <div class="waterBar">
+          <div id="water-bar" class="waterFill" style="width:50%"></div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Playfields -->
-  <div id="playfield" class="playfield">
-    <div id="hydration-layer" class="layer"></div>
-  </div>
-
-  <!-- Cardboard split playfield -->
-  <div id="cbPlayfield" class="cbPlayfield">
-    <div class="cbCol"><div id="hydration-layerL" class="layer"></div></div>
-    <div class="cbCol"><div id="hydration-layerR" class="layer"></div></div>
-  </div>
-
-  <!-- Result Summary -->
-  <div id="resultBackdrop" class="resultBackdrop" hidden>
-    <div class="resultCard">
-      <div class="resultTitle">ผลการเล่น</div>
-
-      <div class="resultGrid">
-        <div class="rItem">Score <b id="rScore">0</b></div>
-        <div class="rItem">Grade <b id="rGrade">C</b></div>
-        <div class="rItem">Accuracy <b id="rAcc">0%</b></div>
-        <div class="rItem">ComboMax <b id="rComboMax">0</b></div>
-        <div class="rItem">Miss <b id="rMiss">0</b></div>
-        <div class="rItem">Goals <b id="rGoals">0/0</b></div>
-        <div class="rItem">Minis <b id="rMinis">0/0</b></div>
-        <div class="rItem">GREEN <b id="rGreen">0s</b></div>
-        <div class="rItem">Streak <b id="rStreak">0</b></div>
-        <div class="rItem">Storm <b id="rStormCycles">0</b></div>
-        <div class="rItem">Pass <b id="rStormOk">0</b></div>
-        <div class="rItem">Rate <b id="rStormRate">0%</b></div>
-      </div>
-
-      <div class="resultTier" id="rTier">Tier: Beginner</div>
-      <pre class="resultTips" id="rTips"></pre>
-      <div class="resultNext">Next: <b id="rNext"></b></div>
-
-      <div class="resultActions">
-        <button id="btnRetry" class="btn primary">เล่นอีกครั้ง</button>
-        <button id="btnCopyJSON" class="btn ghost">Copy JSON</button>
-        <button id="btnDownloadCSV" class="btn ghost">Download CSV</button>
-        <button class="btn ghost btnBackHub">กลับ HUB</button>
-        <button id="btnCloseSummary" class="btn danger">ปิด</button>
+    <!-- Quest panel -->
+    <div class="questCard">
+      <div class="questTitle">Mission</div>
+      <div class="questLines">
+        <div id="quest-line1" class="q1">Stage 1/3…</div>
+        <div id="quest-line2" class="q2">…</div>
+        <div id="quest-line3" class="q3">…</div>
+        <div id="quest-line4" class="q4">…</div>
       </div>
     </div>
-  </div>
+  </aside>
 
+  <!-- RESULTS / SUMMARY -->
+  <section id="resultBackdrop" class="resultBackdrop" hidden>
+    <div class="resultPanel">
+      <div class="resultTop">
+        <div class="resultTitle">สรุปผล</div>
+        <div class="resultTier" id="rTier">Tier: -</div>
+      </div>
+
+      <div class="grid">
+        <div class="cell"><div class="k">Score</div><div class="v" id="rScore">0</div></div>
+        <div class="cell"><div class="k">Grade</div><div class="v" id="rGrade">C</div></div>
+        <div class="cell"><div class="k">Accuracy</div><div class="v" id="rAcc">0%</div></div>
+        <div class="cell"><div class="k">Combo Max</div><div class="v" id="rComboMax">0</div></div>
+
+        <div class="cell"><div class="k">Miss</div><div class="v" id="rMiss">0</div></div>
+        <div class="cell"><div class="k">Goals</div><div class="v" id="rGoals">0/0</div></div>
+        <div class="cell"><div class="k">Mini</div><div class="v" id="rMinis">0/0</div></div>
+        <div class="cell"><div class="k">GREEN Hold</div><div class="v" id="rGreen">0.0s</div></div>
+
+        <div class="cell"><div class="k">Streak Max</div><div class="v" id="rStreak">0</div></div>
+        <div class="cell"><div class="k">Storm Cycles</div><div class="v" id="rStormCycles">0</div></div>
+        <div class="cell"><div class="k">Storm OK</div><div class="v" id="rStormOk">0</div></div>
+        <div class="cell"><div class="k">Storm Rate</div><div class="v" id="rStormRate">0%</div></div>
+      </div>
+
+      <div class="tips">
+        <div class="k">Tips</div>
+        <pre id="rTips" class="pre">-</pre>
+      </div>
+
+      <div class="next">
+        <div class="k">Next</div>
+        <div id="rNext" class="v">-</div>
+      </div>
+
+      <div class="btnRow">
+        <button id="btnRetry" class="btn btnPrimary" type="button">เล่นอีกครั้ง</button>
+        <button class="btn btnGhost btnBackHub" type="button">กลับ HUB</button>
+        <button id="btnCopyJSON" class="btn btnSoft" type="button">Copy JSON</button>
+        <button id="btnDownloadCSV" class="btn btnSoft" type="button">Download CSV</button>
+        <button id="btnCloseSummary" class="btn btnGhost" type="button">ปิด</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // start + back hub wiring (safe.js listens for hha:start)
+    (function(){
+      const qs=(k,d=null)=>{ try{return new URL(location.href).searchParams.get(k)??d;}catch(_){return d;} };
+      const hub = String(qs('hub','../hub.html')||'../hub.html');
+      document.querySelectorAll('.btnBackHub').forEach(b=>{
+        b.addEventListener('click', ()=> location.href = hub);
+      });
+
+      const ov = document.getElementById('startOverlay');
+      const btn = document.getElementById('btnStart');
+      btn?.addEventListener('click', ()=>{
+        if (ov) ov.classList.add('hide');
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      });
+
+      // If overlay hidden by CSS/layout, still start
+      setTimeout(()=>{
+        const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
+        if (hidden) window.dispatchEvent(new CustomEvent('hha:start'));
+      }, 800);
+    })();
+  </script>
 </body>
 </html>
