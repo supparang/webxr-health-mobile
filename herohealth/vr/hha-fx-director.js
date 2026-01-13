@@ -1,354 +1,445 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (Shared for ALL games)
-// ✅ Rules (default):
-//    - timeLeftSec <= 30  => STORM
-//    - miss >= 4          => BOSS
-//    - miss >= 5          => RAGE
-// ✅ Boss model (optional): HP by diff 10/12/14, Phase2 lasts 6s
-// ✅ Adds body classes: fx-storm, fx-boss, fx-rage, fx-lowtime, fx-hit-good, fx-hit-bad, fx-block, fx-mini, fx-end
-// ✅ Hooks:
-//    - listens: hha:time, hha:judge, quest:update, hha:end, hha:log
-//    - exposes: window.HHA_FX.setBossHP(hp), window.HHA_FX.hitBoss(dmg=1), window.HHA_FX.reset()
-// Config (optional):
-//    window.HHA_FX_CFG = {
-//      stormAtSec: 30,
-//      bossAtMiss: 4,
-//      rageAtMiss: 5,
-//      lowTimeAtSec: 10,
-//      pulseMs: 160,
-//      bossHP: { easy:10, normal:12, hard:14 },
-//      bossPhase2Sec: 6,
-//      bossDmgPerGood: 1,
-//      bossHitFxEvery: 1, // 1 = every hit
-//    }
+// HHA Global FX Director — ULTRA (PRODUCTION)
+// ✅ Standard FX for ALL games via HHA events
+// ✅ Injects minimal CSS (works even if game CSS missing)
+// ✅ Uses Particles (../vr/particles.js) when present
+// ✅ Listens on both window + document for robustness
+// ✅ Storm / Boss / Rage hooks (supports GoodJunk rules):
+//    - timeLeft <= 30s => storm start
+//    - miss >= 4 => boss start
+//    - miss >= 5 => rage start
+// ✅ Supports boss HP profile (10/12/14) + phase2 6s (via detail)
+// Events consumed (any of these sources ok):
+// - hha:judge   detail: {type/kind/result,label,x,y,combo,deltaMiss, ...}
+// - hha:score   detail: {score,delta,add,value,x,y}
+// - hha:time    detail: {t,timeLeftSec,sec}
+// - hha:miss    detail: {x,y}
+// - hha:storm   detail: {on:boolean, phase?, intensity?}
+// - hha:boss    detail: {on:boolean, hp?, hpMax?, phase?, rage?}
+// - hha:end     detail: {grade,reason}
+// - hha:celebrate detail: {kind}
+// Optional helper: window.HHA_FX_TEST()
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document;
-  if(!DOC || root.__HHA_FX_DIRECTOR__) return;
-  root.__HHA_FX_DIRECTOR__ = true;
+  const ROOT = window;
+  const DOC  = document;
+  if(!DOC || ROOT.__HHA_FX_DIRECTOR__) return;
+  ROOT.__HHA_FX_DIRECTOR__ = true;
 
-  const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
-  const now = ()=> performance.now();
+  const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
+  const num = (v)=> { v = Number(v); return Number.isFinite(v) ? v : null; };
 
-  const CFG = Object.assign({
-    stormAtSec: 30,
-    bossAtMiss: 4,
-    rageAtMiss: 5,
-    lowTimeAtSec: 10,
-    pulseMs: 160,
+  // ---------- inject minimal CSS ----------
+  (function injectCss(){
+    const id = 'hha-fx-director-style';
+    if (DOC.getElementById(id)) return;
 
-    bossHP: { easy:10, normal:12, hard:14 },
-    bossPhase2Sec: 6,
-    bossDmgPerGood: 1,
-    bossHitFxEvery: 1,
-  }, root.HHA_FX_CFG || {});
+    const st = DOC.createElement('style');
+    st.id = id;
+    st.textContent = `
+      .hha-fx-vignette{
+        position:fixed; inset:-20px; pointer-events:none; z-index:9998;
+        opacity:0; transition: opacity 140ms ease;
+        filter: blur(.2px);
+      }
+      .hha-fx-vignette::before{
+        content:""; position:absolute; inset:0;
+        background: radial-gradient(circle at 50% 50%,
+          rgba(0,0,0,0) 45%,
+          rgba(0,0,0,.28) 72%,
+          rgba(0,0,0,.62) 100%);
+      }
 
-  const B = DOC.body;
+      body.fx-hit-good .hha-fx-vignette{ opacity:.20; }
+      body.fx-hit-bad  .hha-fx-vignette{ opacity:.38; }
+      body.fx-miss     .hha-fx-vignette{ opacity:.34; }
+      body.fx-storm    .hha-fx-vignette{ opacity:.26; }
+      body.fx-boss     .hha-fx-vignette{ opacity:.30; }
+      body.fx-rage     .hha-fx-vignette{ opacity:.44; }
 
-  // -------- state --------
-  const S = {
-    timeLeftSec: null,
-    miss: 0,
-    diff: 'normal',
-    runMode: 'play',
-    view: null,
+      /* subtle kick */
+      body.fx-kick{ animation: hhaKick 110ms ease; }
+      @keyframes hhaKick{
+        0%{ transform: translate3d(0,0,0); }
+        40%{ transform: translate3d(0.9px,-0.9px,0); }
+        100%{ transform: translate3d(0,0,0); }
+      }
 
-    // boss model (optional)
-    bossActive: false,
-    bossRage: false,
-    bossHP: 0,
-    bossHPMax: 0,
-    bossPhase: 1,
-    bossPhase2Left: 0,
+      /* storm wobble */
+      body.fx-storm-wobble{ animation: hhaStormWobble 420ms ease; }
+      @keyframes hhaStormWobble{
+        0%{ transform: translate3d(0,0,0); }
+        30%{ transform: translate3d(-1px,1px,0); }
+        60%{ transform: translate3d(1px,-1px,0); }
+        100%{ transform: translate3d(0,0,0); }
+      }
 
-    // rate limits
-    lastPulseAt: 0,
-    lastJudgeAt: 0,
-    lastStormBeatAt: 0,
-  };
+      /* rage pulse */
+      body.fx-rage-pulse{ animation: hhaRagePulse 520ms ease; }
+      @keyframes hhaRagePulse{
+        0%{ filter:none; }
+        40%{ filter: contrast(1.08) brightness(1.06) saturate(1.08); }
+        100%{ filter:none; }
+      }
 
-  // -------- helpers --------
-  function setCls(name,on){
-    try{ B.classList.toggle(name, !!on); }catch(_){}
-  }
-  function pulse(name, ms){
-    ms = Math.max(60, Number(ms)||CFG.pulseMs);
-    const t = now();
-    // rate limit pulses per-class
-    if(t - S.lastPulseAt < 55) return;
-    S.lastPulseAt = t;
+      /* end blink */
+      body.fx-endblink{ animation: hhaEndBlink 720ms ease; }
+      @keyframes hhaEndBlink{
+        0%{ filter:none; }
+        30%{ filter: brightness(1.16) contrast(1.05); }
+        100%{ filter:none; }
+      }
 
+      /* tiny status chip (optional) */
+      .hha-fx-status{
+        position:fixed;
+        left: calc(10px + env(safe-area-inset-left, 0px));
+        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        z-index:9999;
+        pointer-events:none;
+        font: 900 11px/1 system-ui;
+        color: rgba(226,232,240,.9);
+        background: rgba(2,6,23,.55);
+        border: 1px solid rgba(148,163,184,.18);
+        padding: 8px 10px;
+        border-radius: 999px;
+        opacity:0;
+        transform: translateY(8px);
+        transition: opacity 160ms ease, transform 160ms ease;
+      }
+      body.fx-show-status .hha-fx-status{
+        opacity:1; transform: translateY(0);
+      }
+    `;
+    DOC.head.appendChild(st);
+
+    const vg = DOC.createElement('div');
+    vg.className = 'hha-fx-vignette';
+    DOC.body.appendChild(vg);
+
+    const status = DOC.createElement('div');
+    status.className = 'hha-fx-status';
+    status.id = 'hhaFxStatus';
+    status.textContent = '';
+    DOC.body.appendChild(status);
+  })();
+
+  // ---------- helpers ----------
+  function addBodyCls(c, ms){
     try{
-      B.classList.add(name);
-      setTimeout(()=>{ try{ B.classList.remove(name); }catch(_){ } }, ms);
+      DOC.body.classList.add(c);
+      setTimeout(()=>DOC.body.classList.remove(c), ms||180);
     }catch(_){}
   }
-
-  function readQs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  function setStatus(text, ms){
+    const el = DOC.getElementById('hhaFxStatus');
+    if(!el) return;
+    el.textContent = String(text||'');
+    DOC.body.classList.add('fx-show-status');
+    setTimeout(()=>DOC.body.classList.remove('fx-show-status'), ms||680);
   }
 
-  function inferDiff(){
-    const d = String(readQs('diff','normal')||'normal').toLowerCase();
-    if(d==='easy'||d==='hard'||d==='normal') return d;
-    return 'normal';
+  function particles(){
+    return ROOT.Particles || ROOT.GAME_MODULES?.Particles || null;
   }
 
-  function ensureBossHP(){
-    const map = CFG.bossHP || {easy:10,normal:12,hard:14};
-    const hp = Number(map[S.diff] ?? map.normal ?? 12) || 12;
-    S.bossHPMax = hp;
-    if(!S.bossHP) S.bossHP = hp;
+  function pickXY(detail){
+    const d = detail || {};
+    const x = num(d.x) ?? num(d.px) ?? num(d.clientX) ?? num(d.cx);
+    const y = num(d.y) ?? num(d.py) ?? num(d.clientY) ?? num(d.cy);
+    if (x != null && y != null) return { x, y };
+    return { x: innerWidth/2, y: innerHeight/2 };
   }
 
-  function enterStorm(on){
-    setCls('fx-storm', on);
-    if(on){
-      // slight vignette for tension (if Particles supports)
-      try{ root.Particles?.vignette?.(true, 1); }catch(_){}
-    }else{
-      try{ root.Particles?.vignette?.(false, 1); }catch(_){}
-    }
+  function pickType(detail){
+    const d = detail || {};
+    const t = (d.type || d.kind || d.result || d.judge || d.hitType || '').toString().toLowerCase();
+    if (t.includes('perfect')) return 'perfect';
+    if (t.includes('good') || t.includes('correct') || t.includes('hitgood')) return 'good';
+    if (t.includes('bad')  || t.includes('junk') || t.includes('wrong')  || t.includes('hitjunk')) return 'bad';
+    if (t.includes('miss') || t.includes('expire')) return 'miss';
+    if (t.includes('block')|| t.includes('guard')  || t.includes('shield')) return 'block';
+    return t || 'good';
   }
 
-  function enterBoss(on){
-    S.bossActive = !!on;
-    setCls('fx-boss', on);
-    if(on){
-      ensureBossHP();
-      // boss start boom
-      try{ root.Particles?.burstAt?.(DOC.documentElement.clientWidth/2, DOC.documentElement.clientHeight*0.22, 'bad'); }catch(_){}
-      pulse('fx-boss-in', 260);
-    }else{
-      S.bossPhase = 1;
-      S.bossPhase2Left = 0;
-      S.bossHP = 0;
-      S.bossHPMax = 0;
-      setCls('fx-boss-p2', false);
-      setCls('fx-boss-dead', false);
-    }
+  // small rate-limit to avoid flicker storms on mobile
+  let lastPing = 0;
+  function ping(kind){
+    const t = performance.now();
+    if (t - lastPing < 70) return;
+    lastPing = t;
+    const P = particles();
+    if (P?.screenPing) P.screenPing(kind, 140);
   }
 
-  function enterRage(on){
-    S.bossRage = !!on;
-    setCls('fx-rage', on);
-    if(on){
-      try{ root.Particles?.vignette?.(true, 3); }catch(_){}
-      pulse('fx-rage-in', 260);
-    }else{
-      // if boss still active, keep some vignette
-      try{ root.Particles?.vignette?.(S.bossActive || (S.timeLeftSec!=null && S.timeLeftSec<=CFG.stormAtSec), S.bossActive?2:1); }catch(_){}
-    }
+  function fxPop(x,y,text,cls,opts){
+    const P = particles();
+    if (P?.popText) P.popText(x,y,text,cls,opts);
+  }
+  function fxBurst(x,y,kind,opts){
+    const P = particles();
+    if (P?.burstAt) P.burstAt(x,y,kind,opts);
+  }
+  function fxRing(x,y,kind,opts){
+    const P = particles();
+    if (P?.ringPulse) P.ringPulse(x,y,kind,opts);
+  }
+  function fxCelebrate(kind,opts){
+    const P = particles();
+    if (P?.celebrate) P.celebrate(kind,opts);
   }
 
-  function applyTimeFX(){
-    const t = S.timeLeftSec;
-    if(t == null) return;
-
-    // low time (<=10) purely visual (separate from storm)
-    setCls('fx-lowtime', t <= CFG.lowTimeAtSec);
-
-    // storm
-    enterStorm(t <= CFG.stormAtSec);
-
-    // heartbeat beat for storm (visual tick)
-    if(t <= CFG.stormAtSec){
-      const nt = now();
-      if(nt - S.lastStormBeatAt > (t<=10 ? 520 : 760)){
-        S.lastStormBeatAt = nt;
-        pulse('fx-storm-beat', 140);
-      }
-    }
-  }
-
-  function applyMissFX(){
-    // boss trigger
-    if(!S.bossActive && S.miss >= CFG.bossAtMiss){
-      enterBoss(true);
-    }
-    // rage trigger
-    if(!S.bossRage && S.miss >= CFG.rageAtMiss){
-      enterRage(true);
-    }
-  }
-
-  // -------- boss damage model (optional hook) --------
-  function hitBoss(dmg=1){
-    if(!S.bossActive) return;
-    ensureBossHP();
-
-    dmg = Math.max(0, Number(dmg)||1);
-    S.bossHP = clamp(S.bossHP - dmg, 0, S.bossHPMax);
-
-    // hit feedback
-    pulse('fx-boss-hit', 120);
-
-    // Phase2 when HP low (<= 40%) => lasts 6s
-    if(S.bossPhase === 1 && S.bossHPMax > 0 && (S.bossHP / S.bossHPMax) <= 0.40){
-      S.bossPhase = 2;
-      S.bossPhase2Left = CFG.bossPhase2Sec;
-      setCls('fx-boss-p2', true);
-      pulse('fx-boss-p2-in', 220);
-      try{ root.Particles?.burstAt?.(DOC.documentElement.clientWidth/2, DOC.documentElement.clientHeight*0.22, 'diamond'); }catch(_){}
-    }
-
-    // dead
-    if(S.bossHP <= 0){
-      setCls('fx-boss-dead', true);
-      pulse('fx-boss-dead', 320);
-      try{ root.Particles?.celebrate?.('boss'); }catch(_){}
-      // keep class for a moment then exit boss mode
-      setTimeout(()=> enterBoss(false), 900);
-    }
-  }
-
-  function setBossHP(hp){
-    S.bossHP = Math.max(0, Number(hp)||0);
-    S.bossHPMax = Math.max(S.bossHPMax, S.bossHP);
-  }
-
-  // -------- event handlers --------
-  function onTime(ev){
-    const d = ev?.detail || {};
-    const t = Number(d.t);
-    if(Number.isFinite(t)){
-      S.timeLeftSec = t;
-      applyTimeFX();
-      // phase2 countdown (boss)
-      if(S.bossActive && S.bossPhase === 2 && S.bossPhase2Left > 0){
-        // decrease roughly by delta? we only have absolute time, so do coarse tick
-        S.bossPhase2Left = Math.max(0, S.bossPhase2Left - 0.25);
-        if(S.bossPhase2Left <= 0){
-          // phase2 ends but boss continues
-          setCls('fx-boss-p2', false);
-          S.bossPhase = 1; // allow re-enter? keep simple: drop to phase1 visuals
-        }
-      }
-    }
-  }
-
-  function onJudge(ev){
-    const d = ev?.detail || {};
-    const label = String(d.label || '').toLowerCase();
-    const t = now();
-    if(t - S.lastJudgeAt < 35) return;
-    S.lastJudgeAt = t;
-
-    if(label.includes('good') || label.includes('perfect') || label.includes('nice')){
-      pulse('fx-hit-good', 120);
-      // optional: boss takes damage when player hits good during boss/rage
-      if(S.bossActive){
-        hitBoss(CFG.bossDmgPerGood || 1);
-      }
-      return;
-    }
-    if(label.includes('oops') || label.includes('miss') || label.includes('bad')){
-      pulse('fx-hit-bad', 140);
-      return;
-    }
-    if(label.includes('block')){
-      pulse('fx-block', 120);
-      return;
-    }
-    if(label.includes('mini')){
-      pulse('fx-mini', 240);
-      try{ root.Particles?.celebrate?.('mini'); }catch(_){}
-      return;
-    }
-    if(label.includes('goal')){
-      pulse('fx-goal', 220);
-      return;
-    }
-  }
-
-  function onLog(ev){
-    // allow game to feed miss changes via hha:log {type:'miss', value:n}
-    const d = ev?.detail || {};
-    if(d && d.type === 'miss'){
-      const m = Number(d.value);
-      if(Number.isFinite(m)){
-        S.miss = Math.max(0, Math.floor(m));
-        applyMissFX();
-      }
-    }
-    // allow explicit mode info
-    if(d && d.type === 'meta'){
-      if(d.diff) S.diff = String(d.diff).toLowerCase();
-      if(d.runMode) S.runMode = String(d.runMode).toLowerCase();
-    }
-  }
-
-  function onEnd(){
-    setCls('fx-end', true);
-    pulse('fx-end-in', 380);
-    try{ root.Particles?.celebrate?.('end'); }catch(_){}
-    setTimeout(()=> setCls('fx-end', false), 1600);
-    // soften overlays
-    try{ root.Particles?.vignette?.(false, 1); }catch(_){}
-  }
-
-  function onQuestUpdate(ev){
-    // no heavy logic, but gives consistent tiny pulse
-    const d = ev?.detail || {};
-    if(d && d.mini && d.mini.done){
-      pulse('fx-mini', 220);
-    }
-  }
-
-  // -------- init --------
-  function init(){
-    S.diff = inferDiff();
-    S.runMode = String(readQs('run','play')||'play').toLowerCase();
-
-    // allow view from body dataset (boot may set)
-    S.view = DOC.body?.dataset?.view || readQs('view', null);
-
-    // listen events
-    root.addEventListener('hha:time', onTime, { passive:true });
-    root.addEventListener('hha:judge', onJudge, { passive:true });
-    root.addEventListener('quest:update', onQuestUpdate, { passive:true });
-    root.addEventListener('hha:end', onEnd, { passive:true });
-    root.addEventListener('hha:log', onLog, { passive:true });
-
-    // initial FX reset
-    setCls('fx-storm', false);
-    setCls('fx-boss', false);
-    setCls('fx-rage', false);
-    setCls('fx-lowtime', false);
-    setCls('fx-end', false);
-  }
-
-  // public hooks for games
-  root.HHA_FX = {
-    reset(){
-      enterStorm(false);
-      enterBoss(false);
-      enterRage(false);
-      setCls('fx-lowtime', false);
-      setCls('fx-end', false);
-    },
-    setMiss(m){
-      S.miss = Math.max(0, Math.floor(Number(m)||0));
-      applyMissFX();
-    },
-    setTimeLeft(t){
-      S.timeLeftSec = Number(t);
-      applyTimeFX();
-    },
-    setBossHP,
-    hitBoss,
-    getState(){
-      return JSON.parse(JSON.stringify({
-        timeLeftSec:S.timeLeftSec, miss:S.miss, diff:S.diff,
-        bossActive:S.bossActive, bossRage:S.bossRage,
-        bossHP:S.bossHP, bossHPMax:S.bossHPMax,
-        bossPhase:S.bossPhase, bossPhase2Left:S.bossPhase2Left
-      }));
-    }
+  // ---------- state tracking (storm/boss/rage) ----------
+  const S = {
+    stormOn:false,
+    bossOn:false,
+    rageOn:false,
+    lastTimeSec: null,
+    lastMiss: 0,
+    bossHp: null,
+    bossHpMax: null,
+    bossPhase: 1,
+    bossPhase2Sec: 6,
   };
 
-  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init);
-  else init();
+  function applyStorm(on, detail){
+    if(!!on === !!S.stormOn) return;
+    S.stormOn = !!on;
+    if (S.stormOn){
+      addBodyCls('fx-storm', 1200);
+      addBodyCls('fx-storm-wobble', 460);
+      setStatus('⚡ STORM!', 720);
+      ping('warn');
+      fxRing(innerWidth/2, innerHeight*0.35, 'star', { size: 200 });
+    }else{
+      // no heavy cleanup; class is temporary anyway
+      setStatus('✅ Storm Clear', 520);
+    }
+  }
 
-})(window);
+  function applyBoss(on, detail){
+    if(!!on === !!S.bossOn) return;
+    S.bossOn = !!on;
+
+    if(S.bossOn){
+      addBodyCls('fx-boss', 1300);
+      setStatus('👹 BOSS!', 760);
+      ping('bad');
+      fxRing(innerWidth/2, innerHeight*0.35, 'violet', { size: 240 });
+
+      // accept hp profile from detail if provided
+      if(detail){
+        const hp = num(detail.hp);
+        const hpMax = num(detail.hpMax);
+        if(hp!=null) S.bossHp = hp;
+        if(hpMax!=null) S.bossHpMax = hpMax;
+        const ph = num(detail.phase);
+        if(ph!=null) S.bossPhase = ph;
+        const p2 = num(detail.phase2Sec);
+        if(p2!=null) S.bossPhase2Sec = clamp(p2, 3, 12);
+      }
+    }else{
+      setStatus('✅ Boss Down', 700);
+      fxCelebrate('win', { count: 18 });
+    }
+  }
+
+  function applyRage(on){
+    if(!!on === !!S.rageOn) return;
+    S.rageOn = !!on;
+    if(S.rageOn){
+      addBodyCls('fx-rage', 1600);
+      addBodyCls('fx-rage-pulse', 560);
+      setStatus('🔥 RAGE!', 800);
+      ping('bad');
+      fxRing(innerWidth/2, innerHeight*0.35, 'bad', { size: 260 });
+    }else{
+      setStatus('Rage off', 520);
+    }
+  }
+
+  // ---------- core event handlers ----------
+  function onJudge(detail){
+    const d = detail || {};
+    const { x, y } = pickXY(d);
+    const t = pickType(d);
+
+    const combo = Number(d.combo || d.comboNow || d.comboCount || 0);
+
+    if (t === 'good'){
+      addBodyCls('fx-hit-good', 170);
+      addBodyCls('fx-kick', 110);
+      ping('good');
+      fxRing(x,y,'good',{ size: 120 });
+      fxBurst(x,y,'good',{ scale: combo>=6 ? 1.25 : 1.0 });
+      if (combo >= 8) fxPop(x,y,'COMBO!','cyan',{ size: 18 });
+
+    } else if (t === 'perfect'){
+      addBodyCls('fx-hit-good', 200);
+      addBodyCls('fx-kick', 110);
+      ping('good');
+      fxRing(x,y,'shield',{ size: 160 });
+      fxBurst(x,y,'shield',{ scale: 1.3 });
+      fxPop(x,y,'PERFECT!','violet',{ size: 22 });
+      fxCelebrate('perfect',{ count: 14 });
+
+    } else if (t === 'bad'){
+      addBodyCls('fx-hit-bad', 230);
+      addBodyCls('fx-kick', 110);
+      ping('bad');
+      fxRing(x,y,'bad',{ size: 150 });
+      fxBurst(x,y,'bad',{ scale: 1.15 });
+
+    } else if (t === 'miss'){
+      addBodyCls('fx-miss', 230);
+      ping('bad');
+      fxRing(x,y,'bad',{ size: 170 });
+      fxPop(x,y,'MISS','bad',{ size: 18 });
+
+    } else if (t === 'block'){
+      addBodyCls('fx-hit-good', 150);
+      ping('good');
+      fxRing(x,y,'shield',{ size: 140 });
+      fxPop(x,y,'BLOCK','cyan',{ size: 16 });
+
+    } else {
+      addBodyCls('fx-hit-good', 140);
+      fxBurst(x,y,'good',{});
+    }
+
+    // optional label (if game sends)
+    if (d.label && typeof d.label === 'string' && d.label.length <= 18){
+      // keep light
+      fxPop(x, y-22, d.label, 'warn', { size: 14 });
+    }
+  }
+
+  function onScore(detail){
+    const d = detail || {};
+    const { x, y } = pickXY(d);
+    const sc = Number(d.delta ?? d.add ?? d.value ?? d.score ?? 0);
+
+    if (!Number.isFinite(sc) || sc === 0) return;
+    // positive score pop
+    const txt = sc > 0 ? `+${Math.round(sc)}` : `${Math.round(sc)}`;
+    fxPop(x, y, txt, sc>0 ? 'good' : 'bad', { size: Math.abs(sc) >= 50 ? 22 : 16 });
+  }
+
+  function onMiss(detail){
+    const d = detail || {};
+    const { x, y } = pickXY(d);
+    addBodyCls('fx-miss', 240);
+    ping('bad');
+    fxRing(x,y,'bad',{ size: 180 });
+  }
+
+  function onTime(detail){
+    const d = detail || {};
+    const t = num(d.t ?? d.timeLeftSec ?? d.sec);
+    if(t==null) return;
+
+    S.lastTimeSec = t;
+
+    // ✅ GoodJunk rule: <= 30s -> storm start (only once)
+    if(t <= 30 && !S.stormOn){
+      applyStorm(true, { phase: 1, intensity: 1 });
+      // also emit a canonical storm event for games that want it
+      try{ ROOT.dispatchEvent(new CustomEvent('hha:storm',{ detail:{ on:true, t } })); }catch(_){}
+      try{ DOC.dispatchEvent(new CustomEvent('hha:storm',{ detail:{ on:true, t } })); }catch(_){}
+    }
+
+    // tighten tension at 10..1 (light ping)
+    if(t <= 10 && t > 0){
+      // do not spam; only for integers
+      const ti = Math.ceil(t);
+      if (Math.abs(t - ti) < 0.03){
+        fxPop(innerWidth/2, innerHeight*0.22, `${ti}`, 'warn', { size: 18 });
+      }
+    }
+  }
+
+  function onBoss(detail){
+    // direct boss event from game (preferred)
+    const d = detail || {};
+    applyBoss(!!d.on, d);
+    if (d.rage != null) applyRage(!!d.rage);
+
+    // if hp provided, show micro status
+    const hp = num(d.hp);
+    const mx = num(d.hpMax);
+    const ph = num(d.phase);
+    if(hp!=null && mx!=null){
+      S.bossHp = hp; S.bossHpMax = mx;
+      if(ph!=null) S.bossPhase = ph;
+      setStatus(`👹 BOSS HP ${hp}/${mx} (P${S.bossPhase})`, 620);
+    }
+  }
+
+  function onStorm(detail){
+    const d = detail || {};
+    applyStorm(!!d.on, d);
+  }
+
+  function onEnd(detail){
+    addBodyCls('fx-endblink', 760);
+    fxCelebrate('win',{ count: 18 });
+    const grade = detail?.grade ? String(detail.grade) : '';
+    if(grade) fxPop(innerWidth/2, innerHeight*0.28, `GRADE ${grade}`, 'good', { size: 22 });
+  }
+
+  function onCelebrate(detail){
+    const k = (detail?.kind || 'win').toString().toLowerCase();
+    fxCelebrate(k, { count: k==='boss' ? 26 : 18 });
+  }
+
+  // ---------- auto boss/rage triggers (fallback for games that only emit miss) ----------
+  // If game doesn't emit hha:boss, we can still infer from miss count if provided.
+  function onScoreOrJudgeForMissInference(detail){
+    const d = detail || {};
+    const miss = num(d.miss ?? d.misses ?? d.missNow ?? d.missCount ?? d.totalMiss);
+    if(miss==null) return;
+
+    S.lastMiss = miss;
+
+    // ✅ GoodJunk rule: miss >= 4 => boss, miss >= 5 => rage
+    if(miss >= 4 && !S.bossOn){
+      applyBoss(true, { hpMax: 10, hp: 10, phase: 1, phase2Sec: 6 });
+      try{ ROOT.dispatchEvent(new CustomEvent('hha:boss',{ detail:{ on:true, hpMax:10, hp:10, phase:1, phase2Sec:6 } })); }catch(_){}
+    }
+    if(miss >= 5 && !S.rageOn){
+      applyRage(true);
+      try{ ROOT.dispatchEvent(new CustomEvent('hha:boss',{ detail:{ on:true, rage:true } })); }catch(_){}
+    }
+  }
+
+  // ---------- robust add listeners on both targets ----------
+  function listen(target, name, fn){
+    try{ target.addEventListener(name, (e)=> fn(e?.detail || {}), { passive:true }); }catch(_){}
+  }
+
+  const targets = [ROOT, DOC];
+  for(const T of targets){
+    listen(T, 'hha:judge', (d)=>{ onJudge(d); onScoreOrJudgeForMissInference(d); });
+    listen(T, 'hha:score', (d)=>{ onScore(d); onScoreOrJudgeForMissInference(d); });
+    listen(T, 'hha:miss',  onMiss);
+    listen(T, 'hha:time',  onTime);
+    listen(T, 'hha:storm', onStorm);
+    listen(T, 'hha:boss',  onBoss);
+    listen(T, 'hha:end',   onEnd);
+    listen(T, 'hha:celebrate', onCelebrate);
+  }
+
+  // ---------- dev probe ----------
+  ROOT.HHA_FX_TEST = function(){
+    const x = innerWidth/2, y = innerHeight/2;
+    ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'good', x, y, combo:8, label:'GOOD!' } }));
+    setTimeout(()=>ROOT.dispatchEvent(new CustomEvent('hha:score',{ detail:{ delta:25, x:x+80, y:y-10 } })), 120);
+    setTimeout(()=>ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'bad', x:x-80, y:y+20, label:'OOPS' } })), 260);
+    setTimeout(()=>ROOT.dispatchEvent(new CustomEvent('hha:time',{ detail:{ t:29 } })), 420); // storm
+    setTimeout(()=>ROOT.dispatchEvent(new CustomEvent('hha:boss',{ detail:{ on:true, hpMax:12, hp:12, phase:1, phase2Sec:6 } })), 620);
+    setTimeout(()=>ROOT.dispatchEvent(new CustomEvent('hha:boss',{ detail:{ on:true, rage:true } })), 820);
+    setTimeout(()=>ROOT.dispatchEvent(new CustomEvent('hha:end',{ detail:{ grade:'A', reason:'timeup' } })), 1200);
+  };
+
+})();
