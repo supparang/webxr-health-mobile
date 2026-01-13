@@ -1,167 +1,250 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (ULTRA + STRICT AUTO)
-// ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
-// ✅ Auto base view: pc / mobile
-// ✅ Loads ../vr/vr-ui.js automatically when WebXR is available (navigator.xr)
-// ✅ Auto-switch on Enter/Exit VR via hha:enter-vr / hha:exit-vr:
-//    - mobile -> cvr
-//    - desktop -> vr
-// ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
-// ✅ Debug keys: Space/Enter => hha:shoot
-// ✅ Boots engine: goodjunk.safe.js
+// GoodJunkVR Boot — PRODUCTION (AUTO VIEW, NO OVERRIDE)
+// ✅ Auto-detect view: pc / mobile / vr / cvr
+// ✅ "ห้าม override": ถ้า url มี view=... จะใช้เฉพาะตอนเป็น auto เท่านั้น
+// ✅ Sets body class: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Config vr-ui: lockPx + cooldownMs (global)
+// ✅ Calls safe engine: goodjunk.safe.js -> boot(payload)
+// ✅ Pass-through: run/diff/time/seed/hub/study params
+
+'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
-const DOC = document;
-const WIN = window;
+(function(){
+  const WIN = window;
+  const DOC = document;
 
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
+  const qs = (k, def=null)=>{
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  };
 
-function isMobileUA(){
-  const ua = String(navigator.userAgent || '').toLowerCase();
-  return /android|iphone|ipad|ipod/.test(ua);
-}
+  const clamp = (v,min,max)=>{
+    v = Number(v);
+    if(!Number.isFinite(v)) v = min;
+    return v < min ? min : (v > max ? max : v);
+  };
 
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.add('gj');
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  // ---------------------------------------------------------
+  // Auto view detect (NO OVERRIDE)
+  // ---------------------------------------------------------
+  function detectViewAuto(){
+    // 1) If WebXR immersive-vr supported -> prefer vr (headset)
+    // 2) If "cardboard-ish" (mobile + narrow + orientation landscape likely) -> cvr
+    // 3) Else pc/mobile
+    const ua = (navigator.userAgent || '').toLowerCase();
+    const isMobileUA = /android|iphone|ipad|ipod|mobile/.test(ua);
 
-  if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile');
+    const W = DOC.documentElement.clientWidth || innerWidth;
+    const H = DOC.documentElement.clientHeight || innerHeight;
+    const isLandscape = W >= H;
 
-  const r = DOC.getElementById('gj-layer-r');
-  if(r){
-    r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
-  }
-  DOC.body.dataset.view = view;
-}
+    // heuristic: mobile + landscape => likely cardboard/cvr
+    const likelyCVR = isMobileUA && isLandscape;
 
-function baseAutoView(){
-  return isMobileUA() ? 'mobile' : 'pc';
-}
+    // fallback base
+    let base = isMobileUA ? 'mobile' : 'pc';
+    if(likelyCVR) base = 'cvr';
 
-function ensureVrUiLoaded(){
-  if(!navigator.xr) return;
-  if(WIN.__HHA_VRUI_LOADED__) return;
-  WIN.__HHA_VRUI_LOADED__ = true;
-
-  const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
-  if(exists) return;
-
-  const s = DOC.createElement('script');
-  s.src = '../vr/vr-ui.js';
-  s.defer = true;
-  s.onerror = ()=> console.warn('[GoodJunkVR] vr-ui.js failed to load');
-  DOC.head.appendChild(s);
-}
-
-function bindVrAutoSwitch(){
-  const base = baseAutoView();
-
-  function onEnter(){
-    setBodyView(isMobileUA() ? 'cvr' : 'vr');
-    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
-  }
-  function onExit(){
-    setBodyView(base);
-    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
+    return base;
   }
 
-  WIN.addEventListener('hha:enter-vr', onEnter, { passive:true });
-  WIN.addEventListener('hha:exit-vr',  onExit,  { passive:true });
-
-  WIN.HHA_GJ_resetView = onExit;
-}
-
-function bindDebugKeys(){
-  WIN.addEventListener('keydown', (e)=>{
-    const k = e.key || '';
-    if(k === ' ' || k === 'Enter'){
-      try{ WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'key' } })); }catch(_){}
-    }
-  }, { passive:true });
-}
-
-function hudSafeMeasure(){
-  const root = DOC.documentElement;
-  const px = (n)=> Math.max(0, Math.round(Number(n)||0)) + 'px';
-  const h  = (el)=> { try{ return el ? el.getBoundingClientRect().height : 0; }catch{return 0;} };
-
-  function update(){
+  async function detectWebXRVR(){
     try{
+      const xr = navigator.xr;
+      if(!xr || !xr.isSessionSupported) return false;
+      const ok = await xr.isSessionSupported('immersive-vr');
+      return !!ok;
+    }catch(_){
+      return false;
+    }
+  }
+
+  // "ห้าม override": ถ้าผู้ใช้ใส่ view=pc/vr/cvr/mobile เราจะ "ไม่ใช้" เว้นแต่ view=auto
+  // (เพื่อกันการ override ที่ทำให้ระบบเพี้ยน)
+  function resolveView(){
+    const v = String(qs('view', 'auto') || 'auto').toLowerCase().trim();
+    if(v && v !== 'auto'){
+      // Do NOT allow override — stick to auto
+      return 'auto';
+    }
+    return 'auto';
+  }
+
+  function setBodyView(view){
+    const b = DOC.body;
+    if(!b) return;
+
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+
+    if(view === 'pc') b.classList.add('view-pc');
+    else if(view === 'vr') b.classList.add('view-vr');
+    else if(view === 'cvr') b.classList.add('view-cvr');
+    else b.classList.add('view-mobile');
+  }
+
+  // ---------------------------------------------------------
+  // Safe-area CSS vars (sat/sab etc.)
+  // ---------------------------------------------------------
+  function applySafeAreaVars(){
+    try{
+      const root = DOC.documentElement;
+      // --sat already from env(), but ensure numeric fallback exists
       const cs = getComputedStyle(root);
       const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
       const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
-
-      const topbar  = DOC.getElementById('gjTopbar') || DOC.querySelector('.gj-topbar');
-      const hudTop   = DOC.getElementById('gjHudTop');
-      const hudBot   = DOC.getElementById('gjHudBot');
-      const controls = DOC.querySelector('.hha-controls'); // optional
-
-      let topSafe = 0;
-      topSafe = Math.max(topSafe, h(topbar));
-      topSafe = Math.max(topSafe, h(hudTop));
-      topSafe += (14 + sat);
-
-      let bottomSafe = 0;
-      bottomSafe = Math.max(bottomSafe, h(hudBot));
-      bottomSafe = Math.max(bottomSafe, h(controls));
-      bottomSafe += (16 + sab);
-
-      const hudHidden = DOC.body.classList.contains('hud-hidden');
-      if(hudHidden){
-        topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
-        bottomSafe = Math.max(76 + sab, h(hudBot) + 10 + sab);
-      }
-
-      root.style.setProperty('--gj-top-safe', px(topSafe));
-      root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
+      const sal = parseFloat(cs.getPropertyValue('--sal')) || 0;
+      const sar = parseFloat(cs.getPropertyValue('--sar')) || 0;
+      root.style.setProperty('--sat', sat + 'px');
+      root.style.setProperty('--sab', sab + 'px');
+      root.style.setProperty('--sal', sal + 'px');
+      root.style.setProperty('--sar', sar + 'px');
     }catch(_){}
   }
 
-  WIN.addEventListener('resize', update, { passive:true });
-  WIN.addEventListener('orientationchange', update, { passive:true });
+  // ---------------------------------------------------------
+  // VR UI config (crosshair shooting)
+  // ---------------------------------------------------------
+  function configureVrUi(){
+    // You asked: Phase2-6s and HP 10/12/14 are in safe.js already.
+    // Here we only set crosshair feel.
+    WIN.HHA_VRUI_CONFIG = Object.assign({
+      lockPx: 28,
+      cooldownMs: 90
+    }, WIN.HHA_VRUI_CONFIG || {});
+  }
 
-  WIN.addEventListener('hha:view', ()=>{
-    setTimeout(update, 0);
-    setTimeout(update, 120);
-    setTimeout(update, 350);
-  }, { passive:true });
+  // ---------------------------------------------------------
+  // Payload builder
+  // ---------------------------------------------------------
+  function buildPayload(viewResolved){
+    const run  = String(qs('run','play')||'play').toLowerCase();
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const time = clamp(qs('time','80'), 20, 300);
+    const seed = qs('seed', null) ?? qs('ts', null) ?? null;
+    const hub  = qs('hub', null);
 
-  setTimeout(update, 0);
-  setTimeout(update, 120);
-  setTimeout(update, 350);
-  setInterval(update, 1200);
-}
+    // study passthrough
+    const studyId = qs('studyId', qs('study', null));
+    const phase = qs('phase', null);
+    const conditionGroup = qs('conditionGroup', qs('cond', null));
 
-function start(){
-  // STRICT AUTO BASE VIEW — never read ?view=
-  const view = baseAutoView();
-  setBodyView(view);
+    return {
+      view: viewResolved,
+      run,
+      diff,
+      time,
+      seed,
+      hub,
+      studyId,
+      phase,
+      conditionGroup
+    };
+  }
 
-  ensureVrUiLoaded();
-  bindVrAutoSwitch();
-  bindDebugKeys();
-  hudSafeMeasure();
+  // ---------------------------------------------------------
+  // Bossbar UI hooks (optional HTML element)
+  // ---------------------------------------------------------
+  function ensureBossbar(){
+    // If page already has it, keep it.
+    if(DOC.getElementById('gjBossbar')) return;
 
-  engineBoot({
-    view, // base view; becomes cvr/vr after enter
-    diff: qs('diff','normal'),
-    run: qs('run','play'),
-    time: qs('time','80'),
-    seed: qs('seed', null),
-    hub: qs('hub', null),
-    studyId: qs('studyId', qs('study', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('conditionGroup', qs('cond', null)),
-  });
-}
+    const el = DOC.createElement('div');
+    el.className = 'gj-bossbar';
+    el.id = 'gjBossbar';
+    el.setAttribute('aria-hidden','true');
+    el.innerHTML = `
+      <div class="wrap">
+        <div class="tag" id="gjBossTag">BOSS</div>
+        <div class="bar"><div class="fill" id="gjBossFill" style="width:100%"></div></div>
+        <div class="hp" id="gjBossHp">HP 0/0</div>
+      </div>
+    `;
+    DOC.body.appendChild(el);
 
-if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', start);
-else start();
+    // listen boss events from safe.js
+    const tag  = DOC.getElementById('gjBossTag');
+    const fill = DOC.getElementById('gjBossFill');
+    const hpEl = DOC.getElementById('gjBossHp');
+
+    function onBoss(ev){
+      try{
+        const d = ev?.detail || {};
+        const on = !!d.on;
+        const bar = DOC.getElementById('gjBossbar');
+        if(!bar) return;
+
+        if(!on){
+          bar.setAttribute('aria-hidden','true');
+          DOC.documentElement.style.setProperty('--gj-boss-hp', '1');
+          return;
+        }
+
+        bar.setAttribute('aria-hidden','false');
+
+        const hp = Number(d.hp ?? 0);
+        const hpMax = Math.max(1, Number(d.hpMax ?? 1));
+        const phase = Number(d.phase ?? 1);
+
+        const ratio = Math.max(0, Math.min(1, hp / hpMax));
+        DOC.documentElement.style.setProperty('--gj-boss-hp', String(ratio));
+
+        if(fill) fill.style.width = (ratio * 100).toFixed(1) + '%';
+        if(hpEl) hpEl.textContent = `HP ${hp}/${hpMax}`;
+
+        if(tag){
+          tag.textContent = phase === 2 ? 'BOSS · PHASE 2' : (d.rage ? 'BOSS · RAGE' : 'BOSS');
+          tag.classList.toggle('phase2', phase === 2 || !!d.rage);
+        }
+      }catch(_){}
+    }
+
+    WIN.addEventListener('hha:boss', onBoss, { passive:true });
+    DOC.addEventListener('hha:boss', onBoss, { passive:true });
+  }
+
+  // ---------------------------------------------------------
+  // Start
+  // ---------------------------------------------------------
+  async function start(){
+    applySafeAreaVars();
+    configureVrUi();
+    ensureBossbar();
+
+    const resolvedParam = resolveView(); // always 'auto' by design
+    let view = detectViewAuto();
+
+    // if headset VR supported -> mark as vr (auto)
+    const xrOk = await detectWebXRVR();
+    if(xrOk) view = 'vr';
+
+    setBodyView(view);
+
+    // update chip meta if exists
+    try{
+      const meta = DOC.getElementById('gjChipMeta');
+      if(meta){
+        meta.textContent = `view=${view} · run=${qs('run','play')} · diff=${qs('diff','normal')} · time=${qs('time','80')}`;
+      }
+    }catch(_){}
+
+    const payload = buildPayload(view);
+
+    // boot engine
+    try{
+      engineBoot(payload);
+    }catch(err){
+      console.error('[GoodJunkVR] boot failed', err);
+      alert('Boot error: ' + (err?.message || err));
+    }
+  }
+
+  // DOM ready
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', start, { once:true });
+  }else{
+    start();
+  }
+
+})();
