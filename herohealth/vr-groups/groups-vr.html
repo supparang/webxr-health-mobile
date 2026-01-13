@@ -1,3 +1,13 @@
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+GroupsVR Run (PC/Mobile/Cardboard)
+✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
+✅ PACK 13: Calibration helper (cVR) 2-step: recenter -> shoot test 3
+✅ PACK 14: Practice 15s (cVR) then auto start real run
+✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
+✅ Flush-hardened logging (?log=...)
+✅ Research ctx passthrough
+✅ Uses groups.safe.js (standalone engine)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -20,17 +30,18 @@
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>
+  <script src="./ai-hooks.js" defer></script>         <!-- ✅ C -->
   <script src="./effects-pack.js" defer></script>
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
 
-  <!-- ✅ Standalone engine -->
+  <!-- ✅ B: Standalone engine -->
   <script src="./groups.safe.js" defer></script>
 </head>
 
 <body class="view-mobile">
+
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
     <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
@@ -43,7 +54,6 @@
       <div class="pill"><span class="lbl">⏳ TIME</span><span id="vTime" class="val">90</span></div>
       <div class="pill"><span class="lbl">⭐ SCORE</span><span id="vScore" class="val">0</span></div>
       <div class="pill"><span class="lbl">🔥 COMBO</span><span id="vCombo" class="val">0</span></div>
-      <!-- ✅ เด็กเห็น “Hard Miss” เท่านั้น -->
       <div class="pill"><span class="lbl">❌ MISS</span><span id="vMiss" class="val">0</span></div>
     </div>
     <div class="hudRight">
@@ -137,7 +147,6 @@
         <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
         <div class="stat"><div class="k">Rank</div><div id="endRank" class="v">C</div></div>
         <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
-        <!-- ✅ เด็กเห็น Hard miss -->
         <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
       </div>
 
@@ -210,8 +219,7 @@
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
     $('vCombo').textContent = String(d.combo ?? 0);
-    // ✅ เด็กเห็น hard miss
-    $('vMiss').textContent  = String(d.missHard ?? d.misses ?? 0);
+    $('vMiss').textContent  = String(d.misses ?? 0);
   }, {passive:true});
 
   window.addEventListener('hha:time', (ev)=>{
@@ -273,41 +281,7 @@
     DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // ---------- Audio hooks ----------
-  function hookAudio(){
-    const A = window.GroupsVR && window.GroupsVR.Audio;
-    if (!A) return;
-
-    try{ A.unlock && A.unlock(); }catch{}
-
-    window.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail||{};
-      const k = String(d.kind||'').toLowerCase();
-      if (k==='good') A.good();
-      else if (k==='bad') A.bad();
-      else if (k==='boss') A.boss();
-      else if (k==='miss') A.bad();
-    }, {passive:true});
-
-    window.addEventListener('groups:progress', (ev)=>{
-      const d = ev.detail||{};
-      const kind = String(d.kind||'');
-      if (kind==='storm_on') A.storm();
-      if (kind==='boss_spawn') A.boss();
-      if (kind==='perfect_switch') A.good();
-    }, {passive:true});
-
-    let tmr = 0;
-    function tickLoop(){
-      clearTimeout(tmr);
-      const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
-      if (urgent) A.tick();
-      tmr = setTimeout(tickLoop, urgent ? 420 : 650);
-    }
-    tickLoop();
-  }
-
-  // ---------- Summary / History / Logger ----------
+  // ---------- Summary / Logger ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
@@ -322,9 +296,6 @@
       localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
     }catch{}
   }
-
-  let practiceActive = false;
-  let practiceDone = false;
 
   function buildBaseSummary(d, endIso){
     const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
@@ -355,11 +326,14 @@
     B && B(()=>lastSummary);
   }catch(_){}
 
+  let practiceActive = false;
+  let practiceDone = false;
+
   window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
-    // practice chain → auto start real run
+    // practice chain → auto start real run (ไม่เปิด overlay)
     if (practiceActive && !practiceDone){
       practiceDone = true;
       practiceActive = false;
@@ -379,7 +353,7 @@
     $('endScore').textContent = String(d.scoreFinal ?? 0);
     $('endRank').textContent  = String(d.grade ?? 'C');
     $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
-    $('endMiss').textContent  = String(d.missHard ?? d.misses ?? 0); // ✅ เด็กเห็น Hard miss
+    $('endMiss').textContent  = String(d.misses ?? 0);
 
     const hub = String(qs('hub','')||'');
     $('btnHub').style.display = hub ? 'inline-flex' : 'none';
@@ -393,7 +367,6 @@
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  // ✅ กลับ launcher
   $('btnBackLauncher').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
@@ -401,13 +374,6 @@
 
     const log = String(qs('log','')||'');
     if (log) u.searchParams.set('log', log);
-
-    const sp = new URL(location.href).searchParams;
-    sp.forEach((v,k)=>{
-      if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
-      if (k==='hub' || k==='log') return;
-      u.searchParams.set(k,v);
-    });
 
     location.href = u.toString();
   });
@@ -440,7 +406,7 @@
   }
 
   function getLayerEl(){
-    return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
+    return $('playLayer') || document.querySelector('.playLayer') || document.body;
   }
 
   function initViewHelper(view){
@@ -450,7 +416,7 @@
     }catch(_){}
   }
 
-  // ---------- Calibration 2-step (cVR) ----------
+  // ---------- Calibration (cVR) ----------
   const cal = { on:false, step:0, shots:0, done:false };
 
   function showCal(on){
@@ -491,7 +457,6 @@
 
   function startCalibrationIfNeeded(view, runMode){
     if (view !== 'cvr') return false;
-
     cal.on = true;
     cal.done = false;
     cal.shots = 0;
@@ -504,7 +469,6 @@
         detail:{ text:'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood:'neutral' }
       }));
     }catch(_){}
-
     return true;
   }
 
@@ -519,24 +483,11 @@
     if (cal.step !== 2) return;
     cal.shots = Math.min(3, (cal.shots|0) + 1);
     setCalStep(2);
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{ text:`Calibration ยิงแล้ว ${cal.shots}/3`, mood:'neutral' }
-      }));
-    }catch(_){}
   }, {passive:true});
 
   $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
     if (!cal.on) return;
-    if (cal.step === 1){
-      setCalStep(2);
-      try{
-        window.dispatchEvent(new CustomEvent('hha:coach', {
-          detail:{ text:'ต่อไป: ยิงทดสอบ 3 ครั้ง (แตะจอ) 🎯', mood:'neutral' }
-        }));
-      }catch(_){}
-      return;
-    }
+    if (cal.step === 1){ setCalStep(2); return; }
     if (cal.step === 2 && cal.shots >= 3){
       finishCalibration();
       waitForEngine((E)=> startAfterCalibration(E));
@@ -574,7 +525,7 @@
 
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
-    E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP, view:'cvr' });
+    E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
 
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
@@ -603,6 +554,7 @@
     E.setLayerEl(getLayerEl());
     E.start(diff, { runMode: run, diff, style, time, seed, view });
 
+    // ✅ AI hooks attach (safe)
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -617,15 +569,13 @@
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
 
     setView(view);
-    hookAudio();
     initViewHelper(view);
-
-    const practiceSec = getPracticeSec(view);
 
     const gated = startCalibrationIfNeeded(view, run);
     if (gated) return;
 
     waitForEngine((E)=>{
+      const practiceSec = getPracticeSec(view);
       if (view === 'cvr' && practiceSec > 0){
         const diff = String(qs('diff','normal')||'normal').toLowerCase();
         const style= String(qs('style','mix')||'mix').toLowerCase();
