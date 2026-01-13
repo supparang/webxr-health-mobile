@@ -1,12 +1,11 @@
-<!-- ======================================================
-     /herohealth/plate/plate-vr.html
-     Balanced Plate VR — RUN (PRODUCTION)
-     ✅ A-Frame minimal scene for Enter VR reliability
-     ✅ Uses: ./plate-vr.css
-     ✅ Loads: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-     ✅ Adds FX layers: #bossFx / #stormFx (matches CSS)
-     ✅ HHA Standard HUD + End overlay + Coach
-====================================================== -->
+<!-- === /herohealth/plate/plate-vr.html ===
+PlateVR RUN — PRODUCTION (HHA Standard)
+✅ A-Frame minimal scene (Enter VR reliability)
+✅ Uses ./plate-vr.css
+✅ Uses global: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+✅ Boots via ./plate.boot.js (imports ./plate.safe.js)
+✅ No launcher / no view menu (auto detect)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -28,7 +27,7 @@
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Boot -->
-  <script type="module" src="./plate.boot.js"></script>
+  <script type="module" src="./plate.boot.js" defer></script>
 </head>
 
 <body class="view-pc">
@@ -46,11 +45,7 @@
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
-    <!-- FX layers (match CSS; optional hooks) -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
-
-    <!-- HUD -->
+    <!-- HUD (pointer-events:none in CSS so it won't block targets) -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
         <div class="chip score">
@@ -86,7 +81,7 @@
         </div>
 
         <!-- MINI -->
-        <div class="qItem" id="miniItem" style="margin-top:8px;">
+        <div class="qItem" id="miniItem">
           <div class="qText">
             <div class="name" id="miniName">Mini Quest</div>
             <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
@@ -130,11 +125,12 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- NOTE:
-    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js will set view class and boot the engine.
+    - vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    - plate.boot.js auto-detects view + boots engine.
   -->
 </body>
 </html>
