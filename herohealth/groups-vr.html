@@ -1,3 +1,10 @@
+<!-- === C: /herohealth/groups-vr.html ===
+GroupsVR Launcher (ROOT)
+✅ Default: auto-detect view (pc/mobile)
+✅ Optional: choose view only when ?force=1 (เพื่อไม่ขัด “auto detect”)
+✅ Sends params -> ./vr-groups/groups-vr.html
+✅ Pass-through: hub, log, run, diff, style, time, seed, ai, practice
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -9,178 +16,314 @@
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.20); --text:#e5e7eb; --muted:#94a3b8;
-      --accent:#22c55e; --warn:#f59e0b; --violet:#a78bfa; --radius:22px; --pill:999px;
-      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box;}
-    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
-    body{
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
-        var(--bg);
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; width:100%; height:100%; overflow:hidden;
+      background: radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+                  radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
-    .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));}
+    .wrap{
+      position:fixed; inset:0;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      display:flex; align-items:center; justify-content:center;
+    }
     .card{
-      width:min(560px, 100%);
-      border-radius:28px;
-      background:rgba(2,6,23,.78);
-      border:1px solid var(--stroke);
-      box-shadow:0 24px 70px rgba(0,0,0,.55);
-      padding:18px;
-      backdrop-filter: blur(12px);
+      width:min(760px, 100%);
+      background: rgba(2,6,23,.78);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 26px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.55);
+      padding: 16px;
+      backdrop-filter: blur(10px);
     }
-    .title{font-weight:1000;font-size:22px;letter-spacing:.2px}
-    .sub{margin-top:6px;color:var(--muted);font-weight:800;font-size:13px;line-height:1.35}
-    .grid{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    .box{padding:12px;border-radius:18px;background:rgba(15,23,42,.60);border:1px solid rgba(148,163,184,.16);}
-    label{display:block;font-weight:900;font-size:12px;color:var(--muted);margin-bottom:6px}
-    select,input{width:100%;padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.55);color:var(--text);font-weight:900;}
-    .row{margin-top:12px;display:flex;gap:10px;}
-    .btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
-      padding:12px;border-radius:18px;border:1px solid rgba(148,163,184,.20);
-      background:rgba(15,23,42,.65);color:var(--text);font-weight:1000;cursor:pointer;}
-    .btn-strong{background:rgba(34,197,94,.20);border-color:rgba(34,197,94,.35);}
-    .btn-ghost{background:rgba(2,6,23,.40);}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.20);background:rgba(15,23,42,.55);font-weight:900;font-size:12px;color:var(--text);}
-    .meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
-    .hint{margin-top:10px;color:var(--muted);font-weight:800;font-size:12px}
+    .head{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      padding: 6px 6px 12px;
+    }
+    .title{ font-weight:1000; font-size:22px; letter-spacing:.2px; }
+    .sub{ color:var(--muted); font-weight:800; font-size:13px; margin-top:6px; line-height:1.35; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 12px;
+      border-radius: var(--pill);
+      background: rgba(15,23,42,.55);
+      border: 1px solid rgba(148,163,184,.18);
+      font-weight:900; font-size:12px;
+      color:var(--text);
+      white-space:nowrap;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      margin-top: 10px;
+    }
+    .box{
+      padding: 12px;
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.58);
+      border: 1px solid rgba(148,163,184,.16);
+    }
+    label{ display:block; font-weight:900; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    select,input{
+      width:100%;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      font-weight:900;
+      outline:none;
+    }
+    .row{
+      display:flex; gap:10px; margin-top: 12px;
+    }
+    .btn{
+      flex:1 1 auto;
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding: 12px 12px;
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      font-weight: 1000;
+      cursor:pointer;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn-strong{
+      background: rgba(34,197,94,.20);
+      border-color: rgba(34,197,94,.35);
+    }
+    .note{
+      margin-top: 10px;
+      color:var(--muted);
+      font-weight:800;
+      font-size:12px;
+      line-height:1.35;
+    }
+    @media (max-width: 760px){
+      .grid{ grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <div class="title">🥦 Food Groups VR</div>
-    <div class="sub">ยิงให้ถูก “หมู่ที่กำหนด” • เก็บ Power เพื่อสลับหมู่ • มี Storm + Boss</div>
-
-    <div class="meta">
-      <span class="pill" id="pillView">view: —</span>
-      <span class="pill" id="pillSeed">seed: —</span>
-    </div>
-
-    <div class="grid">
-      <div class="box">
-        <label>Run</label>
-        <select id="run">
-          <option value="play" selected>play</option>
-          <option value="research">research</option>
-        </select>
-      </div>
-      <div class="box">
-        <label>Difficulty</label>
-        <select id="diff">
-          <option value="easy">easy</option>
-          <option value="normal" selected>normal</option>
-          <option value="hard">hard</option>
-        </select>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <div>
+          <div class="title">🥦 Food Groups VR</div>
+          <div class="sub">
+            โหมดเล่นเป็นหลัก • โหมดวิจัยเก็บหลังบ้านแยกข้อมูลได้ <br/>
+            *ค่าเริ่มต้นจะ “auto-detect” โหมดอุปกรณ์ให้เอง*
+          </div>
+        </div>
+        <div class="pill">Detected: <span id="vDetected">—</span></div>
       </div>
 
-      <div class="box">
-        <label>Style</label>
-        <select id="style">
-          <option value="feel" selected>feel</option>
-          <option value="mix">mix</option>
-        </select>
-      </div>
-      <div class="box">
-        <label>Time (sec)</label>
-        <select id="time">
-          <option value="70">70</option>
-          <option value="90" selected>90</option>
-          <option value="110">110</option>
-        </select>
-      </div>
-    </div>
+      <div class="grid">
+        <div class="box">
+          <label>Run mode</label>
+          <select id="run">
+            <option value="play">PLAY</option>
+            <option value="research">RESEARCH</option>
+          </select>
+        </div>
 
-    <div class="row">
-      <button class="btn btn-strong" id="btnStart" type="button">🚀 เริ่มเลย</button>
-      <button class="btn" id="btnPractice" type="button">🎯 Practice 15s (cVR)</button>
-    </div>
-    <div class="row">
-      <button class="btn btn-ghost" id="btnHub" type="button">🏠 กลับ HUB</button>
-      <button class="btn btn-ghost" id="btnCopy" type="button">📋 Copy link</button>
-    </div>
+        <div class="box">
+          <label>Difficulty</label>
+          <select id="diff">
+            <option value="easy">EASY</option>
+            <option value="normal" selected>NORMAL</option>
+            <option value="hard">HARD</option>
+          </select>
+        </div>
 
-    <div class="hint">
-      Tip: ถ้าเข้าโหมด Cardboard (cVR) ระบบในหน้า run จะมี Calibration 2 ขั้น + Practice ก่อนเข้าเกมจริง
+        <div class="box">
+          <label>Style</label>
+          <select id="style">
+            <option value="mix" selected>MIX</option>
+            <option value="feel">FEEL</option>
+          </select>
+        </div>
+
+        <div class="box">
+          <label>Time (sec)</label>
+          <input id="time" type="number" min="30" max="180" value="90" />
+        </div>
+
+        <div class="box">
+          <label>AI (play only)</label>
+          <select id="ai">
+            <option value="0" selected>OFF</option>
+            <option value="1">ON</option>
+          </select>
+        </div>
+
+        <div class="box">
+          <label>Practice (cVR only)</label>
+          <select id="practice">
+            <option value="0" selected>OFF</option>
+            <option value="1">15s</option>
+          </select>
+        </div>
+
+        <div class="box" id="forceBox" style="display:none;">
+          <label>Force View (เฉพาะเมื่อ ?force=1)</label>
+          <select id="viewForce">
+            <option value="">AUTO</option>
+            <option value="pc">PC</option>
+            <option value="mobile">MOBILE</option>
+            <option value="cvr">CARDBOARD (cVR)</option>
+            <option value="vr">VR</option>
+          </select>
+        </div>
+
+        <div class="box">
+          <label>Seed (optional)</label>
+          <input id="seed" type="text" placeholder="ปล่อยว่าง = auto" />
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnStart" class="btn btn-strong" type="button">🚀 START</button>
+        <button id="btnHub" class="btn" type="button">🏠 ไป HUB</button>
+      </div>
+
+      <div class="note" id="note">
+        • ถ้าเล่น Cardboard: เปิดลิงก์นี้บนมือถือ + ใส่แว่น → ใช้ crosshair ยิง (แตะจอ) <br/>
+        • ถ้าต้อง “บังคับโหมด” (ทดสอบ): เพิ่มพารามิเตอร์ <b>?force=1</b> ใน URL แล้วจะมีตัวเลือก Force View
+      </div>
     </div>
   </div>
-</div>
 
 <script>
 (function(){
   'use strict';
-  const $ = (id)=>document.getElementById(id);
-  function qs(k, def=null){ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } }
+  const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
 
-  function detectView(){
-    // heuristic: mobile vs pc (cVR จะมาจาก view-helper + user เข้าจอแยกตาเอง)
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+
+  function isMobile(){
     const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width,screen.height) < 820);
-    return isMobile ? 'mobile' : 'pc';
-  }
-  function seedNow(){
-    const s = qs('seed','') || String(Date.now());
-    return String(s);
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (Math.min(screen.width, screen.height) <= 820);
   }
 
-  const view = qs('view','') || detectView();
-  const seed = seedNow();
-  $('pillView').textContent = 'view: ' + view;
-  $('pillSeed').textContent = 'seed: ' + seed;
+  async function detectView(){
+    // auto detect แบบ “ปลอดภัย”: pc/mobile เป็นหลัก
+    // (cvr/vr ต้องอาศัยผู้ใช้ตั้งเองผ่าน force=1 ถ้าจะทดสอบ)
+    let v = isMobile() ? 'mobile' : 'pc';
+    try{
+      if (navigator.xr && navigator.xr.isSessionSupported){
+        const ok = await navigator.xr.isSessionSupported('immersive-vr');
+        if (ok) v = isMobile() ? 'vr' : 'vr';
+      }
+    }catch(_){}
+    return v;
+  }
 
-  // hydrate defaults from URL if present
-  const run  = qs('run','play');  if (run) $('run').value = run;
-  const diff = qs('diff','normal'); if (diff) $('diff').value = diff;
-  const style= qs('style','feel'); if (style) $('style').value = style;
-  const time = qs('time','90'); if (time) $('time').value = time;
+  function applyParamsIntoUI(){
+    const run = String(qs('run','play')||'play');
+    const diff= String(qs('diff','normal')||'normal');
+    const style=String(qs('style','mix')||'mix');
+    const time= String(qs('time','90')||'90');
+    const ai  = String(qs('ai','0')||'0');
+    const practice = String(qs('practice','0')||'0');
+    const seed= String(qs('seed','')||'');
 
-  function buildRunUrl(practice){
+    $('run').value = (run==='research') ? 'research' : 'play';
+    $('diff').value = ['easy','normal','hard'].includes(diff) ? diff : 'normal';
+    $('style').value = ['mix','feel'].includes(style) ? style : 'mix';
+    $('time').value = String(Math.max(30, Math.min(180, Number(time)||90)));
+    $('ai').value = (ai==='1' || ai==='true') ? '1' : '0';
+    $('practice').value = (practice==='1') ? '1' : '0';
+    $('seed').value = seed;
+  }
+
+  function buildRunUrl(viewDetected){
     const u = new URL('./vr-groups/groups-vr.html', location.href);
-    u.searchParams.set('view', view);
+
+    const spIn = new URL(location.href).searchParams;
+    const hub = String(spIn.get('hub')||'');
+    const log = String(spIn.get('log')||'');
+    if (hub) u.searchParams.set('hub', hub);
+    if (log) u.searchParams.set('log', log);
+
     u.searchParams.set('run', $('run').value);
     u.searchParams.set('diff', $('diff').value);
     u.searchParams.set('style', $('style').value);
-    u.searchParams.set('time', $('time').value);
-    u.searchParams.set('seed', seed);
+    u.searchParams.set('time', String(Math.max(30, Math.min(180, Number($('time').value)||90))));
+    u.searchParams.set('ai', $('ai').value);
+    u.searchParams.set('practice', $('practice').value);
 
-    // passthrough hub/log from launcher
-    const hub = qs('hub',''); if (hub) u.searchParams.set('hub', hub);
-    const log = qs('log',''); if (log) u.searchParams.set('log', log);
+    const seed = String(($('seed').value||'').trim());
+    if (seed) u.searchParams.set('seed', seed);
 
-    // practice only for cVR flow (หน้า run จะ ignore ถ้าไม่ใช่ cvr)
-    if (practice) u.searchParams.set('practice', '1');
+    // view
+    const force = String(qs('force','0')||'0');
+    if (force === '1'){
+      $('forceBox').style.display = '';
+      const vf = String(($('viewForce').value||'').trim());
+      u.searchParams.set('view', vf || viewDetected);
+    }else{
+      u.searchParams.set('view', viewDetected);
+    }
 
-    // keep ai=0 default (research forced OFF anyway in run page)
-    const ai = qs('ai','0'); u.searchParams.set('ai', ai);
+    // pass-through extras (อยากส่งอะไรเพิ่มก็ส่งได้)
+    spIn.forEach((v,k)=>{
+      if (['hub','log','run','diff','style','time','seed','ai','practice','view','force'].includes(k)) return;
+      u.searchParams.set(k,v);
+    });
 
     return u.toString();
   }
 
-  $('btnStart').addEventListener('click', ()=> location.href = buildRunUrl(false));
-  $('btnPractice').addEventListener('click', ()=> location.href = buildRunUrl(true));
+  $('btnStart').addEventListener('click', async ()=>{
+    const detected = await detectView();
+    location.href = buildRunUrl(detected);
+  });
 
   $('btnHub').addEventListener('click', ()=>{
-    const hub = qs('hub','');
+    const hub = String(qs('hub','')||'');
     if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
     location.href = hub;
   });
 
-  $('btnCopy').addEventListener('click', async ()=>{
-    const link = buildRunUrl(false);
-    try{
-      await navigator.clipboard.writeText(link);
-      alert('คัดลอกลิงก์แล้ว ✅');
-    }catch{
-      prompt('Copy link:', link);
+  (async ()=>{
+    applyParamsIntoUI();
+
+    const detected = await detectView();
+    $('vDetected').textContent = detected.toUpperCase();
+
+    const force = String(qs('force','0')||'0');
+    if (force === '1'){
+      $('forceBox').style.display = '';
+      $('viewForce').value = String(qs('view','')||'');
     }
-  });
+  })();
 })();
 </script>
 </body>
