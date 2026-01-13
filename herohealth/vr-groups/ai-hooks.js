@@ -1,19 +1,27 @@
-/* === /herohealth/vr-groups/ai-hooks.js ===
-AI Hooks (SAFE STUB → usable)
-✅ disabled by default
-✅ attach({enabled, runMode, seed})
-✅ provides GroupsVR.__ai = { director, pattern, tip }
-- director.spawnSpeedMul(acc, combo, misses)
-- pattern.bias(meta)  // meta: accPct, combo, misses, pressureLevel, stormOn
-- pattern.nextPos(rect, meta, kind) -> {x,y, explain, band}
+/* === C: /herohealth/vr-groups/ai-hooks.js ===
+GroupsVR AI Hooks — PRODUCTION SAFE (OFF by default)
+✅ Enabled only when: runMode=play AND enabled=true (from A: aiEnabled via ?ai=1)
+✅ Deterministic by seed
+✅ Provides: GroupsVR.AIHooks.attach(...)
+   - installs GroupsVR.__ai = { enabled, seed, director, pattern, tip }
+✅ Director: spawnSpeedMul(acc, combo, missHard)  (fair, explainable-ish)
+✅ Pattern: nextPos({R,rng,t,pressure,storm}) -> {x,y} inside playRect
+✅ Tip: rate-limited coach micro-tips via hha:coach
 */
 
-(function (root){
+(function(root){
   'use strict';
   const DOC = root.document;
+  if (!DOC) return;
+
   const NS = root.GroupsVR = root.GroupsVR || {};
 
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function emit(name, detail){
+    try{ root.dispatchEvent(new CustomEvent(name, {detail})); }catch(_){}
+  }
+
+  // --- deterministic helpers (match style of groups.safe.js) ---
   function hashSeed(str){
     str = String(str ?? '');
     let h = 2166136261 >>> 0;
@@ -21,194 +29,208 @@ AI Hooks (SAFE STUB → usable)
       h ^= str.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
-    return h>>>0;
+    return h >>> 0;
   }
   function makeRng(seedU32){
-    let s = (seedU32>>>0)||1;
+    let s = (seedU32>>>0) || 1;
     return function(){
       s = (Math.imul(1664525, s) + 1013904223) >>> 0;
       return s / 4294967296;
     };
   }
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
 
-  // ---------- Tip (rate-limited, explainable) ----------
-  let lastTipAt = 0;
-  function tip(text, mood, extra){
-    const t = (root.performance && performance.now) ? performance.now() : Date.now();
-    if (t - lastTipAt < 1400) return;
-    lastTipAt = t;
-    emit('hha:coach', { text: String(text||''), mood: String(mood||'neutral'), explain: extra||null });
-  }
-
-  // ---------- Director ----------
-  function makeDirector(){
-    return {
-      spawnSpeedMul(accPct, combo, misses){
-        accPct = Number(accPct)||0;
-        combo  = Number(combo)||0;
-        misses = Number(misses)||0;
-
-        // คุมไม่ให้โหดเกินสำหรับ ป.5
-        let mul = 1.0;
-
-        // เล่นดี → เร็วขึ้นนิด
-        if (accPct >= 85) mul *= 0.96;
-        if (combo >= 8)   mul *= 0.94;
-
-        // พลาดเยอะ → ช้าลงนิด (ช่วยให้กลับมาได้)
-        if (misses >= 8)  mul *= 1.08;
-        if (misses >= 14) mul *= 1.14;
-
-        return clamp(mul, 0.82, 1.18);
-      }
+  // --- coach tip (rate limit + explainable) ---
+  function makeTipper(){
+    let lastAt = 0;
+    let lastMsg = '';
+    return function tip(text, mood){
+      const t = (root.performance && performance.now) ? performance.now() : Date.now();
+      if (t - lastAt < 2200) return;             // rate limit
+      text = String(text||'').trim();
+      if (!text) return;
+      if (text === lastMsg && (t - lastAt) < 6000) return;
+      lastAt = t;
+      lastMsg = text;
+      emit('hha:coach', { text, mood: String(mood||'neutral') });
     };
   }
 
-  // ---------- Pattern Packs (spawn distribution) ----------
-  function makePattern(seedStr){
-    const rng = makeRng(hashSeed(seedStr + '::pattern'));
-    let ringPhase = rng()*Math.PI*2;
+  // --- Director (fair) ---
+  function makeDirector(seedStr){
+    const rng = makeRng(hashSeed(seedStr + '::director'));
+    let mood = 0; // 0 neutral, 1 push, -1 ease
 
-    function bias(meta){
-      meta = meta || {};
-      const p = Number(meta.pressureLevel||0);
-      const acc = Number(meta.accPct||meta.accPct===0?meta.accPct:meta.accPct)||Number(meta.accPct)||0;
-      const storm = !!meta.stormOn;
+    function spawnSpeedMul(accPct, combo, missHard){
+      accPct = Number(accPct)||0;
+      combo  = Number(combo)||0;
+      missHard = Number(missHard)||0;
 
-      // bias > 0 => ยากขึ้น (wrong↑ junk↓) / bias <0 => ง่ายขึ้น
-      let b = 0;
+      // Fairness rules:
+      // - ถ้าแม่น+คอมโบสูง → เร่งนิดหน่อย
+      // - ถ้าพลาดหนักเยอะ → ผ่อนนิดหน่อย
+      // - มี noise เล็กน้อยแบบ deterministic
 
-      // ฝีมือดี → ยากขึ้นนิด
-      if (acc >= 88) b += 0.03;
-      if (acc >= 92) b += 0.05;
+      let mul = 1.0;
 
-      // กดดัน/พลาด → ง่ายลง (ช่วย recover)
-      if (p >= 2) b -= 0.05;
-      if (p >= 3) b -= 0.08;
+      // performance signals
+      if (accPct >= 88) mul *= 0.94;
+      else if (accPct >= 80) mul *= 0.97;
+      else if (accPct <= 55) mul *= 1.08;
 
-      // storm: เลือกทำให้ “ท้าทาย” แต่ไม่ลงโทษเกิน
-      if (storm) b += 0.01;
+      if (combo >= 10) mul *= 0.92;
+      else if (combo >= 6) mul *= 0.96;
 
-      return clamp(b, -0.10, 0.10);
+      if (missHard >= 10) mul *= 1.10;
+      else if (missHard >= 6) mul *= 1.06;
+
+      // slow drift mood (deterministic)
+      const n = rng();
+      if (n < 0.02) mood = 1;
+      else if (n > 0.98) mood = -1;
+      if (mood === 1) mul *= 0.985;
+      if (mood === -1) mul *= 1.015;
+
+      // clamp
+      mul = clamp(mul, 0.78, 1.18);
+      return mul;
     }
 
-    function nextPos(rect, meta, kind){
-      const W = rect.W, H = rect.H;
-      const xMin = rect.xMin, xMax = rect.xMax;
-      const yMin = rect.yMin, yMax = rect.yMax;
-
-      // เลือกแพทเทิร์น: grid / ring / sweep
-      const p = Number(meta && meta.pressureLevel || 0);
-      const storm = !!(meta && meta.stormOn);
-      const preferStable = (p>=2);     // pressure สูง → ให้แพทเทิร์น “คาดเดาได้” มากขึ้น
-
-      const modePick = rng();
-      let mode = 'grid';
-
-      if (storm && modePick < 0.38) mode = 'ring';
-      else if (modePick < 0.18) mode = 'sweep';
-      else mode = preferStable ? 'grid' : (modePick < 0.55 ? 'grid' : 'ring');
-
-      // ---- GRID9 (สุ่มจุดใน 3x3 band) ----
-      if (mode === 'grid'){
-        const gx = (rng()*3)|0; // 0..2
-        const gy = (rng()*3)|0;
-
-        const cellW = (xMax-xMin)/3;
-        const cellH = (yMax-yMin)/3;
-
-        // jitter ใน cell (กันมุมซ้ำ)
-        const jx = (rng()*0.62 + 0.19);
-        const jy = (rng()*0.62 + 0.19);
-
-        const x = xMin + gx*cellW + jx*cellW;
-        const y = yMin + gy*cellH + jy*cellH;
-
-        return {
-          x, y,
-          band:`grid(${gx},${gy})`,
-          explain: preferStable ? 'แรงกดดันสูง → ใช้แพทเทิร์น grid ให้เดาคาดได้' : 'แพทเทิร์น grid กระจายทั่วจอ'
-        };
-      }
-
-      // ---- RING around crosshair ----
-      if (mode === 'ring'){
-        const cx = W*0.5;
-        const cy = H*0.5;
-
-        ringPhase += (0.55 + rng()*0.65);
-        const rBase = Math.min((xMax-xMin),(yMax-yMin)) * (storm ? 0.34 : 0.28);
-        const rJit  = rBase * (0.20 + rng()*0.30);
-        const rr = clamp(rBase + (rng()<0.5?-rJit:rJit), 48, Math.min(W,H)*0.44);
-
-        let x = cx + Math.cos(ringPhase) * rr;
-        let y = cy + Math.sin(ringPhase) * rr;
-
-        // clamp into rect
-        x = clamp(x, xMin+6, xMax-6);
-        y = clamp(y, yMin+6, yMax-6);
-
-        return {
-          x, y,
-          band:'ring',
-          explain: storm ? 'ช่วงพายุ → เป้าโผล่เป็นวงรอบจุดเล็ง' : 'แพทเทิร์น ring ช่วยฝึกเล็งรอบ ๆ crosshair'
-        };
-      }
-
-      // ---- SWEEP band (ไล่แนวขวาง/ตั้ง) ----
-      {
-        const vertical = rng() < 0.5;
-        const t = rng();
-        if (vertical){
-          const x = xMin + (xMax-xMin)*t;
-          const y = yMin + (yMax-yMin)*(0.18 + rng()*0.64);
-          return { x, y, band:'sweepV', explain:'แพทเทิร์น sweep แนวตั้ง เพิ่มความท้าทายการกวาดสายตา' };
-        }else{
-          const x = xMin + (xMax-xMin)*(0.18 + rng()*0.64);
-          const y = yMin + (yMax-yMin)*t;
-          return { x, y, band:'sweepH', explain:'แพทเทิร์น sweep แนวนอน เพิ่มความท้าทายการกวาดสายตา' };
-        }
-      }
-    }
-
-    return { bias, nextPos };
+    return { spawnSpeedMul };
   }
 
-  // ---------- Public attach ----------
-  let attached = false;
+  // --- Pattern generator ---
+  function makePattern(seedStr){
+    const rng = makeRng(hashSeed(seedStr + '::pattern'));
 
-  NS.AIHooks = {
-    attach({ enabled=false, runMode='play', seed='' } = {}){
-      runMode = String(runMode||'play').toLowerCase();
-      if (runMode !== 'play') enabled = false;
+    // pattern modes: zigzag / circle / corners
+    const MODES = ['zigzag','circle','corners'];
+    let mode = MODES[(rng()*MODES.length)|0];
 
-      // always safe, but keep deterministic if enabled
-      const seedStr = String(seed||Date.now());
-      NS.__ai = NS.__ai || {};
-      NS.__ai.tip = tip;
+    let step = 0;
+    let angle = rng()*Math.PI*2;
 
-      if (!enabled){
-        NS.__ai.director = null;
-        NS.__ai.pattern = null;
-        if (!attached){
-          attached = true;
-          tip('AI ปิดอยู่ (เปิดได้ด้วย ?ai=1) 🤖', 'neutral', { enabled:false });
-        }
-        return;
-      }
-
-      // enable
-      NS.__ai.director = makeDirector();
-      NS.__ai.pattern  = makePattern(seedStr);
-
-      if (!attached){
-        attached = true;
-        tip('AI เปิดแล้ว: ปรับสปีด + แพทเทิร์นเกิดเป้า 🤖✨', 'happy', { enabled:true });
+    // change mode occasionally (deterministic)
+    function maybeFlipMode(pressure, storm){
+      const flipP = storm ? 0.06 : (pressure>=2 ? 0.045 : 0.025);
+      if (rng() < flipP){
+        mode = MODES[(rng()*MODES.length)|0];
+        step = 0;
+        angle = rng()*Math.PI*2;
       }
     }
+
+    function nextPos(ctx){
+      const R = ctx && ctx.R;
+      if (!R) return null;
+
+      const pressure = clamp(ctx.pressure||0,0,3)|0;
+      const storm = !!ctx.storm;
+
+      maybeFlipMode(pressure, storm);
+
+      // padding inside playRect (avoid edges a bit)
+      const pad = storm ? 10 : 14;
+      const x0 = R.xMin + pad, x1 = R.xMax - pad;
+      const y0 = R.yMin + pad, y1 = R.yMax - pad;
+
+      const W = Math.max(40, x1 - x0);
+      const H = Math.max(40, y1 - y0);
+
+      let x, y;
+
+      if (mode === 'zigzag'){
+        // sweep left<->right, y moves downward then resets
+        const cols = (pressure>=2 || storm) ? 4 : 3;
+        const rows = (pressure>=2 || storm) ? 4 : 3;
+
+        const c = step % cols;
+        const r = ((step / cols)|0) % rows;
+
+        const dir = (r % 2 === 0) ? 1 : -1;
+        const cc = (dir === 1) ? c : (cols-1-c);
+
+        x = x0 + (cc + 0.5 + (rng()-0.5)*0.18) * (W/cols);
+        y = y0 + (r  + 0.5 + (rng()-0.5)*0.18) * (H/rows);
+
+        step++;
+      }
+      else if (mode === 'circle'){
+        // orbit around center with radius that shrinks a bit on pressure
+        const cx = (x0+x1)*0.5;
+        const cy = (y0+y1)*0.5;
+
+        const baseR = Math.min(W,H) * (storm ? 0.28 : 0.32);
+        const pr = baseR * (pressure===3 ? 0.78 : (pressure===2 ? 0.84 : (pressure===1 ? 0.92 : 1.0)));
+
+        const dA = (storm ? 0.95 : 0.75) + (pressure*0.08);
+        angle += dA;
+
+        x = cx + Math.cos(angle) * pr + (rng()-0.5)*10;
+        y = cy + Math.sin(angle) * pr + (rng()-0.5)*10;
+      }
+      else { // corners
+        // hit corners/edges in a loop (but still inside safe rect)
+        const pts = [
+          [x0+W*0.15, y0+H*0.15],
+          [x0+W*0.85, y0+H*0.18],
+          [x0+W*0.82, y0+H*0.82],
+          [x0+W*0.18, y0+H*0.86],
+          [x0+W*0.50, y0+H*0.25],
+          [x0+W*0.75, y0+H*0.50],
+          [x0+W*0.50, y0+H*0.75],
+          [x0+W*0.25, y0+H*0.50],
+        ];
+
+        const idx = step % (storm ? pts.length : 6);
+        x = pts[idx][0] + (rng()-0.5)*12;
+        y = pts[idx][1] + (rng()-0.5)*12;
+        step++;
+      }
+
+      // clamp into playRect
+      x = clamp(x, R.xMin, R.xMax);
+      y = clamp(y, R.yMin, R.yMax);
+
+      return { x, y, mode };
+    }
+
+    // optional bias hook (you already referenced bias() in safe.js; keep stable)
+    function bias(){
+      // small deterministic oscillation: push wrongRate up a hair when storm/pressure
+      const t = rng();
+      const b = (t - 0.5) * 0.04; // -0.02..+0.02
+      return b;
+    }
+
+    return { nextPos, bias };
+  }
+
+  // --- public attach ---
+  NS.AIHooks = NS.AIHooks || {};
+  NS.AIHooks.attach = function attach(opts){
+    opts = opts || {};
+    const runMode = String(opts.runMode||'play').toLowerCase();
+    const enabled = !!opts.enabled;
+
+    // ✅ hard OFF for research/practice
+    if (runMode !== 'play' || !enabled){
+      // keep a stub so safe.js checks won't crash
+      NS.__ai = { enabled:false, seed:String(opts.seed||''), director:null, pattern:null, tip:null };
+      return NS.__ai;
+    }
+
+    const seedStr = String(opts.seed || Date.now());
+    const tip = makeTipper();
+    const director = makeDirector(seedStr);
+    const pattern = makePattern(seedStr);
+
+    const ai = NS.__ai = { enabled:true, seed:seedStr, director, pattern, tip };
+
+    // announce once
+    tip('AI เปิดแล้ว: รูปแบบเป้าจะมีแพตเทิร์น + ปรับความท้าทายแบบยุติธรรม 🤖', 'happy');
+    emit('groups:progress', { kind:'ai_on', seed: seedStr });
+
+    return ai;
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);
