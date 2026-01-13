@@ -1,13 +1,15 @@
-/* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
+/* === B: /herohealth/vr-groups/groups.safe.js ===
+Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49 + PATCH UI-OCCLUSION
 ✅ FIX spawn bounds: no corner-clump, no out-of-screen
+✅ NEW: Anti-HUD spawn (elementFromPoint guard) — targets won’t spawn under HUD/Quest/Coach/Power/vr-ui
+✅ NEW: Expire fairness — good that was blocked by UI won’t count as miss
 ✅ Hit radius scales by size + view (cVR assist)
 ✅ miniTotal/miniCleared tracked in summary (true counts)
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
-   - practice: deterministic seed + adaptive OFF + AI OFF
+   - practice: deterministic seed + adaptive OFF + AI OFF + does NOT trigger end overlay in A
 ✅ PACK 15: optional AI director/pattern hooks (only when AIHooks attaches and runMode=play)
 ✅ PACK 49: Miss Pressure levels (0-3) drives difficulty + FX + coach tips
 */
@@ -44,11 +46,17 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 
   function pick(rng, arr) { return arr[(rng() * arr.length) | 0]; }
 
-  function emit(name, detail) { try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {} }
+  function emit(name, detail) {
+    try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
+  }
 
-  function cssSet(el, k, v) { try { el.style.setProperty(k, v); } catch (_) {} }
+  function cssSet(el, k, v) {
+    try { el.style.setProperty(k, v); } catch (_) {}
+  }
 
-  function addBodyClass(c, on) { DOC.body.classList.toggle(c, !!on); }
+  function addBodyClass(c, on) {
+    DOC.body.classList.toggle(c, !!on);
+  }
 
   function flashBodyFx(cls, ms){
     try{
@@ -66,6 +74,45 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     return 'mobile';
   }
 
+  // ---------------- UI Occlusion Guard (PATCH) ----------------
+  function isBlockedByUI(x, y){
+    try{
+      const el = DOC.elementFromPoint(Math.round(x), Math.round(y));
+      if (!el) return false;
+
+      // OK if on target or within playLayer
+      if (el.closest && (el.closest('.playLayer') || el.closest('.fg-target'))) return false;
+
+      // blocked if under HUD/Quest/Coach/Power/vr-ui/overlay
+      if (el.closest && (
+        el.closest('.hud') ||
+        el.closest('.questTop') ||
+        el.closest('.coachWrap') ||
+        el.closest('.powerWrap') ||
+        el.closest('.hha-vr-ui') ||
+        el.closest('.overlay')
+      )) return true;
+
+      if (el.closest && !el.closest('.playLayer')) return true;
+      return false;
+    }catch(_){
+      return false;
+    }
+  }
+
+  function pickSafeSpawnXY(rng, rect, tries){
+    tries = Math.max(4, Number(tries)||8);
+    let x = 0, y = 0;
+    for (let k=0; k<tries; k++){
+      x = clamp((rng() * (rect.xMax - rect.xMin)) + rect.xMin, 8, rect.W - 8);
+      y = clamp((rng() * (rect.yMax - rect.yMin)) + rect.yMin, 8, rect.H - 8);
+      if (!isBlockedByUI(x,y)) return { x, y, ok:true };
+    }
+    x = clamp((rect.xMin + rect.xMax) * 0.55, 8, rect.W - 8);
+    y = clamp((rect.yMin + rect.yMax) * 0.62, 8, rect.H - 8);
+    return { x, y, ok: !isBlockedByUI(x,y) };
+  }
+
   // ---------------- Content ----------------
   const GROUPS = [
     { key: 'fruit',   th: 'ผลไม้',     emoji: ['🍎','🍌','🍊','🍇','🍉','🍍','🥭','🍐'] },
@@ -74,21 +121,58 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
     { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
   ];
+
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
   // ---------------- Difficulty presets ----------------
   function diffPreset(diff) {
     diff = String(diff || 'normal').toLowerCase();
     if (diff === 'easy') {
-      return { time:90, baseSpawnMs:780, stormEverySec:26, stormLenSec:7, targetSize:1.02, wrongRate:0.22, junkRate:0.12, bossHp:6, powerThreshold:7, goalTargets:16, goalsTotal:2 };
+      return {
+        time: 90,
+        baseSpawnMs: 780,
+        stormEverySec: 26,
+        stormLenSec: 7,
+        targetSize: 1.02,
+        wrongRate: 0.22,
+        junkRate: 0.12,
+        bossHp: 6,
+        powerThreshold: 7,
+        goalTargets: 16,
+        goalsTotal: 2,
+      };
     }
     if (diff === 'hard') {
-      return { time:90, baseSpawnMs:560, stormEverySec:22, stormLenSec:8, targetSize:0.92, wrongRate:0.32, junkRate:0.18, bossHp:10, powerThreshold:9, goalTargets:22, goalsTotal:2 };
+      return {
+        time: 90,
+        baseSpawnMs: 560,
+        stormEverySec: 22,
+        stormLenSec: 8,
+        targetSize: 0.92,
+        wrongRate: 0.32,
+        junkRate: 0.18,
+        bossHp: 10,
+        powerThreshold: 9,
+        goalTargets: 22,
+        goalsTotal: 2,
+      };
     }
-    return { time:90, baseSpawnMs:650, stormEverySec:24, stormLenSec:7, targetSize:0.98, wrongRate:0.27, junkRate:0.15, bossHp:8, powerThreshold:8, goalTargets:19, goalsTotal:2 };
+    return {
+      time: 90,
+      baseSpawnMs: 650,
+      stormEverySec: 24,
+      stormLenSec: 7,
+      targetSize: 0.98,
+      wrongRate: 0.27,
+      junkRate: 0.15,
+      bossHp: 8,
+      powerThreshold: 8,
+      goalTargets: 19,
+      goalsTotal: 2,
+    };
   }
 
-  // ✅ Rank: SSS, SS, S, A, B, C (ตามที่คุย)
+  // ✅ PACK 49: Rank must respect Miss more
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
@@ -106,7 +190,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     return 'C';
   }
 
-  // ---------------- Spawn bounds ----------------
+  // ---------------- Spawn bounds (PACK 26) ----------------
   function computePlayRect(view) {
     const W = Math.max(320, root.innerWidth  || 360);
     const H = Math.max(420, root.innerHeight || 640);
@@ -174,18 +258,16 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.comboMax = 0;
     this.misses = 0;
 
-    this.pressure = 0;
+    this.pressure = 0;        // 0..3
     this._lastPressureTip = 0;
 
     this.nTargetGoodSpawned = 0;
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -218,7 +300,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.coachLastAt = 0;
   }
 
-  Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
+  Engine.prototype.setLayerEl = function (el) {
+    this.layerEl = el;
+  };
 
   Engine.prototype._calcPressure = function(){
     const m = this.misses|0;
@@ -263,13 +347,24 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 
     const timeSec = clamp(opts.time ?? preset.time, 5, 180);
 
-    this.cfg = { diff: String(diff || 'normal').toLowerCase(), runMode, seed: seedIn, timeSec, preset };
+    this.cfg = {
+      diff: String(diff || 'normal').toLowerCase(),
+      runMode,
+      seed: seedIn,
+      timeSec,
+      preset,
+    };
+
     this.view = getViewFromBodyOrParam(opts.view);
 
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
+
     this.leftSec = Math.round(timeSec);
 
-    this.score = 0; this.combo = 0; this.comboMax = 0; this.misses = 0;
+    this.score = 0;
+    this.combo = 0;
+    this.comboMax = 0;
+    this.misses = 0;
 
     this.pressure = 0;
     this._lastPressureTip = 0;
@@ -281,11 +376,14 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
-    this.nHitGood = 0; this.nHitWrong = 0; this.nHitJunk = 0;
-    this.nExpireGood = 0; this.nExpireWrong = 0; this.nExpireJunk = 0;
-
-    this.hitGoodForAcc = 0; this.totalJudgedForAcc = 0;
+    this.nHitGood = 0;
+    this.nHitWrong = 0;
+    this.nHitJunk = 0;
+    this.nExpireGood = 0;
+    this.nExpireWrong = 0;
+    this.nExpireJunk = 0;
+    this.hitGoodForAcc = 0;
+    this.totalJudgedForAcc = 0;
 
     this.targets = [];
     this._id = 0;
@@ -315,7 +413,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
-    this._emitCoach((runMode==='practice') ? 'โหมดฝึก: เล็งแล้วแตะยิง 🎯' : 'เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
+    this._emitCoach((runMode==='practice') ? 'โหมดฝึก 15 วิ ลองเล็งแล้วแตะยิง 🎯' : 'เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
     this._emitPower();
     this._emitQuestUpdate();
 
@@ -338,6 +436,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     const self = this;
     function frame() {
       if (!self.running) return;
+
       const t = nowMs();
       self.lastTick = t;
 
@@ -399,6 +498,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
         addBodyClass('groups-storm-urgent', false);
 
         this._spawnBoss();
+
         this.nextStormAt = t + p.stormEverySec * 1000;
         emit('groups:progress', { kind: 'storm_off' });
         this._emitCoach('พายุผ่านแล้ว! เก็บแต้มต่อ ✨', 'happy');
@@ -481,7 +581,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       if (this.pressure === 3) pressMul = 0.86;
     }
 
-    // ✅ AI director multiplier (only play)
     let aiMul = 1.0;
     try{
       const A = root.GroupsVR && root.GroupsVR.__ai;
@@ -503,14 +602,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
         if (tg.kind === 'good') {
-          // ✅ FIX: good expire ไม่ควรทำ Miss พุ่ง (แตกคอมโบ + โดนเบา)
           this.nExpireGood++;
-          this.combo = 0;
-          this.score = Math.max(0, this.score - 6);
-          emit('groups:progress', { kind:'drop', why:'expire_good' });
-          emit('hha:judge', { kind:'bad', text:'-6', x: tg.x, y: tg.y });
-          this._emitScore();
-          this._emitRank();
+          const blockedNow = isBlockedByUI(tg.x, tg.y);
+          const blockedFlag = !!tg.noMissOnExpire;
+          if (!(blockedNow || blockedFlag)) this._onMiss('expire_good');
         }
         else if (tg.kind === 'wrong') { this.nExpireWrong++; }
         else if (tg.kind === 'junk') { this.nExpireJunk++; }
@@ -534,19 +629,11 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       if (this.pressure === 3){ wrongRate += 0.08; junkRate += 0.03; }
     }
 
-    // ✅ AI pattern bias(meta) (only play)
     if (this.cfg.runMode === 'play'){
       try{
         const A = root.GroupsVR && root.GroupsVR.__ai;
         if (A && A.pattern){
-          const meta = {
-            accPct: this._accuracyPct(),
-            combo: this.combo|0,
-            misses: this.misses|0,
-            pressureLevel: this.pressure|0,
-            stormOn: !!this.stormOn
-          };
-          const bias = Number(A.pattern.bias && A.pattern.bias(meta)) || 0;
+          const bias = Number(A.pattern.bias && A.pattern.bias()) || 0;
           wrongRate = clamp(wrongRate + bias, 0.05, 0.55);
           junkRate  = clamp(junkRate  - bias, 0.04, 0.40);
         }
@@ -571,9 +658,19 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     let emoji = '🍽️';
     let cls = 'fg-target';
 
-    if (kind === 'good') { emoji = pick(this.rng, gActive.emoji); cls += ' fg-good'; this.nTargetGoodSpawned++; }
-    else if (kind === 'wrong') { emoji = pick(this.rng, gOther.emoji); cls += ' fg-wrong'; this.nTargetWrongSpawned++; }
-    else { emoji = pick(this.rng, JUNK); cls += ' fg-junk'; this.nTargetJunkSpawned++; }
+    if (kind === 'good') {
+      emoji = pick(this.rng, gActive.emoji);
+      cls += ' fg-good';
+      this.nTargetGoodSpawned++;
+    } else if (kind === 'wrong') {
+      emoji = pick(this.rng, gOther.emoji);
+      cls += ' fg-wrong';
+      this.nTargetWrongSpawned++;
+    } else {
+      emoji = pick(this.rng, JUNK);
+      cls += ' fg-junk';
+      this.nTargetJunkSpawned++;
+    }
 
     let size = p.targetSize * (kind === 'junk' ? 0.98 : 1.0);
     if (this.cfg.runMode === 'play'){
@@ -594,6 +691,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
   Engine.prototype._spawnBoss = function () {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
+
     const emoji = pick(this.rng, gActive.emoji);
 
     let hp = p.bossHp;
@@ -603,9 +701,17 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     }
 
     this.nTargetBossSpawned++;
-    this._spawnDomTarget({ kind:'boss', emoji, cls:'fg-target fg-boss', size:1.0, lifeMs:7000, bossHp:hp, bossHpMax:hp });
+    this._spawnDomTarget({
+      kind: 'boss',
+      emoji,
+      cls: 'fg-target fg-boss',
+      size: 1.0,
+      lifeMs: 7000,
+      bossHp: hp,
+      bossHpMax: hp
+    });
 
-    emit('groups:progress', { kind:'boss_spawn' });
+    emit('groups:progress', { kind: 'boss_spawn' });
     emit('hha:judge', { kind:'boss', text:'BOSS' });
     addBodyClass('fx-boss', true);
     this._emitCoach('บอสมา! ยิงให้ถูกหมู่เพื่อแตกบอส 👊', 'fever');
@@ -623,36 +729,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     const view = this.view || getViewFromBodyOrParam();
     const R = computePlayRect(view);
 
-    // ✅ AI Pattern Packs: ใช้ตำแหน่งจาก C เมื่อ play + ai attach แล้ว
-    let x, y;
-    try{
-      const A = root.GroupsVR && root.GroupsVR.__ai;
-      if (A && A.pattern && this.cfg && this.cfg.runMode==='play'){
-        const meta = {
-          accPct: this._accuracyPct(),
-          combo: this.combo|0,
-          misses: this.misses|0,
-          pressureLevel: this.pressure|0,
-          stormOn: !!this.stormOn
-        };
-        const pos = A.pattern.nextPos(R, meta, String(spec.kind||''));
-        if (pos && isFinite(pos.x) && isFinite(pos.y)){
-          x = pos.x; y = pos.y;
-          const explain = String(pos.explain||'');
-          if (explain && (this._id % 11 === 0) && A.tip){
-            A.tip('แพทเทิร์น: ' + explain, 'neutral', { explain, band: pos.band });
-          }
-        }
-      }
-    }catch(_){}
-
-    if (!isFinite(x) || !isFinite(y)){
-      x = (this.rng() * (R.xMax - R.xMin)) + R.xMin;
-      y = (this.rng() * (R.yMax - R.yMin)) + R.yMin;
-    }
-
-    x = clamp(x, 8, R.W - 8);
-    y = clamp(y, 8, R.H - 8);
+    // ✅ anti-HUD spawn
+    const P = pickSafeSpawnXY(this.rng, R, (view==='cvr'? 10 : 8));
+    const x = P.x;
+    const y = P.y;
 
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
@@ -678,7 +758,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       bornAt: born,
       expireAt: born + (spec.lifeMs || 3000),
       bossHp: spec.bossHp || 0,
-      bossHpMax: spec.bossHpMax || 0
+      bossHpMax: spec.bossHpMax || 0,
+
+      // ✅ expire fairness
+      noMissOnExpire: isBlockedByUI(x,y) ? true : false
     };
 
     el.addEventListener('click', (e) => {
@@ -734,7 +817,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงพลาด (ไม่โดนอะไร) = แตกคอมโบ + เอฟเฟกต์ แต่ "ไม่เพิ่ม misses" (แฟร์กับเด็ก)
+      // ✅ ยิงวืด: ไม่เพิ่ม miss (กันเด็ก miss พุ่งจากการลองเล็ง)
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
@@ -806,6 +889,13 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       this._emitRank();
       this._emitQuestUpdate();
 
+      if (this.cfg.runMode==='play'){
+        if (this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
+        try{
+          const A = root.GroupsVR && root.GroupsVR.__ai;
+          if (A && A.tip && this.combo===10) A.tip('คอมโบ 10! ดีมาก รักษาจังหวะต่อ 🔥', 'happy');
+        }catch(_){}
+      }
       return;
     }
 
@@ -828,7 +918,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       return;
     }
 
-    // junk
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
