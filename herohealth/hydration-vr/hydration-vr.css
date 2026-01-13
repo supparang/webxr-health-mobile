@@ -1,10 +1,10 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration Quest VR — PRODUCTION UI + Playfield + FX
-✅ PC / Mobile / cVR (crosshair) / Cardboard split
-✅ Safe-area aware + avoids vr-ui buttons
-✅ HUD + Quest + Water panel + Start overlay + Result sheet
-✅ FX hooks: .hha-hitfx / .hha-endfx / .hha-bossfx + .hha-shock
----------------------------------------------------- */
+Hydration Quest VR — PRODUCTION UI (PC/Mobile/cVR/Cardboard)
+✅ HUD safe-area + does not block vr-ui buttons
+✅ Playfield + Cardboard split layers
+✅ FX: hit pulse, end window blink+shake, boss glow, shockwave ring
+✅ Start overlay + Result summary (HHA standard-ish)
+*/
 
 :root{
   color-scheme: dark;
@@ -20,580 +20,485 @@ Hydration Quest VR — PRODUCTION UI + Playfield + FX
   --cyan:#22d3ee;
   --warn:#f59e0b;
   --bad:#ef4444;
-  --violet:#a78bfa;
 
-  --radius:20px;
+  --radius:22px;
   --pill:999px;
 
-  /* safe-area */
+  /* safe-area insets */
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
-  /* layout heights */
-  --hudH: 112px;
-  --questH: 116px;
+  /* spawn safe zone (keep consistent with hydration.safe.js pickXY) */
+  --safeTop: calc(140px + var(--sat));
+  --safeBottom: calc(44px + var(--sab));
+  --safeSide: 18px;
 
-  /* z */
-  --z-play: 10;
-  --z-ui: 50;      /* your HUD/Quest */
-  --z-vrui: 70;    /* vr-ui.js buttons/crosshair */
-  --z-fx: 90;      /* particles/shock */
-  --z-modal: 120;  /* start/result */
+  /* global z */
+  --zPlay: 10;
+  --zHUD: 50;
+  --zOverlay: 120;
+  --zResult: 130;
+
+  /* touch */
+  -webkit-tap-highlight-color: transparent;
 }
 
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
+*{ box-sizing:border-box; }
 html, body{
   width:100%;
   height:100%;
   margin:0;
   overflow:hidden;
-  background:
-    radial-gradient(900px 640px at 20% 15%, rgba(34,211,238,.16), transparent 60%),
-    radial-gradient(900px 640px at 80% 85%, rgba(34,197,94,.14), transparent 62%),
-    var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  touch-action: none;
+  background: radial-gradient(circle at 20% 10%, rgba(34,211,238,.14), transparent 55%),
+              radial-gradient(circle at 85% 20%, rgba(34,197,94,.12), transparent 55%),
+              radial-gradient(circle at 55% 90%, rgba(244,114,182,.10), transparent 60%),
+              var(--bg);
+  color: var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
 
-/* ----------------------------------------------------
-   View flags (loader sets these)
----------------------------------------------------- */
-body.view-pc{}
-body.view-mobile{}
-body.view-cvr{}      /* cVR strict crosshair */
-body.cardboard{}     /* split eyes */
-body.is-fs{}         /* optional (if loader toggles) */
+/* ------------------------------------------------
+  VR-UI coexist
+  - vr-ui.js creates buttons + crosshair (z typically high)
+  - We ensure our HUD does not block pointer events except on buttons inside
+------------------------------------------------- */
 
-/* ----------------------------------------------------
-   Start Overlay
----------------------------------------------------- */
-.startOverlay{
-  position:fixed; inset:0;
-  z-index: var(--z-modal);
-  display:grid;
-  place-items:center;
-  padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-  background:
-    radial-gradient(1100px 720px at 30% 20%, rgba(34,197,94,.16), transparent 60%),
-    radial-gradient(1100px 720px at 70% 80%, rgba(168,85,247,.14), transparent 60%),
-    rgba(2,6,23,.92);
-  backdrop-filter: blur(10px);
-}
-
-.startCard{
-  width:min(520px, 100%);
-  border-radius: calc(var(--radius) + 6px);
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.62);
-  box-shadow: 0 40px 120px rgba(0,0,0,.55);
-  padding: 18px 18px 16px;
-}
-
-.startCard .title{
-  font-weight: 1000;
-  letter-spacing:.2px;
-  font-size: 22px;
-}
-.startCard .sub{
-  margin-top: 6px;
-  color: var(--muted);
-  font-weight: 650;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.chips{
-  margin-top: 12px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-.chip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding: 7px 10px;
-  border-radius: var(--pill);
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.52);
-  color: rgba(229,231,235,.92);
-  font-weight: 750;
-  font-size: 12px;
-}
-
-.btnPrimary{
-  margin-top: 14px;
-  width: 100%;
-  border:0;
-  border-radius: 18px;
-  padding: 12px 14px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-  color:#03110a;
-  font-weight: 1000;
-  font-size: 15px;
-  cursor:pointer;
-  box-shadow: 0 18px 60px rgba(34,197,94,.18);
-}
-.btnPrimary:active{ transform: translateY(1px); }
-
-.btnGhost{
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.45);
-  color: rgba(229,231,235,.95);
-  font-weight: 850;
-  padding: 10px 12px;
-  cursor:pointer;
-}
-.btnGhost:active{ transform: translateY(1px); }
-
-.hint{
-  margin-top: 10px;
-  color: rgba(148,163,184,.95);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.45;
-}
-
-/* Hide start overlay (JS can add .hide or set display none) */
-.startOverlay.hide{ display:none !important; }
-
-/* ----------------------------------------------------
-   HUD (top)
-   IMPORTANT: pointer-events none so it won't block vr-ui;
-   BUT buttons are not inside HUD in this game.
----------------------------------------------------- */
 .hud{
   position: fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
-  height: var(--hudH);
-  z-index: var(--z-ui);
-  display:flex;
-  gap:10px;
-  align-items: stretch;
-  pointer-events:none;
+  inset: 0;
+  z-index: var(--zHUD);
+  pointer-events: none;
 }
 
-.hudLeft, .hudCenter, .hudRight{
+/* Top row */
+.hud .hud-row{
   display:flex;
-  gap:10px;
-  align-items: stretch;
-  flex: 1 1 0;
+  gap: 10px;
+  padding-left: calc(12px + var(--sal));
+  padding-right: calc(12px + var(--sar));
 }
 
-.hudCenter{
-  justify-content:center;
-  flex: 1.1 1 0;
-}
-.hudRight{
-  justify-content:flex-end;
+.hud .hud-row.top{
+  padding-top: calc(10px + var(--sat));
+  align-items: center;
+  justify-content: space-between;
 }
 
 .stat{
-  min-width: 88px;
-  padding: 10px 12px;
+  pointer-events: none;
+  background: rgba(2,6,23,.54);
+  border: 1px solid rgba(148,163,184,.14);
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.55);
+  padding: 8px 10px;
+  min-width: 76px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
-  box-shadow: 0 18px 60px rgba(0,0,0,.30);
+  font-weight: 700;
+  font-size: 12px;
+  color: rgba(229,231,235,.92);
   display:flex;
-  flex-direction:column;
-  justify-content:center;
-  gap:4px;
-}
-
-.stat span{
-  font-size: 11px;
-  color: rgba(148,163,184,.95);
-  font-weight: 800;
-  letter-spacing:.2px;
+  gap: 6px;
+  justify-content: space-between;
 }
 .stat b{
-  font-size: 18px;
-  font-weight: 1000;
-  letter-spacing:.2px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+.stat.grade{
+  border-color: rgba(34,197,94,.18);
 }
 
-.stat.big{
-  min-width: 120px;
-  padding: 12px 14px;
+/* Mid row panels */
+.hud .hud-row.mid{
+  padding-top: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
 }
-.stat.big b{ font-size: 20px; }
 
-/* ----------------------------------------------------
-   Quest Panel (below HUD)
----------------------------------------------------- */
-.questPanel{
-  position: fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat) + var(--hudH) + 10px);
-  z-index: var(--z-ui);
+.panel{
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid rgba(148,163,184,.14);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 60px rgba(0,0,0,.40);
+  backdrop-filter: blur(12px);
   padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.56);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 60px rgba(0,0,0,.30);
-  pointer-events:none;
 }
 
-.qLine{
-  font-weight: 850;
-  font-size: 12.5px;
-  line-height: 1.35;
-  letter-spacing: .1px;
-  color: rgba(229,231,235,.94);
-}
-#quest-line1{ font-size: 13px; }
-#quest-line3, #quest-line4{ color: rgba(148,163,184,.95); font-weight: 750; }
-
-/* ----------------------------------------------------
-   Water Panel (small, right-bottom)
----------------------------------------------------- */
-.waterPanel{
-  position: fixed;
-  right: calc(10px + var(--sar));
-  bottom: calc(10px + var(--sab));
-  z-index: var(--z-ui);
-  width: 210px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 60px rgba(0,0,0,.30);
-  pointer-events:none;
+.panel.quest{
+  width: min(560px, calc(100vw - 24px - var(--sal) - var(--sar)));
+  margin-left: calc(12px + var(--sal));
 }
 
-.wTop{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
+.panel.water{
+  width: 200px;
 }
-.wTitle{
-  font-weight: 1000;
-  letter-spacing:.2px;
+
+.panel.mini{
+  width: 160px;
+  margin-right: calc(12px + var(--sar));
+}
+
+.qline{
   font-size: 12px;
-  opacity:.95;
+  line-height: 1.25;
+  color: rgba(229,231,235,.92);
+  margin: 2px 0;
 }
-.wPct{
-  font-weight: 1000;
-  font-size: 16px;
+.water-title,
+.mini-title{
+  font-weight: 900;
+  letter-spacing: .2px;
+  font-size: 12px;
+  color: rgba(229,231,235,.95);
+  margin-bottom: 8px;
 }
-.wBar{
-  margin-top: 8px;
+.waterbar{
   height: 10px;
-  border-radius: var(--pill);
+  border-radius: 999px;
   overflow:hidden;
   background: rgba(148,163,184,.18);
-  border: 1px solid rgba(148,163,184,.10);
+  border: 1px solid rgba(148,163,184,.12);
 }
-.wFill{
+.waterbar .fill{
   height:100%;
-  width: 50%;
-  border-radius: var(--pill);
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-  transform-origin:left center;
+  width:50%;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
 }
-.wZone{
-  margin-top: 6px;
+.watermeta{
+  display:flex;
+  justify-content: space-between;
+  margin-top: 8px;
   font-size: 12px;
-  font-weight: 750;
   color: rgba(148,163,184,.95);
 }
-.wZone b{ color: rgba(229,231,235,.92); }
+.mini-meta{
+  font-size: 12px;
+  color: rgba(148,163,184,.95);
+  margin: 4px 0;
+}
+.mini-meta b{ color: rgba(229,231,235,.95); }
 
-/* ----------------------------------------------------
-   Playfield (DOM targets spawn here)
----------------------------------------------------- */
+/* Mobile layout tweaks */
+body.view-mobile .hud-row.mid{
+  flex-direction: column;
+  gap: 10px;
+  padding-left: calc(12px + var(--sal));
+  padding-right: calc(12px + var(--sar));
+}
+body.view-mobile .panel.quest{ width: 100%; margin-left: 0; }
+body.view-mobile .panel.water,
+body.view-mobile .panel.mini{
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  display:flex;
+  flex-direction: column;
+}
+body.view-mobile .hud-row.top{
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+body.view-mobile .stat{ min-width: 74px; }
+
+/* cVR: keep top HUD compact so crosshair remains clear */
+body.view-cvr .hud-row.top .stat{ padding: 7px 9px; }
+body.view-cvr .panel.quest{ width: min(520px, calc(100vw - 24px - var(--sal) - var(--sar))); }
+
+/* ------------------------------------------------
+  Playfield (spawn area)
+------------------------------------------------- */
 .playfield{
   position: fixed;
   inset: 0;
-  z-index: var(--z-play);
-  overflow:hidden;
-
-  /* Leave room for HUD+Quest top and for touch area bottom.
-     hydration.safe.js also avoids HUD by safeTop/safeBottom. */
-  padding-top: calc(10px + var(--sat) + var(--hudH) + 10px + var(--questH));
-  padding-bottom: calc(10px + var(--sab) + 64px);
-  padding-left: calc(8px + var(--sal));
-  padding-right: calc(8px + var(--sar));
+  z-index: var(--zPlay);
+  overflow: hidden;
 }
 
+/* The active layer host (targets append here) */
 .layer{
-  position: absolute;
+  position:absolute;
   inset: 0;
-  overflow:hidden;
+  /* IMPORTANT: allow pointer events on targets, not on layer itself */
+  pointer-events: none;
 }
 
-/* subtle grid */
-.playfield::before{
-  content:"";
-  position:absolute; inset:0;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(148,163,184,.06), transparent 55%),
-    linear-gradient(to right, rgba(148,163,184,.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148,163,184,.06) 1px, transparent 1px);
-  background-size: 100% 100%, 64px 64px, 64px 64px;
-  opacity:.35;
-  pointer-events:none;
-}
+/* Targets created by hydration.safe.js have pointer-events:auto */
+.hvr-target{ pointer-events: auto; }
 
-/* ----------------------------------------------------
-   Cardboard split
----------------------------------------------------- */
+/* Cardboard split */
 .cbPlayfield{
   position: fixed;
   inset: 0;
-  z-index: var(--z-play);
-  display:none; /* loader will display:grid and hide normal playfield */
+  z-index: var(--zPlay);
+  overflow: hidden;
+  display: none;
+}
+.cbPlayfield .cbCol{
+  position:absolute;
+  top:0; bottom:0;
+  width:50%;
   overflow:hidden;
-  background: rgba(2,6,23,.25);
+}
+.cbPlayfield .cbCol:first-child{ left:0; }
+.cbPlayfield .cbCol:last-child{ right:0; }
+.cbPlayfield .layer{
+  pointer-events: none;
 }
 
-.cbPlayfield .cbEye{
-  position: relative;
-  overflow:hidden;
-}
+/* When cardboard: show split, hide normal playfield */
+body.cardboard .playfield{ display:none; }
+body.cardboard .cbPlayfield{ display:block; }
 
-body.cardboard .cbPlayfield{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-body.cardboard #playfield{ display:none !important; }
-
-/* In cardboard mode, keep HUD/quest smaller */
-body.cardboard{
-  --hudH: 96px;
-  --questH: 104px;
-}
-body.cardboard .hud{ gap:8px; }
-body.cardboard .stat{ min-width: 78px; padding: 9px 10px; }
-body.cardboard .stat b{ font-size: 16px; }
-
-/* ----------------------------------------------------
-   Result Summary Modal
----------------------------------------------------- */
-.resultBackdrop{
+/* ------------------------------------------------
+  Start overlay
+------------------------------------------------- */
+.overlay{
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
-  display:grid;
-  place-items:center;
-  padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-  background: rgba(2,6,23,.80);
+  z-index: var(--zOverlay);
+  display: grid;
+  place-items: center;
+  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+  background: radial-gradient(circle at 30% 20%, rgba(34,211,238,.16), transparent 55%),
+              radial-gradient(circle at 80% 35%, rgba(34,197,94,.14), transparent 55%),
+              rgba(2,6,23,.72);
   backdrop-filter: blur(10px);
 }
 
-.resultCard{
-  width: min(760px, 100%);
-  border-radius: calc(var(--radius) + 6px);
+.overlay.hide{ display:none !important; }
+
+.overlay-card{
+  width: min(560px, 92vw);
+  border-radius: 26px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.60);
-  box-shadow: 0 45px 140px rgba(0,0,0,.60);
-  padding: 14px 14px 12px;
+  background: rgba(2,6,23,.72);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  padding: 18px 18px 16px;
 }
 
-.resultHead{
-  display:flex;
-  justify-content:space-between;
+.overlay-card .title{
+  font-weight: 1000;
+  letter-spacing: .3px;
+  font-size: 22px;
+}
+.overlay-card .subtitle{
+  margin-top: 8px;
+  color: rgba(229,231,235,.90);
+  line-height: 1.35;
+  font-size: 13px;
+}
+.hintline{ margin-top: 10px; }
+.pill{
+  display:inline-flex;
+  gap:8px;
   align-items:center;
-  gap:10px;
-}
-.resultTitle{
-  font-weight: 1000;
-  font-size: 18px;
-  letter-spacing:.2px;
-}
-
-.resultGrid{
-  margin-top: 10px;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.box{
-  border-radius: 18px;
+  padding: 7px 12px;
+  border-radius: var(--pill);
   border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.42);
-  padding: 10px 12px;
-}
-
-.row{
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
-  gap:10px;
-  padding: 6px 0;
-  border-bottom: 1px dashed rgba(148,163,184,.12);
-}
-.row:last-child{ border-bottom:0; }
-
-.row span{
-  color: rgba(148,163,184,.95);
-  font-weight: 800;
+  background: rgba(15,23,42,.60);
+  color: rgba(229,231,235,.92);
   font-size: 12px;
+  font-weight: 700;
 }
-.row b{
-  font-weight: 1000;
-  font-size: 14px;
+.actions{
+  display:flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
 }
-
-.tips{
-  margin: 10px 0 0;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.42);
-  white-space: pre-wrap;
-  font: 750 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;
+.btn{
+  pointer-events: auto;
+  appearance: none;
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  background: rgba(15,23,42,.65);
+  color: rgba(229,231,235,.95);
+  cursor: pointer;
+  text-decoration: none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width: 120px;
+}
+.btn.primary{
+  background: rgba(34,197,94,.16);
+  border-color: rgba(34,197,94,.28);
+}
+.btn.ghost{
+  background: rgba(15,23,42,.45);
+}
+.btn.danger{
+  background: rgba(239,68,68,.14);
+  border-color: rgba(239,68,68,.28);
+}
+.fineprint{
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(148,163,184,.95);
+}
+.fineprint code{
+  font-weight: 900;
   color: rgba(229,231,235,.92);
 }
 
-.nextLine{
-  margin-top: 10px;
-  display:flex;
-  gap: 10px;
-  align-items:baseline;
-  color: rgba(148,163,184,.95);
-  font-weight: 850;
+/* ------------------------------------------------
+  Result summary modal
+------------------------------------------------- */
+.resultBackdrop{
+  position: fixed;
+  inset: 0;
+  z-index: var(--zResult);
+  display: grid;
+  place-items: center;
+  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+  background: rgba(2,6,23,.72);
+  backdrop-filter: blur(10px);
 }
-.nextLine b{ color: rgba(229,231,235,.95); }
+.resultCard{
+  width: min(720px, 94vw);
+  border-radius: 26px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 24px 90px rgba(0,0,0,.60);
+  padding: 16px 16px 14px;
+}
+.resultTitle{
+  font-weight: 1000;
+  letter-spacing: .2px;
+  font-size: 18px;
+}
+.resultGrid{
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.rItem{
+  border: 1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.55);
+  border-radius: 18px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: rgba(148,163,184,.95);
+}
+.rItem b{
+  display:block;
+  margin-top: 2px;
+  font-size: 15px;
+  color: rgba(229,231,235,.96);
+}
+.resultTier{
+  margin-top: 10px;
+  font-weight: 1000;
+  color: rgba(229,231,235,.95);
+}
+.resultTips{
+  margin-top: 10px;
+  white-space: pre-wrap;
+  background: rgba(15,23,42,.50);
+  border: 1px solid rgba(148,163,184,.14);
+  border-radius: 18px;
+  padding: 10px 12px;
+  color: rgba(229,231,235,.90);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.resultNext{
+  margin-top: 10px;
+  color: rgba(148,163,184,.95);
+  font-size: 12px;
+}
+.resultNext b{ color: rgba(229,231,235,.96); }
 
-.resultBtns{
+.resultActions{
   margin-top: 12px;
   display:flex;
-  flex-wrap:wrap;
   gap: 10px;
-  justify-content:flex-end;
+  flex-wrap: wrap;
 }
 
-/* Responsive */
-@media (max-width: 740px){
-  .hud{ flex-direction:column; height:auto; gap:8px; }
-  .hudLeft, .hudCenter, .hudRight{ justify-content:space-between; }
-  :root{ --hudH: 128px; }
-  .questPanel{ top: calc(10px + var(--sat) + 128px + 10px); }
-  .resultGrid{ grid-template-columns: 1fr; }
+/* Mobile result grid */
+@media (max-width: 720px){
+  .resultGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* ----------------------------------------------------
-   FX: hit pulse
----------------------------------------------------- */
-@keyframes hitPulse {
-  0%   { filter: none; transform: translateZ(0); }
-  45%  { filter: brightness(1.15) saturate(1.25); }
-  100% { filter: none; }
+/* ------------------------------------------------
+  FX classes used by hydration.safe.js
+------------------------------------------------- */
+
+/* hit pulse (used via pulseBody('hha-hitfx')) */
+body.hha-hitfx{
+  animation: hhaHitPulse 140ms ease-out 1;
 }
-body.hha-hitfx .playfield,
-body.hha-hitfx .cbPlayfield{
-  animation: hitPulse .14s ease-out 1;
+@keyframes hhaHitPulse{
+  0%{ filter: brightness(1) saturate(1); }
+  100%{ filter: brightness(1.08) saturate(1.08); }
 }
 
-/* ----------------------------------------------------
-   FX: end window blink + shake
----------------------------------------------------- */
-@keyframes endBlink {
-  0%{ box-shadow: 0 0 0 rgba(245,158,11,0); }
-  50%{ box-shadow: 0 0 0 10px rgba(245,158,11,.10); }
-  100%{ box-shadow: 0 0 0 rgba(245,158,11,0); }
+/* end window: blink + subtle shake (body.hha-endfx toggled) */
+body.hha-endfx .hud{
+  filter: saturate(1.10) brightness(1.03);
 }
-@keyframes endShake {
+body.hha-endfx{
+  animation: hhaEndShake 420ms ease-in-out infinite;
+}
+@keyframes hhaEndShake{
   0%{ transform: translate(0,0); }
-  25%{ transform: translate(1px,-1px); }
-  50%{ transform: translate(-1px,1px); }
-  75%{ transform: translate(1px,1px); }
+  20%{ transform: translate(0.5px,-0.6px); }
+  50%{ transform: translate(-0.7px,0.4px); }
+  80%{ transform: translate(0.6px,0.6px); }
   100%{ transform: translate(0,0); }
 }
 
-body.hha-endfx .questPanel{
-  border-color: rgba(245,158,11,.28);
-  animation: endBlink .36s ease-in-out infinite;
+/* boss fx: glowing edges */
+body.hha-bossfx .panel.quest{
+  border-color: rgba(239,68,68,.22);
+  box-shadow: 0 18px 70px rgba(239,68,68,.08), 0 18px 60px rgba(0,0,0,.42);
 }
-body.hha-endfx .playfield::before{
-  opacity: .55;
-}
-body.hha-endfx .playfield,
-body.hha-endfx .cbPlayfield{
-  animation: endShake .22s linear infinite;
+body.hha-bossfx .stat.grade{
+  border-color: rgba(239,68,68,.22);
 }
 
-/* ----------------------------------------------------
-   FX: boss glow
----------------------------------------------------- */
-@keyframes bossGlow{
-  0%{ filter: none; }
-  50%{ filter: drop-shadow(0 0 14px rgba(239,68,68,.22)); }
-  100%{ filter: none; }
-}
-body.hha-bossfx .questPanel{
-  border-color: rgba(239,68,68,.28);
-  box-shadow: 0 22px 80px rgba(239,68,68,.12);
-}
-body.hha-bossfx .playfield,
-body.hha-bossfx .cbPlayfield{
-  animation: bossGlow .7s ease-in-out infinite;
-}
-
-/* ----------------------------------------------------
-   Shockwave element created by hydration.safe.js (shockAt)
----------------------------------------------------- */
+/* shockwave ring element appended in playfield */
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
   top: var(--y, 50%);
   transform: translate(-50%,-50%);
-  width: 14px; height: 14px;
+  width: 16px; height: 16px;
   border-radius: 999px;
-  border: 2px solid rgba(239,68,68,.55);
-  box-shadow: 0 0 0 0 rgba(239,68,68,.28);
-  pointer-events:none;
-  z-index: var(--z-fx);
-  animation: shock .52s ease-out forwards;
+  border: 2px solid rgba(239,68,68,.65);
+  box-shadow: 0 0 18px rgba(239,68,68,.18);
+  animation: hhaShock 520ms ease-out 1;
+  pointer-events: none;
+}
+@keyframes hhaShock{
+  0%{ opacity: .85; transform: translate(-50%,-50%) scale(1); }
+  100%{ opacity: 0; transform: translate(-50%,-50%) scale(10); }
 }
 
-@keyframes shock{
-  0%{
-    opacity: .95;
-    transform: translate(-50%,-50%) scale(.6);
-    box-shadow: 0 0 0 0 rgba(239,68,68,.22);
-  }
-  80%{
-    opacity: .25;
-    transform: translate(-50%,-50%) scale(7.0);
-    box-shadow: 0 0 0 18px rgba(239,68,68,.08);
-  }
-  100%{
-    opacity: 0;
-    transform: translate(-50%,-50%) scale(8.2);
-    box-shadow: 0 0 0 26px rgba(239,68,68,0);
-  }
-}
+/* ------------------------------------------------
+  Kids-friendly mode (optional): ?kids=1
+  - Bigger readable text, simpler panels, more space
+------------------------------------------------- */
+body.kids .panel.quest .qline{ font-size: 13px; }
+body.kids .stat{ font-size: 13px; }
+body.kids .stat b{ font-size: 14px; }
+body.kids .panel{ border-radius: 24px; }
 
-/* ----------------------------------------------------
-   Keep vr-ui.js clickable
-   - vr-ui buttons usually sit fixed top-left.
-   - Ensure our HUD doesn't block (pointer-events none).
----------------------------------------------------- */
-.hha-vrui, .hha-vr-ui, #hha-vr-ui, .vr-ui{
-  z-index: var(--z-vrui) !important;
+/* ------------------------------------------------
+  Reduce-motion friendly
+------------------------------------------------- */
+@media (prefers-reduced-motion: reduce){
+  body.hha-endfx{ animation: none; }
+  body.hha-hitfx{ animation: none; }
+  .hha-shock{ animation: none; opacity:.3; }
 }
-
-/* ----------------------------------------------------
-   Accessibility / selection
----------------------------------------------------- */
-button{ -webkit-tap-highlight-color: transparent; }
-pre{ margin:0; }
