@@ -1,12 +1,8 @@
 <!-- =========================================================
      /herohealth/plate/plate-vr.html
      Balanced Plate VR — RUN (PRODUCTION)
-     ✅ Minimal A-Frame scene for Enter VR reliability
-     ✅ Uses: ./plate-vr.css + ../vr/vr-ui.js + logger + particles
-     ✅ HUD: SCORE/TIME/COMBO/SHIELD (เหมือนภาพ)
-     ✅ Quest card: GOAL + MINI
-     ✅ Coach bubble + End overlay (HHA Standard)
-========================================================= -->
+     HHA Standard
+========================================================== -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,6 +10,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#020617" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame: helps WebXR Enter VR reliability -->
@@ -33,6 +30,7 @@
 
 <body class="view-pc">
   <div id="app">
+
     <!-- Minimal A-Frame scene (hidden) for Enter VR -->
     <a-scene
       embedded
@@ -43,9 +41,9 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- FX layers (optional hooks; safe even if unused) -->
-    <div id="bossFx"></div>
-    <div id="stormFx"></div>
+    <!-- FX hooks (optional) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
 
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
@@ -57,25 +55,17 @@
           <span class="lbl">SCORE</span>
           <span class="val" id="hudScore">0</span>
         </div>
-
         <div class="chip time" aria-label="time">
           <span class="lbl">TIME</span>
           <span class="val" id="hudTime">0</span>
         </div>
-
         <div class="chip combo" aria-label="combo">
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
         </div>
-
-        <!-- ✅ เพิ่มให้เหมือนภาพ -->
-        <div class="chip shield" aria-label="shield">
-          <span class="lbl">SHIELD</span>
-          <span class="val" id="hudShield">0</span>
-        </div>
       </div>
 
-      <div class="card" id="questCard">
+      <div class="card" id="questCard" aria-label="quests">
         <div class="cardTitle">
           <div class="t">🎯 ภารกิจ</div>
           <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
@@ -84,11 +74,11 @@
         <!-- GOAL -->
         <div class="qItem" id="goalItem">
           <div class="qText">
-            <div class="name" id="goalName">เติมจานให้ครบ 5 หมู่</div>
-            <div class="sub" id="goalSub">เก็บอาหารให้ครบทุกหมู่</div>
+            <div class="name" id="goalName">Goal</div>
+            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/5</div>
+            <div class="qNums" id="goalNums">0/1</div>
             <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
@@ -96,11 +86,11 @@
         <!-- MINI -->
         <div class="qItem" id="miniItem">
           <div class="qText">
-            <div class="name" id="miniName">เติมหมู่ที่ขาด (12 วิ)</div>
-            <div class="sub" id="miniSub">พลาดได้ ไม่เป็นไร! ลองใหม่รอบหน้า …</div>
+            <div class="name" id="miniName">Mini Quest</div>
+            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/2</div>
+            <div class="qNums" id="miniNums">0/1</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
@@ -117,7 +107,7 @@
 
     <!-- End Overlay -->
     <div id="endOverlay" aria-hidden="true">
-      <div class="endPanel">
+      <div class="endPanel" role="dialog" aria-modal="true" aria-label="สรุปผลการเล่น">
         <div class="endTitle">
           <h2 id="endTitle">สรุปผล</h2>
           <div class="tag" id="endTag">PlateVR</div>
@@ -133,16 +123,17 @@
         </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
+          <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- NOTE:
-    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js sets body view + boots engine.
+    - vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    - plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
