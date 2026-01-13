@@ -5,14 +5,11 @@
 // ✅ Miss definition: miss = good expired + junk hit; Shield-blocked junk does NOT count as Miss
 // ✅ Storm rule: timeLeft <= 30s => STORM ON (once), ends when boss ends or game ends
 // ✅ Boss rule: miss >= 4 => BOSS ON (HP by diff: 10/12/14)
-// ✅ Rage rule: miss >= 5 => RAGE ON (until end) — fair but tense
-// ✅ Boss Phase2 lasts 6s (pressure burst, then returns to Phase1 if not cleared)
-// ✅ Emits:
-//    hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:storm, hha:boss, hha:end, hha:celebrate
-// ✅ End summary + back-to-HUB + save last summary (HHA_LAST_SUMMARY)
-// ✅ PATCH-1: End overlay uses existing #endOverlay (aria-hidden only) if present
-// ✅ PATCH-2: Goal 1->2->3 progression + win condition (all goals cleared) OR timeup/gameover
-// ✅ PATCH-4: Spawn safe-zone also avoids bossbar height (if present)
+// ✅ Rage rule: miss >= 5 => RAGE ON (until end)
+// ✅ Boss Phase2 lasts 6s then returns to Phase1 if not cleared
+// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:storm, hha:boss, hha:end, hha:celebrate
+// ✅ End summary: uses HTML #endOverlay via aria-hidden ONLY (NO dynamic overlay creation)
+// ✅ Save last summary: HHA_LAST_SUMMARY
 
 'use strict';
 
@@ -84,7 +81,7 @@ export function boot(payload = {}) {
     return 'mobile';
   }
 
-  // particles (optional)
+  // particles (optional) — supports both minimal and ultra implementations
   function fx(){
     return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || ROOT.Particles || null;
   }
@@ -97,21 +94,15 @@ export function boot(payload = {}) {
   }
   function fxBurst(x,y,kind='good',opts=null){
     const P = fx();
-    try{
-      if(P && typeof P.burstAt==='function') P.burstAt(x,y,kind,opts);
-    }catch(_){}
+    try{ if(P && typeof P.burstAt==='function') P.burstAt(x,y,kind,opts); }catch(_){}
   }
   function fxRing(x,y,kind='good',opts=null){
     const P = fx();
-    try{
-      if(P && typeof P.ringPulse==='function') P.ringPulse(x,y,kind,opts);
-    }catch(_){}
+    try{ if(P && typeof P.ringPulse==='function') P.ringPulse(x,y,kind,opts); }catch(_){}
   }
   function fxCelebrate(kind='win', opts=null){
     const P = fx();
-    try{
-      if(P && typeof P.celebrate==='function') P.celebrate(kind, opts);
-    }catch(_){}
+    try{ if(P && typeof P.celebrate==='function') P.celebrate(kind, opts); }catch(_){}
   }
   function bodyPulse(cls, ms=180){
     try{
@@ -184,6 +175,7 @@ export function boot(payload = {}) {
     };
   })();
 
+  // play vs research (adaptive off in research)
   const adaptiveOn = (runMode !== 'research');
 
   // ----------------------- UI refs -----------------------
@@ -207,11 +199,23 @@ export function boot(payload = {}) {
 
     lowTimeOverlay: byId('lowTimeOverlay'),
     lowTimeNum: byId('gj-lowtime-num'),
+
+    // HTML end overlay ids (HHA Standard)
+    endOverlay: byId('endOverlay'),
+    endTitle: byId('endTitle'),
+    endSub: byId('endSub'),
+    endGrade: byId('endGrade'),
+    endScore: byId('endScore'),
+    endMiss: byId('endMiss'),
+    endTime: byId('endTime'),
+    endBackHub: byId('endBackHub') || byId('btnBackHub'),
+    endReplay: byId('endReplay') || byId('btnRestartEnd'),
   };
 
   const LAYER_L = byId('gj-layer');
   const LAYER_R = byId('gj-layer-r');
 
+  // ----------------------- safety checks -----------------------
   if(!LAYER_L){
     console.error('[GoodJunkVR] missing #gj-layer');
     return;
@@ -230,8 +234,10 @@ export function boot(payload = {}) {
     combo: 0,
     comboMax: 0,
 
+    // misses (good expired + junk hit)
     miss: 0,
 
+    // counts
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
@@ -243,14 +249,16 @@ export function boot(payload = {}) {
     nHitJunkGuard: 0,
     nExpireGood: 0,
 
+    // reaction times
     rtGood: [],
     rtBreakdown: { lt300:0, lt450:0, lt700:0, ge700:0 },
 
+    // fever / shield
     fever: 0,
     shield: 0,
 
+    // quest
     goals: [],
-    goalIndex: 0,
     goal: null,
     goalsCleared: 0,
     goalsTotal: 3,
@@ -261,18 +269,21 @@ export function boot(payload = {}) {
     miniSeq: [],
     miniIndex: 0,
 
+    // spawn
     spawnAcc: 0,
-    targets: new Map(),
+    targets: new Map(), // id => tObj
 
+    // boss / storm / rage (A+B+C)
     stormOn: false,
     bossOn: false,
     rageOn: false,
     bossHp: 0,
     bossHpMax: DIFF.bossHpMax,
-    bossPhase: 0,          // 0 none, 1 phase1, 2 phase2
-    bossPhase2Sec: 6,      // ✅ Phase2-6s
+    bossPhase: 0,          // 0 none, 1 P1, 2 P2
+    bossPhase2Sec: 6,      // ✅ Phase2 = 6s
     bossPhase2Until: 0,
 
+    // session
     sessionId: null,
     startTimeIso: new Date().toISOString(),
     endTimeIso: null,
@@ -310,10 +321,8 @@ export function boot(payload = {}) {
     return [
       { type:'survive', title:'เอาตัวรอด', target: DIFF.missLimit, cur:0, done:false,
         desc:`MISS ต้องไม่เกิน ${DIFF.missLimit}` },
-
       { type:'score', title:'ทำคะแนน', target: (diff==='easy'? 420 : diff==='hard'? 520 : 470), cur:0, done:false,
         desc:`เก็บของดีเพื่อทำคะแนน` },
-
       { type:'minis', title:'ทำ MINI', target: 2, cur:0, done:false,
         desc:`ผ่าน MINI ให้ได้ 2 ครั้ง` }
     ];
@@ -322,84 +331,18 @@ export function boot(payload = {}) {
   function setGoalText(){
     const g = state.goal;
     if(!g) return;
-    if(HUD.goal) HUD.goal.textContent = g.title || '—';
-    if(HUD.goalTarget) HUD.goalTarget.textContent = String(g.target ?? 0);
-    if(HUD.goalCur) HUD.goalCur.textContent = String(g.cur ?? 0);
-    if(HUD.goalDesc) HUD.goalDesc.textContent = g.desc || '—';
-  }
-
-  function emitQuestUpdate(){
-    emit('quest:update', { mini: state.mini || null, goal: state.goal || null });
-  }
-
-  // ✅ PATCH-2: Goal progression
-  function nextGoal(){
-    // mark current goal done if not already (safety)
-    const g = state.goal;
-    if(g && !g.done){
-      // survive goal is special: only auto-complete at end unless already satisfied by progress
-      if(g.type !== 'survive'){
-        g.done = true;
-        state.goalsCleared++;
-      }
-    }
-
-    state.goalIndex = clamp(state.goalIndex + 1, 0, state.goals.length);
-    if(state.goalIndex >= state.goals.length){
-      state.goal = null;
-      setGoalText();
-      emitQuestUpdate();
-      return;
-    }
-
-    state.goal = state.goals[state.goalIndex];
-    // refresh cur from current state
-    if(state.goal.type === 'score') state.goal.cur = clamp(state.score, 0, state.goal.target);
-    if(state.goal.type === 'survive') state.goal.cur = clamp(state.miss, 0, state.goal.target);
-    if(state.goal.type === 'minis') state.goal.cur = clamp(state.miniCleared, 0, state.goal.target);
-
-    setGoalText();
-    emit('hha:judge', { type:'perfect', label:`GOAL ${state.goalIndex+1}!` });
-    bodyPulse('gj-goal-next', 220);
-    emitQuestUpdate();
-  }
-
-  function checkAllGoalsDone(){
-    // if goalsCleared already equals goalsTotal => win
-    if(state.goalsCleared >= state.goalsTotal){
-      endGame('goalsDone');
-      return true;
-    }
-    return false;
-  }
-
-  function tryCompleteGoal(type){
-    const g = state.goal;
-    if(!g || g.done || g.type !== type) return false;
-
-    if(g.cur >= g.target){
-      g.done = true;
-      state.goalsCleared++;
-      emit('hha:judge', { type:'perfect', label:'GOAL CLEAR!' });
-      fxPop(innerWidth/2, innerHeight*0.22, 'GOAL CLEAR!', 'good', { size: 18 });
-      bodyPulse('gj-goal-clear', 240);
-
-      // move to next goal
-      nextGoal();
-
-      // maybe win
-      checkAllGoalsDone();
-      return true;
-    }
-    return false;
+    HUD.goal && (HUD.goal.textContent = g.title || '—');
+    HUD.goalTarget && (HUD.goalTarget.textContent = String(g.target ?? 0));
+    HUD.goalCur && (HUD.goalCur.textContent = String(g.cur ?? 0));
+    HUD.goalDesc && (HUD.goalDesc.textContent = g.desc || '—');
   }
 
   function setMiniText(){
     const m = state.mini;
     if(!m){
-      if(HUD.mini) HUD.mini.textContent = '—';
-      if(HUD.miniTimer) HUD.miniTimer.textContent = '—';
-      emitQuestUpdate();
+      HUD.mini && (HUD.mini.textContent = '—');
+      HUD.miniTimer && (HUD.miniTimer.textContent = '—');
+      emit('quest:update', { mini:null, goal:state.goal });
       return;
     }
     if(HUD.mini){
@@ -415,7 +358,7 @@ export function boot(payload = {}) {
       if(m.type==='fast_hits') HUD.miniTimer.textContent = `${Math.ceil(m.leftSec||0)}s`;
       else HUD.miniTimer.textContent = '—';
     }
-    emitQuestUpdate();
+    emit('quest:update', { mini:m, goal:state.goal });
   }
 
   function nextMini(){
@@ -428,11 +371,14 @@ export function boot(payload = {}) {
   function markMiniCleared(){
     state.miniCleared++;
 
-    // update goal minis
     if(state.goal && state.goal.type==='minis'){
       state.goal.cur = clamp(state.miniCleared, 0, state.goal.target);
+      if(state.goal.cur >= state.goal.target && !state.goal.done){
+        state.goal.done = true;
+        state.goalsCleared++;
+        emit('hha:judge', { type:'perfect', label:'GOAL!' });
+      }
       setGoalText();
-      tryCompleteGoal('minis');
     }
 
     emit('hha:judge', { type:'perfect', label:'MINI CLEAR!' });
@@ -452,6 +398,7 @@ export function boot(payload = {}) {
         m.done = true;
         markMiniCleared();
       }else{
+        // update sometimes
         if((Math.floor(m.cur*3) % 2)===0) setMiniText();
       }
       return;
@@ -459,7 +406,7 @@ export function boot(payload = {}) {
 
     if(m.type==='fast_hits'){
       m.leftSec = Math.max(0, (Number(m.leftSec)||0) - dtSec);
-      if(HUD.miniTimer) HUD.miniTimer.textContent = `${Math.ceil(m.leftSec)}s`;
+      HUD.miniTimer && (HUD.miniTimer.textContent = `${Math.ceil(m.leftSec)}s`);
 
       if(m.leftSec <= 0 && !m.done){
         resetMini(m);
@@ -472,26 +419,26 @@ export function boot(payload = {}) {
   // ----------------------- HUD / fever / shield -----------------------
   function setScore(v, meta=null){
     state.score = Math.max(0, Math.floor(v));
-    if(HUD.score) HUD.score.textContent = String(state.score);
+    HUD.score && (HUD.score.textContent = String(state.score));
     emit('hha:score', Object.assign({ score: state.score }, meta||{}));
   }
   function setMiss(v, meta=null){
     state.miss = Math.max(0, Math.floor(v));
-    if(HUD.miss) HUD.miss.textContent = String(state.miss);
+    HUD.miss && (HUD.miss.textContent = String(state.miss));
     emit('hha:miss', Object.assign({ miss: state.miss }, meta||{}));
   }
   function setTimeLeft(sec){
     state.timeLeftSec = Math.max(0, sec);
-    if(HUD.time) HUD.time.textContent = String(Math.ceil(state.timeLeftSec));
+    HUD.time && (HUD.time.textContent = String(Math.ceil(state.timeLeftSec)));
     emit('hha:time', { t: state.timeLeftSec, timeLeftSec: state.timeLeftSec });
   }
   function setGradeText(txt){
-    if(HUD.grade) HUD.grade.textContent = txt;
+    HUD.grade && (HUD.grade.textContent = txt);
   }
   function addFever(delta){
     state.fever = clamp(state.fever + (Number(delta)||0), 0, 100);
-    if(HUD.feverFill) HUD.feverFill.style.width = `${state.fever}%`;
-    if(HUD.feverText) HUD.feverText.textContent = `${Math.round(state.fever)}%`;
+    HUD.feverFill && (HUD.feverFill.style.width = `${state.fever}%`);
+    HUD.feverText && (HUD.feverText.textContent = `${Math.round(state.fever)}%`);
   }
   function addShield(n){
     state.shield = clamp(state.shield + (Number(n)||0), 0, 5);
@@ -530,7 +477,7 @@ export function boot(payload = {}) {
         setTimeout(()=>body.classList.remove('gj-tick'), 120);
       }
     }else{
-      if(HUD.lowTimeOverlay) HUD.lowTimeOverlay.setAttribute('aria-hidden','true');
+      HUD.lowTimeOverlay && HUD.lowTimeOverlay.setAttribute('aria-hidden','true');
     }
   }
 
@@ -543,25 +490,12 @@ export function boot(payload = {}) {
       return Number.isFinite(n) ? n : fallbackPx;
     }catch(_){ return fallbackPx; }
   }
-
-  function bossbarExtraTop(){
-    // if bossbar exists & visible -> reserve a little more vertical space
-    try{
-      const bb = DOC.getElementById('gjBossbar');
-      if(!bb) return 0;
-      const hidden = bb.getAttribute('aria-hidden');
-      if(hidden === 'true') return 0;
-      const h = bb.getBoundingClientRect().height || 0;
-      return Math.min(90, Math.max(0, Math.floor(h + 10)));
-    }catch(_){ return 0; }
-  }
-
   function getSafeRect(){
     const W = DOC.documentElement.clientWidth;
     const H = DOC.documentElement.clientHeight;
 
     const sat = readRootPxVar('--sat', 0);
-    const topSafe = readRootPxVar('--gj-top-safe', 130 + sat) + bossbarExtraTop();
+    const topSafe = readRootPxVar('--gj-top-safe', 130 + sat);
     const botSafe = readRootPxVar('--gj-bottom-safe', 120);
 
     const xMin = Math.floor(W * 0.12);
@@ -595,8 +529,7 @@ export function boot(payload = {}) {
     if(state.stormOn) junkBoost += 0.03;
     if(state.bossOn)  junkBoost += (state.bossPhase===2 ? 0.08 : 0.05);
     if(state.rageOn)  junkBoost += 0.06;
-
-    if(state.bossOn)  goodBoost += 0.02;
+    if(state.bossOn)  goodBoost += 0.02; // keep fair
 
     const junkAdj = clamp(junkW + junkBoost, 0.08, 0.55);
     const starAdj = clamp(starW + (state.bossOn?0.01:0), 0.02, 0.14);
@@ -773,8 +706,12 @@ export function boot(payload = {}) {
     if(!g || g.done) return;
     if(g.type==='score'){
       g.cur = clamp(state.score, 0, g.target);
+      if(g.cur >= g.target){
+        g.done = true;
+        state.goalsCleared++;
+        emit('hha:judge', { type:'perfect', label:'GOAL!' });
+      }
       setGoalText();
-      tryCompleteGoal('score');
     }
   }
   function updateGoalsOnMiss(){
@@ -783,7 +720,6 @@ export function boot(payload = {}) {
     if(g.type==='survive'){
       g.cur = clamp(state.miss, 0, g.target);
       setGoalText();
-      // survive completes at end (PATCH-2) to keep pressure
     }
   }
 
@@ -889,9 +825,7 @@ export function boot(payload = {}) {
     state.combo++;
     if(state.combo > state.comboMax) state.comboMax = state.combo;
   }
-  function resetCombo(){
-    state.combo = 0;
-  }
+  function resetCombo(){ state.combo = 0; }
 
   function onTargetHit(tObj, meta={}){
     if(!tObj || tObj.hit || state.ended) return;
@@ -1011,13 +945,18 @@ export function boot(payload = {}) {
     }
   }
 
-  // cVR shooting
-  function shootCrosshair(){
+  // ----------------------- cVR/VR shooting (lockPx-aware) -----------------------
+  function shootCrosshair(ev){
     if(state.ended) return;
+
+    const det = ev?.detail || null;
     const cx = Math.floor(DOC.documentElement.clientWidth/2);
     const cy = Math.floor(DOC.documentElement.clientHeight/2);
 
-    const R = (isCVR || isVR) ? 82 : 70;
+    // use lockPx from vr-ui (fair, user-config)
+    const lockPx = Math.max(18, Math.min(110, Number(det?.lockPx ?? 82) || 82));
+    const R = (isCVR || isVR) ? lockPx : Math.min(90, lockPx);
+
     let best = null;
     let bestD = 1e9;
 
@@ -1109,7 +1048,7 @@ export function boot(payload = {}) {
     return clamp(r, 0.8, 2.25);
   }
 
-  // ----------------------- grading / summary helpers -----------------------
+  // ----------------------- grading / summary -----------------------
   function calcAccuracyGoodPct(){
     if(state.nTargetGoodSpawned <= 0) return null;
     return Math.round((state.nHitGood / Math.max(1, state.nTargetGoodSpawned)) * 1000) / 10;
@@ -1131,36 +1070,37 @@ export function boot(payload = {}) {
     return 'D';
   }
 
-  // ✅ PATCH-1: End overlay uses existing #endOverlay if present
-  function renderEndOverlay(summary){
-    const endOverlay = byId('endOverlay');
-    if(endOverlay){
-      try{
-        byId('endTitle') && (byId('endTitle').textContent = (summary.reason === 'missLimit') ? 'Game Over' : 'Completed');
-        byId('endSub')   && (byId('endSub').textContent   = `reason=${summary.reason||'-'} | mode=${summary.runMode||runMode} | view=${summary.device||deviceLabel(view)}`);
-        byId('endGrade') && (byId('endGrade').textContent = summary.grade || '—');
-        byId('endScore') && (byId('endScore').textContent = String(summary.scoreFinal ?? 0));
-        byId('endMiss')  && (byId('endMiss').textContent  = String(summary.misses ?? 0));
-        byId('endTime')  && (byId('endTime').textContent  = String(Math.round(Number(summary.durationPlayedSec||0))));
+  // ✅ HTML end overlay (aria-only)
+  function showEndOverlayHtml(summary){
+    const ov = HUD.endOverlay;
+    if(!ov) return;
 
-        endOverlay.setAttribute('aria-hidden','false');
-        endOverlay.style.display = 'flex';
+    try{
+      HUD.endTitle && (HUD.endTitle.textContent = (summary.reason === 'missLimit') ? 'Game Over' : 'Completed');
+      HUD.endSub && (HUD.endSub.textContent = `reason=${summary.reason||'-'} | mode=${summary.runMode||runMode} | view=${summary.device||deviceLabel(view)}`);
+      HUD.endGrade && (HUD.endGrade.textContent = summary.grade || '—');
+      HUD.endScore && (HUD.endScore.textContent = String(summary.scoreFinal ?? 0));
+      HUD.endMiss && (HUD.endMiss.textContent = String(summary.misses ?? 0));
+      HUD.endTime && (HUD.endTime.textContent = String(Math.round(Number(summary.durationPlayedSec||0))));
 
-        // wire buttons if exist
-        const back = byId('endBackHub') || byId('btnBackHub');
-        const replay = byId('endReplay') || byId('btnRestartEnd');
-        back && back.addEventListener('click', ()=>{
-          try{
-            if(hub) location.href = hub;
-            else alert('ไม่พบ hub ในพารามิเตอร์ URL (hub=...)');
-          }catch(_){}
-        }, { once:true });
+      ov.setAttribute('aria-hidden','false');
+      ov.style.display = 'flex'; // safe: many CSS already rely on display none
+    }catch(_){}
 
-        replay && replay.addEventListener('click', ()=> location.reload(), { once:true });
-        return true;
-      }catch(_){}
+    // bind buttons (once)
+    if(HUD.endReplay && !HUD.endReplay.__hha_bound){
+      HUD.endReplay.__hha_bound = true;
+      HUD.endReplay.addEventListener('click', ()=>{ try{ location.reload(); }catch(_){ } });
     }
-    return false;
+    if(HUD.endBackHub && !HUD.endBackHub.__hha_bound){
+      HUD.endBackHub.__hha_bound = true;
+      HUD.endBackHub.addEventListener('click', ()=>{
+        try{
+          if(hub) location.href = hub;
+          else alert('ยังไม่ได้ใส่ hub url');
+        }catch(_){}
+      });
+    }
   }
 
   // ----------------------- end game -----------------------
@@ -1174,13 +1114,12 @@ export function boot(payload = {}) {
     for(const tObj of state.targets.values()) removeTarget(tObj);
     state.targets.clear();
 
-    // complete survive goal at end if still active and not failed
     if(state.goal && state.goal.type==='survive' && !state.goal.done){
-      state.goal.cur = clamp(state.miss, 0, state.goal.target);
       if(state.miss <= DIFF.missLimit){
         state.goal.done = true;
         state.goalsCleared++;
       }
+      setGoalText();
     }
     state.goalsCleared = clamp(state.goalsCleared, 0, state.goalsTotal);
 
@@ -1246,7 +1185,7 @@ export function boot(payload = {}) {
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
-    emit('hha:end', {
+    emit('hha:end', Object.assign({
       projectTag: PROJECT_TAG,
       runMode,
       studyId,
@@ -1257,54 +1196,42 @@ export function boot(payload = {}) {
       diff,
       seed,
       gameVersion: GAME_VERSION,
-
       durationPlannedSec,
       durationPlayedSec: summary.durationPlayedSec,
-
       scoreFinal,
       comboMax,
       misses,
-
       goalsCleared: summary.goalsCleared,
       goalsTotal: summary.goalsTotal,
       miniCleared: summary.miniCleared,
       miniTotal: summary.miniTotal,
-
       nTargetGoodSpawned: summary.nTargetGoodSpawned,
       nTargetJunkSpawned: summary.nTargetJunkSpawned,
       nTargetStarSpawned: summary.nTargetStarSpawned,
       nTargetDiamondSpawned: summary.nTargetDiamondSpawned,
       nTargetShieldSpawned: summary.nTargetShieldSpawned,
-
       nHitGood: summary.nHitGood,
       nHitJunk: summary.nHitJunk,
       nHitJunkGuard: summary.nHitJunkGuard,
       nExpireGood: summary.nExpireGood,
-
       accuracyGoodPct,
       junkErrorPct,
       avgRtGoodMs,
       medianRtGoodMs,
       fastHitRatePct,
       rtBreakdownJson: summary.rtBreakdownJson,
-
       reason,
       startTimeIso: state.startTimeIso,
       endTimeIso: state.endTimeIso,
-
       grade,
-    });
+    }, {}));
 
     emit('hha:celebrate', { kind:'end', grade });
-
-    fxCelebrate(reason === 'missLimit' ? 'lose' : 'win', { count: 18 });
+    fxCelebrate('win', { count: 18 });
     bodyPulse('gj-end', 520);
 
-    // show end overlay (prefer HTML overlay)
-    if(!renderEndOverlay(summary)){
-      // fallback: minimal alert (never create giant overlay here)
-      try{ alert(`END: ${reason}\nScore=${scoreFinal}\nMiss=${misses}\nGrade=${grade}`); }catch(_){}
-    }
+    // ✅ show HTML overlay only
+    showEndOverlayHtml(summary);
   }
 
   // ----------------------- main loop -----------------------
@@ -1326,7 +1253,7 @@ export function boot(payload = {}) {
     setTimeLeft(state.timeLeftSec);
     updateLowTimeFx();
 
-    // STORM trigger at 30s (once)
+    // ✅ STORM trigger at 30s (once)
     if(state.timeLeftSec <= 30 && !state.stormOn){
       setStorm(true);
     }
@@ -1351,12 +1278,6 @@ export function boot(payload = {}) {
     // expiry
     expireTargets();
 
-    // ✅ win condition: all goals cleared
-    if(!state.ended && state.goalsCleared >= state.goalsTotal){
-      endGame('goalsDone');
-      return;
-    }
-
     // end by time
     if(state.timeLeftSec <= 0){
       endGame('timeup');
@@ -1375,21 +1296,17 @@ export function boot(payload = {}) {
     addFever(0);
     renderShield();
 
-    // quest init
     state.goals = makeGoals();
-    state.goalsTotal = state.goals.length;
-    state.goalIndex = 0;
-    state.goal = state.goals[state.goalIndex];
+    state.goal = state.goals[0];
     setGoalText();
 
     state.miniSeq = pickMiniSequence(view);
-    state.miniTotal = state.miniSeq.length;
     state.miniIndex = 0;
     state.mini = state.miniSeq[state.miniIndex];
     resetMini(state.mini);
     setMiniText();
 
-    emitQuestUpdate();
+    emit('quest:update', { goal: state.goal, mini: state.mini });
   }
 
   function start(){
@@ -1430,7 +1347,7 @@ export function boot(payload = {}) {
   DOC.addEventListener('visibilitychange', ()=>{
     try{
       if(DOC.visibilityState === 'hidden' && !state.ended){
-        log({ type:'visibility', v:'hidden', t: new Date().toISOString() });
+        log({ type:'visibility', v:'hidden', t: new Date().toISOString(), tag:PROJECT_TAG });
       }
     }catch(_){}
   }, { passive:true });
@@ -1438,10 +1355,11 @@ export function boot(payload = {}) {
   ROOT.addEventListener('pagehide', ()=>{
     try{
       if(!state.ended){
-        log({ type:'pagehide', t: new Date().toISOString() });
+        log({ type:'pagehide', t: new Date().toISOString(), tag:PROJECT_TAG });
       }
     }catch(_){}
   }, { passive:true });
 
+  // expose debug
   ROOT.__GJ_STATE__ = state;
 }
