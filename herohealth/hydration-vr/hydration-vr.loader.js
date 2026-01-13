@@ -1,161 +1,89 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION (path-safe + view autodetect)
-// ✅ Auto view: pc / mobile / cardboard (cVR)
-// ✅ Sets body classes + HHA_VIEW.layers for safe.js (L/R)
-// ✅ Robust dynamic import with multiple candidate paths (case-sensitive safe)
-// ✅ Emits hha:start when user taps Start (or auto if overlay hidden)
-//
-// Usage in HTML (module):
-// <script type="module" src="./hydration-vr.loader.js"></script>
+// Hydration VR Loader — PRODUCTION (AUTO VIEW + AUTO KIDS)
+// ✅ Auto view: pc/mobile/cvr/cardboard (ตามของเดิมที่คุณมีอยู่)
+// ✅ Auto kids=1 ONLY for mobile/cvr/cardboard, NOT in research, NOT if user already set kids
+// ✅ Does NOT override explicit query params
 
-'use strict';
+(function(){
+  'use strict';
+  const WIN = window;
+  const DOC = document;
+  if (!WIN || !DOC) return;
 
-const WIN = window;
-const DOC = document;
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
-const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
-
-function detectView(){
-  // Priority: explicit view param
-  const v = String(qs('view','')||'').toLowerCase();
-  if (v) return v;
-
-  // Heuristic
-  const ua = (navigator.userAgent||'').toLowerCase();
-  const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua) || (Math.min(screen.width,screen.height) <= 820);
-  return isMobile ? 'mobile' : 'pc';
-}
-
-function wantsCardboard(){
-  // allow explicit cardboard/cvr
-  const v = String(qs('view','')||'').toLowerCase();
-  if (v === 'cvr' || v === 'cardboard') return true;
-
-  // optional flag
-  const cb = String(qs('cardboard','')||'').toLowerCase();
-  if (cb === '1' || cb === 'true') return true;
-
-  return false;
-}
-
-function setBodyClasses(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
-  if (view === 'pc') b.classList.add('view-pc');
-  else b.classList.add('view-mobile');
-
-  if (wantsCardboard()){
-    b.classList.add('view-cvr','cardboard');
-  }
-}
-
-function setupLayers(){
-  // Expect these IDs in HTML:
-  // - hydration-layer (normal)
-  // - hydration-layerL / hydration-layerR (cardboard)
-  const main = DOC.getElementById('hydration-layer');
-  const L = DOC.getElementById('hydration-layerL');
-  const R = DOC.getElementById('hydration-layerR');
-
-  const isCB = DOC.body.classList.contains('cardboard');
-
-  // expose to safe.js
-  WIN.HHA_VIEW = WIN.HHA_VIEW || {};
-  if (isCB && L && R){
-    WIN.HHA_VIEW.layers = ['hydration-layerL','hydration-layerR'];
-    if (main) main.style.display = 'none';
-    L.style.display = '';
-    R.style.display = '';
-  } else {
-    WIN.HHA_VIEW.layers = ['hydration-layer'];
-    if (main) main.style.display = '';
-    if (L) L.style.display = 'none';
-    if (R) R.style.display = 'none';
-  }
-}
-
-function bindStartOverlay(){
-  const ov = DOC.getElementById('startOverlay');
-  const btn = DOC.getElementById('btnStart');
-
-  function start(){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
-    if (ov) ov.classList.add('hide');
+  function isResearch(){
+    const r = String(qs('run', qs('runMode','play'))).toLowerCase();
+    return r === 'research' || r === 'study';
   }
 
-  if (btn){
-    btn.addEventListener('click', (e)=>{
-      try{ e.preventDefault(); }catch(_){}
-      start();
-    });
+  function hasParam(k){
+    try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; }
   }
 
-  // If overlay hidden already -> auto start (safety)
-  setTimeout(()=>{
-    const hidden = !ov || getComputedStyle(ov).display === 'none' || ov.classList.contains('hide');
-    if (hidden) start();
-  }, 650);
-}
+  function isMobileUA(){
+    const ua = (navigator.userAgent||'').toLowerCase();
+    return /android|iphone|ipad|ipod|mobile/.test(ua);
+  }
 
-async function importSafe(){
-  // ✅ IMPORTANT: correct local file path is ./hydration.safe.js
-  // We'll still try a couple of legacy candidates for resilience.
-  const tried = [];
+  function inferView(){
+    const v = String(qs('view','')).toLowerCase();
+    if (v) return v;
 
-  const candidates = [
-    './hydration.safe.js',
-    './hydration.safe.mjs',
-    '../hydration-vr/hydration.safe.js',
-    '../hydration.safe.js'
-  ];
+    // simple: if cardboard flag in url
+    const cb = String(qs('cardboard','')).toLowerCase();
+    if (cb === '1' || cb === 'true') return 'cvr';
 
-  for (const p of candidates){
-    tried.push(p);
-    try{
-      await import(p);
-      return { ok:true, path:p, tried };
-    }catch(err){
-      // keep trying
+    return isMobileUA() ? 'mobile' : 'pc';
+  }
+
+  function applyBodyView(view){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
+    if (view === 'cvr' || view === 'cardboard'){
+      b.classList.add('view-cvr','cardboard');
+    } else if (view === 'mobile'){
+      b.classList.add('view-mobile');
+    } else {
+      b.classList.add('view-pc');
     }
   }
-  return { ok:false, path:'', tried };
-}
 
-function showImportError(info){
-  const box = DOC.getElementById('importError');
-  if (!box) return;
+  function autoKids(){
+    if (isResearch()) return;
+    if (hasParam('kids')) return;
 
-  box.hidden = false;
-  const urlEl = box.querySelector('[data-k="url"]');
-  const baseEl = box.querySelector('[data-k="base"]');
-  const triedEl = box.querySelector('[data-k="tried"]');
-  const errEl = box.querySelector('[data-k="err"]');
+    const view = inferView();
+    const isVRish = (view === 'cvr' || view === 'cardboard' || view === 'vr');
+    const isMobile = (view === 'mobile') || isMobileUA();
 
-  if (urlEl) urlEl.textContent = location.href;
-  if (baseEl) baseEl.textContent = location.href;
-  if (triedEl) triedEl.textContent = info?.tried?.map((s,i)=>`${i+1}. ${s}`).join('\n') || '';
-  if (errEl) errEl.textContent = 'Error: All candidate imports failed.';
-}
+    if (!isVRish && !isMobile) return;
 
-async function main(){
-  const view = detectView(); // pc/mobile
-  setBodyClasses(view);
-  setupLayers();
-  bindStartOverlay();
+    // choose kidspreset from diff if present
+    const diff = String(qs('diff','normal')).toLowerCase();
+    let preset = 'normal';
+    if (diff === 'easy') preset = 'easy';
+    else if (diff === 'hard') preset = 'hard';
 
-  const res = await importSafe();
-  if (!res.ok){
-    showImportError(res);
-    return;
+    const u = new URL(location.href);
+    u.searchParams.set('kids','1');
+    if (!u.searchParams.has('kidspreset')) u.searchParams.set('kidspreset', preset);
+
+    // replace without history spam
+    history.replaceState(null, '', u.toString());
   }
 
-  // optional: debug stamp
-  WIN.__HHA_HYDRATION_SAFE_PATH__ = res.path;
-}
+  // main
+  try{
+    const view = inferView();
+    applyBodyView(view);
 
-if (DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', main, { once:true });
-} else {
-  main();
-}
+    // optional: provide layers for hydration.safe.js (cardboard split)
+    // ถ้าคุณมี L/R layer ids ให้ใส่ที่นี่
+    WIN.HHA_VIEW = WIN.HHA_VIEW || {};
+    // ตัวอย่าง (ถ้าคุณใช้จริง):
+    // WIN.HHA_VIEW.layers = ['hydration-layerL','hydration-layerR'];
+
+    autoKids();
+  }catch(_){}
+})();
