@@ -1,56 +1,161 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
+// Hydration VR Loader — PRODUCTION (path-safe + view autodetect)
+// ✅ Auto view: pc / mobile / cardboard (cVR)
+// ✅ Sets body classes + HHA_VIEW.layers for safe.js (L/R)
+// ✅ Robust dynamic import with multiple candidate paths (case-sensitive safe)
+// ✅ Emits hha:start when user taps Start (or auto if overlay hidden)
+//
+// Usage in HTML (module):
+// <script type="module" src="./hydration-vr.loader.js"></script>
+
 'use strict';
 
-(async function(){
-  const q = new URLSearchParams(location.search);
-  const bust = q.get('v') || q.get('ts') || String(Date.now());
+const WIN = window;
+const DOC = document;
+
+const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+
+function detectView(){
+  // Priority: explicit view param
+  const v = String(qs('view','')||'').toLowerCase();
+  if (v) return v;
+
+  // Heuristic
+  const ua = (navigator.userAgent||'').toLowerCase();
+  const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua) || (Math.min(screen.width,screen.height) <= 820);
+  return isMobile ? 'mobile' : 'pc';
+}
+
+function wantsCardboard(){
+  // allow explicit cardboard/cvr
+  const v = String(qs('view','')||'').toLowerCase();
+  if (v === 'cvr' || v === 'cardboard') return true;
+
+  // optional flag
+  const cb = String(qs('cardboard','')||'').toLowerCase();
+  if (cb === '1' || cb === 'true') return true;
+
+  return false;
+}
+
+function setBodyClasses(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
+  if (view === 'pc') b.classList.add('view-pc');
+  else b.classList.add('view-mobile');
+
+  if (wantsCardboard()){
+    b.classList.add('view-cvr','cardboard');
+  }
+}
+
+function setupLayers(){
+  // Expect these IDs in HTML:
+  // - hydration-layer (normal)
+  // - hydration-layerL / hydration-layerR (cardboard)
+  const main = DOC.getElementById('hydration-layer');
+  const L = DOC.getElementById('hydration-layerL');
+  const R = DOC.getElementById('hydration-layerR');
+
+  const isCB = DOC.body.classList.contains('cardboard');
+
+  // expose to safe.js
+  WIN.HHA_VIEW = WIN.HHA_VIEW || {};
+  if (isCB && L && R){
+    WIN.HHA_VIEW.layers = ['hydration-layerL','hydration-layerR'];
+    if (main) main.style.display = 'none';
+    L.style.display = '';
+    R.style.display = '';
+  } else {
+    WIN.HHA_VIEW.layers = ['hydration-layer'];
+    if (main) main.style.display = '';
+    if (L) L.style.display = 'none';
+    if (R) R.style.display = 'none';
+  }
+}
+
+function bindStartOverlay(){
+  const ov = DOC.getElementById('startOverlay');
+  const btn = DOC.getElementById('btnStart');
+
+  function start(){
+    try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
+    if (ov) ov.classList.add('hide');
+  }
+
+  if (btn){
+    btn.addEventListener('click', (e)=>{
+      try{ e.preventDefault(); }catch(_){}
+      start();
+    });
+  }
+
+  // If overlay hidden already -> auto start (safety)
+  setTimeout(()=>{
+    const hidden = !ov || getComputedStyle(ov).display === 'none' || ov.classList.contains('hide');
+    if (hidden) start();
+  }, 650);
+}
+
+async function importSafe(){
+  // ✅ IMPORTANT: correct local file path is ./hydration.safe.js
+  // We'll still try a couple of legacy candidates for resilience.
+  const tried = [];
 
   const candidates = [
-    `./hydration.safe.js?v=${encodeURIComponent(bust)}`
+    './hydration.safe.js',
+    './hydration.safe.mjs',
+    '../hydration-vr/hydration.safe.js',
+    '../hydration.safe.js'
   ];
 
-  async function fetchOk(url){
+  for (const p of candidates){
+    tried.push(p);
     try{
-      const r = await fetch(url, { cache:'no-store' });
-      return { ok:r.ok, status:r.status };
-    }catch(e){
-      return { ok:false, status:0, err:e };
-    }
-  }
-
-  function showFail(lines, err){
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
-    el.innerHTML = `
-      <div style="max-width:900px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed</h2>
-        <div style="opacity:.9;margin-bottom:10px">URL: <code>${location.href}</code></div>
-        <div style="margin:12px 0 8px 0;font-weight:700">Checks:</div>
-        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${lines.join('\n')}</pre>
-        <div style="margin:12px 0 6px 0;font-weight:700">Error:</div>
-        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${String(err && (err.stack||err.message||err))}</pre>
-        <div style="opacity:.8;margin-top:10px">Tip: ถ้า hydration.safe.js OK แต่พัง ให้เปิดดู Network จะเห็น 404 ที่ ../vr/ui-water.js หรือ ../vr/ai-coach.js</div>
-      </div>
-    `;
-    document.body.appendChild(el);
-  }
-
-  const logs = [];
-  for (const url of candidates){
-    const chk = await fetchOk(url);
-    logs.push(`${url}  -> ${chk.ok ? 'OK' : 'FAIL'} ${chk.status ? '(HTTP '+chk.status+')' : ''}`);
-    if (!chk.ok) continue;
-
-    try{
-      await import(url);
-      logs.push('import() -> OK');
-      return;
+      await import(p);
+      return { ok:true, path:p, tried };
     }catch(err){
-      logs.push('import() -> ERROR (มักเกิดจาก dependency 404 หรือ export ชื่อไม่ตรง)');
-      showFail(logs, err);
-      return;
+      // keep trying
     }
   }
+  return { ok:false, path:'', tried };
+}
 
-  showFail(logs, new Error('hydration.safe.js not found on Pages (404)'));
-})();
+function showImportError(info){
+  const box = DOC.getElementById('importError');
+  if (!box) return;
+
+  box.hidden = false;
+  const urlEl = box.querySelector('[data-k="url"]');
+  const baseEl = box.querySelector('[data-k="base"]');
+  const triedEl = box.querySelector('[data-k="tried"]');
+  const errEl = box.querySelector('[data-k="err"]');
+
+  if (urlEl) urlEl.textContent = location.href;
+  if (baseEl) baseEl.textContent = location.href;
+  if (triedEl) triedEl.textContent = info?.tried?.map((s,i)=>`${i+1}. ${s}`).join('\n') || '';
+  if (errEl) errEl.textContent = 'Error: All candidate imports failed.';
+}
+
+async function main(){
+  const view = detectView(); // pc/mobile
+  setBodyClasses(view);
+  setupLayers();
+  bindStartOverlay();
+
+  const res = await importSafe();
+  if (!res.ok){
+    showImportError(res);
+    return;
+  }
+
+  // optional: debug stamp
+  WIN.__HHA_HYDRATION_SAFE_PATH__ = res.path;
+}
+
+if (DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', main, { once:true });
+} else {
+  main();
+}
