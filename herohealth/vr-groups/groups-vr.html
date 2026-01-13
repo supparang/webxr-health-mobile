@@ -1,4 +1,4 @@
-<!-- === /herohealth/vr-groups/groups-vr.html ===
+<!-- === A: /herohealth/vr-groups/groups-vr.html ===
 GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
 ✅ PACK 13: Calibration helper (cVR) 2-step: recenter -> shoot test 3
@@ -30,13 +30,13 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>         <!-- ✅ C -->
+  <script src="./ai-hooks.js" defer></script>
   <script src="./effects-pack.js" defer></script>
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
 
-  <!-- ✅ B: Standalone engine -->
+  <!-- ✅ Standalone engine -->
   <script src="./groups.safe.js" defer></script>
 </head>
 
@@ -107,7 +107,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- Calibration overlay (cVR only) -->
+  <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
     <div class="panel calPanel">
       <div class="title">🧭 Calibration (Cardboard)</div>
@@ -214,7 +214,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  // ---------- HUD binds ----------
+  // HUD binds
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
@@ -277,14 +277,45 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('miniSub').textContent = mTitle;
     $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
 
-    const urgent = (mLeft>0 && mLeft<=3);
-    DOC.body.classList.toggle('mini-urgent', urgent);
+    DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
   }, {passive:true});
 
-  // ---------- Summary / Logger ----------
+  // Audio hooks
+  function hookAudio(){
+    const A = window.GroupsVR && window.GroupsVR.Audio;
+    if (!A) return;
+    try{ A.unlock && A.unlock(); }catch{}
+
+    window.addEventListener('hha:judge', (ev)=>{
+      const d = ev.detail||{};
+      const k = String(d.kind||'').toLowerCase();
+      if (k==='good') A.good();
+      else if (k==='bad') A.bad();
+      else if (k==='boss') A.boss();
+      else if (k==='miss') A.bad();
+    }, {passive:true});
+
+    window.addEventListener('groups:progress', (ev)=>{
+      const d = ev.detail||{};
+      const kind = String(d.kind||'');
+      if (kind==='storm_on') A.storm();
+      if (kind==='boss_spawn') A.boss();
+      if (kind==='perfect_switch') A.good();
+    }, {passive:true});
+
+    let tmr = 0;
+    function tickLoop(){
+      clearTimeout(tmr);
+      const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
+      if (urgent) A.tick();
+      tmr = setTimeout(tickLoop, urgent ? 420 : 650);
+    }
+    tickLoop();
+  }
+
+  // Summary / logger glue
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
-
   let lastSummary = null;
   let startIso = new Date().toISOString();
 
@@ -296,6 +327,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
       localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
     }catch{}
   }
+
+  let practiceActive = false;
+  let practiceDone = false;
 
   function buildBaseSummary(d, endIso){
     const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
@@ -326,14 +360,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
     B && B(()=>lastSummary);
   }catch(_){}
 
-  let practiceActive = false;
-  let practiceDone = false;
-
   window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
-    // practice chain → auto start real run (ไม่เปิด overlay)
+    // practice chain → auto start real run
     if (practiceActive && !practiceDone){
       practiceDone = true;
       practiceActive = false;
@@ -375,6 +406,13 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const log = String(qs('log','')||'');
     if (log) u.searchParams.set('log', log);
 
+    const sp = new URL(location.href).searchParams;
+    sp.forEach((v,k)=>{
+      if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
+      if (k==='hub' || k==='log') return;
+      u.searchParams.set(k,v);
+    });
+
     location.href = u.toString();
   });
 
@@ -384,7 +422,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     location.href = hub;
   });
 
-  // ---------- Engine helpers ----------
+  // Engine helpers
   function waitForEngine(cb){
     const t0 = Date.now();
     const it = setInterval(()=>{
@@ -406,7 +444,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }
 
   function getLayerEl(){
-    return $('playLayer') || document.querySelector('.playLayer') || document.body;
+    return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
   }
 
   function initViewHelper(view){
@@ -416,7 +454,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // ---------- Calibration (cVR) ----------
+  // PACK 13: Calibration
   const cal = { on:false, step:0, shots:0, done:false };
 
   function showCal(on){
@@ -487,7 +525,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
     if (!cal.on) return;
-    if (cal.step === 1){ setCalStep(2); return; }
+    if (cal.step === 1){
+      setCalStep(2);
+      return;
+    }
     if (cal.step === 2 && cal.shots >= 3){
       finishCalibration();
       waitForEngine((E)=> startAfterCalibration(E));
@@ -514,7 +555,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     startReal(E);
   }
 
-  // ---------- Practice then real ----------
+  // PACK 14: Practice
   function startPractice(E, cfg){
     practiceActive = true;
     practiceDone = false;
@@ -531,12 +572,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
     }catch(_){}
-
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{ text:`Practice ${cfg.practiceSec}s: ลองยิงให้แม่นก่อนเข้าเกมจริง!`, mood:'happy' }
-      }));
-    }catch(_){}
   }
 
   function startReal(E){
@@ -552,9 +587,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode: run, diff, style, time, seed, view });
+    E.start(diff, { runMode: run, diff, style, time, seed });
 
-    // ✅ AI hooks attach (safe)
+    // PACK 15: AI attach
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -563,19 +598,20 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // ---------- Start ----------
   function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
 
     setView(view);
+    hookAudio();
     initViewHelper(view);
 
     const gated = startCalibrationIfNeeded(view, run);
     if (gated) return;
 
+    const practiceSec = getPracticeSec(view);
+
     waitForEngine((E)=>{
-      const practiceSec = getPracticeSec(view);
       if (view === 'cvr' && practiceSec > 0){
         const diff = String(qs('diff','normal')||'normal').toLowerCase();
         const style= String(qs('style','mix')||'mix').toLowerCase();
