@@ -1,153 +1,133 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (A+B+C compatible)
+// GoodJunkVR Boot — PRODUCTION (A+B+C)
 // ✅ Auto-detect view WITHOUT overriding explicit ?view=
 // ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Ensures right-eye layer for cVR (aria + body class)
-// ✅ Best-effort fullscreen/orientation for cVR
-// ✅ Calls goodjunk.safe.js boot(payload)
-// ✅ Pass-through study params + hub + seed
+// ✅ Toggles right-eye layer (#gj-layer-r) for cVR
+// ✅ Passes payload -> goodjunk.safe.js boot(payload)
+// ✅ Safe: start once, DOM-ready guarded
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def = null) => {
+function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
-};
+}
 
-function isTouchDevice(){
-  return ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
+function clamp(n,min,max){
+  n = Number(n);
+  if(!Number.isFinite(n)) n = min;
+  return n < min ? min : (n > max ? max : n);
 }
 
 function detectViewNoOverride(){
-  const explicit = String(qs('view', '') || '').toLowerCase();
-  if (explicit) return explicit;
+  const explicit = String(qs('view','')).toLowerCase().trim();
+  if(explicit) return explicit;
 
-  const touch = isTouchDevice();
-  const w = Math.max(1, WIN.innerWidth || 1);
-  const h = Math.max(1, WIN.innerHeight || 1);
+  const isTouch = ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
+  const w = Math.max(1, WIN.innerWidth||1);
+  const h = Math.max(1, WIN.innerHeight||1);
   const landscape = w >= h;
 
-  // heuristic:
-  // - touch + landscape + wide => cVR (cardboard-like)
-  // - touch => mobile
-  // - no touch => pc
-  if (touch){
-    if (landscape && w >= 740) return 'cvr';
+  // Heuristic:
+  // - Touch + big landscape => cVR (Cardboard view) feels best
+  // - Touch otherwise => mobile
+  // - Non-touch => pc
+  if(isTouch){
+    if(landscape && w >= 740) return 'cvr';
     return 'mobile';
   }
   return 'pc';
 }
 
-function setBodyViewClass(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
-  if (view === 'vr') b.classList.add('view-vr');
-  else if (view === 'cvr') b.classList.add('view-cvr');
-  else if (view === 'pc') b.classList.add('view-pc');
-  else b.classList.add('view-mobile');
+function normalizeView(v){
+  v = String(v||'').toLowerCase().trim();
+  if(v === 'vr') return 'vr';
+  if(v === 'cvr') return 'cvr';
+  if(v === 'pc') return 'pc';
+  if(v === 'mobile') return 'mobile';
+  if(v === 'auto') return detectViewNoOverride();
+  // allow some aliases
+  if(v === 'cardboard') return 'cvr';
+  return detectViewNoOverride();
 }
 
-function setCVRLayerState(view){
-  const r = DOC.getElementById('gj-layer-r');
-  if (!r) return;
+function setBodyView(view){
+  const b = DOC.body;
+  if(!b) return;
 
-  if (view === 'cvr'){
-    r.setAttribute('aria-hidden','false');
-    // (CSS will show it via body.view-cvr)
-  } else {
-    r.setAttribute('aria-hidden','true');
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+
+  if(view === 'pc') b.classList.add('view-pc');
+  else if(view === 'vr') b.classList.add('view-vr');
+  else if(view === 'cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
+
+  // toggle right eye layer (only meaningful for cvr)
+  const r = DOC.getElementById('gj-layer-r');
+  if(r){
+    r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
   }
 }
 
-async function requestFullscreenIfAllowed(){
-  // Best-effort fullscreen: only when user likely tapped "Enter VR" later,
-  // but for cVR it helps if user already interacted.
-  try{
-    const el = DOC.documentElement;
-    if (!DOC.fullscreenElement && el.requestFullscreen) {
-      await el.requestFullscreen();
-    }
-  }catch(_){}
-}
+function buildPayload(){
+  const view = normalizeView(qs('view','auto'));
+  const run  = String(qs('run','play')).toLowerCase();
+  const diff = String(qs('diff','normal')).toLowerCase();
 
-async function bestEffortLandscapeLock(){
-  try{
-    if (screen?.orientation?.lock){
-      await screen.orientation.lock('landscape');
-    }
-  }catch(_){}
-}
+  const time = clamp(qs('time','80'), 20, 300);
 
-function ensureClickWake(){
-  // Some Android browsers require a user gesture before audio/FS/orientation.
-  // We keep it minimal: once pointerdown, we try FS/lock if cVR.
-  let armed = true;
-  const onFirst = async ()=>{
-    if (!armed) return;
-    armed = false;
-    const view = String(WIN.__HHA_VIEW__ || '').toLowerCase();
-    if (view === 'cvr'){
-      await requestFullscreenIfAllowed();
-      await bestEffortLandscapeLock();
-    }
-    try{ DOC.removeEventListener('pointerdown', onFirst, true); }catch(_){}
-  };
-  DOC.addEventListener('pointerdown', onFirst, true);
-}
+  const hub  = (qs('hub','')||'').trim() || null;
 
-function buildPayload(view){
-  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
-  const run  = String(qs('run','play') || 'play').toLowerCase();
-  const time = Number(qs('time','80') || 80);
-  const hub  = qs('hub', null);
-  const seed = qs('seed', null) ?? qs('ts', null); // allow research to use ts
+  // seed handling:
+  // - research: prefer seed param or ts
+  // - play: if user passes seed use it, else safe.js may choose Date.now()
+  const seed = qs('seed', null) ?? null;
+
+  // optional study params
   const studyId = qs('studyId', qs('study', null));
   const phase = qs('phase', null);
   const conditionGroup = qs('conditionGroup', qs('cond', null));
 
-  return {
-    view,
-    diff,
-    run,
-    time,
-    hub,
-    seed,
-    studyId,
-    phase,
-    conditionGroup,
-  };
+  return { view, run, diff, time, hub, seed, studyId, phase, conditionGroup };
 }
 
-function boot(){
-  const view = detectViewNoOverride();
-  WIN.__HHA_VIEW__ = view;
+function startOnce(){
+  if(WIN.__GJ_BOOTED__) return;
+  WIN.__GJ_BOOTED__ = true;
 
-  // Keep HTML class .gj, add view-* classes
-  setBodyViewClass(view);
-  setCVRLayerState(view);
+  const payload = buildPayload();
+  setBodyView(payload.view);
 
-  // Minimal helper (gesture wake)
-  ensureClickWake();
+  // If user is in VR mode, keep it as vr (no forced)
+  // If they pass view=vr explicitly: let vr-ui handle Enter VR flow.
 
-  // Start engine
-  const payload = buildPayload(view);
-
-  // If someone uses ?view=vr we keep it as "vr" for safe.js.
-  // Note: true WebXR headset session still enters via Enter VR button (vr-ui.js).
   try{
     engineBoot(payload);
   }catch(err){
-    console.error('[GoodJunkVR Boot] engineBoot failed', err);
+    console.error('[GoodJunkVR boot] engineBoot failed:', err);
   }
 }
 
-// Run when DOM ready
-if (DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', boot, { once:true });
-} else {
-  boot();
+function onReady(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+    fn();
+  }else{
+    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+  }
 }
+
+// If page is restored from BFCache, re-run safely
+WIN.addEventListener('pageshow', (ev)=>{
+  try{
+    if(ev && ev.persisted){
+      // allow a fresh boot when coming back from bfcache
+      WIN.__GJ_BOOTED__ = false;
+      startOnce();
+    }
+  }catch(_){}
+}, { passive:true });
+
+onReady(startOnce);
