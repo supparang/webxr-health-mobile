@@ -1,13 +1,12 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
 GroupsVR Run (PC/Mobile/Cardboard)
-✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
-✅ Calibration overlay present (PACK 13) — controlled by boot (C)
-✅ Practice 15s (PACK 14) — controlled by boot (C) via ?practice=1
-✅ AI hooks attach point (PACK 15) — controlled by engine + ?ai=1 (play only)
-✅ Flush-hardened logging (?log=...) + research ctx
-✅ Uses groups.safe.js (standalone engine)
-✅ Boot: groups-vr.boot.js (C) handles detect + tap-to-start + start flow
+✅ A-Frame minimal scene behind DOM (Enter VR reliability)
+✅ Uses vr-ui.js (EnterVR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
+✅ Starts via groups-vr.boot.js (C) — auto-detect without overriding explicit ?view=
+✅ Calibration/Practice/AI hooks handled by engine + optional UI modules
+✅ Uses groups.safe.js (B)
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -24,10 +23,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
-  <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
+  <script>window.HHA_VRUI_CONFIG = { lockPx: 92, cooldownMs: 90 };</script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Groups modules -->
+  <!-- Optional modules (safe if missing some) -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
   <script src="./ai-hooks.js" defer></script>
@@ -36,14 +35,15 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
 
-  <!-- ✅ Standalone engine -->
+  <!-- ✅ Engine -->
   <script src="./groups.safe.js" defer></script>
 
-  <!-- ✅ BOOT (C): handles detect + tap-to-start + calibration + practice + real start -->
+  <!-- ✅ Boot (C) -->
   <script src="./groups-vr.boot.js" defer></script>
 </head>
 
 <body class="view-mobile">
+
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
     <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
@@ -109,36 +109,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- PACK 13: Calibration overlay (cVR only) -->
-  <div id="calOverlay" class="overlay overlay-cal hidden">
-    <div class="panel calPanel">
-      <div class="title">🧭 Calibration (Cardboard)</div>
-      <div id="calSub" class="sub">
-        Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า
-      </div>
-
-      <div class="grid2" style="margin-top:14px;">
-        <div class="stat">
-          <div class="k">Step</div>
-          <div id="calStep" class="v">1/2</div>
-        </div>
-        <div class="stat">
-          <div class="k">Shots</div>
-          <div id="calShots" class="v">0/3</div>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:12px;">
-        <button id="btnCalNext" class="btn btn-strong" type="button">✅ ต่อไป</button>
-        <button id="btnCalSkip" class="btn btn-ghost" type="button">⏭️ ข้าม</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        cVR: แตะจอเพื่อยิงจาก crosshair • ใช้ RECENTER เพื่อปรับศูนย์มุมมอง
-      </div>
-    </div>
-  </div>
-
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
     <div class="panel">
@@ -167,217 +137,168 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
-  <!-- ✅ UI event bindings (NO engine start here) -->
-  <script>
-  (function(){
-    'use strict';
-    const DOC = document;
-    const $ = (id)=>DOC.getElementById(id);
+<script>
+(function(){
+  'use strict';
+  const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
 
-    function qs(k, def=null){
-      try { return new URL(location.href).searchParams.get(k) ?? def; }
-      catch { return def; }
-    }
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-
-    async function copyText(text){
-      try { await navigator.clipboard.writeText(String(text||'')); return true; }
-      catch {
-        try{
-          const ta = DOC.createElement('textarea');
-          ta.value = String(text||'');
-          DOC.body.appendChild(ta);
-          ta.select();
-          DOC.execCommand('copy');
-          ta.remove();
-          return true;
-        }catch{ return false; }
-      }
-    }
-
-    // ---------- HUD binds ----------
-    window.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail||{};
-      $('vScore').textContent = String(d.score ?? 0);
-      $('vCombo').textContent = String(d.combo ?? 0);
-      $('vMiss').textContent  = String(d.misses ?? 0);
-    }, {passive:true});
-
-    window.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail||{};
-      $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
-    }, {passive:true});
-
-    window.addEventListener('hha:rank', (ev)=>{
-      const d = ev.detail||{};
-      $('vRank').textContent = String(d.grade ?? 'C');
-      $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
-    }, {passive:true});
-
-    window.addEventListener('hha:coach', (ev)=>{
-      const d = ev.detail||{};
-      $('coachText').textContent = String(d.text||'');
-      const mood = String(d.mood||'neutral');
-      const img =
-        (mood==='happy') ? '../img/coach-happy.png' :
-        (mood==='sad')   ? '../img/coach-sad.png' :
-        (mood==='fever') ? '../img/coach-fever.png' :
-                          '../img/coach-neutral.png';
-      $('coachImg').src = img;
-    }, {passive:true});
-
-    window.addEventListener('groups:power', (ev)=>{
-      const d = ev.detail||{};
-      const cur = Number(d.charge||0);
-      const thr = Math.max(1, Number(d.threshold||8));
-      $('pCur').textContent = String(cur|0);
-      $('pThr').textContent = String(thr|0);
-      $('pFill').style.width = Math.round((cur/thr)*100) + '%';
-    }, {passive:true});
-
-    window.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail||{};
-      const gTitle = String(d.goalTitle||'—');
-      const gNow   = Number(d.goalNow||0);
-      const gTot   = Math.max(1, Number(d.goalTotal||1));
-      const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
-
-      const mTitle = String(d.miniTitle||'—');
-      const mNow   = Number(d.miniNow||0);
-      const mTot   = Math.max(1, Number(d.miniTotal||1));
-      const mPct   = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
-      const mLeft  = Number(d.miniTimeLeftSec||0);
-
-      $('goalTitle').textContent = '🎯 GOAL';
-      $('goalCount').textContent = `${gNow}/${gTot}`;
-      $('goalFill').style.width = Math.round(gPct) + '%';
-      $('goalSub').textContent = gTitle;
-
-      $('miniTitle').textContent = '⚡ MINI';
-      $('miniFill').style.width = Math.round(mPct) + '%';
-      $('miniSub').textContent = mTitle;
-      $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
-
-      const urgent = (mLeft>0 && mLeft<=3);
-      DOC.body.classList.toggle('mini-urgent', urgent);
-    }, {passive:true});
-
-    // ---------- Audio hooks ----------
-    function hookAudio(){
-      const A = window.GroupsVR && window.GroupsVR.Audio;
-      if (!A) return;
-
-      try{ A.unlock && A.unlock(); }catch{}
-
-      window.addEventListener('hha:judge', (ev)=>{
-        const d = ev.detail||{};
-        const k = String(d.kind||'').toLowerCase();
-        if (k==='good') A.good();
-        else if (k==='bad') A.bad();
-        else if (k==='boss') A.boss();
-        else if (k==='miss') A.bad();
-      }, {passive:true});
-
-      window.addEventListener('groups:progress', (ev)=>{
-        const d = ev.detail||{};
-        const kind = String(d.kind||'');
-        if (kind==='storm_on') A.storm();
-        if (kind==='boss_spawn') A.boss();
-        if (kind==='perfect_switch') A.good();
-      }, {passive:true});
-
-      let tmr = 0;
-      function tickLoop(){
-        clearTimeout(tmr);
-        const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
-        if (urgent) A.tick();
-        tmr = setTimeout(tickLoop, urgent ? 420 : 650);
-      }
-      tickLoop();
-    }
-    hookAudio();
-
-    // ---------- Summary / History / Logger ----------
-    const LS_LAST = 'HHA_LAST_SUMMARY';
-    const LS_HIST = 'HHA_SUMMARY_HISTORY';
-    let lastSummary = null;
-
-    function saveLast(summary){
-      try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
+  async function copyText(text){
+    try { await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch {
       try{
-        const hist = JSON.parse(localStorage.getItem(LS_HIST)||'[]');
-        hist.unshift(summary);
-        localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
-      }catch{}
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select();
+        DOC.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
     }
+  }
 
-    function postNow(summary){
-      try{
-        const P = window.GroupsVR && window.GroupsVR.postSummary;
-        P && P(summary);
-      }catch(_){}
-    }
+  // HUD binds
+  window.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail||{};
+    $('vScore').textContent = String(d.score ?? 0);
+    $('vCombo').textContent = String(d.combo ?? 0);
+    $('vMiss').textContent  = String(d.misses ?? 0);
+  }, {passive:true});
 
-    // flush-hardened bind (BIND ONCE)
-    try{
-      const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
-      B && B(()=>lastSummary);
-    }catch(_){}
+  window.addEventListener('hha:time', (ev)=>{
+    const d = ev.detail||{};
+    $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
+  }, {passive:true});
 
-    // End overlay
-    window.addEventListener('hha:end', (ev)=>{
+  window.addEventListener('hha:rank', (ev)=>{
+    const d = ev.detail||{};
+    $('vRank').textContent = String(d.grade ?? 'C');
+    $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
+  }, {passive:true});
+
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev.detail||{};
+    $('coachText').textContent = String(d.text||'');
+    const mood = String(d.mood||'neutral');
+    const img =
+      (mood==='happy') ? '../img/coach-happy.png' :
+      (mood==='sad')   ? '../img/coach-sad.png' :
+      (mood==='fever') ? '../img/coach-fever.png' :
+                        '../img/coach-neutral.png';
+    $('coachImg').src = img;
+  }, {passive:true});
+
+  window.addEventListener('groups:power', (ev)=>{
+    const d = ev.detail||{};
+    const cur = Number(d.charge||0);
+    const thr = Math.max(1, Number(d.threshold||8));
+    $('pCur').textContent = String(cur|0);
+    $('pThr').textContent = String(thr|0);
+    $('pFill').style.width = Math.round((cur/thr)*100) + '%';
+  }, {passive:true});
+
+  window.addEventListener('quest:update', (ev)=>{
+    const d = ev.detail||{};
+    const gTitle = String(d.goalTitle||'—');
+    const gNow   = Number(d.goalNow||0);
+    const gTot   = Math.max(1, Number(d.goalTotal||1));
+    const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
+
+    const mTitle = String(d.miniTitle||'—');
+    const mNow   = Number(d.miniNow||0);
+    const mTot   = Math.max(1, Number(d.miniTotal||1));
+    const mPct   = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
+    const mLeft  = Number(d.miniTimeLeftSec||0);
+
+    $('goalTitle').textContent = '🎯 GOAL';
+    $('goalCount').textContent = `${gNow}/${gTot}`;
+    $('goalFill').style.width = Math.round(gPct) + '%';
+    $('goalSub').textContent = gTitle;
+
+    $('miniTitle').textContent = '⚡ MINI';
+    $('miniFill').style.width = Math.round(mPct) + '%';
+    $('miniSub').textContent = mTitle;
+    $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
+
+    const urgent = (mLeft>0 && mLeft<=3);
+    DOC.body.classList.toggle('mini-urgent', urgent);
+  }, {passive:true});
+
+  // Audio hooks (safe)
+  (function hookAudio(){
+    const A = window.GroupsVR && window.GroupsVR.Audio;
+    if (!A) return;
+    try{ A.unlock && A.unlock(); }catch{}
+    window.addEventListener('hha:judge', (ev)=>{
       const d = ev.detail||{};
-      lastSummary = d;
-      saveLast(lastSummary);
-      postNow(lastSummary);
-
-      $('endOverlay').classList.remove('hidden');
-      $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
-      $('endScore').textContent = String(d.scoreFinal ?? 0);
-      $('endRank').textContent  = String(d.grade ?? 'C');
-      $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
-      $('endMiss').textContent  = String(d.misses ?? 0);
-
-      const hub = String(qs('hub','')||'');
-      $('btnHub').style.display = hub ? 'inline-flex' : 'none';
+      const k = String(d.kind||'').toLowerCase();
+      if (k==='good') A.good();
+      else if (k==='bad') A.bad();
+      else if (k==='boss') A.boss();
+      else if (k==='miss') A.bad();
     }, {passive:true});
-
-    $('btnRestart').addEventListener('click', ()=> location.reload());
-
-    $('btnCopy').addEventListener('click', async ()=>{
-      if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
-      const ok = await copyText(JSON.stringify(lastSummary, null, 2));
-      alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
-    });
-
-    // Back launcher (../groups-vr.html)
-    $('btnBackLauncher').addEventListener('click', ()=>{
-      const hub = String(qs('hub','')||'');
-      const u = new URL('../groups-vr.html', location.href);
-      if (hub) u.searchParams.set('hub', hub);
-
-      const log = String(qs('log','')||'');
-      if (log) u.searchParams.set('log', log);
-
-      const sp = new URL(location.href).searchParams;
-      sp.forEach((v,k)=>{
-        if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
-        if (k==='hub' || k==='log') return;
-        u.searchParams.set(k,v);
-      });
-
-      location.href = u.toString();
-    });
-
-    $('btnHub').addEventListener('click', ()=>{
-      const hub = String(qs('hub','')||'');
-      if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-      location.href = hub;
-    });
-
   })();
-  </script>
+
+  // Summary/End overlay
+  let lastSummary = null;
+
+  window.addEventListener('hha:end', (ev)=>{
+    const d = ev.detail||{};
+    // practice: ไม่โชว์ overlay (ให้ boot/engine ไปจัด flow เอง)
+    if (String(d.runMode||'') === 'practice') return;
+
+    lastSummary = d;
+    $('endOverlay').classList.remove('hidden');
+    $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
+    $('endScore').textContent = String(d.scoreFinal ?? 0);
+    $('endRank').textContent  = String(d.grade ?? 'C');
+    $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
+    $('endMiss').textContent  = String(d.misses ?? 0);
+
+    const hub = String(qs('hub','')||'');
+    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
+  }, {passive:true});
+
+  $('btnRestart').addEventListener('click', ()=> location.reload());
+
+  $('btnCopy').addEventListener('click', async ()=>{
+    if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
+    const ok = await copyText(JSON.stringify(lastSummary, null, 2));
+    alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  });
+
+  $('btnBackLauncher').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    const u = new URL('../groups-vr.html', location.href);
+    if (hub) u.searchParams.set('hub', hub);
+
+    const log = String(qs('log','')||'');
+    if (log) u.searchParams.set('log', log);
+
+    const sp = new URL(location.href).searchParams;
+    sp.forEach((v,k)=>{
+      if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
+      if (k==='hub' || k==='log') return;
+      u.searchParams.set(k,v);
+    });
+    location.href = u.toString();
+  });
+
+  $('btnHub').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+    location.href = hub;
+  });
+
+})();
+</script>
 
 </body>
 </html>
