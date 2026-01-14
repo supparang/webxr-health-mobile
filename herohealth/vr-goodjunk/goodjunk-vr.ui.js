@@ -1,170 +1,267 @@
-// === /herohealth/vr-goodjunk/goodjunk-vr.ui.js ===
-// UI helpers: coach, countdown, badges, celebration, DOM shortcuts
+// === /herohealth/vr-goodjunk/vr-ui.js ===
+// Universal VR UI — PRODUCTION (auto-detect + no-override)
+// ✅ Adds: ENTER VR / EXIT / RECENTER buttons (WebXR via A-Frame if present)
+// ✅ Crosshair overlay + tap-to-shoot (mobile/cVR)
+// ✅ Emits: hha:shoot { x,y, lockPx, source }
+// ✅ view=cvr strict => pointer-events disabled on targets is recommended (game-side)
+// ✅ Auto-detect device/orientation (best-effort) WITHOUT overriding explicit ?view=
+// ✅ Safe to include via <script defer src="../vr/vr-ui.js"></script>
 
-export function $(id){ return document.getElementById(id); }
+(function(){
+  'use strict';
 
-export function clamp(v,min,max){
-  v = Number(v)||0;
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
-}
-export function normDiff(v){
-  v = String(v||'normal').toLowerCase();
-  return (v==='easy'||v==='normal'||v==='hard') ? v : 'normal';
-}
-export function normCh(v){
-  v = String(v||'rush').toLowerCase();
-  return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush';
-}
-export function normRun(v){
-  v = String(v||'play').toLowerCase();
-  return (v==='research') ? 'research' : 'play';
-}
+  const WIN = window;
+  const DOC = document;
+  if (!WIN || !DOC) return;
+  if (WIN.__HHA_VRUI_LOADED__) return;
+  WIN.__HHA_VRUI_LOADED__ = true;
 
-export function makeCoach(elCoachBubble, elCoachText, elCoachEmoji){
-  const COACH_IMG = {
-    neutral: './img/coach-neutral.png',
-    happy:   './img/coach-happy.png',
-    sad:     './img/coach-sad.png',
-    fever:   './img/coach-fever.png'
-  };
+  const CFG = Object.assign({
+    lockPx: 28,
+    cooldownMs: 90,
+    showRecenter: true,
+    showExit: true
+  }, WIN.HHA_VRUI_CONFIG || {});
 
-  let lastCoachTimeout = null;
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
-  function setCoachFace(mood){
-    const m = COACH_IMG[mood] ? mood : 'neutral';
-    if (!elCoachEmoji) return;
-
-    elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
-    elCoachEmoji.classList.remove('coach-neutral','coach-happy','coach-sad','coach-fever');
-    elCoachEmoji.classList.add('coach-' + m);
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  function setCoach(text, mood='neutral'){
-    if (elCoachBubble) elCoachBubble.classList.add('show');
-    if (elCoachText) elCoachText.textContent = text || '';
-    setCoachFace(mood);
+  // ---------- view detection (NO OVERRIDE) ----------
+  function detectView(){
+    const explicit = String(qs('view','')).toLowerCase();
+    if (explicit) return explicit; // do NOT override
 
-    if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
-    lastCoachTimeout = setTimeout(()=>{
-      elCoachBubble && elCoachBubble.classList.remove('show');
-    }, 4200);
-  }
+    const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+    const w = Math.max(1, WIN.innerWidth||1);
+    const h = Math.max(1, WIN.innerHeight||1);
+    const landscape = w >= h;
 
-  function celebrateEmoji(){
-    if (!elCoachEmoji) return;
-    elCoachEmoji.classList.add('coach-celebrate');
-    setTimeout(()=> elCoachEmoji.classList.remove('coach-celebrate'), 800);
-  }
-
-  return { setCoachFace, setCoach, celebrateEmoji };
-}
-
-export function runCountdown(elCountdown, onDone){
-  if (!elCountdown){ onDone && onDone(); return; }
-  const steps = ['3','2','1','Go!'];
-  let idx = 0;
-  elCountdown.classList.remove('countdown-hidden');
-  elCountdown.textContent = steps[0];
-
-  const t = setInterval(()=>{
-    idx++;
-    if (idx >= steps.length){
-      clearInterval(t);
-      elCountdown.classList.add('countdown-hidden');
-      onDone && onDone();
-    }else{
-      elCountdown.textContent = steps[idx];
+    if (isTouch){
+      if (landscape && w >= 740) return 'cvr';
+      return 'mobile';
     }
-  }, 650);
-}
+    return 'pc';
+  }
 
-export function waitSceneReady(cb){
-  const scene = document.querySelector('a-scene');
-  if (!scene) { cb(); return; }
-  const tryReady = ()=>{
-    if (scene.hasLoaded && scene.camera){ cb(); return true; }
+  function applyViewClasses(view){
+    const b = DOC.body;
+    if (!b) return;
+    b.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
+    if (view === 'mobile') b.classList.add('view-mobile');
+    else if (view === 'cvr') b.classList.add('view-cvr');
+    else if (view === 'cardboard') b.classList.add('cardboard');
+    else b.classList.add('view-pc');
+  }
+
+  const initialView = detectView();
+  if (!String(qs('view','')).toLowerCase()){
+    applyViewClasses(initialView);
+  }
+
+  // ---------- DOM UI ----------
+  function ensureRoot(){
+    let root = DOC.querySelector('.hha-vrui');
+    if (root) return root;
+
+    root = DOC.createElement('div');
+    root.className = 'hha-vrui';
+    root.style.cssText = `
+      position:fixed;
+      left: calc(10px + env(safe-area-inset-left, 0px));
+      top:  calc(10px + env(safe-area-inset-top, 0px));
+      z-index: 110;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      pointer-events:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    `;
+
+    const style = DOC.createElement('style');
+    style.textContent = `
+      .hha-vrui .btn{
+        pointer-events:auto;
+        appearance:none;
+        border:1px solid rgba(148,163,184,.22);
+        background: rgba(2,6,23,.62);
+        color: rgba(229,231,235,.96);
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-weight: 900;
+        font-size: 12.5px;
+        cursor: pointer;
+        user-select:none;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 16px 50px rgba(0,0,0,.35);
+      }
+      .hha-vrui .btn:active{ transform: translateY(1px); }
+      .hha-vrui .btn.primary{
+        border-color: rgba(34,197,94,.28);
+        background: rgba(34,197,94,.16);
+      }
+      .hha-vrui .btn.cyan{
+        border-color: rgba(34,211,238,.28);
+        background: rgba(34,211,238,.14);
+      }
+      .hha-vrui .btn.warn{
+        border-color: rgba(245,158,11,.30);
+        background: rgba(245,158,11,.14);
+      }
+      .hha-crosshair{
+        position:fixed;
+        left:50%; top:50%;
+        transform: translate(-50%,-50%);
+        z-index: 95;
+        pointer-events:none;
+        width: 22px; height: 22px;
+        opacity: .92;
+        filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
+        display:none;
+      }
+      .hha-crosshair::before,.hha-crosshair::after{
+        content:"";
+        position:absolute; left:50%; top:50%;
+        transform: translate(-50%,-50%);
+        border-radius: 999px;
+      }
+      .hha-crosshair::before{
+        width:18px; height:18px;
+        border:2px solid rgba(229,231,235,.85);
+      }
+      .hha-crosshair::after{
+        width:4px; height:4px;
+        background: rgba(34,211,238,.95);
+      }
+      body.view-cvr .hha-crosshair{ display:block; }
+    `;
+    DOC.head.appendChild(style);
+    DOC.body.appendChild(root);
+
+    let ch = DOC.querySelector('.hha-crosshair');
+    if (!ch){
+      ch = DOC.createElement('div');
+      ch.className = 'hha-crosshair';
+      DOC.body.appendChild(ch);
+    }
+
+    return root;
+  }
+
+  function hasAFrameScene(){
+    try{ return !!DOC.querySelector('a-scene'); }catch(_){ return false; }
+  }
+
+  function tryEnterVR(){
+    try{
+      const scene = DOC.querySelector('a-scene');
+      if (scene && typeof scene.enterVR === 'function'){
+        scene.enterVR();
+        return true;
+      }
+    }catch(_){}
     return false;
-  };
-  if (tryReady()) return;
+  }
 
-  scene.addEventListener('loaded', ()=>{
-    let tries=0;
-    const it = setInterval(()=>{
-      tries++;
-      if (tryReady() || tries>80){ clearInterval(it); cb(); }
-    }, 50);
-  }, { once:true });
-}
+  function tryExitVR(){
+    try{
+      const scene = DOC.querySelector('a-scene');
+      if (scene && typeof scene.exitVR === 'function'){
+        scene.exitVR();
+        return true;
+      }
+    }catch(_){}
+    return false;
+  }
 
-export function initVRButton(btnVR){
-  if (!btnVR) return;
-  const scene = document.querySelector('a-scene');
-  if (!scene) return;
+  function recenter(){
+    emit('hha:recenter', { ts: Date.now() });
+    try{
+      const cam = DOC.querySelector('[camera]');
+      if (cam && cam.object3D){
+        cam.object3D.rotation.set(0, cam.object3D.rotation.y, 0);
+      }
+    }catch(_){}
+  }
 
-  btnVR.addEventListener('click', async ()=>{
-    try{ await scene.enterVR(); }
-    catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
+  // ---------- Tap-to-shoot / click-to-shoot ----------
+  let lastShotAt = 0;
+  function fire(source='tap'){
+    const t = performance.now();
+    if (t - lastShotAt < Math.max(40, CFG.cooldownMs|0)) return;
+    lastShotAt = t;
+
+    const x = (WIN.innerWidth||0)/2;
+    const y = (WIN.innerHeight||0)/2;
+    emit('hha:shoot', { x, y, lockPx: CFG.lockPx|0, source });
+  }
+
+  function onPointerDown(ev){
+    const b = DOC.body;
+    if (!b) return;
+
+    const viewIsCVR = b.classList.contains('view-cvr');
+    const isTouch = ev.pointerType === 'touch' || ev.type === 'touchstart';
+    const src = viewIsCVR ? 'cvr' : (isTouch ? 'touch' : 'mouse');
+
+    if (viewIsCVR){
+      try{ ev.preventDefault(); }catch(_){}
+      fire(src);
+    }
+  }
+
+  DOC.addEventListener('pointerdown', onPointerDown, { passive:false });
+
+  WIN.addEventListener('keydown', (e)=>{
+    if (e.code === 'Space'){
+      if (DOC.body && DOC.body.classList.contains('view-cvr')){
+        fire('key');
+      }
+    }
   });
-}
 
-export async function tryEnterVR(){
-  const scene = document.querySelector('a-scene');
-  if (!scene) return false;
-  try{ await scene.enterVR(); return true; }
-  catch(err){ console.warn('[GoodJunkVR] enterVR blocked:', err); return false; }
-}
+  // ---------- Build UI buttons ----------
+  const root = ensureRoot();
 
-export function makeLoggerBadge(logDot, logText){
-  const state = { pending:true, ok:false, message:'' };
+  const btnEnter = DOC.createElement('button');
+  btnEnter.className = 'btn primary';
+  btnEnter.textContent = 'ENTER VR';
+  btnEnter.addEventListener('click', ()=>{
+    if (!tryEnterVR()){
+      try{
+        const el = DOC.documentElement;
+        if (!DOC.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI:'hide' });
+      }catch(_){}
+    }
+  });
 
-  function set(stateKey, text){
-    if (!logDot || !logText) return;
-    logDot.classList.remove('ok','bad');
-    if (stateKey === 'ok') logDot.classList.add('ok');
-    else if (stateKey === 'bad') logDot.classList.add('bad');
-    logText.textContent = text || (stateKey==='ok' ? 'logger: ok' : stateKey==='bad' ? 'logger: error' : 'logger: pending…');
+  const btnExit = DOC.createElement('button');
+  btnExit.className = 'btn warn';
+  btnExit.textContent = 'EXIT';
+  btnExit.addEventListener('click', ()=>{
+    if (!tryExitVR()){
+      try{ if (DOC.fullscreenElement && DOC.exitFullscreen) DOC.exitFullscreen(); }catch(_){}
+    }
+  });
+
+  const btnRecenter = DOC.createElement('button');
+  btnRecenter.className = 'btn cyan';
+  btnRecenter.textContent = 'RECENTER';
+  btnRecenter.addEventListener('click', ()=> recenter());
+
+  const showEnter = hasAFrameScene();
+  if (showEnter) root.appendChild(btnEnter);
+  if (CFG.showExit) root.appendChild(btnExit);
+  if (CFG.showRecenter) root.appendChild(btnRecenter);
+
+  function onResize(){
+    if (String(qs('view','')).toLowerCase()) return;
+    const v = detectView();
+    applyViewClasses(v);
   }
+  WIN.addEventListener('resize', ()=>{ try{ onResize(); }catch(_){ } }, { passive:true });
+  WIN.addEventListener('orientationchange', ()=>{ try{ onResize(); }catch(_){ } }, { passive:true });
 
-  function onEvent(e){
-    const d = (e && e.detail) ? e.detail : {};
-    state.pending = false;
-    state.ok = !!d.ok;
-    state.message = d.msg || '';
-    set(d.ok ? 'ok' : 'bad', d.msg || '');
-  }
-
-  return { state, set, onEvent };
-}
-
-export function celebrateQuest(kind, coach){
-  const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
-  const cx = window.innerWidth/2;
-  const y  = window.innerHeight*0.22;
-
-  if (P && P.burstAt) P.burstAt(cx, y, { count: 18, good: true });
-  if (P && P.scorePop) P.scorePop(cx, y, (kind==='goal'?'GOAL CLEAR!':'MINI CLEAR!'), { judgment:'GREAT!', good:true });
-
-  coach && coach.celebrateEmoji && coach.celebrateEmoji();
-  coach && coach.setCoach && coach.setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
-}
-
-export function bigCelebrateAll(elBigCelebrate, callback){
-  if (!elBigCelebrate){ callback && callback(); return; }
-
-  const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
-  const cx = window.innerWidth/2;
-  const cy = window.innerHeight*0.35;
-
-  if (P && P.burstAt){
-    for (let i=0;i<3;i++) setTimeout(()=>P.burstAt(cx,cy,{ count:26, good:true }), i*240);
-  }
-  if (P && P.scorePop) P.scorePop(cx,cy,'ALL QUESTS CLEAR!',{ judgment:'AMAZING', good:true });
-
-  elBigCelebrate.classList.add('show');
-  setTimeout(()=>{
-    elBigCelebrate.classList.remove('show');
-    callback && callback();
-  }, 1200);
-}
+})();
