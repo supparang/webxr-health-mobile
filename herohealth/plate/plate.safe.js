@@ -1,19 +1,14 @@
-// =========================================================
-// /herohealth/plate/plate.safe.js
+// === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — SAFE ENGINE (PRODUCTION)
 // HHA Standard
-// ---------------------------------------------------------
+// ------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive ON (soft)
+//   - play: adaptive ON + end-game rush
 //   - research/study: deterministic seed + adaptive OFF
 // ✅ Emits:
 //   hha:start, hha:score, hha:time, quest:update,
-//   hha:coach, hha:judge, hha:end, hha:fx
-// ✅ Supports: Boss phase, Storm phase (hooks ready)
-// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
-// ✅ Spawn: use mode-factory safezone + HUD exclusion (no bottom-right bug)
-// ✅ Exposes API: addTime(sec, reason), end(reason)
-// =========================================================
+//   hha:coach, hha:judge, hha:end
+// ------------------------------------------------
 
 'use strict';
 
@@ -23,7 +18,6 @@ import { boot as spawnBoot } from '../vr/mode-factory.js';
  * Utilities
  * ------------------------------------------------ */
 const WIN = window;
-const DOC = document;
 
 const clamp = (v, a, b) => {
   v = Number(v) || 0;
@@ -38,10 +32,6 @@ function seededRng(seed){
     r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function emit(name, detail){
-  WIN.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
 /* ------------------------------------------------
@@ -83,37 +73,30 @@ const STATE = {
   hitJunk:0,
   expireGood:0,
 
-  // mode / cfg
+  // cfg / rng
   cfg:null,
   rng:Math.random,
 
-  // spawn
-  engine:null,
-
-  // phases
-  bossOn:false,
-  stormOn:false
+  engine:null
 };
 
 /* ------------------------------------------------
- * UI helpers
+ * Event helper
  * ------------------------------------------------ */
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
+function emit(name, detail){
+  WIN.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-function emitScore(){
-  emit('hha:score', {
-    score: STATE.score,
-    combo: STATE.combo,
-    comboMax: STATE.comboMax
-  });
+/* ------------------------------------------------
+ * Coach helper
+ * ------------------------------------------------ */
+function coach(msg){
+  emit('hha:coach', { msg, tag:'PlateCoach' });
 }
 
-function emitTime(){
-  emit('hha:time', { leftSec: STATE.timeLeft });
-}
-
+/* ------------------------------------------------
+ * Quest update
+ * ------------------------------------------------ */
 function emitQuest(){
   emit('quest:update', {
     goal:{
@@ -133,14 +116,6 @@ function emitQuest(){
   });
 }
 
-function setFx({bossOn=null, bossPanic=null, stormOn=null}={}){
-  const d = {};
-  if(bossOn !== null)   d.bossOn = !!bossOn;
-  if(bossPanic !== null) d.bossPanic = !!bossPanic;
-  if(stormOn !== null)  d.stormOn = !!stormOn;
-  emit('hha:fx', d);
-}
-
 /* ------------------------------------------------
  * Accuracy
  * ------------------------------------------------ */
@@ -149,16 +124,17 @@ function accuracy(){
   if(total <= 0) return 1;
   return STATE.hitGood / total;
 }
-function accuracyPct(){
-  return Math.round(accuracy() * 100);
-}
 
 /* ------------------------------------------------
- * Scoring
+ * Score helpers
  * ------------------------------------------------ */
 function addScore(v){
-  STATE.score += (Number(v)||0);
-  emitScore();
+  STATE.score += v;
+  emit('hha:score', {
+    score: STATE.score,
+    combo: STATE.combo,
+    comboMax: STATE.comboMax
+  });
 }
 
 function addCombo(){
@@ -179,9 +155,6 @@ function endGame(reason='timeup'){
   STATE.running = false;
   clearInterval(STATE.timer);
 
-  // stop spawner if supported
-  try{ STATE.engine?.stop?.(); }catch(_){}
-
   emit('hha:end', {
     reason,
     scoreFinal: STATE.score,
@@ -193,7 +166,7 @@ function endGame(reason='timeup'){
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
-    accuracyGoodPct: accuracyPct(),
+    accuracyGoodPct: Math.round(accuracy() * 100),
 
     g1: STATE.g[0],
     g2: STATE.g[1],
@@ -207,48 +180,16 @@ function endGame(reason='timeup'){
  * Timer
  * ------------------------------------------------ */
 function startTimer(){
-  emitTime();
+  emit('hha:time', { leftSec: STATE.timeLeft });
 
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
     STATE.timeLeft--;
-    emitTime();
+    emit('hha:time', { leftSec: STATE.timeLeft });
     if(STATE.timeLeft <= 0){
       endGame('timeup');
     }
   }, 1000);
-}
-
-function addTime(sec=0, reason='bonus'){
-  // ✅ only called explicitly (boot guards event)
-  if(!STATE.running || STATE.ended) return;
-  const add = clamp(sec, 0, 30);
-  if(!add) return;
-  STATE.timeLeft += add;
-  emitTime();
-  emit('hha:judge', { type:'time-add', sec:add, reason });
-}
-
-/* ------------------------------------------------
- * Quest rules
- * ------------------------------------------------ */
-function updateGoalFromGroups(){
-  if(STATE.goal.done) return;
-  STATE.goal.cur = STATE.g.filter(v=>v>0).length;
-  if(STATE.goal.cur >= STATE.goal.target){
-    STATE.goal.done = true;
-    coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
-  }
-}
-
-function updateMiniFromAccuracy(){
-  const a = accuracyPct();
-  STATE.mini.cur = a;
-
-  if(!STATE.mini.done && a >= STATE.mini.target){
-    STATE.mini.done = true;
-    coach('ความแม่นยำดีมาก! 👍');
-  }
 }
 
 /* ------------------------------------------------
@@ -261,13 +202,24 @@ function onHitGood(groupIndex){
   addCombo();
   addScore(100 + STATE.combo * 5);
 
-  updateGoalFromGroups();
-  updateMiniFromAccuracy();
+  // goal: 5 หมู่
+  if(!STATE.goal.done){
+    STATE.goal.cur = STATE.g.filter(v=>v>0).length;
+    if(STATE.goal.cur >= STATE.goal.target){
+      STATE.goal.done = true;
+      coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
+    }
+  }
+
+  // mini: accuracy
+  const accPct = accuracy() * 100;
+  STATE.mini.cur = Math.round(accPct);
+  if(!STATE.mini.done && accPct >= STATE.mini.target){
+    STATE.mini.done = true;
+    coach('ความแม่นยำดีมาก! 👍');
+  }
 
   emitQuest();
-
-  // light milestone coaching
-  if(STATE.combo === 10) coach('คอมโบ 10! เก่งมาก ✨', 'Coach');
 }
 
 function onHitJunk(){
@@ -275,11 +227,11 @@ function onHitJunk(){
   STATE.miss++;
   resetCombo();
   addScore(-50);
+  coach('ระวัง! ของหวาน/ทอด ⚠️');
 
-  updateMiniFromAccuracy();
+  // mini update ด้วย (ความแม่นตก)
+  STATE.mini.cur = Math.round(accuracy() * 100);
   emitQuest();
-
-  coach('ระวัง! ของหวาน/ทอด ⚠️', 'Coach');
 }
 
 function onExpireGood(){
@@ -287,134 +239,44 @@ function onExpireGood(){
   STATE.miss++;
   resetCombo();
 
-  updateMiniFromAccuracy();
+  STATE.mini.cur = Math.round(accuracy() * 100);
   emitQuest();
 }
 
 /* ------------------------------------------------
- * Phase hooks (ready for future AI)
+ * Spawn logic (เร่งนิด ๆ ช่วงท้าย)
  * ------------------------------------------------ */
-function maybeBossPhase(){
-  // simple trigger: when goal complete or time low -> boss overlay hint only (no mechanics yet)
-  if(STATE.bossOn) return;
-  if(STATE.goal.done || STATE.timeLeft <= 18){
-    STATE.bossOn = true;
-    setFx({ bossOn:true, bossPanic:false });
-    emit('hha:judge', { type:'boss', on:true });
-  }
-}
-
-function maybeStormPhase(){
-  // optional: short storm if misses high
-  if(STATE.stormOn) return;
-  if(STATE.miss >= 4 && STATE.timeLeft >= 15){
-    STATE.stormOn = true;
-    setFx({ stormOn:true });
-    emit('hha:judge', { type:'storm', on:true });
-    // auto off after 6s
-    setTimeout(()=>{
-      STATE.stormOn = false;
-      setFx({ stormOn:false });
-      emit('hha:judge', { type:'storm', on:false });
-    }, 6000);
-  }
-}
-
-/* ------------------------------------------------
- * Spawn logic (mode-factory)
- * ------------------------------------------------ */
-function getHudExcludeRects(){
-  // exclude hud area so targets don’t spawn behind HUD / bottom-right bug
-  const rects = [];
-  const hud = DOC.getElementById('hud');
-  if(hud){
-    const r = hud.getBoundingClientRect();
-    // slightly expand to be safe
-    rects.push({ x:r.left-8, y:r.top-8, w:r.width+16, h:r.height+16 });
-  }
-  const vru = DOC.querySelector('.hha-vrui'); // if your vr-ui wrapper has class; safe fallback
-  if(vru){
-    const r = vru.getBoundingClientRect();
-    rects.push({ x:r.left-8, y:r.top-8, w:r.width+16, h:r.height+16 });
-  }
-  return rects;
-}
-
 function makeSpawner(mount){
-  // NOTE: mode-factory in your repo already supports seeded RNG + safezone relax.
-  // We pass exclusion rects to help spawn avoid HUD.
-  const excludeRects = getHudExcludeRects();
+  const run = (STATE.cfg.runMode || 'play').toLowerCase();
+  const baseRate = (STATE.cfg.diff === 'hard') ? 700 : 900;
+
+  const left = Number(STATE.timeLeft) || 0;
+  const rush = (run === 'play') && (left <= 15);
+
+  const rate = rush
+    ? Math.max(580, Math.round(baseRate * 0.85)) // เร่ง ~15%
+    : baseRate;
 
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
-    rng: STATE.rng,
-
-    // speed a bit (user asked "เร่งนิด ๆ")
-    spawnRate: (STATE.cfg.diff === 'hard') ? 650 : (STATE.cfg.diff === 'easy' ? 900 : 780),
-
-    // target size tuned for kids
-    sizeRange:[48,72],
-
-    // spread settings (if mode-factory supports)
-    spawnAroundCrosshair: false,
-    spawnStrategy: 'grid9',
-
-    // exclude HUD zones (if supported by mode-factory; harmless if ignored)
-    excludeRects,
-
+    spawnRate: rate,
+    sizeRange:[44,64],
     kinds:[
-      { kind:'good', weight:0.72 },
-      { kind:'junk', weight:0.28 }
+      { kind:'good', weight:0.7 },
+      { kind:'junk', weight:0.3 }
     ],
-
-    // decorator: assign plate group emoji/index to good targets
-    decorate:(t)=>{
-      if(t.kind !== 'good') return t;
-      const gi = Math.floor(STATE.rng()*5);
-      t.groupIndex = gi;
-      // optional: map to emoji for each food group
-      const em = ['🍚','🥦','🍗','🥛','🍌'][gi] || '🍽️';
-      t.emoji = em;
-      return t;
-    },
-
     onHit:(t)=>{
-      if(STATE.ended) return;
-
       if(t.kind === 'good'){
-        const gi = (typeof t.groupIndex === 'number') ? t.groupIndex : Math.floor(STATE.rng()*5);
-        onHitGood(clamp(gi,0,4));
+        const gi = t.groupIndex ?? Math.floor(STATE.rng()*5);
+        onHitGood(gi);
       }else{
         onHitJunk();
       }
-
-      // phase checks
-      maybeBossPhase();
-      maybeStormPhase();
     },
-
     onExpire:(t)=>{
-      if(STATE.ended) return;
       if(t.kind === 'good') onExpireGood();
-
-      // phase checks
-      maybeBossPhase();
-      maybeStormPhase();
     }
-  });
-}
-
-/* ------------------------------------------------
- * Crosshair shoot: hha:shoot hook (optional)
- * ------------------------------------------------ */
-function wireShoot(){
-  // If mode-factory already handles pointer/tap -> ignore. This just forwards if supported.
-  WIN.addEventListener('hha:shoot', (e)=>{
-    const d = e.detail || {};
-    try{
-      STATE.engine?.shoot?.(d); // if mode-factory exposes shoot()
-    }catch(_){}
   });
 }
 
@@ -425,8 +287,6 @@ export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
   STATE.cfg = cfg;
-
-  // reset
   STATE.running = true;
   STATE.ended = false;
 
@@ -434,7 +294,6 @@ export function boot({ mount, cfg }){
   STATE.combo = 0;
   STATE.comboMax = 0;
   STATE.miss = 0;
-
   STATE.hitGood = 0;
   STATE.hitJunk = 0;
   STATE.expireGood = 0;
@@ -442,23 +301,16 @@ export function boot({ mount, cfg }){
 
   STATE.goal.cur = 0;
   STATE.goal.done = false;
-
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
-  STATE.bossOn = false;
-  STATE.stormOn = false;
-  setFx({ bossOn:false, bossPanic:false, stormOn:false });
-
   // RNG
-  const mode = (cfg.runMode || 'play').toLowerCase();
-  if(mode === 'research' || mode === 'study'){
+  if(cfg.runMode === 'research' || cfg.runMode === 'study'){
     STATE.rng = seededRng(cfg.seed || Date.now());
   }else{
     STATE.rng = Math.random;
   }
 
-  // time: ✅ default from boot cfg (you set 90 there)
   STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
 
   emit('hha:start', {
@@ -472,17 +324,7 @@ export function boot({ mount, cfg }){
   emitQuest();
   startTimer();
 
-  // spawn engine
   STATE.engine = makeSpawner(mount);
 
-  // optional shoot hook
-  wireShoot();
-
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
-
-  // ✅ Return API for boot.js guard (time add)
-  return {
-    addTime,
-    end: endGame
-  };
 }
