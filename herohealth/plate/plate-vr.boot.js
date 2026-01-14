@@ -1,54 +1,59 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HHA Standard)
-// ✅ Auto view detect (no menu; does NOT override explicit ?view=)
-// ✅ Default time = 90s (if missing)
-// ✅ Quest bars clamp 0..100 (กันหลุดเกิน 100%)
-// ✅ End overlay aria-hidden only
-// ✅ Back HUB: preserve hub param + store last summary (HHA_LAST_SUMMARY)
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// PlateVR Boot — PRODUCTION FINAL
+// ✅ Auto view detect (no menu)
+// ✅ Default time = 90s (kids-friendly baseline)
+// ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners:
+//    - hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ (Optional) hha:timeAdd to extend time ONLY when explicitly requested
+// ✅ End overlay aria-hidden only (no display:none dependencies)
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def=null)=>{
+const qs = (k, def = null) => {
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
 
+function clamp(v, a, b){
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
+}
+
+function pct(n){
+  n = Number(n) || 0;
+  return `${Math.round(n)}%`;
+}
+
 function isMobile(){
   const ua = navigator.userAgent || '';
   const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && (WIN.innerWidth||0) < 920);
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && (WIN.innerWidth || 0) < 920);
 }
 
 function getViewAuto(){
-  // DO NOT override explicit ?view=
-  const forced = String(qs('view','')||'').toLowerCase();
-  if(forced) return forced;
+  // Allow forcing by query for experiments, but no UI chooser.
+  const forced = String(qs('view','') || '').toLowerCase();
+  if (forced) return forced;
 
-  // heuristic
+  // If A-Frame/WebXR is in VR presenting state later, vr-ui will handle UI,
+  // but view class here is for layout.
   return isMobile() ? 'mobile' : 'pc';
 }
 
 function setBodyView(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'cvr') b.classList.add('view-cvr');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'mobile') b.classList.add('view-mobile');
+
+  if (view === 'cvr') b.classList.add('view-cvr');
+  else if (view === 'vr') b.classList.add('view-vr');
+  else if (view === 'mobile') b.classList.add('view-mobile');
   else b.classList.add('view-pc');
-}
-
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function clampPct(n){
-  n = Number(n)||0;
-  return `${Math.round(clamp(n, 0, 100))}%`;
 }
 
 function setOverlayOpen(open){
@@ -76,6 +81,14 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
+function ready(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
+  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+}
+
+/* ---------------------------------------------------------
+   HUD wiring
+--------------------------------------------------------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -105,38 +118,44 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
-    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    // expected shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
       if(goalSub)  goalSub.textContent  = g.sub  || '';
-
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
-
-      const p = (tar > 0) ? (cur / tar) * 100 : 0;
-      if(goalBar) goalBar.style.width = clampPct(p);
+      if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
       if(miniSub)  miniSub.textContent  = m.sub  || '';
-
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
-
-      const p = (tar > 0) ? (cur / tar) * 100 : 0;
-      if(miniBar) miniBar.style.width = clampPct(p);
+      if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
   });
 
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
-    if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
+    if(d && (d.msg || d.text)){
+      showCoach(d.msg || d.text, d.tag || 'Coach');
+    }
+  });
+
+  // ✅ OPTIONAL time extension: only when engine explicitly asks
+  // detail: { addSec:number, reason?:string }
+  WIN.addEventListener('hha:timeAdd', (e)=>{
+    const d = e.detail || {};
+    const add = Number(d.addSec || 0);
+    if(add > 0){
+      // Boot does not own timer; this is just UX feedback.
+      // Engine should also add time internally when emitting this.
+      showCoach(`+${Math.round(add)} วิ ⏱️`, d.reason || 'โบนัสเวลา');
+    }
   });
 }
 
@@ -146,17 +165,16 @@ function wireEndControls(){
   const hub = String(qs('hub','') || '');
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      // keep same params
+      location.reload();
+    });
   }
 
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
-      if(hub){
-        // if hub already has query, append with &
-        location.href = hub;
-      }else{
-        history.back();
-      }
+      if(hub) location.href = hub;
+      else history.back();
     });
   }
 }
@@ -171,54 +189,41 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
+    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    const summary = {
-      ts: new Date().toISOString(),
-      game: 'plate',
-      reason: d.reason || '',
-      scoreFinal: d.scoreFinal ?? d.score ?? 0,
-      comboMax: d.comboMax ?? 0,
-      misses: d.misses ?? d.miss ?? 0,
-      accuracyGoodPct: d.accuracyGoodPct ?? null,
-      goalsCleared: d.goalsCleared ?? 0,
-      goalsTotal: d.goalsTotal ?? 0,
-      miniCleared: d.miniCleared ?? 0,
-      miniTotal: d.miniTotal ?? 0,
-      g1: d.g1 ?? 0, g2: d.g2 ?? 0, g3: d.g3 ?? 0, g4: d.g4 ?? 0, g5: d.g5 ?? 0
-    };
+    const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
+    if(kAcc) kAcc.textContent = (acc == null) ? '—' : pct(acc);
 
-    if(kScore) kScore.textContent = String(summary.scoreFinal);
-    if(kCombo) kCombo.textContent = String(summary.comboMax);
-    if(kMiss)  kMiss.textContent  = String(summary.misses);
-
-    if(kAcc) kAcc.textContent = (summary.accuracyGoodPct==null) ? '—' : `${Math.round(Number(summary.accuracyGoodPct)||0)}%`;
-    if(kGoals) kGoals.textContent = `${summary.goalsCleared}/${summary.goalsTotal}`;
-    if(kMini)  kMini.textContent  = `${summary.miniCleared}/${summary.miniTotal}`;
-
-    // ✅ HHA Standard: store last summary
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-    }catch(_){}
+    if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
+    if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
   });
 }
 
+/* ---------------------------------------------------------
+   Build engine config
+--------------------------------------------------------- */
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = String(qs('run','play')||'play').toLowerCase();
-  const diff = String(qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ DEFAULT TIME = 90
-  const time = clamp(qs('time','90'), 20, 999);
+  const run  = String(qs('run','play') || 'play').toLowerCase();
+  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
 
-  const seed = Number(qs('seed', Date.now())) || Date.now();
+  // ✅ default kids-friendly time = 90
+  // (you can still override by ?time=70 etc.)
+  const time = clamp(qs('time','90'), 10, 999);
 
-  // research passthrough (optional)
+  const seedQ = qs('seed','');
+  const seed = Number(seedQ || Date.now()) || Date.now();
+
   return {
     view,
     runMode: run,
     diff,
+
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
@@ -226,7 +231,7 @@ function buildEngineConfig(){
     hub: String(qs('hub','') || ''),
     logEndpoint: String(qs('log','') || ''),
 
-    // context passthrough (optional fields used by cloud logger)
+    // passthrough context (cloud logger)
     studyId: String(qs('studyId','') || ''),
     phase: String(qs('phase','') || ''),
     conditionGroup: String(qs('conditionGroup','') || ''),
@@ -240,11 +245,9 @@ function buildEngineConfig(){
   };
 }
 
-function ready(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-}
-
+/* ---------------------------------------------------------
+   Boot
+--------------------------------------------------------- */
 ready(()=>{
   const cfg = buildEngineConfig();
 
