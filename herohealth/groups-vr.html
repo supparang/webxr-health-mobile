@@ -1,121 +1,76 @@
+<!-- === C: /herohealth/groups-vr.html ===
+GroupsVR Launcher — AUTO DETECT + TAP TO START
+✅ Auto decide view: pc / mobile / vr / cvr (best-effort)
+✅ One tap required (policy) then redirect to /vr-groups/groups-vr.html
+✅ Preserves query: run/diff/style/time/seed/ai/hub/log + research ctx passthrough
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --radius:24px;
-      --pill:999px;
-      --soft: 0 10px 28px rgba(0,0,0,.30);
+      --bg:#020617; --text:#e5e7eb; --muted:#94a3b8;
+      --panel: rgba(2,6,23,.78); --stroke: rgba(148,163,184,.18);
+      --accent:#22c55e; --radius:22px;
     }
-    *{ box-sizing:border-box; }
-    html,body{ width:100%; height:100%; margin:0; background: radial-gradient(circle at top left, rgba(34,211,238,.12), transparent 55%),
-              radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%), var(--bg);
-      color:var(--text); font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding:18px; }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui; }
+    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding:18px; }
     .card{
       width:min(560px, 100%);
-      background: rgba(2,6,23,.80);
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: 26px;
+      border-radius: var(--radius);
+      background: var(--panel);
+      border:1px solid var(--stroke);
       box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      padding: 16px;
-      backdrop-filter: blur(10px);
+      padding:16px;
     }
-    .title{ font-size:20px; font-weight:1000; letter-spacing:.2px; }
-    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
-    .grid{ margin-top:14px; display:grid; gap:10px; }
+    .title{ font-size:22px; font-weight:1000; }
+    .sub{ margin-top:8px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
+    .grid2{ margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .stat{ padding:12px; border-radius:18px; background: rgba(15,23,42,.62); border:1px solid rgba(148,163,184,.14); }
+    .k{ font-weight:900; font-size:12px; color:var(--muted); }
+    .v{ margin-top:4px; font-weight:1000; font-size:18px; }
     .row{ display:flex; gap:10px; margin-top:12px; }
     .btn{
       flex:1 1 auto;
-      display:inline-flex; align-items:center; justify-content:center; gap:8px;
-      padding: 12px 12px;
-      border-radius: 18px;
-      border: 1px solid rgba(148,163,184,.20);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
       background: rgba(15,23,42,.65);
-      color: var(--text);
-      font-weight: 1000;
+      color:var(--text);
+      font-weight:1000;
+      padding:12px;
       cursor:pointer;
-      box-shadow: var(--soft);
     }
-    .btn-strong{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.32); }
-    .btn-ghost{ background: rgba(2,6,23,.35); }
-    .pill{
-      display:flex; justify-content:space-between; align-items:center;
-      padding: 10px 12px; border-radius: var(--pill);
-      background: rgba(2,6,23,.65);
-      border: 1px solid rgba(148,163,184,.16);
-      box-shadow: var(--soft);
-      font-weight:900; font-size:13px;
-    }
-    .pill span{ color:var(--muted); font-weight:900; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; color:rgba(148,163,184,.95); }
-    .hint{ margin-top:10px; color:var(--muted); font-weight:800; font-size:12px; }
-    .sep{ height:1px; background: rgba(148,163,184,.12); margin:12px 0; }
-
-    /* Tap overlay */
-    .overlay{
-      position:fixed; inset:0; display:none;
-      align-items:center; justify-content:center;
-      padding:18px;
-      background: rgba(2,6,23,.78);
-      backdrop-filter: blur(10px);
-    }
-    .overlay.show{ display:flex; }
+    .btnStrong{ background: rgba(34,197,94,.20); border-color: rgba(34,197,94,.35); }
+    .note{ margin-top:10px; font-size:12px; color:var(--muted); font-weight:800; }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="title">Food Groups VR</div>
-      <div class="sub" id="subText">กำลังตรวจจับอุปกรณ์…</div>
+      <div class="title">🥦 Food Groups VR</div>
+      <div class="sub">
+        ระบบจะตรวจอุปกรณ์ให้อัตโนมัติ แล้วเริ่มเกมให้ (ต้องแตะ 1 ครั้งเพื่อให้เสียง/VR ทำงานถูกต้อง)
+      </div>
 
-      <div class="sep"></div>
-
-      <div class="grid">
-        <div class="pill"><span>View</span><div id="vView">—</div></div>
-        <div class="pill"><span>Run</span><div id="vRun">—</div></div>
-        <div class="pill"><span>Diff</span><div id="vDiff">—</div></div>
-        <div class="pill"><span>Time</span><div id="vTime">—</div></div>
-        <div class="pill"><span>AI</span><div id="vAI">—</div></div>
-        <div class="pill"><span>Seed</span><div class="mono" id="vSeed">—</div></div>
+      <div class="grid2">
+        <div class="stat"><div class="k">VIEW (auto)</div><div class="v" id="vView">…</div></div>
+        <div class="stat"><div class="k">MODE</div><div class="v" id="vMode">…</div></div>
+        <div class="stat"><div class="k">DIFF</div><div class="v" id="vDiff">…</div></div>
+        <div class="stat"><div class="k">TIME</div><div class="v" id="vTime">…</div></div>
       </div>
 
       <div class="row">
-        <button class="btn btn-strong" id="btnGo" type="button">▶ แตะเพื่อเริ่ม</button>
-        <button class="btn btn-ghost" id="btnSetup" type="button">⚙️ ตั้งค่า</button>
+        <button class="btn btnStrong" id="btnStart" type="button">▶ TAP TO START</button>
+        <button class="btn" id="btnHub" type="button">🏠 กลับ HUB</button>
       </div>
 
-      <div class="hint">
-        - เปิดหน้าแบบตั้งค่าเต็ม: <span class="mono">?setup=1</span><br/>
-        - หมายเหตุ: ENTER VR ต้องกดเองในหน้าเกม (ข้อกำหนด WebXR)
-      </div>
-    </div>
-  </div>
-
-  <!-- Tap-to-start overlay (optional, safety for mobile policies) -->
-  <div class="overlay" id="tapOverlay">
-    <div class="card">
-      <div class="title">แตะเพื่อเริ่ม</div>
-      <div class="sub" id="tapSub">ระบบจะพาเข้าเกมโดยอัตโนมัติ</div>
-      <div class="row">
-        <button class="btn btn-strong" id="btnTapStart" type="button">▶ เข้าเกม</button>
-        <button class="btn btn-ghost" id="btnCancel" type="button">ยกเลิก</button>
-      </div>
-      <div class="hint">ทริค: แตะครั้งนี้ช่วย unlock เสียง/gesture ให้ระบบขอ fullscreen ได้ (ถ้าต้องการ)</div>
+      <div class="note" id="note">Tip: ถ้าใช้ Cardboard ให้เปิดลิงก์แบบ ...?cardboard=1 จาก HUB</div>
     </div>
   </div>
 
@@ -123,134 +78,105 @@
 (function(){
   'use strict';
   const DOC = document;
+  const WIN = window;
   const $ = (id)=>DOC.getElementById(id);
+  const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  // ---------- Detect ----------
-  function detectViewAuto(){
-    const vp = String(qs('view','')||'').toLowerCase();
-    if (vp) return vp;
-
-    const isMobile = matchMedia('(pointer:coarse)').matches || (navigator.maxTouchPoints||0) > 0;
-    const isSmall  = (Math.min(innerWidth||0, innerHeight||0) <= 520);
-
-    // “Safe default”: mobile -> mobile (not force cVR)
-    // ถ้าคุณอยาก auto เป็น cVR บนมือถือ: return (isMobile && isSmall) ? 'cvr' : (isMobile ? 'mobile' : 'pc');
-    return isMobile ? 'mobile' : 'pc';
+  function isMobile(){
+    const ua = navigator.userAgent || '';
+    const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints>0);
+    return touch && /Android|iPhone|iPad|Mobile/i.test(ua);
   }
 
-  function aiFromParams(run){
-    const a = String(qs('ai','0')||'0').toLowerCase();
-    if (run === 'research') return '0';
-    return (a==='1' || a==='true') ? '1' : '0';
+  async function xrVrSupported(){
+    try{
+      if (!navigator.xr || !navigator.xr.isSessionSupported) return false;
+      return await navigator.xr.isSessionSupported('immersive-vr');
+    }catch(_){ return false; }
   }
 
-  // ---------- Params ----------
-  const P = {
-    view: 'mobile',
-    run: 'play',        // play | research
-    diff: 'normal',     // easy | normal | hard
-    style: 'mix',       // feel | mix | clean
-    time: 90,
-    seed: String(Date.now()),
-    ai: '0',
-    hub: null
-  };
+  // best-effort detect:
+  // - if ?cardboard=1 on mobile => cvr
+  // - else if xr immersive-vr supported => vr
+  // - else if mobile => mobile
+  // - else => pc
+  async function detectView(){
+    const cb = String(qs('cardboard','0')||'0');
+    if (cb==='1' || cb==='true') return 'cvr';
 
-  function computeParams(){
-    P.view  = detectViewAuto();
-    P.run   = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-    P.diff  = String(qs('diff','normal')||'normal').toLowerCase();
-    P.style = String(qs('style','mix')||'mix').toLowerCase();
-    P.time  = clamp(qs('time', 90), 30, 180);
-    P.seed  = String(qs('seed', Date.now()) || Date.now());
-    P.hub   = qs('hub', null);
-    P.ai    = aiFromParams(P.run);
+    const mob = isMobile();
+    const xr = await xrVrSupported();
+    if (xr) return 'vr';
+    if (mob) return 'mobile';
+    return 'pc';
   }
 
-  function setText(){
-    $('vView').textContent = P.view;
-    $('vRun').textContent  = P.run.toUpperCase();
-    $('vDiff').textContent = P.diff.toUpperCase();
-    $('vTime').textContent = String(P.time);
-    $('vAI').textContent   = (P.ai==='1') ? 'ON' : 'OFF';
-    $('vSeed').textContent = P.seed;
-    $('subText').textContent = (P.view==='pc')
-      ? 'ตรวจพบโหมด PC — แตะเพื่อเริ่ม'
-      : (P.view==='cvr')
-        ? 'ตรวจพบโหมด Cardboard (cVR) — แตะเพื่อเริ่ม'
-        : 'ตรวจพบโหมด Mobile — แตะเพื่อเริ่ม';
-    $('tapSub').textContent = $('subText').textContent;
-  }
+  function buildRunUrl(view){
+    // ✅ RUN is under /herohealth/vr-groups/groups-vr.html
+    const u = new URL('./vr-groups/groups-vr.html', location.href);
 
-  function buildRunUrl(){
-    const base = './vr-groups/groups-vr.html';
-    const u = new URL(base, location.href);
+    // required params
+    u.searchParams.set('view', view);
 
-    u.searchParams.set('view', P.view);
+    // passthrough common params (if any)
+    const pass = ['run','diff','style','time','seed','ai','hub','log','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel'];
+    const sp = new URL(location.href).searchParams;
+    pass.forEach((k)=>{
+      const v = sp.get(k);
+      if (v!=null && v!=='') u.searchParams.set(k, v);
+    });
 
-    // pass-through core game params
-    u.searchParams.set('run', P.run);
-    u.searchParams.set('diff', P.diff);
-    u.searchParams.set('style', P.style);
-    u.searchParams.set('time', String(P.time));
-    u.searchParams.set('seed', P.seed);
-
-    // AI play only
-    u.searchParams.set('ai', P.ai);
-
-    // hub passthrough
-    if (P.hub) u.searchParams.set('hub', P.hub);
-
-    // Optional: auto practice on cVR (เปิดเองถ้าต้องการ)
-    // u.searchParams.set('practice', (P.view==='cvr') ? '15' : '0');
+    // defaults if missing
+    if (!u.searchParams.get('run'))  u.searchParams.set('run','play');
+    if (!u.searchParams.get('diff')) u.searchParams.set('diff','easy');
+    if (!u.searchParams.get('time')) u.searchParams.set('time','90');
+    if (!u.searchParams.get('style'))u.searchParams.set('style','feel');
+    if (!u.searchParams.get('seed')) u.searchParams.set('seed', String(Date.now()));
 
     return u.toString();
   }
 
-  function showTap(on){
-    $('tapOverlay').classList.toggle('show', !!on);
+  function goHub(){
+    const hub = String(qs('hub','')||'').trim();
+    if (hub) location.href = hub;
+    else history.back();
   }
 
-  function go(){
-    // “tap” gesture here is enough to unlock policies if needed
-    const url = buildRunUrl();
-    location.href = url;
+  function tryUnlock(){
+    try{
+      const a = DOC.createElement('audio');
+      a.src = 'data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA';
+      a.volume = 0;
+      a.play().then(()=>{ try{ a.pause(); }catch(_){} }).catch(()=>{});
+    }catch(_){}
+    try{
+      const AC = WIN.AudioContext || WIN.webkitAudioContext;
+      if (AC){
+        const ctx = new AC();
+        ctx.resume && ctx.resume().catch(()=>{});
+      }
+    }catch(_){}
   }
 
-  // ---------- Setup mode ----------
-  function wantsSetup(){
-    const s = String(qs('setup','0')||'0').toLowerCase();
-    return (s==='1' || s==='true');
-  }
+  // init labels
+  (async function init(){
+    const view = await detectView();
+    const run  = String(qs('run','play')||'play').toUpperCase();
+    const diff = String(qs('diff','easy')||'easy').toUpperCase();
+    const time = String(qs('time','90')||'90');
 
-  // If setup requested, just keep this page (you can restore your dropdown UI here later)
-  // For now, we keep smart card + manual start.
-  function boot(){
-    computeParams();
-    setText();
+    $('vView').textContent = view.toUpperCase();
+    $('vMode').textContent = run;
+    $('vDiff').textContent = diff;
+    $('vTime').textContent = time;
 
-    $('btnGo').addEventListener('click', ()=> showTap(true), {passive:true});
-    $('btnTapStart').addEventListener('click', go, {passive:true});
-    $('btnCancel').addEventListener('click', ()=>showTap(false), {passive:true});
+    $('btnStart').addEventListener('click', ()=>{
+      tryUnlock();
+      location.href = buildRunUrl(view);
+    });
 
-    $('btnSetup').addEventListener('click', ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('setup','1');
-      location.href = u.toString();
-    }, {passive:true});
-
-    // ถ้าไม่ต้องการให้มีการแตะเลย และให้เด้งเข้าเกมทันที:
-    // - uncomment บรรทัดล่าง (แต่บนมือถือบางทีจะโดน policy แล้วเสียง/fullscreen จะไม่พร้อม)
-    // if (!wantsSetup()) location.replace(buildRunUrl());
-  }
-
-  boot();
+    $('btnHub').addEventListener('click', goHub);
+  })();
 })();
 </script>
 </body>
