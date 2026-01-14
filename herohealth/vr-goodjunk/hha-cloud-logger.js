@@ -1,7 +1,9 @@
 // === /herohealth/vr-goodjunk/hha-cloud-logger.js ===
-// Minimal Cloud Logger (HHA Standard)
-// Usage: add ?log=https://script.google.com/macros/s/XXXX/exec
-// It will POST JSON { type, payload, ts, ...meta } as events.
+// Cloud Logger — PRODUCTION (flush-hardened)
+// ✅ listens: hha:start, hha:end (and optional hha:log)
+// ✅ posts JSON to ?log=SCRIPT_URL  (POST)
+// ✅ tries sendBeacon on pagehide
+// Notes: คุณสามารถต่อให้รับ schema sessions/events ได้ใน Apps Script
 
 (function(){
   'use strict';
@@ -9,73 +11,58 @@
   const DOC = document;
   if(!WIN || !DOC) return;
 
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+  const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const ENDPOINT = qs('log', null);
 
-  const endpoint = qs('log', null);
-  if(!endpoint){
-    // no endpoint => still keep buffer for debugging
-    WIN.__HHA_LOGGER__ = { enabled:false, buffer:[] };
-    return;
+  const Q = [];
+  let flushing = false;
+
+  function enqueue(type, payload){
+    Q.push({ type, payload, ts: new Date().toISOString() });
+    flushSoon();
   }
 
-  const meta = {
-    project: 'HeroHealth',
-    game: 'GoodJunkVR',
-    href: location.href,
-    ua: navigator.userAgent,
-  };
-
-  const buf = [];
-  let flushBusy = false;
-
-  function push(type, payload){
-    buf.push({
-      type,
-      payload: payload || null,
-      ts: new Date().toISOString(),
-      ...meta
-    });
-    // keep cap
-    if(buf.length > 800) buf.splice(0, buf.length - 800);
+  function flushSoon(){
+    if(flushing) return;
+    flushing = true;
+    setTimeout(()=>flush().finally(()=>{ flushing=false; }), 80);
   }
 
-  async function flush(reason='flush'){
-    if(flushBusy) return;
-    if(!buf.length) return;
-    flushBusy = true;
+  async function flush(){
+    if(!ENDPOINT) return;
+    if(!Q.length) return;
 
-    const batch = buf.splice(0, buf.length);
+    const batch = Q.splice(0, Q.length);
+    const body = JSON.stringify({ project:'HeroHealth', game:'GoodJunkVR', batch });
+
+    // try fetch keepalive first
     try{
-      await fetch(endpoint, {
+      await fetch(ENDPOINT, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ reason, events: batch })
+        body,
+        keepalive:true,
+        mode:'cors',
       });
-    }catch(_){
-      // put back if failed (best-effort)
-      buf.unshift(...batch);
-    }finally{
-      flushBusy = false;
-    }
+      return;
+    }catch(_){}
+
+    // fallback beacon
+    try{
+      const ok = navigator.sendBeacon?.(ENDPOINT, new Blob([body], {type:'application/json'}));
+      if(ok) return;
+    }catch(_){}
   }
 
-  // bind events
-  WIN.addEventListener('hha:start', (e)=>{ push('start', e.detail); flush('start'); }, { passive:true });
-  WIN.addEventListener('hha:judge', (e)=>{ push('judge', e.detail); }, { passive:true });
-  WIN.addEventListener('quest:update', (e)=>{ push('quest', e.detail); }, { passive:true });
-  WIN.addEventListener('hha:log', (e)=>{ push('log', e.detail); }, { passive:true });
-  WIN.addEventListener('hha:end', (e)=>{ push('end', e.detail); flush('end'); }, { passive:true });
-
-  // flush hardened
-  WIN.addEventListener('pagehide', ()=>{ try{ flush('pagehide'); }catch(_){ } }, { passive:true });
+  // listeners
+  WIN.addEventListener('hha:start', (e)=> enqueue('start', e.detail || {}));
+  WIN.addEventListener('hha:end',   (e)=> enqueue('end',   e.detail || {}));
+  WIN.addEventListener('hha:log',   (e)=> enqueue('log',   e.detail || {}));
+  WIN.addEventListener('pagehide',  ()=> { try{ flush(); }catch(_){ } });
   DOC.addEventListener('visibilitychange', ()=>{
-    try{
-      if(DOC.visibilityState === 'hidden') flush('hidden');
-    }catch(_){}
-  }, { passive:true });
+    if(DOC.visibilityState === 'hidden'){ try{ flush(); }catch(_){ } }
+  });
 
-  // periodic flush
-  setInterval(()=>{ flush('interval'); }, 2500);
-
-  WIN.__HHA_LOGGER__ = { enabled:true, endpoint, buffer:buf, flush };
+  // expose manual flush
+  WIN.HHA_LOGGER = { flush };
 })();
