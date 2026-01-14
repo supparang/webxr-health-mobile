@@ -1,23 +1,18 @@
 // === /herohealth/vr-groups/groups-vr.boot.js ===
 // GroupsVR Boot — PRODUCTION
-// ✅ Detect view (pc/mobile/cvr) WITHOUT overriding explicit ?view=
-// ✅ Tap-to-start gate on touch devices (unlock audio/fullscreen policies)
-// ✅ Wait for engine (GroupsVR.GameEngine) then start()
-// ✅ Supports: calibration (cVR), practice (cVR), AI hooks (play only), research deterministic
-//
-// Usage in A (groups-vr.html RUN):
-// <script src="./groups-vr.boot.js" defer></script>
-// and REMOVE the big inline start script to avoid double-start.
+// ✅ Auto-detect view (NO override when ?view= is explicit)
+// ✅ Tap-to-start (required on mobile/cVR for gesture unlock + fullscreen/gyro)
+// ✅ cVR Calibration gate (Step1 RECENTER, Step2 shoot test 3)
+// ✅ Practice 15s when ?practice=1 (cVR only) then auto start real run
+// ✅ Starts GroupsVR.GameEngine (from groups.safe.js)
+// ✅ Optional AI hooks attach (play only, requires ?ai=1, research always OFF)
 
 (function () {
   'use strict';
 
   const WIN = window;
   const DOC = document;
-
-  if (!WIN || !DOC) return;
-  if (WIN.__HHA_GROUPS_BOOT_LOADED__) return;
-  WIN.__HHA_GROUPS_BOOT_LOADED__ = true;
+  if (!DOC || !WIN) return;
 
   const $ = (id) => DOC.getElementById(id);
 
@@ -25,33 +20,28 @@
     try { return new URL(location.href).searchParams.get(k) ?? def; }
     catch { return def; }
   }
+  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
 
-  function clamp(v, a, b) {
-    v = Number(v) || 0;
-    return v < a ? a : (v > b ? b : v);
-  }
-
-  function isTouch() {
+  function isTouchDevice() {
     return ('ontouchstart' in WIN) || (navigator.maxTouchPoints | 0) > 0;
   }
 
-  // ✅ no override: if ?view= present, trust it
   function detectViewNoOverride() {
-    const explicit = String(qs('view', '') || '').toLowerCase();
-    if (explicit) return explicit;
+    const explicit = String(qs('view', '') || '').toLowerCase().trim();
+    if (explicit) return explicit; // ✅ do not override explicit
 
-    const touch = isTouch();
+    const touch = isTouchDevice();
     const w = Math.max(1, WIN.innerWidth || 1);
     const h = Math.max(1, WIN.innerHeight || 1);
     const landscape = w >= h;
 
+    // heuristic tuned for your project
     if (touch) {
-      // conservative default: mobile
-      // If you want auto-cVR on wide landscape phones, uncomment:
-      // if (landscape && w >= 860) return 'cvr';
+      if (landscape && w >= 740) return 'cvr';   // big phone / tablet landscape -> cardboard feel
       return 'mobile';
     }
-    return 'pc';
+    // desktop
+    return (w >= 980) ? 'pc' : 'pc';
   }
 
   function setBodyView(view) {
@@ -61,105 +51,84 @@
     b.classList.add('view-' + view);
   }
 
-  function getPracticeSec(view) {
-    const p = String(qs('practice', '0') || '0');
-    let sec = Number(p) || 0;
-    if (p === '1') sec = 15;         // practice=1 => 15s
-    sec = clamp(sec, 0, 30);
-    if (view !== 'cvr') sec = 0;     // practice only for cVR
-    return sec;
+  function setHudModeLabel(text) {
+    const el = $('vMode');
+    if (el) el.textContent = String(text || '').toUpperCase();
   }
 
-  function aiEnabled(runMode) {
-    const on = String(qs('ai', '0') || '0').toLowerCase();
-    if (runMode === 'research' || runMode === 'practice') return false;
-    return (on === '1' || on === 'true');
-  }
-
-  async function tryFullscreen() {
-    try {
-      const el = DOC.documentElement;
-      if (el.requestFullscreen && !DOC.fullscreenElement) {
-        await el.requestFullscreen();
-      }
-    } catch (_) {}
-  }
-
-  // ---------- Tap-to-start overlay (optional but recommended) ----------
+  // ---------------- Tap-to-start overlay ----------------
   function ensureTapOverlay() {
-    let tap = $('hhaTapOverlay');
-    if (tap) return tap;
+    let el = DOC.getElementById('tapStart');
+    if (el) return el;
 
-    tap = DOC.createElement('div');
-    tap.id = 'hhaTapOverlay';
-    tap.style.cssText = `
-      position:fixed; inset:0; z-index:9999;
-      display:none; align-items:center; justify-content:center;
+    el = DOC.createElement('div');
+    el.id = 'tapStart';
+    el.style.cssText = `
+      position:fixed; inset:0; z-index:120;
+      display:flex; align-items:center; justify-content:center;
       padding:18px;
-      background: rgba(2,6,23,.82);
+      background: rgba(2,6,23,.72);
       backdrop-filter: blur(10px);
-    `;
-
-    const box = DOC.createElement('div');
-    box.style.cssText = `
-      width:min(560px,96vw);
-      border-radius:26px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.88);
-      box-shadow: 0 24px 80px rgba(0,0,0,.60);
-      padding:16px;
       color:#e5e7eb;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     `;
-    box.innerHTML = `
-      <div style="font-weight:1000;font-size:20px;">👆 Tap-to-start</div>
-      <div style="margin-top:8px;color:#94a3b8;font-weight:800;font-size:13px;line-height:1.35;">
-        มือถือบางเครื่องต้อง “แตะ 1 ครั้ง” เพื่อปลดล็อกเสียง/เต็มจอ แล้วค่อยเริ่มเกม
-      </div>
-      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="hhaTapGo" type="button"
-          style="flex:1 1 auto;padding:12px 14px;border-radius:18px;border:1px solid rgba(34,197,94,.35);
-                 background: rgba(34,197,94,.18);color:#e5e7eb;font-weight:1000;cursor:pointer;">
-          ✅ แตะเพื่อเริ่ม
-        </button>
-        <button id="hhaTapSkip" type="button"
-          style="flex:1 1 auto;padding:12px 14px;border-radius:18px;border:1px solid rgba(148,163,184,.20);
-                 background: rgba(2,6,23,.50);color:#e5e7eb;font-weight:1000;cursor:pointer;">
-          ⏭️ ข้าม
-        </button>
-      </div>
-      <div style="margin-top:10px;color:#94a3b8;font-weight:800;font-size:12px;line-height:1.35;">
-        หมายเหตุ: cVR ใช้ยิงจาก crosshair (hha:shoot) • ปุ่ม ENTER VR/RECENTER มาจาก vr-ui.js
+    el.innerHTML = `
+      <div style="
+        width:min(520px,100%);
+        border-radius:26px;
+        border:1px solid rgba(148,163,184,.20);
+        background: rgba(2,6,23,.86);
+        box-shadow: 0 24px 70px rgba(0,0,0,.55);
+        padding:16px;">
+        <div style="font-weight:1000; font-size:20px;">🟢 แตะเพื่อเริ่ม (Tap-to-start)</div>
+        <div style="margin-top:6px; color:#94a3b8; font-weight:800; font-size:13px; line-height:1.35;">
+          เพื่อปลดล็อกเสียง/การสั่น/เต็มจอ และเซ็นเซอร์บนมือถือ<br/>
+          (Cardboard/cVR แนะนำให้แตะหนึ่งครั้งก่อน)
+        </div>
+        <div style="margin-top:12px; display:flex; gap:10px;">
+          <button id="tapGo" type="button" style="
+            flex:1; padding:12px; border-radius:18px; cursor:pointer;
+            border:1px solid rgba(34,197,94,.35);
+            background: rgba(34,197,94,.20);
+            color:#e5e7eb; font-weight:1000;">▶️ เริ่มเลย</button>
+          <button id="tapSkip" type="button" style="
+            flex:1; padding:12px; border-radius:18px; cursor:pointer;
+            border:1px solid rgba(148,163,184,.20);
+            background: rgba(15,23,42,.60);
+            color:#e5e7eb; font-weight:1000;">⏭️ เริ่มแบบเงียบ</button>
+        </div>
+        <div style="margin-top:10px; color:#94a3b8; font-weight:800; font-size:12px;">
+          Tip: cVR ยิงด้วย crosshair (แตะจอ) • ใช้ RECENTER เพื่อปรับศูนย์มุมมอง
+        </div>
       </div>
     `;
-
-    tap.appendChild(box);
-    DOC.body.appendChild(tap);
-    return tap;
+    DOC.body.appendChild(el);
+    return el;
   }
 
-  function showTap(on) {
-    const tap = ensureTapOverlay();
-    tap.style.display = on ? 'flex' : 'none';
+  function hideTapOverlay() {
+    const el = DOC.getElementById('tapStart');
+    if (el) el.remove();
   }
 
-  // ---------- Engine wait ----------
-  function waitForEngine(timeoutMs = 8000) {
-    return new Promise((resolve) => {
-      const t0 = Date.now();
-      const it = setInterval(() => {
-        const E = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
-        if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function') {
-          clearInterval(it);
-          resolve(E);
-          return;
-        }
-        if (Date.now() - t0 > timeoutMs) {
-          clearInterval(it);
-          resolve(null);
-        }
-      }, 60);
-    });
+  // ---------------- Engine ready ----------------
+  function waitForEngine(cb) {
+    const t0 = Date.now();
+    const it = setInterval(() => {
+      const E = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function') {
+        clearInterval(it);
+        cb(E);
+        return;
+      }
+      if (Date.now() - t0 > 9000) {
+        clearInterval(it);
+        try {
+          WIN.dispatchEvent(new CustomEvent('hha:coach', {
+            detail: { text: 'โหลดเอนจินไม่ขึ้น (groups.safe.js). เช็ค path/ชื่อไฟล์ แล้วรีเฟรชอีกครั้ง', mood: 'sad' }
+          }));
+        } catch (_) {}
+      }
+    }, 60);
   }
 
   function getLayerEl() {
@@ -173,33 +142,39 @@
     } catch (_) {}
   }
 
-  // ---------- cVR Calibration gate (PACK 13) ----------
-  // Boot will just "show/hide" if A has the overlay DOM (#calOverlay) and buttons;
-  // actual step logic can remain in A, but we support it here as well if present.
+  function tryUnlockAudioOnce() {
+    try {
+      const A = WIN.GroupsVR && WIN.GroupsVR.Audio;
+      A && A.unlock && A.unlock();
+    } catch (_) {}
+  }
 
-  const cal = { on:false, step:0, shots:0, done:false };
+  // ---------------- Calibration (cVR gate) ----------------
+  const cal = { on: false, step: 0, shots: 0 };
 
   function showCal(on) {
     const el = $('calOverlay');
-    if (!el) return false;
+    if (!el) return;
     el.classList.toggle('hidden', !on);
     DOC.body.classList.toggle('calibration', !!on);
-    return true;
   }
 
   function setCalStep(step) {
     cal.step = step;
     const stepEl = $('calStep');
-    const subEl  = $('calSub');
-    const shotsEl= $('calShots');
+    const subEl = $('calSub');
+    const shotsEl = $('calShots');
     const nextBt = $('btnCalNext');
 
     if (stepEl) stepEl.textContent = `${step}/2`;
     if (shotsEl) shotsEl.textContent = `${cal.shots}/3`;
 
     if (subEl) {
-      if (step === 1) subEl.innerHTML = `Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า`;
-      else subEl.innerHTML = `Step 2/2: ลองยิง <b>3 ครั้ง</b> (แตะจอ) เพื่อทดสอบ crosshair`;
+      if (step === 1) {
+        subEl.innerHTML = `Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า`;
+      } else {
+        subEl.innerHTML = `Step 2/2: ลองยิง <b>3 ครั้ง</b> (แตะจอ) เพื่อทดสอบ crosshair`;
+      }
     }
 
     if (nextBt) {
@@ -213,153 +188,260 @@
     }
   }
 
-  function startCalibrationIfNeeded(view) {
+  function startCalibrationIfNeeded(view, runMode) {
     if (view !== 'cvr') return false;
-    if (!$('calOverlay')) return false; // overlay must exist in A
+
+    // ถ้าอยาก “ไม่ทำ calibration ใน research” ให้เปิดบรรทัดนี้:
+    // if (runMode === 'research') return false;
+
     cal.on = true;
-    cal.done = false;
     cal.shots = 0;
+
     showCal(true);
     setCalStep(1);
+
+    try {
+      WIN.dispatchEvent(new CustomEvent('hha:coach', {
+        detail: { text: 'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood: 'neutral' }
+      }));
+    } catch (_) {}
+
     return true;
   }
 
   function finishCalibration() {
     cal.on = false;
-    cal.done = true;
     showCal(false);
   }
 
-  // Count shots during calibration step 2
-  try {
-    WIN.addEventListener('hha:shoot', () => {
-      if (!cal.on) return;
-      if (cal.step !== 2) return;
-      cal.shots = Math.min(3, (cal.shots | 0) + 1);
-      setCalStep(2);
-    }, { passive:true });
-  } catch (_) {}
+  // count shots on hha:shoot when step 2
+  WIN.addEventListener('hha:shoot', () => {
+    if (!cal.on) return;
+    if (cal.step !== 2) return;
+    cal.shots = Math.min(3, (cal.shots | 0) + 1);
+    setCalStep(2);
+    try {
+      WIN.dispatchEvent(new CustomEvent('hha:coach', {
+        detail: { text: `Calibration ยิงแล้ว ${cal.shots}/3`, mood: 'neutral' }
+      }));
+    } catch (_) {}
+  }, { passive: true });
 
-  function bindCalButtons(afterCalStartFn) {
-    const nextBt = $('btnCalNext');
-    const skipBt = $('btnCalSkip');
-    if (!nextBt || !skipBt) return;
+  // calibration buttons
+  function bindCalButtons(onDone) {
+    const btnNext = $('btnCalNext');
+    const btnSkip = $('btnCalSkip');
 
-    nextBt.onclick = async () => {
-      if (!cal.on) return;
-      if (cal.step === 1) { setCalStep(2); return; }
-      if (cal.step === 2 && cal.shots >= 3) {
+    if (btnNext) {
+      btnNext.addEventListener('click', () => {
+        if (!cal.on) return;
+        if (cal.step === 1) {
+          setCalStep(2);
+          try {
+            WIN.dispatchEvent(new CustomEvent('hha:coach', {
+              detail: { text: 'ต่อไป: ยิงทดสอบ 3 ครั้ง (แตะจอ) 🎯', mood: 'neutral' }
+            }));
+          } catch (_) {}
+          return;
+        }
+        if (cal.step === 2 && cal.shots >= 3) {
+          finishCalibration();
+          onDone && onDone();
+        }
+      }, { passive: true });
+    }
+
+    if (btnSkip) {
+      btnSkip.addEventListener('click', () => {
+        if (!cal.on) return;
         finishCalibration();
-        afterCalStartFn && afterCalStartFn();
-      }
-    };
-
-    skipBt.onclick = () => {
-      if (!cal.on) return;
-      finishCalibration();
-      afterCalStartFn && afterCalStartFn();
-    };
+        onDone && onDone();
+      }, { passive: true });
+    }
   }
 
-  // ---------- Start flows ----------
-  function startPractice(E, { diff, style, seed, practiceSec }) {
-    const seedP = String(seed) + '-practice';
-    initViewHelper('cvr');
-    E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode:'practice', diff, style, time: practiceSec, seed: seedP, view:'cvr' });
-
-    try {
-      const H = WIN.GroupsVR && WIN.GroupsVR.ViewHelper;
-      H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
-    } catch (_) {}
+  // ---------------- Practice chain ----------------
+  function getPracticeSec(view) {
+    const p = String(qs('practice', '0') || '0');
+    let sec = Number(p) || 0;
+    if (p === '1') sec = 15;
+    sec = clamp(sec, 0, 30);
+    if (view !== 'cvr') sec = 0;
+    return sec;
   }
 
-  function startReal(E, { view, runMode, diff, style, timeSec, seed }) {
-    initViewHelper(view);
-    E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode, diff, style, time: timeSec, seed, view });
-
-    // PACK 15 AI attach point
-    try {
-      const AI = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
-      if (AI && AI.attach) {
-        AI.attach({ runMode, seed, enabled: aiEnabled(runMode) && runMode === 'play' });
-      }
-    } catch (_) {}
+  // ---------------- AI switch ----------------
+  function aiEnabled(runMode) {
+    const on = String(qs('ai', '0') || '0').toLowerCase();
+    if (runMode === 'research' || runMode === 'practice') return false;
+    return (on === '1' || on === 'true');
   }
 
-  async function bootStart() {
+  // ---------------- START FLOW ----------------
+  let started = false;
+  let practiceActive = false;
+
+  function startEngineFlow() {
+    if (started) return;
+    started = true;
+
     const view = String(detectViewNoOverride() || 'mobile').toLowerCase();
-    setBodyView(view);
-
     const runMode = (String(qs('run', 'play') || 'play').toLowerCase() === 'research') ? 'research' : 'play';
     const diff = String(qs('diff', 'normal') || 'normal').toLowerCase();
     const style = String(qs('style', 'mix') || 'mix').toLowerCase();
-    const timeSec = clamp(qs('time', 90), 30, 180);
+    const time = clamp(qs('time', 90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
 
-    // unlock policies on touch
-    const needTap = isTouch();
-    if (needTap) {
-      showTap(true);
-      $('hhaTapGo').onclick = async () => {
-        showTap(false);
-        await tryFullscreen();
-        proceed(view, runMode, diff, style, timeSec, seed);
-      };
-      $('hhaTapSkip').onclick = () => {
-        showTap(false);
-        proceed(view, runMode, diff, style, timeSec, seed);
-      };
-      $('hhaTapOverlay').onclick = (e) => {
-        if (e.target && e.target.id === 'hhaTapOverlay') {
-          $('hhaTapGo').click();
-        }
-      };
-      return;
-    }
+    setBodyView(view);
+    initViewHelper(view);
 
-    // desktop: proceed immediately
-    proceed(view, runMode, diff, style, timeSec, seed);
-  }
-
-  async function proceed(view, runMode, diff, style, timeSec, seed) {
-    // cVR calibration gate (if overlay exists)
-    const gated = startCalibrationIfNeeded(view);
-
-    const E = await waitForEngine(9000);
-    if (!E) {
-      try {
-        WIN.dispatchEvent(new CustomEvent('hha:coach', {
-          detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js). เช็ค path/ชื่อไฟล์ แล้วรีเฟรช', mood:'sad' }
-        }));
-      } catch (_) {}
-      return;
-    }
+    // label now (before real start)
+    setHudModeLabel(runMode === 'research' ? 'RESEARCH' : 'PLAY');
 
     const practiceSec = getPracticeSec(view);
 
-    const startAfterCal = () => {
-      if (view === 'cvr' && practiceSec > 0) {
-        startPractice(E, { diff, style, seed, practiceSec });
-        return;
-      }
-      startReal(E, { view, runMode, diff, style, timeSec, seed });
-    };
-
+    // cVR calibration gate
+    const gated = startCalibrationIfNeeded(view, runMode);
     if (gated) {
-      bindCalButtons(startAfterCal);
+      bindCalButtons(() => {
+        waitForEngine((E) => startAfterCalibration(E, { view, runMode, diff, style, time, seed, practiceSec }));
+      });
       return;
     }
 
-    startAfterCal();
+    waitForEngine((E) => startAfterCalibration(E, { view, runMode, diff, style, time, seed, practiceSec }));
   }
 
-  // start
-  if (DOC.readyState === 'loading') {
-    DOC.addEventListener('DOMContentLoaded', bootStart, { once:true });
-  } else {
-    bootStart();
+  function startAfterCalibration(E, cfg) {
+    // practice first (cVR only + practiceSec > 0)
+    if (cfg.view === 'cvr' && cfg.practiceSec > 0) {
+      practiceActive = true;
+      setHudModeLabel('PRACTICE');
+
+      // try immersive helper for cVR
+      try {
+        const H = WIN.GroupsVR && WIN.GroupsVR.ViewHelper;
+        H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
+      } catch (_) {}
+
+      E.setLayerEl(getLayerEl());
+      E.start(cfg.diff, {
+        runMode: 'practice',
+        diff: cfg.diff,
+        style: cfg.style,
+        time: cfg.practiceSec,
+        seed: String(cfg.seed) + '-practice',
+        view: cfg.view
+      });
+
+      try {
+        WIN.dispatchEvent(new CustomEvent('hha:coach', {
+          detail: { text: `Practice ${cfg.practiceSec}s: ลองเล็งให้แม่นก่อนเข้าเกมจริง! 🎯`, mood: 'happy' }
+        }));
+      } catch (_) {}
+
+      return;
+    }
+
+    // real start
+    startReal(E, cfg);
   }
+
+  function startReal(E, cfg) {
+    practiceActive = false;
+
+    setHudModeLabel(cfg.runMode === 'research' ? 'RESEARCH' : 'PLAY');
+
+    initViewHelper(cfg.view);
+    E.setLayerEl(getLayerEl());
+
+    E.start(cfg.diff, {
+      runMode: cfg.runMode,
+      diff: cfg.diff,
+      style: cfg.style,
+      time: cfg.time,
+      seed: cfg.seed,
+      view: cfg.view
+    });
+
+    // AI attach (safe)
+    try {
+      const AI = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
+      if (AI && AI.attach) {
+        AI.attach({
+          runMode: cfg.runMode,
+          seed: cfg.seed,
+          enabled: aiEnabled(cfg.runMode)
+        });
+      }
+    } catch (_) {}
+  }
+
+  // When practice ends, auto start real run (A must ignore practice end overlay)
+  WIN.addEventListener('hha:end', (ev) => {
+    const d = ev.detail || {};
+    if (!practiceActive) return;
+    if (String(d.reason || '') !== 'practice') return;
+
+    practiceActive = false;
+
+    // rebuild cfg from params (fresh)
+    const view = String(detectViewNoOverride() || 'mobile').toLowerCase();
+    const runMode = (String(qs('run', 'play') || 'play').toLowerCase() === 'research') ? 'research' : 'play';
+    const diff = String(qs('diff', 'normal') || 'normal').toLowerCase();
+    const style = String(qs('style', 'mix') || 'mix').toLowerCase();
+    const time = clamp(qs('time', 90), 30, 180);
+    const seed = String(qs('seed', Date.now()) || Date.now());
+
+    waitForEngine((E) => {
+      setTimeout(() => startReal(E, { view, runMode, diff, style, time, seed, practiceSec: 0 }), 180);
+    });
+  }, { passive: true });
+
+  // ---------------- Tap-to-start decision ----------------
+  function needsTapToStart(view) {
+    // safest: any touch device requires gesture
+    if (isTouchDevice()) return true;
+    // desktop can autostart
+    return false;
+  }
+
+  function boot() {
+    const view = String(detectViewNoOverride() || 'mobile').toLowerCase();
+    setBodyView(view);
+
+    // if we need tap: show overlay, wait for click
+    if (needsTapToStart(view)) {
+      const overlay = ensureTapOverlay();
+      const btnGo = DOC.getElementById('tapGo');
+      const btnSkip = DOC.getElementById('tapSkip');
+
+      const go = () => {
+        tryUnlockAudioOnce();
+        hideTapOverlay();
+        startEngineFlow();
+      };
+
+      if (btnGo) btnGo.addEventListener('click', go, { passive: true });
+      if (btnSkip) btnSkip.addEventListener('click', () => {
+        hideTapOverlay();
+        startEngineFlow();
+      }, { passive: true });
+
+      // also allow tapping anywhere
+      overlay.addEventListener('click', (e) => {
+        // prevent double-trigger from clicking buttons
+        if (e && e.target && (e.target.id === 'tapGo' || e.target.id === 'tapSkip')) return;
+        go();
+      }, { passive: true });
+
+      return;
+    }
+
+    // desktop autostart
+    startEngineFlow();
+  }
+
+  boot();
 
 })();
