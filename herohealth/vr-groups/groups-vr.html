@@ -1,183 +1,442 @@
-<!-- === C: /herohealth/groups-vr.html ===
-GroupsVR Launcher — AUTO DETECT + TAP TO START
-✅ Auto decide view: pc / mobile / vr / cvr (best-effort)
-✅ One tap required (policy) then redirect to /vr-groups/groups-vr.html
-✅ Preserves query: run/diff/style/time/seed/ai/hub/log + research ctx passthrough
+<!-- === A: /herohealth/vr-groups/groups-vr.html ===
+Food Groups VR — RUN (PRODUCTION-ish)
+✅ PC / Mobile / VR / cVR auto-detect (do not override explicit ?view=)
+✅ Tap-to-start overlay
+✅ Uses Universal VR UI: ../vr/vr-ui.js (EnterVR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
+✅ Uses SAFE engine: ./groups.safe.js (exports window.GroupsVR.GameEngine)
+✅ End overlay + back to hub + replay
+✅ runMode: play | research | practice
+   - practice: 15s then auto-start real run (optional)
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <title>HeroHealth — Food Groups VR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- A-Frame minimal scene for WebXR Enter VR reliability -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Universal VR UI (Enter VR/Exit/Recenter + crosshair + tap-to-shoot) -->
+  <script defer src="../vr/vr-ui.js"></script>
+
+  <!-- (Optional) particles/FX if you have it globally; safe to omit -->
+  <!-- <script defer src="../vr/particles.js"></script> -->
+
+  <!-- SAFE engine -->
+  <script defer src="./groups.safe.js"></script>
+
   <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617; --text:#e5e7eb; --muted:#94a3b8;
-      --panel: rgba(2,6,23,.78); --stroke: rgba(148,163,184,.18);
-      --accent:#22c55e; --radius:22px;
-    }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui; }
-    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding:18px; }
-    .card{
-      width:min(560px, 100%);
-      border-radius: var(--radius);
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      padding:16px;
-    }
-    .title{ font-size:22px; font-weight:1000; }
-    .sub{ margin-top:8px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
-    .grid2{ margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .stat{ padding:12px; border-radius:18px; background: rgba(15,23,42,.62); border:1px solid rgba(148,163,184,.14); }
-    .k{ font-weight:900; font-size:12px; color:var(--muted); }
-    .v{ margin-top:4px; font-weight:1000; font-size:18px; }
-    .row{ display:flex; gap:10px; margin-top:12px; }
-    .btn{
-      flex:1 1 auto;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.65);
-      color:var(--text);
-      font-weight:1000;
-      padding:12px;
-      cursor:pointer;
-    }
-    .btnStrong{ background: rgba(34,197,94,.20); border-color: rgba(34,197,94,.35); }
-    .note{ margin-top:10px; font-size:12px; color:var(--muted); font-weight:800; }
+    /* tiny safety: prevent text selection */
+    body{ -webkit-user-select:none; user-select:none; }
+    /* tap overlay is built in HTML below, CSS comes from groups-vr.css overlay classes */
   </style>
 </head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="title">🥦 Food Groups VR</div>
-      <div class="sub">
-        ระบบจะตรวจอุปกรณ์ให้อัตโนมัติ แล้วเริ่มเกมให้ (ต้องแตะ 1 ครั้งเพื่อให้เสียง/VR ทำงานถูกต้อง)
-      </div>
 
-      <div class="grid2">
-        <div class="stat"><div class="k">VIEW (auto)</div><div class="v" id="vView">…</div></div>
-        <div class="stat"><div class="k">MODE</div><div class="v" id="vMode">…</div></div>
-        <div class="stat"><div class="k">DIFF</div><div class="v" id="vDiff">…</div></div>
-        <div class="stat"><div class="k">TIME</div><div class="v" id="vTime">…</div></div>
-      </div>
+<body class="view-mobile">
+  <!-- XR scene behind DOM (z-index 0 via CSS) -->
+  <a-scene class="xr-scene" embedded renderer="colorManagement:true" vr-mode-ui="enabled:false">
+    <a-entity position="0 1.6 0"></a-entity>
+    <a-sky color="#0b1020"></a-sky>
+  </a-scene>
 
-      <div class="row">
-        <button class="btn btnStrong" id="btnStart" type="button">▶ TAP TO START</button>
-        <button class="btn" id="btnHub" type="button">🏠 กลับ HUB</button>
-      </div>
-
-      <div class="note" id="note">Tip: ถ้าใช้ Cardboard ให้เปิดลิงก์แบบ ...?cardboard=1 จาก HUB</div>
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hudLeft">
+      <div class="pill"><span class="lbl">TIME</span> <span id="hudTime" class="val">—</span></div>
+      <div class="pill"><span class="lbl">SCORE</span> <span id="hudScore" class="val">0</span></div>
+    </div>
+    <div class="hudRight">
+      <div class="pill"><span class="lbl">COMBO</span> <span id="hudCombo" class="val">0</span></div>
+      <div class="pill"><span class="lbl">MISS</span> <span id="hudMiss" class="val">0</span></div>
+      <div class="pill"><span class="lbl">RANK</span> <span id="hudRank" class="val">C</span></div>
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const DOC = document;
-  const WIN = window;
-  const $ = (id)=>DOC.getElementById(id);
-  const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  <!-- Quest cards -->
+  <div class="questTop">
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="goalTitle">GOAL</div>
+        <div class="tag"><span id="goalNow">0</span>/<span id="goalTotal">0</span></div>
+      </div>
+      <div class="bar"><div id="goalFill" class="fill" style="width:0%"></div></div>
+      <div id="goalSub" class="qSub">—</div>
+    </div>
 
-  function isMobile(){
-    const ua = navigator.userAgent || '';
-    const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints>0);
-    return touch && /Android|iPhone|iPad|Mobile/i.test(ua);
-  }
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="miniTitle">MINI</div>
+        <div class="tag">
+          <span id="miniNow">0</span>/<span id="miniTotal">0</span>
+          <span id="miniTime" style="margin-left:8px; opacity:.85;">—</span>
+        </div>
+      </div>
+      <div class="bar"><div id="miniFill" class="fill" style="width:0%"></div></div>
+      <div id="miniSub" class="qSub">—</div>
+    </div>
+  </div>
 
-  async function xrVrSupported(){
-    try{
-      if (!navigator.xr || !navigator.xr.isSessionSupported) return false;
-      return await navigator.xr.isSessionSupported('immersive-vr');
-    }catch(_){ return false; }
-  }
+  <!-- Coach -->
+  <div class="coachWrap">
+    <div class="coachCard">
+      <img id="coachImg" class="coachImg" alt="coach" src="../img/coach-neutral.png" />
+      <div class="coachBubble">
+        <div class="coachName">HERO COACH</div>
+        <div id="coachText" class="coachText">แตะเพื่อเริ่มเล่น 🎯</div>
+      </div>
+    </div>
+  </div>
 
-  // best-effort detect:
-  // - if ?cardboard=1 on mobile => cvr
-  // - else if xr immersive-vr supported => vr
-  // - else if mobile => mobile
-  // - else => pc
-  async function detectView(){
-    const cb = String(qs('cardboard','0')||'0');
-    if (cb==='1' || cb==='true') return 'cvr';
+  <!-- Power -->
+  <div class="powerWrap">
+    <div class="powerCard">
+      <div class="pHead">POWER</div>
+      <div class="bar powerBar"><div id="powerFill" class="fill" style="width:0%"></div></div>
+      <div id="powerFoot" class="pFoot">—</div>
+    </div>
+  </div>
 
-    const mob = isMobile();
-    const xr = await xrVrSupported();
-    if (xr) return 'vr';
-    if (mob) return 'mobile';
-    return 'pc';
-  }
+  <!-- Play layer for DOM targets -->
+  <div id="playLayer" class="playLayer" aria-label="play layer"></div>
 
-  function buildRunUrl(view){
-    // ✅ RUN is under /herohealth/vr-groups/groups-vr.html
-    const u = new URL('./vr-groups/groups-vr.html', location.href);
+  <!-- Tap-to-start overlay -->
+  <div id="tapOverlay" class="overlay">
+    <div class="panel">
+      <div class="title">Food Groups VR</div>
+      <div id="tapSub" class="sub">แตะ 1 ครั้งเพื่อเริ่ม (ปลดล็อกเสียง/การควบคุม) 🎮</div>
 
-    // required params
-    u.searchParams.set('view', view);
+      <div class="row" style="margin-top:14px;">
+        <button id="btnStart" class="btn btn-strong">TAP TO START</button>
+      </div>
 
-    // passthrough common params (if any)
-    const pass = ['run','diff','style','time','seed','ai','hub','log','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel'];
-    const sp = new URL(location.href).searchParams;
-    pass.forEach((k)=>{
-      const v = sp.get(k);
-      if (v!=null && v!=='') u.searchParams.set(k, v);
-    });
+      <div class="note" style="margin-top:10px;">
+        โหมด cVR ยิงจากจุดเล็งกลางจอ (crosshair) • VR กด ENTER VR มุมขวาบน
+      </div>
+    </div>
+  </div>
 
-    // defaults if missing
-    if (!u.searchParams.get('run'))  u.searchParams.set('run','play');
-    if (!u.searchParams.get('diff')) u.searchParams.set('diff','easy');
-    if (!u.searchParams.get('time')) u.searchParams.set('time','90');
-    if (!u.searchParams.get('style'))u.searchParams.set('style','feel');
-    if (!u.searchParams.get('seed')) u.searchParams.set('seed', String(Date.now()));
+  <!-- End overlay -->
+  <div id="endOverlay" class="overlay hidden">
+    <div class="panel">
+      <div class="title">สรุปผล</div>
+      <div id="endSub" class="sub">—</div>
 
-    return u.toString();
-  }
+      <div class="grid2">
+        <div class="stat"><div class="k">RANK</div><div id="endRank" class="v">C</div></div>
+        <div class="stat"><div class="k">ACCURACY</div><div id="endAcc" class="v">0%</div></div>
+        <div class="stat"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
+        <div class="stat"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
+      </div>
 
-  function goHub(){
-    const hub = String(qs('hub','')||'').trim();
-    if (hub) location.href = hub;
-    else history.back();
-  }
+      <div class="row row2">
+        <div class="note">GOAL: <span id="endGoal">0/0</span></div>
+        <div class="note">MINI: <span id="endMini">0/0</span></div>
+      </div>
 
-  function tryUnlock(){
-    try{
-      const a = DOC.createElement('audio');
-      a.src = 'data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA';
-      a.volume = 0;
-      a.play().then(()=>{ try{ a.pause(); }catch(_){} }).catch(()=>{});
-    }catch(_){}
-    try{
-      const AC = WIN.AudioContext || WIN.webkitAudioContext;
-      if (AC){
-        const ctx = new AC();
-        ctx.resume && ctx.resume().catch(()=>{});
+      <div class="row">
+        <button id="btnReplay" class="btn btn-strong">PLAY AGAIN</button>
+        <button id="btnHub" class="btn btn-ghost">BACK TO HUB</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        Tip: ยิงให้ตรง “หมู่ที่ถูก” แล้วค่อยเร่งคอมโบ 🔥
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+
+    const DOC = document;
+    const WIN = window;
+
+    // ---------- Query helpers ----------
+    const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+    const qsn = (k, def=0)=>{ const v = Number(qs(k, def)); return isFinite(v)? v : def; };
+    const qsb = (k, def=false)=>{ const v = String(qs(k, def? '1':'0')); return (v==='1'||v==='true'||v==='yes'); };
+
+    // ---------- View detect (NO override explicit ?view=) ----------
+    function detectViewNoOverride(){
+      const explicit = String(qs('view','')).toLowerCase();
+      if (explicit) return explicit;
+
+      const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+      const w = Math.max(1, WIN.innerWidth||1);
+      const h = Math.max(1, WIN.innerHeight||1);
+      const landscape = w >= h;
+
+      if (isTouch){
+        if (landscape && w >= 740) return 'cvr';   // phone landscape -> cardboard-ish
+        return 'mobile';
       }
-    }catch(_){}
-  }
+      return 'pc';
+    }
 
-  // init labels
-  (async function init(){
-    const view = await detectView();
-    const run  = String(qs('run','play')||'play').toUpperCase();
-    const diff = String(qs('diff','easy')||'easy').toUpperCase();
-    const time = String(qs('time','90')||'90');
+    function applyViewClass(view){
+      const b = DOC.body;
+      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      if (view === 'cvr') b.classList.add('view-cvr');
+      else if (view === 'vr') b.classList.add('view-vr');
+      else if (view === 'pc') b.classList.add('view-pc');
+      else b.classList.add('view-mobile');
+    }
 
-    $('vView').textContent = view.toUpperCase();
-    $('vMode').textContent = run;
-    $('vDiff').textContent = diff;
-    $('vTime').textContent = time;
+    // ---------- HUD bindings ----------
+    const elTime  = DOC.getElementById('hudTime');
+    const elScore = DOC.getElementById('hudScore');
+    const elCombo = DOC.getElementById('hudCombo');
+    const elMiss  = DOC.getElementById('hudMiss');
+    const elRank  = DOC.getElementById('hudRank');
 
-    $('btnStart').addEventListener('click', ()=>{
-      tryUnlock();
-      location.href = buildRunUrl(view);
+    const elGoalTitle = DOC.getElementById('goalTitle');
+    const elGoalNow   = DOC.getElementById('goalNow');
+    const elGoalTotal = DOC.getElementById('goalTotal');
+    const elGoalFill  = DOC.getElementById('goalFill');
+    const elGoalSub   = DOC.getElementById('goalSub');
+
+    const elMiniTitle = DOC.getElementById('miniTitle');
+    const elMiniNow   = DOC.getElementById('miniNow');
+    const elMiniTotal = DOC.getElementById('miniTotal');
+    const elMiniFill  = DOC.getElementById('miniFill');
+    const elMiniSub   = DOC.getElementById('miniSub');
+    const elMiniTime  = DOC.getElementById('miniTime');
+
+    const elCoachImg  = DOC.getElementById('coachImg');
+    const elCoachText = DOC.getElementById('coachText');
+
+    const elPowerFill = DOC.getElementById('powerFill');
+    const elPowerFoot = DOC.getElementById('powerFoot');
+
+    // overlays
+    const tapOverlay  = DOC.getElementById('tapOverlay');
+    const btnStart    = DOC.getElementById('btnStart');
+
+    const endOverlay  = DOC.getElementById('endOverlay');
+    const btnReplay   = DOC.getElementById('btnReplay');
+    const btnHub      = DOC.getElementById('btnHub');
+
+    const endSub   = DOC.getElementById('endSub');
+    const endRank  = DOC.getElementById('endRank');
+    const endAcc   = DOC.getElementById('endAcc');
+    const endScore = DOC.getElementById('endScore');
+    const endMiss  = DOC.getElementById('endMiss');
+    const endGoal  = DOC.getElementById('endGoal');
+    const endMini  = DOC.getElementById('endMini');
+
+    // ---------- Config ----------
+    const view = detectViewNoOverride();
+    applyViewClass(view);
+
+    const diff = String(qs('diff','normal')).toLowerCase();
+    const style = String(qs('style','feel')).toLowerCase(); // reserved
+    const run = String(qs('run','play')).toLowerCase();     // play | research | practice
+    const time = Math.max(5, Math.min(180, qsn('time', 90)));
+    const seed = String(qs('seed', Date.now()));
+    const ai = String(qs('ai','1')) !== '0';                // ai=0 disable attach hooks
+    const hub = String(qs('hub','')||'');
+    const nextRun = String(qs('nextRun','play')).toLowerCase(); // practice -> play
+
+    // For cVR strict: ensure vr-ui emits crosshair shoot
+    WIN.HHA_VRUI_CONFIG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
+
+    // ---------- Helpers ----------
+    function setCoachMood(mood){
+      const map = {
+        happy: '../img/coach-happy.png',
+        neutral: '../img/coach-neutral.png',
+        sad: '../img/coach-sad.png',
+        fever: '../img/coach-fever.png'
+      };
+      const src = map[String(mood||'neutral')] || map.neutral;
+      if (elCoachImg) elCoachImg.src = src;
+    }
+
+    function showTap(on){
+      tapOverlay.classList.toggle('hidden', !on);
+    }
+    function showEnd(on){
+      endOverlay.classList.toggle('hidden', !on);
+    }
+
+    function goHub(){
+      if (hub){
+        location.href = hub;
+      } else {
+        // fallback
+        location.href = '../hub.html';
+      }
+    }
+
+    function startEngine(runMode){
+      const G = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
+      if (!G || typeof G.start !== 'function'){
+        console.warn('Groups engine not ready yet');
+        return false;
+      }
+
+      // layer mount
+      const layer = DOC.getElementById('playLayer');
+      if (layer && typeof G.setLayerEl === 'function') G.setLayerEl(layer);
+
+      // optional AI attach gate: if ai=0 -> ensure no __ai used (best-effort)
+      if (!ai){
+        try{ if (WIN.GroupsVR) WIN.GroupsVR.__ai = null; }catch(_){}
+      }
+
+      // hide overlays
+      showEnd(false);
+
+      // start
+      G.start(diff, { view, runMode, seed, time });
+
+      return true;
+    }
+
+    // ---------- Event wiring ----------
+    WIN.addEventListener('hha:time', (e)=>{
+      const left = (e.detail && e.detail.left != null) ? e.detail.left : null;
+      if (left != null) elTime.textContent = String(left);
     });
 
-    $('btnHub').addEventListener('click', goHub);
+    WIN.addEventListener('hha:score', (e)=>{
+      const d = e.detail || {};
+      elScore.textContent = String(d.score ?? 0);
+      elCombo.textContent = String(d.combo ?? 0);
+      elMiss.textContent  = String(d.misses ?? 0);
+    });
+
+    WIN.addEventListener('hha:rank', (e)=>{
+      const d = e.detail || {};
+      elRank.textContent = String(d.grade || 'C');
+    });
+
+    WIN.addEventListener('quest:update', (e)=>{
+      const d = e.detail || {};
+      // goal
+      elGoalTitle.textContent = d.goalTitle || 'GOAL';
+      elGoalNow.textContent = String(d.goalNow ?? 0);
+      elGoalTotal.textContent = String(d.goalTotal ?? 0);
+      elGoalFill.style.width = String(d.goalPct ?? 0) + '%';
+      elGoalSub.textContent = `Stage ${Number(d.goalIndex ?? 0) + 1}/${d.goalsTotal ?? 1} • หมู่: ${d.groupName ?? '-'}`;
+
+      // mini
+      elMiniTitle.textContent = d.miniTitle || 'MINI';
+      elMiniNow.textContent = String(d.miniNow ?? 0);
+      elMiniTotal.textContent = String(d.miniTotal ?? 0);
+      elMiniFill.style.width = String(d.miniPct ?? 0) + '%';
+      elMiniSub.textContent = `MINI ผ่าน: ${d.miniCountCleared ?? 0}/${d.miniCountTotal ?? 0}`;
+
+      const tleft = Number(d.miniTimeLeftSec ?? 0);
+      elMiniTime.textContent = (tleft > 0) ? `⏱ ${tleft}s` : '—';
+
+      // mini urgent class
+      DOC.body.classList.toggle('mini-urgent', tleft > 0 && tleft <= 3);
+    });
+
+    WIN.addEventListener('groups:power', (e)=>{
+      const d = e.detail || {};
+      const c = Number(d.charge ?? 0);
+      const t = Math.max(1, Number(d.threshold ?? 8));
+      const pct = Math.round((c / t) * 100);
+      elPowerFill.style.width = pct + '%';
+      elPowerFoot.textContent = `สะสม ${c}/${t} เพื่อสลับหมู่`;
+    });
+
+    WIN.addEventListener('hha:coach', (e)=>{
+      const d = e.detail || {};
+      const text = String(d.text || '');
+      const mood = String(d.mood || 'neutral');
+      elCoachText.textContent = text || '—';
+      setCoachMood(mood);
+    });
+
+    WIN.addEventListener('hha:end', (e)=>{
+      const s = e.detail || {};
+      // practice: auto-continue to real run
+      if (String(s.runMode||'') === 'practice'){
+        setCoachMood('happy');
+        elCoachText.textContent = 'พร้อมแล้ว! เข้าเกมจริง 🎯';
+        showEnd(false);
+        // start real run after small delay
+        setTimeout(()=> startEngine(nextRun === 'research' ? 'research' : 'play'), 550);
+        return;
+      }
+
+      // end overlay
+      endSub.textContent = `เหตุผลจบ: ${s.reason || 'end'} • เวลาเล่น ${s.durationPlayedSec ?? 0}s`;
+      endRank.textContent = String(s.grade || 'C');
+      endAcc.textContent = String(s.accuracyGoodPct ?? 0) + '%';
+      endScore.textContent = String(s.scoreFinal ?? 0);
+      endMiss.textContent = String(s.misses ?? 0);
+
+      endGoal.textContent = `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0}`;
+      endMini.textContent = `${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`;
+
+      showEnd(true);
+    });
+
+    // ---------- Tap-to-start flow ----------
+    function unlockAndStart(){
+      // hide tap overlay (gesture captured)
+      showTap(false);
+
+      // best-effort: kick a tiny audio unlock without needing actual audio asset
+      try{
+        const AudioCtx = WIN.AudioContext || WIN.webkitAudioContext;
+        if (AudioCtx){
+          const ctx = new AudioCtx();
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          g.gain.value = 0.0001;
+          o.connect(g); g.connect(ctx.destination);
+          o.start();
+          setTimeout(()=>{ try{ o.stop(); ctx.close(); }catch(_){ } }, 40);
+        }
+      }catch(_){}
+
+      // start
+      const ok = startEngine(run === 'practice' ? 'practice' : (run === 'research' ? 'research' : 'play'));
+      if (!ok){
+        // engine not ready yet -> retry a bit
+        let tries = 0;
+        const tmr = setInterval(()=>{
+          tries++;
+          if (startEngine(run === 'practice' ? 'practice' : (run === 'research' ? 'research' : 'play'))){
+            clearInterval(tmr);
+          }
+          if (tries >= 20) { clearInterval(tmr); showTap(true); }
+        }, 120);
+      }
+    }
+
+    btnStart.addEventListener('click', (e)=>{ e.preventDefault(); unlockAndStart(); });
+    tapOverlay.addEventListener('click', (e)=>{ e.preventDefault(); unlockAndStart(); }, { passive:false });
+
+    // replay / hub
+    btnReplay.addEventListener('click', (e)=>{ e.preventDefault(); showEnd(false); showTap(true); });
+    btnHub.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); });
+
+    // initial coach hint
+    setCoachMood('neutral');
+    elCoachText.textContent = 'แตะเพื่อเริ่มเล่น 🎯';
+
+    // show tap overlay first
+    showTap(true);
+
+    // If URL has autostart=1 (optional), still require a tap but we can highlight
+    if (qsb('autostart', false)){
+      const sub = DOC.getElementById('tapSub');
+      if (sub) sub.textContent = 'พร้อมแล้ว! แตะเพื่อเริ่มทันที 🚀';
+    }
   })();
-})();
-</script>
+  </script>
 </body>
 </html>
