@@ -2,6 +2,12 @@
    /herohealth/plate/plate-vr.css
    Balanced Plate VR — UI + FX (PRODUCTION)
    HHA Standard
+   ✅ HUD safe-area
+   ✅ Quest card top
+   ✅ Coach bubble
+   ✅ End overlay summary
+   ✅ Playfield tuning to avoid HUD overlap
+   ✅ Compatible with vr-ui.js overlay buttons/crosshair
 ========================================================= */
 
 :root{
@@ -28,10 +34,22 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* HUD size hints (used to keep targets safe from HUD) */
-  --hudTopPad: 92px;
-  --hudRightPad: 340px;
-  --hudBottomPad: 150px;
+  /* HUD reserved space (tuned by view classes below) */
+  --hud-top: 14px;
+  --hud-left: 14px;
+  --hud-right: 14px;
+
+  /* Playfield padding (prevent targets under HUD / VR buttons) */
+  --play-top: 150px;        /* space for HUD + quest card */
+  --play-bottom: 110px;     /* space for VR UI + safe area */
+  --play-side: 14px;
+
+  /* target size tuning */
+  --t-min: 44px;
+  --t-max: 64px;
+
+  /* typography */
+  --font: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
 /* ---------------------------------------------------------
@@ -46,53 +64,17 @@ html,body{
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+  font-family:var(--font);
 }
 
 #app{
-  width:100%;
-  height:100%;
-  position:relative;
-}
-
-/* ---------------------------------------------------------
-   FX overlay placeholders
---------------------------------------------------------- */
-#bossFx,#stormFx{
   position:fixed;
   inset:0;
-  pointer-events:none;
-  z-index:55;
-  display:none;
-}
-
-#bossFx.boss-on{
-  display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
-}
-
-#bossFx.boss-panic{
-  display:block;
-  animation:pulseBad .25s infinite;
-}
-
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
-}
-
-@keyframes pulseBad{
-  0%{ filter:brightness(1) }
-  50%{ filter:brightness(1.25) }
-  100%{ filter:brightness(1) }
+  overflow:hidden;
 }
 
 /* ---------------------------------------------------------
    Spawn Layer (Targets)
-   IMPORTANT: keep safe padding so targets won't appear under HUD.
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -101,22 +83,18 @@ html,body{
   pointer-events:auto;
   touch-action:none;
 
-  /* Safe padding: top chips + right quest + bottom (vr-ui + end area) */
+  /* ✅ IMPORTANT: keep targets away from HUD + bottom VR UI */
   padding:
-    calc(var(--sat) + var(--hudTopPad))
-    calc(var(--sar) + var(--hudRightPad))
-    calc(var(--sab) + var(--hudBottomPad))
-    calc(var(--sal) + 16px);
+    calc(var(--play-top) + var(--sat))
+    calc(var(--play-side) + var(--sar))
+    calc(var(--play-bottom) + var(--sab))
+    calc(var(--play-side) + var(--sal));
 }
 
-/* ---------------------------------------------------------
-   Targets
---------------------------------------------------------- */
 .plateTarget{
   display:grid;
   place-items:center;
   border-radius:999px;
-  font-size:28px;
   font-weight:900;
   user-select:none;
   cursor:pointer;
@@ -131,7 +109,12 @@ html,body{
     inset 0 1px 0 rgba(255,255,255,.08);
 
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
-  will-change: transform, opacity;
+  transform-origin:center;
+
+  /* default size + font (engine can override with inline style) */
+  width:56px;
+  height:56px;
+  font-size:28px;
 }
 
 .plateTarget[data-kind="good"]{
@@ -149,13 +132,6 @@ html,body{
   animation-duration:1.2s;
 }
 
-/* Optional: group tint (if engine sets data-group="1..5") */
-.plateTarget[data-kind="good"][data-group="1"]{ box-shadow:0 18px 48px rgba(0,0,0,.32), 0 0 24px rgba(34,197,94,.18); }
-.plateTarget[data-kind="good"][data-group="2"]{ box-shadow:0 18px 48px rgba(0,0,0,.32), 0 0 24px rgba(34,211,238,.18); border-color:rgba(34,211,238,.35); }
-.plateTarget[data-kind="good"][data-group="3"]{ box-shadow:0 18px 48px rgba(0,0,0,.32), 0 0 24px rgba(167,139,250,.18); border-color:rgba(167,139,250,.35); }
-.plateTarget[data-kind="good"][data-group="4"]{ box-shadow:0 18px 48px rgba(0,0,0,.32), 0 0 24px rgba(245,158,11,.18); border-color:rgba(245,158,11,.35); }
-.plateTarget[data-kind="good"][data-group="5"]{ box-shadow:0 18px 48px rgba(0,0,0,.32), 0 0 24px rgba(239,68,68,.10); border-color:rgba(148,163,184,.25); }
-
 @keyframes pop{
   0%{ transform:scale(.85); opacity:0 }
   100%{ transform:scale(1); opacity:1 }
@@ -170,7 +146,59 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   HUD cards / chips / bars
+   HUD (top area)
+--------------------------------------------------------- */
+#hud{
+  position:fixed;
+  top: calc(var(--hud-top) + var(--sat));
+  left: calc(var(--hud-left) + var(--sal));
+  right: calc(var(--hud-right) + var(--sar));
+  z-index:40;
+  pointer-events:none; /* don't block targets */
+}
+
+.hudRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+
+.chip{
+  pointer-events:none;
+  display:inline-flex;
+  flex-direction:column;
+  gap:2px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid var(--stroke);
+  background:rgba(15,23,42,.55);
+  backdrop-filter: blur(10px);
+  box-shadow:0 14px 40px rgba(0,0,0,.22);
+  min-width:92px;
+}
+
+.chip .lbl{
+  font-size:11px;
+  letter-spacing:.12em;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.chip .val{
+  font-size:18px;
+  font-weight:1000;
+  line-height:1;
+}
+
+.chip.score .val{ color:rgba(34,197,94,.95); }
+.chip.time  .val{ color:rgba(34,211,238,.95); }
+.chip.combo .val{ color:rgba(167,139,250,.95); }
+
+/* ---------------------------------------------------------
+   Quest Card
 --------------------------------------------------------- */
 .card{
   background:var(--panel);
@@ -180,20 +208,73 @@ html,body{
   backdrop-filter:blur(10px);
 }
 
-.pill{
-  display:inline-flex;
-  gap:8px;
-  align-items:center;
-  padding:6px 10px;
-  border-radius:var(--pill);
-  border:1px solid var(--stroke);
-  background:rgba(15,23,42,.60);
-  font-weight:900;
+#questCard{
+  pointer-events:none;
+  padding:12px 12px 10px;
+  max-width: 560px;
+}
+
+.cardTitle{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+.cardTitle .t{
+  font-size:14px;
+  font-weight:1000;
+}
+
+.cardTitle .hint{
   font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+  text-align:right;
+  max-width:320px;
+}
+
+.qItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 10px;
+  border-radius:14px;
+  background:rgba(15,23,42,.40);
+  border:1px solid rgba(148,163,184,.14);
+  margin-top:8px;
+}
+
+.qText .name{
+  font-weight:1000;
+  font-size:13px;
+}
+
+.qText .sub{
+  font-weight:800;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.qProg{
+  min-width:160px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:flex-end;
+}
+
+.qNums{
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(255,255,255,.92);
 }
 
 .bar{
   height:10px;
+  width:160px;
   border-radius:999px;
   background:rgba(148,163,184,.12);
   overflow:hidden;
@@ -208,179 +289,45 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   HUD wrapper
-   - wrapper doesn't block tapping targets
-   - inner elements can still be tapped
---------------------------------------------------------- */
-#hud{
-  position:fixed;
-  inset:0;
-  z-index:40;
-  pointer-events:none;
-}
-
-/* chips row */
-.hudRow{
-  position:fixed;
-  top: calc(var(--sat) + 10px);
-  left: calc(var(--sal) + 10px);
-  display:flex;
-  gap:10px;
-  pointer-events:auto; /* chips are tappable (if needed) */
-}
-
-.chip{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  padding:10px 12px;
-  border-radius:14px;
-  background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow:0 16px 48px rgba(0,0,0,.25);
-  min-width:92px;
-  backdrop-filter:blur(10px);
-}
-
-.chip .lbl{
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.08em;
-  color:var(--muted);
-}
-
-.chip .val{
-  font-size:18px;
-  font-weight:1000;
-  line-height:1.05;
-}
-
-.chip.score{ border-color:rgba(34,197,94,.25); }
-.chip.time{ border-color:rgba(34,211,238,.25); }
-.chip.combo{ border-color:rgba(167,139,250,.25); }
-
-/* quest card (top-right) */
-#questCard{
-  position:fixed;
-  top: calc(var(--sat) + 10px);
-  right: calc(var(--sar) + 10px);
-  width: 320px;
-  padding:12px 12px 10px;
-  pointer-events:auto;
-}
-
-.cardTitle{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-.cardTitle .t{
-  font-size:14px;
-  font-weight:1000;
-}
-
-.cardTitle .hint{
-  font-size:11px;
-  color:var(--muted);
-  text-align:right;
-}
-
-.qItem{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  padding:10px 10px;
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(15,23,42,.55);
-  margin-top:8px;
-}
-
-.qText{
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.qText .name{
-  font-size:13px;
-  font-weight:1000;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.qText .sub{
-  font-size:11px;
-  color:var(--muted);
-  margin-top:2px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.qProg{
-  flex: 0 0 120px;
-  text-align:right;
-}
-
-.qNums{
-  font-size:12px;
-  font-weight:1000;
-  color:rgba(229,231,235,.92);
-  margin-bottom:6px;
-}
-
-/* mini bar accent */
-#miniItem .bar>i{
-  background:linear-gradient(90deg,var(--cyan),var(--accent));
-}
-#goalItem .bar>i{
-  background:linear-gradient(90deg,var(--accent),rgba(34,197,94,.55));
-}
-
-/* ---------------------------------------------------------
    Coach bubble
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  left:50%;
-  bottom: calc(var(--sab) + 18px);
-  transform:translateX(-50%);
-  z-index:70;
+  left: calc(14px + var(--sal));
+  bottom: calc(14px + var(--sab));
+  z-index:65;
   pointer-events:none;
   opacity:0;
-  filter: blur(2px);
-  transition: opacity .18s ease, filter .18s ease, transform .18s ease;
+  transform: translateY(12px);
+  transition:opacity .18s ease, transform .18s ease;
 }
 
 #coachCard.show{
   opacity:1;
-  filter:none;
-  transform:translateX(-50%) translateY(-2px);
+  transform: translateY(0);
 }
 
 #coachCard .inner{
-  max-width:min(560px, calc(100vw - 24px));
-  padding:12px 14px;
-  border-radius:18px;
+  max-width:min(520px, calc(100vw - 28px - var(--sal) - var(--sar)));
+  background:rgba(15,23,42,.72);
   border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.82);
-  box-shadow:0 20px 70px rgba(0,0,0,.35);
-  backdrop-filter:blur(10px);
+  border-radius:18px;
+  box-shadow:0 18px 60px rgba(0,0,0,.30);
+  backdrop-filter: blur(10px);
+  padding:12px 14px;
 }
 
 #coachMsg{
-  font-weight:950;
   font-size:14px;
+  font-weight:1000;
+  line-height:1.25;
 }
 
 #coachCard .meta{
   margin-top:6px;
-  font-size:11px;
+  font-size:12px;
   color:var(--muted);
+  font-weight:900;
 }
 
 /* ---------------------------------------------------------
@@ -390,64 +337,75 @@ html,body{
   position:fixed;
   inset:0;
   z-index:80;
-  display:none; /* aria-hidden controls via JS */
+  display:flex;
   align-items:center;
   justify-content:center;
-  background:rgba(2,6,23,.68);
+  padding:
+    calc(18px + var(--sat))
+    calc(18px + var(--sar))
+    calc(18px + var(--sab))
+    calc(18px + var(--sal));
+
+  background:rgba(2,6,23,.78);
   backdrop-filter: blur(10px);
-  pointer-events:auto;
-  padding: calc(var(--sat) + 12px) calc(var(--sar) + 12px) calc(var(--sab) + 12px) calc(var(--sal) + 12px);
+
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
 }
 
 #endOverlay[aria-hidden="false"]{
-  display:flex;
+  opacity:1;
+  pointer-events:auto;
 }
 
 .endPanel{
-  width:min(720px, 96vw);
+  width:min(720px, 100%);
   border-radius:22px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.86);
-  box-shadow:0 30px 120px rgba(0,0,0,.45);
+  border:1px solid rgba(148,163,184,.20);
+  background:rgba(2,6,23,.78);
+  box-shadow:0 22px 90px rgba(0,0,0,.42);
   padding:16px 16px 14px;
 }
 
 .endTitle{
   display:flex;
-  align-items:baseline;
+  align-items:flex-start;
   justify-content:space-between;
-  gap:12px;
+  gap:10px;
   margin-bottom:12px;
 }
 
 .endTitle h2{
   margin:0;
   font-size:20px;
-  font-weight:1000;
+  font-weight:1100;
 }
 
 .endTitle .tag{
-  font-size:12px;
-  font-weight:1000;
-  color:var(--muted);
+  display:inline-flex;
+  align-items:center;
   padding:6px 10px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.60);
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(255,255,255,.92);
+  background:rgba(34,197,94,.16);
+  border:1px solid rgba(34,197,94,.30);
 }
 
 .endGrid{
   display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap:10px;
-  margin-top:8px;
+  margin-bottom:12px;
 }
 
 .kpi{
+  border-radius:16px;
   border:1px solid rgba(148,163,184,.16);
   background:rgba(15,23,42,.55);
-  border-radius:16px;
-  padding:12px 12px;
+  padding:10px 12px;
 }
 
 .kpi .k{
@@ -457,21 +415,20 @@ html,body{
 }
 
 .kpi .v{
-  margin-top:6px;
-  font-size:20px;
+  margin-top:4px;
+  font-size:18px;
   font-weight:1100;
 }
 
 .endBtns{
   display:flex;
-  justify-content:flex-end;
   gap:10px;
-  margin-top:14px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  margin-top:8px;
 }
 
-/* ---------------------------------------------------------
-   Buttons
---------------------------------------------------------- */
+/* Buttons */
 .btn{
   appearance:none;
   border:none;
@@ -486,6 +443,7 @@ html,body{
   backdrop-filter:blur(10px);
 }
 
+.btn:hover{ filter:brightness(1.06); }
 .btn:active{ transform: translateY(1px); }
 
 .btn.primary{
@@ -499,58 +457,74 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Responsive tuning
+   VR UI compatibility
+   vr-ui.js injects buttons/crosshair overlay (z-index often ~100)
+   We keep HUD below it and reserve playfield bottom space.
 --------------------------------------------------------- */
-@media (max-width:900px){
-  :root{
-    --hudTopPad: 86px;
-    --hudRightPad: 12px;  /* quest moves to bottom on mobile */
-    --hudBottomPad: 190px;
-  }
-
-  .plateTarget{ font-size:24px; }
-
-  .hudRow{
-    left: calc(var(--sal) + 10px);
-    right: calc(var(--sar) + 10px);
-    justify-content:space-between;
-    gap:8px;
-  }
-
-  .chip{
-    min-width: 90px;
-    padding:10px 10px;
-  }
-
-  #questCard{
-    top: auto;
-    right: calc(var(--sar) + 10px);
-    left: calc(var(--sal) + 10px);
-    bottom: calc(var(--sab) + 78px); /* leave space for vr-ui buttons */
-    width: auto;
-    max-width: none;
-  }
-
-  .endGrid{
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+body.view-cvr #coachCard{
+  /* coach bubble slightly higher so it doesn't collide with crosshair/tap */
+  bottom: calc(86px + var(--sab));
 }
 
-@media (max-width:420px){
-  .chip .val{ font-size:16px; }
-  .kpi .v{ font-size:18px; }
+body.view-cvr{
+  --play-bottom: 140px;
 }
 
 /* ---------------------------------------------------------
-   View-specific tweaks (optional)
+   View tuning
 --------------------------------------------------------- */
-body.view-vr #hud,
-body.view-cvr #hud{
-  /* keep HUD slightly tighter in VR */
-  transform: translateZ(0);
+body.view-pc{
+  --play-top: 150px;
+  --play-bottom: 90px;
 }
 
-body.view-cvr #plate-layer{
-  /* cVR: keep a bit more bottom safe space (crosshair + buttons) */
-  padding-bottom: calc(var(--sab) + 210px);
+body.view-mobile{
+  --play-top: 166px;
+  --play-bottom: 120px;
+}
+
+body.view-vr{
+  /* VR: keep more space, avoid blocking WebXR buttons */
+  --play-top: 140px;
+  --play-bottom: 140px;
+}
+
+body.view-cvr{
+  --play-top: 150px;
+  --play-bottom: 160px;
+}
+
+/* ---------------------------------------------------------
+   Responsive
+--------------------------------------------------------- */
+@media (max-width:900px){
+  .plateTarget{ font-size:24px; }
+  #questCard{ max-width: 100%; }
+  .bar{ width:140px; }
+  .qProg{ min-width:140px; }
+  .chip{ min-width:86px; }
+  .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+@media (max-width:520px){
+  .hudRow{ gap:8px; }
+  .chip{ padding:9px 10px; min-width:78px; }
+  .chip .val{ font-size:16px; }
+  .cardTitle{ flex-direction:column; align-items:flex-start; }
+  .cardTitle .hint{ text-align:left; max-width:none; }
+  .qItem{ flex-direction:column; align-items:stretch; }
+  .qProg{ align-items:flex-start; min-width:unset; }
+  .bar{ width:100%; }
+  .endGrid{ grid-template-columns: 1fr; }
+  .endBtns{ justify-content:stretch; }
+  .endBtns .btn{ flex:1; }
+}
+
+/* ---------------------------------------------------------
+   Reduce motion (accessibility)
+--------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation: none !important; }
+  #coachCard, #endOverlay{ transition:none !important; }
+  .bar>i{ transition:none !important; }
 }
