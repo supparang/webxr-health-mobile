@@ -1,16 +1,19 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish)
-✅ FIX spawn bounds using REAL DOM safe rect (no HUD overlap)
-✅ Miss split:
-   - missShots (ยิงว่าง)
-   - mistakes (wrong + junk + mini_fail)
-   - expiredGood (good หมดเวลา)
-   HUD shows: misses = missShots + mistakes (kids-friendly)
-✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
+Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
+✅ FIX spawn bounds: no corner-clump, no out-of-screen
+✅ Hit radius scales by size + view (cVR assist)
+✅ miniTotal/miniCleared tracked in summary (true counts)
+✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
+✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
+         groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
    - practice: deterministic seed + adaptive OFF + AI OFF
-✅ Optional AI hooks (only when AIHooks attaches and runMode=play)
+✅ PACK 15: optional AI director/pattern hooks (only when AIHooks attaches and runMode=play)
+✅ PACK 49: Miss Pressure levels (0-3) drives difficulty + FX + coach tips
+
+IMPORTANT PATCH:
+✅ Crosshair shoot MISS now counts as miss (shoot_miss) -> affects pressure + rank correctly
 */
 
 (function (root) {
@@ -43,14 +46,21 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     };
   }
 
-  function pick(rng, arr) { return arr[(rng() * arr.length) | 0]; }
+  function pick(rng, arr) {
+    return arr[(rng() * arr.length) | 0];
+  }
 
   function emit(name, detail) {
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
 
-  function cssSet(el, k, v) { try { el.style.setProperty(k, v); } catch (_) {} }
-  function addBodyClass(c, on) { DOC.body.classList.toggle(c, !!on); }
+  function cssSet(el, k, v) {
+    try { el.style.setProperty(k, v); } catch (_) {}
+  }
+
+  function addBodyClass(c, on) {
+    try { DOC.body.classList.toggle(c, !!on); } catch (_) {}
+  }
 
   function flashBodyFx(cls, ms){
     try{
@@ -62,10 +72,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   function getViewFromBodyOrParam(v) {
     const b = DOC.body;
     const cls = (b && b.className) ? b.className : '';
-    const vv = String(v || '');
-    if (vv.includes('cvr') || cls.includes('view-cvr')) return 'cvr';
-    if (vv.includes('vr')  || cls.includes('view-vr'))  return 'vr';
-    if (vv.includes('pc')  || cls.includes('view-pc'))  return 'pc';
+    if (String(v || '').includes('cvr') || cls.includes('view-cvr')) return 'cvr';
+    if (String(v || '').includes('vr')  || cls.includes('view-vr'))  return 'vr';
+    if (String(v || '').includes('pc')  || cls.includes('view-pc'))  return 'pc';
     return 'mobile';
   }
 
@@ -77,30 +86,64 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
     { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
   ];
+
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
   // ---------------- Difficulty presets ----------------
   function diffPreset(diff) {
     diff = String(diff || 'normal').toLowerCase();
     if (diff === 'easy') {
-      return { time: 90, baseSpawnMs: 780, stormEverySec: 26, stormLenSec: 7, targetSize: 1.02,
-        wrongRate: 0.22, junkRate: 0.12, bossHp: 6, powerThreshold: 7, goalTargets: 16, goalsTotal: 2 };
+      return {
+        time: 90,
+        baseSpawnMs: 780,
+        stormEverySec: 26,
+        stormLenSec: 7,
+        targetSize: 1.02,
+        wrongRate: 0.22,
+        junkRate: 0.12,
+        bossHp: 6,
+        powerThreshold: 7,
+        goalTargets: 16,
+        goalsTotal: 2,
+      };
     }
     if (diff === 'hard') {
-      return { time: 90, baseSpawnMs: 560, stormEverySec: 22, stormLenSec: 8, targetSize: 0.92,
-        wrongRate: 0.32, junkRate: 0.18, bossHp: 10, powerThreshold: 9, goalTargets: 22, goalsTotal: 2 };
+      return {
+        time: 90,
+        baseSpawnMs: 560,
+        stormEverySec: 22,
+        stormLenSec: 8,
+        targetSize: 0.92,
+        wrongRate: 0.32,
+        junkRate: 0.18,
+        bossHp: 10,
+        powerThreshold: 9,
+        goalTargets: 22,
+        goalsTotal: 2,
+      };
     }
-    return { time: 90, baseSpawnMs: 650, stormEverySec: 24, stormLenSec: 7, targetSize: 0.98,
-      wrongRate: 0.27, junkRate: 0.15, bossHp: 8, powerThreshold: 8, goalTargets: 19, goalsTotal: 2 };
+    return {
+      time: 90,
+      baseSpawnMs: 650,
+      stormEverySec: 24,
+      stormLenSec: 7,
+      targetSize: 0.98,
+      wrongRate: 0.27,
+      junkRate: 0.15,
+      bossHp: 8,
+      powerThreshold: 8,
+      goalTargets: 19,
+      goalsTotal: 2,
+    };
   }
 
-  // Rank: now uses HUD-misses (missShots+mistakes) for fairness
-  function gradeFrom(accPct, hudMisses, score) {
+  // ✅ PACK 49: Rank must respect Miss more
+  function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
-    hudMisses = Number(hudMisses) || 0;
+    misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    const mPenalty = Math.min(34, hudMisses * 2.8);
+    const mPenalty = Math.min(34, misses * 2.8);
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.0);
     const v = accPct - mPenalty + sBoost;
 
@@ -112,78 +155,49 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     return 'C';
   }
 
-  // ---------------- DOM-safe spawn rect (REAL) ----------------
-  function rectOf(selOrEl){
-    try{
-      const el = (typeof selOrEl === 'string') ? DOC.querySelector(selOrEl) : selOrEl;
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      if (!r || !isFinite(r.left)) return null;
-      return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
-    }catch(_){ return null; }
-  }
-
-  function computePlayRectFromDOM(view) {
+  // ---------------- Spawn bounds (PACK 26) ----------------
+  function computePlayRect(view) {
     const W = Math.max(320, root.innerWidth  || 360);
     const H = Math.max(420, root.innerHeight || 640);
 
-    // base minimal pads (fallback)
-    let padTop = Math.round(H * 0.08);
-    let padBot = Math.round(H * 0.12);
-    let padLeft= Math.round(W * 0.08);
-    let padRight = 16;
+    const padTopBase = 150;   // HUD + quest
+    const padBotBase = 130;   // power
+    const padLeftBase= 210;   // coach card
+    const padRight   = 24;
 
-    // read UI rects (if exist)
-    const rHud   = rectOf('.hud');
-    const rQuest = rectOf('.questTop');
-    const rCoach = rectOf('.coachWrap');
-    const rPower = rectOf('.powerWrap');
-    const rVrUI  = rectOf('.hha-vr-ui'); // buttons overlay
+    const padTop  = clamp(padTopBase, 110, Math.round(H * 0.28));
+    const padBot  = clamp(padBotBase, 96,  Math.round(H * 0.26));
+    const padLeft = clamp(padLeftBase, 120, Math.round(W * 0.52));
 
-    // top: max(bottom of HUD/Quest/VrUI) + margin
-    const topEdge = Math.max(
-      0,
-      rHud ? rHud.bottom : 0,
-      rQuest ? rQuest.bottom : 0,
-      rVrUI ? rVrUI.bottom : 0
-    );
-    padTop = Math.max(padTop, Math.round(topEdge + 14));
+    const extraCenter = (view === 'cvr') ? 22 : 0;
 
-    // left: avoid coach panel
-    if (rCoach) padLeft = Math.max(padLeft, Math.round(rCoach.right + 12));
+    let xMin = 12 + extraCenter;
+    let xMax = W - padRight - extraCenter;
+    let yMin = 12 + Math.round(H * 0.02);
+    let yMax = H - 12;
 
-    // bottom: avoid power panel
-    if (rPower) padBot = Math.max(padBot, Math.round((H - rPower.top) + 12));
+    xMin = Math.max(xMin, padLeft);
+    yMin = Math.max(yMin, padTop);
+    yMax = Math.min(yMax, H - padBot);
 
-    // right: keep small, but if vr-ui is on right, respect it
-    if (rVrUI) {
-      // if buttons on right side, keep a margin from right edge
-      const rightOcc = Math.max(0, W - rVrUI.left);
-      padRight = Math.max(padRight, Math.round(rightOcc + 10));
-    }
-
-    // cVR extra center keepout (reduce edge spawns)
-    const extra = (view === 'cvr') ? 20 : 0;
-
-    let xMin = clamp(padLeft + extra, 8, W - 60);
-    let xMax = clamp(W - padRight - extra, 60, W - 8);
-    let yMin = clamp(padTop + 2, 8, H - 80);
-    let yMax = clamp(H - padBot - 2, 80, H - 8);
-
-    // ensure minimum play area
-    const minW = Math.max(140, Math.round(W * 0.34));
-    const minH = Math.max(160, Math.round(H * 0.34));
+    const minW = Math.max(120, Math.round(W * 0.34));
+    const minH = Math.max(140, Math.round(H * 0.34));
 
     if ((xMax - xMin) < minW) {
       const relax = Math.round((minW - (xMax - xMin)) * 0.55);
-      xMin = clamp(xMin - relax, 10, W - 10);
-      xMax = clamp(xMax + relax, 10, W - 10);
+      xMin = Math.max(10, xMin - relax);
+      xMax = Math.min(W - 10, xMax + relax);
     }
     if ((yMax - yMin) < minH) {
       const relax = Math.round((minH - (yMax - yMin)) * 0.55);
-      yMin = clamp(yMin - relax, 10, H - 10);
-      yMax = clamp(yMax + relax, 10, H - 10);
+      yMin = Math.max(10, yMin - relax);
+      yMax = Math.min(H - 10, yMax + relax);
     }
+
+    xMin = clamp(xMin, 8, W - 60);
+    xMax = clamp(xMax, 60, W - 8);
+    yMin = clamp(yMin, 8, H - 80);
+    yMax = clamp(yMax, 80, H - 8);
 
     if (xMax <= xMin + 8) { xMin = 12; xMax = W - 12; }
     if (yMax <= yMin + 8) { yMin = 12; yMax = H - 12; }
@@ -201,19 +215,16 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this.rng = null;
 
     this.startAt = 0;
+    this.lastTick = 0;
     this.leftSec = 0;
 
     this.score = 0;
     this.combo = 0;
     this.comboMax = 0;
+    this.misses = 0;
 
-    // ✅ Miss split
-    this.missShots = 0;     // ยิงว่าง
-    this.mistakes = 0;      // wrong + junk + mini_fail
-    this.expiredGood = 0;   // good หมดเวลา
-
-    // pressure (0..3) uses HUD-misses
-    this.pressure = 0;
+    // pressure
+    this.pressure = 0;        // 0..3
     this._lastPressureTip = 0;
 
     // counts
@@ -260,19 +271,16 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     // coach
     this.coachLastAt = 0;
 
-    // playRect cache
-    this._rectCacheAt = 0;
-    this._rectCache = null;
+    // input binding
+    this._onShoot = null;
   }
 
-  Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
-
-  Engine.prototype._hudMisses = function(){
-    return (this.missShots|0) + (this.mistakes|0);
+  Engine.prototype.setLayerEl = function (el) {
+    this.layerEl = el;
   };
 
   Engine.prototype._calcPressure = function(){
-    const m = this._hudMisses();
+    const m = this.misses|0;
     if (m >= 14) return 3;
     if (m >= 9)  return 2;
     if (m >= 5)  return 1;
@@ -294,24 +302,15 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       if (p===3) flashBodyFx('fx-bad', 280);
     }
 
-    emit('groups:progress', { kind:'pressure', level:p, misses:this._hudMisses() });
+    emit('groups:progress', { kind:'pressure', level:p, misses:this.misses|0 });
 
     const t = nowMs();
     if (t - this._lastPressureTip > 2500 && this.cfg && this.cfg.runMode==='play'){
       this._lastPressureTip = t;
       if (p===1) this._emitCoach('เริ่มพลาดบ่อยแล้วนะ ตั้งสติ + เล็งก่อนยิง 👀', 'neutral');
       if (p===2) this._emitCoach('โหมดกดดัน! ช้าลงนิด เล็งให้ตรงหมู่ก่อน 🔥', 'fever');
-      if (p===3) this._emitCoach('อันตราย! ห้ามยิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
+      if (p===3) this._emitCoach('อันตราย! ห้ามยิงมั่ว เดี๋ยวคะแนนร่วง 😤', 'sad');
     }
-  };
-
-  Engine.prototype._getPlayRect = function(){
-    const t = nowMs();
-    if (this._rectCache && (t - this._rectCacheAt) < 450) return this._rectCache;
-    const R = computePlayRectFromDOM(this.view || 'mobile');
-    this._rectCacheAt = t;
-    this._rectCache = R;
-    return R;
   };
 
   Engine.prototype.start = function (diff, opts) {
@@ -320,26 +319,48 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const runMode = (rm === 'research') ? 'research' : (rm === 'practice' ? 'practice' : 'play');
     const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
     const preset  = diffPreset(diff);
+
     const timeSec = clamp(opts.time ?? preset.time, 5, 180);
 
-    this.cfg = { diff: String(diff || 'normal').toLowerCase(), runMode, seed: seedIn, timeSec, preset };
+    this.cfg = {
+      diff: String(diff || 'normal').toLowerCase(),
+      runMode,
+      seed: seedIn,
+      timeSec,
+      preset,
+    };
+
     this.view = getViewFromBodyOrParam(opts.view);
 
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
     this.leftSec = Math.round(timeSec);
 
-    this.score = 0; this.combo = 0; this.comboMax = 0;
-    this.missShots = 0; this.mistakes = 0; this.expiredGood = 0;
+    this.score = 0;
+    this.combo = 0;
+    this.comboMax = 0;
+    this.misses = 0;
 
-    this.pressure = 0; this._lastPressureTip = 0;
-    addBodyClass('press-1', false); addBodyClass('press-2', false); addBodyClass('press-3', false);
+    this.pressure = 0;
+    this._lastPressureTip = 0;
+    addBodyClass('press-1', false);
+    addBodyClass('press-2', false);
+    addBodyClass('press-3', false);
 
-    this.nTargetGoodSpawned = 0; this.nTargetWrongSpawned = 0; this.nTargetJunkSpawned = 0; this.nTargetBossSpawned = 0;
-    this.nHitGood = 0; this.nHitWrong = 0; this.nHitJunk = 0;
-    this.nExpireGood = 0; this.nExpireWrong = 0; this.nExpireJunk = 0;
-    this.hitGoodForAcc = 0; this.totalJudgedForAcc = 0;
+    this.nTargetGoodSpawned = 0;
+    this.nTargetWrongSpawned = 0;
+    this.nTargetJunkSpawned = 0;
+    this.nTargetBossSpawned = 0;
+    this.nHitGood = 0;
+    this.nHitWrong = 0;
+    this.nHitJunk = 0;
+    this.nExpireGood = 0;
+    this.nExpireWrong = 0;
+    this.nExpireJunk = 0;
+    this.hitGoodForAcc = 0;
+    this.totalJudgedForAcc = 0;
 
-    this.targets = []; this._id = 0;
+    this.targets = [];
+    this._id = 0;
 
     this.activeGroupIdx = (this.rng() * GROUPS.length) | 0;
     this.powerCharge = 0;
@@ -360,10 +381,11 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
     this.running = true;
     this.startAt = nowMs();
+    this.lastTick = this.startAt;
     this.spawnTmr = 0;
 
     emit('hha:time', { left: this.leftSec });
-    this._emitScore();
+    emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
     this._emitCoach((runMode==='practice') ? 'โหมดฝึก 15 วิ ลองเล็งแล้วแตะยิง 🎯' : 'เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
     this._emitPower();
@@ -388,12 +410,16 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const self = this;
     function frame() {
       if (!self.running) return;
+
       const t = nowMs();
+      self.lastTick = t;
+
       self._tickTime(t);
       self._tickStorm(t);
       self._tickMini(t);
       self._tickSpawn(t);
       self._tickExpire(t);
+
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -404,7 +430,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const left = Math.max(0, Math.ceil(this.cfg.timeSec - elapsed));
     if (left !== this.leftSec) {
       this.leftSec = left;
-      emit('hha:time', { left });
+      emit('hha:time', { left: left });
 
       if (this.cfg.runMode !== 'practice'){
         if (left === 10) this._emitCoach('อีก 10 วิ! เร่งขึ้น! 🔥', 'fever');
@@ -446,6 +472,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
         addBodyClass('groups-storm-urgent', false);
 
         this._spawnBoss();
+
         this.nextStormAt = t + p.stormEverySec * 1000;
         emit('groups:progress', { kind: 'storm_off' });
         this._emitCoach('พายุผ่านแล้ว! เก็บแต้มต่อ ✨', 'happy');
@@ -489,7 +516,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
           this.miniCleared += 1;
         } else {
           this.combo = 0;
-          this._onMistake('mini_fail');
+          this._onMiss('mini_fail');
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL', x: root.innerWidth*0.5, y: root.innerHeight*0.32 });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
         }
@@ -498,6 +525,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
         this._emitScore();
         this._emitRank();
         this._emitQuestUpdate();
+
         this.nextMiniAt = t + 22000 + ((this.rng() * 6000) | 0);
       } else {
         this._emitQuestUpdate(leftMs);
@@ -516,7 +544,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       const acc = this._accuracyPct();
       if (acc >= 85) speed *= 0.92;
       if (this.combo >= 8) speed *= 0.90;
-      if (this._hudMisses() >= 8) speed *= 1.10;
+      if (this.misses >= 8) speed *= 1.10;
     }
     if (this.stormOn) speed *= 0.78;
 
@@ -531,7 +559,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     try{
       const A = root.GroupsVR && root.GroupsVR.__ai;
       if (A && A.director && this.cfg.runMode === 'play'){
-        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this._hudMisses());
+        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this.misses);
       }
     }catch(_){}
 
@@ -547,7 +575,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     for (let i = this.targets.length - 1; i >= 0; i--) {
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
-        if (tg.kind === 'good') { this.nExpireGood++; this._onExpiredGood('expire_good'); }
+        if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
         else if (tg.kind === 'wrong') { this.nExpireWrong++; }
         else if (tg.kind === 'junk') { this.nExpireJunk++; }
         this._removeTarget(i, 'expire');
@@ -584,7 +612,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (this.cfg.runMode === 'play') {
       wrongRate = clamp(wrongRate + Math.min(0.10, this.combo * 0.006), 0.05, 0.58);
       junkRate  = clamp(junkRate  + Math.min(0.08, this.combo * 0.004), 0.04, 0.42);
-      if (this._hudMisses() >= 8) { wrongRate *= 0.90; junkRate *= 0.88; }
+      if (this.misses >= 8) { wrongRate *= 0.90; junkRate *= 0.88; }
     }
 
     wrongRate = clamp(wrongRate, 0.05, 0.60);
@@ -599,9 +627,19 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     let emoji = '🍽️';
     let cls = 'fg-target';
 
-    if (kind === 'good') { emoji = pick(this.rng, gActive.emoji); cls += ' fg-good'; this.nTargetGoodSpawned++; }
-    else if (kind === 'wrong') { emoji = pick(this.rng, gOther.emoji); cls += ' fg-wrong'; this.nTargetWrongSpawned++; }
-    else { emoji = pick(this.rng, JUNK); cls += ' fg-junk'; this.nTargetJunkSpawned++; }
+    if (kind === 'good') {
+      emoji = pick(this.rng, gActive.emoji);
+      cls += ' fg-good';
+      this.nTargetGoodSpawned++;
+    } else if (kind === 'wrong') {
+      emoji = pick(this.rng, gOther.emoji);
+      cls += ' fg-wrong';
+      this.nTargetWrongSpawned++;
+    } else {
+      emoji = pick(this.rng, JUNK);
+      cls += ' fg-junk';
+      this.nTargetJunkSpawned++;
+    }
 
     let size = p.targetSize * (kind === 'junk' ? 0.98 : 1.0);
     if (this.cfg.runMode === 'play'){
@@ -631,7 +669,15 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
 
     this.nTargetBossSpawned++;
-    this._spawnDomTarget({ kind:'boss', emoji, cls:'fg-target fg-boss', size:1.0, lifeMs:7000, bossHp:hp, bossHpMax:hp });
+    this._spawnDomTarget({
+      kind: 'boss',
+      emoji,
+      cls: 'fg-target fg-boss',
+      size: 1.0,
+      lifeMs: 7000,
+      bossHp: hp,
+      bossHpMax: hp
+    });
 
     emit('groups:progress', { kind: 'boss_spawn' });
     emit('hha:judge', { kind:'boss', text:'BOSS' });
@@ -644,7 +690,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (!layer) return;
 
     const view = this.view || getViewFromBodyOrParam();
-    const R = this._getPlayRect();
+    const R = computePlayRect(view);
 
     const x = clamp((this.rng() * (R.xMax - R.xMin)) + R.xMin, 8, R.W - 8);
     const y = clamp((this.rng() * (R.yMax - R.yMin)) + R.yMin, 8, R.H - 8);
@@ -665,12 +711,20 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const assist = (view === 'cvr') ? 1.10 : 1.0;
     const rHit = Math.round(baseR * s * assist);
 
-    const tg = { id, el, kind: spec.kind, emoji: spec.emoji, x, y, r: rHit,
-      bornAt: born, expireAt: born + (spec.lifeMs || 3000),
-      bossHp: spec.bossHp || 0, bossHpMax: spec.bossHpMax || 0 };
+    const tg = {
+      id, el,
+      kind: spec.kind,
+      emoji: spec.emoji,
+      x, y, r: rHit,
+      bornAt: born,
+      expireAt: born + (spec.lifeMs || 3000),
+      bossHp: spec.bossHp || 0,
+      bossHpMax: spec.bossHpMax || 0
+    };
 
     el.addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
       this._hitTargetById(id, 'tap');
     }, { passive: false });
 
@@ -683,16 +737,20 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   Engine.prototype._removeTarget = function (idx, why) {
     const tg = this.targets[idx];
     if (!tg) return;
+
     try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
     setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
+
     this.targets.splice(idx, 1);
   };
 
   Engine.prototype._hitTargetById = function (id, via) {
     if (!this.running) return;
+    const t = nowMs();
     for (let i = 0; i < this.targets.length; i++) {
       if (this.targets[i].id === id) {
-        this._onHit(this.targets[i], i, via);
+        const tg = this.targets[i];
+        this._onHit(tg, i, via, t);
         return;
       }
     }
@@ -714,10 +772,12 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
 
     if (bestI >= 0) {
-      this._onHit(this.targets[bestI], bestI, 'shoot');
+      const tg = this.targets[bestI];
+      this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
+      // ✅ PATCH: ยิงวืด = miss จริง (สำคัญมาก)
       this.combo = 0;
-      this._onShotMiss('shot_empty');
+      this._onMiss('shoot_miss');
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
       this._emitScore();
@@ -725,7 +785,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
   };
 
-  Engine.prototype._onHit = function (tg, idx, via) {
+  Engine.prototype._onHit = function (tg, idx, via, t) {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
 
@@ -787,8 +847,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       this._emitPower();
       this._emitRank();
       this._emitQuestUpdate();
-
-      if (this.cfg.runMode==='play' && this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
       return;
     }
 
@@ -797,7 +855,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       this.totalJudgedForAcc++;
 
       this.combo = 0;
-      this._onMistake('wrong');
+      this._onMiss('wrong');
       this.score = Math.max(0, this.score - 12);
 
       emit('hha:judge', { kind: 'bad', text: '-12', x: tg.x, y: tg.y });
@@ -818,7 +876,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
 
     this.combo = 0;
-    this._onMistake('junk');
+    this._onMiss('junk');
     this.score = Math.max(0, this.score - 18);
 
     emit('hha:judge', { kind: 'bad', text: '-18', x: tg.x, y: tg.y });
@@ -831,19 +889,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this._emitCoach('โดนขยะ! ระวัง! 🗑️', 'sad');
   };
 
-  Engine.prototype._onShotMiss = function(why){
-    this.missShots += 1;
-    emit('groups:progress', { kind: 'miss_shot', why });
-
-    if (this.cfg && this.cfg.runMode==='play'){
-      const p = this._calcPressure();
-      this._applyPressure(p);
-    }
-  };
-
-  Engine.prototype._onMistake = function(why){
-    this.mistakes += 1;
-    emit('groups:progress', { kind: 'mistake', why });
+  Engine.prototype._onMiss = function (why) {
+    this.misses += 1;
+    emit('groups:progress', { kind: 'miss', why });
 
     if (this.cfg && this.cfg.runMode==='play'){
       const p = this._calcPressure();
@@ -851,25 +899,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
 
     if (this.cfg && this.cfg.runMode==='play'){
-      const m = this._hudMisses();
-      if (m === 5)  this._emitCoach('เริ่มพลาดแล้วนะ ลอง “หยุด-เล็ง-ยิง” 👌', 'neutral');
-      if (m === 9)  this._emitCoach('พลาดเยอะขึ้น! โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever');
-      if (m === 14) this._emitCoach('โหมดโหด! อย่ายิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
-    }
-  };
-
-  Engine.prototype._onExpiredGood = function(why){
-    this.expiredGood += 1;
-    emit('groups:progress', { kind: 'expired_good', why });
-
-    // optional: in play you may want to convert some expiredGood into pressure
-    // BUT keep HUD misses fair for kids -> do not add to miss counter.
-    if (this.cfg && this.cfg.runMode==='play'){
-      // tiny pressure nudge every 3 expires
-      if ((this.expiredGood % 3) === 0){
-        const p = this._calcPressure();
-        this._applyPressure(p);
-      }
+      if ((this.misses|0) === 5)  this._emitCoach('เริ่มพลาดแล้วนะ ลอง “หยุด-เล็ง-ยิง” 👌', 'neutral');
+      if ((this.misses|0) === 9)  this._emitCoach('พลาดเยอะขึ้น! โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever');
+      if ((this.misses|0) === 14) this._emitCoach('โหมดโหด! อย่ายิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
     }
   };
 
@@ -934,16 +966,12 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   };
 
   Engine.prototype._emitScore = function () {
-    emit('hha:score', {
-      score: this.score | 0,
-      combo: this.combo | 0,
-      misses: this._hudMisses() // ✅ HUD misses = fair misses
-    });
+    emit('hha:score', { score: this.score | 0, combo: this.combo | 0, misses: this.misses | 0 });
   };
 
   Engine.prototype._emitRank = function () {
     const acc = this._accuracyPct();
-    const grade = gradeFrom(acc, this._hudMisses(), this.score);
+    const grade = gradeFrom(acc, this.misses, this.score);
     emit('hha:rank', { grade, accuracy: acc });
   };
 
@@ -963,21 +991,31 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     let miniTimeLeftSec = 0;
 
     if (this.mini && this.mini.on) {
-      miniTitle = this.mini.forbidJunk ? `MINI: ถูก ${this.mini.need} และห้ามโดนขยะ` : `MINI: ถูก ${this.mini.need} ภายในเวลา`;
+      miniTitle = this.mini.forbidJunk
+        ? `MINI: ถูก ${this.mini.need} และห้ามโดนขยะ`
+        : `MINI: ถูก ${this.mini.need} ภายในเวลา`;
       miniNow = this.mini.now | 0;
       miniTotal = this.mini.need | 0;
       miniPct = clamp((miniNow / Math.max(1, miniTotal)) * 100, 0, 100);
 
       const t = nowMs();
-      const left = (miniLeftMs != null) ? Number(miniLeftMs) : Math.max(0, (this.mini.leftMs - (t - this.mini.startedAt)));
+      const left = (miniLeftMs != null)
+        ? Number(miniLeftMs)
+        : Math.max(0, (this.mini.leftMs - (t - this.mini.startedAt)));
       miniTimeLeftSec = Math.ceil(left / 1000);
     }
 
     emit('quest:update', {
-      goalTitle, goalNow, goalTotal,
+      goalTitle,
+      goalNow,
+      goalTotal,
       goalPct: clamp((goalNow / Math.max(1, goalTotal)) * 100, 0, 100),
 
-      miniTitle, miniNow, miniTotal, miniPct, miniTimeLeftSec,
+      miniTitle,
+      miniNow,
+      miniTotal,
+      miniPct,
+      miniTimeLeftSec,
 
       groupKey: g.key,
       groupName: g.th,
@@ -1006,8 +1044,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this.targets = [];
 
     const acc = this._accuracyPct();
-    const hudMisses = this._hudMisses();
-    const grade = gradeFrom(acc, hudMisses, this.score);
+    const grade = gradeFrom(acc, this.misses, this.score);
 
     const endAt = nowMs();
     const playedSec = Math.max(0, Math.round((endAt - this.startAt) / 1000));
@@ -1016,15 +1053,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       reason: String(reason || 'end'),
       scoreFinal: this.score | 0,
       comboMax: this.comboMax | 0,
-
-      // ✅ HUD miss (kids-friendly)
-      misses: hudMisses,
-
-      // ✅ raw breakdown
-      missShots: this.missShots | 0,
-      mistakes: this.mistakes | 0,
-      expiredGood: this.expiredGood | 0,
-
+      misses: this.misses | 0,
       accuracyGoodPct: acc,
       grade,
 
