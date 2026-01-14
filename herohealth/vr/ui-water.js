@@ -1,13 +1,15 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge UI — PRODUCTION (small + safe)
+// Water Gauge UI — PRODUCTION (small + safe) — PATCHED
 // ✅ ensureWaterGauge(): สร้าง widget ถ้ายังไม่มี
 // ✅ setWaterGauge(pct): อัปเดตค่า 0..100 + สีตาม zone
-// ✅ zoneFrom(pct): GREEN / LOW / HIGH
+// ✅ zoneFrom(pct): GREEN / LOW / HIGH (kids-friendly optional)
+// ✅ NEW: smoothing (EMA) to avoid "jumping" gauge on fast updates
 //
-// Notes:
-// - designed to NOT clash with your HUD
-// - disable with ?water=0 or window.HHA_WATER_UI=false
-// - IMPORTANT: no ESM export here (safe for <script defer>)
+// Controls:
+// - Disable: ?water=0 OR window.HHA_WATER_UI=false
+// - Kids: ?kids=1  (wider GREEN zone)
+// - Smooth: ?waterSmooth=0 to disable smoothing (default: 1)
+// - Smooth strength: ?waterSmoothK=0.18 (0.05..0.45)
 
 (function(){
   'use strict';
@@ -19,11 +21,21 @@
   const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
   const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
+  const kidsQ = String(qs('kids','0')).toLowerCase();
+  const KIDS = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
+
+  const smoothQ = String(qs('waterSmooth','1')).toLowerCase();
+  const SMOOTH_ON = !(smoothQ==='0' || smoothQ==='false' || smoothQ==='off');
+
+  const smoothK = clamp(parseFloat(qs('waterSmoothK', '0.18')), 0.05, 0.45);
+
+  // Wider GREEN zone for kids (less "falling out" stress)
   function zoneFrom(pct){
     pct = clamp(pct,0,100);
-    // default zones (engine may override inside hydration.safe.js via its own zone logic)
-    if (pct < 40) return 'LOW';
-    if (pct > 70) return 'HIGH';
+    const lowTh  = KIDS ? 45 : 40;
+    const highTh = KIDS ? 75 : 70;
+    if (pct < lowTh) return 'LOW';
+    if (pct > highTh) return 'HIGH';
     return 'GREEN';
   }
 
@@ -39,7 +51,7 @@
         position: fixed;
         left: calc(10px + env(safe-area-inset-left, 0px));
         bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-        z-index: 35;
+        z-index: 35; /* ต่ำกว่า HUD */
         pointer-events: none;
         display: grid;
         gap: 6px;
@@ -54,10 +66,24 @@
         color: rgba(229,231,235,.92);
       }
       .hha-water-ui[hidden]{ display:none !important; }
-      .hha-water-ui .row{ display:flex; align-items:baseline; justify-content:space-between; gap: 10px; }
-      .hha-water-ui .title{ font-weight: 900; letter-spacing: .2px; font-size: 12px; opacity: .95; }
-      .hha-water-ui .pct{ font-weight: 900; font-size: 16px; }
-      .hha-water-ui .zone{ font-size: 12px; color: rgba(148,163,184,.95); }
+      .hha-water-ui .row{
+        display:flex; align-items:baseline; justify-content:space-between;
+        gap: 10px;
+      }
+      .hha-water-ui .title{
+        font-weight: 900;
+        letter-spacing: .2px;
+        font-size: 12px;
+        opacity: .95;
+      }
+      .hha-water-ui .pct{
+        font-weight: 900;
+        font-size: 16px;
+      }
+      .hha-water-ui .zone{
+        font-size: 12px;
+        color: rgba(148,163,184,.95);
+      }
       .hha-water-ui .bar{
         height: 10px;
         border-radius: 999px;
@@ -71,9 +97,19 @@
         border-radius: 999px;
         background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
         transform-origin: left center;
+        will-change: width;
       }
-      .hha-water-ui.low .fill{ background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95)); }
-      .hha-water-ui.high .fill{ background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95)); }
+      .hha-water-ui.low .fill{
+        background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95));
+      }
+      .hha-water-ui.high .fill{
+        background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
+      }
+      .hha-water-ui .hint{
+        font-size: 11px;
+        opacity: .8;
+        color: rgba(148,163,184,.95);
+      }
     `;
     DOC.head.appendChild(st);
   }
@@ -90,6 +126,9 @@
     root = DOC.createElement('div');
     root.id = ROOT_ID;
     root.className = 'hha-water-ui';
+
+    const hint = KIDS ? 'Kids: GREEN กว้างขึ้น' : '';
+
     root.innerHTML = `
       <div class="row">
         <div class="title">Water Gauge</div>
@@ -99,24 +138,39 @@
         <div class="zone">Zone: <b id="hhaWaterZone">GREEN</b></div>
       </div>
       <div class="bar"><div class="fill" id="hhaWaterFill"></div></div>
+      ${hint ? `<div class="hint">${hint}</div>` : ``}
     `;
+
     DOC.body.appendChild(root);
     return root;
   }
 
+  // ---- smoothing state ----
+  const SM = { init:false, shown:50 };
+
   function setWaterGauge(pct){
     pct = clamp(pct,0,100);
+
     const root = DOC.getElementById(ROOT_ID) || ensureWaterGauge();
     if (!root) return;
 
-    const z = zoneFrom(pct);
+    // smoothing: make UI "flow" (does not change game logic)
+    let show = pct;
+    if (SMOOTH_ON){
+      if (!SM.init){ SM.init = true; SM.shown = pct; }
+      SM.shown = (1 - smoothK) * SM.shown + smoothK * pct;
+      show = SM.shown;
+    }
+
+    const z = zoneFrom(show);
+
     const pctEl = DOC.getElementById('hhaWaterPct');
     const zEl   = DOC.getElementById('hhaWaterZone');
     const fill  = DOC.getElementById('hhaWaterFill');
 
-    if (pctEl) pctEl.textContent = String(pct|0);
+    if (pctEl) pctEl.textContent = String(Math.round(show));
     if (zEl) zEl.textContent = z;
-    if (fill) fill.style.width = pct.toFixed(0) + '%';
+    if (fill) fill.style.width = clamp(show,0,100).toFixed(0) + '%';
 
     root.classList.remove('low','high','green');
     if (z === 'LOW') root.classList.add('low');
@@ -124,7 +178,7 @@
     else root.classList.add('green');
   }
 
-  // window exports (single source of truth)
+  // expose globally (non-module safe)
   WIN.ensureWaterGauge = ensureWaterGauge;
   WIN.setWaterGauge = setWaterGauge;
   WIN.zoneFrom = zoneFrom;
