@@ -7,6 +7,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Flush-hardened logging (?log=...)
 ✅ Research ctx passthrough
 ✅ Uses groups.safe.js (standalone engine)
+✅ PATCH: pass view into engine + practice uses runMode:'practice'
 -->
 <!doctype html>
 <html lang="th">
@@ -18,6 +19,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- A-Frame: minimal scene for WebXR Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Universal VR UI -->
@@ -27,8 +30,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>
-  <script src="./effects-pack.js" defer></script>
+  <script src="./groups-quests.js" defer></script>
+  <script src="./ai-hooks.js" defer></script>         <!-- PACK 15 -->
+  <script src="./effects-pack.js" defer></script>     <!-- optional -->
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
@@ -38,6 +42,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 </head>
 
 <body class="view-mobile">
+
+  <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
     <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
     <a-sky color="#020617"></a-sky>
@@ -94,7 +100,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
+        <div id="coachText" class="coachText">แตะเพื่อเริ่ม…</div>
       </div>
     </div>
   </div>
@@ -102,15 +108,23 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- Calibration overlay (cVR only) -->
+  <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
     <div class="panel calPanel">
       <div class="title">🧭 Calibration (Cardboard)</div>
-      <div id="calSub" class="sub">Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า</div>
+      <div id="calSub" class="sub">
+        Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า
+      </div>
 
       <div class="grid2" style="margin-top:14px;">
-        <div class="stat"><div class="k">Step</div><div id="calStep" class="v">1/2</div></div>
-        <div class="stat"><div class="k">Shots</div><div id="calShots" class="v">0/3</div></div>
+        <div class="stat">
+          <div class="k">Step</div>
+          <div id="calStep" class="v">1/2</div>
+        </div>
+        <div class="stat">
+          <div class="k">Shots</div>
+          <div id="calShots" class="v">0/3</div>
+        </div>
       </div>
 
       <div class="row" style="margin-top:12px;">
@@ -158,8 +172,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
   const DOC = document;
   const $ = (id)=>DOC.getElementById(id);
 
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
   function setView(view){
     const b = DOC.body;
@@ -198,7 +215,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  // HUD
+  // ---------- HUD binds ----------
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
@@ -261,12 +278,49 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('miniSub').textContent = mTitle;
     $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
 
-    DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
+    const urgent = (mLeft>0 && mLeft<=3);
+    DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // Summary / Logger
+  // ---------- Audio hooks ----------
+  function hookAudio(){
+    const A = window.GroupsVR && window.GroupsVR.Audio;
+    if (!A) return;
+
+    try{ A.unlock && A.unlock(); }catch{}
+
+    window.addEventListener('hha:judge', (ev)=>{
+      const d = ev.detail||{};
+      const k = String(d.kind||'').toLowerCase();
+      if (k==='good') A.good();
+      else if (k==='bad') A.bad();
+      else if (k==='boss') A.boss();
+      else if (k==='miss') A.bad();
+      else if (k==='perfect') A.good();
+    }, {passive:true});
+
+    window.addEventListener('groups:progress', (ev)=>{
+      const d = ev.detail||{};
+      const kind = String(d.kind||'');
+      if (kind==='storm_on') A.storm();
+      if (kind==='boss_spawn') A.boss();
+      if (kind==='perfect_switch') A.good();
+    }, {passive:true});
+
+    let tmr = 0;
+    function tickLoop(){
+      clearTimeout(tmr);
+      const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
+      if (urgent) A.tick();
+      tmr = setTimeout(tickLoop, urgent ? 420 : 650);
+    }
+    tickLoop();
+  }
+
+  // ---------- Summary / History / Logger ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
+
   let lastSummary = null;
   let startIso = new Date().toISOString();
 
@@ -278,6 +332,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
       localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
     }catch{}
   }
+
+  let practiceActive = false;
+  let practiceDone = false;
 
   function buildBaseSummary(d, endIso){
     const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
@@ -303,6 +360,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
+  // flush-hardened
   try{
     const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
     B && B(()=>lastSummary);
@@ -312,9 +370,14 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
-    // practice end is handled by engine; in practice we do NOT show overlay
-    if (String(d.runMode||'') === 'practice') {
-      // engine ends practice -> caller can start real run
+    // practice chain → auto start real run
+    if (practiceActive && !practiceDone){
+      practiceDone = true;
+      practiceActive = false;
+      const E = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function'){
+        setTimeout(()=> startReal(E), 160);
+      }
       return;
     }
 
@@ -365,7 +428,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     location.href = hub;
   });
 
-  // Engine helpers
+  // ---------- Engine helpers ----------
   function waitForEngine(cb){
     const t0 = Date.now();
     const it = setInterval(()=>{
@@ -386,7 +449,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }, 60);
   }
 
-  function getLayerEl(){ return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body; }
+  function getLayerEl(){
+    return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
+  }
 
   function initViewHelper(view){
     try{
@@ -395,7 +460,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // PACK 13: Calibration
+  // ---------- PACK 13: Calibration 2-step (cVR) ----------
   const cal = { on:false, step:0, shots:0, done:false };
 
   function showCal(on){
@@ -407,52 +472,87 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   function setCalStep(step){
     cal.step = step;
-    $('calStep').textContent  = `${step}/2`;
-    $('calShots').textContent = `${cal.shots}/3`;
+    const stepEl = $('calStep');
+    const subEl  = $('calSub');
+    const shotsEl= $('calShots');
+    const nextBt = $('btnCalNext');
 
-    if (step === 1){
-      $('calSub').innerHTML = `Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า`;
-      $('btnCalNext').textContent = '✅ ต่อไป';
-      $('btnCalNext').disabled = false;
-    } else {
-      $('calSub').innerHTML = `Step 2/2: ลองยิง <b>3 ครั้ง</b> (แตะจอ) เพื่อทดสอบ crosshair`;
-      $('btnCalNext').textContent = (cal.shots>=3) ? '🚀 เริ่มเลย' : 'ยิงให้ครบ 3 ครั้ง';
-      $('btnCalNext').disabled = (cal.shots < 3);
+    if (stepEl) stepEl.textContent = `${step}/2`;
+    if (shotsEl) shotsEl.textContent = `${cal.shots}/3`;
+
+    if (subEl){
+      if (step === 1){
+        subEl.innerHTML = `Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า`;
+      }else{
+        subEl.innerHTML = `Step 2/2: ลองยิง <b>3 ครั้ง</b> (แตะจอ) เพื่อทดสอบ crosshair`;
+      }
+    }
+
+    if (nextBt){
+      if (step === 1){
+        nextBt.textContent = '✅ ต่อไป';
+        nextBt.disabled = false;
+      }else{
+        nextBt.textContent = (cal.shots>=3) ? '🚀 เริ่มเลย' : 'ยิงให้ครบ 3 ครั้ง';
+        nextBt.disabled = (cal.shots < 3);
+      }
     }
   }
 
   function startCalibrationIfNeeded(view, runMode){
     if (view !== 'cvr') return false;
-    cal.on = true; cal.done = false; cal.shots = 0;
+    cal.on = true;
+    cal.done = false;
+    cal.shots = 0;
+
     showCal(true);
     setCalStep(1);
+
     try{
       window.dispatchEvent(new CustomEvent('hha:coach', {
         detail:{ text:'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood:'neutral' }
       }));
     }catch(_){}
+
     return true;
   }
 
-  function finishCalibration(){ cal.on=false; cal.done=true; showCal(false); }
+  function finishCalibration(){
+    cal.on = false;
+    cal.done = true;
+    showCal(false);
+  }
 
   window.addEventListener('hha:shoot', ()=>{
     if (!cal.on) return;
     if (cal.step !== 2) return;
     cal.shots = Math.min(3, (cal.shots|0) + 1);
     setCalStep(2);
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail:{ text:`Calibration ยิงแล้ว ${cal.shots}/3`, mood:'neutral' }
+      }));
+    }catch(_){}
   }, {passive:true});
 
-  $('btnCalNext').addEventListener('click', ()=>{
+  $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
     if (!cal.on) return;
-    if (cal.step === 1){ setCalStep(2); return; }
+    if (cal.step === 1){
+      setCalStep(2);
+      try{
+        window.dispatchEvent(new CustomEvent('hha:coach', {
+          detail:{ text:'ต่อไป: ยิงทดสอบ 3 ครั้ง (แตะจอ) 🎯', mood:'neutral' }
+        }));
+      }catch(_){}
+      return;
+    }
     if (cal.step === 2 && cal.shots >= 3){
       finishCalibration();
       waitForEngine((E)=> startAfterCalibration(E));
     }
   });
 
-  $('btnCalSkip').addEventListener('click', ()=>{
+  $('btnCalSkip') && $('btnCalSkip').addEventListener('click', ()=>{
     if (!cal.on) return;
     finishCalibration();
     waitForEngine((E)=> startAfterCalibration(E));
@@ -462,29 +562,46 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const practiceSec = getPracticeSec(view);
     if (view === 'cvr' && practiceSec > 0){
-      startPractice(E);
+      const diff = String(qs('diff','normal')||'normal').toLowerCase();
+      const style= String(qs('style','mix')||'mix').toLowerCase();
+      const seed = String(qs('seed', Date.now()) || Date.now());
+      startPractice(E, { diff, style, seed, practiceSec });
       return;
     }
     startReal(E);
   }
 
-  // Practice then real
-  function startPractice(E){
+  // ---------- PACK 14: Practice then real ----------
+  function startPractice(E, cfg){
+    practiceActive = true;
+    practiceDone = false;
     $('vMode').textContent = 'PRACTICE';
-    startIso = new Date().toISOString();
 
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const style= String(qs('style','mix')||'mix').toLowerCase();
-    const seed = String(qs('seed', Date.now()) || Date.now());
-    const practiceSec = getPracticeSec('cvr');
+    const seedP = String(cfg.seed) + '-practice';
+    startIso = new Date().toISOString();
 
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode:'practice', diff, style, time: practiceSec, seed: seed+'-practice', view:'cvr' });
+
+    // ✅ PATCH: practice uses runMode:'practice' + view:'cvr'
+    E.start(cfg.diff, {
+      runMode:'practice',
+      view:'cvr',
+      diff:cfg.diff,
+      style:cfg.style,
+      time: cfg.practiceSec,
+      seed: seedP
+    });
 
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
+    }catch(_){}
+
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail:{ text:`Practice ${cfg.practiceSec}s: ลองยิงให้แม่นก่อนเข้าเกมจริง!`, mood:'happy' }
+      }));
     }catch(_){}
   }
 
@@ -501,8 +618,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode: run, diff, style, time, seed, view });
 
+    // ✅ PATCH: pass view to engine
+    E.start(diff, { runMode: run, view, diff, style, time, seed });
+
+    // PACK 15: AI hooks attach (safe)
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -511,33 +631,33 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // Start
-  (function startFromParams(){
+  // ---------- Start ----------
+  function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+
     setView(view);
+    hookAudio();
     initViewHelper(view);
 
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const practiceSec = getPracticeSec(view);
+
     const gated = startCalibrationIfNeeded(view, run);
     if (gated) return;
 
     waitForEngine((E)=>{
-      const practiceSec = getPracticeSec(view);
       if (view === 'cvr' && practiceSec > 0){
-        startPractice(E);
-        // when practice ends, user can reload/start again; (or you can auto-start real by listening hha:end with runMode=practice)
-        window.addEventListener('hha:end', (ev)=>{
-          const d = ev.detail||{};
-          if (String(d.runMode||'') === 'practice'){
-            setTimeout(()=> startReal(E), 180);
-          }
-        }, {passive:true, once:true});
+        const diff = String(qs('diff','normal')||'normal').toLowerCase();
+        const style= String(qs('style','mix')||'mix').toLowerCase();
+        const seed = String(qs('seed', Date.now()) || Date.now());
+        startPractice(E, { diff, style, seed, practiceSec });
         return;
       }
       startReal(E);
     });
-  })();
+  }
 
+  startFromParams();
 })();
 </script>
 </body>
