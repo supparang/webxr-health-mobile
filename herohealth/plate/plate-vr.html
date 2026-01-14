@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#020617" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame: helps WebXR Enter VR reliability -->
@@ -24,8 +25,7 @@
 
 <body class="view-pc">
   <div id="app">
-
-    <!-- Minimal A-Frame scene (hidden) for Enter VR reliability -->
+    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
     <a-scene
       embedded
       renderer="antialias:true; colorManagement:true"
@@ -35,14 +35,10 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- Optional FX overlays (engine may toggle classes) -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
-
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
-    <!-- HUD (wrapper is pointer-events:none; cards are pointer-events:auto in CSS) -->
+    <!-- HUD -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
         <div class="chip score">
@@ -91,13 +87,17 @@
       </div>
     </div>
 
-    <!-- Coach bubble -->
+    <!-- Coach bubble (optional) -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
         <div class="meta" id="coachMeta">Coach</div>
       </div>
     </div>
+
+    <!-- Boss/Storm FX layers (hooks; can be toggled by engine later) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
 
     <!-- End Overlay -->
     <div id="endOverlay" aria-hidden="true">
@@ -122,11 +122,11 @@
         </div>
       </div>
     </div>
-
-    <!-- NOTE:
-      vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-      plate.boot.js will set view class and boot the engine.
-    -->
   </div>
+
+  <!-- NOTE:
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
+  -->
 </body>
 </html>
