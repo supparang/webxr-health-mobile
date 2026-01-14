@@ -1,11 +1,3 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-PlateVR RUN — PRODUCTION (HHA Standard)
-✅ A-Frame minimal scene (Enter VR reliability)
-✅ Uses ./plate-vr.css
-✅ Uses global: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-✅ Boots via ./plate.boot.js (imports ./plate.safe.js)
-✅ No launcher / no view menu (auto detect)
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -27,12 +19,13 @@ PlateVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Boot -->
-  <script type="module" src="./plate.boot.js" defer></script>
+  <script type="module" src="./plate.boot.js"></script>
 </head>
 
 <body class="view-pc">
   <div id="app">
-    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
+
+    <!-- Minimal A-Frame scene (hidden) for Enter VR reliability -->
     <a-scene
       embedded
       renderer="antialias:true; colorManagement:true"
@@ -42,10 +35,14 @@ PlateVR RUN — PRODUCTION (HHA Standard)
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
+    <!-- Optional FX overlays (engine may toggle classes) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
+
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
-    <!-- HUD (pointer-events:none in CSS so it won't block targets) -->
+    <!-- HUD (wrapper is pointer-events:none; cards are pointer-events:auto in CSS) -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
         <div class="chip score">
@@ -126,11 +123,10 @@ PlateVR RUN — PRODUCTION (HHA Standard)
       </div>
     </div>
 
+    <!-- NOTE:
+      vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+      plate.boot.js will set view class and boot the engine.
+    -->
   </div>
-
-  <!-- NOTE:
-    - vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    - plate.boot.js auto-detects view + boots engine.
-  -->
 </body>
 </html>
