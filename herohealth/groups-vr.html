@@ -1,16 +1,16 @@
 <!-- === /herohealth/groups-vr.html ===
-GroupsVR Launcher — AUTO Detect + Tap-to-start
-✅ No menu
-✅ Tap-to-start gate -> then redirect to ./vr-groups/groups-vr.html
-✅ Does NOT override explicit ?view=...
-✅ Pass-through params: hub/log/run/diff/style/time/seed/ai + research fields
+GroupsVR Launcher — PRODUCTION
+✅ Auto-detect view (pc/mobile/cvr) BUT never override explicit ?view=
+✅ Tap-to-start gate (mobile) to unlock audio/fullscreen policies
+✅ Redirect to RUN: ./vr-groups/groups-vr.html with merged params
+✅ Keeps hub/log + passes through research ctx params
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR</title>
+  <title>HeroHealth — GroupsVR Launcher</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
@@ -18,17 +18,16 @@ GroupsVR Launcher — AUTO Detect + Tap-to-start
     :root{
       color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.82);
-      --panel2:rgba(15,23,42,.60);
+      --panel:rgba(2,6,23,.86);
+      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.20);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
+      --warn:#f59e0b;
+      --bad:#ef4444;
       --radius:22px;
       --pill:999px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -39,195 +38,203 @@ GroupsVR Launcher — AUTO Detect + Tap-to-start
       width:100%; height:100%;
       margin:0; padding:0;
       overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(34,211,238,.16), transparent 56%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 56%),
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
         var(--bg);
       color:var(--text);
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
 
     .wrap{
       position:fixed;
       inset:0;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
       display:flex;
       align-items:center;
       justify-content:center;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar))
-               calc(16px + var(--sab)) calc(16px + var(--sal));
     }
 
     .card{
-      width:min(680px, 100%);
-      border-radius: 28px;
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, var(--panel), rgba(2,6,23,.70));
-      box-shadow: 0 28px 90px rgba(0,0,0,.55);
+      width:min(720px, 96vw);
+      border: 1px solid var(--stroke);
+      border-radius: calc(var(--radius) + 6px);
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(0,0,0,.55);
       overflow:hidden;
     }
 
     .head{
-      padding: 18px 18px 14px;
-      border-bottom: 1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
+      padding:18px 18px 14px;
+      border-bottom: 1px solid rgba(148,163,184,.12);
+      background: linear-gradient(180deg, rgba(15,23,42,.35), rgba(2,6,23,0));
     }
-    .brand{
-      display:flex; align-items:center; gap:12px;
+
+    .title{
       font-weight:1000;
+      font-size:22px;
       letter-spacing:.2px;
-      font-size: 18px;
-    }
-    .logo{
-      width:44px; height:44px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.65);
-      display:flex; align-items:center; justify-content:center;
-      font-size: 22px;
-      box-shadow: 0 10px 26px rgba(0,0,0,.32);
     }
     .sub{
       margin-top:6px;
-      color: var(--muted);
-      font-weight: 800;
-      font-size: 13px;
-      line-height: 1.35;
+      color:var(--muted);
+      font-weight:800;
+      font-size:13px;
+      line-height:1.35;
     }
 
-    .body{
-      padding: 16px 18px 18px;
-    }
     .grid{
       display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 12px;
-    }
-    .stat{
-      padding: 12px;
-      border-radius: 18px;
-      border: 1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.55);
-    }
-    .k{
-      font-weight: 900;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .v{
-      margin-top: 4px;
-      font-weight: 1000;
-      font-size: 18px;
-      color: var(--text);
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px;
+      padding:16px 18px 18px;
     }
 
+    .panel{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(15,23,42,.55);
+      border-radius: var(--radius);
+      padding:14px;
+    }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius: var(--pill);
+      border: 1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.55);
+      font-weight:900;
+      font-size:13px;
+      color:var(--text);
+    }
+    .pill span{ color: var(--muted); font-weight:900; font-size:12px; }
+
+    .btnRow{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
     .btn{
-      width:100%;
-      margin-top: 14px;
+      flex:1 1 auto;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:10px;
-      padding: 14px 14px;
+      padding:12px 14px;
       border-radius: 18px;
-      border: 1px solid rgba(34,197,94,.40);
-      background: rgba(34,197,94,.18);
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.50);
       color: var(--text);
       font-weight: 1000;
       cursor:pointer;
       user-select:none;
     }
     .btn:active{ transform: translateY(1px); }
-    .hint{
-      margin-top: 10px;
-      font-size: 12px;
-      font-weight: 800;
+
+    .btnStrong{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.18);
+    }
+    .btnWarn{
+      border-color: rgba(245,158,11,.35);
+      background: rgba(245,158,11,.14);
+    }
+
+    .note{
+      margin-top:10px;
       color: var(--muted);
-      line-height: 1.35;
+      font-weight:800;
+      font-size:12px;
+      line-height:1.35;
     }
 
-    .pillRow{
-      margin-top: 10px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
+    .mini{
+      font-size:12px;
+      color: var(--muted);
+      font-weight:800;
+      margin-top:10px;
+      opacity:.95;
     }
-    .pill{
-      display:inline-flex;
+
+    /* Tap overlay */
+    .tap{
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:none;
       align-items:center;
-      gap:8px;
-      padding: 8px 10px;
-      border-radius: var(--pill);
-      border: 1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.45);
-      font-weight: 900;
-      font-size: 12px;
-      color: var(--text);
+      justify-content:center;
+      padding:18px;
+      background: rgba(2,6,23,.82);
+      backdrop-filter: blur(10px);
     }
-    .dot{
-      width:10px; height:10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.65);
-      box-shadow: 0 0 0 2px rgba(148,163,184,.12);
+    .tap.on{ display:flex; }
+    .tapBox{
+      width:min(560px, 96vw);
+      border-radius: 26px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.88);
+      box-shadow: 0 24px 80px rgba(0,0,0,.60);
+      padding: 16px;
     }
-    .dot.ok{ background: rgba(34,197,94,.95); box-shadow: 0 0 0 2px rgba(34,197,94,.18); }
-    .dot.warn{ background: rgba(245,158,11,.95); box-shadow: 0 0 0 2px rgba(245,158,11,.16); }
+    .tapTitle{ font-weight:1000; font-size:20px; }
+    .tapSub{ margin-top:8px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
+    .tapBtns{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
 
-    @media (max-width: 520px){
+    @media (max-width: 760px){
       .grid{ grid-template-columns: 1fr; }
-      .brand{ font-size: 16px; }
-      .logo{ width:40px; height:40px; border-radius: 14px; }
     }
   </style>
-
-  <!-- ✅ Boot: auto detect + tap-to-start -> redirect -->
-  <script src="./groups-vr.boot.js" defer></script>
 </head>
+
 <body>
   <div class="wrap">
-    <div class="card" role="application" aria-label="GroupsVR Launcher">
+    <div class="card">
       <div class="head">
-        <div class="brand">
-          <div class="logo">🥗</div>
-          <div>
-            HeroHealth — Food Groups VR
-            <div class="sub">แตะเพื่อเริ่ม → ระบบจะตรวจอุปกรณ์แล้วเข้าเกมอัตโนมัติ</div>
-          </div>
-        </div>
-
-        <div class="pillRow">
-          <div class="pill"><span class="dot ok"></span> Auto Detect</div>
-          <div class="pill"><span class="dot ok"></span> Tap-to-start</div>
-          <div class="pill"><span class="dot ok"></span> No override ?view=</div>
-          <div class="pill"><span class="dot warn"></span> cVR: แนะนำกด RECENTER</div>
+        <div class="title">🥦 HeroHealth — Food Groups VR</div>
+        <div class="sub">
+          ระบบจะตรวจอุปกรณ์ให้แล้ว และพาเข้าเกมอัตโนมัติ (ไม่ override ถ้าคุณใส่ <b>?view=</b> มาแล้ว)
         </div>
       </div>
 
-      <div class="body">
-        <div class="grid">
-          <div class="stat">
-            <div class="k">Run Mode</div>
-            <div class="v" id="vRun">—</div>
+      <div class="grid">
+        <div class="panel">
+          <div class="row" id="chips"></div>
+
+          <div class="btnRow">
+            <button class="btn btnStrong" id="btnGo" type="button">▶️ เข้าเกม</button>
+            <button class="btn btnWarn" id="btnCVR" type="button">🕶️ โหมด Cardboard (cVR)</button>
+            <button class="btn" id="btnMobile" type="button">📱 โหมด Mobile</button>
+            <button class="btn" id="btnPC" type="button">🖥️ โหมด PC</button>
           </div>
-          <div class="stat">
-            <div class="k">Difficulty</div>
-            <div class="v" id="vDiff">—</div>
+
+          <div class="note">
+            * ถ้าเข้า cVR: ในหน้าเล่นให้กด <b>ENTER VR</b> และ <b>RECENTER</b> (มาจาก vr-ui.js)
           </div>
-          <div class="stat">
-            <div class="k">Time</div>
-            <div class="v" id="vTime">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">Style</div>
-            <div class="v" id="vStyle">—</div>
-          </div>
+
+          <div class="mini" id="autoLine">Auto: —</div>
         </div>
 
-        <button class="btn" id="btnStart" type="button">👆 TAP TO START</button>
-
-        <div class="hint" id="hint">
-          ถ้าเป็น Cardboard (cVR) เข้าเกมแล้วให้กด <b>RECENTER</b> ก่อนเริ่มยิง 🎯
+        <div class="panel">
+          <div style="font-weight:1000; font-size:14px;">ค่าที่จะส่งเข้าเกม</div>
+          <div class="mini" id="paramPreview">—</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tap-to-start overlay -->
+  <div class="tap" id="tap">
+    <div class="tapBox">
+      <div class="tapTitle">👆 Tap-to-start</div>
+      <div class="tapSub">
+        มือถือบางเครื่องต้อง “แตะ 1 ครั้ง” เพื่อปลดล็อกเสียง/เต็มจอ แล้วค่อยเข้าเกม
+      </div>
+      <div class="tapBtns">
+        <button class="btn btnStrong" id="tapGo" type="button">✅ แตะเพื่อเริ่ม</button>
+        <button class="btn" id="tapSkip" type="button">⏭️ ข้าม</button>
+      </div>
+      <div class="note" style="margin-top:10px;">
+        ถ้าไม่ต้องการ Tap-to-start: เปิดจาก PC ได้เลย (จะเข้าเกมอัตโนมัติ)
       </div>
     </div>
   </div>
@@ -235,17 +242,155 @@ GroupsVR Launcher — AUTO Detect + Tap-to-start
 <script>
 (function(){
   'use strict';
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const $ = (id)=>document.getElementById(id);
+  const DOC = document;
+  const WIN = window;
 
-  // show current params (for sanity)
-  $('vRun').textContent  = String(qs('run','play')||'play').toUpperCase();
-  $('vDiff').textContent = String(qs('diff','easy')||'easy').toUpperCase();
-  $('vTime').textContent = String(qs('time','90')||'90') + 's';
-  $('vStyle').textContent= String(qs('style','mix')||'mix');
+  const $ = (id)=>DOC.getElementById(id);
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
 
-  // button triggers the boot overlay as well (boot listens any click)
-  $('btnStart').addEventListener('click', ()=>{}, {passive:true});
+  function isTouch(){
+    return ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+  }
+
+  function detectViewNoOverride(){
+    const explicit = String(qs('view','')).toLowerCase();
+    if (explicit) return explicit;
+
+    const touch = isTouch();
+    const w = Math.max(1, WIN.innerWidth||1);
+    const h = Math.max(1, WIN.innerHeight||1);
+    const landscape = w >= h;
+
+    // conservative: default mobile on touch, pc otherwise
+    if (touch){
+      // ถ้าคุณอยาก auto ไป cvr เมื่อ landscape กว้างมาก ให้เปิดบรรทัดนี้:
+      // if (landscape && w >= 860) return 'cvr';
+      return 'mobile';
+    }
+    return 'pc';
+  }
+
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  function buildRunUrl(view){
+    const runUrl = new URL('./vr-groups/groups-vr.html', location.href);
+
+    // carry all params, but never override existing view
+    const sp = new URL(location.href).searchParams;
+    sp.forEach((v,k)=>{
+      if (k === 'view') return;
+      runUrl.searchParams.set(k, v);
+    });
+
+    const explicit = String(qs('view',''));
+    if (explicit){
+      runUrl.searchParams.set('view', explicit);
+    } else {
+      runUrl.searchParams.set('view', view);
+    }
+
+    if (!runUrl.searchParams.get('run'))  runUrl.searchParams.set('run', 'play');
+    if (!runUrl.searchParams.get('diff')) runUrl.searchParams.set('diff', 'normal');
+    if (!runUrl.searchParams.get('time')) runUrl.searchParams.set('time', '90');
+    if (!runUrl.searchParams.get('seed')) runUrl.searchParams.set('seed', String(Date.now()));
+    return runUrl;
+  }
+
+  async function tryFullscreen(){
+    try{
+      const el = DOC.documentElement;
+      if (el.requestFullscreen && !DOC.fullscreenElement) await el.requestFullscreen();
+    }catch(_){}
+  }
+
+  function renderChips(view){
+    const chips = $('chips');
+    chips.innerHTML = '';
+
+    function add(label, val){
+      const el = DOC.createElement('div');
+      el.className = 'pill';
+      el.innerHTML = `<span>${label}</span>${val}`;
+      chips.appendChild(el);
+    }
+
+    add('VIEW', view);
+    add('RUN', String(qs('run','play')).toUpperCase());
+    add('DIFF', String(qs('diff','normal')).toUpperCase());
+    add('TIME', String(qs('time','90')) + 's');
+    add('AI', String(qs('ai','0')));
+    add('SEED', String(qs('seed','auto')).slice(0, 10) + '…');
+  }
+
+  function renderPreview(runUrl){
+    const pv = $('paramPreview');
+    const sp = runUrl.searchParams;
+    const keys = [];
+    sp.forEach((v,k)=> keys.push([k,v]));
+    keys.sort((a,b)=>a[0].localeCompare(b[0]));
+    pv.textContent = keys.map(([k,v])=>`${k}=${v}`).join('  •  ');
+  }
+
+  function showTap(on){
+    $('tap').classList.toggle('on', !!on);
+  }
+
+  async function go(view, needTap){
+    const runUrl = buildRunUrl(view);
+    renderPreview(runUrl);
+
+    if (needTap){
+      showTap(true);
+
+      const onGo = async ()=>{
+        showTap(false);
+        await tryFullscreen();
+        location.href = runUrl.toString();
+      };
+      const onSkip = ()=>{
+        showTap(false);
+        location.href = runUrl.toString();
+      };
+
+      $('tapGo').onclick = onGo;
+      $('tapSkip').onclick = onSkip;
+      $('tap').onclick = (e)=>{
+        if (e.target && e.target.id === 'tap') onGo();
+      };
+      return;
+    }
+
+    location.href = runUrl.toString();
+  }
+
+  function init(){
+    const viewAuto = detectViewNoOverride();
+    renderChips(viewAuto);
+
+    const runUrl = buildRunUrl(viewAuto);
+    renderPreview(runUrl);
+
+    $('autoLine').textContent = `Auto: ${viewAuto}  •  touch=${isTouch() ? 'yes' : 'no'}  •  explicitView=${String(qs('view','')||'')||'—'}`;
+
+    $('btnGo').onclick = ()=> go(viewAuto, isTouch());
+    $('btnCVR').onclick = ()=> go('cvr', isTouch());
+    $('btnMobile').onclick = ()=> go('mobile', isTouch());
+    $('btnPC').onclick = ()=> go('pc', false);
+
+    // Auto enter on desktop, but leave touch to user tap
+    if (!isTouch()){
+      go(viewAuto, false);
+    }
+  }
+
+  if (DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', init, { once:true });
+  } else {
+    init();
+  }
 })();
 </script>
 </body>
