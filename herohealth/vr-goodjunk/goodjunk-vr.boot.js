@@ -1,130 +1,63 @@
-/* === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-GoodJunkVR Boot — PRODUCTION
-✅ Auto view detect (pc/mobile) + respects explicit view param (vr/cvr) when supplied by hub
-✅ Adds body classes: view-pc / view-mobile / view-vr / view-cvr
-✅ Ensures vr-ui.js config + keeps buttons clickable
-✅ Boots engine: ./goodjunk.safe.js (export function boot)
-*/
-
-'use strict';
+// === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
+// Boot — auto-detect view WITHOUT overriding explicit ?view=
+// Loads goodjunk.safe.js and passes payload
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
-const WIN = window;
 const DOC = document;
+const WIN = window;
 
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
-function clamp(v,min,max){
-  v = Number(v)||0;
-  return v<min?min:(v>max?max:v);
-}
-function isTouch(){
-  return ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
-}
-function isSmallScreen(){
-  const w = DOC.documentElement.clientWidth || WIN.innerWidth || 0;
-  return w > 0 && w <= 860;
-}
-function looksMobile(){
-  return isTouch() && isSmallScreen();
-}
+const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
-function getAutoView(){
-  // Default: pc/mobile
-  return looksMobile() ? 'mobile' : 'pc';
-}
+function detectViewNoOverride(){
+  const explicit = String(qs('view','')).toLowerCase();
+  if (explicit) return explicit;
 
-function getView(){
-  // IMPORTANT: no UI override; but URL param from HUB is allowed (vr/cvr)
-  const v = String(qs('view','auto') || 'auto').toLowerCase();
-  if(v === 'vr' || v === 'cvr' || v === 'pc' || v === 'mobile') return v;
-  return getAutoView();
-}
+  const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+  const w = Math.max(1, WIN.innerWidth||1);
+  const h = Math.max(1, WIN.innerHeight||1);
+  const landscape = w >= h;
 
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add(`view-${view}`);
-}
-
-function setLayerR(view){
-  const r = DOC.getElementById('gj-layer-r');
-  if(!r) return;
-  const on = (view === 'vr' || view === 'cvr');
-  r.setAttribute('aria-hidden', on ? 'false' : 'true');
-}
-
-function updateChips(){
-  const chip = DOC.getElementById('gjChipMeta');
-  if(!chip) return;
-  const v = String(qs('view','auto'));
-  const run = String(qs('run','play'));
-  const diff = String(qs('diff','normal'));
-  const time = String(qs('time','80'));
-  chip.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
-}
-
-function ensureVrUiConfig(){
-  // vr-ui.js reads window.HHA_VRUI_CONFIG
-  // lockPx = aim assist radius (cVR), cooldown = tap-to-shoot throttling
-  if(!WIN.HHA_VRUI_CONFIG){
-    WIN.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-  }else{
-    // keep existing but ensure defaults
-    if(WIN.HHA_VRUI_CONFIG.lockPx == null) WIN.HHA_VRUI_CONFIG.lockPx = 28;
-    if(WIN.HHA_VRUI_CONFIG.cooldownMs == null) WIN.HHA_VRUI_CONFIG.cooldownMs = 90;
+  // Heuristic: touch + landscape + wide => likely cVR
+  if (isTouch){
+    if (landscape && w >= 740) return 'cvr';
+    return 'mobile';
   }
+  return 'pc';
 }
 
-function boot(){
-  updateChips();
-  ensureVrUiConfig();
-
-  const view = getView();
-  setBodyView(view);
-  setLayerR(view);
-
-  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
-  const run  = String(qs('run','play') || 'play').toLowerCase();
-  const time = clamp(qs('time','80'), 20, 300);
-
-  const hub  = (qs('hub', null) || null);
-  const seed = (qs('seed', null) || null);
-
-  // study params passthrough (logger schema)
-  const studyId = qs('studyId', qs('study', null));
-  const phase   = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', qs('cond', null));
-
-  // start engine
-  engineBoot({
-    view,
-    diff,
-    run,
-    time,
-    hub,
-    seed,
-    studyId,
-    phase,
-    conditionGroup
-  });
+function applyBodyView(view){
+  const b = DOC.body;
+  if(!b) return;
+  b.classList.add('gj');
+  b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
+  if(view === 'cvr') b.classList.add('view-cvr');
+  else if(view === 'vr' || view === 'cardboard') b.classList.add('view-vr','cardboard');
+  else if(view === 'pc') b.classList.add('view-pc');
+  else b.classList.add('view-mobile');
 }
 
-/* Wait DOM ready (safe for module defer too) */
-if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', boot, { once:true });
-}else{
-  boot();
-}
+const view = detectViewNoOverride();
+applyBodyView(view);
 
-/* Keep view class in sync on resize (pc<->mobile auto only when view=auto) */
-WIN.addEventListener('resize', ()=>{
-  const vRaw = String(qs('view','auto') || 'auto').toLowerCase();
-  if(vRaw !== 'auto') return; // respect explicit view
-  const v = getAutoView();
-  setBodyView(v);
-  setLayerR(v);
-}, { passive:true });
+// Keep view in sync ONLY when no explicit ?view=
+function onResize(){
+  if(String(qs('view','')).toLowerCase()) return;
+  const v = detectViewNoOverride();
+  applyBodyView(v);
+}
+WIN.addEventListener('resize', onResize, { passive:true });
+WIN.addEventListener('orientationchange', onResize, { passive:true });
+
+// Pass params to engine
+engineBoot({
+  view,
+  run: qs('run','play'),
+  diff: qs('diff','normal'),
+  time: Number(qs('time','80') || 80),
+  seed: qs('seed', null),
+  hub: qs('hub', null),
+  studyId: qs('studyId', qs('study', null)),
+  phase: qs('phase', null),
+  conditionGroup: qs('conditionGroup', qs('cond', null)),
+});
