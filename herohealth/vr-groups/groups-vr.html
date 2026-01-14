@@ -1,13 +1,12 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
 GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
-✅ PACK 13: Calibration helper (cVR) 2-step: recenter -> shoot test 3
-✅ PACK 14: Practice 15s (cVR) then auto start real run
-✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
-✅ Flush-hardened logging (?log=...)
-✅ Research ctx passthrough
+✅ Calibration overlay present (PACK 13) — controlled by boot (C)
+✅ Practice 15s (PACK 14) — controlled by boot (C) via ?practice=1
+✅ AI hooks attach point (PACK 15) — controlled by engine + ?ai=1 (play only)
+✅ Flush-hardened logging (?log=...) + research ctx
 ✅ Uses groups.safe.js (standalone engine)
-✅ PATCH: pass view into engine + practice uses runMode:'practice'
+✅ Boot: groups-vr.boot.js (C) handles detect + tap-to-start + start flow
 -->
 <!doctype html>
 <html lang="th">
@@ -31,18 +30,20 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>         <!-- PACK 15 -->
-  <script src="./effects-pack.js" defer></script>     <!-- optional -->
+  <script src="./ai-hooks.js" defer></script>
+  <script src="./effects-pack.js" defer></script>
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
 
   <!-- ✅ Standalone engine -->
   <script src="./groups.safe.js" defer></script>
+
+  <!-- ✅ BOOT (C): handles detect + tap-to-start + calibration + practice + real start -->
+  <script src="./groups-vr.boot.js" defer></script>
 </head>
 
 <body class="view-mobile">
-
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
     <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
@@ -100,7 +101,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">แตะเพื่อเริ่ม…</div>
+        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
       </div>
     </div>
   </div>
@@ -166,499 +167,217 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const DOC = document;
-  const $ = (id)=>DOC.getElementById(id);
+  <!-- ✅ UI event bindings (NO engine start here) -->
+  <script>
+  (function(){
+    'use strict';
+    const DOC = document;
+    const $ = (id)=>DOC.getElementById(id);
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  function setView(view){
-    const b = DOC.body;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    b.classList.add('view-'+view);
-  }
-
-  function aiEnabled(){
-    const run = String(qs('run','play')||'play').toLowerCase();
-    const on  = String(qs('ai','0')||'0');
-    if (run === 'research') return false;
-    return (on === '1' || on === 'true');
-  }
-
-  function getPracticeSec(view){
-    const p = String(qs('practice','0')||'0');
-    let sec = Number(p)||0;
-    if (p === '1') sec = 15;
-    sec = clamp(sec, 0, 30);
-    if (view !== 'cvr') sec = 0;
-    return sec;
-  }
-
-  async function copyText(text){
-    try { await navigator.clipboard.writeText(String(text||'')); return true; }
-    catch {
-      try{
-        const ta = DOC.createElement('textarea');
-        ta.value = String(text||'');
-        DOC.body.appendChild(ta);
-        ta.select();
-        DOC.execCommand('copy');
-        ta.remove();
-        return true;
-      }catch{ return false; }
-    }
-  }
-
-  // ---------- HUD binds ----------
-  window.addEventListener('hha:score', (ev)=>{
-    const d = ev.detail||{};
-    $('vScore').textContent = String(d.score ?? 0);
-    $('vCombo').textContent = String(d.combo ?? 0);
-    $('vMiss').textContent  = String(d.misses ?? 0);
-  }, {passive:true});
-
-  window.addEventListener('hha:time', (ev)=>{
-    const d = ev.detail||{};
-    $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
-  }, {passive:true});
-
-  window.addEventListener('hha:rank', (ev)=>{
-    const d = ev.detail||{};
-    $('vRank').textContent = String(d.grade ?? 'C');
-    $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
-  }, {passive:true});
-
-  window.addEventListener('hha:coach', (ev)=>{
-    const d = ev.detail||{};
-    $('coachText').textContent = String(d.text||'');
-    const mood = String(d.mood||'neutral');
-    const img =
-      (mood==='happy') ? '../img/coach-happy.png' :
-      (mood==='sad')   ? '../img/coach-sad.png' :
-      (mood==='fever') ? '../img/coach-fever.png' :
-                        '../img/coach-neutral.png';
-    $('coachImg').src = img;
-  }, {passive:true});
-
-  window.addEventListener('groups:power', (ev)=>{
-    const d = ev.detail||{};
-    const cur = Number(d.charge||0);
-    const thr = Math.max(1, Number(d.threshold||8));
-    $('pCur').textContent = String(cur|0);
-    $('pThr').textContent = String(thr|0);
-    $('pFill').style.width = Math.round((cur/thr)*100) + '%';
-  }, {passive:true});
-
-  window.addEventListener('quest:update', (ev)=>{
-    const d = ev.detail||{};
-    const gTitle = String(d.goalTitle||'—');
-    const gNow   = Number(d.goalNow||0);
-    const gTot   = Math.max(1, Number(d.goalTotal||1));
-    const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
-
-    const mTitle = String(d.miniTitle||'—');
-    const mNow   = Number(d.miniNow||0);
-    const mTot   = Math.max(1, Number(d.miniTotal||1));
-    const mPct   = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
-    const mLeft  = Number(d.miniTimeLeftSec||0);
-
-    $('goalTitle').textContent = '🎯 GOAL';
-    $('goalCount').textContent = `${gNow}/${gTot}`;
-    $('goalFill').style.width = Math.round(gPct) + '%';
-    $('goalSub').textContent = gTitle;
-
-    $('miniTitle').textContent = '⚡ MINI';
-    $('miniFill').style.width = Math.round(mPct) + '%';
-    $('miniSub').textContent = mTitle;
-    $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
-
-    const urgent = (mLeft>0 && mLeft<=3);
-    DOC.body.classList.toggle('mini-urgent', urgent);
-  }, {passive:true});
-
-  // ---------- Audio hooks ----------
-  function hookAudio(){
-    const A = window.GroupsVR && window.GroupsVR.Audio;
-    if (!A) return;
-
-    try{ A.unlock && A.unlock(); }catch{}
-
-    window.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail||{};
-      const k = String(d.kind||'').toLowerCase();
-      if (k==='good') A.good();
-      else if (k==='bad') A.bad();
-      else if (k==='boss') A.boss();
-      else if (k==='miss') A.bad();
-      else if (k==='perfect') A.good();
-    }, {passive:true});
-
-    window.addEventListener('groups:progress', (ev)=>{
-      const d = ev.detail||{};
-      const kind = String(d.kind||'');
-      if (kind==='storm_on') A.storm();
-      if (kind==='boss_spawn') A.boss();
-      if (kind==='perfect_switch') A.good();
-    }, {passive:true});
-
-    let tmr = 0;
-    function tickLoop(){
-      clearTimeout(tmr);
-      const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
-      if (urgent) A.tick();
-      tmr = setTimeout(tickLoop, urgent ? 420 : 650);
-    }
-    tickLoop();
-  }
-
-  // ---------- Summary / History / Logger ----------
-  const LS_LAST = 'HHA_LAST_SUMMARY';
-  const LS_HIST = 'HHA_SUMMARY_HISTORY';
-
-  let lastSummary = null;
-  let startIso = new Date().toISOString();
-
-  function saveLast(summary){
-    try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
-    try{
-      const hist = JSON.parse(localStorage.getItem(LS_HIST)||'[]');
-      hist.unshift(summary);
-      localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
-    }catch{}
-  }
-
-  let practiceActive = false;
-  let practiceDone = false;
-
-  function buildBaseSummary(d, endIso){
-    const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
-    return Object.assign({
-      timestampIso: endIso,
-      projectTag: 'HeroHealth',
-      gameTag: 'GroupsVR',
-      runMode: String(qs('run','play')||'play'),
-      diff: String(qs('diff','normal')||'normal'),
-      style: String(qs('style','mix')||'mix'),
-      view: String(qs('view','mobile')||'mobile'),
-      durationPlannedSec: Number(qs('time',90)||90),
-      startTimeIso: startIso,
-      endTimeIso: endIso,
-      seed: String(qs('seed','')||'')
-    }, ctx, d||{});
-  }
-
-  function postNow(summary){
-    try{
-      const P = window.GroupsVR && window.GroupsVR.postSummary;
-      P && P(summary);
-    }catch(_){}
-  }
-
-  // flush-hardened
-  try{
-    const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
-    B && B(()=>lastSummary);
-  }catch(_){}
-
-  window.addEventListener('hha:end', (ev)=>{
-    const d = ev.detail||{};
-    const endIso = new Date().toISOString();
-
-    // practice chain → auto start real run
-    if (practiceActive && !practiceDone){
-      practiceDone = true;
-      practiceActive = false;
-      const E = window.GroupsVR && window.GroupsVR.GameEngine;
-      if (E && typeof E.start === 'function'){
-        setTimeout(()=> startReal(E), 160);
-      }
-      return;
+    function qs(k, def=null){
+      try { return new URL(location.href).searchParams.get(k) ?? def; }
+      catch { return def; }
     }
 
-    lastSummary = buildBaseSummary(d, endIso);
-    saveLast(lastSummary);
-    postNow(lastSummary);
+    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-    $('endOverlay').classList.remove('hidden');
-    $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
-    $('endScore').textContent = String(d.scoreFinal ?? 0);
-    $('endRank').textContent  = String(d.grade ?? 'C');
-    $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
-    $('endMiss').textContent  = String(d.misses ?? 0);
-
-    const hub = String(qs('hub','')||'');
-    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
-  }, {passive:true});
-
-  $('btnRestart').addEventListener('click', ()=> location.reload());
-
-  $('btnCopy').addEventListener('click', async ()=>{
-    if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
-    const ok = await copyText(JSON.stringify(lastSummary, null, 2));
-    alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
-  });
-
-  $('btnBackLauncher').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    const u = new URL('../groups-vr.html', location.href);
-    if (hub) u.searchParams.set('hub', hub);
-
-    const log = String(qs('log','')||'');
-    if (log) u.searchParams.set('log', log);
-
-    const sp = new URL(location.href).searchParams;
-    sp.forEach((v,k)=>{
-      if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
-      if (k==='hub' || k==='log') return;
-      u.searchParams.set(k,v);
-    });
-
-    location.href = u.toString();
-  });
-
-  $('btnHub').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    location.href = hub;
-  });
-
-  // ---------- Engine helpers ----------
-  function waitForEngine(cb){
-    const t0 = Date.now();
-    const it = setInterval(()=>{
-      const E = window.GroupsVR && window.GroupsVR.GameEngine;
-      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function'){
-        clearInterval(it);
-        cb(E);
-        return;
-      }
-      if (Date.now() - t0 > 7000){
-        clearInterval(it);
+    async function copyText(text){
+      try { await navigator.clipboard.writeText(String(text||'')); return true; }
+      catch {
         try{
-          window.dispatchEvent(new CustomEvent('hha:coach', {
-            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js). เช็ค path/ชื่อไฟล์ แล้วรีเฟรชอีกครั้ง', mood:'sad' }
-          }));
-        }catch(_){}
-      }
-    }, 60);
-  }
-
-  function getLayerEl(){
-    return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
-  }
-
-  function initViewHelper(view){
-    try{
-      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
-      H && H.init && H.init({ view });
-    }catch(_){}
-  }
-
-  // ---------- PACK 13: Calibration 2-step (cVR) ----------
-  const cal = { on:false, step:0, shots:0, done:false };
-
-  function showCal(on){
-    const el = $('calOverlay');
-    if (!el) return;
-    el.classList.toggle('hidden', !on);
-    DOC.body.classList.toggle('calibration', !!on);
-  }
-
-  function setCalStep(step){
-    cal.step = step;
-    const stepEl = $('calStep');
-    const subEl  = $('calSub');
-    const shotsEl= $('calShots');
-    const nextBt = $('btnCalNext');
-
-    if (stepEl) stepEl.textContent = `${step}/2`;
-    if (shotsEl) shotsEl.textContent = `${cal.shots}/3`;
-
-    if (subEl){
-      if (step === 1){
-        subEl.innerHTML = `Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า`;
-      }else{
-        subEl.innerHTML = `Step 2/2: ลองยิง <b>3 ครั้ง</b> (แตะจอ) เพื่อทดสอบ crosshair`;
+          const ta = DOC.createElement('textarea');
+          ta.value = String(text||'');
+          DOC.body.appendChild(ta);
+          ta.select();
+          DOC.execCommand('copy');
+          ta.remove();
+          return true;
+        }catch{ return false; }
       }
     }
 
-    if (nextBt){
-      if (step === 1){
-        nextBt.textContent = '✅ ต่อไป';
-        nextBt.disabled = false;
-      }else{
-        nextBt.textContent = (cal.shots>=3) ? '🚀 เริ่มเลย' : 'ยิงให้ครบ 3 ครั้ง';
-        nextBt.disabled = (cal.shots < 3);
+    // ---------- HUD binds ----------
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail||{};
+      $('vScore').textContent = String(d.score ?? 0);
+      $('vCombo').textContent = String(d.combo ?? 0);
+      $('vMiss').textContent  = String(d.misses ?? 0);
+    }, {passive:true});
+
+    window.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail||{};
+      $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
+    }, {passive:true});
+
+    window.addEventListener('hha:rank', (ev)=>{
+      const d = ev.detail||{};
+      $('vRank').textContent = String(d.grade ?? 'C');
+      $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
+    }, {passive:true});
+
+    window.addEventListener('hha:coach', (ev)=>{
+      const d = ev.detail||{};
+      $('coachText').textContent = String(d.text||'');
+      const mood = String(d.mood||'neutral');
+      const img =
+        (mood==='happy') ? '../img/coach-happy.png' :
+        (mood==='sad')   ? '../img/coach-sad.png' :
+        (mood==='fever') ? '../img/coach-fever.png' :
+                          '../img/coach-neutral.png';
+      $('coachImg').src = img;
+    }, {passive:true});
+
+    window.addEventListener('groups:power', (ev)=>{
+      const d = ev.detail||{};
+      const cur = Number(d.charge||0);
+      const thr = Math.max(1, Number(d.threshold||8));
+      $('pCur').textContent = String(cur|0);
+      $('pThr').textContent = String(thr|0);
+      $('pFill').style.width = Math.round((cur/thr)*100) + '%';
+    }, {passive:true});
+
+    window.addEventListener('quest:update', (ev)=>{
+      const d = ev.detail||{};
+      const gTitle = String(d.goalTitle||'—');
+      const gNow   = Number(d.goalNow||0);
+      const gTot   = Math.max(1, Number(d.goalTotal||1));
+      const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
+
+      const mTitle = String(d.miniTitle||'—');
+      const mNow   = Number(d.miniNow||0);
+      const mTot   = Math.max(1, Number(d.miniTotal||1));
+      const mPct   = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
+      const mLeft  = Number(d.miniTimeLeftSec||0);
+
+      $('goalTitle').textContent = '🎯 GOAL';
+      $('goalCount').textContent = `${gNow}/${gTot}`;
+      $('goalFill').style.width = Math.round(gPct) + '%';
+      $('goalSub').textContent = gTitle;
+
+      $('miniTitle').textContent = '⚡ MINI';
+      $('miniFill').style.width = Math.round(mPct) + '%';
+      $('miniSub').textContent = mTitle;
+      $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
+
+      const urgent = (mLeft>0 && mLeft<=3);
+      DOC.body.classList.toggle('mini-urgent', urgent);
+    }, {passive:true});
+
+    // ---------- Audio hooks ----------
+    function hookAudio(){
+      const A = window.GroupsVR && window.GroupsVR.Audio;
+      if (!A) return;
+
+      try{ A.unlock && A.unlock(); }catch{}
+
+      window.addEventListener('hha:judge', (ev)=>{
+        const d = ev.detail||{};
+        const k = String(d.kind||'').toLowerCase();
+        if (k==='good') A.good();
+        else if (k==='bad') A.bad();
+        else if (k==='boss') A.boss();
+        else if (k==='miss') A.bad();
+      }, {passive:true});
+
+      window.addEventListener('groups:progress', (ev)=>{
+        const d = ev.detail||{};
+        const kind = String(d.kind||'');
+        if (kind==='storm_on') A.storm();
+        if (kind==='boss_spawn') A.boss();
+        if (kind==='perfect_switch') A.good();
+      }, {passive:true});
+
+      let tmr = 0;
+      function tickLoop(){
+        clearTimeout(tmr);
+        const urgent = DOC.body.classList.contains('mini-urgent') || DOC.body.classList.contains('groups-storm-urgent');
+        if (urgent) A.tick();
+        tmr = setTimeout(tickLoop, urgent ? 420 : 650);
       }
+      tickLoop();
     }
-  }
-
-  function startCalibrationIfNeeded(view, runMode){
-    if (view !== 'cvr') return false;
-    cal.on = true;
-    cal.done = false;
-    cal.shots = 0;
-
-    showCal(true);
-    setCalStep(1);
-
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{ text:'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood:'neutral' }
-      }));
-    }catch(_){}
-
-    return true;
-  }
-
-  function finishCalibration(){
-    cal.on = false;
-    cal.done = true;
-    showCal(false);
-  }
-
-  window.addEventListener('hha:shoot', ()=>{
-    if (!cal.on) return;
-    if (cal.step !== 2) return;
-    cal.shots = Math.min(3, (cal.shots|0) + 1);
-    setCalStep(2);
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{ text:`Calibration ยิงแล้ว ${cal.shots}/3`, mood:'neutral' }
-      }));
-    }catch(_){}
-  }, {passive:true});
-
-  $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
-    if (!cal.on) return;
-    if (cal.step === 1){
-      setCalStep(2);
-      try{
-        window.dispatchEvent(new CustomEvent('hha:coach', {
-          detail:{ text:'ต่อไป: ยิงทดสอบ 3 ครั้ง (แตะจอ) 🎯', mood:'neutral' }
-        }));
-      }catch(_){}
-      return;
-    }
-    if (cal.step === 2 && cal.shots >= 3){
-      finishCalibration();
-      waitForEngine((E)=> startAfterCalibration(E));
-    }
-  });
-
-  $('btnCalSkip') && $('btnCalSkip').addEventListener('click', ()=>{
-    if (!cal.on) return;
-    finishCalibration();
-    waitForEngine((E)=> startAfterCalibration(E));
-  });
-
-  function startAfterCalibration(E){
-    const view = String(qs('view','mobile')||'mobile').toLowerCase();
-    const practiceSec = getPracticeSec(view);
-    if (view === 'cvr' && practiceSec > 0){
-      const diff = String(qs('diff','normal')||'normal').toLowerCase();
-      const style= String(qs('style','mix')||'mix').toLowerCase();
-      const seed = String(qs('seed', Date.now()) || Date.now());
-      startPractice(E, { diff, style, seed, practiceSec });
-      return;
-    }
-    startReal(E);
-  }
-
-  // ---------- PACK 14: Practice then real ----------
-  function startPractice(E, cfg){
-    practiceActive = true;
-    practiceDone = false;
-    $('vMode').textContent = 'PRACTICE';
-
-    const seedP = String(cfg.seed) + '-practice';
-    startIso = new Date().toISOString();
-
-    initViewHelper('cvr');
-    E.setLayerEl(getLayerEl());
-
-    // ✅ PATCH: practice uses runMode:'practice' + view:'cvr'
-    E.start(cfg.diff, {
-      runMode:'practice',
-      view:'cvr',
-      diff:cfg.diff,
-      style:cfg.style,
-      time: cfg.practiceSec,
-      seed: seedP
-    });
-
-    try{
-      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
-      H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
-    }catch(_){}
-
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{ text:`Practice ${cfg.practiceSec}s: ลองยิงให้แม่นก่อนเข้าเกมจริง!`, mood:'happy' }
-      }));
-    }catch(_){}
-  }
-
-  function startReal(E){
-    const view = String(qs('view','mobile')||'mobile').toLowerCase();
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const style= String(qs('style','mix')||'mix').toLowerCase();
-    const time = clamp(qs('time',90), 30, 180);
-    const seed = String(qs('seed', Date.now()) || Date.now());
-
-    $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
-    startIso = new Date().toISOString();
-
-    initViewHelper(view);
-    E.setLayerEl(getLayerEl());
-
-    // ✅ PATCH: pass view to engine
-    E.start(diff, { runMode: run, view, diff, style, time, seed });
-
-    // PACK 15: AI hooks attach (safe)
-    try{
-      const AI = window.GroupsVR && window.GroupsVR.AIHooks;
-      if (AI && AI.attach){
-        AI.attach({ runMode: run, seed, enabled: aiEnabled() && run!=='research' });
-      }
-    }catch(_){}
-  }
-
-  // ---------- Start ----------
-  function startFromParams(){
-    const view = String(qs('view','mobile')||'mobile').toLowerCase();
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-
-    setView(view);
     hookAudio();
-    initViewHelper(view);
 
-    const practiceSec = getPracticeSec(view);
+    // ---------- Summary / History / Logger ----------
+    const LS_LAST = 'HHA_LAST_SUMMARY';
+    const LS_HIST = 'HHA_SUMMARY_HISTORY';
+    let lastSummary = null;
 
-    const gated = startCalibrationIfNeeded(view, run);
-    if (gated) return;
+    function saveLast(summary){
+      try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
+      try{
+        const hist = JSON.parse(localStorage.getItem(LS_HIST)||'[]');
+        hist.unshift(summary);
+        localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
+      }catch{}
+    }
 
-    waitForEngine((E)=>{
-      if (view === 'cvr' && practiceSec > 0){
-        const diff = String(qs('diff','normal')||'normal').toLowerCase();
-        const style= String(qs('style','mix')||'mix').toLowerCase();
-        const seed = String(qs('seed', Date.now()) || Date.now());
-        startPractice(E, { diff, style, seed, practiceSec });
-        return;
-      }
-      startReal(E);
+    function postNow(summary){
+      try{
+        const P = window.GroupsVR && window.GroupsVR.postSummary;
+        P && P(summary);
+      }catch(_){}
+    }
+
+    // flush-hardened bind (BIND ONCE)
+    try{
+      const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
+      B && B(()=>lastSummary);
+    }catch(_){}
+
+    // End overlay
+    window.addEventListener('hha:end', (ev)=>{
+      const d = ev.detail||{};
+      lastSummary = d;
+      saveLast(lastSummary);
+      postNow(lastSummary);
+
+      $('endOverlay').classList.remove('hidden');
+      $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
+      $('endScore').textContent = String(d.scoreFinal ?? 0);
+      $('endRank').textContent  = String(d.grade ?? 'C');
+      $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
+      $('endMiss').textContent  = String(d.misses ?? 0);
+
+      const hub = String(qs('hub','')||'');
+      $('btnHub').style.display = hub ? 'inline-flex' : 'none';
+    }, {passive:true});
+
+    $('btnRestart').addEventListener('click', ()=> location.reload());
+
+    $('btnCopy').addEventListener('click', async ()=>{
+      if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
+      const ok = await copyText(JSON.stringify(lastSummary, null, 2));
+      alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
     });
-  }
 
-  startFromParams();
-})();
-</script>
+    // Back launcher (../groups-vr.html)
+    $('btnBackLauncher').addEventListener('click', ()=>{
+      const hub = String(qs('hub','')||'');
+      const u = new URL('../groups-vr.html', location.href);
+      if (hub) u.searchParams.set('hub', hub);
+
+      const log = String(qs('log','')||'');
+      if (log) u.searchParams.set('log', log);
+
+      const sp = new URL(location.href).searchParams;
+      sp.forEach((v,k)=>{
+        if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
+        if (k==='hub' || k==='log') return;
+        u.searchParams.set(k,v);
+      });
+
+      location.href = u.toString();
+    });
+
+    $('btnHub').addEventListener('click', ()=>{
+      const hub = String(qs('hub','')||'');
+      if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+      location.href = hub;
+    });
+
+  })();
+  </script>
+
 </body>
 </html>
