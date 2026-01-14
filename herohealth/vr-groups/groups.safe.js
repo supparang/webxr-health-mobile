@@ -1,8 +1,7 @@
 /* === B: /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49 + PATCH UI-OCCLUSION
+Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 ✅ FIX spawn bounds: no corner-clump, no out-of-screen
-✅ NEW: Anti-HUD spawn (elementFromPoint guard) — targets won’t spawn under HUD/Quest/Coach/Power/vr-ui
-✅ NEW: Expire fairness — good that was blocked by UI won’t count as miss
+✅ NEW: avoid spawning under HUD/Quest/Coach/Power via DOM rect blocks
 ✅ Hit radius scales by size + view (cVR assist)
 ✅ miniTotal/miniCleared tracked in summary (true counts)
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
@@ -44,7 +43,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     };
   }
 
-  function pick(rng, arr) { return arr[(rng() * arr.length) | 0]; }
+  function pick(rng, arr) {
+    return arr[(rng() * arr.length) | 0];
+  }
 
   function emit(name, detail) {
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
@@ -55,7 +56,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
   }
 
   function addBodyClass(c, on) {
-    DOC.body.classList.toggle(c, !!on);
+    try{ DOC.body.classList.toggle(c, !!on); }catch(_){}
   }
 
   function flashBodyFx(cls, ms){
@@ -72,45 +73,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     if (String(v || '').includes('vr')  || cls.includes('view-vr'))  return 'vr';
     if (String(v || '').includes('pc')  || cls.includes('view-pc'))  return 'pc';
     return 'mobile';
-  }
-
-  // ---------------- UI Occlusion Guard (PATCH) ----------------
-  function isBlockedByUI(x, y){
-    try{
-      const el = DOC.elementFromPoint(Math.round(x), Math.round(y));
-      if (!el) return false;
-
-      // OK if on target or within playLayer
-      if (el.closest && (el.closest('.playLayer') || el.closest('.fg-target'))) return false;
-
-      // blocked if under HUD/Quest/Coach/Power/vr-ui/overlay
-      if (el.closest && (
-        el.closest('.hud') ||
-        el.closest('.questTop') ||
-        el.closest('.coachWrap') ||
-        el.closest('.powerWrap') ||
-        el.closest('.hha-vr-ui') ||
-        el.closest('.overlay')
-      )) return true;
-
-      if (el.closest && !el.closest('.playLayer')) return true;
-      return false;
-    }catch(_){
-      return false;
-    }
-  }
-
-  function pickSafeSpawnXY(rng, rect, tries){
-    tries = Math.max(4, Number(tries)||8);
-    let x = 0, y = 0;
-    for (let k=0; k<tries; k++){
-      x = clamp((rng() * (rect.xMax - rect.xMin)) + rect.xMin, 8, rect.W - 8);
-      y = clamp((rng() * (rect.yMax - rect.yMin)) + rect.yMin, 8, rect.H - 8);
-      if (!isBlockedByUI(x,y)) return { x, y, ok:true };
-    }
-    x = clamp((rect.xMin + rect.xMax) * 0.55, 8, rect.W - 8);
-    y = clamp((rect.yMin + rect.yMax) * 0.62, 8, rect.H - 8);
-    return { x, y, ok: !isBlockedByUI(x,y) };
   }
 
   // ---------------- Content ----------------
@@ -190,34 +152,55 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     return 'C';
   }
 
-  // ---------------- Spawn bounds (PACK 26) ----------------
+  // ===================== SPAWN AVOID UI (NEW) =====================
+  function rectOf(sel){
+    const el = DOC.querySelector(sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (!r || r.width < 8 || r.height < 8) return null;
+    return { x1:r.left, y1:r.top, x2:r.right, y2:r.bottom };
+  }
+  function inflateRect(R, pad){
+    if (!R) return null;
+    pad = Number(pad)||0;
+    return { x1:R.x1-pad, y1:R.y1-pad, x2:R.x2+pad, y2:R.y2+pad };
+  }
+  function pointInRect(x,y,R){
+    return R && x>=R.x1 && x<=R.x2 && y>=R.y1 && y<=R.y2;
+  }
+
   function computePlayRect(view) {
     const W = Math.max(320, root.innerWidth  || 360);
     const H = Math.max(420, root.innerHeight || 640);
 
-    const padTopBase = 150;   // HUD + quest
-    const padBotBase = 130;   // power
-    const padLeftBase= 210;   // coach card
-    const padRight   = 24;
+    // base safe paddings (fallback)
+    const baseTop = clamp(140, 110, Math.round(H*0.28));
+    const baseBot = clamp(120, 96,  Math.round(H*0.26));
+    const side = 12;
 
-    const padTop  = clamp(padTopBase, 110, Math.round(H * 0.28));
-    const padBot  = clamp(padBotBase, 96,  Math.round(H * 0.26));
-    const padLeft = clamp(padLeftBase, 120, Math.round(W * 0.52));
+    let xMin = side, xMax = W - side;
+    let yMin = side, yMax = H - side;
 
-    const extraCenter = (view === 'cvr') ? 22 : 0;
+    if (view === 'cvr'){
+      xMin += 10; xMax -= 10;
+      yMin += 10; yMax -= 10;
+    }
 
-    let xMin = 12 + extraCenter;
-    let xMax = W - padRight - extraCenter;
-    let yMin = 12 + Math.round(H * 0.02);
-    let yMax = H - 12;
+    // fallback reserve
+    yMin = Math.max(yMin, baseTop);
+    yMax = Math.min(yMax, H - baseBot);
 
-    xMin = Math.max(xMin, padLeft);
-    yMin = Math.max(yMin, padTop);
-    yMax = Math.min(yMax, H - padBot);
+    const blocks = [
+      inflateRect(rectOf('.hud'), 10),
+      inflateRect(rectOf('.questTop'), 10),
+      inflateRect(rectOf('.coachWrap'), 10),
+      inflateRect(rectOf('.powerWrap'), 10),
+      inflateRect(rectOf('.hha-vr-ui'), 10),
+    ].filter(Boolean);
 
+    // ensure min area
     const minW = Math.max(120, Math.round(W * 0.34));
     const minH = Math.max(140, Math.round(H * 0.34));
-
     if ((xMax - xMin) < minW) {
       const relax = Math.round((minW - (xMax - xMin)) * 0.55);
       xMin = Math.max(10, xMin - relax);
@@ -237,7 +220,22 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     if (xMax <= xMin + 8) { xMin = 12; xMax = W - 12; }
     if (yMax <= yMin + 8) { yMin = 12; yMax = H - 12; }
 
-    return { W, H, xMin, xMax, yMin, yMax };
+    return { W, H, xMin, xMax, yMin, yMax, blocks };
+  }
+
+  function pickSpawnPointAvoidingUI(rng, R, tries){
+    tries = tries || 14;
+    for (let i=0; i<tries; i++){
+      const x = (rng() * (R.xMax - R.xMin)) + R.xMin;
+      const y = (rng() * (R.yMax - R.yMin)) + R.yMin;
+
+      let ok = true;
+      for (let b=0; b<R.blocks.length; b++){
+        if (pointInRect(x,y,R.blocks[b])) { ok = false; break; }
+      }
+      if (ok) return { x, y };
+    }
+    return { x: (R.xMin+R.xMax)/2, y: (R.yMin+R.yMax)/2 };
   }
 
   // ---------------- Engine ----------------
@@ -258,9 +256,11 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.comboMax = 0;
     this.misses = 0;
 
+    // ✅ PACK 49: pressure
     this.pressure = 0;        // 0..3
     this._lastPressureTip = 0;
 
+    // counts
     this.nTargetGoodSpawned = 0;
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
@@ -275,6 +275,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
+    // gameplay
     this.activeGroupIdx = 0;
     this.powerCharge = 0;
 
@@ -284,19 +285,23 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 
     this.spawnTmr = 0;
 
+    // quest
     this.goalsTotal = 2;
     this.goalIndex = 0;
     this.goalNow = 0;
     this.goalNeed = 18;
 
+    // mini
     this.mini = null;
     this.nextMiniAt = 0;
     this.miniTotal = 0;
     this.miniCleared = 0;
 
+    // targets
     this.targets = [];
     this._id = 0;
 
+    // coach
     this.coachLastAt = 0;
   }
 
@@ -304,6 +309,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.layerEl = el;
   };
 
+  // ✅ PACK 49: map misses -> pressure 0..3
   Engine.prototype._calcPressure = function(){
     const m = this.misses|0;
     if (m >= 14) return 3;
@@ -357,6 +363,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 
     this.view = getViewFromBodyOrParam(opts.view);
 
+    // deterministic always
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
     this.leftSec = Math.round(timeSec);
@@ -565,6 +572,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     const p = this.cfg.preset;
     const base = p.baseSpawnMs;
 
+    // adaptive only in play
     let speed = 1.0;
     if (this.cfg.runMode === 'play') {
       const acc = this._accuracyPct();
@@ -574,6 +582,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     }
     if (this.stormOn) speed *= 0.78;
 
+    // ✅ PACK 49: pressure multiplier (only play)
     let pressMul = 1.0;
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 1) pressMul = 0.94;
@@ -581,6 +590,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       if (this.pressure === 3) pressMul = 0.86;
     }
 
+    // PACK 15: AI director multiplier (only play)
     let aiMul = 1.0;
     try{
       const A = root.GroupsVR && root.GroupsVR.__ai;
@@ -601,12 +611,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     for (let i = this.targets.length - 1; i >= 0; i--) {
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
-        if (tg.kind === 'good') {
-          this.nExpireGood++;
-          const blockedNow = isBlockedByUI(tg.x, tg.y);
-          const blockedFlag = !!tg.noMissOnExpire;
-          if (!(blockedNow || blockedFlag)) this._onMiss('expire_good');
-        }
+        if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
         else if (tg.kind === 'wrong') { this.nExpireWrong++; }
         else if (tg.kind === 'junk') { this.nExpireJunk++; }
         this._removeTarget(i, 'expire');
@@ -623,12 +628,14 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     let wrongRate = p.wrongRate;
     let junkRate  = p.junkRate;
 
+    // ✅ PACK 49: pressure biases (only play)
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 1){ wrongRate += 0.02; junkRate += 0.01; }
       if (this.pressure === 2){ wrongRate += 0.05; junkRate += 0.02; }
       if (this.pressure === 3){ wrongRate += 0.08; junkRate += 0.03; }
     }
 
+    // PACK 15: pattern bias (only play)
     if (this.cfg.runMode === 'play'){
       try{
         const A = root.GroupsVR && root.GroupsVR.__ai;
@@ -640,6 +647,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       }catch(_){}
     }
 
+    // mild scaling only in play
     if (this.cfg.runMode === 'play') {
       wrongRate = clamp(wrongRate + Math.min(0.10, this.combo * 0.006), 0.05, 0.58);
       junkRate  = clamp(junkRate  + Math.min(0.08, this.combo * 0.004), 0.04, 0.42);
@@ -672,12 +680,14 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       this.nTargetJunkSpawned++;
     }
 
+    // ✅ PACK 49: pressure shrinks target a bit (only play)
     let size = p.targetSize * (kind === 'junk' ? 0.98 : 1.0);
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 2) size *= 0.96;
       if (this.pressure === 3) size *= 0.93;
     }
 
+    // ✅ PACK 49: pressure reduces lifetime (only play)
     let lifeMs = this.stormOn ? 2400 : 3100;
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 1) lifeMs = Math.round(lifeMs * 0.95);
@@ -694,6 +704,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 
     const emoji = pick(this.rng, gActive.emoji);
 
+    // ✅ PACK 49: pressure makes boss a bit tougher (only play)
     let hp = p.bossHp;
     if (this.cfg.runMode==='play'){
       if (this.pressure === 2) hp += 1;
@@ -729,10 +740,11 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     const view = this.view || getViewFromBodyOrParam();
     const R = computePlayRect(view);
 
-    // ✅ anti-HUD spawn
-    const P = pickSafeSpawnXY(this.rng, R, (view==='cvr'? 10 : 8));
-    const x = P.x;
-    const y = P.y;
+    // ✅ NEW: choose point avoiding real UI blocks
+    const P = pickSpawnPointAvoidingUI(this.rng, R, 16);
+
+    const x = clamp(P.x, 8, R.W - 8);
+    const y = clamp(P.y, 8, R.H - 8);
 
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
@@ -758,10 +770,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       bornAt: born,
       expireAt: born + (spec.lifeMs || 3000),
       bossHp: spec.bossHp || 0,
-      bossHpMax: spec.bossHpMax || 0,
-
-      // ✅ expire fairness
-      noMissOnExpire: isBlockedByUI(x,y) ? true : false
+      bossHpMax: spec.bossHpMax || 0
     };
 
     el.addEventListener('click', (e) => {
@@ -817,7 +826,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงวืด: ไม่เพิ่ม miss (กันเด็ก miss พุ่งจากการลองเล็ง)
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
@@ -830,6 +838,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
 
+    // boss
     if (tg.kind === 'boss') {
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
@@ -862,6 +871,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       return;
     }
 
+    // good
     if (tg.kind === 'good') {
       this.nHitGood++;
       this.hitGoodForAcc++;
@@ -899,6 +909,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       return;
     }
 
+    // wrong
     if (tg.kind === 'wrong') {
       this.nHitWrong++;
       this.totalJudgedForAcc++;
@@ -918,6 +929,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       return;
     }
 
+    // junk
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
@@ -937,6 +949,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this._emitCoach('โดนขยะ! ระวัง! 🗑️', 'sad');
   };
 
+  // ✅ PACK 49: Miss => pressure update
   Engine.prototype._onMiss = function (why) {
     this.misses += 1;
     emit('groups:progress', { kind: 'miss', why });
@@ -1046,10 +1059,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       miniTotal = this.mini.need | 0;
       miniPct = clamp((miniNow / Math.max(1, miniTotal)) * 100, 0, 100);
 
-      const t = nowMs();
+      const tt = nowMs();
       const left = (miniLeftMs != null)
         ? Number(miniLeftMs)
-        : Math.max(0, (this.mini.leftMs - (t - this.mini.startedAt)));
+        : Math.max(0, (this.mini.leftMs - (tt - this.mini.startedAt)));
       miniTimeLeftSec = Math.ceil(left / 1000);
     }
 
