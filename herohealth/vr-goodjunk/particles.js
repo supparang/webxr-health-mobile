@@ -1,96 +1,92 @@
 // === /herohealth/vr-goodjunk/particles.js ===
-// Simple FX Layer — score pop + burst + shockwave
-// Provides window.Particles + window.GAME_MODULES.Particles
+// Simple FX Layer — popText + burstAt
+// Exposes: window.Particles
 
-(function (root) {
+(function(root){
   'use strict';
   const doc = root.document;
-  if (!doc) return;
+  if(!doc) return;
 
   function ensureLayer(){
     let layer = doc.querySelector('.hha-fx-layer');
-    if (layer) return layer;
+    if(layer) return layer;
     layer = doc.createElement('div');
     layer.className = 'hha-fx-layer';
     layer.style.cssText = `
       position:fixed; inset:0; pointer-events:none; z-index:190;
-      overflow:hidden;
+      overflow:hidden; contain: layout style paint;
     `;
     doc.body.appendChild(layer);
     return layer;
   }
 
-  function popText(x,y,text,cls){
+  function popText(x,y,text,cls=''){
     const layer = ensureLayer();
     const el = doc.createElement('div');
     el.textContent = text;
     el.style.cssText = `
-      position:absolute;
-      left:${x}px; top:${y}px;
+      position:absolute; left:${x}px; top:${y}px;
       transform: translate(-50%,-50%);
-      font: 900 18px/1 system-ui;
-      color:#fff;
-      opacity:.98;
-      text-shadow: 0 10px 28px rgba(0,0,0,.55);
+      font: 900 16px/1 system-ui;
+      color: rgba(255,255,255,.95);
+      text-shadow: 0 10px 24px rgba(0,0,0,.55);
+      opacity: 0;
       will-change: transform, opacity;
-      pointer-events:none;
     `;
-    if (cls === 'big') el.style.fontSize = '28px';
-    if (cls === 'score') el.style.fontSize = '16px';
+    if(cls === 'big'){
+      el.style.fontSize = '20px';
+      el.style.fontWeight = '1200';
+    }
     layer.appendChild(el);
 
     const t0 = performance.now();
-    const dur = (cls === 'big') ? 720 : 520;
-
-    function tick(t){
+    const dur = 520;
+    function raf(t){
       const p = Math.min(1, (t - t0)/dur);
-      const dy = -22 * p;
-      const sc = 1 + 0.10*Math.sin(p*Math.PI);
-      el.style.transform = `translate(-50%,-50%) translateY(${dy}px) scale(${sc})`;
-      el.style.opacity = String(1 - 0.95*p);
-      if(p<1) requestAnimationFrame(tick);
+      const ease = 1 - Math.pow(1-p, 3);
+      el.style.opacity = String(1 - p*0.9);
+      el.style.transform = `translate(-50%,-50%) translateY(${-28*ease}px) scale(${0.96 + 0.18*ease})`;
+      if(p < 1) requestAnimationFrame(raf);
       else el.remove();
     }
-    requestAnimationFrame(tick);
+    requestAnimationFrame(raf);
   }
 
-  function burstAt(x,y,kind){
+  function burstAt(x,y,kind='star'){
     const layer = ensureLayer();
-    const n = (kind==='bad') ? 10 : 8;
+    const n = (kind==='bad') ? 10 : 12;
+
     for(let i=0;i<n;i++){
       const p = doc.createElement('div');
-      p.textContent = (kind==='bad') ? '💥' : (kind==='star' ? '✨' : '✦');
-      const ang = (Math.PI*2) * (i/n) + (Math.random()*0.4);
-      const r = (kind==='bad') ? 70 : 58;
-      const dx = Math.cos(ang)*r;
-      const dy = Math.sin(ang)*r;
+      p.textContent = (kind==='bad') ? '✖' : '✦';
       p.style.cssText = `
-        position:absolute;
-        left:${x}px; top:${y}px;
+        position:absolute; left:${x}px; top:${y}px;
         transform: translate(-50%,-50%);
-        font-size:${(kind==='bad')?20:18}px;
-        opacity:.95;
-        filter: drop-shadow(0 10px 25px rgba(0,0,0,.45));
+        font: 900 14px/1 system-ui;
+        color: rgba(255,255,255,.9);
+        opacity: 0;
+        will-change: transform, opacity;
       `;
       layer.appendChild(p);
 
-      const t0 = performance.now();
-      const dur = 520;
+      const ang = Math.random()*Math.PI*2;
+      const sp  = 28 + Math.random()*48;
+      const dx  = Math.cos(ang)*sp;
+      const dy  = Math.sin(ang)*sp;
+      const t0  = performance.now();
+      const dur = 420 + Math.random()*220;
 
-      function tick(t){
-        const q = Math.min(1, (t - t0)/dur);
-        const ease = 1 - Math.pow(1-q, 3);
-        p.style.transform = `translate(-50%,-50%) translate(${dx*ease}px,${dy*ease}px) scale(${1-0.25*q})`;
-        p.style.opacity = String(1 - q);
-        if(q<1) requestAnimationFrame(tick);
+      function raf(t){
+        const pr = Math.min(1, (t - t0)/dur);
+        const ease = 1 - Math.pow(1-pr, 3);
+        p.style.opacity = String(1 - pr);
+        p.style.transform = `translate(-50%,-50%) translate(${dx*ease}px, ${dy*ease}px) scale(${0.9 + 0.6*(1-pr)})`;
+        if(pr < 1) requestAnimationFrame(raf);
         else p.remove();
       }
-      requestAnimationFrame(tick);
+      requestAnimationFrame(raf);
     }
   }
 
-  const API = { popText, burstAt };
-  root.Particles = API;
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = API;
+  root.Particles = { popText, burstAt };
 })(window);
