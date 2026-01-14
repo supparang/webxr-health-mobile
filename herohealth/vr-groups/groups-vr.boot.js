@@ -1,228 +1,241 @@
-/* === /herohealth/vr-groups/groups-vr.boot.js ===
-GroupsVR Boot — PRODUCTION
-✅ Auto-detect view: pc/mobile/vr/cvr (no override)
-✅ Wire UI for events from groups.safe.js (B)
-✅ Practice 15s in cVR then auto start real run
-✅ End overlay + Back HUB + Restart
-*/
+// === C: /herohealth/vr-groups/groups-vr.boot.js ===
+// GroupsVR Boot — PRODUCTION
+// ✅ Auto-detect view (PC/Mobile/cVR/VR) WITHOUT overriding explicit ?view=
+// ✅ Normalizes/repairs query params (run/diff/time/seed/practice/ai/hub)
+// ✅ Tap-to-start compatibility: does NOT auto-start engine; it only sets body view + (optional) redirects
+// ✅ Optional redirect support:
+//    - If this boot is used in a "launcher wrapper" page, set window.GROUPS_VR_BOOT_TARGET = './vr-groups/groups-vr.html'
+//    - Otherwise it will just set body class and return the resolved payload
+//
+// Usage patterns:
+// A) Inside run page (vr-groups/groups-vr.html):
+//    - include <script src="./groups-vr.boot.js" defer></script>
+//    - boot will set body view class safely, and expose window.GROUPS_VR_BOOT_PAYLOAD
+//
+// B) Inside launcher page (herohealth/groups-vr.html):
+//    - set window.GROUPS_VR_BOOT_TARGET = './vr-groups/groups-vr.html'
+//    - include this boot; it will redirect to run page with normalized params
+//
+// Notes:
+// - Keeps hub/log passthrough
+// - Keeps unknown params passthrough (except ones we normalize)
+// - Will never force a redirect if already on the target path.
 
-(function(){
+(function () {
   'use strict';
 
-  const ROOT = window;
+  const WIN = window;
   const DOC = document;
 
-  const $ = (id)=>DOC.getElementById(id);
+  if (!WIN || !DOC) return;
 
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+  // Prevent double-boot
+  if (WIN.__HHA_GROUPS_BOOT_LOADED__) return;
+  WIN.__HHA_GROUPS_BOOT_LOADED__ = true;
+
+  // ---------- helpers ----------
+  function safeUrl() {
+    try { return new URL(WIN.location.href); }
+    catch { return null; }
   }
 
-  function toInt(v, def){
+  function qs(url, k, def = null) {
+    try { return url.searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+
+  function clamp(v, a, b) {
     v = Number(v);
-    return Number.isFinite(v) ? (v|0) : (def|0);
+    if (!isFinite(v)) v = a;
+    return v < a ? a : (v > b ? b : v);
   }
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  function isCoarsePointer(){
-    try{ return matchMedia('(pointer: coarse)').matches; } catch(_) { return false; }
+  function normalizeRun(v) {
+    v = String(v || 'play').toLowerCase();
+    if (v === 'research' || v === 'study') return 'research';
+    if (v === 'practice') return 'practice';
+    return 'play';
   }
 
-  function detectView(){
-    // DO NOT rely on ?view override
-    const isMobile = isCoarsePointer() || Math.min(screen.width, screen.height) <= 820;
-
-    // If user explicitly enters VR, CSS can switch to view-vr via body class in VR-UI (optional)
-    // For cVR (cardboard split) we detect by URL hint ONLY if "cvr=1" (safe toggle), not "view="
-    const cvr = qs('cvr','0') === '1';
-    if (cvr) return 'cvr';
-
-    return isMobile ? 'mobile' : 'pc';
+  function normalizeDiff(v) {
+    v = String(v || 'normal').toLowerCase();
+    if (v === 'easy' || v === 'normal' || v === 'hard') return v;
+    return 'normal';
   }
 
-  function setBodyView(view){
+  function normalizeView(v) {
+    v = String(v || '').toLowerCase();
+    if (v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
+    return '';
+  }
+
+  function detectView() {
+    // Do NOT override explicit view
+    const url = safeUrl();
+    const explicit = normalizeView(qs(url, 'view', ''));
+    if (explicit) return explicit;
+
+    const isTouch = ('ontouchstart' in WIN) || ((navigator.maxTouchPoints | 0) > 0);
+    const w = Math.max(1, WIN.innerWidth || 1);
+    const h = Math.max(1, WIN.innerHeight || 1);
+    const landscape = w >= h;
+
+    // heuristic: touch + landscape + wide => cVR
+    if (isTouch) {
+      if (landscape && w >= 740) return 'cvr';
+      return 'mobile';
+    }
+    return 'pc';
+  }
+
+  function setBodyView(view) {
     const b = DOC.body;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    if (view === 'cvr') b.classList.add('view-cvr');
-    else if (view === 'vr') b.classList.add('view-vr');
-    else if (view === 'pc') b.classList.add('view-pc');
-    else b.classList.add('view-mobile');
+    if (!b) return;
+    b.classList.remove('view-pc', 'view-mobile', 'view-vr', 'view-cvr');
+    b.classList.add('view-' + view);
   }
 
-  function setCoachMood(mood){
-    const img = $('coachImg');
-    if (!img) return;
-    const m = String(mood||'neutral');
-    const map = {
-      happy: '../img/coach-happy.png',
-      neutral: '../img/coach-neutral.png',
-      sad: '../img/coach-sad.png',
-      fever: '../img/coach-fever.png'
-    };
-    img.src = map[m] || map.neutral;
-  }
+  // keep extra params
+  const RESERVED = new Set([
+    'view','run','diff','time','seed','style','practice','ai','hub','log',
+    'autostart','nextRun'
+  ]);
 
-  function showEnd(summary){
-    const ov = $('endOverlay');
-    if (!ov) return;
-    ov.classList.remove('hidden');
-    ov.setAttribute('aria-hidden','false');
-
-    $('endScore').textContent = String(summary.scoreFinal ?? 0);
-    $('endRank').textContent  = String(summary.grade ?? '—');
-    $('endAcc').textContent   = String(summary.accuracyGoodPct ?? 0) + '%';
-
-    $('endMiss').textContent     = String(summary.misses ?? 0);
-    $('endMissAim').textContent  = String(summary.missAim ?? 0);
-    $('endMissMist').textContent = String(summary.missMistake ?? 0);
-
-    const r = String(summary.reason||'end');
-    $('endSub').textContent = (r === 'all-goals') ? 'ผ่านครบทุก GOAL! 🎉'
-                        : (r === 'time') ? 'หมดเวลา!'
-                        : (r === 'practice') ? 'จบฝึก'
-                        : 'จบเกม';
-
-    try{
-      if (ROOT.Particles && ROOT.Particles.celebrate){
-        ROOT.Particles.celebrate();
-      }
-    }catch(_){}
-  }
-
-  function hideEnd(){
-    const ov = $('endOverlay');
-    if (!ov) return;
-    ov.classList.add('hidden');
-    ov.setAttribute('aria-hidden','true');
-  }
-
-  function startEngine(runMode){
-    const eng = ROOT.GroupsVR && ROOT.GroupsVR.GameEngine;
-    if (!eng) return;
-
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const time = clamp(toInt(qs('time', 90), 90), 5, 180);
-    const seed = String(qs('seed', Date.now()));
-
-    const playLayer = $('playLayer');
-    if (playLayer) eng.setLayerEl(playLayer);
-
-    hideEnd();
-
-    eng.start(diff, {
-      runMode: runMode || String(qs('run','play')||'play'),
-      time,
-      seed
-    });
-  }
-
-  function boot(){
+  function buildPayload(url) {
     const view = detectView();
-    setBodyView(view);
 
-    // buttons
-    const hub = qs('hub', '../hub.html');
-    const btnBack = $('btnBack');
-    const btnRestart = $('btnRestart');
+    const run = normalizeRun(qs(url, 'run', 'play'));
+    const diff = normalizeDiff(qs(url, 'diff', 'normal'));
+    const style = String(qs(url, 'style', 'feel') || 'feel').toLowerCase();
 
-    if (btnBack){
-      btnBack.addEventListener('click', ()=>{
-        try{ location.href = hub; }catch(_){}
-      }, { passive:true });
+    // time: allow 30..180 default 90
+    const time = clamp(qs(url, 'time', 90), 30, 180);
+
+    // seed: if missing -> Date.now
+    const seed = String(qs(url, 'seed', '') || Date.now());
+
+    // practice: allow:
+    // - run=practice (preferred)
+    // - practice=1 (legacy)
+    // - practice=15 (seconds)
+    let practice = qs(url, 'practice', '');
+    let practiceSec = 0;
+    if (run === 'practice') {
+      practiceSec = 15;
+    } else if (String(practice) === '1') {
+      practiceSec = 15;
+    } else if (practice != null && String(practice).trim() !== '') {
+      practiceSec = clamp(practice, 0, 30);
     }
-    if (btnRestart){
-      btnRestart.addEventListener('click', ()=>{
-        startEngine('play');
-      }, { passive:true });
+
+    const aiRaw = String(qs(url, 'ai', '1'));
+    const ai = (aiRaw !== '0' && aiRaw !== 'false');
+
+    const hub = String(qs(url, 'hub', '') || '');
+    const log = String(qs(url, 'log', '') || '');
+    const nextRun = normalizeRun(qs(url, 'nextRun', 'play'));
+
+    // passthrough other params
+    const passthrough = {};
+    try {
+      url.searchParams.forEach((v, k) => {
+        if (RESERVED.has(k)) return;
+        passthrough[k] = v;
+      });
+    } catch (_) {}
+
+    return {
+      view,
+      run,
+      diff,
+      style,
+      time,
+      seed,
+      practiceSec,
+      ai,
+      hub,
+      log,
+      nextRun,
+      passthrough
+    };
+  }
+
+  function buildTargetUrl(targetHref, payload) {
+    const out = new URL(targetHref, WIN.location.href);
+
+    out.searchParams.set('view', payload.view);
+    out.searchParams.set('run', payload.run);
+    out.searchParams.set('diff', payload.diff);
+    out.searchParams.set('style', payload.style);
+    out.searchParams.set('time', String(payload.time));
+    out.searchParams.set('seed', String(payload.seed));
+
+    if (payload.practiceSec > 0) {
+      // keep practice param for visibility; run decides practice in A
+      out.searchParams.set('practice', String(payload.practiceSec === 15 ? 1 : payload.practiceSec));
+      // keep nextRun so practice can chain to play
+      out.searchParams.set('nextRun', payload.nextRun || 'play');
+    } else {
+      out.searchParams.delete('practice');
     }
 
-    // Event wires
-    ROOT.addEventListener('hha:time', (e)=>{
-      const left = e?.detail?.left;
-      if ($('hudTime')) $('hudTime').textContent = (left != null) ? String(left) : '—';
-    });
+    out.searchParams.set('ai', payload.ai ? '1' : '0');
 
-    ROOT.addEventListener('hha:score', (e)=>{
-      const d = e?.detail || {};
-      if ($('hudScore')) $('hudScore').textContent = String(d.score ?? 0);
-      if ($('hudCombo')) $('hudCombo').textContent = String(d.combo ?? 0);
-      if ($('hudMiss'))  $('hudMiss').textContent  = String(d.misses ?? 0);
-    });
+    if (payload.hub) out.searchParams.set('hub', payload.hub);
+    if (payload.log) out.searchParams.set('log', payload.log);
 
-    ROOT.addEventListener('hha:rank', (e)=>{
-      const d = e?.detail || {};
-      if ($('hudRank')) $('hudRank').textContent = String(d.grade ?? '—');
-      if ($('hudAcc'))  $('hudAcc').textContent  = String(d.accuracy ?? 0) + '%';
-    });
+    // passthrough unknown params
+    try {
+      Object.keys(payload.passthrough || {}).forEach((k) => {
+        out.searchParams.set(k, payload.passthrough[k]);
+      });
+    } catch (_) {}
 
-    ROOT.addEventListener('quest:update', (e)=>{
-      const d = e?.detail || {};
-      if ($('goalTitle')) $('goalTitle').textContent = String(d.goalTitle ?? '—');
-      if ($('goalNow'))   $('goalNow').textContent   = String(d.goalNow ?? 0);
-      if ($('goalTotal')) $('goalTotal').textContent = String(d.goalTotal ?? 0);
-      if ($('goalFill'))  $('goalFill').style.width  = String(d.goalPct ?? 0) + '%';
-      if ($('goalSub'))   $('goalSub').textContent   =
-        `GOAL ${toInt(d.goalIndex,0)+1}/${toInt(d.goalsTotal,0)} • หมู่: ${String(d.groupName||'—')}`;
+    return out.toString();
+  }
 
-      if ($('miniTitle')) $('miniTitle').textContent = String(d.miniTitle ?? '—');
-      if ($('miniNow'))   $('miniNow').textContent   = String(d.miniNow ?? 0);
-      if ($('miniTotal')) $('miniTotal').textContent = String(d.miniTotal ?? 0);
-      if ($('miniFill'))  $('miniFill').style.width  = String(d.miniPct ?? 0) + '%';
+  function samePath(a, b) {
+    try {
+      const A = new URL(a, WIN.location.href);
+      const B = new URL(b, WIN.location.href);
+      return A.origin === B.origin && A.pathname === B.pathname;
+    } catch {
+      return false;
+    }
+  }
 
-      const tLeft = toInt(d.miniTimeLeftSec, 0);
-      if ($('miniTimer')) $('miniTimer').textContent = (tLeft>0) ? `• ⏱️ ${tLeft}s` : '';
+  // ---------- main ----------
+  const url = safeUrl();
+  if (!url) return;
 
-      const urgent = (tLeft>0 && tLeft<=3);
-      DOC.body.classList.toggle('mini-urgent', urgent);
-      if ($('miniSub')) $('miniSub').textContent =
-        `MINI ผ่าน ${toInt(d.miniCountCleared,0)}/${toInt(d.miniCountTotal,0)} รอบ`;
-    });
+  const payload = buildPayload(url);
 
-    ROOT.addEventListener('groups:power', (e)=>{
-      const d = e?.detail || {};
-      const now = toInt(d.charge,0);
-      const thr = Math.max(1, toInt(d.threshold,1));
-      if ($('powerNow')) $('powerNow').textContent = String(now);
-      if ($('powerThr')) $('powerThr').textContent = String(thr);
-      if ($('powerFill')) $('powerFill').style.width = String(clamp((now/thr)*100,0,100)) + '%';
-    });
+  // expose payload for A (run) page or for debugging
+  WIN.GROUPS_VR_BOOT_PAYLOAD = payload;
 
-    ROOT.addEventListener('hha:coach', (e)=>{
-      const d = e?.detail || {};
-      if ($('coachText')) $('coachText').textContent = String(d.text || '');
-      setCoachMood(d.mood || 'neutral');
-    });
+  // set body view early (safe even on launcher pages)
+  // (if body not ready yet, retry once DOMContentLoaded)
+  if (DOC.body) setBodyView(payload.view);
+  else DOC.addEventListener('DOMContentLoaded', () => setBodyView(payload.view), { once: true });
 
-    ROOT.addEventListener('hha:end', (e)=>{
-      const d = e?.detail || {};
-      const reason = String(d.reason||'end');
+  // optional redirect (for launcher wrapper)
+  const target = String(WIN.GROUPS_VR_BOOT_TARGET || '').trim();
 
-      // practice mode: auto start real run (play)
-      if (reason === 'practice'){
-        hideEnd();
-        setTimeout(()=>startEngine('play'), 420);
+  // If target provided, redirect to it (unless already there)
+  if (target) {
+    try {
+      const nextUrl = buildTargetUrl(target, payload);
+
+      // avoid redirect loop
+      if (!samePath(nextUrl, WIN.location.href)) {
+        // Use replace to keep back-button clean for kids
+        WIN.location.replace(nextUrl);
         return;
       }
-
-      showEnd(d);
-    });
-
-    // start
-    const run = String(qs('run','play')||'play').toLowerCase();
-
-    // cVR: do 15s practice first (unless runMode already practice/research)
-    const isCVR = DOC.body.classList.contains('view-cvr');
-    if (isCVR && run === 'play'){
-      // practice uses same seed/time (engine handles practice end)
-      startEngine('practice');
-    } else {
-      startEngine(run);
+    } catch (_) {
+      // fall through
     }
   }
 
-  if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot, { once:true });
-  else boot();
-
+  // No redirect: done.
 })();
