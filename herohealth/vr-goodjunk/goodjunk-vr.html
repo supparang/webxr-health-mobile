@@ -5,19 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunkVR</title>
   <meta name="color-scheme" content="light dark" />
-
-  <!-- ✅ PACK I: lock relative paths to this folder -->
-  <base href="./" />
-
-  <!-- favicon: run อยู่ใน /vr-goodjunk -> ใช้ ../favicon.ico -->
   <link rel="icon" href="../favicon.ico" />
 
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- (optional) ถ้าจะให้ ENTER VR ผ่าน A-Frame แบบแน่น ๆ -->
-  <!-- <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script> -->
-
-  <!-- Global modules (อยู่โฟลเดอร์เดียวกันทั้งหมด) -->
+  <!-- Local modules (อยู่โฟลเดอร์เดียวกันทั้งหมด) -->
   <script defer src="./particles.js"></script>
   <script defer src="./hha-cloud-logger.js"></script>
   <script defer src="./vr-ui.js"></script>
@@ -27,14 +19,12 @@
 </head>
 
 <body class="gj view-mobile">
-  <!-- Playfield layers -->
-  <div class="gj-field" id="gj-field">
-    <div id="gj-layer" class="gj-layer"></div>
-    <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
-  </div>
+  <!-- Gameplay layers -->
+  <div id="gj-layer" class="gj-layer"></div>
+  <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
 
   <!-- TOPBAR -->
-  <header class="gj-topbar" id="gjTopbar">
+  <header class="gj-topbar">
     <div class="left">
       <div class="gj-chip"><b>GoodJunkVR</b> · <span id="gjChipMeta">view=auto · run=play</span></div>
     </div>
@@ -48,26 +38,14 @@
   <!-- HUD TOP -->
   <section class="gj-hud-top">
     <div class="hud-row">
-      <div class="hud-pill">
-        <div class="hud-label">SCORE</div>
-        <div class="hud-value" id="hud-score">0</div>
-      </div>
-      <div class="hud-pill">
-        <div class="hud-label">TIME</div>
-        <div class="hud-value"><span id="hud-time">0</span>s</div>
-      </div>
-      <div class="hud-pill warn">
-        <div class="hud-label">MISS</div>
-        <div class="hud-value" id="hud-miss">0</div>
-      </div>
-      <div class="hud-pill grade">
-        <div class="hud-label">GRADE</div>
-        <div class="hud-value" id="hud-grade">—</div>
-      </div>
+      <div class="hud-pill"><div class="hud-label">SCORE</div><div class="hud-value" id="hud-score">0</div></div>
+      <div class="hud-pill"><div class="hud-label">TIME</div><div class="hud-value"><span id="hud-time">0</span>s</div></div>
+      <div class="hud-pill warn"><div class="hud-label">MISS</div><div class="hud-value" id="hud-miss">0</div></div>
+      <div class="hud-pill grade"><div class="hud-label">GRADE</div><div class="hud-value" id="hud-grade">—</div></div>
     </div>
 
     <div class="quest-row">
-      <div class="quest-card goal">
+      <div class="quest-card">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
         <div class="q-desc" id="goalDesc">—</div>
         <div class="q-bar">
@@ -78,10 +56,10 @@
 
       <div class="quest-card mini">
         <div class="q-title">MINI</div>
-        <div class="q-desc" id="hud-mini">—</div>
+        <div class="q-desc"><span id="hud-mini">—</span></div>
         <div class="q-bar">
-          <div class="q-num" id="miniTimer">—</div>
-          <div class="q-hint">ผ่านแล้วสลับทันที</div>
+          <div class="q-num">⏱ <span id="miniTimer">—</span></div>
+          <div class="q-hint">ผ่านแล้วสลับ MINI ทันที</div>
         </div>
       </div>
     </div>
@@ -89,9 +67,9 @@
 
   <!-- HUD BOTTOM -->
   <section class="gj-hud-bot">
-    <div class="meter fever">
+    <div class="meter">
       <div class="meter-title">FEVER</div>
-      <div class="meter-bar"><div class="meter-fill" id="feverFill"></div></div>
+      <div class="meter-bar"><div class="meter-fill" id="feverFill" style="width:0%"></div></div>
       <div class="meter-num" id="feverText">0%</div>
       <div class="meter-tip">ยิ่งสูงยิ่งเสี่ยง</div>
     </div>
@@ -103,42 +81,30 @@
     </div>
   </section>
 
+  <!-- Missions Peek (optional overlay) -->
+  <div class="gj-peek" id="missionsPeek" aria-hidden="true">
+    <div class="peek-card">
+      <div class="peek-title">Missions</div>
+      <div class="peek-sub">GOAL: <span id="peekGoal">—</span></div>
+      <div class="peek-mini">MINI: <span id="peekMini">—</span></div>
+      <div class="peek-tip">ทิป: ถ้าเล่น cVR/VR ให้ยิงจาก crosshair (ปุ่มจาก vr-ui.js)</div>
+      <div class="row" style="margin-top:12px;">
+        <button class="gj-btn primary" id="btnClosePeek" type="button">ปิด</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Low time overlay -->
   <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
     <div class="gj-lowtime-ring"></div>
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- Missions peek (optional overlay) -->
-  <div class="gj-peek" id="missionsPeek" aria-hidden="true">
-    <div class="peek-card">
-      <div class="peek-title">Missions</div>
-      <div class="peek-sub">GOAL: <span id="peekGoal">—</span></div>
-      <div class="peek-mini">MINI: <span id="peekMini">—</span></div>
-      <div class="peek-tip">แตะพื้นจอเพื่อปิด · cVR ยิงจากเป้าเล็งกลางจอ</div>
-    </div>
-  </div>
-
-  <!-- ✅ PACK I: UI behaviors + hub fallback -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const hub = qs('hub', null);
 
-      function guessHub(){
-        // /herohealth/vr-goodjunk/goodjunk.html -> ../hub.html
-        try{
-          const u = new URL(location.href);
-          // ถ้าอยู่ใน /herohealth/vr-goodjunk/ ให้กลับไป /herohealth/hub.html
-          const p = u.pathname;
-          if(p.includes('/herohealth/vr-goodjunk/')) return u.origin + '/webxr-health-mobile/herohealth/hub.html'.replace('/webxr-health-mobile','');
-          // fallback generic: same folder parent
-          return '../hub.html';
-        }catch(_){
-          return '../hub.html';
-        }
-      }
-
-      // meta chip
       const meta = document.getElementById('gjChipMeta');
       const view = qs('view','auto');
       const run  = qs('run','play');
@@ -146,32 +112,30 @@
       const time = qs('time','80');
       if(meta) meta.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
 
-      // Back hub
       const btnBack = document.getElementById('btnBackHub');
-      const hub = qs('hub', null) || guessHub();
-      btnBack?.addEventListener('click', ()=> location.href = hub );
+      btnBack?.addEventListener('click', ()=> hub ? (location.href=hub) : alert('ยังไม่ได้ใส่ hub url'));
 
-      // Hide HUD
       document.getElementById('btnHideHud')?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
       });
 
-      // Missions overlay
+      // Missions peek
       const peek = document.getElementById('missionsPeek');
-      const btnM = document.getElementById('btnMissions');
-      const peekGoal = document.getElementById('peekGoal');
-      const peekMini = document.getElementById('peekMini');
-      btnM?.addEventListener('click', ()=>{
-        const on = !document.body.classList.contains('show-missions');
-        document.body.classList.toggle('show-missions', on);
-        if(peek) peek.setAttribute('aria-hidden', on ? 'false' : 'true');
-        if(peekGoal) peekGoal.textContent = document.getElementById('hud-goal')?.textContent || '—';
-        if(peekMini) peekMini.textContent = document.getElementById('hud-mini')?.textContent || '—';
-      });
-      peek?.addEventListener('pointerdown', ()=>{
-        document.body.classList.remove('show-missions');
-        peek.setAttribute('aria-hidden','true');
-      }, { passive:true });
+      const open = ()=>{ document.body.classList.add('show-missions'); peek?.setAttribute('aria-hidden','false'); };
+      const close= ()=>{ document.body.classList.remove('show-missions'); peek?.setAttribute('aria-hidden','true'); };
+      document.getElementById('btnMissions')?.addEventListener('click', open);
+      document.getElementById('btnClosePeek')?.addEventListener('click', close);
+
+      // mirror HUD text into peek
+      function syncPeek(){
+        const g = document.getElementById('hud-goal')?.textContent || '—';
+        const m = document.getElementById('hud-mini')?.textContent || '—';
+        const pg = document.getElementById('peekGoal');
+        const pm = document.getElementById('peekMini');
+        if(pg) pg.textContent = g;
+        if(pm) pm.textContent = m;
+      }
+      setInterval(syncPeek, 400);
     })();
   </script>
 </body>
