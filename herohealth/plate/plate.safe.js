@@ -1,23 +1,17 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION)
-// HHA Standard
-// ------------------------------------------------
-// ✅ Play / Research modes
-//   - play: adaptive ON + end-game rush
-//   - research/study: deterministic seed + adaptive OFF
-// ✅ Emits:
-//   hha:start, hha:score, hha:time, quest:update,
-//   hha:coach, hha:judge, hha:end
-// ------------------------------------------------
-
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — PATCHED (modules separated)
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
+import { createPlateBoss } from './plate.boss.js';
+import { createPlateAiTips } from './plate.ai-tips.js';
+import { computePlateMetrics } from './plate.metrics.js';
 
 /* ------------------------------------------------
  * Utilities
  * ------------------------------------------------ */
 const WIN = window;
+const DOC = document;
 
 const clamp = (v, a, b) => {
   v = Number(v) || 0;
@@ -73,25 +67,23 @@ const STATE = {
   hitJunk:0,
   expireGood:0,
 
-  // cfg / rng
+  // mode / cfg
   cfg:null,
   rng:Math.random,
 
-  engine:null
+  // spawn
+  engine:null,
+
+  // modules
+  boss:null,
+  tips:null
 };
 
 /* ------------------------------------------------
- * Event helper
+ * Event helpers
  * ------------------------------------------------ */
 function emit(name, detail){
   WIN.dispatchEvent(new CustomEvent(name, { detail }));
-}
-
-/* ------------------------------------------------
- * Coach helper
- * ------------------------------------------------ */
-function coach(msg){
-  emit('hha:coach', { msg, tag:'PlateCoach' });
 }
 
 /* ------------------------------------------------
@@ -117,19 +109,17 @@ function emitQuest(){
 }
 
 /* ------------------------------------------------
- * Accuracy
+ * Coach helper
  * ------------------------------------------------ */
-function accuracy(){
-  const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
-  if(total <= 0) return 1;
-  return STATE.hitGood / total;
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
 }
 
 /* ------------------------------------------------
  * Score helpers
  * ------------------------------------------------ */
 function addScore(v){
-  STATE.score += v;
+  STATE.score += (Number(v)||0);
   emit('hha:score', {
     score: STATE.score,
     combo: STATE.combo,
@@ -146,6 +136,19 @@ function resetCombo(){
   STATE.combo = 0;
 }
 
+function accuracy(){
+  const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
+  if(total <= 0) return 1;
+  return STATE.hitGood / total;
+}
+
+function addTime(bonusSec, currentLeft){
+  const b = Math.max(0, Number(bonusSec)||0);
+  STATE.timeLeft = Math.min(STATE.timeLeft + b, 120); // cap 120
+  emit('hha:time', { leftSec: STATE.timeLeft });
+  return STATE.timeLeft;
+}
+
 /* ------------------------------------------------
  * End game
  * ------------------------------------------------ */
@@ -155,7 +158,10 @@ function endGame(reason='timeup'){
   STATE.running = false;
   clearInterval(STATE.timer);
 
-  emit('hha:end', {
+  const bossSnap = STATE.boss?.snapshot?.() || {};
+  const metrics = computePlateMetrics(STATE, STATE.cfg || {}, bossSnap);
+
+  emit('hha:end', Object.assign({
     reason,
     scoreFinal: STATE.score,
     comboMax: STATE.comboMax,
@@ -166,14 +172,13 @@ function endGame(reason='timeup'){
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
-    accuracyGoodPct: Math.round(accuracy() * 100),
-
+    // groups
     g1: STATE.g[0],
     g2: STATE.g[1],
     g3: STATE.g[2],
     g4: STATE.g[3],
     g5: STATE.g[4]
-  });
+  }, metrics));
 }
 
 /* ------------------------------------------------
@@ -184,8 +189,18 @@ function startTimer(){
 
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
+
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
+
+    // ✅ boss trigger hook (play only)
+    STATE.boss?.maybeTrigger?.({
+      runMode: STATE.cfg?.runMode,
+      timeLeft: STATE.timeLeft,
+      rng: STATE.rng,
+      emit
+    });
+
     if(STATE.timeLeft <= 0){
       endGame('timeup');
     }
@@ -202,7 +217,16 @@ function onHitGood(groupIndex){
   addCombo();
   addScore(100 + STATE.combo * 5);
 
-  // goal: 5 หมู่
+  // boss hook first (gives extra score/time and judge events)
+  STATE.boss?.onGoodHit?.({
+    groupIndex,
+    emit,
+    addScore,
+    addTime,
+    timeLeft: STATE.timeLeft
+  });
+
+  // goal progress
   if(!STATE.goal.done){
     STATE.goal.cur = STATE.g.filter(v=>v>0).length;
     if(STATE.goal.cur >= STATE.goal.target){
@@ -211,13 +235,17 @@ function onHitGood(groupIndex){
     }
   }
 
-  // mini: accuracy
+  // mini (accuracy)
   const accPct = accuracy() * 100;
   STATE.mini.cur = Math.round(accPct);
   if(!STATE.mini.done && accPct >= STATE.mini.target){
     STATE.mini.done = true;
     coach('ความแม่นยำดีมาก! 👍');
   }
+
+  // tips
+  STATE.tips?.onAccuracy?.({ emit, accPct });
+  if(!STATE.goal.done) STATE.tips?.onMissingGroups?.({ emit, g: STATE.g });
 
   emitQuest();
 }
@@ -229,9 +257,7 @@ function onHitJunk(){
   addScore(-50);
   coach('ระวัง! ของหวาน/ทอด ⚠️');
 
-  // mini update ด้วย (ความแม่นตก)
-  STATE.mini.cur = Math.round(accuracy() * 100);
-  emitQuest();
+  STATE.tips?.onJunkHit?.({ emit, hitJunk: STATE.hitJunk });
 }
 
 function onExpireGood(){
@@ -239,28 +265,18 @@ function onExpireGood(){
   STATE.miss++;
   resetCombo();
 
-  STATE.mini.cur = Math.round(accuracy() * 100);
-  emitQuest();
+  const accPct = accuracy() * 100;
+  STATE.tips?.onAccuracy?.({ emit, accPct });
 }
 
 /* ------------------------------------------------
- * Spawn logic (เร่งนิด ๆ ช่วงท้าย)
+ * Spawn logic
  * ------------------------------------------------ */
 function makeSpawner(mount){
-  const run = (STATE.cfg.runMode || 'play').toLowerCase();
-  const baseRate = (STATE.cfg.diff === 'hard') ? 700 : 900;
-
-  const left = Number(STATE.timeLeft) || 0;
-  const rush = (run === 'play') && (left <= 15);
-
-  const rate = rush
-    ? Math.max(580, Math.round(baseRate * 0.85)) // เร่ง ~15%
-    : baseRate;
-
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
-    spawnRate: rate,
+    spawnRate: STATE.cfg.diff === 'hard' ? 700 : 900,
     sizeRange:[44,64],
     kinds:[
       { kind:'good', weight:0.7 },
@@ -268,7 +284,7 @@ function makeSpawner(mount){
     ],
     onHit:(t)=>{
       if(t.kind === 'good'){
-        const gi = t.groupIndex ?? Math.floor(STATE.rng()*5);
+        const gi = t.groupIndex ?? (Math.floor(STATE.rng()*5));
         onHitGood(gi);
       }else{
         onHitJunk();
@@ -312,6 +328,15 @@ export function boot({ mount, cfg }){
   }
 
   STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
+
+  // modules
+  STATE.boss = createPlateBoss({
+    triggerAtSec: 20,   // ปรับได้
+    timeBonusSec: 6
+  });
+  STATE.tips = createPlateAiTips({
+    cooldownMs: 4500
+  });
 
   emit('hha:start', {
     game:'plate',
