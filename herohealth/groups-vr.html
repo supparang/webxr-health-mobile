@@ -1,16 +1,20 @@
 <!-- === /herohealth/groups-vr.html ===
-GroupsVR Launcher — PRODUCTION
-✅ Auto-detect view (pc/mobile/cvr) BUT never override explicit ?view=
-✅ Tap-to-start gate (mobile) to unlock audio/fullscreen policies
-✅ Redirect to RUN: ./vr-groups/groups-vr.html with merged params
-✅ Keeps hub/log + passes through research ctx params
+GroupsVR Launcher — AUTO DETECT + TAP-TO-START (PRODUCTION)
+✅ Default: auto-detect view then auto-enter run page
+✅ Does NOT override explicit ?view=
+✅ Tap-to-start gate (mobile/cVR) before redirect
+✅ Optional menu: ?menu=1 or tap "เปลี่ยนโหมด"
+✅ Remembers last selection (localStorage)
+✅ Pass-through params: hub, log, run, diff, style, time, seed, ai, practice, studyId, etc.
+✅ Run page: ./vr-groups/groups-vr.html
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR Launcher</title>
+  <title>HeroHealth — GroupsVR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
@@ -18,16 +22,18 @@ GroupsVR Launcher — PRODUCTION
     :root{
       color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.86);
-      --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.20);
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
-      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
       --radius:22px;
       --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -38,150 +44,135 @@ GroupsVR Launcher — PRODUCTION
       width:100%; height:100%;
       margin:0; padding:0;
       overflow:hidden;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
         radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
         radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
         var(--bg);
-      color:var(--text);
+      color: var(--text);
     }
 
     .wrap{
-      position:fixed;
-      inset:0;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      position:fixed; inset:0;
       display:flex;
       align-items:center;
       justify-content:center;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
     }
-
     .card{
-      width:min(720px, 96vw);
-      border: 1px solid var(--stroke);
-      border-radius: calc(var(--radius) + 6px);
-      background: var(--panel);
-      box-shadow: 0 24px 80px rgba(0,0,0,.55);
-      overflow:hidden;
+      width:min(560px, 100%);
+      border-radius: 26px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.82);
+      box-shadow: 0 24px 70px rgba(0,0,0,.55);
+      padding: 16px;
+      backdrop-filter: blur(10px);
     }
-
-    .head{
-      padding:18px 18px 14px;
-      border-bottom: 1px solid rgba(148,163,184,.12);
-      background: linear-gradient(180deg, rgba(15,23,42,.35), rgba(2,6,23,0));
-    }
-
     .title{
-      font-weight:1000;
-      font-size:22px;
+      font-weight: 1000;
+      font-size: 20px;
       letter-spacing:.2px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .badge{
+      font-weight: 1000;
+      font-size: 12px;
+      padding:6px 10px;
+      border-radius: var(--pill);
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.60);
+      color: var(--text);
+      white-space:nowrap;
     }
     .sub{
       margin-top:6px;
-      color:var(--muted);
-      font-weight:800;
-      font-size:13px;
-      line-height:1.35;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 13px;
+      line-height: 1.35;
     }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:14px;
-      padding:16px 18px 18px;
+    .row{
+      margin-top: 12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
     }
-
-    .panel{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(15,23,42,.55);
-      border-radius: var(--radius);
-      padding:14px;
-    }
-
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 12px;
-      border-radius: var(--pill);
-      border: 1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.55);
-      font-weight:900;
-      font-size:13px;
-      color:var(--text);
-    }
-    .pill span{ color: var(--muted); font-weight:900; font-size:12px; }
-
-    .btnRow{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
     .btn{
-      flex:1 1 auto;
+      flex:1 1 160px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      gap:10px;
-      padding:12px 14px;
+      gap:8px;
+      padding: 12px;
       border-radius: 18px;
       border: 1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.50);
+      background: rgba(15,23,42,.62);
       color: var(--text);
       font-weight: 1000;
       cursor:pointer;
+      text-decoration:none;
       user-select:none;
     }
     .btn:active{ transform: translateY(1px); }
-
-    .btnStrong{
+    .btn-strong{
+      background: rgba(34,197,94,.20);
       border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.18);
     }
-    .btnWarn{
-      border-color: rgba(245,158,11,.35);
-      background: rgba(245,158,11,.14);
+    .btn-ghost{
+      background: rgba(2,6,23,.30);
     }
-
-    .note{
-      margin-top:10px;
+    .kvs{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .kv{
+      padding:12px;
+      border-radius: 18px;
+      background: rgba(15,23,42,.55);
+      border: 1px solid rgba(148,163,184,.16);
+    }
+    .k{
+      font-weight: 900;
+      font-size: 12px;
       color: var(--muted);
-      font-weight:800;
-      font-size:12px;
-      line-height:1.35;
     }
-
-    .mini{
-      font-size:12px;
+    .v{
+      margin-top:4px;
+      font-weight: 1000;
+      font-size: 14px;
+      word-break:break-word;
+    }
+    .small{
+      margin-top: 10px;
+      font-weight: 800;
+      font-size: 12px;
       color: var(--muted);
-      font-weight:800;
-      margin-top:10px;
-      opacity:.95;
     }
 
     /* Tap overlay */
     .tap{
-      position:fixed;
-      inset:0;
-      z-index:9999;
-      display:none;
+      position:fixed; inset:0;
+      z-index:200;
+      display:flex;
       align-items:center;
       justify-content:center;
-      padding:18px;
-      background: rgba(2,6,23,.82);
+      padding: 18px;
+      background: rgba(2,6,23,.72);
       backdrop-filter: blur(10px);
     }
-    .tap.on{ display:flex; }
-    .tapBox{
-      width:min(560px, 96vw);
-      border-radius: 26px;
-      border: 1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.88);
-      box-shadow: 0 24px 80px rgba(0,0,0,.60);
-      padding: 16px;
-    }
-    .tapTitle{ font-weight:1000; font-size:20px; }
-    .tapSub{ margin-top:8px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
-    .tapBtns{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
+    .tap.hidden{ display:none; }
 
-    @media (max-width: 760px){
-      .grid{ grid-template-columns: 1fr; }
+    /* Menu section (hidden by default) */
+    .menu{ margin-top: 12px; display:none; }
+    .menu.on{ display:block; }
+
+    @media (max-width: 480px){
+      .kvs{ grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -189,53 +180,61 @@ GroupsVR Launcher — PRODUCTION
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="head">
-        <div class="title">🥦 HeroHealth — Food Groups VR</div>
-        <div class="sub">
-          ระบบจะตรวจอุปกรณ์ให้แล้ว และพาเข้าเกมอัตโนมัติ (ไม่ override ถ้าคุณใส่ <b>?view=</b> มาแล้ว)
+      <div class="title">
+        <div>🥦 HeroHealth — GroupsVR</div>
+        <div class="badge" id="badgeMode">AUTO</div>
+      </div>
+
+      <div class="sub" id="statusLine">
+        กำลังตรวจอุปกรณ์… (auto-detect) แล้วจะเข้าเกมให้เอง
+      </div>
+
+      <div class="kvs">
+        <div class="kv">
+          <div class="k">View</div>
+          <div class="v" id="vView">—</div>
+        </div>
+        <div class="kv">
+          <div class="k">Run / Diff / Time</div>
+          <div class="v" id="vParams">—</div>
         </div>
       </div>
 
-      <div class="grid">
-        <div class="panel">
-          <div class="row" id="chips"></div>
+      <div class="row">
+        <button class="btn btn-strong" id="btnStart" type="button">▶️ เข้าเกมเลย</button>
+        <button class="btn btn-ghost" id="btnMenu" type="button">⚙️ เปลี่ยนโหมด</button>
+      </div>
 
-          <div class="btnRow">
-            <button class="btn btnStrong" id="btnGo" type="button">▶️ เข้าเกม</button>
-            <button class="btn btnWarn" id="btnCVR" type="button">🕶️ โหมด Cardboard (cVR)</button>
-            <button class="btn" id="btnMobile" type="button">📱 โหมด Mobile</button>
-            <button class="btn" id="btnPC" type="button">🖥️ โหมด PC</button>
-          </div>
-
-          <div class="note">
-            * ถ้าเข้า cVR: ในหน้าเล่นให้กด <b>ENTER VR</b> และ <b>RECENTER</b> (มาจาก vr-ui.js)
-          </div>
-
-          <div class="mini" id="autoLine">Auto: —</div>
+      <div class="menu" id="menuBox">
+        <div class="sub">เลือกโหมดเอง (จะจำค่าครั้งถัดไป)</div>
+        <div class="row">
+          <button class="btn" data-view="pc" type="button">🖥️ PC</button>
+          <button class="btn" data-view="mobile" type="button">📱 Mobile</button>
+          <button class="btn" data-view="cvr" type="button">🕶️ Cardboard (cVR)</button>
         </div>
-
-        <div class="panel">
-          <div style="font-weight:1000; font-size:14px;">ค่าที่จะส่งเข้าเกม</div>
-          <div class="mini" id="paramPreview">—</div>
+        <div class="small">
+          Tip: cVR จะมี Calibration (RECENTER + ยิง 3 ครั้ง) และถ้าใส่ <b>practice=1</b> จะฝึก 15s ก่อนเข้าเกมจริง
         </div>
+      </div>
+
+      <div class="small" id="debugLine">
+        ถ้าอยากให้มีเมนูตลอด: ใส่ <b>?menu=1</b>
       </div>
     </div>
   </div>
 
-  <!-- Tap-to-start overlay -->
-  <div class="tap" id="tap">
-    <div class="tapBox">
-      <div class="tapTitle">👆 Tap-to-start</div>
-      <div class="tapSub">
-        มือถือบางเครื่องต้อง “แตะ 1 ครั้ง” เพื่อปลดล็อกเสียง/เต็มจอ แล้วค่อยเข้าเกม
+  <!-- Tap-to-start gate -->
+  <div class="tap" id="tapGate">
+    <div class="card" style="max-width:520px;">
+      <div class="title">🟢 แตะเพื่อเริ่ม (Tap-to-start)</div>
+      <div class="sub">
+        บนมือถือ/การ์ดบอร์ด ต้องแตะก่อนเพื่อให้ “เสียง/สั่น/เต็มจอ/เซ็นเซอร์” ทำงานได้
       </div>
-      <div class="tapBtns">
-        <button class="btn btnStrong" id="tapGo" type="button">✅ แตะเพื่อเริ่ม</button>
-        <button class="btn" id="tapSkip" type="button">⏭️ ข้าม</button>
+      <div class="row">
+        <button class="btn btn-strong" id="tapGo" type="button">▶️ เริ่มแล้วเข้าเกม</button>
+        <button class="btn" id="tapSilent" type="button">⏭️ เข้าเกมแบบเงียบ</button>
       </div>
-      <div class="note" style="margin-top:10px;">
-        ถ้าไม่ต้องการ Tap-to-start: เปิดจาก PC ได้เลย (จะเข้าเกมอัตโนมัติ)
-      </div>
+      <div class="small" id="tapInfo">—</div>
     </div>
   </div>
 
@@ -245,152 +244,174 @@ GroupsVR Launcher — PRODUCTION
   const DOC = document;
   const WIN = window;
 
+  const LS_LAST_VIEW = 'HHA_GROUPS_LAST_VIEW';
+
   const $ = (id)=>DOC.getElementById(id);
+
   function qs(k, def=null){
     try { return new URL(location.href).searchParams.get(k) ?? def; }
     catch { return def; }
   }
 
+  function setText(id, txt){
+    const el = $(id);
+    if (el) el.textContent = String(txt ?? '');
+  }
+
   function isTouch(){
-    return ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+    return ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
   }
 
   function detectViewNoOverride(){
-    const explicit = String(qs('view','')).toLowerCase();
+    // ✅ do not override explicit view
+    const explicit = String(qs('view','')||'').toLowerCase().trim();
     if (explicit) return explicit;
+
+    // ✅ prefer remembered view if exists
+    const remembered = String(localStorage.getItem(LS_LAST_VIEW)||'').toLowerCase().trim();
+    if (remembered) return remembered;
 
     const touch = isTouch();
     const w = Math.max(1, WIN.innerWidth||1);
     const h = Math.max(1, WIN.innerHeight||1);
     const landscape = w >= h;
 
-    // conservative: default mobile on touch, pc otherwise
     if (touch){
-      // ถ้าคุณอยาก auto ไป cvr เมื่อ landscape กว้างมาก ให้เปิดบรรทัดนี้:
-      // if (landscape && w >= 860) return 'cvr';
+      if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
     return 'pc';
   }
 
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-
   function buildRunUrl(view){
+    // run page path
     const runUrl = new URL('./vr-groups/groups-vr.html', location.href);
 
-    // carry all params, but never override existing view
     const sp = new URL(location.href).searchParams;
-    sp.forEach((v,k)=>{
-      if (k === 'view') return;
-      runUrl.searchParams.set(k, v);
-    });
 
-    const explicit = String(qs('view',''));
-    if (explicit){
-      runUrl.searchParams.set('view', explicit);
-    } else {
-      runUrl.searchParams.set('view', view);
+    // keep all params, but ensure view is set
+    sp.forEach((v,k)=>{
+      runUrl.searchParams.set(k,v);
+    });
+    runUrl.searchParams.set('view', view);
+
+    // defaults if missing
+    if (!runUrl.searchParams.get('run'))  runUrl.searchParams.set('run', 'play');
+    if (!runUrl.searchParams.get('diff')) runUrl.searchParams.set('diff', 'easy');
+    if (!runUrl.searchParams.get('time')) runUrl.searchParams.set('time', '90');
+    if (!runUrl.searchParams.get('style')) runUrl.searchParams.set('style', 'feel');
+
+    if (!runUrl.searchParams.get('seed')){
+      runUrl.searchParams.set('seed', String(Date.now()));
     }
 
-    if (!runUrl.searchParams.get('run'))  runUrl.searchParams.set('run', 'play');
-    if (!runUrl.searchParams.get('diff')) runUrl.searchParams.set('diff', 'normal');
-    if (!runUrl.searchParams.get('time')) runUrl.searchParams.set('time', '90');
-    if (!runUrl.searchParams.get('seed')) runUrl.searchParams.set('seed', String(Date.now()));
     return runUrl;
   }
 
-  async function tryFullscreen(){
-    try{
-      const el = DOC.documentElement;
-      if (el.requestFullscreen && !DOC.fullscreenElement) await el.requestFullscreen();
-    }catch(_){}
+  function needsTapGate(view){
+    // safest: any touch device requires tap gate
+    if (isTouch()) return true;
+    // also gate cvr even on some desktops (rare)
+    if (String(view||'') === 'cvr') return true;
+    return false;
   }
 
-  function renderChips(view){
-    const chips = $('chips');
-    chips.innerHTML = '';
-
-    function add(label, val){
-      const el = DOC.createElement('div');
-      el.className = 'pill';
-      el.innerHTML = `<span>${label}</span>${val}`;
-      chips.appendChild(el);
-    }
-
-    add('VIEW', view);
-    add('RUN', String(qs('run','play')).toUpperCase());
-    add('DIFF', String(qs('diff','normal')).toUpperCase());
-    add('TIME', String(qs('time','90')) + 's');
-    add('AI', String(qs('ai','0')));
-    add('SEED', String(qs('seed','auto')).slice(0, 10) + '…');
+  function showTapGate(on, info){
+    const el = $('tapGate');
+    if (!el) return;
+    el.classList.toggle('hidden', !on);
+    setText('tapInfo', info || '');
   }
 
-  function renderPreview(runUrl){
-    const pv = $('paramPreview');
-    const sp = runUrl.searchParams;
-    const keys = [];
-    sp.forEach((v,k)=> keys.push([k,v]));
-    keys.sort((a,b)=>a[0].localeCompare(b[0]));
-    pv.textContent = keys.map(([k,v])=>`${k}=${v}`).join('  •  ');
+  function go(view){
+    try{ localStorage.setItem(LS_LAST_VIEW, String(view||'')); }catch(_){}
+    const u = buildRunUrl(view).toString();
+    location.href = u;
   }
 
-  function showTap(on){
-    $('tap').classList.toggle('on', !!on);
-  }
+  // UI init
+  const view = String(detectViewNoOverride()||'mobile').toLowerCase();
+  const run  = String(qs('run','play')||'play').toLowerCase();
+  const diff = String(qs('diff','easy')||'easy').toLowerCase();
+  const time = String(qs('time','90')||'90');
+  const style= String(qs('style','feel')||'feel').toLowerCase();
 
-  async function go(view, needTap){
-    const runUrl = buildRunUrl(view);
-    renderPreview(runUrl);
+  setText('vView', view.toUpperCase());
+  setText('vParams', `${run.toUpperCase()} • ${diff.toUpperCase()} • ${time}s • ${style}`);
+  setText('badgeMode', (qs('view','') ? 'EXPLICIT' : 'AUTO'));
 
-    if (needTap){
-      showTap(true);
+  const menuForced = String(qs('menu','0')||'0');
+  const showMenuNow = (menuForced === '1' || menuForced === 'true');
 
-      const onGo = async ()=>{
-        showTap(false);
-        await tryFullscreen();
-        location.href = runUrl.toString();
-      };
-      const onSkip = ()=>{
-        showTap(false);
-        location.href = runUrl.toString();
-      };
+  const menuBox = $('menuBox');
+  if (menuBox && showMenuNow) menuBox.classList.add('on');
 
-      $('tapGo').onclick = onGo;
-      $('tapSkip').onclick = onSkip;
-      $('tap').onclick = (e)=>{
-        if (e.target && e.target.id === 'tap') onGo();
-      };
+  $('btnMenu') && $('btnMenu').addEventListener('click', ()=>{
+    if (!menuBox) return;
+    menuBox.classList.toggle('on');
+  });
+
+  // manual view buttons
+  DOC.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const v = String(btn.getAttribute('data-view')||'mobile').toLowerCase();
+      try{ localStorage.setItem(LS_LAST_VIEW, v); }catch(_){}
+      setText('vView', v.toUpperCase());
+      setText('badgeMode', 'MANUAL');
+    }, {passive:true});
+  });
+
+  // Start button uses current vView label (from text) OR last stored
+  $('btnStart') && $('btnStart').addEventListener('click', ()=>{
+    const cur = String($('vView')?.textContent||view).toLowerCase();
+    const chosen = (cur.includes('cvr') ? 'cvr' : (cur.includes('pc') ? 'pc' : 'mobile'));
+    if (needsTapGate(chosen)){
+      showTapGate(true, `กำลังจะเข้าโหมด ${chosen.toUpperCase()}…`);
       return;
     }
+    go(chosen);
+  }, {passive:true});
 
-    location.href = runUrl.toString();
-  }
+  // Tap gate buttons
+  $('tapGo') && $('tapGo').addEventListener('click', ()=>{
+    const cur = String($('vView')?.textContent||view).toLowerCase();
+    const chosen = (cur.includes('cvr') ? 'cvr' : (cur.includes('pc') ? 'pc' : 'mobile'));
+    showTapGate(false);
+    go(chosen);
+  }, {passive:true});
 
-  function init(){
-    const viewAuto = detectViewNoOverride();
-    renderChips(viewAuto);
+  $('tapSilent') && $('tapSilent').addEventListener('click', ()=>{
+    const cur = String($('vView')?.textContent||view).toLowerCase();
+    const chosen = (cur.includes('cvr') ? 'cvr' : (cur.includes('pc') ? 'pc' : 'mobile'));
+    showTapGate(false);
+    go(chosen);
+  }, {passive:true});
 
-    const runUrl = buildRunUrl(viewAuto);
-    renderPreview(runUrl);
-
-    $('autoLine').textContent = `Auto: ${viewAuto}  •  touch=${isTouch() ? 'yes' : 'no'}  •  explicitView=${String(qs('view','')||'')||'—'}`;
-
-    $('btnGo').onclick = ()=> go(viewAuto, isTouch());
-    $('btnCVR').onclick = ()=> go('cvr', isTouch());
-    $('btnMobile').onclick = ()=> go('mobile', isTouch());
-    $('btnPC').onclick = ()=> go('pc', false);
-
-    // Auto enter on desktop, but leave touch to user tap
-    if (!isTouch()){
-      go(viewAuto, false);
+  // Auto-enter (unless menu forced)
+  if (!showMenuNow){
+    const auto = String(qs('auto','1')||'1');
+    if (auto === '1' || auto === 'true'){
+      // show tap gate if needed, else go immediately
+      if (needsTapGate(view)){
+        showTapGate(true, `Auto-detect: ${view.toUpperCase()} • แตะหนึ่งครั้งแล้วจะเข้าเกม`);
+        // Also allow tapping anywhere on gate
+        $('tapGate') && $('tapGate').addEventListener('click', (e)=>{
+          const id = (e && e.target && e.target.id) ? e.target.id : '';
+          if (id === 'tapGo' || id === 'tapSilent') return;
+          showTapGate(false);
+          go(view);
+        }, {passive:true});
+      }else{
+        // desktop: go now
+        go(view);
+      }
     }
+  }else{
+    // menu mode: hide tap gate until user presses start
+    showTapGate(false);
+    setText('statusLine', 'โหมดเมนูเปิดอยู่ (menu=1) เลือกแล้วกด “เข้าเกมเลย”');
   }
 
-  if (DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', init, { once:true });
-  } else {
-    init();
-  }
 })();
 </script>
 </body>
