@@ -26,17 +26,19 @@
       --sar: env(safe-area-inset-right, 0px);
     }
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; background:radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 55%),
-                                 radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 55%),
-                                 var(--bg);
-              font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--text); }
+    html,body{ height:100%; margin:0; background:
+      radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 55%),
+      radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 55%),
+      var(--bg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--text);
+    }
     .wrap{
       min-height:100%;
       padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
       display:grid; place-items:center;
     }
     .card{
-      width:min(860px, 100%);
+      width:min(880px, 100%);
       background: var(--panel);
       border: 1px solid var(--stroke);
       border-radius: var(--radius);
@@ -45,13 +47,8 @@
       padding: 18px;
       display:grid; gap:14px;
     }
-    .top{
-      display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
-    }
-    .title{
-      font-weight:900; letter-spacing:.2px;
-      font-size: 20px;
-    }
+    .top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .title{ font-weight:900; letter-spacing:.2px; font-size: 20px; }
     .sub{ color:var(--muted); font-weight:700; font-size:13px; line-height:1.35; }
     .badges{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
     .chip{
@@ -61,14 +58,8 @@
       font-weight:800; font-size:12px; color:var(--text);
     }
     .chip b{ color:var(--cyan); }
-    .grid{
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:12px;
-    }
-    @media (max-width: 760px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    .grid{ display:grid; grid-template-columns: 1.2fr .8fr; gap:12px; }
+    @media (max-width: 760px){ .grid{ grid-template-columns: 1fr; } }
     .panel{
       background: var(--panel2);
       border: 1px solid var(--stroke);
@@ -92,22 +83,10 @@
     }
     .btn:hover{ border-color: rgba(34,197,94,.35); }
     .btn:active{ transform: translateY(1px) scale(.99); }
-    .btn.primary{
-      background: rgba(34,197,94,.18);
-      border-color: rgba(34,197,94,.35);
-    }
-    .btn.cyan{
-      background: rgba(34,211,238,.14);
-      border-color: rgba(34,211,238,.30);
-    }
-    .btn.warn{
-      background: rgba(245,158,11,.14);
-      border-color: rgba(245,158,11,.28);
-    }
-    .mini{
-      font-size:12px; font-weight:800; color:var(--muted);
-      line-height:1.35;
-    }
+    .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); }
+    .btn.cyan{ background: rgba(34,211,238,.14); border-color: rgba(34,211,238,.30); }
+    .btn.warn{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.28); }
+    .mini{ font-size:12px; font-weight:800; color:var(--muted); line-height:1.35; }
     .linkbtn{
       appearance:none; border:none; background:transparent; color:var(--muted);
       font-weight:900; cursor:pointer; padding:8px 10px; border-radius:999px;
@@ -125,8 +104,8 @@
         <div>
           <div class="title">Hydration Quest 💧 (Launcher)</div>
           <div class="sub">
-            เข้าเล่นได้ทุกโหมด: PC / Mobile / Cardboard — มี Auto-detect + จำโหมดล่าสุด<br/>
-            ถ้า auto เดาผิด กด “ยกเลิก” แล้วเลือกโหมดเองได้ทันที
+            root = launcher • folder = run<br/>
+            Auto-detect + ปุ่มเลือกโหมด + ยกเลิก auto-run ได้
           </div>
           <div class="badges">
             <div class="chip">Auto: <b id="autoMode">-</b></div>
@@ -158,21 +137,21 @@
           </div>
 
           <div class="mini" style="margin-top:4px">
-            • Kids-friendly: ใส่ <code>?kids=1</code><br/>
+            • Kids-friendly: <code>?kids=1</code><br/>
             • วิจัย: <code>?run=research&seed=...</code><br/>
             • ส่งชีต: <code>?log=https://script.google.com/macros/s/.../exec</code>
           </div>
         </div>
 
         <div class="panel">
-          <h3>ดีบักเร็ว</h3>
+          <h3>Run page (folder)</h3>
           <div class="mini">
-            ถ้าคุณเคยเจอ link ซ้ำโฟลเดอร์ (เช่น <code>/hydration-vr/hydration-vr/hydration-vr.html</code>) มันจะ 404<br/>
-            Run page ที่ถูกต้องคือ: <code>/herohealth/hydration-vr/hydration-vr.html</code>
+            Run จะถูกส่งไปที่:<br/>
+            <code id="runPath">/herohealth/hydration-vr/hydration-vr.html</code>
           </div>
           <div class="hr"></div>
           <div class="mini">
-            โหมด Cardboard จะส่ง <code>view=cvr&cardboard=1</code> ไปให้ loader เปิด split layer L/R อัตโนมัติ
+            Cardboard จะส่ง <code>view=cvr&cardboard=1</code> ให้ loader เปิด L/R layers อัตโนมัติ
           </div>
         </div>
       </div>
@@ -183,7 +162,8 @@
 (function(){
   'use strict';
 
-  const RUN_PAGE = './hydration-vr/hydration-vr.html'; // ✅ ไปที่ run ในโฟลเดอร์
+  // ✅ root launcher -> folder run
+  const RUN_PAGE = './hydration-vr/hydration-vr.html';
   const LAST_KEY = 'HHA_LAST_VIEW_hydration';
 
   const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
@@ -195,29 +175,23 @@
     const landscape = w >= h;
 
     if (!isTouch) return { view:'pc', cardboard:false, text:'PC' };
-
-    // มือถือ/แท็บเล็ต
-    if (landscape && w >= 740) return { view:'cvr', cardboard:false, text:'cVR (mobile landscape)' };
+    if (landscape && w >= 740) return { view:'cvr', cardboard:false, text:'cVR (landscape)' };
     return { view:'mobile', cardboard:false, text:'Mobile' };
   }
 
-  function readLast(){
-    try{ return localStorage.getItem(LAST_KEY) || ''; }catch(_){ return ''; }
-  }
-  function saveLast(v){
-    try{ localStorage.setItem(LAST_KEY, v); }catch(_){}
-  }
+  function readLast(){ try{ return localStorage.getItem(LAST_KEY) || ''; }catch(_){ return ''; } }
+  function saveLast(v){ try{ localStorage.setItem(LAST_KEY, v); }catch(_){ } }
 
   function buildRunUrl(view, cardboard){
     const u = new URL(RUN_PAGE, location.href);
+    const src = new URL(location.href);
 
-    // pass-through params (อยากให้คงค่าที่ตั้งจาก HUB)
+    // pass-through params
     const pass = [
       'hub','run','runMode','diff','time','durationPlannedSec','seed','sessionId','studentKey',
       'studyId','conditionGroup','sessionOrder','blockLabel','siteCode',
       'projectTag','timestampIso','ts','log','kids','water'
     ];
-    const src = new URL(location.href);
     for (const k of pass){
       const v = src.searchParams.get(k);
       if (v !== null && v !== '') u.searchParams.set(k, v);
@@ -226,11 +200,11 @@
     // enforce view
     if (view) u.searchParams.set('view', view);
 
-    // cardboard flag
+    // cardboard flag (สำคัญกับ loader)
     if (cardboard) u.searchParams.set('cardboard', '1');
     else u.searchParams.delete('cardboard');
 
-    // cache bust (ถ้าไม่มี)
+    // cache bust
     if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
 
     return u.toString();
@@ -241,15 +215,15 @@
     location.href = buildRunUrl(view, !!cardboard);
   }
 
-  // ----- UI bind -----
+  // UI fill
   const auto = detectAuto();
   const last = readLast();
   const explicitView = String(qs('view','')).toLowerCase();
 
-  // display chips
   document.getElementById('autoMode').textContent = auto.text;
   document.getElementById('autoMode2').textContent = auto.text;
   document.getElementById('lastMode').textContent = last || '-';
+  document.getElementById('runPath').textContent = '/herohealth/hydration-vr/hydration-vr.html';
 
   const run = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
   const diff = String(qs('diff','normal') || 'normal').toLowerCase();
@@ -259,7 +233,7 @@
   document.getElementById('diffMode').textContent = diff;
   document.getElementById('timeMode').textContent = time;
 
-  // hub
+  // hub back
   document.getElementById('btnGoHub').addEventListener('click', ()=>{
     const hub = String(qs('hub','./hub.html'));
     location.href = hub;
@@ -270,7 +244,7 @@
   document.getElementById('btnMobile').addEventListener('click', ()=>go('mobile', false));
   document.getElementById('btnCardboard').addEventListener('click', ()=>go('cvr', true));
 
-  // auto-enter with cancel
+  // auto-run with cancel
   const cdEl = document.getElementById('cd');
   const autoRow = document.getElementById('autoRow');
   const btnCancel = document.getElementById('btnCancelAuto');
@@ -283,7 +257,7 @@
     btnCancel.style.opacity = .55;
   });
 
-  // ถ้ามี explicit view (ครูตั้งมาแล้ว) หรือมี last (เคยเลือกแล้ว) => ไม่ auto-run
+  // If explicit view OR last mode exists => do not auto-run
   if (explicitView || last){
     autoRow.parentElement.remove();
   } else {
