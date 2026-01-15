@@ -1,11 +1,12 @@
 // === /herohealth/vr/particles.js ===
-// Particles / FX Layer — PRODUCTION (ULTRA but light)
+// Particles / FX Layer — PRODUCTION (ULTRA but light) [PATCHED]
 // Provides: window.Particles + window.GAME_MODULES.Particles
 // ✅ popText(x,y,text,cls,opts)
 // ✅ burstAt(x,y,kind,opts)
 // ✅ ringPulse(x,y,kind,opts)
 // ✅ celebrate(kind,opts)
 // ✅ pointer-events none, z-index high, safe cleanup
+// ✅ PATCH: body-not-ready safe + lazy layer + warmup after DOM ready + no-throw
 
 (function (root) {
   'use strict';
@@ -20,9 +21,20 @@
   const now = () => (root.performance ? performance.now() : Date.now());
   const r01 = () => Math.random();
 
+  function ensureBody(){
+    return doc.body || doc.querySelector('body');
+  }
+
   function ensureLayer() {
     let layer = doc.querySelector('.hha-fx-layer');
     if (layer) return layer;
+
+    const body = ensureBody();
+    if (!body) {
+      // body ยังไม่พร้อม (บางจังหวะบนมือถือ/aframe) => อย่า throw
+      return null;
+    }
+
     layer = doc.createElement('div');
     layer.className = 'hha-fx-layer';
     layer.style.cssText = [
@@ -32,7 +44,17 @@
       'z-index:190',
       'overflow:hidden'
     ].join(';');
-    doc.body.appendChild(layer);
+    body.appendChild(layer);
+
+    // lock important styles (กันโดน css อื่น override)
+    try{
+      layer.style.position = 'fixed';
+      layer.style.inset = '0';
+      layer.style.pointerEvents = 'none';
+      layer.style.zIndex = '190';
+      layer.style.overflow = 'hidden';
+    }catch(_){}
+
     return layer;
   }
 
@@ -64,6 +86,8 @@
   // ---------- FX: popText ----------
   function popText(x, y, text, cls = null, opts = null) {
     const layer = ensureLayer();
+    if (!layer) return;
+
     const size = clamp(Number(opts?.size || 18), 12, 44);
     const life = clamp(Number(opts?.lifeMs || 650), 260, 1500);
     const rise = clamp(Number(opts?.risePx || 44), 16, 120);
@@ -108,6 +132,8 @@
   // ---------- FX: ringPulse ----------
   function ringPulse(x, y, kind = 'good', opts = null) {
     const layer = ensureLayer();
+    if (!layer) return;
+
     const size = clamp(Number(opts?.size || 160), 80, 520);
     const life = clamp(Number(opts?.lifeMs || 520), 240, 1500);
     const col = opts?.color || kindColor(kind);
@@ -149,6 +175,8 @@
   // ---------- FX: burstAt ----------
   function burstAt(x, y, kind = 'good', opts = null) {
     const layer = ensureLayer();
+    if (!layer) return;
+
     const col = opts?.color || kindColor(kind);
     const count = clamp(Number(opts?.count || 12), 6, 40);
     const life = clamp(Number(opts?.lifeMs || 520), 240, 1200);
@@ -201,6 +229,8 @@
   // ---------- FX: celebrate ----------
   function celebrate(kind = 'win', opts = null) {
     const layer = ensureLayer();
+    if (!layer) return;
+
     const W = doc.documentElement.clientWidth || 360;
     const H = doc.documentElement.clientHeight || 640;
 
@@ -236,9 +266,22 @@
     killLater(flash, 220);
   }
 
+  // ---------- warmup after DOM ready ----------
+  function ensureAfterReady(){
+    try { ensureLayer(); } catch (_) {}
+  }
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', ensureAfterReady, { once:true });
+  } else {
+    ensureAfterReady();
+  }
+
   const api = { popText, burstAt, ringPulse, celebrate };
 
   NS.Particles = api;
   root.Particles = api;
+
+  // Optional debug (comment out if you want silence)
+  // try { console.log('[HHA] particles ready', !!root.Particles); } catch(_){}
 
 })(window);
