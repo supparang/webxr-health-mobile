@@ -1,8 +1,8 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR (PRODUCTION) — HHA Standard UI + FX
+GoodJunkVR (PRODUCTION) — HHA Standard UI + ULTRA FX
 ✅ view: pc / mobile / vr / cvr
 ✅ Safe spawn vars: --gj-top-safe / --gj-bottom-safe
-✅ cVR/VR strict: targets pointer-events:none (ยิงจาก crosshair via vr-ui.js)
+✅ Strict cVR/VR: shoot via crosshair (targets no pointer-events)
 */
 
 :root{
@@ -31,30 +31,37 @@ GoodJunkVR (PRODUCTION) — HHA Standard UI + FX
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* SAFE SPAWN */
-  --gj-top-safe: calc(140px + var(--sat));
-  --gj-bottom-safe: calc(140px + var(--sab));
+  /* SAFE SPAWN (boot reads; fallback here) */
+  --gj-top-safe: calc(170px + var(--sat));   /* topbar + hud-top เผื่อไว้ */
+  --gj-bottom-safe: calc(150px + var(--sab));/* hud-bottom เผื่อไว้ */
 
+  /* target params */
   --t-shadow: 0 18px 45px rgba(0,0,0,.45);
   --t-shadow2: 0 10px 22px rgba(0,0,0,.35);
 
+  /* motion */
   --easeOut: cubic-bezier(.16,1,.3,1);
 }
 
 *{ box-sizing:border-box; }
 html,body{
-  margin:0; width:100%; height:100%; overflow:hidden;
-  background:
-    radial-gradient(circle at 20% 15%, rgba(34,211,238,.18), transparent 55%),
-    radial-gradient(circle at 78% 85%, rgba(167,139,250,.14), transparent 60%),
-    linear-gradient(180deg, #020617 0%, #020617 100%);
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background: radial-gradient(circle at 20% 15%, rgba(34,211,238,.18), transparent 55%),
+              radial-gradient(circle at 78% 85%, rgba(167,139,250,.14), transparent 60%),
+              linear-gradient(180deg, #020617 0%, #020617 100%);
   color:var(--text);
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
 }
 
-a-scene{ position:fixed !important; inset:0 !important; z-index:0 !important; pointer-events:none; }
-
+/* Body view flags */
 body.gj{ position:relative; }
+body.gj.view-pc{}
+body.gj.view-mobile{}
+body.gj.view-vr{}
+body.gj.view-cvr{}
 
 /* TOPBAR */
 .gj-topbar{
@@ -67,6 +74,7 @@ body.gj{ position:relative; }
   align-items:center;
   justify-content:space-between;
   gap:10px;
+
   padding: 10px 12px;
   border-radius: 18px;
   background: rgba(2,6,23,.62);
@@ -74,26 +82,30 @@ body.gj{ position:relative; }
   backdrop-filter: blur(10px);
   pointer-events:auto;
 }
-
 .gj-topbar .left,
 .gj-topbar .right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-
 .gj-chip{
-  display:inline-flex; align-items:center; gap:8px;
-  padding: 8px 12px; border-radius: var(--pill);
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 8px 12px;
+  border-radius: var(--pill);
   background: rgba(15,23,42,.65);
   border:1px solid rgba(148,163,184,.18);
   color: var(--text);
-  font-weight: 900; font-size: 12px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing:.2px;
 }
-
 .gj-btn{
-  height: 38px; padding: 0 12px;
+  height: 38px;
+  padding: 0 12px;
   border-radius: 14px;
   border:1px solid rgba(148,163,184,.20);
   background: rgba(15,23,42,.58);
   color: var(--text);
-  font-weight: 900; font-size: 12px;
+  font-weight: 900;
+  font-size: 12px;
   cursor:pointer;
   transition: transform 120ms var(--easeOut), background 120ms var(--easeOut), border-color 120ms var(--easeOut);
 }
@@ -113,10 +125,14 @@ body.gj{ position:relative; }
   z-index: 180;
   pointer-events:none;
 }
-
-.hud-row{ display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; }
-
+.hud-row{
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  flex-wrap:wrap;
+}
 .hud-pill{
+  pointer-events:none;
   min-width: 92px;
   padding: 10px 12px;
   border-radius: 18px;
@@ -124,24 +140,49 @@ body.gj{ position:relative; }
   border:1px solid rgba(148,163,184,.18);
   backdrop-filter: blur(10px);
 }
-.hud-pill .hud-label{ color: var(--muted); font-weight: 900; font-size: 11px; letter-spacing:.3px; }
-.hud-pill .hud-value{ margin-top: 4px; font-weight: 1200; font-size: 20px; line-height:1; }
+.hud-pill .hud-label{
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing:.3px;
+}
+.hud-pill .hud-value{
+  margin-top: 4px;
+  font-weight: 1200;
+  font-size: 20px;
+  line-height:1;
+}
 .hud-pill.warn{ border-color: rgba(245,158,11,.26); box-shadow: 0 0 0 1px rgba(245,158,11,.06) inset; }
 .hud-pill.grade{ border-color: rgba(167,139,250,.26); box-shadow: 0 0 0 1px rgba(167,139,250,.06) inset; }
 
-.quest-row{ margin-top:10px; display:grid; grid-template-columns: 1.25fr 1fr; gap:10px; }
+.quest-row{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap:10px;
+}
 .quest-card{
+  pointer-events:none;
   padding: 12px 14px;
   border-radius: 18px;
   background: rgba(15,23,42,.62);
   border:1px solid rgba(148,163,184,.18);
   backdrop-filter: blur(10px);
 }
-.quest-card.mini{ border-color: rgba(34,211,238,.22); box-shadow: 0 0 0 1px rgba(34,211,238,.06) inset; }
+.quest-card.mini{
+  border-color: rgba(34,211,238,.22);
+  box-shadow: 0 0 0 1px rgba(34,211,238,.06) inset;
+}
 .q-title{ font-weight: 1100; font-size: 13px; }
 .q-desc{ margin-top: 6px; color: var(--muted); font-weight: 900; font-size: 12px; }
-.q-bar{ margin-top: 10px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.q-num{ font-weight: 1100; font-size: 12px; color: #e5e7eb; }
+.q-bar{
+  margin-top: 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.q-num{ font-weight: 1100; font-size: 12px; color:#e5e7eb; }
 .q-hint{ font-weight: 900; font-size: 11px; color: var(--muted); white-space:nowrap; }
 
 /* HUD BOTTOM */
@@ -157,7 +198,9 @@ body.gj{ position:relative; }
   pointer-events:none;
 }
 .meter{
-  flex:1; min-width: 220px;
+  flex:1;
+  min-width: 220px;
+  pointer-events:none;
   padding: 12px 14px;
   border-radius: 18px;
   background: rgba(2,6,23,.66);
@@ -174,7 +217,8 @@ body.gj{ position:relative; }
   border:1px solid rgba(148,163,184,.12);
 }
 .meter-fill{
-  height:100%; width:0%;
+  height:100%;
+  width:0%;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
   box-shadow: 0 8px 20px rgba(34,197,94,.18);
@@ -185,21 +229,22 @@ body.gj{ position:relative; }
 .meter-shield{ margin-top:6px; font-weight: 1100; font-size: 14px; }
 .meter-tip{ margin-top:8px; color: var(--muted); font-weight: 900; font-size: 11px; }
 
-/* PLAYFIELD */
-.gj-field{
-  position:fixed; inset:0; z-index:20;
+/* PLAYFIELD + LAYERS */
+.gj-layer{
+  position:fixed;
+  inset:0;
+  z-index: 20;
   overflow:hidden;
   touch-action: manipulation;
   user-select:none;
+  pointer-events:auto;
 }
-.gj-layer{ position:absolute; inset:0; pointer-events:auto; }
-.gj-layer-r{ display:none; }
+body.gj.view-cvr .gj-layer{ width:50%; }
+#gj-layer{ left:0; }
+#gj-layer-r{ right:0; left:auto; display:none; }
+body.gj.view-cvr #gj-layer-r{ display:block; }
 
-/* cVR split */
-body.gj.view-cvr .gj-layer{ width:50%; height:100%; }
-body.gj.view-cvr .gj-layer-r{ left:50%; width:50%; height:100%; display:block; }
-
-/* ✅ strict cVR/VR: ยิงจาก crosshair */
+/* ✅ STRICT cVR/VR: targets do NOT take taps */
 body.gj.view-cvr .gj-target,
 body.gj.view-vr .gj-target{
   pointer-events:none !important;
@@ -217,9 +262,7 @@ body.gj.view-vr .gj-target{
   animation: gjFloat 1600ms ease-in-out infinite;
 }
 .gj-target.spawn{
-  animation:
-    gjSpawn 220ms var(--easeOut) both,
-    gjFloat 1600ms ease-in-out infinite;
+  animation: gjSpawn 220ms var(--easeOut) both, gjFloat 1600ms ease-in-out infinite;
 }
 .gj-target.gone{
   pointer-events:none;
@@ -241,12 +284,8 @@ body.gj.view-vr .gj-target{
 
 /* MISSIONS PEEK */
 .gj-peek{
-  position:fixed;
-  inset:0;
-  z-index: 210;
-  display:none;
-  align-items:center;
-  justify-content:center;
+  position:fixed; inset:0; z-index: 210;
+  display:none; align-items:center; justify-content:center;
   padding: calc(16px + var(--sat)) 14px calc(16px + var(--sab));
   background: rgba(2,6,23,.72);
   backdrop-filter: blur(12px);
@@ -255,7 +294,7 @@ body.gj.view-vr .gj-target{
 body.gj.show-missions .gj-peek{ display:flex; }
 .peek-card{
   width:min(620px, 92vw);
-  padding: 16px 16px;
+  padding: 16px;
   border-radius: 22px;
   background: rgba(15,23,42,.72);
   border:1px solid rgba(148,163,184,.18);
@@ -267,18 +306,22 @@ body.gj.show-missions .gj-peek{ display:flex; }
 
 /* LOW TIME OVERLAY */
 .gj-lowtime-overlay{
-  position:fixed; inset:0; z-index:205;
+  position:fixed; inset:0; z-index: 205;
   pointer-events:none;
   display:flex; align-items:center; justify-content:center;
 }
+.gj-lowtime-overlay[aria-hidden="true"]{ display:none; }
+.gj-lowtime-ring,
+.gj-lowtime-num{
+  opacity:0;
+  transform: scale(.92);
+  transition: opacity 160ms var(--easeOut), transform 160ms var(--easeOut);
+}
 .gj-lowtime-ring{
-  width: 210px; height: 210px;
-  border-radius: 999px;
+  width: 210px; height: 210px; border-radius: 999px;
   border: 6px solid rgba(245,158,11,.65);
   box-shadow: 0 0 0 14px rgba(245,158,11,.12);
   animation: gjPulseRing 680ms ease-in-out infinite;
-  opacity:0; transform: scale(.92);
-  transition: opacity 160ms var(--easeOut), transform 160ms var(--easeOut);
 }
 .gj-lowtime-num{
   position:absolute;
@@ -286,22 +329,18 @@ body.gj.show-missions .gj-peek{ display:flex; }
   font-weight: 1400;
   color:#fff;
   text-shadow: 0 14px 40px rgba(0,0,0,.55);
-  opacity:0; transform: scale(.92);
-  transition: opacity 160ms var(--easeOut), transform 160ms var(--easeOut);
 }
 #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
 #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
   opacity:1; transform: scale(1);
 }
-#lowTimeOverlay[aria-hidden="true"]{ display:none; }
-
 @keyframes gjPulseRing{
   0%{ transform: scale(.95); }
   50%{ transform: scale(1.03); }
   100%{ transform: scale(.95); }
 }
 
-/* HUD hide mode */
+/* HUD HIDE MODE */
 body.gj.hud-hidden .gj-hud-top,
 body.gj.hud-hidden .gj-hud-bot{
   opacity:0;
@@ -310,9 +349,7 @@ body.gj.hud-hidden .gj-hud-bot{
 }
 body.gj.hud-hidden .gj-hud-bot{ transform: translateY(6px); }
 
-/* IMPORTANT: particles layer z-index */
-.hha-fx-layer{ z-index: 190 !important; }
-
+/* responsive */
 @media (max-width: 780px){
   .quest-row{ grid-template-columns: 1fr; }
   .gj-hud-bot{ flex-direction:column; }
@@ -324,3 +361,6 @@ body.gj.hud-hidden .gj-hud-bot{ transform: translateY(6px); }
   .hud-pill .hud-value{ font-size: 18px; }
   .gj-lowtime-num{ font-size: 56px; }
 }
+
+/* particles layer z */
+.hha-fx-layer{ z-index: 190 !important; }
