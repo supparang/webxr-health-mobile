@@ -28,8 +28,9 @@ function detectViewNoOverride(){
 function applyBodyView(view){
   const b = DOC.body;
   if(!b) return;
-  b.classList.add('gj');
+  b.classList.add('gj'); // ✅ สำคัญมาก: CSS ผูก body.gj
   b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
+
   if(view === 'cvr') b.classList.add('view-cvr');
   else if(view === 'vr' || view === 'cardboard') b.classList.add('view-vr','cardboard');
   else if(view === 'pc') b.classList.add('view-pc');
