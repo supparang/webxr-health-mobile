@@ -1,5 +1,5 @@
-/* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
+/* === B: /herohealth/vr-groups/groups.safe.js ===
+Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
 ✅ FIX spawn bounds: no corner-clump, no out-of-screen
 ✅ Hit radius scales by size + view (cVR assist)
 ✅ miniTotal/miniCleared tracked in summary (true counts)
@@ -9,11 +9,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
    - practice: deterministic seed + adaptive OFF + AI OFF
-✅ PACK 15: optional AI director/pattern hooks (only when AIHooks attaches and runMode=play)
 ✅ PACK 49: Miss Pressure levels (0-3) drives difficulty + FX + coach tips
 
-IMPORTANT PATCH:
-✅ Crosshair shoot MISS now counts as miss (shoot_miss) -> affects pressure + rank correctly
+🔥 PATCH (ลด Miss พุ่ง):
+- crosshair ยิงว่าง: ไม่เพิ่ม misses (แต่ตัดคอมโบ)
+- ยิงผิดหมู่ (wrong): ไม่เพิ่ม misses (ยังเป็น bad hit + หักคะแนน)
+- misses เพิ่มเฉพาะ: expire_good + hit_junk + mini_fail
 */
 
 (function (root) {
@@ -59,7 +60,7 @@ IMPORTANT PATCH:
   }
 
   function addBodyClass(c, on) {
-    try { DOC.body.classList.toggle(c, !!on); } catch (_) {}
+    DOC.body.classList.toggle(c, !!on);
   }
 
   function flashBodyFx(cls, ms){
@@ -137,13 +138,13 @@ IMPORTANT PATCH:
     };
   }
 
-  // ✅ PACK 49: Rank must respect Miss more
+  // ✅ Rank formula (Miss มีผลเยอะขึ้น — แต่ Miss ตอนนี้ “ไม่พุ่งมั่ว” แล้ว)
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    const mPenalty = Math.min(34, misses * 2.8);
+    const mPenalty = Math.min(32, misses * 2.6);
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.0);
     const v = accPct - mPenalty + sBoost;
 
@@ -232,9 +233,11 @@ IMPORTANT PATCH:
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -270,9 +273,6 @@ IMPORTANT PATCH:
 
     // coach
     this.coachLastAt = 0;
-
-    // input binding
-    this._onShoot = null;
   }
 
   Engine.prototype.setLayerEl = function (el) {
@@ -333,6 +333,7 @@ IMPORTANT PATCH:
     this.view = getViewFromBodyOrParam(opts.view);
 
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
+
     this.leftSec = Math.round(timeSec);
 
     this.score = 0;
@@ -350,12 +351,15 @@ IMPORTANT PATCH:
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
+
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
@@ -516,6 +520,7 @@ IMPORTANT PATCH:
           this.miniCleared += 1;
         } else {
           this.combo = 0;
+          // ✅ mini fail = miss (ถ้าอยากผ่อนเด็ก ป.5 เราปรับไม่ให้นับ miss ได้)
           this._onMiss('mini_fail');
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL', x: root.innerWidth*0.5, y: root.innerHeight*0.32 });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
@@ -555,6 +560,7 @@ IMPORTANT PATCH:
       if (this.pressure === 3) pressMul = 0.86;
     }
 
+    // optional AI director mul
     let aiMul = 1.0;
     try{
       const A = root.GroupsVR && root.GroupsVR.__ai;
@@ -576,8 +582,8 @@ IMPORTANT PATCH:
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
         if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
-        else if (tg.kind === 'wrong') { this.nExpireWrong++; }
-        else if (tg.kind === 'junk') { this.nExpireJunk++; }
+        else if (tg.kind === 'wrong') { this.nExpireWrong++; /* ไม่เพิ่ม miss */ }
+        else if (tg.kind === 'junk') { this.nExpireJunk++; /* ไม่เพิ่ม miss */ }
         this._removeTarget(i, 'expire');
       }
     }
@@ -660,6 +666,7 @@ IMPORTANT PATCH:
   Engine.prototype._spawnBoss = function () {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
+
     const emoji = pick(this.rng, gActive.emoji);
 
     let hp = p.bossHp;
@@ -756,6 +763,7 @@ IMPORTANT PATCH:
     }
   };
 
+  // ✅ PATCH: ยิงว่างไม่เพิ่ม miss (แต่ตัดคอมโบ)
   Engine.prototype._shootCrosshair = function () {
     const cx = (root.innerWidth || 0) * 0.5;
     const cy = (root.innerHeight || 0) * 0.5;
@@ -775,13 +783,12 @@ IMPORTANT PATCH:
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ PATCH: ยิงวืด = miss จริง (สำคัญมาก)
       this.combo = 0;
-      this._onMiss('shoot_miss');
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
-      flashBodyFx('fx-miss', 220);
+      flashBodyFx('fx-miss', 200);
       this._emitScore();
       this._emitRank();
+      // ❌ ไม่เรียก _onMiss()
     }
   };
 
@@ -850,12 +857,12 @@ IMPORTANT PATCH:
       return;
     }
 
+    // ✅ PATCH: wrong ไม่เพิ่ม miss (ยังเป็น bad hit)
     if (tg.kind === 'wrong') {
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
       this.combo = 0;
-      this._onMiss('wrong');
       this.score = Math.max(0, this.score - 12);
 
       emit('hha:judge', { kind: 'bad', text: '-12', x: tg.x, y: tg.y });
@@ -869,7 +876,7 @@ IMPORTANT PATCH:
       return;
     }
 
-    // junk
+    // junk => miss
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
@@ -1092,7 +1099,6 @@ IMPORTANT PATCH:
     this._emitCoach((this.cfg.runMode==='practice') ? 'จบฝึกแล้ว! กำลังเข้าเกมจริง…' : 'จบเกมแล้ว! กดเล่นอีกครั้งได้เลย 🏁', 'happy');
   };
 
-  // ---------------- Export ----------------
   NS.GameEngine = new Engine();
 
 })(typeof window !== 'undefined' ? window : globalThis);
