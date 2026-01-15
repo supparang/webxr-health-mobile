@@ -1,12 +1,3 @@
-<!-- === /herohealth/hydration-vr.html ===
-Hydration VR Launcher — PRODUCTION (Auto + Buttons + Cancel Auto-run)
-- Auto-detect view (pc/mobile/cvr) + optional cardboard
-- 3 big buttons: PC / Mobile / Cardboard
-- Auto-run after 2.0s with Cancel
-- Remember last choice (localStorage)
-- Pass-through query params: hub, run, diff, time, seed, sessionId/studentKey, log, kids, etc.
--->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,7 +6,6 @@ Hydration VR Launcher — PRODUCTION (Auto + Buttons + Cancel Auto-run)
   <title>HeroHealth — Hydration Quest (Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
   <style>
     :root{
       color-scheme: dark;
@@ -28,433 +18,289 @@ Hydration VR Launcher — PRODUCTION (Auto + Buttons + Cancel Auto-run)
       --accent:#22c55e;
       --cyan:#22d3ee;
       --warn:#f59e0b;
-      --danger:#ef4444;
       --radius:22px;
       --pill:999px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-    body{
-      min-height:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 15% 10%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(circle at 85% 20%, rgba(34,197,94,.10), transparent 60%),
-        radial-gradient(circle at 80% 88%, rgba(168,85,247,.08), transparent 55%),
-        linear-gradient(180deg, #020617 0%, #01030a 100%);
-    }
-
+    html,body{ height:100%; margin:0; background:radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 55%),
+                                 radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 55%),
+                                 var(--bg);
+              font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--text); }
     .wrap{
-      width:min(980px, 100%);
-      display:grid;
-      gap:14px;
+      min-height:100%;
+      padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+      display:grid; place-items:center;
     }
-
-    .top{
-      display:flex;
-      gap:12px;
-      align-items:stretch;
-      flex-wrap:wrap;
-    }
-
     .card{
-      flex: 1 1 420px;
+      width:min(860px, 100%);
       background: var(--panel);
       border: 1px solid var(--stroke);
       border-radius: var(--radius);
-      padding: 16px 16px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      box-shadow: 0 22px 90px rgba(0,0,0,.55);
       backdrop-filter: blur(10px);
+      padding: 18px;
+      display:grid; gap:14px;
     }
-
+    .top{
+      display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+    }
     .title{
-      font-weight: 900;
-      letter-spacing: .2px;
-      font-size: 18px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
+      font-weight:900; letter-spacing:.2px;
+      font-size: 20px;
     }
-    .badge{
-      font-weight: 800;
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: var(--pill);
-      background: rgba(34,197,94,.14);
-      border: 1px solid rgba(34,197,94,.22);
-      color: rgba(229,231,235,.95);
-      white-space:nowrap;
+    .sub{ color:var(--muted); font-weight:700; font-size:13px; line-height:1.35; }
+    .badges{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+    .chip{
+      padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      font-weight:800; font-size:12px; color:var(--text);
     }
-    .muted{ color:var(--muted); font-weight:700; font-size: 13px; line-height: 1.35; }
-
+    .chip b{ color:var(--cyan); }
     .grid{
       display:grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 12px;
+      grid-template-columns: 1.2fr .8fr;
+      gap:12px;
     }
-    @media (max-width: 820px){
+    @media (max-width: 760px){
       .grid{ grid-template-columns: 1fr; }
-      .card{ flex-basis: 100%; }
     }
-
-    .btn{
-      appearance:none;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      color: var(--text);
+    .panel{
+      background: var(--panel2);
+      border: 1px solid var(--stroke);
       border-radius: 18px;
-      padding: 14px 14px;
-      font-weight: 900;
-      letter-spacing: .2px;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-      min-height: 58px;
-      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      padding: 14px;
+      display:grid; gap:10px;
     }
-    .btn:hover{ transform: translateY(-1px); border-color: rgba(34,211,238,.22); background: rgba(15,23,42,.72); }
-    .btn:active{ transform: translateY(0px) scale(.99); }
-
-    .btn .left{
-      display:flex; align-items:center; gap:10px;
-    }
-    .ico{
-      width: 38px; height: 38px;
-      border-radius: 14px;
-      display:flex; align-items:center; justify-content:center;
+    .panel h3{ margin:0; font-size:14px; letter-spacing:.2px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      appearance:none; border:1px solid rgba(148,163,184,.22);
       background: rgba(2,6,23,.55);
-      border: 1px solid rgba(148,163,184,.18);
-      font-size: 18px;
-    }
-    .bmain{ display:flex; flex-direction:column; gap:2px; }
-    .bmain .h{ font-size: 15px; }
-    .bmain .s{ font-size: 12px; color: var(--muted); font-weight: 700; }
-
-    .tag{
-      font-size: 12px;
-      font-weight: 900;
-      padding: 6px 10px;
-      border-radius: var(--pill);
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.40);
-      color: rgba(229,231,235,.92);
-      white-space:nowrap;
-    }
-    .tag.ok{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.12); }
-    .tag.warn{ border-color: rgba(245,158,11,.22); background: rgba(245,158,11,.10); }
-    .tag.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.10); }
-
-    .row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-      margin-top: 12px;
-      padding: 10px 12px;
+      color:var(--text);
       border-radius: 16px;
-      border: 1px dashed rgba(148,163,184,.18);
-      background: rgba(2,6,23,.38);
+      padding: 12px 14px;
+      font-weight:900;
+      cursor:pointer;
+      flex: 1 1 160px;
+      min-width: 160px;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+    }
+    .btn:hover{ border-color: rgba(34,197,94,.35); }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn.primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.35);
+    }
+    .btn.cyan{
+      background: rgba(34,211,238,.14);
+      border-color: rgba(34,211,238,.30);
+    }
+    .btn.warn{
+      background: rgba(245,158,11,.14);
+      border-color: rgba(245,158,11,.28);
     }
     .mini{
-      color: rgba(229,231,235,.92);
-      font-weight: 800;
-      font-size: 12.5px;
-      line-height: 1.35;
+      font-size:12px; font-weight:800; color:var(--muted);
+      line-height:1.35;
     }
     .linkbtn{
-      appearance:none;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      color: var(--text);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight: 900;
-      cursor:pointer;
-      transition: transform .12s ease, background .12s ease;
-      white-space:nowrap;
+      appearance:none; border:none; background:transparent; color:var(--muted);
+      font-weight:900; cursor:pointer; padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
     }
-    .linkbtn:hover{ transform: translateY(-1px); background: rgba(15,23,42,.72); }
-    .linkbtn:active{ transform: translateY(0px) scale(.99); }
-
-    .foot{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-      flex-wrap:wrap;
-      padding: 10px 2px 0;
-    }
-    .pill{
-      display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-    }
-    .pill .p{
-      font-size: 12px;
-      font-weight: 900;
-      padding: 6px 10px;
-      border-radius: var(--pill);
-      border: 1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.35);
-      color: rgba(229,231,235,.92);
-    }
-    .p.kids{ border-color: rgba(34,197,94,.22); background: rgba(34,197,94,.10); }
-    .p.research{ border-color: rgba(168,85,247,.22); background: rgba(168,85,247,.10); }
-    .p.log{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.10); }
-    .p.miss{ border-color: rgba(245,158,11,.22); background: rgba(245,158,11,.10); }
-    .small{ font-size: 12px; color: var(--muted); font-weight: 700; }
+    .linkbtn:hover{ color:var(--text); border-color: rgba(148,163,184,.28); }
+    code{ font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; }
+    .hr{ height:1px; background: rgba(148,163,184,.16); margin:6px 0; }
   </style>
 </head>
-
 <body>
   <div class="wrap">
-    <div class="top">
-      <div class="card">
-        <div class="title">
-          <div>Hydration Quest VR</div>
-          <div class="badge" id="badgeMode">Auto</div>
-        </div>
-        <div class="muted" id="desc">
-          ระบบจะเลือกโหมดให้อัตโนมัติ และคุณยังสามารถกดเลือก PC / Mobile / Cardboard ได้ทันที
-        </div>
-
-        <div class="grid">
-          <button class="btn" id="btnPC" type="button">
-            <div class="left">
-              <div class="ico">🖥️</div>
-              <div class="bmain">
-                <div class="h">เล่นบน PC</div>
-                <div class="s">เมาส์/คลิก • หน้าจอใหญ่</div>
-              </div>
-            </div>
-            <div class="tag">view=pc</div>
-          </button>
-
-          <button class="btn" id="btnMobile" type="button">
-            <div class="left">
-              <div class="ico">📱</div>
-              <div class="bmain">
-                <div class="h">เล่นบน Mobile</div>
-                <div class="s">แตะ/จิ้ม • แนวตั้งสบาย</div>
-              </div>
-            </div>
-            <div class="tag cyan">view=mobile</div>
-          </button>
-
-          <button class="btn" id="btnCB" type="button">
-            <div class="left">
-              <div class="ico">🥽</div>
-              <div class="bmain">
-                <div class="h">Cardboard VR</div>
-                <div class="s">crosshair กลางจอ • split L/R</div>
-              </div>
-            </div>
-            <div class="tag warn">cardboard=1</div>
-          </button>
-        </div>
-
-        <div class="row" id="autoRowWrap">
-          <div class="mini" id="autoRow" style="flex:1">
-            จะเข้าโหมดอัตโนมัติใน <b id="cd">2.0</b>s → <b id="autoMode2">-</b>
+    <div class="card">
+      <div class="top">
+        <div>
+          <div class="title">Hydration Quest 💧 (Launcher)</div>
+          <div class="sub">
+            เข้าเล่นได้ทุกโหมด: PC / Mobile / Cardboard — มี Auto-detect + จำโหมดล่าสุด<br/>
+            ถ้า auto เดาผิด กด “ยกเลิก” แล้วเลือกโหมดเองได้ทันที
           </div>
-          <button class="linkbtn" id="btnCancelAuto" type="button">ยกเลิก</button>
+          <div class="badges">
+            <div class="chip">Auto: <b id="autoMode">-</b></div>
+            <div class="chip">Last: <b id="lastMode">-</b></div>
+            <div class="chip">Run: <b id="runMode">-</b></div>
+            <div class="chip">Diff: <b id="diffMode">-</b></div>
+            <div class="chip">Time: <b id="timeMode">-</b>s</div>
+          </div>
+        </div>
+        <button class="linkbtn" id="btnGoHub" type="button">กลับ HUB</button>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h3>เลือกโหมดเล่น</h3>
+          <div class="row">
+            <button class="btn primary" id="btnPC" type="button">🖥️ PC</button>
+            <button class="btn cyan" id="btnMobile" type="button">📱 Mobile</button>
+            <button class="btn warn" id="btnCardboard" type="button">🥽 Cardboard</button>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="row" style="justify-content:space-between">
+            <div class="mini" id="autoRow" style="flex:1">
+              จะเข้าโหมดอัตโนมัติใน <b id="cd">2.0</b>s → <b id="autoMode2">-</b>
+            </div>
+            <button class="linkbtn" id="btnCancelAuto" type="button">ยกเลิก</button>
+          </div>
+
+          <div class="mini" style="margin-top:4px">
+            • Kids-friendly: ใส่ <code>?kids=1</code><br/>
+            • วิจัย: <code>?run=research&seed=...</code><br/>
+            • ส่งชีต: <code>?log=https://script.google.com/macros/s/.../exec</code>
+          </div>
         </div>
 
-        <div class="foot">
-          <div class="pill" id="pillBar"></div>
-          <button class="linkbtn" id="btnBackHub" type="button">กลับ HUB</button>
+        <div class="panel">
+          <h3>ดีบักเร็ว</h3>
+          <div class="mini">
+            ถ้าคุณเคยเจอ link ซ้ำโฟลเดอร์ (เช่น <code>/hydration-vr/hydration-vr/hydration-vr.html</code>) มันจะ 404<br/>
+            Run page ที่ถูกต้องคือ: <code>/herohealth/hydration-vr/hydration-vr.html</code>
+          </div>
+          <div class="hr"></div>
+          <div class="mini">
+            โหมด Cardboard จะส่ง <code>view=cvr&cardboard=1</code> ไปให้ loader เปิด split layer L/R อัตโนมัติ
+          </div>
         </div>
       </div>
     </div>
-
-    <div class="small">
-      ทิป: ถ้าจะโหมดเด็กใส่ <b>kids=1</b> • โหมดวิจัยใส่ <b>run=research</b> (ระบบจะ deterministic อยู่แล้ว)
-    </div>
   </div>
 
-  <script>
-    (function(){
-      'use strict';
+<script>
+(function(){
+  'use strict';
 
-      const RUN_PATH = './hydration-vr/hydration-vr.html';
-      const KEY_LAST = 'HHA_LAST_VIEW_hydration';
+  const RUN_PAGE = './hydration-vr/hydration-vr.html'; // ✅ ไปที่ run ในโฟลเดอร์
+  const LAST_KEY = 'HHA_LAST_VIEW_hydration';
 
-      const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-      const setQS = (u, k, v)=>{ try{ if(v==null||v==='') u.searchParams.delete(k); else u.searchParams.set(k, v); }catch(_){ } };
-      const isTrue = (v)=> String(v||'').toLowerCase()==='1' || String(v||'').toLowerCase()==='true';
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
-      function detectAuto(){
-        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
-        const w = Math.max(1, window.innerWidth||1);
-        const h = Math.max(1, window.innerHeight||1);
-        const landscape = w >= h;
+  function detectAuto(){
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
+    const w = Math.max(1, window.innerWidth||1);
+    const h = Math.max(1, window.innerHeight||1);
+    const landscape = w >= h;
 
-        // heuristic
-        if (!isTouch) return { view:'pc', cardboard:false, why:'desktop' };
+    if (!isTouch) return { view:'pc', cardboard:false, text:'PC' };
 
-        // If user likely holding landscape + wide enough => cvr
-        if (landscape && w >= 740) return { view:'cvr', cardboard:false, why:'touch_landscape_wide' };
+    // มือถือ/แท็บเล็ต
+    if (landscape && w >= 740) return { view:'cvr', cardboard:false, text:'cVR (mobile landscape)' };
+    return { view:'mobile', cardboard:false, text:'Mobile' };
+  }
 
-        return { view:'mobile', cardboard:false, why:'touch_mobile' };
+  function readLast(){
+    try{ return localStorage.getItem(LAST_KEY) || ''; }catch(_){ return ''; }
+  }
+  function saveLast(v){
+    try{ localStorage.setItem(LAST_KEY, v); }catch(_){}
+  }
+
+  function buildRunUrl(view, cardboard){
+    const u = new URL(RUN_PAGE, location.href);
+
+    // pass-through params (อยากให้คงค่าที่ตั้งจาก HUB)
+    const pass = [
+      'hub','run','runMode','diff','time','durationPlannedSec','seed','sessionId','studentKey',
+      'studyId','conditionGroup','sessionOrder','blockLabel','siteCode',
+      'projectTag','timestampIso','ts','log','kids','water'
+    ];
+    const src = new URL(location.href);
+    for (const k of pass){
+      const v = src.searchParams.get(k);
+      if (v !== null && v !== '') u.searchParams.set(k, v);
+    }
+
+    // enforce view
+    if (view) u.searchParams.set('view', view);
+
+    // cardboard flag
+    if (cardboard) u.searchParams.set('cardboard', '1');
+    else u.searchParams.delete('cardboard');
+
+    // cache bust (ถ้าไม่มี)
+    if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
+
+    return u.toString();
+  }
+
+  function go(view, cardboard){
+    saveLast(cardboard ? 'cardboard' : view);
+    location.href = buildRunUrl(view, !!cardboard);
+  }
+
+  // ----- UI bind -----
+  const auto = detectAuto();
+  const last = readLast();
+  const explicitView = String(qs('view','')).toLowerCase();
+
+  // display chips
+  document.getElementById('autoMode').textContent = auto.text;
+  document.getElementById('autoMode2').textContent = auto.text;
+  document.getElementById('lastMode').textContent = last || '-';
+
+  const run = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
+  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
+  const time = String(qs('time', qs('durationPlannedSec','70')) || '70');
+
+  document.getElementById('runMode').textContent = run;
+  document.getElementById('diffMode').textContent = diff;
+  document.getElementById('timeMode').textContent = time;
+
+  // hub
+  document.getElementById('btnGoHub').addEventListener('click', ()=>{
+    const hub = String(qs('hub','./hub.html'));
+    location.href = hub;
+  });
+
+  // buttons
+  document.getElementById('btnPC').addEventListener('click', ()=>go('pc', false));
+  document.getElementById('btnMobile').addEventListener('click', ()=>go('mobile', false));
+  document.getElementById('btnCardboard').addEventListener('click', ()=>go('cvr', true));
+
+  // auto-enter with cancel
+  const cdEl = document.getElementById('cd');
+  const autoRow = document.getElementById('autoRow');
+  const btnCancel = document.getElementById('btnCancelAuto');
+
+  let canceled = false;
+  btnCancel.addEventListener('click', ()=>{
+    canceled = true;
+    autoRow.textContent = 'ยกเลิก Auto-run แล้ว (เลือกโหมดด้านบนได้เลย)';
+    btnCancel.disabled = true;
+    btnCancel.style.opacity = .55;
+  });
+
+  // ถ้ามี explicit view (ครูตั้งมาแล้ว) หรือมี last (เคยเลือกแล้ว) => ไม่ auto-run
+  if (explicitView || last){
+    autoRow.parentElement.remove();
+  } else {
+    let t = 2.0;
+    const step = 0.1;
+    const timer = setInterval(()=>{
+      if (canceled){ clearInterval(timer); return; }
+      t = Math.max(0, t - step);
+      if (cdEl) cdEl.textContent = t.toFixed(1);
+      if (t <= 0.001){
+        clearInterval(timer);
+        if (!canceled) go(auto.view, !!auto.cardboard);
       }
+    }, Math.round(step*1000));
+  }
 
-      function getLast(){
-        try{ return localStorage.getItem(KEY_LAST) || ''; }catch(_){ return ''; }
-      }
-      function setLast(v){
-        try{ localStorage.setItem(KEY_LAST, v); }catch(_){}
-      }
-
-      function passThrough(u){
-        // carry these params if exist
-        const keep = [
-          'hub','run','runMode','diff','time','durationPlannedSec',
-          'seed','ts','timestampIso','sessionId','studentKey','studyId','conditionGroup','sessionOrder','blockLabel',
-          'log','projectTag','siteCode','schoolYear','semester',
-          'kids'
-        ];
-        for (const k of keep){
-          const v = qs(k,'');
-          if (v !== '') setQS(u, k, v);
-        }
-      }
-
-      function go(view, cardboard){
-        const u = new URL(RUN_PATH, location.href);
-        passThrough(u);
-
-        // view + cardboard flag
-        setQS(u, 'view', view || 'pc');
-        if (cardboard) setQS(u, 'cardboard', '1');
-        else u.searchParams.delete('cardboard');
-
-        // ensure cache bust for safe quick testing
-        if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
-
-        // remember last
-        setLast((cardboard ? 'cardboard' : (view||'pc')));
-
-        location.href = u.toString();
-      }
-
-      // UI nodes
-      const badgeMode = document.getElementById('badgeMode');
-      const desc = document.getElementById('desc');
-      const pillBar = document.getElementById('pillBar');
-
-      const btnPC = document.getElementById('btnPC');
-      const btnMobile = document.getElementById('btnMobile');
-      const btnCB = document.getElementById('btnCB');
-
-      const btnBackHub = document.getElementById('btnBackHub');
-
-      const cdEl = document.getElementById('cd');
-      const auto2 = document.getElementById('autoMode2');
-      const autoRowWrap = document.getElementById('autoRowWrap');
-      const autoRow = document.getElementById('autoRow');
-      const btnCancel = document.getElementById('btnCancelAuto');
-
-      // Params context
-      const explicitView = String(qs('view','')).toLowerCase(); // if user opened launcher w/ view
-      const kids = isTrue(qs('kids','0'));
-      const run = String(qs('run', qs('runMode','play'))).toLowerCase();
-      const log = String(qs('log','')||'').trim();
-
-      // pills
-      const pills = [];
-      pills.push(`<span class="p">diff=${String(qs('diff','normal')||'normal')}</span>`);
-      pills.push(`<span class="p miss">time=${String(qs('time', qs('durationPlannedSec','70'))||'70')}s</span>`);
-      if (kids) pills.push(`<span class="p kids">kids=1</span>`);
-      if (run === 'research') pills.push(`<span class="p research">research</span>`);
-      if (log) pills.push(`<span class="p log">log=ON</span>`);
-      pillBar.innerHTML = pills.join('');
-
-      // hub
-      btnBackHub.addEventListener('click', ()=>{
-        const hub = String(qs('hub','./hub.html'));
-        location.href = hub;
-      });
-
-      // resolve target mode
-      const last = getLast();
-      const auto = detectAuto();
-
-      let chosen = null;
-
-      // Priority:
-      // 1) explicit view in URL (launcher) => respect but DO NOT auto-run
-      // 2) last stored => respect and DO NOT auto-run
-      // 3) auto-detect => show + auto-run with cancel
-      if (explicitView){
-        const v = (explicitView === 'cardboard') ? 'cvr' : explicitView;
-        const cb = (explicitView === 'cardboard') || isTrue(qs('cardboard','0'));
-        chosen = { view: v, cardboard: cb, why: 'explicit' };
-      } else if (last){
-        if (last === 'cardboard') chosen = { view: 'cvr', cardboard:true, why:'last' };
-        else chosen = { view: last, cardboard:false, why:'last' };
-      } else {
-        chosen = { ...auto, why:'auto' };
-      }
-
-      const autoText =
-        chosen.cardboard ? 'Cardboard VR' :
-        (chosen.view==='pc' ? 'PC' : chosen.view==='cvr' ? 'cVR (Crosshair)' : 'Mobile');
-
-      if (badgeMode){
-        badgeMode.textContent = chosen.why === 'auto' ? 'Auto' : (chosen.why === 'last' ? 'Last' : 'Manual');
-      }
-      if (desc){
-        desc.textContent =
-          chosen.why === 'auto'
-            ? 'ระบบเดาโหมดให้ และจะเข้าให้อัตโนมัติ (กดยกเลิกได้) หรือกดปุ่มเลือกโหมดเองได้เลย'
-            : 'ระบบจะเคารพโหมดที่คุณเลือกไว้ (กดปุ่มเพื่อเปลี่ยนได้)';
-      }
-      if (auto2) auto2.textContent = autoText;
-
-      // buttons
-      btnPC.addEventListener('click', ()=>go('pc', false));
-      btnMobile.addEventListener('click', ()=>go('mobile', false));
-      btnCB.addEventListener('click', ()=>go('cvr', true));
-
-      // ---------- auto-enter with cancel ----------
-      let canceled = false;
-      btnCancel.addEventListener('click', ()=>{
-        canceled = true;
-        autoRow.textContent = 'ยกเลิก Auto-run แล้ว (เลือกโหมดด้านบนได้เลย)';
-        btnCancel.disabled = true;
-        btnCancel.style.opacity = .55;
-      });
-
-      // Auto-run only when: no explicit view AND no last
-      if (!explicitView && !last){
-        let t = 2.0;
-        const step = 0.1;
-        const timer = setInterval(()=>{
-          if (canceled){ clearInterval(timer); return; }
-          t = Math.max(0, t - step);
-          if (cdEl) cdEl.textContent = t.toFixed(1);
-          if (t <= 0.001){
-            clearInterval(timer);
-            if (!canceled) go(chosen.view, !!chosen.cardboard);
-          }
-        }, Math.round(step*1000));
-      } else {
-        // hide autorun strip
-        try{ autoRowWrap.remove(); }catch(_){}
-      }
-    })();
-  </script>
+})();
+</script>
 </body>
 </html>
