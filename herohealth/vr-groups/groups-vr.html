@@ -1,10 +1,12 @@
-<!-- === A: /herohealth/vr-groups/groups-vr.html ===
-GroupsVR RUN — PRODUCTION (PC/Mobile/Cardboard/cVR)
-✅ Minimal A-Frame scene for Enter VR stability
-✅ CSS: ./groups-vr.css (D)
-✅ Engine: ./groups.safe.js (B)
-✅ Boot: ./groups-vr.boot.js (C) => detect + tap-to-start + start once
-✅ Optional packs: audio / ai-hooks / effects / logger (ถ้ามีไฟล์อยู่ค่อยเปิด)
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+GroupsVR RUN — PRODUCTION (PC/Mobile/cVR)
+✅ CSS: ./groups-vr.css
+✅ A-Frame minimal scene (Enter VR reliability)
+✅ Universal VR UI: ../vr/vr-ui.js (EnterVR/Exit/Recenter + crosshair + hha:shoot)
+✅ FX optional: ../vr/particles.js
+✅ Cloud logger optional: ../vr/hha-cloud-logger.js
+✅ Boot: ./groups-vr.boot.js
+✅ Engine: ./groups.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -15,139 +17,148 @@ GroupsVR RUN — PRODUCTION (PC/Mobile/Cardboard/cVR)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- STYLE (D) -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame (Enter VR reliability) -->
+  <!-- A-Frame: minimal scene for WebXR Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Universal VR UI (EnterVR/Exit/Recenter + crosshair + hha:shoot) -->
-  <script>window.HHA_VRUI_CONFIG = { lockPx: 92, cooldownMs: 90 };</script>
+  <!-- Universal VR UI: Enter VR/Exit/Recenter + crosshair + tap-to-shoot -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX layer (optional but nice) -->
+  <!-- Optional FX layer -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- OPTIONAL: if you have these files, keep them. If not, remove safely. -->
-  <!-- <script src="./audio.js" defer></script> -->
-  <!-- <script src="./ai-hooks.js" defer></script> -->
-  <!-- <script src="./effects-pack.js" defer></script> -->
-  <!-- <script src="./research-ctx.js" defer></script> -->
-  <!-- <script src="./flush-log.js" defer></script> -->
-  <!-- <script src="./view-helper.js" defer></script> -->
+  <!-- Optional cloud logger (flush-hardened) -->
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ENGINE (B) must load BEFORE boot -->
+  <!-- Engine (IIFE) -->
   <script src="./groups.safe.js" defer></script>
 
-  <!-- BOOT (C) -->
+  <!-- Boot (auto-detect + tap-to-start + binds) -->
   <script src="./groups-vr.boot.js" defer></script>
 </head>
 
 <body class="view-mobile">
-  <!-- XR Scene behind DOM -->
-  <a-scene class="xr-scene" embedded vr-mode-ui="enabled:false" renderer="colorManagement: true">
-    <a-entity position="0 1.6 0">
-      <a-camera></a-camera>
-    </a-entity>
+
+  <!-- XR Scene (behind DOM) -->
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false">
+    <a-entity position="0 1.6 0"></a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- ================= HUD ================= -->
-  <div class="hud">
+  <!-- PLAY LAYER: targets spawn here -->
+  <div id="playLayer" class="playLayer" aria-label="play-layer"></div>
+
+  <!-- HUD -->
+  <div class="hud" aria-label="hud">
     <div class="hudLeft">
-      <div class="pill"><span class="lbl">⏳ TIME</span><span id="timeLeft" class="val">90</span></div>
-      <div class="pill"><span class="lbl">⭐ SCORE</span><span id="scoreVal" class="val">0</span></div>
-      <div class="pill"><span class="lbl">🔥 COMBO</span><span id="comboVal" class="val">0</span></div>
-      <div class="pill"><span class="lbl">❌ MISS</span><span id="missVal" class="val">0</span></div>
+      <div class="pill"><div class="lbl">TIME</div><div id="vTime" class="val">--</div></div>
+      <div class="pill"><div class="lbl">SCORE</div><div id="vScore" class="val">0</div></div>
     </div>
     <div class="hudRight">
-      <div class="pill"><span class="lbl">🏅 RANK</span><span id="rankVal" class="val">C</span></div>
-      <div class="pill"><span class="lbl">🎯 ACC</span><span id="accVal" class="val">0%</span></div>
+      <div class="pill"><div class="lbl">COMBO</div><div id="vCombo" class="val">0</div></div>
+      <div class="pill"><div class="lbl">MISS</div><div id="vMiss" class="val">0</div></div>
+      <div class="pill"><div class="lbl">RANK</div><div id="vRank" class="val">C</div></div>
+      <div class="pill"><div class="lbl">ACC</div><div id="vAcc" class="val">0%</div></div>
+      <div class="pill"><div class="lbl">MODE</div><div id="vMode" class="val">PLAY</div></div>
     </div>
   </div>
 
-  <!-- ================= QUEST ================= -->
-  <div class="questTop">
+  <!-- QUEST (Goal + Mini) -->
+  <div class="questTop" aria-label="quest">
     <div class="questCard">
       <div class="qTitle">
-        <div>🎯 GOAL</div>
-        <div class="tag"><span id="goalNow">0</span>/<span id="goalTotal">1</span></div>
+        <div id="goalTitle">🎯 GOAL</div>
+        <div id="goalCount" class="tag">0/0</div>
       </div>
       <div class="bar"><div id="goalFill" class="fill"></div></div>
-      <div class="qSub" id="goalTitle">—</div>
-      <div class="qSub" id="goalSub"></div>
+      <div id="goalSub" class="qSub">—</div>
     </div>
 
     <div class="questCard">
       <div class="qTitle">
-        <div>⚡ MINI</div>
-        <div class="tag"><span id="miniNow">0</span>/<span id="miniTotal">1</span></div>
+        <div id="miniTitle">⚡ MINI</div>
+        <div id="miniTime" class="tag">—</div>
       </div>
       <div class="bar"><div id="miniFill" class="fill"></div></div>
-      <div class="qSub" id="miniTitle">—</div>
-      <div class="qSub" id="miniSub"></div>
+      <div id="miniSub" class="qSub">—</div>
     </div>
   </div>
 
-  <!-- ================= COACH ================= -->
-  <div class="coachWrap">
+  <!-- POWER -->
+  <div class="powerWrap" aria-label="power">
+    <div class="powerCard">
+      <div class="pHead">POWER (สลับหมู่เมื่อเต็ม)</div>
+      <div class="powerBar bar"><div id="pFill" class="fill"></div></div>
+      <div class="pFoot">สะสม: <span id="pCur">0</span>/<span id="pThr">8</span></div>
+    </div>
+  </div>
+
+  <!-- COACH -->
+  <div class="coachWrap" aria-label="coach">
     <div class="coachCard">
-      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
+      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach"/>
       <div class="coachBubble">
-        <div class="coachName">🥦 Coach</div>
+        <div class="coachName">HeroHealth Coach</div>
         <div id="coachText" class="coachText">แตะเพื่อเริ่มเกม…</div>
       </div>
     </div>
   </div>
 
-  <!-- ================= POWER ================= -->
-  <div class="powerWrap">
-    <div class="powerCard">
-      <div class="pHead">⚡ Power</div>
-      <div class="bar powerBar"><div id="powerFill" class="fill"></div></div>
-      <div class="pFoot" id="powerText">พลัง 0/8</div>
-    </div>
-  </div>
-
-  <!-- ================= PLAY LAYER ================= -->
-  <div id="playLayer" class="playLayer"></div>
-
-  <!-- ================= END OVERLAY ================= -->
-  <div id="endOverlay" class="overlay overlay-end hidden">
+  <!-- End overlay (ถ้าใช้ใน A) -->
+  <div id="endOverlay" class="overlay hidden" aria-label="end">
     <div class="panel">
-      <div class="title">🏁 จบเกม</div>
-      <div class="sub">สรุปผลการเล่น</div>
+      <div class="title">สรุปผล</div>
+      <div class="sub">ดูคะแนน / Rank / Miss แล้วกลับ HUB ได้</div>
 
       <div class="grid2">
-        <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
-        <div class="stat"><div class="k">Rank</div><div id="endGrade" class="v">C</div></div>
-        <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
-        <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
+        <div class="stat"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
+        <div class="stat"><div class="k">RANK</div><div id="endRank" class="v">C</div></div>
+        <div class="stat"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
+        <div class="stat"><div class="k">ACC</div><div id="endAcc" class="v">0%</div></div>
       </div>
 
-      <div class="row row2">
-        <button id="btnReplay" class="btn btn-strong" type="button">🔁 เล่นอีกครั้ง</button>
-        <button id="btnBack" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
+      <div class="row">
+        <button id="btnReplay" class="btn btn-strong">เล่นอีกครั้ง</button>
+        <button id="btnBackHub" class="btn btn-ghost">กลับ HUB</button>
       </div>
 
-      <div class="note" style="margin-top:10px;">
-        Cardboard/cVR: ใช้ crosshair แล้วยิงด้วยการแตะจอ (hha:shoot) • ปุ่ม ENTER VR/RECENTER อยู่ vr-ui.js
-      </div>
+      <div class="note">* โหมดวิจัย/หลังบ้านเก็บข้อมูลแยกได้ตาม log schema</div>
     </div>
   </div>
 
-  <!-- Fix back button: if hub param exists -->
   <script>
+    // Minimal end overlay hook (optional)
     (function(){
-      const btn = document.getElementById('btnBack');
-      if (!btn) return;
-      btn.addEventListener('click', ()=>{
-        try{
-          const hub = new URL(location.href).searchParams.get('hub');
+      const qs = (k,def=null)=>{ try{return new URL(location.href).searchParams.get(k)??def;}catch{return def;} };
+      const hub = qs('hub','');
+      const ov = document.getElementById('endOverlay');
+      const btnReplay = document.getElementById('btnReplay');
+      const btnBack = document.getElementById('btnBackHub');
+
+      window.addEventListener('hha:end', (ev)=>{
+        const d = ev.detail||{};
+        if (!ov) return;
+
+        document.getElementById('endScore').textContent = String(d.scoreFinal??0);
+        document.getElementById('endRank').textContent  = String(d.grade??'C');
+        document.getElementById('endMiss').textContent  = String(d.misses??0);
+        document.getElementById('endAcc').textContent   = String((d.accuracyGoodPct??0)+'%');
+
+        ov.classList.remove('hidden');
+      });
+
+      if (btnReplay){
+        btnReplay.addEventListener('click', ()=>{
+          location.reload();
+        });
+      }
+      if (btnBack){
+        btnBack.addEventListener('click', ()=>{
           if (hub) location.href = hub;
           else history.back();
-        }catch{ history.back(); }
-      });
+        });
+      }
     })();
   </script>
 </body>
