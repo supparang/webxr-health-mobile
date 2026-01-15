@@ -1,20 +1,15 @@
 /* === B: /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
+Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 ✅ FIX spawn bounds: no corner-clump, no out-of-screen
 ✅ Hit radius scales by size + view (cVR assist)
 ✅ miniTotal/miniCleared tracked in summary (true counts)
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
-✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
-         groups:power, groups:progress, hha:judge, hha:end
+✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
-   - practice: deterministic seed + adaptive OFF + AI OFF
+   - practice: deterministic seed + adaptive OFF + AI OFF + does NOT trigger end overlay in A
+✅ PACK 15: optional AI director/pattern hooks (only when AIHooks attaches and runMode=play)
 ✅ PACK 49: Miss Pressure levels (0-3) drives difficulty + FX + coach tips
-
-🔥 PATCH (ลด Miss พุ่ง):
-- crosshair ยิงว่าง: ไม่เพิ่ม misses (แต่ตัดคอมโบ)
-- ยิงผิดหมู่ (wrong): ไม่เพิ่ม misses (ยังเป็น bad hit + หักคะแนน)
-- misses เพิ่มเฉพาะ: expire_good + hit_junk + mini_fail
 */
 
 (function (root) {
@@ -138,13 +133,13 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     };
   }
 
-  // ✅ Rank formula (Miss มีผลเยอะขึ้น — แต่ Miss ตอนนี้ “ไม่พุ่งมั่ว” แล้ว)
+  // ✅ PACK 49: Rank must respect Miss more
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    const mPenalty = Math.min(32, misses * 2.6);
+    const mPenalty = Math.min(34, misses * 2.8);
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.0);
     const v = accPct - mPenalty + sBoost;
 
@@ -224,20 +219,16 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     this.comboMax = 0;
     this.misses = 0;
 
-    // pressure
-    this.pressure = 0;        // 0..3
+    this.pressure = 0;
     this._lastPressureTip = 0;
 
-    // counts
     this.nTargetGoodSpawned = 0;
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -245,7 +236,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
-    // gameplay
     this.activeGroupIdx = 0;
     this.powerCharge = 0;
 
@@ -255,23 +245,19 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
 
     this.spawnTmr = 0;
 
-    // quest
     this.goalsTotal = 2;
     this.goalIndex = 0;
     this.goalNow = 0;
     this.goalNeed = 18;
 
-    // mini
     this.mini = null;
     this.nextMiniAt = 0;
     this.miniTotal = 0;
     this.miniCleared = 0;
 
-    // targets
     this.targets = [];
     this._id = 0;
 
-    // coach
     this.coachLastAt = 0;
   }
 
@@ -351,15 +337,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
-
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
@@ -520,7 +503,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
           this.miniCleared += 1;
         } else {
           this.combo = 0;
-          // ✅ mini fail = miss (ถ้าอยากผ่อนเด็ก ป.5 เราปรับไม่ให้นับ miss ได้)
           this._onMiss('mini_fail');
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL', x: root.innerWidth*0.5, y: root.innerHeight*0.32 });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
@@ -560,7 +542,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
       if (this.pressure === 3) pressMul = 0.86;
     }
 
-    // optional AI director mul
     let aiMul = 1.0;
     try{
       const A = root.GroupsVR && root.GroupsVR.__ai;
@@ -582,8 +563,8 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
         if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
-        else if (tg.kind === 'wrong') { this.nExpireWrong++; /* ไม่เพิ่ม miss */ }
-        else if (tg.kind === 'junk') { this.nExpireJunk++; /* ไม่เพิ่ม miss */ }
+        else if (tg.kind === 'wrong') { this.nExpireWrong++; }
+        else if (tg.kind === 'junk') { this.nExpireJunk++; }
         this._removeTarget(i, 'expire');
       }
     }
@@ -666,7 +647,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
   Engine.prototype._spawnBoss = function () {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
-
     const emoji = pick(this.rng, gActive.emoji);
 
     let hp = p.bossHp;
@@ -690,6 +670,11 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     emit('hha:judge', { kind:'boss', text:'BOSS' });
     addBodyClass('fx-boss', true);
     this._emitCoach('บอสมา! ยิงให้ถูกหมู่เพื่อแตกบอส 👊', 'fever');
+
+    try{
+      const A = root.GroupsVR && root.GroupsVR.__ai;
+      if (A && A.tip && this.cfg.runMode==='play') A.tip('บอสต้องยิงหลายครั้ง อย่าหยุดมือ 💥', 'fever');
+    }catch(_){}
   };
 
   Engine.prototype._spawnDomTarget = function (spec) {
@@ -763,7 +748,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     }
   };
 
-  // ✅ PATCH: ยิงว่างไม่เพิ่ม miss (แต่ตัดคอมโบ)
   Engine.prototype._shootCrosshair = function () {
     const cx = (root.innerWidth || 0) * 0.5;
     const cy = (root.innerHeight || 0) * 0.5;
@@ -785,10 +769,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     } else {
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
-      flashBodyFx('fx-miss', 200);
+      flashBodyFx('fx-miss', 220);
       this._emitScore();
       this._emitRank();
-      // ❌ ไม่เรียก _onMiss()
     }
   };
 
@@ -854,15 +837,23 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
       this._emitPower();
       this._emitRank();
       this._emitQuestUpdate();
+
+      if (this.cfg.runMode==='play'){
+        if (this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
+        try{
+          const A = root.GroupsVR && root.GroupsVR.__ai;
+          if (A && A.tip && this.combo===10) A.tip('คอมโบ 10! ดีมาก รักษาจังหวะต่อ 🔥', 'happy');
+        }catch(_){}
+      }
       return;
     }
 
-    // ✅ PATCH: wrong ไม่เพิ่ม miss (ยังเป็น bad hit)
     if (tg.kind === 'wrong') {
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
       this.combo = 0;
+      this._onMiss('wrong');
       this.score = Math.max(0, this.score - 12);
 
       emit('hha:judge', { kind: 'bad', text: '-12', x: tg.x, y: tg.y });
@@ -876,7 +867,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
       return;
     }
 
-    // junk => miss
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
@@ -1099,6 +1089,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 49
     this._emitCoach((this.cfg.runMode==='practice') ? 'จบฝึกแล้ว! กำลังเข้าเกมจริง…' : 'จบเกมแล้ว! กดเล่นอีกครั้งได้เลย 🏁', 'happy');
   };
 
+  // ---------------- Export ----------------
   NS.GameEngine = new Engine();
 
 })(typeof window !== 'undefined' ? window : globalThis);
