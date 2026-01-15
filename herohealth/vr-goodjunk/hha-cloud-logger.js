@@ -1,9 +1,7 @@
 // === /herohealth/vr-goodjunk/hha-cloud-logger.js ===
-// Cloud Logger — PRODUCTION (flush-hardened)
-// ✅ listens: hha:start, hha:end (and optional hha:log)
-// ✅ posts JSON to ?log=SCRIPT_URL  (POST)
-// ✅ tries sendBeacon on pagehide
-// Notes: คุณสามารถต่อให้รับ schema sessions/events ได้ใน Apps Script
+// Minimal Cloud Logger — LOCAL COPY (flush-hardened-ish)
+// ✅ if ?log=<endpoint> then POST events + summary
+// ✅ listens: hha:start, hha:judge, quest:update, hha:end, hha:log (optional)
 
 (function(){
   'use strict';
@@ -12,57 +10,71 @@
   if(!WIN || !DOC) return;
 
   const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const ENDPOINT = qs('log', null);
+  const endpoint = qs('log', null);
+  if(!endpoint) return;
 
-  const Q = [];
+  const queue = [];
   let flushing = false;
 
-  function enqueue(type, payload){
-    Q.push({ type, payload, ts: new Date().toISOString() });
+  function push(type, detail){
+    queue.push({
+      type,
+      timestampIso: new Date().toISOString(),
+      detail: detail ?? null,
+      page: location.pathname,
+      href: location.href,
+    });
     flushSoon();
   }
 
-  function flushSoon(){
-    if(flushing) return;
-    flushing = true;
-    setTimeout(()=>flush().finally(()=>{ flushing=false; }), 80);
-  }
-
   async function flush(){
-    if(!ENDPOINT) return;
-    if(!Q.length) return;
+    if(flushing) return;
+    if(queue.length===0) return;
+    flushing = true;
 
-    const batch = Q.splice(0, Q.length);
-    const body = JSON.stringify({ project:'HeroHealth', game:'GoodJunkVR', batch });
-
-    // try fetch keepalive first
+    const batch = queue.splice(0, Math.min(50, queue.length));
     try{
-      await fetch(ENDPOINT, {
+      await fetch(endpoint, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body,
-        keepalive:true,
-        mode:'cors',
+        body: JSON.stringify({ kind:'hha-events', batch })
       });
-      return;
-    }catch(_){}
-
-    // fallback beacon
-    try{
-      const ok = navigator.sendBeacon?.(ENDPOINT, new Blob([body], {type:'application/json'}));
-      if(ok) return;
-    }catch(_){}
+    }catch(_){
+      // put back if failed (best-effort)
+      queue.unshift(...batch);
+    }finally{
+      flushing = false;
+    }
   }
 
-  // listeners
-  WIN.addEventListener('hha:start', (e)=> enqueue('start', e.detail || {}));
-  WIN.addEventListener('hha:end',   (e)=> enqueue('end',   e.detail || {}));
-  WIN.addEventListener('hha:log',   (e)=> enqueue('log',   e.detail || {}));
-  WIN.addEventListener('pagehide',  ()=> { try{ flush(); }catch(_){ } });
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden'){ try{ flush(); }catch(_){ } }
-  });
+  let tmr = null;
+  function flushSoon(){
+    if(tmr) return;
+    tmr = setTimeout(async ()=>{
+      tmr = null;
+      await flush();
+    }, 250);
+  }
 
-  // expose manual flush
-  WIN.HHA_LOGGER = { flush };
+  // harden on unload
+  function flushSync(){
+    try{
+      const batch = queue.splice(0, queue.length);
+      if(batch.length===0) return;
+      const blob = new Blob([JSON.stringify({ kind:'hha-events', batch })], { type:'application/json' });
+      navigator.sendBeacon?.(endpoint, blob);
+    }catch(_){}
+  }
+  WIN.addEventListener('pagehide', flushSync);
+  WIN.addEventListener('beforeunload', flushSync);
+
+  // hook events
+  WIN.addEventListener('hha:start', (e)=> push('hha:start', e.detail), { passive:true });
+  WIN.addEventListener('hha:judge', (e)=> push('hha:judge', e.detail), { passive:true });
+  WIN.addEventListener('quest:update', (e)=> push('quest:update', e.detail), { passive:true });
+  WIN.addEventListener('hha:log', (e)=> push('hha:log', e.detail), { passive:true });
+  WIN.addEventListener('hha:end', (e)=> push('hha:end', e.detail), { passive:true });
+
+  // initial ping
+  push('logger:ready', { endpoint });
 })();
