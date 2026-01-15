@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#020617" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame: helps WebXR Enter VR reliability -->
@@ -37,6 +36,10 @@
 
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
+
+    <!-- FX hooks (optional) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
 
     <!-- HUD -->
     <div id="hud" aria-label="hud">
@@ -87,17 +90,13 @@
       </div>
     </div>
 
-    <!-- Coach bubble (optional) -->
+    <!-- Coach bubble -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
         <div class="meta" id="coachMeta">Coach</div>
       </div>
     </div>
-
-    <!-- Boss/Storm FX layers (hooks; can be toggled by engine later) -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
 
     <!-- End Overlay -->
     <div id="endOverlay" aria-hidden="true">
@@ -125,8 +124,8 @@
   </div>
 
   <!-- NOTE:
-    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js will set view class and boot the engine.
+    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay.
+    plate.boot.js sets view class + boots the engine.
   -->
 </body>
 </html>
