@@ -1,9 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION FINAL)
+   Balanced Plate VR — UI + FX (PRODUCTION)
    HHA Standard
-   ✅ Safe-area + Safe-zone (targets won't spawn under HUD when paired with mode-factory safezone)
-   ✅ PC / Mobile / VR / cVR body view classes
 ========================================================= */
 
 :root{
@@ -29,30 +27,13 @@
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* -------------------------------------------------------
-     SAFE-ZONE for spawning (exclusion)
-     IMPORTANT: mode-factory should read these CSS vars OR you pass them in config.
-     We'll expose as convenient variables:
-     - top reserved = HUD rows + padding
-     - right reserved = little breathing room
-     - bottom reserved = coach / buttons / safe area
-     - left reserved = breathing room
-  ------------------------------------------------------- */
-  --spawn-safe-top: calc(var(--sat) + 140px);
-  --spawn-safe-right: calc(var(--sar) + 16px);
-  --spawn-safe-bottom: calc(var(--sab) + 120px);
-  --spawn-safe-left: calc(var(--sal) + 16px);
-
-  /* target size hints */
-  --target-min: 44px;
-  --target-max: 64px;
 }
 
 /* ---------------------------------------------------------
    Global
 --------------------------------------------------------- */
 *{ box-sizing:border-box; }
+
 html,body{
   margin:0;
   width:100%;
@@ -62,13 +43,23 @@ html,body{
   color:var(--text);
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
-#app{ position:fixed; inset:0; }
 
-/* view classes (set by boot.js) */
-body.view-pc{ }
-body.view-mobile{ }
-body.view-vr{ }
-body.view-cvr{ }
+a{ color:inherit; }
+
+/* ---------------------------------------------------------
+   App background (optional if run.html already has bg)
+--------------------------------------------------------- */
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(34,211,238,.10), transparent 42%),
+    radial-gradient(circle at 88% 18%, rgba(167,139,250,.10), transparent 44%),
+    radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 46%),
+    linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+  z-index:-1;
+}
 
 /* ---------------------------------------------------------
    Spawn Layer (Targets)
@@ -79,298 +70,364 @@ body.view-cvr{ }
   z-index:10;
   pointer-events:auto;
   touch-action:none;
-
-  /* Optional visual debugging:
-     outline:1px dashed rgba(34,211,238,.2);
-  */
+  user-select:none;
 }
 
-/* Targets use CSS vars from mode-factory: --x --y --s (px) */
+/* target base */
 .plateTarget{
   position:absolute;
-  left: calc(var(--x, 50) * 1px);
-  top:  calc(var(--y, 50) * 1px);
-  width: calc(var(--s, 56) * 1px);
-  height:calc(var(--s, 56) * 1px);
-
-  transform: translate(-50%, -50%);
   display:grid;
   place-items:center;
-
   border-radius:999px;
   font-size:28px;
-  font-weight:900;
+  font-weight:950;
   user-select:none;
+  cursor:pointer;
   -webkit-tap-highlight-color: transparent;
 
-  cursor:pointer;
-
+  /* soft glass */
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
-    rgba(2,6,23,.60);
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 38%),
+    radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 44%),
+    rgba(2,6,23,.58);
 
-  border:1px solid var(--stroke);
-
+  border:1px solid rgba(148,163,184,.20);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
     inset 0 1px 0 rgba(255,255,255,.08);
 
-  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
-  will-change: transform, opacity;
+  text-shadow: 0 2px 0 rgba(0,0,0,.25);
+  transform: translateZ(0);
+  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
 }
 
-/* Hit feedback classes (mode-factory may add/remove) */
-.plateTarget.is-hit{
-  animation: hitPop .18s ease-out;
-}
-@keyframes hitPop{
-  0%{ transform:translate(-50%,-50%) scale(1); }
-  100%{ transform:translate(-50%,-50%) scale(.65); opacity:0; }
+.plateTarget:active{
+  transform: translateZ(0) scale(.98);
 }
 
-/* Kinds */
+/* kind */
 .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.35);
+  border-color: rgba(34,197,94,.32);
   box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(34,197,94,.18);
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(34,197,94,.14),
+    inset 0 1px 0 rgba(255,255,255,.08);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.35);
+  border-color: rgba(239,68,68,.28);
   box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(239,68,68,.18);
-  animation-duration:1.2s;
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(239,68,68,.12),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.2s ease-in-out .12s infinite;
 }
 
-/* Animations */
-@keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
-  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
+.plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.34);
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(34,211,238,.14),
+    inset 0 1px 0 rgba(255,255,255,.08);
 }
-@keyframes wobble{
-  0%{ transform:translate(-50%,-50%) rotate(0deg) }
-  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform:translate(-50%,-50%) rotate(0deg) }
+
+/* crisp emoji */
+.plateTarget{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hit / Judge feedback (engine can toggle these classes) */
+.plateTarget.hit{
+  animation: hhaHit .12s ease-out 0s 1 !important;
+}
+.plateTarget.bad{
+  animation: hhaBad .14s ease-out 0s 1 !important;
+  filter: saturate(1.1) brightness(1.05);
+}
+.plateTarget.vanish{
+  opacity:0;
+  transform: translateZ(0) scale(.65);
+  transition: opacity .10s ease, transform .10s ease;
 }
 
 /* ---------------------------------------------------------
-   HUD
+   HUD (shared components)
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index:60;
+  inset:0;
   pointer-events:none;
-  padding:
-    calc(var(--sat) + 12px)
-    calc(var(--sar) + 12px)
-    12px
-    calc(var(--sal) + 12px);
+  z-index:30;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
 }
 
+/* top row chips */
 .hudRow{
   display:flex;
   gap:10px;
-  align-items:stretch;
-  justify-content:flex-start;
   flex-wrap:wrap;
+  align-items:flex-start;
   pointer-events:none;
 }
 
 .chip{
-  pointer-events:none;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  padding:10px 12px;
-  border-radius:14px;
-  background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.20);
-  backdrop-filter: blur(10px);
-  box-shadow:0 18px 60px rgba(0,0,0,.22);
-  min-width:92px;
-}
-.chip .lbl{
-  font-size:11px;
-  letter-spacing:.6px;
-  font-weight:900;
-  color:var(--muted);
-}
-.chip .val{
-  font-size:18px;
-  font-weight:1000;
-  line-height:1;
-}
-.chip.score .val{ color:var(--accent); }
-.chip.time  .val{ color:var(--cyan); }
-.chip.combo .val{ color:var(--violet); }
-
-/* Quest Card */
-#questCard{
-  margin-top:10px;
-  width:min(520px, 100%);
-  pointer-events:none;
-}
-
-.card{
+  pointer-events:auto;
   background:var(--panel);
   border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
+  border-radius:999px;
+  padding:10px 12px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.28);
+  backdrop-filter: blur(10px);
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  min-width: 132px;
+}
+
+.chip .lbl{
+  font-weight:950;
+  font-size:11px;
+  color: rgba(229,231,235,.86);
+  letter-spacing:.2px;
+}
+
+.chip .val{
+  font-weight:1000;
+  font-size:16px;
+}
+
+.chip.score{ border-color: rgba(34,197,94,.22); }
+.chip.time { border-color: rgba(34,211,238,.18); }
+.chip.combo{ border-color: rgba(167,139,250,.18); }
+
+/* quest card */
+.card{
+  pointer-events:auto;
+  margin-top:10px;
+  background:var(--panel2);
+  border:1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding:12px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.26);
+  backdrop-filter: blur(10px);
+  width: min(520px, 100%);
 }
 
 .cardTitle{
   display:flex;
-  align-items:center;
   justify-content:space-between;
-  gap:10px;
-  padding:12px 14px 10px;
-  border-bottom:1px solid rgba(148,163,184,.12);
-}
-.cardTitle .t{
-  font-weight:1000;
-  letter-spacing:.2px;
-}
-.cardTitle .hint{
-  font-size:12px;
-  color:var(--muted);
-  font-weight:800;
+  gap:12px;
+  align-items:flex-start;
 }
 
+.cardTitle .t{
+  font-weight:1000;
+  font-size:12px;
+  color: rgba(229,231,235,.92);
+}
+
+.hint{
+  font-weight:900;
+  font-size:12px;
+  color: rgba(148,163,184,.95);
+  line-height:1.25;
+}
+
+/* quest rows */
 .qItem{
+  margin-top:10px;
   display:flex;
-  gap:12px;
+  gap:10px;
   align-items:center;
   justify-content:space-between;
-  padding:10px 14px;
-}
-.qItem + .qItem{
-  border-top:1px solid rgba(148,163,184,.10);
+  flex-wrap:wrap;
+  padding:10px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(2,6,23,.44);
 }
 
 .qText .name{
   font-weight:1000;
   font-size:13px;
 }
+
 .qText .sub{
-  font-weight:800;
-  font-size:12px;
-  color:var(--muted);
   margin-top:2px;
+  font-weight:900;
+  font-size:12px;
+  color: rgba(148,163,184,.95);
 }
 
 .qProg{
-  width:160px;
   display:flex;
-  flex-direction:column;
-  align-items:flex-end;
-  gap:6px;
-}
-.qNums{
-  font-size:12px;
-  font-weight:1000;
-  color:var(--muted);
+  align-items:center;
+  gap:10px;
 }
 
-/* bar */
+.qNums{
+  font-weight:1000;
+  font-size:12px;
+  min-width:56px;
+  text-align:right;
+  color: rgba(229,231,235,.92);
+}
+
 .bar{
-  width:100%;
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.12);
+  width: 180px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.12);
+  border:1px solid rgba(148,163,184,.14);
   overflow:hidden;
 }
+
 .bar > i{
   display:block;
   height:100%;
   width:0%;
-  background:var(--accent);
-  transition:width .25s ease;
+  background: rgba(34,197,94,.85);
+  transition: width .22s ease;
+  box-shadow: 0 0 18px rgba(34,197,94,.16);
 }
-.bar.bad > i{
-  background:linear-gradient(90deg,var(--warn),var(--bad));
-  box-shadow:0 0 18px rgba(239,68,68,.35);
-}
+
+#miniBar{ background: rgba(148,163,184,.10); }
+#miniBar + i{ background: rgba(245,158,11,.85); }
 
 /* ---------------------------------------------------------
    Coach bubble
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  left: calc(var(--sal) + 14px);
-  bottom: calc(var(--sab) + 14px);
-  z-index:70;
+  left:10px;
+  right:10px;
+  bottom: calc(10px + var(--sab));
+  z-index:34;
   pointer-events:none;
   opacity:0;
   transform: translateY(10px);
-  transition: opacity .18s ease, transform .18s ease;
+  transition: opacity .16s ease, transform .16s ease;
 }
+
 #coachCard.show{
   opacity:1;
   transform: translateY(0);
 }
 
 #coachCard .inner{
-  max-width:min(420px, calc(100vw - 28px));
-  background:rgba(2,6,23,.76);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:18px;
-  padding:12px 14px;
+  pointer-events:auto;
+  width:min(640px, 100%);
+  background: rgba(15,23,42,.72);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 12px 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.26);
   backdrop-filter: blur(10px);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
 }
+
 #coachMsg{
-  font-size:13px;
-  font-weight:900;
-  line-height:1.25;
+  font-weight:1000;
+  font-size:14px;
 }
-#coachCard .meta{
+
+#coachMeta{
   margin-top:6px;
-  font-size:11px;
-  color:var(--muted);
   font-weight:900;
+  font-size:12px;
+  color: rgba(148,163,184,.95);
 }
 
 /* ---------------------------------------------------------
-   Boss / Storm FX layers (hooks)
+   End overlay
 --------------------------------------------------------- */
-#bossFx,#stormFx{
+#endOverlay{
   position:fixed;
   inset:0;
+  z-index:70;
+  display:grid;
+  place-items:center;
+  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  background: rgba(2,6,23,.58);
+  backdrop-filter: blur(10px);
+  opacity:0;
   pointer-events:none;
-  z-index:55;
-  display:none;
-}
-#bossFx.boss-on{
-  display:block;
-  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
-}
-#bossFx.boss-panic{
-  animation:pulseBad .25s infinite;
-}
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
-}
-@keyframes pulseBad{
-  0%{ filter:brightness(1) }
-  50%{ filter:brightness(1.25) }
-  100%{ filter:brightness(1) }
+  transition: opacity .16s ease;
 }
 
-/* ---------------------------------------------------------
-   Buttons
---------------------------------------------------------- */
+#endOverlay[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.endPanel{
+  width:min(920px, 100%);
+  background: var(--panel);
+  border:1px solid var(--stroke);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 26px 90px rgba(0,0,0,.42);
+}
+
+.endTitle{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+
+.endTitle h2{
+  margin:0;
+  font-size:18px;
+  font-weight:1100;
+}
+
+.tag{
+  font-weight:1000;
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.70);
+}
+
+.endGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:10px;
+}
+
+.kpi{
+  background: rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:18px;
+  padding:12px;
+}
+
+.kpi .k{
+  font-weight:900;
+  font-size:12px;
+  color: rgba(148,163,184,.95);
+}
+.kpi .v{
+  margin-top:6px;
+  font-weight:1100;
+  font-size:18px;
+}
+
+.endBtns{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+/* buttons used in overlay */
 .btn{
+  pointer-events:auto;
   appearance:none;
   border:none;
   border-radius:999px;
@@ -378,176 +435,134 @@ body.view-cvr{ }
   font-weight:1000;
   font-size:12px;
   cursor:pointer;
-  color:var(--text);
-  background:rgba(2,6,23,.70);
+  color: rgba(229,231,235,.95);
+  background: rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
-  box-shadow:0 18px 46px rgba(0,0,0,.25);
+  box-shadow: 0 16px 40px rgba(0,0,0,.32);
+  backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+  user-select:none;
 }
+
 .btn:active{ transform: translateY(1px); }
 
 .btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
-}
-.btn.warn{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.35);
+  background: rgba(34,197,94,.16);
+  border-color: rgba(34,197,94,.32);
 }
 
 /* ---------------------------------------------------------
-   End Overlay
+   Boss / Storm FX layers (hook)
 --------------------------------------------------------- */
-#endOverlay{
+#bossFx, #stormFx{
   position:fixed;
   inset:0;
-  z-index:90;
   pointer-events:none;
-  display:grid;
-  place-items:center;
-  padding:
-    calc(var(--sat) + 18px)
-    calc(var(--sar) + 18px)
-    calc(var(--sab) + 18px)
-    calc(var(--sal) + 18px);
-}
-#endOverlay[aria-hidden="true"]{
+  z-index:55;
   opacity:0;
-  visibility:hidden;
-  transition:opacity .18s ease, visibility .18s ease;
+  transition: opacity .15s ease;
 }
-#endOverlay[aria-hidden="false"]{
+
+#bossFx.boss-on{
   opacity:1;
-  visibility:visible;
-  pointer-events:auto;
-  transition:opacity .18s ease, visibility .18s ease;
-  background:rgba(2,6,23,.62);
-  backdrop-filter: blur(8px);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.10), transparent 55%),
+    radial-gradient(circle at 50% 90%, rgba(239,68,68,.10), transparent 55%);
 }
 
-.endPanel{
-  width:min(560px, 100%);
-  background:rgba(2,6,23,.82);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:22px;
-  box-shadow:0 24px 80px rgba(0,0,0,.42);
-  padding:16px 16px 14px;
+#bossFx.boss-panic{
+  animation: hhaBadPulse .22s ease-in-out 0s infinite;
 }
 
-.endTitle{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
-  padding-bottom:10px;
-  border-bottom:1px solid rgba(148,163,184,.12);
-}
-.endTitle h2{
-  margin:0;
-  font-size:18px;
-  font-weight:1000;
-}
-.endTitle .tag{
-  font-size:11px;
-  font-weight:1000;
-  color:var(--muted);
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.45);
-  padding:6px 10px;
-  border-radius:999px;
+#stormFx.storm-on{
+  opacity:1;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.12), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%),
+    radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
+  animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
 
-.endGrid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:10px;
-}
-.kpi{
-  background:rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.16);
-  border-radius:16px;
-  padding:10px 10px;
-}
-.kpi .k{
-  font-size:11px;
-  color:var(--muted);
-  font-weight:1000;
-}
-.kpi .v{
-  margin-top:3px;
-  font-size:16px;
-  font-weight:1000;
+/* ---------------------------------------------------------
+   Animations
+--------------------------------------------------------- */
+@keyframes hhaPop{
+  0%{ transform: translateZ(0) scale(.86); opacity:0; }
+  40%{ transform: translateZ(0) scale(1.06); opacity:1; }
+  100%{ transform: translateZ(0) scale(1); opacity:1; }
 }
 
-.endBtns{
-  margin-top:12px;
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
+@keyframes hhaWobble{
+  0%{ transform: translateZ(0) rotate(0deg); }
+  25%{ transform: translateZ(0) rotate(1.4deg); }
+  50%{ transform: translateZ(0) rotate(-1.4deg); }
+  75%{ transform: translateZ(0) rotate(1deg); }
+  100%{ transform: translateZ(0) rotate(0deg); }
 }
+
+@keyframes hhaHit{
+  0%{ transform: translateZ(0) scale(1); }
+  60%{ transform: translateZ(0) scale(1.12); }
+  100%{ transform: translateZ(0) scale(.98); }
+}
+
+@keyframes hhaBad{
+  0%{ transform: translateZ(0) scale(1); }
+  60%{ transform: translateZ(0) scale(1.10); }
+  100%{ transform: translateZ(0) scale(.98); }
+}
+
+@keyframes hhaWarnPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.20); }
+  100%{ filter:brightness(1); }
+}
+@keyframes hhaBadPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.22); }
+  100%{ filter:brightness(1); }
+}
+
+/* ---------------------------------------------------------
+   View-specific tuning (optional)
+--------------------------------------------------------- */
+body.view-cvr .card{ width:min(560px, 100%); }
+body.view-cvr .plateTarget{ animation-duration: 1.25s; }
+body.view-vr  .plateTarget{ animation-duration: 1.4s; }
 
 /* ---------------------------------------------------------
    Responsive tuning
 --------------------------------------------------------- */
 @media (max-width: 900px){
-  :root{
-    --spawn-safe-top: calc(var(--sat) + 128px);
-    --spawn-safe-bottom: calc(var(--sab) + 132px);
-    --target-min: 44px;
-    --target-max: 62px;
-  }
+  .chip{ min-width: 120px; padding:9px 11px; }
+  .chip .val{ font-size:15px; }
 
-  .plateTarget{
-    font-size:24px;
-  }
+  .card{ width:min(560px, 100%); }
 
-  .qProg{ width:150px; }
-  .chip{ min-width:88px; }
+  .bar{ width: 160px; }
+  .qNums{ min-width:52px; }
+
+  .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+  .plateTarget{ font-size:24px; }
 }
 
 @media (max-width: 520px){
-  :root{
-    --spawn-safe-top: calc(var(--sat) + 164px); /* HUD wrap makes taller */
-    --spawn-safe-bottom: calc(var(--sab) + 140px);
-    --spawn-safe-left: calc(var(--sal) + 10px);
-    --spawn-safe-right: calc(var(--sar) + 10px);
-  }
+  .hudRow{ gap:8px; }
+  .chip{ min-width: 110px; }
+  .chip .lbl{ font-size:10px; }
+  .chip .val{ font-size:14px; }
 
-  #questCard{ width:100%; }
+  .card{ padding:11px; }
+  .qItem{ padding:9px; }
 
-  .qItem{
-    gap:10px;
-    padding:10px 12px;
-  }
-  .qProg{ width:140px; }
+  .bar{ width: 150px; }
 
-  .endGrid{
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .endGrid{ grid-template-columns: 1fr; }
 }
 
-/* ---------------------------------------------------------
-   VR / cVR specific tweaks
---------------------------------------------------------- */
-body.view-vr #hud,
-body.view-cvr #hud{
-  /* In VR/cVR, give more headroom (buttons from vr-ui may sit top) */
-  padding-top: calc(var(--sat) + 56px);
-}
-
-body.view-cvr #coachCard{
-  /* keep coach away from bottom center crosshair feel */
-  left: calc(var(--sal) + 12px);
-  right: auto;
-}
-
-/* ---------------------------------------------------------
-   Optional: reduce motion (accessibility)
---------------------------------------------------------- */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce){
-  .plateTarget{ animation: none; }
-  #coachCard, #endOverlay{ transition:none; }
-  .bar > i{ transition:none; }
+  .plateTarget{ animation: none !important; }
+  #bossFx.boss-panic, #stormFx.storm-on{ animation: none !important; }
 }
