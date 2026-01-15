@@ -3,10 +3,10 @@ GroupsVR RUN — PRODUCTION (PC/Mobile/cVR)
 ✅ CSS: ./groups-vr.css
 ✅ A-Frame minimal scene (Enter VR reliability)
 ✅ Universal VR UI: ../vr/vr-ui.js (EnterVR/Exit/Recenter + crosshair + hha:shoot)
-✅ FX optional: ../vr/particles.js
-✅ Cloud logger optional: ../vr/hha-cloud-logger.js
-✅ Boot: ./groups-vr.boot.js
+✅ Optional FX: ../vr/particles.js
+✅ Optional Cloud Logger: ../vr/hha-cloud-logger.js
 ✅ Engine: ./groups.safe.js
+✅ Boot: ./groups-vr.boot.js
 -->
 <!doctype html>
 <html lang="th">
@@ -105,7 +105,7 @@ GroupsVR RUN — PRODUCTION (PC/Mobile/cVR)
     </div>
   </div>
 
-  <!-- End overlay (ถ้าใช้ใน A) -->
+  <!-- End overlay -->
   <div id="endOverlay" class="overlay hidden" aria-label="end">
     <div class="panel">
       <div class="title">สรุปผล</div>
@@ -128,7 +128,6 @@ GroupsVR RUN — PRODUCTION (PC/Mobile/cVR)
   </div>
 
   <script>
-    // Minimal end overlay hook (optional)
     (function(){
       const qs = (k,def=null)=>{ try{return new URL(location.href).searchParams.get(k)??def;}catch{return def;} };
       const hub = qs('hub','');
@@ -148,17 +147,10 @@ GroupsVR RUN — PRODUCTION (PC/Mobile/cVR)
         ov.classList.remove('hidden');
       });
 
-      if (btnReplay){
-        btnReplay.addEventListener('click', ()=>{
-          location.reload();
-        });
-      }
-      if (btnBack){
-        btnBack.addEventListener('click', ()=>{
-          if (hub) location.href = hub;
-          else history.back();
-        });
-      }
+      if (btnReplay) btnReplay.addEventListener('click', ()=> location.reload());
+      if (btnBack) btnBack.addEventListener('click', ()=>{
+        if (hub) location.href = hub; else history.back();
+      });
     })();
   </script>
 </body>
