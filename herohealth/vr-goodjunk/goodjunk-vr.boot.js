@@ -1,5 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // Boot — auto-detect view WITHOUT overriding explicit ?view=
+// Loads goodjunk.safe.js and passes payload
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -27,10 +28,7 @@ function detectViewNoOverride(){
 function applyBodyView(view){
   const b = DOC.body;
   if(!b) return;
-
-  // ✅ IMPORTANT: make CSS body.gj.* work
   b.classList.add('gj');
-
   b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
   if(view === 'cvr') b.classList.add('view-cvr');
   else if(view === 'vr' || view === 'cardboard') b.classList.add('view-vr','cardboard');
@@ -41,6 +39,7 @@ function applyBodyView(view){
 const view = detectViewNoOverride();
 applyBodyView(view);
 
+// Pass params to engine
 engineBoot({
   view,
   run: qs('run','play'),
