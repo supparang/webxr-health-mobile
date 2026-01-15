@@ -1,14 +1,18 @@
+<!-- === /herohealth/goodjunk-launcher.html ===
+GoodJunkVR LAUNCHER (ROOT)
+✅ ส่งเข้า RUN ใน /herohealth/vr-goodjunk/goodjunk-vr.html
+✅ ไม่บังคับ view (ปล่อยให้ boot auto-detect) แต่ถ้าผู้ใช้เลือก/ส่ง ?view= ก็ส่งไป
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR (Launcher)</title>
-  <meta name="color-scheme" content="light dark" />
+  <title>HeroHealth — GoodJunkVR Launcher</title>
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
-      color-scheme: dark;
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
       --panel2:rgba(15,23,42,.70);
@@ -17,7 +21,6 @@
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
-      --cyan:#22d3ee;
       --radius:22px;
       --pill:999px;
       --sat: env(safe-area-inset-top, 0px);
@@ -25,215 +28,141 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0; height:100%; background: radial-gradient(circle at 20% 15%, rgba(34,211,238,.18), transparent 55%),
-                                  radial-gradient(circle at 78% 85%, rgba(34,197,94,.12), transparent 60%),
-                                  #020617;
-      color:var(--text);
-      font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-    }
-    .wrap{
-      min-height:100%;
-      padding: calc(16px + var(--sat)) calc(14px + var(--sal)) calc(16px + var(--sab)) calc(14px + var(--sar));
-      display:flex; align-items:center; justify-content:center;
-    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:linear-gradient(180deg,#020617,#020617);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));}
     .card{
-      width:min(860px, 95vw);
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      background: rgba(2,6,23,.72);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 55px rgba(0,0,0,.45);
-      padding:16px;
+      width:min(760px, 96vw);
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:var(--radius);
+      box-shadow:0 18px 55px rgba(0,0,0,.45);
+      padding:18px;
+      backdrop-filter: blur(12px);
     }
-    h1{ margin:0; font-size:22px; font-weight:1200; }
-    .sub{ margin-top:6px; color:var(--muted); font-weight:900; font-size:12px; }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap:12px;
-    }
-    @media (max-width:860px){ .grid{ grid-template-columns:1fr; } }
-
-    .panel{
+    .title{font-size:22px;font-weight:1200;letter-spacing:.2px}
+    .sub{margin-top:6px;color:var(--muted);font-weight:900;font-size:12px;line-height:1.4}
+    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .box{
+      background:rgba(15,23,42,.62);
       border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.58);
-      border-radius: 18px;
+      border-radius:18px;
       padding:12px;
     }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    label{ font-weight:1000; font-size:12px; color:var(--muted); }
+    label{display:block;font-size:12px;font-weight:1000;color:var(--muted);margin-bottom:6px}
     select,input{
-      height:42px;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color:var(--text);
-      padding:0 12px;
-      font-weight:1000;
-      outline:none;
-      min-width: 150px;
+      width:100%;height:44px;border-radius:14px;border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);color:var(--text);font-weight:900;padding:0 12px;
     }
-    input[type="number"]{ width:160px; }
+    .row{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
     .btn{
-      height:52px;
-      width:100%;
-      border-radius: 16px;
-      border:1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.16);
-      color:#eafff3;
-      font-weight:1200;
-      font-size:16px;
-      cursor:pointer;
+      flex:1;min-width:220px;height:54px;border-radius:16px;border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.62);color:var(--text);font-weight:1200;font-size:16px;cursor:pointer;
     }
-    .btn2{
-      height:44px;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color:var(--text);
-      font-weight:1100;
-      cursor:pointer;
-      padding:0 12px;
-    }
-    .hint{ margin-top:10px; color:var(--muted); font-weight:900; font-size:12px; line-height:1.55; }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius: var(--pill);
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.50);
-      font-weight:1000; font-size:12px;
-    }
-    .mini{
-      margin-top:10px;
-      display:flex; gap:10px; flex-wrap:wrap;
-    }
+    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
+    .hint{margin-top:10px;color:var(--muted);font-weight:900;font-size:12px}
+    @media (max-width:640px){ .grid{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>GoodJunkVR</h1>
-      <div class="sub">Launcher (root) → run ในโฟลเดอร์ <b>/herohealth/vr-goodjunk/</b></div>
+      <div class="title">GoodJunkVR</div>
+      <div class="sub">
+        เลือกโหมด/ความยาก/เวลา แล้วกดเริ่มเล่น<br>
+        (ถ้าไม่ส่ง <b>?view=</b> ระบบจะ auto-detect เอง)
+      </div>
 
       <div class="grid">
-        <div class="panel">
-          <div class="row">
-            <div>
-              <label>Run mode</label><br/>
-              <select id="run">
-                <option value="play">play</option>
-                <option value="research">research</option>
-              </select>
-            </div>
-
-            <div>
-              <label>Difficulty</label><br/>
-              <select id="diff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-
-            <div>
-              <label>Time (sec)</label><br/>
-              <input id="time" type="number" min="20" max="300" value="80"/>
-            </div>
-
-            <div>
-              <label>View</label><br/>
-              <select id="view">
-                <option value="">auto-detect</option>
-                <option value="pc">pc</option>
-                <option value="mobile">mobile</option>
-                <option value="cvr">cvr</option>
-                <option value="vr">vr</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="mini">
-            <span class="pill">🛡️ Shield บล็อคขยะ = ไม่เป็น MISS</span>
-            <span class="pill">⭐ ลด MISS</span>
-            <span class="pill">🦠 Boss เมื่อ MISS ≥ 4</span>
-          </div>
-
-          <div class="hint">
-            หมายเหตุ: ถ้าไม่เลือก View ระบบจะ auto-detect และ <b>จะไม่ override ถ้ามี ?view=...</b><br/>
-            ถ้าเปิดจาก HUB อยู่แล้ว launcher จะส่ง hub url ให้ปุ่ม “กลับ HUB” ในเกมใช้งานได้
-          </div>
+        <div class="box">
+          <label>run</label>
+          <select id="run">
+            <option value="play">play</option>
+            <option value="research">research</option>
+            <option value="study">study</option>
+          </select>
         </div>
-
-        <div class="panel">
-          <button class="btn" id="btnStart">START</button>
-          <div style="height:10px"></div>
-          <button class="btn2" id="btnOpenRun">เปิดหน้า Run (debug)</button>
-          <div class="hint" id="out"></div>
+        <div class="box">
+          <label>diff</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+        <div class="box">
+          <label>time (sec)</label>
+          <input id="time" type="number" min="30" max="180" value="80" />
+        </div>
+        <div class="box">
+          <label>view (optional)</label>
+          <select id="view">
+            <option value="">auto (recommended)</option>
+            <option value="pc">pc</option>
+            <option value="mobile">mobile</option>
+            <option value="cvr">cvr</option>
+            <option value="vr">vr</option>
+            <option value="cardboard">cardboard</option>
+          </select>
         </div>
       </div>
+
+      <div class="row">
+        <button class="btn primary" id="btnStart">เริ่มเล่น</button>
+        <button class="btn" id="btnStartSeed">เริ่ม (ใส่ seed)</button>
+      </div>
+
+      <div class="hint" id="hint"></div>
     </div>
   </div>
 
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const hub = qs('hub', './hub.html'); // ถ้ามี hub จริงให้ส่งมาจาก hub อยู่แล้ว
+      const base = './vr-goodjunk/goodjunk-vr.html';
+
       const $ = (id)=>document.getElementById(id);
+      const hint = $('hint');
 
-      // prefill from query (if any)
-      const run = qs('run','play');
-      const diff = qs('diff','normal');
-      const time = qs('time','80');
-      const view = qs('view','');
-      if($( 'run'))  $('run').value = run;
-      if($('diff'))  $('diff').value = diff;
-      if($('time'))  $('time').value = Number(time)||80;
-      if($('view'))  $('view').value = view;
+      function buildUrl(withSeed){
+        const run = $('run').value;
+        const diff = $('diff').value;
+        const time = Math.max(30, Math.min(180, Number($('time').value||80)));
+        const view = $('view').value;
 
-      const hub = qs('hub', null);
-      const seed = qs('seed', null);
-      const studyId = qs('studyId', qs('study', null));
-      const phase = qs('phase', null);
-      const conditionGroup = qs('conditionGroup', qs('cond', null));
+        const u = new URL(base, location.href);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', String(time));
+        if(view) u.searchParams.set('view', view); // ✅ explicit view only
+        u.searchParams.set('hub', hub);
 
-      function buildUrl(){
-        const p = new URLSearchParams();
-        p.set('run', $('run').value);
-        p.set('diff', $('diff').value);
-        p.set('time', String(Math.max(20, Math.min(300, Number($('time').value)||80))));
-        if($('view').value) p.set('view', $('view').value);
+        // passthrough research params if present
+        const passthru = ['studyId','study','phase','conditionGroup','cond','siteCode','schoolCode','studentKey','log'];
+        for(const k of passthru){
+          const v = qs(k, null);
+          if(v != null && v !== '') u.searchParams.set(k, v);
+        }
 
-        if(hub) p.set('hub', hub);
-        if(seed) p.set('seed', seed);
-        if(studyId) p.set('studyId', studyId);
-        if(phase) p.set('phase', phase);
-        if(conditionGroup) p.set('conditionGroup', conditionGroup);
-
-        return './vr-goodjunk/goodjunk-vr.html?' + p.toString();
-      }
-
-      function render(){
-        const url = buildUrl();
-        $('out').textContent = url;
-        return url;
+        if(withSeed){
+          const seed = prompt('Seed (เว้นว่าง = auto)', String(Date.now()));
+          if(seed) u.searchParams.set('seed', seed);
+        }
+        return u.toString();
       }
 
       $('btnStart').addEventListener('click', ()=>{
-        location.href = render();
+        const url = buildUrl(false);
+        if(hint) hint.textContent = url;
+        location.href = url;
       });
 
-      $('btnOpenRun').addEventListener('click', ()=>{
-        window.open(render(), '_blank');
+      $('btnStartSeed').addEventListener('click', ()=>{
+        const url = buildUrl(true);
+        if(hint) hint.textContent = url;
+        location.href = url;
       });
-
-      ['run','diff','time','view'].forEach(id=>{
-        $(id).addEventListener('change', render);
-        $(id).addEventListener('input', render);
-      });
-
-      render();
     })();
   </script>
 </body>
