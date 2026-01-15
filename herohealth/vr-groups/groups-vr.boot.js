@@ -1,11 +1,10 @@
 // === /herohealth/vr-groups/groups-vr.boot.js ===
-// GroupsVR BOOT — PRODUCTION (Auto detect + Tap-to-start gate + HUD binds + Ultra FX bridge)
-// ✅ Auto-detect view: pc / mobile / cvr
-// ✅ No override (but respects ?view= if you still pass it)
-// ✅ Tap-to-start: required for mobile gesture (audio/fullscreen/VR)
-// ✅ Robust waitForEngine (timeout-safe)
-// ✅ HUD/Quest/Coach binds with fallback element finding
-// ✅ ULTRA FX driver: uses particles.js if present + body fx classes (from D css)
+// GroupsVR BOOT — PRODUCTION (Auto detect only + Tap-to-start + HUD/FX binds)
+// ✅ Auto-detect view: pc / mobile / cvr (NO ?view override)
+// ✅ Tap-to-start for mobile/cvr (gesture unlock)
+// ✅ Robust waitForEngine
+// ✅ HUD/Quest/Power/Coach binds
+// ✅ Ultra FX bridge (particles.js + body classes)
 
 (function(){
   'use strict';
@@ -21,25 +20,18 @@
     return v<a?a:(v>b?b:v);
   };
 
-  // ---------- detect view ----------
+  // ---------- detect view (NO override) ----------
   function detectView(){
-    // 1) if caller still passes view=, respect it (but you can stop passing it later)
-    const pv = String(qs('view','')||'').toLowerCase();
-    if (pv) return pv;
-
-    // 2) detect cVR: often has "stereo" or "cardboard" UI usage; safest heuristic:
-    // - if in headset-ish width/height and user likely landscape lock
-    // - OR WebXR supported and user agent mobile
     const ua = (navigator.userAgent||'').toLowerCase();
     const isMobile = /android|iphone|ipad|ipod/.test(ua);
     const W = Math.max(1, WIN.innerWidth||1), H = Math.max(1, WIN.innerHeight||1);
     const landscape = W >= H;
 
-    // If mobile + landscape + not too wide -> likely cardboard/cVR usage
+    // mobile + landscape-ish => cvr
     if (isMobile && landscape && W <= 1024) return 'cvr';
 
-    // 3) pc vs mobile
-    return (W >= 980) ? 'pc' : 'mobile';
+    // pc vs mobile
+    return (W >= 980 && !isMobile) ? 'pc' : 'mobile';
   }
 
   function setBodyView(view){
@@ -48,7 +40,7 @@
     b.classList.add('view-'+view);
   }
 
-  // ---------- find helpers (no need to know exact ids) ----------
+  // ---------- element helpers ----------
   function byIdAny(ids){
     for (const id of ids){
       const el = DOC.getElementById(id);
@@ -64,7 +56,6 @@
     return null;
   }
 
-  // HUD elements (fallback lists)
   const elTime  = ()=> byIdAny(['vTime','timeLeft','time','hudTime']) || bySelAny(['[data-hud="time"]']);
   const elScore = ()=> byIdAny(['vScore','scoreVal','score','hudScore']) || bySelAny(['[data-hud="score"]']);
   const elCombo = ()=> byIdAny(['vCombo','comboVal','combo','hudCombo']) || bySelAny(['[data-hud="combo"]']);
@@ -94,12 +85,10 @@
     return DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
   }
 
-  // ---------- Ultra FX bridge ----------
+  // ---------- FX bridge ----------
   function ensureFX(){
-    // particles.js creates window.Particles; optional
     return (WIN.Particles && typeof WIN.Particles.popText === 'function') ? WIN.Particles : null;
   }
-
   function fxPop(x,y,text){
     const P = ensureFX();
     if (!P) return;
@@ -122,23 +111,18 @@
     }catch(_){}
   }
 
-  // ---------- bind HUD events ----------
+  // ---------- binds ----------
   function bindHud(){
     WIN.addEventListener('hha:score', (ev)=>{
       const d = ev.detail||{};
-      const s = String(d.score ?? 0);
-      const c = String(d.combo ?? 0);
-      const m = String(d.misses ?? 0);
-
-      const a = elScore(); if (a) a.textContent = s;
-      const b = elCombo(); if (b) b.textContent = c;
-      const cc= elMiss();  if (cc) cc.textContent = m;
+      const a = elScore(); if (a) a.textContent = String(d.score ?? 0);
+      const b = elCombo(); if (b) b.textContent = String(d.combo ?? 0);
+      const c = elMiss();  if (c) c.textContent = String(d.misses ?? 0);
     }, {passive:true});
 
     WIN.addEventListener('hha:time', (ev)=>{
       const d = ev.detail||{};
-      const t = String(Math.max(0, Math.round(d.left ?? 0)));
-      const a = elTime(); if (a) a.textContent = t;
+      const a = elTime(); if (a) a.textContent = String(Math.max(0, Math.round(d.left ?? 0)));
     }, {passive:true});
 
     WIN.addEventListener('hha:rank', (ev)=>{
@@ -150,7 +134,6 @@
     WIN.addEventListener('hha:coach', (ev)=>{
       const d = ev.detail||{};
       const t = elCoachText(); if (t) t.textContent = String(d.text||'');
-
       const mood = String(d.mood||'neutral');
       const img =
         (mood==='happy') ? '../img/coach-happy.png' :
@@ -172,7 +155,6 @@
     WIN.addEventListener('quest:update', (ev)=>{
       const d = ev.detail||{};
 
-      // goal
       const gTitle = String(d.goalTitle||'—');
       const gNow = Number(d.goalNow||0);
       const gTot = Math.max(1, Number(d.goalTotal||1));
@@ -183,7 +165,6 @@
       const gf = elGoalFill();  if (gf) gf.style.width = Math.round(gPct) + '%';
       const gs = elGoalSub();   if (gs) gs.textContent = gTitle;
 
-      // mini
       const mTitle = String(d.miniTitle||'—');
       const mNow = Number(d.miniNow||0);
       const mTot = Math.max(1, Number(d.miniTotal||1));
@@ -198,7 +179,6 @@
       DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
     }, {passive:true});
 
-    // judge -> FX
     WIN.addEventListener('hha:judge', (ev)=>{
       const d = ev.detail||{};
       const kind = String(d.kind||'');
@@ -218,20 +198,6 @@
       if (kind === 'perfect') flashFx('fx-perfect', 240);
       if (kind === 'boss')    flashFx('fx-hit', 200);
       if (kind === 'storm')   { DOC.body.classList.add('fx-storm'); setTimeout(()=>DOC.body.classList.remove('fx-storm'), 900); }
-    }, {passive:true});
-
-    // combo milestone -> fx-combo
-    let __lastCombo = 0;
-    WIN.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail||{};
-      const combo = Number(d.combo||0);
-      if (combo >= 6 && combo !== __lastCombo){
-        if (combo === 6 || combo === 10 || combo === 14){
-          flashFx('fx-combo', 260);
-          fxPop((WIN.innerWidth||360)*0.5, (WIN.innerHeight||640)*0.22, `COMBO ${combo}!`);
-        }
-      }
-      __lastCombo = combo;
     }, {passive:true});
   }
 
@@ -256,9 +222,8 @@
     }, 60);
   }
 
-  // ---------- Tap-to-start overlay ----------
+  // ---------- tap overlay ----------
   function ensureTapOverlay(){
-    // If you already have one in HTML, reuse it
     let ov = DOC.getElementById('tapStartOverlay');
     if (ov) return ov;
 
@@ -271,7 +236,6 @@
       background: rgba(2,6,23,.72);
       backdrop-filter: blur(10px);
     `;
-
     const card = DOC.createElement('div');
     card.style.cssText = `
       width:min(520px,100%);
@@ -283,46 +247,37 @@
       color:#e5e7eb;
       font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     `;
-
     card.innerHTML = `
-      <div style="font-weight:1000;font-size:20px;letter-spacing:.2px;">👉 Tap-to-start</div>
+      <div style="font-weight:1000;font-size:20px;">👉 Tap-to-start</div>
       <div style="margin-top:6px;color:#94a3b8;font-weight:800;font-size:13px;line-height:1.35;">
-        มือถือจำเป็นต้อง “แตะ 1 ครั้ง” เพื่อปลดล็อกเสียง/เต็มจอ/โหมด VR ให้เริ่มเกมได้อัตโนมัติ
+        มือถือ/VR ต้องแตะ 1 ครั้งเพื่อปลดล็อกเสียง/เต็มจอ แล้วเกมจะเริ่มเอง
       </div>
       <div style="display:flex;gap:10px;margin-top:12px;">
         <button id="btnTapStart" style="
           flex:1; border-radius:18px; padding:12px 12px; cursor:pointer;
           border:1px solid rgba(34,197,94,.35);
           background: rgba(34,197,94,.20);
-          color:#e5e7eb; font-weight:1000;">
-          ✅ เริ่มเกม
-        </button>
+          color:#e5e7eb; font-weight:1000;">✅ เริ่มเกม</button>
         <button id="btnTapSkip" style="
           flex:1; border-radius:18px; padding:12px 12px; cursor:pointer;
           border:1px solid rgba(148,163,184,.20);
           background: rgba(15,23,42,.65);
-          color:#e5e7eb; font-weight:1000;">
-          ⏭️ ข้าม
-        </button>
+          color:#e5e7eb; font-weight:1000;">⏭️ ข้าม</button>
       </div>
       <div style="margin-top:10px;color:#94a3b8;font-weight:800;font-size:12px;">
         cVR: ยิงด้วย crosshair (แตะจอ) • ปุ่ม ENTER VR/RECENTER อยู่ vr-ui.js
       </div>
     `;
-
     ov.appendChild(card);
     DOC.body.appendChild(ov);
     return ov;
   }
 
   async function unlockGesture(){
-    // unlock audio if you have GroupsVR.Audio
     try{
       const A = WIN.GroupsVR && WIN.GroupsVR.Audio;
       A && A.unlock && A.unlock();
     }catch(_){}
-
-    // best-effort request fullscreen for cvr only (optional)
     try{
       const view = detectView();
       if (view === 'cvr' && DOC.documentElement.requestFullscreen){
@@ -331,24 +286,24 @@
     }catch(_){}
   }
 
-  // ---------- start engine ----------
   function startEngine(){
     const view = detectView();
     setBodyView(view);
 
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const runRaw = String(qs('run','play')||'play').toLowerCase();
+    const run  = (runRaw==='research') ? 'research' : (runRaw==='practice' ? 'practice' : 'play');
     const diff = String(qs('diff','normal')||'normal').toLowerCase();
     const style= String(qs('style','mix')||'mix').toLowerCase();
     const time = clamp(qs('time',90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
 
-    const m = elMode(); if (m) m.textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
+    const m = elMode(); if (m) m.textContent = (run==='research') ? 'RESEARCH' : (run==='practice'?'PRACTICE':'PLAY');
 
     waitForEngine((E)=>{
       E.setLayerEl(getLayerEl());
       E.start(diff, { runMode: run, diff, style, time, seed, view });
 
-      // AI hooks attach point (if exists) — safe
+      // AIHooks attach point (safe)
       try{
         const AIH = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
         AIH && AIH.attach && AIH.attach({ runMode: run, seed, enabled: (run==='play') && (String(qs('ai','0'))==='1') });
@@ -356,18 +311,14 @@
     });
   }
 
-  // ---------- boot flow ----------
   function boot(){
     bindHud();
-
-    // show coach early
     try{
       WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text:'กำลังเตรียมเกม…', mood:'neutral' } }));
     }catch(_){}
 
-    // Always require tap on mobile-ish contexts (prevents “auto-start failed”)
     const view = detectView();
-    const needTap = (view !== 'pc'); // mobile/cvr always needs gesture for best compatibility
+    const needTap = (view !== 'pc'); // mobile/cvr always tap once
 
     if (!needTap){
       startEngine();
@@ -387,7 +338,6 @@
     if (btnStart) btnStart.addEventListener('click', go, {passive:true});
     if (btnSkip)  btnSkip.addEventListener('click', go, {passive:true});
 
-    // Also allow tap anywhere on overlay
     ov.addEventListener('click', (e)=>{
       if (e.target && (e.target.id==='btnTapStart' || e.target.id==='btnTapSkip')) return;
       go();
