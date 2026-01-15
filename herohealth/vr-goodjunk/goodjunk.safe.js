@@ -63,7 +63,6 @@ function makeRng(seedAny){
   return { seedStr:s, rnd: mulberry32(seed) };
 }
 function rint(rnd, a, b){ return Math.floor(rnd()*(b-a+1))+a; }
-function rpick(rnd, arr){ return arr[Math.floor(rnd()*arr.length)] }
 
 // ---------- DOM refs ----------
 const el = {
@@ -117,14 +116,12 @@ function bindDom(){
 
 // ---------- playfield rect (safe spawn) ----------
 function readSafeVarsPx(){
-  // read CSS vars --gj-top-safe / --gj-bottom-safe (as px)
   const cs = getComputedStyle(DOC.documentElement);
   const top = cs.getPropertyValue('--gj-top-safe').trim();
   const bot = cs.getPropertyValue('--gj-bottom-safe').trim();
 
   function toPx(v, fallback){
     if(!v) return fallback;
-    // handle calc(...) by using a temp element
     const tmp = DOC.createElement('div');
     tmp.style.position='fixed';
     tmp.style.left='0';
@@ -137,10 +134,7 @@ function readSafeVarsPx(){
     if(!isFinite(px) || px<=0) return fallback;
     return px;
   }
-  return {
-    topPx: toPx(top, 140),
-    bottomPx: toPx(bot, 140),
-  };
+  return { topPx: toPx(top, 140), bottomPx: toPx(bot, 140) };
 }
 
 function computePlayRect(){
@@ -153,7 +147,6 @@ function computePlayRect(){
   const top = clamp(safe.topPx + pad, 0, h-60);
   const bottom = clamp(h - safe.bottomPx - pad, 60, h);
 
-  // if too small, relax
   let y0 = top, y1 = bottom;
   if (y1 - y0 < 180){
     const mid = (y0+y1)/2;
@@ -161,8 +154,6 @@ function computePlayRect(){
     y1 = clamp(mid+110, 60, h);
   }
 
-  // for cVR split: layer is half width, but coordinates are viewport-based.
-  // We'll spawn in full viewport and let CSS split handle visibility per layer.
   const x0 = 10;
   const x1 = w - 10;
 
@@ -175,8 +166,8 @@ const S = {
   ended:false,
 
   view:'mobile',
-  run:'play',        // play | research
-  diff:'normal',     // easy | normal | hard
+  run:'play',
+  diff:'normal',
   timePlanSec: 80,
   tLeftSec: 0,
 
@@ -192,7 +183,6 @@ const S = {
   combo: 0,
   comboMax: 0,
 
-  // miss definition
   miss_goodExpired: 0,
   miss_junkHit: 0,
   miss_total: 0,
@@ -202,21 +192,18 @@ const S = {
   nHitJunkGuard:0,
   nExpireGood:0,
 
-  fever: 0,      // 0..100
-  feverUp: 6,    // base
-  feverDown: 9,  // base
+  fever: 0,
+  feverUp: 6,
+  feverDown: 9,
 
   shield: 0,
 
-  // targets
-  targets: new Map(), // id -> obj
+  targets: new Map(),
   nextId: 1,
 
-  // spawn pacing
   spawnEveryMs: 820,
   maxOnScreen: 4,
 
-  // quest
   goalIndex: 0,
   miniIndex: 0,
   goalCur: 0,
@@ -231,16 +218,13 @@ const S = {
   miniCleared: 0,
   miniTotal: 6,
 
-  // grade
   grade: '—',
 
-  // timers
   tStartIso: null,
   tEndIso: null,
   lastTickMs: 0,
   lastSpawnMs: 0,
 
-  // low time overlay
   lowShown: false,
 };
 
@@ -266,11 +250,6 @@ function applyDifficulty(){
     S.feverUp = 6;
     S.feverDown = 9;
     S.miniDurationMs = 12000;
-  }
-
-  // play mode adaptive only
-  if ((S.run||'play') !== 'play'){
-    // lock to table; no adaptive later
   }
 }
 
@@ -325,7 +304,6 @@ function updateHud(){
 
   setText(el.hudMini, S.miniText);
 
-  // mini timer (countdown)
   if(el.miniTimer){
     if(S.miniEndsAtMs){
       const left = Math.max(0, Math.ceil((S.miniEndsAtMs - nowMs())/1000));
@@ -366,7 +344,6 @@ function completeGoal(){
   S.goalsCleared++;
   bumpBody('gj-mini-clear', 220);
   pushQuestUpdate('goal-complete');
-  // rotate next goal
   S.goalIndex++;
   startGoal();
 }
@@ -374,7 +351,6 @@ function startMini(){
   const m = MINIS[S.miniIndex % MINIS.length];
   S.miniText = m.text;
   S.miniEndsAtMs = nowMs() + S.miniDurationMs;
-  // reset mini counters stored temp on state
   S.__mini = {
     kind: m.kind,
     forbidJunk: !!m.forbidJunk,
@@ -400,7 +376,6 @@ function failMini(reason){
   S.__mini.done = true;
   bumpBody('gj-miss-shot', 140);
   emit('hha:judge', { type:'mini-fail', reason });
-  // rotate immediately (kid-friendly)
   S.miniIndex++;
   startMini();
 }
@@ -411,21 +386,16 @@ function completeMini(){
   bumpBody('gj-mini-clear', 240);
   emit('hha:judge', { type:'mini-clear' });
   pushQuestUpdate('mini-complete');
-  // rotate immediately (kid-friendly)
   S.miniIndex++;
   startMini();
 }
-
 function tickMiniProgress(){
   if(!S.__mini) return;
   if(S.__mini.done) return;
 
-  // update max combo during
   S.__mini.maxComboDuring = Math.max(S.__mini.maxComboDuring, S.combo);
 
-  // time over
   if(nowMs() >= S.miniEndsAtMs){
-    // evaluate
     const m = S.__mini;
     let ok = true;
     if(m.needGood) ok = ok && (m.gotGood >= m.needGood);
@@ -445,7 +415,6 @@ function recomputeMiss(){
   S.miss_total = (S.miss_goodExpired|0) + (S.miss_junkHit|0);
 }
 function computeGrade(){
-  // simple kid-friendly rubric
   const score = S.score;
   const miss = S.miss_total;
   let g = 'C';
@@ -464,7 +433,6 @@ function createTarget(kind, x, y, sizePx, ttlMs){
   node.dataset.id = String(id);
   node.dataset.kind = kind;
 
-  // visuals: emoji (simple; swap later to images if you want)
   let emoji = '🍎';
   if(kind==='junk') emoji = '🍟';
   if(kind==='star') emoji = '⭐';
@@ -475,17 +443,13 @@ function createTarget(kind, x, y, sizePx, ttlMs){
   node.style.top  = `${y}px`;
   node.style.fontSize = `${sizePx}px`;
 
-  // pointer/tap (pc/mobile)
   node.addEventListener('pointerdown', (ev)=>{
-    // in cVR/VR strict we set pointer-events none in CSS, so this won't trigger
     ev.preventDefault?.();
     onHitTarget(id, 'tap', ev.clientX, ev.clientY);
   }, { passive:false });
 
-  // mount to layers
   if(el.layerL) el.layerL.appendChild(node);
   if(el.layerR){
-    // mirror for right eye (simple clone)
     const clone = node.cloneNode(true);
     clone.classList.remove('spawn');
     clone.dataset.mirror = '1';
@@ -496,23 +460,20 @@ function createTarget(kind, x, y, sizePx, ttlMs){
     el.layerR.appendChild(clone);
   }
 
-  const born = nowMs();
   const t = {
-    id, kind, born,
+    id, kind, born: nowMs(),
     ttlMs,
     node,
     mirror: null,
     x,y,sizePx,
     alive:true
   };
-  // map mirror reference
   if(el.layerR){
     t.mirror = el.layerR.querySelector(`[data-id="${id}"][data-mirror="1"]`);
   }
 
   S.targets.set(id, t);
 
-  // clear spawn class
   setTimeout(()=>{
     node.classList.remove('spawn');
     t.mirror?.classList.remove('spawn');
@@ -544,20 +505,17 @@ function spawnOne(){
   const x = rint(S.rng, R.x0+20, R.x1-20);
   const y = rint(S.rng, R.y0+20, R.y1-20);
 
-  // roll kind
   const roll = S.rng();
   let kind = 'good';
   if(roll < 0.18) kind = 'junk';
   else if(roll < 0.23) kind = 'star';
   else if(roll < 0.28) kind = 'shield';
 
-  // size varies slightly with diff
   let base = 58;
   if(S.diff==='easy') base = 62;
   if(S.diff==='hard') base = 52;
   const size = clamp(base + rint(S.rng, -8, 10), 38, 78);
 
-  // ttl: good/junk expire; star/shield shorter
   let ttl = 1800;
   if(kind==='good') ttl = (S.diff==='hard') ? 1650 : (S.diff==='easy'? 2100 : 1900);
   if(kind==='junk') ttl = (S.diff==='hard') ? 1750 : 2000;
@@ -566,7 +524,6 @@ function spawnOne(){
 
   const t = createTarget(kind, x, y, size, ttl);
 
-  // schedule expiry
   setTimeout(()=>{
     if(!S.started || S.ended) return;
     const cur = S.targets.get(t.id);
@@ -578,13 +535,11 @@ function spawnOne(){
 function onExpireTarget(t){
   if(!t || !t.alive) return;
 
-  // good expiring counts as miss (definition)
   if(t.kind === 'good'){
     S.nExpireGood++;
     S.miss_goodExpired++;
     recomputeMiss();
 
-    // mini constraints
     if(S.__mini && !S.__mini.done && S.__mini.forbidExpire){
       S.__mini.failed = true;
       S.__mini.failReason = 'expire-good';
@@ -622,20 +577,16 @@ function onHitTarget(id, source, px, py){
   const t = S.targets.get(id);
   if(!t || !t.alive) return;
 
-  // judge
   if(t.kind === 'good'){
     S.nHitGood++;
-    S.score += (10 + Math.min(10, S.combo)); // scale with combo
+    S.score += (10 + Math.min(10, S.combo));
     S.combo++;
     S.comboMax = Math.max(S.comboMax, S.combo);
 
-    // fever down for good hit
     setFever(S.fever - S.feverDown);
 
-    // quest progress
     onProgress('goodHit');
 
-    // mini progress
     if(S.__mini && !S.__mini.done){
       S.__mini.gotGood++;
     }
@@ -648,16 +599,10 @@ function onHitTarget(id, source, px, py){
   }
   else if(t.kind === 'junk'){
     if(S.shield > 0){
-      // guarded => NOT miss
       S.shield--;
       S.nHitJunkGuard++;
-      // fever still up a bit (kid pressure)
       setFever(S.fever + Math.max(3, S.feverUp-2));
       S.combo = 0;
-
-      // mini forbid junk: still should FAIL? (คุยไว้ว่า shield บล็อคแล้ว "ไม่เป็น MISS"
-      // สำหรับ mini "ห้ามโดนขยะ" ให้ถือว่า "กันได้" => ไม่ fail
-      // ดังนั้นไม่ทำ failMini ที่นี่
 
       WIN.Particles?.popText?.(px, py, 'BLOCK', 'big');
       bumpBody('gj-miss-shot', 140);
@@ -667,11 +612,9 @@ function onHitTarget(id, source, px, py){
       S.miss_junkHit++;
       recomputeMiss();
 
-      // fever up
       setFever(S.fever + S.feverUp);
       S.combo = 0;
 
-      // mini forbid junk -> fail mark
       if(S.__mini && !S.__mini.done && S.__mini.forbidJunk){
         S.__mini.failed = true;
         S.__mini.failReason = 'hit-junk';
@@ -717,9 +660,8 @@ function onShoot(detail){
   if(pick){
     onHitTarget(pick.id, detail?.source || 'shoot', x, y);
   }else{
-    // "miss shot" doesn't count as MISS (we only count expire-good + junk-hit)
     bumpBody('gj-miss-shot', 120);
-    setFever(S.fever + 1); // tiny pressure
+    setFever(S.fever + 1);
     emit('hha:judge', { type:'shot-miss', source: detail?.source || 'shoot' });
     updateHud();
   }
@@ -730,30 +672,16 @@ function onProgress(ev){
   const g = GOALS[S.goalIndex % GOALS.length];
   if(!g) return;
 
-  if(g.type === 'goodHits' && ev === 'goodHit'){
-    S.goalCur++;
-  }
-  if(g.type === 'combo' && ev === 'goodHit'){
-    S.goalCur = Math.max(S.goalCur, S.combo);
-  }
+  if(g.type === 'goodHits' && ev === 'goodHit') S.goalCur++;
+  if(g.type === 'combo' && ev === 'goodHit') S.goalCur = Math.max(S.goalCur, S.combo);
   if(g.type === 'surviveMiss'){
-    // target = max allowed miss; progress is "remaining"
-    // show as current miss / target
     S.goalCur = S.miss_total;
     S.goalTarget = g.target;
-    if(S.miss_total > g.target){
-      // immediate fail pressure: bump fever hard
-      setFever(S.fever + 10);
-    }
+    if(S.miss_total > g.target) setFever(S.fever + 10);
   }
-  if(g.type === 'stars' && ev === 'star'){
-    S.goalCur++;
-  }
+  if(g.type === 'stars' && ev === 'star') S.goalCur++;
 
-  // done?
-  if(g.type === 'surviveMiss'){
-    // success is at end (handled in end summary) BUT for kid-friendly we consider pass if still <= target at end
-  }else{
+  if(g.type !== 'surviveMiss'){
     if(S.goalCur >= S.goalTarget){
       completeGoal();
       return;
@@ -768,7 +696,6 @@ function finalizeSurviveGoalIfNeeded(){
   if(!g) return;
   if(g.type !== 'surviveMiss') return;
 
-  // if survive goal currently active: pass if miss <= target
   S.goalCur = S.miss_total;
   S.goalTarget = g.target;
   if(S.miss_total <= g.target){
@@ -780,13 +707,11 @@ function finalizeSurviveGoalIfNeeded(){
 function updateDynamicsAfterEvent(){
   if((S.run||'play') !== 'play') return;
 
-  // simple adaptive: if fever high or miss high -> slow spawn a bit
   const pressure = (S.fever/100) + (S.miss_total/10);
   const base = (S.diff==='hard') ? 680 : (S.diff==='easy'? 980 : 820);
   const add = clamp(Math.floor(pressure*180), 0, 240);
   S.spawnEveryMs = clamp(base + add, 540, 1180);
 
-  // screen max targets adapt
   const baseMax = (S.diff==='hard') ? 6 : (S.diff==='easy'? 3 : 4);
   const reduce = (S.fever > 75) ? 1 : 0;
   S.maxOnScreen = clamp(baseMax - reduce, 2, 7);
@@ -811,18 +736,11 @@ function endGame(reason='timeup'){
   clearAllTargets();
   setLowOverlay(false, 0);
 
-  // persist last summary
   const summary = makeSummary(reason);
-  try{
-    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-  }catch(_){}
+  try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
   emit('hha:end', summary);
-
-  // show missions peek off
   DOC.body.classList.remove('show-missions');
-
-  // small celebratory effect
   bumpBody('gj-end', 520);
 }
 
@@ -875,10 +793,8 @@ function tick(){
   const dt = Math.min(0.25, Math.max(0.0, (t - S.lastTickMs)/1000));
   S.lastTickMs = t;
 
-  // timer
   S.tLeftSec = Math.max(0, S.tLeftSec - dt);
 
-  // low time overlay (last 5 seconds)
   const secLeft = Math.ceil(S.tLeftSec);
   if(secLeft <= 5 && secLeft >= 1){
     setLowOverlay(true, secLeft);
@@ -890,20 +806,16 @@ function tick(){
     setLowOverlay(false, 0);
   }
 
-  // spawn
   if(t - S.lastSpawnMs >= S.spawnEveryMs){
     S.lastSpawnMs = t;
     spawnOne();
   }
 
-  // mini progress
   tickMiniProgress();
 
-  // update UI time
   setText(el.hudTime, Math.max(0, secLeft));
   emit('hha:time', { tLeftSec: S.tLeftSec });
 
-  // end
   if(S.tLeftSec <= 0){
     endGame('timeup');
     return;
@@ -927,10 +839,8 @@ export function boot(opts = {}){
   S.phase = opts.phase ?? qs('phase', null);
   S.conditionGroup = opts.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  // seed
   const seedQ = opts.seed ?? qs('seed', null);
   if((S.run !== 'play') && !seedQ){
-    // research but no seed => force deterministic from studyId/time
     S.seedStr = `${S.studyId || 'study'}-${S.timePlanSec}-${S.diff}`;
   }else{
     S.seedStr = String(seedQ ?? Date.now());
@@ -939,10 +849,8 @@ export function boot(opts = {}){
   S.rng = rngObj.rnd;
   S.seedStr = rngObj.seedStr;
 
-  // difficulty
   applyDifficulty();
 
-  // init quests
   S.goalIndex = 0;
   S.miniIndex = 0;
   S.goalsCleared = 0;
@@ -950,11 +858,9 @@ export function boot(opts = {}){
   startGoal();
   startMini();
 
-  // init fever/shield
   setFever(18);
   S.shield = 0;
 
-  // hub button (topbar)
   if(el.btnBackHub){
     el.btnBackHub.addEventListener('click', ()=>{
       if(S.hub) location.href = S.hub;
@@ -962,14 +868,9 @@ export function boot(opts = {}){
     });
   }
 
-  // crosshair shoot (from vr-ui.js)
   WIN.addEventListener('hha:shoot', (e)=> onShoot(e.detail), { passive:true });
-
-  // also allow click anywhere in cVR if you want (already handled by vr-ui -> hha:shoot)
-  // prevent scroll
   DOC.addEventListener('touchmove', (e)=>{ if(S.view==='cvr') e.preventDefault(); }, { passive:false });
 
-  // start
   S.started = true;
   S.ended = false;
   S.tStartIso = isoNow();
