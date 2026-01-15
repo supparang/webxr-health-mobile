@@ -1,27 +1,46 @@
-// === C: /herohealth/vr-groups/groups-vr.boot.js ===
-// GroupsVR Boot — PRODUCTION
-// ✅ Auto-detect view: pc / mobile / cvr (cardboard) / vr (immersive)
-// ✅ Tap-to-start gate (gesture unlock) — required on mobile
-// ✅ Start once (hard guard)
-// ✅ Bind HUD/Quest/Coach/Power/End events
-// ✅ Safe: if engine loads slow -> wait up to 8s
+// === /herohealth/vr-groups/groups-vr.boot.js ===
+// GroupsVR BOOT — PRODUCTION (Auto detect + Tap-to-start gate + HUD binds + Ultra FX bridge)
+// ✅ Auto-detect view: pc / mobile / cvr
+// ✅ No override (but respects ?view= if you still pass it)
+// ✅ Tap-to-start: required for mobile gesture (audio/fullscreen/VR)
+// ✅ Robust waitForEngine (timeout-safe)
+// ✅ HUD/Quest/Coach binds with fallback element finding
+// ✅ ULTRA FX driver: uses particles.js if present + body fx classes (from D css)
 
 (function(){
   'use strict';
   const WIN = window;
   const DOC = document;
 
-  if (!DOC || WIN.__HHA_GROUPS_BOOT__) return;
-  WIN.__HHA_GROUPS_BOOT__ = true;
-
-  // ---------- helpers ----------
-  const $ = (id)=>DOC.getElementById(id);
-
-  function qs(k, def=null){
+  const qs = (k, def=null)=>{
     try { return new URL(location.href).searchParams.get(k) ?? def; }
     catch { return def; }
+  };
+  const clamp = (v,a,b)=>{
+    v = Number(v); if (!isFinite(v)) v = a;
+    return v<a?a:(v>b?b:v);
+  };
+
+  // ---------- detect view ----------
+  function detectView(){
+    // 1) if caller still passes view=, respect it (but you can stop passing it later)
+    const pv = String(qs('view','')||'').toLowerCase();
+    if (pv) return pv;
+
+    // 2) detect cVR: often has "stereo" or "cardboard" UI usage; safest heuristic:
+    // - if in headset-ish width/height and user likely landscape lock
+    // - OR WebXR supported and user agent mobile
+    const ua = (navigator.userAgent||'').toLowerCase();
+    const isMobile = /android|iphone|ipad|ipod/.test(ua);
+    const W = Math.max(1, WIN.innerWidth||1), H = Math.max(1, WIN.innerHeight||1);
+    const landscape = W >= H;
+
+    // If mobile + landscape + not too wide -> likely cardboard/cVR usage
+    if (isMobile && landscape && W <= 1024) return 'cvr';
+
+    // 3) pc vs mobile
+    return (W >= 980) ? 'pc' : 'mobile';
   }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
   function setBodyView(view){
     const b = DOC.body;
@@ -29,196 +48,195 @@
     b.classList.add('view-'+view);
   }
 
-  function detectView(){
-    // explicit param wins (but if you want “no override”, comment this block)
-    const p = String(qs('view','')||'').toLowerCase().trim();
-    if (p === 'pc' || p === 'mobile' || p === 'vr' || p === 'cvr') return p;
-
-    // crude heuristics
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(WIN.innerWidth, WIN.innerHeight) < 820);
-
-    // if in webxr immersive -> vr (but we can’t know before enter)
-    // for cardboard mode, you typically pass view=cvr from launcher
-    // so default: mobile
-    return isMobile ? 'mobile' : 'pc';
+  // ---------- find helpers (no need to know exact ids) ----------
+  function byIdAny(ids){
+    for (const id of ids){
+      const el = DOC.getElementById(id);
+      if (el) return el;
+    }
+    return null;
+  }
+  function bySelAny(sels){
+    for (const s of sels){
+      const el = DOC.querySelector(s);
+      if (el) return el;
+    }
+    return null;
   }
 
-  function runMode(){
-    const r = String(qs('run','play')||'play').toLowerCase();
-    return (r === 'research') ? 'research' : 'play';
+  // HUD elements (fallback lists)
+  const elTime  = ()=> byIdAny(['vTime','timeLeft','time','hudTime']) || bySelAny(['[data-hud="time"]']);
+  const elScore = ()=> byIdAny(['vScore','scoreVal','score','hudScore']) || bySelAny(['[data-hud="score"]']);
+  const elCombo = ()=> byIdAny(['vCombo','comboVal','combo','hudCombo']) || bySelAny(['[data-hud="combo"]']);
+  const elMiss  = ()=> byIdAny(['vMiss','missVal','miss','hudMiss']) || bySelAny(['[data-hud="miss"]']);
+  const elRank  = ()=> byIdAny(['vRank','rankVal','rank','hudRank']) || bySelAny(['[data-hud="rank"]']);
+  const elAcc   = ()=> byIdAny(['vAcc','accVal','acc','hudAcc']) || bySelAny(['[data-hud="acc"]']);
+  const elMode  = ()=> byIdAny(['vMode','modeVal','mode','hudMode']) || bySelAny(['[data-hud="mode"]']);
+
+  const elGoalTitle = ()=> byIdAny(['goalTitle']);
+  const elGoalCount = ()=> byIdAny(['goalCount']);
+  const elGoalFill  = ()=> byIdAny(['goalFill']);
+  const elGoalSub   = ()=> byIdAny(['goalSub']);
+
+  const elMiniTitle = ()=> byIdAny(['miniTitle']);
+  const elMiniTime  = ()=> byIdAny(['miniTime']);
+  const elMiniFill  = ()=> byIdAny(['miniFill']);
+  const elMiniSub   = ()=> byIdAny(['miniSub']);
+
+  const elCoachText = ()=> byIdAny(['coachText']);
+  const elCoachImg  = ()=> byIdAny(['coachImg']);
+
+  const elPFill = ()=> byIdAny(['pFill']);
+  const elPCur  = ()=> byIdAny(['pCur']);
+  const elPThr  = ()=> byIdAny(['pThr']);
+
+  function getLayerEl(){
+    return DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
   }
 
-  function getCfg(){
-    const view = detectView();
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const style= String(qs('style','feel')||'feel').toLowerCase();
-    const seed = String(qs('seed', Date.now()) || Date.now());
-    const time = clamp(qs('time', 90), 30, 180);
-    const ai   = String(qs('ai','0')||'0');
-    return { view, diff, style, seed, time, ai };
+  // ---------- Ultra FX bridge ----------
+  function ensureFX(){
+    // particles.js creates window.Particles; optional
+    return (WIN.Particles && typeof WIN.Particles.popText === 'function') ? WIN.Particles : null;
   }
 
-  function hasFX(){
-    return !!(WIN.Particles && (WIN.Particles.popText || WIN.Particles.burst || WIN.Particles.celebrate));
-  }
   function fxPop(x,y,text){
-    try{ if (hasFX() && WIN.Particles.popText) WIN.Particles.popText(x,y,text,''); }catch(_){}
+    const P = ensureFX();
+    if (!P) return;
+    try{ P.popText(x,y,text,''); }catch(_){}
   }
   function fxBurst(x,y,n){
-    try{ if (hasFX() && WIN.Particles.burst) WIN.Particles.burst(x,y,n||14); }catch(_){}
-  }
-  function fxCelebrate(){
-    try{ if (hasFX() && WIN.Particles.celebrate) WIN.Particles.celebrate(); }catch(_){}
-  }
-
-  // ---------- UI: Tap-to-start overlay ----------
-  function ensureTapOverlay(){
-    let el = DOC.querySelector('.tapStartOverlay');
-    if (el) return el;
-
-    el = DOC.createElement('div');
-    el.className = 'tapStartOverlay';
-    el.style.cssText = `
-      position:fixed; inset:0; z-index:95;
-      display:flex; align-items:center; justify-content:center;
-      padding:18px;
-      background: rgba(2,6,23,.78);
-      backdrop-filter: blur(10px);
-    `;
-    el.innerHTML = `
-      <div style="
-        width:min(560px,100%);
-        border-radius:26px;
-        padding:16px;
-        border:1px solid rgba(148,163,184,.20);
-        background: rgba(2,6,23,.88);
-        box-shadow: 0 24px 70px rgba(0,0,0,.55);
-        color:#e5e7eb;
-        font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-      ">
-        <div style="font-weight:1000;font-size:20px;">🎮 Food Groups VR</div>
-        <div style="margin-top:6px;font-weight:800;color:#94a3b8;font-size:13px;line-height:1.35;">
-          แตะเพื่อเริ่มเกม (Tap-to-start) เพื่อปลดล็อกเสียง/เต็มจอ/การยิงในมือถือ
-        </div>
-        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-          <button id="btnTapStart" style="
-            flex:1 1 auto;
-            padding:12px 14px;border-radius:18px;
-            border:1px solid rgba(34,197,94,.35);
-            background: rgba(34,197,94,.20);
-            color:#e5e7eb;font-weight:1000;
-          ">✅ TAP TO START</button>
-          <button id="btnTapSkip" style="
-            flex:1 1 auto;
-            padding:12px 14px;border-radius:18px;
-            border:1px solid rgba(148,163,184,.20);
-            background: rgba(15,23,42,.55);
-            color:#e5e7eb;font-weight:1000;
-          ">⏭️ เริ่มแบบเงียบ</button>
-        </div>
-        <div style="margin-top:10px;font-weight:800;color:#94a3b8;font-size:12px;">
-          Cardboard/cVR: ใช้ crosshair แล้วยิงด้วย “แตะจอ”
-        </div>
-      </div>
-    `;
-    DOC.body.appendChild(el);
-    return el;
+    const P = ensureFX();
+    if (!P) return;
+    try{ P.burst(x,y,n||12); }catch(_){}
   }
 
-  // ---------- bind events to HUD ----------
+  let __fxLock = 0;
+  function flashFx(cls, ms){
+    const t = (WIN.performance && performance.now) ? performance.now() : Date.now();
+    if (t < __fxLock) return;
+    __fxLock = t + 70;
+    try{
+      DOC.body.classList.add(cls);
+      setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){} }, ms||220);
+    }catch(_){}
+  }
+
+  // ---------- bind HUD events ----------
   function bindHud(){
-    WIN.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail||{};
-      const v = $('timeLeft'); if (v) v.textContent = String(Math.max(0, Math.round(d.left ?? 0)));
-    }, {passive:true});
-
     WIN.addEventListener('hha:score', (ev)=>{
       const d = ev.detail||{};
-      const s = $('scoreVal'); if (s) s.textContent = String(d.score ?? 0);
-      const c = $('comboVal'); if (c) c.textContent = String(d.combo ?? 0);
-      const m = $('missVal');  if (m) m.textContent = String(d.misses ?? 0);
+      const s = String(d.score ?? 0);
+      const c = String(d.combo ?? 0);
+      const m = String(d.misses ?? 0);
+
+      const a = elScore(); if (a) a.textContent = s;
+      const b = elCombo(); if (b) b.textContent = c;
+      const cc= elMiss();  if (cc) cc.textContent = m;
+    }, {passive:true});
+
+    WIN.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail||{};
+      const t = String(Math.max(0, Math.round(d.left ?? 0)));
+      const a = elTime(); if (a) a.textContent = t;
     }, {passive:true});
 
     WIN.addEventListener('hha:rank', (ev)=>{
       const d = ev.detail||{};
-      const r = $('rankVal'); if (r) r.textContent = String(d.grade ?? 'C');
-      const a = $('accVal');  if (a) a.textContent = String((d.accuracy ?? 0) + '%');
+      const a = elRank(); if (a) a.textContent = String(d.grade ?? 'C');
+      const b = elAcc();  if (b) b.textContent  = String((d.accuracy ?? 0) + '%');
     }, {passive:true});
 
     WIN.addEventListener('hha:coach', (ev)=>{
       const d = ev.detail||{};
-      const t = $('coachText'); if (t) t.textContent = String(d.text||'');
+      const t = elCoachText(); if (t) t.textContent = String(d.text||'');
+
       const mood = String(d.mood||'neutral');
       const img =
         (mood==='happy') ? '../img/coach-happy.png' :
         (mood==='sad')   ? '../img/coach-sad.png' :
         (mood==='fever') ? '../img/coach-fever.png' :
-                           '../img/coach-neutral.png';
-      const ci = $('coachImg'); if (ci) ci.src = img;
-    }, {passive:true});
-
-    WIN.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail||{};
-      const gn = $('goalNow');   if (gn) gn.textContent = String(d.goalNow ?? 0);
-      const gt = $('goalTotal'); if (gt) gt.textContent = String(d.goalTotal ?? 1);
-      const gf = $('goalFill');  if (gf) gf.style.width = Math.round(d.goalPct ?? 0) + '%';
-      const gti= $('goalTitle'); if (gti) gti.textContent = String(d.goalTitle ?? '—');
-      const gs = $('goalSub');   if (gs) gs.textContent  = String(d.groupName ? `หมู่เป้าหมาย: ${d.groupName}` : '');
-
-      const mn = $('miniNow');   if (mn) mn.textContent = String(d.miniNow ?? 0);
-      const mt = $('miniTotal'); if (mt) mt.textContent = String(d.miniTotal ?? 1);
-      const mf = $('miniFill');  if (mf) mf.style.width = Math.round(d.miniPct ?? 0) + '%';
-      const mti= $('miniTitle'); if (mti) mti.textContent = String(d.miniTitle ?? '—');
-
-      const ms = $('miniSub');
-      if (ms){
-        const left = Number(d.miniTimeLeftSec||0);
-        ms.textContent = left>0 ? `เหลือ ${left}s` : '';
-      }
-
-      DOC.body.classList.toggle('mini-urgent', (Number(d.miniTimeLeftSec||0) > 0 && Number(d.miniTimeLeftSec||0) <= 3));
+                          '../img/coach-neutral.png';
+      const im = elCoachImg(); if (im) im.src = img;
     }, {passive:true});
 
     WIN.addEventListener('groups:power', (ev)=>{
       const d = ev.detail||{};
       const cur = Number(d.charge||0);
       const thr = Math.max(1, Number(d.threshold||8));
-      const pf = $('powerFill'); if (pf) pf.style.width = Math.round(cur/thr*100) + '%';
-      const pt = $('powerText'); if (pt) pt.textContent = `พลัง ${cur|0}/${thr|0}`;
+      const a = elPCur(); if (a) a.textContent = String(cur|0);
+      const b = elPThr(); if (b) b.textContent = String(thr|0);
+      const f = elPFill(); if (f) f.style.width = Math.round((cur/thr)*100) + '%';
     }, {passive:true});
 
+    WIN.addEventListener('quest:update', (ev)=>{
+      const d = ev.detail||{};
+
+      // goal
+      const gTitle = String(d.goalTitle||'—');
+      const gNow = Number(d.goalNow||0);
+      const gTot = Math.max(1, Number(d.goalTotal||1));
+      const gPct = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
+
+      const gt = elGoalTitle(); if (gt) gt.textContent = '🎯 GOAL';
+      const gc = elGoalCount(); if (gc) gc.textContent = `${gNow}/${gTot}`;
+      const gf = elGoalFill();  if (gf) gf.style.width = Math.round(gPct) + '%';
+      const gs = elGoalSub();   if (gs) gs.textContent = gTitle;
+
+      // mini
+      const mTitle = String(d.miniTitle||'—');
+      const mNow = Number(d.miniNow||0);
+      const mTot = Math.max(1, Number(d.miniTotal||1));
+      const mPct = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
+      const mLeft = Number(d.miniTimeLeftSec||0);
+
+      const mt = elMiniTitle(); if (mt) mt.textContent = '⚡ MINI';
+      const mf = elMiniFill();  if (mf) mf.style.width = Math.round(mPct) + '%';
+      const ms = elMiniSub();   if (ms) ms.textContent = mTitle;
+      const mm = elMiniTime();  if (mm) mm.textContent = (mLeft>0) ? `${mLeft}s` : '—';
+
+      DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
+    }, {passive:true});
+
+    // judge -> FX
     WIN.addEventListener('hha:judge', (ev)=>{
       const d = ev.detail||{};
-      // optional pop FX from judge positions
+      const kind = String(d.kind||'');
       const x = Number(d.x||0), y = Number(d.y||0);
       const txt = String(d.text||'');
+
       if (x>0 && y>0 && txt){
         fxPop(x,y,txt);
-        if (String(d.kind||'') === 'good') fxBurst(x,y,12);
-        if (String(d.kind||'') === 'perfect') fxBurst(x,y,18);
+        if (kind === 'good')    fxBurst(x,y,12);
+        if (kind === 'perfect') fxBurst(x,y,18);
+        if (kind === 'boss')    fxBurst(x,y,14);
       }
+
+      if (kind === 'good')    flashFx('fx-good', 200);
+      if (kind === 'bad')     flashFx('fx-bad', 240);
+      if (kind === 'miss')    flashFx('fx-miss', 220);
+      if (kind === 'perfect') flashFx('fx-perfect', 240);
+      if (kind === 'boss')    flashFx('fx-hit', 200);
+      if (kind === 'storm')   { DOC.body.classList.add('fx-storm'); setTimeout(()=>DOC.body.classList.remove('fx-storm'), 900); }
     }, {passive:true});
 
-    WIN.addEventListener('hha:end', (ev)=>{
+    // combo milestone -> fx-combo
+    let __lastCombo = 0;
+    WIN.addEventListener('hha:score', (ev)=>{
       const d = ev.detail||{};
-      const eo = $('endOverlay'); if (!eo) return;
-      eo.classList.remove('hidden');
-
-      const es = $('endScore'); if (es) es.textContent = String(d.scoreFinal ?? 0);
-      const eg = $('endGrade'); if (eg) eg.textContent = String(d.grade ?? 'C');
-      const ea = $('endAcc');   if (ea) ea.textContent = String((d.accuracyGoodPct ?? 0) + '%');
-      const em = $('endMiss');  if (em) em.textContent = String(d.misses ?? 0);
-
-      fxCelebrate();
+      const combo = Number(d.combo||0);
+      if (combo >= 6 && combo !== __lastCombo){
+        if (combo === 6 || combo === 10 || combo === 14){
+          flashFx('fx-combo', 260);
+          fxPop((WIN.innerWidth||360)*0.5, (WIN.innerHeight||640)*0.22, `COMBO ${combo}!`);
+        }
+      }
+      __lastCombo = combo;
     }, {passive:true});
-
-    const replay = $('btnReplay');
-    replay && replay.addEventListener('click', ()=>location.reload());
   }
 
-  // ---------- engine wait ----------
-  function waitEngine(ms, cb){
+  // ---------- wait for engine ----------
+  function waitForEngine(cb){
     const t0 = Date.now();
     const it = setInterval(()=>{
       const E = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
@@ -227,98 +245,156 @@
         cb(E);
         return;
       }
-      if (Date.now() - t0 > (ms||8000)){
+      if (Date.now() - t0 > 8000){
         clearInterval(it);
         try{
-          WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{
-            text:'โหลดเอนจินไม่ขึ้น (groups.safe.js) — เช็ค path/ชื่อไฟล์ แล้วรีเฟรช',
-            mood:'sad'
-          }}));
+          WIN.dispatchEvent(new CustomEvent('hha:coach', {
+            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js) — เช็ค path/ชื่อไฟล์ แล้วรีเฟรช', mood:'sad' }
+          }));
         }catch(_){}
       }
     }, 60);
   }
 
-  // ---------- unlock gesture ----------
-  function unlockGesture(){
-    // unlock audio if any module uses it
+  // ---------- Tap-to-start overlay ----------
+  function ensureTapOverlay(){
+    // If you already have one in HTML, reuse it
+    let ov = DOC.getElementById('tapStartOverlay');
+    if (ov) return ov;
+
+    ov = DOC.createElement('div');
+    ov.id = 'tapStartOverlay';
+    ov.style.cssText = `
+      position:fixed; inset:0; z-index:120;
+      display:flex; align-items:center; justify-content:center;
+      padding:18px;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+    `;
+
+    const card = DOC.createElement('div');
+    card.style.cssText = `
+      width:min(520px,100%);
+      border-radius:26px;
+      background: rgba(2,6,23,.86);
+      border: 1px solid rgba(148,163,184,.20);
+      box-shadow: 0 24px 70px rgba(0,0,0,.55);
+      padding: 16px;
+      color:#e5e7eb;
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    `;
+
+    card.innerHTML = `
+      <div style="font-weight:1000;font-size:20px;letter-spacing:.2px;">👉 Tap-to-start</div>
+      <div style="margin-top:6px;color:#94a3b8;font-weight:800;font-size:13px;line-height:1.35;">
+        มือถือจำเป็นต้อง “แตะ 1 ครั้ง” เพื่อปลดล็อกเสียง/เต็มจอ/โหมด VR ให้เริ่มเกมได้อัตโนมัติ
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button id="btnTapStart" style="
+          flex:1; border-radius:18px; padding:12px 12px; cursor:pointer;
+          border:1px solid rgba(34,197,94,.35);
+          background: rgba(34,197,94,.20);
+          color:#e5e7eb; font-weight:1000;">
+          ✅ เริ่มเกม
+        </button>
+        <button id="btnTapSkip" style="
+          flex:1; border-radius:18px; padding:12px 12px; cursor:pointer;
+          border:1px solid rgba(148,163,184,.20);
+          background: rgba(15,23,42,.65);
+          color:#e5e7eb; font-weight:1000;">
+          ⏭️ ข้าม
+        </button>
+      </div>
+      <div style="margin-top:10px;color:#94a3b8;font-weight:800;font-size:12px;">
+        cVR: ยิงด้วย crosshair (แตะจอ) • ปุ่ม ENTER VR/RECENTER อยู่ vr-ui.js
+      </div>
+    `;
+
+    ov.appendChild(card);
+    DOC.body.appendChild(ov);
+    return ov;
+  }
+
+  async function unlockGesture(){
+    // unlock audio if you have GroupsVR.Audio
     try{
       const A = WIN.GroupsVR && WIN.GroupsVR.Audio;
-      if (A && A.unlock) A.unlock();
+      A && A.unlock && A.unlock();
     }catch(_){}
-  }
 
-  // ---------- start once ----------
-  let started = false;
-  function startGame(E){
-    if (started) return;
-    started = true;
-
-    const cfg = getCfg();
-    setBodyView(cfg.view);
-
-    // layer
-    const layer = $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
-    E.setLayerEl(layer);
-
-    // start
-    E.start(cfg.diff, { runMode: runMode(), diff: cfg.diff, style: cfg.style, time: cfg.time, seed: cfg.seed, view: cfg.view });
-
-    // if view=cvr, encourage immersive if helper exists (optional)
+    // best-effort request fullscreen for cvr only (optional)
     try{
-      const H = WIN.GroupsVR && WIN.GroupsVR.ViewHelper;
-      H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
+      const view = detectView();
+      if (view === 'cvr' && DOC.documentElement.requestFullscreen){
+        await DOC.documentElement.requestFullscreen().catch(()=>{});
+      }
     }catch(_){}
   }
 
+  // ---------- start engine ----------
+  function startEngine(){
+    const view = detectView();
+    setBodyView(view);
+
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const style= String(qs('style','mix')||'mix').toLowerCase();
+    const time = clamp(qs('time',90), 30, 180);
+    const seed = String(qs('seed', Date.now()) || Date.now());
+
+    const m = elMode(); if (m) m.textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
+
+    waitForEngine((E)=>{
+      E.setLayerEl(getLayerEl());
+      E.start(diff, { runMode: run, diff, style, time, seed, view });
+
+      // AI hooks attach point (if exists) — safe
+      try{
+        const AIH = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
+        AIH && AIH.attach && AIH.attach({ runMode: run, seed, enabled: (run==='play') && (String(qs('ai','0'))==='1') });
+      }catch(_){}
+    });
+  }
+
+  // ---------- boot flow ----------
   function boot(){
     bindHud();
 
-    const cfg = getCfg();
-    setBodyView(cfg.view);
+    // show coach early
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text:'กำลังเตรียมเกม…', mood:'neutral' } }));
+    }catch(_){}
 
-    // show tap overlay always on mobile/cvr; on pc you can auto-start after short delay
-    const isPc = (cfg.view === 'pc');
-    const overlay = ensureTapOverlay();
+    // Always require tap on mobile-ish contexts (prevents “auto-start failed”)
+    const view = detectView();
+    const needTap = (view !== 'pc'); // mobile/cvr always needs gesture for best compatibility
+
+    if (!needTap){
+      startEngine();
+      return;
+    }
+
+    const ov = ensureTapOverlay();
     const btnStart = DOC.getElementById('btnTapStart');
     const btnSkip  = DOC.getElementById('btnTapSkip');
 
-    function hideOverlay(){
-      try{ overlay.remove(); }catch(_){}
-    }
+    const go = async ()=>{
+      try{ await unlockGesture(); }catch(_){}
+      try{ ov.remove(); }catch(_){}
+      startEngine();
+    };
 
-    // PC: auto-start (still keep overlay for 1.2s, user can tap sooner)
-    if (isPc){
-      setTimeout(()=>{
-        if (started) return;
-        waitEngine(8000, (E)=>{
-          hideOverlay();
-          startGame(E);
-        });
-      }, 700);
-    }
+    if (btnStart) btnStart.addEventListener('click', go, {passive:true});
+    if (btnSkip)  btnSkip.addEventListener('click', go, {passive:true});
 
-    function doStart(withUnlock){
-      if (withUnlock) unlockGesture();
-      waitEngine(8000, (E)=>{
-        hideOverlay();
-        startGame(E);
-      });
-    }
-
-    btnStart && btnStart.addEventListener('click', ()=>doStart(true));
-    btnSkip  && btnSkip.addEventListener('click', ()=>doStart(false));
-
-    // also allow tapping anywhere on overlay card area
-    overlay.addEventListener('click', (e)=>{
-      // prevent accidental start if clicking inside buttons already
-      if (e.target && (e.target.id === 'btnTapStart' || e.target.id === 'btnTapSkip')) return;
-      // single tap starts
-      doStart(true);
-    }, { passive:false });
+    // Also allow tap anywhere on overlay
+    ov.addEventListener('click', (e)=>{
+      if (e.target && (e.target.id==='btnTapStart' || e.target.id==='btnTapSkip')) return;
+      go();
+    }, {passive:true});
   }
 
-  if (DOC.readyState === 'complete' || DOC.readyState === 'interactive') boot();
-  else DOC.addEventListener('DOMContentLoaded', boot, { once:true });
+  if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot);
+  else boot();
 
 })();
