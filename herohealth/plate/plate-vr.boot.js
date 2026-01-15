@@ -1,59 +1,53 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION FINAL
-// ✅ Auto view detect (no menu)
-// ✅ Default time = 90s (kids-friendly baseline)
+// PlateVR Boot — PRODUCTION
+// ✅ Auto view detect (no UI override menu)
 // ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners:
-//    - hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ (Optional) hha:timeAdd to extend time ONLY when explicitly requested
-// ✅ End overlay aria-hidden only (no display:none dependencies)
+// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def = null) => {
+const qs = (k, def=null)=>{
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
 
-function clamp(v, a, b){
-  v = Number(v) || 0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function pct(n){
-  n = Number(n) || 0;
-  return `${Math.round(n)}%`;
-}
-
 function isMobile(){
   const ua = navigator.userAgent || '';
   const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && (WIN.innerWidth || 0) < 920);
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && (WIN.innerWidth||0) < 920);
 }
 
 function getViewAuto(){
-  // Allow forcing by query for experiments, but no UI chooser.
-  const forced = String(qs('view','') || '').toLowerCase();
-  if (forced) return forced;
-
-  // If A-Frame/WebXR is in VR presenting state later, vr-ui will handle UI,
-  // but view class here is for layout.
+  // ✅ Do not offer UI override menu.
+  // Allow force by query (?view=pc|mobile|vr|cvr) for experiments only.
+  const forced = (qs('view','')||'').toLowerCase();
+  if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
 function setBodyView(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
-  if (view === 'cvr') b.classList.add('view-cvr');
-  else if (view === 'vr') b.classList.add('view-vr');
-  else if (view === 'mobile') b.classList.add('view-mobile');
+  if(view === 'cvr') b.classList.add('view-cvr');
+  else if(view === 'vr') b.classList.add('view-vr');
+  else if(view === 'mobile') b.classList.add('view-mobile');
   else b.classList.add('view-pc');
+}
+
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
+}
+
+function pct(n){
+  n = Number(n)||0;
+  return `${Math.round(n)}%`;
 }
 
 function setOverlayOpen(open){
@@ -69,7 +63,7 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = String(meta || 'Coach');
+  if(metaEl) metaEl.textContent = meta;
 
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
@@ -81,14 +75,6 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
-function ready(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-}
-
-/* ---------------------------------------------------------
-   HUD wiring
---------------------------------------------------------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -118,7 +104,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // expected shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    // Expected: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -141,32 +127,18 @@ function wireHUD(){
 
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
-    if(d && (d.msg || d.text)){
-      showCoach(d.msg || d.text, d.tag || 'Coach');
-    }
-  });
-
-  // ✅ OPTIONAL time extension: only when engine explicitly asks
-  // detail: { addSec:number, reason?:string }
-  WIN.addEventListener('hha:timeAdd', (e)=>{
-    const d = e.detail || {};
-    const add = Number(d.addSec || 0);
-    if(add > 0){
-      // Boot does not own timer; this is just UX feedback.
-      // Engine should also add time internally when emitting this.
-      showCoach(`+${Math.round(add)} วิ ⏱️`, d.reason || 'โบนัสเวลา');
-    }
+    if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
 }
 
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
-  const hub = String(qs('hub','') || '');
+  const hub = qs('hub','') || '';
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      // keep same params
+      // keep same query params
       location.reload();
     });
   }
@@ -194,7 +166,7 @@ function wireEndSummary(){
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc == null) ? '—' : pct(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -203,21 +175,15 @@ function wireEndSummary(){
   });
 }
 
-/* ---------------------------------------------------------
-   Build engine config
---------------------------------------------------------- */
 function buildEngineConfig(){
   const view = getViewAuto();
+  const run  = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  const run  = String(qs('run','play') || 'play').toLowerCase();
-  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
-
-  // ✅ default kids-friendly time = 90
-  // (you can still override by ?time=70 etc.)
+  // ✅ เวลา: default 90 (kids-friendly) แต่ยังให้ override ด้วย ?time=
   const time = clamp(qs('time','90'), 10, 999);
 
-  const seedQ = qs('seed','');
-  const seed = Number(seedQ || Date.now()) || Date.now();
+  const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
     view,
@@ -228,41 +194,39 @@ function buildEngineConfig(){
     seed: Number(seed),
 
     // endpoints / tags
-    hub: String(qs('hub','') || ''),
-    logEndpoint: String(qs('log','') || ''),
+    hub: qs('hub','') || '',
+    logEndpoint: qs('log','') || '',
 
-    // passthrough context (cloud logger)
-    studyId: String(qs('studyId','') || ''),
-    phase: String(qs('phase','') || ''),
-    conditionGroup: String(qs('conditionGroup','') || ''),
-    sessionOrder: String(qs('sessionOrder','') || ''),
-    blockLabel: String(qs('blockLabel','') || ''),
-    siteCode: String(qs('siteCode','') || ''),
-    schoolCode: String(qs('schoolCode','') || ''),
-    schoolName: String(qs('schoolName','') || ''),
-    gradeLevel: String(qs('gradeLevel','') || ''),
-    studentKey: String(qs('studentKey','') || ''),
+    // context passthrough (optional for cloud logger)
+    studyId: qs('studyId','') || '',
+    phase: qs('phase','') || '',
+    conditionGroup: qs('conditionGroup','') || '',
+    sessionOrder: qs('sessionOrder','') || '',
+    blockLabel: qs('blockLabel','') || '',
+    siteCode: qs('siteCode','') || '',
+    schoolCode: qs('schoolCode','') || '',
+    schoolName: qs('schoolName','') || '',
+    gradeLevel: qs('gradeLevel','') || '',
+    studentKey: qs('studentKey','') || '',
   };
 }
 
-/* ---------------------------------------------------------
-   Boot
---------------------------------------------------------- */
+function ready(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
+  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+}
+
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
