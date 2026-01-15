@@ -18,7 +18,7 @@
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Boot -->
+  <!-- Boot (wires HUD + starts engine) -->
   <script type="module" src="./plate.boot.js"></script>
 </head>
 
@@ -36,10 +36,6 @@
 
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
-
-    <!-- FX hooks (optional) -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
 
     <!-- HUD -->
     <div id="hud" aria-label="hud">
@@ -90,7 +86,7 @@
       </div>
     </div>
 
-    <!-- Coach bubble -->
+    <!-- Coach bubble (optional) -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
@@ -116,16 +112,17 @@
         </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
+          <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- NOTE:
-    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay.
-    plate.boot.js sets view class + boots the engine.
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
