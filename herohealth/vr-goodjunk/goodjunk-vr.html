@@ -1,172 +1,187 @@
-// === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION
-// ✅ Auto-detect view WITHOUT overriding explicit ?view=
-// ✅ Sets body view classes + eye layer (gj-layer-r) for vr/cvr
-// ✅ Ensures vr-ui.js is loaded (if not already)
-// ✅ Boots goodjunk.safe.js with payload from URL (hub/run/diff/time/seed/study params)
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GoodJunkVR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-import { boot as engineBoot } from './goodjunk.safe.js';
+  <!-- ✅ CSS อยู่โฟลเดอร์เดียวกัน -->
+  <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-const DOC = document;
-const WIN = window;
+  <!-- A-Frame (ถ้าต้องการ Enter VR เสถียร) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-function qs(k, def = null) {
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
+  <!-- ✅ Global modules (อยู่ /herohealth/vr/) -->
+  <script defer src="../vr/particles.js"></script>
+  <script defer src="../vr/hha-cloud-logger.js"></script>
+  <script defer src="../vr/vr-ui.js"></script>
 
-function isTouchDevice() {
-  return ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
-}
+  <!-- ✅ Boot (module) อยู่โฟลเดอร์เดียวกัน -->
+  <script type="module" defer src="./goodjunk-vr.boot.js"></script>
+</head>
 
-function detectViewNoOverride() {
-  const explicit = String(qs('view','')).toLowerCase();
-  if (explicit) return explicit; // ✅ do not override
+<body class="gj view-mobile">
+  <!-- Minimal A-Frame scene behind UI -->
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true" style="background:transparent;">
+    <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
+  </a-scene>
 
-  const isTouch = isTouchDevice();
-  const w = Math.max(1, WIN.innerWidth || 1);
-  const h = Math.max(1, WIN.innerHeight || 1);
-  const landscape = w >= h;
+  <!-- Gameplay layers -->
+  <div class="gj-field" id="gj-stage">
+    <div class="gj-layer" id="gj-layer"></div>
+    <div class="gj-layer gj-layer-r" id="gj-layer-r" aria-hidden="true"></div>
+  </div>
 
-  // Heuristic:
-  // - PC: no touch or big screen
-  // - cVR: touch + landscape + width >= ~740
-  // - mobile: touch (portrait or smaller)
-  if (!isTouch) return 'pc';
-  if (landscape && w >= 740) return 'cvr';
-  return 'mobile';
-}
+  <!-- TOPBAR -->
+  <header class="gj-topbar">
+    <div class="left">
+      <div class="gj-chip">
+        <b>GoodJunkVR</b> · <span id="gjChipMeta">view=auto · run=play</span>
+      </div>
+    </div>
+    <div class="right">
+      <button class="gj-btn" id="btnMissions" type="button">Missions</button>
+      <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
+      <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
+    </div>
+  </header>
 
-function normalizeView(v) {
-  v = String(v || '').toLowerCase().trim();
-  if (v === 'auto' || !v) return detectViewNoOverride();
+  <!-- HUD TOP -->
+  <section class="gj-hud-top">
+    <div class="hud-row">
+      <div class="hud-pill"><div class="hud-label">SCORE</div><div class="hud-value" id="hud-score">0</div></div>
+      <div class="hud-pill"><div class="hud-label">TIME</div><div class="hud-value"><span id="hud-time">0</span>s</div></div>
+      <div class="hud-pill warn"><div class="hud-label">MISS</div><div class="hud-value" id="hud-miss">0</div></div>
+      <div class="hud-pill grade"><div class="hud-label">GRADE</div><div class="hud-value" id="hud-grade">—</div></div>
+    </div>
 
-  // allow aliases
-  if (v === 'cardboard') return 'cvr';
-  if (v === 'desktop') return 'pc';
+    <div class="quest-row">
+      <div class="quest-card">
+        <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
+        <div class="q-desc" id="goalDesc">—</div>
+        <div class="q-bar">
+          <div class="q-num"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
+          <div class="q-hint">ทำให้ครบแล้วไป GOAL ต่อ</div>
+        </div>
+      </div>
 
-  if (v !== 'pc' && v !== 'mobile' && v !== 'vr' && v !== 'cvr') {
-    // unknown -> detect (but still respects explicit if user typed weird)
-    return detectViewNoOverride();
-  }
-  return v;
-}
+      <div class="quest-card mini">
+        <div class="q-title">MINI</div>
+        <div class="q-desc" id="hud-mini">—</div>
+        <div class="q-bar">
+          <div class="q-num">TIMER: <span id="miniTimer">—</span></div>
+          <div class="q-hint">ผ่านแล้วสลับทันที</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-function setBodyView(view) {
-  const b = DOC.body;
-  if (!b) return;
+  <!-- HUD BOTTOM -->
+  <section class="gj-hud-bot">
+    <div class="meter">
+      <div class="meter-title">FEVER</div>
+      <div class="meter-bar"><div class="meter-fill" id="feverFill"></div></div>
+      <div class="meter-num"><span id="feverText">0%</span> · ยิ่งสูงยิ่งเสี่ยง</div>
+    </div>
 
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add(
-    view === 'pc' ? 'view-pc' :
-    view === 'vr' ? 'view-vr' :
-    view === 'cvr'? 'view-cvr' : 'view-mobile'
-  );
+    <div class="meter shield">
+      <div class="meter-title">SHIELD</div>
+      <div class="meter-shield"><span id="shieldPills">—</span></div>
+      <div class="meter-tip">🛡️ บล็อคขยะ = ไม่เป็น MISS</div>
+    </div>
+  </section>
 
-  // helpful tags for CSS tweaks
-  b.dataset.view = view;
-}
+  <!-- Missions peek -->
+  <div class="gj-peek" id="peek" aria-hidden="true">
+    <div class="peek-card">
+      <div class="peek-title">Missions</div>
+      <div class="peek-sub">GOAL: <span id="peekGoal">—</span></div>
+      <div class="peek-mini">MINI: <span id="peekMini">—</span></div>
+      <div class="peek-tip">แตะหน้าจอเพื่อปิด</div>
+    </div>
+  </div>
 
-function setEyeLayer(view) {
-  const r = DOC.getElementById('gj-layer-r');
-  if (!r) return;
+  <!-- Low time overlay -->
+  <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
+    <div class="gj-lowtime-ring"></div>
+    <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
+  </div>
 
-  // show right-eye layer only for vr/cvr
-  const on = (view === 'vr' || view === 'cvr');
-  r.setAttribute('aria-hidden', on ? 'false' : 'true');
-}
+  <script>
+    (function(){
+      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const hub = qs('hub', null);
+      const meta = document.getElementById('gjChipMeta');
 
-function ensureVrUiLoaded() {
-  // If already loaded, ok
-  if (WIN.__HHA_VRUI_LOADED__) return;
+      const view = qs('view','auto');
+      const run  = qs('run','play');
+      const diff = qs('diff','normal');
+      const time = qs('time','80');
+      if(meta) meta.textContent = `view=${view} • run=${run} • diff=${diff} • time=${time}`;
 
-  // If script tag exists (defer), it will load soon; do nothing.
-  const existing = DOC.querySelector('script[src*="/vr/vr-ui.js"],script[src$="vr-ui.js"]');
-  if (existing) return;
+      // Topbar buttons
+      document.getElementById('btnBackHub')?.addEventListener('click', ()=>{
+        if(hub) location.href = hub;
+        else alert('ยังไม่ได้ใส่ hub url');
+      });
+      document.getElementById('btnHideHud')?.addEventListener('click', ()=>{
+        document.body.classList.toggle('hud-hidden');
+      });
 
-  // Otherwise inject best-effort
-  const s = DOC.createElement('script');
-  s.src = '../vr/vr-ui.js';
-  s.defer = true;
-  DOC.head.appendChild(s);
-}
+      // Missions peek overlay
+      const peek = document.getElementById('peek');
+      const btnM = document.getElementById('btnMissions');
+      const closePeek = ()=>{ document.body.classList.remove('show-missions'); peek?.setAttribute('aria-hidden','true'); };
+      btnM?.addEventListener('click', ()=>{
+        const on = !document.body.classList.contains('show-missions');
+        document.body.classList.toggle('show-missions', on);
+        peek?.setAttribute('aria-hidden', on ? 'false':'true');
+      });
+      peek?.addEventListener('pointerdown', closePeek);
 
-function setChipMeta(view, run, diff, time) {
-  const el = DOC.getElementById('gjChipMeta');
-  if (!el) return;
-  el.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
-}
+      // ✅ VRUI safe-bottom helper (กันปุ่ม VRUI ทับ HUD ล่าง)
+      function setVrUiSafeBottom(){
+        try{
+          const candidates = [
+            document.querySelector('#hha-vrui'),
+            document.querySelector('.hha-vrui'),
+            document.querySelector('.vrui'),
+            document.querySelector('[data-hha-vrui]')
+          ].filter(Boolean);
 
-function buildPayload(view) {
-  const run  = String(qs('run','play') || 'play').toLowerCase();   // play|research
-  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
-  const time = Number(qs('time','80') || 80) || 80;
+          let el = candidates[0];
 
-  const hub  = (qs('hub', null) || null);
-  const seed = (qs('seed', null) || null);
+          if(!el){
+            const btn = Array.from(document.querySelectorAll('button,a,div'))
+              .find(x => (x.textContent||'').trim().toUpperCase() === 'ENTER VR');
+            el = btn?.closest('div') || btn?.parentElement || null;
+          }
 
-  // research context passthrough (optional)
-  const studyId = qs('studyId', qs('study', null));
-  const phase   = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', qs('cond', null));
+          if(!el){
+            document.documentElement.style.setProperty('--vrui-safe-bottom', '0px');
+            return;
+          }
+          const r = el.getBoundingClientRect();
+          const h = Math.max(0, Math.round(r.height || 0));
+          const pad = 10;
+          document.documentElement.style.setProperty('--vrui-safe-bottom', (h ? (h + pad) : 0) + 'px');
+        }catch(_){}
+      }
+      window.addEventListener('load', ()=>{ setVrUiSafeBottom(); setTimeout(setVrUiSafeBottom, 300); setTimeout(setVrUiSafeBottom, 900); });
+      window.addEventListener('resize', ()=>{ setVrUiSafeBottom(); });
+      document.addEventListener('fullscreenchange', ()=>{ setTimeout(setVrUiSafeBottom, 150); });
 
-  return {
-    view,
-    run,
-    diff,
-    time,
-    hub,
-    seed,
-
-    // research fields (optional)
-    studyId,
-    phase,
-    conditionGroup,
-  };
-}
-
-function bootNow() {
-  const view = normalizeView(qs('view','auto'));
-  const payload = buildPayload(view);
-
-  // ✅ UI mode
-  setBodyView(view);
-  setEyeLayer(view);
-  ensureVrUiLoaded();
-  setChipMeta(view, payload.run, payload.diff, payload.time);
-
-  // Option: kid UI (looser layout) via ?ui=kid
-  const ui = String(qs('ui','') || '').toLowerCase();
-  if (ui === 'kid') DOC.body.classList.add('ui-kid');
-
-  // ✅ Boot engine
-  try {
-    engineBoot(payload);
-  } catch (err) {
-    console.error('[GoodJunkVR boot] engineBoot failed:', err);
-  }
-}
-
-// DOM ready
-if (DOC.readyState === 'loading') {
-  DOC.addEventListener('DOMContentLoaded', bootNow, { once: true });
-} else {
-  bootNow();
-}
-
-// Resize/orientation: keep eye-layer + view class stable
-WIN.addEventListener('resize', ()=>{
-  try {
-    const view = normalizeView(qs('view','auto'));
-    setBodyView(view);
-    setEyeLayer(view);
-  } catch(_){}
-}, { passive:true });
-
-WIN.addEventListener('orientationchange', ()=>{
-  try {
-    const view = normalizeView(qs('view','auto'));
-    setBodyView(view);
-    setEyeLayer(view);
-  } catch(_){}
-}, { passive:true });
+      // sync peek text from quest:update
+      window.addEventListener('quest:update', (e)=>{
+        const d = e.detail || {};
+        const g = document.getElementById('peekGoal');
+        const m = document.getElementById('peekMini');
+        if(g) g.textContent = `${d.goalText||'—'} (${d.goalCur||0}/${d.goalTarget||0})`;
+        if(m) m.textContent = (d.miniText||'—');
+      });
+    })();
+  </script>
+</body>
+</html>
