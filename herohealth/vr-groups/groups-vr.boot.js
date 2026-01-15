@@ -1,400 +1,186 @@
-// === /herohealth/vr-groups/groups-vr.boot.js ===
-// GroupsVR BOOT — PRODUCTION (Auto detect + Tap-to-start gate + HUD binds + Ultra FX bridge)
-// ✅ Auto-detect view: pc / mobile / cvr
-// ✅ No override (but respects ?view= if you still pass it)
-// ✅ Tap-to-start: required for mobile gesture (audio/fullscreen/VR)
-// ✅ Robust waitForEngine (timeout-safe)
-// ✅ HUD/Quest/Coach binds with fallback element finding
-// ✅ ULTRA FX driver: uses particles.js if present + body fx classes (from D css)
+// === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
+// GoodJunkVR Boot — PRODUCTION (Folder-run, auto-detect view)
+// ✅ Sets body class: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Sets body.dataset.view
+// ✅ Passes params to goodjunk.safe.js boot()
+// ✅ Wires basic UI buttons + endOverlay buttons (if present)
 
-(function(){
-  'use strict';
-  const WIN = window;
-  const DOC = document;
+import { boot as engineBoot } from './goodjunk.safe.js';
 
-  const qs = (k, def=null)=>{
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+const ROOT = window;
+const DOC  = document;
+
+function qs(k, def=null){
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
+}
+
+function clamp(n, a, b){
+  n = Number(n) || 0;
+  return n < a ? a : (n > b ? b : n);
+}
+
+function pickView(){
+  // explicit param wins (except 'auto')
+  const v = String(qs('view','auto') || 'auto').toLowerCase();
+  if(v && v !== 'auto') return v;
+
+  // heuristic auto:
+  // - If WebXR immersive-vr supported => 'vr' (Cardboard/VR)
+  // - If view=cvr requested by user agent patterns? (manual param still best)
+  // - Else if mobile UA => mobile, else pc
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const isMobileUA = /android|iphone|ipad|ipod|mobile/.test(ua);
+
+  // If inside an active XR session => vr
+  try{
+    if(navigator.xr && ROOT.__HHA_XR_ACTIVE__) return 'vr';
+  }catch(_){}
+
+  // Attempt quick support check (non-blocking): default now, may upgrade later
+  // We'll set initial view now, but if XR supported we keep view=vr for better Enter VR UX
+  if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
+    // fire & forget: if supported, mark hint class (optional)
+    navigator.xr.isSessionSupported('immersive-vr').then((ok)=>{
+      if(ok){
+        DOC.body.classList.add('xr-supported');
+      }
+    }).catch(()=>{});
+  }
+
+  return isMobileUA ? 'mobile' : 'pc';
+}
+
+function applyView(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  if(view==='pc') b.classList.add('view-pc');
+  else if(view==='vr') b.classList.add('view-vr');
+  else if(view==='cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
+
+  b.dataset.view = view;
+}
+
+function wireUi(){
+  const hub = qs('hub', null);
+
+  const btnBack = DOC.getElementById('btnBackHub');
+  const btnHide = DOC.getElementById('btnHideHud');
+  const btnMis  = DOC.getElementById('btnMissions');
+
+  const peek = DOC.getElementById('missionsPeek');
+  const peekGoal = DOC.getElementById('peekGoal');
+  const peekMini = DOC.getElementById('peekMini');
+
+  const chipMeta = DOC.getElementById('gjChipMeta');
+
+  // end overlay fields (if your HTML has them)
+  const endOverlay = DOC.getElementById('endOverlay');
+  const btnReplay  = DOC.getElementById('btnReplay');
+  const btnHub     = DOC.getElementById('btnToHub') || DOC.getElementById('btnBackHub2') || DOC.getElementById('btnHub');
+
+  const run  = qs('run','play');
+  const diff = qs('diff','normal');
+  const time = qs('time','80');
+  const view = DOC.body.dataset.view || qs('view','auto');
+
+  if(chipMeta){
+    chipMeta.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
+  }
+
+  btnBack?.addEventListener('click', ()=>{
+    if(hub) location.href = hub;
+    else alert('ยังไม่ได้ใส่ hub url');
+  });
+
+  btnHide?.addEventListener('click', ()=>{
+    DOC.body.classList.toggle('hud-hidden');
+    // let your html safe-measure script recalc safe rect
+    setTimeout(()=>ROOT.dispatchEvent(new Event('resize')), 0);
+  });
+
+  function toggleMissions(){
+    DOC.body.classList.toggle('show-missions');
+    const shown = DOC.body.classList.contains('show-missions');
+    peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
+    if(shown){
+      if(peekGoal) peekGoal.textContent = (DOC.getElementById('hud-goal')?.textContent || '—');
+      if(peekMini) peekMini.textContent = (DOC.getElementById('hud-mini')?.textContent || '—');
+    }
+  }
+  btnMis?.addEventListener('click', toggleMissions);
+  peek?.addEventListener('click', toggleMissions);
+
+  // close end overlay by click outside (optional)
+  endOverlay?.addEventListener('click', (ev)=>{
+    // if click on overlay background, close (not on inner card)
+    if(ev.target === endOverlay){
+      endOverlay.setAttribute('aria-hidden','true');
+    }
+  });
+
+  btnReplay?.addEventListener('click', ()=>{
+    try{ location.reload(); }catch(_){}
+  });
+
+  btnHub?.addEventListener('click', ()=>{
+    try{
+      if(hub) location.href = hub;
+      else alert('ยังไม่ได้ใส่ hub url');
+    }catch(_){}
+  });
+}
+
+function normalizeParams(view){
+  const runMode = String(qs('run','play')).toLowerCase(); // play | research
+  const diff = String(qs('diff','normal')).toLowerCase();
+  const time = clamp(qs('time','80'), 20, 300);
+
+  const seed = qs('seed', null);
+  const hub  = qs('hub', null);
+
+  const studyId = qs('studyId', qs('study', null));
+  const phase = qs('phase', null);
+  const conditionGroup = qs('conditionGroup', qs('cond', null));
+
+  return {
+    view,
+    run: runMode,
+    diff,
+    time,
+    seed,
+    hub,
+    studyId,
+    phase,
+    conditionGroup
   };
-  const clamp = (v,a,b)=>{
-    v = Number(v); if (!isFinite(v)) v = a;
-    return v<a?a:(v>b?b:v);
-  };
+}
 
-  // ---------- detect view ----------
-  function detectView(){
-    // 1) if caller still passes view=, respect it (but you can stop passing it later)
-    const pv = String(qs('view','')||'').toLowerCase();
-    if (pv) return pv;
+function bootOnce(){
+  if(ROOT.__GJ_BOOTED__) return;
+  ROOT.__GJ_BOOTED__ = true;
 
-    // 2) detect cVR: often has "stereo" or "cardboard" UI usage; safest heuristic:
-    // - if in headset-ish width/height and user likely landscape lock
-    // - OR WebXR supported and user agent mobile
-    const ua = (navigator.userAgent||'').toLowerCase();
-    const isMobile = /android|iphone|ipad|ipod/.test(ua);
-    const W = Math.max(1, WIN.innerWidth||1), H = Math.max(1, WIN.innerHeight||1);
-    const landscape = W >= H;
+  const view = pickView();
+  applyView(view);
+  wireUi();
 
-    // If mobile + landscape + not too wide -> likely cardboard/cVR usage
-    if (isMobile && landscape && W <= 1024) return 'cvr';
+  const payload = normalizeParams(view);
 
-    // 3) pc vs mobile
-    return (W >= 980) ? 'pc' : 'mobile';
-  }
-
-  function setBodyView(view){
-    const b = DOC.body;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    b.classList.add('view-'+view);
-  }
-
-  // ---------- find helpers (no need to know exact ids) ----------
-  function byIdAny(ids){
-    for (const id of ids){
-      const el = DOC.getElementById(id);
-      if (el) return el;
+  // give html safe-measure script a tick to set --gj-top-safe / --gj-bottom-safe
+  setTimeout(()=>{
+    try{
+      engineBoot(payload);
+    }catch(err){
+      console.error('[GoodJunkVR boot] engineBoot failed', err);
+      alert('Engine error: ดู console');
     }
-    return null;
-  }
-  function bySelAny(sels){
-    for (const s of sels){
-      const el = DOC.querySelector(s);
-      if (el) return el;
-    }
-    return null;
-  }
+  }, 0);
+}
 
-  // HUD elements (fallback lists)
-  const elTime  = ()=> byIdAny(['vTime','timeLeft','time','hudTime']) || bySelAny(['[data-hud="time"]']);
-  const elScore = ()=> byIdAny(['vScore','scoreVal','score','hudScore']) || bySelAny(['[data-hud="score"]']);
-  const elCombo = ()=> byIdAny(['vCombo','comboVal','combo','hudCombo']) || bySelAny(['[data-hud="combo"]']);
-  const elMiss  = ()=> byIdAny(['vMiss','missVal','miss','hudMiss']) || bySelAny(['[data-hud="miss"]']);
-  const elRank  = ()=> byIdAny(['vRank','rankVal','rank','hudRank']) || bySelAny(['[data-hud="rank"]']);
-  const elAcc   = ()=> byIdAny(['vAcc','accVal','acc','hudAcc']) || bySelAny(['[data-hud="acc"]']);
-  const elMode  = ()=> byIdAny(['vMode','modeVal','mode','hudMode']) || bySelAny(['[data-hud="mode"]']);
-
-  const elGoalTitle = ()=> byIdAny(['goalTitle']);
-  const elGoalCount = ()=> byIdAny(['goalCount']);
-  const elGoalFill  = ()=> byIdAny(['goalFill']);
-  const elGoalSub   = ()=> byIdAny(['goalSub']);
-
-  const elMiniTitle = ()=> byIdAny(['miniTitle']);
-  const elMiniTime  = ()=> byIdAny(['miniTime']);
-  const elMiniFill  = ()=> byIdAny(['miniFill']);
-  const elMiniSub   = ()=> byIdAny(['miniSub']);
-
-  const elCoachText = ()=> byIdAny(['coachText']);
-  const elCoachImg  = ()=> byIdAny(['coachImg']);
-
-  const elPFill = ()=> byIdAny(['pFill']);
-  const elPCur  = ()=> byIdAny(['pCur']);
-  const elPThr  = ()=> byIdAny(['pThr']);
-
-  function getLayerEl(){
-    return DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
-  }
-
-  // ---------- Ultra FX bridge ----------
-  function ensureFX(){
-    // particles.js creates window.Particles; optional
-    return (WIN.Particles && typeof WIN.Particles.popText === 'function') ? WIN.Particles : null;
-  }
-
-  function fxPop(x,y,text){
-    const P = ensureFX();
-    if (!P) return;
-    try{ P.popText(x,y,text,''); }catch(_){}
-  }
-  function fxBurst(x,y,n){
-    const P = ensureFX();
-    if (!P) return;
-    try{ P.burst(x,y,n||12); }catch(_){}
-  }
-
-  let __fxLock = 0;
-  function flashFx(cls, ms){
-    const t = (WIN.performance && performance.now) ? performance.now() : Date.now();
-    if (t < __fxLock) return;
-    __fxLock = t + 70;
-    try{
-      DOC.body.classList.add(cls);
-      setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){} }, ms||220);
-    }catch(_){}
-  }
-
-  // ---------- bind HUD events ----------
-  function bindHud(){
-    WIN.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail||{};
-      const s = String(d.score ?? 0);
-      const c = String(d.combo ?? 0);
-      const m = String(d.misses ?? 0);
-
-      const a = elScore(); if (a) a.textContent = s;
-      const b = elCombo(); if (b) b.textContent = c;
-      const cc= elMiss();  if (cc) cc.textContent = m;
-    }, {passive:true});
-
-    WIN.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail||{};
-      const t = String(Math.max(0, Math.round(d.left ?? 0)));
-      const a = elTime(); if (a) a.textContent = t;
-    }, {passive:true});
-
-    WIN.addEventListener('hha:rank', (ev)=>{
-      const d = ev.detail||{};
-      const a = elRank(); if (a) a.textContent = String(d.grade ?? 'C');
-      const b = elAcc();  if (b) b.textContent  = String((d.accuracy ?? 0) + '%');
-    }, {passive:true});
-
-    WIN.addEventListener('hha:coach', (ev)=>{
-      const d = ev.detail||{};
-      const t = elCoachText(); if (t) t.textContent = String(d.text||'');
-
-      const mood = String(d.mood||'neutral');
-      const img =
-        (mood==='happy') ? '../img/coach-happy.png' :
-        (mood==='sad')   ? '../img/coach-sad.png' :
-        (mood==='fever') ? '../img/coach-fever.png' :
-                          '../img/coach-neutral.png';
-      const im = elCoachImg(); if (im) im.src = img;
-    }, {passive:true});
-
-    WIN.addEventListener('groups:power', (ev)=>{
-      const d = ev.detail||{};
-      const cur = Number(d.charge||0);
-      const thr = Math.max(1, Number(d.threshold||8));
-      const a = elPCur(); if (a) a.textContent = String(cur|0);
-      const b = elPThr(); if (b) b.textContent = String(thr|0);
-      const f = elPFill(); if (f) f.style.width = Math.round((cur/thr)*100) + '%';
-    }, {passive:true});
-
-    WIN.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail||{};
-
-      // goal
-      const gTitle = String(d.goalTitle||'—');
-      const gNow = Number(d.goalNow||0);
-      const gTot = Math.max(1, Number(d.goalTotal||1));
-      const gPct = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
-
-      const gt = elGoalTitle(); if (gt) gt.textContent = '🎯 GOAL';
-      const gc = elGoalCount(); if (gc) gc.textContent = `${gNow}/${gTot}`;
-      const gf = elGoalFill();  if (gf) gf.style.width = Math.round(gPct) + '%';
-      const gs = elGoalSub();   if (gs) gs.textContent = gTitle;
-
-      // mini
-      const mTitle = String(d.miniTitle||'—');
-      const mNow = Number(d.miniNow||0);
-      const mTot = Math.max(1, Number(d.miniTotal||1));
-      const mPct = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
-      const mLeft = Number(d.miniTimeLeftSec||0);
-
-      const mt = elMiniTitle(); if (mt) mt.textContent = '⚡ MINI';
-      const mf = elMiniFill();  if (mf) mf.style.width = Math.round(mPct) + '%';
-      const ms = elMiniSub();   if (ms) ms.textContent = mTitle;
-      const mm = elMiniTime();  if (mm) mm.textContent = (mLeft>0) ? `${mLeft}s` : '—';
-
-      DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
-    }, {passive:true});
-
-    // judge -> FX
-    WIN.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail||{};
-      const kind = String(d.kind||'');
-      const x = Number(d.x||0), y = Number(d.y||0);
-      const txt = String(d.text||'');
-
-      if (x>0 && y>0 && txt){
-        fxPop(x,y,txt);
-        if (kind === 'good')    fxBurst(x,y,12);
-        if (kind === 'perfect') fxBurst(x,y,18);
-        if (kind === 'boss')    fxBurst(x,y,14);
-      }
-
-      if (kind === 'good')    flashFx('fx-good', 200);
-      if (kind === 'bad')     flashFx('fx-bad', 240);
-      if (kind === 'miss')    flashFx('fx-miss', 220);
-      if (kind === 'perfect') flashFx('fx-perfect', 240);
-      if (kind === 'boss')    flashFx('fx-hit', 200);
-      if (kind === 'storm')   { DOC.body.classList.add('fx-storm'); setTimeout(()=>DOC.body.classList.remove('fx-storm'), 900); }
-    }, {passive:true});
-
-    // combo milestone -> fx-combo
-    let __lastCombo = 0;
-    WIN.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail||{};
-      const combo = Number(d.combo||0);
-      if (combo >= 6 && combo !== __lastCombo){
-        if (combo === 6 || combo === 10 || combo === 14){
-          flashFx('fx-combo', 260);
-          fxPop((WIN.innerWidth||360)*0.5, (WIN.innerHeight||640)*0.22, `COMBO ${combo}!`);
-        }
-      }
-      __lastCombo = combo;
-    }, {passive:true});
-  }
-
-  // ---------- wait for engine ----------
-  function waitForEngine(cb){
-    const t0 = Date.now();
-    const it = setInterval(()=>{
-      const E = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
-      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function'){
-        clearInterval(it);
-        cb(E);
-        return;
-      }
-      if (Date.now() - t0 > 8000){
-        clearInterval(it);
-        try{
-          WIN.dispatchEvent(new CustomEvent('hha:coach', {
-            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js) — เช็ค path/ชื่อไฟล์ แล้วรีเฟรช', mood:'sad' }
-          }));
-        }catch(_){}
-      }
-    }, 60);
-  }
-
-  // ---------- Tap-to-start overlay ----------
-  function ensureTapOverlay(){
-    // If you already have one in HTML, reuse it
-    let ov = DOC.getElementById('tapStartOverlay');
-    if (ov) return ov;
-
-    ov = DOC.createElement('div');
-    ov.id = 'tapStartOverlay';
-    ov.style.cssText = `
-      position:fixed; inset:0; z-index:120;
-      display:flex; align-items:center; justify-content:center;
-      padding:18px;
-      background: rgba(2,6,23,.72);
-      backdrop-filter: blur(10px);
-    `;
-
-    const card = DOC.createElement('div');
-    card.style.cssText = `
-      width:min(520px,100%);
-      border-radius:26px;
-      background: rgba(2,6,23,.86);
-      border: 1px solid rgba(148,163,184,.20);
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      padding: 16px;
-      color:#e5e7eb;
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    `;
-
-    card.innerHTML = `
-      <div style="font-weight:1000;font-size:20px;letter-spacing:.2px;">👉 Tap-to-start</div>
-      <div style="margin-top:6px;color:#94a3b8;font-weight:800;font-size:13px;line-height:1.35;">
-        มือถือจำเป็นต้อง “แตะ 1 ครั้ง” เพื่อปลดล็อกเสียง/เต็มจอ/โหมด VR ให้เริ่มเกมได้อัตโนมัติ
-      </div>
-      <div style="display:flex;gap:10px;margin-top:12px;">
-        <button id="btnTapStart" style="
-          flex:1; border-radius:18px; padding:12px 12px; cursor:pointer;
-          border:1px solid rgba(34,197,94,.35);
-          background: rgba(34,197,94,.20);
-          color:#e5e7eb; font-weight:1000;">
-          ✅ เริ่มเกม
-        </button>
-        <button id="btnTapSkip" style="
-          flex:1; border-radius:18px; padding:12px 12px; cursor:pointer;
-          border:1px solid rgba(148,163,184,.20);
-          background: rgba(15,23,42,.65);
-          color:#e5e7eb; font-weight:1000;">
-          ⏭️ ข้าม
-        </button>
-      </div>
-      <div style="margin-top:10px;color:#94a3b8;font-weight:800;font-size:12px;">
-        cVR: ยิงด้วย crosshair (แตะจอ) • ปุ่ม ENTER VR/RECENTER อยู่ vr-ui.js
-      </div>
-    `;
-
-    ov.appendChild(card);
-    DOC.body.appendChild(ov);
-    return ov;
-  }
-
-  async function unlockGesture(){
-    // unlock audio if you have GroupsVR.Audio
-    try{
-      const A = WIN.GroupsVR && WIN.GroupsVR.Audio;
-      A && A.unlock && A.unlock();
-    }catch(_){}
-
-    // best-effort request fullscreen for cvr only (optional)
-    try{
-      const view = detectView();
-      if (view === 'cvr' && DOC.documentElement.requestFullscreen){
-        await DOC.documentElement.requestFullscreen().catch(()=>{});
-      }
-    }catch(_){}
-  }
-
-  // ---------- start engine ----------
-  function startEngine(){
-    const view = detectView();
-    setBodyView(view);
-
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const style= String(qs('style','mix')||'mix').toLowerCase();
-    const time = clamp(qs('time',90), 30, 180);
-    const seed = String(qs('seed', Date.now()) || Date.now());
-
-    const m = elMode(); if (m) m.textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
-
-    waitForEngine((E)=>{
-      E.setLayerEl(getLayerEl());
-      E.start(diff, { runMode: run, diff, style, time, seed, view });
-
-      // AI hooks attach point (if exists) — safe
-      try{
-        const AIH = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
-        AIH && AIH.attach && AIH.attach({ runMode: run, seed, enabled: (run==='play') && (String(qs('ai','0'))==='1') });
-      }catch(_){}
-    });
-  }
-
-  // ---------- boot flow ----------
-  function boot(){
-    bindHud();
-
-    // show coach early
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text:'กำลังเตรียมเกม…', mood:'neutral' } }));
-    }catch(_){}
-
-    // Always require tap on mobile-ish contexts (prevents “auto-start failed”)
-    const view = detectView();
-    const needTap = (view !== 'pc'); // mobile/cvr always needs gesture for best compatibility
-
-    if (!needTap){
-      startEngine();
-      return;
-    }
-
-    const ov = ensureTapOverlay();
-    const btnStart = DOC.getElementById('btnTapStart');
-    const btnSkip  = DOC.getElementById('btnTapSkip');
-
-    const go = async ()=>{
-      try{ await unlockGesture(); }catch(_){}
-      try{ ov.remove(); }catch(_){}
-      startEngine();
-    };
-
-    if (btnStart) btnStart.addEventListener('click', go, {passive:true});
-    if (btnSkip)  btnSkip.addEventListener('click', go, {passive:true});
-
-    // Also allow tap anywhere on overlay
-    ov.addEventListener('click', (e)=>{
-      if (e.target && (e.target.id==='btnTapStart' || e.target.id==='btnTapSkip')) return;
-      go();
-    }, {passive:true});
-  }
-
-  if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot);
-  else boot();
-
-})();
+// DOM ready
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', bootOnce, { once:true });
+}else{
+  bootOnce();
+}
