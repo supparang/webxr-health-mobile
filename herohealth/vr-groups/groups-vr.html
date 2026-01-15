@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-Food Groups VR — RUN (PRODUCTION)
-✅ Minimal A-Frame scene (Enter VR reliability)
-✅ DOM UI layers (HUD / Quest / Coach / Power / End overlay)
-✅ playLayer fullscreen (targets spawn here)
-✅ Boot flow handled by ./groups-vr.boot.js (Tap-to-start + detect + calibration + practice + run)
+GroupsVR RUN — PRODUCTION
+✅ Uses: groups-vr.boot.js (auto-detect view + tap-to-start + safe start)
+✅ Engine: groups.safe.js
+✅ UI: groups-vr.css
+✅ VR UI: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
+✅ FX: ../vr/particles.js (optional)
 -->
 <!doctype html>
 <html lang="th">
@@ -11,296 +12,282 @@ Food Groups VR — RUN (PRODUCTION)
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Food Groups VR</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame (XR only; gameplay targets are DOM) -->
+  <!-- A-Frame: minimal scene for WebXR Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Logger + VR UI -->
+  <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
-
-  <!-- tune crosshair assist for cVR -->
   <script>
+    // lockPx: crosshair assist radius for cVR tap-to-shoot
+    // NOTE: ใช้ 70–100 สำหรับเด็ก ป.5 จะ “ช่วยให้โดน” มากขึ้น
     window.HHA_VRUI_CONFIG = { lockPx: 92, cooldownMs: 90 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- optional packs (if you already have these files) -->
+  <!-- Optional packs (safe to keep even if some are stubs) -->
   <script src="./audio.js" defer></script>
+  <script src="./groups-quests.js" defer></script>
+  <script src="./ai-hooks.js" defer></script>
   <script src="./effects-pack.js" defer></script>
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>
 
-  <!-- Engine -->
-  <script src="./groups.safe.js" defer></script>
-
-  <!-- Boot (Tap-to-start + detect + calibration + practice + real run) -->
-  <script src="./groups-vr.boot.js" defer></script>
+  <!-- Boot (imports engine) -->
+  <script type="module" src="./groups-vr.boot.js"></script>
 </head>
 
 <body class="view-mobile">
-  <!-- ===== XR scene behind DOM (minimal for Enter VR) ===== -->
-  <a-scene class="xr-scene" embedded
-           vr-mode-ui="enabled: false"
-           renderer="colorManagement:true; physicallyCorrectLights:false; antialias:true"
-           device-orientation-permission-ui="enabled: false">
-    <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
+
+  <!-- XR Scene (behind DOM) -->
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled:false" renderer="colorManagement:true">
+    <a-entity position="0 1.6 0">
+      <a-camera></a-camera>
+    </a-entity>
     <a-sky color="#020617"></a-sky>
-    <a-entity light="type:ambient; intensity:0.9"></a-entity>
   </a-scene>
 
-  <!-- ===== PLAY LAYER (DOM targets spawn here) ===== -->
-  <div id="playLayer" class="playLayer" aria-label="play layer"></div>
-
-  <!-- ===== HUD ===== -->
+  <!-- HUD -->
   <div class="hud" aria-hidden="true">
     <div class="hudLeft">
-      <div class="pill">
-        <span class="lbl">TIME</span>
-        <span id="hudTime" class="val">90</span>
-      </div>
-      <div class="pill">
-        <span class="lbl">SCORE</span>
-        <span id="hudScore" class="val">0</span>
-      </div>
-      <div class="pill">
-        <span class="lbl">COMBO</span>
-        <span id="hudCombo" class="val">0</span>
-      </div>
-      <div class="pill">
-        <span class="lbl">MISS</span>
-        <span id="hudMiss" class="val">0</span>
-      </div>
+      <div class="pill"><span class="lbl">⏳ TIME</span><span id="vTime" class="val">90</span></div>
+      <div class="pill"><span class="lbl">⭐ SCORE</span><span id="vScore" class="val">0</span></div>
+      <div class="pill"><span class="lbl">🔥 COMBO</span><span id="vCombo" class="val">0</span></div>
+      <div class="pill"><span class="lbl">❌ MISS</span><span id="vMiss" class="val">0</span></div>
     </div>
-
     <div class="hudRight">
-      <div class="pill">
-        <span class="lbl">ACC</span>
-        <span id="hudAcc" class="val">0%</span>
-      </div>
-      <div class="pill">
-        <span class="lbl">RANK</span>
-        <span id="hudRank" class="val">C</span>
-      </div>
-      <div class="pill">
-        <span class="lbl">MODE</span>
-        <span id="vMode" class="val">PLAY</span>
-      </div>
+      <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
+      <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
+      <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
     </div>
   </div>
 
-  <!-- ===== QUEST TOP ===== -->
+  <!-- Quest -->
   <div class="questTop" aria-hidden="true">
-    <!-- GOAL -->
     <div class="questCard">
       <div class="qTitle">
-        <div id="goalTitle">—</div>
-        <div class="tag"><span id="goalNow">0</span>/<span id="goalTotal">0</span></div>
+        <div id="goalTitle">🎯 GOAL</div>
+        <div class="tag" id="goalCount">0/1</div>
       </div>
-      <div class="bar"><div id="goalFill" class="fill" style="width:0%"></div></div>
-      <div class="qSub" id="goalSub">GOAL</div>
+      <div class="bar"><div id="goalFill" class="fill"></div></div>
+      <div class="qSub" id="goalSub">—</div>
     </div>
 
-    <!-- MINI -->
     <div class="questCard">
       <div class="qTitle">
-        <div id="miniTitle">—</div>
-        <div class="tag">
-          <span id="miniNow">0</span>/<span id="miniTotal">0</span>
-          <span id="miniTime" style="margin-left:6px; opacity:.9;"></span>
-        </div>
+        <div id="miniTitle">⚡ MINI</div>
+        <div class="tag"><span class="miniTime" id="miniTime">—</span></div>
       </div>
-      <div class="bar"><div id="miniFill" class="fill" style="width:0%"></div></div>
-      <div class="qSub" id="miniSub">MINI</div>
+      <div class="bar"><div id="miniFill" class="fill"></div></div>
+      <div class="qSub" id="miniSub">—</div>
     </div>
   </div>
 
-  <!-- ===== COACH ===== -->
-  <div class="coachWrap" aria-hidden="true">
-    <div class="coachCard">
-      <img id="coachImg" class="coachImg" alt="coach" src="../img/coach-neutral.png" />
-      <div class="coachBubble">
-        <div class="coachName">Hero Coach</div>
-        <div id="coachText" class="coachText">แตะเพื่อเริ่มเกม</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== POWER ===== -->
+  <!-- Power -->
   <div class="powerWrap" aria-hidden="true">
     <div class="powerCard">
-      <div class="pHead">POWER — เก็บให้เต็มเพื่อ “สลับหมู่”</div>
-      <div class="bar powerBar">
-        <div id="powerFill" class="fill" style="width:0%"></div>
-      </div>
-      <div class="pFoot">
-        <span id="powerNow">0</span>/<span id="powerThr">0</span>
-        <span id="powerNote" style="margin-left:8px;">Perfect Switch</span>
+      <div class="pHead">⚡ Power</div>
+      <div class="bar powerBar"><div id="pFill" class="fill"></div></div>
+      <div class="pFoot"><span id="pCur">0</span>/<span id="pThr">8</span> → ครบแล้วจะสลับหมู่</div>
+    </div>
+  </div>
+
+  <!-- Coach -->
+  <div class="coachWrap" aria-hidden="true">
+    <div class="coachCard">
+      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
+      <div class="coachBubble">
+        <div class="coachName">🥦 Coach</div>
+        <div id="coachText" class="coachText">แตะเพื่อเริ่ม…</div>
       </div>
     </div>
   </div>
 
-  <!-- ===== END OVERLAY ===== -->
-  <div id="endOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+  <!-- Play Layer (targets spawn here) -->
+  <div id="fg-layer" class="playLayer" aria-label="play-layer"></div>
+
+  <!-- Optional: HUB link placeholder (boot can set this if needed) -->
+  <a data-hub-link class="hidden" style="display:none;"></a>
+
+  <!-- End overlay (your A version can use this; B emits hha:end; boot/inline can listen too) -->
+  <div id="endOverlay" class="overlay overlay-end hidden" role="dialog" aria-modal="true">
     <div class="panel">
-      <div class="title">สรุปผลการเล่น</div>
-      <div id="endSub" class="sub">—</div>
+      <div class="title">🏁 จบเกม</div>
+      <div id="endLine" class="sub">—</div>
 
       <div class="grid2">
-        <div class="stat"><div class="k">RANK</div><div id="endRank" class="v">C</div></div>
-        <div class="stat"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
-        <div class="stat"><div class="k">ACC</div><div id="endAcc" class="v">0%</div></div>
-        <div class="stat"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
+        <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
+        <div class="stat"><div class="k">Rank</div><div id="endRank" class="v">C</div></div>
+        <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
+        <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
       </div>
 
       <div class="row row2">
-        <div class="note" id="endNote">กดเล่นใหม่ได้เลย หรือกลับ HUB</div>
+        <button id="btnRestart" class="btn btn-strong" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="btnCopy" class="btn" type="button">📋 Copy JSON</button>
+      </div>
+      <div class="row row2">
+        <button id="btnBackLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
+        <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
       </div>
 
-      <div class="row">
-        <button id="btnReplay" class="btn btn-strong" type="button">🔁 เล่นใหม่</button>
-        <button id="btnBackHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
+      <div class="note" style="margin-top:10px;">
+        Cardboard (cVR): แตะจอเพื่อยิงจาก crosshair • ปุ่ม ENTER VR/RECENTER อยู่ UI ของ vr-ui.js
       </div>
     </div>
   </div>
 
-  <!-- ===== (Optional) Calibration Overlay placeholders
-       Boot.js สามารถสร้างเองได้ แต่ถ้ามีไว้ก็ OK ===== -->
-  <div id="calOverlay" style="display:none;"></div>
-
-  <!-- ===== UI Wiring (small + safe): listen to engine events and update DOM ===== -->
   <script>
   (function(){
     'use strict';
-    const $ = (id)=>document.getElementById(id);
+    const DOC = document;
+    const $ = (id)=>DOC.getElementById(id);
 
-    function showEnd(on){
-      const el = $('endOverlay');
-      if (!el) return;
-      el.classList.toggle('hidden', !on);
+    function qs(k, def=null){
+      try { return new URL(location.href).searchParams.get(k) ?? def; }
+      catch { return def; }
     }
+    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-    function pctFill(el, pct){
-      if (!el) return;
-      pct = Math.max(0, Math.min(100, Number(pct)||0));
-      el.style.width = pct.toFixed(0) + '%';
-    }
-
-    // HUD
-    window.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail||{};
-      if ($('hudTime')) $('hudTime').textContent = String(d.left ?? 0);
-    }, {passive:true});
-
+    // HUD events
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail||{};
-      if ($('hudScore')) $('hudScore').textContent = String(d.score ?? 0);
-      if ($('hudCombo')) $('hudCombo').textContent = String(d.combo ?? 0);
-      if ($('hudMiss'))  $('hudMiss').textContent  = String(d.misses ?? 0);
+      $('vScore').textContent = String(d.score ?? 0);
+      $('vCombo').textContent = String(d.combo ?? 0);
+      $('vMiss').textContent  = String(d.misses ?? 0);
+    }, {passive:true});
+
+    window.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail||{};
+      $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
     }, {passive:true});
 
     window.addEventListener('hha:rank', (ev)=>{
       const d = ev.detail||{};
-      if ($('hudRank')) $('hudRank').textContent = String(d.grade ?? 'C');
-      if ($('hudAcc'))  $('hudAcc').textContent  = String(d.accuracy ?? 0) + '%';
+      $('vRank').textContent = String(d.grade ?? 'C');
+      $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
     }, {passive:true});
 
-    // Coach
     window.addEventListener('hha:coach', (ev)=>{
       const d = ev.detail||{};
-      if ($('coachText')) $('coachText').textContent = String(d.text || '');
+      $('coachText').textContent = String(d.text||'');
       const mood = String(d.mood||'neutral');
-      const img = $('coachImg');
-      if (img){
-        if (mood==='happy') img.src = '../img/coach-happy.png';
-        else if (mood==='sad') img.src = '../img/coach-sad.png';
-        else if (mood==='fever') img.src = '../img/coach-fever.png';
-        else img.src = '../img/coach-neutral.png';
-      }
+      const img =
+        (mood==='happy') ? '../img/coach-happy.png' :
+        (mood==='sad')   ? '../img/coach-sad.png' :
+        (mood==='fever') ? '../img/coach-fever.png' :
+                          '../img/coach-neutral.png';
+      $('coachImg').src = img;
     }, {passive:true});
 
-    // Quest
-    window.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail||{};
-      if ($('goalTitle')) $('goalTitle').textContent = String(d.goalTitle || '—');
-      if ($('goalNow'))   $('goalNow').textContent   = String(d.goalNow ?? 0);
-      if ($('goalTotal')) $('goalTotal').textContent = String(d.goalTotal ?? 0);
-      pctFill($('goalFill'), d.goalPct ?? 0);
-
-      if ($('miniTitle')) $('miniTitle').textContent = String(d.miniTitle || '—');
-      if ($('miniNow'))   $('miniNow').textContent   = String(d.miniNow ?? 0);
-      if ($('miniTotal')) $('miniTotal').textContent = String(d.miniTotal ?? 0);
-      pctFill($('miniFill'), d.miniPct ?? 0);
-
-      const tLeft = Number(d.miniTimeLeftSec)||0;
-      const miniTime = $('miniTime');
-      if (miniTime){
-        miniTime.textContent = (tLeft>0) ? ('⏱️ ' + tLeft + 's') : '';
-      }
-
-      // urgent classes
-      document.body.classList.toggle('mini-urgent', tLeft>0 && tLeft<=3);
-    }, {passive:true});
-
-    // Power
     window.addEventListener('groups:power', (ev)=>{
       const d = ev.detail||{};
-      if ($('powerNow')) $('powerNow').textContent = String(d.charge ?? 0);
-      if ($('powerThr')) $('powerThr').textContent = String(d.threshold ?? 0);
-      const pct = (Number(d.threshold)||0) ? (Number(d.charge||0)/Number(d.threshold||1))*100 : 0;
-      pctFill($('powerFill'), pct);
+      const cur = Number(d.charge||0);
+      const thr = Math.max(1, Number(d.threshold||8));
+      $('pCur').textContent = String(cur|0);
+      $('pThr').textContent = String(thr|0);
+      $('pFill').style.width = Math.round((cur/thr)*100) + '%';
     }, {passive:true});
 
-    // Storm/progress UI flags
-    window.addEventListener('groups:progress', (ev)=>{
+    window.addEventListener('quest:update', (ev)=>{
       const d = ev.detail||{};
-      const kind = String(d.kind||'');
-      if (kind==='storm_on') document.body.classList.add('groups-storm');
-      if (kind==='storm_off') document.body.classList.remove('groups-storm');
-      if (kind==='pressure') {
-        // body classes are already managed by engine; keep optional
-      }
+      const gTitle = String(d.goalTitle||'—');
+      const gNow   = Number(d.goalNow||0);
+      const gTot   = Math.max(1, Number(d.goalTotal||1));
+      const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
+
+      const mTitle = String(d.miniTitle||'—');
+      const mNow   = Number(d.miniNow||0);
+      const mTot   = Math.max(1, Number(d.miniTotal||1));
+      const mPct   = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
+      const mLeft  = Number(d.miniTimeLeftSec||0);
+
+      $('goalCount').textContent = `${gNow}/${gTot}`;
+      $('goalFill').style.width = Math.round(gPct) + '%';
+      $('goalSub').textContent = gTitle;
+
+      $('miniFill').style.width = Math.round(mPct) + '%';
+      $('miniSub').textContent = mTitle;
+      $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
+
+      const urgent = (mLeft>0 && mLeft<=3);
+      DOC.body.classList.toggle('mini-urgent', urgent);
     }, {passive:true});
 
-    // End summary
-    window.addEventListener('hha:end', (ev)=>{
-      const s = ev.detail||{};
-      if ($('endRank')) $('endRank').textContent = String(s.grade ?? 'C');
-      if ($('endScore')) $('endScore').textContent = String(s.scoreFinal ?? 0);
-      if ($('endAcc')) $('endAcc').textContent = String(s.accuracyGoodPct ?? 0) + '%';
-      if ($('endMiss')) $('endMiss').textContent = String(s.misses ?? 0);
-      if ($('endSub')) $('endSub').textContent = `เหตุผลจบ: ${String(s.reason||'end')} • เล่น ${String(s.durationPlayedSec||0)}s`;
-      showEnd(true);
-    }, {passive:true});
+    // End overlay
+    let lastSummary = null;
 
-    // Buttons
-    const btnReplay = $('btnReplay');
-    if (btnReplay){
-      btnReplay.addEventListener('click', ()=>{
+    async function copyText(text){
+      try { await navigator.clipboard.writeText(String(text||'')); return true; }
+      catch {
         try{
-          const u = new URL(location.href);
-          // รีเพลย์แบบคงพารามิเตอร์เดิม
-          location.href = u.toString();
-        }catch{
-          location.reload();
-        }
-      });
+          const ta = DOC.createElement('textarea');
+          ta.value = String(text||'');
+          DOC.body.appendChild(ta);
+          ta.select();
+          DOC.execCommand('copy');
+          ta.remove();
+          return true;
+        }catch{ return false; }
+      }
     }
-    const btnHub = $('btnBackHub');
-    if (btnHub){
-      btnHub.addEventListener('click', ()=>{
-        const hub = (new URL(location.href)).searchParams.get('hub');
-        if (hub) location.href = hub;
-        else location.href = '../hub.html';
+
+    window.addEventListener('hha:end', (ev)=>{
+      const d = ev.detail||{};
+      lastSummary = d;
+
+      $('endOverlay').classList.remove('hidden');
+      $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
+      $('endScore').textContent = String(d.scoreFinal ?? 0);
+      $('endRank').textContent  = String(d.grade ?? 'C');
+      $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
+      $('endMiss').textContent  = String(d.misses ?? 0);
+
+      const hub = String(qs('hub','')||'');
+      $('btnHub').style.display = hub ? 'inline-flex' : 'none';
+    }, {passive:true});
+
+    $('btnRestart').addEventListener('click', ()=> location.reload());
+
+    $('btnCopy').addEventListener('click', async ()=>{
+      if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
+      const ok = await copyText(JSON.stringify(lastSummary, null, 2));
+      alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
+    });
+
+    // Back launcher (../groups-vr.html)
+    $('btnBackLauncher').addEventListener('click', ()=>{
+      const hub = String(qs('hub','')||'');
+      const u = new URL('../groups-vr.html', location.href);
+      if (hub) u.searchParams.set('hub', hub);
+
+      const log = String(qs('log','')||'');
+      if (log) u.searchParams.set('log', log);
+
+      // carry over other params except run-only ones
+      const sp = new URL(location.href).searchParams;
+      sp.forEach((v,k)=>{
+        if (['view','run','diff','style','time','seed','practice','ai'].includes(k)) return;
+        if (k==='hub' || k==='log') return;
+        u.searchParams.set(k,v);
       });
-    }
+
+      location.href = u.toString();
+    });
+
+    $('btnHub').addEventListener('click', ()=>{
+      const hub = String(qs('hub','')||'');
+      if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+      location.href = hub;
+    });
   })();
   </script>
+
 </body>
 </html>
