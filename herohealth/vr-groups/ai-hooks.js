@@ -1,18 +1,22 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// AI Hooks — SAFE STUB that can be enabled in PLAY only (?ai=1)
-// ✅ Deterministic by seed
-// ✅ Director: spawn speed multiplier (fair, explainable)
-// ✅ Pattern: bias wrong/junk distribution (gentle)
-// ✅ Tip: coach micro-tips (rate-limited)
-// Notes:
-// - research/practice: forced OFF by caller (A) and by attach guard here.
+// GroupsVR AI Hooks — deterministic (seeded) — ON only when run=play&ai=1
+// Provides: GroupsVR.__ai = { director, pattern, tip }
+// ✅ director.spawnSpeedMul(accPct, combo, misses)
+// ✅ pattern.bias() -> [-0.08..+0.08] adjusts wrong/junk bias (fair)
+// ✅ tip(text,mood) -> emits hha:coach (rate-limited)
 
 (function(root){
   'use strict';
   const DOC = root.document;
-  const NS  = root.GroupsVR = root.GroupsVR || {};
+  if (!DOC) return;
 
-  function clamp(v,a,b){ v=Number(v); if(!isFinite(v)) v=a; return v<a?a:(v>b?b:v); }
+  const NS = root.GroupsVR = root.GroupsVR || {};
+
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
   function hashSeed(str){
     str = String(str ?? '');
@@ -21,114 +25,89 @@
       h ^= str.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
-    return h >>> 0;
+    return h>>>0;
   }
   function makeRng(seedU32){
     let s = (seedU32>>>0) || 1;
     return function(){
-      s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+      s = (Math.imul(1664525, s) + 1013904223)>>>0;
       return s / 4294967296;
     };
   }
-  function nowMs(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
-  function emit(name, detail){ try{ root.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){} }
 
-  // internal state
-  const AI = {
-    enabled:false,
-    runMode:'play',
-    seed:'',
-    rng:null,
-    lastTipAt:0,
-    attach(ctx){
-      ctx = ctx || {};
-      const runMode = String(ctx.runMode||'play').toLowerCase();
-      const enabled = !!ctx.enabled;
+  function emit(name, detail){
+    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+  }
 
-      // Hard safety: never in research/practice
-      if (runMode !== 'play') {
-        this.enabled = false;
-        this.runMode = runMode;
-        NS.__ai = null;
-        return;
-      }
+  // gate
+  const run = String(qs('run','play')||'play').toLowerCase();
+  const ai  = String(qs('ai','0')||'0');
+  const seed= String(qs('seed', Date.now()) || Date.now());
 
-      this.enabled = enabled;
-      this.runMode = runMode;
-      this.seed = String(ctx.seed||'');
-      this.rng = makeRng(hashSeed(this.seed + '::ai'));
+  const enabled = (run === 'play' && (ai === '1' || ai === 'true'));
+  if (!enabled){
+    // ensure OFF = remove hooks
+    try{ delete NS.__ai; }catch(_){}
+    return;
+  }
 
-      if (!this.enabled) { NS.__ai = null; return; }
+  const rng = makeRng(hashSeed(seed + '::groups-ai'));
 
-      // expose as __ai for engine to consult
-      NS.__ai = {
-        director: this._makeDirector(),
-        pattern:  this._makePattern(),
-        tip:      (text,mood)=> this.tip(text,mood),
-      };
+  // --- director: fair adaptive without “cheating” ---
+  const director = {
+    spawnSpeedMul(accPct, combo, misses){
+      accPct = clamp(accPct, 0, 100);
+      combo  = clamp(combo, 0, 40);
+      misses = clamp(misses,0, 40);
 
-      this.tip('AI เปิดแล้ว ✅ (ช่วยปรับความยากแบบยุติธรรม)', 'happy');
-    },
+      // target: keep flow exciting but not punitive
+      // good performance -> slightly faster
+      // high misses -> slightly slower (help recovery)
+      let mul = 1.0;
 
-    // Director: fair adjustments (not spiky)
-    _makeDirector(){
-      const self = this;
-      return {
-        // accPct: 0..100, combo/misses are ints
-        spawnSpeedMul(accPct, combo, misses){
-          if (!self.enabled) return 1.0;
+      if (accPct >= 88) mul *= 0.92;
+      else if (accPct >= 80) mul *= 0.96;
+      else if (accPct <= 55) mul *= 1.08;
 
-          accPct = clamp(accPct, 0, 100);
-          combo  = Math.max(0, combo|0);
-          misses = Math.max(0, misses|0);
+      if (combo >= 10) mul *= 0.92;
+      else if (combo >= 6) mul *= 0.96;
 
-          // Fair: if doing well -> slightly faster; if struggling -> slightly slower
-          let mul = 1.0;
-          if (accPct >= 88) mul *= 0.94;
-          if (accPct >= 94) mul *= 0.92;
+      if (misses >= 12) mul *= 1.10;
+      else if (misses >= 8) mul *= 1.06;
 
-          if (combo >= 8) mul *= 0.92;
-          if (combo >= 12) mul *= 0.90;
+      // tiny seeded jitter (deterministic) to avoid robotic feel
+      const j = (rng() - 0.5) * 0.04; // [-0.02..+0.02]
+      mul *= (1.0 + j);
 
-          if (misses >= 6) mul *= 1.06;
-          if (misses >= 10) mul *= 1.10;
-
-          return clamp(mul, 0.86, 1.18);
-        }
-      };
-    },
-
-    // Pattern bias: gentle bias (engine uses it to tweak wrongRate/junkRate)
-    _makePattern(){
-      const self = this;
-      let drift = 0;
-      return {
-        bias(){
-          if (!self.enabled) return 0;
-
-          // slowly drift bias within [-0.10..+0.10]
-          const r = self.rng ? self.rng() : Math.random();
-          drift += (r - 0.5) * 0.02;
-          drift = clamp(drift, -0.10, 0.10);
-
-          // meaning:
-          // +bias -> more wrong, less junk (engine may interpret)
-          // -bias -> less wrong, more junk
-          return drift;
-        }
-      };
-    },
-
-    // rate-limited coach tips
-    tip(text, mood){
-      if (!this.enabled) return;
-      const t = nowMs();
-      if (t - this.lastTipAt < 1600) return;
-      this.lastTipAt = t;
-      emit('hha:coach', { text:String(text||''), mood:String(mood||'neutral') });
+      return clamp(mul, 0.85, 1.18);
     }
   };
 
-  NS.AIHooks = AI;
+  // --- pattern: bias difficulty very slightly (seeded), stays fair ---
+  // +bias => more wrong, less junk (harder but less “unfair junk”)
+  // -bias => less wrong, more junk (more traps)
+  let biasBase = (rng() - 0.5) * 0.12; // [-0.06..+0.06]
+  const pattern = {
+    bias(){
+      // slowly drift with deterministic wobble
+      const wob = (rng() - 0.5) * 0.04; // [-0.02..+0.02]
+      const v = biasBase + wob;
+      return clamp(v, -0.08, 0.08);
+    }
+  };
+
+  // --- explainable micro tips (rate limited) ---
+  let lastTipAt = 0;
+  function tip(text, mood){
+    const t = performance.now();
+    if (t - lastTipAt < 2500) return;
+    lastTipAt = t;
+    emit('hha:coach', { text:String(text||''), mood:String(mood||'neutral') });
+  }
+
+  NS.__ai = { director, pattern, tip };
+
+  // announce once
+  tip('AI ON ✅ (ปรับความยากแบบแฟร์ตามฟอร์มการเล่น)', 'neutral');
 
 })(typeof window !== 'undefined' ? window : globalThis);
