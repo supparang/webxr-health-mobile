@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunkVR Launcher</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
@@ -15,127 +15,125 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%; margin:0; background:radial-gradient(circle at 20% 15%, rgba(34,211,238,.14), transparent 55%),
-                                radial-gradient(circle at 80% 85%, rgba(167,139,250,.12), transparent 60%),
-                                linear-gradient(180deg,#020617 0%,#020617 100%);
-              color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;}
-    .wrap{min-height:100%; display:flex; align-items:center; justify-content:center;
-          padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));}
-    .card{width:min(760px, 94vw); background:rgba(2,6,23,.72); border:1px solid var(--stroke);
-          border-radius:var(--radius); box-shadow:0 22px 70px rgba(0,0,0,.45); padding:18px;}
-    .title{font-weight:1200; font-size:22px}
-    .sub{margin-top:6px; color:var(--muted); font-weight:900; font-size:12px; line-height:1.4}
-    .grid{margin-top:14px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
-    .box{background:rgba(15,23,42,.62); border:1px solid rgba(148,163,184,.16); border-radius:18px; padding:12px}
-    .k{color:var(--muted); font-weight:900; font-size:11px; letter-spacing:.2px}
-    .v{margin-top:6px; font-weight:1100; font-size:14px}
-    .actions{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap}
-    .btn{flex:1; min-width:220px; height:54px; border-radius:16px; border:1px solid rgba(148,163,184,.20);
-         background:rgba(15,23,42,.58); color:var(--text); font-weight:1100; font-size:16px; cursor:pointer}
-    .btn.primary{border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.14)}
-    .hint{margin-top:10px; color:var(--muted); font-weight:900; font-size:12px}
-    code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px}
+    html,body{height:100%; margin:0; background:#020617; color:var(--text); font-family:system-ui,"Noto Sans Thai",sans-serif;}
+    .wrap{min-height:100%; display:flex; align-items:center; justify-content:center; padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));}
+    .card{
+      width:min(920px, 94vw);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      background:linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.72));
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:18px;
+    }
+    .top{display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;}
+    .title{font-weight:1000; font-size:20px;}
+    .sub{color:var(--muted); font-weight:800; font-size:12px; margin-top:6px;}
+    .grid{display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; margin-top:14px;}
+    @media (max-width:860px){ .grid{grid-template-columns: repeat(2, minmax(0,1fr));} }
+    .field{background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.14); border-radius:18px; padding:10px;}
+    .label{color:var(--muted); font-size:11px; font-weight:900;}
+    select,input{width:100%; margin-top:6px; height:40px; border-radius:14px; border:1px solid rgba(148,163,184,.18); background:rgba(15,23,42,.65); color:var(--text); font-weight:900; padding:0 10px;}
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+    .btn{
+      flex:1; min-width: 220px; height:52px;
+      border-radius:18px; border:1px solid rgba(148,163,184,.20);
+      background:rgba(15,23,42,.60); color:var(--text);
+      font-weight:1100; font-size:16px; cursor:pointer;
+    }
+    .btn.primary{border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.16);}
+    .hint{margin-top:10px; color:var(--muted); font-size:12px; font-weight:800;}
+    code{background:rgba(0,0,0,.25); padding:2px 6px; border-radius:10px;}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="title">GoodJunkVR</div>
-      <div class="sub">Launcher (อยู่ root) → จะส่งเข้า Run ที่ <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code> แบบ “ไม่ override ?view= ถ้ามีอยู่แล้ว”</div>
+      <div class="top">
+        <div>
+          <div class="title">GoodJunkVR</div>
+          <div class="sub">Launcher (root) → Run in <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code></div>
+        </div>
+      </div>
 
       <div class="grid">
-        <div class="box">
-          <div class="k">HUB</div>
-          <div class="v" id="hubTxt">—</div>
+        <div class="field">
+          <div class="label">RUN</div>
+          <select id="run">
+            <option value="play">play</option>
+            <option value="research">research</option>
+          </select>
         </div>
-        <div class="box">
-          <div class="k">AUTO VIEW</div>
-          <div class="v" id="viewTxt">—</div>
+        <div class="field">
+          <div class="label">DIFF</div>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
         </div>
-        <div class="box">
-          <div class="k">MODE</div>
-          <div class="v" id="modeTxt">—</div>
+        <div class="field">
+          <div class="label">TIME (sec)</div>
+          <input id="time" type="number" min="30" max="180" value="80" />
         </div>
-        <div class="box">
-          <div class="k">DIFF / TIME</div>
-          <div class="v" id="dtTxt">—</div>
+        <div class="field">
+          <div class="label">SEED (optional)</div>
+          <input id="seed" type="text" placeholder="ปล่อยว่าง = auto" />
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn primary" id="btnGo">▶ เริ่มเล่น (Auto)</button>
-        <button class="btn" id="btnHub">↩ กลับ HUB</button>
+        <button class="btn primary" id="btnStart">START</button>
+        <button class="btn" id="btnBack">↩ กลับ HUB</button>
       </div>
 
-      <div class="hint">
-        ถ้าต้องการบังคับโหมดเอง ใส่พารามิเตอร์ได้ เช่น
-        <code>?view=cvr&run=play&diff=easy&time=80</code>
-      </div>
+      <div class="hint" id="hint">view จะให้ run auto-detect (ไม่ override) • ส่งพารามิเตอร์ไปหน้า run เท่านั้น</div>
     </div>
   </div>
 
-<script>
-(function(){
-  const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  <script>
+    (function(){
+      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const hub = qs('hub', null);
 
-  function detectViewNoOverride(){
-    const explicit = String(qs('view','')).toLowerCase();
-    if (explicit) return explicit;
+      const $ = (id)=>document.getElementById(id);
+      const runEl=$('run'), diffEl=$('diff'), timeEl=$('time'), seedEl=$('seed');
+      const hint=$('hint');
 
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
-    const w = Math.max(1, window.innerWidth||1);
-    const h = Math.max(1, window.innerHeight||1);
-    const landscape = w >= h;
+      // hydrate defaults from url if present
+      runEl.value  = (qs('run','play')||'play');
+      diffEl.value = (qs('diff','normal')||'normal');
+      timeEl.value = (qs('time','80')||'80');
+      seedEl.value = (qs('seed','')||'');
 
-    if (isTouch){
-      if (landscape && w >= 740) return 'cvr';
-      return 'mobile';
-    }
-    return 'pc';
-  }
+      if(hint){
+        const view = qs('view','auto');
+        hint.textContent = `view=${view} • run=${runEl.value} • diff=${diffEl.value} • time=${timeEl.value}`;
+      }
 
-  const hub = qs('hub', null);
-  const view = detectViewNoOverride();
-  const run  = qs('run','play');
-  const diff = qs('diff','normal');
-  const time = qs('time','80');
+      $('btnBack').addEventListener('click', ()=>{
+        if(hub) location.href = hub;
+        else alert('ยังไม่ได้ใส่ hub url');
+      });
 
-  const hubTxt = document.getElementById('hubTxt');
-  const viewTxt = document.getElementById('viewTxt');
-  const modeTxt = document.getElementById('modeTxt');
-  const dtTxt = document.getElementById('dtTxt');
+      $('btnStart').addEventListener('click', ()=>{
+        const u = new URL(location.origin + location.pathname.replace(/\/goodjunk-vr-launcher\.html.*$/,'/vr-goodjunk/goodjunk-vr.html'));
+        // pass-through: hub + research ctx
+        if(hub) u.searchParams.set('hub', hub);
 
-  if(hubTxt) hubTxt.textContent = hub || '(no hub param)';
-  if(viewTxt) viewTxt.textContent = view;
-  if(modeTxt) modeTxt.textContent = run;
-  if(dtTxt) dtTxt.textContent = `${diff} / ${time}s`;
+        u.searchParams.set('run',  runEl.value);
+        u.searchParams.set('diff', diffEl.value);
+        u.searchParams.set('time', String(Number(timeEl.value||80)||80));
+        if(seedEl.value.trim()) u.searchParams.set('seed', seedEl.value.trim());
 
-  function buildRunUrl(){
-    const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-    // passthrough all known params
-    const keys = ['hub','view','run','diff','time','seed','studyId','study','phase','conditionGroup','cond','siteCode','schoolCode','studentKey'];
-    keys.forEach(k=>{
-      const v = qs(k, null);
-      if(v!==null && v!=='') u.searchParams.set(k, v);
-    });
-    // if no explicit view, inject detected
-    if(!qs('view','')) u.searchParams.set('view', view);
-    return u.toString();
-  }
+        // if caller had research meta, pass it through too
+        ['studyId','study','phase','conditionGroup','cond'].forEach(k=>{
+          const v = qs(k,null);
+          if(v!=null && v!=='') u.searchParams.set(k, v);
+        });
 
-  document.getElementById('btnGo')?.addEventListener('click', ()=>{
-    location.href = buildRunUrl();
-  });
-
-  document.getElementById('btnHub')?.addEventListener('click', ()=>{
-    if(hub) location.href = hub;
-    else alert('ยังไม่ได้ใส่ hub url');
-  });
-
-  // auto-start optional (คอมเมนต์ไว้ ถ้ายังไม่อยาก auto)
-  // setTimeout(()=>location.href = buildRunUrl(), 250);
-})();
-</script>
+        location.href = u.toString();
+      });
+    })();
+  </script>
 </body>
 </html>
