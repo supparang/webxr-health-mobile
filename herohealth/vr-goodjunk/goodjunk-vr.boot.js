@@ -1,180 +1,208 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (A) for Folder-run
-// ✅ Auto view detect: pc / mobile / vr / cvr (no launcher needed)
-// ✅ Adds body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Enables right eye layer only for cVR
-// ✅ Passes URL params to goodjunk.safe.js boot()
-// ✅ Keeps "no duplicate end overlay listener": safe.js handles end overlay (if you wired it there)
-// ✅ Loads gracefully even if some optional DOM nodes are missing
+// GoodJunkVR Boot — PRODUCTION (AUTO + STRICT)
+// ✅ NO MENU by default
+// ✅ Default: ignore ?view= (unless ?allowView=1)
+// ✅ Auto base view: pc / mobile
+// ✅ If WebXR exists => ensure ../vr/vr-ui.js is loaded (if not already)
+// ✅ Auto-switch on hha:enter-vr / hha:exit-vr:
+//    - mobile => cvr
+//    - desktop => vr
+// ✅ Sets CSS vars --gj-top-safe / --gj-bottom-safe (HUD-safe spawn)
+// ✅ Debug keys: Space/Enter => hha:shoot
+// ✅ Boots engine: goodjunk.safe.js
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
-const WIN = window;
 const DOC = document;
+const WIN = window;
 
-function qs(k, def = null){
+function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
-function clamp(n, a, b){
-  n = Number(n) || 0;
-  if(n < a) return a;
-  if(n > b) return b;
-  return n;
+function boolQ(k, defBool=false){
+  const v = String(qs(k, '') || '').trim().toLowerCase();
+  if(!v) return !!defBool;
+  if(v==='1'||v==='true'||v==='yes'||v==='y') return true;
+  if(v==='0'||v==='false'||v==='no'||v==='n') return false;
+  return !!defBool;
 }
 
-function hasXR(){
-  return !!(navigator && navigator.xr);
-}
-
-function isLikelyMobile(){
-  const ua = (navigator.userAgent || '').toLowerCase();
-  const coarse = (WIN.matchMedia && WIN.matchMedia('(pointer: coarse)').matches) ? true : false;
-  const small = Math.min(DOC.documentElement.clientWidth || 9999, DOC.documentElement.clientHeight || 9999) < 860;
-  return coarse || /android|iphone|ipad|ipod|mobile/.test(ua) || small;
-}
-
-function detectView(){
-  // 1) explicit override (still allowed as query param, but you can choose to ignore if you want "hard no override")
-  const v = String(qs('view', 'auto') || 'auto').toLowerCase();
-  if(v && v !== 'auto'){
-    if(v === 'pc') return 'pc';
-    if(v === 'mobile') return 'mobile';
-    if(v === 'vr') return 'vr';
-    if(v === 'cvr') return 'cvr';
-  }
-
-  // 2) heuristics
-  // If WebXR exists and device is mobile, prefer cVR (Cardboard style) by default
-  if(hasXR() && isLikelyMobile()){
-    return 'cvr';
-  }
-
-  // If WebXR exists but not mobile => pc view (still can Enter VR via button)
-  if(hasXR() && !isLikelyMobile()){
-    return 'pc';
-  }
-
-  // No XR => pc or mobile
-  return isLikelyMobile() ? 'mobile' : 'pc';
+function isMobileUA(){
+  const ua = String(navigator.userAgent || '').toLowerCase();
+  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+  return touch && /android|iphone|ipad|ipod/.test(ua);
 }
 
 function setBodyView(view){
   const b = DOC.body;
-  if(!b) return;
-
+  b.classList.add('gj');
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+
   if(view === 'pc') b.classList.add('view-pc');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'cvr') b.classList.add('view-cvr');
   else b.classList.add('view-mobile');
-}
 
-function setLayerMode(view){
-  // right layer only visible in cVR (dual-eye overlay)
+  // Right-eye layer only meaningful in cVR split
   const r = DOC.getElementById('gj-layer-r');
-  if(!r) return;
-  if(view === 'cvr'){
-    r.setAttribute('aria-hidden','false');
-  }else{
-    r.setAttribute('aria-hidden','true');
+  if(r){
+    r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
   }
+
+  DOC.body.dataset.view = view;
 }
 
-function patchTopbarPointer(){
-  // ensure topbar buttons clickable even over XR canvas
-  const top = DOC.querySelector('.gj-topbar');
-  if(top) top.style.pointerEvents = 'auto';
+function baseAutoView(){
+  return isMobileUA() ? 'mobile' : 'pc';
 }
 
 function ensureVrUiLoaded(){
-  // In your HTML you already load ../vr/vr-ui.js
-  // This is just a safety “wait until present” hook (no hard dependency).
-  // vr-ui.js emits hha:shoot -> safe.js listens.
-  return true;
+  // Load only if WebXR exists (so ENTER VR UI makes sense)
+  if(!navigator.xr) return;
+
+  if(WIN.__HHA_VRUI_LOADED__) return;
+  WIN.__HHA_VRUI_LOADED__ = true;
+
+  // already included in HTML?
+  const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
+  if(exists) return;
+
+  const s = DOC.createElement('script');
+  s.src = '../vr/vr-ui.js';
+  s.defer = true;
+  s.onerror = ()=> console.warn('[GoodJunkVR] vr-ui.js failed to load');
+  DOC.head.appendChild(s);
 }
 
-function readRunParams(){
-  const run  = String(qs('run','play') || 'play').toLowerCase();     // play|research
-  const diff = String(qs('diff','normal') || 'normal').toLowerCase();// easy|normal|hard
-  const time = clamp(qs('time','80'), 20, 300);
-  const seed = qs('seed', null) ?? qs('ts', null) ?? null;
-  const hub  = qs('hub', null);
+function bindVrAutoSwitch(){
+  const base = baseAutoView();
 
-  // study params (optional passthrough)
-  const studyId = qs('studyId', qs('study', null));
-  const phase = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', qs('cond', null));
+  function onEnter(){
+    // Enter VR: mobile => cvr, desktop => vr
+    setBodyView(isMobileUA() ? 'cvr' : 'vr');
+    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
+  }
+  function onExit(){
+    setBodyView(base);
+    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
+  }
 
-  return { run, diff, time, seed, hub, studyId, phase, conditionGroup };
+  // STRICT: only listen to HHA events (emitted by vr-ui.js bridge)
+  WIN.addEventListener('hha:enter-vr', onEnter, { passive:true });
+  WIN.addEventListener('hha:exit-vr',  onExit,  { passive:true });
+
+  // Expose hook if needed
+  WIN.HHA_GJ_resetView = onExit;
 }
 
-function updateChip(){
-  const chip = DOC.getElementById('gjChipMeta');
-  if(!chip) return;
-  const { run, diff, time } = readRunParams();
-  const view = detectView();
-  chip.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
+function bindDebugKeys(){
+  WIN.addEventListener('keydown', (e)=>{
+    const k = e.key || '';
+    if(k === ' ' || k === 'Enter'){
+      try{ WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'key' } })); }catch(_){}
+    }
+  }, { passive:true });
 }
 
-function bootEngine(){
-  const view = detectView();
-  setBodyView(view);
-  setLayerMode(view);
-  patchTopbarPointer();
-  ensureVrUiLoaded();
+function hudSafeMeasure(){
+  const root = DOC.documentElement;
+  const px = (n)=> Math.max(0, Math.round(Number(n)||0)) + 'px';
+  const h  = (el)=> { try{ return el ? el.getBoundingClientRect().height : 0; }catch{return 0;} };
 
-  const P = readRunParams();
-
-  // IMPORTANT: pass the view we decided (do not trust query if you want hard auto)
-  const payload = {
-    view,
-    run: P.run,
-    diff: P.diff,
-    time: P.time,
-    seed: P.seed,
-    hub: P.hub,
-
-    // study passthrough
-    studyId: P.studyId,
-    phase: P.phase,
-    conditionGroup: P.conditionGroup,
-  };
-
-  try{
-    engineBoot(payload);
-  }catch(err){
-    console.error('[GoodJunkVR boot] engineBoot failed:', err);
-    // show minimal on-screen error (kid-safe)
+  function update(){
     try{
-      const box = DOC.createElement('div');
-      box.style.cssText = `
-        position:fixed; inset:0; z-index:9999;
-        display:flex; align-items:center; justify-content:center;
-        background:rgba(2,6,23,.92); color:#e5e7eb;
-        font:900 16px/1.4 system-ui; padding:18px;
-      `;
-      box.innerHTML = `<div style="max-width:680px">
-        <div style="font-size:20px;margin-bottom:10px">เกิดข้อผิดพลาดในการเริ่มเกม</div>
-        <div style="opacity:.8">เปิด DevTools เพื่อดูรายละเอียด หรือรีเฟรชใหม่</div>
-      </div>`;
-      DOC.body.appendChild(box);
+      const cs = getComputedStyle(root);
+      const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
+      const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+
+      const topbar  = DOC.querySelector('.gj-topbar');
+      const hudTop  = DOC.getElementById('gjHudTop') || DOC.getElementById('hud');
+      const miniHud = DOC.getElementById('vrMiniHud');
+      const fever   = DOC.getElementById('feverBox') || DOC.getElementById('gjHudFever');
+      const hudBot  = DOC.getElementById('gjHudBot');
+      const controls= DOC.querySelector('.hha-controls');
+
+      let topSafe = 0;
+      topSafe = Math.max(topSafe, h(topbar));
+      topSafe = Math.max(topSafe, h(hudTop) * 0.85);
+      topSafe = Math.max(topSafe, h(miniHud));
+      topSafe += (14 + sat);
+
+      let bottomSafe = 0;
+      bottomSafe = Math.max(bottomSafe, h(hudBot));
+      bottomSafe = Math.max(bottomSafe, h(fever));
+      bottomSafe = Math.max(bottomSafe, h(controls));
+      bottomSafe += (16 + sab);
+
+      const hudHidden = DOC.body.classList.contains('hud-hidden');
+      if(hudHidden){
+        topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
+        bottomSafe = Math.max(84 + sab, 84 + sab);
+      }
+
+      root.style.setProperty('--gj-top-safe', px(topSafe));
+      root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
     }catch(_){}
   }
 
-  // refresh chips after boot
-  updateChip();
+  WIN.addEventListener('resize', update, { passive:true });
+  WIN.addEventListener('orientationchange', update, { passive:true });
+
+  // when HUD toggles
+  WIN.addEventListener('click', (e)=>{
+    if(e?.target?.id === 'btnHideHud'){
+      setTimeout(update, 30);
+      setTimeout(update, 180);
+      setTimeout(update, 420);
+    }
+  }, { passive:true });
+
+  // when view switches (enter/exit vr)
+  WIN.addEventListener('hha:view', ()=>{
+    setTimeout(update, 0);
+    setTimeout(update, 120);
+    setTimeout(update, 350);
+  }, { passive:true });
+
+  setTimeout(update, 0);
+  setTimeout(update, 120);
+  setTimeout(update, 350);
+  setInterval(update, 1200);
 }
 
-function onReady(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+function start(){
+  // STRICT AUTO BASE VIEW — never read ?view= unless allowView=1
+  const allowOverride = boolQ('allowView', false);
+  const viewParam = String(qs('view','')||'').toLowerCase();
+  const auto = baseAutoView();
+  const view = (allowOverride && ['pc','mobile','vr','cvr'].includes(viewParam)) ? viewParam : auto;
+
+  setBodyView(view);
+
+  // Configure VR UI defaults (kid-friendly)
+  WIN.HHA_VRUI_CONFIG = Object.assign(
+    { lockPx: 30, cooldownMs: 90 },
+    WIN.HHA_VRUI_CONFIG || {}
+  );
+
+  ensureVrUiLoaded();
+  bindVrAutoSwitch();
+  bindDebugKeys();
+  hudSafeMeasure();
+
+  engineBoot({
+    view, // base view; becomes cvr/vr after enter
+    diff: qs('diff','normal'),
+    run: qs('run','play'),
+    time: qs('time','80'),
+    seed: qs('seed', null),
+    hub: qs('hub', null),
+    studyId: qs('studyId', qs('study', null)),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', qs('cond', null)),
+  });
 }
 
-onReady(()=>{
-  bootEngine();
-
-  // update view on resize/orientation (do NOT change view once chosen; only refresh safe vars + chip)
-  WIN.addEventListener('resize', ()=>{ try{ updateChip(); }catch(_){} }, { passive:true });
-  WIN.addEventListener('orientationchange', ()=>{ try{ updateChip(); }catch(_){} }, { passive:true });
-});
+if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', start);
+else start();
