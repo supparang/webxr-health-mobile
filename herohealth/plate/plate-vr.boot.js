@@ -1,11 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
+// PlateVR Boot — PRODUCTION (HHA Standard)
 // ✅ Auto view detect (no UI override)
 // ✅ Boots engine from ./plate.safe.js
-// ✅ HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Pass-through research context params
+// ✅ Default time = 90s when ?time missing
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -24,10 +25,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow forcing via query ?view= (for experiments), but no menu.
   const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced;
+  if(forced) return forced; // allow forcing via query only
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -54,7 +53,7 @@ function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-  ov.style.display = open ? 'grid' : 'none';
+  // (optional) if your CSS uses [aria-hidden="true"] to hide, that’s enough.
 }
 
 function showCoach(msg, meta='Coach'){
@@ -81,6 +80,8 @@ function wireHUD(){
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
 
+  const hudHint  = DOC.getElementById('hudHint');
+
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
   const goalNums = DOC.getElementById('goalNums');
@@ -95,13 +96,13 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
-  });
+  }, { passive:true });
 
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
     if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
-  });
+  }, { passive:true });
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
@@ -110,31 +111,31 @@ function wireHUD(){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
       if(goalSub)  goalSub.textContent  = g.sub  || '';
-
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
-
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
       if(miniSub)  miniSub.textContent  = m.sub  || '';
-
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
-
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-  });
+
+    // hint (optional)
+    if(hudHint){
+      if(d.allDone) hudHint.textContent = 'ครบแล้ว! ลุ้นคะแนน/คอมโบให้สูง 🔥';
+    }
+  }, { passive:true });
 
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
-  });
+  }, { passive:true });
 }
 
 function wireEndControls(){
@@ -145,14 +146,14 @@ function wireEndControls(){
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
       location.reload(); // keep same query params
-    });
+    }, { passive:true });
   }
 
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
       else history.back();
-    });
+    }, { passive:true });
   }
 }
 
@@ -177,7 +178,7 @@ function wireEndSummary(){
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
-  });
+  }, { passive:true });
 }
 
 function buildEngineConfig(){
@@ -185,8 +186,9 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ duration default = 90 (ตามที่คุยว่า 90 ดี)
-  const time = clamp(qs('time','90'), 10, 999);
+  // ✅ default 90
+  const timeRaw = qs('time', null);
+  const time = clamp(timeRaw == null ? 90 : timeRaw, 10, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
@@ -201,12 +203,14 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    studyId: qs('studyId','') || '',
+    // research context
+    projectTag: qs('projectTag','') || qs('tag','') || 'HeroHealth',
+    studyId: qs('studyId','') || qs('study','') || '',
     phase: qs('phase','') || '',
-    conditionGroup: qs('conditionGroup','') || '',
-    sessionOrder: qs('sessionOrder','') || '',
-    blockLabel: qs('blockLabel','') || '',
-    siteCode: qs('siteCode','') || '',
+    conditionGroup: qs('conditionGroup','') || qs('cond','') || '',
+    sessionOrder: qs('sessionOrder','') || qs('order','') || '',
+    blockLabel: qs('blockLabel','') || qs('block','') || '',
+    siteCode: qs('siteCode','') || qs('site','') || '',
     schoolCode: qs('schoolCode','') || '',
     schoolName: qs('schoolName','') || '',
     gradeLevel: qs('gradeLevel','') || '',
@@ -222,14 +226,18 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
+  // set view class
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
+  // close end overlay at start
   setOverlayOpen(false);
 
+  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
