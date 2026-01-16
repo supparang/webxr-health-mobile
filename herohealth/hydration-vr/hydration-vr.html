@@ -1,14 +1,10 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration Quest VR — RUN (Folder-run)
+Hydration Quest VR RUN — PRODUCTION (Folder-run) — LATEST
 ✅ CSS: ./hydration-vr.css
+✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js, ../vr/ui-water.js
+✅ Loader: ./hydration-vr.loader.js
+✅ Engine: ./hydration.safe.js
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Modules:
-   - ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-   - ../vr/hha-cloud-logger.js (flush-hardened; optional via ?log=)
-   - ../vr/ui-water.js (water gauge helper)
-   - ./hydration-vr.loader.js (auto detect + overlay start + layers)
-✅ Engine: ./hydration.safe.js (module)
-✅ Pass-through hub/run/diff/time/seed/sessionId/studyId/conditionGroup/log/etc.
 -->
 <!doctype html>
 <html lang="th">
@@ -21,24 +17,24 @@ Hydration Quest VR — RUN (Folder-run)
 
   <link rel="stylesheet" href="./hydration-vr.css" />
 
-  <!-- A-Frame: minimal scene for Enter VR reliability -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Cloud Logger (flush-hardened) - shared across games (optional by ?log=...) -->
+  <!-- Cloud Logger (flush-hardened) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- Water gauge helper -->
   <script src="../vr/ui-water.js" defer></script>
 
-  <!-- Loader: sets view/cardboard/layers + start overlay -> emits hha:start -->
+  <!-- Loader: view/cardboard + start overlay -->
   <script src="./hydration-vr.loader.js" defer></script>
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene for WebXR Enter VR reliability -->
+  <!-- Minimal A-Frame scene for Enter VR reliability -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:false">
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
@@ -66,8 +62,7 @@ Hydration Quest VR — RUN (Folder-run)
         </div>
       </div>
 
-      <!-- Water panel (Hydration UI) -->
-      <div class="waterpanel" id="water-panel">
+      <div class="waterpanel">
         <div class="water-head">
           <div class="wtitle">Water</div>
           <div class="wzone">Zone: <b id="water-zone">GREEN</b></div>
@@ -105,8 +100,8 @@ Hydration Quest VR — RUN (Folder-run)
       </div>
 
       <div class="ov-hint">
-        • cVR: ยิงจากกลางจอ (crosshair)<br/>
-        • Kids mode: ใส่ <b>?kids=1</b>
+        • cVR: ยิงจากกลางจอ (crosshair) <br/>
+        • ถ้าเป็นเด็ก: ใส่ <b>?kids=1</b>
       </div>
     </div>
   </div>
