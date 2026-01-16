@@ -1,9 +1,7 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (HHA Standard)
-// ✅ Auto view detect (no menu override)
-// ✅ Default time: 90s (unless ?time= overrides)
-// ✅ Wires HUD listeners + End overlay + Hub/Restart
-// ✅ Pass-through research context params
+// ✅ Default time: 90s
+// ✅ End overlay: + "พลาดเพราะอะไร" breakdown (junk hit vs good expire)
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -85,6 +83,8 @@ function wireHUD(){
   const miniNums = DOC.getElementById('miniNums');
   const miniBar  = DOC.getElementById('miniBar');
 
+  const hudHint  = DOC.getElementById('hudHint');
+
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
@@ -94,7 +94,14 @@ function wireHUD(){
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
+    const left = Math.max(0, Math.ceil(Number(t)||0));
+    if(hudTime) hudTime.textContent = String(left);
+
+    // ✅ 1) เร่งท้ายเกม 15 วิ: เปลี่ยน hint ให้เด็ก “รู้สึกเร่ง”
+    if(hudHint){
+      if(left <= 15 && left > 0) hudHint.textContent = '⏱️ ช่วงท้าย! ของหวาน/ทอดเยอะขึ้น — ตั้งสติ!';
+      else hudHint.textContent = 'เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด';
+    }
   });
 
   WIN.addEventListener('quest:update', (e)=>{
@@ -138,6 +145,28 @@ function wireEndControls(){
   }, { passive:true });
 }
 
+// ✅ สร้างบรรทัดสรุปเพิ่มอัตโนมัติ (ไม่ต้องแก้ HTML)
+function ensureWhyLine(){
+  const endOverlay = DOC.getElementById('endOverlay');
+  if(!endOverlay) return null;
+
+  let el = DOC.getElementById('kWhy');
+  if(el) return el;
+
+  const panel = endOverlay.querySelector('.endPanel') || endOverlay.querySelector('.panelCard') || endOverlay;
+  el = DOC.createElement('div');
+  el.id = 'kWhy';
+  el.style.cssText = 'margin-top:10px;color:rgba(148,163,184,.95);font-weight:900;font-size:12px;line-height:1.35;';
+  el.textContent = 'พลาดเพราะอะไร: —';
+
+  // ใส่ไว้ก่อนปุ่ม
+  const btns = endOverlay.querySelector('.endBtns') || endOverlay.querySelector('#btnRestart')?.parentElement;
+  if(btns && btns.parentElement) btns.parentElement.insertBefore(el, btns);
+  else panel.appendChild(el);
+
+  return el;
+}
+
 function wireEndSummary(){
   const kScore = DOC.getElementById('kScore');
   const kAcc   = DOC.getElementById('kAcc');
@@ -158,6 +187,15 @@ function wireEndSummary(){
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
+    // ✅ 3) สรุป “พลาดเพราะอะไร”
+    const why = ensureWhyLine();
+    if(why){
+      const junk = Number(d.hitJunk ?? d.junkHit ?? 0) || 0;
+      const exp  = Number(d.expireGood ?? d.goodExpire ?? 0) || 0;
+      const miss = Number(d.misses ?? 0) || (junk + exp);
+      why.textContent = `พลาดเพราะอะไร: แตะของหวาน/ทอด ${junk} • ปล่อยอาหารดีหมดเวลา ${exp} • รวม ${miss}`;
+    }
+
     setOverlayOpen(true);
   }, { passive:true });
 }
@@ -167,7 +205,6 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default 90
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
