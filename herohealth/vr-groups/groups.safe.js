@@ -1,15 +1,14 @@
-/* === B: /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
+/* === /herohealth/vr-groups/groups.safe.js ===
+Food Groups VR — SAFE (PRODUCTION-ish)
 ✅ FIX spawn bounds: no corner-clump, no out-of-screen
 ✅ Hit radius scales by size + view (cVR assist)
-✅ miniTotal/miniCleared tracked in summary (true counts)
-✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
-✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
+✅ miniTotal/miniCleared tracked
+✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
+         groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
-   - practice: deterministic seed + adaptive OFF + AI OFF + does NOT trigger end overlay in A
-✅ PACK 15: optional AI director/pattern hooks (only when AIHooks attaches and runMode=play)
-✅ PACK 49: Miss Pressure levels (0-3) drives difficulty + FX + coach tips
+   - practice: deterministic seed + adaptive OFF + AI OFF
+✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
 */
 
 (function (root) {
@@ -42,21 +41,14 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     };
   }
 
-  function pick(rng, arr) {
-    return arr[(rng() * arr.length) | 0];
-  }
+  function pick(rng, arr) { return arr[(rng() * arr.length) | 0]; }
 
   function emit(name, detail) {
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
 
-  function cssSet(el, k, v) {
-    try { el.style.setProperty(k, v); } catch (_) {}
-  }
-
-  function addBodyClass(c, on) {
-    DOC.body.classList.toggle(c, !!on);
-  }
+  function cssSet(el, k, v) { try { el.style.setProperty(k, v); } catch (_) {} }
+  function addBodyClass(c, on) { DOC.body.classList.toggle(c, !!on); }
 
   function flashBodyFx(cls, ms){
     try{
@@ -82,7 +74,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
     { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
   ];
-
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
   // ---------------- Difficulty presets ----------------
@@ -133,7 +124,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     };
   }
 
-  // ✅ PACK 49: Rank must respect Miss more
+  // ✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
@@ -151,7 +142,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     return 'C';
   }
 
-  // ---------------- Spawn bounds (PACK 26) ----------------
+  // ---------------- Spawn bounds ----------------
   function computePlayRect(view) {
     const W = Math.max(320, root.innerWidth  || 360);
     const H = Math.max(420, root.innerHeight || 640);
@@ -211,7 +202,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.rng = null;
 
     this.startAt = 0;
-    this.lastTick = 0;
     this.leftSec = 0;
 
     this.score = 0;
@@ -219,16 +209,18 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.comboMax = 0;
     this.misses = 0;
 
-    this.pressure = 0;
+    this.pressure = 0; // 0..3
     this._lastPressureTip = 0;
 
     this.nTargetGoodSpawned = 0;
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -261,9 +253,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.coachLastAt = 0;
   }
 
-  Engine.prototype.setLayerEl = function (el) {
-    this.layerEl = el;
-  };
+  Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
 
   Engine.prototype._calcPressure = function(){
     const m = this.misses|0;
@@ -317,7 +307,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     };
 
     this.view = getViewFromBodyOrParam(opts.view);
-
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
     this.leftSec = Math.round(timeSec);
@@ -337,12 +326,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
+
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
@@ -368,7 +360,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 
     this.running = true;
     this.startAt = nowMs();
-    this.lastTick = this.startAt;
     this.spawnTmr = 0;
 
     emit('hha:time', { left: this.leftSec });
@@ -397,16 +388,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     const self = this;
     function frame() {
       if (!self.running) return;
-
       const t = nowMs();
-      self.lastTick = t;
-
       self._tickTime(t);
       self._tickStorm(t);
       self._tickMini(t);
       self._tickSpawn(t);
       self._tickExpire(t);
-
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -542,15 +529,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       if (this.pressure === 3) pressMul = 0.86;
     }
 
-    let aiMul = 1.0;
-    try{
-      const A = root.GroupsVR && root.GroupsVR.__ai;
-      if (A && A.director && this.cfg.runMode === 'play'){
-        aiMul = A.director.spawnSpeedMul(this._accuracyPct(), this.combo, this.misses);
-      }
-    }catch(_){}
-
-    const every = clamp(base * speed * aiMul * pressMul, 320, 980);
+    const every = clamp(base * speed * pressMul, 320, 980);
 
     if (t - this.spawnTmr >= every) {
       this.spawnTmr = t;
@@ -583,23 +562,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       if (this.pressure === 1){ wrongRate += 0.02; junkRate += 0.01; }
       if (this.pressure === 2){ wrongRate += 0.05; junkRate += 0.02; }
       if (this.pressure === 3){ wrongRate += 0.08; junkRate += 0.03; }
-    }
-
-    if (this.cfg.runMode === 'play'){
-      try{
-        const A = root.GroupsVR && root.GroupsVR.__ai;
-        if (A && A.pattern){
-          const bias = Number(A.pattern.bias && A.pattern.bias()) || 0;
-          wrongRate = clamp(wrongRate + bias, 0.05, 0.55);
-          junkRate  = clamp(junkRate  - bias, 0.04, 0.40);
-        }
-      }catch(_){}
-    }
-
-    if (this.cfg.runMode === 'play') {
-      wrongRate = clamp(wrongRate + Math.min(0.10, this.combo * 0.006), 0.05, 0.58);
-      junkRate  = clamp(junkRate  + Math.min(0.08, this.combo * 0.004), 0.04, 0.42);
-      if (this.misses >= 8) { wrongRate *= 0.90; junkRate *= 0.88; }
     }
 
     wrongRate = clamp(wrongRate, 0.05, 0.60);
@@ -670,11 +632,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     emit('hha:judge', { kind:'boss', text:'BOSS' });
     addBodyClass('fx-boss', true);
     this._emitCoach('บอสมา! ยิงให้ถูกหมู่เพื่อแตกบอส 👊', 'fever');
-
-    try{
-      const A = root.GroupsVR && root.GroupsVR.__ai;
-      if (A && A.tip && this.cfg.runMode==='play') A.tip('บอสต้องยิงหลายครั้ง อย่าหยุดมือ 💥', 'fever');
-    }catch(_){}
   };
 
   Engine.prototype._spawnDomTarget = function (spec) {
@@ -767,6 +724,8 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
+      // ✅ ยิงพลาดจาก crosshair: “ไม่เพิ่ม miss” เพื่อกัน miss พุ่ง (ตามที่คุณเจอ)
+      // แต่ยัง reset combo + FX ให้รู้สึกกดดัน
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
@@ -781,14 +740,8 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
 
     if (tg.kind === 'boss') {
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
-      try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
-
       emit('hha:judge', { kind: 'boss', text: `BOSS -1`, x: tg.x, y: tg.y });
       flashBodyFx('fx-hit', 180);
-
-      if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) {
-        try { tg.el.classList.add('fg-boss-weak'); } catch (_) {}
-      }
 
       if (tg.bossHp <= 0) {
         this.score += 320;
@@ -837,14 +790,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       this._emitPower();
       this._emitRank();
       this._emitQuestUpdate();
-
-      if (this.cfg.runMode==='play'){
-        if (this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
-        try{
-          const A = root.GroupsVR && root.GroupsVR.__ai;
-          if (A && A.tip && this.combo===10) A.tip('คอมโบ 10! ดีมาก รักษาจังหวะต่อ 🔥', 'happy');
-        }catch(_){}
-      }
       return;
     }
 
@@ -867,6 +812,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       return;
     }
 
+    // junk
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
@@ -893,12 +839,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
     if (this.cfg && this.cfg.runMode==='play'){
       const p = this._calcPressure();
       this._applyPressure(p);
-    }
-
-    if (this.cfg && this.cfg.runMode==='play'){
-      if ((this.misses|0) === 5)  this._emitCoach('เริ่มพลาดแล้วนะ ลอง “หยุด-เล็ง-ยิง” 👌', 'neutral');
-      if ((this.misses|0) === 9)  this._emitCoach('พลาดเยอะขึ้น! โฟกัสหมู่ที่ถูกก่อน 🔥', 'fever');
-      if ((this.misses|0) === 14) this._emitCoach('โหมดโหด! อย่ายิงมั่ว เดี๋ยว Rank ตก 😤', 'sad');
     }
   };
 
@@ -1079,7 +1019,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26 + PACK 14/15 glue + PACK 49
       runMode: this.cfg.runMode,
       diff: this.cfg.diff,
       seed: this.cfg.seed,
-
       pressureLevel: this.pressure|0
     };
 
