@@ -1,12 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HHA Standard)
+// PlateVR Boot — PRODUCTION (A-layout)
 // ✅ Auto view detect (no UI override)
-// ✅ Boots engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners:
+//    hha:score, hha:time, quest:update, hha:coach, hha:end
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
-// ✅ Default time = 90s when ?time missing
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -25,8 +25,10 @@ function isMobile(){
 }
 
 function getViewAuto(){
+  // ✅ Do not offer UI override (no menu).
+  // ✅ Allow caller/system to force by query (?view=pc/mobile/vr/cvr) for experiments.
   const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced; // allow forcing via query only
+  if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -40,20 +42,20 @@ function setBodyView(view){
 }
 
 function clamp(v, a, b){
-  v = Number(v)||0;
+  v = Number(v) || 0;
   return v < a ? a : (v > b ? b : v);
 }
 
 function pct(n){
-  n = Number(n)||0;
+  n = Number(n) || 0;
   return `${Math.round(n)}%`;
 }
 
+/* ---------------- Overlay helpers ---------------- */
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-  // (optional) if your CSS uses [aria-hidden="true"] to hide, that’s enough.
 }
 
 function showCoach(msg, meta='Coach'){
@@ -75,12 +77,11 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
+/* ---------------- HUD wiring ---------------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
-
-  const hudHint  = DOC.getElementById('hudHint');
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -96,17 +97,17 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
-  }, { passive:true });
+  });
 
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
     if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
-  }, { passive:true });
+  });
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // expected: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -125,36 +126,30 @@ function wireHUD(){
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
-    // hint (optional)
-    if(hudHint){
-      if(d.allDone) hudHint.textContent = 'ครบแล้ว! ลุ้นคะแนน/คอมโบให้สูง 🔥';
-    }
-  }, { passive:true });
+  });
 
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
-  }, { passive:true });
+  });
 }
 
+/* ---------------- End overlay controls ---------------- */
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
+
   const hub = qs('hub','') || '';
 
-  if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
-    }, { passive:true });
-  }
+  btnRestart?.addEventListener('click', ()=>{
+    // keep same query params
+    location.reload();
+  });
 
-  if(btnBackHub){
-    btnBackHub.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
-      else history.back();
-    }, { passive:true });
-  }
+  btnBackHub?.addEventListener('click', ()=>{
+    if(hub) location.href = hub;
+    else history.back();
+  });
 }
 
 function wireEndSummary(){
@@ -171,6 +166,7 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
+    // accuracy: prefer accuracyGoodPct (already percent)
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -178,21 +174,29 @@ function wireEndSummary(){
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
-  }, { passive:true });
+  });
+}
+
+/* ---------------- Engine config ---------------- */
+function normalizeRunMode(run){
+  run = (run || 'play').toLowerCase();
+  // allow synonyms
+  if(run === 'research') return 'study';
+  if(run === 'test') return 'play';
+  return run; // play | study
 }
 
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase();
+
+  const run  = normalizeRunMode(qs('run','play'));
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default 90
-  const timeRaw = qs('time', null);
-  const time = clamp(timeRaw == null ? 90 : timeRaw, 10, 999);
-
+  // ✅ 90 sec default (P5 comfortable baseline)
+  const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  return {
+  const cfg = {
     view,
     runMode: run,
     diff,
@@ -203,19 +207,20 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // research context
-    projectTag: qs('projectTag','') || qs('tag','') || 'HeroHealth',
-    studyId: qs('studyId','') || qs('study','') || '',
+    studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
-    conditionGroup: qs('conditionGroup','') || qs('cond','') || '',
-    sessionOrder: qs('sessionOrder','') || qs('order','') || '',
-    blockLabel: qs('blockLabel','') || qs('block','') || '',
-    siteCode: qs('siteCode','') || qs('site','') || '',
+    conditionGroup: qs('conditionGroup','') || '',
+    sessionOrder: qs('sessionOrder','') || '',
+    blockLabel: qs('blockLabel','') || '',
+
+    siteCode: qs('siteCode','') || '',
     schoolCode: qs('schoolCode','') || '',
     schoolName: qs('schoolName','') || '',
     gradeLevel: qs('gradeLevel','') || '',
-    studentKey: qs('studentKey','') || '',
+    studentKey: qs('studentKey','') || ''
   };
+
+  return cfg;
 }
 
 function ready(fn){
@@ -234,7 +239,7 @@ ready(()=>{
   wireEndControls();
   wireEndSummary();
 
-  // close end overlay at start
+  // ensure end overlay closed at start
   setOverlayOpen(false);
 
   // boot engine
