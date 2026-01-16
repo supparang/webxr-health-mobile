@@ -1,3 +1,4 @@
+<!-- === /herohealth/plate/plate-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -18,7 +19,10 @@
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Boot (wires HUD + starts engine) -->
+  <!-- ✅ IMPORTANT: ModeFactory must be loaded (global) for plate.safe.js bridge -->
+  <script src="../vr/mode-factory.js" defer></script>
+
+  <!-- Boot (loads plate.safe.js as module internally) -->
   <script type="module" src="./plate.boot.js"></script>
 </head>
 
@@ -112,17 +116,16 @@
         </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
+          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- NOTE:
-    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js will set view class and boot the engine.
+    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js sets view class and boots the engine.
   -->
 </body>
 </html>
