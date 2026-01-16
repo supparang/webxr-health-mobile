@@ -1,10 +1,14 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration VR RUN — PRODUCTION (Folder-run) — FULL
+Hydration Quest VR — RUN (Folder-run)
 ✅ CSS: ./hydration-vr.css
-✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js
-✅ Loader: ./hydration-vr.loader.js
-✅ Engine: ./hydration.safe.js
-✅ NOTE: ui-water.js removed (HUD waterpanel is primary)
+✅ A-Frame minimal scene for Enter VR reliability
+✅ Modules:
+   - ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+   - ../vr/hha-cloud-logger.js (flush-hardened; optional via ?log=)
+   - ../vr/ui-water.js (water gauge helper)
+   - ./hydration-vr.loader.js (auto detect + overlay start + layers)
+✅ Engine: ./hydration.safe.js (module)
+✅ Pass-through hub/run/diff/time/seed/sessionId/studyId/conditionGroup/log/etc.
 -->
 <!doctype html>
 <html lang="th">
@@ -16,20 +20,25 @@ Hydration VR RUN — PRODUCTION (Folder-run) — FULL
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <link rel="stylesheet" href="./hydration-vr.css" />
+
+  <!-- A-Frame: minimal scene for Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Cloud Logger (flush-hardened) -->
+  <!-- Cloud Logger (flush-hardened) - shared across games (optional by ?log=...) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Loader -->
+  <!-- Water gauge helper -->
+  <script src="../vr/ui-water.js" defer></script>
+
+  <!-- Loader: sets view/cardboard/layers + start overlay -> emits hha:start -->
   <script src="./hydration-vr.loader.js" defer></script>
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene for Enter VR reliability -->
+  <!-- Minimal A-Frame scene for WebXR Enter VR reliability -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:false">
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
@@ -57,7 +66,8 @@ Hydration VR RUN — PRODUCTION (Folder-run) — FULL
         </div>
       </div>
 
-      <div class="waterpanel">
+      <!-- Water panel (Hydration UI) -->
+      <div class="waterpanel" id="water-panel">
         <div class="water-head">
           <div class="wtitle">Water</div>
           <div class="wzone">Zone: <b id="water-zone">GREEN</b></div>
@@ -95,8 +105,8 @@ Hydration VR RUN — PRODUCTION (Folder-run) — FULL
       </div>
 
       <div class="ov-hint">
-        • cVR: ยิงจากกลางจอ (crosshair) <br/>
-        • Kids preset: <b>?kids=A</b> / <b>B</b> / <b>C</b> (หรือ <b>?kids=1</b> = B)
+        • cVR: ยิงจากกลางจอ (crosshair)<br/>
+        • Kids mode: ใส่ <b>?kids=1</b>
       </div>
     </div>
   </div>
@@ -105,6 +115,7 @@ Hydration VR RUN — PRODUCTION (Folder-run) — FULL
   <div id="resultBackdrop" class="overlay" hidden>
     <div class="overlay-card wide">
       <div class="ov-title">สรุปผล</div>
+
       <div class="res-grid">
         <div class="res-item">Score <b id="rScore">0</b></div>
         <div class="res-item">Grade <b id="rGrade">C</b></div>
