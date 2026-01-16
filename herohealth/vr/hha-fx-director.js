@@ -1,114 +1,186 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION
-// Listens: hha:judge, hha:storm, hha:boss, hha:celebrate, hha:end
-// Emits: none (visual only)
-// ✅ Safe: works even if Particles missing
-// ✅ Rate-limit: prevent spam FX (kids-friendly)
+// HHA FX Director — PRODUCTION (Unified FX for all games)
+// ✅ Listens: hha:judge, hha:storm, hha:boss, hha:celebrate, hha:end
+// ✅ Uses Particles (minimal or ultra): window.Particles or window.GAME_MODULES.Particles
+// ✅ Safe: no crash if Particles missing
+// ✅ Rate-limit: prevents spam
+// ✅ Theme hooks: per-game flavor via detail.game / detail.theme
 
-(function(){
+(function (root) {
   'use strict';
-  const WIN = window;
-  const DOC = document;
-  if(!WIN || !DOC) return;
 
-  if(WIN.__HHA_FX_DIRECTOR__) return;
-  WIN.__HHA_FX_DIRECTOR__ = true;
+  const DOC = root.document;
+  if (!DOC || root.__HHA_FX_DIRECTOR__) return;
+  root.__HHA_FX_DIRECTOR__ = true;
 
-  const clamp=(v,a,b)=> (v<a?a:(v>b?b:v));
-  const now=()=> (performance?.now?.() ?? Date.now());
+  /* ---------------- utils ---------------- */
+  const now = ()=> (root.performance ? root.performance.now() : Date.now());
+  const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
+  const W = ()=> DOC.documentElement.clientWidth || root.innerWidth || 0;
+  const H = ()=> DOC.documentElement.clientHeight || root.innerHeight || 0;
 
   function P(){
-    return (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
+    return (root.GAME_MODULES && root.GAME_MODULES.Particles) || root.Particles || null;
   }
 
-  // ---- rate limits ----
-  const last = {
-    judge: 0,
-    storm: 0,
-    boss: 0,
-    celebrate: 0,
-    end: 0
-  };
+  function has(fn){
+    const p = P();
+    return !!(p && typeof p[fn] === 'function');
+  }
 
-  function can(key, gapMs){
+  function pop(x,y,text,cls=null,opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.popText === 'function') return p.popText(x,y,text,cls,opts);
+      if(p && typeof p.scorePop === 'function') return p.scorePop(x,y,text);
+    }catch(_){}
+  }
+  function ring(x,y,kind='good',opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.ringPulse === 'function') return p.ringPulse(x,y,kind,opts);
+    }catch(_){}
+  }
+  function burst(x,y,kind='good',opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.burstAt === 'function') return p.burstAt(x,y,kind,opts);
+    }catch(_){}
+  }
+  function celebrate(kind='win',opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.celebrate === 'function') return p.celebrate(kind,opts);
+    }catch(_){}
+  }
+
+  function pulseBody(cls, ms=200){
+    try{
+      DOC.body.classList.add(cls);
+      setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){ } }, ms);
+    }catch(_){}
+  }
+
+  /* ---------------- soft styles (optional) ---------------- */
+  const st = DOC.createElement('style');
+  st.textContent = `
+    /* FX Director body pulses (safe, non-breaking) */
+    .hha-pulse-good { animation: hhaPulseGood 180ms ease-out 1; }
+    .hha-pulse-bad  { animation: hhaPulseBad  200ms ease-out 1; }
+    .hha-pulse-wow  { animation: hhaPulseWow  260ms ease-out 1; }
+    .hha-pulse-storm{ animation: hhaPulseStorm 520ms ease-out 1; }
+    .hha-pulse-boss { animation: hhaPulseBoss  620ms ease-out 1; }
+    .hha-pulse-rage { animation: hhaPulseRage  680ms ease-out 1; }
+
+    @keyframes hhaPulseGood{
+      0%{ filter:saturate(1) brightness(1); }
+      60%{ filter:saturate(1.25) brightness(1.06); }
+      100%{ filter:saturate(1) brightness(1); }
+    }
+    @keyframes hhaPulseBad{
+      0%{ filter:brightness(1); }
+      40%{ filter:brightness(0.92) contrast(1.06); }
+      100%{ filter:brightness(1); }
+    }
+    @keyframes hhaPulseWow{
+      0%{ transform:translateZ(0); }
+      55%{ transform:translateZ(0) scale(1.01); }
+      100%{ transform:translateZ(0); }
+    }
+    @keyframes hhaPulseStorm{
+      0%{ filter:contrast(1); }
+      55%{ filter:contrast(1.08) saturate(1.15); }
+      100%{ filter:contrast(1); }
+    }
+    @keyframes hhaPulseBoss{
+      0%{ filter:saturate(1); }
+      55%{ filter:saturate(1.22) contrast(1.06); }
+      100%{ filter:saturate(1); }
+    }
+    @keyframes hhaPulseRage{
+      0%{ filter:contrast(1); }
+      50%{ filter:contrast(1.10) saturate(1.18); }
+      100%{ filter:contrast(1); }
+    }
+  `;
+  try{ DOC.head.appendChild(st); }catch(_){}
+
+  /* ---------------- rate limit ---------------- */
+  const last = new Map();
+  function allow(key, ms){
     const t = now();
-    if(t - (last[key]||0) >= gapMs){
-      last[key] = t;
-      return true;
-    }
-    return false;
+    const prev = last.get(key) || 0;
+    if(t - prev < ms) return false;
+    last.set(key, t);
+    return true;
   }
 
-  function center(){
-    const W = DOC.documentElement.clientWidth || 360;
-    const H = DOC.documentElement.clientHeight || 640;
-    return { x: Math.floor(W/2), y: Math.floor(H*0.28), W, H };
+  /* ---------------- theme mapping ---------------- */
+  function centerXY(){
+    return { x: Math.floor(W()/2), y: Math.floor(H()*0.28) };
   }
 
-  // ---- helpers ----
-  function pop(x,y,text,cls,opts){
-    const p = P();
-    try{ p?.popText?.(x,y,text,cls,opts); }catch(_){}
-  }
-  function ring(x,y,kind,opts){
-    const p = P();
-    try{ p?.ringPulse?.(x,y,kind,opts); }catch(_){}
-  }
-  function burst(x,y,kind,opts){
-    const p = P();
-    try{ p?.burstAt?.(x,y,kind,opts); }catch(_){}
-  }
-  function celebrate(kind,opts){
-    const p = P();
-    try{ p?.celebrate?.(kind,opts); }catch(_){}
+  function labelForJudge(d){
+    // d: { type, label, game?, kind? }
+    const t = String(d?.type||'').toLowerCase();
+    if(d?.label) return String(d.label);
+
+    if(t === 'good') return 'GOOD!';
+    if(t === 'perfect') return 'PERFECT!';
+    if(t === 'bad') return 'OOPS!';
+    if(t === 'miss') return 'MISS';
+    if(t === 'block') return 'BLOCK!';
+    return 'OK';
   }
 
-  // ---- event handlers ----
+  function kindForJudge(d){
+    const t = String(d?.type||'').toLowerCase();
+    if(t === 'good') return 'good';
+    if(t === 'perfect') return 'star';
+    if(t === 'block') return 'shield';
+    if(t === 'bad') return 'bad';
+    if(t === 'miss') return 'bad';
+    return 'good';
+  }
+
+  /* ---------------- handlers ---------------- */
   function onJudge(ev){
+    if(!allow('judge', 55)) return; // keeps it snappy but not spammy
     const d = ev?.detail || {};
-    const type = String(d.type || '').toLowerCase();
-    const label = String(d.label || '');
-    const x = Number(d.x);
-    const y = Number(d.y);
+    const x = Number(d.x); const y = Number(d.y);
+    const hasXY = Number.isFinite(x) && Number.isFinite(y);
 
-    // prevent spam when many hits/sec
-    if(!can('judge', 45)) return;
+    const pos = hasXY ? {x,y} : centerXY();
+    const text = labelForJudge(d);
+    const kind = kindForJudge(d);
 
-    const { x:cx, y:cy } = center();
-    const px = Number.isFinite(x) ? x : cx;
-    const py = Number.isFinite(y) ? y : cy;
-
-    if(type === 'good'){
-      burst(px,py,'good',{ count: 10, spread: 90, lifeMs: 520 });
-      ring(px,py,'good',{ size: 150, lifeMs: 520, thick: 10 });
-      if(label) pop(px,py-42,label,'good',{ size: 14, lifeMs: 520, risePx: 34 });
+    // core hits
+    if(kind === 'good'){
+      pulseBody('hha-pulse-good', 180);
+      burst(pos.x, pos.y, 'good');
+      ring(pos.x, pos.y, 'good', { size: 120 });
+      pop(pos.x, pos.y, text, 'good', { size: 18 });
       return;
     }
-
-    if(type === 'perfect'){
-      burst(px,py,'star',{ count: 14, spread: 110, lifeMs: 620 });
-      ring(px,py,'star',{ size: 190, lifeMs: 650, thick: 10 });
-      if(label) pop(px,py-48,label,'warn',{ size: 16, lifeMs: 650, risePx: 40 });
+    if(kind === 'star'){
+      pulseBody('hha-pulse-wow', 240);
+      burst(pos.x, pos.y, 'star');
+      ring(pos.x, pos.y, 'star', { size: 150 });
+      pop(pos.x, pos.y, text, 'warn', { size: 18 });
       return;
     }
-
-    if(type === 'bad'){
-      burst(px,py,'bad',{ count: 12, spread: 100, lifeMs: 560 });
-      ring(px,py,'bad',{ size: 180, lifeMs: 560, thick: 10 });
-      if(label) pop(px,py-48,label,'bad',{ size: 16, lifeMs: 560, risePx: 40 });
+    if(kind === 'shield'){
+      pulseBody('hha-pulse-wow', 220);
+      burst(pos.x, pos.y, 'shield');
+      ring(pos.x, pos.y, 'shield', { size: 160 });
+      pop(pos.x, pos.y, text, 'cyan', { size: 16 });
       return;
     }
-
-    if(type === 'block'){
-      burst(px,py,'shield',{ count: 12, spread: 100, lifeMs: 560 });
-      ring(px,py,'shield',{ size: 190, lifeMs: 560, thick: 10 });
-      pop(px,py-44,'BLOCK!','cyan',{ size: 16, lifeMs: 560, risePx: 36 });
-      return;
-    }
-
-    if(type === 'miss'){
-      ring(px,py,'bad',{ size: 170, lifeMs: 520, thick: 10 });
-      if(label) pop(px,py-44,label,'bad',{ size: 14, lifeMs: 520, risePx: 34 });
+    if(kind === 'bad'){
+      pulseBody('hha-pulse-bad', 220);
+      burst(pos.x, pos.y, 'bad');
+      ring(pos.x, pos.y, 'bad', { size: 170 });
+      pop(pos.x, pos.y, text, 'bad', { size: 16 });
       return;
     }
   }
@@ -116,89 +188,123 @@
   function onStorm(ev){
     const d = ev?.detail || {};
     const on = !!d.on;
-    if(!can('storm', on ? 450 : 300)) return;
-
-    const { x, y, H } = center();
     if(on){
-      DOC.body.classList.add('gj-storm');
-      ring(x, Math.floor(H*0.30), 'warn', { size: 320, lifeMs: 900, thick: 12 });
-      pop(x, Math.floor(H*0.22), 'STORM!', 'warn', { size: 22, lifeMs: 900, risePx: 50 });
+      if(!allow('storm_on', 900)) return;
+      pulseBody('hha-pulse-storm', 520);
+      const c = centerXY();
+      ring(c.x, c.y, 'star', { size: 260 });
+      pop(c.x, c.y, 'STORM!', 'warn', { size: 22 });
     }else{
-      DOC.body.classList.remove('gj-storm');
-      pop(x, y, 'STORM CLEAR', 'good', { size: 14, lifeMs: 520, risePx: 34 });
+      if(!allow('storm_off', 800)) return;
+      const c = centerXY();
+      pop(c.x, c.y, 'STORM CLEAR', 'good', { size: 16 });
     }
   }
 
   function onBoss(ev){
     const d = ev?.detail || {};
     const on = !!d.on;
-    const phase = Number(d.phase || 0);
-    const hp = Number(d.hp ?? 0);
-    const hpMax = Number(d.hpMax ?? 0);
+    const phase = Number(d.phase||0);
     const rage = !!d.rage;
+    const hp = Number(d.hp);
+    const hpMax = Number(d.hpMax);
 
-    // don't overfire: boss updates frequently (hp changes)
-    const gap = on ? (phase === 2 ? 160 : 220) : 420;
-    if(!can('boss', gap)) return;
+    // Boss enter
+    if(on && phase === 1 && allow('boss_on', 900)){
+      pulseBody('hha-pulse-boss', 620);
+      const c = centerXY();
+      ring(c.x, c.y, 'violet', { size: 300 });
+      pop(c.x, c.y, `BOSS! HP ${hpMax||'?'}`, 'violet', { size: 22 });
+      if(rage) pop(c.x, c.y + 34, 'RAGE!', 'bad', { size: 18 });
+      return;
+    }
 
-    const { x, y, H } = center();
+    // Phase2 cue
+    if(on && phase === 2 && allow('boss_p2', 900)){
+      pulseBody('hha-pulse-rage', 680);
+      const c = centerXY();
+      ring(c.x, c.y, 'bad', { size: 320 });
+      pop(c.x, c.y, 'PHASE 2!', 'bad', { size: 22 });
+      return;
+    }
 
-    if(on){
-      DOC.body.classList.add('gj-boss');
-      if(rage) DOC.body.classList.add('gj-rage'); // keep if rage
-      const tag = (phase === 2) ? 'PHASE 2' : 'BOSS';
-      ring(x, Math.floor(H*0.32), phase === 2 ? 'bad' : 'violet', { size: phase === 2 ? 360 : 320, lifeMs: 750, thick: 12 });
-      pop(x, Math.floor(H*0.24), `${tag}  HP ${hp}/${hpMax}`, phase === 2 ? 'bad' : 'violet', { size: 18, lifeMs: 650, risePx: 44 });
-      if(phase === 2) DOC.body.classList.add('gj-phase2'); else DOC.body.classList.remove('gj-phase2');
-    }else{
-      DOC.body.classList.remove('gj-boss');
-      DOC.body.classList.remove('gj-phase2');
-      // don't remove rage here; rage ends at end of game in your design
-      pop(x, y, 'BOSS DOWN!', 'good', { size: 18, lifeMs: 820, risePx: 48 });
-      celebrate('boss', { count: 22 });
+    // HP tick (throttle)
+    if(on && Number.isFinite(hp) && Number.isFinite(hpMax) && allow('boss_hp', 220)){
+      const c = centerXY();
+      pop(c.x, c.y + 38, `HP ${hp}/${hpMax}`, (hp/hpMax <= 0.35) ? 'bad' : 'warn', { size: 14 });
+      return;
+    }
+
+    // Boss cleared
+    if(!on && allow('boss_off', 900)){
+      const c = centerXY();
+      pop(c.x, c.y, 'BOSS DOWN!', 'good', { size: 22 });
+      celebrate('boss', { count: 20 });
+      return;
     }
   }
 
   function onCelebrate(ev){
     const d = ev?.detail || {};
-    const kind = String(d.kind || 'win');
-    if(!can('celebrate', 360)) return;
+    const kind = String(d.kind || 'win').toLowerCase();
+
+    if(kind === 'mini'){
+      if(!allow('cele_mini', 900)) return;
+      celebrate('mini', { count: 12 });
+      const c = centerXY();
+      pop(c.x, c.y, 'MINI CLEAR!', 'warn', { size: 20 });
+      return;
+    }
 
     if(kind === 'boss'){
-      celebrate('boss', { count: 24 });
+      if(!allow('cele_boss', 900)) return;
+      celebrate('boss', { count: 22 });
       return;
     }
-    if(kind === 'mini'){
-      celebrate('mini', { count: 14 });
+
+    if(kind === 'end'){
+      if(!allow('cele_end', 900)) return;
+      celebrate('win', { count: 16 });
       return;
     }
-    celebrate('win', { count: 18 });
+
+    // default
+    if(!allow('cele_any', 900)) return;
+    celebrate(kind, { count: 14 });
   }
 
   function onEnd(ev){
-    if(!can('end', 1200)) return;
+    // End FX (small, not spammy)
+    if(!allow('end', 1200)) return;
     const d = ev?.detail || {};
-    const reason = String(d.reason || '');
-    const grade = String(d.grade || '');
-    const { x, y, H } = center();
+    const grade = String(d.grade || '').toUpperCase();
+    const c = centerXY();
 
-    // final flash
-    if(reason === 'missLimit'){
-      pop(x, Math.floor(H*0.22), 'GAME OVER', 'bad', { size: 26, lifeMs: 900, risePx: 54 });
-      ring(x, Math.floor(H*0.32), 'bad', { size: 420, lifeMs: 900, thick: 12 });
+    if(grade === 'S'){
+      celebrate('win', { count: 22 });
+      pop(c.x, c.y, 'S RANK!', 'good', { size: 22 });
+      return;
+    }
+    if(grade === 'A'){
+      celebrate('win', { count: 18 });
+      pop(c.x, c.y, 'A RANK!', 'warn', { size: 20 });
+      return;
+    }
+    if(grade){
+      celebrate('win', { count: 14 });
+      pop(c.x, c.y, `${grade} RANK`, 'warn', { size: 18 });
       return;
     }
 
-    pop(x, Math.floor(H*0.22), `COMPLETED  ${grade ? ('['+grade+']') : ''}`, 'good', { size: 22, lifeMs: 900, risePx: 54 });
-    ring(x, Math.floor(H*0.32), 'good', { size: 420, lifeMs: 900, thick: 12 });
-    celebrate('win', { count: 18 });
+    celebrate('win', { count: 12 });
+    pop(c.x, c.y, 'DONE!', 'good', { size: 18 });
   }
 
-  // ---- bind ----
-  WIN.addEventListener('hha:judge', onJudge, { passive:true });
-  WIN.addEventListener('hha:storm', onStorm, { passive:true });
-  WIN.addEventListener('hha:boss', onBoss, { passive:true });
-  WIN.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  WIN.addEventListener('hha:end', onEnd, { passive:true });
+  /* ---------------- attach listeners ---------------- */
+  root.addEventListener('hha:judge', onJudge, { passive:true });
+  root.addEventListener('hha:storm', onStorm, { passive:true });
+  root.addEventListener('hha:boss', onBoss, { passive:true });
+  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+  root.addEventListener('hha:end', onEnd, { passive:true });
 
-})();
+})(window);
