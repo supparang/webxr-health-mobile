@@ -1,3 +1,11 @@
+<!-- === /herohealth/hydration-vr/hydration-vr.html ===
+Hydration VR RUN — PRODUCTION (Folder-run) — FULL
+✅ CSS: ./hydration-vr.css
+✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js
+✅ Loader: ./hydration-vr.loader.js
+✅ Engine: ./hydration.safe.js
+✅ NOTE: ui-water.js removed (HUD waterpanel is primary)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -13,10 +21,10 @@
   <!-- Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Cloud Logger (flush-hardened) - ใช้ร่วมทุกเกม -->
+  <!-- Cloud Logger (flush-hardened) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Loader: set view/cardboard/layers + start overlay -->
+  <!-- Loader -->
   <script src="./hydration-vr.loader.js" defer></script>
 </head>
 
@@ -88,7 +96,7 @@
 
       <div class="ov-hint">
         • cVR: ยิงจากกลางจอ (crosshair) <br/>
-        • ถ้าเป็นเด็ก: ใส่ <b>?kids=1</b>
+        • Kids preset: <b>?kids=A</b> / <b>B</b> / <b>C</b> (หรือ <b>?kids=1</b> = B)
       </div>
     </div>
   </div>
