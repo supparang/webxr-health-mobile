@@ -1,12 +1,9 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (A-layout)
-// ✅ Auto view detect (no UI override)
-// ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners:
-//    hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// PlateVR Boot — PRODUCTION (HHA Standard)
+// ✅ Auto view detect (no menu override)
+// ✅ Default time: 90s (unless ?time= overrides)
+// ✅ Wires HUD listeners + End overlay + Hub/Restart
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -25,8 +22,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // ✅ Do not offer UI override (no menu).
-  // ✅ Allow caller/system to force by query (?view=pc/mobile/vr/cvr) for experiments.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -42,16 +37,15 @@ function setBodyView(view){
 }
 
 function clamp(v, a, b){
-  v = Number(v) || 0;
+  v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
 
 function pct(n){
-  n = Number(n) || 0;
+  n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
-/* ---------------- Overlay helpers ---------------- */
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
@@ -66,7 +60,6 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
-
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -77,7 +70,6 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
-/* ---------------- HUD wiring ---------------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -107,22 +99,21 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
-      if(goalName) goalName.textContent = g.name || 'Goal';
-      if(goalSub)  goalSub.textContent  = g.sub  || '';
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
+      if(goalName) goalName.textContent = g.name || 'Goal';
+      if(goalSub)  goalSub.textContent  = g.sub  || '';
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
     if(d.mini){
       const m = d.mini;
-      if(miniName) miniName.textContent = m.name || 'Mini Quest';
-      if(miniSub)  miniSub.textContent  = m.sub  || '';
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
+      if(miniName) miniName.textContent = m.name || 'Mini Quest';
+      if(miniSub)  miniSub.textContent  = m.sub  || '';
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
@@ -134,22 +125,17 @@ function wireHUD(){
   });
 }
 
-/* ---------------- End overlay controls ---------------- */
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
-
   const hub = qs('hub','') || '';
 
-  btnRestart?.addEventListener('click', ()=>{
-    // keep same query params
-    location.reload();
-  });
+  btnRestart?.addEventListener('click', ()=> location.reload(), { passive:true });
 
   btnBackHub?.addEventListener('click', ()=>{
     if(hub) location.href = hub;
     else history.back();
-  });
+  }, { passive:true });
 }
 
 function wireEndSummary(){
@@ -166,7 +152,6 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // accuracy: prefer accuracyGoodPct (already percent)
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -174,36 +159,23 @@ function wireEndSummary(){
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
-  });
-}
-
-/* ---------------- Engine config ---------------- */
-function normalizeRunMode(run){
-  run = (run || 'play').toLowerCase();
-  // allow synonyms
-  if(run === 'research') return 'study';
-  if(run === 'test') return 'play';
-  return run; // play | study
+  }, { passive:true });
 }
 
 function buildEngineConfig(){
   const view = getViewAuto();
-
-  const run  = normalizeRunMode(qs('run','play'));
+  const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ 90 sec default (P5 comfortable baseline)
+  // ✅ default 90
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  const cfg = {
-    view,
-    runMode: run,
-    diff,
+  return {
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // passthrough
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
@@ -212,15 +184,12 @@ function buildEngineConfig(){
     conditionGroup: qs('conditionGroup','') || '',
     sessionOrder: qs('sessionOrder','') || '',
     blockLabel: qs('blockLabel','') || '',
-
     siteCode: qs('siteCode','') || '',
     schoolCode: qs('schoolCode','') || '',
     schoolName: qs('schoolName','') || '',
     gradeLevel: qs('gradeLevel','') || '',
-    studentKey: qs('studentKey','') || ''
+    studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -230,24 +199,15 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
-
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
