@@ -1,22 +1,25 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge UI — PRODUCTION (ESM + window globals)
-// ✅ ensureWaterGauge(): สร้าง widget ถ้ายังไม่มี
-// ✅ setWaterGauge(pct): อัปเดต 0..100 + สีตาม zone
+// Water Gauge UI — PRODUCTION (ESM + optional window bridge)
+// ✅ ensureWaterGauge(): create widget if missing
+// ✅ setWaterGauge(pct): update 0..100 + zone color
 // ✅ zoneFrom(pct): GREEN / LOW / HIGH
 //
 // Notes:
-// - ถ้าไม่อยากให้โชว์: ใส่ ?water=0 หรือ window.HHA_WATER_UI=false
-// - เป็น ES Module (import ได้จาก hydration.safe.js)
+// - ถ้าไม่อยากให้โชว์: ?water=0 หรือ window.HHA_WATER_UI=false
+// - เป็น ESM จริง: import ได้ปลอดภัย (ไม่พัง parse)
+// - ยัง attach ลง window ให้ใช้แบบ non-module ได้ด้วย
 
-const WIN = window;
-const DOC = document;
+'use strict';
+
+const WIN = (typeof window !== 'undefined') ? window : globalThis;
+const DOC = WIN.document;
 
 const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
 export function zoneFrom(pct){
   pct = clamp(pct,0,100);
-  // โซนตัวอย่าง: GREEN 40–70
+  // โซนตัวอย่าง: GREEN 40–70, ต่ำกว่า = LOW, สูงกว่า = HIGH
   if (pct < 40) return 'LOW';
   if (pct > 70) return 'HIGH';
   return 'GREEN';
@@ -26,7 +29,7 @@ const STYLE_ID = 'hha-water-ui-style';
 const ROOT_ID  = 'hha-water-ui';
 
 function injectStyle(){
-  if (DOC.getElementById(STYLE_ID)) return;
+  if (!DOC || DOC.getElementById(STYLE_ID)) return;
   const st = DOC.createElement('style');
   st.id = STYLE_ID;
   st.textContent = `
@@ -34,7 +37,7 @@ function injectStyle(){
       position: fixed;
       left: calc(10px + env(safe-area-inset-left, 0px));
       bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-      z-index: 35;
+      z-index: 35; /* ต่ำกว่า HUD (คุณใช้ 60) */
       pointer-events: none;
       display: grid;
       gap: 6px;
@@ -92,7 +95,8 @@ function injectStyle(){
 }
 
 export function ensureWaterGauge(){
-  // allow disable
+  if (!DOC) return null;
+
   const q = String(qs('water','1')).toLowerCase();
   if (q === '0' || q === 'false' || WIN.HHA_WATER_UI === false) return null;
 
@@ -121,6 +125,8 @@ export function ensureWaterGauge(){
 }
 
 export function setWaterGauge(pct){
+  if (!DOC) return;
+
   pct = clamp(pct,0,100);
 
   const root = DOC.getElementById(ROOT_ID) || ensureWaterGauge();
@@ -142,7 +148,9 @@ export function setWaterGauge(pct){
   else root.classList.add('green');
 }
 
-// Also expose globals (optional)
-WIN.ensureWaterGauge = ensureWaterGauge;
-WIN.setWaterGauge = setWaterGauge;
-WIN.zoneFrom = zoneFrom;
+// Optional window bridge (safe)
+try{
+  WIN.ensureWaterGauge = ensureWaterGauge;
+  WIN.setWaterGauge = setWaterGauge;
+  WIN.zoneFrom = zoneFrom;
+}catch(_){}
