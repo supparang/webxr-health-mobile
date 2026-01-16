@@ -1,10 +1,10 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration Quest VR — PRODUCTION CSS (HHA Standard)
-✅ HUD top + mission + water gauge panel
-✅ Playfield roomy (kids-friendly)
-✅ Safe-area insets + spawn safe-zone support (reads --sat/--sab)
-✅ Cardboard split layers (#hydration-layerL/R)
-✅ Targets clickable only on .hvr-target
+Hydration Quest VR — PRODUCTION CSS (LATEST)
+✅ HUD + Quest + Water panel
+✅ Safe-area aware
+✅ Gameplay-first layout (kids-friendly)
+✅ Cardboard split support
+✅ FX hooks: body.hha-endfx / body.hha-bossfx + .hha-shock + .hvr-target
 */
 
 :root{
@@ -17,6 +17,7 @@ Hydration Quest VR — PRODUCTION CSS (HHA Standard)
 
   --text:#e5e7eb;
   --muted:#94a3b8;
+
   --accent:#22c55e;
   --warn:#f59e0b;
   --cyan:#22d3ee;
@@ -26,7 +27,6 @@ Hydration Quest VR — PRODUCTION CSS (HHA Standard)
   --radius:18px;
   --pill:999px;
 
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
@@ -44,13 +44,12 @@ html,body{
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
 
-/* A-Frame scene sits behind */
+/* A-Frame sits behind DOM */
 a-scene{ position:fixed; inset:0; z-index:0; }
 
-/* ---------- PLAYFIELD ---------- */
+/* -------- Playfield (targets live here) -------- */
 #playfieldWrap{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
   z-index: 1;
   pointer-events:none;
@@ -70,14 +69,12 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   pointer-events:none;
 }
 
-/* layer is where targets are injected */
 .layer{
-  position:absolute;
-  inset:0;
+  position:absolute; inset:0;
   pointer-events:none;
 }
 
-/* ---------- HUD ---------- */
+/* -------- HUD -------- */
 #hud{
   position:fixed;
   inset:0;
@@ -85,12 +82,13 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   pointer-events:none;
 }
 
-/* TOP chips */
+/* TOP chips: keep compact to leave gameplay space */
 .hud-top{
   position:fixed;
   top: calc(10px + var(--sat));
   left: calc(10px + var(--sal));
   right: calc(10px + var(--sar));
+
   display:flex;
   gap:8px;
   flex-wrap:wrap;
@@ -101,74 +99,77 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 .chip{
   pointer-events:none;
   border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.55);
+  background:rgba(2,6,23,.50);
   backdrop-filter: blur(10px);
   border-radius: var(--pill);
-  padding:8px 10px;
+  padding:7px 10px;
   font-size:12px;
   color: rgba(229,231,235,.92);
-  box-shadow: 0 16px 60px rgba(0,0,0,.35);
+  box-shadow: 0 14px 50px rgba(0,0,0,.30);
+  white-space:nowrap;
 }
-.chip.big{ font-weight:900; }
+
+.chip.big{ font-weight:950; letter-spacing:.2px; }
 .chip.ok b{ color: var(--accent); }
 .chip.warn b{ color: var(--warn); }
 .chip.cyan b{ color: var(--cyan); }
 .chip.storm b{ color: var(--violet); }
 
-/* MID panels: Mission + Water */
+/* MID panels (mission + water) */
 .hud-mid{
   position:fixed;
-  top: calc(56px + var(--sat));
+  top: calc(54px + var(--sat));
   left: calc(10px + var(--sal));
   right: calc(10px + var(--sar));
+
   display:grid;
-  grid-template-columns: 1.28fr .72fr;
+  grid-template-columns: 1.25fr .75fr;
   gap:10px;
   pointer-events:none;
 }
 
-/* Mobile: stack to 1 column to free gameplay height */
 @media (max-width:720px){
   .hud-mid{
     grid-template-columns: 1fr;
-    gap:8px;
+    top: calc(52px + var(--sat));
   }
+  .chip{ font-size:11px; padding:6px 9px; }
 }
 
+/* Panels */
 .quest, .waterpanel{
   border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.48);
+  background:rgba(2,6,23,.44);
   backdrop-filter: blur(10px);
   border-radius: 18px;
   padding: 10px 12px;
-  box-shadow: 0 16px 60px rgba(0,0,0,.35);
+  box-shadow: 0 14px 55px rgba(0,0,0,.30);
 }
 
 .quest-title{
-  font-weight:900;
+  font-weight:950;
   letter-spacing:.2px;
   font-size:13px;
   opacity:.96;
 }
-
 .quest-lines{
   margin-top:6px;
   font-size:12px;
   color: rgba(229,231,235,.88);
   line-height:1.35;
 }
-.quest-lines > div{ margin:2px 0; }
+.quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
 .quest-lines #quest-line3,
 .quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
 
-/* Water gauge panel */
+/* Water panel */
 .waterpanel .water-head{
   display:flex;
   align-items:baseline;
   justify-content:space-between;
   gap:10px;
 }
-.waterpanel .wtitle{ font-weight:900; font-size:13px; }
+.waterpanel .wtitle{ font-weight:950; font-size:13px; }
 .waterpanel .wzone{ font-size:12px; color: rgba(148,163,184,.95); }
 
 .wbar{
@@ -187,13 +188,13 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 }
 .wpct{
   margin-top:6px;
-  font-weight:900;
+  font-weight:950;
   text-align:right;
   font-size:12px;
   color: rgba(229,231,235,.92);
 }
 
-/* ---------- OVERLAYS ---------- */
+/* -------- Overlays -------- */
 .overlay{
   position:fixed; inset:0;
   z-index: 120;
@@ -203,7 +204,6 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   background: rgba(0,0,0,.48);
   backdrop-filter: blur(6px);
 }
-.overlay.hide{ display:none !important; }
 .overlay[hidden]{ display:none !important; }
 
 .overlay-card{
@@ -233,7 +233,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   background: rgba(15,23,42,.72);
   color: rgba(229,231,235,.95);
   padding: 10px 12px;
-  font-weight:900;
+  font-weight:950;
   cursor:pointer;
 }
 .btn.primary{
@@ -259,7 +259,6 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 @media (max-width:720px){
   .res-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
-
 .res-item{
   border:1px solid rgba(148,163,184,.14);
   border-radius: 16px;
@@ -267,7 +266,6 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   background: rgba(15,23,42,.55);
   color: rgba(229,231,235,.92);
 }
-
 .res-note{ margin-top:10px; }
 .tier{ font-weight:950; color: rgba(34,197,94,.95); }
 .tips{
@@ -283,7 +281,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 }
 .next{ margin-top:8px; color: rgba(229,231,235,.92); }
 
-/* ---------- FX HOOKS (from hydration.safe.js) ---------- */
+/* -------- FX hooks from hydration.safe.js -------- */
 body.hha-endfx #playfield{
   animation: hhaShake .22s linear infinite;
 }
@@ -294,9 +292,10 @@ body.hha-endfx #playfield{
   75%{ transform: translate(1px,1px); }
   100%{ transform: translate(0,0); }
 }
+
 body.hha-bossfx #playfield{
   box-shadow:
-    0 0 0 2px rgba(239,68,68,.18) inset,
+    0 0 0 2px rgba(239,68,68,.16) inset,
     0 24px 90px rgba(239,68,68,.10);
 }
 
@@ -317,33 +316,19 @@ body.hha-bossfx #playfield{
   to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
 }
 
-/* ---------- CARDBOARD SPLIT ---------- */
+/* Targets are clickable */
+.hvr-target{ pointer-events:auto; }
+
+/* -------- Cardboard split -------- */
 body.cardboard #hydration-layer{ display:none; }
 
-#cbWrap{
-  position:absolute;
-  inset:0;
-}
-
+#cbWrap{ position:absolute; inset:0; }
 #cbPlayfield{
-  position:absolute;
-  inset:0;
+  position:absolute; inset:0;
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap:10px;
   padding:10px;
 }
-
 body.cardboard #cbWrap{ display:block; }
 body.cardboard #cbWrap[hidden]{ display:block !important; }
-
-/* Make targets clickable only via their own nodes */
-.hvr-target{ pointer-events:auto; }
-
-/* Optional: reduce HUD footprint for very small height (kids phones) */
-@media (max-height:640px){
-  .hud-top{ gap:6px; }
-  .chip{ padding:7px 9px; font-size:11px; }
-  .hud-mid{ top: calc(50px + var(--sat)); }
-  .quest, .waterpanel{ padding: 9px 10px; }
-}
