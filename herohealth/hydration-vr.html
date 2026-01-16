@@ -1,9 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration VR Launcher — ROOT (FULL)
+Hydration VR Launcher — ROOT (LATEST)
 ✅ Auto-detect + Buttons (PC / Mobile / cVR / Cardboard)
-✅ Auto adds kids=B on touch devices (P.5 comfy) unless user already sets kids
-✅ Pass-through query (hub/run/diff/time/seed/sessionId/log/etc.)
-✅ Go to: /herohealth/hydration-vr/hydration-vr.html
+✅ Pass-through query (hub/run/diff/time/seed/ts/sessionId/log/etc.)
+✅ FIX: correct RUN path (prevents hydration-vr/hydration-vr/hydration-vr.html)
+✅ Go to: /herohealth/hydration-vr/hydration-vr.html  (folder run)
 -->
 <!doctype html>
 <html lang="th">
@@ -59,11 +59,6 @@ Hydration VR Launcher — ROOT (FULL)
     .btn.ghost{ background: transparent; }
     .hint{margin-top:10px;color:rgba(148,163,184,.95);font-size:12px;line-height:1.35}
     code{color:rgba(34,211,238,.95)}
-    .pill{
-      display:inline-block; padding:2px 8px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.55);
-      font-size:12px; color:rgba(229,231,235,.9);
-    }
   </style>
 </head>
 <body>
@@ -75,10 +70,7 @@ Hydration VR Launcher — ROOT (FULL)
     <div class="grid">
       <div class="panel">
         <div style="font-weight:900">เข้าเล่นแบบอัตโนมัติ</div>
-        <div class="hint">
-          กดปุ่มเดียว ระบบเลือก <b>PC / Mobile / cVR</b> ให้อัตโนมัติ<br/>
-          <span class="pill">เด็ก ป.5</span> Auto จะใส่ <code>kids=B</code> ให้อัตโนมัติ (ถ้ายังไม่กำหนด kids เอง)
-        </div>
+        <div class="hint">กดปุ่มเดียว ระบบเลือก <b>PC / Mobile / cVR</b> ให้อัตโนมัติ<br/>ถ้าจะ Cardboard ให้กดปุ่ม Cardboard</div>
         <div class="row">
           <button class="btn primary" id="btnAuto">Auto Start</button>
           <button class="btn ghost" id="btnBack">กลับ HUB</button>
@@ -95,8 +87,8 @@ Hydration VR Launcher — ROOT (FULL)
         </div>
         <div class="hint">
           • cVR = ยิงจากกลางจอ (crosshair)<br/>
-          • Cardboard = <code>?view=cvr&amp;cardboard=1</code><br/>
-          • Kids presets = <code>?kids=A</code>/<code>B</code>/<code>C</code> (หรือ <code>?kids=1</code> = B)
+          • Cardboard = <code>?view=cvr&cardboard=1</code><br/>
+          • Kids mode = <code>?kids=1</code>
         </div>
       </div>
     </div>
@@ -112,8 +104,12 @@ Hydration VR Launcher — ROOT (FULL)
   'use strict';
   const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
+  // ✅ HUB default
   const hub = String(qs('hub','./hub.html'));
-  const RUN_URL = './hydration-vr/hydration-vr.html';
+
+  // ✅ FIX: build absolute run path from site root (prevents double folder nesting)
+  // This ensures correct URL even if launcher is accessed from odd nested URLs.
+  const RUN_PATH = '/webxr-health-mobile/herohealth/hydration-vr/hydration-vr.html';
 
   function detectView(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
@@ -128,38 +124,27 @@ Hydration VR Launcher — ROOT (FULL)
     return 'pc';
   }
 
-  function isTouchDevice(){
-    return ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
-  }
+  function buildRunUrl(view, cardboard){
+    // Keep same origin, but force the run path
+    const u = new URL(RUN_PATH, location.origin);
 
-  function normalizeKids(v){
-    v = String(v||'').toLowerCase();
-    if (v==='1' || v==='true' || v==='yes') return 'B';
-    if (v==='a' || v==='b' || v==='c') return v.toUpperCase();
-    return '';
-  }
-
-  function go(view, cardboard=false){
-    const u = new URL(RUN_URL, location.href);
-
-    // pass all params through
+    // pass all params through from current URL
     const cur = new URL(location.href);
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
     // enforce view/cardboard
     u.searchParams.set('view', view);
     if (cardboard) u.searchParams.set('cardboard','1');
+    else u.searchParams.delete('cardboard');
 
     // ensure hub exists
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
 
-    // ✅ auto kids for touch (P.5 comfy) unless already set
-    const kidsNow = normalizeKids(u.searchParams.get('kids'));
-    if (!kidsNow && isTouchDevice()){
-      u.searchParams.set('kids','B');
-    }
+    return u.toString();
+  }
 
-    location.href = u.toString();
+  function go(view, cardboard=false){
+    location.href = buildRunUrl(view, cardboard);
   }
 
   const autoView = detectView();
