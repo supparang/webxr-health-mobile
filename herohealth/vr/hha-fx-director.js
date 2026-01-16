@@ -1,357 +1,309 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (UNIFIED)
-// ✅ Uses window.Particles or window.GAME_MODULES.Particles (if present)
-// ✅ Listens: hha:judge, hha:score, hha:miss, hha:storm, hha:boss, hha:celebrate, hha:end, hha:coach
-// ✅ Adds global "feel": screen pulse, ring pulses, score pop, boss/storm banners
-// ✅ Safe: no hard dependency on specific HUD ids
-// ✅ Rate-limited to avoid spam (kid-friendly + mobile friendly)
+// HHA FX Director — PRODUCTION
+// ✅ Listens to common events across HeroHealth games
+// ✅ Works with ../vr/particles.js (either minimal or extended API)
+// ✅ Provides consistent "juice": pop / burst / ring / celebrate / body pulses
+// ✅ Rate-limited to avoid spam
+// ✅ Safe: no dependency on specific game DOM structure
 
 (function(){
   'use strict';
+
   const WIN = window;
   const DOC = document;
   if(!WIN || !DOC) return;
-
   if(WIN.__HHA_FX_DIRECTOR__) return;
   WIN.__HHA_FX_DIRECTOR__ = true;
 
-  // -------------------- helpers --------------------
+  // ----------------------- helpers -----------------------
+  const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const clamp = (v,min,max)=> (v<min?min:(v>max?max:v));
-  const now = ()=> performance.now();
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
-  function getParticles(){
+  function P(){
     return (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
   }
 
-  function centerXY(){
-    const W = DOC.documentElement.clientWidth || innerWidth || 360;
-    const H = DOC.documentElement.clientHeight || innerHeight || 640;
-    return { x: Math.floor(W/2), y: Math.floor(H*0.32), W, H };
+  function pop(x,y,text,cls=null,opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.popText === 'function') return p.popText(x,y,text,cls,opts);
+      if(p && typeof p.scorePop === 'function') return p.scorePop(x,y,text);
+    }catch(_){}
   }
 
-  function pulseBody(cls, ms){
+  function burst(x,y,kind='good',opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.burstAt === 'function') return p.burstAt(x,y,kind,opts);
+    }catch(_){}
+  }
+
+  function ring(x,y,kind='good',opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.ringPulse === 'function') return p.ringPulse(x,y,kind,opts);
+    }catch(_){}
+  }
+
+  function celebrate(kind='win',opts=null){
+    const p = P();
+    try{
+      if(p && typeof p.celebrate === 'function') return p.celebrate(kind,opts);
+    }catch(_){}
+  }
+
+  function bodyPulse(cls, ms=220){
     try{
       DOC.body.classList.add(cls);
-      setTimeout(()=>DOC.body.classList.remove(cls), ms||200);
+      setTimeout(()=> DOC.body.classList.remove(cls), ms);
     }catch(_){}
   }
 
-  // floating banner layer
-  function ensureBanner(){
-    let el = DOC.querySelector('.hha-fx-banner');
-    if(el) return el;
-    el = DOC.createElement('div');
-    el.className = 'hha-fx-banner';
-    el.style.cssText = `
-      position:fixed;
-      left:0; right:0;
-      top: calc(8px + env(safe-area-inset-top, 0px));
-      z-index: 210;
-      display:flex;
-      align-items:flex-start;
-      justify-content:center;
-      pointer-events:none;
-    `;
-    const card = DOC.createElement('div');
-    card.className = 'hha-fx-banner-card';
-    card.style.cssText = `
-      max-width:min(720px, 94vw);
-      background: rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.22);
-      border-radius: 999px;
-      padding: 10px 14px;
-      font: 1000 13px/1.1 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      color:#e5e7eb;
-      box-shadow: 0 18px 50px rgba(0,0,0,.45);
-      opacity: 0;
-      transform: translateY(-10px);
-      transition: opacity .16s ease, transform .16s ease;
-      backdrop-filter: blur(10px);
-      display:flex;
-      gap:10px;
-      align-items:center;
-    `;
-    const dot = DOC.createElement('span');
-    dot.className = 'hha-fx-dot';
-    dot.style.cssText = `
-      width:10px;height:10px;border-radius:999px;
-      background:#22c55e;
-      box-shadow: 0 0 0 4px rgba(34,197,94,.18);
-      flex:0 0 auto;
-    `;
-    const txt = DOC.createElement('span');
-    txt.className = 'hha-fx-text';
-    txt.textContent = '—';
-
-    card.appendChild(dot);
-    card.appendChild(txt);
-    el.appendChild(card);
-    DOC.body.appendChild(el);
-    return el;
+  function centerXY(){
+    const w = DOC.documentElement.clientWidth || innerWidth || 800;
+    const h = DOC.documentElement.clientHeight || innerHeight || 600;
+    return { x: Math.floor(w/2), y: Math.floor(h/2) };
   }
 
-  let bannerTimer = 0;
-  function showBanner(text, tone){
-    try{
-      const root = ensureBanner();
-      const card = root.querySelector('.hha-fx-banner-card');
-      const dot  = root.querySelector('.hha-fx-dot');
-      const txt  = root.querySelector('.hha-fx-text');
-      if(!card || !txt || !dot) return;
+  // ----------------------- config -----------------------
+  // Optional user override:
+  // window.HHA_FX_CONFIG = { enabled:true, intensity:1, mute:false }
+  const CFG = Object.assign({
+    enabled: true,
+    intensity: 1.0, // 0.6..1.4 recommended
+    mute: false,    // if true => no particles (still body pulses minimal)
+    maxPopPerSec: 14,
+    maxBurstPerSec: 18,
+    maxRingPerSec: 10,
+  }, WIN.HHA_FX_CONFIG || {});
 
-      txt.textContent = String(text || '—');
+  // allow url flags: ?fx=0 or ?fx=1
+  const fxQ = qs('fx', null);
+  if(fxQ === '0') CFG.enabled = false;
+  if(fxQ === '1') CFG.enabled = true;
 
-      const t = String(tone||'good');
-      const styles = {
-        good:  { dot:'#22c55e', ring:'rgba(34,197,94,.18)' },
-        warn:  { dot:'#f59e0b', ring:'rgba(245,158,11,.18)' },
-        bad:   { dot:'#ef4444', ring:'rgba(239,68,68,.18)' },
-        cyan:  { dot:'#22d3ee', ring:'rgba(34,211,238,.18)' },
-        violet:{ dot:'#a78bfa', ring:'rgba(167,139,250,.18)' }
-      };
-      const s = styles[t] || styles.good;
-      dot.style.background = s.dot;
-      dot.style.boxShadow  = `0 0 0 4px ${s.ring}`;
+  // ----------------------- rate limit -----------------------
+  function makeLimiter(maxPerSec){
+    let t0 = now();
+    let used = 0;
+    return function ok(){
+      const t = now();
+      if(t - t0 >= 1000){ t0 = t; used = 0; }
+      used++;
+      return used <= maxPerSec;
+    };
+  }
+  const okPop = makeLimiter(CFG.maxPopPerSec);
+  const okBurst = makeLimiter(CFG.maxBurstPerSec);
+  const okRing = makeLimiter(CFG.maxRingPerSec);
 
-      card.style.opacity = '1';
-      card.style.transform = 'translateY(0)';
+  function safeXY(d){
+    const w = DOC.documentElement.clientWidth || innerWidth || 800;
+    const h = DOC.documentElement.clientHeight || innerHeight || 600;
 
-      clearTimeout(bannerTimer);
-      bannerTimer = setTimeout(()=>{
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(-10px)';
-      }, 1200);
-    }catch(_){}
+    let x = Number(d?.x);
+    let y = Number(d?.y);
+
+    if(!Number.isFinite(x) || !Number.isFinite(y)){
+      const c = centerXY();
+      x = c.x; y = c.y;
+    }
+    x = clamp(x, 18, w-18);
+    y = clamp(y, 18, h-18);
+    return {x,y};
   }
 
-  // rate limits
-  const RL = {
-    pop:  { t:0, ms: 70 },
-    ring: { t:0, ms: 90 },
-    banner:{ t:0, ms: 350 },
-    coach:{ t:0, ms: 900 }
-  };
-  function allow(key){
-    const r = RL[key];
-    if(!r) return true;
-    const t = now();
-    if(t - r.t < r.ms) return false;
-    r.t = t;
-    return true;
+  function emitTinyCoach(msg){
+    // optional: forward to any coach UI listener
+    try{ WIN.dispatchEvent(new CustomEvent('hha:coach', { detail: { kind:'fx', msg } })); }catch(_){}
   }
 
-  // wrappers
-  function pop(x,y,text,cls,opts){
-    const P = getParticles();
-    if(!P) return;
-    if(!allow('pop')) return;
-    try{
-      if(typeof P.popText === 'function') P.popText(x,y,String(text||''),cls||null,opts||null);
-      else if(typeof P.scorePop === 'function') P.scorePop(x,y,String(text||''));
-    }catch(_){}
-  }
-  function ring(x,y,kind,opts){
-    const P = getParticles();
-    if(!P) return;
-    if(!allow('ring')) return;
-    try{
-      if(typeof P.ringPulse === 'function') P.ringPulse(x,y,kind||'good',opts||null);
-    }catch(_){}
-  }
-  function burst(x,y,kind,opts){
-    const P = getParticles();
-    if(!P) return;
-    try{
-      if(typeof P.burstAt === 'function') P.burstAt(x,y,kind||'good',opts||null);
-    }catch(_){}
-  }
-  function celebrate(kind,opts){
-    const P = getParticles();
-    if(!P) return;
-    try{
-      if(typeof P.celebrate === 'function') P.celebrate(kind||'win',opts||null);
-    }catch(_){}
-  }
-
-  // normalize coords from events
-  function coordsFromDetail(d){
-    const c = centerXY();
-    const x = Number(d?.x);
-    const y = Number(d?.y);
-    if(Number.isFinite(x) && Number.isFinite(y)) return { x: Math.floor(x), y: Math.floor(y), W:c.W, H:c.H };
-    return c;
-  }
-
-  // -------------------- event handlers --------------------
-
-  // judge: primary moment-to-moment feedback
+  // ----------------------- event handlers -----------------------
   function onJudge(ev){
+    if(!CFG.enabled) return;
     const d = ev?.detail || {};
     const type = String(d.type || '').toLowerCase(); // good/bad/perfect/miss/block
-    const label = d.label || '';
+    const label = String(d.label || '').trim();
+    const {x,y} = safeXY(d);
 
-    const { x,y,W,H } = coordsFromDetail(d);
+    const intensity = clamp(Number(CFG.intensity)||1, 0.4, 1.6);
 
-    if(type === 'good'){
-      burst(x,y,'good');
-      ring(x,y,'good',{ size: 120 });
-      pop(x,y, label || '+', 'good', { size: 16 });
-      pulseBody('gj-hit-good', 140);
-      return;
+    // subtle body cues
+    if(type === 'bad') bodyPulse('hha-fx-bad', 180);
+    else if(type === 'miss') bodyPulse('hha-fx-miss', 140);
+    else if(type === 'perfect') bodyPulse('hha-fx-perfect', 180);
+
+    if(CFG.mute) return;
+
+    if(label && okPop()){
+      const cls =
+        (type==='bad') ? 'bad' :
+        (type==='miss') ? 'bad' :
+        (type==='block') ? 'cyan' :
+        (type==='perfect') ? 'good' : 'good';
+      pop(x,y,label,cls,{ size: Math.round(14 + 6*intensity) });
     }
 
-    if(type === 'perfect'){
-      burst(x,y,'star');
-      ring(x,y,'star',{ size: 150 });
-      pop(x,y, label || 'PERFECT!', 'warn', { size: 18 });
-      pulseBody('gj-hit-perfect', 180);
-      if(allow('banner')) showBanner(label || 'Perfect!', 'warn');
-      return;
+    // particles
+    if(okBurst()){
+      const kind =
+        (type==='bad' || type==='miss') ? 'bad' :
+        (type==='block') ? 'shield' :
+        (type==='perfect') ? 'star' : 'good';
+      burst(x,y,kind,{ count: Math.round(8*intensity) });
     }
-
-    if(type === 'block'){
-      burst(x,y,'shield');
-      ring(x,y,'shield',{ size: 150 });
-      pop(x,y, label || 'BLOCK', 'cyan', { size: 16 });
-      pulseBody('gj-hit-block', 160);
-      return;
-    }
-
-    if(type === 'miss'){
-      burst(x,y,'bad');
-      ring(x,y,'bad',{ size: 170 });
-      pop(x,y, label || 'MISS', 'bad', { size: 16 });
-      pulseBody('gj-hit-miss', 180);
-      return;
-    }
-
-    if(type === 'bad'){
-      burst(x,y,'bad');
-      ring(x,y,'bad',{ size: 160 });
-      pop(x,y, label || 'OOPS!', 'bad', { size: 16 });
-      pulseBody('gj-hit-bad', 190);
-      return;
-    }
-
-    // fallback
-    if(label){
-      pop(W/2, H*0.28, label, 'warn', { size: 16 });
+    if(okRing()){
+      const kind =
+        (type==='bad' || type==='miss') ? 'bad' :
+        (type==='block') ? 'shield' :
+        (type==='perfect') ? 'star' : 'good';
+      ring(x,y,kind,{ size: Math.round(120 + 40*intensity) });
     }
   }
 
-  // score/miss for subtle pops (not spamming)
-  function onScore(ev){
-    const d = ev?.detail || {};
-    const delta = Number(d.delta);
-    if(!Number.isFinite(delta)) return;
-    const { x,y } = coordsFromDetail(d);
-    if(delta > 0){
-      pop(x,y, `+${Math.floor(delta)}`, 'good', { size: 14 });
-    }else if(delta < 0){
-      pop(x,y, `${Math.floor(delta)}`, 'bad', { size: 14 });
-    }
-  }
-  function onMiss(ev){
-    const d = ev?.detail || {};
-    const deltaMiss = Number(d.deltaMiss);
-    if(!Number.isFinite(deltaMiss)) return;
-    const { x,y } = coordsFromDetail(d);
-    if(deltaMiss > 0) pop(x,y, `MISS +${Math.floor(deltaMiss)}`, 'bad', { size: 13 });
-    if(deltaMiss < 0) pop(x,y, `MISS ${Math.floor(deltaMiss)}`, 'warn', { size: 13 });
-  }
-
-  // storm / boss banners + body classes (match your GoodJunk css hooks)
   function onStorm(ev){
+    if(!CFG.enabled) return;
     const d = ev?.detail || {};
     const on = !!d.on;
+    const c = centerXY();
+
     if(on){
-      pulseBody('gj-storm', 420);
-      if(allow('banner')) showBanner('🌪️ STORM! เป้าจะวุ่นขึ้น', 'warn');
-      const c = centerXY();
-      ring(c.x, c.y, 'star', { size: 220 });
-      pop(c.x, c.y, 'STORM!', 'warn', { size: 20 });
+      bodyPulse('hha-fx-storm', 420);
+      emitTinyCoach('STORM! เป้าจะป่วนขึ้นเล็กน้อย');
+      if(!CFG.mute){
+        if(okRing()) ring(c.x, Math.floor(c.y*0.65), 'star', { size: 280 });
+        if(okPop()) pop(c.x, Math.floor(c.y*0.62), 'STORM!', 'warn', { size: 22 });
+        if(okBurst()) burst(c.x, Math.floor(c.y*0.65), 'star', { count: 18 });
+      }
     }else{
-      if(allow('banner')) showBanner('✅ STORM CLEAR', 'good');
+      bodyPulse('hha-fx-storm-off', 220);
+      if(!CFG.mute){
+        if(okPop()) pop(c.x, Math.floor(c.y*0.62), 'CLEAR', 'good', { size: 16 });
+      }
     }
   }
 
   function onBoss(ev){
+    if(!CFG.enabled) return;
     const d = ev?.detail || {};
     const on = !!d.on;
-    const phase = Number(d.phase)||0;
-    const hp = Number(d.hp);
-    const hpMax = Number(d.hpMax);
+    const phase = Number(d.phase || 0);
+    const hp = Number(d.hp ?? 0);
+    const hpMax = Number(d.hpMax ?? 0);
+    const rage = !!d.rage;
+    const c = centerXY();
 
     if(on){
-      pulseBody('gj-boss', 520);
-      if(phase === 2) pulseBody('gj-phase2', 520);
+      if(phase === 1){
+        bodyPulse('hha-fx-boss', 520);
+        emitTinyCoach('BOSS! โฟกัสดี ๆ');
+        if(!CFG.mute){
+          if(okRing()) ring(c.x, Math.floor(c.y*0.68), 'violet', { size: 320 });
+          if(okPop()) pop(c.x, Math.floor(c.y*0.62), `BOSS! HP ${hp}/${hpMax}`, 'violet', { size: 20 });
+        }
+      }else if(phase === 2){
+        bodyPulse('hha-fx-phase2', 520);
+        emitTinyCoach('PHASE 2! เร็วขึ้น—แต่ยังแฟร์');
+        if(!CFG.mute){
+          if(okRing()) ring(c.x, Math.floor(c.y*0.68), 'bad', { size: 360 });
+          if(okPop()) pop(c.x, Math.floor(c.y*0.62), `PHASE 2`, 'bad', { size: 22 });
+        }
+      }
 
-      const msg = (Number.isFinite(hp) && Number.isFinite(hpMax))
-        ? `👾 BOSS! HP ${hp}/${hpMax}${phase===2?' (P2)':''}`
-        : `👾 BOSS!${phase===2?' (P2)':''}`;
-
-      if(allow('banner')) showBanner(msg, phase===2?'bad':'violet');
-
-      const c = centerXY();
-      ring(c.x, c.y, phase===2?'bad':'violet', { size: phase===2 ? 300 : 260 });
-      pop(c.x, c.y, phase===2 ? 'PHASE 2!' : 'BOSS!', phase===2?'bad':'violet', { size: 20 });
+      if(rage){
+        bodyPulse('hha-fx-rage', 620);
+        if(!CFG.mute && okPop()) pop(c.x, Math.floor(c.y*0.74), 'RAGE!', 'bad', { size: 18 });
+      }
     }else{
-      if(allow('banner')) showBanner('🏆 BOSS DOWN!', 'good');
-      celebrate('boss', { count: 16 });
+      bodyPulse('hha-fx-boss-down', 520);
+      emitTinyCoach('BOSS DOWN!');
+      if(!CFG.mute){
+        celebrate('boss', { count: 22 });
+        if(okPop()) pop(c.x, Math.floor(c.y*0.62), 'BOSS DOWN!', 'good', { size: 22 });
+      }
     }
   }
 
-  // celebrate: big win moments
-  function onCelebrate(ev){
-    const d = ev?.detail || {};
-    const kind = String(d.kind || d?.grade || 'win').toLowerCase();
-    if(kind.includes('mini')){
-      celebrate('mini', { count: 10 });
-      return;
-    }
-    if(kind.includes('boss')){
-      celebrate('boss', { count: 18 });
-      return;
-    }
-    celebrate('win', { count: 14 });
-  }
-
-  // end: one last flourish (don’t conflict with game's own end overlay)
   function onEnd(ev){
+    if(!CFG.enabled) return;
     const d = ev?.detail || {};
-    const grade = d.grade || '';
-    if(grade){
-      if(allow('banner')) showBanner(`จบเกม! GRADE ${grade}`, 'good');
+    const grade = String(d.grade || '').trim();
+    const reason = String(d.reason || '').trim();
+    const c = centerXY();
+
+    bodyPulse('hha-fx-end', 520);
+
+    if(CFG.mute) return;
+
+    // celebrate depends on grade/reason
+    const kind = (reason === 'missLimit') ? 'fail' : 'win';
+    celebrate(kind, { count: (kind==='fail' ? 10 : 18) });
+
+    if(okPop()){
+      if(kind==='fail'){
+        pop(c.x, Math.floor(c.y*0.62), 'GAME OVER', 'bad', { size: 24 });
+      }else{
+        const g = grade ? `GRADE ${grade}` : 'COMPLETED';
+        pop(c.x, Math.floor(c.y*0.62), g, 'good', { size: 24 });
+      }
     }
-    celebrate('end', { count: 16 });
   }
 
-  // coach: show small banner tip (rate-limited)
-  function onCoach(ev){
-    if(!allow('coach')) return;
+  function onCelebrate(ev){
+    if(!CFG.enabled) return;
     const d = ev?.detail || {};
-    const msg = d.msg || d.text || '';
-    if(!msg) return;
-    if(allow('banner')) showBanner(String(msg).slice(0, 90), 'cyan');
+    const kind = String(d.kind || 'win');
+    if(CFG.mute) return;
+    // gentle: don't explode every time
+    if(kind === 'mini'){
+      if(okBurst()) burst(centerXY().x, Math.floor(centerXY().y*0.60), 'star', { count: 12 });
+    }else if(kind === 'boss'){
+      celebrate('boss', { count: 22 });
+    }else if(kind === 'end'){
+      celebrate('win', { count: 18 });
+    }
   }
 
-  // -------------------- attach listeners --------------------
-  function on(name, fn){
-    try{ WIN.addEventListener(name, fn, { passive:true }); }catch(_){}
-    try{ DOC.addEventListener(name, fn, { passive:true }); }catch(_){}
-  }
+  // ----------------------- bind events -----------------------
+  WIN.addEventListener('hha:judge', onJudge, { passive:true });
+  WIN.addEventListener('hha:storm', onStorm, { passive:true });
+  WIN.addEventListener('hha:boss',  onBoss,  { passive:true });
+  WIN.addEventListener('hha:end',   onEnd,   { passive:true });
+  WIN.addEventListener('hha:celebrate', onCelebrate, { passive:true });
 
-  on('hha:judge', onJudge);
-  on('hha:score', onScore);
-  on('hha:miss',  onMiss);
-  on('hha:storm', onStorm);
-  on('hha:boss',  onBoss);
-  on('hha:celebrate', onCelebrate);
-  on('hha:end', onEnd);
-  on('hha:coach', onCoach);
+  // Also listen on document (some games dispatch there)
+  DOC.addEventListener('hha:judge', onJudge, { passive:true });
+  DOC.addEventListener('hha:storm', onStorm, { passive:true });
+  DOC.addEventListener('hha:boss',  onBoss,  { passive:true });
+  DOC.addEventListener('hha:end',   onEnd,   { passive:true });
+  DOC.addEventListener('hha:celebrate', onCelebrate, { passive:true });
 
-  // tiny boot banner (once)
-  setTimeout(()=>{
-    if(allow('banner')) showBanner('✨ FX Director พร้อมใช้งาน', 'good');
-  }, 120);
+  // ----------------------- minimal css pulses (inject once) -----------------------
+  try{
+    const st = DOC.createElement('style');
+    st.textContent = `
+      body.hha-fx-bad{ animation: hhaBad .14s ease; }
+      body.hha-fx-miss{ animation: hhaMiss .12s ease; }
+      body.hha-fx-perfect{ animation: hhaOk .16s ease; }
+      body.hha-fx-storm{ animation: hhaStorm .42s ease; }
+      body.hha-fx-storm-off{ animation: hhaOk .18s ease; }
+      body.hha-fx-boss{ animation: hhaBoss .52s ease; }
+      body.hha-fx-phase2{ animation: hhaPhase2 .52s ease; }
+      body.hha-fx-rage{ animation: hhaRage .62s ease; }
+      body.hha-fx-boss-down{ animation: hhaOk .52s ease; }
+      body.hha-fx-end{ animation: hhaEnd .52s ease; }
+
+      @keyframes hhaBad{ 0%{ filter: none; } 40%{ filter: saturate(1.15) brightness(.98); } 100%{ filter:none; } }
+      @keyframes hhaMiss{ 0%{ filter:none; } 40%{ filter: brightness(.98) contrast(1.06); } 100%{ filter:none; } }
+      @keyframes hhaOk{ 0%{ filter:none; } 40%{ filter: saturate(1.06) brightness(1.02); } 100%{ filter:none; } }
+      @keyframes hhaStorm{ 0%{ filter:none; } 40%{ filter: saturate(1.18); } 100%{ filter:none; } }
+      @keyframes hhaBoss{ 0%{ filter:none; } 40%{ filter: saturate(1.12) contrast(1.06); } 100%{ filter:none; } }
+      @keyframes hhaPhase2{ 0%{ filter:none; } 40%{ filter: saturate(1.20) contrast(1.10); } 100%{ filter:none; } }
+      @keyframes hhaRage{ 0%{ filter:none; } 40%{ filter: saturate(1.25) contrast(1.12); } 100%{ filter:none; } }
+      @keyframes hhaEnd{ 0%{ filter:none; } 40%{ filter: saturate(1.10) brightness(1.03); } 100%{ filter:none; } }
+    `;
+    DOC.head.appendChild(st);
+  }catch(_){}
+
 })();
