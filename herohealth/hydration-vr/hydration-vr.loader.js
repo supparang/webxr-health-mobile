@@ -13,7 +13,6 @@
   if (!WIN || !DOC) return;
 
   const qs=(k,def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
   function setBodyView(view){
     const b = DOC.body;
@@ -43,7 +42,6 @@
   let view = String(qs('view','')).toLowerCase();
   if (!view) view = detectViewNoOverride();
   if (view === 'cardboard') view = 'cvr';
-
   setBodyView(view);
 
   // cardboard flag
@@ -51,20 +49,13 @@
   const isCardboard = (cardboardQ==='1' || cardboardQ==='true' || String(qs('view','')).toLowerCase()==='cardboard');
 
   const cbWrap = DOC.getElementById('cbWrap');
-  if (cbWrap){
-    cbWrap.hidden = !isCardboard;
-  }
-  if (isCardboard){
-    DOC.body.classList.add('cardboard');
-  }
+  if (cbWrap) cbWrap.hidden = !isCardboard;
+  if (isCardboard) DOC.body.classList.add('cardboard');
 
   // setup layers list for hydration.safe.js
   const H = WIN.HHA_VIEW = WIN.HHA_VIEW || {};
-  if (isCardboard){
-    H.layers = ['hydration-layerL','hydration-layerR'];
-  } else {
-    H.layers = ['hydration-layer'];
-  }
+  if (isCardboard) H.layers = ['hydration-layerL','hydration-layerR'];
+  else H.layers = ['hydration-layer'];
 
   // start overlay behavior
   const ov = DOC.getElementById('startOverlay');
@@ -89,13 +80,10 @@
     try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
   }
 
-  if (btn){
-    btn.addEventListener('click', start);
-  }
-  // click anywhere on overlay
+  btn?.addEventListener('click', start);
+
   if (ov){
     ov.addEventListener('pointerdown', (ev)=>{
-      // avoid double click on buttons
       if (ev.target && String(ev.target.tagName||'').toLowerCase()==='button') return;
       start();
     }, {passive:true});
