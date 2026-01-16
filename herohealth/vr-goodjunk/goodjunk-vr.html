@@ -1,9 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (FINAL CLEAN + FIX TAP)
+GoodJunkVR RUN — PRODUCTION (Folder-run CLEAN)
 ✅ CSS: ./goodjunk-vr.css
-✅ JS:  ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+✅ FX: ../vr/particles.js (โหลดครั้งเดียว)
+✅ Logger (optional): ../vr/hha-cloud-logger.js
+✅ VR UI: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot -> hha:shoot)
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ FIX: A-Frame canvas never blocks tapping targets (mobile/pc)
+✅ A-Frame minimal scene for Enter VR reliability
+✅ No duplicate overlays in HTML (safe.js handles end overlay)
 -->
 <!doctype html>
 <html lang="th">
@@ -14,67 +17,46 @@ GoodJunkVR RUN — PRODUCTION (FINAL CLEAN + FIX TAP)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
+  <!-- ✅ CSS (สำคัญ: path ต้องตรงโฟลเดอร์นี้) -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- A-Frame (minimal scene for WebXR Enter VR reliability) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- A-Frame minimal for WebXR Enter VR reliability -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
 
-  <!-- Shared modules -->
+  <!-- ✅ FX + Logger + VR UI (โหลดครั้งเดียว) -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- Boot (module) -->
+  <!-- ✅ Boot (module) -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 
   <style>
-    /* Keep top buttons clickable even when overlays exist */
+    /* ให้ UI โซนปุ่มกดได้เสมอ */
     .gj-topbar, .gj-topbar * { pointer-events:auto; }
 
-    /* ✅ FIX #1: Put A-Frame behind everything + DO NOT eat taps */
-    a-scene, #xrScene, canvas.a-canvas, .a-canvas {
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 0 !important;
-      pointer-events: none !important;
-      touch-action: none !important;
-    }
+    /* กัน A-Frame กินคลิก */
+    a-scene, canvas, .a-canvas { pointer-events:none !important; }
 
-    /* ✅ Ensure our UI layers are above A-Frame */
-    .gj-topbar { z-index: 220 !important; }
-    .gj-hud-top, .gj-hud-bot { z-index: 180 !important; }
-    .gj-field { z-index: 50 !important; }          /* targets layer */
-    .hha-fx-layer { z-index: 190 !important; }     /* particles layer */
-    .gj-peek { z-index: 240 !important; }
-    .gj-end { z-index: 260 !important; }
-
-    /* Low-time overlay: show via aria-hidden (safe.js toggles) */
-    #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
-    #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
-      opacity:1 !important;
-      transform: scale(1) !important;
-    }
+    /* ช่วยให้เป้าบางครั้งไม่ “แว๊บหาย” เพราะ layout reflow หนัก */
+    #gj-layer, #gj-layer-r { contain: layout paint style; }
   </style>
 </head>
 
 <body class="gj">
 
-  <!-- =========================================================
-       A-FRAME minimal scene (behind UI)
-       ========================================================= -->
+  <!-- A-Frame minimal scene (behind UI) -->
   <a-scene
-    id="xrScene"
     embedded
     vr-mode-ui="enabled:false"
     renderer="colorManagement:true; physicallyCorrectLights:false"
-    style="background:transparent;"
+    style="background: transparent;"
   >
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
 
   <!-- =========================================================
-       TOPBAR
+       TOPBAR (compact)
        ========================================================= -->
   <header class="gj-topbar" id="gjTopbar">
     <div class="left">
@@ -86,7 +68,6 @@ GoodJunkVR RUN — PRODUCTION (FINAL CLEAN + FIX TAP)
     <div class="right">
       <button class="gj-btn" id="btnMissions" type="button">Missions</button>
       <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
-      <button class="gj-btn" id="btnRestartTop" type="button">Restart</button>
       <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
     </div>
   </header>
@@ -120,7 +101,7 @@ GoodJunkVR RUN — PRODUCTION (FINAL CLEAN + FIX TAP)
         <div class="q-desc" id="goalDesc">—</div>
         <div class="q-bar">
           <div class="q-num"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
-          <div class="q-hint">ทำให้ครบเพื่อชนะ</div>
+          <div class="q-hint">ทำให้ครบแล้วไป GOAL ต่อ</div>
         </div>
       </div>
 
@@ -136,7 +117,7 @@ GoodJunkVR RUN — PRODUCTION (FINAL CLEAN + FIX TAP)
   </section>
 
   <!-- =========================================================
-       HUD BOTTOM
+       HUD BOTTOM (compact)
        ========================================================= -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever" id="gjHudFever">
@@ -153,7 +134,7 @@ GoodJunkVR RUN — PRODUCTION (FINAL CLEAN + FIX TAP)
   </section>
 
   <!-- =========================================================
-       PLAYFIELD (tap targets here)
+       PLAYFIELD
        ========================================================= -->
   <main class="gj-field" id="gj-field" aria-label="Playfield">
     <div id="gj-layer" class="gj-layer"></div>
@@ -172,123 +153,76 @@ GoodJunkVR RUN — PRODUCTION (FINAL CLEAN + FIX TAP)
     </div>
   </section>
 
-  <!-- =========================================================
-       LOW TIME OVERLAY
-       ========================================================= -->
+  <!-- Low time overlay -->
   <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
     <div class="gj-lowtime-ring"></div>
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
   <!-- =========================================================
-       END SUMMARY
-       ========================================================= -->
-  <div class="gj-end" id="endOverlay" aria-hidden="true">
-    <div class="card">
-      <div class="title" id="endTitle">Completed</div>
-      <div class="sub" id="endSub">—</div>
-      <div class="grid">
-        <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
-        <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
-        <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
-        <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
-      </div>
-      <div class="actions">
-        <button class="btn alt" id="endReplay" type="button">เล่นอีกครั้ง</button>
-        <button class="btn" id="endBackHub" type="button">กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- =========================================================
-       UI Wiring
+       UI wiring (เบา ๆ ไม่ยุ่งกับ overlay end ของ safe.js)
        ========================================================= -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const hub = (qs('hub', null) || '').trim() || null;
+      const hub = qs('hub', null);
 
-      const byId = (id)=>document.getElementById(id);
+      const btnBack = document.getElementById('btnBackHub');
+      const btnHide = document.getElementById('btnHideHud');
+      const btnMis  = document.getElementById('btnMissions');
 
-      const btnBack = byId('btnBackHub');
-      const btnHide = byId('btnHideHud');
-      const btnMis  = byId('btnMissions');
-      const btnRestartTop = byId('btnRestartTop');
+      const chipMeta = document.getElementById('gjChipMeta');
+      const peek = document.getElementById('missionsPeek');
+      const peekGoal = document.getElementById('peekGoal');
+      const peekMini = document.getElementById('peekMini');
 
-      const chipMeta = byId('gjChipMeta');
-
-      const peekWrap = byId('missionsPeek');
-      const peekGoal = byId('peekGoal');
-      const peekMini = byId('peekMini');
-
-      // Top chip meta
       const v = qs('view','auto');
       const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
-      // Back HUB
       btnBack?.addEventListener('click', ()=>{
         if(hub) location.href = hub;
-        else alert('ยังไม่ได้ใส่ hub url (hub=...)');
+        else alert('ยังไม่ได้ใส่ hub url');
       });
-
-      // Restart
-      btnRestartTop?.addEventListener('click', ()=> location.reload());
-
-      // Hide HUD => recompute safe spawn vars
-      function updateSafe(){
-        try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-          const topbar = byId('gjTopbar')?.getBoundingClientRect().height || 0;
-
-          const hudTopEl = byId('gjHudTop');
-          const hudBotEl = byId('gjHudBot');
-
-          const hudTopH = (document.body.classList.contains('hud-hidden') ? 0 : (hudTopEl?.getBoundingClientRect().height || 0));
-          const hudBotH = (document.body.classList.contains('hud-hidden') ? 0 : (hudBotEl?.getBoundingClientRect().height || 0));
-
-          const topSafe = Math.floor(topbar + hudTopH + 16 + sat);
-          const botSafe = Math.floor(Math.max(110, hudBotH + 18));
-
-          document.documentElement.style.setProperty('--gj-top-safe', topSafe + 'px');
-          document.documentElement.style.setProperty('--gj-bottom-safe', botSafe + 'px');
-        }catch(_){}
-      }
 
       btnHide?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
-        updateSafe();
+        // boot.js จะวัด safe vars ให้อีกที แต่ช่วยเรียกซ้ำเล็กน้อย
+        setTimeout(()=> window.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: document.body.dataset.view || 'auto' } })), 50);
       });
 
-      // Missions Peek toggle
       function toggleMissions(){
         document.body.classList.toggle('show-missions');
         const shown = document.body.classList.contains('show-missions');
-        peekWrap?.setAttribute('aria-hidden', shown ? 'false' : 'true');
+        peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
         if(shown){
-          peekGoal.textContent = (byId('hud-goal')?.textContent || '—');
-          peekMini.textContent = (byId('hud-mini')?.textContent || '—');
+          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
+          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
         }
       }
       btnMis?.addEventListener('click', toggleMissions);
-      peekWrap?.addEventListener('click', (e)=>{
-        if(e.target === peekWrap) toggleMissions();
+      peek?.addEventListener('click', (e)=>{
+        if(e.target === peek) toggleMissions();
       });
 
-      // End overlay buttons
-      byId('endReplay')?.addEventListener('click', ()=> location.reload());
-      byId('endBackHub')?.addEventListener('click', ()=>{
-        if(hub) location.href = hub;
-        else alert('ยังไม่ได้ใส่ hub url (hub=...)');
-      });
-
-      window.addEventListener('resize', updateSafe, {passive:true});
-      window.addEventListener('orientationchange', updateSafe, {passive:true});
-      setTimeout(updateSafe, 0);
-      setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 360);
+      // update peek from quest:update (ถ้ามี)
+      function onQuest(ev){
+        try{
+          const g = ev?.detail?.goal;
+          const m = ev?.detail?.mini;
+          if(document.body.classList.contains('show-missions')){
+            if(g) peekGoal.textContent = `${g.title || '—'} (${g.cur ?? 0}/${g.target ?? 0})`;
+            if(m){
+              if(m.type==='fast_hits') peekMini.textContent = `${m.title || '—'} (${m.cur ?? 0}/${m.target ?? 0}) < ${m.thrMs ?? '-'}ms`;
+              else peekMini.textContent = `${m.title || '—'} (${m.cur ?? 0}/${m.target ?? 0})`;
+            }
+          }
+        }catch(_){}
+      }
+      window.addEventListener('quest:update', onQuest, {passive:true});
+      document.addEventListener('quest:update', onQuest, {passive:true});
     })();
   </script>
 
