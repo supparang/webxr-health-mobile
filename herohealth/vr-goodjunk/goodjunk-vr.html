@@ -1,10 +1,13 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (CLEAN + OPEN FIELD)
-✅ No duplicate script includes
-✅ A-Frame behind UI (no click blocking)
-✅ Uses safe-zone vars: --gj-top-safe / --gj-bottom-safe
-✅ Missions peek + Hide HUD + Back HUB
-✅ Works with vr-ui.js (hha:shoot) for VR/cVR
+GoodJunkVR RUN — PRODUCTION (Folder-run, CLEAN)
+✅ CSS: ./goodjunk-vr.css
+✅ FX: ../vr/particles.js (optional minimal) + (optional) ../vr/hha-fx-director.js
+✅ Logger: ../vr/hha-cloud-logger.js
+✅ Universal VR UI: ../vr/vr-ui.js  (ENTER VR / EXIT / RECENTER + crosshair tap-to-shoot)
+✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
+✅ A-Frame minimal scene for Enter VR reliability (behind UI)
+✅ No duplicate script loads
+✅ Safe spawn vars: --gj-top-safe / --gj-bottom-safe
 -->
 <!doctype html>
 <html lang="th">
@@ -15,32 +18,31 @@ GoodJunkVR RUN — PRODUCTION (CLEAN + OPEN FIELD)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
-
-  <!-- A-Frame (Enter VR reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Logger + Universal VR UI -->
+  <!-- FX + Logger + VR UI -->
   <script defer src="../vr/particles.js"></script>
+  <!-- ถ้าคุณมี hha-fx-director.js แล้วค่อยเปิด -->
+  <!-- <script defer src="../vr/hha-fx-director.js"></script> -->
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- Boot -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="gj">
-  <!-- A-Frame minimal scene (ALWAYS behind UI; never blocks touches) -->
+
+  <!-- A-Frame minimal scene (kept behind UI) -->
   <a-scene
     embedded
     vr-mode-ui="enabled:false"
     renderer="colorManagement:true; physicallyCorrectLights:false"
-    style="position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0.001; background:transparent;">
-    <a-entity camera position="0 1.6 0"></a-entity>
+    style="position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0.001">
+    <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- TOPBAR (compact) -->
+  <!-- TOPBAR (small + compact to free space) -->
   <header class="gj-topbar" id="gjTopbar">
     <div class="left">
       <div class="gj-chip">
@@ -50,12 +52,12 @@ GoodJunkVR RUN — PRODUCTION (CLEAN + OPEN FIELD)
     </div>
     <div class="right">
       <button class="gj-btn" id="btnMissions" type="button">Missions</button>
-      <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
+      <button class="gj-btn" id="btnHideHud" type="button">HUD</button>
       <button class="gj-btn primary" id="btnBackHub" type="button">↩ HUB</button>
     </div>
   </header>
 
-  <!-- HUD TOP (compact, 2 cards max) -->
+  <!-- HUD TOP (compact) -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
     <div class="hud-row">
       <div class="hud-pill grade"><div class="hud-label">GRADE</div><div class="hud-value" id="hud-grade">—</div></div>
@@ -70,7 +72,6 @@ GoodJunkVR RUN — PRODUCTION (CLEAN + OPEN FIELD)
         <div class="q-desc" id="goalDesc">—</div>
         <div class="q-bar">
           <div class="q-num"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
-          <div class="q-hint">ทำให้ครบเพื่อชนะ</div>
         </div>
       </div>
 
@@ -79,13 +80,12 @@ GoodJunkVR RUN — PRODUCTION (CLEAN + OPEN FIELD)
         <div class="q-desc" id="hud-mini">—</div>
         <div class="q-bar">
           <div class="q-num" id="miniTimer">—</div>
-          <div class="q-hint">ผ่านแล้วสลับทันที</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- HUD BOTTOM (single compact bar) -->
+  <!-- HUD BOTTOM (super compact) -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever">
       <div class="meter-title">FEVER</div>
@@ -112,7 +112,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN + OPEN FIELD)
       <div class="peek-title">Missions</div>
       <div class="peek-sub"><b>GOAL:</b> <span id="peekGoal">—</span></div>
       <div class="peek-mini"><b>MINI:</b> <span id="peekMini">—</span></div>
-      <div class="peek-tip">แตะพื้นหลังเพื่อปิด</div>
+      <div class="peek-tip">แตะเพื่อปิด</div>
     </div>
   </section>
 
@@ -122,50 +122,60 @@ GoodJunkVR RUN — PRODUCTION (CLEAN + OPEN FIELD)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
       const hub = qs('hub', null);
 
+      const btnBack = document.getElementById('btnBackHub');
+      const btnHide = document.getElementById('btnHideHud');
+      const btnMis  = document.getElementById('btnMissions');
+
       const chipMeta = document.getElementById('gjChipMeta');
-      const v = qs('view','auto'), run=qs('run','play'), diff=qs('diff','normal'), time=qs('time','80');
+      const peek = document.getElementById('missionsPeek');
+      const peekGoal = document.getElementById('peekGoal');
+      const peekMini = document.getElementById('peekMini');
+
+      const v = qs('view','auto');
+      const run  = qs('run','play');
+      const diff = qs('diff','normal');
+      const time = qs('time','80');
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
-      document.getElementById('btnBackHub')?.addEventListener('click', ()=>{
+      btnBack?.addEventListener('click', ()=>{
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
       });
 
-      document.getElementById('btnHideHud')?.addEventListener('click', ()=>{
+      btnHide?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
         setTimeout(updateSafe, 0);
       });
 
-      const peek = document.getElementById('missionsPeek');
       function toggleMissions(){
         document.body.classList.toggle('show-missions');
         const shown = document.body.classList.contains('show-missions');
         peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
         if(shown){
-          document.getElementById('peekGoal').textContent = (document.getElementById('hud-goal')?.textContent || '—');
-          document.getElementById('peekMini').textContent = (document.getElementById('hud-mini')?.textContent || '—');
+          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
+          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
         }
       }
-      document.getElementById('btnMissions')?.addEventListener('click', toggleMissions);
-      peek?.addEventListener('click', (e)=>{ if(e.target===peek) toggleMissions(); });
+      btnMis?.addEventListener('click', toggleMissions);
+      peek?.addEventListener('click', toggleMissions);
 
-      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
+      // measure HUD => safe spawn vars
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(96, hudBot + 14)));
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 12 + sat));
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(86, hudBot + 14)));
         }catch(_){}
       }
       window.addEventListener('resize', updateSafe, {passive:true});
