@@ -4,7 +4,6 @@
 // ✅ zoneFrom(pct): LOW / GREEN / HIGH
 // URL:
 //   ?kids=1, ?kids=2|super
-//   (auto kids via grade/age is handled in hydration.safe.js; UI just reacts)
 
 'use strict';
 
@@ -50,8 +49,8 @@ function step(){
   if (!bar && !pct && !zone) return;
 
   const lvl = getKidsLevel(); // 0/1/2
-  const follow = (lvl===2) ? 0.32 : (lvl===1 ? 0.26 : 0.18);
-  const snap   = (lvl===2) ? 2.2  : (lvl===1 ? 1.8  : 1.2);
+  const follow = (lvl===2) ? 0.36 : (lvl===1 ? 0.28 : 0.20);
+  const snap   = (lvl===2) ? 2.6  : (lvl===1 ? 2.0  : 1.3);
 
   const d = target - cur;
   if (Math.abs(d) < snap) cur = target;
