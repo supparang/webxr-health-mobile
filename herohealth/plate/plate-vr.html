@@ -1,3 +1,11 @@
+<!-- =========================================================
+     /herohealth/plate/plate-vr.html
+     Balanced Plate VR — RUN (PRODUCTION)
+     ✅ CSS: ./plate-vr.css
+     ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+     ✅ Boot: ./plate.boot.js -> ./plate.safe.js (type=module)
+     ✅ A-Frame minimal scene for Enter VR reliability
+========================================================== -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -18,11 +26,6 @@
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- VR UI config -->
-  <script>
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-  </script>
-
   <!-- Boot -->
   <script type="module" src="./plate.boot.js"></script>
 </head>
@@ -39,36 +42,40 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- FX layers (optional) -->
-    <div id="stormFx"></div>
-    <div id="bossFx"></div>
-
-    <!-- Playfield -->
+    <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
-        <div class="chip score"><span class="lbl">SCORE</span><span class="val" id="hudScore">0</span></div>
-        <div class="chip time"><span class="lbl">TIME</span><span class="val" id="hudTime">0</span></div>
-        <div class="chip combo"><span class="lbl">COMBO</span><span class="val" id="hudCombo">0</span></div>
-        <div class="chip miss"><span class="lbl">MISS</span><span class="val" id="hudMiss">0</span></div>
+        <div class="chip score">
+          <span class="lbl">SCORE</span>
+          <span class="val" id="hudScore">0</span>
+        </div>
+        <div class="chip time">
+          <span class="lbl">TIME</span>
+          <span class="val" id="hudTime">0</span>
+        </div>
+        <div class="chip combo">
+          <span class="lbl">COMBO</span>
+          <span class="val" id="hudCombo">0</span>
+        </div>
       </div>
 
       <div class="card" id="questCard">
         <div class="cardTitle">
           <div class="t">🎯 ภารกิจ</div>
-          <div class="hint" id="hudHint">เติมจานให้ครบ 5 หมู่ • คุมความแม่น ≥ 80%</div>
+          <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
         </div>
 
         <!-- GOAL -->
         <div class="qItem" id="goalItem">
           <div class="qText">
             <div class="name" id="goalName">Goal</div>
-            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่าน</div>
+            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/5</div>
+            <div class="qNums" id="goalNums">0/1</div>
             <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
@@ -77,19 +84,17 @@
         <div class="qItem" id="miniItem">
           <div class="qText">
             <div class="name" id="miniName">Mini Quest</div>
-            <div class="sub" id="miniSub">ประเมินช่วงท้าย (กันผ่านไวแล้วหลุด)</div>
+            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">—</div>
+            <div class="qNums" id="miniNums">0/1</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
-
-        <div class="cvrHint" id="cvrHint">🕶 Cardboard: ใส่ <b>view=cvr</b> แล้วยิงจาก crosshair ได้เลย</div>
       </div>
     </div>
 
-    <!-- Coach bubble -->
+    <!-- Coach bubble (optional) -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
@@ -109,8 +114,8 @@
           <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
           <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
           <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
-          <div class="kpi"><div class="k">Goal</div><div class="v" id="kGoals">0/1</div></div>
-          <div class="kpi"><div class="k">Mini</div><div class="v" id="kMini">0/1</div></div>
+          <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
+          <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
           <div class="kpi"><div class="k">Miss</div><div class="v" id="kMiss">0</div></div>
         </div>
 
@@ -123,8 +128,8 @@
   </div>
 
   <!-- NOTE:
-    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay.
-    plate.boot.js handles view + HUD wiring + boot engine.
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
