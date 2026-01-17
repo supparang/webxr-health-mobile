@@ -1,353 +1,279 @@
 // === /herohealth/vr/particles.js ===
-// HHA Particles — ULTRA FX Layer (shared for ALL games)
-// ✅ Provides: window.Particles + window.GAME_MODULES.Particles
-// ✅ FX: popText, burstAt, ringPulse, shockwave, screenFlash, celebrate
-// ✅ Safe: inject style once, layer ensure once, robust DOM guards
-// ✅ No external deps, low overhead, z-index isolated
+// HHA FX Layer — ULTRA (shared by all games)
+// ✅ window.Particles + window.GAME_MODULES.Particles
+// ✅ API (backward compatible):
+//    - popText(x,y,text,cls?,opts?)
+//    - scorePop(x,y,text) (alias)
+//    - burstAt(x,y,kind?,opts?)
+//    - ringPulse(x,y,kind?,opts?)
+//    - celebrate(kind?, opts?)  // fireworks-ish
+// ✅ Safe: creates its own fixed layer, never blocks clicks (pointer-events:none)
+// ✅ Works even if called before DOMContentLoaded (deferred safe)
+// ✅ No CSS dependency (inline styles), so "CSS not working" won't kill FX
 
-(function (root) {
+(function(root){
   'use strict';
-  const doc = root.document;
-  if (!doc || root.__HHA_PARTICLES_ULTRA__) return;
-  root.__HHA_PARTICLES_ULTRA__ = true;
+  const DOC = root.document;
+  if(!DOC) return;
 
-  // -------------------- helpers --------------------
-  const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
-  const rnd = (a, b) => a + Math.random() * (b - a);
-  const irnd = (a, b) => Math.floor(rnd(a, b + 1));
-  const now = () => (root.performance ? root.performance.now() : Date.now());
+  // prevent duplicate load overriding instance
+  if(root.__HHA_PARTICLES_LOADED__) return;
+  root.__HHA_PARTICLES_LOADED__ = true;
 
-  function px(n){ return `${Math.round(Number(n)||0)}px`; }
+  const clamp = (v,min,max)=> (v<min?min:(v>max?max:v));
+  const rnd = (a,b)=> a + Math.random()*(b-a);
+  const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
+
+  // ---------- layer ----------
   function ensureLayer(){
-    let layer = doc.querySelector('.hha-fx-layer');
-    if (layer) return layer;
-    layer = doc.createElement('div');
+    let layer = DOC.querySelector('.hha-fx-layer');
+    if(layer) return layer;
+
+    layer = DOC.createElement('div');
     layer.className = 'hha-fx-layer';
-    layer.style.cssText = [
-      'position:fixed',
-      'inset:0',
-      'pointer-events:none',
-      'z-index:190',          // below vr-ui buttons (usually 200+), above HUD (100-180)
-      'overflow:hidden',
-      'contain:layout paint style',
-      'mix-blend-mode:normal'
-    ].join(';');
-    doc.body.appendChild(layer);
+    layer.style.cssText = `
+      position:fixed; inset:0; z-index:90;
+      pointer-events:none;
+      overflow:hidden;
+      contain: layout style paint;
+    `;
+    DOC.body.appendChild(layer);
     return layer;
   }
 
-  function ensureStyle(){
-    if (doc.getElementById('hhaFxStyle')) return;
-    const st = doc.createElement('style');
-    st.id = 'hhaFxStyle';
-    st.textContent = `
-      .hha-fx-layer{ -webkit-font-smoothing:antialiased; }
-      .hha-fx-pop{
-        position:absolute;
-        transform:translate(-50%,-50%);
-        font: 900 18px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-        color:#fff;
-        text-shadow: 0 10px 30px rgba(0,0,0,.55);
-        opacity:.98;
-        will-change: transform, opacity, filter;
-        animation: hhaPop 520ms ease-out forwards;
-        user-select:none;
-        white-space:nowrap;
-      }
-      .hha-fx-pop.small{ font-size:14px; opacity:.95; }
-      .hha-fx-pop.big{ font-size:22px; letter-spacing:.5px; }
-      .hha-fx-pop.good{ filter: drop-shadow(0 0 12px rgba(34,197,94,.35)); }
-      .hha-fx-pop.bad{  filter: drop-shadow(0 0 14px rgba(239,68,68,.40)); }
-      .hha-fx-pop.warn{ filter: drop-shadow(0 0 14px rgba(245,158,11,.38)); }
-      .hha-fx-pop.cyan{ filter: drop-shadow(0 0 14px rgba(34,211,238,.35)); }
-      .hha-fx-pop.violet{ filter: drop-shadow(0 0 14px rgba(167,139,250,.36)); }
-
-      @keyframes hhaPop{
-        0%{ transform:translate(-50%,-50%) scale(.92); opacity:.90; filter: blur(.2px); }
-        55%{ transform:translate(-50%,-78%) scale(1.18); opacity:1; filter: blur(0); }
-        100%{ transform:translate(-50%,-102%) scale(1.06); opacity:0; filter: blur(.6px); }
-      }
-
-      .hha-fx-dot{
-        position:absolute;
-        width:10px; height:10px;
-        border-radius:999px;
-        transform:translate(-50%,-50%);
-        opacity:.95;
-        will-change: transform, opacity;
-        animation: hhaDot 520ms ease-out forwards;
-      }
-      @keyframes hhaDot{
-        0%{ opacity:.95; transform:translate(-50%,-50%) scale(.9); }
-        100%{ opacity:0; transform:translate(var(--dx), var(--dy)) scale(.3); }
-      }
-
-      .hha-fx-ring{
-        position:absolute;
-        border-radius:999px;
-        transform:translate(-50%,-50%) scale(.75);
-        opacity:.92;
-        border: 2px solid rgba(255,255,255,.7);
-        box-shadow: 0 0 0 2px rgba(255,255,255,.06) inset;
-        will-change: transform, opacity;
-        animation: hhaRing 520ms ease-out forwards;
-      }
-      .hha-fx-ring.good{ border-color: rgba(34,197,94,.92); box-shadow: 0 0 22px rgba(34,197,94,.22); }
-      .hha-fx-ring.bad{ border-color: rgba(239,68,68,.92); box-shadow: 0 0 22px rgba(239,68,68,.22); }
-      .hha-fx-ring.warn{ border-color: rgba(245,158,11,.92); box-shadow: 0 0 22px rgba(245,158,11,.22); }
-      .hha-fx-ring.cyan{ border-color: rgba(34,211,238,.92); box-shadow: 0 0 22px rgba(34,211,238,.22); }
-      .hha-fx-ring.violet{ border-color: rgba(167,139,250,.92); box-shadow: 0 0 22px rgba(167,139,250,.22); }
-      @keyframes hhaRing{
-        0%{ opacity:.95; transform:translate(-50%,-50%) scale(.72); }
-        70%{ opacity:.65; transform:translate(-50%,-50%) scale(1.18); }
-        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.35); }
-      }
-
-      .hha-fx-shock{
-        position:absolute;
-        border-radius:999px;
-        transform:translate(-50%,-50%) scale(.25);
-        opacity:.95;
-        border: 3px solid rgba(255,255,255,.75);
-        filter: blur(.2px);
-        will-change: transform, opacity;
-        animation: hhaShock 620ms cubic-bezier(.16,.84,.2,1) forwards;
-      }
-      @keyframes hhaShock{
-        0%{ opacity:.95; transform:translate(-50%,-50%) scale(.22); }
-        60%{ opacity:.55; transform:translate(-50%,-50%) scale(1.05); }
-        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.35); }
-      }
-
-      .hha-fx-flash{
-        position:fixed;
-        inset:0;
-        opacity:0;
-        will-change: opacity;
-        animation: hhaFlash 240ms ease-out forwards;
-        pointer-events:none;
-      }
-      @keyframes hhaFlash{
-        0%{ opacity:0; }
-        40%{ opacity:var(--a); }
-        100%{ opacity:0; }
-      }
-
-      .hha-fx-celebrate{
-        position:absolute;
-        width:10px; height:10px;
-        border-radius:4px;
-        transform:translate(-50%,-50%) rotate(var(--rot));
-        opacity:.95;
-        will-change: transform, opacity;
-        animation: hhaConfetti 980ms cubic-bezier(.12,.82,.25,1) forwards;
-      }
-      @keyframes hhaConfetti{
-        0%{ opacity:.95; transform:translate(-50%,-50%) rotate(var(--rot)) scale(1); }
-        100%{ opacity:0; transform:translate(var(--dx), var(--dy)) rotate(calc(var(--rot) + 220deg)) scale(.9); }
-      }
-    `;
-    doc.head.appendChild(st);
-  }
-
-  function addEl(el, ttlMs){
-    ensureStyle();
+  function ensureSubLayer(name){
     const layer = ensureLayer();
+    let el = layer.querySelector('.' + name);
+    if(el) return el;
+    el = DOC.createElement('div');
+    el.className = name;
+    el.style.cssText = `
+      position:absolute; inset:0;
+      pointer-events:none;
+      overflow:hidden;
+    `;
     layer.appendChild(el);
-    const ttl = clamp(Number(ttlMs)||600, 80, 8000);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, ttl);
     return el;
   }
 
-  // -------------------- public FX --------------------
-  function popText(x, y, text, cls=null, opts=null){
-    try{
-      const el = doc.createElement('div');
-      el.className = 'hha-fx-pop' +
-        (cls ? ` ${cls}` : '') +
-        ((opts && opts.size >= 22) ? ' big' : (opts && opts.size <= 14) ? ' small' : '');
-      el.textContent = String(text ?? '');
-      el.style.left = px(x);
-      el.style.top  = px(y);
-      if(opts && opts.size) el.style.fontSize = px(opts.size);
-      addEl(el, 700);
-      return el;
-    }catch(_){ return null; }
+  function px(n){ return Math.round(Number(n)||0) + 'px'; }
+
+  // ---------- styling helpers ----------
+  function colorFor(kind){
+    // IMPORTANT: not using CSS vars so FX works even if css fails
+    switch(String(kind||'').toLowerCase()){
+      case 'good': return 'rgba(34,197,94,.92)';     // green
+      case 'bad':  return 'rgba(239,68,68,.92)';     // red
+      case 'warn': return 'rgba(245,158,11,.92)';    // amber
+      case 'star': return 'rgba(245,158,11,.92)';    // amber-ish
+      case 'shield': return 'rgba(34,211,238,.92)';  // cyan
+      case 'diamond':
+      case 'violet': return 'rgba(167,139,250,.92)'; // violet
+      case 'cyan': return 'rgba(34,211,238,.92)';
+      default: return 'rgba(229,231,235,.92)';       // text
+    }
   }
 
-  function burstAt(x, y, kind='good', opts=null){
-    try{
-      const n = clamp((opts && opts.count) ? opts.count : 12, 4, 28);
-      for(let i=0;i<n;i++){
-        const el = doc.createElement('div');
-        el.className = 'hha-fx-dot';
-        el.style.left = px(x);
-        el.style.top  = px(y);
+  function shadowFor(kind){
+    switch(String(kind||'').toLowerCase()){
+      case 'good': return '0 14px 34px rgba(34,197,94,.22)';
+      case 'bad':  return '0 14px 34px rgba(239,68,68,.22)';
+      case 'warn': return '0 14px 34px rgba(245,158,11,.22)';
+      case 'shield': return '0 14px 34px rgba(34,211,238,.22)';
+      case 'diamond':
+      case 'violet': return '0 14px 34px rgba(167,139,250,.22)';
+      default: return '0 14px 34px rgba(0,0,0,.22)';
+    }
+  }
 
-        // color by kind (no hardcoded palette in CSS; we set inline for reliability)
-        let c = 'rgba(255,255,255,.95)';
-        if(kind==='good') c = 'rgba(34,197,94,.95)';
-        else if(kind==='bad') c = 'rgba(239,68,68,.95)';
-        else if(kind==='warn') c = 'rgba(245,158,11,.95)';
-        else if(kind==='cyan' || kind==='shield') c = 'rgba(34,211,238,.95)';
-        else if(kind==='violet' || kind==='diamond') c = 'rgba(167,139,250,.95)';
-        else if(kind==='star') c = 'rgba(255,221,99,.95)';
+  // ---------- FX primitives ----------
+  function popText(x,y,text,cls,opts){
+    const layer = ensureSubLayer('hha-fx-pop');
+    const el = DOC.createElement('div');
 
-        const s = clamp((opts && opts.size) ? opts.size : rnd(7, 14), 5, 18);
-        el.style.width = px(s);
-        el.style.height = px(s);
-        el.style.background = c;
+    const kind = (opts && opts.kind) || cls || 'good';
+    const size = clamp((opts && opts.size) || 18, 12, 64);
+    const lifeMs = clamp((opts && opts.lifeMs) || 820, 280, 1800);
+    const driftY = (opts && opts.driftY) != null ? Number(opts.driftY) : -44;
 
-        const dx = rnd(-110, 110);
-        const dy = rnd(-140, 60);
-        el.style.setProperty('--dx', px(x + dx));
-        el.style.setProperty('--dy', px(y + dy));
-        addEl(el, 650);
+    el.textContent = String(text ?? '');
+    el.style.cssText = `
+      position:absolute;
+      left:${px(x)}; top:${px(y)};
+      transform: translate(-50%,-50%) scale(.92);
+      opacity:0;
+      font: 900 ${size}px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+      letter-spacing: .2px;
+      color:${colorFor(kind)};
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+      filter: drop-shadow(${shadowFor(kind)});
+      will-change: transform, opacity;
+      white-space: nowrap;
+    `;
+
+    layer.appendChild(el);
+
+    // animate
+    const t0 = now();
+    const t1 = t0 + lifeMs;
+
+    function step(){
+      const t = now();
+      const p = clamp((t - t0) / lifeMs, 0, 1);
+
+      // ease out
+      const e = 1 - Math.pow(1-p, 3);
+      const yy = driftY * e;
+      const sc = 0.92 + 0.20 * Math.sin(Math.PI * Math.min(1, p*1.1));
+      const op = (p < 0.15) ? (p/0.15) : (p > 0.85 ? (1 - (p-0.85)/0.15) : 1);
+
+      el.style.opacity = String(op);
+      el.style.transform = `translate(-50%,-50%) translateY(${yy}px) scale(${sc})`;
+
+      if(t < t1){
+        requestAnimationFrame(step);
+      }else{
+        try{ el.remove(); }catch(_){}
       }
-    }catch(_){}
+    }
+    requestAnimationFrame(step);
   }
 
-  function ringPulse(x, y, kind='good', opts=null){
-    try{
-      const size = clamp((opts && opts.size) ? opts.size : 160, 80, 420);
-      const el = doc.createElement('div');
-      el.className = `hha-fx-ring ${kind||''}`.trim();
-      el.style.left = px(x);
-      el.style.top  = px(y);
-      el.style.width = px(size);
-      el.style.height = px(size);
-      if(opts && opts.borderPx) el.style.borderWidth = px(opts.borderPx);
-      addEl(el, 700);
-      return el;
-    }catch(_){ return null; }
+  function scorePop(x,y,text){
+    popText(x,y,text,'good',{ size: 18, lifeMs: 780, driftY: -52 });
   }
 
-  function shockwave(x, y, kind='warn', opts=null){
-    try{
-      const size = clamp((opts && opts.size) ? opts.size : 360, 180, 820);
-      const el = doc.createElement('div');
-      el.className = 'hha-fx-shock';
-      el.style.left = px(x);
-      el.style.top  = px(y);
-      el.style.width = px(size);
-      el.style.height = px(size);
+  function ringPulse(x,y,kind,opts){
+    const layer = ensureSubLayer('hha-fx-ring');
+    const el = DOC.createElement('div');
 
-      // tint (inline)
-      let c = 'rgba(255,255,255,.75)';
-      if(kind==='good') c = 'rgba(34,197,94,.82)';
-      else if(kind==='bad') c = 'rgba(239,68,68,.82)';
-      else if(kind==='warn') c = 'rgba(245,158,11,.82)';
-      else if(kind==='cyan' || kind==='shield') c = 'rgba(34,211,238,.82)';
-      else if(kind==='violet') c = 'rgba(167,139,250,.82)';
-      el.style.borderColor = c;
+    const col = colorFor(kind || 'good');
+    const size = clamp((opts && opts.size) || 160, 60, 520);
+    const lifeMs = clamp((opts && opts.lifeMs) || 520, 180, 1400);
+    const thick = clamp((opts && opts.thick) || 6, 2, 14);
 
-      addEl(el, 900);
-      return el;
-    }catch(_){ return null; }
+    el.style.cssText = `
+      position:absolute;
+      left:${px(x)}; top:${px(y)};
+      width:${px(size)}; height:${px(size)};
+      transform: translate(-50%,-50%) scale(.75);
+      border-radius: 999px;
+      border:${thick}px solid ${col};
+      opacity:0;
+      box-shadow: 0 0 0 ${px(Math.round(thick*1.3))} rgba(0,0,0,.06);
+      filter: drop-shadow(${shadowFor(kind)});
+      will-change: transform, opacity;
+    `;
+    layer.appendChild(el);
+
+    const t0 = now();
+    const t1 = t0 + lifeMs;
+
+    function step(){
+      const t = now();
+      const p = clamp((t - t0)/lifeMs, 0, 1);
+      const e = 1 - Math.pow(1-p, 3);
+
+      const sc = 0.75 + 0.55 * e;
+      const op = (p < 0.12) ? (p/0.12) : (1 - p);
+      el.style.opacity = String(op);
+      el.style.transform = `translate(-50%,-50%) scale(${sc})`;
+
+      if(t < t1) requestAnimationFrame(step);
+      else { try{ el.remove(); }catch(_){} }
+    }
+    requestAnimationFrame(step);
   }
 
-  function screenFlash(kind='warn', opts=null){
-    try{
-      const el = doc.createElement('div');
-      el.className = 'hha-fx-flash';
+  function burstAt(x,y,kind,opts){
+    const layer = ensureSubLayer('hha-fx-burst');
 
-      let bg = 'rgba(255,255,255,.10)';
-      if(kind==='good') bg = 'rgba(34,197,94,.16)';
-      else if(kind==='bad') bg = 'rgba(239,68,68,.18)';
-      else if(kind==='warn') bg = 'rgba(245,158,11,.18)';
-      else if(kind==='cyan') bg = 'rgba(34,211,238,.16)';
-      else if(kind==='violet') bg = 'rgba(167,139,250,.16)';
+    const col = colorFor(kind || 'good');
+    const count = clamp((opts && opts.count) || (kind==='bad'? 14 : 12), 6, 28);
+    const lifeMs = clamp((opts && opts.lifeMs) || 520, 220, 1600);
+    const radius = clamp((opts && opts.radius) || (kind==='bad' ? 110 : 90), 40, 220);
 
-      const a = clamp((opts && opts.alpha) ? opts.alpha : 0.22, 0.06, 0.45);
-      el.style.background = bg;
-      el.style.setProperty('--a', String(a));
+    for(let i=0;i<count;i++){
+      const el = DOC.createElement('div');
+      const ang = (i / count) * Math.PI * 2 + rnd(-0.08, 0.08);
+      const dist = rnd(radius*0.45, radius);
+      const sx = Math.cos(ang) * dist;
+      const sy = Math.sin(ang) * dist;
 
-      // flash goes to body not layer (covers all)
-      doc.body.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 420);
-      return el;
-    }catch(_){ return null; }
-  }
-
-  function celebrate(kind='win', opts=null){
-    try{
-      const layer = ensureLayer();
-      ensureStyle();
-
-      const W = doc.documentElement.clientWidth || 800;
-      const H = doc.documentElement.clientHeight || 600;
-      const count = clamp((opts && opts.count) ? opts.count : (kind==='win'? 46 : 24), 12, 90);
-
-      // palette by kind
-      const pal = (()=>{
-        if(kind==='boss') return [
-          'rgba(167,139,250,.95)','rgba(34,211,238,.95)','rgba(245,158,11,.95)','rgba(255,255,255,.92)'
-        ];
-        if(kind==='mini') return [
-          'rgba(34,197,94,.95)','rgba(255,221,99,.95)','rgba(34,211,238,.95)','rgba(255,255,255,.92)'
-        ];
-        if(kind==='fail') return [
-          'rgba(239,68,68,.92)','rgba(245,158,11,.85)','rgba(255,255,255,.85)'
-        ];
-        return [
-          'rgba(34,197,94,.95)','rgba(167,139,250,.92)','rgba(34,211,238,.92)','rgba(245,158,11,.92)','rgba(255,255,255,.90)'
-        ];
-      })();
+      const sz = rnd(6, 12);
+      el.style.cssText = `
+        position:absolute;
+        left:${px(x)}; top:${px(y)};
+        width:${px(sz)}; height:${px(sz)};
+        border-radius: ${rnd(3, 999)}px;
+        background:${col};
+        opacity:0;
+        transform: translate(-50%,-50%) translate(0px,0px) scale(.7);
+        filter: drop-shadow(${shadowFor(kind)});
+        will-change: transform, opacity;
+      `;
+      layer.appendChild(el);
 
       const t0 = now();
-      for(let i=0;i<count;i++){
-        const el = doc.createElement('div');
-        el.className = 'hha-fx-celebrate';
-        const x = rnd(W*0.15, W*0.85);
-        const y = rnd(H*0.10, H*0.25);
-        el.style.left = px(x);
-        el.style.top  = px(y);
-        el.style.background = pal[irnd(0, pal.length-1)];
+      const t1 = t0 + lifeMs;
 
-        const rot = `${irnd(-40, 40)}deg`;
-        el.style.setProperty('--rot', rot);
+      function step(){
+        const t = now();
+        const p = clamp((t - t0)/lifeMs, 0, 1);
+        const e = 1 - Math.pow(1-p, 3);
 
-        const dx = x + rnd(-260, 260);
-        const dy = y + rnd(220, 520);
-        el.style.setProperty('--dx', px(dx));
-        el.style.setProperty('--dy', px(dy));
+        const xx = sx * e;
+        const yy = sy * e + (p*p*30); // gravity-ish
+        const sc = 0.7 + 0.8*(1-p);
+        const op = (p < 0.08) ? (p/0.08) : (1 - p);
 
-        const s = rnd(0.9, 1.6);
-        el.style.width = px(8*s);
-        el.style.height = px(12*s);
+        el.style.opacity = String(op);
+        el.style.transform = `translate(-50%,-50%) translate(${xx}px,${yy}px) scale(${sc})`;
 
-        // stagger a little
-        const delay = rnd(0, 180);
-        el.style.animationDelay = `${delay}ms`;
-
-        layer.appendChild(el);
-        setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 1400 + delay);
+        if(t < t1) requestAnimationFrame(step);
+        else { try{ el.remove(); }catch(_){} }
       }
-
-      // small flash for feedback
-      if(kind==='win' || kind==='boss') screenFlash('good', { alpha: 0.14 });
-      else if(kind==='fail') screenFlash('bad', { alpha: 0.14 });
-
-      return { t0, count };
-    }catch(_){ return null; }
+      requestAnimationFrame(step);
+    }
   }
 
-  // -------------------- expose --------------------
+  function celebrate(kind, opts){
+    // quick fireworks around top-mid screen
+    const W = DOC.documentElement.clientWidth || innerWidth;
+    const H = DOC.documentElement.clientHeight || innerHeight;
+    const n = clamp((opts && opts.count) || 14, 6, 40);
+
+    const centerX = (opts && opts.x) != null ? Number(opts.x) : (W*0.5);
+    const centerY = (opts && opts.y) != null ? Number(opts.y) : (H*0.30);
+
+    const palette = [
+      'good','warn','shield','violet','good','warn','bad'
+    ];
+
+    for(let i=0;i<n;i++){
+      const k = (opts && opts.kind) || palette[i % palette.length];
+      const x = centerX + rnd(-W*0.22, W*0.22);
+      const y = centerY + rnd(-H*0.10, H*0.18);
+      ringPulse(x,y,k,{ size: rnd(160, 320), lifeMs: rnd(420, 760), thick: rnd(4, 8) });
+      burstAt(x,y,k,{ count: rnd(10,18)|0, lifeMs: rnd(420, 720), radius: rnd(70, 150) });
+      if(Math.random() < 0.55){
+        popText(x,y, (kind==='boss'?'BOSS DOWN!':'NICE!'), k, { size: rnd(14, 22), lifeMs: rnd(520, 980), driftY: -rnd(34, 62) });
+      }
+    }
+  }
+
+  // ---------- expose ----------
   const API = {
     ensureLayer,
     popText,
-    burstAt,
+    scorePop,
     ringPulse,
-    shockwave,
-    screenFlash,
+    burstAt,
     celebrate,
   };
 
-  root.Particles = root.Particles || {};
-  Object.assign(root.Particles, API);
-
+  root.Particles = API;
   root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = root.GAME_MODULES.Particles || {};
-  Object.assign(root.GAME_MODULES.Particles, API);
+  root.GAME_MODULES.Particles = API;
 
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
