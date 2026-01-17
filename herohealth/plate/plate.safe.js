@@ -1,12 +1,10 @@
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — SAFE ENGINE (PRODUCTION)
 // HHA Standard
-// ------------------------------------------------
 // ✅ Play / Research modes
 // ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:end
 // ✅ Uses ../vr/mode-factory.js (export boot)
 // ✅ Crosshair/tap-to-shoot via vr-ui.js (hha:shoot)
-// ------------------------------------------------
 
 'use strict';
 
@@ -43,7 +41,6 @@ const STATE = {
   timeLeft:0,
   timer:null,
 
-  // plate groups (5 หมู่)
   g:[0,0,0,0,0],
 
   goal:{ name:'เติมจานให้ครบ 5 หมู่', sub:'เก็บอาหารให้ครบทุกหมู่', cur:0, target:5, done:false },
@@ -101,17 +98,21 @@ function endGame(reason='timeup'){
     scoreFinal: STATE.score,
     comboMax: STATE.comboMax,
     misses: STATE.miss,
+
     goalsCleared: STATE.goal.done ? 1 : 0,
     goalsTotal: 1,
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
+
     accuracyGoodPct: pct(accuracy() * 100),
+
     g1: STATE.g[0], g2: STATE.g[1], g3: STATE.g[2], g4: STATE.g[3], g5: STATE.g[4]
   });
 }
 
 function startTimer(){
   emit('hha:time', { leftSec: STATE.timeLeft });
+
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
     STATE.timeLeft--;
@@ -144,7 +145,7 @@ function onHitGood(groupIndex){
 
   emitQuest();
 
-  // optional: end early if both done (เด็ก ป.5 จะชอบ “ผ่านไว”)
+  // เด็ก ป.5 : ผ่านไวแล้วจบเลย จะ “ฟิน”
   if(STATE.goal.done && STATE.mini.done){
     endGame('allDone');
   }
@@ -164,16 +165,13 @@ function onExpireGood(){
   resetCombo();
 }
 
-/* ---------------- Emoji sets (ลดความน่าเบื่อ) ----------------
-   5 หมู่: 0-4
-   G1 ผัก, G2 ผลไม้, G3 โปรตีน, G4 ธัญพืช/ข้าว, G5 ไขมันดี
-*/
+/* -------- Emoji sets (ลดความน่าเบื่อ) -------- */
 const EMOJI_GOOD = [
-  ['🥦','🥬','🥕','🌽'],        // G1
-  ['🍎','🍌','🍇','🍉'],        // G2
-  ['🐟','🥚','🍗','🫘'],        // G3
-  ['🍚','🍞','🥖','🥔'],        // G4
-  ['🥑','🫒','🥜','🧀']         // G5 (ให้ไขมันดีเด่น ๆ)
+  ['🥦','🥬','🥕','🌽'],
+  ['🍎','🍌','🍇','🍉'],
+  ['🐟','🥚','🍗','🫘'],
+  ['🍚','🍞','🥖','🥔'],
+  ['🥑','🫒','🥜','🧀']
 ];
 const EMOJI_JUNK = ['🍟','🍔','🍩','🧁','🍫','🥤'];
 
@@ -187,9 +185,8 @@ function pickJunkEmoji(rng){
 
 function makeSpawner(mount){
   const diff = (STATE.cfg.diff || 'normal').toLowerCase();
-  const run  = (STATE.cfg.runMode || 'play').toLowerCase();
 
-  // เร่งนิด ๆ: hard/fast spawn ถี่ขึ้น
+  // เร่งนิด ๆ
   const spawnRate =
     diff === 'hard' ? 650 :
     diff === 'easy' ? 980 :
@@ -200,34 +197,56 @@ function makeSpawner(mount){
     diff === 'easy' ? 1500 :
     1300;
 
-  // ปรับสัดส่วน junk ตามความยาก (เด็ก ป.5 ไม่ควรโหดเกิน)
   const junkW =
     diff === 'hard' ? 0.36 :
     diff === 'easy' ? 0.22 :
     0.30;
 
-  // research/study: คงที่ (ไม่ปรับ adaptive ในตัวอย่างนี้)
   const rng = STATE.rng;
 
-  return spawnBoot({
+  // NOTE: เพื่อให้ emoji “สุ่มจริง” ทุกครั้งที่ spawn ต้องใส่ emoji ตอน spawn ไม่ใช่ตอน config
+  // ดังนั้นเราจะใส่ kinds เป็นตัวเลือกกลุ่ม แล้วสร้าง emoji ใน onHit ไม่พอ—ต้องให้ target มี emoji ตั้งแต่สร้าง
+  // ทางง่าย: ส่ง kinds 6 ตัว โดย emoji เป็นฟังก์ชันไม่ได้
+  // วิธีแก้: เราจะสร้าง kinds ที่มี groupIndex แล้วให้ mode-factory ใช้ k.emoji ที่เราจะ “อัปเดต” ก่อน spawn ทุกครั้ง
+  // (mode-factory จะ pickWeighted แล้วอ่าน emoji ณ ตอนนั้น)
+
+  const kinds = [
+    { kind:'good', weight: (1-junkW), groupIndex:0, emoji:'🥦' },
+    { kind:'good', weight: (1-junkW), groupIndex:1, emoji:'🍎' },
+    { kind:'good', weight: (1-junkW), groupIndex:2, emoji:'🐟' },
+    { kind:'good', weight: (1-junkW), groupIndex:3, emoji:'🍚' },
+    { kind:'good', weight: (1-junkW), groupIndex:4, emoji:'🥑' },
+    { kind:'junk', weight: junkW, emoji:'🍟' }
+  ];
+
+  // hack เล็ก ๆ: refresh emoji ทุกครั้งก่อน mode-factory เลือก
+  // เราจะให้ mode-factory ใช้ rng เดียวกัน → ผล deterministic ใน research
+  function refreshEmoji(){
+    kinds[0].emoji = pickGoodEmoji(0, rng);
+    kinds[1].emoji = pickGoodEmoji(1, rng);
+    kinds[2].emoji = pickGoodEmoji(2, rng);
+    kinds[3].emoji = pickGoodEmoji(3, rng);
+    kinds[4].emoji = pickGoodEmoji(4, rng);
+    kinds[5].emoji = pickJunkEmoji(rng);
+  }
+
+  refreshEmoji();
+
+  // สร้าง engine
+  const engine = spawnBoot({
     mount,
     seed: STATE.cfg.seed,
-    rng,
+    rng: ()=>{
+      // ทุกครั้งที่ mode-factory จะสุ่ม เรารีเฟรช emoji ก่อน (สั้น ๆ แต่ได้ผล)
+      refreshEmoji();
+      return rng();
+    },
     spawnRate,
     ttlMs,
     sizeRange: diff === 'hard' ? [42, 62] : [44, 66],
-    kinds: [
-      // good: ใส่ groupIndex/emoji ให้ target สร้างได้ “หลากหลาย”
-      { kind:'good', weight: 1 - junkW, groupIndex: 0, emoji: pickGoodEmoji(0, rng) },
-      { kind:'good', weight: 1 - junkW, groupIndex: 1, emoji: pickGoodEmoji(1, rng) },
-      { kind:'good', weight: 1 - junkW, groupIndex: 2, emoji: pickGoodEmoji(2, rng) },
-      { kind:'good', weight: 1 - junkW, groupIndex: 3, emoji: pickGoodEmoji(3, rng) },
-      { kind:'good', weight: 1 - junkW, groupIndex: 4, emoji: pickGoodEmoji(4, rng) },
-      { kind:'junk', weight: junkW, emoji: pickJunkEmoji(rng) }
-    ],
+    kinds,
     onHit:(t)=>{
       if(t.kind === 'good'){
-        // groupIndex มาจาก kind config หรือสุ่ม fallback
         const gi = (typeof t.groupIndex === 'number') ? t.groupIndex : Math.floor(rng()*5);
         onHitGood(clamp(gi, 0, 4));
       }else{
@@ -238,17 +257,17 @@ function makeSpawner(mount){
       if(t.kind === 'good') onExpireGood();
     }
   });
+
+  return engine;
 }
 
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
-  // cfg
   STATE.cfg = cfg || {};
   STATE.running = true;
   STATE.ended = false;
 
-  // reset
   STATE.score = 0;
   STATE.combo = 0;
   STATE.comboMax = 0;
@@ -262,7 +281,6 @@ export function boot({ mount, cfg }){
   STATE.goal.cur = 0; STATE.goal.done = false;
   STATE.mini.cur = 0; STATE.mini.done = false;
 
-  // RNG
   if(cfg.runMode === 'research' || cfg.runMode === 'study'){
     STATE.rng = seededRng(cfg.seed || Date.now());
   }else{
@@ -282,7 +300,6 @@ export function boot({ mount, cfg }){
   emitQuest();
   startTimer();
 
-  // start spawner
   STATE.engine = makeSpawner(mount);
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
