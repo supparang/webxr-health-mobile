@@ -1,8 +1,8 @@
 <!-- === /herohealth/goodjunk-vr-launcher.html ===
-GoodJunkVR LAUNCHER — ROOT
+GoodJunkVR LAUNCHER — ROOT (FINAL)
 ✅ Redirects to ./vr-goodjunk/goodjunk-vr.html
-✅ Auto-detect view (no override if ?view= exists)
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup
+✅ Auto-detect view (NO override if explicit ?view= exists)
+✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup
 -->
 <!doctype html>
 <html lang="th">
@@ -77,11 +77,13 @@ GoodJunkVR LAUNCHER — ROOT
       color:var(--muted);
       font-weight:900;
       font-size:12px;
+      overflow:hidden;
     }
-    .box b{display:block;color:var(--text);font-size:13px;margin-top:6px;}
-    @media (max-width: 640px){
-      .grid{grid-template-columns:1fr;}
+    .box b{
+      display:block;color:var(--text);font-size:13px;margin-top:6px;
+      word-break:break-all;
     }
+    @media (max-width: 640px){ .grid{grid-template-columns:1fr;} }
   </style>
 </head>
 
@@ -191,13 +193,12 @@ GoodJunkVR LAUNCHER — ROOT
       await navigator.clipboard.writeText(u.href);
       alert('คัดลอกลิงก์ Run แล้ว');
     }catch(_){
-      // fallback
       prompt('คัดลอกลิงก์นี้:', u.href);
     }
   });
 
-  // Auto enter (optional): ถ้าต้องการ “เข้าเกมทันที” เปิดบรรทัดนี้
-  // setTimeout(()=> location.href = u.href, 350);
+  // Auto enter (เปิดใช้ได้ถ้าต้องการ)
+  // setTimeout(()=> location.href = u.href, 300);
 })();
 </script>
 </body>
