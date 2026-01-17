@@ -1,56 +1,55 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION
-// ✅ Auto detect view when view=auto (NO override when view=pc/mobile/vr/cvr specified)
-// ✅ Ensures vr-ui.js already loaded (Enter VR / Exit / Recenter + crosshair/tap-to-shoot)
-// ✅ Boots engine from ./goodjunk.safe.js
+// Boot — auto-detect view WITHOUT overriding explicit ?view=
+// Loads goodjunk.safe.js and passes payload
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const DOC = document;
+const WIN = window;
 
-function qs(k, def=null){
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+
+function detectViewNoOverride(){
+  const explicit = String(qs('view','')).toLowerCase();
+  if (explicit) return explicit;
+
+  const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+  const w = Math.max(1, WIN.innerWidth||1);
+  const h = Math.max(1, WIN.innerHeight||1);
+  const landscape = w >= h;
+
+  if (isTouch){
+    if (landscape && w >= 740) return 'cvr';
+    return 'mobile';
+  }
+  return 'pc';
 }
 
-function detectView(){
-  // If user set view explicitly, respect it (no override)
-  const explicit = (qs('view', '') || '').toLowerCase();
-  if(explicit && explicit !== 'auto') return explicit;
+function applyBodyView(view){
+  const b = DOC.body;
+  if(!b) return;
 
-  // Heuristic
-  const ua = (navigator.userAgent || '').toLowerCase();
-  const isMobile = /android|iphone|ipad|ipod/.test(ua) || (navigator.maxTouchPoints>1);
-  const hasXR = !!(navigator.xr);
+  // keep base class "gj"
+  if(!b.classList.contains('gj')) b.classList.add('gj');
 
-  // If has XR and screen is wide enough -> "vr" or "cvr"? (keep simple: vr)
-  // For Cardboard/cVR mode user usually passes view=cvr explicitly.
-  if(hasXR && isMobile) return 'vr';
-  return isMobile ? 'mobile' : 'pc';
+  b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
+  if(view === 'cvr') b.classList.add('view-cvr');
+  else if(view === 'vr' || view === 'cardboard') b.classList.add('view-vr','cardboard');
+  else if(view === 'pc') b.classList.add('view-pc');
+  else b.classList.add('view-mobile');
 }
 
-function setBodyView(view){
-  DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-auto');
-  DOC.body.classList.add(view==='pc'?'view-pc':view==='vr'?'view-vr':view==='cvr'?'view-cvr':'view-mobile');
-}
+const view = detectViewNoOverride();
+applyBodyView(view);
 
-function main(){
-  const view = detectView();
-  setBodyView(view);
-
-  const payload = {
-    view,
-    run: qs('run','play'),
-    diff: qs('diff','normal'),
-    time: Number(qs('time','80')||80),
-    seed: qs('seed', null),
-    hub: qs('hub', null),
-    studyId: qs('studyId', qs('study', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('conditionGroup', qs('cond', null)),
-  };
-
-  try{ engineBoot(payload); }catch(err){ console.error('[GoodJunkVR boot] error', err); }
-}
-
-if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', main, { once:true });
-else main();
+engineBoot({
+  view,
+  run: qs('run','play'),
+  diff: qs('diff','normal'),
+  time: Number(qs('time','80') || 80),
+  seed: qs('seed', null),
+  hub: qs('hub', null),
+  studyId: qs('studyId', qs('study', null)),
+  phase: qs('phase', null),
+  conditionGroup: qs('conditionGroup', qs('cond', null)),
+});
