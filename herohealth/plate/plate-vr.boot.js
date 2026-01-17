@@ -1,7 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (HHA Standard)
-// ✅ Default time: 90s
-// ✅ End overlay: + "พลาดเพราะอะไร" breakdown (junk hit vs good expire)
+// ✅ Auto view detect (no UI override)
+// ✅ Default time = 90s (override by ?time=)
+// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ End overlay: aria-hidden only
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -21,7 +25,7 @@ function isMobile(){
 
 function getViewAuto(){
   const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced;
+  if(forced) return forced; // allow experiment force, no UI menu
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -72,6 +76,7 @@ function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
+  const hudMiss  = DOC.getElementById('hudMiss');
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -83,45 +88,37 @@ function wireHUD(){
   const miniNums = DOC.getElementById('miniNums');
   const miniBar  = DOC.getElementById('miniBar');
 
-  const hudHint  = DOC.getElementById('hudHint');
-
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
-    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+    if(hudScore) hudScore.textContent = String(d.score ?? 0);
+    if(hudCombo) hudCombo.textContent = String(d.combo ?? 0);
+    if(hudMiss)  hudMiss.textContent  = String(d.misses ?? d.miss ?? 0);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
-    const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    const left = Math.max(0, Math.ceil(Number(t)||0));
-    if(hudTime) hudTime.textContent = String(left);
-
-    // ✅ 1) เร่งท้ายเกม 15 วิ: เปลี่ยน hint ให้เด็ก “รู้สึกเร่ง”
-    if(hudHint){
-      if(left <= 15 && left > 0) hudHint.textContent = '⏱️ ช่วงท้าย! ของหวาน/ทอดเยอะขึ้น — ตั้งสติ!';
-      else hudHint.textContent = 'เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด';
-    }
+    const t = (d.leftSec ?? d.value ?? 0);
+    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
   });
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     if(d.goal){
       const g = d.goal;
-      const cur = clamp(g.cur ?? 0, 0, 9999);
-      const tar = clamp(g.target ?? 1, 1, 9999);
       if(goalName) goalName.textContent = g.name || 'Goal';
       if(goalSub)  goalSub.textContent  = g.sub  || '';
+      const cur = clamp(g.cur ?? 0, 0, 9999);
+      const tar = clamp(g.target ?? 1, 1, 9999);
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
     if(d.mini){
       const m = d.mini;
-      const cur = clamp(m.cur ?? 0, 0, 9999);
-      const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
       if(miniSub)  miniSub.textContent  = m.sub  || '';
-      if(miniNums) miniNums.textContent = `${cur}/${tar}`;
+      const cur = clamp(m.cur ?? 0, 0, 9999);
+      const tar = clamp(m.target ?? 1, 1, 9999);
+      if(miniNums) miniNums.textContent = m.stateLabel || `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
   });
@@ -137,34 +134,11 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  btnRestart?.addEventListener('click', ()=> location.reload(), { passive:true });
-
+  btnRestart?.addEventListener('click', ()=> location.reload());
   btnBackHub?.addEventListener('click', ()=>{
     if(hub) location.href = hub;
     else history.back();
-  }, { passive:true });
-}
-
-// ✅ สร้างบรรทัดสรุปเพิ่มอัตโนมัติ (ไม่ต้องแก้ HTML)
-function ensureWhyLine(){
-  const endOverlay = DOC.getElementById('endOverlay');
-  if(!endOverlay) return null;
-
-  let el = DOC.getElementById('kWhy');
-  if(el) return el;
-
-  const panel = endOverlay.querySelector('.endPanel') || endOverlay.querySelector('.panelCard') || endOverlay;
-  el = DOC.createElement('div');
-  el.id = 'kWhy';
-  el.style.cssText = 'margin-top:10px;color:rgba(148,163,184,.95);font-weight:900;font-size:12px;line-height:1.35;';
-  el.textContent = 'พลาดเพราะอะไร: —';
-
-  // ใส่ไว้ก่อนปุ่ม
-  const btns = endOverlay.querySelector('.endBtns') || endOverlay.querySelector('#btnRestart')?.parentElement;
-  if(btns && btns.parentElement) btns.parentElement.insertBefore(el, btns);
-  else panel.appendChild(el);
-
-  return el;
+  });
 }
 
 function wireEndSummary(){
@@ -177,9 +151,9 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
-    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
-    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
+    if(kScore) kScore.textContent = String(d.scoreFinal ?? 0);
+    if(kCombo) kCombo.textContent = String(d.comboMax ?? 0);
+    if(kMiss)  kMiss.textContent  = String(d.misses ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
@@ -187,17 +161,8 @@ function wireEndSummary(){
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    // ✅ 3) สรุป “พลาดเพราะอะไร”
-    const why = ensureWhyLine();
-    if(why){
-      const junk = Number(d.hitJunk ?? d.junkHit ?? 0) || 0;
-      const exp  = Number(d.expireGood ?? d.goodExpire ?? 0) || 0;
-      const miss = Number(d.misses ?? 0) || (junk + exp);
-      why.textContent = `พลาดเพราะอะไร: แตะของหวาน/ทอด ${junk} • ปล่อยอาหารดีหมดเวลา ${exp} • รวม ${miss}`;
-    }
-
     setOverlayOpen(true);
-  }, { passive:true });
+  });
 }
 
 function buildEngineConfig(){
@@ -205,23 +170,28 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
+  // ✅ default time 90
   const time = clamp(qs('time','90'), 10, 999);
+
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view, runMode: run, diff,
+    game: 'plate',
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    studyId: qs('studyId','') || '',
+    studyId: qs('studyId','') || qs('study','') || '',
     phase: qs('phase','') || '',
-    conditionGroup: qs('conditionGroup','') || '',
-    sessionOrder: qs('sessionOrder','') || '',
-    blockLabel: qs('blockLabel','') || '',
-    siteCode: qs('siteCode','') || '',
+    conditionGroup: qs('conditionGroup','') || qs('cond','') || '',
+    sessionOrder: qs('sessionOrder','') || qs('order','') || '',
+    blockLabel: qs('blockLabel','') || qs('block','') || '',
+    siteCode: qs('siteCode','') || qs('site','') || '',
     schoolCode: qs('schoolCode','') || '',
     schoolName: qs('schoolName','') || '',
     gradeLevel: qs('gradeLevel','') || '',
@@ -236,15 +206,18 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-  setBodyView(cfg.view);
 
+  setBodyView(cfg.view);
   wireHUD();
   wireEndControls();
   wireEndSummary();
   setOverlayOpen(false);
 
   try{
-    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
