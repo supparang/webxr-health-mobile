@@ -1,11 +1,8 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HHA Standard)
-// ✅ Auto view detect (no UI override)
-// ✅ Default time = 90s (override by ?time=)
-// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// PlateVR Boot — PRODUCTION
+// ✅ Auto view detect
+// ✅ FIX: safe-zone measure -> set --playTop/--playBottom
+// ✅ Boot engine from ./plate.safe.js
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -25,7 +22,7 @@ function isMobile(){
 
 function getViewAuto(){
   const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced; // allow experiment force, no UI menu
+  if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -54,14 +51,47 @@ function setOverlayOpen(open){
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
 
+/* ---------------- SAFE-ZONE MEASURE (NEW) ---------------- */
+function measureSafeZone(){
+  // We want plate-layer playfield to start BELOW HUD and end ABOVE Coach.
+  const root = DOC.documentElement;
+  const hud = DOC.getElementById('hud');
+  const coach = DOC.getElementById('coachCard');
+
+  const sidePad = 12; // match CSS --sidePad
+  const sat = 0; // CSS env handles; we just add a little buffer
+  const sab = 0;
+
+  // Top: hud height + gap
+  let top = 140; // fallback
+  if(hud){
+    const r = hud.getBoundingClientRect();
+    top = Math.max(110, Math.ceil(r.height) + 16); // 16px breathing room
+  }
+
+  // Bottom: coach height + gap
+  let bottom = 88; // fallback
+  if(coach){
+    const r = coach.getBoundingClientRect();
+    bottom = Math.max(72, Math.ceil(r.height) + 16);
+  }
+
+  // apply vars (include safe-area in css already)
+  root.style.setProperty('--playTop', `calc(${top}px + var(--sat))`);
+  root.style.setProperty('--playBottom', `calc(${bottom}px + var(--sab))`);
+  root.style.setProperty('--sidePad', `${sidePad}px`);
+}
+
 function showCoach(msg, meta='Coach'){
   const card = DOC.getElementById('coachCard');
+  const inner = card?.querySelector?.('.inner');
   const mEl = DOC.getElementById('coachMsg');
   const metaEl = DOC.getElementById('coachMeta');
-  if(!card || !mEl) return;
+  if(!card || !inner || !mEl) return;
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -76,7 +106,6 @@ function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
-  const hudMiss  = DOC.getElementById('hudMiss');
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -90,14 +119,13 @@ function wireHUD(){
 
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-    if(hudScore) hudScore.textContent = String(d.score ?? 0);
-    if(hudCombo) hudCombo.textContent = String(d.combo ?? 0);
-    if(hudMiss)  hudMiss.textContent  = String(d.misses ?? d.miss ?? 0);
+    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
+    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
-    const t = (d.leftSec ?? d.value ?? 0);
+    const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
     if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
   });
 
@@ -118,9 +146,12 @@ function wireHUD(){
       if(miniSub)  miniSub.textContent  = m.sub  || '';
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
-      if(miniNums) miniNums.textContent = m.stateLabel || `${cur}/${tar}`;
+      if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
+
+    // layout safe-zone should adapt if hud wraps lines
+    measureSafeZone();
   });
 
   WIN.addEventListener('hha:coach', (e)=>{
@@ -134,11 +165,15 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  btnRestart?.addEventListener('click', ()=> location.reload());
-  btnBackHub?.addEventListener('click', ()=>{
-    if(hub) location.href = hub;
-    else history.back();
-  });
+  if(btnRestart){
+    btnRestart.addEventListener('click', ()=> location.reload(), { passive:true });
+  }
+  if(btnBackHub){
+    btnBackHub.addEventListener('click', ()=>{
+      if(hub) location.href = hub;
+      else history.back();
+    }, { passive:true });
+  }
 }
 
 function wireEndSummary(){
@@ -151,9 +186,9 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-    if(kScore) kScore.textContent = String(d.scoreFinal ?? 0);
-    if(kCombo) kCombo.textContent = String(d.comboMax ?? 0);
-    if(kMiss)  kMiss.textContent  = String(d.misses ?? 0);
+    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
+    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
@@ -169,33 +204,15 @@ function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-
-  // ✅ default time 90
   const time = clamp(qs('time','90'), 10, 999);
-
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    game: 'plate',
-    view,
-    runMode: run,
-    diff,
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
-
     hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '',
-
-    studyId: qs('studyId','') || qs('study','') || '',
-    phase: qs('phase','') || '',
-    conditionGroup: qs('conditionGroup','') || qs('cond','') || '',
-    sessionOrder: qs('sessionOrder','') || qs('order','') || '',
-    blockLabel: qs('blockLabel','') || qs('block','') || '',
-    siteCode: qs('siteCode','') || qs('site','') || '',
-    schoolCode: qs('schoolCode','') || '',
-    schoolName: qs('schoolName','') || '',
-    gradeLevel: qs('gradeLevel','') || '',
-    studentKey: qs('studentKey','') || '',
+    logEndpoint: qs('log','') || ''
   };
 }
 
@@ -206,8 +223,13 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-
   setBodyView(cfg.view);
+
+  // NEW: measure immediately + on resize/orientation
+  measureSafeZone();
+  WIN.addEventListener('resize', measureSafeZone, { passive:true });
+  WIN.addEventListener('orientationchange', ()=>setTimeout(measureSafeZone, 200), { passive:true });
+
   wireHUD();
   wireEndControls();
   wireEndSummary();
