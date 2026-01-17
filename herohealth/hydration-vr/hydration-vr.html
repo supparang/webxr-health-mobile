@@ -1,9 +1,9 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 Hydration Quest VR RUN — PRODUCTION (LATEST)
 ✅ CSS: ./hydration-vr.css
-✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js, ../vr/ui-water.js
+✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js
 ✅ Loader: ./hydration-vr.loader.js (auto-detect NO override + cardboard layers + start overlay)
-✅ Engine: ./hydration.safe.js (type=module)
+✅ Engine: ./hydration.safe.js (type=module) -> imports ../vr/ui-water.js
 ✅ A-Frame minimal scene for Enter VR reliability
 -->
 <!doctype html>
@@ -23,9 +23,6 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
 
   <!-- Cloud Logger (flush-hardened) - ใช้ร่วมทุกเกม -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
-
-  <!-- Water gauge helper (optional) -->
-  <script src="../vr/ui-water.js" defer></script>
 
   <!-- Loader: set view/cardboard/layers + start overlay -->
   <script src="./hydration-vr.loader.js" defer></script>
