@@ -3,6 +3,7 @@ Hydration VR Launcher — ROOT (LATEST)
 ✅ Auto-detect + Buttons (PC / Mobile / cVR / Cardboard)
 ✅ Pass-through query (hub/run/diff/time/seed/sessionId/log/etc.)
 ✅ Go to: /herohealth/hydration-vr/hydration-vr.html
+✅ IMPORTANT: ถ้ามี ?view มาแล้ว => "ห้าม override" (ส่งต่อไป RUN ตรง ๆ)
 -->
 <!doctype html>
 <html lang="th">
@@ -58,6 +59,15 @@ Hydration VR Launcher — ROOT (LATEST)
     .btn.ghost{ background: transparent; }
     .hint{margin-top:10px;color:rgba(148,163,184,.95);font-size:12px;line-height:1.35}
     code{color:rgba(34,211,238,.95)}
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      padding: 6px 10px;
+      border-radius: var(--pill);
+      font-size: 12px;
+      color: rgba(229,231,235,.92);
+    }
   </style>
 </head>
 <body>
@@ -69,10 +79,17 @@ Hydration VR Launcher — ROOT (LATEST)
     <div class="grid">
       <div class="panel">
         <div style="font-weight:900">เข้าเล่นแบบอัตโนมัติ</div>
-        <div class="hint">กดปุ่มเดียว ระบบเลือก <b>PC / Mobile / cVR</b> ให้อัตโนมัติ<br/>ถ้าจะ Cardboard ให้กดปุ่ม Cardboard</div>
+        <div class="hint">
+          กดปุ่มเดียว ระบบเลือก <b>PC / Mobile / cVR</b> ให้อัตโนมัติ<br/>
+          ถ้าจะ Cardboard ให้กดปุ่ม Cardboard
+        </div>
         <div class="row">
           <button class="btn primary" id="btnAuto">Auto Start</button>
           <button class="btn ghost" id="btnBack">กลับ HUB</button>
+        </div>
+        <div class="hint" style="margin-top:10px">
+          <span class="pill">💡 kids-friendly: <code>?kids=1</code></span>
+          <span class="pill">📄 research: <code>?run=research</code></span>
         </div>
       </div>
 
@@ -86,8 +103,8 @@ Hydration VR Launcher — ROOT (LATEST)
         </div>
         <div class="hint">
           • cVR = ยิงจากกลางจอ (crosshair)<br/>
-          • Cardboard = <code>?view=cvr&cardboard=1</code><br/>
-          • Kids mode = <code>?kids=1</code>
+          • Cardboard = <code>?view=cvr&amp;cardboard=1</code><br/>
+          • ถ้ามี <code>?view=...</code> มาแล้ว Launcher จะ “ไม่ override”
         </div>
       </div>
     </div>
@@ -106,6 +123,14 @@ Hydration VR Launcher — ROOT (LATEST)
   const hub = String(qs('hub','./hub.html'));
   const RUN_URL = './hydration-vr/hydration-vr.html';
 
+  function normalizeView(v){
+    v = String(v||'').toLowerCase();
+    if (v==='pc' || v==='desktop') return 'pc';
+    if (v==='mobile' || v==='phone') return 'mobile';
+    if (v==='cvr' || v==='vr' || v==='cardboard') return 'cvr';
+    return '';
+  }
+
   function detectView(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
     const w = Math.max(1, innerWidth||1);
@@ -119,6 +144,9 @@ Hydration VR Launcher — ROOT (LATEST)
     return 'pc';
   }
 
+  // ✅ ถ้ามี view มาแล้ว ห้าม override (ตามมาตรฐานที่คุยกัน)
+  const viewIncoming = normalizeView(qs('view',''));
+
   function go(view, cardboard=false){
     const u = new URL(RUN_URL, location.href);
 
@@ -126,23 +154,34 @@ Hydration VR Launcher — ROOT (LATEST)
     const cur = new URL(location.href);
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
-    // enforce view/cardboard
-    u.searchParams.set('view', view);
-    if (cardboard) u.searchParams.set('cardboard','1');
-
     // ensure hub exists
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
+    // enforce view/cardboard ONLY if caller provides view
+    if (view){
+      u.searchParams.set('view', view);
+    } else {
+      // no view passed => do nothing (keep whatever is already in params)
+    }
+    if (cardboard) u.searchParams.set('cardboard','1');
 
     location.href = u.toString();
   }
 
-  const autoView = detectView();
+  const autoView = viewIncoming || detectView();
   const autoText = document.getElementById('autoText');
   if (autoText){
-    autoText.textContent = `ตรวจจับแล้ว: ${autoView.toUpperCase()} (กด Auto Start เพื่อเข้าเล่น)`;
+    autoText.textContent = viewIncoming
+      ? `พบ view ในลิงก์แล้ว: ${autoView.toUpperCase()} (Launcher จะส่งต่อแบบไม่แก้ไข)`
+      : `ตรวจจับแล้ว: ${autoView.toUpperCase()} (กด Auto Start เพื่อเข้าเล่น)`;
   }
 
-  document.getElementById('btnAuto')?.addEventListener('click', ()=> go(autoView, false));
+  document.getElementById('btnAuto')?.addEventListener('click', ()=>{
+    // ถ้ามี view มาแล้ว -> go แบบไม่ override (ส่งต่อ view เดิม)
+    if (viewIncoming) return go('', false);
+    return go(autoView, false);
+  });
+
   document.getElementById('btnPC')?.addEventListener('click', ()=> go('pc', false));
   document.getElementById('btnMobile')?.addEventListener('click', ()=> go('mobile', false));
   document.getElementById('btnCVR')?.addEventListener('click', ()=> go('cvr', false));
