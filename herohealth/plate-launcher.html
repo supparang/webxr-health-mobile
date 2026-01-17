@@ -1,35 +1,24 @@
-<!-- === /herohealth/plate-launcher.html ===
-Balanced Plate VR — Launcher (PRODUCTION)
-✅ Choose: PC / Mobile / Cardboard(cVR) / VR
-✅ Saves last settings (localStorage)
-✅ Builds URL -> /herohealth/plate-vr.html?view=...&run=...&diff=...&time=...&seed=...&hub=...
-✅ Optional passthrough: log, studyId, phase, conditionGroup, sessionOrder, siteCode, studentKey, etc.
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Plate VR Launcher</title>
+  <title>HeroHealth — PlateVR Launcher</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <style>
     :root{
-      color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.84);
+      --panel:rgba(2,6,23,.78);
       --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-
       --accent:#22c55e;
       --warn:#f59e0b;
       --cyan:#22d3ee;
       --violet:#a78bfa;
-      --bad:#ef4444;
-
       --radius:22px;
       --pill:999px;
 
@@ -38,47 +27,39 @@ Balanced Plate VR — Launcher (PRODUCTION)
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; padding:0;
-      width:100%; height:100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      overflow:auto;
+      margin:0; width:100%; height:100%;
+      background: radial-gradient(circle at 15% 10%, rgba(34,211,238,.12), transparent 40%),
+                  radial-gradient(circle at 85% 20%, rgba(167,139,250,.10), transparent 42%),
+                  radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
+                  linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+      color:var(--text);
+      font-family: system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      overflow:hidden;
     }
-
-    .bg{
-      position:fixed; inset:0;
-      background:
-        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
-        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-      pointer-events:none;
-      z-index:0;
-    }
-
     .wrap{
-      position:relative;
-      z-index:1;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
-      max-width: 1100px;
-      margin: 0 auto;
+      position:fixed; inset:0;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      display:grid;
+      place-items:center;
     }
-
-    .top{
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-      align-items:flex-start;
-      justify-content:space-between;
+    .card{
+      width:min(980px,100%);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.42);
+      backdrop-filter: blur(12px);
     }
-
-    .title{
-      font-weight:1200;
+    .row{
+      display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+    }
+    h1{
+      margin:0;
       font-size:18px;
+      font-weight:1200;
       letter-spacing:.2px;
     }
     .sub{
@@ -88,446 +69,327 @@ Balanced Plate VR — Launcher (PRODUCTION)
       font-size:13px;
       line-height:1.35;
     }
-
-    .panel{
-      margin-top:12px;
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:14px;
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
-      backdrop-filter: blur(10px);
-    }
-
     .grid{
+      margin-top:14px;
       display:grid;
-      grid-template-columns: 1.05fr .95fr;
+      grid-template-columns: 1.1fr .9fr;
       gap:12px;
     }
-
-    @media (max-width: 980px){
-      .grid{ grid-template-columns: 1fr; }
-    }
-
-    .card{
-      background: var(--panel2);
+    .panel{
+      background:var(--panel2);
       border:1px solid var(--stroke);
       border-radius:18px;
       padding:12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.26);
+      box-shadow: 0 16px 50px rgba(0,0,0,.25);
     }
-    .k{
+    .t{
       font-weight:1100;
       font-size:12px;
       color:rgba(229,231,235,.92);
     }
-    .row{
-      margin-top:10px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
     .pill{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
+      display:inline-flex; align-items:center; gap:8px;
       padding:8px 10px;
-      border-radius: var(--pill);
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
-      font-weight:1100;
+      border-radius:var(--pill);
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.40);
+      font-weight:1000;
       font-size:12px;
       white-space:nowrap;
     }
-
-    label{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.90);
-      min-width: 160px;
+    .chips{
+      margin-top:10px;
+      display:flex; flex-wrap:wrap; gap:10px;
     }
     select,input{
       appearance:none;
-      border-radius:14px;
       border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      padding:10px 12px;
-      font-weight:1000;
+      background:rgba(2,6,23,.35);
+      color:rgba(229,231,235,.95);
+      border-radius:12px;
+      padding:10px 10px;
+      font-weight:900;
+      font-size:13px;
       outline:none;
     }
-    input[type="number"]{ width: 140px; }
-    input[type="text"]{ width: min(520px,100%); }
-
-    .btnRow{
-      margin-top:12px;
-      display:flex;
+    .form{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
       gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
     }
-    .btn{
+    .form .full{ grid-column: 1 / -1; }
+    .btns{
+      margin-top:14px;
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    }
+    button{
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:12px 14px;
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
+      padding:11px 14px;
+      background:rgba(2,6,23,.60);
+      border:1px solid rgba(148,163,184,.22);
       color:rgba(229,231,235,.95);
-      font: 1100 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 16px 40px rgba(0,0,0,.32);
+      font: 1000 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      box-shadow: 0 16px 40px rgba(0,0,0,.30);
       backdrop-filter: blur(10px);
       cursor:pointer;
       user-select:none;
       -webkit-tap-highlight-color:transparent;
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
-    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
-    .btn.cyan{ background:rgba(34,211,238,.12); border-color:rgba(34,211,238,.28); }
-    .btn.bad{ background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.26); }
-
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size:12px;
-      color:rgba(203,213,225,.95);
-      word-break: break-all;
-      line-height:1.35;
+    button.primary{
+      background:rgba(34,197,94,.18);
+      border-color:rgba(34,197,94,.35);
     }
+    button.warn{
+      background:rgba(245,158,11,.18);
+      border-color:rgba(245,158,11,.35);
+    }
+    button.cvr{
+      background:rgba(34,211,238,.16);
+      border-color:rgba(34,211,238,.32);
+    }
+    button:active{ transform: translateY(1px); }
 
-    .hint{
-      margin-top:8px;
+    .miniNote{
+      margin-top:10px;
       color:var(--muted);
       font-weight:900;
       font-size:12px;
       line-height:1.35;
     }
 
-    .ok{ color: rgba(34,197,94,.95); font-weight:1100; }
-    .warnTxt{ color: rgba(245,158,11,.98); font-weight:1100; }
+    @media (max-width: 920px){
+      .grid{ grid-template-columns: 1fr; }
+      .form{ grid-template-columns: 1fr; }
+    }
   </style>
 </head>
-
 <body>
-  <div class="bg"></div>
-
   <div class="wrap">
-    <div class="top">
-      <div>
-        <div class="title">🍽️ Balanced Plate VR — Launcher</div>
-        <div class="sub">
-          เลือกโหมดเล่น แล้วกด “เข้าเล่น” ได้เลย <br/>
-          <span class="warnTxt">Cardboard แนะนำ:</span> ใช้ <b>view=cvr</b> แล้วยิงจาก crosshair (vr-ui.js)
+    <div class="card">
+      <div class="row">
+        <div>
+          <h1>🍽️ Balanced Plate VR — Launcher</h1>
+          <div class="sub">
+            เลือกโหมด/ความยาก/เวลา แล้วเข้าเล่นทันที<br/>
+            Play = Adaptive ON • Research/Study = Seeded & Adaptive OFF
+          </div>
+        </div>
+        <div class="chips">
+          <span class="pill" id="pillView">👀 view: auto</span>
+          <span class="pill" id="pillHub">🏠 hub: —</span>
         </div>
       </div>
 
-      <div class="pill">🔗 Run: <span id="uiTarget">plate-vr.html</span></div>
-    </div>
-
-    <div class="panel">
       <div class="grid">
-        <!-- LEFT: main settings -->
-        <div class="card">
-          <div class="k">1) ตั้งค่าโหมดเล่น</div>
+        <div class="panel">
+          <div class="t">⚙️ ตั้งค่าเล่น</div>
 
-          <div class="row">
+          <div class="form">
             <label>
-              View
-              <select id="inView">
-                <option value="mobile">📱 Mobile</option>
-                <option value="pc">🖥️ PC</option>
-                <option value="vr">🕶️ VR (Enter VR)</option>
-                <option value="cvr">🎮 Cardboard (cVR)</option>
+              <div class="t">โหมด (run)</div>
+              <select id="selRun">
+                <option value="play">play</option>
+                <option value="study">study</option>
+                <option value="research">research</option>
+                <option value="practice">practice</option>
               </select>
             </label>
 
             <label>
-              Run Mode
-              <select id="inRun">
-                <option value="play">Play (Adaptive ON)</option>
-                <option value="study">Study (Seeded, Adaptive OFF)</option>
+              <div class="t">ความยาก (diff)</div>
+              <select id="selDiff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
               </select>
             </label>
 
             <label>
-              Difficulty
-              <select id="inDiff">
-                <option value="easy">Easy</option>
-                <option value="normal" selected>Normal</option>
-                <option value="hard">Hard</option>
-              </select>
+              <div class="t">เวลา (sec)</div>
+              <input id="inpTime" type="number" inputmode="numeric" min="10" max="999" value="90" />
             </label>
 
             <label>
-              Time (sec)
-              <input id="inTime" type="number" min="20" max="9999" value="90" />
+              <div class="t">seed</div>
+              <input id="inpSeed" type="number" inputmode="numeric" value="" placeholder="auto" />
             </label>
 
-            <label>
-              Seed
-              <input id="inSeed" type="number" value="13579" />
+            <label class="full">
+              <div class="t">พารามิเตอร์วิจัย (optional passthrough)</div>
+              <input id="inpStudy" type="text" placeholder="studyId / phase / conditionGroup / studentKey ... (อ่านจาก URL เดิมแล้วส่งต่อ)" />
             </label>
           </div>
 
-          <div class="btnRow">
-            <button class="btn primary" id="btnOpen">▶ เข้าเล่น</button>
-            <button class="btn cyan" id="btnCopy">คัดลอกลิงก์ 🔗</button>
-            <button class="btn warn" id="btnRandomSeed">สุ่ม Seed 🎲</button>
-            <button class="btn bad" id="btnReset">ล้างค่าที่จำไว้ ♻</button>
+          <div class="btns">
+            <button class="primary" id="btnGo">▶ เข้าเล่น (Auto view)</button>
+            <button class="cvr" id="btnGoCVR">🕶 เข้าแบบ Cardboard (view=cvr)</button>
+            <button class="warn" id="btnCopy">🔗 คัดลอกลิงก์</button>
           </div>
 
-          <div class="hint">
-            • ถ้าเลือก <b>VR</b> ให้กด “Enter VR” ในเกมอีกที <br/>
-            • ถ้าเลือก <b>Cardboard (cVR)</b> เกมจะยิงจาก crosshair ตรงกลางจอได้เลย
-          </div>
+          <div class="miniNote" id="dbg">—</div>
         </div>
 
-        <!-- RIGHT: passthrough -->
-        <div class="card">
-          <div class="k">2) (ถ้ามี) พารามิเตอร์งานวิจัย/บันทึกข้อมูล</div>
-
-          <div class="row">
-            <label style="min-width:220px">
-              HUB URL (กลับหน้า HUB)
-              <input id="inHub" type="text" placeholder="เช่น https://.../hub.html" />
-            </label>
-          </div>
-
-          <div class="row">
-            <label style="min-width:220px">
-              Log Endpoint (?log=...)
-              <input id="inLog" type="text" placeholder="Google Apps Script exec URL" />
-            </label>
-          </div>
-
-          <div class="row">
-            <label>
-              studyId
-              <input id="inStudyId" type="text" placeholder="STUDY_001" />
-            </label>
-            <label>
-              phase
-              <input id="inPhase" type="text" placeholder="pre/post" />
-            </label>
-            <label>
-              conditionGroup
-              <input id="inCond" type="text" placeholder="A/B" />
-            </label>
-          </div>
-
-          <div class="row">
-            <label>
-              sessionOrder
-              <input id="inOrder" type="text" placeholder="1,2,3..." />
-            </label>
-            <label>
-              siteCode
-              <input id="inSite" type="text" placeholder="SCH01" />
-            </label>
-            <label>
-              studentKey
-              <input id="inStudentKey" type="text" placeholder="S0001" />
-            </label>
-          </div>
-
-          <div class="hint">
-            ข้อมูลกลุ่มนี้จะถูกส่งต่อไปหน้า Run เพื่อใช้กับ logger ได้ทันที (ถ้าหน้า Run รองรับ)
+        <div class="panel">
+          <div class="t">🧭 วิธีใช้เร็ว ๆ</div>
+          <div class="miniNote">
+            • เปิดจาก HUB จะส่ง <b>hub=...</b> มาด้วย<br/>
+            • ถ้าอยากบังคับมุมมอง: <b>?view=pc|mobile|vr|cvr</b><br/>
+            • ถ้าต้องทำวิจัยให้คงที่: ใช้ <b>run=study</b> และล็อก <b>seed</b><br/>
+            • ลิงก์เกมจริงอยู่ที่: <b>/herohealth/plate/plate-vr.html</b>
           </div>
         </div>
       </div>
 
-      <div class="card" style="margin-top:12px">
-        <div class="k">ลิงก์ที่ได้ (Preview)</div>
-        <div class="row">
-          <span class="pill">✅ พร้อมเปิด: <span id="uiReady" class="ok">YES</span></span>
-        </div>
-        <div class="mono" id="outUrl">—</div>
-        <div class="hint" id="outMsg">—</div>
-      </div>
     </div>
   </div>
 
   <script>
     (function(){
-      const LS = 'HHA_PLATE_LAUNCHER_LAST';
+      const LS_KEY = 'HHA_PLATE_LAUNCHER_V1';
 
-      const el = (id)=>document.getElementById(id);
-      const inView = el('inView');
-      const inRun  = el('inRun');
-      const inDiff = el('inDiff');
-      const inTime = el('inTime');
-      const inSeed = el('inSeed');
+      const qs = (k, def=null)=>{
+        try { return new URL(location.href).searchParams.get(k) ?? def; }
+        catch { return def; }
+      };
 
-      const inHub  = el('inHub');
-      const inLog  = el('inLog');
-      const inStudyId = el('inStudyId');
-      const inPhase   = el('inPhase');
-      const inCond    = el('inCond');
-      const inOrder   = el('inOrder');
-      const inSite    = el('inSite');
-      const inStudentKey = el('inStudentKey');
-
-      const outUrl = el('outUrl');
-      const outMsg = el('outMsg');
-      const uiReady = el('uiReady');
-
-      const btnOpen = el('btnOpen');
-      const btnCopy = el('btnCopy');
-      const btnRandom = el('btnRandomSeed');
-      const btnReset = el('btnReset');
-
-      function clamp(n,a,b){
-        n = Number(n)||0;
-        if(n<a) return a;
-        if(n>b) return b;
-        return n;
+      function isMobile(){
+        const ua = navigator.userAgent || '';
+        const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
       }
 
-      function loadLast(){
+      function getViewAuto(){
+        const forced = (qs('view','')||'').toLowerCase();
+        if(forced) return forced;
+        return isMobile() ? 'mobile' : 'pc';
+      }
+
+      // UI refs
+      const selRun = document.getElementById('selRun');
+      const selDiff = document.getElementById('selDiff');
+      const inpTime = document.getElementById('inpTime');
+      const inpSeed = document.getElementById('inpSeed');
+      const inpStudy = document.getElementById('inpStudy');
+
+      const pillView = document.getElementById('pillView');
+      const pillHub = document.getElementById('pillHub');
+      const dbg = document.getElementById('dbg');
+
+      const btnGo = document.getElementById('btnGo');
+      const btnGoCVR = document.getElementById('btnGoCVR');
+      const btnCopy = document.getElementById('btnCopy');
+
+      const hub = qs('hub','') || '';
+      if(pillHub) pillHub.textContent = '🏠 hub: ' + (hub ? 'yes' : '—');
+
+      function loadSaved(){
         try{
-          const s = localStorage.getItem(LS);
-          if(!s) return;
-          const o = JSON.parse(s);
-          if(o.view) inView.value = o.view;
-          if(o.run)  inRun.value = o.run;
-          if(o.diff) inDiff.value = o.diff;
-          if(o.time) inTime.value = o.time;
-          if(o.seed!=null) inSeed.value = o.seed;
-
-          if(o.hub!=null) inHub.value = o.hub;
-          if(o.log!=null) inLog.value = o.log;
-          if(o.studyId!=null) inStudyId.value = o.studyId;
-          if(o.phase!=null) inPhase.value = o.phase;
-          if(o.cond!=null) inCond.value = o.cond;
-          if(o.order!=null) inOrder.value = o.order;
-          if(o.site!=null) inSite.value = o.site;
-          if(o.studentKey!=null) inStudentKey.value = o.studentKey;
-        }catch(e){}
+          const raw = localStorage.getItem(LS_KEY);
+          if(!raw) return;
+          const s = JSON.parse(raw);
+          if(s.run) selRun.value = s.run;
+          if(s.diff) selDiff.value = s.diff;
+          if(s.time) inpTime.value = String(s.time);
+          if(s.seed) inpSeed.value = String(s.seed);
+        }catch(_){}
       }
 
-      function saveLast(){
-        const o = {
-          view: inView.value,
-          run:  inRun.value,
-          diff: inDiff.value,
-          time: clamp(inTime.value, 20, 9999),
-          seed: Number(inSeed.value)||13579,
-
-          hub: inHub.value.trim(),
-          log: inLog.value.trim(),
-          studyId: inStudyId.value.trim(),
-          phase: inPhase.value.trim(),
-          cond: inCond.value.trim(),
-          order: inOrder.value.trim(),
-          site: inSite.value.trim(),
-          studentKey: inStudentKey.value.trim(),
-        };
-        try{ localStorage.setItem(LS, JSON.stringify(o)); }catch(e){}
+      function saveNow(){
+        try{
+          localStorage.setItem(LS_KEY, JSON.stringify({
+            run: selRun.value,
+            diff: selDiff.value,
+            time: Number(inpTime.value)||90,
+            seed: inpSeed.value ? Number(inpSeed.value) : ''
+          }));
+        }catch(_){}
       }
 
-      function buildUrl(){
-        const u = new URL('./plate-vr.html', location.href);
-
-        const view = (inView.value || 'mobile').toLowerCase();
-        const run  = (inRun.value || 'play').toLowerCase();
-        const diff = (inDiff.value || 'normal').toLowerCase();
-        const time = clamp(inTime.value, 20, 9999);
-        const seed = Number(inSeed.value)||13579;
-
-        u.searchParams.set('view', view);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', String(time));
-        u.searchParams.set('seed', String(seed));
-
-        const hub = inHub.value.trim() || (new URL(location.href).searchParams.get('hub')||'');
-        if(hub) u.searchParams.set('hub', hub);
-
-        const log = inLog.value.trim() || (new URL(location.href).searchParams.get('log')||'');
-        if(log) u.searchParams.set('log', log);
-
-        // passthrough research fields (optional)
-        const pass = [
-          ['studyId', inStudyId.value.trim()],
-          ['phase', inPhase.value.trim()],
-          ['conditionGroup', inCond.value.trim()],
-          ['sessionOrder', inOrder.value.trim()],
-          ['siteCode', inSite.value.trim()],
-          ['studentKey', inStudentKey.value.trim()],
+      function collectPassthroughParams(u){
+        // ส่งต่อทุกอย่าง “ที่มีอยู่แล้ว” ยกเว้นบางตัวของ launcher
+        const keep = [
+          'hub','log','studyId','phase','conditionGroup','sessionOrder',
+          'blockLabel','siteCode','schoolCode','schoolName','gradeLevel','studentKey'
         ];
-        pass.forEach(([k,v])=>{
+        keep.forEach(k=>{
+          const v = qs(k,'');
           if(v) u.searchParams.set(k, v);
         });
-
-        return u;
       }
 
-      function refresh(){
-        const u = buildUrl();
-        outUrl.textContent = u.toString();
-        uiReady.textContent = 'YES';
+      function buildUrl(viewOverride){
+        const u = new URL('./plate-vr.html', location.href);
+        u.searchParams.set('run', (selRun.value||'play').toLowerCase());
+        u.searchParams.set('diff', (selDiff.value||'normal').toLowerCase());
 
-        const view = (inView.value||'').toLowerCase();
-        const run = (inRun.value||'').toLowerCase();
+        const t = Math.max(10, Math.min(999, Number(inpTime.value)||90));
+        u.searchParams.set('time', String(t));
 
-        let msg = 'พร้อมแล้ว กด “เข้าเล่น” ได้เลย ✅';
-        if(view === 'cvr'){
-          msg = 'Cardboard: ใช้ crosshair ยิงได้เลย (vr-ui.js) ✅';
-        }else if(view === 'vr'){
-          msg = 'VR: เข้าเกมแล้วกด “Enter VR” อีกครั้ง ✅';
-        }
-        if(run === 'study'){
-          msg += ' • Study: Seeded & Adaptive OFF';
-        }
-        outMsg.textContent = msg;
+        const seed = inpSeed.value ? Number(inpSeed.value) : Date.now();
+        u.searchParams.set('seed', String(seed));
 
-        saveLast();
+        if(hub) u.searchParams.set('hub', hub);
+
+        // view:
+        const v = (viewOverride || '').toLowerCase() || getViewAuto();
+        // แต่ “ห้าม override” ถ้ามี view มากับ URL อยู่แล้ว
+        const existing = (qs('view','')||'').toLowerCase();
+        if(existing) u.searchParams.set('view', existing);
+        else u.searchParams.set('view', v);
+
+        collectPassthroughParams(u);
+
+        return u.toString();
       }
 
-      // wire
-      [inView,inRun,inDiff,inTime,inSeed,inHub,inLog,inStudyId,inPhase,inCond,inOrder,inSite,inStudentKey]
-        .forEach(x=>x?.addEventListener('change', refresh, {passive:true}));
+      function refreshPills(){
+        if(pillView) pillView.textContent = '👀 view: ' + getViewAuto();
+        if(dbg) dbg.textContent = 'URL: ' + location.href;
+      }
 
-      btnRandom?.addEventListener('click', ()=>{
-        inSeed.value = String((Date.now() ^ (Math.random()*1e9))|0);
-        refresh();
-      }, {passive:true});
+      // seed default
+      if(!inpSeed.value) inpSeed.value = '';
 
-      btnReset?.addEventListener('click', ()=>{
-        try{ localStorage.removeItem(LS); }catch(e){}
-        location.reload();
-      }, {passive:true});
+      loadSaved();
+      refreshPills();
+
+      [selRun, selDiff, inpTime, inpSeed].forEach(el=>{
+        el?.addEventListener('change', saveNow, {passive:true});
+        el?.addEventListener('input', saveNow, {passive:true});
+      });
+
+      btnGo?.addEventListener('click', ()=>{
+        const url = buildUrl('');
+        location.href = url;
+      });
+
+      btnGoCVR?.addEventListener('click', ()=>{
+        const url = buildUrl('cvr');
+        location.href = url;
+      });
 
       btnCopy?.addEventListener('click', async ()=>{
+        const url = buildUrl('');
         try{
-          await navigator.clipboard.writeText(outUrl.textContent||'');
-          outMsg.textContent = '✅ คัดลอกลิงก์แล้ว';
+          await navigator.clipboard.writeText(url);
+          if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
         }catch(e){
-          outMsg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่องลิงก์ได้';
+          if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกเองจากแถบ URL';
         }
-      }, {passive:true});
+      });
 
-      btnOpen?.addEventListener('click', ()=>{
-        const u = outUrl.textContent || buildUrl().toString();
-        location.href = u;
-      }, {passive:true});
-
-      // init
-      loadLast();
-
-      // if launcher opened with ?hub= or ?log= — fill defaults
+      // show suggested research params (read-only hint)
       const p = new URL(location.href).searchParams;
-      const hubQ = p.get('hub');
-      const logQ = p.get('log');
-      if(hubQ && !inHub.value) inHub.value = hubQ;
-      if(logQ && !inLog.value) inLog.value = logQ;
-
-      refresh();
+      const keys = ['studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolCode','schoolName','gradeLevel','studentKey'];
+      const list = [];
+      keys.forEach(k=>{
+        const v = p.get(k);
+        if(v) list.push(`${k}=${v}`);
+      });
+      if(inpStudy) inpStudy.value = list.join(' • ');
     })();
   </script>
 </body>
