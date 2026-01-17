@@ -18,8 +18,8 @@
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- ✅ ModeFactory (GLOBAL) -->
-  <script src="../vr/mode-factory.js" defer></script>
+  <!-- ✅ IMPORTANT: ensure ModeFactory module is loaded -->
+  <script type="module" src="../vr/mode-factory.js"></script>
 
   <!-- Boot -->
   <script type="module" src="./plate.boot.js"></script>
@@ -37,15 +37,24 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- Playfield -->
+    <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
-        <div class="chip score"><span class="lbl">SCORE</span><span class="val" id="hudScore">0</span></div>
-        <div class="chip time"><span class="lbl">TIME</span><span class="val" id="hudTime">0</span></div>
-        <div class="chip combo"><span class="lbl">COMBO</span><span class="val" id="hudCombo">0</span></div>
+        <div class="chip score">
+          <span class="lbl">SCORE</span>
+          <span class="val" id="hudScore">0</span>
+        </div>
+        <div class="chip time">
+          <span class="lbl">TIME</span>
+          <span class="val" id="hudTime">0</span>
+        </div>
+        <div class="chip combo">
+          <span class="lbl">COMBO</span>
+          <span class="val" id="hudCombo">0</span>
+        </div>
       </div>
 
       <div class="card" id="questCard">
@@ -54,6 +63,7 @@
           <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
         </div>
 
+        <!-- GOAL -->
         <div class="qItem" id="goalItem">
           <div class="qText">
             <div class="name" id="goalName">Goal</div>
@@ -65,20 +75,21 @@
           </div>
         </div>
 
+        <!-- MINI -->
         <div class="qItem" id="miniItem">
           <div class="qText">
             <div class="name" id="miniName">Mini Quest</div>
-            <div class="sub" id="miniSub">คุมความแม่นจนจบเกม</div>
+            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/80</div>
+            <div class="qNums" id="miniNums">0/1</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Coach -->
+    <!-- Coach bubble (optional) -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
