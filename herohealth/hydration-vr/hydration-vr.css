@@ -1,12 +1,3 @@
-/* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration Quest VR — ALL-IN CSS (LATEST)
-✅ HUD / Quest / Water panel
-✅ Safe-area support
-✅ Overlay + result
-✅ Cardboard split layout
-✅ FX hooks: hha-endfx / hha-bossfx + .hha-shock
-*/
-
 :root{
   color-scheme: dark;
   --bg:#020617;
@@ -30,14 +21,12 @@ Hydration Quest VR — ALL-IN CSS (LATEST)
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  margin:0; width:100%; height:100%; overflow:hidden;
-  background:var(--bg); color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
+html,body{ margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 
 a-scene{ position:fixed; inset:0; z-index:0; }
 
+/* Playfield wrapper */
 #playfieldWrap{
   position:fixed; inset:0;
   padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
@@ -64,6 +53,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   pointer-events:none;
 }
 
+/* HUD */
 #hud{
   position:fixed;
   inset:0;
@@ -137,11 +127,13 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 .quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
 .quest-lines #quest-line3, .quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
 
+/* Water panel */
 .waterpanel .water-head{
   display:flex; align-items:baseline; justify-content:space-between; gap:10px;
 }
 .waterpanel .wtitle{ font-weight:900; font-size:13px; }
 .waterpanel .wzone{ font-size:12px; color: rgba(148,163,184,.95); }
+
 .wbar{
   margin-top:8px;
   height: 10px;
@@ -155,7 +147,13 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   width:50%;
   border-radius: var(--pill);
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+  /* ✅ smoothing: ทำให้ไม่ “ค้าง” / ไม่กระตุก */
+  transition: width 140ms linear, filter 140ms linear;
 }
+body.water-low  .wfill{ filter: saturate(1.25) brightness(0.95); }
+body.water-high .wfill{ filter: saturate(1.25) brightness(1.05); }
+body.water-green .wfill{ filter: saturate(1.15) brightness(1.00); }
+
 .wpct{
   margin-top:6px;
   font-weight:900;
@@ -164,6 +162,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   color: rgba(229,231,235,.92);
 }
 
+/* overlays */
 .overlay{
   position:fixed; inset:0;
   z-index: 120;
@@ -206,9 +205,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   background: rgba(34,197,94,.18);
   border-color: rgba(34,197,94,.28);
 }
-.btn.ghost{
-  background: transparent;
-}
+.btn.ghost{ background: transparent; }
 
 .ov-hint{
   margin-top:10px;
@@ -249,7 +246,9 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 .next{ margin-top:8px; color: rgba(229,231,235,.92); }
 
 /* End window FX hooks from hydration.safe.js */
-body.hha-endfx #playfield{ animation: hhaShake .22s linear infinite; }
+body.hha-endfx #playfield{
+  animation: hhaShake .22s linear infinite;
+}
 @keyframes hhaShake{
   0%{ transform: translate(0,0); }
   25%{ transform: translate(1px,-1px); }
@@ -264,11 +263,7 @@ body.hha-bossfx #playfield{
 /* Cardboard split */
 body.cardboard #hydration-layer{ display:none; }
 #cbWrap{ position:absolute; inset:0; }
-#cbPlayfield{
-  position:absolute; inset:0;
-  display:grid; grid-template-columns: 1fr 1fr;
-  gap:10px; padding:10px;
-}
+#cbPlayfield{ position:absolute; inset:0; display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding:10px; }
 body.cardboard #cbWrap{ display:block; }
 body.cardboard #cbWrap[hidden]{ display:block !important; }
 
