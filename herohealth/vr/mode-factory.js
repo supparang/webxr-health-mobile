@@ -1,19 +1,23 @@
 // === /herohealth/vr/mode-factory.js ===
-// Mode Factory — DOM Target Spawner (PRODUCTION, ES Module + Window Bridge)
+// HHA Mode Factory — DOM Target Spawner (PRODUCTION SAFE)
 // ✅ export boot()
-// ✅ window.GAME_MODULES.ModeFactory.boot
-// ✅ Supports click/tap + hha:shoot {x,y,lockPx}
-// ✅ Seeded RNG support via cfg.seed
-// ✅ Simple weighted kinds + expire TTL
-// ------------------------------------------------------------
+// ✅ FIX: controller referenced before init
+// ✅ Works with click/touch and hha:shoot (crosshair / tap-to-shoot)
+// ✅ Simple spawn engine for Plate/Groups/etc.
+//
+// Usage:
+//   import { boot as spawnBoot } from '../vr/mode-factory.js';
+//   const engine = spawnBoot({ mount, seed, spawnRate, sizeRange, kinds, onHit, onExpire });
+//   engine.stop()
 
 'use strict';
 
-const WIN = (typeof window !== 'undefined') ? window : globalThis;
-const DOC = WIN.document;
+const WIN = window;
+const DOC = document;
 
 function clamp(v, a, b){
-  v = Number(v) || 0;
+  v = Number(v);
+  if(!isFinite(v)) v = a;
   return v < a ? a : (v > b ? b : v);
 }
 
@@ -27,207 +31,180 @@ function seededRng(seed){
   };
 }
 
-function nowMs(){ return performance?.now?.() ?? Date.now(); }
-
-function pickWeighted(rng, items){
-  let sum = 0;
-  for(const it of items) sum += Math.max(0, Number(it.weight)||0);
-  if(sum <= 0) return items[0];
-  let t = rng() * sum;
-  for(const it of items){
-    t -= Math.max(0, Number(it.weight)||0);
-    if(t <= 0) return it;
-  }
-  return items[items.length-1];
+function rectOf(el){
+  if(!el) return { left:0, top:0, right:innerWidth, bottom:innerHeight, width:innerWidth, height:innerHeight };
+  const r = el.getBoundingClientRect();
+  return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
 }
 
-function makeTargetEl(kind){
+function pickWeighted(rng, kinds){
+  // kinds: [{kind, weight, ...}, ...]
+  let sum = 0;
+  for(const k of kinds) sum += Math.max(0, Number(k.weight)||0);
+  if(sum <= 0) return kinds[0] || { kind:'good', weight:1 };
+
+  let x = rng() * sum;
+  for(const k of kinds){
+    x -= Math.max(0, Number(k.weight)||0);
+    if(x <= 0) return k;
+  }
+  return kinds[kinds.length-1];
+}
+
+function makeTargetEl(t){
   const el = DOC.createElement('div');
-  el.className = 'plateTarget hha-target';
-  el.dataset.kind = kind.kind || 'good';
-  // optional metadata passthrough
-  if(kind.groupIndex != null) el.dataset.groupIndex = String(kind.groupIndex);
-  if(kind.emoji) el.textContent = String(kind.emoji);
+  el.className = 'plateTarget';
+  el.dataset.kind = t.kind || 'good';
+  el.dataset.id = String(t.id);
+  el.style.position = 'absolute';
+  el.style.left = `${t.x}px`;
+  el.style.top  = `${t.y}px`;
+  el.style.width = `${t.size}px`;
+  el.style.height = `${t.size}px`;
+  el.style.transform = 'translate(-50%,-50%)';
+  el.style.fontSize = `${Math.round(t.size * 0.55)}px`;
+  el.textContent = t.emoji || '🍽️';
+  el.style.display = 'grid';
+  el.style.placeItems = 'center';
+  el.style.userSelect = 'none';
+  el.style.cursor = 'pointer';
   return el;
 }
 
-function getRectSafe(mount){
-  const r = mount.getBoundingClientRect();
-  return { left:r.left, top:r.top, width:r.width, height:r.height };
-}
-
-function placeEl(mount, el, x, y, size){
-  el.style.position = 'absolute';
-  el.style.left = `${Math.round(x)}px`;
-  el.style.top  = `${Math.round(y)}px`;
-  el.style.width  = `${Math.round(size)}px`;
-  el.style.height = `${Math.round(size)}px`;
-  el.style.transform = 'translate(-50%,-50%)';
-  el.style.zIndex = '1';
-  mount.appendChild(el);
-}
-
-function dist2(ax,ay,bx,by){
-  const dx = ax-bx, dy = ay-by;
-  return dx*dx + dy*dy;
-}
-
 /**
- * boot(cfg)
- * cfg = {
- *   mount: HTMLElement (required)
- *   seed: number
- *   spawnRate: ms (default 900)
- *   sizeRange: [min,max] px
- *   ttlRange: [min,max] ms (default [1800, 2600])
- *   kinds: [{kind:'good', weight:0.7, emoji?, groupIndex?}, {kind:'junk', weight:0.3, ...}]
- *   margin: px (default 26)
- *   onHit: (target)=>void
- *   onExpire: (target)=>void
- * }
+ * export boot
  */
-export function boot(cfg = {}){
-  if(!DOC) throw new Error('ModeFactory: document not available');
-  const mount = cfg.mount;
-  if(!mount) throw new Error('ModeFactory: mount missing');
+export function boot(opts){
+  const mount = opts?.mount;
+  if(!mount) throw new Error('mode-factory: mount missing');
 
-  const rng = (cfg.rng && typeof cfg.rng === 'function')
-    ? cfg.rng
-    : seededRng(cfg.seed);
+  const rng = opts.rng || seededRng(opts.seed);
+  const spawnRate = clamp(opts.spawnRate ?? 900, 120, 5000);
+  const sizeRange = Array.isArray(opts.sizeRange) ? opts.sizeRange : [44, 64];
+  const kinds = Array.isArray(opts.kinds) && opts.kinds.length ? opts.kinds : [{ kind:'good', weight:1 }];
 
-  const spawnRate = clamp(cfg.spawnRate ?? 900, 120, 5000);
-  const sizeMin = clamp(cfg.sizeRange?.[0] ?? 44, 18, 260);
-  const sizeMax = clamp(cfg.sizeRange?.[1] ?? 64, sizeMin, 320);
+  const onHit = (typeof opts.onHit === 'function') ? opts.onHit : ()=>{};
+  const onExpire = (typeof opts.onExpire === 'function') ? opts.onExpire : ()=>{};
+  const ttlMs = clamp(opts.ttlMs ?? 1400, 350, 8000);
 
-  const ttlMin = clamp(cfg.ttlRange?.[0] ?? 1800, 250, 15000);
-  const ttlMax = clamp(cfg.ttlRange?.[1] ?? 2600, ttlMin, 20000);
-
-  const margin = clamp(cfg.margin ?? 26, 0, 180);
-
-  const kinds = Array.isArray(cfg.kinds) && cfg.kinds.length
-    ? cfg.kinds
-    : [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }];
-
-  const onHit = (typeof cfg.onHit === 'function') ? cfg.onHit : ()=>{};
-  const onExpire = (typeof cfg.onExpire === 'function') ? cfg.onExpire : ()=>{};
-
-  let alive = true;
+  let running = true;
   let timer = null;
+  let nextId = 1;
 
-  const liveEls = new Set(); // track current targets
+  // controller object MUST exist before any closure uses it
+  const controller = {
+    stop(){
+      running = false;
+      if(timer) clearTimeout(timer);
+      timer = null;
+      try{
+        WIN.removeEventListener('hha:shoot', onShoot);
+      }catch(_){}
+      // cleanup targets
+      try{
+        mount.querySelectorAll('[data-id]').forEach(el=>el.remove());
+      }catch(_){}
+    }
+  };
 
+  // -------- spawn --------
   function spawnOne(){
-    if(!alive) return;
+    if(!running) return;
 
-    const r = getRectSafe(mount);
-    if(r.width < 40 || r.height < 40) return; // not ready
+    const R = rectOf(mount);
+    const size = clamp(sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]), 20, 220);
 
-    const kind = pickWeighted(rng, kinds);
-    const size = Math.round(sizeMin + (sizeMax-sizeMin)*rng());
+    // padding so it won't spawn outside
+    const pad = Math.max(12, size * 0.5);
+    const x = clamp(R.left + pad + rng() * Math.max(1, (R.width - pad*2)), R.left + pad, R.right - pad);
+    const y = clamp(R.top  + pad + rng() * Math.max(1, (R.height - pad*2)), R.top  + pad, R.bottom - pad);
 
-    // spawn inside mount with margin
-    const x = Math.round(margin + (r.width - margin*2) * rng());
-    const y = Math.round(margin + (r.height - margin*2) * rng());
-
-    const el = makeTargetEl(kind);
-    placeEl(mount, el, x, y, size);
-
+    const k = pickWeighted(rng, kinds);
     const t = {
-      el,
-      kind: el.dataset.kind,
-      groupIndex: (el.dataset.groupIndex != null) ? Number(el.dataset.groupIndex) : undefined,
-      bornMs: nowMs(),
-      ttlMs: Math.round(ttlMin + (ttlMax-ttlMin)*rng())
+      id: nextId++,
+      kind: k.kind,
+      weight: k.weight,
+      size,
+      x, y,
+      groupIndex: k.groupIndex,
+      emoji: k.emoji
     };
 
-    liveEls.add(el);
+    const el = makeTargetEl(t);
+    mount.appendChild(el);
 
-    function kill(reason){
-      if(!liveEls.has(el)) return;
-      liveEls.delete(el);
-      try{ el.remove(); }catch{}
-      if(reason === 'expire') onExpire(t);
-    }
-
-    // click/tap
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      if(!liveEls.has(el)) return;
-      kill('hit');
+    // hit via click/touch
+    const hit = (ev)=>{
+      ev?.preventDefault?.();
+      if(!running) return;
+      if(!el.isConnected) return;
+      el.remove();
       onHit(t);
-    }, { passive:false });
+    };
+    el.addEventListener('pointerdown', hit, { passive:false });
 
     // expire
     setTimeout(()=>{
-      if(!alive) return;
-      if(!liveEls.has(el)) return;
-      kill('expire');
-    }, t.ttlMs);
+      if(!running) return;
+      if(!el.isConnected) return;
+      el.remove();
+      onExpire(t);
+    }, ttlMs);
+
+    // schedule next
+    timer = setTimeout(spawnOne, spawnRate);
   }
 
-  // crosshair shooting: choose closest target to (x,y) within lockPx
-  function onShoot(e){
-    if(!alive) return;
-    const d = e?.detail || {};
-    const x = Number(d.x); const y = Number(d.y);
-    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+  // -------- shoot handling (crosshair/tap-to-shoot) --------
+  function findHitTargetAt(x, y, lockPx){
+    const r = rectOf(mount);
+    // only allow shots inside playfield rect
+    if(x < r.left || x > r.right || y < r.top || y > r.bottom) return null;
 
-    const lockPx = clamp(d.lockPx ?? 28, 8, 160);
-    const lock2 = lockPx*lockPx;
+    const els = Array.from(mount.querySelectorAll('.plateTarget'));
+    let best = null;
+    let bestD = Infinity;
 
-    // coords from viewport -> mount local
-    const r = mount.getBoundingClientRect();
-    const mx = x - r.left;
-    const my = y - r.top;
-
-    let bestEl = null;
-    let bestD2 = Infinity;
-
-    for(const el of liveEls){
-      const er = el.getBoundingClientRect();
-      const cx = (er.left - r.left) + er.width/2;
-      const cy = (er.top  - r.top ) + er.height/2;
-      const d2 = dist2(mx,my,cx,cy);
-      if(d2 < bestD2){
-        bestD2 = d2;
-        bestEl = el;
+    for(const el of els){
+      const b = el.getBoundingClientRect();
+      const cx = (b.left + b.right)/2;
+      const cy = (b.top + b.bottom)/2;
+      const dx = cx - x;
+      const dy = cy - y;
+      const d = Math.hypot(dx, dy);
+      const rad = Math.max(18, Math.min(90, (b.width/2)));
+      const hitR = rad + (Number(lockPx)||0);
+      if(d <= hitR && d < bestD){
+        best = el;
+        bestD = d;
       }
     }
-
-    if(bestEl && bestD2 <= lock2){
-      // simulate a hit
-      const kind = bestEl.dataset.kind || 'good';
-      const gi = (bestEl.dataset.groupIndex != null) ? Number(bestEl.dataset.groupIndex) : undefined;
-      liveEls.delete(bestEl);
-      try{ bestEl.remove(); }catch{}
-      onHit({ el: bestEl, kind, groupIndex: gi, bornMs: nowMs(), ttlMs: 0 });
-    }
+    return best;
   }
 
-  WIN.addEventListener('hha:shoot', onShoot);
+  function onShoot(ev){
+    if(!running) return;
+    const d = ev?.detail || {};
+    const x = Number(d.x);
+    const y = Number(d.y);
+    if(!isFinite(x) || !isFinite(y)) return;
+
+    const lockPx = Number(d.lockPx || 0) || 0;
+    const el = findHitTargetAt(x, y, lockPx);
+    if(!el) return;
+
+    const id = Number(el.dataset.id || 0);
+    const kind = el.dataset.kind || 'good';
+    el.remove();
+
+    onHit({ id, kind });
+  }
+
+  // attach shoot listener
+  WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
   // start loop
-  timer = setInterval(spawnOne, spawnRate);
-  // immediate seed spawns
-  spawnOne(); spawnOne();
+  timer = setTimeout(spawnOne, Math.max(80, Math.round(spawnRate*0.6)));
 
-  return {
-    stop(){
-      if(!alive) return;
-      alive = false;
-      clearInterval(timer);
-      WIN.removeEventListener('hha:shoot', onShoot);
-      for(const el of liveEls){
-        try{ el.remove(); }catch{}
-      }
-      liveEls.clear();
-    }
-  };
+  return controller;
 }
-
-// Window bridge (compat)
-try{
-  WIN.GAME_MODULES = WIN.GAME_MODULES || {};
-  WIN.GAME_MODULES.ModeFactory = WIN.GAME_MODULES.ModeFactory || {};
-  WIN.GAME_MODULES.ModeFactory.boot = boot;
-}catch(_){}
