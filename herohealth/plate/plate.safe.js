@@ -2,25 +2,11 @@
 // Balanced Plate VR — SAFE ENGINE (PRODUCTION)
 // HHA Standard
 // ------------------------------------------------
-// ✅ Play / Research modes
-//   - play: adaptive ON
-//   - research/study: deterministic seed + adaptive OFF
-// ✅ Emits:
-//   hha:start, hha:score, hha:time, quest:update,
-//   hha:coach, hha:judge, hha:end
-// ✅ Supports: Boss phase, Storm phase (hooks)
-// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
-// ------------------------------------------------
 
 'use strict';
 
-// ✅ IMPORTANT: mode-factory is not an ES module export in your repo.
-// We import it for side effects and then access via window.GAME_MODULES.*
 import '../vr/mode-factory.js';
 
-/* ------------------------------------------------
- * Utilities
- * ------------------------------------------------ */
 const WIN = window;
 const DOC = document;
 
@@ -41,27 +27,67 @@ function seededRng(seed){
   };
 }
 
-// ✅ resolve ModeFactory.boot from global
+function emit(name, detail){
+  WIN.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
+}
+
 function getSpawnBoot(){
   const gm = WIN.GAME_MODULES || {};
   const mf = gm.ModeFactory || gm.modeFactory || WIN.ModeFactory || null;
   const bootFn = mf && typeof mf.boot === 'function' ? mf.boot : null;
   if(!bootFn){
-    throw new Error(
-      "ModeFactory.boot not found. Ensure /herohealth/vr/mode-factory.js defines window.GAME_MODULES.ModeFactory.boot"
-    );
+    // 🔴 make it loud
+    console.error('[PlateVR] ModeFactory not found', { GAME_MODULES: gm, ModeFactory: mf });
+    coach('⚠️ ไม่พบ ModeFactory.boot — เช็คไฟล์ /vr/mode-factory.js', 'System');
+    throw new Error('ModeFactory.boot not found');
   }
   return bootFn;
 }
 
+function ensureMountReady(mount){
+  // wait until mount has non-zero size
+  return new Promise((resolve)=>{
+    const tryNow = ()=>{
+      const r = mount.getBoundingClientRect();
+      if(r.width > 40 && r.height > 40) return resolve(r);
+      requestAnimationFrame(()=>requestAnimationFrame(tryNow)); // wait 2 frames
+    };
+    tryNow();
+  });
+}
+
+// tiny visual debug to prove layer is visible
+function debugDot(mount, xPct, yPct){
+  try{
+    const el = DOC.createElement('div');
+    el.style.cssText = `
+      position:absolute;
+      left:${xPct}%;
+      top:${yPct}%;
+      width:18px; height:18px;
+      border-radius:999px;
+      border:2px solid rgba(34,197,94,.65);
+      box-shadow:0 0 22px rgba(34,197,94,.25);
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      z-index:9999;
+      opacity:.9;
+    `;
+    mount.appendChild(el);
+    setTimeout(()=>el.remove(), 2200);
+  }catch{}
+}
+
 /* ------------------------------------------------
- * Engine state
+ * State
  * ------------------------------------------------ */
 const STATE = {
   running:false,
   ended:false,
-
-  // ✅ NEW: Rush last 15s
   rush:false,
 
   score:0,
@@ -72,10 +98,8 @@ const STATE = {
   timeLeft:0,
   timer:null,
 
-  // plate groups (5 หมู่)
-  g:[0,0,0,0,0], // index 0-4
+  g:[0,0,0,0,0],
 
-  // quest
   goal:{
     name:'เติมจานให้ครบ 5 หมู่',
     sub:'เก็บอาหารให้ครบทุกหมู่',
@@ -91,29 +115,16 @@ const STATE = {
     done:false
   },
 
-  // counters
   hitGood:0,
   hitJunk:0,
   expireGood:0,
 
-  // mode / cfg
   cfg:null,
   rng:Math.random,
 
-  // spawn
   engine:null
 };
 
-/* ------------------------------------------------
- * Event helpers
- * ------------------------------------------------ */
-function emit(name, detail){
-  WIN.dispatchEvent(new CustomEvent(name, { detail }));
-}
-
-/* ------------------------------------------------
- * Quest update
- * ------------------------------------------------ */
 function emitQuest(){
   emit('quest:update', {
     goal:{
@@ -133,16 +144,6 @@ function emitQuest(){
   });
 }
 
-/* ------------------------------------------------
- * Coach helper
- * ------------------------------------------------ */
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
-}
-
-/* ------------------------------------------------
- * Score helpers
- * ------------------------------------------------ */
 function addScore(v){
   STATE.score += v;
   emit('hha:score', {
@@ -161,18 +162,12 @@ function resetCombo(){
   STATE.combo = 0;
 }
 
-/* ------------------------------------------------
- * Accuracy
- * ------------------------------------------------ */
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
   if(total <= 0) return 1;
   return STATE.hitGood / total;
 }
 
-/* ------------------------------------------------
- * End game
- * ------------------------------------------------ */
 function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
@@ -200,9 +195,6 @@ function endGame(reason='timeup'){
   });
 }
 
-/* ------------------------------------------------
- * Timer
- * ------------------------------------------------ */
 function startTimer(){
   emit('hha:time', { leftSec: STATE.timeLeft });
 
@@ -212,10 +204,9 @@ function startTimer(){
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
 
-    // ✅ RUSH: last 15s
     if(!STATE.rush && STATE.timeLeft === 15){
       STATE.rush = true;
-      coach('🔥 ช่วงเร่ง! 15 วิสุดท้าย — เก็บของดีให้ไว (+20% คะแนน)');
+      coach('🔥 ช่วงเร่ง! 15 วิสุดท้าย — เก็บของดีให้ไว (+20% คะแนน)', 'Coach');
     }
 
     if(STATE.timeLeft <= 0){
@@ -224,35 +215,29 @@ function startTimer(){
   }, 1000);
 }
 
-/* ------------------------------------------------
- * Hit handlers
- * ------------------------------------------------ */
 function onHitGood(groupIndex){
   STATE.hitGood++;
   STATE.g[groupIndex]++;
 
   addCombo();
 
-  // ✅ base score with rush bonus
   let base = 100 + STATE.combo * 5;
-  if(STATE.rush) base = Math.round(base * 1.2); // +20% during rush
+  if(STATE.rush) base = Math.round(base * 1.2);
   addScore(base);
 
-  // goal progress
   if(!STATE.goal.done){
     STATE.goal.cur = STATE.g.filter(v=>v>0).length;
     if(STATE.goal.cur >= STATE.goal.target){
       STATE.goal.done = true;
-      coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
+      coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉', 'Coach');
     }
   }
 
-  // mini (accuracy)
   const accPct = accuracy() * 100;
   STATE.mini.cur = Math.round(accPct);
   if(!STATE.mini.done && accPct >= STATE.mini.target){
     STATE.mini.done = true;
-    coach('ความแม่นยำดีมาก! 👍');
+    coach('ความแม่นยำดีมาก! 👍', 'Coach');
   }
 
   emitQuest();
@@ -263,7 +248,7 @@ function onHitJunk(){
   STATE.miss++;
   resetCombo();
   addScore(-50);
-  coach('ระวัง! ของหวาน/ทอด ⚠️');
+  coach('ระวัง! ของหวาน/ทอด ⚠️', 'Coach');
 }
 
 function onExpireGood(){
@@ -272,29 +257,18 @@ function onExpireGood(){
   resetCombo();
 }
 
-/* ------------------------------------------------
- * Spawn logic
- * ------------------------------------------------ */
 function makeSpawner(mount){
   const spawnBoot = getSpawnBoot();
 
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
-
-    // speed
-    spawnRate: STATE.cfg.diff === 'hard' ? 700 : 900,
-
-    // size
-    sizeRange:[44,64],
-
-    // balance
+    spawnRate: (STATE.cfg.diff === 'hard') ? 650 : 850, // ✅ เร่งนิด ๆ
+    sizeRange:[46,66],
     kinds:[
-      { kind:'good', weight:0.7 },
-      { kind:'junk', weight:0.3 }
+      { kind:'good', weight:0.72 },
+      { kind:'junk', weight:0.28 }
     ],
-
-    // hit/expire hooks
     onHit:(t)=>{
       if(t.kind === 'good'){
         const gi = t.groupIndex ?? (Math.floor(STATE.rng()*5));
@@ -312,14 +286,12 @@ function makeSpawner(mount){
 /* ------------------------------------------------
  * Main boot
  * ------------------------------------------------ */
-export function boot({ mount, cfg }){
+export async function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
   STATE.cfg = cfg;
   STATE.running = true;
   STATE.ended = false;
-
-  // reset
   STATE.rush = false;
 
   STATE.score = 0;
@@ -336,7 +308,6 @@ export function boot({ mount, cfg }){
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
-  // RNG
   if(cfg.runMode === 'research' || cfg.runMode === 'study'){
     STATE.rng = seededRng(cfg.seed || Date.now());
   }else{
@@ -356,7 +327,15 @@ export function boot({ mount, cfg }){
   emitQuest();
   startTimer();
 
+  // ✅ wait for mount ready (fix "no spawn")
+  await ensureMountReady(mount);
+
+  // ✅ visual proof
+  debugDot(mount, 50, 60);
+  debugDot(mount, 20, 80);
+
+  // ✅ start spawner
   STATE.engine = makeSpawner(mount);
 
-  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
+  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'Coach');
 }
