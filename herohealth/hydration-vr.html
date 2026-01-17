@@ -1,106 +1,112 @@
 <!-- === /herohealth/hydration-vr.html ===
 Hydration VR Launcher — ROOT (LATEST)
-✅ Auto detect (PC / Mobile / cVR)
-✅ Manual buttons (PC / Mobile / cVR / Cardboard)
-✅ NO override if ?view= exists
-✅ Pass-through all params (hub/run/diff/time/seed/kids/practice/log/...)
-✅ Go to RUN: /herohealth/hydration-vr/hydration-vr.html
+✅ Auto-detect + Buttons (PC / Mobile / cVR / Cardboard)
+✅ Kids / SuperKids quick buttons
+✅ Pass-through query (hub/run/diff/time/seed/sessionId/log/etc.)
+✅ Go to: /herohealth/hydration-vr/hydration-vr.html   (folder-run)
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hydration Quest VR</title>
+  <title>HeroHealth — Hydration VR (Launcher)</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
-
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
+      color-scheme: dark;
       --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
-      --sat: env(safe-area-inset-top,0px);
-      --sab: env(safe-area-inset-bottom,0px);
-      --sal: env(safe-area-inset-left,0px);
-      --sar: env(safe-area-inset-right,0px);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --cyan:#22d3ee;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
       --r:22px; --pill:999px;
     }
     *{box-sizing:border-box}
-    html,body{
-      margin:0; height:100%;
-      background:var(--bg); color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    }
-    .wrap{
-      min-height:100%;
-      display:grid; place-items:center;
-      padding:calc(18px + var(--sat)) calc(16px + var(--sar))
-              calc(18px + var(--sab)) calc(16px + var(--sal));
-    }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{min-height:100%;display:grid;place-items:center;
+      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
-      width:min(860px,100%);
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      border-radius:var(--r);
-      padding:16px;
-      box-shadow:0 24px 90px rgba(0,0,0,.55);
+      width:min(920px,100%);
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      border-radius: var(--r);
+      padding: 16px;
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
     }
-    .title{font-weight:950;font-size:20px}
-    .sub{color:var(--muted);font-size:13px;margin-top:6px}
-    .grid{
-      margin-top:14px;
-      display:grid; grid-template-columns:1fr 1fr; gap:12px;
-    }
-    @media(max-width:720px){ .grid{grid-template-columns:1fr} }
+    .title{font-weight:950;font-size:18px;letter-spacing:.2px}
+    .sub{color:rgba(148,163,184,.95);margin-top:6px;font-size:13px;line-height:1.35}
+    .grid{display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-top:12px}
+    @media (max-width:820px){ .grid{grid-template-columns:1fr} }
     .panel{
       border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.55);
-      border-radius:18px;
-      padding:12px;
+      background: rgba(15,23,42,.55);
+      border-radius: 18px;
+      padding: 12px;
     }
-    .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
     .btn{
-      border-radius:16px;
+      border-radius: 16px;
       border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.72);
-      color:var(--text);
-      padding:10px 14px;
+      background: rgba(15,23,42,.72);
+      color: rgba(229,231,235,.95);
+      padding: 10px 12px;
       font-weight:900;
       cursor:pointer;
     }
-    .btn.primary{
-      background:rgba(34,197,94,.18);
-      border-color:rgba(34,197,94,.28);
+    .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
+    .btn.warn{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.22); }
+    .btn.cyan{ background: rgba(34,211,238,.14); border-color: rgba(34,211,238,.22); }
+    .btn.ghost{ background: transparent; }
+    .hint{margin-top:10px;color:rgba(148,163,184,.95);font-size:12px;line-height:1.35}
+    code{color:rgba(34,211,238,.95)}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.45);
+      border-radius: 999px;
+      padding:6px 10px;
+      font-size:12px;
+      color:rgba(229,231,235,.9);
+      margin-top:10px;
     }
-    .btn.ghost{ background:transparent }
-    .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.35}
-    code{color:#22d3ee}
   </style>
 </head>
-
 <body>
 <div class="wrap">
   <div class="card">
     <div class="title">Hydration Quest VR</div>
     <div class="sub" id="autoText">กำลังตรวจจับอุปกรณ์…</div>
+    <div class="pill" id="paramText">params: —</div>
 
     <div class="grid">
-      <!-- AUTO -->
       <div class="panel">
-        <div style="font-weight:900">เข้าเล่นอัตโนมัติ</div>
+        <div style="font-weight:900">เริ่มแบบ Auto (แนะนำ)</div>
         <div class="hint">
-          ระบบเลือก <b>PC / Mobile / cVR</b> ให้เหมาะกับอุปกรณ์<br/>
-          (ถ้ามี <code>?view=</code> จะไม่ override)
+          กดปุ่มเดียว ระบบเลือก <b>PC / Mobile / cVR</b> ให้เหมาะกับอุปกรณ์<br/>
+          ถ้าใช้ Cardboard ให้กด Cardboard
         </div>
         <div class="row">
           <button class="btn primary" id="btnAuto">Auto Start</button>
           <button class="btn ghost" id="btnBack">กลับ HUB</button>
         </div>
+
+        <div class="hint" style="margin-top:10px">
+          • โหมดเด็ก: <code>?kids=1</code> / เด็กง่ายสุด: <code>?kids=2</code><br/>
+          • Auto kids: ถ้าใส่ <code>grade=5</code> หรือ <code>age=11</code> ระบบจะเปิด kids ให้เอง
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn warn" id="btnKids">Kids (kids=1)</button>
+          <button class="btn cyan" id="btnSuper">SuperKids (kids=2)</button>
+        </div>
       </div>
 
-      <!-- MANUAL -->
       <div class="panel">
-        <div style="font-weight:900">เลือกโหมดเอง</div>
+        <div style="font-weight:900">เลือกโหมดเอง (มีปุ่ม)</div>
         <div class="row">
           <button class="btn" id="btnPC">PC</button>
           <button class="btn" id="btnMobile">Mobile</button>
@@ -110,13 +116,14 @@ Hydration VR Launcher — ROOT (LATEST)
         <div class="hint">
           • cVR = ยิงจากกลางจอ (crosshair)<br/>
           • Cardboard = <code>?view=cvr&cardboard=1</code><br/>
-          • Kids = <code>?kids=1</code>
+          • Kids mode = <code>?kids=1</code> / SuperKids = <code>?kids=2</code>
         </div>
       </div>
     </div>
 
     <div class="hint" style="margin-top:12px">
       RUN อยู่ที่: <code>/herohealth/hydration-vr/hydration-vr.html</code>
+      <br/>หมายเหตุ: root=launcher, folder=run (ตามมาตรฐาน)
     </div>
   </div>
 </div>
@@ -124,36 +131,50 @@ Hydration VR Launcher — ROOT (LATEST)
 <script>
 (function(){
   'use strict';
-  const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
-  const RUN_URL = './hydration-vr/hydration-vr.html';
   const hub = String(qs('hub','./hub.html'));
+  const RUN_URL = './hydration-vr/hydration-vr.html';
 
   function detectView(){
-    // respect explicit view
-    const explicit = String(qs('view','')).toLowerCase();
-    if (explicit) return explicit;
-
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0)>0;
-    const w=Math.max(1,innerWidth||1), h=Math.max(1,innerHeight||1);
-    const landscape = w>=h;
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
+    const w = Math.max(1, innerWidth||1);
+    const h = Math.max(1, innerHeight||1);
+    const landscape = w >= h;
 
     if (isTouch){
-      if (landscape && w>=740) return 'cvr';
+      if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
     return 'pc';
   }
 
-  function go(view, cardboard=false){
-    const u = new URL(RUN_URL, location.href);
-    // passthrough all params
+  function passThrough(u){
     const cur = new URL(location.href);
-    cur.searchParams.forEach((v,k)=>u.searchParams.set(k,v));
+    cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
+  }
 
-    if (!u.searchParams.get('view')) u.searchParams.set('view', view);
+  function go(view, cardboard=false, kidsOverride=null){
+    const u = new URL(RUN_URL, location.href);
+
+    // pass all params through
+    passThrough(u);
+
+    // enforce view/cardboard (explicit)
+    u.searchParams.set('view', view);
     if (cardboard) u.searchParams.set('cardboard','1');
+    else u.searchParams.delete('cardboard');
+
+    // optional kids override (set only if provided)
+    if (kidsOverride !== null){
+      u.searchParams.set('kids', String(kidsOverride));
+    }
+
+    // ensure hub exists
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
+    // stamp ts so reload fresh
+    if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
 
     location.href = u.toString();
   }
@@ -161,15 +182,30 @@ Hydration VR Launcher — ROOT (LATEST)
   const autoView = detectView();
   const autoText = document.getElementById('autoText');
   if (autoText){
-    autoText.textContent = `ตรวจจับแล้ว: ${autoView.toUpperCase()} (กด Auto Start)`;
+    autoText.textContent = `ตรวจจับแล้ว: ${autoView.toUpperCase()} (กด Auto Start เพื่อเข้าเล่น)`;
   }
 
-  document.getElementById('btnAuto')?.addEventListener('click', ()=>go(autoView,false));
-  document.getElementById('btnPC')?.addEventListener('click', ()=>go('pc',false));
-  document.getElementById('btnMobile')?.addEventListener('click', ()=>go('mobile',false));
-  document.getElementById('btnCVR')?.addEventListener('click', ()=>go('cvr',false));
-  document.getElementById('btnCardboard')?.addEventListener('click', ()=>go('cvr',true));
-  document.getElementById('btnBack')?.addEventListener('click', ()=>location.href=hub);
+  const paramText = document.getElementById('paramText');
+  if (paramText){
+    const cur = new URL(location.href);
+    const keep = ['run','diff','time','seed','sessionId','studyId','phase','conditionGroup','log','kids','grade','age'];
+    const pairs = keep
+      .filter(k=>cur.searchParams.get(k)!=null)
+      .map(k=>`${k}=${cur.searchParams.get(k)}`);
+    paramText.textContent = 'params: ' + (pairs.length ? pairs.join(' • ') : '—');
+  }
+
+  document.getElementById('btnAuto')?.addEventListener('click', ()=> go(autoView, false, null));
+  document.getElementById('btnPC')?.addEventListener('click', ()=> go('pc', false, null));
+  document.getElementById('btnMobile')?.addEventListener('click', ()=> go('mobile', false, null));
+  document.getElementById('btnCVR')?.addEventListener('click', ()=> go('cvr', false, null));
+  document.getElementById('btnCardboard')?.addEventListener('click', ()=> go('cvr', true, null));
+
+  // kids quick
+  document.getElementById('btnKids')?.addEventListener('click', ()=> go(autoView, false, 1));
+  document.getElementById('btnSuper')?.addEventListener('click', ()=> go(autoView, false, 2));
+
+  document.getElementById('btnBack')?.addEventListener('click', ()=> location.href = hub);
 })();
 </script>
 </body>
