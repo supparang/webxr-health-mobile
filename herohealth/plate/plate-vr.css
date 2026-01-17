@@ -1,10 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — LAYOUT + UI + FX (PRODUCTION)
-   ✅ HUD 2 columns (left+right)
-   ✅ Quest row below HUD (not overlay gameplay)
-   ✅ Coach bottom
-   ✅ Safe-zone vars: --playTop/--playBottom measured by boot.js
+   Balanced Plate VR — UI + FX (PRODUCTION+)
+   HHA Standard
 ========================================================= */
 
 :root{
@@ -25,20 +22,17 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* measured by JS (fallbacks) */
-  --playTop: calc(140px + var(--sat));
-  --playBottom: calc(88px + var(--sab));
-  --sidePad: 12px;
 }
 
-/* Global */
+/* ---------------------------------------------------------
+   Global
+--------------------------------------------------------- */
 *{ box-sizing:border-box; }
+
 html,body{
   margin:0;
   width:100%;
@@ -50,314 +44,135 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Playfield (Targets spawn INSIDE this rectangle)
-   IMPORTANT: this is the SAFE spawn zone (no HUD overlap)
+   Spawn Layer (Targets)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
-  left: var(--sidePad);
-  right: var(--sidePad);
-  top: var(--playTop);
-  bottom: var(--playBottom);
+  inset:0;
   z-index:10;
-
   pointer-events:auto;
   touch-action:none;
   user-select:none;
-  overflow:hidden;
-  border-radius: 18px;
-
-  /* subtle guide for debugging; can remove later */
-  /* outline: 1px dashed rgba(148,163,184,.12); */
 }
 
-/* ---------------------------------------------------------
-   Targets (DOM)
---------------------------------------------------------- */
-.plateTarget{
+/* Target disc — match screenshot */
+#plate-layer .plateTarget{
   display:grid;
   place-items:center;
-  border-radius:999px;
+  border-radius:999px !important;
+
+  font-size:28px;
   font-weight:900;
-  user-select:none;
-  cursor:pointer;
 
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
-    rgba(2,6,23,.60);
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), transparent 42%),
+    radial-gradient(circle at 60% 70%, rgba(148,163,184,.10), transparent 52%),
+    rgba(15,23,42,.62) !important;
 
-  border:1px solid var(--stroke);
+  border:1px solid rgba(148,163,184,.22) !important;
+
   box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    inset 0 1px 0 rgba(255,255,255,.08);
+    0 18px 48px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.10);
 
-  animation: pop .14s ease-out, wobble 1.6s ease-in-out infinite;
+  text-shadow: 0 2px 0 rgba(0,0,0,.28);
   -webkit-tap-highlight-color: transparent;
-}
-.plateTarget:active{ transform: translate(-50%,-50%) scale(.98); }
-
-.plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.35);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(34,197,94,.18);
-}
-.plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.35);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(239,68,68,.18);
-  animation-duration:1.15s;
+  cursor:pointer;
 }
 
-@keyframes pop{
-  0%{ transform: translate(-50%,-50%) scale(.86); opacity:0 }
-  100%{ transform: translate(-50%,-50%) scale(1); opacity:1 }
+/* subtle outer ring */
+#plate-layer .plateTarget::before{
+  content:"";
+  position:absolute;
+  inset:-10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.10);
+  box-shadow: 0 0 0 1px rgba(2,6,23,.35) inset;
+  opacity:.85;
+  pointer-events:none;
 }
-@keyframes wobble{
-  0%{ transform: translate(-50%,-50%) rotate(0deg) }
-  25%{ transform: translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform: translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform: translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform: translate(-50%,-50%) rotate(0deg) }
+
+/* kind colors */
+#plate-layer .plateTarget[data-kind="good"]{
+  border-color: rgba(34,197,94,.32) !important;
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.35),
+    0 0 26px rgba(34,197,94,.12),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+#plate-layer .plateTarget[data-kind="junk"]{
+  border-color: rgba(239,68,68,.30) !important;
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.35),
+    0 0 26px rgba(239,68,68,.12),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+#plate-layer .plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.34) !important;
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.35),
+    0 0 26px rgba(34,211,238,.14),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+#plate-layer .plateTarget:active{
+  transform: translate(-50%,-50%) scale(.985);
 }
 
 /* ---------------------------------------------------------
-   HUD — 2 columns (left KPI chips + right mini summary)
+   HUD generic (used by RUN A)
 --------------------------------------------------------- */
-#hud{
-  position:fixed;
-  left: var(--sidePad);
-  right: var(--sidePad);
-  top: calc(var(--sidePad) + var(--sat));
-  z-index:30;
-  pointer-events:none;
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
+.card,.pill,.questCard,.startCard,.pausedCard,.resultCard,.eventCard{
+  box-shadow:0 16px 48px rgba(0,0,0,.28) !important;
 }
-
-#hud .hudRow{
-  pointer-events:none;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  width: 52%;
-  min-width: 280px;
+.pill{
+  background:rgba(15,23,42,.68) !important;
+  border:1px solid rgba(148,163,184,.18);
 }
-
-#questCard{
-  width: 48%;
-  min-width: 280px;
-  pointer-events:auto;
-}
-
-.chip{
-  pointer-events:auto;
-  display:flex;
-  flex-direction:column;
-  gap:3px;
-  padding:10px 12px;
-  border-radius: 16px;
-  background: var(--panel);
-  border:1px solid var(--stroke);
-  box-shadow: 0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-  min-width: 92px;
-}
-.chip .lbl{
-  font-size:11px;
-  font-weight:900;
-  color: rgba(148,163,184,.95);
-}
-.chip .val{
-  font-size:16px;
-  font-weight:1000;
-  letter-spacing:.2px;
-}
-.chip.score{ border-color: rgba(34,197,94,.28); }
-.chip.time{  border-color: rgba(34,211,238,.22); }
-.chip.combo{ border-color: rgba(167,139,250,.22); }
-
-/* Quest card */
-.card{
-  background: var(--panel2);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding: 10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-}
-.cardTitle{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  align-items:flex-start;
-}
-.cardTitle .t{
-  font-weight:1000;
-  font-size:12px;
-}
-.cardTitle .hint{
-  font-weight:900;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-  line-height:1.25;
-  text-align:right;
-  max-width: 60%;
-}
-
-.qItem{
-  margin-top:10px;
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-.qText{ flex:1; min-width: 180px; }
-.qText .name{ font-weight:1000; font-size:13px; }
-.qText .sub{ margin-top:2px; font-weight:900; font-size:12px; color: rgba(148,163,184,.95); }
-
-.qProg{ display:flex; flex-direction:column; gap:6px; min-width: 160px; }
-.qNums{ font-weight:1000; font-size:12px; color: rgba(229,231,235,.92); text-align:right; }
-
 .bar{
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.12);
-  overflow:hidden;
+  background:rgba(148,163,184,.10) !important;
   border:1px solid rgba(148,163,184,.14);
 }
-.bar > i{
+.bar>i{
   display:block;
   height:100%;
   width:0%;
-  background: var(--accent);
-  transition: width .22s ease;
+  background:rgba(34,197,94,.85);
 }
-#miniBar{ background: linear-gradient(90deg, rgba(245,158,11,.85), rgba(239,68,68,.78)); }
 
-/* ---------------------------------------------------------
-   Coach bubble (bottom)
---------------------------------------------------------- */
-#coachCard{
-  position:fixed;
-  left: var(--sidePad);
-  right: var(--sidePad);
-  bottom: calc(var(--sidePad) + var(--sab));
-  z-index:28;
+/* Fever */
+.bar.bad{
+  background:linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08)) !important;
+}
+#uiFeverFill{
+  background: linear-gradient(90deg, rgba(245,158,11,.80), rgba(239,68,68,.85)) !important;
+  box-shadow:0 0 18px rgba(239,68,68,.16) !important;
+}
+
+/* Boss/Storm layers (optional) */
+#bossFx,#stormFx{
+  position:fixed; inset:0;
   pointer-events:none;
-  display:flex;
-  justify-content:flex-start;
-}
-
-#coachCard .inner{
-  pointer-events:auto;
-  background: rgba(15,23,42,.72);
-  border: 1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding: 10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-  max-width: 520px;
+  z-index:55;
   opacity:0;
-  transform: translateY(6px);
-  transition: opacity .16s ease, transform .16s ease;
+  transition: opacity .15s ease;
 }
-#coachCard.show .inner{
-  opacity:1;
-  transform: translateY(0);
-}
-#coachMsg{ font-weight:1000; }
-#coachMeta{
-  margin-top:4px;
-  font-weight:900;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
+#bossFx.boss-on{ opacity:1; }
+#stormFx.storm-on{ opacity:1; }
 
-/* ---------------------------------------------------------
-   End overlay
---------------------------------------------------------- */
-#endOverlay{
-  position:fixed;
-  inset:0;
-  z-index:70;
-  display:grid;
-  place-items:center;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-}
-#endOverlay[aria-hidden="true"]{ display:none; }
-
-.endPanel{
-  width: min(900px, 100%);
-  background: var(--panel);
-  border:1px solid var(--stroke);
-  border-radius: 22px;
-  padding: 14px;
-  box-shadow: 0 26px 90px rgba(0,0,0,.42);
-}
-
-.endTitle{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
-.endTitle h2{ margin:0; font-size:18px; font-weight:1200; }
-.tag{
-  padding:6px 10px;
+/* Result grade badge */
+#rGrade{
+  display:inline-block;
+  padding:6px 12px;
   border-radius:999px;
-  border:1px solid var(--stroke);
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.70);
-  font-weight:1000;
-  font-size:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,.25);
 }
 
-.endGrid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap:10px;
-}
-.kpi{
-  background: var(--panel2);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-}
-.kpi .k{ font-weight:900; font-size:12px; color: rgba(148,163,184,.95); }
-.kpi .v{ margin-top:4px; font-weight:1200; font-size:16px; }
-
-.endBtns{
-  margin-top:12px;
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-.btn{
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:10px 14px;
-  font-weight:1000;
-  font-size:12px;
-  cursor:pointer;
-  color:var(--text);
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
-}
-.btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
-}
-
-/* ---------------------------------------------------------
-   Responsive
---------------------------------------------------------- */
-@media (max-width: 920px){
-  #hud{ flex-direction:column; }
-  #hud .hudRow{ width:100%; }
-  #questCard{ width:100%; }
-  .cardTitle .hint{ max-width: 100%; text-align:left; }
-  .endGrid{ grid-template-columns: 1fr; }
+/* Responsive */
+@media (max-width:900px){
+  #plate-layer .plateTarget{ font-size:24px; }
 }
