@@ -1,85 +1,80 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Helper — LATEST (smooth + responsive + superkids)
-// ✅ setWaterGauge(pct) smooth-follow (not laggy)
-// ✅ zoneFrom(pct): LOW / GREEN / HIGH
-// URL:
-//   ?kids=1, ?kids=2|super
+// Water Gauge UI — ESM (Cross-game)
+// ✅ ensureWaterGauge(): creates small corner gauge (non-intrusive)
+// ✅ setWaterGauge(pct): update
+// ✅ zoneFrom(pct): LOW/GREEN/HIGH (default thresholds tuned for kids-safe feel)
 
 'use strict';
 
-const WIN = (typeof window !== 'undefined') ? window : globalThis;
-const DOC = WIN.document;
-
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
+  // โซน GREEN กว้างหน่อยสำหรับ ป.5
   if (p < 40) return 'LOW';
   if (p > 70) return 'HIGH';
   return 'GREEN';
 }
 
-let mounted = false;
-let cur = 50;
-let target = 50;
-let rafId = 0;
-
-function getKidsLevel(){
-  const v = String(qs('kids','')).toLowerCase().trim();
-  if (v==='2' || v==='super') return 2;
-  if (v==='1' || v==='true' || v==='yes') return 1;
-  return 0;
-}
-
-function getEls(){
-  return {
-    bar: DOC?.getElementById('water-bar'),
-    pct: DOC?.getElementById('water-pct'),
-    zone: DOC?.getElementById('water-zone')
-  };
-}
-
-function step(){
-  rafId = 0;
-  const { bar, pct, zone } = getEls();
-  if (!bar && !pct && !zone) return;
-
-  const lvl = getKidsLevel(); // 0/1/2
-  const follow = (lvl===2) ? 0.36 : (lvl===1 ? 0.28 : 0.20);
-  const snap   = (lvl===2) ? 2.6  : (lvl===1 ? 2.0  : 1.3);
-
-  const d = target - cur;
-  if (Math.abs(d) < snap) cur = target;
-  else cur = cur + d * follow;
-
-  const p = clamp(cur,0,100);
-  const z = zoneFrom(p);
-
-  if (bar) bar.style.width = p.toFixed(0) + '%';
-  if (pct) pct.textContent = String(p|0);
-  if (zone) zone.textContent = z;
-
-  if (Math.abs(target - cur) > 0.25){
-    rafId = requestAnimationFrame(step);
-  }
-}
-
 export function ensureWaterGauge(){
-  if (!DOC || mounted) return;
-  mounted = true;
-  cur = 50; target = 50;
+  const d = document;
+  if (!d || d.getElementById('hha-waterg')) return;
 
-  const { bar, pct, zone } = getEls();
-  if (bar) bar.style.width = '50%';
-  if (pct) pct.textContent = '50';
-  if (zone) zone.textContent = zoneFrom(50);
+  const wrap = d.createElement('div');
+  wrap.id = 'hha-waterg';
+  wrap.style.cssText = `
+    position:fixed;
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    z-index: 95;
+    pointer-events:none;
+    display:flex; align-items:center; gap:8px;
+    font: 800 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color: rgba(229,231,235,.92);
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(148,163,184,.16);
+    background: rgba(2,6,23,.55);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 16px 60px rgba(0,0,0,.35);
+  `;
+
+  const label = d.createElement('span');
+  label.textContent = 'Water Gauge';
+
+  const pct = d.createElement('span');
+  pct.id = 'hha-waterg-pct';
+  pct.textContent = '50%';
+  pct.style.cssText = `font-weight:950; margin-left:6px;`;
+
+  const bar = d.createElement('div');
+  bar.style.cssText = `
+    width: 120px; height: 8px; border-radius:999px; overflow:hidden;
+    background: rgba(148,163,184,.18);
+    border: 1px solid rgba(148,163,184,.10);
+  `;
+
+  const fill = d.createElement('div');
+  fill.id = 'hha-waterg-fill';
+  fill.style.cssText = `
+    height:100%;
+    width:50%;
+    border-radius:999px;
+    background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+  `;
+  bar.appendChild(fill);
+
+  wrap.appendChild(label);
+  wrap.appendChild(bar);
+  wrap.appendChild(pct);
+  d.body.appendChild(wrap);
 }
 
 export function setWaterGauge(pct){
-  target = clamp(pct,0,100);
-  if (!rafId) rafId = requestAnimationFrame(step);
+  const d = document;
+  const p = clamp(pct,0,100);
+  const fill = d.getElementById('hha-waterg-fill');
+  const t = d.getElementById('hha-waterg-pct');
+  if (fill) fill.style.width = p.toFixed(0)+'%';
+  if (t) t.textContent = p.toFixed(0)+'%';
 }
