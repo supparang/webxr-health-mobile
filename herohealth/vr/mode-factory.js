@@ -1,7 +1,9 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (HHA) — PRODUCTION PATCH
-// ✅ Export boot() for compatibility
+// ✅ Export boot() for compatibility (Plate imports { boot as spawnBoot })
 // ✅ Fix TDZ: controller referenced before init
+// ✅ Simple spawn with TTL + pointer hit
+// ✅ Works for PC/Mobile/cVR (tap-to-shoot handled by vr-ui.js separately)
 
 'use strict';
 
@@ -11,7 +13,6 @@ const DOC  = ROOT.document;
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-// --- seeded rng helper (keep existing if you already have)
 function seededRng(seed){
   let t = (seed>>>0) || 1;
   return function(){
@@ -22,45 +23,54 @@ function seededRng(seed){
   };
 }
 
+function pickWeighted(rng, arr){
+  let sum = 0;
+  for(const a of arr) sum += (Number(a.weight)||0);
+  let r = rng() * (sum || 1);
+  for(const a of arr){
+    r -= (Number(a.weight)||0);
+    if(r <= 0) return a;
+  }
+  return arr[arr.length-1];
+}
+
 /**
  * createSpawner(cfg)
  * cfg = {
- *   mount, seed, spawnRate, sizeRange,
- *   kinds:[{kind,weight,...}], onHit(t), onExpire(t),
- *   playRectEl? (optional), safeZoneEl? (optional)
+ *   mount,
+ *   seed, rng?,
+ *   spawnRate, ttlMs?,
+ *   sizeRange:[min,max],
+ *   kinds:[{kind,weight,icon,ttlMs,meta...}],
+ *   onHit(t), onExpire(t),
+ *   className? (default 'plateTarget')
  * }
  */
 export function createSpawner(cfg){
+  if(!DOC) throw new Error('mode-factory: document missing');
   if(!cfg || !cfg.mount) throw new Error('mode-factory: mount missing');
 
   // ✅ FIX TDZ: declare first
   let controller = null;
 
   const mount = cfg.mount;
-  const rng = (cfg.rng) ? cfg.rng : seededRng(Number(cfg.seed)||Date.now());
+  const rng = cfg.rng ? cfg.rng : seededRng(Number(cfg.seed)||Date.now());
+
   const spawnRate = Math.max(120, Number(cfg.spawnRate)||900);
+  const ttlBase   = Math.max(400, Number(cfg.ttlMs)||2200);
+
   const sizeMin = (cfg.sizeRange && cfg.sizeRange[0]) ? Number(cfg.sizeRange[0]) : 44;
   const sizeMax = (cfg.sizeRange && cfg.sizeRange[1]) ? Number(cfg.sizeRange[1]) : 64;
 
   const kinds = Array.isArray(cfg.kinds) && cfg.kinds.length ? cfg.kinds : [
-    {kind:'good', weight:0.7},
-    {kind:'junk', weight:0.3}
+    { kind:'good', weight:0.7, icon:'🍽️' },
+    { kind:'junk', weight:0.3, icon:'🍩' }
   ];
 
-  function pickKind(){
-    let sum = 0;
-    for(const k of kinds) sum += (Number(k.weight)||0);
-    let r = rng()*sum;
-    for(const k of kinds){
-      r -= (Number(k.weight)||0);
-      if(r<=0) return k;
-    }
-    return kinds[kinds.length-1];
-  }
+  const className = cfg.className || 'plateTarget';
 
   function getRect(){
     const r = mount.getBoundingClientRect();
-    // กันกรณี mount ซ่อน/0x0
     const w = Math.max(1, r.width);
     const h = Math.max(1, r.height);
     return { left:r.left, top:r.top, width:w, height:h };
@@ -70,28 +80,29 @@ export function createSpawner(cfg){
     if(!controller || !controller.running) return;
 
     const rect = getRect();
-    const size = clamp(sizeMin + rng()*(sizeMax-sizeMin), 24, 160);
+    // ถ้า mount ยังไม่มีขนาด (เช่น display:none) ก็ skip
+    if(rect.width < 4 || rect.height < 4) return;
+
+    const size = clamp(sizeMin + rng()*(sizeMax-sizeMin), 24, 220);
 
     const x = rect.left + size/2 + rng()*(rect.width - size);
     const y = rect.top  + size/2 + rng()*(rect.height - size);
 
-    const k = pickKind();
+    const k = pickWeighted(rng, kinds);
 
     const el = DOC.createElement('div');
-    el.className = 'plateTarget';
-    el.dataset.kind = k.kind;
+    el.className = className;
+    el.dataset.kind = k.kind || 'good';
 
-    // allow caller attach metadata
-    const t = {
-      kind: k.kind,
+    const t = Object.assign({}, k, {
+      kind: k.kind || 'good',
       el,
-      x, y,
-      size,
+      x, y, size,
       bornAt: now(),
-      ttlMs: Number(k.ttlMs||cfg.ttlMs||2200),
-      groupIndex: (k.groupIndex != null) ? k.groupIndex : undefined
-    };
+      ttlMs: Math.max(250, Number(k.ttlMs || ttlBase) || ttlBase),
+    });
 
+    // positioning within mount
     el.style.position = 'absolute';
     el.style.left = (x - rect.left) + 'px';
     el.style.top  = (y - rect.top) + 'px';
@@ -99,29 +110,30 @@ export function createSpawner(cfg){
     el.style.height = size + 'px';
     el.style.transform = 'translate(-50%,-50%)';
 
-    // text/icon decided by caller OR default emoji
-    el.textContent = k.icon || (k.kind==='junk' ? '🍩' : '🍽️');
+    // icon/text
+    el.textContent = k.icon || (t.kind === 'junk' ? '🍩' : '🍽️');
 
     let expired = false;
+
     const to = setTimeout(()=>{
       expired = true;
       try{ el.remove(); }catch(_){}
       cfg.onExpire && cfg.onExpire(t);
     }, t.ttlMs);
 
-    const onHit = ()=>{
+    function hit(){
       if(expired) return;
       expired = true;
       clearTimeout(to);
       try{ el.remove(); }catch(_){}
       cfg.onHit && cfg.onHit(t);
-    };
+    }
 
-    el.addEventListener('pointerdown', onHit, { passive:true });
+    el.addEventListener('pointerdown', hit, { passive:true });
     mount.appendChild(el);
   }
 
-  // ✅ controller assigned after functions defined
+  // ✅ assign controller after functions exist
   controller = {
     running:false,
     _timer:null,
@@ -129,7 +141,6 @@ export function createSpawner(cfg){
       if(controller.running) return;
       controller.running = true;
       controller._timer = setInterval(spawnOne, spawnRate);
-      // spawn immediately
       spawnOne();
     },
     stop(){
@@ -142,7 +153,7 @@ export function createSpawner(cfg){
   return controller;
 }
 
-/** ✅ Compatibility: export boot() so Plate can import { boot as spawnBoot } */
+/** ✅ Compatibility export: Plate can import { boot as spawnBoot } */
 export function boot(cfg){
   const c = createSpawner(cfg);
   c.start();
