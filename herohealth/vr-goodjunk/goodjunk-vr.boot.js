@@ -1,11 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (AUTO VIEW + HHA Standard)
-// ✅ If ?view= exists => DO NOT override
-// ✅ Else auto-detect: cVR / VR / mobile / pc
-// ✅ Sets body classes: view-pc | view-mobile | view-vr | view-cvr (+ run/diff)
-// ✅ Ensures vr-ui.js is present (if not, injects it once)
-// ✅ Boots engine: import { boot } from './goodjunk.safe.js' and calls with payload
-// ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/style/log/etc.
+// GoodJunkVR Boot — PRODUCTION (AUTO VIEW + NO OVERRIDE)
+// ✅ Auto-detect view: pc | mobile | vr | cvr (only if ?view is NOT set)
+// ✅ Sets body classes: view-pc/view-mobile/view-vr/view-cvr + is-vr/is-cvr
+// ✅ Ensures vr-ui.js is available (already loaded by HTML via defer)
+// ✅ Boots engine once DOM is ready (no double start)
+// ✅ Pass-through params to safe.js: view/diff/run/time/seed/hub/studyId/phase/conditionGroup
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -16,200 +15,108 @@ function qs(k, def = null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
-function hasParam(k){
+function hasQs(k){
   try { return new URL(location.href).searchParams.has(k); }
   catch { return false; }
 }
-function toLower(x, def=''){
-  return String(x ?? def).toLowerCase();
-}
+function clamp(v, a, b){ v = Number(v); if(!isFinite(v)) v = a; return v < a ? a : (v > b ? b : v); }
 
-function detectMobile(){
-  const ua = (navigator.userAgent || '').toLowerCase();
-  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
-  const small = Math.min(DOC.documentElement.clientWidth||0, DOC.documentElement.clientHeight||0) <= 860;
-  return touch && (small || /android|iphone|ipad|ipod|mobile/.test(ua));
-}
-function detectCardboardOrVRHint(){
-  // Heuristic: if query says vr or cardboard in style/run links; or WebXR available
-  // Not forcing VR mode; just helps pick view=vr when user uses VR pages.
-  const style = toLower(qs('style',''));
-  const v = toLower(qs('v',''));
-  const hint = /vr|cardboard|stereo/.test(style) || /vr|cardboard/.test(v);
-  const xr = !!(navigator.xr);
-  return hint || xr;
-}
-function detectCVR(){
-  // "cVR strict" = split-layer + crosshair shooting (phone-in-cardboard style)
-  // If explicitly requested by ?view=cvr => handled elsewhere
-  // Heuristic: if ?cvr=1 or ?stereo=1
-  const cvr = qs('cvr', null);
-  const stereo = qs('stereo', null);
-  if(String(cvr) === '1' || String(stereo) === '1') return true;
+function detectPlatform(){
+  // Heuristic: if WebXR immersive-vr available -> "vr" (Cardboard/VR)
+  // If dual-eye overlay mode is used by your system -> "cvr" (strict crosshair)
+  // Otherwise pc/mobile by pointer & screen size
+  const W = Math.max(1, DOC.documentElement.clientWidth || 1);
+  const H = Math.max(1, DOC.documentElement.clientHeight || 1);
+  const isCoarse = WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches;
+  const isSmall = Math.min(W, H) <= 820;
 
-  // If user uses split-layer in CSS or wants center shooting: ?view=cvr recommended
-  // Here we keep heuristic conservative.
-  return false;
-}
+  // If user has your loader setting (optional)
+  const hinted = (WIN.HHA_VIEW && WIN.HHA_VIEW.view) ? String(WIN.HHA_VIEW.view).toLowerCase() : null;
+  if(hinted === 'cvr' || hinted === 'vr' || hinted === 'pc' || hinted === 'mobile') return hinted;
 
-function autoView(){
-  // RULE: if user already set ?view=, DO NOT override
-  if(hasParam('view')){
-    return toLower(qs('view','mobile'), 'mobile');
+  // If query param style is present (optional)
+  const style = String(qs('style','')||'').toLowerCase();
+  if(style === 'cvr') return 'cvr';
+
+  // WebXR availability (best effort; do not await)
+  const xr = WIN.navigator && WIN.navigator.xr;
+  if(xr && typeof xr.isSessionSupported === 'function'){
+    // If this is a VR-capable device/browser, prefer "vr" unless it looks like phone-only
+    // (We won't await promise; we only use immediate heuristics)
+    // Keep it simple and deterministic: choose vr on large screens or when not coarse pointer.
+    if(!isSmall || !isCoarse) return 'vr';
   }
 
-  // else detect
-  if(detectCVR()) return 'cvr';
-
-  // if mobile device: default mobile (unless VR hint strongly present)
-  const isMob = detectMobile();
-  if(isMob){
-    // If VR hint and user likely in cardboard: choose cvr? We keep vr vs cvr separate.
-    // If you want strict cvr, user should pass ?view=cvr explicitly.
-    return detectCardboardOrVRHint() ? 'vr' : 'mobile';
-  }
-
-  // desktop
+  // Fallback: mobile vs pc
+  if(isCoarse || isSmall) return 'mobile';
   return 'pc';
 }
 
-function ensureVrUi(){
-  // If vr-ui.js already loaded (global guard), do nothing
-  if(WIN.__HHA_VRUI_LOADED__) return;
-
-  // If script tag already present, do nothing
-  const existed = Array.from(DOC.scripts || []).some(s => (s.src||'').includes('/vr/vr-ui.js') || (s.src||'').includes('vr-ui.js'));
-  if(existed) return;
-
-  // Inject once
-  const s = DOC.createElement('script');
-  s.src = '../vr/vr-ui.js';
-  s.defer = true;
-  DOC.head.appendChild(s);
+function resolveView(){
+  // IMPORTANT: do NOT override if user explicitly set ?view=
+  if(hasQs('view')){
+    const v = String(qs('view','mobile') || 'mobile').toLowerCase();
+    if(v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
+  }
+  return detectPlatform();
 }
 
-function setBodyViewClasses(view){
+function setBodyView(view){
   const b = DOC.body;
   if(!b) return;
 
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','is-vr','is-cvr');
   if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'cvr') b.classList.add('view-cvr');
+  else if(view === 'vr') b.classList.add('view-vr','is-vr');
+  else if(view === 'cvr') b.classList.add('view-cvr','is-vr','is-cvr');
   else b.classList.add('view-mobile');
 
-  // Also add run/diff convenience classes (safe for CSS/FX tuning)
-  const run = toLower(qs('run','play'));
-  const diff = toLower(qs('diff','normal'));
-
-  b.classList.remove('run-play','run-research','run-practice');
-  b.classList.add(`run-${run}`);
-
-  b.classList.remove('diff-easy','diff-normal','diff-hard');
-  b.classList.add(`diff-${diff}`);
-
-  // mark for debugging
-  b.setAttribute('data-view', view);
-  b.setAttribute('data-run', run);
-  b.setAttribute('data-diff', diff);
+  // also set a data attr (handy for debugging)
+  b.dataset.view = view;
 }
 
-function measureAndSetSafeVars(){
-  // Sets CSS vars that goodjunk.safe.js uses for safe spawning
-  // --gj-top-safe / --gj-bottom-safe in px
-  try{
-    const root = DOC.documentElement;
-    if(!root) return;
+function bootOnce(){
+  if(WIN.__GJ_BOOTED__) return;
+  WIN.__GJ_BOOTED__ = true;
 
-    const css = getComputedStyle(root);
-    const sat = parseFloat(css.getPropertyValue('--sat')) || 0;
+  const view = resolveView();
+  setBodyView(view);
 
-    const topbar = DOC.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
-    const hudTop = DOC.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
-    const hudBot = DOC.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
-
-    const topSafe = Math.max(90 + sat, topbar + hudTop + 14 + sat);
-    const botSafe = Math.max(110, hudBot + 18);
-
-    root.style.setProperty('--gj-top-safe', `${Math.floor(topSafe)}px`);
-    root.style.setProperty('--gj-bottom-safe', `${Math.floor(botSafe)}px`);
-  }catch(_){}
-}
-
-function buildPayload(view){
-  // Pass-through + defaults
+  // Params
   const payload = {
     view,
-    run: toLower(qs('run','play')),
-    diff: toLower(qs('diff','normal')),
-    time: Number(qs('time','80')) || 80,
-    seed: qs('seed', null),
+    run: String(qs('run','play') || 'play').toLowerCase(),
+    diff: String(qs('diff','normal') || 'normal').toLowerCase(),
+    time: clamp(qs('time','80') ?? 80, 20, 300),
+    seed: qs('seed', null) ?? qs('ts', null),
     hub: qs('hub', null),
 
-    // research context passthrough
+    // research passthrough
     studyId: qs('studyId', qs('study', null)),
     phase: qs('phase', null),
     conditionGroup: qs('conditionGroup', qs('cond', null)),
-
-    // optional
-    style: qs('style', null),
-    log: qs('log', null),
-    ts: qs('ts', null),
   };
 
-  // If in research mode and seed missing, use ts or stable tag
-  if(payload.run === 'research' && !payload.seed){
-    payload.seed = payload.ts || 'RESEARCH-SEED';
+  // Optional: tighten cVR lockPx if config exists
+  // (vr-ui.js reads window.HHA_VRUI_CONFIG)
+  if(view === 'cvr'){
+    WIN.HHA_VRUI_CONFIG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
   }
 
-  return payload;
-}
-
-function updateChipMeta(view){
-  const el = DOC.getElementById('gjChipMeta');
-  if(!el) return;
-  const run = toLower(qs('run','play'));
-  const diff = toLower(qs('diff','normal'));
-  const time = qs('time','80');
-  el.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
-}
-
-function bootNow(){
-  const view = autoView();
-
-  ensureVrUi();
-  setBodyViewClasses(view);
-  updateChipMeta(view);
-
-  // measure safe vars for spawn
-  measureAndSetSafeVars();
-  WIN.addEventListener('resize', ()=>measureAndSetSafeVars(), { passive:true });
-  WIN.addEventListener('orientationchange', ()=>setTimeout(measureAndSetSafeVars, 0), { passive:true });
-  setTimeout(measureAndSetSafeVars, 50);
-  setTimeout(measureAndSetSafeVars, 180);
-  setTimeout(measureAndSetSafeVars, 520);
-
-  // Boot engine
-  const payload = buildPayload(view);
-
+  // Safety: if vr-ui.js wasn't loaded for some reason, don't crash—just run tap mode
+  // (But your HTML loads it via defer)
   try{
     engineBoot(payload);
   }catch(err){
-    console.error('[GoodJunkVR boot] engineBoot failed:', err);
-    // show quick fail overlay
-    try{
-      const d = DOC.createElement('div');
-      d.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.92);color:#e5e7eb;font:900 14px/1.5 system-ui;padding:18px;';
-      d.innerHTML = `<div style="max-width:820px;"><div style="font-size:18px;margin-bottom:8px;">GoodJunkVR boot failed</div><div style="opacity:.85;white-space:pre-wrap;">${String(err && (err.stack||err.message||err))}</div></div>`;
-      DOC.body.appendChild(d);
-    }catch(_){}
+    console.error('[GoodJunkVR] boot failed:', err);
+    // basic fallback: show an alert once
+    try{ alert('GoodJunkVR boot error: ' + (err?.message || err)); }catch(_){}
   }
 }
 
-// Start when DOM ready
-if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', bootNow, { once:true });
-}else{
-  bootNow();
+// DOM ready
+if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+  bootOnce();
+} else {
+  DOC.addEventListener('DOMContentLoaded', bootOnce, { once:true });
 }
