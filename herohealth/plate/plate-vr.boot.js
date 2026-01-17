@@ -1,8 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
-// ✅ Auto view detect
-// ✅ FIX: safe-zone measure -> set --playTop/--playBottom
-// ✅ Boot engine from ./plate.safe.js
+// PlateVR Boot — PRODUCTION (RUN A)
+// ✅ Auto view detect (no UI override)
+// ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ End overlay: aria-hidden only
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -16,11 +19,12 @@ const qs = (k, def=null)=>{
 
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
+  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
+  // ✅ no UI override. allow forcing via query only (?view=pc|mobile|vr|cvr)
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -45,49 +49,22 @@ function pct(n){
   return `${Math.round(n)}%`;
 }
 
+function show(el, yes){
+  if(!el) return;
+  el.style.display = yes ? '' : 'none';
+}
+
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
 
-/* ---------------- SAFE-ZONE MEASURE (NEW) ---------------- */
-function measureSafeZone(){
-  // We want plate-layer playfield to start BELOW HUD and end ABOVE Coach.
-  const root = DOC.documentElement;
-  const hud = DOC.getElementById('hud');
-  const coach = DOC.getElementById('coachCard');
-
-  const sidePad = 12; // match CSS --sidePad
-  const sat = 0; // CSS env handles; we just add a little buffer
-  const sab = 0;
-
-  // Top: hud height + gap
-  let top = 140; // fallback
-  if(hud){
-    const r = hud.getBoundingClientRect();
-    top = Math.max(110, Math.ceil(r.height) + 16); // 16px breathing room
-  }
-
-  // Bottom: coach height + gap
-  let bottom = 88; // fallback
-  if(coach){
-    const r = coach.getBoundingClientRect();
-    bottom = Math.max(72, Math.ceil(r.height) + 16);
-  }
-
-  // apply vars (include safe-area in css already)
-  root.style.setProperty('--playTop', `calc(${top}px + var(--sat))`);
-  root.style.setProperty('--playBottom', `calc(${bottom}px + var(--sab))`);
-  root.style.setProperty('--sidePad', `${sidePad}px`);
-}
-
 function showCoach(msg, meta='Coach'){
   const card = DOC.getElementById('coachCard');
-  const inner = card?.querySelector?.('.inner');
   const mEl = DOC.getElementById('coachMsg');
   const metaEl = DOC.getElementById('coachMeta');
-  if(!card || !inner || !mEl) return;
+  if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
@@ -117,6 +94,8 @@ function wireHUD(){
   const miniNums = DOC.getElementById('miniNums');
   const miniBar  = DOC.getElementById('miniBar');
 
+  const hudHint  = DOC.getElementById('hudHint');
+
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
@@ -131,6 +110,9 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+
+    if(d.hint && hudHint) hudHint.textContent = String(d.hint);
+
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -140,6 +122,7 @@ function wireHUD(){
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
+
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
@@ -149,9 +132,6 @@ function wireHUD(){
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
-    // layout safe-zone should adapt if hud wraps lines
-    measureSafeZone();
   });
 
   WIN.addEventListener('hha:coach', (e)=>{
@@ -166,8 +146,11 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload(), { passive:true });
+    btnRestart.addEventListener('click', ()=>{
+      location.reload(); // keep same query
+    }, { passive:true });
   }
+
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
@@ -204,15 +187,32 @@ function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);
+  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
+  // ✅ Crosshair assist (plate target medium size -> lockPx 26-30 sweet spot)
+  WIN.HHA_VRUI_CONFIG = WIN.HHA_VRUI_CONFIG || { lockPx: 28, cooldownMs: 90 };
+
   return {
-    view, runMode: run, diff,
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
+
     hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || ''
+    logEndpoint: qs('log','') || '',
+
+    studyId: qs('studyId','') || '',
+    phase: qs('phase','') || '',
+    conditionGroup: qs('conditionGroup','') || '',
+    sessionOrder: qs('sessionOrder','') || '',
+    blockLabel: qs('blockLabel','') || '',
+    siteCode: qs('siteCode','') || '',
+    schoolCode: qs('schoolCode','') || '',
+    schoolName: qs('schoolName','') || '',
+    gradeLevel: qs('gradeLevel','') || '',
+    studentKey: qs('studentKey','') || '',
   };
 }
 
@@ -225,14 +225,11 @@ ready(()=>{
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
-  // NEW: measure immediately + on resize/orientation
-  measureSafeZone();
-  WIN.addEventListener('resize', measureSafeZone, { passive:true });
-  WIN.addEventListener('orientationchange', ()=>setTimeout(measureSafeZone, 200), { passive:true });
-
   wireHUD();
   wireEndControls();
   wireEndSummary();
+
+  // ensure overlay closed
   setOverlayOpen(false);
 
   try{
