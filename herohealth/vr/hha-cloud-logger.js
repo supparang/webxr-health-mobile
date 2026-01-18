@@ -1,9 +1,11 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened)
-// ✅ Listens: hha:end -> sends session summary JSON
+// HHA Cloud Logger — PRODUCTION (flush-hardened, universal)
+// ✅ Listens: hha:end -> sends session summary JSON (FULL PASS-THROUGH)
 // ✅ Queue persist localStorage (offline-safe)
 // ✅ keepalive + sendBeacon fallback
 // ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
+// ✅ FIX: universal gameMode (no hardcode goodjunk)
+// ✅ FIX: sends FULL summary (research-grade) + attaches meta (href, ua, view, diff, seed, etc.)
 
 (function(){
   'use strict';
@@ -17,6 +19,10 @@
   const ENDPOINT = (qs('log','')||'').trim(); // ?log=...
   const LS_KEY = 'HHA_LOG_QUEUE_V1';
 
+  // public handle (so engines can check logger state)
+  WIN.HHA_LOGGER = WIN.HHA_LOGGER || {};
+  WIN.HHA_LOGGER.enabled = !!ENDPOINT;
+
   function loadQ(){
     try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }catch(_){ return []; }
   }
@@ -27,12 +33,17 @@
   let queue = loadQ();
   let flushing = false;
 
-  function payloadBase(){
+  function payloadMeta(){
     return {
       timestampIso: new Date().toISOString(),
       href: location.href,
       ua: navigator.userAgent || '',
-      game: 'HeroHealth',
+      projectTag: qs('projectTag','HeroHealth') || 'HeroHealth',
+      view: (qs('view','')||'').toLowerCase(),
+      diff: (qs('diff','')||'').toLowerCase(),
+      runMode: (qs('run', qs('runMode','play'))||'play').toLowerCase(),
+      seed: qs('seed','') || '',
+      sessionId: qs('sessionId', qs('studentKey','')) || ''
     };
   }
 
@@ -44,11 +55,13 @@
   async function postJson(url, obj){
     try{
       const body = JSON.stringify(obj);
+
       // try sendBeacon first for unload safety
       if(navigator.sendBeacon){
         const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if(ok) return true;
       }
+
       const res = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
@@ -87,24 +100,57 @@
     flushing = false;
   }
 
-  // Listen end summary
+  // Decide gameMode from event detail (preferred) then URL, then fallback
+  function inferGameMode(detail){
+    const d = detail || {};
+    const a =
+      d.gameMode ||
+      d.game ||
+      d.mode ||
+      qs('gameMode','') ||
+      '';
+
+    const s = String(a||'').toLowerCase();
+
+    // normalize common names
+    if (s.includes('hydr')) return 'hydration';
+    if (s.includes('group')) return 'groups';
+    if (s.includes('plate')) return 'plate';
+    if (s.includes('good')) return 'goodjunk';
+
+    // try by path
+    const p = (location.pathname || '').toLowerCase();
+    if (p.includes('hydration')) return 'hydration';
+    if (p.includes('groups')) return 'groups';
+    if (p.includes('plate')) return 'plate';
+    if (p.includes('goodjunk')) return 'goodjunk';
+
+    return s || 'game';
+  }
+
+  // Listen end summary (FULL)
   function onEnd(ev){
     try{
       const d = ev?.detail || {};
-      const pack = Object.assign(payloadBase(), {
-        kind: 'session',
-        gameMode: 'goodjunk',
-        runMode: d.runMode || qs('run','play'),
-        diff: d.diff || qs('diff','normal'),
-        device: d.device || qs('view',''),
-        durationPlannedSec: Number(d.durationPlannedSec || qs('time','0')) || 0,
-        durationPlayedSec: Number(d.durationPlayedSec || 0) || 0,
-        scoreFinal: Number(d.scoreFinal || 0) || 0,
-        misses: Number(d.misses || 0) || 0,
-        grade: d.grade || '—',
-        reason: d.reason || 'end',
-        seed: qs('seed','') || '',
-      });
+      const meta = payloadMeta();
+
+      // Full pass-through summary + meta overlay (meta wins only if summary missing)
+      const pack = Object.assign(
+        {
+          kind: 'session',
+          gameMode: inferGameMode(d),
+        },
+        meta,
+        d
+      );
+
+      // guarantee some key fields exist (for sheets)
+      if(!pack.runMode) pack.runMode = meta.runMode;
+      if(!pack.diff) pack.diff = meta.diff;
+      if(!pack.view) pack.view = meta.view;
+      if(!pack.seed) pack.seed = meta.seed;
+      if(!pack.sessionId) pack.sessionId = meta.sessionId;
+
       enqueue(pack);
       flush(); // best-effort immediate
     }catch(_){}
@@ -122,7 +168,7 @@
   }, { passive:true });
   WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
 
-  // periodic flush (in case offline -> online)
+  // periodic flush (offline -> online)
   setInterval(()=>flush(), 3500);
 
 })();
