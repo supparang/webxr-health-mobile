@@ -1,3 +1,10 @@
+<!-- ======================================================
+  /herohealth/plate-launcher.html
+  Balanced Plate VR — LAUNCHER (A1)
+  ✅ Auto-detect view, but NEVER override if ?view= exists
+  ✅ Redirect -> ./plate/plate-vr.html
+  ✅ Pass-through all query params
+====================================================== -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -5,392 +12,209 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — PlateVR Launcher</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
-      --warn:#f59e0b;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --radius:22px;
-      --pill:999px;
 
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
+      --radius:18px;
     }
     *{ box-sizing:border-box; }
     html,body{
       margin:0; width:100%; height:100%;
-      background: radial-gradient(circle at 15% 10%, rgba(34,211,238,.12), transparent 40%),
-                  radial-gradient(circle at 85% 20%, rgba(167,139,250,.10), transparent 42%),
-                  radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-                  linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-      color:var(--text);
-      font-family: system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      background:var(--bg); color:var(--text);
+      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
       overflow:hidden;
     }
     .wrap{
       position:fixed; inset:0;
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      display:grid;
-      place-items:center;
+      display:grid; place-items:center;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.10), transparent 40%),
+        radial-gradient(circle at 88% 20%, rgba(167,139,250,.08), transparent 42%),
+        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
+        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
     }
     .card{
-      width:min(980px,100%);
+      width:min(780px, 100%);
       background:var(--panel);
       border:1px solid var(--stroke);
-      border-radius:var(--radius);
+      border-radius:22px;
       padding:16px;
       box-shadow: 0 26px 90px rgba(0,0,0,.42);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(10px);
     }
-    .row{
-      display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;
-    }
-    h1{
-      margin:0;
-      font-size:18px;
+    .title{
       font-weight:1200;
-      letter-spacing:.2px;
+      font-size:18px;
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
     }
-    .sub{
-      margin-top:6px;
-      color:var(--muted);
-      font-weight:900;
-      font-size:13px;
-      line-height:1.35;
-    }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap:12px;
-    }
-    .panel{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:12px;
-      box-shadow: 0 16px 50px rgba(0,0,0,.25);
-    }
-    .t{
-      font-weight:1100;
-      font-size:12px;
-      color:rgba(229,231,235,.92);
-    }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px;
-      border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.40);
-      font-weight:1000;
-      font-size:12px;
-      white-space:nowrap;
-    }
-    .chips{
-      margin-top:10px;
-      display:flex; flex-wrap:wrap; gap:10px;
-    }
-    select,input{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.35);
-      color:rgba(229,231,235,.95);
-      border-radius:12px;
-      padding:10px 10px;
-      font-weight:900;
-      font-size:13px;
-      outline:none;
-    }
-    .form{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-    }
-    .form .full{ grid-column: 1 / -1; }
-    .btns{
-      margin-top:14px;
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
-    }
-    button{
+    .muted{ color:var(--muted); font-weight:900; font-size:13px; line-height:1.35; margin-top:8px; }
+    .row{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
       appearance:none;
       border:none;
       border-radius:999px;
-      padding:11px 14px;
-      background:rgba(2,6,23,.60);
-      border:1px solid rgba(148,163,184,.22);
-      color:rgba(229,231,235,.95);
-      font: 1000 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      box-shadow: 0 16px 40px rgba(0,0,0,.30);
-      backdrop-filter: blur(10px);
+      padding:10px 14px;
+      font-weight:1000;
+      font-size:12px;
       cursor:pointer;
-      user-select:none;
+      color: rgba(229,231,235,.95);
+      background: rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: 0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
       -webkit-tap-highlight-color:transparent;
+      user-select:none;
     }
-    button.primary{
-      background:rgba(34,197,94,.18);
-      border-color:rgba(34,197,94,.35);
+    .btn.primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.35);
     }
-    button.warn{
-      background:rgba(245,158,11,.18);
-      border-color:rgba(245,158,11,.35);
-    }
-    button.cvr{
-      background:rgba(34,211,238,.16);
-      border-color:rgba(34,211,238,.32);
-    }
-    button:active{ transform: translateY(1px); }
-
-    .miniNote{
+    .dbg{
       margin-top:10px;
-      color:var(--muted);
       font-weight:900;
       font-size:12px;
-      line-height:1.35;
-    }
-
-    @media (max-width: 920px){
-      .grid{ grid-template-columns: 1fr; }
-      .form{ grid-template-columns: 1fr; }
+      color: rgba(148,163,184,.95);
+      word-break: break-all;
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
+      <div class="title">🍽️ Balanced Plate VR <span style="opacity:.7">— Launcher</span></div>
+      <div class="muted" id="msg">
+        กำลังตรวจสอบอุปกรณ์และเข้าสู่เกมอัตโนมัติ…
+        <br/>* ถ้า URL มี <b>?view=...</b> อยู่แล้ว ระบบจะไม่ override
+      </div>
+
       <div class="row">
-        <div>
-          <h1>🍽️ Balanced Plate VR — Launcher</h1>
-          <div class="sub">
-            เลือกโหมด/ความยาก/เวลา แล้วเข้าเล่นทันที<br/>
-            Play = Adaptive ON • Research/Study = Seeded & Adaptive OFF
-          </div>
-        </div>
-        <div class="chips">
-          <span class="pill" id="pillView">👀 view: auto</span>
-          <span class="pill" id="pillHub">🏠 hub: —</span>
-        </div>
+        <button class="btn primary" id="btnGo" type="button">เข้าเกมทันที ▶</button>
+        <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ 🔗</button>
       </div>
 
-      <div class="grid">
-        <div class="panel">
-          <div class="t">⚙️ ตั้งค่าเล่น</div>
-
-          <div class="form">
-            <label>
-              <div class="t">โหมด (run)</div>
-              <select id="selRun">
-                <option value="play">play</option>
-                <option value="study">study</option>
-                <option value="research">research</option>
-                <option value="practice">practice</option>
-              </select>
-            </label>
-
-            <label>
-              <div class="t">ความยาก (diff)</div>
-              <select id="selDiff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </label>
-
-            <label>
-              <div class="t">เวลา (sec)</div>
-              <input id="inpTime" type="number" inputmode="numeric" min="10" max="999" value="90" />
-            </label>
-
-            <label>
-              <div class="t">seed</div>
-              <input id="inpSeed" type="number" inputmode="numeric" value="" placeholder="auto" />
-            </label>
-
-            <label class="full">
-              <div class="t">พารามิเตอร์วิจัย (optional passthrough)</div>
-              <input id="inpStudy" type="text" placeholder="studyId / phase / conditionGroup / studentKey ... (อ่านจาก URL เดิมแล้วส่งต่อ)" />
-            </label>
-          </div>
-
-          <div class="btns">
-            <button class="primary" id="btnGo">▶ เข้าเล่น (Auto view)</button>
-            <button class="cvr" id="btnGoCVR">🕶 เข้าแบบ Cardboard (view=cvr)</button>
-            <button class="warn" id="btnCopy">🔗 คัดลอกลิงก์</button>
-          </div>
-
-          <div class="miniNote" id="dbg">—</div>
-        </div>
-
-        <div class="panel">
-          <div class="t">🧭 วิธีใช้เร็ว ๆ</div>
-          <div class="miniNote">
-            • เปิดจาก HUB จะส่ง <b>hub=...</b> มาด้วย<br/>
-            • ถ้าอยากบังคับมุมมอง: <b>?view=pc|mobile|vr|cvr</b><br/>
-            • ถ้าต้องทำวิจัยให้คงที่: ใช้ <b>run=study</b> และล็อก <b>seed</b><br/>
-            • ลิงก์เกมจริงอยู่ที่: <b>/herohealth/plate/plate-vr.html</b>
-          </div>
-        </div>
-      </div>
-
+      <div class="dbg" id="dbg"></div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      const LS_KEY = 'HHA_PLATE_LAUNCHER_V1';
+<script>
+(function(){
+  'use strict';
 
-      const qs = (k, def=null)=>{
-        try { return new URL(location.href).searchParams.get(k) ?? def; }
-        catch { return def; }
-      };
+  const qs = (k, def=null)=>{
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  };
 
-      function isMobile(){
-        const ua = navigator.userAgent || '';
-        const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-        return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
-      }
+  function isTouch(){
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  }
 
-      function getViewAuto(){
-        const forced = (qs('view','')||'').toLowerCase();
-        if(forced) return forced;
-        return isMobile() ? 'mobile' : 'pc';
-      }
+  function isProbablyMobile(){
+    const ua = navigator.userAgent || '';
+    if (/Android|iPhone|iPad|iPod/i.test(ua)) return true;
+    if (isTouch() && (innerWidth < 920)) return true;
+    return false;
+  }
 
-      // UI refs
-      const selRun = document.getElementById('selRun');
-      const selDiff = document.getElementById('selDiff');
-      const inpTime = document.getElementById('inpTime');
-      const inpSeed = document.getElementById('inpSeed');
-      const inpStudy = document.getElementById('inpStudy');
+  function getAutoView(){
+    // IMPORTANT: do NOT override if caller already set ?view=
+    const forced = (qs('view','') || '').toLowerCase();
+    if (forced) return forced;
 
-      const pillView = document.getElementById('pillView');
-      const pillHub = document.getElementById('pillHub');
-      const dbg = document.getElementById('dbg');
+    // if user used Cardboard viewer link pattern sometimes:
+    const hint = (qs('cvr','') || '').toLowerCase();
+    if (hint === '1' || hint === 'true') return 'cvr';
 
-      const btnGo = document.getElementById('btnGo');
-      const btnGoCVR = document.getElementById('btnGoCVR');
-      const btnCopy = document.getElementById('btnCopy');
+    return isProbablyMobile() ? 'mobile' : 'pc';
+  }
 
-      const hub = qs('hub','') || '';
-      if(pillHub) pillHub.textContent = '🏠 hub: ' + (hub ? 'yes' : '—');
+  function safeSetLS(k,v){
+    try{ localStorage.setItem(k, String(v)); }catch(_){}
+  }
+  function safeGetLS(k){
+    try{ return localStorage.getItem(k); }catch(_){ return null; }
+  }
 
-      function loadSaved(){
-        try{
-          const raw = localStorage.getItem(LS_KEY);
-          if(!raw) return;
-          const s = JSON.parse(raw);
-          if(s.run) selRun.value = s.run;
-          if(s.diff) selDiff.value = s.diff;
-          if(s.time) inpTime.value = String(s.time);
-          if(s.seed) inpSeed.value = String(s.seed);
-        }catch(_){}
-      }
+  // optional: remember last view if not forced by url
+  const REMEMBER_LAST_VIEW = true;
 
-      function saveNow(){
-        try{
-          localStorage.setItem(LS_KEY, JSON.stringify({
-            run: selRun.value,
-            diff: selDiff.value,
-            time: Number(inpTime.value)||90,
-            seed: inpSeed.value ? Number(inpSeed.value) : ''
-          }));
-        }catch(_){}
-      }
+  function buildTargetUrl(){
+    const base = new URL('./plate/plate-vr.html', location.href);
 
-      function collectPassthroughParams(u){
-        // ส่งต่อทุกอย่าง “ที่มีอยู่แล้ว” ยกเว้นบางตัวของ launcher
-        const keep = [
-          'hub','log','studyId','phase','conditionGroup','sessionOrder',
-          'blockLabel','siteCode','schoolCode','schoolName','gradeLevel','studentKey'
-        ];
-        keep.forEach(k=>{
-          const v = qs(k,'');
-          if(v) u.searchParams.set(k, v);
-        });
-      }
+    // copy all query params as-is
+    const src = new URL(location.href);
+    src.searchParams.forEach((v,k)=> base.searchParams.set(k, v));
 
-      function buildUrl(viewOverride){
-        const u = new URL('./plate-vr.html', location.href);
-        u.searchParams.set('run', (selRun.value||'play').toLowerCase());
-        u.searchParams.set('diff', (selDiff.value||'normal').toLowerCase());
+    // decide view
+    const hasView = src.searchParams.has('view') && String(src.searchParams.get('view')||'').length>0;
+    let view = getAutoView();
 
-        const t = Math.max(10, Math.min(999, Number(inpTime.value)||90));
-        u.searchParams.set('time', String(t));
+    // if remember last view and no forced view, use it
+    if(REMEMBER_LAST_VIEW && !hasView){
+      const last = (safeGetLS('HHA_PLATE_LAST_VIEW') || '').toLowerCase();
+      if(last) view = last;
+    }
 
-        const seed = inpSeed.value ? Number(inpSeed.value) : Date.now();
-        u.searchParams.set('seed', String(seed));
+    // only set view if not already provided (NO OVERRIDE)
+    if(!hasView) base.searchParams.set('view', view);
 
-        if(hub) u.searchParams.set('hub', hub);
+    // store last view (only when not forced)
+    if(REMEMBER_LAST_VIEW && !hasView){
+      safeSetLS('HHA_PLATE_LAST_VIEW', view);
+    }
 
-        // view:
-        const v = (viewOverride || '').toLowerCase() || getViewAuto();
-        // แต่ “ห้าม override” ถ้ามี view มากับ URL อยู่แล้ว
-        const existing = (qs('view','')||'').toLowerCase();
-        if(existing) u.searchParams.set('view', existing);
-        else u.searchParams.set('view', v);
+    // if seed missing -> set deterministic default
+    if(!base.searchParams.get('seed')){
+      base.searchParams.set('seed', String(Date.now()));
+    }
 
-        collectPassthroughParams(u);
+    // if time missing -> default 90
+    if(!base.searchParams.get('time')){
+      base.searchParams.set('time', '90');
+    }
 
-        return u.toString();
-      }
+    return base.toString();
+  }
 
-      function refreshPills(){
-        if(pillView) pillView.textContent = '👀 view: ' + getViewAuto();
-        if(dbg) dbg.textContent = 'URL: ' + location.href;
-      }
+  const dbg = document.getElementById('dbg');
+  const btnGo = document.getElementById('btnGo');
+  const btnCopy = document.getElementById('btnCopy');
 
-      // seed default
-      if(!inpSeed.value) inpSeed.value = '';
+  const target = buildTargetUrl();
+  if(dbg) dbg.textContent = '➡️ ' + target;
 
-      loadSaved();
-      refreshPills();
+  function go(){
+    location.replace(target);
+  }
 
-      [selRun, selDiff, inpTime, inpSeed].forEach(el=>{
-        el?.addEventListener('change', saveNow, {passive:true});
-        el?.addEventListener('input', saveNow, {passive:true});
-      });
+  btnGo?.addEventListener('click', go, {passive:true});
 
-      btnGo?.addEventListener('click', ()=>{
-        const url = buildUrl('');
-        location.href = url;
-      });
+  btnCopy?.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(target);
+      if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว: ' + target;
+    }catch(_){
+      if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้\n' + target;
+    }
+  }, {passive:true});
 
-      btnGoCVR?.addEventListener('click', ()=>{
-        const url = buildUrl('cvr');
-        location.href = url;
-      });
+  // auto redirect (fast)
+  setTimeout(go, 250);
 
-      btnCopy?.addEventListener('click', async ()=>{
-        const url = buildUrl('');
-        try{
-          await navigator.clipboard.writeText(url);
-          if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
-        }catch(e){
-          if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกเองจากแถบ URL';
-        }
-      });
-
-      // show suggested research params (read-only hint)
-      const p = new URL(location.href).searchParams;
-      const keys = ['studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolCode','schoolName','gradeLevel','studentKey'];
-      const list = [];
-      keys.forEach(k=>{
-        const v = p.get(k);
-        if(v) list.push(`${k}=${v}`);
-      });
-      if(inpStudy) inpStudy.value = list.join(' • ');
-    })();
-  </script>
+})();
+</script>
 </body>
 </html>
