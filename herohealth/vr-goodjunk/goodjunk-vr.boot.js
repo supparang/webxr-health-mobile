@@ -1,110 +1,145 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (A+B+V)
-// ✅ Auto-detect view (PC/Mobile/VR/Cardboard/cVR) BUT:
-//    - If URL already has ?view=..., DO NOT override
-// ✅ Sets body classes: view-pc | view-mobile | view-vr | view-cvr
-// ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/ts
-// ✅ Starts engine once DOM ready (no double boot)
+// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
+// ✅ Sets body view class (pc/mobile/vr/cvr)
+// ✅ Never override if URL already has ?view=
+// ✅ Adds body.ready after DOM/CSS settle (prevents target flash)
+// ✅ Calls engine boot from ./goodjunk.safe.js
+// ✅ Pass-through research params + emits a lightweight boot meta
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-function qs(k, def=null){
+function qs(k, def = null) {
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
-function hasParam(k){
+function has(k) {
   try { return new URL(location.href).searchParams.has(k); }
   catch { return false; }
 }
-function clamp(v, a, b){
-  v = Number(v);
-  if(!isFinite(v)) v = a;
-  return (v<a)?a:(v>b)?b:v;
-}
-function isLikelyMobileUA(){
-  const ua = (navigator.userAgent||'').toLowerCase();
-  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
-}
-function normalizeView(v){
-  v = String(v||'').toLowerCase();
-  if(v==='cardboard') return 'vr';
-  if(v==='vr') return 'vr';
-  if(v==='cvr' || v==='view-cvr') return 'cvr';
-  if(v==='pc') return 'pc';
+function normView(v) {
+  v = String(v || '').toLowerCase();
+  if (v === 'cardboard') return 'vr';
+  if (v === 'view-cvr') return 'cvr';
+  if (v === 'cvr') return 'cvr';
+  if (v === 'vr') return 'vr';
+  if (v === 'pc') return 'pc';
+  if (v === 'mobile') return 'mobile';
   return 'mobile';
 }
-function applyView(v){
-  v = normalizeView(v);
-  const b = DOC.body;
-  if(!b) return v;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(v==='pc') b.classList.add('view-pc');
-  else if(v==='vr') b.classList.add('view-vr');
-  else if(v==='cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile');
-  return v;
+function isLikelyMobileUA() {
+  const ua = String(navigator.userAgent || '').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
 }
-function detectView(){
-  if(hasParam('view')){
-    const v = String(qs('view','')||'').toLowerCase();
-    return normalizeView(v || 'mobile');
-  }
 
+async function detectViewNoOverride() {
+  // If caller already specified view, use it (DO NOT override)
+  if (has('view')) return normView(qs('view', 'mobile'));
+
+  // Soft remember last view
+  try {
+    const last = localStorage.getItem('HHA_LAST_VIEW');
+    if (last) return normView(last);
+  } catch (_) {}
+
+  // Default guess
   let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
 
-  const xr = navigator && navigator.xr;
-  if(xr && typeof xr.isSessionSupported === 'function'){
-    xr.isSessionSupported('immersive-vr').then((ok)=>{
-      if(hasParam('view')) return; // still honor "no override"
-      if(ok){
-        const v = isLikelyMobileUA() ? 'vr' : 'pc';
-        applyView(v);
-      }
-    }).catch(()=>{});
+  // Best-effort: WebXR immersive-vr support => prefer vr on mobile
+  try {
+    if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
+      const ok = await navigator.xr.isSessionSupported('immersive-vr');
+      if (ok && isLikelyMobileUA()) guess = 'vr';
+    }
+  } catch (_) {}
+
+  return normView(guess);
+}
+
+function setBodyView(view) {
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  b.classList.add(`view-${view}`);
+  // keep legacy class names if you use them elsewhere
+  b.dataset.view = view;
+}
+
+function markReadySoon() {
+  // prevent “targets flash then disappear”:
+  // show layers only after CSS + layout settle
+  const b = DOC.body;
+  const go = () => { try { b.classList.add('ready'); } catch (_) {} };
+
+  // after paint + a couple beats
+  requestAnimationFrame(() => requestAnimationFrame(go));
+  setTimeout(go, 120);
+  setTimeout(go, 360);
+}
+
+function buildPayload(view) {
+  const payload = {
+    view,                                      // pc/mobile/vr/cvr
+    run: qs('run', 'play'),                    // play | research
+    diff: qs('diff', 'normal'),                // easy | normal | hard
+    time: Number(qs('time', '80')) || 80,
+    seed: qs('seed', null),
+    hub: qs('hub', null),
+
+    // research meta passthrough
+    studyId: qs('studyId', qs('study', null)),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', qs('cond', null)),
+
+    // logging meta passthrough
+    log: qs('log', null),
+    style: qs('style', null),
+    ts: qs('ts', null),
+  };
+
+  // normalize seed behavior:
+  // - research should be deterministic if seed missing
+  // - play may use Date.now in safe.js anyway
+  if (!payload.seed && payload.run === 'research') {
+    payload.seed = payload.ts || 'RESEARCH-SEED';
   }
-
-  return normalizeView(guess);
+  return payload;
 }
-function buildPayload(){
-  const view = detectView();
-  const run  = String(qs('run','play') || 'play').toLowerCase();
-  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
-  const time = clamp(qs('time', 80), 20, 300);
-  const seed = (qs('seed', null) ?? qs('ts', null) ?? String(Date.now()));
-  const hub = qs('hub', null);
 
-  const studyId = qs('studyId', qs('study', null));
-  const phase = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', qs('cond', null));
-
-  return { view, run, diff, time, seed, hub, studyId, phase, conditionGroup };
-}
-function updateChipMeta(payload){
+function wireChipMeta(payload) {
   const el = DOC.getElementById('gjChipMeta');
-  if(!el) return;
-  el.textContent = `view=${payload.view} · run=${payload.run} · diff=${payload.diff} · time=${payload.time}`;
-}
-function safeInit(){
-  if(WIN.__GOODJUNK_BOOTED__) return;
-  WIN.__GOODJUNK_BOOTED__ = true;
-
-  const payload = buildPayload();
-  payload.view = applyView(payload.view);
-  updateChipMeta(payload);
-
-  try{
-    engineBoot(payload);
-  }catch(err){
-    console.error('[GoodJunkVR boot] engineBoot failed:', err);
-    alert('GoodJunkVR: engine boot error. ดู console เพื่อรายละเอียด');
-  }
+  if (!el) return;
+  const v = payload.view || 'mobile';
+  const run = payload.run || 'play';
+  const diff = payload.diff || 'normal';
+  const t = payload.time || 80;
+  el.textContent = `view=${v} · run=${run} · diff=${diff} · time=${t}`;
 }
 
-if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', safeInit, { once:true });
-}else{
-  safeInit();
+async function main() {
+  const view = await detectViewNoOverride();
+  try { localStorage.setItem('HHA_LAST_VIEW', view); } catch (_) {}
+
+  setBodyView(view);
+  markReadySoon();
+
+  const payload = buildPayload(view);
+  wireChipMeta(payload);
+
+  // announce boot
+  try {
+    WIN.dispatchEvent(new CustomEvent('hha:boot', {
+      detail: { game:'GoodJunkVR', view, run: payload.run, diff: payload.diff, time: payload.time }
+    }));
+  } catch (_) {}
+
+  // Start engine
+  engineBoot(payload);
+}
+
+if (DOC.readyState === 'loading') {
+  DOC.addEventListener('DOMContentLoaded', main, { once: true });
+} else {
+  main();
 }
