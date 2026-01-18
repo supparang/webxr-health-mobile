@@ -1,10 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run)
+GoodJunkVR RUN — PRODUCTION (FAIR PACK S)
 ✅ CSS: ./goodjunk-vr.css
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Safe spawn vars: --gj-top-safe / --gj-bottom-safe auto-measured
+✅ HUD-safe spawn vars: --gj-top-safe / --gj-bottom-safe (measured)
+✅ Gameplay-first layout (HUD collapsible)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,19 +17,21 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <link rel="stylesheet" href="./goodjunk-vr.css" />
+
+  <!-- A-Frame (minimal) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Logger + VR UI (load ONCE) -->
+  <!-- Shared modules -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- Game boot (module) -->
+  <!-- Boot -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="gj">
-  <!-- A-Frame minimal scene (behind UI; keeps Enter VR stable) -->
+  <!-- Minimal A-Frame scene (behind UI) -->
   <a-scene
     embedded
     vr-mode-ui="enabled:false"
@@ -38,22 +41,22 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- TOPBAR -->
+  <!-- TOPBAR (compact) -->
   <header class="gj-topbar" id="gjTopbar">
     <div class="left">
       <div class="gj-chip">
         <b>GoodJunkVR</b>
-        <span style="opacity:.75" id="gjChipMeta">view=auto · run=play</span>
+        <span class="meta" id="gjChipMeta">view=auto · run=play</span>
       </div>
     </div>
     <div class="right">
-      <button class="gj-btn" id="btnMissions" type="button">Missions</button>
-      <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
-      <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
+      <button class="gj-btn" id="btnMissions" type="button" title="ดู Mission แบบย่อ">Missions</button>
+      <button class="gj-btn" id="btnHideHud" type="button" title="ยุบ/ขยาย HUD">HUD</button>
+      <button class="gj-btn primary" id="btnBackHub" type="button">↩ HUB</button>
     </div>
   </header>
 
-  <!-- HUD TOP -->
+  <!-- HUD TOP (collapsible) -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
     <div class="hud-row">
       <div class="hud-pill">
@@ -80,7 +83,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         <div class="q-desc" id="goalDesc">—</div>
         <div class="q-bar">
           <div class="q-num"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
-          <div class="q-hint">ทำให้ครบแล้วไป GOAL ต่อ</div>
+          <div class="q-hint">ครบแล้วไป GOAL ต่อ</div>
         </div>
       </div>
 
@@ -95,12 +98,12 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </section>
 
-  <!-- HUD BOTTOM -->
+  <!-- HUD BOTTOM (small + collapsible) -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever" id="gjHudFever">
       <div class="meter-title">FEVER</div>
       <div class="meter-bar"><div class="meter-fill" id="feverFill"></div></div>
-      <div class="meter-num"><span id="feverText">0%</span> <span style="opacity:.7">ยิ่งสูงยิ่งเสี่ยง</span></div>
+      <div class="meter-num"><span id="feverText">0%</span> <span class="muted">ยิ่งสูงยิ่งเสี่ยง</span></div>
     </div>
 
     <div class="meter shield" id="gjHudShield">
@@ -111,18 +114,19 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   </section>
 
   <!-- PLAYFIELD -->
-  <main class="gj-field" id="gj-field">
-    <div id="gj-layer" class="gj-layer"></div>
+  <main class="gj-field" id="gj-field" aria-label="playfield">
+    <!-- Important: hide until CSS ready to prevent “target flash” -->
+    <div id="gj-layer" class="gj-layer" aria-label="targets"></div>
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
   </main>
 
-  <!-- MISSIONS PEEK -->
+  <!-- MISSIONS PEEK (tiny) -->
   <section class="gj-peek" id="missionsPeek" aria-hidden="true">
-    <div class="peek-card">
+    <div class="peek-card" role="button" tabindex="0">
       <div class="peek-title">Missions</div>
       <div class="peek-sub"><b>GOAL:</b> <span id="peekGoal">—</span></div>
       <div class="peek-mini"><b>MINI:</b> <span id="peekMini">—</span></div>
-      <div class="peek-tip">แตะหน้าจอ/กด Missions อีกครั้งเพื่อปิด</div>
+      <div class="peek-tip">แตะเพื่อปิด</div>
     </div>
   </section>
 
@@ -174,25 +178,41 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
+      peek?.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') toggleMissions(); });
 
       // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 16 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(110, hudBot + 18)));
+          // top safe = topbar + hudTop + margin
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
+
+          // bottom safe = hudBot + margin (always keep a minimum for thumb + vr-ui buttons)
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(96, hudBot + 14)));
         }catch(_){}
       }
+
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
+
+      // CSS-ready gate (prevents target flash)
+      function markReady(){
+        document.body.classList.add('ready');
+        setTimeout(updateSafe, 0);
+        setTimeout(updateSafe, 120);
+        setTimeout(updateSafe, 360);
+      }
+      if(document.readyState === 'complete') markReady();
+      else window.addEventListener('load', markReady, { once:true });
+
+      // initial safe update anyway
       setTimeout(updateSafe, 0);
-      setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 360);
     })();
   </script>
 </body>
