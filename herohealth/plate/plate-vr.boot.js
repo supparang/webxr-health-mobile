@@ -1,11 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
-// ✅ Auto view detect (no UI override)
-// ✅ Loads engine from ./plate.safe.js
+// PlateVR Boot — PRODUCTION (HHA Standard)
+// ✅ Auto view detect (no menu)
+// ✅ Boots engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Pass-through research ctx params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -24,8 +24,7 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow caller/system to force view by query (used in experiments), but not via menu.
+  // respect forced view if provided (no UI override)
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -45,7 +44,7 @@ function clamp(v, a, b){
   return v < a ? a : (v > b ? b : v);
 }
 
-function pct(n){
+function pctText(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
@@ -63,11 +62,11 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = meta;
+  if(metaEl) metaEl.textContent = String(meta || 'Coach');
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
-  // auto hide
   clearTimeout(WIN.__HHA_COACH_TO__);
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
@@ -136,18 +135,15 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      // keep same query params
-      location.reload();
-    });
-  }
-  if(btnBackHub){
-    btnBackHub.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
-      else history.back();
-    });
-  }
+  btnRestart?.addEventListener('click', ()=>{
+    // keep same query params
+    location.reload();
+  });
+
+  btnBackHub?.addEventListener('click', ()=>{
+    if(hub) location.href = hub;
+    else history.back();
+  });
 }
 
 function wireEndSummary(){
@@ -166,7 +162,7 @@ function wireEndSummary(){
 
     // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctText(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -176,24 +172,25 @@ function wireEndSummary(){
 }
 
 function buildEngineConfig(){
-  // standard params
   const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase();
+
+  // standard params
+  const run  = (qs('run','play')||'play').toLowerCase();   // play | research | study
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);
+  const time = clamp(qs('time','90'), 10, 999);           // ✅ default 90
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // research passthrough (optional)
   const cfg = {
-    view, runMode: run, diff,
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // endpoints / tags
     hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '', // if caller passes ?log=... we can use it inside engine/logger
+    logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
+    // passthrough research ctx
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -217,10 +214,8 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
@@ -228,7 +223,6 @@ ready(()=>{
   // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
