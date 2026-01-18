@@ -1,197 +1,84 @@
+<!-- === /herohealth/groups-vr.html ===
+GroupsVR LAUNCHER — ROOT (FINAL-3 MIRROR)
+✅ Redirect -> ./vr-groups/groups-vr.html
+✅ Auto-detect view (pc/mobile) BUT:
+   - If URL already has ?view=... -> DO NOT override
+✅ Pass-through: hub/run/diff/time/seed/style/studyId/phase/conditionGroup/ts/log/ai/practice
+✅ Optional: remembers last view via localStorage (safe) ONLY when view param not provided
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR Launcher</title>
+  <title>HeroHealth — GroupsVR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.22);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --radius:22px;
-      --pill:999px;
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
       --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --radius:22px;
     }
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; }
-    body{
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       overflow:hidden;
     }
     .wrap{
-      position:fixed; inset:0;
-      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
-      display:flex; align-items:center; justify-content:center;
+      min-height:100%;
+      display:grid;
+      place-items:center;
+      padding: calc(18px + var(--sat)) 18px calc(18px + var(--sab));
     }
     .card{
       width:min(720px, 100%);
-      border-radius: 26px;
-      background: var(--panel);
-      border: 1px solid var(--stroke);
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      padding: 18px;
-      backdrop-filter: blur(10px);
+      border-radius:var(--radius);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      padding:20px 18px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.30);
     }
     .title{
-      font-weight:1000;
-      font-size:22px;
-      letter-spacing:.2px;
-      display:flex; align-items:center; gap:10px;
+      display:flex; gap:12px; align-items:center;
+      font-weight:900; letter-spacing:.2px; font-size:18px;
     }
-    .sub{
-      margin-top:6px;
-      color:var(--muted);
-      font-weight:800;
-      font-size:13px;
-      line-height:1.35;
+    .badge{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:6px 10px; border-radius:999px;
+      background:rgba(34,197,94,.14);
+      border:1px solid rgba(34,197,94,.20);
+      color:rgba(229,231,235,.95);
+      font-weight:800; font-size:12px;
     }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
+    .sub{ margin-top:10px; color:var(--muted); line-height:1.35; font-weight:650; font-size:13px; }
+    .row{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{
+      padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(15,23,42,.55);
+      font-weight:800; font-size:12px; color:rgba(229,231,235,.92);
     }
-    .stat{
-      padding: 12px;
-      border-radius: 18px;
-      background: rgba(15,23,42,.62);
-      border: 1px solid rgba(148,163,184,.16);
-    }
-    .k{ font-weight:900; font-size:12px; color:var(--muted); }
-    .v{ margin-top:4px; font-weight:1000; font-size:16px; }
-    .row{
-      margin-top:14px;
-      display:flex; gap:10px; flex-wrap:wrap;
-    }
-    .btn{
-      flex: 1 1 220px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      padding: 14px 14px;
-      border-radius: 18px;
-      border: 1px solid rgba(148,163,184,.20);
-      background: rgba(15,23,42,.65);
-      color: var(--text);
-      font-weight: 1000;
-      cursor:pointer;
-      user-select:none;
-      text-decoration:none;
-    }
-    .btn:active{ transform: translateY(1px); }
-    .btn-strong{
-      background: rgba(34,197,94,.20);
-      border-color: rgba(34,197,94,.35);
-    }
-    .note{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-    }
-
-    /* Tap-to-start overlay */
-    .tap{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      padding: 18px;
-      background: rgba(2,6,23,.78);
-      backdrop-filter: blur(10px);
-      z-index: 50;
-    }
-    .tap.hidden{ display:none; }
-    .tapPanel{
-      width:min(520px, 100%);
-      border-radius: 26px;
-      background: rgba(2,6,23,.88);
-      border: 1px solid rgba(148,163,184,.22);
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      padding: 16px;
-      text-align:center;
-    }
-    .tapBig{
-      margin-top:10px;
-      font-size:20px;
-      font-weight:1000;
-      letter-spacing:.2px;
-    }
-    .tapSmall{
-      margin-top:8px;
-      color:var(--muted);
-      font-weight:800;
-      font-size:12px;
-      line-height:1.35;
-    }
-    @media (max-width:560px){
-      .grid{ grid-template-columns:1fr; }
-    }
+    .hint{ margin-top:14px; color:rgba(229,231,235,.80); font-size:12px; line-height:1.35; }
+    .spin{ display:inline-block; animation:spin 1.05s linear infinite; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="title">🥦 HeroHealth — Food Groups VR</div>
+      <div class="title">
+        🥦 Food Groups VR <span class="badge">LAUNCH</span>
+      </div>
       <div class="sub">
-        Launcher แบบ Auto-detect + Tap-to-start (กันปัญหา browser block)
-        • ระบบจะพาเข้าเกมเองโดยไม่ให้เลือกเมนู
+        กำลังพาเข้าสู่เกม… <span class="spin">⏳</span><br/>
+        ถ้าค้าง ให้ลองรีเฟรช/เปิดด้วย Chrome อีกครั้ง
       </div>
-
-      <div class="grid">
-        <div class="stat">
-          <div class="k">Detected View</div>
-          <div id="vView" class="v">—</div>
-        </div>
-        <div class="stat">
-          <div class="k">Run Mode</div>
-          <div id="vRun" class="v">—</div>
-        </div>
-        <div class="stat">
-          <div class="k">Difficulty</div>
-          <div id="vDiff" class="v">—</div>
-        </div>
-        <div class="stat">
-          <div class="k">Time</div>
-          <div id="vTime" class="v">—</div>
-        </div>
-      </div>
-
-      <div class="row">
-        <a id="btnStart" class="btn btn-strong" href="#">🚀 Start (Tap)</a>
-        <a id="btnOpenRun" class="btn" href="#" target="_blank" rel="noopener">🔗 Open RUN URL</a>
-      </div>
-
-      <div class="note">
-        Tip: ถ้าเข้าแล้ว “ไม่มีเอฟเฟกต์” ให้เปิด Console เช็ค 404 ของ
-        <b>/herohealth/vr-groups/effects-pack.js</b> และ <b>/herohealth/vr/particles.js</b>
-      </div>
-    </div>
-  </div>
-
-  <div id="tap" class="tap">
-    <div class="tapPanel">
-      <div style="font-size:34px">👆</div>
-      <div class="tapBig">TAP TO START</div>
-      <div class="tapSmall">
-        บางเครื่องต้องแตะก่อน เพื่อปลดล็อกเสียง/เต็มจอ/VR UI<br/>
-        แตะครั้งเดียว แล้วระบบจะพาเข้าเกมอัตโนมัติ
-      </div>
-      <div class="row" style="margin-top:14px">
-        <button id="tapGo" class="btn btn-strong" type="button">✅ Tap แล้วเข้าเกม</button>
+      <div class="row" id="metaRow"></div>
+      <div class="hint">
+        โหมด Cardboard (cVR) แนะนำเปิดด้วยลิงก์ที่มี <b>?view=cvr</b> เพื่อยิงจาก crosshair ได้แม่นสุด 🎯
       </div>
     </div>
   </div>
@@ -200,82 +87,122 @@
 (function(){
   'use strict';
   const DOC = document;
-  const $ = (id)=>DOC.getElementById(id);
+
+  const LS_LAST_VIEW = 'HHA_GROUPS_LAST_VIEW';
 
   function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
 
-  // ✅ Auto-detect (no override)
+  function hasParam(k){
+    try{ return new URL(location.href).searchParams.has(k); }
+    catch{ return false; }
+  }
+
+  function setMeta(text){
+    try{
+      const row = DOC.getElementById('metaRow');
+      if (!row) return;
+      const el = DOC.createElement('div');
+      el.className = 'pill';
+      el.textContent = text;
+      row.appendChild(el);
+    }catch(_){}
+  }
+
   function detectView(){
+    // IMPORTANT: do not override if ?view= exists
+    const v = String(qs('view','')||'').toLowerCase();
+    if (v) return v;
+
+    // try last view (optional)
+    try{
+      const last = String(localStorage.getItem(LS_LAST_VIEW)||'').toLowerCase();
+      if (last === 'pc' || last === 'mobile' || last === 'vr' || last === 'cvr') return last;
+    }catch(_){}
+
+    // auto detect
     const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints>1);
-    const hasWebXR = !!navigator.xr;
-    // เรา “ไม่บังคับ VR” เอง — ให้ vr-ui.js จัดการ EnterVR/Immersive
-    // แต่สำหรับมือถือให้ default เป็น mobile (และค่อยให้ผู้ใช้ EnterVR ถ้าต้องการ)
-    // ถ้าคุณใช้ cVR ผ่านพารามิเตอร์ view=cvr ใน link ให้ RUN ใช้ได้เอง
-    return isMobile ? 'mobile' : 'pc';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    if (isMobile) return 'mobile';
+    return 'pc';
   }
 
-  function clamp(n,a,b){ n=Number(n)||0; return n<a?a:(n>b?b:n); }
+  function normalize(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const diff= String(qs('diff','normal')||'normal').toLowerCase();
+    const style=String(qs('style','mix')||'mix').toLowerCase();
+    let time = Number(qs('time', 90));
+    if (!isFinite(time)) time = 90;
+    time = Math.max(30, Math.min(180, time));
+    const seed = String(qs('seed','') || Date.now());
 
-  // build RUN url
-  function buildRunUrl(){
-    const run  = String(qs('run','play')||'play').toLowerCase();       // play|research
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();  // easy|normal|hard
-    const style= String(qs('style','feel')||'feel').toLowerCase();     // feel|mix|...
-    const time = clamp(qs('time',90), 30, 180);
-    const seed = String(qs('seed', Date.now()) || Date.now());
-    const hub  = String(qs('hub','')||'');
+    const view = detectView();
 
-    const viewDetected = detectView();
+    return {
+      run: (run === 'research') ? 'research' : 'play',
+      diff: (diff==='easy'||diff==='hard'||diff==='normal') ? diff : 'normal',
+      style: style || 'mix',
+      time,
+      seed,
+      view
+    };
+  }
 
-    const u = new URL('./vr-groups/groups-vr.html', location.href);
-    u.searchParams.set('view', viewDetected);
-    u.searchParams.set('run', run);
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('style', style);
-    u.searchParams.set('time', String(time));
-    u.searchParams.set('seed', seed);
-    u.searchParams.set('ai', String(qs('ai','0')||'0'));              // default OFF
-    u.searchParams.set('practice', String(qs('practice','0')||'0'));  // default OFF
-    if (hub) u.searchParams.set('hub', hub);
-
-    // passthrough extra params (except duplicates)
+  function rememberView(view){
+    // remember only when user didn't explicitly specify view (safe, non-invasive)
+    if (hasParam('view')) return;
     try{
-      const sp = new URL(location.href).searchParams;
-      sp.forEach((v,k)=>{
-        if (['view','run','diff','style','time','seed','ai','practice','hub'].includes(k)) return;
-        u.searchParams.set(k,v);
-      });
+      if (view==='pc'||view==='mobile'||view==='vr'||view==='cvr'){
+        localStorage.setItem(LS_LAST_VIEW, view);
+      }
     }catch(_){}
-
-    return { url: u.toString(), viewDetected, run, diff, time };
   }
 
-  const info = buildRunUrl();
-  $('vView').textContent = info.viewDetected.toUpperCase();
-  $('vRun').textContent  = info.run.toUpperCase();
-  $('vDiff').textContent = info.diff.toUpperCase();
-  $('vTime').textContent = info.time + 's';
+  function buildRedirectUrl(){
+    const base = new URL('./vr-groups/groups-vr.html', location.href);
+    const sp = new URL(location.href).searchParams;
 
-  $('btnOpenRun').href = info.url;
-  $('btnStart').addEventListener('click', (e)=>{ e.preventDefault(); $('tap').classList.remove('hidden'); });
+    const N = normalize();
+    rememberView(N.view);
 
-  // ✅ Tap-to-start → เข้า RUN
-  function go(){
-    try{
-      // best-effort unlock (no harm)
-      if (navigator.vibrate) navigator.vibrate(6);
-    }catch(_){}
-    location.href = info.url;
+    // set canonical params (only if absent OR invalid)
+    base.searchParams.set('view', N.view);
+    base.searchParams.set('run', N.run);
+    base.searchParams.set('diff', N.diff);
+    base.searchParams.set('style', N.style);
+    base.searchParams.set('time', String(N.time));
+    base.searchParams.set('seed', String(N.seed));
+
+    // pass-through all remaining params (keep user's extra params)
+    sp.forEach((v,k)=>{
+      // canonical already set above - but do NOT override if user explicitly provided:
+      // (we still set them to same values; harmless)
+      if (k === 'view' || k === 'run' || k === 'diff' || k === 'style' || k === 'time' || k === 'seed'){
+        // if user provided view, keep it verbatim (no override)
+        if (k === 'view' && hasParam('view')){
+          base.searchParams.set('view', String(qs('view','mobile')||'mobile'));
+        }
+        return;
+      }
+      base.searchParams.set(k, v);
+    });
+
+    return base.toString();
   }
-  $('tapGo').addEventListener('click', go);
 
-  // show overlay immediately (satisfy request)
-  // if user prefers auto-navigate, comment next line:
-  $('tap').classList.remove('hidden');
+  // --- UI meta preview (nice for debugging) ---
+  const N = normalize();
+  setMeta('view=' + N.view);
+  setMeta('run=' + N.run);
+  setMeta('diff=' + N.diff);
+  setMeta('time=' + N.time);
+  setMeta('style=' + N.style);
+
+  const to = buildRedirectUrl();
+  // redirect quickly
+  setTimeout(()=>{ location.replace(to); }, 120);
 })();
 </script>
 </body>
