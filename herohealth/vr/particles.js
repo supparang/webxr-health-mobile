@@ -1,279 +1,224 @@
 // === /herohealth/vr/particles.js ===
-// HHA FX Layer — ULTRA (shared by all games)
+// HeroHealth FX Layer — FAIR / PRODUCTION
 // ✅ window.Particles + window.GAME_MODULES.Particles
-// ✅ API (backward compatible):
-//    - popText(x,y,text,cls?,opts?)
-//    - scorePop(x,y,text) (alias)
-//    - burstAt(x,y,kind?,opts?)
-//    - ringPulse(x,y,kind?,opts?)
-//    - celebrate(kind?, opts?)  // fireworks-ish
-// ✅ Safe: creates its own fixed layer, never blocks clicks (pointer-events:none)
-// ✅ Works even if called before DOMContentLoaded (deferred safe)
-// ✅ No CSS dependency (inline styles), so "CSS not working" won't kill FX
+// ✅ popText(x,y,text,cls,opts)
+// ✅ burstAt(x,y,kind,opts)
+// ✅ ringPulse(x,y,kind,opts)
+// ✅ celebrate(kind,opts)
+// Notes:
+// - Never blocks pointer events (layer pointer-events:none)
+// - High z-index but below vr-ui controls if any (controls use z>=200)
 
-(function(root){
+(function (root) {
   'use strict';
   const DOC = root.document;
-  if(!DOC) return;
+  if (!DOC) return;
 
-  // prevent duplicate load overriding instance
-  if(root.__HHA_PARTICLES_LOADED__) return;
-  root.__HHA_PARTICLES_LOADED__ = true;
+  const MODS = root.GAME_MODULES = root.GAME_MODULES || {};
+  if (MODS.Particles) return;
 
-  const clamp = (v,min,max)=> (v<min?min:(v>max?max:v));
-  const rnd = (a,b)=> a + Math.random()*(b-a);
-  const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
+  function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  // ---------- layer ----------
   function ensureLayer(){
     let layer = DOC.querySelector('.hha-fx-layer');
-    if(layer) return layer;
-
+    if (layer) return layer;
     layer = DOC.createElement('div');
     layer.className = 'hha-fx-layer';
     layer.style.cssText = `
-      position:fixed; inset:0; z-index:90;
-      pointer-events:none;
+      position:fixed; inset:0; pointer-events:none;
+      z-index:140;
       overflow:hidden;
-      contain: layout style paint;
     `;
     DOC.body.appendChild(layer);
     return layer;
   }
 
-  function ensureSubLayer(name){
-    const layer = ensureLayer();
-    let el = layer.querySelector('.' + name);
-    if(el) return el;
-    el = DOC.createElement('div');
-    el.className = name;
-    el.style.cssText = `
-      position:absolute; inset:0;
-      pointer-events:none;
-      overflow:hidden;
-    `;
-    layer.appendChild(el);
+  function makeEl(tag, cssText){
+    const el = DOC.createElement(tag);
+    if (cssText) el.style.cssText = cssText;
     return el;
   }
 
-  function px(n){ return Math.round(Number(n)||0) + 'px'; }
-
-  // ---------- styling helpers ----------
-  function colorFor(kind){
-    // IMPORTANT: not using CSS vars so FX works even if css fails
-    switch(String(kind||'').toLowerCase()){
-      case 'good': return 'rgba(34,197,94,.92)';     // green
-      case 'bad':  return 'rgba(239,68,68,.92)';     // red
-      case 'warn': return 'rgba(245,158,11,.92)';    // amber
-      case 'star': return 'rgba(245,158,11,.92)';    // amber-ish
-      case 'shield': return 'rgba(34,211,238,.92)';  // cyan
-      case 'diamond':
-      case 'violet': return 'rgba(167,139,250,.92)'; // violet
-      case 'cyan': return 'rgba(34,211,238,.92)';
-      default: return 'rgba(229,231,235,.92)';       // text
-    }
+  function kindStyle(kind){
+    // ไม่ fix สีแบบตายตัว (ให้ดูเข้ม/ชัด แต่เรียบ)
+    // ใช้ filter + shadow แทนสีหลัก
+    const k = String(kind||'').toLowerCase();
+    if (k==='good')   return { glow:'0 10px 28px rgba(34,197,94,.22)',  ring:'rgba(34,197,94,.28)' };
+    if (k==='bad')    return { glow:'0 10px 28px rgba(251,113,133,.22)', ring:'rgba(251,113,133,.28)' };
+    if (k==='star')   return { glow:'0 10px 28px rgba(245,158,11,.22)',  ring:'rgba(245,158,11,.28)' };
+    if (k==='shield') return { glow:'0 10px 28px rgba(34,211,238,.20)',  ring:'rgba(34,211,238,.26)' };
+    if (k==='violet' || k==='diamond')
+                   return { glow:'0 10px 28px rgba(167,139,250,.22)', ring:'rgba(167,139,250,.26)' };
+    return { glow:'0 10px 28px rgba(255,255,255,.12)', ring:'rgba(255,255,255,.18)' };
   }
 
-  function shadowFor(kind){
-    switch(String(kind||'').toLowerCase()){
-      case 'good': return '0 14px 34px rgba(34,197,94,.22)';
-      case 'bad':  return '0 14px 34px rgba(239,68,68,.22)';
-      case 'warn': return '0 14px 34px rgba(245,158,11,.22)';
-      case 'shield': return '0 14px 34px rgba(34,211,238,.22)';
-      case 'diamond':
-      case 'violet': return '0 14px 34px rgba(167,139,250,.22)';
-      default: return '0 14px 34px rgba(0,0,0,.22)';
-    }
-  }
+  function popText(x,y,text,cls=null,opts=null){
+    const layer = ensureLayer();
+    const o = opts || {};
+    const size = clamp(o.size || 18, 12, 42);
 
-  // ---------- FX primitives ----------
-  function popText(x,y,text,cls,opts){
-    const layer = ensureSubLayer('hha-fx-pop');
-    const el = DOC.createElement('div');
-
-    const kind = (opts && opts.kind) || cls || 'good';
-    const size = clamp((opts && opts.size) || 18, 12, 64);
-    const lifeMs = clamp((opts && opts.lifeMs) || 820, 280, 1800);
-    const driftY = (opts && opts.driftY) != null ? Number(opts.driftY) : -44;
-
+    const el = makeEl('div');
     el.textContent = String(text ?? '');
+    el.className = 'hha-fx-pop';
     el.style.cssText = `
       position:absolute;
-      left:${px(x)}; top:${px(y)};
-      transform: translate(-50%,-50%) scale(.92);
-      opacity:0;
-      font: 900 ${size}px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
-      letter-spacing: .2px;
-      color:${colorFor(kind)};
-      text-shadow: 0 2px 0 rgba(0,0,0,.35);
-      filter: drop-shadow(${shadowFor(kind)});
+      left:${Math.floor(x)}px; top:${Math.floor(y)}px;
+      transform: translate(-50%,-50%);
+      font: 1000 ${size}px/1 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      letter-spacing: .01em;
+      color:#fff;
+      text-shadow: 0 10px 28px rgba(0,0,0,.45), 0 2px 0 rgba(0,0,0,.25);
+      opacity: 0;
       will-change: transform, opacity;
-      white-space: nowrap;
     `;
+
+    // class flavor (ไม่บังคับสีจัด)
+    if (cls){
+      const c = String(cls).toLowerCase();
+      if (c==='bad') el.style.textShadow = `0 10px 28px rgba(251,113,133,.25), 0 2px 0 rgba(0,0,0,.25)`;
+      if (c==='warn') el.style.textShadow = `0 10px 28px rgba(245,158,11,.25), 0 2px 0 rgba(0,0,0,.25)`;
+      if (c==='good') el.style.textShadow = `0 10px 28px rgba(34,197,94,.25), 0 2px 0 rgba(0,0,0,.25)`;
+      if (c==='cyan') el.style.textShadow = `0 10px 28px rgba(34,211,238,.22), 0 2px 0 rgba(0,0,0,.25)`;
+      if (c==='violet') el.style.textShadow = `0 10px 28px rgba(167,139,250,.22), 0 2px 0 rgba(0,0,0,.25)`;
+    }
 
     layer.appendChild(el);
 
     // animate
-    const t0 = now();
-    const t1 = t0 + lifeMs;
-
-    function step(){
-      const t = now();
-      const p = clamp((t - t0) / lifeMs, 0, 1);
-
-      // ease out
-      const e = 1 - Math.pow(1-p, 3);
-      const yy = driftY * e;
-      const sc = 0.92 + 0.20 * Math.sin(Math.PI * Math.min(1, p*1.1));
-      const op = (p < 0.15) ? (p/0.15) : (p > 0.85 ? (1 - (p-0.85)/0.15) : 1);
-
-      el.style.opacity = String(op);
-      el.style.transform = `translate(-50%,-50%) translateY(${yy}px) scale(${sc})`;
-
-      if(t < t1){
-        requestAnimationFrame(step);
-      }else{
-        try{ el.remove(); }catch(_){}
-      }
-    }
-    requestAnimationFrame(step);
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform .46s ease, opacity .10s ease';
+      el.style.opacity = '1';
+      el.style.transform = 'translate(-50%,-70%)';
+      setTimeout(()=>{
+        el.style.transition = 'transform .26s ease, opacity .22s ease';
+        el.style.opacity = '0';
+        el.style.transform = 'translate(-50%,-95%)';
+        setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 260);
+      }, 380);
+    });
   }
 
-  function scorePop(x,y,text){
-    popText(x,y,text,'good',{ size: 18, lifeMs: 780, driftY: -52 });
-  }
+  function ringPulse(x,y,kind='good',opts=null){
+    const layer = ensureLayer();
+    const o = opts || {};
+    const size = clamp(o.size || 180, 90, 520);
+    const st = kindStyle(kind);
 
-  function ringPulse(x,y,kind,opts){
-    const layer = ensureSubLayer('hha-fx-ring');
-    const el = DOC.createElement('div');
-
-    const col = colorFor(kind || 'good');
-    const size = clamp((opts && opts.size) || 160, 60, 520);
-    const lifeMs = clamp((opts && opts.lifeMs) || 520, 180, 1400);
-    const thick = clamp((opts && opts.thick) || 6, 2, 14);
-
-    el.style.cssText = `
+    const ring = makeEl('div');
+    ring.className = 'hha-fx-ring';
+    ring.style.cssText = `
       position:absolute;
-      left:${px(x)}; top:${px(y)};
-      width:${px(size)}; height:${px(size)};
-      transform: translate(-50%,-50%) scale(.75);
+      left:${Math.floor(x)}px; top:${Math.floor(y)}px;
+      width:${Math.floor(size)}px; height:${Math.floor(size)}px;
+      transform: translate(-50%,-50%) scale(.78);
       border-radius: 999px;
-      border:${thick}px solid ${col};
-      opacity:0;
-      box-shadow: 0 0 0 ${px(Math.round(thick*1.3))} rgba(0,0,0,.06);
-      filter: drop-shadow(${shadowFor(kind)});
+      border: 3px solid ${st.ring};
+      box-shadow: ${st.glow};
+      opacity: .0;
       will-change: transform, opacity;
     `;
-    layer.appendChild(el);
+    layer.appendChild(ring);
 
-    const t0 = now();
-    const t1 = t0 + lifeMs;
-
-    function step(){
-      const t = now();
-      const p = clamp((t - t0)/lifeMs, 0, 1);
-      const e = 1 - Math.pow(1-p, 3);
-
-      const sc = 0.75 + 0.55 * e;
-      const op = (p < 0.12) ? (p/0.12) : (1 - p);
-      el.style.opacity = String(op);
-      el.style.transform = `translate(-50%,-50%) scale(${sc})`;
-
-      if(t < t1) requestAnimationFrame(step);
-      else { try{ el.remove(); }catch(_){} }
-    }
-    requestAnimationFrame(step);
+    requestAnimationFrame(()=>{
+      ring.style.transition = 'transform .38s ease, opacity .10s ease';
+      ring.style.opacity = '1';
+      ring.style.transform = 'translate(-50%,-50%) scale(1.0)';
+      setTimeout(()=>{
+        ring.style.transition = 'transform .24s ease, opacity .18s ease';
+        ring.style.opacity = '0';
+        ring.style.transform = 'translate(-50%,-50%) scale(1.12)';
+        setTimeout(()=>{ try{ ring.remove(); }catch(_){} }, 220);
+      }, 250);
+    });
   }
 
-  function burstAt(x,y,kind,opts){
-    const layer = ensureSubLayer('hha-fx-burst');
-
-    const col = colorFor(kind || 'good');
-    const count = clamp((opts && opts.count) || (kind==='bad'? 14 : 12), 6, 28);
-    const lifeMs = clamp((opts && opts.lifeMs) || 520, 220, 1600);
-    const radius = clamp((opts && opts.radius) || (kind==='bad' ? 110 : 90), 40, 220);
+  function burstAt(x,y,kind='good',opts=null){
+    const layer = ensureLayer();
+    const o = opts || {};
+    const count = clamp(o.count || 10, 6, 22);
+    const spread = clamp(o.spread || 64, 34, 140);
+    const size = clamp(o.size || 8, 4, 14);
+    const st = kindStyle(kind);
 
     for(let i=0;i<count;i++){
-      const el = DOC.createElement('div');
-      const ang = (i / count) * Math.PI * 2 + rnd(-0.08, 0.08);
-      const dist = rnd(radius*0.45, radius);
-      const sx = Math.cos(ang) * dist;
-      const sy = Math.sin(ang) * dist;
+      const p = makeEl('div');
+      p.className = 'hha-fx-p';
+      const a = (Math.PI*2) * (i / count) + (Math.random()*0.35);
+      const r = spread * (0.55 + Math.random()*0.55);
+      const dx = Math.cos(a)*r;
+      const dy = Math.sin(a)*r;
 
-      const sz = rnd(6, 12);
-      el.style.cssText = `
+      p.style.cssText = `
         position:absolute;
-        left:${px(x)}; top:${px(y)};
-        width:${px(sz)}; height:${px(sz)};
-        border-radius: ${rnd(3, 999)}px;
-        background:${col};
-        opacity:0;
-        transform: translate(-50%,-50%) translate(0px,0px) scale(.7);
-        filter: drop-shadow(${shadowFor(kind)});
+        left:${Math.floor(x)}px; top:${Math.floor(y)}px;
+        width:${Math.floor(size)}px; height:${Math.floor(size)}px;
+        transform: translate(-50%,-50%);
+        border-radius: 999px;
+        background: rgba(255,255,255,.92);
+        box-shadow: ${st.glow};
+        opacity: 0;
         will-change: transform, opacity;
       `;
-      layer.appendChild(el);
+      layer.appendChild(p);
 
-      const t0 = now();
-      const t1 = t0 + lifeMs;
-
-      function step(){
-        const t = now();
-        const p = clamp((t - t0)/lifeMs, 0, 1);
-        const e = 1 - Math.pow(1-p, 3);
-
-        const xx = sx * e;
-        const yy = sy * e + (p*p*30); // gravity-ish
-        const sc = 0.7 + 0.8*(1-p);
-        const op = (p < 0.08) ? (p/0.08) : (1 - p);
-
-        el.style.opacity = String(op);
-        el.style.transform = `translate(-50%,-50%) translate(${xx}px,${yy}px) scale(${sc})`;
-
-        if(t < t1) requestAnimationFrame(step);
-        else { try{ el.remove(); }catch(_){} }
-      }
-      requestAnimationFrame(step);
+      requestAnimationFrame(()=>{
+        p.style.transition = 'transform .42s ease, opacity .10s ease';
+        p.style.opacity = '1';
+        p.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        setTimeout(()=>{
+          p.style.transition = 'transform .20s ease, opacity .22s ease';
+          p.style.opacity = '0';
+          p.style.transform = `translate(calc(-50% + ${dx*1.08}px), calc(-50% + ${dy*1.08}px))`;
+          setTimeout(()=>{ try{ p.remove(); }catch(_){} }, 220);
+        }, 280);
+      });
     }
   }
 
-  function celebrate(kind, opts){
-    // quick fireworks around top-mid screen
-    const W = DOC.documentElement.clientWidth || innerWidth;
-    const H = DOC.documentElement.clientHeight || innerHeight;
-    const n = clamp((opts && opts.count) || 14, 6, 40);
+  function celebrate(kind='win', opts=null){
+    const layer = ensureLayer();
+    const o = opts || {};
+    const count = clamp(o.count || 18, 10, 60);
 
-    const centerX = (opts && opts.x) != null ? Number(opts.x) : (W*0.5);
-    const centerY = (opts && opts.y) != null ? Number(opts.y) : (H*0.30);
+    const W = DOC.documentElement.clientWidth || innerWidth || 360;
+    const H = DOC.documentElement.clientHeight || innerHeight || 640;
 
-    const palette = [
-      'good','warn','shield','violet','good','warn','bad'
-    ];
+    for(let i=0;i<count;i++){
+      const p = makeEl('div');
+      const x = Math.floor(Math.random() * W);
+      const y = Math.floor(Math.random() * (H*0.30)) + Math.floor(H*0.08);
+      const size = clamp(8 + Math.random()*10, 8, 20);
+      const fall = clamp(320 + Math.random()*520, 320, 900);
+      const rot = (Math.random()*240 - 120);
 
-    for(let i=0;i<n;i++){
-      const k = (opts && opts.kind) || palette[i % palette.length];
-      const x = centerX + rnd(-W*0.22, W*0.22);
-      const y = centerY + rnd(-H*0.10, H*0.18);
-      ringPulse(x,y,k,{ size: rnd(160, 320), lifeMs: rnd(420, 760), thick: rnd(4, 8) });
-      burstAt(x,y,k,{ count: rnd(10,18)|0, lifeMs: rnd(420, 720), radius: rnd(70, 150) });
-      if(Math.random() < 0.55){
-        popText(x,y, (kind==='boss'?'BOSS DOWN!':'NICE!'), k, { size: rnd(14, 22), lifeMs: rnd(520, 980), driftY: -rnd(34, 62) });
-      }
+      p.style.cssText = `
+        position:absolute;
+        left:${x}px; top:${y}px;
+        width:${Math.floor(size)}px; height:${Math.floor(size)}px;
+        transform: translate(-50%,-50%) rotate(0deg);
+        border-radius: 6px;
+        background: rgba(255,255,255,.92);
+        opacity: 0;
+        will-change: transform, opacity;
+      `;
+      layer.appendChild(p);
+
+      requestAnimationFrame(()=>{
+        p.style.transition = 'transform .95s ease, opacity .10s ease';
+        p.style.opacity = '1';
+        p.style.transform = `translate(-50%, ${fall}px) rotate(${rot}deg)`;
+        setTimeout(()=>{
+          p.style.transition = 'opacity .35s ease';
+          p.style.opacity = '0';
+          setTimeout(()=>{ try{ p.remove(); }catch(_){} }, 360);
+        }, 820);
+      });
     }
   }
 
-  // ---------- expose ----------
-  const API = {
-    ensureLayer,
-    popText,
-    scorePop,
-    ringPulse,
-    burstAt,
-    celebrate,
-  };
+  const API = { popText, burstAt, ringPulse, celebrate };
 
+  MODS.Particles = API;
   root.Particles = API;
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = API;
 
 })(typeof window !== 'undefined' ? window : globalThis);
