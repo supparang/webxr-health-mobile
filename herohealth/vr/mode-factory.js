@@ -1,32 +1,22 @@
 // === /herohealth/vr/mode-factory.js ===
 // HHA Mode Factory — DOM Target Spawner (PRODUCTION)
-// ✅ Named export: boot (fix import error)
-// ✅ Fix: no "controller before initialization"
-// ✅ Supports boundsHost (prevents HUD overlap if you set #plate-bounds etc.)
-// ✅ Supports hha:shoot (crosshair/tap-to-shoot) from vr-ui.js
-// ✅ onHit / onExpire callbacks
-// ✅ Seeded RNG support via cfg.seed
+// ✅ export boot()
+// ✅ Seeded RNG (cfg.seed)
+// ✅ Spawn inside mount bounds (fixed viewport)
+// ✅ Safe margins + anti-corner clump
+// ✅ Click/tap hit + Crosshair shoot (hha:shoot from vr-ui.js)
+// ✅ Controller: stop/pause/resume/setRate
 //
-// Usage (example):
-//   import { boot as spawnBoot } from '../vr/mode-factory.js';
-//   const engine = spawnBoot({
-//     mount: document.getElementById('plate-layer'),
-//     boundsHost: document.getElementById('plate-bounds'), // optional but recommended
-//     seed: 13579,
-//     spawnRate: 900,
-//     ttlMs: 1900,
-//     sizeRange: [44, 64],
-//     kinds: [{kind:'good', weight:0.7},{kind:'junk', weight:0.3}],
-//     makeTarget: (t, el)=>{ ... optional customize ... },
-//     onHit: (t)=>{},
-//     onExpire:(t)=>{},
-//   });
-//   engine.start(); engine.stop(); engine.destroy();
+// Expected target object:
+//  - kind: 'good' | 'junk' | 'shield' | ...
+//  - groupIndex?: 0..4  (optional)
+//  - ttlMs?: number     (optional)
+//  - score?: number     (optional)
 
 'use strict';
 
-const WIN = window;
-const DOC = document;
+const WIN = (typeof window !== 'undefined') ? window : globalThis;
+const DOC = WIN.document;
 
 function clamp(v, a, b){
   v = Number(v) || 0;
@@ -34,7 +24,7 @@ function clamp(v, a, b){
 }
 
 function seededRng(seed){
-  let t = (Number(seed) || Date.now()) >>> 0;
+  let t = (Number(seed) || 0) >>> 0;
   return function(){
     t += 0x6D2B79F5;
     let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -43,330 +33,323 @@ function seededRng(seed){
   };
 }
 
-function pickWeighted(rng, items){
-  const arr = Array.isArray(items) ? items : [];
-  if(arr.length === 0) return null;
+function pickWeighted(rng, arr){
+  // arr: [{kind, weight}, ...]
   let sum = 0;
-  for(const it of arr) sum += Math.max(0, Number(it.weight) || 0);
-  if(sum <= 0){
-    // fallback: uniform
-    return arr[Math.floor(rng() * arr.length)];
+  for(const a of arr) sum += Math.max(0, Number(a.weight)||0);
+  if(sum <= 0) return arr[0] || {kind:'good', weight:1};
+  let t = rng() * sum;
+  for(const a of arr){
+    t -= Math.max(0, Number(a.weight)||0);
+    if(t <= 0) return a;
   }
-  let r = rng() * sum;
-  for(const it of arr){
-    r -= Math.max(0, Number(it.weight) || 0);
-    if(r <= 0) return it;
-  }
-  return arr[arr.length - 1];
-}
-
-function getEl(x){
-  if(!x) return null;
-  if(x instanceof Element) return x;
-  if(typeof x === 'string'){
-    try{ return DOC.querySelector(x); }catch(_){ return null; }
-  }
-  return null;
+  return arr[arr.length-1];
 }
 
 function rectOf(el){
-  if(!el) return null;
   const r = el.getBoundingClientRect();
   return {
-    left: r.left, top: r.top, right: r.right, bottom: r.bottom,
-    width: r.width, height: r.height
+    x: r.left, y: r.top, w: r.width, h: r.height,
+    left:r.left, top:r.top, right:r.right, bottom:r.bottom
   };
 }
 
-function now(){ return performance.now ? performance.now() : Date.now(); }
+function getSafeMargins(){
+  // กันบนเผื่อ HUD / บนมือถือมี safe-area
+  const sat = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sat')) || 0;
+  const sab = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sab')) || 0;
+  const sal = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sal')) || 0;
+  const sar = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sar')) || 0;
 
-function defaultMakeEl(){
-  const el = DOC.createElement('div');
-  el.className = 'plateTarget'; // default class; game CSS can override by kind via data-kind
-  el.setAttribute('role','button');
-  el.style.position = 'absolute';
-  el.style.display = 'grid';
-  el.style.placeItems = 'center';
-  el.style.userSelect = 'none';
-  el.style.touchAction = 'none';
-  return el;
-}
-
-function styleTarget(el, t){
-  el.dataset.kind = t.kind || 'good';
-  el.textContent = t.label || t.emoji || '🍽️';
-
-  el.style.left = `${t.x}px`;
-  el.style.top  = `${t.y}px`;
-  el.style.width  = `${t.size}px`;
-  el.style.height = `${t.size}px`;
-
-  // center text in circle
-  el.style.fontSize = `${Math.round(t.size * 0.52)}px`;
-  el.style.lineHeight = '1';
-}
-
-function randBetween(rng, a, b){
-  a = Number(a) || 0;
-  b = Number(b) || 0;
-  if(b < a){ const tmp = a; a = b; b = tmp; }
-  return a + (b - a) * rng();
+  // margin base: เผื่อ HUD แถวบน/ล่าง
+  return {
+    top:  (12 + sat) + 120,
+    bottom:(12 + sab) + 110,
+    left: (12 + sal) + 10,
+    right:(12 + sar) + 10
+  };
 }
 
 function pointInRect(px, py, r){
   return px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
 }
 
-function dist2(ax, ay, bx, by){
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx*dx + dy*dy;
+function dist(a,b,c,d){
+  const dx = a-c, dy=b-d;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function defaultMakeEl(kind){
+  const el = DOC.createElement('div');
+  el.className = 'plateTarget';
+  el.dataset.kind = kind;
+  el.textContent = '🍽️';
+  return el;
 }
 
 // ------------------------------------------------------------
-// MAIN
+// boot(cfg)  => controller
 // ------------------------------------------------------------
-export function boot(opts = {}){
-  const mount = getEl(opts.mount);
+export function boot(cfg = {}){
+  if(!DOC) throw new Error('mode-factory: document missing');
+
+  const mount = cfg.mount;
   if(!mount) throw new Error('mode-factory: mount missing');
 
-  // IMPORTANT: declare controller BEFORE any usage (fix your error)
-  const controller = new AbortController();
-  const { signal } = controller;
+  const rng = (typeof cfg.rng === 'function') ? cfg.rng : seededRng(cfg.seed ?? Date.now());
 
-  const boundsHost = getEl(opts.boundsHost) || null;
+  const kinds = Array.isArray(cfg.kinds) && cfg.kinds.length ? cfg.kinds : [
+    {kind:'good', weight:0.7},
+    {kind:'junk', weight:0.3},
+  ];
 
-  const rng = (typeof opts.rng === 'function')
-    ? opts.rng
-    : (opts.seed != null ? seededRng(opts.seed) : Math.random);
+  const sizeRange = Array.isArray(cfg.sizeRange) ? cfg.sizeRange : [44, 64];
+  const minS = Math.max(24, Number(sizeRange[0])||44);
+  const maxS = Math.max(minS, Number(sizeRange[1])||64);
 
-  const cfg = {
-    spawnRate: Math.max(120, Number(opts.spawnRate || 900) || 900), // ms
-    ttlMs: Math.max(350, Number(opts.ttlMs || 1900) || 1900),
-    maxAlive: Math.max(1, Number(opts.maxAlive || 10) || 10),
-    sizeRange: Array.isArray(opts.sizeRange) ? opts.sizeRange : [44, 64],
-    kinds: Array.isArray(opts.kinds) ? opts.kinds : [{ kind:'good', weight:1 }],
-    safePad: Object.assign({ top:0, right:0, bottom:0, left:0 }, opts.safePad || {}),
-    makeTarget: typeof opts.makeTarget === 'function' ? opts.makeTarget : null,
-    onHit: typeof opts.onHit === 'function' ? opts.onHit : null,
-    onExpire: typeof opts.onExpire === 'function' ? opts.onExpire : null,
-    // crosshair assist
-    enableShoot: opts.enableShoot !== false, // default true
-  };
+  let spawnRate = Math.max(150, Number(cfg.spawnRate)||900);
+  const maxAlive = Math.max(1, Number(cfg.maxAlive)||10);
 
-  const STATE = {
-    running: false,
-    alive: [],
-    timerSpawn: null,
-    timerTick: null,
-  };
+  const ttlGood = Math.max(500, Number(cfg.ttlGoodMs)||1700);
+  const ttlJunk = Math.max(500, Number(cfg.ttlJunkMs)||1600);
 
-  function getBoundsRect(){
-    // Prefer boundsHost (the safe play rectangle), else mount.
-    const r = rectOf(boundsHost || mount);
-    if(!r || r.width < 10 || r.height < 10) return null;
+  const onHit = (typeof cfg.onHit === 'function') ? cfg.onHit : ()=>{};
+  const onExpire = (typeof cfg.onExpire === 'function') ? cfg.onExpire : ()=>{};
+  const makeEl = (typeof cfg.makeEl === 'function') ? cfg.makeEl : defaultMakeEl;
 
-    // apply safe padding inside bounds
-    const pad = cfg.safePad || {};
-    const left = r.left + (pad.left||0);
-    const right = r.right - (pad.right||0);
-    const top = r.top + (pad.top||0);
-    const bottom = r.bottom - (pad.bottom||0);
+  // ------- internal state -------
+  let alive = [];
+  let running = true;
+  let paused = false;
+  let timer = null;
 
-    const w = Math.max(0, right - left);
-    const h = Math.max(0, bottom - top);
+  // anti-clump memory (ล่าสุด 6 จุด)
+  const recent = [];
 
-    return { left, top, right, bottom, width:w, height:h };
+  function computePlayRect(){
+    const r = rectOf(mount);
+    const m = getSafeMargins();
+
+    // ถ้า mount เต็มจอ safe margins จะทำงานดี
+    // ถ้า mount เล็ก ให้ relax safe นิดหน่อย
+    let left = r.left + m.left;
+    let right = r.right - m.right;
+    let top = r.top + m.top;
+    let bottom = r.bottom - m.bottom;
+
+    // relax เมื่อคับเกิน
+    const minW = 260, minH = 260;
+    if(right - left < minW){
+      const mid = (r.left + r.right)/2;
+      left = mid - minW/2;
+      right = mid + minW/2;
+      left = Math.max(r.left+8, left);
+      right = Math.min(r.right-8, right);
+    }
+    if(bottom - top < minH){
+      const mid = (r.top + r.bottom)/2;
+      top = mid - minH/2;
+      bottom = mid + minH/2;
+      top = Math.max(r.top+8, top);
+      bottom = Math.min(r.bottom-8, bottom);
+    }
+
+    return { left, top, right, bottom, w:(right-left), h:(bottom-top) };
   }
 
-  function spawnOne(){
-    if(!STATE.running) return;
-    if(STATE.alive.length >= cfg.maxAlive) return;
+  function placeEl(el, cx, cy, s){
+    // absolute inside viewport
+    el.style.position = 'fixed';
+    el.style.left = `${cx - s/2}px`;
+    el.style.top  = `${cy - s/2}px`;
+    el.style.width = `${s}px`;
+    el.style.height= `${s}px`;
+    el.style.display = 'grid';
+    el.style.placeItems = 'center';
+    el.style.zIndex = '12';
+  }
 
-    const br = getBoundsRect();
-    if(!br || br.width < 40 || br.height < 40) return;
+  function choosePoint(play, s){
+    // 9-grid-ish bias เพื่อกระจาย ไม่ไปติดมุม
+    const pad = Math.max(10, s/2 + 8);
+    const x0 = play.left + pad;
+    const x1 = play.right - pad;
+    const y0 = play.top + pad;
+    const y1 = play.bottom - pad;
 
-    const size = Math.round(randBetween(rng, cfg.sizeRange[0], cfg.sizeRange[1]));
-    const maxX = Math.max(0, br.width - size);
-    const maxY = Math.max(0, br.height - size);
+    const cols = 3, rows = 3;
+    const c = Math.floor(rng()*cols);
+    const r = Math.floor(rng()*rows);
 
-    // uniform spread
-    const x = Math.round(randBetween(rng, 0, maxX));
-    const y = Math.round(randBetween(rng, 0, maxY));
+    const cellW = (x1 - x0) / cols;
+    const cellH = (y1 - y0) / rows;
 
-    const k = pickWeighted(rng, cfg.kinds) || { kind:'good', weight:1 };
+    let x = x0 + c*cellW + rng()*cellW;
+    let y = y0 + r*cellH + rng()*cellH;
 
-    // target object
+    // anti-clump: ถ้าใกล้ recent มากเกิน ให้สุ่มใหม่ 2 รอบ
+    for(let k=0;k<2;k++){
+      let tooClose = false;
+      for(const p of recent){
+        if(dist(x,y,p.x,p.y) < Math.max(70, s*1.1)){ tooClose = true; break; }
+      }
+      if(!tooClose) break;
+      x = x0 + rng()*(x1-x0);
+      y = y0 + rng()*(y1-y0);
+    }
+    recent.push({x,y});
+    while(recent.length>6) recent.shift();
+
+    return {x,y};
+  }
+
+  function mkTarget(){
+    const pick = pickWeighted(rng, kinds);
+    const kind = pick.kind || 'good';
+
+    const s = Math.round(minS + rng()*(maxS - minS));
+    const play = computePlayRect();
+    const pt = choosePoint(play, s);
+
+    const el = makeEl(kind, s);
+    if(!el.classList.contains('plateTarget')) el.classList.add('plateTarget');
+    el.dataset.kind = kind;
+
+    // for plate: if good, random groupIndex
+    if(kind === 'good'){
+      const gi = Math.floor(rng()*5);
+      el.dataset.groupIndex = String(gi);
+    }
+
+    placeEl(el, pt.x, pt.y, s);
+    mount.appendChild(el);
+
+    const ttl = (kind === 'junk') ? ttlJunk : ttlGood;
+    const born = Date.now();
+
     const t = {
-      id: `t_${Math.floor(rng()*1e9)}`,
-      kind: k.kind || 'good',
-      weight: k.weight,
-      createdAt: now(),
-      expiresAt: now() + cfg.ttlMs,
-
-      // coords relative to boundsHost/mount
-      x, y, size,
-
-      // defaults for emoji/label (game can override via makeTarget)
-      emoji: k.emoji || null,
-      label: k.label || null,
-
-      // optional custom payload
-      data: k.data || null,
+      el,
+      kind,
+      s,
+      born,
+      ttlMs: ttl,
+      groupIndex: el.dataset.groupIndex != null ? Number(el.dataset.groupIndex) : undefined,
+      dead:false
     };
 
-    // element
-    const el = defaultMakeEl();
+    // click/tap hit
+    el.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      hitTarget(t, {source:'tap'});
+    }, { passive:false });
 
-    // allow game customize before styling
-    if(cfg.makeTarget){
-      try{ cfg.makeTarget(t, el); }catch(_){}
-    }
+    // auto expire
+    t.to = setTimeout(()=>{
+      if(t.dead) return;
+      killTarget(t, 'expire');
+      onExpire(t);
+    }, ttl);
 
-    // default label fallback
-    if(!t.label && !t.emoji){
-      // sensible defaults
-      if(t.kind === 'junk') t.emoji = '🍩';
-      else if(String(t.kind).startsWith('g')) t.emoji = '🍽️';
-      else t.emoji = '🥗';
-    }
-
-    styleTarget(el, t);
-
-    // attach
-    (boundsHost || mount).appendChild(el);
-
-    // store
-    STATE.alive.push({ t, el });
-  }
-
-  function expireTick(){
-    if(!STATE.running) return;
-    const ts = now();
-    for(let i = STATE.alive.length - 1; i >= 0; i--){
-      const it = STATE.alive[i];
-      if(ts >= it.t.expiresAt){
-        // remove
-        try{ it.el.remove(); }catch(_){}
-        STATE.alive.splice(i,1);
-        if(cfg.onExpire){
-          try{ cfg.onExpire(it.t); }catch(_){}
-        }
+    alive.push(t);
+    // keep alive limit
+    if(alive.length > maxAlive){
+      const oldest = alive[0];
+      if(oldest && !oldest.dead){
+        killTarget(oldest, 'trim');
+        onExpire(oldest);
       }
     }
   }
 
-  function hitItem(idx, source='tap'){
-    const it = STATE.alive[idx];
-    if(!it) return;
+  function killTarget(t, why='kill'){
+    if(!t || t.dead) return;
+    t.dead = true;
+    clearTimeout(t.to);
+    try{ t.el?.remove(); }catch(_){}
+    alive = alive.filter(x=>x!==t);
+  }
 
-    // visual feedback class (CSS can style)
+  function hitTarget(t, meta={}){
+    if(!running || paused) return;
+    if(!t || t.dead) return;
+
+    // tiny hit fx class (optional)
     try{
-      it.el.classList.add('is-hit');
-      setTimeout(()=>{ try{ it.el.classList.remove('is-hit'); }catch(_){} }, 160);
+      t.el.classList.add('is-hit');
+      setTimeout(()=>t.el && t.el.classList.remove('is-hit'), 140);
     }catch(_){}
 
-    // remove from DOM
-    try{ it.el.remove(); }catch(_){}
-    STATE.alive.splice(idx,1);
-
-    if(cfg.onHit){
-      try{
-        const payload = Object.assign({ source }, it.t);
-        cfg.onHit(payload);
-      }catch(_){}
-    }
+    killTarget(t, 'hit');
+    onHit(t, meta);
   }
 
-  // click/tap on target
-  function onPointerDown(ev){
-    if(!STATE.running) return;
+  function findTargetNear(x, y, lockPx){
+    // pick nearest whose center within radius
+    let best = null;
+    let bestD = 1e9;
 
-    const targetEl = ev.target && ev.target.closest && ev.target.closest('.plateTarget');
-    if(!targetEl) return;
-
-    const idx = STATE.alive.findIndex(it => it.el === targetEl);
-    if(idx >= 0) hitItem(idx, 'pointer');
-  }
-
-  // crosshair shoot: find closest target center within lockPx
-  function onShoot(ev){
-    if(!STATE.running) return;
-    if(!cfg.enableShoot) return;
-
-    const d = ev && ev.detail ? ev.detail : {};
-    const px = Number(d.x); const py = Number(d.y);
-    const lockPx = Math.max(6, Number(d.lockPx || 28) || 28);
-
-    if(!isFinite(px) || !isFinite(py)) return;
-
-    // bounds to translate relative coords to viewport coords
-    const br = getBoundsRect();
-    if(!br) return;
-
-    // only shoot if shoot point is within overall viewport (always true), but we
-    // compute distance in viewport space.
-    let best = -1;
-    let bestD2 = lockPx * lockPx;
-
-    for(let i = 0; i < STATE.alive.length; i++){
-      const it = STATE.alive[i];
-      // element rect in viewport coords
-      const r = it.el.getBoundingClientRect();
+    for(const t of alive){
+      if(!t || t.dead) continue;
+      const r = t.el.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
+      const d = dist(x,y,cx,cy);
 
-      const d2 = dist2(px, py, cx, cy);
-      if(d2 <= bestD2){
-        bestD2 = d2;
-        best = i;
+      const rad = Math.max(lockPx || 26, r.width*0.42);
+      if(d <= rad && d < bestD){
+        bestD = d;
+        best = t;
       }
     }
-
-    if(best >= 0) hitItem(best, d.source || 'shoot');
+    return best;
   }
 
-  function start(){
-    if(STATE.running) return;
-    STATE.running = true;
+  function onShoot(ev){
+    if(!running || paused) return;
+    const d = ev?.detail || {};
+    const x = Number(d.x) || (WIN.innerWidth/2);
+    const y = Number(d.y) || (WIN.innerHeight/2);
+    const lockPx = Number(d.lockPx) || 26;
 
-    // listeners
-    mount.addEventListener('pointerdown', onPointerDown, { passive:true, signal });
-    WIN.addEventListener('hha:shoot', onShoot, { passive:true, signal });
-
-    // spawn loop
-    STATE.timerSpawn = setInterval(()=>{
-      // mild burst spawn (keeps action)
-      spawnOne();
-      if(rng() < 0.25) spawnOne();
-    }, cfg.spawnRate);
-
-    // tick for expire
-    STATE.timerTick = setInterval(expireTick, 100);
-
-    // initial seed spawns
-    spawnOne(); spawnOne();
+    const t = findTargetNear(x,y,lockPx);
+    if(t) hitTarget(t, {source:d.source || 'shoot'});
   }
 
-  function stop(){
-    STATE.running = false;
-    if(STATE.timerSpawn){ clearInterval(STATE.timerSpawn); STATE.timerSpawn = null; }
-    if(STATE.timerTick){ clearInterval(STATE.timerTick); STATE.timerTick = null; }
+  function tick(){
+    if(!running) return;
+    if(!paused) mkTarget();
+    timer = setTimeout(tick, spawnRate);
   }
 
-  function destroy(){
-    stop();
-    try{ controller.abort(); }catch(_){}
-    for(const it of STATE.alive){
-      try{ it.el.remove(); }catch(_){}
+  // -------- controller (สำคัญ: ประกาศก่อนใช้งาน ปิด bug controller before init) --------
+  const controller = {
+    stop(){
+      running = false;
+      clearTimeout(timer);
+      // clear all
+      for(const t of alive.slice()){
+        try{ clearTimeout(t.to); }catch(_){}
+        try{ t.el?.remove(); }catch(_){}
+      }
+      alive = [];
+      WIN.removeEventListener('hha:shoot', onShoot, {passive:true});
+    },
+    pause(){ paused = true; },
+    resume(){ paused = false; },
+    setRate(ms){
+      spawnRate = Math.max(150, Number(ms)||spawnRate);
+    },
+    getState(){
+      return { running, paused, alive: alive.length, spawnRate };
     }
-    STATE.alive.length = 0;
-  }
+  };
 
-  // auto-start by default (keeps old behavior compatible)
-  const autoStart = opts.autoStart !== false;
-  const api = { start, stop, destroy, spawnOne };
+  // bind shoot
+  WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  if(autoStart) start();
-  return api;
+  // start loop
+  tick();
+
+  return controller;
 }
