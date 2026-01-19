@@ -1,14 +1,16 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish)
-✅ FIX spawn bounds: no corner-clump, no out-of-screen
-✅ Hit radius scales by size + view (cVR assist)
-✅ miniTotal/miniCleared tracked
+Food Groups VR — SAFE (PRODUCTION)
+✅ spawn bounds safe
+✅ Target cap (avoid overload)
+✅ Mini clarity events: mini_start / mini_countdown / mini_end
+✅ Boss + Storm telemetry + RT capture
+✅ Double-start guard + RAF cancel + quit on hide
+✅ Resize/orientation -> expire non-boss fast (avoid HUD overlap after rotate)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
          groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
-   - research: deterministic seed + adaptive OFF + AI OFF
+   - research: deterministic seed + adaptive OFF + AI OFF (AI controlled elsewhere)
    - practice: deterministic seed + adaptive OFF + AI OFF
-✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
 */
 
 (function (root) {
@@ -64,6 +66,51 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (String(v || '').includes('vr')  || cls.includes('view-vr'))  return 'vr';
     if (String(v || '').includes('pc')  || cls.includes('view-pc'))  return 'pc';
     return 'mobile';
+  }
+
+  function normalizeEndReason(r){
+    r = String(r||'end').toLowerCase();
+    if (r.includes('time')) return 'time';
+    if (r.includes('all-goals') || r.includes('goals')) return 'all_goals';
+    if (r.includes('practice')) return 'practice';
+    if (r.includes('restart')) return 'restart';
+    if (r.includes('quit') || r.includes('leave')) return 'quit';
+    return 'end';
+  }
+
+  function targetCapFor(view, diff){
+    view = String(view||'mobile');
+    diff = String(diff||'normal');
+    if (view === 'cvr'){
+      if (diff === 'hard') return 10;
+      if (diff === 'easy') return 12;
+      return 11;
+    }
+    if (view === 'mobile'){
+      if (diff === 'hard') return 12;
+      if (diff === 'easy') return 15;
+      return 14;
+    }
+    if (diff === 'hard') return 18;
+    if (diff === 'easy') return 22;
+    return 20;
+  }
+
+  function avg(arr){
+    if (!arr || arr.length===0) return 0;
+    let s=0; for (let i=0;i<arr.length;i++) s+=arr[i];
+    return Math.round(s/arr.length);
+  }
+  function median(arr){
+    if (!arr || arr.length===0) return 0;
+    const a = arr.slice().sort((x,y)=>x-y);
+    const m = (a.length/2)|0;
+    return (a.length%2) ? a[m] : Math.round((a[m-1]+a[m])/2);
+  }
+  function best(arr){
+    if (!arr || arr.length===0) return 0;
+    let b=1e9; for (let i=0;i<arr.length;i++) b=Math.min(b, arr[i]);
+    return (b===1e9)?0:b;
   }
 
   // ---------------- Content ----------------
@@ -246,11 +293,40 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this.nextMiniAt = 0;
     this.miniTotal = 0;
     this.miniCleared = 0;
+    this._miniLastCd = 0;
 
     this.targets = [];
     this._id = 0;
 
     this.coachLastAt = 0;
+
+    // FINAL-6 loop control
+    this._rafId = 0;
+
+    // FINAL-11 guards
+    this._starting = false;
+    this._ending = false;
+
+    // FINAL-11 listeners
+    this._onResize = null;
+    this._onVis = null;
+
+    // FINAL-7 telemetry
+    this.shotsCrosshair = 0;
+    this.shotsTap = 0;
+    this.hitsTotal = 0;
+    this.hitsBoss = 0;
+    this.rtList = [];
+    this._spawnMap = new Map();
+    this.stormCount = 0;
+    this.stormHits = 0;
+    this.stormMisses = 0;
+    this.bossCount = 0;
+    this.bossDownCount = 0;
+    this._bossSpawnAt = 0;
+    this.bossKillMs = [];
+    this.pressurePeak = 0;
+    this.targetsCapHits = 0;
   }
 
   Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
@@ -267,6 +343,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     p = clamp(p,0,3)|0;
     if (p === this.pressure) return;
     this.pressure = p;
+    this.pressurePeak = Math.max(this.pressurePeak|0, p|0);
 
     addBodyClass('press-1', p>=1);
     addBodyClass('press-2', p>=2);
@@ -291,6 +368,15 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
   Engine.prototype.start = function (diff, opts) {
     opts = opts || {};
+
+    if (this._starting) return;
+    this._starting = true;
+
+    // soft end if somehow running
+    if (this.running){
+      try{ this._end('restart'); }catch(_){}
+    }
+
     const rm = String(opts.runMode || 'play').toLowerCase();
     const runMode = (rm === 'research') ? 'research' : (rm === 'practice' ? 'practice' : 'play');
     const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
@@ -352,11 +438,29 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this.mini = null;
     this.miniTotal = 0;
     this.miniCleared = 0;
+    this._miniLastCd = 0;
     this.nextMiniAt = nowMs() + 14000;
 
     this.stormOn = false;
     this.stormUntil = 0;
     this.nextStormAt = nowMs() + preset.stormEverySec * 1000;
+
+    // telemetry reset
+    this.shotsCrosshair = 0;
+    this.shotsTap = 0;
+    this.hitsTotal = 0;
+    this.hitsBoss = 0;
+    this.rtList = [];
+    this._spawnMap = new Map();
+    this.stormCount = 0;
+    this.stormHits = 0;
+    this.stormMisses = 0;
+    this.bossCount = 0;
+    this.bossDownCount = 0;
+    this._bossSpawnAt = 0;
+    this.bossKillMs = [];
+    this.pressurePeak = 0;
+    this.targetsCapHits = 0;
 
     this.running = true;
     this.startAt = nowMs();
@@ -371,10 +475,13 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
     this._installInput();
     this._loop();
+
+    this._starting = false;
   };
 
   Engine.prototype._installInput = function () {
     const self = this;
+
     if (!this._onShoot) {
       this._onShoot = function () {
         if (!self.running) return;
@@ -382,21 +489,54 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       };
       root.addEventListener('hha:shoot', this._onShoot, { passive: true });
     }
+
+    // resize/orientation -> expire non-boss fast
+    if (!this._onResize){
+      this._onResize = ()=>{
+        if (!this.running) return;
+        const t = nowMs();
+        for (let i=0;i<this.targets.length;i++){
+          const tg = this.targets[i];
+          if (tg && tg.kind !== 'boss'){
+            tg.expireAt = Math.min(tg.expireAt, t + 450);
+          }
+        }
+        emit('groups:progress', { kind:'resize' });
+      };
+      root.addEventListener('resize', this._onResize, { passive:true });
+      root.addEventListener('orientationchange', this._onResize, { passive:true });
+    }
+
+    // quit on hide
+    if (!this._onVis){
+      this._onVis = ()=>{
+        if (!this.running) return;
+        if (DOC.hidden){
+          try{ this._end('quit'); }catch(_){}
+        }
+      };
+      DOC.addEventListener('visibilitychange', this._onVis, { passive:true });
+    }
   };
 
   Engine.prototype._loop = function () {
     const self = this;
+
     function frame() {
-      if (!self.running) return;
+      if (!self.running) { self._rafId = 0; return; }
+
       const t = nowMs();
       self._tickTime(t);
       self._tickStorm(t);
       self._tickMini(t);
       self._tickSpawn(t);
       self._tickExpire(t);
-      requestAnimationFrame(frame);
+
+      self._rafId = requestAnimationFrame(frame);
     }
-    requestAnimationFrame(frame);
+
+    if (self._rafId) { try{ cancelAnimationFrame(self._rafId); }catch(_){} }
+    self._rafId = requestAnimationFrame(frame);
   };
 
   Engine.prototype._tickTime = function (t) {
@@ -428,6 +568,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (!this.stormOn && t >= (this.nextStormAt - stormAdvance)) {
       this.stormOn = true;
       this.stormUntil = t + p.stormLenSec * 1000;
+      this.stormCount += 1;
+
       addBodyClass('groups-storm', true);
       addBodyClass('fx-storm', true);
       emit('groups:progress', { kind: 'storm_on' });
@@ -465,6 +607,14 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       this.mini = { on:true, now:0, need, leftMs:durMs, forbidJunk, ok:true, startedAt:t };
       this.miniTotal += 1;
 
+      this._miniLastCd = 0;
+      emit('groups:progress', {
+        kind:'mini_start',
+        need,
+        forbidJunk,
+        durSec: Math.round(durMs/1000)
+      });
+
       this._emitQuestUpdate();
       this._emitCoach(
         forbidJunk
@@ -480,6 +630,14 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
       if (leftMs <= 0) {
         const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
+
+        emit('groups:progress', {
+          kind:'mini_end',
+          ok,
+          now: this.mini.now|0,
+          need: this.mini.need|0,
+          forbidJunk: !!this.mini.forbidJunk
+        });
 
         if (ok) {
           this.score += 180;
@@ -502,6 +660,14 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
         this.nextMiniAt = t + 22000 + ((this.rng() * 6000) | 0);
       } else {
+        // countdown 3..2..1
+        const sec = Math.ceil(leftMs/1000);
+        if (sec <= 3 && sec >= 1){
+          if (this._miniLastCd !== sec){
+            this._miniLastCd = sec;
+            emit('groups:progress', { kind:'mini_countdown', sec });
+          }
+        }
         this._emitQuestUpdate(leftMs);
       }
     }
@@ -538,12 +704,17 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   };
 
   Engine.prototype._tickExpire = function (t) {
+    if (!this.targets || this.targets.length === 0) return;
+
     for (let i = this.targets.length - 1; i >= 0; i--) {
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
         if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
         else if (tg.kind === 'wrong') { this.nExpireWrong++; }
         else if (tg.kind === 'junk') { this.nExpireJunk++; }
+
+        if (this.stormOn) this.stormMisses += 1;
+
         this._removeTarget(i, 'expire');
       }
     }
@@ -618,6 +789,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
 
     this.nTargetBossSpawned++;
+    this.bossCount += 1;
+    this._bossSpawnAt = nowMs();
+
     this._spawnDomTarget({
       kind: 'boss',
       emoji,
@@ -636,7 +810,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
   Engine.prototype._spawnDomTarget = function (spec) {
     const layer = this.layerEl;
-    if (!layer) return;
+    if (!layer || !layer.appendChild) return;
 
     const view = this.view || getViewFromBodyOrParam();
     const R = computePlayRect(view);
@@ -647,6 +821,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
     el.setAttribute('data-emoji', spec.emoji);
+    el.textContent = spec.emoji;
 
     cssSet(el, '--x', x.toFixed(1) + 'px');
     cssSet(el, '--y', y.toFixed(1) + 'px');
@@ -654,6 +829,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
     const id = (++this._id);
     const born = nowMs();
+
+    try{ this._spawnMap.set(id, born); }catch(_){}
 
     const s = Number(spec.size ?? 1) || 1;
     const baseR = (spec.kind === 'boss') ? 66 : 48;
@@ -671,9 +848,22 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       bossHpMax: spec.bossHpMax || 0
     };
 
+    // cap guard
+    const cap = targetCapFor(view, this.cfg && this.cfg.diff);
+    if (this.targets.length >= cap){
+      this.targetsCapHits += 1;
+      let rmIdx = 0;
+      for (let k = 0; k < this.targets.length; k++){
+        if (this.targets[k].kind !== 'boss'){ rmIdx = k; break; }
+      }
+      this._removeTarget(rmIdx, 'cap');
+    }
+
     el.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!this.running) return;
+      this.shotsTap += 1;
       this._hitTargetById(id, 'tap');
     }, { passive: false });
 
@@ -689,6 +879,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
     try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
     setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
+
+    try{ this._spawnMap && this._spawnMap.delete(tg.id); }catch(_){}
 
     this.targets.splice(idx, 1);
   };
@@ -709,6 +901,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const cx = (root.innerWidth || 0) * 0.5;
     const cy = (root.innerHeight || 0) * 0.5;
 
+    this.shotsCrosshair += 1;
+
     let bestI = -1;
     let bestD = 1e9;
 
@@ -724,8 +918,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงพลาดจาก crosshair: “ไม่เพิ่ม miss” เพื่อกัน miss พุ่ง (ตามที่คุณเจอ)
-      // แต่ยัง reset combo + FX ให้รู้สึกกดดัน
+      // ยิงพลาดจาก crosshair: ไม่เพิ่ม miss (กันพุ่ง) แต่ reset combo + FX
+      if (this.stormOn) this.stormMisses += 1;
+
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
@@ -738,7 +933,21 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
 
+    // RT capture helper (uses spawnMap if available)
+    const pushRT = ()=>{
+      try{
+        const born = this._spawnMap ? this._spawnMap.get(tg.id) : tg.bornAt;
+        const rt = Math.max(0, Math.round((t - (born || tg.bornAt || t))));
+        if (rt <= 8000) this.rtList.push(rt);
+      }catch(_){}
+    };
+
     if (tg.kind === 'boss') {
+      this.hitsBoss += 1;
+      this.hitsTotal += 1;
+      if (this.stormOn) this.stormHits += 1;
+      pushRT();
+
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       emit('hha:judge', { kind: 'boss', text: `BOSS -1`, x: tg.x, y: tg.y });
       flashBodyFx('fx-hit', 180);
@@ -748,6 +957,10 @@ Food Groups VR — SAFE (PRODUCTION-ish)
         this.combo += 2;
         this.comboMax = Math.max(this.comboMax, this.combo);
         this.powerCharge = Math.min(p.powerThreshold, this.powerCharge + 2);
+
+        this.bossDownCount += 1;
+        const killMs = Math.max(0, Math.round(nowMs() - (this._bossSpawnAt || this.startAt)));
+        if (killMs <= 20000) this.bossKillMs.push(killMs);
 
         emit('hha:judge', { kind: 'good', text: 'BOSS DOWN +320', x: tg.x, y: tg.y });
         flashBodyFx('fx-perfect', 220);
@@ -763,6 +976,11 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       }
       return;
     }
+
+    // non-boss hit
+    this.hitsTotal += 1;
+    if (this.stormOn) this.stormHits += 1;
+    pushRT();
 
     if (tg.kind === 'good') {
       this.nHitGood++;
@@ -972,13 +1190,51 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   };
 
   Engine.prototype._end = function (reason) {
+    if (this._ending) return;
     if (!this.running) return;
+    this._ending = true;
+
     this.running = false;
 
+    // hard stop visuals
+    addBodyClass('groups-storm', false);
+    addBodyClass('groups-storm-urgent', false);
+    addBodyClass('fx-storm', false);
+    addBodyClass('fx-boss', false);
+    addBodyClass('fx-hit', false);
+    addBodyClass('fx-good', false);
+    addBodyClass('fx-bad', false);
+    addBodyClass('fx-miss', false);
+    addBodyClass('fx-perfect', false);
+    addBodyClass('clutch', false);
+    addBodyClass('press-1', false);
+    addBodyClass('press-2', false);
+    addBodyClass('press-3', false);
+
+    // remove targets
     for (let i = 0; i < this.targets.length; i++) {
       try { this.targets[i].el.remove(); } catch (_) {}
     }
     this.targets = [];
+    try{ this._spawnMap && this._spawnMap.clear(); }catch(_){}
+
+    // stop loop + listeners
+    try{ if (this._rafId) cancelAnimationFrame(this._rafId); }catch(_){}
+    this._rafId = 0;
+
+    try{ if (this._onShoot) root.removeEventListener('hha:shoot', this._onShoot); }catch(_){}
+    this._onShoot = null;
+
+    try{
+      if (this._onResize){
+        root.removeEventListener('resize', this._onResize);
+        root.removeEventListener('orientationchange', this._onResize);
+      }
+    }catch(_){}
+    this._onResize = null;
+
+    try{ if (this._onVis) DOC.removeEventListener('visibilitychange', this._onVis); }catch(_){}
+    this._onVis = null;
 
     const acc = this._accuracyPct();
     const grade = gradeFrom(acc, this.misses, this.score);
@@ -987,7 +1243,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const playedSec = Math.max(0, Math.round((endAt - this.startAt) / 1000));
 
     const summary = {
-      reason: String(reason || 'end'),
+      reason: normalizeEndReason(reason),
       scoreFinal: this.score | 0,
       comboMax: this.comboMax | 0,
       misses: this.misses | 0,
@@ -1019,13 +1275,36 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       runMode: this.cfg.runMode,
       diff: this.cfg.diff,
       seed: this.cfg.seed,
-      pressureLevel: this.pressure|0
+      pressureLevel: this.pressure|0,
+
+      // telemetry
+      shotsCrosshair: this.shotsCrosshair|0,
+      shotsTap: this.shotsTap|0,
+      hitsTotal: this.hitsTotal|0,
+      hitsBoss: this.hitsBoss|0,
+
+      avgRTms: avg(this.rtList),
+      medianRTms: median(this.rtList),
+
+      stormCount: this.stormCount|0,
+      stormHits: this.stormHits|0,
+      stormMisses: this.stormMisses|0,
+
+      bossCount: this.bossCount|0,
+      bossDownCount: this.bossDownCount|0,
+      bossAvgKillMs: avg(this.bossKillMs),
+      bossBestKillMs: best(this.bossKillMs),
+
+      pressurePeak: this.pressurePeak|0,
+      targetsCapHits: this.targetsCapHits|0,
     };
 
     emit('hha:end', summary);
     addBodyClass('fx-end', true);
     setTimeout(()=>addBodyClass('fx-end', false), 650);
     this._emitCoach((this.cfg.runMode==='practice') ? 'จบฝึกแล้ว! กำลังเข้าเกมจริง…' : 'จบเกมแล้ว! กดเล่นอีกครั้งได้เลย 🏁', 'happy');
+
+    this._ending = false;
   };
 
   // ---------------- Export ----------------
