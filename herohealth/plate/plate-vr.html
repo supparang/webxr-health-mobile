@@ -7,10 +7,10 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (Enter VR reliability) -->
+  <!-- A-Frame: helps WebXR Enter VR reliability (buttons in vr-ui.js) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS -->
+  <!-- CSS (B1) -->
   <link rel="stylesheet" href="./plate-vr.css" />
 
   <!-- Global FX + Logger + Universal VR UI -->
@@ -18,120 +18,295 @@
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Boot -->
+  <!-- Boot (A3) -->
   <script type="module" src="./plate.boot.js"></script>
 
+  <style>
+    /* --- Minimal HUD layout (ใช้ร่วมกับ plate-vr.css helpers) --- */
+
+    /* A-Frame scene: ซ่อนไว้เพื่อให้ enterVR/exit/recenter ทำงาน */
+    a-scene{
+      position:fixed; inset:0;
+      z-index:0;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    /* HUD top */
+    #hudTop{
+      position:fixed;
+      left: calc(10px + var(--sal));
+      right: calc(10px + var(--sar));
+      top:  calc(10px + var(--sat));
+      z-index:30;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:flex-start;
+      pointer-events:none;
+    }
+    #hudTop .card{
+      pointer-events:auto;
+      padding:10px 12px;
+      min-width: 190px;
+    }
+    .t{ font-weight:1000; font-size:12px; color:rgba(229,231,235,.92); }
+    .v{ margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+    /* Quest (Goal + Mini) */
+    #questWrap{
+      position:fixed;
+      left: calc(10px + var(--sal));
+      right: calc(10px + var(--sar));
+      top: calc(82px + var(--sat));
+      z-index:28;
+      pointer-events:none;
+    }
+    #questWrap .questCard{
+      pointer-events:auto;
+      padding:10px 12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      background:var(--panel2);
+    }
+    .questCol{ display:flex; flex-direction:column; gap:6px; min-width:220px; }
+    .questRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
+    .hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
+
+    /* Coach bottom */
+    #coachWrap{
+      position:fixed;
+      left: calc(10px + var(--sal));
+      right: calc(10px + var(--sar));
+      bottom: calc(10px + var(--sab));
+      z-index:42;
+      pointer-events:none;
+    }
+    #coachWrap .questCard{
+      pointer-events:auto;
+      padding:10px 12px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      background:var(--panel2);
+    }
+    #coachBox{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      min-width:260px;
+    }
+    #coachImg{
+      width:44px;height:44px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.50);
+      object-fit:cover;
+    }
+    #coachMsg{ font-weight:1100; }
+    #coachTag{ color:var(--muted); font-weight:900; font-size:12px; margin-top:2px; }
+
+    /* Storm/Boss HUD (optional) */
+    #stormHud{
+      position:fixed;
+      left: calc(10px + var(--sal));
+      top: calc(10px + var(--sat));
+      transform: translateY(54px);
+      z-index:43;
+      display:none;
+      pointer-events:none;
+    }
+    #stormHud .card{ pointer-events:auto; min-width: 320px; padding:10px 12px; }
+    #bossHud{
+      position:fixed;
+      left: calc(10px + var(--sal));
+      bottom: calc(86px + var(--sab));
+      z-index:44;
+      display:none;
+      pointer-events:none;
+    }
+    #bossHud .card{ pointer-events:auto; min-width: 280px; padding:10px 12px; }
+
+    /* Result overlay (ใช้กับ hha:end ใน boot ถ้าต้องการต่อยอด) */
+    #endOverlay{
+      position:fixed; inset:0;
+      display:none;
+      place-items:center;
+      z-index:70;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+    }
+    #endOverlay[aria-hidden="false"]{ display:grid; }
+    .panelCard{
+      width:min(980px, 100%);
+      padding:16px;
+      border-radius:22px;
+    }
+    @media (max-width: 920px){
+      #stormHud{ transform: translateY(62px); }
+      #hudTop .card{ min-width: 170px; }
+    }
+  </style>
+
   <script>
-    // crosshair assist (vr-ui.js)
+    /* Universal VR UI lockPx (crosshair assist) */
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
 </head>
 
 <body class="view-pc">
-  <div id="app">
+  <!-- Minimal A-Frame scene (hidden) for Enter VR reliability -->
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
+    <a-entity id="rig" position="0 0 0">
+      <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
+    </a-entity>
+  </a-scene>
 
-    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
-    <a-scene
-      embedded
-      renderer="antialias:true; colorManagement:true"
-      xr-mode-ui="enabled:false"
-      style="position:fixed; inset:0; z-index:0; opacity:0; pointer-events:none;"
-    >
-      <a-entity id="rig" position="0 0 0">
-        <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
-      </a-entity>
-    </a-scene>
+  <!-- FX layers required by CSS/JS (toggle classes) -->
+  <div id="stormFx"></div>
+  <div id="bossFx"></div>
 
-    <!-- FX layers (optional, CSS toggles by classes) -->
-    <div id="stormFx"></div>
-    <div id="bossFx"></div>
+  <!-- PLAYFIELD (targets spawn inside this safe rect; CSS sets its inset) -->
+  <div id="plate-layer" aria-label="plate playfield"></div>
 
-    <!-- Playfield (targets spawn inside this rect) -->
-    <div id="plate-layer" aria-label="playfield"></div>
-
-    <!-- HUD -->
-    <div id="hud" aria-label="hud">
-      <div class="hudRow">
-        <div class="chip score">
-          <span class="lbl">SCORE</span>
-          <span class="val" id="hudScore">0</span>
-        </div>
-        <div class="chip time">
-          <span class="lbl">TIME</span>
-          <span class="val" id="hudTime">0</span>
-        </div>
-        <div class="chip combo">
-          <span class="lbl">COMBO</span>
-          <span class="val" id="hudCombo">0</span>
-        </div>
+  <!-- HUD TOP -->
+  <div id="hudTop" aria-label="hud top">
+    <div class="card">
+      <div class="t">คะแนน / คอมโบ / พลาด</div>
+      <div class="v">
+        <span class="pill">🏆 <span id="hudScore">0</span></span>
+        <span class="pill">🔥 <span id="hudCombo">0</span></span>
+        <span class="pill">💥 <span id="hudMiss">0</span></span>
       </div>
+    </div>
 
-      <div class="card" id="questCard">
-        <div class="cardTitle">
-          <div class="t">🎯 ภารกิจ</div>
-          <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
-        </div>
-
-        <!-- GOAL -->
-        <div class="qItem" id="goalItem">
-          <div class="qText">
-            <div class="name" id="goalName">Goal</div>
-            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
-          </div>
-          <div class="qProg">
-            <div class="qNums" id="goalNums">0/1</div>
-            <div class="bar"><i id="goalBar" style="width:0%"></i></div>
-          </div>
-        </div>
-
-        <!-- MINI -->
-        <div class="qItem" id="miniItem">
-          <div class="qText">
-            <div class="name" id="miniName">Mini Quest</div>
-            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
-          </div>
-          <div class="qProg">
-            <div class="qNums" id="miniNums">0/1</div>
-            <div class="bar"><i id="miniBar" style="width:0%"></i></div>
-          </div>
+    <div class="card">
+      <div class="t">เวลา / ความแม่น</div>
+      <div class="v">
+        <span class="pill">⏱️ <span id="hudTime">0</span>s</span>
+        <span class="pill">🎯 <span id="hudAcc">0%</span></span>
+      </div>
+      <div class="v" style="margin-top:8px">
+        <span class="muted">FEVER</span>
+        <div class="bar bad" style="flex:1; min-width:140px">
+          <i id="uiFeverFill"></i>
         </div>
       </div>
     </div>
 
-    <!-- Coach bubble -->
-    <div id="coachCard" aria-hidden="true">
-      <div class="inner">
-        <div id="coachMsg">…</div>
-        <div class="meta" id="coachMeta">Coach</div>
+    <div class="card">
+      <div class="t">จาน 5 หมู่</div>
+      <div class="v">
+        <span class="pill">🥦 <span id="uiG1">0</span></span>
+        <span class="pill">🍎 <span id="uiG2">0</span></span>
+        <span class="pill">🐟 <span id="uiG3">0</span></span>
+        <span class="pill">🍚 <span id="uiG4">0</span></span>
+        <span class="pill">🥑 <span id="uiG5">0</span></span>
       </div>
     </div>
+  </div>
 
-    <!-- End Overlay -->
-    <div id="endOverlay" aria-hidden="true">
-      <div class="endPanel">
-        <div class="endTitle">
-          <h2 id="endTitle">สรุปผล</h2>
-          <div class="tag" id="endTag">PlateVR</div>
+  <!-- QUEST (Goal + Mini) -->
+  <div id="questWrap" aria-label="quest">
+    <div class="questCard">
+      <div class="questCol">
+        <div class="k">🎯 GOAL</div>
+        <div style="font-weight:1100" id="goalName">—</div>
+        <div class="hint" id="goalSub">—</div>
+        <div class="questRow">
+          <span class="pill"><span id="goalNums">0/0</span></span>
+          <div class="bar" style="width:200px"><i id="goalBar" style="width:0%"></i></div>
         </div>
+      </div>
 
-        <div class="endGrid">
-          <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
-          <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
-          <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
-          <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
-          <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
-          <div class="kpi"><div class="k">Miss</div><div class="v" id="kMiss">0</div></div>
+      <div class="questCol">
+        <div class="k">⚡ MINI</div>
+        <div style="font-weight:1100" id="miniName">—</div>
+        <div class="hint" id="miniSub">—</div>
+        <div class="questRow">
+          <span class="pill"><span id="miniNums">0/0</span></span>
+          <div class="bar" style="width:200px">
+            <i id="miniBar" style="width:0%; background:rgba(245,158,11,.85)"></i>
+          </div>
         </div>
+      </div>
 
-        <div class="endBtns">
+      <div class="questCol" style="min-width:260px">
+        <div class="k">💡 Hint</div>
+        <div class="hint" id="hudHint">เติมจานให้ครบ 5 หมู่ และคุมความแม่น!</div>
+        <div class="hint" style="margin-top:6px">Cardboard: ใช้ <b>view=cvr</b> ยิงจาก crosshair</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Storm HUD (optional) -->
+  <div id="stormHud" aria-label="storm hud">
+    <div class="card">
+      <div class="t" id="stormTitle">🌪️ STORM</div>
+      <div class="hint" id="stormHint">—</div>
+      <div style="font-weight:1100; margin-top:6px" id="stormProg">—</div>
+    </div>
+  </div>
+
+  <!-- Boss HUD (optional) -->
+  <div id="bossHud" aria-label="boss hud">
+    <div class="card">
+      <div class="t" id="bossTitle">👹 BOSS</div>
+      <div class="hint" id="bossHint">—</div>
+      <div style="font-weight:1100; margin-top:6px" id="bossProg">—</div>
+    </div>
+  </div>
+
+  <!-- COACH -->
+  <div id="coachWrap" aria-label="coach">
+    <div class="questCard">
+      <div id="coachBox">
+        <img id="coachImg" src="../img/coach-neutral.png" alt="coach" />
+        <div>
+          <div style="font-weight:1100" id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 🍽️</div>
+          <div id="coachTag">Coach</div>
+        </div>
+      </div>
+      <div class="hint" style="text-align:right; max-width:360px">
+        แตะ/ยิง = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
+      </div>
+    </div>
+  </div>
+
+  <!-- END OVERLAY (boot.js ใช้ aria-hidden เปิด/ปิด) -->
+  <div id="endOverlay" aria-hidden="true">
+    <div class="panelCard">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start">
+        <div>
+          <div style="font-weight:1200; font-size:18px">🏁 สรุปผล</div>
+          <div style="margin-top:6px; color:var(--muted); font-weight:900">
+            Accuracy: <b id="kAcc">—</b> • Miss: <b id="kMiss">0</b>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
           <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
         </div>
       </div>
-    </div>
 
+      <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:10px">
+        <span class="pill">🏆 <b id="kScore">0</b></span>
+        <span class="pill">🔥 Max Combo <b id="kCombo">0</b></span>
+        <span class="pill">🎯 Goals <b id="kGoals">0/0</b></span>
+        <span class="pill">⚡ Minis <b id="kMini">0/0</b></span>
+      </div>
+    </div>
   </div>
 
-  <!-- vr-ui.js จะ inject ปุ่ม ENTER VR/EXIT/RECENTER + crosshair ให้อัตโนมัติ -->
+  <!-- NOTE:
+    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay.
+    plate.boot.js handles view detect + HUD bindings + engine boot.
+  -->
 </body>
 </html>
