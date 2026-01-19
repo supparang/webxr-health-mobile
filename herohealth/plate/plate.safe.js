@@ -1,8 +1,10 @@
-// =========================================================
-// /herohealth/plate/plate.safe.js
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION PATCH B2)
-// FIX: mode-factory export/import + stop engine on end
-// =========================================================
+// === /herohealth/plate/plate.safe.js ===
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION)
+// HHA Standard
+// ✅ Play / Research modes (seeded in research/study)
+// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ Uses DOM spawner from ../vr/mode-factory.js (export boot)
+
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
@@ -17,7 +19,7 @@ const clamp = (v, a, b) => {
 const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
-  let t = (Number(seed)||Date.now()) >>> 0;
+  let t = (Number(seed) || Date.now()) >>> 0;
   return function(){
     t += 0x6D2B79F5;
     let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -38,6 +40,7 @@ const STATE = {
   timeLeft:0,
   timer:null,
 
+  // 5 groups
   g:[0,0,0,0,0],
 
   goal:{ name:'เติมจานให้ครบ 5 หมู่', sub:'เก็บอาหารให้ครบทุกหมู่', cur:0, target:5, done:false },
@@ -49,11 +52,16 @@ const STATE = {
 
   cfg:null,
   rng:Math.random,
-  engine:null
+
+  spawner:null
 };
 
 function emit(name, detail){
   WIN.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
 }
 
 function emitQuest(){
@@ -64,19 +72,16 @@ function emitQuest(){
   });
 }
 
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
-}
-
 function addScore(v){
   STATE.score += v;
-  emit('hha:score', { score: STATE.score, combo: STATE.combo, comboMax: STATE.comboMax });
+  emit('hha:score', { score:STATE.score, combo:STATE.combo, comboMax:STATE.comboMax });
 }
 
 function addCombo(){
   STATE.combo++;
   STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
 }
+
 function resetCombo(){ STATE.combo = 0; }
 
 function accuracy(){
@@ -91,7 +96,7 @@ function endGame(reason='timeup'){
   STATE.running = false;
 
   clearInterval(STATE.timer);
-  try{ STATE.engine && STATE.engine.stop && STATE.engine.stop(); }catch(_){}
+  try{ STATE.spawner?.destroy?.(); }catch(_){}
 
   emit('hha:end', {
     reason,
@@ -128,7 +133,6 @@ function onHitGood(groupIndex){
   addCombo();
   addScore(100 + STATE.combo * 5);
 
-  // goal: number of groups collected at least once
   if(!STATE.goal.done){
     STATE.goal.cur = STATE.g.filter(v=>v>0).length;
     if(STATE.goal.cur >= STATE.goal.target){
@@ -137,7 +141,6 @@ function onHitGood(groupIndex){
     }
   }
 
-  // mini: accuracy
   const accPct = accuracy() * 100;
   STATE.mini.cur = Math.round(accPct);
   if(!STATE.mini.done && accPct >= STATE.mini.target){
@@ -146,6 +149,12 @@ function onHitGood(groupIndex){
   }
 
   emitQuest();
+
+  // optional: auto-finish when both done (feel good for kids)
+  if(STATE.goal.done && STATE.mini.done){
+    // give a tiny delay for celebration feel
+    setTimeout(()=>endGame('allDone'), 380);
+  }
 }
 
 function onHitJunk(){
@@ -163,29 +172,51 @@ function onExpireGood(){
 }
 
 function makeSpawner(mount){
-  const diff = (STATE.cfg.diff||'normal');
-  const spawnRate = (diff === 'hard') ? 650 : (diff === 'easy' ? 980 : 820);
-  const ttlMs = (diff === 'hard') ? 1050 : (diff === 'easy' ? 1400 : 1250);
+  const diff = (STATE.cfg.diff || 'normal').toLowerCase();
 
-  // ✅ ใช้ emoji หลายแบบให้ไม่น่าเบื่อ (แต่ยังเป็น 5 หมู่)
-  const emojisGood = ['🥦','🍎','🐟','🍚','🥑'];
-  const emojisJunk = ['🍟','🍩','🧁','🥤','🍔'];
+  // Slightly faster for "เร่งนิด ๆ" feel
+  const spawnRate =
+    diff === 'hard' ? 620 :
+    diff === 'easy' ? 920 :
+    780;
+
+  // more variety for Plate (still emoji-based)
+  const goodEmojis = ['🥦','🍎','🐟','🍚','🥑'];
+  const junkEmojis = ['🍟','🍩','🍔','🧁','🥤'];
 
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
+    rng: STATE.rng,
     spawnRate,
-    ttlMs,
-    sizeRange:[46, 70],
+    sizeRange:[46, 68],
     kinds:[
-      { kind:'good', weight:0.72 },
-      { kind:'junk', weight:0.28 }
+      // good targets
+      { kind:'good', weight:0.74, emoji: goodEmojis[0] },
+      { kind:'good', weight:0.74, emoji: goodEmojis[1] },
+      { kind:'good', weight:0.74, emoji: goodEmojis[2] },
+      { kind:'good', weight:0.74, emoji: goodEmojis[3] },
+      { kind:'good', weight:0.74, emoji: goodEmojis[4] },
+
+      // junk targets (less frequent)
+      { kind:'junk', weight:0.55, emoji: junkEmojis[0] },
+      { kind:'junk', weight:0.55, emoji: junkEmojis[1] },
+      { kind:'junk', weight:0.55, emoji: junkEmojis[2] },
+      { kind:'junk', weight:0.55, emoji: junkEmojis[3] },
+      { kind:'junk', weight:0.55, emoji: junkEmojis[4] },
     ],
-    emojisGood,
-    emojisJunk,
     onHit:(t)=>{
       if(t.kind === 'good'){
-        const gi = (t.groupIndex != null) ? t.groupIndex : Math.floor(STATE.rng()*5);
+        // Map emoji -> group index
+        let gi = 0;
+        const e = t.emoji || '';
+        if(e === '🥦') gi = 0;
+        else if(e === '🍎') gi = 1;
+        else if(e === '🐟') gi = 2;
+        else if(e === '🍚') gi = 3;
+        else if(e === '🥑') gi = 4;
+        else gi = Math.floor(STATE.rng()*5);
+
         onHitGood(gi);
       }else{
         onHitJunk();
@@ -200,7 +231,7 @@ function makeSpawner(mount){
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
-  STATE.cfg = cfg;
+  STATE.cfg = cfg || {};
   STATE.running = true;
   STATE.ended = false;
 
@@ -217,36 +248,27 @@ export function boot({ mount, cfg }){
   STATE.mini.cur = 0; STATE.mini.done = false;
 
   // RNG
-  if(cfg.runMode === 'research' || cfg.runMode === 'study'){
-    STATE.rng = seededRng(cfg.seed || Date.now());
+  const rm = (STATE.cfg.runMode || 'play').toLowerCase();
+  if(rm === 'research' || rm === 'study'){
+    STATE.rng = seededRng(STATE.cfg.seed || Date.now());
   }else{
     STATE.rng = Math.random;
   }
 
-  STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
+  STATE.timeLeft = Number(STATE.cfg.durationPlannedSec) || 90;
 
   emit('hha:start', {
     game:'plate',
-    runMode: cfg.runMode,
-    diff: cfg.diff,
-    seed: cfg.seed,
+    runMode: STATE.cfg.runMode,
+    diff: STATE.cfg.diff,
+    seed: STATE.cfg.seed,
     durationPlannedSec: STATE.timeLeft
   });
 
   emitQuest();
   startTimer();
 
-  STATE.engine = makeSpawner(mount);
+  STATE.spawner = makeSpawner(mount);
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
-
-  // (optional) auto end if both goal+mini done early
-  WIN.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    if(STATE.ended) return;
-    if(d.allDone){
-      // ให้รางวัล: จบก่อนเวลา
-      endGame('allDone');
-    }
-  }, { once:false });
 }
