@@ -1,7 +1,6 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION)
-   HHA Standard (Plate theme)
+   Balanced Plate VR — UI + FX (PRODUCTION C3)
 ========================================================= */
 
 :root{
@@ -22,21 +21,12 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* spawn padding (กันเป้าทับ HUD) */
-  --spawn-pad-top: calc(92px + var(--sat));
-  --spawn-pad-bottom: calc(98px + var(--sab));
-  --spawn-pad-lr: 14px;
 }
 
-/* ---------------------------------------------------------
-   Global
---------------------------------------------------------- */
 *{ box-sizing:border-box; }
 
 html,body{
@@ -49,28 +39,9 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{
-  position:fixed;
-  inset:0;
-  overflow:hidden;
-}
-
-/* background vibe (optional) */
-#app::before{
-  content:"";
-  position:fixed; inset:0;
-  pointer-events:none;
-  background:
-    radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-    radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
-    radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-    linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-  z-index:0;
-}
-
-/* ---------------------------------------------------------
-   Playfield (targets spawn inside)
---------------------------------------------------------- */
+/* --------------------------------------------
+   Playfield layer (spawn host)
+-------------------------------------------- */
 #plate-layer{
   position:fixed;
   inset:0;
@@ -80,148 +51,112 @@ html,body{
   user-select:none;
 }
 
-/* ---------------------------------------------------------
-   Targets
---------------------------------------------------------- */
-@keyframes hhaPop {
-  0%{ transform: translateZ(0) scale(.86); opacity:0; }
-  40%{ transform: translateZ(0) scale(1.06); opacity:1; }
-  100%{ transform: translateZ(0) scale(1); opacity:1; }
+/* --------------------------------------------
+   Targets (bubble + emoji)
+-------------------------------------------- */
+@keyframes pop{
+  0%{ transform: translate(-50%,-50%) scale(.86); opacity:0 }
+  100%{ transform: translate(-50%,-50%) scale(1); opacity:1 }
 }
-@keyframes hhaWobble {
-  0%{ transform: translateZ(0) rotate(0deg); }
-  25%{ transform: translateZ(0) rotate(1.4deg); }
-  50%{ transform: translateZ(0) rotate(-1.4deg); }
-  75%{ transform: translateZ(0) rotate(1deg); }
-  100%{ transform: translateZ(0) rotate(0deg); }
-}
-@keyframes hhaWarnPulse{
+@keyframes wobble{
   0%{ filter:brightness(1); }
-  50%{ filter:brightness(1.18); }
-  100%{ filter:brightness(1); }
-}
-@keyframes hhaBadPulse{
-  0%{ filter:brightness(1); }
-  50%{ filter:brightness(1.22); }
+  50%{ filter:brightness(1.12); }
   100%{ filter:brightness(1); }
 }
 
 .plateTarget{
   display:grid;
   place-items:center;
-  border-radius:999px !important;
-  border:1px solid rgba(148,163,184,.20) !important;
+  border-radius:999px;
+  font-size:28px;
+  font-weight:900;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
     radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
-    rgba(2,6,23,.56) !important;
-  backdrop-filter: blur(10px) saturate(1.15);
+    rgba(2,6,23,.58);
+
+  border:1px solid rgba(148,163,184,.20);
+
   box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
+    0 18px 52px rgba(0,0,0,.34),
     inset 0 1px 0 rgba(255,255,255,.08);
-  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
-  transform: translateZ(0);
+
+  animation: pop .14s ease-out 0s 1, wobble 1.8s ease-in-out .12s infinite;
+
   text-shadow: 0 2px 0 rgba(0,0,0,.25);
-  font-weight: 1000;
-  line-height:1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  cursor:pointer;
-  appearance:none;
-  outline:none;
 }
 
 .plateTarget:active{
-  transform: translateZ(0) scale(.98);
+  transform: translate(-50%,-50%) scale(.98);
 }
 
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.30) !important;
+  border-color:rgba(34,197,94,.32);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.32),
-    0 0 26px rgba(34,197,94,.12),
+    0 18px 52px rgba(0,0,0,.34),
+    0 0 26px rgba(34,197,94,.14),
     inset 0 1px 0 rgba(255,255,255,.08);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.30) !important;
+  border-color:rgba(239,68,68,.30);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.32),
-    0 0 26px rgba(239,68,68,.12),
+    0 18px 52px rgba(0,0,0,.34),
+    0 0 26px rgba(239,68,68,.14),
     inset 0 1px 0 rgba(255,255,255,.08);
-  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.2s ease-in-out .12s infinite;
+  animation-duration:1.2s;
 }
 
-/* ---------------------------------------------------------
-   HUD layout (chips + quest card)
---------------------------------------------------------- */
+/* --------------------------------------------
+   HUD (non-blocking)
+-------------------------------------------- */
 #hud{
   position:fixed;
   inset:0;
-  pointer-events:none;
   z-index:30;
+  pointer-events:none;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
 }
 
 .hudRow{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  top: calc(12px + var(--sat));
   display:flex;
   gap:10px;
   flex-wrap:wrap;
-  align-items:flex-start;
-  z-index:31;
-  pointer-events:none;
+  align-items:center;
 }
 
+/* chips */
 .chip{
   pointer-events:auto;
   min-width: 120px;
   padding:10px 12px;
-  border-radius: var(--pill);
-  background: rgba(15,23,42,.68);
-  border: 1px solid var(--stroke);
-  box-shadow: 0 16px 48px rgba(0,0,0,.28);
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.70);
   backdrop-filter: blur(10px);
+  box-shadow: 0 16px 46px rgba(0,0,0,.30);
   display:flex;
-  flex-direction:column;
-  gap:4px;
+  gap:10px;
+  align-items:baseline;
 }
-
-.chip .lbl{
-  font-size:10px;
-  font-weight:1000;
-  color: rgba(148,163,184,.95);
-  letter-spacing:.06em;
-}
-
-.chip .val{
-  font-size:16px;
-  font-weight:1200;
-  color: rgba(229,231,235,.98);
-}
-
-.chip.score{ border-color: rgba(34,197,94,.26); }
-.chip.time{ border-color: rgba(34,211,238,.22); }
-.chip.combo{ border-color: rgba(245,158,11,.22); }
+.chip .lbl{ font-weight:1000; font-size:11px; color:rgba(148,163,184,.95); letter-spacing:.02em; }
+.chip .val{ font-weight:1200; font-size:16px; color:rgba(229,231,235,.95); }
 
 .card{
   pointer-events:auto;
-  background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius);
+  margin-top:10px;
+  width:min(520px, 100%);
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  padding:12px 12px;
   box-shadow: 0 18px 60px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
-}
-
-#questCard{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  top: calc(76px + var(--sat));
-  padding: 12px;
-  z-index:32;
 }
 
 .cardTitle{
@@ -229,226 +164,140 @@ html,body{
   justify-content:space-between;
   gap:10px;
   align-items:flex-start;
-  flex-wrap:wrap;
-  margin-bottom:10px;
 }
-
-#questCard .t{
-  font-weight:1200;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-}
-
-#questCard .hint{
-  font-weight:900;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-  line-height:1.25;
-}
+.cardTitle .t{ font-weight:1200; font-size:13px; }
+.cardTitle .hint{ color:var(--muted); font-weight:900; font-size:12px; line-height:1.25; }
 
 .qItem{
+  margin-top:10px;
   display:flex;
-  gap:12px;
+  gap:10px;
   align-items:center;
   justify-content:space-between;
   flex-wrap:wrap;
   padding:10px 10px;
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.50);
-  margin-top:10px;
-}
-
-.qText{
-  min-width: 220px;
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-}
-
-.qText .name{
-  font-weight:1200;
-  font-size:13px;
-  color: rgba(229,231,235,.95);
-}
-
-.qText .sub{
-  font-weight:900;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
-
-.qProg{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-
-.qNums{
-  font-weight:1200;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-  padding:6px 10px;
-  border-radius: var(--pill);
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.50);
+  border-radius:14px;
+  background: rgba(15,23,42,.55);
 }
 
+.qText .name{ font-weight:1200; font-size:13px; }
+.qText .sub{ color:var(--muted); font-weight:900; font-size:12px; margin-top:2px; }
+
+.qProg{ min-width: 180px; }
+.qNums{ text-align:right; font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
 .bar{
-  width: 210px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.12);
-  border: 1px solid rgba(148,163,184,.14);
+  margin-top:6px;
+  height:10px;
+  border-radius:999px;
+  background:rgba(148,163,184,.12);
   overflow:hidden;
+  border:1px solid rgba(148,163,184,.14);
 }
-
 .bar > i{
   display:block;
   height:100%;
   width:0%;
-  background: rgba(34,197,94,.88);
+  background: rgba(34,197,94,.85);
   transition: width .22s ease;
-  border-radius: 999px;
 }
+#miniBar{ background: rgba(245,158,11,.85); }
 
-#miniBar{ background: rgba(245,158,11,.86) !important; }
-
-/* ---------------------------------------------------------
-   Coach bubble (optional)
---------------------------------------------------------- */
+/* --------------------------------------------
+   Coach bubble
+-------------------------------------------- */
 #coachCard{
   position:fixed;
-  left: calc(12px + var(--sal));
-  bottom: calc(12px + var(--sab));
+  left:50%;
+  bottom: calc(14px + var(--sab));
+  transform: translateX(-50%);
   z-index:40;
   pointer-events:none;
   opacity:0;
-  transform: translateY(8px);
-  transition: opacity .15s ease, transform .15s ease;
-  max-width: min(520px, calc(100% - 24px));
+  transition: opacity .14s ease, transform .14s ease;
 }
-
 #coachCard.show{
   opacity:1;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(-2px);
 }
-
 #coachCard .inner{
   pointer-events:auto;
-  background: rgba(15,23,42,.74);
-  border: 1px solid rgba(34,197,94,.18);
-  border-radius: 18px;
-  padding: 12px 14px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
+  background: rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:16px;
+  padding:10px 12px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.30);
   backdrop-filter: blur(10px);
+  max-width: min(720px, calc(100vw - 24px));
 }
+#coachMsg{ font-weight:1100; }
+#coachMeta{ margin-top:4px; color:var(--muted); font-weight:900; font-size:12px; }
 
-#coachMsg{
-  font-weight:1100;
-  font-size:13px;
-  color: rgba(229,231,235,.96);
-  line-height:1.35;
-}
-#coachMeta{
-  margin-top:6px;
-  font-weight:900;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
-
-/* ---------------------------------------------------------
-   End Overlay
---------------------------------------------------------- */
+/* --------------------------------------------
+   End overlay
+-------------------------------------------- */
 #endOverlay{
   position:fixed;
   inset:0;
   z-index:70;
-  display:grid;
+  display:none; /* boot.js will set display:grid when open */
   place-items:center;
   padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: rgba(2,6,23,.58);
+  background: rgba(2,6,23,.60);
   backdrop-filter: blur(10px);
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .16s ease;
-}
-
-#endOverlay[aria-hidden="false"]{
-  opacity:1;
   pointer-events:auto;
 }
-
 .endPanel{
-  width: min(980px, 100%);
+  width:min(780px, 100%);
   background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: 22px;
-  padding: 16px;
+  border:1px solid var(--stroke);
+  border-radius:22px;
+  padding:16px;
   box-shadow: 0 26px 90px rgba(0,0,0,.42);
 }
-
 .endTitle{
   display:flex;
   justify-content:space-between;
+  align-items:flex-start;
   gap:10px;
   flex-wrap:wrap;
-  align-items:flex-start;
 }
-
-.endTitle h2{
-  margin:0;
-  font-size:18px;
-  font-weight:1200;
-}
-
+.endTitle h2{ margin:0; font-weight:1200; font-size:18px; }
 .tag{
   padding:6px 10px;
-  border-radius: var(--pill);
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.70);
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.60);
+  color: rgba(229,231,235,.92);
   font-weight:1000;
   font-size:12px;
-  color: rgba(229,231,235,.92);
 }
-
 .endGrid{
   margin-top:12px;
   display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap:10px;
 }
-
 .kpi{
-  background: rgba(15,23,42,.60);
-  border: 1px solid rgba(148,163,184,.14);
-  border-radius: 18px;
-  padding: 12px;
+  background: rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:16px;
+  padding:10px 12px;
 }
-
-.kpi .k{
-  font-weight:1000;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
-
-.kpi .v{
-  margin-top:6px;
-  font-weight:1200;
-  font-size:18px;
-  color: rgba(229,231,235,.98);
-}
+.kpi .k{ color:var(--muted); font-weight:1000; font-size:12px; }
+.kpi .v{ margin-top:6px; font-weight:1200; font-size:16px; }
 
 .endBtns{
   margin-top:14px;
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
   justify-content:flex-end;
+  flex-wrap:wrap;
 }
 
+/* buttons */
 .btn{
+  pointer-events:auto;
   appearance:none;
   border:none;
   border-radius:999px;
@@ -456,81 +305,53 @@ html,body{
   font-weight:1000;
   font-size:12px;
   cursor:pointer;
-  color: rgba(229,231,235,.95);
-  background: rgba(2,6,23,.70);
+  color:var(--text);
+  background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
   backdrop-filter: blur(10px);
-  user-select:none;
-  -webkit-tap-highlight-color:transparent;
+  box-shadow: 0 16px 44px rgba(0,0,0,.30);
 }
-
-.btn:active{ transform: translateY(1px); }
-
 .btn.primary{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.35);
+  background:rgba(34,197,94,.18);
+  border-color:rgba(34,197,94,.35);
 }
 
-/* ---------------------------------------------------------
-   Boss / Storm FX layers
---------------------------------------------------------- */
-#bossFx, #stormFx{
+/* --------------------------------------------
+   Boss/Storm FX layers (optional)
+-------------------------------------------- */
+#bossFx,#stormFx{
   position:fixed;
   inset:0;
   pointer-events:none;
   z-index:55;
   display:none;
-  opacity:0;
-  transition: opacity .15s ease;
 }
-
 #bossFx.boss-on{
   display:block;
-  opacity:1;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.12), transparent 60%),
-    radial-gradient(circle at 50% 92%, rgba(239,68,68,.10), transparent 55%);
+  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
 }
-
 #bossFx.boss-panic{
   display:block;
-  opacity:1;
-  animation: hhaBadPulse .22s ease-in-out 0s infinite;
+  animation:pulseBad .25s infinite;
 }
-
 #stormFx.storm-on{
   display:block;
-  opacity:1;
   background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.12), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%),
-    radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
-  animation: hhaWarnPulse .32s ease-in-out 0s infinite;
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
 }
 
-/* ---------------------------------------------------------
-   View tuning (pc/mobile/cvr)
---------------------------------------------------------- */
-body.view-mobile .bar{ width: 180px; }
-body.view-mobile #questCard{ top: calc(84px + var(--sat)); }
-body.view-mobile .chip{ min-width: 110px; }
-
-body.view-cvr #questCard .hint::after{
-  content:" • cVR ยิงจาก crosshair";
-  color: rgba(34,211,238,.95);
-  font-weight:1000;
+@keyframes pulseBad{
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.25) }
+  100%{ filter:brightness(1) }
 }
 
-/* ---------------------------------------------------------
-   Responsive
---------------------------------------------------------- */
-@media (max-width: 900px){
-  .endGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bar{ width: 190px; }
-}
-@media (max-width: 560px){
+/* --------------------------------------------
+   Responsive tuning
+-------------------------------------------- */
+@media (max-width:900px){
+  .plateTarget{ font-size:24px; }
+  .chip{ min-width: 108px; }
   .endGrid{ grid-template-columns: 1fr; }
-  .chip .val{ font-size:15px; }
-  .qText{ min-width: 200px; }
-  .bar{ width: 170px; }
 }
