@@ -1,12 +1,7 @@
-// === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HHA Standard)
-// ✅ Auto view detect (no menu)
-// ✅ Boots engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research ctx params: run/diff/time/seed/studyId/... etc.
-
+// =========================================================
+// /herohealth/plate/plate.boot.js
+// PlateVR Boot — PRODUCTION (C2)
+// =========================================================
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
@@ -24,7 +19,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // respect forced view if provided (no UI override)
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -43,8 +37,7 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
-function pctText(n){
+function pct(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
@@ -53,6 +46,8 @@ function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+  // ensure real visibility toggled
+  ov.style.display = open ? 'grid' : 'none';
 }
 
 function showCoach(msg, meta='Coach'){
@@ -62,7 +57,7 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = String(meta || 'Coach');
+  if(metaEl) metaEl.textContent = meta;
 
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
@@ -103,7 +98,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -135,15 +129,12 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  btnRestart?.addEventListener('click', ()=>{
-    // keep same query params
-    location.reload();
-  });
+  btnRestart?.addEventListener('click', ()=> location.reload(), { passive:true });
 
   btnBackHub?.addEventListener('click', ()=>{
     if(hub) location.href = hub;
     else history.back();
-  });
+  }, { passive:true });
 }
 
 function wireEndSummary(){
@@ -160,9 +151,8 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctText(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -173,14 +163,12 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
-
-  // standard params
-  const run  = (qs('run','play')||'play').toLowerCase();   // play | research | study
+  const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);           // ✅ default 90
+  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  const cfg = {
+  return {
     view,
     runMode: run,
     diff,
@@ -190,7 +178,6 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough research ctx
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -202,8 +189,6 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -220,7 +205,6 @@ ready(()=>{
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
   try{
