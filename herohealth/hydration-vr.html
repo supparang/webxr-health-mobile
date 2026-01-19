@@ -1,8 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
 Hydration VR Launcher — ROOT (LATEST)
 ✅ Auto-detect + Buttons (PC / Mobile / cVR / Cardboard)
+✅ DOES NOT override if URL already has ?view=...
 ✅ Pass-through query (hub/run/diff/time/seed/sessionId/log/etc.)
-✅ Go to: /herohealth/hydration-vr/hydration-vr.html
+✅ Go to RUN (folder=run): /herohealth/hydration-vr/hydration-vr.html
 -->
 <!doctype html>
 <html lang="th">
@@ -15,8 +16,10 @@ Hydration VR Launcher — ROOT (LATEST)
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --cyan:#22d3ee;
+      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.55);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --accent:#22c55e; --warn:#f59e0b; --cyan:#22d3ee;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
@@ -25,9 +28,14 @@ Hydration VR Launcher — ROOT (LATEST)
     }
     *{box-sizing:border-box}
     html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
+    .wrap{
+      min-height:100%;
+      display:grid;
+      place-items:center;
+      padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+    }
     .card{
-      width:min(860px,100%);
+      width:min(900px,100%);
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.72);
       border-radius: var(--r);
@@ -37,7 +45,7 @@ Hydration VR Launcher — ROOT (LATEST)
     .title{font-weight:950;font-size:18px;letter-spacing:.2px}
     .sub{color:rgba(148,163,184,.95);margin-top:6px;font-size:13px;line-height:1.35}
     .grid{display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-top:12px}
-    @media (max-width:720px){ .grid{grid-template-columns:1fr} }
+    @media (max-width:820px){ .grid{grid-template-columns:1fr} }
     .panel{
       border:1px solid rgba(148,163,184,.14);
       background: rgba(15,23,42,.55);
@@ -58,6 +66,17 @@ Hydration VR Launcher — ROOT (LATEST)
     .btn.ghost{ background: transparent; }
     .hint{margin-top:10px;color:rgba(148,163,184,.95);font-size:12px;line-height:1.35}
     code{color:rgba(34,211,238,.95)}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.45);
+      border-radius: var(--pill);
+      padding: 6px 10px;
+      font-size:12px;
+      color: rgba(229,231,235,.92);
+      margin-top:8px;
+    }
+    .pill b{ color: var(--accent); }
   </style>
 </head>
 <body>
@@ -65,11 +84,15 @@ Hydration VR Launcher — ROOT (LATEST)
   <div class="card">
     <div class="title">Hydration Quest VR</div>
     <div class="sub" id="autoText">กำลังตรวจจับอุปกรณ์…</div>
+    <div class="pill">root=<b>launcher</b> • folder=<b>run</b> • RUN: <code>/herohealth/hydration-vr/hydration-vr.html</code></div>
 
     <div class="grid">
       <div class="panel">
         <div style="font-weight:900">เข้าเล่นแบบอัตโนมัติ</div>
-        <div class="hint">กดปุ่มเดียว ระบบเลือก <b>PC / Mobile / cVR</b> ให้อัตโนมัติ<br/>ถ้าจะ Cardboard ให้กดปุ่ม Cardboard</div>
+        <div class="hint">
+          กดปุ่มเดียว ระบบเลือก <b>PC / Mobile / cVR</b> ให้อัตโนมัติ<br/>
+          ถ้าจะ Cardboard ให้กด Cardboard (จะใช้ <code>?view=cvr&amp;cardboard=1</code>)
+        </div>
         <div class="row">
           <button class="btn primary" id="btnAuto">Auto Start</button>
           <button class="btn ghost" id="btnBack">กลับ HUB</button>
@@ -85,4 +108,88 @@ Hydration VR Launcher — ROOT (LATEST)
           <button class="btn" id="btnCardboard">Cardboard</button>
         </div>
         <div class="hint">
-          • cVR = ยิงจากกลางจอ
+          • cVR = ยิงจากกลางจอ (crosshair) <br/>
+          • Kids mode = <code>?kids=1</code> (สำหรับ ป.5) <br/>
+          • Research = <code>?run=research</code> (seeded/deterministic)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+
+  const hub = String(qs('hub','./hub.html'));
+
+  // ✅ folder=run (IMPORTANT)
+  const RUN_URL = './hydration-vr/hydration-vr.html';
+
+  function detectView(){
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
+    const w = Math.max(1, innerWidth||1);
+    const h = Math.max(1, innerHeight||1);
+    const landscape = w >= h;
+
+    // Heuristic:
+    // - Touch + landscape + wide => cVR
+    // - Touch => mobile
+    // - else => pc
+    if (isTouch){
+      if (landscape && w >= 740) return 'cvr';
+      return 'mobile';
+    }
+    return 'pc';
+  }
+
+  function go(view, cardboard=false){
+    const cur = new URL(location.href);
+    const u = new URL(RUN_URL, location.href);
+
+    // pass all params through
+    cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
+
+    // ✅ DO NOT override if current URL already has view=...
+    // (user explicitly requested "ห้าม override")
+    const hasViewAlready = cur.searchParams.has('view');
+    if (!hasViewAlready){
+      u.searchParams.set('view', view);
+      if (cardboard) u.searchParams.set('cardboard','1');
+    } else {
+      // respect existing view, but allow Cardboard button to force cardboard when pressed
+      if (cardboard) u.searchParams.set('cardboard','1');
+    }
+
+    // ensure hub exists
+    if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
+    location.href = u.toString();
+  }
+
+  const autoView = detectView();
+  const autoText = document.getElementById('autoText');
+  if (autoText){
+    const v = String(qs('view','')).toLowerCase();
+    if (v){
+      autoText.textContent = `พบ ?view=${v} อยู่แล้ว → จะไม่ override (กดปุ่มเพื่อเข้าเล่นได้เลย)`;
+    } else {
+      autoText.textContent = `ตรวจจับแล้ว: ${autoView.toUpperCase()} (กด Auto Start เพื่อเข้าเล่น)`;
+    }
+  }
+
+  document.getElementById('btnAuto')?.addEventListener('click', ()=>{
+    // Auto uses detected view unless user already set view in URL
+    go(autoView, false);
+  });
+  document.getElementById('btnPC')?.addEventListener('click', ()=> go('pc', false));
+  document.getElementById('btnMobile')?.addEventListener('click', ()=> go('mobile', false));
+  document.getElementById('btnCVR')?.addEventListener('click', ()=> go('cvr', false));
+  document.getElementById('btnCardboard')?.addEventListener('click', ()=> go('cvr', true));
+
+  document.getElementById('btnBack')?.addEventListener('click', ()=> location.href = hub);
+})();
+</script>
+</body>
+</html>
