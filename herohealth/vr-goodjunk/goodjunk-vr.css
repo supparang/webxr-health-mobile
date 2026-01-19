@@ -1,505 +1,531 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR CSS — PACK-FAIR (S)
-✅ Looser layout, more gameplay area
-✅ Safe-area aware
-✅ Safe spawn vars: --gj-top-safe / --gj-bottom-safe (set by HTML JS)
-✅ View classes: .view-pc .view-mobile .view-vr .view-cvr
-✅ Boss/Storm/Rage/LowTime pulses + FX-friendly layer
+GoodJunkVR CSS — S (PACK-FAIR)
+✅ Layout: topbar + hudTop + hudBot, but gameplay stays large
+✅ Safe spawn vars: --gj-top-safe / --gj-bottom-safe (measured by boot)
+✅ Support: PC / Mobile / VR(Cardboard) / cVR (dual-eye layer)
+✅ HUD hide: body.hud-hidden -> more space
+✅ Missions peek: body.show-missions
+✅ Low time overlay, storm/boss/rage pulses
 */
 
 :root{
   color-scheme: dark;
 
   --bg:#020617;
-  --panel: rgba(2,6,23,.62);
-  --panel2: rgba(15,23,42,.52);
-  --stroke: rgba(148,163,184,.18);
+  --panel: rgba(2,6,23,.78);
+  --panel2: rgba(15,23,42,.70);
+  --stroke: rgba(148,163,184,.20);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --accent:#22c55e;
-  --accent2:#22d3ee;
   --warn:#f59e0b;
   --bad:#ef4444;
+  --cyan:#22d3ee;
   --violet:#a78bfa;
 
-  --r: 18px;
-  --pill: 999px;
+  --r:22px;
+  --pill:999px;
 
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ safe spawn vars set by HTML script (fallbacks are fair) */
-  --gj-top-safe: calc(116px + var(--sat));
-  --gj-bottom-safe: 118px;
+  /* measured safe spawn */
+  --gj-top-safe: 160px;
+  --gj-bottom-safe: 120px;
 
-  /* Target tuning */
-  --target-shadow: 0 14px 34px rgba(0,0,0,.45);
-  --target-stroke: rgba(255,255,255,.16);
+  /* gameplay padding */
+  --field-pad-x: 12px;
 
-  /* Gameplay feel */
-  --pop: cubic-bezier(.2,.9,.2,1);
+  /* target feel */
+  --target-shadow: 0 12px 35px rgba(0,0,0,.28);
+  --target-glow-good: 0 0 0 2px rgba(34,197,94,.22), 0 10px 28px rgba(34,197,94,.12);
+  --target-glow-junk: 0 0 0 2px rgba(239,68,68,.20), 0 10px 28px rgba(239,68,68,.12);
+  --target-glow-star: 0 0 0 2px rgba(245,158,11,.22), 0 10px 28px rgba(245,158,11,.12);
+  --target-glow-shield: 0 0 0 2px rgba(34,211,238,.22), 0 10px 28px rgba(34,211,238,.12);
 }
 
 *{ box-sizing:border-box; }
-html,body{ margin:0; width:100%; height:100%; overflow:hidden; }
-body.gj{
+
+html, body{
+  width:100%;
+  height:100%;
+  margin:0;
+  overflow:hidden;
   background:
-    radial-gradient(circle at 10% 15%, rgba(34,197,94,.12), transparent 56%),
-    radial-gradient(circle at 90% 85%, rgba(34,211,238,.10), transparent 58%),
-    radial-gradient(circle at 70% 25%, rgba(167,139,250,.08), transparent 55%),
+    radial-gradient(circle at top left, rgba(34,197,94,.12), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 60%),
     var(--bg);
-  color: var(--text);
-  font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-  touch-action: manipulation;
+  color:var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
 }
 
-/* A-Frame canvas behind UI */
-a-scene, canvas{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:0 !important;
-  background: transparent !important;
+body.gj{
+  /* allow A-Frame embedded scene behind */
+  position:relative;
 }
 
-/* ---------- TOPBAR (thin) ---------- */
+/* ---------------- Topbar ---------------- */
 .gj-topbar{
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  position:fixed;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  top: calc(10px + var(--sat));
   z-index: 120;
-  padding: calc(8px + var(--sat)) calc(10px + var(--sar)) 8px calc(10px + var(--sal));
+
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
 
-  background: linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.32));
+  padding:10px 12px;
+  border-radius: 18px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.62);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(148,163,184,.10);
 }
-.gj-topbar .left{ display:flex; align-items:center; gap:10px; }
+
+.gj-topbar .left{ display:flex; gap:10px; align-items:center; }
+.gj-topbar .right{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
 .gj-chip{
-  display:flex;
-  align-items:baseline;
+  display:inline-flex;
   gap:10px;
-  padding: 8px 12px;
+  align-items:center;
+  padding:10px 12px;
   border-radius: var(--pill);
   background: rgba(2,6,23,.55);
-  border: 1px solid rgba(148,163,184,.14);
-  box-shadow: 0 10px 26px rgba(0,0,0,.25);
-  font-weight: 1000;
-  font-size: 12px;
+  border: 1px solid rgba(148,163,184,.18);
+  font-weight:1100;
+  letter-spacing: .2px;
 }
-.gj-chip b{ font-weight: 1200; letter-spacing:.2px; }
-.gj-chip span{ color: rgba(229,231,235,.82); }
-
-.gj-topbar .right{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
+.gj-chip b{ font-weight:1300; }
+.gj-chip span{ color: rgba(229,231,235,.82); font-weight:900; font-size:12px; }
 
 .gj-btn{
-  height: 38px;
-  padding: 0 12px;
+  height:40px;
+  padding:0 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.40);
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(15,23,42,.55);
   color: var(--text);
-  font-weight: 1100;
-  font-size: 12px;
-  cursor: pointer;
+  font-weight:1200;
+  cursor:pointer;
+}
+.gj-btn.primary{
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.16);
+  color:#eafff3;
 }
 .gj-btn:active{ transform: translateY(1px); }
-.gj-btn.primary{
-  border-color: rgba(34,197,94,.30);
-  background: rgba(34,197,94,.14);
+
+/* ---------------- HUD TOP ---------------- */
+.gj-hud-top{
+  position:fixed;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  top: calc(70px + var(--sat)); /* sits under topbar */
+  z-index: 110;
+
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none; /* HUD should not block play */
 }
 
-/* ---------- HUD TOP (compact) ---------- */
-.gj-hud-top{
-  position: fixed;
-  top: calc(54px + var(--sat));
-  left: 0;
-  right: 0;
-  z-index: 110;
-  padding: 8px calc(10px + var(--sar)) 0 calc(10px + var(--sal));
-  pointer-events: none;
-}
 .hud-row{
   display:flex;
-  gap:8px;
+  gap:10px;
   flex-wrap:wrap;
   pointer-events:none;
 }
+
 .hud-pill{
-  pointer-events:none;
-  min-width: 82px;
-  padding: 8px 10px;
+  min-width: 120px;
+  padding:10px 12px;
   border-radius: 16px;
-  background: rgba(2,6,23,.44);
-  border: 1px solid rgba(148,163,184,.14);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.58);
   backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.20);
 }
-.hud-label{
+.hud-pill .hud-label{
+  font-size:11px;
+  font-weight:1100;
   color: rgba(148,163,184,.92);
-  font-weight: 1100;
-  font-size: 10px;
-  letter-spacing: .4px;
+  letter-spacing:.6px;
 }
-.hud-value{
-  margin-top: 2px;
-  font-weight: 1300;
-  font-size: 16px;
+.hud-pill .hud-value{
+  margin-top:4px;
+  font-size:18px;
+  font-weight:1300;
 }
-.hud-pill.warn{ border-color: rgba(245,158,11,.20); }
-.hud-pill.grade{ border-color: rgba(34,211,238,.20); }
+.hud-pill.warn{
+  border-color: rgba(245,158,11,.25);
+  box-shadow: 0 10px 28px rgba(245,158,11,.10);
+}
+.hud-pill.grade{
+  border-color: rgba(167,139,250,.25);
+  box-shadow: 0 10px 28px rgba(167,139,250,.10);
+}
 
 .quest-row{
-  margin-top: 8px;
   display:grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 8px;
+  grid-template-columns: 1.25fr .95fr;
+  gap:10px;
   pointer-events:none;
 }
+
 .quest-card{
-  pointer-events:none;
-  padding: 10px 12px;
+  padding:12px 12px;
   border-radius: 18px;
-  background: rgba(15,23,42,.44);
-  border: 1px solid rgba(148,163,184,.14);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.56);
   backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.20);
 }
+
 .q-title{
-  font-weight: 1200;
-  font-size: 12px;
+  font-weight:1300;
   letter-spacing:.2px;
 }
 .q-desc{
-  margin-top: 4px;
-  color: rgba(229,231,235,.84);
-  font-weight: 1000;
-  font-size: 12px;
-  line-height: 1.25;
+  margin-top:6px;
+  color: rgba(229,231,235,.86);
+  font-weight:950;
+  font-size:12px;
+  line-height:1.35;
 }
 .q-bar{
-  margin-top: 8px;
+  margin-top:10px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
+  color: rgba(148,163,184,.92);
+  font-weight:950;
+  font-size:12px;
 }
 .q-num{
-  font-weight: 1200;
-  font-size: 12px;
+  padding:6px 10px;
+  border-radius: 14px;
+  background: rgba(15,23,42,.55);
+  border: 1px solid rgba(148,163,184,.18);
+  color: var(--text);
+  font-weight:1200;
 }
 .q-hint{
-  color: rgba(148,163,184,.92);
-  font-weight: 1000;
-  font-size: 11px;
+  opacity:.82;
 }
 
-/* ---------- HUD BOTTOM (thin) ---------- */
+/* ---------------- HUD BOTTOM ---------------- */
 .gj-hud-bot{
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position:fixed;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  bottom: calc(10px + var(--sab));
   z-index: 110;
-  padding: 0 calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
-  pointer-events: none;
-  display:grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 8px;
-}
-.meter{
+
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
   pointer-events:none;
-  padding: 10px 12px;
+}
+
+.meter{
+  flex:1;
+  min-width: 260px;
+  padding:12px 12px;
   border-radius: 18px;
-  background: rgba(15,23,42,.44);
-  border: 1px solid rgba(148,163,184,.14);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.56);
   backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.20);
 }
 .meter-title{
-  font-weight: 1200;
-  font-size: 12px;
-  letter-spacing:.2px;
+  font-size:11px;
+  font-weight:1200;
+  color: rgba(148,163,184,.92);
+  letter-spacing:.6px;
 }
 .meter-bar{
-  margin-top: 8px;
-  height: 12px;
+  margin-top:8px;
+  height:12px;
   border-radius: 999px;
-  background: rgba(148,163,184,.14);
+  background: rgba(15,23,42,.60);
+  border: 1px solid rgba(148,163,184,.18);
   overflow:hidden;
-  border: 1px solid rgba(148,163,184,.14);
 }
 .meter-fill{
   height:100%;
-  width: 0%;
+  width:0%;
   border-radius: 999px;
-  background: rgba(34,197,94,.78);
-  transition: width 120ms linear;
+  background: rgba(34,197,94,.85);
+  box-shadow: 0 0 18px rgba(34,197,94,.22);
+  transition: width .12s linear;
 }
 .meter-num{
-  margin-top: 6px;
-  color: rgba(229,231,235,.90);
-  font-weight: 1100;
-  font-size: 12px;
-}
-.meter.shield .meter-shield{
-  margin-top: 8px;
-  font-size: 18px;
-  letter-spacing: 2px;
+  margin-top:8px;
+  font-weight:1100;
+  color: rgba(229,231,235,.86);
 }
 .meter-tip{
-  margin-top: 6px;
+  margin-top:6px;
   color: rgba(148,163,184,.92);
-  font-weight: 1000;
-  font-size: 11px;
+  font-weight:950;
+  font-size:12px;
 }
 
-/* ---------- GAME FIELD ---------- */
-.gj-field{
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  /* ✅ true gameplay area is whole screen, but spawn uses safe rect vars in JS */
+.meter.shield .meter-shield{
+  margin-top:8px;
+  font-weight:1200;
+  letter-spacing: 1px;
 }
+
+/* ---------------- PLAYFIELD ---------------- */
+.gj-field{
+  position:fixed;
+  inset: 0;
+  z-index: 20;
+  padding-left: calc(var(--field-pad-x) + var(--sal));
+  padding-right: calc(var(--field-pad-x) + var(--sar));
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* layer: targets */
 .gj-layer{
   position:absolute;
   inset:0;
-  z-index: 60;
-}
-.gj-layer-r{
-  position:absolute;
-  inset:0;
-  z-index: 61;
-  opacity: .98;
-  display:none; /* enabled only for cVR if you decide to show */
-}
-
-/* ---------- TARGET ---------- */
-.gj-target{
-  position:absolute;
-  transform: translate(-50%,-50%);
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action:none;
-  cursor:pointer;
-  filter: drop-shadow(var(--target-shadow));
-  text-shadow: 0 10px 22px rgba(0,0,0,.45);
-  will-change: transform, opacity;
-}
-.gj-target::after{
-  content:'';
-  position:absolute;
-  inset:-10px;
-  border-radius: 999px;
-  border: 1px solid var(--target-stroke);
-  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.10), transparent 60%);
-  pointer-events:none;
-}
-.gj-target.spawn{
-  animation: gjIn 160ms var(--pop) both;
-}
-.gj-target.gone{
-  animation: gjOut 120ms ease-in both;
-}
-
-@keyframes gjIn{
-  from{ transform:translate(-50%,-50%) scale(.84); opacity:.0; }
-  to  { transform:translate(-50%,-50%) scale(1.0); opacity:1; }
-}
-@keyframes gjOut{
-  from{ transform:translate(-50%,-50%) scale(1.0); opacity:1; }
-  to  { transform:translate(-50%,-60%) scale(.82); opacity:0; }
-}
-
-/* ---------- Missions Peek ---------- */
-.gj-peek{
-  position: fixed;
-  inset: 0;
-  z-index: 140;
-  display:flex;
-  align-items:flex-start;
-  justify-content:center;
-  padding: calc(88px + var(--sat)) 14px 14px 14px;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity 160ms ease;
-}
-body.show-missions .gj-peek{
-  opacity:1;
   pointer-events:auto;
-}
-.peek-card{
-  width:min(640px, 92vw);
-  border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.82);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 18px 55px rgba(0,0,0,.50);
-  padding: 14px;
-}
-.peek-title{ font-weight: 1300; font-size: 16px; }
-.peek-sub,.peek-mini{ margin-top: 8px; color: rgba(229,231,235,.92); font-weight: 1100; }
-.peek-tip{ margin-top: 10px; color: rgba(148,163,184,.92); font-weight: 1000; font-size: 12px; }
-
-/* ---------- Low time overlay ---------- */
-.gj-lowtime-overlay{
-  position: fixed;
-  inset: 0;
-  z-index: 150;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity 160ms ease;
-}
-body.gj-lowtime5 .gj-lowtime-overlay{
-  opacity:1;
-}
-.gj-lowtime-ring{
-  width: 210px;
-  height: 210px;
-  border-radius: 999px;
-  border: 4px solid rgba(245,158,11,.55);
-  box-shadow: 0 0 0 12px rgba(245,158,11,.12);
-  animation: gjRing 820ms ease-in-out infinite;
-}
-.gj-lowtime-num{
-  position:absolute;
-  font-weight: 1400;
-  font-size: 64px;
-  text-shadow: 0 18px 45px rgba(0,0,0,.55);
-}
-@keyframes gjRing{
-  0%{ transform:scale(.98); opacity:.8; }
-  50%{ transform:scale(1.05); opacity:1; }
-  100%{ transform:scale(.98); opacity:.85; }
+  transform: translateZ(0);
 }
 
-/* ---------- HUD Hide ---------- */
-body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
-  display:none !important;
-}
-
-/* ---------- Boss/Storm/Rage pulses (classes are added by safe.js) ---------- */
-body.gj-storm{
-  animation: gjStorm 420ms ease-out 1;
-}
-@keyframes gjStorm{
-  from{ filter: saturate(1.0) brightness(1.0); }
-  to  { filter: saturate(1.25) brightness(1.05); }
-}
-
-body.gj-boss{
-  animation: gjBoss 520ms ease-out 1;
-}
-@keyframes gjBoss{
-  0%{ filter: contrast(1) saturate(1); }
-  60%{ filter: contrast(1.08) saturate(1.10); }
-  100%{ filter: contrast(1) saturate(1); }
-}
-
-body.gj-rage{
-  animation: gjRage 620ms ease-out 1;
-}
-@keyframes gjRage{
-  0%{ filter: saturate(1.0); }
-  35%{ filter: saturate(1.25) brightness(1.06); }
-  100%{ filter: saturate(1.02); }
-}
-
-body.gj-junk-hit{
-  animation: gjJunk 220ms ease-out 1;
-}
-@keyframes gjJunk{
-  0%{ filter: none; }
-  50%{ filter: hue-rotate(-12deg) saturate(1.25); }
-  100%{ filter: none; }
-}
-body.gj-good-expire{
-  animation: gjExpire 160ms ease-out 1;
-}
-@keyframes gjExpire{
-  0%{ filter: none; }
-  60%{ filter: grayscale(.06) brightness(.98); }
-  100%{ filter: none; }
-}
-body.gj-phase2{
-  animation: gjP2 520ms ease-out 1;
-}
-@keyframes gjP2{
-  0%{ filter: contrast(1) saturate(1); }
-  60%{ filter: contrast(1.10) saturate(1.20) brightness(1.05); }
-  100%{ filter: contrast(1) saturate(1); }
-}
-
-body.gj-mini-clear{
-  animation: gjMini 220ms ease-out 1;
-}
-@keyframes gjMini{
-  0%{ filter: none; }
-  60%{ filter: saturate(1.25) brightness(1.05); }
-  100%{ filter: none; }
-}
-
-body.gj-end{
-  animation: gjEnd 520ms ease-out 1;
-}
-@keyframes gjEnd{
-  0%{ filter: none; }
-  55%{ filter: saturate(1.15) brightness(1.03); }
-  100%{ filter: none; }
-}
-
-/* ---------- View-specific tweaks ---------- */
-body.view-pc .gj-hud-top{
-  top: calc(52px + var(--sat));
-}
-body.view-pc .hud-value{ font-size: 17px; }
-body.view-pc .q-desc{ font-size: 12.5px; }
-
-body.view-mobile .gj-btn{ height: 36px; padding:0 10px; border-radius: 13px; }
-body.view-mobile .hud-pill{ padding: 8px 10px; }
-
-body.view-vr .gj-topbar{
-  /* VR: keep topbar slimmer */
-  padding-top: calc(6px + var(--sat));
-}
-body.view-vr .gj-hud-top{
-  top: calc(48px + var(--sat));
-  padding-top: 6px;
-}
-body.view-vr .gj-hud-bot{
-  padding-bottom: calc(8px + var(--sab));
+.gj-layer-r{
+  display:none; /* enabled only for cVR */
 }
 
 body.view-cvr .gj-layer-r{
   display:block;
+  opacity: .85;
+  filter: blur(.2px);
   transform: translateX(10px);
-  opacity: .92;
-}
-/* cVR often needs more clear HUD */
-body.view-cvr .quest-row,
-body.view-cvr .gj-hud-bot{
-  opacity: .96;
 }
 
-/* ---------- FX layer should be above playfield but under HUD ---------- */
-.hha-fx-layer{
-  z-index: 95 !important;
+/* targets */
+.gj-target{
+  position:absolute;
+  transform: translate(-50%, -50%) scale(.94);
+  will-change: transform, opacity;
+  user-select:none;
+
+  width:auto;
+  line-height:1;
+  cursor:pointer;
+  text-shadow: 0 10px 22px rgba(0,0,0,.22);
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.20));
 }
 
-/* ---------- Reduce motion ---------- */
-@media (prefers-reduced-motion: reduce){
-  *{ animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+.gj-target.spawn{
+  animation: gjPop .12s ease-out;
+}
+@keyframes gjPop{
+  from{ transform: translate(-50%, -50%) scale(.65); opacity:.2; }
+  to{ transform: translate(-50%, -50%) scale(.98); opacity:1; }
+}
+
+.gj-target.gone{
+  opacity:0;
+  transform: translate(-50%, -50%) scale(.7);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+/* hint glows by type */
+.gj-target[data-kind="good"]{ filter: drop-shadow(var(--target-shadow)) drop-shadow(var(--target-glow-good)); }
+.gj-target[data-kind="junk"]{ filter: drop-shadow(var(--target-shadow)) drop-shadow(var(--target-glow-junk)); }
+.gj-target[data-kind="star"]{ filter: drop-shadow(var(--target-shadow)) drop-shadow(var(--target-glow-star)); }
+.gj-target[data-kind="shield"]{ filter: drop-shadow(var(--target-shadow)) drop-shadow(var(--target-glow-shield)); }
+.gj-target[data-kind="diamond"]{ filter: drop-shadow(var(--target-shadow)) drop-shadow(0 0 0 2px rgba(167,139,250,.20)); }
+
+/* ---------------- Missions peek ---------------- */
+.gj-peek{
+  position: fixed;
+  left: calc(14px + var(--sal));
+  right: calc(14px + var(--sar));
+  top: calc(120px + var(--sat));
+  z-index: 160;
+
+  opacity:0;
+  transform: translateY(-8px);
+  pointer-events:none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+
+body.show-missions .gj-peek{
+  opacity:1;
+  transform: translateY(0);
+  pointer-events:auto;
+}
+
+.peek-card{
+  max-width: 520px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(2,6,23,.78);
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 16px 45px rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+}
+
+.peek-title{
+  font-weight:1300;
+  margin-bottom:6px;
+}
+.peek-sub, .peek-mini{
+  font-weight:1000;
+  color: rgba(229,231,235,.90);
+  font-size:12px;
+  line-height:1.45;
+}
+.peek-tip{
+  margin-top:6px;
+  color: rgba(148,163,184,.92);
+  font-weight:950;
+  font-size:12px;
+}
+
+/* ---------------- Low time overlay ---------------- */
+.gj-lowtime-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .15s ease;
+}
+.gj-lowtime-ring{
+  width: 200px;
+  height: 200px;
+  border-radius: 999px;
+  border: 3px solid rgba(239,68,68,.30);
+  box-shadow: 0 0 0 10px rgba(239,68,68,.05);
+  animation: gjRing 1s linear infinite;
+}
+@keyframes gjRing{
+  from{ transform: rotate(0deg); }
+  to{ transform: rotate(360deg); }
+}
+.gj-lowtime-num{
+  position:absolute;
+  font-size: 64px;
+  font-weight: 1400;
+  text-shadow: 0 14px 40px rgba(0,0,0,.45);
+}
+
+body.gj-lowtime .gj-lowtime-overlay{
+  opacity: .14;
+}
+body.gj-lowtime5 .gj-lowtime-overlay{
+  opacity: .95;
+}
+
+/* ---------------- "fair but tense" pulses ---------------- */
+body.gj-tick{
+  animation: gjTick .12s ease;
+}
+@keyframes gjTick{
+  from{ filter: brightness(.9); }
+  to{ filter: brightness(1); }
+}
+
+body.gj-storm .gj-topbar{
+  border-color: rgba(245,158,11,.35);
+  box-shadow: 0 14px 48px rgba(245,158,11,.10);
+}
+body.gj-boss .gj-topbar{
+  border-color: rgba(167,139,250,.40);
+  box-shadow: 0 14px 48px rgba(167,139,250,.12);
+}
+body.gj-rage .gj-topbar{
+  border-color: rgba(239,68,68,.42);
+  box-shadow: 0 14px 52px rgba(239,68,68,.14);
+}
+
+body.gj-phase2 .gj-topbar{
+  animation: gjPhase2Pulse .55s ease-in-out 2;
+}
+@keyframes gjPhase2Pulse{
+  0%{ transform: scale(1); }
+  50%{ transform: scale(1.01); }
+  100%{ transform: scale(1); }
+}
+
+/* ---------------- HUD hidden -> maximize gameplay ---------------- */
+body.hud-hidden .gj-hud-top,
+body.hud-hidden .gj-hud-bot{
+  display:none !important;
+}
+body.hud-hidden .gj-peek{ top: calc(84px + var(--sat)); }
+
+/* ---------------- Respect safe spawn vars ---------------- */
+/* (targets are placed by JS using getSafeRect with these vars)
+   but also keep layers aware of top/bottom areas visually.
+*/
+.gj-layer::before{
+  content:"";
+  position:absolute;
+  left:0; right:0;
+  top:0;
+  height: var(--gj-top-safe);
+  pointer-events:none;
+  background: linear-gradient(to bottom, rgba(2,6,23,.10), transparent);
+}
+.gj-layer::after{
+  content:"";
+  position:absolute;
+  left:0; right:0;
+  bottom:0;
+  height: var(--gj-bottom-safe);
+  pointer-events:none;
+  background: linear-gradient(to top, rgba(2,6,23,.10), transparent);
+}
+
+/* ---------------- Responsive tweaks ---------------- */
+@media (max-width: 560px){
+  .gj-topbar{
+    left: calc(8px + var(--sal));
+    right: calc(8px + var(--sar));
+    padding:9px 10px;
+  }
+  .gj-btn{ height:38px; padding:0 10px; }
+  .hud-pill{ min-width: 110px; padding:9px 10px; }
+  .quest-row{ grid-template-columns: 1fr; }
+  .meter{ min-width: 220px; }
+  .gj-peek{ top: calc(106px + var(--sat)); }
+}
+
+/* VR mode: slightly larger UI but still non-blocking */
+body.view-vr .gj-hud-top,
+body.view-cvr .gj-hud-top{
+  top: calc(78px + var(--sat));
+}
+body.view-vr .gj-target,
+body.view-cvr .gj-target{
+  text-shadow: 0 12px 26px rgba(0,0,0,.30);
+}
+
+/* keep A-Frame scene behind UI */
+a-scene{
+  position:fixed !important;
+  inset:0 !important;
+  z-index: 0 !important;
+  pointer-events:none !important;
+  background: transparent !important;
 }
