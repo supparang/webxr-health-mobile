@@ -4,6 +4,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
+✅ FINAL-8: Onboarding (first-time)
+✅ FINAL-9/10: Banner + Mini clarity
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -104,6 +106,24 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
+
+  <!-- FINAL-9: Big banner -->
+  <div id="bigBanner" class="bigBanner hidden">
+    <div id="bigBannerText" class="bigBannerText">—</div>
+  </div>
+
+  <!-- FINAL-8: Onboarding (first time only) -->
+  <div id="onb" class="overlay overlay-onb hidden">
+    <div class="panel onbPanel">
+      <div class="title">🎮 วิธีเล่นแบบไวมาก</div>
+      <div id="onbLine1" class="sub">—</div>
+      <div id="onbLine2" class="sub" style="margin-top:6px;">—</div>
+      <div class="row" style="margin-top:12px;">
+        <button id="btnOnbOk" class="btn btn-strong" type="button">✅ เข้าใจแล้ว</button>
+        <button id="btnOnbSkip" class="btn btn-ghost" type="button">⏭️ ไม่ต้องขึ้นอีก</button>
+      </div>
+    </div>
+  </div>
 
   <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
@@ -212,6 +232,73 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
+  // FINAL-9 banner
+  let bannerTmr = 0;
+  function showBanner(text, ms){
+    const wrap = $('bigBanner');
+    const txt  = $('bigBannerText');
+    if (!wrap || !txt) return;
+
+    txt.textContent = String(text||'');
+    wrap.classList.remove('hidden');
+    wrap.classList.add('show');
+
+    clearTimeout(bannerTmr);
+    bannerTmr = setTimeout(()=>{
+      try{ wrap.classList.add('hidden'); wrap.classList.remove('show'); }catch(_){}
+    }, Math.max(520, ms||1200));
+  }
+
+  // FINAL-8 onboarding
+  const LS_ONB = 'HHA_GROUPS_ONBOARD_V1';
+
+  function shouldShowOnb(view, runMode){
+    if (runMode === 'research') return false;
+    try{
+      const raw = localStorage.getItem(LS_ONB) || '';
+      if (!raw) return true;
+      const o = JSON.parse(raw);
+      return !o || !o['shown_'+view];
+    }catch(_){ return true; }
+  }
+  function markOnbShown(view){
+    try{
+      const o = JSON.parse(localStorage.getItem(LS_ONB)||'{}');
+      o['shown_'+view] = true;
+      localStorage.setItem(LS_ONB, JSON.stringify(o));
+    }catch(_){}
+  }
+  function showOnb(view){
+    const onb = $('onb');
+    if (!onb) return;
+
+    const line1 = $('onbLine1');
+    const line2 = $('onbLine2');
+
+    if (view === 'cvr'){
+      line1 && (line1.innerHTML = `1) <b>แตะจอ</b> เพื่อยิงจาก crosshair 🎯`);
+      line2 && (line2.innerHTML = `2) ยิงให้ถูก “หมู่ที่บอกใน GOAL” • เก็บ Power ให้ครบแล้วจะ <b>สลับหมู่</b> ⚡`);
+    } else {
+      line1 && (line1.innerHTML = `1) <b>แตะเป้า</b> ที่เป็นหมู่ใน GOAL 🎯`);
+      line2 && (line2.innerHTML = `2) อย่ายิงขยะ 🗑️ • เก็บ Power ให้ครบแล้วจะ <b>สลับหมู่</b> ⚡`);
+    }
+
+    onb.classList.remove('hidden');
+
+    const ok = $('btnOnbOk');
+    const skip = $('btnOnbSkip');
+
+    const close = ()=>{
+      try{ onb.classList.add('hidden'); }catch(_){}
+      markOnbShown(view);
+    };
+
+    ok && (ok.onclick = close);
+    skip && (skip.onclick = close);
+
+    setTimeout(()=>{ try{ onb.classList.add('hidden'); markOnbShown(view); }catch(_){} }, 5200);
+  }
+
   // ---------- HUD binds ----------
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
@@ -277,6 +364,48 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     const urgent = (mLeft>0 && mLeft<=3);
     DOC.body.classList.toggle('mini-urgent', urgent);
+
+    // FINAL-9: banner when group changes
+    const gName = String(d.groupName||'');
+    if (gName){
+      const key = '___lastGroupName';
+      if (!window[key] || window[key] !== gName){
+        window[key] = gName;
+        showBanner(`ตอนนี้ยิงหมู่: ${gName} 🎯`, 1400);
+      }
+    }
+  }, {passive:true});
+
+  // FINAL-9/10: progress banners
+  window.addEventListener('groups:progress', (ev)=>{
+    const d = ev.detail||{};
+    if (!d.kind) return;
+
+    if (d.kind === 'perfect_switch') showBanner('สลับหมู่แล้ว! ⚡', 900);
+    if (d.kind === 'storm_on')       showBanner('พายุมาแล้ว! 🌪️', 900);
+    if (d.kind === 'boss_spawn')     showBanner('บอสมา! 👊', 900);
+
+    // FINAL-10: mini clarity
+    if (d.kind === 'mini_start'){
+      const forbid = d.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
+      showBanner(`MINI เริ่ม! ยิงให้ถูก ${d.need}${forbid} ⚡`, 1400);
+      try{ DOC.body.classList.add('fx-mini'); setTimeout(()=>DOC.body.classList.remove('fx-mini'), 220); }catch(_){}
+      return;
+    }
+    if (d.kind === 'mini_countdown'){
+      showBanner(String(d.sec), 520);
+      return;
+    }
+    if (d.kind === 'mini_end'){
+      if (d.ok){
+        showBanner('MINI ผ่าน! 🎉', 1100);
+        try{ DOC.body.classList.add('fx-perfect'); setTimeout(()=>DOC.body.classList.remove('fx-perfect'), 240); }catch(_){}
+      }else{
+        showBanner('MINI ไม่ผ่าน 😤', 1100);
+        try{ DOC.body.classList.add('fx-bad'); setTimeout(()=>DOC.body.classList.remove('fx-bad'), 240); }catch(_){}
+      }
+      return;
+    }
   }, {passive:true});
 
   // ---------- Summary / History ----------
@@ -564,6 +693,13 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     setView(view);
     initViewHelper(view);
+
+    // FINAL-8 onboarding
+    try{
+      if (shouldShowOnb(view, run)){
+        setTimeout(()=> showOnb(view), 120);
+      }
+    }catch(_){}
 
     const gated = startCalibrationIfNeeded(view, run);
     if (gated) return;
