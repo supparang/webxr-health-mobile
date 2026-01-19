@@ -1,12 +1,10 @@
-/* === D: /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — ALL-IN CSS (PRODUCTION + ULTRA FX)
-✅ HUD/Quest/Power/Coach layout (PC/Mobile/cVR)
-✅ cVR strict: targets pointer-events:none + shoot from crosshair (hha:shoot)
-✅ playLayer fullscreen
-✅ FIX overlap: keep vr-ui buttons clickable + avoid HUD blocking
-✅ Targets: spawn / hit / out animations + boss states
-✅ FX classes: fx-hit/fx-good/fx-bad/fx-block/fx-perfect/fx-combo/fx-storm/fx-boss/fx-end/fx-miss
-✅ Pressure classes: press-1/2/3 (from groups.safe.js PACK49)
+/* === /herohealth/vr-groups/groups-vr.css ===
+GroupsVR UI (HHA Standard-ish)
+✅ HUD / Quest / Power / Coach
+✅ Targets via CSS vars --x --y --s
+✅ FINAL-8 onboarding
+✅ FINAL-9 target separation + banner
+✅ FINAL-10 mini hint
 */
 
 :root{
@@ -23,579 +21,311 @@ Food Groups VR — ALL-IN CSS (PRODUCTION + ULTRA FX)
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
-  /* safe-area */
-  --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-
   --radius:22px;
   --pill:999px;
 
-  /* play bounds / feel */
-  --tapRing: rgba(34,197,94,0.20);
-  --glow: 0 18px 42px rgba(0,0,0,.45);
-  --soft: 0 10px 28px rgba(0,0,0,.30);
-
-  /* target base sizes (scaled by --s in element) */
-  --tSize: 76px;
-  --tFont: 40px;
-
-  /* FX tuning */
-  --fxVig: rgba(0,0,0,.22);
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
 }
 
-/* reset */
 *{ box-sizing:border-box; }
-html,body{
-  width:100%; height:100%;
-  margin:0; padding:0;
-  overflow:hidden;
-  background: radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-              radial-gradient(circle at bottom right, rgba(167,139,250,.12), transparent 55%),
-              var(--bg);
-  color:var(--text);
-  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  touch-action: manipulation;
-}
+html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
 
-/* XR scene behind DOM */
+.hidden{ display:none !important; }
+
 .xr-scene{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   z-index:0;
 }
 
-/* UI layers over XR */
-.hud, .questTop, .powerWrap, .coachWrap, .overlay{
-  position:fixed;
-  z-index:40;
-}
-
-/* Keep vr-ui (EnterVR/Exit/Recenter + crosshair) always above */
-.hha-vr-ui, .hha-crosshair{
-  z-index:80 !important;
-}
-
-/* Play layer on top of XR but under HUD */
 .playLayer{
-  position:fixed;
-  inset:0;
-  z-index:20;
+  position:fixed; inset:0;
+  z-index:10;
   pointer-events:auto;
-  overflow:hidden;
-  background: transparent;
 }
 
-/* ✅ โหดแบบ safe: ให้คลิกได้เฉพาะ "เป้า" เท่านั้น */
-.playLayer *{ pointer-events:none; }
-
-/* ---------------- HUD ---------------- */
+/* HUD */
 .hud{
-  top: calc(12px + var(--sat));
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
+  position:fixed;
+  top: calc(var(--sat) + 10px);
+  left: 12px;
+  right: 12px;
   display:flex;
   justify-content:space-between;
   gap:10px;
-  pointer-events:none; /* do not block hits */
+  z-index:80;
+  pointer-events:none;
 }
 
-.hudLeft, .hudRight{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  max-width:52%;
-}
-
+.hudLeft,.hudRight{ display:flex; gap:8px; flex-wrap:wrap; }
 .pill{
+  pointer-events:none;
   display:flex;
   align-items:center;
   gap:8px;
-  padding:10px 12px;
+  padding: 8px 10px;
   border-radius: var(--pill);
-  background: rgba(2,6,23,.72);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: var(--soft);
-  pointer-events:none;
-  backdrop-filter: blur(10px);
-}
-
-.pill .lbl{
-  font-weight:800;
-  font-size:12px;
-  letter-spacing:.4px;
-  color: var(--muted);
-}
-.pill .val{
-  font-weight:900;
-  font-size:16px;
-  color: var(--text);
-}
-
-/* clutch state */
-body.clutch .pill{
-  border-color: rgba(245,158,11,.40);
-  box-shadow: 0 0 0 2px rgba(245,158,11,.10), var(--soft);
-}
-
-/* ---------------- Quest ---------------- */
-.questTop{
-  top: calc(76px + var(--sat));
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-  pointer-events:none;
-}
-
-.questCard{
-  padding:12px 12px 10px;
-  border-radius: var(--radius);
   background: rgba(2,6,23,.70);
   border: 1px solid rgba(148,163,184,.18);
-  box-shadow: var(--soft);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
 }
+.lbl{ font-size:12px; color:var(--muted); font-weight:800; letter-spacing:.2px; }
+.val{ font-size:14px; font-weight:900; }
 
+/* Quest */
+.questTop{
+  position:fixed;
+  top: calc(var(--sat) + 64px);
+  left: 12px;
+  right: 12px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  z-index:75;
+  pointer-events:none;
+}
+.questCard{
+  background: rgba(2,6,23,.70);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
+}
 .qTitle{
   display:flex;
-  justify-content:space-between;
   align-items:center;
-  gap:10px;
+  justify-content:space-between;
   font-weight:900;
   letter-spacing:.2px;
 }
-.qTitle #goalTitle, .qTitle #miniTitle{ font-size:13px; color: var(--text); }
-
 .tag{
+  padding: 4px 10px;
+  border-radius: var(--pill);
+  background: rgba(148,163,184,.12);
+  border: 1px solid rgba(148,163,184,.18);
   font-weight:900;
   font-size:12px;
-  padding:6px 10px;
-  border-radius: var(--pill);
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(15,23,42,.55);
-  color: var(--text);
 }
-
 .bar{
-  margin-top:10px;
-  height:10px;
-  border-radius:999px;
+  margin-top:8px;
+  height: 10px;
+  border-radius: var(--pill);
+  background: rgba(148,163,184,.10);
   overflow:hidden;
-  background: rgba(148,163,184,.12);
-  border: 1px solid rgba(148,163,184,.14);
 }
 .fill{
   height:100%;
   width:0%;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.90), rgba(34,211,238,.82));
-  box-shadow: 0 0 0 1px rgba(34,197,94,.18) inset;
+  background: var(--accent);
+  border-radius: var(--pill);
 }
-
 .qSub{
   margin-top:8px;
   font-size:12px;
-  color: var(--muted);
-  font-weight:700;
-  min-height: 16px;
+  color: rgba(229,231,235,.92);
 }
 
-/* mini urgent (support both class names) */
-body.mini-urgent .questCard:nth-child(2),
-body.groups-mini-urgent .questCard:nth-child(2){
-  border-color: rgba(245,158,11,.45);
-  box-shadow: 0 0 0 2px rgba(245,158,11,.10), var(--soft);
+/* mini urgent hint */
+body.mini-urgent .questTop .questCard:nth-child(2){
+  box-shadow: 0 0 0 6px rgba(245,158,11,.12), 0 18px 40px rgba(0,0,0,.35);
 }
 
-/* storm urgent highlight */
-body.groups-storm-urgent .questCard:nth-child(1){
-  border-color: rgba(34,211,238,.45);
-  box-shadow: 0 0 0 2px rgba(34,211,238,.10), var(--soft);
-}
-
-/* ---------------- Power ---------------- */
+/* Power */
 .powerWrap{
-  bottom: calc(14px + var(--sab));
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  display:flex;
-  justify-content:center;
+  position:fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--sab) + 12px);
+  z-index:70;
   pointer-events:none;
 }
-
 .powerCard{
-  width:min(520px, 100%);
-  padding:12px 12px 10px;
-  border-radius: var(--radius);
-  background: rgba(2,6,23,.72);
+  background: rgba(2,6,23,.70);
   border: 1px solid rgba(148,163,184,.18);
-  box-shadow: var(--soft);
-  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
 }
+.pHead{ font-weight:900; }
+.powerBar .fill{ background: rgba(34,197,94,.95); }
+.pFoot{ margin-top:8px; color:var(--muted); font-size:12px; font-weight:700; }
 
-.pHead{
-  font-weight:900;
-  color: var(--text);
-  font-size:13px;
-}
-.powerBar{ margin-top:10px; height:12px; }
-.powerBar .fill{
-  background: linear-gradient(90deg, rgba(167,139,250,.90), rgba(34,211,238,.82));
-}
-.pFoot{
-  margin-top:8px;
-  font-size:12px;
-  font-weight:800;
-  color: var(--muted);
-}
-
-/* ---------------- Coach ---------------- */
+/* Coach */
 .coachWrap{
-  left: calc(12px + var(--sal));
-  top: calc(164px + var(--sat));
-  width: min(320px, 58vw);
+  position:fixed;
+  left: 12px;
+  bottom: calc(var(--sab) + 88px);
+  z-index:60;
   pointer-events:none;
 }
-
 .coachCard{
   display:flex;
   gap:10px;
-  align-items:flex-start;
-  padding:12px;
-  border-radius: var(--radius);
-  background: rgba(2,6,23,.62);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: var(--soft);
-  backdrop-filter: blur(10px);
-}
-
-.coachImg{
-  width:54px;
-  height:54px;
-  border-radius: 18px;
+  align-items:flex-end;
+  background: rgba(2,6,23,.60);
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.65);
+  border-radius: 18px;
+  padding: 10px 10px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
+}
+.coachImg{
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
   object-fit: cover;
-  flex: 0 0 auto;
+  border: 1px solid rgba(148,163,184,.18);
 }
+.coachBubble{ max-width: 240px; }
+.coachName{ font-weight: 900; color: rgba(229,231,235,.95); }
+.coachText{ margin-top:4px; font-size:12px; color: rgba(229,231,235,.90); }
 
-.coachBubble{ flex: 1 1 auto; }
-.coachName{
-  font-weight:900;
-  font-size:12px;
-  color: rgba(34,197,94,.95);
-  margin-bottom:4px;
+/* overlays */
+.overlay{
+  position:fixed; inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,.35);
+  z-index:100;
 }
-.coachText{
-  font-weight:800;
-  font-size:13px;
+.panel{
+  width:min(560px, calc(100vw - 24px));
+  background: rgba(2,6,23,.86);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 22px;
+  padding: 14px 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 44px rgba(0,0,0,.45);
   color: var(--text);
-  line-height:1.25;
+}
+.title{ font-weight: 1000; font-size:18px; }
+.sub{ margin-top:8px; color: rgba(229,231,235,.88); font-size:13px; }
+.note{ color: rgba(148,163,184,.95); font-size:12px; }
+.grid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+.stat{
+  padding: 10px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+}
+.stat .k{ color: var(--muted); font-size:12px; font-weight:800; }
+.stat .v{ font-size:16px; font-weight:1000; margin-top:4px; }
+.row{ display:flex; gap:10px; justify-content:flex-end; }
+.row2{ margin-top:10px; justify-content:space-between; flex-wrap:wrap; }
+.btn{
+  pointer-events:auto;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.70);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 900;
+}
+.btn-strong{
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.35);
+}
+.btn-ghost{
+  background: rgba(2,6,23,.30);
 }
 
-/* ---------------- Targets ---------------- */
+/* FINAL-9: target separation */
 .fg-target{
   position:absolute;
-  left: var(--x);
-  top: var(--y);
   transform: translate(-50%,-50%) scale(var(--s,1));
-  width: var(--tSize);
-  height: var(--tSize);
+  left: var(--x, 50vw);
+  top:  var(--y, 50vh);
+  width: 92px;
+  height: 92px;
   border-radius: 999px;
   display:flex;
   align-items:center;
   justify-content:center;
-
-  pointer-events:auto;
-  cursor:pointer;
+  font-size: 44px;
   user-select:none;
-
-  background: rgba(15,23,42,.78);
-  border: 2px solid rgba(148,163,184,.22);
-  box-shadow: var(--glow);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  border: 2px solid rgba(255,255,255,.12);
+  background: rgba(15,23,42,.82);
   backdrop-filter: blur(6px);
 }
-
-.fg-target::before{
-  content: attr(data-emoji);
-  font-size: var(--tFont);
-  line-height: 1;
-  transform: translateY(1px);
-  filter: drop-shadow(0 6px 10px rgba(0,0,0,.45));
+.fg-good{
+  border-color: rgba(34,197,94,.55);
+  box-shadow: 0 0 0 6px rgba(34,197,94,.12), 0 12px 28px rgba(0,0,0,.35);
 }
-
-/* ring */
-.fg-target::after{
-  content:'';
+.fg-wrong{
+  border-color: rgba(59,130,246,.55);
+  box-shadow: 0 0 0 6px rgba(59,130,246,.12), 0 12px 28px rgba(0,0,0,.35);
+  filter: saturate(1.05);
+}
+.fg-junk{
+  border-color: rgba(239,68,68,.65);
+  box-shadow: 0 0 0 7px rgba(239,68,68,.16), 0 12px 28px rgba(0,0,0,.35);
+}
+.fg-junk::after{
+  content:"";
   position:absolute;
-  inset:-6px;
+  inset:10px;
   border-radius:999px;
-  border: 2px dashed rgba(34,197,94,.35);
-  opacity:.55;
-  transform: rotate(0deg);
-  animation: ringSpin 1.2s linear infinite;
+  opacity:.18;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(239,68,68,.0) 0px,
+      rgba(239,68,68,.0) 10px,
+      rgba(239,68,68,.95) 10px,
+      rgba(239,68,68,.95) 14px);
   pointer-events:none;
 }
-@keyframes ringSpin{ to{ transform: rotate(360deg); } }
+.fg-target.spawn{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.82)); opacity:.0; }
+.fg-target:not(.spawn){ transition: transform .16s ease, opacity .16s ease; opacity:1; }
+.fg-target.hit{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.18)); opacity:0; }
+.fg-target.out{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.86)); opacity:0; }
 
-/* types */
-.fg-good{ border-color: rgba(34,197,94,.42); }
-.fg-wrong{ border-color: rgba(245,158,11,.50); }
-.fg-junk{ border-color: rgba(239,68,68,.52); }
-.fg-junk::after{ border-color: rgba(239,68,68,.35); }
-
-.fg-boss{
-  width: calc(var(--tSize) * 1.05);
-  height: calc(var(--tSize) * 1.05);
-  border-width: 3px;
-  border-color: rgba(167,139,250,.60);
-  box-shadow: 0 0 0 2px rgba(167,139,250,.16), var(--glow);
+/* FINAL-9 banner */
+.bigBanner{
+  position:fixed;
+  left:50%;
+  top: calc(var(--sat) + 96px);
+  transform: translateX(-50%);
+  z-index:110;
+  pointer-events:none;
 }
-.fg-boss::after{
-  inset:-8px;
-  border-style: solid;
-  border-color: rgba(167,139,250,.35);
-  animation: bossPulse 1.0s ease-in-out infinite;
-}
-@keyframes bossPulse{
-  0%,100%{ transform: scale(1); opacity:.55; }
-  50%{ transform: scale(1.06); opacity:.85; }
-}
-
-/* boss hurt/weak */
-.fg-boss-hurt{ animation: bossHurt .12s ease-in-out; }
-@keyframes bossHurt{
-  0%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
-  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.08)); }
-  100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-.fg-boss-weak{
-  border-color: rgba(245,158,11,.65);
-  box-shadow: 0 0 0 2px rgba(245,158,11,.14), var(--glow);
-}
-
-/* spawn / hit / out */
-.fg-target.spawn{ animation: popIn .16s ease-out; }
-@keyframes popIn{
-  from{ transform: translate(-50%,-50%) scale(0.72); opacity:.0; }
-  to{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
-}
-
-.fg-target.hit{ animation: popHit .18s ease-out forwards; }
-@keyframes popHit{
-  0%{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
-  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.18)); opacity:1; }
-  100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.75)); opacity:0; }
-}
-
-.fg-target.out{ animation: fadeOut .22s ease-in forwards; }
-@keyframes fadeOut{
-  from{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
-  to{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.82)); opacity:0; }
-}
-
-/* storm visuals */
-body.groups-storm .fg-target{
-  box-shadow: 0 0 0 2px rgba(34,211,238,.12), var(--glow);
-}
-body.groups-storm .fg-target::after{
-  border-color: rgba(34,211,238,.35);
-  opacity:.70;
-}
-
-/* ---------------- Overlay ---------------- */
-.overlay{
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 18px;
-  background: rgba(2,6,23,.72);
-  backdrop-filter: blur(10px);
-}
-.overlay.hidden{ display:none; }
-
-.panel{
-  width: min(560px, 100%);
-  border-radius: 26px;
-  background: rgba(2,6,23,.84);
-  border: 1px solid rgba(148,163,184,.20);
-  box-shadow: 0 24px 70px rgba(0,0,0,.55);
-  padding: 16px;
-}
-.title{
-  font-size: 20px;
+.bigBannerText{
+  padding: 10px 14px;
+  border-radius: 999px;
   font-weight: 1000;
+  font-size: 18px;
   letter-spacing: .2px;
+  color: rgba(255,255,255,.95);
+  background: rgba(2,6,23,.74);
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 18px 40px rgba(0,0,0,.35);
+  backdrop-filter: blur(8px);
+  text-align:center;
+  white-space: nowrap;
 }
-.sub{
-  margin-top: 6px;
-  color: var(--muted);
-  font-weight: 800;
-  font-size: 13px;
-}
-.grid2{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-.stat{
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(15,23,42,.62);
-  border: 1px solid rgba(148,163,184,.16);
-}
-.stat .k{
-  font-weight: 900;
-  font-size: 12px;
-  color: var(--muted);
-}
-.stat .v{
-  margin-top: 4px;
-  font-weight: 1000;
-  font-size: 20px;
+.bigBanner.show .bigBannerText{ animation: bannerPop .18s ease-out; }
+@keyframes bannerPop{
+  from{ transform: scale(.92); opacity:.0; }
+  to  { transform: scale(1); opacity:1; }
 }
 
-.row{ display:flex; gap:10px; margin-top: 10px; }
-.row2{ justify-content:space-between; }
-.btn{
-  flex:1 1 auto;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  padding: 12px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(15,23,42,.65);
-  color: var(--text);
-  font-weight: 1000;
-  cursor:pointer;
+/* FINAL-8 onboarding */
+.overlay-onb{ z-index: 120; }
+.onbPanel{ max-width:520px; }
+
+/* FINAL-10 mini start hint */
+body.fx-mini .questTop .questCard{
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 18px 40px rgba(0,0,0,.35);
 }
-.btn:active{ transform: translateY(1px); }
-.btn-strong{
-  background: rgba(34,197,94,.20);
-  border-color: rgba(34,197,94,.35);
-}
-.btn-ghost{ background: rgba(2,6,23,.40); }
-.note{
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-/* ---------------- Views ---------------- */
-body.view-pc .coachWrap{ width: 320px; }
-body.view-pc .questTop{ grid-template-columns: 1fr 1fr; }
-body.view-pc .hudLeft, body.view-pc .hudRight{ max-width: 46%; }
-
-body.view-mobile .coachWrap{ width: min(320px, 64vw); }
-
-body.view-vr .hud, body.view-vr .questTop, body.view-vr .powerWrap, body.view-vr .coachWrap{
-  transform: translateZ(0);
-}
-
-/* ✅ cVR strict: shoot only from crosshair */
-body.view-cvr .playLayer{ pointer-events:none; }
-body.view-cvr .fg-target{
-  pointer-events:none !important;
-  cursor: default !important;
-}
-
-/* Allow overlay buttons to be clickable */
-.overlay, .panel, .btn{ pointer-events:auto; }
-
-/* Responsive tightening */
-@media (max-width: 420px){
-  :root{ --tSize: 70px; --tFont: 38px; }
-  .questTop{ grid-template-columns: 1fr; top: calc(70px + var(--sat)); }
-  .coachWrap{ top: calc(220px + var(--sat)); width: min(320px, 92vw); }
-  .hudLeft, .hudRight{ max-width: 100%; }
-}
-
-@media (max-height: 620px){
-  .coachWrap{ top: calc(152px + var(--sat)); }
-  .powerWrap{ bottom: calc(10px + var(--sab)); }
-}
-
-/* Ensure vr-ui buttons not blocked by our UI */
-.hha-vr-ui *{ pointer-events:auto !important; }
-.hha-crosshair{ pointer-events:none !important; }
-
-/* ===================== ULTRA FX (body classes) ===================== */
-
-/* vignette layer (cheap) */
-body::before{
-  content:'';
-  position:fixed; inset:0;
-  pointer-events:none;
-  z-index:18; /* under targets (20) but above XR */
-  background: radial-gradient(circle at center,
-    rgba(0,0,0,0) 40%,
-    var(--fxVig) 100%);
-  opacity: .0;
-  transition: opacity .18s ease;
-}
-
-body.fx-hit::before{ opacity:.18; }
-body.fx-bad::before{ opacity:.26; }
-body.fx-miss::before{ opacity:.22; }
-body.fx-end::before{ opacity:.22; }
-body.fx-storm::before{ opacity:.20; }
-body.fx-boss::before{ opacity:.22; }
-
-body.fx-hit .playLayer{ filter: brightness(1.08) contrast(1.05); }
-body.fx-good .playLayer{ filter: saturate(1.08) brightness(1.06); }
-body.fx-miss .playLayer{ filter: brightness(1.02) contrast(1.02); }
-body.fx-bad .playLayer{ filter: hue-rotate(-8deg) saturate(1.12) brightness(0.98); }
-body.fx-end .playLayer{ filter: brightness(1.10) saturate(1.10); }
-
-body.fx-perfect .questTop .fill{ filter: brightness(1.08) saturate(1.12); }
-body.fx-combo .pill{ box-shadow: 0 0 0 2px rgba(167,139,250,.12), var(--soft); }
-
-/* subtle screen kick */
-@keyframes fxKick{
-  0%{ transform: translate3d(0,0,0); }
-  35%{ transform: translate3d(1px,-1px,0); }
-  70%{ transform: translate3d(-1px,1px,0); }
-  100%{ transform: translate3d(0,0,0); }
-}
-body.fx-hit .playLayer{ animation: fxKick .14s linear; }
-body.fx-bad .playLayer{ animation: fxKick .16s linear; }
-body.fx-miss .playLayer{ animation: fxKick .14s linear; }
-
-/* storm pulse */
-@keyframes fxStormPulse{
-  0%,100%{ filter: brightness(1.02); }
-  50%{ filter: brightness(1.08) saturate(1.08); }
-}
-body.fx-storm .playLayer{ animation: fxStormPulse .9s ease-in-out; }
-
-/* boss heartbeat */
-@keyframes fxBossBeat{
-  0%,100%{ filter: brightness(1.02); }
-  40%{ filter: brightness(1.10) saturate(1.14); }
-}
-body.fx-boss .playLayer{ animation: fxBossBeat .9s ease-in-out; }
-
-/* Pressure: 0..3 (จาก B) — ทำให้เด็ก “รู้สึกกดดัน” แบบไม่หลอน */
-body.press-1 .pill{ border-color: rgba(245,158,11,.26); }
-body.press-2 .pill{ border-color: rgba(245,158,11,.42); box-shadow: 0 0 0 2px rgba(245,158,11,.08), var(--soft); }
-body.press-3 .pill{ border-color: rgba(239,68,68,.55); box-shadow: 0 0 0 2px rgba(239,68,68,.10), var(--soft); }
-body.press-3::before{ opacity:.28; }
-
-/* Tap overlay polish (optional) */
-#tapOverlay .btn-strong{
-  box-shadow: 0 10px 26px rgba(34,197,94,.12);
-}
-
-/* Calibration overlay (ถ้าคุณใช้ใน A แบบแพ็ค 13) */
-body.calibration #calOverlay{ display:flex; }
-#calOverlay.hidden{ display:none; }
-
-/* tiny helper: keep overlays above everything */
-.overlay{ z-index:120; }
