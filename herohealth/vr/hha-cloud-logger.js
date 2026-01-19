@@ -1,174 +1,156 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened, universal)
-// ✅ Listens: hha:end -> sends session summary JSON (FULL PASS-THROUGH)
-// ✅ Queue persist localStorage (offline-safe)
-// ✅ keepalive + sendBeacon fallback
-// ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ FIX: universal gameMode (no hardcode goodjunk)
-// ✅ FIX: sends FULL summary (research-grade) + attaches meta (href, ua, view, diff, seed, etc.)
+// HHA Cloud Logger — FAIR / PRODUCTION
+// ✅ listens: hha:start, hha:end, hha:score, hha:time, hha:miss, hha:judge, hha:boss, hha:storm, quest:update
+// ✅ send via navigator.sendBeacon if possible, else fetch keepalive
+// ✅ enabled only when ?log=<endpoint> is provided
+// ✅ flush-hardened on pagehide/visibilitychange/beforeunload
 
 (function(){
   'use strict';
+
   const WIN = window;
   const DOC = document;
-  if(!DOC || WIN.__HHA_CLOUD_LOGGER__) return;
-  WIN.__HHA_CLOUD_LOGGER__ = true;
 
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
 
-  const ENDPOINT = (qs('log','')||'').trim(); // ?log=...
-  const LS_KEY = 'HHA_LOG_QUEUE_V1';
-
-  // public handle (so engines can check logger state)
-  WIN.HHA_LOGGER = WIN.HHA_LOGGER || {};
-  WIN.HHA_LOGGER.enabled = !!ENDPOINT;
-
-  function loadQ(){
-    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }catch(_){ return []; }
-  }
-  function saveQ(q){
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(q.slice(-80))); }catch(_){}
+  const ENDPOINT = qs('log', null);
+  if(!ENDPOINT){
+    WIN.__HHA_LOGGER_DISABLED__ = true;
+    return;
   }
 
-  let queue = loadQ();
+  const sessionId = (() => {
+    const base = String(qs('studyId', qs('study','NA')) || 'NA');
+    const t = Date.now();
+    const r = Math.floor(Math.random()*1e9);
+    return `hha_${base}_${t}_${r}`;
+  })();
+
+  const ctx = {
+    sessionId,
+    projectTag: qs('projectTag', null),
+    view: qs('view', null),
+    runMode: qs('run', null),
+    diff: qs('diff', null),
+    time: qs('time', null),
+    seed: qs('seed', null) ?? qs('ts', null),
+
+    studyId: qs('studyId', qs('study', null)),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', qs('cond', null)),
+
+    href: location.href,
+    ua: navigator.userAgent || '',
+    tzOffsetMin: new Date().getTimezoneOffset(),
+  };
+
+  const queue = [];
   let flushing = false;
 
-  function payloadMeta(){
-    return {
-      timestampIso: new Date().toISOString(),
-      href: location.href,
-      ua: navigator.userAgent || '',
-      projectTag: qs('projectTag','HeroHealth') || 'HeroHealth',
-      view: (qs('view','')||'').toLowerCase(),
-      diff: (qs('diff','')||'').toLowerCase(),
-      runMode: (qs('run', qs('runMode','play'))||'play').toLowerCase(),
-      seed: qs('seed','') || '',
-      sessionId: qs('sessionId', qs('studentKey','')) || ''
-    };
+  function nowIso(){ return new Date().toISOString(); }
+
+  function push(type, detail){
+    queue.push({
+      type,
+      t: nowIso(),
+      detail: detail || null,
+      ctx
+    });
+    // keep queue sane
+    if(queue.length > 2500) queue.splice(0, queue.length - 1800);
   }
 
-  function enqueue(obj){
-    queue.push(obj);
-    saveQ(queue);
-  }
+  function sendPayload(payload){
+    const body = JSON.stringify(payload);
 
-  async function postJson(url, obj){
+    // Beacon first
     try{
-      const body = JSON.stringify(obj);
-
-      // try sendBeacon first for unload safety
       if(navigator.sendBeacon){
-        const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
+        const ok = navigator.sendBeacon(ENDPOINT, new Blob([body], { type:'application/json' }));
         if(ok) return true;
       }
+    }catch(_){}
 
-      const res = await fetch(url, {
+    // Fetch keepalive fallback
+    try{
+      fetch(ENDPOINT, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        headers:{ 'content-type':'application/json' },
         body,
         keepalive:true,
-        mode:'cors'
-      });
-      return !!res && res.ok;
-    }catch(_){
-      return false;
-    }
+        mode:'cors',
+        credentials:'omit',
+      }).catch(()=>{});
+      return true;
+    }catch(_){}
+    return false;
   }
 
-  async function flush(){
+  function flush(reason='flush'){
     if(flushing) return;
-    if(!ENDPOINT) return;     // no endpoint => do nothing
     if(queue.length === 0) return;
-
     flushing = true;
 
-    // send oldest-first
-    const q = queue.slice();
-    let sent = 0;
+    const batch = queue.splice(0, queue.length);
+    const payload = {
+      kind:'hha_log_batch',
+      reason,
+      sentAt: nowIso(),
+      sessionId,
+      ctx,
+      items: batch
+    };
 
-    for(let i=0;i<q.length;i++){
-      const ok = await postJson(ENDPOINT, q[i]);
-      if(ok) sent++;
-      else break; // stop if offline
-    }
-
-    if(sent > 0){
-      queue = q.slice(sent);
-      saveQ(queue);
-    }
-
+    sendPayload(payload);
     flushing = false;
   }
 
-  // Decide gameMode from event detail (preferred) then URL, then fallback
-  function inferGameMode(detail){
-    const d = detail || {};
-    const a =
-      d.gameMode ||
-      d.game ||
-      d.mode ||
-      qs('gameMode','') ||
-      '';
+  function onAny(evtName){
+    return function(ev){
+      // detail may be absent
+      const detail = (ev && ev.detail) ? ev.detail : null;
+      push(evtName, detail);
 
-    const s = String(a||'').toLowerCase();
-
-    // normalize common names
-    if (s.includes('hydr')) return 'hydration';
-    if (s.includes('group')) return 'groups';
-    if (s.includes('plate')) return 'plate';
-    if (s.includes('good')) return 'goodjunk';
-
-    // try by path
-    const p = (location.pathname || '').toLowerCase();
-    if (p.includes('hydration')) return 'hydration';
-    if (p.includes('groups')) return 'groups';
-    if (p.includes('plate')) return 'plate';
-    if (p.includes('goodjunk')) return 'goodjunk';
-
-    return s || 'game';
+      // strategic flush: on end
+      if(evtName === 'hha:end'){
+        flush('end');
+      }
+    };
   }
 
-  // Listen end summary (FULL)
-  function onEnd(ev){
-    try{
-      const d = ev?.detail || {};
-      const meta = payloadMeta();
+  // ✅ listen events
+  const EVENTS = [
+    'hha:start',
+    'hha:end',
+    'hha:score',
+    'hha:time',
+    'hha:miss',
+    'hha:judge',
+    'hha:boss',
+    'hha:storm',
+    'quest:update',
+    'hha:boot',
+    'hha:coach',
+    'hha:log',
+  ];
 
-      // Full pass-through summary + meta overlay (meta wins only if summary missing)
-      const pack = Object.assign(
-        {
-          kind: 'session',
-          gameMode: inferGameMode(d),
-        },
-        meta,
-        d
-      );
+  EVENTS.forEach((n)=>{
+    WIN.addEventListener(n, onAny(n), { passive:true });
+    DOC.addEventListener(n, onAny(n), { passive:true });
+  });
 
-      // guarantee some key fields exist (for sheets)
-      if(!pack.runMode) pack.runMode = meta.runMode;
-      if(!pack.diff) pack.diff = meta.diff;
-      if(!pack.view) pack.view = meta.view;
-      if(!pack.seed) pack.seed = meta.seed;
-      if(!pack.sessionId) pack.sessionId = meta.sessionId;
+  // periodic flush (light)
+  setInterval(()=>flush('interval'), 4000);
 
-      enqueue(pack);
-      flush(); // best-effort immediate
-    }catch(_){}
-  }
-
-  WIN.addEventListener('hha:end', onEnd, { passive:true });
-
-  // Manual flush hook
-  WIN.addEventListener('hha:flush', ()=>flush(), { passive:true });
-
-  // unload flush
-  WIN.addEventListener('pagehide', ()=>flush(), { passive:true });
+  // flush-hardened
+  WIN.addEventListener('pagehide', ()=>flush('pagehide'), { passive:true });
   DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden') flush();
+    if(DOC.visibilityState === 'hidden') flush('hidden');
   }, { passive:true });
-  WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
+  WIN.addEventListener('beforeunload', ()=>flush('beforeunload'));
 
-  // periodic flush (offline -> online)
-  setInterval(()=>flush(), 3500);
-
+  // initial ping
+  push('logger:init', { endpoint: ENDPOINT });
+  flush('init');
 })();
