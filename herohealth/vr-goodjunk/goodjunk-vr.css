@@ -1,27 +1,24 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — S / FAIR (loose layout)
-✅ Big gameplay area
-✅ HUD compact + optional hide
-✅ Safe-area vars: --gj-top-safe / --gj-bottom-safe
+GoodJunkVR UI — S / FAIR (Gameplay-first)
+✅ Large playfield
+✅ HUD thin
+✅ Missions overlay
+✅ Target FX + transitions
 */
 
 :root{
   color-scheme: dark;
-
   --bg:#020617;
-  --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.62);
+  --panel:rgba(2,6,23,.72);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --accent:#22c55e;
   --warn:#f59e0b;
-  --danger:#fb7185;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
+  --bad:#fb7185;
 
-  --radius:20px;
+  --radius:18px;
   --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
@@ -29,266 +26,296 @@ GoodJunkVR UI — S / FAIR (loose layout)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* these are overwritten by safe-measure in run html */
+  /* safe spawn defaults (overridden by JS) */
   --gj-top-safe: 140px;
-  --gj-bottom-safe: 96px;
+  --gj-bottom-safe: 90px;
 }
 
 *{ box-sizing:border-box; }
 html,body{
-  margin:0; padding:0;
-  width:100%; height:100%;
+  margin:0; width:100%; height:100%;
   overflow:hidden;
-  font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
   background:
     radial-gradient(circle at top left, rgba(34,197,94,.10), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,211,238,.08), transparent 60%),
     var(--bg);
   color:var(--text);
 }
 
-/* =============== TOPBAR =============== */
+/* A-Frame behind everything */
+a-scene{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:0 !important;
+  pointer-events:none !important;
+}
+
+/* base */
+body.gj{
+  position:relative;
+  width:100%;
+  height:100%;
+}
+
+/* TOPBAR (thin) */
 .gj-topbar{
   position:fixed;
   top:0; left:0; right:0;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) 10px calc(10px + var(--sal));
-  display:flex; align-items:center; justify-content:space-between;
+  z-index:120;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
   gap:10px;
-  z-index:180;
-  pointer-events:auto;
+  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  background: linear-gradient(to bottom, rgba(2,6,23,.92), rgba(2,6,23,.55));
+  border-bottom:1px solid rgba(148,163,184,.16);
+  backdrop-filter: blur(10px);
 }
+
 .gj-chip{
-  display:inline-flex; gap:10px; align-items:center;
-  padding:10px 12px;
+  display:inline-flex;
+  gap:10px;
+  align-items:center;
+  padding:8px 12px;
   border-radius: var(--pill);
-  background: rgba(2,6,23,.58);
-  border:1px solid var(--stroke);
-  color:var(--text);
-  font-weight:1000;
+  background: rgba(2,6,23,.55);
+  border:1px solid rgba(148,163,184,.18);
+  font-weight:1100;
   font-size:12px;
 }
+
 .gj-btn{
-  height:40px;
+  height:38px;
   padding:0 12px;
-  border-radius: 14px;
-  border:1px solid var(--stroke);
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.55);
   color:var(--text);
-  font-weight:1000;
+  font-weight:1100;
   cursor:pointer;
 }
+.gj-btn:active{ transform: translateY(1px); }
 .gj-btn.primary{
-  border-color: rgba(34,197,94,.35);
-  background: rgba(34,197,94,.16);
+  border-color: rgba(34,197,94,.30);
+  background: rgba(34,197,94,.14);
   color:#eafff3;
 }
-.gj-btn:active{ transform: translateY(1px); }
 
-/* =============== HUD =============== */
-.gj-hud-top{
+/* HUD (compact row) */
+.gj-hud{
   position:fixed;
   left:0; right:0;
-  top: calc(56px + var(--sat));
-  padding: 0 calc(10px + var(--sar)) 0 calc(10px + var(--sal));
-  z-index:170;
-  pointer-events:auto;
-}
-.hud-row{
-  display:flex; gap:10px; flex-wrap:wrap;
+  top: calc(52px + var(--sat)); /* under topbar */
+  z-index:115;
+  display:flex;
+  gap:8px;
   align-items:stretch;
+  justify-content:center;
+  flex-wrap:wrap;
+  padding: 8px calc(12px + var(--sar)) 8px calc(12px + var(--sal));
+  pointer-events:none; /* don’t block gameplay */
 }
-.hud-row.compact .hud-pill{ min-width:92px; padding:10px 10px; }
+
 .hud-pill{
-  flex:0 0 auto;
-  min-width:100px;
-  background: var(--panel2);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:12px 12px;
+  pointer-events:none;
+  min-width: 92px;
+  padding:8px 10px;
+  border-radius:16px;
+  background: rgba(2,6,23,.55);
+  border:1px solid rgba(148,163,184,.16);
+  backdrop-filter: blur(10px);
+  text-align:left;
 }
-.hud-pill.warn{ border-color: rgba(245,158,11,.25); }
-.hud-pill.grade{ border-color: rgba(167,139,250,.28); }
+.hud-pill.warn{ border-color: rgba(245,158,11,.28); }
+.hud-pill.grade{ border-color: rgba(167,139,250,.26); }
+.hud-pill.mini{ min-width: 150px; }
+
 .hud-label{
-  color:var(--muted);
+  font-size:10px;
+  color: rgba(148,163,184,.95);
   font-weight:1000;
-  font-size:11px;
+  letter-spacing:.04em;
 }
 .hud-value{
+  margin-top:2px;
+  font-size:16px;
   font-weight:1200;
-  font-size:18px;
-  margin-top:3px;
+}
+.hud-value .sep{
+  margin:0 6px;
+  opacity:.5;
 }
 
-.quest-row{
-  display:grid;
-  grid-template-columns: 1.2fr .9fr;
-  gap:10px;
-  margin-top:10px;
-}
-.quest-row.compact{ margin-top:8px; }
-.quest-card{
-  background: rgba(2,6,23,.55);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-}
-.q-title{ font-weight:1200; font-size:12px; }
-.q-desc{ margin-top:4px; color:var(--muted); font-weight:900; font-size:12px; }
-.q-bar{ margin-top:8px; display:flex; justify-content:space-between; gap:10px; }
-.q-num{ font-weight:1200; font-size:12px; }
-.q-hint{ color:rgba(148,163,184,.85); font-weight:900; font-size:11px; }
+/* hide HUD instantly */
+body.hud-hidden .gj-hud{ display:none; }
 
-/* hide HUD */
-body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
-  opacity:0;
-  transform: translateY(-6px);
-  pointer-events:none;
-}
-
-/* =============== HUD BOTTOM (floating small) =============== */
-.gj-hud-bot{
-  position:fixed;
-  left: calc(10px + var(--sal));
-  bottom: calc(10px + var(--sab));
-  display:flex;
-  gap:10px;
-  z-index:160;
-  pointer-events:auto;
-}
-.gj-hud-bot.floating{
-  max-width: min(560px, 96vw);
-}
-.meter{
-  background: rgba(2,6,23,.55);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-  min-width: 160px;
-}
-.meter-title{ font-weight:1200; font-size:12px; }
-.meter-bar{
-  height:10px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.12);
-  overflow:hidden;
-  margin-top:8px;
-}
-.meter-fill{
-  height:100%;
-  width:0%;
-  background: rgba(34,197,94,.75);
-  border-radius: 999px;
-}
-.meter-num{ margin-top:8px; font-weight:1000; font-size:12px; color:var(--muted); }
-.meter-shield{ margin-top:8px; font-weight:1200; font-size:14px; }
-.meter-tip{ margin-top:6px; font-weight:900; font-size:11px; color:rgba(148,163,184,.88); }
-
-/* =============== PLAYFIELD =============== */
+/* PLAYFIELD */
 .gj-field{
   position:fixed;
   inset:0;
-  z-index:50;
-  pointer-events:none; /* targets handle events */
+  z-index:80;
+  overflow:hidden;
 }
 
-/* layers for targets */
+/* layers */
 .gj-layer{
-  position:fixed;
+  position:absolute;
   inset:0;
-  z-index:60;
-  pointer-events:none;
+  pointer-events:none; /* targets handle pointer events individually */
 }
-.gj-layer .gj-target{
-  pointer-events:auto;
+.gj-layer-r{
+  display:none;
 }
 
-/* =============== TARGETS =============== */
+/* allow dual-eye layer only in cVR */
+body.view-cvr .gj-layer-r{
+  display:block;
+  opacity:.98;
+}
+
+/* TARGET */
 .gj-target{
   position:absolute;
-  transform: translate(-50%,-50%);
-  filter: drop-shadow(0 12px 26px rgba(0,0,0,.35));
+  transform: translate(-50%,-50%) scale(.92);
   user-select:none;
-  touch-action: manipulation;
+  pointer-events:auto;
+  cursor:pointer;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.38));
+  transition: transform .10s ease, opacity .12s ease;
   will-change: transform, opacity;
-  opacity: .98;
 }
+
+/* spawn anim */
 .gj-target.spawn{
-  animation: gjIn 160ms ease-out both;
+  animation: gjPop .12s ease-out both;
 }
+@keyframes gjPop{
+  from{ transform: translate(-50%,-50%) scale(.70); opacity:.0; }
+  to{ transform: translate(-50%,-50%) scale(.98); opacity:1; }
+}
+
+/* idle float (makes “alive” feel) */
+.gj-target{
+  animation: gjFloat 1.1s ease-in-out infinite;
+}
+@keyframes gjFloat{
+  0%,100%{ transform: translate(-50%,-50%) scale(.98) translateY(0px); }
+  50%{ transform: translate(-50%,-50%) scale(1.02) translateY(-6px); }
+}
+
+/* hit feedback */
+.gj-target:active{
+  transform: translate(-50%,-50%) scale(1.08);
+}
+
+/* gone */
 .gj-target.gone{
-  animation: gjOut 140ms ease-in both;
+  opacity:0;
+  transform: translate(-50%,-50%) scale(.75);
 }
 
-@keyframes gjIn{
-  0%{ transform:translate(-50%,-50%) scale(.82); opacity:0; }
-  100%{ transform:translate(-50%,-50%) scale(1); opacity:.98; }
-}
-@keyframes gjOut{
-  0%{ transform:translate(-50%,-50%) scale(1); opacity:.98; }
-  100%{ transform:translate(-50%,-50%) scale(.85); opacity:0; }
-}
-
-/* =============== MISSIONS PEEK =============== */
+/* Missions overlay */
 .gj-peek{
-  position:fixed; inset:0;
-  z-index:200;
+  position:fixed;
+  inset:0;
+  z-index:160;
   display:none;
-  align-items:center; justify-content:center;
-  background: rgba(2,6,23,.70);
-  backdrop-filter: blur(10px);
-  padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
-}
-body.show-missions .gj-peek{ display:flex; }
-.peek-card{
-  width:min(520px, 92vw);
-  background: rgba(2,6,23,.78);
-  border:1px solid var(--stroke);
-  border-radius: 22px;
-  padding:16px;
-}
-.peek-title{ font-size:18px; font-weight:1200; }
-.peek-sub,.peek-mini{ margin-top:8px; color:var(--muted); font-weight:1000; }
-.peek-tip{ margin-top:12px; font-size:12px; font-weight:900; color:rgba(148,163,184,.85); }
-
-/* =============== LOW TIME OVERLAY =============== */
-.gj-lowtime-overlay{
-  position:fixed; inset:0;
-  z-index:190;
-  pointer-events:none;
-  display:flex;
   align-items:flex-start;
   justify-content:center;
-  padding-top: calc(78px + var(--sat));
-  opacity:0;
-  transition: opacity 120ms ease;
+  padding: calc(80px + var(--sat)) 14px calc(18px + var(--sab));
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
 }
-.gj-lowtime-overlay[aria-hidden="false"]{ opacity:1; }
+body.show-missions .gj-peek{
+  display:flex;
+}
+.peek-card{
+  width:min(640px, 92vw);
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.78);
+  padding:14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.55);
+}
+.peek-title{
+  font-weight:1300;
+  font-size:18px;
+}
+.peek-block{
+  margin-top:10px;
+  padding:12px;
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+}
+.peek-k{
+  color: rgba(148,163,184,.95);
+  font-weight:1000;
+  font-size:11px;
+  letter-spacing:.04em;
+}
+.peek-v{
+  margin-top:4px;
+  font-weight:1200;
+  font-size:16px;
+}
+.peek-desc{
+  margin-top:6px;
+  color: rgba(148,163,184,.92);
+  font-weight:900;
+  font-size:12px;
+  line-height:1.35;
+}
+.peek-bar{
+  margin-top:8px;
+  font-weight:1200;
+  font-size:12px;
+  opacity:.9;
+}
+.peek-tip{
+  margin-top:10px;
+  text-align:center;
+  color: rgba(148,163,184,.90);
+  font-size:12px;
+  font-weight:1000;
+}
 
+/* low time overlay */
+.gj-lowtime-overlay{
+  position:fixed;
+  inset:0;
+  z-index:150;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .14s ease;
+}
+body.gj-lowtime .gj-lowtime-overlay{
+  opacity:1;
+}
 .gj-lowtime-ring{
-  width:84px; height:84px;
+  width:min(44vmin, 320px);
+  height:min(44vmin, 320px);
   border-radius:999px;
-  border:3px solid rgba(245,158,11,.55);
-  box-shadow: 0 0 0 6px rgba(245,158,11,.12);
+  border: 10px solid rgba(245,158,11,.22);
+  box-shadow: 0 0 0 12px rgba(245,158,11,.06);
   animation: gjPulse 1s ease-in-out infinite;
+}
+@keyframes gjPulse{
+  0%,100%{ transform: scale(1); opacity:.95; }
+  50%{ transform: scale(1.05); opacity:.75; }
 }
 .gj-lowtime-num{
   position:absolute;
-  margin-top: 18px;
-  font-size:32px;
+  font-size:min(16vmin, 110px);
   font-weight:1300;
   color:#fff;
-  text-shadow: 0 10px 26px rgba(0,0,0,.45);
-}
-@keyframes gjPulse{
-  0%,100%{ transform: scale(1); opacity:.9; }
-  50%{ transform: scale(1.08); opacity:1; }
+  text-shadow: 0 10px 30px rgba(0,0,0,.55);
 }
 
-/* =============== RESPONSIVE =============== */
-@media (max-width: 520px){
-  .quest-row{ grid-template-columns: 1fr; }
-  .hud-row.compact .hud-pill{ min-width: 88px; }
-  .gj-hud-bot{ left: calc(8px + var(--sal)); bottom: calc(8px + var(--sab)); }
-  .meter{ min-width: 148px; }
+/* make room for VR UI controls */
+.hha-controls{
+  z-index:200 !important;
 }
