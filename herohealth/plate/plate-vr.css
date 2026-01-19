@@ -1,6 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION C3)
+   Balanced Plate VR — UI + Targets + Safe Playfield (PRODUCTION)
+   HHA Standard
 ========================================================= */
 
 :root{
@@ -12,23 +13,34 @@
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
+  --accent:#22c55e;   /* good */
+  --warn:#f59e0b;     /* warning */
+  --bad:#ef4444;      /* junk/danger */
+  --cyan:#22d3ee;     /* storm/shield */
+  --violet:#a78bfa;   /* boss */
 
   --radius:18px;
   --pill:999px;
 
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* ---------- PLAYFIELD SAFE (กัน HUD บังเป้า) ----------
+     ปรับค่านี้ได้ถ้าคุณเพิ่ม/ลด HUD
+  */
+  --pf-top:   calc(140px + var(--sat)); /* HUD ด้านบน */
+  --pf-right: calc(128px + var(--sar)); /* ปุ่มขวาล่าง / vr-ui panel */
+  --pf-bottom:calc(168px + var(--sab)); /* coach + ปุ่มล่าง */
+  --pf-left:  calc(12px + var(--sal));
 }
 
+/* ---------------------------------------------------------
+   Global
+--------------------------------------------------------- */
 *{ box-sizing:border-box; }
-
 html,body{
   margin:0;
   width:100%;
@@ -38,266 +50,237 @@ html,body{
   color:var(--text);
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
+a{ color:inherit; }
 
-/* --------------------------------------------
-   Playfield layer (spawn host)
--------------------------------------------- */
+/* =========================================================
+   PLAYFIELD / SPAWN LAYER
+   เป้าจะ spawn ในกรอบนี้ (ปลอด HUD)
+========================================================= */
+
+/* overlay พื้นหลัง (ถ้าหน้า HTML มี .bg ก็จะสวยขึ้นอยู่แล้ว) */
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
+    radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
+    radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
+    linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+  opacity:.85;
+}
+
+/* ตัว mount ที่เกมใช้ spawn target */
 #plate-layer{
   position:fixed;
-  inset:0;
+  left: var(--pf-left);
+  top:  var(--pf-top);
+  right:var(--pf-right);
+  bottom:var(--pf-bottom);
   z-index:10;
   pointer-events:auto;
   touch-action:none;
   user-select:none;
+  -webkit-tap-highlight-color:transparent;
+
+  /* debug เปิดได้ถ้าต้องการเห็นกรอบ */
+  /* outline:1px dashed rgba(34,211,238,.35); */
 }
 
-/* --------------------------------------------
-   Targets (bubble + emoji)
--------------------------------------------- */
-@keyframes pop{
-  0%{ transform: translate(-50%,-50%) scale(.86); opacity:0 }
-  100%{ transform: translate(-50%,-50%) scale(1); opacity:1 }
-}
-@keyframes wobble{
-  0%{ filter:brightness(1); }
-  50%{ filter:brightness(1.12); }
-  100%{ filter:brightness(1); }
+/* =========================================================
+   TARGETS (เป้าแบบ “นูน+เงา+ขอบชัด”)
+========================================================= */
+
+@keyframes hhaPop {
+  0%{ transform: translateZ(0) scale(.86); opacity:0; }
+  45%{ transform: translateZ(0) scale(1.06); opacity:1; }
+  100%{ transform: translateZ(0) scale(1); opacity:1; }
 }
 
+@keyframes hhaFloat {
+  0%{ transform: translateZ(0) translateY(0); }
+  50%{ transform: translateZ(0) translateY(-2px); }
+  100%{ transform: translateZ(0) translateY(0); }
+}
+
+@keyframes hhaWobble {
+  0%{ transform: translateZ(0) rotate(0deg); }
+  25%{ transform: translateZ(0) rotate(1.2deg); }
+  50%{ transform: translateZ(0) rotate(-1.2deg); }
+  75%{ transform: translateZ(0) rotate(.8deg); }
+  100%{ transform: translateZ(0) rotate(0deg); }
+}
+
+/* core */
 .plateTarget{
+  position:absolute;
   display:grid;
   place-items:center;
   border-radius:999px;
-  font-size:28px;
-  font-weight:900;
+  user-select:none;
   cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
 
+  /* emoji clarity */
+  font-size:28px;
+  font-weight:1000;
+  line-height:1;
+  text-shadow: 0 2px 0 rgba(0,0,0,.28);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* glass + depth */
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
-    radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
-    rgba(2,6,23,.58);
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.14), transparent 38%),
+    radial-gradient(circle at 72% 78%, rgba(34,197,94,.10), transparent 44%),
+    rgba(2,6,23,.56);
 
   border:1px solid rgba(148,163,184,.20);
-
   box-shadow:
     0 18px 52px rgba(0,0,0,.34),
     inset 0 1px 0 rgba(255,255,255,.08);
 
-  animation: pop .14s ease-out 0s 1, wobble 1.8s ease-in-out .12s infinite;
+  backdrop-filter: blur(10px) saturate(1.18);
 
-  text-shadow: 0 2px 0 rgba(0,0,0,.25);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  animation:
+    hhaPop .14s ease-out 0s 1,
+    hhaFloat 1.6s ease-in-out .12s infinite,
+    hhaWobble 1.9s ease-in-out .20s infinite;
+
+  transform: translateZ(0);
 }
 
 .plateTarget:active{
-  transform: translate(-50%,-50%) scale(.98);
+  transform: translateZ(0) scale(.98);
 }
 
+/* good */
 .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.32);
+  border-color: rgba(34,197,94,.32);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    0 0 26px rgba(34,197,94,.14),
+    0 18px 56px rgba(0,0,0,.34),
+    0 0 26px rgba(34,197,94,.13),
     inset 0 1px 0 rgba(255,255,255,.08);
 }
 
+/* junk */
 .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.30);
+  border-color: rgba(239,68,68,.30);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    0 0 26px rgba(239,68,68,.14),
+    0 18px 56px rgba(0,0,0,.34),
+    0 0 26px rgba(239,68,68,.13),
     inset 0 1px 0 rgba(255,255,255,.08);
-  animation-duration:1.2s;
+  animation:
+    hhaPop .14s ease-out 0s 1,
+    hhaFloat 1.1s ease-in-out .10s infinite,
+    hhaWobble 1.2s ease-in-out .15s infinite;
 }
 
-/* --------------------------------------------
-   HUD (non-blocking)
--------------------------------------------- */
-#hud{
-  position:fixed;
-  inset:0;
-  z-index:30;
-  pointer-events:none;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+/* shield / storm item (ถ้าเพิ่มในอนาคต) */
+.plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.34);
+  box-shadow:
+    0 18px 56px rgba(0,0,0,.34),
+    0 0 26px rgba(34,211,238,.14),
+    inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.hudRow{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
-}
+/* =========================================================
+   HUD helpers (ใช้ร่วมกับ HTML แบบ card/pill/bar)
+========================================================= */
 
-/* chips */
-.chip{
-  pointer-events:auto;
-  min-width: 120px;
-  padding:10px 12px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.70);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 16px 46px rgba(0,0,0,.30);
-  display:flex;
-  gap:10px;
-  align-items:baseline;
-}
-.chip .lbl{ font-weight:1000; font-size:11px; color:rgba(148,163,184,.95); letter-spacing:.02em; }
-.chip .val{ font-weight:1200; font-size:16px; color:rgba(229,231,235,.95); }
-
-.card{
-  pointer-events:auto;
-  margin-top:10px;
-  width:min(520px, 100%);
+.card, .questCard, .panelCard, .chip{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
-  padding:12px 12px;
   box-shadow: 0 18px 60px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
 }
 
-.cardTitle{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  align-items:flex-start;
-}
-.cardTitle .t{ font-weight:1200; font-size:13px; }
-.cardTitle .hint{ color:var(--muted); font-weight:900; font-size:12px; line-height:1.25; }
-
-.qItem{
-  margin-top:10px;
-  display:flex;
-  gap:10px;
+.pill{
+  display:inline-flex;
   align-items:center;
-  justify-content:space-between;
-  flex-wrap:wrap;
-  padding:10px 10px;
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:14px;
-  background: rgba(15,23,42,.55);
+  gap:8px;
+  padding:6px 10px;
+  border-radius:var(--pill);
+  border:1px solid var(--stroke);
+  background:rgba(15,23,42,.60);
+  font-weight:1000;
+  font-size:12px;
+  white-space:nowrap;
 }
 
-.qText .name{ font-weight:1200; font-size:13px; }
-.qText .sub{ color:var(--muted); font-weight:900; font-size:12px; margin-top:2px; }
+.muted{ color:var(--muted); font-weight:900; }
 
-.qProg{ min-width: 180px; }
-.qNums{ text-align:right; font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
 .bar{
-  margin-top:6px;
   height:10px;
   border-radius:999px;
   background:rgba(148,163,184,.12);
-  overflow:hidden;
   border:1px solid rgba(148,163,184,.14);
+  overflow:hidden;
 }
+
 .bar > i{
   display:block;
   height:100%;
   width:0%;
-  background: rgba(34,197,94,.85);
-  transition: width .22s ease;
+  background:rgba(34,197,94,.85);
+  transition:width .22s ease;
 }
-#miniBar{ background: rgba(245,158,11,.85); }
 
-/* --------------------------------------------
-   Coach bubble
--------------------------------------------- */
-#coachCard{
-  position:fixed;
-  left:50%;
-  bottom: calc(14px + var(--sab));
-  transform: translateX(-50%);
-  z-index:40;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .14s ease, transform .14s ease;
+/* fever */
+.bar.bad{
+  background:
+    linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08));
 }
-#coachCard.show{
-  opacity:1;
-  transform: translateX(-50%) translateY(-2px);
+.bar.bad > i{
+  background: linear-gradient(90deg, rgba(245,158,11,.85), rgba(239,68,68,.88));
+  box-shadow: 0 0 18px rgba(239,68,68,.18);
 }
-#coachCard .inner{
-  pointer-events:auto;
-  background: rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:16px;
-  padding:10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-  max-width: min(720px, calc(100vw - 24px));
-}
-#coachMsg{ font-weight:1100; }
-#coachMeta{ margin-top:4px; color:var(--muted); font-weight:900; font-size:12px; }
 
-/* --------------------------------------------
-   End overlay
--------------------------------------------- */
-#endOverlay{
+/* =========================================================
+   FX layers (boss/storm) — class toggle by JS
+========================================================= */
+
+@keyframes hhaWarnPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.18); }
+  100%{ filter:brightness(1); }
+}
+@keyframes hhaBadPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.24); }
+  100%{ filter:brightness(1); }
+}
+
+#bossFx, #stormFx{
   position:fixed;
   inset:0;
-  z-index:70;
-  display:none; /* boot.js will set display:grid when open */
-  place-items:center;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: rgba(2,6,23,.60);
-  backdrop-filter: blur(10px);
-  pointer-events:auto;
-}
-.endPanel{
-  width:min(780px, 100%);
-  background: var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:22px;
-  padding:16px;
-  box-shadow: 0 26px 90px rgba(0,0,0,.42);
-}
-.endTitle{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.endTitle h2{ margin:0; font-weight:1200; font-size:18px; }
-.tag{
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.60);
-  color: rgba(229,231,235,.92);
-  font-weight:1000;
-  font-size:12px;
-}
-.endGrid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap:10px;
-}
-.kpi{
-  background: rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:16px;
-  padding:10px 12px;
-}
-.kpi .k{ color:var(--muted); font-weight:1000; font-size:12px; }
-.kpi .v{ margin-top:6px; font-weight:1200; font-size:16px; }
-
-.endBtns{
-  margin-top:14px;
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
+  pointer-events:none;
+  z-index:55;
+  display:none;
 }
 
-/* buttons */
+#bossFx.boss-on{
+  display:block;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.12), transparent 58%),
+    radial-gradient(circle at 50% 92%, rgba(239,68,68,.10), transparent 56%);
+}
+#bossFx.boss-panic{ animation: hhaBadPulse .22s ease-in-out 0s infinite; }
+
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 52%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 52%),
+    radial-gradient(circle at 45% 85%, rgba(34,211,238,.10), transparent 55%);
+  animation: hhaWarnPulse .32s ease-in-out 0s infinite;
+}
+
+/* =========================================================
+   Buttons (ถ้ามี .btn ในหน้า)
+========================================================= */
 .btn{
-  pointer-events:auto;
   appearance:none;
   border:none;
   border-radius:999px;
@@ -305,53 +288,62 @@ html,body{
   font-weight:1000;
   font-size:12px;
   cursor:pointer;
-  color:var(--text);
+  color:rgba(229,231,235,.95);
   background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
   backdrop-filter: blur(10px);
-  box-shadow: 0 16px 44px rgba(0,0,0,.30);
+  box-shadow:0 16px 40px rgba(0,0,0,.32);
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
 }
-.btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
+.btn:active{ transform: translateY(1px); }
+.btn.primary{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.34); }
+.btn.warn{ background:rgba(245,158,11,.16); border-color:rgba(245,158,11,.34); }
+
+/* =========================================================
+   Result grade badge
+========================================================= */
+#rGrade{
+  display:inline-block;
+  padding:6px 12px;
+  border-radius:999px;
+  background:rgba(15,23,42,.70);
+  border:1px solid var(--stroke);
+  box-shadow:0 14px 40px rgba(0,0,0,.25);
 }
 
-/* --------------------------------------------
-   Boss/Storm FX layers (optional)
--------------------------------------------- */
-#bossFx,#stormFx{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:55;
-  display:none;
-}
-#bossFx.boss-on{
-  display:block;
-  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
-}
-#bossFx.boss-panic{
-  display:block;
-  animation:pulseBad .25s infinite;
-}
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
-}
+/* =========================================================
+   Responsive / View tuning
+========================================================= */
 
-@keyframes pulseBad{
-  0%{ filter:brightness(1) }
-  50%{ filter:brightness(1.25) }
-  100%{ filter:brightness(1) }
-}
-
-/* --------------------------------------------
-   Responsive tuning
--------------------------------------------- */
-@media (max-width:900px){
+/* mobile: HUD โดยรวมกินพื้นที่มากกว่า → เพิ่ม safe top/bottom */
+@media (max-width: 920px){
+  :root{
+    --pf-top:   calc(168px + var(--sat));
+    --pf-right: calc(110px + var(--sar));
+    --pf-bottom:calc(188px + var(--sab));
+    --pf-left:  calc(10px + var(--sal));
+  }
   .plateTarget{ font-size:24px; }
-  .chip{ min-width: 108px; }
-  .endGrid{ grid-template-columns: 1fr; }
+}
+
+/* view-vr / view-cvr: เผื่อ vr-ui panel (ขวาล่าง) ให้มากขึ้น */
+body.view-vr, body.view-cvr{
+  --pf-right: calc(150px + var(--sar));
+  --pf-bottom:calc(190px + var(--sab));
+}
+
+/* PC กว้างมาก: ให้ playfield ใหญ่ขึ้นนิด */
+@media (min-width: 1200px){
+  :root{
+    --pf-top: calc(132px + var(--sat));
+    --pf-right: calc(140px + var(--sar));
+    --pf-bottom: calc(160px + var(--sab));
+  }
+}
+
+/* ลด motion เผื่ออาการเวียนหัว */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation: none !important; }
+  #stormFx.storm-on, #bossFx.boss-panic{ animation:none !important; }
 }
