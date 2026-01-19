@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — PlateVR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
+</head>
+<body>
+<script>
+(function(){
+  'use strict';
+
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
+  }
+
+  function isMobile(){
+    const ua = navigator.userAgent || '';
+    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
+  }
+
+  function autoView(){
+    const forced = (qs('view','')||'').toLowerCase();
+    if(forced) return forced; // ✅ do not override if already provided
+    try{
+      const last = (localStorage.getItem('HHA_PLATE_LAST_VIEW')||'').toLowerCase();
+      if(last) return last;
+    }catch(_){}
+    return isMobile() ? 'mobile' : 'pc';
+  }
+
+  function buildTargetUrl(){
+    const target = new URL('./plate/plate-vr.html', location.href);
+
+    const pass = [
+      'hub','run','diff','time','seed','study','studyId','phase','conditionGroup','cond',
+      'sessionOrder','order','blockLabel','block','siteCode','site','sy','sem','sid','mode',
+      'log','style','ts'
+    ];
+
+    const src = new URL(location.href);
+    for(const k of pass){
+      const v = src.searchParams.get(k);
+      if(v != null && v !== '') target.searchParams.set(k, v);
+    }
+
+    // set view only if missing
+    if(!src.searchParams.has('view')){
+      const vAuto = autoView();
+      if(vAuto) target.searchParams.set('view', vAuto);
+    }
+
+    // remember view (optional)
+    try{
+      const remember = target.searchParams.get('view');
+      if(remember) localStorage.setItem('HHA_PLATE_LAST_VIEW', remember);
+    }catch(_){}
+
+    return target.toString();
+  }
+
+  location.replace(buildTargetUrl());
+})();
+</script>
+</body>
+</html>
