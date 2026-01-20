@@ -63,36 +63,19 @@
       </p>
     </section>
 
-    <!-- ===== การเล่น Shadow Breaker ===== -->
+    <!-- ===== การเล่น ===== -->
     <section class="card game-card">
 
       <div class="hud">
-        <div class="hud-block">
-          <span id="lblTime" class="label">TIME</span>
-          <span class="value"><span id="timeVal">60</span> s</span>
-        </div>
-        <div class="hud-block">
-          <span id="lblScore" class="label">SCORE</span>
-          <span class="value" id="scoreVal">0</span>
-        </div>
-        <div class="hud-block">
-          <span id="lblHit" class="label">HIT</span>
-          <span class="value" id="hitVal">0</span>
-        </div>
-        <div class="hud-block">
-          <span id="lblMiss" class="label">MISS</span>
-          <span class="value" id="missVal">0</span>
-        </div>
-        <div class="hud-block">
-          <span id="lblCombo" class="label">COMBO</span>
-          <span class="value" id="comboVal">x0</span>
-        </div>
+        <div class="hud-block"><span id="lblTime" class="label">TIME</span><span class="value"><span id="timeVal">60</span> s</span></div>
+        <div class="hud-block"><span id="lblScore" class="label">SCORE</span><span class="value" id="scoreVal">0</span></div>
+        <div class="hud-block"><span id="lblHit" class="label">HIT</span><span class="value" id="hitVal">0</span></div>
+        <div class="hud-block"><span id="lblMiss" class="label">MISS</span><span class="value" id="missVal">0</span></div>
+        <div class="hud-block"><span id="lblCombo" class="label">COMBO</span><span class="value" id="comboVal">x0</span></div>
       </div>
 
       <div class="start-row">
-        <button id="startBtn" class="btn btn-main">
-          ▶ <span id="startLabel">เริ่มเล่น</span>
-        </button>
+        <button id="startBtn" class="btn btn-main">▶ <span id="startLabel">เริ่มเล่น</span></button>
       </div>
 
       <p id="tagGoal" class="hint goal-text">
@@ -114,10 +97,11 @@
           <li><strong>VR Headset:</strong> ใช้ pointer / controller เล็งแล้วกด trigger ให้โดน</li>
         </ul>
         <p class="hint">ต่อเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ.</p>
-        <p class="hint small">Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น</p>
+        <p class="hint small">Hint: เล่นใน VR แนะนำเปิด fullscreen ในเบราว์เซอร์ของแว่น</p>
       </div>
     </section>
 
+    <!-- ===== Overlay สรุปผล ===== -->
     <div id="resultOverlay" class="overlay hidden">
       <div class="overlay-box">
         <h2 id="resultTitle">🏁 สรุปผล Shadow Breaker</h2>
@@ -140,37 +124,18 @@
         </button>
 
         <div class="overlay-actions">
-          <button id="playAgainBtn" class="btn btn-main btn-full">
-            ▶ <span id="playAgainLabel">เล่นอีกครั้ง</span>
-          </button>
-          <button id="backHubBtn" class="btn btn-secondary btn-full">
-            🏠 <span id="backHubLabel">กลับเมนูหลัก</span>
-          </button>
+          <button id="playAgainBtn" class="btn btn-main btn-full">▶ <span id="playAgainLabel">เล่นอีกครั้ง</span></button>
+          <button id="backHubBtn" class="btn btn-secondary btn-full">🏠 <span id="backHubLabel">กลับเมนูหลัก</span></button>
         </div>
       </div>
     </div>
 
   </div>
 
-  <script>
-    // ถ้าไม่ใช่ research ให้ซ่อน form+csv (HeroHealth-like “play mode”)
-    (function(){
-      function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-      const log = (qs('log','')||'').trim();
-      const studyId = (qs('studyId','')||'').trim();
-      const r = (qs('research','')||'').toLowerCase();
-      const isResearch = (r==='1'||r==='true'||r==='on'||!!studyId||!!log);
-      if(!isResearch) document.body.classList.add('mode-play');
-
-      // optional: vr-ui config (same concept as HeroHealth)
-      window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-    })();
-  </script>
-
-  <!-- ✅ vr-ui.js ต้องมาก่อน เพื่อส่ง hha:shoot -->
+  <!-- ✅ ใส่ vr-ui.js เพื่อ crosshair/tap-to-shoot + hha:shoot -->
+  <!-- ปรับ path ให้ตรงของจริง: -->
   <script src="../../vr/vr-ui.js"></script>
 
-  <!-- ✅ เกมหลัก -->
   <script src="./shadow-breaker.js"></script>
 </body>
 </html>
