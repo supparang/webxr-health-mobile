@@ -1,336 +1,397 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration Quest VR — PRODUCTION (LATEST)
-✅ Safe-area aware
-✅ HUD + Quest + Water panel
-✅ Playfield frame (targets spawn within safe zone by engine)
-✅ Cardboard split support
-✅ Works with vr-ui.js overlay buttons / crosshair
+✅ HHA Standard HUD + Quest + Result overlay
+✅ Safe-area (mobile) + responsive
+✅ Cardboard split playfield + layers
+✅ End-window blink+shake (.hha-endfx) + boss glow (.hha-bossfx)
+✅ FX shockwave (.hha-shock) + hit pulse (.hha-hitfx)
+✅ Keeps VR UI buttons visible (z-index discipline)
 */
 
 :root{
   color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.68);
-  --stroke:rgba(148,163,184,.18);
+  --panel2:rgba(15,23,42,.72);
+  --stroke:rgba(148,163,184,.20);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --accent:#22c55e;
   --warn:#f59e0b;
+  --bad:#ef4444;
   --cyan:#22d3ee;
-  --danger:#ef4444;
+  --violet:#a78bfa;
 
-  --radius:18px;
-  --radius-lg:22px;
+  --radius:22px;
   --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
 
-  /* Layout tuning */
-  --pad:10px;
-  --hudTopH: 44px;          /* chip row baseline */
-  --hudMidTop: 56px;        /* where mid panels start */
-  --safeTopExtra: 140px;    /* must match hydration.safe.js safeTop (approx) */
-  --safeBottomExtra: 44px;  /* gesture area */
+  --hud-top-h: 132px; /* ใช้ร่วมกับ spawn safeTop ใน hydration.safe.js */
 }
 
 *{ box-sizing:border-box; }
 html,body{
-  margin:0; width:100%; height:100%;
+  width:100%; height:100%;
+  margin:0; padding:0;
   overflow:hidden;
-  background:var(--bg);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(900px circle at 20% 10%, rgba(34,211,238,.14), transparent 60%),
+    radial-gradient(900px circle at 80% 90%, rgba(167,139,250,.12), transparent 60%),
+    var(--bg);
   color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
 
-/* A-Frame scene: behind everything */
-a-scene{
-  position:fixed; inset:0;
-  z-index:0;
+a-scene{ position:fixed; inset:0; z-index:0; opacity:0.001; pointer-events:none; }
+
+/* --- HUD --- */
+#hud{
+  position:fixed;
+  top:0; left:0; right:0;
+  z-index:30; /* below VR UI buttons which usually higher */
+  padding:
+    calc(10px + var(--sat))
+    calc(10px + var(--sar))
+    10px
+    calc(10px + var(--sal));
+  pointer-events:none; /* allow clicks to pass through except buttons/overlay */
 }
 
-/* === Playfield frame === */
+.hud-top{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-start;
+  pointer-events:none;
+}
+
+.chip{
+  pointer-events:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:var(--pill);
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  box-shadow: 0 14px 50px rgba(0,0,0,.35);
+  font-weight:700;
+  letter-spacing:.2px;
+  line-height:1;
+  font-size:14px;
+}
+.chip b{ font-weight:900; }
+.chip.big{ font-size:15px; padding:10px 14px; }
+.chip.ok{ outline: 1px solid rgba(34,197,94,.18); }
+.chip.warn{ outline: 1px solid rgba(245,158,11,.22); }
+.chip.cyan{ outline: 1px solid rgba(34,211,238,.22); }
+.chip.storm{ outline: 1px solid rgba(167,139,250,.18); }
+
+.hud-mid{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap:10px;
+  align-items:stretch;
+  pointer-events:none;
+}
+
+/* Quest box */
+.quest{
+  background:var(--panel2);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  padding:12px 14px;
+  box-shadow: 0 16px 60px rgba(0,0,0,.38);
+}
+.quest-title{
+  font-weight:900;
+  font-size:14px;
+  color:var(--muted);
+  letter-spacing:.35px;
+  margin-bottom:6px;
+}
+.quest-lines{
+  font-size:14px;
+  line-height:1.25;
+}
+#quest-line1{ font-weight:900; }
+#quest-line2,#quest-line3,#quest-line4{ color:#cbd5e1; margin-top:3px; }
+#quest-line3{ color:#dbeafe; }
+#quest-line4{ color:#c7d2fe; }
+
+/* Water panel */
+.waterpanel{
+  background:var(--panel2);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  padding:12px 14px;
+  box-shadow: 0 16px 60px rgba(0,0,0,.38);
+}
+.water-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+.wtitle{ font-weight:900; font-size:14px; color:var(--muted); }
+.wzone{ font-size:13px; color:#cbd5e1; }
+.wzone b{ color:#e2e8f0; }
+
+.wbar{
+  width:100%;
+  height:14px;
+  border-radius:999px;
+  background: rgba(148,163,184,.10);
+  border:1px solid rgba(148,163,184,.16);
+  overflow:hidden;
+}
+.wfill{
+  height:100%;
+  width:50%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95));
+  box-shadow: 0 0 18px rgba(34,211,238,.18);
+  transition: width 120ms linear;
+}
+.wpct{
+  margin-top:8px;
+  font-size:18px;
+  font-weight:900;
+}
+
+/* --- Playfield --- */
 #playfieldWrap{
   position:fixed;
   inset:0;
-  padding: calc(var(--pad) + var(--sat))
-           calc(var(--pad) + var(--sar))
-           calc(var(--pad) + var(--sab))
-           calc(var(--pad) + var(--sal));
-  z-index: 1;
-  pointer-events:none;
+  z-index:10;
+  padding:
+    calc(var(--hud-top-h) + var(--sat) + 12px)
+    calc(10px + var(--sar))
+    calc(10px + var(--sab))
+    calc(10px + var(--sal));
 }
 
 #playfield{
   position:relative;
   width:100%;
   height:100%;
-  border-radius: var(--radius-lg);
+  border-radius: calc(var(--radius) + 4px);
+  background: rgba(2,6,23,.10);
+  border:1px solid rgba(148,163,184,.12);
   overflow:hidden;
-
-  background:
-    radial-gradient(circle at 10% 10%, rgba(34,211,238,.08), transparent 55%),
-    radial-gradient(circle at 90% 80%, rgba(34,197,94,.06), transparent 55%),
-    rgba(2,6,23,.18);
-
-  border: 1px solid rgba(148,163,184,.10);
-  pointer-events:none;
 }
 
+/* main layer host */
 .layer{
   position:absolute;
   inset:0;
+  pointer-events:none; /* targets themselves enable pointer-events */
+}
+
+/* cardboard split wrapper (hidden by default) */
+#cbWrap[hidden]{ display:none !important; }
+#cbWrap{
+  position:absolute;
+  inset:0;
+  display:block;
+}
+
+/* dual-eye field */
+#cbPlayfield{
+  position:absolute;
+  inset:0;
+  display:flex;
+  gap:0;
+}
+#hydration-layerL, #hydration-layerR{
+  width:50%;
+  height:100%;
+  position:relative;
   pointer-events:none;
 }
 
-/* Target nodes are clickable */
+/* If cardboard class used, hide main layer and show cbWrap */
+body.cardboard #hydration-layer{ display:none; }
+body.cardboard #cbWrap{ display:block; }
+
+/* targets default pointer behavior */
 .hvr-target{ pointer-events:auto; }
 
-/* === HUD === */
-#hud{
+/* --- Overlay (Start/Result) --- */
+.overlay{
   position:fixed;
   inset:0;
-  z-index: 60;
-  pointer-events:none;
-}
-
-/* Top chips row */
-.hud-top{
-  position:fixed;
-  top: calc(var(--pad) + var(--sat));
-  left: calc(var(--pad) + var(--sal));
-  right: calc(var(--pad) + var(--sar));
+  z-index:80; /* above HUD + playfield, below VR UI? VR UI usually ~100+ */
   display:flex;
-  gap:8px;
-  flex-wrap:wrap;
   align-items:center;
-  pointer-events:none;
+  justify-content:center;
+  padding:
+    calc(16px + var(--sat))
+    calc(16px + var(--sar))
+    calc(16px + var(--sab))
+    calc(16px + var(--sal));
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(8px);
 }
-
-.chip{
-  pointer-events:none;
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  border-radius: var(--pill);
-  padding:8px 10px;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-  box-shadow: 0 16px 60px rgba(0,0,0,.35);
-}
-.chip.big{ font-weight:900; }
-.chip.ok b{ color: var(--accent); }
-.chip.warn b{ color: var(--warn); }
-.chip.cyan b{ color: var(--cyan); }
-.chip.storm b{ color: #a78bfa; }
-
-/* Mid panels */
-.hud-mid{
-  position:fixed;
-  top: calc(var(--hudMidTop) + var(--sat));
-  left: calc(var(--pad) + var(--sal));
-  right: calc(var(--pad) + var(--sar));
-  display:grid;
-  grid-template-columns: 1.3fr .7fr;
-  gap:10px;
-  pointer-events:none;
-}
-@media (max-width:720px){
-  .hud-mid{ grid-template-columns: 1fr; }
-}
-
-/* Cards */
-.quest, .waterpanel{
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.48);
-  backdrop-filter: blur(10px);
-  border-radius: 18px;
-  padding: 10px 12px;
-  box-shadow: 0 16px 60px rgba(0,0,0,.35);
-}
-
-.quest-title{
-  font-weight:900;
-  letter-spacing:.2px;
-  font-size:13px;
-  opacity:.96;
-}
-.quest-lines{
-  margin-top:6px;
-  font-size:12px;
-  color: rgba(229,231,235,.88);
-  line-height:1.35;
-}
-.quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
-.quest-lines #quest-line3,
-.quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
-
-/* Water panel */
-.waterpanel .water-head{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
-}
-.waterpanel .wtitle{ font-weight:900; font-size:13px; }
-.waterpanel .wzone{ font-size:12px; color: rgba(148,163,184,.95); }
-
-.wbar{
-  margin-top:8px;
-  height: 10px;
-  border-radius: var(--pill);
-  overflow:hidden;
-  background: rgba(148,163,184,.18);
-  border: 1px solid rgba(148,163,184,.10);
-}
-.wfill{
-  height:100%;
-  width:50%;
-  border-radius: var(--pill);
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-}
-.wpct{
-  margin-top:6px;
-  font-weight:900;
-  text-align:right;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-}
-
-/* === Overlays (Start/Result) === */
-.overlay{
-  position:fixed; inset:0;
-  z-index: 120;
-  display:grid;
-  place-items:center;
-  padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
-  background: rgba(0,0,0,.48);
-  backdrop-filter: blur(6px);
-}
-.overlay[hidden]{ display:none !important; }
 
 .overlay-card{
-  width:min(720px, 100%);
-  border-radius: 22px;
+  width:min(560px, 96vw);
+  border-radius: 26px;
+  background: rgba(2,6,23,.90);
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.82);
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
-  padding: 16px;
+  box-shadow: 0 26px 90px rgba(0,0,0,.55);
+  padding:16px 16px 14px;
 }
-.overlay-card.wide{ width:min(860px, 100%); }
+.overlay-card.wide{ width:min(840px, 98vw); }
 
-.ov-title{ font-weight:950; letter-spacing:.2px; font-size:18px; }
-.ov-sub{ color: rgba(148,163,184,.95); margin-top:6px; font-size:13px; }
+.ov-title{
+  font-size:22px;
+  font-weight:1000;
+  letter-spacing:.2px;
+}
+.ov-sub{
+  margin-top:6px;
+  color:var(--muted);
+  font-weight:700;
+}
 
 .ov-row{
-  display:flex; gap:10px; flex-wrap:wrap;
-  margin-top:12px;
+  margin-top:14px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
 }
+
 .btn{
   pointer-events:auto;
-  border-radius: 16px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.72);
-  color: rgba(229,231,235,.95);
-  padding: 10px 12px;
+  background: rgba(15,23,42,.70);
+  color:var(--text);
+  padding:10px 14px;
+  border-radius: 16px;
   font-weight:900;
   cursor:pointer;
 }
+.btn:active{ transform: translateY(1px); }
 .btn.primary{
-  background: rgba(34,197,94,.18);
+  background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(34,197,94,.70));
   border-color: rgba(34,197,94,.28);
+  color:#052e16;
 }
-.btn.ghost{ background: transparent; }
+.btn.ghost{
+  background: transparent;
+  border-color: rgba(148,163,184,.16);
+  color: #dbeafe;
+}
 
 .ov-hint{
-  margin-top:10px;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-  line-height:1.35;
+  margin-top:12px;
+  color:#cbd5e1;
+  font-size:13px;
+  line-height:1.25;
 }
 
+/* result grid */
 .res-grid{
-  margin-top:10px;
+  margin-top:12px;
   display:grid;
-  gap:8px;
   grid-template-columns: repeat(3, minmax(0,1fr));
-}
-@media (max-width:720px){
-  .res-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  gap:10px;
 }
 .res-item{
+  background: rgba(15,23,42,.55);
   border:1px solid rgba(148,163,184,.14);
   border-radius: 16px;
-  padding: 10px;
-  background: rgba(15,23,42,.55);
-  color: rgba(229,231,235,.92);
+  padding:10px 12px;
+  font-weight:800;
+  color:#cbd5e1;
 }
-.res-note{ margin-top:10px; }
-.tier{ font-weight:950; color: rgba(34,197,94,.95); }
-.tips{
-  white-space: pre-wrap;
-  margin:10px 0 0;
-  padding: 10px;
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
-  color: rgba(229,231,235,.9);
-  font-size: 12px;
-  line-height: 1.35;
-}
-.next{ margin-top:8px; color: rgba(229,231,235,.92); }
+.res-item b{ display:block; margin-top:4px; color:var(--text); font-size:18px; }
 
-/* === FX hooks from hydration.safe.js === */
-body.hha-endfx #playfield{
-  animation: hhaShake .22s linear infinite;
+.res-note{
+  margin-top:10px;
+  background: rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius: 16px;
+  padding:10px 12px;
+}
+.tier{ font-weight:1000; color:#dbeafe; }
+.tips{
+  margin:8px 0 0;
+  white-space:pre-wrap;
+  color:#cbd5e1;
+  font: 700 13px/1.25 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.next{ margin-top:8px; color:#e2e8f0; }
+
+/* --- FX: hit pulse --- */
+body.hha-hitfx #playfield{
+  filter: brightness(1.06) saturate(1.06);
+}
+
+/* --- FX: End window (blink + slight shake) --- */
+@keyframes hhaBlink{
+  0%{ box-shadow: 0 0 0 rgba(167,139,250,0); }
+  50%{ box-shadow: 0 0 36px rgba(167,139,250,.22); }
+  100%{ box-shadow: 0 0 0 rgba(167,139,250,0); }
 }
 @keyframes hhaShake{
-  0%{ transform: translate(0,0); }
-  25%{ transform: translate(1px,-1px); }
-  50%{ transform: translate(-1px,1px); }
-  75%{ transform: translate(1px,1px); }
-  100%{ transform: translate(0,0); }
+  0%,100%{ transform: translate3d(0,0,0); }
+  25%{ transform: translate3d(-1px,0,0); }
+  50%{ transform: translate3d(1px,0,0); }
+  75%{ transform: translate3d(0,1px,0); }
 }
-body.hha-bossfx #playfield{
-  box-shadow:
-    0 0 0 2px rgba(239,68,68,.18) inset,
-    0 24px 90px rgba(239,68,68,.10);
+body.hha-endfx #playfield{
+  animation: hhaBlink .33s linear infinite, hhaShake .35s linear infinite;
+  border-color: rgba(167,139,250,.28);
 }
 
-/* Shock element */
+/* --- FX: Boss mode glow --- */
+body.hha-bossfx #playfield{
+  box-shadow: 0 0 40px rgba(239,68,68,.14), 0 20px 80px rgba(0,0,0,.55);
+  border-color: rgba(239,68,68,.20);
+}
+
+/* shockwave element (in playfield coords) */
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
   top: var(--y, 50%);
-  width: 10px; height: 10px;
-  border-radius: 999px;
+  width: 12px;
+  height: 12px;
+  border-radius:999px;
   transform: translate(-50%,-50%);
+  pointer-events:none;
   border: 2px solid rgba(239,68,68,.55);
-  box-shadow: 0 0 30px rgba(239,68,68,.18);
-  animation: shock .5s ease-out forwards;
+  box-shadow: 0 0 18px rgba(239,68,68,.18);
+  animation: shock 520ms ease-out forwards;
 }
 @keyframes shock{
-  from{ opacity:1; transform: translate(-50%,-50%) scale(1); }
-  to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
+  0%{ opacity:0.9; transform: translate(-50%,-50%) scale(0.8); }
+  100%{ opacity:0; transform: translate(-50%,-50%) scale(8.5); }
 }
 
-/* === Cardboard split === */
-body.cardboard #hydration-layer{ display:none; }
-#cbWrap{ position:absolute; inset:0; }
-#cbPlayfield{
-  position:absolute; inset:0;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-  padding:10px;
+/* --- Responsive tweaks --- */
+@media (max-width: 760px){
+  :root{ --hud-top-h: 148px; }
+  .hud-mid{ grid-template-columns: 1fr; }
+  .chip{ font-size:13px; padding:7px 11px; }
+  .chip.big{ font-size:14px; }
+  .res-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
-body.cardboard #cbWrap{ display:block; }
-body.cardboard #cbWrap[hidden]{ display:block !important; }
+@media (max-width: 420px){
+  :root{ --hud-top-h: 156px; }
+  .res-grid{ grid-template-columns: 1fr; }
+}
 
-/* === Defensive: keep overlays above vr-ui, but allow vr-ui buttons usable when no overlay === */
-body.hha-has-overlay .hha-vrui{ pointer-events:none; } /* if your vr-ui creates .hha-vrui */
+/* --- Ensure overlays clickable and everything else not blocking --- */
+#playfieldWrap, #playfield{ pointer-events:auto; }
+#hud{ pointer-events:none; }
