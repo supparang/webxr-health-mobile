@@ -1,4 +1,5 @@
 :root{ color-scheme:dark; }
+
 *{ box-sizing:border-box; }
 
 body{
@@ -44,13 +45,9 @@ header{
 }
 
 .title .logo{
-  width:34px;
-  height:34px;
-  border-radius:999px;
+  width:34px;height:34px;border-radius:999px;
   background:radial-gradient(circle at 30% 20%,#a5f3fc,#0ea5e9);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:flex;align-items:center;justify-content:center;
   box-shadow:0 0 0 1px rgba(8,47,73,.5);
 }
 
@@ -73,18 +70,11 @@ header{
   gap:6px;
   white-space:nowrap;
 }
+
 .pill .dot{
-  width:7px;
-  height:7px;
-  border-radius:999px;
+  width:7px;height:7px;border-radius:999px;
   background:#22c55e;
   box-shadow:0 0 0 4px rgba(34,197,94,.3);
-}
-
-.info{
-  font-size:.82rem;
-  color:#9ca3af;
-  margin:10px 0 0;
 }
 
 .mode-box{
@@ -93,9 +83,7 @@ header{
   gap:12px;
   margin-top:14px;
 }
-@media(max-width:720px){
-  .mode-box{ grid-template-columns:1fr; }
-}
+@media(max-width:720px){ .mode-box{ grid-template-columns:1fr; } }
 
 .card{
   border-radius:16px;
@@ -107,20 +95,12 @@ header{
   gap:6px;
 }
 
-.card h2{
-  margin:0;
-  font-size:1rem;
-}
-
-.card p{
-  font-size:.82rem;
-  color:#9ca3af;
-  margin:0;
-}
+.card h2{ margin:0; font-size:1rem; }
+.card p{ font-size:.8rem; color:#9ca3af; margin:0; }
 
 .card a{
   margin-top:8px;
-  padding:10px 0;
+  padding:8px 0;
   border-radius:999px;
   background:linear-gradient(135deg,#22d3ee,#0ea5e9);
   color:#0f172a;
@@ -140,12 +120,7 @@ header{
   gap:10px;
   flex-wrap:wrap;
 }
-
-.lang{
-  display:flex;
-  gap:6px;
-}
-
+.lang{ display:flex; gap:6px; }
 .lang button{
   padding:4px 10px;
   border-radius:999px;
@@ -155,7 +130,6 @@ header{
   color:#e5e7eb;
   cursor:pointer;
 }
-.lang button.active{
-  background:#e5e7eb;
-  color:#020617;
-}
+.lang button.active{ background:#e5e7eb; color:#020617; }
+
+.info{ font-size:.72rem; color:#9ca3af; margin-top:10px; }
