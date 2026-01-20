@@ -1,151 +1,165 @@
 // === /herohealth/vr/ui-water.js ===
-// UI Water Gauge — PRODUCTION (LATEST)
-// ✅ ensureWaterGauge(): เติม markup ถ้าไม่มี (optional)
-// ✅ setWaterGauge(pct): อัปเดตแบบ "smooth" + กันค้าง/กัน NaN
-// ✅ zoneFrom(pct): LOW/GREEN/HIGH (ใช้ร่วมกับเกม)
-// ✅ Kids-friendly smoothing: ?kids=1 => นิ่ม/คุมง่ายขึ้น
-// --------------------------------------------------------
+// HHA Water Gauge — PRODUCTION (LATEST)
+// ✅ ensureWaterGauge(): create minimal gauge if missing (safe)
+// ✅ setWaterGauge(pct, opts?): updates UI with smoothing
+// ✅ zoneFrom(pct): LOW/GREEN/HIGH
+// ✅ Optional: internal gentle decay helper (engine may call tickWater)
 
 (function(root){
   'use strict';
-  const WIN = root || window;
-  const DOC = WIN.document;
+
+  const DOC = root.document;
   if(!DOC) return;
 
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp = (v,a,b)=>{ v = Number(v); if(!Number.isFinite(v)) v = 0; return v<a?a:(v>b?b:v); };
-
-  const kidsQ = String(qs('kids','0')).toLowerCase();
-  const KIDS = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
-
-  // internal state (smooth animation)
-  const W = {
-    cur: 50,        // current rendered value
-    target: 50,     // target value set by engine
-    raf: 0,
-    lastT: 0
-  };
-
-  // Zone thresholds (keep stable across all games)
-  // NOTE: tweak here if you want wider GREEN for kids later
+  // -------------------- zone logic --------------------
+  // ปรับ threshold ให้เด็ก ป.5 รู้สึก “อยู่โซนเขียวได้ง่าย” แต่ยังมี LOW/HIGH ชัด
   function zoneFrom(pct){
-    pct = clamp(pct, 0, 100);
-    if (pct < 40) return 'LOW';
-    if (pct > 70) return 'HIGH';
+    const p = clamp(pct, 0, 100);
+    if (p < 40) return 'LOW';
+    if (p > 78) return 'HIGH';
     return 'GREEN';
   }
 
+  // -------------------- UI hooks --------------------
+  let UI = null;
+
+  function qs(sel){ return DOC.querySelector(sel); }
+  function byId(id){ return DOC.getElementById(id); }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  // smoothing state
+  const SM = { cur: 50, tgt: 50, lastAt: 0, raf: 0 };
+
   function ensureWaterGauge(){
-    // If your RUN html already has these nodes, this does nothing.
-    let bar = DOC.getElementById('water-bar');
-    let pct = DOC.getElementById('water-pct');
-    let zone = DOC.getElementById('water-zone');
+    // If the game already has water panel ids -> bind to them
+    const bar = byId('water-bar');
+    const pct = byId('water-pct');
+    const zone = byId('water-zone');
+    if (bar && pct && zone){
+      UI = { bar, pct, zone };
+      return UI;
+    }
 
-    if (bar && pct && zone) return;
-
-    // Try to mount minimal panel if missing (fallback only)
-    let host = DOC.querySelector('.waterpanel') || DOC.getElementById('hud') || DOC.body;
+    // Otherwise create a tiny gauge (fallback) - safe for other games
+    let host = qs('#hud') || DOC.body;
     const wrap = DOC.createElement('div');
-    wrap.className = 'waterpanel';
-    wrap.style.cssText = 'position:fixed; right:12px; top:12px; z-index:80; pointer-events:none;';
+    wrap.id = 'hha-water-fallback';
+    wrap.style.cssText = `
+      position:fixed;
+      right:12px; bottom:12px;
+      z-index:80;
+      pointer-events:none;
+      width:180px;
+      padding:10px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+      color: rgba(229,231,235,.92);
+      font: 800 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      box-shadow: 0 16px 60px rgba(0,0,0,.35);
+    `;
     wrap.innerHTML = `
-      <div class="water-head" style="display:flex;gap:10px;justify-content:space-between;align-items:baseline;">
-        <div class="wtitle" style="font-weight:900;">Water</div>
-        <div class="wzone" style="font-size:12px;opacity:.9;">Zone: <b id="water-zone">GREEN</b></div>
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <span>Water</span>
+        <span>Zone: <b id="water-zone">GREEN</b></span>
       </div>
-      <div class="wbar" style="margin-top:8px;height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.10);">
-        <div class="wfill" id="water-bar" style="height:100%;width:50%;border-radius:999px;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));"></div>
+      <div style="margin-top:8px;height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.10)">
+        <div id="water-bar" style="height:100%;width:50%;border-radius:999px;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95))"></div>
       </div>
-      <div class="wpct" style="margin-top:6px;text-align:right;font-weight:900;font-size:12px;">
-        <span id="water-pct">50</span>%
-      </div>
+      <div style="margin-top:6px;text-align:right"><span id="water-pct">50</span>%</div>
     `;
     host.appendChild(wrap);
+
+    UI = {
+      bar: wrap.querySelector('#water-bar'),
+      pct: wrap.querySelector('#water-pct'),
+      zone: wrap.querySelector('#water-zone')
+    };
+    return UI;
   }
 
-  function applyToDOM(v){
-    const bar = DOC.getElementById('water-bar');
-    const pct = DOC.getElementById('water-pct');
-    const zoneEl = DOC.getElementById('water-zone');
+  function paint(p){
+    if(!UI) ensureWaterGauge();
+    if(!UI) return;
 
-    const vv = clamp(v, 0, 100);
-    const z = zoneFrom(vv);
-
-    if (bar) bar.style.width = vv.toFixed(0) + '%';
-    if (pct) pct.textContent = String(vv.toFixed(0));
-    if (zoneEl) zoneEl.textContent = z;
-
-    // Optional: body class hooks (for styling)
-    try{
-      DOC.body.classList.remove('zone-low','zone-green','zone-high');
-      DOC.body.classList.add(
-        z==='LOW' ? 'zone-low' : z==='HIGH' ? 'zone-high' : 'zone-green'
-      );
-    }catch(_){}
+    const pp = clamp(p, 0, 100);
+    if (UI.bar) UI.bar.style.width = pp.toFixed(0) + '%';
+    if (UI.pct) UI.pct.textContent = String(pp|0);
+    if (UI.zone) UI.zone.textContent = zoneFrom(pp);
   }
 
-  function tick(t){
-    if (!W.lastT) W.lastT = t;
-    const dt = Math.min(0.05, Math.max(0.001, (t - W.lastT)/1000));
-    W.lastT = t;
+  // Smooth update (kids-friendly): ลดความกระตุกเวลาน้ำขึ้นลงเร็ว ๆ
+  function setWaterGauge(pct, opts){
+    if(!UI) ensureWaterGauge();
+    const target = clamp(pct, 0, 100);
+    SM.tgt = target;
 
-    // Smooth factor:
-    // - KIDS: นิ่มกว่า + ไปถึงเป้าเร็วพอ (ไม่หน่วง)
-    // - NON-KIDS: เร็วขึ้นเล็กน้อย
-    const k = KIDS ? 10.5 : 13.5; // higher = faster converge
-    const alpha = 1 - Math.exp(-k * dt);
+    // immediate option (for init)
+    const immediate = !!(opts && opts.immediate);
+    if (immediate){
+      SM.cur = SM.tgt;
+      paint(SM.cur);
+      return;
+    }
 
-    // move current -> target
-    W.cur = W.cur + (W.target - W.cur) * alpha;
-
-    // Snap close enough to avoid "never reaches exactly" and prevent stuck feeling
-    if (Math.abs(W.target - W.cur) < 0.15) W.cur = W.target;
-
-    applyToDOM(W.cur);
-
-    // continue if not settled
-    if (Math.abs(W.target - W.cur) >= 0.05){
-      W.raf = WIN.requestAnimationFrame(tick);
-    } else {
-      W.raf = 0;
-      W.lastT = 0;
+    if (!SM.raf){
+      SM.lastAt = performance.now();
+      SM.raf = requestAnimationFrame(step);
     }
   }
 
-  function setWaterGauge(pct){
-    // ✅ กัน bug “ไม่ลด/ค้าง”: รับได้ทั้ง number/string, clamp, กัน NaN
-    const v = clamp(pct, 0, 100);
+  function step(t){
+    const dt = Math.min(0.05, Math.max(0.001, (t - SM.lastAt)/1000));
+    SM.lastAt = t;
 
-    // If called before DOM exists, just store value
-    W.target = v;
+    // smoothing speed: เด็ก ป.5 ควรรู้สึกนิ่ม ๆ ไม่กระชาก
+    // เร่งนิดหน่อยถ้าห่างมาก
+    const d = SM.tgt - SM.cur;
+    const ad = Math.abs(d);
 
-    // First call: set cur immediately to avoid weird jump
-    if (!Number.isFinite(W.cur)) W.cur = v;
+    let speed = 10.0;          // base response
+    if (ad > 25) speed = 18.0; // big jumps converge faster
+    else if (ad > 10) speed = 14.0;
 
-    // If animation not running, start it
-    if (!W.raf){
-      // Slightly bias initial render to new target to feel responsive
-      // (especially if updates are sparse)
-      if (Math.abs(W.cur - v) > 8) W.cur = W.cur + Math.sign(v - W.cur) * 2.5;
-      W.raf = WIN.requestAnimationFrame(tick);
+    // critically-damped-ish approach
+    SM.cur += d * Math.min(1, speed * dt);
+
+    // snap if very close
+    if (Math.abs(SM.tgt - SM.cur) < 0.25){
+      SM.cur = SM.tgt;
     }
+
+    paint(SM.cur);
+
+    if (SM.cur === SM.tgt){
+      SM.raf = 0;
+      return;
+    }
+    SM.raf = requestAnimationFrame(step);
   }
 
-  // expose (UMD-ish)
-  WIN.ensureWaterGauge = ensureWaterGauge;
-  WIN.setWaterGauge = setWaterGauge;
-  WIN.zoneFrom = zoneFrom;
+  // Optional helper: water “ไหลลงตามเวลา” แบบนิ่ม ๆ
+  // ให้ engine เรียกทุกเฟรม/ทุก tick ได้:
+  //   pct = tickWater(pct, dt, { decayPerSec: 2.0, floor: 20 })
+  function tickWater(pct, dt, cfg){
+    const c = cfg || {};
+    const decay = clamp(c.decayPerSec ?? 1.6, 0, 12); // % ต่อวินาที
+    const floor = clamp(c.floor ?? 18, 0, 100);       // กันไม่ให้ลงไป 0 ง่ายเกิน
+    const p = clamp(pct, 0, 100);
+    const next = clamp(p - decay * clamp(dt,0,0.2), floor, 100);
+    return next;
+  }
 
-  // also export for module import compatibility (safe if ignored)
-  try{
-    WIN.GAME_MODULES = WIN.GAME_MODULES || {};
-    WIN.GAME_MODULES.UIWater = { ensureWaterGauge, setWaterGauge, zoneFrom };
-  }catch(_){}
+  // Export globals (compatible with current imports)
+  // hydration.safe.js uses: ensureWaterGauge, setWaterGauge, zoneFrom
+  root.ensureWaterGauge = ensureWaterGauge;
+  root.setWaterGauge = setWaterGauge;
+  root.zoneFrom = zoneFrom;
+  root.tickWater = tickWater;
+
+  // Also support module-style usage via window.GAME_MODULES if needed
+  root.GAME_MODULES = root.GAME_MODULES || {};
+  root.GAME_MODULES.WaterUI = { ensureWaterGauge, setWaterGauge, zoneFrom, tickWater };
 
 })(typeof window !== 'undefined' ? window : globalThis);
-
-// ESM named exports (for hydration.safe.js import)
-// (If your environment ignores ESM in non-module, it’s fine.)
-export function ensureWaterGauge(){ return window.ensureWaterGauge?.(); }
-export function setWaterGauge(pct){ return window.setWaterGauge?.(pct); }
-export function zoneFrom(pct){ return window.zoneFrom?.(pct); }
