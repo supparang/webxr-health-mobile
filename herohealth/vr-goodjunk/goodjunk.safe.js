@@ -1,8 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — FAIR PACK
+// GoodJunkVR SAFE — FAIR PACK (v2: STAR+SHIELD + SHOOT)
 // ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe)
 // ✅ MISS = good expired + junk hit
-// ✅ No boss/storm/rage, no AI, no adaptive (fair for kids)
+// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score
+// ✅ 🛡 Shield: blocks next junk hit (blocked junk does NOT count as miss)
+// ✅ Supports: tap/click OR crosshair shoot via event hha:shoot
 // Emits: hha:start, hha:score, hha:time, hha:judge, hha:end
 
 'use strict';
@@ -11,7 +13,6 @@ const WIN = window;
 const DOC = document;
 
 const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
-const now = ()=>performance.now();
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
 
@@ -34,6 +35,30 @@ function getSafeRect(){
   return { x,y,w,h };
 }
 
+function pickByShoot(lockPx=28){
+  // pick topmost .gj-target that overlaps the center-crosshair window
+  const r = DOC.documentElement.getBoundingClientRect();
+  const cx = r.left + r.width/2;
+  const cy = r.top  + r.height/2;
+
+  const els = Array.from(DOC.querySelectorAll('.gj-target'));
+  let best = null;
+  for(const el of els){
+    const b = el.getBoundingClientRect();
+    if(!b.width || !b.height) continue;
+    const inside =
+      (cx >= b.left - lockPx && cx <= b.right + lockPx) &&
+      (cy >= b.top  - lockPx && cy <= b.bottom + lockPx);
+    if(!inside) continue;
+    // choose smallest distance to center
+    const ex = (b.left+b.right)/2;
+    const ey = (b.top+b.bottom)/2;
+    const d2 = (ex-cx)*(ex-cx) + (ey-cy)*(ey-cy);
+    if(!best || d2 < best.d2) best = { el, d2 };
+  }
+  return best ? best.el : null;
+}
+
 export function boot(opts={}){
   const view = String(opts.view || qs('view','mobile')).toLowerCase();
   const run  = String(opts.run  || qs('run','play')).toLowerCase();
@@ -47,6 +72,10 @@ export function boot(opts={}){
   const elGrade = DOC.getElementById('hud-grade');
   const layer   = DOC.getElementById('gj-layer');
 
+  const elFeverFill = DOC.getElementById('feverFill');
+  const elFeverText = DOC.getElementById('feverText');
+  const elShield    = DOC.getElementById('shieldPills');
+
   const S = {
     started:false, ended:false,
     view, run, diff,
@@ -57,9 +86,22 @@ export function boot(opts={}){
     hitGood:0, hitJunk:0, expireGood:0,
     combo:0, comboMax:0,
 
+    shield:0,
+    fever:18, // mild baseline
+
     lastTick:0,
     lastSpawn:0,
   };
+
+  function setFever(p){
+    S.fever = clamp(p,0,100);
+    if(elFeverFill) elFeverFill.style.width = `${S.fever}%`;
+    if(elFeverText) elFeverText.textContent = `${S.fever}%`;
+  }
+  function setShieldUI(){
+    if(!elShield) return;
+    elShield.textContent = S.shield>0 ? `x${S.shield}` : '—';
+  }
 
   function setHUD(){
     if(elScore) elScore.textContent = String(S.score);
@@ -67,13 +109,68 @@ export function boot(opts={}){
     if(elMiss)  elMiss.textContent  = String(S.miss);
 
     let g='C';
-    if(S.score>=160 && S.miss<=3) g='A';
-    else if(S.score>=100) g='B';
-    else if(S.score>=60) g='C';
+    if(S.score>=170 && S.miss<=3) g='A';
+    else if(S.score>=110) g='B';
+    else if(S.score>=65) g='C';
     else g='D';
     if(elGrade) elGrade.textContent = g;
 
+    setShieldUI();
     emit('hha:score',{ score:S.score });
+  }
+
+  function addScore(delta){
+    S.score += (delta|0);
+    if(S.score<0) S.score = 0;
+  }
+
+  function onHit(kind){
+    if(S.ended) return;
+
+    if(kind==='good'){
+      S.hitGood++;
+      S.combo++;
+      S.comboMax = Math.max(S.comboMax, S.combo);
+      addScore(10 + Math.min(10, S.combo));
+      setFever(S.fever + 2);
+      emit('hha:judge', { type:'good', label:'GOOD' });
+    }
+
+    else if(kind==='junk'){
+      // shield blocks junk -> NOT MISS
+      if(S.shield>0){
+        S.shield--;
+        setShieldUI();
+        addScore(0);
+        emit('hha:judge', { type:'perfect', label:'BLOCK!' });
+      }else{
+        S.hitJunk++;
+        S.miss++;
+        S.combo = 0;
+        addScore(-6);
+        setFever(S.fever + 6);
+        emit('hha:judge', { type:'bad', label:'OOPS' });
+      }
+    }
+
+    else if(kind==='star'){
+      // ⭐ reduce miss by 1 (floor 0) + score
+      const before = S.miss;
+      S.miss = Math.max(0, S.miss - 1);
+      addScore(18);
+      setFever(Math.max(0, S.fever - 8));
+      emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
+    }
+
+    else if(kind==='shield'){
+      // 🛡 add 1 shield (cap 3)
+      S.shield = Math.min(3, S.shield + 1);
+      setShieldUI();
+      addScore(8);
+      emit('hha:judge', { type:'perfect', label:'SHIELD!' });
+    }
+
+    setHUD();
   }
 
   function spawn(kind){
@@ -85,48 +182,70 @@ export function boot(opts={}){
 
     const t = DOC.createElement('div');
     t.className = 'gj-target';
-    t.textContent = (kind==='good' ? '🥦' : '🍟');
+    t.dataset.kind = kind;
+
+    // emoji
+    t.textContent =
+      (kind==='good') ? '🥦' :
+      (kind==='junk') ? '🍟' :
+      (kind==='star') ? '⭐' : '🛡️';
+
+    // sizes: powerups slightly smaller
+    const size =
+      (kind==='good') ? 56 :
+      (kind==='junk') ? 58 :
+      52;
+
     t.style.left = x+'px';
     t.style.top  = y+'px';
-    t.style.fontSize = (kind==='good' ? '56px' : '58px');
+    t.style.fontSize = size+'px';
 
     let alive = true;
+    const kill = ()=>{
+      if(!alive) return;
+      alive=false;
+      try{ t.remove(); }catch(_){}
+    };
 
     t.addEventListener('pointerdown', ()=>{
       if(!alive || S.ended) return;
-      alive=false;
-      t.remove();
-
-      if(kind==='good'){
-        S.hitGood++;
-        S.combo++;
-        S.comboMax = Math.max(S.comboMax, S.combo);
-        S.score += 10 + Math.min(10, S.combo);
-        emit('hha:judge', { type:'good', label:'GOOD' });
-      }else{
-        S.hitJunk++;
-        S.miss++;
-        S.combo=0;
-        emit('hha:judge', { type:'bad', label:'OOPS' });
-      }
-      setHUD();
+      kill();
+      onHit(kind);
     });
 
     layer.appendChild(t);
 
-    // TTL: 1600ms (ชัด ๆ ไม่แว้บ)
+    // TTL (แฟร์ ไม่แว้บ)
+    const ttl =
+      (kind==='star' || kind==='shield') ? 1700 :
+      1600;
+
     setTimeout(()=>{
       if(!alive || S.ended) return;
-      alive=false;
-      t.remove();
+      kill();
       if(kind==='good'){
         S.expireGood++;
         S.miss++;
         S.combo=0;
+        setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
         setHUD();
       }
-    }, 1600);
+    }, ttl);
+  }
+
+  // ✅ Crosshair shoot support
+  function onShoot(ev){
+    if(S.ended || !S.started) return;
+    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
+
+    const picked = pickByShoot(lockPx);
+    if(!picked) return;
+
+    // “virtual click”
+    const kind = picked.dataset.kind || 'good';
+    try{ picked.remove(); }catch(_){}
+    onHit(kind);
   }
 
   function endGame(reason='timeup'){
@@ -149,11 +268,13 @@ export function boot(opts={}){
       hitGood:S.hitGood,
       hitJunk:S.hitJunk,
       expireGood:S.expireGood,
+      shieldUsed: (S.shield>=0 ? 'yes' : 'no'),
       grade,
       reason
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
+    try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
     emit('hha:end', summary);
   }
 
@@ -165,14 +286,20 @@ export function boot(opts={}){
     S.lastTick = ts;
 
     S.timeLeft = Math.max(0, S.timeLeft - dt);
-
     if(elTime) elTime.textContent = String(Math.ceil(S.timeLeft));
     emit('hha:time', { left:S.timeLeft });
 
     // spawn every ~900ms
     if(ts - S.lastSpawn >= 900){
       S.lastSpawn = ts;
-      spawn(S.rng()<0.72 ? 'good' : 'junk');
+
+      // fair distribution:
+      // 70% good, 26% junk, 2% star, 2% shield
+      const r = S.rng();
+      if(r < 0.70) spawn('good');
+      else if(r < 0.96) spawn('junk');
+      else if(r < 0.98) spawn('star');
+      else spawn('shield');
     }
 
     if(S.timeLeft<=0){
@@ -184,7 +311,13 @@ export function boot(opts={}){
 
   // start
   S.started = true;
+  setFever(S.fever);
+  setShieldUI();
   setHUD();
+
+  // listen shoot
+  WIN.addEventListener('hha:shoot', onShoot, { passive:true });
+
   emit('hha:start', { game:'GoodJunkVR', pack:'fair', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
