@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — HygieneVR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{ color-scheme:dark; background:#020617; color:#e5e7eb; }
+    body{ margin:0; font-family:system-ui; display:grid; place-items:center; min-height:100vh; padding:24px; }
+    .card{ max-width:720px; width:100%; background:rgba(2,6,23,.78); border:1px solid rgba(148,163,184,.18);
+      border-radius:22px; padding:18px 18px 14px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .btn{ appearance:none; border:1px solid rgba(148,163,184,.18); background:rgba(15,23,42,.7);
+      color:#e5e7eb; padding:10px 12px; border-radius:14px; cursor:pointer; font-weight:800; }
+    .btn.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.45); }
+    .muted{ color:#94a3b8; font-size:13px; line-height:1.4; }
+    code{ color:#a7f3d0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 style="margin:0 0 6px 0;">🧼 Handwash Survival (HygieneVR)</h2>
+    <div class="muted">
+      โหมด <b>Survival</b> — อยู่รอดให้ครบเวลา / ทำจุดล้างมือให้ถูก / หลบของปนเปื้อน<br/>
+      ระบบ log: เก็บในเครื่อง + Export CSV (ยังไม่ส่ง Google Sheet)
+    </div>
+    <div style="height:12px;"></div>
+
+    <div class="row">
+      <button class="btn primary" id="go">เริ่ม (Auto-detect)</button>
+      <button class="btn" id="goMobile">Mobile</button>
+      <button class="btn" id="goVR">Cardboard VR</button>
+      <button class="btn" id="goCVR">cVR</button>
+    </div>
+
+    <div style="height:12px;"></div>
+    <div class="muted">
+      Pass-through: <code>hub</code>, <code>run</code>, <code>diff</code>, <code>time</code>, <code>seed</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code>, <code>style</code>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } };
+  const set = (k,v)=>{ const u = new URL(location.href); if(v==null) u.searchParams.delete(k); else u.searchParams.set(k,v); return u; };
+
+  function detectView(){
+    const forced = (qs('view','')||'').toLowerCase();
+    if(forced) return forced;
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    return isMobile ? 'mobile' : 'pc';
+  }
+
+  function go(viewOverride=null){
+    const u = new URL(location.href);
+    const pass = ['hub','run','diff','time','seed','studyId','phase','conditionGroup','style','log'];
+    const out = new URL('./hygiene-vr/hygiene-vr.html', u);
+    pass.forEach(k=>{
+      const v = u.searchParams.get(k);
+      if(v!=null && v!=='') out.searchParams.set(k,v);
+    });
+    out.searchParams.set('view', (viewOverride || detectView()));
+    location.href = out.toString();
+  }
+
+  document.getElementById('go').onclick = ()=>go(null);
+  document.getElementById('goMobile').onclick = ()=>go('mobile');
+  document.getElementById('goVR').onclick = ()=>go('vr');
+  document.getElementById('goCVR').onclick = ()=>go('cvr');
+})();
+</script>
+</body>
+</html>
