@@ -1,13 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION+
-// ✅ Auto view detect (no UI override; DO NOT override if ?view= exists)
-// ✅ Default time=90 if not provided
-// ✅ Wires HUD listeners:
-//    hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ Mini quest (accuracy) shows progress live BUT "done" is decided at END (prevents early-pass then drop)
-// ✅ End overlay: aria-hidden only
+// ✅ Auto view detect (no UI override menu)
+// ✅ Boots engine from ./plate.safe.js (async)
+// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ End overlay: aria-hidden + class open
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ Passthrough research params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -21,14 +19,14 @@ const qs = (k, def=null)=>{
 
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && (innerWidth < 920));
+  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  // Allow forcing via query (for experiments), but no menu override.
-  const forced = (qs('view','') || '').toLowerCase().trim();
-  if (forced) return forced;
+  // Allow forced view via query (for experiments), but no UI menu.
+  const forced = (qs('view','')||'').toLowerCase();
+  if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -42,21 +40,18 @@ function setBodyView(view){
 }
 
 function clamp(v, a, b){
-  v = Number(v) || 0;
+  v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
 
 function pct(n){
-  n = Number(n) || 0;
+  n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
-function setOverlayOpen(open){
-  const ov = DOC.getElementById('endOverlay');
-  if(!ov) return;
-  ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-}
-
+/* ---------------------------
+ * Coach bubble (rate-limited)
+ * -------------------------- */
 function showCoach(msg, meta='Coach'){
   const card = DOC.getElementById('coachCard');
   const mEl = DOC.getElementById('coachMsg');
@@ -73,10 +68,21 @@ function showCoach(msg, meta='Coach'){
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
-  }, 2200);
+  }, 2300);
+}
+
+/* ---------------------------
+ * End overlay control
+ * -------------------------- */
+function setEndOpen(open){
+  const ov = DOC.getElementById('endOverlay');
+  if(!ov) return;
+  ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+  ov.classList.toggle('open', !!open);
 }
 
 function wireHUD(){
+  // Minimal HUD IDs (ตาม HTML ที่คุณแปะ)
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
@@ -91,23 +97,22 @@ function wireHUD(){
   const miniNums = DOC.getElementById('miniNums');
   const miniBar  = DOC.getElementById('miniBar');
 
-  // We show mini progress live, but "done" is decided at END.
-  // Engine should still send mini.cur/target during play.
+  const hudHint  = DOC.getElementById('hudHint');
+
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
-  }, { passive:true });
+  });
 
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
     if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
-  }, { passive:true });
+  });
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -117,7 +122,6 @@ function wireHUD(){
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
@@ -126,13 +130,14 @@ function wireHUD(){
       const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
+      if(hudHint && m.sub) hudHint.textContent = m.sub;
     }
-  }, { passive:true });
+  });
 
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
-  }, { passive:true });
+  });
 }
 
 function wireEndControls(){
@@ -140,15 +145,18 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = (qs('hub','') || '').trim();
 
-  btnRestart?.addEventListener('click', ()=>{
-    // keep same query params
-    location.reload();
-  });
+  if(btnRestart){
+    btnRestart.addEventListener('click', ()=>{
+      location.reload(); // keep same params
+    });
+  }
 
-  btnBackHub?.addEventListener('click', ()=>{
-    if(hub) location.href = hub;
-    else history.back();
-  });
+  if(btnBackHub){
+    btnBackHub.addEventListener('click', ()=>{
+      if(hub) location.href = hub;
+      else history.back();
+    });
+  }
 }
 
 function wireEndSummary(){
@@ -159,47 +167,42 @@ function wireEndSummary(){
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
+  const endTitle = DOC.getElementById('endTitle');
+  const endTag   = DOC.getElementById('endTag');
+
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+
+    if(endTitle) endTitle.textContent = 'สรุปผล';
+    if(endTag) endTag.textContent = 'PlateVR';
 
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // Accuracy prefer accuracyGoodPct (already %)
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc == null) ? '—' : pct(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
+    if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    // Mini quest decided at END: use final accuracy against target if provided.
-    // If engine already computed miniCleared/miniTotal, use that.
-    if (typeof d.miniCleared !== 'undefined' || typeof d.miniTotal !== 'undefined'){
-      if(kMini) kMini.textContent = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
-    } else {
-      // fallback: decide using accuracyGoodPct and a default target 80
-      const tar = Number(d.miniTarget ?? 80) || 80;
-      const ok = (Number(acc) || 0) >= tar;
-      if(kMini) kMini.textContent = `${ok ? 1 : 0}/1`;
-    }
-
-    setOverlayOpen(true);
-  }, { passive:true });
+    setEndOpen(true);
+  });
 }
 
 function buildEngineConfig(){
   const view = getViewAuto();
 
-  const run  = (qs('run','play') || 'play').toLowerCase().trim();
-  const diff = (qs('diff','normal') || 'normal').toLowerCase().trim();
+  const run  = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default time 90 if missing
-  const timeRaw = qs('time', null);
-  const time = clamp((timeRaw == null ? 90 : Number(timeRaw)), 10, 999);
+  // ✅ default 90 (ตามที่คุยกัน)
+  const time = clamp(qs('time','90'), 10, 999);
 
-  const seed = Number(qs('seed', Date.now())) || Date.now();
+  // deterministic when passed (especially research/study)
+  const seedQ = qs('seed', '');
+  const seed = (seedQ === '' || seedQ == null) ? Date.now() : (Number(seedQ) || Date.now());
 
-  // passthrough context (optional)
   return {
     view,
     runMode: run,
@@ -207,6 +210,7 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // passthrough context (logger uses these)
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
@@ -219,7 +223,7 @@ function buildEngineConfig(){
     schoolCode: qs('schoolCode','') || '',
     schoolName: qs('schoolName','') || '',
     gradeLevel: qs('gradeLevel','') || '',
-    studentKey: qs('studentKey','') || '',
+    studentKey: qs('studentKey','') || ''
   };
 }
 
@@ -228,10 +232,10 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
+ready(async ()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
+  // view class for CSS
   setBodyView(cfg.view);
 
   // wire UI
@@ -239,17 +243,21 @@ ready(()=>{
   wireEndControls();
   wireEndSummary();
 
-  // close end overlay at start
-  setOverlayOpen(false);
+  // close overlay at start
+  setEndOpen(false);
 
-  // boot engine
+  const mount = DOC.getElementById('plate-layer');
+  if(!mount){
+    console.error('[PlateVR] mount #plate-layer missing');
+    showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
+    return;
+  }
+
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    // async engine boot
+    await engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
+    showCoach('เริ่มเกมไม่สำเร็จ (ดู console)', 'System');
   }
 });
