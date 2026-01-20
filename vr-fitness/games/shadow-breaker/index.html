@@ -4,116 +4,146 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Shadow Breaker — Game Mode</title>
-  <link rel="stylesheet" href="./shadow-breaker-index.css" />
   <meta name="color-scheme" content="dark light"/>
+  <link rel="stylesheet" href="./shadow-breaker-index.css" />
 </head>
 <body>
-  <main>
-    <header>
-      <div class="title">
-        <h1>
-          <span class="logo">🥊</span>
-          <span id="title">Shadow Breaker</span>
-        </h1>
-        <div id="subtitle">เกมต่อยเป้า ฝึกความแม่น + Speed + Focus</div>
-      </div>
-      <div class="pill"><span class="dot"></span> <span id="modeTag">Play Mode</span></div>
-    </header>
+<main>
+  <header>
+    <div class="title">
+      <h1><span class="logo">🥊</span><span id="title">Shadow Breaker</span></h1>
+      <div id="subtitle">เกมต่อย/ยิงเป้า ฝึกความแม่น + Speed + Focus</div>
+    </div>
+    <div class="pill"><span class="dot"></span> <span id="modeTag">Play Mode</span></div>
+  </header>
 
-    <p id="desc" class="info">
-      เลือกโหมดการเล่น — มีทั้งโหมดจับเวลา โหมดท้าทาย และโหมดไม่รู้จบ
-    </p>
+  <p id="desc" class="info">
+    เลือกโหมดการเล่น — จับเวลา / ท้าทาย / ไม่รู้จบ
+  </p>
 
-    <div class="mode-box">
-      <div class="card">
-        <h2 id="labelTimed">⏱️ โหมดจับเวลา</h2>
-        <p id="descTimed">เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส</p>
-        <a href="./play.html?mode=timed&diff=normal&time=90" id="btnTimed">เล่น ▶</a>
-      </div>
-
-      <div class="card">
-        <h2 id="labelHard">🔥 โหมดยาก</h2>
-        <p id="descHard">เร็วขึ้นและบอส HP สูงขึ้น</p>
-        <a href="./play.html?mode=timed&diff=hard&time=90" id="btnHard">ท้าทาย ▶</a>
-      </div>
-
-      <div class="card">
-        <h2 id="labelEndless">♾️ โหมดไม่รู้จบ</h2>
-        <p id="descEndless">ไม่มีจับเวลา อยู่รอดให้นานที่สุด</p>
-        <a href="./play.html?mode=endless&diff=normal" id="btnEndless">ต่อเนื่อง ▶</a>
-      </div>
+  <div class="mode-box">
+    <div class="card">
+      <h2 id="labelTimed">⏱️ โหมดจับเวลา</h2>
+      <p id="descTimed">เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส</p>
+      <a id="btnTimed" href="#">เล่น ▶</a>
     </div>
 
-    <div class="footer-area">
-      <div class="lang">
-        <button class="active" data-lang="th">TH</button>
-        <button data-lang="en">EN</button>
-      </div>
-      <div id="pdpa" class="info">* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล</div>
+    <div class="card">
+      <h2 id="labelHard">🔥 โหมดยาก</h2>
+      <p id="descHard">เร็วขึ้นและบอส HP สูงขึ้น</p>
+      <a id="btnHard" href="#">ท้าทาย ▶</a>
     </div>
-  </main>
 
-  <script>
-    const langBtn = document.querySelectorAll('.lang button');
-    const text = {
-      th:{
-        title:"Shadow Breaker",
-        subtitle:"เกมต่อยเป้า ฝึกความแม่น + Speed + Focus",
-        desc:"เลือกโหมดการเล่น — มีทั้งโหมดจับเวลา โหมดท้าทาย และโหมดไม่รู้จบ",
-        timed:"⏱️ โหมดจับเวลา",
-        timedDesc:"เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส",
-        hard:"🔥 โหมดยาก",
-        hardDesc:"เร็วขึ้นและบอส HP สูงขึ้น",
-        endless:"♾️ โหมดไม่รู้จบ",
-        endlessDesc:"ไม่มีจับเวลา อยู่รอดให้นานที่สุด",
-        play:"เล่น ▶",
-        chall:"ท้าทาย ▶",
-        endlessBtn:"ต่อเนื่อง ▶",
-        pdpa:"* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล"
-      },
-      en:{
-        title:"Shadow Breaker",
-        subtitle:"Punch Training — Accuracy + Reaction + Focus",
-        desc:"Select your mode — Timed / Challenge / Endless",
-        timed:"⏱️ Timed Mode",
-        timedDesc:"Play 90 sec — Score + Combo + Boss",
-        hard:"🔥 Hard Mode",
-        hardDesc:"Faster + higher boss HP",
-        endless:"♾️ Endless Mode",
-        endlessDesc:"No timer — survive as long as possible",
-        play:"Play ▶",
-        chall:"Challenge ▶",
-        endlessBtn:"Endless ▶",
-        pdpa:"* Research use only — no personal identity tracking"
-      }
-    };
+    <div class="card">
+      <h2 id="labelEndless">♾️ โหมดไม่รู้จบ</h2>
+      <p id="descEndless">ไม่มีจับเวลา อยู่รอดให้นานที่สุด</p>
+      <a id="btnEndless" href="#">ต่อเนื่อง ▶</a>
+    </div>
+  </div>
 
-    function setLang(l){
-      const t=text[l];
-      document.getElementById("title").textContent=t.title;
-      document.getElementById("subtitle").textContent=t.subtitle;
-      document.getElementById("desc").textContent=t.desc;
-      document.getElementById("labelTimed").textContent=t.timed;
-      document.getElementById("descTimed").textContent=t.timedDesc;
-      document.getElementById("btnTimed").textContent=t.play;
-      document.getElementById("labelHard").textContent=t.hard;
-      document.getElementById("descHard").textContent=t.hardDesc;
-      document.getElementById("btnHard").textContent=t.chall;
-      document.getElementById("labelEndless").textContent=t.endless;
-      document.getElementById("descEndless").textContent=t.endlessDesc;
-      document.getElementById("btnEndless").textContent=t.endlessBtn;
-      document.getElementById("pdpa").textContent=t.pdpa;
+  <div class="footer-area">
+    <div class="lang">
+      <button class="active" data-lang="th">TH</button>
+      <button data-lang="en">EN</button>
+    </div>
+    <div id="pdpa" class="info">* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล</div>
+  </div>
+</main>
+
+<script>
+  const langBtn = document.querySelectorAll('.lang button');
+
+  const text = {
+    th:{
+      title:"Shadow Breaker",
+      subtitle:"เกมต่อย/ยิงเป้า ฝึกความแม่น + Speed + Focus",
+      desc:"เลือกโหมดการเล่น — จับเวลา / ท้าทาย / ไม่รู้จบ",
+      timed:"⏱️ โหมดจับเวลา",
+      timedDesc:"เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส",
+      hard:"🔥 โหมดยาก",
+      hardDesc:"เร็วขึ้นและบอส HP สูงขึ้น",
+      endless:"♾️ โหมดไม่รู้จบ",
+      endlessDesc:"ไม่มีจับเวลา อยู่รอดให้นานที่สุด",
+      play:"เล่น ▶",
+      chall:"ท้าทาย ▶",
+      endlessBtn:"ต่อเนื่อง ▶",
+      pdpa:"* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล"
+    },
+    en:{
+      title:"Shadow Breaker",
+      subtitle:"Punch/Shoot Training — Accuracy + Reaction + Focus",
+      desc:"Select your mode — Timed / Challenge / Endless",
+      timed:"⏱️ Timed Mode",
+      timedDesc:"Play 90 sec — Score + Combo + Boss",
+      hard:"🔥 Hard Mode",
+      hardDesc:"Faster + higher boss HP",
+      endless:"♾️ Endless Mode",
+      endlessDesc:"No timer — survive as long as possible",
+      play:"Play ▶",
+      chall:"Challenge ▶",
+      endlessBtn:"Endless ▶",
+      pdpa:"* Research use only — no personal identity tracking"
     }
+  };
 
-    langBtn.forEach(btn=>{
-      btn.addEventListener("click",()=>{
-        langBtn.forEach(b=>b.classList.remove("active"));
-        btn.classList.add("active");
-        setLang(btn.dataset.lang);
-      });
+  function qs(k,d=''){ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} }
+
+  // passthrough (HeroHealth style)
+  const PASS_KEYS = ['hub','view','seed','studyId','phase','conditionGroup','ts','log','style','research','diff','time','run'];
+  function buildParams(extra){
+    const p = new URLSearchParams();
+    for (const k of PASS_KEYS){
+      const v = qs(k,'');
+      if (v !== '') p.set(k, v);
+    }
+    if (!p.get('hub')) p.set('hub', '../hub.html');
+    if (!p.get('view')) p.set('view', 'auto');
+    if (!p.get('seed')) p.set('seed', String(Date.now()));
+    Object.entries(extra||{}).forEach(([k,v])=>{
+      if (v !== undefined && v !== null && v !== '') p.set(k, String(v));
     });
+    return p;
+  }
 
-    setLang("th");
-  </script>
+  function setLang(l){
+    const t=text[l];
+    document.getElementById("title").textContent=t.title;
+    document.getElementById("subtitle").textContent=t.subtitle;
+    document.getElementById("desc").textContent=t.desc;
+    document.getElementById("labelTimed").textContent=t.timed;
+    document.getElementById("descTimed").textContent=t.timedDesc;
+    document.getElementById("labelHard").textContent=t.hard;
+    document.getElementById("descHard").textContent=t.hardDesc;
+    document.getElementById("labelEndless").textContent=t.endless;
+    document.getElementById("descEndless").textContent=t.endlessDesc;
+    document.getElementById("pdpa").textContent=t.pdpa;
+
+    // build links
+    const time = Number(qs('time','90')) || 90;
+    const diff = (qs('diff','normal')||'normal').toLowerCase();
+    const research = qs('research','0');
+
+    document.getElementById("btnTimed").textContent=t.play;
+    document.getElementById("btnHard").textContent=t.chall;
+    document.getElementById("btnEndless").textContent=t.endlessBtn;
+
+    document.getElementById("btnTimed").href =
+      './play.html?' + buildParams({ run:'play', mode:'timed', diff: diff, time: time, research }).toString();
+    document.getElementById("btnHard").href =
+      './play.html?' + buildParams({ run:'play', mode:'timed', diff:'hard', time: time, research }).toString();
+    document.getElementById("btnEndless").href =
+      './play.html?' + buildParams({ run:'play', mode:'endless', diff: diff, research }).toString();
+  }
+
+  langBtn.forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      langBtn.forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      setLang(btn.dataset.lang);
+    });
+  });
+
+  setLang("th");
+</script>
 </body>
 </html>
