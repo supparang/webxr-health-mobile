@@ -107,7 +107,6 @@
       <!-- พื้นที่เกม -->
       <div class="game-panel">
         <div id="gameArea"></div>
-        <!-- เอาเส้นเก่าที่ไม่ใช้แล้วออก -->
         <div id="feedback" class="feedback"></div>
       </div>
 
@@ -124,53 +123,25 @@
           <li><strong>Mobile / Tablet:</strong> แตะนิ้วไปที่เป้าให้ทัน</li>
           <li><strong>VR Headset:</strong> ใช้ pointer / controller เล็งแล้วกด trigger ให้โดน</li>
         </ul>
-        <p class="hint">
-          ต่อเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ.
-        </p>
-        <p class="hint small">
-          Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น
-        </p>
+        <p class="hint">ต่อเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ.</p>
+        <p class="hint small">Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น</p>
       </div>
     </section>
 
-    <!-- ===== Overlay สรุปผล + ปุ่มวิจัย ===== -->
+    <!-- ===== Overlay สรุปผล ===== -->
     <div id="resultOverlay" class="overlay hidden">
       <div class="overlay-box">
         <h2 id="resultTitle">🏁 สรุปผล Shadow Breaker</h2>
 
         <div class="result-grid">
-          <div>
-            <span id="rScoreLabel" class="label">คะแนนรวม</span>
-            <span id="rScore" class="value">0</span>
-          </div>
-          <div>
-            <span id="rHitLabel" class="label">โดนเป้า</span>
-            <span id="rHit" class="value">0</span>
-          </div>
-          <div>
-            <span id="rPerfectLabel" class="label">Perfect</span>
-            <span id="rPerfect" class="value">0</span>
-          </div>
-          <div>
-            <span id="rGoodLabel" class="label">Good</span>
-            <span id="rGood" class="value">0</span>
-          </div>
-          <div>
-            <span id="rMissLabel" class="label">Miss</span>
-            <span id="rMiss" class="value">0</span>
-          </div>
-          <div>
-            <span id="rAccLabel" class="label">Accuracy</span>
-            <span id="rAcc" class="value">0%</span>
-          </div>
-          <div>
-            <span id="rComboLabel" class="label">คอมโบสูงสุด</span>
-            <span id="rCombo" class="value">x0</span>
-          </div>
-          <div>
-            <span id="rTimeUsedLabel" class="label">เวลาเล่นต่อรอบ</span>
-            <span id="rTimeUsed" class="value">0s</span>
-          </div>
+          <div><span id="rScoreLabel" class="label">คะแนนรวม</span><span id="rScore" class="value">0</span></div>
+          <div><span id="rHitLabel" class="label">โดนเป้า</span><span id="rHit" class="value">0</span></div>
+          <div><span id="rPerfectLabel" class="label">Perfect</span><span id="rPerfect" class="value">0</span></div>
+          <div><span id="rGoodLabel" class="label">Good</span><span id="rGood" class="value">0</span></div>
+          <div><span id="rMissLabel" class="label">Miss</span><span id="rMiss" class="value">0</span></div>
+          <div><span id="rAccLabel" class="label">Accuracy</span><span id="rAcc" class="value">0%</span></div>
+          <div><span id="rComboLabel" class="label">คอมโบสูงสุด</span><span id="rCombo" class="value">x0</span></div>
+          <div><span id="rTimeUsedLabel" class="label">เวลาเล่นต่อรอบ</span><span id="rTimeUsed" class="value">0s</span></div>
         </div>
 
         <hr />
@@ -180,17 +151,25 @@
         </button>
 
         <div class="overlay-actions">
-          <button id="playAgainBtn" class="btn btn-main btn-full">
-            ▶ <span id="playAgainLabel">เล่นอีกครั้ง</span>
-          </button>
-          <button id="backHubBtn" class="btn btn-secondary btn-full">
-            🏠 <span id="backHubLabel">กลับเมนูหลัก</span>
-          </button>
+          <button id="playAgainBtn" class="btn btn-main btn-full">▶ <span id="playAgainLabel">เล่นอีกครั้ง</span></button>
+          <button id="backHubBtn" class="btn btn-secondary btn-full">🏠 <span id="backHubLabel">กลับเมนูหลัก</span></button>
         </div>
       </div>
     </div>
 
-  </div><!-- /.page -->
+  </div>
+
+  <!-- ✅ โหมด play/research อัตโนมัติ:
+       - ถ้ามี ?research=1 หรือมีตัวแปรงานวิจัย (log/studyId) => research
+       - ไม่งั้น => play mode (ซ่อนฟอร์ม + ซ่อนปุ่ม CSV) -->
+  <script>
+    (function(){
+      const qs=(k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+      const r=(qs('research','')||'').toLowerCase();
+      const isResearch = (r==='1'||r==='true'||r==='on') || !!qs('studyId','') || !!qs('log','');
+      if(!isResearch) document.body.classList.add('mode-play');
+    })();
+  </script>
 
   <script src="./shadow-breaker.js"></script>
 </body>
