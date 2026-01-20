@@ -1,12 +1,19 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — LATEST (WATER v2 smooth)
-// ✅ Water control: smoother + kids-friendly + slight drift (no "stuck gauge")
-// ✅ UI: call setWaterGauge only when pct integer changes (avoid spam)
-// ✅ Keeps your mission/storm/boss exactly the same
+// Hydration SAFE — PRODUCTION (FULL) — LATEST (Hydration-only tuned)
+// ✅ Water gauge FIX: drift-to-mid (prevents "stuck" gauge) + smoother for Grade 5
+// ✅ Kids-friendly: wider GREEN zone + slightly stronger water response + softer frustration
+// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
+// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
+// ✅ Spawn Safe-Zone (avoid HUD + safe-area)
+// ✅ Practice mode 15s (play only) => kids-friendly onboarding
+// ✅ Avoid duplicate log send if using hha-cloud-logger.js (?log=...) via window.__HHA_CLOUD_LOGGER__
+// ---------------------------------------------------
 
 'use strict';
 
-import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+import { ensureWaterGauge, setWaterGauge, zoneFrom as zoneFromBase } from '../vr/ui-water.js';
 import { createAICoach } from '../vr/ai-coach.js';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -97,7 +104,7 @@ function centerPoint(){
   return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
 }
 
-// -------------------- FX Helpers --------------------
+// -------------------- FX Helpers (Particles + DOM shock) --------------------
 function pulseBody(cls, ms=140){
   try{
     DOC.body.classList.add(cls);
@@ -135,7 +142,7 @@ function popScore(text='+10'){
   pulseBody('hha-hitfx', 140);
 }
 
-// -------------------- Audio tick --------------------
+// -------------------- Audio tick (no file needed) --------------------
 let AC=null;
 function ensureAC(){
   try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
@@ -223,6 +230,7 @@ const S = {
 
   greenHold:0,
 
+  // Storm/Mini
   stormActive:false,
   stormLeftSec:0,
   stormCycle:0,
@@ -241,6 +249,7 @@ const S = {
     gotHitByBad:false
   },
 
+  // Boss-mini
   bossEnabled:true,
   bossActive:false,
   bossNeed:2,
@@ -249,26 +258,27 @@ const S = {
   bossWindowSec:2.2,
   bossClearCount:0,
 
+  // End window fx
   endFxOn:false,
   endFxTickAt:0,
 
   adaptiveOn: (run !== 'research'),
   adaptK:0,
 
+  // Mission stage
   stage:1,
   stage1Done:false,
   stage2Done:false,
   stage3Done:false,
 
+  // Practice
   practiceOn:false,
   practiceSec: practiceSecQ,
   practiceLeft:0,
   practiceDone:true,
 
-  // --- PATCH WATER v2: drift control ---
-  _waterLastInt: 50,
-  _waterLastTouchAt: 0,
-  _waterNoBadSec: 0
+  // Water behavior helper
+  waterLastChangeAt: 0
 };
 
 const TUNE = (() => {
@@ -283,9 +293,20 @@ const TUNE = (() => {
     Math.max(18, timeLimit-8)
   );
 
-  const goodLifeMs = KIDS ? (diff==='hard'?1050:1180) : (diff==='hard'? 930 : 1080);
-  const badLifeMs  = KIDS ? (diff==='hard'?1080:1220) : (diff==='hard'? 980 : 1120);
-  const spawnBaseMs = KIDS ? (diff==='hard'?520:620) : spawnBaseMs0;
+  // Kids adjustments (forgiving but still skill-based)
+  const goodLifeMs = KIDS ? (diff==='hard'?1080:1220) : (diff==='hard'? 930 : 1080);
+  const badLifeMs  = KIDS ? (diff==='hard'?1120:1280) : (diff==='hard'? 980 : 1120);
+  const spawnBaseMs = KIDS ? (diff==='hard'?540:640) : spawnBaseMs0;
+
+  // --- water feel tuning ---
+  // mid is where "balanced" tends to settle
+  const waterMid = 55;
+  // kids: make gauge move a bit more per hit + drift back to mid so it never "sticks"
+  const nudgeToMid = KIDS ? 9.0 : 5.0;
+  const badPush = KIDS ? 7.0 : 8.0; // (kids lower than hard default but paired with drift feels smooth)
+  // drift speed toward mid (per second). Higher => gauge will reduce from extremes naturally.
+  const driftK = KIDS ? 0.30 : 0.20;
+  const driftDeadzone = KIDS ? 0.35 : 0.45; // ignore tiny wiggles
 
   return {
     sizeBase,
@@ -293,28 +314,24 @@ const TUNE = (() => {
     spawnJitter:170,
     goodLifeMs,
     badLifeMs,
-    shieldLifeMs: KIDS ? 1500 : 1350,
+    shieldLifeMs: KIDS ? 1550 : 1350,
     stormEverySec,
     stormDurSec,
     stormSpawnMul: diff==='hard'? 0.56 : 0.64,
     endWindowSec:1.2,
     bossWindowSec: diff==='hard'? 2.4 : 2.2,
 
-    // ---- PATCH WATER v2 ----
-    // nudgeToMid: how much GOOD pulls toward mid
-    // badPush: how strong BAD pushes away
-    nudgeToMid: KIDS ? 8.2 : 5.0,          // slightly stronger for kids (so they feel control)
-    badPush:   KIDS ? 5.4 : 8.0,           // softer BAD for kids
+    // water
+    waterMid,
+    nudgeToMid,
+    badPush,
+    driftK,
+    driftDeadzone,
+
     missPenalty: KIDS ? 1 : 1,
-
-    // drift: tiny movement so gauge never looks "stuck"
-    driftEnable: true,
-    driftAfterNoTouchSec: KIDS ? 0.7 : 1.1,  // start drifting if no water-change
-    driftRatePerSec: KIDS ? 0.55 : 0.42,     // percent/sec (very small)
-    driftMid: 55,
-
     greenTargetSec: greenTarget,
-    pressureNeed: KIDS ? (diff==='easy'?0.65 : diff==='hard'?0.95 : 0.80)
+
+    pressureNeed: KIDS ? (diff==='easy'?0.62 : diff==='hard'?0.90 : 0.76)
                       : (diff==='easy'?0.75 : diff==='hard'?1.00 : 0.90)
   };
 })();
@@ -322,64 +339,67 @@ S.endWindowSec = TUNE.endWindowSec;
 S.bossWindowSec = TUNE.bossWindowSec;
 
 // -------------------- Water helpers --------------------
-function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
+// Kids: widen GREEN band a bit so ป.5 รู้สึก “สบาย ๆ” และไม่งงว่าหลุดง่าย
+function zoneFromLocal(pct){
+  pct = clamp(pct, 0, 100);
+  if (KIDS){
+    if (pct < 40) return 'LOW';
+    if (pct > 70) return 'HIGH';
+    return 'GREEN';
+  }
+  return zoneFromBase(pct);
+}
+function updateZone(){ S.waterZone = zoneFromLocal(S.waterPct); }
 
-// mark water changed (for drift reset + UI throttling)
-function markWaterTouched(){
-  S._waterLastTouchAt = performance.now();
-  S._waterNoBadSec = 0;
+function markWaterChanged(){
+  S.waterLastChangeAt = performance.now();
 }
 
 function nudgeWaterGood(){
-  const mid=TUNE.driftMid, d=mid - S.waterPct;
-  const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
+  const mid=TUNE.waterMid;
+  const d=mid - S.waterPct;
+
+  // Soft easing: move toward mid but a little stronger when far away (kids feel responsive)
+  const baseStep = TUNE.nudgeToMid;
+  const extra = Math.min(3.2, Math.abs(d) * (KIDS ? 0.12 : 0.08));
+  const step = Math.sign(d) * Math.min(Math.abs(d), baseStep + extra);
+
   S.waterPct = clamp(S.waterPct + step, 0, 100);
+  markWaterChanged();
   updateZone();
-  markWaterTouched();
 }
 
-function pushWaterBad(){
-  const mid=TUNE.driftMid, d=S.waterPct - mid;
-  const step=(d>=0?+1:-1)*TUNE.badPush;
+function pushWaterBad(strengthMul=1.0){
+  const mid=TUNE.waterMid;
+  const d=S.waterPct - mid;
+
+  // push away from mid (if already high => higher; if low => lower)
+  const base = TUNE.badPush * (Number(strengthMul)||1);
+  const step=(d>=0?+1:-1)*base;
+
   S.waterPct = clamp(S.waterPct + step, 0, 100);
+  markWaterChanged();
   updateZone();
-  markWaterTouched();
 }
 
-// PATCH WATER v2: slight drift so gauge doesn't feel frozen.
-// - Only when not storm end-window critical moment
-// - Very small; doesn't increase difficulty
-function tickWaterDrift(dt){
-  if (!TUNE.driftEnable) return;
+// ✅ FIX for "gauge stuck": water slowly drifts back toward mid even without hits
+function applyWaterDrift(dt){
+  // During practice, keep it calm but still drift a bit
+  const k = (S.practiceOn && !S.practiceDone) ? (TUNE.driftK * 0.75) : TUNE.driftK;
 
-  // During practice, drift even softer (kids onboarding)
-  const practiceSoft = (S.practiceOn && !S.practiceDone) ? 0.6 : 1.0;
+  // Avoid fighting immediate feedback right after a hit
+  const t = performance.now();
+  const since = (t - (S.waterLastChangeAt||0));
+  const relax = (since < 420) ? 0.25 : (since < 900 ? 0.60 : 1.0);
 
-  // Avoid drifting during the last-second end-window (player needs stability)
-  if (S.stormActive && S.inEndWindow) return;
+  const mid = TUNE.waterMid;
+  const diffAbs = Math.abs(mid - S.waterPct);
+  if (diffAbs <= TUNE.driftDeadzone) return;
 
-  // Count "no BAD hit" time for a tiny dynamic feel
-  S._waterNoBadSec += dt;
-
-  const sinceTouch = (performance.now() - (S._waterLastTouchAt || 0)) / 1000;
-  if (sinceTouch < TUNE.driftAfterNoTouchSec) return;
-
-  // drift toward mid a tiny bit (keeps motion visible, not annoying)
-  const mid = TUNE.driftMid;
-  const d = mid - S.waterPct;
-  if (Math.abs(d) < 0.2) return;
-
-  const rate = TUNE.driftRatePerSec * practiceSoft;
-
-  // If user is doing super well in GREEN for long, reduce drift (stability reward)
-  const greenStability = (S.waterZone === 'GREEN') ? 0.75 : 1.0;
-
-  const step = Math.sign(d) * Math.min(Math.abs(d), rate * dt * greenStability);
-  if (step !== 0){
-    S.waterPct = clamp(S.waterPct + step, 0, 100);
-    updateZone();
-    // do NOT markWaterTouched() here (else drift never triggers again)
-  }
+  // exponential-ish drift
+  const delta = (mid - S.waterPct) * k * relax * dt;
+  S.waterPct = clamp(S.waterPct + delta, 0, 100);
+  updateZone();
 }
 
 // -------------------- Accuracy/Grade --------------------
@@ -436,13 +456,14 @@ function syncHUD(){
   else if (!S.stage2Done) setStage(2);
   else if (!S.stage3Done) setStage(3);
 
-  // Practice override
+  // Practice override (kids-friendly onboarding)
   if (S.practiceOn && !S.practiceDone){
     setText('quest-line1', `Practice: ซ้อมก่อนเริ่มจริง (${Math.ceil(S.practiceLeft)}s)`);
     setText('quest-line2', `ยิง 💧 ให้คุมโซน / เก็บ 🛡️ ได้เลย`);
     setText('quest-line3', `ซ้อมไม่ซีเรียส — เน้นความคุ้นมือ`);
     setText('quest-line4', `ครบแล้วเริ่มเกมจริงอัตโนมัติ`);
   } else {
+    // Stage text
     if (S.stage === 1){
       setText('quest-line1', `Stage 1/3: คุม GREEN ให้ครบ ${TUNE.greenTargetSec|0}s (สะสม)`);
       setText('quest-line2', `GREEN: ${S.greenHold.toFixed(1)} / ${TUNE.greenTargetSec.toFixed(0)}s`);
@@ -475,12 +496,7 @@ function syncHUD(){
     }
   }
 
-  // --- PATCH WATER v2: throttle setWaterGauge (avoid spam)
-  const wi = clamp(S.waterPct,0,100)|0;
-  if (wi !== (S._waterLastInt|0)){
-    S._waterLastInt = wi;
-    setWaterGauge(wi);
-  }
+  setWaterGauge(S.waterPct);
   syncWaterPanelDOM();
 
   emit('hha:score', {
@@ -555,8 +571,8 @@ function pickXY(){
   const sat = parseFloat(rootStyle.getPropertyValue('--sat')) || 0;
   const sab = parseFloat(rootStyle.getPropertyValue('--sab')) || 0;
 
-  const safeTop = 140 + sat;
-  const safeBottom = 44 + sab;
+  const safeTop = 140 + sat;   // top HUD stack height
+  const safeBottom = 44 + sab; // bottom gesture room
   const safeSide = 18;
 
   const pad = 22;
@@ -583,6 +599,7 @@ function pickXY(){
 function targetSize(){
   let s = TUNE.sizeBase;
 
+  // practice: make bigger a bit (kid onboarding)
   if (S.practiceOn && !S.practiceDone) s *= 1.10;
 
   if (S.adaptiveOn){
@@ -701,9 +718,12 @@ function spawn(kind){
         S.nHitBadGuard++;
         S.score += 4;
 
+        // (optional feel) Even blocked bad gives tiny water reaction (very small) so UI never feels "stuck"
+        // but do NOT count as miss and do NOT overly punish kids.
+        pushWaterBad(KIDS ? 0.18 : 0.14);
+
         if (S.stormActive && S.inEndWindow){
           S.miniState.blockedInEnd = true;
-          if (S.waterZone !== 'GREEN') emit('hha:judge', { kind:'perfect' });
         }
         if (isBossBad) S.bossBlocked++;
 
@@ -722,7 +742,7 @@ function spawn(kind){
           S.combo=0;
         }
 
-        pushWaterBad();
+        pushWaterBad(1.0);
         if (S.stormActive) S.miniState.gotHitByBad = true;
 
         emit('hha:judge', { kind:'bad' });
@@ -802,10 +822,12 @@ function enterStorm(){
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
+  // Ensure storm has chance to push out of GREEN so mini is readable for kids
   if (S.waterZone==='GREEN'){
-    S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -7 : +7), 0, 100);
+    const kick = KIDS ? 10 : 7;
+    S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -kick : +kick), 0, 100);
+    markWaterChanged();
     updateZone();
-    markWaterTouched();
   }
 
   setEndFx(false);
@@ -878,6 +900,7 @@ function tickStorm(dt){
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
 
+  // Mini rule: ต้อง “ไม่อยู่ GREEN” (LOW/HIGH) + สะสม pressure + เข้า end window + block ใน end window + ห้ามโดน BAD
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
@@ -1024,7 +1047,7 @@ function nextStormSchedule(){
 let spawnTimer=0;
 let nextStormIn=0;
 
-// -------------------- Aim Assist for cVR --------------------
+// -------------------- Aim Assist for cVR (crosshair) --------------------
 function hitTestAtCenter(lockPx){
   const { cx, cy } = centerPoint();
   const targets = Array.from(DOC.querySelectorAll('.hvr-target'));
@@ -1102,8 +1125,8 @@ function update(dt){
 
   S.leftSec = Math.max(0, S.leftSec - dt);
 
-  // PATCH WATER v2: drift tick (pre-HUD)
-  tickWaterDrift(dt);
+  // ✅ Water drift fix (prevents gauge being stuck at extremes)
+  applyWaterDrift(dt);
 
   if (S.waterZone==='GREEN') S.greenHold += dt;
 
@@ -1214,7 +1237,9 @@ async function endGame(reason){
   emit('hha:end', summary);
   AICOACH.onEnd(summary);
 
-  if (!window.HHA_LOGGER || !window.HHA_LOGGER.enabled){
+  // ✅ TRUE no-duplicate: if cloud logger is loaded, let it handle POST
+  // (your hha-cloud-logger.js sets window.__HHA_CLOUD_LOGGER__ = true)
+  if (!window.__HHA_CLOUD_LOGGER__){
     await sendLog(summary);
   }
 
@@ -1223,7 +1248,7 @@ async function endGame(reason){
 
 function boot(){
   ensureWaterGauge();
-  setWaterGauge(S.waterPct|0);
+  setWaterGauge(S.waterPct);
   updateZone();
   syncWaterPanelDOM();
   bindSummaryButtons();
@@ -1241,7 +1266,7 @@ function boot(){
     S.started=true;
     S.t0=performance.now();
     S.lastTick=S.t0;
-    S._waterLastTouchAt = performance.now();
+    markWaterChanged(); // initialize water timestamp
     syncHUD();
     AICOACH.onStart();
 
@@ -1260,6 +1285,7 @@ function boot(){
     endGame(d.reason || 'force');
   });
 
+  // If overlay already hidden somehow, auto-start
   const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
     const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
