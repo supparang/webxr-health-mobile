@@ -1,9 +1,11 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (S / FAIR)
-✅ No override if ?view= exists
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/ts/log/style
-✅ Detect view best-effort
-✅ (Fair) do NOT auto-redirect by default (kids press Tap-to-start)
+GoodJunkVR LAUNCHER — ROOT (FAIR PACK)
+✅ Redirect -> ./vr-goodjunk/goodjunk-vr.html
+✅ Auto-detect view (pc/mobile/vr/cvr) BUT:
+   - If URL already has ?view=... -> DO NOT override
+✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/ts/log/style
+✅ Remembers last view (optional) via localStorage (soft)
+✅ FAIR: NO auto-redirect (requires user gesture)
 -->
 <!doctype html>
 <html lang="th">
@@ -32,6 +34,9 @@ GoodJunkVR LAUNCHER — ROOT (S / FAIR)
         var(--bg);
       color:var(--text);
       font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    }
+    @media (prefers-reduced-motion: reduce){
+      *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
     }
     .wrap{
       min-height:100%;
@@ -71,14 +76,14 @@ GoodJunkVR LAUNCHER — ROOT (S / FAIR)
     }
     .go:active{ transform: translateY(1px); }
     .muted{ color:var(--muted); font-weight:900; font-size:12px; margin-top:10px; line-height:1.45; }
-    .tiny{ font-size:11px; color:rgba(148,163,184,.85); font-weight:900; margin-top:8px; }
+    .tiny{ font-size:11px; color:rgba(148,163,184,.85); font-weight:900; margin-top:8px; word-break:break-all; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card" role="main">
       <div class="title">GoodJunkVR</div>
-      <div class="sub">auto-detect view (ไม่ override ถ้ามี ?view=)</div>
+      <div class="sub">เลือกโหมดอัตโนมัติแล้ว — กดเริ่มเพื่อเข้าเกม</div>
 
       <div class="row">
         <div class="pill">view: <span id="pView">auto</span></div>
@@ -90,7 +95,7 @@ GoodJunkVR LAUNCHER — ROOT (S / FAIR)
       <button class="go" id="btnGo" type="button">Tap to Start</button>
 
       <div class="muted">
-        เข้า VR: กด ENTER VR ในหน้าเกม (ปุ่มจาก vr-ui.js)<br/>
+        เข้า VR: ไปหน้าเกมแล้วกด ENTER VR (จาก vr-ui.js)<br/>
         บังคับโหมด: <b>?view=pc</b> / <b>?view=mobile</b> / <b>?view=vr</b> / <b>?view=cvr</b>
       </div>
 
@@ -121,26 +126,38 @@ GoodJunkVR LAUNCHER — ROOT (S / FAIR)
 
   async function detectView(){
     if(has('view')) return normalizeView(qs('view','auto'));
+
     try{
       const last = localStorage.getItem('HHA_LAST_VIEW');
       if(last) return normalizeView(last);
     }catch(_){}
+
     let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
+
     try{
       if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
         const ok = await navigator.xr.isSessionSupported('immersive-vr');
-        if(ok) guess = isLikelyMobileUA() ? 'vr' : 'pc';
+        if(ok){
+          guess = isLikelyMobileUA() ? 'vr' : 'pc';
+        }
       }
     }catch(_){}
+
     return normalizeView(guess);
   }
 
   function carryParams(url){
     const src = new URL(location.href);
     const dst = new URL(url, location.href);
-    const keep = ['hub','run','diff','time','seed','ts','studyId','study','phase','conditionGroup','cond','log','style'];
+
+    const keep = [
+      'hub','run','diff','time','seed','ts','studyId','study','phase','conditionGroup','cond',
+      'log','style'
+    ];
     for(const k of keep){
-      if(src.searchParams.has(k)) dst.searchParams.set(k, src.searchParams.get(k));
+      if(src.searchParams.has(k)){
+        dst.searchParams.set(k, src.searchParams.get(k));
+      }
     }
     return dst;
   }
@@ -179,6 +196,7 @@ GoodJunkVR LAUNCHER — ROOT (S / FAIR)
   }
 
   document.getElementById('btnGo')?.addEventListener('click', go);
+
   build();
 })();
 </script>
