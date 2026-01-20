@@ -1,7 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION+)
-   HHA Standard
+   Balanced Plate VR — UI + Targets (PRODUCTION+)
+   Target style = Ring + Emoji center (like your screenshot)
 ========================================================= */
 
 :root{
@@ -44,14 +44,8 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{
-  position:fixed;
-  inset:0;
-  overflow:hidden;
-}
-
 /* ---------------------------------------------------------
-   Playfield layer (targets spawn)
+   Playfield / Spawn Layer
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -62,94 +56,148 @@ html,body{
   user-select:none;
 }
 
-/* Target look: circle badge like your screenshot */
+/* ---------------------------------------------------------
+   Target (Ring + Emoji)
+   Engine should set:
+     - class="plateTarget"
+     - style left/top/width/height OR CSS vars, both OK
+     - data-kind="good|junk|shield|..."
+--------------------------------------------------------- */
+
+@keyframes hhaPop {
+  0%{ transform: translate(-50%,-50%) scale(.86); opacity:0; }
+  45%{ transform: translate(-50%,-50%) scale(1.06); opacity:1; }
+  100%{ transform: translate(-50%,-50%) scale(1); opacity:1; }
+}
+@keyframes hhaFloat {
+  0%{ transform: translate(-50%,-50%) translateY(0px); }
+  50%{ transform: translate(-50%,-50%) translateY(-3px); }
+  100%{ transform: translate(-50%,-50%) translateY(0px); }
+}
+@keyframes hhaPulse {
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.12); }
+  100%{ filter:brightness(1); }
+}
+
+/* Base */
 .plateTarget{
   position:absolute;
+  left:50%;
+  top:50%;
+  width:60px;
+  height:60px;
+
+  /* IMPORTANT: engine often positions by left/top px.
+     We center with translate(-50%,-50%) so targets anchor at center. */
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+
   display:grid;
   place-items:center;
-  border-radius:999px;
-  font-weight:1000;
-  user-select:none;
+
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
+  user-select:none;
 
-  /* emoji crisp */
+  /* ring look */
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.12), transparent 40%),
+    radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 46%),
+    rgba(2,6,23,.60);
+  border: 2px solid rgba(148,163,184,.30);
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.10);
+
+  /* emoji clarity */
+  font-size:28px;
+  line-height:1;
+  font-weight:1000;
+  text-shadow: 0 2px 0 rgba(0,0,0,.28);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* base style */
+  animation: hhaPop .14s ease-out 0s 1, hhaFloat 1.6s ease-in-out .12s infinite;
+}
+
+/* inner ring highlight */
+.plateTarget::before{
+  content:"";
+  position:absolute;
+  inset:7px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow: inset 0 0 0 1px rgba(2,6,23,.20);
+  pointer-events:none;
+}
+
+/* outer glow */
+.plateTarget::after{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border-radius:999px;
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
-    radial-gradient(circle at 75% 75%, rgba(34,197,94,.10), transparent 44%),
-    rgba(2,6,23,.58);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    inset 0 1px 0 rgba(255,255,255,.08);
-
-  transform: translateZ(0);
-  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.6s ease-in-out .12s infinite;
+    radial-gradient(circle, rgba(34,197,94,.14), transparent 62%);
+  opacity:.65;
+  pointer-events:none;
 }
 
+/* Active feedback */
 .plateTarget:active{
-  transform: translateZ(0) scale(.98);
+  filter:brightness(1.06);
 }
 
+/* Kinds */
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.34);
-  box-shadow:
-    0 18px 56px rgba(0,0,0,.34),
-    0 0 26px rgba(34,197,94,.14),
-    inset 0 1px 0 rgba(255,255,255,.08);
+  border-color: rgba(34,197,94,.45);
+}
+.plateTarget[data-kind="good"]::after{
+  background: radial-gradient(circle, rgba(34,197,94,.18), transparent 62%);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.32);
-  box-shadow:
-    0 18px 56px rgba(0,0,0,.34),
-    0 0 26px rgba(239,68,68,.14),
-    inset 0 1px 0 rgba(255,255,255,.08);
-  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.1s ease-in-out .12s infinite;
+  border-color: rgba(239,68,68,.45);
+  animation: hhaPop .14s ease-out 0s 1, hhaFloat 1.15s ease-in-out .12s infinite;
+}
+.plateTarget[data-kind="junk"]::after{
+  background: radial-gradient(circle, rgba(239,68,68,.16), transparent 62%);
 }
 
 .plateTarget[data-kind="shield"]{
-  border-color: rgba(34,211,238,.34);
-  box-shadow:
-    0 18px 56px rgba(0,0,0,.34),
-    0 0 26px rgba(34,211,238,.14),
-    inset 0 1px 0 rgba(255,255,255,.08);
+  border-color: rgba(34,211,238,.50);
+  animation: hhaPop .14s ease-out 0s 1, hhaPulse .42s ease-in-out .12s infinite;
+}
+.plateTarget[data-kind="shield"]::after{
+  background: radial-gradient(circle, rgba(34,211,238,.18), transparent 62%);
 }
 
-@keyframes hhaPop{
-  0%{ transform: translateZ(0) scale(.86); opacity:0 }
-  40%{ transform: translateZ(0) scale(1.06); opacity:1 }
-  100%{ transform: translateZ(0) scale(1); opacity:1 }
+/* optional: “boss” marker */
+.plateTarget.is-boss{
+  border-color: rgba(167,139,250,.55);
 }
-
-@keyframes hhaWobble{
-  0%{ transform: translateZ(0) rotate(0deg); }
-  25%{ transform: translateZ(0) rotate(1.2deg); }
-  50%{ transform: translateZ(0) rotate(-1.2deg); }
-  75%{ transform: translateZ(0) rotate(.8deg); }
-  100%{ transform: translateZ(0) rotate(0deg); }
+.plateTarget.is-boss::after{
+  background: radial-gradient(circle, rgba(167,139,250,.18), transparent 62%);
 }
 
 /* ---------------------------------------------------------
-   HUD container
+   HUD base (generic hooks for your HTML)
 --------------------------------------------------------- */
+
+/* If your HTML uses these containers, make them crisp */
 #hud{
   position:fixed;
   inset:0;
-  z-index:30;
   pointer-events:none;
-  padding:
-    calc(10px + var(--sat))
-    calc(10px + var(--sar))
-    calc(10px + var(--sab))
-    calc(10px + var(--sal));
+  z-index:30;
 }
 
 .hudRow{
+  position:fixed;
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  top:calc(10px + var(--sat));
   display:flex;
   gap:10px;
   flex-wrap:wrap;
@@ -157,48 +205,46 @@ html,body{
   pointer-events:none;
 }
 
-/* chips (score/time/combo) */
 .chip{
   pointer-events:auto;
   display:flex;
   flex-direction:column;
-  gap:4px;
-  min-width: 110px;
+  gap:2px;
   padding:10px 12px;
   border-radius:16px;
-  border:1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.74);
-  box-shadow: 0 18px 60px rgba(0,0,0,.28);
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.72);
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
+  min-width:120px;
 }
 .chip .lbl{
-  font-weight:900;
   font-size:11px;
-  color: rgba(148,163,184,.95);
-  letter-spacing:.04em;
+  letter-spacing:.6px;
+  color:rgba(148,163,184,.95);
+  font-weight:1000;
 }
 .chip .val{
-  font-weight:1200;
   font-size:18px;
-  color: rgba(229,231,235,.98);
-  line-height:1;
+  font-weight:1200;
 }
 
-.chip.score{ border-color: rgba(34,197,94,.26); }
-.chip.time{  border-color: rgba(34,211,238,.22); }
-.chip.combo{ border-color: rgba(167,139,250,.22); }
-
-/* quest card */
 .card{
   pointer-events:auto;
-  margin-top:10px;
-  width: min(520px, 100%);
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.68);
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-  padding: 12px;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+  backdrop-filter:blur(10px);
+}
+
+#questCard{
+  position:fixed;
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  top:calc(70px + var(--sat));
+  padding:12px;
+  pointer-events:auto;
 }
 
 .cardTitle{
@@ -206,153 +252,129 @@ html,body{
   justify-content:space-between;
   align-items:flex-start;
   gap:10px;
+  margin-bottom:10px;
 }
-
 .cardTitle .t{
-  font-weight:1100;
-  font-size:13px;
+  font-weight:1200;
 }
 .cardTitle .hint{
   font-weight:900;
+  color:rgba(148,163,184,.95);
   font-size:12px;
-  color: rgba(148,163,184,.95);
   line-height:1.25;
   text-align:right;
 }
 
 .qItem{
-  margin-top:10px;
   display:flex;
-  gap:10px;
-  align-items:center;
   justify-content:space-between;
+  gap:12px;
+  padding:10px 10px;
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.12);
+  background: rgba(15,23,42,.52);
+  margin-top:8px;
 }
 
 .qText .name{
-  font-weight:1100;
-  font-size:12px;
+  font-weight:1200;
 }
 .qText .sub{
-  margin-top:3px;
+  margin-top:2px;
   font-weight:900;
+  color:rgba(148,163,184,.95);
   font-size:12px;
-  color: rgba(148,163,184,.95);
 }
 
 .qProg{
-  min-width: 190px;
+  min-width:140px;
   display:flex;
   flex-direction:column;
   align-items:flex-end;
   gap:6px;
 }
-
 .qNums{
   font-weight:1100;
   font-size:12px;
-  color: rgba(229,231,235,.92);
+  color:rgba(229,231,235,.92);
 }
 
 .bar{
-  width: 190px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.12);
-  border: 1px solid rgba(148,163,184,.14);
+  width:140px;
+  height:10px;
+  border-radius:999px;
+  background:rgba(148,163,184,.12);
   overflow:hidden;
+  border:1px solid rgba(148,163,184,.14);
 }
 .bar > i{
   display:block;
   height:100%;
   width:0%;
-  background: rgba(34,197,94,.85);
-  transition: width .25s ease;
-  box-shadow: 0 0 18px rgba(34,197,94,.16);
+  background: rgba(34,197,94,.86);
+  transition: width .20s ease;
 }
-
-/* mini bar uses warm accent via inline or fallback */
 #miniBar{
-  background: rgba(245,158,11,.85);
-  box-shadow: 0 0 18px rgba(245,158,11,.14);
+  background: rgba(245,158,11,.86);
 }
 
-/* ---------------------------------------------------------
-   Coach bubble
---------------------------------------------------------- */
+/* Coach bubble */
 #coachCard{
   position:fixed;
-  left: calc(10px + var(--sal));
-  bottom: calc(14px + var(--sab));
-  z-index:45;
+  left:calc(10px + var(--sal));
+  bottom:calc(10px + var(--sab));
+  z-index:40;
   pointer-events:none;
   opacity:0;
-  transform: translateY(6px);
+  transform: translateY(8px);
   transition: opacity .14s ease, transform .14s ease;
 }
-
 #coachCard.show{
   opacity:1;
   transform: translateY(0);
 }
-
 #coachCard .inner{
   pointer-events:auto;
-  max-width: min(520px, calc(100vw - 20px));
+  padding:10px 12px;
   border-radius:18px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.78);
-  box-shadow: 0 18px 60px rgba(0,0,0,.30);
+  background:rgba(2,6,23,.72);
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
-  padding: 10px 12px;
+  max-width:min(520px, calc(100vw - 20px));
 }
-
 #coachMsg{
   font-weight:1100;
-  line-height:1.25;
 }
-
 #coachMeta{
-  margin-top:6px;
-  font-weight:900;
+  margin-top:4px;
   font-size:12px;
-  color: rgba(148,163,184,.95);
+  font-weight:900;
+  color:rgba(148,163,184,.95);
 }
 
-/* ---------------------------------------------------------
-   End overlay
---------------------------------------------------------- */
+/* End overlay */
+#endOverlay[aria-hidden="true"]{
+  display:none;
+}
 #endOverlay{
   position:fixed;
   inset:0;
   z-index:70;
   display:grid;
   place-items:center;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .16s ease;
-  padding:
-    calc(14px + var(--sat))
-    calc(14px + var(--sar))
-    calc(14px + var(--sab))
-    calc(14px + var(--sal));
-  background: rgba(2,6,23,.56);
+  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
-
-#endOverlay.open{
-  opacity:1;
-  pointer-events:auto;
-}
-
 .endPanel{
-  width: min(840px, 100%);
+  width:min(980px, 100%);
   border-radius:22px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.82);
-  box-shadow: 0 26px 90px rgba(0,0,0,.44);
-  padding: 14px;
+  background:rgba(2,6,23,.78);
+  box-shadow: 0 26px 90px rgba(0,0,0,.42);
+  padding:16px;
 }
-
 .endTitle{
   display:flex;
   justify-content:space-between;
@@ -360,57 +382,47 @@ html,body{
   flex-wrap:wrap;
   align-items:flex-start;
 }
-
 .endTitle h2{
   margin:0;
+  font-weight:1300;
   font-size:18px;
-  font-weight:1200;
 }
-
-.tag{
-  display:inline-flex;
-  align-items:center;
+.endTitle .tag{
   padding:6px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.70);
+  background:rgba(15,23,42,.62);
   font-weight:1100;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
 }
-
 .endGrid{
   margin-top:12px;
   display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap:10px;
 }
-
 .kpi{
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.62);
-  border-radius:18px;
-  padding:12px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.58);
+  padding:10px 12px;
 }
 .kpi .k{
-  font-weight:900;
+  font-weight:1000;
   font-size:12px;
-  color: rgba(148,163,184,.95);
+  color:rgba(148,163,184,.95);
 }
 .kpi .v{
   margin-top:6px;
-  font-weight:1200;
-  font-size:18px;
+  font-weight:1300;
+  font-size:16px;
 }
-
 .endBtns{
   margin-top:12px;
   display:flex;
   gap:10px;
-  justify-content:flex-end;
   flex-wrap:wrap;
+  justify-content:flex-end;
 }
-
 .btn{
   appearance:none;
   border:none;
@@ -419,69 +431,41 @@ html,body{
   font-weight:1100;
   font-size:12px;
   cursor:pointer;
-  color: rgba(229,231,235,.95);
-  background: rgba(2,6,23,.70);
+  color:var(--text);
+  background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
-  backdrop-filter: blur(10px);
+  backdrop-filter:blur(10px);
   -webkit-tap-highlight-color:transparent;
-  user-select:none;
 }
 .btn:active{ transform: translateY(1px); }
 .btn.primary{
-  background: rgba(34,197,94,.16);
-  border-color: rgba(34,197,94,.34);
+  background:rgba(34,197,94,.18);
+  border-color:rgba(34,197,94,.35);
 }
 
 /* ---------------------------------------------------------
-   Boss / Storm FX layers (optional hooks)
---------------------------------------------------------- */
-#bossFx,#stormFx{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:55;
-  display:none;
-}
-
-#bossFx.boss-on{
-  display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%),
-    radial-gradient(circle at 50% 90%, rgba(239,68,68,.10), transparent 55%);
-}
-#bossFx.boss-panic{
-  animation: pulseBad .25s ease-in-out infinite;
-}
-
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%),
-    radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
-}
-
-@keyframes pulseBad{
-  0%{ filter:brightness(1); }
-  50%{ filter:brightness(1.25); }
-  100%{ filter:brightness(1); }
-}
-
-/* ---------------------------------------------------------
-   Responsive tuning
+   Responsive
 --------------------------------------------------------- */
 @media (max-width: 920px){
-  .chip{ min-width: 98px; }
+  .chip{ min-width:110px; }
   .chip .val{ font-size:16px; }
-  .card{ width: min(560px, 100%); }
-  .bar{ width: 170px; }
-  .qProg{ min-width: 170px; }
-  .endGrid{ grid-template-columns: 1fr; }
+
+  #questCard{ top: calc(78px + var(--sat)); }
+
+  .bar{ width:120px; }
+
+  .plateTarget{
+    font-size:24px;
+  }
+  .endGrid{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
 }
 
-@media (max-width: 420px){
-  .hudRow{ gap:8px; }
-  .chip{ padding:9px 10px; }
-  .card{ padding:11px; }
-  .bar{ width: 150px; }
+@media (max-width: 560px){
+  .endGrid{
+    grid-template-columns: 1fr;
+  }
+  .qProg{ min-width:120px; }
+  .bar{ width:110px; }
 }
