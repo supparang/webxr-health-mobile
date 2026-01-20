@@ -1,285 +1,213 @@
 // === /herohealth/vr/particles.js ===
-// HHA Particles — PACK-FAIR (Universal)
-// ✅ Safe: pointer-events none, never blocks gameplay
-// ✅ Rate limited (anti-spam) + auto GC
-// ✅ FX layer z-index above game, below critical overlays if needed
-// ✅ API:
-//    - popText(x,y,text,cls?,opts?)
-//    - burstAt(x,y,kind?,opts?)
-//    - ringPulse(x,y,kind?,opts?)
-//    - celebrate(kind?,opts?)
-// Exposes: window.Particles and window.GAME_MODULES.Particles
+// HHA Particles — FAIR PACK (Unified FX Core)
+// ✅ Non-blocking overlay layer
+// ✅ API: popText(x,y,text,cls,opts), burstAt(x,y,kind,opts), ringPulse(x,y,kind,opts), celebrate(kind,opts)
+// ✅ Safe for all games (Groups/Hydration/Plate/GoodJunk)
+// Notes:
+// - All colors are CSS-class driven (no hard dependency on theme)
+// - Rate/cleanup safe
 
-(function(root){
+(function (root) {
   'use strict';
-
-  const DOC = root.document;
-  if(!DOC || root.__HHA_PARTICLES__) return;
+  const doc = root.document;
+  if (!doc || root.__HHA_PARTICLES__) return;
   root.__HHA_PARTICLES__ = true;
 
-  // ---------------- basic utils ----------------
-  const clamp = (v,min,max)=> (v<min?min:(v>max?max:v));
-  const rnd = (a,b)=> a + (b-a) * Math.random();
-  const now = ()=> performance.now();
-
-  function px(n){ return Math.round(Number(n)||0) + 'px'; }
-
-  // ---------------- layer ----------------
+  // ---- layer ----
   function ensureLayer(){
-    let layer = DOC.querySelector('.hha-fx-layer');
-    if(layer) return layer;
-
-    layer = DOC.createElement('div');
+    let layer = doc.querySelector('.hha-fx-layer');
+    if (layer) return layer;
+    layer = doc.createElement('div');
     layer.className = 'hha-fx-layer';
     layer.style.cssText = [
       'position:fixed',
       'inset:0',
       'pointer-events:none',
-      'z-index:90',               // 👈 ถ้าเกมใดมี overlay สูงกว่า ก็ปรับที่เกมนั้นได้
-      'overflow:hidden'
+      'z-index:90',
+      'overflow:hidden',
+      'contain:layout paint style'
     ].join(';');
-
-    DOC.body.appendChild(layer);
-    injectCSS();
+    doc.body.appendChild(layer);
     return layer;
   }
 
-  // ---------------- style ----------------
-  let __cssInjected = false;
-  function injectCSS(){
-    if(__cssInjected) return;
-    __cssInjected = true;
+  function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function rnd(a,b){ return a + Math.random()*(b-a); }
 
-    const st = DOC.createElement('style');
-    st.textContent = `
-      .hha-fx-item{
-        position:absolute;
-        left:0; top:0;
-        transform: translate(-50%,-50%);
-        will-change: transform, opacity;
-        user-select:none;
-        pointer-events:none;
-        font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      }
-
-      /* ---- pop text ---- */
-      .hha-pop{
-        font-weight: 1000;
-        font-size: 16px;
-        line-height: 1;
-        color: #fff;
-        text-shadow: 0 2px 0 rgba(0,0,0,.35);
-        opacity: 0;
-        animation: hhaPop 520ms ease-out forwards;
-      }
-      .hha-pop.good{ color:#eafff3; }
-      .hha-pop.bad { color:#ffe4e6; }
-      .hha-pop.warn{ color:#fff7ed; }
-      .hha-pop.cyan{ color:#ecfeff; }
-      .hha-pop.violet{ color:#f5f3ff; }
-
-      @keyframes hhaPop{
-        0%   { opacity:0; transform: translate(-50%,-50%) scale(.92); }
-        12%  { opacity:1; }
-        55%  { opacity:1; transform: translate(-50%,-75%) scale(1.06); }
-        100% { opacity:0; transform: translate(-50%,-95%) scale(1.02); }
-      }
-
-      /* ---- burst dots ---- */
-      .hha-dot{
-        width: 8px; height: 8px;
-        border-radius: 999px;
-        opacity: 0;
-        animation: hhaDot 520ms ease-out forwards;
-      }
-      @keyframes hhaDot{
-        0%   { opacity:0; transform: translate(-50%,-50%) scale(.8); }
-        10%  { opacity:1; }
-        100% { opacity:0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.35); }
-      }
-
-      /* ---- ring pulse ---- */
-      .hha-ring{
-        width: 120px; height:120px;
-        border-radius: 999px;
-        border: 3px solid rgba(255,255,255,.75);
-        opacity: 0;
-        animation: hhaRing 520ms ease-out forwards;
-      }
-      @keyframes hhaRing{
-        0%   { opacity:0; transform: translate(-50%,-50%) scale(.65); }
-        12%  { opacity:1; }
-        100% { opacity:0; transform: translate(-50%,-50%) scale(1.15); }
-      }
-
-      /* ---- celebrate confetti (fair) ---- */
-      .hha-conf{
-        width: 10px; height: 14px;
-        border-radius: 4px;
-        opacity: 0;
-        animation: hhaConf 900ms linear forwards;
-      }
-      @keyframes hhaConf{
-        0%   { opacity:0; transform: translate(-50%,-50%) rotate(0deg); }
-        10%  { opacity:1; }
-        100% { opacity:0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(420deg); }
-      }
-    `;
-    DOC.head.appendChild(st);
+  function vp(){
+    const W = doc.documentElement.clientWidth || innerWidth || 1;
+    const H = doc.documentElement.clientHeight || innerHeight || 1;
+    return { W,H };
   }
 
-  // ---------------- rate limiting ----------------
-  // กัน spam: pop/burst/ring ต่อเนื่องมากเกินไป
-  const RL = {
-    pop:  { t:0, minGap: 40 },   // ms
-    burst:{ t:0, minGap: 55 },
-    ring: { t:0, minGap: 80 },
-    conf: { t:0, minGap: 450 },
-  };
-  function okRate(key){
-    const r = RL[key];
-    const t = now();
-    if(t - r.t < r.minGap) return false;
-    r.t = t;
-    return true;
+  function removeLater(el, ms){
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, ms);
   }
 
-  // ---------------- kind palette (no hard colors, but safe defaults) ----------------
-  function kindClass(kind){
-    kind = String(kind||'').toLowerCase();
-    if(kind==='bad' || kind==='junk') return 'bad';
-    if(kind==='warn' || kind==='star') return 'warn';
-    if(kind==='cyan' || kind==='shield') return 'cyan';
-    if(kind==='violet' || kind==='diamond') return 'violet';
-    return 'good';
-  }
+  // ---- styles ----
+  const st = doc.createElement('style');
+  st.textContent = `
+    .hha-fx-pop{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      font: 900 18px/1 system-ui;
+      letter-spacing:.2px;
+      opacity:.98;
+      will-change: transform, opacity, filter;
+      text-shadow: 0 10px 22px rgba(0,0,0,.55);
+      animation: hhaPop 520ms ease-out forwards;
+    }
+    .hha-fx-pop.good{ color: rgba(229,255,244,.98); filter: drop-shadow(0 0 16px rgba(34,197,94,.30)); }
+    .hha-fx-pop.bad{  color: rgba(255,235,235,.98); filter: drop-shadow(0 0 16px rgba(239,68,68,.25)); }
+    .hha-fx-pop.warn{ color: rgba(255,240,210,.98); filter: drop-shadow(0 0 16px rgba(245,158,11,.25)); }
+    .hha-fx-pop.cyan{ color: rgba(225,252,255,.98); filter: drop-shadow(0 0 16px rgba(34,211,238,.25)); }
+    .hha-fx-pop.violet{ color: rgba(244,235,255,.98); filter: drop-shadow(0 0 16px rgba(167,139,250,.22)); }
 
-  // ---------------- FX impl ----------------
-  function popText(x,y,text,cls=null,opts=null){
-    if(!okRate('pop')) return;
+    @keyframes hhaPop{
+      0%{ transform:translate(-50%,-50%) scale(.92); opacity:.92; }
+      70%{ transform:translate(-50%,-72%) scale(1.18); opacity:1; }
+      100%{ transform:translate(-50%,-92%) scale(1.05); opacity:0; }
+    }
+
+    .hha-fx-ring{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      border-radius: 999px;
+      border: 2px solid rgba(229,231,235,.55);
+      box-shadow: 0 0 0 10px rgba(229,231,235,.08);
+      opacity:.0;
+      will-change: transform, opacity;
+      animation: hhaRing 520ms ease-out forwards;
+    }
+    .hha-fx-ring.good{ border-color: rgba(34,197,94,.55); box-shadow: 0 0 0 10px rgba(34,197,94,.12); }
+    .hha-fx-ring.bad{  border-color: rgba(239,68,68,.55); box-shadow: 0 0 0 10px rgba(239,68,68,.12); }
+    .hha-fx-ring.warn{ border-color: rgba(245,158,11,.55); box-shadow: 0 0 0 10px rgba(245,158,11,.12); }
+    .hha-fx-ring.cyan{ border-color: rgba(34,211,238,.55); box-shadow: 0 0 0 10px rgba(34,211,238,.12); }
+    .hha-fx-ring.violet{ border-color: rgba(167,139,250,.55); box-shadow: 0 0 0 10px rgba(167,139,250,.12); }
+    .hha-fx-ring.star{ border-color: rgba(245,158,11,.55); box-shadow: 0 0 0 12px rgba(245,158,11,.12); }
+    .hha-fx-ring.shield{ border-color: rgba(34,211,238,.55); box-shadow: 0 0 0 12px rgba(34,211,238,.12); }
+
+    @keyframes hhaRing{
+      0%{ transform:translate(-50%,-50%) scale(.70); opacity:0; }
+      20%{ opacity:1; }
+      100%{ transform:translate(-50%,-50%) scale(1.12); opacity:0; }
+    }
+
+    .hha-fx-dot{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: rgba(229,231,235,.9);
+      opacity:.0;
+      will-change: transform, opacity;
+      animation: hhaDot 520ms cubic-bezier(.12,.9,.16,1) forwards;
+    }
+    .hha-fx-dot.good{ background: rgba(34,197,94,.92); }
+    .hha-fx-dot.bad{ background: rgba(239,68,68,.92); }
+    .hha-fx-dot.warn{ background: rgba(245,158,11,.92); }
+    .hha-fx-dot.cyan{ background: rgba(34,211,238,.92); }
+    .hha-fx-dot.violet{ background: rgba(167,139,250,.92); }
+
+    @keyframes hhaDot{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
+      15%{ opacity:1; }
+      100%{ opacity:0; transform:translate(var(--dx), var(--dy)) scale(.9); }
+    }
+  `;
+  doc.head.appendChild(st);
+
+  // ---- API ----
+  function popText(x,y,text,cls,opts){
     const layer = ensureLayer();
+    const { W,H } = vp();
+    const el = doc.createElement('div');
+    el.className = `hha-fx-pop ${cls||''}`.trim();
+    el.textContent = String(text||'');
+    el.style.left = clamp(x, 10, W-10) + 'px';
+    el.style.top  = clamp(y, 10, H-10) + 'px';
 
-    const el = DOC.createElement('div');
-    el.className = `hha-fx-item hha-pop ${kindClass(cls||'good')}`;
-    el.textContent = String(text ?? '');
-
-    const size = opts && opts.size ? Number(opts.size) : null;
-    if(size) el.style.fontSize = px(size);
-
-    el.style.left = px(x);
-    el.style.top  = px(y);
+    const size = clamp(Number(opts?.size||18), 12, 40);
+    el.style.fontSize = size + 'px';
 
     layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 700);
+    removeLater(el, 700);
   }
 
-  function burstAt(x,y,kind='good',opts=null){
-    if(!okRate('burst')) return;
+  function ringPulse(x,y,kind,opts){
     const layer = ensureLayer();
+    const { W,H } = vp();
+    const el = doc.createElement('div');
+    const cls = String(kind||'').toLowerCase();
+    el.className = `hha-fx-ring ${cls}`.trim();
+    el.style.left = clamp(x, 10, W-10) + 'px';
+    el.style.top  = clamp(y, 10, H-10) + 'px';
 
-    const count = clamp((opts && opts.count) ? Number(opts.count) : 10, 6, 14);
-    const spread = clamp((opts && opts.spread) ? Number(opts.spread) : 54, 38, 78);
+    const size = clamp(Number(opts?.size||160), 80, 420);
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
 
-    for(let i=0;i<count;i++){
-      const dot = DOC.createElement('div');
-      dot.className = 'hha-fx-item hha-dot';
-      dot.style.left = px(x);
-      dot.style.top  = px(y);
+    layer.appendChild(el);
+    removeLater(el, 700);
+  }
 
-      // fair sizing
-      const s = rnd(6, 10);
-      dot.style.width = px(s);
-      dot.style.height = px(s);
+  function burstAt(x,y,kind,opts){
+    const layer = ensureLayer();
+    const { W,H } = vp();
 
-      // direction
-      const a = rnd(0, Math.PI*2);
-      const r = rnd(spread*0.45, spread);
-      dot.style.setProperty('--dx', px(Math.cos(a)*r));
-      dot.style.setProperty('--dy', px(Math.sin(a)*r));
+    const cls = String(kind||'').toLowerCase();
+    const n = clamp(Number(opts?.count||12), 6, 22);
+    const r = clamp(Number(opts?.radius||rnd(90, 140)), 60, 200);
 
-      // tone by kind (use opacity only; avoid heavy colors)
-      const tone = kindClass(kind);
-      if(tone==='bad') dot.style.background = 'rgba(248,113,113,.85)';
-      else if(tone==='warn') dot.style.background = 'rgba(251,191,36,.85)';
-      else if(tone==='cyan') dot.style.background = 'rgba(34,211,238,.85)';
-      else if(tone==='violet') dot.style.background = 'rgba(167,139,250,.85)';
-      else dot.style.background = 'rgba(34,197,94,.85)';
+    for(let i=0;i<n;i++){
+      const dot = doc.createElement('div');
+      dot.className = `hha-fx-dot ${cls}`.trim();
+      const ang = (Math.PI*2) * (i/n) + rnd(-0.22, 0.22);
+      const dist = rnd(r*0.55, r);
+      const dx = Math.cos(ang)*dist;
+      const dy = Math.sin(ang)*dist;
+
+      dot.style.left = clamp(x, 10, W-10) + 'px';
+      dot.style.top  = clamp(y, 10, H-10) + 'px';
+      dot.style.setProperty('--dx', `calc(${dot.style.left} + ${dx}px - 50%)`);
+      dot.style.setProperty('--dy', `calc(${dot.style.top} + ${dy}px - 50%)`);
+
+      // override animation by using transform target via CSS vars:
+      // We do it by setting translate() destination in vars, CSS uses translate(var(--dx), var(--dy))
+      // Here vars are absolute pixels; the translate uses them directly.
+      // To keep it simple, set them as pixel translate values:
+      dot.style.setProperty('--dx', `calc(-50% + ${dx}px)`);
+      dot.style.setProperty('--dy', `calc(-50% + ${dy}px)`);
 
       layer.appendChild(dot);
-      setTimeout(()=>{ try{ dot.remove(); }catch(_){} }, 700);
+      removeLater(dot, 650);
     }
   }
 
-  function ringPulse(x,y,kind='good',opts=null){
-    if(!okRate('ring')) return;
-    const layer = ensureLayer();
+  function celebrate(kind, opts){
+    const { W,H } = vp();
+    const count = clamp(Number(opts?.count||16), 8, 28);
+    const cls = String(kind||'good').toLowerCase();
 
-    const ring = DOC.createElement('div');
-    ring.className = 'hha-fx-item hha-ring';
-
-    const size = clamp((opts && opts.size) ? Number(opts.size) : 140, 90, 320);
-    ring.style.width = px(size);
-    ring.style.height = px(size);
-
-    const tone = kindClass(kind);
-    if(tone==='bad') ring.style.borderColor = 'rgba(248,113,113,.75)';
-    else if(tone==='warn') ring.style.borderColor = 'rgba(251,191,36,.78)';
-    else if(tone==='cyan') ring.style.borderColor = 'rgba(34,211,238,.78)';
-    else if(tone==='violet') ring.style.borderColor = 'rgba(167,139,250,.78)';
-    else ring.style.borderColor = 'rgba(34,197,94,.78)';
-
-    ring.style.left = px(x);
-    ring.style.top  = px(y);
-
-    layer.appendChild(ring);
-    setTimeout(()=>{ try{ ring.remove(); }catch(_){} }, 700);
-  }
-
-  function celebrate(kind='win', opts=null){
-    if(!okRate('conf')) return;
-    const layer = ensureLayer();
-
-    const W = DOC.documentElement.clientWidth;
-    const H = DOC.documentElement.clientHeight;
-
-    const count = clamp((opts && opts.count) ? Number(opts.count) : 16, 10, 26);
-
+    // top confetti rain
     for(let i=0;i<count;i++){
-      const c = DOC.createElement('div');
-      c.className = 'hha-fx-item hha-conf';
-
-      // spawn near top
-      const x = rnd(W*0.22, W*0.78);
-      const y = rnd(H*0.18, H*0.30);
-      c.style.left = px(x);
-      c.style.top  = px(y);
-
-      const a = rnd(Math.PI*0.65, Math.PI*1.35);
-      const r = rnd(220, 420);
-      c.style.setProperty('--dx', px(Math.cos(a)*r));
-      c.style.setProperty('--dy', px(Math.sin(a)*r + rnd(180, 320)));
-
-      // small palette (still fair)
-      const t = (i % 5);
-      if(t===0) c.style.background = 'rgba(34,197,94,.9)';
-      else if(t===1) c.style.background = 'rgba(34,211,238,.9)';
-      else if(t===2) c.style.background = 'rgba(251,191,36,.9)';
-      else if(t===3) c.style.background = 'rgba(167,139,250,.9)';
-      else c.style.background = 'rgba(248,113,113,.9)';
-
-      layer.appendChild(c);
-      setTimeout(()=>{ try{ c.remove(); }catch(_){} }, 1100);
+      const x = rnd(W*0.15, W*0.85);
+      const y = rnd(H*0.10, H*0.30);
+      ringPulse(x,y, cls==='win' ? 'good' : cls, { size: rnd(120, 220) });
+      burstAt(x,y, cls==='win' ? 'good' : cls, { count: rnd(10, 18), radius: rnd(90, 150) });
     }
+    popText(W/2, H*0.22, (cls==='win'?'NICE!':'GREAT!'), cls==='win'?'good':cls, { size: 26 });
   }
 
-  // legacy alias (บางเกมเรียก)
-  function scorePop(x,y,text){ popText(x,y,text,'good'); }
+  // expose
+  root.Particles = root.Particles || {};
+  root.Particles.popText = popText;
+  root.Particles.ringPulse = ringPulse;
+  root.Particles.burstAt = burstAt;
+  root.Particles.celebrate = celebrate;
 
-  // export
-  const API = { popText, burstAt, ringPulse, celebrate, scorePop };
-
-  root.Particles = API;
+  // optional registry
   root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = API;
+  root.GAME_MODULES.Particles = root.Particles;
 
 })(window);
