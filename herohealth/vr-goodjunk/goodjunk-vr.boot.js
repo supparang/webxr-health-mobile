@@ -1,181 +1,213 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (PACK-FAIR)
-// ✅ Reads query params + auto view fallback (but respects existing ?view=)
-// ✅ Sets body classes: view-pc | view-mobile | view-vr | view-cvr
-// ✅ Ensures safe-zone measure has time to set --gj-top-safe/--gj-bottom-safe
-// ✅ Boots goodjunk.safe.js (your SAFE file, Boss++ A+B+C version)
-// ✅ VR hint stays in vr-ui.js; this file just boots reliably
+// ✅ View modes: pc / mobile / vr / cvr (NO override if URL has view=)
+// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Fullscreen hint class body.is-fs (optional; safe)
+// ✅ Boots engine: ./goodjunk.safe.js (ESM)
+// ✅ Updates safe spawn vars by calling window.__GJ_UPDATE_SAFE__ if present (html already has measure script)
+// ✅ Avoid duplicate boot / listeners
+// ✅ Research mode: deterministic seed + adaptive handled inside safe.js
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def=null)=>{
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }
-  catch(_){ return def; }
-};
-const has = (k)=>{
-  try{ return new URL(location.href).searchParams.has(k); }
-  catch(_){ return false; }
-};
+if (WIN.__GOODJUNK_BOOT__) {
+  console.warn('[GoodJunkVR] boot skipped (already booted)');
+} else {
+  WIN.__GOODJUNK_BOOT__ = true;
+}
 
-function normView(v){
-  v = String(v||'').toLowerCase();
-  if(v==='cardboard') return 'vr';
-  if(v==='view-cvr') return 'cvr';
-  if(v==='cvr') return 'cvr';
-  if(v==='vr') return 'vr';
-  if(v==='pc') return 'pc';
-  if(v==='mobile') return 'mobile';
+function qs(k, def = null) {
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
+}
+function has(k) {
+  try { return new URL(location.href).searchParams.has(k); }
+  catch { return false; }
+}
+
+function normalizeView(v) {
+  v = String(v || '').toLowerCase();
+  if (v === 'cardboard') return 'vr';
+  if (v === 'view-cvr') return 'cvr';
+  if (v === 'cvr') return 'cvr';
+  if (v === 'vr') return 'vr';
+  if (v === 'pc') return 'pc';
+  if (v === 'mobile') return 'mobile';
   return 'mobile';
 }
 
-function isLikelyMobileUA(){
-  const ua = (navigator.userAgent||'').toLowerCase();
+function isLikelyMobileUA() {
+  const ua = (navigator.userAgent || '').toLowerCase();
   return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
 }
 
-async function detectViewSoft(){
-  // If user passed view=... => never override
-  if(has('view')) return normView(qs('view','mobile'));
+async function detectViewNoOverride() {
+  // if already has view=, respect it 100%
+  if (has('view')) return normalizeView(qs('view', 'mobile'));
 
-  // else: lightweight guess (do not hard force)
+  // soft remember (optional)
+  try {
+    const last = localStorage.getItem('HHA_LAST_VIEW');
+    if (last) return normalizeView(last);
+  } catch (_) {}
+
   let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
 
-  // If immersive-vr supported, treat mobile as 'vr' (cardboard/vr button)
-  try{
-    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
+  // best-effort WebXR check (never forces override if user passed view already)
+  try {
+    if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
       const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if(ok && isLikelyMobileUA()) guess = 'vr';
+      if (ok) guess = isLikelyMobileUA() ? 'vr' : 'pc';
     }
-  }catch(_){}
+  } catch (_) {}
 
-  return normView(guess);
+  return normalizeView(guess);
 }
 
-function setBodyViewClasses(view){
+function setBodyViewClass(view) {
   const b = DOC.body;
-  if(!b) return;
+  if (!b) return;
 
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view==='pc') b.classList.add('view-pc');
-  else if(view==='vr') b.classList.add('view-vr');
-  else if(view==='cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile');
+  b.classList.remove('view-pc', 'view-mobile', 'view-vr', 'view-cvr');
+  b.classList.add(`view-${view}`);
 
-  // also keep legacy hint class (optional)
-  try{ b.dataset.view = view; }catch(_){}
+  // also keep a generic class for css hooks
+  if (view === 'cvr') b.classList.add('view-cvr');
+  if (view === 'vr') b.classList.add('view-vr');
+  if (view === 'pc') b.classList.add('view-pc');
+  if (view === 'mobile') b.classList.add('view-mobile');
 }
 
-function updateChipMeta(){
-  const chip = DOC.getElementById('gjChipMeta');
-  if(!chip) return;
-  const v = qs('view','auto');
-  const run = qs('run','play');
-  const diff = qs('diff','normal');
-  const time = qs('time','80');
-  chip.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
+function setFullscreenFlag() {
+  try {
+    const b = DOC.body;
+    if (!b) return;
+    const fs = !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
+    b.classList.toggle('is-fs', fs);
+  } catch (_) {}
 }
 
-function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
-
-/**
- * Ensure safe vars exist before engine reads them:
- * - goodjunk-vr.html runs updateSafe() at 0/120/360ms
- * - we wait a bit + verify CSS vars are non-empty
- */
-async function waitForSafeVars(){
-  // minimum short wait (let inline script run)
-  await wait(50);
-
-  const root = DOC.documentElement;
-  if(!root) return;
-
-  function getVar(name){
-    try{
-      const v = getComputedStyle(root).getPropertyValue(name);
-      return String(v||'').trim();
-    }catch(_){ return ''; }
-  }
-
-  // poll quickly up to ~600ms
-  const t0 = Date.now();
-  while(Date.now() - t0 < 650){
-    const top = getVar('--gj-top-safe');
-    const bot = getVar('--gj-bottom-safe');
-    if(top && bot) return;
-    await wait(80);
-  }
+function clamp(v, min, max) {
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
 }
 
-function buildPayload(view){
+function buildPayload(view) {
+  const run = String(qs('run', 'play') || 'play').toLowerCase();      // play | research | practice (if used)
+  const diff = String(qs('diff', 'normal') || 'normal').toLowerCase(); // easy | normal | hard
+  const time = clamp(Number(qs('time', '80') || 80), 20, 300);
+
+  // seed rules:
+  // - research: prefer explicit seed or ts; else stable fallback
+  // - play: default Date.now unless seed provided
+  const seedQ = qs('seed', null);
+  const tsQ = qs('ts', null);
+  const seed =
+    (run === 'research')
+      ? (seedQ ?? tsQ ?? 'RESEARCH-SEED')
+      : (seedQ ?? String(Date.now()));
+
+  const hub = qs('hub', null);
+
+  const studyId = qs('studyId', qs('study', null));
+  const phase = qs('phase', null);
+  const conditionGroup = qs('conditionGroup', qs('cond', null));
+
   return {
-    view,                               // pc|mobile|vr|cvr
-    run: qs('run','play'),              // play|research
-    diff: qs('diff','normal'),          // easy|normal|hard
-    time: Number(qs('time','80'))||80,
-
-    hub: qs('hub', null),
-    seed: qs('seed', null),
-    ts: qs('ts', null),
-
-    // research fields passthrough
-    studyId: qs('studyId', qs('study', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('conditionGroup', qs('cond', null)),
+    view,
+    run,
+    diff,
+    time,
+    seed,
+    hub,
+    studyId,
+    phase,
+    conditionGroup,
   };
 }
 
-async function main(){
-  updateChipMeta();
+function updateChipMeta(payload) {
+  try {
+    const el = DOC.getElementById('gjChipMeta');
+    if (!el) return;
+    const v = has('view') ? normalizeView(qs('view', payload.view)) : payload.view;
+    el.textContent = `view=${v} · run=${payload.run} · diff=${payload.diff} · time=${payload.time}`;
+  } catch (_) {}
+}
 
-  // Decide view (soft detect, but respect explicit view=)
-  const view = await detectViewSoft();
-  setBodyViewClasses(view);
+function requestSafeUpdateSoon() {
+  // HTML already measures + sets CSS vars, but we keep a hardening call here too.
+  try {
+    if (typeof WIN.__GJ_UPDATE_SAFE__ === 'function') {
+      WIN.__GJ_UPDATE_SAFE__();
+      setTimeout(() => WIN.__GJ_UPDATE_SAFE__(), 120);
+      setTimeout(() => WIN.__GJ_UPDATE_SAFE__(), 360);
+    } else {
+      // fallback: trigger resize handlers so HTML safe-measure runs again
+      WIN.dispatchEvent(new Event('resize'));
+      setTimeout(() => WIN.dispatchEvent(new Event('resize')), 120);
+      setTimeout(() => WIN.dispatchEvent(new Event('resize')), 360);
+    }
+  } catch (_) {}
+}
 
-  // Wait for safe vars measure (prevents spawn behind HUD)
-  await waitForSafeVars();
+function wireButtons() {
+  const btnBack = DOC.getElementById('btnBackHub');
+  const btnHide = DOC.getElementById('btnHideHud');
 
-  // Boot engine
-  try{
-    engineBoot(buildPayload(view));
-  }catch(err){
-    console.error('[GoodJunkVR boot] engineBoot failed:', err);
+  btnHide?.addEventListener('click', () => {
+    DOC.body.classList.toggle('hud-hidden');
+    requestSafeUpdateSoon();
+  });
 
-    // fallback: show a lightweight overlay
-    try{
-      const ov = DOC.createElement('div');
-      ov.style.cssText = `
-        position:fixed; inset:0; z-index:9999;
-        display:flex; align-items:center; justify-content:center;
-        background: rgba(2,6,23,.92); color:#e5e7eb;
-        padding:24px; font: 1000 14px/1.4 system-ui;
-      `;
-      ov.innerHTML = `
-        <div style="max-width:720px">
-          <div style="font-size:18px;font-weight:1200">GoodJunkVR โหลดไม่สำเร็จ</div>
-          <div style="margin-top:10px;color:#94a3b8">
-            ดู Console เพื่อหาสาเหตุ แล้วลองรีเฟรชอีกครั้ง
-          </div>
-          <div style="margin-top:12px;opacity:.9">error: ${String(err||'')}</div>
-          <button id="gjRetry" style="
-            margin-top:16px; height:48px; width:220px;
-            border-radius:14px; border:1px solid rgba(34,197,94,.35);
-            background: rgba(34,197,94,.14); color:#eafff3;
-            font-weight:1200; cursor:pointer;
-          ">Retry</button>
-        </div>
-      `;
-      DOC.body.appendChild(ov);
-      DOC.getElementById('gjRetry')?.addEventListener('click', ()=>location.reload());
-    }catch(_){}
+  btnBack?.addEventListener('click', () => {
+    const hub = qs('hub', null);
+    try {
+      if (hub) location.href = hub;
+      else alert('ยังไม่ได้ใส่ hub url');
+    } catch (_) {}
+  });
+}
+
+async function main() {
+  const view = await detectViewNoOverride();
+  setBodyViewClass(view);
+
+  // Remember view only if not forced by URL (soft)
+  try {
+    if (!has('view')) localStorage.setItem('HHA_LAST_VIEW', view);
+  } catch (_) {}
+
+  // fullscreen flag
+  setFullscreenFlag();
+  DOC.addEventListener('fullscreenchange', setFullscreenFlag, { passive: true });
+  DOC.addEventListener('webkitfullscreenchange', setFullscreenFlag, { passive: true });
+
+  // ensure safe spawn vars exist
+  requestSafeUpdateSoon();
+  WIN.addEventListener('resize', requestSafeUpdateSoon, { passive: true });
+  WIN.addEventListener('orientationchange', requestSafeUpdateSoon, { passive: true });
+
+  const payload = buildPayload(view);
+  updateChipMeta(payload);
+
+  wireButtons();
+
+  // Boot engine once DOM is ready
+  try {
+    engineBoot(payload);
+  } catch (e) {
+    console.error('[GoodJunkVR] engine boot failed', e);
   }
 }
 
-// DOM ready (robust)
-if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+if (DOC.readyState === 'loading') {
+  DOC.addEventListener('DOMContentLoaded', main, { once: true });
+} else {
   main();
-}else{
-  DOC.addEventListener('DOMContentLoaded', main, { once:true });
 }
