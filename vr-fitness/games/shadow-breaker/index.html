@@ -3,18 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Shadow Breaker — Game Mode</title>
+  <title>Shadow Breaker — Mode</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="stylesheet" href="./shadow-breaker-index.css" />
-  <meta name="color-scheme" content="dark light"/>
 </head>
 <body>
   <main>
     <header>
       <div class="title">
-        <h1>
-          <span class="logo">🥊</span>
-          <span id="title">Shadow Breaker</span>
-        </h1>
+        <h1><span class="logo">🥊</span><span id="title">Shadow Breaker</span></h1>
         <div id="subtitle">เกมต่อยเป้า ฝึกความแม่น + Speed + Focus</div>
       </div>
       <div class="pill"><span class="dot"></span> <span id="modeTag">Play Mode</span></div>
@@ -28,19 +25,19 @@
       <div class="card">
         <h2 id="labelTimed">⏱️ โหมดจับเวลา</h2>
         <p id="descTimed">เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส</p>
-        <a class="modeLink" data-href="./play.html?mode=timed&diff=normal&time=90" id="btnTimed">เล่น ▶</a>
+        <a id="btnTimed" href="./play.html?mode=timed&diff=normal&time=90">เล่น ▶</a>
       </div>
 
       <div class="card">
         <h2 id="labelHard">🔥 โหมดยาก</h2>
         <p id="descHard">เร็วขึ้นและบอส HP สูงขึ้น</p>
-        <a class="modeLink" data-href="./play.html?mode=timed&diff=hard&time=90" id="btnHard">ท้าทาย ▶</a>
+        <a id="btnHard" href="./play.html?mode=timed&diff=hard&time=90">ท้าทาย ▶</a>
       </div>
 
       <div class="card">
         <h2 id="labelEndless">♾️ โหมดไม่รู้จบ</h2>
         <p id="descEndless">ไม่มีจับเวลา อยู่รอดให้นานที่สุด</p>
-        <a class="modeLink" data-href="./play.html?mode=endless&diff=normal" id="btnEndless">ต่อเนื่อง ▶</a>
+        <a id="btnEndless" href="./play.html?mode=endless&diff=normal">ต่อเนื่อง ▶</a>
       </div>
     </div>
 
@@ -51,64 +48,27 @@
       </div>
       <div id="pdpa" class="info">* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล</div>
     </div>
-
   </main>
 
   <script>
-    // ===== HeroHealth-like passthrough + view auto-detect (no override) =====
-    const PASS_KEYS = ['hub','run','diff','time','seed','studyId','phase','conditionGroup','ts','log','style','view','research'];
-
-    function qs(k, d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-
-    function detectView(){
-      // DO NOT override if ?view= already exists
-      const v = (qs('view','')||'').trim().toLowerCase();
-      if(v) return v;
-
-      const ua = navigator.userAgent || '';
-      if (/Quest|Oculus|Vive|VR/i.test(ua)) return 'vr';
-      if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
-      return 'pc';
-    }
-
-    function readCtx(){
-      const ctx = {};
-      let sp;
-      try{ sp = new URL(location.href).searchParams; }catch{ return ctx; }
-      for(const k of PASS_KEYS){
-        const v = sp.get(k);
-        if(v !== null && String(v).trim() !== '') ctx[k] = String(v);
+    // ✅ passthrough จาก hub (hub/view/seed/studyId/log/phase/conditionGroup/research)
+    function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{return d;} }
+    function withCtx(url){
+      const u = new URL(url, location.href);
+      const keep = ['hub','view','seed','studyId','log','phase','conditionGroup','ts','style','research'];
+      const cur = new URL(location.href);
+      for(const k of keep){
+        const v = cur.searchParams.get(k);
+        if(v!==null && String(v).trim()!=='') u.searchParams.set(k,v);
       }
-      return ctx;
-    }
-
-    function mergeHref(base, ctx){
-      const u = new URL(base, location.href);
-      const sp = u.searchParams;
-
-      // merge passthrough ctx
-      for(const [k,v] of Object.entries(ctx)){
-        if(v === undefined || v === null || String(v).trim()==='') continue;
-        sp.set(k, String(v));
-      }
-
-      // view auto (only if not provided)
-      if(!sp.get('view')){
-        sp.set('view', detectView());
-      }
-
-      u.search = sp.toString();
       return u.toString();
     }
-
-    const ctx = readCtx();
-
-    document.querySelectorAll('.modeLink').forEach(a=>{
-      const base = a.getAttribute('data-href') || a.getAttribute('href') || './play.html';
-      a.setAttribute('href', mergeHref(base, ctx));
+    ['btnTimed','btnHard','btnEndless'].forEach(id=>{
+      const a = document.getElementById(id);
+      if(!a) return;
+      a.href = withCtx(a.getAttribute('href'));
     });
 
-    // ===== i18n =====
     const langBtn = document.querySelectorAll('.lang button');
     const text = {
       th:{
@@ -167,7 +127,6 @@
         setLang(btn.dataset.lang);
       });
     });
-
     setLang("th");
   </script>
 </body>
