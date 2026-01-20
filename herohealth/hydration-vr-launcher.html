@@ -1,368 +1,136 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hydration VR Launcher</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+// === /herohealth/hydration-vr/hydration-vr.loader.js ===
+// Hydration VR Loader — PRODUCTION (LATEST)
+// ✅ Sets body classes: view-pc / view-mobile / view-cvr
+// ✅ Cardboard: body.cardboard + show cbWrap + layers=[L,R]
+// ✅ Does NOT override if URL already has ?view=
+// ✅ Wires Start overlay -> dispatch hha:start
+// ✅ Back-to-hub buttons
+// ✅ Sets window.HHA_VIEW = { view, cardboard, layers }
 
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --radius:22px;
-      --pill:999px;
+(function(){
+  'use strict';
+  const WIN = window;
+  const DOC = document;
+  if(!DOC || WIN.__HHA_HYDRATION_LOADER__) return;
+  WIN.__HHA_HYDRATION_LOADER__ = true;
 
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-    body::before{
-      content:"";
-      position:fixed; inset:0;
-      background:
-        radial-gradient(circle at 18% 12%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(circle at 85% 78%, rgba(34,197,94,.10), transparent 60%),
-        radial-gradient(circle at 42% 90%, rgba(168,85,247,.08), transparent 60%);
-      pointer-events:none;
-      z-index:0;
-    }
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
 
-    .wrap{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
-      z-index:1;
-    }
-    .card{
-      width:min(980px, 100%);
-      border-radius: var(--radius);
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.72);
-      box-shadow: 0 24px 90px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      padding:16px;
-    }
+  function detectView(){
+    const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+    const w = Math.max(1, WIN.innerWidth||1);
+    const h = Math.max(1, WIN.innerHeight||1);
+    const landscape = w >= h;
 
-    .top{
-      display:flex; gap:12px; align-items:center; justify-content:space-between;
-      margin-bottom:12px;
+    if (isTouch){
+      // big landscape phone/tablet -> cVR (crosshair shooting)
+      if (landscape && w >= 740) return 'cvr';
+      return 'mobile';
     }
-    .brand{
-      display:flex; gap:12px; align-items:center;
-    }
-    .logo{
-      width:52px; height:52px; border-radius:16px;
-      background:rgba(34,211,238,.12);
-      border:1px solid rgba(34,211,238,.18);
-      display:flex; align-items:center; justify-content:center;
-      font-size:26px;
-    }
-    h1{ margin:0; font-size:18px; font-weight:900; letter-spacing:.2px; }
-    .sub{ margin:4px 0 0 0; color:rgba(148,163,184,.95); font-size:13px; line-height:1.35; white-space:pre-line; }
+    return 'pc';
+  }
 
-    .grid{
-      display:grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap:12px;
-      margin-top:12px;
+  function setBodyView(view){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','view-cvr');
+    if(view === 'mobile') b.classList.add('view-mobile');
+    else if(view === 'cvr') b.classList.add('view-cvr');
+    else b.classList.add('view-pc');
+  }
+
+  function setCardboard(on){
+    const b = DOC.body;
+    b.classList.toggle('cardboard', !!on);
+
+    const cbWrap = DOC.getElementById('cbWrap');
+    const layerMain = DOC.getElementById('hydration-layer');
+    if(cbWrap){
+      cbWrap.hidden = !on ? true : false;
+    }
+    if(layerMain){
+      // main layer hidden via CSS when cardboard, but keep safe anyway
+      layerMain.style.display = on ? 'none' : '';
+    }
+  }
+
+  function initHHAView(view, cardboard){
+    const cfg = { view, cardboard: !!cardboard, layers: [] };
+
+    if (cardboard){
+      const L = DOC.getElementById('hydration-layerL');
+      const R = DOC.getElementById('hydration-layerR');
+      if (L && R) cfg.layers = [L.id, R.id];
+    } else {
+      const M = DOC.getElementById('hydration-layer');
+      if (M) cfg.layers = [M.id];
     }
 
-    .panel{
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      padding:12px;
+    WIN.HHA_VIEW = cfg;
+  }
+
+  // ----------------- MAIN -----------------
+  const viewQ = String(qs('view','')||'').toLowerCase().trim();
+  const cardboardQ = String(qs('cardboard','0')||'0').toLowerCase();
+  const cardboard = (cardboardQ==='1' || cardboardQ==='true' || cardboardQ==='yes');
+
+  // ✅ do not override user-provided view; otherwise auto detect
+  const view = (viewQ==='pc' || viewQ==='mobile' || viewQ==='cvr') ? viewQ : detectView();
+
+  setBodyView(view);
+  setCardboard(cardboard);
+  initHHAView(view, cardboard);
+
+  // Overlay wiring
+  const overlay = DOC.getElementById('startOverlay');
+  const btnStart = DOC.getElementById('btnStart');
+  const ovSub = DOC.getElementById('ovSub');
+
+  const hub = String(qs('hub','../hub.html'));
+
+  // Update subtitle
+  if(ovSub){
+    const kidsQ = String(qs('kids','0')).toLowerCase();
+    const kids = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
+    const run = String(qs('run', qs('runMode','play'))).toLowerCase();
+    const extra = [
+      `VIEW: ${view.toUpperCase()}${cardboard?' + CARDBOARD':''}`,
+      kids ? 'Kids mode: ON' : '',
+      (run==='research'||run==='study') ? 'Research mode' : ''
+    ].filter(Boolean).join(' • ');
+    ovSub.textContent = extra || 'แตะเพื่อเริ่ม';
+  }
+
+  function startGame(){
+    try{
+      if(overlay) overlay.style.display = 'none';
+    }catch(_){}
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:start'));
+    }catch(_){}
+  }
+
+  // start button
+  btnStart?.addEventListener('click', startGame);
+
+  // tap anywhere on overlay
+  overlay?.addEventListener('pointerdown', (ev)=>{
+    // avoid double when pressing a button
+    const t = ev.target;
+    if(t && t.closest && t.closest('button')) return;
+    startGame();
+  }, { passive:true });
+
+  // Back-to-hub buttons
+  DOC.querySelectorAll('.btnBackHub').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ location.href = hub; });
+  });
+
+  // Safety: auto-start if overlay hidden by something else
+  setTimeout(()=>{
+    const hidden = !overlay || getComputedStyle(overlay).display === 'none';
+    if(hidden){
+      try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
     }
+  }, 700);
 
-    .row{
-      display:flex; gap:10px; flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.62);
-      color: var(--text);
-      padding:10px 12px;
-      border-radius: 14px;
-      font-weight:900;
-      font-size:13px;
-      cursor:pointer;
-      user-select:none;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-    }
-    .btn.primary{
-      border-color: rgba(34,197,94,.26);
-      background: rgba(34,197,94,.16);
-    }
-    .btn.cyan{
-      border-color: rgba(34,211,238,.26);
-      background: rgba(34,211,238,.14);
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.26);
-      background: rgba(245,158,11,.14);
-    }
-    .btn.ghost{
-      background: rgba(15,23,42,.35);
-    }
-
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px;
-      border-radius: var(--pill);
-      background: rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.14);
-      color: rgba(229,231,235,.92);
-      font-size:12px;
-      margin:6px 6px 0 0;
-    }
-
-    code{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size:12px;
-      color: rgba(229,231,235,.92);
-    }
-
-    .hint{
-      margin-top:10px;
-      font-size:12px;
-      color: rgba(229,231,235,.86);
-      line-height:1.35;
-      white-space:pre-line;
-    }
-
-    .small{
-      font-size:12px;
-      color: rgba(148,163,184,.95);
-      line-height:1.35;
-      white-space:pre-line;
-    }
-
-    @media (max-width: 880px){
-      .grid{ grid-template-columns: 1fr; }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="top">
-        <div class="brand">
-          <div class="logo">💧</div>
-          <div>
-            <h1>Hydration VR — Launcher</h1>
-            <div class="sub" id="subtitle">กำลังตรวจอุปกรณ์...</div>
-          </div>
-        </div>
-        <div class="row" style="margin:0;">
-          <button class="btn ghost" id="btnHub">🏠 HUB</button>
-        </div>
-      </div>
-
-      <div class="grid">
-        <div class="panel">
-          <div style="font-weight:900; margin-bottom:6px;">เข้าเล่น (แนะนำ)</div>
-          <div class="small">
-- ปุ่ม “Auto Play” จะเลือกโหมดให้เอง: Mobile → view=mobile, PC → view=pc
-- ถ้าจะทดสอบ VR ให้ใช้ปุ่ม Cardboard / cVR ด้านล่าง (ไม่ใช่เมนูในเกม)
-          </div>
-
-          <div class="row">
-            <button class="btn primary" id="btnAuto">▶ Auto Play</button>
-            <button class="btn cyan" id="btnCardboard">🕶️ Cardboard VR</button>
-            <button class="btn cyan" id="btnCVR">🎯 cVR (crosshair)</button>
-          </div>
-
-          <div class="row">
-            <button class="btn warn" id="btnResearch">🧪 Research Mode</button>
-            <button class="btn" id="btnCopyLink">🔗 Copy Link</button>
-          </div>
-
-          <div class="hint" id="hintBox">…</div>
-        </div>
-
-        <div class="panel">
-          <div style="font-weight:900; margin-bottom:8px;">พารามิเตอร์ที่ส่งเข้าเกม</div>
-          <div>
-            <span class="pill">view=<b id="vView">auto</b></span>
-            <span class="pill">run=<b id="vRun">play</b></span>
-            <span class="pill">diff=<b id="vDiff">normal</b></span>
-            <span class="pill">time=<b id="vTime">70</b>s</span>
-          </div>
-
-          <div style="margin-top:10px;" class="small">
-ส่งต่อได้ทั้งหมด เช่น:
-- <code>studentKey</code>, <code>sessionId</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code>
-- <code>seed</code> (research ให้ deterministic)
-- <code>log</code> (Google Apps Script endpoint)
-- <code>hub</code> (ลิงก์กลับ HUB)
-          </div>
-
-          <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(148,163,184,.12);" class="small">
-<b>หมายเหตุ:</b> ตัวเกม Hydration ไม่มีเมนูเลือกโหมด (ตามที่กำหนด)
-โหมดจะมาจาก launcher/hub หรือ auto-detect เท่านั้น
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    (function(){
-      'use strict';
-
-      const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-
-      const hub = String(qs('hub','./hub.html'));
-      const diff = String(qs('diff','normal')).toLowerCase();
-      const time = String(qs('time','70'));
-      const log  = String(qs('log',''));
-      const seed = String(qs('seed',''));
-      const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
-
-      const subtitle = document.getElementById('subtitle');
-      const hintBox  = document.getElementById('hintBox');
-
-      const vView = document.getElementById('vView');
-      const vRun  = document.getElementById('vRun');
-      const vDiff = document.getElementById('vDiff');
-      const vTime = document.getElementById('vTime');
-
-      function isMobileUA(){
-        const ua = (navigator.userAgent||'').toLowerCase();
-        return /android|iphone|ipad|ipod|mobile/.test(ua);
-      }
-
-      function buildUrl(view, forceResearch){
-        const u = new URL('./hydration-vr.html', location.href);
-
-        // passthrough context (สำคัญสำหรับวิจัย/ลอคเกอร์)
-        const passthrough = [
-          'hub','run','runMode','diff','time','seed','ts','v',
-          'studentKey','sessionId','studyId','phase','conditionGroup','sessionOrder',
-          'schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
-          'device','gameVersion','siteCode','semester','schoolYear',
-          'log','timestampIso','projectTag'
-        ];
-        const src = new URL(location.href);
-
-        for (const k of passthrough){
-          const val = src.searchParams.get(k);
-          if (val != null) u.searchParams.set(k, val);
-        }
-
-        // enforce
-        u.searchParams.set('hub', hub);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', time);
-
-        if (log) u.searchParams.set('log', log);
-        if (seed) u.searchParams.set('seed', seed);
-
-        // view (from launcher only)
-        u.searchParams.set('view', view);
-
-        // research mode => run=research (deterministic in safe.js)
-        if (forceResearch){
-          u.searchParams.set('run', 'research');
-          if (!u.searchParams.get('seed')){
-            // make deterministic seed if not provided
-            const sid = u.searchParams.get('sessionId') || u.searchParams.get('studentKey') || '';
-            u.searchParams.set('seed', sid ? (sid + '|' + Date.now()) : String(Date.now()));
-          }
-        } else {
-          // keep play if not explicitly research
-          u.searchParams.set('run', (run === 'research') ? 'play' : run);
-        }
-
-        // bust for module import
-        u.searchParams.set('ts', String(Date.now()));
-        return u.toString();
-      }
-
-      function goto(url){ location.href = url; }
-
-      const autoView = isMobileUA() ? 'mobile' : 'pc';
-
-      if (subtitle){
-        subtitle.textContent =
-`ตรวจแล้ว: ${isMobileUA() ? 'Mobile' : 'PC'}
-(ถ้าจะเล่น VR ให้กด Cardboard / cVR)`;
-      }
-
-      function syncPreview(view, isResearch){
-        if (vView) vView.textContent = view;
-        if (vRun)  vRun.textContent  = isResearch ? 'research' : 'play';
-        if (vDiff) vDiff.textContent = diff;
-        if (vTime) vTime.textContent = time;
-
-        const link = buildUrl(view, isResearch);
-        if (hintBox){
-          hintBox.textContent =
-`ลิงก์ที่จะเปิด:
-${link}
-
-Tips:
-- Cardboard: เข้า fullscreen/landscape ตอนกด START ในเกม
-- cVR: ยิงจาก crosshair กลางจอ (vr-ui.js ส่ง hha:shoot)
-- Research: run=research จะปิด adaptive (ตาม safe.js) และใช้ seed แบบ deterministic`;
-        }
-        return link;
-      }
-
-      let lastLink = syncPreview(autoView, false);
-
-      // buttons
-      document.getElementById('btnHub')?.addEventListener('click', ()=> goto(hub));
-      document.getElementById('btnAuto')?.addEventListener('click', ()=>{
-        lastLink = syncPreview(autoView, false);
-        goto(lastLink);
-      });
-      document.getElementById('btnCardboard')?.addEventListener('click', ()=>{
-        lastLink = syncPreview('cardboard', false);
-        goto(lastLink);
-      });
-      document.getElementById('btnCVR')?.addEventListener('click', ()=>{
-        lastLink = syncPreview('cvr', false);
-        goto(lastLink);
-      });
-      document.getElementById('btnResearch')?.addEventListener('click', ()=>{
-        // research ใช้ autoView โดยค่าเริ่มต้น แต่ยังสามารถเลือก cardboard/cvr แล้วค่อยกด research ได้ในรอบหน้า
-        lastLink = syncPreview(autoView, true);
-        goto(lastLink);
-      });
-
-      document.getElementById('btnCopyLink')?.addEventListener('click', async ()=>{
-        try{
-          await navigator.clipboard.writeText(lastLink);
-          alert('Copied link ✅');
-        }catch(_){
-          prompt('Copy this link:', lastLink);
-        }
-      });
-
-      // keep hint updated on load
-      lastLink = syncPreview(autoView, false);
-    })();
-  </script>
-</body>
-</html>
+})();
