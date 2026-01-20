@@ -1,11 +1,12 @@
 // === /herohealth/vr/mode-factory.js ===
-// HHA Mode Factory — DOM Target Spawner (PLATE-PATCH / STABLE)
-// ✅ Exports: boot({ mount, seed, spawnRate, sizeRange, kinds, onHit, onExpire })
-// ✅ Fix: "Cannot access 'controller' before initialization"
-// ✅ Fix: ensure named export 'boot' exists
-// ✅ Basic seeded RNG support
-// ✅ Spawns circular targets into mount (absolute positioned)
-// ✅ Supports tap/click + hha:shoot (crosshair assist)
+// HHA Mode Factory — DOM Target Spawner (PRODUCTION PATCH A21)
+// ✅ export boot() (fix: "no export named boot")
+// ✅ fix TDZ: no "controller before initialization"
+// ✅ Spawn DOM targets inside mount
+// ✅ Click/tap hit + crosshair shoot (hha:shoot)
+// ✅ Seeded RNG support
+// ✅ Safe spawn bounds (avoid HUD & edges)
+// ✅ destroy() to cleanup timers/listeners
 
 'use strict';
 
@@ -17,8 +18,18 @@ function clamp(v, a, b){
   return v < a ? a : (v > b ? b : v);
 }
 
+function pickWeighted(items, rng){
+  const total = items.reduce((s,it)=>s + (Number(it.weight)||0), 0) || 1;
+  let r = (rng ? rng() : Math.random()) * total;
+  for(const it of items){
+    r -= (Number(it.weight)||0);
+    if(r <= 0) return it;
+  }
+  return items[items.length-1];
+}
+
 function seededRng(seed){
-  let t = (Number(seed) || Date.now()) >>> 0;
+  let t = (Number(seed)||0) >>> 0;
   return function(){
     t += 0x6D2B79F5;
     let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -27,213 +38,261 @@ function seededRng(seed){
   };
 }
 
-function pickWeighted(rng, items){
-  // items: [{kind, weight}, ...]
-  const arr = Array.isArray(items) ? items : [];
-  let sum = 0;
-  for(const it of arr) sum += Math.max(0, Number(it.weight)||0);
-  if(sum <= 0) return arr[0] || { kind:'good', weight:1 };
-
-  let t = rng() * sum;
-  for(const it of arr){
-    t -= Math.max(0, Number(it.weight)||0);
-    if(t <= 0) return it;
-  }
-  return arr[arr.length-1];
+function getSafeArea(){
+  // Basic safe-area from CSS env values if present (best-effort)
+  const cs = getComputedStyle(DOC.documentElement);
+  const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
+  const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+  const sal = parseFloat(cs.getPropertyValue('--sal')) || 0;
+  const sar = parseFloat(cs.getPropertyValue('--sar')) || 0;
+  return { sat, sab, sal, sar };
 }
 
-function rectOf(el){
-  const r = el.getBoundingClientRect();
-  return { x:r.left, y:r.top, w:r.width, h:r.height };
-}
-
-function createTargetEl(){
+function defaultTargetEl(){
   const el = DOC.createElement('div');
   el.className = 'plateTarget';
-  el.style.position = 'absolute';
-  el.style.left = '0px';
-  el.style.top  = '0px';
-  el.style.width = '56px';
-  el.style.height = '56px';
-  el.style.fontSize = '26px';
-  el.style.display = 'grid';
-  el.style.placeItems = 'center';
-  el.style.userSelect = 'none';
-  el.style.touchAction = 'none';
+  el.textContent = '🍽️';
   return el;
 }
 
-function dist2(ax,ay,bx,by){
-  const dx=ax-bx, dy=ay-by;
-  return dx*dx+dy*dy;
-}
-
-export function boot(opts = {}){
+/**
+ * boot({
+ *   mount: HTMLElement,
+ *   seed?: number,
+ *   rng?: ()=>number,
+ *   spawnRate?: ms,
+ *   ttl?: ms,
+ *   sizeRange?: [min,max],
+ *   kinds?: [{kind, weight, emoji?}],
+ *   onHit?: (t)=>void,
+ *   onExpire?: (t)=>void,
+ * })
+ */
+export function boot(opts={}){
+  if(!DOC) throw new Error('mode-factory: document missing');
   const mount = opts.mount;
   if(!mount) throw new Error('mode-factory: mount missing');
 
-  // ----- cfg -----
-  const seed = opts.seed ?? Date.now();
-  const rng  = opts.rng || seededRng(seed);
-
-  const spawnRate = clamp(opts.spawnRate ?? 900, 200, 5000);
-  const sizeRange = Array.isArray(opts.sizeRange) ? opts.sizeRange : [44,64];
-  const minS = clamp(sizeRange[0] ?? 44, 24, 220);
-  const maxS = clamp(sizeRange[1] ?? 64, minS, 260);
-
-  const kinds = Array.isArray(opts.kinds) ? opts.kinds : [{kind:'good', weight:1}];
-
-  const onHit    = (typeof opts.onHit === 'function') ? opts.onHit : ()=>{};
-  const onExpire = (typeof opts.onExpire === 'function') ? opts.onExpire : ()=>{};
-
-  // ----- state -----
-  const state = {
-    alive:true,
-    timer:null,
-    targets:new Map(), // id -> meta
-    nextId:1
+  // ------- controller/state (declare BEFORE any use; fix TDZ) -------
+  const controller = {
+    alive: true,
+    timerId: null,
+    targets: new Map(),   // id -> target
+    lastId: 0,
+    rng: null,
+    destroy,
+    spawnOne,
+    clearAll,
   };
 
-  // ensure mount style
-  const ms = mount.style;
-  if(getComputedStyle(mount).position === 'static'){
-    ms.position = 'fixed';
-    ms.inset = '0';
+  // ------- config -------
+  const spawnRate = Math.max(120, Number(opts.spawnRate || 900) || 900);
+  const ttl       = Math.max(300, Number(opts.ttl || 1300) || 1300);
+  const sizeRange = Array.isArray(opts.sizeRange) ? opts.sizeRange : [44, 64];
+  const kinds     = Array.isArray(opts.kinds) && opts.kinds.length ? opts.kinds : [
+    { kind:'good', weight:0.7, emoji:'🥦' },
+    { kind:'junk', weight:0.3, emoji:'🍟' }
+  ];
+
+  controller.rng = (typeof opts.rng === 'function')
+    ? opts.rng
+    : seededRng(opts.seed ?? Date.now());
+
+  // ensure mount positioning
+  const ms = getComputedStyle(mount);
+  if(ms.position === 'static') mount.style.position = 'fixed';
+  if(!mount.style.inset) mount.style.inset = '0';
+  mount.style.touchAction = 'none';
+  mount.style.userSelect = 'none';
+
+  // ------- helpers -------
+  function getPlayRect(){
+    const r = mount.getBoundingClientRect();
+    // avoid edges + avoid HUD area using safe-area + extra padding
+    const { sat, sab, sal, sar } = getSafeArea();
+    const pad = 10;
+
+    // conservative HUD zones (top/bottom) — tuned for your layouts
+    const topHud = 120 + sat;         // HUD top + quest card area
+    const bottomHud = 110 + sab;      // buttons / coach
+
+    const left = r.left + pad + sal;
+    const right = r.right - pad - sar;
+    const top = r.top + pad + topHud;
+    const bottom = r.bottom - pad - bottomHud;
+
+    // fallback if rect too small: relax HUD exclusion
+    if((right-left) < 140 || (bottom-top) < 160){
+      return {
+        left: r.left + pad + sal,
+        right: r.right - pad - sar,
+        top: r.top + pad + sat,
+        bottom: r.bottom - pad - sab
+      };
+    }
+    return { left, right, top, bottom };
+  }
+
+  function spawnPos(size){
+    const pr = getPlayRect();
+    const w = Math.max(40, (pr.right - pr.left) - size);
+    const h = Math.max(40, (pr.bottom - pr.top) - size);
+    const x = pr.left + (controller.rng() * w) + size/2;
+    const y = pr.top + (controller.rng() * h) + size/2;
+    return { x, y };
+  }
+
+  function makeTarget(){
+    const pick = pickWeighted(kinds, controller.rng);
+    const size = Math.round(
+      clamp(sizeRange[0], 18, 200) +
+      controller.rng() * (clamp(sizeRange[1], 18, 240) - clamp(sizeRange[0], 18, 200))
+    );
+
+    const { x, y } = spawnPos(size);
+
+    const el = defaultTargetEl();
+    el.dataset.kind = pick.kind;
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.position = 'fixed';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.transform = 'translate(-50%,-50%)';
+    el.style.zIndex = '11';
+
+    if(pick.emoji) el.textContent = pick.emoji;
+
+    const id = String(++controller.lastId);
+    const t = {
+      id,
+      kind: pick.kind,
+      emoji: pick.emoji || '',
+      groupIndex: (pick.kind === 'good') ? Math.floor(controller.rng()*5) : null,
+      el,
+      bornAt: performance.now(),
+      expiresAt: performance.now() + ttl
+    };
+
+    return t;
+  }
+
+  function removeTarget(id, why){
+    const t = controller.targets.get(id);
+    if(!t) return;
+    controller.targets.delete(id);
+    try{ t.el.remove(); }catch(_){}
+    if(why === 'expire'){
+      try{ opts.onExpire && opts.onExpire(t); }catch(_){}
+    }
+  }
+
+  function clearAll(){
+    for(const [id] of controller.targets) removeTarget(id, 'clear');
+  }
+
+  // hit test by coordinates (for crosshair shoot)
+  function hitTestAt(x, y, lockPx){
+    const lx = Number(x)||0;
+    const ly = Number(y)||0;
+    const lp = Math.max(0, Number(lockPx||0)||0);
+
+    // pick the nearest target inside lock radius (simple & fair)
+    let best = null;
+    let bestD = Infinity;
+
+    for(const t of controller.targets.values()){
+      const r = t.el.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
+      const dx = cx - lx;
+      const dy = cy - ly;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      const hitRadius = (Math.min(r.width, r.height)/2) + lp;
+      if(d <= hitRadius && d < bestD){
+        best = t;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  function onPointerDown(e){
+    if(!controller.alive) return;
+    const btn = e.target && e.target.closest && e.target.closest('button, a');
+    if(btn) return;
+
+    const tEl = e.target && e.target.closest && e.target.closest('.plateTarget');
+    if(!tEl) return;
+
+    // find target
+    for(const t of controller.targets.values()){
+      if(t.el === tEl){
+        removeTarget(t.id, 'hit');
+        try{ opts.onHit && opts.onHit(t); }catch(_){}
+        return;
+      }
+    }
+  }
+
+  function onShoot(ev){
+    if(!controller.alive) return;
+    const d = ev && ev.detail ? ev.detail : {};
+    const W = WIN.innerWidth || 360;
+    const H = WIN.innerHeight || 640;
+    const x = Number(d.x ?? (W/2));
+    const y = Number(d.y ?? (H/2));
+    const lockPx = Number(d.lockPx ?? 0);
+
+    const hit = hitTestAt(x, y, lockPx);
+    if(hit){
+      removeTarget(hit.id, 'hit');
+      try{ opts.onHit && opts.onHit(hit); }catch(_){}
+    }
+  }
+
+  // ---------- main spawn loop ----------
+  function tick(){
+    if(!controller.alive) return;
+
+    const now = performance.now();
+    for(const [id, t] of controller.targets){
+      if(now >= t.expiresAt){
+        removeTarget(id, 'expire');
+      }
+    }
+
+    // keep a small stable population
+    const desired = 3; // can be tuned later per diff
+    while(controller.targets.size < desired){
+      spawnOne();
+    }
   }
 
   function spawnOne(){
-    if(!state.alive) return;
-
-    const play = rectOf(mount);
-    if(play.w < 80 || play.h < 80) return; // too small, skip
-
-    const s = Math.round(minS + rng()*(maxS-minS));
-    const pad = 10;
-
-    // pick position inside playfield
-    const x = Math.round(play.x + pad + rng() * Math.max(1, play.w - s - pad*2));
-    const y = Math.round(play.y + pad + rng() * Math.max(1, play.h - s - pad*2));
-
-    const picked = pickWeighted(rng, kinds);
-    const kind = String(picked.kind || 'good');
-
-    const id = String(state.nextId++);
-    const el = createTargetEl();
-    el.dataset.id = id;
-    el.dataset.kind = kind;
-    el.setAttribute('data-kind', kind);
-
-    el.style.width = `${s}px`;
-    el.style.height = `${s}px`;
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
-    el.style.fontSize = `${Math.max(20, Math.round(s*0.45))}px`;
-
-    // emoji content by kind (fallback)
-    el.textContent = (kind === 'junk') ? '🍩' : '🍽️';
-
-    // lifetime
-    const bornAt = performance.now();
-    const ttlMs = clamp(opts.ttlMs ?? 1800, 500, 6000);
-
-    const meta = { id, kind, x, y, s, bornAt, ttlMs, el };
-    state.targets.set(id, meta);
-
-    mount.appendChild(el);
-
-    // expire
-    setTimeout(()=>{
-      const m = state.targets.get(id);
-      if(!m) return;
-      // still alive -> expire
-      state.targets.delete(id);
-      try{ m.el.remove(); }catch(_){}
-      try{ onExpire({ kind:m.kind, id:m.id }); }catch(_){}
-    }, ttlMs);
-
-    // direct click/tap hit
-    el.addEventListener('pointerdown', (e)=>{
-      e.preventDefault();
-      hitTarget(id, 'tap', e.clientX, e.clientY);
-    }, { passive:false });
+    if(!controller.alive) return;
+    const t = makeTarget();
+    controller.targets.set(t.id, t);
+    mount.appendChild(t.el);
   }
 
-  function hitTarget(id, source='tap', px=null, py=null){
-    const m = state.targets.get(id);
-    if(!m) return false;
-
-    state.targets.delete(id);
-    try{ m.el.remove(); }catch(_){}
-
-    try{
-      onHit({
-        id:m.id,
-        kind:m.kind,
-        source,
-        groupIndex: (m.kind === 'good') ? Math.floor(rng()*5) : undefined
-      });
-    }catch(_){}
-    return true;
+  function destroy(){
+    if(!controller.alive) return;
+    controller.alive = false;
+    try{ clearInterval(controller.timerId); }catch(_){}
+    controller.timerId = null;
+    clearAll();
+    try{ mount.removeEventListener('pointerdown', onPointerDown); }catch(_){}
+    try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
   }
 
-  // crosshair shooting: find nearest target to center (lockPx)
-  function onShoot(ev){
-    if(!state.alive) return;
-    const d = ev?.detail || {};
-    const W = WIN.innerWidth || 360;
-    const H = WIN.innerHeight || 640;
-    const cx = (d.x ?? (W/2));
-    const cy = (d.y ?? (H/2));
-    const lockPx = clamp(d.lockPx ?? 26, 6, 120);
-
-    let bestId = null;
-    let bestD2 = Infinity;
-
-    for(const [id,m] of state.targets){
-      const tx = m.x + m.s/2;
-      const ty = m.y + m.s/2;
-      const dd2 = dist2(cx,cy,tx,ty);
-      if(dd2 < bestD2){
-        bestD2 = dd2;
-        bestId = id;
-      }
-    }
-
-    if(bestId && bestD2 <= lockPx*lockPx){
-      hitTarget(bestId, String(d.source||'shoot'), cx, cy);
-    }
-  }
-
+  // ---------- bind listeners ----------
+  mount.addEventListener('pointerdown', onPointerDown, { passive:true });
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  // loop
-  state.timer = setInterval(()=>{
-    if(!state.alive) return;
-    spawnOne();
-  }, spawnRate);
-
-  // spawn a few immediately
-  spawnOne();
-  setTimeout(spawnOne, Math.round(spawnRate*0.45));
-
-  // controller API
-  const controller = {
-    stop(){
-      if(!state.alive) return;
-      state.alive = false;
-      try{ clearInterval(state.timer); }catch(_){}
-      WIN.removeEventListener('hha:shoot', onShoot, { passive:true });
-      // cleanup targets
-      for(const [id,m] of state.targets){
-        try{ m.el.remove(); }catch(_){}
-      }
-      state.targets.clear();
-    },
-    setEmojiMap(map){
-      // optional future hook
-      controller.emojiMap = map || null;
-    }
-  };
+  // ---------- start loop ----------
+  controller.timerId = setInterval(tick, 80);
+  tick();
 
   return controller;
 }
