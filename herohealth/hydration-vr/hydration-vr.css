@@ -1,10 +1,9 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration Quest VR — PRODUCTION (LATEST)
-✅ HHA Standard layout: HUD top + mission + water panel
-✅ Safe-area insets
-✅ Playfield bounds used by spawn-safezone logic (sync with hydration.safe.js)
-✅ Targets clickable, HUD non-blocking
-✅ Cardboard split support
+✅ HUD safe-area aware
+✅ Playfield padded + clear space for targets
+✅ Cardboard split layout
+✅ FX hooks (.hha-endfx / .hha-bossfx / .hha-hitfx)
 */
 
 :root{
@@ -22,10 +21,10 @@ Hydration Quest VR — PRODUCTION (LATEST)
   --warn:#f59e0b;
   --cyan:#22d3ee;
   --danger:#ef4444;
-  --violet:#a78bfa;
+  --storm:#a78bfa;
 
   --radius:18px;
-  --radius-lg:22px;
+  --radius2:22px;
   --pill:999px;
 
   /* safe-area */
@@ -34,10 +33,11 @@ Hydration Quest VR — PRODUCTION (LATEST)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* IMPORTANT: keep these in sync with hydration.safe.js pickXY() safeTop/safeBottom */
-  --hud-top-safe: 140px;      /* top HUD stack reserved area (without sat) */
-  --hud-bottom-safe: 44px;    /* bottom gesture safe room (without sab) */
-  --hud-side-safe: 18px;      /* side safe room */
+  /* layout tuning (kids-friendly) */
+  --pad: 10px;
+  --hudTopH: 44px;     /* approx top chip row height */
+  --hudMidH: 116px;    /* approx quest+water panel block */
+  --hudGap: 10px;
 }
 
 *{ box-sizing:border-box; }
@@ -48,46 +48,53 @@ html,body{
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial;
 }
 
-/* A-Frame scene underlay (for Enter VR reliability) */
+/* A-Frame scene sits behind */
 a-scene{
   position:fixed;
   inset:0;
   z-index:0;
 }
 
-/* Playfield wrapper — defines the game rectangle */
+/* Playfield wrapper */
 #playfieldWrap{
   position:fixed;
   inset:0;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+  padding: calc(var(--pad) + var(--sat))
+           calc(var(--pad) + var(--sar))
+           calc(var(--pad) + var(--sab))
+           calc(var(--pad) + var(--sal));
   z-index: 1;
-  pointer-events:none; /* targets will enable pointer-events themselves */
+  pointer-events:none;
 }
 
+/* Main playfield */
 #playfield{
   position:relative;
   width:100%;
   height:100%;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius2);
   overflow:hidden;
+
   background:
     radial-gradient(circle at 10% 10%, rgba(34,211,238,.08), transparent 55%),
     radial-gradient(circle at 90% 80%, rgba(34,197,94,.06), transparent 55%),
     rgba(2,6,23,.18);
+
   border: 1px solid rgba(148,163,184,.10);
   pointer-events:none;
 }
 
+/* layer that receives spawned targets */
 .layer{
   position:absolute;
   inset:0;
   pointer-events:none;
 }
 
-/* HUD */
+/* HUD layer */
 #hud{
   position:fixed;
   inset:0;
@@ -98,9 +105,9 @@ a-scene{
 /* top chips */
 .hud-top{
   position:fixed;
-  top: calc(10px + var(--sat));
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
+  top: calc(var(--pad) + var(--sat));
+  left: calc(var(--pad) + var(--sal));
+  right: calc(var(--pad) + var(--sar));
   display:flex;
   gap:8px;
   flex-wrap:wrap;
@@ -108,6 +115,22 @@ a-scene{
   pointer-events:none;
 }
 
+/* mid block (quest + water) */
+.hud-mid{
+  position:fixed;
+  top: calc(var(--pad) + var(--sat) + var(--hudTopH) + var(--hudGap));
+  left: calc(var(--pad) + var(--sal));
+  right: calc(var(--pad) + var(--sar));
+  display:grid;
+  grid-template-columns: 1.3fr .7fr;
+  gap:10px;
+  pointer-events:none;
+}
+@media (max-width:720px){
+  .hud-mid{ grid-template-columns: 1fr; }
+}
+
+/* chips */
 .chip{
   pointer-events:none;
   border:1px solid rgba(148,163,184,.16);
@@ -119,27 +142,13 @@ a-scene{
   color: rgba(229,231,235,.92);
   box-shadow: 0 16px 60px rgba(0,0,0,.35);
 }
-.chip.big{ font-weight:900; }
+.chip.big{ font-weight:950; }
 .chip.ok b{ color: var(--accent); }
 .chip.warn b{ color: var(--warn); }
 .chip.cyan b{ color: var(--cyan); }
-.chip.storm b{ color: var(--violet); }
+.chip.storm b{ color: var(--storm); }
 
-/* mid panels */
-.hud-mid{
-  position:fixed;
-  top: calc(56px + var(--sat));
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  display:grid;
-  grid-template-columns: 1.3fr .7fr;
-  gap:10px;
-  pointer-events:none;
-}
-@media (max-width:720px){
-  .hud-mid{ grid-template-columns: 1fr; }
-}
-
+/* panels */
 .quest, .waterpanel{
   border:1px solid rgba(148,163,184,.16);
   background:rgba(2,6,23,.48);
@@ -150,7 +159,7 @@ a-scene{
 }
 
 .quest-title{
-  font-weight:900;
+  font-weight:950;
   letter-spacing:.2px;
   font-size:13px;
   opacity:.96;
@@ -161,20 +170,23 @@ a-scene{
   color: rgba(229,231,235,.88);
   line-height:1.35;
 }
-.quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
+.quest-lines > div{
+  margin:2px 0;
+  color: rgba(229,231,235,.88);
+}
 .quest-lines #quest-line3,
 .quest-lines #quest-line4{
   color: rgba(148,163,184,.92);
 }
 
-/* water gauge panel */
+/* water panel */
 .waterpanel .water-head{
   display:flex;
   align-items:baseline;
   justify-content:space-between;
   gap:10px;
 }
-.waterpanel .wtitle{ font-weight:900; font-size:13px; }
+.waterpanel .wtitle{ font-weight:950; font-size:13px; }
 .waterpanel .wzone{ font-size:12px; color: rgba(148,163,184,.95); }
 
 .wbar{
@@ -190,17 +202,16 @@ a-scene{
   width:50%;
   border-radius: var(--pill);
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-  transition: width .18s ease-out; /* gentle */
 }
 .wpct{
   margin-top:6px;
-  font-weight:900;
+  font-weight:950;
   text-align:right;
   font-size:12px;
   color: rgba(229,231,235,.92);
 }
 
-/* overlay (start/result) */
+/* overlays */
 .overlay{
   position:fixed;
   inset:0;
@@ -215,7 +226,7 @@ a-scene{
 
 .overlay-card{
   width:min(720px, 100%);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius2);
   border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.82);
   box-shadow: 0 24px 90px rgba(0,0,0,.55);
@@ -240,7 +251,7 @@ a-scene{
   background: rgba(15,23,42,.72);
   color: rgba(229,231,235,.95);
   padding: 10px 12px;
-  font-weight:900;
+  font-weight:950;
   cursor:pointer;
 }
 .btn.primary{
@@ -256,7 +267,7 @@ a-scene{
   line-height:1.35;
 }
 
-/* result grid */
+/* result */
 .res-grid{
   margin-top:10px;
   display:grid;
@@ -275,6 +286,7 @@ a-scene{
 }
 .res-note{ margin-top:10px; }
 .tier{ font-weight:950; color: rgba(34,197,94,.95); }
+
 .tips{
   white-space: pre-wrap;
   margin:10px 0 0;
@@ -288,7 +300,11 @@ a-scene{
 }
 .next{ margin-top:8px; color: rgba(229,231,235,.92); }
 
-/* End window FX hooks from hydration.safe.js */
+/* FX hooks */
+body.hha-hitfx #playfield{
+  filter: saturate(1.04) brightness(1.03);
+}
+
 body.hha-endfx #playfield{
   animation: hhaShake .22s linear infinite;
 }
@@ -300,10 +316,11 @@ body.hha-endfx #playfield{
   100%{ transform: translate(0,0); }
 }
 body.hha-bossfx #playfield{
-  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset, 0 24px 90px rgba(239,68,68,.10);
+  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset,
+              0 24px 90px rgba(239,68,68,.10);
 }
 
-/* Shock element from hydration.safe.js */
+/* Shock element */
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
@@ -321,11 +338,8 @@ body.hha-bossfx #playfield{
   to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
 }
 
-/* Targets: clickable, above background but below overlays */
-.hvr-target{
-  pointer-events:auto;
-  touch-action: manipulation;
-}
+/* Targets are clickable */
+.hvr-target{ pointer-events:auto; }
 
 /* Cardboard split */
 body.cardboard #hydration-layer{ display:none; }
@@ -341,5 +355,5 @@ body.cardboard #hydration-layer{ display:none; }
 body.cardboard #cbWrap{ display:block; }
 body.cardboard #cbWrap[hidden]{ display:block !important; }
 
-/* small helpful: prevent text selection */
-#hud, .overlay{ -webkit-user-select:none; user-select:none; }
+/* Make sure VR-UI buttons/crosshair are above scene but below overlays */
+.hha-vrui{ z-index: 70 !important; }
