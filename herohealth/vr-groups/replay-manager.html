@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GroupsVR Replay Manager</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --radius:18px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ width:100%; height:100%; margin:0; background:radial-gradient(circle at top left, rgba(56,189,248,0.14), transparent 55%), radial-gradient(circle at bottom right, rgba(34,197,94,0.12), transparent 55%), var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto; }
+    .wrap{ padding:calc(14px + var(--sat)) 14px calc(14px + var(--sab)); max-width:980px; margin:0 auto; }
+    .top{
+      display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+      padding:14px; border:1px solid var(--stroke); background:var(--panel); border-radius:var(--radius);
+    }
+    .title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
+    .sub{ color:var(--muted); font-size:12px; margin-top:2px; }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding:10px 12px; border-radius:12px;
+      border:1px solid var(--stroke); background:rgba(15,23,42,.55);
+      color:var(--text); cursor:pointer; font-weight:800;
+    }
+    .btn:hover{ filter:brightness(1.07); }
+    .btn-strong{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.35); }
+    .btn-warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.35); }
+    .btn-danger{ background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.35); }
+    .pill{
+      padding:6px 10px; border-radius:var(--pill);
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.55);
+      color:var(--muted);
+      font-size:12px; font-weight:800;
+    }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+    @media(min-width:860px){
+      .grid{ grid-template-columns: 1fr 1fr; }
+    }
+    .card{
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      background:rgba(2,6,23,.66);
+      overflow:hidden;
+    }
+    .cardHead{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      padding:12px 12px 10px;
+      background:rgba(15,23,42,.55);
+      border-bottom:1px solid rgba(148,163,184,.12);
+    }
+    .k{ color:var(--muted); font-size:11px; font-weight:900; letter-spacing:.25px; }
+    .v{ font-size:13px; font-weight:900; margin-top:2px; }
+    .meta{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .meta .tag{ font-size:11px; font-weight:900; color:var(--text); opacity:.92; padding:5px 10px; border-radius:var(--pill); border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.55); }
+    .cardBody{ padding:12px; }
+    .cardBtns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .small{ font-size:11px; color:var(--muted); }
+    .empty{
+      margin-top:14px;
+      border:1px dashed rgba(148,163,184,.24);
+      border-radius:var(--radius);
+      padding:14px;
+      color:var(--muted);
+      background:rgba(2,6,23,.4);
+      text-align:center;
+      font-weight:800;
+    }
+    textarea{
+      width:100%; height:120px; resize:vertical;
+      padding:10px 12px; border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.55);
+      color:var(--text);
+      font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      outline:none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">🎬 GroupsVR Replay Manager</div>
+        <div class="sub">ดูรายการ replay ล่าสุดในเครื่องนี้ • กดเล่นซ้ำ/คัดลอก URL/ลบ</div>
+      </div>
+      <div class="row">
+        <span id="countPill" class="pill">0 items</span>
+        <button id="btnBack" class="btn">⬅️ Back</button>
+        <button id="btnPurgeOld" class="btn btn-warn">🧹 Purge</button>
+        <button id="btnClearAll" class="btn btn-danger">🗑️ Clear all</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div class="cardHead">
+        <div>
+          <div class="k">Quick paste replayDataB64</div>
+          <div class="v">นำเข้า replay จากเครื่องอื่น (จะถูกเก็บในรายการ)</div>
+        </div>
+        <div class="row">
+          <button id="btnImport" class="btn btn-strong">➕ Import</button>
+        </div>
+      </div>
+      <div class="cardBody">
+        <textarea id="importTa" placeholder="Paste replayDataB64 here..."></textarea>
+        <div class="small" style="margin-top:8px;">
+          * Import นี้จะสร้าง key แบบสั้น (rp_YYYYMMDD_xxxx) และเล่นได้ด้วย URL สั้น
+        </div>
+      </div>
+    </div>
+
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty hidden">ยังไม่มี replay ในเครื่องนี้ — เล่นเกมด้วย <code>record=1</code> แล้วจบเกมก่อน</div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+  const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
+
+  const LS_REPLAY_MAP = 'HHA_GROUPS_REPLAY_MAP_V1';
+
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch(_){ return def; }
+  }
+
+  function loadMap(){
+    try{ return JSON.parse(localStorage.getItem(LS_REPLAY_MAP)||'{}') || {}; }catch(_){ return {}; }
+  }
+  function saveMap(map){
+    try{ localStorage.setItem(LS_REPLAY_MAP, JSON.stringify(map||{})); }catch(_){}
+  }
+
+  function makeRpKey(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da= String(d.getDate()).padStart(2,'0');
+    const t = String(Date.now()).slice(-4);
+    return `rp_${y}${m}${da}_${t}`;
+  }
+
+  function buildShortUrl(rpKey){
+    const base = new URL('../groups.html', location.href); // run page
+    const sp = new URLSearchParams(location.search);
+
+    // keep typical params if exist
+    const keep = ['hub','view','diff','kids','time','seed','style','practice','dbg'];
+    keep.forEach(k=>{
+      const v = sp.get(k);
+      if (v!=null) base.searchParams.set(k, v);
+    });
+
+    base.searchParams.set('run','play');
+    base.searchParams.set('replay','1');
+    base.searchParams.set('rp', rpKey);
+    return base.toString();
+  }
+
+  async function copyText(text){
+    try { await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch {
+      try{
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select();
+        DOC.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
+    }
+  }
+
+  function fmtTime(ts){
+    const d = new Date(Number(ts)||0);
+    if (!isFinite(d.getTime())) return '—';
+    return d.toLocaleString();
+  }
+
+  function metaTags(meta){
+    meta = meta || {};
+    const tags = [];
+    if (meta.diff) tags.push('diff:' + meta.diff);
+    if (meta.view) tags.push('view:' + meta.view);
+    if (meta.kids) tags.push('kids');
+    if (meta.grade) tags.push('rank:' + meta.grade);
+    if (meta.score!=null) tags.push('score:' + meta.score);
+    if (meta.seed) tags.push('seed:' + meta.seed);
+    return tags;
+  }
+
+  function render(){
+    const map = loadMap();
+    const keys = Object.keys(map).sort((a,b)=> (map[b].ts||0) - (map[a].ts||0));
+    $('countPill').textContent = keys.length + ' items';
+
+    const grid = $('grid');
+    grid.innerHTML = '';
+
+    $('empty').classList.toggle('hidden', keys.length !== 0);
+
+    keys.forEach((k)=>{
+      const it = map[k] || {};
+      const meta = it.meta || {};
+      const url = buildShortUrl(k);
+
+      const card = DOC.createElement('div');
+      card.className = 'card';
+
+      const head = DOC.createElement('div');
+      head.className = 'cardHead';
+      head.innerHTML = `
+        <div>
+          <div class="k">Key</div>
+          <div class="v">${k}</div>
+          <div class="meta">${metaTags(meta).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+          <div class="small" style="margin-top:8px;">saved: ${fmtTime(it.ts)}</div>
+        </div>
+        <div class="row">
+          <span class="pill">${(it.b64||'').length} chars</span>
+        </div>
+      `;
+
+      const body = DOC.createElement('div');
+      body.className = 'cardBody';
+
+      const btns = DOC.createElement('div');
+      btns.className = 'cardBtns';
+
+      const btnPlay = DOC.createElement('button');
+      btnPlay.className = 'btn btn-strong';
+      btnPlay.textContent = '▶ Play';
+      btnPlay.onclick = ()=> location.href = url;
+
+      const btnCopy = DOC.createElement('button');
+      btnCopy.className = 'btn';
+      btnCopy.textContent = '🔗 Copy URL';
+      btnCopy.onclick = async ()=>{
+        const ok = await copyText(url);
+        alert(ok ? 'คัดลอก URL แล้ว 🔗' : 'Copy ไม่สำเร็จ');
+      };
+
+      const btnCopyB64 = DOC.createElement('button');
+      btnCopyB64.className = 'btn';
+      btnCopyB64.textContent = '📋 Copy B64';
+      btnCopyB64.onclick = async ()=>{
+        const ok = await copyText(String(it.b64||''));
+        alert(ok ? 'คัดลอก replayDataB64 แล้ว 🎬' : 'Copy ไม่สำเร็จ');
+      };
+
+      const btnDel = DOC.createElement('button');
+      btnDel.className = 'btn btn-danger';
+      btnDel.textContent = '🗑️ Delete';
+      btnDel.onclick = ()=>{
+        if (!confirm('ลบ replay นี้?')) return;
+        const mm = loadMap();
+        delete mm[k];
+        saveMap(mm);
+        render();
+      };
+
+      btns.appendChild(btnPlay);
+      btns.appendChild(btnCopy);
+      btns.appendChild(btnCopyB64);
+      btns.appendChild(btnDel);
+
+      const info = DOC.createElement('div');
+      info.className = 'small';
+      info.style.marginTop = '10px';
+      info.textContent = 'Short URL ใช้ได้ในเครื่องนี้ (localStorage) • ถ้าจะส่งข้ามเครื่อง ให้ส่ง B64';
+
+      body.appendChild(btns);
+      body.appendChild(info);
+
+      card.appendChild(head);
+      card.appendChild(body);
+      grid.appendChild(card);
+    });
+  }
+
+  // actions
+  $('btnBack').addEventListener('click', ()=>{
+    const back = String(qs('back','')||'').trim();
+    if (back){
+      location.href = back;
+      return;
+    }
+    // default: launcher
+    location.href = '../groups-vr.html';
+  });
+
+  $('btnClearAll').addEventListener('click', ()=>{
+    if (!confirm('ลบ replay ทั้งหมดในเครื่องนี้?')) return;
+    saveMap({});
+    render();
+  });
+
+  $('btnPurgeOld').addEventListener('click', ()=>{
+    const map = loadMap();
+    const keys = Object.keys(map).sort((a,b)=> (map[b].ts||0) - (map[a].ts||0));
+    const keep = keys.slice(0, 30);
+    const trimmed = {};
+    keep.forEach(k=> trimmed[k]=map[k]);
+    saveMap(trimmed);
+    alert('Purge แล้ว (คงไว้ 30 รายการล่าสุด)');
+    render();
+  });
+
+  $('btnImport').addEventListener('click', ()=>{
+    const b64 = String(($('importTa').value||'')).trim();
+    if (!b64){ alert('ยังไม่ได้วาง replayDataB64'); return; }
+
+    const map = loadMap();
+    const key = makeRpKey();
+    map[key] = { b64, meta: { imported:true }, ts: Date.now() };
+
+    // trim 30
+    const keys = Object.keys(map).sort((a,b)=> (map[b].ts||0) - (map[a].ts||0));
+    const trimmed = {};
+    keys.slice(0,30).forEach(k=> trimmed[k]=map[k]);
+    saveMap(trimmed);
+
+    $('importTa').value = '';
+    alert('Import สำเร็จ ✅ สร้าง key: ' + key);
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
