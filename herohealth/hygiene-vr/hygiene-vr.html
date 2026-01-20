@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Handwash Survival</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="../favicon.ico" />
+
+  <link rel="stylesheet" href="./hygiene-vr.css" />
+
+  <!-- A-Frame: minimal scene to keep Enter VR reliable -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- HHA universal VR UI (already in your project) -->
+  <script src="../vr/vr-ui.js"></script>
+</head>
+<body class="hha-run">
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true;physicallyCorrectLights:true">
+    <a-entity position="0 1.6 0"></a-entity>
+    <a-sky color="#0b1020"></a-sky>
+  </a-scene>
+
+  <!-- DOM HUD + play field -->
+  <div class="hha-root">
+    <header class="hha-top">
+      <div class="hha-title">
+        <div class="badge">🧼</div>
+        <div>
+          <div class="t1">Handwash Survival</div>
+          <div class="t2" id="subTitle">อยู่รอด • ทำให้ถูก • หลบของปนเปื้อน</div>
+        </div>
+      </div>
+
+      <div class="hha-stats">
+        <div class="stat">
+          <div class="k">HP</div>
+          <div class="v" id="hp"></div>
+        </div>
+        <div class="stat">
+          <div class="k">RISK</div>
+          <div class="bar"><i id="riskBar"></i></div>
+        </div>
+        <div class="stat">
+          <div class="k">TIME</div>
+          <div class="v mono" id="time">--</div>
+        </div>
+        <div class="stat">
+          <div class="k">SCORE</div>
+          <div class="v mono" id="score">0</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="hha-quest">
+      <div class="qrow">
+        <div class="pill goal" id="goalPill">GOAL: อยู่รอดให้ครบเวลา</div>
+        <div class="pill mini" id="miniPill">MINI: --</div>
+      </div>
+      <div class="qrow">
+        <div class="small mono" id="hint">แตะ/คลิกเป้าให้ถูกจุด • ถ้าเป็น cVR ใช้ crosshair ยิง</div>
+      </div>
+    </section>
+
+    <main class="hha-play">
+      <div class="play-area" id="play">
+        <!-- targets spawn here -->
+      </div>
+    </main>
+
+    <div class="overlay" id="overlay">
+      <div class="panel">
+        <div class="h1" id="ovTitle">พร้อมเล่นไหม?</div>
+        <div class="p" id="ovDesc">Tutorial 15 วินาที แล้วเริ่ม Survival 70 วินาที</div>
+        <div class="row">
+          <button class="btn primary" id="btnStart">เริ่ม</button>
+          <button class="btn" id="btnPractice">ฝึก 15s</button>
+          <button class="btn ghost" id="btnBack">กลับ HUB</button>
+        </div>
+        <div class="row row2">
+          <button class="btn" id="btnExport" style="display:none;">Export CSV</button>
+          <button class="btn" id="btnRestart" style="display:none;">เล่นอีกครั้ง</button>
+        </div>
+        <div class="p small mono" id="ovMeta"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./hygiene.boot.js"></script>
+</body>
+</html>
