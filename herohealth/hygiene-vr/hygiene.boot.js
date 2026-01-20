@@ -19,15 +19,19 @@ import { boot } from './hygiene.safe.js';
     conditionGroup: qs('conditionGroup',''),
     hub: qs('hub','../hub.html'),
     style: qs('style','mix'),
-    logEndpoint: qs('log','') // not used yet (kept for later)
+    logEndpoint: qs('log',''),
+    studentId: qs('studentId',''),
+    playIndex: qs('playIndex','')
   };
 
   // research/practice: deterministic + adaptive OFF
   if (cfg.runMode === 'research' || cfg.runMode === 'practice'){
-    if (!qs('seed', null)) cfg.seed = 123456; // stable fallback
+    if (!qs('seed', null)) cfg.seed = 123456;
   }
 
-  // Mount
+  // autoPractice only for cVR play mode
+  cfg.autoPractice = (cfg.runMode === 'play' && cfg.view === 'cvr');
+
   if (DOC.readyState === 'loading'){
     DOC.addEventListener('DOMContentLoaded', ()=>boot(cfg), { once:true });
   } else {
