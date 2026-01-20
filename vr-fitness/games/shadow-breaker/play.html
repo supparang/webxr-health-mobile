@@ -10,6 +10,7 @@
 <body>
   <div class="page">
 
+    <!-- ===== การเก็บข้อมูลวิจัย ===== -->
     <section class="card research-card">
       <header class="card-header">
         <div class="title">
@@ -26,8 +27,12 @@
       </header>
 
       <div class="research-grid">
-        <label><span>Student ID</span><input id="studentId" type="text" placeholder="เช่น 65001" /></label>
-        <label><span>Device</span>
+        <label>
+          <span>Student ID</span>
+          <input id="studentId" type="text" placeholder="เช่น 65001" />
+        </label>
+        <label>
+          <span>Device</span>
           <select id="deviceType">
             <option value="auto" selected>Auto detect</option>
             <option value="pc">PC / Notebook</option>
@@ -35,45 +40,81 @@
             <option value="vrHeadset">VR Headset</option>
           </select>
         </label>
-        <label><span>School / Institution</span><input id="schoolName" type="text" placeholder="ชื่อโรงเรียน / สถาบัน" /></label>
-        <label><span>Class / Room</span><input id="classRoom" type="text" placeholder="เช่น ป.5/1" /></label>
-        <label><span>Group / Code</span><input id="groupCode" type="text" placeholder="เช่น กลุ่มทดลอง / Control ฯลฯ" /></label>
-        <label><span>Note (optional)</span><input id="note" type="text" placeholder="หมายเหตุเพิ่มเติม" /></label>
+        <label>
+          <span>School / Institution</span>
+          <input id="schoolName" type="text" placeholder="ชื่อโรงเรียน / สถาบัน" />
+        </label>
+        <label>
+          <span>Class / Room</span>
+          <input id="classRoom" type="text" placeholder="เช่น ป.5/1" />
+        </label>
+        <label>
+          <span>Group / Code</span>
+          <input id="groupCode" type="text" placeholder="เช่น กลุ่มทดลอง / Control ฯลฯ" />
+        </label>
+        <label>
+          <span>Note (optional)</span>
+          <input id="note" type="text" placeholder="หมายเหตุเพิ่มเติม" />
+        </label>
       </div>
 
-      <p id="metaPDPA" class="hint">* ข้อมูลนี้ใช้เพื่อการวิจัยด้านการออกกำลังกายเท่านั้น และจะไม่เปิดเผยตัวตนรายบุคคล</p>
+      <p id="metaPDPA" class="hint">
+        * ข้อมูลนี้ใช้เพื่อการวิจัยด้านการออกกำลังกายเท่านั้น และจะไม่เปิดเผยตัวตนรายบุคคล
+      </p>
     </section>
 
+    <!-- ===== การเล่น Shadow Breaker ===== -->
     <section class="card game-card">
+
       <div class="hud">
-        <div class="hud-block"><span id="lblTime" class="label">TIME</span><span class="value"><span id="timeVal">60</span> s</span></div>
-        <div class="hud-block"><span id="lblScore" class="label">SCORE</span><span class="value" id="scoreVal">0</span></div>
-        <div class="hud-block"><span id="lblHit" class="label">HIT</span><span class="value" id="hitVal">0</span></div>
-        <div class="hud-block"><span id="lblMiss" class="label">MISS</span><span class="value" id="missVal">0</span></div>
-        <div class="hud-block"><span id="lblCombo" class="label">COMBO</span><span class="value" id="comboVal">x0</span></div>
+        <div class="hud-block">
+          <span id="lblTime" class="label">TIME</span>
+          <span class="value"><span id="timeVal">60</span> s</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblScore" class="label">SCORE</span>
+          <span class="value" id="scoreVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblHit" class="label">HIT</span>
+          <span class="value" id="hitVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblMiss" class="label">MISS</span>
+          <span class="value" id="missVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblCombo" class="label">COMBO</span>
+          <span class="value" id="comboVal">x0</span>
+        </div>
       </div>
 
       <div class="start-row">
-        <button id="startBtn" class="btn btn-main">▶ <span id="startLabel">เริ่มเล่น</span></button>
+        <button id="startBtn" class="btn btn-main">
+          ▶ <span id="startLabel">เริ่มเล่น</span>
+        </button>
       </div>
 
-      <p id="tagGoal" class="hint goal-text">เป้าหมาย: ต่อย/ยิงเป้า emoji ให้ทันเวลา รักษาคอมโบ และพิชิตบอสทั้ง 4 ตัว.</p>
+      <p id="tagGoal" class="hint goal-text">
+        เป้าหมาย: ต่อยเป้า emoji ให้ทันเวลา เน้นความแม่นยำและคอมโบต่อเนื่อง (มีบอส 4 ตัวโผล่มาเป็นระยะ).
+      </p>
 
       <div class="game-panel">
         <div id="gameArea"></div>
         <div id="feedback" class="feedback"></div>
       </div>
 
-      <p id="coachLine" class="coach">โค้ชพุ่ง: เล็งกลางจอแล้วแตะ/ยิงให้โดน! 👊</p>
+      <p id="coachLine" class="coach">โค้ชพุ่ง: เล็งให้ไว แล้วต่อยให้โดนเป้า! 👊</p>
 
       <div class="controls">
         <h2>วิธีเล่น / Controls</h2>
         <ul>
-          <li><strong>PC:</strong> คลิกเป้า / กด Space ยิงเป้าใกล้กลางจอ</li>
-          <li><strong>Mobile:</strong> แตะเป้า / แตะยิง (crosshair)</li>
-          <li><strong>VR:</strong> ใช้ crosshair + tap-to-shoot / trigger (ผ่าน vr-ui.js)</li>
+          <li><strong>PC / Notebook:</strong> คลิกเมาส์บนเป้าที่โผล่ขึ้นมา</li>
+          <li><strong>Mobile / Tablet:</strong> แตะนิ้วไปที่เป้าให้ทัน</li>
+          <li><strong>VR Headset:</strong> ใช้ pointer / controller เล็งแล้วกด trigger ให้โดน</li>
         </ul>
-        <p class="hint small">* ใน VR แนะนำเปิด fullscreen และใช้ปุ่ม RECENTER</p>
+        <p class="hint">ต่อเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ.</p>
+        <p class="hint small">Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น</p>
       </div>
     </section>
 
@@ -94,11 +135,17 @@
 
         <hr />
 
-        <button id="downloadCsvBtn" class="btn btn-secondary btn-full">📥 <span id="downloadCsvLabel">ดาวน์โหลด CSV ข้อมูลวิจัย (ทุก session)</span></button>
+        <button id="downloadCsvBtn" class="btn btn-secondary btn-full">
+          📥 <span id="downloadCsvLabel">ดาวน์โหลด CSV ข้อมูลวิจัย (ทุก session)</span>
+        </button>
 
         <div class="overlay-actions">
-          <button id="playAgainBtn" class="btn btn-main btn-full">▶ <span id="playAgainLabel">เล่นอีกครั้ง</span></button>
-          <button id="backHubBtn" class="btn btn-secondary btn-full">🏠 <span id="backHubLabel">กลับเมนูหลัก</span></button>
+          <button id="playAgainBtn" class="btn btn-main btn-full">
+            ▶ <span id="playAgainLabel">เล่นอีกครั้ง</span>
+          </button>
+          <button id="backHubBtn" class="btn btn-secondary btn-full">
+            🏠 <span id="backHubLabel">กลับเมนูหลัก</span>
+          </button>
         </div>
       </div>
     </div>
@@ -106,19 +153,24 @@
   </div>
 
   <script>
-    // mode-play / research auto (เหมือน HeroHealth)
+    // ถ้าไม่ใช่ research ให้ซ่อน form+csv (HeroHealth-like “play mode”)
     (function(){
-      const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-      const research = (qs('research','')||'').toLowerCase();
-      const isResearch = research==='1' || research==='true' || research==='on' || !!qs('log','') || !!qs('studyId','');
+      function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
+      const log = (qs('log','')||'').trim();
+      const studyId = (qs('studyId','')||'').trim();
+      const r = (qs('research','')||'').toLowerCase();
+      const isResearch = (r==='1'||r==='true'||r==='on'||!!studyId||!!log);
       if(!isResearch) document.body.classList.add('mode-play');
+
+      // optional: vr-ui config (same concept as HeroHealth)
+      window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
     })();
-
-    // HeroHealth VR UI (crosshair + enter/exit/recenter + hha:shoot)
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
-  <script src="../../herohealth/vr/vr-ui.js"></script>
 
+  <!-- ✅ vr-ui.js ต้องมาก่อน เพื่อส่ง hha:shoot -->
+  <script src="../../vr/vr-ui.js"></script>
+
+  <!-- ✅ เกมหลัก -->
   <script src="./shadow-breaker.js"></script>
 </body>
 </html>
