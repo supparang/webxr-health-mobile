@@ -1,301 +1,666 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness — Hub</title>
-  <meta name="color-scheme" content="dark light"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — HUB</title>
+  <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
-      --accent:#22d3ee; --radius:22px; --pill:999px;
-      --sat: env(safe-area-inset-top,0px);
-      --sar: env(safe-area-inset-right,0px);
-      --sab: env(safe-area-inset-bottom,0px);
-      --sal: env(safe-area-inset-left,0px);
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
+      --danger:#f97373;
+      --radius:22px;
+      --pill:999px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:#000;color:var(--text);font:16px/1.5 system-ui,Segoe UI,Inter,Arial}
-    .topbar{
-      display:flex;align-items:center;justify-content:space-between;gap:12px;
-      padding:14px calc(18px + var(--sar)) 14px calc(18px + var(--sal));
-      border-bottom:1px solid #22263a;
-      position:sticky;top:0;background:linear-gradient(180deg,#0f1220 0%,#0f1220ee 100%);z-index:5
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at top left,rgba(56,189,248,.16),transparent 55%),
+        radial-gradient(circle at bottom right,rgba(34,197,94,.18),transparent 55%),
+        var(--bg);
+      color:var(--text);
+      overflow-x:hidden;
+      padding: calc(10px + var(--sat)) 10px calc(14px + var(--sab));
     }
-    .brand{margin:0;font-size:20px;letter-spacing:.3px}
-    .btn{
-      background:var(--accent);color:#001018;border:0;padding:10px 14px;border-radius:var(--pill);
-      font-weight:700;cursor:pointer
+
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
     }
-    .btn.secondary{background:transparent;color:var(--text);border:1px solid rgba(148,163,184,.35)}
-    .btn.hidden{display:none}
-    .hub{padding:20px calc(18px + var(--sar)) calc(22px + var(--sab)) calc(18px + var(--sal));background:#0b1020}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
-    .card{
-      background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:16px;
-      box-shadow:0 8px 22px rgba(0,0,0,.35)
+
+    header{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      margin-bottom:10px;
     }
-    .card h2{margin:0 0 6px 0;font-size:18px}
-    .desc{margin:0 0 10px 0;color:var(--muted)}
-    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0}
-    .row label{color:var(--muted);font-size:13px}
-    select,input[type=number]{
-      width:130px;background:#0f1220;color:var(--text);border:1px solid #2a2f4a;border-radius:12px;padding:8px
+
+    .brand{
+      display:flex;
+      gap:10px;
+      align-items:center;
     }
-    .stage{position:fixed;inset:0;background:#000;display:none}
-    .stage.show{display:flex}
-    .frame{flex:1;width:100%;height:100%;border:0;background:#000}
-    .overlayTop{
-      position:absolute;left:0;right:0;top:calc(10px + var(--sat));
-      display:flex;justify-content:center;pointer-events:none
+    .logo{
+      width:44px;height:44px;border-radius:999px;
+      display:flex;align-items:center;justify-content:center;
+      background:radial-gradient(circle at 30% 20%, rgba(34,211,238,.9), rgba(14,165,233,.9));
+      color:#07101f;
+      font-size:22px;
+      box-shadow:0 18px 40px rgba(8,47,73,.6);
+      border:1px solid rgba(255,255,255,.12);
     }
+    h1{
+      margin:0;
+      font-size:1.15rem;
+      letter-spacing:.2px;
+      line-height:1.1;
+    }
+    .sub{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:.82rem;
+    }
+
+    .topRight{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      align-items:flex-end;
+      min-width:240px;
+    }
+
     .pill{
-      background:#ffffff1a;color:#fff;padding:6px 12px;border-radius:999px;font-weight:700;
-      backdrop-filter: blur(6px);border:1px solid #ffffff33;font-size:13px
+      display:inline-flex;align-items:center;gap:8px;
+      padding:6px 12px;
+      border-radius:var(--pill);
+      border:1px solid rgba(148,163,184,.35);
+      background:rgba(2,6,23,.55);
+      color:var(--muted);
+      font-size:.75rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      white-space:nowrap;
     }
-    .err{
-      position:fixed;left:12px;bottom:calc(12px + var(--sab));max-width:min(92vw,680px);
-      background:#2a2f4a;color:#fff;border:1px solid #445;border-radius:12px;padding:10px 12px;font-size:14px;
-      line-height:1.4;display:none;z-index:9
+    .dot{
+      width:8px;height:8px;border-radius:999px;
+      background:var(--accent);
+      box-shadow:0 0 0 5px rgba(34,197,94,.18);
     }
-    .fallback{margin-top:8px;font-size:13px;color:#ddd}
-    .links a{color:#bde3ff}
+
+    .toolbar{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:.82rem;
+      font-weight:700;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      color:var(--text);
+      background:rgba(15,23,42,.85);
+      border:1px solid rgba(148,163,184,.35);
+    }
+    .btn.primary{
+      background:linear-gradient(135deg, #facc15, #f97316);
+      color:#081224;
+      border-color:rgba(255,255,255,.0);
+      box-shadow:0 18px 38px rgba(248,181,0,.35);
+    }
+    .btn.ghost{
+      background:rgba(2,6,23,.45);
+    }
+    .btn.small{
+      padding:6px 10px;
+      font-size:.74rem;
+      font-weight:700;
+    }
+
+    .card{
+      border-radius:var(--radius);
+      border:1px solid rgba(148,163,184,.22);
+      background: radial-gradient(circle at top left, rgba(56,189,248,.10), transparent 60%),
+                  rgba(15,23,42,.80);
+      box-shadow:0 18px 55px rgba(2,6,23,.65);
+      padding:12px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    @media(max-width:820px){
+      .grid{ grid-template-columns:1fr; }
+      .topRight{ align-items:flex-start; min-width:unset; width:100%; }
+      .toolbar{ justify-content:flex-start; }
+    }
+
+    .gameCard{
+      position:relative;
+      overflow:hidden;
+    }
+    .gameHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .gameTitle{
+      display:flex; gap:10px; align-items:center;
+    }
+    .gIcon{
+      width:40px;height:40px;border-radius:14px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(34,211,238,.12);
+      border:1px solid rgba(34,211,238,.22);
+      font-size:22px;
+    }
+    .gName{
+      margin:0;
+      font-size:1.02rem;
+      letter-spacing:.2px;
+    }
+    .gDesc{
+      margin:4px 0 0;
+      font-size:.78rem;
+      color:var(--muted);
+    }
+
+    .chips{
+      display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;
+    }
+    .chip{
+      font-size:.72rem;
+      padding:5px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(2,6,23,.38);
+      color:var(--muted);
+    }
+    .chip.good{ border-color:rgba(34,197,94,.35); color:#bbf7d0; background:rgba(34,197,94,.10); }
+    .chip.warn{ border-color:rgba(245,158,11,.40); color:#fde68a; background:rgba(245,158,11,.10); }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .actions .btn{ flex:1; justify-content:center; }
+    .actions .btn.secondary{
+      background:rgba(2,6,23,.42);
+    }
+
+    .last{
+      margin-top:10px;
+      padding:10px;
+      border-radius:16px;
+      border:1px dashed rgba(148,163,184,.25);
+      background:rgba(2,6,23,.35);
+      color:var(--muted);
+      font-size:.78rem;
+    }
+    .last strong{ color:var(--text); }
+
+    .note{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:.75rem;
+    }
+
+    /* ===== Stage Overlay (iframe) ===== */
+    .stage{
+      position:fixed;
+      inset:0;
+      background:rgba(2,6,23,.92);
+      z-index:120;
+      display:none;
+      padding: calc(10px + var(--sat)) 10px calc(10px + var(--sab));
+    }
+    .stage.show{ display:block; }
+
+    .stageBar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+
+    .stageTitle{
+      display:flex;align-items:center;gap:10px;
+      color:var(--text);
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+    .stageTitle .badge{
+      font-size:.72rem;
+      color:#bbf7d0;
+      border:1px solid rgba(34,197,94,.35);
+      background:rgba(34,197,94,.10);
+      padding:4px 10px;
+      border-radius:999px;
+    }
+
+    .frameWrap{
+      position:relative;
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.22);
+      background:#000;
+      overflow:hidden;
+      box-shadow:0 26px 80px rgba(0,0,0,.70);
+      height: calc(100vh - 92px - var(--sat) - var(--sab));
+    }
+
+    iframe{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      border:0;
+      background:#000;
+    }
+
+    .pdpa{
+      margin-top:10px;
+      color:rgba(148,163,184,.86);
+      font-size:.74rem;
+    }
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <h1 class="brand">VR Fitness — Hub</h1>
-    <button id="btnBack" class="btn secondary hidden" type="button">← Back to Hub</button>
-  </header>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">🏋️</div>
+        <div>
+          <h1>VR Fitness — HUB</h1>
+          <div class="sub">โหมดเล่น/วิจัย • ทุกแพลตฟอร์ม • แนว HeroHealth</div>
+        </div>
+      </div>
 
-  <main id="hub" class="hub">
-    <section class="grid">
-      <article class="card">
-        <h2>Shadow Breaker</h2>
-        <p class="desc">ชก/ยิงเป้า — Reaction + Accuracy + Focus (มีบอส 4 ตัว)</p>
-        <div class="row"><label>Difficulty</label>
-          <select data-name="diff-sb"><option>easy</option><option selected>normal</option><option>hard</option></select>
+      <div class="topRight">
+        <div class="pill"><span class="dot"></span><span id="envTag">detecting…</span></div>
+        <div class="toolbar">
+          <button class="btn small ghost" id="btnCopyLink">🔗 Copy HUB link</button>
+          <button class="btn small" id="btnResetView">♻ Reset view</button>
+          <button class="btn small" id="btnToggleLang">TH/EN</button>
         </div>
-        <div class="row"><label>Time (sec)</label><input data-name="time-sb" type="number" min="30" max="180" step="5" value="90"/></div>
-        <div class="row"><label>Research</label>
-          <select data-name="research-sb"><option value="0" selected>Play</option><option value="1">Research</option></select>
-        </div>
-        <div class="row">
-          <button class="btn" data-action="play" data-game="shadow-breaker">Play</button>
-          <span class="fallback links">
-            <a target="_self" data-direct="shadow-breaker" href="#">เปิดตรง</a>
-          </span>
-        </div>
-      </article>
+      </div>
+    </header>
 
-      <article class="card">
-        <h2>Rhythm Boxer</h2>
-        <p class="desc">ต่อยตามจังหวะ — Timing + Combo</p>
-        <div class="row"><label>Difficulty</label>
-          <select data-name="diff-rb"><option>easy</option><option selected>normal</option><option>hard</option></select>
+    <section class="card" style="margin-bottom:10px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+        <div style="color:var(--muted);font-size:.82rem;">
+          <strong style="color:var(--text);">Context:</strong>
+          view=<span id="ctxView">-</span> • seed=<span id="ctxSeed">-</span> • phase=<span id="ctxPhase">-</span>
+          <span id="ctxResearch"></span>
         </div>
-        <div class="row"><label>Time (sec)</label><input data-name="time-rb" type="number" min="45" max="180" step="5" value="85"/></div>
-        <div class="row"><label>Research</label>
-          <select data-name="research-rb"><option value="0" selected>Play</option><option value="1">Research</option></select>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn small primary" id="btnQuickPlay">▶ Quick Play</button>
+          <button class="btn small" id="btnQuickResearch">🧪 Quick Research</button>
         </div>
-        <div class="row">
-          <button class="btn" data-action="play" data-game="rhythm-boxer">Play</button>
-          <span class="fallback links"><a target="_self" data-direct="rhythm-boxer" href="#">เปิดตรง</a></span>
-        </div>
-      </article>
-
-      <article class="card">
-        <h2>Jump–Duck</h2>
-        <p class="desc">กระโดด–ก้ม — Agility + Balance</p>
-        <div class="row"><label>Difficulty</label>
-          <select data-name="diff-jd"><option selected>easy</option><option>normal</option><option>hard</option></select>
-        </div>
-        <div class="row"><label>Time (sec)</label><input data-name="time-jd" type="number" min="45" max="180" step="5" value="80"/></div>
-        <div class="row"><label>Research</label>
-          <select data-name="research-jd"><option value="0" selected>Play</option><option value="1">Research</option></select>
-        </div>
-        <div class="row">
-          <button class="btn" data-action="play" data-game="jump-duck">Play</button>
-          <span class="fallback links"><a target="_self" data-direct="jump-duck" href="#">เปิดตรง</a></span>
-        </div>
-      </article>
-
-      <article class="card">
-        <h2>Balance–Hold</h2>
-        <p class="desc">ทรงตัว/คุมแกนกลาง — Core + Stability</p>
-        <div class="row"><label>Difficulty</label>
-          <select data-name="diff-bh"><option>easy</option><option selected>normal</option><option>hard</option></select>
-        </div>
-        <div class="row"><label>Time (sec)</label><input data-name="time-bh" type="number" min="30" max="180" step="5" value="75"/></div>
-        <div class="row"><label>Research</label>
-          <select data-name="research-bh"><option value="0" selected>Play</option><option value="1">Research</option></select>
-        </div>
-        <div class="row">
-          <button class="btn" data-action="play" data-game="balance-hold">Play</button>
-          <span class="fallback links"><a target="_self" data-direct="balance-hold" href="#">เปิดตรง</a></span>
-        </div>
-      </article>
+      </div>
+      <div class="pdpa" id="pdpaLine">* ใช้เพื่อการสอน/ทดสอบ/วิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล (PDPA)</div>
     </section>
-  </main>
 
-  <section id="stage" class="stage" aria-hidden="true">
-    <iframe id="gameFrame" class="frame" allow="autoplay; xr-spatial-tracking; fullscreen *; accelerometer; gyroscope;"></iframe>
-    <div class="overlayTop"><div id="stagePill" class="pill">Running…</div></div>
-  </section>
+    <section class="grid">
 
-  <div id="err" class="err"></div>
+      <!-- ===== Shadow Breaker ===== -->
+      <article class="card gameCard" data-game="shadow-breaker">
+        <div class="gameHead">
+          <div class="gameTitle">
+            <div class="gIcon">🥊</div>
+            <div>
+              <h2 class="gName">Shadow Breaker</h2>
+              <div class="gDesc">ต่อย/ยิงเป้า • Speed + Focus + Reaction • Boss 4</div>
+            </div>
+          </div>
+          <div class="chips">
+            <span class="chip good">HHA events</span>
+            <span class="chip good">hha:shoot</span>
+            <span class="chip warn">Boss HUD</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" data-action="play">▶ Play</button>
+          <button class="btn secondary" data-action="research">🧪 Research</button>
+          <button class="btn" data-action="open">↗ New tab</button>
+        </div>
+
+        <div class="last" id="last-shadow-breaker">
+          <strong>ผลล่าสุด:</strong> ยังไม่มีข้อมูล
+        </div>
+
+        <div class="note">
+          แนะนำ: มือถือ/คาร์ดบอร์ดใช้ crosshair/tap-to-shoot ได้ (ถ้าหน้าเกม include vr-ui.js)
+        </div>
+      </article>
+
+      <!-- ===== Placeholder: Next games (เพิ่มทีหลัง) ===== -->
+      <article class="card gameCard">
+        <div class="gameHead">
+          <div class="gameTitle">
+            <div class="gIcon">🥁</div>
+            <div>
+              <h2 class="gName">Rhythm Boxer (next)</h2>
+              <div class="gDesc">จังหวะ + คาร์ดิโอ • จะใส่มาตรฐานเดียวกัน</div>
+            </div>
+          </div>
+          <div class="chips">
+            <span class="chip">soon</span>
+          </div>
+        </div>
+        <div class="note">เกมถัดไปจะ “ต่อแพ็คมาตรฐาน” หลัง Shadow Breaker production-ready</div>
+      </article>
+
+    </section>
+
+    <div class="pdpa" style="margin-top:12px;">
+      Tip: ถ้าเปิดใน VR browser แล้ว iframe มีปัญหา ให้กด “New tab” เพื่อเปิดตรงเกม
+    </div>
+  </div>
+
+  <!-- ===== STAGE (iframe overlay) ===== -->
+  <div class="stage" id="stage">
+    <div class="stageBar">
+      <div class="stageTitle">
+        <span id="stageGameIcon">🎮</span>
+        <span id="stageGameName">Game</span>
+        <span class="badge" id="stageModeBadge">PLAY</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn small" id="btnStageNewTab">↗ New tab</button>
+        <button class="btn small ghost" id="btnStageClose">✖ Back HUB</button>
+      </div>
+    </div>
+    <div class="frameWrap">
+      <iframe id="stageFrame" title="VR Fitness Stage" allow="fullscreen; xr-spatial-tracking; accelerometer; gyroscope; autoplay"></iframe>
+    </div>
+  </div>
 
   <script>
-    // ===== HeroHealth-like Hub: passthrough + view detect (no override if exists) =====
-    const $ = s=>document.querySelector(s);
-    const hubEl=$("#hub"), stageEl=$("#stage"), frameEl=$("#gameFrame"), backBtn=$("#btnBack");
-    const errBox=$("#err");
-
+    // ---------- helpers ----------
+    const $ = (s)=>document.querySelector(s);
     function qs(k, d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-    function clamp(n,a,b){ n=+n; if(!Number.isFinite(n)) return a; return Math.max(a, Math.min(b,n)); }
 
-    // detect view once (pc/mobile/vr/cvr) — but NEVER override if already provided
     function detectView(){
+      // DO NOT override if ?view= exists
       const v = (qs('view','')||'').toLowerCase();
-      if (v) return v;
+      if(v) return v;
+
       const ua = navigator.userAgent || '';
-      if (/Quest|Oculus|Vive|VR/i.test(ua)) return 'vr';
-      if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
+      const isVR = /Quest|Oculus|Vive|VR/i.test(ua);
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+      if(isVR) return 'vr';
+      if(isMobile) return 'mobile';
       return 'pc';
     }
 
-    // shared passthrough keys (HeroHealth style)
-    const PASS_KEYS = [
-      'hub','run','diff','time','seed','studyId','phase','conditionGroup','ts','log','style','view','research'
-    ];
+    function ensureSeed(){
+      const cur = (qs('seed','')||'').trim();
+      if(cur) return cur;
+      return String(Date.now());
+    }
 
-    function buildParams(extra){
-      const p = new URLSearchParams();
-      // passthrough from hub url
-      for (const k of PASS_KEYS){
-        const v = qs(k,'');
-        if (v !== null && v !== '') p.set(k, v);
+    function setParam(url, k, v){
+      try{
+        const u = new URL(url, location.href);
+        if(v===null || v===undefined || String(v).trim()==='') u.searchParams.delete(k);
+        else u.searchParams.set(k, String(v));
+        return u.toString();
+      }catch(e){
+        return url;
       }
-      // ensure hub points back here if not given
-      if (!p.get('hub')) p.set('hub', location.href.split('#')[0]);
-      // ensure view exists (but do not override if already in URL)
-      if (!p.get('view')) p.set('view', detectView());
-      // apply extra
-      Object.entries(extra||{}).forEach(([k,v])=>{
-        if (v !== undefined && v !== null && v !== '') p.set(k, String(v));
-      });
-      // seed default if empty (for later use)
-      if (!p.get('seed')) p.set('seed', String(Date.now()));
-      return p;
     }
 
-    const GAME_URL = {
-      'shadow-breaker': './shadow-breaker/index.html',
-      'rhythm-boxer': './rhythm-boxer/index.html',
-      'jump-duck': './jump-duck/index.html',
-      'balance-hold': './balance-hold/index.html'
-    };
-
-    function getControls(game){
-      if (game==='shadow-breaker') return {
-        diff: ($('[data-name="diff-sb"]')||{}).value || 'normal',
-        time: clamp(($('[data-name="time-sb"]')||{}).value, 30, 180),
-        research: ($('[data-name="research-sb"]')||{}).value || '0'
-      };
-      if (game==='rhythm-boxer') return {
-        diff: ($('[data-name="diff-rb"]')||{}).value || 'normal',
-        time: clamp(($('[data-name="time-rb"]')||{}).value, 45, 180),
-        research: ($('[data-name="research-rb"]')||{}).value || '0'
-      };
-      if (game==='jump-duck') return {
-        diff: ($('[data-name="diff-jd"]')||{}).value || 'easy',
-        time: clamp(($('[data-name="time-jd"]')||{}).value, 45, 180),
-        research: ($('[data-name="research-jd"]')||{}).value || '0'
-      };
-      if (game==='balance-hold') return {
-        diff: ($('[data-name="diff-bh"]')||{}).value || 'normal',
-        time: clamp(($('[data-name="time-bh"]')||{}).value, 30, 180),
-        research: ($('[data-name="research-bh"]')||{}).value || '0'
-      };
-      return { diff:'normal', time:90, research:'0' };
+    function buildHubSelfURL(){
+      // current hub url without hash
+      try{
+        const u = new URL(location.href);
+        u.hash = '';
+        return u.toString();
+      }catch(e){
+        return location.href;
+      }
     }
 
-    function showHub(){
-      hubEl.style.display="block";
-      stageEl.classList.remove("show");
-      backBtn.classList.add("hidden");
-      frameEl.removeAttribute("src");
-      errBox.style.display="none";
-    }
-    function showStage(){
-      hubEl.style.display="none";
-      stageEl.classList.add("show");
-      backBtn.classList.remove("hidden");
-    }
-    function showErr(msg){
-      errBox.style.display="block";
-      errBox.innerHTML = "<b>⚠️ Error:</b> " + msg;
-      console.error(msg);
+    function passthroughKeys(){
+      // keep research context between hub and games
+      return ['view','seed','studyId','phase','conditionGroup','ts','log','style','research'];
     }
 
-    // direct links in cards
-    function refreshDirectLinks(){
-      document.querySelectorAll('[data-direct]').forEach(a=>{
-        const game = a.getAttribute('data-direct');
-        const c = getControls(game);
-        const base = GAME_URL[game] || '#';
-        const params = buildParams({ diff:c.diff, time:c.time, research:c.research });
-        a.href = base + "?" + params.toString();
-      });
+    function buildGameURL(game, mode){
+      // game: "shadow-breaker"
+      // mode: "play" | "research"
+      const view = detectView();
+      const seed = ensureSeed();
+
+      // base paths
+      const base = {
+        'shadow-breaker': './games/shadow-breaker/play.html',
+      }[game] || '';
+
+      let url = base;
+
+      // base gameplay defaults
+      if(game === 'shadow-breaker'){
+        // timed default
+        url = setParam(url,'mode','timed');
+        url = setParam(url,'diff', qs('diff','normal') || 'normal');
+        url = setParam(url,'time', qs('time','90') || '90');
+      }
+
+      // hub return
+      url = setParam(url,'hub', buildHubSelfURL());
+
+      // pass ctx
+      const cur = new URL(location.href);
+      for(const k of passthroughKeys()){
+        let v = cur.searchParams.get(k);
+        if(k==='view') v = view;       // enforce detected (unless user had ?view=, detectView will return it)
+        if(k==='seed') v = seed;
+        if(v!==null && String(v).trim()!=='') url = setParam(url,k,v);
+      }
+
+      // research toggle
+      if(mode === 'research'){
+        url = setParam(url,'research','1');
+      }else{
+        // play mode: allow body.mode-play in CSS (you already did)
+        url = setParam(url,'research','0');
+      }
+
+      return url;
     }
-    refreshDirectLinks();
 
-    document.addEventListener("change", (ev)=>{
-      if (ev.target && ev.target.closest('.card')) refreshDirectLinks();
-    });
+    // ---------- UI: ctx display ----------
+    const ctxView = $('#ctxView');
+    const ctxSeed = $('#ctxSeed');
+    const ctxPhase = $('#ctxPhase');
+    const ctxResearch = $('#ctxResearch');
+    const envTag = $('#envTag');
 
-    document.addEventListener("click", (ev)=>{
-      const btn = ev.target.closest("[data-action]");
-      if (!btn) return;
+    function refreshCtx(){
+      const v = detectView();
+      const seed = ensureSeed();
+      const phase = (qs('phase','train')||'train');
+      const research = (qs('research','')||'').toLowerCase();
+      const isResearch = (research==='1'||research==='true'||research==='on'||!!qs('studyId','')||!!qs('log',''));
 
-      if (btn.dataset.action === "play"){
-        const game = btn.dataset.game;
-        const base = GAME_URL[game];
-        if (!base){ showErr("ยังไม่มีหน้า index.html ของเกมนี้"); return; }
+      ctxView.textContent = v;
+      ctxSeed.textContent = seed;
+      ctxPhase.textContent = phase;
+      ctxResearch.textContent = isResearch ? ' • research=ON' : ' • research=OFF';
 
-        const c = getControls(game);
-        const params = buildParams({
-          run:'play',
-          diff:c.diff,
-          time:c.time,
-          research:c.research
-        });
+      envTag.textContent = `view=${v} • ${isResearch?'research':'play'}`;
+    }
 
-        const url = base + "?" + params.toString();
-        try{
-          frameEl.src = url;
-          showStage();
-        }catch(e){
-          showErr("โหลดเกมไม่สำเร็จ: " + e.message);
-          showHub();
+    // ---------- last summary ----------
+    function renderLast(){
+      // Shadow Breaker summary key from your JS: SB_LAST_SUMMARY_V1
+      const box = $('#last-shadow-breaker');
+      if(!box) return;
+
+      try{
+        const raw = localStorage.getItem('SB_LAST_SUMMARY_V1');
+        if(!raw){ box.innerHTML = '<strong>ผลล่าสุด:</strong> ยังไม่มีข้อมูล'; return; }
+        const s = JSON.parse(raw);
+        box.innerHTML =
+          '<strong>ผลล่าสุด:</strong> ' +
+          `Score <strong>${s.score ?? '-'}</strong> • ` +
+          `Acc <strong>${s.accuracy ?? '-'}%</strong> • ` +
+          `Hit <strong>${s.hits ?? '-'}</strong> • ` +
+          `Miss <strong>${s.miss ?? '-'}</strong> • ` +
+          `Combo <strong>x${s.maxCombo ?? '-'}</strong> • ` +
+          `<span style="color:var(--muted)">(${(s.at||'').slice(0,19).replace('T',' ')})</span>`;
+      }catch(e){
+        box.innerHTML = '<strong>ผลล่าสุด:</strong> (อ่านข้อมูลไม่สำเร็จ)';
+      }
+    }
+
+    // ---------- stage ----------
+    const stage = $('#stage');
+    const frame = $('#stageFrame');
+    const stageGameName = $('#stageGameName');
+    const stageGameIcon = $('#stageGameIcon');
+    const stageModeBadge = $('#stageModeBadge');
+    const btnStageClose = $('#btnStageClose');
+    const btnStageNewTab = $('#btnStageNewTab');
+
+    let stageURL = '';
+
+    function postPauseToFrame(v){
+      try{
+        if(frame && frame.contentWindow){
+          frame.contentWindow.postMessage({ type:'hub:pause', value: !!v }, '*');
         }
+      }catch(e){}
+    }
+
+    function openStage(game, mode){
+      const url = buildGameURL(game, mode);
+      stageURL = url;
+
+      stageGameName.textContent = (game==='shadow-breaker') ? 'Shadow Breaker' : 'Game';
+      stageGameIcon.textContent = (game==='shadow-breaker') ? '🥊' : '🎮';
+      stageModeBadge.textContent = (mode==='research') ? 'RESEARCH' : 'PLAY';
+
+      stage.classList.add('show');
+      // load then resume
+      frame.src = url;
+
+      // pause first then auto resume after load
+      frame.onload = () => {
+        postPauseToFrame(false);
+      };
+    }
+
+    function closeStage(){
+      // pause game first
+      postPauseToFrame(true);
+      stage.classList.remove('show');
+      // stop audio/video by unloading
+      try{ frame.src = 'about:blank'; }catch(e){}
+      stageURL = '';
+      // refresh last summary
+      setTimeout(renderLast, 80);
+    }
+
+    btnStageClose.addEventListener('click', closeStage);
+    btnStageNewTab.addEventListener('click', ()=>{
+      if(stageURL) window.open(stageURL, '_blank');
+    });
+
+    // ---------- card actions ----------
+    document.body.addEventListener('click', (ev)=>{
+      const btn = ev.target.closest('button[data-action]');
+      if(!btn) return;
+
+      const card = btn.closest('[data-game]');
+      if(!card) return;
+
+      const game = card.dataset.game;
+      const action = btn.dataset.action;
+
+      if(action === 'play') openStage(game, 'play');
+      if(action === 'research') openStage(game, 'research');
+      if(action === 'open'){
+        const url = buildGameURL(game, 'play');
+        window.open(url, '_blank');
       }
+    });
 
-      if (btn.id === "btnBack"){
-        showHub();
+    // ---------- quick buttons ----------
+    $('#btnQuickPlay').addEventListener('click', ()=>openStage('shadow-breaker','play'));
+    $('#btnQuickResearch').addEventListener('click', ()=>openStage('shadow-breaker','research'));
+
+    // ---------- toolbar ----------
+    $('#btnResetView').addEventListener('click', ()=>{
+      try{
+        const u = new URL(location.href);
+        u.searchParams.delete('view');
+        u.searchParams.delete('seed');
+        location.href = u.toString();
+      }catch(e){}
+    });
+
+    $('#btnCopyLink').addEventListener('click', async ()=>{
+      const url = buildHubSelfURL();
+      try{
+        await navigator.clipboard.writeText(url);
+        alert('คัดลอกลิงก์ HUB แล้ว');
+      }catch(e){
+        prompt('Copy this HUB link:', url);
       }
     });
 
-    // pause hint (best effort)
-    window.addEventListener("blur", ()=>{
-      try{ frameEl.contentWindow && frameEl.contentWindow.postMessage({type:"hub:pause",value:true},"*"); }catch(_){}
-    });
-    window.addEventListener("focus", ()=>{
-      try{ frameEl.contentWindow && frameEl.contentWindow.postMessage({type:"hub:pause",value:false},"*"); }catch(_){}
+    let lang = 'th';
+    $('#btnToggleLang').addEventListener('click', ()=>{
+      lang = (lang==='th') ? 'en' : 'th';
+      $('#pdpaLine').textContent = (lang==='th')
+        ? '* ใช้เพื่อการสอน/ทดสอบ/วิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล (PDPA)'
+        : '* For teaching/testing/research only — no personal identity disclosure';
     });
 
-    showHub();
+    // ---------- init ----------
+    refreshCtx();
+    renderLast();
+
+    // ensure seed in display (but do not force rewrite URL)
+    // optional: update envTag live
+    window.addEventListener('focus', ()=>{
+      refreshCtx();
+      renderLast();
+    });
   </script>
 </body>
 </html>
