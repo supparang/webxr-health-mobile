@@ -1,10 +1,14 @@
+:root{ color-scheme: dark; }
+
+/* safe-area */
 :root{
-  color-scheme: dark;
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
 }
 
-*{
-  box-sizing:border-box;
-}
+*{ box-sizing:border-box; }
 
 body{
   margin:0;
@@ -20,7 +24,10 @@ body{
 .page{
   max-width:960px;
   margin:0 auto;
-  padding:12px 10px 24px;
+  padding-top: calc(12px + var(--sat));
+  padding-left:  calc(10px + var(--sal));
+  padding-right: calc(10px + var(--sar));
+  padding-bottom: calc(24px + var(--sab));
 }
 
 /* ----- Card ----- */
@@ -41,53 +48,24 @@ body{
   gap:10px;
   margin-bottom:8px;
 }
-
-.card-header .title{
-  display:flex;
-  gap:8px;
-}
-
+.card-header .title{ display:flex; gap:8px; }
 .card-header .icon{
-  width:30px;height:30px;
-  border-radius:999px;
+  width:30px;height:30px;border-radius:999px;
   background:rgba(56,189,248,.18);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:flex;align-items:center;justify-content:center;
   font-size:18px;
 }
-
-.card-header h1{
-  margin:0;
-  font-size:.98rem;
-}
-
-.card-header p{
-  margin:2px 0 0;
-  font-size:.7rem;
-  color:#9ca3af;
-}
+.card-header h1{ margin:0; font-size:.98rem; }
+.card-header p{ margin:2px 0 0; font-size:.7rem; color:#9ca3af; }
 
 /* lang toggle */
-.lang-toggle{
-  display:flex;
-  gap:4px;
-}
+.lang-toggle{ display:flex; gap:4px; }
 .lang-btn{
-  padding:4px 9px;
-  border-radius:999px;
-  border:1px solid #1f2937;
-  background:#020617;
-  color:#e5e7eb;
-  font-size:.7rem;
-  cursor:pointer;
-  min-width:40px;
+  padding:4px 9px;border-radius:999px;border:1px solid #1f2937;
+  background:#020617;color:#e5e7eb;font-size:.7rem;cursor:pointer;min-width:40px;
 }
 .lang-btn.active{
-  background:#38bdf8;
-  color:#0b1120;
-  border-color:#38bdf8;
-  font-weight:600;
+  background:#38bdf8;color:#0b1120;border-color:#38bdf8;font-weight:600;
 }
 
 /* ----- research form ----- */
@@ -97,59 +75,35 @@ body{
   gap:8px 10px;
   margin-top:4px;
 }
-
 .research-grid label{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  font-size:.72rem;
+  display:flex;flex-direction:column;gap:2px;font-size:.72rem;
 }
-
-.research-grid span{
-  color:#94a3b8;
-}
-
+.research-grid span{ color:#94a3b8; }
 .research-grid input,
 .research-grid select{
-  border-radius:999px;
-  border:1px solid #1e293b;
-  padding:7px 10px;
-  font-size:.8rem;
+  border-radius:999px;border:1px solid #1e293b;
+  padding:7px 10px;font-size:.8rem;
   background:rgba(15,23,42,.96);
-  color:#e5e7eb;
-  outline:none;
+  color:#e5e7eb;outline:none;
 }
-.research-grid input::placeholder{
-  color:#64748b;
-}
+.research-grid input::placeholder{ color:#64748b; }
 
-.hint{
-  margin-top:4px;
-  font-size:.7rem;
-  color:#6b7280;
-}
-.hint.small{
-  font-size:.65rem;
-}
+.hint{ margin-top:4px; font-size:.7rem; color:#6b7280; }
+.hint.small{ font-size:.65rem; }
 
 /* ----- Game card ----- */
-.game-card{
-  padding-top:12px;
-}
+.game-card{ padding-top:12px; }
 
 .hud{
   background:rgba(15,23,42,.95);
   border:1px solid rgba(148,163,184,.45);
   border-radius:14px;
   padding:6px 8px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  justify-content:space-between;
-  align-items:center;
+  display:flex;flex-wrap:wrap;gap:6px;
+  justify-content:space-between;align-items:center;
   font-size:.8rem;
+  pointer-events:none; /* กันชนตอนอนาคตซ้อนทับ */
 }
-
 .hud-block{
   min-width:72px;
   padding:4px 8px;
@@ -158,33 +112,14 @@ body{
   background:radial-gradient(circle at top,rgba(15,23,42,.96),rgba(15,23,42,.9));
   text-align:center;
 }
-.hud-block .label{
-  display:block;
-  font-size:.62rem;
-  color:#9ca3af;
-}
-.hud-block .value{
-  font-size:.9rem;
-  font-weight:700;
-}
+.hud-block .label{ display:block; font-size:.62rem; color:#9ca3af; }
+.hud-block .value{ font-size:.9rem; font-weight:700; }
 
-.start-row{
-  margin:8px 0 4px;
-  display:flex;
-  justify-content:center;
-}
-
+.start-row{ margin:8px 0 4px; display:flex; justify-content:center; }
 .btn{
-  border:none;
-  border-radius:999px;
-  padding:8px 16px;
-  font-size:.85rem;
-  font-weight:600;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
+  border:none;border-radius:999px;padding:8px 16px;
+  font-size:.85rem;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
 }
 .btn-main{
   background:linear-gradient(135deg,#facc15,#f97316);
@@ -196,14 +131,9 @@ body{
   border:1px solid rgba(148,163,184,.7);
   color:#e5e7eb;
 }
-.btn-full{
-  width:100%;
-}
+.btn-full{ width:100%; }
 
-/* goal text */
-.goal-text{
-  margin:0 2px 6px;
-}
+.goal-text{ margin:0 2px 6px; }
 
 /* ----- Game panel ----- */
 .game-panel{
@@ -214,19 +144,13 @@ body{
   overflow:hidden;
   min-height:360px;
 }
-
 #gameArea{
   position:absolute;
   inset:0;
   overflow:hidden;
 }
 
-/* ไม่ใช้เส้นข้างล่างแล้ว */
-.hit-line{
-  display:none;
-}
-
-/* เป้า */
+/* target */
 .sb-target{
   position:absolute;
   border-radius:999px;
@@ -240,81 +164,41 @@ body{
   cursor:pointer;
   user-select:none;
   transition:transform .15s ease-out, opacity .15s ease-out;
+  z-index:5;
 }
 
-/* บอสใกล้ตาย → หน้าใหญ่ */
-.sb-target.boss-final{
-  width:min(190px,42vw) !important;
-  height:min(190px,42vw) !important;
-  font-size:min(4.2rem,12vw);
-  box-shadow:0 0 40px rgba(250,204,21,.8),0 0 0 3px rgba(248,250,252,.9);
-  background:radial-gradient(circle at 30% 20%,#fde68a,#f97316,#7c2d12);
-}
-
-/* FEEDBACK กลางจอ */
-.feedback{
-  position:absolute;
-  left:50%;top:50%;
-  transform:translate(-50%,-50%);
-  font-size:2.1rem;
-  font-weight:800;
-  text-shadow:0 0 18px rgba(0,0,0,.7);
-  pointer-events:none;
-  opacity:0;
-}
-.feedback-fever{
-  color:#facc15;
-}
-.feedback-perfect{
-  color:#4ade80;
-}
-.feedback-good{
-  color:#38bdf8;
-}
-.feedback-miss{
-  color:#f97373;
-}
-
-/* คะแนนลอย */
-.score-fx{
-  position:fixed;
-  transform:translate(-50%,0);
-  font-family:system-ui,sans-serif;
-  font-size:.95rem;
-  font-weight:700;
-  color:#facc15;
-  text-shadow:0 0 8px rgba(250,204,21,.9);
-  pointer-events:none;
-  z-index:60;
-}
-
-/* เศษเป้าแตก */
-.hit-particle{
-  position:fixed;
-  width:10px;height:10px;
-  border-radius:50%;
-  background:radial-gradient(circle at 30% 20%,#38bdf8,#0ea5e9);
-  pointer-events:none;
-  z-index:55;
-}
-.hit-particle.boss{
-  width:12px;height:12px;
-  background:radial-gradient(circle at 30% 20%,#fde68a,#f97316);
-}
-
-/* FEVER mode glow */
 #gameArea.fever{
   box-shadow:0 0 40px rgba(250,204,21,.7);
   outline:2px solid rgba(250,204,21,.5);
 }
 
-/* โค้ช + controls */
+/* FEEDBACK กลางจอ — ✅ match JS: feedback perfect/good/miss/fever */
+.feedback{
+  position:absolute;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(.92);
+  font-size:2.1rem;
+  font-weight:800;
+  text-shadow:0 0 18px rgba(0,0,0,.7);
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .12s ease, transform .12s ease;
+}
+.feedback.show{
+  opacity:1;
+  transform:translate(-50%,-50%) scale(1);
+}
+.feedback.fever{ color:#facc15; }
+.feedback.perfect{ color:#4ade80; }
+.feedback.good{ color:#38bdf8; }
+.feedback.miss{ color:#f97373; }
+
+/* coach + controls */
 .coach{
   margin:8px 2px 4px;
   font-size:.85rem;
   color:#cbd5f5;
 }
-
 .controls{
   margin-top:6px;
   border-radius:12px;
@@ -322,59 +206,9 @@ body{
   padding:8px 10px;
   background:rgba(15,23,42,.7);
 }
-.controls h2{
-  margin:0 0 4px;
-  font-size:.9rem;
-}
-.controls ul{
-  margin:0 0 4px 16px;
-  padding:0;
-  font-size:.78rem;
-}
-.controls li{
-  margin-bottom:2px;
-}
-
-/* ----- Boss HUD (ใน gameArea) ----- */
-.boss-barbox{
-  position:absolute;
-  top:10px;
-  left:10px;
-  padding:4px 8px;
-  border-radius:12px;
-  border:1px solid rgba(148,163,184,.45);
-  background:rgba(15,23,42,.8);
-  font-size:.75rem;
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.boss-face{
-  width:30px;height:30px;
-  border-radius:999px;
-  background:rgba(15,23,42,.98);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 0 14px rgba(148,163,184,.8);
-  font-size:1.1rem;
-}
-.boss-name{
-  font-size:.75rem;
-  margin-bottom:2px;
-}
-.boss-bar{
-  width:120px;
-  height:6px;
-  background:#1e293b;
-  border-radius:999px;
-  overflow:hidden;
-}
-.boss-bar-fill{
-  width:100%;height:100%;
-  background:linear-gradient(90deg,#22c55e,#facc15,#f97316,#ef4444);
-  transform-origin:left;
-}
+.controls h2{ margin:0 0 4px; font-size:.9rem; }
+.controls ul{ margin:0 0 4px 16px; padding:0; font-size:.78rem; }
+.controls li{ margin-bottom:2px; }
 
 /* ----- Overlay ----- */
 .overlay{
@@ -384,12 +218,13 @@ body{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:18px;
+  padding-top: calc(18px + var(--sat));
+  padding-bottom: calc(18px + var(--sab));
+  padding-left: calc(18px + var(--sal));
+  padding-right: calc(18px + var(--sar));
   z-index:80;
 }
-.overlay.hidden{
-  display:none;
-}
+.overlay.hidden{ display:none; }
 .overlay-box{
   width:100%;
   max-width:420px;
@@ -399,10 +234,7 @@ body{
   padding:16px 16px 14px;
   box-shadow:0 26px 80px rgba(0,0,0,.9);
 }
-.overlay-box h2{
-  margin:0 0 10px;
-  font-size:1.05rem;
-}
+.overlay-box h2{ margin:0 0 10px; font-size:1.05rem; }
 
 .result-grid{
   display:grid;
@@ -410,16 +242,8 @@ body{
   gap:6px 10px;
   font-size:.8rem;
 }
-.result-grid .label{
-  display:block;
-  font-size:.7rem;
-  color:#9ca3af;
-}
-.result-grid .value{
-  display:block;
-  font-size:.95rem;
-  font-weight:700;
-}
+.result-grid .label{ display:block; font-size:.7rem; color:#9ca3af; }
+.result-grid .value{ display:block; font-size:.95rem; font-weight:700; }
 
 .overlay-actions{
   margin-top:10px;
@@ -428,60 +252,20 @@ body{
   gap:8px;
 }
 
-/* ----- play-only: หลังกรอกข้อมูลแล้วให้จอเกมเต็มขึ้น ----- */
-body.play-only .research-card{
-  display:none;
-}
-body.play-only .controls{
-  display:none;
-}
-body.play-only .page{
-  max-width:780px;
-}
-body.play-only .game-panel{
-  min-height:calc(100vh - 220px);
-}
+/* play-only: หลังเริ่มเล่นให้จอเกมเต็มขึ้น */
+body.play-only .research-card{ display:none; }
+body.play-only .controls{ display:none; }
+body.play-only .page{ max-width:780px; }
+body.play-only .game-panel{ min-height:calc(100vh - 220px); }
 
-/* ----- Responsive ----- */
+/* mode-play: เล่นธรรมดา (ซ่อนฟอร์มวิจัย + CSV) */
+body.mode-play .research-card{ display:none; }
+body.mode-play #metaPDPA{ display:none; }
+body.mode-play #downloadCsvBtn{ display:none; }
+
+/* Responsive */
 @media(max-width:720px){
-  .research-grid{
-    grid-template-columns:1fr;
-  }
-  .hud{
-    flex-direction:column;
-    align-items:flex-start;
-  }
-  .game-panel{
-    min-height:320px;
-  }
-  .result-grid{
-    grid-template-columns:1fr 1fr;
-  }
+  .research-grid{ grid-template-columns:1fr; }
+  .hud{ flex-direction:column; align-items:flex-start; }
+  .game-panel{ min-height:320px; }
 }
-/* ... (สไตล์เดิมทั้งหมดของคุณคงไว้ได้เลย) ... */
-
-/* โหมดเล่นธรรมดา (ไม่โชว์ฟอร์มวิจัย + CSV) */
-body.mode-play .research-card{
-  display:none;
-}
-body.mode-play #metaPDPA{
-  display:none;
-}
-body.mode-play #downloadCsvBtn{
-  display:none;
-}
-
-/* หลังเริ่มเล่นให้โฟกัสจอเกม (ใช้ทั้ง 2 โหมด) */
-body.play-only .research-card{
-  display:none;
-}
-body.play-only .controls{
-  display:none;
-}
-body.play-only .page{
-  max-width:780px;
-}
-body.play-only .game-panel{
-  min-height:calc(100vh - 220px);
-}
-
