@@ -1,33 +1,43 @@
-// =========================================================
 // === /herohealth/plate/plate.boot.js ===
-// Balanced Plate VR Boot — PRODUCTION (A26)
-// ✅ Auto view detect (no UI override)
-// ✅ Boots engine from ./plate.safe.js
+// PlateVR Boot — PRODUCTION (HHA Standard)
+// ✅ Auto view detect (no UI override; respects ?view=)
+// ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ Result overlay: aria-hidden toggle
-// ✅ Back HUB + Play again
-// ✅ Pass-through research ctx: run/diff/time/seed/studyId/phase/conditionGroup/... etc.
-// =========================================================
+// ✅ End overlay uses aria-hidden only
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Exposes window.HHA_CTX for logger/debug
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def=null)=>{
+const qs = (k, def = null) => {
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
 
+function clamp(v, a, b){
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
+}
+
 function isMobile(){
   const ua = navigator.userAgent || '';
   const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && (innerWidth < 920));
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  const forced = (qs('view','')||'').toLowerCase();
+  // Respect forced view (used in experiments); do not offer menu.
+  const forced = (qs('view','') || '').toLowerCase();
   if(forced) return forced;
+
+  // If already in XR session, treat as vr (rare at load but safe)
+  const xr = (navigator.xr ? true : false);
+  if(xr && /Quest|Oculus|Vive|Valve|XR/i.test(navigator.userAgent || '')) return 'vr';
+
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -40,75 +50,79 @@ function setBodyView(view){
   else b.classList.add('view-pc');
 }
 
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function pct(n){
-  n = Number(n)||0;
+function pctRound(n){
+  n = Number(n);
+  if(!Number.isFinite(n)) return '—';
   return `${Math.round(n)}%`;
 }
 
-/* ---------- Result overlay helpers ---------- */
-function setResultOpen(open){
-  const ov = DOC.getElementById('resultBackdrop');
+function setEndOverlayOpen(open){
+  const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+  // Optional helper class (CSS can use it)
+  ov.classList.toggle('open', !!open);
 }
 
-/* ---------- Coach helper ---------- */
-function setCoach(msg){
-  const el = DOC.getElementById('coachMsg');
-  if(el) el.textContent = String(msg || '');
+function showCoach(msg, tag='Coach'){
+  const card = DOC.getElementById('coachCard');
+  const mEl  = DOC.getElementById('coachMsg');
+  const tEl  = DOC.getElementById('coachMeta');
+  if(!card || !mEl) return;
+
+  mEl.textContent = String(msg || '');
+  if(tEl) tEl.textContent = String(tag || 'Coach');
+
+  card.classList.add('show');
+  card.setAttribute('aria-hidden','false');
+
+  clearTimeout(WIN.__HHA_COACH_TO__);
+  WIN.__HHA_COACH_TO__ = setTimeout(()=>{
+    card.classList.remove('show');
+    card.setAttribute('aria-hidden','true');
+  }, 2200);
 }
 
-/* ---------- HUD wiring ---------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
-  const hudMiss  = DOC.getElementById('hudMiss');
-
-  const hudPlateHave = DOC.getElementById('hudPlateHave');
-  const hudAcc = DOC.getElementById('hudAcc');
-
-  const hudG1 = DOC.getElementById('hudG1');
-  const hudG2 = DOC.getElementById('hudG2');
-  const hudG3 = DOC.getElementById('hudG3');
-  const hudG4 = DOC.getElementById('hudG4');
-  const hudG5 = DOC.getElementById('hudG5');
 
   const goalName = DOC.getElementById('goalName');
+  const goalSub  = DOC.getElementById('goalSub');
   const goalNums = DOC.getElementById('goalNums');
   const goalBar  = DOC.getElementById('goalBar');
 
   const miniName = DOC.getElementById('miniName');
+  const miniSub  = DOC.getElementById('miniSub');
   const miniNums = DOC.getElementById('miniNums');
   const miniBar  = DOC.getElementById('miniBar');
 
+  // SCORE
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
-    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
-    if('miss' in d || 'misses' in d){
-      if(hudMiss) hudMiss.textContent = String(d.miss ?? d.misses ?? 0);
-    }
+    const s = (d.score ?? d.value ?? 0);
+    const c = (d.combo ?? d.comboNow ?? 0);
+    if(hudScore) hudScore.textContent = String(s);
+    if(hudCombo) hudCombo.textContent = String(c);
   });
 
+  // TIME
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
+    const v = Math.max(0, Math.ceil(Number(t) || 0));
+    if(hudTime) hudTime.textContent = String(v);
   });
 
+  // QUEST
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
 
-    // expected: { goal:{name,cur,target}, mini:{name,cur,target,done}, allDone }
     if(d.goal){
-      const g = d.goal || {};
+      const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
+      if(goalSub)  goalSub.textContent  = g.sub  || '';
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
@@ -116,130 +130,104 @@ function wireHUD(){
     }
 
     if(d.mini){
-      const m = d.mini || {};
-      if(miniName) miniName.textContent = m.name || 'Mini';
+      const m = d.mini;
+      if(miniName) miniName.textContent = m.name || 'Mini Quest';
+      if(miniSub)  miniSub.textContent  = m.sub  || '';
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
-    // optional extra UI if engine sends:
-    // { plateHave, accPct, g:[...] }
-    if('plateHave' in d && hudPlateHave) hudPlateHave.textContent = String(d.plateHave ?? 0);
-    if('accPct' in d && hudAcc) hudAcc.textContent = pct(d.accPct ?? 0);
-    if(Array.isArray(d.g)){
-      if(hudG1) hudG1.textContent = String(d.g[0] ?? 0);
-      if(hudG2) hudG2.textContent = String(d.g[1] ?? 0);
-      if(hudG3) hudG3.textContent = String(d.g[2] ?? 0);
-      if(hudG4) hudG4.textContent = String(d.g[3] ?? 0);
-      if(hudG5) hudG5.textContent = String(d.g[4] ?? 0);
-    }
   });
 
+  // COACH
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
-    if(d && (d.msg || d.text)) setCoach(d.msg || d.text);
+    if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
 }
 
-/* ---------- End summary wiring ---------- */
-function wireEndSummary(){
-  const rMode = DOC.getElementById('rMode');
-  const rScore = DOC.getElementById('rScore');
-  const rMaxCombo = DOC.getElementById('rMaxCombo');
-  const rMiss = DOC.getElementById('rMiss');
-  const rGoals = DOC.getElementById('rGoals');
-  const rMinis = DOC.getElementById('rMinis');
+function wireEndControls(){
+  const btnRestart = DOC.getElementById('btnRestart');
+  const btnBackHub = DOC.getElementById('btnBackHub');
 
-  const rG1 = DOC.getElementById('rG1');
-  const rG2 = DOC.getElementById('rG2');
-  const rG3 = DOC.getElementById('rG3');
-  const rG4 = DOC.getElementById('rG4');
-  const rG5 = DOC.getElementById('rG5');
+  const hub = (qs('hub','') || '').trim();
+
+  if(btnRestart){
+    btnRestart.addEventListener('click', ()=>{
+      // keep same query params
+      location.reload();
+    }, { passive:true });
+  }
+
+  if(btnBackHub){
+    btnBackHub.addEventListener('click', ()=>{
+      if(hub) location.href = hub;
+      else history.back();
+    }, { passive:true });
+  }
+}
+
+function wireEndSummary(){
+  const kScore = DOC.getElementById('kScore');
+  const kAcc   = DOC.getElementById('kAcc');
+  const kCombo = DOC.getElementById('kCombo');
+  const kGoals = DOC.getElementById('kGoals');
+  const kMini  = DOC.getElementById('kMini');
+  const kMiss  = DOC.getElementById('kMiss');
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
 
-    if(rMode) rMode.textContent = String(d.runMode ?? qs('run','play') ?? 'play');
-    if(rScore) rScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
-    if(rMaxCombo) rMaxCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
-    if(rMiss) rMiss.textContent = String(d.misses ?? d.miss ?? 0);
+    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
+    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    if(rGoals) rGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
-    if(rMinis) rMinis.textContent = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
+    // accuracy: expect already percent number (0..100)
+    const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
+    if(kAcc) kAcc.textContent = (acc == null) ? '—' : pctRound(acc);
 
-    // groups (either g1..g5 or array g)
-    if(Array.isArray(d.g)){
-      if(rG1) rG1.textContent = String(d.g[0] ?? 0);
-      if(rG2) rG2.textContent = String(d.g[1] ?? 0);
-      if(rG3) rG3.textContent = String(d.g[2] ?? 0);
-      if(rG4) rG4.textContent = String(d.g[3] ?? 0);
-      if(rG5) rG5.textContent = String(d.g[4] ?? 0);
-    }else{
-      if(rG1) rG1.textContent = String(d.g1 ?? 0);
-      if(rG2) rG2.textContent = String(d.g2 ?? 0);
-      if(rG3) rG3.textContent = String(d.g3 ?? 0);
-      if(rG4) rG4.textContent = String(d.g4 ?? 0);
-      if(rG5) rG5.textContent = String(d.g5 ?? 0);
-    }
+    if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
+    if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    setResultOpen(true);
+    setEndOverlayOpen(true);
   });
 }
 
-/* ---------- End buttons ---------- */
-function wireEndControls(){
-  const btnPlayAgain = DOC.getElementById('btnPlayAgain');
-  const btnBackHub   = DOC.getElementById('btnBackHub');
-
-  const hub = (qs('hub','') || '').trim();
-
-  btnPlayAgain?.addEventListener('click', ()=>{
-    // keep same params
-    location.reload();
-  }, { passive:true });
-
-  btnBackHub?.addEventListener('click', ()=>{
-    if(hub) location.href = hub;
-    else history.back();
-  }, { passive:true });
-}
-
-/* ---------- Build engine cfg ---------- */
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase();
-  const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // default to 90s if not provided
-  const timeParam = qs('time', null);
-  const time = clamp(timeParam == null ? 90 : Number(timeParam), 10, 999);
-
+  const run  = (qs('run','play') || 'play').toLowerCase();
+  const diff = (qs('diff','normal') || 'normal').toLowerCase();
+  const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  return {
+  const cfg = {
+    // core
     view,
-    runMode: run,
+    runMode: run,                // play | study | research
     diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '',
+    // passthrough endpoints / hub
+    hub: (qs('hub','') || '').trim(),
+    logEndpoint: (qs('log','') || '').trim(),
 
-    // passthrough context (optional)
-    studyId: qs('studyId','') || '',
-    phase: qs('phase','') || '',
-    conditionGroup: qs('conditionGroup','') || '',
-    sessionOrder: qs('sessionOrder','') || '',
-    blockLabel: qs('blockLabel','') || '',
-    siteCode: qs('siteCode','') || '',
-    schoolCode: qs('schoolCode','') || '',
-    schoolName: qs('schoolName','') || '',
-    gradeLevel: qs('gradeLevel','') || '',
-    studentKey: qs('studentKey','') || '',
+    // research context passthrough (optional)
+    studyId: (qs('studyId','') || '').trim(),
+    phase: (qs('phase','') || '').trim(),
+    conditionGroup: (qs('conditionGroup','') || '').trim(),
+    sessionOrder: (qs('sessionOrder','') || '').trim(),
+    blockLabel: (qs('blockLabel','') || '').trim(),
+    siteCode: (qs('siteCode','') || '').trim(),
+    schoolCode: (qs('schoolCode','') || '').trim(),
+    schoolName: (qs('schoolName','') || '').trim(),
+    gradeLevel: (qs('gradeLevel','') || '').trim(),
+    studentKey: (qs('studentKey','') || '').trim(),
   };
+
+  return cfg;
 }
 
 function ready(fn){
@@ -250,25 +238,30 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class for vr-ui crosshair visibility rules
+  // set view class
   setBodyView(cfg.view);
 
-  // close result at start
-  setResultOpen(false);
+  // expose ctx for logger/debug
+  WIN.HHA_CTX = Object.assign({}, cfg, {
+    game: 'plate',
+    ts: Date.now(),
+    href: location.href
+  });
 
   // wire UI
   wireHUD();
-  wireEndSummary();
   wireEndControls();
+  wireEndSummary();
+
+  // ensure overlay closed initially
+  setEndOverlayOpen(false);
 
   // boot engine
+  const mount = DOC.getElementById('plate-layer');
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    setCoach('เกิดข้อผิดพลาดตอนเริ่มเกม');
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
   }
 });
