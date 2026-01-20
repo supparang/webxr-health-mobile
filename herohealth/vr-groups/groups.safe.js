@@ -724,8 +724,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงพลาดจาก crosshair: “ไม่เพิ่ม miss” เพื่อกัน miss พุ่ง (ตามที่คุณเจอ)
-      // แต่ยัง reset combo + FX ให้รู้สึกกดดัน
+      // ยิงพลาดจาก crosshair: ไม่เพิ่ม miss (กัน miss พุ่ง)
+      // แต่ reset combo + FX
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
@@ -1030,5 +1030,21 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
   // ---------------- Export ----------------
   NS.GameEngine = new Engine();
+
+  // getResearchCtx fallback (รวม consent/assent ด้วย)
+  NS.getResearchCtx = NS.getResearchCtx || function(){
+    try{
+      const u = new URL(location.href);
+      const b = (x)=> (String(x||'')==='1' || String(x||'').toLowerCase()==='true');
+      return {
+        studyId: u.searchParams.get('studyId')||'',
+        participantId: u.searchParams.get('participantId')||'',
+        conditionGroup: u.searchParams.get('conditionGroup')||'',
+        sessionId: u.searchParams.get('sessionId')||'',
+        consentParent: b(u.searchParams.get('consentParent')),
+        assentChild: b(u.searchParams.get('assentChild'))
+      };
+    }catch(_){ return {}; }
+  };
 
 })(typeof window !== 'undefined' ? window : globalThis);
