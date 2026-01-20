@@ -1,158 +1,201 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Helper — PRODUCTION (LATEST)
-// ✅ ensureWaterGauge(): lazy bind DOM if present
-// ✅ setWaterGauge(pct): set RAW pct 0..100 (engine drives this)
-// ✅ Smooth display (no-stuck) + deadband tiny
-// ✅ zoneFrom(pct): GREEN/WARN(LOW/HIGH) for Hydration
-// ✅ Emits optional event: hha:water {raw, shown, zone}
-// Notes: Designed to be called frequently (every frame OK)
+// HHA UI Water Gauge — PRODUCTION (Hydration-tuned)
+// ✅ ensureWaterGauge(): no-op if game has its own panel (kept for compatibility)
+// ✅ setWaterGauge(pct): updates HUD panel + optional internal smoothing target
+// ✅ zoneFrom(pct): GREEN / LOW / HIGH
+//
+// ✅ NEW (Hydration only):
+//    waterTick(dtSec): auto-drain + gentle recenter (kids-friendly, smooth)
+//    waterSetTuning(opts): override tuning per game
+//
+// URL controls (optional):
+//   ?kids=1                -> easier control, softer drain
+//   ?run=research|study    -> auto-drain OFF by default (deterministic)
+//   ?waterDrain=0          -> force drain off
+//   ?waterDrain=0.20       -> drain rate %/sec
+//   ?waterSmooth=0.18      -> smoothing 0..1 (higher = faster follow)
+//   ?waterRecenter=0.06    -> pull toward mid when idle (0..0.2)
+//   ?waterMid=55           -> mid point
+//
+// Notes:
+// - Engine (hydration.safe.js) owns the "true" S.waterPct.
+// - This module helps UI feel: smoothing + gentle auto-drain (only if enabled).
+// - If you don't want any behavior change, simply never call waterTick().
 
 (function(root){
   'use strict';
-
   const WIN = root || window;
   const DOC = WIN.document;
-  if (!DOC) return;
+  if(!DOC || WIN.__HHA_UI_WATER__) return;
+  WIN.__HHA_UI_WATER__ = true;
 
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
   const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-  // -------- Zone thresholds (kids-friendly) --------
-  // ป.5: GREEN กว้างขึ้นนิด = เล่นสบาย ไม่หงุดหงิด
-  // คุณสามารถปรับในอนาคตได้ด้วย window.HHA_WATER_CFG = { greenLo, greenHi, ... }
-  const CFG = Object.assign({
-    greenLo: 42,   // เดิมถ้าแคบไปจะหลุด GREEN ง่าย
-    greenHi: 72,
-    lowName: 'LOW',
-    highName: 'HIGH',
-    greenName: 'GREEN',
+  // ---- Zone thresholds (simple + stable for kids) ----
+  // GREEN band around mid: 45..65 by default
+  function zoneFrom(pct){
+    const p = clamp(pct,0,100);
+    const mid = clamp(parseFloat(qs('waterMid', 55)), 40, 60);
+    const band = clamp(parseFloat(qs('waterBand', 10)), 6, 16); // +/- band
+    const lo = mid - band;
+    const hi = mid + band;
+    if (p < lo) return 'LOW';
+    if (p > hi) return 'HIGH';
+    return 'GREEN';
+  }
 
-    // smoothing
-    tauUpMs: 140,    // ขึ้นเร็ว (รู้สึก responsive)
-    tauDownMs: 170,  // ลงนิ่มกว่าเล็กน้อย
-    deadband: 0.35,  // กันสั่น แต่ไม่ทำให้ค้าง
-    snapIfFar: 12,   // ถ้าต่างกันมาก ให้ snap เพื่อกัน “ตามไม่ทัน”
-    maxStepPerTick: 8.0 // กันกระชาก (แต่ไม่ล็อค)
-  }, WIN.HHA_WATER_CFG || {});
+  // ---- DOM bindings (optional panel already in hydration-vr.html) ----
+  function ensureWaterGauge(){
+    // Kept for compatibility; hydration-vr.html already has:
+    // #water-bar, #water-pct, #water-zone
+    return true;
+  }
 
-  // -------- DOM refs --------
-  let bound = false;
-  let elBar=null, elPct=null, elZone=null;
+  function setPanel(pct){
+    const bar = DOC.getElementById('water-bar');
+    const pctEl = DOC.getElementById('water-pct');
+    const zoneEl = DOC.getElementById('water-zone');
 
-  // -------- state --------
-  const S = {
-    raw: 50,
-    shown: 50,
-    zone: CFG.greenName,
-    lastAt: 0
+    if (bar) bar.style.width = clamp(pct,0,100).toFixed(0)+'%';
+    if (pctEl) pctEl.textContent = String(clamp(pct,0,100)|0);
+    if (zoneEl) zoneEl.textContent = zoneFrom(pct);
+  }
+
+  // ---- Internal smoothing (UI only) ----
+  const STATE = {
+    uiPct: 50,
+    targetPct: 50,
+
+    // tuning (defaults)
+    mid: 55,
+    smooth: 0.18,       // how fast ui follows target (0..1)
+    drainOn: true,
+    drainRate: 0.22,    // % per second toward "down" (gentle)
+    recenter: 0.055,    // pull toward mid when idle
+    freezeInGreen: false,
+
+    // derived flags
+    kids: false,
+    inResearch: false,
   };
 
-  function zoneFrom(pct){
-    pct = clamp(pct,0,100);
-    if (pct < CFG.greenLo) return CFG.lowName;
-    if (pct > CFG.greenHi) return CFG.highName;
-    return CFG.greenName;
-  }
+  function readFlags(){
+    const kidsQ = String(qs('kids','0')).toLowerCase();
+    STATE.kids = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
 
-  function bind(){
-    if (bound) return;
-    elBar  = DOC.getElementById('water-bar');
-    elPct  = DOC.getElementById('water-pct');
-    elZone = DOC.getElementById('water-zone');
-    bound = true;
-  }
+    const run = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
+    STATE.inResearch = (run==='research' || run==='study');
 
-  function ensureWaterGauge(){
-    bind();
-    // no-op if elements missing (still keep logic)
-    return { bar:elBar, pct:elPct, zone:elZone };
-  }
+    // base mid
+    STATE.mid = clamp(parseFloat(qs('waterMid', 55)), 40, 60);
 
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
+    // smooth
+    STATE.smooth = clamp(parseFloat(qs('waterSmooth', STATE.kids ? 0.22 : 0.18)), 0.05, 0.60);
 
-  function applyDOM(shown, zone){
-    // Update width/text
-    if (elBar) elBar.style.width = clamp(shown,0,100).toFixed(0) + '%';
-    if (elPct) elPct.textContent = String(clamp(shown,0,100).toFixed(0));
-    if (elZone) elZone.textContent = String(zone||'');
-  }
+    // recenter (kids slightly stronger to feel "easier")
+    STATE.recenter = clamp(parseFloat(qs('waterRecenter', STATE.kids ? 0.075 : 0.055)), 0.0, 0.18);
 
-  // dt-based smoothing (stable even if called every frame)
-  function smoothStep(raw){
-    const now = performance.now ? performance.now() : Date.now();
-    const dtMs = S.lastAt ? clamp(now - S.lastAt, 8, 80) : 16;
-    S.lastAt = now;
-
-    raw = clamp(raw,0,100);
-
-    const d = raw - S.shown;
-
-    // deadband: if extremely small difference, just set to raw (prevents drift lock)
-    if (Math.abs(d) <= CFG.deadband){
-      S.shown = raw;
-      return S.shown;
+    // drain: OFF by default in research for determinism
+    const drainQ = qs('waterDrain', null);
+    if (drainQ === null){
+      STATE.drainOn = !STATE.inResearch; // default
+      STATE.drainRate = STATE.kids ? 0.18 : 0.22;
+    } else {
+      const s = String(drainQ).toLowerCase();
+      if (s==='0' || s==='false' || s==='off') {
+        STATE.drainOn = false;
+      } else {
+        STATE.drainOn = true;
+        STATE.drainRate = clamp(parseFloat(drainQ), 0.02, 1.2);
+      }
     }
 
-    // if far away, snap (prevents "never catches up" feeling)
-    if (Math.abs(d) >= CFG.snapIfFar){
-      S.shown = raw;
-      return S.shown;
-    }
+    // optional: if you want GREEN to be "sticky" (not recommended)
+    STATE.freezeInGreen = (String(qs('waterFreezeGreen','0')).toLowerCase()==='1');
+  }
 
-    // time constants
-    const tau = (d > 0) ? CFG.tauUpMs : CFG.tauDownMs;
-    const a = 1 - Math.exp(-dtMs / Math.max(40, tau));
+  readFlags();
 
-    // step cap (avoid sudden jump yet keep moving)
-    let step = d * a;
-    step = clamp(step, -CFG.maxStepPerTick, CFG.maxStepPerTick);
-
-    S.shown = clamp(S.shown + step, 0, 100);
-    return S.shown;
+  function waterSetTuning(opts={}){
+    // allow engine to override without URL
+    if (typeof opts.mid === 'number') STATE.mid = clamp(opts.mid, 40, 60);
+    if (typeof opts.smooth === 'number') STATE.smooth = clamp(opts.smooth, 0.05, 0.60);
+    if (typeof opts.recenter === 'number') STATE.recenter = clamp(opts.recenter, 0.0, 0.18);
+    if (typeof opts.drainOn === 'boolean') STATE.drainOn = !!opts.drainOn;
+    if (typeof opts.drainRate === 'number') STATE.drainRate = clamp(opts.drainRate, 0.02, 1.2);
+    if (typeof opts.freezeInGreen === 'boolean') STATE.freezeInGreen = !!opts.freezeInGreen;
   }
 
   function setWaterGauge(pct){
-    bind();
+    // Engine calls this with the "true" pct.
+    const p = clamp(pct,0,100);
+    STATE.targetPct = p;
 
-    S.raw = clamp(pct,0,100);
+    // Immediate UI update for first paint, then smoothing handles the rest
+    if (!Number.isFinite(STATE.uiPct)) STATE.uiPct = p;
 
-    // smooth shown
-    const shown = smoothStep(S.raw);
-
-    // zone derived from RAW (important: gameplay logic uses raw zone, UI uses same)
-    S.zone = zoneFrom(S.raw);
-
-    // update DOM
-    applyDOM(shown, S.zone);
-
-    // optional event for debugging/telemetry
-    emit('hha:water', { raw:S.raw, shown, zone:S.zone });
-
-    return { raw:S.raw, shown, zone:S.zone };
+    // Keep panel updated with smoothed value (nicer feeling)
+    // BUT: for crisp UI you could setPanel(p) — we choose smoothed.
+    // We'll set at least once here:
+    setPanel(STATE.uiPct);
   }
 
-  // export for ESM import usage too (your hydration.safe.js imports these)
-  // Support both classic script include and module import patterns.
-  // If running as module, these exports may be ignored, but harmless.
+  function waterTick(dtSec){
+    const dt = clamp(dtSec, 0, 0.2);
+    if (dt <= 0) return;
+
+    // 1) optional auto-drain (gentle downward) to prevent "stuck at high"
+    // This is UI helper only; engine should apply the returned value if desired.
+    // To keep backward compatibility: we DO NOT mutate targetPct here.
+    // Instead we return a suggested adjustment you can apply in hydration.safe.js.
+    //
+    // However, for "ไม่ลดลง" symptom, we also expose the suggestedPct.
+
+    let suggested = STATE.targetPct;
+
+    // freeze in GREEN (optional)
+    const z = zoneFrom(suggested);
+    if (STATE.freezeInGreen && z==='GREEN'){
+      // no drain/recenter inside green
+    } else {
+      if (STATE.drainOn){
+        // drain always nudges down a bit (prevents endless climb)
+        suggested = clamp(suggested - STATE.drainRate*dt, 0, 100);
+      }
+
+      // 2) gentle recenter toward mid (helps kids feel controllable)
+      const d = (STATE.mid - suggested);
+      suggested = clamp(suggested + d*STATE.recenter*dt*6.0, 0, 100);
+    }
+
+    // 3) UI smoothing follow target (but follow suggested, not raw)
+    // UI follows suggested so the bar looks alive even if engine updates are discrete.
+    STATE.uiPct = clamp(
+      STATE.uiPct + (suggested - STATE.uiPct) * (1 - Math.pow(1-STATE.smooth, dt*60)),
+      0, 100
+    );
+
+    setPanel(STATE.uiPct);
+
+    return { suggestedPct: suggested, uiPct: STATE.uiPct, zone: zoneFrom(STATE.uiPct) };
+  }
+
+  // export
   WIN.ensureWaterGauge = ensureWaterGauge;
   WIN.setWaterGauge = setWaterGauge;
   WIN.zoneFrom = zoneFrom;
 
-  // Also expose via GAME_MODULES for consistency (optional)
+  // named exports for module import compatibility
+  // (your hydration.safe.js uses: import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+  //  This file is non-module; but you also load it as <script src=... defer>. To support BOTH:
+  //  - keep globals above
+  //  - also attach to WIN.GAME_MODULES for engines that want it)
   WIN.GAME_MODULES = WIN.GAME_MODULES || {};
-  WIN.GAME_MODULES.WaterGauge = { ensureWaterGauge, setWaterGauge, zoneFrom };
+  WIN.GAME_MODULES.UIWater = { ensureWaterGauge, setWaterGauge, zoneFrom, waterTick, waterSetTuning };
 
-  // If the page already has gauge DOM, bind now (safe)
-  ensureWaterGauge();
+  // Also attach plain functions
+  WIN.waterTick = waterTick;
+  WIN.waterSetTuning = waterSetTuning;
 
-  // ESM named exports compatibility: (ignored in non-module)
-  // (We keep this file as classic script; hydration.safe.js imports from it as module path
-  //  BUT your run html includes it with <script defer> too. That is OK because
-  //  hydration.safe.js import will use module version if you have a separate ESM build.
 })(typeof window !== 'undefined' ? window : globalThis);
-
-// For ESM import in hydration.safe.js (if served as module file)
-export function ensureWaterGauge(){ return window.ensureWaterGauge(); }
-export function setWaterGauge(pct){ return window.setWaterGauge(pct); }
-export function zoneFrom(pct){ return window.zoneFrom(pct); }
