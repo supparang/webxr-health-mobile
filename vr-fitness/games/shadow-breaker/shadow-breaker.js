@@ -1,14 +1,15 @@
-// === VR Fitness — Shadow Breaker (Production v1.0.2-prod) ===
+// === VR Fitness — Shadow Breaker (Production v1.0.3-prod) ===
 // ✅ HeroHealth-like: hha:shoot support (crosshair/tap-to-shoot via vr-ui.js)
 // ✅ HHA events: hha:start / hha:time / hha:score / hha:end / hha:flush
-// ✅ Add: flush-hardened ?log= cloud logger (offline queue)
-// ✅ Add: save last summary + backHub from ?hub=
+// ✅ flush-hardened ?log= cloud logger (offline queue)
+// ✅ save last summary + backHub from ?hub=
+// ✅ NEW: ctx passthrough (studyId/conditionGroup/ts/run/style/view/etc.) + hub return keep ctx + playUrl saved
 
 (() => {
   'use strict';
 
   const SB_GAME_ID = 'shadow-breaker';
-  const SB_GAME_VERSION = '1.0.2-prod';
+  const SB_GAME_VERSION = '1.0.3-prod';
 
   // local sessions + meta
   const SB_STORAGE_KEY = 'ShadowBreakerSessions_v1';
@@ -16,7 +17,7 @@
 
   // last summary (HeroHealth-like)
   const VFA_LAST_SUMMARY_KEY = 'VFA_LAST_SUMMARY_V1';
-  const HHA_LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY'; // เผื่อ hub เดิมของ HeroHealth ใช้อันนี้
+  const HHA_LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 
   // cloud logger queue
   const VFA_LOG_QUEUE_KEY = 'VFA_LOG_QUEUE_V1';
@@ -25,14 +26,56 @@
   function clamp(n,a,b){ n=+n; if(!Number.isFinite(n)) return a; return Math.max(a, Math.min(b,n)); }
   function emit(name, detail = {}){ try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){} }
 
+  // -------- ctx passthrough --------
+  const PASS_KEYS = [
+    'hub','run','diff','time','seed','studyId','phase','conditionGroup','ts','log','style','view','research'
+  ];
+
+  function readCtxFromUrl(){
+    const out = {};
+    let sp;
+    try{ sp = new URL(location.href).searchParams; }catch{ return out; }
+    for(const k of PASS_KEYS){
+      const v = sp.get(k);
+      if(v !== null && String(v).trim() !== '') out[k] = String(v);
+    }
+    return out;
+  }
+
+  function buildUrlWithParams(baseUrl, params={}, overrides={}){
+    // baseUrl may already have query. Merge.
+    let u;
+    try{
+      u = new URL(baseUrl, location.href);
+    }catch(_){
+      // fallback: relative
+      u = new URL(String(baseUrl || ''), location.href);
+    }
+    const sp = u.searchParams;
+
+    // merge params then overrides
+    for(const [k,v] of Object.entries(params||{})){
+      if(v === undefined || v === null || String(v).trim() === '') continue;
+      sp.set(k, String(v));
+    }
+    for(const [k,v] of Object.entries(overrides||{})){
+      if(v === undefined || v === null || String(v).trim() === '') { sp.delete(k); continue; }
+      sp.set(k, String(v));
+    }
+    u.search = sp.toString();
+    return u.toString();
+  }
+
+  const CTX = readCtxFromUrl();
+
   const sbPhase = (qs('phase','train')||'train').toLowerCase();
   const sbMode  = (qs('mode','timed')||'timed').toLowerCase();
   const sbDiff  = (qs('diff','normal')||'normal').toLowerCase();
   const sbTimeSec = (()=>{ const t=parseInt(qs('time','60'),10); return (Number.isFinite(t)&&t>=20&&t<=300)?t:60; })();
 
-  const SB_SEED = (qs('seed','')||'').trim(); // reserved for seeded RNG expansion
+  const SB_SEED = (qs('seed','')||'').trim();
   const SB_HUB  = (qs('hub','')||'').trim();
-  const SB_LOG_ENDPOINT = (qs('log','')||'').trim(); // ?log=...
+  const SB_LOG_ENDPOINT = (qs('log','')||'').trim();
 
   const SB_IS_RESEARCH = (()=> {
     const r = (qs('research','')||'').toLowerCase();
@@ -570,8 +613,10 @@
       const cx = r.left + r.width/2;
       const cy = r.top  + r.height/2;
       const dx=cx-x, dy=cy-y;
-      const d2=dx*dx+dy*dy;
-      if(d2<bestD2){ bestD2=d2; best=tObj; }
+      const d2=dx*dx+dyriest y*dy;
+      // (guard) – แก้ typo เผื่อ copy เพี้ยน
+      const d2ok = (Number.isFinite(d2) ? d2 : (dx*dx+dy*dy));
+      if(d2ok<bestD2){ bestD2=d2ok; best=tObj; }
     }
     const lock = Math.max(10, Number(lockPx)||28);
     if(best && bestD2 <= lock*lock){ hitTarget(best); return true; }
@@ -674,7 +719,9 @@
       const header=[
         'studentId','schoolName','classRoom','groupCode','deviceType','language','note',
         'phase','mode','diff','gameId','gameVersion','sessionId','hub','view','timeSec','score','hits','perfect','good','miss',
-        'accuracy','maxCombo','fever','timeUsedSec','seed','research','reason','createdAt'
+        'accuracy','maxCombo','fever','timeUsedSec','seed','research','reason','createdAt',
+        // ctx passthrough extras
+        'studyId','conditionGroup','ts','run','style','log'
       ];
       rows.push(header.join(','));
       for(const rec of arr){
@@ -716,7 +763,6 @@
   }
 
   async function postJson(url, payload){
-    // try sendBeacon first
     try{
       if(navigator.sendBeacon){
         const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
@@ -725,7 +771,6 @@
       }
     }catch(_){}
 
-    // fetch keepalive fallback
     try{
       const res = await fetch(url, {
         method:'POST',
@@ -751,7 +796,6 @@
       const q = loadQueue();
       if(!q.length){ flushing=false; return; }
 
-      // ส่งทีละตัวเพื่อความชัวร์ (กัน payload ใหญ่เกิน)
       const remain = [];
       for(const item of q){
         const payload = {
@@ -778,7 +822,6 @@
     saveQueue(q);
   }
 
-  // Flush triggers
   window.addEventListener('hha:flush', (ev)=>{
     const r = (ev && ev.detail && ev.detail.reason) ? ev.detail.reason : 'hha:flush';
     flushQueue(r);
@@ -789,7 +832,7 @@
   });
   window.addEventListener('beforeunload', ()=> flushQueue('beforeunload'));
 
-  // ---------- pause/resume hardening ----------
+  // ---------- pause/resume ----------
   function pause(v){
     if(!S.running) return;
 
@@ -883,6 +926,14 @@
       seed:       SB_SEED,
       research:   SB_IS_RESEARCH ? 1 : 0,
 
+      // ctx passthrough fields (copy in)
+      studyId:        qs('studyId','') || '',
+      conditionGroup: qs('conditionGroup','') || '',
+      ts:             qs('ts','') || '',
+      run:            qs('run','') || '',
+      style:          qs('style','') || '',
+      log:            SB_LOG_ENDPOINT ? 1 : 0,
+
       reason,
       createdAt:  new Date().toISOString(),
     };
@@ -890,7 +941,11 @@
     // 1) local sessions
     logLocal(rec);
 
-    // 2) save last summary (HeroHealth-like)
+    // 2) save last summary + playUrl (for hub replay)
+    const playUrl = (() => {
+      try{ return new URL(location.href).toString(); }catch{ return location.href; }
+    })();
+
     const summary = {
       gameId: SB_GAME_ID,
       gameVersion: SB_GAME_VERSION,
@@ -901,6 +956,8 @@
       diff: sbDiff,
       mode: sbMode,
       timeSec: rec.timeSec,
+      playUrl,
+      ctx: Object.assign({}, CTX), // raw passthrough
       metrics: {
         score: rec.score,
         hit: rec.hits,
@@ -915,7 +972,7 @@
     };
     saveLastSummary(summary);
 
-    // 3) queue to cloud + try flush now
+    // 3) cloud queue + flush
     queueSession(rec);
 
     // overlay fill
@@ -930,11 +987,9 @@
 
     if(sbOverlay) sbOverlay.classList.remove('hidden');
 
-    // HHA events
     emit('hha:end', rec);
     emit('hha:flush', { reason: 'end' });
 
-    // best-effort immediate flush
     flushQueue('end');
   }
 
@@ -979,7 +1034,8 @@
     }
     if(sbHUD.coachLine) sbHUD.coachLine.textContent = t.coachReady;
 
-    emit('hha:start', {
+    // include ctx passthrough for research pipeline
+    emit('hha:start', Object.assign({
       gameId: SB_GAME_ID,
       gameVersion: SB_GAME_VERSION,
       phase: sbPhase,
@@ -990,7 +1046,7 @@
       research: SB_IS_RESEARCH ? 1 : 0,
       hub: SB_HUB,
       log: SB_LOG_ENDPOINT ? 1 : 0
-    });
+    }, CTX));
 
     setTimeout(()=>{
       startSpawnLoop();
@@ -1011,7 +1067,9 @@
 
   if(sbBackHubBtn){
     sbBackHubBtn.addEventListener('click',()=>{
-      location.href = SB_HUB || '../hub.html';
+      const hub = SB_HUB || '../hub.html';
+      // keep ctx when returning to hub so hub can know studyId/conditionGroup/etc.
+      location.href = buildUrlWithParams(hub, CTX, { last: SB_GAME_ID });
     });
   }
 
