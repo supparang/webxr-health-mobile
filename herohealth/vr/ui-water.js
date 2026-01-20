@@ -1,224 +1,155 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge UI — PRODUCTION (LATEST / smooth + anti-stuck)
-// ✅ ensureWaterGauge(): create widget if missing
-// ✅ setWaterGauge(pct, opts?): update 0..100 (supports float)
-// ✅ zoneFrom(pct): GREEN / LOW / HIGH
-// ✅ Smooth animation (default ON): easing to target to avoid "jump / stuck feel"
-// ✅ Anti-stuck DOM update: forces bar repaint even if same integer
+// HHA Water Gauge UI — PRODUCTION (LATEST)
+// ✅ ensureWaterGauge(): safe create if missing (optional)
+// ✅ setWaterGauge(pct, opts?): smooth/inertia so it "feels" responsive
+// ✅ Fix: gauge looks stuck / hard to move (adds visual smoothing + tiny drift)
+// ✅ Works across games (Hydration/others), but Hydration is primary consumer
+// ✅ zoneFrom(pct): LOW/GREEN/HIGH
 //
-// URL / Flags:
-// - Disable: ?water=0  OR window.HHA_WATER_UI=false
-// - Smooth control: ?waterSmooth=1/0   (default 1)
-// - Smooth speed: ?waterEase=0.18      (0.06..0.35)
-// - Display decimals: ?waterDec=0/1    (default 0 for kids)
-// - Zones: ?waterLow=40&waterHigh=70  (default 40/70)
+// Optional URL tuning:
+//   ?waterSmooth=0.18     (0.05..0.45) higher = snappier
+//   ?waterDrift=0.04      (0..0.20) per second, tiny auto movement
+//   ?kids=1               makes it softer + more forgiving by default
 
-(function(){
+(function(root){
   'use strict';
 
-  const WIN = window;
-  const DOC = document;
-  if (!WIN || !DOC) return;
+  const WIN = root;
+  const DOC = WIN.document;
+  if(!DOC) return;
 
   const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-  // ---- zone thresholds (configurable) ----
-  const LOW_T  = clamp(parseFloat(qs('waterLow','40')), 1, 99);
-  const HIGH_T = clamp(parseFloat(qs('waterHigh','70')), 1, 99);
+  const kidsQ = String(qs('kids','0')).toLowerCase();
+  const KIDS = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
+
+  // --- default tuning (kids friendly) ---
+  const smoothBase = clamp(parseFloat(qs('waterSmooth', KIDS ? '0.14' : '0.20')), 0.05, 0.45);
+  const driftBase  = clamp(parseFloat(qs('waterDrift',  KIDS ? '0.06' : '0.03')), 0.00, 0.20);
+
+  // Internal state for smoothing
+  const S = {
+    mounted:false,
+    target:50,     // logical percent (from game)
+    shown:50,      // what UI currently shows (smoothed)
+    v:0,           // velocity for spring-ish smoothing
+    lastT:0,
+    raf:0,
+    smooth:smoothBase,
+    drift:driftBase,
+    // drift aims gently toward mid so it doesn't feel "stuck"
+    driftMid:55
+  };
 
   function zoneFrom(pct){
     pct = clamp(pct,0,100);
-    if (pct < LOW_T) return 'LOW';
-    if (pct > HIGH_T) return 'HIGH';
+    if (pct < 40) return 'LOW';
+    if (pct > 70) return 'HIGH';
     return 'GREEN';
   }
 
-  // ---- smooth settings ----
-  const smoothQ = String(qs('waterSmooth','1')).toLowerCase();
-  const SMOOTH = !(smoothQ==='0' || smoothQ==='false' || smoothQ==='off');
-
-  const ease = clamp(parseFloat(qs('waterEase','0.18')), 0.06, 0.35); // bigger = faster follow
-  const showDecQ = String(qs('waterDec','0')).toLowerCase();
-  const SHOW_DEC = (showDecQ==='1' || showDecQ==='true' || showDecQ==='yes');
-
-  const STYLE_ID = 'hha-water-ui-style';
-  const ROOT_ID  = 'hha-water-ui';
-
-  function injectStyle(){
-    if (DOC.getElementById(STYLE_ID)) return;
-    const st = DOC.createElement('style');
-    st.id = STYLE_ID;
-    st.textContent = `
-      .hha-water-ui{
-        position: fixed;
-        left: calc(10px + env(safe-area-inset-left, 0px));
-        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-        z-index: 35; /* below HUD */
-        pointer-events: none;
-        display: grid;
-        gap: 6px;
-        width: 170px;
-        padding: 10px 10px;
-        border-radius: 16px;
-        border: 1px solid rgba(148,163,184,.14);
-        background: rgba(2,6,23,.55);
-        backdrop-filter: blur(10px);
-        box-shadow: 0 18px 60px rgba(0,0,0,.35);
-        font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-        color: rgba(229,231,235,.92);
-      }
-      .hha-water-ui[hidden]{ display:none !important; }
-      .hha-water-ui .row{
-        display:flex; align-items:baseline; justify-content:space-between;
-        gap: 10px;
-      }
-      .hha-water-ui .title{
-        font-weight: 900;
-        letter-spacing: .2px;
-        font-size: 12px;
-        opacity: .95;
-      }
-      .hha-water-ui .pct{
-        font-weight: 900;
-        font-size: 16px;
-      }
-      .hha-water-ui .zone{
-        font-size: 12px;
-        color: rgba(148,163,184,.95);
-      }
-      .hha-water-ui .bar{
-        height: 10px;
-        border-radius: 999px;
-        overflow: hidden;
-        background: rgba(148,163,184,.18);
-        border: 1px solid rgba(148,163,184,.10);
-      }
-      .hha-water-ui .fill{
-        height: 100%;
-        width: 50%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-        transform-origin: left center;
-        will-change: width;
-      }
-      .hha-water-ui.low .fill{
-        background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95));
-      }
-      .hha-water-ui.high .fill{
-        background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
-      }
-    `;
-    DOC.head.appendChild(st);
-  }
-
+  // Ensure minimal gauge exists (optional; your hydration-vr.html already has it)
   function ensureWaterGauge(){
-    // allow disable
-    const q = String(qs('water','1')).toLowerCase();
-    if (q === '0' || q === 'false' || WIN.HHA_WATER_UI === false) return null;
+    if (S.mounted) return true;
 
-    injectStyle();
+    const bar = DOC.getElementById('water-bar');
+    const pct = DOC.getElementById('water-pct');
+    const zone = DOC.getElementById('water-zone');
 
-    let root = DOC.getElementById(ROOT_ID);
-    if (root) return root;
+    if (!bar || !pct || !zone){
+      // Create a tiny minimal gauge only if missing
+      // (Normally you already have full HUD, so this is fallback-safe.)
+      const hud = DOC.getElementById('hud') || DOC.body;
+      const wrap = DOC.createElement('div');
+      wrap.style.cssText = 'position:fixed;right:12px;top:12px;z-index:80;pointer-events:none;max-width:220px';
+      wrap.innerHTML = `
+        <div style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.55);border-radius:14px;padding:10px 12px;backdrop-filter:blur(8px)">
+          <div style="display:flex;justify-content:space-between;gap:10px;font:900 12px/1 system-ui;color:rgba(229,231,235,.92)">
+            <span>Water</span><span>Zone: <b id="water-zone">GREEN</b></span>
+          </div>
+          <div style="margin-top:8px;height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.10)">
+            <div id="water-bar" style="height:100%;width:50%;border-radius:999px;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95))"></div>
+          </div>
+          <div style="margin-top:6px;text-align:right;font:900 12px/1 system-ui;color:rgba(229,231,235,.92)">
+            <span id="water-pct">50</span>%
+          </div>
+        </div>
+      `;
+      hud.appendChild(wrap);
+    }
 
-    root = DOC.createElement('div');
-    root.id = ROOT_ID;
-    root.className = 'hha-water-ui';
-
-    root.innerHTML = `
-      <div class="row">
-        <div class="title">Water Gauge</div>
-        <div class="pct"><span id="hhaWaterPct">50</span>%</div>
-      </div>
-      <div class="row">
-        <div class="zone">Zone: <b id="hhaWaterZone">GREEN</b></div>
-      </div>
-      <div class="bar"><div class="fill" id="hhaWaterFill"></div></div>
-    `;
-
-    DOC.body.appendChild(root);
-    return root;
+    S.mounted = true;
+    startLoop();
+    return true;
   }
 
-  // ---- smooth state ----
-  const SM = {
-    cur: 50,
-    tgt: 50,
-    raf: 0,
-    lastPaintAt: 0
-  };
+  function applyUI(p){
+    p = clamp(p,0,100);
+    const bar = DOC.getElementById('water-bar');
+    const pct = DOC.getElementById('water-pct');
+    const zone = DOC.getElementById('water-zone');
+    if (bar) bar.style.width = p.toFixed(0) + '%';
+    if (pct) pct.textContent = String(p|0);
+    if (zone) zone.textContent = zoneFrom(p);
+  }
 
-  function paint(pct){
-    pct = clamp(pct,0,100);
-    const root = DOC.getElementById(ROOT_ID) || ensureWaterGauge();
-    if (!root) return;
+  // Simple “spring-ish” smoothing:
+  // - makes changes feel responsive (no sudden jumps)
+  // - avoids getting visually stuck
+  function tick(t){
+    if(!S.lastT) S.lastT = t;
+    const dt = Math.min(0.05, Math.max(0.001, (t - S.lastT)/1000));
+    S.lastT = t;
 
-    const z = zoneFrom(pct);
-
-    const pctEl = DOC.getElementById('hhaWaterPct');
-    const zEl   = DOC.getElementById('hhaWaterZone');
-    const fill  = DOC.getElementById('hhaWaterFill');
-
-    if (pctEl){
-      pctEl.textContent = SHOW_DEC ? pct.toFixed(1) : String(Math.round(pct));
-    }
-    if (zEl) zEl.textContent = z;
-
-    // Anti-stuck: force set width even if visually similar
-    if (fill){
-      fill.style.width = pct.toFixed(2) + '%';
-      // force repaint occasionally
-      const t = performance.now();
-      if (t - SM.lastPaintAt > 900){
-        SM.lastPaintAt = t;
-        // tiny nudge (doesn't change display, but triggers layout)
-        fill.style.transform = 'translateZ(0)';
+    // Soft drift toward mid (VERY small)
+    if (S.drift > 0){
+      const d = (S.driftMid - S.target);
+      // drift only when not already close to mid (avoid fighting game)
+      if (Math.abs(d) > 8){
+        S.target = clamp(S.target + Math.sign(d) * S.drift * 100 * dt, 0, 100);
       }
     }
 
-    root.classList.remove('low','high','green');
-    if (z === 'LOW') root.classList.add('low');
-    else if (z === 'HIGH') root.classList.add('high');
-    else root.classList.add('green');
+    // Smoothing factor
+    // higher smooth => snappier. For kids we want slightly softer feel.
+    const k = S.smooth;
+
+    // Spring toward target
+    const a = (S.target - S.shown) * (10 * k);   // acceleration
+    S.v = (S.v + a) * (1 - 2.5*dt);              // damp
+    S.shown = S.shown + S.v * (60*dt);
+
+    // Clamp
+    S.shown = clamp(S.shown, 0, 100);
+    applyUI(S.shown);
+
+    S.raf = WIN.requestAnimationFrame(tick);
   }
 
-  function step(){
-    SM.raf = 0;
-    const d = SM.tgt - SM.cur;
-
-    // snap when close => avoids endless micro jitter
-    if (Math.abs(d) < 0.08){
-      SM.cur = SM.tgt;
-      paint(SM.cur);
-      return;
-    }
-
-    // ease follow
-    SM.cur = SM.cur + d * ease;
-    paint(SM.cur);
-
-    SM.raf = requestAnimationFrame(step);
+  function startLoop(){
+    if (S.raf) return;
+    S.lastT = 0;
+    S.raf = WIN.requestAnimationFrame(tick);
   }
 
+  // Public API used by hydration.safe.js:
+  // setWaterGauge(pct) or setWaterGauge(pct,{smooth,drift})
   function setWaterGauge(pct, opts){
-    pct = clamp(pct,0,100);
+    ensureWaterGauge();
+    S.target = clamp(pct, 0, 100);
 
-    // allow per-call override
-    const smooth = (opts && typeof opts.smooth === 'boolean') ? opts.smooth : SMOOTH;
-
-    SM.tgt = pct;
-
-    if (!smooth){
-      SM.cur = pct;
-      if (SM.raf){ cancelAnimationFrame(SM.raf); SM.raf = 0; }
-      paint(SM.cur);
-      return;
+    if (opts && typeof opts === 'object'){
+      if (opts.smooth != null) S.smooth = clamp(opts.smooth, 0.05, 0.45);
+      if (opts.drift != null)  S.drift  = clamp(opts.drift,  0.00, 0.20);
+      if (opts.driftMid != null) S.driftMid = clamp(opts.driftMid, 0, 100);
     }
 
-    if (!SM.raf){
-      SM.raf = requestAnimationFrame(step);
-    }
+    // immediate UI update for “feels responsive” (small snap)
+    // (ไม่กระโดดแรง แต่ให้เด็กเห็นว่ามีผลทันที)
+    const snap = KIDS ? 0.22 : 0.30;
+    S.shown = S.shown + (S.target - S.shown) * snap;
+    applyUI(S.shown);
   }
 
   // Expose
@@ -226,9 +157,8 @@
   WIN.setWaterGauge = setWaterGauge;
   WIN.zoneFrom = zoneFrom;
 
-  // Optional ESM export shim (safe no-op in script mode)
-  try{
-    // eslint-disable-next-line no-undef
-    export { ensureWaterGauge, setWaterGauge, zoneFrom };
-  }catch(_){}
-})();
+  // Also expose via GAME_MODULES for convenience (optional)
+  WIN.GAME_MODULES = WIN.GAME_MODULES || {};
+  WIN.GAME_MODULES.WaterGauge = { ensureWaterGauge, setWaterGauge, zoneFrom };
+
+})(window);
