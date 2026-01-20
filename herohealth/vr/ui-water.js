@@ -1,193 +1,176 @@
 // === /herohealth/vr/ui-water.js ===
-// HHA Water Gauge — PRODUCTION (LATEST, kids-friendly)
-// ✅ ensureWaterGauge(): build minimal gauge if page doesn't have it
-// ✅ setWaterGauge(pct): sets target water% and animates smoothly
-// ✅ zoneFrom(pct): LOW / GREEN / HIGH
-// ✅ Smoothing: animated display value (prevents jumpy feel)
-// ✅ Deadzone + micro-nudge: prevents "stuck looking" gauge near center
-//
-// Usage (in hydration.safe.js):
-//   import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
-//   ensureWaterGauge();
-//   setWaterGauge(S.waterPct);
+// HHA Water Gauge — PRODUCTION (LATEST)
+// ✅ ensureWaterGauge(): makes a small fixed HUD gauge if missing (optional)
+// ✅ setWaterGauge(pct, opts?): smooth animate to pct
+// ✅ zoneFrom(pct): LOW/GREEN/HIGH
+// ✅ Fix: "stuck gauge" by forcing style update + rAF commit
+// ✅ Kids-friendly smoothing defaults (can override via URL)
+// URL params (optional):
+//   ?waterSmooth=0.16   (0.05..0.5) higher=faster response
+//   ?waterDead=0.35     (0..2) deadzone in pct
+//   ?waterEase=1        enable smooth anim (default 1)
+//   ?waterUI=1          auto create gauge if missing (default 0; hydration already has panel)
 
-'use strict';
+(function(root){
+  'use strict';
+  const WIN = root;
+  const DOC = WIN.document;
+  if(!DOC) return;
 
-const WIN = (typeof window !== 'undefined') ? window : globalThis;
-const DOC = WIN.document;
+  // expose modules
+  WIN.GAME_MODULES = WIN.GAME_MODULES || {};
+  if (WIN.GAME_MODULES.UIWater) return;
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-export function zoneFrom(pct){
-  const p = clamp(pct,0,100);
-  // เด็ก ป.5: โซน GREEN กว้างขึ้นนิด ให้รู้สึกสบาย
-  const kidsQ = String(qs('kids','0')).toLowerCase();
-  const KIDS = (kidsQ==='1'||kidsQ==='true'||kidsQ==='yes');
+  // ---- config (tunable) ----
+  const CFG = {
+    enabled: String(qs('waterEase','1')).toLowerCase() !== '0',
+    smooth: clamp(parseFloat(qs('waterSmooth','0.16')), 0.05, 0.50),
+    dead: clamp(parseFloat(qs('waterDead','0.35')), 0.0, 2.0),
+    autoUI: String(qs('waterUI','0')).toLowerCase() === '1'
+  };
 
-  // default: 40-70, kids: 38-72
-  const lo = KIDS ? 38 : 40;
-  const hi = KIDS ? 72 : 70;
-
-  if (p < lo) return 'LOW';
-  if (p > hi) return 'HIGH';
-  return 'GREEN';
-}
-
-function ensureNode(id, tag='div'){
-  let el = DOC.getElementById(id);
-  if (el) return el;
-  el = DOC.createElement(tag);
-  el.id = id;
-  return el;
-}
-
-// Internal state for smoothing
-const W = {
-  inited:false,
-  target:50,
-  shown:50,
-  lastShownInt:50,
-  raf:0,
-  lastT:0,
-
-  // tuning
-  smooth:0.14,       // higher = faster response (0.12-0.18 sweet)
-  maxStepPerFrame:2.8,
-  minVisibleStep:0.35, // micro movement so it never "looks stuck"
-};
-
-function getKids(){
-  const kidsQ = String(qs('kids','0')).toLowerCase();
-  return (kidsQ==='1'||kidsQ==='true'||kidsQ==='yes');
-}
-
-function applyDOM(pShown){
-  // Prefer IDs that hydration-vr.html already has:
-  const fill = DOC.getElementById('water-bar');  // in your CSS it is .wfill
-  const pctEl = DOC.getElementById('water-pct');
-  const zoneEl = DOC.getElementById('water-zone');
-
-  if (fill) fill.style.width = `${clamp(pShown,0,100).toFixed(1)}%`;
-  if (pctEl) pctEl.textContent = String(Math.round(clamp(pShown,0,100)));
-
-  const z = zoneFrom(pShown);
-  if (zoneEl) zoneEl.textContent = z;
-}
-
-function tick(t){
-  if (!W.raf) return;
-  if (!W.lastT) W.lastT = t;
-  const dt = Math.min(0.05, Math.max(0.001, (t - W.lastT)/1000));
-  W.lastT = t;
-
-  const tgt = W.target;
-  let cur = W.shown;
-
-  // Easing toward target
-  let diff = (tgt - cur);
-
-  // Deadzone near target: but keep subtle motion for “ไม่ดูค้าง”
-  const dead = getKids() ? 0.55 : 0.75;
-  if (Math.abs(diff) < dead){
-    // micro nudge to show life when integer display hasn't changed
-    const curInt = Math.round(cur);
-    if (curInt === W.lastShownInt){
-      const micro = Math.sign(diff || 1) * W.minVisibleStep * (getKids()?1.05:1.0);
-      cur += micro;
-    } else {
-      // snap if already visually updated
-      cur = tgt;
-    }
-  } else {
-    // normal smooth follow
-    const k = W.smooth;
-    let step = diff * (1 - Math.pow(1-k, dt*60));
-    // clamp per frame step
-    const lim = W.maxStepPerFrame * (getKids()?1.2:1.0);
-    step = clamp(step, -lim, lim);
-    cur += step;
+  // ---- zone helper ----
+  function zoneFrom(pct){
+    pct = clamp(pct, 0, 100);
+    // keep GREEN wide for kids (feels fair)
+    if (pct < 42) return 'LOW';
+    if (pct > 68) return 'HIGH';
+    return 'GREEN';
   }
 
-  cur = clamp(cur,0,100);
-  W.shown = cur;
+  // ---- UI creation (optional) ----
+  function ensureWaterGauge(){
+    // Hydration has its own panel, so this is optional.
+    if (!CFG.autoUI) return false;
 
-  const shownInt = Math.round(cur);
-  W.lastShownInt = shownInt;
-  applyDOM(cur);
+    if (DOC.getElementById('hha-water-gauge')) return true;
 
-  // stop if close enough
-  if (Math.abs(W.target - W.shown) < 0.35){
-    // keep a tiny tail only if it still looks frozen
-    if (Math.round(W.shown) === Math.round(W.target)){
-      W.raf = requestAnimationFrame(tick);
+    const wrap = DOC.createElement('div');
+    wrap.id = 'hha-water-gauge';
+    wrap.style.cssText = `
+      position:fixed;
+      right: calc(12px + env(safe-area-inset-right,0px));
+      bottom: calc(12px + env(safe-area-inset-bottom,0px));
+      z-index: 80;
+      pointer-events:none;
+      width: 160px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 16px 60px rgba(0,0,0,.35);
+      padding: 10px;
+      color: rgba(229,231,235,.92);
+      font: 900 12px/1.2 system-ui;
+    `;
+    wrap.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <div>Water</div>
+        <div style="color:rgba(148,163,184,.95)">Zone: <b id="hha-water-zone">GREEN</b></div>
+      </div>
+      <div style="margin-top:8px;height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.10)">
+        <div id="hha-water-fill" style="height:100%;width:50%;border-radius:999px;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95))"></div>
+      </div>
+      <div style="margin-top:6px;text-align:right"><span id="hha-water-pct">50</span>%</div>
+    `;
+    DOC.body.appendChild(wrap);
+    return true;
+  }
+
+  // ---- internal state ----
+  const S = {
+    target: 50,
+    shown: 50,
+    lastCommit: -999,
+    raf: 0
+  };
+
+  function getDomRefs(){
+    // Prefer hydration's panel IDs if present:
+    const bar  = DOC.getElementById('water-bar') || DOC.getElementById('hha-water-fill');
+    const pct  = DOC.getElementById('water-pct') || DOC.getElementById('hha-water-pct');
+    const zone = DOC.getElementById('water-zone')|| DOC.getElementById('hha-water-zone');
+    return { bar, pct, zone };
+  }
+
+  function commit(pct){
+    const { bar, pct:elPct, zone:elZone } = getDomRefs();
+
+    const p = clamp(pct, 0, 100);
+    const z = zoneFrom(p);
+
+    // IMPORTANT: force style update to avoid "stuck" look on some browsers
+    // (especially when many DOM updates happen per frame)
+    if (bar){
+      bar.style.width = p.toFixed(0) + '%';
+      // force repaint nudge
+      bar.style.transform = 'translateZ(0)';
+    }
+    if (elPct) elPct.textContent = String(p|0);
+    if (elZone) elZone.textContent = z;
+
+    S.lastCommit = performance.now ? performance.now() : Date.now();
+  }
+
+  function tick(){
+    S.raf = 0;
+
+    // if smoothing disabled: commit immediately
+    if (!CFG.enabled){
+      S.shown = S.target;
+      commit(S.shown);
       return;
     }
-    cancelAnimationFrame(W.raf);
-    W.raf = 0;
-    W.lastT = 0;
-  } else {
-    W.raf = requestAnimationFrame(tick);
-  }
-}
 
-export function ensureWaterGauge(){
-  if (!DOC || W.inited) return;
-  W.inited = true;
+    // smooth toward target
+    const d = (S.target - S.shown);
 
-  // If page already has the panel (#water-bar/#water-pct/#water-zone), do nothing.
-  // But we still initialize smoothing state.
-  const has = DOC.getElementById('water-bar') && DOC.getElementById('water-pct') && DOC.getElementById('water-zone');
-  if (has) return;
+    // deadzone: prevent tiny jitter that looks like "stuck"
+    if (Math.abs(d) <= CFG.dead){
+      S.shown = S.target;
+      commit(S.shown);
+      return;
+    }
 
-  // Minimal fallback gauge (rare): attach to body
-  const wrap = ensureNode('hhaWaterMini','div');
-  wrap.style.cssText = `
-    position:fixed; right:12px; top:calc(12px + env(safe-area-inset-top,0px));
-    z-index:95; pointer-events:none;
-    width:160px; padding:10px 12px; border-radius:16px;
-    border:1px solid rgba(148,163,184,.18);
-    background: rgba(2,6,23,.55);
-    color:#e5e7eb; font: 700 12px/1.2 system-ui;
-    backdrop-filter: blur(10px);
-  `;
-  wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">
-      <div>Water</div>
-      <div>Zone: <b id="water-zone">GREEN</b></div>
-    </div>
-    <div style="margin-top:8px;height:10px;border-radius:999px;overflow:hidden;
-      background: rgba(148,163,184,.18); border:1px solid rgba(148,163,184,.10);">
-      <div id="water-bar" style="height:100%;width:50%;border-radius:999px;
-        background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));"></div>
-    </div>
-    <div style="margin-top:6px;text-align:right;font-weight:900;">
-      <span id="water-pct">50</span>%
-    </div>
-  `;
-  DOC.body.appendChild(wrap);
-}
+    // exponential smoothing (feels "นิ่ม")
+    S.shown += d * CFG.smooth;
 
-export function setWaterGauge(pct){
-  const p = clamp(pct,0,100);
+    // clamp and commit
+    S.shown = clamp(S.shown, 0, 100);
 
-  // If user calls without ensureWaterGauge, try anyway:
-  if (!W.inited) ensureWaterGauge();
+    // commit now + one more commit next frame (anti-stuck trick)
+    commit(S.shown);
 
-  // update target and start anim if not running
-  W.target = p;
-
-  // Hard snap on first call
-  if (!W.raf && Math.abs(W.shown - p) > 18){
-    W.shown = p;
-    W.lastShownInt = Math.round(p);
-    applyDOM(p);
+    // keep animating until close
+    if (Math.abs(S.target - S.shown) > CFG.dead){
+      S.raf = requestAnimationFrame(tick);
+    }
   }
 
-  if (!W.raf){
-    W.raf = requestAnimationFrame(tick);
+  // Public API
+  function setWaterGauge(pct){
+    S.target = clamp(pct, 0, 100);
+
+    // Make sure UI exists if autoUI requested
+    ensureWaterGauge();
+
+    // Schedule animation commit
+    if (S.raf) return;
+    // commit in next frame so layout is ready (prevents "ไม่ลดเลย" illusion)
+    S.raf = requestAnimationFrame(tick);
   }
-}
+
+  // export
+  const API = { ensureWaterGauge, setWaterGauge, zoneFrom, _cfg:CFG };
+  WIN.GAME_MODULES.UIWater = API;
+
+  // also support named imports pattern used in hydration.safe.js
+  // (works when bundled via module wrapper; in plain script, hydration imports won't use this)
+  WIN.ensureWaterGauge = WIN.ensureWaterGauge || ensureWaterGauge;
+  WIN.setWaterGauge = WIN.setWaterGauge || setWaterGauge;
+  WIN.zoneFrom = WIN.zoneFrom || zoneFrom;
+
+})(window);
