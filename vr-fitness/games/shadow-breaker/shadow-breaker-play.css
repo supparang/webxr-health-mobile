@@ -1,11 +1,9 @@
-:root{ color-scheme: dark; }
-
-/* safe-area */
 :root{
-  --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
+  color-scheme: dark;
+  --sat: env(safe-area-inset-top,0px);
+  --sar: env(safe-area-inset-right,0px);
+  --sab: env(safe-area-inset-bottom,0px);
+  --sal: env(safe-area-inset-left,0px);
 }
 
 *{ box-sizing:border-box; }
@@ -24,10 +22,7 @@ body{
 .page{
   max-width:960px;
   margin:0 auto;
-  padding-top: calc(12px + var(--sat));
-  padding-left:  calc(10px + var(--sal));
-  padding-right: calc(10px + var(--sar));
-  padding-bottom: calc(24px + var(--sab));
+  padding: calc(12px + var(--sat)) calc(10px + var(--sar)) calc(24px + var(--sab)) calc(10px + var(--sal));
 }
 
 /* ----- Card ----- */
@@ -50,10 +45,8 @@ body{
 }
 .card-header .title{ display:flex; gap:8px; }
 .card-header .icon{
-  width:30px;height:30px;border-radius:999px;
-  background:rgba(56,189,248,.18);
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;
+  width:30px;height:30px;border-radius:999px;background:rgba(56,189,248,.18);
+  display:flex;align-items:center;justify-content:center;font-size:18px;
 }
 .card-header h1{ margin:0; font-size:.98rem; }
 .card-header p{ margin:2px 0 0; font-size:.7rem; color:#9ca3af; }
@@ -61,12 +54,10 @@ body{
 /* lang toggle */
 .lang-toggle{ display:flex; gap:4px; }
 .lang-btn{
-  padding:4px 9px;border-radius:999px;border:1px solid #1f2937;
-  background:#020617;color:#e5e7eb;font-size:.7rem;cursor:pointer;min-width:40px;
+  padding:4px 9px;border-radius:999px;border:1px solid #1f2937;background:#020617;color:#e5e7eb;
+  font-size:.7rem;cursor:pointer;min-width:40px;
 }
-.lang-btn.active{
-  background:#38bdf8;color:#0b1120;border-color:#38bdf8;font-weight:600;
-}
+.lang-btn.active{ background:#38bdf8;color:#0b1120;border-color:#38bdf8;font-weight:700; }
 
 /* ----- research form ----- */
 .research-grid{
@@ -75,16 +66,11 @@ body{
   gap:8px 10px;
   margin-top:4px;
 }
-.research-grid label{
-  display:flex;flex-direction:column;gap:2px;font-size:.72rem;
-}
+.research-grid label{ display:flex; flex-direction:column; gap:2px; font-size:.72rem; }
 .research-grid span{ color:#94a3b8; }
-.research-grid input,
-.research-grid select{
-  border-radius:999px;border:1px solid #1e293b;
-  padding:7px 10px;font-size:.8rem;
-  background:rgba(15,23,42,.96);
-  color:#e5e7eb;outline:none;
+.research-grid input,.research-grid select{
+  border-radius:999px;border:1px solid #1e293b;padding:7px 10px;font-size:.8rem;
+  background:rgba(15,23,42,.96);color:#e5e7eb;outline:none;
 }
 .research-grid input::placeholder{ color:#64748b; }
 
@@ -99,11 +85,15 @@ body{
   border:1px solid rgba(148,163,184,.45);
   border-radius:14px;
   padding:6px 8px;
-  display:flex;flex-wrap:wrap;gap:6px;
-  justify-content:space-between;align-items:center;
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  justify-content:space-between;
+  align-items:center;
   font-size:.8rem;
-  pointer-events:none; /* กันชนตอนอนาคตซ้อนทับ */
+  pointer-events:none;
 }
+
 .hud-block{
   min-width:72px;
   padding:4px 8px;
@@ -113,12 +103,12 @@ body{
   text-align:center;
 }
 .hud-block .label{ display:block; font-size:.62rem; color:#9ca3af; }
-.hud-block .value{ font-size:.9rem; font-weight:700; }
+.hud-block .value{ font-size:.9rem; font-weight:800; }
 
 .start-row{ margin:8px 0 4px; display:flex; justify-content:center; }
+
 .btn{
-  border:none;border-radius:999px;padding:8px 16px;
-  font-size:.85rem;font-weight:600;cursor:pointer;
+  border:none;border-radius:999px;padding:8px 16px;font-size:.85rem;font-weight:800;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
 }
 .btn-main{
@@ -126,11 +116,7 @@ body{
   color:#020617;
   box-shadow:0 14px 30px rgba(248,181,0,.55);
 }
-.btn-secondary{
-  background:rgba(15,23,42,1);
-  border:1px solid rgba(148,163,184,.7);
-  color:#e5e7eb;
-}
+.btn-secondary{ background:rgba(15,23,42,1); border:1px solid rgba(148,163,184,.7); color:#e5e7eb; }
 .btn-full{ width:100%; }
 
 .goal-text{ margin:0 2px 6px; }
@@ -144,13 +130,9 @@ body{
   overflow:hidden;
   min-height:360px;
 }
-#gameArea{
-  position:absolute;
-  inset:0;
-  overflow:hidden;
-}
+#gameArea{ position:absolute; inset:0; overflow:hidden; }
 
-/* target */
+/* Target */
 .sb-target{
   position:absolute;
   border-radius:999px;
@@ -159,7 +141,6 @@ body{
   align-items:center;
   font-size:2rem;
   box-shadow:0 20px 40px rgba(15,23,42,.95),0 0 0 1px rgba(148,163,184,.9);
-  background:radial-gradient(circle at 30% 20%,#38bdf8,#0ea5e9);
   color:#e5f2ff;
   cursor:pointer;
   user-select:none;
@@ -167,38 +148,30 @@ body{
   z-index:5;
 }
 
-#gameArea.fever{
-  box-shadow:0 0 40px rgba(250,204,21,.7);
-  outline:2px solid rgba(250,204,21,.5);
-}
-
-/* FEEDBACK กลางจอ — ✅ match JS: feedback perfect/good/miss/fever */
+/* FEEDBACK (match JS: 'feedback perfect/good/miss/fever') */
 .feedback{
-  position:absolute;
-  left:50%;top:50%;
+  position:absolute;left:50%;top:50%;
   transform:translate(-50%,-50%) scale(.92);
-  font-size:2.1rem;
-  font-weight:800;
+  font-size:2.1rem;font-weight:900;
   text-shadow:0 0 18px rgba(0,0,0,.7);
   pointer-events:none;
   opacity:0;
   transition: opacity .12s ease, transform .12s ease;
 }
-.feedback.show{
-  opacity:1;
-  transform:translate(-50%,-50%) scale(1);
-}
+.feedback.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
 .feedback.fever{ color:#facc15; }
 .feedback.perfect{ color:#4ade80; }
 .feedback.good{ color:#38bdf8; }
 .feedback.miss{ color:#f97373; }
 
-/* coach + controls */
-.coach{
-  margin:8px 2px 4px;
-  font-size:.85rem;
-  color:#cbd5f5;
+/* FEVER glow */
+#gameArea.fever{
+  box-shadow:0 0 40px rgba(250,204,21,.7);
+  outline:2px solid rgba(250,204,21,.5);
 }
+
+/* coach + controls */
+.coach{ margin:8px 2px 4px; font-size:.85rem; color:#cbd5f5; }
 .controls{
   margin-top:6px;
   border-radius:12px;
@@ -210,18 +183,44 @@ body{
 .controls ul{ margin:0 0 4px 16px; padding:0; font-size:.78rem; }
 .controls li{ margin-bottom:2px; }
 
-/* ----- Overlay ----- */
-.overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(2,6,23,.9);
-  display:flex;
+/* Boss HUD */
+.boss-barbox{
+  position:absolute;
+  top:10px; left:10px;
+  padding:4px 8px;
+  border-radius:12px;
+  border:1px solid rgba(148,163,184,.45);
+  background:rgba(15,23,42,.8);
+  font-size:.75rem;
+  display:none;
   align-items:center;
-  justify-content:center;
-  padding-top: calc(18px + var(--sat));
-  padding-bottom: calc(18px + var(--sab));
-  padding-left: calc(18px + var(--sal));
-  padding-right: calc(18px + var(--sar));
+  gap:8px;
+  z-index:12;
+}
+.boss-face{
+  width:30px;height:30px;border-radius:999px;
+  background:rgba(15,23,42,.98);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 14px rgba(148,163,184,.8);
+  font-size:1.1rem;
+}
+.boss-name{ font-size:.75rem; margin-bottom:2px; }
+.boss-bar{
+  width:120px;height:6px;background:#1e293b;border-radius:999px;overflow:hidden;
+}
+.boss-bar-fill{
+  width:100%;height:100%;
+  background:linear-gradient(90deg,#22c55e,#facc15,#f97316,#ef4444);
+  transform-origin:left;
+  transform:scaleX(1);
+}
+
+/* Overlay */
+.overlay{
+  position:fixed; inset:0;
+  background:rgba(2,6,23,.9);
+  display:flex; align-items:center; justify-content:center;
+  padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
   z-index:80;
 }
 .overlay.hidden{ display:none; }
@@ -243,22 +242,17 @@ body{
   font-size:.8rem;
 }
 .result-grid .label{ display:block; font-size:.7rem; color:#9ca3af; }
-.result-grid .value{ display:block; font-size:.95rem; font-weight:700; }
+.result-grid .value{ display:block; font-size:.95rem; font-weight:900; }
 
-.overlay-actions{
-  margin-top:10px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
+.overlay-actions{ margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }
 
-/* play-only: หลังเริ่มเล่นให้จอเกมเต็มขึ้น */
+/* play-only focus */
 body.play-only .research-card{ display:none; }
 body.play-only .controls{ display:none; }
 body.play-only .page{ max-width:780px; }
 body.play-only .game-panel{ min-height:calc(100vh - 220px); }
 
-/* mode-play: เล่นธรรมดา (ซ่อนฟอร์มวิจัย + CSV) */
+/* mode-play hides research ui */
 body.mode-play .research-card{ display:none; }
 body.mode-play #metaPDPA{ display:none; }
 body.mode-play #downloadCsvBtn{ display:none; }
@@ -268,4 +262,5 @@ body.mode-play #downloadCsvBtn{ display:none; }
   .research-grid{ grid-template-columns:1fr; }
   .hud{ flex-direction:column; align-items:flex-start; }
   .game-panel{ min-height:320px; }
+  .result-grid{ grid-template-columns:1fr 1fr; }
 }
