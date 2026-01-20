@@ -4,8 +4,12 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
-✅ FINAL-8: Onboarding (first-time)
-✅ FINAL-9/10: Banner + Mini clarity
+✅ FINAL-37: Research tags (studyId/participantId/conditionGroup/sessionId) + save/localStorage + embed summary/replay
+✅ FINAL-38: One-tap presets + auto participant increment (P001..)
+✅ FINAL-39: Research gate (run=research requires tags before start)
+✅ FINAL-40: Start marker + consent/assent toggles (optional)
+✅ FINAL-41: Strict mode (?strict=1 forces consent+assent)
+✅ FINAL-42: Link builder (copy research/play URL)
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -18,6 +22,59 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- FINAL-37..42: UI additions CSS (append-only, safe) -->
+  <style>
+    /* === FINAL-37 Research Tag UI === */
+    .rTagWrap{
+      position: fixed;
+      right: 12px;
+      top: calc(env(safe-area-inset-top,0px) + 12px);
+      z-index: 96;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:10px;
+    }
+    .rTagToggle{ border-radius: 999px; }
+    .rTagPanel{
+      width: min(420px, calc(100vw - 24px));
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.78);
+      backdrop-filter: blur(10px);
+      padding: 12px;
+    }
+    .rTagPanel.hidden{ display:none; }
+    .rTagHead{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }
+    .rTagTitle{ font-weight: 900; }
+    .rTagMini{ color: rgba(148,163,184,.95); font-size: 12px; }
+    .rTagGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .rTagField{ display:flex; flex-direction:column; gap:6px; font-size: 12px; color: rgba(148,163,184,.95); }
+    .rTagField input{
+      height: 36px;
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.50);
+      color: #e5e7eb;
+      padding: 0 10px;
+      outline: none;
+    }
+    .rTagField input:focus{ border-color: rgba(34,197,94,.60); }
+    @media (max-width: 520px){ .rTagGrid{ grid-template-columns: 1fr; } }
+
+    /* FINAL-38 presets */
+    .rPresetTitle{ font-weight:900; margin-bottom:8px; }
+    .rPresetRow{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+
+    /* FINAL-40 consent toggles */
+    .rConsentRow{ display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+    .rChk{ display:flex; gap:8px; align-items:center; font-weight:800; color:rgba(148,163,184,.98); }
+    .rChk input{ width:18px; height:18px; accent-color:#22c55e; }
+
+    /* FINAL-39 gate */
+    .overlay-gate .gatePanel{ max-width:min(720px, calc(100vw - 18px)); }
+  </style>
 
   <!-- A-Frame: minimal scene for WebXR Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -60,6 +117,98 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
       <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
       <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
+    </div>
+  </div>
+
+  <!-- FINAL-37..42: Research Tagging Panel -->
+  <div class="rTagWrap">
+    <button id="btnRTagToggle" class="btn btn-ghost rTagToggle" type="button">🧾 Research</button>
+
+    <div id="rTagPanel" class="rTagPanel hidden">
+      <div class="rTagHead">
+        <div class="rTagTitle">🧾 Research Tags</div>
+        <div class="rTagMini">บันทึกในเครื่อง + ฝังใน summary/replay/export</div>
+      </div>
+
+      <div class="rTagGrid">
+        <label class="rTagField">
+          <span>studyId</span>
+          <input id="inStudyId" placeholder="เช่น HHA-GROUPS-2026-A" />
+        </label>
+
+        <label class="rTagField">
+          <span>participantId</span>
+          <input id="inParticipantId" placeholder="เช่น P005" />
+        </label>
+
+        <label class="rTagField">
+          <span>conditionGroup</span>
+          <input id="inConditionGroup" placeholder="เช่น A / B / C" />
+        </label>
+
+        <label class="rTagField">
+          <span>sessionId</span>
+          <input id="inSessionId" placeholder="auto" />
+        </label>
+      </div>
+
+      <!-- FINAL-40 Consent/Assent + FINAL-41 Strict -->
+      <div class="rConsentRow">
+        <label class="rChk">
+          <input id="ckConsentParent" type="checkbox" />
+          <span>มี Consent ผู้ปกครอง</span>
+        </label>
+        <label class="rChk">
+          <input id="ckAssentChild" type="checkbox" />
+          <span>มี Assent เด็ก</span>
+        </label>
+        <label class="rChk">
+          <input id="ckStrict" type="checkbox" />
+          <span>Strict mode (บังคับ Consent/Assent)</span>
+        </label>
+      </div>
+
+      <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:10px;">
+        <button id="btnRTagSave" class="btn btn-strong" type="button">✅ Save</button>
+        <button id="btnRTagApplyUrl" class="btn btn-ghost" type="button">🔗 Apply to URL</button>
+        <button id="btnRTagNewSession" class="btn btn-ghost" type="button">🆕 New sessionId</button>
+      </div>
+
+      <!-- FINAL-38 Quick Presets -->
+      <div class="rPresetWrap" style="margin-top:12px;">
+        <div class="rPresetTitle">⚡ Quick Presets</div>
+
+        <div class="rPresetRow">
+          <button class="btn btn-ghost" id="btnCondA" type="button">Condition A</button>
+          <button class="btn btn-ghost" id="btnCondB" type="button">Condition B</button>
+          <button class="btn btn-ghost" id="btnCondC" type="button">Condition C</button>
+        </div>
+
+        <div class="rPresetRow">
+          <button class="btn btn-ghost" id="btnClass51" type="button">ป.5/1</button>
+          <button class="btn btn-ghost" id="btnClass52" type="button">ป.5/2</button>
+          <button class="btn btn-ghost" id="btnClass53" type="button">ป.5/3</button>
+        </div>
+
+        <div class="rPresetRow">
+          <button class="btn btn-strong" id="btnNextP" type="button">🆕 Next Participant (auto +1)</button>
+          <button class="btn btn-ghost" id="btnResetP" type="button">↺ Reset Counter</button>
+        </div>
+
+        <div class="note" style="margin-top:8px;">
+          Next Participant: เพิ่ม participantId + สร้าง sessionId ใหม่ทันที
+        </div>
+      </div>
+
+      <!-- FINAL-42 Link builder -->
+      <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:10px;">
+        <button id="btnCopyResearchUrl" class="btn btn-strong" type="button">📋 Copy Research URL</button>
+        <button id="btnCopyPlayUrl" class="btn btn-ghost" type="button">📋 Copy Play URL</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        Tip: โหมด research แนะนำให้ตั้ง participantId + conditionGroup ให้ครบก่อนเริ่มเกม
+      </div>
     </div>
   </div>
 
@@ -107,24 +256,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- FINAL-9: Big banner -->
-  <div id="bigBanner" class="bigBanner hidden">
-    <div id="bigBannerText" class="bigBannerText">—</div>
-  </div>
-
-  <!-- FINAL-8: Onboarding (first time only) -->
-  <div id="onb" class="overlay overlay-onb hidden">
-    <div class="panel onbPanel">
-      <div class="title">🎮 วิธีเล่นแบบไวมาก</div>
-      <div id="onbLine1" class="sub">—</div>
-      <div id="onbLine2" class="sub" style="margin-top:6px;">—</div>
-      <div class="row" style="margin-top:12px;">
-        <button id="btnOnbOk" class="btn btn-strong" type="button">✅ เข้าใจแล้ว</button>
-        <button id="btnOnbSkip" class="btn btn-ghost" type="button">⏭️ ไม่ต้องขึ้นอีก</button>
-      </div>
-    </div>
-  </div>
-
   <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
     <div class="panel calPanel">
@@ -155,6 +286,34 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
+  <!-- FINAL-39/41: Research Gate -->
+  <div id="gateOverlay" class="overlay overlay-gate hidden">
+    <div class="panel gatePanel">
+      <div class="title">🧾 Research Check</div>
+      <div class="sub" id="gateSub">โหมดวิจัยต้องกรอกข้อมูลให้ครบก่อนเริ่มเกม</div>
+
+      <div class="grid2" style="margin-top:10px;">
+        <div class="stat"><div class="k">studyId</div><div id="gateStudy" class="v">—</div></div>
+        <div class="stat"><div class="k">participantId</div><div id="gatePid" class="v">—</div></div>
+        <div class="stat"><div class="k">conditionGroup</div><div id="gateCond" class="v">—</div></div>
+        <div class="stat"><div class="k">sessionId</div><div id="gateSid" class="v">—</div></div>
+        <div class="stat"><div class="k">consentParent</div><div id="gateConsent" class="v">—</div></div>
+        <div class="stat"><div class="k">assentChild</div><div id="gateAssent" class="v">—</div></div>
+      </div>
+
+      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+        <button id="btnGateEdit" class="btn btn-ghost" type="button">✏️ เปิดแผง Research</button>
+        <button id="btnGateAuto" class="btn btn-ghost" type="button">⚡ Auto-fill (P+1)</button>
+        <button id="btnGateApplyUrl" class="btn btn-ghost" type="button">🔗 Apply to URL</button>
+        <button id="btnGateStart" class="btn btn-strong" type="button" disabled>🚀 Start Research</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        Strict mode (?strict=1) จะบังคับ Consent/Assent ให้ครบก่อนเริ่ม
+      </div>
+    </div>
+  </div>
+
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
     <div class="panel">
@@ -176,6 +335,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
         <button id="btnBackLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
         <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
       </div>
+      <div class="row row2">
+        <button id="btnCopyResearchUrlEnd" class="btn btn-ghost" type="button">🔗 Copy Research URL</button>
+      </div>
 
       <div class="note" style="margin-top:10px;">
         Cardboard (cVR): แตะจอเพื่อยิงจาก crosshair • ปุ่ม ENTER VR/RECENTER อยู่ UI ของ vr-ui.js
@@ -194,6 +356,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     catch { return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function normStr(x){ return String(x??'').trim(); }
 
   function setView(view){
     const b = DOC.body;
@@ -204,17 +367,25 @@ GroupsVR Run (PC/Mobile/Cardboard)
   function aiEnabled(){
     const run = String(qs('run','play')||'play').toLowerCase();
     const on  = String(qs('ai','0')||'0');
-    if (run === 'research') return false;      // ✅ research: ปิดแน่นอน
+    if (run === 'research') return false; // research: ปิดแน่นอน
     return (on === '1' || on === 'true');
   }
 
   function getPracticeSec(view){
     const p = String(qs('practice','0')||'0');
     let sec = Number(p)||0;
-    if (p === '1') sec = 15;                  // ✅ practice=1 => 15s
+    if (p === '1') sec = 15; // practice=1 => 15s
     sec = clamp(sec, 0, 30);
-    if (view !== 'cvr') sec = 0;              // ✅ practice เฉพาะ cVR
+    if (view !== 'cvr') sec = 0; // practice เฉพาะ cVR
     return sec;
+  }
+
+  function isResearchMode(){
+    return String(qs('run','play')||'play').toLowerCase() === 'research';
+  }
+  function isStrictMode(){
+    const s = String(qs('strict','0')||'0').toLowerCase();
+    return (s === '1' || s === 'true');
   }
 
   async function copyText(text){
@@ -232,72 +403,393 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  // FINAL-9 banner
-  let bannerTmr = 0;
-  function showBanner(text, ms){
-    const wrap = $('bigBanner');
-    const txt  = $('bigBannerText');
-    if (!wrap || !txt) return;
+  // ---------- FINAL-37..41: Research ctx store ----------
+  const LS_RCTX = 'HHA_RESEARCH_CTX_V1';
 
-    txt.textContent = String(text||'');
-    wrap.classList.remove('hidden');
-    wrap.classList.add('show');
-
-    clearTimeout(bannerTmr);
-    bannerTmr = setTimeout(()=>{
-      try{ wrap.classList.add('hidden'); wrap.classList.remove('show'); }catch(_){}
-    }, Math.max(520, ms||1200));
+  function loadRctx(){
+    try{ return JSON.parse(localStorage.getItem(LS_RCTX)||'{}') || {}; }catch(_){ return {}; }
+  }
+  function saveRctx(obj){
+    try{ localStorage.setItem(LS_RCTX, JSON.stringify(obj||{})); return true; }catch(_){ return false; }
+  }
+  function makeSessionId(){
+    const d = new Date();
+    const pad = (n)=>String(n).padStart(2,'0');
+    const ts = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    const rnd = Math.random().toString(16).slice(2,6).toUpperCase();
+    return `GVR-${ts}-${rnd}`;
+  }
+  function getRctxFromUrl(){
+    const b = (x)=> (String(x||'').trim()==='1' || String(x||'').trim().toLowerCase()==='true');
+    return {
+      studyId: normStr(qs('studyId','')),
+      participantId: normStr(qs('participantId','')),
+      conditionGroup: normStr(qs('conditionGroup','')),
+      sessionId: normStr(qs('sessionId','')),
+      consentParent: b(qs('consentParent','')),
+      assentChild: b(qs('assentChild',''))
+    };
+  }
+  function getRctx(){
+    const a = loadRctx();
+    const u = getRctxFromUrl();
+    return {
+      studyId: u.studyId || normStr(a.studyId||''),
+      participantId: u.participantId || normStr(a.participantId||''),
+      conditionGroup: u.conditionGroup || normStr(a.conditionGroup||''),
+      sessionId: u.sessionId || normStr(a.sessionId||''),
+      consentParent: (u.consentParent===true) ? true : !!a.consentParent,
+      assentChild: (u.assentChild===true) ? true : !!a.assentChild
+    };
+  }
+  function setRctx(obj){
+    const cur = loadRctx();
+    const next = Object.assign({}, cur, obj||{});
+    next.studyId = normStr(next.studyId||'');
+    next.participantId = normStr(next.participantId||'');
+    next.conditionGroup = normStr(next.conditionGroup||'');
+    next.sessionId = normStr(next.sessionId||'');
+    next.consentParent = !!next.consentParent;
+    next.assentChild = !!next.assentChild;
+    saveRctx(next);
+    return next;
   }
 
-  // FINAL-8 onboarding
-  const LS_ONB = 'HHA_GROUPS_ONBOARD_V1';
-
-  function shouldShowOnb(view, runMode){
-    if (runMode === 'research') return false;
-    try{
-      const raw = localStorage.getItem(LS_ONB) || '';
-      if (!raw) return true;
-      const o = JSON.parse(raw);
-      return !o || !o['shown_'+view];
-    }catch(_){ return true; }
+  function syncRTagUI(){
+    const c = getRctx();
+    $('inStudyId') && ($('inStudyId').value = c.studyId || '');
+    $('inParticipantId') && ($('inParticipantId').value = c.participantId || '');
+    $('inConditionGroup') && ($('inConditionGroup').value = c.conditionGroup || '');
+    $('inSessionId') && ($('inSessionId').value = c.sessionId || '');
+    $('ckConsentParent') && ($('ckConsentParent').checked = !!c.consentParent);
+    $('ckAssentChild') && ($('ckAssentChild').checked = !!c.assentChild);
+    $('ckStrict') && ($('ckStrict').checked = isStrictMode());
   }
-  function markOnbShown(view){
+
+  function toggleRTagPanel(on){
+    const p = $('rTagPanel');
+    if (!p) return;
+    p.classList.toggle('hidden', !on);
+    if (on) syncRTagUI();
+  }
+
+  $('btnRTagToggle') && $('btnRTagToggle').addEventListener('click', ()=>{
+    const p = $('rTagPanel');
+    const open = p ? p.classList.contains('hidden') : true;
+    toggleRTagPanel(open);
+  });
+
+  $('btnRTagSave') && $('btnRTagSave').addEventListener('click', ()=>{
+    setRctx({
+      studyId: $('inStudyId') ? $('inStudyId').value : '',
+      participantId: $('inParticipantId') ? $('inParticipantId').value : '',
+      conditionGroup: $('inConditionGroup') ? $('inConditionGroup').value : '',
+      sessionId: $('inSessionId') ? $('inSessionId').value : '',
+      consentParent: !!($('ckConsentParent') && $('ckConsentParent').checked),
+      assentChild: !!($('ckAssentChild') && $('ckAssentChild').checked)
+    });
+    syncRTagUI();
+    alert('บันทึกแล้ว ✅');
+  });
+
+  $('btnRTagNewSession') && $('btnRTagNewSession').addEventListener('click', ()=>{
+    setRctx({ sessionId: makeSessionId() });
+    syncRTagUI();
+  });
+
+  $('btnRTagApplyUrl') && $('btnRTagApplyUrl').addEventListener('click', ()=>{
+    const c = getRctx();
+    const u = new URL(location.href);
+
+    if (c.studyId) u.searchParams.set('studyId', c.studyId); else u.searchParams.delete('studyId');
+    if (c.participantId) u.searchParams.set('participantId', c.participantId); else u.searchParams.delete('participantId');
+    if (c.conditionGroup) u.searchParams.set('conditionGroup', c.conditionGroup); else u.searchParams.delete('conditionGroup');
+    if (c.sessionId) u.searchParams.set('sessionId', c.sessionId); else u.searchParams.delete('sessionId');
+
+    if (c.consentParent) u.searchParams.set('consentParent','1'); else u.searchParams.delete('consentParent');
+    if (c.assentChild)   u.searchParams.set('assentChild','1');   else u.searchParams.delete('assentChild');
+
+    const strictOn = !!($('ckStrict') && $('ckStrict').checked);
+    if (strictOn) u.searchParams.set('strict','1'); else u.searchParams.delete('strict');
+
+    history.replaceState(null,'',u.toString());
+    alert('ใส่ค่าลง URL แล้ว 🔗');
+  });
+
+  // init once: ensure sessionId exists; in research open panel
+  (function initRTag(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const c = getRctx();
+    if (!c.sessionId){
+      setRctx({ sessionId: makeSessionId() });
+    }
+    if (run === 'research'){
+      toggleRTagPanel(true);
+    }
+  })();
+
+  // guarantee getResearchCtx exists (fallback)
+  try{
+    window.GroupsVR = window.GroupsVR || {};
+    if (!window.GroupsVR.getResearchCtx){
+      window.GroupsVR.getResearchCtx = ()=> {
+        const c = getRctx();
+        return {
+          studyId: c.studyId,
+          participantId: c.participantId,
+          conditionGroup: c.conditionGroup,
+          sessionId: c.sessionId,
+          consentParent: !!c.consentParent,
+          assentChild: !!c.assentChild
+        };
+      };
+    }
+  }catch(_){}
+
+  // ---------- FINAL-38: Presets + participant auto increment ----------
+  const LS_PCOUNTER = 'HHA_PARTICIPANT_COUNTER_V1';
+
+  function loadPCounter(){
+    try{ return Number(localStorage.getItem(LS_PCOUNTER)||'0')||0; }catch(_){ return 0; }
+  }
+  function savePCounter(n){
+    try{ localStorage.setItem(LS_PCOUNTER, String(n|0)); return true; }catch(_){ return false; }
+  }
+  function formatParticipantId(n){
+    n = Math.max(1, Number(n)||1);
+    return 'P' + String(n).padStart(3,'0');
+  }
+  function applyPreset(patch){
+    const next = setRctx(patch||{});
+    syncRTagUI();
+    return next;
+  }
+  function bumpParticipant(){
+    let n = loadPCounter();
+    n = (n|0) + 1;
+    savePCounter(n);
+    const pid = formatParticipantId(n);
+    applyPreset({ participantId: pid, sessionId: makeSessionId() });
+
+    // apply to URL (safe)
     try{
-      const o = JSON.parse(localStorage.getItem(LS_ONB)||'{}');
-      o['shown_'+view] = true;
-      localStorage.setItem(LS_ONB, JSON.stringify(o));
+      const u = new URL(location.href);
+      u.searchParams.set('participantId', pid);
+      u.searchParams.set('sessionId', getRctx().sessionId || '');
+      history.replaceState(null,'',u.toString());
     }catch(_){}
+    return pid;
   }
-  function showOnb(view){
-    const onb = $('onb');
-    if (!onb) return;
+  function resetCounter(){
+    if (!confirm('Reset participant counter เป็น 0?')) return;
+    savePCounter(0);
+    alert('Reset แล้ว ✅ (Next จะเป็น P001)');
+  }
 
-    const line1 = $('onbLine1');
-    const line2 = $('onbLine2');
+  $('btnCondA') && $('btnCondA').addEventListener('click', ()=> applyPreset({ conditionGroup:'A' }));
+  $('btnCondB') && $('btnCondB').addEventListener('click', ()=> applyPreset({ conditionGroup:'B' }));
+  $('btnCondC') && $('btnCondC').addEventListener('click', ()=> applyPreset({ conditionGroup:'C' }));
 
-    if (view === 'cvr'){
-      line1 && (line1.innerHTML = `1) <b>แตะจอ</b> เพื่อยิงจาก crosshair 🎯`);
-      line2 && (line2.innerHTML = `2) ยิงให้ถูก “หมู่ที่บอกใน GOAL” • เก็บ Power ให้ครบแล้วจะ <b>สลับหมู่</b> ⚡`);
-    } else {
-      line1 && (line1.innerHTML = `1) <b>แตะเป้า</b> ที่เป็นหมู่ใน GOAL 🎯`);
-      line2 && (line2.innerHTML = `2) อย่ายิงขยะ 🗑️ • เก็บ Power ให้ครบแล้วจะ <b>สลับหมู่</b> ⚡`);
+  function setClass(cls){
+    const cur = getRctx();
+    const base = cur.studyId || 'HHA-GROUPS-2026';
+    const cleaned = base.replace(/\|G5-\d+$/,'');
+    applyPreset({ studyId: `${cleaned}|${cls}` });
+  }
+  $('btnClass51') && $('btnClass51').addEventListener('click', ()=> setClass('G5-1'));
+  $('btnClass52') && $('btnClass52').addEventListener('click', ()=> setClass('G5-2'));
+  $('btnClass53') && $('btnClass53').addEventListener('click', ()=> setClass('G5-3'));
+
+  $('btnNextP') && $('btnNextP').addEventListener('click', ()=>{
+    const pid = bumpParticipant();
+    alert(`ตั้ง participantId = ${pid} ✅`);
+  });
+  $('btnResetP') && $('btnResetP').addEventListener('click', resetCounter);
+
+  (function initParticipantDefault(){
+    const c = getRctx();
+    if (!c.participantId){
+      const n = Math.max(1, loadPCounter() || 1);
+      applyPreset({ participantId: formatParticipantId(n) });
+    }
+  })();
+
+  // ---------- FINAL-39/41: Research Gate ----------
+  function gateValidate(ctx){
+    ctx = ctx || getRctx();
+
+    const okStudy = !!normStr(ctx.studyId);
+    const okPid   = !!normStr(ctx.participantId);
+    const okCond  = !!normStr(ctx.conditionGroup);
+    const okSid   = !!normStr(ctx.sessionId);
+
+    const strict = isStrictMode();
+    const okConsent = strict ? !!ctx.consentParent : true;
+    const okAssent  = strict ? !!ctx.assentChild   : true;
+
+    return {
+      ok: (okStudy && okPid && okCond && okSid && okConsent && okAssent),
+      okStudy, okPid, okCond, okSid,
+      okConsent, okAssent,
+      strict
+    };
+  }
+
+  function gateSyncUI(){
+    const c = getRctx();
+    const v = gateValidate(c);
+
+    $('gateStudy') && ($('gateStudy').textContent = c.studyId || '—');
+    $('gatePid')   && ($('gatePid').textContent   = c.participantId || '—');
+    $('gateCond')  && ($('gateCond').textContent  = c.conditionGroup || '—');
+    $('gateSid')   && ($('gateSid').textContent   = c.sessionId || '—');
+
+    $('gateConsent') && ($('gateConsent').textContent = c.consentParent ? '✅ YES' : '❌ NO');
+    $('gateAssent')  && ($('gateAssent').textContent  = c.assentChild ? '✅ YES' : '❌ NO');
+
+    const missing = [];
+    if (!v.okStudy) missing.push('studyId');
+    if (!v.okPid)   missing.push('participantId');
+    if (!v.okCond)  missing.push('conditionGroup');
+    if (!v.okSid)   missing.push('sessionId');
+    if (v.strict){
+      if (!v.okConsent) missing.push('consentParent');
+      if (!v.okAssent)  missing.push('assentChild');
     }
 
-    onb.classList.remove('hidden');
+    $('gateSub') && ($('gateSub').textContent =
+      v.ok
+        ? (v.strict ? 'พร้อมเริ่ม (STRICT) ✅' : 'พร้อมเริ่มการทดลอง ✅')
+        : ('กรอกให้ครบก่อนเริ่ม: ' + missing.join(', '))
+    );
 
-    const ok = $('btnOnbOk');
-    const skip = $('btnOnbSkip');
+    $('btnGateStart') && ($('btnGateStart').disabled = !v.ok);
+  }
 
-    const close = ()=>{
-      try{ onb.classList.add('hidden'); }catch(_){}
-      markOnbShown(view);
+  function showGate(on){
+    const el = $('gateOverlay');
+    if (!el) return;
+    el.classList.toggle('hidden', !on);
+    if (on) gateSyncUI();
+    DOC.body.classList.toggle('gate-open', !!on);
+  }
+
+  $('btnGateEdit') && $('btnGateEdit').addEventListener('click', ()=>{
+    toggleRTagPanel(true);
+    gateSyncUI();
+  });
+
+  $('btnGateAuto') && $('btnGateAuto').addEventListener('click', ()=>{
+    bumpParticipant();
+    const c = getRctx();
+    if (!c.conditionGroup) applyPreset({ conditionGroup:'A' });
+    if (!c.studyId) applyPreset({ studyId:'HHA-GROUPS-2026' });
+    gateSyncUI();
+    alert('ตั้งค่าเบื้องต้นแล้ว ✅ (ถ้า strict=1 อย่าลืมติ๊ก Consent/Assent)');
+  });
+
+  $('btnGateApplyUrl') && $('btnGateApplyUrl').addEventListener('click', ()=>{
+    const c = getRctx();
+    const u = new URL(location.href);
+
+    u.searchParams.set('run','research');
+    if (c.studyId) u.searchParams.set('studyId', c.studyId); else u.searchParams.delete('studyId');
+    if (c.participantId) u.searchParams.set('participantId', c.participantId); else u.searchParams.delete('participantId');
+    if (c.conditionGroup) u.searchParams.set('conditionGroup', c.conditionGroup); else u.searchParams.delete('conditionGroup');
+    if (c.sessionId) u.searchParams.set('sessionId', c.sessionId); else u.searchParams.delete('sessionId');
+    if (c.consentParent) u.searchParams.set('consentParent','1'); else u.searchParams.delete('consentParent');
+    if (c.assentChild)   u.searchParams.set('assentChild','1');   else u.searchParams.delete('assentChild');
+    if (isStrictMode()) u.searchParams.set('strict','1');
+
+    history.replaceState(null,'',u.toString());
+    gateSyncUI();
+    alert('Apply URL แล้ว 🔗');
+  });
+
+  // marker: actual start time (FINAL-40)
+  let startMarkerIso = null;
+
+  $('btnGateStart') && $('btnGateStart').addEventListener('click', ()=>{
+    const v = gateValidate(getRctx());
+    if (!v.ok){ gateSyncUI(); return; }
+    showGate(false);
+
+    // ensure url has the tags (for traceability)
+    try{
+      const c = getRctx();
+      const u = new URL(location.href);
+      u.searchParams.set('run','research');
+      u.searchParams.set('studyId', c.studyId);
+      u.searchParams.set('participantId', c.participantId);
+      u.searchParams.set('conditionGroup', c.conditionGroup);
+      u.searchParams.set('sessionId', c.sessionId);
+      if (c.consentParent) u.searchParams.set('consentParent','1'); else u.searchParams.delete('consentParent');
+      if (c.assentChild)   u.searchParams.set('assentChild','1');   else u.searchParams.delete('assentChild');
+      if (isStrictMode())  u.searchParams.set('strict','1');
+      history.replaceState(null,'',u.toString());
+    }catch(_){}
+
+    // start
+    try{
+      startFromParams();
+    }catch(_){
+      location.reload();
+    }
+  });
+
+  // ---------- FINAL-42: Link Builder ----------
+  function buildUrl(mode /* 'research'|'play' */){
+    const u = new URL(location.href);
+    const sp = u.searchParams;
+
+    sp.set('run', mode === 'research' ? 'research' : 'play');
+
+    const keep = (k, def='')=>{
+      const v = String(qs(k, def) ?? def);
+      if (v && v !== 'null' && v !== 'undefined') sp.set(k, v);
+      else sp.delete(k);
     };
 
-    ok && (ok.onclick = close);
-    skip && (skip.onclick = close);
+    keep('diff','normal');
+    keep('style','mix');
+    keep('time','90');
+    keep('seed', String(qs('seed', Date.now()) || Date.now()));
+    keep('view', String(qs('view','mobile')||'mobile'));
 
-    setTimeout(()=>{ try{ onb.classList.add('hidden'); markOnbShown(view); }catch(_){} }, 5200);
+    ['hub','log','practice','ai','strict'].forEach(k=>{
+      const v = String(qs(k,'')||'');
+      if (v) sp.set(k,v);
+      else sp.delete(k);
+    });
+
+    if (mode === 'research'){
+      const c0 = getRctx();
+      if (!c0.sessionId) setRctx({ sessionId: makeSessionId() });
+      const c = getRctx();
+
+      if (c.studyId) sp.set('studyId', c.studyId); else sp.delete('studyId');
+      if (c.participantId) sp.set('participantId', c.participantId); else sp.delete('participantId');
+      if (c.conditionGroup) sp.set('conditionGroup', c.conditionGroup); else sp.delete('conditionGroup');
+      if (c.sessionId) sp.set('sessionId', c.sessionId); else sp.delete('sessionId');
+      if (c.consentParent) sp.set('consentParent','1'); else sp.delete('consentParent');
+      if (c.assentChild)   sp.set('assentChild','1');   else sp.delete('assentChild');
+      if (isStrictMode()) sp.set('strict','1');
+    } else {
+      ['studyId','participantId','conditionGroup','sessionId','consentParent','assentChild'].forEach(k=>sp.delete(k));
+    }
+
+    return u.toString();
   }
+
+  async function copyUrl(mode){
+    const url = buildUrl(mode);
+    const ok = await copyText(url);
+    alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  }
+
+  $('btnCopyResearchUrl') && $('btnCopyResearchUrl').addEventListener('click', ()=> copyUrl('research'));
+  $('btnCopyPlayUrl') && $('btnCopyPlayUrl').addEventListener('click', ()=> copyUrl('play'));
+  $('btnCopyResearchUrlEnd') && $('btnCopyResearchUrlEnd').addEventListener('click', ()=> copyUrl('research'));
 
   // ---------- HUD binds ----------
   window.addEventListener('hha:score', (ev)=>{
@@ -364,48 +856,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     const urgent = (mLeft>0 && mLeft<=3);
     DOC.body.classList.toggle('mini-urgent', urgent);
-
-    // FINAL-9: banner when group changes
-    const gName = String(d.groupName||'');
-    if (gName){
-      const key = '___lastGroupName';
-      if (!window[key] || window[key] !== gName){
-        window[key] = gName;
-        showBanner(`ตอนนี้ยิงหมู่: ${gName} 🎯`, 1400);
-      }
-    }
-  }, {passive:true});
-
-  // FINAL-9/10: progress banners
-  window.addEventListener('groups:progress', (ev)=>{
-    const d = ev.detail||{};
-    if (!d.kind) return;
-
-    if (d.kind === 'perfect_switch') showBanner('สลับหมู่แล้ว! ⚡', 900);
-    if (d.kind === 'storm_on')       showBanner('พายุมาแล้ว! 🌪️', 900);
-    if (d.kind === 'boss_spawn')     showBanner('บอสมา! 👊', 900);
-
-    // FINAL-10: mini clarity
-    if (d.kind === 'mini_start'){
-      const forbid = d.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
-      showBanner(`MINI เริ่ม! ยิงให้ถูก ${d.need}${forbid} ⚡`, 1400);
-      try{ DOC.body.classList.add('fx-mini'); setTimeout(()=>DOC.body.classList.remove('fx-mini'), 220); }catch(_){}
-      return;
-    }
-    if (d.kind === 'mini_countdown'){
-      showBanner(String(d.sec), 520);
-      return;
-    }
-    if (d.kind === 'mini_end'){
-      if (d.ok){
-        showBanner('MINI ผ่าน! 🎉', 1100);
-        try{ DOC.body.classList.add('fx-perfect'); setTimeout(()=>DOC.body.classList.remove('fx-perfect'), 240); }catch(_){}
-      }else{
-        showBanner('MINI ไม่ผ่าน 😤', 1100);
-        try{ DOC.body.classList.add('fx-bad'); setTimeout(()=>DOC.body.classList.remove('fx-bad'), 240); }catch(_){}
-      }
-      return;
-    }
   }, {passive:true});
 
   // ---------- Summary / History ----------
@@ -436,6 +886,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
       view: String(qs('view','mobile')||'mobile'),
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
+      startMarkerIso: startMarkerIso || startIso,
       endTimeIso: endIso,
       seed: String(qs('seed','')||'')
     }, ctx, d||{});
@@ -577,7 +1028,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  function startCalibrationIfNeeded(view, runMode){
+  function startCalibrationIfNeeded(view){
     if (view !== 'cvr') return false;
 
     cal.on = true;
@@ -602,7 +1053,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     showCal(false);
   }
 
-  // count shots in calibration step 2
   window.addEventListener('hha:shoot', ()=>{
     if (!cal.on) return;
     if (cal.step !== 2) return;
@@ -610,7 +1060,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     setCalStep(2);
   }, {passive:true});
 
-  // buttons
   $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
     if (!cal.on) return;
     if (cal.step === 1){
@@ -651,6 +1100,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     const seedP = String(cfg.seed) + '-practice';
     startIso = new Date().toISOString();
+    startMarkerIso = new Date().toISOString(); // marker
 
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
@@ -672,6 +1122,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
     startIso = new Date().toISOString();
+    startMarkerIso = new Date().toISOString(); // FINAL-40: mark actual start
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
@@ -694,13 +1145,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     setView(view);
     initViewHelper(view);
 
-    // FINAL-8 onboarding
-    try{
-      if (shouldShowOnb(view, run)){
-        setTimeout(()=> showOnb(view), 120);
-      }
-    }catch(_){}
-
+    // if cVR: calibration gate first
     const gated = startCalibrationIfNeeded(view, run);
     if (gated) return;
 
@@ -717,7 +1162,18 @@ GroupsVR Run (PC/Mobile/Cardboard)
     });
   }
 
-  startFromParams();
+  // FINAL-39/41 gate BEFORE starting engine (research only)
+  (function(){
+    if (isResearchMode()){
+      const v = gateValidate(getRctx());
+      if (!v.ok){
+        showGate(true);
+        return; // do not start yet
+      }
+    }
+    startFromParams();
+  })();
+
 })();
 </script>
 </body>
