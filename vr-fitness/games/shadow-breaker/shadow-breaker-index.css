@@ -1,10 +1,5 @@
-:root{
-  color-scheme:dark;
-}
-
-*{
-  box-sizing:border-box;
-}
+:root{ color-scheme:dark; }
+*{ box-sizing:border-box; }
 
 body{
   margin:0;
@@ -17,7 +12,7 @@ body{
   color:#e5e7eb;
   display:flex;
   justify-content:center;
-  align-items:flex-start;      /* ไม่ลอยกลางจอเกินไป */
+  align-items:flex-start;
   padding:18px 12px 24px;
 }
 
@@ -32,7 +27,6 @@ main{
   box-shadow:0 26px 70px rgba(2,6,23,.8);
 }
 
-/* ---------- header ---------- */
 header{
   display:flex;
   justify-content:space-between;
@@ -66,7 +60,6 @@ header{
   color:#94a3b8;
 }
 
-/* live / play mode pill */
 .pill{
   font-size:.7rem;
   border-radius:999px;
@@ -80,7 +73,6 @@ header{
   gap:6px;
   white-space:nowrap;
 }
-
 .pill .dot{
   width:7px;
   height:7px;
@@ -89,18 +81,20 @@ header{
   box-shadow:0 0 0 4px rgba(34,197,94,.3);
 }
 
-/* ---------- game mode grid ---------- */
+.info{
+  font-size:.82rem;
+  color:#9ca3af;
+  margin:10px 0 0;
+}
+
 .mode-box{
   display:grid;
   grid-template-columns:repeat(3,1fr);
   gap:12px;
   margin-top:14px;
 }
-
 @media(max-width:720px){
-  .mode-box{
-    grid-template-columns:1fr;
-  }
+  .mode-box{ grid-template-columns:1fr; }
 }
 
 .card{
@@ -119,18 +113,18 @@ header{
 }
 
 .card p{
-  font-size:.8rem;
+  font-size:.82rem;
   color:#9ca3af;
   margin:0;
 }
 
 .card a{
   margin-top:8px;
-  padding:8px 0;
+  padding:10px 0;
   border-radius:999px;
   background:linear-gradient(135deg,#22d3ee,#0ea5e9);
   color:#0f172a;
-  font-weight:600;
+  font-weight:700;
   letter-spacing:.02em;
   text-align:center;
   text-decoration:none;
@@ -138,7 +132,6 @@ header{
   box-shadow:0 10px 26px rgba(8,47,73,.7);
 }
 
-/* ---------- footer: language + note ---------- */
 .footer-area{
   margin-top:16px;
   display:flex;
@@ -162,14 +155,7 @@ header{
   color:#e5e7eb;
   cursor:pointer;
 }
-
 .lang button.active{
   background:#e5e7eb;
   color:#020617;
-}
-
-.info{
-  font-size:.72rem;
-  color:#9ca3af;
-  margin-top:10px;
 }
