@@ -1,13 +1,13 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration Quest VR CSS — PRODUCTION (LATEST)
+Hydration Quest VR — PRODUCTION (LATEST)
+✅ HHA Standard HUD + Quest + Water panel
 ✅ Safe-area insets
-✅ HUD overlays (top + mid) but playfield still full-screen
-✅ Targets clickable (.hvr-target pointer-events:auto)
-✅ Cardboard split layers (#cbWrap) + hide single layer
-✅ EndFX + BossFX hooks
-✅ Kids-friendly typography (readable)
+✅ Playfield wrapper (targets spawn inside safe-zone; HUD not blocking)
+✅ Cardboard split layout
+✅ FX hooks: body.hha-endfx / body.hha-bossfx / body.hha-hitfx (optional)
 */
 
+/* ---------- Theme tokens ---------- */
 :root{
   color-scheme: dark;
 
@@ -23,77 +23,86 @@ Hydration Quest VR CSS — PRODUCTION (LATEST)
   --warn:#f59e0b;
   --cyan:#22d3ee;
   --danger:#ef4444;
-  --violet:#a78bfa;
 
   --radius:18px;
+  --radius-lg:22px;
   --pill:999px;
 
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* HUD layout */
-  --hud-top-h: 46px;     /* approx height of top chips row */
-  --hud-gap: 10px;
-  --hud-mid-top: calc(var(--hud-top-h) + var(--hud-gap));
+  /* Layout tuning */
+  --pad: 10px;
+  --hudTopH: 128px;    /* used conceptually; spawn uses safeTop=140+sat in hydration.safe.js */
+  --hudMidTop: 56px;   /* mid block starts below chips */
 }
 
+/* ---------- Base ---------- */
 *{ box-sizing:border-box; }
 html,body{
   margin:0;
+  padding:0;
   width:100%;
   height:100%;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
 }
 
-/* A-Frame scene behind */
 a-scene{ position:fixed; inset:0; z-index:0; }
 
-/* ---------- Playfield frame ---------- */
+/* ---------- Playfield ---------- */
 #playfieldWrap{
-  position:fixed; inset:0;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
-  z-index: 1;
-  pointer-events:none; /* important: HUD/targets decide their own pointer */
+  position:fixed;
+  inset:0;
+  padding:
+    calc(var(--pad) + var(--sat))
+    calc(var(--pad) + var(--sar))
+    calc(var(--pad) + var(--sab))
+    calc(var(--pad) + var(--sal));
+  z-index:1;
+  pointer-events:none; /* only targets are clickable */
 }
 
 #playfield{
   position:relative;
   width:100%;
   height:100%;
-  border-radius: 22px;
+  border-radius: var(--radius-lg);
   overflow:hidden;
   background:
     radial-gradient(circle at 10% 10%, rgba(34,211,238,.08), transparent 55%),
     radial-gradient(circle at 90% 80%, rgba(34,197,94,.06), transparent 55%),
     rgba(2,6,23,.18);
-  border: 1px solid rgba(148,163,184,.10);
+  border:1px solid rgba(148,163,184,.10);
   pointer-events:none;
 }
 
+/* layers are spawn containers */
 .layer{
-  position:absolute; inset:0;
-  pointer-events:none; /* targets themselves become pointer-events:auto */
+  position:absolute;
+  inset:0;
+  pointer-events:none; /* targets set pointer-events:auto */
 }
 
 /* ---------- HUD ---------- */
 #hud{
   position:fixed;
   inset:0;
-  z-index: 60;
+  z-index:60;
   pointer-events:none;
 }
 
-/* top chips */
+/* Top chip row */
 .hud-top{
   position:fixed;
-  top: calc(10px + var(--sat));
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
+  top: calc(var(--pad) + var(--sat));
+  left: calc(var(--pad) + var(--sal));
+  right: calc(var(--pad) + var(--sar));
   display:flex;
   gap:8px;
   flex-wrap:wrap;
@@ -111,35 +120,35 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   font-size:12px;
   color: rgba(229,231,235,.92);
   box-shadow: 0 16px 60px rgba(0,0,0,.35);
+  letter-spacing:.1px;
 }
 .chip.big{ font-weight:900; }
 .chip.ok b{ color: var(--accent); }
 .chip.warn b{ color: var(--warn); }
 .chip.cyan b{ color: var(--cyan); }
-.chip.storm b{ color: var(--violet); }
+.chip.storm b{ color: #a78bfa; }
 
-/* mid panels */
+/* Mid panels: mission + water */
 .hud-mid{
   position:fixed;
-  top: calc(56px + var(--sat)); /* leaves room for top chips */
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
+  top: calc(var(--hudMidTop) + var(--sat));
+  left: calc(var(--pad) + var(--sal));
+  right: calc(var(--pad) + var(--sar));
   display:grid;
   grid-template-columns: 1.3fr .7fr;
   gap:10px;
   pointer-events:none;
 }
 @media (max-width:720px){
-  .hud-mid{
-    grid-template-columns: 1fr;
-  }
+  .hud-mid{ grid-template-columns: 1fr; }
 }
 
+/* panels */
 .quest, .waterpanel{
   border:1px solid rgba(148,163,184,.16);
   background:rgba(2,6,23,.48);
   backdrop-filter: blur(10px);
-  border-radius: 18px;
+  border-radius: var(--radius);
   padding: 10px 12px;
   box-shadow: 0 16px 60px rgba(0,0,0,.35);
 }
@@ -150,18 +159,17 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   font-size:13px;
   opacity:.96;
 }
-
 .quest-lines{
   margin-top:6px;
   font-size:12px;
   color: rgba(229,231,235,.88);
   line-height:1.35;
 }
-.quest-lines > div{ margin:2px 0; }
+.quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
 .quest-lines #quest-line3,
 .quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
 
-/* water panel */
+/* Water panel */
 .waterpanel .water-head{
   display:flex;
   align-items:baseline;
@@ -170,7 +178,6 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 }
 .waterpanel .wtitle{ font-weight:900; font-size:13px; }
 .waterpanel .wzone{ font-size:12px; color: rgba(148,163,184,.95); }
-
 .wbar{
   margin-top:8px;
   height: 10px;
@@ -184,6 +191,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   width:50%;
   border-radius: var(--pill);
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+  will-change: width;
 }
 .wpct{
   margin-top:6px;
@@ -193,10 +201,11 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   color: rgba(229,231,235,.92);
 }
 
-/* ---------- Overlays ---------- */
+/* ---------- Overlay (start/result) ---------- */
 .overlay{
-  position:fixed; inset:0;
-  z-index: 120;
+  position:fixed;
+  inset:0;
+  z-index:120;
   display:grid;
   place-items:center;
   padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
@@ -207,7 +216,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 
 .overlay-card{
   width:min(720px, 100%);
-  border-radius: 22px;
+  border-radius: var(--radius-lg);
   border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.82);
   box-shadow: 0 24px 90px rgba(0,0,0,.55);
@@ -224,9 +233,8 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   flex-wrap:wrap;
   margin-top:12px;
 }
-
 .btn{
-  pointer-events:auto; /* overlay buttons clickable */
+  pointer-events:auto;
   border-radius: 16px;
   border:1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.72);
@@ -248,7 +256,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   line-height:1.35;
 }
 
-/* result grid */
+/* Results */
 .res-grid{
   margin-top:10px;
   display:grid;
@@ -266,9 +274,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   color: rgba(229,231,235,.92);
 }
 .res-note{ margin-top:10px; }
-
 .tier{ font-weight:950; color: rgba(34,197,94,.95); }
-
 .tips{
   white-space: pre-wrap;
   margin:10px 0 0;
@@ -282,7 +288,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 }
 .next{ margin-top:8px; color: rgba(229,231,235,.92); }
 
-/* ---------- FX hooks from hydration.safe.js ---------- */
+/* ---------- FX hooks ---------- */
 body.hha-endfx #playfield{
   animation: hhaShake .22s linear infinite;
 }
@@ -294,10 +300,33 @@ body.hha-endfx #playfield{
   100%{ transform: translate(0,0); }
 }
 body.hha-bossfx #playfield{
-  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset, 0 24px 90px rgba(239,68,68,.10);
+  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset,
+              0 24px 90px rgba(239,68,68,.10);
 }
 
-/* Shock element from hydration.safe.js */
+/* Optional hit flash (engine uses pulseBody on class 'hha-hitfx') */
+body.hha-hitfx #playfield{
+  filter: brightness(1.06) saturate(1.05);
+}
+
+/* ---------- Cardboard split ---------- */
+/* Engine toggles body.cardboard, and hides main layer itself */
+body.cardboard #hydration-layer{ display:none; }
+
+#cbWrap{ position:absolute; inset:0; }
+#cbPlayfield{
+  position:absolute;
+  inset:0;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  padding:10px;
+}
+
+body.cardboard #cbWrap{ display:block; }
+body.cardboard #cbWrap[hidden]{ display:block !important; }
+
+/* ---------- Shock element (DOM) ---------- */
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
@@ -309,36 +338,24 @@ body.hha-bossfx #playfield{
   border: 2px solid rgba(239,68,68,.55);
   box-shadow: 0 0 30px rgba(239,68,68,.18);
   animation: shock .5s ease-out forwards;
+  pointer-events:none;
 }
 @keyframes shock{
   from{ opacity:1; transform: translate(-50%,-50%) scale(1); }
-  to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
+  to  { opacity:0; transform: translate(-50%,-50%) scale(9); }
 }
 
-/* targets: clickable only on target node */
+/* ---------- Targets clickable only ---------- */
 .hvr-target{ pointer-events:auto; }
 
-/* ---------- Cardboard split ---------- */
-/* In cardboard we hide the single layer and show split */
-body.cardboard #hydration-layer{ display:none !important; }
-#cbWrap{ position:absolute; inset:0; }
-#cbPlayfield{
-  position:absolute;
-  inset:0;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-  padding:10px;
-}
-body.cardboard #cbWrap{ display:block !important; }
-body.cardboard #cbWrap[hidden]{ display:block !important; }
-
-/* Optional: slightly shrink HUD in cardboard to reduce clutter */
-body.cardboard .chip{ font-size:11px; padding:7px 9px; }
-body.cardboard .quest, body.cardboard .waterpanel{ padding:9px 10px; }
-
-/* ---------- Small devices ---------- */
+/* ---------- Mobile tweaks ---------- */
 @media (max-width:420px){
   .chip{ font-size:11px; padding:7px 9px; }
   .ov-title{ font-size:17px; }
+}
+
+/* ---------- Reduce motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  body.hha-endfx #playfield{ animation:none; }
+  .hha-shock{ animation:none; opacity:0; }
 }
