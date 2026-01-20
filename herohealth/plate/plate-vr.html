@@ -1,11 +1,10 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-PlateVR RUN (A: Minimal HUD) — PRODUCTION
-✅ Uses: plate-vr.css + plate.boot.js + plate.safe.js
-✅ Uses: vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot)
-✅ Uses: particles.js (FX) + hha-cloud-logger.js (sheet logging)
-✅ Auto-detect view (no menu override) but allows ?view=pc|mobile|vr|cvr for research
+Balanced Plate VR — RUN (PRODUCTION+)
+✅ Uses plate-vr.css (targets ring + emoji)
+✅ Boots via plate.boot.js (auto view detect)
+✅ Engine via plate.safe.js (module loaded inside boot)
+✅ Includes: A-Frame (ENTER VR reliability), vr-ui.js, logger, particles
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,7 +14,7 @@ PlateVR RUN (A: Minimal HUD) — PRODUCTION
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame: helps WebXR Enter VR reliability -->
+  <!-- A-Frame: helps WebXR Enter VR reliability (vr-ui.js buttons) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- CSS -->
@@ -26,46 +25,45 @@ PlateVR RUN (A: Minimal HUD) — PRODUCTION
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Boot -->
+  <!-- Boot (module) -->
   <script type="module" src="./plate.boot.js"></script>
 
   <script>
-    // Universal VR UI lockPx (crosshair assist) — keep consistent with other games
+    // Universal VR UI lockPx (crosshair assist)
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
 </head>
 
 <body class="view-pc">
   <div id="app">
-    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
+    <!-- Minimal A-Frame scene (hidden) for Enter VR / Exit / Recenter -->
     <a-scene
       embedded
       renderer="antialias:true; colorManagement:true"
-      vr-mode-ui="enabled:false"
       xr-mode-ui="enabled:false"
       style="position:fixed; inset:0; z-index:0; opacity:0; pointer-events:none;"
     >
-      <a-entity camera position="0 1.6 0"></a-entity>
+      <a-entity id="rig" position="0 0 0">
+        <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
+      </a-entity>
     </a-scene>
-
-    <!-- FX layers (optional hooks) -->
-    <div id="stormFx"></div>
-    <div id="bossFx"></div>
 
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
-    <!-- HUD -->
+    <!-- HUD (pointer-events disabled at wrapper; individual parts enable themselves if needed) -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
         <div class="chip score">
           <span class="lbl">SCORE</span>
           <span class="val" id="hudScore">0</span>
         </div>
+
         <div class="chip time">
           <span class="lbl">TIME</span>
           <span class="val" id="hudTime">0</span>
         </div>
+
         <div class="chip combo">
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
@@ -98,7 +96,7 @@ PlateVR RUN (A: Minimal HUD) — PRODUCTION
           </div>
           <div class="qProg">
             <div class="qNums" id="miniNums">0/1</div>
-            <div class="bar"><i id="miniBar" style="width:0%; background:rgba(245,158,11,.85)"></i></div>
+            <div class="bar"><i id="miniBar" style="width:0%"></i></div>
           </div>
         </div>
       </div>
@@ -139,7 +137,7 @@ PlateVR RUN (A: Minimal HUD) — PRODUCTION
 
   <!-- NOTE:
     vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js boots plate.safe.js and wires all HUD ids above.
+    plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
