@@ -28,19 +28,19 @@
       <div class="card">
         <h2 id="labelTimed">⏱️ โหมดจับเวลา</h2>
         <p id="descTimed">เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส</p>
-        <a href="#" id="btnTimed" data-go="1" data-mode="timed" data-diff="normal" data-time="90">เล่น ▶</a>
+        <a href="./play.html?mode=timed&diff=normal&time=90" id="btnTimed">เล่น ▶</a>
       </div>
 
       <div class="card">
         <h2 id="labelHard">🔥 โหมดยาก</h2>
         <p id="descHard">เร็วขึ้นและบอส HP สูงขึ้น</p>
-        <a href="#" id="btnHard" data-go="1" data-mode="timed" data-diff="hard" data-time="90">ท้าทาย ▶</a>
+        <a href="./play.html?mode=timed&diff=hard&time=90" id="btnHard">ท้าทาย ▶</a>
       </div>
 
       <div class="card">
         <h2 id="labelEndless">♾️ โหมดไม่รู้จบ</h2>
         <p id="descEndless">ไม่มีจับเวลา อยู่รอดให้นานที่สุด</p>
-        <a href="#" id="btnEndless" data-go="1" data-mode="endless" data-diff="normal">ต่อเนื่อง ▶</a>
+        <a href="./play.html?mode=endless&diff=normal" id="btnEndless">ต่อเนื่อง ▶</a>
       </div>
     </div>
 
@@ -51,56 +51,9 @@
       </div>
       <div id="pdpa" class="info">* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล</div>
     </div>
-
   </main>
 
   <script>
-    // ===== Pass-through builder (HeroHealth-style) =====
-    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
-    function buildPlayURL(extra){
-      const p = new URLSearchParams();
-
-      // mode/diff/time จากปุ่มที่กด
-      Object.entries(extra).forEach(([k,v])=>{
-        if(v!==undefined && v!==null && v!=="") p.set(k, String(v));
-      });
-
-      // passthrough จาก hub -> index -> play
-      ["game","run","view","seed","studyId","phase","conditionGroup","ts","log","style","research","hub"].forEach(k=>{
-        const v = qs(k,"");
-        if(v) p.set(k, v);
-      });
-
-      // default game/run ถ้าขาด
-      if(!p.get("game")) p.set("game","shadow-breaker");
-      if(!p.get("run")) p.set("run","play");
-
-      // default hub fallback (กลับ VR Fitness hub)
-      if(!p.get("hub")){
-        const fallbackHub = new URL("../../index.html", location.href).toString();
-        p.set("hub", fallbackHub);
-      }
-
-      // seed fallback (ถ้าไม่ส่งมา)
-      if(!p.get("seed")) p.set("seed", String(Date.now()));
-
-      const base = new URL("./play.html", location.href).toString();
-      return `${base}?${p.toString()}`;
-    }
-
-    document.addEventListener("click",(ev)=>{
-      const a = ev.target.closest("a[data-go='1']");
-      if(!a) return;
-      ev.preventDefault();
-      const mode = a.dataset.mode || "timed";
-      const diff = a.dataset.diff || "normal";
-      const time = a.dataset.time || "";
-      const url = buildPlayURL({ mode, diff, time });
-      location.href = url;
-    });
-
-    // ===== Language toggle (ของเดิมคุณ) =====
     const langBtn = document.querySelectorAll('.lang button');
     const text = {
       th:{
