@@ -4,10 +4,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
-✅ FINAL-39: Research Gate (run=research must have tags)
-✅ FINAL-40: startMarkerIso + consent/assent (optional)
-✅ FINAL-41: strict=1 forces consent/assent
-✅ FINAL-42: Link Builder (Copy Research URL / Copy Play URL)
+✅ FINAL-38..42: Research presets + Gate (strict optional) + Consent/Assent + Copy Research URL
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -109,6 +106,84 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
+  <!-- === Research FAB + Panel (FINAL-38..42) === -->
+  <button id="btnResearchFab" class="researchFab" type="button" title="Research">🧾</button>
+
+  <div id="rTagPanel" class="overlay overlay-rtag hidden">
+    <div class="panel rTagPanel">
+      <div class="title">🧾 Research Panel</div>
+      <div class="sub">ตั้งค่าข้อมูลวิจัย + กด Copy URL ส่งให้ผู้ช่วยวิจัย</div>
+
+      <div class="grid2" style="margin-top:12px;">
+        <div class="stat">
+          <div class="k">studyId</div>
+          <input id="inStudyId" class="inTxt" type="text" placeholder="เช่น HHA-GROUPS-2026|G5-1" />
+        </div>
+        <div class="stat">
+          <div class="k">participantId</div>
+          <input id="inParticipantId" class="inTxt" type="text" placeholder="เช่น P001" />
+        </div>
+        <div class="stat">
+          <div class="k">conditionGroup</div>
+          <input id="inConditionGroup" class="inTxt" type="text" placeholder="A/B/C" />
+        </div>
+        <div class="stat">
+          <div class="k">sessionId</div>
+          <input id="inSessionId" class="inTxt" type="text" placeholder="AUTO" />
+        </div>
+      </div>
+
+      <div class="rConsentRow" style="margin-top:10px;">
+        <label class="rChk"><input id="ckConsentParent" type="checkbox" /> <span>Consent ผู้ปกครอง</span></label>
+        <label class="rChk"><input id="ckAssentChild" type="checkbox" /> <span>Assent เด็ก</span></label>
+        <label class="rChk"><input id="ckStrict" type="checkbox" /> <span>Strict (บังคับ Consent/Assent)</span></label>
+      </div>
+
+      <div class="rPresetWrap" style="margin-top:10px;">
+        <div class="rPresetTitle">⚡ Quick Presets</div>
+
+        <div class="rPresetRow">
+          <button class="btn btn-ghost" id="btnCondA" type="button">Condition A</button>
+          <button class="btn btn-ghost" id="btnCondB" type="button">Condition B</button>
+          <button class="btn btn-ghost" id="btnCondC" type="button">Condition C</button>
+        </div>
+
+        <div class="rPresetRow">
+          <button class="btn btn-ghost" id="btnClass51" type="button">ป.5/1</button>
+          <button class="btn btn-ghost" id="btnClass52" type="button">ป.5/2</button>
+          <button class="btn btn-ghost" id="btnClass53" type="button">ป.5/3</button>
+        </div>
+
+        <div class="rPresetRow">
+          <button class="btn btn-strong" id="btnNextP" type="button">🆕 Next Participant (auto +1)</button>
+          <button class="btn btn-ghost" id="btnResetP" type="button">↺ Reset Counter</button>
+        </div>
+
+        <div class="note" style="margin-top:8px;">
+          Next Participant: เพิ่ม participantId + สร้าง sessionId ใหม่ทันที
+        </div>
+      </div>
+
+      <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:10px; justify-content:space-between;">
+        <button id="btnRTagClose" class="btn btn-ghost" type="button">✖ ปิด</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btnRTagSave" class="btn btn-ghost" type="button">💾 Save</button>
+          <button id="btnRTagApplyUrl" class="btn btn-ghost" type="button">🔗 Apply to URL</button>
+          <button id="btnNewSession" class="btn btn-ghost" type="button">🆔 New sessionId</button>
+        </div>
+      </div>
+
+      <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:10px; justify-content:flex-end;">
+        <button id="btnCopyResearchUrl" class="btn btn-strong" type="button">📋 Copy Research URL</button>
+        <button id="btnCopyPlayUrl" class="btn btn-ghost" type="button">📋 Copy Play URL</button>
+      </div>
+
+      <div class="note" style="margin-top:8px;">
+        Copy Research URL จะบังคับ run=research และเติม tags ทั้งหมดให้ครบ
+      </div>
+    </div>
+  </div>
+
   <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
     <div class="panel calPanel">
@@ -139,7 +214,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     </div>
   </div>
 
-  <!-- FINAL-39: Research Gate -->
+  <!-- FINAL-39..41: Research Gate -->
   <div id="gateOverlay" class="overlay overlay-gate hidden">
     <div class="panel gatePanel">
       <div class="title">🧾 Research Check</div>
@@ -150,71 +225,21 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
         <div class="stat"><div class="k">participantId</div><div id="gatePid" class="v">—</div></div>
         <div class="stat"><div class="k">conditionGroup</div><div id="gateCond" class="v">—</div></div>
         <div class="stat"><div class="k">sessionId</div><div id="gateSid" class="v">—</div></div>
-
-        <!-- FINAL-41 -->
         <div class="stat"><div class="k">consentParent</div><div id="gateConsent" class="v">—</div></div>
         <div class="stat"><div class="k">assentChild</div><div id="gateAssent" class="v">—</div></div>
       </div>
 
-      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap; justify-content:space-between;">
         <button id="btnGateEdit" class="btn btn-ghost" type="button">✏️ เปิดแผง Research</button>
-        <button id="btnGateAuto" class="btn btn-ghost" type="button">⚡ Auto-fill (P+1)</button>
-        <button id="btnGateApplyUrl" class="btn btn-ghost" type="button">🔗 Apply to URL</button>
-        <button id="btnGateStart" class="btn btn-strong" type="button" disabled>🚀 Start Research</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btnGateAuto" class="btn btn-ghost" type="button">⚡ Auto-fill (P+1)</button>
+          <button id="btnGateApplyUrl" class="btn btn-ghost" type="button">🔗 Apply to URL</button>
+          <button id="btnGateStart" class="btn btn-strong" type="button" disabled>🚀 Start Research</button>
+        </div>
       </div>
 
       <div class="note" style="margin-top:10px;">
-        ถ้าใช้ strict=1 จะบังคับ Consent/Assent ด้วย
-      </div>
-    </div>
-  </div>
-
-  <!-- FINAL-37/40/42: Research Tag Panel -->
-  <div id="rTagOverlay" class="overlay overlay-rtag hidden">
-    <div class="panel rTagPanel">
-      <div class="title">🧪 Research Tags</div>
-      <div class="sub">ตั้งค่า study / participant / condition / session (เก็บลง localStorage + URL ได้)</div>
-
-      <div class="rGrid">
-        <div class="rField">
-          <div class="k">studyId</div>
-          <input id="inStudyId" class="rInput" placeholder="เช่น HHA-GROUPS-2026" />
-        </div>
-        <div class="rField">
-          <div class="k">participantId</div>
-          <input id="inParticipantId" class="rInput" placeholder="เช่น P001" />
-        </div>
-        <div class="rField">
-          <div class="k">conditionGroup</div>
-          <input id="inConditionGroup" class="rInput" placeholder="เช่น A / B / C" />
-        </div>
-        <div class="rField">
-          <div class="k">sessionId</div>
-          <input id="inSessionId" class="rInput" placeholder="สร้างอัตโนมัติได้" />
-        </div>
-      </div>
-
-      <div class="rConsentRow">
-        <label class="rChk"><input id="ckConsentParent" type="checkbox" /><span>มี Consent ผู้ปกครอง</span></label>
-        <label class="rChk"><input id="ckAssentChild" type="checkbox" /><span>มี Assent เด็ก</span></label>
-        <label class="rChk"><input id="ckStrict" type="checkbox" /><span>Strict mode (บังคับ Consent/Assent)</span></label>
-      </div>
-
-      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-        <button id="btnRTagNewSession" class="btn btn-ghost" type="button">🧬 New sessionId</button>
-        <button id="btnRTagBumpP" class="btn btn-ghost" type="button">⬆️ P + 1</button>
-        <button id="btnRTagApplyUrl" class="btn btn-ghost" type="button">🔗 Apply URL</button>
-        <button id="btnRTagSave" class="btn btn-strong" type="button">💾 Save</button>
-        <button id="btnRTagClose" class="btn btn-ghost" type="button">✖ Close</button>
-      </div>
-
-      <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:10px; justify-content:space-between;">
-        <button id="btnCopyResearchUrl" class="btn btn-strong" type="button">📋 Copy Research URL</button>
-        <button id="btnCopyPlayUrl" class="btn btn-ghost" type="button">📋 Copy Play URL</button>
-      </div>
-
-      <div class="note" style="margin-top:8px;">
-        Copy Research URL จะบังคับ run=research และเติม tags ให้ครบ (ถ้า sessionId ว่างจะสร้างให้)
+        ถ้าเปิด strict=1 จะบังคับ Consent/Assent ด้วย
       </div>
     </div>
   </div>
@@ -259,7 +284,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     catch { return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function normStr(s){ s = String(s||'').trim(); return s ? s : ''; }
+  function normStr(s){ s = String(s??'').trim(); return s ? s : ''; }
 
   function setView(view){
     const b = DOC.body;
@@ -270,16 +295,16 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
   function aiEnabled(){
     const run = String(qs('run','play')||'play').toLowerCase();
     const on  = String(qs('ai','0')||'0');
-    if (run === 'research') return false;      // research: ปิดแน่นอน
+    if (run === 'research') return false;
     return (on === '1' || on === 'true');
   }
 
   function getPracticeSec(view){
     const p = String(qs('practice','0')||'0');
     let sec = Number(p)||0;
-    if (p === '1') sec = 15;                  // practice=1 => 15s
+    if (p === '1') sec = 15;
     sec = clamp(sec, 0, 30);
-    if (view !== 'cvr') sec = 0;              // practice เฉพาะ cVR
+    if (view !== 'cvr') sec = 0;
     return sec;
   }
 
@@ -306,16 +331,16 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     }
   }
 
-  // ---------- Research ctx (FINAL-37/40/41) ----------
-  const LS_RCTX = 'HHA_RCTX_V1';
+  // ---------- Research ctx (self-contained) ----------
+  const LS_RCTX = 'HHA_RESEARCH_CTX_V1';
+  const LS_PCOUNTER = 'HHA_PARTICIPANT_COUNTER_V1';
 
   function loadRctx(){
-    try{ return JSON.parse(localStorage.getItem(LS_RCTX)||'{}') || {}; }catch{ return {}; }
+    try{ return JSON.parse(localStorage.getItem(LS_RCTX)||'{}')||{}; }catch(_){ return {}; }
   }
-  function saveRctx(obj){
-    try{ localStorage.setItem(LS_RCTX, JSON.stringify(obj||{})); }catch(_){}
+  function saveRctx(o){
+    try{ localStorage.setItem(LS_RCTX, JSON.stringify(o||{})); return true; }catch(_){ return false; }
   }
-
   function getRctxFromUrl(){
     const b = (x)=> (String(x||'').trim()==='1' || String(x||'').trim().toLowerCase()==='true');
     return {
@@ -327,7 +352,6 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
       assentChild: b(qs('assentChild',''))
     };
   }
-
   function getRctx(){
     const a = loadRctx();
     const u = getRctxFromUrl();
@@ -340,11 +364,9 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
       assentChild: (u.assentChild === true) ? true : !!a.assentChild
     };
   }
-
   function setRctx(patch){
-    const cur = loadRctx();
+    const cur = getRctx();
     const next = Object.assign({}, cur, patch||{});
-    // normalize
     next.studyId = normStr(next.studyId);
     next.participantId = normStr(next.participantId);
     next.conditionGroup = normStr(next.conditionGroup);
@@ -354,45 +376,31 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     saveRctx(next);
     return next;
   }
-
   function makeSessionId(){
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const da= String(d.getDate()).padStart(2,'0');
-    const hh= String(d.getHours()).padStart(2,'0');
-    const mm= String(d.getMinutes()).padStart(2,'0');
-    const ss= String(d.getSeconds()).padStart(2,'0');
-    const r = Math.random().toString(16).slice(2,6);
-    return `S${y}${m}${da}-${hh}${mm}${ss}-${r}`;
+    const t = Date.now();
+    const r = Math.floor(Math.random()*1e6).toString(16).padStart(5,'0');
+    return `S${t}-${r}`;
   }
 
-  function bumpParticipant(){
+  // expose for summary merge
+  window.GroupsVR = window.GroupsVR || {};
+  window.GroupsVR.getResearchCtx = function(){
     const c = getRctx();
-    const p = c.participantId || '';
-    const m = p.match(/^([A-Za-z]*)(\d+)$/);
-    if (!m){
-      // default start
-      setRctx({ participantId:'P001' });
-      syncRTagUI();
-      return;
-    }
-    const head = m[1] || 'P';
-    const num = parseInt(m[2],10) || 0;
-    const next = head + String(num+1).padStart(m[2].length, '0');
-    setRctx({ participantId: next, sessionId: makeSessionId() });
-    syncRTagUI();
-  }
-
-  function applyPreset(patch){
-    setRctx(patch||{});
-    syncRTagUI();
-  }
+    return {
+      studyId: c.studyId,
+      participantId: c.participantId,
+      conditionGroup: c.conditionGroup,
+      sessionId: c.sessionId,
+      consentParent: !!c.consentParent,
+      assentChild: !!c.assentChild
+    };
+  };
 
   function toggleRTagPanel(on){
-    const el = $('rTagOverlay');
+    const el = $('rTagPanel');
     if (!el) return;
     el.classList.toggle('hidden', !on);
+    DOC.body.classList.toggle('rtag-open', !!on);
     if (on) syncRTagUI();
   }
 
@@ -408,16 +416,11 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     $('ckStrict') && ($('ckStrict').checked = isStrictMode());
   }
 
-  // panel buttons
+  // FAB
+  $('btnResearchFab') && $('btnResearchFab').addEventListener('click', ()=> toggleRTagPanel(true));
   $('btnRTagClose') && $('btnRTagClose').addEventListener('click', ()=> toggleRTagPanel(false));
 
-  $('btnRTagNewSession') && $('btnRTagNewSession').addEventListener('click', ()=>{
-    setRctx({ sessionId: makeSessionId() });
-    syncRTagUI();
-  });
-
-  $('btnRTagBumpP') && $('btnRTagBumpP').addEventListener('click', ()=> bumpParticipant());
-
+  // Save
   $('btnRTagSave') && $('btnRTagSave').addEventListener('click', ()=>{
     setRctx({
       studyId: $('inStudyId') ? $('inStudyId').value : '',
@@ -428,23 +431,25 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
       assentChild: !!($('ckAssentChild') && $('ckAssentChild').checked)
     });
     syncRTagUI();
-    gateSyncUI();
     alert('บันทึกแล้ว ✅');
   });
 
+  // New session
+  $('btnNewSession') && $('btnNewSession').addEventListener('click', ()=>{
+    setRctx({ sessionId: makeSessionId() });
+    syncRTagUI();
+    alert('สร้าง sessionId ใหม่แล้ว ✅');
+  });
+
+  // Apply to URL
   $('btnRTagApplyUrl') && $('btnRTagApplyUrl').addEventListener('click', ()=>{
     const c = getRctx();
     const u = new URL(location.href);
 
-    const setOrDel = (k,v)=>{
-      if (v) u.searchParams.set(k, v);
-      else u.searchParams.delete(k);
-    };
-
-    setOrDel('studyId', c.studyId);
-    setOrDel('participantId', c.participantId);
-    setOrDel('conditionGroup', c.conditionGroup);
-    setOrDel('sessionId', c.sessionId);
+    if (c.studyId) u.searchParams.set('studyId', c.studyId); else u.searchParams.delete('studyId');
+    if (c.participantId) u.searchParams.set('participantId', c.participantId); else u.searchParams.delete('participantId');
+    if (c.conditionGroup) u.searchParams.set('conditionGroup', c.conditionGroup); else u.searchParams.delete('conditionGroup');
+    if (c.sessionId) u.searchParams.set('sessionId', c.sessionId); else u.searchParams.delete('sessionId');
 
     if (c.consentParent) u.searchParams.set('consentParent','1'); else u.searchParams.delete('consentParent');
     if (c.assentChild)   u.searchParams.set('assentChild','1');   else u.searchParams.delete('assentChild');
@@ -453,11 +458,70 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     if (strictOn) u.searchParams.set('strict','1'); else u.searchParams.delete('strict');
 
     history.replaceState(null,'',u.toString());
-    gateSyncUI();
+    syncRTagUI();
     alert('Apply URL แล้ว 🔗');
   });
 
-  // ---------- FINAL-42: Link Builder ----------
+  // FINAL-38: Counter helpers
+  function loadPCounter(){ try{ return Number(localStorage.getItem(LS_PCOUNTER)||'0')||0; }catch(_){ return 0; } }
+  function savePCounter(n){ try{ localStorage.setItem(LS_PCOUNTER, String(n|0)); return true; }catch(_){ return false; } }
+  function formatParticipantId(n){ n = Math.max(1, Number(n)||1); return 'P' + String(n).padStart(3,'0'); }
+
+  function bumpParticipant(){
+    let n = loadPCounter();
+    n = (n|0) + 1;
+    savePCounter(n);
+    const pid = formatParticipantId(n);
+    setRctx({ participantId: pid, sessionId: makeSessionId() });
+    syncRTagUI();
+    return pid;
+  }
+  function resetCounter(){
+    if (!confirm('Reset participant counter เป็น 0?')) return;
+    savePCounter(0);
+    alert('Reset แล้ว ✅ (Next จะเป็น P001)');
+  }
+
+  function applyPreset(patch){
+    setRctx(patch||{});
+    syncRTagUI();
+  }
+
+  // Condition
+  $('btnCondA') && $('btnCondA').addEventListener('click', ()=> applyPreset({ conditionGroup:'A' }));
+  $('btnCondB') && $('btnCondB').addEventListener('click', ()=> applyPreset({ conditionGroup:'B' }));
+  $('btnCondC') && $('btnCondC').addEventListener('click', ()=> applyPreset({ conditionGroup:'C' }));
+
+  // Class -> suffix to studyId
+  function setClass(cls){
+    const cur = getRctx();
+    const base = cur.studyId || 'HHA-GROUPS-2026';
+    const cleaned = base.replace(/\|G5-\d+$/,'');
+    applyPreset({ studyId: `${cleaned}|${cls}` });
+  }
+  $('btnClass51') && $('btnClass51').addEventListener('click', ()=> setClass('G5-1'));
+  $('btnClass52') && $('btnClass52').addEventListener('click', ()=> setClass('G5-2'));
+  $('btnClass53') && $('btnClass53').addEventListener('click', ()=> setClass('G5-3'));
+
+  $('btnNextP') && $('btnNextP').addEventListener('click', ()=>{
+    const pid = bumpParticipant();
+    alert(`ตั้ง participantId = ${pid} ✅`);
+  });
+  $('btnResetP') && $('btnResetP').addEventListener('click', resetCounter);
+
+  // Default participant if empty
+  (function initParticipantDefault(){
+    const c = getRctx();
+    if (!c.participantId){
+      const n = Math.max(1, loadPCounter() || 1);
+      applyPreset({ participantId: formatParticipantId(n) });
+    }
+    if (!c.sessionId){
+      applyPreset({ sessionId: makeSessionId() });
+    }
+  })();
+
+  // FINAL-42: Link Builder
   function buildUrl(mode /* 'research'|'play' */){
     const u = new URL(location.href);
     const sp = u.searchParams;
@@ -496,7 +560,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
       if (c.consentParent) sp.set('consentParent','1'); else sp.delete('consentParent');
       if (c.assentChild)   sp.set('assentChild','1');   else sp.delete('assentChild');
 
-      if (isStrictMode()) sp.set('strict','1');
+      if ($('ckStrict') && $('ckStrict').checked) sp.set('strict','1');
     } else {
       ['studyId','participantId','conditionGroup','sessionId','consentParent','assentChild'].forEach(k=>sp.delete(k));
     }
@@ -512,7 +576,6 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
 
   $('btnCopyResearchUrl') && $('btnCopyResearchUrl').addEventListener('click', ()=> copyUrl('research'));
   $('btnCopyPlayUrl') && $('btnCopyPlayUrl').addEventListener('click', ()=> copyUrl('play'));
-  $('btnCopyResearchUrlEnd') && $('btnCopyResearchUrlEnd').addEventListener('click', ()=> copyUrl('research'));
 
   // ---------- HUD binds ----------
   window.addEventListener('hha:score', (ev)=>{
@@ -610,7 +673,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
       view: String(qs('view','mobile')||'mobile'),
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
-      startMarkerIso: startMarkerIso || startIso, // FINAL-40
+      startMarkerIso: startMarkerIso || startIso,
       endTimeIso: endIso,
       seed: String(qs('seed','')||'')
     }, ctx, d||{});
@@ -661,6 +724,8 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     const ok = await copyText(JSON.stringify(lastSummary, null, 2));
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
+
+  $('btnCopyResearchUrlEnd') && $('btnCopyResearchUrlEnd').addEventListener('click', ()=> copyUrl('research'));
 
   $('btnBackLauncher').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
@@ -777,6 +842,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     showCal(false);
   }
 
+  // count shots in calibration step 2
   window.addEventListener('hha:shoot', ()=>{
     if (!cal.on) return;
     if (cal.step !== 2) return;
@@ -784,6 +850,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     setCalStep(2);
   }, {passive:true});
 
+  // buttons
   $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
     if (!cal.on) return;
     if (cal.step === 1){
@@ -824,7 +891,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
 
     const seedP = String(cfg.seed) + '-practice';
     startIso = new Date().toISOString();
-    startMarkerIso = new Date().toISOString(); // FINAL-40
+    startMarkerIso = new Date().toISOString();
 
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
@@ -846,7 +913,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
 
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
     startIso = new Date().toISOString();
-    startMarkerIso = new Date().toISOString(); // FINAL-40: actual start marker
+    startMarkerIso = new Date().toISOString(); // FINAL-40 start marker
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
@@ -861,7 +928,7 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     }catch(_){}
   }
 
-  // ---------- FINAL-39/41: Research Gate ----------
+  // ---------- FINAL-39..41: Research Gate ----------
   function gateValidate(ctx){
     ctx = ctx || getRctx();
 
@@ -874,20 +941,8 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     const okConsent = strict ? !!ctx.consentParent : true;
     const okAssent  = strict ? !!ctx.assentChild   : true;
 
-    return {
-      ok: (okStudy && okPid && okCond && okSid && okConsent && okAssent),
-      okStudy, okPid, okCond, okSid,
-      okConsent, okAssent,
-      strict
-    };
-  }
-
-  function showGate(on){
-    const el = $('gateOverlay');
-    if (!el) return;
-    el.classList.toggle('hidden', !on);
-    if (on) gateSyncUI();
-    DOC.body.classList.toggle('gate-open', !!on);
+    return { ok: (okStudy && okPid && okCond && okSid && okConsent && okAssent),
+      okStudy, okPid, okCond, okSid, okConsent, okAssent, strict };
   }
 
   function gateSyncUI(){
@@ -898,7 +953,6 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     $('gatePid')   && ($('gatePid').textContent   = c.participantId || '—');
     $('gateCond')  && ($('gateCond').textContent  = c.conditionGroup || '—');
     $('gateSid')   && ($('gateSid').textContent   = c.sessionId || '—');
-
     $('gateConsent') && ($('gateConsent').textContent = c.consentParent ? '✅ YES' : '❌ NO');
     $('gateAssent')  && ($('gateAssent').textContent  = c.assentChild ? '✅ YES' : '❌ NO');
 
@@ -907,18 +961,26 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     if (!v.okPid)   missing.push('participantId');
     if (!v.okCond)  missing.push('conditionGroup');
     if (!v.okSid)   missing.push('sessionId');
+
     if (v.strict){
       if (!v.okConsent) missing.push('consentParent');
       if (!v.okAssent)  missing.push('assentChild');
     }
 
     $('gateSub') && ($('gateSub').textContent =
-      v.ok
-        ? (v.strict ? 'พร้อมเริ่ม (STRICT) ✅' : 'พร้อมเริ่มการทดลอง ✅')
-        : ('กรอกให้ครบก่อนเริ่ม: ' + missing.join(', '))
+      v.ok ? (v.strict ? 'พร้อมเริ่ม (STRICT) ✅' : 'พร้อมเริ่มการทดลอง ✅')
+           : ('กรอกให้ครบก่อนเริ่ม: ' + missing.join(', '))
     );
 
     $('btnGateStart') && ($('btnGateStart').disabled = !v.ok);
+  }
+
+  function showGate(on){
+    const el = $('gateOverlay');
+    if (!el) return;
+    el.classList.toggle('hidden', !on);
+    if (on) gateSyncUI();
+    DOC.body.classList.toggle('gate-open', !!on);
   }
 
   $('btnGateEdit') && $('btnGateEdit').addEventListener('click', ()=>{
@@ -933,8 +995,11 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     if (!c.studyId) applyPreset({ studyId:'HHA-GROUPS-2026' });
     if (!c.sessionId) applyPreset({ sessionId: makeSessionId() });
 
-    // (ถ้าอยาก auto tick ใน strict ให้เปิดบรรทัดนี้)
-    // if (isStrictMode()) applyPreset({ consentParent:true, assentChild:true });
+    if (isStrictMode()){
+      // ถ้าไม่อยาก auto tick ให้ลบ 2 บรรทัดนี้
+      setRctx({ consentParent:true, assentChild:true });
+      syncRTagUI();
+    }
 
     gateSyncUI();
   });
@@ -943,15 +1008,10 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     const c = getRctx();
     const u = new URL(location.href);
 
-    const setOrDel = (k,v)=>{
-      if (v) u.searchParams.set(k, v);
-      else u.searchParams.delete(k);
-    };
-
-    setOrDel('studyId', c.studyId);
-    setOrDel('participantId', c.participantId);
-    setOrDel('conditionGroup', c.conditionGroup);
-    setOrDel('sessionId', c.sessionId);
+    if (c.studyId) u.searchParams.set('studyId', c.studyId); else u.searchParams.delete('studyId');
+    if (c.participantId) u.searchParams.set('participantId', c.participantId); else u.searchParams.delete('participantId');
+    if (c.conditionGroup) u.searchParams.set('conditionGroup', c.conditionGroup); else u.searchParams.delete('conditionGroup');
+    if (c.sessionId) u.searchParams.set('sessionId', c.sessionId); else u.searchParams.delete('sessionId');
 
     if (c.consentParent) u.searchParams.set('consentParent','1'); else u.searchParams.delete('consentParent');
     if (c.assentChild)   u.searchParams.set('assentChild','1');   else u.searchParams.delete('assentChild');
@@ -964,8 +1024,9 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
   $('btnGateStart') && $('btnGateStart').addEventListener('click', ()=>{
     const v = gateValidate(getRctx());
     if (!v.ok){ gateSyncUI(); return; }
+    showGate(false);
 
-    // ensure URL has tags (so if reload is needed still OK)
+    // ensure URL has research tags (for traceability)
     try{
       const c = getRctx();
       const u = new URL(location.href);
@@ -979,8 +1040,8 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
       history.replaceState(null,'',u.toString());
     }catch(_){}
 
-    showGate(false);
-    startFromParams(); // start now (engine will already be loaded or wait)
+    // start
+    startFromParams();
   });
 
   // ---------- Start ----------
@@ -991,12 +1052,12 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
     setView(view);
     initViewHelper(view);
 
-    // research gate (before calibration/practice/engine)
+    // Gate: research only
     if (run === 'research'){
       const v = gateValidate(getRctx());
       if (!v.ok){
         showGate(true);
-        return;
+        return; // ✅ block start until Start Research
       }
     }
 
@@ -1015,10 +1076,6 @@ GroupsVR Run (PC/Mobile/Cardboard/cVR)
       startReal(E);
     });
   }
-
-  // initial
-  // auto-open research panel if user comes with ?panel=1
-  if (String(qs('panel','0')||'0') === '1') toggleRTagPanel(true);
 
   startFromParams();
 })();
