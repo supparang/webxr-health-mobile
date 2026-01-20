@@ -1,11 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (FAIR PACK)
+GoodJunkVR LAUNCHER — ROOT (FAIR/BOSS ready)
 ✅ Redirect -> ./vr-goodjunk/goodjunk-vr.html
-✅ Auto-detect view (pc/mobile/vr/cvr) BUT:
+✅ Auto-detect view (pc/mobile/vr) BUT:
    - If URL already has ?view=... -> DO NOT override
 ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/ts/log/style
-✅ Remembers last view (optional) via localStorage (soft)
-✅ FAIR: NO auto-redirect (requires user gesture)
+✅ style=fair | boss  (default=fair)
 -->
 <!doctype html>
 <html lang="th">
@@ -35,23 +34,20 @@ GoodJunkVR LAUNCHER — ROOT (FAIR PACK)
       color:var(--text);
       font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
     }
-    @media (prefers-reduced-motion: reduce){
-      *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
-    }
     .wrap{
       min-height:100%;
       display:flex; align-items:center; justify-content:center;
       padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
     }
     .card{
-      width:min(720px, 94vw);
+      width:min(760px, 94vw);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--r);
       padding:18px;
       box-shadow:0 18px 55px rgba(0,0,0,.45);
     }
-    .title{ font-size:22px; font-weight:1200; }
+    .title{ font-size:22px; font-weight:1200; letter-spacing:.2px; }
     .sub{ margin-top:6px; color:var(--muted); font-weight:900; }
     .row{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
     .pill{
@@ -83,20 +79,22 @@ GoodJunkVR LAUNCHER — ROOT (FAIR PACK)
   <div class="wrap">
     <div class="card" role="main">
       <div class="title">GoodJunkVR</div>
-      <div class="sub">เลือกโหมดอัตโนมัติแล้ว — กดเริ่มเพื่อเข้าเกม</div>
+      <div class="sub">กำลังพาเข้าเกม… (auto-detect view, ไม่ override ถ้ามี ?view=)</div>
 
       <div class="row">
         <div class="pill">view: <span id="pView">auto</span></div>
         <div class="pill">run: <span id="pRun">play</span></div>
         <div class="pill">diff: <span id="pDiff">normal</span></div>
         <div class="pill">time: <span id="pTime">80</span>s</div>
+        <div class="pill">style: <span id="pStyle">fair</span></div>
       </div>
 
       <button class="go" id="btnGo" type="button">Tap to Start</button>
 
       <div class="muted">
-        เข้า VR: ไปหน้าเกมแล้วกด ENTER VR (จาก vr-ui.js)<br/>
-        บังคับโหมด: <b>?view=pc</b> / <b>?view=mobile</b> / <b>?view=vr</b> / <b>?view=cvr</b>
+        ถ้าเข้า VR: กด ENTER VR ในหน้าเกม (มีปุ่มจาก vr-ui.js)<br/>
+        บังคับโหมด: <b>?view=pc</b> / <b>?view=mobile</b> / <b>?view=vr</b> / <b>?view=cvr</b><br/>
+        เลือกแพ็ค: <b>?style=fair</b> หรือ <b>?style=boss</b>
       </div>
 
       <div class="tiny" id="dbg">…</div>
@@ -122,6 +120,11 @@ GoodJunkVR LAUNCHER — ROOT (FAIR PACK)
     if(v==='pc') return 'pc';
     if(v==='mobile') return 'mobile';
     return 'auto';
+  }
+  function normalizeStyle(s){
+    s = String(s||'').toLowerCase();
+    if(s.includes('boss')) return 'boss';
+    return 'fair';
   }
 
   async function detectView(){
@@ -171,19 +174,26 @@ GoodJunkVR LAUNCHER — ROOT (FAIR PACK)
 
   async function build(){
     const v = await detectView();
+
     const run  = String(qs('run','play')||'play');
     const diff = String(qs('diff','normal')||'normal');
     const time = String(qs('time','80')||'80');
+    const style = normalizeStyle(qs('style','fair'));
 
     setText('pRun', run);
     setText('pDiff', diff);
     setText('pTime', time);
+    setText('pStyle', style);
 
     const u = carryParams(DEST);
+
+    if(!has('style')) u.searchParams.set('style', style);
+
     if(!has('view') && v && v !== 'auto'){
       u.searchParams.set('view', v);
       try{ localStorage.setItem('HHA_LAST_VIEW', v); }catch(_){}
     }
+
     setText('pView', has('view') ? normalizeView(qs('view','auto')) : (v || 'auto'));
 
     finalUrl = u.toString();
@@ -192,12 +202,16 @@ GoodJunkVR LAUNCHER — ROOT (FAIR PACK)
   }
 
   function go(){
-    location.href = finalUrl ? finalUrl : carryParams(DEST).toString();
+    if(finalUrl) location.href = finalUrl;
+    else location.href = carryParams(DEST).toString();
   }
 
   document.getElementById('btnGo')?.addEventListener('click', go);
 
-  build();
+  build().then(()=>{
+    setTimeout(go, 300);
+  });
+
 })();
 </script>
 </body>
