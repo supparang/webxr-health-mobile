@@ -1,176 +1,158 @@
 // === /herohealth/vr/ui-water.js ===
-// HHA Water Gauge — PRODUCTION (LATEST)
-// ✅ ensureWaterGauge(): makes a small fixed HUD gauge if missing (optional)
-// ✅ setWaterGauge(pct, opts?): smooth animate to pct
-// ✅ zoneFrom(pct): LOW/GREEN/HIGH
-// ✅ Fix: "stuck gauge" by forcing style update + rAF commit
-// ✅ Kids-friendly smoothing defaults (can override via URL)
-// URL params (optional):
-//   ?waterSmooth=0.16   (0.05..0.5) higher=faster response
-//   ?waterDead=0.35     (0..2) deadzone in pct
-//   ?waterEase=1        enable smooth anim (default 1)
-//   ?waterUI=1          auto create gauge if missing (default 0; hydration already has panel)
+// Water Gauge Helper — PRODUCTION (LATEST)
+// ✅ ensureWaterGauge(): lazy bind DOM if present
+// ✅ setWaterGauge(pct): set RAW pct 0..100 (engine drives this)
+// ✅ Smooth display (no-stuck) + deadband tiny
+// ✅ zoneFrom(pct): GREEN/WARN(LOW/HIGH) for Hydration
+// ✅ Emits optional event: hha:water {raw, shown, zone}
+// Notes: Designed to be called frequently (every frame OK)
 
 (function(root){
   'use strict';
-  const WIN = root;
+
+  const WIN = root || window;
   const DOC = WIN.document;
-  if(!DOC) return;
+  if (!DOC) return;
 
-  // expose modules
-  WIN.GAME_MODULES = WIN.GAME_MODULES || {};
-  if (WIN.GAME_MODULES.UIWater) return;
-
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-  // ---- config (tunable) ----
-  const CFG = {
-    enabled: String(qs('waterEase','1')).toLowerCase() !== '0',
-    smooth: clamp(parseFloat(qs('waterSmooth','0.16')), 0.05, 0.50),
-    dead: clamp(parseFloat(qs('waterDead','0.35')), 0.0, 2.0),
-    autoUI: String(qs('waterUI','0')).toLowerCase() === '1'
-  };
+  // -------- Zone thresholds (kids-friendly) --------
+  // ป.5: GREEN กว้างขึ้นนิด = เล่นสบาย ไม่หงุดหงิด
+  // คุณสามารถปรับในอนาคตได้ด้วย window.HHA_WATER_CFG = { greenLo, greenHi, ... }
+  const CFG = Object.assign({
+    greenLo: 42,   // เดิมถ้าแคบไปจะหลุด GREEN ง่าย
+    greenHi: 72,
+    lowName: 'LOW',
+    highName: 'HIGH',
+    greenName: 'GREEN',
 
-  // ---- zone helper ----
-  function zoneFrom(pct){
-    pct = clamp(pct, 0, 100);
-    // keep GREEN wide for kids (feels fair)
-    if (pct < 42) return 'LOW';
-    if (pct > 68) return 'HIGH';
-    return 'GREEN';
-  }
+    // smoothing
+    tauUpMs: 140,    // ขึ้นเร็ว (รู้สึก responsive)
+    tauDownMs: 170,  // ลงนิ่มกว่าเล็กน้อย
+    deadband: 0.35,  // กันสั่น แต่ไม่ทำให้ค้าง
+    snapIfFar: 12,   // ถ้าต่างกันมาก ให้ snap เพื่อกัน “ตามไม่ทัน”
+    maxStepPerTick: 8.0 // กันกระชาก (แต่ไม่ล็อค)
+  }, WIN.HHA_WATER_CFG || {});
 
-  // ---- UI creation (optional) ----
-  function ensureWaterGauge(){
-    // Hydration has its own panel, so this is optional.
-    if (!CFG.autoUI) return false;
+  // -------- DOM refs --------
+  let bound = false;
+  let elBar=null, elPct=null, elZone=null;
 
-    if (DOC.getElementById('hha-water-gauge')) return true;
-
-    const wrap = DOC.createElement('div');
-    wrap.id = 'hha-water-gauge';
-    wrap.style.cssText = `
-      position:fixed;
-      right: calc(12px + env(safe-area-inset-right,0px));
-      bottom: calc(12px + env(safe-area-inset-bottom,0px));
-      z-index: 80;
-      pointer-events:none;
-      width: 160px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 16px 60px rgba(0,0,0,.35);
-      padding: 10px;
-      color: rgba(229,231,235,.92);
-      font: 900 12px/1.2 system-ui;
-    `;
-    wrap.innerHTML = `
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-        <div>Water</div>
-        <div style="color:rgba(148,163,184,.95)">Zone: <b id="hha-water-zone">GREEN</b></div>
-      </div>
-      <div style="margin-top:8px;height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.10)">
-        <div id="hha-water-fill" style="height:100%;width:50%;border-radius:999px;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95))"></div>
-      </div>
-      <div style="margin-top:6px;text-align:right"><span id="hha-water-pct">50</span>%</div>
-    `;
-    DOC.body.appendChild(wrap);
-    return true;
-  }
-
-  // ---- internal state ----
+  // -------- state --------
   const S = {
-    target: 50,
+    raw: 50,
     shown: 50,
-    lastCommit: -999,
-    raf: 0
+    zone: CFG.greenName,
+    lastAt: 0
   };
 
-  function getDomRefs(){
-    // Prefer hydration's panel IDs if present:
-    const bar  = DOC.getElementById('water-bar') || DOC.getElementById('hha-water-fill');
-    const pct  = DOC.getElementById('water-pct') || DOC.getElementById('hha-water-pct');
-    const zone = DOC.getElementById('water-zone')|| DOC.getElementById('hha-water-zone');
-    return { bar, pct, zone };
+  function zoneFrom(pct){
+    pct = clamp(pct,0,100);
+    if (pct < CFG.greenLo) return CFG.lowName;
+    if (pct > CFG.greenHi) return CFG.highName;
+    return CFG.greenName;
   }
 
-  function commit(pct){
-    const { bar, pct:elPct, zone:elZone } = getDomRefs();
-
-    const p = clamp(pct, 0, 100);
-    const z = zoneFrom(p);
-
-    // IMPORTANT: force style update to avoid "stuck" look on some browsers
-    // (especially when many DOM updates happen per frame)
-    if (bar){
-      bar.style.width = p.toFixed(0) + '%';
-      // force repaint nudge
-      bar.style.transform = 'translateZ(0)';
-    }
-    if (elPct) elPct.textContent = String(p|0);
-    if (elZone) elZone.textContent = z;
-
-    S.lastCommit = performance.now ? performance.now() : Date.now();
+  function bind(){
+    if (bound) return;
+    elBar  = DOC.getElementById('water-bar');
+    elPct  = DOC.getElementById('water-pct');
+    elZone = DOC.getElementById('water-zone');
+    bound = true;
   }
 
-  function tick(){
-    S.raf = 0;
-
-    // if smoothing disabled: commit immediately
-    if (!CFG.enabled){
-      S.shown = S.target;
-      commit(S.shown);
-      return;
-    }
-
-    // smooth toward target
-    const d = (S.target - S.shown);
-
-    // deadzone: prevent tiny jitter that looks like "stuck"
-    if (Math.abs(d) <= CFG.dead){
-      S.shown = S.target;
-      commit(S.shown);
-      return;
-    }
-
-    // exponential smoothing (feels "นิ่ม")
-    S.shown += d * CFG.smooth;
-
-    // clamp and commit
-    S.shown = clamp(S.shown, 0, 100);
-
-    // commit now + one more commit next frame (anti-stuck trick)
-    commit(S.shown);
-
-    // keep animating until close
-    if (Math.abs(S.target - S.shown) > CFG.dead){
-      S.raf = requestAnimationFrame(tick);
-    }
+  function ensureWaterGauge(){
+    bind();
+    // no-op if elements missing (still keep logic)
+    return { bar:elBar, pct:elPct, zone:elZone };
   }
 
-  // Public API
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+  }
+
+  function applyDOM(shown, zone){
+    // Update width/text
+    if (elBar) elBar.style.width = clamp(shown,0,100).toFixed(0) + '%';
+    if (elPct) elPct.textContent = String(clamp(shown,0,100).toFixed(0));
+    if (elZone) elZone.textContent = String(zone||'');
+  }
+
+  // dt-based smoothing (stable even if called every frame)
+  function smoothStep(raw){
+    const now = performance.now ? performance.now() : Date.now();
+    const dtMs = S.lastAt ? clamp(now - S.lastAt, 8, 80) : 16;
+    S.lastAt = now;
+
+    raw = clamp(raw,0,100);
+
+    const d = raw - S.shown;
+
+    // deadband: if extremely small difference, just set to raw (prevents drift lock)
+    if (Math.abs(d) <= CFG.deadband){
+      S.shown = raw;
+      return S.shown;
+    }
+
+    // if far away, snap (prevents "never catches up" feeling)
+    if (Math.abs(d) >= CFG.snapIfFar){
+      S.shown = raw;
+      return S.shown;
+    }
+
+    // time constants
+    const tau = (d > 0) ? CFG.tauUpMs : CFG.tauDownMs;
+    const a = 1 - Math.exp(-dtMs / Math.max(40, tau));
+
+    // step cap (avoid sudden jump yet keep moving)
+    let step = d * a;
+    step = clamp(step, -CFG.maxStepPerTick, CFG.maxStepPerTick);
+
+    S.shown = clamp(S.shown + step, 0, 100);
+    return S.shown;
+  }
+
   function setWaterGauge(pct){
-    S.target = clamp(pct, 0, 100);
+    bind();
 
-    // Make sure UI exists if autoUI requested
-    ensureWaterGauge();
+    S.raw = clamp(pct,0,100);
 
-    // Schedule animation commit
-    if (S.raf) return;
-    // commit in next frame so layout is ready (prevents "ไม่ลดเลย" illusion)
-    S.raf = requestAnimationFrame(tick);
+    // smooth shown
+    const shown = smoothStep(S.raw);
+
+    // zone derived from RAW (important: gameplay logic uses raw zone, UI uses same)
+    S.zone = zoneFrom(S.raw);
+
+    // update DOM
+    applyDOM(shown, S.zone);
+
+    // optional event for debugging/telemetry
+    emit('hha:water', { raw:S.raw, shown, zone:S.zone });
+
+    return { raw:S.raw, shown, zone:S.zone };
   }
 
-  // export
-  const API = { ensureWaterGauge, setWaterGauge, zoneFrom, _cfg:CFG };
-  WIN.GAME_MODULES.UIWater = API;
+  // export for ESM import usage too (your hydration.safe.js imports these)
+  // Support both classic script include and module import patterns.
+  // If running as module, these exports may be ignored, but harmless.
+  WIN.ensureWaterGauge = ensureWaterGauge;
+  WIN.setWaterGauge = setWaterGauge;
+  WIN.zoneFrom = zoneFrom;
 
-  // also support named imports pattern used in hydration.safe.js
-  // (works when bundled via module wrapper; in plain script, hydration imports won't use this)
-  WIN.ensureWaterGauge = WIN.ensureWaterGauge || ensureWaterGauge;
-  WIN.setWaterGauge = WIN.setWaterGauge || setWaterGauge;
-  WIN.zoneFrom = WIN.zoneFrom || zoneFrom;
+  // Also expose via GAME_MODULES for consistency (optional)
+  WIN.GAME_MODULES = WIN.GAME_MODULES || {};
+  WIN.GAME_MODULES.WaterGauge = { ensureWaterGauge, setWaterGauge, zoneFrom };
 
-})(window);
+  // If the page already has gauge DOM, bind now (safe)
+  ensureWaterGauge();
+
+  // ESM named exports compatibility: (ignored in non-module)
+  // (We keep this file as classic script; hydration.safe.js imports from it as module path
+  //  BUT your run html includes it with <script defer> too. That is OK because
+  //  hydration.safe.js import will use module version if you have a separate ESM build.
+})(typeof window !== 'undefined' ? window : globalThis);
+
+// For ESM import in hydration.safe.js (if served as module file)
+export function ensureWaterGauge(){ return window.ensureWaterGauge(); }
+export function setWaterGauge(pct){ return window.setWaterGauge(pct); }
+export function zoneFrom(pct){ return window.zoneFrom(pct); }
