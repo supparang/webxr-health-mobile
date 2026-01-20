@@ -1,7 +1,4 @@
-:root{
-  color-scheme: dark;
-}
-
+:root{ color-scheme: dark; }
 *{ box-sizing:border-box; }
 
 body{
@@ -41,37 +38,18 @@ body{
   margin-bottom:8px;
 }
 
-.card-header .title{
-  display:flex;
-  gap:8px;
-}
-
+.card-header .title{ display:flex; gap:8px; }
 .card-header .icon{
-  width:30px;height:30px;
-  border-radius:999px;
+  width:30px;height:30px;border-radius:999px;
   background:rgba(56,189,248,.18);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:flex;align-items:center;justify-content:center;
   font-size:18px;
 }
-
-.card-header h1{
-  margin:0;
-  font-size:.98rem;
-}
-
-.card-header p{
-  margin:2px 0 0;
-  font-size:.7rem;
-  color:#9ca3af;
-}
+.card-header h1{ margin:0; font-size:.98rem; }
+.card-header p{ margin:2px 0 0; font-size:.7rem; color:#9ca3af; }
 
 /* lang toggle */
-.lang-toggle{
-  display:flex;
-  gap:4px;
-}
+.lang-toggle{ display:flex; gap:4px; }
 .lang-btn{
   padding:4px 9px;
   border-radius:999px;
@@ -86,7 +64,7 @@ body{
   background:#38bdf8;
   color:#0b1120;
   border-color:#38bdf8;
-  font-weight:600;
+  font-weight:700;
 }
 
 /* ----- research form ----- */
@@ -96,7 +74,6 @@ body{
   gap:8px 10px;
   margin-top:4px;
 }
-
 .research-grid label{
   display:flex;
   flex-direction:column;
@@ -104,7 +81,6 @@ body{
   font-size:.72rem;
 }
 .research-grid span{ color:#94a3b8; }
-
 .research-grid input,
 .research-grid select{
   border-radius:999px;
@@ -117,14 +93,10 @@ body{
 }
 .research-grid input::placeholder{ color:#64748b; }
 
-.hint{
-  margin-top:4px;
-  font-size:.7rem;
-  color:#6b7280;
-}
+.hint{ margin-top:4px; font-size:.7rem; color:#6b7280; }
 .hint.small{ font-size:.65rem; }
 
-/* ----- Game HUD ----- */
+/* ----- Game card ----- */
 .game-card{ padding-top:12px; }
 
 .hud{
@@ -139,7 +111,6 @@ body{
   align-items:center;
   font-size:.8rem;
 }
-
 .hud-block{
   min-width:72px;
   padding:4px 8px;
@@ -148,28 +119,17 @@ body{
   background:radial-gradient(circle at top,rgba(15,23,42,.96),rgba(15,23,42,.9));
   text-align:center;
 }
-.hud-block .label{
-  display:block;
-  font-size:.62rem;
-  color:#9ca3af;
-}
-.hud-block .value{
-  font-size:.9rem;
-  font-weight:700;
-}
+.hud-block .label{ display:block; font-size:.62rem; color:#9ca3af; }
+.hud-block .value{ font-size:.9rem; font-weight:800; }
 
-.start-row{
-  margin:8px 0 4px;
-  display:flex;
-  justify-content:center;
-}
+.start-row{ margin:8px 0 4px; display:flex; justify-content:center; }
 
 .btn{
   border:none;
   border-radius:999px;
   padding:8px 16px;
   font-size:.85rem;
-  font-weight:600;
+  font-weight:800;
   cursor:pointer;
   display:inline-flex;
   align-items:center;
@@ -188,6 +148,7 @@ body{
 }
 .btn-full{ width:100%; }
 
+/* goal text */
 .goal-text{ margin:0 2px 6px; }
 
 /* ----- Game panel ----- */
@@ -199,12 +160,7 @@ body{
   overflow:hidden;
   min-height:360px;
 }
-
-#gameArea{
-  position:absolute;
-  inset:0;
-  overflow:hidden;
-}
+#gameArea{ position:absolute; inset:0; overflow:hidden; }
 
 /* target */
 .sb-target{
@@ -213,41 +169,54 @@ body{
   display:flex;
   justify-content:center;
   align-items:center;
-  user-select:none;
-  cursor:pointer;
+  font-size:2rem;
   box-shadow:0 20px 40px rgba(15,23,42,.95),0 0 0 1px rgba(148,163,184,.9);
+  background:radial-gradient(circle at 30% 20%,#38bdf8,#0ea5e9);
+  color:#e5f2ff;
+  cursor:pointer;
+  user-select:none;
   transition:transform .15s ease-out, opacity .15s ease-out;
 }
 
-/* FEEDBACK center */
+/* boss final big */
+.sb-target.boss-final{
+  width:min(190px,42vw) !important;
+  height:min(190px,42vw) !important;
+  font-size:min(4.2rem,12vw);
+  box-shadow:0 0 40px rgba(250,204,21,.8),0 0 0 3px rgba(248,250,252,.9);
+  background:radial-gradient(circle at 30% 20%,#fde68a,#f97316,#7c2d12);
+}
+
+/* feedback center */
 .feedback{
   position:absolute;
-  left:50%;top:50%;
+  left:50%; top:50%;
   transform:translate(-50%,-50%);
   font-size:2.1rem;
   font-weight:900;
   text-shadow:0 0 18px rgba(0,0,0,.7);
   pointer-events:none;
   opacity:0;
-  display:none;
 }
-.feedback-fever{ color:#facc15; }
-.feedback-perfect{ color:#4ade80; }
-.feedback-good{ color:#38bdf8; }
-.feedback-miss{ color:#f97373; }
+.feedback.show{
+  opacity:1;
+  transition:opacity .12s ease-out;
+}
 
-/* FEVER mode glow */
+/* ✅ map classes from JS */
+.feedback.feedback-perfect{ color:#4ade80; }
+.feedback.feedback-good{ color:#38bdf8; }
+.feedback.feedback-miss{ color:#f97373; }
+.feedback.feedback-fever{ color:#facc15; }
+
+/* fever glow */
 #gameArea.fever{
   box-shadow:0 0 40px rgba(250,204,21,.7);
   outline:2px solid rgba(250,204,21,.5);
 }
 
 /* coach + controls */
-.coach{
-  margin:8px 2px 4px;
-  font-size:.85rem;
-  color:#cbd5f5;
-}
+.coach{ margin:8px 2px 4px; font-size:.85rem; color:#cbd5f5; }
 
 .controls{
   margin-top:6px;
@@ -256,22 +225,14 @@ body{
   padding:8px 10px;
   background:rgba(15,23,42,.7);
 }
-.controls h2{
-  margin:0 0 4px;
-  font-size:.9rem;
-}
-.controls ul{
-  margin:0 0 4px 16px;
-  padding:0;
-  font-size:.78rem;
-}
+.controls h2{ margin:0 0 4px; font-size:.9rem; }
+.controls ul{ margin:0 0 4px 16px; padding:0; font-size:.78rem; }
 .controls li{ margin-bottom:2px; }
 
-/* ----- Boss HUD ----- */
+/* boss hud */
 .boss-barbox{
   position:absolute;
-  top:10px;
-  left:10px;
+  top:10px; left:10px;
   padding:4px 8px;
   border-radius:12px;
   border:1px solid rgba(148,163,184,.45);
@@ -282,22 +243,15 @@ body{
   gap:8px;
 }
 .boss-face{
-  width:30px;height:30px;
-  border-radius:999px;
+  width:30px;height:30px;border-radius:999px;
   background:rgba(15,23,42,.98);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:flex;align-items:center;justify-content:center;
   box-shadow:0 0 14px rgba(148,163,184,.8);
   font-size:1.1rem;
 }
-.boss-name{
-  font-size:.75rem;
-  margin-bottom:2px;
-}
+.boss-name{ font-size:.75rem; margin-bottom:2px; }
 .boss-bar{
-  width:120px;
-  height:6px;
+  width:120px; height:6px;
   background:#1e293b;
   border-radius:999px;
   overflow:hidden;
@@ -306,13 +260,11 @@ body{
   width:100%;height:100%;
   background:linear-gradient(90deg,#22c55e,#facc15,#f97316,#ef4444);
   transform-origin:left;
-  transform:scaleX(1);
 }
 
-/* ----- Overlay ----- */
+/* overlay */
 .overlay{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   background:rgba(2,6,23,.9);
   display:flex;
   align-items:center;
@@ -330,26 +282,17 @@ body{
   padding:16px 16px 14px;
   box-shadow:0 26px 80px rgba(0,0,0,.9);
 }
-.overlay-box h2{
-  margin:0 0 10px;
-  font-size:1.05rem;
-}
+.overlay-box h2{ margin:0 0 10px; font-size:1.05rem; }
+
 .result-grid{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:6px 10px;
   font-size:.8rem;
 }
-.result-grid .label{
-  display:block;
-  font-size:.7rem;
-  color:#9ca3af;
-}
-.result-grid .value{
-  display:block;
-  font-size:.95rem;
-  font-weight:900;
-}
+.result-grid .label{ display:block; font-size:.7rem; color:#9ca3af; }
+.result-grid .value{ display:block; font-size:.95rem; font-weight:900; }
+
 .overlay-actions{
   margin-top:10px;
   display:flex;
@@ -357,18 +300,17 @@ body{
   gap:8px;
 }
 
-/* ----- play-only focus ----- */
+/* play-only focus */
 body.play-only .research-card{ display:none; }
 body.play-only .controls{ display:none; }
 body.play-only .page{ max-width:780px; }
 body.play-only .game-panel{ min-height:calc(100vh - 220px); }
 
-/* ----- mode-play (non-research) ----- */
+/* ✅ play mode (ไม่โชว์ฟอร์มวิจัย + CSV) */
 body.mode-play .research-card{ display:none; }
 body.mode-play #metaPDPA{ display:none; }
 body.mode-play #downloadCsvBtn{ display:none; }
 
-/* ----- Responsive ----- */
 @media(max-width:720px){
   .research-grid{ grid-template-columns:1fr; }
   .hud{ flex-direction:column; align-items:flex-start; }
