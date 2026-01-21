@@ -1,14 +1,15 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish)
+Food Groups VR — SAFE (PRODUCTION-ish) + DL Telemetry Pack 1
 ✅ FIX spawn bounds: no corner-clump, no out-of-screen
 ✅ Hit radius scales by size + view (cVR assist)
 ✅ miniTotal/miniCleared tracked
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
          groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
-   - research: deterministic seed + adaptive OFF + AI OFF
-   - practice: deterministic seed + adaptive OFF + AI OFF
+   - research: deterministic seed + adaptive OFF + AI OFF (telemetry OK)
+   - practice: deterministic seed + adaptive OFF + AI OFF (telemetry OK)
 ✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
+✅ NEW: Deep Learning telemetry (windows/RT/confusion/aimErr) — no sheet
 */
 
 (function (root) {
@@ -64,6 +65,28 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (String(v || '').includes('vr')  || cls.includes('view-vr'))  return 'vr';
     if (String(v || '').includes('pc')  || cls.includes('view-pc'))  return 'pc';
     return 'mobile';
+  }
+
+  // ---------- stats helpers (DL telemetry) ----------
+  function mean(arr){
+    if (!arr || !arr.length) return 0;
+    let s = 0; for (let i=0;i<arr.length;i++) s += arr[i];
+    return s / arr.length;
+  }
+  function median(arr){
+    if (!arr || !arr.length) return 0;
+    const a = arr.slice().sort((x,y)=>x-y);
+    const m = (a.length/2)|0;
+    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
+  }
+  function percentile(arr, p){
+    if (!arr || !arr.length) return 0;
+    const a = arr.slice().sort((x,y)=>x-y);
+    const idx = clamp((p/100)*(a.length-1), 0, a.length-1);
+    const i0 = Math.floor(idx), i1 = Math.ceil(idx);
+    if (i0 === i1) return a[i0];
+    const t = idx - i0;
+    return a[i0]*(1-t) + a[i1]*t;
   }
 
   // ---------------- Content ----------------
@@ -251,9 +274,185 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this._id = 0;
 
     this.coachLastAt = 0;
+
+    // --- DL telemetry (Pack 1): windows + confusion + RT/aimErr summary ---
+    this.tele = null;
   }
 
   Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
+
+  Engine.prototype._teleInit = function(){
+    const t0 = nowMs();
+    this.tele = {
+      enabled: true,
+      t0,
+      winSec: 5,
+      winStart: t0,
+      win: this._teleNewWin(),
+      windows: [],
+      maxWins: 60,     // เก็บ 5s x 60 = 5 นาที max (เกมจริง < 3 นาที)
+      // RT / aim err pools (สำหรับ summary)
+      rtMs: [],
+      aimErrPx: [],
+      // shots
+      shots: 0,
+      shotHits: 0,
+      shotMissNoTarget: 0,
+      // confusion counts: from->to
+      confusion: {},    // key `${from}->${to}` : count
+    };
+  };
+
+  Engine.prototype._teleNewWin = function(){
+    return {
+      // counts within this 5s window
+      secFromStart: 0,
+      shots: 0,
+      hitGood: 0,
+      hitWrong: 0,
+      hitJunk: 0,
+      hitBoss: 0,
+      expireGood: 0,
+      expireWrong: 0,
+      expireJunk: 0,
+      // pressure/storm snapshots (last seen)
+      stormOn: 0,
+      pressure: 0,
+      // latency/aim
+      rtMean: 0,
+      rtMed: 0,
+      aimMean: 0,
+      aimMed: 0,
+      _rt: [],
+      _aim: []
+    };
+  };
+
+  Engine.prototype._teleRollIfNeeded = function(t){
+    const T = this.tele;
+    if (!T || !T.enabled) return;
+
+    const winMs = T.winSec * 1000;
+    if (t - T.winStart < winMs) return;
+
+    // finalize current win stats
+    const w = T.win;
+    w.secFromStart = Math.max(0, Math.round((T.winStart - T.t0) / 1000));
+    w.stormOn = this.stormOn ? 1 : 0;
+    w.pressure = this.pressure|0;
+
+    w.rtMean = Math.round(mean(w._rt) || 0);
+    w.rtMed  = Math.round(median(w._rt) || 0);
+    w.aimMean= Math.round(mean(w._aim) || 0);
+    w.aimMed = Math.round(median(w._aim) || 0);
+
+    // drop internal arrays
+    delete w._rt; delete w._aim;
+
+    T.windows.push(w);
+    if (T.windows.length > T.maxWins) T.windows.shift();
+
+    // start new window (carry no stats)
+    T.winStart = T.winStart + winMs;
+    T.win = this._teleNewWin();
+  };
+
+  Engine.prototype._teleShot = function(t, hit, aimErrPx){
+    const T = this.tele;
+    if (!T || !T.enabled) return;
+    T.shots++;
+    T.win.shots++;
+    if (hit) { T.shotHits++; }
+    if (!hit) { T.shotMissNoTarget++; }
+    if (isFinite(aimErrPx)) {
+      const v = clamp(aimErrPx, 0, 9999);
+      T.aimErrPx.push(v);
+      T.win._aim.push(v);
+    }
+    this._teleRollIfNeeded(t);
+  };
+
+  Engine.prototype._teleHit = function(t, kind, rtMs, aimErrPx){
+    const T = this.tele;
+    if (!T || !T.enabled) return;
+
+    if (kind === 'good') T.win.hitGood++;
+    else if (kind === 'wrong') T.win.hitWrong++;
+    else if (kind === 'junk') T.win.hitJunk++;
+    else if (kind === 'boss') T.win.hitBoss++;
+
+    if (isFinite(rtMs)) {
+      const v = clamp(rtMs, 0, 20000);
+      T.rtMs.push(v);
+      T.win._rt.push(v);
+    }
+    if (isFinite(aimErrPx)) {
+      const v = clamp(aimErrPx, 0, 9999);
+      T.aimErrPx.push(v);
+      T.win._aim.push(v);
+    }
+
+    this._teleRollIfNeeded(t);
+  };
+
+  Engine.prototype._teleExpire = function(t, kind){
+    const T = this.tele;
+    if (!T || !T.enabled) return;
+    if (kind === 'good') T.win.expireGood++;
+    else if (kind === 'wrong') T.win.expireWrong++;
+    else if (kind === 'junk') T.win.expireJunk++;
+    this._teleRollIfNeeded(t);
+  };
+
+  Engine.prototype._teleConfuse = function(fromKey, toKey){
+    const T = this.tele;
+    if (!T || !T.enabled) return;
+    const k = `${String(fromKey)}->${String(toKey)}`;
+    T.confusion[k] = (T.confusion[k]||0) + 1;
+  };
+
+  Engine.prototype._teleBuildSummary = function(){
+    const T = this.tele;
+    if (!T || !T.enabled) return null;
+
+    // finalize any pending window
+    this._teleRollIfNeeded(nowMs());
+
+    const rt = T.rtMs || [];
+    const aim = T.aimErrPx || [];
+
+    // pick top confusion pairs
+    const conf = [];
+    for (const k in T.confusion){
+      conf.push({ k, c: T.confusion[k] });
+    }
+    conf.sort((a,b)=>b.c-a.c);
+    const top = conf.slice(0, 6).map(o=>{
+      const parts = o.k.split('->');
+      return { from: parts[0]||'', to: parts[1]||'', count: o.c|0 };
+    });
+
+    return {
+      winSec: T.winSec,
+      windows: T.windows.slice(0), // 5s-seq สำหรับ DL (เบามาก)
+      shots: T.shots|0,
+      shotHits: T.shotHits|0,
+      shotMissNoTarget: T.shotMissNoTarget|0,
+      rtMs: {
+        mean: Math.round(mean(rt) || 0),
+        med:  Math.round(median(rt) || 0),
+        p90:  Math.round(percentile(rt, 90) || 0),
+        n: rt.length|0
+      },
+      aimErrPx: {
+        mean: Math.round(mean(aim) || 0),
+        med:  Math.round(median(aim) || 0),
+        p90:  Math.round(percentile(aim, 90) || 0),
+        n: aim.length|0
+      },
+      confusionTop: top
+    };
+  };
 
   Engine.prototype._calcPressure = function(){
     const m = this.misses|0;
@@ -362,6 +561,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this.startAt = nowMs();
     this.spawnTmr = 0;
 
+    // init DL telemetry (always OK; does not change gameplay)
+    this._teleInit();
+
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
@@ -394,6 +596,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       self._tickMini(t);
       self._tickSpawn(t);
       self._tickExpire(t);
+      // roll telemetry windows
+      self._teleRollIfNeeded(t);
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -541,9 +745,10 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     for (let i = this.targets.length - 1; i >= 0; i--) {
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
-        if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
-        else if (tg.kind === 'wrong') { this.nExpireWrong++; }
-        else if (tg.kind === 'junk') { this.nExpireJunk++; }
+        if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); this._teleExpire(t,'good'); }
+        else if (tg.kind === 'wrong') { this.nExpireWrong++; this._teleExpire(t,'wrong'); }
+        else if (tg.kind === 'junk') { this.nExpireJunk++; this._teleExpire(t,'junk'); }
+        else if (tg.kind === 'boss') { /* boss expire: ignore */ }
         this._removeTarget(i, 'expire');
       }
     }
@@ -575,18 +780,22 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
     let emoji = '🍽️';
     let cls = 'fg-target';
+    let groupKey = 'unknown';
 
     if (kind === 'good') {
       emoji = pick(this.rng, gActive.emoji);
       cls += ' fg-good';
+      groupKey = gActive.key;
       this.nTargetGoodSpawned++;
     } else if (kind === 'wrong') {
       emoji = pick(this.rng, gOther.emoji);
       cls += ' fg-wrong';
+      groupKey = gOther.key;
       this.nTargetWrongSpawned++;
     } else {
       emoji = pick(this.rng, JUNK);
       cls += ' fg-junk';
+      groupKey = 'junk';
       this.nTargetJunkSpawned++;
     }
 
@@ -603,7 +812,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       if (this.pressure === 3) lifeMs = Math.round(lifeMs * 0.84);
     }
 
-    this._spawnDomTarget({ kind, emoji, cls, size, lifeMs });
+    this._spawnDomTarget({ kind, emoji, cls, size, lifeMs, groupKey });
   };
 
   Engine.prototype._spawnBoss = function () {
@@ -625,7 +834,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       size: 1.0,
       lifeMs: 7000,
       bossHp: hp,
-      bossHpMax: hp
+      bossHpMax: hp,
+      groupKey: gActive.key
     });
 
     emit('groups:progress', { kind: 'boss_spawn' });
@@ -664,6 +874,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       id, el,
       kind: spec.kind,
       emoji: spec.emoji,
+      groupKey: String(spec.groupKey || 'unknown'),
       x, y, r: rHit,
       bornAt: born,
       expireAt: born + (spec.lifeMs || 3000),
@@ -699,7 +910,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     for (let i = 0; i < this.targets.length; i++) {
       if (this.targets[i].id === id) {
         const tg = this.targets[i];
-        this._onHit(tg, i, via, t);
+        this._onHit(tg, i, via, t, NaN); // aimErr unknown for tap
         return;
       }
     }
@@ -712,20 +923,31 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     let bestI = -1;
     let bestD = 1e9;
 
+    // nearest distance for aimErr even if miss
+    let nearestD = 1e9;
+
     for (let i = 0; i < this.targets.length; i++) {
       const tg = this.targets[i];
       const dx = (tg.x - cx);
       const dy = (tg.y - cy);
       const d = Math.sqrt(dx * dx + dy * dy);
+      nearestD = Math.min(nearestD, d);
       if (d <= tg.r && d < bestD) { bestD = d; bestI = i; }
     }
 
+    const t = nowMs();
+
     if (bestI >= 0) {
       const tg = this.targets[bestI];
-      this._onHit(tg, bestI, 'shoot', nowMs());
+      const aimErr = bestD; // within radius
+      this._teleShot(t, true, aimErr);
+      this._onHit(tg, bestI, 'shoot', t, aimErr);
     } else {
-      // ยิงพลาดจาก crosshair: ไม่เพิ่ม miss (กัน miss พุ่ง)
-      // แต่ reset combo + FX
+      // ✅ ยิงพลาดจาก crosshair: ไม่เพิ่ม miss (ตามที่ตกลง)
+      // แต่ log telemetry shot + aimErr (distance to nearest target)
+      const aimErr = isFinite(nearestD) ? nearestD : NaN;
+      this._teleShot(t, false, aimErr);
+
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
@@ -734,11 +956,17 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
   };
 
-  Engine.prototype._onHit = function (tg, idx, via, t) {
+  Engine.prototype._onHit = function (tg, idx, via, t, aimErrPx) {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
+    const activeKey = gActive.key;
+
+    const rtMs = (tg && isFinite(tg.bornAt)) ? (t - tg.bornAt) : NaN;
 
     if (tg.kind === 'boss') {
+      // telemetry hit boss
+      this._teleHit(t, 'boss', rtMs, aimErrPx);
+
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       emit('hha:judge', { kind: 'boss', text: `BOSS -1`, x: tg.x, y: tg.y });
       flashBodyFx('fx-hit', 180);
@@ -765,6 +993,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
 
     if (tg.kind === 'good') {
+      // telemetry hit good
+      this._teleHit(t, 'good', rtMs, aimErrPx);
+
       this.nHitGood++;
       this.hitGoodForAcc++;
       this.totalJudgedForAcc++;
@@ -794,6 +1025,10 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
 
     if (tg.kind === 'wrong') {
+      // telemetry hit wrong + confusion
+      this._teleHit(t, 'wrong', rtMs, aimErrPx);
+      this._teleConfuse(activeKey, tg.groupKey || 'unknown');
+
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
@@ -813,6 +1048,10 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
 
     // junk
+    // telemetry hit junk
+    this._teleHit(t, 'junk', rtMs, aimErrPx);
+    this._teleConfuse(activeKey, 'junk');
+
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
@@ -1022,6 +1261,10 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       pressureLevel: this.pressure|0
     };
 
+    // attach DL telemetry summary (compact)
+    const tele = this._teleBuildSummary();
+    if (tele) summary.dlTelemetry = tele;
+
     emit('hha:end', summary);
     addBodyClass('fx-end', true);
     setTimeout(()=>addBodyClass('fx-end', false), 650);
@@ -1030,21 +1273,5 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
   // ---------------- Export ----------------
   NS.GameEngine = new Engine();
-
-  // getResearchCtx fallback (รวม consent/assent ด้วย)
-  NS.getResearchCtx = NS.getResearchCtx || function(){
-    try{
-      const u = new URL(location.href);
-      const b = (x)=> (String(x||'')==='1' || String(x||'').toLowerCase()==='true');
-      return {
-        studyId: u.searchParams.get('studyId')||'',
-        participantId: u.searchParams.get('participantId')||'',
-        conditionGroup: u.searchParams.get('conditionGroup')||'',
-        sessionId: u.searchParams.get('sessionId')||'',
-        consentParent: b(u.searchParams.get('consentParent')),
-        assentChild: b(u.searchParams.get('assentChild'))
-      };
-    }catch(_){ return {}; }
-  };
 
 })(typeof window !== 'undefined' ? window : globalThis);
