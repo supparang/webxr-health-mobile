@@ -103,6 +103,7 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
     .tag.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
     .tag.cyan{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
     .tag.violet{ border-color: rgba(167,139,250,.38); background: rgba(167,139,250,.10); }
+
     .meta{
       margin-top:10px;
       background:var(--panel2);
@@ -126,6 +127,9 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       cursor:pointer;
     }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
+
+    .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    @media (max-width:520px){ .row2{ grid-template-columns:1fr; } }
   </style>
 </head>
 
@@ -149,11 +153,23 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
         <!-- ✅ NEW: HygieneVR -->
         <div class="card">
           <div class="h">🧼 Hygiene VR</div>
-          <button class="btn" id="btnHygieneLauncher" type="button">
-            <span>เข้า Launcher (Auto-detect)</span>
-            <span class="tag cyan">new</span>
-          </button>
-          <div class="hint" style="margin-top:10px;">ไฟล์: <span class="mono">/herohealth/hygiene-vr.html</span></div>
+
+          <div class="row2">
+            <button class="btn" id="btnHygieneLauncher" type="button">
+              <span>เข้า Launcher (Auto-detect)</span>
+              <span class="tag cyan">launcher</span>
+            </button>
+
+            <button class="btn" id="btnHygieneRun" type="button">
+              <span>เข้าเกม (Run) — direct</span>
+              <span class="tag warn">direct</span>
+            </button>
+          </div>
+
+          <div class="hint" style="margin-top:10px;">
+            launcher: <span class="mono">/herohealth/hygiene-vr.html</span><br/>
+            run: <span class="mono">/herohealth/hygiene-vr/hygiene-vr.html</span>
+          </div>
         </div>
 
         <div class="card">
@@ -189,7 +205,7 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
             <span>เข้าหน้าเกม (Run)</span>
             <span class="tag violet">direct</span>
           </button>
-          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/plate/plate-vr.html</span> (ตามที่คุณตั้งไว้)</div>
+          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/plate/plate-vr.html</span></div>
         </div>
 
       </div>
@@ -208,7 +224,7 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
   const DOC = document;
 
   function baseHubUrl(){
-    return location.href; // รวม query ปัจจุบันด้วย
+    return location.href;
   }
 
   function buildTo(path){
@@ -248,9 +264,11 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
 
   setMeta();
 
-  // ✅ NEW: Hygiene launcher
   DOC.getElementById('btnHygieneLauncher').addEventListener('click', ()=>{
     location.href = buildTo('./hygiene-vr.html');
+  });
+  DOC.getElementById('btnHygieneRun').addEventListener('click', ()=>{
+    location.href = buildTo('./hygiene-vr/hygiene-vr.html');
   });
 
   DOC.getElementById('btnGoodJunkLauncher').addEventListener('click', ()=>{
@@ -275,5 +293,10 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
   });
 })();
 </script>
+
+<!-- (optional) ถ้าคุณต้องการ Dashboard/History จริง ค่อยเปิด 2 บรรทัดนี้ -->
+<!-- <script src="./hub.safe.js"></script> -->
+<!-- <script src="./hub-dashboard.js"></script> -->
+
 </body>
 </html>
