@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Test HUB (HygieneVR)</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
+      --accent:#22c55e; --cyan:#22d3ee; --warn:#f59e0b;
+      --r:22px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .wrap{ max-width:980px; margin:0 auto; padding:18px 14px 24px; }
+    .top{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      background:var(--panel); border:1px solid var(--stroke); border-radius:var(--r);
+      padding:14px 14px;
+    }
+    .title{ display:flex; gap:10px; align-items:center; }
+    .logo{ width:44px; height:44px; border-radius:14px; display:grid; place-items:center;
+      background:rgba(34,197,94,.14); border:1px solid rgba(34,197,94,.35); font-size:22px; }
+    .h1{ font-weight:1000; font-size:18px; }
+    .p{ color:var(--muted); font-size:13px; margin-top:2px; line-height:1.35; }
+
+    .grid{ display:grid; grid-template-columns: repeat(12, 1fr); gap:12px; margin-top:12px; }
+    .card{
+      grid-column: span 12;
+      background:var(--panel2); border:1px solid var(--stroke); border-radius:var(--r);
+      padding:14px 14px 12px;
+    }
+    @media (min-width:820px){
+      .card.half{ grid-column: span 6; }
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .badge{ display:inline-flex; gap:8px; align-items:center; font-weight:1000; }
+    .badge .dot{ width:10px; height:10px; border-radius:999px; background:rgba(34,197,94,.8); box-shadow:0 0 0 6px rgba(34,197,94,.12); }
+    .small{ color:var(--muted); font-size:12px; line-height:1.35; margin-top:6px; }
+    .btn{
+      appearance:none; border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.35); color:var(--text);
+      padding:10px 12px; border-radius:16px; cursor:pointer; font-weight:950;
+    }
+    .btn.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.45); }
+    .btn.cyan{ background:rgba(34,211,238,.16); border-color:rgba(34,211,238,.45); }
+    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.45); }
+    .btn.ghost{ background:transparent; }
+    .kv{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .pill{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.28); color:var(--muted);
+      border-radius:999px; padding:6px 10px; font-size:12px;
+    }
+    .mono{ font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="title">
+      <div class="logo">🧼</div>
+      <div>
+        <div class="h1">Test HUB — HygieneVR (Handwash Survival)</div>
+        <div class="p">กดเข้าเกมได้ทันที • ส่งพารามิเตอร์ให้ครบ • ตั้ง hub กลับมาหน้านี้อัตโนมัติ</div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="btnOpenHygieneLauncher">เปิด Launcher</button>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="card half">
+      <div class="badge"><span class="dot"></span> เข้าเกมแบบเร็ว (แนะนำ)</div>
+      <div class="small">ใช้ <span class="mono">/herohealth/hygiene-vr.html</span> ให้ auto-detect เครื่อง และกลับมาที่ HUB ได้</div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn primary" id="goAuto">Start (Auto-detect)</button>
+        <button class="btn" id="goMobile">Mobile</button>
+        <button class="btn" id="goPC">PC</button>
+        <button class="btn" id="goVR">Cardboard VR</button>
+        <button class="btn" id="goCVR">cVR</button>
+      </div>
+
+      <div class="kv">
+        <span class="pill">run=play</span>
+        <span class="pill">diff=normal</span>
+        <span class="pill">time=70</span>
+        <span class="pill">seed=auto</span>
+      </div>
+    </div>
+
+    <div class="card half">
+      <div class="badge"><span class="dot" style="background:rgba(34,211,238,.9); box-shadow:0 0 0 6px rgba(34,211,238,.12);"></span> โหมดวิจัย/ทดสอบ (deterministic)</div>
+      <div class="small">โหมด <b>research</b> จะล็อก seed และปิด adaptive (เหมาะกับเก็บข้อมูล)</div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn cyan" id="goResearchMobile">Research (Mobile)</button>
+        <button class="btn cyan" id="goResearchPC">Research (PC)</button>
+        <button class="btn cyan" id="goResearchCVR">Research (cVR)</button>
+      </div>
+
+      <div class="kv">
+        <span class="pill">run=research</span>
+        <span class="pill">seed=123456</span>
+        <span class="pill">time=70</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="badge"><span class="dot" style="background:rgba(245,158,11,.9); box-shadow:0 0 0 6px rgba(245,158,11,.12);"></span> ปุ่มช่วยทดสอบ</div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn warn" id="openRunDirect">เปิด Run ตรง (ข้าม launcher)</button>
+        <button class="btn" id="openLastSummary">ดู last summary (localStorage)</button>
+        <button class="btn" id="clearQueues">ล้างคิว logs (sessions/events)</button>
+      </div>
+      <div class="small mono" id="debugLine" style="margin-top:10px;"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const HERE = location.href;
+  const HUB_URL = HERE.split('#')[0]; // no hash
+  const enc = encodeURIComponent;
+
+  function build(url, params){
+    const u = new URL(url, location.href);
+    Object.entries(params||{}).forEach(([k,v])=>{
+      if (v===undefined || v===null || v==='') return;
+      u.searchParams.set(k, String(v));
+    });
+    return u.toString();
+  }
+
+  // Default params
+  const base = {
+    hub: HUB_URL,
+    diff: 'normal',
+    time: 70,
+    style: 'mix'
+  };
+
+  function goLauncher(view, run){
+    const seed = (run === 'research') ? 123456 : Date.now();
+    const url = build('./hygiene-vr.html', Object.assign({}, base, {
+      view: view || '',
+      run: run || 'play',
+      seed
+    }));
+    location.href = url;
+  }
+
+  function goRunDirect(view, run){
+    const seed = (run === 'research') ? 123456 : Date.now();
+    const url = build('./hygiene-vr/hygiene-vr.html', Object.assign({}, base, {
+      view: view || 'mobile',
+      run: run || 'play',
+      seed
+    }));
+    location.href = url;
+  }
+
+  // Buttons
+  document.getElementById('btnOpenHygieneLauncher').onclick = ()=>goLauncher('', 'play');
+
+  document.getElementById('goAuto').onclick   = ()=>goLauncher('', 'play');
+  document.getElementById('goMobile').onclick = ()=>goLauncher('mobile', 'play');
+  document.getElementById('goPC').onclick     = ()=>goLauncher('pc', 'play');
+  document.getElementById('goVR').onclick     = ()=>goLauncher('vr', 'play');
+  document.getElementById('goCVR').onclick    = ()=>goLauncher('cvr', 'play');
+
+  document.getElementById('goResearchMobile').onclick = ()=>goLauncher('mobile', 'research');
+  document.getElementById('goResearchPC').onclick     = ()=>goLauncher('pc', 'research');
+  document.getElementById('goResearchCVR').onclick    = ()=>goLauncher('cvr', 'research');
+
+  document.getElementById('openRunDirect').onclick = ()=>goRunDirect('mobile', 'play');
+
+  document.getElementById('openLastSummary').onclick = ()=>{
+    let t = '';
+    try{
+      t = localStorage.getItem('HHA_LAST_SUMMARY') || '(no last summary)';
+    }catch(e){ t = '(localStorage error)'; }
+    alert(t.length > 1200 ? (t.slice(0,1200)+'...') : t);
+  };
+
+  document.getElementById('clearQueues').onclick = ()=>{
+    try{
+      localStorage.removeItem('HHA_SESSIONS_QUEUE');
+      localStorage.removeItem('HHA_EVENTS_QUEUE');
+      alert('ล้างคิว sessions/events แล้ว');
+    }catch(e){
+      alert('ล้างไม่สำเร็จ');
+    }
+  };
+
+  // Debug line
+  const dbg = document.getElementById('debugLine');
+  dbg.textContent = 'HUB=' + HUB_URL + ' | hygiene launcher=' + build('./hygiene-vr.html', base);
+})();
+</script>
+</body>
+</html>
