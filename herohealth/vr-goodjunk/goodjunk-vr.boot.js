@@ -1,215 +1,212 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (HHA Standard)
-// ✅ View modes: PC / Mobile / VR / cVR
-// ✅ Auto-detect view (BUT do NOT override if ?view= exists)
-// ✅ Sets body classes: view-pc/view-mobile/view-vr/view-cvr
-// ✅ Wires topbar buttons (optional fallback if inline missing)
-// ✅ Boots engine: import { boot } from './goodjunk.safe.js'
-// ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/ts/log/style
-// ✅ Safe against double-boot
+// GoodJunkVR Boot — PACK S (FAIR, production wiring)
+// ✅ Detect view (pc/mobile/vr/cvr) BUT never override if ?view= provided
+// ✅ Pass-through ctx: hub/run/diff/time/seed/studyId/study/phase/conditionGroup/log/style/ts
+// ✅ Adds body classes: view-*, run-*, diff-*
+// ✅ Hooks hha:shoot => pointer hit (for cVR crosshair/tap-to-shoot via vr-ui.js)
+// ✅ Wait DOM + wait layer + boot engine once
+// ✅ Safe-area measure already done in goodjunk-vr.html (sets --gj-top-safe/--gj-bottom-safe)
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-function qs(k, def = null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
+const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; } catch(_){ return d; } };
+const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); } catch(_){ return false; } };
+
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
-function has(k){
-  try { return new URL(location.href).searchParams.has(k); }
-  catch { return false; }
-}
-function normView(v){
-  v = String(v || '').toLowerCase().trim();
-  if (v === 'cardboard') return 'vr';
-  if (v === 'vr') return 'vr';
-  if (v === 'cvr' || v === 'view-cvr') return 'cvr';
-  if (v === 'pc') return 'pc';
-  if (v === 'mobile') return 'mobile';
-  return 'auto';
-}
+
 function isLikelyMobileUA(){
-  const ua = (navigator.userAgent || '').toLowerCase();
+  const ua = (navigator.userAgent||'').toLowerCase();
   return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
 }
 
+function normalizeView(v){
+  v = String(v||'').toLowerCase();
+  if(v==='cardboard') return 'vr';
+  if(v==='vr') return 'vr';
+  if(v==='cvr' || v==='view-cvr') return 'cvr';
+  if(v==='pc') return 'pc';
+  if(v==='mobile') return 'mobile';
+  return 'auto';
+}
+
 async function detectView(){
-  // IMPORTANT: never override explicit ?view=
-  if (has('view')) return normView(qs('view', 'auto'));
+  // NEVER override if user passed ?view=
+  if(has('view')) return normalizeView(qs('view','auto'));
 
-  // soft remember (optional)
-  try{
-    const last = localStorage.getItem('HHA_LAST_VIEW');
-    if (last) return normView(last);
-  }catch(_){}
-
+  // best-effort: use UA first
   let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
 
-  // If WebXR immersive-vr supported, consider 'vr' (mostly for mobile cardboard/vr)
+  // optional: if WebXR immersive-vr supported on device, prefer vr on mobile
   try{
-    if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
+    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
       const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if (ok){
+      if(ok){
         guess = isLikelyMobileUA() ? 'vr' : 'pc';
       }
     }
   }catch(_){}
 
-  return normView(guess);
+  return normalizeView(guess);
 }
 
-function setBodyViewClass(view){
+function setBodyView(v){
   const b = DOC.body;
-  if (!b) return;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if (view === 'pc') b.classList.add('view-pc');
-  else if (view === 'vr') b.classList.add('view-vr');
-  else if (view === 'cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile');
+  if(v==='pc') b.classList.add('view-pc');
+  else if(v==='vr') b.classList.add('view-vr');
+  else if(v==='cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile'); // default
 }
 
-function wireTopbarFallback(){
-  // If inline handlers exist already, this won’t break—just adds redundancy.
-  const hub = qs('hub', null);
-
-  const btnBack = DOC.getElementById('btnBackHub');
-  const btnHide = DOC.getElementById('btnHideHud');
-  const btnMis  = DOC.getElementById('btnMissions');
-
-  const peek = DOC.getElementById('missionsPeek');
-  const peekGoal = DOC.getElementById('peekGoal');
-  const peekMini = DOC.getElementById('peekMini');
-
-  function toggleMissions(){
-    DOC.body.classList.toggle('show-missions');
-    const shown = DOC.body.classList.contains('show-missions');
-    if (peek) peek.setAttribute('aria-hidden', shown ? 'false' : 'true');
-    if (shown){
-      if (peekGoal) peekGoal.textContent = (DOC.getElementById('hud-goal')?.textContent || '—');
-      if (peekMini) peekMini.textContent = (DOC.getElementById('hud-mini')?.textContent || '—');
-    }
-  }
-
-  btnBack?.addEventListener('click', ()=>{
-    try{
-      if (hub) location.href = hub;
-      else alert('ยังไม่ได้ใส่ hub url');
-    }catch(_){}
-  });
-
-  btnHide?.addEventListener('click', ()=>{
-    DOC.body.classList.toggle('hud-hidden');
-    // HTML inline updateSafe() will update safe vars; if missing, it’s ok
-    try{ WIN.dispatchEvent(new Event('resize')); }catch(_){}
-  });
-
-  btnMis?.addEventListener('click', toggleMissions);
-  peek?.addEventListener('click', toggleMissions);
+function setBodyTags(run, diff){
+  const b = DOC.body;
+  // run
+  b.classList.remove('run-play','run-research');
+  b.classList.add(run==='research' ? 'run-research' : 'run-play');
+  // diff
+  b.classList.remove('diff-easy','diff-normal','diff-hard');
+  const d = (diff==='easy'||diff==='hard') ? diff : 'normal';
+  b.classList.add(`diff-${d}`);
 }
 
-function setChipMeta(view){
-  const chipMeta = DOC.getElementById('gjChipMeta');
-  if (!chipMeta) return;
-  const run  = qs('run','play');
-  const diff = qs('diff','normal');
-  const time = qs('time','80');
-  chipMeta.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
-}
-
-function setVrUiConfig(view){
-  // optional: tune lockPx per view
-  // (vr-ui.js reads window.HHA_VRUI_CONFIG)
-  const cfg = { lockPx: 28, cooldownMs: 90 };
-  if (view === 'cvr') cfg.lockPx = 30;
-  if (view === 'vr')  cfg.lockPx = 30;
-  if (view === 'pc')  cfg.lockPx = 26;
-  WIN.HHA_VRUI_CONFIG = Object.assign({}, WIN.HHA_VRUI_CONFIG || {}, cfg);
-}
-
-function buildPayload(view){
-  const payload = {
-    // engine config
-    view,
-    run: qs('run','play'),
-    diff: qs('diff','normal'),
-    time: Number(qs('time','80') || 80),
-    seed: qs('seed', null),
-
-    // ctx passthrough
+function getCtx(){
+  // pass-through research ctx
+  const ctx = {
     hub: qs('hub', null),
-    ts: qs('ts', null),
+    view: normalizeView(qs('view', 'auto')),
+    run: String(qs('run','play')||'play').toLowerCase(),
+    diff: String(qs('diff','normal')||'normal').toLowerCase(),
+    time: Number(qs('time','80')||'80') || 80,
+    seed: qs('seed', null) ?? qs('ts', null) ?? String(Date.now()),
+
+    // research extras
+    studyId: qs('studyId', null) ?? qs('study', null),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', null) ?? qs('cond', null),
     log: qs('log', null),
     style: qs('style', null),
-
-    // study params
-    studyId: qs('studyId', qs('study', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('conditionGroup', qs('cond', null)),
+    ts: qs('ts', null)
   };
-
-  // normalize
-  payload.run = String(payload.run || 'play').toLowerCase();
-  payload.diff = String(payload.diff || 'normal').toLowerCase();
-  payload.time = Math.max(20, Math.min(300, Number(payload.time) || 80));
-  if (!payload.seed){
-    // in research allow deterministic if seed not provided
-    if (payload.run === 'research') payload.seed = (payload.ts || 'RESEARCH-SEED');
-    else payload.seed = String(Date.now());
-  }
-
-  return payload;
+  return ctx;
 }
 
-async function main(){
-  if (!DOC || WIN.__GOODJUNK_BOOTED__) return;
-  WIN.__GOODJUNK_BOOTED__ = true;
+function waitForElm(sel, timeoutMs=2400){
+  return new Promise((resolve)=>{
+    const t0 = performance.now();
+    const tick = ()=>{
+      const el = DOC.querySelector(sel);
+      if(el) return resolve(el);
+      if(performance.now() - t0 >= timeoutMs) return resolve(null);
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
 
-  // wait DOM ready (safe)
-  if (DOC.readyState === 'loading'){
-    await new Promise(res => DOC.addEventListener('DOMContentLoaded', res, { once:true }));
-  }
+/* ---------- Crosshair shoot -> simulate pointer hit ---------- */
+/* vr-ui.js emits: hha:shoot {x,y,lockPx,source} */
+function attachShootBridge(){
+  if(WIN.__GJ_SHOOT_BRIDGE__) return;
+  WIN.__GJ_SHOOT_BRIDGE__ = true;
 
-  const view = await detectView();
-  setBodyViewClass(view);
-  setVrUiConfig(view);
-  setChipMeta(view);
-
-  // remember view only if not explicitly set by URL
-  if (!has('view') && view && view !== 'auto'){
-    try{ localStorage.setItem('HHA_LAST_VIEW', view); }catch(_){}
-  }
-
-  wireTopbarFallback();
-
-  // boot engine
-  const payload = buildPayload(view);
-  try{
-    engineBoot(payload);
-  }catch(err){
-    console.error('[GoodJunkVR] boot error', err);
-    // show minimal error overlay
+  WIN.addEventListener('hha:shoot', (ev)=>{
     try{
-      const ov = DOC.createElement('div');
-      ov.style.cssText = `
-        position:fixed; inset:0; z-index:9999;
-        background:rgba(2,6,23,.92); color:#e5e7eb;
-        display:flex; align-items:center; justify-content:center;
-        padding:24px; font-family:system-ui;
-      `;
-      ov.innerHTML = `
-        <div style="width:min(720px,95vw); border:1px solid rgba(148,163,184,.22);
-          border-radius:18px; padding:16px; background:rgba(15,23,42,.65);">
-          <div style="font-size:18px; font-weight:1200;">GoodJunkVR เปิดไม่สำเร็จ</div>
-          <div style="margin-top:8px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px;">
-            ดู console เพื่อรายละเอียด error
-          </div>
-        </div>
-      `;
-      DOC.body.appendChild(ov);
+      const d = ev?.detail || {};
+      const x = Number(d.x ?? (WIN.innerWidth/2));
+      const y = Number(d.y ?? (WIN.innerHeight/2));
+      const lockPx = Number(d.lockPx ?? 28);
+
+      // find topmost element around crosshair
+      let target = null;
+
+      // sample a tiny grid to catch fast-moving emoji
+      const pts = [
+        [x,y],[x-lockPx,y],[x+lockPx,y],[x,y-lockPx],[x,y+lockPx],
+        [x-lockPx,y-lockPx],[x+lockPx,y-lockPx],[x-lockPx,y+lockPx],[x+lockPx,y+lockPx],
+      ];
+
+      for(const [px,py] of pts){
+        const el = DOC.elementFromPoint(px, py);
+        if(!el) continue;
+        // allow clicking target or inside target
+        const t = el.closest?.('.gj-target');
+        if(t){ target = t; break; }
+      }
+
+      if(target){
+        // dispatch pointerdown so safe.js listener works
+        const e = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:x, clientY:y });
+        target.dispatchEvent(e);
+      }
+    }catch(_){}
+  }, { passive:true });
+}
+
+/* ---------- Main boot ---------- */
+async function main(){
+  if(WIN.__GJ_BOOTED__) return;
+  WIN.__GJ_BOOTED__ = true;
+
+  const ctx = getCtx();
+
+  // if view was auto, detect
+  if(ctx.view === 'auto'){
+    ctx.view = await detectView();
+  }
+
+  setBodyView(ctx.view);
+  setBodyTags(ctx.run, ctx.diff);
+
+  // Let UI chip update already happens in HTML; here we just ensure game layer exists
+  await waitForElm('#gj-layer', 2800);
+  attachShootBridge();
+
+  // Let other modules know game is about to start
+  emit('hha:boot', {
+    gameId: 'goodjunk',
+    view: ctx.view,
+    run: ctx.run,
+    diff: ctx.diff,
+    time: ctx.time,
+    seed: ctx.seed,
+    studyId: ctx.studyId,
+    phase: ctx.phase,
+    conditionGroup: ctx.conditionGroup
+  });
+
+  // IMPORTANT: Start engine after DOM stable
+  try{
+    engineBoot({
+      view: ctx.view,
+      run: ctx.run,
+      diff: ctx.diff,
+      time: ctx.time,
+      seed: ctx.seed,
+      hub: ctx.hub,
+      studyId: ctx.studyId,
+      phase: ctx.phase,
+      conditionGroup: ctx.conditionGroup,
+      log: ctx.log,
+      style: ctx.style,
+      ts: ctx.ts
+    });
+  }catch(err){
+    console.error('[GoodJunkVR boot] engineBoot failed', err);
+    // show something minimal to user
+    try{
+      alert('เริ่มเกมไม่สำเร็จ (boot error) — เปิด console ดูรายละเอียด');
     }catch(_){}
   }
 }
 
-main();
+// start once
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', ()=>main(), { once:true });
+}else{
+  main();
+}
