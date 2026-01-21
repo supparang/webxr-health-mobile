@@ -1,19 +1,18 @@
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR (Run)</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" />
+  <title>HeroHealth — HygieneVR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <style>
     :root{
       color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.76);
-      --panel2:rgba(15,23,42,.66);
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -21,165 +20,132 @@
       --warn:#f59e0b;
       --bad:#ef4444;
       --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --radius:22px;
+      --radius:18px;
       --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
     *{ box-sizing:border-box; }
-    html,body{ margin:0; width:100%; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; overflow:hidden; }
-
-    /* View markers (optional) */
-    body.view-pc{}
-    body.view-mobile{}
-    body.view-vr{}
-    body.view-cvr{}
-
-    /* GAME STAGE */
+    html,body{ margin:0; width:100%; height:100%; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; }
     .stage{
       position:fixed; inset:0;
-      background:
-        radial-gradient(circle at 18% 12%, rgba(34,211,238,.10), transparent 55%),
-        radial-gradient(circle at 86% 88%, rgba(167,139,250,.10), transparent 58%),
-        radial-gradient(circle at 60% 45%, rgba(34,197,94,.08), transparent 60%),
-        var(--bg);
+      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
       overflow:hidden;
-      touch-action: manipulation;
-      user-select:none;
     }
 
-    /* Targets layer */
-    .targets{
-      position:absolute; inset:0;
-      pointer-events:none; /* targets individually enable */
-    }
-    .t{
+    /* playfield (target area) */
+    .field{
       position:absolute;
-      left: calc(var(--x) * 1px);
-      top:  calc(var(--y) * 1px);
-      transform: translate(-50%,-50%) scale(var(--s,1));
-      width: 74px; height: 74px;
-      border-radius: 999px;
-      display:grid; place-items:center;
-      pointer-events:auto;
-      cursor:pointer;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      box-shadow: 0 18px 50px rgba(0,0,0,.28);
-      transition: transform .10s ease, opacity .15s ease;
-      will-change: transform, opacity;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:min(980px, calc(100vw - 24px));
+      height:min(640px, calc(100vh - 210px));
+      border:1px solid rgba(148,163,184,.14);
+      background:
+        radial-gradient(circle at 20% 10%, rgba(34,211,238,.10), transparent 52%),
+        radial-gradient(circle at 80% 80%, rgba(34,197,94,.09), transparent 55%),
+        rgba(2,6,23,.35);
+      border-radius: 22px;
+      overflow:hidden;
+      touch-action: manipulation;
     }
-    .t:active{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98)); }
-    .t.good{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.12);
-    }
-    .t.bad{
-      border-color: rgba(239,68,68,.35);
-      background: rgba(239,68,68,.10);
-    }
-    .t .emoji{ font-size:30px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
-    .t .ring{
-      position:absolute; inset:-6px;
-      border-radius:999px;
-      border: 2px dashed rgba(229,231,235,.25);
-      opacity:.55;
-      animation: spin 1.4s linear infinite;
-      pointer-events:none;
-    }
-    .t.bad .ring{ border-color: rgba(239,68,68,.35); opacity:.65; }
-    .t.good .ring{ border-color: rgba(34,197,94,.40); opacity:.65; }
-    @keyframes spin{ to{ transform: rotate(360deg); } }
 
     /* HUD */
     .hud{
-      position:fixed;
-      left: calc(12px + var(--sal));
-      top:  calc(12px + var(--sat));
-      z-index:90;
-      width:min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
+      position:fixed; left:0; right:0; top:0;
+      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+      display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; justify-content:space-between;
       pointer-events:none;
+      z-index:50;
     }
-    .hudRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:stretch; }
-    .hudBox{
+    .hud .box{
+      pointer-events:auto;
       background: var(--panel);
       border:1px solid var(--stroke);
       border-radius: 18px;
-      padding: 10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.30);
-      backdrop-filter: blur(8px);
-      pointer-events:none;
+      padding:10px 12px;
+      min-width: 220px;
+      box-shadow: 0 16px 60px rgba(0,0,0,.35);
     }
-    .hudTitle{ font-weight:1100; font-size:13px; }
-    .hudSub{ margin-top:4px; color:rgba(229,231,235,.76); font-weight:900; font-size:12px; line-height:1.25; }
-    .kpis{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    .kpi{
-      min-width: 110px;
-      background: var(--panel2);
-      border:1px solid rgba(148,163,184,.14);
-      border-radius: 16px;
-      padding: 8px 10px;
-    }
-    .k{ color:rgba(229,231,235,.70); font-weight:900; font-size:11px; }
-    .v{ margin-top:3px; font-weight:1200; font-size:16px; }
-    .v.good{ color:rgba(34,197,94,.95); }
-    .v.warn{ color:rgba(245,158,11,.95); }
-    .v.bad{ color:rgba(239,68,68,.95); }
-
-    /* Quest / coach */
-    .quest{
-      position:fixed;
-      left: calc(12px + var(--sal));
-      bottom: calc(12px + var(--sab));
-      z-index:90;
-      width:min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
-      pointer-events:none;
-    }
-    .questBox{
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      border-radius: 18px;
-      padding: 10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.30);
-      backdrop-filter: blur(8px);
-    }
-    .questTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-    .badge{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius:999px;
+    .title{ font-weight:1100; }
+    .sub{ color:var(--muted); font-weight:900; font-size:12px; margin-top:2px; line-height:1.35; }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.45);
-      font-weight:1000; font-size:12px;
+      background: rgba(15,23,42,.55);
+      border-radius: var(--pill);
+      padding:8px 10px;
+      font-weight:1050;
+      font-size:12px;
+      white-space:nowrap;
     }
-    .badge.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
-    .badge.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
-    .badge.bad{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.08); }
+    .pill.good{ border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.10); }
+    .pill.warn{ border-color: rgba(245,158,11,.30); background: rgba(245,158,11,.10); }
+    .pill.bad{  border-color: rgba(239,68,68,.30);  background: rgba(239,68,68,.10); }
+    .pill.cyan{ border-color: rgba(34,211,238,.30); background: rgba(34,211,238,.10); }
 
-    .questText{ margin-top:8px; font-weight:1050; line-height:1.35; }
-    .questHint{ margin-top:6px; color:rgba(229,231,235,.74); font-weight:900; font-size:12px; line-height:1.35; }
+    /* Coach tip */
+    .coach{
+      position:fixed; left:0; right:0; bottom:0;
+      padding: 0 calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
+      z-index:60;
+      pointer-events:none;
+      display:flex; justify-content:center;
+    }
+    .coach .bubble{
+      pointer-events:auto;
+      width:min(980px, 100%);
+      background: rgba(34,211,238,.08);
+      border:1px solid rgba(34,211,238,.18);
+      border-radius: 18px;
+      padding:10px 12px;
+      font-weight:1050;
+      line-height:1.35;
+      box-shadow: 0 16px 60px rgba(0,0,0,.35);
+    }
 
-    /* Overlay start/end */
-    .overlay{
-      position:fixed; inset:0;
-      z-index:120;
-      background: rgba(2,6,23,.72);
+    /* targets */
+    .t{
+      position:absolute;
+      left: calc(var(--x, .5) * 100%);
+      top:  calc(var(--y, .5) * 100%);
+      transform: translate(-50%,-50%);
+      width: calc(var(--s, 1) * 68px);
+      height: calc(var(--s, 1) * 68px);
+      border-radius: 999px;
       display:grid; place-items:center;
-      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+      font-size: 34px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.45);
+      user-select:none;
+      cursor:pointer;
+      transition: transform .06s ease;
     }
-    .card{
-      width:min(820px, 100%);
-      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.72));
+    .t:active{ transform: translate(-50%,-50%) scale(.98); }
+    .t.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
+    .t.bad { border-color: rgba(239,68,68,.35);  background: rgba(239,68,68,.08); }
+    .t.power{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+
+    /* center start overlay */
+    .startOv{
+      position:absolute; inset:0;
+      display:grid; place-items:center;
+      background: rgba(2,6,23,.35);
+      z-index:40;
+    }
+    .startCard{
+      width:min(640px, 92%);
+      background: rgba(2,6,23,.82);
       border:1px solid rgba(148,163,184,.18);
-      border-radius: 26px;
-      padding: 16px;
-      box-shadow: 0 22px 70px rgba(0,0,0,.45);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.45);
     }
-    .card h2{ margin:0; font-size:22px; font-weight:1200; }
-    .card p{ margin:8px 0 0 0; color:rgba(229,231,235,.78); font-weight:900; line-height:1.45; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
     .btn{
       appearance:none;
       border:1px solid rgba(148,163,184,.18);
@@ -189,91 +155,104 @@
       padding: 12px 14px;
       font-weight: 1100;
       cursor:pointer;
+      width:100%;
     }
-    .btn.primary{ border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.16); }
-    .btn.warn{ border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.12); }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
-    .small{ font-size:12px; font-weight:900; color:rgba(229,231,235,.70); line-height:1.35; margin-top:10px; }
+    .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.45); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; color:#a7f3d0; }
 
-    /* For cVR strict view: prevent target clicks, use crosshair shooting */
-    body.view-cvr .t{ pointer-events:none; }
-
+    /* end overlay */
+    .endOv{
+      position:absolute; inset:0;
+      display:none; place-items:center;
+      background: rgba(2,6,23,.62);
+      z-index:80;
+    }
+    .endCard{
+      width:min(720px, 92%);
+      background: rgba(2,6,23,.88);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+    }
+    .grid2{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
+    @media (max-width:720px){ .grid2{ grid-template-columns:1fr; } }
   </style>
 </head>
 
 <body>
-  <div class="stage" id="stage">
-    <div class="targets" id="targets"></div>
-
+  <div class="stage">
     <div class="hud">
-      <div class="hudBox">
-        <div class="hudTitle">🧼 Handwash Survival</div>
-        <div class="hudSub" id="hudSub">แตะ/ยิง “🫧 จุดล้างมือ” • หลบ “🦠 ปนเปื้อน” • อยู่รอดให้ครบเวลา</div>
-        <div class="kpis">
-          <div class="kpi"><div class="k">⏱️ เวลา</div><div class="v" id="kTime">—</div></div>
-          <div class="kpi"><div class="k">⭐ Score</div><div class="v good" id="kScore">0</div></div>
-          <div class="kpi"><div class="k">🔥 Combo</div><div class="v" id="kCombo">0</div></div>
-          <div class="kpi"><div class="k">❌ Miss</div><div class="v bad" id="kMiss">0</div></div>
-        </div>
-      </div>
-    </div>
+      <div class="box">
+        <div class="title">🧼 HygieneVR — Handwash Survival</div>
+        <div class="sub" id="metaLine">loading…</div>
 
-    <div class="quest">
-      <div class="questBox">
-        <div class="questTop">
-          <span class="badge good" id="bGoal">Goal 0/2</span>
-          <span class="badge warn" id="bMini">Mini 0/2</span>
-          <span class="badge" id="bMode">Survival</span>
-        </div>
-        <div class="questText" id="questText">เริ่มเลย: เก็บ 🫧 ให้ครบ 10 ครั้งก่อนเวลาใกล้หมด!</div>
-        <div class="questHint" id="questHint">Tip: ถ้าโดน 🦠 จะนับ Miss และคอมโบแตก</div>
-      </div>
-    </div>
-
-    <!-- Start overlay -->
-    <div class="overlay" id="ovStart">
-      <div class="card">
-        <h2>🧼 Handwash Survival</h2>
-        <p>
-          อยู่รอดให้ครบเวลา • แตะ/ยิง <b>🫧</b> เพื่อทำความสะอาด • หลีกเลี่ยง <b>🦠</b> ที่โผล่มาแบบป่วน ๆ<br/>
-          ถ้ามี <span class="mono">chal=...</span> จะมี “กติกาพิเศษ” โผล่เป็น HUD มุมขวาบนด้วย 😈
-        </p>
         <div class="row">
-          <button class="btn primary" id="btnStart">เริ่มเกม</button>
-          <button class="btn warn" id="btnPractice">ซ้อม 15 วิ</button>
-          <button class="btn" id="btnBackHub">กลับ HUB</button>
+          <span class="pill cyan">⏱️ <span id="tLeft">--</span></span>
+          <span class="pill good">✅ Score <span id="score">0</span></span>
+          <span class="pill warn">🔥 Combo <span id="combo">0</span> / <span id="comboMax">0</span></span>
         </div>
-        <div class="small">
-          Params: <span class="mono" id="paramLine">—</span>
+
+        <div class="row">
+          <span class="pill bad">❌ Miss <span id="miss">0</span> / <span id="missLimit">2</span></span>
+          <span class="pill" id="noGermPill">🦠 No-Germ: <span id="noGerm">OK</span></span>
+          <span class="pill" id="bossPill">🏆 Boss: <span id="boss">0</span></span>
+        </div>
+
+        <div class="row">
+          <span class="pill" id="needComboPill">🎯 คอมโบอีก <span id="needCombo">12</span></span>
+          <span class="pill" id="needMissPill">🧯 พลาดได้อีก <span id="missLeft">2</span></span>
+        </div>
+      </div>
+
+      <div class="box" style="min-width:220px;">
+        <div class="title">🎮 Controls</div>
+        <div class="sub">แตะ/คลิก “🫧” ให้เร็ว • หลีก “🦠” • เก็บ Power: 🛡️🧲⏳</div>
+        <div class="row">
+          <button class="btn" id="btnPause" type="button">⏸ Pause</button>
+          <button class="btn" id="btnBack" type="button">↩ Back HUB</button>
         </div>
       </div>
     </div>
 
-    <!-- End overlay -->
-    <div class="overlay" id="ovEnd" style="display:none;">
-      <div class="card">
-        <h2>🏁 สรุปผล</h2>
-        <p id="endLine">—</p>
-        <div class="row">
-          <button class="btn primary" id="btnPlayAgain">เล่นอีกครั้ง</button>
-          <button class="btn" id="btnCopySummary">📋 Copy Summary</button>
-          <button class="btn" id="btnBackHub2">กลับ HUB</button>
-        </div>
-        <div class="small">
-          <b>Summary JSON</b>
-          <pre id="endJson" class="mono" style="white-space:pre-wrap; background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.14); border-radius:16px; padding:10px; overflow:auto; max-height:220px;"></pre>
+    <div class="field" id="field">
+      <div class="startOv" id="startOv">
+        <div class="startCard">
+          <div style="font-weight:1100;font-size:18px;">เริ่มเล่น HygieneVR</div>
+          <div class="sub" style="margin-top:6px;">
+            กติกา: Miss ≤ <b>2</b> • ComboMax ≥ <b>12</b> • พยายามไม่โดน 🦠 (No-Germ)<br/>
+            <span class="mono">run=story</span> = โหมดเล่นสนุกมีแรงกดดัน / <span class="mono">run=research</span> = deterministic (ถ้าใส่ seed)
+          </div>
+          <div style="height:12px;"></div>
+          <button class="btn primary" id="btnStart" type="button">🚀 Start</button>
+          <div style="height:10px;"></div>
+          <div class="sub">Tip: ถ้าเล่นบนมือถือ ให้ถือแนวนอน • แตะเป้าให้แม่น</div>
         </div>
       </div>
+
+      <div class="endOv" id="endOv">
+        <div class="endCard">
+          <div style="font-weight:1100;font-size:18px;">🎉 จบเกม!</div>
+          <div class="sub" id="endSub" style="margin-top:6px;">—</div>
+
+          <div class="grid2" id="endGrid"></div>
+
+          <div style="height:12px;"></div>
+          <div class="row">
+            <button class="btn primary" id="btnReplay" type="button">▶ เล่นอีกครั้ง</button>
+            <button class="btn" id="btnCopySummary" type="button">📋 Copy Summary</button>
+            <button class="btn" id="btnToHub" type="button">🏠 กลับ HUB</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="coach">
+      <div class="bubble" id="coachBubble">🤖 Coach: กด Start แล้วลุยเลย!</div>
     </div>
   </div>
 
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair/tap-to-shoot => hha:shoot) -->
-  <script src="../vr/vr-ui.js"></script>
-
-  <!-- Challenge HUD -->
-  <script src="../vr/challenge-hud.js"></script>
-
-  <!-- Hygiene boot + engine -->
-  <script type="module" src="./hygiene-vr.boot.js"></script>
+  <!-- Hygiene engine -->
+  <script type="module" src="./hygiene.safe.js"></script>
 </body>
 </html>
