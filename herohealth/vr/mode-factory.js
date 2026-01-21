@@ -1,24 +1,30 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest — PRODUCTION
-// ✅ spawnHost / boundsHost
-// ✅ SAFEZONE (exclusion auto)
-// ✅ EDGE-FIX: ignore spawnHost transform (ใช้ boundsHost rect)
-// ✅ Seeded RNG (cfg.seed) + cfg.rng override (สำคัญสำหรับ research)
-// ✅ crosshair shooting + perfect distance
-// ✅ PATCH: auto-relax safezone เมื่อ playRect เล็กเกิน (กันอาการ "เป้าเกิดที่เดียว")
-// ✅ EXPORT: boot(...)  (เพื่อให้ plate.safe.js import { boot as spawnBoot } ใช้ได้)
-// ✅ FIX: avoid "Cannot access 'controller' before initialization"
-// ------------------------------------------------------------
+// HHA Mode Factory — DOM Target Spawner (PRODUCTION)
+// ✅ Named export: boot()
+// ✅ No "controller before init" (init order fixed)
+// ✅ Safe spawn bounds: respects CSS vars --pf-top/--pf-bottom/--pf-side if present
+// ✅ Supports crosshair/tap shoot via event: hha:shoot {x,y,lockPx,source}
+// ✅ Simple hit/expire lifecycle (good/junk), weighted kinds
+//
+// Usage:
+//   import { boot as spawnBoot } from '../vr/mode-factory.js';
+//   const engine = spawnBoot({
+//     mount,
+//     seed,
+//     spawnRate: 900,
+//     sizeRange: [44,64],
+//     kinds: [{kind:'good',weight:.7},{kind:'junk',weight:.3}],
+//     onHit: (t)=>{},
+//     onExpire: (t)=>{},
+//   });
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
+const WIN = window;
+const DOC = document;
 
-function clamp(v, a, b){
-  v = Number(v) || 0;
-  return v < a ? a : (v > b ? b : v);
-}
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function now(){ return performance.now ? performance.now() : Date.now(); }
 
 function seededRng(seed){
   let t = (Number(seed)||0) >>> 0;
@@ -30,302 +36,302 @@ function seededRng(seed){
   };
 }
 
+function parsePx(s, fallback=0){
+  if(!s) return fallback;
+  const n = parseFloat(String(s).trim());
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function cssVarPx(name, fallback=0){
+  try{
+    const cs = getComputedStyle(DOC.documentElement);
+    return parsePx(cs.getPropertyValue(name), fallback);
+  }catch(_){
+    return fallback;
+  }
+}
+
 function pickWeighted(rng, items){
   let sum = 0;
-  for(const it of items) sum += (Number(it.weight)||0);
-  let x = rng() * (sum || 1);
+  for(const it of items) sum += Math.max(0, Number(it.weight)||0);
+  if(sum <= 0) return items[0] || { kind:'good', weight:1 };
+  let t = rng() * sum;
   for(const it of items){
-    x -= (Number(it.weight)||0);
-    if(x <= 0) return it;
+    t -= Math.max(0, Number(it.weight)||0);
+    if(t <= 0) return it;
   }
   return items[items.length-1];
 }
 
-function rectOf(el){
-  if(!el) return { left:0, top:0, right:0, bottom:0, width:0, height:0 };
-  const r = el.getBoundingClientRect();
+function rectWithInsets(rect, insets){
+  const r = {
+    left: rect.left + (insets.left||0),
+    top: rect.top + (insets.top||0),
+    right: rect.right - (insets.right||0),
+    bottom: rect.bottom - (insets.bottom||0),
+  };
+  r.width = Math.max(1, r.right - r.left);
+  r.height = Math.max(1, r.bottom - r.top);
+  return r;
+}
+
+function pointInRect(x,y,r){
+  return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+}
+
+function dist2(ax,ay,bx,by){
+  const dx=ax-bx, dy=ay-by;
+  return dx*dx+dy*dy;
+}
+
+function mountRect(mount){
+  const r = mount.getBoundingClientRect();
   return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
 }
 
-function createTargetEl(){
-  const el = DOC.createElement('div');
-  el.className = 'hhaTarget';
-  el.setAttribute('role', 'button');
-  el.tabIndex = 0;
-  // game CSS can override: .plateTarget etc.
-  return el;
-}
+/* -----------------------------------------------------------
+   Exported boot()
+----------------------------------------------------------- */
+export function boot(cfg){
+  if(!cfg || !cfg.mount) throw new Error('mode-factory: mount missing');
 
-// ------------------------------------------------------------
-// EXPORT: boot
-// ------------------------------------------------------------
-export function boot(cfg = {}){
-  if(!DOC) throw new Error('mode-factory: document missing');
-
-  // ---- config defaults
-  const mount = cfg.mount;
-  if(!mount) throw new Error('mode-factory: mount missing');
-
-  const boundsHost = cfg.boundsHost || mount;  // playRect reference
-  const spawnHost  = cfg.spawnHost  || mount;  // where elements append
-
-  const sizeRange = cfg.sizeRange || [44, 72];
-  const spawnRate = clamp(cfg.spawnRate ?? 900, 120, 5000);
-
-  const kinds = Array.isArray(cfg.kinds) && cfg.kinds.length
-    ? cfg.kinds
-    : [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }];
-
-  const onHit    = (typeof cfg.onHit === 'function') ? cfg.onHit : ()=>{};
-  const onExpire = (typeof cfg.onExpire === 'function') ? cfg.onExpire : ()=>{};
-
-  const ttlMs = clamp(cfg.ttlMs ?? 1600, 300, 12000);
-  const maxAlive = clamp(cfg.maxAlive ?? 8, 1, 30);
-
-  // SAFEZONE: exclude HUD / VR UI overlays if provided
-  // cfg.safezoneEls: [el1, el2] or selector string
-  let safezoneEls = [];
-  if(typeof cfg.safezoneEls === 'string'){
-    safezoneEls = Array.from(DOC.querySelectorAll(cfg.safezoneEls));
-  }else if(Array.isArray(cfg.safezoneEls)){
-    safezoneEls = cfg.safezoneEls.filter(Boolean);
-  }else{
-    // default: common overlays
-    safezoneEls = [
-      DOC.getElementById('hud'),
-      DOC.querySelector('.hha-vrui'),
-      DOC.getElementById('endOverlay')
-    ].filter(Boolean);
-  }
-
-  // RNG
-  const rng = (typeof cfg.rng === 'function')
-    ? cfg.rng
-    : seededRng(cfg.seed ?? Date.now());
-
-  // ----------------------------------------------------------
-  // Controller state (declare BEFORE any closures use it)
-  // ----------------------------------------------------------
+  // ---- controller must exist BEFORE any closures reference it
   const controller = {
     running: true,
-    alive: new Set(),
-    timers: new Set(),
-    intervalId: null,
-    destroy,
-    spawnOnce,
+    targets: new Map(), // id -> target
+    spawnTO: null,
+    tickRAF: null,
+    rng: (cfg.rng && typeof cfg.rng === 'function') ? cfg.rng : seededRng(cfg.seed || Date.now()),
+    lastSpawnAt: 0,
+    idSeq: 1,
+
+    destroy(){
+      controller.running = false;
+      clearTimeout(controller.spawnTO);
+      cancelAnimationFrame(controller.tickRAF);
+      controller.spawnTO = null;
+      controller.tickRAF = null;
+
+      // remove targets
+      for(const t of controller.targets.values()){
+        try{ t.el.remove(); }catch(_){}
+      }
+      controller.targets.clear();
+
+      // detach listeners
+      WIN.removeEventListener('hha:shoot', onShoot);
+      WIN.removeEventListener('resize', onResize, { passive:true });
+      WIN.removeEventListener('orientationchange', onResize, { passive:true });
+    }
   };
 
-  // ----------------------------------------------------------
-  // Spawn geometry helpers
-  // ----------------------------------------------------------
-  function safeRects(){
-    const rs = [];
-    for(const el of safezoneEls){
-      if(!el) continue;
-      const r = el.getBoundingClientRect();
-      if(r.width > 0 && r.height > 0){
-        rs.push({ left:r.left, top:r.top, right:r.right, bottom:r.bottom });
-      }
+  const mount = cfg.mount;
+  const spawnRate = clamp(cfg.spawnRate ?? 900, 120, 5000);
+  const sizeMin = clamp((cfg.sizeRange && cfg.sizeRange[0]) ?? 44, 18, 220);
+  const sizeMax = clamp((cfg.sizeRange && cfg.sizeRange[1]) ?? 64, sizeMin, 260);
+  const kinds = Array.isArray(cfg.kinds) && cfg.kinds.length ? cfg.kinds : [{kind:'good',weight:1}];
+  const onHit = (typeof cfg.onHit === 'function') ? cfg.onHit : ()=>{};
+  const onExpire = (typeof cfg.onExpire === 'function') ? cfg.onExpire : ()=>{};
+  const ttlMs = clamp(cfg.ttlMs ?? 2400, 600, 9000);
+
+  // Read playfield safe insets from CSS vars if present (from plate-vr.css)
+  // If vars not set, fallback to 0.
+  let insets = {
+    top: cssVarPx('--pf-top', 0),
+    bottom: cssVarPx('--pf-bottom', 0),
+    left: cssVarPx('--pf-side', 0),
+    right: cssVarPx('--pf-side', 0),
+  };
+
+  function getSpawnRect(){
+    const r0 = mountRect(mount);
+    // convert “global UI” insets to mount rect space:
+    // since mount is full-screen fixed, applying insets directly is OK.
+    const r = rectWithInsets(r0, insets);
+    // avoid too-small area
+    if(r.width < 160 || r.height < 160){
+      // relax insets if screen is tiny
+      const relax = 0.55;
+      const r2 = rectWithInsets(r0, {
+        top: insets.top*relax,
+        bottom: insets.bottom*relax,
+        left: insets.left*relax,
+        right: insets.right*relax,
+      });
+      return r2;
     }
-    return rs;
+    return r;
   }
 
-  function intersectsAny(x,y,w,h, rects){
-    const left=x-w/2, top=y-h/2, right=x+w/2, bottom=y+h/2;
-    for(const r of rects){
-      if(!(right < r.left || left > r.right || bottom < r.top || top > r.bottom)){
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function choosePoint(playRect, w, h){
-    // margin inside playRect
-    const pad = 10;
-    const minX = playRect.left + pad + w/2;
-    const maxX = playRect.right - pad - w/2;
-    const minY = playRect.top + pad + h/2;
-    const maxY = playRect.bottom - pad - h/2;
-
-    // if too small, allow tighter
-    const rx = Math.max(minX, Math.min(maxX, minX + 1));
-    const ry = Math.max(minY, Math.min(maxY, minY + 1));
-
-    const x = (maxX > minX) ? (minX + rng() * (maxX - minX)) : rx;
-    const y = (maxY > minY) ? (minY + rng() * (maxY - minY)) : ry;
-    return { x, y };
-  }
-
-  function relaxRects(rects, playRect){
-    // if playRect is small (mobile), relax by shrinking safe rects slightly
-    const area = playRect.width * playRect.height;
-    if(area > 320*520) return rects;
-    const shrink = 10;
-    return rects.map(r=>({
-      left:r.left+shrink, top:r.top+shrink,
-      right:r.right-shrink, bottom:r.bottom-shrink
-    }));
-  }
-
-  // ----------------------------------------------------------
-  // Spawn
-  // ----------------------------------------------------------
-  function spawnOnce(){
+  function spawnOne(){
     if(!controller.running) return;
-    if(controller.alive.size >= maxAlive) return;
 
-    const playRect = rectOf(boundsHost);
-    if(playRect.width < 40 || playRect.height < 40) return;
+    const sr = getSpawnRect();
+    const size = Math.round(sizeMin + (sizeMax - sizeMin) * controller.rng());
+    const pad = Math.max(10, Math.floor(size * 0.55));
 
-    const kindPick = pickWeighted(rng, kinds);
-    const kind = String(kindPick.kind || 'good');
+    const x = sr.left + pad + controller.rng() * Math.max(1, (sr.width - pad*2));
+    const y = sr.top + pad + controller.rng() * Math.max(1, (sr.height - pad*2));
 
-    const size = Math.round(
-      clamp(sizeRange[0], 24, 240) + rng() * (clamp(sizeRange[1], 24, 240) - clamp(sizeRange[0], 24, 240))
-    );
+    const pick = pickWeighted(controller.rng, kinds);
+    const kind = pick.kind || 'good';
 
-    const w = size, h = size;
-
-    let rects = safeRects();
-    rects = relaxRects(rects, playRect);
-
-    let pos = null;
-    for(let tries=0; tries<18; tries++){
-      const p = choosePoint(playRect, w, h);
-      if(!intersectsAny(p.x, p.y, w, h, rects)){
-        pos = p; break;
-      }
-    }
-    if(!pos){
-      // fallback: accept first point even if intersects
-      pos = choosePoint(playRect, w, h);
-    }
-
-    const el = createTargetEl();
-
-    // If Plate CSS expects .plateTarget class, respect it:
-    // - if caller passes cfg.targetClass, use it
-    // - else: if mount id contains 'plate', default to plateTarget
-    const cls = cfg.targetClass || (String(mount.id||'').includes('plate') ? 'plateTarget' : '');
-    if(cls) el.className = cls;
-
+    const el = DOC.createElement('div');
+    el.className = 'plateTarget';
     el.dataset.kind = kind;
 
-    // allow caller enrich meta
-    const meta = {
-      kind,
-      size,
-      bornMs: Date.now()
+    // allow games to attach extra metadata (e.g., groupIndex) via pick
+    // (Plate will randomize groupIndex itself if not provided)
+    if(pick.groupIndex != null) el.dataset.groupIndex = String(pick.groupIndex);
+
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+
+    // icon fallback: caller can override by setting el.textContent later
+    el.textContent = (kind === 'junk') ? '🍩' : '🍚';
+
+    const id = String(controller.idSeq++);
+    const born = now();
+
+    const target = {
+      id, kind,
+      el,
+      bornAt: born,
+      ttlMs,
+      x, y, size,
+      groupIndex: (pick.groupIndex != null) ? Number(pick.groupIndex) : null
     };
 
-    // optional groupIndex generator for plate/groups
-    if(typeof cfg.makeMeta === 'function'){
-      try{
-        const m2 = cfg.makeMeta({ kind, size, rng });
-        if(m2 && typeof m2 === 'object') Object.assign(meta, m2);
-      }catch(_){}
-    }
+    controller.targets.set(id, target);
+    mount.appendChild(el);
 
-    // position using CSS variables if present, else absolute
-    el.style.position = 'absolute';
-    el.style.left = `${Math.round(pos.x - playRect.left)}px`;
-    el.style.top  = `${Math.round(pos.y - playRect.top)}px`;
-    el.style.transform = 'translate(-50%,-50%)';
-    el.style.width  = `${w}px`;
-    el.style.height = `${h}px`;
-
-    // label (emoji) default
-    if(!el.textContent){
-      el.textContent = (kind === 'good') ? '🍽️' : '🍩';
-    }
-
-    spawnHost.appendChild(el);
-    controller.alive.add(el);
-
-    // hit handler (click/tap)
-    const onClick = (ev)=>{
+    // direct tap/click hit
+    el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
-      ev.stopPropagation();
-      if(!controller.running) return;
-      cleanupEl(el);
-      onHit(Object.assign({ el }, meta));
-    };
+      hitTarget(target, { source:'pointer', x: ev.clientX, y: ev.clientY });
+    }, { passive:false });
 
-    el.addEventListener('pointerdown', onClick, { passive:false });
-    el.addEventListener('click', onClick, { passive:false });
-
-    // crosshair shooting (vr-ui.js emits hha:shoot)
-    const onShoot = (ev)=>{
-      if(!controller.running) return;
-      const d = ev.detail || {};
-      const x = Number(d.x);
-      const y = Number(d.y);
-      if(!isFinite(x) || !isFinite(y)) return;
-
-      const r = el.getBoundingClientRect();
-      if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom){
-        cleanupEl(el);
-        onHit(Object.assign({ el, source:'shoot' }, meta));
-      }
-    };
-
-    WIN.addEventListener('hha:shoot', onShoot);
-
-    // expiry
-    const to = setTimeout(()=>{
-      if(!controller.running) return;
-      if(!controller.alive.has(el)) return;
-      cleanupEl(el);
-      onExpire(Object.assign({ el }, meta));
-    }, ttlMs);
-
-    controller.timers.add(to);
-
-    function cleanupEl(node){
-      if(!node) return;
-      if(controller.alive.has(node)) controller.alive.delete(node);
-      try{ node.remove(); }catch(_){}
-      try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
-      try{
-        node.removeEventListener('pointerdown', onClick);
-        node.removeEventListener('click', onClick);
-      }catch(_){}
-    }
+    controller.lastSpawnAt = born;
   }
 
-  // ----------------------------------------------------------
-  // Destroy
-  // ----------------------------------------------------------
-  function destroy(){
-    controller.running = false;
-
-    if(controller.intervalId){
-      clearInterval(controller.intervalId);
-      controller.intervalId = null;
-    }
-
-    for(const to of controller.timers){
-      try{ clearTimeout(to); }catch(_){}
-    }
-    controller.timers.clear();
-
-    for(const el of controller.alive){
-      try{ el.remove(); }catch(_){}
-    }
-    controller.alive.clear();
-  }
-
-  // ----------------------------------------------------------
-  // Start spawner loop
-  // ----------------------------------------------------------
-  controller.intervalId = setInterval(()=>{
+  function scheduleNext(){
     if(!controller.running) return;
-    spawnOnce();
-  }, spawnRate);
+    clearTimeout(controller.spawnTO);
+    controller.spawnTO = setTimeout(()=>{
+      spawnOne();
+      scheduleNext();
+    }, spawnRate);
+  }
 
-  // also spawn immediately
-  spawnOnce();
+  function hitTarget(t, meta){
+    if(!t || !controller.targets.has(t.id)) return;
+
+    // small hit feedback class
+    try{
+      t.el.classList.add(t.kind === 'junk' ? 'is-bad' : 'is-hit');
+      setTimeout(()=>t.el && t.el.classList.remove('is-hit','is-bad'), 160);
+    }catch(_){}
+
+    // remove
+    controller.targets.delete(t.id);
+    try{ t.el.remove(); }catch(_){}
+
+    // callback
+    try{
+      onHit({
+        id: t.id,
+        kind: t.kind,
+        groupIndex: t.groupIndex,
+        x: t.x, y: t.y, size: t.size,
+        meta: meta || {}
+      });
+    }catch(err){
+      console.error('[mode-factory] onHit error', err);
+    }
+  }
+
+  function expireTarget(t){
+    if(!t || !controller.targets.has(t.id)) return;
+    controller.targets.delete(t.id);
+    try{ t.el.remove(); }catch(_){}
+    try{
+      onExpire({
+        id: t.id,
+        kind: t.kind,
+        groupIndex: t.groupIndex,
+        x: t.x, y: t.y, size: t.size
+      });
+    }catch(err){
+      console.error('[mode-factory] onExpire error', err);
+    }
+  }
+
+  function tick(){
+    if(!controller.running) return;
+
+    const tNow = now();
+    for(const t of controller.targets.values()){
+      if((tNow - t.bornAt) >= t.ttlMs){
+        expireTarget(t);
+      }
+    }
+
+    controller.tickRAF = requestAnimationFrame(tick);
+  }
+
+  // crosshair shoot: try lock onto nearest target within lockPx
+  function onShoot(ev){
+    if(!controller.running) return;
+    const d = ev.detail || {};
+    const x = Number(d.x);
+    const y = Number(d.y);
+    const lockPx = clamp(d.lockPx ?? 28, 6, 120);
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    // find nearest target within lock radius
+    let best = null;
+    let bestD2 = lockPx * lockPx;
+
+    for(const t of controller.targets.values()){
+      // center of target
+      const cx = t.x;
+      const cy = t.y;
+      const dd = dist2(x,y,cx,cy);
+      if(dd <= bestD2){
+        bestD2 = dd;
+        best = t;
+      }
+    }
+
+    if(best){
+      hitTarget(best, { source:'shoot', x, y, lockPx, aim:'lock' });
+    }
+  }
+
+  function onResize(){
+    // re-read insets (in case orientation / safe-area changed)
+    insets = {
+      top: cssVarPx('--pf-top', 0),
+      bottom: cssVarPx('--pf-bottom', 0),
+      left: cssVarPx('--pf-side', 0),
+      right: cssVarPx('--pf-side', 0),
+    };
+  }
+
+  // listeners (after controller exists)
+  WIN.addEventListener('hha:shoot', onShoot);
+  WIN.addEventListener('resize', onResize, { passive:true });
+  WIN.addEventListener('orientationchange', onResize, { passive:true });
+
+  // start
+  // (spawn a few instantly so “เป้าไม่โผล่” ไม่เกิด)
+  const warm = clamp(cfg.warmStart ?? 2, 0, 6);
+  for(let i=0;i<warm;i++) spawnOne();
+
+  scheduleNext();
+  controller.tickRAF = requestAnimationFrame(tick);
 
   return controller;
 }
