@@ -1,251 +1,354 @@
 /* === /herohealth/vr-groups/ai-hooks.js ===
-GroupsVR AI Hooks — Prediction + Assist Burst (PLAY only)
-✅ attach({ runMode, seed, enabled })
-✅ enabled by default: OFF (only on with ?ai=1 and runMode=play)
-✅ RESEARCH/PRACTICE: forced OFF
-✅ Listens: hha:score, hha:rank, hha:time, groups:progress
-✅ Outputs:
-   - hha:coach micro-tips (rate-limited)
-   - groups:progress {kind:'ai_warn', risk, reason}
-   - groups:ai {type:'assist', hitMul, lifeMul, spawnMul, durationMs, reason}
+AI Hooks (Play-only) — PACK 15 + PACK 6-8 Runtime Predict
+✅ Enabled only when ?ai=1 AND run=play
+⛔ Forced OFF when run=research or run=practice
+✅ Listens: groups:ml_tick (from groups.safe.js)
+✅ Maintains rolling 3s window: event counts + tick means
+✅ Predict risk_bad_next2s (heuristic fallback OR linear weights)
+✅ Fair assist: adjusts engine.aiAssistMul briefly (play only)
+✅ Coach tips rate-limited (explainable micro-tips)
 */
 
-(function(){
+(function(root){
   'use strict';
-  const WIN = window;
   const DOC = document;
-  if(!DOC) return;
-
-  const NS = WIN.GroupsVR = WIN.GroupsVR || {};
-  if (NS.AIHooks) return; // prevent double load
+  const NS = root.GroupsVR = root.GroupsVR || {};
 
   function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
-  function clamp(v,a,b){ v = Number(v); if(!isFinite(v)) v=a; return v<a?a:(v>b?b:v); }
-  function nowMs(){ return (WIN.performance && performance.now) ? performance.now() : Date.now(); }
-  function emit(name, detail){ try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){} }
+  function clamp(v,a,b){ v=Number(v); if(!isFinite(v)) v=a; return v<a?a:(v>b?b:v); }
+  function nowMs(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
+
+  function aiEnabledByParam(runMode){
+    if (String(runMode||'').toLowerCase() !== 'play') return false;
+    const on = String(qs('ai','0')||'0').toLowerCase();
+    return (on==='1' || on==='true' || on==='yes');
+  }
+
+  // ---- Runtime model slot (optional weights) ----
+  // You can later paste trained weights into localStorage:
+  // localStorage.setItem('HHA_GROUPS_AI_WEIGHTS', JSON.stringify({bias:..., w:{col:weight,...}}))
+  // And optional metadata:
+  // localStorage.setItem('HHA_GROUPS_SEQ_METADATA', JSON.stringify(metadataJson))
+  const LS_W = 'HHA_GROUPS_AI_WEIGHTS';
+  const LS_M = 'HHA_GROUPS_SEQ_METADATA';
+
+  function loadWeights(){
+    try{
+      const raw = localStorage.getItem(LS_W);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') return null;
+      if (!obj.w || typeof obj.w !== 'object') return null;
+      return obj;
+    }catch{ return null; }
+  }
+
+  function loadMeta(){
+    try{
+      const raw = localStorage.getItem(LS_M);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') return null;
+      if (!obj.stats || typeof obj.stats !== 'object') return null;
+      return obj;
+    }catch{ return null; }
+  }
 
   function sigmoid(x){
-    x = clamp(x, -8, 8);
+    x = clamp(x, -30, 30);
     return 1 / (1 + Math.exp(-x));
   }
 
-  // --- internal state ---
-  const S = {
-    enabled: false,
-    runMode: 'play',
-    seed: '',
-    stormOn: false,
-
-    // rolling stats
-    lastAt: 0,
-    lastMiss: 0,
-    lastCombo: 0,
-    lastAcc: 0,
-    lastScore: 0,
-    timeLeft: 999,
-
-    // EWMA features (smooth)
-    ewMissRate: 0,     // miss delta per sec
-    ewComboBreak: 0,   // 0..1
-    ewAccDrop: 0,      // 0..1
-    ewPressure: 0,     // 0..1
-    ewRisk: 0,         // 0..1
-
-    // gating
-    lastTipAt: 0,
-    lastAssistAt: 0,
-    assistOnUntil: 0,
-  };
-
-  function forceOff(){
-    S.enabled = false;
+  function zNorm(val, stat){
+    if (!stat) return Number(val)||0;
+    const mean = Number(stat.mean)||0;
+    const std  = Math.max(1e-6, Number(stat.std)||0);
+    return (Number(val)||0 - mean) / std;
   }
 
-  function shouldEnableByParam(){
-    const on = String(qs('ai','0')||'0').toLowerCase();
-    return (on === '1' || on === 'true');
+  // ---- Rolling window buffer (3s) ----
+  const WIN_MS = 3000;
+
+  const buf = []; // {t, tick, evBad, evShootMiss, evHitGood, evComboBreak}
+  let lastRisk = 0;
+  let lastTipAt = 0;
+  let assistUntil = 0;
+
+  function pushTick(tk){
+    const t = Number(tk.t||0)||0;
+    buf.push({ t, tk });
+
+    // trim
+    const minT = t - WIN_MS;
+    while (buf.length && buf[0].t < minT) buf.shift();
   }
 
-  function tip(text, mood){
+  // ---- counts from window: we derive from tick deltas (cheap & stable)
+  // We'll approximate recent "bad" via misses delta + combo reset patterns
+  // BUT if your ML logger emits richer events, you can swap later easily.
+  let prev = null;
+
+  function deriveWindowFeatures(cur){
+    // Window mean from ticks (true mean)
+    let n = 0;
+    let sumTargets=0, sumPressure=0, sumStorm=0, sumAi=0, sumCombo=0, sumScore=0, sumAcc=0;
+
+    // event-like signals from deltas across window
+    let badCount = 0;
+    let shootMissCount = 0;
+    let hitGoodCount = 0;
+    let comboBreaks = 0;
+
+    // walk buffer
+    for (let i=0;i<buf.length;i++){
+      const tk = buf[i].tk || {};
+      n++;
+      sumTargets += Number(tk.nTargets||0)||0;
+      sumPressure += Number(tk.pressure||0)||0;
+      sumStorm += (tk.stormOn?1:0);
+      sumAi += (tk.aiAssistOn?1:0);
+      sumCombo += Number(tk.combo||0)||0;
+      sumScore += Number(tk.score||0)||0;
+      sumAcc += Number(tk.acc||0)||0;
+
+      // delta-based event approximations
+      const prevTk = (i>0) ? (buf[i-1].tk||{}) : null;
+      if (prevTk){
+        const dMiss = (Number(tk.misses||0)||0) - (Number(prevTk.misses||0)||0);
+        if (dMiss > 0) badCount += dMiss;
+
+        // combo break pattern: combo goes from >0 to 0
+        const c0 = Number(prevTk.combo||0)||0;
+        const c1 = Number(tk.combo||0)||0;
+        if (c0 >= 2 && c1 === 0) comboBreaks += 1;
+
+        // hitGood proxy: score jump + combo inc (rough)
+        const ds = (Number(tk.score||0)||0) - (Number(prevTk.score||0)||0);
+        if (ds >= 18 && c1 > c0) hitGoodCount += 1;
+
+        // shoot miss: combo reset but no miss increment and no score drop (rough)
+        if (c0 >= 1 && c1 === 0 && dMiss === 0 && ds === 0) shootMissCount += 1;
+      }
+    }
+
+    const denom = Math.max(1,n);
+    const w3_targetDensity = Math.round((sumTargets/denom)*1000)/1000;
+    const w3_pressureAvg   = Math.round((sumPressure/denom)*1000)/1000;
+    const w3_stormFrac     = Math.round((sumStorm/denom)*1000)/1000;
+    const w3_aiAssistFrac  = Math.round((sumAi/denom)*1000)/1000;
+    const w3_comboAvg      = Math.round((sumCombo/denom)*1000)/1000;
+    const w3_scoreMean     = Math.round((sumScore/denom)*1000)/1000;
+    const w3_accMean       = Math.round((sumAcc/denom)*1000)/1000;
+
+    const shotsApprox = Math.max(1, hitGoodCount + shootMissCount + badCount);
+    const w3_hitRate = Math.round((hitGoodCount/shotsApprox)*1000)/1000;
+    const w3_mistakeRate = Math.round((badCount/shotsApprox)*1000)/1000;
+    const w3_shootMissRate = Math.round((shootMissCount/shotsApprox)*1000)/1000;
+
+    return {
+      // current snapshot essentials
+      pressure: Number(cur.pressure||0)||0,
+      stormOn: cur.stormOn?1:0,
+      combo: Number(cur.combo||0)||0,
+      misses: Number(cur.misses||0)||0,
+      acc: Number(cur.acc||0)||0,
+      nTargets: Number(cur.nTargets||0)||0,
+
+      // window means
+      w3_targetDensity,
+      w3_pressureAvg,
+      w3_stormFrac,
+      w3_aiAssistFrac,
+      w3_comboAvg,
+      w3_scoreMean,
+      w3_accMean,
+
+      // window counts/rates (approx)
+      w3_hitGood: hitGoodCount,
+      w3_hitRate,
+      w3_mistakes: badCount,
+      w3_mistakeRate,
+      w3_shootMiss: shootMissCount,
+      w3_shootMissRate,
+      w3_comboBreaks: comboBreaks
+    };
+  }
+
+  function predictRiskBadNext2s(feat){
+    // 1) If weights+meta exist -> linear model
+    const W = loadWeights();
+    const M = loadMeta();
+
+    if (W && W.w){
+      const stats = M && M.stats ? M.stats : {};
+      let z = Number(W.bias||0)||0;
+
+      // apply weights over provided features (only those in weights)
+      for (const k in W.w){
+        const w = Number(W.w[k])||0;
+        if (!isFinite(w) || w===0) continue;
+        const x = zNorm(feat[k], stats ? stats[k] : null);
+        z += w * x;
+      }
+      return sigmoid(z);
+    }
+
+    // 2) Fallback heuristic (explainable, stable)
+    // risk grows with: pressure/window mistakes/storm/low acc/recent combo breaks
+    let r = 0.08;
+
+    r += 0.12 * clamp(feat.w3_pressureAvg/3, 0, 1);
+    r += 0.18 * clamp(feat.w3_mistakeRate*2.2, 0, 1);
+    r += 0.10 * (feat.w3_stormFrac > 0.25 ? 1 : 0);
+    r += 0.10 * (feat.w3_comboBreaks >= 1 ? 1 : 0);
+
+    const accPenalty = clamp((80 - (feat.w3_accMean||0))/50, 0, 1);
+    r += 0.14 * accPenalty;
+
+    const targetLoad = clamp((feat.w3_targetDensity||0)/10, 0, 1);
+    r += 0.06 * targetLoad;
+
+    // clamp
+    return clamp(r, 0, 0.96);
+  }
+
+  function rateLimitTip(ms){
     const t = nowMs();
-    if (t - S.lastTipAt < 3800) return;
-    S.lastTipAt = t;
-    emit('hha:coach', { text, mood: mood || 'neutral' });
+    if (t - lastTipAt < ms) return false;
+    lastTipAt = t;
+    return true;
   }
 
-  function requestAssist(reason){
+  function emitCoach(text, mood){
+    try{
+      root.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } }));
+    }catch(_){}
+  }
+
+  function setAssistMul(mul, holdMs){
+    const E = NS && NS.GameEngine;
+    if (!E || typeof E !== 'object') return;
+
+    // play-only safety
+    try{
+      const rm = (E.cfg && E.cfg.runMode) ? String(E.cfg.runMode) : '';
+      if (rm !== 'play') return;
+    }catch(_){}
+
+    E.aiAssistMul = clamp(mul, 1.0, 1.22);
+    assistUntil = nowMs() + clamp(holdMs||900, 250, 2200);
+  }
+
+  function maybeReleaseAssist(){
     const t = nowMs();
-    if (t - S.lastAssistAt < 6500) return;           // กันถี่
-    if (t < S.assistOnUntil) return;
-
-    S.lastAssistAt = t;
-    S.assistOnUntil = t + 2400;
-
-    // assist burst: เล็กน้อยแต่รู้สึกได้
-    emit('groups:ai', {
-      type:'assist',
-      reason: String(reason||'risk'),
-      durationMs: 2400,
-      hitMul: 1.14,     // hit radius +14%
-      lifeMul: 1.12,    // target life +12%
-      spawnMul: 1.18    // spawn slower +18% (every * 1.18)
-    });
-  }
-
-  function computeRisk(){
-    // feature normalization
-    const missRate = clamp(S.ewMissRate * 1.15, 0, 1);         // 0..1
-    const comboBreak = clamp(S.ewComboBreak, 0, 1);            // 0..1
-    const accDrop = clamp(S.ewAccDrop, 0, 1);                  // 0..1
-    const pressure = clamp(S.ewPressure, 0, 1);                // 0..1
-    const storm = S.stormOn ? 1 : 0;
-    const clutch = (S.timeLeft <= 8) ? 1 : 0;
-
-    // lightweight “ML-ish” linear model
-    // (ตั้งน้ำหนักให้ตอบสนองดีในเกมเด็ก: miss trend + combo break สำคัญสุด)
-    const z =
-      (-1.35) +
-      ( 2.10 * missRate) +
-      ( 1.55 * comboBreak) +
-      ( 1.10 * accDrop) +
-      ( 0.75 * pressure) +
-      ( 0.60 * storm) +
-      ( 0.45 * clutch);
-
-    const risk = sigmoid(z);
-    // smooth risk
-    S.ewRisk = (S.ewRisk * 0.70) + (risk * 0.30);
-    return S.ewRisk;
-  }
-
-  function updatePressureHeuristic(){
-    // pressure approx from misses (ยึดแนวเดียวกับ engine)
-    const m = S.lastMiss|0;
-    let p = 0;
-    if (m >= 14) p = 1.0;
-    else if (m >= 9) p = 0.72;
-    else if (m >= 5) p = 0.45;
-    else p = 0.10;
-    S.ewPressure = (S.ewPressure*0.78) + (p*0.22);
-  }
-
-  function onScore(ev){
-    if (!S.enabled) return;
-    if (S.runMode !== 'play') return;
-
-    const d = ev.detail || {};
-    const t = nowMs();
-    const dt = Math.max(0.2, (t - (S.lastAt || t)) / 1000);
-
-    const score = Number(d.score ?? 0);
-    const combo = Number(d.combo ?? 0);
-    const miss  = Number(d.misses ?? 0);
-
-    const dMiss = Math.max(0, miss - (S.lastMiss||0));
-    const missRate = clamp(dMiss / dt, 0, 2.0); // misses per sec (clamp)
-    S.ewMissRate = (S.ewMissRate*0.72) + ((missRate/2.0)*0.28); // normalize ~0..1
-
-    // combo break detect (combo goes to 0 from >0)
-    const broke = ((S.lastCombo||0) >= 3 && combo === 0) ? 1 : 0;
-    S.ewComboBreak = (S.ewComboBreak*0.78) + (broke*0.22);
-
-    S.lastScore = score;
-    S.lastCombo = combo;
-    S.lastMiss = miss;
-    S.lastAt = t;
-
-    updatePressureHeuristic();
-
-    const risk = computeRisk();
-
-    // actions (thresholds)
-    if (risk >= 0.78){
-      emit('groups:progress', { kind:'ai_warn', risk: Math.round(risk*100), reason:'high_risk' });
-      tip('🧠 AI: ช้าลงนิด เล็งให้ชัวร์ก่อนยิงนะ!', 'fever');
-      requestAssist('high_risk');
-    } else if (risk >= 0.62){
-      emit('groups:progress', { kind:'ai_warn', risk: Math.round(risk*100), reason:'mid_risk' });
-      tip('🧠 AI: ระวังยิงมั่ว—โฟกัสหมู่ที่ถูก!', 'neutral');
+    if (assistUntil && t >= assistUntil){
+      assistUntil = 0;
+      const E = NS && NS.GameEngine;
+      if (E && E.cfg && E.cfg.runMode==='play') E.aiAssistMul = 1.0;
     }
   }
 
-  function onRank(ev){
-    if (!S.enabled) return;
-    if (S.runMode !== 'play') return;
-    const d = ev.detail || {};
-    const acc = Number(d.accuracy ?? 0);
-    const prev = Number(S.lastAcc ?? acc);
+  function onLiveTick(ev){
+    const tk = (ev && ev.detail) ? ev.detail : null;
+    if (!tk) return;
 
-    // accuracy drop feature
-    const drop = clamp((prev - acc)/18, 0, 1); // 18% drop -> 1
-    S.ewAccDrop = (S.ewAccDrop*0.76) + (drop*0.24);
-    S.lastAcc = acc;
-  }
+    const runMode = String(tk.runMode||'play').toLowerCase();
+    if (runMode !== 'play') return; // ⛔ hard off for research/practice
 
-  function onTime(ev){
-    if (!S.enabled) return;
-    const d = ev.detail || {};
-    S.timeLeft = Number(d.left ?? 999);
-  }
+    const enabled = aiEnabledByParam(runMode);
+    if (!enabled) return;
 
-  function onProgress(ev){
-    if (!S.enabled) return;
-    const d = ev.detail || {};
-    const k = String(d.kind||'');
-    if (k === 'storm_on') S.stormOn = true;
-    if (k === 'storm_off') S.stormOn = false;
-  }
+    pushTick(tk);
+    maybeReleaseAssist();
 
-  function attach(opts){
-    opts = opts || {};
-    const rm = String(opts.runMode||'play').toLowerCase();
-    S.runMode = (rm === 'research' || rm === 'practice') ? rm : 'play';
-    S.seed = String(opts.seed||'');
+    const feat = deriveWindowFeatures(tk);
+    const risk = predictRiskBadNext2s(feat);
+    lastRisk = risk;
 
-    // forced off for research/practice
-    if (S.runMode !== 'play') {
-      forceOff();
+    // Broadcast (optional UI/telemetry)
+    try{
+      root.dispatchEvent(new CustomEvent('groups:ai', {
+        detail:{
+          risk_bad_next2s: Math.round(risk*1000)/1000,
+          w3_pressureAvg: feat.w3_pressureAvg,
+          w3_mistakeRate: feat.w3_mistakeRate,
+          w3_stormFrac: feat.w3_stormFrac
+        }
+      }));
+    }catch(_){}
+
+    // Policy: micro-tips + light assist when risk high
+    if (risk >= 0.72){
+      setAssistMul(1.16, 1100); // tiny boost, short time
+      if (rateLimitTip(4200)){
+        const why = [];
+        if (feat.w3_mistakeRate >= 0.35) why.push('ยิงพลาดถี่');
+        if (feat.w3_stormFrac >= 0.25) why.push('กำลังพายุ');
+        if (feat.w3_pressureAvg >= 2) why.push('ความกดดันสูง');
+        if ((feat.w3_accMean||0) < 70) why.push('ความแม่นต่ำ');
+
+        emitCoach(
+          `AI เตือน: มีโอกาสพลาดใน 2 วิข้างหน้า 🔮 (${Math.round(risk*100)}%) — ` +
+          (why.length ? `สาเหตุ: ${why.join(', ')} • ` : '') +
+          `ทริค: หยุด 0.5 วิ เล็ง “ตรงหมู่” แล้วค่อยยิง 🎯`,
+          'neutral'
+        );
+      }
       return;
     }
 
-    // must be enabled param + attach enabled
-    const en = !!opts.enabled && shouldEnableByParam();
-    S.enabled = en;
-
-    // reset small state
-    S.stormOn = false;
-    S.lastAt = 0;
-    S.lastTipAt = 0;
-    S.lastAssistAt = 0;
-    S.assistOnUntil = 0;
-
-    S.lastMiss = 0;
-    S.lastCombo = 0;
-    S.lastAcc = 0;
-    S.lastScore = 0;
-    S.timeLeft = 999;
-
-    S.ewMissRate = 0;
-    S.ewComboBreak = 0;
-    S.ewAccDrop = 0;
-    S.ewPressure = 0;
-    S.ewRisk = 0;
-
-    // bind listeners once
-    if (!NS.__AIHOOKS_BOUND__){
-      NS.__AIHOOKS_BOUND__ = true;
-      WIN.addEventListener('hha:score', onScore, {passive:true});
-      WIN.addEventListener('hha:rank',  onRank,  {passive:true});
-      WIN.addEventListener('hha:time',  onTime,  {passive:true});
-      WIN.addEventListener('groups:progress', onProgress, {passive:true});
+    if (risk >= 0.58){
+      // softer assist + no spam tips
+      setAssistMul(1.10, 850);
+      if (rateLimitTip(5200) && feat.w3_comboBreaks >= 1){
+        emitCoach('AI: คอมโบขาดเมื่อกี้! ช้าลงนิดแล้วเล็งก่อนยิง 🧠', 'neutral');
+      }
+      return;
     }
 
-    if (S.enabled){
-      tip('🧠 AI เปิดแล้ว! ถ้าเริ่มพลาด AI จะช่วยเตือน + ช่วยเล็งนิดนึง', 'happy');
+    // Low risk -> ensure assist back to normal
+    // (release happens via timer; but if very low risk we can shorten)
+    if (risk <= 0.25){
+      assistUntil = 0;
+      const E = NS && NS.GameEngine;
+      if (E && E.cfg && E.cfg.runMode==='play') E.aiAssistMul = 1.0;
     }
   }
 
-  NS.AIHooks = { attach };
-})();
+  // ---- attach API (called from groups-vr.html already) ----
+  const API = {
+    enabled:false,
+    attach(opts){
+      try{
+        const runMode = String(opts && opts.runMode || 'play').toLowerCase();
+        if (runMode !== 'play') { API.enabled=false; return; }
+        const ok = !!(opts && opts.enabled);
+        API.enabled = ok;
+        if (!ok) return;
+
+        // listen live tick
+        root.addEventListener('groups:ml_tick', onLiveTick, { passive:true });
+
+        // greet once
+        emitCoach('AI Prediction พร้อมแล้ว ✅ (โหมดเล่น) — ถ้าเริ่มพลาด ระบบจะเตือนก่อนพลาด', 'happy');
+      }catch(_){}
+    },
+    getRisk(){ return lastRisk; },
+    // helper to store meta/weights quickly
+    saveMetadata(metaObj){
+      try{ localStorage.setItem(LS_M, JSON.stringify(metaObj)); return true; }catch{ return false; }
+    },
+    saveWeights(weightsObj){
+      try{ localStorage.setItem(LS_W, JSON.stringify(weightsObj)); return true; }catch{ return false; }
+    },
+    clearModel(){
+      try{ localStorage.removeItem(LS_W); localStorage.removeItem(LS_M); }catch(_){}
+    }
+  };
+
+  NS.AIHooks = API;
+
+})(window);
