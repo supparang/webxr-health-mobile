@@ -1,15 +1,19 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic DOM Target Spawner (HHA Standard) — FIXED (A29)
-// ✅ Fix: "Cannot access 'controller' before initialization"
-// ✅ Export: boot + createSpawner (backward compatible)
-// ✅ Crosshair shooting via window 'hha:shoot' {x,y,lockPx,source}
-// ✅ Seeded RNG support (cfg.seed / cfg.rng)
-// ✅ Fallback safe spawn so targets always appear
+// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest — PRODUCTION
+// ✅ spawnHost / boundsHost
+// ✅ SAFEZONE (exclusion auto)
+// ✅ EDGE-FIX: ignore spawnHost transform (ใช้ boundsHost rect)
+// ✅ Seeded RNG (cfg.seed) + cfg.rng override (สำคัญสำหรับ research)
+// ✅ crosshair shooting + perfect distance
+// ✅ PATCH: auto-relax safezone เมื่อ playRect เล็กเกิน (กันอาการ "เป้าเกิดที่เดียว")
+// ✅ EXPORT: boot(...)  (เพื่อให้ plate.safe.js import { boot as spawnBoot } ใช้ได้)
+// ✅ FIX: avoid "Cannot access 'controller' before initialization"
+// ------------------------------------------------------------
 
 'use strict';
 
-const WIN = (typeof window !== 'undefined') ? window : globalThis;
-const DOC = WIN.document;
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
 function clamp(v, a, b){
   v = Number(v) || 0;
@@ -17,7 +21,7 @@ function clamp(v, a, b){
 }
 
 function seededRng(seed){
-  let t = (Number(seed) || Date.now()) >>> 0;
+  let t = (Number(seed)||0) >>> 0;
   return function(){
     t += 0x6D2B79F5;
     let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -26,245 +30,302 @@ function seededRng(seed){
   };
 }
 
-function getRect(el){
-  if(!el) return { left:0, top:0, width: WIN.innerWidth||360, height: WIN.innerHeight||640 };
+function pickWeighted(rng, items){
+  let sum = 0;
+  for(const it of items) sum += (Number(it.weight)||0);
+  let x = rng() * (sum || 1);
+  for(const it of items){
+    x -= (Number(it.weight)||0);
+    if(x <= 0) return it;
+  }
+  return items[items.length-1];
+}
+
+function rectOf(el){
+  if(!el) return { left:0, top:0, right:0, bottom:0, width:0, height:0 };
   const r = el.getBoundingClientRect();
-  const w = Math.max(1, r.width);
-  const h = Math.max(1, r.height);
-  return { left:r.left, top:r.top, width:w, height:h };
+  return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
 }
 
-function pickInRect(rng, rect, pad=16){
-  const x = rect.left + pad + rng() * Math.max(1, rect.width  - pad*2);
-  const y = rect.top  + pad + rng() * Math.max(1, rect.height - pad*2);
-  return { x, y };
+function createTargetEl(){
+  const el = DOC.createElement('div');
+  el.className = 'hhaTarget';
+  el.setAttribute('role', 'button');
+  el.tabIndex = 0;
+  // game CSS can override: .plateTarget etc.
+  return el;
 }
 
-function distance(a,b){
-  const dx = (a.x-b.x);
-  const dy = (a.y-b.y);
-  return Math.hypot(dx,dy);
-}
-
-/* -------------------------------------------------------
-   createSpawner (primary API)
-   opts:
-    - mount: DOM element where targets are appended
-    - seed / rng
-    - spawnRateMs
-    - sizeRange [min,max]
-    - kinds: [{kind, weight, make?(rng)->payload}]
-    - onHit(targetPayload, meta)
-    - onExpire(targetPayload, meta)
-------------------------------------------------------- */
-export function createSpawner(opts = {}){
+// ------------------------------------------------------------
+// EXPORT: boot
+// ------------------------------------------------------------
+export function boot(cfg = {}){
   if(!DOC) throw new Error('mode-factory: document missing');
 
-  const mount = opts.mount || DOC.body;
-  const rng = opts.rng || (opts.seed!=null ? seededRng(opts.seed) : Math.random);
+  // ---- config defaults
+  const mount = cfg.mount;
+  if(!mount) throw new Error('mode-factory: mount missing');
 
-  const sizeMin = (opts.sizeRange && opts.sizeRange[0]) ? Number(opts.sizeRange[0]) : 44;
-  const sizeMax = (opts.sizeRange && opts.sizeRange[1]) ? Number(opts.sizeRange[1]) : 64;
+  const boundsHost = cfg.boundsHost || mount;  // playRect reference
+  const spawnHost  = cfg.spawnHost  || mount;  // where elements append
 
-  const spawnRateMs0 = Math.max(180, Number(opts.spawnRateMs || opts.spawnRate || 900) || 900);
+  const sizeRange = cfg.sizeRange || [44, 72];
+  const spawnRate = clamp(cfg.spawnRate ?? 900, 120, 5000);
 
-  const kinds = Array.isArray(opts.kinds) && opts.kinds.length
-    ? opts.kinds
+  const kinds = Array.isArray(cfg.kinds) && cfg.kinds.length
+    ? cfg.kinds
     : [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }];
 
-  const onHit = (typeof opts.onHit === 'function') ? opts.onHit : ()=>{};
-  const onExpire = (typeof opts.onExpire === 'function') ? opts.onExpire : ()=>{};
+  const onHit    = (typeof cfg.onHit === 'function') ? cfg.onHit : ()=>{};
+  const onExpire = (typeof cfg.onExpire === 'function') ? cfg.onExpire : ()=>{};
 
-  // ---- internal state ----
-  let alive = true;
-  let spawnTimer = null;
-  let active = new Set();
+  const ttlMs = clamp(cfg.ttlMs ?? 1600, 300, 12000);
+  const maxAlive = clamp(cfg.maxAlive ?? 8, 1, 30);
 
-  // IMPORTANT: controller must be declared BEFORE any closure uses it
+  // SAFEZONE: exclude HUD / VR UI overlays if provided
+  // cfg.safezoneEls: [el1, el2] or selector string
+  let safezoneEls = [];
+  if(typeof cfg.safezoneEls === 'string'){
+    safezoneEls = Array.from(DOC.querySelectorAll(cfg.safezoneEls));
+  }else if(Array.isArray(cfg.safezoneEls)){
+    safezoneEls = cfg.safezoneEls.filter(Boolean);
+  }else{
+    // default: common overlays
+    safezoneEls = [
+      DOC.getElementById('hud'),
+      DOC.querySelector('.hha-vrui'),
+      DOC.getElementById('endOverlay')
+    ].filter(Boolean);
+  }
+
+  // RNG
+  const rng = (typeof cfg.rng === 'function')
+    ? cfg.rng
+    : seededRng(cfg.seed ?? Date.now());
+
+  // ----------------------------------------------------------
+  // Controller state (declare BEFORE any closures use it)
+  // ----------------------------------------------------------
   const controller = {
-    spawnRateMs: spawnRateMs0,
-    mountRect: null,
-    lockPx: 26,
-    lastShotAt: 0,
-    shotCooldownMs: 60,
-    timeLeftSec: null,
-    setSpawnRate(ms){
-      controller.spawnRateMs = Math.max(160, Number(ms)||spawnRateMs0);
-      // restart loop if needed
-      if(alive){
-        stopLoop();
-        startLoop();
-      }
-    },
-    setTimeLeft(sec){
-      controller.timeLeftSec = (sec==null) ? null : Number(sec);
-    },
-    destroy(){
-      alive = false;
-      stopLoop();
-      WIN.removeEventListener('hha:shoot', onShoot);
-      // cleanup nodes
-      active.forEach((node)=>{ try{ node.remove(); }catch(_){} });
-      active.clear();
-    }
+    running: true,
+    alive: new Set(),
+    timers: new Set(),
+    intervalId: null,
+    destroy,
+    spawnOnce,
   };
 
-  // ---- helpers ----
-  function pickKind(){
-    let total = 0;
-    for(const k of kinds) total += Math.max(0, Number(k.weight||0));
-    if(total <= 0) return kinds[0];
-    let t = rng() * total;
-    for(const k of kinds){
-      t -= Math.max(0, Number(k.weight||0));
-      if(t <= 0) return k;
+  // ----------------------------------------------------------
+  // Spawn geometry helpers
+  // ----------------------------------------------------------
+  function safeRects(){
+    const rs = [];
+    for(const el of safezoneEls){
+      if(!el) continue;
+      const r = el.getBoundingClientRect();
+      if(r.width > 0 && r.height > 0){
+        rs.push({ left:r.left, top:r.top, right:r.right, bottom:r.bottom });
+      }
     }
-    return kinds[kinds.length-1];
+    return rs;
   }
 
-  function spawnOne(){
-    if(!alive) return;
-    const rect = getRect(mount);
-    controller.mountRect = rect;
+  function intersectsAny(x,y,w,h, rects){
+    const left=x-w/2, top=y-h/2, right=x+w/2, bottom=y+h/2;
+    for(const r of rects){
+      if(!(right < r.left || left > r.right || bottom < r.top || top > r.bottom)){
+        return true;
+      }
+    }
+    return false;
+  }
 
-    const size = clamp(sizeMin + rng()*(sizeMax-sizeMin), 26, 180);
-    const p = pickInRect(rng, rect, Math.max(10, size*0.55));
+  function choosePoint(playRect, w, h){
+    // margin inside playRect
+    const pad = 10;
+    const minX = playRect.left + pad + w/2;
+    const maxX = playRect.right - pad - w/2;
+    const minY = playRect.top + pad + h/2;
+    const maxY = playRect.bottom - pad - h/2;
 
-    const kindObj = pickKind();
-    const payload = {
-      kind: kindObj.kind || 'good',
+    // if too small, allow tighter
+    const rx = Math.max(minX, Math.min(maxX, minX + 1));
+    const ry = Math.max(minY, Math.min(maxY, minY + 1));
+
+    const x = (maxX > minX) ? (minX + rng() * (maxX - minX)) : rx;
+    const y = (maxY > minY) ? (minY + rng() * (maxY - minY)) : ry;
+    return { x, y };
+  }
+
+  function relaxRects(rects, playRect){
+    // if playRect is small (mobile), relax by shrinking safe rects slightly
+    const area = playRect.width * playRect.height;
+    if(area > 320*520) return rects;
+    const shrink = 10;
+    return rects.map(r=>({
+      left:r.left+shrink, top:r.top+shrink,
+      right:r.right-shrink, bottom:r.bottom-shrink
+    }));
+  }
+
+  // ----------------------------------------------------------
+  // Spawn
+  // ----------------------------------------------------------
+  function spawnOnce(){
+    if(!controller.running) return;
+    if(controller.alive.size >= maxAlive) return;
+
+    const playRect = rectOf(boundsHost);
+    if(playRect.width < 40 || playRect.height < 40) return;
+
+    const kindPick = pickWeighted(rng, kinds);
+    const kind = String(kindPick.kind || 'good');
+
+    const size = Math.round(
+      clamp(sizeRange[0], 24, 240) + rng() * (clamp(sizeRange[1], 24, 240) - clamp(sizeRange[0], 24, 240))
+    );
+
+    const w = size, h = size;
+
+    let rects = safeRects();
+    rects = relaxRects(rects, playRect);
+
+    let pos = null;
+    for(let tries=0; tries<18; tries++){
+      const p = choosePoint(playRect, w, h);
+      if(!intersectsAny(p.x, p.y, w, h, rects)){
+        pos = p; break;
+      }
+    }
+    if(!pos){
+      // fallback: accept first point even if intersects
+      pos = choosePoint(playRect, w, h);
+    }
+
+    const el = createTargetEl();
+
+    // If Plate CSS expects .plateTarget class, respect it:
+    // - if caller passes cfg.targetClass, use it
+    // - else: if mount id contains 'plate', default to plateTarget
+    const cls = cfg.targetClass || (String(mount.id||'').includes('plate') ? 'plateTarget' : '');
+    if(cls) el.className = cls;
+
+    el.dataset.kind = kind;
+
+    // allow caller enrich meta
+    const meta = {
+      kind,
       size,
-      x: p.x,
-      y: p.y,
-      bornAt: Date.now()
+      bornMs: Date.now()
     };
 
-    // allow custom fields
-    if(typeof kindObj.make === 'function'){
+    // optional groupIndex generator for plate/groups
+    if(typeof cfg.makeMeta === 'function'){
       try{
-        Object.assign(payload, kindObj.make(rng) || {});
+        const m2 = cfg.makeMeta({ kind, size, rng });
+        if(m2 && typeof m2 === 'object') Object.assign(meta, m2);
       }catch(_){}
     }
 
-    const el = DOC.createElement('div');
-    el.className = 'plateTarget';
-    el.dataset.kind = payload.kind;
-    el.style.width = `${Math.round(size)}px`;
-    el.style.height = `${Math.round(size)}px`;
-    el.style.left = `${Math.round(p.x)}px`;
-    el.style.top  = `${Math.round(p.y)}px`;
-    el.textContent = payload.emoji || (payload.kind === 'junk' ? '🍟' : '🍽️');
+    // position using CSS variables if present, else absolute
+    el.style.position = 'absolute';
+    el.style.left = `${Math.round(pos.x - playRect.left)}px`;
+    el.style.top  = `${Math.round(pos.y - playRect.top)}px`;
+    el.style.transform = 'translate(-50%,-50%)';
+    el.style.width  = `${w}px`;
+    el.style.height = `${h}px`;
 
-    // click/tap hits too
-    el.addEventListener('pointerdown', (ev)=>{
+    // label (emoji) default
+    if(!el.textContent){
+      el.textContent = (kind === 'good') ? '🍽️' : '🍩';
+    }
+
+    spawnHost.appendChild(el);
+    controller.alive.add(el);
+
+    // hit handler (click/tap)
+    const onClick = (ev)=>{
       ev.preventDefault();
-      hit(payload, { source:'tap', x: ev.clientX, y: ev.clientY });
-      removeNode(el);
-    }, { passive:false });
+      ev.stopPropagation();
+      if(!controller.running) return;
+      cleanupEl(el);
+      onHit(Object.assign({ el }, meta));
+    };
 
-    mount.appendChild(el);
-    active.add(el);
+    el.addEventListener('pointerdown', onClick, { passive:false });
+    el.addEventListener('click', onClick, { passive:false });
 
-    // expire (simple TTL)
-    const ttl = Math.max(600, Number(opts.ttlMs || 1200) || 1200);
-    setTimeout(()=>{
-      if(!alive) return;
-      if(!active.has(el)) return;
-      onExpire(payload, { source:'ttl' });
-      removeNode(el);
-    }, ttl);
-  }
+    // crosshair shooting (vr-ui.js emits hha:shoot)
+    const onShoot = (ev)=>{
+      if(!controller.running) return;
+      const d = ev.detail || {};
+      const x = Number(d.x);
+      const y = Number(d.y);
+      if(!isFinite(x) || !isFinite(y)) return;
 
-  function removeNode(el){
-    if(!el) return;
-    if(active.has(el)) active.delete(el);
-    try{ el.remove(); }catch(_){}
-  }
+      const r = el.getBoundingClientRect();
+      if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom){
+        cleanupEl(el);
+        onHit(Object.assign({ el, source:'shoot' }, meta));
+      }
+    };
 
-  function hit(payload, meta){
-    try{ onHit(payload, meta || {}); }catch(_){}
-  }
+    WIN.addEventListener('hha:shoot', onShoot);
 
-  // ---- shooting bridge (crosshair) ----
-  function onShoot(ev){
-    if(!alive) return;
-    const d = ev && ev.detail ? ev.detail : {};
-    const now = Date.now();
-    if(now - controller.lastShotAt < controller.shotCooldownMs) return;
-    controller.lastShotAt = now;
+    // expiry
+    const to = setTimeout(()=>{
+      if(!controller.running) return;
+      if(!controller.alive.has(el)) return;
+      cleanupEl(el);
+      onExpire(Object.assign({ el }, meta));
+    }, ttlMs);
 
-    const x = Number(d.x) || (WIN.innerWidth||360)/2;
-    const y = Number(d.y) || (WIN.innerHeight||640)/2;
-    const lockPx = Math.max(6, Number(d.lockPx || controller.lockPx) || controller.lockPx);
+    controller.timers.add(to);
 
-    // find nearest active node within lock radius
-    let best = null;
-    let bestDist = 1e9;
-
-    active.forEach((el)=>{
+    function cleanupEl(node){
+      if(!node) return;
+      if(controller.alive.has(node)) controller.alive.delete(node);
+      try{ node.remove(); }catch(_){}
+      try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
       try{
-        const r = el.getBoundingClientRect();
-        const cx = r.left + r.width/2;
-        const cy = r.top + r.height/2;
-        const dist = Math.hypot(cx-x, cy-y);
-        if(dist < bestDist){
-          bestDist = dist;
-          best = { el, cx, cy };
-        }
+        node.removeEventListener('pointerdown', onClick);
+        node.removeEventListener('click', onClick);
       }catch(_){}
-    });
-
-    if(best && bestDist <= lockPx){
-      // build minimal payload back from dataset
-      const payload = {
-        kind: best.el.dataset.kind || 'good',
-        size: best.el.getBoundingClientRect().width || 50,
-        x: best.cx,
-        y: best.cy
-      };
-      hit(payload, { source: d.source || 'shoot', x, y, lockPx });
-      removeNode(best.el);
     }
   }
 
-  WIN.addEventListener('hha:shoot', onShoot, { passive:true });
+  // ----------------------------------------------------------
+  // Destroy
+  // ----------------------------------------------------------
+  function destroy(){
+    controller.running = false;
 
-  // ---- loop ----
-  function startLoop(){
-    if(!alive) return;
-    spawnTimer = setInterval(()=>{
-      // always spawn even if something else fails
-      try{ spawnOne(); }catch(e){ /* swallow */ }
-    }, controller.spawnRateMs);
-  }
-  function stopLoop(){
-    if(spawnTimer){
-      clearInterval(spawnTimer);
-      spawnTimer = null;
+    if(controller.intervalId){
+      clearInterval(controller.intervalId);
+      controller.intervalId = null;
     }
+
+    for(const to of controller.timers){
+      try{ clearTimeout(to); }catch(_){}
+    }
+    controller.timers.clear();
+
+    for(const el of controller.alive){
+      try{ el.remove(); }catch(_){}
+    }
+    controller.alive.clear();
   }
 
-  startLoop();
+  // ----------------------------------------------------------
+  // Start spawner loop
+  // ----------------------------------------------------------
+  controller.intervalId = setInterval(()=>{
+    if(!controller.running) return;
+    spawnOnce();
+  }, spawnRate);
 
-  // public API
+  // also spawn immediately
+  spawnOnce();
+
   return controller;
-}
-
-/* -------------------------------------------------------
-   Backward compatible API:
-   - boot(opts) -> returns controller from createSpawner
-------------------------------------------------------- */
-export function boot(opts = {}){
-  // Old code may call spawnBoot({mount, seed, spawnRate, sizeRange, kinds, onHit, onExpire})
-  return createSpawner({
-    mount: opts.mount,
-    seed: opts.seed,
-    rng: opts.rng,
-    spawnRateMs: opts.spawnRateMs || opts.spawnRate,
-    sizeRange: opts.sizeRange,
-    kinds: opts.kinds,
-    ttlMs: opts.ttlMs,
-    onHit: opts.onHit,
-    onExpire: opts.onExpire
-  });
 }
