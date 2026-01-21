@@ -1,3 +1,8 @@
+<!-- =========================================================
+     /herohealth/plate/plate-vr.html
+     Balanced Plate VR — RUN (PRODUCTION)
+     HHA Standard: vr-ui.js + particles + cloud logger + boot/module
+========================================================= -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,10 +12,10 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame: helps WebXR Enter VR reliability (vr-ui.js hooks into the scene) -->
+  <!-- A-Frame: helps WebXR Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS (A31) -->
+  <!-- CSS -->
   <link rel="stylesheet" href="./plate-vr.css" />
 
   <!-- Global FX + Logger + Universal VR UI -->
@@ -18,35 +23,28 @@
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Universal VR UI config (crosshair assist for cVR/mobile) -->
-  <script>
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-  </script>
-
-  <!-- Boot (module) -->
+  <!-- Boot -->
   <script type="module" src="./plate.boot.js"></script>
 </head>
 
 <body class="view-pc">
   <div id="app">
-    <!-- Minimal A-Frame scene (hidden) just to enable Enter VR / Exit / Recenter -->
+
+    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
     <a-scene
       embedded
       renderer="antialias:true; colorManagement:true"
-      vr-mode-ui="enabled:false"
       xr-mode-ui="enabled:false"
       style="position:fixed; inset:0; z-index:0; opacity:0; pointer-events:none;"
     >
-      <a-entity id="rig" position="0 0 0">
-        <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
-      </a-entity>
+      <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- Optional FX layers (engine can toggle classes if you add boss/storm later) -->
-    <div id="stormFx"></div>
-    <div id="bossFx"></div>
+    <!-- FX layers (match CSS) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
 
-    <!-- Playfield: targets spawn here -->
+    <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
@@ -69,14 +67,14 @@
       <div class="card" id="questCard">
         <div class="cardTitle">
           <div class="t">🎯 ภารกิจ</div>
-          <div class="hint" id="hudHint">เติมจานให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
+          <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
         </div>
 
         <!-- GOAL -->
         <div class="qItem" id="goalItem">
           <div class="qText">
             <div class="name" id="goalName">Goal</div>
-            <div class="sub" id="goalSub">—</div>
+            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
           </div>
           <div class="qProg">
             <div class="qNums" id="goalNums">0/1</div>
@@ -88,7 +86,7 @@
         <div class="qItem" id="miniItem">
           <div class="qText">
             <div class="name" id="miniName">Mini Quest</div>
-            <div class="sub" id="miniSub">—</div>
+            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
           </div>
           <div class="qProg">
             <div class="qNums" id="miniNums">0/1</div>
@@ -106,7 +104,7 @@
       </div>
     </div>
 
-    <!-- End Overlay (aria-hidden toggled by plate.boot.js) -->
+    <!-- End Overlay -->
     <div id="endOverlay" aria-hidden="true">
       <div class="endPanel">
         <div class="endTitle">
@@ -124,16 +122,17 @@
         </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
+          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- NOTE:
-    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay.
-    plate.boot.js auto-detects view and boots plate.safe.js engine.
+    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js sets view class and boots the engine.
   -->
 </body>
 </html>
