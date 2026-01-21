@@ -1,297 +1,203 @@
-// === vr-fitness/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — VR-Fitness (PRODUCTION, flush-hardened)
-// ✅ Endpoint via ?log= (Google Apps Script WebApp URL)
-// ✅ Offline-safe queue (localStorage) + retry
-// ✅ sendBeacon fallback + fetch(keepalive)
+// === /herohealth/vr/hha-cloud-logger.js ===
+// HHA Cloud Logger — PRODUCTION (flush-hardened) — LATEST
+// ✅ Listens: hha:end -> sends session summary JSON
+// ✅ Listens: hha:ml_row -> sends ML telemetry rows (1Hz from game)
+// ✅ Listens: hha:predict (optional) -> sends prediction stream if you emit it
+// ✅ Queue persist localStorage (offline-safe)
+// ✅ keepalive + sendBeacon fallback
 // ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ Listens: hha:start / hha:time / hha:score / hha:window / hha:end
-// ✅ Pass-through context: studyId/phase/conditionGroup/device/view/seed etc.
+// ✅ FIX: DO NOT hardcode gameMode='goodjunk' (use event.detail.gameMode)
 
 (function(){
   'use strict';
-
   const WIN = window;
   const DOC = document;
-  if (!DOC || WIN.__HHA_CLOUD_LOGGER_VRFIT__) return;
-  WIN.__HHA_CLOUD_LOGGER_VRFIT__ = true;
+  if(!DOC || WIN.__HHA_CLOUD_LOGGER__) return;
+  WIN.__HHA_CLOUD_LOGGER__ = true;
 
-  const qs = (k, d=null) => { try { return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } };
-  const nowIso = () => { try { return new Date().toISOString(); } catch { return ''; } };
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-  // ---- Config ----
-  const ENDPOINT = (qs('log','') || '').trim();   // ?log=https://script.google.com/macros/s/...
-  const STUDY_ID = (qs('studyId','') || '').trim();
-  const PHASE    = (qs('phase','') || '').trim();
-  const COND_G   = (qs('conditionGroup','') || '').trim();
-  const VIEW     = (qs('view','') || '').trim();
-  const RUN      = (qs('run','') || '').trim();
-  const DIFF     = (qs('diff','') || '').trim();
-  const MODE     = (qs('mode','') || '').trim();
-  const SEED     = (qs('seed','') || '').trim();
-  const HUB      = (qs('hub','') || '').trim();
-  const RESEARCH = (() => {
-    const r = String(qs('research','') || '').toLowerCase();
-    return r === '1' || r === 'true' || r === 'on' || !!STUDY_ID || !!ENDPOINT;
-  })();
-
-  // Queue key (per domain)
+  const ENDPOINT = (qs('log','')||'').trim(); // ?log=...
   const LS_KEY = 'HHA_LOG_QUEUE_V1';
 
-  // Tune: how often background flush tries (ms)
-  const FLUSH_INTERVAL_MS = 9000;
-
-  // Safety: max queue length
-  const MAX_Q = 800;
-
-  // ---- Internal state ----
-  let lastStartCtx = null;
-  let flushTimer = null;
-  let flushing = false;
-
   function loadQ(){
-    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }
-    catch { return []; }
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }catch(_){ return []; }
   }
   function saveQ(q){
-    try { localStorage.setItem(LS_KEY, JSON.stringify(q)); } catch(_) {}
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(q.slice(-120))); }catch(_){}
   }
 
-  function getDevice(){
-    const ua = navigator.userAgent || '';
-    if (/Quest|Oculus|Vive|VR/i.test(ua)) return 'vrHeadset';
-    if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
-    return 'pc';
-  }
+  let queue = loadQ();
+  let flushing = false;
 
-  function baseCtx(extra){
-    const ctx = {
-      // common
-      studyId: STUDY_ID,
-      phase: PHASE,
-      conditionGroup: COND_G,
-      research: RESEARCH ? 1 : 0,
-
-      // run context
-      view: VIEW,
-      run: RUN,
-      diff: DIFF,
-      mode: MODE,
-      seed: SEED,
-      hub: HUB,
-
-      // device
-      device: getDevice(),
-      lang: (DOC.documentElement && DOC.documentElement.lang) ? DOC.documentElement.lang : '',
-
-      // time
-      clientTs: nowIso(),
-    };
-
-    // merge lastStartCtx if exists (gameId/gameVersion etc.)
-    if (lastStartCtx && typeof lastStartCtx === 'object') {
-      Object.assign(ctx, lastStartCtx);
-    }
-
-    if (extra && typeof extra === 'object') Object.assign(ctx, extra);
-    return ctx;
-  }
-
-  function canSend(){
-    return !!ENDPOINT && ENDPOINT.startsWith('http');
-  }
-
-  function makeEnvelope(type, data){
+  function payloadBase(){
     return {
-      type,
-      ts: nowIso(),
-      ctx: baseCtx(),
-      data: (data && typeof data === 'object') ? data : {}
+      timestampIso: new Date().toISOString(),
+      href: location.href,
+      ua: navigator.userAgent || '',
+      projectTag: qs('projectTag','HeroHealth'),
     };
   }
 
-  function enqueue(envelope){
-    const q = loadQ();
-    q.push(envelope);
-    // trim if too large
-    if (q.length > MAX_Q) q.splice(0, q.length - MAX_Q);
-    saveQ(q);
+  function detectDevice(){
+    const v = String(qs('view','')||'').toLowerCase();
+    if (v) return v;
+    const isTouch = ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
+    return isTouch ? 'mobile' : 'pc';
   }
 
-  function trySendBeacon(payloadStr){
-    try{
-      if (!navigator.sendBeacon) return false;
-      const blob = new Blob([payloadStr], { type: 'application/json' });
-      return navigator.sendBeacon(ENDPOINT, blob);
-    }catch(_){
-      return false;
-    }
+  function enqueue(obj){
+    queue.push(obj);
+    saveQ(queue);
   }
 
-  async function trySendFetch(payloadStr){
+  async function postJson(url, obj){
     try{
-      // keepalive allows sending on unload in modern browsers (still best-effort)
-      await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payloadStr,
-        mode: 'no-cors',
-        keepalive: true,
-      });
-      return true;
-    }catch(_){
-      return false;
-    }
-  }
+      const body = JSON.stringify(obj);
 
-  async function flushQueue(reason){
-    if (!canSend()) return false;
-    if (flushing) return false;
-
-    const q = loadQ();
-    if (!q.length) return true;
-
-    flushing = true;
-    try{
-      // Send in small batches (safe for URLFetch on Apps Script)
-      // We send a JSON object {batch:[...], reason:"..."} for one request.
-      let idx = 0;
-      const BATCH = 25;
-
-      while (idx < q.length){
-        const batch = q.slice(idx, idx + BATCH);
-        const payload = JSON.stringify({
-          batch,
-          reason: reason || 'flush',
-          sentAt: nowIso(),
-        });
-
-        // Prefer beacon on unload-like situations, but keep fetch as primary
-        let ok = false;
-        ok = await trySendFetch(payload);
-        if (!ok) ok = trySendBeacon(payload);
-
-        if (!ok){
-          // stop and keep remaining
-          const remain = q.slice(idx);
-          saveQ(remain);
-          return false;
-        }
-
-        idx += BATCH;
+      // try sendBeacon first for unload safety
+      if(navigator.sendBeacon){
+        const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
+        if(ok) return true;
       }
 
-      // all sent
-      saveQ([]);
-      return true;
-    } finally {
-      flushing = false;
-    }
-  }
-
-  function ensureFlushLoop(){
-    if (flushTimer) return;
-    flushTimer = setInterval(()=>{ flushQueue('interval'); }, FLUSH_INTERVAL_MS);
-  }
-
-  function stopFlushLoop(){
-    if (!flushTimer) return;
-    clearInterval(flushTimer);
-    flushTimer = null;
-  }
-
-  // ---- Event listeners ----
-  function onStart(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    // keep last start context for all subsequent logs
-    lastStartCtx = {
-      gameId: d.gameId || d.game || d.id || '',
-      gameVersion: d.gameVersion || d.version || '',
-      sessionId: d.sessionId || '',      // optional if game emits; else set by end record
-      timeSec: d.timeSec || d.time || 0,
-      mode: d.mode || MODE,
-      diff: d.diff || DIFF,
-      seed: d.seed || SEED,
-      view: d.view || VIEW,
-      // keep any extras but avoid huge objects
-    };
-
-    enqueue(makeEnvelope('start', d));
-    ensureFlushLoop();
-    // attempt early flush (best-effort)
-    flushQueue('start');
-  }
-
-  function onTime(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    enqueue(makeEnvelope('time', d));
-  }
-
-  function onScore(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    enqueue(makeEnvelope('score', d));
-  }
-
-  function onWindow(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    enqueue(makeEnvelope('window', d));
-  }
-
-  function onEnd(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    // Update start ctx if end provides stronger identifiers
-    if (d && typeof d === 'object') {
-      lastStartCtx = Object.assign({}, lastStartCtx || {}, {
-        gameId: d.gameId || (lastStartCtx && lastStartCtx.gameId) || '',
-        gameVersion: d.gameVersion || (lastStartCtx && lastStartCtx.gameVersion) || '',
-        sessionId: d.sessionId || (lastStartCtx && lastStartCtx.sessionId) || String(Date.now()),
-        timeSec: d.timeSec || (lastStartCtx && lastStartCtx.timeSec) || 0,
-        mode: d.mode || (lastStartCtx && lastStartCtx.mode) || MODE,
-        diff: d.diff || (lastStartCtx && lastStartCtx.diff) || DIFF,
-        seed: d.seed || (lastStartCtx && lastStartCtx.seed) || SEED,
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body,
+        keepalive:true,
+        mode:'cors'
       });
+      return !!res && res.ok;
+    }catch(_){
+      return false;
+    }
+  }
+
+  async function flush(){
+    if(flushing) return;
+    if(!ENDPOINT) return;     // no endpoint => do nothing
+    if(queue.length === 0) return;
+
+    flushing = true;
+
+    // send oldest-first
+    const q = queue.slice();
+    let sent = 0;
+
+    for(let i=0;i<q.length;i++){
+      const ok = await postJson(ENDPOINT, q[i]);
+      if(ok) sent++;
+      else break; // stop if offline / failing
     }
 
-    enqueue(makeEnvelope('end', d));
+    if(sent > 0){
+      queue = q.slice(sent);
+      saveQ(queue);
+    }
 
-    // Flush aggressively on end
-    flushQueue('end');
+    flushing = false;
   }
 
-  function onFlush(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    flushQueue(d.reason || 'hha:flush');
+  // --- Pack helpers ---
+  function packCommonFromDetail(d){
+    const device = d.device || detectDevice();
+    const runMode = d.runMode || qs('run','play');
+    const diff = d.diff || qs('diff','normal');
+    const seed = d.seed || qs('seed','') || '';
+    const sessionId =
+      d.sessionId ||
+      qs('sessionId','') ||
+      qs('studentKey','') ||
+      qs('studyId','') ||
+      '';
+
+    const gameMode =
+      d.gameMode ||
+      d.game ||
+      qs('gameMode','') ||
+      qs('game','') ||
+      'unknown';
+
+    return { device, runMode, diff, seed, sessionId, gameMode };
   }
 
-  WIN.addEventListener('hha:start',  onStart);
-  WIN.addEventListener('hha:time',   onTime);
-  WIN.addEventListener('hha:score',  onScore);
-  WIN.addEventListener('hha:window', onWindow);
-  WIN.addEventListener('hha:end',    onEnd);
-  WIN.addEventListener('hha:flush',  onFlush);
+  // --- Session end ---
+  function onEnd(ev){
+    try{
+      const d = ev?.detail || {};
+      const common = packCommonFromDetail(d);
 
-  // ---- Lifecycle flush ----
-  function onPageHide(){ flushQueue('pagehide'); }
-  function onVis(){
-    if (DOC.visibilityState === 'hidden') flushQueue('visibilityhidden');
-  }
-  function onBeforeUnload(){ flushQueue('beforeunload'); }
+      // Keep original payload as much as possible, but normalize core identifiers
+      const pack = Object.assign(payloadBase(), d, common, {
+        kind: 'session',
+      });
 
-  WIN.addEventListener('pagehide', onPageHide);
-  WIN.addEventListener('visibilitychange', onVis);
-  WIN.addEventListener('beforeunload', onBeforeUnload);
+      // Ensure numeric sanity for key fields (won't break if absent)
+      pack.durationPlannedSec = Number(pack.durationPlannedSec || qs('time','0') || 0) || 0;
+      pack.durationPlayedSec  = Number(pack.durationPlayedSec || 0) || 0;
+      pack.scoreFinal         = Number(pack.scoreFinal || 0) || 0;
+      pack.misses             = Number(pack.misses || 0) || 0;
 
-  // ---- Boot: if queue exists, try flush ----
-  if (loadQ().length) {
-    ensureFlushLoop();
-    flushQueue('boot');
+      enqueue(pack);
+      flush(); // best-effort immediate
+    }catch(_){}
   }
 
-  // Expose minimal debug
-  WIN.HHACloudLogger = {
-    flush: (reason)=>flushQueue(reason||'manual'),
-    queueSize: ()=>loadQ().length,
+  // --- ML telemetry row (1Hz) ---
+  function onMLRow(ev){
+    try{
+      const d = ev?.detail || {};
+      const common = packCommonFromDetail(d);
+
+      const pack = Object.assign(payloadBase(), d, common, {
+        kind: 'ml_row',
+      });
+
+      enqueue(pack);
+      // ไม่ต้อง flush ทุกแถวก็ได้ แต่ตอนนี้ให้ flush best-effort (มี queue กันอยู่แล้ว)
+      flush();
+    }catch(_){}
+  }
+
+  // --- Prediction stream (optional) ---
+  function onPredict(ev){
+    try{
+      const d = ev?.detail || {};
+      const common = packCommonFromDetail(d);
+
+      const pack = Object.assign(payloadBase(), d, common, {
+        kind: 'predict',
+      });
+
+      enqueue(pack);
+      flush();
+    }catch(_){}
+  }
+
+  WIN.addEventListener('hha:end', onEnd, { passive:true });
+  WIN.addEventListener('hha:ml_row', onMLRow, { passive:true });
+  WIN.addEventListener('hha:predict', onPredict, { passive:true });
+
+  // Manual flush hook
+  WIN.addEventListener('hha:flush', ()=>flush(), { passive:true });
+
+  // unload flush
+  WIN.addEventListener('pagehide', ()=>flush(), { passive:true });
+  DOC.addEventListener('visibilitychange', ()=>{
+    if(DOC.visibilityState === 'hidden') flush();
+  }, { passive:true });
+  WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
+
+  // periodic flush (in case offline -> online)
+  setInterval(()=>flush(), 3500);
+
+  // Expose minimal state (optional)
+  WIN.HHA_LOGGER = {
+    enabled: !!ENDPOINT,
     endpoint: ENDPOINT,
-    research: RESEARCH ? 1 : 0
+    flush,
+    getQueueSize: ()=> (queue?.length|0),
   };
 
 })();
