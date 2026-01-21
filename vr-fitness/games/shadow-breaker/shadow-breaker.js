@@ -1,8 +1,9 @@
-// === VR Fitness — Shadow Breaker (Production v1 + Pack2 AI Director + Predict) ===
+// === VR Fitness — Shadow Breaker (Production v1 + Pack2 AI Director + Predict + Pack3 Patterns) ===
 // ✅ HeroHealth-like: hha:shoot support (crosshair/tap-to-shoot via vr-ui.js)
 // ✅ HHA events: hha:start / hha:time / hha:score / hha:end / hha:flush
 // ✅ Pack1: Seeded RNG (deterministic in research) + telemetry events + flush-hardened
 // ✅ Pack2: AI Difficulty Director (play only) + AI Predict micro-tips (rate-limited)
+// ✅ Pack3: Seeded Pattern Generator (wave/storm/drift/decoy) + Boss Phases
 // ✅ Boss HUD bar + safe spawn + feedback fixed
 
 (function(){
@@ -10,7 +11,7 @@
 
 // ---------------- identity ----------------
 const SB_GAME_ID = 'shadow-breaker';
-const SB_GAME_VERSION = '1.0.0-prod-pack2';
+const SB_GAME_VERSION = '1.0.0-prod-pack3';
 
 const SB_STORAGE_KEY = 'ShadowBreakerSessions_v1';
 const SB_META_KEY    = 'ShadowBreakerMeta_v1';
@@ -28,7 +29,6 @@ const SB_STUDY_ID = (qs('studyId','')||'').trim();
 const SB_LOG      = (qs('log','')||'').trim();
 const SB_HUB      = (qs('hub','')||'').trim();
 
-// research rule
 const SB_IS_RESEARCH = (()=> {
   const r = (qs('research','')||'').toLowerCase();
   return r==='1' || r==='true' || r==='on' || !!SB_STUDY_ID || !!SB_LOG;
@@ -36,6 +36,9 @@ const SB_IS_RESEARCH = (()=> {
 
 // Pack2 toggle (play only)
 const SB_AI_ENABLED = (!SB_IS_RESEARCH) && ((qs('ai','1')||'1') !== '0');
+
+// Pack3 toggle
+const SB_PATTERNS_ENABLED = ((qs('patterns','1')||'1') !== '0');
 
 // ---------------- DOM ----------------
 const $  = (s) => document.querySelector(s);
@@ -102,7 +105,7 @@ function sbDetectDevice() {
   return 'pc';
 }
 
-// ---------------- config ----------------
+// ---------------- base config ----------------
 const sbDiffCfg = {
   easy:   { spawnMs: 900, bossHp: 6 },
   normal: { spawnMs: 700, bossHp: 9 },
@@ -110,22 +113,24 @@ const sbDiffCfg = {
 };
 const sbCfgBase = sbDiffCfg[sbDiff] || sbDiffCfg.normal;
 
-// Pack2: runtime config (AI may modify in play)
+// runtime cfg (AI may modify in play)
 const sbCfg = {
   spawnMs: sbCfgBase.spawnMs,
   bossHp:  sbCfgBase.bossHp,
-
-  // target life
   lifeMs: 2300,
   bossLifeMs: 6500,
-
-  // spawn behavior knobs
   gapProb: 0.10,
   bossClutterProb: 0.50,
+
+  // Pack3 pattern knobs (soft caps)
+  maxOnScreen: 10,
+  stormBurst: 6,
+  waveBurst: 3,
 };
 
 // ---------------- bosses & emojis ----------------
 const SB_NORMAL_EMOJIS = ['🎯','💥','⭐','⚡','🔥','🥎','🌀'];
+const SB_DECOY_EMOJIS  = ['🧊','🪨','💀','🚫']; // safe decoy (no scary gore; still cartoon-ish)
 const SB_BOSSES = [
   { id: 1, emoji:'💧', nameTh:'Bubble Glove',  nameEn:'Bubble Glove',  hpBonus:0 },
   { id: 2, emoji:'⛈️', nameTh:'Storm Knuckle', nameEn:'Storm Knuckle', hpBonus:2 },
@@ -144,12 +149,16 @@ const sbI18n = {
     coachFocus:'โฟกัสกลางจอ ลดรีบ แล้วกดให้เป๊ะ 🎯',
     coachBreathe:'พักหายใจ 1 วิ แล้วกลับมาเก็บคอมโบ 💨',
     coachChallenge:'โหดขึ้นนิดนะ! เก็บคอมโบให้ได้ 🔥',
+    coachDecoy:'หลบเป้าหลอก! 🚫',
+    coachStorm:'พายุเป้าเข้าแล้ว! ⛈️',
+    coachWave:'เข้าชุดคลื่น! เก็บให้ครบ! 🌊',
     tagGoal:'เป้าหมาย: ต่อย/ยิงเป้า emoji ให้ทันเวลา รักษาคอมโบ และพิชิตบอสทั้ง 4 ตัว.',
     alertMeta:'กรุณากรอกอย่างน้อย Student ID ก่อนเริ่มเล่นนะครับ',
     feverLabel:'FEVER!!',
     bossNear:(name)=>`ใกล้ล้ม ${name} แล้ว! เร่งอีกนิด! ⚡`,
     bossClear:(name)=>`พิชิต ${name} แล้ว! บอสถัดไปมา! 🔥`,
     bossAppear:(name)=>`${name} ปรากฏตัวแล้ว!`,
+    bossPhase2:(name)=>`${name} เข้าสู่เฟส 2! ⚡`,
   },
   en: {
     startLabel:'Start',
@@ -160,12 +169,16 @@ const sbI18n = {
     coachFocus:'Focus center, slow down, be precise 🎯',
     coachBreathe:'Breathe 1 sec, then rebuild combo 💨',
     coachChallenge:'A bit harder now—keep that combo 🔥',
+    coachDecoy:'Avoid decoys! 🚫',
+    coachStorm:'Target storm incoming! ⛈️',
+    coachWave:'Wave set! Clear them! 🌊',
     tagGoal:'Goal: hit emoji targets quickly, keep combo, defeat all bosses.',
     alertMeta:'Please fill at least the Student ID before starting.',
     feverLabel:'FEVER!!',
     bossNear:(name)=>`Almost defeat ${name}! Finish it! ⚡`,
     bossClear:(name)=>`You beat ${name}! Next boss! 🔥`,
     bossAppear:(name)=>`${name} appeared!`,
+    bossPhase2:(name)=>`${name} entered Phase 2! ⚡`,
   }
 };
 let sbLang = 'th';
@@ -197,9 +210,7 @@ function makeXorShift32(seedU32){
       x ^= (x << 5);  x >>>= 0;
       return x >>> 0;
     },
-    float(){
-      return (this.u32() / 4294967296);
-    }
+    float(){ return (this.u32() / 4294967296); }
   };
 }
 let SB_SEED_U32 = parseSeedToU32(SB_SEED_RAW);
@@ -261,6 +272,7 @@ function sbFlushSnapshot(reason){
       research: SB_IS_RESEARCH ? 1 : 0,
       ai: SB_AI_ENABLED ? 1 : 0,
       aiLevel: Number(sbAI.level||0).toFixed(3),
+      patterns: SB_PATTERNS_ENABLED ? 1 : 0,
       phase: sbPhase, mode: sbMode, diff: sbDiff,
       timeSec: (sbMode==='endless') ? 0 : sbTimeSec,
       ts: new Date().toISOString(),
@@ -304,15 +316,12 @@ const sbState = {
 // ---------------- Pack2: AI Difficulty Director + Predict ----------------
 const sbAI = {
   enabled: SB_AI_ENABLED ? 1 : 0,
-  // base level from diff
-  level: (sbDiff==='easy') ? 0.25 : (sbDiff==='hard') ? 0.75 : 0.50, // 0..1
-  // rolling metrics (EMA)
+  level: (sbDiff==='easy') ? 0.25 : (sbDiff==='hard') ? 0.75 : 0.50,
   emaAcc: 0.60,
-  emaRT:  900,     // ms
+  emaRT:  900,
   missStreak: 0,
   hitStreak: 0,
   lastTipAt: 0,
-  // book-keeping
   lastAdjustAt: 0,
   adjustEveryMs: 2600,
 };
@@ -320,7 +329,7 @@ const sbAI = {
 function sbAIUpdateOnOutcome(outcome, rtMs){
   if(!SB_AI_ENABLED) return;
 
-  const alpha = 0.18; // EMA smoothing
+  const alpha = 0.18;
   const ok = (outcome === 'hit');
   const acc01 = ok ? 1 : 0;
 
@@ -351,16 +360,13 @@ function sbAIUpdateOnOutcome(outcome, rtMs){
 function sbAIPredictAndTip(){
   if(!SB_AI_ENABLED) return;
   const now = performance.now();
-  if(now - sbAI.lastTipAt < 8000) return; // rate limit
+  if(now - sbAI.lastTipAt < 8000) return;
 
-  // simple "ML-like" prediction (logistic regression style)
-  // features: emaAcc, emaRT, missStreak, current level
-  const acc = sbAI.emaAcc;                   // 0..1
-  const rtN = (sbAI.emaRT - 900) / 400;      // roughly -1..+?
-  const ms  = clamp(sbAI.missStreak, 0, 5);  // 0..5
-  const lvl = sbAI.level;                    // 0..1
+  const acc = sbAI.emaAcc;
+  const rtN = (sbAI.emaRT - 900) / 400;
+  const ms  = clamp(sbAI.missStreak, 0, 5);
+  const lvl = sbAI.level;
 
-  // z: higher => more likely to miss soon / overload
   const z =
     (+1.10*(ms>=2 ? 1:0)) +
     (+0.85*rtN) +
@@ -393,9 +399,6 @@ function sbAIAdjustDifficulty(){
   if(now - sbAI.lastAdjustAt < sbAI.adjustEveryMs) return;
   sbAI.lastAdjustAt = now;
 
-  // target difficulty based on performance:
-  // - if acc high & rt low & combo stable => increase
-  // - if miss streak or slow rt => decrease
   const acc = sbAI.emaAcc;
   const rt  = sbAI.emaRT;
   const ms  = sbAI.missStreak;
@@ -411,11 +414,9 @@ function sbAIAdjustDifficulty(){
   if(acc < 0.45) delta -= 0.06;
   if(rt > 1200)  delta -= 0.05;
 
-  // small inertia
   delta = clamp(delta, -0.12, 0.10);
   sbAI.level = clamp(sbAI.level + delta, 0.12, 0.92);
 
-  // map level to parameters (smooth)
   const baseSpawn = sbCfgBase.spawnMs;
   sbCfg.spawnMs = Math.round(clamp(lerp(baseSpawn*1.25, baseSpawn*0.75, sbAI.level), 360, 1100));
   sbCfg.lifeMs  = Math.round(clamp(lerp(2600, 1700, sbAI.level), 1400, 2900));
@@ -428,7 +429,6 @@ function sbAIAdjustDifficulty(){
   sbCfg.gapProb = clamp(lerp(0.18, 0.06, sbAI.level), 0.04, 0.22);
   sbCfg.bossClutterProb = clamp(lerp(0.35, 0.62, sbAI.level), 0.25, 0.75);
 
-  // apply spawn rate immediately
   sbRestartSpawnLoop();
 
   sbLogEvent('ai_adjust', {
@@ -444,6 +444,176 @@ function sbAIAdjustDifficulty(){
     emaRT:Math.round(rt),
     missStreak:ms
   });
+}
+
+// ---------------- Pack3: Pattern Generator ----------------
+const sbPattern = {
+  enabled: SB_PATTERNS_ENABLED ? 1 : 0,
+  nextAtMs: 0,
+  active: null,       // {kind, untilMs, ...}
+  lastKind: '',
+  coolMs: 6000,       // min spacing between patterns
+  baseEveryMs: 9000,  // typical cadence
+  stormActive: 0,
+};
+
+function sbCountAliveTargets(){
+  let n = 0;
+  for(const t of sbState.targets){
+    if(t && t.alive && t.el) n++;
+  }
+  return n;
+}
+
+function sbStartPattern(kind, durMs){
+  const nowMs = sbNowElapsedMs();
+  sbPattern.active = {
+    kind,
+    startedAtMs: nowMs,
+    untilMs: nowMs + Math.max(1500, durMs || 3500),
+    pulses: 0,
+  };
+  sbPattern.lastKind = kind;
+
+  const t = sbI18n[sbLang];
+  if(kind === 'storm'){
+    sbEmit('hha:coach', { text: t.coachStorm, pattern: 'storm' });
+    if(sbHUD.coachLine) sbHUD.coachLine.textContent = t.coachStorm;
+  } else if(kind === 'wave'){
+    sbEmit('hha:coach', { text: t.coachWave, pattern: 'wave' });
+    if(sbHUD.coachLine) sbHUD.coachLine.textContent = t.coachWave;
+  } else if(kind === 'decoy'){
+    sbEmit('hha:coach', { text: t.coachDecoy, pattern: 'decoy' });
+    if(sbHUD.coachLine) sbHUD.coachLine.textContent = t.coachDecoy;
+  }
+
+  sbLogEvent('pattern_start', { kind, untilMs: sbPattern.active.untilMs });
+}
+
+function sbPickPatternKind(){
+  // deterministic via sbRand; avoid repeating same kind
+  const pool = ['wave','storm','drift','decoy','burst'];
+  let kind = pool[sbRandInt(pool.length)];
+  if(kind === sbPattern.lastKind){
+    kind = pool[(sbRandInt(pool.length-1) + 1) % pool.length];
+  }
+
+  // bias by state:
+  if(sbState.bossActive) {
+    // during boss: prefer drift (adds pressure) or burst (less clutter)
+    kind = (sbRand() < 0.55) ? 'drift' : 'burst';
+  } else if(sbAI.enabled && !SB_IS_RESEARCH) {
+    // if player is strong, more storm; if struggling, wave/burst
+    if(sbAI.emaAcc > 0.72 && sbAI.emaRT < 900 && sbRand() < 0.55) kind = 'storm';
+    if(sbAI.missStreak >= 2 && sbRand() < 0.60) kind = 'wave';
+  }
+  return kind;
+}
+
+function sbScheduleNextPattern(){
+  const nowMs = sbNowElapsedMs();
+  const jitter = Math.round(lerp(-1200, 1400, sbRand()));
+  const every = sbPattern.baseEveryMs + jitter;
+  sbPattern.nextAtMs = nowMs + Math.max(sbPattern.coolMs, every);
+  sbLogEvent('pattern_next', { atMs: sbPattern.nextAtMs });
+}
+
+function sbTickPattern(){
+  if(!sbPattern.enabled || !sbState.running || sbState.paused) return;
+
+  const nowMs = sbNowElapsedMs();
+
+  // end active?
+  if(sbPattern.active && nowMs >= sbPattern.active.untilMs){
+    sbLogEvent('pattern_end', { kind: sbPattern.active.kind });
+    sbPattern.active = null;
+    sbScheduleNextPattern();
+    return;
+  }
+
+  // start new?
+  if(!sbPattern.active && nowMs >= sbPattern.nextAtMs){
+    const kind = sbPickPatternKind();
+    const dur = (kind === 'storm') ? 3800 :
+                (kind === 'wave')  ? 3200 :
+                (kind === 'drift') ? 5200 :
+                (kind === 'decoy') ? 3600 : 2400;
+    sbStartPattern(kind, dur);
+    return;
+  }
+
+  // execute active pattern pulses
+  if(!sbPattern.active) return;
+
+  const kind = sbPattern.active.kind;
+
+  // throttle if too many targets
+  if(sbCountAliveTargets() >= sbCfg.maxOnScreen) return;
+
+  // pulse every ~450ms (storm) or ~800ms (wave) or ~600ms (burst/decoy/drift)
+  const elapsed = nowMs - sbPattern.active.startedAtMs;
+  const pulseEvery =
+    (kind === 'storm') ? 420 :
+    (kind === 'wave')  ? 760 :
+    (kind === 'drift') ? 620 :
+    (kind === 'decoy') ? 700 : 560;
+
+  const shouldPulse = (elapsed >= (sbPattern.active.pulses * pulseEvery));
+  if(!shouldPulse) return;
+
+  sbPattern.active.pulses++;
+
+  if(kind === 'storm'){
+    // spawn many quick small targets (life shorter via temporary)
+    const count = Math.max(3, Math.min(sbCfg.stormBurst, 7));
+    for(let i=0;i<count;i++){
+      sbSpawnTarget(false, null, { lifeMsOverride: Math.round(sbCfg.lifeMs*0.78), sizeOverride: 48 });
+    }
+    sbLogEvent('pattern_pulse', { kind, n: count });
+    return;
+  }
+
+  if(kind === 'wave'){
+    // wave: 3 targets spaced (clear set feel)
+    const count = Math.max(2, Math.min(sbCfg.waveBurst, 4));
+    for(let i=0;i<count;i++){
+      sbSpawnTarget(false, null, { lifeMsOverride: Math.round(sbCfg.lifeMs*1.05) });
+    }
+    sbLogEvent('pattern_pulse', { kind, n: count });
+    return;
+  }
+
+  if(kind === 'burst'){
+    // burst: 1-2 fast targets
+    const count = (sbRand() < 0.35) ? 2 : 1;
+    for(let i=0;i<count;i++){
+      sbSpawnTarget(false, null, { lifeMsOverride: Math.round(sbCfg.lifeMs*0.85) });
+    }
+    sbLogEvent('pattern_pulse', { kind, n: count });
+    return;
+  }
+
+  if(kind === 'decoy'){
+    // decoy: spawn 1 decoy occasionally mixed with normal
+    const n = (sbRand() < 0.45) ? 2 : 1;
+    for(let i=0;i<n;i++){
+      const isDecoy = (i===0) && (sbRand() < 0.72);
+      if(isDecoy) sbSpawnTarget(false, null, { decoy:true, lifeMsOverride: Math.round(sbCfg.lifeMs*1.15) });
+      else sbSpawnTarget(false, null, { lifeMsOverride: Math.round(sbCfg.lifeMs*0.95) });
+    }
+    sbLogEvent('pattern_pulse', { kind, n });
+    return;
+  }
+
+  if(kind === 'drift'){
+    // drift: spawn moving targets
+    const n = (sbRand() < 0.45) ? 2 : 1;
+    for(let i=0;i<n;i++){
+      sbSpawnTarget(false, null, { drift:true, lifeMsOverride: Math.round(sbCfg.lifeMs*0.95) });
+    }
+    sbLogEvent('pattern_pulse', { kind, n });
+    return;
+  }
 }
 
 // ---------------- meta persistence ----------------
@@ -490,6 +660,7 @@ function sbShowFeedback(type){
   if(type==='fever') txt = t.feverLabel;
   else if(type==='perfect') txt = (sbLang==='th'?'Perfect! 💥':'PERFECT!');
   else if(type==='good') txt = (sbLang==='th'?'ดีมาก! ✨':'GOOD!');
+  else if(type==='decoy') txt = (sbLang==='th'?'เป้าหลอก! 🚫':'DECOY!');
   else txt = (sbLang==='th'?'พลาด!':'MISS');
 
   sbFeedbackEl.textContent = txt;
@@ -525,6 +696,12 @@ function sbResetStats(){
   sbAI.emaRT  = 900;
   sbAI.lastTipAt = 0;
   sbAI.lastAdjustAt = 0;
+
+  // reset patterns
+  sbPattern.active = null;
+  sbPattern.lastKind = '';
+  sbPattern.nextAtMs = 2400;
+  sbLogEvent('pattern_init', { enabled: sbPattern.enabled ? 1 : 0 });
 
   // restore cfg base at reset
   sbCfg.spawnMs = sbCfgBase.spawnMs;
@@ -618,22 +795,53 @@ function sbPickSpawnXY(sizePx){
   return { x, y };
 }
 
-function sbSpawnTarget(isBoss=false, bossInfo=null){
-  if(!sbGameArea) return;
+// ---------------- fever ----------------
+function sbEnterFever(){
+  sbState.fever=true;
+  sbState.feverUntil = performance.now() + 3500;
+  if(sbHUD.coachLine) sbHUD.coachLine.textContent = sbI18n[sbLang].coachFever;
+  if(sbGameArea) sbGameArea.classList.add('fever');
+  sbShowFeedback('fever');
+  sbEmit('hha:coach', { text: sbI18n[sbLang].coachFever, fever:true });
+  sbLogEvent('fever_on', {});
+}
+function sbCheckFeverTick(now){
+  if(sbState.fever && now >= sbState.feverUntil){
+    sbState.fever=false;
+    if(sbGameArea) sbGameArea.classList.remove('fever');
+    if(sbHUD.coachLine) sbHUD.coachLine.textContent = sbI18n[sbLang].coachReady;
+    sbLogEvent('fever_off', {});
+  }
+}
 
-  const sizeBase = isBoss ? 90 : 56;
+// ---------------- spawn target ----------------
+// opts: {lifeMsOverride,sizeOverride,drift,decoy}
+function sbSpawnTarget(isBoss=false, bossInfo=null, opts=null){
+  if(!sbGameArea) return;
+  opts = opts || {};
+
+  const sizeBase = isBoss ? 90 : (opts.sizeOverride || 56);
   const baseHp = isBoss ? (sbCfg.bossHp + (bossInfo?.hpBonus||0)) : 1;
+
+  const isDecoy = (!isBoss) && !!opts.decoy;
 
   const tObj = {
     id: sbTargetIdCounter++,
     boss: !!isBoss,
+    decoy: isDecoy,
+    drift: (!isBoss) && !!opts.drift,
     bossInfo: bossInfo || null,
     hp: baseHp,
     maxHp: baseHp,
     createdAt: performance.now(),
     el: null,
     alive: true,
-    missTimer: null
+    missTimer: null,
+
+    // drift motion
+    vx: 0, vy: 0,
+    x: 0, y: 0,
+    size: sizeBase
   };
 
   const el = document.createElement('div');
@@ -644,13 +852,18 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
   el.style.display='flex';
   el.style.alignItems='center';
   el.style.justifyContent='center';
-  el.style.fontSize = isBoss ? '2.1rem' : '1.7rem';
+  el.style.fontSize = isBoss ? '2.1rem' : (sizeBase >= 56 ? '1.7rem' : '1.5rem');
   el.style.cursor='pointer';
   el.style.borderRadius='999px';
+  el.style.willChange = 'transform,left,top';
 
   if(isBoss && bossInfo){
     el.style.background = 'radial-gradient(circle at 30% 20%, #facc15, #ea580c)';
     el.textContent = bossInfo.emoji;
+  }else if(isDecoy){
+    const emo = SB_DECOY_EMOJIS[sbRandInt(SB_DECOY_EMOJIS.length)];
+    el.style.background = 'radial-gradient(circle at 30% 20%, #94a3b8, #334155)';
+    el.textContent = emo;
   }else{
     const emo = SB_NORMAL_EMOJIS[sbRandInt(SB_NORMAL_EMOJIS.length)];
     el.style.background = sbState.fever
@@ -660,8 +873,19 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
   }
 
   const pos = sbPickSpawnXY(sizeBase);
+  tObj.x = pos.x; tObj.y = pos.y;
+
   el.style.left = pos.x + 'px';
   el.style.top  = pos.y + 'px';
+
+  if(tObj.drift){
+    // drift speed deterministic
+    const speed = lerp(28, 60, SB_AI_ENABLED ? sbAI.level : 0.5); // px/sec
+    const ang = sbRand() * Math.PI * 2;
+    tObj.vx = Math.cos(ang) * speed;
+    tObj.vy = Math.sin(ang) * speed;
+    el.style.outline = '2px solid rgba(34,211,238,.25)';
+  }
 
   el.addEventListener('click', ()=>sbHitTarget(tObj, 'click'));
 
@@ -672,6 +896,8 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
   sbLogEvent('spawn', {
     id: tObj.id,
     boss: tObj.boss ? 1 : 0,
+    decoy: tObj.decoy ? 1 : 0,
+    drift: tObj.drift ? 1 : 0,
     hp: tObj.hp,
     x: Math.round(pos.x),
     y: Math.round(pos.y),
@@ -692,7 +918,8 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     sbLogEvent('boss_start', { bossId: bossInfo.id, name });
   }
 
-  const lifeMs = isBoss ? sbCfg.bossLifeMs : sbCfg.lifeMs;
+  const lifeMs = isBoss ? (opts.lifeMsOverride || sbCfg.bossLifeMs) : (opts.lifeMsOverride || sbCfg.lifeMs);
+
   tObj.missTimer = setTimeout(()=>{
     if(!tObj.alive) return;
     tObj.alive=false;
@@ -704,11 +931,10 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     sbShowFeedback('miss');
     if(sbHUD.coachLine) sbHUD.coachLine.textContent = sbI18n[sbLang].coachMiss;
 
-    // AI metrics update
     sbAIUpdateOnOutcome('miss', null);
     sbAIPredictAndTip();
 
-    sbLogEvent('miss_timeout', { id: tObj.id, boss: tObj.boss ? 1 : 0 });
+    sbLogEvent('miss_timeout', { id: tObj.id, boss: tObj.boss ? 1 : 0, decoy: tObj.decoy?1:0 });
 
     if(tObj.boss){
       sbState.bossActive=false;
@@ -729,6 +955,7 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
   }
 }
 
+// ---------------- boss spawn helpers ----------------
 function sbMaybeSpawnBoss(){
   if(!sbState.running || sbState.paused) return;
   if(sbState.bossActive) return;
@@ -748,28 +975,65 @@ function sbSpawnNextBossImmediate(){
   sbSpawnTarget(true, bossInfo);
 }
 
-// ---------------- fever ----------------
-function sbEnterFever(){
-  sbState.fever=true;
-  sbState.feverUntil = performance.now() + 3500;
-  if(sbHUD.coachLine) sbHUD.coachLine.textContent = sbI18n[sbLang].coachFever;
-  if(sbGameArea) sbGameArea.classList.add('fever');
-  sbShowFeedback('fever');
-  sbEmit('hha:coach', { text: sbI18n[sbLang].coachFever, fever:true });
-  sbLogEvent('fever_on', {});
-}
-function sbCheckFeverTick(now){
-  if(sbState.fever && now >= sbState.feverUntil){
-    sbState.fever=false;
-    if(sbGameArea) sbGameArea.classList.remove('fever');
-    if(sbHUD.coachLine) sbHUD.coachLine.textContent = sbI18n[sbLang].coachReady;
-    sbLogEvent('fever_off', {});
+// ---------------- boss phases ----------------
+function sbBossMaybePhase2(){
+  if(!sbState.bossActive || !sbState.activeBoss || !sbState.activeBossInfo) return;
+  const b = sbState.activeBoss;
+
+  // phase2 at <= 50% HP: spawn a drift or decoy pulse (seeded)
+  const ratio = b.maxHp > 0 ? (b.hp / b.maxHp) : 0;
+  if(!b.__phase2 && ratio <= 0.5){
+    b.__phase2 = true;
+
+    const info = sbState.activeBossInfo;
+    const name = (sbLang==='th'?info.nameTh:info.nameEn);
+    sbEmit('hha:coach', { text: sbI18n[sbLang].bossPhase2(name), boss: info.id, phase2:true });
+    sbLogEvent('boss_phase2', { bossId: info.id });
+
+    // phase2 effect: brief burst
+    const burst = (sbRand() < 0.5) ? 'drift' : 'decoy';
+    if(burst === 'drift'){
+      sbSpawnTarget(false, null, { drift:true, lifeMsOverride: Math.round(sbCfg.lifeMs*0.95) });
+      sbSpawnTarget(false, null, { drift:true, lifeMsOverride: Math.round(sbCfg.lifeMs*0.90), sizeOverride: 52 });
+    }else{
+      sbSpawnTarget(false, null, { decoy:true, lifeMsOverride: Math.round(sbCfg.lifeMs*1.05) });
+      sbSpawnTarget(false, null, { lifeMsOverride: Math.round(sbCfg.lifeMs*0.90) });
+    }
+  }
+
+  // near-death cosmetic
+  if(b.el && b.hp <= 2){
+    try{ b.el.classList.add('boss-final'); }catch(_){}
   }
 }
 
 // ---------------- hit logic ----------------
 function sbHitTarget(tObj, source='unknown'){
   if(!sbState.running || sbState.paused || !tObj.alive) return;
+
+  // DECOY: punish safely (combo break + miss)
+  if(tObj.decoy){
+    tObj.alive = false;
+    if(tObj.missTimer){ clearTimeout(tObj.missTimer); tObj.missTimer=null; }
+
+    try{ tObj.el && tObj.el.remove(); }catch(_){}
+
+    sbState.miss++;
+    sbState.combo = 0;
+    sbUpdateHUD();
+    sbShowFeedback('decoy');
+
+    const tip = sbI18n[sbLang].coachDecoy;
+    if(sbHUD.coachLine) sbHUD.coachLine.textContent = tip;
+    sbEmit('hha:coach', { text: tip, decoy:true });
+
+    sbAIUpdateOnOutcome('miss', null);
+    sbAIPredictAndTip();
+
+    sbLogEvent('decoy_hit', { id: tObj.id, source });
+    sbEmit('hha:score', { score: sbState.score, gained: 0, combo: sbState.combo, hit: sbState.hit, miss: sbState.miss, boss:false, decoy:true });
+    return;
+  }
 
   const now = performance.now();
   const rtMs = Math.round(now - (tObj.createdAt || now));
@@ -804,12 +1068,13 @@ function sbHitTarget(tObj, source='unknown'){
 
     sbLogEvent('hit', { id: tObj.id, boss: isBoss?1:0, hp: tObj.hp, gained, combo: sbState.combo, rtMs, source });
 
-    // AI metrics update
     sbAIUpdateOnOutcome('hit', rtMs);
     sbAIPredictAndTip();
 
     if(isBoss){
       sbUpdateBossHud();
+      sbBossMaybePhase2();
+
       if(!sbState.bossWarned && tObj.hp <= 2){
         sbState.bossWarned=true;
         const name = (sbLang==='th'?bossInfo.nameTh:bossInfo.nameEn);
@@ -838,7 +1103,6 @@ function sbHitTarget(tObj, source='unknown'){
 
   sbLogEvent('kill', { id: tObj.id, boss: isBoss?1:0, gained, combo: sbState.combo, rtMs, source });
 
-  // AI metrics update
   sbAIUpdateOnOutcome('hit', rtMs);
   sbAIPredictAndTip();
 
@@ -900,7 +1164,6 @@ window.addEventListener('hha:shoot', (ev)=>{
   const d = (ev && ev.detail) ? ev.detail : {};
   sbHitNearestTargetAtScreenXY(d.x, d.y, d.lockPx || 28, 'hha:shoot');
 });
-
 window.addEventListener('keydown',(ev)=>{
   if(!sbState.running || sbState.paused) return;
   if(ev.code==='Space'){
@@ -911,16 +1174,50 @@ window.addEventListener('keydown',(ev)=>{
   }
 });
 
-// ---------------- spawning ----------------
+// ---------------- moving targets update (Pack3 drift) ----------------
+let sbLastMoveTick = 0;
+function sbTickMovingTargets(now){
+  if(!sbState.running || sbState.paused) return;
+  if(!sbGameArea) return;
+
+  if(!sbLastMoveTick) sbLastMoveTick = now;
+  const dt = Math.min(0.05, Math.max(0.0, (now - sbLastMoveTick)/1000));
+  sbLastMoveTick = now;
+
+  const rect = sbGameArea.getBoundingClientRect();
+  const pad = 14;
+  const safeTop = 56;
+
+  for(const t of sbState.targets){
+    if(!t || !t.alive || !t.el || !t.drift) continue;
+
+    t.x += t.vx * dt;
+    t.y += t.vy * dt;
+
+    // bounce
+    const maxX = Math.max(pad, rect.width - t.size - pad);
+    const maxY = Math.max(pad + safeTop, rect.height - t.size - pad);
+
+    if(t.x < pad){ t.x = pad; t.vx = Math.abs(t.vx); }
+    if(t.x > maxX){ t.x = maxX; t.vx = -Math.abs(t.vx); }
+    if(t.y < pad + safeTop){ t.y = pad + safeTop; t.vy = Math.abs(t.vy); }
+    if(t.y > maxY){ t.y = maxY; t.vy = -Math.abs(t.vy); }
+
+    t.el.style.left = t.x + 'px';
+    t.el.style.top  = t.y + 'px';
+  }
+}
+
+// ---------------- spawning loops ----------------
 function sbStartSpawnLoop(){
   if(sbState.spawnTimer) clearInterval(sbState.spawnTimer);
   sbState.spawnTimer = setInterval(()=>{
     if(!sbState.running || sbState.paused) return;
 
-    // leave gaps sometimes
+    if(sbCountAliveTargets() >= sbCfg.maxOnScreen) return;
+
     if(sbRand() < sbCfg.gapProb) return;
 
-    // during boss: may reduce clutter based on AI
     if(sbState.bossActive && sbRand() < (1 - sbCfg.bossClutterProb)) return;
 
     sbSpawnTarget(false, null);
@@ -975,8 +1272,15 @@ function sbMainLoop(now){
 
   sbCheckFeverTick(now);
   sbMaybeSpawnBoss();
+  sbBossMaybePhase2();
 
-  // Pack2: adjust AI difficulty + prediction
+  // Pack3 drift updates
+  sbTickMovingTargets(now);
+
+  // Pack3 patterns
+  sbTickPattern();
+
+  // Pack2 AI
   sbAIAdjustDifficulty();
   sbAIPredictAndTip();
 
@@ -1005,8 +1309,9 @@ function sbDownloadCsv(){
     const header=[
       'studentId','schoolName','classRoom','groupCode','deviceType','language','note',
       'phase','mode','diff','gameId','gameVersion','sessionId','timeSec','score','hits','perfect','good','miss',
-      'accuracy','maxCombo','fever','timeUsedSec','seedRaw','seedU32','research','studyId','log','aiEnabled','aiLevelEnd',
-      'emaAccEnd','emaRTEnd','reason','createdAt','eventsKey','eventsCount'
+      'accuracy','maxCombo','fever','timeUsedSec','seedRaw','seedU32','research','studyId','log',
+      'aiEnabled','aiLevelEnd','emaAccEnd','emaRTEnd',
+      'patternsEnabled','reason','createdAt','eventsKey','eventsCount'
     ];
     rows.push(header.join(','));
     for(const rec of arr){
@@ -1095,6 +1400,7 @@ function sbEndGame(reason='end'){
     aiLevelEnd: +sbAI.level.toFixed(3),
     emaAccEnd:  +sbAI.emaAcc.toFixed(3),
     emaRTEnd:   Math.round(sbAI.emaRT),
+    patternsEnabled: SB_PATTERNS_ENABLED ? 1 : 0,
     reason,
     createdAt:  new Date().toISOString(),
     eventsKey,
@@ -1158,7 +1464,8 @@ function sbStartGame(){
     research: SB_IS_RESEARCH ? 1 : 0,
     seedU32: SB_SEED_U32 >>> 0,
     seedRaw: SB_SEED_RAW || '',
-    ai: SB_AI_ENABLED ? 1 : 0
+    ai: SB_AI_ENABLED ? 1 : 0,
+    patterns: SB_PATTERNS_ENABLED ? 1 : 0
   });
 
   document.body.classList.add('play-only');
@@ -1170,6 +1477,10 @@ function sbStartGame(){
   sbState.paused=false;
   sbState.startTime=0;
   sbLastTimeTick = -1;
+  sbLastMoveTick = 0;
+
+  // schedule first pattern (deterministic)
+  sbPattern.nextAtMs = 2400 + sbRandInt(900);
 
   if(sbStartBtn){
     sbStartBtn.disabled=true;
@@ -1188,7 +1499,8 @@ function sbStartGame(){
     seedU32: (SB_SEED_U32 >>> 0),
     research: SB_IS_RESEARCH ? 1 : 0,
     studyId: SB_STUDY_ID,
-    ai: SB_AI_ENABLED ? 1 : 0
+    ai: SB_AI_ENABLED ? 1 : 0,
+    patterns: SB_PATTERNS_ENABLED ? 1 : 0
   });
 
   sbLogEvent('start', { phase: sbPhase, mode: sbMode, diff: sbDiff });
