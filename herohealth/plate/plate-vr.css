@@ -1,10 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION)
-   Works with:
-   - /herohealth/plate/plate-vr.html (A32)
-   - /herohealth/plate/plate.boot.js
-   - /herohealth/plate/plate.safe.js (A34)
+   Balanced Plate VR — UI + Targets (PRODUCTION)
+   HHA Standard (Plate)
 ========================================================= */
 
 :root{
@@ -25,10 +22,23 @@
   --radius:18px;
   --pill:999px;
 
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* playfield paddings (กัน HUD / VRUI) */
+  --pf-top: calc(var(--sat) + 110px);   /* top HUD row + quest card */
+  --pf-bottom: calc(var(--sab) + 18px); /* safe for mobile */
+  --pf-side: calc(var(--sal) + 14px);
+
+  /* target tuning */
+  --t-font: 30px;
+  --t-ring: 10px;            /* ring thickness */
+  --t-glow: 22px;            /* glow radius */
+  --t-shadow: 0 22px 60px rgba(0,0,0,.42);
+  --t-pop: .14s;
 }
 
 /* ---------------------------------------------------------
@@ -41,292 +51,304 @@ html,body{
   width:100%;
   height:100%;
   overflow:hidden;
-  background:var(--bg);
+  background:radial-gradient(circle at 20% 10%, rgba(34,211,238,.10), transparent 40%),
+             radial-gradient(circle at 80% 20%, rgba(167,139,250,.09), transparent 46%),
+             radial-gradient(circle at 50% 100%, rgba(34,197,94,.08), transparent 55%),
+             var(--bg);
   color:var(--text);
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{
-  position:fixed;
-  inset:0;
-}
+#app{ position:relative; width:100%; height:100%; }
 
 /* ---------------------------------------------------------
-   Playfield / Spawn Layer
+   Playfield (Targets spawn inside this rect)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
-  bottom: calc(10px + var(--sab));
+  inset:0;
   z-index:10;
-
   pointer-events:auto;
   touch-action:none;
-  user-select:none;
-
-  /* subtle bg */
-  background:
-    radial-gradient(circle at 12% 10%, rgba(34,211,238,.10), transparent 40%),
-    radial-gradient(circle at 88% 20%, rgba(167,139,250,.08), transparent 42%),
-    radial-gradient(circle at 50% 92%, rgba(34,197,94,.08), transparent 48%),
-    linear-gradient(180deg, rgba(2,6,23,.40), rgba(2,6,23,.22));
-  border-radius: 22px;
-  border:1px solid rgba(148,163,184,.10);
 }
+
+/* Optional: make spawn bounds visible while debugging
+#plate-layer{ outline:1px dashed rgba(255,255,255,.12); }
+*/
 
 /* ---------------------------------------------------------
-   Target look (emoji clarity + VR-ish depth)
+   Target style (THIS is the “แบบรูป”)
 --------------------------------------------------------- */
-@keyframes platePop{
-  0%{ transform: translate(-50%,-50%) scale(.86); opacity:0; }
-  45%{ transform: translate(-50%,-50%) scale(1.06); opacity:1; }
-  100%{ transform: translate(-50%,-50%) scale(1); opacity:1; }
-}
-@keyframes plateWobble{
-  0%{ rotate:0deg; }
-  25%{ rotate:1.2deg; }
-  50%{ rotate:-1.2deg; }
-  75%{ rotate:.8deg; }
-  100%{ rotate:0deg; }
-}
-
 .plateTarget{
+  position:absolute;
   display:grid;
   place-items:center;
   border-radius:999px;
   user-select:none;
   cursor:pointer;
 
-  /* size is set inline by JS */
-  font-size:28px;
+  width:56px; height:56px; /* will be overridden by JS */
+  font-size:var(--t-font);
   font-weight:900;
   line-height:1;
 
+  /* core glossy body */
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.12), transparent 36%),
-    radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
-    rgba(2,6,23,.58);
-  border:1px solid rgba(148,163,184,.20);
+    radial-gradient(circle at 30% 22%, rgba(255,255,255,.14), transparent 38%),
+    radial-gradient(circle at 60% 72%, rgba(0,0,0,.22), transparent 48%),
+    rgba(2,6,23,.55);
 
-  backdrop-filter: blur(10px) saturate(1.12);
+  /* thick ring + subtle inner rim */
+  border: calc(var(--t-ring) + 1px) solid rgba(148,163,184,.22);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    inset 0 1px 0 rgba(255,255,255,.10);
+    var(--t-shadow),
+    0 0 var(--t-glow) rgba(148,163,184,.12),
+    inset 0 0 0 2px rgba(255,255,255,.06),
+    inset 0 10px 18px rgba(255,255,255,.04);
 
-  /* JS positions by translate3d(x,y,0) translate(-50%,-50%) */
-  animation: platePop .14s ease-out 0s 1;
-  transform: translate(-50%,-50%);
-  -webkit-tap-highlight-color: transparent;
-
-  /* emoji crisp */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-shadow: 0 2px 0 rgba(0,0,0,.22);
+  transform:translate(-50%,-50%);
+  animation: platePop var(--t-pop) ease-out, plateFloat 1.8s ease-in-out infinite;
+  will-change: transform, filter;
 }
 
-.plateTarget:active{
-  transform: translate(-50%,-50%) scale(.98);
+/* inner highlight ring */
+.plateTarget::before{
+  content:"";
+  position:absolute;
+  inset:10px;
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.06);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.22);
+  pointer-events:none;
 }
 
-/* Kind styling */
+/* outer glow aura */
+.plateTarget::after{
+  content:"";
+  position:absolute;
+  inset:-10px;
+  border-radius:999px;
+  background: radial-gradient(circle, rgba(255,255,255,.08), transparent 58%);
+  filter: blur(1px);
+  opacity:.9;
+  pointer-events:none;
+}
+
+/* Good / Junk colorways */
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.32);
+  border-color: rgba(34,197,94,.42);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    0 0 26px rgba(34,197,94,.12),
-    inset 0 1px 0 rgba(255,255,255,.10);
+    var(--t-shadow),
+    0 0 var(--t-glow) rgba(34,197,94,.26),
+    inset 0 0 0 2px rgba(255,255,255,.06),
+    inset 0 10px 18px rgba(255,255,255,.04);
 }
+
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.30);
+  border-color: rgba(239,68,68,.40);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    0 0 26px rgba(239,68,68,.12),
-    inset 0 1px 0 rgba(255,255,255,.10);
+    var(--t-shadow),
+    0 0 var(--t-glow) rgba(239,68,68,.22),
+    inset 0 0 0 2px rgba(255,255,255,.06),
+    inset 0 10px 18px rgba(255,255,255,.04);
+  animation-duration:1.25s;
+  filter:saturate(1.05);
 }
-.plateTarget.fade{
-  opacity:.45;
-  filter: saturate(.7);
+
+/* feedback states (optional hooks) */
+.plateTarget.is-hit{
+  animation: plateHit .18s ease-out;
+}
+.plateTarget.is-bad{
+  animation: plateHitBad .18s ease-out;
+}
+
+@keyframes platePop{
+  0%{ transform:translate(-50%,-50%) scale(.82); opacity:0; filter:brightness(.9); }
+  100%{ transform:translate(-50%,-50%) scale(1); opacity:1; filter:brightness(1); }
+}
+@keyframes plateFloat{
+  0%{ transform:translate(-50%,-50%) rotate(0deg); }
+  25%{ transform:translate(-50%,-50%) rotate(1.1deg); }
+  50%{ transform:translate(-50%,-50%) rotate(-1.1deg); }
+  75%{ transform:translate(-50%,-50%) rotate(.7deg); }
+  100%{ transform:translate(-50%,-50%) rotate(0deg); }
+}
+@keyframes plateHit{
+  0%{ transform:translate(-50%,-50%) scale(1); }
+  70%{ transform:translate(-50%,-50%) scale(1.14); filter:brightness(1.15); }
+  100%{ transform:translate(-50%,-50%) scale(1); }
+}
+@keyframes plateHitBad{
+  0%{ transform:translate(-50%,-50%) scale(1); }
+  70%{ transform:translate(-50%,-50%) scale(1.12); filter:brightness(1.05) saturate(1.2); }
+  100%{ transform:translate(-50%,-50%) scale(1); }
 }
 
 /* ---------------------------------------------------------
-   HUD (top row)
+   HUD
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
-  z-index:30;
-  pointer-events:none;
+  left:calc(var(--sal) + 12px);
+  right:calc(var(--sar) + 12px);
+  top:calc(var(--sat) + 10px);
+  z-index:60;
+  pointer-events:none; /* allow tap through */
 }
 
 .hudRow{
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
-  align-items:flex-start;
-  pointer-events:none;
+  align-items:stretch;
+  justify-content:flex-start;
 }
 
 .chip{
-  pointer-events:auto;
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.72);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
+  pointer-events:none;
   padding:10px 12px;
-  min-width: 150px;
+  border-radius:999px;
+  background:rgba(2,6,23,.70);
+  border:1px solid rgba(148,163,184,.22);
+  backdrop-filter:blur(10px);
+  box-shadow:0 16px 50px rgba(0,0,0,.28);
+  display:flex;
+  gap:10px;
+  align-items:baseline;
+  min-width:110px;
 }
 
 .chip .lbl{
-  display:block;
-  font-weight:1000;
   font-size:11px;
-  letter-spacing:.3px;
-  color: rgba(229,231,235,.92);
+  letter-spacing:.10em;
+  color:rgba(226,232,240,.70);
+  font-weight:900;
 }
 .chip .val{
-  display:block;
-  margin-top:6px;
-  font-weight:1200;
   font-size:18px;
-  color: rgba(229,231,235,.98);
+  font-weight:900;
+  color:var(--text);
 }
 
-.chip.score{ border-color: rgba(34,197,94,.22); }
-.chip.time{ border-color: rgba(34,211,238,.22); }
-.chip.combo{ border-color: rgba(167,139,250,.22); }
+.chip.score{ border-color:rgba(34,197,94,.30); }
+.chip.time{ border-color:rgba(34,211,238,.22); }
+.chip.combo{ border-color:rgba(167,139,250,.22); }
 
-/* ---------------------------------------------------------
-   Quest Card
---------------------------------------------------------- */
+/* Quest card */
 .card{
-  pointer-events:auto;
-  background: var(--panel2);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
   margin-top:10px;
-  padding:12px;
-  max-width: 560px;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+  backdrop-filter:blur(10px);
 }
 
-#questCard{
-  pointer-events:auto;
-}
+#questCard{ padding:12px 12px 10px; }
 
 .cardTitle{
   display:flex;
+  align-items:flex-start;
   justify-content:space-between;
   gap:10px;
-  align-items:flex-start;
-  flex-wrap:wrap;
-  margin-bottom:10px;
+  padding-bottom:8px;
+  border-bottom:1px solid rgba(148,163,184,.10);
 }
 
 .cardTitle .t{
-  font-weight:1200;
+  font-weight:900;
   font-size:13px;
 }
 .cardTitle .hint{
-  color: rgba(148,163,184,.95);
-  font-weight:900;
   font-size:12px;
-  line-height:1.25;
+  color:var(--muted);
+  font-weight:800;
+  text-align:right;
+  max-width:56%;
 }
 
 .qItem{
   display:flex;
-  justify-content:space-between;
-  gap:10px;
   align-items:center;
-  padding:10px 10px;
-  border-radius:16px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.46);
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 4px 8px;
 }
-.qItem + .qItem{ margin-top:8px; }
 
 .qText .name{
-  font-weight:1200;
-  font-size:12px;
+  font-weight:900;
+  font-size:13px;
 }
 .qText .sub{
-  margin-top:4px;
-  color: rgba(148,163,184,.95);
-  font-weight:900;
   font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+  margin-top:2px;
 }
 
 .qProg{
-  min-width: 170px;
-  text-align:right;
+  min-width:160px;
+  display:grid;
+  gap:6px;
+  justify-items:end;
 }
 .qNums{
-  font-weight:1100;
   font-size:12px;
-  color: rgba(229,231,235,.95);
+  font-weight:900;
+  color:rgba(226,232,240,.88);
 }
 .bar{
-  margin-top:8px;
+  width:160px;
   height:10px;
   border-radius:999px;
-  background: rgba(148,163,184,.12);
+  background:rgba(148,163,184,.12);
   overflow:hidden;
-  border:1px solid rgba(148,163,184,.10);
 }
-.bar > i{
+.bar>i{
   display:block;
   height:100%;
   width:0%;
-  background: rgba(34,197,94,.85);
-  transition: width .22s ease;
+  background:var(--accent);
+  transition:width .22s ease;
 }
-#miniBar{ background: rgba(245,158,11,.85); }
 
 /* ---------------------------------------------------------
    Coach bubble
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  left: calc(10px + var(--sal));
-  bottom: calc(10px + var(--sab));
-  z-index:40;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:calc(var(--sab) + 16px);
+  z-index:70;
   pointer-events:none;
-
   opacity:0;
-  transform: translateY(10px);
-  transition: opacity .14s ease, transform .14s ease;
+  transition:opacity .18s ease, transform .18s ease;
 }
 #coachCard.show{
   opacity:1;
-  transform: translateY(0);
+  transform:translateX(-50%) translateY(-4px);
 }
 #coachCard .inner{
-  pointer-events:auto;
-  background: rgba(15,23,42,.78);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding:12px 14px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.36);
-  backdrop-filter: blur(10px);
-  min-width: min(520px, calc(100vw - 20px));
-  max-width: 720px;
+  background:rgba(2,6,23,.76);
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:18px;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  backdrop-filter:blur(10px);
+  padding:10px 12px;
+  min-width:260px;
+  max-width:min(520px, calc(100vw - 24px));
 }
 #coachMsg{
-  font-weight:1200;
-  font-size:13px;
-  line-height:1.35;
-}
-#coachMeta{
-  margin-top:6px;
-  color: rgba(148,163,184,.95);
   font-weight:900;
-  font-size:12px;
+  font-size:13px;
+}
+#coachCard .meta{
+  margin-top:4px;
+  font-size:11px;
+  color:rgba(226,232,240,.70);
+  font-weight:900;
+  letter-spacing:.08em;
 }
 
 /* ---------------------------------------------------------
@@ -335,123 +357,136 @@ html,body{
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index:80;
+  z-index:90;
   display:grid;
   place-items:center;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: rgba(2,6,23,.60);
+  padding: calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
+  background:rgba(2,6,23,.72);
   backdrop-filter: blur(10px);
-
-  /* plate.boot.js controls aria-hidden only */
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
 }
-#endOverlay[aria-hidden="true"]{
-  display:none;
+#endOverlay[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
 }
 
 .endPanel{
-  width: min(860px, 100%);
-  background: rgba(2,6,23,.86);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 22px;
-  box-shadow: 0 26px 90px rgba(0,0,0,.46);
+  width:min(720px, 96vw);
+  background:rgba(15,23,42,.78);
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:22px;
+  box-shadow:0 26px 90px rgba(0,0,0,.45);
   padding:16px;
 }
 
 .endTitle{
   display:flex;
+  align-items:flex-end;
   justify-content:space-between;
-  align-items:flex-start;
   gap:10px;
-  flex-wrap:wrap;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(148,163,184,.12);
 }
 .endTitle h2{
   margin:0;
-  font-weight:1300;
   font-size:18px;
+  font-weight:900;
 }
-.tag{
-  border-radius:999px;
+.endTitle .tag{
+  font-size:11px;
+  font-weight:900;
   padding:6px 10px;
-  border:1px solid rgba(34,197,94,.26);
-  background: rgba(34,197,94,.12);
-  font-weight:1100;
-  font-size:12px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(2,6,23,.55);
+  color:rgba(226,232,240,.86);
 }
 
 .endGrid{
-  margin-top:12px;
   display:grid;
   grid-template-columns: repeat(3, minmax(0,1fr));
   gap:10px;
+  margin-top:12px;
 }
 .kpi{
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.65);
-  padding:12px;
+  background:rgba(2,6,23,.55);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:16px;
+  padding:10px 12px;
+  box-shadow:0 16px 48px rgba(0,0,0,.26);
 }
 .kpi .k{
-  font-weight:1000;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
+  font-size:11px;
+  color:rgba(226,232,240,.70);
+  font-weight:900;
+  letter-spacing:.08em;
 }
 .kpi .v{
-  margin-top:8px;
-  font-weight:1300;
+  margin-top:4px;
   font-size:18px;
+  font-weight:900;
 }
 
 .endBtns{
-  margin-top:14px;
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
   justify-content:flex-end;
+  margin-top:14px;
 }
 
-/* ---------------------------------------------------------
-   Buttons
---------------------------------------------------------- */
 .btn{
   appearance:none;
   border:none;
   border-radius:999px;
   padding:10px 14px;
-  font-weight:1100;
+  font-weight:900;
   font-size:12px;
   cursor:pointer;
-  color: rgba(229,231,235,.95);
-  background: rgba(2,6,23,.70);
+  color:var(--text);
+  background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 16px 40px rgba(0,0,0,.32);
-  -webkit-tap-highlight-color: transparent;
+  backdrop-filter:blur(10px);
 }
-.btn:active{ transform: translateY(1px); }
-
 .btn.primary{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.32);
+  background:rgba(34,197,94,.18);
+  border-color:rgba(34,197,94,.35);
 }
 
 /* ---------------------------------------------------------
    Responsive tuning
 --------------------------------------------------------- */
-@media (max-width: 920px){
-  #plate-layer{
-    left: calc(8px + var(--sal));
-    right: calc(8px + var(--sar));
-    top: calc(8px + var(--sat));
-    bottom: calc(8px + var(--sab));
+@media (max-width: 900px){
+  :root{
+    --t-font: 26px;
+    --t-ring: 9px;
+    --pf-top: calc(var(--sat) + 122px);
   }
+  .chip{ min-width:98px; padding:9px 10px; }
+  .chip .val{ font-size:16px; }
+  .qProg{ min-width:140px; }
+  .bar{ width:140px; }
+  .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
 
-  .chip{ min-width: 140px; }
-  .chip .val{ font-size: 17px; }
+@media (max-width: 420px){
+  :root{
+    --t-font: 24px;
+    --t-ring: 8px;
+    --pf-top: calc(var(--sat) + 132px);
+  }
+  .cardTitle .hint{ max-width:52%; }
+  .endBtns{ justify-content:stretch; }
+  .endBtns .btn{ flex:1; }
+}
 
-  .card{ max-width: 100%; }
-
-  .qProg{ min-width: 150px; }
-
-  .plateTarget{ font-size: 24px; }
-  .endGrid{ grid-template-columns: 1fr; }
+/* ---------------------------------------------------------
+   View-specific tweaks (optional)
+--------------------------------------------------------- */
+body.view-vr #hud,
+body.view-cvr #hud{
+  /* ใน VR อยากให้ HUD ไม่บังเป้าเกินไป */
+  top:calc(var(--sat) + 8px);
+  opacity:.96;
 }
