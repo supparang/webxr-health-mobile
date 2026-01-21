@@ -1,12 +1,10 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened) — LATEST
+// HHA Cloud Logger — PRODUCTION (flush-hardened)
 // ✅ Listens: hha:end -> sends session summary JSON
-// ✅ Listens: hha:ml_row -> sends ML telemetry rows (1Hz from game)
-// ✅ Listens: hha:predict (optional) -> sends prediction stream if you emit it
 // ✅ Queue persist localStorage (offline-safe)
 // ✅ keepalive + sendBeacon fallback
 // ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ FIX: DO NOT hardcode gameMode='goodjunk' (use event.detail.gameMode)
+// ✅ FIX: gameMode from event (not hardcode goodjunk)
 
 (function(){
   'use strict';
@@ -24,7 +22,7 @@
     try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }catch(_){ return []; }
   }
   function saveQ(q){
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(q.slice(-120))); }catch(_){}
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(q.slice(-80))); }catch(_){}
   }
 
   let queue = loadQ();
@@ -35,15 +33,8 @@
       timestampIso: new Date().toISOString(),
       href: location.href,
       ua: navigator.userAgent || '',
-      projectTag: qs('projectTag','HeroHealth'),
+      game: 'HeroHealth',
     };
-  }
-
-  function detectDevice(){
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v) return v;
-    const isTouch = ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
-    return isTouch ? 'mobile' : 'pc';
   }
 
   function enqueue(obj){
@@ -54,13 +45,11 @@
   async function postJson(url, obj){
     try{
       const body = JSON.stringify(obj);
-
       // try sendBeacon first for unload safety
       if(navigator.sendBeacon){
         const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if(ok) return true;
       }
-
       const res = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
@@ -88,7 +77,7 @@
     for(let i=0;i<q.length;i++){
       const ok = await postJson(ENDPOINT, q[i]);
       if(ok) sent++;
-      else break; // stop if offline / failing
+      else break; // stop if offline
     }
 
     if(sent > 0){
@@ -99,85 +88,38 @@
     flushing = false;
   }
 
-  // --- Pack helpers ---
-  function packCommonFromDetail(d){
-    const device = d.device || detectDevice();
-    const runMode = d.runMode || qs('run','play');
-    const diff = d.diff || qs('diff','normal');
-    const seed = d.seed || qs('seed','') || '';
-    const sessionId =
-      d.sessionId ||
-      qs('sessionId','') ||
-      qs('studentKey','') ||
-      qs('studyId','') ||
-      '';
-
-    const gameMode =
-      d.gameMode ||
-      d.game ||
-      qs('gameMode','') ||
-      qs('game','') ||
-      'unknown';
-
-    return { device, runMode, diff, seed, sessionId, gameMode };
-  }
-
-  // --- Session end ---
+  // Listen end summary
   function onEnd(ev){
     try{
       const d = ev?.detail || {};
-      const common = packCommonFromDetail(d);
-
-      // Keep original payload as much as possible, but normalize core identifiers
-      const pack = Object.assign(payloadBase(), d, common, {
+      const pack = Object.assign(payloadBase(), {
         kind: 'session',
+
+        // ✅ FIX: take from event first
+        gameMode: d.gameMode || d.game || qs('gameMode','') || 'unknown',
+
+        runMode: d.runMode || qs('run','play'),
+        diff: d.diff || qs('diff','normal'),
+        device: d.device || qs('view',''),
+        durationPlannedSec: Number(d.durationPlannedSec || qs('time','0')) || 0,
+        durationPlayedSec: Number(d.durationPlayedSec || 0) || 0,
+        scoreFinal: Number(d.scoreFinal || 0) || 0,
+        misses: Number(d.misses || 0) || 0,
+        grade: d.grade || '—',
+        reason: d.reason || 'end',
+        seed: d.seed || qs('seed','') || '',
       });
 
-      // Ensure numeric sanity for key fields (won't break if absent)
-      pack.durationPlannedSec = Number(pack.durationPlannedSec || qs('time','0') || 0) || 0;
-      pack.durationPlayedSec  = Number(pack.durationPlayedSec || 0) || 0;
-      pack.scoreFinal         = Number(pack.scoreFinal || 0) || 0;
-      pack.misses             = Number(pack.misses || 0) || 0;
+      // attach full detail (so sheets has everything)
+      // keep top-level fields for easy filtering, but also store raw summary
+      pack.summary = d;
 
       enqueue(pack);
       flush(); // best-effort immediate
     }catch(_){}
   }
 
-  // --- ML telemetry row (1Hz) ---
-  function onMLRow(ev){
-    try{
-      const d = ev?.detail || {};
-      const common = packCommonFromDetail(d);
-
-      const pack = Object.assign(payloadBase(), d, common, {
-        kind: 'ml_row',
-      });
-
-      enqueue(pack);
-      // ไม่ต้อง flush ทุกแถวก็ได้ แต่ตอนนี้ให้ flush best-effort (มี queue กันอยู่แล้ว)
-      flush();
-    }catch(_){}
-  }
-
-  // --- Prediction stream (optional) ---
-  function onPredict(ev){
-    try{
-      const d = ev?.detail || {};
-      const common = packCommonFromDetail(d);
-
-      const pack = Object.assign(payloadBase(), d, common, {
-        kind: 'predict',
-      });
-
-      enqueue(pack);
-      flush();
-    }catch(_){}
-  }
-
   WIN.addEventListener('hha:end', onEnd, { passive:true });
-  WIN.addEventListener('hha:ml_row', onMLRow, { passive:true });
-  WIN.addEventListener('hha:predict', onPredict, { passive:true });
 
   // Manual flush hook
   WIN.addEventListener('hha:flush', ()=>flush(), { passive:true });
@@ -191,13 +133,5 @@
 
   // periodic flush (in case offline -> online)
   setInterval(()=>flush(), 3500);
-
-  // Expose minimal state (optional)
-  WIN.HHA_LOGGER = {
-    enabled: !!ENDPOINT,
-    endpoint: ENDPOINT,
-    flush,
-    getQueueSize: ()=> (queue?.length|0),
-  };
 
 })();
