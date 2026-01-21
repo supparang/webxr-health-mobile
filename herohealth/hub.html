@@ -102,6 +102,7 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
     .tag.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
     .tag.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
     .tag.cyan{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
+    .tag.violet{ border-color: rgba(167,139,250,.38); background: rgba(167,139,250,.10); }
     .meta{
       margin-top:10px;
       background:var(--panel2);
@@ -144,6 +145,17 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       <div class="hr"></div>
 
       <div class="grid">
+
+        <!-- ✅ NEW: HygieneVR -->
+        <div class="card">
+          <div class="h">🧼 Hygiene VR</div>
+          <button class="btn" id="btnHygieneLauncher" type="button">
+            <span>เข้า Launcher (Auto-detect)</span>
+            <span class="tag cyan">new</span>
+          </button>
+          <div class="hint" style="margin-top:10px;">ไฟล์: <span class="mono">/herohealth/hygiene-vr.html</span></div>
+        </div>
+
         <div class="card">
           <div class="h">🥦🍟 GoodJunkVR</div>
           <button class="btn" id="btnGoodJunkLauncher" type="button">
@@ -168,17 +180,18 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
             <span>เข้าหน้าเกม (Run)</span>
             <span class="tag warn">direct</span>
           </button>
-          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/hydration-vr/hydration-vr.html</span> (ถ้าไฟล์มีอยู่)</div>
+          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/hydration-vr/hydration-vr.html</span></div>
         </div>
 
         <div class="card">
           <div class="h">🍱 Balanced Plate VR</div>
           <button class="btn" id="btnPlateRun" type="button">
             <span>เข้าหน้าเกม (Run)</span>
-            <span class="tag warn">direct</span>
+            <span class="tag violet">direct</span>
           </button>
-          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/plate/plate-vr.html</span> หรือ <span class="mono">/herohealth/plate/plate.html</span> (ตามไฟล์จริง)</div>
+          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/plate/plate-vr.html</span> (ตามที่คุณตั้งไว้)</div>
         </div>
+
       </div>
 
       <div class="hr"></div>
@@ -195,21 +208,18 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
   const DOC = document;
 
   function baseHubUrl(){
-    // เอา HUB ปัจจุบันเป็นตัวกลับ (รวม query ปัจจุบันด้วย)
-    return location.href;
+    return location.href; // รวม query ปัจจุบันด้วย
   }
 
   function buildTo(path){
     const to = new URL(path, location.href);
     const sp = new URL(location.href).searchParams;
 
-    // ส่งพารามิเตอร์ทั้งหมดต่อไป ยกเว้น hub เดิม (จะเขียนใหม่)
     sp.forEach((v,k)=>{
       if (k === 'hub') return;
       if (!to.searchParams.has(k)) to.searchParams.set(k, v);
     });
 
-    // ใส่ hub กลับมาหน้านี้
     to.searchParams.set('hub', baseHubUrl());
     return to.toString();
   }
@@ -238,6 +248,11 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
 
   setMeta();
 
+  // ✅ NEW: Hygiene launcher
+  DOC.getElementById('btnHygieneLauncher').addEventListener('click', ()=>{
+    location.href = buildTo('./hygiene-vr.html');
+  });
+
   DOC.getElementById('btnGoodJunkLauncher').addEventListener('click', ()=>{
     location.href = buildTo('./goodjunk-vr-launcher.html');
   });
@@ -251,7 +266,6 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
   });
 
   DOC.getElementById('btnPlateRun').addEventListener('click', ()=>{
-    // ปรับปลายทางให้ตรงไฟล์จริงถ้าชื่อไม่ใช่นี้
     location.href = buildTo('./plate/plate-vr.html');
   });
 
