@@ -1,16 +1,16 @@
-// === VR Fitness — Shadow Breaker (Production v1 + Pack1 Research-Ready) ===
+// === VR Fitness — Shadow Breaker (Production v1 + Pack2 AI Director + Predict) ===
 // ✅ HeroHealth-like: hha:shoot support (crosshair/tap-to-shoot via vr-ui.js)
 // ✅ HHA events: hha:start / hha:time / hha:score / hha:end / hha:flush
-// ✅ Pack1: Seeded RNG (deterministic in research) + telemetry event log + flush-hardened
+// ✅ Pack1: Seeded RNG (deterministic in research) + telemetry events + flush-hardened
+// ✅ Pack2: AI Difficulty Director (play only) + AI Predict micro-tips (rate-limited)
 // ✅ Boss HUD bar + safe spawn + feedback fixed
-// ✅ Pass-through: hub/view/seed/research/studyId/log etc.
 
 (function(){
 'use strict';
 
 // ---------------- identity ----------------
 const SB_GAME_ID = 'shadow-breaker';
-const SB_GAME_VERSION = '1.0.0-prod-pack1';
+const SB_GAME_VERSION = '1.0.0-prod-pack2';
 
 const SB_STORAGE_KEY = 'ShadowBreakerSessions_v1';
 const SB_META_KEY    = 'ShadowBreakerMeta_v1';
@@ -25,13 +25,17 @@ const sbTimeSec = (()=>{ const t=parseInt(qs('time','60'),10); return (Number.is
 
 const SB_SEED_RAW = (qs('seed','')||'').trim();
 const SB_STUDY_ID = (qs('studyId','')||'').trim();
-const SB_LOG      = (qs('log','')||'').trim();     // if you use cloud logger elsewhere
+const SB_LOG      = (qs('log','')||'').trim();
 const SB_HUB      = (qs('hub','')||'').trim();
 
+// research rule
 const SB_IS_RESEARCH = (()=> {
   const r = (qs('research','')||'').toLowerCase();
   return r==='1' || r==='true' || r==='on' || !!SB_STUDY_ID || !!SB_LOG;
 })();
+
+// Pack2 toggle (play only)
+const SB_AI_ENABLED = (!SB_IS_RESEARCH) && ((qs('ai','1')||'1') !== '0');
 
 // ---------------- DOM ----------------
 const $  = (s) => document.querySelector(s);
@@ -87,6 +91,8 @@ const sbDownloadCsvBtn =
 // ---------------- helpers ----------------
 function sbEmit(name, detail = {}){ try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){} }
 function clamp(n,a,b){ n=+n; if(!Number.isFinite(n)) return a; return Math.max(a, Math.min(b,n)); }
+function lerp(a,b,t){ return a + (b-a)*clamp(t,0,1); }
+function sigmoid(z){ return 1/(1+Math.exp(-z)); }
 
 // ---------------- device detect ----------------
 function sbDetectDevice() {
@@ -102,7 +108,21 @@ const sbDiffCfg = {
   normal: { spawnMs: 700, bossHp: 9 },
   hard:   { spawnMs: 520, bossHp: 12 },
 };
-const sbCfg = sbDiffCfg[sbDiff] || sbDiffCfg.normal;
+const sbCfgBase = sbDiffCfg[sbDiff] || sbDiffCfg.normal;
+
+// Pack2: runtime config (AI may modify in play)
+const sbCfg = {
+  spawnMs: sbCfgBase.spawnMs,
+  bossHp:  sbCfgBase.bossHp,
+
+  // target life
+  lifeMs: 2300,
+  bossLifeMs: 6500,
+
+  // spawn behavior knobs
+  gapProb: 0.10,
+  bossClutterProb: 0.50,
+};
 
 // ---------------- bosses & emojis ----------------
 const SB_NORMAL_EMOJIS = ['🎯','💥','⭐','⚡','🔥','🥎','🌀'];
@@ -121,6 +141,9 @@ const sbI18n = {
     coachGood:'สวยมาก! ต่อคอมโบยาว ๆ ✨',
     coachMiss:'พลาดนิดเดียว ไม่เป็นไร 💪',
     coachFever:'FEVER!! ทุบให้สุด!! 🔥',
+    coachFocus:'โฟกัสกลางจอ ลดรีบ แล้วกดให้เป๊ะ 🎯',
+    coachBreathe:'พักหายใจ 1 วิ แล้วกลับมาเก็บคอมโบ 💨',
+    coachChallenge:'โหดขึ้นนิดนะ! เก็บคอมโบให้ได้ 🔥',
     tagGoal:'เป้าหมาย: ต่อย/ยิงเป้า emoji ให้ทันเวลา รักษาคอมโบ และพิชิตบอสทั้ง 4 ตัว.',
     alertMeta:'กรุณากรอกอย่างน้อย Student ID ก่อนเริ่มเล่นนะครับ',
     feverLabel:'FEVER!!',
@@ -134,6 +157,9 @@ const sbI18n = {
     coachGood:'Nice! Keep the combo! ✨',
     coachMiss:'Missed a bit. Try again! 💪',
     coachFever:'FEVER!! Smash!! 🔥',
+    coachFocus:'Focus center, slow down, be precise 🎯',
+    coachBreathe:'Breathe 1 sec, then rebuild combo 💨',
+    coachChallenge:'A bit harder now—keep that combo 🔥',
     tagGoal:'Goal: hit emoji targets quickly, keep combo, defeat all bosses.',
     alertMeta:'Please fill at least the Student ID before starting.',
     feverLabel:'FEVER!!',
@@ -142,10 +168,9 @@ const sbI18n = {
     bossAppear:(name)=>`${name} appeared!`,
   }
 };
-
 let sbLang = 'th';
 
-// ---------------- Pack1: Seeded RNG (deterministic in research) ----------------
+// ---------------- Pack1: Seeded RNG ----------------
 function fnv1a32(str){
   let h = 0x811c9dc5;
   for (let i=0;i<str.length;i++){
@@ -157,53 +182,36 @@ function fnv1a32(str){
 function parseSeedToU32(seedStr){
   const s = (seedStr||'').trim();
   if(!s) return 0;
-  // numeric?
   if(/^\d+$/.test(s)){
     const n = Number(s);
     if(Number.isFinite(n)) return (n >>> 0);
   }
-  // hash string
   return fnv1a32(s);
 }
 function makeXorShift32(seedU32){
-  let x = (seedU32 >>> 0) || 0x9e3779b9; // non-zero default
+  let x = (seedU32 >>> 0) || 0x9e3779b9;
   return {
     u32(){
-      // xorshift32
       x ^= (x << 13); x >>>= 0;
       x ^= (x >>> 17); x >>>= 0;
       x ^= (x << 5);  x >>>= 0;
       return x >>> 0;
     },
     float(){
-      // [0,1)
       return (this.u32() / 4294967296);
     }
   };
 }
-
-// rng wiring
 let SB_SEED_U32 = parseSeedToU32(SB_SEED_RAW);
 let sbRng = null;
 let sbRand = Math.random;
 
 function sbResolveResearchSeed(metaStudentId=''){
-  // If query seed exists -> use it
   if (SB_SEED_U32) return SB_SEED_U32;
-
-  // Deterministic research seed (no Date) — ties to participant + condition
   const sid = (metaStudentId||'').trim();
-  const key = [
-    'SB',
-    SB_STUDY_ID || 'nostudy',
-    sid || 'nosid',
-    sbPhase, sbMode, sbDiff,
-    String(sbTimeSec),
-    // optional: view/device can be included if you want separate sequences per device
-  ].join('|');
+  const key = ['SB', SB_STUDY_ID||'nostudy', sid||'nosid', sbPhase, sbMode, sbDiff, String(sbTimeSec)].join('|');
   return fnv1a32(key);
 }
-
 function sbInitRng(seedU32){
   sbRng = makeXorShift32(seedU32 >>> 0);
   sbRand = ()=> sbRng.float();
@@ -213,13 +221,11 @@ function sbRandInt(maxExclusive){
   return Math.floor(sbRand() * m);
 }
 
-// ---------------- Pack1: Telemetry event log ----------------
+// ---------------- Pack1: Telemetry events ----------------
 const SB_EVENTS_MAX = 2500;
-let sbEvents = []; // [{t,type,...}]
+let sbEvents = [];
 
-function sbNowElapsedMs(){
-  return Math.max(0, Math.round(sbState.elapsedMs || 0));
-}
+function sbNowElapsedMs(){ return Math.max(0, Math.round(sbState.elapsedMs || 0)); }
 function sbLogEvent(type, data = {}){
   try{
     if(sbEvents.length >= SB_EVENTS_MAX) return;
@@ -253,14 +259,14 @@ function sbFlushSnapshot(reason){
       bossActive: sbState.bossActive ? 1 : 0,
       seedU32: SB_SEED_U32 >>> 0,
       research: SB_IS_RESEARCH ? 1 : 0,
+      ai: SB_AI_ENABLED ? 1 : 0,
+      aiLevel: Number(sbAI.level||0).toFixed(3),
       phase: sbPhase, mode: sbMode, diff: sbDiff,
       timeSec: (sbMode==='endless') ? 0 : sbTimeSec,
       ts: new Date().toISOString(),
     };
     sbLogEvent('flush', { reason: snap.reason });
-    // push to any global flush handler (ex: hha-cloud-logger.js)
     sbEmit('hha:flush', snap);
-    // also persist events snapshot best-effort
     sbPersistEvents(sbState.sessionId);
   }catch(_){}
 }
@@ -291,9 +297,154 @@ const sbState = {
   bossQueue:[],
   bossActive:false,
   bossWarned:false,
-  activeBoss:null,     // tObj
-  activeBossInfo:null, // boss info
+  activeBoss:null,
+  activeBossInfo:null,
 };
+
+// ---------------- Pack2: AI Difficulty Director + Predict ----------------
+const sbAI = {
+  enabled: SB_AI_ENABLED ? 1 : 0,
+  // base level from diff
+  level: (sbDiff==='easy') ? 0.25 : (sbDiff==='hard') ? 0.75 : 0.50, // 0..1
+  // rolling metrics (EMA)
+  emaAcc: 0.60,
+  emaRT:  900,     // ms
+  missStreak: 0,
+  hitStreak: 0,
+  lastTipAt: 0,
+  // book-keeping
+  lastAdjustAt: 0,
+  adjustEveryMs: 2600,
+};
+
+function sbAIUpdateOnOutcome(outcome, rtMs){
+  if(!SB_AI_ENABLED) return;
+
+  const alpha = 0.18; // EMA smoothing
+  const ok = (outcome === 'hit');
+  const acc01 = ok ? 1 : 0;
+
+  sbAI.emaAcc = (1-alpha)*sbAI.emaAcc + alpha*acc01;
+
+  if(Number.isFinite(rtMs) && rtMs>0 && rtMs<6000){
+    const a2 = 0.14;
+    sbAI.emaRT = (1-a2)*sbAI.emaRT + a2*rtMs;
+  }
+
+  if(ok){
+    sbAI.hitStreak++;
+    sbAI.missStreak = 0;
+  }else{
+    sbAI.missStreak++;
+    sbAI.hitStreak = 0;
+  }
+
+  sbLogEvent('ai_metrics', {
+    emaAcc: +sbAI.emaAcc.toFixed(3),
+    emaRT: Math.round(sbAI.emaRT),
+    missStreak: sbAI.missStreak,
+    hitStreak: sbAI.hitStreak,
+    level: +sbAI.level.toFixed(3)
+  });
+}
+
+function sbAIPredictAndTip(){
+  if(!SB_AI_ENABLED) return;
+  const now = performance.now();
+  if(now - sbAI.lastTipAt < 8000) return; // rate limit
+
+  // simple "ML-like" prediction (logistic regression style)
+  // features: emaAcc, emaRT, missStreak, current level
+  const acc = sbAI.emaAcc;                   // 0..1
+  const rtN = (sbAI.emaRT - 900) / 400;      // roughly -1..+?
+  const ms  = clamp(sbAI.missStreak, 0, 5);  // 0..5
+  const lvl = sbAI.level;                    // 0..1
+
+  // z: higher => more likely to miss soon / overload
+  const z =
+    (+1.10*(ms>=2 ? 1:0)) +
+    (+0.85*rtN) +
+    (+0.60*(lvl-0.5)) +
+    (-2.10*(acc-0.6));
+
+  const pOverload = sigmoid(z);
+
+  if(pOverload > 0.72){
+    sbAI.lastTipAt = now;
+    const t = sbI18n[sbLang];
+    const tip = (sbAI.missStreak >= 3) ? t.coachBreathe : t.coachFocus;
+    if(sbHUD.coachLine) sbHUD.coachLine.textContent = tip;
+    sbEmit('hha:coach', { text: tip, ai:true, pOverload:+pOverload.toFixed(3) });
+    sbLogEvent('ai_tip', { kind:'support', p:+pOverload.toFixed(3) });
+  }else if(pOverload < 0.28 && sbState.combo >= 3){
+    sbAI.lastTipAt = now;
+    const t = sbI18n[sbLang];
+    const tip = t.coachChallenge;
+    if(sbHUD.coachLine) sbHUD.coachLine.textContent = tip;
+    sbEmit('hha:coach', { text: tip, ai:true, pOverload:+pOverload.toFixed(3) });
+    sbLogEvent('ai_tip', { kind:'challenge', p:+pOverload.toFixed(3) });
+  }
+}
+
+function sbAIAdjustDifficulty(){
+  if(!SB_AI_ENABLED || !sbState.running || sbState.paused) return;
+
+  const now = performance.now();
+  if(now - sbAI.lastAdjustAt < sbAI.adjustEveryMs) return;
+  sbAI.lastAdjustAt = now;
+
+  // target difficulty based on performance:
+  // - if acc high & rt low & combo stable => increase
+  // - if miss streak or slow rt => decrease
+  const acc = sbAI.emaAcc;
+  const rt  = sbAI.emaRT;
+  const ms  = sbAI.missStreak;
+
+  let delta = 0;
+
+  if(ms >= 3) delta -= 0.12;
+  else if(ms === 2) delta -= 0.07;
+
+  if(acc > 0.78 && rt < 780) delta += 0.08;
+  else if(acc > 0.70 && rt < 900) delta += 0.05;
+
+  if(acc < 0.45) delta -= 0.06;
+  if(rt > 1200)  delta -= 0.05;
+
+  // small inertia
+  delta = clamp(delta, -0.12, 0.10);
+  sbAI.level = clamp(sbAI.level + delta, 0.12, 0.92);
+
+  // map level to parameters (smooth)
+  const baseSpawn = sbCfgBase.spawnMs;
+  sbCfg.spawnMs = Math.round(clamp(lerp(baseSpawn*1.25, baseSpawn*0.75, sbAI.level), 360, 1100));
+  sbCfg.lifeMs  = Math.round(clamp(lerp(2600, 1700, sbAI.level), 1400, 2900));
+  sbCfg.bossLifeMs = Math.round(clamp(lerp(7200, 5200, sbAI.level), 4200, 9000));
+
+  const baseBoss = sbCfgBase.bossHp;
+  const bossAdj = Math.round(lerp(-1, +3, sbAI.level));
+  sbCfg.bossHp = clamp(baseBoss + bossAdj, 4, 18);
+
+  sbCfg.gapProb = clamp(lerp(0.18, 0.06, sbAI.level), 0.04, 0.22);
+  sbCfg.bossClutterProb = clamp(lerp(0.35, 0.62, sbAI.level), 0.25, 0.75);
+
+  // apply spawn rate immediately
+  sbRestartSpawnLoop();
+
+  sbLogEvent('ai_adjust', {
+    level:+sbAI.level.toFixed(3),
+    spawnMs: sbCfg.spawnMs,
+    lifeMs: sbCfg.lifeMs,
+    bossHp: sbCfg.bossHp,
+    bossLifeMs: sbCfg.bossLifeMs,
+    gapProb:+sbCfg.gapProb.toFixed(3),
+    bossClutterProb:+sbCfg.bossClutterProb.toFixed(3),
+    delta:+delta.toFixed(3),
+    emaAcc:+acc.toFixed(3),
+    emaRT:Math.round(rt),
+    missStreak:ms
+  });
+}
 
 // ---------------- meta persistence ----------------
 function sbLoadMeta(){
@@ -367,6 +518,22 @@ function sbResetStats(){
   sbEvents = [];
   sbLogEvent('reset', {});
 
+  // reset AI (play only)
+  sbAI.missStreak = 0;
+  sbAI.hitStreak = 0;
+  sbAI.emaAcc = 0.60;
+  sbAI.emaRT  = 900;
+  sbAI.lastTipAt = 0;
+  sbAI.lastAdjustAt = 0;
+
+  // restore cfg base at reset
+  sbCfg.spawnMs = sbCfgBase.spawnMs;
+  sbCfg.bossHp  = sbCfgBase.bossHp;
+  sbCfg.lifeMs  = 2300;
+  sbCfg.bossLifeMs = 6500;
+  sbCfg.gapProb = 0.10;
+  sbCfg.bossClutterProb = 0.50;
+
   if(sbHUD.scoreVal) sbHUD.scoreVal.textContent='0';
   if(sbHUD.hitVal) sbHUD.hitVal.textContent='0';
   if(sbHUD.missVal) sbHUD.missVal.textContent='0';
@@ -386,7 +553,7 @@ function sbUpdateHUD(){
   if(sbHUD.comboVal) sbHUD.comboVal.textContent='x'+sbState.combo;
 }
 
-// ---------------- Boss HUD bar ----------------
+// ---------------- Boss HUD ----------------
 let sbBossHud = null;
 function sbEnsureBossHud(){
   if(!sbGameArea) return null;
@@ -427,7 +594,7 @@ function sbUpdateBossHud(){
 
 // ---------------- Boss queue ----------------
 function sbPrepareBossQueue(){
-  const ms = (sbMode==='endless') ? 120000 : sbTimeSec*1000; // endless schedule within first 2 min
+  const ms = (sbMode==='endless') ? 120000 : sbTimeSec*1000;
   const checkpoints = [0.15,0.35,0.6,0.85].map(r=>Math.round(ms*r));
   sbState.bossQueue = SB_BOSSES.map((b,idx)=>({ bossIndex: idx, spawnAtMs: checkpoints[idx] || Math.round(ms*(0.2+idx*0.15)) }));
   sbLogEvent('bossQueue', { n: sbState.bossQueue.length, ms });
@@ -437,13 +604,10 @@ function sbPrepareBossQueue(){
 let sbTargetIdCounter = 1;
 
 function sbPickSpawnXY(sizePx){
-  if(!sbGameArea){
-    return { x:20, y:20 };
-  }
+  if(!sbGameArea) return { x:20, y:20 };
+
   const rect = sbGameArea.getBoundingClientRect();
   const pad = 18;
-
-  // SAFE top zone: keep away from boss HUD
   const safeTop = 56;
 
   const maxX = Math.max(0, rect.width - sizePx - pad*2);
@@ -499,7 +663,7 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
   el.style.left = pos.x + 'px';
   el.style.top  = pos.y + 'px';
 
-  el.addEventListener('click', ()=>sbHitTarget(tObj));
+  el.addEventListener('click', ()=>sbHitTarget(tObj, 'click'));
 
   sbGameArea.appendChild(el);
   tObj.el = el;
@@ -514,7 +678,6 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     emoji: (bossInfo && bossInfo.emoji) ? bossInfo.emoji : (el.textContent || '')
   });
 
-  // boss enter
   if(isBoss && bossInfo){
     sbState.bossActive = true;
     sbState.bossWarned = false;
@@ -529,8 +692,7 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     sbLogEvent('boss_start', { bossId: bossInfo.id, name });
   }
 
-  // life timer -> miss (only if still alive)
-  const lifeMs = isBoss ? 6500 : 2300;
+  const lifeMs = isBoss ? sbCfg.bossLifeMs : sbCfg.lifeMs;
   tObj.missTimer = setTimeout(()=>{
     if(!tObj.alive) return;
     tObj.alive=false;
@@ -542,9 +704,12 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     sbShowFeedback('miss');
     if(sbHUD.coachLine) sbHUD.coachLine.textContent = sbI18n[sbLang].coachMiss;
 
+    // AI metrics update
+    sbAIUpdateOnOutcome('miss', null);
+    sbAIPredictAndTip();
+
     sbLogEvent('miss_timeout', { id: tObj.id, boss: tObj.boss ? 1 : 0 });
 
-    // if boss timed out -> mark boss inactive
     if(tObj.boss){
       sbState.bossActive=false;
       sbState.activeBoss=null;
@@ -556,7 +721,6 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     sbEmit('hha:score', { score: sbState.score, gained: 0, combo: sbState.combo, hit: sbState.hit, miss: sbState.miss, boss:!!tObj.boss });
   }, lifeMs);
 
-  // appear anim
   if(el.animate){
     el.animate(
       [{ transform:'scale(0.7)', opacity:0 }, { transform:'scale(1)', opacity:1 }],
@@ -604,8 +768,11 @@ function sbCheckFeverTick(now){
 }
 
 // ---------------- hit logic ----------------
-function sbHitTarget(tObj){
+function sbHitTarget(tObj, source='unknown'){
   if(!sbState.running || sbState.paused || !tObj.alive) return;
+
+  const now = performance.now();
+  const rtMs = Math.round(now - (tObj.createdAt || now));
 
   tObj.hp -= 1;
 
@@ -613,7 +780,6 @@ function sbHitTarget(tObj){
   const isBoss = tObj.boss;
   const bossInfo = tObj.bossInfo;
 
-  // good hit
   if(tObj.hp > 0){
     sbState.good++;
     sbState.combo++;
@@ -636,7 +802,11 @@ function sbHitTarget(tObj){
     sbShowFeedback('good');
     if(sbHUD.coachLine) sbHUD.coachLine.textContent = sbI18n[sbLang].coachGood;
 
-    sbLogEvent('hit', { id: tObj.id, boss: isBoss?1:0, hp: tObj.hp, gained, combo: sbState.combo });
+    sbLogEvent('hit', { id: tObj.id, boss: isBoss?1:0, hp: tObj.hp, gained, combo: sbState.combo, rtMs, source });
+
+    // AI metrics update
+    sbAIUpdateOnOutcome('hit', rtMs);
+    sbAIPredictAndTip();
 
     if(isBoss){
       sbUpdateBossHud();
@@ -666,7 +836,11 @@ function sbHitTarget(tObj){
   const gained = base + comboBonus + feverBonus;
   sbState.score += gained;
 
-  sbLogEvent('kill', { id: tObj.id, boss: isBoss?1:0, gained, combo: sbState.combo });
+  sbLogEvent('kill', { id: tObj.id, boss: isBoss?1:0, gained, combo: sbState.combo, rtMs, source });
+
+  // AI metrics update
+  sbAIUpdateOnOutcome('hit', rtMs);
+  sbAIPredictAndTip();
 
   if(tObj.el && tObj.el.animate){
     tObj.el.animate(
@@ -698,8 +872,8 @@ function sbHitTarget(tObj){
   sbEmit('hha:score', { score: sbState.score, gained, combo: sbState.combo, hit: sbState.hit, miss: sbState.miss, boss:!!isBoss });
 }
 
-// ---------------- crosshair shoot (HeroHealth vr-ui.js) ----------------
-function sbHitNearestTargetAtScreenXY(x, y, lockPx=28){
+// ---------------- crosshair shoot ----------------
+function sbHitNearestTargetAtScreenXY(x, y, lockPx=28, source='hha:shoot'){
   if(!sbState.running || sbState.paused || !sbGameArea) return false;
   x=Number(x); y=Number(y);
   if(!Number.isFinite(x)||!Number.isFinite(y)) return false;
@@ -716,26 +890,24 @@ function sbHitNearestTargetAtScreenXY(x, y, lockPx=28){
   }
   const lock = Math.max(10, Number(lockPx)||28);
   if(best && bestD2 <= lock*lock){
-    sbLogEvent('shoot', { source:'hha:shoot', lockPx: lock });
-    sbHitTarget(best);
+    sbLogEvent('shoot', { source, lockPx: lock });
+    sbHitTarget(best, source);
     return true;
   }
   return false;
 }
 window.addEventListener('hha:shoot', (ev)=>{
   const d = (ev && ev.detail) ? ev.detail : {};
-  sbHitNearestTargetAtScreenXY(d.x, d.y, d.lockPx || 28);
+  sbHitNearestTargetAtScreenXY(d.x, d.y, d.lockPx || 28, 'hha:shoot');
 });
 
-// keyboard space (pc)
 window.addEventListener('keydown',(ev)=>{
   if(!sbState.running || sbState.paused) return;
   if(ev.code==='Space'){
     ev.preventDefault();
     if(!sbGameArea) return;
     const rect = sbGameArea.getBoundingClientRect();
-    sbLogEvent('shoot', { source:'space' });
-    sbHitNearestTargetAtScreenXY(rect.left+rect.width/2, rect.top+rect.height/2, 90);
+    sbHitNearestTargetAtScreenXY(rect.left+rect.width/2, rect.top+rect.height/2, 90, 'space');
   }
 });
 
@@ -745,11 +917,11 @@ function sbStartSpawnLoop(){
   sbState.spawnTimer = setInterval(()=>{
     if(!sbState.running || sbState.paused) return;
 
-    // leave gaps sometimes (deterministic in research)
-    if(sbRand() < 0.1) return;
+    // leave gaps sometimes
+    if(sbRand() < sbCfg.gapProb) return;
 
-    // prevent clutter during boss
-    if(sbState.bossActive && sbRand() < 0.5) return;
+    // during boss: may reduce clutter based on AI
+    if(sbState.bossActive && sbRand() < (1 - sbCfg.bossClutterProb)) return;
 
     sbSpawnTarget(false, null);
   }, sbCfg.spawnMs);
@@ -757,6 +929,10 @@ function sbStartSpawnLoop(){
 function sbStopSpawnLoop(){
   if(sbState.spawnTimer) clearInterval(sbState.spawnTimer);
   sbState.spawnTimer=null;
+}
+function sbRestartSpawnLoop(){
+  if(!sbState.running || sbState.paused) return;
+  sbStartSpawnLoop();
 }
 
 // ---------------- loop ----------------
@@ -800,10 +976,14 @@ function sbMainLoop(now){
   sbCheckFeverTick(now);
   sbMaybeSpawnBoss();
 
+  // Pack2: adjust AI difficulty + prediction
+  sbAIAdjustDifficulty();
+  sbAIPredictAndTip();
+
   requestAnimationFrame(sbMainLoop);
 }
 
-// ---------------- logging local csv ----------------
+// ---------------- local CSV summary ----------------
 function sbLogLocal(rec){
   try{
     const raw = localStorage.getItem(SB_STORAGE_KEY);
@@ -825,8 +1005,8 @@ function sbDownloadCsv(){
     const header=[
       'studentId','schoolName','classRoom','groupCode','deviceType','language','note',
       'phase','mode','diff','gameId','gameVersion','sessionId','timeSec','score','hits','perfect','good','miss',
-      'accuracy','maxCombo','fever','timeUsedSec','seedRaw','seedU32','research','studyId','log','reason','createdAt',
-      'eventsKey','eventsCount'
+      'accuracy','maxCombo','fever','timeUsedSec','seedRaw','seedU32','research','studyId','log','aiEnabled','aiLevelEnd',
+      'emaAccEnd','emaRTEnd','reason','createdAt','eventsKey','eventsCount'
     ];
     rows.push(header.join(','));
     for(const rec of arr){
@@ -862,7 +1042,6 @@ function sbEndGame(reason='end'){
 
   sbStopSpawnLoop();
 
-  // clean targets
   for(const tObj of sbState.targets){
     try{
       if(tObj.missTimer) clearTimeout(tObj.missTimer);
@@ -870,7 +1049,6 @@ function sbEndGame(reason='end'){
     }catch(_){}
   }
   sbState.targets=[];
-
   sbSetBossHudVisible(false);
 
   const playedSec = Math.round(sbState.elapsedMs/1000);
@@ -879,10 +1057,11 @@ function sbEndGame(reason='end'){
   const attempts = totalHit + totalMiss;
   const acc = attempts>0 ? Math.round((totalHit/attempts)*100) : 0;
 
-  // persist telemetry events (separate key)
   sbPersistEvents(sbState.sessionId);
-
   const eventsKey = sbState.sessionId ? (SB_EVENTS_PREFIX + sbState.sessionId) : '';
+
+  sbLogEvent('end', { reason });
+
   const rec = {
     studentId:  sbState.sessionMeta?.studentId || '',
     schoolName: sbState.sessionMeta?.schoolName || '',
@@ -912,13 +1091,16 @@ function sbEndGame(reason='end'){
     research:   SB_IS_RESEARCH ? 1 : 0,
     studyId:    SB_STUDY_ID,
     log:        SB_LOG,
+    aiEnabled:  SB_AI_ENABLED ? 1 : 0,
+    aiLevelEnd: +sbAI.level.toFixed(3),
+    emaAccEnd:  +sbAI.emaAcc.toFixed(3),
+    emaRTEnd:   Math.round(sbAI.emaRT),
     reason,
     createdAt:  new Date().toISOString(),
     eventsKey,
     eventsCount: sbEvents.length
   };
 
-  sbLogEvent('end', { reason });
   sbLogLocal(rec);
 
   if(sbR.score) sbR.score.textContent = String(sbState.score);
@@ -932,7 +1114,6 @@ function sbEndGame(reason='end'){
 
   if(sbOverlay) sbOverlay.classList.remove('hidden');
 
-  // HHA events
   sbEmit('hha:end', rec);
   sbEmit('hha:flush', { reason: 'end', sessionId: rec.sessionId, eventsKey, eventsCount: rec.eventsCount });
 }
@@ -942,7 +1123,6 @@ function sbStartGame(){
 
   const t = sbI18n[sbLang];
 
-  // meta requirement only in research
   const sid = sbMetaInputs.studentId ? sbMetaInputs.studentId.value.trim() : '';
   if(SB_IS_RESEARCH && !sid){
     alert(t.alertMeta);
@@ -963,27 +1143,22 @@ function sbStartGame(){
   sbState.sessionMeta = meta;
   sbSaveMetaDraft();
 
-  // Pack1: init deterministic RNG for research
+  // deterministic in research
   if (SB_IS_RESEARCH){
     SB_SEED_U32 = sbResolveResearchSeed(meta.studentId);
     sbInitRng(SB_SEED_U32);
   } else {
-    // non-research: still honor explicit seed if provided (optional)
-    if (SB_SEED_U32){
-      sbInitRng(SB_SEED_U32);
-    } else {
-      sbRng = null;
-      sbRand = Math.random;
-    }
+    if (SB_SEED_U32) sbInitRng(SB_SEED_U32);
+    else { sbRng=null; sbRand=Math.random; }
   }
 
-  // new session id
   sbState.sessionId = String(Date.now());
   sbEvents = [];
   sbLogEvent('start_intent', {
     research: SB_IS_RESEARCH ? 1 : 0,
     seedU32: SB_SEED_U32 >>> 0,
-    seedRaw: SB_SEED_RAW || ''
+    seedRaw: SB_SEED_RAW || '',
+    ai: SB_AI_ENABLED ? 1 : 0
   });
 
   document.body.classList.add('play-only');
@@ -1002,7 +1177,6 @@ function sbStartGame(){
   }
   if(sbHUD.coachLine) sbHUD.coachLine.textContent = t.coachReady;
 
-  // HHA start event
   sbEmit('hha:start', {
     gameId: SB_GAME_ID,
     gameVersion: SB_GAME_VERSION,
@@ -1013,7 +1187,8 @@ function sbStartGame(){
     seedRaw: SB_SEED_RAW,
     seedU32: (SB_SEED_U32 >>> 0),
     research: SB_IS_RESEARCH ? 1 : 0,
-    studyId: SB_STUDY_ID
+    studyId: SB_STUDY_ID,
+    ai: SB_AI_ENABLED ? 1 : 0
   });
 
   sbLogEvent('start', { phase: sbPhase, mode: sbMode, diff: sbDiff });
@@ -1074,25 +1249,18 @@ if(sbDownloadCsvBtn){
   sbDownloadCsvBtn.addEventListener('click', sbDownloadCsv);
 }
 
-// meta persistence
 Object.values(sbMetaInputs).forEach(el=>{
   if(!el) return;
   el.addEventListener('change', sbSaveMetaDraft);
   el.addEventListener('blur', sbSaveMetaDraft);
 });
 
-// ---------------- Pack1: flush-hardened (page lifecycle) ----------------
-window.addEventListener('pagehide', ()=> {
-  if(sbState.running) sbFlushSnapshot('pagehide');
-});
+// ---------------- flush-hardened ----------------
+window.addEventListener('pagehide', ()=> { if(sbState.running) sbFlushSnapshot('pagehide'); });
 document.addEventListener('visibilitychange', ()=> {
-  if(document.visibilityState === 'hidden' && sbState.running){
-    sbFlushSnapshot('visibility:hidden');
-  }
+  if(document.visibilityState === 'hidden' && sbState.running) sbFlushSnapshot('visibility:hidden');
 });
-window.addEventListener('beforeunload', ()=> {
-  if(sbState.running) sbFlushSnapshot('beforeunload');
-});
+window.addEventListener('beforeunload', ()=> { if(sbState.running) sbFlushSnapshot('beforeunload'); });
 
 // ---------------- init ----------------
 sbLoadMeta();
