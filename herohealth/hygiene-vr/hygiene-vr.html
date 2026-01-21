@@ -1,91 +1,279 @@
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Handwash Survival</title>
-  <meta name="color-scheme" content="light dark" />
+  <title>HeroHealth — HygieneVR (Run)</title>
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.76);
+      --panel2:rgba(15,23,42,.66);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; width:100%; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; overflow:hidden; }
 
-  <!-- A-Frame: minimal scene to keep Enter VR reliable -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    /* View markers (optional) */
+    body.view-pc{}
+    body.view-mobile{}
+    body.view-vr{}
+    body.view-cvr{}
 
-  <!-- HHA universal VR UI (already in your project) -->
-  <script src="../vr/vr-ui.js"></script>
+    /* GAME STAGE */
+    .stage{
+      position:fixed; inset:0;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(circle at 86% 88%, rgba(167,139,250,.10), transparent 58%),
+        radial-gradient(circle at 60% 45%, rgba(34,197,94,.08), transparent 60%),
+        var(--bg);
+      overflow:hidden;
+      touch-action: manipulation;
+      user-select:none;
+    }
+
+    /* Targets layer */
+    .targets{
+      position:absolute; inset:0;
+      pointer-events:none; /* targets individually enable */
+    }
+    .t{
+      position:absolute;
+      left: calc(var(--x) * 1px);
+      top:  calc(var(--y) * 1px);
+      transform: translate(-50%,-50%) scale(var(--s,1));
+      width: 74px; height: 74px;
+      border-radius: 999px;
+      display:grid; place-items:center;
+      pointer-events:auto;
+      cursor:pointer;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.55);
+      box-shadow: 0 18px 50px rgba(0,0,0,.28);
+      transition: transform .10s ease, opacity .15s ease;
+      will-change: transform, opacity;
+    }
+    .t:active{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98)); }
+    .t.good{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.12);
+    }
+    .t.bad{
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.10);
+    }
+    .t .emoji{ font-size:30px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
+    .t .ring{
+      position:absolute; inset:-6px;
+      border-radius:999px;
+      border: 2px dashed rgba(229,231,235,.25);
+      opacity:.55;
+      animation: spin 1.4s linear infinite;
+      pointer-events:none;
+    }
+    .t.bad .ring{ border-color: rgba(239,68,68,.35); opacity:.65; }
+    .t.good .ring{ border-color: rgba(34,197,94,.40); opacity:.65; }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+
+    /* HUD */
+    .hud{
+      position:fixed;
+      left: calc(12px + var(--sal));
+      top:  calc(12px + var(--sat));
+      z-index:90;
+      width:min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
+      pointer-events:none;
+    }
+    .hudRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:stretch; }
+    .hudBox{
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.30);
+      backdrop-filter: blur(8px);
+      pointer-events:none;
+    }
+    .hudTitle{ font-weight:1100; font-size:13px; }
+    .hudSub{ margin-top:4px; color:rgba(229,231,235,.76); font-weight:900; font-size:12px; line-height:1.25; }
+    .kpis{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .kpi{
+      min-width: 110px;
+      background: var(--panel2);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 16px;
+      padding: 8px 10px;
+    }
+    .k{ color:rgba(229,231,235,.70); font-weight:900; font-size:11px; }
+    .v{ margin-top:3px; font-weight:1200; font-size:16px; }
+    .v.good{ color:rgba(34,197,94,.95); }
+    .v.warn{ color:rgba(245,158,11,.95); }
+    .v.bad{ color:rgba(239,68,68,.95); }
+
+    /* Quest / coach */
+    .quest{
+      position:fixed;
+      left: calc(12px + var(--sal));
+      bottom: calc(12px + var(--sab));
+      z-index:90;
+      width:min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
+      pointer-events:none;
+    }
+    .questBox{
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.30);
+      backdrop-filter: blur(8px);
+    }
+    .questTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.45);
+      font-weight:1000; font-size:12px;
+    }
+    .badge.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
+    .badge.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+    .badge.bad{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.08); }
+
+    .questText{ margin-top:8px; font-weight:1050; line-height:1.35; }
+    .questHint{ margin-top:6px; color:rgba(229,231,235,.74); font-weight:900; font-size:12px; line-height:1.35; }
+
+    /* Overlay start/end */
+    .overlay{
+      position:fixed; inset:0;
+      z-index:120;
+      background: rgba(2,6,23,.72);
+      display:grid; place-items:center;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+    }
+    .card{
+      width:min(820px, 100%);
+      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.72));
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 26px;
+      padding: 16px;
+      box-shadow: 0 22px 70px rgba(0,0,0,.45);
+    }
+    .card h2{ margin:0; font-size:22px; font-weight:1200; }
+    .card p{ margin:8px 0 0 0; color:rgba(229,231,235,.78); font-weight:900; line-height:1.45; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.70);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 1100;
+      cursor:pointer;
+    }
+    .btn.primary{ border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.16); }
+    .btn.warn{ border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.12); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
+    .small{ font-size:12px; font-weight:900; color:rgba(229,231,235,.70); line-height:1.35; margin-top:10px; }
+
+    /* For cVR strict view: prevent target clicks, use crosshair shooting */
+    body.view-cvr .t{ pointer-events:none; }
+
+  </style>
 </head>
-<body class="hha-run">
-  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true;physicallyCorrectLights:true">
-    <a-entity position="0 1.6 0"></a-entity>
-    <a-sky color="#0b1020"></a-sky>
-  </a-scene>
 
-  <!-- DOM HUD + play field -->
-  <div class="hha-root">
-    <header class="hha-top">
-      <div class="hha-title">
-        <div class="badge">🧼</div>
-        <div>
-          <div class="t1">Handwash Survival</div>
-          <div class="t2" id="subTitle">อยู่รอด • ทำให้ถูก • หลบของปนเปื้อน</div>
+<body>
+  <div class="stage" id="stage">
+    <div class="targets" id="targets"></div>
+
+    <div class="hud">
+      <div class="hudBox">
+        <div class="hudTitle">🧼 Handwash Survival</div>
+        <div class="hudSub" id="hudSub">แตะ/ยิง “🫧 จุดล้างมือ” • หลบ “🦠 ปนเปื้อน” • อยู่รอดให้ครบเวลา</div>
+        <div class="kpis">
+          <div class="kpi"><div class="k">⏱️ เวลา</div><div class="v" id="kTime">—</div></div>
+          <div class="kpi"><div class="k">⭐ Score</div><div class="v good" id="kScore">0</div></div>
+          <div class="kpi"><div class="k">🔥 Combo</div><div class="v" id="kCombo">0</div></div>
+          <div class="kpi"><div class="k">❌ Miss</div><div class="v bad" id="kMiss">0</div></div>
         </div>
       </div>
+    </div>
 
-      <div class="hha-stats">
-        <div class="stat">
-          <div class="k">HP</div>
-          <div class="v" id="hp"></div>
+    <div class="quest">
+      <div class="questBox">
+        <div class="questTop">
+          <span class="badge good" id="bGoal">Goal 0/2</span>
+          <span class="badge warn" id="bMini">Mini 0/2</span>
+          <span class="badge" id="bMode">Survival</span>
         </div>
-        <div class="stat">
-          <div class="k">RISK</div>
-          <div class="bar"><i id="riskBar"></i></div>
-        </div>
-        <div class="stat">
-          <div class="k">TIME</div>
-          <div class="v mono" id="time">--</div>
-        </div>
-        <div class="stat">
-          <div class="k">SCORE</div>
-          <div class="v mono" id="score">0</div>
-        </div>
+        <div class="questText" id="questText">เริ่มเลย: เก็บ 🫧 ให้ครบ 10 ครั้งก่อนเวลาใกล้หมด!</div>
+        <div class="questHint" id="questHint">Tip: ถ้าโดน 🦠 จะนับ Miss และคอมโบแตก</div>
       </div>
-    </header>
+    </div>
 
-    <section class="hha-quest">
-      <div class="qrow">
-        <div class="pill goal" id="goalPill">GOAL: อยู่รอดให้ครบเวลา</div>
-        <div class="pill mini" id="miniPill">MINI: --</div>
-      </div>
-      <div class="qrow">
-        <div class="small mono" id="hint">แตะ/คลิกเป้าให้ถูกจุด • ถ้าเป็น cVR ใช้ crosshair ยิง</div>
-      </div>
-    </section>
-
-    <main class="hha-play">
-      <div class="play-area" id="play">
-        <!-- targets spawn here -->
-      </div>
-    </main>
-
-    <div class="overlay" id="overlay">
-      <div class="panel">
-        <div class="h1" id="ovTitle">พร้อมเล่นไหม?</div>
-        <div class="p" id="ovDesc">Tutorial 15 วินาที แล้วเริ่ม Survival 70 วินาที</div>
+    <!-- Start overlay -->
+    <div class="overlay" id="ovStart">
+      <div class="card">
+        <h2>🧼 Handwash Survival</h2>
+        <p>
+          อยู่รอดให้ครบเวลา • แตะ/ยิง <b>🫧</b> เพื่อทำความสะอาด • หลีกเลี่ยง <b>🦠</b> ที่โผล่มาแบบป่วน ๆ<br/>
+          ถ้ามี <span class="mono">chal=...</span> จะมี “กติกาพิเศษ” โผล่เป็น HUD มุมขวาบนด้วย 😈
+        </p>
         <div class="row">
-          <button class="btn primary" id="btnStart">เริ่ม</button>
-          <button class="btn" id="btnPractice">ฝึก 15s</button>
-          <button class="btn ghost" id="btnBack">กลับ HUB</button>
+          <button class="btn primary" id="btnStart">เริ่มเกม</button>
+          <button class="btn warn" id="btnPractice">ซ้อม 15 วิ</button>
+          <button class="btn" id="btnBackHub">กลับ HUB</button>
         </div>
-        <div class="row row2">
-          <button class="btn" id="btnExport" style="display:none;">Export CSV</button>
-          <button class="btn" id="btnRestart" style="display:none;">เล่นอีกครั้ง</button>
+        <div class="small">
+          Params: <span class="mono" id="paramLine">—</span>
         </div>
-        <div class="p small mono" id="ovMeta"></div>
+      </div>
+    </div>
+
+    <!-- End overlay -->
+    <div class="overlay" id="ovEnd" style="display:none;">
+      <div class="card">
+        <h2>🏁 สรุปผล</h2>
+        <p id="endLine">—</p>
+        <div class="row">
+          <button class="btn primary" id="btnPlayAgain">เล่นอีกครั้ง</button>
+          <button class="btn" id="btnCopySummary">📋 Copy Summary</button>
+          <button class="btn" id="btnBackHub2">กลับ HUB</button>
+        </div>
+        <div class="small">
+          <b>Summary JSON</b>
+          <pre id="endJson" class="mono" style="white-space:pre-wrap; background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.14); border-radius:16px; padding:10px; overflow:auto; max-height:220px;"></pre>
+        </div>
       </div>
     </div>
   </div>
 
-  <script type="module" src="./hygiene.boot.js"></script>
+  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair/tap-to-shoot => hha:shoot) -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- Challenge HUD -->
+  <script src="../vr/challenge-hud.js"></script>
+
+  <!-- Hygiene boot + engine -->
+  <script type="module" src="./hygiene-vr.boot.js"></script>
 </body>
 </html>
