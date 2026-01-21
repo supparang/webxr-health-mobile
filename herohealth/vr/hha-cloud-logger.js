@@ -1,10 +1,9 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened)
+// HHA Cloud Logger — PRODUCTION (flush-hardened) — PATCH: dynamic gameMode
 // ✅ Listens: hha:end -> sends session summary JSON
 // ✅ Queue persist localStorage (offline-safe)
 // ✅ keepalive + sendBeacon fallback
 // ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ FIX: gameMode from event (not hardcode goodjunk)
 
 (function(){
   'use strict';
@@ -33,7 +32,7 @@
       timestampIso: new Date().toISOString(),
       href: location.href,
       ua: navigator.userAgent || '',
-      game: 'HeroHealth',
+      projectTag: qs('projectTag','HeroHealth'),
     };
   }
 
@@ -45,7 +44,6 @@
   async function postJson(url, obj){
     try{
       const body = JSON.stringify(obj);
-      // try sendBeacon first for unload safety
       if(navigator.sendBeacon){
         const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if(ok) return true;
@@ -65,19 +63,18 @@
 
   async function flush(){
     if(flushing) return;
-    if(!ENDPOINT) return;     // no endpoint => do nothing
+    if(!ENDPOINT) return;
     if(queue.length === 0) return;
 
     flushing = true;
 
-    // send oldest-first
     const q = queue.slice();
     let sent = 0;
 
     for(let i=0;i<q.length;i++){
       const ok = await postJson(ENDPOINT, q[i]);
       if(ok) sent++;
-      else break; // stop if offline
+      else break;
     }
 
     if(sent > 0){
@@ -88,16 +85,21 @@
     flushing = false;
   }
 
-  // Listen end summary
   function onEnd(ev){
     try{
       const d = ev?.detail || {};
+
+      // ✅ dynamic gameMode
+      const gameMode =
+        d.gameMode ||
+        qs('gameMode','') ||
+        qs('game','') ||
+        qs('mode','') ||
+        'unknown';
+
       const pack = Object.assign(payloadBase(), {
         kind: 'session',
-
-        // ✅ FIX: take from event first
-        gameMode: d.gameMode || d.game || qs('gameMode','') || 'unknown',
-
+        gameMode,
         runMode: d.runMode || qs('run','play'),
         diff: d.diff || qs('diff','normal'),
         device: d.device || qs('view',''),
@@ -108,30 +110,25 @@
         grade: d.grade || '—',
         reason: d.reason || 'end',
         seed: d.seed || qs('seed','') || '',
+        sessionId: d.sessionId || qs('sessionId','') || qs('studentKey','') || '',
+        kids: !!d.kids
       });
 
-      // attach full detail (so sheets has everything)
-      // keep top-level fields for easy filtering, but also store raw summary
-      pack.summary = d;
-
       enqueue(pack);
-      flush(); // best-effort immediate
+      flush();
     }catch(_){}
   }
 
-  WIN.addEventListener('hha:end', onEnd, { passive:true });
+  WIN.HHA_LOGGER = { enabled: !!ENDPOINT };
 
-  // Manual flush hook
+  WIN.addEventListener('hha:end', onEnd, { passive:true });
   WIN.addEventListener('hha:flush', ()=>flush(), { passive:true });
 
-  // unload flush
   WIN.addEventListener('pagehide', ()=>flush(), { passive:true });
   DOC.addEventListener('visibilitychange', ()=>{
     if(DOC.visibilityState === 'hidden') flush();
   }, { passive:true });
   WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
 
-  // periodic flush (in case offline -> online)
   setInterval(()=>flush(), 3500);
-
 })();
