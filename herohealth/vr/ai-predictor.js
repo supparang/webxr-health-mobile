@@ -1,329 +1,252 @@
 // === /herohealth/vr/ai-predictor.js ===
-// HHA AI Predictor — PRODUCTION (Explainable + Research-safe)
-// ✅ Predict p_fail (frustration/near-fail) + p_passGreen + p_stormFail
-// ✅ Actions: easeSpawn / easeWater / hintCoach (Play only)
-// ✅ Research: AI OFF by default (no actions), but can still compute/emit if you set ?ai=1
-// ✅ Deterministic in research via seed (no Math.random usage when research)
-// ✅ Emits: hha:ai { game, p_fail, p_green, p_storm, action, reason[], at, meta }
+// HHA AI Predictor — PRODUCTION (Play-only)
+// ✅ Purpose: small “ML-like” predictor that outputs:
+//    - pred: risk signals (fail/storm/greenLow) + reasons
+//    - pick: easing actions (spawnMul/badMul/waterNudgeMul/lockPxMul) + optional coach msg
+// ✅ Research mode: OFF (no actions) to keep deterministic + fair study
+// ✅ Deterministic-ish: uses seed for tie-break noise (but still OFF in research)
+//
+// Usage:
+//   import { createAIPredictor } from '../vr/ai-predictor.js';
+//   const AIPRED = createAIPredictor({ emit, game:'hydration', mode: run, seed });
+//   const out = AIPRED.update(features);  // returns { pred, pick } or null if throttled
 
 'use strict';
 
 export function createAIPredictor(opts = {}){
-  const WIN = (typeof window !== 'undefined') ? window : globalThis;
-  const DOC = WIN.document;
+  const emit = typeof opts.emit === 'function' ? opts.emit : ()=>{};
+  const game = String(opts.game || 'unknown');
+  const mode = String(opts.mode || 'play').toLowerCase();
+  const seedStr = String(opts.seed || 'seed');
 
-  const emit = typeof opts.emit === 'function'
-    ? opts.emit
-    : ((name, detail)=>{ try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){ } });
+  const minIntervalMs = Number(opts.minIntervalMs ?? 500);
+  const actionCooldownMs = Number(opts.actionCooldownMs ?? 2200);
 
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
-  const now=()=> Date.now();
+  const thrFail = Number(opts.thrFail ?? 0.58);
+  const thrStorm = Number(opts.thrStorm ?? 0.60);
+  const thrGreenLow = Number(opts.thrGreenLow ?? 0.42);
 
-  const game = String(opts.game || 'game').toLowerCase();
-  const mode = String(opts.mode || qs('run', qs('runMode','play')) || 'play').toLowerCase();
+  const emitEveryMs = Number(opts.emitEveryMs ?? 1200);
+
+  // research OFF
   const inResearch = (mode === 'research' || mode === 'study');
+  const enabled = !inResearch;
 
-  // AI master switch:
-  // - default: ON in play, OFF in research
-  // - override: ?ai=0 disables even in play, ?ai=1 enables even in research (for debugging only)
-  const aiQ = String(qs('ai', inResearch ? '0' : '1')).toLowerCase();
-  const enabled = !(aiQ==='0' || aiQ==='false' || aiQ==='off');
-
-  // deterministic noise helper (research-safe)
-  const seedStr = String(opts.seed || qs('seed','') || '');
+  // deterministic tiny RNG (for play-only tie-break)
   function hashStr(s){
-    s=String(s||''); let h=2166136261;
-    for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+    s = String(s||'');
+    let h = 2166136261;
+    for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
     return (h>>>0);
   }
-  function makeRng(seed){
-    let x = hashStr(seed) || 123456789;
-    return function(){
-      x ^= x << 13; x >>>= 0;
-      x ^= x >> 17; x >>>= 0;
-      x ^= x << 5;  x >>>= 0;
-      return (x>>>0) / 4294967296;
-    };
+  let _x = hashStr(seedStr) || 123456789;
+  function rnd(){
+    _x ^= _x << 13; _x >>>= 0;
+    _x ^= _x >> 17; _x >>>= 0;
+    _x ^= _x << 5;  _x >>>= 0;
+    return (_x>>>0) / 4294967296;
   }
-  const rng = makeRng(seedStr || 'ai');
 
-  function sigmoid(z){ return 1/(1+Math.exp(-z)); }
+  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-  // rolling buffers
-  const BUF = {
-    miss10s: 0,
-    comboBreak10s: 0,
-    rtMed: 0.65,           // 0..1 (normalized)
-    zoneOsc10s: 0,
-    lastZone: '',
-    lastZoneChangeAt: 0,
-
-    // storm outcomes
-    stormSeen: 0,
-    stormFail: 0,
-    stormFailLast2: 0,
-
-    // smoothing
-    emaFail: 0.25,
-    emaGreen: 0.55,
-    emaStorm: 0.35,
-    lastEmitAt: 0,
-  };
-
-  // throttle outputs
-  const OUT = {
-    // update at ~500ms
-    minIntervalMs: clamp(parseInt(qs('aiTick', String(opts.minIntervalMs ?? 500)),10)||500, 200, 2000),
-
-    // action cool-down
-    actionCdMs: clamp(parseInt(qs('aiCd', String(opts.actionCooldownMs ?? 2200)),10)||2200, 600, 8000),
-
-    // coach cue cooldown handled by ai-coach itself; here just request
-  };
-
+  let lastAt = 0;
   let lastActionAt = 0;
-  let lastTickAt = 0;
+  let lastEmitAt = 0;
 
-  // ---- explainable logistic weights (tunable) ----
-  // Inputs assumed in 0..1
-  const W = {
-    // fail/frustration predictor
-    b_fail: -0.40,
-    missRate:  2.10,   // high miss drives fail
-    rtMed:     1.10,   // slower reactions drives fail
-    comboBreak:0.95,
-    zoneOsc:   1.05,
-    fatigue:   0.60,
-
-    // green pass predictor
-    b_green:  0.30,
-    acc:      1.20,
-    zoneGreen:0.95,
-    stability:0.80,
-    fatigueG: -0.70,
-
-    // storm fail predictor
-    b_storm: -0.10,
-    stormFailLast2: 1.30,
-    missRateS:      1.10,
-    zoneNonGreen:   0.85,
-    shieldLow:      0.75,
+  // EMA state (lightweight “online learning” feel)
+  const st = {
+    emaAcc: 0.62,
+    emaMissRate: 0.12,
+    emaCombo: 0.20,
+    emaFatigue: 0.00,
+    emaZoneOsc: 0.20,
+    lastAction: '',
+    lastReason: []
   };
 
-  function normMissRate(miss, playedSec){
-    // miss per second ~0..0.6 normalize
-    const r = (miss / Math.max(1, playedSec));
-    return clamp(r/0.45, 0, 1);
-  }
+  function update(features = {}){
+    const now = performance.now ? performance.now() : Date.now();
+    if (now - lastAt < minIntervalMs) return null;
+    lastAt = now;
 
-  function normComboBreaks(breaks){
-    // 0..6 typical
-    return clamp(breaks/6, 0, 1);
-  }
+    // features (normalized-ish)
+    const misses = Number(features.misses || 0);
+    const combo = Number(features.combo || 0);
+    const playedSec = Math.max(1, Number(features.playedSec || 1));
 
-  function normZoneOsc(x){
-    // oscillations per 10s 0..4
-    return clamp(x/4, 0, 1);
-  }
+    const acc = clamp(Number(features.accuracyGoodPct || 0) / 100, 0, 1);
+    const fatigue = clamp(Number(features.fatigue || 0), 0, 1);
+    const frustration = clamp(Number(features.frustration || 0), 0, 1);
 
-  function normRT(rtMs){
-    // hydration doesn't explicitly compute RT, we accept normalized 0..1 from engine
-    // if caller passes raw ms, try normalize: 250..900ms -> 0..1
-    const v = Number(rtMs);
-    if (!isFinite(v)) return 0.6;
-    if (v > 5) return clamp((v-250)/650, 0, 1);
-    return clamp(v, 0, 1);
-  }
+    const waterZone = String(features.waterZone || '');
+    const green = (waterZone === 'GREEN');
 
-  function zoneGreenK(zone){
-    return String(zone||'').toUpperCase()==='GREEN' ? 1 : 0;
-  }
-  function zoneNonGreenK(zone){
-    return String(zone||'').toUpperCase()==='GREEN' ? 0 : 1;
-  }
+    const zoneOsc10s = clamp(Number(features.zoneOsc10s || 0), 0, 1);
+    const rtNorm = clamp(Number(features.rtNorm || 0.6), 0, 1);
+    const shield = clamp(Number(features.shield || 0), 0, 9);
+    const inStorm = !!features.inStorm;
+    const stormFailLast2 = clamp(Number(features.stormFailLast2 || 0), 0, 1);
+    const kids = !!features.kids;
 
-  function decisionChance(p){
-    // In play: slightly stochastic, in research: deterministic bucketed
-    p = clamp(p,0,1);
-    if (!inResearch) return Math.random() < p;
-    return rng() < p;
-  }
+    // EMAs
+    const missRate = clamp(misses / (playedSec/10 + 1), 0, 1);
+    st.emaAcc = st.emaAcc*0.86 + acc*0.14;
+    st.emaMissRate = st.emaMissRate*0.86 + missRate*0.14;
+    st.emaCombo = st.emaCombo*0.86 + clamp(combo/20,0,1)*0.14;
+    st.emaFatigue = st.emaFatigue*0.90 + fatigue*0.10;
+    st.emaZoneOsc = st.emaZoneOsc*0.90 + zoneOsc10s*0.10;
 
-  function compute(st){
-    // Expected state:
-    // { misses, combo, comboBreaks10s, playedSec, accuracyGoodPct, waterZone,
-    //   zoneOsc10s, rtNorm, fatigue, shield, stormFailLast2 }
-    const playedSec = clamp(st.playedSec ?? 1, 1, 9999);
-    const missRate = normMissRate(st.misses ?? 0, playedSec);
-    const comboBreak = clamp(st.comboBreaks10s ?? 0, 0, 99);
-    const comboBreakK = normComboBreaks(comboBreak);
-    const zoneOscK = normZoneOsc(st.zoneOsc10s ?? 0);
-    const rtK = normRT(st.rtNorm ?? 0.6);
-    const fatigue = clamp(st.fatigue ?? 0, 0, 1);
-    const accK = clamp((Number(st.accuracyGoodPct||0)/100), 0, 1);
-    const zGreen = zoneGreenK(st.waterZone);
-    const zNon = 1 - zGreen;
-    const stability = clamp(1 - zoneOscK, 0, 1);
-    const shield = clamp((st.shield|0), 0, 6);
-    const shieldLow = clamp(1 - (shield/3), 0, 1);
-    const stormFailLast2 = clamp(st.stormFailLast2 ?? 0, 0, 1);
+    // -------- risk model (simple but “ML-like”) ----------
+    // fail risk: low acc + high miss + frustration + fatigue + slow RT
+    let pFail =
+      (1 - st.emaAcc)*0.48 +
+      st.emaMissRate*0.28 +
+      frustration*0.10 +
+      st.emaFatigue*0.08 +
+      (1-rtNorm)*0.06;
 
-    // p_fail
-    const zf =
-      W.b_fail +
-      W.missRate * missRate +
-      W.rtMed * rtK +
-      W.comboBreak * comboBreakK +
-      W.zoneOsc * zoneOscK +
-      W.fatigue * fatigue;
+    // storm risk: fail risk + oscillation + low shield + recent storm fails
+    let pStorm =
+      pFail*0.55 +
+      st.emaZoneOsc*0.20 +
+      clamp(1 - (shield/2), 0, 1)*0.15 +
+      stormFailLast2*0.10;
 
-    const p_fail = sigmoid(zf);
+    // green low (needs help): if not green + miss rising
+    let pGreenLow =
+      (green ? 0 : 0.45) +
+      st.emaMissRate*0.30 +
+      st.emaZoneOsc*0.15 +
+      st.emaFatigue*0.10;
 
-    // p_green pass
-    const zg =
-      W.b_green +
-      W.acc * accK +
-      W.zoneGreen * zGreen +
-      W.stability * stability +
-      W.fatigueG * fatigue;
+    // kids dampen (more forgiving)
+    if (kids){
+      pFail *= 0.92;
+      pStorm *= 0.92;
+      pGreenLow *= 0.92;
+    }
 
-    const p_green = sigmoid(zg);
+    pFail = clamp(pFail, 0, 1);
+    pStorm = clamp(pStorm, 0, 1);
+    pGreenLow = clamp(pGreenLow, 0, 1);
 
-    // storm fail
-    const zs =
-      W.b_storm +
-      W.stormFailLast2 * stormFailLast2 +
-      W.missRateS * missRate +
-      W.zoneNonGreen * zNon +
-      W.shieldLow * shieldLow;
+    const reason=[];
+    if (st.emaAcc < 0.55) reason.push('low_accuracy');
+    if (st.emaMissRate > 0.35) reason.push('high_miss_rate');
+    if (st.emaZoneOsc > 0.55) reason.push('zone_oscillation');
+    if (st.emaFatigue > 0.60) reason.push('fatigue');
+    if (!green) reason.push('not_green');
+    if (shield <= 0) reason.push('no_shield');
 
-    const p_stormFail = sigmoid(zs);
-
-    // smooth
-    BUF.emaFail  = BUF.emaFail*0.82  + p_fail*0.18;
-    BUF.emaGreen = BUF.emaGreen*0.82 + p_green*0.18;
-    BUF.emaStorm = BUF.emaStorm*0.82 + p_stormFail*0.18;
-
-    // explainable reasons
-    const reason = [];
-    if (missRate > 0.55) reason.push('high_miss');
-    if (rtK > 0.68) reason.push('slow_rt');
-    if (comboBreakK > 0.55) reason.push('combo_breaks');
-    if (zoneOscK > 0.55) reason.push('zone_oscillation');
-    if (fatigue > 0.75) reason.push('fatigue_high');
-    if (shieldLow > 0.65) reason.push('low_shield');
-    if (stormFailLast2 > 0.5) reason.push('recent_storm_fail');
-
-    return {
-      p_fail: BUF.emaFail,
-      p_green: BUF.emaGreen,
-      p_stormFail: BUF.emaStorm,
-      reason,
-      meta: {
-        missRate, rtK, comboBreakK, zoneOscK, fatigue, accK, zGreen, shieldLow, stormFailLast2
-      }
+    const pred = {
+      game,
+      mode,
+      enabled,
+      pFail: Number(pFail.toFixed(3)),
+      pStorm: Number(pStorm.toFixed(3)),
+      pGreenLow: Number(pGreenLow.toFixed(3)),
+      reason: reason.slice(0, 8)
     };
-  }
 
-  function chooseAction(pred, st){
-    // Actions only if enabled AND not research (default)
-    if (!enabled) return { action:'off', ease:{}, coach:null };
-    if (inResearch) return { action:'research_off', ease:{}, coach:null };
+    // -------- action policy (only in play) ----------
+    let pick = null;
 
-    const t = now();
-    if (t - lastActionAt < OUT.actionCdMs){
-      return { action:'hold', ease:{}, coach:null };
+    if (enabled && (now - lastActionAt >= actionCooldownMs)){
+      const needFailHelp = (pFail >= thrFail);
+      const needStormHelp = (pStorm >= thrStorm);
+      const needGreenHelp = (pGreenLow >= thrGreenLow);
+
+      // score actions
+      const scoreEaseBad = (needFailHelp?0.6:0) + (needStormHelp?0.4:0) + (shield<=0?0.2:0);
+      const scoreEaseSpawn = (needFailHelp?0.55:0) + (needStormHelp?0.25:0) + (st.emaFatigue>0.65?0.15:0);
+      const scoreWaterHelp = (needGreenHelp?0.7:0) + (!green?0.25:0) + (st.emaZoneOsc>0.55?0.15:0);
+      const scoreAimHelp = (needFailHelp?0.55:0) + (st.emaAcc<0.58?0.25:0) + ((1-rtNorm)>0.35?0.20:0);
+
+      // choose best
+      const scores = [
+        {action:'ease_bad', s:scoreEaseBad},
+        {action:'ease_spawn', s:scoreEaseSpawn},
+        {action:'ease_water', s:scoreWaterHelp},
+        {action:'ease_aim', s:scoreAimHelp},
+        {action:'none', s:0.05}
+      ].sort((a,b)=>b.s-a.s);
+
+      // tie-break with seed RNG
+      const best = scores[0];
+      const second = scores[1];
+      let action = best.action;
+      if (second && Math.abs(best.s - second.s) < 0.08){
+        if (rnd() < 0.5) action = second.action;
+      }
+
+      // build easing multipliers
+      const ease = {
+        spawnMul: 1.0,
+        badMul: 1.0,
+        waterNudgeMul: 1.0,
+        lockPxMul: 1.0
+      };
+
+      let coach = '';
+
+      if (action === 'ease_bad'){
+        ease.badMul = 0.86;          // fewer bad
+        ease.spawnMul = 1.08;        // slightly slower spawn feel
+        coach = inStorm ? 'พายุแรง! โฟกัสเป้าใหญ่ก่อนนะ 🛡️' : 'ค่อย ๆ ยิงทีละเป้า จะคุมเกมง่ายขึ้น 😊';
+      } else if (action === 'ease_spawn'){
+        ease.spawnMul = 1.18;        // slower spawns
+        coach = 'ช้าลงนิดนึง… เล็งให้ชัวร์ก่อนยิง 🎯';
+      } else if (action === 'ease_water'){
+        ease.waterNudgeMul = 1.22;   // help water recover faster
+        coach = 'พยายามคุมให้อยู่ GREEN นาน ๆ นะ 💧';
+      } else if (action === 'ease_aim'){
+        ease.lockPxMul = 1.14;       // more generous aim assist
+        coach = 'ยิงจากกลางจอแล้วรอให้ล็อกเป้าก่อนนิดนึง ✨';
+      } else {
+        // none: gently relax toward neutral
+        ease.spawnMul = 1.0;
+        ease.badMul = 1.0;
+        ease.waterNudgeMul = 1.0;
+        ease.lockPxMul = 1.0;
+      }
+
+      // if currently in storm, avoid too much spawn slowdown (keep exciting)
+      if (inStorm){
+        ease.spawnMul = clamp(ease.spawnMul, 0.95, 1.12);
+      }
+
+      // kids: slightly more help
+      if (kids){
+        ease.badMul = clamp(ease.badMul*0.98, 0.78, 1.0);
+        ease.lockPxMul = clamp(ease.lockPxMul*1.02, 0.95, 1.20);
+        ease.spawnMul = clamp(ease.spawnMul*1.03, 0.90, 1.28);
+        ease.waterNudgeMul = clamp(ease.waterNudgeMul*1.03, 0.90, 1.35);
+      }
+
+      pick = { action, ease, coach };
+
+      // mark action
+      if (action !== 'none'){
+        lastActionAt = now;
+        st.lastAction = action;
+        st.lastReason = pred.reason.slice(0,6);
+      }
     }
 
-    // thresholds (kids-friendly; can be tuned by URL)
-    const thrFail = clamp(parseFloat(qs('aiFail', String(opts.thrFail ?? 0.58))), 0.1, 0.95);
-    const thrStorm = clamp(parseFloat(qs('aiStorm', String(opts.thrStorm ?? 0.60))), 0.1, 0.95);
-
-    const thrGreenLow = clamp(parseFloat(qs('aiGreenLow', String(opts.thrGreenLow ?? 0.42))), 0.1, 0.95);
-
-    const isKids = !!st.kids;
-
-    // ease profile (small nudges)
-    const ease = { spawnMul:1.0, badMul:1.0, waterNudgeMul:1.0, lockPxMul:1.0 };
-    let coach = null;
-    let action = 'none';
-
-    // 1) if near-fail -> soften slightly
-    if (pred.p_fail >= thrFail){
-      action = 'ease_fail';
-      ease.spawnMul = isKids ? 1.10 : 1.06;         // slower spawns
-      ease.badMul   = isKids ? 0.88 : 0.92;         // fewer bad
-      ease.waterNudgeMul = isKids ? 1.12 : 1.06;    // easier gauge control
-      ease.lockPxMul = isKids ? 1.06 : 1.03;        // a bit more assist in cVR
-
-      coach = isKids
-        ? 'ค่อย ๆ เล็งก่อนนะ ยิงช้า ๆ แต่ชัวร์ 😊'
-        : 'ลดการรัวยิง—คุมจังหวะให้ชัวร์';
-
-      // probabilistic fire to avoid being too obvious
-      if (!decisionChance(0.80)) return { action:'hold', ease:{}, coach:null };
-      lastActionAt = t;
-      return { action, ease, coach };
-    }
-
-    // 2) storm fail risk -> prep storm
-    if (pred.p_stormFail >= thrStorm){
-      action = 'prep_storm';
-      ease.badMul = isKids ? 0.90 : 0.94;
-      ease.spawnMul = isKids ? 1.06 : 1.03;
-
-      coach = isKids
-        ? 'ใกล้พายุแล้ว เก็บ 🛡️ ไว้บล็อกช่วงท้าย!'
-        : 'เตรียม STORM: เก็บโล่ไว้บล็อกท้ายพายุ';
-
-      if (!decisionChance(0.70)) return { action:'hold', ease:{}, coach:null };
-      lastActionAt = t;
-      return { action, ease, coach };
-    }
-
-    // 3) green success low -> gentle water help
-    if (pred.p_green <= thrGreenLow){
-      action = 'help_green';
-      ease.waterNudgeMul = isKids ? 1.10 : 1.04;
-      coach = isKids ? 'ลองยิง 💧 ให้เข้า GREEN นะ!' : 'โฟกัสคุม GREEN';
-      if (!decisionChance(0.55)) return { action:'hold', ease:{}, coach:null };
-      lastActionAt = t;
-      return { action, ease, coach };
-    }
-
-    return { action:'none', ease:{}, coach:null };
-  }
-
-  function update(st = {}){
-    const t = now();
-    if (t - lastTickAt < OUT.minIntervalMs) return null;
-    lastTickAt = t;
-
-    const pred = compute(st);
-    const pick = chooseAction(pred, st);
-
-    // emit AI event occasionally (even if action none)
-    const emitEvery = clamp(parseInt(qs('aiEmit', String(opts.emitEveryMs ?? 1200)),10)||1200, 400, 4000);
-    if (t - BUF.lastEmitAt >= emitEvery){
-      BUF.lastEmitAt = t;
-      emit('hha:ai', {
-        game,
-        runMode: mode,
-        p_fail: Number(pred.p_fail.toFixed(3)),
-        p_green: Number(pred.p_green.toFixed(3)),
-        p_stormFail: Number(pred.p_stormFail.toFixed(3)),
-        action: pick.action,
-        reason: pred.reason.slice(0,6),
-        at: t,
-        meta: pred.meta
-      });
+    // optional telemetry emit (rate-limited)
+    if (enabled && (now - lastEmitAt >= emitEveryMs)){
+      lastEmitAt = now;
+      try{
+        emit('hha:ai', { kind:'predict', pred, pick });
+      }catch(_){}
     }
 
     return { pred, pick };
   }
 
   return {
+    game,
+    mode,
     enabled,
     inResearch,
     update
