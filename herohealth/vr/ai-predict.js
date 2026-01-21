@@ -1,98 +1,94 @@
 // === /herohealth/vr/ai-predict.js ===
-// HHA AI Predict — LIGHTWEIGHT (kids-friendly)
-// ✅ Predict storm pass chance (0..100)
-// ✅ Suggest next action text (LOW/HIGH, get shield, block end window)
-// ✅ Deterministic in research (uses provided rng)
+// AI Prediction Hooks — HHA Standard
+// ✅ Predict: next 10s risk (miss surge / fatigue / storm fail)
+// ✅ No external ML (rule-based proxy) but structured as ML-ready features
+// ✅ Deterministic friendly (no random)
 
-'use strict';
-
-export function createAIPredict(opts = {}){
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+export function createAIPredictor(opts={}){
   const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-  const game = String(opts.game || 'game').toLowerCase();
-  const emit = typeof opts.emit === 'function'
-    ? opts.emit
-    : ((name, detail)=>{ try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){ } });
+  const cfg = Object.assign({
+    horizonSec: 10,
+    emaA: 0.18,
+  }, opts);
 
-  const run = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
-  const inResearch = (run === 'research' || run === 'study');
+  const S = {
+    emaAcc: 0.70,
+    emaMissRate: 0.10,
+    emaFrustration: 0.20,
+    emaFatigue: 0.20,
+    last: null
+  };
 
-  // optional: disable prediction
-  const predQ = String(qs('predict','1')).toLowerCase();
-  const enabled = !(predQ==='0' || predQ==='false' || predQ==='off');
+  function update(input){
+    const {
+      acc=0.7, missRate=0.1, frustration=0.2, fatigue=0.2,
+      inStorm=false, inEndWindow=false, zone='GREEN', shield=0,
+      timeK=0.0, combo=0, kids=false
+    } = (input||{});
 
-  const rng = (typeof opts.rng === 'function') ? opts.rng : Math.random;
+    S.emaAcc = S.emaAcc*(1-cfg.emaA) + clamp(acc,0,1)*cfg.emaA;
+    S.emaMissRate = S.emaMissRate*(1-cfg.emaA) + clamp(missRate,0,1)*cfg.emaA;
+    S.emaFrustration = S.emaFrustration*(1-cfg.emaA) + clamp(frustration,0,1)*cfg.emaA;
+    S.emaFatigue = S.emaFatigue*(1-cfg.emaA) + clamp(fatigue,0,1)*cfg.emaA;
 
-  function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+    // risk proxies
+    const riskMissSurge = clamp(
+      (S.emaMissRate*0.55 + (1-S.emaAcc)*0.45) + (kids? -0.05 : 0),
+      0, 1
+    );
 
-  function predictStorm(st){
-    // st expected fields:
-    // { inStorm, inEndWindow, waterZone, shield, missesRate, pressure, pressureNeed, gotHitByBad, bossActive, bossNeed, bossBlocked }
-    if (!enabled) return { enabled:false, chancePct:0, label:'', next:'' };
+    const riskFatigue = clamp(
+      S.emaFatigue*0.65 + timeK*0.35,
+      0, 1
+    );
 
-    const inStorm = !!st.inStorm;
-    if (!inStorm) return { enabled:true, chancePct:0, label:'', next:'' };
+    // storm pass probability proxy
+    let stormPassProb = 0.65;
+    if (inStorm){
+      stormPassProb =
+        clamp(
+          0.78
+          - (riskMissSurge*0.40)
+          - (zone==='GREEN' ? 0.18 : 0)
+          - (inEndWindow && shield<=0 ? 0.22 : 0)
+          + (shield>0 ? 0.10 : 0)
+          + clamp(combo/18,0,1)*0.08
+          + (kids ? 0.06 : 0),
+          0.05, 0.95
+        );
+    }
 
-    const zone = String(st.waterZone||'').toUpperCase();
-    const shield = (st.shield|0);
-    const inEnd = !!st.inEndWindow;
+    // signals for coach/director
+    const signals = {
+      missSurge: riskMissSurge >= 0.62,
+      fatigueHigh: riskFatigue >= 0.70,
+      stormFailRisk: inStorm && stormPassProb <= 0.45,
+      endWindowNow: !!inEndWindow,
+      needShield: inStorm && inEndWindow && shield<=0,
+      stuckGreenInStorm: inStorm && zone==='GREEN'
+    };
 
-    const pressure = clamp(st.pressure ?? 0, 0, 2);
-    const need = clamp(st.pressureNeed ?? 1, 0.2, 2);
-    const pOK = clamp(pressure/Math.max(0.01, need), 0, 1);
+    const out = {
+      features: {
+        acc: S.emaAcc,
+        missRate: S.emaMissRate,
+        frustration: S.emaFrustration,
+        fatigue: S.emaFatigue,
+        timeK: clamp(timeK,0,1),
+        combo: combo|0,
+        shield: shield|0,
+        zone
+      },
+      risk: { missSurge: riskMissSurge, fatigue: riskFatigue, stormPassProb },
+      signals
+    };
 
-    const gotHit = !!st.gotHitByBad;
-    const missRate = clamp(st.missesRate ?? 0, 0, 1);
-
-    const zoneOK = (zone !== 'GREEN') ? 1 : 0;
-    const endOK  = inEnd ? 1 : 0;
-    const blockPotential = (shield > 0) ? 1 : 0;
-
-    // boss bonus complexity
-    const bossActive = !!st.bossActive;
-    const bossNeed = (st.bossNeed|0) || 2;
-    const bossBlocked = (st.bossBlocked|0) || 0;
-    const bossProgress = clamp(bossBlocked/Math.max(1,bossNeed), 0, 1);
-
-    // scoring model (simple + explainable)
-    // base wants: zoneOK + pressureOK + endWindow + shield
-    let x =
-      (+1.20*zoneOK) +
-      (+1.10*pOK) +
-      (+0.85*blockPotential) +
-      (+0.55*endOK) +
-      (+0.35*bossProgress) +
-      (-1.80*(gotHit?1:0)) +
-      (-0.90*missRate);
-
-    // research deterministic tiny noise, play allow tiny jitter
-    const jitter = inResearch ? ((rng()*0.12)-0.06) : ((Math.random()*0.18)-0.09);
-    x += jitter;
-
-    const prob = clamp(sigmoid(x), 0, 1);
-    const chancePct = Math.round(prob*100);
-
-    // next action
-    let next = '';
-    if (gotHit) next = 'โดน BAD แล้ว → รอบนี้ไม่นับ ลองใหม่รอบหน้า';
-    else if (!zoneOK) next = 'ทำให้ไม่อยู่ GREEN (LOW/HIGH) ก่อน';
-    else if (pOK < 1) next = 'ค้าง LOW/HIGH อีกนิด (เติมแรงกด)';
-    else if (!inEnd) next = 'รอท้ายพายุ (End Window) แล้วค่อย BLOCK';
-    else if (shield <= 0) next = 'ไม่มีโล่! รีบเก็บ 🛡️ แล้ว BLOCK';
-    else next = bossActive ? 'Boss Window! BLOCK 🌩️ ให้ครบ' : 'BLOCK ตอนนี้!';
-
-    const label =
-      chancePct >= 80 ? 'ชัวร์มาก' :
-      chancePct >= 60 ? 'มีลุ้น' :
-      chancePct >= 40 ? 'ต้องตั้งใจ' :
-      'ยาก';
-
-    // emit for logging/overlay if desired
-    emit('hha:predict', { game, kind:'storm', chancePct, label, next, at: Date.now() });
-
-    return { enabled:true, chancePct, label, next };
+    S.last = out;
+    return out;
   }
 
-  return { enabled, predictStorm };
+  function getLast(){ return S.last; }
+
+  return { update, getLast };
 }
