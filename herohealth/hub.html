@@ -1,6 +1,9 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth HUB — เลือกเกม + ส่งพารามิเตอร์วิจัยต่อ + ใส่ hub=... ให้อัตโนมัติ
-+ ✅ Research 1-click for all games (run=research&seed=123456)
+HeroHealth HUB — FUN EDITION
+✅ Story-like mission line (เด็ก ป.5 อ่านแล้วอยากกด)
+✅ Survival 1-click (play, normal, time=70, random seed)
+✅ Research 1-click (run=research&seed=123456)
+✅ Passthrough params + auto hub back link
 -->
 <!doctype html>
 <html lang="th">
@@ -19,17 +22,22 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
+
       --accent:#22c55e;
       --warn:#f59e0b;
       --cyan:#22d3ee;
       --violet:#a78bfa;
+      --danger:#ef4444;
+
       --radius:22px;
       --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{
       margin:0; width:100%; height:100%;
@@ -41,34 +49,74 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       color:var(--text);
       font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
+
     .wrap{
       min-height:100%;
       padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
       display:flex; align-items:center; justify-content:center;
     }
+
     .panel{
-      width:min(980px, 100%);
+      width:min(1020px, 100%);
       background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.72));
       border:1px solid var(--stroke);
       border-radius: 28px;
       padding: 18px;
       box-shadow: 0 18px 60px rgba(0,0,0,.38);
+      position:relative;
+      overflow:hidden;
     }
-    .top{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+
+    .panel::before{
+      content:'';
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(239,68,68,.10), transparent 55%),
+        radial-gradient(circle at 78% 24%, rgba(34,197,94,.10), transparent 55%),
+        radial-gradient(circle at 68% 88%, rgba(167,139,250,.10), transparent 58%);
+      pointer-events:none;
+      filter:saturate(1.1);
+    }
+
+    .top{ position:relative; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
     .title{ font-weight:1100; font-size:26px; letter-spacing:.2px; }
     .sub{ color:var(--muted); margin-top:6px; line-height:1.35; font-weight:850; }
     .hr{ height:1px; background:var(--stroke); margin: 14px 0; }
-    .grid{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
+
+    .grid{ position:relative; display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
     @media (max-width:860px){ .grid{ grid-template-columns:1fr; } }
 
     .card{
       background: rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
+      border:1px solid rgba(148,163,184,.18);
       border-radius: 18px;
       padding: 14px;
+      box-shadow: 0 10px 34px rgba(0,0,0,.24);
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+      position:relative;
+      overflow:hidden;
     }
-    .h{ font-weight:1000; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    .card:hover{
+      transform: translateY(-1px);
+      border-color: rgba(148,163,184,.28);
+      box-shadow: 0 16px 46px rgba(0,0,0,.30);
+    }
+
+    .h{ font-weight:1050; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+    .mission{
+      color: rgba(229,231,235,.88);
+      font-weight:950;
+      font-size:13px;
+      line-height:1.35;
+      margin: 0 0 10px 0;
+      padding:10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(15,23,42,.40);
+    }
+    .mission b{ color:#fff; }
     .hint{ color: var(--muted); font-weight:900; font-size:13px; line-height:1.35; }
+
     .btn{
       appearance:none;
       border:1px solid rgba(148,163,184,.22);
@@ -78,7 +126,7 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       padding: 12px 14px;
       font-weight: 1050;
       cursor:pointer;
-      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -88,13 +136,33 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
-    .btn + .btn{ margin-top:10px; }
     .btn:active{ transform: translateY(1px) scale(.99); }
     .btn:hover{ border-color: rgba(148,163,184,.35); }
 
     .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     @media (max-width:520px){ .row2{ grid-template-columns:1fr; } }
-    .row2 .btn{ margin-top:0; }
+
+    .btnSurvival{
+      border-color: rgba(239,68,68,.30);
+      background: linear-gradient(180deg, rgba(239,68,68,.16), rgba(15,23,42,.65));
+      box-shadow: 0 10px 26px rgba(239,68,68,.10);
+    }
+    .btnSurvival:hover{ border-color: rgba(239,68,68,.42); }
+
+    .btnLaunch{
+      border-color: rgba(34,211,238,.26);
+      background: linear-gradient(180deg, rgba(34,211,238,.10), rgba(15,23,42,.65));
+    }
+
+    .btnDirect{
+      border-color: rgba(245,158,11,.26);
+      background: linear-gradient(180deg, rgba(245,158,11,.10), rgba(15,23,42,.65));
+    }
+
+    .btnResearch{
+      border-color: rgba(34,197,94,.30);
+      background: linear-gradient(180deg, rgba(34,197,94,.12), rgba(15,23,42,.65));
+    }
 
     .tag{
       font-size:12px;
@@ -110,8 +178,10 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
     .tag.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
     .tag.cyan{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
     .tag.violet{ border-color: rgba(167,139,250,.38); background: rgba(167,139,250,.10); }
+    .tag.hot{ border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.12); }
 
     .meta{
+      position:relative;
       margin-top:10px;
       background:var(--panel2);
       border:1px solid var(--stroke);
@@ -123,6 +193,7 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       line-height:1.35;
       word-break:break-word;
     }
+
     .pill{
       border-radius: var(--pill);
       border:1px solid rgba(148,163,184,.20);
@@ -132,8 +203,25 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
       padding:0 12px;
       font-weight:950;
       cursor:pointer;
+      position:relative;
     }
+    .pill:active{ transform: translateY(1px); }
+
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
+
+    .footerNote{
+      position:relative;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 18px;
+      border: 1px dashed rgba(148,163,184,.22);
+      background: rgba(2,6,23,.38);
+      color: rgba(229,231,235,.86);
+      font-weight: 900;
+      font-size: 12.5px;
+      line-height: 1.4;
+    }
+    .footerNote b{ color:#fff; }
   </style>
 </head>
 
@@ -144,7 +232,7 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
         <div>
           <div class="title">🏠 HeroHealth — HUB</div>
           <div class="sub">
-            เลือกเกมเข้าเล่น • ส่งพารามิเตอร์วิจัยต่ออัตโนมัติ • ใส่ <span class="mono">hub=...</span> ให้กลับมาหน้านี้ได้
+            เลือกเกมเข้าเล่น • โหมด <b>Survival</b> = เล่นสนุกสุ่มฉาก • โหมด <b>Research</b> = ล็อกเงื่อนไข
           </div>
         </div>
         <button class="pill" id="btnCopyHub" type="button">📋 Copy HUB link</button>
@@ -159,117 +247,169 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
         <!-- Hygiene -->
         <div class="card">
           <div class="h">🧼 Hygiene VR</div>
+          <div class="mission">🎮 ภารกิจ: <b>“รอดจากเชื้อโรค!”</b> ล้างมือให้ทัน • หลบจุดเสี่ยง • มินิเควสท์โผล่มาเป็นช่วง ๆ</div>
 
           <div class="row2">
-            <button class="btn" id="btnHygieneLauncher" type="button">
-              <span>เข้า Launcher (Auto-detect)</span>
-              <span class="tag cyan">launcher</span>
+            <button class="btn btnSurvival" id="btnHygieneSurvival" type="button">
+              <span>🔥 เล่นเลย: Survival (70s)</span>
+              <span class="tag hot">hot</span>
             </button>
-            <button class="btn" id="btnHygieneRun" type="button">
+            <button class="btn btnDirect" id="btnHygieneRun" type="button">
               <span>เข้าเกม (Run) — direct</span>
               <span class="tag warn">direct</span>
             </button>
           </div>
 
           <div class="row2" style="margin-top:10px;">
-            <button class="btn" id="btnHygieneResearch" type="button">
+            <button class="btn btnResearch" id="btnHygieneResearch" type="button">
               <span>Research 1-click (seed=123456)</span>
               <span class="tag good">research</span>
             </button>
-            <button class="btn" id="btnHygieneResearchLauncher" type="button">
-              <span>Research ผ่าน Launcher</span>
+            <button class="btn btnLaunch" id="btnHygieneLauncher" type="button">
+              <span>เข้า Launcher (Auto-detect)</span>
               <span class="tag cyan">launcher</span>
             </button>
           </div>
 
           <div class="hint" style="margin-top:10px;">
-            launcher: <span class="mono">/herohealth/hygiene-vr.html</span><br/>
-            run: <span class="mono">/herohealth/hygiene-vr/hygiene-vr.html</span>
+            run: <span class="mono">/herohealth/hygiene-vr/hygiene-vr.html</span> • launcher: <span class="mono">/herohealth/hygiene-vr.html</span>
           </div>
         </div>
 
         <!-- GoodJunk -->
         <div class="card">
           <div class="h">🥦🍟 GoodJunkVR</div>
+          <div class="mission">🛡️ ภารกิจ: <b>“รอดให้ได้!”</b> เก็บของดีให้ทัน • ห้ามโดนขยะ • บอสมาเป็นช่วง ๆ</div>
 
-          <button class="btn" id="btnGoodJunkLauncher" type="button">
-            <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
-            <span class="tag good">recommended</span>
-          </button>
+          <div class="row2">
+            <button class="btn btnSurvival" id="btnGoodJunkSurvival" type="button">
+              <span>🔥 เล่นเลย: Survival (70s)</span>
+              <span class="tag hot">hot</span>
+            </button>
+            <button class="btn btnLaunch" id="btnGoodJunkLauncher" type="button">
+              <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
+              <span class="tag cyan">launcher</span>
+            </button>
+          </div>
 
-          <button class="btn" id="btnGoodJunkResearch" type="button">
-            <span>Research 1-click (seed=123456)</span>
-            <span class="tag good">research</span>
-          </button>
+          <div class="row2" style="margin-top:10px;">
+            <button class="btn btnResearch" id="btnGoodJunkResearch" type="button">
+              <span>Research 1-click (seed=123456)</span>
+              <span class="tag good">research</span>
+            </button>
+            <button class="btn" id="btnGoodJunkPlayNormal" type="button">
+              <span>เล่นปกติ (play)</span>
+              <span class="tag">play</span>
+            </button>
+          </div>
 
           <div class="hint" style="margin-top:10px;">
-            ไฟล์: <span class="mono">/herohealth/goodjunk-vr-launcher.html</span>
+            launcher: <span class="mono">/herohealth/goodjunk-vr-launcher.html</span>
           </div>
         </div>
 
         <!-- Groups -->
         <div class="card">
           <div class="h">🍽️ Food Groups VR</div>
+          <div class="mission">⚡ ภารกิจ: <b>“จับคู่ให้ไว!”</b> ยิงให้ถูกหมวด • พายุ/สลับเป้าทำให้ยากขึ้น • เก็บคอมโบ</div>
 
-          <button class="btn" id="btnGroupsLauncher" type="button">
-            <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
-            <span class="tag cyan">launcher</span>
-          </button>
+          <div class="row2">
+            <button class="btn btnSurvival" id="btnGroupsSurvival" type="button">
+              <span>🔥 เล่นเลย: Survival (70s)</span>
+              <span class="tag hot">hot</span>
+            </button>
+            <button class="btn btnLaunch" id="btnGroupsLauncher" type="button">
+              <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
+              <span class="tag cyan">launcher</span>
+            </button>
+          </div>
 
-          <button class="btn" id="btnGroupsResearch" type="button">
-            <span>Research 1-click (seed=123456)</span>
-            <span class="tag cyan">research</span>
-          </button>
+          <div class="row2" style="margin-top:10px;">
+            <button class="btn btnResearch" id="btnGroupsResearch" type="button">
+              <span>Research 1-click (seed=123456)</span>
+              <span class="tag cyan">research</span>
+            </button>
+            <button class="btn" id="btnGroupsPlayNormal" type="button">
+              <span>เล่นปกติ (play)</span>
+              <span class="tag">play</span>
+            </button>
+          </div>
 
           <div class="hint" style="margin-top:10px;">
-            ไฟล์: <span class="mono">/herohealth/groups-vr.html</span>
+            launcher: <span class="mono">/herohealth/groups-vr.html</span>
           </div>
         </div>
 
         <!-- Hydration -->
         <div class="card">
           <div class="h">🥤 Hydration VR</div>
+          <div class="mission">💧 ภารกิจ: <b>“รักษาสมดุลน้ำ”</b> เก็บน้ำให้พอดี • หลบสิ่งกวน • ช่วงเร่งสปีด/พายุ</div>
 
-          <button class="btn" id="btnHydrationRun" type="button">
-            <span>เข้าหน้าเกม (Run)</span>
-            <span class="tag warn">direct</span>
-          </button>
+          <div class="row2">
+            <button class="btn btnSurvival" id="btnHydrationSurvival" type="button">
+              <span>🔥 เล่นเลย: Survival (70s)</span>
+              <span class="tag hot">hot</span>
+            </button>
+            <button class="btn btnDirect" id="btnHydrationRun" type="button">
+              <span>เข้าเกม (Run) — direct</span>
+              <span class="tag warn">direct</span>
+            </button>
+          </div>
 
-          <button class="btn" id="btnHydrationResearch" type="button">
-            <span>Research 1-click (seed=123456)</span>
-            <span class="tag cyan">research</span>
-          </button>
+          <div class="row2" style="margin-top:10px;">
+            <button class="btn btnResearch" id="btnHydrationResearch" type="button">
+              <span>Research 1-click (seed=123456)</span>
+              <span class="tag cyan">research</span>
+            </button>
+            <button class="btn" id="btnHydrationPlayNormal" type="button">
+              <span>เล่นปกติ (play)</span>
+              <span class="tag">play</span>
+            </button>
+          </div>
 
           <div class="hint" style="margin-top:10px;">
-            คาดว่าอยู่ที่ <span class="mono">/herohealth/hydration-vr/hydration-vr.html</span>
+            run: <span class="mono">/herohealth/hydration-vr/hydration-vr.html</span>
           </div>
         </div>
 
         <!-- Plate -->
         <div class="card">
           <div class="h">🍱 Balanced Plate VR</div>
+          <div class="mission">🍽️ ภารกิจ: <b>“จัดจานให้บาลานซ์”</b> เลือกให้ถูกสัดส่วน • โหมดเร่งเวลา • ล่าคอมโบ</div>
 
-          <button class="btn" id="btnPlateRun" type="button">
-            <span>เข้าหน้าเกม (Run)</span>
-            <span class="tag violet">direct</span>
-          </button>
+          <div class="row2">
+            <button class="btn btnSurvival" id="btnPlateSurvival" type="button">
+              <span>🔥 เล่นเลย: Survival (70s)</span>
+              <span class="tag hot">hot</span>
+            </button>
+            <button class="btn btnDirect" id="btnPlateRun" type="button">
+              <span>เข้าเกม (Run) — direct</span>
+              <span class="tag violet">direct</span>
+            </button>
+          </div>
 
-          <button class="btn" id="btnPlateResearch" type="button">
-            <span>Research 1-click (seed=123456)</span>
-            <span class="tag violet">research</span>
-          </button>
+          <div class="row2" style="margin-top:10px;">
+            <button class="btn btnResearch" id="btnPlateResearch" type="button">
+              <span>Research 1-click (seed=123456)</span>
+              <span class="tag violet">research</span>
+            </button>
+            <button class="btn" id="btnPlatePlayNormal" type="button">
+              <span>เล่นปกติ (play)</span>
+              <span class="tag">play</span>
+            </button>
+          </div>
 
           <div class="hint" style="margin-top:10px;">
-            คาดว่าอยู่ที่ <span class="mono">/herohealth/plate/plate-vr.html</span>
+            run: <span class="mono">/herohealth/plate/plate-vr.html</span>
           </div>
         </div>
 
       </div>
 
       <div class="hr"></div>
-      <div class="hint">
-        • ถ้าต้องการ “โหมดวิจัย” แบบคุมเงื่อนไข: ใช้ปุ่ม <b>Research 1-click</b> (ล็อก <span class="mono">run=research&amp;seed=123456</span>)<br/>
-        • ทุกปุ่มจะ “พกพารามิเตอร์ทั้งหมด” ไปด้วย และจะเติม <span class="mono">hub=...</span> ให้อัตโนมัติ
+
+      <div class="footerNote">
+        ⭐ แนะนำสำหรับเด็ก ป.5: กด <b>🔥 Survival</b> ก่อน (เล่นสนุกไม่จำเจ) • ถ้าทำวิจัยกด <b>Research 1-click</b> (ล็อกเงื่อนไขเทียบกันได้) • เล่นจบแล้วกดกลับ HUB ได้ทันที
       </div>
     </div>
   </div>
@@ -287,13 +427,11 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
     const to = new URL(path, location.href);
     const sp = new URL(location.href).searchParams;
 
-    // ส่งพารามิเตอร์ทั้งหมดต่อไป ยกเว้น hub เดิม
     sp.forEach((v,k)=>{
       if (k === 'hub') return;
       if (!to.searchParams.has(k)) to.searchParams.set(k, v);
     });
 
-    // ใส่ hub กลับมาหน้านี้
     to.searchParams.set('hub', baseHubUrl());
     return to.toString();
   }
@@ -302,19 +440,16 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
     const to = new URL(path, location.href);
     const sp = new URL(location.href).searchParams;
 
-    // ส่งพารามิเตอร์ทั้งหมดต่อไป (ยกเว้น hub เดิม)
     sp.forEach((v,k)=>{
       if (k === 'hub') return;
       if (!to.searchParams.has(k)) to.searchParams.set(k, v);
     });
 
-    // override เฉพาะค่าที่ต้องการบังคับ
     Object.entries(overrides || {}).forEach(([k,v])=>{
       if (v === null || v === undefined || v === '') to.searchParams.delete(k);
       else to.searchParams.set(k, String(v));
     });
 
-    // ใส่ hub กลับมาหน้านี้
     to.searchParams.set('hub', baseHubUrl());
     return to.toString();
   }
@@ -343,50 +478,79 @@ HeroHealth HUB — เลือกเกม + ส่งพารามิเต�
 
   setMeta();
 
-  // Hygiene
-  DOC.getElementById('btnHygieneLauncher')?.addEventListener('click', ()=>{
-    location.href = buildTo('./hygiene-vr.html');
+  // --- constants for UX ---
+  const SURV_TIME = 70;         // ✅ Survival time
+  const SURV_DIFF = 'normal';   // ✅ default
+  const RESEARCH_SEED = 123456; // ✅ locked seed for research
+
+  // ===== Hygiene =====
+  DOC.getElementById('btnHygieneSurvival')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./hygiene-vr/hygiene-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
   });
   DOC.getElementById('btnHygieneRun')?.addEventListener('click', ()=>{
     location.href = buildTo('./hygiene-vr/hygiene-vr.html');
   });
   DOC.getElementById('btnHygieneResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hygiene-vr/hygiene-vr.html', { run:'research', seed:123456 });
+    location.href = buildToWith('./hygiene-vr/hygiene-vr.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
   });
-  DOC.getElementById('btnHygieneResearchLauncher')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hygiene-vr.html', { run:'research', seed:123456 });
+  DOC.getElementById('btnHygieneLauncher')?.addEventListener('click', ()=>{
+    location.href = buildTo('./hygiene-vr.html');
   });
 
-  // GoodJunk
+  // ===== GoodJunk =====
+  DOC.getElementById('btnGoodJunkSurvival')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./goodjunk-vr-launcher.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
+  });
   DOC.getElementById('btnGoodJunkLauncher')?.addEventListener('click', ()=>{
     location.href = buildTo('./goodjunk-vr-launcher.html');
   });
   DOC.getElementById('btnGoodJunkResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./goodjunk-vr-launcher.html', { run:'research', seed:123456 });
+    location.href = buildToWith('./goodjunk-vr-launcher.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
+  });
+  DOC.getElementById('btnGoodJunkPlayNormal')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./goodjunk-vr-launcher.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
   });
 
-  // Groups
+  // ===== Groups =====
+  DOC.getElementById('btnGroupsSurvival')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./groups-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
+  });
   DOC.getElementById('btnGroupsLauncher')?.addEventListener('click', ()=>{
     location.href = buildTo('./groups-vr.html');
   });
   DOC.getElementById('btnGroupsResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./groups-vr.html', { run:'research', seed:123456 });
+    location.href = buildToWith('./groups-vr.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
+  });
+  DOC.getElementById('btnGroupsPlayNormal')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./groups-vr.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
   });
 
-  // Hydration
+  // ===== Hydration =====
+  DOC.getElementById('btnHydrationSurvival')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./hydration-vr/hydration-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
+  });
   DOC.getElementById('btnHydrationRun')?.addEventListener('click', ()=>{
     location.href = buildTo('./hydration-vr/hydration-vr.html');
   });
   DOC.getElementById('btnHydrationResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hydration-vr/hydration-vr.html', { run:'research', seed:123456 });
+    location.href = buildToWith('./hydration-vr/hydration-vr.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
+  });
+  DOC.getElementById('btnHydrationPlayNormal')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./hydration-vr/hydration-vr.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
   });
 
-  // Plate
+  // ===== Plate =====
+  DOC.getElementById('btnPlateSurvival')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./plate/plate-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
+  });
   DOC.getElementById('btnPlateRun')?.addEventListener('click', ()=>{
     location.href = buildTo('./plate/plate-vr.html');
   });
   DOC.getElementById('btnPlateResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./plate/plate-vr.html', { run:'research', seed:123456 });
+    location.href = buildToWith('./plate/plate-vr.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
+  });
+  DOC.getElementById('btnPlatePlayNormal')?.addEventListener('click', ()=>{
+    location.href = buildToWith('./plate/plate-vr.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
   });
 
   // Copy HUB
