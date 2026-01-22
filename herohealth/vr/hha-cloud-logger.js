@@ -1,10 +1,9 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION v2 (flush-hardened, cross-game)
-// ✅ Listens: hha:end -> sends session summary JSON (per-game)
+// HHA Cloud Logger — PRODUCTION v2 (universal, flush-hardened)
+// ✅ Listens: hha:end (session summary) + optional hha:event (telemetry)
 // ✅ Queue persist localStorage (offline-safe)
 // ✅ keepalive + sendBeacon fallback
 // ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ PATCH: no hardcode gameMode; uses event detail + query ctx
 
 (function(){
   'use strict';
@@ -14,12 +13,6 @@
   WIN.__HHA_CLOUD_LOGGER_V2__ = true;
 
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  const num = (v, def=0)=>{ v = Number(v); return Number.isFinite(v) ? v : def; };
-  const boolQ = (k, def=false)=>{
-    const v = String(qs(k, def ? '1':'0')).toLowerCase();
-    return (v==='1'||v==='true'||v==='yes'||v==='on');
-  };
-
   const ENDPOINT = (qs('log','')||'').trim(); // ?log=...
   const LS_KEY = 'HHA_LOG_QUEUE_V2';
 
@@ -33,34 +26,29 @@
   let queue = loadQ();
   let flushing = false;
 
+  function guessGameMode(){
+    // 1) explicit query
+    const g = (qs('game','')||qs('mode','')||'').toLowerCase().trim();
+    if (g) return g;
+
+    // 2) path heuristic
+    const p = (location.pathname||'').toLowerCase();
+    if (p.includes('hydration')) return 'hydration';
+    if (p.includes('goodjunk')) return 'goodjunk';
+    if (p.includes('groups')) return 'groups';
+    if (p.includes('plate')) return 'plate';
+
+    // 3) default
+    return 'unknown';
+  }
+
   function payloadBase(){
     return {
       timestampIso: new Date().toISOString(),
       href: location.href,
       ua: navigator.userAgent || '',
       projectTag: qs('projectTag','HeroHealth'),
-      kind: 'session',
-    };
-  }
-
-  function ctxFromQuery(){
-    // ctx that should exist across all games
-    const view = String(qs('view','') || qs('device','') || '').toLowerCase();
-    return {
-      runMode: String(qs('run', qs('runMode','play')) || 'play').toLowerCase(),
-      diff: String(qs('diff','normal')).toLowerCase(),
-      device: view,
-      hub: qs('hub','') || '',
-      seed: qs('seed','') || '',
-      ts: qs('ts','') || '',
-      sessionId: qs('sessionId', qs('studentKey','')) || '',
-      studentKey: qs('studentKey','') || '',
-      studyId: qs('studyId','') || '',
-      conditionGroup: qs('conditionGroup','') || qs('group','') || '',
-      phase: qs('phase','') || '',
-      kids: boolQ('kids', false),
-      practiceSec: num(qs('practice','0'), 0),
-      durationPlannedSec: num(qs('time', qs('durationPlannedSec','0')), 0),
+      game: 'HeroHealth'
     };
   }
 
@@ -72,11 +60,13 @@
   async function postJson(url, obj){
     try{
       const body = JSON.stringify(obj);
-      // try sendBeacon first for unload safety
+
+      // sendBeacon first (unload-safe)
       if(navigator.sendBeacon){
         const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if(ok) return true;
       }
+
       const res = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
@@ -92,12 +82,11 @@
 
   async function flush(){
     if(flushing) return;
-    if(!ENDPOINT) return;     // no endpoint => do nothing
+    if(!ENDPOINT) return;
     if(queue.length === 0) return;
 
     flushing = true;
 
-    // send oldest-first
     const q = queue.slice();
     let sent = 0;
 
@@ -115,60 +104,57 @@
     flushing = false;
   }
 
-  function normalizeGameMode(d){
-    // prioritize event detail
-    const gm =
-      d.gameMode || d.game || d.gameId ||
-      qs('gameMode','') || qs('game','') || '';
-    return String(gm || 'unknown').toLowerCase();
-  }
-
+  // ---- SESSION SUMMARY ----
   function onEnd(ev){
     try{
       const d = ev?.detail || {};
-      const base = payloadBase();
-      const ctx = ctxFromQuery();
-      const gameMode = normalizeGameMode(d);
+      const gameMode = (d.gameMode || qs('gameMode','') || guessGameMode()).toString().toLowerCase();
 
-      // Merge: event detail should win over query for metrics
-      const pack = Object.assign({}, base, ctx, {
+      const pack = Object.assign(payloadBase(), {
+        kind: 'session',
         gameMode,
-
-        // most important session metrics (try common keys)
-        durationPlannedSec: num(d.durationPlannedSec, ctx.durationPlannedSec),
-        durationPlayedSec:  num(d.durationPlayedSec, 0),
-        scoreFinal:         num(d.scoreFinal, 0),
-        misses:             num(d.misses, 0),
-        grade:              d.grade || '—',
-        reason:             d.reason || 'end',
-
-        // helpful extras if present
-        accuracyGoodPct:    num(d.accuracyGoodPct, null),
-        comboMax:           num(d.comboMax, null),
-        stageCleared:       num(d.stageCleared, null),
-        goalsCleared:       num(d.goalsCleared, null),
-        goalsTotal:         num(d.goalsTotal, null),
-
-        miniCleared:        num(d.miniCleared, null),
-        miniTotal:          num(d.miniTotal, null),
-        stormCycles:        num(d.stormCycles, null),
-        stormSuccess:       num(d.stormSuccess, null),
-        stormRatePct:       num(d.stormRatePct, null),
-        bossClearCount:     num(d.bossClearCount, null),
-
-        greenHoldSec:       (d.greenHoldSec != null ? num(d.greenHoldSec, null) : null),
-        practiceSec:        (d.practiceSec != null ? num(d.practiceSec, ctx.practiceSec) : ctx.practiceSec),
-
-        // keep raw keys if you want to analyze later
-        _raw: d
+        runMode: d.runMode || qs('run','play'),
+        diff: d.diff || qs('diff','normal'),
+        device: d.device || qs('view',''),
+        durationPlannedSec: Number(d.durationPlannedSec || qs('time','0')) || 0,
+        durationPlayedSec: Number(d.durationPlayedSec || 0) || 0,
+        scoreFinal: Number(d.scoreFinal || 0) || 0,
+        misses: Number(d.misses || 0) || 0,
+        grade: d.grade || '—',
+        reason: d.reason || 'end',
+        seed: qs('seed','') || d.seed || '',
+        sessionId: d.sessionId || qs('sessionId','') || '',
+        kids: !!(d.kids || (qs('kids','0')==='1'))
       });
 
       enqueue(pack);
-      flush(); // best-effort immediate
+      flush();
     }catch(_){}
   }
 
   WIN.addEventListener('hha:end', onEnd, { passive:true });
+
+  // ---- OPTIONAL TELEMETRY ----
+  function onEvent(ev){
+    try{
+      const d = ev?.detail || {};
+      const gameMode = (d.gameMode || qs('gameMode','') || guessGameMode()).toString().toLowerCase();
+
+      const pack = Object.assign(payloadBase(), {
+        kind: 'event',
+        gameMode,
+        t: Number(d.t || 0) || 0,
+        name: String(d.name || 'event'),
+        data: d.data || {},
+        seed: qs('seed','') || d.seed || '',
+        sessionId: d.sessionId || qs('sessionId','') || ''
+      });
+
+      enqueue(pack);
+      // do NOT flush every event aggressively; logger already has periodic flush
+    }catch(_){}
+  }
+  WIN.addEventListener('hha:event', onEvent, { passive:true });
 
   // Manual flush hook
   WIN.addEventListener('hha:flush', ()=>flush(), { passive:true });
@@ -180,14 +166,7 @@
   }, { passive:true });
   WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
 
-  // periodic flush (in case offline -> online)
+  // periodic flush
   setInterval(()=>flush(), 3500);
-
-  // expose status (optional)
-  WIN.HHA_LOGGER = {
-    enabled: !!ENDPOINT,
-    flush: ()=>flush(),
-    getQueueSize: ()=>queue.length
-  };
 
 })();
