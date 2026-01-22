@@ -1,11 +1,12 @@
 // =========================================================
 // /herohealth/vr/mode-factory.js
-// HHA Spawn Mode Factory — PRODUCTION (PATCH A4-3)
+// HHA Spawn Mode Factory — PRODUCTION (PATCH A4-4)
 // - Exports: boot()
 // - Spawns HTML targets into a mount layer
 // - TTL ring progress: sets CSS var --p (1..0)
 // - Supports click/tap + hha:shoot from vr-ui.js (crosshair)
 // - Safe spawn zones: reads CSS vars --hud-top-safe / --hud-bottom-safe
+// - Target separation: avoids overlap (minSeparationPx)
 // =========================================================
 
 'use strict';
@@ -29,6 +30,9 @@ export function boot(opts){
 
   const lifetimeMs = clampNum(opts.lifetimeMs ?? 2600, 600, 12000); // TTL
   const maxAlive = clampNum(opts.maxAlive ?? 10, 1, 80);
+
+  const minSeparationPx = clampNum(opts.minSeparationPx ?? 14, 0, 120);
+  const maxTries = clampNum(opts.spawnTries ?? 16, 1, 80);
 
   const kinds = Array.isArray(opts.kinds) && opts.kinds.length
     ? opts.kinds
@@ -62,7 +66,6 @@ export function boot(opts){
     nextId: 1,
     spawnTO: null,
     tickRAF: null,
-    lastSpawnAt: 0,
   };
 
   // ---------- helpers ----------
@@ -76,6 +79,21 @@ export function boot(opts){
       if(r <= 0) return k.kind || 'good';
     }
     return kinds[kinds.length-1].kind || 'good';
+  }
+
+  function isFarEnough(px, py, radius){
+    if(minSeparationPx <= 0) return true;
+
+    for(const [,t] of state.alive){
+      if(!t.el) continue;
+      // compare centers in screen px using cached px if available
+      const dx = (t.cxPx ?? 0) - px;
+      const dy = (t.cyPx ?? 0) - py;
+      const dist2 = dx*dx + dy*dy;
+      const need = (t.rPx ?? 0) + radius + minSeparationPx;
+      if(dist2 < need*need) return false;
+    }
+    return true;
   }
 
   function spawnOne(){
@@ -100,10 +118,27 @@ export function boot(opts){
 
     const useFallback = (xMax - xMin < 80) || (yMax - yMin < 80);
 
-    const px = useFallback ? lerp(fxMin, fxMax, rng()) : lerp(xMin, xMax, rng());
-    const py = useFallback ? lerp(fyMin, fyMax, rng()) : lerp(yMin, yMax, rng());
-
+    // decide size first (affects separation)
     const s = Math.round(lerp(sizeMin, sizeMax, rng()));
+    const radius = Math.max(16, s/2);
+
+    let px = 0, py = 0;
+    let ok = false;
+
+    for(let i=0; i<maxTries; i++){
+      px = useFallback ? lerp(fxMin, fxMax, rng()) : lerp(xMin, xMax, rng());
+      py = useFallback ? lerp(fyMin, fyMax, rng()) : lerp(yMin, yMax, rng());
+      if(isFarEnough(px, py, radius)){
+        ok = true;
+        break;
+      }
+    }
+
+    if(!ok){
+      // give up silently to avoid ugly overlaps
+      return;
+    }
+
     const kind = pickKind();
 
     // Build target payload
@@ -114,6 +149,12 @@ export function boot(opts){
       groupIndex: (kind === 'good') ? Math.floor(rng()*5) : null,
       bornAt: now(),
       dieAt: now() + lifetimeMs,
+
+      // for separation compare in px
+      cxPx: px,
+      cyPx: py,
+      rPx: radius,
+
       xPct: clampNum((px / rect.width) * 100, 0, 100),
       yPct: clampNum((py / rect.height) * 100, 0, 100),
       sizePx: s,
@@ -126,8 +167,8 @@ export function boot(opts){
     el.dataset.id = id;
     el.dataset.kind = kind;
 
-    // Emoji: default set for plate (you can override later)
-    el.textContent = pickEmoji(kind, t.groupIndex);
+    // deterministic emoji (use rng)
+    el.textContent = pickEmoji(kind, t.groupIndex, rng);
 
     // position + size via CSS vars
     el.style.setProperty('--x', String(t.xPct));
@@ -154,17 +195,14 @@ export function boot(opts){
     const t = state.alive.get(String(id));
     if(!t) return;
 
-    // remove now
     state.alive.delete(String(id));
     if(t.el){
       t.el.classList.add('is-hit');
-      // quick remove
       const el = t.el;
       t.el = null;
-      setTimeout(()=>{ try{ el.remove(); }catch{} }, 60);
+      setTimeout(()=>{ try{ el.remove(); }catch{} }, 70);
     }
 
-    // callback
     onHit({
       id: t.id,
       kind: t.kind,
@@ -193,7 +231,6 @@ export function boot(opts){
     }
     const tNow = now();
 
-    // update TTL ring + expire
     for(const [id, t] of state.alive){
       const left = (t.dieAt - tNow);
       if(left <= 0){
@@ -206,14 +243,11 @@ export function boot(opts){
       }
     }
 
-    // schedule next tick
     state.tickRAF = requestAnimationFrame(tick);
   }
 
   function scheduleSpawn(){
     if(!state.running) return;
-
-    // immediate spawn if empty (feel responsive)
     if(state.alive.size === 0) spawnOne();
 
     state.spawnTO = setInterval(()=>{
@@ -231,10 +265,8 @@ export function boot(opts){
     const y = Number(d.y);
     const lockPx = clampNum(d.lockPx ?? 28, 6, 120);
 
-    // if coords missing, ignore
     if(!isFinite(x) || !isFinite(y)) return;
 
-    // choose nearest alive target within lockPx
     let bestId = null;
     let bestDist2 = Infinity;
 
@@ -259,7 +291,6 @@ export function boot(opts){
 
   // ---------- start ----------
   WIN.addEventListener('hha:shoot', onShoot);
-
   scheduleSpawn();
   state.tickRAF = requestAnimationFrame(tick);
 
@@ -280,7 +311,6 @@ export function boot(opts){
 
       WIN.removeEventListener('hha:shoot', onShoot);
 
-      // remove remaining targets
       for(const [,t] of state.alive){
         try{ t.el?.remove(); }catch{}
       }
@@ -299,7 +329,6 @@ function clampNum(v, a, b){
   if(!isFinite(v)) v = a;
   return v < a ? a : (v > b ? b : v);
 }
-
 function lerp(a,b,t){ return a + (b-a)*t; }
 
 function parsePx(s){
@@ -320,18 +349,21 @@ function makeRng(seed){
 }
 
 // Plate emoji set (ปรับได้ภายหลังให้ “ไม่เบื่อ”)
-function pickEmoji(kind, gi){
+function pickEmoji(kind, gi, rng){
+  const rr = typeof rng === 'function' ? rng : Math.random;
+
   if(kind === 'junk'){
     const junk = ['🍩','🍟','🍔','🥤','🍰','🍫','🍿','🍗'];
-    return junk[Math.floor(Math.random()*junk.length)];
+    return junk[Math.floor(rr()*junk.length)];
   }
+
   const groups = [
     ['🍚','🍞','🥔','🌽'],     // carbs
     ['🥦','🥬','🥕','🍅'],     // veg
     ['🍎','🍌','🍇','🍉'],     // fruit
     ['🍗','🐟','🥚','🫘'],     // protein
-    ['🥛','🧀','🍶','🧈'],     // dairy/fat (ตามที่คุณนิยาม)
+    ['🥛','🧀','🍶','🧈'],     // dairy/fat
   ];
   const g = groups[Number(gi)||0] || groups[0];
-  return g[Math.floor(Math.random()*g.length)];
+  return g[Math.floor(rr()*g.length)];
 }
