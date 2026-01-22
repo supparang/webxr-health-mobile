@@ -1,50 +1,72 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration Quest VR LAUNCHER — AUTO (NO override if ?view= exists)
-✅ Auto-detect: pc / mobile / cardboard / cvr
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/kids/style/...
-✅ Redirect -> ./hydration-vr/hydration-vr.html
+Hydration VR Launcher — ROOT (AUTO ONLY)
+✅ Auto-detect (PC / Mobile / cVR)
+✅ DO NOT override if ?view= exists
+✅ Cardboard hint: if ?cardboard=1 => view=cvr (only if view missing)
+✅ Pass-through query (hub/run/diff/time/seed/sessionId/log/kids/etc.)
+✅ Go to: /herohealth/hydration-vr/hydration-vr.html
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hydration Quest (Auto)</title>
+  <title>HeroHealth — Hydration VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
-    :root{ color-scheme: dark; }
-    body{
-      margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-      background:#020617; color:#e5e7eb; font:600 16px/1.35 system-ui;
+    :root{
+      color-scheme: dark;
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --cyan:#22d3ee;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --r:22px;
     }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
-      width:min(560px, 92vw);
-      background:rgba(2,6,23,.72);
+      width:min(860px,100%);
       border:1px solid rgba(148,163,184,.18);
-      border-radius:22px;
-      padding:18px 16px;
-      box-shadow:0 30px 110px rgba(0,0,0,.55);
+      background: rgba(2,6,23,.72);
+      border-radius: var(--r);
+      padding: 16px;
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
     }
-    .t{ font-size:18px; font-weight:900; margin:0 0 6px; }
-    .s{ color:#94a3b8; font-weight:700; margin:0 0 14px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .title{font-weight:950;font-size:18px;letter-spacing:.2px}
+    .sub{color:rgba(148,163,184,.95);margin-top:6px;font-size:13px;line-height:1.35}
     .pill{
-      padding:8px 10px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.50);
-      font-size:13px; font-weight:800; color:#e5e7eb;
+      margin-top:12px;
+      display:inline-flex; gap:8px; align-items:center;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.55);
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      color:rgba(229,231,235,.92);
     }
+    .dot{width:9px;height:9px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.16)}
+    .hint{margin-top:10px;color:rgba(148,163,184,.95);font-size:12px;line-height:1.35}
+    code{color:rgba(34,211,238,.95)}
+    .small{opacity:.9}
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="t">💧 Hydration Quest</div>
-    <div class="s" id="msg">กำลังตรวจจับอุปกรณ์…</div>
-    <div class="row">
-      <div class="pill" id="pView">view: …</div>
-      <div class="pill" id="pDiff">diff: …</div>
-      <div class="pill" id="pTime">time: …</div>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">Hydration Quest VR</div>
+      <div class="sub" id="msg">กำลังพาเข้าเกมอัตโนมัติ…</div>
+      <div class="pill"><span class="dot"></span><span id="mode">Detecting…</span></div>
+
+      <div class="hint">
+        ถ้าอยากกำหนดเอง: ใส่ <code>?view=pc</code> หรือ <code>?view=mobile</code> หรือ <code>?view=cvr</code><br/>
+        Cardboard: ใส่ <code>&amp;cardboard=1</code> (และระบบจะใช้ cVR)
+      </div>
+
+      <div class="hint small" id="debug"></div>
     </div>
   </div>
 
@@ -52,83 +74,88 @@ Hydration Quest VR LAUNCHER — AUTO (NO override if ?view= exists)
 (function(){
   'use strict';
 
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+  const cur = new URL(location.href);
 
-  function setTxt(id, v){ const el=document.getElementById(id); if(el) el.textContent=String(v); }
-
-  function hasViewParam(){
-    try{
-      const u = new URL(location.href);
-      const v = (u.searchParams.get('view')||'').trim();
-      return !!v;
-    }catch(_){ return false; }
-  }
-
-  function isMobile(){
-    const ua = navigator.userAgent || '';
-    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
-    return /Android|iPhone|iPad|iPod/i.test(ua) || touch;
-  }
+  // ✅ IMPORTANT: run file in folder
+  const RUN_URL = './hydration-vr/hydration-vr.html';
 
   function detectView(){
-    // ✅ respect explicit view
-    const forced = (qs('view','')||'').toLowerCase();
-    if (forced) return forced;
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
+    const w = Math.max(1, innerWidth||1);
+    const h = Math.max(1, innerHeight||1);
+    const landscape = w >= h;
 
-    // prefer cvr if explicitly passed via view-cvr class not possible here; allow query use only.
-    // detect cardboard-ish: mobile + landscape + screen width approx
-    const m = isMobile();
-    const w = Math.min(screen.width||0, screen.height||0);
-    const landscape = (window.matchMedia && matchMedia('(orientation: landscape)').matches) || (innerWidth>innerHeight);
-    const likelyCardboard = m && landscape && w >= 360;
-
-    // if WebXR + mobile + landscape -> cardboard
-    const hasXR = !!(navigator.xr && navigator.xr.isSessionSupported);
-    if (hasXR && likelyCardboard) return 'cardboard';
-
-    // mobile default
-    if (m) return 'mobile';
-
-    // desktop default
+    // touch devices
+    if (isTouch){
+      // large landscape touch -> cVR (tablet/phone landscape)
+      if (landscape && w >= 740) return 'cvr';
+      return 'mobile';
+    }
     return 'pc';
   }
 
-  function passthroughRedirect(){
-    const diff = qs('diff','normal');
-    const time = qs('time','70');
-
-    let view = detectView();
-    setTxt('pView', 'view: ' + view);
-    setTxt('pDiff', 'diff: ' + diff);
-    setTxt('pTime', 'time: ' + time);
-
-    // build redirect URL
-    const u = new URL(location.href);
-    const out = new URL('./hydration-vr/hydration-vr.html', u);
-
-    // copy params
-    u.searchParams.forEach((v,k)=> out.searchParams.set(k,v));
-
-    // ✅ do NOT override view if user provided
-    if (!hasViewParam()) out.searchParams.set('view', view);
-
-    // default run
-    if (!out.searchParams.get('run')) out.searchParams.set('run','play');
-
-    // keep hub default if missing
-    if (!out.searchParams.get('hub')) out.searchParams.set('hub', './hub.html');
-
-    // stamp seed if missing
-    if (!out.searchParams.get('seed')) out.searchParams.set('seed', String(Date.now()));
-
-    // go
-    setTxt('msg', 'กำลังเข้าเกม…');
-    location.replace(out.toString());
+  function normView(v){
+    v = String(v||'').toLowerCase().trim();
+    if (v==='pc' || v==='desktop') return 'pc';
+    if (v==='mobile' || v==='m') return 'mobile';
+    if (v==='cvr' || v==='vr' || v==='cardboard') return 'cvr';
+    return '';
   }
 
-  // Let UI paint once
-  setTimeout(passthroughRedirect, 40);
+  function go(){
+    const msg = document.getElementById('msg');
+    const mode = document.getElementById('mode');
+    const debug = document.getElementById('debug');
 
+    // ✅ DO NOT OVERRIDE if view exists
+    const viewProvided = normView(qs('view',''));
+    const cardboard = String(qs('cardboard','0')).toLowerCase();
+    const wantsCardboard = (cardboard==='1' || cardboard==='true' || cardboard==='yes');
+
+    let view = viewProvided || '';
+
+    // If no view provided, decide:
+    if (!view){
+      view = detectView();
+
+      // if user explicitly says cardboard=1 but no view => force cvr
+      if (wantsCardboard) view = 'cvr';
+    }
+
+    if (mode) mode.textContent = `AUTO → ${String(view).toUpperCase()}${wantsCardboard ? ' (CARDBOARD)' : ''}`;
+    if (msg) msg.textContent = viewProvided
+      ? `พบ view=${viewProvided.toUpperCase()} — จะไม่ override และพาเข้าเกม…`
+      : `ตรวจจับแล้ว: ${String(view).toUpperCase()} — พาเข้าเกม…`;
+
+    // Build destination URL
+    const u = new URL(RUN_URL, location.href);
+
+    // Pass all params through
+    cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
+
+    // Ensure hub default if missing
+    if (!u.searchParams.get('hub')){
+      u.searchParams.set('hub', './hub.html');
+    }
+
+    // Enforce view only if missing in original query
+    if (!viewProvided){
+      u.searchParams.set('view', view);
+    }
+
+    // Keep cardboard flag if present
+    if (wantsCardboard) u.searchParams.set('cardboard','1');
+
+    // Prevent loop (if already at same URL)
+    const dest = u.toString();
+    if (debug) debug.textContent = `→ ${dest}`;
+
+    // Small delay so user sees message (and avoids some Android paint glitches)
+    setTimeout(()=>{ location.replace(dest); }, 120);
+  }
+
+  go();
 })();
 </script>
 </body>
