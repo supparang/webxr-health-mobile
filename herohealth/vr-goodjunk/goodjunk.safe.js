@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — FAIR PACK (v2: STAR+SHIELD + SHOOT)
+// GoodJunkVR SAFE — FAIR PACK (S / v2.0.1-fixed)
 // ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe)
 // ✅ MISS = good expired + junk hit
 // ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score
@@ -24,36 +24,48 @@ function makeRNG(seed){
 
 function getSafeRect(){
   const r = DOC.documentElement.getBoundingClientRect();
-  const top = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-top-safe')) || 140;
-  const bot = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-bottom-safe')) || 130;
+  const cs = getComputedStyle(DOC.documentElement);
+
+  const top = parseInt(cs.getPropertyValue('--gj-top-safe')) || 140;
+  const bot = parseInt(cs.getPropertyValue('--gj-bottom-safe')) || 130;
+
+  // extra padding to keep gameplay airy (kid-friendly)
+  const EXTRA_TOP = 14;
+  const EXTRA_BOT = 14;
 
   const x = 22;
-  const y = Math.max(80, top);
+  const y = Math.max(80, top + EXTRA_TOP);
   const w = Math.max(120, r.width - 44);
-  const h = Math.max(140, r.height - y - bot);
+  const h = Math.max(140, r.height - y - (bot + EXTRA_BOT));
 
   return { x,y,w,h };
 }
 
 function pickByShoot(lockPx=28){
-  // pick topmost .gj-target that overlaps the center-crosshair window
+  // pick target overlapping center crosshair window (±lockPx)
   const r = DOC.documentElement.getBoundingClientRect();
   const cx = r.left + r.width/2;
   const cy = r.top  + r.height/2;
 
   const els = Array.from(DOC.querySelectorAll('.gj-target'));
   let best = null;
+
   for(const el of els){
     const b = el.getBoundingClientRect();
     if(!b.width || !b.height) continue;
+
     const inside =
       (cx >= b.left - lockPx && cx <= b.right + lockPx) &&
       (cy >= b.top  - lockPx && cy <= b.bottom + lockPx);
+
     if(!inside) continue;
-    // choose smallest distance to center
+
     const ex = (b.left+b.right)/2;
     const ey = (b.top+b.bottom)/2;
+
+    // ✅ FIX: correct squared distance
     const d2 = (ex-cx)*(ex-cx) + (ey-cy)*(ey-cy);
+
     if(!best || d2 < best.d2) best = { el, d2 };
   }
   return best ? best.el : null;
@@ -87,7 +99,7 @@ export function boot(opts={}){
     combo:0, comboMax:0,
 
     shield:0,
-    fever:18, // mild baseline
+    fever:18,
 
     lastTick:0,
     lastSpawn:0,
@@ -95,9 +107,11 @@ export function boot(opts={}){
 
   function setFever(p){
     S.fever = clamp(p,0,100);
+    // ✅ FIX: template strings
     if(elFeverFill) elFeverFill.style.width = `${S.fever}%`;
     if(elFeverText) elFeverText.textContent = `${S.fever}%`;
   }
+
   function setShieldUI(){
     if(!elShield) return;
     elShield.textContent = S.shield>0 ? `x${S.shield}` : '—';
@@ -113,6 +127,7 @@ export function boot(opts={}){
     else if(S.score>=110) g='B';
     else if(S.score>=65) g='C';
     else g='D';
+
     if(elGrade) elGrade.textContent = g;
 
     setShieldUI();
@@ -135,13 +150,10 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       emit('hha:judge', { type:'good', label:'GOOD' });
     }
-
     else if(kind==='junk'){
-      // shield blocks junk -> NOT MISS
       if(S.shield>0){
         S.shield--;
         setShieldUI();
-        addScore(0);
         emit('hha:judge', { type:'perfect', label:'BLOCK!' });
       }else{
         S.hitJunk++;
@@ -152,18 +164,14 @@ export function boot(opts={}){
         emit('hha:judge', { type:'bad', label:'OOPS' });
       }
     }
-
     else if(kind==='star'){
-      // ⭐ reduce miss by 1 (floor 0) + score
       const before = S.miss;
       S.miss = Math.max(0, S.miss - 1);
       addScore(18);
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
     }
-
     else if(kind==='shield'){
-      // 🛡 add 1 shield (cap 3)
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
       addScore(8);
@@ -177,20 +185,21 @@ export function boot(opts={}){
     if(S.ended || !layer) return;
 
     const safe = getSafeRect();
-    const x = safe.x + S.rng()*safe.w;
-    const y = safe.y + S.rng()*safe.h;
+
+    // keep away from absolute edges a bit more
+    const MARGIN = 10;
+    const x = safe.x + MARGIN + S.rng() * Math.max(1, safe.w - MARGIN*2);
+    const y = safe.y + MARGIN + S.rng() * Math.max(1, safe.h - MARGIN*2);
 
     const t = DOC.createElement('div');
     t.className = 'gj-target';
     t.dataset.kind = kind;
 
-    // emoji
     t.textContent =
       (kind==='good') ? '🥦' :
       (kind==='junk') ? '🍟' :
       (kind==='star') ? '⭐' : '🛡️';
 
-    // sizes: powerups slightly smaller
     const size =
       (kind==='good') ? 56 :
       (kind==='junk') ? 58 :
@@ -215,14 +224,13 @@ export function boot(opts={}){
 
     layer.appendChild(t);
 
-    // TTL (แฟร์ ไม่แว้บ)
-    const ttl =
-      (kind==='star' || kind==='shield') ? 1700 :
-      1600;
+    // TTL (แฟร์ ไม่แว้บ): good/junk 1.6s, powerups 1.7s
+    const ttl = (kind==='star' || kind==='shield') ? 1700 : 1600;
 
     setTimeout(()=>{
       if(!alive || S.ended) return;
       kill();
+
       if(kind==='good'){
         S.expireGood++;
         S.miss++;
@@ -234,15 +242,13 @@ export function boot(opts={}){
     }, ttl);
   }
 
-  // ✅ Crosshair shoot support
   function onShoot(ev){
     if(S.ended || !S.started) return;
-    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
 
+    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
     const picked = pickByShoot(lockPx);
     if(!picked) return;
 
-    // “virtual click”
     const kind = picked.dataset.kind || 'good';
     try{ picked.remove(); }catch(_){}
     onHit(kind);
@@ -268,7 +274,7 @@ export function boot(opts={}){
       hitGood:S.hitGood,
       hitJunk:S.hitJunk,
       expireGood:S.expireGood,
-      shieldUsed: (S.shield>=0 ? 'yes' : 'no'),
+      shieldLeft:S.shield,
       grade,
       reason
     };
@@ -293,7 +299,6 @@ export function boot(opts={}){
     if(ts - S.lastSpawn >= 900){
       S.lastSpawn = ts;
 
-      // fair distribution:
       // 70% good, 26% junk, 2% star, 2% shield
       const r = S.rng();
       if(r < 0.70) spawn('good');
@@ -315,7 +320,6 @@ export function boot(opts={}){
   setShieldUI();
   setHUD();
 
-  // listen shoot
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
   emit('hha:start', { game:'GoodJunkVR', pack:'fair', view, runMode:run, diff, timePlanSec:timePlan, seed });
