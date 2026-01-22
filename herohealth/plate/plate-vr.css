@@ -1,61 +1,27 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION)
-   HHA Standard (FIX: target positioning via --x --y --s)
+   PATCH A3 — Target positioning + HUD safe vars
 ========================================================= */
 
 :root{
-  --bg:#020617;
-  --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.70);
-  --stroke:rgba(148,163,184,.18);
+  /* ...ของเดิม... */
 
-  --text:#e5e7eb;
-  --muted:#94a3b8;
+  /* ✅ HUD safe space for spawner (mode-factory reads these) */
+  --hud-top-safe: 140px;      /* กันแถบคะแนน/เวลา/คอมโบ */
+  --hud-bottom-safe: 260px;   /* กัน quest card + ปุ่ม/safe bottom */
 
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
+  /* ถ้าเป็นมือถือให้กันมากขึ้นนิด */
+}
 
-  --radius:18px;
-  --pill:999px;
-
-  /* safe area */
-  --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-
-  /* IMPORTANT: spawn-safe (mode-factory.js reads these) */
-  --hud-top-safe: 140px;     /* กัน HUD ด้านบน */
-  --hud-bottom-safe: 240px;  /* กัน end buttons / safe area ด้านล่าง */
+@media (max-width:900px){
+  :root{
+    --hud-top-safe: 130px;
+    --hud-bottom-safe: 290px;
+  }
 }
 
 /* ---------------------------------------------------------
-   Global
---------------------------------------------------------- */
-*{ box-sizing:border-box; }
-
-html,body{
-  margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-}
-
-#app{
-  position:fixed;
-  inset:0;
-  overflow:hidden;
-}
-
-/* ---------------------------------------------------------
-   Playfield / Spawn Layer
+   Spawn Layer (Targets)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -65,18 +31,15 @@ html,body{
   touch-action:none;
 }
 
-/* ---------------------------------------------------------
-   Target (FIX: position + size from CSS vars)
-   Uses vars set by mode-factory.js:
-     --x: percent, --y: percent, --s: px
---------------------------------------------------------- */
+/* ✅ FIX: เอา vars --x --y --s มาใช้จริง */
 .plateTarget{
   position:absolute;
-  left: calc(var(--x, 50) * 1%);
-  top:  calc(var(--y, 50) * 1%);
-  width: calc(var(--s, 56) * 1px);
-  height: calc(var(--s, 56) * 1px);
-  transform: translate(-50%,-50%);
+  left:calc(var(--x, 50) * 1%);
+  top:calc(var(--y, 50) * 1%);
+  width:calc(var(--s, 64) * 1px);
+  height:calc(var(--s, 64) * 1px);
+
+  transform:translate(-50%,-50%);
   display:grid;
   place-items:center;
 
@@ -87,322 +50,43 @@ html,body{
   cursor:pointer;
 
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.14), transparent 40%),
-    radial-gradient(circle at 70% 75%, rgba(255,255,255,.06), transparent 45%),
-    rgba(2,6,23,.62);
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
+    rgba(2,6,23,.60);
 
-  border:1px solid rgba(148,163,184,.22);
+  border:1px solid var(--stroke);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    inset 0 1px 0 rgba(255,255,255,.10);
+    inset 0 1px 0 rgba(255,255,255,.08);
 
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
-  will-change: transform;
 }
 
+/* hit feedback (optional) */
 .plateTarget.is-hit{
   animation: hitPop .12s ease-out;
 }
+@keyframes hitPop{
+  0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+  100%{ transform:translate(-50%,-50%) scale(.85); opacity:0; }
+}
 
 .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.40);
+  border-color:rgba(34,197,94,.35);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(34,197,94,.18),
-    inset 0 1px 0 rgba(255,255,255,.10);
+    0 0 24px rgba(34,197,94,.18);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.40);
+  border-color:rgba(239,68,68,.35);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(239,68,68,.18),
-    inset 0 1px 0 rgba(255,255,255,.10);
+    0 0 24px rgba(239,68,68,.18);
   animation-duration:1.2s;
 }
 
-@keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.84); opacity:0 }
-  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
-}
-@keyframes wobble{
-  0%{ transform:translate(-50%,-50%) rotate(0deg) }
-  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform:translate(-50%,-50%) rotate(0deg) }
-}
-@keyframes hitPop{
-  0%{ transform:translate(-50%,-50%) scale(1) }
-  100%{ transform:translate(-50%,-50%) scale(.92) }
-}
-
-/* ---------------------------------------------------------
-   HUD
---------------------------------------------------------- */
-#hud{
-  position:fixed;
-  left: calc(14px + var(--sal));
-  right: calc(14px + var(--sar));
-  top: calc(14px + var(--sat));
-  z-index:60;
-  pointer-events:none;
-}
-
-.hudRow{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
-  justify-content:flex-start;
-  margin-bottom:10px;
-}
-
-.chip{
-  pointer-events:none;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  padding:10px 12px;
-  border-radius:16px;
-  border:1px solid var(--stroke);
-  background:rgba(2,6,23,.72);
-  box-shadow:0 14px 44px rgba(0,0,0,.28);
-  min-width:92px;
-}
-.chip .lbl{
-  font-size:11px;
-  font-weight:900;
-  color:var(--muted);
-  letter-spacing:.8px;
-}
-.chip .val{
-  font-size:18px;
-  font-weight:900;
-}
-
-.card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
-  pointer-events:auto; /* ให้เลื่อนได้ถ้าจอเล็ก */
-}
-
-#questCard{
-  pointer-events:none;
-  padding:12px 12px;
-}
-
-.cardTitle{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-}
-
-.cardTitle .t{
-  font-weight:900;
-  font-size:14px;
-}
-.cardTitle .hint{
-  font-weight:800;
-  font-size:12px;
-  color:var(--muted);
-}
-
-.qItem{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:10px 10px;
-  border-radius:16px;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.55);
-  margin-top:8px;
-}
-
-.qText .name{
-  font-weight:900;
-  font-size:13px;
-}
-.qText .sub{
-  font-size:12px;
-  color:var(--muted);
-  font-weight:800;
-  margin-top:2px;
-}
-
-.qProg{
-  min-width:140px;
-  text-align:right;
-}
-.qNums{
-  font-weight:900;
-  font-size:12px;
-  color:var(--muted);
-  margin-bottom:6px;
-}
-
-.bar{
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.12);
-  overflow:hidden;
-}
-.bar > i{
-  display:block;
-  height:100%;
-  width:0%;
-  background:var(--accent);
-  transition:width .25s ease;
-}
-
-/* ---------------------------------------------------------
-   Coach bubble
---------------------------------------------------------- */
-#coachCard{
-  position:fixed;
-  left:50%;
-  bottom: calc(18px + var(--sab) + 86px);
-  transform:translateX(-50%);
-  z-index:70;
-  max-width:min(680px, calc(100vw - 24px));
-  width:max-content;
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .15s ease, transform .15s ease;
-}
-#coachCard.show{
-  opacity:1;
-  transform:translateX(-50%) translateY(-4px);
-}
-#coachCard .inner{
-  background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:18px;
-  padding:10px 12px;
-  box-shadow:0 18px 60px rgba(0,0,0,.30);
-  backdrop-filter:blur(10px);
-}
-#coachMsg{
-  font-weight:900;
-  font-size:14px;
-}
-#coachCard .meta{
-  margin-top:4px;
-  font-size:12px;
-  font-weight:900;
-  color:var(--muted);
-}
-
-/* ---------------------------------------------------------
-   End overlay
---------------------------------------------------------- */
-#endOverlay{
-  position:fixed;
-  inset:0;
-  z-index:90;
-  display:grid;
-  place-items:center;
-  background:rgba(0,0,0,.55);
-  backdrop-filter:blur(6px);
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .15s ease;
-}
-#endOverlay[aria-hidden="false"]{
-  opacity:1;
-  pointer-events:auto;
-}
-
-.endPanel{
-  width:min(820px, calc(100vw - 24px));
-  border-radius:24px;
-  padding:16px;
-  background:rgba(2,6,23,.82);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow:0 28px 90px rgba(0,0,0,.38);
-}
-.endTitle{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-}
-.endTitle h2{
-  margin:0;
-  font-size:20px;
-  font-weight:900;
-}
-.endTitle .tag{
-  font-weight:900;
-  font-size:12px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(15,23,42,.60);
-}
-
-.endGrid{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:10px;
-  margin-top:12px;
-}
-.kpi{
-  padding:10px 12px;
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.55);
-}
-.kpi .k{
-  color:var(--muted);
-  font-size:12px;
-  font-weight:900;
-}
-.kpi .v{
-  font-size:18px;
-  font-weight:900;
-  margin-top:2px;
-}
-
-.endBtns{
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  margin-top:12px;
-}
-
-.btn{
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:10px 14px;
-  font-weight:900;
-  font-size:12px;
-  cursor:pointer;
-  color:var(--text);
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
-}
-.btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
-}
-
-/* ---------------------------------------------------------
-   Responsive tuning
---------------------------------------------------------- */
 @media (max-width:900px){
-  :root{
-    --hud-top-safe: 155px;
-    --hud-bottom-safe: 255px;
+  .plateTarget{
+    font-size:24px;
   }
-  .plateTarget{ font-size:24px; }
-  .endGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
