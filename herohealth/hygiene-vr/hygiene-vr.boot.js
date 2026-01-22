@@ -1,18 +1,9 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR (DOM-ready safe)
+// Boot HygieneVR (bind UI + start engine)
+// ✅ MUST match export in hygiene.safe.js
 
 import { boot as engineBoot } from './hygiene.safe.js';
 
 (function(){
-  'use strict';
-
-  function start(){
-    try{ engineBoot(); }catch(err){ console.error('[HygieneVR] boot error', err); }
-  }
-
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', start, { once:true });
-  }else{
-    start();
-  }
+  engineBoot();
 })();
