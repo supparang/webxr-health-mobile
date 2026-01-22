@@ -1,10 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR BOOT — PRODUCTION (FAIR PACK)
-// ✅ Imports: ./goodjunk.safe.js (fair pack)
-// ✅ Reads query: view/run/diff/time/seed
-// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Starts engine once DOM is ready
-// ✅ Safety: prevent double boot
+// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
+// ✅ Reads qs: view/run/diff/time/seed (NO override)
+// ✅ Applies body view class: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Boots engine: goodjunk.safe.js
+// ✅ Safe start after DOM ready
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -12,67 +11,67 @@ const WIN = window;
 const DOC = document;
 
 function qs(k, def = null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }
+  catch(_){ return def; }
 }
 
 function normView(v){
-  v = String(v||'').toLowerCase();
+  v = String(v || '').toLowerCase();
   if(v === 'cardboard') return 'vr';
   if(v === 'view-cvr') return 'cvr';
   if(v === 'cvr') return 'cvr';
   if(v === 'vr') return 'vr';
   if(v === 'pc') return 'pc';
   if(v === 'mobile') return 'mobile';
-  if(v === 'auto' || !v) return 'mobile';
-  return v;
+  if(v === 'auto' || !v) return 'mobile'; // default safe
+  return 'mobile';
 }
 
 function setBodyView(view){
   const b = DOC.body;
   if(!b) return;
-
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile');
+  b.classList.add(`view-${view}`);
+  // extra alias (บางไฟล์ชอบเช็ค)
+  if(view === 'cvr') b.classList.add('view-cvr');
 }
 
-function ready(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
-    setTimeout(fn, 0);
-  }else{
-    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-  }
+function updateChipMeta({view, run, diff, time}){
+  const el = DOC.getElementById('gjChipMeta');
+  if(!el) return;
+  el.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
 }
 
-function bootOnce(){
-  if(WIN.__GJ_BOOTED__) return;
-  WIN.__GJ_BOOTED__ = true;
+function safeNum(v, fallback){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
 
+function start(){
   const view = normView(qs('view','mobile'));
   const run  = String(qs('run','play') || 'play').toLowerCase();
   const diff = String(qs('diff','normal') || 'normal').toLowerCase();
-  const time = Number(qs('time','80')) || 80;
+  const time = safeNum(qs('time','80'), 80);
   const seed = String(qs('seed', Date.now()));
 
   setBodyView(view);
+  updateChipMeta({ view, run, diff, time });
 
-  // expose (optional) for debugging
-  WIN.GJ_CTX = { view, run, diff, time, seed };
-
-  // start engine
+  // Boot SAFE engine
   try{
     engineBoot({ view, run, diff, time, seed });
   }catch(err){
-    console.error('[GoodJunkVR] boot failed:', err);
-    // allow retry once if something loads late
-    WIN.__GJ_BOOTED__ = false;
-    setTimeout(()=>{
-      if(!WIN.__GJ_BOOTED__) bootOnce();
-    }, 300);
+    console.error('[GoodJunkVR boot] engineBoot failed:', err);
+    alert('GoodJunkVR: เริ่มเกมไม่สำเร็จ (ดู console)');
   }
 }
 
-ready(bootOnce);
+// start when DOM ready
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', start, { once:true });
+}else{
+  start();
+}
+
+// optional: expose for debugging
+WIN.GJ_BOOT = { start };
