@@ -1,8 +1,8 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Views: pc/mobile/vr/cvr (via body classes)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js
+✅ Engine: hygiene.safe.js (export boot)
 ✅ Optional AI: ../vr/hha-ai-coach.js, ../vr/hha-difficulty-director.js, ../vr/hha-badges.js
 ✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 ✅ Back HUB: ?hub=...
@@ -18,16 +18,16 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <!-- Universal VR UI -->
-  <script src="../vr/vr-ui.js"></script>
+  <!-- ✅ IMPORTANT: defer เพื่อให้ body พร้อมก่อน vr-ui.js สร้าง crosshair -->
+  <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- Optional shared helpers (ถ้ามีอยู่แล้วในโปรเจกต์คุณ) -->
-  <script src="../vr/particles.js"></script>
+  <!-- Optional shared helpers -->
+  <script defer src="../vr/particles.js"></script>
 
   <!-- AI Packs -->
-  <script src="../vr/hha-ai-coach.js"></script>
-  <script src="../vr/hha-difficulty-director.js"></script>
-  <script src="../vr/hha-badges.js"></script>
+  <script defer src="../vr/hha-ai-coach.js"></script>
+  <script defer src="../vr/hha-difficulty-director.js"></script>
+  <script defer src="../vr/hha-badges.js"></script>
 
   <!-- Engine -->
   <script type="module" src="./hygiene-vr.boot.js"></script>
@@ -101,12 +101,17 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
+    document.body.classList.add(
+      view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc'))
+    );
+    const el = document.getElementById('labView');
+    if(el) el.textContent = view;
   }
   setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+  const m = document.getElementById('labMode');
+  const d = document.getElementById('labDiff');
+  if(m) m.textContent = (qs('run','play')||'play');
+  if(d) d.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
