@@ -1,43 +1,31 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HHA Standard)
-// ✅ Auto view detect (no UI override; respects ?view=)
+// PlateVR Boot — PRODUCTION
+// ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay uses aria-hidden only
+// ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
-// ✅ Exposes window.HHA_CTX for logger/debug
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def = null) => {
+const qs = (k, def=null)=>{
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
 
-function clamp(v, a, b){
-  v = Number(v) || 0;
-  return v < a ? a : (v > b ? b : v);
-}
-
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  // Respect forced view (used in experiments); do not offer menu.
-  const forced = (qs('view','') || '').toLowerCase();
+  const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
-
-  // If already in XR session, treat as vr (rare at load but safe)
-  const xr = (navigator.xr ? true : false);
-  if(xr && /Quest|Oculus|Vive|Valve|XR/i.test(navigator.userAgent || '')) return 'vr';
-
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -50,28 +38,30 @@ function setBodyView(view){
   else b.classList.add('view-pc');
 }
 
-function pctRound(n){
-  n = Number(n);
-  if(!Number.isFinite(n)) return '—';
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
+}
+
+function pct(n){
+  n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
-function setEndOverlayOpen(open){
+function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-  // Optional helper class (CSS can use it)
-  ov.classList.toggle('open', !!open);
 }
 
-function showCoach(msg, tag='Coach'){
+function showCoach(msg, meta='Coach'){
   const card = DOC.getElementById('coachCard');
-  const mEl  = DOC.getElementById('coachMsg');
-  const tEl  = DOC.getElementById('coachMeta');
+  const mEl = DOC.getElementById('coachMsg');
+  const metaEl = DOC.getElementById('coachMeta');
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(tEl) tEl.textContent = String(tag || 'Coach');
+  if(metaEl) metaEl.textContent = meta;
 
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
@@ -98,27 +88,20 @@ function wireHUD(){
   const miniNums = DOC.getElementById('miniNums');
   const miniBar  = DOC.getElementById('miniBar');
 
-  // SCORE
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-    const s = (d.score ?? d.value ?? 0);
-    const c = (d.combo ?? d.comboNow ?? 0);
-    if(hudScore) hudScore.textContent = String(s);
-    if(hudCombo) hudCombo.textContent = String(c);
+    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
+    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
   });
 
-  // TIME
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    const v = Math.max(0, Math.ceil(Number(t) || 0));
-    if(hudTime) hudTime.textContent = String(v);
+    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
   });
 
-  // QUEST
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -128,7 +111,6 @@ function wireHUD(){
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
@@ -140,7 +122,6 @@ function wireHUD(){
     }
   });
 
-  // COACH
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
@@ -150,21 +131,16 @@ function wireHUD(){
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
-
-  const hub = (qs('hub','') || '').trim();
+  const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      // keep same query params
-      location.reload();
-    }, { passive:true });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
-
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
       else history.back();
-    }, { passive:true });
+    });
   }
 }
 
@@ -178,56 +154,46 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // accuracy: expect already percent number (0..100)
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc == null) ? '—' : pctRound(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    setEndOverlayOpen(true);
+    setOverlayOpen(true);
   });
 }
 
 function buildEngineConfig(){
   const view = getViewAuto();
-
-  const run  = (qs('run','play') || 'play').toLowerCase();
-  const diff = (qs('diff','normal') || 'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);
+  const run  = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
+  const time = clamp(qs('time','70'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  const cfg = {
-    // core
-    view,
-    runMode: run,                // play | study | research
-    diff,
+  return {
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // passthrough endpoints / hub
-    hub: (qs('hub','') || '').trim(),
-    logEndpoint: (qs('log','') || '').trim(),
+    hub: qs('hub','') || '',
+    logEndpoint: qs('log','') || '',
 
-    // research context passthrough (optional)
-    studyId: (qs('studyId','') || '').trim(),
-    phase: (qs('phase','') || '').trim(),
-    conditionGroup: (qs('conditionGroup','') || '').trim(),
-    sessionOrder: (qs('sessionOrder','') || '').trim(),
-    blockLabel: (qs('blockLabel','') || '').trim(),
-    siteCode: (qs('siteCode','') || '').trim(),
-    schoolCode: (qs('schoolCode','') || '').trim(),
-    schoolName: (qs('schoolName','') || '').trim(),
-    gradeLevel: (qs('gradeLevel','') || '').trim(),
-    studentKey: (qs('studentKey','') || '').trim(),
+    studyId: qs('studyId','') || '',
+    phase: qs('phase','') || '',
+    conditionGroup: qs('conditionGroup','') || '',
+    sessionOrder: qs('sessionOrder','') || '',
+    blockLabel: qs('blockLabel','') || '',
+    siteCode: qs('siteCode','') || '',
+    schoolCode: qs('schoolCode','') || '',
+    schoolName: qs('schoolName','') || '',
+    gradeLevel: qs('gradeLevel','') || '',
+    studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -238,28 +204,14 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
   setBodyView(cfg.view);
-
-  // expose ctx for logger/debug
-  WIN.HHA_CTX = Object.assign({}, cfg, {
-    game: 'plate',
-    ts: Date.now(),
-    href: location.href
-  });
-
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
+  setOverlayOpen(false);
 
-  // ensure overlay closed initially
-  setEndOverlayOpen(false);
-
-  // boot engine
-  const mount = DOC.getElementById('plate-layer');
   try{
-    engineBoot({ mount, cfg });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
