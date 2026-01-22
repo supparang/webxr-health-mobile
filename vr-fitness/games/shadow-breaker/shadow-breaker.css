@@ -1,13 +1,18 @@
 /* === VR Fitness — Shadow Breaker (Production v1.1.0) ===
    ✅ Works with shadow-breaker.js v1.1.0-prod
-   ✅ Safe top zone (boss bar + HUD)
-   ✅ Feedback animations (perfect/good/miss/fever)
-   ✅ Target styles + fever glow
-   ✅ Mobile/VR friendly hit affordance
+   ✅ ONE unified stylesheet (no duplicates)
+   ✅ Safe top zone (HUD + boss bar) + spawn-friendly
+   ✅ Feedback animations (perfect/good/miss/fever) — supports both class styles
+   ✅ Targets + fever glow
+   ✅ Works for: Fullscreen run OR embedded "page/card" launcher layout
 */
 
+/* =========================================================
+   Theme + Safe Areas
+========================================================= */
 :root{
   color-scheme: dark;
+
   --bg:#020617;
   --panel:rgba(2,6,23,.76);
   --panel2:rgba(15,23,42,.70);
@@ -30,7 +35,7 @@
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* IMPORTANT: safe top for boss bar/hud */
+  /* IMPORTANT: safe top for HUD + boss bar */
   --safe-top: calc(var(--sat) + 64px);
 
   /* z-index layers */
@@ -40,29 +45,164 @@
   --z-feedback: 80;
   --z-overlay: 100;
 
-  /* tap size */
+  /* tap target minimum */
   --tap: 44px;
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
+
 body{
   margin:0;
-  background: radial-gradient(1200px 700px at 50% 10%, rgba(34,211,238,.12), transparent 60%),
-              radial-gradient(900px 500px at 80% 20%, rgba(167,139,250,.10), transparent 58%),
-              var(--bg);
-  color:var(--text);
+  min-height:100vh;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-  overflow:hidden;
+  color:var(--text);
+  background:
+    radial-gradient(1200px 700px at 50% 10%, rgba(34,211,238,.12), transparent 60%),
+    radial-gradient(900px 500px at 80% 20%, rgba(167,139,250,.10), transparent 58%),
+    var(--bg);
+  overflow:hidden; /* game feel */
 }
 
-/* Optional: hide form area when playing (JS adds .play-only) */
+/* Optional: hide meta/headers when playing (JS adds .play-only) */
 body.play-only .meta-panel,
-body.play-only .top-panel{
+body.play-only .top-panel,
+body.play-only .research-card,
+body.play-only #metaPDPA,
+body.play-only #downloadCsvBtn,
+body.play-only .controls{
   display:none !important;
 }
 
-/* Main play area */
+/* =========================================================
+   Page / Card layout (optional — for launcher pages)
+========================================================= */
+.page{
+  max-width:960px;
+  margin:0 auto;
+  padding:12px 10px 24px;
+}
+
+.card{
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.35);
+  background:
+    radial-gradient(circle at top left,rgba(56,189,248,.10),transparent 55%),
+    rgba(15,23,42,.92);
+  box-shadow:0 20px 55px rgba(0,0,0,.55);
+  padding:14px 14px 12px;
+  margin-bottom:10px;
+}
+
+.card-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.card-header .title{ display:flex; gap:8px; }
+.card-header .icon{
+  width:30px;height:30px;border-radius:999px;
+  background:rgba(56,189,248,.18);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+}
+.card-header h1{ margin:0; font-size:.98rem; }
+.card-header p{ margin:2px 0 0; font-size:.7rem; color:#9ca3af; }
+
+/* lang toggle */
+.lang-toggle{ display:flex; gap:4px; }
+.lang-btn, .lang-toggle button{
+  padding:4px 9px;
+  border-radius:999px;
+  border:1px solid #1f2937;
+  background:#020617;
+  color:#e5e7eb;
+  font-size:.7rem;
+  cursor:pointer;
+  min-width:40px;
+}
+.lang-btn.active,
+.lang-toggle button.active{
+  background:#38bdf8;
+  color:#0b1120;
+  border-color:#38bdf8;
+  font-weight:800;
+}
+
+/* research form */
+.research-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px 10px;
+  margin-top:4px;
+}
+.research-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  font-size:.72rem;
+}
+.research-grid span{ color:#94a3b8; }
+.research-grid input,
+.research-grid select{
+  border-radius:999px;
+  border:1px solid #1e293b;
+  padding:7px 10px;
+  font-size:.8rem;
+  background:rgba(15,23,42,.96);
+  color:#e5e7eb;
+  outline:none;
+}
+.research-grid input::placeholder{ color:#64748b; }
+
+.hint{ margin-top:4px; font-size:.7rem; color:#6b7280; }
+.hint.small{ font-size:.65rem; }
+
+/* buttons (common) */
+button, .btn{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.75);
+  color: var(--text);
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-weight: 900;
+  letter-spacing:.2px;
+  cursor:pointer;
+}
+button:active, .btn:active{ transform: scale(.98); }
+button.primary, .btn-main{
+  background: linear-gradient(135deg,#facc15,#f97316);
+  color:#020617;
+  border-color: rgba(250,204,21,.20);
+  box-shadow:0 14px 30px rgba(248,181,0,.35);
+}
+.btn-secondary{
+  background:rgba(15,23,42,1);
+  border:1px solid rgba(148,163,184,.35);
+  color:#e5e7eb;
+}
+.btn-full{ width:100%; }
+
+/* =========================================================
+   Game container (supports 2 layouts)
+   A) Fullscreen runner: #gameArea is the full viewport
+   B) Embedded in .game-panel: #gameArea absolute inset
+========================================================= */
+
+/* If your HTML uses .game-panel wrapper */
+.game-panel{
+  position:relative;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.35);
+  background:#020617;
+  overflow:hidden;
+  min-height:360px;
+}
+
+/* Fullscreen default */
 #gameArea, #playArea, #sbPlayArea{
   position:relative;
   width:100%;
@@ -72,7 +212,17 @@ body.play-only .top-panel{
   padding: calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
 }
 
-/* Slight vignette for focus */
+/* Embedded override: if parent has .game-panel, make game fill it */
+.game-panel #gameArea,
+.game-panel #playArea,
+.game-panel #sbPlayArea{
+  position:absolute;
+  inset:0;
+  height:auto;
+  padding: 12px;
+}
+
+/* vignette focus */
 #gameArea::before, #playArea::before, #sbPlayArea::before{
   content:"";
   position:absolute;
@@ -85,9 +235,18 @@ body.play-only .top-panel{
   z-index:0;
 }
 
+/* safe-top visual layer (doesn't block clicks) */
+body::after{
+  content:"";
+  position:fixed;
+  top:0; left:0; right:0;
+  height: var(--safe-top);
+  pointer-events:none;
+  z-index: 1;
+}
+
 /* =========================================================
-   HUD
-   (Assumes you already have HUD elements; these styles are safe if IDs exist)
+   HUD (safe if elements exist)
 ========================================================= */
 .hud, #hud, .sb-hud{
   position:fixed;
@@ -112,31 +271,31 @@ body.play-only .top-panel{
   pointer-events:none;
 }
 
-/* Stat blocks */
 #timeVal, #scoreVal, #hitVal, #missVal, #comboVal,
 .hud .val{
   font-weight: 900;
   letter-spacing:.2px;
 }
-
 #coachLine, #hudCoach{
   font-weight: 800;
   color: var(--cyan);
   opacity: .95;
 }
 
-/* Keep the top area safe for targets (JS uses 56px safeTop) */
-body::after{
-  content:"";
-  position:fixed;
-  top:0; left:0; right:0;
-  height: var(--safe-top);
-  pointer-events:none;
-  z-index: 1;
+/* Optional compact HUD (if you use .hud-block layout) */
+.hud-block{
+  min-width:72px;
+  padding:4px 8px;
+  border-radius:10px;
+  border:1px solid #1e293b;
+  background: radial-gradient(circle at top, rgba(15,23,42,.96), rgba(15,23,42,.9));
+  text-align:center;
 }
+.hud-block .label{ display:block; font-size:.62rem; color:#9ca3af; }
+.hud-block .value{ font-size:.9rem; font-weight:900; }
 
 /* =========================================================
-   Boss HUD bar (created by JS with .boss-barbox)
+   Boss HUD bar (JS creates .boss-barbox) — FIXED ONLY
 ========================================================= */
 .boss-barbox{
   position:fixed;
@@ -198,7 +357,7 @@ body::after{
 }
 
 /* =========================================================
-   Targets (created by JS with .sb-target)
+   Targets (JS creates .sb-target) — JS sets emoji/bg/size inline
 ========================================================= */
 .sb-target{
   position:absolute;
@@ -206,26 +365,24 @@ body::after{
   user-select:none;
   -webkit-tap-highlight-color: transparent;
 
+  border-radius: 999px;
   border: 1px solid rgba(255,255,255,.14);
-  box-shadow:
-    0 14px 40px rgba(0,0,0,.35),
-    0 0 0 2px rgba(34,211,238,.06) inset;
 
   /* tactile size for mobile */
   min-width: var(--tap);
   min-height: var(--tap);
 
-  /* nice pop */
+  box-shadow:
+    0 14px 40px rgba(0,0,0,.35),
+    0 0 0 2px rgba(34,211,238,.06) inset;
+
   transform: translateZ(0);
   will-change: transform, opacity;
 
-  /* subtle glow */
   filter: drop-shadow(0 0 14px rgba(34,211,238,.12));
 }
 
-.sb-target:active{
-  transform: scale(.96);
-}
+.sb-target:active{ transform: scale(.96); }
 
 /* Hover support on desktop */
 @media (hover:hover){
@@ -245,7 +402,10 @@ body::after{
 }
 
 /* =========================================================
-   Feedback (JS uses: .feedback + .feedback-perfect/.good/.miss/.fever + .show)
+   Feedback (JS sets: class="feedback feedback-perfect|good|miss|fever" + .show)
+   Support BOTH:
+   - .feedback-good
+   - .feedback.feedback-good
 ========================================================= */
 .feedback, #feedback, #sbFeedback{
   position:fixed;
@@ -270,7 +430,7 @@ body::after{
   opacity:0;
 }
 
-/* base animation */
+/* show anim */
 .feedback.show, #feedback.show, #sbFeedback.show{
   display:block;
   animation: sbPop .42s ease-out forwards;
@@ -282,11 +442,20 @@ body::after{
   100%{ opacity:1; transform: translate(-50%,-50%) scale(1); }
 }
 
-/* variants */
-.feedback-perfect{ border-color: rgba(34,197,94,.28); box-shadow: 0 18px 70px rgba(34,197,94,.12); }
-.feedback-good{    border-color: rgba(34,211,238,.28); box-shadow: 0 18px 70px rgba(34,211,238,.12); }
-.feedback-miss{    border-color: rgba(239,68,68,.28);  box-shadow: 0 18px 70px rgba(239,68,68,.10); }
-.feedback-fever{
+/* variants — accept both selectors */
+.feedback-perfect, .feedback.feedback-perfect{
+  border-color: rgba(34,197,94,.28);
+  box-shadow: 0 18px 70px rgba(34,197,94,.12);
+}
+.feedback-good, .feedback.feedback-good{
+  border-color: rgba(34,211,238,.28);
+  box-shadow: 0 18px 70px rgba(34,211,238,.12);
+}
+.feedback-miss, .feedback.feedback-miss{
+  border-color: rgba(239,68,68,.28);
+  box-shadow: 0 18px 70px rgba(239,68,68,.10);
+}
+.feedback-fever, .feedback.feedback-fever{
   border-color: rgba(250,204,21,.30);
   box-shadow: 0 20px 90px rgba(250,204,21,.14);
   animation: sbFever .80s ease-out forwards;
@@ -298,12 +467,22 @@ body::after{
   100%{ opacity:1; transform: translate(-50%,-50%) scale(1.00); }
 }
 
+/* fever glow on playfield */
+#gameArea.fever,
+#playArea.fever,
+#sbPlayArea.fever{
+  box-shadow: 0 0 40px rgba(250,204,21,.25);
+  outline: 2px solid rgba(250,204,21,.20);
+  outline-offset: -2px;
+}
+
 /* =========================================================
    Result overlay/panel (JS toggles .hidden)
 ========================================================= */
 .hidden{ display:none !important; }
 
-#resultOverlay, #resultCard, #resultPanel{
+#resultOverlay, #resultCard, #resultPanel,
+.overlay{
   position:fixed;
   inset:0;
   z-index: var(--z-overlay);
@@ -319,7 +498,8 @@ body::after{
 #resultPanel .card,
 #resultOverlay > div,
 #resultCard > div,
-#resultPanel > div{
+#resultPanel > div,
+.overlay-box{
   width:min(620px, 92vw);
   background: rgba(2,6,23,.88);
   border: 1px solid rgba(148,163,184,.18);
@@ -328,38 +508,46 @@ body::after{
   padding: 18px 16px;
 }
 
-button, .btn{
-  appearance:none;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.75);
-  color: var(--text);
-  border-radius: 16px;
-  padding: 10px 14px;
-  font-weight: 900;
-  letter-spacing:.2px;
-  cursor:pointer;
+.result-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px 10px;
+  font-size:.8rem;
 }
-button:active{ transform: scale(.98); }
-button.primary{
-  background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(34,211,238,.75));
-  border-color: rgba(34,197,94,.22);
+.result-grid .label{ display:block; font-size:.7rem; color:#9ca3af; }
+.result-grid .value{ display:block; font-size:.95rem; font-weight:900; }
+
+.overlay-actions{
+  margin-top:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
 }
 
 /* =========================================================
    Mobile tweaks
 ========================================================= */
 @media (max-width: 560px){
-  .boss-barbox{ top: calc(var(--sat) + 62px); width: calc(100vw - 20px); }
+  .boss-barbox{
+    top: calc(var(--sat) + 62px);
+    width: calc(100vw - 20px);
+  }
   .boss-face{ width: 40px; height: 40px; border-radius: 14px; }
   .feedback, #feedback, #sbFeedback{ top: calc(var(--sat) + 44%); }
 }
 
+@media(max-width:720px){
+  .research-grid{ grid-template-columns:1fr; }
+  .hud{ flex-direction:column; align-items:flex-start; }
+  .game-panel{ min-height:320px; }
+}
+
 /* =========================================================
-   Reduce motion (accessibility)
+   Reduce motion
 ========================================================= */
 @media (prefers-reduced-motion: reduce){
   .feedback.show, #feedback.show, #sbFeedback.show,
-  .feedback-fever{
+  .feedback-fever, .feedback.feedback-fever{
     animation: none !important;
     opacity:1 !important;
     transform: translate(-50%,-50%) scale(1) !important;
