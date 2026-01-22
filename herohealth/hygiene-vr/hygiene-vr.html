@@ -1,6 +1,6 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr
+✅ Views: pc/mobile/vr/cvr (via body classes)
 ✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js
 ✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
@@ -17,18 +17,18 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <!-- Universal VR UI (PATCH: defer กัน body null) -->
+  <!-- ✅ IMPORTANT: defer เพื่อกัน body=null -->
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- Optional shared helpers (ถ้ามีอยู่แล้วในโปรเจกต์คุณ) -->
+  <!-- Optional shared helpers -->
   <script defer src="../vr/particles.js"></script>
 
-  <!-- AI Packs (optional) -->
+  <!-- AI Packs (ถ้ามีจริงในโปรเจกต์) -->
   <script defer src="../vr/hha-ai-coach.js"></script>
   <script defer src="../vr/hha-difficulty-director.js"></script>
   <script defer src="../vr/hha-badges.js"></script>
 
-  <!-- Engine -->
+  <!-- Engine boot -->
   <script type="module" src="./hygiene-vr.boot.js"></script>
 </head>
 
@@ -46,26 +46,23 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
           <div class="hw-pill" id="pillHits">HITS 0/6</div>
           <div class="hw-pill" id="pillCombo">COMBO 0</div>
+          <div class="hw-pill" id="pillMission">🎯 MISSION —</div>
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <div class="hw-row">
+        <!-- Mission progress bar -->
+        <div class="hw-mission" id="missionBar" style="display:none">
+          <div class="hw-mission-text" id="missionText">—</div>
+          <div class="hw-mission-track">
+            <div class="hw-mission-fill" id="missionFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="hw-row" style="margin-top:10px">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillPower">POWER —</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
-        </div>
-
-        <!-- Boss bar -->
-        <div class="hw-boss" id="bossBar" style="display:none">
-          <div class="hw-boss-row">
-            <div class="hw-boss-title" id="bossTitle">👑🦠 King Germ</div>
-            <div class="hw-boss-meta" id="bossMeta">HP 10/10 • PHASE 1</div>
-          </div>
-          <div class="hw-boss-track">
-            <div class="hw-boss-fill" id="bossFill" style="width:100%"></div>
-          </div>
         </div>
       </div>
 
@@ -77,7 +74,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • เก็บคอมโบให้ยาวที่สุด<br>
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           ยิง/แตะเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
         </div>
         <div class="hw-card-row">
