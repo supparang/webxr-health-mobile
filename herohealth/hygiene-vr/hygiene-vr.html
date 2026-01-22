@@ -1,9 +1,8 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ Optional AI: ../vr/hha-ai-coach.js, ../vr/hha-difficulty-director.js, ../vr/hha-badges.js
+✅ Views: pc/mobile/vr/cvr
+✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js
 ✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 ✅ Back HUB: ?hub=...
 -->
@@ -18,13 +17,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <!-- ✅ IMPORTANT: defer เพื่อให้ body พร้อมก่อน vr-ui.js สร้าง crosshair -->
+  <!-- Universal VR UI (PATCH: defer กัน body null) -->
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- Optional shared helpers -->
+  <!-- Optional shared helpers (ถ้ามีอยู่แล้วในโปรเจกต์คุณ) -->
   <script defer src="../vr/particles.js"></script>
 
-  <!-- AI Packs -->
+  <!-- AI Packs (optional) -->
   <script defer src="../vr/hha-ai-coach.js"></script>
   <script defer src="../vr/hha-difficulty-director.js"></script>
   <script defer src="../vr/hha-badges.js"></script>
@@ -52,9 +51,21 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
         <div class="hw-row">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
+          <div class="hw-pill" id="pillPower">POWER —</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
+        </div>
+
+        <!-- Boss bar -->
+        <div class="hw-boss" id="bossBar" style="display:none">
+          <div class="hw-boss-row">
+            <div class="hw-boss-title" id="bossTitle">👑🦠 King Germ</div>
+            <div class="hw-boss-meta" id="bossMeta">HP 10/10 • PHASE 1</div>
+          </div>
+          <div class="hw-boss-track">
+            <div class="hw-boss-fill" id="bossFill" style="width:100%"></div>
+          </div>
         </div>
       </div>
 
@@ -66,7 +77,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
+          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • เก็บคอมโบให้ยาวที่สุด<br>
           ยิง/แตะเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
         </div>
         <div class="hw-card-row">
@@ -101,17 +112,12 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc'))
-    );
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
   }
   setViewClass();
-  const m = document.getElementById('labMode');
-  const d = document.getElementById('labDiff');
-  if(m) m.textContent = (qs('run','play')||'play');
-  if(d) d.textContent = (qs('diff','normal')||'normal');
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
