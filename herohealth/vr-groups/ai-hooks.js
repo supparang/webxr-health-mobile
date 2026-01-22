@@ -1,466 +1,515 @@
-// === /herohealth/vr-groups/ai-hooks.js ===
-// GroupsVR AI Hooks — PLAY ONLY (research-safe)
-// ✅ A (Rule-based Predictor): คาดการณ์เสี่ยงพลาด + micro-tips
-// ✅ B (Online ML-lite): ปรับน้ำหนัก predictor แบบ online (SGD) + personal baseline (localStorage)
-// ✅ C (DL-ready): เก็บ feature+label เป็น dataset buffer (ยังไม่ train) + export hook
-//
-// Activate: ?run=play&ai=1
-// Level: ?ailvl=a|b|c  (default a)
-// Safety: run=research/practice => disabled always
+/* === /herohealth/vr-groups/ai-hooks.js ===
+GroupsVR AI Hooks — DATASET PACK (v6-34)
+✅ Play-only: enabled via attach({enabled:true}) (your groups-vr.html already does this)
+✅ Research/practice: attach called but enabled=false => NO inference / NO mutation (safe)
+✅ Buffers: events + state snapshots (bounded)
+✅ Windowing: every 500ms, lookback 8000ms
+✅ Labels: miss_in_next_3s, combo_break_in_next_3s
+✅ exportDataset(): returns JSON {meta, schemaVersion, data:[...]}
+✅ getState(): for Risk UI (acc/misses/pressure/storm/mini/boss)
+*/
 
 (function (root) {
   'use strict';
-  const DOC = root.document;
-  if (!DOC) return;
 
   const NS = root.GroupsVR = root.GroupsVR || {};
-  if (NS.AIHooks) return;
+  const DOC = root.document;
 
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const nowMs = () => (root.performance && performance.now) ? performance.now() : Date.now();
-  const sigmoid = (x) => 1 / (1 + Math.exp(-x));
+  // ---------------- Utils ----------------
+  const clamp = (v,a,b)=>{ v=Number(v); if(!isFinite(v)) v=a; return v<a?a:(v>b?b:v); };
+  const nowMs = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
-  function qs(k, def = null) {
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+  function safeJsonParse(s, def){
+    try{ return JSON.parse(s); }catch{ return def; }
   }
 
-  function emit(name, detail) {
-    try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
-  }
+  // ---------------- Internal state ----------------
+  const CFG = {
+    schemaVersion: 'hha-ai-ds-1.0',
+    stepMs: 500,
+    lookbackMs: 8000,
+    horizonMs: 3000,
+    maxEvents: 6000,
+    maxStates: 6000,
+  };
 
-  function isPlay() {
-    const run = String(qs('run', 'play') || 'play').toLowerCase();
-    return run === 'play';
-  }
-
-  function aiWanted() {
-    const on = String(qs('ai', '0') || '0').toLowerCase();
-    return (on === '1' || on === 'true');
-  }
-
-  function level() {
-    const lv = String(qs('ailvl', 'a') || 'a').toLowerCase();
-    if (lv === 'b' || lv === 'c') return lv;
-    return 'a';
-  }
-
-  // ---------------- State ----------------
-  const ST = {
+  const S = {
+    attached: false,
     enabled: false,
-    level: 'a',
-    seed: '',
     runMode: 'play',
+    seed: '',
+    level: 'b', // a|b|c
 
-    // last-known telemetry
+    // live gameplay state
+    t0: 0,
+    lastTick: 0,
+
     score: 0,
     combo: 0,
+    comboMax: 0,
     misses: 0,
     acc: 0,
     grade: 'C',
     pressure: 0,
+    powerCharge: 0,
+    powerThr: 0,
+    timeLeft: 0,
+
     stormOn: false,
     miniOn: false,
-    miniLeft: 0,
-    miniNeed: 0,
-    miniNow: 0,
-    groupName: '',
-    groupKey: '',
+    bossOn: false,
 
-    // rate limits
-    lastTipAt: 0,
-    lastAdjustAt: 0,
-    lastBannerAt: 0,
+    // for deltas
+    _lastCombo: 0,
+    _lastMisses: 0,
+    _lastAcc: 0,
 
-    // difficulty modifiers (applied into engine if supported)
-    mod: {
-      spawnMul: 1.0,     // <1 => faster spawn, >1 => slower
-      wrongDelta: 0.0,
-      junkDelta: 0.0,
-      sizeMul: 1.0,
-      lifeMul: 1.0
-    },
+    // buffers
+    events: [],   // {t,type,meta?}
+    states: [],   // {t,score,combo,misses,acc,pressure,storm,mini,boss,timeLeft}
 
-    // ML-lite weights (B)
-    w: null,
-
-    // dataset buffer (C)
-    data: [],
-    dataMax: 240
+    // session meta
+    meta: {
+      gameTag: 'GroupsVR',
+      projectTag: 'HeroHealth',
+      startedAtIso: null,
+      endedAtIso: null,
+      view: '',
+      diff: '',
+      style: '',
+      run: '',
+      studyId: '',
+      conditionGroup: '',
+    }
   };
 
-  const LS_W = 'HHA_GROUPS_AI_W_B';
-  const LS_BASE = 'HHA_GROUPS_AI_BASELINE';
-
-  function loadWeightsB() {
-    try {
-      const raw = localStorage.getItem(LS_W);
-      if (raw) return JSON.parse(raw);
-    } catch (_) {}
-    // baseline weights (small + stable)
-    return { b0: -1.2, wMissRate: 2.2, wAccLow: 2.0, wPressure: 0.9, wStorm: 0.6, wMini: 0.5, lr: 0.06 };
-  }
-
-  function saveWeightsB(w) {
-    try { localStorage.setItem(LS_W, JSON.stringify(w)); } catch (_) {}
-  }
-
-  function loadBaseline() {
-    try {
-      const raw = localStorage.getItem(LS_BASE);
-      if (raw) return JSON.parse(raw);
-    } catch (_) {}
-    return { plays: 0, emaAcc: 70, emaMissPerMin: 4.0 };
-  }
-
-  function saveBaseline(b) {
-    try { localStorage.setItem(LS_BASE, JSON.stringify(b)); } catch (_) {}
-  }
-
-  // ---------------- Feature extraction ----------------
-  function missRatePerMin() {
-    // crude estimate using planned time; good enough for play fun
-    const time = Number(qs('time', 90) || 90);
-    const played = Math.max(10, (time - Math.max(0, Number(qs('time', 90) || 90) - 1))); // dummy guard
-    // fallback: misses per 90s => per min
-    return (ST.misses / Math.max(0.5, (time / 60)));
-  }
-
-  function riskA() {
-    // Normalize
-    const accLow = clamp((80 - ST.acc) / 40, 0, 1);              // 0..1
-    const mr = clamp(missRatePerMin() / 10, 0, 1);              // 0..1
-    const p = clamp(ST.pressure / 3, 0, 1);                     // 0..1
-    const s = ST.stormOn ? 1 : 0;
-    const m = ST.miniOn ? 1 : 0;
-
-    // Rule-based logistic (stable)
-    const x =
-      (-1.0) +
-      (2.3 * mr) +
-      (2.0 * accLow) +
-      (1.0 * p) +
-      (0.7 * s) +
-      (0.5 * m);
-
-    return sigmoid(x); // 0..1
-  }
-
-  function riskB() {
-    const w = ST.w || loadWeightsB();
-    const accLow = clamp((80 - ST.acc) / 40, 0, 1);
-    const mr = clamp(missRatePerMin() / 10, 0, 1);
-    const p = clamp(ST.pressure / 3, 0, 1);
-    const s = ST.stormOn ? 1 : 0;
-    const m = ST.miniOn ? 1 : 0;
-
-    const x =
-      (w.b0 || 0) +
-      (w.wMissRate || 0) * mr +
-      (w.wAccLow || 0) * accLow +
-      (w.wPressure || 0) * p +
-      (w.wStorm || 0) * s +
-      (w.wMini || 0) * m;
-
-    return sigmoid(x);
-  }
-
-  function getRisk() {
-    return (ST.level === 'b' || ST.level === 'c') ? riskB() : riskA();
-  }
-
-  // ---------------- Tips / Coach ----------------
-  function tip(text, mood) {
-    if (!ST.enabled) return;
+  function pushEvent(type, meta){
     const t = nowMs();
-    if (t - ST.lastTipAt < 2400) return;
-    ST.lastTipAt = t;
-    emit('hha:coach', { text, mood: mood || 'neutral' });
+    S.events.push({ t, type: String(type||''), meta: meta||null });
+    if (S.events.length > CFG.maxEvents) S.events.splice(0, S.events.length - CFG.maxEvents);
   }
 
-  function banner(text, ms) {
-    if (!ST.enabled) return;
+  function pushState(){
     const t = nowMs();
-    if (t - ST.lastBannerAt < 900) return;
-    ST.lastBannerAt = t;
-    try {
-      const w = DOC.getElementById('bannerWrap');
-      const tx = DOC.getElementById('bannerText');
-      if (!w || !tx) return;
-      tx.innerHTML = String(text || '—');
-      w.classList.add('show');
-      clearTimeout(banner._t);
-      banner._t = setTimeout(() => { try { w.classList.remove('show'); } catch (_) {} }, ms || 1100);
-    } catch (_) {}
+    S.states.push({
+      t,
+      score: S.score|0,
+      combo: S.combo|0,
+      misses: S.misses|0,
+      acc: S.acc|0,
+      pressure: S.pressure|0,
+      storm: !!S.stormOn,
+      mini: !!S.miniOn,
+      boss: !!S.bossOn,
+      timeLeft: Number(S.timeLeft||0)
+    });
+    if (S.states.length > CFG.maxStates) S.states.splice(0, S.states.length - CFG.maxStates);
   }
 
-  // ---------------- Difficulty Director (play-only) ----------------
-  function applyToEngine() {
-    try {
-      const E = NS.GameEngine;
-      if (!E || typeof E.setAIModifiers !== 'function') return;
-      E.setAIModifiers(Object.assign({}, ST.mod));
-    } catch (_) {}
+  function resetSession(opts){
+    S.t0 = nowMs();
+    S.lastTick = S.t0;
+
+    S.events = [];
+    S.states = [];
+
+    S.score = 0;
+    S.combo = 0;
+    S.comboMax = 0;
+    S.misses = 0;
+    S.acc = 0;
+    S.grade = 'C';
+    S.pressure = 0;
+    S.powerCharge = 0;
+    S.powerThr = 0;
+    S.timeLeft = 0;
+
+    S.stormOn = false;
+    S.miniOn = false;
+    S.bossOn = false;
+
+    S._lastCombo = 0;
+    S._lastMisses = 0;
+    S._lastAcc = 0;
+
+    const o = opts||{};
+    S.meta.startedAtIso = new Date().toISOString();
+    S.meta.endedAtIso = null;
+    S.meta.view = String(o.view||'');
+    S.meta.diff = String(o.diff||'');
+    S.meta.style= String(o.style||'');
+    S.meta.run  = String(o.runMode||'');
+    S.meta.studyId = String(o.studyId||'');
+    S.meta.conditionGroup = String(o.conditionGroup||'');
+
+    pushEvent('session_start', { runMode:S.runMode, seed:S.seed, level:S.level });
+    pushState();
   }
 
-  function adjustDifficulty() {
-    if (!ST.enabled) return;
-    const t = nowMs();
-    if (t - ST.lastAdjustAt < 1600) return;
-    ST.lastAdjustAt = t;
+  // ---------------- Label definitions ----------------
+  // "miss" = misses increased (ground truth)
+  // "combo_break" = combo drops to 0 from >=2 OR shoot_empty event triggers combo reset
+  function isMissEvent(ev){
+    return ev && ev.type === 'miss';
+  }
+  function isComboBreakEvent(ev){
+    return ev && (ev.type === 'combo_break');
+  }
 
-    const r = getRisk(); // 0..1
-    const acc = ST.acc | 0;
-    const combo = ST.combo | 0;
+  // ---------------- Window feature builder ----------------
+  // We build windows at export time to keep runtime light.
+  function buildWindows(){
+    if (!S.states.length) return [];
 
-    // Goal: risk ~ 0.35–0.55 (ตึงกำลังดี)
-    // ถ้าเด็กเทพมาก: เพิ่มความท้าทาย (เร็วขึ้น/เล็กลง/อายุสั้นลง/ขยะเพิ่มนิด)
-    // ถ้ากำลังพลาดหนัก: ผ่อน (ช้าลง/ใหญ่ขึ้น/อายุยาวขึ้น/ขยะลด)
-    let spawnMul = ST.mod.spawnMul;
-    let sizeMul  = ST.mod.sizeMul;
-    let lifeMul  = ST.mod.lifeMul;
-    let wrongD   = ST.mod.wrongDelta;
-    let junkD    = ST.mod.junkDelta;
+    const tStart = S.states[0].t;
+    const tEnd   = S.states[S.states.length - 1].t;
 
-    if (r < 0.30 && acc >= 85 && combo >= 6) {
-      spawnMul = clamp(spawnMul * 0.94, 0.78, 1.18);
-      sizeMul  = clamp(sizeMul  * 0.98, 0.92, 1.10);
-      lifeMul  = clamp(lifeMul  * 0.96, 0.85, 1.15);
-      wrongD   = clamp(wrongD + 0.01, -0.06, 0.10);
-      junkD    = clamp(junkD  + 0.008, -0.05, 0.10);
-      banner('🤖 AI: เพิ่มความท้าทาย!', 900);
-      tip('เก่งมาก! ต่อไปเป้าจะไวขึ้นนิดนะ 🔥', 'happy');
-    }
-    else if (r > 0.70 || (ST.pressure >= 2 && acc < 70)) {
-      spawnMul = clamp(spawnMul * 1.06, 0.78, 1.26);
-      sizeMul  = clamp(sizeMul  * 1.03, 0.92, 1.20);
-      lifeMul  = clamp(lifeMul  * 1.05, 0.85, 1.25);
-      wrongD   = clamp(wrongD - 0.012, -0.10, 0.10);
-      junkD    = clamp(junkD  - 0.012, -0.10, 0.10);
-      banner('🤖 AI: ผ่อนให้นิด (อย่าท้อ!)', 1100);
-      tip('ค่อย ๆ เล็งนะ ไม่ต้องรีบ ยิงให้ถูกหมู่ก่อน 👀', 'neutral');
-    }
-    else {
-      // drift back toward neutral slowly
-      spawnMul = spawnMul + (1.0 - spawnMul) * 0.06;
-      sizeMul  = sizeMul  + (1.0 - sizeMul)  * 0.06;
-      lifeMul  = lifeMul  + (1.0 - lifeMul)  * 0.06;
-      wrongD   = wrongD   * 0.92;
-      junkD    = junkD    * 0.92;
+    const step = CFG.stepMs;
+    const look = CFG.lookbackMs;
+    const hor  = CFG.horizonMs;
+
+    // Pointers for past-window event scanning
+    const events = S.events.slice().sort((a,b)=>a.t-b.t);
+
+    // Precompute arrays of indices for faster future label scan
+    // We'll scan in small horizons; still fine for mobile given bounded size.
+    const windows = [];
+
+    let eL = 0; // left pointer for past window
+    let eR = 0; // right pointer for events up to t
+
+    // Helper: counts in [t-look, t]
+    function getCounts(t){
+      const t0 = t - look;
+      while (eL < events.length && events[eL].t < t0) eL++;
+      while (eR < events.length && events[eR].t <= t) eR++;
+
+      let hit_good=0, hit_wrong=0, hit_junk=0, shoot_empty=0, miss=0, boss_hit=0;
+      let storm_on=0, storm_off=0, mini_start=0, mini_end=0;
+
+      for (let i = eL; i < eR; i++){
+        const tp = events[i].type;
+        if (tp === 'hit_good') hit_good++;
+        else if (tp === 'hit_wrong') hit_wrong++;
+        else if (tp === 'hit_junk') hit_junk++;
+        else if (tp === 'shoot_empty') shoot_empty++;
+        else if (tp === 'miss') miss++;
+        else if (tp === 'boss_hit') boss_hit++;
+        else if (tp === 'storm_on') storm_on++;
+        else if (tp === 'storm_off') storm_off++;
+        else if (tp === 'mini_start') mini_start++;
+        else if (tp === 'mini_end') mini_end++;
+      }
+
+      const actions = hit_good + hit_wrong + hit_junk + shoot_empty + boss_hit;
+
+      return {
+        hit_good, hit_wrong, hit_junk, shoot_empty, miss, boss_hit,
+        storm_on, storm_off, mini_start, mini_end,
+        actions
+      };
     }
 
-    ST.mod.spawnMul = spawnMul;
-    ST.mod.sizeMul  = sizeMul;
-    ST.mod.lifeMul  = lifeMul;
-    ST.mod.wrongDelta = wrongD;
-    ST.mod.junkDelta  = junkD;
+    // Helper: find nearest state at time t (states are dense, but we can move pointer)
+    let sPtr = 0;
+    function stateAt(t){
+      while (sPtr + 1 < S.states.length && S.states[sPtr + 1].t <= t) sPtr++;
+      return S.states[sPtr] || S.states[S.states.length-1];
+    }
 
-    applyToEngine();
-  }
+    // Helper: future label in (t, t+hor]
+    function futureLabel(t){
+      const tF = t + hor;
+      let missSoon = 0;
+      let comboBreakSoon = 0;
 
-  // ---------------- Online ML-lite (B) ----------------
-  function sgdUpdate(label01) {
-    if (!ST.enabled) return;
-    if (ST.level !== 'b' && ST.level !== 'c') return;
-
-    // label: 1=bad event (miss/bad), 0=good hit streak
-    const w = ST.w || loadWeightsB();
-    const y = label01 ? 1 : 0;
-
-    const accLow = clamp((80 - ST.acc) / 40, 0, 1);
-    const mr = clamp(missRatePerMin() / 10, 0, 1);
-    const p = clamp(ST.pressure / 3, 0, 1);
-    const s = ST.stormOn ? 1 : 0;
-    const m = ST.miniOn ? 1 : 0;
-
-    const x =
-      (w.b0 || 0) +
-      (w.wMissRate || 0) * mr +
-      (w.wAccLow || 0) * accLow +
-      (w.wPressure || 0) * p +
-      (w.wStorm || 0) * s +
-      (w.wMini || 0) * m;
-
-    const pHat = sigmoid(x);
-    const err = (y - pHat);
-    const lr = clamp(w.lr || 0.06, 0.01, 0.12);
-
-    w.b0        = (w.b0 || 0) + lr * err * 1.0;
-    w.wMissRate = (w.wMissRate || 0) + lr * err * mr;
-    w.wAccLow   = (w.wAccLow || 0) + lr * err * accLow;
-    w.wPressure = (w.wPressure || 0) + lr * err * p;
-    w.wStorm    = (w.wStorm || 0) + lr * err * s;
-    w.wMini     = (w.wMini || 0) + lr * err * m;
-
-    ST.w = w;
-    saveWeightsB(w);
-  }
-
-  // ---------------- DL-ready dataset buffer (C) ----------------
-  function pushData(label, extra) {
-    if (!ST.enabled) return;
-    if (ST.level !== 'c') return;
-    const row = Object.assign({
-      t: Date.now(),
-      seed: ST.seed,
-      diff: String(qs('diff', 'normal') || 'normal'),
-      style: String(qs('style', 'mix') || 'mix'),
-      view: String(qs('view', 'mobile') || 'mobile'),
-      score: ST.score|0,
-      combo: ST.combo|0,
-      misses: ST.misses|0,
-      acc: ST.acc|0,
-      pressure: ST.pressure|0,
-      stormOn: ST.stormOn ? 1 : 0,
-      miniOn: ST.miniOn ? 1 : 0,
-      miniLeft: ST.miniLeft|0,
-      label: Number(label)||0
-    }, extra || {});
-    ST.data.push(row);
-    if (ST.data.length > ST.dataMax) ST.data.splice(0, ST.data.length - ST.dataMax);
-
-    // Optional: publish for future cloud logger
-    emit('ai:data', { row, size: ST.data.length });
-  }
-
-  function exportDataset() {
-    if (ST.level !== 'c') return null;
-    return {
-      meta: { game: 'GroupsVR', seed: ST.seed, createdAt: new Date().toISOString() },
-      data: ST.data.slice()
-    };
-  }
-
-  // ---------------- Event wiring ----------------
-  function wireEvents() {
-    root.addEventListener('hha:score', (ev) => {
-      const d = ev.detail || {};
-      ST.score = Number(d.score ?? ST.score) || 0;
-      ST.combo = Number(d.combo ?? ST.combo) || 0;
-      ST.misses = Number(d.misses ?? ST.misses) || 0;
-      // adjust every tick-ish
-      adjustDifficulty();
-    }, { passive: true });
-
-    root.addEventListener('hha:rank', (ev) => {
-      const d = ev.detail || {};
-      ST.grade = String(d.grade || ST.grade);
-      ST.acc = Number(d.accuracy ?? ST.acc) || 0;
-      adjustDifficulty();
-    }, { passive: true });
-
-    root.addEventListener('groups:progress', (ev) => {
-      const d = ev.detail || {};
-      if (d.kind === 'pressure') {
-        ST.pressure = Number(d.level ?? ST.pressure) || 0;
-        adjustDifficulty();
+      // scan events in horizon (bounded); use a quick loop
+      for (let i = 0; i < events.length; i++){
+        const ev = events[i];
+        if (ev.t <= t) continue;
+        if (ev.t > tF) break;
+        if (isMissEvent(ev)) missSoon = 1;
+        if (isComboBreakEvent(ev)) comboBreakSoon = 1;
+        if (missSoon && comboBreakSoon) break;
       }
-      if (d.kind === 'storm_on') ST.stormOn = true;
-      if (d.kind === 'storm_off') ST.stormOn = false;
-      if (d.kind === 'perfect_switch') {
-        banner(`✨ สลับหมู่!`, 900);
-        tip('เยี่ยม! สลับหมู่แล้ว เล็งหมู่ใหม่ให้ไว 🎯', 'happy');
-        pushData(0, { e: 'switch' });
-      }
-    }, { passive: true });
+      return { missSoon, comboBreakSoon };
+    }
 
-    root.addEventListener('quest:update', (ev) => {
-      const d = ev.detail || {};
-      ST.groupKey = String(d.groupKey || ST.groupKey);
-      ST.groupName = String(d.groupName || ST.groupName);
+    for (let t = tStart; t <= tEnd; t += step){
+      const st = stateAt(t);
+      const c  = getCounts(t);
+      const lab = futureLabel(t);
 
-      const miniTitle = String(d.miniTitle || '—');
-      ST.miniOn = (miniTitle !== '—');
-      ST.miniLeft = Number(d.miniTimeLeftSec || 0) || 0;
-      ST.miniNeed = Number(d.miniTotal || 0) || 0;
-      ST.miniNow = Number(d.miniNow || 0) || 0;
+      // Derived
+      const denom = Math.max(1, c.hit_good + c.hit_wrong + c.hit_junk + c.boss_hit);
+      const acc8 = Math.round((c.hit_good / denom) * 100);
 
-      // If mini started and risk high -> give a nudge
-      if (ST.miniOn && ST.miniLeft > 0) {
-        const r = getRisk();
-        if (r > 0.65) tip('MINI กำลังมา! เลือกยิงเฉพาะที่มั่นใจนะ ⚡', 'neutral');
-      }
-    }, { passive: true });
+      // Pace
+      const actionsPerSec = Math.round((c.actions / (look/1000)) * 100) / 100;
 
-    root.addEventListener('hha:judge', (ev) => {
-      const d = ev.detail || {};
-      const k = String(d.kind || '');
+      windows.push({
+        t,
+        // features
+        f: {
+          // window counts (8s)
+          hit_good_8s: c.hit_good,
+          hit_wrong_8s: c.hit_wrong,
+          hit_junk_8s: c.hit_junk,
+          miss_8s: c.miss,
+          shoot_empty_8s: c.shoot_empty,
+          boss_hit_8s: c.boss_hit,
 
-      // Online learning signal
-      if (k === 'bad' || k === 'miss') { sgdUpdate(1); pushData(1, { e: k }); }
-      if (k === 'good' || k === 'perfect') { sgdUpdate(0); pushData(0, { e: k }); }
+          acc_8s: acc8,
+          acc_session: st.acc|0,
 
-      // Prediction tip when repeated bad
-      if (k === 'bad' || k === 'miss') {
-        const r = getRisk();
-        if (r > 0.72) {
-          tip('ลอง “หยุดครึ่งวิ” แล้วค่อยยิงนะ จะพลาดน้อยลง 💡', ST.pressure >= 2 ? 'fever' : 'neutral');
+          combo_now: st.combo|0,
+          misses_total: st.misses|0,
+          pressure: st.pressure|0,
+
+          storm_on: st.storm ? 1 : 0,
+          mini_on: st.mini ? 1 : 0,
+          boss_on: st.boss ? 1 : 0,
+
+          time_left: Number(st.timeLeft||0),
+
+          actions_per_sec_8s: actionsPerSec,
+          score: st.score|0,
+        },
+        // labels
+        y: {
+          miss_in_next_3s: lab.missSoon,
+          combo_break_in_next_3s: lab.comboBreakSoon
         }
-      }
-    }, { passive: true });
+      });
+    }
 
-    root.addEventListener('hha:end', (ev) => {
-      const d = ev.detail || {};
-      // update baseline
-      try {
-        const b = loadBaseline();
-        b.plays = (b.plays|0) + 1;
-        b.emaAcc = b.emaAcc + (Number(d.accuracyGoodPct ?? ST.acc) - b.emaAcc) * 0.18;
-        const mpm = (Number(d.misses ?? ST.misses) / Math.max(1, Number(d.durationPlayedSec ?? 90) / 60));
-        b.emaMissPerMin = b.emaMissPerMin + (mpm - b.emaMissPerMin) * 0.18;
-        saveBaseline(b);
-      } catch (_) {}
+    return windows;
+  }
 
-      if (ST.level === 'c') {
-        // attach dataset export for UI copy if needed later
-        try { NS.AIHooks.__lastDataset = exportDataset(); } catch (_) {}
-      }
+  // ---------------- Event listeners ----------------
+  function onScore(ev){
+    const d = ev.detail || {};
+    const score = Number(d.score ?? 0);
+    const combo = Number(d.combo ?? 0);
+    const misses = Number(d.misses ?? 0);
 
-      // reset engine mods toward neutral after end (avoid carryover feel)
-      ST.mod = { spawnMul: 1.0, wrongDelta: 0.0, junkDelta: 0.0, sizeMul: 1.0, lifeMul: 1.0 };
-      applyToEngine();
-    }, { passive: true });
+    // detect miss by misses delta
+    if (misses > S._lastMisses){
+      pushEvent('miss', { delta: misses - S._lastMisses });
+    }
+
+    // detect combo break by combo dropping to 0 from >=2
+    if (combo === 0 && S._lastCombo >= 2){
+      pushEvent('combo_break', { from: S._lastCombo });
+    }
+
+    S.score = score|0;
+    S.combo = combo|0;
+    S.comboMax = Math.max(S.comboMax|0, S.combo|0);
+    S.misses = misses|0;
+
+    S._lastCombo = S.combo|0;
+    S._lastMisses = S.misses|0;
+
+    // light state snapshot throttling
+    const t = nowMs();
+    if (t - S.lastTick >= 240){
+      S.lastTick = t;
+      pushState();
+    }
+  }
+
+  function onRank(ev){
+    const d = ev.detail || {};
+    S.grade = String(d.grade ?? 'C');
+    const acc = Number(d.accuracy ?? 0);
+    // if accuracy changes a lot, snapshot
+    if (Math.abs(acc - S._lastAcc) >= 2){
+      S._lastAcc = acc;
+      S.acc = acc|0;
+      pushState();
+    }else{
+      S.acc = acc|0;
+    }
+  }
+
+  function onTime(ev){
+    const d = ev.detail || {};
+    S.timeLeft = Number(d.left ?? 0);
+    // snapshot at 1s steps
+    pushState();
+  }
+
+  function onPower(ev){
+    const d = ev.detail || {};
+    S.powerCharge = Number(d.charge ?? 0)|0;
+    S.powerThr = Number(d.threshold ?? 0)|0;
+  }
+
+  function onProgress(ev){
+    const d = ev.detail || {};
+    const k = String(d.kind || '');
+    if (k === 'storm_on'){ S.stormOn = true; pushEvent('storm_on'); pushState(); }
+    if (k === 'storm_off'){ S.stormOn = false; pushEvent('storm_off'); pushState(); }
+    if (k === 'boss_spawn'){ S.bossOn = true; pushEvent('boss_spawn'); pushState(); }
+    if (k === 'boss_down'){ S.bossOn = false; pushEvent('boss_down'); pushState(); }
+    if (k === 'pressure'){ S.pressure = Number(d.level ?? 0)|0; pushState(); }
+  }
+
+  function onQuest(ev){
+    const d = ev.detail || {};
+    const miniLeft = Number(d.miniTimeLeftSec ?? 0);
+    const on = miniLeft > 0;
+    if (on && !S.miniOn){ S.miniOn = true; pushEvent('mini_start', { left: miniLeft }); pushState(); }
+    if (!on && S.miniOn){ S.miniOn = false; pushEvent('mini_end'); pushState(); }
+  }
+
+  function onJudge(ev){
+    const d = ev.detail || {};
+    const kind = String(d.kind||'');
+    const text = String(d.text||'');
+    // These are helpful events for training / debugging
+    if (kind === 'good'){
+      if (text.includes('BOSS')) pushEvent('boss_down_reward');
+    }
+  }
+
+  function onShoot(){
+    // Shoot event always fired by vr-ui crosshair tap
+    // We'll mark "shoot_attempt" and later detect empty by judge miss? but safe.js doesn't emit extra
+    // So we approximate: if a hit event doesn't happen soon, still useful as "shoot attempt".
+    pushEvent('shoot', null);
+  }
+
+  // Hook hits: we infer from judge kind and/or score deltas are enough,
+  // but we want explicit hit types for better DL.
+  // We'll mark hits using judge events if they contain known patterns.
+  function onJudgeForHit(ev){
+    const d = ev.detail || {};
+    const kind = String(d.kind||'');
+    const text = String(d.text||'');
+    if (kind === 'good'){
+      // normal hit or goal/mini/bossdown; we separate later by text
+      if (text.startsWith('+')) pushEvent('hit_good', { text });
+      else if (text.includes('GOAL')) pushEvent('goal_clear', { text });
+      else if (text.includes('MINI')) pushEvent('mini_clear', { text });
+      else if (text.includes('BOSS')) pushEvent('boss_down', { text });
+    } else if (kind === 'bad'){
+      // wrong/junk (we can’t fully separate from text; still useful)
+      if (text.includes('-18')) pushEvent('hit_junk', { text });
+      else pushEvent('hit_wrong', { text });
+    } else if (kind === 'miss'){
+      // includes empty shoot MISS and MINI FAIL
+      if (text.includes('MINI')) pushEvent('mini_fail', { text });
+      if (text === 'MISS') pushEvent('shoot_empty', { text });
+    } else if (kind === 'boss'){
+      pushEvent('boss_hit', { text });
+    }
+  }
+
+  function onEnd(ev){
+    S.meta.endedAtIso = new Date().toISOString();
+    pushEvent('session_end', ev.detail||null);
+    pushState();
+  }
+
+  function bind(){
+    if (S._bound) return;
+    S._bound = true;
+
+    root.addEventListener('hha:score', onScore, { passive:true });
+    root.addEventListener('hha:rank', onRank, { passive:true });
+    root.addEventListener('hha:time', onTime, { passive:true });
+    root.addEventListener('groups:power', onPower, { passive:true });
+    root.addEventListener('groups:progress', onProgress, { passive:true });
+    root.addEventListener('quest:update', onQuest, { passive:true });
+    root.addEventListener('hha:judge', onJudge, { passive:true });
+    root.addEventListener('hha:judge', onJudgeForHit, { passive:true });
+    root.addEventListener('hha:shoot', onShoot, { passive:true });
+    root.addEventListener('hha:end', onEnd, { passive:true });
   }
 
   // ---------------- Public API ----------------
   const API = {
-    attach(opts) {
+    attach(opts){
       opts = opts || {};
-      const runMode = String(opts.runMode || 'play').toLowerCase();
-      const enabled = !!opts.enabled;
+      bind();
 
-      // hard safety gates
-      if (runMode !== 'play') { ST.enabled = false; return; }
-      if (!isPlay()) { ST.enabled = false; return; }
-      if (!aiWanted()) { ST.enabled = false; return; }
-      if (!enabled) { ST.enabled = false; return; }
+      // enabled is controlled by groups-vr.html (play-only)
+      S.enabled = !!opts.enabled;
+      S.runMode = String(opts.runMode || 'play');
+      S.seed = String(opts.seed || '');
+      S.level = String(opts.level || opts.ailvl || 'b').toLowerCase();
+      if (!['a','b','c'].includes(S.level)) S.level = 'b';
 
-      ST.enabled = true;
-      ST.level = level();
-      ST.seed = String(opts.seed || '');
-      ST.runMode = 'play';
+      // parse some meta if passed through
+      S.meta.view = String(opts.view || S.meta.view || '');
+      S.meta.diff = String(opts.diff || S.meta.diff || '');
+      S.meta.style= String(opts.style|| S.meta.style || '');
+      S.meta.run  = String(S.runMode || '');
+      S.meta.studyId = String(opts.studyId || S.meta.studyId || '');
+      S.meta.conditionGroup = String(opts.conditionGroup || S.meta.conditionGroup || '');
 
-      if (ST.level === 'b' || ST.level === 'c') ST.w = loadWeightsB();
+      // reset buffers each attach (new session)
+      resetSession(opts);
 
-      // one-time wire
-      if (!API._wired) {
-        API._wired = true;
-        wireEvents();
-      }
-
-      // initial nudge
-      banner(`🤖 AI ON (${ST.level.toUpperCase()})`, 1100);
-      tip('AI เปิดแล้ว! จะปรับความท้าทายให้พอดีกับเรา 🎮', 'happy');
-
-      // apply neutral mods now (engine may read immediately)
-      applyToEngine();
+      S.attached = true;
+      pushEvent('ai_attach', { enabled:S.enabled, runMode:S.runMode, level:S.level });
+      return true;
     },
 
-    isEnabled() { return !!ST.enabled; },
-    getState() { return Object.assign({}, ST); },
+    isEnabled(){ return !!S.enabled; },
 
-    // C only
-    exportDataset() { return exportDataset(); }
+    getState(){
+      // For Risk UI: keep it simple & stable
+      return {
+        enabled: !!S.enabled,
+        runMode: S.runMode,
+        seed: S.seed,
+        level: S.level,
+        acc: S.acc|0,
+        misses: S.misses|0,
+        combo: S.combo|0,
+        pressure: S.pressure|0,
+        stormOn: !!S.stormOn,
+        miniOn: !!S.miniOn,
+        bossOn: !!S.bossOn,
+        timeLeft: Number(S.timeLeft||0),
+        grade: String(S.grade||'C')
+      };
+    },
+
+    exportDataset(){
+      // Only export if enabled (play mode) OR if you want export always, remove this guard.
+      // Keeping guard prevents accidental research exports.
+      if (!S.attached) return { schemaVersion: CFG.schemaVersion, meta: S.meta, data: [] };
+
+      const ctx = (NS.getResearchCtx && typeof NS.getResearchCtx === 'function')
+        ? (NS.getResearchCtx() || {})
+        : {};
+
+      const windows = buildWindows();
+
+      return {
+        schemaVersion: CFG.schemaVersion,
+        meta: Object.assign({}, S.meta, {
+          seed: S.seed,
+          aiLevel: S.level,
+          enabled: !!S.enabled,
+          runMode: S.runMode,
+          exportedAtIso: new Date().toISOString(),
+          ctx
+        }),
+        // raw buffers (useful for debugging / future RT, aimErr)
+        raw: {
+          events: S.events.slice(0),
+          states: S.states.slice(0),
+          cfg: Object.assign({}, CFG)
+        },
+        // training table
+        data: windows
+      };
+    }
   };
 
   NS.AIHooks = API;
