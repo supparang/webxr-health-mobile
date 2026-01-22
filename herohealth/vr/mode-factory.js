@@ -1,344 +1,20 @@
-// =========================================================
-// /herohealth/vr/mode-factory.js
-// HHA Spawn Mode Factory — PRODUCTION (PATCH A4-4)
-// - Exports: boot()
-// - Spawns HTML targets into a mount layer
-// - TTL ring progress: sets CSS var --p (1..0)
-// - Supports click/tap + hha:shoot from vr-ui.js (crosshair)
-// - Safe spawn zones: reads CSS vars --hud-top-safe / --hud-bottom-safe
-// - Target separation: avoids overlap (minSeparationPx)
-// =========================================================
+// === /herohealth/vr/mode-factory.js ===
+// DOM Target Spawner (HHA Standard-ish) — PRODUCTION
+// ✅ export named boot()
+// ✅ click/tap hit
+// ✅ crosshair shoot via window event: hha:shoot {x,y,lockPx}
+// ✅ safe spawn: separation + tries
+// ✅ expiry + maxAlive + stop()
+// ✅ FIX: no "controller before initialization" (use let + init order)
 
 'use strict';
 
-export function boot(opts){
-  const WIN = window;
-  const DOC = document;
-  if(!DOC) throw new Error('mode-factory: document missing');
+const WIN = window;
+const DOC = document;
 
-  const mount = opts?.mount;
-  if(!mount) throw new Error('mode-factory: mount missing');
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-  // ---------- config ----------
-  const seed = Number(opts.seed ?? Date.now()) || Date.now();
-  const rng = makeRng(seed);
-
-  const spawnRate = clampNum(opts.spawnRate ?? 900, 120, 5000); // ms
-  const sizeRange = Array.isArray(opts.sizeRange) ? opts.sizeRange : [44, 64];
-  const sizeMin = clampNum(sizeRange[0], 20, 220);
-  const sizeMax = clampNum(sizeRange[1], sizeMin, 260);
-
-  const lifetimeMs = clampNum(opts.lifetimeMs ?? 2600, 600, 12000); // TTL
-  const maxAlive = clampNum(opts.maxAlive ?? 10, 1, 80);
-
-  const minSeparationPx = clampNum(opts.minSeparationPx ?? 14, 0, 120);
-  const maxTries = clampNum(opts.spawnTries ?? 16, 1, 80);
-
-  const kinds = Array.isArray(opts.kinds) && opts.kinds.length
-    ? opts.kinds
-    : [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }];
-
-  const onHit = typeof opts.onHit === 'function' ? opts.onHit : ()=>{};
-  const onExpire = typeof opts.onExpire === 'function' ? opts.onExpire : ()=>{};
-
-  // spawn safe margins (read from CSS vars on :root)
-  function readSafePx(){
-    const cs = getComputedStyle(DOC.documentElement);
-    const topSafe = parsePx(cs.getPropertyValue('--hud-top-safe')) || 180;
-    const botSafe = parsePx(cs.getPropertyValue('--hud-bottom-safe')) || 280;
-
-    // safe-area insets
-    const sat = parsePx(cs.getPropertyValue('--sat')) || 0;
-    const sab = parsePx(cs.getPropertyValue('--sab')) || 0;
-
-    return {
-      top: topSafe + sat,
-      bottom: botSafe + sab,
-      left: 14 + (parsePx(cs.getPropertyValue('--sal')) || 0),
-      right: 14 + (parsePx(cs.getPropertyValue('--sar')) || 0),
-    };
-  }
-
-  // ---------- state ----------
-  const state = {
-    running: true,
-    alive: new Map(), // id -> target object
-    nextId: 1,
-    spawnTO: null,
-    tickRAF: null,
-  };
-
-  // ---------- helpers ----------
-  function now(){ return performance.now(); }
-
-  function pickKind(){
-    const total = kinds.reduce((s,k)=>s + (Number(k.weight)||0), 0) || 1;
-    let r = rng() * total;
-    for(const k of kinds){
-      r -= (Number(k.weight)||0);
-      if(r <= 0) return k.kind || 'good';
-    }
-    return kinds[kinds.length-1].kind || 'good';
-  }
-
-  function isFarEnough(px, py, radius){
-    if(minSeparationPx <= 0) return true;
-
-    for(const [,t] of state.alive){
-      if(!t.el) continue;
-      // compare centers in screen px using cached px if available
-      const dx = (t.cxPx ?? 0) - px;
-      const dy = (t.cyPx ?? 0) - py;
-      const dist2 = dx*dx + dy*dy;
-      const need = (t.rPx ?? 0) + radius + minSeparationPx;
-      if(dist2 < need*need) return false;
-    }
-    return true;
-  }
-
-  function spawnOne(){
-    if(!state.running) return;
-    if(state.alive.size >= maxAlive) return;
-
-    const rect = mount.getBoundingClientRect();
-    if(rect.width < 50 || rect.height < 50) return;
-
-    const safe = readSafePx();
-
-    // allowed area in pixels inside viewport
-    const xMin = safe.left;
-    const xMax = Math.max(xMin + 40, rect.width - safe.right);
-
-    const yMin = safe.top;
-    const yMax = Math.max(yMin + 40, rect.height - safe.bottom);
-
-    // if too tight, fallback to full rect
-    const fxMin = 20, fxMax = rect.width - 20;
-    const fyMin = 20, fyMax = rect.height - 20;
-
-    const useFallback = (xMax - xMin < 80) || (yMax - yMin < 80);
-
-    // decide size first (affects separation)
-    const s = Math.round(lerp(sizeMin, sizeMax, rng()));
-    const radius = Math.max(16, s/2);
-
-    let px = 0, py = 0;
-    let ok = false;
-
-    for(let i=0; i<maxTries; i++){
-      px = useFallback ? lerp(fxMin, fxMax, rng()) : lerp(xMin, xMax, rng());
-      py = useFallback ? lerp(fyMin, fyMax, rng()) : lerp(yMin, yMax, rng());
-      if(isFarEnough(px, py, radius)){
-        ok = true;
-        break;
-      }
-    }
-
-    if(!ok){
-      // give up silently to avoid ugly overlaps
-      return;
-    }
-
-    const kind = pickKind();
-
-    // Build target payload
-    const id = String(state.nextId++);
-    const t = {
-      id,
-      kind,
-      groupIndex: (kind === 'good') ? Math.floor(rng()*5) : null,
-      bornAt: now(),
-      dieAt: now() + lifetimeMs,
-
-      // for separation compare in px
-      cxPx: px,
-      cyPx: py,
-      rPx: radius,
-
-      xPct: clampNum((px / rect.width) * 100, 0, 100),
-      yPct: clampNum((py / rect.height) * 100, 0, 100),
-      sizePx: s,
-      el: null,
-    };
-
-    // Create DOM element
-    const el = DOC.createElement('div');
-    el.className = 'plateTarget';
-    el.dataset.id = id;
-    el.dataset.kind = kind;
-
-    // deterministic emoji (use rng)
-    el.textContent = pickEmoji(kind, t.groupIndex, rng);
-
-    // position + size via CSS vars
-    el.style.setProperty('--x', String(t.xPct));
-    el.style.setProperty('--y', String(t.yPct));
-    el.style.setProperty('--s', String(t.sizePx));
-    el.style.setProperty('--p', '1'); // TTL progress 1..0
-
-    el.setAttribute('role','button');
-    el.setAttribute('aria-label', kind === 'good' ? 'good target' : 'junk target');
-
-    // tap/click hit
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      ev.stopPropagation();
-      hitTarget(id, 'tap');
-    }, { passive:false });
-
-    mount.appendChild(el);
-    t.el = el;
-    state.alive.set(id, t);
-  }
-
-  function hitTarget(id, source='tap'){
-    const t = state.alive.get(String(id));
-    if(!t) return;
-
-    state.alive.delete(String(id));
-    if(t.el){
-      t.el.classList.add('is-hit');
-      const el = t.el;
-      t.el = null;
-      setTimeout(()=>{ try{ el.remove(); }catch{} }, 70);
-    }
-
-    onHit({
-      id: t.id,
-      kind: t.kind,
-      groupIndex: t.groupIndex,
-      source
-    });
-  }
-
-  function expireTarget(id){
-    const t = state.alive.get(String(id));
-    if(!t) return;
-
-    state.alive.delete(String(id));
-    if(t.el){
-      const el = t.el;
-      t.el = null;
-      try{ el.remove(); }catch{}
-    }
-    onExpire({ id: t.id, kind: t.kind, groupIndex: t.groupIndex });
-  }
-
-  function tick(){
-    if(!state.running){
-      state.tickRAF = null;
-      return;
-    }
-    const tNow = now();
-
-    for(const [id, t] of state.alive){
-      const left = (t.dieAt - tNow);
-      if(left <= 0){
-        expireTarget(id);
-        continue;
-      }
-      if(t.el){
-        const p = clampNum(left / lifetimeMs, 0, 1);
-        t.el.style.setProperty('--p', String(p));
-      }
-    }
-
-    state.tickRAF = requestAnimationFrame(tick);
-  }
-
-  function scheduleSpawn(){
-    if(!state.running) return;
-    if(state.alive.size === 0) spawnOne();
-
-    state.spawnTO = setInterval(()=>{
-      if(!state.running) return;
-      spawnOne();
-    }, spawnRate);
-  }
-
-  // ---------- crosshair shoot support ----------
-  function onShoot(ev){
-    if(!state.running) return;
-
-    const d = ev?.detail || {};
-    const x = Number(d.x);
-    const y = Number(d.y);
-    const lockPx = clampNum(d.lockPx ?? 28, 6, 120);
-
-    if(!isFinite(x) || !isFinite(y)) return;
-
-    let bestId = null;
-    let bestDist2 = Infinity;
-
-    for(const [id, t] of state.alive){
-      if(!t.el) continue;
-      const r = t.el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      const dx = cx - x;
-      const dy = cy - y;
-      const dist2 = dx*dx + dy*dy;
-      if(dist2 < bestDist2){
-        bestDist2 = dist2;
-        bestId = id;
-      }
-    }
-
-    if(bestId != null && bestDist2 <= (lockPx*lockPx)){
-      hitTarget(bestId, d.source || 'shoot');
-    }
-  }
-
-  // ---------- start ----------
-  WIN.addEventListener('hha:shoot', onShoot);
-  scheduleSpawn();
-  state.tickRAF = requestAnimationFrame(tick);
-
-  // ---------- controller ----------
-  const controller = {
-    stop(){
-      if(!state.running) return;
-      state.running = false;
-
-      if(state.spawnTO){
-        clearInterval(state.spawnTO);
-        state.spawnTO = null;
-      }
-      if(state.tickRAF){
-        cancelAnimationFrame(state.tickRAF);
-        state.tickRAF = null;
-      }
-
-      WIN.removeEventListener('hha:shoot', onShoot);
-
-      for(const [,t] of state.alive){
-        try{ t.el?.remove(); }catch{}
-      }
-      state.alive.clear();
-    }
-  };
-
-  return controller;
-}
-
-// =========================================================
-// helpers
-// =========================================================
-function clampNum(v, a, b){
-  v = Number(v);
-  if(!isFinite(v)) v = a;
-  return v < a ? a : (v > b ? b : v);
-}
-function lerp(a,b,t){ return a + (b-a)*t; }
-
-function parsePx(s){
-  if(!s) return 0;
-  const n = parseFloat(String(s).trim().replace('px',''));
-  return isFinite(n) ? n : 0;
-}
-
-// seeded RNG (mulberry32-ish)
-function makeRng(seed){
+function seededRng(seed){
   let t = (seed >>> 0);
   return function(){
     t += 0x6D2B79F5;
@@ -348,22 +24,265 @@ function makeRng(seed){
   };
 }
 
-// Plate emoji set (ปรับได้ภายหลังให้ “ไม่เบื่อ”)
-function pickEmoji(kind, gi, rng){
-  const rr = typeof rng === 'function' ? rng : Math.random;
+function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  if(kind === 'junk'){
-    const junk = ['🍩','🍟','🍔','🥤','🍰','🍫','🍿','🍗'];
-    return junk[Math.floor(rr()*junk.length)];
+function rectCenter(r){ return { x: r.left + r.width/2, y: r.top + r.height/2 }; }
+function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.hypot(dx,dy); }
+
+function qsAll(sel, root){ try{ return Array.from((root||DOC).querySelectorAll(sel)); }catch{ return []; } }
+
+function defaultKinds(){
+  return [
+    { kind:'good', weight:0.7 },
+    { kind:'junk', weight:0.3 }
+  ];
+}
+
+function pickWeighted(rng, kinds){
+  let sum = 0;
+  for(const k of kinds) sum += (Number(k.weight)||0);
+  let t = rng() * (sum || 1);
+  for(const k of kinds){
+    t -= (Number(k.weight)||0);
+    if(t <= 0) return k.kind || 'good';
+  }
+  return kinds?.[0]?.kind || 'good';
+}
+
+function makeEl(kind){
+  const el = DOC.createElement('div');
+  el.className = 'plateTarget';
+  el.dataset.kind = kind;
+  // content will be filled by decorateTarget
+  return el;
+}
+
+function decorateDefault(el, data){
+  // data: { kind, emoji, label }
+  const emoji = data.emoji || (data.kind === 'junk' ? '🍟' : '🍎');
+  const label = data.label || '';
+  el.innerHTML = `
+    <div class="emo">${emoji}</div>
+    ${label ? `<div class="tag">${label}</div>` : ``}
+  `;
+}
+
+function applyPosSize(el, x, y, s){
+  el.style.left = `${x}px`;
+  el.style.top  = `${y}px`;
+  el.style.width  = `${s}px`;
+  el.style.height = `${s}px`;
+  el.style.position = 'absolute';
+  el.style.transform = 'translate(-50%,-50%)';
+}
+
+/**
+ * boot({
+ *  mount, seed, spawnRate, sizeRange,
+ *  kinds:[{kind,weight}], lifetimeMs, maxAlive,
+ *  minSeparationPx, spawnTries,
+ *  makeItem:(kind, rng)=>({kind, emoji, label, groupIndex, ...}),
+ *  decorateTarget:(el, item)=>void,
+ *  onHit:(item, meta)=>void,
+ *  onExpire:(item)=>void
+ * })
+ */
+export function boot(opts){
+  const mount = opts?.mount;
+  if(!mount) throw new Error('mode-factory: mount missing');
+
+  const rng = seededRng(Number(opts.seed) || Date.now());
+  const spawnRate = clamp(Number(opts.spawnRate)||900, 120, 5000);
+  const sizeRange = Array.isArray(opts.sizeRange) ? opts.sizeRange : [44,64];
+  const minS = clamp(Number(sizeRange[0]||44), 24, 180);
+  const maxS = clamp(Number(sizeRange[1]||64), minS, 240);
+
+  const kinds = Array.isArray(opts.kinds) ? opts.kinds : defaultKinds();
+  const lifetimeMs = clamp(Number(opts.lifetimeMs)||2600, 500, 20000);
+  const maxAlive = clamp(Number(opts.maxAlive)||10, 1, 80);
+
+  const minSeparationPx = clamp(Number(opts.minSeparationPx)||18, 0, 120);
+  const spawnTries = clamp(Number(opts.spawnTries)||16, 1, 60);
+
+  const makeItem = typeof opts.makeItem === 'function'
+    ? opts.makeItem
+    : (kind)=>({ kind, emoji: kind==='junk'?'🍟':'🍎', label:'' });
+
+  const decorateTarget = typeof opts.decorateTarget === 'function'
+    ? opts.decorateTarget
+    : decorateDefault;
+
+  const onHit = typeof opts.onHit === 'function' ? opts.onHit : ()=>{};
+  const onExpire = typeof opts.onExpire === 'function' ? opts.onExpire : ()=>{};
+
+  // controller (FIX: declare first, init after)
+  let controller = null;
+
+  const state = {
+    alive: [],
+    running: true,
+    lastSpawnAt: 0,
+    spawnTimer: null,
+    shootHandler: null
+  };
+
+  function getPlayRect(){
+    // spawn inside mount bounds
+    const r = mount.getBoundingClientRect();
+    // small padding so target not cut off
+    const pad = 10;
+    return {
+      left: r.left + pad,
+      top: r.top + pad,
+      right: r.right - pad,
+      bottom: r.bottom - pad,
+      width: Math.max(0, r.width - pad*2),
+      height: Math.max(0, r.height - pad*2)
+    };
   }
 
-  const groups = [
-    ['🍚','🍞','🥔','🌽'],     // carbs
-    ['🥦','🥬','🥕','🍅'],     // veg
-    ['🍎','🍌','🍇','🍉'],     // fruit
-    ['🍗','🐟','🥚','🫘'],     // protein
-    ['🥛','🧀','🍶','🧈'],     // dairy/fat
-  ];
-  const g = groups[Number(gi)||0] || groups[0];
-  return g[Math.floor(rr()*g.length)];
+  function canPlace(x,y,s){
+    const c = { x, y };
+    for(const it of state.alive){
+      const d = dist(c, it.center);
+      const minD = (it.size/2) + (s/2) + minSeparationPx;
+      if(d < minD) return false;
+    }
+    return true;
+  }
+
+  function spawnOne(){
+    if(!state.running) return;
+    if(state.alive.length >= maxAlive) return;
+
+    const pr = getPlayRect();
+    if(pr.width < 40 || pr.height < 40) return;
+
+    const kind = pickWeighted(rng, kinds);
+    const item = makeItem(kind, rng) || { kind };
+
+    const s = Math.round(minS + (maxS-minS) * rng());
+    let x=0,y=0, ok=false;
+
+    for(let t=0; t<spawnTries; t++){
+      x = pr.left + (rng() * pr.width);
+      y = pr.top + (rng() * pr.height);
+      if(canPlace(x,y,s)){ ok=true; break; }
+    }
+    if(!ok){
+      // fallback: allow anyway (still better than no target)
+      x = pr.left + (rng() * pr.width);
+      y = pr.top + (rng() * pr.height);
+    }
+
+    const el = makeEl(item.kind || kind);
+    applyPosSize(el, x, y, s);
+    decorateTarget(el, item);
+
+    const meta = {
+      el,
+      kind: item.kind || kind,
+      item,
+      bornAt: now(),
+      size: s,
+      center: { x, y }
+    };
+
+    // click/tap hit
+    el.addEventListener('pointerdown', (ev)=>{
+      ev.preventDefault();
+      hit(meta, { source:'pointer', x: ev.clientX, y: ev.clientY });
+    }, { passive:false });
+
+    mount.appendChild(el);
+    state.alive.push(meta);
+
+    // expiry
+    meta.expTO = setTimeout(()=>{
+      if(!state.running) return;
+      expire(meta);
+    }, lifetimeMs);
+  }
+
+  function remove(meta){
+    try{ clearTimeout(meta.expTO); }catch{}
+    const idx = state.alive.indexOf(meta);
+    if(idx >= 0) state.alive.splice(idx,1);
+    try{ meta.el?.remove(); }catch{}
+  }
+
+  function hit(meta, hmeta){
+    if(!state.running) return;
+    remove(meta);
+    try{ onHit(meta.item, hmeta || {}); }catch{}
+  }
+
+  function expire(meta){
+    if(!state.running) return;
+    remove(meta);
+    try{ onExpire(meta.item); }catch{}
+  }
+
+  function shootHitTest(x,y,lockPx){
+    // choose nearest target within lockPx (or default 28)
+    const lock = clamp(Number(lockPx)||28, 8, 120);
+    let best = null;
+    let bestD = 1e9;
+
+    for(const m of state.alive){
+      const r = m.el.getBoundingClientRect();
+      const c = rectCenter(r);
+      const d = Math.hypot((c.x-x),(c.y-y));
+      if(d <= lock && d < bestD){
+        bestD = d;
+        best = m;
+      }
+    }
+    if(best) hit(best, { source:'shoot', x, y, lockPx: lock });
+  }
+
+  function startLoop(){
+    state.lastSpawnAt = 0;
+    state.spawnTimer = setInterval(()=>{
+      if(!state.running) return;
+      // spawn pacing
+      const t = now();
+      if(state.lastSpawnAt === 0 || (t - state.lastSpawnAt) >= spawnRate){
+        state.lastSpawnAt = t;
+        spawnOne();
+      }
+    }, 60);
+  }
+
+  function wireShoot(){
+    state.shootHandler = (e)=>{
+      const d = e?.detail || {};
+      const x = Number(d.x), y = Number(d.y);
+      if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+      shootHitTest(x,y, d.lockPx);
+    };
+    WIN.addEventListener('hha:shoot', state.shootHandler);
+  }
+
+  function initController(){
+    // kept for compatibility (future expansion), but safe init order
+    controller = {
+      stop(){
+        state.running = false;
+        try{ clearInterval(state.spawnTimer); }catch{}
+        if(state.shootHandler){
+          try{ WIN.removeEventListener('hha:shoot', state.shootHandler); }catch{}
+        }
+        // cleanup alive
+        for(const m of [...state.alive]) remove(m);
+      }
+    };
+  }
+
+  // init order (FIX)
+  initController();
+  wireShoot();
+  startLoop();
+
+  return controller;
 }
