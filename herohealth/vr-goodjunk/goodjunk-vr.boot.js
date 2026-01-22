@@ -1,166 +1,78 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR BOOT — FAIR PACK (calls goodjunk.safe.js)
-// ✅ Reads query params + passthrough context
-// ✅ Boots SAFE engine once DOM ready
-// ✅ Optional end-summary overlay (lightweight)
-// Note: Cloud logging handled by ../vr/hha-cloud-logger.js listening to hha:end
+// GoodJunkVR BOOT — PRODUCTION (FAIR PACK)
+// ✅ Imports: ./goodjunk.safe.js (fair pack)
+// ✅ Reads query: view/run/diff/time/seed
+// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Starts engine once DOM is ready
+// ✅ Safety: prevent double boot
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def=null)=>{
+function qs(k, def = null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
-};
-
-function num(k, def){
-  const v = Number(qs(k, def));
-  return Number.isFinite(v) ? v : def;
 }
 
-function ensureEndOverlay(){
-  let wrap = DOC.getElementById('gjEndOverlay');
-  if(wrap) return wrap;
-
-  wrap = DOC.createElement('div');
-  wrap.id = 'gjEndOverlay';
-  wrap.style.cssText = `
-    position:fixed; inset:0; z-index:120;
-    display:none; align-items:center; justify-content:center;
-    padding: calc(18px + env(safe-area-inset-top,0px))
-             calc(16px + env(safe-area-inset-right,0px))
-             calc(18px + env(safe-area-inset-bottom,0px))
-             calc(16px + env(safe-area-inset-left,0px));
-    background: rgba(2,6,23,.72);
-    backdrop-filter: blur(10px);
-  `;
-
-  const card = DOC.createElement('div');
-  card.style.cssText = `
-    width:min(720px, 94vw);
-    border-radius: 22px;
-    border:1px solid rgba(148,163,184,.18);
-    background: rgba(2,6,23,.88);
-    box-shadow: 0 18px 60px rgba(0,0,0,.55);
-    padding: 16px;
-    color:#e5e7eb;
-    font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-  `;
-
-  card.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-      <div style="font-weight:1100; font-size:18px;">สรุปผล GoodJunkVR</div>
-      <button id="gjEndClose" type="button"
-        style="border-radius:999px; border:1px solid rgba(148,163,184,.18);
-               background:rgba(15,23,42,.55); color:#e5e7eb;
-               padding:8px 12px; font-weight:1000; cursor:pointer;">ปิด</button>
-    </div>
-
-    <div id="gjEndBody" style="margin-top:12px; display:grid; gap:10px;">
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <div style="padding:10px 12px; border-radius:14px; background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.14); font-weight:1000;">
-          SCORE: <span id="gjEndScore">0</span>
-        </div>
-        <div style="padding:10px 12px; border-radius:14px; background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.14); font-weight:1000;">
-          MISS: <span id="gjEndMiss">0</span>
-        </div>
-        <div style="padding:10px 12px; border-radius:14px; background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.14); font-weight:1000;">
-          GRADE: <span id="gjEndGrade">—</span>
-        </div>
-        <div style="padding:10px 12px; border-radius:14px; background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.14); font-weight:1000;">
-          COMBO: <span id="gjEndCombo">0</span>
-        </div>
-      </div>
-
-      <div style="color:rgba(148,163,184,.92); font-weight:900; line-height:1.4;">
-        ✅ ระบบบันทึกผลล่าสุด (HHA_LAST_SUMMARY) และส่งขึ้นคลาวด์ จะทำตอนจบอัตโนมัติ
-      </div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
-        <button id="gjEndBackHub" type="button"
-          style="flex:1; min-width:180px; height:46px; border-radius:16px;
-                 border:1px solid rgba(34,197,94,.35);
-                 background: rgba(34,197,94,.16);
-                 color:#eafff3; font-weight:1100; cursor:pointer;">
-          ↩ กลับ HUB
-        </button>
-        <button id="gjEndReplay" type="button"
-          style="flex:1; min-width:180px; height:46px; border-radius:16px;
-                 border:1px solid rgba(148,163,184,.18);
-                 background: rgba(15,23,42,.55);
-                 color:#e5e7eb; font-weight:1100; cursor:pointer;">
-          เล่นอีกครั้ง
-        </button>
-      </div>
-    </div>
-  `;
-
-  wrap.appendChild(card);
-  DOC.body.appendChild(wrap);
-
-  // close btn
-  wrap.querySelector('#gjEndClose')?.addEventListener('click', ()=>{
-    wrap.style.display = 'none';
-  });
-
-  return wrap;
+function normView(v){
+  v = String(v||'').toLowerCase();
+  if(v === 'cardboard') return 'vr';
+  if(v === 'view-cvr') return 'cvr';
+  if(v === 'cvr') return 'cvr';
+  if(v === 'vr') return 'vr';
+  if(v === 'pc') return 'pc';
+  if(v === 'mobile') return 'mobile';
+  if(v === 'auto' || !v) return 'mobile';
+  return v;
 }
 
-function showEndOverlay(summary){
-  const wrap = ensureEndOverlay();
-  const set = (id, v)=>{
-    const el = wrap.querySelector(id);
-    if(el) el.textContent = String(v ?? '—');
-  };
-  set('#gjEndScore', summary?.scoreFinal ?? summary?.score ?? 0);
-  set('#gjEndMiss',  summary?.miss ?? 0);
-  set('#gjEndGrade', summary?.grade ?? '—');
-  set('#gjEndCombo', summary?.comboMax ?? 0);
+function setBodyView(view){
+  const b = DOC.body;
+  if(!b) return;
 
-  // buttons
-  const hub = summary?.hub || qs('hub', '');
-  wrap.querySelector('#gjEndBackHub')?.addEventListener('click', ()=>{
-    if(hub) location.href = hub;
-    else alert('ยังไม่ได้ใส่ hub url');
-  }, { once:true });
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  if(view === 'pc') b.classList.add('view-pc');
+  else if(view === 'vr') b.classList.add('view-vr');
+  else if(view === 'cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
+}
 
-  wrap.querySelector('#gjEndReplay')?.addEventListener('click', ()=>{
-    location.href = location.href; // preserve params
-  }, { once:true });
-
-  wrap.style.display = 'flex';
+function ready(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+    setTimeout(fn, 0);
+  }else{
+    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+  }
 }
 
 function bootOnce(){
-  // Read ctx
-  const view = String(qs('view','auto')).toLowerCase();
-  const run  = String(qs('run','play')).toLowerCase();
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const time = num('time', 80);
-  const seed = String(qs('seed', Date.now()));
-  const hub  = String(qs('hub','') || '');
-
-  // Boot SAFE engine
-  engineBoot({ view, run, diff, time, seed, hub });
-
-  // Listen end -> show overlay (light)
-  WIN.addEventListener('hha:end', (ev)=>{
-    const summary = ev?.detail || null;
-    // ถ้าอยาก “ไม่แสดง” overlay ในโหมด research ก็ปิดได้:
-    // if(String(run).toLowerCase()==='research') return;
-    showEndOverlay(summary);
-  }, { passive:true, once:true });
-}
-
-(function init(){
   if(WIN.__GJ_BOOTED__) return;
   WIN.__GJ_BOOTED__ = true;
 
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
-    setTimeout(bootOnce, 0);
-  }else{
-    DOC.addEventListener('DOMContentLoaded', ()=>bootOnce(), { once:true });
+  const view = normView(qs('view','mobile'));
+  const run  = String(qs('run','play') || 'play').toLowerCase();
+  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
+  const time = Number(qs('time','80')) || 80;
+  const seed = String(qs('seed', Date.now()));
+
+  setBodyView(view);
+
+  // expose (optional) for debugging
+  WIN.GJ_CTX = { view, run, diff, time, seed };
+
+  // start engine
+  try{
+    engineBoot({ view, run, diff, time, seed });
+  }catch(err){
+    console.error('[GoodJunkVR] boot failed:', err);
+    // allow retry once if something loads late
+    WIN.__GJ_BOOTED__ = false;
+    setTimeout(()=>{
+      if(!WIN.__GJ_BOOTED__) bootOnce();
+    }, 300);
   }
-})();
+}
+
+ready(bootOnce);
