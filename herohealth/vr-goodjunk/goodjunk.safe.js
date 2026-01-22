@@ -1,10 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — FAIR PACK (v2: STAR+SHIELD + SHOOT)
+// GoodJunkVR SAFE — FAIR PACK S (v3: LOOSER + ANTI-OVERLAP + DIFF TIMING)
 // ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe)
-// ✅ MISS = good expired + junk hit
-// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score
+// ✅ MISS = good expired + junk hit (shield blocks junk => NOT MISS)
+// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score + reduce fever
 // ✅ 🛡 Shield: blocks next junk hit (blocked junk does NOT count as miss)
 // ✅ Supports: tap/click OR crosshair shoot via event hha:shoot
+// ✅ Anti-overlap + edge padding => more "โล่ง ๆ" + playable for ป.5
 // Emits: hha:start, hha:score, hha:time, hha:judge, hha:end
 
 'use strict';
@@ -36,7 +37,7 @@ function getSafeRect(){
 }
 
 function pickByShoot(lockPx=28){
-  // pick topmost .gj-target that overlaps the center-crosshair window
+  // pick .gj-target closest to center within lockPx window
   const r = DOC.documentElement.getBoundingClientRect();
   const cx = r.left + r.width/2;
   const cy = r.top  + r.height/2;
@@ -54,7 +55,6 @@ function pickByShoot(lockPx=28){
 
     if(!inside) continue;
 
-    // choose smallest distance to center
     const ex = (b.left + b.right) / 2;
     const ey = (b.top  + b.bottom) / 2;
     const dx = (ex - cx);
@@ -84,18 +84,62 @@ export function boot(opts={}){
   const elFeverText = DOC.getElementById('feverText');
   const elShield    = DOC.getElementById('shieldPills');
 
+  // diff tuning (เด็ก ป.5: easy/normal คือแนะนำ)
+  const DIFF = (()=>{
+    if(diff==='easy') return {
+      spawnEveryMs: 980,
+      ttlGoodMs: 1900,
+      ttlPowerMs: 2100,
+      edgePadPx: 46,
+      minSepPx: 92,
+      lockPx: 34
+    };
+    if(diff==='hard') return {
+      spawnEveryMs: 780,
+      ttlGoodMs: 1350,
+      ttlPowerMs: 1500,
+      edgePadPx: 40,
+      minSepPx: 84,
+      lockPx: 26
+    };
+    // normal
+    return {
+      spawnEveryMs: 900,
+      ttlGoodMs: 1600,
+      ttlPowerMs: 1700,
+      edgePadPx: 44,
+      minSepPx: 88,
+      lockPx: 28
+    };
+  })();
+
   const S = {
     started:false, ended:false,
     view, run, diff,
     timePlan, timeLeft: timePlan,
     seed, rng: makeRNG(seed),
 
-    score:0, miss:0,
-    hitGood:0, hitJunk:0, expireGood:0,
-    combo:0, comboMax:0,
+    score:0,
+
+    // ✅ miss split (ตามที่ตกลงไว้)
+    miss:0,
+    miss_goodExpired:0,
+    miss_junkHit:0,
+
+    hitGood:0,
+    hitJunk:0,
+    expireGood:0,
+
+    combo:0,
+    comboMax:0,
+
+    // powerups
+    starHit:0,
+    shieldHit:0,
+    junkBlocked:0,
 
     shield:0,
-    fever:18, // mild baseline
+    fever:18,
 
     lastTick:0,
     lastSpawn:0,
@@ -112,18 +156,22 @@ export function boot(opts={}){
     elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';
   }
 
+  function computeGrade(){
+    // เกณฑ์เดิม (แฟร์) + ปรับเล็กน้อยให้สัมพันธ์ miss split
+    // (ยัง “ง่ายพอ” สำหรับเด็ก ป.5)
+    let g='C';
+    if(S.score>=170 && S.miss<=3) g='A';
+    else if(S.score>=110 && S.miss<=6) g='B';
+    else if(S.score>=65) g='C';
+    else g='D';
+    return g;
+  }
+
   function setHUD(){
     if(elScore) elScore.textContent = String(S.score);
     if(elTime)  elTime.textContent  = String(Math.ceil(S.timeLeft));
     if(elMiss)  elMiss.textContent  = String(S.miss);
-
-    let g='C';
-    if(S.score>=170 && S.miss<=3) g='A';
-    else if(S.score>=110) g='B';
-    else if(S.score>=65) g='C';
-    else g='D';
-
-    if(elGrade) elGrade.textContent = g;
+    if(elGrade) elGrade.textContent = computeGrade();
 
     setShieldUI();
     emit('hha:score',{ score:S.score });
@@ -132,6 +180,13 @@ export function boot(opts={}){
   function addScore(delta){
     S.score += (delta|0);
     if(S.score<0) S.score = 0;
+  }
+
+  function addMiss(reason){
+    // MISS = good expired + junk hit (shield block ไม่เป็น miss)
+    S.miss++;
+    if(reason==='goodExpired') S.miss_goodExpired++;
+    if(reason==='junkHit') S.miss_junkHit++;
   }
 
   function onHit(kind){
@@ -147,14 +202,14 @@ export function boot(opts={}){
     }
 
     else if(kind==='junk'){
-      // shield blocks junk -> NOT MISS
       if(S.shield>0){
         S.shield--;
+        S.junkBlocked++;
         setShieldUI();
         emit('hha:judge', { type:'perfect', label:'BLOCK!' });
       }else{
         S.hitJunk++;
-        S.miss++;
+        addMiss('junkHit');
         S.combo = 0;
         addScore(-6);
         setFever(S.fever + 6);
@@ -163,16 +218,21 @@ export function boot(opts={}){
     }
 
     else if(kind==='star'){
-      // ⭐ reduce miss by 1 (floor 0) + score
+      S.starHit++;
       const before = S.miss;
       S.miss = Math.max(0, S.miss - 1);
+      // ถ้าลด miss แล้ว: ลด split โดย “คืนให้ฝั่งที่หนักสุดก่อน”
+      if(before!==S.miss){
+        if(S.miss_junkHit > S.miss_goodExpired && S.miss_junkHit>0) S.miss_junkHit--;
+        else if(S.miss_goodExpired>0) S.miss_goodExpired--;
+      }
       addScore(18);
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
     }
 
     else if(kind==='shield'){
-      // 🛡 add 1 shield (cap 3)
+      S.shieldHit++;
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
       addScore(8);
@@ -182,31 +242,72 @@ export function boot(opts={}){
     setHUD();
   }
 
+  // ---- Anti-overlap spawn helpers ----
+  function dist2(ax,ay,bx,by){
+    const dx=ax-bx, dy=ay-by;
+    return dx*dx + dy*dy;
+  }
+
+  function tryPickSpawn(safe, sizePx){
+    // keep away from edges + keep separation from existing targets
+    const pad = DIFF.edgePadPx;
+    const minSep = DIFF.minSepPx;
+
+    const minX = safe.x + pad;
+    const maxX = safe.x + safe.w - pad;
+    const minY = safe.y + pad;
+    const maxY = safe.y + safe.h - pad;
+
+    const els = Array.from(DOC.querySelectorAll('.gj-target'));
+    const pts = els.map(el=>{
+      const b = el.getBoundingClientRect();
+      return { x:(b.left+b.right)/2, y:(b.top+b.bottom)/2 };
+    });
+
+    // attempt N times
+    const attempts = 18;
+    for(let i=0;i<attempts;i++){
+      const x = minX + S.rng()*Math.max(1,(maxX-minX));
+      const y = minY + S.rng()*Math.max(1,(maxY-minY));
+
+      let ok = true;
+      const sep = Math.max(minSep, sizePx*1.25);
+      const sep2 = sep*sep;
+      for(const p of pts){
+        if(dist2(x,y,p.x,p.y) < sep2){ ok=false; break; }
+      }
+      if(ok) return { x, y };
+    }
+
+    // fallback: still return somewhere inside safe (better than nothing)
+    return {
+      x: safe.x + S.rng()*safe.w,
+      y: safe.y + S.rng()*safe.h
+    };
+  }
+
   function spawn(kind){
     if(S.ended || !layer) return;
 
     const safe = getSafeRect();
-    const x = safe.x + S.rng()*safe.w;
-    const y = safe.y + S.rng()*safe.h;
 
-    const t = DOC.createElement('div');
-    t.className = 'gj-target';
-    t.dataset.kind = kind;
-
-    // emoji
-    t.textContent =
-      (kind==='good') ? '🥦' :
-      (kind==='junk') ? '🍟' :
-      (kind==='star') ? '⭐' : '🛡️';
-
-    // sizes: powerups slightly smaller
     const size =
       (kind==='good') ? 56 :
       (kind==='junk') ? 58 :
       52;
 
-    t.style.left = x+'px';
-    t.style.top  = y+'px';
+    const pos = tryPickSpawn(safe, size);
+    const t = DOC.createElement('div');
+    t.className = 'gj-target';
+    t.dataset.kind = kind;
+
+    t.textContent =
+      (kind==='good') ? '🥦' :
+      (kind==='junk') ? '🍟' :
+      (kind==='star') ? '⭐' : '🛡️';
+
+    t.style.left = pos.x+'px';
+    t.style.top  = pos.y+'px';
     t.style.fontSize = size+'px';
 
     let alive = true;
@@ -224,15 +325,15 @@ export function boot(opts={}){
 
     layer.appendChild(t);
 
-    // TTL (แฟร์ ไม่แว้บ)
-    const ttl = (kind==='star' || kind==='shield') ? 1700 : 1600;
+    const ttl = (kind==='star' || kind==='shield') ? DIFF.ttlPowerMs : DIFF.ttlGoodMs;
 
     setTimeout(()=>{
       if(!alive || S.ended) return;
       kill();
+
       if(kind==='good'){
         S.expireGood++;
-        S.miss++;
+        addMiss('goodExpired');
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
@@ -241,11 +342,10 @@ export function boot(opts={}){
     }, ttl);
   }
 
-  // ✅ Crosshair shoot support
   function onShoot(ev){
     if(S.ended || !S.started) return;
 
-    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
+    const lockPx = Number(ev?.detail?.lockPx ?? DIFF.lockPx) || DIFF.lockPx;
     const picked = pickByShoot(lockPx);
     if(!picked) return;
 
@@ -258,24 +358,45 @@ export function boot(opts={}){
     if(S.ended) return;
     S.ended = true;
 
-    const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
+    const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : computeGrade();
+
+    const totalGoodSeen = S.hitGood + S.expireGood;
+    const accuracy = (totalGoodSeen + S.hitJunk) > 0
+      ? (S.hitGood / (S.hitGood + S.hitJunk + S.expireGood))
+      : 1;
+
     const summary = {
       game:'GoodJunkVR',
-      pack:'fair',
+      pack:'fair-s',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
       seed:S.seed,
       durationPlannedSec:S.timePlan,
       durationPlayedSec: Math.round(S.timePlan - S.timeLeft),
+
       scoreFinal:S.score,
+      grade,
+
+      // miss + split
       miss:S.miss,
+      miss_goodExpired:S.miss_goodExpired,
+      miss_junkHit:S.miss_junkHit,
+
       comboMax:S.comboMax,
+
       hitGood:S.hitGood,
       hitJunk:S.hitJunk,
       expireGood:S.expireGood,
+
+      starHit:S.starHit,
+      shieldHit:S.shieldHit,
+      junkBlocked:S.junkBlocked,
       shieldRemaining:S.shield,
-      grade,
+
+      feverEnd:S.fever,
+      accuracy: Number(accuracy.toFixed(3)),
+
       reason
     };
 
@@ -295,8 +416,7 @@ export function boot(opts={}){
     if(elTime) elTime.textContent = String(Math.ceil(S.timeLeft));
     emit('hha:time', { left:S.timeLeft });
 
-    // spawn every ~900ms
-    if(ts - S.lastSpawn >= 900){
+    if(ts - S.lastSpawn >= DIFF.spawnEveryMs){
       S.lastSpawn = ts;
 
       // fair distribution:
@@ -321,9 +441,8 @@ export function boot(opts={}){
   setShieldUI();
   setHUD();
 
-  // listen shoot
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'GoodJunkVR', pack:'fair', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair-s', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
