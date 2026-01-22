@@ -1,212 +1,118 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PACK S (FAIR, production wiring)
-// ✅ Detect view (pc/mobile/vr/cvr) BUT never override if ?view= provided
-// ✅ Pass-through ctx: hub/run/diff/time/seed/studyId/study/phase/conditionGroup/log/style/ts
-// ✅ Adds body classes: view-*, run-*, diff-*
-// ✅ Hooks hha:shoot => pointer hit (for cVR crosshair/tap-to-shoot via vr-ui.js)
-// ✅ Wait DOM + wait layer + boot engine once
-// ✅ Safe-area measure already done in goodjunk-vr.html (sets --gj-top-safe/--gj-bottom-safe)
+// GoodJunkVR BOOT — FAIR PACK (B / v2.0)
+// ✅ Sets body view class (view=pc/mobile/vr/cvr) without overriding existing params
+// ✅ Waits a beat for safe-zone measure (--gj-top-safe/--gj-bottom-safe) before boot()
+// ✅ Wires Missions Peek + Hide HUD already in HTML (this file doesn't duplicate)
+// ✅ Starts goodjunk.safe.js boot()
+// Notes:
+// - vr-ui.js emits hha:shoot (crosshair/tap-to-shoot). Engine listens inside goodjunk.safe.js.
+
+'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; } catch(_){ return d; } };
-const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); } catch(_){ return false; } };
-
-function emit(name, detail){
-  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-}
-
-function isLikelyMobileUA(){
-  const ua = (navigator.userAgent||'').toLowerCase();
-  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
-}
+const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
+const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch{ return false; } };
 
 function normalizeView(v){
   v = String(v||'').toLowerCase();
-  if(v==='cardboard') return 'vr';
-  if(v==='vr') return 'vr';
-  if(v==='cvr' || v==='view-cvr') return 'cvr';
-  if(v==='pc') return 'pc';
-  if(v==='mobile') return 'mobile';
-  return 'auto';
+  if(v === 'cardboard') return 'vr';
+  if(v === 'view-cvr') return 'cvr';
+  if(v === 'cvr') return 'cvr';
+  if(v === 'vr') return 'vr';
+  if(v === 'mobile') return 'mobile';
+  if(v === 'pc') return 'pc';
+  return 'mobile';
 }
 
-async function detectView(){
-  // NEVER override if user passed ?view=
-  if(has('view')) return normalizeView(qs('view','auto'));
-
-  // best-effort: use UA first
-  let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
-
-  // optional: if WebXR immersive-vr supported on device, prefer vr on mobile
-  try{
-    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
-      const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if(ok){
-        guess = isLikelyMobileUA() ? 'vr' : 'pc';
-      }
-    }
-  }catch(_){}
-
-  return normalizeView(guess);
-}
-
-function setBodyView(v){
+function setBodyView(view){
   const b = DOC.body;
+  if(!b) return;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(v==='pc') b.classList.add('view-pc');
-  else if(v==='vr') b.classList.add('view-vr');
-  else if(v==='cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile'); // default
+  b.classList.add(view === 'pc' ? 'view-pc'
+    : view === 'vr' ? 'view-vr'
+    : view === 'cvr' ? 'view-cvr'
+    : 'view-mobile');
 }
 
-function setBodyTags(run, diff){
-  const b = DOC.body;
-  // run
-  b.classList.remove('run-play','run-research');
-  b.classList.add(run==='research' ? 'run-research' : 'run-play');
-  // diff
-  b.classList.remove('diff-easy','diff-normal','diff-hard');
-  const d = (diff==='easy'||diff==='hard') ? diff : 'normal';
-  b.classList.add(`diff-${d}`);
+function updateChipMeta(){
+  const el = DOC.getElementById('gjChipMeta');
+  if(!el) return;
+  const v = qs('view','auto');
+  const run  = qs('run','play');
+  const diff = qs('diff','normal');
+  const time = qs('time','80');
+  el.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 }
 
-function getCtx(){
-  // pass-through research ctx
-  const ctx = {
-    hub: qs('hub', null),
-    view: normalizeView(qs('view', 'auto')),
-    run: String(qs('run','play')||'play').toLowerCase(),
-    diff: String(qs('diff','normal')||'normal').toLowerCase(),
-    time: Number(qs('time','80')||'80') || 80,
-    seed: qs('seed', null) ?? qs('ts', null) ?? String(Date.now()),
-
-    // research extras
-    studyId: qs('studyId', null) ?? qs('study', null),
-    phase: qs('phase', null),
-    conditionGroup: qs('conditionGroup', null) ?? qs('cond', null),
-    log: qs('log', null),
-    style: qs('style', null),
-    ts: qs('ts', null)
-  };
-  return ctx;
+// Wait until DOM ready
+function onReady(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+    fn();
+  }else{
+    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+  }
 }
 
-function waitForElm(sel, timeoutMs=2400){
+// Ensure safe vars exist (HTML wiring sets them later; we just wait a bit)
+function waitForSafeVars(timeoutMs=900){
+  const start = performance.now();
   return new Promise((resolve)=>{
-    const t0 = performance.now();
     const tick = ()=>{
-      const el = DOC.querySelector(sel);
-      if(el) return resolve(el);
-      if(performance.now() - t0 >= timeoutMs) return resolve(null);
+      const top = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-top-safe')) || 0;
+      const bot = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-bottom-safe')) || 0;
+
+      // "good enough": both numbers non-trivial
+      if(top >= 80 && bot >= 80){
+        resolve(true);
+        return;
+      }
+      if(performance.now() - start > timeoutMs){
+        resolve(false);
+        return;
+      }
       requestAnimationFrame(tick);
     };
     tick();
   });
 }
 
-/* ---------- Crosshair shoot -> simulate pointer hit ---------- */
-/* vr-ui.js emits: hha:shoot {x,y,lockPx,source} */
-function attachShootBridge(){
-  if(WIN.__GJ_SHOOT_BRIDGE__) return;
-  WIN.__GJ_SHOOT_BRIDGE__ = true;
+function parseOpts(){
+  const view = normalizeView(qs('view','mobile'));
+  const run  = String(qs('run','play')||'play').toLowerCase();
+  const diff = String(qs('diff','normal')||'normal').toLowerCase();
+  const time = Number(qs('time','80')||80) || 80;
+  const seed = qs('seed', null) || String(Date.now());
 
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    try{
-      const d = ev?.detail || {};
-      const x = Number(d.x ?? (WIN.innerWidth/2));
-      const y = Number(d.y ?? (WIN.innerHeight/2));
-      const lockPx = Number(d.lockPx ?? 28);
-
-      // find topmost element around crosshair
-      let target = null;
-
-      // sample a tiny grid to catch fast-moving emoji
-      const pts = [
-        [x,y],[x-lockPx,y],[x+lockPx,y],[x,y-lockPx],[x,y+lockPx],
-        [x-lockPx,y-lockPx],[x+lockPx,y-lockPx],[x-lockPx,y+lockPx],[x+lockPx,y+lockPx],
-      ];
-
-      for(const [px,py] of pts){
-        const el = DOC.elementFromPoint(px, py);
-        if(!el) continue;
-        // allow clicking target or inside target
-        const t = el.closest?.('.gj-target');
-        if(t){ target = t; break; }
-      }
-
-      if(target){
-        // dispatch pointerdown so safe.js listener works
-        const e = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:x, clientY:y });
-        target.dispatchEvent(e);
-      }
-    }catch(_){}
-  }, { passive:true });
+  return { view, run, diff, time, seed };
 }
 
-/* ---------- Main boot ---------- */
-async function main(){
-  if(WIN.__GJ_BOOTED__) return;
-  WIN.__GJ_BOOTED__ = true;
+async function bootNow(){
+  updateChipMeta();
 
-  const ctx = getCtx();
+  const opts = parseOpts();
+  setBodyView(opts.view);
 
-  // if view was auto, detect
-  if(ctx.view === 'auto'){
-    ctx.view = await detectView();
-  }
+  // Give UI a moment to measure safe zone and apply CSS vars
+  await waitForSafeVars(900);
 
-  setBodyView(ctx.view);
-  setBodyTags(ctx.run, ctx.diff);
+  // Also re-check after HUD toggle / resize: engine uses vars each spawn via getSafeRect()
+  // (no need to re-init engine; it reads vars live)
 
-  // Let UI chip update already happens in HTML; here we just ensure game layer exists
-  await waitForElm('#gj-layer', 2800);
-  attachShootBridge();
-
-  // Let other modules know game is about to start
-  emit('hha:boot', {
-    gameId: 'goodjunk',
-    view: ctx.view,
-    run: ctx.run,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: ctx.seed,
-    studyId: ctx.studyId,
-    phase: ctx.phase,
-    conditionGroup: ctx.conditionGroup
-  });
-
-  // IMPORTANT: Start engine after DOM stable
+  // Start engine
   try{
-    engineBoot({
-      view: ctx.view,
-      run: ctx.run,
-      diff: ctx.diff,
-      time: ctx.time,
-      seed: ctx.seed,
-      hub: ctx.hub,
-      studyId: ctx.studyId,
-      phase: ctx.phase,
-      conditionGroup: ctx.conditionGroup,
-      log: ctx.log,
-      style: ctx.style,
-      ts: ctx.ts
-    });
+    engineBoot(opts);
   }catch(err){
-    console.error('[GoodJunkVR boot] engineBoot failed', err);
-    // show something minimal to user
-    try{
-      alert('เริ่มเกมไม่สำเร็จ (boot error) — เปิด console ดูรายละเอียด');
-    }catch(_){}
+    console.error('[GoodJunkVR] boot failed:', err);
+    alert('GoodJunkVR boot error — ดู console ได้เลย');
   }
 }
 
-// start once
-if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', ()=>main(), { once:true });
-}else{
-  main();
-}
+onReady(()=>{
+  // If user opens with run=menu or something later, you can branch here.
+  // For now: always boot.
+  bootNow();
+});
