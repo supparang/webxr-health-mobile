@@ -1,117 +1,78 @@
 // === /herohealth/vr/ui-water.js ===
-// HHA Water Gauge — PRODUCTION (smooth + robust)
-// ✅ ensureWaterGauge(): safe init (no-op if DOM already has elements)
-// ✅ setWaterGauge(pct): sets target value (0..100), smooth animate
-// ✅ zoneFrom(pct): returns LOW / GREEN / HIGH (for hydration.safe.js)
-// ✅ Works with existing DOM:
-//    #water-bar (inner fill), #water-pct, #water-zone
+// HHA Water Gauge Helper — PRODUCTION v2
+// ✅ ensureWaterGauge(): no-op safe
+// ✅ setWaterGauge(pct, opts): updates #water-bar/#water-pct/#water-zone if present
+// ✅ zoneFrom(pct, kids?): kids => wider GREEN for P.5 comfort
 
 (function(){
   'use strict';
-
   const WIN = window;
   const DOC = document;
-  if (!DOC) return;
+  if(!DOC || WIN.__HHA_UI_WATER_V2__) return;
+  WIN.__HHA_UI_WATER_V2__ = true;
 
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
 
-  // thresholds (tuneable)
-  const CFG = Object.assign({
-    greenMin: 45,
-    greenMax: 65,
-    smooth: true,
-    smoothSpeed: 10.5, // higher = faster response
-  }, WIN.HHA_WATER_CONFIG || {});
-
-  let target = 50;
-  let shown  = 50;
-  let rafId  = 0;
-  let lastAt = 0;
-
-  function qs(sel){ return DOC.querySelector(sel); }
-
-  function zoneFrom(pct){
-    pct = clamp(pct,0,100);
-    if (pct < CFG.greenMin) return 'LOW';
-    if (pct > CFG.greenMax) return 'HIGH';
+  // wider GREEN for kids
+  function zoneFrom(pct, kids=false){
+    const p = clamp(pct, 0, 100);
+    if (kids){
+      // Kids: GREEN wider => easier to “hold GREEN”
+      if (p < 40) return 'LOW';
+      if (p > 70) return 'HIGH';
+      return 'GREEN';
+    }
+    // Default
+    if (p < 45) return 'LOW';
+    if (p > 65) return 'HIGH';
     return 'GREEN';
   }
 
-  function apply(val){
-    val = clamp(val,0,100);
-    const bar = DOC.getElementById('water-bar');
-    const pct = DOC.getElementById('water-pct');
-    const zone = DOC.getElementById('water-zone');
-
-    // IMPORTANT: update style in a way that forces refresh
-    if (bar){
-      // width + transform combo avoids some mobile repaint weirdness
-      const w = val.toFixed(0) + '%';
-      bar.style.width = w;
-      bar.style.transform = 'translateZ(0)';
-    }
-    if (pct) pct.textContent = String(val|0);
-    if (zone) zone.textContent = zoneFrom(val);
-  }
-
-  function tick(t){
-    rafId = 0;
-    const now = t || performance.now();
-    const dt = Math.min(0.05, Math.max(0.001, (now - (lastAt||now))/1000));
-    lastAt = now;
-
-    const k = clamp(CFG.smoothSpeed, 2.5, 20);
-    const a = 1 - Math.exp(-k * dt);  // exp smoothing
-    shown = shown + (target - shown) * a;
-
-    // snap if close
-    if (Math.abs(target - shown) < 0.15){
-      shown = target;
-      apply(shown);
-      return;
-    }
-
-    apply(shown);
-    rafId = requestAnimationFrame(tick);
-  }
+  // internal smoothing (optional)
+  const S = { cur: 50 };
 
   function ensureWaterGauge(){
-    // If HUD already has water panel elements, do nothing.
-    // If missing, we can silently skip (hydration.safe.js also updates its own DOM panel).
-    // This helper exists to keep API consistent across games.
+    // kept for compatibility; DOM elements are in the game HUD
     return true;
   }
 
-  function setWaterGauge(pct){
-    target = clamp(pct,0,100);
+  function setWaterGauge(pct, opts={}){
+    const fast = !!opts.fast;            // kids => fast response
+    const immediate = !!opts.immediate;  // force set
 
-    // first call: sync shown to target for stable start
-    if (!lastAt && !rafId){
-      shown = target;
-      apply(shown);
-      // still start smooth loop for later changes
-      rafId = requestAnimationFrame(tick);
-      return;
+    const target = clamp(pct, 0, 100);
+    if (immediate) S.cur = target;
+    else{
+      // smoothing factor: fast = more responsive
+      const alpha = fast ? 0.55 : 0.28; // 0..1
+      S.cur = S.cur + (target - S.cur) * alpha;
     }
 
-    // if smoothing disabled, apply immediately
-    if (!CFG.smooth){
-      shown = target;
-      apply(shown);
-      return;
-    }
+    const bar = DOC.getElementById('water-bar');
+    const pctEl = DOC.getElementById('water-pct');
+    const zoneEl = DOC.getElementById('water-zone');
 
-    // start RAF if not running
-    if (!rafId) rafId = requestAnimationFrame(tick);
+    if (bar) bar.style.width = clamp(S.cur,0,100).toFixed(0) + '%';
+    if (pctEl) pctEl.textContent = String(Math.round(S.cur));
+    if (zoneEl){
+      // try infer kids from body class or query
+      let kids = false;
+      try{
+        const q = new URL(location.href).searchParams.get('kids');
+        kids = (q==='1'||String(q).toLowerCase()==='true'||DOC.body.classList.contains('kids'));
+      }catch(_){}
+      zoneEl.textContent = zoneFrom(S.cur, kids);
+    }
   }
 
-  // expose globals for module imports
+  // expose globally AND module-style usage
   WIN.ensureWaterGauge = ensureWaterGauge;
   WIN.setWaterGauge = setWaterGauge;
   WIN.zoneFrom = zoneFrom;
 
-  // also provide GAME_MODULES hook (same style as particles.js)
-  WIN.GAME_MODULES = WIN.GAME_MODULES || {};
-  WIN.GAME_MODULES.WaterGauge = { ensureWaterGauge, setWaterGauge, zoneFrom };
-
+  // for ESM imports (your hydration.safe.js uses import {...} from '../vr/ui-water.js')
+  // We attach to window; bundlers aside, this file is also loaded as <script defer>.
 })();
+export function ensureWaterGauge(){ return window.ensureWaterGauge?.(); }
+export function setWaterGauge(pct, opts){ return window.setWaterGauge?.(pct, opts||{}); }
+export function zoneFrom(pct, kids=false){ return window.zoneFrom?.(pct, kids) || 'GREEN'; }
