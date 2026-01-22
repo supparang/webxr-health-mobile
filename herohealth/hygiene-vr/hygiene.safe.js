@@ -1,5 +1,6 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR — Handwash Story/Survival (PROD-ish v1.1 PACK 11)
+// HygieneVR — Handwash Story/Survival (PROD-ish v1.2 PACK 12)
+// ✅ PACK12: Germ Wave hazard + 5s Scrub Frenzy mini-game + Cinematic win/lose + WebAudio SFX
 // ✅ Story Mode: 3 Episodes + Cutscene + Mission banner + Boss Germ King
 // ✅ HUD Counters: miss left / need combo / no-germ status / boss clears
 // ✅ VR/cVR strict: hha:shoot crosshair -> hit nearest target
@@ -9,7 +10,7 @@
 'use strict';
 
 const GAME_ID = 'hygiene';
-const VERSION = '1.1.0-pack11';
+const VERSION = '1.2.0-pack12';
 
 const LS_LAST = 'HHA_LAST_SUMMARY';
 const LS_HIST = 'HHA_SUMMARY_HISTORY';
@@ -97,6 +98,36 @@ function toast(msg){
   }catch(_){}
 }
 
+// -------------------- PACK 12: WebAudio SFX --------------------
+let _ac = null;
+function sfx(type='tap'){
+  try{
+    if(!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+    const ac = _ac;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+
+    let f = 420, dur = 0.06, vol = 0.05;
+    if(type==='good'){ f=660; dur=0.07; vol=0.06; }
+    if(type==='bad'){ f=180; dur=0.10; vol=0.07; }
+    if(type==='power'){ f=520; dur=0.09; vol=0.06; }
+    if(type==='boss'){ f=320; dur=0.08; vol=0.07; }
+    if(type==='wave'){ f=220; dur=0.12; vol=0.08; }
+    if(type==='win'){ f=740; dur=0.18; vol=0.06; }
+    if(type==='lose'){ f=140; dur=0.18; vol=0.07; }
+
+    o.type = 'square';
+    o.frequency.value = f;
+    g.gain.value = vol;
+
+    const t = ac.currentTime;
+    o.start(t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.stop(t+dur+0.02);
+  }catch(_){}
+}
+
 // -------------------- PACK 10: Event buffer --------------------
 const EV = [];
 const EV_MAX = 900;
@@ -147,9 +178,10 @@ const STRICT_SHOOT = (VIEW === 'cvr' || VIEW === 'vr'); // vr/cvr ยิงจ�
 const rng = (RUN==='research' && SEED!=null) ? makeRng(SEED) : rand;
 
 function diffCfg(){
-  if(DIFF==='hard')   return { spawnGood: 0.76, spawnBad: 0.24, speed: 1.25, missLimit: 2, comboGoal: 14 };
-  if(DIFF==='normal') return { spawnGood: 0.82, spawnBad: 0.18, speed: 1.05, missLimit: 2, comboGoal: 12 };
-  return               { spawnGood: 0.86, spawnBad: 0.14, speed: 0.95, missLimit: 2, comboGoal: 12 };
+  // PACK12: waveHardness = โอกาสเกิด wave + ความเร็ว wave
+  if(DIFF==='hard')   return { spawnGood: 0.74, spawnBad: 0.26, speed: 1.28, missLimit: 2, comboGoal: 14, waveP:0.22, waveSpeed:1.25 };
+  if(DIFF==='normal') return { spawnGood: 0.81, spawnBad: 0.19, speed: 1.08, missLimit: 2, comboGoal: 12, waveP:0.16, waveSpeed:1.10 };
+  return               { spawnGood: 0.86, spawnBad: 0.14, speed: 0.96, missLimit: 2, comboGoal: 12, waveP:0.10, waveSpeed:0.95 };
 }
 const CFG = diffCfg();
 
@@ -171,7 +203,7 @@ let badHits = 0;
 let noGerm = true;
 
 let bossClears = 0;
-let bossActive = false; // survival boss flag (still used lightly)
+let bossActive = false;
 
 let shield = 0;
 let magnet = 0;
@@ -202,6 +234,18 @@ let epTimeLeft = 0;
 let bossHp = 0;
 let bossHpMax = 0;
 let bossAlive = false;
+
+// PACK 12: Germ Wave + Frenzy
+let waveActive = false;
+let waveCooldown = 0;
+let waveHits = 0;
+
+let frenzyUsed = false;
+let frenzyActive = false;
+let frenzyLeft = 0;
+let frenzyScrubs = 0;     // จำนวนครั้งที่ “ถู”
+let frenzyNeed = 18;      // threshold
+let cleanseToken = 1;     // ได้สิทธิ์ “ล้าง noGerm ให้กลับ OK” 1 ครั้ง/รอบ (จาก frenzy)
 
 // DOM refs
 const field = $('field');
@@ -250,7 +294,7 @@ $('btnReplay').onclick = ()=>restart();
 $('btnCopySummary').onclick = async ()=>{ const s = localStorage.getItem(LS_LAST)||''; await copyText(s); toast('คัดลอก Summary แล้ว ✅'); };
 
 // meta line
-elMeta.textContent = `run=${RUN} • view=${VIEW} • diff=${DIFF} • time=${TIME}s • seed=${SEED!=null?SEED:'—'}`;
+elMeta.textContent = `run=${RUN} • view=${VIEW} • diff=${DIFF} • time=${TIME}s • seed=${SEED!=null?SEED:'—'} • v=${VERSION}`;
 
 // apply limits
 elMissLimit.textContent = String(CFG.missLimit);
@@ -284,7 +328,6 @@ function setStoryBanner(title, hint){
 
 // -------------------- Cutscene --------------------
 function showCutscene(opts){
-  // opts: {title, sub, lines[], onDone()}
   const title = opts?.title || '📖 Story';
   const sub   = opts?.sub || '';
   const lines = Array.isArray(opts?.lines) ? opts.lines : ['...'];
@@ -324,7 +367,7 @@ function clearTargets(){
   field.querySelectorAll('.t').forEach(x=>x.remove());
 }
 
-function spawnTarget(kind, opt = {}){
+function spawnTarget(kind){
   const el = document.createElement('div');
 
   const isBoss = (kind === 'boss');
@@ -335,7 +378,6 @@ function spawnTarget(kind, opt = {}){
   let x = 0.12 + rng()*0.76;
   let y = 0.14 + rng()*0.72;
 
-  // Boss fixed center-ish
   if(isBoss){
     x = 0.5 + (rng()*0.06 - 0.03);
     y = 0.52 + (rng()*0.08 - 0.04);
@@ -347,7 +389,6 @@ function spawnTarget(kind, opt = {}){
   el.style.setProperty('--y', y.toFixed(4));
   el.style.setProperty('--s', s.toFixed(3));
 
-  // emoji
   if(kind==='good') el.textContent = '🫧';
   if(kind==='bad')  el.textContent = '🦠';
   if(kind==='power'){
@@ -358,7 +399,6 @@ function spawnTarget(kind, opt = {}){
     el.textContent = '🦠👑';
   }
 
-  // lifetime
   const baseLife = isBoss ? 999999 : (bossActive ? 760 : 980);
   const life = Math.max(420, baseLife / (CFG.speed * (slowmo?0.72:1)));
   const born = performance.now();
@@ -370,11 +410,20 @@ function spawnTarget(kind, opt = {}){
   el.dataset.kind = kind;
   el.dataset.spawnMs = String(spawnMs);
 
-  logEv('spawn', { id, kind, boss: !!bossActive, story: storyOn, ep: epIndex+1, x, y, s });
+  logEv('spawn', { id, kind, story: storyOn, ep: epIndex+1, x, y, s });
 
-  // hit handler
   el.addEventListener('click', ()=>{
     if(!started || paused) return;
+
+    // PACK12: ถ้า frenzy กำลังทำงาน -> “แตะ/ยิง” = scrub
+    if(frenzyActive){
+      frenzyScrubs++;
+      sfx('tap');
+      logEv('frenzy_scrub', { scrubs: frenzyScrubs, left: frenzyLeft, ep: epIndex+1 });
+      updateHud();
+      updateCoachByState();
+      return;
+    }
 
     const tnow = performance.now();
 
@@ -382,7 +431,6 @@ function spawnTarget(kind, opt = {}){
       source: 'click',
       id: el.dataset.id,
       kind,
-      boss: !!bossActive,
       story: storyOn,
       ep: epIndex+1,
       shieldOn: shield>0,
@@ -400,7 +448,8 @@ function spawnTarget(kind, opt = {}){
       RT_GOOD.push(rt);
       if(RT_GOOD.length > 240) RT_GOOD.splice(0, RT_GOOD.length - 240);
 
-      logEv('hit', { id: el.dataset.id, kind:'good', rtMs: rt, combo, comboMax, score, story: storyOn, ep: epIndex+1 });
+      sfx('good');
+      logEv('hit', { id: el.dataset.id, kind:'good', rtMs: rt, combo, comboMax, score, ep: epIndex+1 });
       el.remove();
 
     }else if(kind==='bad'){
@@ -411,13 +460,15 @@ function spawnTarget(kind, opt = {}){
         blocks++;
         const perfect = (rng() < 0.35);
         if(perfect) perfectBlocks++;
-        logEv('block', { id: el.dataset.id, kind:'bad', perfect, blocks, story: storyOn, ep: epIndex+1 });
+        sfx('power');
+        logEv('block', { id: el.dataset.id, kind:'bad', perfect, blocks, ep: epIndex+1 });
         coach('🛡️ บล็อกได้! ไปต่อ!', false);
         el.remove();
       }else{
         misses++;
         combo = 0;
-        logEv('bad_hit', { id: el.dataset.id, kind:'bad', misses, story: storyOn, ep: epIndex+1 });
+        sfx('bad');
+        logEv('bad_hit', { id: el.dataset.id, kind:'bad', misses, ep: epIndex+1 });
         coach('โดน 🦠! คอมโบขาดแล้ว 😵', true);
         el.remove();
       }
@@ -428,12 +479,12 @@ function spawnTarget(kind, opt = {}){
       if(el.textContent==='🧲') magnet = Math.max(magnet, 6);
       if(el.textContent==='⏳') slowmo = Math.max(slowmo, 5);
 
-      logEv('power_pick', { id: el.dataset.id, power: el.textContent, powerPicked, story: storyOn, ep: epIndex+1 });
+      sfx('power');
+      logEv('power_pick', { id: el.dataset.id, power: el.textContent, powerPicked, ep: epIndex+1 });
       coach(`ได้ Power ${el.textContent}!`, true);
       el.remove();
 
     }else if(kind==='boss'){
-      // Story Boss: ต้องยิงให้ HP หมด (ยิงโดน = สำเร็จ ไม่ถือว่าเป็น bad)
       if(!bossAlive) return;
 
       bossHp = Math.max(0, bossHp - 1);
@@ -441,16 +492,15 @@ function spawnTarget(kind, opt = {}){
       combo++;
       comboMax = Math.max(comboMax, combo);
 
-      logEv('boss_hit', { id: el.dataset.id, bossHp, bossHpMax, score, combo, story:true, ep: epIndex+1 });
+      sfx('boss');
+      logEv('boss_hit', { id: el.dataset.id, bossHp, bossHpMax, score, combo, ep: epIndex+1 });
 
-      // feedback
       if(bossHp > 0){
         coach(`โดนแล้ว! Boss เหลือ ${bossHp}/${bossHpMax} 💥`, false);
       }else{
-        // boss clear
         bossAlive = false;
         bossClears++;
-        logEv('boss_clear', { bossClears, story:true, ep: epIndex+1 });
+        logEv('boss_clear', { bossClears, ep: epIndex+1 });
         coach('🏆 ชนะแล้ว! Germ King แพ้แล้ว!', true);
         el.remove();
       }
@@ -465,7 +515,6 @@ function spawnTarget(kind, opt = {}){
 
   field.appendChild(el);
 
-  // expire loop (not for boss)
   if(!isBoss){
     const timer = setInterval(()=>{
       if(!field.contains(el)){ clearInterval(timer); return; }
@@ -475,11 +524,12 @@ function spawnTarget(kind, opt = {}){
       if(tnow - born >= life){
         clearInterval(timer);
 
-        logEv('expire', { id: el.dataset.id, kind, ageMs: Math.round(tnow - born), story: storyOn, ep: epIndex+1 });
+        logEv('expire', { id: el.dataset.id, kind, ageMs: Math.round(tnow - born), ep: epIndex+1 });
 
         if(kind==='good'){
           misses++;
           combo = 0;
+          sfx('bad');
           coach('พลาด 🫧 ไปหนึ่งอัน! ระวังนะ', false);
         }
         el.remove();
@@ -495,7 +545,240 @@ function spawnTarget(kind, opt = {}){
   return el;
 }
 
-// -------------------- PACK 9: Shoot routing --------------------
+// -------------------- PACK 12: Germ Wave hazard --------------------
+function ensureWaveLayer(){
+  let layer = field.querySelector('.hyg-wave-layer');
+  if(layer) return layer;
+  layer = document.createElement('div');
+  layer.className = 'hyg-wave-layer';
+  layer.style.cssText = `
+    position:absolute; inset:0; pointer-events:none; z-index:20;
+  `;
+  field.appendChild(layer);
+  return layer;
+}
+
+function spawnWave(){
+  if(!started || paused) return;
+  if(waveActive) return;
+
+  // in story EP1: wave น้อย, EP2/EP3 เยอะขึ้น
+  let p = CFG.waveP;
+  if(storyOn && epIndex===0) p *= 0.65;
+  if(storyOn && epIndex===2) p *= 1.20;
+
+  if(rng() > p) return;
+  if(waveCooldown > 0) return;
+
+  waveActive = true;
+  waveCooldown = 3.2; // seconds cooldown after wave ends
+  sfx('wave');
+
+  const layer = ensureWaveLayer();
+
+  // choose direction
+  const horizontal = (rng() < 0.5);
+  const el = document.createElement('div');
+
+  const thick = (horizontal ? 72 : 72);
+  const speed = CFG.waveSpeed * (slowmo ? 0.72 : 1);
+  const dur = 1.25 / Math.max(0.65, speed); // seconds
+
+  // random lane
+  const lane = 0.18 + rng()*0.64;
+
+  el.className = 'hyg-wave';
+  el.style.cssText = `
+    position:absolute;
+    ${horizontal ? `left:-30%; right:-30%; top:${(lane*100).toFixed(1)}%; height:${thick}px; transform:translateY(-50%);`
+                : `top:-30%; bottom:-30%; left:${(lane*100).toFixed(1)}%; width:${thick}px; transform:translateX(-50%);`}
+    background: linear-gradient(${horizontal ? '90deg' : '180deg'},
+      rgba(239,68,68,0),
+      rgba(239,68,68,.25),
+      rgba(239,68,68,.35),
+      rgba(239,68,68,.25),
+      rgba(239,68,68,0)
+    );
+    border:1px solid rgba(239,68,68,.25);
+    box-shadow: 0 0 28px rgba(239,68,68,.22);
+    border-radius: 999px;
+    opacity:.95;
+  `;
+
+  layer.appendChild(el);
+  logEv('wave_spawn', { horizontal, lane, durSec: Number(dur.toFixed(2)), ep: epIndex+1 });
+
+  // animate across
+  const tStart = performance.now();
+  let hitRegistered = false;
+
+  function waveLoop(){
+    if(!started){ cleanup(); return; }
+    if(paused){ requestAnimationFrame(waveLoop); return; }
+
+    const t = (performance.now() - tStart) / 1000;
+    const p = Math.min(1, t / dur);
+
+    // move
+    if(horizontal){
+      const x = (-30 + p*160); // -30% -> 130%
+      el.style.transform = `translateY(-50%) translateX(${x}%)`;
+    }else{
+      const y = (-30 + p*160);
+      el.style.transform = `translateX(-50%) translateY(${y}%)`;
+    }
+
+    // collision check once per frame (cheap)
+    if(!hitRegistered){
+      // define danger zone in screen: wave rect intersects center-ish area
+      const r = el.getBoundingClientRect();
+      const cx = window.innerWidth/2;
+      const cy = window.innerHeight/2;
+      const inDanger = (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom);
+
+      // If crosshair zone hit => register
+      if(inDanger){
+        hitRegistered = true;
+        waveHits++;
+
+        if(shield > 0){
+          blocks++;
+          sfx('power');
+          logEv('wave_block', { waveHits, blocks, ep: epIndex+1 });
+          coach('🛡️ บล็อกคลื่นเชื้อได้!', false);
+        }else{
+          misses++;
+          combo = 0;
+          noGerm = false;
+          sfx('bad');
+          logEv('wave_hit', { waveHits, misses, ep: epIndex+1 });
+          coach('🌊 โดนคลื่นเชื้อ! ระวังงง!', true);
+        }
+
+        updateHud();
+        checkMiniGoal();
+        updateCoachByState();
+        checkEnd();
+      }
+    }
+
+    if(p >= 1){
+      cleanup();
+      return;
+    }
+    requestAnimationFrame(waveLoop);
+  }
+
+  function cleanup(){
+    try{ el.remove(); }catch(_){}
+    waveActive = false;
+    logEv('wave_end', { waveHits, ep: epIndex+1 });
+  }
+
+  requestAnimationFrame(waveLoop);
+}
+
+// -------------------- PACK 12: Scrub Frenzy mini-game (5s) --------------------
+function canTriggerFrenzy(){
+  if(frenzyUsed) return false;
+  if(frenzyActive) return false;
+  // Trigger when misses close to limit or in story EP2
+  const missLeft = Math.max(0, CFG.missLimit - misses);
+  if(missLeft <= 1) return true;
+  if(storyOn && epIndex === 1 && (epTimeLeft <= 7)) return true;
+  return false;
+}
+
+function startFrenzy(){
+  if(!started || paused) return;
+  if(frenzyActive || frenzyUsed) return;
+
+  frenzyActive = true;
+  frenzyUsed = true;
+
+  frenzyLeft = 5.0;
+  frenzyScrubs = 0;
+
+  // threshold adjusts by diff
+  frenzyNeed = (DIFF==='hard') ? 22 : (DIFF==='normal' ? 18 : 16);
+
+  logEv('frenzy_start', { frenzyNeed, ep: epIndex+1 });
+  coach(`🧼 Scrub Frenzy! แตะ/ยิงให้เร็ว ${frenzyNeed} ครั้งใน 5 วิ!`, true);
+  toast('🧼 Scrub Frenzy 5s!');
+
+  // cinematic overlay via cutscene UI reuse (show as live counter)
+  try{
+    csTitle.textContent = '🧼 Scrub Frenzy (5s)';
+    csSub.textContent = 'แตะ/ยิงเร็ว ๆ เพื่อ “ล้างมือขั้นสุด”';
+    csLine.textContent = `Scrubs: 0 / ${frenzyNeed}\nTip: แตะเร็ว ๆ หรือยิง crosshair`;
+    csOv.style.display = 'grid';
+    csSkip.textContent = 'ยอมแพ้';
+    csNext.textContent = 'ถูต่อ ▶';
+  }catch(_){}
+
+  // Buttons just keep it open
+  csNext.onclick = ()=>{ /* no-op */ };
+  csSkip.onclick = ()=>{
+    frenzyLeft = 0;
+  };
+}
+
+function updateFrenzy(dt){
+  if(!frenzyActive) return;
+
+  frenzyLeft -= dt;
+  if(frenzyLeft < 0) frenzyLeft = 0;
+
+  // update overlay text
+  try{
+    csLine.textContent = `Scrubs: ${frenzyScrubs} / ${frenzyNeed}\nเหลือเวลา: ${frenzyLeft.toFixed(1)}s`;
+  }catch(_){}
+
+  if(frenzyLeft <= 0){
+    // end frenzy
+    frenzyActive = false;
+    try{
+      csOv.style.display = 'none';
+      csNext.onclick = null;
+      csSkip.onclick = null;
+    }catch(_){}
+
+    const pass = (frenzyScrubs >= frenzyNeed);
+
+    if(pass){
+      // reward: bonus score + cleanse token (restore noGerm once)
+      score += 6;
+      combo += 2;
+      comboMax = Math.max(comboMax, combo);
+      cleanseToken = Math.min(1, cleanseToken); // keep 1 token
+      // “ล้าง” สถานะ noGerm ให้กลับ OK ทันที 1 ครั้ง ถ้าเคยพัง
+      if(!noGerm){
+        noGerm = true;
+        logEv('cleanse_used_auto', { ep: epIndex+1 });
+      }
+      sfx('win');
+      logEv('frenzy_pass', { frenzyScrubs, frenzyNeed, score, ep: epIndex+1 });
+      coach('สุดยอด! ล้างมือขั้นเทพ ✅ ได้โบนัส + สถานะสะอาดกลับมา!', true);
+      toast('✅ Frenzy PASS!');
+
+    }else{
+      // small penalty: reset combo
+      combo = 0;
+      sfx('lose');
+      logEv('frenzy_fail', { frenzyScrubs, frenzyNeed, ep: epIndex+1 });
+      coach('เกือบแล้ว! รอบหน้าถูให้เร็วขึ้นนะ 😈', true);
+      toast('❌ Frenzy FAIL');
+    }
+
+    updateHud();
+    checkMiniGoal();
+    updateCoachByState();
+    checkEnd();
+    checkStoryProgress();
+  }
+}
+
+// -------------------- Shoot routing --------------------
 function nearestTargetAtScreenXY(x, y, lockPx){
   const candidates = Array.from(field.querySelectorAll('.t'));
   if(!candidates.length) return null;
@@ -525,10 +808,21 @@ function nearestTargetAtScreenXY(x, y, lockPx){
 
 function shootAt(x, y, lockPx, source='shoot'){
   if(!started || paused) return false;
+
+  // frenzy: any shoot = scrub
+  if(frenzyActive){
+    frenzyScrubs++;
+    sfx('tap');
+    logEv('frenzy_scrub', { scrubs: frenzyScrubs, left: frenzyLeft, source, ep: epIndex+1 });
+    updateHud();
+    updateCoachByState();
+    return true;
+  }
+
   const target = nearestTargetAtScreenXY(x, y, lockPx);
   if(!target) return false;
 
-  logEv('aim_lock', { id: target.dataset.id, kind: target.dataset.kind, lockPx, source, story: storyOn, ep: epIndex+1 });
+  logEv('aim_lock', { id: target.dataset.id, kind: target.dataset.kind, lockPx, source, ep: epIndex+1 });
 
   try{
     target.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, clientX:x, clientY:y }));
@@ -547,17 +841,16 @@ window.addEventListener('hha:shoot', (ev)=>{
 
     const lockPx = isFinite(Number(d.lockPx)) ? Number(d.lockPx) : 28;
 
-    logEv('shot', { source: d.source || 'hha:shoot', x, y, lockPx, story: storyOn, ep: epIndex+1 });
+    logEv('shot', { source: d.source || 'hha:shoot', x, y, lockPx, ep: epIndex+1 });
 
     const ok = shootAt(x, y, lockPx, d.source || 'hha:shoot');
 
-    if(STRICT_SHOOT && !ok){
+    if(STRICT_SHOOT && !ok && !frenzyActive){
       coach('พลาด! เล็ง crosshair ให้ใกล้ 🫧 กว่านี้นะ', false);
     }
   }catch(_){}
 }, { passive:true });
 
-// optional: space shoot
 document.addEventListener('keydown', (e)=>{
   if(e.key === ' ' && STRICT_SHOOT){
     const x = window.innerWidth/2;
@@ -570,7 +863,7 @@ document.addEventListener('keydown', (e)=>{
 const EP = [
   {
     title: 'EP1: ก่อนกินข้าว 🍱',
-    hint: 'Mission: เก็บ 🫧 ให้ได้ 10 ครั้งก่อนหมดเวลา (หลบ 🦠)',
+    hint: 'Mission: เก็บ 🫧 ให้ได้ 10 ครั้ง (หลบ 🦠) ระวังคลื่นเชื้อ 🌊',
     cut: {
       title:'EP1: ก่อนกินข้าว 🍱',
       sub:'เด็กจะกินข้าว…แต่มีเชื้อแอบอยู่!',
@@ -578,32 +871,26 @@ const EP = [
         'เพื่อน ๆ กำลังจะกินข้าว 🍱',
         'แต่มีเชื้อโรค 🦠 แอบซ่อนอยู่รอบ ๆ มือ!',
         'ภารกิจ: เก็บฟองสบู่ 🫧 ให้ได้ 10 ครั้ง\nและพยายามอย่าโดน 🦠',
+        'ระวัง: คลื่นเชื้อ 🌊 จะผ่านเป็นครั้งคราว!'
       ]
     },
     setup(){
       goalsTotal = 2; miniTotal = 2;
-      // ตั้งภารกิจย่อย
-      // goal1: goodHits >= 10
-      // goal2: comboMax >= 8
-      // mini1: ไม่โดน 🦠 ในช่วง 12s แรก
-      // mini2: เก็บ power 1 ชิ้น
       bossAlive = false;
       bossHp = 0; bossHpMax = 0;
     },
-    pass(){
-      return (goodHits >= 10);
-    }
+    pass(){ return (goodHits >= 10); }
   },
   {
     title: 'EP2: หลังเข้าห้องน้ำ 🚻',
-    hint: 'Mission: บล็อกด้วย 🛡️ อย่างน้อย 1 ครั้ง หรืออยู่รอดโดย Miss ไม่เกิน 1',
+    hint: 'Mission: บล็อกคลื่น/เชื้อด้วย 🛡️ ≥1 หรือ Miss ≤1 (มี Frenzy ช่วยได้)',
     cut: {
       title:'EP2: หลังเข้าห้องน้ำ 🚻',
       sub:'ด่านนี้เชื้อมาเป็นชุด ๆ ต้องมีสติ!',
       lines:[
         'หลังเข้าห้องน้ำ 🚻 ต้องล้างมือให้สะอาด!',
-        'เชื้อ 🦠 จะมาเร็วขึ้นนิดนึง',
-        'ภารกิจ: ถ้าได้ 🛡️ ให้ลองบล็อกอย่างน้อย 1 ครั้ง\nหรือเล่นให้เนียน Miss ไม่เกิน 1',
+        'เชื้อ 🦠 จะมาเร็วขึ้นนิดนึง + คลื่นเชื้อ 🌊 บ่อยขึ้น',
+        'ถ้าเกือบแพ้ จะมี Scrub Frenzy 5 วิช่วย!\n(แตะ/ยิงให้เร็ว)'
       ]
     },
     setup(){
@@ -611,54 +898,47 @@ const EP = [
       bossAlive = false;
       bossHp = 0; bossHpMax = 0;
     },
-    pass(){
-      return (blocks >= 1) || (misses <= 1);
-    }
+    pass(){ return (blocks >= 1) || (misses <= 1); }
   },
   {
     title: 'EP3: Germ King 🦠👑',
-    hint: 'Mission: ยิง Boss ให้ HP หมด (6 ครั้ง) ก่อนหมดเวลา!',
+    hint: 'Mission: ยิง Boss ให้ HP หมด (6) + ระวังคลื่นเชื้อ 🌊',
     cut: {
       title:'EP3: Germ King 🦠👑',
       sub:'บอสตัวจริงโผล่แล้ว!',
       lines:[
         'โอ๊ะ! Germ King 🦠👑 โผล่มาขัดขวาง!',
         'ภารกิจ: ยิง Boss ให้โดน 6 ครั้ง (HP 6)',
-        'ระวัง 🦠 รอบ ๆ ด้วยนะ…\nถ้าพลาดเยอะจะไม่ผ่าน!',
+        'ระวัง 🦠 + คลื่นเชื้อ 🌊 ด้วยนะ…',
+        'ถ้าเกือบแพ้… Scrub Frenzy จะช่วยครั้งเดียว!'
       ]
     },
     setup(){
       bossHpMax = 6;
       bossHp = bossHpMax;
       bossAlive = true;
-      // spawn boss now
       spawnTarget('boss');
-      logEv('boss_spawn', { bossHpMax, story:true, ep:3 });
+      logEv('boss_spawn', { bossHpMax, ep:3 });
     },
-    pass(){
-      return (!bossAlive && bossHp <= 0);
-    }
+    pass(){ return (!bossAlive && bossHp <= 0); }
   }
 ];
 
 function startEpisode(i){
   epIndex = clamp(i, 0, 2);
-  epTimeLeft = Math.max(12, Math.round(TIME/3)); // แบ่งเวลา 3 ตอนแบบง่าย
-  if(epIndex === 2) epTimeLeft = Math.max(18, TIME - Math.round(2*TIME/3)); // ให้บอสได้เวลามากหน่อย
-
-  // ปรับอัตราสุ่มให้ท้าทายขึ้นเล็กน้อยใน EP2/EP3
-  if(epIndex === 1){
-    coach('EP2 เริ่ม! โฟกัส 🫧 + หา 🛡️', true);
-  }
-  if(epIndex === 2){
-    coach('EP3 เริ่ม! ยิง Boss ให้ครบ!', true);
-  }
-
-  // setup episode specifics
-  EP[epIndex].setup();
+  epTimeLeft = Math.max(12, Math.round(TIME/3));
+  if(epIndex === 2) epTimeLeft = Math.max(18, TIME - Math.round(2*TIME/3));
 
   setStoryBanner(EP[epIndex].title, EP[epIndex].hint);
   updateStoryDots();
+
+  EP[epIndex].setup();
+
+  // PACK12: reset episode-specific things
+  waveCooldown = 1.2;
+  waveActive = false;
+
+  coach(`เริ่ม ${EP[epIndex].title}!`, true);
 }
 
 function completeEpisode(){
@@ -675,12 +955,9 @@ function completeEpisode(){
         `ต่อไป: ${EP[nextIdx].title}`,
         'พร้อมแล้วกด “ถัดไป”'
       ],
-      onDone(){
-        startEpisode(nextIdx);
-      }
+      onDone(){ startEpisode(nextIdx); }
     });
   }else{
-    // story finished
     endGame('story-complete');
   }
 }
@@ -692,50 +969,39 @@ function failEpisode(){
 
 function checkStoryProgress(){
   if(!storyOn || !started) return;
-
-  // episode timer
-  // ใช้ epTimeLeft ลดลงจาก loop
-  // pass condition
   if(EP[epIndex].pass()){
     completeEpisode();
   }
 }
 
 // -------------------- Spawning --------------------
-function spawnWave(){
+function spawnWaveTargets(){
   if(!started || paused) return;
 
-  // story: spawn depends on episode
   const ep = storyOn ? epIndex : -1;
 
-  // spawn count tuning
   let base = 1;
   if(ep === 1) base = 2;
   if(ep === 2) base = 2;
 
-  // boss episode spawns more germs
   const n = base + (rng() < 0.30 ? 1 : 0);
 
   for(let i=0;i<n;i++){
     const r = rng();
-    const goodRate = (ep === 1) ? 0.80 : (ep === 2 ? 0.78 : CFG.spawnGood);
-    if(r < goodRate){
-      spawnTarget('good');
-    }else{
-      spawnTarget('bad');
-    }
+    const goodRate = (ep === 1) ? 0.78 : (ep === 2 ? 0.76 : CFG.spawnGood);
+    if(r < goodRate) spawnTarget('good');
+    else spawnTarget('bad');
   }
 
-  // power chance
   const pPow = (ep === 2) ? 0.18 : 0.12;
-  if(rng() < pPow){
-    spawnTarget('power');
-  }
+  if(rng() < pPow) spawnTarget('power');
+
+  // PACK12: germ wave hazard chance
+  spawnWave();
 }
 
-// -------------------- Mini/Goal (generic) --------------------
+// -------------------- Mini/Goal --------------------
 function checkMiniGoal(){
-  // เปลี่ยนความหมายตาม story episode แบบอ่านง่าย
   const played = (TIME - timeLeft);
 
   if(storyOn){
@@ -744,85 +1010,53 @@ function checkMiniGoal(){
       const g2 = (comboMax >= 8);
       goalsTotal = 2;
       const newGoals = (g1?1:0) + (g2?1:0);
-      if(newGoals > goalsCleared){
-        goalsCleared = newGoals;
-        logEv('goal_progress', { goalsCleared, goalsTotal, ep:1, goodHits, comboMax });
-      }
+      goalsCleared = Math.max(goalsCleared, newGoals);
 
       const m1 = (played >= 12 && noGerm === true);
       const m2 = (powerPicked >= 1);
       miniTotal = 2;
       const newMinis = (m1?1:0) + (m2?1:0);
-      if(newMinis > miniCleared){
-        miniCleared = newMinis;
-        logEv('mini_pass', { miniCleared, miniTotal, ep:1, playedSec: Math.round(played), powerPicked, noGerm });
-      }
+      miniCleared = Math.max(miniCleared, newMinis);
     }
-
     if(epIndex === 1){
       const g1 = (blocks >= 1);
       const g2 = (misses <= 1);
       goalsTotal = 2;
-      const newGoals = (g1?1:0) + (g2?1:0);
-      if(newGoals > goalsCleared){
-        goalsCleared = newGoals;
-        logEv('goal_progress', { goalsCleared, goalsTotal, ep:2, blocks, misses });
-      }
+      goalsCleared = Math.max(goalsCleared, (g1?1:0) + (g2?1:0));
 
       const m1 = (powerPicked >= 2);
       const m2 = (comboMax >= 10);
       miniTotal = 2;
-      const newMinis = (m1?1:0) + (m2?1:0);
-      if(newMinis > miniCleared){
-        miniCleared = newMinis;
-        logEv('mini_pass', { miniCleared, miniTotal, ep:2, powerPicked, comboMax });
-      }
+      miniCleared = Math.max(miniCleared, (m1?1:0) + (m2?1:0));
     }
-
     if(epIndex === 2){
       const g1 = (!bossAlive && bossHp <= 0);
       const g2 = (misses <= CFG.missLimit);
       goalsTotal = 2;
-      const newGoals = (g1?1:0) + (g2?1:0);
-      if(newGoals > goalsCleared){
-        goalsCleared = newGoals;
-        logEv('goal_progress', { goalsCleared, goalsTotal, ep:3, bossHp, misses });
-      }
+      goalsCleared = Math.max(goalsCleared, (g1?1:0) + (g2?1:0));
 
       const m1 = (comboMax >= CFG.comboGoal);
       const m2 = (blocks >= 1);
       miniTotal = 2;
-      const newMinis = (m1?1:0) + (m2?1:0);
-      if(newMinis > miniCleared){
-        miniCleared = newMinis;
-        logEv('mini_pass', { miniCleared, miniTotal, ep:3, comboMax, blocks });
-      }
+      miniCleared = Math.max(miniCleared, (m1?1:0) + (m2?1:0));
     }
-
     return;
   }
 
-  // non-story baseline
+  // baseline
+  goalsTotal = 2;
   const g1 = (score >= 18);
   const g2 = (comboMax >= CFG.comboGoal);
-  const newGoals = (g1?1:0) + (g2?1:0);
-  if(newGoals > goalsCleared){
-    goalsCleared = newGoals;
-    logEv('goal_progress', { goalsCleared, goalsTotal, score, comboMax });
-  }
+  goalsCleared = Math.max(goalsCleared, (g1?1:0) + (g2?1:0));
 
+  miniTotal = 2;
   const m1 = (played >= 15 && noGerm === true);
   const m2 = (powerPicked >= 1);
-  const newMinis = (m1?1:0) + (m2?1:0);
-  if(newMinis > miniCleared){
-    miniCleared = newMinis;
-    logEv('mini_pass', { miniCleared, miniTotal, playedSec: Math.round(played), powerPicked, noGerm });
-  }
+  miniCleared = Math.max(miniCleared, (m1?1:0) + (m2?1:0));
 }
 
 // -------------------- HUD --------------------
 function updateHud(){
-  // time display: story shows episode time; otherwise global
   const showT = storyOn ? epTimeLeft : timeLeft;
   elTL.textContent = `${Math.max(0, Math.ceil(showT))}s`;
 
@@ -834,31 +1068,37 @@ function updateHud(){
   const missLeft = Math.max(0, CFG.missLimit - misses);
   elMissLeft.textContent = String(missLeft);
 
-  // no-germ
   elNoGerm.textContent = noGerm ? 'OK' : 'BROKEN';
   pillNoGerm.classList.remove('good','warn','bad');
   pillNoGerm.classList.add(noGerm ? 'good' : 'bad');
 
-  // boss clears count
   elBoss.textContent = String(bossClears);
   pillBoss.classList.remove('good','warn','bad');
-  pillBoss.classList.add(storyOn && epIndex===2 ? 'warn' : '');
+  if(storyOn && epIndex===2) pillBoss.classList.add('warn');
 
-  // need combo
   const needC = Math.max(0, CFG.comboGoal - comboMax);
   elNeedCombo.textContent = String(needC);
   pillNeedCombo.classList.remove('good','warn','bad');
   pillNeedCombo.classList.add(needC===0 ? 'good' : (needC<=3 ? 'warn' : ''));
 
-  // miss pill
   pillNeedMiss.classList.remove('good','warn','bad');
   pillNeedMiss.classList.add(missLeft<=0 ? 'bad' : (missLeft<=1 ? 'warn' : 'good'));
+
+  // PACK12: hint frenzy ready
+  if(canTriggerFrenzy() && !frenzyUsed && !frenzyActive){
+    coach('ใกล้แพ้แล้ว! จะมี Scrub Frenzy ช่วย! (แตะ/ยิงเร็ว ๆ)', false);
+  }
 }
 
 // -------------------- Coach by state --------------------
 function updateCoachByState(){
   const missLeft = Math.max(0, CFG.missLimit - misses);
   const needC = Math.max(0, CFG.comboGoal - comboMax);
+
+  if(frenzyActive){
+    coach(`ถูให้ทัน! ${frenzyScrubs}/${frenzyNeed} 🧼`, false);
+    return;
+  }
 
   if(storyOn){
     if(epIndex===2 && bossAlive){
@@ -876,13 +1116,19 @@ function updateCoachByState(){
   }
 
   if(!noGerm){
-    coach('โดน 🦠 แล้ว! รอบหน้าลองช้าลงนิดนึง เล็ง 🫧 ก่อนแตะนะ', false);
+    if(cleanseToken>0 && frenzyUsed && !frenzyActive){
+      coach('ยังพอไหว! ลองเล่นเนียน ๆ ต่อไป สถานะสะอาดกลับได้จาก Frenzy ที่ผ่านนะ', false);
+    }else{
+      coach('โดน 🦠 แล้ว! รอบหน้าลองช้าลงนิดนึง เล็ง 🫧 ก่อนแตะนะ', false);
+    }
     return;
   }
+
   if(missLeft <= 1){
     coach(`ระวัง! พลาดได้อีก ${missLeft} ครั้งเท่านั้น 🧯`, false);
     return;
   }
+
   if(needC > 0 && combo >= 6){
     coach(`ดีมาก! ถ้ารักษาคอมโบต่อ จะเหลืออีก ${needC} เพื่อได้ Badge 🔥`, false);
     return;
@@ -909,50 +1155,48 @@ function start(){
   epIndex = 0;
   epDone = [false,false,false];
 
-  // initial banner
-  if(storyOn){
-    storyBanner.style.display = 'flex';
-    setStoryBanner('Story: Handwash Adventure 🧼', 'กำลังเริ่ม…');
-  }else{
-    storyBanner.style.display = 'none';
-  }
+  // PACK12 reset hazards/frenzy
+  waveActive = false;
+  waveCooldown = 1.0;
+  waveHits = 0;
 
-  // start cutscene if story
+  frenzyUsed = false;
+  frenzyActive = false;
+  frenzyLeft = 0;
+  frenzyScrubs = 0;
+  cleanseToken = 1;
+
+  // entry
   const begin = ()=>{
-    coach(STRICT_SHOOT ? 'โหมด VR ยิงด้วย crosshair 🎯 เล็ง 🫧 แล้วหลบ 🦠' : 'เริ่มแล้ว! เล็ง 🫧 และหลบ 🦠 นะ', true);
+    coach(STRICT_SHOOT ? 'โหมด VR ยิงด้วย crosshair 🎯 เล็ง 🫧 แล้วหลบ 🦠 + ระวังคลื่นเชื้อ 🌊' : 'เริ่มแล้ว! เล็ง 🫧 หลบ 🦠 ระวังคลื่นเชื้อ 🌊', true);
     updateHud();
 
-    // main loop
     requestAnimationFrame(loop);
 
-    // spawn loop
-    spawnWave();
+    spawnWaveTargets();
     const spawnMs = DIFF==='hard' ? 520 : (DIFF==='normal' ? 620 : 720);
-    start._spawnTimer = setInterval(spawnWave, spawnMs);
+    start._spawnTimer = setInterval(spawnWaveTargets, spawnMs);
 
     logEv('start', { game:GAME_ID, version:VERSION, run:RUN, diff:DIFF, view:VIEW, seed:SEED, time:TIME, story:storyOn });
   };
 
   if(storyOn){
+    setStoryBanner('Story: Handwash Adventure 🧼', 'กำลังเริ่ม…');
     showCutscene({
       title:'🧼 Handwash Adventure',
       sub:'ล้างมือให้ถูก…เพื่อชนะเชื้อโรค!',
       lines:[
         'ยินดีต้อนรับสู่ภารกิจล้างมือ 🧼',
         'เก็บ 🫧 ให้เร็ว • หลบ 🦠 • เก็บ Power 🛡️🧲⏳',
-        'ผ่าน 3 ตอน แล้วไปสู้ Boss Germ King 🦠👑 กัน!'
+        'ระวัง: คลื่นเชื้อ 🌊 จะผ่านเป็นครั้งคราว',
+        'ถ้าใกล้แพ้… จะมี Scrub Frenzy 5 วิช่วยครั้งเดียว!'
       ],
       onDone(){
-        // EP1 cut + start EP1
-        showCutscene(Object.assign({}, EP[0].cut, {
-          onDone(){
-            startEpisode(0);
-            begin();
-          }
-        }));
+        showCutscene(Object.assign({}, EP[0].cut, { onDone(){ startEpisode(0); begin(); } }));
       }
     });
   }else{
+    storyBanner.style.display = 'none';
     begin();
   }
 }
@@ -962,30 +1206,27 @@ function togglePause(){
   paused = !paused;
   $('btnPause').textContent = paused ? '▶ Resume' : '⏸ Pause';
   coach(paused ? 'พักก่อนนะ ⏸️' : 'ไปต่อ! 🚀', true);
-  logEv('pause', { paused, story:storyOn, ep: epIndex+1 });
+  logEv('pause', { paused, ep: epIndex+1 });
 }
 
 function loop(ts){
-  if(!started){ return; }
+  if(!started) return;
   requestAnimationFrame(loop);
   if(paused) return;
 
   const dt = (ts - tickT) / 1000;
   tickT = ts;
 
-  // global time (non-story)
+  // global time
   timeLeft -= dt;
   if(timeLeft < 0) timeLeft = 0;
 
-  // episode time (story)
+  // story episode time
   if(storyOn){
     epTimeLeft -= dt;
     if(epTimeLeft < 0) epTimeLeft = 0;
 
-    // EP time out
     if(epTimeLeft <= 0){
-      // ถ้าผ่านเงื่อนไขแล้วจะ completeEpisode ใน checkStoryProgress
-      // ถ้ายังไม่ผ่าน => fail
       if(!EP[epIndex].pass()){
         failEpisode();
         return;
@@ -998,10 +1239,20 @@ function loop(ts){
   if(magnet>0) magnet = Math.max(0, magnet - dt);
   if(slowmo>0) slowmo = Math.max(0, slowmo - dt);
 
+  // wave cooldown
+  if(waveCooldown > 0) waveCooldown = Math.max(0, waveCooldown - dt);
+
+  // frenzy auto trigger
+  if(canTriggerFrenzy() && !frenzyUsed && !frenzyActive){
+    startFrenzy();
+  }
+
+  // frenzy update
+  updateFrenzy(dt);
+
   updateHud();
   checkMiniGoal();
 
-  // coach pulse occasionally
   if(Math.floor((storyOn?epTimeLeft:timeLeft)) % 7 === 0){
     updateCoachByState();
   }
@@ -1019,7 +1270,6 @@ function checkEnd(){
     return;
   }
 
-  // non-story time up -> end
   if(!storyOn && timeLeft <= 0){
     endGame('time-up');
     return;
@@ -1048,9 +1298,11 @@ function maybeBadges(sum){
   if(sum.powerPicked >= 3) awardBadge('hyg_power3','🎁','Power Collector','เก็บ Power-up ≥ 3');
   if(sum.bossClears >= 1) awardBadge('hyg_boss','🏆','Boss Cleaner','ชนะ Boss สำเร็จ');
   if(sum.storyCompleted) awardBadge('hyg_story','📖','Story Hero','ผ่าน Story ครบ 3 ตอน');
+  if(sum.waveHits <= 0) awardBadge('hyg_wave_zero','🌊','Wave Dodger','หลบคลื่นเชื้อได้หมด!');
+  if(sum.frenzyPass) awardBadge('hyg_frenzy','⚡','Scrub Speed','ผ่าน Scrub Frenzy!');
 }
 
-// -------------------- End / Summary --------------------
+// -------------------- End / Summary + Cinematic --------------------
 function endGame(reason){
   if(!started) return;
   started = false;
@@ -1104,6 +1356,11 @@ function endGame(reason){
     storyCompleted: (RUN==='story' && reason==='story-complete'),
     storyEpPassed: epDone.filter(Boolean).length,
 
+    // PACK12
+    waveHits,
+    frenzyUsed,
+    frenzyPass: (frenzyUsed && !frenzyActive && frenzyScrubs >= frenzyNeed),
+
     grade: gradeFrom(score, accuracyGoodPct, misses),
 
     studyId: qs('studyId', null),
@@ -1111,7 +1368,6 @@ function endGame(reason){
     conditionGroup: qs('conditionGroup', null)
   };
 
-  // flush events local
   flushEventsLocal({
     game: 'hygiene',
     version: VERSION,
@@ -1123,17 +1379,43 @@ function endGame(reason){
     reasonEnd: reason
   });
 
-  // store last + history
   saveJson(LS_LAST, summary);
   pushHistory(summary);
 
-  // badges
   maybeBadges(summary);
 
-  logEv('end', { reason, score, misses, comboMax, story: storyOn, epPassed: summary.storyEpPassed });
+  logEv('end', { reason, score, misses, comboMax, epPassed: summary.storyEpPassed });
 
-  // end overlay
-  showEnd(summary);
+  // PACK12: cinematic end (ใช้ cutscene overlay ก่อนโชว์ end card)
+  const win = (reason === 'story-complete' || reason === 'time-up');
+  if(win){
+    sfx('win');
+    showCutscene({
+      title:'🎉 ชนะแล้ว!',
+      sub:'มือสะอาด! เชื้อโรคแพ้!',
+      lines:[
+        'เก่งมากกก! 🧼✨',
+        'คุณล้างมือได้ถูกต้องและหลบเชื้อได้ดี',
+        `คะแนน: ${summary.scoreFinal} • เกรด: ${summary.grade}`,
+        (summary.waveHits<=0 ? 'โบนัส: หลบคลื่นเชื้อได้หมด! 🌊' : `คลื่นเชื้อโดนไป ${summary.waveHits} ครั้ง 🌊`),
+        (summary.frenzyPass ? 'Scrub Frenzy ผ่าน! ⚡' : (summary.frenzyUsed ? 'Scrub Frenzy ไม่ผ่าน (รอบหน้าเอาใหม่!)' : 'ไม่ได้ใช้ Scrub Frenzy')),
+      ],
+      onDone(){ showEnd(summary); }
+    });
+  }else{
+    sfx('lose');
+    showCutscene({
+      title:'😈 แพ้แล้ว!',
+      sub:'เชื้อโรคชนะ…รอบหน้าเอาใหม่!',
+      lines:[
+        'ยังไม่เป็นไร!',
+        'เคล็ดลับ: เล็ง 🫧 ก่อน • หลบ 🦠 • เก็บ 🛡️ ไว้บล็อกคลื่นเชื้อ 🌊',
+        'ถ้าใกล้แพ้… Scrub Frenzy จะช่วยครั้งเดียว (แตะ/ยิงให้เร็ว)',
+        `คะแนน: ${summary.scoreFinal} • Miss: ${summary.misses}/${CFG.missLimit}`
+      ],
+      onDone(){ showEnd(summary); }
+    });
+  }
 }
 
 function showEnd(sum){
@@ -1144,7 +1426,7 @@ function showEnd(sum){
     : `Mode: ${sum.runMode}`;
 
   $('endSub').textContent =
-    `${storyTxt} • Grade ${sum.grade} • Score ${sum.scoreFinal} • Miss ${sum.misses}/${CFG.missLimit} • ComboMax ${sum.comboMax} • Acc ${sum.accuracyGoodPct}%`;
+    `${storyTxt} • Grade ${sum.grade} • Score ${sum.scoreFinal} • Miss ${sum.misses}/${CFG.missLimit} • ComboMax ${sum.comboMax} • Acc ${sum.accuracyGoodPct}% • Wave ${sum.waveHits}`;
 
   const grid = $('endGrid');
   grid.innerHTML = '';
@@ -1156,12 +1438,12 @@ function showEnd(sum){
     ['❌ Miss', `${sum.misses} / ${CFG.missLimit}`],
     ['🎯 Accuracy', `${sum.accuracyGoodPct}%`],
     ['⏱️ Median RT', `${sum.medianRtGoodMs} ms`],
+    ['🌊 Wave Hits', String(sum.waveHits)],
+    ['⚡ Frenzy', sum.frenzyUsed ? (sum.frenzyPass ? 'PASS' : 'FAIL') : '—'],
     ['🎁 Power', String(sum.powerPicked)],
     ['🛡️ Blocks', `${sum.blocks} (perfect ${sum.perfectBlocks})`],
     ['🏆 Boss', String(sum.bossClears)],
-    ['🎯 Goals', `${sum.goalsCleared}/${sum.goalsTotal}`],
-    ['🧩 Minis', `${sum.miniCleared}/${sum.miniTotal}`],
-    ['🏷️ Run', `${sum.runMode} • ${sum.diff} • ${sum.view}`],
+    ['🎯 Goals/Minis', `${sum.goalsCleared}/${sum.goalsTotal} • ${sum.miniCleared}/${sum.miniTotal}`],
   ];
 
   items.forEach(([k,v])=>{
@@ -1177,7 +1459,7 @@ function showEnd(sum){
     grid.appendChild(card);
   });
 
-  coach('จบแล้ว! กลับ HUB ไปดู Rule Engine ได้เลย 😈📊', true);
+  coach('จบแล้ว! กลับ HUB ไปดู Rule Engine + Dashboard ได้เลย 😈📊', true);
 }
 
 function restart(){
@@ -1185,7 +1467,6 @@ function restart(){
 
   started = false; paused=false;
 
-  // reset state
   score=0; combo=0; comboMax=0; misses=0;
   goodHits=0; badHits=0; noGerm=true;
 
@@ -1204,10 +1485,14 @@ function restart(){
 
   bossAlive=false; bossHp=0; bossHpMax=0;
 
+  // PACK12 reset
+  waveActive=false; waveCooldown=1.0; waveHits=0;
+  frenzyUsed=false; frenzyActive=false; frenzyLeft=0; frenzyScrubs=0;
+  cleanseToken=1;
+
   $('btnPause').textContent = '⏸ Pause';
   startOv.style.display = 'grid';
 
-  // clear events buffer (new run)
   EV.length = 0;
   RT_GOOD.length = 0;
 
@@ -1220,17 +1505,14 @@ function restart(){
 
 function goHub(){
   const hub = qs('hub', null);
-  if(hub){
-    location.href = hub;
-    return;
-  }
+  if(hub){ location.href = hub; return; }
   location.href = '../hub.html';
 }
 
 // -------------------- Init message --------------------
 updateHud();
 if(STRICT_SHOOT){
-  coach('โหมด VR ยิงด้วย crosshair 🎯 แตะหน้าจอเพื่อยิง • เล็ง 🫧 แล้วหลบ 🦠', true);
+  coach('โหมด VR ยิงด้วย crosshair 🎯 ระวังคลื่นเชื้อ 🌊 + ถ้าใกล้แพ้มี Frenzy ช่วย!', true);
 }else{
-  coach('เลือก run=story เพื่อเล่นแบบมีภารกิจ 3 ตอน + Boss 🦠👑', true);
+  coach('แนะนำ run=story: มีคลื่นเชื้อ 🌊 + Scrub Frenzy 5 วิ + Boss 🦠👑', true);
 }
