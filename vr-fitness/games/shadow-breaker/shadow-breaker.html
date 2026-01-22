@@ -1,266 +1,200 @@
-<!-- === VR Fitness — Shadow Breaker (Production HTML v1.1.0) ===
-     ✅ Works with shadow-breaker.js v1.1.0-prod
-     ✅ Supports vr-ui.js (hha:shoot crosshair/tap-to-shoot)
-     ✅ HUD ids: timeVal/scoreVal/hitVal/missVal/comboVal + coachLine
-     ✅ Overlay ids: resultOverlay + rScore/rHit/... + downloadCsvBtn/playAgainBtn/backHubBtn
-     ✅ Research meta (optional): hidden automatically when not research
-     ✅ Pass-through hub/view/seed/research/studyId/log etc.
--->
+<!-- === /vr-fitness/games/shadow-breaker/shadow-breaker.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>VR Fitness — Shadow Breaker</title>
-
   <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#020617" />
 
-  <!-- CSS (ต่อ 3) -->
+  <!-- ✅ PATH FIX: css อยู่โฟลเดอร์เดียวกัน -->
   <link rel="stylesheet" href="./shadow-breaker.css" />
-
-  <!-- (Optional) Favicon -->
-  <!-- <link rel="icon" href="./icon.png" /> -->
 </head>
 <body>
+  <div class="page">
 
-  <!-- =========================
-       HUD (fixed, pointer-events none)
-       ========================= -->
-  <div class="hud sb-hud" id="hud">
-    <div class="card" style="flex:1; min-width:260px;">
-      <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
-        <div style="display:flex; gap:10px; align-items:baseline;">
-          <div style="font-weight:1000; font-size:12px; color:rgba(148,163,184,.95); letter-spacing:.14em;">TIME</div>
-          <div style="font-size:18px; font-weight:1000;">
-            <span id="timeVal">60</span><span style="opacity:.8;">s</span>
-          </div>
-        </div>
-
-        <div style="display:flex; gap:10px; align-items:baseline;">
-          <div style="font-weight:1000; font-size:12px; color:rgba(148,163,184,.95); letter-spacing:.14em;">SCORE</div>
-          <div id="scoreVal" style="font-size:18px; font-weight:1000;">0</div>
-        </div>
-
-        <div style="display:flex; gap:10px; align-items:baseline;">
-          <div style="font-weight:1000; font-size:12px; color:rgba(148,163,184,.95); letter-spacing:.14em;">HIT</div>
-          <div id="hitVal" style="font-size:18px; font-weight:1000;">0</div>
-        </div>
-
-        <div style="display:flex; gap:10px; align-items:baseline;">
-          <div style="font-weight:1000; font-size:12px; color:rgba(148,163,184,.95); letter-spacing:.14em;">MISS</div>
-          <div id="missVal" style="font-size:18px; font-weight:1000;">0</div>
-        </div>
-
-        <div style="display:flex; gap:10px; align-items:baseline;">
-          <div style="font-weight:1000; font-size:12px; color:rgba(148,163,184,.95); letter-spacing:.14em;">COMBO</div>
-          <div id="comboVal" style="font-size:18px; font-weight:1000;">x0</div>
-        </div>
-      </div>
-
-      <div id="coachLine" style="margin-top:8px; font-weight:900; color:#22d3ee;">
-        โค้ชพุ่ง: เล็งกลางจอแล้วแตะ/ยิงให้โดน! 👊
-      </div>
-    </div>
-
-    <div class="card" style="width:min(220px, 40vw); text-align:right;">
-      <div style="font-weight:1000; font-size:12px; color:rgba(148,163,184,.95); letter-spacing:.14em;">LANG</div>
-      <div class="lang-toggle" style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; pointer-events:auto;">
-        <button type="button" class="lang-btn active" data-lang="th">TH</button>
-        <button type="button" class="lang-btn" data-lang="en">EN</button>
-      </div>
-
-      <div style="margin-top:10px; font-size:12px; color:rgba(148,163,184,.92);">
-        <span id="tagGoal">เป้าหมาย: ต่อย/ยิงเป้า emoji ให้ทันเวลา รักษาคอมโบ และพิชิตบอสทั้ง 4 ตัว.</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- =========================
-       (Optional) Research meta panel
-       - Hidden automatically when not research
-       ========================= -->
-  <div class="meta-panel top-panel" style="
-      position:fixed;
-      left: calc(env(safe-area-inset-left,0px) + 10px);
-      right: calc(env(safe-area-inset-right,0px) + 10px);
-      top: calc(env(safe-area-inset-top,0px) + 132px);
-      z-index: 40;
-      display:flex;
-      justify-content:center;
-      pointer-events:none;
-    ">
-    <div style="
-      width:min(840px, calc(100vw - 20px));
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:22px;
-      box-shadow:0 18px 60px rgba(0,0,0,.35);
-      padding:12px 12px 10px;
-      backdrop-filter: blur(10px);
-      pointer-events:auto;
-    ">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
-        <div style="display:flex; gap:10px; align-items:center;">
-          <div style="
-              width:34px; height:34px; border-radius:14px;
-              display:grid; place-items:center;
-              background: radial-gradient(circle at 30% 20%, rgba(34,211,238,.35), rgba(14,165,233,.22));
-              border:1px solid rgba(34,211,238,.18);
-            ">📊</div>
+    <!-- ===== การเก็บข้อมูลวิจัย ===== -->
+    <section class="card research-card">
+      <header class="card-header">
+        <div class="title">
+          <span class="icon">📊</span>
           <div>
-            <div id="metaTitle" style="font-weight:1000;">ข้อมูลสำหรับงานวิจัย</div>
-            <div id="metaHint" style="font-size:12px; color:rgba(148,163,184,.95);">
-              กรอกครั้งเดียวก่อนเริ่ม (จะบันทึกทุกครั้งที่เล่นเป็น 1 session)
-            </div>
+            <h1 id="metaTitle">ข้อมูลสำหรับงานวิจัย</h1>
+            <p id="metaHint">
+              กรอกเพียงครั้งเดียวก่อนเริ่ม ระบบจะบันทึกทุกครั้งที่เล่นเป็น 1 รอบการทดลอง.
+            </p>
           </div>
         </div>
-
-        <div style="font-size:12px; color:rgba(148,163,184,.92);">
-          <span id="metaPDPA">* ใช้เพื่อการวิจัยและไม่เปิดเผยตัวตนรายบุคคล</span>
+        <div class="lang-toggle">
+          <button type="button" class="lang-btn active" data-lang="th">TH</button>
+          <button type="button" class="lang-btn" data-lang="en">EN</button>
         </div>
-      </div>
+      </header>
 
-      <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin-top:10px;">
-        <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(148,163,184,.95);">
-          Student ID
-          <input id="studentId" placeholder="เช่น 65001" style="padding:10px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.75); color:#e5e7eb; outline:none;" />
+      <div class="research-grid">
+        <label>
+          <span>Student ID</span>
+          <input id="studentId" type="text" placeholder="เช่น 65001" />
         </label>
-
-        <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(148,163,184,.95);">
-          Device
-          <select id="deviceType" style="padding:10px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.75); color:#e5e7eb; outline:none;">
+        <label>
+          <span>Device</span>
+          <select id="deviceType">
             <option value="auto" selected>Auto detect</option>
             <option value="pc">PC / Notebook</option>
             <option value="mobile">Mobile / Tablet</option>
             <option value="vrHeadset">VR Headset</option>
           </select>
         </label>
-
-        <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(148,163,184,.95);">
-          Group / Code
-          <input id="groupCode" placeholder="เช่น EXP / CTRL" style="padding:10px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.75); color:#e5e7eb; outline:none;" />
+        <label>
+          <span>School / Institution</span>
+          <input id="schoolName" type="text" placeholder="ชื่อโรงเรียน / สถาบัน" />
         </label>
-
-        <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(148,163,184,.95);">
-          School / Institution
-          <input id="schoolName" placeholder="ชื่อโรงเรียน / สถาบัน" style="padding:10px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.75); color:#e5e7eb; outline:none;" />
+        <label>
+          <span>Class / Room</span>
+          <input id="classRoom" type="text" placeholder="เช่น ป.5/1" />
         </label>
-
-        <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(148,163,184,.95);">
-          Class / Room
-          <input id="classRoom" placeholder="เช่น ป.5/1" style="padding:10px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.75); color:#e5e7eb; outline:none;" />
+        <label>
+          <span>Group / Code</span>
+          <input id="groupCode" type="text" placeholder="เช่น กลุ่มทดลอง / Control ฯลฯ" />
         </label>
-
-        <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(148,163,184,.95);">
-          Note
-          <input id="note" placeholder="หมายเหตุเพิ่มเติม (optional)" style="padding:10px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.75); color:#e5e7eb; outline:none;" />
+        <label>
+          <span>Note (optional)</span>
+          <input id="note" type="text" placeholder="หมายเหตุเพิ่มเติม" />
         </label>
       </div>
 
-      <div style="display:flex; gap:10px; margin-top:10px;">
-        <button id="startBtn" class="btn primary" style="flex:1;">▶ <span id="startLabel">เริ่มเล่น</span></button>
-        <button id="downloadCsvBtn" class="btn" style="flex:1;">📥 <span id="downloadCsvLabel">ดาวน์โหลด CSV</span></button>
+      <p id="metaPDPA" class="hint">
+        * ข้อมูลนี้ใช้เพื่อการวิจัยด้านการออกกำลังกายเท่านั้น และจะไม่เปิดเผยตัวตนรายบุคคล
+      </p>
+    </section>
+
+    <!-- ===== การเล่น Shadow Breaker ===== -->
+    <section class="card game-card">
+
+      <!-- HUD ด้านบน -->
+      <div class="hud">
+        <div class="hud-block">
+          <span id="lblTime" class="label">TIME</span>
+          <span class="value"><span id="timeVal">60</span> s</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblScore" class="label">SCORE</span>
+          <span class="value" id="scoreVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblHit" class="label">HIT</span>
+          <span class="value" id="hitVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblMiss" class="label">MISS</span>
+          <span class="value" id="missVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span id="lblCombo" class="label">COMBO</span>
+          <span class="value" id="comboVal">x0</span>
+        </div>
       </div>
 
-      <div style="margin-top:8px; font-size:12px; color:rgba(148,163,184,.92);">
-        PC: คลิก / Space | Mobile: แตะ | VR/cVR: เล็ง crosshair แล้ว “ยิง” (ผ่าน vr-ui.js)
+      <!-- ปุ่มเริ่ม -->
+      <div class="start-row">
+        <button id="startBtn" class="btn btn-main">
+          ▶ <span id="startLabel">เริ่มเล่น</span>
+        </button>
+      </div>
+
+      <!-- เป้าหมายเกม -->
+      <p id="tagGoal" class="hint goal-text">
+        เป้าหมาย: ต่อยเป้า emoji ให้ทันเวลา เน้นความแม่นยำและคอมโบต่อเนื่อง (มีบอส 4 ตัวโผล่มาเป็นระยะ).
+      </p>
+
+      <!-- พื้นที่เกม -->
+      <div class="game-panel">
+        <div id="gameArea"></div>
+        <div id="feedback" class="feedback"></div>
+      </div>
+
+      <!-- โค้ช -->
+      <p id="coachLine" class="coach">
+        โค้ชพุ่ง: เล็งให้ไว แล้วต่อยให้โดนเป้า! 👊
+      </p>
+
+      <!-- วิธีเล่น -->
+      <div class="controls">
+        <h2>วิธีเล่น / Controls</h2>
+        <ul>
+          <li><strong>PC / Notebook:</strong> คลิกเมาส์บนเป้าที่โผล่ขึ้นมา</li>
+          <li><strong>Mobile / Tablet:</strong> แตะนิ้วไปที่เป้าให้ทัน</li>
+          <li><strong>VR Headset:</strong> ใช้ pointer / controller เล็งแล้วกด trigger ให้โดน</li>
+        </ul>
+        <p class="hint">
+          ต่อเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ.
+        </p>
+        <p class="hint small">
+          Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== Overlay สรุปผล + ปุ่มวิจัย ===== -->
+    <div id="resultOverlay" class="overlay hidden">
+      <div class="overlay-box">
+        <h2 id="resultTitle">🏁 สรุปผล Shadow Breaker</h2>
+
+        <div class="result-grid">
+          <div>
+            <span id="rScoreLabel" class="label">คะแนนรวม</span>
+            <span id="rScore" class="value">0</span>
+          </div>
+          <div>
+            <span id="rHitLabel" class="label">โดนเป้า</span>
+            <span id="rHit" class="value">0</span>
+          </div>
+          <div>
+            <span id="rPerfectLabel" class="label">Perfect</span>
+            <span id="rPerfect" class="value">0</span>
+          </div>
+          <div>
+            <span id="rGoodLabel" class="label">Good</span>
+            <span id="rGood" class="value">0</span>
+          </div>
+          <div>
+            <span id="rMissLabel" class="label">Miss</span>
+            <span id="rMiss" class="value">0</span>
+          </div>
+          <div>
+            <span id="rAccLabel" class="label">Accuracy</span>
+            <span id="rAcc" class="value">0%</span>
+          </div>
+          <div>
+            <span id="rComboLabel" class="label">คอมโบสูงสุด</span>
+            <span id="rCombo" class="value">x0</span>
+          </div>
+          <div>
+            <span id="rTimeUsedLabel" class="label">เวลาเล่นต่อรอบ</span>
+            <span id="rTimeUsed" class="value">0s</span>
+          </div>
+        </div>
+
+        <hr />
+
+        <button id="downloadCsvBtn" class="btn btn-secondary btn-full">
+          📥 <span id="downloadCsvLabel">ดาวน์โหลด CSV ข้อมูลวิจัย (ทุก session)</span>
+        </button>
+
+        <div class="overlay-actions">
+          <button id="playAgainBtn" class="btn btn-main btn-full">
+            ▶ <span id="playAgainLabel">เล่นอีกครั้ง</span>
+          </button>
+          <button id="backHubBtn" class="btn btn-secondary btn-full">
+            🏠 <span id="backHubLabel">กลับเมนูหลัก</span>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- =========================
-       Game area (targets live here)
-       ========================= -->
-  <div id="gameArea"></div>
+  </div><!-- /.page -->
 
-  <!-- Feedback floating -->
-  <div id="feedback" class="feedback"></div>
-
-  <!-- =========================
-       Result Overlay
-       ========================= -->
-  <div id="resultOverlay" class="hidden">
-    <div>
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
-        <div style="font-weight:1000; font-size:18px;" id="resultTitle">🏁 Shadow Breaker Result</div>
-        <div style="font-size:12px; color:rgba(148,163,184,.92);">session summary</div>
-      </div>
-
-      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin-top:14px;">
-        <div class="card">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rScoreLabel">Total Score</div>
-          <div style="font-size:20px; font-weight:1000;" id="rScore">0</div>
-        </div>
-        <div class="card">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rAccLabel">Accuracy</div>
-          <div style="font-size:20px; font-weight:1000;" id="rAcc">0%</div>
-        </div>
-        <div class="card">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rHitLabel">Hits</div>
-          <div style="font-size:20px; font-weight:1000;" id="rHit">0</div>
-        </div>
-        <div class="card">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rMissLabel">Miss</div>
-          <div style="font-size:20px; font-weight:1000;" id="rMiss">0</div>
-        </div>
-        <div class="card">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rPerfectLabel">Perfect</div>
-          <div style="font-size:20px; font-weight:1000;" id="rPerfect">0</div>
-        </div>
-        <div class="card">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rGoodLabel">Good</div>
-          <div style="font-size:20px; font-weight:1000;" id="rGood">0</div>
-        </div>
-        <div class="card" style="grid-column:1 / -1;">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rComboLabel">Best Combo</div>
-          <div style="font-size:20px; font-weight:1000;" id="rCombo">x0</div>
-        </div>
-        <div class="card" style="grid-column:1 / -1;">
-          <div style="font-size:12px; color:rgba(148,163,184,.92);" id="rTimeUsedLabel">Played Time</div>
-          <div style="font-size:20px; font-weight:1000;" id="rTimeUsed">0s</div>
-        </div>
-      </div>
-
-      <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
-        <button id="playAgainBtn" class="btn primary" style="flex:1;">▶ <span id="playAgainLabel">Play again</span></button>
-        <button id="backHubBtn" class="btn" style="flex:1;">🏠 <span id="backHubLabel">Back to Hub</span></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- =========================
-       Scripts
-       ========================= -->
-
-  <!-- Universal VR UI (crosshair + tap-to-shoot => emits hha:shoot {x,y,lockPx}) -->
-  <!-- ✅ ต้องชี้ path ให้ตรงกับของคุณ /herohealth/vr/vr-ui.js หรือของ vr-fitness -->
-  <script>
-    // lockPx ควบคุม “ดูดเป้า” ของ crosshair (เด็ก ป.5 แนะนำ 30-34)
-    window.HHA_VRUI_CONFIG = { lockPx: 32, cooldownMs: 90 };
-  </script>
-  <script src="../../herohealth/vr/vr-ui.js"></script>
-
-  <!-- Shadow Breaker logic -->
+  <!-- ✅ PATH FIX: js อยู่โฟลเดอร์เดียวกัน -->
   <script src="./shadow-breaker.js"></script>
-
-  <!-- Auto-mode toggles: hide research form when not research -->
-  <script>
-    (function(){
-      function qs(k,d){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
-      const r = (qs('research','')||'').toLowerCase();
-      const isResearch = (r==='1'||r==='true'||r==='on'||!!qs('studyId','')||!!qs('log',''));
-
-      if(!isResearch){
-        document.body.classList.add('mode-play');
-        // hide csv button if exists
-        var b = document.getElementById('downloadCsvBtn');
-        if(b) b.style.display = 'none';
-        var pd = document.getElementById('metaPDPA');
-        if(pd) pd.style.display = 'none';
-      }
-    })();
-  </script>
-
 </body>
 </html>
