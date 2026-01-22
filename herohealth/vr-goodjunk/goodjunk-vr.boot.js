@@ -1,30 +1,23 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (FAIR PACK)
-// ✅ View modes: PC / Mobile / VR / cVR (via body classes)
-// ✅ Starts engine once DOM ready
-// ✅ Pass-through ctx (hub/run/diff/time/seed/studyId/phase/conditionGroup/log/style)
-// ✅ Does NOT override view if already present (handled in launcher)
-// ✅ Works with: ../vr/vr-ui.js (crosshair/tap-to-shoot emits hha:shoot)
+// ✅ Boots ./goodjunk.safe.js
+// ✅ Sets body view class from ?view= (pc/mobile/vr/cvr)
+// ✅ Emits nothing extra (safe.js emits hha:start/time/score/judge/end)
+// ✅ Minimal fullscreen helper (mobile) without forcing override
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
-function has(k){
-  try { return new URL(location.href).searchParams.has(k); }
-  catch { return false; }
-}
+const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
 function normalizeView(v){
   v = String(v||'').toLowerCase();
   if(v==='cardboard') return 'vr';
+  if(v==='view-cvr') return 'cvr';
+  if(v==='cvr') return 'cvr';
   if(v==='vr') return 'vr';
-  if(v==='cvr' || v==='view-cvr') return 'cvr';
   if(v==='pc') return 'pc';
   if(v==='mobile') return 'mobile';
   return 'mobile';
@@ -33,100 +26,61 @@ function normalizeView(v){
 function setBodyView(view){
   const b = DOC.body;
   if(!b) return;
-
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-auto');
-  b.classList.add('view-'+view);
-
-  // helpful flags (optional)
-  if(view==='cvr') b.classList.add('is-cvr');
-  else b.classList.remove('is-cvr');
-
-  if(view==='vr') b.classList.add('is-vr');
-  else b.classList.remove('is-vr');
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  b.classList.add(
+    view==='pc' ? 'view-pc' :
+    view==='vr' ? 'view-vr' :
+    view==='cvr'? 'view-cvr' :
+    'view-mobile'
+  );
 }
 
-function getCtx(){
-  const view = normalizeView(qs('view','mobile'));
-  const run  = String(qs('run','play')).toLowerCase();
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const time = Number(qs('time','80')) || 80;
-
-  // seed precedence: explicit seed param, else ts, else now
-  const seed =
-    (has('seed') ? qs('seed') : null) ??
-    (has('ts') ? qs('ts') : null) ??
-    String(Date.now());
-
-  // keep for logging
-  const ctx = {
-    view, run, diff, time,
-    seed: String(seed),
-    hub: qs('hub', null),
-    log: qs('log', null),
-    style: qs('style', null),
-    studyId: qs('studyId', qs('study', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('conditionGroup', qs('cond', null)),
-  };
-
-  return ctx;
-}
-
-function applyMetaChip(ctx){
+async function bestEffortFullscreen(){
+  // do not hard-force; only try if user taps
   try{
-    const el = DOC.getElementById('gjChipMeta');
+    const el = DOC.documentElement;
     if(!el) return;
-    el.textContent = `view=${ctx.view} · run=${ctx.run} · diff=${ctx.diff} · time=${ctx.time}`;
+    if(DOC.fullscreenElement) return;
+
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if(typeof req === 'function'){
+      await req.call(el);
+      DOC.body?.classList.add('is-fs');
+    }
   }catch(_){}
 }
 
-function bootOnce(){
-  if(WIN.__GJ_BOOTED__) return;
-  WIN.__GJ_BOOTED__ = true;
+function wireTapToStart(){
+  // In case autoplay redirect happened too fast, we keep a gentle tap to fullscreen
+  const onFirstTap = async ()=>{
+    try{ await bestEffortFullscreen(); }catch(_){}
+    WIN.removeEventListener('pointerdown', onFirstTap, true);
+    WIN.removeEventListener('touchstart', onFirstTap, true);
+  };
+  WIN.addEventListener('pointerdown', onFirstTap, true);
+  WIN.addEventListener('touchstart', onFirstTap, true);
+}
 
-  const ctx = getCtx();
-  setBodyView(ctx.view);
-  applyMetaChip(ctx);
+function boot(){
+  const view = normalizeView(qs('view','mobile'));
+  const run  = String(qs('run','play')||'play').toLowerCase();
+  const diff = String(qs('diff','normal')||'normal').toLowerCase();
+  const time = Number(qs('time','80')) || 80;
+  const seed = qs('seed', String(Date.now()));
 
-  // expose context for debugs (optional)
-  WIN.HHA_CTX = Object.assign({}, WIN.HHA_CTX||{}, {
-    game: 'GoodJunkVR',
-    view: ctx.view,
-    run: ctx.run,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: ctx.seed,
-    hub: ctx.hub,
-    studyId: ctx.studyId,
-    phase: ctx.phase,
-    conditionGroup: ctx.conditionGroup,
-    log: ctx.log,
-    style: ctx.style,
-  });
+  setBodyView(view);
+  wireTapToStart();
 
-  // IMPORTANT: engineBoot reads query params too, but we pass explicit ctx
-  try{
-    engineBoot({
-      view: ctx.view,
-      run: ctx.run,
-      diff: ctx.diff,
-      time: ctx.time,
-      seed: ctx.seed,
-    });
-  }catch(err){
-    console.error('[GoodJunkVR boot] failed:', err);
-    try{
-      alert('Boot error: ' + (err?.message || err));
-    }catch(_){}
+  // Boot engine
+  engineBoot({ view, run, diff, time, seed });
+}
+
+function domReady(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+    setTimeout(fn, 0);
+  }else{
+    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
   }
 }
 
-function onReady(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-}
-
-onReady(()=>{
-  // small delay ensures CSS vars safe-area & HUD measure script ran
-  setTimeout(bootOnce, 0);
-});
+domReady(boot);
