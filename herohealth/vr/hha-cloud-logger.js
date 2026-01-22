@@ -1,22 +1,27 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened) — UNIVERSAL
-// ✅ Listens: hha:end -> sends session summary JSON (universal across games)
+// HHA Cloud Logger — PRODUCTION v2 (flush-hardened, cross-game)
+// ✅ Listens: hha:end -> sends session summary JSON (per-game)
 // ✅ Queue persist localStorage (offline-safe)
 // ✅ keepalive + sendBeacon fallback
 // ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ FIX: gameMode NOT hardcoded; derive from event detail / URL
+// ✅ PATCH: no hardcode gameMode; uses event detail + query ctx
 
 (function(){
   'use strict';
   const WIN = window;
   const DOC = document;
-  if(!DOC || WIN.__HHA_CLOUD_LOGGER__) return;
-  WIN.__HHA_CLOUD_LOGGER__ = true;
+  if(!DOC || WIN.__HHA_CLOUD_LOGGER_V2__) return;
+  WIN.__HHA_CLOUD_LOGGER_V2__ = true;
 
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  const num = (v, def=0)=>{ v = Number(v); return Number.isFinite(v) ? v : def; };
+  const boolQ = (k, def=false)=>{
+    const v = String(qs(k, def ? '1':'0')).toLowerCase();
+    return (v==='1'||v==='true'||v==='yes'||v==='on');
+  };
 
   const ENDPOINT = (qs('log','')||'').trim(); // ?log=...
-  const LS_KEY = 'HHA_LOG_QUEUE_V1';
+  const LS_KEY = 'HHA_LOG_QUEUE_V2';
 
   function loadQ(){
     try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }catch(_){ return []; }
@@ -34,35 +39,29 @@
       href: location.href,
       ua: navigator.userAgent || '',
       projectTag: qs('projectTag','HeroHealth'),
+      kind: 'session',
     };
   }
 
-  function normStr(v){ return String(v ?? '').trim(); }
-  function normNum(v, d=0){
-    const n = Number(v);
-    return Number.isFinite(n) ? n : d;
-  }
-
-  function detectGameModeFromURL(){
-    // fallback only — prefer event detail
-    // try qs('gameMode'), qs('mode'), qs('game'), else derive from path keywords
-    const q1 = normStr(qs('gameMode','') || qs('mode','') || qs('game',''));
-    if (q1) return q1.toLowerCase();
-
-    const p = (location.pathname || '').toLowerCase();
-    if (p.includes('goodjunk')) return 'goodjunk';
-    if (p.includes('groups')) return 'groups';
-    if (p.includes('hydration')) return 'hydration';
-    if (p.includes('plate')) return 'plate';
-    return 'unknown';
-  }
-
-  function detectDevice(){
-    const v = normStr(qs('view',''));
-    if (v) return v;
-    // fallback heuristic
-    const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
-    return isTouch ? 'mobile' : 'pc';
+  function ctxFromQuery(){
+    // ctx that should exist across all games
+    const view = String(qs('view','') || qs('device','') || '').toLowerCase();
+    return {
+      runMode: String(qs('run', qs('runMode','play')) || 'play').toLowerCase(),
+      diff: String(qs('diff','normal')).toLowerCase(),
+      device: view,
+      hub: qs('hub','') || '',
+      seed: qs('seed','') || '',
+      ts: qs('ts','') || '',
+      sessionId: qs('sessionId', qs('studentKey','')) || '',
+      studentKey: qs('studentKey','') || '',
+      studyId: qs('studyId','') || '',
+      conditionGroup: qs('conditionGroup','') || qs('group','') || '',
+      phase: qs('phase','') || '',
+      kids: boolQ('kids', false),
+      practiceSec: num(qs('practice','0'), 0),
+      durationPlannedSec: num(qs('time', qs('durationPlannedSec','0')), 0),
+    };
   }
 
   function enqueue(obj){
@@ -73,13 +72,11 @@
   async function postJson(url, obj){
     try{
       const body = JSON.stringify(obj);
-
-      // best for unload
+      // try sendBeacon first for unload safety
       if(navigator.sendBeacon){
         const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if(ok) return true;
       }
-
       const res = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
@@ -95,18 +92,19 @@
 
   async function flush(){
     if(flushing) return;
-    if(!ENDPOINT) return;
+    if(!ENDPOINT) return;     // no endpoint => do nothing
     if(queue.length === 0) return;
 
     flushing = true;
 
-    const q = queue.slice(); // oldest-first
+    // send oldest-first
+    const q = queue.slice();
     let sent = 0;
 
     for(let i=0;i<q.length;i++){
       const ok = await postJson(ENDPOINT, q[i]);
       if(ok) sent++;
-      else break;
+      else break; // stop if offline
     }
 
     if(sent > 0){
@@ -117,73 +115,56 @@
     flushing = false;
   }
 
-  // Listen end summary (UNIVERSAL)
+  function normalizeGameMode(d){
+    // prioritize event detail
+    const gm =
+      d.gameMode || d.game || d.gameId ||
+      qs('gameMode','') || qs('game','') || '';
+    return String(gm || 'unknown').toLowerCase();
+  }
+
   function onEnd(ev){
     try{
       const d = ev?.detail || {};
+      const base = payloadBase();
+      const ctx = ctxFromQuery();
+      const gameMode = normalizeGameMode(d);
 
-      const gameMode =
-        normStr(d.gameMode) ||
-        normStr(d.game) ||
-        normStr(d.gameId) ||
-        normStr(qs('gameMode','')) ||
-        detectGameModeFromURL();
-
-      const runMode =
-        normStr(d.runMode) ||
-        normStr(qs('run','play')) ||
-        'play';
-
-      const diff =
-        normStr(d.diff) ||
-        normStr(qs('diff','normal')) ||
-        'normal';
-
-      const device =
-        normStr(d.device) ||
-        detectDevice();
-
-      // carry-through fields commonly used in research ctx
-      const pack = Object.assign(payloadBase(), {
-        kind: 'session',
-
-        // ✅ universal identity
+      // Merge: event detail should win over query for metrics
+      const pack = Object.assign({}, base, ctx, {
         gameMode,
-        runMode,
-        diff,
-        device,
 
-        // research ids (optional)
-        sessionId: normStr(d.sessionId || qs('sessionId','') || qs('studentKey','')),
-        studyId:   normStr(d.studyId   || qs('studyId','')),
-        phase:     normStr(d.phase     || qs('phase','')),
-        conditionGroup: normStr(d.conditionGroup || qs('conditionGroup','')),
+        // most important session metrics (try common keys)
+        durationPlannedSec: num(d.durationPlannedSec, ctx.durationPlannedSec),
+        durationPlayedSec:  num(d.durationPlayedSec, 0),
+        scoreFinal:         num(d.scoreFinal, 0),
+        misses:             num(d.misses, 0),
+        grade:              d.grade || '—',
+        reason:             d.reason || 'end',
 
-        // timing & score
-        durationPlannedSec: normNum(d.durationPlannedSec || qs('time','0'), 0),
-        durationPlayedSec:  normNum(d.durationPlayedSec  || 0, 0),
-        scoreFinal:         normNum(d.scoreFinal || 0, 0),
-        misses:             normNum(d.misses || 0, 0),
-        grade:              normStr(d.grade || '—'),
-        reason:             normStr(d.reason || 'end'),
+        // helpful extras if present
+        accuracyGoodPct:    num(d.accuracyGoodPct, null),
+        comboMax:           num(d.comboMax, null),
+        stageCleared:       num(d.stageCleared, null),
+        goalsCleared:       num(d.goalsCleared, null),
+        goalsTotal:         num(d.goalsTotal, null),
 
-        // seed
-        seed: normStr(d.seed || qs('seed','') || ''),
+        miniCleared:        num(d.miniCleared, null),
+        miniTotal:          num(d.miniTotal, null),
+        stormCycles:        num(d.stormCycles, null),
+        stormSuccess:       num(d.stormSuccess, null),
+        stormRatePct:       num(d.stormRatePct, null),
+        bossClearCount:     num(d.bossClearCount, null),
 
-        // optional telemetry passthrough (keep whatever game sends)
-        // NOTE: we *do not* override existing keys; we just keep base fields above.
+        greenHoldSec:       (d.greenHoldSec != null ? num(d.greenHoldSec, null) : null),
+        practiceSec:        (d.practiceSec != null ? num(d.practiceSec, ctx.practiceSec) : ctx.practiceSec),
+
+        // keep raw keys if you want to analyze later
+        _raw: d
       });
 
-      // If detail is an object, merge remaining keys safely (but don't override base)
-      if (d && typeof d === 'object'){
-        for (const k of Object.keys(d)){
-          if (pack[k] !== undefined) continue;
-          pack[k] = d[k];
-        }
-      }
-
       enqueue(pack);
-      flush();
+      flush(); // best-effort immediate
     }catch(_){}
   }
 
@@ -199,11 +180,14 @@
   }, { passive:true });
   WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
 
-  // periodic flush
+  // periodic flush (in case offline -> online)
   setInterval(()=>flush(), 3500);
 
-  // expose minimal status (optional)
-  WIN.HHA_LOGGER = WIN.HHA_LOGGER || {};
-  WIN.HHA_LOGGER.enabled = true;
+  // expose status (optional)
+  WIN.HHA_LOGGER = {
+    enabled: !!ENDPOINT,
+    flush: ()=>flush(),
+    getQueueSize: ()=>queue.length
+  };
 
 })();
