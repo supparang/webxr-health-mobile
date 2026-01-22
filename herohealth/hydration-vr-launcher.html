@@ -1,136 +1,87 @@
-// === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION (LATEST)
-// ✅ Sets body classes: view-pc / view-mobile / view-cvr
-// ✅ Cardboard: body.cardboard + show cbWrap + layers=[L,R]
-// ✅ Does NOT override if URL already has ?view=
-// ✅ Wires Start overlay -> dispatch hha:start
-// ✅ Back-to-hub buttons
-// ✅ Sets window.HHA_VIEW = { view, cardboard, layers }
+<!-- === /herohealth/hygiene-vr-launcher.html ===
+HygieneVR LAUNCHER — ROOT
+✅ Auto-detect view (does NOT override if ?view= exists)
+✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/style/log/coach/dd
+✅ Redirects to ./hygiene-vr/hygiene-vr.html
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — HygieneVR Launcher</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <style>
+    :root{color-scheme:dark; --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --pill:999px;}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+    .card{width:min(820px,100%);background:var(--panel);border:1px solid var(--stroke);border-radius:24px;padding:18px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn{appearance:none;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.7);color:var(--text);
+      padding:10px 12px;border-radius:14px;font-weight:900;cursor:pointer}
+    .btn.primary{background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.45)}
+    .muted{color:var(--muted);font-weight:850;font-size:13px;line-height:1.4}
+    code{color:#a7f3d0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2 style="margin:0 0 6px 0;">🧼 Handwash Survival — HygieneVR</h2>
+      <div class="muted">
+        โหมด <b>Survival</b> • ทำลำดับล้างมือ 7 ขั้นตอนให้ถูก • หลบเชื้อ 🦠 • เล่นได้ทุกอุปกรณ์<br>
+        ระบบจะ auto-detect มุมมอง (ถ้าไม่ได้ใส่ <code>view=...</code>)
+      </div>
 
+      <div class="row">
+        <button class="btn primary" id="go">เริ่ม (Auto-detect)</button>
+        <button class="btn" id="goMobile">Mobile</button>
+        <button class="btn" id="goVR">Cardboard VR</button>
+        <button class="btn" id="goCVR">cVR</button>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="muted">
+        Pass-through: <code>hub</code>, <code>run</code>, <code>diff</code>, <code>time</code>, <code>seed</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code>, <code>style</code>, <code>log</code><br>
+        Optional: <code>coach=0</code> ปิด AI Coach, <code>dd=0</code> ปิด Difficulty Director
+      </div>
+    </div>
+  </div>
+
+<script>
 (function(){
   'use strict';
-  const WIN = window;
-  const DOC = document;
-  if(!DOC || WIN.__HHA_HYDRATION_LOADER__) return;
-  WIN.__HHA_HYDRATION_LOADER__ = true;
+  const pass = ['hub','run','diff','time','seed','studyId','phase','conditionGroup','style','log','coach','dd'];
 
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 
   function detectView(){
-    const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
-    const w = Math.max(1, WIN.innerWidth||1);
-    const h = Math.max(1, WIN.innerHeight||1);
-    const landscape = w >= h;
-
-    if (isTouch){
-      // big landscape phone/tablet -> cVR (crosshair shooting)
-      if (landscape && w >= 740) return 'cvr';
-      return 'mobile';
-    }
-    return 'pc';
+    const forced = (qs('view','')||'').toLowerCase();
+    if(forced) return forced;
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    return isMobile ? 'mobile' : 'pc';
   }
 
-  function setBodyView(view){
-    const b = DOC.body;
-    b.classList.remove('view-pc','view-mobile','view-cvr');
-    if(view === 'mobile') b.classList.add('view-mobile');
-    else if(view === 'cvr') b.classList.add('view-cvr');
-    else b.classList.add('view-pc');
+  function go(viewOverride=null){
+    const u = new URL(location.href);
+    const out = new URL('./hygiene-vr/hygiene-vr.html', u);
+    pass.forEach(k=>{
+      const v = u.searchParams.get(k);
+      if(v!=null && v!=='') out.searchParams.set(k,v);
+    });
+    out.searchParams.set('view', (viewOverride || detectView()));
+    location.href = out.toString();
   }
 
-  function setCardboard(on){
-    const b = DOC.body;
-    b.classList.toggle('cardboard', !!on);
-
-    const cbWrap = DOC.getElementById('cbWrap');
-    const layerMain = DOC.getElementById('hydration-layer');
-    if(cbWrap){
-      cbWrap.hidden = !on ? true : false;
-    }
-    if(layerMain){
-      // main layer hidden via CSS when cardboard, but keep safe anyway
-      layerMain.style.display = on ? 'none' : '';
-    }
-  }
-
-  function initHHAView(view, cardboard){
-    const cfg = { view, cardboard: !!cardboard, layers: [] };
-
-    if (cardboard){
-      const L = DOC.getElementById('hydration-layerL');
-      const R = DOC.getElementById('hydration-layerR');
-      if (L && R) cfg.layers = [L.id, R.id];
-    } else {
-      const M = DOC.getElementById('hydration-layer');
-      if (M) cfg.layers = [M.id];
-    }
-
-    WIN.HHA_VIEW = cfg;
-  }
-
-  // ----------------- MAIN -----------------
-  const viewQ = String(qs('view','')||'').toLowerCase().trim();
-  const cardboardQ = String(qs('cardboard','0')||'0').toLowerCase();
-  const cardboard = (cardboardQ==='1' || cardboardQ==='true' || cardboardQ==='yes');
-
-  // ✅ do not override user-provided view; otherwise auto detect
-  const view = (viewQ==='pc' || viewQ==='mobile' || viewQ==='cvr') ? viewQ : detectView();
-
-  setBodyView(view);
-  setCardboard(cardboard);
-  initHHAView(view, cardboard);
-
-  // Overlay wiring
-  const overlay = DOC.getElementById('startOverlay');
-  const btnStart = DOC.getElementById('btnStart');
-  const ovSub = DOC.getElementById('ovSub');
-
-  const hub = String(qs('hub','../hub.html'));
-
-  // Update subtitle
-  if(ovSub){
-    const kidsQ = String(qs('kids','0')).toLowerCase();
-    const kids = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
-    const run = String(qs('run', qs('runMode','play'))).toLowerCase();
-    const extra = [
-      `VIEW: ${view.toUpperCase()}${cardboard?' + CARDBOARD':''}`,
-      kids ? 'Kids mode: ON' : '',
-      (run==='research'||run==='study') ? 'Research mode' : ''
-    ].filter(Boolean).join(' • ');
-    ovSub.textContent = extra || 'แตะเพื่อเริ่ม';
-  }
-
-  function startGame(){
-    try{
-      if(overlay) overlay.style.display = 'none';
-    }catch(_){}
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:start'));
-    }catch(_){}
-  }
-
-  // start button
-  btnStart?.addEventListener('click', startGame);
-
-  // tap anywhere on overlay
-  overlay?.addEventListener('pointerdown', (ev)=>{
-    // avoid double when pressing a button
-    const t = ev.target;
-    if(t && t.closest && t.closest('button')) return;
-    startGame();
-  }, { passive:true });
-
-  // Back-to-hub buttons
-  DOC.querySelectorAll('.btnBackHub').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ location.href = hub; });
-  });
-
-  // Safety: auto-start if overlay hidden by something else
-  setTimeout(()=>{
-    const hidden = !overlay || getComputedStyle(overlay).display === 'none';
-    if(hidden){
-      try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
-    }
-  }, 700);
-
+  document.getElementById('go').onclick = ()=>go(null);
+  document.getElementById('goMobile').onclick = ()=>go('mobile');
+  document.getElementById('goVR').onclick = ()=>go('vr');
+  document.getElementById('goCVR').onclick = ()=>go('cvr');
 })();
+</script>
+</body>
+</html>
