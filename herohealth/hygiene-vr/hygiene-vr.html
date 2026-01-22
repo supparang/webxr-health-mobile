@@ -37,7 +37,6 @@
       overflow:hidden;
     }
 
-    /* playfield (target area) */
     .field{
       position:absolute;
       left:50%; top:50%;
@@ -89,6 +88,39 @@
     .pill.bad{  border-color: rgba(239,68,68,.30);  background: rgba(239,68,68,.10); }
     .pill.cyan{ border-color: rgba(34,211,238,.30); background: rgba(34,211,238,.10); }
 
+    /* Story banner */
+    .storyBanner{
+      position:fixed; left:0; right:0;
+      top: calc(74px + var(--sat));
+      z-index:55;
+      pointer-events:none;
+      display:flex; justify-content:center;
+      padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+    }
+    .storyBanner .inner{
+      pointer-events:auto;
+      width:min(980px, 100%);
+      border:1px solid rgba(167,139,250,.18);
+      background: rgba(167,139,250,.08);
+      border-radius: 18px;
+      padding:10px 12px;
+      box-shadow: 0 16px 60px rgba(0,0,0,.35);
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+    }
+    .storyTitle{ font-weight:1100; }
+    .storyHint{ color:var(--muted); font-weight:900; font-size:12px; line-height:1.35; }
+    .prog{
+      display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+      font-weight:1000; font-size:12px;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.55);
+    }
+    .dot.on{ background: rgba(34,197,94,.35); border-color: rgba(34,197,94,.45); }
+    .dot.done{ background: rgba(34,211,238,.30); border-color: rgba(34,211,238,.40); }
+
     /* Coach tip */
     .coach{
       position:fixed; left:0; right:0; bottom:0;
@@ -131,7 +163,17 @@
     .t.bad { border-color: rgba(239,68,68,.35);  background: rgba(239,68,68,.08); }
     .t.power{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
 
-    /* center start overlay */
+    /* Boss target */
+    .t.boss{
+      border-color: rgba(167,139,250,.35);
+      background: rgba(167,139,250,.08);
+      font-size: 32px;
+      width: calc(var(--s, 1) * 96px);
+      height: calc(var(--s, 1) * 96px);
+      border-radius: 28px;
+    }
+
+    /* start overlay */
     .startOv{
       position:absolute; inset:0;
       display:grid; place-items:center;
@@ -160,6 +202,46 @@
     .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.45); }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; color:#a7f3d0; }
 
+    /* cutscene overlay (Story) */
+    .csOv{
+      position:absolute; inset:0;
+      display:none; place-items:center;
+      background: rgba(2,6,23,.68);
+      z-index:70;
+    }
+    .csCard{
+      width:min(720px, 92%);
+      background: rgba(2,6,23,.90);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+    }
+    .csLine{
+      font-weight:1050;
+      line-height:1.45;
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: 18px;
+      padding: 10px 12px;
+      margin-top:10px;
+      white-space:pre-wrap;
+    }
+    .csRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .csBtn{
+      flex:1;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.70);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 1100;
+      cursor:pointer;
+      min-width: 180px;
+    }
+    .csBtn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.45); }
+
     /* end overlay */
     .endOv{
       position:absolute; inset:0;
@@ -177,6 +259,12 @@
     }
     .grid2{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
     @media (max-width:720px){ .grid2{ grid-template-columns:1fr; } }
+
+    /* PACK 9: VR/cVR strict ยิงจาก crosshair */
+    body.view-vr .t,
+    body.view-cvr .t{
+      pointer-events:none; /* ไม่ให้แตะเป้าโดยตรง */
+    }
   </style>
 </head>
 
@@ -184,7 +272,7 @@
   <div class="stage">
     <div class="hud">
       <div class="box">
-        <div class="title">🧼 HygieneVR — Handwash Survival</div>
+        <div class="title">🧼 HygieneVR — Handwash Story/Survival</div>
         <div class="sub" id="metaLine">loading…</div>
 
         <div class="row">
@@ -207,10 +295,25 @@
 
       <div class="box" style="min-width:220px;">
         <div class="title">🎮 Controls</div>
-        <div class="sub">แตะ/คลิก “🫧” ให้เร็ว • หลีก “🦠” • เก็บ Power: 🛡️🧲⏳</div>
+        <div class="sub">PC/Mobile แตะ/คลิกได้ • VR/cVR ยิง crosshair</div>
         <div class="row">
           <button class="btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="btn" id="btnBack" type="button">↩ Back HUB</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Story banner -->
+    <div class="storyBanner" id="storyBanner" style="display:none;">
+      <div class="inner">
+        <div>
+          <div class="storyTitle" id="storyTitle">Episode</div>
+          <div class="storyHint" id="storyHint">Mission</div>
+        </div>
+        <div class="prog" id="storyProg">
+          <span class="dot" id="d1"></span>
+          <span class="dot" id="d2"></span>
+          <span class="dot" id="d3"></span>
         </div>
       </div>
     </div>
@@ -220,13 +323,26 @@
         <div class="startCard">
           <div style="font-weight:1100;font-size:18px;">เริ่มเล่น HygieneVR</div>
           <div class="sub" style="margin-top:6px;">
-            กติกา: Miss ≤ <b>2</b> • ComboMax ≥ <b>12</b> • พยายามไม่โดน 🦠 (No-Germ)<br/>
-            <span class="mono">run=story</span> = โหมดเล่นสนุกมีแรงกดดัน / <span class="mono">run=research</span> = deterministic (ถ้าใส่ seed)
+            <b>Story</b>: 3 ตอน + Boss 🦠👑 • <b>Survival</b>: อยู่รอดให้ครบเวลา<br/>
+            <span class="mono">run=story</span> แนะนำที่สุดสำหรับ ป.5 (สนุก+มีภารกิจ)
           </div>
           <div style="height:12px;"></div>
           <button class="btn primary" id="btnStart" type="button">🚀 Start</button>
           <div style="height:10px;"></div>
-          <div class="sub">Tip: ถ้าเล่นบนมือถือ ให้ถือแนวนอน • แตะเป้าให้แม่น</div>
+          <div class="sub">Tip: มือถือถือแนวนอน • VR/cVR ยิงจาก crosshair</div>
+        </div>
+      </div>
+
+      <!-- Cutscene overlay -->
+      <div class="csOv" id="csOv">
+        <div class="csCard">
+          <div style="font-weight:1100;font-size:18px;" id="csTitle">📖 Story</div>
+          <div class="sub" id="csSub" style="margin-top:6px;">—</div>
+          <div class="csLine" id="csLine">…</div>
+          <div class="csRow">
+            <button class="csBtn" id="csSkip" type="button">ข้าม</button>
+            <button class="csBtn primary" id="csNext" type="button">ถัดไป ▶</button>
+          </div>
         </div>
       </div>
 
@@ -251,6 +367,27 @@
       <div class="bubble" id="coachBubble">🤖 Coach: กด Start แล้วลุยเลย!</div>
     </div>
   </div>
+
+  <!-- PACK 9: VR UI (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot) -->
+  <script>
+    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 110 };
+
+    (function(){
+      function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
+      function detectView(){
+        const forced = (qs('view','')||'').toLowerCase();
+        if(forced) return forced;
+        const ua = navigator.userAgent || '';
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+        return isMobile ? 'mobile' : 'pc';
+      }
+      const v = detectView();
+      document.addEventListener('DOMContentLoaded', ()=>{
+        document.body.classList.add('view-' + v);
+      });
+    })();
+  </script>
+  <script src="../vr/vr-ui.js"></script>
 
   <!-- Hygiene engine -->
   <script type="module" src="./hygiene.safe.js"></script>
