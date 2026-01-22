@@ -1,3 +1,12 @@
+<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
+HygieneVR RUN — PRODUCTION (HHA Standard)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js
+✅ Optional AI: ../vr/hha-ai-coach.js, ../vr/hha-difficulty-director.js, ../vr/hha-badges.js
+✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
+✅ Back HUB: ?hub=...
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,389 +16,98 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --radius:18px;
-      --pill:999px;
+  <link rel="stylesheet" href="./hygiene-vr.css" />
 
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; width:100%; height:100%; background:var(--bg); color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; }
-    .stage{
-      position:fixed; inset:0;
-      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-      overflow:hidden;
-    }
+  <!-- Universal VR UI -->
+  <script src="../vr/vr-ui.js"></script>
 
-    .field{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:min(980px, calc(100vw - 24px));
-      height:min(640px, calc(100vh - 210px));
-      border:1px solid rgba(148,163,184,.14);
-      background:
-        radial-gradient(circle at 20% 10%, rgba(34,211,238,.10), transparent 52%),
-        radial-gradient(circle at 80% 80%, rgba(34,197,94,.09), transparent 55%),
-        rgba(2,6,23,.35);
-      border-radius: 22px;
-      overflow:hidden;
-      touch-action: manipulation;
-    }
+  <!-- Optional shared helpers (ถ้ามีอยู่แล้วในโปรเจกต์คุณ) -->
+  <script src="../vr/particles.js"></script>
 
-    /* HUD */
-    .hud{
-      position:fixed; left:0; right:0; top:0;
-      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-      display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; justify-content:space-between;
-      pointer-events:none;
-      z-index:50;
-    }
-    .hud .box{
-      pointer-events:auto;
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      border-radius: 18px;
-      padding:10px 12px;
-      min-width: 220px;
-      box-shadow: 0 16px 60px rgba(0,0,0,.35);
-    }
-    .title{ font-weight:1100; }
-    .sub{ color:var(--muted); font-weight:900; font-size:12px; margin-top:2px; line-height:1.35; }
-    .row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      border-radius: var(--pill);
-      padding:8px 10px;
-      font-weight:1050;
-      font-size:12px;
-      white-space:nowrap;
-    }
-    .pill.good{ border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.10); }
-    .pill.warn{ border-color: rgba(245,158,11,.30); background: rgba(245,158,11,.10); }
-    .pill.bad{  border-color: rgba(239,68,68,.30);  background: rgba(239,68,68,.10); }
-    .pill.cyan{ border-color: rgba(34,211,238,.30); background: rgba(34,211,238,.10); }
+  <!-- AI Packs -->
+  <script src="../vr/hha-ai-coach.js"></script>
+  <script src="../vr/hha-difficulty-director.js"></script>
+  <script src="../vr/hha-badges.js"></script>
 
-    /* Story banner */
-    .storyBanner{
-      position:fixed; left:0; right:0;
-      top: calc(74px + var(--sat));
-      z-index:55;
-      pointer-events:none;
-      display:flex; justify-content:center;
-      padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-    }
-    .storyBanner .inner{
-      pointer-events:auto;
-      width:min(980px, 100%);
-      border:1px solid rgba(167,139,250,.18);
-      background: rgba(167,139,250,.08);
-      border-radius: 18px;
-      padding:10px 12px;
-      box-shadow: 0 16px 60px rgba(0,0,0,.35);
-      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
-    }
-    .storyTitle{ font-weight:1100; }
-    .storyHint{ color:var(--muted); font-weight:900; font-size:12px; line-height:1.35; }
-    .prog{
-      display:flex; gap:6px; align-items:center; flex-wrap:wrap;
-      font-weight:1000; font-size:12px;
-    }
-    .dot{
-      width:10px; height:10px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(15,23,42,.55);
-    }
-    .dot.on{ background: rgba(34,197,94,.35); border-color: rgba(34,197,94,.45); }
-    .dot.done{ background: rgba(34,211,238,.30); border-color: rgba(34,211,238,.40); }
-
-    /* Coach tip */
-    .coach{
-      position:fixed; left:0; right:0; bottom:0;
-      padding: 0 calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-      z-index:60;
-      pointer-events:none;
-      display:flex; justify-content:center;
-    }
-    .coach .bubble{
-      pointer-events:auto;
-      width:min(980px, 100%);
-      background: rgba(34,211,238,.08);
-      border:1px solid rgba(34,211,238,.18);
-      border-radius: 18px;
-      padding:10px 12px;
-      font-weight:1050;
-      line-height:1.35;
-      box-shadow: 0 16px 60px rgba(0,0,0,.35);
-    }
-
-    /* targets */
-    .t{
-      position:absolute;
-      left: calc(var(--x, .5) * 100%);
-      top:  calc(var(--y, .5) * 100%);
-      transform: translate(-50%,-50%);
-      width: calc(var(--s, 1) * 68px);
-      height: calc(var(--s, 1) * 68px);
-      border-radius: 999px;
-      display:grid; place-items:center;
-      font-size: 34px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(15,23,42,.45);
-      user-select:none;
-      cursor:pointer;
-      transition: transform .06s ease;
-    }
-    .t:active{ transform: translate(-50%,-50%) scale(.98); }
-    .t.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
-    .t.bad { border-color: rgba(239,68,68,.35);  background: rgba(239,68,68,.08); }
-    .t.power{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
-
-    /* Boss target */
-    .t.boss{
-      border-color: rgba(167,139,250,.35);
-      background: rgba(167,139,250,.08);
-      font-size: 32px;
-      width: calc(var(--s, 1) * 96px);
-      height: calc(var(--s, 1) * 96px);
-      border-radius: 28px;
-    }
-
-    /* start overlay */
-    .startOv{
-      position:absolute; inset:0;
-      display:grid; place-items:center;
-      background: rgba(2,6,23,.35);
-      z-index:40;
-    }
-    .startCard{
-      width:min(640px, 92%);
-      background: rgba(2,6,23,.82);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 22px;
-      padding: 14px;
-      box-shadow: 0 22px 80px rgba(0,0,0,.45);
-    }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.70);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 12px 14px;
-      font-weight: 1100;
-      cursor:pointer;
-      width:100%;
-    }
-    .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.45); }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; color:#a7f3d0; }
-
-    /* cutscene overlay (Story) */
-    .csOv{
-      position:absolute; inset:0;
-      display:none; place-items:center;
-      background: rgba(2,6,23,.68);
-      z-index:70;
-    }
-    .csCard{
-      width:min(720px, 92%);
-      background: rgba(2,6,23,.90);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 22px;
-      padding: 14px;
-      box-shadow: 0 22px 80px rgba(0,0,0,.55);
-    }
-    .csLine{
-      font-weight:1050;
-      line-height:1.45;
-      background: rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 18px;
-      padding: 10px 12px;
-      margin-top:10px;
-      white-space:pre-wrap;
-    }
-    .csRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-    .csBtn{
-      flex:1;
-      appearance:none;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.70);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 12px 14px;
-      font-weight: 1100;
-      cursor:pointer;
-      min-width: 180px;
-    }
-    .csBtn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.45); }
-
-    /* end overlay */
-    .endOv{
-      position:absolute; inset:0;
-      display:none; place-items:center;
-      background: rgba(2,6,23,.62);
-      z-index:80;
-    }
-    .endCard{
-      width:min(720px, 92%);
-      background: rgba(2,6,23,.88);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 22px;
-      padding: 14px;
-      box-shadow: 0 22px 80px rgba(0,0,0,.55);
-    }
-    .grid2{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
-    @media (max-width:720px){ .grid2{ grid-template-columns:1fr; } }
-
-    /* PACK 9: VR/cVR strict ยิงจาก crosshair */
-    body.view-vr .t,
-    body.view-cvr .t{
-      pointer-events:none; /* ไม่ให้แตะเป้าโดยตรง */
-    }
-  </style>
+  <!-- Engine -->
+  <script type="module" src="./hygiene-vr.boot.js"></script>
 </head>
 
-<body>
-  <div class="stage">
-    <div class="hud">
-      <div class="box">
-        <div class="title">🧼 HygieneVR — Handwash Story/Survival</div>
-        <div class="sub" id="metaLine">loading…</div>
+<body class="view-pc">
+  <div id="gameRoot" class="hw-root">
+    <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
 
-        <div class="row">
-          <span class="pill cyan">⏱️ <span id="tLeft">--</span></span>
-          <span class="pill good">✅ Score <span id="score">0</span></span>
-          <span class="pill warn">🔥 Combo <span id="combo">0</span> / <span id="comboMax">0</span></span>
+    <!-- HUD -->
+    <div class="hw-hud">
+      <div class="hw-top">
+        <div class="hw-title">🧼 Handwash Survival</div>
+        <div class="hw-sub" id="hudSub">ready…</div>
+
+        <div class="hw-row">
+          <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
+          <div class="hw-pill" id="pillHits">HITS 0/6</div>
+          <div class="hw-pill" id="pillCombo">COMBO 0</div>
+          <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <div class="row">
-          <span class="pill bad">❌ Miss <span id="miss">0</span> / <span id="missLimit">2</span></span>
-          <span class="pill" id="noGermPill">🦠 No-Germ: <span id="noGerm">OK</span></span>
-          <span class="pill" id="bossPill">🏆 Boss: <span id="boss">0</span></span>
-        </div>
-
-        <div class="row">
-          <span class="pill" id="needComboPill">🎯 คอมโบอีก <span id="needCombo">12</span></span>
-          <span class="pill" id="needMissPill">🧯 พลาดได้อีก <span id="missLeft">2</span></span>
+        <div class="hw-row">
+          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
+          <div class="hw-pill" id="pillTime">TIME 70</div>
+          <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
+          <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
       </div>
 
-      <div class="box" style="min-width:220px;">
-        <div class="title">🎮 Controls</div>
-        <div class="sub">PC/Mobile แตะ/คลิกได้ • VR/cVR ยิง crosshair</div>
-        <div class="row">
-          <button class="btn" id="btnPause" type="button">⏸ Pause</button>
-          <button class="btn" id="btnBack" type="button">↩ Back HUB</button>
+      <div class="hw-banner" id="banner" aria-live="polite"></div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div class="hw-overlay" id="startOverlay">
+      <div class="hw-card">
+        <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
+        <div class="hw-card-sub">
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
+          ยิง/แตะเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
+        </div>
+        <div class="hw-card-row">
+          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
+          <button class="hw-ghost" id="btnRestart" type="button">↻ Restart</button>
+        </div>
+        <div class="hw-card-sub" style="margin-top:10px">
+          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
         </div>
       </div>
     </div>
 
-    <!-- Story banner -->
-    <div class="storyBanner" id="storyBanner" style="display:none;">
-      <div class="inner">
-        <div>
-          <div class="storyTitle" id="storyTitle">Episode</div>
-          <div class="storyHint" id="storyHint">Mission</div>
-        </div>
-        <div class="prog" id="storyProg">
-          <span class="dot" id="d1"></span>
-          <span class="dot" id="d2"></span>
-          <span class="dot" id="d3"></span>
-        </div>
-      </div>
-    </div>
-
-    <div class="field" id="field">
-      <div class="startOv" id="startOv">
-        <div class="startCard">
-          <div style="font-weight:1100;font-size:18px;">เริ่มเล่น HygieneVR</div>
-          <div class="sub" style="margin-top:6px;">
-            <b>Story</b>: 3 ตอน + Boss 🦠👑 • <b>Survival</b>: อยู่รอดให้ครบเวลา<br/>
-            <span class="mono">run=story</span> แนะนำที่สุดสำหรับ ป.5 (สนุก+มีภารกิจ)
-          </div>
-          <div style="height:12px;"></div>
-          <button class="btn primary" id="btnStart" type="button">🚀 Start</button>
-          <div style="height:10px;"></div>
-          <div class="sub">Tip: มือถือถือแนวนอน • VR/cVR ยิงจาก crosshair</div>
+    <!-- End Overlay -->
+    <div class="hw-overlay" id="endOverlay" style="display:none">
+      <div class="hw-card">
+        <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
+        <div class="hw-card-sub" id="endSub">—</div>
+        <pre class="hw-pre" id="endJson"></pre>
+        <div class="hw-card-row">
+          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
+          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
+          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
         </div>
       </div>
-
-      <!-- Cutscene overlay -->
-      <div class="csOv" id="csOv">
-        <div class="csCard">
-          <div style="font-weight:1100;font-size:18px;" id="csTitle">📖 Story</div>
-          <div class="sub" id="csSub" style="margin-top:6px;">—</div>
-          <div class="csLine" id="csLine">…</div>
-          <div class="csRow">
-            <button class="csBtn" id="csSkip" type="button">ข้าม</button>
-            <button class="csBtn primary" id="csNext" type="button">ถัดไป ▶</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="endOv" id="endOv">
-        <div class="endCard">
-          <div style="font-weight:1100;font-size:18px;">🎉 จบเกม!</div>
-          <div class="sub" id="endSub" style="margin-top:6px;">—</div>
-
-          <div class="grid2" id="endGrid"></div>
-
-          <div style="height:12px;"></div>
-          <div class="row">
-            <button class="btn primary" id="btnReplay" type="button">▶ เล่นอีกครั้ง</button>
-            <button class="btn" id="btnCopySummary" type="button">📋 Copy Summary</button>
-            <button class="btn" id="btnToHub" type="button">🏠 กลับ HUB</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="coach">
-      <div class="bubble" id="coachBubble">🤖 Coach: กด Start แล้วลุยเลย!</div>
     </div>
   </div>
 
-  <!-- PACK 9: VR UI (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot) -->
-  <script>
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 110 };
-
-    (function(){
-      function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-      function detectView(){
-        const forced = (qs('view','')||'').toLowerCase();
-        if(forced) return forced;
-        const ua = navigator.userAgent || '';
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-        return isMobile ? 'mobile' : 'pc';
-      }
-      const v = detectView();
-      document.addEventListener('DOMContentLoaded', ()=>{
-        document.body.classList.add('view-' + v);
-      });
-    })();
-  </script>
-  <script src="../vr/vr-ui.js"></script>
-
-  <!-- Hygiene engine -->
-  <script type="module" src="./hygiene.safe.js"></script>
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
+  }
+  setViewClass();
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+})();
+</script>
 </body>
 </html>
