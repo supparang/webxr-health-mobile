@@ -2,6 +2,9 @@
    /herohealth/plate/plate-vr.css
    Balanced Plate VR — UI + FX (PRODUCTION)
    HHA Standard
+   - Targets: emoji bubble (kid-friendly)
+   - Safe spawn zone: never behind HUD
+   - PC/Mobile/VR/cVR support
 ========================================================= */
 
 :root{
@@ -28,23 +31,31 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* -------------------------------------------------------
-     Playfield safe rect (สำคัญมาก: กันเป้าโดน HUD/ขอบจอ)
-     ปรับตาม layout จริง
-  ------------------------------------------------------- */
-  --plate-safe-top: 118px;      /* กัน HUD บน */
-  --plate-safe-bottom: 150px;   /* กัน end hint/ขอบล่าง/ปุ่ม VR */
-  --plate-safe-left: 16px;
-  --plate-safe-right: 16px;
+  /* HUD footprint (used to keep spawn below HUD) */
+  --hudTop: calc(var(--sat) + 14px);
+  --hudLeft: calc(var(--sal) + 14px);
+  --hudRight: calc(var(--sar) + 14px);
+  --hudGap: 10px;
+
+  /* This is the reserved vertical space occupied by HUD (tune if you change HUD) */
+  --hudReserveY: 236px;
+
+  /* spawn padding around edges */
+  --spawnPadX: 18px;
+  --spawnPadY: 18px;
 
   /* target sizing */
-  --t-min: 46px;
-  --t-max: 68px;
+  --tMin: 54px;
+  --tMax: 82px;
+
+  /* target style */
+  --tBg: rgba(2,6,23,.58);
+  --tStroke: rgba(148,163,184,.20);
+
+  /* performance */
+  --blur: blur(10px);
 }
 
-/* ---------------------------------------------------------
-   Global
---------------------------------------------------------- */
 *{ box-sizing:border-box; }
 
 html,body{
@@ -57,107 +68,149 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
+/* ---------------------------------------------
+   App container
+--------------------------------------------- */
 #app{
   position:fixed;
   inset:0;
+  width:100%;
+  height:100%;
 }
 
-/* ---------------------------------------------------------
+/* ---------------------------------------------
    Spawn Layer (Targets)
-   - อย่าให้ z-index ต่ำกว่า HUD? เราตั้ง HUD สูงกว่า แต่ spawn อยู่ระดับเล่น
-   - NOTE: pointer-events ต้องเป็น auto เพื่อกดได้
---------------------------------------------------------- */
+   IMPORTANT: padding-top reserves space for HUD
+--------------------------------------------- */
 #plate-layer{
   position:fixed;
   inset:0;
   z-index:10;
+
+  /* keep targets away from HUD and edges */
+  padding:
+    calc(var(--hudTop) + var(--hudReserveY))
+    calc(var(--hudRight) + var(--spawnPadX))
+    calc(var(--sab) + var(--spawnPadY))
+    calc(var(--hudLeft) + var(--spawnPadX));
+
   pointer-events:auto;
   touch-action:none;
-  /* กันบางเครื่องซูม/selection */
-  user-select:none;
-  -webkit-user-select:none;
 }
 
-/* ตัวช่วย: ให้ mode-factory (ถ้าอ่านค่า CSS var) ใช้ safe rect */
-#plate-layer{
-  --safe-top: calc(var(--sat) + var(--plate-safe-top));
-  --safe-bottom: calc(var(--sab) + var(--plate-safe-bottom));
-  --safe-left: calc(var(--sal) + var(--plate-safe-left));
-  --safe-right: calc(var(--sar) + var(--plate-safe-right));
+/* The actual spawnable area is the padding box */
+#plate-layer::before{
+  content:"";
+  position:absolute;
+  inset:
+    calc(var(--hudTop) + var(--hudReserveY))
+    calc(var(--hudRight) + var(--spawnPadX))
+    calc(var(--sab) + var(--spawnPadY))
+    calc(var(--hudLeft) + var(--spawnPadX));
+  border-radius:22px;
+  pointer-events:none;
+  opacity:.0;
 }
 
-/* ---------------------------------------------------------
-   Target styling
---------------------------------------------------------- */
+/* ---------------------------------------------
+   Target bubble (emoji)
+   "เหมือนรูป": กลม, เด้ง, เงา, ขอบนิ่ม
+--------------------------------------------- */
 .plateTarget{
-  width: var(--size, 56px);
-  height: var(--size, 56px);
-
+  position:absolute;
   display:grid;
   place-items:center;
+
+  /* size is usually injected by JS as style --s or w/h.
+     but we keep sane fallback */
+  width: var(--tMax);
+  height: var(--tMax);
+
   border-radius:999px;
-  font-size:28px;
-  font-weight:900;
   user-select:none;
   cursor:pointer;
 
+  font-weight:900;
+  font-size:34px;
+  line-height:1;
+
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
-    rgba(2,6,23,.60);
+    radial-gradient(circle at 32% 28%, rgba(255,255,255,.18), transparent 42%),
+    radial-gradient(circle at 60% 72%, rgba(255,255,255,.08), transparent 55%),
+    var(--tBg);
 
-  border:1px solid var(--stroke);
+  border:1px solid var(--tStroke);
   box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    inset 0 1px 0 rgba(255,255,255,.08);
+    0 20px 52px rgba(0,0,0,.34),
+    0 0 0 1px rgba(2,6,23,.20) inset,
+    inset 0 1px 0 rgba(255,255,255,.09);
 
-  transform: translate3d(0,0,0);
+  transform: translate(-50%,-50%);
   will-change: transform, opacity;
 
-  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
+  animation:
+    pop .14s ease-out,
+    wobble 1.8s ease-in-out infinite;
 }
 
-.plateTarget:active{
-  transform: scale(.98);
+/* Bigger hitbox for kids: invisible padding layer */
+.plateTarget::after{
+  content:"";
+  position:absolute;
+  inset:-14px;
+  border-radius:999px;
 }
 
+/* Good vs Junk glow */
 .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.35);
+  border-color: rgba(34,197,94,.32);
   box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(34,197,94,.18);
+    0 20px 52px rgba(0,0,0,.34),
+    0 0 26px rgba(34,197,94,.16),
+    inset 0 1px 0 rgba(255,255,255,.09);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.35);
+  border-color: rgba(239,68,68,.34);
   box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(239,68,68,.18);
-  animation-duration:1.2s;
+    0 20px 52px rgba(0,0,0,.34),
+    0 0 26px rgba(239,68,68,.16),
+    inset 0 1px 0 rgba(255,255,255,.09);
+  animation-duration:1.15s;
+}
+
+/* hit feedback (optional class from JS later) */
+.plateTarget.hit{
+  animation: hitPop .16s ease-out;
+}
+@keyframes hitPop{
+  0%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
+  100%{ transform:translate(-50%,-50%) scale(.82); opacity:0 }
 }
 
 @keyframes pop{
-  0%{ transform:scale(.85); opacity:0 }
-  100%{ transform:scale(1); opacity:1 }
+  0%{ transform:translate(-50%,-50%) scale(.84); opacity:0 }
+  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
 
 @keyframes wobble{
-  0%{ transform:rotate(0deg) }
-  25%{ transform:rotate(1.2deg) }
-  50%{ transform:rotate(-1.2deg) }
-  75%{ transform:rotate(.8deg) }
-  100%{ transform:rotate(0deg) }
+  0%{ transform:translate(-50%,-50%) rotate(0deg) }
+  25%{ transform:translate(-50%,-50%) rotate(1.0deg) }
+  50%{ transform:translate(-50%,-50%) rotate(-1.0deg) }
+  75%{ transform:translate(-50%,-50%) rotate(.7deg) }
+  100%{ transform:translate(-50%,-50%) rotate(0deg) }
 }
 
-/* ---------------------------------------------------------
-   HUD (top-left safe)
---------------------------------------------------------- */
+/* ---------------------------------------------
+   HUD
+--------------------------------------------- */
 #hud{
   position:fixed;
-  top: calc(var(--sat) + 12px);
-  left: calc(var(--sal) + 12px);
-  right: calc(var(--sar) + 12px);
-  z-index:60; /* สูงกว่าเป้า เพื่อไม่บัง VR UI ปุ่ม? vr-ui มัก z สูงกว่าอยู่แล้ว */
-  pointer-events:none; /* กัน HUD บังการกดเป้า */
+  top: var(--hudTop);
+  left: var(--hudLeft);
+  right: var(--hudRight);
+  z-index:40;
+  pointer-events:none; /* IMPORTANT: hud won't block targets */
 }
 
 .hudRow{
@@ -166,129 +219,110 @@ html,body{
   align-items:stretch;
   justify-content:flex-start;
   flex-wrap:wrap;
+  pointer-events:none;
 }
 
 .chip{
   pointer-events:none;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-
-  padding:10px 12px;
-  border-radius:999px;
-  border:1px solid var(--stroke);
   background:rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
-  box-shadow:0 18px 60px rgba(0,0,0,.22);
+  border:1px solid rgba(148,163,184,.20);
+  backdrop-filter: var(--blur);
+  border-radius:999px;
+  padding:8px 12px;
+  box-shadow:0 14px 46px rgba(0,0,0,.24);
 
-  min-width:110px;
+  display:flex;
+  gap:10px;
+  align-items:baseline;
 }
 
 .chip .lbl{
-  font-size:11px;
   font-weight:900;
-  letter-spacing:.06em;
+  font-size:11px;
   color:var(--muted);
+  letter-spacing:.08em;
 }
 .chip .val{
-  font-size:18px;
   font-weight:1000;
-  line-height:1;
+  font-size:16px;
+  color:var(--text);
 }
 
-.chip.score .val{ color: #fff; }
-.chip.time .val{ color: #fff; }
-.chip.combo .val{ color: #fff; }
+#questCard{
+  margin-top: 10px;
+  pointer-events:none;
+}
 
-/* ---------------------------------------------------------
-   Quest card
---------------------------------------------------------- */
-.card{
+/* Card base */
+.card,.questCard,.panelCard{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
-}
-
-#questCard{
-  pointer-events:none;
-  margin-top:10px;
-  padding:12px 12px 10px;
-  max-width: 520px;
+  backdrop-filter: var(--blur);
 }
 
 .cardTitle{
   display:flex;
-  align-items:flex-start;
   justify-content:space-between;
   gap:12px;
-  margin-bottom:10px;
+  align-items:flex-start;
+  padding:12px 12px 10px;
 }
 
 .cardTitle .t{
-  font-size:14px;
   font-weight:1000;
+  font-size:14px;
 }
 .cardTitle .hint{
+  font-weight:900;
   font-size:12px;
   color:var(--muted);
-  font-weight:800;
-  opacity:.95;
-  text-align:right;
 }
 
+/* Quest items */
 .qItem{
   display:flex;
   gap:12px;
   align-items:center;
-  justify-content:space-between;
-
-  padding:10px;
-  border-radius:14px;
-  background:rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.14);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  padding:10px 12px;
+  border-top:1px solid rgba(148,163,184,.14);
 }
 
-.qItem + .qItem{
-  margin-top:10px;
-}
-
+.qText{ flex:1; min-width:0; }
 .qText .name{
   font-weight:1000;
   font-size:13px;
 }
 .qText .sub{
   margin-top:2px;
+  font-weight:800;
   font-size:12px;
   color:var(--muted);
-  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .qProg{
-  min-width:160px;
-  display:flex;
-  flex-direction:column;
+  width:140px;
+  text-align:right;
+  display:grid;
   gap:6px;
-  align-items:flex-end;
 }
 
 .qNums{
   font-weight:1000;
   font-size:12px;
-  color:#fff;
-  opacity:.95;
+  color:var(--text);
 }
 
 .bar{
-  width:160px;
   height:10px;
   border-radius:999px;
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
-
 .bar>i{
   display:block;
   height:100%;
@@ -297,65 +331,87 @@ html,body{
   transition:width .25s ease;
 }
 
-/* ---------------------------------------------------------
-   Coach bubble (bottom center)
-   - pointer-events:none กันบังเป้า
---------------------------------------------------------- */
+/* ---------------------------------------------
+   Coach bubble
+--------------------------------------------- */
 #coachCard{
   position:fixed;
-  left:50%;
-  bottom: calc(var(--sab) + 18px);
-  transform:translateX(-50%) translateY(12px);
-  z-index:70;
+  left: calc(var(--sal) + 14px);
+  bottom: calc(var(--sab) + 14px);
+  z-index:60;
+  max-width: min(560px, calc(100vw - 28px));
   pointer-events:none;
-
   opacity:0;
-  transition: opacity .18s ease, transform .18s ease;
+  transform: translateY(10px);
+  transition: opacity .2s ease, transform .2s ease;
 }
-
+#coachCard.show{
+  opacity:1;
+  transform: translateY(0);
+}
 #coachCard .inner{
-  max-width: min(560px, calc(100vw - 32px));
-  padding:12px 14px;
-  border-radius:18px;
-  background:rgba(2,6,23,.78);
+  background:rgba(2,6,23,.72);
   border:1px solid rgba(148,163,184,.18);
-  backdrop-filter: blur(12px);
-  box-shadow:0 22px 70px rgba(0,0,0,.34);
+  border-radius:18px;
+  padding:12px 14px;
+  box-shadow:0 18px 60px rgba(0,0,0,.30);
+  backdrop-filter: var(--blur);
 }
-
 #coachMsg{
   font-weight:1000;
   font-size:14px;
 }
-
-#coachMeta{
+#coachCard .meta{
   margin-top:6px;
-  font-size:12px;
   font-weight:900;
+  font-size:12px;
   color:var(--muted);
 }
 
-#coachCard.show{
-  opacity:1;
-  transform:translateX(-50%) translateY(0);
+/* ---------------------------------------------
+   Boss / Storm FX (future hooks)
+--------------------------------------------- */
+#bossFx,#stormFx{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:55;
+  display:none;
+}
+#bossFx.boss-on{
+  display:block;
+  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+}
+#bossFx.boss-panic{
+  animation:pulseBad .25s infinite;
+}
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
+}
+@keyframes pulseBad{
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.25) }
+  100%{ filter:brightness(1) }
 }
 
-/* ---------------------------------------------------------
+/* ---------------------------------------------
    End Overlay
---------------------------------------------------------- */
+--------------------------------------------- */
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index:90;
+  z-index:80;
   display:grid;
   place-items:center;
-  padding:24px;
-  background: rgba(2,6,23,.72);
-  backdrop-filter: blur(12px);
-
+  padding: calc(var(--sat) + 18px) calc(var(--sar) + 18px) calc(var(--sab) + 18px) calc(var(--sal) + 18px);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
   opacity:0;
   pointer-events:none;
-  transition: opacity .18s ease;
+  transition: opacity .22s ease;
 }
 
 #endOverlay[aria-hidden="false"]{
@@ -364,63 +420,55 @@ html,body{
 }
 
 .endPanel{
-  width:min(760px, 100%);
-  border-radius:24px;
-  background:rgba(2,6,23,.86);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow:0 24px 90px rgba(0,0,0,.45);
-  padding:18px;
+  width:min(720px, 100%);
+  background:rgba(2,6,23,.78);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius:22px;
+  box-shadow:0 24px 90px rgba(0,0,0,.42);
+  padding:16px;
 }
 
 .endTitle{
   display:flex;
-  align-items:flex-start;
   justify-content:space-between;
+  align-items:center;
   gap:12px;
-  margin-bottom:14px;
+  padding:4px 6px 12px;
 }
-
 .endTitle h2{
   margin:0;
-  font-size:22px;
-  font-weight:1100;
+  font-size:18px;
+  font-weight:1000;
 }
-
-.tag{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
+.endTitle .tag{
+  font-weight:1000;
+  font-size:12px;
   padding:6px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.55);
-  font-weight:1000;
-  font-size:12px;
-  color:var(--muted);
+  background:rgba(15,23,42,.62);
 }
 
 .endGrid{
   display:grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap:10px;
-  margin-top:10px;
+  padding: 8px 6px 14px;
 }
-
 .kpi{
-  border-radius:16px;
+  background:rgba(15,23,42,.58);
   border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.55);
-  padding:12px;
+  border-radius:16px;
+  padding:10px 10px;
 }
-
 .kpi .k{
   font-size:12px;
-  color:var(--muted);
   font-weight:900;
+  color:var(--muted);
 }
 .kpi .v{
-  margin-top:4px;
-  font-size:18px;
+  margin-top:6px;
+  font-size:16px;
   font-weight:1100;
 }
 
@@ -428,7 +476,7 @@ html,body{
   display:flex;
   gap:10px;
   justify-content:flex-end;
-  margin-top:14px;
+  padding: 6px;
 }
 
 .btn{
@@ -437,113 +485,81 @@ html,body{
   border-radius:999px;
   padding:10px 14px;
   font-weight:1000;
-  font-size:13px;
+  font-size:12px;
   cursor:pointer;
   color:var(--text);
-  background:rgba(2,6,23,.70);
+  background:rgba(2,6,23,.72);
   border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
+  backdrop-filter: var(--blur);
 }
-
 .btn.primary{
   background:rgba(34,197,94,.18);
   border-color:rgba(34,197,94,.35);
 }
 
-.btn.warn{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.35);
-}
-
-/* ---------------------------------------------------------
-   Boss / Storm FX layers (optional)
---------------------------------------------------------- */
-#bossFx,#stormFx{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:55;
-  display:none;
-}
-
-#bossFx.boss-on{
-  display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
-}
-
-#bossFx.boss-panic{
-  animation:pulseBad .25s infinite;
-}
-
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
-}
-
-@keyframes pulseBad{
-  0%{ filter:brightness(1) }
-  50%{ filter:brightness(1.25) }
-  100%{ filter:brightness(1) }
-}
-
-/* ---------------------------------------------------------
+/* ---------------------------------------------
    Responsive tuning
---------------------------------------------------------- */
-@media (max-width:900px){
+--------------------------------------------- */
+@media (max-width: 900px){
   :root{
-    --plate-safe-top: 132px;
-    --plate-safe-bottom: 168px;
-    --plate-safe-left: 12px;
-    --plate-safe-right: 12px;
+    --hudReserveY: 262px; /* mobile tends to wrap chips + quest */
+    --spawnPadX: 14px;
+    --spawnPadY: 14px;
+    --tMin: 52px;
+    --tMax: 76px;
   }
 
-  .chip{ min-width:102px; }
-  .chip .val{ font-size:17px; }
-
-  #questCard{ max-width: 100%; }
-  .qProg{ min-width:140px; }
-  .bar{ width:140px; }
-
-  .plateTarget{ font-size:24px; }
-}
-
-@media (max-width:520px){
-  :root{
-    --plate-safe-top: 140px;
-    --plate-safe-bottom: 178px;
+  .plateTarget{
+    font-size:30px;
   }
-  .hudRow{ gap:8px; }
-  .chip{ min-width:98px; padding:9px 10px; }
-  .chip .lbl{ font-size:10px; }
-  .chip .val{ font-size:16px; }
-  .endGrid{ grid-template-columns: repeat(2, 1fr); }
+
+  .qProg{ width:128px; }
+  .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
-/* ---------------------------------------------------------
-   View modes (pc/mobile/vr/cvr)
-   - ให้ HUD/quest ไม่บังเป้าใน VR มากขึ้น
---------------------------------------------------------- */
+@media (max-width: 380px){
+  :root{
+    --hudReserveY: 288px;
+    --tMax: 72px;
+  }
+  .plateTarget{ font-size:28px; }
+}
+
+/* ---------------------------------------------
+   VR / cVR tuning
+   - HUD should not block view
+   - targets a bit larger for distance
+--------------------------------------------- */
 body.view-vr :root,
 body.view-cvr :root{
-  --plate-safe-top: 108px;
-  --plate-safe-bottom: 190px;
+  /* can't change :root from body reliably; use overrides below instead */
 }
 
 body.view-vr #hud,
 body.view-cvr #hud{
-  top: calc(var(--sat) + 10px);
+  opacity:.92;
 }
 
-body.view-vr #coachCard,
-body.view-cvr #coachCard{
-  bottom: calc(var(--sab) + 24px);
+body.view-vr #plate-layer,
+body.view-cvr #plate-layer{
+  padding:
+    calc(var(--hudTop) + (var(--hudReserveY) - 30px))
+    calc(var(--hudRight) + var(--spawnPadX))
+    calc(var(--sab) + var(--spawnPadY) + 6px)
+    calc(var(--hudLeft) + var(--spawnPadX));
 }
 
-/* กัน overlay ของ VR UI (ปุ่ม Enter VR/Exit/Recenter) ซ้อนทับ end panel */
-body.view-vr #endOverlay,
-body.view-cvr #endOverlay{
-  padding-bottom: calc(var(--sab) + 30px);
+/* make targets slightly bigger in VR */
+body.view-vr .plateTarget,
+body.view-cvr .plateTarget{
+  font-size:36px;
+}
+
+/* ---------------------------------------------
+   Accessibility / Reduced motion
+--------------------------------------------- */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation: pop .14s ease-out; }
+  #coachCard{ transition:none; }
+  #endOverlay{ transition:none; }
 }
