@@ -1,11 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — FAIR PACK (v2: STAR+SHIELD + SHOOT) — FIXED FULL
+// GoodJunkVR SAFE — FAIR PACK (v2: STAR+SHIELD + SHOOT)
 // ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe)
-// ✅ MISS = good expired + junk hit (shield-blocked junk is NOT miss)
-// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score + reduce fever
-// ✅ 🛡 Shield: blocks next junk hit (cap 3)
-// ✅ Supports: tap/click OR crosshair shoot via event hha:shoot {lockPx}
-// ✅ Stable TTL (no blink): good/junk 1600ms, star/shield 1700ms
+// ✅ MISS = good expired + junk hit
+// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score
+// ✅ 🛡 Shield: blocks next junk hit (blocked junk does NOT count as miss)
+// ✅ Supports: tap/click OR crosshair shoot via event hha:shoot
 // Emits: hha:start, hha:score, hha:time, hha:judge, hha:end
 
 'use strict';
@@ -56,11 +55,15 @@ function pickByShoot(lockPx=28){
     if(!inside) continue;
 
     // choose smallest distance to center
-    const ex = (b.left + b.right)/2;
-    const ey = (b.top  + b.bottom)/2;
-    const d2 = (ex - cx)*(ex - cx) + (ey - cy)*(ey - cy); // ✅ FIXED
+    const ex = (b.left + b.right) / 2;
+    const ey = (b.top  + b.bottom) / 2;
+    const dx = (ex - cx);
+    const dy = (ey - cy);
+    const d2 = dx*dx + dy*dy;
+
     if(!best || d2 < best.d2) best = { el, d2 };
   }
+
   return best ? best.el : null;
 }
 
@@ -70,7 +73,6 @@ export function boot(opts={}){
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
   const timePlan = clamp(Number(opts.time || qs('time','80'))||80, 20, 300);
   const seed = String(opts.seed || qs('seed', Date.now()));
-  const hub  = String(opts.hub  || qs('hub', '') || '');
 
   const elScore = DOC.getElementById('hud-score');
   const elTime  = DOC.getElementById('hud-time');
@@ -101,13 +103,13 @@ export function boot(opts={}){
 
   function setFever(p){
     S.fever = clamp(p,0,100);
-    if(elFeverFill) elFeverFill.style.width = `${S.fever}%`;     // ✅ FIXED template string
-    if(elFeverText) elFeverText.textContent = `${S.fever}%`;     // ✅ FIXED template string
+    if(elFeverFill) elFeverFill.style.width = `${S.fever}%`;
+    if(elFeverText) elFeverText.textContent = `${S.fever}%`;
   }
 
   function setShieldUI(){
     if(!elShield) return;
-    elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';   // ✅ FIXED template string
+    elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';
   }
 
   function setHUD(){
@@ -118,8 +120,9 @@ export function boot(opts={}){
     let g='C';
     if(S.score>=170 && S.miss<=3) g='A';
     else if(S.score>=110) g='B';
-    else if(S.score>=65)  g='C';
+    else if(S.score>=65) g='C';
     else g='D';
+
     if(elGrade) elGrade.textContent = g;
 
     setShieldUI();
@@ -183,21 +186,20 @@ export function boot(opts={}){
     if(S.ended || !layer) return;
 
     const safe = getSafeRect();
-
-    // keep some margin so emoji doesn't clip edges
-    const pad = 22;
-    const x = safe.x + pad + S.rng()*(Math.max(10, safe.w - pad*2));
-    const y = safe.y + pad + S.rng()*(Math.max(10, safe.h - pad*2));
+    const x = safe.x + S.rng()*safe.w;
+    const y = safe.y + S.rng()*safe.h;
 
     const t = DOC.createElement('div');
     t.className = 'gj-target';
     t.dataset.kind = kind;
 
+    // emoji
     t.textContent =
-      (kind==='good')  ? '🥦' :
-      (kind==='junk')  ? '🍟' :
-      (kind==='star')  ? '⭐'  : '🛡️';
+      (kind==='good') ? '🥦' :
+      (kind==='junk') ? '🍟' :
+      (kind==='star') ? '⭐' : '🛡️';
 
+    // sizes: powerups slightly smaller
     const size =
       (kind==='good') ? 56 :
       (kind==='junk') ? 58 :
@@ -214,7 +216,6 @@ export function boot(opts={}){
       try{ t.remove(); }catch(_){}
     };
 
-    // click/tap
     t.addEventListener('pointerdown', ()=>{
       if(!alive || S.ended) return;
       kill();
@@ -243,8 +244,8 @@ export function boot(opts={}){
   // ✅ Crosshair shoot support
   function onShoot(ev){
     if(S.ended || !S.started) return;
-    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
 
+    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
     const picked = pickByShoot(lockPx);
     if(!picked) return;
 
@@ -265,31 +266,21 @@ export function boot(opts={}){
       runMode:S.run,
       diff:S.diff,
       seed:S.seed,
-      hub: hub || null,
-
       durationPlannedSec:S.timePlan,
       durationPlayedSec: Math.round(S.timePlan - S.timeLeft),
-
       scoreFinal:S.score,
       miss:S.miss,
       comboMax:S.comboMax,
-
       hitGood:S.hitGood,
       hitJunk:S.hitJunk,
       expireGood:S.expireGood,
-
-      shieldLeft:S.shield,
-      feverEnd:S.fever,
-
+      shieldRemaining:S.shield,
       grade,
       reason
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
-
-    // cleanup
     try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
-
     emit('hha:end', summary);
   }
 
@@ -308,7 +299,8 @@ export function boot(opts={}){
     if(ts - S.lastSpawn >= 900){
       S.lastSpawn = ts;
 
-      // fair distribution: 70% good, 26% junk, 2% star, 2% shield
+      // fair distribution:
+      // 70% good, 26% junk, 2% star, 2% shield
       const r = S.rng();
       if(r < 0.70) spawn('good');
       else if(r < 0.96) spawn('junk');
@@ -332,14 +324,6 @@ export function boot(opts={}){
   // listen shoot
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  emit('hha:start', {
-    game:'GoodJunkVR',
-    pack:'fair',
-    view, runMode:run, diff,
-    timePlanSec:timePlan,
-    seed,
-    hub: hub || null
-  });
-
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
