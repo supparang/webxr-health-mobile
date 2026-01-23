@@ -1,35 +1,33 @@
 // === /herohealth/vr/food5-th.js ===
-// Thai Food 5 Groups — shared icon set (HHA Standard)
-// mapping (fixed):
-// 1 protein (meat/milk/egg/beans), 2 carbs, 3 veg, 4 fruit, 5 fat
+// Thai Food 5 Groups mapping (fixed)
+// หมู่ 1 โปรตีน, หมู่ 2 คาร์โบไฮเดรต, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
 
 export const FOOD5 = [
-  { id: 1, key: 'protein', labelTH: 'หมู่ 1 โปรตีน', emojis: ['🥩','🍗','🐟','🥚','🥛','🫘','🧀'] },
-  { id: 2, key: 'carbs',   labelTH: 'หมู่ 2 คาร์โบไฮเดรต', emojis: ['🍚','🍞','🍜','🥔','🍠','🥖','🥨'] },
-  { id: 3, key: 'veg',     labelTH: 'หมู่ 3 ผัก', emojis: ['🥦','🥬','🥕','🥒','🌽','🍅'] },
-  { id: 4, key: 'fruit',   labelTH: 'หมู่ 4 ผลไม้', emojis: ['🍎','🍌','🍊','🍉','🍇','🍍','🥭'] },
-  { id: 5, key: 'fat',     labelTH: 'หมู่ 5 ไขมัน', emojis: ['🥑','🧈','🫒','🥥','🌰'] },
+  null,
+  { id:1, labelTH:'หมู่ 1 โปรตีน', emojis:['🍗','🥚','🥛','🫘','🐟'] },
+  { id:2, labelTH:'หมู่ 2 คาร์โบไฮเดรต', emojis:['🍚','🍞','🥔','🍠','🍜'] },
+  { id:3, labelTH:'หมู่ 3 ผัก', emojis:['🥦','🥬','🥕','🍅','🥒'] },
+  { id:4, labelTH:'หมู่ 4 ผลไม้', emojis:['🍎','🍌','🍇','🍉','🍊'] },
+  { id:5, labelTH:'หมู่ 5 ไขมัน', emojis:['🥑','🫒','🥥','🧈','🥜'] }
 ];
 
 export const JUNK = {
-  labelTH: 'ของหวาน/ทอด',
-  emojis: ['🍟','🍔','🍩','🍪','🧁','🍰','🍫','🥤','🍦']
+  labelTH:'ขยะอาหาร (หวาน/ทอด/น้ำอัดลม)',
+  emojis:['🍟','🍔','🍕','🍩','🍪','🧁','🍫','🥤']
 };
 
-export function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
 export function pickEmoji(rng, arr){
-  const a = arr && arr.length ? arr : ['❓'];
-  const i = Math.floor((rng ? rng() : Math.random()) * a.length);
-  return a[Math.max(0, Math.min(a.length-1, i))];
-}
-
-export function emojiForGroup(rng, groupId){
-  const g = FOOD5.find(x=>x.id===Number(groupId)) || FOOD5[0];
-  return pickEmoji(rng, g.emojis);
+  const r = (typeof rng === 'function') ? rng() : Math.random();
+  const i = Math.max(0, Math.min(arr.length-1, Math.floor(r * arr.length)));
+  return arr[i] || arr[0] || '❓';
 }
 
 export function labelForGroup(groupId){
-  const g = FOOD5.find(x=>x.id===Number(groupId));
-  return g ? g.labelTH : 'หมู่ ?';
+  const g = FOOD5[Number(groupId)||1];
+  return g ? g.labelTH : 'หมู่ 1 โปรตีน';
+}
+
+export function emojiForGroup(rng, groupId){
+  const g = FOOD5[Number(groupId)||1] || FOOD5[1];
+  return pickEmoji(rng, g.emojis);
 }
