@@ -1,9 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (FAIR PACK compatible)
-// ✅ Sets body view classes (pc/mobile/vr/cvr) + data-view
-// ✅ Default: no-quests (auto-hide quest row) until quest:update arrives
-// ✅ Starts engine after DOM ready (wait a beat for safe-zone measure)
-// ✅ Works with vr-ui.js (hha:shoot) -> handled in goodjunk.safe.js
+// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
+// ✅ Imports: ./goodjunk.safe.js (FAIR PACK v2: STAR+SHIELD+SHOOT)
+// ✅ View modes: pc / mobile / vr / cvr (view=cvr => view-cvr strict supported by vr-ui.js)
+// ✅ Robust DOM-ready + single-boot guard
+// ✅ Sets body view classes for CSS tuning
+// ✅ Optional: forwards ctx to logger if present (non-breaking)
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -18,119 +19,122 @@ function has(k){
   try{ return new URL(location.href).searchParams.has(k); }
   catch(_){ return false; }
 }
-
-function isLikelyMobileUA(){
-  const ua = (navigator.userAgent||'').toLowerCase();
-  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
+function clamp(v, a, b){
+  v = Number(v);
+  if(!Number.isFinite(v)) v = a;
+  return Math.max(a, Math.min(b, v));
 }
-
-function normalizeView(v){
-  v = String(v||'').toLowerCase();
+function normView(v){
+  v = String(v || '').toLowerCase();
   if(v === 'cardboard') return 'vr';
   if(v === 'view-cvr') return 'cvr';
   if(v === 'cvr') return 'cvr';
   if(v === 'vr') return 'vr';
   if(v === 'pc') return 'pc';
   if(v === 'mobile') return 'mobile';
-  return 'auto';
+  return 'mobile';
 }
-
-async function detectView(){
-  // DO NOT override if user already set ?view=
-  if(has('view')) return normalizeView(qs('view','auto'));
-
-  // best-effort: prefer mobile vs pc
-  let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
-
-  // If WebXR immersive-vr supported -> treat mobile as 'vr' (Cardboard / headset)
-  try{
-    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
-      const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if(ok) guess = isLikelyMobileUA() ? 'vr' : 'pc';
-    }
-  }catch(_){}
-
-  return normalizeView(guess);
-}
-
 function setBodyView(view){
   const b = DOC.body;
   if(!b) return;
-
-  // reset
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.removeAttribute('data-view');
-
-  // apply
   if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'mobile') b.classList.add('view-mobile');
   else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'cvr'){ b.classList.add('view-vr','view-cvr'); }
-  else {
-    // auto: still pick something for CSS hooks
-    const auto = isLikelyMobileUA() ? 'mobile' : 'pc';
-    b.classList.add(auto === 'mobile' ? 'view-mobile' : 'view-pc');
-    view = auto;
-  }
-
-  b.dataset.view = view;
+  else if(view === 'cvr') b.classList.add('view-vr','view-cvr');
+  else b.classList.add('view-mobile');
 }
 
-function setupQuestAutoCollapse(){
-  const b = DOC.body;
-  if(!b) return;
+// best-effort: wait until essential nodes exist
+function waitForDomReady(){
+  return new Promise((resolve)=>{
+    const t0 = Date.now();
+    const MAX = 2500;
 
-  // start as "no quest" -> more gameplay area
-  b.classList.add('no-quests');
+    const tick = ()=>{
+      const ok =
+        DOC.getElementById('gj-layer') &&
+        DOC.getElementById('hud-score') &&
+        DOC.getElementById('hud-time') &&
+        DOC.getElementById('hud-miss') &&
+        DOC.getElementById('hud-grade');
+      if(ok) return resolve(true);
+      if(Date.now() - t0 > MAX) return resolve(false);
+      requestAnimationFrame(tick);
+    };
 
-  // if game emits quest:update at least once -> show quest area
-  let gotQuest = false;
-
-  function onQuestUpdate(){
-    gotQuest = true;
-    b.classList.remove('no-quests');
-    try{ WIN.removeEventListener('quest:update', onQuestUpdate); }catch(_){}
-  }
-  WIN.addEventListener('quest:update', onQuestUpdate, { passive:true });
-
-  // safety: if no quest events in 2s, keep collapsed (do nothing)
-  setTimeout(()=>{ if(!gotQuest) b.classList.add('no-quests'); }, 2000);
-}
-
-function start(){
-  const run  = String(qs('run','play')).toLowerCase();
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const time = Number(qs('time','80')) || 80;
-  const seed = String(qs('seed', Date.now()));
-
-  // start with spacious gameplay unless quest system is active
-  setupQuestAutoCollapse();
-
-  // let the safe-zone measurer in goodjunk-vr.html run first
-  setTimeout(()=>{
-    try{
-      engineBoot({
-        view: DOC.body?.dataset?.view || normalizeView(qs('view','mobile')),
-        run, diff, time, seed
-      });
-    }catch(err){
-      console.error('[GoodJunkVR] boot failed', err);
-      alert('Boot error: ' + (err?.message || err));
+    if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+      requestAnimationFrame(tick);
+    }else{
+      DOC.addEventListener('DOMContentLoaded', ()=>requestAnimationFrame(tick), { once:true });
     }
-  }, 80);
+  });
 }
 
-(async function main(){
-  try{
-    const view = await detectView();
-    setBodyView(view);
-  }catch(_){
-    setBodyView(normalizeView(qs('view','mobile')));
-  }
+function buildCtx(){
+  const view = normView(qs('view','mobile'));
+  const run  = String(qs('run','play')).toLowerCase();     // play | research (ถ้ามี)
+  const diff = String(qs('diff','normal')).toLowerCase();  // easy|normal|hard (แล้วแต่คุณ)
+  const time = clamp(qs('time','80'), 20, 300);
+  const seed = String(qs('seed', Date.now()));
+  const hub  = qs('hub', null);
+  const log  = qs('log', null);
 
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', start, { once:true });
-  }else{
-    start();
+  return { view, run, diff, time, seed, hub, log };
+}
+
+// optional: forward ctx to cloud logger if present (doesn't assume API)
+function tryInitLogger(ctx){
+  try{
+    // Common patterns (non-breaking)
+    // - if logger listens to events, it will capture hha:start/hha:end already.
+    // - if logger exposes a function, we call it guarded.
+    const L = WIN.HHA_LOGGER || WIN.hhaLogger || WIN.__HHA_LOGGER__;
+    if(!L) return;
+
+    if(typeof L.setContext === 'function'){
+      L.setContext({ game:'GoodJunkVR', ...ctx });
+    }else if(typeof L.init === 'function'){
+      L.init({ game:'GoodJunkVR', ...ctx });
+    }
+  }catch(_){}
+}
+
+async function main(){
+  if(WIN.__GJ_BOOTED__) return;
+  WIN.__GJ_BOOTED__ = true;
+
+  const ctx = buildCtx();
+  setBodyView(ctx.view);
+
+  // ensure chip shows correct meta (if present)
+  try{
+    const chip = DOC.getElementById('gjChipMeta');
+    if(chip) chip.textContent = `view=${ctx.view} · run=${ctx.run} · diff=${ctx.diff} · time=${ctx.time}`;
+  }catch(_){}
+
+  // wait for DOM nodes (still boot even if timeout)
+  await waitForDomReady();
+
+  // logger (optional)
+  tryInitLogger(ctx);
+
+  // BOOT ENGINE (FAIR PACK)
+  try{
+    engineBoot({
+      view: ctx.view,
+      run:  ctx.run,
+      diff: ctx.diff,
+      time: ctx.time,
+      seed: ctx.seed
+    });
+  }catch(err){
+    console.error('[GoodJunkVR boot] engineBoot failed', err);
+    try{
+      // show minimal error to user
+      alert('GoodJunkVR: เปิดเกมไม่สำเร็จ (ดู Console เพื่อรายละเอียด)');
+    }catch(_){}
   }
-})();
+}
+
+// kick
+main();
