@@ -1,3 +1,11 @@
+<!-- =========================================================
+     /herohealth/plate/plate-vr.html
+     Balanced Plate VR — RUN (PRODUCTION + PATCH)
+     ✅ Minimal A-Frame scene for Enter VR reliability
+     ✅ Uses: plate-vr.css, plate.boot.js, plate.safe.js
+     ✅ Uses: vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+     ✅ Includes FX layers: #bossFx #stormFx
+========================================================= -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -24,8 +32,7 @@
 
 <body class="view-pc">
   <div id="app">
-
-    <!-- Minimal A-Frame scene (hidden) for Enter VR reliability -->
+    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
     <a-scene
       embedded
       renderer="antialias:true; colorManagement:true"
@@ -35,14 +42,14 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- FX Layers (match CSS: z-index 55) -->
+    <!-- FX layers -->
     <div id="bossFx" aria-hidden="true"></div>
     <div id="stormFx" aria-hidden="true"></div>
 
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
-    <!-- HUD (z-index 40 in CSS) -->
+    <!-- HUD -->
     <div id="hud" aria-label="hud">
       <div class="hudRow">
         <div class="chip score">
@@ -126,8 +133,8 @@
   </div>
 
   <!-- NOTE:
-    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js will set view class and boot the engine.
+    - vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    - plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
