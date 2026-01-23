@@ -1,6 +1,12 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
-✅ Boss Phase 2 + Streak Reward + Teacher Overlay (?teacher=1)
+HygieneVR RUN — PRODUCTION (HHA Standard)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js
+✅ Optional AI packs (defer)
+✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
+✅ Back HUB: ?hub=...
+✅ PACK R/S/T: Practice 15s + Boss + Story 3 days + Daily BG + SFX + Stickers
 -->
 <!doctype html>
 <html lang="th">
@@ -13,13 +19,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <!-- Universal VR UI -->
+  <!-- ✅ IMPORTANT: defer to avoid body/root null -->
   <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- Optional helpers -->
   <script defer src="../vr/particles.js"></script>
 
-  <!-- Optional AI packs -->
+  <!-- AI Packs (optional) -->
   <script defer src="../vr/hha-ai-coach.js"></script>
   <script defer src="../vr/hha-difficulty-director.js"></script>
   <script defer src="../vr/hha-badges.js"></script>
@@ -28,7 +32,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
   <script type="module" src="./hygiene-vr.boot.js"></script>
 </head>
 
-<body class="view-pc">
+<body class="view-pc" data-bg="classroom">
   <div id="gameRoot" class="hw-root">
     <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
 
@@ -38,6 +42,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
+        <!-- Sticker / Daily rule -->
+        <div class="hw-sticker" id="dailySticker">📌 วันนี้: —</div>
+
         <div class="hw-row">
           <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
           <div class="hw-pill" id="pillHits">HITS 0/6</div>
@@ -46,37 +53,16 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
         </div>
 
         <div class="hw-row">
-          <div class="hw-pill good" id="pillPerfect">PERFECT 0</div>
-          <div class="hw-pill cyan" id="pillShield">🛡 0</div>
-          <div class="hw-pill pink" id="pillHeart">💖 1</div>
-          <div class="hw-pill warn" id="pillMission">🎯 Mission —</div>
-        </div>
-
-        <div class="hw-row">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
+          <div class="hw-pill cyan" id="pillBoss">BOSS 0%</div>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <div class="hw-mission" id="missionBar" style="display:none">
-          <div class="hw-mission-top">
-            <div class="hw-mission-title" id="missionText">—</div>
-            <div class="hw-mission-sub" id="missionSub">ทำให้สำเร็จเพื่อปลดล็อกตรา 🎖️</div>
-          </div>
-          <div class="hw-mission-track">
-            <div class="hw-mission-fill" id="missionFill" style="width:0%"></div>
-          </div>
-        </div>
-
-        <div class="hw-wheel">
-          <div class="hw-wheel-row" id="wheelRow"></div>
-          <div class="hw-wheel-sub" id="wheelSub">—</div>
-        </div>
-
-        <div class="hw-minirow">
-          <div class="hw-mini" id="miniBoss">👑 Boss: —</div>
-          <div class="hw-mini" id="miniSoap">🧼 Soap: 0%</div>
+        <!-- Boss bar -->
+        <div class="hw-bossbar" aria-label="boss bar">
+          <div class="hw-bossfill" id="bossFill" style="width:0%"></div>
         </div>
       </div>
 
@@ -88,15 +74,34 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำ <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • ชนะบอส 👑<br>
-          ตอนบอสมา ให้ยิง “STEP ที่บอสแพ้” (ดูที่ HUD บอส)
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
+          ยิง/แตะเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
         </div>
-        <div class="hw-card-row">
+
+        <div class="hw-card-sub" style="margin-top:10px">
+          🫧 🤚 🧩 👊 👍 💅 ⌚  ← เป้า “ถูกต้อง” จะเป็นไอคอนตาม STEP ที่โชว์บน HUD
+        </div>
+
+        <div class="hw-card-row" style="margin-top:12px">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnRestart" type="button">↻ Restart</button>
+          <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
-          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span> • Teacher: <span id="labTeacher">0</span>
+          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Story Overlay (Cutscene) -->
+    <div class="hw-overlay" id="storyOverlay" style="display:none">
+      <div class="hw-card">
+        <div class="hw-card-title" id="storyTitle">📚 Day 1 — ห้องเรียน</div>
+        <div class="hw-card-sub" id="storyText">—</div>
+        <div class="hw-card-sub" style="margin-top:10px">
+          <span id="storyCountdown">5</span>s … กำลังเริ่มอัตโนมัติ
+        </div>
+        <div class="hw-card-row">
+          <button class="hw-ghost" id="btnSkipStory" type="button">ข้าม</button>
         </div>
       </div>
     </div>
@@ -106,16 +111,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
       <div class="hw-card">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
-        <div class="hw-card-sub" id="endTips" style="margin-top:10px">—</div>
-
-        <!-- PACK J: Teacher summary -->
-        <div class="hw-teacher" id="teacherPanel" style="display:none">
-          <div class="hw-teacher-title">👩‍🏫 Teacher Summary</div>
-          <div class="hw-teacher-sub" id="teacherSub">—</div>
-          <div class="hw-bars" id="teacherBars"></div>
-          <div class="hw-teacher-foot" id="teacherFoot">—</div>
-        </div>
-
         <pre class="hw-pre" id="endJson"></pre>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
@@ -139,7 +134,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
   setViewClass();
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-  document.getElementById('labTeacher').textContent = (qs('teacher','0')||'0');
 })();
 </script>
 </body>
