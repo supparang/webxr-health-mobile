@@ -1,194 +1,216 @@
+<!-- === vr-fitness/games/shadow-breaker/index.html ===
+Shadow Breaker — Run Page (Production v1.1.0)
+✅ Links: shadow-breaker.css + shadow-breaker.js
+✅ Uses: /herohealth/vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair => hha:shoot)
+✅ Pass-through: hub/view/seed/research/studyId/log/run/diff/time etc.
+✅ UI: meta form (research), HUD, goal, coach, game area, result overlay
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>VR Fitness — Shadow Breaker (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>VR Fitness — Shadow Breaker</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#020617" />
+
+  <!-- CSS (same folder) -->
+  <link rel="stylesheet" href="./shadow-breaker.css" />
+
+  <!-- (Optional) favicon -->
   <link rel="icon" href="../../favicon.ico" />
+
   <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22d3ee;
-      --radius:22px;
-      --pill:999px;
-      --sat: env(safe-area-inset-top,0px);
-      --sab: env(safe-area-inset-bottom,0px);
-      --sal: env(safe-area-inset-left,0px);
-      --sar: env(safe-area-inset-right,0px);
-    }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0; min-height:100vh;
-      font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,.18),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(34,197,94,.20),transparent 55%),
-        var(--bg);
-      color:var(--text);
-      padding: calc(var(--sat) + 18px) calc(var(--sar) + 12px) calc(var(--sab) + 18px) calc(var(--sal) + 12px);
-      display:flex; align-items:center; justify-content:center;
-    }
-    .card{
-      width:min(680px, 96vw);
-      border-radius: var(--radius);
-      border: 1px solid var(--stroke);
-      background: radial-gradient(circle at 15% 0%, rgba(34,211,238,.10), transparent 55%),
-                  rgba(15,23,42,.88);
-      box-shadow: 0 24px 80px rgba(0,0,0,.55);
-      padding:16px 16px 14px;
-    }
-    .row{ display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    h1{ margin:0; font-size:1.05rem; display:flex; gap:10px; align-items:center; }
-    .logo{
-      width:36px;height:36px;border-radius:999px;
-      background: radial-gradient(circle at 30% 20%, #a5f3fc, #0ea5e9);
-      display:grid; place-items:center;
-      box-shadow:0 0 0 1px rgba(8,47,73,.5);
-      font-size:18px;
-    }
-    p{ margin:6px 0 0; color:var(--muted); font-size:.85rem; line-height:1.35; }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius: var(--pill);
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      font-size:.75rem; color:var(--muted);
-      white-space:nowrap;
-    }
-    .dot{
-      width:8px;height:8px;border-radius:999px;
-      background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,.22);
-    }
-    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px; }
-    @media(max-width:720px){ .grid{ grid-template-columns:1fr; } }
-    .box{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.40);
-      padding:12px;
-    }
-    .box h2{ margin:0 0 4px; font-size:.95rem; }
-    .box ul{ margin:0; padding-left:18px; color:var(--muted); font-size:.8rem; }
-    .btn{
-      margin-top:10px;
-      width:100%;
-      border:none;
-      border-radius: 999px;
-      padding:10px 14px;
-      font-weight:900;
-      cursor:pointer;
-      background: linear-gradient(135deg,#22d3ee,#0ea5e9);
-      color:#0b1120;
-      box-shadow:0 16px 45px rgba(8,47,73,.55);
-    }
-    .mini{ margin-top:10px; font-size:.72rem; color:#94a3b8; }
-    code{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.75rem; }
+    /* small safety: avoid selecting text while tapping */
+    *{ -webkit-user-select:none; user-select:none; }
+    input,select,textarea{ -webkit-user-select:text; user-select:text; }
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <div class="row">
-      <div>
-        <h1><span class="logo">🥊</span> Shadow Breaker</h1>
-        <p>Launcher จะตรวจอุปกรณ์และเปิดโหมดที่เหมาะสมให้อัตโนมัติ (เคารพ <code>?view=</code> ถ้ามีอยู่แล้ว)</p>
+  <div class="page">
+
+    <!-- ===== Top card: title + lang toggle ===== -->
+    <div class="card top-panel">
+      <div class="card-header">
+        <div class="title">
+          <div class="icon">🥊</div>
+          <div>
+            <h1>Shadow Breaker</h1>
+            <p>VR Fitness • Tap / Crosshair Shoot • Boss Rush</p>
+          </div>
+        </div>
+
+        <div class="lang-toggle">
+          <button class="lang-btn active" data-lang="th" type="button">TH</button>
+          <button class="lang-btn" data-lang="en" type="button">EN</button>
+        </div>
       </div>
-      <div class="pill"><span class="dot"></span><span id="detected">Detecting...</span></div>
+
+      <p id="tagGoal" class="goal-text">
+        เป้าหมาย: ต่อย/ยิงเป้า emoji ให้ทันเวลา รักษาคอมโบ และพิชิตบอสทั้ง 4 ตัว.
+      </p>
+
+      <div class="start-row">
+        <button id="startBtn" class="btn btn-main btn-full" type="button">
+          <span id="startLabel">เริ่มเล่น</span> 🚀
+        </button>
+      </div>
+
+      <p class="hint small">
+        โหมด VR: กด ENTER VR มุมล่างขวา • โหมดมือถือ/cVR: เล็งกลางจอแล้วแตะยิงได้
+      </p>
     </div>
 
-    <div class="grid">
-      <div class="box">
-        <h2>โหมดที่รองรับ</h2>
-        <ul>
-          <li>PC: คลิก/Space ยิงกลางจอ</li>
-          <li>Mobile: แตะ / cVR: ยิงจาก crosshair</li>
-          <li>VR: Enter VR + ยิงผ่าน crosshair (vr-ui.js)</li>
-        </ul>
+    <!-- ===== Research meta (hidden in play mode by CSS: body.mode-play) ===== -->
+    <div class="card meta-panel research-card">
+      <div class="card-header">
+        <div class="title">
+          <div class="icon">🧾</div>
+          <div>
+            <h1>Research Meta (Optional)</h1>
+            <p>กรอกเพื่อใช้เก็บข้อมูลการทดลอง (จะบังคับ Student ID เมื่อ research=1)</p>
+          </div>
+        </div>
       </div>
-      <div class="box">
-        <h2>พารามิเตอร์ที่ส่งผ่าน</h2>
-        <ul>
-          <li>hub, run, diff, time, seed</li>
-          <li>research, studyId, conditionGroup</li>
-          <li>log (พัก Apps Script ได้)</li>
-        </ul>
+
+      <div class="research-grid">
+        <label>
+          <span>Student ID</span>
+          <input id="studentId" placeholder="เช่น S001" />
+        </label>
+
+        <label>
+          <span>School</span>
+          <input id="schoolName" placeholder="โรงเรียน..." />
+        </label>
+
+        <label>
+          <span>Classroom</span>
+          <input id="classRoom" placeholder="เช่น ป.5/2" />
+        </label>
+
+        <label>
+          <span>Group Code</span>
+          <input id="groupCode" placeholder="เช่น A / B" />
+        </label>
+
+        <label>
+          <span>Device Type</span>
+          <select id="deviceType">
+            <option value="auto" selected>auto-detect</option>
+            <option value="pc">pc</option>
+            <option value="mobile">mobile</option>
+            <option value="vrHeadset">vrHeadset</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Note</span>
+          <input id="note" placeholder="บันทึกเพิ่มเติม..." />
+        </label>
+      </div>
+
+      <div id="metaPDPA" class="hint">
+        *หมายเหตุ: เก็บเฉพาะข้อมูลเพื่อการวิจัย/ประเมินผลเกม (ตามเงื่อนไขหน่วยงาน)
       </div>
     </div>
 
-    <button class="btn" id="goBtn">▶ เข้าเล่นทันที</button>
-    <div class="mini">
-      Tip: ถ้าต้องการบังคับ ให้ใส่ <code>?view=pc</code> / <code>mobile</code> / <code>vr</code> / <code>cvr</code>
+    <!-- ===== Game card ===== -->
+    <div class="card game-card">
+      <!-- HUD -->
+      <div class="hud sb-hud" id="hud">
+        <div class="hud-block">
+          <span class="label">TIME</span>
+          <span class="value" id="timeVal">60</span>
+        </div>
+        <div class="hud-block">
+          <span class="label">SCORE</span>
+          <span class="value" id="scoreVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span class="label">HIT</span>
+          <span class="value" id="hitVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span class="label">MISS</span>
+          <span class="value" id="missVal">0</span>
+        </div>
+        <div class="hud-block">
+          <span class="label">COMBO</span>
+          <span class="value" id="comboVal">x0</span>
+        </div>
+        <div class="hud-block" style="flex:1; min-width:160px;">
+          <span class="label">COACH</span>
+          <span class="value" id="coachLine">โค้ชพุ่ง: เล็งกลางจอแล้วแตะ/ยิงให้โดน! 👊</span>
+        </div>
+      </div>
+
+      <!-- Game panel -->
+      <div class="game-panel">
+        <div id="gameArea" aria-label="Shadow Breaker play area"></div>
+        <div id="feedback" class="feedback" aria-live="polite"></div>
+      </div>
+
+      <!-- Controls hint -->
+      <div class="controls">
+        <h2>วิธีเล่น</h2>
+        <ul>
+          <li>แตะเป้า emoji ให้ทันก่อนหายไป</li>
+          <li>คอมโบ ≥ 5 จะเข้า FEVER</li>
+          <li>บอสมี HP ต้องทุบหลายครั้ง (ดูแถบพลังบอส)</li>
+          <li>โหมด VR/cVR: เล็งกลางจอแล้ว “ยิง” (ผ่าน vr-ui.js → hha:shoot)</li>
+        </ul>
+        <div class="hint small">
+          ทิป: ถ้า HUD บังเป้าให้ลดขนาดหน้าจอ/หมุนจอ Landscape หรือปรับ safe-top ใน CSS
+        </div>
+      </div>
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
+  <!-- ===== Result overlay ===== -->
+  <div id="resultOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+    <div class="overlay-box card">
+      <h2>สรุปผล</h2>
 
-  function qs(k, d=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; }
-  }
+      <div class="result-grid">
+        <div><span class="label">Score</span><span class="value" id="rScore">0</span></div>
+        <div><span class="label">Accuracy</span><span class="value" id="rAcc">0%</span></div>
+        <div><span class="label">Hit</span><span class="value" id="rHit">0</span></div>
+        <div><span class="label">Miss</span><span class="value" id="rMiss">0</span></div>
+        <div><span class="label">Perfect</span><span class="value" id="rPerfect">0</span></div>
+        <div><span class="label">Good</span><span class="value" id="rGood">0</span></div>
+        <div><span class="label">Max Combo</span><span class="value" id="rCombo">x0</span></div>
+        <div><span class="label">Time Used</span><span class="value" id="rTimeUsed">0s</span></div>
+      </div>
 
-  // ---------- detect view ----------
-  function detectView(){
-    // 1) respect existing view (NO override)
-    const forced = (qs('view','')||'').toLowerCase();
-    if(forced) return forced;
+      <div class="overlay-actions">
+        <button id="playAgainBtn" class="btn btn-main" type="button">เล่นอีกครั้ง</button>
+        <button id="backHubBtn" class="btn btn-secondary" type="button">กลับ HUB</button>
+        <button id="downloadCsvBtn" class="btn btn-secondary" type="button">Download CSV</button>
+      </div>
 
-    // 2) try XR hint: if in WebXR browser / headset UA
-    const ua = navigator.userAgent || '';
-    const isVRUA = /Quest|Oculus|Vive|VR|Pico|SteamVR/i.test(ua);
-    if(isVRUA) return 'vr';
+      <p class="hint small" style="margin-top:10px;">
+        *ในโหมดเล่น (run=play) จะซ่อนปุ่ม CSV อัตโนมัติ
+      </p>
+    </div>
+  </div>
 
-    // 3) mobile -> cvr by default (good for cardboard-like + crosshair shoot)
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-    if(isMobile) return 'mobile'; // หรือ 'cvr' ถ้าคุณอยากให้มือถือยิง crosshair เป็นหลัก
-    return 'pc';
-  }
+  <!-- ===== HeroHealth Universal VR UI =====
+       IMPORTANT: adjust path based on your repo.
+       If your VR Fitness is separate from /herohealth, change to correct relative path.
+  -->
+  <script>
+    // Optional config for crosshair lock
+    window.HHA_VRUI_CONFIG = Object.assign(
+      { lockPx: 28, cooldownMs: 90 },
+      window.HHA_VRUI_CONFIG || {}
+    );
+  </script>
+  <script src="../../herohealth/vr/vr-ui.js"></script>
 
-  // ---------- build run url ----------
-  function buildRunUrl(view){
-    // Shadow Breaker run page (ปรับได้ถ้าคุณใช้ชื่อไฟล์อื่น)
-    const RUN = './shadow-breaker.html';
+  <!-- ===== Game JS ===== -->
+  <script src="./shadow-breaker.js"></script>
 
-    const src = new URL(location.href);
-    const out = new URL(RUN, src);
-
-    // passthrough all query params
-    src.searchParams.forEach((v,k)=> out.searchParams.set(k,v));
-
-    // set view ONLY if not present
-    if(!src.searchParams.get('view') && view){
-      out.searchParams.set('view', view);
-    }
-
-    // default run if missing
-    if(!out.searchParams.get('run')) out.searchParams.set('run','play');
-
-    return out.toString();
-  }
-
-  const detected = detectView();
-  const label = document.getElementById('detected');
-  if(label){
-    label.textContent = 'Detected: ' + detected.toUpperCase();
-  }
-
-  const go = ()=>{
-    location.href = buildRunUrl(detected);
-  };
-
-  const btn = document.getElementById('goBtn');
-  if(btn) btn.addEventListener('click', go);
-
-  // auto-go quickly (feel like instant)
-  setTimeout(go, 450);
-})();
-</script>
 </body>
 </html>
