@@ -1,16 +1,18 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Coach + DD)
 // PACK R/S/T: Practice 15s + Boss + Mini + Story 3 Days + Daily BG + SFX
+// PACK U: Power-ups (Soap Shield + Time Freeze) + Visual FX + Daily Rewards
 // Emits: hha:start, hha:time, hha:score, hha:judge, hha:end
-// Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
+// Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY, HHA_HYGIENE_STORY, HHA_HYGIENE_REWARDS
 'use strict';
 
 const WIN = window;
 const DOC = document;
 
-const LS_LAST = 'HHA_LAST_SUMMARY';
-const LS_HIST = 'HHA_SUMMARY_HISTORY';
-const LS_STORY = 'HHA_HYGIENE_STORY';
+const LS_LAST   = 'HHA_LAST_SUMMARY';
+const LS_HIST   = 'HHA_SUMMARY_HISTORY';
+const LS_STORY  = 'HHA_HYGIENE_STORY';
+const LS_REWARD = 'HHA_HYGIENE_REWARDS';
 
 const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
@@ -113,9 +115,23 @@ function makeSFX(enabled){
     haz(){ beep(140, 120, 'sawtooth', 0.04); },
     mini(){ beep(660, 60, 'triangle', 0.05); setTimeout(()=>beep(990, 60,'triangle',0.05), 65); },
     bossSpawn(){ beep(330, 90,'sawtooth',0.05); setTimeout(()=>beep(220, 120,'sawtooth',0.05), 95); },
-    bossClear(){ beep(523, 70,'triangle',0.05); setTimeout(()=>beep(784, 90,'triangle',0.05), 80); }
+    bossClear(){ beep(523, 70,'triangle',0.05); setTimeout(()=>beep(784, 90,'triangle',0.05), 80); },
+    pow(){ beep(740, 70,'triangle',0.05); setTimeout(()=>beep(1040, 60,'triangle',0.05), 75); },
+    freeze(){ beep(600, 70,'sine',0.05); setTimeout(()=>beep(300, 120,'sine',0.035), 80); }
   };
 }
+
+// ------------------ PACK U: Rewards store ------------------
+function loadRewards(){
+  const fb = { coins:0, stars:0, lastEarnIso:'', byDay:{} };
+  const r = loadJson(LS_REWARD, fb);
+  if(!r || typeof r !== 'object') return fb;
+  if(!r.byDay || typeof r.byDay !== 'object') r.byDay = {};
+  r.coins = clamp(r.coins||0, 0, 1e9);
+  r.stars = clamp(r.stars||0, 0, 1e9);
+  return r;
+}
+function saveRewards(r){ saveJson(LS_REWARD, r); }
 
 // ------------------ Engine ------------------
 export function boot(){
@@ -131,6 +147,8 @@ export function boot(){
   const pillTime = DOC.getElementById('pillTime');
   const pillBoss = DOC.getElementById('pillBoss');
   const bossFill = DOC.getElementById('bossFill');
+  const pillPower= DOC.getElementById('pillPower'); // optional
+  const pillCoin = DOC.getElementById('pillCoin');  // optional
   const hudSub   = DOC.getElementById('hudSub');
   const banner   = DOC.getElementById('banner');
   const dailySticker = DOC.getElementById('dailySticker');
@@ -169,16 +187,18 @@ export function boot(){
   const coachOn = (qs('coach','1') !== '0');
   const ddOn    = (qs('dd','1') !== '0');
 
-  // PACK T: SFX on/off
-  const sfxOn = (qs('sfx', '1') !== '0') && (runMode !== 'study');
+  const isStudy = (runMode === 'study');
+
+  // SFX on/off (auto off in study)
+  const sfxOn = !isStudy && (qs('sfx', '1') !== '0');
   const SFX = makeSFX(sfxOn);
 
-  // PACK R: practice
-  const practiceOn = (qs('practice','1') !== '0') && (runMode !== 'study');
+  // Practice (auto off in study)
+  const practiceOn = !isStudy && (qs('practice','1') !== '0');
   const practiceSec = clamp(qs('practiceSec', 15), 8, 40);
 
-  // PACK S: story
-  const storyOn = (qs('story','1') !== '0') && (runMode !== 'study');
+  // Story (auto off in study)
+  const storyOn = !isStudy && (qs('story','1') !== '0');
   const story = loadStory();
   let dayReq = clamp(qs('day', story.lastDayPlayed || 1), 1, 3);
   if(storyOn && dayReq > story.unlockedDay) dayReq = story.unlockedDay;
@@ -190,14 +210,14 @@ export function boot(){
   try{ DOC.body.dataset.bg = dayCfg.bg; }catch{}
   if(dailySticker) dailySticker.textContent = dayCfg.sticker || '📌 วันนี้: —';
 
-  // difficulty presets (base)
+  // Difficulty presets (base)
   const base = (()=> {
     if(diff==='easy') return { spawnPerSec:1.8, hazardRate:0.09, decoyRate:0.18 };
     if(diff==='hard') return { spawnPerSec:2.6, hazardRate:0.14, decoyRate:0.26 };
     return { spawnPerSec:2.2, hazardRate:0.12, decoyRate:0.22 };
   })();
 
-  // Apply day multipliers
+  // Day multipliers
   const dayRule = storyOn ? (dayCfg.rule || {}) : {};
   const mul = (v,m)=>Number(v)*(m==null?1:Number(m));
   base.spawnPerSec = mul(base.spawnPerSec, dayRule.spawnMul);
@@ -239,7 +259,6 @@ export function boot(){
 
   // Practice + Real
   let isPractice = false;
-  let realStarted = false;
 
   // Boss + Mini
   let bossMeter = 0;
@@ -252,7 +271,18 @@ export function boot(){
   let miniTimer = 0;
   let miniActive = false;
 
-  // banner helper
+  // PACK U: power-ups (auto off in study)
+  const powerOn = !isStudy && (qs('power','1') !== '0');
+  let shieldCharges = 0;
+  let freezeCharges = 0;   // “เก็บ” ได้ แต่เราจะ auto-activate ตอนเก็บเพื่อให้เล่นง่าย
+  let freezeLeftSec = 0;
+
+  // rewards
+  const rewards = loadRewards();
+
+  function fxOn(cls){ try{ DOC.body.classList.add(cls); }catch{} }
+  function fxOff(cls){ try{ DOC.body.classList.remove(cls); }catch{} }
+
   function showBanner(msg){
     if(!banner) return;
     banner.textContent = msg;
@@ -273,10 +303,8 @@ export function boot(){
   }
 
   function getMissCount(){
-    // hygiene: miss = wrong step hits + hazard hits
     return (wrongStepHits + hazHits);
   }
-
   function reduceMissOne(){
     if(hazHits > 0){ hazHits--; return true; }
     if(wrongStepHits > 0){ wrongStepHits--; return true; }
@@ -296,7 +324,6 @@ export function boot(){
 
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
-    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}${storyOn?` • day=${dayCfg.day}`:''}`);
 
     // Boss HUD
     const pct = Math.max(0, Math.min(1, bossActive ? (bossHp/Math.max(1,bossHpMax)) : bossMeter));
@@ -306,6 +333,22 @@ export function boot(){
     if(bossFill){
       bossFill.style.width = `${pct*100}%`;
     }
+
+    // Power HUD (optional)
+    if(pillPower){
+      const fr = freezeLeftSec>0 ? `🧊${Math.ceil(freezeLeftSec)}s` : `🧊${freezeCharges}`;
+      pillPower.textContent = `POWER 🛡${shieldCharges} ${fr}`;
+    }
+    // Reward HUD (optional)
+    if(pillCoin){
+      pillCoin.textContent = `COIN ${rewards.coins} ⭐${rewards.stars}`;
+    }
+
+    hudSub && (hudSub.textContent =
+      `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}` +
+      `${storyOn?` • day=${dayCfg.day}`:''}` +
+      `${freezeLeftSec>0?' • FREEZE':''}`
+    );
   }
 
   function clearTargets(){
@@ -349,6 +392,16 @@ export function boot(){
   function spawnOne(){
     const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
+
+    // PACK U: power-up drop chance (small)
+    if(powerOn){
+      const pPow = (diff==='hard') ? 0.020 : 0.026; // about 2–2.6%
+      if(rng() < pPow){
+        // choose shield vs freeze
+        const isShield = rng() < 0.55;
+        return createTarget('pow', isShield ? '🧼🛡️' : '⏱️🧊', isShield ? 101 : 102);
+      }
+    }
 
     const r = rng();
     if(r < P.hazardRate){
@@ -450,8 +503,43 @@ export function boot(){
     }
   }
 
+  // PACK U helpers
+  function grantShield(){
+    shieldCharges = clamp(shieldCharges + 1, 0, 3);
+    fxOn('fx-shield');
+    clearTimeout(grantShield._t);
+    grantShield._t = setTimeout(()=>fxOff('fx-shield'), 1200);
+  }
+  function startFreeze(sec){
+    freezeLeftSec = Math.max(freezeLeftSec, sec);
+    fxOn('fx-freeze');
+    SFX.freeze();
+    showBanner(`🧊 FREEZE! หยุดเวลา ${Math.ceil(freezeLeftSec)}s`);
+  }
+
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
+
+    // POWER-UP
+    if(obj.kind === 'pow'){
+      // stepIdx: 101 shield, 102 freeze
+      if(obj.stepIdx === 101){
+        grantShield();
+        SFX.pow();
+        showBanner('🧼🛡️ ได้ Soap Shield! กันเชื้อ 1 ครั้ง');
+        emit('hha:judge', { kind:'power_shield', shieldCharges, rtMs: rt, source, extra });
+      }else{
+        freezeCharges = clamp(freezeCharges + 1, 0, 3);
+        // auto-activate for kid-friendly
+        freezeCharges = Math.max(0, freezeCharges - 1);
+        startFreeze(4);
+        emit('hha:judge', { kind:'power_freeze', freezeLeftSec, rtMs: rt, source, extra });
+      }
+      score += 6;
+      removeTarget(obj);
+      setHud();
+      return;
+    }
 
     // MINI
     if(obj.kind === 'mini'){
@@ -498,6 +586,14 @@ export function boot(){
 
           timeLeft += 4;
           reduceMissOne();
+
+          // reward micro
+          if(powerOn){
+            rewards.coins += 3;
+            rewards.stars += 1;
+            saveRewards(rewards);
+            showBanner('🏆 โบนัส: +3 COIN +1⭐');
+          }
         }else{
           SFX.ok();
         }
@@ -525,8 +621,8 @@ export function boot(){
       rtOk.push(rt);
 
       SFX.ok();
-      coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
+      coach?.onEvent?.('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
       showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
@@ -556,8 +652,8 @@ export function boot(){
       combo = 0;
 
       SFX.wrong();
-      coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
+      coach?.onEvent?.('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
@@ -570,12 +666,28 @@ export function boot(){
 
     // HAZ
     if(obj.kind === 'haz'){
+      // PACK U: shield blocks hazard
+      if(powerOn && shieldCharges > 0){
+        shieldCharges--;
+        fxOn('fx-shield');
+        clearTimeout(judgeHit._sb);
+        judgeHit._sb = setTimeout(()=>fxOff('fx-shield'), 900);
+
+        SFX.pow();
+        showBanner('🛡️ กันเชื้อได้! (Shield -1)');
+        emit('hha:judge', { kind:'haz_blocked', shieldCharges, rtMs: rt, source, extra });
+
+        removeTarget(obj);
+        setHud();
+        return;
+      }
+
       hazHits++;
       combo = 0;
 
       SFX.haz();
-      coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
-      dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
+      coach?.onEvent?.('haz_hit', { stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('haz_hit', { elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
       showBanner(`🦠 โดนเชื้อ! ระวัง!`);
@@ -599,18 +711,18 @@ export function boot(){
     correctHits=0; totalStepHits=0;
     rtOk.length=0;
 
-    isPractice=false; realStarted=false;
+    isPractice=false;
 
     bossMeter=0; bossActive=false; bossHp=0; bossLeft=0; bossClears=0;
     miniTimer=0; miniActive=false;
+
+    shieldCharges=0; freezeCharges=0; freezeLeftSec=0;
+    fxOff('fx-freeze'); fxOff('fx-shield');
 
     setHud();
   }
 
   function startRealRun(){
-    realStarted = true;
-    isPractice = false;
-
     clearTargets();
     timeLeft = timePlannedSec;
     tStartMs = nowMs();
@@ -675,6 +787,7 @@ export function boot(){
     running=false;
 
     clearTargets();
+    fxOff('fx-freeze');
 
     const durationPlayedSec = Math.max(0, Math.round(elapsedSec()));
     const stepAcc = getStepAcc();
@@ -698,7 +811,7 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.1.0-prod',
+      version:'1.2.0-prod',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
@@ -730,16 +843,23 @@ export function boot(){
       bossClears,
       scoreFinal: score,
 
+      powerOn,
+      shieldChargesEnd: shieldCharges,
+      freezeUsed: (powerOn ? 1 : 0), // simple flag
+
       medianStepMs: rtMed
     };
 
-    // Story goal pass/unlock
+    // Story goal pass/unlock + PACK U reward
     let dayPassed = false;
+    let rewardEarned = null;
+
     if(storyOn){
       const g = dayCfg.goal;
       if(g.type === 'miss_max') dayPassed = (getMissCount() <= g.value);
       if(g.type === 'boss_clear') dayPassed = ((bossClears|0) >= g.value);
       if(g.type === 'combo_min') dayPassed = ((comboMax|0) >= g.value);
+
       summary.dayGoal = g;
       summary.dayPassed = dayPassed;
 
@@ -750,9 +870,30 @@ export function boot(){
           st.unlockedDay = Math.min(3, dayCfg.day + 1);
         }
         saveStory(st);
+        summary.storyUnlockedDay = st.unlockedDay;
+
+        // PACK U: daily reward (only play mode)
+        if(!isStudy){
+          const starGain = (grade==='SSS')?3 : (grade==='SS')?2 : 1;
+          const coinGain = 10 + (dayCfg.day*2) + (grade==='SSS'?6:grade==='SS'?4:grade==='S'?3:grade==='A'?2:0);
+
+          rewards.coins += coinGain;
+          rewards.stars += starGain;
+          rewards.lastEarnIso = nowIso();
+          rewards.byDay[String(dayCfg.day)] = rewards.byDay[String(dayCfg.day)] || { clears:0 };
+          rewards.byDay[String(dayCfg.day)].clears++;
+
+          saveRewards(rewards);
+
+          rewardEarned = { coins: coinGain, stars: starGain, day: dayCfg.day, grade };
+          showBanner(`🎁 ผ่าน Day ${dayCfg.day}! +${coinGain} COIN +${starGain}⭐`);
+        }
+      }else{
+        summary.storyUnlockedDay = loadStory().unlockedDay;
       }
-      summary.storyUnlockedDay = loadStory().unlockedDay;
     }
+
+    summary.rewardEarned = rewardEarned;
 
     if(coach) Object.assign(summary, coach.getSummaryExtras?.() || {});
     if(dd) Object.assign(summary, dd.getSummaryExtras?.() || {});
@@ -786,8 +927,19 @@ export function boot(){
 
     if(paused){ requestAnimationFrame(tick); return; }
 
-    timeLeft -= dt;
-    emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
+    // PACK U: freeze stops time decay
+    if(freezeLeftSec > 0){
+      freezeLeftSec = Math.max(0, freezeLeftSec - dt);
+      fxOn('fx-freeze');
+      if(freezeLeftSec <= 0){
+        fxOff('fx-freeze');
+        showBanner('⏱️ เวลาเดินต่อแล้ว!');
+      }
+    }else{
+      timeLeft -= dt;
+    }
+
+    emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec(), freezeLeftSec });
 
     // Practice: หมดเวลาแล้วเข้า real run
     if(isPractice && timeLeft <= 0){
@@ -835,7 +987,7 @@ export function boot(){
       }
     }
 
-    // spawn (always)
+    // spawn
     const P = dd ? dd.getParams() : base;
     let spawnAcc = tick._acc || 0;
     spawnAcc += (P.spawnPerSec * dt);
@@ -850,6 +1002,7 @@ export function boot(){
     tick._acc = spawnAcc;
 
     dd?.onEvent?.('tick', { elapsedSec: elapsedSec() });
+
     setHud();
     requestAnimationFrame(tick);
   }
@@ -858,7 +1011,7 @@ export function boot(){
   btnStart?.addEventListener('click', showStoryThenStart, { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
 
-  btnPlayAgain?.addEventListener('click', ()=>{ realStarted=false; showStoryThenStart(); }, { passive:true });
+  btnPlayAgain?.addEventListener('click', ()=>{ showStoryThenStart(); }, { passive:true });
   btnCopyJson?.addEventListener('click', ()=>copyText(endJson.textContent||''), { passive:true });
 
   function goHub(){
