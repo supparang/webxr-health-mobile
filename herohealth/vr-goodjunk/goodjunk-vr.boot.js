@@ -1,18 +1,25 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
-// ✅ Boots ./goodjunk.safe.js
-// ✅ Sets body view class from ?view= (pc/mobile/vr/cvr)
-// ✅ Emits nothing extra (safe.js emits hha:start/time/score/judge/end)
-// ✅ Minimal fullscreen helper (mobile) without forcing override
+// GoodJunkVR Boot — PRODUCTION (Spacious Layout A)
+// ✅ Sets body view class: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Reads query params + passes through to goodjunk.safe.js boot()
+// ✅ Prevent double-boot
+// ✅ Starts after DOM ready + one beat (so updateSafe in HTML has time to set vars)
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+function qs(k, def=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }
+  catch{ return def; }
+}
+function has(k){
+  try{ return new URL(location.href).searchParams.has(k); }
+  catch{ return false; }
+}
 
-function normalizeView(v){
+function normView(v){
   v = String(v||'').toLowerCase();
   if(v==='cardboard') return 'vr';
   if(v==='view-cvr') return 'cvr';
@@ -30,57 +37,73 @@ function setBodyView(view){
   b.classList.add(
     view==='pc' ? 'view-pc' :
     view==='vr' ? 'view-vr' :
-    view==='cvr'? 'view-cvr' :
-    'view-mobile'
+    view==='cvr'? 'view-cvr' : 'view-mobile'
   );
 }
 
-async function bestEffortFullscreen(){
-  // do not hard-force; only try if user taps
-  try{
-    const el = DOC.documentElement;
-    if(!el) return;
-    if(DOC.fullscreenElement) return;
+function parseNumber(v, fallback){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
 
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if(typeof req === 'function'){
-      await req.call(el);
-      DOC.body?.classList.add('is-fs');
+function buildOpts(){
+  const view = normView(qs('view','mobile'));
+  const run  = String(qs('run','play')||'play').toLowerCase();
+  const diff = String(qs('diff','normal')||'normal').toLowerCase();
+  const time = parseNumber(qs('time','80'), 80);
+  const seed = String(qs('seed', Date.now()));
+
+  // passthrough context (optional for logging/research)
+  const hub = qs('hub', null);
+  const studyId = qs('studyId', qs('study', null));
+  const phase = qs('phase', null);
+  const conditionGroup = qs('conditionGroup', qs('cond', null));
+  const style = qs('style', null);
+  const log = qs('log', null);
+  const ts = qs('ts', null);
+
+  return { view, run, diff, time, seed, hub, studyId, phase, conditionGroup, style, log, ts };
+}
+
+function markMeta(opts){
+  // update chip meta if exists
+  try{
+    const chip = DOC.getElementById('gjChipMeta');
+    if(chip){
+      chip.textContent = `view=${opts.view} · run=${opts.run} · diff=${opts.diff} · time=${opts.time}`;
     }
   }catch(_){}
 }
 
-function wireTapToStart(){
-  // In case autoplay redirect happened too fast, we keep a gentle tap to fullscreen
-  const onFirstTap = async ()=>{
-    try{ await bestEffortFullscreen(); }catch(_){}
-    WIN.removeEventListener('pointerdown', onFirstTap, true);
-    WIN.removeEventListener('touchstart', onFirstTap, true);
-  };
-  WIN.addEventListener('pointerdown', onFirstTap, true);
-  WIN.addEventListener('touchstart', onFirstTap, true);
+function startOnce(){
+  if(WIN.__HHA_GJ_BOOTED__) return;
+  WIN.__HHA_GJ_BOOTED__ = true;
+
+  const opts = buildOpts();
+  setBodyView(opts.view);
+  markMeta(opts);
+
+  // Give HTML safe-measure script time to set CSS vars (--gj-top-safe/--gj-bottom-safe)
+  // and let vr-ui mount its controls
+  setTimeout(()=>{
+    try{
+      engineBoot(opts);
+    }catch(err){
+      console.error('[GoodJunkVR] boot failed:', err);
+      // allow retry by refreshing
+      WIN.__HHA_GJ_BOOTED__ = false;
+      alert('เริ่มเกมไม่สำเร็จ (boot error) — ลองรีเฟรชอีกครั้ง');
+    }
+  }, 180);
 }
 
-function boot(){
-  const view = normalizeView(qs('view','mobile'));
-  const run  = String(qs('run','play')||'play').toLowerCase();
-  const diff = String(qs('diff','normal')||'normal').toLowerCase();
-  const time = Number(qs('time','80')) || 80;
-  const seed = qs('seed', String(Date.now()));
-
-  setBodyView(view);
-  wireTapToStart();
-
-  // Boot engine
-  engineBoot({ view, run, diff, time, seed });
+function ready(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
+  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-function domReady(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
-    setTimeout(fn, 0);
-  }else{
-    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-  }
-}
-
-domReady(boot);
+ready(()=>{
+  // If view not provided, do NOT override here (launcher already decides).
+  // Just start using whatever is in URL.
+  startOnce();
+});
