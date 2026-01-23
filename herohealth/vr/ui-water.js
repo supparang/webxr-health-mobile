@@ -1,176 +1,254 @@
 // === /herohealth/vr/ui-water.js ===
-// UI Water Gauge — PRODUCTION (Smooth + Kids-friendly)
-// ✅ ensureWaterGauge(): safe init (works even if panel already exists)
-// ✅ setWaterGauge(pct, opts?): smooth animate + snap to target
-// ✅ zoneFrom(pct): LOW/GREEN/HIGH
-// ✅ Plays nice with existing DOM ids: #water-bar #water-pct #water-zone
-//
-// URL params:
-//   ?kids=1                 => smoother + more forgiving
-//   ?waterSmooth=0.22       => 0..1 (higher = faster catch-up)
-//   ?waterSnap=0.8          => snap threshold (%)
-//   ?waterMinStep=0.35      => minimum visual step per frame (%)
+// UI Water Gauge — PRODUCTION (LATEST)
+// ✅ ensureWaterGauge(): creates gauge overlay if missing (optional)
+// ✅ setWaterGauge(pct): hard set (0..100) with smoothing
+// ✅ waterNudge(delta, opt): additive change with clamp + smoothing
+// ✅ zoneFrom(pct): GREEN / LOW / HIGH
+// ✅ Internal physics: inertia + drag + deadzone + gravity drift (prevents "stuck")
+// ✅ Kids-friendly defaults (can be tuned via window.HHA_WATER_CONFIG)
+// ------------------------------------------------------------
 
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
-  if (!DOC) return;
-
-  // prevent double load
-  if (WIN.__HHA_UI_WATER__) return;
+  if (!DOC || WIN.__HHA_UI_WATER__) return;
   WIN.__HHA_UI_WATER__ = true;
 
-  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const lerp  = (a,b,t)=>a + (b-a)*t;
 
-  // Detect kids mode
-  const kidsQ = String(qs('kids','0')).toLowerCase();
-  const KIDS = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
+  // ---------- CONFIG ----------
+  // You can override before loading:
+  // window.HHA_WATER_CONFIG = { smooth:0.18, drag:0.86, gravity:0.12, dead:0.08, maxVel:6.5 }
+  const CFG = Object.assign({
+    // visual smoothing 0..1 (higher = faster)
+    smooth: 0.18,
 
-  // Tune smoothing
-  const smoothBase = clamp(parseFloat(qs('waterSmooth', KIDS ? '0.28' : '0.22')), 0.05, 0.60);
-  const snapBase   = clamp(parseFloat(qs('waterSnap',   KIDS ? '1.2'  : '0.8')),  0.0,  6.0);
-  const minStep    = clamp(parseFloat(qs('waterMinStep',KIDS ? '0.45' : '0.35')), 0.0,  3.0);
+    // physics: velocity drag 0..1 (lower = stronger drag)
+    drag: 0.86,
 
-  // state
-  const S = {
-    ready:false,
-    target:50,
-    shown:50,
-    lastT:0,
-    raf:0,
-    // cached nodes
-    bar:null,
-    pct:null,
-    zone:null
-  };
+    // gravity drift towards mid to prevent "stuck"
+    gravity: 0.12, // pct per sec pulling toward mid
+
+    // deadzone around target to avoid jitter
+    dead: 0.08, // pct threshold
+
+    // max velocity change per frame
+    maxVel: 6.5,
+
+    // default mid setpoint
+    mid: 55,
+
+    // DOM ids (if you use your own panel)
+    ids: {
+      bar:  'water-bar',
+      pct:  'water-pct',
+      zone: 'water-zone'
+    }
+  }, WIN.HHA_WATER_CONFIG || {});
+
+  // ---------- DOM helpers ----------
+  function qs(id){ return DOC.getElementById(id); }
+
+  // If you don't have the panel in HTML, this can create a minimal one.
+  function ensureWaterGauge(){
+    // only create if not present
+    if (qs(CFG.ids.bar) && qs(CFG.ids.pct) && qs(CFG.ids.zone)) return;
+
+    // If user has their own markup, do nothing
+    // (we only create if *none* exists)
+    const existing = DOC.querySelector('.waterpanel, #hud .waterpanel, #waterpanel');
+    if (existing) return;
+
+    const wrap = DOC.createElement('div');
+    wrap.className = 'waterpanel';
+    wrap.style.cssText = [
+      'position:fixed',
+      'right:14px',
+      'top:calc(64px + env(safe-area-inset-top,0px))',
+      'z-index:80',
+      'pointer-events:none',
+      'border:1px solid rgba(148,163,184,.16)',
+      'background:rgba(2,6,23,.48)',
+      'backdrop-filter:blur(10px)',
+      'border-radius:18px',
+      'padding:10px 12px',
+      'box-shadow:0 16px 60px rgba(0,0,0,.35)',
+      'min-width:160px'
+    ].join(';');
+
+    wrap.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <div style="font-weight:900;font-size:13px">Water</div>
+        <div style="font-size:12px;color:rgba(148,163,184,.95)">Zone: <b id="${CFG.ids.zone}">GREEN</b></div>
+      </div>
+      <div style="margin-top:8px;height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.10)">
+        <div id="${CFG.ids.bar}" style="height:100%;width:50%;border-radius:999px;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));transition:width 120ms linear"></div>
+      </div>
+      <div style="margin-top:6px;font-weight:900;text-align:right;font-size:12px;color:rgba(229,231,235,.92)">
+        <span id="${CFG.ids.pct}">50</span>%
+      </div>
+    `;
+    DOC.body.appendChild(wrap);
+  }
 
   function zoneFrom(pct){
-    // คุณใช้ GREEN เป็นโซนกลาง: ให้ “พอดี” ที่ 45..65 (ปรับได้ถ้าต้องการ)
-    const p = clamp(pct,0,100);
+    // GREEN is the healthy band around mid (kids-friendly)
+    const p = clamp(pct, 0, 100);
+    // band 45..65 (adjust if you want)
+    if (p >= 45 && p <= 65) return 'GREEN';
     if (p < 45) return 'LOW';
-    if (p > 65) return 'HIGH';
-    return 'GREEN';
+    return 'HIGH';
   }
 
-  function grabNodes(){
-    S.bar  = DOC.getElementById('water-bar');
-    S.pct  = DOC.getElementById('water-pct');
-    S.zone = DOC.getElementById('water-zone');
-    S.ready = !!(S.bar || S.pct || S.zone);
+  // ---------- STATE ----------
+  const ST = {
+    // current (display)
+    cur: 50,
+    // target (requested)
+    tgt: 50,
+    // velocity (physics)
+    vel: 0,
+    // last update time
+    last: 0,
+    // dom cache
+    elBar: null,
+    elPct: null,
+    elZone: null,
+    // raf running
+    rafOn: false
+  };
+
+  function bindEls(){
+    ST.elBar  = qs(CFG.ids.bar);
+    ST.elPct  = qs(CFG.ids.pct);
+    ST.elZone = qs(CFG.ids.zone);
   }
 
-  function paint(){
-    // write DOM (safe even if some nodes missing)
-    const shown = clamp(S.shown, 0, 100);
-    const z = zoneFrom(shown);
+  function syncDOM(){
+    if (!ST.elBar || !ST.elPct || !ST.elZone) bindEls();
+    const p = clamp(ST.cur, 0, 100);
 
-    if (S.bar){
-      // no layout thrash: just width
-      S.bar.style.width = shown.toFixed(0) + '%';
-      // เพิ่มความ “นิ่ม” ด้วย transition เบา ๆ (ไม่หน่วง)
-      S.bar.style.transition = 'width 120ms linear';
-    }
-    if (S.pct) S.pct.textContent = String(shown|0);
-    if (S.zone) S.zone.textContent = z;
+    if (ST.elBar)  ST.elBar.style.width = (p.toFixed(0) + '%');
+    if (ST.elPct)  ST.elPct.textContent = String(p|0);
+    if (ST.elZone) ST.elZone.textContent = zoneFrom(p);
   }
 
+  // ---------- PHYSICS LOOP ----------
   function step(t){
-    if (!S.ready){
-      grabNodes();
-      if (!S.ready){
-        S.raf = WIN.requestAnimationFrame(step);
-        return;
-      }
+    if (!ST.rafOn) return;
+
+    const now = Number(t)||performance.now();
+    const dt = ST.last ? Math.min(0.05, Math.max(0.001, (now - ST.last)/1000)) : 0.016;
+    ST.last = now;
+
+    // error to target
+    const err = (ST.tgt - ST.cur);
+
+    // deadzone to avoid jitter
+    let accel = 0;
+    if (Math.abs(err) > CFG.dead){
+      // proportional accel toward target
+      accel = err * 9.0; // responsiveness
     }
 
-    const dt = Math.min(0.05, Math.max(0.001, (t - (S.lastT||t))/1000));
-    S.lastT = t;
-
-    const target = clamp(S.target, 0, 100);
-    let shown = clamp(S.shown, 0, 100);
-
-    const diff = target - shown;
-    const adiff = Math.abs(diff);
-
-    // SNAP: ถ้าใกล้มากแล้วให้ติดเป้าทันที ป้องกัน “ค้าง”
-    if (adiff <= snapBase){
-      shown = target;
-      S.shown = shown;
-      paint();
-      // ถ้าติดเป้าแล้ว ไม่ต้องวิ่งต่อ ถ้า target เปลี่ยนอีกจะ start ใหม่
-      S.raf = 0;
-      return;
+    // gravity drift toward mid if "stuck" around a side
+    // helps when gameplay stops changing water so it won't feel frozen
+    const midErr = (CFG.mid - ST.cur);
+    const g = clamp(midErr, -1.0, 1.0) * CFG.gravity; // pct/sec
+    // only apply gravity strongly if close to target (not actively changing)
+    const nearTarget = Math.abs(err) < 2.0;
+    if (nearTarget){
+      ST.vel += g;
     }
 
-    // SMOOTH: exponential-ish catch-up (นิ่ม แต่ไปถึงแน่)
-    // speed = smoothBase per frame-ish, scaled by dt
-    const k = 1 - Math.pow(1 - smoothBase, dt*60); // normalize to ~60fps
-    let move = diff * k;
+    // integrate accel
+    ST.vel += accel * dt;
 
-    // minimum move: กันสถานการณ์ diff น้อยแล้ว “เหมือนไม่ขยับ”
-    if (minStep > 0){
-      const m = Math.sign(move) * Math.max(Math.abs(move), Math.min(adiff, minStep));
-      move = m;
-    }
+    // clamp velocity
+    ST.vel = clamp(ST.vel, -CFG.maxVel, CFG.maxVel);
 
-    shown = clamp(shown + move, 0, 100);
-    S.shown = shown;
+    // apply drag
+    ST.vel *= Math.pow(CFG.drag, dt*60);
 
-    paint();
-    S.raf = WIN.requestAnimationFrame(step);
+    // integrate position
+    ST.cur = clamp(ST.cur + ST.vel, 0, 100);
+
+    // visual smoothing (cur -> display feels smooth)
+    // (we already update cur smoothly; this makes DOM update nicer)
+    // no extra state needed, just sync
+    syncDOM();
+
+    requestAnimationFrame(step);
   }
 
-  function ensureWaterGauge(){
-    // ไม่สร้าง UI ใหม่ เพราะ Hydration มี panel อยู่แล้ว
-    // แต่เราจะ “จับ node” ให้แน่นและเริ่ม paint หนึ่งครั้ง
-    grabNodes();
-    if (S.ready) paint();
+  function ensureRAF(){
+    if (ST.rafOn) return;
+    ST.rafOn = true;
+    ST.last = 0;
+    requestAnimationFrame(step);
   }
 
-  function setWaterGauge(pct, opts={}){
-    // opts: { immediate:boolean, smooth:number, snap:number }
-    const immediate = !!opts.immediate;
-
-    // allow per-call override
-    if (typeof opts.smooth === 'number'){
-      // (ไม่เก็บถาวร) — ใช้เป็น multiplier เล็กน้อย
-    }
+  // ---------- API ----------
+  function setWaterGauge(pct){
+    ensureWaterGauge();
+    bindEls();
 
     const p = clamp(pct, 0, 100);
-    S.target = p;
+    // set target
+    ST.tgt = p;
 
-    if (!S.ready) grabNodes();
-
-    // immediate: ใช้ตอน boot หรือ reset
-    if (immediate){
-      S.shown = p;
-      paint();
-      if (S.raf){ try{ WIN.cancelAnimationFrame(S.raf); }catch(_){ } }
-      S.raf = 0;
-      return;
+    // if a huge jump, gently pull cur closer so it doesn't feel stuck
+    if (Math.abs(ST.cur - ST.tgt) > 25){
+      ST.cur = lerp(ST.cur, ST.tgt, 0.35);
+      ST.vel *= 0.3;
     }
 
-    // start animator if not running
-    if (!S.raf){
-      S.lastT = 0;
-      S.raf = WIN.requestAnimationFrame(step);
-    }
+    ensureRAF();
+    syncDOM();
   }
 
-  // expose globally + ES module style compatibility
+  // additive change with optional easing
+  function waterNudge(delta, opt={}){
+    ensureWaterGauge();
+    bindEls();
+
+    const d = Number(delta)||0;
+    const strength = clamp(opt.strength ?? 1.0, 0.1, 3.0);
+
+    // push target
+    ST.tgt = clamp(ST.tgt + d*strength, 0, 100);
+
+    // also add a bit of velocity so it "feels" responsive
+    ST.vel += clamp(d*0.55, -3.2, 3.2);
+
+    ensureRAF();
+    syncDOM();
+    return ST.tgt;
+  }
+
+  // allow game to query current water quickly
+  function getWaterGauge(){
+    return { cur: ST.cur, tgt: ST.tgt, zone: zoneFrom(ST.cur) };
+  }
+
+  // expose globally (and for ES module import usage, you already do import {..} in safe.js)
+  // For module import compatibility: also export named in global object.
   WIN.ensureWaterGauge = ensureWaterGauge;
   WIN.setWaterGauge = setWaterGauge;
+  WIN.waterNudge = waterNudge;
   WIN.zoneFrom = zoneFrom;
+  WIN.getWaterGauge = getWaterGauge;
 
-  // also support module import pattern used in your hydration.safe.js
-  // (บาง bundler จะมองหา exports ใน globalThis)
-  try{
-    if (!WIN.__HHA_UI_WATER_EXPORTS__){
-      WIN.__HHA_UI_WATER_EXPORTS__ = { ensureWaterGauge, setWaterGauge, zoneFrom };
-    }
-  }catch(_){}
+  // Also provide CommonJS-ish namespace for clarity
+  WIN.HHA_UI_WATER = {
+    ensureWaterGauge,
+    setWaterGauge,
+    waterNudge,
+    zoneFrom,
+    getWaterGauge
+  };
 
 })();
