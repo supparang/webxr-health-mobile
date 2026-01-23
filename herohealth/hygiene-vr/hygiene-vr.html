@@ -1,6 +1,6 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ FIX: vr-ui.js uses defer => no appendChild null
+✅ PACK AQ: FEVER + SHIELD + BOSS WAVE HUD
 -->
 <!doctype html>
 <html lang="th">
@@ -13,18 +13,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <!-- ✅ FIX: defer -->
   <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- Optional shared helpers -->
   <script defer src="../vr/particles.js"></script>
 
-  <!-- AI Packs -->
   <script defer src="../vr/hha-ai-coach.js"></script>
   <script defer src="../vr/hha-difficulty-director.js"></script>
   <script defer src="../vr/hha-badges.js"></script>
 
-  <!-- Engine Boot -->
   <script type="module" defer src="./hygiene-vr.boot.js"></script>
 </head>
 
@@ -47,10 +42,12 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
         <div class="hw-row">
           <div class="hw-pill quest" id="pillQuest">🎯 QUEST: —</div>
-          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
+          <div class="hw-pill fever" id="pillFever">🔥 FEVER 0%</div>
+          <div class="hw-pill shield" id="pillShield">🧼 SHIELD 0</div>
         </div>
 
         <div class="hw-row">
+          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
@@ -65,8 +62,8 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          ยิง/แตะเป้า “<b>ไอคอนขั้นตอนปัจจุบัน</b>” เท่านั้น!
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบ<br>
+          🎯 ทำ QUEST ให้ผ่านเพื่อได้โบนัส • 🧼 เก็บ SHIELD กันเชื้อ 1 ครั้ง • 🔥 FEVER ช่วงคะแนนพุ่ง!
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
