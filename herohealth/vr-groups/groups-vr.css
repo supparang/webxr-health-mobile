@@ -1,17 +1,355 @@
-/* === /herohealth/vr-groups/groups-vr.css === */
-/* PATCH: spawn safe vars for mode-factory (prefix=groups) */
+/* === /herohealth/vr-groups/groups-vr.css ===
+GroupsVR UI (HHA Standard-ish) — Emoji Crisp Patch
+✅ Emoji render via data-emoji + ::before (centered, crisp)
+✅ Avoid filter/backdrop issues that dim emoji
+✅ Keep existing HUD/Quest/Power/Coach/Overlay styles
+*/
 
 :root{
-  /* ...ของเดิม... */
+  color-scheme: dark;
+  --bg:#020617;
+  --panel:rgba(2,6,23,.78);
+  --panel2:rgba(15,23,42,.70);
+  --stroke:rgba(148,163,184,.22);
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --accent:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
+
+  --radius:22px;
+  --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
+}
 
-  /* ✅ NEW: safe spawn rect for Groups */
-  --groups-top-safe: calc(var(--sat) + 160px);
-  --groups-bottom-safe: calc(var(--sab) + 150px);
-  --groups-left-safe: calc(var(--sal) + 14px);
-  --groups-right-safe: calc(var(--sar) + 14px);
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
+
+.hidden{ display:none !important; }
+
+.xr-scene{ position:fixed; inset:0; z-index:0; }
+
+.playLayer{
+  position:fixed; inset:0;
+  z-index:10;
+  pointer-events:auto;
+}
+
+/* HUD */
+.hud{
+  position:fixed;
+  top: calc(var(--sat) + 10px);
+  left: 12px;
+  right: 12px;
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  z-index:80;
+  pointer-events:none;
+}
+.hudLeft,.hudRight{ display:flex; gap:8px; flex-wrap:wrap; }
+.pill{
+  pointer-events:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding: 8px 10px;
+  border-radius: var(--pill);
+  background: rgba(2,6,23,.70);
+  border: 1px solid rgba(148,163,184,.18);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
+}
+.lbl{ font-size:12px; color:var(--muted); font-weight:800; letter-spacing:.2px; }
+.val{ font-size:14px; font-weight:900; }
+
+/* Quest */
+.questTop{
+  position:fixed;
+  top: calc(var(--sat) + 64px);
+  left: 12px;
+  right: 12px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  z-index:75;
+  pointer-events:none;
+}
+.questCard{
+  background: rgba(2,6,23,.70);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
+}
+.qTitle{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-weight:900;
+  letter-spacing:.2px;
+}
+.tag{
+  padding: 4px 10px;
+  border-radius: var(--pill);
+  background: rgba(148,163,184,.12);
+  border: 1px solid rgba(148,163,184,.18);
+  font-weight:900;
+  font-size:12px;
+}
+.bar{
+  margin-top:8px;
+  height: 10px;
+  border-radius: var(--pill);
+  background: rgba(148,163,184,.10);
+  overflow:hidden;
+}
+.fill{
+  height:100%;
+  width:0%;
+  background: var(--accent);
+  border-radius: var(--pill);
+}
+.qSub{
+  margin-top:8px;
+  font-size:12px;
+  color: rgba(229,231,235,.92);
+}
+body.mini-urgent .questTop .questCard:nth-child(2){
+  box-shadow: 0 0 0 6px rgba(245,158,11,.12), 0 18px 40px rgba(0,0,0,.35);
+}
+
+/* Power */
+.powerWrap{
+  position:fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--sab) + 12px);
+  z-index:70;
+  pointer-events:none;
+}
+.powerCard{
+  background: rgba(2,6,23,.70);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
+}
+.pHead{ font-weight:900; }
+.powerBar .fill{ background: rgba(34,197,94,.95); }
+.pFoot{ margin-top:8px; color:var(--muted); font-size:12px; font-weight:700; }
+
+/* Coach */
+.coachWrap{
+  position:fixed;
+  left: 12px;
+  bottom: calc(var(--sab) + 88px);
+  z-index:60;
+  pointer-events:none;
+}
+.coachCard{
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+  background: rgba(2,6,23,.60);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 10px 10px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
+}
+.coachImg{
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgba(148,163,184,.18);
+}
+.coachBubble{ max-width: 240px; }
+.coachName{ font-weight: 900; color: rgba(229,231,235,.95); }
+.coachText{ margin-top:4px; font-size:12px; color: rgba(229,231,235,.90); }
+
+/* overlays */
+.overlay{
+  position:fixed; inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,.35);
+  z-index:100;
+}
+.panel{
+  width:min(560px, calc(100vw - 24px));
+  background: rgba(2,6,23,.86);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 22px;
+  padding: 14px 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 44px rgba(0,0,0,.45);
+  color: var(--text);
+}
+.title{ font-weight: 1000; font-size:18px; }
+.sub{ margin-top:8px; color: rgba(229,231,235,.88); font-size:13px; }
+.note{ color: rgba(148,163,184,.95); font-size:12px; }
+.grid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+.stat{
+  padding: 10px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+}
+.stat .k{ color: var(--muted); font-size:12px; font-weight:800; }
+.stat .v{ font-size:16px; font-weight:1000; margin-top:4px; }
+.row{ display:flex; gap:10px; justify-content:flex-end; }
+.row2{ margin-top:10px; justify-content:space-between; flex-wrap:wrap; }
+.btn{
+  pointer-events:auto;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.70);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 900;
+}
+.btn-strong{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); }
+.btn-ghost{ background: rgba(2,6,23,.30); }
+
+/* =========================
+   TARGETS — Emoji Crisp
+   ========================= */
+
+/* target base */
+.fg-target{
+  position:absolute;
+  left: var(--x, 50vw);
+  top:  var(--y, 50vh);
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  /* important: do NOT apply filter that dims emoji */
+  filter: none !important;
+  opacity: 1;
+  isolation: isolate;
+
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+
+  border: 2px solid rgba(255,255,255,.12);
+  background: rgba(15,23,42,.82);
+  backdrop-filter: blur(6px);
+
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+}
+
+/* Emoji drawn via attribute so it stays centered & crisp */
+.fg-target::before{
+  content: attr(data-emoji);
+  display:block;
+  line-height: 1;
+  font-size: 44px; /* base */
+  transform: translateZ(0); /* crisp */
+  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji", system-ui;
+  text-shadow: 0 2px 8px rgba(0,0,0,.55);
+  filter: none !important;
+  opacity: 1;
+}
+
+/* scale emoji with --s (keep readable) */
+.fg-target{
+  --emojiScale: clamp(0.92, calc(var(--s,1) * 1.00), 1.18);
+}
+.fg-target::before{
+  transform: translateZ(0) scale(var(--emojiScale));
+}
+
+/* GOOD/WRONG/JUNK styling (no filter on parent) */
+.fg-good{
+  border-color: rgba(34,197,94,.55);
+  box-shadow: 0 0 0 6px rgba(34,197,94,.12), 0 12px 28px rgba(0,0,0,.35);
+}
+.fg-wrong{
+  border-color: rgba(59,130,246,.55);
+  box-shadow: 0 0 0 6px rgba(59,130,246,.12), 0 12px 28px rgba(0,0,0,.35);
+  /* removed: filter:saturate(...) to avoid dim emoji */
+}
+.fg-junk{
+  border-color: rgba(239,68,68,.65);
+  box-shadow: 0 0 0 7px rgba(239,68,68,.16), 0 12px 28px rgba(0,0,0,.35);
+}
+.fg-junk::after{
+  content:"";
+  position:absolute;
+  inset:10px;
+  border-radius:999px;
+  opacity:.18;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(239,68,68,.0) 0px,
+      rgba(239,68,68,.0) 10px,
+      rgba(239,68,68,.95) 10px,
+      rgba(239,68,68,.95) 14px);
+  pointer-events:none;
+  z-index: -1;
+}
+
+/* animations */
+.fg-target.spawn{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.82)); opacity:.0; }
+.fg-target:not(.spawn){ transition: transform .16s ease, opacity .16s ease; opacity:1; }
+.fg-target.hit{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.18)); opacity:0; }
+.fg-target.out{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.86)); opacity:0; }
+
+/* Banner */
+.bigBanner{
+  position:fixed;
+  left:50%;
+  top: calc(var(--sat) + 96px);
+  transform: translateX(-50%);
+  z-index:110;
+  pointer-events:none;
+}
+.bigBannerText{
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 1000;
+  font-size: 18px;
+  letter-spacing: .2px;
+  color: rgba(255,255,255,.95);
+  background: rgba(2,6,23,.74);
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 18px 40px rgba(0,0,0,.35);
+  backdrop-filter: blur(8px);
+  text-align:center;
+  white-space: nowrap;
+}
+.bigBanner.show .bigBannerText{ animation: bannerPop .18s ease-out; }
+@keyframes bannerPop{
+  from{ transform: scale(.92); opacity:.0; }
+  to  { transform: scale(1); opacity:1; }
+}
+
+/* onboarding */
+.overlay-onb{ z-index: 120; }
+.onbPanel{ max-width:520px; }
+
+/* mini start hint */
+body.fx-mini .questTop .questCard{
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 18px 40px rgba(0,0,0,.35);
 }
