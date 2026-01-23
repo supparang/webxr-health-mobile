@@ -1,11 +1,11 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-HydrationVR UI (HHA Standard-ish) — LATEST
-✅ HUD / Quest / Water panel
-✅ Playfield safe-area padding
-✅ Spawn-safe vars for engine (align with hydration.safe.js pickXY)
-✅ Cardboard split (L/R layers)
-✅ EndFX / BossFX hooks
-✅ Targets clickable only on their nodes
+Hydration Quest VR (PRODUCTION) — HHA Standard UI
+✅ Safe-area padding + playfield frame
+✅ HUD top chips + mission + water panel
+✅ Overlay (start + summary)
+✅ EndFX + BossFX hooks
+✅ Cardboard split
+✅ Targets pointer-events enabled
 */
 
 :root{
@@ -15,8 +15,10 @@ HydrationVR UI (HHA Standard-ish) — LATEST
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.68);
   --stroke:rgba(148,163,184,.18);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
+
   --accent:#22c55e;
   --warn:#f59e0b;
   --cyan:#22d3ee;
@@ -26,26 +28,13 @@ HydrationVR UI (HHA Standard-ish) — LATEST
   --radius:18px;
   --pill:999px;
 
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
-
-  /* --- Spawn-safe tuning (shared with pickXY in hydration.safe.js) --- */
-  /* HUD stack height (top) + gesture room (bottom) */
-  --hud-safe-top: 140px;
-  --hud-safe-bottom: 44px;
-
-  /* extra side room */
-  --hud-safe-side: 18px;
-
-  /* inner pad (playfield padding space) */
-  --pf-pad: 22px;
 }
 
 *{ box-sizing:border-box; }
-
 html,body{
   margin:0;
   width:100%;
@@ -53,17 +42,17 @@ html,body{
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
 
-/* A-Frame */
+/* A-Frame embedded background */
 a-scene{
   position:fixed;
   inset:0;
   z-index:0;
 }
 
-/* Playfield wrap = safe-area padding */
+/* Playfield wrapper: safe-area padding */
 #playfieldWrap{
   position:fixed;
   inset:0;
@@ -75,22 +64,22 @@ a-scene{
   pointer-events:none;
 }
 
-/* Playfield */
 #playfield{
   position:relative;
   width:100%;
   height:100%;
   border-radius: 22px;
   overflow:hidden;
+
   background:
     radial-gradient(circle at 10% 10%, rgba(34,211,238,.08), transparent 55%),
     radial-gradient(circle at 90% 80%, rgba(34,197,94,.06), transparent 55%),
     rgba(2,6,23,.18);
+
   border: 1px solid rgba(148,163,184,.10);
   pointer-events:none;
 }
 
-/* layers */
 .layer{
   position:absolute;
   inset:0;
@@ -105,7 +94,7 @@ a-scene{
   pointer-events:none;
 }
 
-/* Top chips */
+/* Top row chips */
 .hud-top{
   position:fixed;
   top: calc(10px + var(--sat));
@@ -118,6 +107,7 @@ a-scene{
   pointer-events:none;
 }
 
+/* Kid-friendly chip sizing: readable, not tiny */
 .chip{
   pointer-events:none;
   border:1px solid rgba(148,163,184,.16);
@@ -129,27 +119,31 @@ a-scene{
   color: rgba(229,231,235,.92);
   box-shadow: 0 16px 60px rgba(0,0,0,.35);
 }
+
 .chip.big{ font-weight:900; }
 .chip.ok b{ color: var(--accent); }
 .chip.warn b{ color: var(--warn); }
 .chip.cyan b{ color: var(--cyan); }
 .chip.storm b{ color: var(--violet); }
 
-/* Mid HUD: Mission + Water */
+/* Mid row: mission + water panel */
 .hud-mid{
   position:fixed;
   top: calc(56px + var(--sat));
   left: calc(10px + var(--sal));
   right: calc(10px + var(--sar));
   display:grid;
-  grid-template-columns: 1.35fr .65fr;
+  grid-template-columns: 1.3fr .7fr;
   gap:10px;
   pointer-events:none;
 }
+
+/* Mobile: single column */
 @media (max-width:720px){
   .hud-mid{ grid-template-columns: 1fr; }
 }
 
+/* Panels */
 .quest, .waterpanel{
   border:1px solid rgba(148,163,184,.16);
   background:rgba(2,6,23,.48);
@@ -159,23 +153,29 @@ a-scene{
   box-shadow: 0 16px 60px rgba(0,0,0,.35);
 }
 
+/* Mission text (kid-friendly spacing) */
 .quest-title{
   font-weight:900;
   letter-spacing:.2px;
   font-size:13px;
   opacity:.96;
 }
-
 .quest-lines{
   margin-top:6px;
   font-size:12px;
   color: rgba(229,231,235,.88);
   line-height:1.35;
 }
-.quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
+.quest-lines > div{
+  margin:2px 0;
+  color: rgba(229,231,235,.88);
+}
 .quest-lines #quest-line3,
-.quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
+.quest-lines #quest-line4{
+  color: rgba(148,163,184,.92);
+}
 
+/* Water panel */
 .waterpanel .water-head{
   display:flex;
   align-items:baseline;
@@ -207,7 +207,7 @@ a-scene{
   color: rgba(229,231,235,.92);
 }
 
-/* Overlays */
+/* Overlay */
 .overlay{
   position:fixed;
   inset:0;
@@ -294,7 +294,7 @@ a-scene{
 }
 .next{ margin-top:8px; color: rgba(229,231,235,.92); }
 
-/* FX hooks from hydration.safe.js */
+/* End window FX hooks from hydration.safe.js */
 body.hha-endfx #playfield{
   animation: hhaShake .22s linear infinite;
 }
@@ -305,12 +305,15 @@ body.hha-endfx #playfield{
   75%{ transform: translate(1px,1px); }
   100%{ transform: translate(0,0); }
 }
+
 body.hha-bossfx #playfield{
-  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset, 0 24px 90px rgba(239,68,68,.10);
+  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset,
+              0 24px 90px rgba(239,68,68,.10);
 }
 
 /* Cardboard split */
 body.cardboard #hydration-layer{ display:none; }
+
 #cbWrap{ position:absolute; inset:0; }
 #cbPlayfield{
   position:absolute;
@@ -323,7 +326,7 @@ body.cardboard #hydration-layer{ display:none; }
 body.cardboard #cbWrap{ display:block; }
 body.cardboard #cbWrap[hidden]{ display:block !important; }
 
-/* Shock element */
+/* Shock element (hit bad) */
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
@@ -341,12 +344,5 @@ body.cardboard #cbWrap[hidden]{ display:block !important; }
   to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
 }
 
-/* Targets clickable only via their own nodes */
+/* Targets clickable only via their nodes */
 .hvr-target{ pointer-events:auto; }
-
-/* Slightly kid-friendly spacing on very small screens */
-@media (max-width:420px){
-  .chip{ font-size:11px; padding:7px 9px; }
-  .hud-mid{ top: calc(52px + var(--sat)); }
-  .quest, .waterpanel{ padding: 10px; }
-}
