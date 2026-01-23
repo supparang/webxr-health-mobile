@@ -1,422 +1,349 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration Quest VR UI — PRODUCTION (LATEST)
-✅ Safe-area vars
-✅ HUD top/mid + quest + water panel
-✅ Playfield safe zone (targets avoid HUD in engine, CSS helps too)
-✅ view modes: PC / Mobile / cVR / Cardboard
-✅ Cardboard split playfield (#cbWrap)
-✅ FX classes: hha-hitfx, hha-endfx, hha-bossfx, hha-shock
-✅ Overlay + Result summary
+✅ Safe-area aware
+✅ HUD top + Mission + Water panel
+✅ Playfield wrap + layers
+✅ Targets UI (hvr-target)
+✅ Overlays (start + result)
+✅ FX hooks: hha-endfx / hha-bossfx / hha-shock
+✅ Cardboard split layers (#cbWrap/#cbPlayfield)
 */
 
 :root{
   color-scheme: dark;
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.60);
+  --panel2:rgba(15,23,42,.68);
   --stroke:rgba(148,163,184,.18);
-  --stroke2:rgba(148,163,184,.28);
   --text:#e5e7eb;
   --muted:#94a3b8;
-
   --accent:#22c55e;
-  --cyan:#22d3ee;
   --warn:#f59e0b;
+  --cyan:#22d3ee;
   --danger:#ef4444;
-  --violet:#a78bfa;
 
-  --r:22px;
+  --radius:18px;
   --pill:999px;
 
-  /* Safe-area: loader re-syncs computed px values, but default from env */
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-
-  /* HUD heights used by engine's spawn safe-zone (approx) */
-  --hud-top-h: 78px;
-  --hud-mid-h: 160px;
-
-  /* Playfield spacing */
-  --pf-pad: 14px;
-
-  /* Target affordance */
-  --tap: 44px;
+  --sar: env(safe-area-inset-right, 0px);
 }
 
 *{ box-sizing:border-box; }
-html,body{ margin:0; height:100%; background:var(--bg); color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; overflow:hidden; }
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
 
-a-scene{ position:fixed; inset:0; z-index:0; }
+/* A-Frame scene behind everything */
+a-scene{
+  position:fixed;
+  inset:0;
+  z-index:0;
+}
 
-/* ---------------- HUD ---------------- */
+/* -------- Playfield wrapper (safe-area padding) -------- */
+#playfieldWrap{
+  position:fixed;
+  inset:0;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+  z-index: 1;
+  pointer-events:none;
+}
+
+#playfield{
+  position:relative;
+  width:100%;
+  height:100%;
+  border-radius: 22px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(34,211,238,.08), transparent 55%),
+    radial-gradient(circle at 90% 80%, rgba(34,197,94,.06), transparent 55%),
+    rgba(2,6,23,.18);
+  border: 1px solid rgba(148,163,184,.10);
+  pointer-events:none;
+}
+
+.layer{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+/* -------- HUD -------- */
 #hud{
   position:fixed;
-  left:0; right:0;
-  top:0;
-  z-index:20;
-  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
-  pointer-events:none; /* HUD never blocks target clicks */
+  inset:0;
+  z-index: 60;
+  pointer-events:none;
 }
 
 .hud-top{
+  position:fixed;
+  top: calc(10px + var(--sat));
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
   display:flex;
+  gap:8px;
   flex-wrap:wrap;
-  gap:10px;
   align-items:center;
   pointer-events:none;
 }
 
-.hud-mid{
-  margin-top:10px;
-  display:flex;
-  gap:10px;
-  align-items:stretch;
-  pointer-events:none;
-}
-
-@media (max-width:720px){
-  .hud-mid{ flex-direction:column; }
-}
-
-/* Chips */
 .chip{
   pointer-events:none;
-  display:inline-flex;
-  gap:8px;
-  align-items:center;
-  padding:10px 12px;
-  border-radius: 16px;
-  background: rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.18);
-  box-shadow: 0 18px 60px rgba(0,0,0,.42);
-  backdrop-filter: blur(10px);
-  font-weight:900;
-  font-size:13px;
-  color: rgba(229,231,235,.95);
-}
-.chip.big{ font-size:14px; padding:10px 14px; }
-.chip b{ font-weight:950; }
-.chip.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.12); }
-.chip.ok{ border-color: rgba(34,197,94,.26); background: rgba(34,197,94,.12); }
-.chip.cyan{ border-color: rgba(34,211,238,.26); background: rgba(34,211,238,.12); }
-.chip.storm{ border-color: rgba(167,139,250,.26); background: rgba(167,139,250,.10); }
-
-/* Quest box */
-.quest{
-  flex: 1 1 520px;
-  min-width: min(520px, 100%);
-  border-radius: 18px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.52);
-  box-shadow: 0 18px 70px rgba(0,0,0,.42);
+  background:rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
-  padding:12px;
-  pointer-events:none;
-}
-.quest-title{
-  font-weight:950;
-  font-size:13px;
-  color: rgba(229,231,235,.95);
-  letter-spacing:.2px;
-}
-.quest-lines{
-  margin-top:8px;
-  color: rgba(229,231,235,.90);
+  border-radius: var(--pill);
+  padding:8px 10px;
   font-size:12px;
-  line-height:1.35;
+  color: rgba(229,231,235,.92);
+  box-shadow: 0 16px 60px rgba(0,0,0,.35);
 }
-.quest-lines > div{ min-height: 16px; }
-#quest-line1{ font-weight:900; }
+.chip.big{ font-weight:900; }
+.chip.ok b{ color: var(--accent); }
+.chip.warn b{ color: var(--warn); }
+.chip.cyan b{ color: var(--cyan); }
+.chip.storm b{ color: #a78bfa; }
 
-/* Water panel */
-.waterpanel{
-  width: 220px;
-  border-radius: 18px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.58);
-  box-shadow: 0 18px 70px rgba(0,0,0,.42);
-  backdrop-filter: blur(10px);
-  padding:12px;
+.hud-mid{
+  position:fixed;
+  top: calc(56px + var(--sat));
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  display:grid;
+  grid-template-columns: 1.3fr .7fr;
+  gap:10px;
   pointer-events:none;
 }
 @media (max-width:720px){
-  .waterpanel{ width:100%; }
+  .hud-mid{ grid-template-columns: 1fr; }
 }
 
-.water-head{
+.quest, .waterpanel{
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(2,6,23,.48);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 10px 12px;
+  box-shadow: 0 16px 60px rgba(0,0,0,.35);
+}
+
+.quest-title{
+  font-weight:900;
+  letter-spacing:.2px;
+  font-size:13px;
+  opacity:.96;
+}
+.quest-lines{
+  margin-top:6px;
+  font-size:12px;
+  color: rgba(229,231,235,.88);
+  line-height:1.35;
+}
+.quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
+.quest-lines #quest-line3,
+.quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
+
+/* -------- Water panel (make it easy for Grade 5) -------- */
+.waterpanel .water-head{
   display:flex;
+  align-items:baseline;
   justify-content:space-between;
-  align-items:center;
   gap:10px;
 }
-.wtitle{ font-weight:950; font-size:13px; }
-.wzone{ font-size:12px; color: rgba(148,163,184,.95); }
-.wzone b{ color: rgba(229,231,235,.95); }
-
+.waterpanel .wtitle{
+  font-weight:900;
+  font-size:13px;
+}
+.waterpanel .wzone{
+  font-size:12px;
+  color: rgba(148,163,184,.95);
+}
 .wbar{
-  margin-top:10px;
-  height: 14px;
-  border-radius: 999px;
+  margin-top:8px;
+  height: 12px; /* slightly thicker for kids */
+  border-radius: var(--pill);
   overflow:hidden;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.50);
+  background: rgba(148,163,184,.18);
+  border: 1px solid rgba(148,163,184,.10);
 }
 .wfill{
   height:100%;
   width:50%;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-  transition: width .12s linear, filter .12s linear;
+  will-change: width;
 }
 .wpct{
-  margin-top:8px;
+  margin-top:6px;
   font-weight:950;
-  font-size:14px;
   text-align:right;
-  color: rgba(229,231,235,.95);
+  font-size:13px; /* bigger */
+  color: rgba(229,231,235,.92);
 }
 
-/* ---------------- Playfield ---------------- */
-#playfieldWrap{
-  position:fixed;
-  inset:0;
-  z-index:10;
-  padding:
-    calc(var(--sat) + 8px) calc(var(--sar) + 8px)
-    calc(var(--sab) + 8px) calc(var(--sal) + 8px);
-}
-
-#playfield{
-  position:absolute;
-  inset:0;
-  /* keep a breathing room at top for HUD (engine already avoids it, CSS helps for shock fx area) */
-  padding-top: calc(var(--hud-top-h) + var(--hud-mid-h) + 14px);
-  padding-left: var(--pf-pad);
-  padding-right: var(--pf-pad);
-  padding-bottom: calc(var(--pf-pad) + 10px);
-}
-
-/* layers are where targets are appended */
-.layer{
-  position:absolute;
-  inset:0;
-  pointer-events:auto;
-}
-
-/* Cardboard split */
-#cbWrap{ position:absolute; inset:0; }
-#cbPlayfield{
-  position:absolute; inset:0;
-}
-#hydration-layerL, #hydration-layerR{
-  position:absolute; top:0; bottom:0;
-  width:50%;
-}
-#hydration-layerL{ left:0; }
-#hydration-layerR{ right:0; }
-
-/* For cardboard, shrink HUD + increase safe top slightly */
-body.cardboard #hud{
-  padding: calc(8px + var(--sat)) calc(10px + var(--sar)) 8px calc(10px + var(--sal));
-}
-body.cardboard .chip{ padding:8px 10px; font-size:12px; }
-body.cardboard .quest{ padding:10px; }
-body.cardboard .waterpanel{ padding:10px; }
-
-/* ---------------- view modes ---------------- */
-body.view-pc  { --hud-top-h: 72px; --hud-mid-h: 150px; }
-body.view-mobile{ --hud-top-h: 86px; --hud-mid-h: 168px; }
-body.view-cvr { --hud-top-h: 86px; --hud-mid-h: 168px; }
-body.view-vr  { --hud-top-h: 70px; --hud-mid-h: 150px; }
-
-/* In cVR strict, we want shooting via crosshair (vr-ui.js).
-   Best practice: disable pointer hits on targets so kids don't have to tap exact emoji. */
-body.view-cvr .hvr-target{
-  pointer-events:none;
-}
-
-/* But still allow tapping the playfield to shoot (vr-ui crosshair uses tap-to-shoot) */
-body.view-cvr #playfield, body.view-cvr .layer{
-  pointer-events:none;
-}
-
-/* ---------------- Overlays ---------------- */
+/* -------- Overlays -------- */
 .overlay{
   position:fixed;
   inset:0;
-  z-index:50;
+  z-index: 120;
   display:grid;
   place-items:center;
-  padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-  background: rgba(2,6,23,.70);
-  backdrop-filter: blur(10px);
+  padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
+  background: rgba(0,0,0,.48);
+  backdrop-filter: blur(6px);
 }
-
-.overlay.hide{
-  opacity:0;
-  transform: scale(.98);
-  transition: opacity .18s ease, transform .18s ease;
-}
+.overlay[hidden]{ display:none !important; }
 
 .overlay-card{
-  width: min(520px, 100%);
-  border-radius: 24px;
+  width:min(720px, 100%);
+  border-radius: 22px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.78);
-  box-shadow: 0 24px 90px rgba(0,0,0,.58);
+  background: rgba(2,6,23,.82);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
   padding: 16px;
 }
-.overlay-card.wide{ width: min(860px, 100%); }
+.overlay-card.wide{ width:min(860px, 100%); }
 
 .ov-title{
   font-weight:950;
-  font-size:18px;
   letter-spacing:.2px;
+  font-size:18px;
 }
 .ov-sub{
-  margin-top:6px;
   color: rgba(148,163,184,.95);
+  margin-top:6px;
   font-size:13px;
-  line-height:1.35;
 }
 
 .ov-row{
-  margin-top:12px;
   display:flex;
-  flex-wrap:wrap;
   gap:10px;
+  flex-wrap:wrap;
+  margin-top:12px;
 }
-
 .btn{
+  pointer-events:auto;
   border-radius: 16px;
   border:1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.72);
   color: rgba(229,231,235,.95);
   padding: 10px 12px;
-  font-weight:950;
+  font-weight:900;
   cursor:pointer;
-  min-height: var(--tap);
 }
 .btn.primary{
   background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.30);
+  border-color: rgba(34,197,94,.28);
 }
-.btn.ghost{ background: transparent; }
+.btn.ghost{
+  background: transparent;
+}
 
 .ov-hint{
   margin-top:10px;
-  color: rgba(148,163,184,.95);
   font-size:12px;
+  color: rgba(148,163,184,.95);
   line-height:1.35;
 }
 
+/* startOverlay hide helper */
+#startOverlay.hide{ display:none !important; }
+
+/* -------- Result summary grid -------- */
 .res-grid{
-  margin-top:12px;
+  margin-top:10px;
   display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap:10px;
+  gap:8px;
+  grid-template-columns: repeat(3, minmax(0,1fr));
 }
 @media (max-width:720px){
-  .res-grid{ grid-template-columns: repeat(2, 1fr); }
+  .res-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 .res-item{
-  border-radius: 16px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.52);
-  padding:10px;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
-.res-item b{
-  display:block;
-  margin-top:4px;
-  color: rgba(229,231,235,.95);
-  font-weight:950;
-  font-size:14px;
-}
-.res-note{
-  margin-top:12px;
   border-radius: 16px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.40);
-  padding:12px;
+  padding: 10px;
+  background: rgba(15,23,42,.55);
+  color: rgba(229,231,235,.92);
 }
-.tier{
-  font-weight:950;
-  color: rgba(229,231,235,.95);
-}
+.res-note{ margin-top:10px; }
+.tier{ font-weight:950; color: rgba(34,197,94,.95); }
+
 .tips{
-  margin:10px 0 0 0;
-  white-space:pre-wrap;
-  color: rgba(229,231,235,.90);
-  font-size:12px;
-  line-height:1.35;
+  white-space: pre-wrap;
+  margin:10px 0 0;
+  padding: 10px;
+  border-radius: 16px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.55);
+  color: rgba(229,231,235,.9);
+  font-size: 12px;
+  line-height: 1.35;
 }
-.next{
-  margin-top:8px;
-  color: rgba(148,163,184,.95);
-  font-size:12px;
-}
-.next b{ color: rgba(229,231,235,.95); }
+.next{ margin-top:8px; color: rgba(229,231,235,.92); }
 
-/* ---------------- FX ---------------- */
-/* Generic hit pulse */
-body.hha-hitfx #hud .chip,
-body.hha-hitfx .quest,
-body.hha-hitfx .waterpanel{
-  filter: brightness(1.07) saturate(1.05);
-}
-
-/* Storm end window: blink + subtle shake */
-body.hha-endfx #hud{
-  animation: hhaBlink .34s linear infinite;
-}
-@keyframes hhaBlink{
-  0%{ filter:brightness(1.0); }
-  50%{ filter:brightness(1.12); }
-  100%{ filter:brightness(1.0); }
-}
-body.hha-endfx #playfieldWrap{
+/* -------- FX hooks from hydration.safe.js -------- */
+body.hha-endfx #playfield{
   animation: hhaShake .22s linear infinite;
 }
 @keyframes hhaShake{
   0%{ transform: translate(0,0); }
-  25%{ transform: translate(0.6px,-0.4px); }
-  50%{ transform: translate(-0.4px,0.6px); }
-  75%{ transform: translate(0.5px,0.4px); }
+  25%{ transform: translate(1px,-1px); }
+  50%{ transform: translate(-1px,1px); }
+  75%{ transform: translate(1px,1px); }
   100%{ transform: translate(0,0); }
 }
-
-/* Boss window: red/purple glow */
-body.hha-bossfx #hud .chip.storm{
-  border-color: rgba(239,68,68,.32);
-  background: rgba(239,68,68,.12);
-  box-shadow: 0 0 0 1px rgba(239,68,68,.06), 0 0 18px rgba(239,68,68,.16);
+body.hha-bossfx #playfield{
+  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset, 0 24px 90px rgba(239,68,68,.10);
 }
 
-/* Shockwave element (spawned by engine) */
+/* -------- Cardboard split -------- */
+body.cardboard #hydration-layer{ display:none !important; }
+#cbWrap{ position:absolute; inset:0; }
+#cbPlayfield{
+  position:absolute;
+  inset:0;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  padding:10px;
+}
+body.cardboard #cbWrap{ display:block; }
+body.cardboard #cbWrap[hidden]{ display:block !important; }
+
+/* -------- Shock element -------- */
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
   top: var(--y, 50%);
-  transform: translate(-50%,-50%);
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  border: 2px solid rgba(239,68,68,.45);
-  box-shadow: 0 0 18px rgba(239,68,68,.18);
-  pointer-events:none;
-  animation: hhaShock .50s ease-out forwards;
+  transform: translate(-50%,-50%);
+  border: 2px solid rgba(239,68,68,.55);
+  box-shadow: 0 0 30px rgba(239,68,68,.18);
+  animation: shock .5s ease-out forwards;
 }
-@keyframes hhaShock{
-  0%{ opacity:1; transform: translate(-50%,-50%) scale(0.2); }
-  100%{ opacity:0; transform: translate(-50%,-50%) scale(8.0); }
+@keyframes shock{
+  from{ opacity:1; transform: translate(-50%,-50%) scale(1); }
+  to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
 }
 
-/* Reduce motion (accessibility) */
-@media (prefers-reduced-motion: reduce){
-  *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+/* Targets should be clickable (engine attaches to .hvr-target) */
+.hvr-target{ pointer-events:auto; }
+
+/* Optional: view tweaks */
+body.view-cvr #hud{ /* keep HUD readable in cVR */
+  /* no-op now, keep hook */
 }
