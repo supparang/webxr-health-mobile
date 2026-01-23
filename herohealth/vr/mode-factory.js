@@ -3,8 +3,9 @@
 // ✅ Deterministic RNG by seed
 // ✅ Tap/click hit
 // ✅ Crosshair shoot hit via event: hha:shoot {x,y,lockPx,source}
-// ✅ Safe spawn rect via CSS vars:
-//    --plate-top-safe --plate-bottom-safe --plate-left-safe --plate-right-safe
+// ✅ Safe spawn rect via CSS vars with prefix:
+//    --{prefix}-top-safe --{prefix}-bottom-safe --{prefix}-left-safe --{prefix}-right-safe
+// ✅ NEW: safeVarPrefix (default 'plate')
 // ✅ NEW: decorateTarget(el, target) callback
 
 'use strict';
@@ -24,12 +25,13 @@ function seededRng(seed){
 
 function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-function readSafeVars(){
+function readSafeVars(prefix){
   const cs = getComputedStyle(DOC.documentElement);
-  const top = parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
-  const bottom = parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
-  const left = parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
-  const right = parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
+  const p = String(prefix||'plate').trim() || 'plate';
+  const top = parseFloat(cs.getPropertyValue(`--${p}-top-safe`)) || 0;
+  const bottom = parseFloat(cs.getPropertyValue(`--${p}-bottom-safe`)) || 0;
+  const left = parseFloat(cs.getPropertyValue(`--${p}-left-safe`)) || 0;
+  const right = parseFloat(cs.getPropertyValue(`--${p}-right-safe`)) || 0;
   return { top, bottom, left, right };
 }
 
@@ -47,12 +49,18 @@ function pickWeighted(rng, arr){
 export function boot({
   mount,
   seed = Date.now(),
+
+  safeVarPrefix = 'plate', // ✅ NEW
+
   spawnRate = 900,
   sizeRange = [44,64],
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
+
   onHit = ()=>{},
   onExpire = ()=>{},
+
   decorateTarget = null,
+
   cooldownMs = 90,
   lockPxDefault = 28,
 }){
@@ -69,7 +77,7 @@ export function boot({
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
-    const safe = readSafeVars();
+    const safe = readSafeVars(safeVarPrefix);
     const left = r.left + safe.left;
     const top = r.top + safe.top;
     const right = r.right - safe.right;
@@ -126,7 +134,7 @@ export function boot({
     const kind = (chosen.kind || 'good');
 
     const el = DOC.createElement('div');
-    el.className = 'plateTarget';
+    el.className = 'plateTarget'; // class เดิมเพื่อใช้ชุด CSS/เอฟเฟกต์ร่วมกันได้
     el.dataset.kind = kind;
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
@@ -141,14 +149,11 @@ export function boot({
       ttlMs: kind === 'junk' ? 1700 : (kind === 'star' ? 2200 : (kind === 'shield' ? 2400 : 2100)),
       groupIndex: Math.floor(rng()*5),
       size,
-      rng, // deterministic decoration
+      rng,
     };
     el.__hhaTarget = target;
 
-    // Allow game to decorate target (emoji/icon/etc)
-    try{
-      if(typeof decorateTarget === 'function') decorateTarget(el, target);
-    }catch{}
+    try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
