@@ -1,7 +1,11 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION, PATCHED)
+   Balanced Plate VR — UI + FX (PRODUCTION + PATCH)
    HHA Standard
+   ✅ Targets spawn via #plate-layer (absolute)
+   ✅ Supports decorateTarget() : .tEmoji + .tBadge
+   ✅ Safe zones: --plate-*-safe used by mode-factory.js
+   ✅ view-cvr: disable pointer events on targets (shoot only)
 ========================================================= */
 
 :root{
@@ -11,6 +15,7 @@
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
+  --stroke2:rgba(148,163,184,.28);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
@@ -24,27 +29,25 @@
   --radius:18px;
   --pill:999px;
 
-  /* iOS safe area */
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* -------------------------------------------------------
-     Spawn safe-zones (IMPORTANT)
-     mode-factory.js reads:
-       --plate-top-safe, --plate-bottom-safe, --plate-left-safe, --plate-right-safe
-     These are "padding" inside playfield to avoid HUD/VRUI.
-     JS (A3) will measure HUD and override these vars for accuracy.
-  ------------------------------------------------------- */
-  --plate-top-safe: calc(var(--sat) + 150px);     /* default HUD height reserve */
-  --plate-bottom-safe: calc(var(--sab) + 110px);  /* default bottom buttons reserve */
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
+  /* HUD sizing (used to reserve spawn space) */
+  --hud-top: calc(var(--sat) + 10px);
+  --hud-side: 10px;
 
-  /* target sizing */
-  --t-min: 52px;
-  --t-max: 74px;
+  /* Spawn safe vars consumed by mode-factory.js */
+  --plate-top-safe: 132px;     /* default: avoid hud row + quest card header */
+  --plate-bottom-safe: 92px;   /* default: avoid bottom buttons / safe area */
+  --plate-left-safe: 10px;
+  --plate-right-safe: 10px;
+
+  /* Target tuning */
+  --t-font: 30px;
+  --t-badge: 14px;
 }
 
 /* ---------------------------------------------------------
@@ -62,9 +65,17 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
+body{
+  padding:0;
+}
+
+/* ---------------------------------------------------------
+   App wrapper
+--------------------------------------------------------- */
 #app{
-  position:fixed;
-  inset:0;
+  position:relative;
+  width:100%;
+  height:100%;
   overflow:hidden;
 }
 
@@ -77,19 +88,25 @@ html,body{
   z-index:10;
   pointer-events:auto;
   touch-action:none;
+
+  /* allow safe zones without JS */
+  padding-top: calc(var(--plate-top-safe) + var(--sat));
+  padding-bottom: calc(var(--plate-bottom-safe) + var(--sab));
+  padding-left: calc(var(--plate-left-safe) + var(--sal));
+  padding-right: calc(var(--plate-right-safe) + var(--sar));
 }
 
-/* ✅ CRITICAL: position absolute so left/top works */
+/* IMPORTANT: targets positioned with left/top in JS */
 .plateTarget{
   position:absolute;
   display:grid;
   place-items:center;
-
   border-radius:999px;
-  font-size:30px;
+  font-size:var(--t-font);
   font-weight:900;
   user-select:none;
   cursor:pointer;
+  outline:none;
 
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
@@ -101,9 +118,7 @@ html,body{
     inset 0 1px 0 rgba(255,255,255,.08);
 
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
-
-  /* make sure tap feels good */
-  -webkit-tap-highlight-color: transparent;
+  will-change: transform, opacity;
 }
 
 .plateTarget[data-kind="good"]{
@@ -121,21 +136,60 @@ html,body{
   animation-duration:1.2s;
 }
 
-.plateTarget:active{
-  transform: translate(-50%,-50%) scale(.96);
+/* decorateTarget() content */
+.plateTarget .tEmoji{
+  display:block;
+  line-height:1;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
 }
 
+.plateTarget .tBadge{
+  position:absolute;
+  right:-4px;
+  top:-4px;
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  font-size:var(--t-badge);
+  font-weight:1000;
+  background:rgba(15,23,42,.82);
+  border:1px solid rgba(148,163,184,.26);
+  box-shadow:0 12px 28px rgba(0,0,0,.32);
+}
+
+.plateTarget[data-kind="good"] .tBadge{
+  color:rgba(34,197,94,.95);
+  border-color:rgba(34,197,94,.35);
+}
+.plateTarget[data-kind="junk"] .tBadge{
+  color:rgba(239,68,68,.95);
+  border-color:rgba(239,68,68,.35);
+}
+
+/* cVR strict: shoot only (no tap) */
+body.view-cvr #plate-layer{
+  pointer-events:none;
+}
+body.view-cvr .plateTarget{
+  pointer-events:none;
+}
+
+/* ---------------------------------------------------------
+   Animations
+--------------------------------------------------------- */
 @keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
-  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
+  0%{ transform:scale(.85); opacity:0 }
+  100%{ transform:scale(1); opacity:1 }
 }
 
 @keyframes wobble{
-  0%{ transform:translate(-50%,-50%) rotate(0deg) }
-  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform:translate(-50%,-50%) rotate(0deg) }
+  0%{ transform:rotate(0deg) }
+  25%{ transform:rotate(1.2deg) }
+  50%{ transform:rotate(-1.2deg) }
+  75%{ transform:rotate(.8deg) }
+  100%{ transform:rotate(0deg) }
 }
 
 /* ---------------------------------------------------------
@@ -143,60 +197,67 @@ html,body{
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  top:0;
-  left:0;
-  right:0;
   z-index:40;
+  inset:0;
   pointer-events:none;
-  padding:
-    calc(var(--sat) + 10px)
-    calc(var(--sar) + 12px)
-    10px
-    calc(var(--sal) + 12px);
 }
 
 .hudRow{
+  position:absolute;
+  top: var(--hud-top);
+  left: calc(var(--hud-side) + var(--sal));
+  right: calc(var(--hud-side) + var(--sar));
   display:flex;
   gap:10px;
-  align-items:center;
+  align-items:stretch;
   justify-content:flex-start;
-  margin-bottom:10px;
+  pointer-events:none;
 }
 
 .chip{
   pointer-events:none;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  padding:8px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.20);
-  background:rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
+  padding:10px 12px;
+  border-radius:16px;
+  border:1px solid var(--stroke);
+  background:rgba(2,6,23,.72);
+  backdrop-filter:blur(10px);
+  box-shadow:0 18px 52px rgba(0,0,0,.28);
   min-width:92px;
 }
-
 .chip .lbl{
-  font-size:10px;
-  letter-spacing:.08em;
-  color:var(--muted);
+  display:block;
+  font-size:11px;
   font-weight:900;
+  letter-spacing:.04em;
+  color:var(--muted);
 }
-
 .chip .val{
-  font-size:16px;
+  display:block;
+  font-size:18px;
   font-weight:1000;
+  margin-top:2px;
 }
 
-#questCard{
-  pointer-events:none;
+.chip.score .val{ color:rgba(34,197,94,.95); }
+.chip.time  .val{ color:rgba(34,211,238,.95); }
+.chip.combo .val{ color:rgba(167,139,250,.95); }
+
+/* Quest card */
+.card{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
+}
+
+#questCard{
+  position:absolute;
+  top: calc(var(--hud-top) + 62px);
+  left: calc(var(--hud-side) + var(--sal));
+  width: min(520px, calc(100vw - 20px - var(--sal) - var(--sar)));
   padding:12px 12px 10px;
-  max-width:min(560px, calc(100vw - 24px));
+  pointer-events:none;
 }
 
 .cardTitle{
@@ -204,28 +265,28 @@ html,body{
   align-items:flex-start;
   justify-content:space-between;
   gap:10px;
-  margin-bottom:8px;
+  margin-bottom:10px;
 }
-
 .cardTitle .t{
+  font-size:14px;
   font-weight:1000;
 }
-
 .cardTitle .hint{
-  color:var(--muted);
   font-size:12px;
+  color:var(--muted);
   font-weight:800;
+  opacity:.95;
+  text-align:right;
 }
 
 .qItem{
   display:flex;
-  gap:10px;
+  gap:12px;
   align-items:center;
-  justify-content:space-between;
-  padding:10px;
-  border-radius:14px;
+  padding:10px 10px;
+  border-radius:16px;
   border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.45);
+  background:rgba(15,23,42,.46);
   margin-top:8px;
 }
 
@@ -234,27 +295,27 @@ html,body{
   font-size:13px;
 }
 .qText .sub{
+  font-weight:800;
   font-size:12px;
   color:var(--muted);
-  font-weight:800;
+  margin-top:2px;
 }
 
 .qProg{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  min-width:160px;
-  align-items:flex-end;
+  margin-left:auto;
+  width: 190px;
+  min-width: 160px;
 }
 
 .qNums{
+  font-weight:1000;
   font-size:12px;
-  color:var(--muted);
-  font-weight:900;
+  color:rgba(226,232,240,.92);
+  text-align:right;
+  margin-bottom:6px;
 }
 
 .bar{
-  width:160px;
   height:10px;
   border-radius:999px;
   background:rgba(148,163,184,.12);
@@ -266,6 +327,7 @@ html,body{
   width:0%;
   background:var(--accent);
   transition:width .25s ease;
+  border-radius:999px;
 }
 
 /* ---------------------------------------------------------
@@ -273,36 +335,40 @@ html,body{
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
+  z-index:60;
   left:50%;
-  bottom:calc(var(--sab) + 86px);
-  transform:translateX(-50%) translateY(12px);
-  z-index:70;
+  bottom: calc(14px + var(--sab));
+  transform:translateX(-50%) translateY(10px);
+  width:min(520px, calc(100vw - 24px));
   opacity:0;
   pointer-events:none;
   transition:opacity .18s ease, transform .18s ease;
 }
+
 #coachCard.show{
   opacity:1;
-  transform:translateX(-50%) translateY(0);
+  transform:translateX(-50%) translateY(0px);
 }
+
 #coachCard .inner{
-  max-width:min(680px, calc(100vw - 24px));
+  background:rgba(2,6,23,.74);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius:22px;
+  box-shadow:0 22px 64px rgba(0,0,0,.36);
+  backdrop-filter:blur(10px);
   padding:12px 14px;
-  border-radius:18px;
-  background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow:0 18px 60px rgba(0,0,0,.32);
-  backdrop-filter: blur(10px);
 }
+
 #coachMsg{
-  font-weight:1000;
+  font-weight:950;
+  font-size:14px;
   line-height:1.25;
 }
 #coachMeta{
   margin-top:6px;
   font-size:12px;
-  color:var(--muted);
   font-weight:900;
+  color:var(--muted);
 }
 
 /* ---------------------------------------------------------
@@ -344,17 +410,14 @@ html,body{
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index:80;
+  z-index:90;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:
-    calc(var(--sat) + 16px)
-    calc(var(--sar) + 16px)
-    calc(var(--sab) + 16px)
-    calc(var(--sal) + 16px);
+  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
   background:rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
+  backdrop-filter:blur(10px);
+  pointer-events:auto;
 }
 
 #endOverlay[aria-hidden="true"]{
@@ -362,72 +425,74 @@ html,body{
 }
 
 .endPanel{
-  width:min(760px, 100%);
+  width:min(720px, 100%);
   background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.22);
+  border:1px solid rgba(148,163,184,.20);
   border-radius:24px;
-  box-shadow:0 22px 90px rgba(0,0,0,.40);
-  padding:18px;
+  box-shadow:0 26px 90px rgba(0,0,0,.42);
+  padding:16px;
 }
 
 .endTitle{
   display:flex;
-  align-items:flex-end;
+  align-items:center;
   justify-content:space-between;
-  gap:12px;
-  margin-bottom:12px;
+  gap:10px;
 }
+
 .endTitle h2{
   margin:0;
-  font-size:22px;
-  font-weight:1000;
+  font-size:20px;
+  font-weight:1100;
 }
 .endTitle .tag{
-  font-size:12px;
-  font-weight:1000;
   padding:6px 10px;
   border-radius:999px;
+  font-weight:1000;
+  font-size:12px;
   border:1px solid rgba(148,163,184,.22);
   background:rgba(15,23,42,.55);
 }
 
 .endGrid{
+  margin-top:12px;
   display:grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap:10px;
-  margin:12px 0 16px;
 }
 .kpi{
-  padding:10px 12px;
-  border-radius:16px;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.45);
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(15,23,42,.46);
+  border-radius:18px;
+  padding:12px;
 }
 .kpi .k{
   font-size:12px;
-  color:var(--muted);
   font-weight:900;
+  color:var(--muted);
 }
 .kpi .v{
   margin-top:4px;
   font-size:18px;
-  font-weight:1000;
+  font-weight:1100;
 }
 
 .endBtns{
+  margin-top:14px;
   display:flex;
   gap:10px;
   justify-content:flex-end;
   flex-wrap:wrap;
 }
 
+/* Buttons */
 .btn{
   appearance:none;
   border:none;
   border-radius:999px;
   padding:10px 14px;
   font-weight:1000;
-  font-size:13px;
+  font-size:12px;
   cursor:pointer;
   color:var(--text);
   background:rgba(2,6,23,.70);
@@ -438,23 +503,37 @@ html,body{
   background:rgba(34,197,94,.18);
   border-color:rgba(34,197,94,.35);
 }
-.btn.warn{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.35);
-}
 
 /* ---------------------------------------------------------
    Responsive tuning
 --------------------------------------------------------- */
 @media (max-width:900px){
-  .plateTarget{ font-size:26px; }
-  .qProg{ min-width:140px; }
-  .bar{ width:140px; }
-  .endGrid{ grid-template-columns: repeat(2, 1fr); }
+  :root{
+    --t-font: 28px;
+    --plate-top-safe: 146px;   /* on small screens HUD stacks tighter */
+    --plate-bottom-safe: 98px;
+  }
+  .chip{ min-width:88px; padding:9px 10px; }
+  .chip .val{ font-size:17px; }
+  #questCard{ width: min(560px, calc(100vw - 16px - var(--sal) - var(--sar))); }
+  .qProg{ width: 170px; }
+  .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
-@media (max-width:420px){
+@media (max-width:520px){
+  :root{
+    --hud-side: 8px;
+    --t-font: 27px;
+    --t-badge: 13px;
+    --plate-top-safe: 162px;
+  }
   .hudRow{ gap:8px; }
-  .chip{ min-width:86px; padding:8px 9px; }
-  .chip .val{ font-size:15px; }
+  .chip{ min-width:84px; }
+  .qProg{ width: 150px; min-width: 140px; }
+}
+
+/* view-vr: give more safe top so targets won't collide with VR buttons */
+body.view-vr{
+  --plate-top-safe: 170px;
+  --plate-bottom-safe: 110px;
 }
