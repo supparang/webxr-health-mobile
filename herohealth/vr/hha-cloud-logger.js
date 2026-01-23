@@ -1,46 +1,52 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (LATEST, multi-game, flush-hardened)
-// ✅ Listens: hha:end -> enqueue + flush session summary
-// ✅ Queue persists localStorage (offline-safe), oldest-first sending
-// ✅ sendBeacon first + fetch keepalive fallback
-// ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload, online
-// ✅ FIX: gameMode no longer hardcoded; auto-detect from URL/path OR ?gameMode=
-// ✅ Exposes: window.HHA_LOGGER = { enabled, enqueue, flush, getQueue }
+// HHA Cloud Logger — PRODUCTION (flush-hardened, universal)
+// ✅ Listens: hha:end  -> sends session summary JSON (queue + retry)
+// ✅ Optional: hha:log -> enqueue event objects (kind:'event')
+// ✅ Offline-safe queue persisted in localStorage
+// ✅ keepalive + sendBeacon fallback (unload-friendly)
+// ✅ Flush triggers: hha:flush, pagehide, visibilitychange(hidden), beforeunload, online
+// ✅ FIX: gameMode is NOT hardcoded (auto from detail/query)
+// ------------------------------------------------------------
 
 (function(){
   'use strict';
-
   const WIN = window;
   const DOC = document;
   if(!DOC || WIN.__HHA_CLOUD_LOGGER__) return;
   WIN.__HHA_CLOUD_LOGGER__ = true;
 
-  const qs = (k,d=null)=>{
-    try{ return new URL(location.href).searchParams.get(k) ?? d; }
-    catch(_){ return d; }
-  };
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  const nowIso = ()=> new Date().toISOString();
 
-  // Endpoint: ?log=https://script.google.com/macros/s/....
-  const ENDPOINT = (qs('log','')||'').trim();
+  // Endpoint priority:
+  // 1) ?log=...
+  // 2) window.HHA_LOG_ENDPOINT
+  // 3) data-log on <html> (rare, optional)
+  const ENDPOINT = (qs('log','') || WIN.HHA_LOG_ENDPOINT || DOC.documentElement?.dataset?.log || '').trim();
+  const ENABLED = !!ENDPOINT;
 
   const LS_KEY = 'HHA_LOG_QUEUE_V2';
-  const LS_LAST_SENT_SIG = 'HHA_LOG_LAST_SENT_SIG_V1';
+  const MAX_KEEP = 120;
 
-  function nowIso(){ return new Date().toISOString(); }
-
-  function safeJsonParse(s, fallback){
-    try{ return JSON.parse(s); }catch(_){ return fallback; }
-  }
   function loadQ(){
-    try{ return safeJsonParse(localStorage.getItem(LS_KEY) || '[]', []) || []; }
-    catch(_){ return []; }
+    try{
+      const arr = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      return Array.isArray(arr) ? arr : [];
+    }catch(_){ return []; }
   }
   function saveQ(q){
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(q.slice(-120))); }catch(_){}
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(q.slice(-MAX_KEEP))); }catch(_){}
   }
 
   let queue = loadQ();
   let flushing = false;
+
+  function detectDevice(){
+    const view = String(qs('view','')||'').toLowerCase();
+    if(view) return view;
+    const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints|0) > 0;
+    return isTouch ? 'mobile' : 'pc';
+  }
 
   function payloadBase(){
     return {
@@ -49,44 +55,21 @@
       ua: navigator.userAgent || '',
       projectTag: qs('projectTag','HeroHealth'),
       app: 'HeroHealth',
-      tzOffsetMin: (new Date()).getTimezoneOffset()
+      device: detectDevice(),
+      ts: String(qs('ts','') || ''),
+      seed: String(qs('seed','') || ''),
+      sessionId: String(qs('sessionId', qs('studentKey','')) || ''),
+      studyId: String(qs('studyId','') || ''),
+      phase: String(qs('phase','') || ''),
+      conditionGroup: String(qs('conditionGroup','') || ''),
+      runMode: String(qs('run', qs('runMode','play')) || 'play'),
+      diff: String(qs('diff','normal') || 'normal'),
+      durationPlannedSec: Number(qs('time', qs('durationPlannedSec','0')) || 0) || 0,
+      hub: String(qs('hub','') || '')
     };
   }
 
-  function detectGameMode(){
-    const explicit =
-      (qs('gameMode','')||qs('game','')||qs('mode','')||'').trim().toLowerCase();
-    if (explicit) return explicit;
-
-    const p = (location.pathname || '').toLowerCase();
-
-    if (p.includes('hydration')) return 'hydration';
-    if (p.includes('groups'))    return 'groups';
-    if (p.includes('plate'))     return 'plate';
-    if (p.includes('goodjunk'))  return 'goodjunk';
-    if (p.includes('hygiene'))   return 'hygiene';
-    if (p.includes('fitness'))   return 'fitness';
-
-    // fallback: try folder name after /herohealth/
-    const m = p.match(/\/herohealth\/([^\/]+)\//);
-    if (m && m[1]) return m[1];
-
-    return 'unknown';
-  }
-
-  function detectDeviceView(){
-    const v = (qs('view','')||'').toLowerCase();
-    if (v) return v;
-    // best-effort class hint
-    try{
-      const b = DOC.body;
-      if (b.classList.contains('view-cvr')) return 'cvr';
-      if (b.classList.contains('cardboard')) return 'cardboard';
-      if (b.classList.contains('view-mobile')) return 'mobile';
-      if (b.classList.contains('view-pc')) return 'pc';
-    }catch(_){}
-    return '';
-  }
+  function safeNum(v){ v=Number(v); return Number.isFinite(v)?v:0; }
 
   function enqueue(obj){
     queue.push(obj);
@@ -97,13 +80,12 @@
     try{
       const body = JSON.stringify(obj);
 
-      // Prefer sendBeacon (unload-safe)
+      // sendBeacon (best for unload)
       if(navigator.sendBeacon){
         const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if(ok) return true;
       }
 
-      // Fallback fetch
       const res = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
@@ -111,7 +93,6 @@
         keepalive:true,
         mode:'cors'
       });
-
       return !!res && res.ok;
     }catch(_){
       return false;
@@ -120,12 +101,12 @@
 
   async function flush(){
     if(flushing) return;
-    if(!ENDPOINT) return;
+    if(!ENABLED) return;
     if(queue.length === 0) return;
 
     flushing = true;
 
-    const q = queue.slice(); // snapshot
+    const q = queue.slice();
     let sent = 0;
 
     for(let i=0;i<q.length;i++){
@@ -142,90 +123,86 @@
     flushing = false;
   }
 
-  // --- dedupe (กัน hha:end ซ้ำ) ---
-  function makeSig(d){
-    const sid = String(d?.sessionId || qs('sessionId','') || qs('studentKey','') || '');
-    const gm  = String(d?.gameMode || detectGameMode());
-    const sc  = String(d?.scoreFinal ?? d?.score ?? '');
-    const ms  = String(d?.misses ?? d?.miss ?? '');
-    const t   = String(d?.durationPlayedSec ?? d?.durationPlannedSec ?? qs('time','') ?? '');
-    return [gm,sid,sc,ms,t].join('|');
-  }
-  function recentlySent(sig){
-    try{
-      const prev = safeJsonParse(localStorage.getItem(LS_LAST_SENT_SIG) || 'null', null);
-      if(!prev || !prev.sig) return false;
-      const dt = Date.now() - (prev.at || 0);
-      return (prev.sig === sig && dt < 2200);
-    }catch(_){ return false; }
-  }
-  function rememberSent(sig){
-    try{
-      localStorage.setItem(LS_LAST_SENT_SIG, JSON.stringify({ sig, at: Date.now() }));
-    }catch(_){}
+  // ---- Main: session end ----
+  function inferGameMode(detail){
+    // priority: detail.gameMode / detail.game / query gameMode / query game / fallback
+    const d = detail || {};
+    return String(
+      d.gameMode ||
+      d.game ||
+      qs('gameMode', qs('game','')) ||
+      qs('mode','') ||
+      'unknown'
+    );
   }
 
-  // Listen session end summary
   function onEnd(ev){
     try{
       const d = ev?.detail || {};
-      const gm = String(d.gameMode || detectGameMode() || 'unknown');
+      const base = payloadBase();
 
-      const pack = Object.assign(payloadBase(), {
+      const pack = Object.assign(base, {
         kind: 'session',
-        gameMode: gm,
+        gameMode: inferGameMode(d),
 
-        // common ctx passthrough (HHA Standard-ish)
-        runMode: d.runMode || qs('runMode', qs('run','play')),
-        diff: d.diff || qs('diff','normal'),
-        device: d.device || detectDeviceView(),
+        // common summary fields (keep universal)
+        durationPlayedSec: safeNum(d.durationPlayedSec || d.durationSec || 0),
+        scoreFinal: safeNum(d.scoreFinal || d.score || 0),
+        misses: safeNum(d.misses || 0),
+        grade: String(d.grade || '—'),
+        reason: String(d.reason || 'end'),
 
-        hub: d.hub || qs('hub',''),
-        phase: d.phase || qs('phase',''),
-        conditionGroup: d.conditionGroup || qs('conditionGroup',''),
-        studyId: d.studyId || qs('studyId',''),
-
-        sessionId: d.sessionId || qs('sessionId', qs('studentKey','')),
-        participantId: d.participantId || qs('participantId',''),
-
-        seed: d.seed || qs('seed',''),
-        durationPlannedSec: Number(d.durationPlannedSec || qs('time','0')) || 0,
-        durationPlayedSec: Number(d.durationPlayedSec || 0) || 0,
-
-        scoreFinal: Number(d.scoreFinal || d.score || 0) || 0,
-        misses: Number(d.misses || d.miss || 0) || 0,
-        grade: d.grade || '—',
-        reason: d.reason || 'end',
-
-        // keep full raw summary for research (สำคัญ)
-        summary: d
+        // allow extra fields through (but don't explode size)
+        // e.g., hydration: accuracyGoodPct, stormCycles, stormSuccess, bossClearCount, etc.
+        extra: (()=> {
+          const allow = [
+            'accuracyGoodPct','comboMax','streakMax','goalsCleared','goalsTotal',
+            'miniCleared','miniTotal','stormCycles','stormSuccess','stormRatePct',
+            'bossClearCount','stageCleared','kids','practiceSec',
+            'waterPct','waterZone'
+          ];
+          const ex = {};
+          for(const k of allow){
+            if(d[k] !== undefined) ex[k] = d[k];
+          }
+          return ex;
+        })()
       });
-
-      const sig = makeSig(pack);
-      if(recentlySent(sig)) return;
-      rememberSent(sig);
 
       enqueue(pack);
       flush(); // best-effort immediate
     }catch(_){}
   }
 
-  WIN.addEventListener('hha:end', onEnd, { passive:true });
-
-  // Optional: log events if you emit them (future-proof)
-  WIN.addEventListener('hha:event', (ev)=>{
+  // ---- Optional: event log ----
+  function onLog(ev){
     try{
       const d = ev?.detail || {};
-      const pack = Object.assign(payloadBase(), {
-        kind:'event',
-        gameMode: String(d.gameMode || detectGameMode() || 'unknown'),
-        sessionId: d.sessionId || qs('sessionId', qs('studentKey','')),
-        name: d.name || 'event',
-        data: d
+      const base = payloadBase();
+
+      const pack = Object.assign(base, {
+        kind: 'event',
+        gameMode: inferGameMode(d),
+        event: String(d.event || d.type || 'event'),
+        t: safeNum(d.t || performance.now()),
+        data: d.data || d
       });
+
       enqueue(pack);
+      flush();
     }catch(_){}
-  }, { passive:true });
+  }
+
+  // Public handle (used by engine "avoid duplicate send" checks)
+  WIN.HHA_LOGGER = {
+    enabled: ENABLED,
+    endpoint: ENDPOINT,
+    flush,
+    enqueue
+  };
+
+  WIN.addEventListener('hha:end', onEnd, { passive:true });
+  WIN.addEventListener('hha:log', onLog, { passive:true });
 
   // Manual flush hook
   WIN.addEventListener('hha:flush', ()=>flush(), { passive:true });
@@ -237,18 +214,10 @@
   }, { passive:true });
   WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
 
-  // When back online
+  // retry when back online
   WIN.addEventListener('online', ()=>flush(), { passive:true });
 
-  // periodic flush
+  // periodic flush (offline -> online scenarios)
   setInterval(()=>flush(), 3500);
-
-  // Expose controller
-  WIN.HHA_LOGGER = {
-    enabled: true,
-    enqueue,
-    flush,
-    getQueue: ()=> queue.slice()
-  };
 
 })();
