@@ -1,8 +1,11 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-GroupsVR UI (HHA Standard-ish) — Emoji Crisp Patch
-✅ Emoji render via data-emoji + ::before (centered, crisp)
-✅ Avoid filter/backdrop issues that dim emoji
-✅ Keep existing HUD/Quest/Power/Coach/Overlay styles
+GroupsVR UI (HHA Standard-ish)
+✅ HUD / Quest / Power / Coach
+✅ Targets via CSS vars --x --y --s
+✅ FINAL-8 onboarding
+✅ FINAL-9 target separation + banner
+✅ FINAL-10 mini hint
+✅ PATCH: emoji center + crisp (no dull blur/contrast)
 */
 
 :root{
@@ -31,7 +34,10 @@ html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-f
 
 .hidden{ display:none !important; }
 
-.xr-scene{ position:fixed; inset:0; z-index:0; }
+.xr-scene{
+  position:fixed; inset:0;
+  z-index:0;
+}
 
 .playLayer{
   position:fixed; inset:0;
@@ -51,6 +57,7 @@ html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-f
   z-index:80;
   pointer-events:none;
 }
+
 .hudLeft,.hudRight{ display:flex; gap:8px; flex-wrap:wrap; }
 .pill{
   pointer-events:none;
@@ -120,6 +127,8 @@ html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-f
   font-size:12px;
   color: rgba(229,231,235,.92);
 }
+
+/* mini urgent hint */
 body.mini-urgent .questTop .questCard:nth-child(2){
   box-shadow: 0 0 0 6px rgba(245,158,11,.12), 0 18px 40px rgba(0,0,0,.35);
 }
@@ -222,64 +231,53 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   padding: 10px 12px;
   font-weight: 900;
 }
-.btn-strong{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); }
-.btn-ghost{ background: rgba(2,6,23,.30); }
+.btn-strong{
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.35);
+}
+.btn-ghost{
+  background: rgba(2,6,23,.30);
+}
 
-/* =========================
-   TARGETS — Emoji Crisp
-   ========================= */
-
-/* target base */
+/* FINAL-9: target separation + EMOJI CRISP PATCH */
 .fg-target{
   position:absolute;
+  transform: translate(-50%,-50%) scale(var(--s,1));
   left: var(--x, 50vw);
   top:  var(--y, 50vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
+
   width: 92px;
   height: 92px;
   border-radius: 999px;
+
   display:flex;
   align-items:center;
   justify-content:center;
 
-  /* important: do NOT apply filter that dims emoji */
-  filter: none !important;
-  opacity: 1;
-  isolation: isolate;
+  /* ✅ emoji crisp */
+  line-height: 1;
+  font-size: 46px;
+  font-weight: 900;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  text-shadow: 0 2px 0 rgba(0,0,0,.22), 0 10px 22px rgba(0,0,0,.35);
+  transform-origin: center;
 
   user-select:none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
   border: 2px solid rgba(255,255,255,.12);
   background: rgba(15,23,42,.82);
   backdrop-filter: blur(6px);
 
-  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  /* ✅ keeps emoji vivid (avoid blending weirdness) */
+  isolation: isolate;
+  filter: none;
+  will-change: transform, opacity;
 }
 
-/* Emoji drawn via attribute so it stays centered & crisp */
-.fg-target::before{
-  content: attr(data-emoji);
-  display:block;
-  line-height: 1;
-  font-size: 44px; /* base */
-  transform: translateZ(0); /* crisp */
-  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji", system-ui;
-  text-shadow: 0 2px 8px rgba(0,0,0,.55);
-  filter: none !important;
-  opacity: 1;
-}
-
-/* scale emoji with --s (keep readable) */
-.fg-target{
-  --emojiScale: clamp(0.92, calc(var(--s,1) * 1.00), 1.18);
-}
-.fg-target::before{
-  transform: translateZ(0) scale(var(--emojiScale));
-}
-
-/* GOOD/WRONG/JUNK styling (no filter on parent) */
 .fg-good{
   border-color: rgba(34,197,94,.55);
   box-shadow: 0 0 0 6px rgba(34,197,94,.12), 0 12px 28px rgba(0,0,0,.35);
@@ -287,12 +285,14 @@ body.mini-urgent .questTop .questCard:nth-child(2){
 .fg-wrong{
   border-color: rgba(59,130,246,.55);
   box-shadow: 0 0 0 6px rgba(59,130,246,.12), 0 12px 28px rgba(0,0,0,.35);
-  /* removed: filter:saturate(...) to avoid dim emoji */
+  /* ❌ เดิมเคย filter:saturate(1.05) ทำให้ emoji “หม่น/ดับ” */
+  filter:none;
 }
 .fg-junk{
   border-color: rgba(239,68,68,.65);
   box-shadow: 0 0 0 7px rgba(239,68,68,.16), 0 12px 28px rgba(0,0,0,.35);
 }
+
 .fg-junk::after{
   content:"";
   position:absolute;
@@ -306,16 +306,15 @@ body.mini-urgent .questTop .questCard:nth-child(2){
       rgba(239,68,68,.95) 10px,
       rgba(239,68,68,.95) 14px);
   pointer-events:none;
-  z-index: -1;
 }
 
-/* animations */
+/* spawn/hit/out */
 .fg-target.spawn{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.82)); opacity:.0; }
 .fg-target:not(.spawn){ transition: transform .16s ease, opacity .16s ease; opacity:1; }
 .fg-target.hit{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.18)); opacity:0; }
 .fg-target.out{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.86)); opacity:0; }
 
-/* Banner */
+/* FINAL-9 banner */
 .bigBanner{
   position:fixed;
   left:50%;
@@ -344,11 +343,11 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   to  { transform: scale(1); opacity:1; }
 }
 
-/* onboarding */
+/* FINAL-8 onboarding */
 .overlay-onb{ z-index: 120; }
 .onbPanel{ max-width:520px; }
 
-/* mini start hint */
+/* FINAL-10 mini start hint */
 body.fx-mini .questTop .questCard{
   transform: translateY(-1px);
   box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 18px 40px rgba(0,0,0,.35);
