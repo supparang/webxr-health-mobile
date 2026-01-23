@@ -1,10 +1,11 @@
 // === vr-fitness/games/shadow-breaker/shadow-breaker.js ===
-// Shadow Breaker — Production v1.1.0
+// VR Fitness — Shadow Breaker (Production v1.1.0)
 // ✅ HeroHealth-like: hha:shoot support (crosshair/tap-to-shoot via vr-ui.js)
-// ✅ HHA events: hha:start / hha:time / hha:score / hha:coach / hha:end / hha:flush
-// ✅ Boss HUD bar + safe spawn + feedback class mapping fixed
+// ✅ HHA events: hha:start / hha:time / hha:score / hha:end / hha:flush / hha:coach
+// ✅ Boss HUD bar + safe spawn + feedback (matches CSS)
 // ✅ Pass-through: hub/view/seed/research/studyId/log etc.
-// ✅ Local session store + CSV download
+// ✅ Modes: play (no research form / no CSV) vs research (requires Student ID)
+// ✅ Local sessions log + CSV download
 
 'use strict';
 
@@ -18,12 +19,12 @@ function qs(k, d=null){ try{ return new URL(location.href).searchParams.get(k) ?
 function clamp(n,a,b){ n=+n; if(!Number.isFinite(n)) return a; return Math.max(a, Math.min(b,n)); }
 function sbEmit(name, detail = {}){ try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){} }
 
-const sbPhase   = (qs('phase','train')||'train').toLowerCase();
-const sbMode    = (qs('mode','timed')||'timed').toLowerCase();   // timed|endless
-const sbDiff    = (qs('diff','normal')||'normal').toLowerCase(); // easy|normal|hard
+const sbPhase = (qs('phase','train')||'train').toLowerCase();
+const sbMode  = (qs('mode','timed')||'timed').toLowerCase();     // timed | endless
+const sbDiff  = (qs('diff','normal')||'normal').toLowerCase();   // easy | normal | hard
 const sbTimeSec = (()=>{ const t=parseInt(qs('time','60'),10); return (Number.isFinite(t)&&t>=20&&t<=300)?t:60; })();
-const SB_SEED_RAW = (qs('seed','')||'').trim();
 
+const SB_SEED = (qs('seed','')||'').trim(); // keep for later expansion (seeded rng)
 const SB_IS_RESEARCH = (()=> {
   const r = (qs('research','')||'').toLowerCase();
   return r==='1' || r==='true' || r==='on' || !!qs('studyId','') || !!qs('log','');
@@ -31,7 +32,7 @@ const SB_IS_RESEARCH = (()=> {
 
 // ---------- DOM ----------
 const $  = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
+const $$ = (s) => document.querySelectorAll(s);
 
 const sbGameArea   = $('#gameArea') || $('#playArea') || $('#sbPlayArea');
 const sbFeedbackEl = $('#feedback') || $('#sbFeedback');
@@ -80,43 +81,28 @@ const sbBackHubBtn =
 const sbDownloadCsvBtn =
   $('#downloadCsvBtn') || $('#resDownloadCsvBtn');
 
+if(!sbGameArea){
+  console.warn('[SB] game area not found (#gameArea/#playArea/#sbPlayArea)');
+}
+
 // ---------- Device detect ----------
 function sbDetectDevice() {
   const ua = navigator.userAgent || '';
-  if (/Quest|Oculus|Vive|VR|WebXR/i.test(ua)) return 'vrHeadset';
+  if (/Quest|Oculus|Vive|VR/i.test(ua)) return 'vrHeadset';
   if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
   return 'pc';
 }
 
-// ---------- Seeded RNG (deterministic when seed exists + research) ----------
-function hash32(str){
-  let h = 2166136261 >>> 0;
-  for(let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-function makeRNG(seedStr){
-  // LCG
-  let x = (seedStr ? hash32(seedStr) : (Date.now()>>>0)) >>> 0;
-  return () => {
-    x = (Math.imul(1664525, x) + 1013904223) >>> 0;
-    return (x >>> 0) / 4294967296;
-  };
-}
-const sbRand = (SB_IS_RESEARCH && SB_SEED_RAW) ? makeRNG(SB_SEED_RAW) : Math.random;
-
 // ---------- Config ----------
 const sbDiffCfg = {
-  easy:   { spawnMs: 900, bossHp: 6,  lifeMs: 2400, bossLifeMs: 7000 },
-  normal: { spawnMs: 700, bossHp: 9,  lifeMs: 2300, bossLifeMs: 6500 },
-  hard:   { spawnMs: 520, bossHp: 12, lifeMs: 2150, bossLifeMs: 6200 },
+  easy:   { spawnMs: 900, bossHp: 6,  lifeMs: 2400 },
+  normal: { spawnMs: 700, bossHp: 9,  lifeMs: 2300 },
+  hard:   { spawnMs: 520, bossHp: 12, lifeMs: 2100 },
 };
 const sbCfg = sbDiffCfg[sbDiff] || sbDiffCfg.normal;
 
 // ---------- Boss & emojis ----------
-const SB_NORMAL_EMOJIS = ['🎯','💥','⭐','⚡','🔥','🥎','🌀','🥊','🧊','🌪️'];
+const SB_NORMAL_EMOJIS = ['🎯','💥','⭐','⚡','🔥','🥎','🌀','🧿','🍀'];
 const SB_BOSSES = [
   { id: 1, emoji:'💧', nameTh:'Bubble Glove',  nameEn:'Bubble Glove',  hpBonus:0 },
   { id: 2, emoji:'⛈️', nameTh:'Storm Knuckle', nameEn:'Storm Knuckle', hpBonus:2 },
@@ -136,10 +122,12 @@ const sbI18n = {
     alertMeta:'กรุณากรอกอย่างน้อย Student ID ก่อนเริ่มเล่นนะครับ',
     feverLabel:'FEVER!!',
     bossNear:(name)=>`ใกล้ล้ม ${name} แล้ว! เร่งอีกนิด! ⚡`,
-    bossClear:(name)=>`พิชิต ${name} แล้ว!`,
+    bossClear:(name)=>`พิชิต ${name} แล้ว! บอสถัดไปมา! 🔥`,
     bossAppear:(name)=>`${name} ปรากฏตัวแล้ว!`,
+    paused:'พักเกม',
+    resumed:'กลับมาเล่นต่อ',
     noData:'ยังไม่มีข้อมูล session',
-    csvName:'ShadowBreakerSessions.csv',
+    csvFail:'ไม่สามารถสร้าง CSV ได้',
   },
   en: {
     startLabel:'Start',
@@ -151,16 +139,18 @@ const sbI18n = {
     alertMeta:'Please fill at least the Student ID before starting.',
     feverLabel:'FEVER!!',
     bossNear:(name)=>`Almost defeat ${name}! Finish it! ⚡`,
-    bossClear:(name)=>`You beat ${name}!`,
+    bossClear:(name)=>`You beat ${name}! Next boss! 🔥`,
     bossAppear:(name)=>`${name} appeared!`,
+    paused:'Paused',
+    resumed:'Resumed',
     noData:'No session data yet',
-    csvName:'ShadowBreakerSessions.csv',
+    csvFail:'Cannot create CSV',
   }
 };
 
 let sbLang = 'th';
 
-// ---------- State ----------
+// ---------- state ----------
 const sbState = {
   running:false,
   paused:false,
@@ -170,7 +160,7 @@ const sbState = {
   durationMs: sbMode==='endless' ? Infinity : sbTimeSec*1000,
 
   spawnTimer:null,
-  targets:[], // {id,boss,hp,maxHp,createdAt,el,alive,missTimer,bossInfo}
+  targets:[],
 
   score:0,
   hit:0,
@@ -188,21 +178,29 @@ const sbState = {
   bossQueue:[],
   bossActive:false,
   bossWarned:false,
-  activeBoss:null,
-  activeBossInfo:null,
+  activeBoss:null,     // target object
+  activeBossInfo:null, // boss info
+
+  ended:false,
 };
 
+function sbSetModeClass(){
+  // play mode hides research UI and CSV button via CSS
+  if(!SB_IS_RESEARCH) document.body.classList.add('mode-play');
+  else document.body.classList.remove('mode-play');
+}
+
+// ---------- meta persistence ----------
 function sbLoadMeta(){
   try{
     const raw = localStorage.getItem(SB_META_KEY);
     if(!raw) return;
     const meta = JSON.parse(raw);
     Object.entries(sbMetaInputs).forEach(([k,el])=>{
-      if(el && meta && meta[k]!=null) el.value = String(meta[k]);
+      if(el && meta && meta[k] !== undefined) el.value = String(meta[k] ?? '');
     });
   }catch(_){}
 }
-
 function sbSaveMetaDraft(){
   const meta = {};
   Object.entries(sbMetaInputs).forEach(([k,el])=>{
@@ -211,11 +209,12 @@ function sbSaveMetaDraft(){
   try{ localStorage.setItem(SB_META_KEY, JSON.stringify(meta)); }catch(_){}
 }
 
+// ---------- language ----------
 function sbApplyLang(){
   const t = sbI18n[sbLang] || sbI18n.th;
   const sl = $('#startLabel'); if(sl) sl.textContent = t.startLabel;
   const tg = $('#tagGoal'); if(tg) tg.textContent = t.tagGoal;
-  if(sbHUD.coachLine) sbHUD.coachLine.textContent = t.coachReady;
+  if(sbHUD.coachLine && !sbState.running) sbHUD.coachLine.textContent = t.coachReady;
 }
 sbLangButtons.forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -226,42 +225,52 @@ sbLangButtons.forEach(btn=>{
   });
 });
 
-// ---------- Feedback (CSS mapping fix) ----------
-function sbShowFeedback(kind){
+// ---------- feedback ----------
+function sbShowFeedback(type){
   if(!sbFeedbackEl) return;
   const t = sbI18n[sbLang] || sbI18n.th;
 
   let txt='';
-  let cls='';
+  if(type==='fever') txt = t.feverLabel;
+  else if(type==='perfect') txt = (sbLang==='th'?'Perfect! 💥':'PERFECT!');
+  else if(type==='good') txt = (sbLang==='th'?'ดีมาก! ✨':'GOOD!');
+  else txt = (sbLang==='th'?'พลาด!':'MISS');
 
-  if(kind==='fever'){ txt = t.feverLabel; cls = 'feedback feedback-fever show'; }
-  else if(kind==='perfect'){ txt = (sbLang==='th'?'Perfect! 💥':'PERFECT!'); cls='feedback feedback-perfect show'; }
-  else if(kind==='good'){ txt = (sbLang==='th'?'ดีมาก! ✨':'GOOD!'); cls='feedback feedback-good show'; }
-  else { txt = (sbLang==='th'?'พลาด!':'MISS'); cls='feedback feedback-miss show'; }
-
+  // IMPORTANT: make classes match CSS
+  // base: "feedback", type: "perfect/good/miss/fever", and add "show"
   sbFeedbackEl.textContent = txt;
-  sbFeedbackEl.className = cls;
+  sbFeedbackEl.className = `feedback ${type}`;
   sbFeedbackEl.style.display = 'block';
 
-  const dur = (kind==='fever') ? 820 : 460;
+  // force reflow for animation reliability
+  void sbFeedbackEl.offsetWidth;
+  sbFeedbackEl.classList.add('show');
+
   setTimeout(()=>{
     if(!sbFeedbackEl) return;
     sbFeedbackEl.classList.remove('show');
-    setTimeout(()=>{ if(sbFeedbackEl) sbFeedbackEl.style.display='none'; }, 140);
-  }, dur);
+    setTimeout(()=>{ if(sbFeedbackEl) sbFeedbackEl.style.display='none'; }, 120);
+  }, type==='fever'?800:420);
 }
 
 // ---------- HUD ----------
+function sbUpdateHUD(){
+  if(sbHUD.scoreVal) sbHUD.scoreVal.textContent=String(sbState.score);
+  if(sbHUD.hitVal) sbHUD.hitVal.textContent=String(sbState.hit);
+  if(sbHUD.missVal) sbHUD.missVal.textContent=String(sbState.miss);
+  if(sbHUD.comboVal) sbHUD.comboVal.textContent='x'+sbState.combo;
+}
 function sbResetStats(){
   sbState.score=0; sbState.hit=0; sbState.perfect=0; sbState.good=0; sbState.miss=0;
   sbState.combo=0; sbState.maxCombo=0;
   sbState.elapsedMs=0;
-
   sbState.fever=false; sbState.feverUntil=0;
 
   sbState.targets=[];
   sbState.bossQueue=[]; sbState.bossActive=false; sbState.bossWarned=false;
   sbState.activeBoss=null; sbState.activeBossInfo=null;
+
+  sbState.ended=false;
 
   if(sbHUD.scoreVal) sbHUD.scoreVal.textContent='0';
   if(sbHUD.hitVal) sbHUD.hitVal.textContent='0';
@@ -275,25 +284,17 @@ function sbResetStats(){
   }
 }
 
-function sbUpdateHUD(){
-  if(sbHUD.scoreVal) sbHUD.scoreVal.textContent=String(sbState.score);
-  if(sbHUD.hitVal) sbHUD.hitVal.textContent=String(sbState.hit);
-  if(sbHUD.missVal) sbHUD.missVal.textContent=String(sbState.miss);
-  if(sbHUD.comboVal) sbHUD.comboVal.textContent='x'+sbState.combo;
-}
-
 // ---------- Boss HUD bar ----------
 let sbBossHud = null;
 function sbEnsureBossHud(){
   if(!sbGameArea) return null;
-  if(sbBossHud) return sbBossHud;
+  if(sbBossHud && sbBossHud.box && sbBossHud.box.isConnected) return sbBossHud;
 
   const box = document.createElement('div');
   box.className = 'boss-barbox';
-  box.style.display = 'none';
   box.innerHTML = `
     <div class="boss-face" id="sbBossFace">🐲</div>
-    <div style="min-width:160px;">
+    <div style="min-width:240px; width:100%;">
       <div class="boss-name" id="sbBossName">Boss</div>
       <div class="boss-bar"><div class="boss-bar-fill" id="sbBossFill"></div></div>
     </div>
@@ -316,91 +317,68 @@ function sbSetBossHudVisible(v){
 function sbUpdateBossHud(){
   const hud = sbEnsureBossHud();
   if(!hud || !sbState.activeBoss || !sbState.activeBossInfo) return;
-
   const info = sbState.activeBossInfo;
   hud.face.textContent = info.emoji;
   hud.name.textContent = (sbLang==='th'?info.nameTh:info.nameEn);
 
   const curHp = clamp(sbState.activeBoss.hp, 0, sbState.activeBoss.maxHp);
   const ratio = sbState.activeBoss.maxHp > 0 ? (curHp / sbState.activeBoss.maxHp) : 0;
-  hud.fill.style.transform = `scaleX(${ratio})`;
+  if(hud.fill) hud.fill.style.transform = `scaleX(${ratio})`;
 }
 
 // ---------- Boss queue ----------
 function sbPrepareBossQueue(){
-  // timed: bosses appear at 15%, 35%, 60%, 85% (if time allows)
-  // endless: schedule within first 2 minutes
-  const totalMs = (sbMode==='endless') ? 120000 : (sbTimeSec*1000);
-  const checkpoints = [0.15,0.35,0.60,0.85].map(r=>Math.round(totalMs*r));
-
+  const ms = (sbMode==='endless') ? 120000 : sbTimeSec*1000;
+  const checkpoints = [0.15,0.35,0.60,0.85].map(r=>Math.round(ms*r));
   sbState.bossQueue = SB_BOSSES.map((b,idx)=>({
     bossIndex: idx,
-    spawnAtMs: checkpoints[idx] || Math.round(totalMs*(0.2+idx*0.15))
+    spawnAtMs: checkpoints[idx] || Math.round(ms*(0.2+idx*0.15))
   }));
 }
 
-// ---------- Safe spawn (avoid HUD/boss bar) ----------
-function sbGetSafeTopPx(){
-  // use CSS var if present, else fallback ~118px
-  let safeTop = 118;
-  try{
-    const cs = getComputedStyle(document.documentElement);
-    const v = cs.getPropertyValue('--safe-top').trim();
-    if(v){
-      // v might be '118px' or 'calc(...)' -> compute via temp element
-      const tmp = document.createElement('div');
-      tmp.style.position='absolute';
-      tmp.style.visibility='hidden';
-      tmp.style.height = v;
-      document.body.appendChild(tmp);
-      safeTop = Math.max(80, Math.round(tmp.getBoundingClientRect().height));
-      tmp.remove();
-    }
-  }catch(_){}
-  return safeTop;
-}
-
+// ---------- spawn safe-area ----------
 let sbTargetIdCounter = 1;
 
+function sbGetSafeTopPx(){
+  // Prefer CSS variable --safe-top if present
+  try{
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--safe-top').trim();
+    const n = parseFloat(v);
+    if(Number.isFinite(n) && n > 40) return n;
+  }catch(_){}
+  // fallback: HUD(≈52) + boss bar space
+  return 118;
+}
+
 function sbPickSpawnXY(sizePx){
-  if(!sbGameArea) return { x:20, y:140 };
-
+  if(!sbGameArea) return { x:20, y:20 };
   const rect = sbGameArea.getBoundingClientRect();
-  const pad = 18;
+  const pad = 16;
 
-  const safeTop = sbGetSafeTopPx();
+  const safeTop = Math.max(56, sbGetSafeTopPx() - 20); // keep targets away from fixed HUD/boss
 
   const maxX = Math.max(0, rect.width  - sizePx - pad*2);
   const maxY = Math.max(0, rect.height - sizePx - pad*2 - safeTop);
 
-  const x = pad + sbRand()*maxX;
-  const y = pad + safeTop + sbRand()*maxY;
+  const x = pad + Math.random()*maxX;
+  const y = pad + safeTop + Math.random()*maxY;
   return { x, y };
 }
 
-function sbRemoveTarget(tObj){
-  if(!tObj) return;
-  tObj.alive=false;
-  try{ if(tObj.missTimer) clearTimeout(tObj.missTimer); }catch(_){}
-  tObj.missTimer=null;
-  try{ if(tObj.el && tObj.el.remove) tObj.el.remove(); }catch(_){}
-  tObj.el=null;
-
-  // remove from array (prevent state leak)
-  sbState.targets = sbState.targets.filter(t=>t && t.alive && t.el);
-
-  // boss cleanup
-  if(tObj.boss){
-    sbState.bossActive=false;
-    sbState.activeBoss=null;
-    sbState.activeBossInfo=null;
-    sbState.bossWarned=false;
-    sbSetBossHudVisible(false);
-  }
+function sbPruneTargets(){
+  // remove dead/disconnected targets from array (prevents memory grow)
+  sbState.targets = sbState.targets.filter(t=>{
+    if(!t) return false;
+    if(!t.alive) return false;
+    if(!t.el || !t.el.isConnected) return false;
+    return true;
+  });
 }
 
 function sbSpawnTarget(isBoss=false, bossInfo=null){
-  if(!sbGameArea) return;
+  if(!sbGameArea || !sbState.running || sbState.paused || sbState.ended) return;
+
+  sbPruneTargets();
 
   const sizeBase = isBoss ? 92 : 58;
   const baseHp = isBoss ? (sbCfg.bossHp + (bossInfo?.hpBonus||0)) : 1;
@@ -420,15 +398,21 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
   const el = document.createElement('div');
   el.className = 'sb-target';
   el.dataset.id = String(tObj.id);
+
   el.style.width = sizeBase + 'px';
   el.style.height = sizeBase + 'px';
-  el.style.fontSize = isBoss ? '2.1rem' : '1.8rem';
+  el.style.display='flex';
+  el.style.alignItems='center';
+  el.style.justifyContent='center';
+  el.style.fontSize = isBoss ? '2.1rem' : '1.75rem';
+  el.style.cursor='pointer';
+  el.style.borderRadius='999px';
 
   if(isBoss && bossInfo){
     el.style.background = 'radial-gradient(circle at 30% 20%, #facc15, #ea580c)';
     el.textContent = bossInfo.emoji;
   }else{
-    const emo = SB_NORMAL_EMOJIS[Math.floor(sbRand()*SB_NORMAL_EMOJIS.length)];
+    const emo = SB_NORMAL_EMOJIS[Math.floor(Math.random()*SB_NORMAL_EMOJIS.length)];
     el.style.background = sbState.fever
       ? 'radial-gradient(circle at 30% 20%, #facc15, #eab308)'
       : 'radial-gradient(circle at 30% 20%, #38bdf8, #0ea5e9)';
@@ -439,7 +423,8 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
   el.style.left = pos.x + 'px';
   el.style.top  = pos.y + 'px';
 
-  el.addEventListener('click', ()=>sbHitTarget(tObj));
+  // click/tap
+  el.addEventListener('click', ()=>sbHitTarget(tObj), { passive:true });
 
   sbGameArea.appendChild(el);
   tObj.el = el;
@@ -456,14 +441,16 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     sbUpdateBossHud();
 
     const name = (sbLang==='th'?bossInfo.nameTh:bossInfo.nameEn);
-    sbEmit('hha:coach', { text: (sbI18n[sbLang]||sbI18n.th).bossAppear(name), boss: bossInfo.id });
+    sbEmit('hha:coach', { text: sbI18n[sbLang].bossAppear(name), boss: bossInfo.id });
   }
 
   // life timer -> miss (only if still alive)
-  const lifeMs = isBoss ? sbCfg.bossLifeMs : sbCfg.lifeMs;
+  const lifeMs = isBoss ? 6500 : sbCfg.lifeMs;
   tObj.missTimer = setTimeout(()=>{
-    if(!tObj.alive) return;
-    sbRemoveTarget(tObj);
+    if(!tObj.alive || sbState.ended) return;
+    tObj.alive=false;
+
+    try{ if(tObj.el && tObj.el.isConnected) tObj.el.remove(); }catch(_){}
 
     // miss from timeout
     sbState.miss++;
@@ -471,6 +458,16 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
     sbUpdateHUD();
     sbShowFeedback('miss');
     if(sbHUD.coachLine) sbHUD.coachLine.textContent = (sbI18n[sbLang]||sbI18n.th).coachMiss;
+
+    // boss timed out -> mark boss inactive
+    if(tObj.boss){
+      sbState.bossActive=false;
+      sbState.activeBoss=null;
+      sbState.activeBossInfo=null;
+      sbSetBossHudVisible(false);
+    }
+
+    sbEmit('hha:score', { score: sbState.score, gained:0, combo: sbState.combo, hit: sbState.hit, miss: sbState.miss, boss: !!tObj.boss, judge:'miss' });
   }, lifeMs);
 
   // appear anim
@@ -483,7 +480,7 @@ function sbSpawnTarget(isBoss=false, bossInfo=null){
 }
 
 function sbMaybeSpawnBoss(){
-  if(!sbState.running || sbState.paused) return;
+  if(!sbState.running || sbState.paused || sbState.ended) return;
   if(sbState.bossActive) return;
   if(!sbState.bossQueue.length) return;
 
@@ -495,20 +492,16 @@ function sbMaybeSpawnBoss(){
   }
 }
 
-// spawn next boss “feel” (only if still in queue)
 function sbSpawnNextBossImmediate(){
+  if(!sbState.running || sbState.paused || sbState.ended) return;
   if(!sbState.bossQueue.length) return;
-  // prevent spam in very short time left (timed)
-  if(sbMode!=='endless'){
-    const remainMs = Math.max(0, sbState.durationMs - sbState.elapsedMs);
-    if(remainMs < 2000) return;
-  }
   const next = sbState.bossQueue.shift();
   const bossInfo = SB_BOSSES[next.bossIndex];
-  sbSpawnTarget(true, bossInfo);
+  // small delay to avoid “double-spawn in same frame” feeling
+  setTimeout(()=>sbSpawnTarget(true, bossInfo), 220);
 }
 
-// ---------- FEVER ----------
+// ---------- fever ----------
 function sbEnterFever(){
   sbState.fever=true;
   sbState.feverUntil = performance.now() + 3500;
@@ -517,6 +510,7 @@ function sbEnterFever(){
   sbShowFeedback('fever');
   sbEmit('hha:coach', { text: (sbI18n[sbLang]||sbI18n.th).coachFever, fever:true });
 }
+
 function sbCheckFeverTick(now){
   if(sbState.fever && now >= sbState.feverUntil){
     sbState.fever=false;
@@ -525,18 +519,19 @@ function sbCheckFeverTick(now){
   }
 }
 
-// ---------- Hit logic ----------
+// ---------- hit logic ----------
 function sbHitTarget(tObj){
-  if(!sbState.running || sbState.paused || !tObj || !tObj.alive) return;
+  if(!sbState.running || sbState.paused || sbState.ended) return;
+  if(!tObj || !tObj.alive) return;
 
   // reduce hp
   tObj.hp -= 1;
 
   sbState.hit++;
-  const isBoss = !!tObj.boss;
+  const isBoss = tObj.boss;
   const bossInfo = tObj.bossInfo;
 
-  // if still alive => GOOD
+  // hit but still alive -> GOOD
   if(tObj.hp > 0){
     sbState.good++;
     sbState.combo++;
@@ -561,18 +556,25 @@ function sbHitTarget(tObj){
 
     if(isBoss){
       sbUpdateBossHud();
-      if(!sbState.bossWarned && tObj.hp <= 2 && bossInfo){
+      if(!sbState.bossWarned && tObj.hp <= 2){
         sbState.bossWarned=true;
         const name = (sbLang==='th'?bossInfo.nameTh:bossInfo.nameEn);
         sbEmit('hha:coach', { text: (sbI18n[sbLang]||sbI18n.th).bossNear(name), boss: bossInfo.id });
       }
     }
 
-    sbEmit('hha:score', { score: sbState.score, gained, combo: sbState.combo, hit: sbState.hit, miss: sbState.miss, boss:isBoss ? 1 : 0 });
+    sbEmit('hha:score', {
+      score: sbState.score, gained,
+      combo: sbState.combo, hit: sbState.hit, miss: sbState.miss,
+      boss: !!isBoss, judge:'good'
+    });
     return;
   }
 
-  // PERFECT kill
+  // hp <= 0 -> PERFECT kill
+  tObj.alive=false;
+  if(tObj.missTimer) { clearTimeout(tObj.missTimer); tObj.missTimer=null; }
+
   sbState.perfect++;
   sbState.combo++;
   sbState.maxCombo = Math.max(sbState.maxCombo, sbState.combo);
@@ -583,15 +585,14 @@ function sbHitTarget(tObj){
   const gained = base + comboBonus + feverBonus;
   sbState.score += gained;
 
-  // remove target with pop anim
   if(tObj.el && tObj.el.animate){
     const anim = tObj.el.animate(
       [{ transform:'scale(1)', opacity:1 }, { transform:'scale(0.1)', opacity:0 }],
       { duration:140, easing:'ease-in' }
     );
-    anim.onfinish = ()=> sbRemoveTarget(tObj);
+    anim.onfinish = ()=>{ try{ tObj.el && tObj.el.remove(); }catch(_){} };
   }else{
-    sbRemoveTarget(tObj);
+    try{ tObj.el && tObj.el.remove(); }catch(_){}
   }
 
   sbUpdateHUD();
@@ -603,25 +604,33 @@ function sbHitTarget(tObj){
     const name = (sbLang==='th'?bossInfo.nameTh:bossInfo.nameEn);
     sbEmit('hha:coach', { text: (sbI18n[sbLang]||sbI18n.th).bossClear(name), boss: bossInfo.id });
 
-    // spawn next boss (only if queue remains)
+    sbState.bossActive=false;
+    sbState.activeBoss=null;
+    sbState.activeBossInfo=null;
+    sbSetBossHudVisible(false);
+
+    // next boss quick
     sbSpawnNextBossImmediate();
   }
 
-  sbEmit('hha:score', { score: sbState.score, gained, combo: sbState.combo, hit: sbState.hit, miss: sbState.miss, boss:isBoss ? 1 : 0 });
+  sbEmit('hha:score', {
+    score: sbState.score, gained,
+    combo: sbState.combo, hit: sbState.hit, miss: sbState.miss,
+    boss: !!isBoss, judge:'perfect'
+  });
 }
 
 // ---------- crosshair shoot (HeroHealth vr-ui.js) ----------
 function sbHitNearestTargetAtScreenXY(x, y, lockPx=28){
-  if(!sbState.running || sbState.paused || !sbGameArea) return false;
+  if(!sbState.running || sbState.paused || sbState.ended || !sbGameArea) return false;
   x=Number(x); y=Number(y);
   if(!Number.isFinite(x)||!Number.isFinite(y)) return false;
 
-  let best=null, bestD2=Infinity;
-  const targets = sbState.targets;
+  sbPruneTargets();
 
-  for(let i=0;i<targets.length;i++){
-    const tObj = targets[i];
-    if(!tObj || !tObj.alive || !tObj.el) continue;
+  let best=null, bestD2=Infinity;
+  for(const tObj of sbState.targets){
+    if(!tObj.alive || !tObj.el) continue;
     const r = tObj.el.getBoundingClientRect();
     const cx = r.left + r.width/2;
     const cy = r.top  + r.height/2;
@@ -629,7 +638,6 @@ function sbHitNearestTargetAtScreenXY(x, y, lockPx=28){
     const d2=dx*dx+dy*dy;
     if(d2<bestD2){ bestD2=d2; best=tObj; }
   }
-
   const lock = Math.max(10, Number(lockPx)||28);
   if(best && bestD2 <= lock*lock){
     sbHitTarget(best);
@@ -643,9 +651,9 @@ window.addEventListener('hha:shoot', (ev)=>{
   sbHitNearestTargetAtScreenXY(d.x, d.y, d.lockPx || 28);
 });
 
-// keyboard Space (PC training assist)
+// keyboard space (pc) — shoot center (optional)
 window.addEventListener('keydown',(ev)=>{
-  if(!sbState.running || sbState.paused) return;
+  if(!sbState.running || sbState.paused || sbState.ended) return;
   if(ev.code==='Space'){
     ev.preventDefault();
     if(!sbGameArea) return;
@@ -654,27 +662,32 @@ window.addEventListener('keydown',(ev)=>{
   }
 });
 
-// ---------- spawning ----------
+// ---------- spawning loop ----------
 function sbStartSpawnLoop(){
   if(sbState.spawnTimer) clearInterval(sbState.spawnTimer);
   sbState.spawnTimer = setInterval(()=>{
-    if(!sbState.running || sbState.paused) return;
+    if(!sbState.running || sbState.paused || sbState.ended) return;
 
-    // leave gaps sometimes
-    if(sbRand() < 0.10) return;
+    // leave small gaps sometimes
+    if(Math.random() < 0.10) return;
 
-    // prevent clutter during boss
-    if(sbState.bossActive && sbRand() < 0.50) return;
+    // reduce clutter during boss
+    if(sbState.bossActive && Math.random() < 0.55) return;
+
+    // keep total targets under control
+    sbPruneTargets();
+    if(sbState.targets.length > 12) return;
 
     sbSpawnTarget(false, null);
   }, sbCfg.spawnMs);
 }
+
 function sbStopSpawnLoop(){
   if(sbState.spawnTimer) clearInterval(sbState.spawnTimer);
   sbState.spawnTimer=null;
 }
 
-// ---------- loop ----------
+// ---------- main loop ----------
 let sbLastTimeTick = -1;
 
 function sbMainLoop(now){
@@ -692,7 +705,7 @@ function sbMainLoop(now){
     const remain = Math.max(0, Math.round((sbState.durationMs - sbState.elapsedMs)/1000));
     if(sbHUD.timeVal) sbHUD.timeVal.textContent = String(remain);
 
-    // time tick event each second
+    // time tick each second
     if(remain !== sbLastTimeTick){
       sbLastTimeTick = remain;
       sbEmit('hha:time', { remainSec: remain, elapsedMs: Math.round(sbState.elapsedMs) });
@@ -717,7 +730,7 @@ function sbMainLoop(now){
   requestAnimationFrame(sbMainLoop);
 }
 
-// ---------- local sessions store + CSV ----------
+// ---------- local sessions + CSV ----------
 function sbLogLocal(rec){
   try{
     const raw = localStorage.getItem(SB_STORAGE_KEY);
@@ -754,7 +767,7 @@ function sbDownloadCsv(){
     }
   }catch(err){
     console.error(err);
-    alert('CSV error');
+    alert(t.csvFail);
     return;
   }
 
@@ -762,32 +775,35 @@ function sbDownloadCsv(){
   const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href=url; a.download=t.csvName;
+  a.href=url;
+  a.download='ShadowBreakerSessions.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// ---------- end/start ----------
+// ---------- start/end ----------
 function sbEndGame(reason='end'){
-  if(!sbState.running) return;
+  if(!sbState.running || sbState.ended) return;
+  sbState.ended=true;
 
   sbState.running=false;
   sbState.paused=false;
+
   sbStopSpawnLoop();
 
   // clean targets
-  const old = sbState.targets.slice();
-  for(const tObj of old){
-    try{ if(tObj && tObj.missTimer) clearTimeout(tObj.missTimer); }catch(_){}
-    try{ if(tObj && tObj.el && tObj.el.remove) tObj.el.remove(); }catch(_){}
+  for(const tObj of sbState.targets){
+    try{
+      if(tObj.missTimer) clearTimeout(tObj.missTimer);
+      if(tObj.el && tObj.el.isConnected) tObj.el.remove();
+    }catch(_){}
   }
   sbState.targets=[];
-
   sbSetBossHudVisible(false);
 
-  const playedSec = Math.round(sbState.elapsedMs/1000);
+  const playedSec = Math.max(0, Math.round(sbState.elapsedMs/1000));
   const totalHit = sbState.hit;
   const totalMiss = sbState.miss;
   const attempts = totalHit + totalMiss;
@@ -801,30 +817,36 @@ function sbEndGame(reason='end'){
     deviceType: sbState.sessionMeta?.deviceType || sbDetectDevice(),
     language:   sbLang,
     note:       sbState.sessionMeta?.note || '',
+
     phase:      sbPhase,
     mode:       sbMode,
     diff:       sbDiff,
-    gameId:     SB_GAME_ID,
-    gameVersion:SB_GAME_VERSION,
-    sessionId:  String(Date.now()),
-    timeSec:    (sbMode==='endless') ? playedSec : sbTimeSec,
-    score:      sbState.score,
-    hits:       totalHit,
-    perfect:    sbState.perfect,
-    good:       sbState.good,
-    miss:       sbState.miss,
-    accuracy:   acc,
-    maxCombo:   sbState.maxCombo,
-    fever:      sbState.fever ? 1 : 0,
-    timeUsedSec:playedSec,
-    seed:       SB_SEED_RAW,
-    research:   SB_IS_RESEARCH ? 1 : 0,
+
+    gameId:      SB_GAME_ID,
+    gameVersion: SB_GAME_VERSION,
+    sessionId:   String(Date.now()),
+
+    timeSec:     (sbMode==='endless') ? playedSec : sbTimeSec,
+    score:       sbState.score,
+    hits:        totalHit,
+    perfect:     sbState.perfect,
+    good:        sbState.good,
+    miss:        sbState.miss,
+    accuracy:    acc,
+    maxCombo:    sbState.maxCombo,
+    fever:       sbState.fever ? 1 : 0,
+
+    timeUsedSec: playedSec,
+    seed:        SB_SEED,
+    research:    SB_IS_RESEARCH ? 1 : 0,
+
     reason,
-    createdAt:  new Date().toISOString(),
+    createdAt:   new Date().toISOString(),
   };
 
   sbLogLocal(rec);
 
+  // fill overlay
   if(sbR.score) sbR.score.textContent = String(sbState.score);
   if(sbR.hit) sbR.hit.textContent = String(totalHit);
   if(sbR.perfect) sbR.perfect.textContent = String(sbState.perfect);
@@ -836,6 +858,13 @@ function sbEndGame(reason='end'){
 
   if(sbOverlay) sbOverlay.classList.remove('hidden');
 
+  // re-enable start button for replay
+  if(sbStartBtn){
+    sbStartBtn.disabled=false;
+    sbStartBtn.style.opacity=1;
+  }
+
+  // HHA events
   sbEmit('hha:end', rec);
   sbEmit('hha:flush', { reason: 'end' });
 }
@@ -855,8 +884,8 @@ function sbStartGame(){
   const meta = {
     studentId: sid || '',
     schoolName: sbMetaInputs.schoolName ? sbMetaInputs.schoolName.value.trim() : '',
-    classRoom: sbMetaInputs.classRoom ? sbMetaInputs.classRoom.value.trim() : '',
-    groupCode: sbMetaInputs.groupCode ? sbMetaInputs.groupCode.value.trim() : '',
+    classRoom:  sbMetaInputs.classRoom  ? sbMetaInputs.classRoom.value.trim() : '',
+    groupCode:  sbMetaInputs.groupCode  ? sbMetaInputs.groupCode.value.trim() : '',
     deviceType:
       (sbMetaInputs.deviceType && sbMetaInputs.deviceType.value === 'auto')
         ? sbDetectDevice()
@@ -866,8 +895,8 @@ function sbStartGame(){
   sbState.sessionMeta = meta;
   sbSaveMetaDraft();
 
-  // focus play area
   document.body.classList.add('play-only');
+  if(sbOverlay) sbOverlay.classList.add('hidden');
 
   sbResetStats();
   sbPrepareBossQueue();
@@ -875,14 +904,16 @@ function sbStartGame(){
   sbState.running=true;
   sbState.paused=false;
   sbState.startTime=0;
-  sbLastTimeTick = -1;
+  sbLastTimeTick=-1;
 
   if(sbStartBtn){
     sbStartBtn.disabled=true;
     sbStartBtn.style.opacity=0.75;
   }
+
   if(sbHUD.coachLine) sbHUD.coachLine.textContent = t.coachReady;
 
+  // HHA start event
   sbEmit('hha:start', {
     gameId: SB_GAME_ID,
     gameVersion: SB_GAME_VERSION,
@@ -890,7 +921,7 @@ function sbStartGame(){
     mode: sbMode,
     diff: sbDiff,
     timeSec: (sbMode==='endless') ? 0 : sbTimeSec,
-    seed: SB_SEED_RAW,
+    seed: SB_SEED,
     research: SB_IS_RESEARCH ? 1 : 0
   });
 
@@ -900,26 +931,31 @@ function sbStartGame(){
   }, 420);
 }
 
-// ---------- pause/resume from hub ----------
+// pause/resume from hub
 window.addEventListener('message',(ev)=>{
-  const d = ev.data || {};
-  if(d.type === 'hub:pause'){
-    if(!sbState.running) return;
-    const v = !!d.value;
-    if(v && !sbState.paused){
-      sbState.paused=true;
-      sbState.pauseAt = performance.now();
-      sbStopSpawnLoop();
-      sbEmit('hha:coach', { text: 'Paused' });
-    }else if(!v && sbState.paused){
-      sbState.paused=false;
-      if(sbState.startTime && sbState.pauseAt){
-        const pausedDur = performance.now() - sbState.pauseAt;
-        sbState.startTime += pausedDur;
-      }
-      sbStartSpawnLoop();
-      sbEmit('hha:coach', { text: 'Resumed' });
+  const d = ev?.data || {};
+  if(d.type !== 'hub:pause') return;
+  if(!sbState.running || sbState.ended) return;
+
+  const t = sbI18n[sbLang] || sbI18n.th;
+  const v = !!d.value;
+
+  if(v && !sbState.paused){
+    sbState.paused=true;
+    sbState.pauseAt = performance.now();
+    sbStopSpawnLoop();
+    sbEmit('hha:coach', { text: t.paused });
+  }else if(!v && sbState.paused){
+    sbState.paused=false;
+
+    // shift startTime to keep elapsed stable
+    if(sbState.startTime && sbState.pauseAt){
+      const pausedDur = performance.now() - sbState.pauseAt;
+      sbState.startTime += pausedDur;
     }
+
+    sbStartSpawnLoop();
+    sbEmit('hha:coach', { text: t.resumed });
   }
 });
 
@@ -929,7 +965,6 @@ if(sbStartBtn) sbStartBtn.addEventListener('click', sbStartGame);
 if(sbPlayAgainBtn){
   sbPlayAgainBtn.addEventListener('click',()=>{
     if(sbOverlay) sbOverlay.classList.add('hidden');
-    if(sbStartBtn){ sbStartBtn.disabled=false; sbStartBtn.style.opacity=1; }
     sbStartGame();
   });
 }
@@ -953,15 +988,10 @@ Object.values(sbMetaInputs).forEach(el=>{
 });
 
 // ---------- init ----------
-(function init(){
-  // mode-play => hide research UI (CSS already supports)
-  const mode = (qs('run','') || qs('modeUI','') || '').toLowerCase();
-  if(mode === 'play') document.body.classList.add('mode-play');
+sbSetModeClass();
+sbLoadMeta();
+sbApplyLang();
 
-  sbLoadMeta();
-  sbApplyLang();
-
-  if(sbHUD.timeVal){
-    sbHUD.timeVal.textContent = (sbMode==='endless' ? '0' : String(sbTimeSec));
-  }
-})();
+if(sbHUD.timeVal){
+  sbHUD.timeVal.textContent = (sbMode==='endless' ? '0' : String(sbTimeSec));
+}
