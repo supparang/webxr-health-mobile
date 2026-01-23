@@ -1,12 +1,11 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js
-✅ Optional AI packs (defer)
+HygieneVR RUN — PRODUCTION (HHA Standard) + PACK AN (Boss+Soap+Events)
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (boot export)
 ✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
+✅ Events Pack: localStorage HHA_HYGIENE_EVENTS_LAST (meta+events)
 ✅ Back HUB: ?hub=...
-✅ PACK R/S/T: Practice 15s + Boss + Story 3 days + Daily BG + SFX + Stickers
 -->
 <!doctype html>
 <html lang="th">
@@ -19,20 +18,22 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <!-- ✅ IMPORTANT: defer to avoid body/root null -->
-  <script defer src="../vr/vr-ui.js"></script>
-  <script defer src="../vr/particles.js"></script>
+  <!-- Universal VR UI (ต้องมี PATCH ensureCrosshair ตามข้อ 1) -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- Optional shared helpers (ถ้ามีอยู่แล้ว) -->
+  <script src="../vr/particles.js"></script>
 
   <!-- AI Packs (optional) -->
-  <script defer src="../vr/hha-ai-coach.js"></script>
-  <script defer src="../vr/hha-difficulty-director.js"></script>
-  <script defer src="../vr/hha-badges.js"></script>
+  <script src="../vr/hha-ai-coach.js"></script>
+  <script src="../vr/hha-difficulty-director.js"></script>
+  <script src="../vr/hha-badges.js"></script>
 
   <!-- Engine -->
   <script type="module" src="./hygiene-vr.boot.js"></script>
 </head>
 
-<body class="view-pc" data-bg="classroom">
+<body class="view-pc">
   <div id="gameRoot" class="hw-root">
     <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
 
@@ -42,9 +43,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
-        <!-- Sticker / Daily rule -->
-        <div class="hw-sticker" id="dailySticker">📌 วันนี้: —</div>
-
         <div class="hw-row">
           <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
           <div class="hw-pill" id="pillHits">HITS 0/6</div>
@@ -53,16 +51,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         </div>
 
         <div class="hw-row">
+          <div class="hw-pill boss" id="pillBoss">BOSS —</div>
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
-          <div class="hw-pill cyan" id="pillBoss">BOSS 0%</div>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
-        </div>
-
-        <!-- Boss bar -->
-        <div class="hw-bossbar" aria-label="boss bar">
-          <div class="hw-bossfill" id="bossFill" style="width:0%"></div>
         </div>
       </div>
 
@@ -74,34 +67,15 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          ยิง/แตะเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • เก็บสบู่ 🧼 เพื่อกันเชื้อช่วงบอส<br>
+          กติกา: “MISS = ผิดขั้น + โดนเชื้อ” • MISS ครบ = จบทันที
         </div>
-
-        <div class="hw-card-sub" style="margin-top:10px">
-          🫧 🤚 🧩 👊 👍 💅 ⌚  ← เป้า “ถูกต้อง” จะเป็นไอคอนตาม STEP ที่โชว์บน HUD
-        </div>
-
-        <div class="hw-card-row" style="margin-top:12px">
+        <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Story Overlay (Cutscene) -->
-    <div class="hw-overlay" id="storyOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title" id="storyTitle">📚 Day 1 — ห้องเรียน</div>
-        <div class="hw-card-sub" id="storyText">—</div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          <span id="storyCountdown">5</span>s … กำลังเริ่มอัตโนมัติ
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-ghost" id="btnSkipStory" type="button">ข้าม</button>
         </div>
       </div>
     </div>
