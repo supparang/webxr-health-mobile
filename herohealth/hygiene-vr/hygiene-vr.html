@@ -1,9 +1,11 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) PACK F
-✅ Fix vr-ui load: defer (no appendChild null)
-✅ Step Wheel (7 steps) + Mission bar
+HygieneVR RUN — PRODUCTION (HHA Standard) PACK H
+✅ Views: pc/mobile/vr/cvr
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (+ hygiene.missions.js)
+✅ Engine: hygiene.safe.js (PACK H)
+✅ Missions: hygiene.missions.js
+✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
+✅ Back HUB: ?hub=...
 -->
 <!doctype html>
 <html lang="th">
@@ -16,13 +18,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK F
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <!-- Universal VR UI (defer = FIX crash) -->
+  <!-- Universal VR UI (ใส่ defer กัน mount null) -->
   <script defer src="../vr/vr-ui.js"></script>
 
   <!-- Optional shared helpers -->
   <script defer src="../vr/particles.js"></script>
 
-  <!-- Optional AI Packs -->
+  <!-- AI Packs (optional) -->
   <script defer src="../vr/hha-ai-coach.js"></script>
   <script defer src="../vr/hha-difficulty-director.js"></script>
   <script defer src="../vr/hha-badges.js"></script>
@@ -41,6 +43,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK F
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
+        <!-- Row A -->
         <div class="hw-row">
           <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
           <div class="hw-pill" id="pillHits">HITS 0/6</div>
@@ -48,12 +51,14 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK F
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
+        <!-- Row B (PACK H) -->
         <div class="hw-row">
           <div class="hw-pill good" id="pillPerfect">PERFECT 0</div>
-          <div class="hw-pill" id="pillShield">🛡 0</div>
-          <div class="hw-pill" id="pillMission">🎯 Mission —</div>
+          <div class="hw-pill cyan" id="pillShield">🛡 0</div>
+          <div class="hw-pill warn" id="pillMission">🎯 Mission —</div>
         </div>
 
+        <!-- Row C -->
         <div class="hw-row">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
@@ -61,26 +66,32 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK F
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Mission bar -->
+        <!-- Mission Bar -->
         <div class="hw-mission" id="missionBar" style="display:none">
-          <div class="line">
-            <div id="missionText">—</div>
-            <div style="opacity:.8;font-weight:900">progress</div>
+          <div class="hw-mission-top">
+            <div class="hw-mission-title" id="missionText">—</div>
+            <div class="hw-mission-sub" id="missionSub">ทำให้สำเร็จเพื่อปลดล็อกตรา 🎖️</div>
           </div>
-          <div class="bar">
-            <div class="fill" id="missionFill"></div>
+          <div class="hw-mission-track">
+            <div class="hw-mission-fill" id="missionFill" style="width:0%"></div>
           </div>
         </div>
+
+        <!-- Step Wheel -->
+        <div class="hw-wheel">
+          <div class="hw-wheel-row" id="wheelRow"></div>
+          <div class="hw-wheel-sub" id="wheelSub">—</div>
+        </div>
+
+        <!-- Boss / Soap info (small) -->
+        <div class="hw-minirow">
+          <div class="hw-mini" id="miniBoss">👑 Boss: —</div>
+          <div class="hw-mini" id="miniSoap">🧼 Soap: 0%</div>
+        </div>
+
       </div>
 
       <div class="hw-banner" id="banner" aria-live="polite"></div>
-    </div>
-
-    <!-- Step Wheel (7 steps) -->
-    <div class="hw-wheel" id="stepWheel" aria-label="7-step wheel">
-      <div class="hw-wheel-title">7 STEPS</div>
-      <div class="hw-wheel-row" id="wheelRow"></div>
-      <div class="hw-wheel-sub" id="wheelSub">—</div>
     </div>
 
     <!-- Start Overlay -->
@@ -88,8 +99,8 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK F
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>เป้าถูก</b> = ไอคอนขั้นตอนปัจจุบัน • <b>เป้าหลอก</b> = ไอคอนขั้นอื่น • <b>เชื้อ</b> = 🦠
+          โหมด <b>Survival</b> — ทำ <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • ชนะบอส 👑<br>
+          แตะ/ยิงเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
