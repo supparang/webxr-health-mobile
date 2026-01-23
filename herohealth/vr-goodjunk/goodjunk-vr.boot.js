@@ -1,9 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (Spacious Layout A)
-// ✅ Sets body view class: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Reads query params + passes through to goodjunk.safe.js boot()
-// ✅ Prevent double-boot
-// ✅ Starts after DOM ready + one beat (so updateSafe in HTML has time to set vars)
+// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
+// ✅ Detect view from ?view= (pc/mobile/vr/cvr) (no override here)
+// ✅ Sets body class: view-pc/view-mobile/view-vr/view-cvr
+// ✅ Boots engine once DOM ready
+// ✅ Safe-guard: no double boot
+
+'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -14,16 +16,11 @@ function qs(k, def=null){
   try{ return new URL(location.href).searchParams.get(k) ?? def; }
   catch{ return def; }
 }
-function has(k){
-  try{ return new URL(location.href).searchParams.has(k); }
-  catch{ return false; }
-}
 
 function normView(v){
   v = String(v||'').toLowerCase();
   if(v==='cardboard') return 'vr';
-  if(v==='view-cvr') return 'cvr';
-  if(v==='cvr') return 'cvr';
+  if(v==='view-cvr' || v==='cvr') return 'cvr';
   if(v==='vr') return 'vr';
   if(v==='pc') return 'pc';
   if(v==='mobile') return 'mobile';
@@ -33,68 +30,37 @@ function normView(v){
 function setBodyView(view){
   const b = DOC.body;
   if(!b) return;
+
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add(
-    view==='pc' ? 'view-pc' :
-    view==='vr' ? 'view-vr' :
-    view==='cvr'? 'view-cvr' : 'view-mobile'
-  );
+
+  if(view==='pc') b.classList.add('view-pc');
+  else if(view==='vr') b.classList.add('view-vr');
+  else if(view==='cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
 }
 
-function parseNumber(v, fallback){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
+function bootOnce(){
+  if(WIN.__GJ_BOOTED__) return;
+  WIN.__GJ_BOOTED__ = true;
 
-function buildOpts(){
   const view = normView(qs('view','mobile'));
   const run  = String(qs('run','play')||'play').toLowerCase();
   const diff = String(qs('diff','normal')||'normal').toLowerCase();
-  const time = parseNumber(qs('time','80'), 80);
+  const time = Number(qs('time','80')||80);
   const seed = String(qs('seed', Date.now()));
 
-  // passthrough context (optional for logging/research)
-  const hub = qs('hub', null);
-  const studyId = qs('studyId', qs('study', null));
-  const phase = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', qs('cond', null));
-  const style = qs('style', null);
-  const log = qs('log', null);
-  const ts = qs('ts', null);
+  setBodyView(view);
 
-  return { view, run, diff, time, seed, hub, studyId, phase, conditionGroup, style, log, ts };
-}
-
-function markMeta(opts){
-  // update chip meta if exists
-  try{
-    const chip = DOC.getElementById('gjChipMeta');
-    if(chip){
-      chip.textContent = `view=${opts.view} · run=${opts.run} · diff=${opts.diff} · time=${opts.time}`;
-    }
-  }catch(_){}
-}
-
-function startOnce(){
-  if(WIN.__HHA_GJ_BOOTED__) return;
-  WIN.__HHA_GJ_BOOTED__ = true;
-
-  const opts = buildOpts();
-  setBodyView(opts.view);
-  markMeta(opts);
-
-  // Give HTML safe-measure script time to set CSS vars (--gj-top-safe/--gj-bottom-safe)
-  // and let vr-ui mount its controls
+  // Let layout measure settle a beat (safe vars from HTML updateSafe())
   setTimeout(()=>{
     try{
-      engineBoot(opts);
-    }catch(err){
-      console.error('[GoodJunkVR] boot failed:', err);
-      // allow retry by refreshing
-      WIN.__HHA_GJ_BOOTED__ = false;
-      alert('เริ่มเกมไม่สำเร็จ (boot error) — ลองรีเฟรชอีกครั้ง');
+      engineBoot({ view, run, diff, time, seed });
+    }catch(e){
+      console.error('[GoodJunkVR] boot failed', e);
+      // allow retry if something was too early
+      WIN.__GJ_BOOTED__ = false;
     }
-  }, 180);
+  }, 60);
 }
 
 function ready(fn){
@@ -102,8 +68,13 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
-  // If view not provided, do NOT override here (launcher already decides).
-  // Just start using whatever is in URL.
-  startOnce();
-});
+ready(bootOnce);
+
+// safety: if the page resumes from bfcache / visibility
+WIN.addEventListener('pageshow', (ev)=>{
+  if(ev && ev.persisted) bootOnce();
+}, { passive:true });
+
+WIN.addEventListener('visibilitychange', ()=>{
+  if(!DOC.hidden) bootOnce();
+}, { passive:true });
