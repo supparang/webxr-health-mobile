@@ -1,19 +1,20 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCHED)
+// PlateVR Boot — PRODUCTION (PATCH SAFE-ZONE + 90s default)
 // ✅ Auto view detect (no UI override)
-// ✅ Default time: play=90s (kid-friendly), research/study uses query time (or 70 if specified)
-// ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Pass-through research context params
+// ✅ PATCH: compute spawn safe-zone from HUD + VR-UI overlays
+//    -> sets CSS vars: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
+// ✅ Default time: 90s (kid-friendly; 70s tends to be tight esp. Mobile/VR)
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def = null) => {
+const qs = (k, def=null)=>{
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
@@ -25,9 +26,9 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // No UI override menu.
-  // Allow forced view by query if caller passes ?view= (used for experiments)
-  const forced = (qs('view','') || '').toLowerCase();
+  // Do not offer UI override.
+  // Allow caller/system to force view by query (experiments), but not via menu.
+  const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
@@ -42,12 +43,12 @@ function setBodyView(view){
 }
 
 function clamp(v, a, b){
-  v = Number(v) || 0;
+  v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
 
-function pctStr(n){
-  n = Number(n) || 0;
+function pct(n){
+  n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
@@ -75,6 +76,112 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
+/* ------------------------------------------------
+ * PATCH: Safe-zone for spawn (HUD + VRUI buttons)
+ * mode-factory reads: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
+ * ------------------------------------------------ */
+function cssPx(name){
+  const cs = getComputedStyle(DOC.documentElement);
+  return parseFloat(cs.getPropertyValue(name)) || 0;
+}
+
+function rectOf(el){
+  if(!el) return null;
+  const st = getComputedStyle(el);
+  if(st.display === 'none' || st.visibility === 'hidden') return null;
+  const r = el.getBoundingClientRect();
+  if(!r || r.width < 2 || r.height < 2) return null;
+  return r;
+}
+
+function setSafeVars({ top=0, bottom=0, left=0, right=0 }){
+  const root = DOC.documentElement;
+  root.style.setProperty('--plate-top-safe', `${Math.max(0, Math.round(top))}px`);
+  root.style.setProperty('--plate-bottom-safe', `${Math.max(0, Math.round(bottom))}px`);
+  root.style.setProperty('--plate-left-safe', `${Math.max(0, Math.round(left))}px`);
+  root.style.setProperty('--plate-right-safe', `${Math.max(0, Math.round(right))}px`);
+}
+
+function computeAndApplySafeZone(){
+  // Base: iOS safe area insets (already in CSS vars)
+  const baseTop = cssPx('--sat');
+  const baseBottom = cssPx('--sab');
+  const baseLeft = cssPx('--sal');
+  const baseRight = cssPx('--sar');
+
+  const vw = Math.max(1, WIN.innerWidth || DOC.documentElement.clientWidth || 1);
+  const vh = Math.max(1, WIN.innerHeight || DOC.documentElement.clientHeight || 1);
+
+  // Candidates: HUD + VR UI injected nodes
+  const candidates = [
+    DOC.getElementById('hud'),
+    DOC.getElementById('coachCard'),
+
+    // common ids/classes (vr-ui.js)
+    DOC.getElementById('hha-vrui'),
+    DOC.getElementById('hhaVrUi'),
+    DOC.getElementById('hha-vr-ui'),
+    DOC.querySelector('.hha-vrui'),
+    DOC.querySelector('.hha-vr-ui'),
+    DOC.querySelector('[data-hha-vrui]')
+  ].filter(Boolean);
+
+  const rects = [];
+  for(const el of candidates){
+    const r = rectOf(el);
+    if(r) rects.push(r);
+  }
+
+  // Start with base insets + small margin
+  let topSafe = baseTop + 8;
+  let bottomSafe = baseBottom + 8;
+  let leftSafe = baseLeft + 6;
+  let rightSafe = baseRight + 6;
+
+  // Expand safe-zones if overlays touch edges
+  const EDGE = 6;
+  const M = 12;
+
+  for(const r of rects){
+    // top edge
+    if(r.top <= baseTop + EDGE){
+      topSafe = Math.max(topSafe, r.bottom + M);
+    }
+    // bottom edge
+    if(r.bottom >= vh - (baseBottom + EDGE)){
+      bottomSafe = Math.max(bottomSafe, (vh - r.top) + M);
+    }
+    // left edge
+    if(r.left <= baseLeft + EDGE){
+      leftSafe = Math.max(leftSafe, r.right + M);
+    }
+    // right edge
+    if(r.right >= vw - (baseRight + EDGE)){
+      rightSafe = Math.max(rightSafe, (vw - r.left) + M);
+    }
+  }
+
+  // Cap to avoid killing playfield
+  topSafe = clamp(topSafe, 0, vh * 0.55);
+  bottomSafe = clamp(bottomSafe, 0, vh * 0.35);
+  leftSafe = clamp(leftSafe, 0, vw * 0.35);
+  rightSafe = clamp(rightSafe, 0, vw * 0.35);
+
+  setSafeVars({ top: topSafe, bottom: bottomSafe, left: leftSafe, right: rightSafe });
+}
+
+function scheduleSafeZoneRecalc(){
+  // run now + after vr-ui inject + after layout settles
+  computeAndApplySafeZone();
+  clearTimeout(WIN.__PLATE_SAFE_TO1__);
+  clearTimeout(WIN.__PLATE_SAFE_TO2__);
+  WIN.__PLATE_SAFE_TO1__ = setTimeout(computeAndApplySafeZone, 80);
+  WIN.__PLATE_SAFE_TO2__ = setTimeout(computeAndApplySafeZone, 480);
+}
+
+/* ------------------------------------------------
+ * HUD listeners
+ * ------------------------------------------------ */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -104,7 +211,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -114,6 +221,7 @@ function wireHUD(){
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
+
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
@@ -138,7 +246,7 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
+      location.reload();
     });
   }
   if(btnBackHub){
@@ -164,7 +272,7 @@ function wireEndSummary(){
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctStr(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -175,28 +283,22 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play') || 'play').toLowerCase();
-  const diff = (qs('diff','normal') || 'normal').toLowerCase();
+  const run  = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ PATCH: default time
-  // - play: 90 seconds if not specified (kid-friendly pacing)
-  // - research/study: if not specified, keep 70 (common experimental short run)
-  const defaultTime = (run === 'research' || run === 'study') ? 70 : 90;
-  const time = clamp(qs('time', String(defaultTime)), 10, 999);
+  // ✅ default 90s (user-friendly)
+  const time = clamp(qs('time','90'), 10, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view,
-    runMode: run,
-    diff,
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough (optional fields used by logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -218,7 +320,7 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class early
+  // set view class
   setBodyView(cfg.view);
 
   // wire UI
@@ -228,6 +330,11 @@ ready(()=>{
 
   // ensure end overlay closed at start
   setOverlayOpen(false);
+
+  // PATCH: safe-zone
+  scheduleSafeZoneRecalc();
+  WIN.addEventListener('resize', scheduleSafeZoneRecalc);
+  WIN.addEventListener('orientationchange', scheduleSafeZoneRecalc);
 
   // boot engine
   try{
