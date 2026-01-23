@@ -1,5 +1,10 @@
 // === /herohealth/vr/mode-factory.js ===
-// PATCH: add decorateTarget callback to customize target UI (emoji/icon)
+// Generic spawn engine for DOM targets (HHA)
+// ✅ export boot()
+// ✅ supports tap/click + crosshair shoot via event hha:shoot
+// ✅ safe spawn rect via CSS vars: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
+// ✅ decorateTarget(el, target) hook for emoji/icon
+// ✅ optional ttlMs override object {good, junk}
 
 'use strict';
 
@@ -16,7 +21,7 @@ function seededRng(seed){
   };
 }
 
-function now(){ return performance.now ? performance.now() : Date.now(); }
+function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
 function readSafeVars(){
   const cs = getComputedStyle(DOC.documentElement);
@@ -44,22 +49,32 @@ export function boot({
   spawnRate = 900,
   sizeRange = [44,64],
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
+  ttlMs = null, // {good, junk} optional
   onHit = ()=>{},
   onExpire = ()=>{},
-  decorateTarget = null, // ✅ NEW
+  decorateTarget = null,
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
-  const state = { alive:true, lastSpawnAt:0, spawnTimer:null, targets:new Set(), cooldownUntil:0 };
+
+  const state = {
+    alive:true,
+    lastSpawnAt:0,
+    spawnTimer:null,
+    targets:new Set(),
+    cooldownUntil:0
+  };
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
     const safe = readSafeVars();
+
     const left = r.left + safe.left;
     const top = r.top + safe.top;
     const right = r.right - safe.right;
     const bottom = r.bottom - safe.bottom;
+
     const w = Math.max(0, right - left);
     const h = Math.max(0, bottom - top);
     return { left, top, right, bottom, w, h };
@@ -75,6 +90,7 @@ export function boot({
 
   function onShoot(e){
     if(!state.alive) return;
+
     const d = e.detail || {};
     const t = now();
     if(t < state.cooldownUntil) return;
@@ -90,7 +106,10 @@ export function boot({
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
       const dist = Math.hypot(cx-x, cy-y);
-      if(dist <= lockPx && dist < bestDist){ bestDist = dist; best = target; }
+      if(dist <= lockPx && dist < bestDist){
+        bestDist = dist;
+        best = target;
+      }
     }
     if(best) hit(best, { source:'shoot' });
   }
@@ -105,15 +124,17 @@ export function boot({
 
     const size = Math.round(sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]));
     const pad = Math.max(10, Math.round(size * 0.55));
+
     const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
     const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
 
     const chosen = pickWeighted(rng, kinds);
-    const kind = chosen.kind || 'good';
+    const kind = (chosen && chosen.kind) ? chosen.kind : 'good';
 
     const el = DOC.createElement('div');
     el.className = 'plateTarget';
     el.dataset.kind = kind;
+
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
     el.style.width = `${size}px`;
@@ -121,17 +142,26 @@ export function boot({
     el.style.transform = 'translate(-50%,-50%)';
 
     const target = {
-      el, kind,
+      el,
+      kind,
       bornAt: now(),
-      ttlMs: kind === 'junk' ? 1700 : 2100,
+      ttlMs: (kind === 'junk' ? 1700 : 2100),
       groupIndex: Math.floor(rng()*5),
       size,
-      rng // expose rng for deterministic emoji picks
+      rng
     };
+
+    if(ttlMs && typeof ttlMs === 'object'){
+      const t = ttlMs[kind];
+      if(Number.isFinite(Number(t))) target.ttlMs = Number(t);
+    }
+
     el.__hhaTarget = target;
 
-    // ✅ NEW: allow game to decorate target (emoji/icon)
-    try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
+    // decorate (emoji/icon)
+    try{
+      if(typeof decorateTarget === 'function') decorateTarget(el, target);
+    }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
@@ -165,7 +195,9 @@ export function boot({
       state.alive = false;
       clearInterval(state.spawnTimer);
       WIN.removeEventListener('hha:shoot', onShoot);
-      for(const target of state.targets){ try{ target.el.remove(); }catch{} }
+      for(const target of state.targets){
+        try{ target.el.remove(); }catch{}
+      }
       state.targets.clear();
     }
   };
