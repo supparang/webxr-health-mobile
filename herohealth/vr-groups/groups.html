@@ -1,0 +1,339 @@
+<!-- === /herohealth/vr-groups/groups.html ===
+GroupsVR RUN — PRODUCTION (HHA Standard-ish)
+✅ Uses: ../vr/vr-ui.js  (Enter VR / Exit / Recenter + crosshair + hha:shoot)
+✅ Uses: ./groups-vr.css
+✅ Uses: ./groups.safe.js (IIFE engine -> window.GroupsVR.GameEngine)
+✅ HUD: time/score/combo/miss + rank
+✅ Quest: goal + mini quest
+✅ Power: switch meter
+✅ Coach: mood -> image mapping
+✅ End summary + Save last summary + Back hub (?hub=...)
+-->
+
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Food Groups VR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="./groups-vr.css" />
+</head>
+
+<body class="view-mobile">
+  <!-- A-Frame minimal scene for Enter VR reliability -->
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: true">
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="cam" look-controls="enabled:true"></a-camera>
+    </a-entity>
+    <a-sky color="#081025"></a-sky>
+  </a-scene>
+
+  <!-- PLAY LAYER (DOM targets mount) -->
+  <div id="playLayer" class="playLayer" aria-label="play layer"></div>
+
+  <!-- HUD -->
+  <div class="hud" aria-hidden="true">
+    <div class="hudLeft">
+      <div class="pill"><span class="lbl">TIME</span><span id="hudTime" class="val">--</span></div>
+      <div class="pill"><span class="lbl">SCORE</span><span id="hudScore" class="val">0</span></div>
+      <div class="pill"><span class="lbl">COMBO</span><span id="hudCombo" class="val">0</span></div>
+      <div class="pill"><span class="lbl">MISS</span><span id="hudMiss" class="val">0</span></div>
+    </div>
+    <div class="hudRight">
+      <div class="pill"><span class="lbl">RANK</span><span id="hudRank" class="val">—</span></div>
+      <div class="pill"><span class="lbl">ACC</span><span id="hudAcc" class="val">0%</span></div>
+    </div>
+  </div>
+
+  <!-- QUEST -->
+  <div class="questTop" aria-hidden="true">
+    <!-- GOAL -->
+    <div class="questCard">
+      <div class="qTitle">
+        <span id="qGoalTitle">—</span>
+        <span class="tag" id="qGoalTag">GOAL</span>
+      </div>
+      <div class="bar"><div id="qGoalFill" class="fill" style="width:0%"></div></div>
+      <div class="qSub" id="qGoalSub">0 / 0</div>
+    </div>
+
+    <!-- MINI -->
+    <div class="questCard">
+      <div class="qTitle">
+        <span id="qMiniTitle">—</span>
+        <span class="tag" id="qMiniTag">MINI</span>
+      </div>
+      <div class="bar"><div id="qMiniFill" class="fill" style="width:0%"></div></div>
+      <div class="qSub" id="qMiniSub">—</div>
+    </div>
+  </div>
+
+  <!-- POWER -->
+  <div class="powerWrap" aria-hidden="true">
+    <div class="powerCard">
+      <div class="pHead">POWER: สะสมเพื่อ “สลับหมู่”</div>
+      <div class="bar powerBar"><div id="pFill" class="fill" style="width:0%"></div></div>
+      <div class="pFoot" id="pSub">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- COACH -->
+  <div class="coachWrap" aria-hidden="true">
+    <div class="coachCard">
+      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="Coach" />
+      <div class="coachBubble">
+        <div class="coachName" id="coachName">Coach</div>
+        <div class="coachText" id="coachText">พร้อมแล้ว! ยิงให้ตรงหมู่ ✅</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIG BANNER placeholder (engine ensures it too) -->
+  <div id="groupsBigBanner" class="bigBanner" aria-hidden="true">
+    <div class="bigBannerText">READY</div>
+  </div>
+
+  <!-- END OVERLAY -->
+  <div id="endOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+    <div class="panel">
+      <div class="title">สรุปผล 🎉</div>
+      <div class="sub" id="endSubtitle">—</div>
+
+      <div class="grid2" style="margin-top:12px;">
+        <div class="stat"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
+        <div class="stat"><div class="k">RANK</div><div class="v" id="endRank">—</div></div>
+        <div class="stat"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
+        <div class="stat"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+      </div>
+
+      <div class="sub note" id="endMore" style="margin-top:10px;">—</div>
+
+      <div class="row row2">
+        <button id="btnBackHub" class="btn btn-ghost">กลับ HUB</button>
+        <div style="display:flex; gap:10px;">
+          <button id="btnReplay" class="btn">เล่นอีกครั้ง</button>
+          <button id="btnClose" class="btn btn-strong">ปิด</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VR UI (Enter VR / Exit / Recenter + crosshair -> hha:shoot) -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- Engine -->
+  <script src="./groups.safe.js"></script>
+
+  <!-- Boot / Bind UI -->
+  <script>
+    (function(){
+      'use strict';
+
+      const WIN = window;
+      const DOC = document;
+
+      const LS_LAST = 'HHA_LAST_SUMMARY';
+      const LS_HIST = 'HHA_SUMMARY_HISTORY';
+
+      const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+
+      function setBodyView(){
+        const v = (qs('view','')||'').toLowerCase();
+        const b = DOC.body;
+        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+
+        if (v === 'pc') b.classList.add('view-pc');
+        else if (v === 'vr') b.classList.add('view-vr');
+        else if (v === 'cvr') b.classList.add('view-cvr');
+        else b.classList.add('view-mobile');
+      }
+
+      function pad2(n){ n = (n|0); return (n<10?'0':'')+n; }
+      function fmtTime(sec){
+        sec = Math.max(0, sec|0);
+        const m = (sec/60)|0, s = sec%60;
+        return `${m}:${pad2(s)}`;
+      }
+
+      // UI nodes
+      const ui = {
+        time: DOC.getElementById('hudTime'),
+        score: DOC.getElementById('hudScore'),
+        combo: DOC.getElementById('hudCombo'),
+        miss: DOC.getElementById('hudMiss'),
+        rank: DOC.getElementById('hudRank'),
+        acc: DOC.getElementById('hudAcc'),
+
+        qGoalTitle: DOC.getElementById('qGoalTitle'),
+        qGoalFill: DOC.getElementById('qGoalFill'),
+        qGoalSub: DOC.getElementById('qGoalSub'),
+
+        qMiniTitle: DOC.getElementById('qMiniTitle'),
+        qMiniFill: DOC.getElementById('qMiniFill'),
+        qMiniSub: DOC.getElementById('qMiniSub'),
+
+        pFill: DOC.getElementById('pFill'),
+        pSub: DOC.getElementById('pSub'),
+
+        coachImg: DOC.getElementById('coachImg'),
+        coachText: DOC.getElementById('coachText'),
+
+        endOverlay: DOC.getElementById('endOverlay'),
+        endSubtitle: DOC.getElementById('endSubtitle'),
+        endScore: DOC.getElementById('endScore'),
+        endRank: DOC.getElementById('endRank'),
+        endAcc: DOC.getElementById('endAcc'),
+        endMiss: DOC.getElementById('endMiss'),
+        endMore: DOC.getElementById('endMore'),
+
+        btnBackHub: DOC.getElementById('btnBackHub'),
+        btnReplay: DOC.getElementById('btnReplay'),
+        btnClose: DOC.getElementById('btnClose'),
+      };
+
+      const moodToImg = (mood)=>{
+        mood = String(mood||'neutral').toLowerCase();
+        if (mood.includes('happy')) return '../img/coach-happy.png';
+        if (mood.includes('fever')) return '../img/coach-fever.png';
+        if (mood.includes('sad'))   return '../img/coach-sad.png';
+        return '../img/coach-neutral.png';
+      };
+
+      function showEnd(show){
+        ui.endOverlay.classList.toggle('hidden', !show);
+      }
+
+      function saveSummary(summary){
+        try{
+          localStorage.setItem(LS_LAST, JSON.stringify(summary));
+          const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
+          hist.unshift({ at: Date.now(), summary });
+          while(hist.length > 40) hist.pop();
+          localStorage.setItem(LS_HIST, JSON.stringify(hist));
+        }catch(e){}
+      }
+
+      function goHub(){
+        const hub = qs('hub', '');
+        if (hub) location.href = hub;
+        else location.href = '../hub.html';
+      }
+
+      function replay(){
+        // keep same params, just refresh
+        location.reload();
+      }
+
+      // Bind buttons
+      ui.btnBackHub.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); });
+      ui.btnReplay.addEventListener('click', (e)=>{ e.preventDefault(); replay(); });
+      ui.btnClose.addEventListener('click', (e)=>{ e.preventDefault(); showEnd(false); });
+
+      // Listen events from engine
+      WIN.addEventListener('hha:time', (e)=>{
+        const left = e.detail && e.detail.left != null ? e.detail.left : 0;
+        ui.time.textContent = fmtTime(left);
+      });
+
+      WIN.addEventListener('hha:score', (e)=>{
+        const d = e.detail || {};
+        ui.score.textContent = (d.score|0);
+        ui.combo.textContent = (d.combo|0);
+        ui.miss.textContent  = (d.misses|0);
+      });
+
+      WIN.addEventListener('hha:rank', (e)=>{
+        const d = e.detail || {};
+        ui.rank.textContent = d.grade || '—';
+        ui.acc.textContent  = ((d.accuracy|0) + '%');
+      });
+
+      WIN.addEventListener('quest:update', (e)=>{
+        const d = e.detail || {};
+
+        ui.qGoalTitle.textContent = d.goalTitle || '—';
+        ui.qGoalFill.style.width  = (Math.max(0, Math.min(100, Number(d.goalPct)||0))) + '%';
+        ui.qGoalSub.textContent   = `${d.goalNow||0} / ${d.goalTotal||0}`;
+
+        ui.qMiniTitle.textContent = d.miniTitle || '—';
+        ui.qMiniFill.style.width  = (Math.max(0, Math.min(100, Number(d.miniPct)||0))) + '%';
+
+        if (d.miniTitle && d.miniTitle !== '—'){
+          const t = (d.miniTimeLeftSec|0);
+          ui.qMiniSub.textContent = `${d.miniNow||0} / ${d.miniTotal||0}` + (t>0 ? ` · เหลือ ${t}s` : '');
+          DOC.body.classList.toggle('mini-urgent', t>0 && t<=3);
+        } else {
+          ui.qMiniSub.textContent = '—';
+          DOC.body.classList.remove('mini-urgent');
+        }
+      });
+
+      WIN.addEventListener('groups:power', (e)=>{
+        const d = e.detail || {};
+        const c = Number(d.charge||0);
+        const t = Math.max(1, Number(d.threshold||1));
+        const pct = Math.max(0, Math.min(100, (c/t)*100));
+        ui.pFill.style.width = pct + '%';
+        ui.pSub.textContent  = `${c} / ${t}`;
+      });
+
+      WIN.addEventListener('hha:coach', (e)=>{
+        const d = e.detail || {};
+        ui.coachText.textContent = String(d.text || '');
+        ui.coachImg.src = moodToImg(d.mood);
+      });
+
+      WIN.addEventListener('hha:end', (e)=>{
+        const s = e.detail || {};
+        saveSummary(s);
+
+        ui.endSubtitle.textContent = `เหตุผล: ${s.reason || 'end'} · โหมด: ${s.runMode || 'play'} · diff: ${s.diff || 'normal'}`;
+        ui.endScore.textContent = (s.scoreFinal|0);
+        ui.endRank.textContent  = s.grade || '—';
+        ui.endAcc.textContent   = ((s.accuracyGoodPct|0) + '%');
+        ui.endMiss.textContent  = (s.misses|0);
+
+        ui.endMore.textContent =
+          `GOAL: ${s.goalsCleared||0}/${s.goalsTotal||0} · MINI: ${s.miniCleared||0}/${s.miniTotal||0} · ` +
+          `คอมโบสูงสุด: ${s.comboMax||0} · เวลาเล่น: ${s.durationPlayedSec||0}s`;
+
+        showEnd(true);
+      });
+
+      // Boot engine
+      function boot(){
+        setBodyView();
+
+        const mount = DOC.getElementById('playLayer');
+
+        const engine = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
+        if (!engine || typeof engine.start !== 'function') {
+          console.error('GroupsVR engine not found');
+          return;
+        }
+
+        // Wire mount
+        if (typeof engine.setLayerEl === 'function') engine.setLayerEl(mount);
+
+        // Params
+        const diff = (qs('diff','normal') || 'normal').toLowerCase();
+        const run  = (qs('run','play') || 'play').toLowerCase(); // play | research | practice
+        const seed = qs('seed', String(Date.now()));
+        const time = Number(qs('time', '90'));
+
+        engine.start(diff, {
+          runMode: run,
+          seed,
+          time,
+          view: (qs('view','')||'')
+        });
+      }
+
+      if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot);
+      else boot();
+    })();
+  </script>
+</body>
+</html>
