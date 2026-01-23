@@ -1,14 +1,10 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
    Balanced Plate VR — UI + FX (PRODUCTION)
-   HHA Standard-ish
-   FIX: target must be position:absolute (otherwise left/top has no effect)
-   FIX: safe zones (top/bottom) so targets won't spawn behind HUD / VR buttons
+   HHA Standard
 ========================================================= */
 
 :root{
-  color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
@@ -26,24 +22,17 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe-area insets */
+  /* safe area insets */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* -------------------------------------------------------
-     PLAYFIELD SAFE ZONES (used by mode-factory.js)
-     NOTE: tune numbers if HUD/VR buttons change height
-  ------------------------------------------------------- */
-  --plate-left-safe:  max(var(--sal), 12px);
-  --plate-right-safe: max(var(--sar), 12px);
-
-  /* top: safe-area + HUD height */
-  --plate-top-safe:   calc(var(--sat) + 170px);
-
-  /* bottom: safe-area + VR buttons row (ENTER/EXIT/RECENTER) */
-  --plate-bottom-safe: calc(var(--sab) + 120px);
+  /* ✅ spawn safe rect for mode-factory.js */
+  --plate-top-safe: calc(var(--sat) + 128px);
+  --plate-bottom-safe: calc(var(--sab) + 128px);
+  --plate-left-safe: calc(var(--sal) + 14px);
+  --plate-right-safe: calc(var(--sar) + 14px);
 }
 
 /* ---------------------------------------------------------
@@ -61,10 +50,8 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{ position:relative; width:100%; height:100%; }
-
 /* ---------------------------------------------------------
-   Playfield (targets spawn inside)
+   Playfield (Targets spawn in this rect)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -75,252 +62,94 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Targets (ring glow like your screenshot) + emoji inside
+   Targets (ring + emoji)
 --------------------------------------------------------- */
 .plateTarget{
-  position:absolute;           /* ✅ CRITICAL FIX */
+  position:absolute;                 /* ✅ สำคัญมาก: ไม่งั้น left/top ไม่ทำงาน */
   display:grid;
   place-items:center;
-
   border-radius:999px;
   user-select:none;
   cursor:pointer;
 
-  /* Base ring look (subtle) */
+  /* ring color default */
+  --ring: rgba(34,197,94,.38);
+  --glow: rgba(34,197,94,.18);
+
   background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), transparent 38%),
-    rgba(2,6,23,.35);
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), transparent 42%),
+    radial-gradient(circle at 50% 50%, rgba(2,6,23,.35), rgba(2,6,23,.70));
 
-  border:1px solid rgba(148,163,184,.10);
+  border:2px solid var(--ring);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    inset 0 1px 0 rgba(255,255,255,.06);
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 26px var(--glow),
+    inset 0 1px 0 rgba(255,255,255,.08);
 
-  animation: pop .14s ease-out, drift 2.2s ease-in-out infinite;
-  will-change: transform, opacity, filter;
+  animation: pop .14s ease-out, floaty 1.8s ease-in-out infinite;
+  will-change: transform, filter;
 }
 
-.plateTarget .emoji{
-  font-size: 26px;
-  line-height: 1;
-  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
-  transform: translateY(-1px);
+.plateTarget .tEmoji{
+  font-size:26px;
+  line-height:1;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+  transform: translateZ(0);
 }
 
-/* GOOD ring */
+/* good/junk base */
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.18);
-  box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    0 0 26px rgba(34,197,94,.18);
+  --ring: rgba(34,197,94,.40);
+  --glow: rgba(34,197,94,.18);
 }
-
-/* JUNK ring */
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.20);
-  box-shadow:
-    0 18px 52px rgba(0,0,0,.34),
-    0 0 28px rgba(239,68,68,.20);
+  --ring: rgba(239,68,68,.42);
+  --glow: rgba(239,68,68,.18);
   animation-duration: 1.25s;
 }
 
-/* group tint (subtle) */
-.plateTarget[data-group="1"]{ box-shadow: 0 18px 52px rgba(0,0,0,.34), 0 0 26px rgba(34,197,94,.16); } /* โปรตีน */
-.plateTarget[data-group="2"]{ box-shadow: 0 18px 52px rgba(0,0,0,.34), 0 0 26px rgba(245,158,11,.16); } /* คาร์บ */
-.plateTarget[data-group="3"]{ box-shadow: 0 18px 52px rgba(0,0,0,.34), 0 0 26px rgba(34,211,238,.14); } /* ผัก */
-.plateTarget[data-group="4"]{ box-shadow: 0 18px 52px rgba(0,0,0,.34), 0 0 26px rgba(167,139,250,.14); } /* ผลไม้ */
-.plateTarget[data-group="5"]{ box-shadow: 0 18px 52px rgba(0,0,0,.34), 0 0 26px rgba(148,163,184,.12); } /* ไขมัน */
-
-.plateTarget:active{ filter:brightness(1.12); }
+/* group tint (1..5) */
+.plateTarget[data-kind="good"][data-group="1"]{ --ring: rgba(34,197,94,.42); --glow: rgba(34,197,94,.18); }   /* โปรตีน */
+.plateTarget[data-kind="good"][data-group="2"]{ --ring: rgba(34,211,238,.42); --glow: rgba(34,211,238,.18); }  /* คาร์บ */
+.plateTarget[data-kind="good"][data-group="3"]{ --ring: rgba(163,230,53,.42); --glow: rgba(163,230,53,.16); }  /* ผัก */
+.plateTarget[data-kind="good"][data-group="4"]{ --ring: rgba(167,139,250,.45); --glow: rgba(167,139,250,.18); }/* ผลไม้ */
+.plateTarget[data-kind="good"][data-group="5"]{ --ring: rgba(245,158,11,.45); --glow: rgba(245,158,11,.18); }  /* ไขมัน */
 
 @keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.86); opacity:0 }
+  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
   100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
-@keyframes drift{
-  0%{ transform:translate(-50%,-50%) rotate(0deg) }
-  25%{ transform:translate(-50%,-50%) rotate(1.1deg) }
-  50%{ transform:translate(-50%,-50%) rotate(-1.1deg) }
-  75%{ transform:translate(-50%,-50%) rotate(.7deg) }
-  100%{ transform:translate(-50%,-50%) rotate(0deg) }
+
+/* ใช้ filter/translate เบา ๆ ให้ “ลอย” */
+@keyframes floaty{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.15); }
+  100%{ filter:brightness(1); }
 }
 
 /* ---------------------------------------------------------
-   HUD
+   HUD (ของเดิมคุณใช้ได้เลย — ใส่เฉพาะที่จำเป็น)
 --------------------------------------------------------- */
-#hud{
-  position:fixed;
-  top: calc(var(--sat) + 14px);
-  left: calc(var(--sal) + 14px);
-  right: calc(var(--sar) + 14px);
-  z-index:40;
-  pointer-events:none; /* HUD should not block taps on targets */
-}
-
-.hudRow{
-  display:flex;
-  gap:10px;
-  align-items:stretch;
-}
-
-.chip{
-  flex:0 0 auto;
-  min-width: 112px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: rgba(2,6,23,.55);
-  border:1px solid rgba(148,163,184,.14);
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-}
-
-.chip .lbl{ display:block; font-size:11px; letter-spacing:.08em; color:var(--muted); font-weight:900; }
-.chip .val{ display:block; font-size:18px; font-weight:1000; margin-top:2px; }
-
-#questCard{
-  margin-top: 10px;
-  width:min(560px, 100%);
-  background: var(--panel);
+.card,.questCard,.panelCard{
+  background:var(--panel);
   border:1px solid var(--stroke);
-  border-radius: 22px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-  pointer-events:none;
+  border-radius:var(--radius);
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+  backdrop-filter:blur(10px);
 }
-
-.cardTitle{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
-  padding: 12px 12px 6px 12px;
-}
-.cardTitle .t{ font-weight:1000; }
-.cardTitle .hint{ color:var(--muted); font-weight:800; font-size:12px; text-align:right; }
-
-.qItem{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:14px;
-  padding: 12px;
-  border-top: 1px solid rgba(148,163,184,.10);
-}
-
-.qText .name{ font-weight:1000; }
-.qText .sub{ color:var(--muted); font-weight:800; font-size:12px; margin-top:2px; }
-
-.qProg{ min-width: 150px; text-align:right; }
-.qNums{ font-weight:1000; font-size:12px; color:var(--muted); margin-bottom:6px; }
 
 .bar{
   height:10px;
   border-radius:999px;
-  background: rgba(148,163,184,.12);
+  background:rgba(148,163,184,.12);
   overflow:hidden;
 }
-.bar > i{
+.bar>i{
   display:block;
   height:100%;
   width:0%;
-  background: var(--accent);
-  transition: width .25s ease;
-  border-radius:999px;
-}
-
-/* mini quest uses warn-ish fill by default */
-#miniBar{ background: var(--warn); }
-
-/* ---------------------------------------------------------
-   Coach bubble
---------------------------------------------------------- */
-#coachCard{
-  position:fixed;
-  left: calc(var(--sal) + 14px);
-  bottom: calc(var(--sab) + 96px);
-  z-index:45;
-  max-width: min(520px, calc(100% - 28px));
-  opacity:0;
-  transform: translateY(8px);
-  pointer-events:none;
-  transition: opacity .18s ease, transform .18s ease;
-}
-#coachCard.show{
-  opacity:1;
-  transform: translateY(0);
-}
-#coachCard .inner{
-  background: rgba(2,6,23,.62);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius: 20px;
-  padding: 12px 14px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-}
-#coachMsg{ font-weight:900; }
-#coachMeta{ margin-top:6px; color:var(--muted); font-weight:900; font-size:12px; }
-
-/* ---------------------------------------------------------
-   End overlay
---------------------------------------------------------- */
-#endOverlay{
-  position:fixed;
-  inset:0;
-  z-index:80;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
-}
-#endOverlay[aria-hidden="true"]{ display:none; }
-
-.endPanel{
-  width:min(680px, 100%);
-  background: rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.16);
-  border-radius: 24px;
-  box-shadow: 0 22px 80px rgba(0,0,0,.40);
-  padding: 16px;
-}
-
-.endTitle{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.endTitle h2{ margin:0; font-size:28px; font-weight:1000; }
-.endTitle .tag{
-  padding: 6px 10px;
-  border-radius: 999px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.60);
-  font-weight:1000;
-  color: var(--muted);
-}
-
-.endGrid{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:10px;
-}
-.kpi{
-  background: rgba(15,23,42,.52);
-  border:1px solid rgba(148,163,184,.12);
-  border-radius: 18px;
-  padding: 12px;
-}
-.kpi .k{ color:var(--muted); font-weight:900; font-size:12px; }
-.kpi .v{ font-weight:1000; font-size:20px; margin-top:4px; }
-
-.endBtns{
-  margin-top: 12px;
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
+  background:var(--accent);
+  transition:width .25s ease;
 }
 
 .btn{
@@ -328,7 +157,7 @@ html,body{
   border:none;
   border-radius:999px;
   padding:10px 14px;
-  font-weight:1000;
+  font-weight:900;
   font-size:12px;
   cursor:pointer;
   color:var(--text);
@@ -342,21 +171,18 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Responsive tuning
+   Responsive safe rect tuning
 --------------------------------------------------------- */
 @media (max-width:900px){
   :root{
-    --plate-top-safe: calc(var(--sat) + 188px);
-    --plate-bottom-safe: calc(var(--sab) + 130px);
+    --plate-top-safe: calc(var(--sat) + 118px);
+    --plate-bottom-safe: calc(var(--sab) + 142px);
   }
-  .chip{ min-width: 104px; }
-  .plateTarget .emoji{ font-size: 24px; }
-  #coachCard{ bottom: calc(var(--sab) + 104px); }
-  .endGrid{ grid-template-columns: 1fr; }
+  .plateTarget .tEmoji{ font-size:24px; }
 }
-
-/* Cardboard / cVR tends to have bigger bottom UI */
-body.view-cvr :root,
-body.view-vr :root{
-  --plate-bottom-safe: calc(var(--sab) + 150px);
+@media (max-width:420px){
+  :root{
+    --plate-top-safe: calc(var(--sat) + 114px);
+    --plate-bottom-safe: calc(var(--sab) + 156px);
+  }
 }
