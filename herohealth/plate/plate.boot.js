@@ -1,13 +1,15 @@
+// =========================================================
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCH SAFE-ZONE + 90s default)
+// PlateVR Boot — PRODUCTION (PATCH A3)
+// ---------------------------------------------------------
 // ✅ Auto view detect (no UI override)
+// ✅ Boots engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params
-// ✅ PATCH: compute spawn safe-zone from HUD + VR-UI overlays
-//    -> sets CSS vars: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
-// ✅ Default time: 90s (kid-friendly; 70s tends to be tight esp. Mobile/VR)
+// ✅ Waits for mount layout so targets actually spawn (fix "no targets")
+// =========================================================
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -21,13 +23,12 @@ const qs = (k, def=null)=>{
 
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
+  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow caller/system to force view by query (experiments), but not via menu.
+  // No UI override. Allow optional ?view= for experiments only.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -76,112 +77,6 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
-/* ------------------------------------------------
- * PATCH: Safe-zone for spawn (HUD + VRUI buttons)
- * mode-factory reads: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
- * ------------------------------------------------ */
-function cssPx(name){
-  const cs = getComputedStyle(DOC.documentElement);
-  return parseFloat(cs.getPropertyValue(name)) || 0;
-}
-
-function rectOf(el){
-  if(!el) return null;
-  const st = getComputedStyle(el);
-  if(st.display === 'none' || st.visibility === 'hidden') return null;
-  const r = el.getBoundingClientRect();
-  if(!r || r.width < 2 || r.height < 2) return null;
-  return r;
-}
-
-function setSafeVars({ top=0, bottom=0, left=0, right=0 }){
-  const root = DOC.documentElement;
-  root.style.setProperty('--plate-top-safe', `${Math.max(0, Math.round(top))}px`);
-  root.style.setProperty('--plate-bottom-safe', `${Math.max(0, Math.round(bottom))}px`);
-  root.style.setProperty('--plate-left-safe', `${Math.max(0, Math.round(left))}px`);
-  root.style.setProperty('--plate-right-safe', `${Math.max(0, Math.round(right))}px`);
-}
-
-function computeAndApplySafeZone(){
-  // Base: iOS safe area insets (already in CSS vars)
-  const baseTop = cssPx('--sat');
-  const baseBottom = cssPx('--sab');
-  const baseLeft = cssPx('--sal');
-  const baseRight = cssPx('--sar');
-
-  const vw = Math.max(1, WIN.innerWidth || DOC.documentElement.clientWidth || 1);
-  const vh = Math.max(1, WIN.innerHeight || DOC.documentElement.clientHeight || 1);
-
-  // Candidates: HUD + VR UI injected nodes
-  const candidates = [
-    DOC.getElementById('hud'),
-    DOC.getElementById('coachCard'),
-
-    // common ids/classes (vr-ui.js)
-    DOC.getElementById('hha-vrui'),
-    DOC.getElementById('hhaVrUi'),
-    DOC.getElementById('hha-vr-ui'),
-    DOC.querySelector('.hha-vrui'),
-    DOC.querySelector('.hha-vr-ui'),
-    DOC.querySelector('[data-hha-vrui]')
-  ].filter(Boolean);
-
-  const rects = [];
-  for(const el of candidates){
-    const r = rectOf(el);
-    if(r) rects.push(r);
-  }
-
-  // Start with base insets + small margin
-  let topSafe = baseTop + 8;
-  let bottomSafe = baseBottom + 8;
-  let leftSafe = baseLeft + 6;
-  let rightSafe = baseRight + 6;
-
-  // Expand safe-zones if overlays touch edges
-  const EDGE = 6;
-  const M = 12;
-
-  for(const r of rects){
-    // top edge
-    if(r.top <= baseTop + EDGE){
-      topSafe = Math.max(topSafe, r.bottom + M);
-    }
-    // bottom edge
-    if(r.bottom >= vh - (baseBottom + EDGE)){
-      bottomSafe = Math.max(bottomSafe, (vh - r.top) + M);
-    }
-    // left edge
-    if(r.left <= baseLeft + EDGE){
-      leftSafe = Math.max(leftSafe, r.right + M);
-    }
-    // right edge
-    if(r.right >= vw - (baseRight + EDGE)){
-      rightSafe = Math.max(rightSafe, (vw - r.left) + M);
-    }
-  }
-
-  // Cap to avoid killing playfield
-  topSafe = clamp(topSafe, 0, vh * 0.55);
-  bottomSafe = clamp(bottomSafe, 0, vh * 0.35);
-  leftSafe = clamp(leftSafe, 0, vw * 0.35);
-  rightSafe = clamp(rightSafe, 0, vw * 0.35);
-
-  setSafeVars({ top: topSafe, bottom: bottomSafe, left: leftSafe, right: rightSafe });
-}
-
-function scheduleSafeZoneRecalc(){
-  // run now + after vr-ui inject + after layout settles
-  computeAndApplySafeZone();
-  clearTimeout(WIN.__PLATE_SAFE_TO1__);
-  clearTimeout(WIN.__PLATE_SAFE_TO2__);
-  WIN.__PLATE_SAFE_TO1__ = setTimeout(computeAndApplySafeZone, 80);
-  WIN.__PLATE_SAFE_TO2__ = setTimeout(computeAndApplySafeZone, 480);
-}
-
-/* ------------------------------------------------
- * HUD listeners
- * ------------------------------------------------ */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -211,7 +106,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
+    // Expected: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -221,7 +116,6 @@ function wireHUD(){
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
@@ -286,19 +180,22 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default 90s (user-friendly)
-  const time = clamp(qs('time','90'), 10, 999);
+  // ✅ เวลา: default 90 (Plate ต้องมีเวลาพอให้ “ครบ 5 หมู่” จริง)
+  const time = clamp(qs('time','90'), 20, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view, runMode: run, diff,
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // passthrough ctx
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -317,31 +214,46 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
+// ✅ wait until mount has a real rect (fix “no targets” on some mobile/fit cases)
+function waitForMountRect(mount, timeoutMs=1800){
+  return new Promise((resolve)=>{
+    const t0 = performance.now();
+    const tick = ()=>{
+      const r = mount.getBoundingClientRect();
+      if(r.width > 50 && r.height > 50) return resolve(true);
+      if(performance.now() - t0 > timeoutMs) return resolve(false);
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+ready(async ()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // PATCH: safe-zone
-  scheduleSafeZoneRecalc();
-  WIN.addEventListener('resize', scheduleSafeZoneRecalc);
-  WIN.addEventListener('orientationchange', scheduleSafeZoneRecalc);
+  const mount = DOC.getElementById('plate-layer');
+  if(!mount){
+    console.error('[PlateVR] missing #plate-layer');
+    showCoach('หาเลเยอร์เล่นเกมไม่เจอ (#plate-layer)', 'System');
+    return;
+  }
 
-  // boot engine
+  const ok = await waitForMountRect(mount);
+  if(!ok){
+    // still try boot, but warn
+    console.warn('[PlateVR] mount rect still small; boot anyway');
+  }
+
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
