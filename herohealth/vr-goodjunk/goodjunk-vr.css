@@ -73,8 +73,8 @@ a-scene[embedded]{
   position:fixed;
   left:0; right:0;
   top:0;
-  height: var(--topbar-h);
-  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  height: calc(var(--topbar-h) + var(--sat));  /* ✅ include safe top */
+  padding: 10px calc(12px + var(--sar)) 10px calc(12px + var(--sal));
   display:flex;
   align-items:flex-end;
   justify-content:space-between;
@@ -128,10 +128,10 @@ a-scene[embedded]{
 .gj-hud-top{
   position:fixed;
   left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat));
+  top: calc(var(--topbar-h) + var(--sat)); /* ✅ align under topbar */
   padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
   z-index:40;
-  pointer-events:none; /* HUD should not block gameplay */
+  pointer-events:none; /* ✅ HUD must not block gameplay */
 }
 
 .hud-row{
@@ -165,12 +165,8 @@ a-scene[embedded]{
   font-weight:1200;
   line-height:1;
 }
-.hud-pill.warn{
-  border-color: rgba(245,158,11,.35);
-}
-.hud-pill.grade{
-  border-color: rgba(167,139,250,.35);
-}
+.hud-pill.warn{ border-color: rgba(245,158,11,.35); }
+.hud-pill.grade{ border-color: rgba(167,139,250,.35); }
 
 .quest-row{
   margin-top:10px;
@@ -191,12 +187,8 @@ a-scene[embedded]{
   pointer-events:none;
 }
 
-.quest-card.goal{
-  border-color: rgba(34,211,238,.28);
-}
-.quest-card.mini{
-  border-color: rgba(167,139,250,.22);
-}
+.quest-card.goal{ border-color: rgba(34,211,238,.28); }
+.quest-card.mini{ border-color: rgba(167,139,250,.22); }
 
 .q-title{
   font-weight:1200;
@@ -415,7 +407,7 @@ body.view-cvr .gj-target{
 body.show-missions .gj-peek{
   opacity:1;
   transform: translateY(0);
-  pointer-events:auto; /* tap to close */
+  pointer-events:auto; /* tap to close when shown */
 }
 
 .peek-card{
@@ -468,9 +460,7 @@ body.hud-hidden .gj-hud-bot{
 }
 
 @media (min-width: 900px){
-  :root{
-    --topbar-h: 58px;
-  }
+  :root{ --topbar-h: 58px; }
   .gj-hud-top{
     padding-left: calc(18px + var(--sal));
     padding-right: calc(18px + var(--sar));
