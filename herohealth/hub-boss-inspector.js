@@ -398,3 +398,252 @@
 
         <div class="grid" id="hbKpi"></div>
         <div class="card" id="hbCoach"></div>
+
+        <div class="list" id="hbList"></div>
+        <pre class="pre mono" id="hbRaw"></pre>
+
+        <div class="mini" style="margin-top:10px; opacity:.9">
+          ✅ แตะ “รายการบอส” เพื่อ Copy JSON ของ segment นั้นทันที •
+          ถ้าอยากให้จับบอสได้ 100%: ให้เกม emit <span class="mono">boss_enter/boss_exit/boss_clear</span>
+        </div>
+      </div>
+    `;
+
+    const elSource = $('#hbSource');
+    const elMeta = $('#hbMeta');
+    const elBossMeta = $('#hbBossMeta');
+    const elKpi = $('#hbKpi');
+    const elCoach = $('#hbCoach');
+    const elList = $('#hbList');
+    const elRaw = $('#hbRaw');
+
+    elSource.value = sourceDefault;
+
+    function summarizeMeta(pack){
+      const meta = pack?.meta || {};
+      const evs = Array.isArray(pack?.events) ? pack.events : [];
+      const sid = meta.sessionId || '-';
+      const game = meta.game || elSource.value;
+      const run = meta.runMode || meta.run || '-';
+      const diff = meta.diff || '-';
+      const view = meta.view || '-';
+      const seed = (meta.seed!=null)? meta.seed : '-';
+      elMeta.textContent = `${elSource.value} • ev=${evs.length} • sid=${sid} • ${run}/${diff}/${view} • seed=${seed} • game=${game}`;
+    }
+
+    function renderUI(pack){
+      const evs = Array.isArray(pack?.events) ? pack.events : [];
+      summarizeMeta(pack);
+
+      const segs = segmentBoss(evs);
+      elBossMeta.textContent = `boss: ${segs.length || 0}`;
+
+      // Global metrics
+      const mAll = summarizeEvents(evs);
+
+      // KPI cards
+      const stepAccTxt = (mAll.stepAcc==null) ? '—' : `${(mAll.stepAcc*100).toFixed(1)}%`;
+      const shotAccTxt = (mAll.shotAcc==null) ? '—' : `${(mAll.shotAcc*100).toFixed(1)}%`;
+
+      elKpi.innerHTML = `
+        <div class="card">
+          <div class="k">📦 Total events</div>
+          <div class="v">${mAll.n}</div>
+          <div class="mini">bossEvents: <b>${mAll.bossEvents}</b> • pause: <b>${mAll.pauseToggle}</b></div>
+        </div>
+        <div class="card">
+          <div class="k">🧼 Hygiene accuracy</div>
+          <div class="v">${stepAccTxt}</div>
+          <div class="mini">stepHit ok: <b>${mAll.stepHitOk}</b> • wrong: <b>${mAll.stepHitWrong}</b> • hazHit: <b>${mAll.hazHit}</b></div>
+        </div>
+        <div class="card">
+          <div class="k">🎯 Hydration accuracy</div>
+          <div class="v">${shotAccTxt}</div>
+          <div class="mini">shots: <b>${mAll.shot}</b> • missShots: <b>${mAll.missShot}</b> • badHit: <b>${mAll.badHit}</b></div>
+        </div>
+      `;
+
+      // Coach tip
+      const tip = coachTipFromMetrics(mAll, elSource.value);
+      elCoach.innerHTML = `
+        <div class="k">🤖 Coach Tip</div>
+        <div class="mini" style="margin-top:6px">${esc(tip)}</div>
+        <div class="mini" style="margin-top:6px; opacity:.85">
+          หมายเหตุ: ถ้าอยากให้โค้ช “บอส-เฉพาะช่วง” ให้เกม log boss_* + soap_pick + haz_hit ให้ครบ
+        </div>
+      `;
+
+      // Boss list
+      if(!segs.length){
+        elList.innerHTML = `
+          <div class="item" style="cursor:default">
+            <span class="tag warn">ยังไม่พบ boss_* events</span>
+            <span style="opacity:.9"> • ระบบจึงสรุปรวมทั้งแพ็คแทน</span>
+            <div class="mini" style="margin-top:6px; opacity:.9">
+              ถ้าต้องการ “Boss Replay” จริง ๆ: ให้เกม emit <span class="mono">boss_enter/boss_exit/boss_clear</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn" id="hbCopyAll">📋 Copy Pack JSON</button>
+              <button class="btn" id="hbCopyAllMetrics">📋 Copy Metrics</button>
+            </div>
+          </div>
+        `;
+
+        $('#hbCopyAll')?.addEventListener('click', async ()=>{
+          await copyText(JSON.stringify(pack || {}, null, 2));
+        }, { passive:true });
+
+        $('#hbCopyAllMetrics')?.addEventListener('click', async ()=>{
+          await copyText(JSON.stringify(mAll, null, 2));
+        }, { passive:true });
+
+      }else{
+        const items = [];
+        segs.forEach((seg)=>{
+          const m = summarizeEvents(seg.events);
+          const dur = (seg.startT!=null && seg.endT!=null) ? (Number(seg.endT)-Number(seg.startT)).toFixed(2) : '—';
+          const status = String(seg.endType||'boss_unknown').toLowerCase();
+          const okTag = (status.includes('clear')) ? `<span class="tag ok">CLEAR</span>` :
+                        (status.includes('fail')) ? `<span class="tag warn">FAIL</span>` :
+                        `<span class="tag boss">${esc(seg.endType||'BOSS')}</span>`;
+
+          const stepAcc = (m.stepAcc==null) ? '—' : `${(m.stepAcc*100).toFixed(0)}%`;
+
+          items.push(`
+            <div class="item hbSeg" data-idx="${seg.idx}">
+              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+                <span class="tag boss">BOSS #${seg.idx}</span>
+                ${okTag}
+                <span class="mono" style="opacity:.9">dur=${esc(dur)}s</span>
+                <span class="mono" style="opacity:.9">events=${m.n}</span>
+              </div>
+              <div class="mini" style="margin-top:6px">
+                stepAcc: <b>${esc(stepAcc)}</b> • ok:${m.stepHitOk} wrong:${m.stepHitWrong} • haz:${m.hazHit} • soap:${m.soapPick}
+              </div>
+              <div class="mini" style="opacity:.85; margin-top:4px">
+                แตะเพื่อ Copy JSON ของ segment นี้ 📋
+              </div>
+            </div>
+          `);
+        });
+        elList.innerHTML = items.join('');
+
+        // click -> copy JSON seg
+        elList.querySelectorAll('.hbSeg').forEach((el)=>{
+          el.addEventListener('click', async ()=>{
+            const idx = Number(el.getAttribute('data-idx')||0);
+            const seg = segs.find(s=>s.idx===idx);
+            if(!seg) return;
+
+            const payload = {
+              segment: { idx: seg.idx, startT: seg.startT, endT: seg.endT, startType: seg.startType, endType: seg.endType },
+              metrics: summarizeEvents(seg.events),
+              events: seg.events
+            };
+            await copyText(JSON.stringify(payload, null, 2));
+            el.style.outline = '2px solid rgba(34,197,94,.35)';
+            setTimeout(()=>{ el.style.outline = 'none'; }, 420);
+          }, { passive:true });
+        });
+      }
+
+      // raw view
+      elRaw.textContent = JSON.stringify({
+        source: elSource.value,
+        meta: pack?.meta || {},
+        bossSegments: segs.map(seg=>({
+          idx: seg.idx,
+          startT: seg.startT,
+          endT: seg.endT,
+          startType: seg.startType,
+          endType: seg.endType,
+          metrics: summarizeEvents(seg.events)
+        })),
+        allMetrics: mAll
+      }, null, 2);
+    }
+
+    function reload(){
+      const pack = readPack(elSource.value);
+      if(!pack){
+        elMeta.textContent = `${elSource.value} • (no pack in localStorage)`;
+        elBossMeta.textContent = 'boss: —';
+        elKpi.innerHTML = '';
+        elCoach.innerHTML = `<div class="k">🤖 Coach Tip</div><div class="mini" style="margin-top:6px">ยังไม่มีข้อมูล events — เล่นเกมให้มี events ก่อน</div>`;
+        elList.innerHTML = `
+          <div class="item" style="cursor:default">
+            <span class="tag warn">ไม่พบ ${elSource.value==='hydration'?KEY_HYDR:KEY_HYGI}</span>
+            <div class="mini" style="margin-top:6px; opacity:.9">
+              วิธีทำให้มี: เล่นเกม 1 รอบ แล้วให้เกมเซฟ events ลง localStorage (events buffer)
+            </div>
+          </div>
+        `;
+        elRaw.style.display = 'none';
+        return;
+      }
+      renderUI(pack);
+    }
+
+    // binds
+    $('#hbReload').addEventListener('click', reload, { passive:true });
+    $('#hbExportCsv').addEventListener('click', ()=>{
+      const pack = readPack(elSource.value);
+      if(!pack) return;
+      const evs = Array.isArray(pack.events) ? pack.events : [];
+      const segs = segmentBoss(evs);
+
+      // export: 1 row per segment, else 1 row global
+      const rows = [];
+      if(segs.length){
+        segs.forEach(seg=>{
+          const m = summarizeEvents(seg.events);
+          rows.push({
+            source: elSource.value,
+            segIdx: seg.idx,
+            startT: seg.startT,
+            endT: seg.endT,
+            endType: seg.endType,
+            events: m.n,
+            stepHitOk: m.stepHitOk,
+            stepHitWrong: m.stepHitWrong,
+            stepAcc: (m.stepAcc==null)? '' : m.stepAcc,
+            hazHit: m.hazHit,
+            soapPick: m.soapPick,
+            bossEvents: m.bossEvents
+          });
+        });
+      }else{
+        const m = summarizeEvents(evs);
+        rows.push({
+          source: elSource.value,
+          segIdx: 'ALL',
+          events: m.n,
+          stepHitOk: m.stepHitOk,
+          stepHitWrong: m.stepHitWrong,
+          stepAcc: (m.stepAcc==null)? '' : m.stepAcc,
+          hazHit: m.hazHit,
+          soapPick: m.soapPick,
+          bossEvents: m.bossEvents,
+          note: 'no boss_* events'
+        });
+      }
+
+      const csv = toCsv(rows);
+      downloadText(`HHA_${elSource.value}_boss_inspector_${Date.now()}.csv`, csv);
+    }, { passive:true });
+
+    $('#hbToggleRaw').addEventListener('click', ()=>{
+      elRaw.style.display = (elRaw.style.display==='block') ? 'none' : 'block';
+    }, { passive:true });
+
+    elSource.addEventListener('change', reload, { passive:true });
+
+    // first
+    reload();
+
+    window.addEventListener('focus', reload);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render);
+  else render();
+})();
