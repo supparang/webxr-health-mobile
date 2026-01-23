@@ -1,8 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (Folder-run)
-✅ Adds: End Summary Overlay (listens hha:end)
-✅ Buttons: Back HUB / Play Again
-✅ Still keeps: safe-zone measure for spawn
+✅ CSS: ./goodjunk-vr.css
+✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js (FAIR PACK)
+✅ A-Frame minimal scene for Enter VR reliability
 -->
 <!doctype html>
 <html lang="th">
@@ -69,6 +70,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       </div>
     </div>
 
+    <!-- quest-row: จะถูก “ย่อ” บนมือถือให้โล่ง (CSS จัดให้) -->
     <div class="quest-row">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
@@ -127,50 +129,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- ✅ END SUMMARY OVERLAY -->
-  <section class="gj-end" id="gjEnd" aria-hidden="true">
-    <div class="gj-end-card" role="dialog" aria-modal="true" aria-label="สรุปผลการเล่น">
-      <div class="gj-end-title">สรุปผล</div>
-
-      <div class="gj-end-grid">
-        <div class="gj-end-item">
-          <div class="k">คะแนน</div>
-          <div class="v" id="endScore">0</div>
-        </div>
-        <div class="gj-end-item">
-          <div class="k">เกรด</div>
-          <div class="v" id="endGrade">—</div>
-        </div>
-        <div class="gj-end-item">
-          <div class="k">MISS</div>
-          <div class="v" id="endMiss">0</div>
-        </div>
-        <div class="gj-end-item">
-          <div class="k">คอมโบสูงสุด</div>
-          <div class="v" id="endCombo">0</div>
-        </div>
-        <div class="gj-end-item">
-          <div class="k">เวลาเล่น</div>
-          <div class="v"><span id="endPlayed">0</span>s</div>
-        </div>
-        <div class="gj-end-item">
-          <div class="k">โหมด</div>
-          <div class="v" id="endMode">play</div>
-        </div>
-      </div>
-
-      <div class="gj-end-sub" id="endReason">—</div>
-
-      <div class="gj-end-actions">
-        <button class="gj-btn" id="btnPlayAgain" type="button">เล่นอีกครั้ง</button>
-        <button class="gj-btn primary" id="btnEndBackHub" type="button">↩ กลับ HUB</button>
-      </div>
-
-      <div class="gj-end-tiny" id="endTiny">บันทึกผลไว้แล้ว</div>
-    </div>
-  </section>
-
-  <!-- UI wiring + safe-zone measure + end overlay wiring -->
+  <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -191,11 +150,10 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const time = qs('time','80');
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
-      function goHub(){
+      btnBack?.addEventListener('click', ()=>{
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
-      }
-      btnBack?.addEventListener('click', goHub);
+      });
 
       btnHide?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
@@ -224,8 +182,8 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 16 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(110, hudBot + 18)));
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 10 + sat));
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(94, hudBot + 12)));
         }catch(_){}
       }
       window.addEventListener('resize', updateSafe, {passive:true});
@@ -233,40 +191,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
-
-      // ✅ End Summary Overlay wiring (listen hha:end)
-      const end = document.getElementById('gjEnd');
-      const setTxt = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = String(v ?? '—'); };
-
-      document.getElementById('btnEndBackHub')?.addEventListener('click', goHub);
-      document.getElementById('btnPlayAgain')?.addEventListener('click', ()=>{
-        // reload same URL (keeps params)
-        location.reload();
-      });
-
-      window.addEventListener('hha:end', (ev)=>{
-        const s = ev?.detail || {};
-        // show overlay
-        end?.setAttribute('aria-hidden','false');
-        document.body.classList.add('ended');
-
-        setTxt('endScore', s.scoreFinal ?? s.score ?? 0);
-        setTxt('endGrade', s.grade ?? document.getElementById('hud-grade')?.textContent ?? '—');
-        setTxt('endMiss', s.miss ?? s.misses ?? 0);
-        setTxt('endCombo', s.comboMax ?? 0);
-        setTxt('endPlayed', s.durationPlayedSec ?? 0);
-        setTxt('endMode', s.runMode ?? s.runMode ?? s.run ?? 'play');
-        setTxt('endReason', s.reason ? `เหตุผล: ${s.reason}` : 'จบเกมแล้ว');
-
-        // tiny debug / research context
-        const tiny = document.getElementById('endTiny');
-        if(tiny){
-          const sid = s.studyId || s.study || '';
-          const ph  = s.phase || '';
-          tiny.textContent = `บันทึกผลไว้แล้ว${(sid||ph)?` · ${sid?`studyId=${sid}`:''}${ph?` · phase=${ph}`:''}`:''}`;
-        }
-      }, {passive:true});
-
     })();
   </script>
 </body>
