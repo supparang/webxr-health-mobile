@@ -3,664 +3,175 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>VR Fitness — HUB</title>
+  <title>VR Fitness — Hub</title>
   <meta name="color-scheme" content="dark light" />
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --cyan:#22d3ee;
-      --warn:#f59e0b;
-      --danger:#f97373;
-      --radius:22px;
-      --pill:999px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,.16),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(34,197,94,.18),transparent 55%),
-        var(--bg);
-      color:var(--text);
-      overflow-x:hidden;
-      padding: calc(10px + var(--sat)) 10px calc(14px + var(--sab));
-    }
-
-    .wrap{
-      max-width:980px;
-      margin:0 auto;
-    }
-
-    header{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      justify-content:space-between;
-      flex-wrap:wrap;
-      margin-bottom:10px;
-    }
-
-    .brand{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .logo{
-      width:44px;height:44px;border-radius:999px;
-      display:flex;align-items:center;justify-content:center;
-      background:radial-gradient(circle at 30% 20%, rgba(34,211,238,.9), rgba(14,165,233,.9));
-      color:#07101f;
-      font-size:22px;
-      box-shadow:0 18px 40px rgba(8,47,73,.6);
-      border:1px solid rgba(255,255,255,.12);
-    }
-    h1{
-      margin:0;
-      font-size:1.15rem;
-      letter-spacing:.2px;
-      line-height:1.1;
-    }
-    .sub{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-size:.82rem;
-    }
-
-    .topRight{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      align-items:flex-end;
-      min-width:240px;
-    }
-
-    .pill{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:6px 12px;
-      border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.35);
-      background:rgba(2,6,23,.55);
-      color:var(--muted);
-      font-size:.75rem;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      white-space:nowrap;
-    }
-    .dot{
-      width:8px;height:8px;border-radius:999px;
-      background:var(--accent);
-      box-shadow:0 0 0 5px rgba(34,197,94,.18);
-    }
-
-    .toolbar{
-      display:flex;
-      gap:6px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:8px 12px;
-      font-size:.82rem;
-      font-weight:700;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      color:var(--text);
-      background:rgba(15,23,42,.85);
-      border:1px solid rgba(148,163,184,.35);
-    }
-    .btn.primary{
-      background:linear-gradient(135deg, #facc15, #f97316);
-      color:#081224;
-      border-color:rgba(255,255,255,.0);
-      box-shadow:0 18px 38px rgba(248,181,0,.35);
-    }
-    .btn.ghost{
-      background:rgba(2,6,23,.45);
-    }
-    .btn.small{
-      padding:6px 10px;
-      font-size:.74rem;
-      font-weight:700;
-    }
-
-    .card{
-      border-radius:var(--radius);
-      border:1px solid rgba(148,163,184,.22);
-      background: radial-gradient(circle at top left, rgba(56,189,248,.10), transparent 60%),
-                  rgba(15,23,42,.80);
-      box-shadow:0 18px 55px rgba(2,6,23,.65);
-      padding:12px;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:10px;
-    }
-    @media(max-width:820px){
-      .grid{ grid-template-columns:1fr; }
-      .topRight{ align-items:flex-start; min-width:unset; width:100%; }
-      .toolbar{ justify-content:flex-start; }
-    }
-
-    .gameCard{
-      position:relative;
-      overflow:hidden;
-    }
-    .gameHead{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .gameTitle{
-      display:flex; gap:10px; align-items:center;
-    }
-    .gIcon{
-      width:40px;height:40px;border-radius:14px;
-      display:flex;align-items:center;justify-content:center;
-      background:rgba(34,211,238,.12);
-      border:1px solid rgba(34,211,238,.22);
-      font-size:22px;
-    }
-    .gName{
-      margin:0;
-      font-size:1.02rem;
-      letter-spacing:.2px;
-    }
-    .gDesc{
-      margin:4px 0 0;
-      font-size:.78rem;
-      color:var(--muted);
-    }
-
-    .chips{
-      display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;
-    }
-    .chip{
-      font-size:.72rem;
-      padding:5px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.38);
-      color:var(--muted);
-    }
-    .chip.good{ border-color:rgba(34,197,94,.35); color:#bbf7d0; background:rgba(34,197,94,.10); }
-    .chip.warn{ border-color:rgba(245,158,11,.40); color:#fde68a; background:rgba(245,158,11,.10); }
-
-    .actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-    .actions .btn{ flex:1; justify-content:center; }
-    .actions .btn.secondary{
-      background:rgba(2,6,23,.42);
-    }
-
-    .last{
-      margin-top:10px;
-      padding:10px;
-      border-radius:16px;
-      border:1px dashed rgba(148,163,184,.25);
-      background:rgba(2,6,23,.35);
-      color:var(--muted);
-      font-size:.78rem;
-    }
-    .last strong{ color:var(--text); }
-
-    .note{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:.75rem;
-    }
-
-    /* ===== Stage Overlay (iframe) ===== */
-    .stage{
-      position:fixed;
-      inset:0;
-      background:rgba(2,6,23,.92);
-      z-index:120;
-      display:none;
-      padding: calc(10px + var(--sat)) 10px calc(10px + var(--sab));
-    }
-    .stage.show{ display:block; }
-
-    .stageBar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      margin-bottom:10px;
-      flex-wrap:wrap;
-    }
-
-    .stageTitle{
-      display:flex;align-items:center;gap:10px;
-      color:var(--text);
-      font-weight:800;
-      letter-spacing:.2px;
-    }
-    .stageTitle .badge{
-      font-size:.72rem;
-      color:#bbf7d0;
-      border:1px solid rgba(34,197,94,.35);
-      background:rgba(34,197,94,.10);
-      padding:4px 10px;
-      border-radius:999px;
-    }
-
-    .frameWrap{
-      position:relative;
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.22);
-      background:#000;
-      overflow:hidden;
-      box-shadow:0 26px 80px rgba(0,0,0,.70);
-      height: calc(100vh - 92px - var(--sat) - var(--sab));
-    }
-
-    iframe{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      border:0;
-      background:#000;
-    }
-
-    .pdpa{
-      margin-top:10px;
-      color:rgba(148,163,184,.86);
-      font-size:.74rem;
-    }
-  </style>
+  <link rel="icon" href="../herohealth/favicon.ico" />
+  <link rel="stylesheet" href="./hub.css" />
 </head>
+
 <body>
-  <div class="wrap">
-    <header>
+  <main class="wrap">
+    <header class="top">
       <div class="brand">
         <div class="logo">🏋️</div>
         <div>
-          <h1>VR Fitness — HUB</h1>
-          <div class="sub">โหมดเล่น/วิจัย • ทุกแพลตฟอร์ม • แนว HeroHealth</div>
+          <h1 id="tTitle">VR Fitness Hub</h1>
+          <p id="tSub">เลือกเกมฝึกทักษะ + ดูผลล่าสุดจากการเล่น</p>
         </div>
       </div>
 
-      <div class="topRight">
-        <div class="pill"><span class="dot"></span><span id="envTag">detecting…</span></div>
-        <div class="toolbar">
-          <button class="btn small ghost" id="btnCopyLink">🔗 Copy HUB link</button>
-          <button class="btn small" id="btnResetView">♻ Reset view</button>
-          <button class="btn small" id="btnToggleLang">TH/EN</button>
+      <div class="actions">
+        <div class="lang">
+          <button class="lang-btn active" data-lang="th">TH</button>
+          <button class="lang-btn" data-lang="en">EN</button>
         </div>
+
+        <a id="backMainHub" class="pill" href="../herohealth/hub.html">🏠 <span id="tBackMain">กลับ HeroHealth Hub</span></a>
       </div>
     </header>
 
-    <section class="card" style="margin-bottom:10px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
-        <div style="color:var(--muted);font-size:.82rem;">
-          <strong style="color:var(--text);">Context:</strong>
-          view=<span id="ctxView">-</span> • seed=<span id="ctxSeed">-</span> • phase=<span id="ctxPhase">-</span>
-          <span id="ctxResearch"></span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn small primary" id="btnQuickPlay">▶ Quick Play</button>
-          <button class="btn small" id="btnQuickResearch">🧪 Quick Research</button>
+    <!-- LAST SUMMARY -->
+    <section class="card" id="lastCard">
+      <div class="card-head">
+        <h2 id="tLast">ผลล่าสุด</h2>
+        <span class="badge" id="lastBadge">—</span>
+      </div>
+
+      <div class="empty" id="lastEmpty">
+        <div class="empty-emoji">📭</div>
+        <div>
+          <div class="empty-title" id="tNoLast">ยังไม่มีผลล่าสุด</div>
+          <div class="empty-sub" id="tNoLast2">กดเล่นเกมสักรอบ แล้วกลับมาดูได้เลย</div>
         </div>
       </div>
-      <div class="pdpa" id="pdpaLine">* ใช้เพื่อการสอน/ทดสอบ/วิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล (PDPA)</div>
+
+      <div class="grid hidden" id="lastGrid">
+        <div class="stat">
+          <span class="k" id="tScore">คะแนน</span>
+          <span class="v" id="lastScore">0</span>
+        </div>
+        <div class="stat">
+          <span class="k" id="tAcc">Accuracy</span>
+          <span class="v" id="lastAcc">0%</span>
+        </div>
+        <div class="stat">
+          <span class="k" id="tHit">Hit</span>
+          <span class="v" id="lastHit">0</span>
+        </div>
+        <div class="stat">
+          <span class="k" id="tMiss">Miss</span>
+          <span class="v" id="lastMiss">0</span>
+        </div>
+        <div class="stat">
+          <span class="k" id="tCombo">Max Combo</span>
+          <span class="v" id="lastCombo">x0</span>
+        </div>
+        <div class="stat">
+          <span class="k" id="tTimeUsed">เวลาเล่น</span>
+          <span class="v" id="lastTimeUsed">0s</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <a id="btnPlayShadow" class="btn primary" href="#">
+          ▶ <span id="tPlayShadow">เล่น Shadow Breaker</span>
+        </a>
+        <button id="btnReplayLast" class="btn" type="button">
+          🔁 <span id="tReplayLast">เล่นซ้ำแบบเดิม</span>
+        </button>
+      </div>
+
+      <p class="hint" id="tHint">
+        * ระบบอ่านผลล่าสุดจาก localStorage: HHA_LAST_SUMMARY และจะส่งพารามิเตอร์ (diff/time/seed/research/log) ให้เกมอัตโนมัติ
+      </p>
     </section>
 
-    <section class="grid">
+    <!-- GAMES -->
+    <section class="card">
+      <div class="card-head">
+        <h2 id="tGames">เกมทั้งหมด</h2>
+        <span class="badge" id="tAuto">Auto-pass params</span>
+      </div>
 
-      <!-- ===== Shadow Breaker ===== -->
-      <article class="card gameCard" data-game="shadow-breaker">
-        <div class="gameHead">
-          <div class="gameTitle">
-            <div class="gIcon">🥊</div>
-            <div>
-              <h2 class="gName">Shadow Breaker</h2>
-              <div class="gDesc">ต่อย/ยิงเป้า • Speed + Focus + Reaction • Boss 4</div>
+      <div class="games">
+        <article class="game">
+          <div class="gicon">👊</div>
+          <div class="gbody">
+            <h3>Shadow Breaker</h3>
+            <p id="tShadowDesc">แตะ/ยิงเป้าให้ไว เก็บคอมโบ + ล้มบอส 4 ตัว</p>
+            <div class="gmeta">
+              <span class="chip" id="chipShadow">ready</span>
+              <span class="chip" id="chipView">view:auto</span>
             </div>
           </div>
-          <div class="chips">
-            <span class="chip good">HHA events</span>
-            <span class="chip good">hha:shoot</span>
-            <span class="chip warn">Boss HUD</span>
-          </div>
-        </div>
+          <a id="linkShadow" class="btn small primary" href="#">
+            ▶ <span id="tPlay">เล่น</span>
+          </a>
+        </article>
 
-        <div class="actions">
-          <button class="btn primary" data-action="play">▶ Play</button>
-          <button class="btn secondary" data-action="research">🧪 Research</button>
-          <button class="btn" data-action="open">↗ New tab</button>
-        </div>
-
-        <div class="last" id="last-shadow-breaker">
-          <strong>ผลล่าสุด:</strong> ยังไม่มีข้อมูล
-        </div>
-
-        <div class="note">
-          แนะนำ: มือถือ/คาร์ดบอร์ดใช้ crosshair/tap-to-shoot ได้ (ถ้าหน้าเกม include vr-ui.js)
-        </div>
-      </article>
-
-      <!-- ===== Placeholder: Next games (เพิ่มทีหลัง) ===== -->
-      <article class="card gameCard">
-        <div class="gameHead">
-          <div class="gameTitle">
-            <div class="gIcon">🥁</div>
-            <div>
-              <h2 class="gName">Rhythm Boxer (next)</h2>
-              <div class="gDesc">จังหวะ + คาร์ดิโอ • จะใส่มาตรฐานเดียวกัน</div>
+        <article class="game disabled">
+          <div class="gicon">🥊</div>
+          <div class="gbody">
+            <h3>Rhythm Boxer</h3>
+            <p id="tRhythmDesc">ชกตามจังหวะ เพิ่ม reaction + stamina</p>
+            <div class="gmeta">
+              <span class="chip">soon</span>
             </div>
           </div>
-          <div class="chips">
-            <span class="chip">soon</span>
-          </div>
-        </div>
-        <div class="note">เกมถัดไปจะ “ต่อแพ็คมาตรฐาน” หลัง Shadow Breaker production-ready</div>
-      </article>
+          <span class="btn small ghost" id="tSoon1">เร็ว ๆ นี้</span>
+        </article>
 
+        <article class="game disabled">
+          <div class="gicon">🦘</div>
+          <div class="gbody">
+            <h3>Jump Duck</h3>
+            <p id="tJumpDesc">กระโดด/ก้มหลบ ฝึก coordination</p>
+            <div class="gmeta">
+              <span class="chip">soon</span>
+            </div>
+          </div>
+          <span class="btn small ghost" id="tSoon2">เร็ว ๆ นี้</span>
+        </article>
+
+        <article class="game disabled">
+          <div class="gicon">🧘</div>
+          <div class="gbody">
+            <h3>Balance Hold</h3>
+            <p id="tBalanceDesc">ทรงตัวค้าง ฝึก core + balance</p>
+            <div class="gmeta">
+              <span class="chip">soon</span>
+            </div>
+          </div>
+          <span class="btn small ghost" id="tSoon3">เร็ว ๆ นี้</span>
+        </article>
+      </div>
     </section>
 
-    <div class="pdpa" style="margin-top:12px;">
-      Tip: ถ้าเปิดใน VR browser แล้ว iframe มีปัญหา ให้กด “New tab” เพื่อเปิดตรงเกม
-    </div>
-  </div>
-
-  <!-- ===== STAGE (iframe overlay) ===== -->
-  <div class="stage" id="stage">
-    <div class="stageBar">
-      <div class="stageTitle">
-        <span id="stageGameIcon">🎮</span>
-        <span id="stageGameName">Game</span>
-        <span class="badge" id="stageModeBadge">PLAY</span>
+    <!-- HISTORY (compact) -->
+    <section class="card">
+      <div class="card-head">
+        <h2 id="tHistory">ประวัติ (ล่าสุด 8 รอบ)</h2>
+        <div class="row-inline">
+          <button id="btnClearHist" class="btn small" type="button">🧹 <span id="tClear">ล้างประวัติ</span></button>
+        </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn small" id="btnStageNewTab">↗ New tab</button>
-        <button class="btn small ghost" id="btnStageClose">✖ Back HUB</button>
+
+      <div id="histEmpty" class="empty mini">
+        <div class="empty-emoji">🕒</div>
+        <div>
+          <div class="empty-title" id="tNoHist">ยังไม่มีประวัติ</div>
+          <div class="empty-sub" id="tNoHist2">เล่นเกมแล้วผลจะมาอยู่ตรงนี้</div>
+        </div>
       </div>
-    </div>
-    <div class="frameWrap">
-      <iframe id="stageFrame" title="VR Fitness Stage" allow="fullscreen; xr-spatial-tracking; accelerometer; gyroscope; autoplay"></iframe>
-    </div>
-  </div>
 
-  <script>
-    // ---------- helpers ----------
-    const $ = (s)=>document.querySelector(s);
-    function qs(k, d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
+      <div id="histList" class="hist hidden"></div>
+    </section>
 
-    function detectView(){
-      // DO NOT override if ?view= exists
-      const v = (qs('view','')||'').toLowerCase();
-      if(v) return v;
+    <footer class="foot">
+      <span class="muted" id="tFoot">VR Fitness Hub — Production</span>
+    </footer>
+  </main>
 
-      const ua = navigator.userAgent || '';
-      const isVR = /Quest|Oculus|Vive|VR/i.test(ua);
-      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-      if(isVR) return 'vr';
-      if(isMobile) return 'mobile';
-      return 'pc';
-    }
-
-    function ensureSeed(){
-      const cur = (qs('seed','')||'').trim();
-      if(cur) return cur;
-      return String(Date.now());
-    }
-
-    function setParam(url, k, v){
-      try{
-        const u = new URL(url, location.href);
-        if(v===null || v===undefined || String(v).trim()==='') u.searchParams.delete(k);
-        else u.searchParams.set(k, String(v));
-        return u.toString();
-      }catch(e){
-        return url;
-      }
-    }
-
-    function buildHubSelfURL(){
-      // current hub url without hash
-      try{
-        const u = new URL(location.href);
-        u.hash = '';
-        return u.toString();
-      }catch(e){
-        return location.href;
-      }
-    }
-
-    function passthroughKeys(){
-      // keep research context between hub and games
-      return ['view','seed','studyId','phase','conditionGroup','ts','log','style','research'];
-    }
-
-    function buildGameURL(game, mode){
-      // game: "shadow-breaker"
-      // mode: "play" | "research"
-      const view = detectView();
-      const seed = ensureSeed();
-
-      // base paths
-      const base = {
-        'shadow-breaker': './games/shadow-breaker/play.html',
-      }[game] || '';
-
-      let url = base;
-
-      // base gameplay defaults
-      if(game === 'shadow-breaker'){
-        // timed default
-        url = setParam(url,'mode','timed');
-        url = setParam(url,'diff', qs('diff','normal') || 'normal');
-        url = setParam(url,'time', qs('time','90') || '90');
-      }
-
-      // hub return
-      url = setParam(url,'hub', buildHubSelfURL());
-
-      // pass ctx
-      const cur = new URL(location.href);
-      for(const k of passthroughKeys()){
-        let v = cur.searchParams.get(k);
-        if(k==='view') v = view;       // enforce detected (unless user had ?view=, detectView will return it)
-        if(k==='seed') v = seed;
-        if(v!==null && String(v).trim()!=='') url = setParam(url,k,v);
-      }
-
-      // research toggle
-      if(mode === 'research'){
-        url = setParam(url,'research','1');
-      }else{
-        // play mode: allow body.mode-play in CSS (you already did)
-        url = setParam(url,'research','0');
-      }
-
-      return url;
-    }
-
-    // ---------- UI: ctx display ----------
-    const ctxView = $('#ctxView');
-    const ctxSeed = $('#ctxSeed');
-    const ctxPhase = $('#ctxPhase');
-    const ctxResearch = $('#ctxResearch');
-    const envTag = $('#envTag');
-
-    function refreshCtx(){
-      const v = detectView();
-      const seed = ensureSeed();
-      const phase = (qs('phase','train')||'train');
-      const research = (qs('research','')||'').toLowerCase();
-      const isResearch = (research==='1'||research==='true'||research==='on'||!!qs('studyId','')||!!qs('log',''));
-
-      ctxView.textContent = v;
-      ctxSeed.textContent = seed;
-      ctxPhase.textContent = phase;
-      ctxResearch.textContent = isResearch ? ' • research=ON' : ' • research=OFF';
-
-      envTag.textContent = `view=${v} • ${isResearch?'research':'play'}`;
-    }
-
-    // ---------- last summary ----------
-    function renderLast(){
-      // Shadow Breaker summary key from your JS: SB_LAST_SUMMARY_V1
-      const box = $('#last-shadow-breaker');
-      if(!box) return;
-
-      try{
-        const raw = localStorage.getItem('SB_LAST_SUMMARY_V1');
-        if(!raw){ box.innerHTML = '<strong>ผลล่าสุด:</strong> ยังไม่มีข้อมูล'; return; }
-        const s = JSON.parse(raw);
-        box.innerHTML =
-          '<strong>ผลล่าสุด:</strong> ' +
-          `Score <strong>${s.score ?? '-'}</strong> • ` +
-          `Acc <strong>${s.accuracy ?? '-'}%</strong> • ` +
-          `Hit <strong>${s.hits ?? '-'}</strong> • ` +
-          `Miss <strong>${s.miss ?? '-'}</strong> • ` +
-          `Combo <strong>x${s.maxCombo ?? '-'}</strong> • ` +
-          `<span style="color:var(--muted)">(${(s.at||'').slice(0,19).replace('T',' ')})</span>`;
-      }catch(e){
-        box.innerHTML = '<strong>ผลล่าสุด:</strong> (อ่านข้อมูลไม่สำเร็จ)';
-      }
-    }
-
-    // ---------- stage ----------
-    const stage = $('#stage');
-    const frame = $('#stageFrame');
-    const stageGameName = $('#stageGameName');
-    const stageGameIcon = $('#stageGameIcon');
-    const stageModeBadge = $('#stageModeBadge');
-    const btnStageClose = $('#btnStageClose');
-    const btnStageNewTab = $('#btnStageNewTab');
-
-    let stageURL = '';
-
-    function postPauseToFrame(v){
-      try{
-        if(frame && frame.contentWindow){
-          frame.contentWindow.postMessage({ type:'hub:pause', value: !!v }, '*');
-        }
-      }catch(e){}
-    }
-
-    function openStage(game, mode){
-      const url = buildGameURL(game, mode);
-      stageURL = url;
-
-      stageGameName.textContent = (game==='shadow-breaker') ? 'Shadow Breaker' : 'Game';
-      stageGameIcon.textContent = (game==='shadow-breaker') ? '🥊' : '🎮';
-      stageModeBadge.textContent = (mode==='research') ? 'RESEARCH' : 'PLAY';
-
-      stage.classList.add('show');
-      // load then resume
-      frame.src = url;
-
-      // pause first then auto resume after load
-      frame.onload = () => {
-        postPauseToFrame(false);
-      };
-    }
-
-    function closeStage(){
-      // pause game first
-      postPauseToFrame(true);
-      stage.classList.remove('show');
-      // stop audio/video by unloading
-      try{ frame.src = 'about:blank'; }catch(e){}
-      stageURL = '';
-      // refresh last summary
-      setTimeout(renderLast, 80);
-    }
-
-    btnStageClose.addEventListener('click', closeStage);
-    btnStageNewTab.addEventListener('click', ()=>{
-      if(stageURL) window.open(stageURL, '_blank');
-    });
-
-    // ---------- card actions ----------
-    document.body.addEventListener('click', (ev)=>{
-      const btn = ev.target.closest('button[data-action]');
-      if(!btn) return;
-
-      const card = btn.closest('[data-game]');
-      if(!card) return;
-
-      const game = card.dataset.game;
-      const action = btn.dataset.action;
-
-      if(action === 'play') openStage(game, 'play');
-      if(action === 'research') openStage(game, 'research');
-      if(action === 'open'){
-        const url = buildGameURL(game, 'play');
-        window.open(url, '_blank');
-      }
-    });
-
-    // ---------- quick buttons ----------
-    $('#btnQuickPlay').addEventListener('click', ()=>openStage('shadow-breaker','play'));
-    $('#btnQuickResearch').addEventListener('click', ()=>openStage('shadow-breaker','research'));
-
-    // ---------- toolbar ----------
-    $('#btnResetView').addEventListener('click', ()=>{
-      try{
-        const u = new URL(location.href);
-        u.searchParams.delete('view');
-        u.searchParams.delete('seed');
-        location.href = u.toString();
-      }catch(e){}
-    });
-
-    $('#btnCopyLink').addEventListener('click', async ()=>{
-      const url = buildHubSelfURL();
-      try{
-        await navigator.clipboard.writeText(url);
-        alert('คัดลอกลิงก์ HUB แล้ว');
-      }catch(e){
-        prompt('Copy this HUB link:', url);
-      }
-    });
-
-    let lang = 'th';
-    $('#btnToggleLang').addEventListener('click', ()=>{
-      lang = (lang==='th') ? 'en' : 'th';
-      $('#pdpaLine').textContent = (lang==='th')
-        ? '* ใช้เพื่อการสอน/ทดสอบ/วิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล (PDPA)'
-        : '* For teaching/testing/research only — no personal identity disclosure';
-    });
-
-    // ---------- init ----------
-    refreshCtx();
-    renderLast();
-
-    // ensure seed in display (but do not force rewrite URL)
-    // optional: update envTag live
-    window.addEventListener('focus', ()=>{
-      refreshCtx();
-      renderLast();
-    });
-  </script>
+  <script src="./hub.js"></script>
 </body>
 </html>
