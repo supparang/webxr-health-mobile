@@ -4,7 +4,8 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js (FAIR PACK)
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Auto-collapse Quest HUD if no quest:update (more gameplay space)
+✅ no-quests: collapse GOAL/MINI until quest:update arrives
+✅ safe-zone measure => set --gj-top-safe / --gj-bottom-safe
 -->
 <!doctype html>
 <html lang="th">
@@ -22,15 +23,9 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
-
-  <style>
-    /* keep A-Frame behind UI and non-interactive */
-    a-scene{ pointer-events:none !important; }
-    canvas.a-canvas{ pointer-events:none !important; }
-  </style>
 </head>
 
-<body class="gj">
+<body class="gj no-quests">
   <!-- A-Frame minimal scene (behind UI) -->
   <a-scene
     embedded
@@ -77,8 +72,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       </div>
     </div>
 
-    <!-- Quest row (auto-collapse if not used) -->
-    <div class="quest-row" id="gjQuestRow">
+    <div class="quest-row" id="questRow">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
         <div class="q-desc" id="goalDesc">—</div>
@@ -136,10 +130,12 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure + quest hooks -->
+  <!-- UI wiring + safe-zone measure + quest:update hook -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const has=(k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
+
       const hub = qs('hub', null);
 
       const btnBack = document.getElementById('btnBackHub');
@@ -151,12 +147,21 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
 
-      const questRow = document.getElementById('gjQuestRow');
-
       const v = qs('view','auto');
       const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
+
+      // body view class (for CSS tweaks)
+      try{
+        document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+        const vv = String(v||'').toLowerCase();
+        if(vv==='pc') document.body.classList.add('view-pc');
+        else if(vv==='vr') document.body.classList.add('view-vr');
+        else if(vv==='cvr' || vv==='view-cvr') document.body.classList.add('view-vr','view-cvr');
+        else document.body.classList.add('view-mobile');
+      }catch(_){}
+
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
       btnBack?.addEventListener('click', ()=>{
@@ -181,44 +186,45 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ Quest hook (optional): if a pack emits quest:update, we show it; otherwise auto-collapse
-      let gotQuestUpdate = false;
+      // ✅ quest:update hook (optional). If none arrives -> keep no-quests for bigger gameplay.
+      function setText(id, v){
+        const el = document.getElementById(id);
+        if(el) el.textContent = String(v ?? '—');
+      }
       window.addEventListener('quest:update', (ev)=>{
-        gotQuestUpdate = true;
-        document.body.classList.remove('no-quests');
-
         const d = ev?.detail || {};
         const goal = d.goal || {};
         const mini = d.mini || {};
 
-        const set = (id, val)=>{ const el=document.getElementById(id); if(el) el.textContent=String(val ?? '—'); };
+        // reveal quest row
+        document.body.classList.remove('no-quests');
 
-        if(goal && typeof goal === 'object'){
-          set('hud-goal', goal.name || '—');
-          set('goalDesc', goal.sub || '—');
-          set('hud-goal-cur', goal.cur ?? 0);
-          set('hud-goal-target', goal.target ?? 0);
+        setText('hud-goal', goal.name || '—');
+        setText('goalDesc', goal.sub || '—');
+        setText('hud-goal-cur', (goal.cur ?? 0));
+        setText('hud-goal-target', (goal.target ?? 0));
+
+        setText('hud-mini', mini.name || '—');
+
+        // mini timer: if supplied as "remainSec" or "cur/target"
+        if(typeof mini.remainSec === 'number'){
+          setText('miniTimer', Math.max(0, Math.ceil(mini.remainSec)) + 's');
+        }else{
+          const cur = (mini.cur ?? '—');
+          const tar = (mini.target ?? '—');
+          setText('miniTimer', `${cur}/${tar}`);
         }
-        if(mini && typeof mini === 'object'){
-          set('hud-mini', mini.name || '—');
-          // show countdown if provided
-          const mt = document.getElementById('miniTimer');
-          if(mt){
-            if(typeof mini.leftSec === 'number') mt.textContent = `${Math.max(0, Math.ceil(mini.leftSec))}s`;
-            else mt.textContent = `${mini.cur ?? 0}/${mini.target ?? 0}`;
+
+        // update peek (if opened)
+        try{
+          if(document.body.classList.contains('show-missions')){
+            peekGoal.textContent = (goal.name || '—');
+            peekMini.textContent = (mini.name || '—');
           }
-        }
+        }catch(_){}
 
         setTimeout(updateSafe, 0);
       }, { passive:true });
-
-      // auto-collapse quest row if nothing uses it (gives more gameplay space)
-      setTimeout(()=>{
-        if(!gotQuestUpdate){
-          document.body.classList.add('no-quests');
-          setTimeout(updateSafe, 0);
-        }
-      }, 900);
 
       // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
@@ -230,16 +236,22 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(92, hudBot + 16)));
+          // bigger top safe if quests are visible, smaller if no-quests
+          const noQuests = document.body.classList.contains('no-quests');
+          const topPad = noQuests ? 12 : 16;
+
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + topPad + sat));
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(96, hudBot + 14)));
         }catch(_){}
       }
+
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
-      setTimeout(updateSafe, 900);
+      window.addEventListener('load', ()=>{ setTimeout(updateSafe, 0); }, { passive:true });
+
     })();
   </script>
 </body>
