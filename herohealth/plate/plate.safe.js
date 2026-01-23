@@ -289,4 +289,245 @@ function nextTargetPattern({ rng, params }){
   STATE.pat.seq++;
 
   const runMode = (STATE.cfg?.runMode || 'play');
-  const L = clamp(STATE.dd
+  const L = clamp(STATE.dd.level, 0, 1);
+  const wave = STATE.pat.wave;
+
+  let pJ = 0.26 + (L*0.18);
+  if(wave === 'storm') pJ += 0.14;
+  if(wave === 'boss')  pJ += 0.18;
+  if(runMode !== 'play') pJ = Math.min(pJ, 0.55);
+
+  const pStar   = (runMode==='play') ? 0.045 : 0.0;
+  const pShield = (runMode==='play') ? 0.035 : 0.0;
+
+  const r = rng();
+  if(r < pStar) return { kind:'star', ttlMs:1200, size:52 };
+  if(r < pStar + pShield) return { kind:'shield', ttlMs:1250, size:54 };
+
+  const kind = (rng() < pJ) ? 'junk' : 'good';
+
+  if(kind === 'junk'){
+    const ttl = clamp(params.ttlMsJunk - (L*400), 850, 1800);
+    return { kind:'junk', ttlMs: ttl };
+  }
+
+  let gi = Math.floor(rng()*5);
+
+  if(runMode === 'play' && !STATE.goal.done){
+    const miss = pickMissingGroupBias();
+    if(miss != null && STATE.rng() < 0.70) gi = miss;
+  }
+
+  const ttl = clamp(params.ttlMsGood - (L*260), 950, 2400);
+  return { kind:'good', groupIndex:gi, ttlMs: ttl };
+}
+
+/* =========================================================
+   2) AI Coach
+========================================================= */
+function aiCoachTick(){
+  const accPct = accuracy()*100;
+
+  if(accPct < 55 && (STATE.hitGood + STATE.hitJunk + STATE.expireGood) >= 8){
+    coach('ลอง “หยุดนิ่ง 0.5 วิ” แล้วค่อยยิง จะแม่นขึ้นนะ 🎯', 'AI Coach');
+    return;
+  }
+  if(STATE.hitJunk >= 2 && (STATE.hitJunk > STATE.hitGood)){
+    coach('ของหวาน/ทอดโผล่ถี่—เล็งให้ชัวร์ก่อนแตะ 🧠', 'AI Coach');
+    return;
+  }
+  if(!STATE.goal.done){
+    const missing = [];
+    for(let i=0;i<5;i++) if(STATE.g[i] <= 0) missing.push(i+1);
+    if(missing.length && STATE.timeLeft <= 25){
+      coach(`ใกล้หมดเวลา! โฟกัสหมู่ที่ยังขาด: ${missing.join(', ')} ⚡`, 'AI Coach', true);
+      return;
+    }
+  }
+}
+
+/* =========================================================
+   1) AI Difficulty Director
+========================================================= */
+function aiDirectorTick(){
+  if(!STATE.running || !STATE.engine?.setParams) return;
+
+  const runMode = (STATE.cfg?.runMode || 'play');
+  if(runMode === 'research' || runMode === 'study'){
+    aiCoachTick();
+    return;
+  }
+
+  const acc = accuracy();
+  const elapsed = Math.max(1, ((STATE.cfg.durationPlannedSec||90) - STATE.timeLeft + 1));
+  const missRate = (STATE.miss / elapsed);
+  const comboN = STATE.combo;
+
+  let level = STATE.dd.level;
+
+  const wantUp = (acc > 0.78 && missRate < 0.16 && comboN >= 3);
+  const wantDown = (acc < 0.60 || missRate > 0.28);
+
+  if(wantUp) level += 0.06;
+  else if(wantDown) level -= 0.08;
+  else level += (acc - 0.70) * 0.02;
+
+  level = clamp(level, 0.05, 0.95);
+  STATE.dd.level = level;
+
+  const spawnRate = Math.round(980 - level*340);
+  const goodW = clamp(0.78 - level*0.20, 0.55, 0.82);
+  const ttlGood = Math.round(2350 - level*520);
+  const ttlJunk = Math.round(1900 - level*640);
+  const sizeMin = Math.round(52 - level*10);
+  const sizeMax = Math.round(76 - level*12);
+
+  STATE.engine.setParams({
+    spawnRate,
+    ttlMsGood: ttlGood,
+    ttlMsJunk: ttlJunk,
+    sizeRange:[sizeMin, sizeMax],
+    kinds:[
+      { kind:'good', weight:goodW },
+      { kind:'junk', weight:1-goodW },
+      { kind:'star', weight:0.001 },
+      { kind:'shield', weight:0.001 },
+    ]
+  });
+
+  aiCoachTick();
+}
+
+/* =========================================================
+   Decorate targets (emoji)
+========================================================= */
+function decorateTarget(el, t){
+  const r = (typeof t.rng === 'function') ? t.rng : STATE.rng;
+
+  let emoji = '🍽️';
+  if(t.kind === 'junk'){
+    emoji = pickFrom(r, EMOJI_JUNK);
+  }else if(t.kind === 'good'){
+    emoji = pickFrom(r, EMOJI_GROUPS[t.groupIndex||0] || []);
+  }else if(t.kind === 'star'){
+    emoji = pickFrom(r, EMOJI_STAR);
+  }else if(t.kind === 'shield'){
+    emoji = pickFrom(r, EMOJI_SHIELD);
+  }
+
+  el.innerHTML = `<span class="tEmoji" aria-hidden="true">${emoji}</span>`;
+  el.setAttribute('role','button');
+}
+
+/* =========================================================
+   Spawn boot
+========================================================= */
+function makeSpawner(mount){
+  const diff = (STATE.cfg?.diff || 'normal');
+
+  const baseSpawn =
+    diff === 'easy' ? 980 :
+    diff === 'hard' ? 740 :
+    860;
+
+  const baseGoodW =
+    diff === 'hard' ? 0.64 :
+    diff === 'easy' ? 0.80 :
+    0.72;
+
+  return spawnBoot({
+    mount,
+    seed: STATE.cfg.seed,
+    safePrefix: '--plate',
+
+    spawnRate: baseSpawn,
+    sizeRange:[46,72],
+
+    kinds:[
+      { kind:'good', weight:baseGoodW },
+      { kind:'junk', weight:1-baseGoodW },
+      { kind:'star', weight:0.001 },
+      { kind:'shield', weight:0.001 },
+    ],
+
+    ttlMsGood: 2200,
+    ttlMsJunk: 1750,
+
+    decorateTarget,
+    nextTarget: nextTargetPattern,
+
+    onHit:(t)=>{
+      if(t.kind === 'good'){
+        const gi = clamp(t.groupIndex ?? 0, 0, 4);
+        onHitGood(gi);
+      }else if(t.kind === 'junk'){
+        onHitJunk();
+      }else if(t.kind === 'star'){
+        onHitStar();
+      }else if(t.kind === 'shield'){
+        onHitShield();
+      }
+    },
+    onExpire:(t)=>{
+      if(t.kind === 'good') onExpireGood();
+    }
+  });
+}
+
+/* =========================================================
+   Main boot
+========================================================= */
+export function boot({ mount, cfg }){
+  if(!mount) throw new Error('PlateVR: mount missing');
+
+  STATE.cfg = cfg;
+  STATE.running = true;
+  STATE.ended = false;
+
+  STATE.score = 0;
+  STATE.combo = 0;
+  STATE.comboMax = 0;
+
+  STATE.miss = 0;
+  STATE.hitGood = 0;
+  STATE.hitJunk = 0;
+  STATE.expireGood = 0;
+
+  STATE.g = [0,0,0,0,0];
+
+  STATE.goal.cur = 0; STATE.goal.done = false;
+  STATE.mini.cur = 0; STATE.mini.done = false;
+
+  STATE.shield = 0;
+  STATE.stars = 0;
+
+  if(cfg.runMode === 'research' || cfg.runMode === 'study'){
+    STATE.rng = seededRng(cfg.seed || Date.now());
+  }else{
+    STATE.rng = Math.random;
+  }
+
+  STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
+
+  STATE.pat.wave = 'warmup';
+  STATE.pat.waveUntil = Date.now() + 12000;
+
+  emit('hha:start', {
+    game:'plate',
+    runMode: cfg.runMode,
+    diff: cfg.diff,
+    seed: cfg.seed,
+    durationPlannedSec: STATE.timeLeft
+  });
+
+  emitScore();
+  emitPower();
+  emitQuest();
+
+  STATE.engine = makeSpawner(mount);
+
+  aiDirectorTick();
+  startTimer();
+
+  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'Coach', true);
+}
