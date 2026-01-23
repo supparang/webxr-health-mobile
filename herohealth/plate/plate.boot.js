@@ -5,7 +5,7 @@
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -24,6 +24,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
+  // Do not offer UI override.
+  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -101,6 +103,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -133,7 +136,9 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      location.reload();
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -172,19 +177,22 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default 90s (override ได้ด้วย ?time=)
+  // ✅ เวลา: default 90 (เหมาะกับภารกิจ 5 หมู่ + มีเวลาปรับตัว)
   const time = clamp(qs('time','90'), 10, 999);
-
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view, runMode: run, diff,
+    view,
+    runMode: run,
+    diff,
+
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // passthrough ctx
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
