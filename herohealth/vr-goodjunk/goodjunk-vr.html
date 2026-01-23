@@ -1,11 +1,8 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
-✅ CSS: ./goodjunk-vr.css
-✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ Layout: Minimal HUD (default) + Missions Peek shows GOAL/MINI
-✅ Auto-hide GOAL/MINI cards if not initialized (— / 0/0)
-✅ Measures safe-zone => --gj-top-safe / --gj-bottom-safe for safe spawning
+GoodJunkVR RUN — PRODUCTION (Folder-run)
+✅ Adds: End Summary Overlay (listens hha:end)
+✅ Buttons: Back HUB / Play Again
+✅ Still keeps: safe-zone measure for spawn
 -->
 <!doctype html>
 <html lang="th">
@@ -23,21 +20,9 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
-
-  <style>
-    /* A: make default HUD minimal (hide GOAL/MINI row unless Missions Peek) */
-    body.gj.minimal-hud .gj-hud-top .quest-row{ display:none !important; }
-    body.gj.minimal-hud .gj-hud-bot{ opacity:.92; }
-    body.gj.minimal-hud .gj-hud-top{ padding-bottom: 2px; }
-
-    /* When HUD hidden -> still keep topbar visible */
-    body.hud-hidden .gj-topbar{ opacity: .98; }
-
-    /* Missions Peek: show GOAL/MINI from HUD text, so keep them in DOM but not on-screen */
-  </style>
 </head>
 
-<body class="gj minimal-hud">
+<body class="gj">
   <!-- A-Frame minimal scene (behind UI) -->
   <a-scene
     embedded
@@ -84,9 +69,8 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
       </div>
     </div>
 
-    <!-- (kept in DOM for text source; hidden by minimal-hud) -->
-    <div class="quest-row" id="questRow">
-      <div class="quest-card goal" id="goalCard">
+    <div class="quest-row">
+      <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
         <div class="q-desc" id="goalDesc">—</div>
         <div class="q-bar">
@@ -95,7 +79,7 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
         </div>
       </div>
 
-      <div class="quest-card mini" id="miniCard">
+      <div class="quest-card mini">
         <div class="q-title">MINI</div>
         <div class="q-desc" id="hud-mini">—</div>
         <div class="q-bar">
@@ -106,7 +90,7 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
     </div>
   </section>
 
-  <!-- HUD BOTTOM (keep compact) -->
+  <!-- HUD BOTTOM -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever" id="gjHudFever">
       <div class="meter-title">FEVER</div>
@@ -143,7 +127,50 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure -->
+  <!-- ✅ END SUMMARY OVERLAY -->
+  <section class="gj-end" id="gjEnd" aria-hidden="true">
+    <div class="gj-end-card" role="dialog" aria-modal="true" aria-label="สรุปผลการเล่น">
+      <div class="gj-end-title">สรุปผล</div>
+
+      <div class="gj-end-grid">
+        <div class="gj-end-item">
+          <div class="k">คะแนน</div>
+          <div class="v" id="endScore">0</div>
+        </div>
+        <div class="gj-end-item">
+          <div class="k">เกรด</div>
+          <div class="v" id="endGrade">—</div>
+        </div>
+        <div class="gj-end-item">
+          <div class="k">MISS</div>
+          <div class="v" id="endMiss">0</div>
+        </div>
+        <div class="gj-end-item">
+          <div class="k">คอมโบสูงสุด</div>
+          <div class="v" id="endCombo">0</div>
+        </div>
+        <div class="gj-end-item">
+          <div class="k">เวลาเล่น</div>
+          <div class="v"><span id="endPlayed">0</span>s</div>
+        </div>
+        <div class="gj-end-item">
+          <div class="k">โหมด</div>
+          <div class="v" id="endMode">play</div>
+        </div>
+      </div>
+
+      <div class="gj-end-sub" id="endReason">—</div>
+
+      <div class="gj-end-actions">
+        <button class="gj-btn" id="btnPlayAgain" type="button">เล่นอีกครั้ง</button>
+        <button class="gj-btn primary" id="btnEndBackHub" type="button">↩ กลับ HUB</button>
+      </div>
+
+      <div class="gj-end-tiny" id="endTiny">บันทึกผลไว้แล้ว</div>
+    </div>
+  </section>
+
+  <!-- UI wiring + safe-zone measure + end overlay wiring -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -158,61 +185,34 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
 
-      const questRow = document.getElementById('questRow');
-      const goalCard = document.getElementById('goalCard');
-      const miniCard = document.getElementById('miniCard');
-
       const v = qs('view','auto');
       const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
-      btnBack?.addEventListener('click', ()=>{
+      function goHub(){
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
-      });
+      }
+      btnBack?.addEventListener('click', goHub);
 
       btnHide?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
         setTimeout(updateSafe, 0);
       });
 
-      function isBlankOrZeroMissions(){
-        const goal = (document.getElementById('hud-goal')?.textContent || '—').trim();
-        const cur  = Number((document.getElementById('hud-goal-cur')?.textContent||'0').trim())||0;
-        const tar  = Number((document.getElementById('hud-goal-target')?.textContent||'0').trim())||0;
-        const mini = (document.getElementById('hud-mini')?.textContent || '—').trim();
-        const goalBlank = (goal==='—' || tar<=0);
-        const miniBlank = (mini==='—');
-        return { goalBlank, miniBlank, cur, tar, goal, mini };
-      }
-
-      // Auto-hide GOAL/MINI row if not initialized (prevents the “HUD blocking but useless” feeling)
-      function refreshMissionVisibility(){
-        const st = isBlankOrZeroMissions();
-        if(goalCard) goalCard.style.display = st.goalBlank ? 'none' : '';
-        if(miniCard) miniCard.style.display = st.miniBlank ? 'none' : '';
-        // if both blank -> hide whole row (even if minimal-hud removed)
-        if(questRow) questRow.style.display = (st.goalBlank && st.miniBlank) ? 'none' : '';
-      }
-
       function toggleMissions(){
-        refreshMissionVisibility();
         document.body.classList.toggle('show-missions');
         const shown = document.body.classList.contains('show-missions');
         peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
         if(shown){
-          const st = isBlankOrZeroMissions();
-          peekGoal.textContent = st.goalBlank ? '—' : `${st.goal} (${st.cur}/${st.tar})`;
-          peekMini.textContent = st.miniBlank ? '—' : st.mini;
+          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
+          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
         }
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
-
-      // Re-check missions texts periodically (engine updates HUD)
-      setInterval(refreshMissionVisibility, 350);
 
       // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
@@ -220,16 +220,12 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
 
-          const topbarH = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
-          const hudTopH = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
-          const hudBotH = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
+          const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
+          const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
+          const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          // Keep top safe tight (topbar + score row only in minimal mode)
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbarH + hudTopH + 10 + sat));
-
-          // Bottom safe: leave room for VR UI row + system bar (approx)
-          // (hudBot already includes sab padding, but VRUI floats too)
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(140, hudBotH + 26)));
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 16 + sat));
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(110, hudBot + 18)));
         }catch(_){}
       }
       window.addEventListener('resize', updateSafe, {passive:true});
@@ -237,7 +233,39 @@ GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
-      setInterval(updateSafe, 600);
+
+      // ✅ End Summary Overlay wiring (listen hha:end)
+      const end = document.getElementById('gjEnd');
+      const setTxt = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = String(v ?? '—'); };
+
+      document.getElementById('btnEndBackHub')?.addEventListener('click', goHub);
+      document.getElementById('btnPlayAgain')?.addEventListener('click', ()=>{
+        // reload same URL (keeps params)
+        location.reload();
+      });
+
+      window.addEventListener('hha:end', (ev)=>{
+        const s = ev?.detail || {};
+        // show overlay
+        end?.setAttribute('aria-hidden','false');
+        document.body.classList.add('ended');
+
+        setTxt('endScore', s.scoreFinal ?? s.score ?? 0);
+        setTxt('endGrade', s.grade ?? document.getElementById('hud-grade')?.textContent ?? '—');
+        setTxt('endMiss', s.miss ?? s.misses ?? 0);
+        setTxt('endCombo', s.comboMax ?? 0);
+        setTxt('endPlayed', s.durationPlayedSec ?? 0);
+        setTxt('endMode', s.runMode ?? s.runMode ?? s.run ?? 'play');
+        setTxt('endReason', s.reason ? `เหตุผล: ${s.reason}` : 'จบเกมแล้ว');
+
+        // tiny debug / research context
+        const tiny = document.getElementById('endTiny');
+        if(tiny){
+          const sid = s.studyId || s.study || '';
+          const ph  = s.phase || '';
+          tiny.textContent = `บันทึกผลไว้แล้ว${(sid||ph)?` · ${sid?`studyId=${sid}`:''}${ph?` · phase=${ph}`:''}`:''}`;
+        }
+      }, {passive:true});
 
     })();
   </script>
