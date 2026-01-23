@@ -1,8 +1,7 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration Quest VR RUN — PRODUCTION (LATEST)
+Hydration Quest VR RUN — PRODUCTION (LATEST) — DD + Toast + Water Panel
 ✅ CSS: ./hydration-vr.css
-✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js
-✅ ui-water.js: loaded as MODULE (matches hydration.safe.js import)
+✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js, ../vr/ui-water.js
 ✅ Loader: ./hydration-vr.loader.js (auto-detect NO override + cardboard layers + start overlay)
 ✅ Engine: ./hydration.safe.js (type=module)
 ✅ A-Frame minimal scene for Enter VR reliability
@@ -25,14 +24,15 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
   <!-- Cloud Logger (flush-hardened) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Water gauge helper (MODULE, matches engine import) -->
-  <script type="module" src="../vr/ui-water.js"></script>
+  <!-- Water gauge helper (optional) -->
+  <script src="../vr/ui-water.js" defer></script>
 
   <!-- Loader: set view/cardboard/layers + start overlay -->
   <script src="./hydration-vr.loader.js" defer></script>
 </head>
 
 <body>
+  <!-- Minimal A-Frame scene for Enter VR reliability -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:false">
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
@@ -47,6 +47,9 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
       <div class="chip ok">Grade <b id="stat-grade">C</b></div>
       <div class="chip cyan">🛡️ <b id="shield-count">0</b></div>
       <div class="chip storm">Storm <b id="storm-left">0</b>s</div>
+
+      <!-- DD Prediction -->
+      <div class="chip">DD <b id="dd-stars">⭐⭐</b> <span id="dd-pwin" class="muted">(55%)</span></div>
     </div>
 
     <div class="hud-mid">
@@ -67,12 +70,8 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
         </div>
         <div class="wbar"><div class="wfill" id="water-bar"></div></div>
         <div class="wpct"><span id="water-pct">50</span>%</div>
+        <div class="wsub muted" id="water-note">Tip: ยิง 💧 เพื่อคุม GREEN / ช่วงพายุให้หนี GREEN</div>
       </div>
-    </div>
-
-    <!-- Coach Toast (non-blocking) -->
-    <div id="coachToast" class="coach-toast" hidden>
-      <div class="coach-bubble" id="coachText">…</div>
     </div>
   </div>
 
@@ -104,8 +103,17 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
 
       <div class="ov-hint">
         • cVR: ยิงจากกลางจอ (crosshair) <br/>
-        • ถ้าเป็นเด็ก: ใส่ <b>?kids=1</b>
+        • เด็ก ป.5 แนะนำใส่ <b>?kids=1</b> (นิ่ม/คุมง่ายขึ้น) <br/>
+        • เป้าหมาย: Stage1 คุม GREEN → Stage2 ผ่านพายุ → Stage3 เคลียร์ BOSS
       </div>
+    </div>
+  </div>
+
+  <!-- Coach Toast -->
+  <div id="coachToast" class="coach-toast" hidden>
+    <div class="coach-card">
+      <div class="coach-title" id="coachTitle">Coach</div>
+      <div class="coach-msg" id="coachMsg"></div>
     </div>
   </div>
 
