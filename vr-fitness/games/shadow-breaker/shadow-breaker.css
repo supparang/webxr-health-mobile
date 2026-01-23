@@ -1,24 +1,18 @@
 /* === vr-fitness/games/shadow-breaker/shadow-breaker.css ===
-Shadow Breaker — PRODUCTION CLEAN
-✅ Safe top zone (HUD + Boss bar) so targets won't spawn behind
-✅ HUD pointer-events:none (never blocks targets)
-✅ Boss bar fixed under HUD
-✅ Feedback pop animation + variants
-✅ Targets: mobile-friendly + fever glow
+Shadow Breaker — PRODUCTION CSS v1.1.0
+✅ Safe top zone (HUD + Boss bar)
+✅ Targets tap-friendly (mobile/VR)
+✅ Feedback animations (perfect/good/miss/fever)
+✅ Fever glow
 ✅ Result overlay
-✅ play-only + mode-play (hide research + controls + CSV)
 */
 
-/* =========================
-   Root / tokens
-========================= */
 :root{
   color-scheme: dark;
 
   --bg:#020617;
   --panel:rgba(2,6,23,.76);
   --panel2:rgba(15,23,42,.70);
-
   --stroke:rgba(148,163,184,.18);
   --stroke2:rgba(148,163,184,.28);
 
@@ -31,55 +25,55 @@ Shadow Breaker — PRODUCTION CLEAN
   --warn:#f59e0b;
   --bad:#ef4444;
 
-  --radius:22px;
+  --radius:18px;
+  --radius2:22px;
   --pill:999px;
 
-  /* Safe-area insets */
+  /* safe-area insets */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* IMPORTANT: reserved top space for HUD + boss bar */
+  /* IMPORTANT: safe top for spawn (HUD + boss bar) */
   --safe-top: calc(var(--sat) + 118px);
 
-  /* layers */
+  /* z-index layers */
+  --z-bg: 0;
   --z-game: 10;
-  --z-hud: 60;
-  --z-boss: 70;
-  --z-feedback: 90;
-  --z-overlay: 120;
+  --z-hud: 50;
+  --z-boss: 60;
+  --z-feedback: 80;
+  --z-overlay: 100;
 
-  /* target tap size */
+  /* tap size */
   --tap: 44px;
 }
 
-/* =========================
-   Base
-========================= */
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 
 body{
   margin:0;
+  min-height:100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+  color:var(--text);
   background:
     radial-gradient(1200px 700px at 50% 10%, rgba(34,211,238,.12), transparent 60%),
     radial-gradient(900px 500px at 80% 20%, rgba(167,139,250,.10), transparent 58%),
     var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
 }
 
-/* Layout wrapper (for research card + game card) */
+/* Page wrapper (non-fullscreen layout) */
 .page{
   max-width:960px;
   margin:0 auto;
-  padding: calc(var(--sat) + 12px) calc(var(--sar) + 10px) calc(var(--sab) + 24px) calc(var(--sal) + 10px);
+  padding:12px 10px 24px;
 }
 
-/* Card blocks */
+/* Generic card */
 .card{
-  border-radius:18px;
+  border-radius:var(--radius);
   border:1px solid rgba(148,163,184,.55);
   background:
     radial-gradient(circle at top left,rgba(56,189,248,.12),transparent 55%),
@@ -89,7 +83,7 @@ body{
   margin-bottom:10px;
 }
 
-/* Header (title + lang toggle) */
+/* Card header */
 .card-header{
   display:flex;
   align-items:flex-start;
@@ -97,46 +91,52 @@ body{
   gap:10px;
   margin-bottom:8px;
 }
-.card-header .title{ display:flex; gap:8px; }
+.card-header .title{
+  display:flex;
+  gap:10px;
+}
 .card-header .icon{
-  width:30px;height:30px;border-radius:999px;
+  width:34px;height:34px;
+  border-radius:999px;
   background:rgba(56,189,248,.18);
-  display:flex;align-items:center;justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   font-size:18px;
 }
-.card-header h1{ margin:0; font-size:.98rem; }
-.card-header p{ margin:2px 0 0; font-size:.7rem; color:#9ca3af; }
+.card-header h1{ margin:0; font-size:1.02rem; }
+.card-header p{ margin:2px 0 0; font-size:.76rem; color:#9ca3af; }
 
 /* Language toggle */
-.lang-toggle{ display:flex; gap:4px; }
+.lang-toggle{ display:flex; gap:6px; }
 .lang-btn{
-  padding:4px 9px;
+  padding:4px 10px;
   border-radius:999px;
-  border:1px solid #1f2937;
+  border:1px solid rgba(148,163,184,.35);
   background:#020617;
-  color:#e5e7eb;
-  font-size:.7rem;
+  color:var(--text);
+  font-size:.72rem;
   cursor:pointer;
-  min-width:40px;
+  min-width:44px;
 }
 .lang-btn.active{
   background:#38bdf8;
   color:#0b1120;
   border-color:#38bdf8;
-  font-weight:700;
+  font-weight:800;
 }
 
-/* Research form grid */
+/* Research grid */
 .research-grid{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:8px 10px;
-  margin-top:4px;
+  margin-top:8px;
 }
 .research-grid label{
   display:flex;
   flex-direction:column;
-  gap:2px;
+  gap:3px;
   font-size:.72rem;
 }
 .research-grid span{ color:#94a3b8; }
@@ -144,95 +144,84 @@ body{
 .research-grid select{
   border-radius:999px;
   border:1px solid #1e293b;
-  padding:7px 10px;
-  font-size:.8rem;
+  padding:8px 12px;
+  font-size:.82rem;
   background:rgba(15,23,42,.96);
-  color:#e5e7eb;
+  color:var(--text);
   outline:none;
 }
 .research-grid input::placeholder{ color:#64748b; }
 
-.hint{ margin-top:4px; font-size:.7rem; color:#6b7280; }
-.hint.small{ font-size:.65rem; }
+.hint{
+  margin-top:6px;
+  font-size:.72rem;
+  color:#6b7280;
+}
+.hint.small{ font-size:.66rem; }
 
-/* =========================
-   HUD (fixed, never blocks targets)
-========================= */
-.hud, #hud, .sb-hud{
+/* Game card */
+.game-card{ padding-top:12px; }
+
+/* HUD (fixed, never blocks click) */
+.hud, #hud{
   position:fixed;
   top: calc(var(--sat) + 10px);
   left: calc(var(--sal) + 10px);
   right: calc(var(--sar) + 10px);
   z-index: var(--z-hud);
+
   display:flex;
   flex-wrap:wrap;
   gap:8px;
-  align-items:stretch;
   justify-content:space-between;
-  pointer-events:none; /* IMPORTANT: clicks pass through */
-}
+  align-items:center;
 
+  pointer-events:none; /* IMPORTANT */
+}
 .hud-block{
-  min-width:72px;
+  min-width:78px;
   padding:6px 10px;
   border-radius:14px;
-  border:1px solid var(--stroke);
-  background: var(--panel);
+  border:1px solid rgba(148,163,184,.40);
+  background:rgba(15,23,42,.88);
   backdrop-filter: blur(10px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.35);
   text-align:center;
+  box-shadow:0 14px 40px rgba(0,0,0,.30);
+
   pointer-events:none;
 }
 .hud-block .label{
   display:block;
   font-size:.62rem;
   color:#9ca3af;
+  letter-spacing:.08em;
 }
 .hud-block .value{
-  font-size:.9rem;
-  font-weight:900;
+  font-size:.95rem;
+  font-weight:1000;
   letter-spacing:.2px;
 }
 
-.coach{
-  margin:8px 2px 6px;
-  font-size:.85rem;
-  font-weight:800;
-  color: var(--cyan);
-  opacity:.95;
-}
-
-/* Reserve safe-top area (visual helper, also discourages overlapping UI) */
-body::after{
-  content:"";
-  position:fixed;
-  top:0; left:0; right:0;
-  height: var(--safe-top);
-  pointer-events:none;
-  z-index: 1;
-}
-
-/* =========================
-   Start button
-========================= */
+/* Start row */
 .start-row{
   margin:8px 0 6px;
   display:flex;
   justify-content:center;
 }
 
+/* Buttons */
 .btn{
-  appearance:none;
   border:none;
   border-radius:999px;
-  padding:8px 16px;
-  font-size:.85rem;
+  padding:10px 16px;
+  font-size:.9rem;
   font-weight:900;
   cursor:pointer;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  gap:6px;
+  gap:8px;
+  user-select:none;
 }
 .btn:active{ transform:scale(.98); }
 
@@ -244,13 +233,31 @@ body::after{
 .btn-secondary{
   background:rgba(15,23,42,1);
   border:1px solid rgba(148,163,184,.7);
-  color:#e5e7eb;
+  color:var(--text);
 }
 .btn-full{ width:100%; }
 
-/* =========================
-   Game panel + game area
-========================= */
+/* Coach line */
+.coach{
+  margin:8px 2px 6px;
+  font-size:.88rem;
+  font-weight:900;
+  color:#cbd5f5;
+}
+
+/* Controls */
+.controls{
+  margin-top:8px;
+  border-radius:14px;
+  border:1px dashed rgba(148,163,184,.40);
+  padding:10px 12px;
+  background:rgba(15,23,42,.70);
+}
+.controls h2{ margin:0 0 6px; font-size:.95rem; }
+.controls ul{ margin:0 0 6px 18px; padding:0; font-size:.8rem; }
+.controls li{ margin-bottom:3px; }
+
+/* Game panel */
 .game-panel{
   position:relative;
   border-radius:16px;
@@ -260,15 +267,20 @@ body::after{
   min-height:360px;
 }
 
-/* Game area is where targets are appended */
+/* Game area (targets live here) */
 #gameArea, #playArea, #sbPlayArea{
   position:absolute;
   inset:0;
   overflow:hidden;
   isolation:isolate;
+  padding:
+    calc(var(--sat) + 14px)
+    calc(var(--sar) + 14px)
+    calc(var(--sab) + 14px)
+    calc(var(--sal) + 14px);
 }
 
-/* Vignette to focus attention */
+/* Vignette */
 #gameArea::before, #playArea::before, #sbPlayArea::before{
   content:"";
   position:absolute;
@@ -278,44 +290,62 @@ body::after{
     radial-gradient(900px 600px at 50% 35%, transparent 0%, rgba(2,6,23,.55) 70%),
     radial-gradient(1200px 900px at 50% 120%, rgba(2,6,23,.85), rgba(2,6,23,1));
   opacity:.9;
-  z-index:0;
+  z-index:var(--z-bg);
+}
+
+/* Safe-top blocker (visual hint only; keeps top area calm) */
+body::after{
+  content:"";
+  position:fixed;
+  top:0; left:0; right:0;
+  height: var(--safe-top);
+  pointer-events:none;
+  z-index: 1;
 }
 
 /* =========================
-   Targets
+   Targets (.sb-target)
 ========================= */
 .sb-target{
   position:absolute;
   z-index: var(--z-game);
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
   user-select:none;
   -webkit-tap-highlight-color: transparent;
+  cursor:pointer;
 
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.14);
-
-  /* tactile size */
   min-width: var(--tap);
   min-height: var(--tap);
 
-  /* glow + depth */
+  border: 1px solid rgba(255,255,255,.14);
   box-shadow:
     0 14px 40px rgba(0,0,0,.35),
     0 0 0 2px rgba(34,211,238,.06) inset;
   filter: drop-shadow(0 0 14px rgba(34,211,238,.12));
 
-  /* animation perf */
   transform: translateZ(0);
   will-change: transform, opacity;
-
-  cursor:pointer;
+  transition: transform .12s ease-out, opacity .12s ease-out;
 }
 .sb-target:active{ transform: scale(.96); }
 
 @media (hover:hover){
-  .sb-target:hover{ filter: drop-shadow(0 0 20px rgba(34,211,238,.20)); }
+  .sb-target:hover{
+    filter: drop-shadow(0 0 20px rgba(34,211,238,.20));
+  }
 }
 
-/* Fever glow */
+/* Fever glow on game area */
+#gameArea.fever, #playArea.fever, #sbPlayArea.fever{
+  box-shadow:0 0 40px rgba(250,204,21,.55);
+  outline:2px solid rgba(250,204,21,.35);
+}
+
+/* Fever makes targets glow warmer */
 #gameArea.fever .sb-target,
 #playArea.fever .sb-target,
 #sbPlayArea.fever .sb-target{
@@ -325,18 +355,12 @@ body::after{
     0 0 0 2px rgba(250,204,21,.10) inset;
 }
 
-/* Fever border for gameArea */
-#gameArea.fever, #playArea.fever, #sbPlayArea.fever{
-  box-shadow:0 0 40px rgba(250,204,21,.55);
-  outline:2px solid rgba(250,204,21,.35);
-}
-
 /* =========================
-   Boss HUD bar (created by JS: .boss-barbox)
+   Boss HUD bar (.boss-barbox)
 ========================= */
 .boss-barbox{
   position:fixed;
-  top: calc(var(--sat) + 62px); /* under HUD */
+  top: calc(var(--sat) + 58px); /* under HUD */
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-boss);
@@ -347,34 +371,33 @@ body::after{
 
   width:min(520px, calc(100vw - 28px));
   padding:10px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--radius2);
+
   background: rgba(2,6,23,.70);
   border: 1px solid rgba(250,204,21,.25);
   box-shadow: 0 18px 60px rgba(0,0,0,.45);
   backdrop-filter: blur(10px);
 
-  pointer-events:none; /* IMPORTANT: never block targets */
+  pointer-events:none; /* IMPORTANT */
 }
-
 .boss-face{
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width:44px;height:44px;
+  border-radius:14px;
   display:grid;
   place-items:center;
   background: radial-gradient(circle at 30% 20%, rgba(250,204,21,.35), rgba(234,88,12,.25));
   border: 1px solid rgba(250,204,21,.25);
-  font-size: 1.3rem;
+  font-size:1.35rem;
 }
 .boss-name{
-  font-weight: 900;
+  font-weight:1000;
   letter-spacing:.2px;
   line-height:1.05;
   margin-bottom:6px;
   color:#fde68a;
 }
 .boss-bar{
-  width: 100%;
+  width: min(380px, 60vw);
   height: 10px;
   border-radius: var(--pill);
   background: rgba(148,163,184,.12);
@@ -385,16 +408,14 @@ body::after{
   height:100%;
   width:100%;
   transform-origin:left center;
-  transform: scaleX(1);
+  transform:scaleX(1);
   background: linear-gradient(90deg, rgba(250,204,21,.85), rgba(234,88,12,.85));
   border-radius: var(--pill);
   box-shadow: 0 0 18px rgba(250,204,21,.22);
 }
 
 /* =========================
-   Feedback popup
-   JS sets: className = "feedback " + type;  type = perfect/good/miss/fever
-   => We support: .feedback.perfect etc.
+   Feedback (.feedback + show + variants)
 ========================= */
 .feedback, #feedback, #sbFeedback{
   position:fixed;
@@ -402,11 +423,11 @@ body::after{
   top: calc(var(--sat) + 46%);
   transform: translate(-50%,-50%);
   z-index: var(--z-feedback);
-
   display:none;
-  padding: 10px 16px;
+
+  padding:10px 16px;
   border-radius: var(--pill);
-  font-weight: 1000;
+  font-weight:1000;
   letter-spacing:.4px;
   font-size: clamp(18px, 2.4vw, 28px);
 
@@ -419,7 +440,7 @@ body::after{
   opacity:0;
 }
 
-/* The JS toggles .show; we animate on show */
+/* Pop animation when .show is added */
 .feedback.show, #feedback.show, #sbFeedback.show{
   display:block;
   animation: sbPop .42s ease-out forwards;
@@ -430,14 +451,13 @@ body::after{
   100%{ opacity:1; transform: translate(-50%,-50%) scale(1); }
 }
 
-/* color variants via JS class: "feedback perfect", "feedback good", ... */
-.feedback.perfect{ border-color: rgba(34,197,94,.28); box-shadow: 0 18px 70px rgba(34,197,94,.12); color:#4ade80; }
-.feedback.good{    border-color: rgba(34,211,238,.28); box-shadow: 0 18px 70px rgba(34,211,238,.12); color:#38bdf8; }
-.feedback.miss{    border-color: rgba(239,68,68,.28);  box-shadow: 0 18px 70px rgba(239,68,68,.10);  color:#f97373; }
-.feedback.fever{
+/* Variants (JS sets className = "feedback " + type) */
+.feedback-perfect{ border-color: rgba(34,197,94,.28); box-shadow: 0 18px 70px rgba(34,197,94,.12); }
+.feedback-good{    border-color: rgba(34,211,238,.28); box-shadow: 0 18px 70px rgba(34,211,238,.12); }
+.feedback-miss{    border-color: rgba(239,68,68,.28);  box-shadow: 0 18px 70px rgba(239,68,68,.10); }
+.feedback-fever{
   border-color: rgba(250,204,21,.30);
   box-shadow: 0 20px 90px rgba(250,204,21,.14);
-  color:#facc15;
   animation: sbFever .80s ease-out forwards;
 }
 @keyframes sbFever{
@@ -446,28 +466,8 @@ body::after{
   100%{ opacity:1; transform: translate(-50%,-50%) scale(1.00); }
 }
 
-/* Backward-compat if you used feedback-perfect style */
-.feedback.feedback-perfect{ color:#4ade80; }
-.feedback.feedback-good{ color:#38bdf8; }
-.feedback.feedback-miss{ color:#f97373; }
-.feedback.feedback-fever{ color:#facc15; }
-
 /* =========================
-   Controls panel (how to play)
-========================= */
-.controls{
-  margin-top:6px;
-  border-radius:12px;
-  border:1px dashed rgba(148,163,184,.4);
-  padding:8px 10px;
-  background:rgba(15,23,42,.7);
-}
-.controls h2{ margin:0 0 4px; font-size:.9rem; }
-.controls ul{ margin:0 0 4px 16px; padding:0; font-size:.78rem; }
-.controls li{ margin-bottom:2px; }
-
-/* =========================
-   Result overlay
+   Result Overlay
 ========================= */
 .hidden{ display:none !important; }
 
@@ -477,12 +477,14 @@ body::after{
   z-index: var(--z-overlay);
   display:grid;
   place-items:center;
-  padding: calc(var(--sat) + 18px) calc(var(--sar) + 18px) calc(var(--sab) + 18px) calc(var(--sal) + 18px);
+  padding:
+    calc(var(--sat) + 18px)
+    calc(var(--sar) + 18px)
+    calc(var(--sab) + 18px)
+    calc(var(--sal) + 18px);
   background: rgba(2,6,23,.68);
   backdrop-filter: blur(10px);
 }
-.overlay.hidden{ display:none !important; }
-
 .overlay-box{
   width:min(620px, 92vw);
   background: rgba(2,6,23,.88);
@@ -491,63 +493,59 @@ body::after{
   box-shadow: 0 22px 90px rgba(0,0,0,.55);
   padding: 18px 16px;
 }
-
-.overlay-box h2{
-  margin:0 0 10px;
-  font-size:1.05rem;
-}
+.overlay-box h2{ margin:0 0 12px; font-size:1.05rem; }
 
 .result-grid{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:6px 10px;
-  font-size:.82rem;
+  gap:8px 12px;
+  font-size:.85rem;
 }
 .result-grid .label{
   display:block;
-  font-size:.7rem;
+  font-size:.72rem;
   color:#9ca3af;
+  letter-spacing:.06em;
 }
 .result-grid .value{
   display:block;
-  font-size:.98rem;
+  font-size:1.05rem;
   font-weight:1000;
 }
 
 .overlay-actions{
   margin-top:12px;
   display:flex;
-  flex-wrap:wrap;
-  gap:8px;
+  flex-direction:column;
+  gap:10px;
 }
 
 /* =========================
-   Play focus rules
+   Play-only focus (JS adds .play-only)
 ========================= */
-body.play-only .research-card{ display:none !important; }
-body.play-only .controls{ display:none !important; }
+body.play-only .research-card{ display:none; }
+body.play-only .controls{ display:none; }
 body.play-only .page{ max-width:780px; }
-body.play-only .game-panel{ min-height: calc(100vh - 220px); }
+body.play-only .game-panel{ min-height:calc(100vh - 220px); }
 
-/* Play mode hides research + CSV button */
-body.mode-play .research-card{ display:none !important; }
-body.mode-play #metaPDPA{ display:none !important; }
-body.mode-play #downloadCsvBtn{ display:none !important; }
+/* Mode play: hide research + CSV button */
+body.mode-play .research-card{ display:none; }
+body.mode-play #metaPDPA{ display:none; }
+body.mode-play #downloadCsvBtn{ display:none; }
 
-/* =========================
-   Responsive
-========================= */
-@media (max-width:720px){
+/* Responsive */
+@media(max-width:720px){
   .research-grid{ grid-template-columns:1fr; }
+  .hud, #hud{ justify-content:flex-start; }
   .game-panel{ min-height:320px; }
+  .boss-barbox{ width: calc(100vw - 20px); }
+  .boss-bar{ width: min(360px, 64vw); }
 }
 
-/* =========================
-   Reduce motion
-========================= */
+/* Reduce motion */
 @media (prefers-reduced-motion: reduce){
   .feedback.show, #feedback.show, #sbFeedback.show,
-  .feedback.fever{
+  .feedback-fever{
     animation:none !important;
     opacity:1 !important;
     transform: translate(-50%,-50%) scale(1) !important;
