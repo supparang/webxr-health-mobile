@@ -1,12 +1,9 @@
 // === /herohealth/vr/mode-factory.js ===
-// Mode Factory — SPAWN ENGINE (PRODUCTION)
-// ✅ Deterministic RNG by seed
-// ✅ Tap/click hit
-// ✅ Crosshair shoot hit via event: hha:shoot {x,y,lockPx,source}
-// ✅ Safe spawn rect via CSS vars with prefix:
-//    --{prefix}-top-safe --{prefix}-bottom-safe --{prefix}-left-safe --{prefix}-right-safe
-// ✅ NEW: safeVarPrefix (default 'plate')
-// ✅ NEW: decorateTarget(el, target) callback
+// Universal spawn factory (tap + hha:shoot)
+// PATCH:
+// ✅ decorateTarget(el, target)
+// ✅ safeVarPrefix: read safe area vars by prefix (--{prefix}-top-safe...)
+// ------------------------------------------------
 
 'use strict';
 
@@ -25,13 +22,15 @@ function seededRng(seed){
 
 function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-function readSafeVars(prefix){
+function readSafeVars(prefix='plate'){
   const cs = getComputedStyle(DOC.documentElement);
-  const p = String(prefix||'plate').trim() || 'plate';
+  const p = String(prefix||'plate').trim();
+
   const top = parseFloat(cs.getPropertyValue(`--${p}-top-safe`)) || 0;
   const bottom = parseFloat(cs.getPropertyValue(`--${p}-bottom-safe`)) || 0;
   const left = parseFloat(cs.getPropertyValue(`--${p}-left-safe`)) || 0;
   const right = parseFloat(cs.getPropertyValue(`--${p}-right-safe`)) || 0;
+
   return { top, bottom, left, right };
 }
 
@@ -49,18 +48,13 @@ function pickWeighted(rng, arr){
 export function boot({
   mount,
   seed = Date.now(),
-
-  safeVarPrefix = 'plate', // ✅ NEW
-
-  spawnRate = 900,
+  spawnRate = 900,               // ms
   sizeRange = [44,64],
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
-
   onHit = ()=>{},
   onExpire = ()=>{},
-
-  decorateTarget = null,
-
+  decorateTarget = null,         // ✅ NEW
+  safeVarPrefix = 'plate',       // ✅ NEW
   cooldownMs = 90,
   lockPxDefault = 28,
 }){
@@ -100,7 +94,7 @@ export function boot({
     const d = e.detail || {};
     const t = now();
     if(t < state.cooldownUntil) return;
-    state.cooldownUntil = t + cooldownMs;
+    state.cooldownUntil = t + (Number(d.cooldownMs)||cooldownMs);
 
     const x = Number(d.x), y = Number(d.y);
     const lockPx = Number(d.lockPx || lockPxDefault);
@@ -123,18 +117,18 @@ export function boot({
     if(!state.alive) return;
 
     const rect = computeSpawnRect();
-    if(rect.w < 90 || rect.h < 90) return;
+    if(rect.w < 80 || rect.h < 80) return;
 
     const size = Math.round(sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]));
-    const pad = Math.max(12, Math.round(size * 0.60));
+    const pad = Math.max(10, Math.round(size * 0.55));
     const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
     const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
 
     const chosen = pickWeighted(rng, kinds);
-    const kind = (chosen.kind || 'good');
+    const kind = chosen.kind || 'good';
 
     const el = DOC.createElement('div');
-    el.className = 'plateTarget'; // class เดิมเพื่อใช้ชุด CSS/เอฟเฟกต์ร่วมกันได้
+    el.className = 'plateTarget';
     el.dataset.kind = kind;
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
@@ -143,16 +137,16 @@ export function boot({
     el.style.transform = 'translate(-50%,-50%)';
 
     const target = {
-      el,
-      kind,
+      el, kind,
       bornAt: now(),
-      ttlMs: kind === 'junk' ? 1700 : (kind === 'star' ? 2200 : (kind === 'shield' ? 2400 : 2100)),
+      ttlMs: kind === 'junk' ? 1700 : 2100,
       groupIndex: Math.floor(rng()*5),
       size,
-      rng,
+      rng // deterministic emoji pick if needed
     };
     el.__hhaTarget = target;
 
+    // ✅ decorate target
     try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
