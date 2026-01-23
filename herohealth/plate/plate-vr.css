@@ -1,188 +1,341 @@
-/* =========================================================
-   /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION)
-   HHA Standard
-========================================================= */
+/* === /herohealth/plate/plate-vr.css ===
+PlateVR UI — HHA Standard-ish (Dark)
+✅ Safe-area vars (--plate-*-safe) used by mode-factory.js
+✅ Targets absolute + emoji
+✅ HUD + Quest + Coach + End overlay
+*/
 
 :root{
+  color-scheme: dark;
+
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
+  --stroke2:rgba(148,163,184,.26);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --accent:#22c55e;
   --warn:#f59e0b;
-  --bad:#ef4444;
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
-  --radius:18px;
+  --radius:22px;
   --pill:999px;
 
-  /* safe area insets */
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe rect for mode-factory.js */
-  --plate-top-safe: calc(var(--sat) + 128px);
-  --plate-bottom-safe: calc(var(--sab) + 128px);
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
+  /* Safe spawn rect for mode-factory.js */
+  --plate-top-safe: 140;   /* px */
+  --plate-bottom-safe: 190;
+  --plate-left-safe: 16;
+  --plate-right-safe: 16;
 }
 
-/* ---------------------------------------------------------
-   Global
---------------------------------------------------------- */
 *{ box-sizing:border-box; }
-
-html,body{
+html,body{ height:100%; }
+body{
   margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:var(--bg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+  background:
+    radial-gradient(1200px 600px at 20% 10%, rgba(34,211,238,.12), transparent 60%),
+    radial-gradient(900px 500px at 90% 20%, rgba(167,139,250,.10), transparent 65%),
+    radial-gradient(900px 600px at 50% 90%, rgba(34,197,94,.10), transparent 60%),
+    var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+  overflow:hidden;
 }
 
-/* ---------------------------------------------------------
-   Playfield (Targets spawn in this rect)
---------------------------------------------------------- */
+#app{
+  position:fixed;
+  inset:0;
+  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
+}
+
+/* Play layer */
 #plate-layer{
   position:fixed;
   inset:0;
-  z-index:10;
-  pointer-events:auto;
-  touch-action:none;
+  z-index:1;
 }
 
-/* ---------------------------------------------------------
-   Targets (ring + emoji)
---------------------------------------------------------- */
-.plateTarget{
-  position:absolute;                 /* ✅ สำคัญมาก: ไม่งั้น left/top ไม่ทำงาน */
-  display:grid;
-  place-items:center;
-  border-radius:999px;
-  user-select:none;
-  cursor:pointer;
-
-  /* ring color default */
-  --ring: rgba(34,197,94,.38);
-  --glow: rgba(34,197,94,.18);
-
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), transparent 42%),
-    radial-gradient(circle at 50% 50%, rgba(2,6,23,.35), rgba(2,6,23,.70));
-
-  border:2px solid var(--ring);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 26px var(--glow),
-    inset 0 1px 0 rgba(255,255,255,.08);
-
-  animation: pop .14s ease-out, floaty 1.8s ease-in-out infinite;
-  will-change: transform, filter;
+/* HUD */
+#hud{
+  position:fixed;
+  top: calc(10px + var(--sat));
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  z-index:5;
+  pointer-events:none;
 }
 
-.plateTarget .tEmoji{
-  font-size:26px;
-  line-height:1;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
-  transform: translateZ(0);
+.hudRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  pointer-events:none;
 }
 
-/* good/junk base */
-.plateTarget[data-kind="good"]{
-  --ring: rgba(34,197,94,.40);
-  --glow: rgba(34,197,94,.18);
+.chip{
+  pointer-events:none;
+  background: rgba(2,6,23,.72);
+  border: 1px solid var(--stroke);
+  border-radius: var(--pill);
+  padding: 10px 12px;
+  min-width: 92px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
-.plateTarget[data-kind="junk"]{
-  --ring: rgba(239,68,68,.42);
-  --glow: rgba(239,68,68,.18);
-  animation-duration: 1.25s;
+.chip .lbl{
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
-
-/* group tint (1..5) */
-.plateTarget[data-kind="good"][data-group="1"]{ --ring: rgba(34,197,94,.42); --glow: rgba(34,197,94,.18); }   /* โปรตีน */
-.plateTarget[data-kind="good"][data-group="2"]{ --ring: rgba(34,211,238,.42); --glow: rgba(34,211,238,.18); }  /* คาร์บ */
-.plateTarget[data-kind="good"][data-group="3"]{ --ring: rgba(163,230,53,.42); --glow: rgba(163,230,53,.16); }  /* ผัก */
-.plateTarget[data-kind="good"][data-group="4"]{ --ring: rgba(167,139,250,.45); --glow: rgba(167,139,250,.18); }/* ผลไม้ */
-.plateTarget[data-kind="good"][data-group="5"]{ --ring: rgba(245,158,11,.45); --glow: rgba(245,158,11,.18); }  /* ไขมัน */
-
-@keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
-  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
-}
-
-/* ใช้ filter/translate เบา ๆ ให้ “ลอย” */
-@keyframes floaty{
-  0%{ filter:brightness(1); }
-  50%{ filter:brightness(1.15); }
-  100%{ filter:brightness(1); }
+.chip .val{
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1;
 }
 
-/* ---------------------------------------------------------
-   HUD (ของเดิมคุณใช้ได้เลย — ใส่เฉพาะที่จำเป็น)
---------------------------------------------------------- */
-.card,.questCard,.panelCard{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
+.card{
+  margin-top: 12px;
+  width: min(520px, 100%);
+  pointer-events:none;
+  background: rgba(2,6,23,.68);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: 0 18px 46px rgba(0,0,0,.40);
+  backdrop-filter: blur(10px);
 }
 
+.cardTitle{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom: 10px;
+}
+.cardTitle .t{
+  font-weight: 800;
+  font-size: 16px;
+}
+.cardTitle .hint{
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.qItem{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(15,23,42,.40);
+  border: 1px solid rgba(148,163,184,.14);
+}
+.qItem + .qItem{ margin-top: 10px; }
+
+.qText .name{
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.qText .sub{
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.qProg{ min-width: 120px; text-align:right; }
+.qNums{
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
 .bar{
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.12);
+  height: 10px;
+  background: rgba(148,163,184,.14);
+  border-radius: var(--pill);
   overflow:hidden;
+  border: 1px solid rgba(148,163,184,.14);
 }
-.bar>i{
+.bar i{
   display:block;
   height:100%;
-  width:0%;
-  background:var(--accent);
-  transition:width .25s ease;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(34,197,94,.8), rgba(34,211,238,.65));
 }
 
+/* Coach bubble */
+#coachCard{
+  position:fixed;
+  left: calc(12px + var(--sal));
+  bottom: calc(90px + var(--sab));
+  z-index:8;
+  width: min(420px, 92vw);
+  pointer-events:none;
+  opacity:0;
+  transform: translateY(8px);
+  transition: opacity .18s ease, transform .18s ease;
+}
+#coachCard.show{ opacity:1; transform: translateY(0); }
+#coachCard .inner{
+  background: rgba(2,6,23,.70);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 12px 14px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.42);
+}
+#coachMsg{ font-weight: 700; font-size: 14px; }
+#coachMeta{ margin-top:6px; color: var(--muted); font-size: 12px; }
+
+/* Targets */
+.plateTarget{
+  position:absolute; /* ✅ MUST */
+  z-index: 2;
+  display:grid;
+  place-items:center;
+
+  background: rgba(2,6,23,.46);
+  border: 2px solid rgba(34,197,94,.34);
+  border-radius: 999px;
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 26px rgba(34,197,94,.12),
+    inset 0 1px 0 rgba(255,255,255,.08);
+
+  backdrop-filter: blur(8px);
+  user-select:none;
+  touch-action: manipulation;
+}
+
+.plateTarget[data-kind="junk"]{
+  border-color: rgba(239,68,68,.45);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 28px rgba(239,68,68,.14),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.plateTarget[data-kind="star"]{
+  border-color: rgba(245,158,11,.55);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 30px rgba(245,158,11,.22),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+.plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.55);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 30px rgba(34,211,238,.22),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+.tEmoji{
+  font-size: 26px;
+  line-height: 1;
+  transform: translateY(-1px);
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+}
+
+/* End overlay */
+#endOverlay{
+  position:fixed;
+  inset:0;
+  z-index: 20;
+  display:grid;
+  place-items:center;
+  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
+}
+#endOverlay[aria-hidden="true"]{ display:none; }
+
+.endPanel{
+  width: min(560px, 92vw);
+  border-radius: 22px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 24px 70px rgba(0,0,0,.55);
+  padding: 14px;
+}
+
+.endTitle{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom: 12px;
+}
+.endTitle h2{
+  margin:0;
+  font-size: 20px;
+}
+.endTitle .tag{
+  padding: 6px 10px;
+  border-radius: var(--pill);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing:.08em;
+}
+
+.endGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+.kpi{
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.40);
+  padding: 10px 12px;
+}
+.kpi .k{ color: var(--muted); font-size: 12px; }
+.kpi .v{ font-weight: 900; font-size: 18px; margin-top: 4px; }
+
+.endBtns{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top: 12px;
+}
 .btn{
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:10px 14px;
-  font-weight:900;
-  font-size:12px;
-  cursor:pointer;
-  color:var(--text);
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
+  pointer-events:auto;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.65);
+  color: var(--text);
+  font-weight: 800;
+  padding: 10px 12px;
 }
 .btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
+  border-color: rgba(34,197,94,.28);
+  background: rgba(34,197,94,.18);
 }
 
-/* ---------------------------------------------------------
-   Responsive safe rect tuning
---------------------------------------------------------- */
-@media (max-width:900px){
-  :root{
-    --plate-top-safe: calc(var(--sat) + 118px);
-    --plate-bottom-safe: calc(var(--sab) + 142px);
-  }
-  .plateTarget .tEmoji{ font-size:24px; }
+/* View tuning */
+body.view-mobile{
+  --plate-top-safe: 150;
+  --plate-bottom-safe: 210;
 }
-@media (max-width:420px){
-  :root{
-    --plate-top-safe: calc(var(--sat) + 114px);
-    --plate-bottom-safe: calc(var(--sab) + 156px);
-  }
+body.view-pc{
+  --plate-top-safe: 150;
+  --plate-bottom-safe: 210;
+}
+body.view-vr, body.view-cvr{
+  --plate-top-safe: 165;
+  --plate-bottom-safe: 235;
 }
