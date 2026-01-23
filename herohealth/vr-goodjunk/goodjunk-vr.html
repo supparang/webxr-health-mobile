@@ -5,6 +5,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ A-Frame minimal scene for Enter VR reliability
 ✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ Listens quest:update -> updates GOAL/MINI + auto-peek missions
 -->
 <!doctype html>
 <html lang="th">
@@ -129,12 +130,25 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure -->
+  <!-- UI wiring + safe-zone measure + quest adapter -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const hub = qs('hub', null);
 
+      /* ---------- view class ---------- */
+      function applyViewClass(){
+        const v = String(qs('view','mobile')||'mobile').toLowerCase();
+        const b = document.body;
+        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+        if(v==='pc') b.classList.add('view-pc');
+        else if(v==='vr') b.classList.add('view-vr');
+        else if(v==='cvr' || v==='view-cvr') b.classList.add('view-cvr');
+        else b.classList.add('view-mobile');
+      }
+      applyViewClass();
+
+      /* ---------- topbar actions ---------- */
+      const hub = qs('hub', null);
       const btnBack = document.getElementById('btnBackHub');
       const btnHide = document.getElementById('btnHideHud');
       const btnMis  = document.getElementById('btnMissions');
@@ -160,33 +174,100 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         setTimeout(updateSafe, 0);
       });
 
+      let missionsLocked = false;
+      let peekTimer = 0;
+
+      function showPeekAuto(ms=1600){
+        if(missionsLocked) return;
+        document.body.classList.add('show-missions');
+        peek?.setAttribute('aria-hidden','false');
+        clearTimeout(peekTimer);
+        peekTimer = setTimeout(()=>{
+          if(!missionsLocked){
+            document.body.classList.remove('show-missions');
+            peek?.setAttribute('aria-hidden','true');
+          }
+        }, ms);
+      }
+
       function toggleMissions(){
-        document.body.classList.toggle('show-missions');
-        const shown = document.body.classList.contains('show-missions');
-        peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
-        if(shown){
-          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
-          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
+        missionsLocked = !missionsLocked;
+        if(missionsLocked){
+          document.body.classList.add('show-missions');
+          peek?.setAttribute('aria-hidden','false');
+        }else{
+          document.body.classList.remove('show-missions');
+          peek?.setAttribute('aria-hidden','true');
         }
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
+      /* ---------- quest:update adapter (สำคัญมาก: แก้ "—" และทำให้สนุก/ชัด) ---------- */
+      const elGoal = document.getElementById('hud-goal');
+      const elGoalDesc = document.getElementById('goalDesc');
+      const elGoalCur = document.getElementById('hud-goal-cur');
+      const elGoalTar = document.getElementById('hud-goal-target');
+
+      const elMini = document.getElementById('hud-mini');
+      const elMiniTimer = document.getElementById('miniTimer');
+
+      function safeText(el, v){
+        if(!el) return;
+        el.textContent = (v===undefined || v===null || v==='') ? '—' : String(v);
+      }
+
+      window.addEventListener('quest:update', (ev)=>{
+        const d = ev?.detail || {};
+        const g = d.goal || {};
+        const m = d.mini || {};
+
+        // GOAL
+        safeText(elGoal, g.name || g.title || '—');
+        safeText(elGoalDesc, g.sub || g.desc || g.text || '—');
+        safeText(elGoalCur, (g.cur ?? 0));
+        safeText(elGoalTar, (g.target ?? 0));
+
+        // MINI
+        safeText(elMini, m.name ? `${m.name}${m.sub ? ' — ' + m.sub : ''}` : (m.sub || '—'));
+
+        // timer label (optional)
+        if(m.timerText){
+          safeText(elMiniTimer, m.timerText);
+        }else if(m.leftSec!=null){
+          safeText(elMiniTimer, `${m.cur ?? 0}/${m.target ?? 0} · เหลือ ${Math.max(0, Math.ceil(m.leftSec))}s`);
+        }else if(m.cur!=null && m.target!=null){
+          safeText(elMiniTimer, `${m.cur}/${m.target}`);
+        }else{
+          // fallback
+          safeText(elMiniTimer, '—');
+        }
+
+        // Peek contents
+        if(peekGoal) peekGoal.textContent = `${elGoal?.textContent || '—'} (${elGoalCur?.textContent || 0}/${elGoalTar?.textContent || 0})`;
+        if(peekMini) peekMini.textContent = `${elMini?.textContent || '—'} · ${elMiniTimer?.textContent || '—'}`;
+
+        // auto peek to help player focus (but doesn't block gameplay)
+        showPeekAuto(1600);
+
+        // safe-zone may change if quest text wraps
+        setTimeout(updateSafe, 0);
+      }, { passive:true });
+
+      /* ---------- measure HUD => set safe spawn vars for safe.js getSafeRect() ---------- */
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+
       function updateSafe(){
         try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          // top safe includes sat to prevent notch overlap
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
+          // ✅ topbar already includes --sat (we made it height: calc(... + sat))
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14));
 
-          // bottom safe minimum: keep some distance from thumb zone + HUD
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
+          // bottom safe minimum: keep thumb zone + HUD + VR buttons
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(110, hudBot + 18)));
         }catch(_){}
       }
 
