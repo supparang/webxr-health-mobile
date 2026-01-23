@@ -1,0 +1,160 @@
+<!-- === /herohealth/vr-groups/train-model.html === -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GroupsVR — Train Model</title>
+  <meta name="color-scheme" content="dark" />
+  <style>
+    :root{ --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.22); --text:#e5e7eb; --muted:#94a3b8; }
+    html,body{ margin:0; background:var(--bg); color:var(--text); font-family:system-ui; }
+    .wrap{ max-width:920px; margin:0 auto; padding:18px; }
+    .card{ background:var(--panel); border:1px solid var(--stroke); border-radius:18px; padding:14px; box-shadow:0 18px 44px rgba(0,0,0,.35); }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{ border:1px solid var(--stroke); background:rgba(15,23,42,.7); color:var(--text); border-radius:14px; padding:10px 12px; font-weight:900; cursor:pointer; }
+    select,input{ border:1px solid var(--stroke); background:rgba(15,23,42,.7); color:var(--text); border-radius:12px; padding:10px 12px; }
+    .log{ margin-top:10px; white-space:pre-wrap; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas; color:#cbd5e1; font-size:12px; }
+    .muted{ color:var(--muted); font-size:12px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <h2>🧠 GroupsVR — Train Model (TFJS)</h2>
+    <div class="card">
+      <div class="row">
+        <input id="file" type="file" accept=".json" />
+        <select id="label">
+          <option value="y_missNext">y_missNext (0/1)</option>
+          <option value="y_hitGoodNext">y_hitGoodNext (0/1)</option>
+          <option value="y_hitWrongNext">y_hitWrongNext (0/1)</option>
+          <option value="y_hitJunkNext">y_hitJunkNext (0/1)</option>
+          <option value="y_expireGoodNext">y_expireGoodNext (0/1)</option>
+        </select>
+        <button class="btn" id="btnTrain">🔥 Train</button>
+        <button class="btn" id="btnSave" disabled>⬇️ Save model</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <label class="muted">epochs <input id="epochs" type="number" value="12" min="1" max="80" style="width:90px;"></label>
+        <label class="muted">batch <input id="batch" type="number" value="64" min="8" max="512" style="width:90px;"></label>
+        <label class="muted">split <input id="split" type="number" value="0.2" min="0.05" max="0.4" step="0.05" style="width:90px;"></label>
+      </div>
+
+      <div class="muted" style="margin-top:10px;">
+        Features ใช้: f0..f9 (10 ค่า) • แนะนำ export dataset จากเกมด้วย <b>?ai=1&train=1</b>
+      </div>
+
+      <div class="log" id="log">รอไฟล์ dataset…</div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const logEl = $('log');
+
+  let rows = [];
+  let model = null;
+
+  function log(s){
+    logEl.textContent = String(s);
+  }
+
+  function parseJSONFile(file){
+    return new Promise((resolve,reject)=>{
+      const r = new FileReader();
+      r.onload = ()=> {
+        try{ resolve(JSON.parse(r.result)); }catch(e){ reject(e); }
+      };
+      r.onerror = reject;
+      r.readAsText(file);
+    });
+  }
+
+  function buildXY(rows, labelKey){
+    const X = [];
+    const Y = [];
+    for (const r of rows){
+      // require label to be 0/1
+      const y = Number(r[labelKey]);
+      if (!(y===0 || y===1)) continue;
+
+      const f = [
+        Number(r.f0_acc), Number(r.f1_comboNorm), Number(r.f2_missRate), Number(r.f3_pressure),
+        Number(r.f4_stormOn), Number(r.f5_miniOn), Number(r.f6_timeLeftNorm), Number(r.f7_goalPct),
+        Number(r.f8_powerPct), Number(r.f9_speedHint)
+      ];
+      if (f.some(v=>!isFinite(v))) continue;
+
+      X.push(f);
+      Y.push([y]);
+    }
+    return { X, Y };
+  }
+
+  function makeModel(){
+    const m = tf.sequential();
+    m.add(tf.layers.dense({ inputShape:[10], units:24, activation:'relu' }));
+    m.add(tf.layers.dropout({ rate:0.15 }));
+    m.add(tf.layers.dense({ units:12, activation:'relu' }));
+    m.add(tf.layers.dense({ units:1, activation:'sigmoid' }));
+    m.compile({ optimizer: tf.train.adam(0.001), loss:'binaryCrossentropy', metrics:['accuracy'] });
+    return m;
+  }
+
+  $('file').addEventListener('change', async (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    log('กำลังอ่านไฟล์…');
+    const data = await parseJSONFile(f);
+    rows = (data && data.rows) ? data.rows : (Array.isArray(data) ? data : []);
+    log(`โหลดแล้ว ✅ rows=${rows.length}\nเลือก label แล้วกด Train`);
+  });
+
+  $('btnTrain').addEventListener('click', async ()=>{
+    if (!rows.length){ alert('ยังไม่ได้เลือกไฟล์ dataset'); return; }
+    const labelKey = $('label').value;
+    const epochs = Math.max(1, Math.min(80, Number($('epochs').value)||12));
+    const batch  = Math.max(8, Math.min(512, Number($('batch').value)||64));
+    const split  = Math.max(0.05, Math.min(0.4, Number($('split').value)||0.2));
+
+    const {X,Y} = buildXY(rows, labelKey);
+    if (X.length < 200){ alert('ข้อมูลน้อยไป (แนะนำอย่างน้อย 200 แถวที่มี label)'); return; }
+
+    log(`เตรียมเทรน…\nlabel=${labelKey}\nusable=${X.length}\n`);
+
+    const xs = tf.tensor2d(X);
+    const ys = tf.tensor2d(Y);
+
+    model = makeModel();
+    $('btnSave').disabled = true;
+
+    await model.fit(xs, ys, {
+      epochs,
+      batchSize: batch,
+      validationSplit: split,
+      shuffle: true,
+      callbacks: {
+        onEpochEnd: async (ep, logs)=>{
+          log(`epoch ${ep+1}/${epochs}\nloss=${logs.loss.toFixed(4)} acc=${(logs.acc*100).toFixed(2)}%\nval_loss=${logs.val_loss.toFixed(4)} val_acc=${(logs.val_acc*100).toFixed(2)}%`);
+          await tf.nextFrame();
+        }
+      }
+    });
+
+    xs.dispose(); ys.dispose();
+
+    log('✅ Train เสร็จแล้ว! กด Save model เพื่อดาวน์โหลด');
+    $('btnSave').disabled = false;
+  });
+
+  $('btnSave').addEventListener('click', async ()=>{
+    if (!model) return;
+    await model.save('downloads://groupsvr-model');
+  });
+})();
+</script>
+</body>
+</html>
