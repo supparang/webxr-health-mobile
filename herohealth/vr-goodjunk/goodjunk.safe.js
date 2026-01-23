@@ -1,15 +1,16 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — FAIR PACK (v2: STAR+SHIELD + SHOOT + HHA END SUMMARY/HISTORY)
-// ✅ End summary payload richer + stores HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ Flush-hardened end on pagehide/visibilitychange/beforeunload (best effort)
-// ✅ BackHub is handled by run html (btn + end overlay)
+// GoodJunkVR SAFE — FAIR PACK (v2: STAR+SHIELD + SHOOT)
+// ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe)
+// ✅ MISS = good expired + junk hit
+// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score
+// ✅ 🛡 Shield: blocks next junk hit (blocked junk does NOT count as miss)
+// ✅ Supports: tap/click OR crosshair shoot via event hha:shoot
+// Emits: hha:start, hha:score, hha:time, hha:judge, hha:end
+
 'use strict';
 
 const WIN = window;
 const DOC = document;
-
-const LS_LAST = 'HHA_LAST_SUMMARY';
-const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
 const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
@@ -19,21 +20,6 @@ function makeRNG(seed){
   let x = (Number(seed)||Date.now()) % 2147483647;
   if (x <= 0) x += 2147483646;
   return ()=> (x = x * 16807 % 2147483647) / 2147483647;
-}
-
-function isoNow(){
-  try{ return new Date().toISOString(); }catch{ return ''; }
-}
-
-function pushHistory(summary){
-  try{
-    const raw = localStorage.getItem(LS_HIST);
-    const arr = raw ? (JSON.parse(raw)||[]) : [];
-    arr.unshift(summary);
-    // keep last 50
-    if(arr.length > 50) arr.length = 50;
-    localStorage.setItem(LS_HIST, JSON.stringify(arr));
-  }catch(_){}
 }
 
 function getSafeRect(){
@@ -86,14 +72,6 @@ export function boot(opts={}){
   const timePlan = clamp(Number(opts.time || qs('time','80'))||80, 20, 300);
   const seed = String(opts.seed || qs('seed', Date.now()));
 
-  // research ctx passthrough fields
-  const hub = qs('hub', '');
-  const studyId = qs('studyId', qs('study', ''));
-  const phase = qs('phase', '');
-  const conditionGroup = qs('conditionGroup', qs('cond',''));
-  const log = qs('log', '');
-  const style = qs('style', '');
-
   const elScore = DOC.getElementById('hud-score');
   const elTime  = DOC.getElementById('hud-time');
   const elMiss  = DOC.getElementById('hud-miss');
@@ -119,9 +97,6 @@ export function boot(opts={}){
 
     lastTick:0,
     lastSpawn:0,
-
-    t0Iso: isoNow(),
-    endIso: '',
   };
 
   function setFever(p){
@@ -135,25 +110,20 @@ export function boot(opts={}){
     elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';
   }
 
-  function computeGrade(){
-    let g='C';
-    if(S.score>=170 && S.miss<=3) g='A';
-    else if(S.score>=110) g='B';
-    else if(S.score>=65) g='C';
-    else g='D';
-    return g;
-  }
-
   function setHUD(){
     if(elScore) elScore.textContent = String(S.score);
     if(elTime)  elTime.textContent  = String(Math.ceil(S.timeLeft));
     if(elMiss)  elMiss.textContent  = String(S.miss);
 
-    const g = computeGrade();
+    let g='C';
+    if(S.score>=170 && S.miss<=3) g='A';
+    else if(S.score>=110) g='B';
+    else if(S.score>=65) g='C';
+    else g='D';
     if(elGrade) elGrade.textContent = g;
 
     setShieldUI();
-    emit('hha:score',{ score:S.score, miss:S.miss, combo:S.combo, grade:g });
+    emit('hha:score',{ score:S.score });
   }
 
   function addScore(delta){
@@ -172,7 +142,6 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       emit('hha:judge', { type:'good', label:'GOOD' });
     }
-
     else if(kind==='junk'){
       if(S.shield>0){
         S.shield--;
@@ -187,7 +156,6 @@ export function boot(opts={}){
         emit('hha:judge', { type:'bad', label:'OOPS' });
       }
     }
-
     else if(kind==='star'){
       const before = S.miss;
       S.miss = Math.max(0, S.miss - 1);
@@ -195,7 +163,6 @@ export function boot(opts={}){
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
     }
-
     else if(kind==='shield'){
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
@@ -274,78 +241,35 @@ export function boot(opts={}){
     onHit(kind);
   }
 
-  function makeSummary(reason){
-    const grade = computeGrade();
-    return {
-      timestampIso: isoNow(),
-      startedAtIso: S.t0Iso,
-      endedAtIso: S.endIso || isoNow(),
+  function endGame(reason='timeup'){
+    if(S.ended) return;
+    S.ended = true;
 
-      projectTag: 'HeroHealth-GoodJunkVR',
+    const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
+    const summary = {
       game:'GoodJunkVR',
       pack:'fair',
-
-      // ctx
       view:S.view,
       runMode:S.run,
       diff:S.diff,
       seed:S.seed,
-      hub,
-      studyId,
-      phase,
-      conditionGroup,
-      log,
-      style,
-
-      // duration
       durationPlannedSec:S.timePlan,
       durationPlayedSec: Math.round(S.timePlan - S.timeLeft),
-
-      // outcomes
       scoreFinal:S.score,
-      grade,
       miss:S.miss,
-      miss_goodExpired:S.expireGood,
-      miss_junkHit:S.hitJunk,
       comboMax:S.comboMax,
       hitGood:S.hitGood,
       hitJunk:S.hitJunk,
       expireGood:S.expireGood,
       shieldRemaining:S.shield,
-
-      reason: reason || 'timeup'
+      grade,
+      reason
     };
-  }
 
-  function endGame(reason='timeup'){
-    if(S.ended) return;
-    S.ended = true;
-    S.endIso = isoNow();
-
-    const summary = makeSummary(reason);
-
-    // store last + history
-    try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch(_){}
-    pushHistory(summary);
-
-    // cleanup
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
     try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
-
-    // emit end (logger listens this)
     emit('hha:end', summary);
   }
-
-  // ✅ Flush-hardened best-effort end
-  function flushEnd(reason){
-    if(S.ended) return;
-    endGame(reason);
-  }
-  function onVis(){
-    // if tab hidden, end as abort (best-effort)
-    if(DOC.visibilityState === 'hidden') flushEnd('hidden');
-  }
-  function onPageHide(){ flushEnd('pagehide'); }
-  function onBeforeUnload(){ flushEnd('unload'); }
 
   function tick(ts){
     if(S.ended) return;
@@ -375,7 +299,6 @@ export function boot(opts={}){
     requestAnimationFrame(tick);
   }
 
-  // start
   S.started = true;
   setFever(S.fever);
   setShieldUI();
@@ -383,16 +306,6 @@ export function boot(opts={}){
 
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  // flush-hardened hooks
-  DOC.addEventListener('visibilitychange', onVis, { passive:true });
-  WIN.addEventListener('pagehide', onPageHide, { passive:true });
-  WIN.addEventListener('beforeunload', onBeforeUnload);
-
-  emit('hha:start', {
-    game:'GoodJunkVR', pack:'fair',
-    view, runMode:run, diff, timePlanSec:timePlan, seed,
-    hub, studyId, phase, conditionGroup, log, style
-  });
-
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
