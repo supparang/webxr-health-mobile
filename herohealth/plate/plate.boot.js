@@ -1,7 +1,8 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
-// PATCH: measure HUD + VR-UI bar -> set --plate-*-safe for spawn
-// (rest: same behavior)
+// PlateVR Boot — PRODUCTION — PATCH B
+// ✅ Default time = 90
+// ✅ Wires HUD + quest + coach + end
+// ✅ Optional HUD: shield (if element exists)
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -38,6 +39,7 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
+
 function pct(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
@@ -71,6 +73,7 @@ function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
+  const hudShield = DOC.getElementById('hudShield'); // optional
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -86,6 +89,7 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+    if(hudShield && (d.shield != null)) hudShield.textContent = String(d.shield);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -162,51 +166,13 @@ function wireEndSummary(){
   });
 }
 
-/* 🔥 Measure safe spawn region from actual HUD + VRUI buttons */
-function setSafeSpawnVars(){
-  const root = DOC.documentElement;
-  const hud = DOC.getElementById('hud');
-
-  // top safe: below HUD
-  let topSafe = 0;
-  if(hud){
-    const r = hud.getBoundingClientRect();
-    topSafe = Math.max(0, r.bottom + 12);
-  }else{
-    topSafe = 12;
-  }
-
-  // bottom safe: above VR UI bar (ENTER VR/EXIT/RECENTER)
-  // try common selectors; vr-ui.js injects something similar in your HHA stack
-  const vrbar =
-    DOC.querySelector('.hha-vrui-bar') ||
-    DOC.querySelector('.hha-vrui') ||
-    DOC.querySelector('#hha-vrui') ||
-    DOC.querySelector('#vrui') ||
-    DOC.querySelector('[data-vrui]');
-
-  let bottomSafe = 0;
-  if(vrbar){
-    const r = vrbar.getBoundingClientRect();
-    bottomSafe = Math.max(0, (WIN.innerHeight - r.top) + 12);
-  }else{
-    bottomSafe = 96; // fallback
-  }
-
-  // side safe (small margin + safe-area)
-  const side = 12;
-
-  root.style.setProperty('--plate-top-safe', `${Math.round(topSafe)}px`);
-  root.style.setProperty('--plate-bottom-safe', `${Math.round(bottomSafe)}px`);
-  root.style.setProperty('--plate-left-safe', `${Math.round(side)}px`);
-  root.style.setProperty('--plate-right-safe', `${Math.round(side)}px`);
-}
-
 function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','70'), 10, 999);
+
+  // ✅ default 90
+  const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
@@ -242,18 +208,11 @@ ready(()=>{
   wireHUD();
   wireEndControls();
   wireEndSummary();
+
   setOverlayOpen(false);
 
-  // set safe spawn after UI exists + after vr-ui inject (next tick)
-  setSafeSpawnVars();
-  setTimeout(setSafeSpawnVars, 0);
-  WIN.addEventListener('resize', ()=> setSafeSpawnVars(), { passive:true });
-
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
