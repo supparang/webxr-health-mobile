@@ -1,10 +1,9 @@
 <!-- === vr-fitness/games/shadow-breaker/index.html ===
-Shadow Breaker — RUN (Production v1.1.0)
-✅ PC/Mobile/VR friendly
-✅ Includes /herohealth/vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair/tap-to-shoot => hha:shoot)
-✅ Supports query passthrough: hub/view/seed/research/studyId/log/phase/mode/diff/time
-✅ Research form shown only when research=1 OR studyId/log exists
-✅ HUD + GameArea + Result overlay + CSV download
+Shadow Breaker (Production v1.1.0)
+✅ Loads: shadow-breaker.css + shadow-breaker.js
+✅ Optional: HeroHealth vr-ui.js for crosshair/tap-to-shoot => hha:shoot
+✅ Research meta + play mode auto-hide
+✅ Result overlay + CSV export
 -->
 <!doctype html>
 <html lang="th">
@@ -14,94 +13,86 @@ Shadow Breaker — RUN (Production v1.1.0)
   <title>VR Fitness — Shadow Breaker</title>
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#020617" />
-  <link rel="icon" href="../../favicon.ico" />
+  <link rel="icon" href="../../assets/favicon.ico" />
 
-  <!-- ✅ Shadow Breaker CSS -->
   <link rel="stylesheet" href="./shadow-breaker.css" />
+
+  <style>
+    /* Minimal safety if CSS missing */
+    .hidden{ display:none !important; }
+  </style>
 </head>
 
 <body>
   <div class="page">
 
-    <!-- =========================
-         Top / Meta (Research)
-    ========================== -->
-    <div class="card top-panel">
+    <!-- ===== TOP / META PANEL (Research) ===== -->
+    <div class="card research-card meta-panel" id="metaPanel">
       <div class="card-header">
         <div class="title">
           <div class="icon">🥊</div>
           <div>
             <h1>Shadow Breaker</h1>
-            <p id="tagGoal">เป้าหมาย: ต่อย/ยิงเป้า emoji ให้ทันเวลา รักษาคอมโบ และพิชิตบอสทั้ง 4 ตัว.</p>
+            <p>VR Fitness mini-game — timed/endless + bosses</p>
           </div>
         </div>
 
-        <!-- Language toggle -->
         <div class="lang-toggle" role="group" aria-label="Language">
           <button class="lang-btn active" data-lang="th" type="button">TH</button>
           <button class="lang-btn" data-lang="en" type="button">EN</button>
         </div>
       </div>
 
-      <!-- Research meta card (hidden in play mode by JS/body class) -->
-      <div class="card meta-panel research-card" id="researchCard">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <div style="font-weight:900;">Research / Session Meta</div>
-          <div style="font-size:.72rem; color:#94a3b8;">(แสดงเฉพาะโหมดวิจัย)</div>
-        </div>
-
-        <div class="research-grid">
-          <label>
-            <span>Student ID</span>
-            <input id="studentId" placeholder="เช่น 65001" />
-          </label>
-
-          <label>
-            <span>School</span>
-            <input id="schoolName" placeholder="โรงเรียน..." />
-          </label>
-
-          <label>
-            <span>Class</span>
-            <input id="classRoom" placeholder="ป.5/1" />
-          </label>
-
-          <label>
-            <span>Group Code</span>
-            <input id="groupCode" placeholder="A / B / C" />
-          </label>
-
-          <label>
-            <span>Device</span>
-            <select id="deviceType">
-              <option value="auto">auto-detect</option>
-              <option value="pc">pc</option>
-              <option value="mobile">mobile</option>
-              <option value="vrHeadset">vrHeadset</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Note</span>
-            <input id="note" placeholder="หมายเหตุ..." />
-          </label>
-        </div>
-
-        <div class="hint small" id="metaPDPA">
-          * เก็บเฉพาะข้อมูลเพื่อการวิจัยตามเงื่อนไขโครงการ (Apps Script ถูกพักไว้ ตอนนี้บันทึกลง localStorage + CSV)
-        </div>
+      <div class="hint">
+        <span id="tagGoal">
+          เป้าหมาย: ต่อย/ยิงเป้า emoji ให้ทันเวลา รักษาคอมโบ และพิชิตบอสทั้ง 4 ตัว.
+        </span>
       </div>
 
-      <div class="hint">
-        Query: <code>?hub=...&amp;mode=timed|endless&amp;diff=easy|normal|hard&amp;time=60&amp;seed=...</code>
+      <div class="research-grid">
+        <label>
+          <span>Student ID</span>
+          <input id="studentId" type="text" placeholder="เช่น 65012345" inputmode="numeric" />
+        </label>
+
+        <label>
+          <span>School</span>
+          <input id="schoolName" type="text" placeholder="โรงเรียน..." />
+        </label>
+
+        <label>
+          <span>Class/Room</span>
+          <input id="classRoom" type="text" placeholder="ป.5/1" />
+        </label>
+
+        <label>
+          <span>Group Code</span>
+          <input id="groupCode" type="text" placeholder="A / B / C ..." />
+        </label>
+
+        <label>
+          <span>Device</span>
+          <select id="deviceType">
+            <option value="auto" selected>auto</option>
+            <option value="pc">pc</option>
+            <option value="mobile">mobile</option>
+            <option value="vrHeadset">vrHeadset</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Note</span>
+          <input id="note" type="text" placeholder="หมายเหตุ (optional)" />
+        </label>
+      </div>
+
+      <div class="hint small" id="metaPDPA">
+        * โหมดวิจัย (research=1 หรือมี studyId/log) จะบังคับกรอก Student ID ก่อนเริ่มเล่น
       </div>
     </div>
 
-    <!-- =========================
-         Game Card
-    ========================== -->
-    <div class="card game-card">
-      <!-- HUD -->
+    <!-- ===== GAME CARD ===== -->
+    <div class="card game-card top-panel">
       <div class="hud" id="hud">
         <div class="hud-block">
           <span class="label">TIME</span>
@@ -125,101 +116,86 @@ Shadow Breaker — RUN (Production v1.1.0)
         </div>
       </div>
 
-      <!-- Start -->
+      <p class="coach" id="coachLine">โค้ชพุ่ง: เล็งกลางจอแล้วแตะ/ยิงให้โดน! 👊</p>
+
       <div class="start-row">
         <button class="btn btn-main" id="startBtn" type="button">
-          <span>▶</span> <span id="startLabel">เริ่มเล่น</span>
+          <span id="startLabel">เริ่มเล่น</span>
         </button>
       </div>
 
-      <!-- Coach -->
-      <div class="coach" id="coachLine">โค้ชพุ่ง: เล็งกลางจอแล้วแตะ/ยิงให้โดน! 👊</div>
-
-      <!-- Game Panel -->
-      <div class="game-panel">
-        <div id="gameArea" aria-label="Game Area"></div>
-
-        <!-- Feedback -->
-        <div id="feedback" class="feedback" aria-live="polite"></div>
-      </div>
-
-      <!-- Controls / how to play -->
       <div class="controls">
-        <h2>วิธีเล่น</h2>
+        <h2>How to play</h2>
         <ul>
-          <li>แตะ/คลิกที่เป้า emoji ให้ทัน (PC/Mobile)</li>
-          <li>โหมด cVR/VR: เล็งกลางจอแล้ว “ยิง” ผ่าน crosshair (จาก vr-ui.js)</li>
-          <li>รักษา COMBO ให้ถึง 5 เพื่อเข้า FEVER 🔥</li>
-          <li>บอสจะโผล่เป็นช่วง ๆ ให้ทุบจน HP หมด</li>
+          <li>แตะ/คลิกเป้า emoji ให้เร็ว (หรือยิงด้วย crosshair ถ้ามี vr-ui.js)</li>
+          <li>คอมโบ ≥ 5 จะเข้า FEVER (คะแนนแรงขึ้น)</li>
+          <li>บอสมี HP ต้องกดหลายครั้งให้ล้ม</li>
+          <li>PC: กด Space เพื่อยิงตรงกลางได้</li>
         </ul>
-        <div class="hint small">Tip: ถ้าเล่น Cardboard ให้กด ENTER VR แล้วใช้ crosshair ยิงจากกลางจอ</div>
+        <div class="hint small">
+          Tip: ใส่ <code>view=cvr</code> + ใช้ <code>vr-ui.js</code> จะเล่นแบบ “เล็งกลางจอแล้วยิง” ได้ลื่นมาก
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- =========================
-       Result Overlay
-  ========================== -->
-  <div id="resultOverlay" class="overlay hidden" role="dialog" aria-modal="true">
-    <div class="overlay-box">
-      <h2>สรุปผลการเล่น</h2>
+    <!-- ===== GAME PANEL ===== -->
+    <div class="game-panel">
+      <div id="gameArea" aria-label="Play Area"></div>
+      <div id="feedback" class="feedback" aria-live="polite"></div>
+    </div>
 
-      <div class="result-grid">
-        <div><span class="label">Score</span><span class="value" id="rScore">0</span></div>
-        <div><span class="label">Accuracy</span><span class="value" id="rAcc">0%</span></div>
+    <!-- ===== RESULT OVERLAY ===== -->
+    <div class="overlay hidden" id="resultOverlay">
+      <div class="overlay-box">
+        <h2>Result</h2>
 
-        <div><span class="label">Hit</span><span class="value" id="rHit">0</span></div>
-        <div><span class="label">Miss</span><span class="value" id="rMiss">0</span></div>
+        <div class="result-grid">
+          <div><span class="label">Score</span><span class="value" id="rScore">0</span></div>
+          <div><span class="label">Accuracy</span><span class="value" id="rAcc">0%</span></div>
+          <div><span class="label">Hit</span><span class="value" id="rHit">0</span></div>
+          <div><span class="label">Miss</span><span class="value" id="rMiss">0</span></div>
+          <div><span class="label">Perfect</span><span class="value" id="rPerfect">0</span></div>
+          <div><span class="label">Good</span><span class="value" id="rGood">0</span></div>
+          <div><span class="label">Max Combo</span><span class="value" id="rCombo">x0</span></div>
+          <div><span class="label">Time Used</span><span class="value" id="rTimeUsed">0s</span></div>
+        </div>
 
-        <div><span class="label">Perfect</span><span class="value" id="rPerfect">0</span></div>
-        <div><span class="label">Good</span><span class="value" id="rGood">0</span></div>
+        <div class="overlay-actions">
+          <button class="btn btn-main" id="playAgainBtn" type="button">Play again</button>
+          <button class="btn btn-secondary" id="backHubBtn" type="button">Back to HUB</button>
+          <button class="btn btn-secondary" id="downloadCsvBtn" type="button">Download CSV</button>
+        </div>
 
-        <div><span class="label">Max Combo</span><span class="value" id="rCombo">x0</span></div>
-        <div><span class="label">Time Used</span><span class="value" id="rTimeUsed">0s</span></div>
-      </div>
-
-      <div class="overlay-actions">
-        <button class="btn btn-main btn-full" id="playAgainBtn" type="button">เล่นอีกครั้ง</button>
-        <button class="btn btn-secondary btn-full" id="downloadCsvBtn" type="button">ดาวน์โหลด CSV</button>
-        <button class="btn btn-secondary btn-full" id="backHubBtn" type="button">กลับหน้า HUB</button>
-      </div>
-
-      <div class="hint small" style="margin-top:8px;">
-        CSV จะดึงจาก localStorage (Apps Script พักไว้ก่อน)
+        <div class="hint small">
+          CSV จะดึงจาก localStorage (ShadowBreakerSessions_v1)
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- =========================
-       VR UI (Universal)
-       IMPORTANT: adjust path if your folder differs
-  ========================== -->
+  </div><!-- /.page -->
+
+  <!-- ===== Optional: HeroHealth Universal VR UI =====
+       IMPORTANT: แก้ path ให้ตรงกับ repo ของคุณจริง ๆ
+       - ถ้าไฟล์อยู่ที่ /herohealth/vr/vr-ui.js ให้ใช้ ../../../../herohealth/vr/vr-ui.js (ขึ้นกับโครงสร้าง)
+       - ถ้าคุณ copy มาไว้ใน vr-fitness/shared/vr-ui.js ก็ชี้ตามนั้น
+  -->
   <script>
-    // Optional config for vr-ui.js
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-  </script>
-
-  <!-- ✅ If this Shadow Breaker is inside /vr-fitness/... and vr-ui.js is in /herohealth/vr/ -->
-  <script src="../../../herohealth/vr/vr-ui.js"></script>
-
-  <!-- =========================
-       Mode auto class (play vs research)
-  ========================== -->
-  <script>
+    // auto hide research form for play mode (no research)
     (function(){
-      function qs(k,d){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
+      const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
       const r = (qs('research','')||'').toLowerCase();
-      const isResearch = (r==='1'||r==='true'||r==='on'||!!qs('studyId','')||!!qs('log',''));
-
-      document.body.classList.toggle('mode-play', !isResearch);
-
-      // hide research card if not research
-      const rc = document.getElementById('researchCard');
-      if(rc) rc.style.display = isResearch ? '' : 'none';
+      const isResearch = r==='1' || r==='true' || r==='on' || !!qs('studyId','') || !!qs('log','');
+      if(!isResearch){
+        document.body.classList.add('mode-play');
+      }
     })();
   </script>
 
-  <!-- ✅ Game engine -->
+  <!-- If you have the universal VR UI module, enable it:
+  <script src="../../../../herohealth/vr/vr-ui.js"></script>
+  -->
+
+  <!-- Game logic -->
   <script src="./shadow-breaker.js"></script>
 </body>
 </html>
