@@ -1,139 +1,141 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
-// ✅ Sets body view classes
-// ✅ Boots goodjunk.safe.js
-// ✅ Renders End Summary Overlay (topmost) + Restart + Back Hub
-// ✅ Adds body.ended to prevent VR UI stealing clicks
+// GoodJunkVR Boot — PRODUCTION (FAIR PACK ready)
+// ✅ Boots goodjunk.safe.js once DOM ready
+// ✅ Creates AI FAIR PACK (goodjunk.ai-pack.js) and passes via opts.aiPack
+// ✅ Safe error overlay (no white screen)
+
+'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
+import { createGoodJunkAIPack } from './goodjunk.ai-pack.js';
 
 const WIN = window;
 const DOC = document;
 
-function qs(k, def=null){
+function qs(k, def = null){
   try{ return new URL(location.href).searchParams.get(k) ?? def; }
   catch{ return def; }
 }
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-auto');
-  b.classList.add('view-' + (view || 'auto'));
-}
-function getView(){
-  const v = String(qs('view','auto')||'auto').toLowerCase();
-  if(v==='cardboard' || v==='vr') return 'vr';
-  if(v==='cvr' || v==='view-cvr') return 'cvr';
-  if(v==='pc') return 'pc';
-  if(v==='mobile') return 'mobile';
-  return 'auto';
-}
-function getHub(){
-  return qs('hub', null);
-}
-function restartUrl(){
-  // restart by reloading same URL but without any end flags
-  return location.href;
+function emit(n, d){
+  try{ WIN.dispatchEvent(new CustomEvent(n, { detail:d })); }catch{}
 }
 
-function createEndOverlay(){
-  let root = DOC.getElementById('gjEnd');
-  if(root) return root;
-
-  root = DOC.createElement('div');
-  root.id = 'gjEnd';
-  root.className = 'gj-end';
-  root.innerHTML = `
-    <div class="gj-end-card" role="dialog" aria-label="สรุปผล">
-      <div class="end-title">สรุปผล</div>
-      <div class="end-sub" id="endSub">บันทึกผลไว้แล้ว</div>
-
-      <div class="end-grid" id="endGrid"></div>
-
-      <div class="end-actions">
-        <button class="end-btn primary" id="btnReplay" type="button">เล่นอีกครั้ง</button>
-        <button class="end-btn" id="btnBackHub2" type="button">↩ กลับ HUB</button>
-        <button class="end-btn" id="btnCloseEnd" type="button">ปิด</button>
-      </div>
-    </div>
-  `;
-  DOC.body.appendChild(root);
-
-  // actions
-  root.querySelector('#btnReplay')?.addEventListener('click', ()=> location.href = restartUrl());
-  root.querySelector('#btnCloseEnd')?.addEventListener('click', ()=>{
-    DOC.body.classList.remove('ended');
-  });
-  root.querySelector('#btnBackHub2')?.addEventListener('click', ()=>{
-    const hub = getHub();
-    if(hub) location.href = hub;
-    else alert('ยังไม่ได้ใส่ hub url');
-  });
-
-  // click backdrop closes
-  root.addEventListener('click', (e)=>{
-    if(e.target === root) DOC.body.classList.remove('ended');
-  });
-
-  return root;
+function once(fn){
+  let done = false;
+  return (...args)=>{
+    if(done) return;
+    done = true;
+    return fn(...args);
+  };
 }
 
-function renderSummary(summary){
-  const root = createEndOverlay();
-  const sub = root.querySelector('#endSub');
-  const grid = root.querySelector('#endGrid');
-
-  if(sub){
-    sub.textContent = `mode=${summary?.runMode||'-'} · diff=${summary?.diff||'-'} · view=${summary?.view||'-'} · time=${summary?.durationPlayedSec||0}s`;
-  }
-  if(grid){
-    const items = [
-      ['SCORE', summary?.scoreFinal ?? 0],
-      ['MISS', summary?.miss ?? 0],
-      ['GRADE', summary?.grade ?? '—'],
-      ['COMBO MAX', summary?.comboMax ?? 0],
-      ['HIT GOOD', summary?.hitGood ?? 0],
-      ['HIT JUNK', summary?.hitJunk ?? 0],
-      ['EXPIRE GOOD', summary?.expireGood ?? 0],
-      ['SHIELD', summary?.shieldRemaining ?? 0],
-    ];
-    grid.innerHTML = items.map(([k,v])=>`
-      <div class="end-item">
-        <div class="end-k">${k}</div>
-        <div class="end-v">${String(v)}</div>
-      </div>
-    `).join('');
-  }
-
-  // ✅ สำคัญ: ทำให้ “ไปต่อได้” (overlay อยู่บนสุด + กันชั้นหลังแย่งคลิก)
-  DOC.body.classList.add('ended');
-}
-
-function onEnd(ev){
+function showBootError(err){
   try{
-    const summary = ev?.detail || null;
-    if(!summary) return;
-    renderSummary(summary);
-  }catch(_){}
+    const msg = (err && (err.stack || err.message)) ? (err.stack || err.message) : String(err||'Boot error');
+    const wrap = DOC.createElement('div');
+    wrap.style.cssText = [
+      'position:fixed','inset:0','z-index:999999',
+      'background:rgba(2,6,23,.92)','color:#e5e7eb',
+      'display:flex','align-items:center','justify-content:center',
+      'padding:18px','font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif'
+    ].join(';');
+    wrap.innerHTML = `
+      <div style="max-width:860px;width:min(860px,96vw);border:1px solid rgba(148,163,184,.22);
+                  border-radius:18px;padding:16px;background:rgba(15,23,42,.55)">
+        <div style="font-weight:900;font-size:18px">GoodJunkVR — Boot Error</div>
+        <div style="opacity:.75;font-weight:800;margin-top:6px">รายละเอียดด้านล่าง (คัดลอกส่งมาได้)</div>
+        <pre style="white-space:pre-wrap;word-break:break-word;margin-top:10px;
+                    background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.18);
+                    border-radius:14px;padding:12px;max-height:56vh;overflow:auto">${escapeHtml(msg)}</pre>
+        <button id="gjReload" style="margin-top:10px;height:46px;width:100%;
+          border-radius:14px;border:1px solid rgba(34,197,94,.35);
+          background:rgba(34,197,94,.18);color:#eafff3;font-weight:900;cursor:pointer">Reload</button>
+      </div>
+    `;
+    DOC.body.appendChild(wrap);
+    wrap.querySelector('#gjReload')?.addEventListener('click', ()=> location.reload());
+  }catch{}
 }
 
-function ready(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+function escapeHtml(s){
+  return String(s||'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
 }
 
-ready(()=>{
-  const view = getView();
-  setBodyView(view);
+function readCtx(){
+  const view = String(qs('view','auto')).toLowerCase();
+  const run  = String(qs('run','play')).toLowerCase();
+  const diff = String(qs('diff','normal')).toLowerCase();
+  const time = Number(qs('time','80')) || 80;
 
-  // listen end
-  WIN.addEventListener('hha:end', onEnd);
+  // seed: prefer explicit seed param, else ts, else now
+  const seed = String(qs('seed', qs('ts', Date.now())));
 
-  // boot engine (FAIR PACK)
-  engineBoot({
-    view,
-    run: String(qs('run','play')||'play').toLowerCase(),
-    diff: String(qs('diff','normal')||'normal').toLowerCase(),
-    time: Number(qs('time','80')||80),
-    seed: String(qs('seed', Date.now())),
-  });
+  // passthrough research-ish (engine may ignore, logger may use)
+  const hub = qs('hub', null);
+  const log = qs('log', null);
+  const style = qs('style', null);
+
+  return { view, run, diff, time, seed, hub, log, style };
+}
+
+function ensureSafeZoneRecalc(){
+  // run.html already measures, but we kick it once more after layout settles
+  try{
+    WIN.dispatchEvent(new Event('resize'));
+    setTimeout(()=>WIN.dispatchEvent(new Event('resize')), 120);
+    setTimeout(()=>WIN.dispatchEvent(new Event('resize')), 360);
+  }catch{}
+}
+
+const bootOnce = once(()=> {
+  try{
+    const ctx = readCtx();
+
+    // seeded rng (same as safe.js)
+    let x = (Number(ctx.seed)||Date.now()) % 2147483647;
+    if(x <= 0) x += 2147483646;
+    const rng = ()=> (x = x * 16807 % 2147483647) / 2147483647;
+
+    // AI FAIR PACK (play: ON, research: OFF)
+    const aiPack = createGoodJunkAIPack({
+      mode: ctx.run,
+      seed: ctx.seed,
+      rng,
+      nowMs: ()=> (performance?.now?.() ?? Date.now()),
+      emit
+    });
+
+    // expose (debug) — optional
+    WIN.__GJ_AI_PACK__ = aiPack;
+
+    ensureSafeZoneRecalc();
+
+    // boot engine
+    engineBoot({
+      view: ctx.view,
+      run: ctx.run,
+      diff: ctx.diff,
+      time: ctx.time,
+      seed: ctx.seed,
+      aiPack // safe.js vถัดไปจะใช้งานจริง
+    });
+
+  }catch(err){
+    showBootError(err);
+  }
 });
+
+function onReady(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+    setTimeout(fn, 0);
+  }else{
+    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+  }
+}
+
+onReady(bootOnce);
