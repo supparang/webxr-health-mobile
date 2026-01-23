@@ -1,9 +1,6 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
-✅ Views: pc/mobile/vr/cvr
-✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (PACK I)
-✅ Missions: hygiene.missions.js
+HygieneVR RUN — PRODUCTION (HHA Standard) PACK J
+✅ Boss Phase 2 + Streak Reward + Teacher Overlay (?teacher=1)
 -->
 <!doctype html>
 <html lang="th">
@@ -19,10 +16,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
   <!-- Universal VR UI -->
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- Optional shared helpers -->
+  <!-- Optional helpers -->
   <script defer src="../vr/particles.js"></script>
 
-  <!-- AI Packs (optional) -->
+  <!-- Optional AI packs -->
   <script defer src="../vr/hha-ai-coach.js"></script>
   <script defer src="../vr/hha-difficulty-director.js"></script>
   <script defer src="../vr/hha-badges.js"></script>
@@ -48,7 +45,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <!-- PACK I: perfect/shield/heart/mission -->
         <div class="hw-row">
           <div class="hw-pill good" id="pillPerfect">PERFECT 0</div>
           <div class="hw-pill cyan" id="pillShield">🛡 0</div>
@@ -63,7 +59,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Mission Bar -->
         <div class="hw-mission" id="missionBar" style="display:none">
           <div class="hw-mission-top">
             <div class="hw-mission-title" id="missionText">—</div>
@@ -74,7 +69,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
           </div>
         </div>
 
-        <!-- Step Wheel -->
         <div class="hw-wheel">
           <div class="hw-wheel-row" id="wheelRow"></div>
           <div class="hw-wheel-sub" id="wheelSub">—</div>
@@ -102,7 +96,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
           <button class="hw-ghost" id="btnRestart" type="button">↻ Restart</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
-          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
+          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span> • Teacher: <span id="labTeacher">0</span>
         </div>
       </div>
     </div>
@@ -112,9 +106,15 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
       <div class="hw-card">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
-
-        <!-- PACK I: kid-friendly tips -->
         <div class="hw-card-sub" id="endTips" style="margin-top:10px">—</div>
+
+        <!-- PACK J: Teacher summary -->
+        <div class="hw-teacher" id="teacherPanel" style="display:none">
+          <div class="hw-teacher-title">👩‍🏫 Teacher Summary</div>
+          <div class="hw-teacher-sub" id="teacherSub">—</div>
+          <div class="hw-bars" id="teacherBars"></div>
+          <div class="hw-teacher-foot" id="teacherFoot">—</div>
+        </div>
 
         <pre class="hw-pre" id="endJson"></pre>
         <div class="hw-card-row">
@@ -139,6 +139,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) PACK I
   setViewClass();
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+  document.getElementById('labTeacher').textContent = (qs('teacher','0')||'0');
 })();
 </script>
 </body>
