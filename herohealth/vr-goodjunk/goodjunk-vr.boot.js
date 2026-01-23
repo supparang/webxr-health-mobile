@@ -1,141 +1,284 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (FAIR PACK ready)
-// ✅ Boots goodjunk.safe.js once DOM ready
-// ✅ Creates AI FAIR PACK (goodjunk.ai-pack.js) and passes via opts.aiPack
-// ✅ Safe error overlay (no white screen)
-
-'use strict';
+// GoodJunkVR Boot — PRODUCTION
+// ✅ Auto view detect (no UI override menu)
+// ✅ Loads engine from ./goodjunk.safe.js
+// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
+// ✅ End overlay uses aria-hidden only
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './goodjunk.safe.js';
-import { createGoodJunkAIPack } from './goodjunk.ai-pack.js';
 
 const WIN = window;
 const DOC = document;
 
-function qs(k, def = null){
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }
-  catch{ return def; }
-}
-function emit(n, d){
-  try{ WIN.dispatchEvent(new CustomEvent(n, { detail:d })); }catch{}
+const qs = (k, def = null) => {
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
+};
+
+function isMobile() {
+  const ua = navigator.userAgent || '';
+  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
-function once(fn){
-  let done = false;
-  return (...args)=>{
-    if(done) return;
-    done = true;
-    return fn(...args);
+function getViewAuto() {
+  // Do not offer UI override.
+  // Allow forced by query (?view=pc|mobile|vr|cvr) if caller sets it.
+  const forced = (qs('view', '') || '').toLowerCase();
+  if (forced) return forced;
+  return isMobile() ? 'mobile' : 'pc';
+}
+
+function setBodyView(view) {
+  const b = DOC.body;
+  b.classList.remove('view-pc', 'view-mobile', 'view-vr', 'view-cvr');
+  if (view === 'cvr') b.classList.add('view-cvr');
+  else if (view === 'vr') b.classList.add('view-vr');
+  else if (view === 'mobile') b.classList.add('view-mobile');
+  else b.classList.add('view-pc');
+}
+
+function clamp(v, a, b) {
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
+}
+
+function pct(n) {
+  n = Number(n) || 0;
+  return `${Math.round(n)}%`;
+}
+
+function setOverlayOpen(open) {
+  const ov = DOC.getElementById('endOverlay');
+  if (!ov) return;
+  ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+function showCoach(msg, meta = 'Coach') {
+  const card = DOC.getElementById('coachCard');
+  const mEl = DOC.getElementById('coachMsg');
+  const metaEl = DOC.getElementById('coachMeta');
+  if (!card || !mEl) return;
+
+  mEl.textContent = String(msg || '');
+  if (metaEl) metaEl.textContent = meta;
+  card.classList.add('show');
+  card.setAttribute('aria-hidden', 'false');
+
+  clearTimeout(WIN.__HHA_COACH_TO__);
+  WIN.__HHA_COACH_TO__ = setTimeout(() => {
+    card.classList.remove('show');
+    card.setAttribute('aria-hidden', 'true');
+  }, 2200);
+}
+
+function wireHUD() {
+  const hudScore = DOC.getElementById('hudScore');
+  const hudTime = DOC.getElementById('hudTime');
+  const hudCombo = DOC.getElementById('hudCombo');
+  const hudMiss = DOC.getElementById('hudMiss');
+
+  const hudFeverText = DOC.getElementById('hudFeverText');
+  const uiFeverFill = DOC.getElementById('uiFeverFill');
+
+  const hudStar = DOC.getElementById('hudStar');
+  const hudShield = DOC.getElementById('hudShield');
+
+  const goalName = DOC.getElementById('goalName');
+  const goalSub = DOC.getElementById('goalSub');
+  const goalNums = DOC.getElementById('goalNums');
+  const goalBar = DOC.getElementById('goalBar');
+
+  const miniName = DOC.getElementById('miniName');
+  const miniSub = DOC.getElementById('miniSub');
+  const miniNums = DOC.getElementById('miniNums');
+  const miniBar = DOC.getElementById('miniBar');
+
+  // score/combo
+  WIN.addEventListener('hha:score', (e) => {
+    const d = e.detail || {};
+    if (hudScore) hudScore.textContent = String(d.score ?? d.value ?? d.scoreNow ?? 0);
+    if (hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+
+    // optional: miss/fever/power piggyback
+    const miss = (d.miss ?? d.misses ?? null);
+    if (miss != null && hudMiss) hudMiss.textContent = String(miss);
+
+    const fever = (d.feverPct ?? d.fever ?? null);
+    if (fever != null) {
+      const fp = clamp(fever, 0, 100);
+      if (hudFeverText) hudFeverText.textContent = pct(fp);
+      if (uiFeverFill) uiFeverFill.style.width = `${Math.round(fp)}%`;
+    }
+
+    if (hudStar && d.star != null) hudStar.textContent = String(d.star);
+    if (hudShield && d.shield != null) hudShield.textContent = String(d.shield);
+  });
+
+  // time
+  WIN.addEventListener('hha:time', (e) => {
+    const d = e.detail || {};
+    const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
+    if (hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t) || 0)));
+  });
+
+  // judge (goodjunk engines often report miss/fever/hit counts here)
+  WIN.addEventListener('hha:judge', (e) => {
+    const d = e.detail || {};
+    const miss = (d.miss ?? d.misses ?? d.missNow ?? null);
+    if (miss != null && hudMiss) hudMiss.textContent = String(miss);
+
+    const fever = (d.feverPct ?? d.fever ?? d.feverNow ?? null);
+    if (fever != null) {
+      const fp = clamp(fever, 0, 100);
+      if (hudFeverText) hudFeverText.textContent = pct(fp);
+      if (uiFeverFill) uiFeverFill.style.width = `${Math.round(fp)}%`;
+    }
+
+    if (hudStar && d.star != null) hudStar.textContent = String(d.star);
+    if (hudShield && d.shield != null) hudShield.textContent = String(d.shield);
+  });
+
+  // quest
+  WIN.addEventListener('quest:update', (e) => {
+    const d = e.detail || {};
+    // Expected: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    if (d.goal) {
+      const g = d.goal;
+      if (goalName) goalName.textContent = g.name || 'Goal';
+      if (goalSub) goalSub.textContent = g.sub || '';
+      const cur = clamp(g.cur ?? 0, 0, 9999);
+      const tar = clamp(g.target ?? 1, 1, 9999);
+      if (goalNums) goalNums.textContent = `${cur}/${tar}`;
+      if (goalBar) goalBar.style.width = `${Math.round((cur / tar) * 100)}%`;
+    }
+    if (d.mini) {
+      const m = d.mini;
+      if (miniName) miniName.textContent = m.name || 'Mini Quest';
+      if (miniSub) miniSub.textContent = m.sub || '';
+      const cur = clamp(m.cur ?? 0, 0, 9999);
+      const tar = clamp(m.target ?? 1, 1, 9999);
+      if (miniNums) miniNums.textContent = `${cur}/${tar}`;
+      if (miniBar) miniBar.style.width = `${Math.round((cur / tar) * 100)}%`;
+    }
+  });
+
+  // coach
+  WIN.addEventListener('hha:coach', (e) => {
+    const d = e.detail || {};
+    if (d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
+  });
+}
+
+function wireEndControls() {
+  const btnRestart = DOC.getElementById('btnRestart');
+  const btnBackHub = DOC.getElementById('btnBackHub');
+  const hub = qs('hub', '') || '';
+
+  if (btnRestart) {
+    btnRestart.addEventListener('click', () => {
+      location.reload(); // keep same query params
+    });
+  }
+  if (btnBackHub) {
+    btnBackHub.addEventListener('click', () => {
+      if (hub) location.href = hub;
+      else history.back();
+    });
+  }
+}
+
+function wireEndSummary() {
+  const kScore = DOC.getElementById('kScore');
+  const kAcc = DOC.getElementById('kAcc');
+  const kCombo = DOC.getElementById('kCombo');
+  const kGood = DOC.getElementById('kGood');
+  const kJunk = DOC.getElementById('kJunk');
+  const kMiss = DOC.getElementById('kMiss');
+  const kGoals = DOC.getElementById('kGoals');
+  const kMini = DOC.getElementById('kMini');
+
+  WIN.addEventListener('hha:end', (e) => {
+    const d = e.detail || {};
+
+    if (kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+    if (kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
+    if (kMiss) kMiss.textContent = String(d.misses ?? d.miss ?? 0);
+
+    // Good/Junk counts if provided
+    if (kGood) kGood.textContent = String(d.hitGood ?? d.goodHit ?? d.good ?? 0);
+    if (kJunk) kJunk.textContent = String(d.hitJunk ?? d.junkHit ?? d.junk ?? 0);
+
+    // accuracy: prefer accuracyGoodPct
+    const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
+    if (kAcc) kAcc.textContent = (acc == null) ? '—' : pct(acc);
+
+    if (kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
+    if (kMini) kMini.textContent = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
+
+    setOverlayOpen(true);
+  });
+}
+
+function buildEngineConfig() {
+  const view = getViewAuto();
+  const run = (qs('run', 'play') || 'play').toLowerCase();
+  const diff = (qs('diff', 'normal') || 'normal').toLowerCase();
+  const time = clamp(qs('time', '70'), 10, 999);
+  const seed = Number(qs('seed', Date.now())) || Date.now();
+
+  return {
+    view,
+    runMode: run,
+    diff,
+    durationPlannedSec: Number(time),
+    seed: Number(seed),
+
+    hub: qs('hub', '') || '',
+    logEndpoint: qs('log', '') || '',
+
+    studyId: qs('studyId', '') || '',
+    phase: qs('phase', '') || '',
+    conditionGroup: qs('conditionGroup', '') || '',
+    sessionOrder: qs('sessionOrder', '') || '',
+    blockLabel: qs('blockLabel', '') || '',
+    siteCode: qs('siteCode', '') || '',
+    schoolCode: qs('schoolCode', '') || '',
+    schoolName: qs('schoolName', '') || '',
+    gradeLevel: qs('gradeLevel', '') || '',
+    studentKey: qs('studentKey', '') || '',
   };
 }
 
-function showBootError(err){
-  try{
-    const msg = (err && (err.stack || err.message)) ? (err.stack || err.message) : String(err||'Boot error');
-    const wrap = DOC.createElement('div');
-    wrap.style.cssText = [
-      'position:fixed','inset:0','z-index:999999',
-      'background:rgba(2,6,23,.92)','color:#e5e7eb',
-      'display:flex','align-items:center','justify-content:center',
-      'padding:18px','font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif'
-    ].join(';');
-    wrap.innerHTML = `
-      <div style="max-width:860px;width:min(860px,96vw);border:1px solid rgba(148,163,184,.22);
-                  border-radius:18px;padding:16px;background:rgba(15,23,42,.55)">
-        <div style="font-weight:900;font-size:18px">GoodJunkVR — Boot Error</div>
-        <div style="opacity:.75;font-weight:800;margin-top:6px">รายละเอียดด้านล่าง (คัดลอกส่งมาได้)</div>
-        <pre style="white-space:pre-wrap;word-break:break-word;margin-top:10px;
-                    background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.18);
-                    border-radius:14px;padding:12px;max-height:56vh;overflow:auto">${escapeHtml(msg)}</pre>
-        <button id="gjReload" style="margin-top:10px;height:46px;width:100%;
-          border-radius:14px;border:1px solid rgba(34,197,94,.35);
-          background:rgba(34,197,94,.18);color:#eafff3;font-weight:900;cursor:pointer">Reload</button>
-      </div>
-    `;
-    DOC.body.appendChild(wrap);
-    wrap.querySelector('#gjReload')?.addEventListener('click', ()=> location.reload());
-  }catch{}
+function ready(fn) {
+  if (DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
+  else DOC.addEventListener('DOMContentLoaded', fn, { once: true });
 }
 
-function escapeHtml(s){
-  return String(s||'')
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;')
-    .replaceAll('"','&quot;')
-    .replaceAll("'","&#039;");
-}
+ready(() => {
+  const cfg = buildEngineConfig();
 
-function readCtx(){
-  const view = String(qs('view','auto')).toLowerCase();
-  const run  = String(qs('run','play')).toLowerCase();
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const time = Number(qs('time','80')) || 80;
+  // set view class
+  setBodyView(cfg.view);
 
-  // seed: prefer explicit seed param, else ts, else now
-  const seed = String(qs('seed', qs('ts', Date.now())));
+  // wire UI
+  wireHUD();
+  wireEndControls();
+  wireEndSummary();
 
-  // passthrough research-ish (engine may ignore, logger may use)
-  const hub = qs('hub', null);
-  const log = qs('log', null);
-  const style = qs('style', null);
+  // ensure end overlay closed at start
+  setOverlayOpen(false);
 
-  return { view, run, diff, time, seed, hub, log, style };
-}
-
-function ensureSafeZoneRecalc(){
-  // run.html already measures, but we kick it once more after layout settles
-  try{
-    WIN.dispatchEvent(new Event('resize'));
-    setTimeout(()=>WIN.dispatchEvent(new Event('resize')), 120);
-    setTimeout(()=>WIN.dispatchEvent(new Event('resize')), 360);
-  }catch{}
-}
-
-const bootOnce = once(()=> {
-  try{
-    const ctx = readCtx();
-
-    // seeded rng (same as safe.js)
-    let x = (Number(ctx.seed)||Date.now()) % 2147483647;
-    if(x <= 0) x += 2147483646;
-    const rng = ()=> (x = x * 16807 % 2147483647) / 2147483647;
-
-    // AI FAIR PACK (play: ON, research: OFF)
-    const aiPack = createGoodJunkAIPack({
-      mode: ctx.run,
-      seed: ctx.seed,
-      rng,
-      nowMs: ()=> (performance?.now?.() ?? Date.now()),
-      emit
-    });
-
-    // expose (debug) — optional
-    WIN.__GJ_AI_PACK__ = aiPack;
-
-    ensureSafeZoneRecalc();
-
-    // boot engine
+  // boot engine
+  try {
     engineBoot({
-      view: ctx.view,
-      run: ctx.run,
-      diff: ctx.diff,
-      time: ctx.time,
-      seed: ctx.seed,
-      aiPack // safe.js vถัดไปจะใช้งานจริง
+      mount: DOC.getElementById('gj-layer'),
+      cfg
     });
-
-  }catch(err){
-    showBootError(err);
+  } catch (err) {
+    console.error('[GoodJunkVR] boot error', err);
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
   }
 });
-
-function onReady(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
-    setTimeout(fn, 0);
-  }else{
-    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-  }
-}
-
-onReady(bootOnce);
