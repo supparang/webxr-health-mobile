@@ -1,232 +1,268 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION
-// ✅ Sets body view classes (pc/mobile/vr/cvr)
-// ✅ Boots engine: ./goodjunk.safe.js
-// ✅ End Summary Overlay (HHA Standard-ish) + Back HUB + Replay
-// ✅ Does NOT override ?view= (launcher already handles that)
-// Requires:
-//  - goodjunk-vr.html loads this as <script type="module" defer ...>
-//  - goodjunk.safe.js exports boot(opts)
+// GoodJunkVR Boot — PRODUCTION (Fair Pack)
+// ✅ Set body view classes (pc/mobile/vr/cvr) without overriding explicit ?view=
+// ✅ Pass-through ctx (hub/run/diff/time/seed/log/style...)
+// ✅ Wait DOM + safe-zone measured; then boot safe engine
+// ✅ End summary overlay (HHA Standard-ish) + Back to HUB
+// ✅ Flush-hardened: try send log before leaving
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
+function qs(k, def=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }
+  catch{ return def; }
+}
+function has(k){
+  try{ return new URL(location.href).searchParams.has(k); }
+  catch{ return false; }
+}
 
-function normView(v){
+function normalizeView(v){
   v = String(v||'').toLowerCase();
-  if(v==='cardboard' || v==='vr') return 'vr';
+  if(v==='cardboard') return 'vr';
+  if(v==='vr') return 'vr';
   if(v==='cvr' || v==='view-cvr') return 'cvr';
   if(v==='pc') return 'pc';
   if(v==='mobile') return 'mobile';
   return 'auto';
 }
 
+function isLikelyMobileUA(){
+  const ua = (navigator.userAgent||'').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
+}
+
+async function detectView(){
+  // If URL already has view=... DO NOT override
+  if(has('view')) return normalizeView(qs('view','auto'));
+
+  // soft remember
+  try{
+    const last = localStorage.getItem('HHA_LAST_VIEW');
+    if(last) return normalizeView(last);
+  }catch(_){}
+
+  let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
+
+  // best-effort WebXR check: if immersive-vr supported on mobile, prefer vr
+  try{
+    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
+      const ok = await navigator.xr.isSessionSupported('immersive-vr');
+      if(ok) guess = isLikelyMobileUA() ? 'vr' : 'pc';
+    }
+  }catch(_){}
+
+  return normalizeView(guess);
+}
+
 function setBodyView(view){
   const b = DOC.body;
-  if(!b) return;
-
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
   if(view==='pc') b.classList.add('view-pc');
   else if(view==='mobile') b.classList.add('view-mobile');
   else if(view==='vr') b.classList.add('view-vr');
   else if(view==='cvr') b.classList.add('view-cvr');
+  else b.classList.add(isLikelyMobileUA() ? 'view-mobile' : 'view-pc');
 }
 
-function safeDispatchResize(){
-  // forces updateSafe() in goodjunk-vr.html to re-measure HUD safe zones
-  try{ WIN.dispatchEvent(new Event('resize')); }catch(_){}
+function buildCtx(view){
+  const hub  = qs('hub', null);
+  const run  = String(qs('run','play')||'play').toLowerCase();
+  const diff = String(qs('diff','normal')||'normal').toLowerCase();
+  const time = Number(qs('time','80')) || 80;
+  const seed = String(qs('seed', Date.now()));
+  const log  = qs('log', null);
+  const style = qs('style', null);
+
+  return {
+    view, hub,
+    run, diff,
+    time, seed,
+    log, style,
+
+    // optional research passthrough
+    studyId: qs('studyId', qs('study', null)),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', qs('cond', null)),
+    ts: qs('ts', null),
+  };
 }
 
-function getHubUrl(){
-  return qs('hub', null);
-}
+function ensureSummaryLayer(){
+  let wrap = DOC.getElementById('hhaSummary');
+  if(wrap) return wrap;
 
-function buildEndOverlay(){
-  if(DOC.getElementById('gjEndOverlay')) return;
+  wrap = DOC.createElement('section');
+  wrap.id = 'hhaSummary';
+  wrap.setAttribute('aria-hidden', 'true');
+  wrap.style.cssText = [
+    'position:fixed','inset:0','z-index:60',
+    'display:none','align-items:center','justify-content:center',
+    'padding:calc(18px + env(safe-area-inset-top,0px)) 16px calc(18px + env(safe-area-inset-bottom,0px)) 16px',
+    'background:rgba(2,6,23,.62)','backdrop-filter:blur(10px)'
+  ].join(';');
 
-  const wrap = DOC.createElement('div');
-  wrap.id = 'gjEndOverlay';
-  wrap.style.cssText = `
-    position:fixed; inset:0; z-index:60;
-    display:none; align-items:center; justify-content:center;
-    padding: calc(22px + env(safe-area-inset-top,0px)) 16px calc(22px + env(safe-area-inset-bottom,0px)) 16px;
-    background: rgba(2,6,23,.78);
-    backdrop-filter: blur(10px);
-  `;
+  const card = DOC.createElement('div');
+  card.style.cssText = [
+    'width:min(640px, 94vw)',
+    'border-radius:22px',
+    'border:1px solid rgba(148,163,184,.18)',
+    'background:rgba(2,6,23,.80)',
+    'box-shadow:0 26px 100px rgba(0,0,0,.55)',
+    'padding:14px 14px'
+  ].join(';');
 
-  wrap.innerHTML = `
-    <div style="
-      width:min(560px, 94vw);
-      background: rgba(2,6,23,.82);
-      border:1px solid rgba(148,163,184,.22);
-      border-radius:22px;
-      box-shadow:0 26px 90px rgba(0,0,0,.55);
-      padding:16px 16px;
-      color:#e5e7eb;
-      font-family:system-ui,-apple-system,'Segoe UI','Noto Sans Thai',sans-serif;
-    ">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-        <div>
-          <div style="font-size:18px; font-weight:1200;">สรุปผล GoodJunkVR</div>
-          <div style="margin-top:4px; font-size:12px; font-weight:900; color:rgba(148,163,184,.95);" id="gjEndMeta">—</div>
-        </div>
-        <button id="gjEndClose" type="button" style="
-          height:38px; padding:0 12px;
-          border-radius:14px;
-          border:1px solid rgba(148,163,184,.28);
-          background: rgba(2,6,23,.50);
-          color:#e5e7eb;
-          font-weight:1000;
-          cursor:pointer;
-        ">ปิด</button>
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+      <div style="font-weight:1400;font-size:18px;">สรุปผล GoodJunkVR</div>
+      <div id="sumGrade" style="font-weight:1500;font-size:18px;opacity:.92;">—</div>
+    </div>
+
+    <div id="sumMeta" style="margin-top:6px;color:rgba(148,163,184,.95);font-weight:900;font-size:12px;">—</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+      <div style="border:1px solid rgba(148,163,184,.14);border-radius:18px;background:rgba(2,6,23,.45);padding:10px 12px;">
+        <div style="font-size:10px;letter-spacing:.10em;text-transform:uppercase;color:rgba(148,163,184,.92);font-weight:1100;">SCORE</div>
+        <div id="sumScore" style="font-size:22px;font-weight:1500;margin-top:2px;">0</div>
       </div>
-
-      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:12px;">
-        <div style="padding:10px 12px; border-radius:16px; background:rgba(2,6,23,.48); border:1px solid rgba(148,163,184,.18);">
-          <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:rgba(148,163,184,.92); font-weight:1000;">SCORE</div>
-          <div style="font-size:22px; font-weight:1400;" id="gjEndScore">0</div>
-        </div>
-        <div style="padding:10px 12px; border-radius:16px; background:rgba(2,6,23,.48); border:1px solid rgba(148,163,184,.18);">
-          <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:rgba(148,163,184,.92); font-weight:1000;">GRADE</div>
-          <div style="font-size:22px; font-weight:1400;" id="gjEndGrade">—</div>
-        </div>
-        <div style="padding:10px 12px; border-radius:16px; background:rgba(245,158,11,.10); border:1px solid rgba(245,158,11,.22);">
-          <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:rgba(148,163,184,.92); font-weight:1000;">MISS</div>
-          <div style="font-size:22px; font-weight:1400;" id="gjEndMiss">0</div>
-        </div>
-        <div style="padding:10px 12px; border-radius:16px; background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.18);">
-          <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:rgba(148,163,184,.92); font-weight:1000;">COMBO MAX</div>
-          <div style="font-size:22px; font-weight:1400;" id="gjEndCombo">0</div>
-        </div>
+      <div style="border:1px solid rgba(148,163,184,.14);border-radius:18px;background:rgba(2,6,23,.45);padding:10px 12px;">
+        <div style="font-size:10px;letter-spacing:.10em;text-transform:uppercase;color:rgba(148,163,184,.92);font-weight:1100;">MISS</div>
+        <div id="sumMiss" style="font-size:22px;font-weight:1500;margin-top:2px;">0</div>
       </div>
-
-      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="gjEndReplay" type="button" style="
-          flex:1;
-          min-width: 180px;
-          height:46px;
-          border-radius:16px;
-          border:1px solid rgba(34,211,238,.25);
-          background: rgba(34,211,238,.12);
-          color:#eaffff;
-          font-weight:1200;
-          cursor:pointer;
-        ">เล่นอีกครั้ง</button>
-
-        <button id="gjEndHub" type="button" style="
-          flex:1;
-          min-width: 180px;
-          height:46px;
-          border-radius:16px;
-          border:1px solid rgba(34,197,94,.35);
-          background: rgba(34,197,94,.14);
-          color:#eafff3;
-          font-weight:1200;
-          cursor:pointer;
-        ">↩ กลับ HUB</button>
+      <div style="border:1px solid rgba(148,163,184,.14);border-radius:18px;background:rgba(2,6,23,.45);padding:10px 12px;">
+        <div style="font-size:10px;letter-spacing:.10em;text-transform:uppercase;color:rgba(148,163,184,.92);font-weight:1100;">COMBO MAX</div>
+        <div id="sumCombo" style="font-size:22px;font-weight:1500;margin-top:2px;">0</div>
       </div>
-
-      <div style="margin-top:10px; font-size:12px; font-weight:900; color:rgba(148,163,184,.95); line-height:1.35;">
-        * บันทึกผลล่าสุดไว้ที่ <b>localStorage: HHA_LAST_SUMMARY</b>
+      <div style="border:1px solid rgba(148,163,184,.14);border-radius:18px;background:rgba(2,6,23,.45);padding:10px 12px;">
+        <div style="font-size:10px;letter-spacing:.10em;text-transform:uppercase;color:rgba(148,163,184,.92);font-weight:1100;">TIME</div>
+        <div id="sumTime" style="font-size:22px;font-weight:1500;margin-top:2px;">0s</div>
       </div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+      <button id="sumBackHub" type="button"
+        style="flex:1;min-width:180px;height:48px;border-radius:16px;border:1px solid rgba(34,197,94,.32);background:rgba(34,197,94,.14);color:#eafff3;font-weight:1400;cursor:pointer;">
+        ↩ กลับ HUB
+      </button>
+      <button id="sumReplay" type="button"
+        style="flex:1;min-width:180px;height:48px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.55);color:#e5e7eb;font-weight:1400;cursor:pointer;">
+        เล่นอีกครั้ง
+      </button>
+    </div>
+
+    <div style="margin-top:10px;font-size:12px;font-weight:900;color:rgba(148,163,184,.95);line-height:1.4;">
+      * โหมดวิจัย (run=research) ควรปิดการปรับยากอัตโนมัติ และใช้ seed เดิมเพื่อความทำซ้ำได้
     </div>
   `;
 
+  wrap.appendChild(card);
   DOC.body.appendChild(wrap);
-
-  const close = DOC.getElementById('gjEndClose');
-  close?.addEventListener('click', ()=> hideEndOverlay());
-
-  const replay = DOC.getElementById('gjEndReplay');
-  replay?.addEventListener('click', ()=>{
-    // keep all query params, just reload
-    try{ location.reload(); }catch(_){}
-  });
-
-  const hubBtn = DOC.getElementById('gjEndHub');
-  hubBtn?.addEventListener('click', ()=>{
-    const hub = getHubUrl();
-    if(hub) location.href = hub;
-    else alert('ยังไม่ได้ใส่ hub url');
-  });
+  return wrap;
 }
 
-function showEndOverlay(summary){
-  buildEndOverlay();
-
-  const wrap = DOC.getElementById('gjEndOverlay');
-  if(!wrap) return;
-
-  const meta = DOC.getElementById('gjEndMeta');
-  const sScore = DOC.getElementById('gjEndScore');
-  const sGrade = DOC.getElementById('gjEndGrade');
-  const sMiss  = DOC.getElementById('gjEndMiss');
-  const sCombo = DOC.getElementById('gjEndCombo');
-
-  const view = summary?.view ?? qs('view','auto');
-  const diff = summary?.diff ?? qs('diff','normal');
-  const time = summary?.durationPlayedSec ?? null;
-
-  if(meta){
-    meta.textContent = `view=${view} · diff=${diff}${(time!=null?` · เล่น ${time}s`:'')}`;
-  }
-  if(sScore) sScore.textContent = String(summary?.scoreFinal ?? 0);
-  if(sGrade) sGrade.textContent = String(summary?.grade ?? '—');
-  if(sMiss)  sMiss.textContent  = String(summary?.miss ?? 0);
-  if(sCombo) sCombo.textContent = String(summary?.comboMax ?? 0);
-
+function showSummary(summary, ctx){
+  const wrap = ensureSummaryLayer();
   wrap.style.display = 'flex';
-}
+  wrap.setAttribute('aria-hidden','false');
 
-function hideEndOverlay(){
-  const wrap = DOC.getElementById('gjEndOverlay');
-  if(wrap) wrap.style.display = 'none';
-}
+  const $ = (id)=>DOC.getElementById(id);
 
-function wireEndListener(){
-  WIN.addEventListener('hha:end', (ev)=>{
-    const summary = ev?.detail || null;
-    // show overlay after a short beat to ensure UI updated
-    setTimeout(()=> showEndOverlay(summary), 120);
-  }, { passive:true });
-}
+  const grade = summary?.grade ?? '—';
+  const score = summary?.scoreFinal ?? 0;
+  const miss  = summary?.miss ?? 0;
+  const combo = summary?.comboMax ?? 0;
+  const timePlayed = summary?.durationPlayedSec ?? 0;
 
-function bootOnce(){
-  // 1) view class
-  const view = normView(qs('view','auto'));
-  if(view !== 'auto') setBodyView(view);
+  $('sumGrade').textContent = grade;
+  $('sumScore').textContent = String(score);
+  $('sumMiss').textContent  = String(miss);
+  $('sumCombo').textContent = String(combo);
+  $('sumTime').textContent  = `${timePlayed}s`;
 
-  // 2) allow vr-ui.js to mount first, then re-measure safe zones
-  setTimeout(safeDispatchResize, 0);
-  setTimeout(safeDispatchResize, 120);
-  setTimeout(safeDispatchResize, 360);
+  const meta = `view=${ctx.view} · run=${ctx.run} · diff=${ctx.diff} · seed=${ctx.seed}`;
+  $('sumMeta').textContent = meta;
 
-  // 3) End overlay listener
-  wireEndListener();
+  const hub = ctx.hub;
 
-  // 4) Boot engine
-  const opts = {
-    view: qs('view','mobile'),
-    run:  qs('run','play'),
-    diff: qs('diff','normal'),
-    time: qs('time','80'),
-    seed: qs('seed', Date.now())
+  $('sumBackHub').onclick = async ()=>{
+    await tryFlushLogs();
+    if(hub) location.href = hub;
+    else location.href = '../hub.html';
   };
 
+  $('sumReplay').onclick = async ()=>{
+    await tryFlushLogs();
+    location.reload();
+  };
+}
+
+async function tryFlushLogs(){
+  // best effort: if hha-cloud-logger exposes flush method
   try{
-    engineBoot(opts);
-  }catch(err){
-    console.error('[GoodJunkVR boot] engine error:', err);
-    alert('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู console)');
-  }
+    if(WIN.HHA_LOGGER && typeof WIN.HHA_LOGGER.flush === 'function'){
+      await WIN.HHA_LOGGER.flush();
+    }
+  }catch(_){}
 }
 
-function ready(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+function waitForMeasuredSafe(){
+  // goodjunk-vr.html has updateSafe() scheduled at 0/120/360ms,
+  // here we wait a bit to let --gj-top-safe / --gj-bottom-safe be set.
+  return new Promise((resolve)=>{
+    const t0 = performance.now();
+    const tick = ()=>{
+      const top = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-top-safe')) || 0;
+      const bot = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-bottom-safe')) || 0;
+      const ok = (top >= 90 && bot >= 90);
+      if(ok || (performance.now() - t0) > 650) resolve();
+      else setTimeout(tick, 40);
+    };
+    tick();
+  });
 }
 
-ready(bootOnce);
+async function main(){
+  if(WIN.__GJ_BOOTED__) return;
+  WIN.__GJ_BOOTED__ = true;
+
+  const view = await detectView();
+  setBodyView(view);
+  try{ if(!has('view')) localStorage.setItem('HHA_LAST_VIEW', view); }catch(_){}
+
+  const ctx = buildCtx(view);
+
+  // listen end -> summary
+  WIN.addEventListener('hha:end', (ev)=>{
+    const summary = ev?.detail || null;
+    if(summary){
+      try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
+      showSummary(summary, ctx);
+    }
+  });
+
+  // leave protection (flush logs)
+  WIN.addEventListener('beforeunload', ()=>{
+    try{ tryFlushLogs(); }catch(_){}
+  });
+
+  // wait safe rect measured, then boot
+  await waitForMeasuredSafe();
+
+  // boot safe engine
+  engineBoot({
+    view: ctx.view,
+    run: ctx.run,
+    diff: ctx.diff,
+    time: ctx.time,
+    seed: ctx.seed
+  });
+}
+
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', main, { once:true });
+}else{
+  main();
+}
