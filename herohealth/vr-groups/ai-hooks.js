@@ -1,301 +1,328 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// AI Hooks (GroupsVR) — Prediction + Feature Engineering (v3)
-// ✅ Enabled only when caller passes enabled=true (run=play & ai=1)
-// ✅ Research/Practice: OFF (caller)
-// ✅ Emits: ai:risk, ai:tip
-// ✅ Dataset rows include engineered features: EMA + deltas + rolling stats
-// ✅ Labels last 3s frames when MISS happens
+// GroupsVR AI Hooks — DL-ready (TFJS optional)
+// ✅ enabled only when ?ai=1 and runMode=play
+// ✅ research/practice: ALWAYS OFF
+// ✅ Listens: groups:telemetry (1 Hz) from groups.safe.js
+// ✅ Emits: ai:tip (for coach), ai:risk (optional), ai:mode
+// ✅ Dataset store: getDataset(), clearDataset()
+// ✅ DL: if ?dl=1 -> try load TFJS model at ./models/groups-risk/model.json
+//     - if model missing -> fallback to EMA/heuristic
 
-(function(root){
+(function(){
   'use strict';
-  const NS = root.GroupsVR = root.GroupsVR || {};
+  const WIN = window;
+  const DOC = document;
+  if(!WIN) return;
 
-  const LS_DATA = 'HHA_GROUPS_ML_DATASET';
-  const MAX_ROWS = 5000;
-  const LABEL_WINDOW_MS = 3000;
+  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 
-  const TIP_COOLDOWN_MS = 4500;
-  const TIP_RISK_TH = 70;
-
-  const nowMs = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
-  const clamp=(v,a,b)=>{ v=+v||0; return v<a?a:(v>b?b:v); };
-
-  function safeParse(json, def){ try{ return JSON.parse(json); }catch{ return def; } }
-  function safeSetLS(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
-  function safeGetLS(k, def){ try{ return safeParse(localStorage.getItem(k)||'', def); }catch{ return def; } }
-  function emit(name, detail){ try{ root.dispatchEvent(new CustomEvent(name,{detail})); }catch{} }
-
-  // ---- pending buffer ----
-  const buf = [];
-  function pushFrame(row){
-    buf.push(row);
-    const cut = row.tMs - 12000;
-    while(buf.length && buf[0].tMs < cut) buf.shift();
-  }
-  function labelRecentMiss(missKind, tMs){
-    const from = tMs - LABEL_WINDOW_MS;
-    for(let i=buf.length-1;i>=0;i--){
-      const r = buf[i];
-      if (r.tMs < from) break;
-      r.label = 1;
-      r.missKind = missKind;
-    }
-  }
-  function flushToDataset(){
-    const dataset = safeGetLS(LS_DATA, []);
-    const t = nowMs();
-    const finalizeBefore = t - 3500;
-
-    let moved = 0;
-    for(let i=0;i<buf.length;){
-      const r = buf[i];
-      if (r.tMs <= finalizeBefore){
-        const out = Object.assign({}, r);
-        if (out.label == null) out.label = 0;
-        dataset.push(out);
-        buf.splice(i,1);
-        moved++;
-      }else i++;
-    }
-    if (moved){
-      if (dataset.length > MAX_ROWS) dataset.splice(0, dataset.length - MAX_ROWS);
-      safeSetLS(LS_DATA, dataset);
-    }
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  // ---- risk model ----
-  function riskFrom(d){
-    const acc = clamp((d.accGoodPct||0)/100, 0, 1);
-    const pressure = clamp((d.pressure||0)/3, 0, 1);
-    const missRate = clamp((d.misses||0)/18, 0, 1);
-    const storm = d.stormOn ? 1 : 0;
-    const mini = d.miniOn ? 1 : 0;
-    const onscreen = clamp((d.targetsOnScreen||0)/12, 0, 1);
-    const comboLow = (d.combo||0) <= 1 ? 1 : 0;
+  function runModeFrom(ctx){ return String((ctx && ctx.runMode) || 'play').toLowerCase(); }
+  function isResearchOrPractice(rm){ return (rm==='research' || rm==='practice'); }
 
-    const z =
-      (+0.9*(1-acc)) +
-      (+1.2*pressure) +
-      (+0.9*missRate) +
-      (+0.45*storm) +
-      (+0.35*mini) +
-      (+0.35*onscreen) +
-      (+0.25*comboLow);
-
-    const risk = 100 * (1 - Math.exp(-z));
-    const reasons = [];
-    if (acc < 0.65) reasons.push('ACC ต่ำ');
-    if (pressure > 0.34) reasons.push('PRESSURE สูง');
-    if (storm) reasons.push('STORM');
-    if (mini) reasons.push('MINI');
-    if (onscreen > 0.55) reasons.push('เป้าเยอะ');
-    if (comboLow) reasons.push('คอมโบหลุด');
-
-    return { riskPct: clamp(risk, 0, 100), reasons };
+  function aiWanted(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const on  = String(qs('ai','0')||'0').toLowerCase();
+    if (run === 'research') return false;
+    return (on==='1' || on==='true');
   }
 
-  // ---- tips ----
-  let lastTipAt = 0;
-  function maybeTip(riskPct, reasons){
-    const t = nowMs();
-    if (riskPct < TIP_RISK_TH) return;
-    if (t - lastTipAt < TIP_COOLDOWN_MS) return;
-    lastTipAt = t;
-
-    const r = (reasons && reasons.length) ? reasons[0] : '';
-    let text = 'ตั้งสติ เล็งก่อนยิง 👀';
-    let mood = 'neutral';
-
-    if (r === 'ACC ต่ำ'){ text = 'ACC ต่ำ: ช้าลงนิด เล็งให้ตรงหมู่ก่อนค่อยยิง 🎯'; mood='neutral'; }
-    else if (r === 'PRESSURE สูง'){ text = 'เริ่มกดดัน: อย่ายิงรัว เล็งทีละเป้า จะรอด 🔥'; mood='fever'; }
-    else if (r === 'STORM'){ text = 'ช่วง STORM: โฟกัสเป้าใกล้ crosshair ก่อน ⚡'; mood='fever'; }
-    else if (r === 'MINI'){ text = 'MINI อยู่: เลือกยิงเป้าชัวร์ อย่าเสี่ยงโดนขยะ ✅'; mood='neutral'; }
-    else if (r === 'เป้าเยอะ'){ text = 'เป้าเยอะ: ยิงเฉพาะ “หมู่ถูก” ที่อยู่กลาง ๆ ก่อน'; mood='neutral'; }
-    else if (r === 'คอมโบหลุด'){ text = 'คอมโบหลุด: รีเซ็ตใจ แล้วเริ่มยิงชัวร์ ๆ ใหม่ ✨'; mood='happy'; }
-
-    emit('ai:tip', { text, mood });
+  function dlWanted(){
+    const v = String(qs('dl','0')||'0').toLowerCase();
+    return (v==='1' || v==='true');
   }
 
-  // ---- feature engineering (EMA + deltas + rolling 5s) ----
-  const FE = {
-    last: null,
-    emaAcc: null,
-    emaRisk: null,
-    emaCombo: null,
-    emaMiss: null,
-    win: [] // last 5 seconds telemetry frames
+  // ---------------- Dataset store ----------------
+  const DATASET = [];
+  const MAX_ROWS = 6000; // ~100 นาทีที่ 1Hz (พอ)
+
+  // rows are telemetry + derived risk
+  function pushRow(row){
+    DATASET.push(row);
+    if (DATASET.length > MAX_ROWS) DATASET.splice(0, DATASET.length - MAX_ROWS);
+  }
+
+  // ---------------- Simple EMA/Heuristic fallback ----------------
+  // goal: estimate "risk of failing soon / making mistakes soon"
+  // output: risk 0..1, and label buckets
+  const EMA = { v: 0.25 };
+  function emaUpdate(x, alpha){ EMA.v = (alpha*x) + (1-alpha)*EMA.v; return EMA.v; }
+
+  function heuristicRisk(t){
+    // t: telemetry
+    const acc = clamp(t.accGoodPct, 0, 100) / 100;
+    const miss = clamp(t.misses, 0, 99);
+    const combo = clamp(t.combo, 0, 99);
+    const pressure = clamp(t.pressure, 0, 3)/3;
+    const storm = t.stormOn ? 1 : 0;
+    const mini  = t.miniOn ? 1 : 0;
+
+    // intuition:
+    // - low acc + high misses + high pressure + storm/mini => risk up
+    // - high combo => risk down
+    let r = 0;
+    r += (1-acc) * 0.55;
+    r += Math.min(1, miss/12) * 0.28;
+    r += pressure * 0.18;
+    r += storm * 0.10;
+    r += mini  * 0.08;
+    r -= Math.min(1, combo/10) * 0.18;
+
+    r = clamp(r, 0, 1);
+    const smooth = emaUpdate(r, 0.28);
+    return { raw:r, smooth, mode:'heuristic' };
+  }
+
+  // ---------------- DL model (TFJS optional) ----------------
+  // We load TFJS only when needed to avoid blocking.
+  let DL = {
+    enabled: false,
+    loaded: false,
+    model: null,
+    fail: false,
+    lastErr: ''
   };
 
-  function feUpdate(tMs, d, riskPct){
-    const a = d.accGoodPct|0;
-    const c = d.combo|0;
-    const m = d.misses|0;
+  async function ensureTFJS(){
+    if (WIN.tf && WIN.tf.loadLayersModel) return true;
+    // lazy-load from CDN? (คุณอาจไม่อยากพึ่ง CDN)
+    // ✅ safest: if you host tf.min.js locally at ../vr/tf.min.js then include in groups-vr.html
+    // We will NOT auto-inject network script here to avoid surprises.
+    return false;
+  }
 
-    const alpha = 0.28; // EMA smoothing
-    const ema = (prev, x)=> (prev==null ? x : (prev*(1-alpha) + x*alpha));
+  async function tryLoadDLModel(){
+    if (DL.loaded || DL.fail) return;
+    DL.loaded = true;
+    const okTF = await ensureTFJS();
+    if (!okTF){
+      DL.fail = true;
+      DL.lastErr = 'tfjs_not_found';
+      return;
+    }
+    try{
+      // expects file at: /herohealth/vr-groups/models/groups-risk/model.json
+      const url = new URL('./models/groups-risk/model.json', location.href).toString();
+      DL.model = await WIN.tf.loadLayersModel(url);
+      DL.fail = false;
+    }catch(e){
+      DL.fail = true;
+      DL.lastErr = String(e && e.message ? e.message : e);
+      DL.model = null;
+    }
+  }
 
-    FE.emaAcc = ema(FE.emaAcc, a);
-    FE.emaRisk= ema(FE.emaRisk, riskPct);
-    FE.emaCombo=ema(FE.emaCombo, c);
-    FE.emaMiss= ema(FE.emaMiss, m);
+  // DL input design (sequence length)
+  const SEQ = 12; // 12 seconds window
+  // feature order for DL
+  const FEAT_KEYS = [
+    'acc', 'misses', 'combo', 'pressure',
+    'storm', 'mini', 'targets', 'power',
+    'goalProg', 'leftN'
+  ];
+  function buildFeat(t){
+    const acc = clamp(t.accGoodPct, 0, 100)/100;
+    const misses = clamp(t.misses, 0, 99)/20;   // normalize
+    const combo  = clamp(t.combo, 0, 99)/20;
+    const pressure = clamp(t.pressure,0,3)/3;
+    const storm = t.stormOn?1:0;
+    const mini  = t.miniOn?1:0;
+    const targets = clamp(t.targetsOnScreen,0,30)/30;
+    const power   = clamp(t.powerCharge,0,99)/12;
+    const goalProg = clamp(t.goalNeed? (t.goalNow/t.goalNeed) : 0, 0, 1);
+    const leftN = clamp(t.leftSec,0,180)/180;
+    return [acc, misses, combo, pressure, storm, mini, targets, power, goalProg, leftN];
+  }
 
-    // rolling window 5s
-    FE.win.push({tMs, a, c, m, risk:riskPct, storm:d.stormOn?1:0, mini:d.miniOn?1:0});
-    const cut = tMs - 5000;
-    while(FE.win.length && FE.win[0].tMs < cut) FE.win.shift();
+  // rolling buffer for DL sequence
+  const SEQBUF = [];
+  function seqPush(vec){
+    SEQBUF.push(vec);
+    if (SEQBUF.length > SEQ) SEQBUF.shift();
+  }
 
-    const last = FE.last;
-    const dAcc = last ? (a - last.a) : 0;
-    const dCombo= last ? (c - last.c) : 0;
-    const dMiss = last ? (m - last.m) : 0;
+  async function dlPredictRisk(){
+    if (!DL.model || !WIN.tf) return null;
+    if (SEQBUF.length < SEQ) return null;
 
-    // rolling aggregates
-    let riskMax=0, riskAvg=0, n=FE.win.length;
-    let missInc=0, comboDrop=0;
-    for(let i=0;i<n;i++){
-      riskMax = Math.max(riskMax, FE.win[i].risk);
-      riskAvg += FE.win[i].risk;
-      if (i>0){
-        const dm = FE.win[i].m - FE.win[i-1].m;
-        if (dm>0) missInc += dm;
-        const dc = FE.win[i].c - FE.win[i-1].c;
-        if (dc<0) comboDrop += 1;
+    // input shape: [1, SEQ, F]
+    const F = FEAT_KEYS.length;
+    const flat = [];
+    for (let i=0;i<SEQ;i++){
+      const v = SEQBUF[i] || new Array(F).fill(0);
+      for (let j=0;j<F;j++) flat.push(Number(v[j])||0);
+    }
+
+    const tf = WIN.tf;
+    const x = tf.tensor(flat, [1, SEQ, F]);
+    try{
+      const y = DL.model.predict(x);
+      const val = Array.isArray(y) ? y[0] : y;
+      const out = await val.data();
+      // assume single sigmoid output
+      const risk = clamp(out[0], 0, 1);
+      return { risk, mode:'dl' };
+    }finally{
+      try{ x.dispose(); }catch(_){}
+    }
+  }
+
+  // ---------------- Tips policy ----------------
+  let lastTipAt = 0;
+  function maybeTip(t, riskInfo){
+    const now = Date.now();
+    if (now - lastTipAt < 2200) return; // rate limit
+
+    const rm = String(t.runMode||'play');
+    if (rm !== 'play') return;
+
+    const risk = (riskInfo && (riskInfo.smooth ?? riskInfo.risk)) ?? 0.25;
+    const pressure = clamp(t.pressure,0,3);
+
+    // buckets
+    let mood = 'neutral';
+    let text = '';
+
+    if (risk >= 0.78 || pressure >= 3){
+      mood = 'sad';
+      text = 'ช้าลงนิด! เล็งให้ตรงหมู่ก่อนยิงนะ 😤';
+    }else if (risk >= 0.62 || pressure >= 2){
+      mood = 'fever';
+      text = 'โหมดกดดัน! ดูหมู่ให้ชัวร์ แล้วค่อยยิง 🔥';
+    }else if (risk <= 0.28 && (t.combo||0) >= 6){
+      mood = 'happy';
+      text = 'ดีมาก! คอมโบมาแล้ว เก็บต่อเลย ✨';
+    }else{
+      // occasional neutral nudge when mini/storm
+      if (t.stormOn){
+        mood = 'fever';
+        text = 'พายุมา! อย่ายิงมั่ว เล็งทีละอัน 🌪️';
+      }else if (t.miniOn){
+        mood = 'neutral';
+        text = 'MINI อยู่! โฟกัสให้ถูกหมู่ก่อน 👍';
+      }else{
+        return; // no tip
       }
     }
-    riskAvg = n? (riskAvg/n) : 0;
 
-    FE.last = {tMs, a, c, m};
-
-    return {
-      dAcc, dCombo, dMiss,
-      emaAcc: Math.round(FE.emaAcc||0),
-      emaRisk: Math.round(FE.emaRisk||0),
-      emaCombo: Math.round(FE.emaCombo||0),
-      emaMiss: Math.round(FE.emaMiss||0),
-      roll5sRiskAvg: Math.round(riskAvg),
-      roll5sRiskMax: Math.round(riskMax),
-      roll5sMissInc: missInc|0,
-      roll5sComboDrops: comboDrop|0
-    };
+    lastTipAt = now;
+    emit('ai:tip', { text, mood, risk: Number(risk.toFixed(3)), mode: riskInfo.mode });
   }
 
-  // ---- attach/detach ----
-  let attached=false, enabled=false, runMode='play', seed='', sessionId='';
-  function makeSessionId(){ return 'GVR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7); }
+  // ---------------- Attach / Listener ----------------
+  let ATTACHED = false;
+  let ENABLED = false;
 
   function onTelemetry(ev){
-    if (!enabled) return;
-    const d = ev.detail || {};
-    const t = nowMs();
+    if (!ENABLED) return;
+    const t = ev.detail || {};
 
-    const R = riskFrom(d);
-    const riskPct = Math.round(R.riskPct);
+    // build features and push to sequence buffer
+    const vec = buildFeat(t);
+    seqPush(vec);
 
-    emit('ai:risk', { riskPct, reasons: R.reasons });
-    maybeTip(riskPct, R.reasons);
+    // fallback risk
+    const h = heuristicRisk(t);
 
-    const fe = feUpdate(Math.round(t), d, riskPct);
+    // by default use heuristic
+    let chosen = { mode:'heuristic', smooth:h.smooth, raw:h.raw };
 
-    const row = {
-      tMs: Math.round(t),
-      sessionId,
-      seed: String(seed || d.seed || ''),
-      runMode: String(runMode || d.runMode || ''),
-      diff: String(d.diff||''),
-
-      leftSec: d.leftSec|0,
-      score: d.score|0,
-      combo: d.combo|0,
-      misses: d.misses|0,
-      accGoodPct: d.accGoodPct|0,
-      pressure: d.pressure|0,
-      stormOn: d.stormOn ? 1 : 0,
-      miniOn: d.miniOn ? 1 : 0,
-      miniForbidJunk: d.miniForbidJunk ? 1 : 0,
-      targetsOnScreen: d.targetsOnScreen|0,
-      powerCharge: d.powerCharge|0,
-      powerThreshold: d.powerThreshold|0,
-      goalNow: d.goalNow|0,
-      goalNeed: d.goalNeed|0,
-
-      riskPct,
-      reason0: (R.reasons && R.reasons[0]) ? R.reasons[0] : '',
-
-      // engineered
-      dAcc: fe.dAcc|0,
-      dCombo: fe.dCombo|0,
-      dMiss: fe.dMiss|0,
-      emaAcc: fe.emaAcc|0,
-      emaRisk: fe.emaRisk|0,
-      emaCombo: fe.emaCombo|0,
-      emaMiss: fe.emaMiss|0,
-      roll5sRiskAvg: fe.roll5sRiskAvg|0,
-      roll5sRiskMax: fe.roll5sRiskMax|0,
-      roll5sMissInc: fe.roll5sMissInc|0,
-      roll5sComboDrops: fe.roll5sComboDrops|0,
-
-      label: null
-    };
-
-    pushFrame(row);
-    flushToDataset();
-  }
-
-  function onProgress(ev){
-    if (!enabled) return;
-    const d = ev.detail || {};
-    if (d.kind === 'miss') labelRecentMiss(String(d.why||'miss'), nowMs());
-  }
-  function onJudge(ev){
-    if (!enabled) return;
-    const d = ev.detail || {};
-    const k = String(d.kind||'');
-    if (k === 'miss') labelRecentMiss('miss', nowMs());
-    if (k === 'bad')  labelRecentMiss('bad',  nowMs());
-  }
-
-  function attach(cfg){
-    cfg = cfg || {};
-    enabled = !!cfg.enabled;
-    runMode = String(cfg.runMode||'play');
-    seed = String(cfg.seed||'');
-    if (!sessionId) sessionId = makeSessionId();
-
-    if (attached) return;
-    attached = true;
-
-    // reset FE state each attach (safer per session)
-    FE.last=null; FE.emaAcc=null; FE.emaRisk=null; FE.emaCombo=null; FE.emaMiss=null; FE.win.length=0;
-
-    root.addEventListener('groups:telemetry', onTelemetry, {passive:true});
-    root.addEventListener('groups:progress',  onProgress,  {passive:true});
-    root.addEventListener('hha:judge',        onJudge,     {passive:true});
-  }
-
-  function detach(){
-    if (!attached) return;
-    attached=false; enabled=false;
-
-    root.removeEventListener('groups:telemetry', onTelemetry);
-    root.removeEventListener('groups:progress',  onProgress);
-    root.removeEventListener('hha:judge',        onJudge);
-
-    const dataset = safeGetLS(LS_DATA, []);
-    while(buf.length){
-      const r = buf.shift();
-      if (r.label == null) r.label = 0;
-      dataset.push(r);
+    // try DL if enabled
+    if (DL.enabled && !DL.fail){
+      // load model once
+      tryLoadDLModel().then(async ()=>{
+        const pr = await dlPredictRisk();
+        if (pr && pr.risk != null){
+          chosen = { mode:'dl', risk: pr.risk };
+        }
+        // emit + dataset store with final chosen
+        finalize(t, h, chosen);
+      });
+      return; // finalize async
     }
-    if (dataset.length > MAX_ROWS) dataset.splice(0, dataset.length - MAX_ROWS);
-    safeSetLS(LS_DATA, dataset);
 
-    sessionId='';
+    finalize(t, h, chosen);
   }
 
-  function getDataset(){ return safeGetLS(LS_DATA, []); }
-  function clearDataset(){ safeSetLS(LS_DATA, []); }
-  function getSessionId(){ return sessionId || ''; }
+  function finalize(t, h, chosen){
+    const riskVal = (chosen.mode==='dl') ? chosen.risk : chosen.smooth;
 
-  NS.AIHooks = { attach, detach, getDataset, clearDataset, getSessionId };
+    // emit risk signal
+    emit('ai:risk', { risk: riskVal, mode: chosen.mode });
 
-})(window);
+    // store dataset row (DL-friendly)
+    const row = {
+      ts: Date.now(),
+      runMode: t.runMode,
+      diff: t.diff,
+      seed: t.seed,
+
+      leftSec: t.leftSec,
+      score: t.score,
+      combo: t.combo,
+      misses: t.misses,
+      accGoodPct: t.accGoodPct,
+      pressure: t.pressure,
+      stormOn: t.stormOn,
+      miniOn: t.miniOn,
+      targetsOnScreen: t.targetsOnScreen,
+      powerCharge: t.powerCharge,
+      powerThreshold: t.powerThreshold,
+      goalNow: t.goalNow,
+      goalNeed: t.goalNeed,
+
+      // heuristic
+      riskRaw: Number((h.raw ?? 0).toFixed(4)),
+      riskSmooth: Number((h.smooth ?? 0).toFixed(4)),
+
+      // chosen
+      riskFinal: Number((riskVal ?? 0).toFixed(4)),
+      riskMode: chosen.mode
+    };
+    pushRow(row);
+
+    maybeTip(t, (chosen.mode==='dl') ? { risk:riskVal, mode:'dl' } : { smooth:riskVal, mode:'heuristic' });
+  }
+
+  const API = {
+    attach(ctx){
+      const rm = runModeFrom(ctx);
+      if (isResearchOrPractice(rm)){
+        ENABLED = false;
+        emit('ai:mode', { enabled:false, reason:'research_or_practice' });
+        return;
+      }
+      ENABLED = !!(ctx && ctx.enabled) && aiWanted();
+      DL.enabled = ENABLED && dlWanted();
+
+      if (!ATTACHED){
+        ATTACHED = true;
+        WIN.addEventListener('groups:telemetry', onTelemetry, { passive:true });
+      }
+
+      emit('ai:mode', {
+        enabled: ENABLED,
+        dl: DL.enabled ? 1 : 0,
+        reason: ENABLED ? 'play' : 'disabled'
+      });
+    },
+
+    getDataset(){
+      return DATASET.slice();
+    },
+
+    clearDataset(){
+      DATASET.length = 0;
+      SEQBUF.length = 0;
+      EMA.v = 0.25;
+      lastTipAt = 0;
+    }
+  };
+
+  NS.AIHooks = API;
+})();
