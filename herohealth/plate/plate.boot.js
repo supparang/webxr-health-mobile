@@ -1,15 +1,11 @@
-// =========================================================
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCH A3)
-// ---------------------------------------------------------
+// PlateVR Boot — PRODUCTION
 // ✅ Auto view detect (no UI override)
-// ✅ Boots engine from ./plate.safe.js
+// ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params
-// ✅ Waits for mount layout so targets actually spawn (fix "no targets")
-// =========================================================
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -23,12 +19,11 @@ const qs = (k, def=null)=>{
 
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  // No UI override. Allow optional ?view= for experiments only.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -106,7 +101,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expected: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -139,9 +133,7 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload();
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -180,22 +172,19 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ เวลา: default 90 (Plate ต้องมีเวลาพอให้ “ครบ 5 หมู่” จริง)
-  const time = clamp(qs('time','90'), 20, 999);
+  // ✅ default 90s (override ได้ด้วย ?time=)
+  const time = clamp(qs('time','90'), 10, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view,
-    runMode: run,
-    diff,
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough ctx
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -214,21 +203,7 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-// ✅ wait until mount has a real rect (fix “no targets” on some mobile/fit cases)
-function waitForMountRect(mount, timeoutMs=1800){
-  return new Promise((resolve)=>{
-    const t0 = performance.now();
-    const tick = ()=>{
-      const r = mount.getBoundingClientRect();
-      if(r.width > 50 && r.height > 50) return resolve(true);
-      if(performance.now() - t0 > timeoutMs) return resolve(false);
-      requestAnimationFrame(tick);
-    };
-    tick();
-  });
-}
-
-ready(async ()=>{
+ready(()=>{
   const cfg = buildEngineConfig();
 
   setBodyView(cfg.view);
@@ -239,21 +214,11 @@ ready(async ()=>{
 
   setOverlayOpen(false);
 
-  const mount = DOC.getElementById('plate-layer');
-  if(!mount){
-    console.error('[PlateVR] missing #plate-layer');
-    showCoach('หาเลเยอร์เล่นเกมไม่เจอ (#plate-layer)', 'System');
-    return;
-  }
-
-  const ok = await waitForMountRect(mount);
-  if(!ok){
-    // still try boot, but warn
-    console.warn('[PlateVR] mount rect still small; boot anyway');
-  }
-
   try{
-    engineBoot({ mount, cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
