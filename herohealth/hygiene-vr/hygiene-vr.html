@@ -1,132 +1,14 @@
-<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard + PACK AS)
-✅ Step Tutor overlay (micro-lesson per step)
-✅ Quest/Shield/Fever pills
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (v1.4.0-prod)
--->
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+<!-- === PACK BB: Progress Map + Mission Card === -->
+<div class="hw-map" id="mapRow" aria-label="progress map"></div>
 
-  <link rel="stylesheet" href="./hygiene-vr.css" />
-
-  <!-- Universal VR UI (สำคัญ: defer กัน appendChild null) -->
-  <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- Optional shared helpers -->
-  <script src="../vr/particles.js" defer></script>
-
-  <!-- AI Packs (ถ้ามี) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
-
-  <!-- Engine -->
-  <script type="module" src="./hygiene-vr.boot.js"></script>
-</head>
-
-<body class="view-pc">
-  <div id="gameRoot" class="hw-root">
-    <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
-
-    <!-- HUD -->
-    <div class="hw-hud">
-      <div class="hw-top">
-        <div class="hw-title">🧼 Handwash Survival</div>
-        <div class="hw-sub" id="hudSub">ready…</div>
-
-        <div class="hw-row">
-          <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
-          <div class="hw-pill" id="pillHits">HITS 0/6</div>
-          <div class="hw-pill" id="pillCombo">COMBO 0</div>
-          <div class="hw-pill bad" id="pillMiss">MISS เหลือ 3</div>
-        </div>
-
-        <div class="hw-row">
-          <div class="hw-pill" id="pillQuest">🎯 QUEST: —</div>
-          <div class="hw-pill" id="pillFever">🔥 FEVER 0%</div>
-          <div class="hw-pill" id="pillShield">🧼 SHIELD 0</div>
-        </div>
-
-        <div class="hw-row">
-          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillTime">TIME 70</div>
-          <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
-          <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
-        </div>
-      </div>
-
-      <div class="hw-banner" id="banner" aria-live="polite"></div>
-    </div>
-
-    <!-- Step Tutor (PACK AS) -->
-    <div class="hw-tutor" id="stepTutor" style="display:none" aria-live="polite">
-      <div class="hw-tutor-card">
-        <div class="hw-tutor-top">
-          <div class="hw-tutor-emoji" id="tutorEmoji">🫧</div>
-          <div class="hw-tutor-meta">
-            <div class="hw-tutor-title" id="tutorTitle">STEP 1/7 ฝ่ามือ</div>
-            <div class="hw-tutor-sub" id="tutorSub">ถูฝ่ามือให้ทั่ว</div>
-          </div>
-        </div>
-        <div class="hw-tutor-cue" id="tutorCue">Cue: ถูวน 2–3 รอบ</div>
-        <div class="hw-tutor-hint" id="tutorHint">ตีเป้า 🫧 เท่านั้น (หลบ 🦠)</div>
-      </div>
-    </div>
-
-    <!-- Start Overlay -->
-    <div class="hw-overlay" id="startOverlay">
-      <div class="hw-card">
-        <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub">
-          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>PACK AS:</b> เกมจะสอนสั้น ๆ ทุกครั้งที่เปลี่ยนขั้นตอน
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
-        </div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- End Overlay -->
-    <div class="hw-overlay" id="endOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
-        <div class="hw-card-sub" id="endSub">—</div>
-        <pre class="hw-pre" id="endJson"></pre>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
-        </div>
-      </div>
-    </div>
+<div class="hw-mission" id="missionCard" style="display:none" aria-live="polite">
+  <div class="hw-m-title" id="mTitle">ภารกิจ</div>
+  <div class="hw-m-sub" id="mSub">—</div>
+  <div class="hw-m-tip" id="mTip">—</div>
+  <div class="hw-m-row">
+    <button class="hw-m-btn primary" id="btnMissionOk" type="button">ไปต่อ</button>
+    <button class="hw-m-btn" id="btnMissionHide" type="button">ซ่อน</button>
   </div>
+</div>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-})();
-</script>
-</body>
-</html>
+<div class="hw-story" id="storyLine">📖 วันนี้: “หยุด Germ Storm ให้ทันเวลา!”</div>
