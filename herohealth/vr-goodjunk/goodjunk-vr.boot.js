@@ -1,117 +1,118 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (Fair Pack)
-// ✅ DO NOT override if ?view= exists
-// ✅ Auto-detect view if missing (pc/mobile/vr)
-// ✅ Applies body classes: view-pc/mobile/vr/cvr
-// ✅ Boots ./goodjunk.safe.js (fair pack)
-// ✅ Pass-through ctx: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/style/ts
+// ✅ Calls: ./goodjunk.safe.js (FAIR pack)
+// ✅ Sets body view class: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Supports view=auto (best-effort) but DOES NOT override explicit ?view=
+// ✅ Starts only when DOM ready
+// ✅ Safe: error-guard + console diagnostics
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-function qs(k, def = null){
+function qs(k, def=null){
   try{ return new URL(location.href).searchParams.get(k) ?? def; }
-  catch{ return def; }
+  catch(_){ return def; }
 }
 function has(k){
   try{ return new URL(location.href).searchParams.has(k); }
-  catch{ return false; }
+  catch(_){ return false; }
 }
-
-function isLikelyMobileUA(){
-  const ua = String(navigator.userAgent||'').toLowerCase();
-  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
-}
-
 function normalizeView(v){
   v = String(v||'').toLowerCase();
   if(v === 'cardboard') return 'vr';
-  if(v === 'view-cvr' || v === 'cvr') return 'cvr';
+  if(v === 'view-cvr') return 'cvr';
+  if(v === 'cvr') return 'cvr';
   if(v === 'vr') return 'vr';
   if(v === 'pc') return 'pc';
   if(v === 'mobile') return 'mobile';
   return 'auto';
 }
+function isLikelyMobileUA(){
+  const ua = (navigator.userAgent||'').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
+}
 
-async function detectView(){
-  // ✅ must respect explicit view
+async function detectViewAuto(){
+  // If user explicitly passed view=..., keep it. (DO NOT override)
   if(has('view')) return normalizeView(qs('view','auto'));
 
-  // soft remember
-  try{
-    const last = localStorage.getItem('HHA_LAST_VIEW');
-    if(last) return normalizeView(last);
-  }catch(_){}
-
+  // best guess by UA
   let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
 
-  // best-effort: WebXR support -> allow 'vr' (esp. mobile)
+  // WebXR hint: if immersive-vr is supported on mobile => likely vr
   try{
     if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
       const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if(ok){
-        // if mobile + xr -> likely cardboard flow
-        guess = isLikelyMobileUA() ? 'vr' : 'pc';
-      }
+      if(ok && isLikelyMobileUA()) guess = 'vr';
     }
   }catch(_){}
 
   return normalizeView(guess);
 }
 
-function setBodyView(view){
+function setBodyViewClass(view){
   const b = DOC.body;
   if(!b) return;
-
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'cvr') b.classList.add('view-cvr');
+  const v = normalizeView(view);
+  if(v === 'pc') b.classList.add('view-pc');
+  else if(v === 'vr') b.classList.add('view-vr');
+  else if(v === 'cvr') b.classList.add('view-cvr');
   else b.classList.add('view-mobile');
 }
 
-function safeNum(v, fallback){
+function safeNumber(v, def){
   const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
+  return Number.isFinite(n) ? n : def;
 }
 
-function bootOnce(opts){
-  try{
-    if(WIN.__GJ_BOOTED__) return;
-    WIN.__GJ_BOOTED__ = true;
-    engineBoot(opts);
-  }catch(e){
-    console.error('[GoodJunkVR] boot failed', e);
-    alert('Boot error: ' + (e?.message || e));
-  }
-}
-
-// wait DOM (avoid missing HUD elements)
-function onReady(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-}
-
-onReady(async ()=>{
-  const view = await detectView();
-
-  // remember only if not explicitly forced
-  if(!has('view') && view && view !== 'auto'){
-    try{ localStorage.setItem('HHA_LAST_VIEW', view); }catch(_){}
-  }
-
-  setBodyView(view);
-
-  // gather ctx
+function readOpts(){
   const run  = String(qs('run','play')||'play').toLowerCase();
   const diff = String(qs('diff','normal')||'normal').toLowerCase();
-  const time = safeNum(qs('time','80'), 80);
+  const time = safeNumber(qs('time','80'), 80);
   const seed = String(qs('seed', Date.now()));
+  return { run, diff, time, seed };
+}
 
-  // (optional) expose chip meta already handled in HTML
+function startEngine(view){
+  const { run, diff, time, seed } = readOpts();
 
-  // ✅ start engine
-  bootOnce({ view, run, diff, time, seed });
-});
+  // For cVR, you can tune lock window a bit (optional)
+  // (vr-ui.js reads window.HHA_VRUI_CONFIG if set)
+  if(view === 'cvr'){
+    WIN.HHA_VRUI_CONFIG = Object.assign({ lockPx: 30, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
+  }
+
+  try{
+    engineBoot({
+      view,
+      run,
+      diff,
+      time,
+      seed
+    });
+  }catch(err){
+    console.error('[GoodJunkVR] engine boot failed:', err);
+    try{ alert('Boot error: ตรวจ console'); }catch(_){}
+  }
+}
+
+async function main(){
+  // ensure DOM
+  if(!DOC || !DOC.body){
+    await new Promise(res => DOC.addEventListener('DOMContentLoaded', res, { once:true }));
+  }
+
+  // Resolve view (auto or explicit)
+  const view = await detectViewAuto();
+  setBodyViewClass(view);
+
+  // One more tick so that:
+  // - inline script in goodjunk-vr.html has time to measure HUD and set --gj-top-safe/--gj-bottom-safe
+  // - layout settles (important for spawn safe rect)
+  setTimeout(()=> startEngine(view), 0);
+}
+
+main();
