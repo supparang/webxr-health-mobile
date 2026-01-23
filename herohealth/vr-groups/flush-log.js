@@ -1,138 +1,146 @@
 // === /herohealth/vr-groups/flush-log.js ===
-// GroupsVR Logger Glue — PRODUCTION (HHA Standard-ish)
-// ✅ Uses window.HHA_LOGGER from ../vr/hha-cloud-logger.js if available
-// ✅ Sends session summary on hha:end
-// ✅ Optional event stream (events=1 OR run=research)
-// ✅ Flush-hardened: pagehide/visibilitychange/beforeunload
+// Flush-hardened Logger (optional)
+// ✅ active only if ?log= is provided
+// ✅ captures: hha:start, hha:time, hha:score, hha:rank, hha:judge, hha:end, quest:update, groups:power, groups:progress
+// ✅ flush on: hha:end, pagehide, visibilitychange(hidden), beforeunload
+// ✅ sendBeacon -> fetch(keepalive)
 
 (function(){
   'use strict';
   const WIN = window;
   const DOC = document;
 
-  const NS = WIN.GroupsVR = WIN.GroupsVR || {};
-
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  function qs(k, d=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; }
   }
-  function boolQ(k, def=false){
-    const v = String(qs(k, def ? '1' : '0') || '');
-    return (v==='1' || v==='true' || v==='yes');
-  }
+  const endpoint = String(qs('log','')||'').trim();
+  if (!endpoint) return;
 
-  const runMode = String(qs('run','play')||'play').toLowerCase();
-  const eventsOn = boolQ('events', false) || (runMode === 'research');
+  const MAX_EVENTS = 600;
+  const BUF = [];
+  const sid = 'GVR-' + Math.random().toString(16).slice(2) + '-' + Date.now();
+  const t0 = Date.now();
 
-  function ctx(){
-    try{
-      const get = NS.getResearchCtx;
-      return (typeof get === 'function') ? (get() || {}) : {};
-    }catch{ return {}; }
-  }
-
-  function base(){
-    return Object.assign({
+  function baseCtx(){
+    return {
+      sessionId: sid,
       projectTag: 'HeroHealth',
       gameTag: 'GroupsVR',
-      runMode: runMode,
+      url: location.href,
+      ua: navigator.userAgent || '',
+      ts0: t0,
+      run: String(qs('run','play')||'play'),
       diff: String(qs('diff','normal')||'normal'),
-      style: String(qs('style','mix')||'mix'),
       view: String(qs('view','mobile')||'mobile'),
+      style: String(qs('style','mix')||'mix'),
       seed: String(qs('seed','')||''),
       studyId: String(qs('studyId','')||''),
-      conditionGroup: String(qs('cond','')||''),
-      sessionOrder: String(qs('order','')||''),
-      siteCode: String(qs('site','')||''),
-      schoolCode: String(qs('schoolCode','')||''),
-      schoolName: String(qs('schoolName','')||''),
-      classRoom: String(qs('classRoom','')||''),
-      studentKey: String(qs('studentKey','')||''),
-    }, ctx());
+      conditionGroup: String(qs('conditionGroup','')||'')
+    };
   }
 
-  // -------- HHA_LOGGER adaptor --------
-  function getLogger(){
-    // hha-cloud-logger.js อาจ expose เป็น WIN.HHA_LOGGER หรือ WIN.GAME_MODULES.HHA_LOGGER
-    return WIN.HHA_LOGGER || (WIN.GAME_MODULES && WIN.GAME_MODULES.HHA_LOGGER) || null;
+  function push(type, detail){
+    if (BUF.length >= MAX_EVENTS) BUF.shift();
+    BUF.push({
+      type,
+      t: Date.now(),
+      dt: Date.now() - t0,
+      detail: detail || null
+    });
   }
 
-  NS.postSummary = function(summary){
-    const L = getLogger();
-    if (!L || !L.enqueue) return false;
+  function safeDetail(ev){
+    const d = (ev && ev.detail) ? ev.detail : {};
+    // light sanitize: avoid huge objects
     try{
-      // ส่งเป็น session record
-      L.enqueue({ type:'session', payload: summary });
-      return true;
-    }catch{ return false; }
-  };
-
-  NS.postEvent = function(evt){
-    if (!eventsOn) return false;
-    const L = getLogger();
-    if (!L || !L.enqueue) return false;
-    try{
-      L.enqueue({ type:'event', payload: evt });
-      return true;
-    }catch{ return false; }
-  };
-
-  // flush-hardened binding
-  NS.bindFlushOnLeave = function(getLastSummary){
-    const L = getLogger();
-    if (!L) return;
-    function flush(reason){
-      try{
-        // เผื่อ summary ล่าสุดยังไม่ส่ง
-        const last = (typeof getLastSummary === 'function') ? getLastSummary() : null;
-        if (last) NS.postSummary(last);
-
-        if (L.flush) L.flush(reason || 'leave');
-      }catch{}
+      return JSON.parse(JSON.stringify(d));
+    }catch{
+      return { note:'detail_unserializable' };
     }
-    WIN.addEventListener('pagehide', ()=>flush('pagehide'), {passive:true});
-    DOC.addEventListener('visibilitychange', ()=>{
-      if (DOC.visibilityState === 'hidden') flush('hidden');
-    }, {passive:true});
-    WIN.addEventListener('beforeunload', ()=>flush('beforeunload'), {passive:true});
+  }
+
+  async function sendPayload(payload){
+    const body = JSON.stringify(payload);
+    try{
+      if (navigator.sendBeacon){
+        const ok = navigator.sendBeacon(endpoint, new Blob([body], {type:'application/json'}));
+        if (ok) return true;
+      }
+    }catch(_){}
+
+    try{
+      const res = await fetch(endpoint, {
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body,
+        keepalive:true,
+        mode:'cors'
+      });
+      return !!res && (res.ok || res.status===0);
+    }catch(_){
+      return false;
+    }
+  }
+
+  let flushing = false;
+  async function flush(reason){
+    if (flushing) return;
+    flushing = true;
+
+    const payload = {
+      kind: 'hha_log',
+      reason: String(reason||'flush'),
+      ctx: baseCtx(),
+      events: BUF.splice(0, BUF.length)
+    };
+
+    try{ await sendPayload(payload); }catch(_){}
+    flushing = false;
+  }
+
+  // public hook: bindFlushOnLeave(() => lastSummary)
+  WIN.GroupsVR = WIN.GroupsVR || {};
+  WIN.GroupsVR.bindFlushOnLeave = function(getLastSummary){
+    // attach summary snapshot on flush
+    const oldFlush = flush;
+    flush = async function(reason){
+      if (flushing) return;
+      flushing = true;
+
+      let summary = null;
+      try{ summary = (typeof getLastSummary === 'function') ? getLastSummary() : null; }catch(_){}
+
+      const payload = {
+        kind: 'hha_log',
+        reason: String(reason||'flush'),
+        ctx: baseCtx(),
+        summary: summary || null,
+        events: BUF.splice(0, BUF.length)
+      };
+
+      try{ await sendPayload(payload); }catch(_){}
+      flushing = false;
+    };
   };
 
-  // -------- Event taps (optional) --------
-  function stamp(){
-    return { timestampMs: Date.now(), timestampIso: new Date().toISOString() };
-  }
-  function post(name, detail){
-    const evt = Object.assign(base(), stamp(), { eventName: name }, detail || {});
-    NS.postEvent(evt);
-  }
+  // listeners
+  const events = [
+    'hha:start','hha:time','hha:score','hha:rank','hha:judge','hha:end',
+    'quest:update','groups:power','groups:progress'
+  ];
 
-  // ส่ง “บางอย่างที่มีประโยชน์จริง” ไม่ถี่เกิน
-  if (eventsOn){
-    WIN.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail || {};
-      post('hha:judge', {
-        kind: d.kind || '',
-        text: d.text || '',
-        x: d.x ?? null,
-        y: d.y ?? null
-      });
+  events.forEach((name)=>{
+    WIN.addEventListener(name, (ev)=>{
+      push(name, safeDetail(ev));
+      if (name === 'hha:end') flush('hha:end');
     }, {passive:true});
+  });
 
-    WIN.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail || {};
-      post('quest:update', {
-        goalNow: d.goalNow ?? null,
-        goalTotal: d.goalTotal ?? null,
-        miniNow: d.miniNow ?? null,
-        miniTotal: d.miniTotal ?? null,
-        miniTimeLeftSec: d.miniTimeLeftSec ?? null,
-        groupKey: d.groupKey ?? '',
-        groupName: d.groupName ?? ''
-      });
-    }, {passive:true});
+  // flush-hardened on leave
+  WIN.addEventListener('pagehide', ()=> flush('pagehide'), {passive:true});
+  WIN.addEventListener('beforeunload', ()=> flush('beforeunload'), {passive:true});
+  DOC.addEventListener('visibilitychange', ()=>{
+    if (DOC.visibilityState === 'hidden') flush('hidden');
+  }, {passive:true});
 
-    WIN.addEventListener('groups:progress', (ev)=>{
-      const d = ev.detail || {};
-      post('groups:progress', d);
-    }, {passive:true});
-  }
 })();
