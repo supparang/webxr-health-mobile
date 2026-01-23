@@ -1,18 +1,19 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — PRODUCTION (Fair Pack)
-✅ Spacious gameplay area (safe spawn via --gj-top-safe/--gj-bottom-safe)
-✅ HUD compact + collapsible (hud-hidden)
-✅ Keeps targets above A-Frame canvas
-✅ PC/Mobile/VR/cVR responsive
+GoodJunkVR UI — PRODUCTION (looser gameplay area)
+✅ Topbar + HUD + Missions peek
+✅ Safe-area insets
+✅ Targets + animations
+✅ HUD hidden toggle
+✅ End overlay sits above VR UI (fix “ไปต่อไม่ได้”)
 */
 
 :root{
   color-scheme: dark;
+
   --bg:#020617;
-  --panel:rgba(2,6,23,.74);
-  --panel2:rgba(15,23,42,.62);
+  --panel:rgba(2,6,23,.76);
+  --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
-  --stroke2:rgba(148,163,184,.28);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -29,373 +30,359 @@ GoodJunkVR UI — PRODUCTION (Fair Pack)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ these will be set by goodjunk-vr.html inline script updateSafe() */
-  --gj-top-safe: 168px;
-  --gj-bottom-safe: 140px;
-
-  /* field bounds */
-  --field-pad-x: 14px;
-  --field-pad-y: 10px;
-
-  /* target tuning */
-  --target-shadow: 0 12px 28px rgba(0,0,0,.42);
-  --target-stroke: 0 0 0 1px rgba(148,163,184,.16);
+  /* safe spawn vars (set by JS measure) */
+  --gj-top-safe: 160px;
+  --gj-bottom-safe: 120px;
 }
 
-*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
-html,body{ margin:0; width:100%; height:100%; overflow:hidden; }
+*{ box-sizing:border-box; }
+html,body{ width:100%; height:100%; margin:0; overflow:hidden; }
 body.gj{
   background:
-    radial-gradient(circle at 15% 10%, rgba(34,197,94,.12), transparent 55%),
-    radial-gradient(circle at 85% 15%, rgba(34,211,238,.10), transparent 58%),
-    radial-gradient(circle at 70% 90%, rgba(167,139,250,.10), transparent 60%),
+    radial-gradient(circle at top left, rgba(34,197,94,.12), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 60%),
     var(--bg);
   color:var(--text);
-  font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
 }
 
-/* A-Frame scene sits behind UI */
-a-scene, canvas{
-  position:fixed !important;
-  inset:0 !important;
-  width:100% !important;
-  height:100% !important;
-  z-index:0 !important;
-  pointer-events:none !important;
-  background:transparent !important;
-}
+/* A-Frame scene behind UI */
+a-scene{ position:fixed; inset:0; z-index:0; pointer-events:none; }
 
-/* ---------- TOPBAR ---------- */
 .gj-topbar{
   position:fixed;
   top:0; left:0; right:0;
-  z-index:50;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
+  z-index: 50;
   padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  display:flex; justify-content:space-between; align-items:flex-start;
+  gap:10px;
   pointer-events:auto;
 }
-.gj-topbar .left,.gj-topbar .right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 
 .gj-chip{
-  display:flex; gap:10px; align-items:baseline;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
   padding:10px 12px;
-  border-radius:var(--r);
-  background:var(--panel);
+  border-radius: var(--r);
+  background: rgba(2,6,23,.55);
   border:1px solid var(--stroke);
-  box-shadow:0 16px 44px rgba(0,0,0,.36);
+  box-shadow:0 12px 30px rgba(0,0,0,.35);
 }
-.gj-chip b{ font-weight:1100; letter-spacing:.2px; }
-.gj-chip span{ font-size:12px; font-weight:900; color:rgba(229,231,235,.78); }
+.gj-chip b{ font-weight:1000; letter-spacing:.2px; }
+
+.gj-topbar .right{
+  display:flex; gap:10px; align-items:center;
+}
 
 .gj-btn{
-  height:40px;
-  padding:0 12px;
-  border-radius:14px;
+  border-radius: 14px;
   border:1px solid var(--stroke);
-  background:rgba(2,6,23,.56);
-  color:var(--text);
-  font-weight:1000;
-  cursor:pointer;
+  background: rgba(2,6,23,.52);
+  color: var(--text);
+  font-weight: 900;
+  padding: 10px 12px;
+  height: 44px;
 }
 .gj-btn:active{ transform: translateY(1px); }
 .gj-btn.primary{
-  border-color: rgba(34,197,94,.38);
-  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.16);
+  color:#eafff3;
 }
 
-/* ---------- HUD TOP (compact) ---------- */
+/* HUD TOP */
 .gj-hud-top{
   position:fixed;
-  top:0; left:0; right:0;
-  z-index:40;
-  padding: calc(64px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
-  pointer-events:none; /* HUD not block targets */
+  top: calc(72px + var(--sat));
+  left:0; right:0;
+  z-index: 40;
+  padding: 10px calc(12px + var(--sar)) 6px calc(12px + var(--sal));
+  pointer-events: none; /* HUD ไม่แย่งคลิกเป้า */
 }
-
 .hud-row{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  justify-content:flex-start;
-  max-width: 980px;
+  display:flex; gap:10px; flex-wrap:wrap;
+  pointer-events: none;
 }
 .hud-pill{
   pointer-events:none;
-  min-width: 104px;
+  min-width: 92px;
   padding:10px 12px;
-  border-radius:16px;
+  border-radius: 18px;
+  background: rgba(2,6,23,.52);
   border:1px solid var(--stroke);
-  background:rgba(2,6,23,.56);
-  box-shadow:0 16px 44px rgba(0,0,0,.24);
+  box-shadow:0 12px 30px rgba(0,0,0,.30);
 }
-.hud-pill.warn{ border-color: rgba(245,158,11,.26); }
-.hud-pill.grade{ border-color: rgba(167,139,250,.24); }
+.hud-pill.warn{ border-color: rgba(245,158,11,.32); }
+.hud-pill.grade{ border-color: rgba(167,139,250,.28); }
 
-.hud-label{
-  font-size:11px;
-  font-weight:1100;
-  color:rgba(148,163,184,.88);
-  letter-spacing:.4px;
-}
-.hud-value{
-  font-size:18px;
-  font-weight:1200;
-  margin-top:2px;
-}
+.hud-label{ font-size:11px; font-weight:900; opacity:.75; letter-spacing:.35px; }
+.hud-value{ font-size:22px; font-weight:1200; margin-top:2px; }
 
-/* quests: more compact to give more gameplay space */
+/* quests (จะ “ย่อ” บนมือถือด้วย media query) */
 .quest-row{
   margin-top:10px;
-  display:flex;
+  display:grid;
+  grid-template-columns: 1.2fr 1fr;
   gap:10px;
-  max-width: 980px;
+  pointer-events:none;
 }
 .quest-card{
-  pointer-events:none;
-  flex:1;
-  min-width: 220px;
-  border-radius:18px;
+  border-radius: var(--r);
+  background: rgba(2,6,23,.50);
   border:1px solid var(--stroke);
-  background:rgba(15,23,42,.52);
-  padding:10px 12px;
+  box-shadow:0 12px 30px rgba(0,0,0,.28);
+  padding:12px;
 }
-.quest-card .q-title{
-  font-weight:1200;
-  font-size:12px;
-  letter-spacing:.2px;
-}
-.quest-card .q-desc{
-  margin-top:4px;
-  font-size:12px;
-  font-weight:900;
-  color:rgba(229,231,235,.88);
-  line-height:1.25;
-}
-.quest-card .q-bar{
-  margin-top:6px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  font-size:11px;
-  color:rgba(148,163,184,.9);
-  font-weight:900;
-}
-.quest-card .q-hint{ opacity:.9; }
+.q-title{ font-weight:1100; }
+.q-desc{ margin-top:6px; color:rgba(229,231,235,.92); font-weight:900; }
+.q-bar{ margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.q-num{ font-weight:1100; opacity:.9; }
+.q-hint{ font-size:12px; color:rgba(148,163,184,.92); font-weight:900; }
 
-/* ---------- HUD BOTTOM (small + stays away from playfield) ---------- */
+/* HUD BOTTOM */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
-  bottom:0;
-  z-index:40;
-  padding: 8px calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
-  display:flex;
+  bottom: calc(76px + var(--sab)); /* เผื่อ VR UI */
+  z-index: 40;
+  padding: 6px calc(12px + var(--sar)) 8px calc(12px + var(--sal));
+  display:grid;
+  grid-template-columns: 1.2fr 1fr;
   gap:10px;
-  align-items:flex-end;
-  justify-content:flex-start;
   pointer-events:none;
 }
 
 .meter{
-  pointer-events:none;
-  width:min(380px, 48vw);
-  border-radius:18px;
+  border-radius: var(--r);
+  background: rgba(2,6,23,.50);
   border:1px solid var(--stroke);
-  background:rgba(2,6,23,.56);
-  padding:10px 12px;
-  box-shadow:0 18px 52px rgba(0,0,0,.26);
+  box-shadow:0 12px 30px rgba(0,0,0,.28);
+  padding:12px;
 }
-.meter-title{
-  font-size:11px;
-  font-weight:1200;
-  color:rgba(148,163,184,.9);
-  letter-spacing:.35px;
-}
+.meter-title{ font-weight:1100; opacity:.85; letter-spacing:.25px; }
 .meter-bar{
-  margin-top:8px;
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.16);
+  margin-top:10px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.15);
   overflow:hidden;
 }
 .meter-fill{
   height:100%;
-  width:0%;
-  border-radius:999px;
-  background: rgba(245,158,11,.85);
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95), rgba(239,68,68,.92));
 }
 .meter-num{
   margin-top:8px;
-  font-size:11px;
   font-weight:1000;
-  color:rgba(229,231,235,.86);
+  color:rgba(229,231,235,.92);
+}
+.meter-shield{
+  margin-top:10px;
+  font-weight:1200;
+  font-size:18px;
 }
 .meter-tip{
   margin-top:6px;
-  font-size:11px;
+  font-size:12px;
+  color: rgba(148,163,184,.92);
   font-weight:900;
-  color:rgba(148,163,184,.9);
-  line-height:1.25;
-}
-.meter-shield{
-  margin-top:8px;
-  font-size:15px;
-  font-weight:1200;
 }
 
-/* ---------- PLAYFIELD ---------- */
+/* PLAYFIELD + layers */
 .gj-field{
   position:fixed;
   inset:0;
-  z-index:10; /* above A-Frame canvas, below HUD */
-  padding:
-    calc(var(--field-pad-y) + var(--sat))
-    calc(var(--field-pad-x) + var(--sar))
-    calc(var(--field-pad-y) + var(--sab))
-    calc(var(--field-pad-x) + var(--sal));
-  pointer-events:none; /* targets will handle pointer */
+  z-index: 10;
 }
-
 .gj-layer{
   position:absolute;
   inset:0;
-  z-index:12;
-  pointer-events:none;
 }
 .gj-layer-r{
-  display:none;
+  position:absolute;
+  inset:0;
+  opacity:.001; /* keep but hidden */
 }
 
-/* Targets */
+/* targets */
 .gj-target{
   position:absolute;
   transform: translate(-50%, -50%);
   user-select:none;
-  pointer-events:auto; /* clickable */
-  filter: drop-shadow(var(--target-shadow));
-  text-shadow: var(--target-stroke);
-  will-change: transform, opacity;
-  line-height:1;
+  -webkit-user-select:none;
   touch-action: manipulation;
+  filter: drop-shadow(0 14px 18px rgba(0,0,0,.35));
+  will-change: transform, opacity;
+  animation: gj-pop .08s ease-out;
+}
+@keyframes gj-pop{
+  from{ transform: translate(-50%, -50%) scale(.92); opacity:.85; }
+  to{ transform: translate(-50%, -50%) scale(1); opacity:1; }
 }
 
-/* subtle spawn animation but NOT “blink” */
-.gj-target{
-  animation: gjPop .12s ease-out both;
-}
-@keyframes gjPop{
-  from{ transform: translate(-50%,-50%) scale(.92); opacity:.85; }
-  to{ transform: translate(-50%,-50%) scale(1); opacity:1; }
-}
+/* view=cvr strict: ห้ามกด target ด้วยนิ้ว (ยิงจาก crosshair) */
+body.view-cvr .gj-target{ pointer-events:none; }
 
-/* ---------- MISSIONS PEEK ---------- */
+/* MISSIONS PEEK overlay */
 .gj-peek{
   position:fixed;
   inset:0;
-  z-index:60;
+  z-index: 80;
   display:none;
-  align-items:flex-start;
-  justify-content:center;
-  padding: calc(74px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  background: rgba(2,6,23,.45);
+  backdrop-filter: blur(8px);
   pointer-events:auto;
 }
-body.show-missions .gj-peek{ display:flex; }
-.peek-card{
-  width:min(720px, 94vw);
-  border-radius:22px;
-  border:1px solid var(--stroke2);
-  background:rgba(2,6,23,.82);
-  box-shadow:0 20px 70px rgba(0,0,0,.52);
-  padding:14px 14px;
-}
-.peek-title{ font-weight:1300; font-size:16px; }
-.peek-sub,.peek-mini{ margin-top:8px; font-weight:1000; color:rgba(229,231,235,.88); }
-.peek-tip{ margin-top:10px; font-size:12px; font-weight:900; color:rgba(148,163,184,.9); }
+body.show-missions .gj-peek{ display:block; }
 
-/* ---------- Low time overlay ---------- */
+.peek-card{
+  width: min(720px, 92vw);
+  margin: 0 auto;
+  border-radius: var(--r);
+  background: rgba(2,6,23,.72);
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  padding:16px;
+}
+.peek-title{ font-size:18px; font-weight:1200; }
+.peek-sub, .peek-mini{ margin-top:10px; font-weight:1000; }
+.peek-tip{ margin-top:10px; color:rgba(148,163,184,.92); font-weight:900; font-size:12px; }
+
+/* Low time overlay */
 .gj-lowtime-overlay{
   position:fixed;
   inset:0;
-  z-index:70;
+  z-index: 90;
   display:none;
-  align-items:center;
-  justify-content:center;
+  place-items:center;
   pointer-events:none;
 }
+.gj-lowtime-overlay[aria-hidden="false"]{ display:grid; }
 .gj-lowtime-ring{
   width:140px; height:140px;
-  border-radius:999px;
-  border:2px solid rgba(245,158,11,.55);
-  box-shadow:0 0 0 10px rgba(245,158,11,.08);
-  animation: gjPulse 1s ease-in-out infinite;
+  border-radius: 999px;
+  border: 6px solid rgba(245,158,11,.65);
+  box-shadow: 0 0 0 10px rgba(245,158,11,.12);
 }
 .gj-lowtime-num{
   position:absolute;
-  font-size:54px;
-  font-weight:1400;
-  color:#fff3d6;
-  text-shadow:0 10px 30px rgba(0,0,0,.55);
-}
-@keyframes gjPulse{
-  0%,100%{ transform: scale(1); opacity:.85; }
-  50%{ transform: scale(1.06); opacity:1; }
+  font-size:48px;
+  font-weight:1300;
+  text-shadow: 0 8px 25px rgba(0,0,0,.55);
 }
 
-/* ---------- HUD toggle: give maximum play space ---------- */
+/* HUD hidden */
 body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
-  display:none !important;
-}
-body.hud-hidden .gj-topbar{
-  opacity:.92;
-}
+body.hud-hidden .gj-hud-bot{ display:none; }
 
-/* ---------- View tweaks ---------- */
-
-/* PC: slightly bigger pills but still compact */
-body.view-pc .hud-pill{ min-width: 118px; }
-body.view-pc .hud-value{ font-size:19px; }
-
-/* Mobile: wrap more and keep quests compact */
+/* === Mobile compact: โล่งขึ้นจริง === */
 @media (max-width: 520px){
-  .gj-topbar{ gap:8px; }
-  .gj-btn{ height:38px; padding:0 10px; border-radius:13px; }
-  .gj-chip{ padding:9px 10px; }
-  .hud-pill{ min-width: 96px; padding:9px 10px; }
-  .hud-value{ font-size:17px; }
-  .quest-row{ flex-direction:column; }
-  .meter{ width:min(420px, 92vw); }
-  .gj-hud-bot{ flex-direction:column; align-items:flex-start; }
+  .gj-topbar{ padding: calc(8px + var(--sat)) calc(10px + var(--sar)) 8px calc(10px + var(--sal)); }
+  .gj-chip{ padding:9px 10px; border-radius: 18px; }
+  .gj-btn{ height:42px; padding:9px 10px; border-radius: 14px; }
+
+  .gj-hud-top{
+    top: calc(66px + var(--sat));
+    padding: 8px calc(10px + var(--sar)) 4px calc(10px + var(--sal));
+  }
+  .hud-pill{ min-width: 84px; padding:9px 10px; border-radius: 16px; }
+  .hud-value{ font-size:20px; }
+
+  /* ✅ สำคัญ: ย่อ/ซ่อน quest-row บนมือถือให้พื้นที่ gameplay เยอะ */
+  .quest-row{ display:none; }
+
+  .gj-hud-bot{
+    grid-template-columns: 1fr;
+    bottom: calc(70px + var(--sab));
+    gap:10px;
+  }
 }
 
-/* VR/cVR: keep HUD extra minimal so playfield feels huge */
-body.view-vr .gj-hud-top,
-body.view-cvr .gj-hud-top{
-  padding-top: calc(58px + var(--sat));
+/* ===== END SUMMARY OVERLAY (created by boot.js) ===== */
+#gjEnd.gj-end{
+  position:fixed;
+  inset:0;
+  z-index: 200000; /* must beat vr-ui.js */
+  display:none;
+  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+  pointer-events:auto;
 }
-body.view-vr .quest-row,
-body.view-cvr .quest-row{
-  display:none; /* ✅ โล่งมากขึ้นใน VR */
-}
-body.view-vr .gj-hud-bot,
-body.view-cvr .gj-hud-bot{
-  padding-bottom: calc(8px + var(--sab));
-}
-body.view-vr .meter,
-body.view-cvr .meter{
-  width:min(320px, 44vw);
-  padding:9px 10px;
+body.ended #gjEnd.gj-end{ display:grid; place-items:center; }
+
+/* ปิดการกดของชั้นหลังตอนจบ (กัน “ไปต่อไม่ได้”) */
+body.ended #gjTopbar,
+body.ended #gjHudTop,
+body.ended #gjHudBot,
+body.ended #missionsPeek,
+body.ended #gj-layer,
+body.ended #gj-layer-r{
+  pointer-events:none !important;
 }
 
-/* cVR strict: allow crosshair shooting (targets still clickable if tapped) */
-body.view-cvr .gj-target{
-  /* nothing special; vr-ui.js will handle crosshair events */
+/* กัน VR UI แย่งคลิก (หลายชื่อ เผื่อ DOM ต่างกัน) */
+body.ended #hha-vrui,
+body.ended #hha-vrui-root,
+body.ended .hha-vrui,
+body.ended .hha-vr-ui,
+body.ended .vrui,
+body.ended [data-hha-vrui]{
+  pointer-events:none !important;
 }
 
-/* Make sure HUD never captures pointer (we already did pointer-events:none) */
-.gj-hud-top, .gj-hud-bot{ pointer-events:none; }
-.gj-topbar{ pointer-events:auto; }
+#gjEnd .gj-end-card{
+  width: min(760px, 92vw);
+  max-height: calc(86vh - var(--sat) - var(--sab));
+  overflow:auto;
+  -webkit-overflow-scrolling: touch;
+
+  border-radius: var(--r);
+  background: rgba(2,6,23,.78);
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow: 0 24px 70px rgba(0,0,0,.55);
+  padding: 16px;
+}
+
+#gjEnd .end-title{ font-size:20px; font-weight:1300; }
+#gjEnd .end-sub{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:1000; }
+#gjEnd .end-grid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+#gjEnd .end-item{
+  border-radius: 16px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.55);
+  padding: 10px 12px;
+}
+#gjEnd .end-k{ font-size:11px; opacity:.75; font-weight:1000; }
+#gjEnd .end-v{ margin-top:2px; font-size:18px; font-weight:1300; }
+
+#gjEnd .end-actions{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#gjEnd .end-btn{
+  height:48px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border:1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.55);
+  color: var(--text);
+  font-weight:1200;
+}
+#gjEnd .end-btn.primary{
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.16);
+  color:#eafff3;
+}
+#gjEnd .end-btn:active{ transform: translateY(1px); }
