@@ -2,8 +2,9 @@
 Hydration Quest VR RUN — PRODUCTION (LATEST)
 ✅ CSS: ./hydration-vr.css
 ✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js
+✅ ui-water.js: loaded as MODULE (matches hydration.safe.js import)
 ✅ Loader: ./hydration-vr.loader.js (auto-detect NO override + cardboard layers + start overlay)
-✅ Engine: ./hydration.safe.js (type=module) -> imports ../vr/ui-water.js
+✅ Engine: ./hydration.safe.js (type=module)
 ✅ A-Frame minimal scene for Enter VR reliability
 -->
 <!doctype html>
@@ -21,15 +22,17 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
   <!-- Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Cloud Logger (flush-hardened) - ใช้ร่วมทุกเกม -->
+  <!-- Cloud Logger (flush-hardened) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Water gauge helper (MODULE, matches engine import) -->
+  <script type="module" src="../vr/ui-water.js"></script>
 
   <!-- Loader: set view/cardboard/layers + start overlay -->
   <script src="./hydration-vr.loader.js" defer></script>
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene for Enter VR reliability -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:false">
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
@@ -65,6 +68,11 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
         <div class="wbar"><div class="wfill" id="water-bar"></div></div>
         <div class="wpct"><span id="water-pct">50</span>%</div>
       </div>
+    </div>
+
+    <!-- Coach Toast (non-blocking) -->
+    <div id="coachToast" class="coach-toast" hidden>
+      <div class="coach-bubble" id="coachText">…</div>
     </div>
   </div>
 
