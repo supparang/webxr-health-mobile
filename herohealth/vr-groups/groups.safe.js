@@ -1,15 +1,14 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) v2.3
+Food Groups VR — SAFE (PRODUCTION-ish)
+✅ Thai 5 Food Groups mapping (locked):
+   1 โปรตีน, 2 ข้าว-แป้ง, 3 ผัก, 4 ผลไม้, 5 ไขมัน
+✅ decorateTarget style (Plate-like): GOOD/WRONG/JUNK emoji logic
+✅ Option: ?junkEmoji=0 -> hide junk emoji (decoy ring only)
 ✅ FIX spawn bounds: no corner-clump, no out-of-screen
 ✅ Hit radius scales by size + view (cVR assist)
 ✅ miniTotal/miniCleared tracked
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
          groups:power, groups:progress, hha:judge, hha:end
-✅ + PACK 20/21/22:
-   - groups:metrics every 1 sec (for AI prediction + dataset)
-   - shots / shotsMiss counters (for dataset & models)
-   - setAIModifiers() for Difficulty Director (play only)
-   - AI modifiers applied: intervalMul / lifeMul / sizeMul / wrongAdd / junkAdd (play only)
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
    - practice: deterministic seed + adaptive OFF + AI OFF
@@ -27,6 +26,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
   // ---------------- Utils ----------------
   function clamp(v, a, b) { v = Number(v); if (!isFinite(v)) v = a; return v < a ? a : (v > b ? b : v); }
   function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
 
   function hashSeed(str) {
     str = String(str ?? '');
@@ -71,14 +74,20 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     return 'mobile';
   }
 
-  // ---------------- Content ----------------
+  // ---------------- Thai Food Groups (LOCKED) ----------------
+  // หมู่ 1 โปรตีน (เนื้อ นม ไข่ ถั่วเมล็ดแห้ง)
+  // หมู่ 2 คาร์โบไฮเดรต (ข้าว แป้ง เผือก มัน น้ำตาล)
+  // หมู่ 3 ผัก
+  // หมู่ 4 ผลไม้
+  // หมู่ 5 ไขมัน
   const GROUPS = [
-    { key: 'fruit',   th: 'ผลไม้',     emoji: ['🍎','🍌','🍊','🍇','🍉','🍍','🥭','🍐'] },
-    { key: 'veg',     th: 'ผัก',       emoji: ['🥦','🥕','🥬','🍅','🥒','🌽','🧅','🍆'] },
-    { key: 'protein', th: 'โปรตีน',    emoji: ['🍗','🥚','🐟','🫘','🥜','🍤','🍖','🧀'] },
-    { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
-    { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
+    { key: 'g1', th: 'โปรตีน',    emoji: ['🍗','🥚','🐟','🫘','🥜','🍤','🍖','🧀','🥛'] },
+    { key: 'g2', th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙','🥔','🍠'] },
+    { key: 'g3', th: 'ผัก',       emoji: ['🥦','🥕','🥬','🍅','🥒','🌽','🧅','🍆','🫑'] },
+    { key: 'g4', th: 'ผลไม้',     emoji: ['🍎','🍌','🍊','🍇','🍉','🍍','🥭','🍐','🍓'] },
+    { key: 'g5', th: 'ไขมัน',     emoji: ['🥑','🫒','🧈','🥥','🌰','🍳','🥜'] },
   ];
+
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
   // ---------------- Difficulty presets ----------------
@@ -256,27 +265,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     this._id = 0;
 
     this.coachLastAt = 0;
-
-    // ---- PACK 20/21: shots counters (for dataset/models) ----
-    this.shots = 0;
-    this.shotsMiss = 0;
-
-    // ---- PACK 22: AI modifiers (play only) ----
-    this.aiMod = { intervalMul:1.0, lifeMul:1.0, sizeMul:1.0, wrongAdd:0.0, junkAdd:0.0 };
   }
 
   Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
-
-  // PACK 22: called by ai-hooks.js Difficulty Director
-  Engine.prototype.setAIModifiers = function(mod){
-    if (!this.cfg || this.cfg.runMode !== 'play') return;
-    mod = mod || {};
-    this.aiMod.intervalMul = clamp(mod.intervalMul ?? 1, 0.82, 1.20);
-    this.aiMod.lifeMul     = clamp(mod.lifeMul ?? 1,     0.85, 1.22);
-    this.aiMod.sizeMul     = clamp(mod.sizeMul ?? 1,     0.90, 1.16);
-    this.aiMod.wrongAdd    = clamp(mod.wrongAdd ?? 0,   -0.06, 0.08);
-    this.aiMod.junkAdd     = clamp(mod.junkAdd ?? 0,    -0.06, 0.08);
-  };
 
   Engine.prototype._calcPressure = function(){
     const m = this.misses|0;
@@ -312,14 +303,31 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     }
   };
 
+  // ✅ Plate-like target decoration policy
+  Engine.prototype.decorateTarget = function(el, spec){
+    // spec: {kind, groupIdx, emoji, ...}
+    const showJunkEmoji = !!(this.cfg && this.cfg.showJunkEmoji);
+    if (spec.kind === 'junk' && !showJunkEmoji){
+      el.textContent = '';
+      return;
+    }
+    el.textContent = String(spec.emoji || '');
+    // IMPORTANT: ไม่ต้องใส่ filter/backdrop ที่นี่ (CSS ทำคมแล้ว)
+  };
+
   Engine.prototype.start = function (diff, opts) {
     opts = opts || {};
     const rm = String(opts.runMode || 'play').toLowerCase();
     const runMode = (rm === 'research') ? 'research' : (rm === 'practice' ? 'practice' : 'play');
+
     const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
     const preset  = diffPreset(diff);
 
     const timeSec = clamp(opts.time ?? preset.time, 5, 180);
+
+    // ✅ allow hide junk emoji (decoy ring only)
+    const junkEmojiParam = String(qs('junkEmoji','1')||'1').toLowerCase();
+    const showJunkEmoji = !(junkEmojiParam === '0' || junkEmojiParam === 'false');
 
     this.cfg = {
       diff: String(diff || 'normal').toLowerCase(),
@@ -327,6 +335,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       seed: seedIn,
       timeSec,
       preset,
+      showJunkEmoji
     };
 
     this.view = getViewFromBodyOrParam(opts.view);
@@ -385,20 +394,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     this.startAt = nowMs();
     this.spawnTmr = 0;
 
-    // shots reset
-    this.shots = 0;
-    this.shotsMiss = 0;
-
-    // reset AI modifiers
-    this.aiMod = { intervalMul:1.0, lifeMul:1.0, sizeMul:1.0, wrongAdd:0.0, junkAdd:0.0 };
-
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
     this._emitCoach((runMode==='practice') ? 'โหมดฝึก 15 วิ ลองเล็งแล้วแตะยิง 🎯' : 'เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
     this._emitPower();
     this._emitQuestUpdate();
-    this._emitMetrics(); // PACK 20/21
 
     this._installInput();
     this._loop();
@@ -436,9 +437,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     if (left !== this.leftSec) {
       this.leftSec = left;
       emit('hha:time', { left: left });
-
-      // PACK 20/21: metrics every second
-      this._emitMetrics();
 
       if (this.cfg.runMode !== 'practice'){
         if (left === 10) this._emitCoach('อีก 10 วิ! เร่งขึ้น! 🔥', 'fever');
@@ -506,6 +504,8 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
           : `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`,
         'neutral'
       );
+      addBodyClass('fx-mini', true);
+      setTimeout(()=>addBodyClass('fx-mini', false), 600);
     }
 
     if (this.mini && this.mini.on) {
@@ -533,7 +533,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
         this._emitScore();
         this._emitRank();
         this._emitQuestUpdate();
-        this._emitMetrics(); // pack 20/21
 
         this.nextMiniAt = t + 22000 + ((this.rng() * 6000) | 0);
       } else {
@@ -564,10 +563,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       if (this.pressure === 3) pressMul = 0.86;
     }
 
-    // PACK 22: AI Director interval multiplier (play only)
-    const aiMul = (this.cfg.runMode==='play' && this.aiMod) ? (this.aiMod.intervalMul || 1) : 1;
-
-    const every = clamp(base * speed * pressMul * aiMul, 320, 980);
+    const every = clamp(base * speed * pressMul, 320, 980);
 
     if (t - this.spawnTmr >= every) {
       this.spawnTmr = t;
@@ -587,6 +583,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     }
   };
 
+  // ---------------- Spawn policies (decorateTarget style) ----------------
   Engine.prototype._spawnOne = function () {
     const p = this.cfg.preset;
 
@@ -600,12 +597,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       if (this.pressure === 1){ wrongRate += 0.02; junkRate += 0.01; }
       if (this.pressure === 2){ wrongRate += 0.05; junkRate += 0.02; }
       if (this.pressure === 3){ wrongRate += 0.08; junkRate += 0.03; }
-
-      // PACK 22: AI can bias wrong/junk slightly (fair & bounded)
-      if (this.aiMod){
-        wrongRate += (this.aiMod.wrongAdd || 0);
-        junkRate  += (this.aiMod.junkAdd  || 0);
-      }
     }
 
     wrongRate = clamp(wrongRate, 0.05, 0.60);
@@ -615,7 +606,14 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     else if (r < junkRate + wrongRate) kind = 'wrong';
 
     const gActive = GROUPS[this.activeGroupIdx];
-    const gOther  = pick(this.rng, GROUPS.filter((_, idx) => idx !== this.activeGroupIdx));
+
+    // pick another group for WRONG (decoy by other food group)
+    let otherIdx = this.activeGroupIdx;
+    for (let k = 0; k < 7; k++){
+      otherIdx = (this.rng() * GROUPS.length) | 0;
+      if (otherIdx !== this.activeGroupIdx) break;
+    }
+    const gOther = GROUPS[otherIdx];
 
     let emoji = '🍽️';
     let cls = 'fg-target';
@@ -638,9 +636,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 2) size *= 0.96;
       if (this.pressure === 3) size *= 0.93;
-
-      // PACK 22: AI Director size multiplier
-      if (this.aiMod) size *= (this.aiMod.sizeMul || 1);
     }
 
     let lifeMs = this.stormOn ? 2400 : 3100;
@@ -648,12 +643,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       if (this.pressure === 1) lifeMs = Math.round(lifeMs * 0.95);
       if (this.pressure === 2) lifeMs = Math.round(lifeMs * 0.90);
       if (this.pressure === 3) lifeMs = Math.round(lifeMs * 0.84);
-
-      // PACK 22: AI Director life multiplier
-      if (this.aiMod) lifeMs = Math.round(lifeMs * (this.aiMod.lifeMul || 1));
     }
 
-    this._spawnDomTarget({ kind, emoji, cls, size, lifeMs });
+    this._spawnDomTarget({
+      kind, emoji, cls, size, lifeMs,
+      groupIdx: (kind === 'wrong') ? otherIdx : this.activeGroupIdx
+    });
   };
 
   Engine.prototype._spawnBoss = function () {
@@ -671,11 +666,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     this._spawnDomTarget({
       kind: 'boss',
       emoji,
-      cls: 'fg-target fg-boss',
+      cls: 'fg-target fg-boss fg-good',
       size: 1.0,
       lifeMs: 7000,
       bossHp: hp,
-      bossHpMax: hp
+      bossHpMax: hp,
+      groupIdx: this.activeGroupIdx
     });
 
     emit('groups:progress', { kind: 'boss_spawn' });
@@ -697,13 +693,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
 
-    // ✅ SHOW EMOJI (centered by CSS)
-    el.textContent = spec.emoji;
-    el.setAttribute('data-emoji', spec.emoji);
-
     cssSet(el, '--x', x.toFixed(1) + 'px');
     cssSet(el, '--y', y.toFixed(1) + 'px');
     cssSet(el, '--s', String(spec.size ?? 1));
+
+    // ✅ Plate-like decorateTarget
+    this.decorateTarget(el, spec);
 
     const id = (++this._id);
     const born = nowMs();
@@ -717,6 +712,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       id, el,
       kind: spec.kind,
       emoji: spec.emoji,
+      groupIdx: Number(spec.groupIdx ?? this.activeGroupIdx) | 0,
       x, y, r: rHit,
       bornAt: born,
       expireAt: born + (spec.lifeMs || 3000),
@@ -749,10 +745,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
   Engine.prototype._hitTargetById = function (id, via) {
     if (!this.running) return;
     const t = nowMs();
-
-    // PACK 20/21: count taps as shots too
-    if (via === 'tap') this.shots += 1;
-
     for (let i = 0; i < this.targets.length; i++) {
       if (this.targets[i].id === id) {
         const tg = this.targets[i];
@@ -765,9 +757,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
   Engine.prototype._shootCrosshair = function () {
     const cx = (root.innerWidth || 0) * 0.5;
     const cy = (root.innerHeight || 0) * 0.5;
-
-    // PACK 20/21: shot fired
-    this.shots += 1;
 
     let bestI = -1;
     let bestD = 1e9;
@@ -784,16 +773,13 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงพลาดจาก crosshair: “ไม่เพิ่ม miss” (ตามเดิม)
-      // แต่เก็บ shotsMiss เพื่อ ML/dataset
-      this.shotsMiss += 1;
-
+      // ✅ ยิงพลาดจาก crosshair: ไม่เพิ่ม miss (กัน miss พุ่ง)
+      // แต่ reset combo + FX
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
       this._emitScore();
       this._emitRank();
-      this._emitMetrics(); // pack 20/21
     }
   };
 
@@ -823,7 +809,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
         this._emitRank();
         this._advanceQuestOnGood(2);
         this._maybeSwitchGroup();
-        this._emitMetrics();
       }
       return;
     }
@@ -854,7 +839,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       this._emitPower();
       this._emitRank();
       this._emitQuestUpdate();
-      this._emitMetrics();
       return;
     }
 
@@ -874,7 +858,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       this._emitRank();
       this._emitQuestUpdate();
       this._emitCoach(`ไม่ใช่หมู่ “${gActive.th}” นะ!`, 'sad');
-      this._emitMetrics();
       return;
     }
 
@@ -896,7 +879,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     this._emitRank();
     this._emitQuestUpdate();
     this._emitCoach('โดนขยะ! ระวัง! 🗑️', 'sad');
-    this._emitMetrics();
   };
 
   Engine.prototype._onMiss = function (why) {
@@ -928,7 +910,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     this._emitPower();
     this._emitQuestUpdate();
     this._emitCoach(`สลับหมู่แล้ว! เป้าถัดไปคือ “${GROUPS[next].th}”`, 'neutral');
-    this._emitMetrics();
   };
 
   Engine.prototype._advanceQuestOnGood = function (inc) {
@@ -959,7 +940,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
           this.cfg.preset.baseSpawnMs = clamp(this.cfg.preset.baseSpawnMs * 0.97, 420, 920);
         }
         this._emitQuestUpdate();
-        this._emitMetrics();
       }
     } else {
       this._emitQuestUpdate();
@@ -1040,37 +1020,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
     emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
   };
 
-  // PACK 20/21: AI/Dataset metrics every 1 sec
-  Engine.prototype._emitMetrics = function(){
-    if (!this.cfg) return;
-
-    emit('groups:metrics', {
-      tLeftSec: this.leftSec|0,
-      score: this.score|0,
-      combo: this.combo|0,
-      misses: this.misses|0,
-      accuracyGoodPct: this._accuracyPct()|0,
-
-      pressureLevel: this.pressure|0,
-      stormOn: this.stormOn ? 1 : 0,
-      miniOn: (this.mini && this.mini.on) ? 1 : 0,
-
-      nHitGood: this.nHitGood|0,
-      nHitWrong: this.nHitWrong|0,
-      nHitJunk: this.nHitJunk|0,
-      nExpireGood: this.nExpireGood|0,
-
-      goalNow: this.goalNow|0,
-      goalNeed: this.goalNeed|0,
-
-      powerCharge: this.powerCharge|0,
-      powerThreshold: (this.cfg.preset && this.cfg.preset.powerThreshold) ? (this.cfg.preset.powerThreshold|0) : 8,
-
-      shots: this.shots|0,
-      shotsMiss: this.shotsMiss|0
-    });
-  };
-
   Engine.prototype._end = function (reason) {
     if (!this.running) return;
     this.running = false;
@@ -1120,19 +1069,13 @@ Food Groups VR — SAFE (PRODUCTION-ish) v2.3
       diff: this.cfg.diff,
       seed: this.cfg.seed,
       pressureLevel: this.pressure|0,
-
-      // PACK 20/21
-      shots: this.shots|0,
-      shotsMiss: this.shotsMiss|0
+      showJunkEmoji: !!this.cfg.showJunkEmoji
     };
 
     emit('hha:end', summary);
     addBodyClass('fx-end', true);
     setTimeout(()=>addBodyClass('fx-end', false), 650);
     this._emitCoach((this.cfg.runMode==='practice') ? 'จบฝึกแล้ว! กำลังเข้าเกมจริง…' : 'จบเกมแล้ว! กดเล่นอีกครั้งได้เลย 🏁', 'happy');
-
-    // final metrics snapshot
-    this._emitMetrics();
   };
 
   // ---------------- Export ----------------
