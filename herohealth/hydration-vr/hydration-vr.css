@@ -1,22 +1,23 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration Quest VR UI — PRODUCTION (LATEST)
-✅ Safe-area aware
-✅ HUD top + Mission + Water panel
-✅ Playfield wrap + layers
-✅ Targets UI (hvr-target)
-✅ Overlays (start + result)
-✅ FX hooks: hha-endfx / hha-bossfx / hha-shock
-✅ Cardboard split layers (#cbWrap/#cbPlayfield)
+✅ HUD / Quest / Water gauge
+✅ Playfield safe-area
+✅ Overlays: Start + Result
+✅ End/Boss FX hooks (class on body)
+✅ Cardboard split layers (L/R)
+✅ Targets clickable only on nodes (.hvr-target)
 */
 
 :root{
   color-scheme: dark;
+
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.68);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
+
   --accent:#22c55e;
   --warn:#f59e0b;
   --cyan:#22d3ee;
@@ -33,26 +34,19 @@ Hydration Quest VR UI — PRODUCTION (LATEST)
 
 *{ box-sizing:border-box; }
 html,body{
-  margin:0;
-  width:100%;
-  height:100%;
+  margin:0; width:100%; height:100%;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
 
-/* A-Frame scene behind everything */
-a-scene{
-  position:fixed;
-  inset:0;
-  z-index:0;
-}
+/* A-Frame scene sits behind UI */
+a-scene{ position:fixed; inset:0; z-index:0; }
 
-/* -------- Playfield wrapper (safe-area padding) -------- */
+/* --- Playfield wrap --- */
 #playfieldWrap{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
   z-index: 1;
   pointer-events:none;
@@ -73,15 +67,13 @@ a-scene{
 }
 
 .layer{
-  position:absolute;
-  inset:0;
+  position:absolute; inset:0;
   pointer-events:none;
 }
 
-/* -------- HUD -------- */
+/* --- HUD --- */
 #hud{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   z-index: 60;
   pointer-events:none;
 }
@@ -154,24 +146,18 @@ a-scene{
 .quest-lines #quest-line3,
 .quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
 
-/* -------- Water panel (make it easy for Grade 5) -------- */
 .waterpanel .water-head{
   display:flex;
   align-items:baseline;
   justify-content:space-between;
   gap:10px;
 }
-.waterpanel .wtitle{
-  font-weight:900;
-  font-size:13px;
-}
-.waterpanel .wzone{
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
+.waterpanel .wtitle{ font-weight:900; font-size:13px; }
+.waterpanel .wzone{ font-size:12px; color: rgba(148,163,184,.95); }
+
 .wbar{
   margin-top:8px;
-  height: 12px; /* slightly thicker for kids */
+  height: 10px;
   border-radius: var(--pill);
   overflow:hidden;
   background: rgba(148,163,184,.18);
@@ -182,20 +168,18 @@ a-scene{
   width:50%;
   border-radius: var(--pill);
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-  will-change: width;
 }
 .wpct{
   margin-top:6px;
-  font-weight:950;
+  font-weight:900;
   text-align:right;
-  font-size:13px; /* bigger */
+  font-size:12px;
   color: rgba(229,231,235,.92);
 }
 
-/* -------- Overlays -------- */
+/* --- Overlay windows --- */
 .overlay{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   z-index: 120;
   display:grid;
   place-items:center;
@@ -215,21 +199,11 @@ a-scene{
 }
 .overlay-card.wide{ width:min(860px, 100%); }
 
-.ov-title{
-  font-weight:950;
-  letter-spacing:.2px;
-  font-size:18px;
-}
-.ov-sub{
-  color: rgba(148,163,184,.95);
-  margin-top:6px;
-  font-size:13px;
-}
+.ov-title{ font-weight:950; letter-spacing:.2px; font-size:18px; }
+.ov-sub{ color: rgba(148,163,184,.95); margin-top:6px; font-size:13px; }
 
 .ov-row{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
+  display:flex; gap:10px; flex-wrap:wrap;
   margin-top:12px;
 }
 .btn{
@@ -246,9 +220,7 @@ a-scene{
   background: rgba(34,197,94,.18);
   border-color: rgba(34,197,94,.28);
 }
-.btn.ghost{
-  background: transparent;
-}
+.btn.ghost{ background: transparent; }
 
 .ov-hint{
   margin-top:10px;
@@ -257,10 +229,7 @@ a-scene{
   line-height:1.35;
 }
 
-/* startOverlay hide helper */
-#startOverlay.hide{ display:none !important; }
-
-/* -------- Result summary grid -------- */
+/* --- Result grid --- */
 .res-grid{
   margin-top:10px;
   display:grid;
@@ -279,7 +248,6 @@ a-scene{
 }
 .res-note{ margin-top:10px; }
 .tier{ font-weight:950; color: rgba(34,197,94,.95); }
-
 .tips{
   white-space: pre-wrap;
   margin:10px 0 0;
@@ -293,7 +261,7 @@ a-scene{
 }
 .next{ margin-top:8px; color: rgba(229,231,235,.92); }
 
-/* -------- FX hooks from hydration.safe.js -------- */
+/* --- End/Boss FX hooks (hydration.safe.js toggles body classes) --- */
 body.hha-endfx #playfield{
   animation: hhaShake .22s linear infinite;
 }
@@ -308,27 +276,24 @@ body.hha-bossfx #playfield{
   box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset, 0 24px 90px rgba(239,68,68,.10);
 }
 
-/* -------- Cardboard split -------- */
-body.cardboard #hydration-layer{ display:none !important; }
-#cbWrap{ position:absolute; inset:0; }
+/* --- Cardboard split --- */
+#cbWrap{ position:absolute; inset:0; display:none; }
 #cbPlayfield{
-  position:absolute;
-  inset:0;
+  position:absolute; inset:0;
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap:10px;
   padding:10px;
 }
+body.cardboard #hydration-layer{ display:none; }
 body.cardboard #cbWrap{ display:block; }
-body.cardboard #cbWrap[hidden]{ display:block !important; }
 
-/* -------- Shock element -------- */
+/* --- Shock element (hydration.safe.js) --- */
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
   top: var(--y, 50%);
-  width: 10px;
-  height: 10px;
+  width: 10px; height: 10px;
   border-radius: 999px;
   transform: translate(-50%,-50%);
   border: 2px solid rgba(239,68,68,.55);
@@ -340,10 +305,5 @@ body.cardboard #cbWrap[hidden]{ display:block !important; }
   to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
 }
 
-/* Targets should be clickable (engine attaches to .hvr-target) */
+/* Targets clickable only via their own nodes */
 .hvr-target{ pointer-events:auto; }
-
-/* Optional: view tweaks */
-body.view-cvr #hud{ /* keep HUD readable in cVR */
-  /* no-op now, keep hook */
-}
