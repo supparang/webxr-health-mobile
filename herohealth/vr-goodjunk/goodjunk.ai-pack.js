@@ -1,522 +1,416 @@
 // === /herohealth/vr-goodjunk/goodjunk.ai-pack.js ===
-// GoodJunkVR — AI PACK (FAIR) v1
-// ✅ (1) Missions: GOAL chain + MINI quest + quest:update
-// ✅ (2) DD Fair: adjust spawn/ttl/ratio every 1s (play only)
-// ✅ (3) AI Prediction: miss-burst risk -> coach tip + assist spawn suggestion
-// ✅ (4) DeepLearning-ready: telemetry features + dlHook stub (no heavy inference)
+// GoodJunkVR AI PACK — FAIR (v1)
+// ✅ Missions: GOAL chain + MINI (Plate-compatible via quest:update)
+// ✅ DD FAIR: adjusts spawnMs/ttl/ratios every 1s (play only; research OFF)
+// ✅ Prediction: miss/expire burst -> coach tip + suggest assist (shield/star)
+// ✅ DL-ready: featureTail (no inference heavy) appended at end summary
 //
-// Integrate from goodjunk.safe.js:
-//   import { createGoodJunkAIPack } from './goodjunk.ai-pack.js';
-//   const AI = createGoodJunkAIPack({ mode: runMode, emit, nowMs, seed, rng });
-//   AI.bindHUD({ setGoalText, setMiniText, setMissionPeek }); // optional
-//   AI.onStart({ timePlanSec, view, diff });
-//   AI.onSpawn({ kind, ttlMs, groupId });
-//   AI.onHit({ kind, groupId, shieldRemaining, fever, score, combo, miss });
-//   AI.onExpireGood({ groupId, shieldRemaining, fever, score, combo, miss });
-//   every 1s -> AI.onTick1s({ ...metrics... });
-//   end -> const summaryAdd = AI.onEnd({ reason, ...finalMetrics }); merge into hha:end
+// Events used:
+//  - emits: quest:update, hha:coach
+//  - listens: none (engine calls methods)
+//  - dispatch suggest: WIN.dispatchEvent('gj:ai:suggest', {type, what, pick})
+//
+// Usage:
+//  const AI = createGoodJunkAIPack({ mode, seed, rng, nowMs, emit });
+//  AI.bindHUD({ setGoalText, setMiniText });
+//  AI.onStart(...), AI.onHit(...), AI.onExpireGood(...), AI.onTick1s(...), AI.onEnd(...)
+//  AI.getDD() -> {spawnMs, ttlGood, ttlPower, ratio:{good,junk,star,shield}}
 
 'use strict';
 
-const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
-const safeJson = (x, def)=>{ try{ return JSON.parse(x); }catch{ return def; } };
-
-function makeRateLimiter(cooldownMs=3500){
-  let last = 0;
-  return (nowMs)=>{
-    if(nowMs - last < cooldownMs) return false;
-    last = nowMs;
-    return true;
-  };
-}
-
-function defaultMissions(){
-  // GOAL chain (เด็ก ป.5 เข้าใจง่าย + สนุก)
-  // G1: เก็บของดี 8 ชิ้น
-  // G2: เก็บให้ครบ 3 หมู่ (อาหารหลัก 5 หมู่)
-  // G3: FEVER >= 75% แล้ว “เอาตัวรอด” 10 วิ (ไม่เพิ่ม miss)
-  return {
-    goals: [
-      { id:'G1', name:'เก็บอาหารดีให้ได้ 8 ชิ้น', sub:'เลือกของดี (🥦/ผลไม้/โปรตีนฯ) หลีกเลี่ยงของทอด/หวาน', cur:0, target:8, done:false },
-      { id:'G2', name:'เก็บครบ 3 หมู่', sub:'ให้ครบ 3 จาก 5 หมู่ (โปรตีน/คาร์บ/ผัก/ผลไม้/ไขมัน)', cur:0, target:3, done:false, groups:new Set() },
-      { id:'G3', name:'เข้าสู่ FEVER แล้วเอาตัวรอด 10 วิ', sub:'ทำ FEVER ≥ 75% และอย่า MISS ในช่วงนับถอยหลัง', cur:0, target:10, done:false, active:false, startedAt:0 }
-    ],
-    mini: {
-      id:'M1',
-      name:'ครบ 3 หมู่ใน 12 วิ',
-      sub:'โบนัส ⭐/🛡 (ช่วยลด MISS)',
-      cur:0, target:3, done:false,
-      windowSec:12,
-      windowStartAt:0,
-      groups:new Set()
-    }
-  };
-}
-
-function summarizeSetSize(set){ return set ? set.size : 0; }
-
 export function createGoodJunkAIPack(cfg={}){
-  const {
-    mode='play', // 'play' | 'research'
-    seed=null,
-    rng=null,            // seeded rng (function) preferred
-    emit=(n,d)=>{},      // wrapper for CustomEvent
-    nowMs=()=> (performance?.now?.() ?? Date.now()),
-    dlHook=null          // optional: (features)=>({risk:0..1, tip?:string})
-  } = cfg;
+  const WIN = window;
+  const DOC = document;
 
-  const isPlay = String(mode).toLowerCase() === 'play';
-  const limiter = makeRateLimiter(3200);
+  const mode = String(cfg.mode||'play').toLowerCase(); // play | research
+  const isPlay = (mode === 'play');
+  const seed = String(cfg.seed ?? Date.now());
+  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
+  const nowMs = (typeof cfg.nowMs === 'function') ? cfg.nowMs : (()=> (performance?.now?.() ?? Date.now()));
+  const emit = (typeof cfg.emit === 'function') ? cfg.emit : ((n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} });
 
-  const M = defaultMissions();
+  const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
 
-  // --- DD state (fair) ---
-  const DD = {
-    enabled: isPlay,       // research: OFF
-    // tunables (base)
-    spawnMsBase: 900,
-    ttlGoodBase: 1600,
-    ttlPowerBase: 1700,
-    // current
-    spawnMs: 900,
-    ttlGood: 1600,
-    ttlPower: 1700,
-    // ratios (sum ~1)
-    pGood: 0.70,
-    pJunk: 0.26,
-    pStar: 0.02,
-    pShield: 0.02,
-
-    // smoothing + fairness guards
-    softenUntil: 0,
-    hardenUntil: 0,
-    lastAdjustAt: 0
+  // ---------- DOM fallbacks (ไม่บังคับ) ----------
+  const dom = {
+    goalName: null,  // #hud-goal
+    miniName: null,  // #hud-mini
   };
 
-  // --- Predictor state ---
-  const P = {
-    risk: 0,
-    // rolling windows updated by onTick1s
-    miss5: 0,
-    good5: 0,
-    junk5: 0,
-    exp5: 0,
-    comboNow: 0,
-    fever: 0,
-    feverSlope: 0
-  };
-
-  // --- Telemetry (DL-ready) ---
-  const T = {
-    tick: 0,
-    samples: [],  // push lightweight objects (bounded)
-    max: 1800,    // 30 min @ 1Hz (way above our games)
-    lastFever: null
-  };
-
-  // optional HUD binding (purely convenience)
-  const HUD = {
-    setGoalText: null,  // (name, sub, cur, target, done)
-    setMiniText: null,  // (name, sub, cur, target, done, secLeft)
-    setMissionPeek: null // (string)
-  };
-
-  function resetMiniWindow(t){
-    const t0 = t ?? nowMs();
-    M.mini.windowStartAt = t0;
-    M.mini.groups.clear();
-    M.mini.cur = 0;
-    M.mini.done = false;
+  function bindDomOnce(){
+    if(dom.goalName) return;
+    dom.goalName = DOC.getElementById('hud-goal') || null;
+    dom.miniName = DOC.getElementById('hud-mini') || null;
   }
 
-  function publishQuestUpdate(){
-    const g = M.goals[0] || { name:'—', sub:'—', cur:0, target:0, done:false };
-    const mi = M.mini;
+  // ---------- HUD callbacks (optional) ----------
+  let HUD = {
+    setGoalText: null,
+    setMiniText: null
+  };
 
-    // compute mini sec left
-    const t = nowMs();
-    const elapsed = (t - (mi.windowStartAt||t)) / 1000;
-    const secLeft = Math.max(0, Math.ceil(mi.windowSec - elapsed));
+  function bindHUD(h){
+    HUD = Object.assign(HUD, h||{});
+    bindDomOnce();
+  }
 
-    // emit quest:update (Plate-compatible shape)
-    emit('quest:update', {
-      goal:{
-        name:g.name,
-        sub:g.sub,
-        cur:g.cur,
-        target:g.target,
-        done: !!g.done
-      },
-      mini:{
-        name:mi.name,
-        sub:mi.sub,
-        cur:mi.cur,
-        target:mi.target,
-        done: !!mi.done,
-        secLeft
-      },
-      allDone: allGoalsDone()
-    });
-
-    // optional HUD direct binding
-    if(HUD.setGoalText){
-      HUD.setGoalText(g.name, g.sub, g.cur, g.target, !!g.done);
-    }
-    if(HUD.setMiniText){
-      HUD.setMiniText(mi.name, mi.sub, mi.cur, mi.target, !!mi.done, secLeft);
+  function setGoalUI(name, sub, cur, target){
+    try{
+      if(dom.goalName) dom.goalName.textContent = String(name || '—');
+    }catch{}
+    if(typeof HUD.setGoalText === 'function'){
+      try{ HUD.setGoalText(name, sub, cur, target); }catch{}
     }
   }
 
-  function allGoalsDone(){
-    return M.goals.every(x=>!!x.done);
+  function setMiniUI(name, sub, cur, target, done, secLeft){
+    try{
+      if(dom.miniName) dom.miniName.textContent = String(name || '—');
+    }catch{}
+    if(typeof HUD.setMiniText === 'function'){
+      try{ HUD.setMiniText(name, sub, cur, target, done, secLeft); }catch{}
+    }
+  }
+
+  // ---------- Missions ----------
+  // GOAL chain (ง่าย ๆ แต่สนุก + เร้าใจแบบ “ทำครบแล้วไปต่อ”)
+  const GOALS = [
+    { id:'g1', name:'เก็บของดี 8 ชิ้น',    sub:'เล็งให้โดนของดี',           metric:'hitGood',   target:8 },
+    { id:'g2', name:'คอมโบให้ได้ 6',       sub:'ยิงของดีติดกัน',            metric:'comboMax',  target:6 },
+    { id:'g3', name:'หลบของเสีย 6 วิ',     sub:'อย่าให้ MISS เพิ่ม',        metric:'noMissSec', target:6 },
+    { id:'g4', name:'เก็บของดี 12 ชิ้น',   sub:'เพิ่มความเร็วอีกนิด',        metric:'hitGood',   target:12 },
+    { id:'g5', name:'MISS ไม่เกิน 5',      sub:'คุมเกมจนจบ',                metric:'missCap',   target:5 },
+  ];
+
+  const M = {
+    goalIndex: 0,
+    goalCur: 0,
+    goalTarget: GOALS[0].target,
+
+    // special counters
+    noMissTimerSec: 0,
+    noMissStartMs: 0,
+    lastMissCount: 0,
+
+    goalsCleared: 0,
+
+    // MINI: “ครบ 3 หมู่ใน 12 วิ”
+    miniWindowSec: 12,
+    miniStartMs: 0,
+    miniGroups: new Set(),
+    miniDone: false,
+    miniTarget: 3,
+
+    // status for end
+    lastGoalName: GOALS[0].name,
+    lastMiniName: `ครบ ${3} หมู่ใน ${12} วิ`,
+  };
+
+  function resetMiniWindow(){
+    M.miniStartMs = nowMs();
+    M.miniGroups.clear();
+    M.miniDone = false;
+  }
+
+  function resetNoMiss(){
+    M.noMissStartMs = nowMs();
+    M.noMissTimerSec = 0;
+  }
+
+  function currentGoal(){
+    return GOALS[clamp(M.goalIndex,0,GOALS.length-1)|0];
+  }
+
+  function updateQuestEmit(allDone=false){
+    const g = currentGoal();
+    const now = nowMs();
+
+    // mini seconds left
+    let secLeft = M.miniWindowSec - Math.floor((now - M.miniStartMs)/1000);
+    secLeft = clamp(secLeft, 0, M.miniWindowSec);
+
+    setGoalUI(g.name, g.sub, M.goalCur, g.target);
+    setMiniUI(M.lastMiniName, 'โบนัส STAR/SHIELD', M.miniGroups.size, M.miniTarget, M.miniDone, secLeft);
+
+    // Plate-compatible event
+    try{
+      emit('quest:update', {
+        goal:{ name:g.name, sub:g.sub, cur:M.goalCur, target:g.target },
+        mini:{ name:M.lastMiniName, sub:'โบนัส STAR/SHIELD', cur:M.miniGroups.size, target:M.miniTarget, done:M.miniDone, secLeft },
+        allDone: !!allDone
+      });
+    }catch{}
   }
 
   function nextGoal(){
-    // shift current goal if done
-    while(M.goals.length && M.goals[0].done){
-      M.goals.shift();
+    M.goalsCleared++;
+    M.goalIndex = clamp(M.goalIndex+1, 0, GOALS.length-1);
+    M.goalCur = 0;
+
+    const g = currentGoal();
+    M.goalTarget = g.target;
+    M.lastGoalName = g.name;
+
+    // reset special
+    if(g.metric === 'noMissSec'){
+      resetNoMiss();
+      M.lastMissCount = 0;
     }
-    publishQuestUpdate();
+    updateQuestEmit(false);
+
+    // coach feedback
+    try{
+      emit('hha:coach', { msg:`✅ ผ่าน GOAL! ต่อไป: ${g.name}`, tag:'goal_next' });
+    }catch{}
   }
 
-  function coach(msg, tag='AI'){
-    if(!msg) return;
-    const t = nowMs();
-    if(!limiter(t)) return;
-    emit('hha:coach', { msg:String(msg), tag });
+  function ensureGoalInitialized(){
+    const g = currentGoal();
+    M.goalTarget = g.target;
+    M.lastGoalName = g.name;
+
+    if(!M.miniStartMs) resetMiniWindow();
+    if(g.metric === 'noMissSec' && !M.noMissStartMs) resetNoMiss();
+
+    updateQuestEmit(false);
   }
 
-  function setAssistSoft(now, sec){
-    DD.softenUntil = Math.max(DD.softenUntil, now + sec*1000);
-  }
-
-  function setAssistHarden(now, sec){
-    DD.hardenUntil = Math.max(DD.hardenUntil, now + sec*1000);
-  }
-
-  function ddAdjust(metrics){
-    if(!DD.enabled) return;
-
-    const t = nowMs();
-    if(t - DD.lastAdjustAt < 900) return;
-    DD.lastAdjustAt = t;
-
-    // metrics inputs
-    const acc = clamp(metrics?.acc ?? 0.7, 0, 1);          // approx: good/(good+junk+expire)
-    const missRate = clamp(metrics?.missRate ?? 0.1, 0, 1);
-    const fever = clamp(metrics?.fever ?? 0, 0, 100);
-    const combo = clamp(metrics?.combo ?? 0, 0, 999);
-
-    // fairness: if miss burst recently -> soften 4s
-    const missBurst = (metrics?.missBurst ?? 0) >= 2;
-    if(missBurst) setAssistSoft(t, 4);
-
-    const softened = t < DD.softenUntil;
-    const hardened = t < DD.hardenUntil;
-
-    // target difficulty: keep players ~70-85% “ok” feeling
-    // If player is very strong -> increase risk gradually
-    let wantHarder = (acc > 0.82 && missRate < 0.10 && combo >= 4 && fever < 90);
-    let wantEasier = (acc < 0.62 || missRate > 0.22 || softened);
-
-    // override with fairness
-    if(softened) wantHarder = false;
-    if(hardened) wantEasier = false;
-
-    // step size (small to avoid jerk)
-    const stepSpawn = 40;   // ms
-    const stepTtl   = 35;   // ms
-    const stepRisk  = 0.012;
-
-    if(wantHarder){
-      DD.spawnMs = clamp(DD.spawnMs - stepSpawn, 650, 1100);
-      DD.ttlGood = clamp(DD.ttlGood - stepTtl,   1100, 2100);
-      DD.pJunk   = clamp(DD.pJunk + stepRisk,    0.18, 0.40);
-      DD.pGood   = clamp(1 - (DD.pJunk + DD.pStar + DD.pShield), 0.50, 0.78);
-      // reward slightly lower if too easy
-      setAssistHarden(t, 3);
-    }else if(wantEasier){
-      DD.spawnMs = clamp(DD.spawnMs + stepSpawn, 650, 1200);
-      DD.ttlGood = clamp(DD.ttlGood + stepTtl,  1200, 2400);
-      DD.pJunk   = clamp(DD.pJunk - stepRisk,   0.16, 0.36);
-      DD.pGood   = clamp(1 - (DD.pJunk + DD.pStar + DD.pShield), 0.55, 0.82);
-
-      // if struggling, slightly boost support powerups
-      DD.pShield = clamp(DD.pShield + 0.006, 0.02, 0.06);
-      DD.pStar   = clamp(DD.pStar   + 0.004, 0.02, 0.05);
-
-      // re-normalize (keep sum <=1)
-      const sum = DD.pGood + DD.pJunk + DD.pStar + DD.pShield;
-      if(sum > 1){
-        const k = 1 / sum;
-        DD.pGood*=k; DD.pJunk*=k; DD.pStar*=k; DD.pShield*=k;
-      }
-      setAssistSoft(t, 3);
-    }else{
-      // gentle drift to base (very slow)
-      DD.spawnMs += (DD.spawnMsBase - DD.spawnMs) * 0.05;
-      DD.ttlGood += (DD.ttlGoodBase - DD.ttlGood) * 0.05;
-      // keep ratios stable
-    }
-
-    // If fever is too high, don’t harden further (avoid overload)
-    if(fever >= 92){
-      DD.spawnMs = clamp(DD.spawnMs + 60, 650, 1400);
-      DD.ttlGood = clamp(DD.ttlGood + 60, 1100, 2600);
-      coach('FEVER สูงมาก! ใจเย็น ๆ เล็งกลางจอแล้วค่อยยิงนะ', 'Coach');
-    }
-  }
-
-  function predictorTick(features){
-    const t = nowMs();
-
-    const fever = clamp(features?.fever ?? 0, 0, 100);
-    const miss = clamp(features?.miss ?? 0, 0, 999);
-    const combo = clamp(features?.combo ?? 0, 0, 999);
-
-    // fever slope
-    let slope = 0;
-    if(T.lastFever != null) slope = fever - T.lastFever;
-    T.lastFever = fever;
-
-    // risk heuristics (0..1)
-    // - miss burst in last 5s (passed via features)
-    // - fever too high
-    // - combo collapsed
-    const missBurst = clamp(features?.missBurst5 ?? 0, 0, 9);
-    const expBurst  = clamp(features?.expireBurst5 ?? 0, 0, 9);
-
-    let risk = 0;
-    risk += Math.min(0.55, missBurst * 0.22);
-    risk += Math.min(0.30, expBurst  * 0.12);
-    risk += (fever > 85 ? (fever-85)/100 : 0);
-    risk += (combo === 0 ? 0.10 : 0);
-
-    // cap + smooth
-    risk = clamp(risk, 0, 1);
-    P.risk = P.risk*0.65 + risk*0.35;
-
-    P.comboNow = combo;
-    P.fever = fever;
-    P.feverSlope = slope;
-
-    // optional DL hook (lightweight inference only)
-    if(typeof dlHook === 'function'){
-      try{
-        const out = dlHook(features) || {};
-        const r2 = clamp(out.risk ?? P.risk, 0, 1);
-        P.risk = P.risk*0.5 + r2*0.5;
-        if(out.tip) coach(out.tip, 'AI');
-      }catch(_){}
-    }
-
-    // action suggestions (do NOT spawn here; just suggest)
-    // If risk high: suggest spawn shield or slightly soften for 3s
-    if(P.risk >= 0.72){
-      setAssistSoft(t, 3.5);
-      coach('ระวัง! กำลังพลาดติด ๆ กัน 🛡️ ลองเล็งกลางจอ/อย่ายิงรัว', 'Coach');
-      emit('gj:ai:suggest', { type:'assist', what:'shieldOrStar', risk:P.risk });
-    }else if(P.risk <= 0.22 && combo >= 5){
-      // a bit more challenge
-      setAssistHarden(t, 2.5);
-      emit('gj:ai:suggest', { type:'challenge', what:'moreJunk', risk:P.risk });
-    }
-  }
-
-  // --- Mission progress ---
-  function onHitGood(groupId){
-    const g = M.goals[0];
-    if(!g) return;
-
-    // Mini quest window logic
-    const mi = M.mini;
-    const now = nowMs();
-    if(!mi.windowStartAt) mi.windowStartAt = now;
-    const elapsed = (now - mi.windowStartAt)/1000;
-    if(elapsed > mi.windowSec){
-      resetMiniWindow(now);
-    }
-    if(groupId && !mi.done){
-      mi.groups.add(Number(groupId));
-      mi.cur = summarizeSetSize(mi.groups);
-      if(mi.cur >= mi.target){
-        mi.done = true;
-        // reward: suggest a star/shield spawn (engine decides)
-        emit('gj:ai:suggest', { type:'reward', what:'powerup', pick:'shield', reason:'miniDone' });
-        coach(`สุดยอด! ครบ ${mi.target} หมู่ใน ${mi.windowSec} วิ 🎁 ได้โบนัส!`, 'Coach');
-      }
-    }
-
-    // GOAL chain updates
-    if(g.id === 'G1'){
-      g.cur++;
-      if(g.cur >= g.target) g.done = true;
-    } else if(g.id === 'G2'){
-      // require group id 1..5
-      if(groupId){
-        g.groups.add(Number(groupId));
-        g.cur = summarizeSetSize(g.groups);
-        if(g.cur >= g.target) g.done = true;
-      }
-    } else if(g.id === 'G3'){
-      // activated when fever >=75 (handled in onTick1s)
-      // here just progress if active and no miss occurred
-    }
-
-    publishQuestUpdate();
-    if(g.done) nextGoal();
-  }
-
-  function onMiss(){
-    // if G3 active, miss breaks streak
-    const g = M.goals[0];
-    if(g && g.id === 'G3' && g.active){
-      g.cur = 0;
-      g.startedAt = nowMs();
-      coach('พลาดแล้ว! ลองใหม่อีกครั้งในช่วง FEVER 😄', 'Coach');
-      publishQuestUpdate();
-    }
-  }
-
-  function onTickGoal3(features){
-    const g = M.goals[0];
-    if(!g || g.id !== 'G3') return;
-
-    const fever = clamp(features?.fever ?? 0, 0, 100);
-    const now = nowMs();
-
-    if(!g.active){
-      if(fever >= 75){
-        g.active = true;
-        g.startedAt = now;
-        g.cur = 0;
-        coach('เข้า FEVER แล้ว! เอาตัวรอด 10 วิแบบไม่ MISS!', 'Coach');
-      }
-    }else{
-      // active: count seconds survived since startedAt, but reset happens in onMiss()
-      const sec = Math.floor((now - g.startedAt)/1000);
-      g.cur = clamp(sec, 0, g.target);
-      if(g.cur >= g.target){
-        g.done = true;
-        coach('ผ่านแล้ว! เก่งมาก 🎉', 'Coach');
-      }
-    }
-
-    publishQuestUpdate();
-    if(g.done) nextGoal();
-  }
-
-  // --- Telemetry ---
-  function telemetryPush(features){
-    if(!features) return;
-    const row = Object.assign({}, features);
-    row.t = nowMs();
-    row.seed = seed ?? null;
-    row.mode = mode;
-    T.samples.push(row);
-    if(T.samples.length > T.max) T.samples.shift();
-  }
-
-  // public API
-  const API = {
-    bindHUD(bind={}){
-      HUD.setGoalText = bind.setGoalText || null;
-      HUD.setMiniText = bind.setMiniText || null;
-      HUD.setMissionPeek = bind.setMissionPeek || null;
-      return API;
-    },
-
-    getDD(){
-      // engine uses this to spawn / TTL / ratios
-      return {
-        enabled: DD.enabled,
-        spawnMs: Math.round(DD.spawnMs),
-        ttlGood: Math.round(DD.ttlGood),
-        ttlPower: Math.round(DD.ttlPower),
-        ratio: { good:DD.pGood, junk:DD.pJunk, star:DD.pStar, shield:DD.pShield },
-        softenUntil: DD.softenUntil,
-        hardenUntil: DD.hardenUntil
-      };
-    },
-
-    resetMissions(){
-      const fresh = defaultMissions();
-      M.goals = fresh.goals;
-      M.mini  = fresh.mini;
-      resetMiniWindow(nowMs());
-      publishQuestUpdate();
-    },
-
-    onStart(ctx={}){
-      API.resetMissions();
-      emit('gj:ai:start', {
-        mode,
-        seed: seed ?? null,
-        timePlanSec: ctx.timePlanSec ?? null,
-        view: ctx.view ?? null,
-        diff: ctx.diff ?? null
-      });
-    },
-
-    onHit(e={}){
-      // unify events from engine
-      const kind = String(e.kind||'').toLowerCase();
-      const gid = Number(e.groupId||0) || null;
-
-      if(kind === 'good'){
-        onHitGood(gid);
-      }else if(kind === 'junk'){
-        onMiss();
-      }
-      // star/shield don't affect mission directly (can be extended)
-    },
-
-    onExpireGood(e={}){
-      onMiss();
-    },
-
-    onTick1s(features={}){
-      // missions
-      onTickGoal3(features);
-
-      // predictor
-      predictorTick(features);
-
-      // DD adjust
-      ddAdjust(features);
-
-      // telemetry
-      telemetryPush(features);
-
-      // keep quest visible updated (mini timer)
-      publishQuestUpdate();
-    },
-
-    onEnd(final={}){
-      emit('gj:ai:end', { mode, risk:P.risk, samples: Math.min(T.samples.length, 9999) });
-
-      // return additions to summary (merge in safe)
-      return {
-        ai: {
-          mode,
-          risk: Number(P.risk.toFixed(3)),
-          dd: API.getDD(),
-          miniDone: !!M.mini.done,
-          goalsDone: final.goalsDone ?? null,
-          telemetryN: T.samples.length
-        },
-        telemetry: {
-          // keep lightweight: last 20 seconds only for summary
-          tail: T.samples.slice(Math.max(0, T.samples.length-20))
-        }
-      };
-    },
-
-    exportTelemetry(){
-      // you may pipe this to Apps Script later
-      return T.samples.slice();
-    }
+  // ---------- DD FAIR ----------
+  // หลักการ: ถ้า miss/expire burst สูง -> “ผ่อน” (ช้าลง + TTL ยาวขึ้น + junk ลด)
+  // ถ้าเล่นดี -> “เร้าใจ” (เร็วขึ้นนิด + junk เพิ่มนิด + TTL สั้นลงเล็กน้อย)
+  const DD = {
+    spawnMs: 900,
+    ttlGood: 1600,
+    ttlPower: 1700,
+    ratio: { good:0.70, junk:0.26, star:0.02, shield:0.02 }
   };
 
-  return API;
+  // rate-limit coach tips
+  let lastCoachMs = 0;
+  function coach(msg, tag='tip'){
+    const t = nowMs();
+    if(t - lastCoachMs < 3600) return; // 3.6s
+    lastCoachMs = t;
+    try{ emit('hha:coach', { msg, tag }); }catch{}
+  }
+
+  function suggestAssistShieldOrStar(pick){
+    try{
+      WIN.dispatchEvent(new CustomEvent('gj:ai:suggest', { detail:{ type:'assist', what:'shieldOrStar', pick } }));
+    }catch{}
+  }
+
+  function suggestRewardPowerup(pick){
+    try{
+      WIN.dispatchEvent(new CustomEvent('gj:ai:suggest', { detail:{ type:'reward', what:'powerup', pick } }));
+    }catch{}
+  }
+
+  function applyDD({acc, missBurst5, expireBurst5, fever, missRate}){
+    if(!isPlay) return;
+
+    // base
+    let spawn = DD.spawnMs;
+    let ttlG  = DD.ttlGood;
+
+    // difficulty signals
+    const badBurst = (missBurst5 >= 2) || (expireBurst5 >= 2);
+    const highFever = fever >= 70;
+
+    if(badBurst || highFever || missRate > 0.28){
+      // ease
+      spawn = clamp(spawn + 90, 860, 1040);
+      ttlG  = clamp(ttlG  + 120, 1580, 2000);
+
+      // reduce junk a bit, add small shield
+      const junk = clamp(DD.ratio.junk - 0.02, 0.18, 0.30);
+      const good = clamp(DD.ratio.good + 0.02, 0.62, 0.78);
+
+      DD.ratio = { good, junk, star:0.02, shield: clamp(1 - good - junk - 0.02, 0.02, 0.08) };
+    }
+    else if(acc >= 0.82 && missRate < 0.18 && fever < 55){
+      // excite
+      spawn = clamp(spawn - 60, 760, 980);
+      ttlG  = clamp(ttlG  - 80, 1320, 1700);
+
+      const junk = clamp(DD.ratio.junk + 0.02, 0.22, 0.34);
+      const good = clamp(DD.ratio.good - 0.02, 0.60, 0.76);
+
+      DD.ratio = { good, junk, star:0.02, shield: clamp(1 - good - junk - 0.02, 0.02, 0.06) };
+    }
+
+    DD.spawnMs = spawn;
+    DD.ttlGood = ttlG;
+    DD.ttlPower = clamp(DD.ttlPower, 1500, 1900);
+  }
+
+  function predictionTips({missBurst5, expireBurst5, fever, combo, miss}){
+    // “AI Prediction” แบบเบา ๆ แต่ใช้งานจริงได้
+    if(missBurst5 >= 2){
+      coach('ระวัง! พลาดติด ๆ กัน ลอง “นิ่ง 1 วิ” แล้วค่อยยิง 🎯', 'pred_miss_burst');
+      suggestAssistShieldOrStar(miss >= 3 ? 'shield' : 'star');
+    }
+    else if(expireBurst5 >= 2){
+      coach('เป้าหายบ่อย = ช้าไปนิด! ลองเล็งกลางจอแล้วกดเร็วขึ้น ⚡', 'pred_expire_burst');
+      suggestAssistShieldOrStar('star');
+    }
+    else if(fever >= 75){
+      coach('FEVER สูง! โฟกัส “ของดีทีละชิ้น” อย่าฝืนยิงมั่ว 🧠', 'pred_fever');
+    }
+    else if(combo >= 7){
+      coach('กำลังมา! อีกนิดจะคอมโบใหญ่ 🔥', 'pred_combo');
+    }
+  }
+
+  // ---------- Hooks called by engine ----------
+  function onStart(meta={}){
+    ensureGoalInitialized();
+    resetMiniWindow();
+    resetNoMiss();
+    lastCoachMs = 0;
+
+    // research: fixed dd
+    if(!isPlay){
+      DD.spawnMs = 900;
+      DD.ttlGood = 1600;
+      DD.ttlPower = 1700;
+      DD.ratio = { good:0.70, junk:0.26, star:0.02, shield:0.02 };
+    }
+
+    coach('เริ่มเลย! เก็บของดี เลี่ยงของเสีย ⭐🛡️ มีโบนัสช่วย', 'start');
+  }
+
+  function onHit(evt={}){
+    // evt: {kind:'good'|'junk', groupId, shieldRemaining, fever, score, combo, miss}
+    const kind = String(evt.kind||'').toLowerCase();
+
+    // MINI window timeout reset
+    const t = nowMs();
+    if(t - M.miniStartMs > M.miniWindowSec*1000){
+      resetMiniWindow();
+    }
+
+    if(kind === 'good'){
+      // record groups for MINI
+      const gid = Number(evt.groupId||0);
+      if(gid>=1 && gid<=5) M.miniGroups.add(gid);
+
+      // if mini success
+      if(!M.miniDone && M.miniGroups.size >= M.miniTarget){
+        M.miniDone = true;
+
+        // reward: deterministic-ish pick using rng
+        const pick = (rng() < 0.55) ? 'shield' : 'star';
+        suggestRewardPowerup(pick);
+        coach(`สุดยอด! ครบ ${M.miniTarget} หมู่ใน ${M.miniWindowSec} วิ 🎁 ได้โบนัส!`, 'mini_done');
+      }
+    }
+
+    // GOAL progress update
+    const g = currentGoal();
+
+    if(g.metric === 'hitGood'){
+      if(kind === 'good'){
+        M.goalCur = clamp(M.goalCur + 1, 0, g.target);
+        if(M.goalCur >= g.target) nextGoal();
+      }
+    }
+    else if(g.metric === 'comboMax'){
+      // engine ส่ง combo ปัจจุบันมาแล้ว
+      const c = Number(evt.combo||0);
+      M.goalCur = clamp(Math.max(M.goalCur, c), 0, g.target);
+      if(M.goalCur >= g.target) nextGoal();
+    }
+    else if(g.metric === 'noMissSec'){
+      // ถ้า miss เพิ่ม จะ reset
+      const missNow = Number(evt.miss||0);
+      if(missNow > M.lastMissCount){
+        M.lastMissCount = missNow;
+        resetNoMiss();
+        M.goalCur = 0;
+        coach('โอ๊ะ พลาดแล้ว! ลองใหม่: “หลบของเสีย 6 วิ”', 'goal_reset');
+      }
+    }
+    else if(g.metric === 'missCap'){
+      // goal นี้จะตัดสินตอนจบเป็นหลัก แต่แสดงความคืบหน้าเป็น “เหลือโควตา”
+      const missNow = Number(evt.miss||0);
+      const left = clamp(g.target - missNow, 0, g.target);
+      M.goalCur = left; // แสดงเป็น “โควตาที่เหลือ”
+    }
+
+    updateQuestEmit(false);
+  }
+
+  function onExpireGood(evt={}){
+    // optional: could nudge mini reset or coach
+    // (ปล่อยให้ prediction ทำงานจาก burst ที่ engine ส่งมา)
+  }
+
+  function onTick1s(m={}){
+    // m: {acc, missRate, missBurst5, expireBurst5, fever, combo, miss, missBurst}
+    const g = currentGoal();
+
+    // noMissSec goal update
+    if(g.metric === 'noMissSec'){
+      const now = nowMs();
+      M.noMissTimerSec = Math.floor((now - M.noMissStartMs)/1000);
+      M.goalCur = clamp(M.noMissTimerSec, 0, g.target);
+      if(M.goalCur >= g.target) nextGoal();
+    }
+
+    // MINI timer update
+    const t = nowMs();
+    if(t - M.miniStartMs > M.miniWindowSec*1000){
+      // restart mini window smoothly
+      resetMiniWindow();
+    }
+
+    // Apply DD + prediction (play only)
+    applyDD(m);
+    predictionTips(m);
+
+    updateQuestEmit(false);
+  }
+
+  function onEnd(meta={}){
+    // meta: {reason, goalsDone?}
+    const allDone = (M.goalsCleared >= GOALS.length);
+    updateQuestEmit(allDone);
+
+    // DL-ready tail (features)
+    const featureTail = {
+      aiPack: 'fair_v1',
+      goalsCleared: M.goalsCleared,
+      miniDone: !!M.miniDone,
+      dd: {
+        spawnMs: DD.spawnMs,
+        ttlGood: DD.ttlGood,
+        ratio: DD.ratio
+      }
+    };
+
+    return {
+      ai: featureTail
+    };
+  }
+
+  function getDD(){
+    // always return object (engine uses it)
+    return {
+      spawnMs: DD.spawnMs,
+      ttlGood: DD.ttlGood,
+      ttlPower: DD.ttlPower,
+      ratio: Object.assign({}, DD.ratio)
+    };
+  }
+
+  return {
+    bindHUD,
+    getDD,
+    onStart,
+    onHit,
+    onExpireGood,
+    onTick1s,
+    onEnd
+  };
 }
