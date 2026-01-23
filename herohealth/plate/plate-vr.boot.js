@@ -2,8 +2,9 @@
 // PlateVR Boot — PRODUCTION
 // ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
-// ✅ HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:power, hha:end
-// ✅ End overlay: aria-hidden only
+// ✅ HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ Phase mood (hha:phase -> body class plate-storm / plate-boss)
+// ✅ End overlay aria-hidden only
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params
 
@@ -42,7 +43,6 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
 function pct(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
@@ -73,9 +73,9 @@ function showCoach(msg, meta='Coach'){
 }
 
 function wireHUD(){
-  const hudScore = DOC.getElementById('hudScore');
-  const hudTime  = DOC.getElementById('hudTime');
-  const hudCombo = DOC.getElementById('hudCombo');
+  const hudScore  = DOC.getElementById('hudScore');
+  const hudTime   = DOC.getElementById('hudTime');
+  const hudCombo  = DOC.getElementById('hudCombo');
   const hudShield = DOC.getElementById('hudShield');
 
   const goalName = DOC.getElementById('goalName');
@@ -92,6 +92,7 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+    if(hudShield) hudShield.textContent = String(d.shield ?? d.shieldCount ?? 0);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -122,14 +123,20 @@ function wireHUD(){
     }
   });
 
-  WIN.addEventListener('hha:power', (e)=>{
-    const d = e.detail || {};
-    if(hudShield) hudShield.textContent = String(d.shield ?? 0);
-  });
-
   WIN.addEventListener('hha:coach', (e)=>{
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
+  });
+
+  // phase mood
+  WIN.addEventListener('hha:phase', (e)=>{
+    const d = e.detail || {};
+    const b = DOC.body;
+    b.classList.toggle('plate-storm', !!d.storm);
+    b.classList.toggle('plate-boss',  !!d.boss);
+
+    if(d.wave === 'storm') showCoach('⚡ STORM! ของหวาน/ทอดมาเร็วขึ้น!', 'System');
+    if(d.wave === 'boss')  showCoach('👑 BOSS! ตั้งสติแล้วเล็งให้แม่น!', 'System');
   });
 }
 
@@ -157,20 +164,10 @@ function wireEndSummary(){
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
-  let overlayOpened = false;
-
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-
-    // ✅ Guard: ignore bogus end events that carry no useful data
-    const scoreMaybe = Number(d.scoreFinal ?? d.score ?? NaN);
-    const hasRealScore = Number.isFinite(scoreMaybe) && scoreMaybe >= 0;
-    const hasReason = typeof d.reason === 'string' && d.reason.length > 0;
-
-    // If someone dispatches hha:end {} accidentally -> ignore
-    if(!hasReason && !hasRealScore) return;
-    if(overlayOpened) return;
-    overlayOpened = true;
+    // guard: ถ้า event ว่าง อย่าเปิดสรุปผล
+    if(!d || (Object.keys(d).length === 0)) return;
 
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
@@ -190,7 +187,9 @@ function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);
+
+  // ✅ default 90 for Plate (ดีกับภารกิจ 2 ชั้น + ป.5)
+  const time = clamp(qs('time','90'), 20, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
