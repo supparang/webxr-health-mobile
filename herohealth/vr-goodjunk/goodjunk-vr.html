@@ -1,10 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run)
+GoodJunkVR RUN — PRODUCTION (Spacious Layout vA)
 ✅ CSS: ./goodjunk-vr.css
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js (FAIR PACK)
-✅ A-Frame minimal scene for Enter VR reliability
-✅ Spacious gameplay + safe spawn vars: --gj-top-safe / --gj-bottom-safe
+✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
+✅ Layout: Minimal HUD (default) + Missions Peek shows GOAL/MINI
+✅ Auto-hide GOAL/MINI cards if not initialized (— / 0/0)
+✅ Measures safe-zone => --gj-top-safe / --gj-bottom-safe for safe spawning
 -->
 <!doctype html>
 <html lang="th">
@@ -18,16 +19,25 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   <link rel="stylesheet" href="./goodjunk-vr.css" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Logging + VR UI -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- Boot (module) -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
+
+  <style>
+    /* A: make default HUD minimal (hide GOAL/MINI row unless Missions Peek) */
+    body.gj.minimal-hud .gj-hud-top .quest-row{ display:none !important; }
+    body.gj.minimal-hud .gj-hud-bot{ opacity:.92; }
+    body.gj.minimal-hud .gj-hud-top{ padding-bottom: 2px; }
+
+    /* When HUD hidden -> still keep topbar visible */
+    body.hud-hidden .gj-topbar{ opacity: .98; }
+
+    /* Missions Peek: show GOAL/MINI from HUD text, so keep them in DOM but not on-screen */
+  </style>
 </head>
 
-<body class="gj">
+<body class="gj minimal-hud">
   <!-- A-Frame minimal scene (behind UI) -->
   <a-scene
     embedded
@@ -43,7 +53,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <div class="left">
       <div class="gj-chip">
         <b>GoodJunkVR</b>
-        <span id="gjChipMeta" style="opacity:.9">view=auto · run=play</span>
+        <span style="opacity:.75" id="gjChipMeta">view=auto · run=play</span>
       </div>
     </div>
     <div class="right">
@@ -60,26 +70,23 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         <div class="hud-label">SCORE</div>
         <div class="hud-value" id="hud-score">0</div>
       </div>
-
       <div class="hud-pill">
         <div class="hud-label">TIME</div>
         <div class="hud-value"><span id="hud-time">0</span>s</div>
       </div>
-
       <div class="hud-pill warn">
         <div class="hud-label">MISS</div>
         <div class="hud-value" id="hud-miss">0</div>
       </div>
-
       <div class="hud-pill grade">
         <div class="hud-label">GRADE</div>
         <div class="hud-value" id="hud-grade">—</div>
       </div>
     </div>
 
-    <!-- GOAL/MINI (compact) -->
-    <div class="quest-row">
-      <div class="quest-card goal">
+    <!-- (kept in DOM for text source; hidden by minimal-hud) -->
+    <div class="quest-row" id="questRow">
+      <div class="quest-card goal" id="goalCard">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
         <div class="q-desc" id="goalDesc">—</div>
         <div class="q-bar">
@@ -88,7 +95,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         </div>
       </div>
 
-      <div class="quest-card mini">
+      <div class="quest-card mini" id="miniCard">
         <div class="q-title">MINI</div>
         <div class="q-desc" id="hud-mini">—</div>
         <div class="q-bar">
@@ -99,12 +106,12 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </section>
 
-  <!-- HUD BOTTOM -->
+  <!-- HUD BOTTOM (keep compact) -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever" id="gjHudFever">
       <div class="meter-title">FEVER</div>
       <div class="meter-bar"><div class="meter-fill" id="feverFill"></div></div>
-      <div class="meter-num"><span id="feverText">18%</span> <span style="opacity:.7">ยิ่งสูงยิ่งเสี่ยง</span></div>
+      <div class="meter-num"><span id="feverText">0%</span> <span style="opacity:.7">ยิ่งสูงยิ่งเสี่ยง</span></div>
     </div>
 
     <div class="meter shield" id="gjHudShield">
@@ -151,6 +158,10 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
 
+      const questRow = document.getElementById('questRow');
+      const goalCard = document.getElementById('goalCard');
+      const miniCard = document.getElementById('miniCard');
+
       const v = qs('view','auto');
       const run  = qs('run','play');
       const diff = qs('diff','normal');
@@ -167,60 +178,67 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         setTimeout(updateSafe, 0);
       });
 
+      function isBlankOrZeroMissions(){
+        const goal = (document.getElementById('hud-goal')?.textContent || '—').trim();
+        const cur  = Number((document.getElementById('hud-goal-cur')?.textContent||'0').trim())||0;
+        const tar  = Number((document.getElementById('hud-goal-target')?.textContent||'0').trim())||0;
+        const mini = (document.getElementById('hud-mini')?.textContent || '—').trim();
+        const goalBlank = (goal==='—' || tar<=0);
+        const miniBlank = (mini==='—');
+        return { goalBlank, miniBlank, cur, tar, goal, mini };
+      }
+
+      // Auto-hide GOAL/MINI row if not initialized (prevents the “HUD blocking but useless” feeling)
+      function refreshMissionVisibility(){
+        const st = isBlankOrZeroMissions();
+        if(goalCard) goalCard.style.display = st.goalBlank ? 'none' : '';
+        if(miniCard) miniCard.style.display = st.miniBlank ? 'none' : '';
+        // if both blank -> hide whole row (even if minimal-hud removed)
+        if(questRow) questRow.style.display = (st.goalBlank && st.miniBlank) ? 'none' : '';
+      }
+
       function toggleMissions(){
+        refreshMissionVisibility();
         document.body.classList.toggle('show-missions');
         const shown = document.body.classList.contains('show-missions');
         peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
         if(shown){
-          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
-          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
+          const st = isBlankOrZeroMissions();
+          peekGoal.textContent = st.goalBlank ? '—' : `${st.goal} (${st.cur}/${st.tar})`;
+          peekMini.textContent = st.miniBlank ? '—' : st.mini;
         }
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
+      // Re-check missions texts periodically (engine updates HUD)
+      setInterval(refreshMissionVisibility, 350);
+
       // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-
       function updateSafe(){
         try{
-          const root = document.documentElement;
-
-          // safe-area inset top from CSS var
-          const satStr = getComputedStyle(root).getPropertyValue('--sat');
-          const sat = parseFloat(String(satStr||'0')) || 0;
+          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
 
           const topbarH = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
+          const hudTopH = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
+          const hudBotH = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          // if HUD hidden -> make top safe smaller
-          const hudTopEl = document.getElementById('gjHudTop');
-          const hudBotEl = document.getElementById('gjHudBot');
+          // Keep top safe tight (topbar + score row only in minimal mode)
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbarH + hudTopH + 10 + sat));
 
-          const hudTopH = (hudTopEl && getComputedStyle(hudTopEl).display !== 'none')
-            ? (hudTopEl.getBoundingClientRect().height || 0)
-            : 0;
-
-          const hudBotH = (hudBotEl && getComputedStyle(hudBotEl).display !== 'none')
-            ? (hudBotEl.getBoundingClientRect().height || 0)
-            : 0;
-
-          // make gameplay generous: add only a small margin
-          root.style.setProperty('--gj-top-safe', px(topbarH + hudTopH + 10 + sat));
-          root.style.setProperty('--gj-bottom-safe', px(Math.max(84, hudBotH + 10)));
+          // Bottom safe: leave room for VR UI row + system bar (approx)
+          // (hudBot already includes sab padding, but VRUI floats too)
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(140, hudBotH + 26)));
         }catch(_){}
       }
-
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
+      setInterval(updateSafe, 600);
 
-      // view class (optional) for css tuning
-      try{
-        const vv = String(qs('view','')||'').toLowerCase();
-        if(vv) document.body.classList.add('view-'+vv);
-      }catch(_){}
     })();
   </script>
 </body>
