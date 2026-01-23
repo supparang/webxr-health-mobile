@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — ML/DL Export</title>
+  <meta name="color-scheme" content="dark" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --r:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .wrap{ max-width: 980px; margin:0 auto; padding: calc(var(--sat) + 16px) 14px calc(var(--sab) + 18px); }
+    .title{ font-size:22px; font-weight:1000; letter-spacing:.2px; }
+    .sub{ color:var(--muted); margin-top:6px; line-height:1.45; }
+    .grid{ display:grid; grid-template-columns: 1.2fr .8fr; gap:12px; margin-top:14px; }
+    @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+    .card{
+      background: rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: var(--r);
+      padding: 14px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 36px rgba(0,0,0,.35);
+    }
+    .h{ font-weight:1000; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+    label{ display:flex; gap:8px; align-items:center; color:var(--muted); font-weight:800; font-size:13px; }
+    input[type="number"], input[type="text"], select{
+      background: rgba(15,23,42,.70);
+      border: 1px solid rgba(148,163,184,.18);
+      color: var(--text);
+      padding: 10px 10px;
+      border-radius: 14px;
+      outline:none;
+      font-weight:900;
+    }
+    .btn{
+      border: 1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.70);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 1000;
+      cursor:pointer;
+    }
+    .btn-strong{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); }
+    .btn-warn{ background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.35); }
+    .btn-bad{ background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.35); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+    .log{ margin-top:10px; padding:10px; border-radius: 14px;
+      border:1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.55); color: rgba(229,231,235,.92);
+      max-height: 240px; overflow:auto; }
+    .kpi{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:12px; }
+    @media (max-width:680px){ .kpi{ grid-template-columns:1fr; } }
+    .stat{ padding:12px; border-radius:18px; border:1px solid rgba(148,163,184,.18); background: rgba(15,23,42,.55); }
+    .stat .k{ color:var(--muted); font-weight:900; font-size:12px; }
+    .stat .v{ font-weight:1000; font-size:18px; margin-top:4px; }
+    .note{ color: var(--muted); margin-top:10px; line-height:1.5; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 10px; border-radius: 999px;
+      background: rgba(148,163,184,.10); border:1px solid rgba(148,163,184,.18);
+      font-weight:1000; font-size:12px; color: rgba(229,231,235,.95);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">🤖 HeroHealth — ML/DL Export</div>
+    <div class="sub">
+      ดึงข้อมูลจาก <span class="mono">localStorage</span> (HHA_SUMMARY_HISTORY) → สร้าง dataset สำหรับ ML/DL<br>
+      ได้ไฟล์: <span class="pill">samples.jsonl</span> <span class="pill">events.jsonl</span> <span class="pill">samples.csv</span> + split <span class="pill">train/val/test</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="h">⚙️ ตั้งค่า Export</div>
+
+        <div class="row">
+          <label>RunMode
+            <select id="runMode">
+              <option value="any">any</option>
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
+          </label>
+
+          <label>Game
+            <select id="gameTag">
+              <option value="any" selected>any</option>
+              <option value="GroupsVR">GroupsVR</option>
+              <option value="GoodJunkVR">GoodJunkVR</option>
+              <option value="HydrationVR">HydrationVR</option>
+              <option value="PlateVR">PlateVR</option>
+              <option value="HygieneVR">HygieneVR</option>
+            </select>
+          </label>
+
+          <label>Max Sessions
+            <input id="maxSessions" type="number" value="200" min="1" max="9999" />
+          </label>
+
+          <label>Split (Train/Val/Test)
+            <input id="split" type="text" value="0.8,0.1,0.1" />
+          </label>
+        </div>
+
+        <div class="row">
+          <button class="btn btn-strong" id="btnScan">🔎 Scan Data</button>
+          <button class="btn btn-strong" id="btnExport">⬇️ Export Dataset</button>
+          <button class="btn btn-warn" id="btnExportAll">⬇️ Export ALL (ignore filters)</button>
+          <button class="btn btn-bad" id="btnClear">🧹 Clear History (local only)</button>
+        </div>
+
+        <div class="note">
+          - Split ใช้ hash ของ <span class="mono">sessionId|seed|gameTag</span> → deterministic (กันข้อมูลรั่ว)<br>
+          - ถ้า session ไม่มี <span class="mono">mlTrace</span> จะถูกข้ามอัตโนมัติ
+        </div>
+
+        <div class="log mono" id="log"></div>
+      </div>
+
+      <div class="card">
+        <div class="h">📊 สรุปข้อมูล</div>
+        <div class="kpi">
+          <div class="stat"><div class="k">Sessions</div><div class="v" id="kSessions">0</div></div>
+          <div class="stat"><div class="k">Samples</div><div class="v" id="kSamples">0</div></div>
+          <div class="stat"><div class="k">Events</div><div class="v" id="kEvents">0</div></div>
+        </div>
+        <div class="kpi">
+          <div class="stat"><div class="k">Train</div><div class="v" id="kTrain">0</div></div>
+          <div class="stat"><div class="k">Val</div><div class="v" id="kVal">0</div></div>
+          <div class="stat"><div class="k">Test</div><div class="v" id="kTest">0</div></div>
+        </div>
+        <div class="note">
+          Tip: ถ้าอยากเทรน “ทำนายพลาดใน 10 วิถัดไป” ใช้ label:
+          <span class="mono">y_next10s_miss</span> หรือ <span class="mono">y_next10s_missCount</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./ml-export.js"></script>
+</body>
+</html>
