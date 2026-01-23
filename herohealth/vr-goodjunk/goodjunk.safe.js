@@ -1,11 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — FAIR PACK S (v3: LOOSER + ANTI-OVERLAP + DIFF TIMING)
-// ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe)
-// ✅ MISS = good expired + junk hit (shield blocks junk => NOT MISS)
-// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score + reduce fever
-// ✅ 🛡 Shield: blocks next junk hit (blocked junk does NOT count as miss)
-// ✅ Supports: tap/click OR crosshair shoot via event hha:shoot
-// ✅ Anti-overlap + edge padding => more "โล่ง ๆ" + playable for ป.5
+// GoodJunkVR SAFE — FAIR PACK (v3: GOAL+MINI + STAR+SHIELD + SHOOT + NO-FLICKER)
+// ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe from goodjunk-vr.html updateSafe())
+// ✅ MISS = good expired + junk hit (shield-blocked junk NOT count as miss)
+// ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score + lower fever
+// ✅ 🛡 Shield: blocks next junk hit (cap 3)
+// ✅ Supports: tap/click OR crosshair shoot via event hha:shoot {lockPx}
+// ✅ GOAL system: sequential goals (complete -> next immediately)
+// ✅ MINI system: timed micro-challenge (pass -> swap immediately)
+// ✅ “Not flicker”: TTL >= 1600ms, fade-out, spawn pacing stable
 // Emits: hha:start, hha:score, hha:time, hha:judge, hha:end
 
 'use strict';
@@ -13,7 +15,7 @@
 const WIN = window;
 const DOC = document;
 
-const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+const clamp = (v,min,max)=>Math.max(min,Math.min(max, Number(v)||0));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
 
@@ -25,19 +27,18 @@ function makeRNG(seed){
 
 function getSafeRect(){
   const r = DOC.documentElement.getBoundingClientRect();
-  const top = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-top-safe')) || 140;
+  const top = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-top-safe')) || 160;
   const bot = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-bottom-safe')) || 130;
 
-  const x = 22;
-  const y = Math.max(80, top);
-  const w = Math.max(120, r.width - 44);
+  const x = 18;
+  const y = Math.max(72, top);
+  const w = Math.max(120, r.width - 36);
   const h = Math.max(140, r.height - y - bot);
 
   return { x,y,w,h };
 }
 
 function pickByShoot(lockPx=28){
-  // pick .gj-target closest to center within lockPx window
   const r = DOC.documentElement.getBoundingClientRect();
   const cx = r.left + r.width/2;
   const cy = r.top  + r.height/2;
@@ -57,15 +58,17 @@ function pickByShoot(lockPx=28){
 
     const ex = (b.left + b.right) / 2;
     const ey = (b.top  + b.bottom) / 2;
-    const dx = (ex - cx);
-    const dy = (ey - cy);
+    const dx = ex - cx;
+    const dy = ey - cy;
     const d2 = dx*dx + dy*dy;
 
     if(!best || d2 < best.d2) best = { el, d2 };
   }
-
   return best ? best.el : null;
 }
+
+function $(id){ return DOC.getElementById(id); }
+function setText(node, v){ if(node) node.textContent = String(v); }
 
 export function boot(opts={}){
   const view = String(opts.view || qs('view','mobile')).toLowerCase();
@@ -74,45 +77,29 @@ export function boot(opts={}){
   const timePlan = clamp(Number(opts.time || qs('time','80'))||80, 20, 300);
   const seed = String(opts.seed || qs('seed', Date.now()));
 
-  const elScore = DOC.getElementById('hud-score');
-  const elTime  = DOC.getElementById('hud-time');
-  const elMiss  = DOC.getElementById('hud-miss');
-  const elGrade = DOC.getElementById('hud-grade');
-  const layer   = DOC.getElementById('gj-layer');
+  // HUD refs (top row)
+  const elScore = $('hud-score');
+  const elTime  = $('hud-time');
+  const elMiss  = $('hud-miss');
+  const elGrade = $('hud-grade');
 
-  const elFeverFill = DOC.getElementById('feverFill');
-  const elFeverText = DOC.getElementById('feverText');
-  const elShield    = DOC.getElementById('shieldPills');
+  // GOAL/MINI refs
+  const elHudGoal    = $('hud-goal');
+  const elGoalDesc   = $('goalDesc');
+  const elGoalCur    = $('hud-goal-cur');
+  const elGoalTarget = $('hud-goal-target');
+  const elHudMini    = $('hud-mini');
+  const elMiniTimer  = $('miniTimer');
 
-  // diff tuning (เด็ก ป.5: easy/normal คือแนะนำ)
-  const DIFF = (()=>{
-    if(diff==='easy') return {
-      spawnEveryMs: 980,
-      ttlGoodMs: 1900,
-      ttlPowerMs: 2100,
-      edgePadPx: 46,
-      minSepPx: 92,
-      lockPx: 34
-    };
-    if(diff==='hard') return {
-      spawnEveryMs: 780,
-      ttlGoodMs: 1350,
-      ttlPowerMs: 1500,
-      edgePadPx: 40,
-      minSepPx: 84,
-      lockPx: 26
-    };
-    // normal
-    return {
-      spawnEveryMs: 900,
-      ttlGoodMs: 1600,
-      ttlPowerMs: 1700,
-      edgePadPx: 44,
-      minSepPx: 88,
-      lockPx: 28
-    };
-  })();
+  // meters
+  const elFeverFill = $('feverFill');
+  const elFeverText = $('feverText');
+  const elShield    = $('shieldPills');
 
+  // layers
+  const layer = $('gj-layer');
+
+  // ---------- State ----------
   const S = {
     started:false, ended:false,
     view, run, diff,
@@ -120,12 +107,7 @@ export function boot(opts={}){
     seed, rng: makeRNG(seed),
 
     score:0,
-
-    // ✅ miss split (ตามที่ตกลงไว้)
-    miss:0,
-    miss_goodExpired:0,
-    miss_junkHit:0,
-
+    miss:0,                 // combined miss
     hitGood:0,
     hitJunk:0,
     expireGood:0,
@@ -133,62 +115,264 @@ export function boot(opts={}){
     combo:0,
     comboMax:0,
 
-    // powerups
-    starHit:0,
-    shieldHit:0,
-    junkBlocked:0,
-
     shield:0,
     fever:18,
 
+    // tick/spawn pacing
     lastTick:0,
     lastSpawn:0,
+
+    // goal/mini
+    goalsCleared:0,
+    minisCleared:0,
+
+    goalIndex:0,
+    goalCur:0,
+    goalTarget:0,
+    goalType:'',            // 'goodHit' | 'junkAvoid' | 'combo'
+    goalStartScore:0,
+    goalStartMiss:0,
+
+    miniActive:false,
+    miniEndsAt:0,
+    miniLabel:'',
+    miniRule:'',            // 'hitStar' | 'noMiss' | 'hitGoodN'
+    miniParam:0,
+    miniProgress:0,
+    miniSuccess:false,
+    miniFail:false,
   };
 
+  // ---------- Difficulty knobs ----------
+  // spawn interval + probabilities
+  const D = {
+    spawnMs: diff==='easy' ? 980 : diff==='hard' ? 820 : 900,
+
+    pGood:   diff==='easy' ? 0.74 : diff==='hard' ? 0.66 : 0.70,
+    pJunk:   diff==='easy' ? 0.22 : diff==='hard' ? 0.30 : 0.26,
+    pStar:   0.02,
+    pShield: 0.02,
+
+    ttlGood:   diff==='easy' ? 1750 : diff==='hard' ? 1500 : 1600,
+    ttlJunk:   diff==='easy' ? 1850 : diff==='hard' ? 1550 : 1650,
+    ttlPower:  1750,
+
+    // anti-flicker: fade window
+    fadeMs: 140,
+  };
+
+  // ---------- HUD helpers ----------
   function setFever(p){
     S.fever = clamp(p,0,100);
     if(elFeverFill) elFeverFill.style.width = `${S.fever}%`;
-    if(elFeverText) elFeverText.textContent = `${S.fever}%`;
+    setText(elFeverText, `${S.fever}%`);
   }
-
   function setShieldUI(){
     if(!elShield) return;
     elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';
   }
-
   function computeGrade(){
-    // เกณฑ์เดิม (แฟร์) + ปรับเล็กน้อยให้สัมพันธ์ miss split
-    // (ยัง “ง่ายพอ” สำหรับเด็ก ป.5)
     let g='C';
     if(S.score>=170 && S.miss<=3) g='A';
-    else if(S.score>=110 && S.miss<=6) g='B';
+    else if(S.score>=110) g='B';
     else if(S.score>=65) g='C';
     else g='D';
     return g;
   }
-
   function setHUD(){
-    if(elScore) elScore.textContent = String(S.score);
-    if(elTime)  elTime.textContent  = String(Math.ceil(S.timeLeft));
-    if(elMiss)  elMiss.textContent  = String(S.miss);
-    if(elGrade) elGrade.textContent = computeGrade();
+    setText(elScore, S.score);
+    setText(elTime,  Math.ceil(S.timeLeft));
+    setText(elMiss,  S.miss);
+    setText(elGrade, computeGrade());
 
     setShieldUI();
-    emit('hha:score',{ score:S.score });
+    emit('hha:score', { score:S.score });
   }
 
   function addScore(delta){
     S.score += (delta|0);
-    if(S.score<0) S.score = 0;
+    if(S.score < 0) S.score = 0;
   }
 
-  function addMiss(reason){
-    // MISS = good expired + junk hit (shield block ไม่เป็น miss)
-    S.miss++;
-    if(reason==='goodExpired') S.miss_goodExpired++;
-    if(reason==='junkHit') S.miss_junkHit++;
+  // ---------- Goal/Mini definitions ----------
+  const GOALS = [
+    { type:'goodHit', targetBase: 10, label:'เก็บของดี', desc:'แตะ “ของดี” ให้ครบ' },
+    { type:'combo',   targetBase:  8, label:'คอมโบต่อเนื่อง', desc:'ทำคอมโบให้ถึงเป้าหมาย' },
+    { type:'junkAvoid', targetBase:  0, label:'หลบของขยะ', desc:'ช่วงนี้อย่าโดนขยะเลย' },
+    { type:'goodHit', targetBase: 12, label:'เก็บของดี (ยากขึ้น)', desc:'แตะ “ของดี” ให้ครบ' },
+    { type:'combo',   targetBase: 10, label:'คอมโบใหญ่', desc:'ทำคอมโบให้ถึงเป้าหมาย' },
+  ];
+
+  // MINI: เปลี่ยนไว/ผ่านแล้วสลับทันที
+  const MINIS = [
+    { rule:'noMiss',  sec: 8,  label:'ไม่พลาด!',    desc:'8 วิ ห้าม MISS' },
+    { rule:'hitStar', sec: 10, label:'หา ⭐',        desc:'เก็บดาวให้ได้ 1 ครั้ง' },
+    { rule:'hitGoodN', sec: 7, label:'เก็บดี x3',    desc:'7 วิ เก็บของดี 3 ครั้ง', n:3 },
+    { rule:'hitStar', sec: 10, label:'หา ⭐ อีกครั้ง',desc:'เก็บดาวให้ได้ 1 ครั้ง' },
+    { rule:'noMiss',  sec: 9,  label:'ไม่พลาด (ยาวขึ้น)', desc:'9 วิ ห้าม MISS' },
+    { rule:'hitGoodN', sec: 8, label:'เก็บดี x4',    desc:'8 วิ เก็บของดี 4 ครั้ง', n:4 },
+  ];
+
+  function goalTargetFor(g){
+    // scale a bit with diff
+    const base = g.targetBase;
+    if(g.type==='junkAvoid') return (diff==='hard') ? 0 : 0;
+    if(diff==='easy') return Math.max(6, Math.round(base*0.9));
+    if(diff==='hard') return Math.max(8, Math.round(base*1.15));
+    return base;
   }
 
+  function startGoal(idx){
+    const g = GOALS[idx % GOALS.length];
+    S.goalIndex = idx;
+    S.goalType = g.type;
+    S.goalCur = 0;
+    S.goalTarget = goalTargetFor(g);
+    S.goalStartScore = S.score;
+    S.goalStartMiss = S.miss;
+
+    setText(elHudGoal, g.label);
+    setText(elGoalDesc, g.desc);
+    setText(elGoalCur, S.goalCur);
+    setText(elGoalTarget, S.goalTarget);
+  }
+
+  function completeGoal(){
+    S.goalsCleared++;
+    emit('hha:judge', { type:'perfect', label:'GOAL CLEAR!' });
+
+    // instantly next
+    startGoal(S.goalIndex + 1);
+  }
+
+  function updateGoalProgress(event){
+    // event: {kind:'good'|'junk'|'star'|'shield'|'expireGood'|'missJunk'|'blockJunk'}
+    if(S.goalType==='goodHit'){
+      if(event.kind==='good'){
+        S.goalCur++;
+      }
+    }else if(S.goalType==='combo'){
+      // count current combo (not cumulative) -> use max between updates
+      S.goalCur = Math.max(S.goalCur, S.combo);
+    }else if(S.goalType==='junkAvoid'){
+      // succeed if survive some time with no additional miss (use mini style)
+      // make it simple: requires "no new miss for 10s"
+      // We'll treat this as time-based mini inside goal.
+      // If not active, activate countdown.
+      if(!S._junkAvoidEndsAt){
+        S._junkAvoidEndsAt = WIN.performance.now() + 10000;
+      }
+      // if miss happens, reset timer
+      if(event.kind==='expireGood' || event.kind==='missJunk'){
+        S._junkAvoidEndsAt = WIN.performance.now() + 10000;
+      }
+      const leftMs = Math.max(0, S._junkAvoidEndsAt - WIN.performance.now());
+      const secLeft = Math.ceil(leftMs/1000);
+      S.goalCur = Math.min(S.goalTarget, 10 - secLeft);
+      // treat target=10 as “seconds survived”
+      S.goalTarget = 10;
+      setText(elGoalTarget, S.goalTarget);
+    }
+
+    setText(elGoalCur, S.goalCur);
+
+    if(S.goalType==='junkAvoid'){
+      // complete when timer reached
+      if(S.goalCur >= S.goalTarget){
+        S._junkAvoidEndsAt = 0;
+        completeGoal();
+      }
+      return;
+    }
+
+    if(S.goalCur >= S.goalTarget){
+      completeGoal();
+    }
+  }
+
+  function startMini(){
+    const m = MINIS[S.minisCleared % MINIS.length];
+    S.miniActive = true;
+    S.miniSuccess = false;
+    S.miniFail = false;
+    S.miniProgress = 0;
+
+    S.miniRule = m.rule;
+    S.miniParam = m.n || 0;
+    S.miniLabel = m.label;
+
+    const ends = WIN.performance.now() + (m.sec*1000);
+    S.miniEndsAt = ends;
+
+    setText(elHudMini, `${m.label} — ${m.desc}`);
+    setText(elMiniTimer, `${m.sec}s`);
+  }
+
+  function endMini(success){
+    if(!S.miniActive) return;
+    S.miniActive = false;
+
+    if(success){
+      S.minisCleared++;
+      emit('hha:judge', { type:'perfect', label:'MINI CLEAR!' });
+      addScore(12);
+      setFever(Math.max(0, S.fever - 6));
+    }else{
+      emit('hha:judge', { type:'miss', label:'MINI FAIL' });
+      addScore(-4);
+      setFever(S.fever + 4);
+    }
+
+    // swap immediately
+    startMini();
+    setHUD();
+  }
+
+  function updateMiniTimer(){
+    if(!S.miniActive) return;
+    const leftMs = Math.max(0, S.miniEndsAt - WIN.performance.now());
+    const sec = Math.ceil(leftMs/1000);
+    setText(elMiniTimer, `${sec}s`);
+    if(leftMs<=0){
+      // evaluate if passed
+      if(S.miniRule==='hitStar'){
+        endMini(S.miniProgress >= 1);
+      }else if(S.miniRule==='hitGoodN'){
+        endMini(S.miniProgress >= S.miniParam);
+      }else if(S.miniRule==='noMiss'){
+        // if never failed, success
+        endMini(true);
+      }else{
+        endMini(false);
+      }
+    }
+  }
+
+  function onMiniEvent(kind){
+    if(!S.miniActive) return;
+
+    if(S.miniRule==='hitStar'){
+      if(kind==='star'){
+        S.miniProgress = 1;
+        endMini(true); // instant pass
+      }
+    }else if(S.miniRule==='hitGoodN'){
+      if(kind==='good'){
+        S.miniProgress++;
+        // show progress as “x/y”
+        setText(elMiniTimer, `${S.miniProgress}/${S.miniParam}`);
+        if(S.miniProgress >= S.miniParam){
+          endMini(true); // instant pass
+        }
+      }
+    }else if(S.miniRule==='noMiss'){
+      if(kind==='expireGood' || kind==='missJunk'){
+        endMini(false); // instant fail
+      }
+    }
+  }
+
+  // ---------- Hit logic ----------
   function onHit(kind){
     if(S.ended) return;
 
@@ -199,106 +383,69 @@ export function boot(opts={}){
       addScore(10 + Math.min(10, S.combo));
       setFever(S.fever + 2);
       emit('hha:judge', { type:'good', label:'GOOD' });
+
+      updateGoalProgress({kind:'good'});
+      onMiniEvent('good');
     }
 
     else if(kind==='junk'){
       if(S.shield>0){
         S.shield--;
-        S.junkBlocked++;
         setShieldUI();
         emit('hha:judge', { type:'perfect', label:'BLOCK!' });
+
+        updateGoalProgress({kind:'blockJunk'});
+        onMiniEvent('blockJunk');
       }else{
         S.hitJunk++;
-        addMiss('junkHit');
+        S.miss++;
         S.combo = 0;
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
+
+        updateGoalProgress({kind:'missJunk'});
+        onMiniEvent('missJunk');
       }
     }
 
     else if(kind==='star'){
-      S.starHit++;
       const before = S.miss;
       S.miss = Math.max(0, S.miss - 1);
-      // ถ้าลด miss แล้ว: ลด split โดย “คืนให้ฝั่งที่หนักสุดก่อน”
-      if(before!==S.miss){
-        if(S.miss_junkHit > S.miss_goodExpired && S.miss_junkHit>0) S.miss_junkHit--;
-        else if(S.miss_goodExpired>0) S.miss_goodExpired--;
-      }
       addScore(18);
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
+
+      updateGoalProgress({kind:'star'});
+      onMiniEvent('star');
     }
 
     else if(kind==='shield'){
-      S.shieldHit++;
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
       addScore(8);
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
+
+      updateGoalProgress({kind:'shield'});
+      onMiniEvent('shield');
     }
 
     setHUD();
   }
 
-  // ---- Anti-overlap spawn helpers ----
-  function dist2(ax,ay,bx,by){
-    const dx=ax-bx, dy=ay-by;
-    return dx*dx + dy*dy;
-  }
-
-  function tryPickSpawn(safe, sizePx){
-    // keep away from edges + keep separation from existing targets
-    const pad = DIFF.edgePadPx;
-    const minSep = DIFF.minSepPx;
-
-    const minX = safe.x + pad;
-    const maxX = safe.x + safe.w - pad;
-    const minY = safe.y + pad;
-    const maxY = safe.y + safe.h - pad;
-
-    const els = Array.from(DOC.querySelectorAll('.gj-target'));
-    const pts = els.map(el=>{
-      const b = el.getBoundingClientRect();
-      return { x:(b.left+b.right)/2, y:(b.top+b.bottom)/2 };
-    });
-
-    // attempt N times
-    const attempts = 18;
-    for(let i=0;i<attempts;i++){
-      const x = minX + S.rng()*Math.max(1,(maxX-minX));
-      const y = minY + S.rng()*Math.max(1,(maxY-minY));
-
-      let ok = true;
-      const sep = Math.max(minSep, sizePx*1.25);
-      const sep2 = sep*sep;
-      for(const p of pts){
-        if(dist2(x,y,p.x,p.y) < sep2){ ok=false; break; }
-      }
-      if(ok) return { x, y };
-    }
-
-    // fallback: still return somewhere inside safe (better than nothing)
-    return {
-      x: safe.x + S.rng()*safe.w,
-      y: safe.y + S.rng()*safe.h
-    };
-  }
-
+  // ---------- Spawn ----------
   function spawn(kind){
     if(S.ended || !layer) return;
 
     const safe = getSafeRect();
 
-    const size =
-      (kind==='good') ? 56 :
-      (kind==='junk') ? 58 :
-      52;
+    // keep away from edges a bit (avoid “ชิดล่างขวา”)
+    const pad = 22;
+    const x = safe.x + pad + S.rng()*(Math.max(1, safe.w - pad*2));
+    const y = safe.y + pad + S.rng()*(Math.max(1, safe.h - pad*2));
 
-    const pos = tryPickSpawn(safe, size);
     const t = DOC.createElement('div');
-    t.className = 'gj-target';
+    t.className = 'gj-target spawn';
     t.dataset.kind = kind;
 
     t.textContent =
@@ -306,46 +453,66 @@ export function boot(opts={}){
       (kind==='junk') ? '🍟' :
       (kind==='star') ? '⭐' : '🛡️';
 
-    t.style.left = pos.x+'px';
-    t.style.top  = pos.y+'px';
+    const size =
+      (kind==='good') ? 56 :
+      (kind==='junk') ? 58 :
+      52;
+
+    t.style.left = x+'px';
+    t.style.top  = y+'px';
     t.style.fontSize = size+'px';
 
     let alive = true;
-    const kill = ()=>{
+    const kill = (withFade=false)=>{
       if(!alive) return;
       alive=false;
-      try{ t.remove(); }catch(_){}
+      if(withFade){
+        t.style.transition = `transform ${D.fadeMs}ms ease, opacity ${D.fadeMs}ms ease`;
+        t.style.opacity = '0';
+        t.style.transform = 'translate(-50%,-50%) scale(.90)';
+        setTimeout(()=>{ try{ t.remove(); }catch(_){ } }, D.fadeMs+10);
+      }else{
+        try{ t.remove(); }catch(_){}
+      }
     };
 
     t.addEventListener('pointerdown', ()=>{
       if(!alive || S.ended) return;
-      kill();
+      kill(true);
       onHit(kind);
     });
 
     layer.appendChild(t);
 
-    const ttl = (kind==='star' || kind==='shield') ? DIFF.ttlPowerMs : DIFF.ttlGoodMs;
+    const ttl =
+      (kind==='good') ? D.ttlGood :
+      (kind==='junk') ? D.ttlJunk :
+      D.ttlPower;
 
     setTimeout(()=>{
       if(!alive || S.ended) return;
-      kill();
+      kill(true);
 
+      // only GOOD expiry counts as MISS (per spec)
       if(kind==='good'){
         S.expireGood++;
-        addMiss('goodExpired');
-        S.combo=0;
+        S.miss++;
+        S.combo = 0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
+
+        updateGoalProgress({kind:'expireGood'});
+        onMiniEvent('expireGood');
         setHUD();
       }
     }, ttl);
   }
 
+  // ---------- Crosshair shoot ----------
   function onShoot(ev){
     if(S.ended || !S.started) return;
+    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
 
-    const lockPx = Number(ev?.detail?.lockPx ?? DIFF.lockPx) || DIFF.lockPx;
     const picked = pickByShoot(lockPx);
     if(!picked) return;
 
@@ -354,20 +521,15 @@ export function boot(opts={}){
     onHit(kind);
   }
 
+  // ---------- End ----------
   function endGame(reason='timeup'){
     if(S.ended) return;
     S.ended = true;
 
-    const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : computeGrade();
-
-    const totalGoodSeen = S.hitGood + S.expireGood;
-    const accuracy = (totalGoodSeen + S.hitJunk) > 0
-      ? (S.hitGood / (S.hitGood + S.hitJunk + S.expireGood))
-      : 1;
-
+    const grade = computeGrade();
     const summary = {
       game:'GoodJunkVR',
-      pack:'fair-s',
+      pack:'fair-v3',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -376,27 +538,18 @@ export function boot(opts={}){
       durationPlayedSec: Math.round(S.timePlan - S.timeLeft),
 
       scoreFinal:S.score,
-      grade,
-
-      // miss + split
       miss:S.miss,
-      miss_goodExpired:S.miss_goodExpired,
-      miss_junkHit:S.miss_junkHit,
-
       comboMax:S.comboMax,
-
       hitGood:S.hitGood,
       hitJunk:S.hitJunk,
       expireGood:S.expireGood,
 
-      starHit:S.starHit,
-      shieldHit:S.shieldHit,
-      junkBlocked:S.junkBlocked,
+      goalsCleared:S.goalsCleared,
+      minisCleared:S.minisCleared,
       shieldRemaining:S.shield,
+      fever:S.fever,
 
-      feverEnd:S.fever,
-      accuracy: Number(accuracy.toFixed(3)),
-
+      grade,
       reason
     };
 
@@ -405,6 +558,7 @@ export function boot(opts={}){
     emit('hha:end', summary);
   }
 
+  // ---------- Tick ----------
   function tick(ts){
     if(S.ended) return;
     if(!S.lastTick) S.lastTick = ts;
@@ -413,18 +567,20 @@ export function boot(opts={}){
     S.lastTick = ts;
 
     S.timeLeft = Math.max(0, S.timeLeft - dt);
-    if(elTime) elTime.textContent = String(Math.ceil(S.timeLeft));
+    setText(elTime, Math.ceil(S.timeLeft));
     emit('hha:time', { left:S.timeLeft });
 
-    if(ts - S.lastSpawn >= DIFF.spawnEveryMs){
+    updateMiniTimer();
+
+    // spawn pacing stable
+    if(ts - S.lastSpawn >= D.spawnMs){
       S.lastSpawn = ts;
 
-      // fair distribution:
-      // 70% good, 26% junk, 2% star, 2% shield
+      // fair distribution
       const r = S.rng();
-      if(r < 0.70) spawn('good');
-      else if(r < 0.96) spawn('junk');
-      else if(r < 0.98) spawn('star');
+      if(r < D.pGood) spawn('good');
+      else if(r < D.pGood + D.pJunk) spawn('junk');
+      else if(r < D.pGood + D.pJunk + D.pStar) spawn('star');
       else spawn('shield');
     }
 
@@ -435,14 +591,26 @@ export function boot(opts={}){
     requestAnimationFrame(tick);
   }
 
-  // start
+  // ---------- Start ----------
   S.started = true;
   setFever(S.fever);
   setShieldUI();
   setHUD();
 
+  // init goal + mini immediately so UI never shows — / 0/0
+  startGoal(0);
+  startMini();
+
+  // crosshair shoot listener
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'GoodJunkVR', pack:'fair-s', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', {
+    game:'GoodJunkVR',
+    pack:'fair-v3',
+    view, runMode:run, diff,
+    timePlanSec:timePlan,
+    seed
+  });
+
   requestAnimationFrame(tick);
 }
