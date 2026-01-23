@@ -1,15 +1,13 @@
 <!-- === /herohealth/vr-groups/groups.html ===
-GroupsVR RUN — PRODUCTION (HHA Standard-ish)
-✅ Uses: ../vr/vr-ui.js  (Enter VR / Exit / Recenter + crosshair + hha:shoot)
-✅ Uses: ./groups-vr.css
-✅ Uses: ./groups.safe.js (IIFE engine -> window.GroupsVR.GameEngine)
-✅ HUD: time/score/combo/miss + rank
-✅ Quest: goal + mini quest
-✅ Power: switch meter
-✅ Coach: mood -> image mapping
-✅ End summary + Save last summary + Back hub (?hub=...)
+GroupsVR RUN — PRODUCTION v2.3 (for groups.safe.js IIFE)
+✅ Uses: ./groups.safe.js (window.GroupsVR.GameEngine)
+✅ UI: HUD / Quest / Power / Coach / Start / End summary
+✅ view: respects ?view=... (no override); else auto pc/mobile best-effort
+✅ cVR: practice 15s then auto start real play
+✅ AI Director (heuristic) if ?ai=1&dir=1 (play only)
+✅ Dataset export if ?ai=1&train=1 (CSV download)
+✅ Back HUB via ?hub=...
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -17,323 +15,538 @@ GroupsVR RUN — PRODUCTION (HHA Standard-ish)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Food Groups VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" />
+
   <link rel="stylesheet" href="./groups-vr.css" />
-</head>
 
-<body class="view-mobile">
-  <!-- A-Frame minimal scene for Enter VR reliability -->
-  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: true">
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="cam" look-controls="enabled:true"></a-camera>
-    </a-entity>
-    <a-sky color="#081025"></a-sky>
-  </a-scene>
+  <!-- A-Frame: minimal scene for Enter VR reliability -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- PLAY LAYER (DOM targets mount) -->
-  <div id="playLayer" class="playLayer" aria-label="play layer"></div>
-
-  <!-- HUD -->
-  <div class="hud" aria-hidden="true">
-    <div class="hudLeft">
-      <div class="pill"><span class="lbl">TIME</span><span id="hudTime" class="val">--</span></div>
-      <div class="pill"><span class="lbl">SCORE</span><span id="hudScore" class="val">0</span></div>
-      <div class="pill"><span class="lbl">COMBO</span><span id="hudCombo" class="val">0</span></div>
-      <div class="pill"><span class="lbl">MISS</span><span id="hudMiss" class="val">0</span></div>
-    </div>
-    <div class="hudRight">
-      <div class="pill"><span class="lbl">RANK</span><span id="hudRank" class="val">—</span></div>
-      <div class="pill"><span class="lbl">ACC</span><span id="hudAcc" class="val">0%</span></div>
-    </div>
-  </div>
-
-  <!-- QUEST -->
-  <div class="questTop" aria-hidden="true">
-    <!-- GOAL -->
-    <div class="questCard">
-      <div class="qTitle">
-        <span id="qGoalTitle">—</span>
-        <span class="tag" id="qGoalTag">GOAL</span>
-      </div>
-      <div class="bar"><div id="qGoalFill" class="fill" style="width:0%"></div></div>
-      <div class="qSub" id="qGoalSub">0 / 0</div>
-    </div>
-
-    <!-- MINI -->
-    <div class="questCard">
-      <div class="qTitle">
-        <span id="qMiniTitle">—</span>
-        <span class="tag" id="qMiniTag">MINI</span>
-      </div>
-      <div class="bar"><div id="qMiniFill" class="fill" style="width:0%"></div></div>
-      <div class="qSub" id="qMiniSub">—</div>
-    </div>
-  </div>
-
-  <!-- POWER -->
-  <div class="powerWrap" aria-hidden="true">
-    <div class="powerCard">
-      <div class="pHead">POWER: สะสมเพื่อ “สลับหมู่”</div>
-      <div class="bar powerBar"><div id="pFill" class="fill" style="width:0%"></div></div>
-      <div class="pFoot" id="pSub">0 / 0</div>
-    </div>
-  </div>
-
-  <!-- COACH -->
-  <div class="coachWrap" aria-hidden="true">
-    <div class="coachCard">
-      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="Coach" />
-      <div class="coachBubble">
-        <div class="coachName" id="coachName">Coach</div>
-        <div class="coachText" id="coachText">พร้อมแล้ว! ยิงให้ตรงหมู่ ✅</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- BIG BANNER placeholder (engine ensures it too) -->
-  <div id="groupsBigBanner" class="bigBanner" aria-hidden="true">
-    <div class="bigBannerText">READY</div>
-  </div>
-
-  <!-- END OVERLAY -->
-  <div id="endOverlay" class="overlay hidden" role="dialog" aria-modal="true">
-    <div class="panel">
-      <div class="title">สรุปผล 🎉</div>
-      <div class="sub" id="endSubtitle">—</div>
-
-      <div class="grid2" style="margin-top:12px;">
-        <div class="stat"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
-        <div class="stat"><div class="k">RANK</div><div class="v" id="endRank">—</div></div>
-        <div class="stat"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-        <div class="stat"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
-      </div>
-
-      <div class="sub note" id="endMore" style="margin-top:10px;">—</div>
-
-      <div class="row row2">
-        <button id="btnBackHub" class="btn btn-ghost">กลับ HUB</button>
-        <div style="display:flex; gap:10px;">
-          <button id="btnReplay" class="btn">เล่นอีกครั้ง</button>
-          <button id="btnClose" class="btn btn-strong">ปิด</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- VR UI (Enter VR / Exit / Recenter + crosshair -> hha:shoot) -->
+  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
   <script src="../vr/vr-ui.js"></script>
 
   <!-- Engine -->
   <script src="./groups.safe.js"></script>
 
-  <!-- Boot / Bind UI -->
+  <style>
+    /* keep VR UI buttons clickable above overlays */
+    #hha-vrui-root{ z-index: 200 !important; }
+  </style>
+</head>
+
+<body>
+  <!-- XR scene behind -->
+  <div class="xr-scene">
+    <a-scene
+      embedded
+      vr-mode-ui="enabled: true"
+      renderer="colorManagement: true; physicallyCorrectLights: false"
+    >
+      <a-entity position="0 1.6 0">
+        <a-camera wasd-controls-enabled="false" look-controls-enabled="true"></a-camera>
+      </a-entity>
+      <a-sky color="#050a16"></a-sky>
+    </a-scene>
+  </div>
+
+  <!-- DOM play layer (targets mount here) -->
+  <div id="playLayer" class="playLayer" aria-label="play layer"></div>
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hudLeft">
+      <div class="pill"><span class="lbl">SCORE</span><span id="scoreVal" class="val">0</span></div>
+      <div class="pill"><span class="lbl">COMBO</span><span id="comboVal" class="val">0</span></div>
+      <div class="pill"><span class="lbl">MISS</span><span id="missVal" class="val">0</span></div>
+    </div>
+    <div class="hudRight">
+      <div class="pill"><span class="lbl">TIME</span><span id="timeVal" class="val">--</span></div>
+      <div class="pill"><span class="lbl">RANK</span><span id="rankVal" class="val">-</span></div>
+      <div class="pill"><span class="lbl">ACC</span><span id="accVal" class="val">0%</span></div>
+    </div>
+  </div>
+
+  <!-- Quest -->
+  <div class="questTop">
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="goalTitle">ภารกิจหลัก</div>
+        <div class="tag"><span id="goalTag">GOAL</span></div>
+      </div>
+      <div class="bar"><div id="goalFill" class="fill"></div></div>
+      <div id="goalSub" class="qSub">0/0</div>
+    </div>
+
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="miniTitle">Mini Quest</div>
+        <div class="tag"><span id="miniTag">MINI</span></div>
+      </div>
+      <div class="bar"><div id="miniFill" class="fill"></div></div>
+      <div id="miniSub" class="qSub">—</div>
+    </div>
+  </div>
+
+  <!-- Power -->
+  <div class="powerWrap">
+    <div class="powerCard">
+      <div class="pHead">POWER (สลับหมู่เมื่อเต็ม)</div>
+      <div class="bar powerBar"><div id="powerFill" class="fill"></div></div>
+      <div id="powerSub" class="pFoot">0/0</div>
+    </div>
+  </div>
+
+  <!-- Coach -->
+  <div class="coachWrap">
+    <div class="coachCard">
+      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
+      <div class="coachBubble">
+        <div class="coachName">Coach</div>
+        <div id="coachText" class="coachText">แตะปุ่ม “เริ่มเกม” แล้วลุย!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Big banner -->
+  <div id="bigBanner" class="bigBanner hidden"><div id="bigBannerText" class="bigBannerText">READY</div></div>
+
+  <!-- START overlay -->
+  <div id="overlayStart" class="overlay overlay-onb">
+    <div class="panel onbPanel">
+      <div class="title" id="startTitle">Food Groups VR</div>
+      <div class="sub" id="startSub">
+        แตะ “เริ่มเกม” เพื่อเริ่ม (มือถือ/VR ต้องใช้การแตะก่อน)
+      </div>
+
+      <div class="grid2">
+        <div class="stat"><div class="k">MODE</div><div id="statMode" class="v">play</div></div>
+        <div class="stat"><div class="k">DIFF</div><div id="statDiff" class="v">normal</div></div>
+        <div class="stat"><div class="k">TIME</div><div id="statTime" class="v">90s</div></div>
+        <div class="stat"><div class="k">VIEW</div><div id="statView" class="v">mobile</div></div>
+      </div>
+
+      <div class="row row2">
+        <button id="btnBackHub0" class="btn btn-ghost">กลับ HUB</button>
+        <div class="row">
+          <button id="btnStart" class="btn btn-strong">เริ่มเกม</button>
+        </div>
+      </div>
+
+      <div class="sub note" id="aiNote"></div>
+    </div>
+  </div>
+
+  <!-- END overlay -->
+  <div id="overlayEnd" class="overlay hidden">
+    <div class="panel">
+      <div class="title">สรุปผล</div>
+      <div class="sub" id="endReason">—</div>
+
+      <div class="grid2">
+        <div class="stat"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
+        <div class="stat"><div class="k">RANK</div><div id="endRank" class="v">-</div></div>
+        <div class="stat"><div class="k">ACC</div><div id="endAcc" class="v">0%</div></div>
+        <div class="stat"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="stat"><div class="k">GOALS</div><div id="endGoals" class="v">0/0</div></div>
+        <div class="stat"><div class="k">MINI</div><div id="endMini" class="v">0/0</div></div>
+      </div>
+
+      <div class="row row2">
+        <button id="btnBackHub" class="btn btn-ghost">กลับ HUB</button>
+        <div class="row">
+          <button id="btnExport" class="btn hidden">Export CSV</button>
+          <button id="btnReplay" class="btn btn-strong">เล่นอีกครั้ง</button>
+        </div>
+      </div>
+
+      <div class="sub note" id="endNote"></div>
+    </div>
+  </div>
+
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const WIN = window;
-      const DOC = document;
+    // ---------- query helpers ----------
+    const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+    const qbool = (k)=>{ const v = (qs(k,'')+'').toLowerCase(); return v==='1'||v==='true'||v==='yes'||v==='on'; };
+    const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+    const emit = (n,d)=>{ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
 
-      const LS_LAST = 'HHA_LAST_SUMMARY';
-      const LS_HIST = 'HHA_SUMMARY_HISTORY';
+    // ---------- elements ----------
+    const $ = (s)=>document.querySelector(s);
 
-      const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+    const playLayer = $('#playLayer');
 
-      function setBodyView(){
-        const v = (qs('view','')||'').toLowerCase();
-        const b = DOC.body;
-        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    const scoreVal = $('#scoreVal');
+    const comboVal = $('#comboVal');
+    const missVal  = $('#missVal');
+    const timeVal  = $('#timeVal');
+    const rankVal  = $('#rankVal');
+    const accVal   = $('#accVal');
 
-        if (v === 'pc') b.classList.add('view-pc');
-        else if (v === 'vr') b.classList.add('view-vr');
-        else if (v === 'cvr') b.classList.add('view-cvr');
-        else b.classList.add('view-mobile');
+    const goalTitle= $('#goalTitle');
+    const goalFill = $('#goalFill');
+    const goalSub  = $('#goalSub');
+
+    const miniTitle= $('#miniTitle');
+    const miniFill = $('#miniFill');
+    const miniSub  = $('#miniSub');
+
+    const powerFill= $('#powerFill');
+    const powerSub = $('#powerSub');
+
+    const coachImg = $('#coachImg');
+    const coachText= $('#coachText');
+
+    const bigBanner= $('#bigBanner');
+    const bigBannerText = $('#bigBannerText');
+
+    const overlayStart = $('#overlayStart');
+    const overlayEnd   = $('#overlayEnd');
+
+    const btnStart   = $('#btnStart');
+    const btnReplay  = $('#btnReplay');
+    const btnBackHub = $('#btnBackHub');
+    const btnBackHub0= $('#btnBackHub0');
+    const btnExport  = $('#btnExport');
+
+    const statMode = $('#statMode');
+    const statDiff = $('#statDiff');
+    const statTime = $('#statTime');
+    const statView = $('#statView');
+    const aiNote   = $('#aiNote');
+
+    const endReason= $('#endReason');
+    const endScore = $('#endScore');
+    const endRank  = $('#endRank');
+    const endAcc   = $('#endAcc');
+    const endMiss  = $('#endMiss');
+    const endGoals = $('#endGoals');
+    const endMini  = $('#endMini');
+    const endNote  = $('#endNote');
+
+    // ---------- view detect (NO override if ?view exists) ----------
+    function autoView(){
+      const hasView = qs('view', null);
+      if (hasView) return (hasView+'').toLowerCase();
+
+      // best-effort pc/mobile
+      const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      const small  = Math.min(window.innerWidth||360, window.innerHeight||640) <= 520;
+      return (coarse || small) ? 'mobile' : 'pc';
+    }
+
+    function setBodyView(view){
+      const b = document.body;
+      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      if (view==='pc') b.classList.add('view-pc');
+      else if (view==='cvr') b.classList.add('view-cvr');
+      else if (view==='vr') b.classList.add('view-vr');
+      else b.classList.add('view-mobile');
+    }
+
+    // ---------- run config ----------
+    const hub = qs('hub', '');
+    const runMode = (qs('run','play')+'').toLowerCase(); // play|research|practice
+    const diff = (qs('diff','normal')+'').toLowerCase();
+    const timeSec = clamp(qs('time', 90), 5, 180);
+    const seed = qs('seed', String(Date.now()));
+
+    const aiOn = qbool('ai');
+    const dirOn = qbool('dir');
+    const trainOn = qbool('train');
+
+    const view = autoView();
+    setBodyView(view);
+
+    statMode.textContent = runMode;
+    statDiff.textContent = diff;
+    statTime.textContent = timeSec + 's';
+    statView.textContent = view;
+
+    const canDirector = (aiOn && dirOn && runMode==='play');
+    const canTrain = (aiOn && trainOn);
+
+    aiNote.textContent =
+      (aiOn ? ('AI: ON' + (canDirector ? ' + Director' : '') + (canTrain ? ' + Dataset' : '')) : 'AI: OFF')
+      + ' (research/practice จะปิด adaptive+AI อัตโนมัติ)';
+
+    // hub buttons
+    function goHub(){
+      if (hub) location.href = hub;
+      else history.back();
+    }
+    btnBackHub.addEventListener('click', goHub);
+    btnBackHub0.addEventListener('click', goHub);
+
+    // ---------- dataset (CSV) ----------
+    const dataset = [];
+    function addRow(obj){
+      if (!canTrain) return;
+      dataset.push(Object.assign({ ts: Date.now() }, obj));
+    }
+    function downloadCSV(rows){
+      if (!rows || !rows.length) return;
+      const keys = Object.keys(rows[0]);
+      const esc = (v)=>('"'+String(v??'').replace(/"/g,'""')+'"');
+      const lines = [];
+      lines.push(keys.map(esc).join(','));
+      for (const r of rows){
+        lines.push(keys.map(k=>esc(r[k])).join(','));
+      }
+      const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'groups_dataset_' + (seed||'seed') + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
+    }
+
+    // show export when trainOn
+    if (canTrain) btnExport.classList.remove('hidden');
+    btnExport.addEventListener('click', ()=>downloadCSV(dataset));
+
+    // ---------- banner helper ----------
+    let bannerT = 0;
+    function showBanner(text){
+      clearTimeout(bannerT);
+      bigBannerText.textContent = text;
+      bigBanner.classList.remove('hidden');
+      bigBanner.classList.add('show');
+      bannerT = setTimeout(()=>{
+        bigBanner.classList.remove('show');
+        bigBanner.classList.add('hidden');
+      }, 900);
+    }
+
+    // ---------- coach mood images ----------
+    function setCoachMood(m){
+      const mood = (m||'neutral').toLowerCase();
+      let src = '../img/coach-neutral.png';
+      if (mood==='happy') src = '../img/coach-happy.png';
+      else if (mood==='sad') src = '../img/coach-sad.png';
+      else if (mood==='fever') src = '../img/coach-fever.png';
+      coachImg.src = src;
+    }
+
+    // ---------- Difficulty Director (heuristic, bounded) ----------
+    let lastDirAt = 0;
+    function directorStep(metrics){
+      if (!canDirector) return;
+      const t = Date.now();
+      if (t - lastDirAt < 1100) return;
+      lastDirAt = t;
+
+      const acc = Number(metrics.accuracyGoodPct)||0;
+      const miss = Number(metrics.misses)||0;
+      const combo = Number(metrics.combo)||0;
+      const pressure = Number(metrics.pressureLevel)||0;
+
+      // “ยุติธรรม”: ถ้าเด็กกำลังหลุด -> ชะลอลง / เพิ่ม life / เพิ่ม size
+      // ถ้าเด็กเริ่มเทพ -> เร่ง / ลด life / ลด size + เพิ่ม wrong/junk นิดเดียว
+      let intervalMul = 1.0, lifeMul = 1.0, sizeMul = 1.0, wrongAdd = 0.0, junkAdd = 0.0;
+
+      if (acc < 55 || miss >= 10 || pressure>=2){
+        intervalMul = 1.12;
+        lifeMul = 1.12;
+        sizeMul = 1.10;
+        wrongAdd = -0.03;
+        junkAdd  = -0.02;
+      } else if (acc >= 82 && combo >= 8 && miss <= 6){
+        intervalMul = 0.90;
+        lifeMul = 0.92;
+        sizeMul = 0.94;
+        wrongAdd = 0.03;
+        junkAdd  = 0.02;
+      } else if (acc >= 72 && combo >= 6){
+        intervalMul = 0.95;
+        lifeMul = 0.98;
+        sizeMul = 0.98;
+        wrongAdd = 0.01;
+        junkAdd  = 0.01;
       }
 
-      function pad2(n){ n = (n|0); return (n<10?'0':'')+n; }
-      function fmtTime(sec){
-        sec = Math.max(0, sec|0);
-        const m = (sec/60)|0, s = sec%60;
-        return `${m}:${pad2(s)}`;
-      }
-
-      // UI nodes
-      const ui = {
-        time: DOC.getElementById('hudTime'),
-        score: DOC.getElementById('hudScore'),
-        combo: DOC.getElementById('hudCombo'),
-        miss: DOC.getElementById('hudMiss'),
-        rank: DOC.getElementById('hudRank'),
-        acc: DOC.getElementById('hudAcc'),
-
-        qGoalTitle: DOC.getElementById('qGoalTitle'),
-        qGoalFill: DOC.getElementById('qGoalFill'),
-        qGoalSub: DOC.getElementById('qGoalSub'),
-
-        qMiniTitle: DOC.getElementById('qMiniTitle'),
-        qMiniFill: DOC.getElementById('qMiniFill'),
-        qMiniSub: DOC.getElementById('qMiniSub'),
-
-        pFill: DOC.getElementById('pFill'),
-        pSub: DOC.getElementById('pSub'),
-
-        coachImg: DOC.getElementById('coachImg'),
-        coachText: DOC.getElementById('coachText'),
-
-        endOverlay: DOC.getElementById('endOverlay'),
-        endSubtitle: DOC.getElementById('endSubtitle'),
-        endScore: DOC.getElementById('endScore'),
-        endRank: DOC.getElementById('endRank'),
-        endAcc: DOC.getElementById('endAcc'),
-        endMiss: DOC.getElementById('endMiss'),
-        endMore: DOC.getElementById('endMore'),
-
-        btnBackHub: DOC.getElementById('btnBackHub'),
-        btnReplay: DOC.getElementById('btnReplay'),
-        btnClose: DOC.getElementById('btnClose'),
-      };
-
-      const moodToImg = (mood)=>{
-        mood = String(mood||'neutral').toLowerCase();
-        if (mood.includes('happy')) return '../img/coach-happy.png';
-        if (mood.includes('fever')) return '../img/coach-fever.png';
-        if (mood.includes('sad'))   return '../img/coach-sad.png';
-        return '../img/coach-neutral.png';
-      };
-
-      function showEnd(show){
-        ui.endOverlay.classList.toggle('hidden', !show);
-      }
-
-      function saveSummary(summary){
-        try{
-          localStorage.setItem(LS_LAST, JSON.stringify(summary));
-          const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
-          hist.unshift({ at: Date.now(), summary });
-          while(hist.length > 40) hist.pop();
-          localStorage.setItem(LS_HIST, JSON.stringify(hist));
-        }catch(e){}
-      }
-
-      function goHub(){
-        const hub = qs('hub', '');
-        if (hub) location.href = hub;
-        else location.href = '../hub.html';
-      }
-
-      function replay(){
-        // keep same params, just refresh
-        location.reload();
-      }
-
-      // Bind buttons
-      ui.btnBackHub.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); });
-      ui.btnReplay.addEventListener('click', (e)=>{ e.preventDefault(); replay(); });
-      ui.btnClose.addEventListener('click', (e)=>{ e.preventDefault(); showEnd(false); });
-
-      // Listen events from engine
-      WIN.addEventListener('hha:time', (e)=>{
-        const left = e.detail && e.detail.left != null ? e.detail.left : 0;
-        ui.time.textContent = fmtTime(left);
-      });
-
-      WIN.addEventListener('hha:score', (e)=>{
-        const d = e.detail || {};
-        ui.score.textContent = (d.score|0);
-        ui.combo.textContent = (d.combo|0);
-        ui.miss.textContent  = (d.misses|0);
-      });
-
-      WIN.addEventListener('hha:rank', (e)=>{
-        const d = e.detail || {};
-        ui.rank.textContent = d.grade || '—';
-        ui.acc.textContent  = ((d.accuracy|0) + '%');
-      });
-
-      WIN.addEventListener('quest:update', (e)=>{
-        const d = e.detail || {};
-
-        ui.qGoalTitle.textContent = d.goalTitle || '—';
-        ui.qGoalFill.style.width  = (Math.max(0, Math.min(100, Number(d.goalPct)||0))) + '%';
-        ui.qGoalSub.textContent   = `${d.goalNow||0} / ${d.goalTotal||0}`;
-
-        ui.qMiniTitle.textContent = d.miniTitle || '—';
-        ui.qMiniFill.style.width  = (Math.max(0, Math.min(100, Number(d.miniPct)||0))) + '%';
-
-        if (d.miniTitle && d.miniTitle !== '—'){
-          const t = (d.miniTimeLeftSec|0);
-          ui.qMiniSub.textContent = `${d.miniNow||0} / ${d.miniTotal||0}` + (t>0 ? ` · เหลือ ${t}s` : '');
-          DOC.body.classList.toggle('mini-urgent', t>0 && t<=3);
-        } else {
-          ui.qMiniSub.textContent = '—';
-          DOC.body.classList.remove('mini-urgent');
-        }
-      });
-
-      WIN.addEventListener('groups:power', (e)=>{
-        const d = e.detail || {};
-        const c = Number(d.charge||0);
-        const t = Math.max(1, Number(d.threshold||1));
-        const pct = Math.max(0, Math.min(100, (c/t)*100));
-        ui.pFill.style.width = pct + '%';
-        ui.pSub.textContent  = `${c} / ${t}`;
-      });
-
-      WIN.addEventListener('hha:coach', (e)=>{
-        const d = e.detail || {};
-        ui.coachText.textContent = String(d.text || '');
-        ui.coachImg.src = moodToImg(d.mood);
-      });
-
-      WIN.addEventListener('hha:end', (e)=>{
-        const s = e.detail || {};
-        saveSummary(s);
-
-        ui.endSubtitle.textContent = `เหตุผล: ${s.reason || 'end'} · โหมด: ${s.runMode || 'play'} · diff: ${s.diff || 'normal'}`;
-        ui.endScore.textContent = (s.scoreFinal|0);
-        ui.endRank.textContent  = s.grade || '—';
-        ui.endAcc.textContent   = ((s.accuracyGoodPct|0) + '%');
-        ui.endMiss.textContent  = (s.misses|0);
-
-        ui.endMore.textContent =
-          `GOAL: ${s.goalsCleared||0}/${s.goalsTotal||0} · MINI: ${s.miniCleared||0}/${s.miniTotal||0} · ` +
-          `คอมโบสูงสุด: ${s.comboMax||0} · เวลาเล่น: ${s.durationPlayedSec||0}s`;
-
-        showEnd(true);
-      });
-
-      // Boot engine
-      function boot(){
-        setBodyView();
-
-        const mount = DOC.getElementById('playLayer');
-
-        const engine = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
-        if (!engine || typeof engine.start !== 'function') {
-          console.error('GroupsVR engine not found');
-          return;
-        }
-
-        // Wire mount
-        if (typeof engine.setLayerEl === 'function') engine.setLayerEl(mount);
-
-        // Params
-        const diff = (qs('diff','normal') || 'normal').toLowerCase();
-        const run  = (qs('run','play') || 'play').toLowerCase(); // play | research | practice
-        const seed = qs('seed', String(Date.now()));
-        const time = Number(qs('time', '90'));
-
-        engine.start(diff, {
-          runMode: run,
-          seed,
-          time,
-          view: (qs('view','')||'')
+      try{
+        window.GroupsVR && window.GroupsVR.GameEngine && window.GroupsVR.GameEngine.setAIModifiers({
+          intervalMul, lifeMul, sizeMul, wrongAdd, junkAdd
         });
+      }catch{}
+    }
+
+    // ---------- UI listeners ----------
+    window.addEventListener('hha:score', (e)=>{
+      const d = e.detail||{};
+      scoreVal.textContent = d.score ?? 0;
+      comboVal.textContent = d.combo ?? 0;
+      missVal.textContent  = d.misses ?? 0;
+    });
+
+    window.addEventListener('hha:time', (e)=>{
+      const d = e.detail||{};
+      timeVal.textContent = (d.left!=null) ? d.left : '--';
+    });
+
+    window.addEventListener('hha:rank', (e)=>{
+      const d = e.detail||{};
+      rankVal.textContent = d.grade ?? '-';
+      accVal.textContent  = (d.accuracy!=null) ? (d.accuracy+'%') : '0%';
+    });
+
+    window.addEventListener('hha:coach', (e)=>{
+      const d = e.detail||{};
+      coachText.textContent = d.text ?? '';
+      setCoachMood(d.mood);
+    });
+
+    window.addEventListener('quest:update', (e)=>{
+      const d = e.detail||{};
+      goalTitle.textContent = d.goalTitle ?? 'ภารกิจหลัก';
+      goalFill.style.width  = (d.goalPct ?? 0) + '%';
+      goalSub.textContent   = `${d.goalNow ?? 0}/${d.goalTotal ?? 0} • ${d.groupName ?? ''} • (${(d.goalIndex??0)+1}/${d.goalsTotal??0})`;
+
+      miniTitle.textContent = d.miniTitle ?? 'Mini Quest';
+      miniFill.style.width  = (d.miniPct ?? 0) + '%';
+
+      const tleft = d.miniTimeLeftSec ? ` • ${d.miniTimeLeftSec}s` : '';
+      miniSub.textContent   = (d.miniTitle && d.miniTitle!=='—')
+        ? `${d.miniNow ?? 0}/${d.miniTotal ?? 0}${tleft} • ผ่าน ${d.miniCountCleared ?? 0}/${d.miniCountTotal ?? 0}`
+        : `ผ่าน ${d.miniCountCleared ?? 0}/${d.miniCountTotal ?? 0}`;
+
+      document.body.classList.toggle('mini-urgent', (d.miniTimeLeftSec!=null && d.miniTimeLeftSec<=3 && d.miniTimeLeftSec>0));
+    });
+
+    window.addEventListener('groups:power', (e)=>{
+      const d = e.detail||{};
+      const c = Number(d.charge)||0;
+      const th= Math.max(1, Number(d.threshold)||8);
+      powerFill.style.width = clamp((c/th)*100, 0, 100) + '%';
+      powerSub.textContent  = `${c}/${th}`;
+    });
+
+    window.addEventListener('hha:judge', (e)=>{
+      const d = e.detail||{};
+      if (!d || !d.text) return;
+      if (d.kind === 'boss') showBanner('BOSS!');
+      if (d.kind === 'perfect') showBanner('PERFECT!');
+      if (d.kind === 'storm') showBanner('STORM!');
+    });
+
+    // PACK 20/21 metrics -> dataset + director
+    window.addEventListener('groups:metrics', (e)=>{
+      const m = e.detail||{};
+      addRow(Object.assign({
+        runMode, diff, view, seed
+      }, m));
+      directorStep(m);
+    });
+
+    // ---------- end summary ----------
+    const LS_LAST = 'HHA_LAST_SUMMARY';
+    const LS_HIST = 'HHA_SUMMARY_HISTORY';
+
+    function saveSummary(sum){
+      try{
+        localStorage.setItem(LS_LAST, JSON.stringify(sum));
+        const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
+        hist.unshift(sum);
+        while(hist.length>30) hist.pop();
+        localStorage.setItem(LS_HIST, JSON.stringify(hist));
+      }catch{}
+    }
+
+    window.addEventListener('hha:end', (e)=>{
+      const s = e.detail||{};
+      saveSummary(s);
+
+      // practice auto -> start real play
+      if (s && s.reason === 'practice' && pendingAutoReal){
+        pendingAutoReal = false;
+        overlayEnd.classList.add('hidden');
+        setTimeout(()=>startRealRun(), 350);
+        return;
       }
 
-      if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot);
-      else boot();
-    })();
+      endReason.textContent = `จบด้วยเหตุผล: ${s.reason ?? 'end'} • เวลาเล่น ${s.durationPlayedSec ?? 0}s`;
+      endScore.textContent  = s.scoreFinal ?? 0;
+      endRank.textContent   = s.grade ?? '-';
+      endAcc.textContent    = (s.accuracyGoodPct!=null) ? (s.accuracyGoodPct + '%') : '0%';
+      endMiss.textContent   = s.misses ?? 0;
+
+      endGoals.textContent  = `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0}`;
+      endMini.textContent   = `${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`;
+
+      endNote.textContent =
+        `shots=${s.shots ?? 0}, shotsMiss=${s.shotsMiss ?? 0}, pressure=${s.pressureLevel ?? 0}, seed=${s.seed ?? ''}`;
+
+      overlayEnd.classList.remove('hidden');
+      overlayStart.classList.add('hidden');
+    });
+
+    // ---------- start control ----------
+    const engine = (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
+    if (!engine){
+      coachText.textContent = 'โหลด Engine ไม่สำเร็จ (GroupsVR.GameEngine ไม่พบ)';
+      btnStart.disabled = true;
+      return;
+    }
+    engine.setLayerEl(playLayer);
+
+    // practice auto for cVR play
+    let pendingAutoReal = false;
+
+    function startEngine(mode, tSec){
+      overlayStart.classList.add('hidden');
+      overlayEnd.classList.add('hidden');
+
+      document.body.classList.toggle('fx-mini', false);
+      document.body.classList.toggle('mini-urgent', false);
+
+      emit('hha:start', { mode, diff, timeSec:tSec, seed, view });
+
+      engine.start(diff, {
+        runMode: mode,
+        seed,
+        time: tSec,
+        view
+      });
+    }
+
+    function startRealRun(){
+      showBanner('GO!');
+      startEngine('play', timeSec);
+    }
+
+    function startRequested(){
+      // research/practice always start directly
+      if (runMode === 'research') { showBanner('RESEARCH'); startEngine('research', timeSec); return; }
+      if (runMode === 'practice') { showBanner('PRACTICE'); startEngine('practice', Math.min(30, timeSec)); return; }
+
+      // runMode play:
+      if ((view==='cvr') && !qbool('nopractice')){
+        pendingAutoReal = true;
+        showBanner('PRACTICE 15s');
+        startEngine('practice', 15);
+        return;
+      }
+
+      startRealRun();
+    }
+
+    btnStart.addEventListener('click', startRequested);
+    btnReplay.addEventListener('click', ()=>location.reload());
+
+    // ---------- initial hints ----------
+    coachText.textContent = (view==='cvr')
+      ? 'โหมด Cardboard: จะฝึก 15 วิ แล้วเข้าเกมจริงอัตโนมัติ 🎯'
+      : 'เล็งให้ตรงหมู่ แล้วค่อยยิง! 🎯';
+
+  })();
   </script>
+
 </body>
 </html>
