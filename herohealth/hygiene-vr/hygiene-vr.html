@@ -1,6 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ PACK AQ: FEVER + SHIELD + BOSS WAVE HUD
+HygieneVR RUN — PRODUCTION (HHA Standard + PACK AS)
+✅ Step Tutor overlay (micro-lesson per step)
+✅ Quest/Shield/Fever pills
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (v1.4.0-prod)
 -->
 <!doctype html>
 <html lang="th">
@@ -13,14 +16,19 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
   <link rel="stylesheet" href="./hygiene-vr.css" />
 
-  <script defer src="../vr/vr-ui.js"></script>
-  <script defer src="../vr/particles.js"></script>
+  <!-- Universal VR UI (สำคัญ: defer กัน appendChild null) -->
+  <script src="../vr/vr-ui.js" defer></script>
 
-  <script defer src="../vr/hha-ai-coach.js"></script>
-  <script defer src="../vr/hha-difficulty-director.js"></script>
-  <script defer src="../vr/hha-badges.js"></script>
+  <!-- Optional shared helpers -->
+  <script src="../vr/particles.js" defer></script>
 
-  <script type="module" defer src="./hygiene-vr.boot.js"></script>
+  <!-- AI Packs (ถ้ามี) -->
+  <script src="../vr/hha-ai-coach.js" defer></script>
+  <script src="../vr/hha-difficulty-director.js" defer></script>
+  <script src="../vr/hha-badges.js" defer></script>
+
+  <!-- Engine -->
+  <script type="module" src="./hygiene-vr.boot.js"></script>
 </head>
 
 <body class="view-pc">
@@ -41,9 +49,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         </div>
 
         <div class="hw-row">
-          <div class="hw-pill quest" id="pillQuest">🎯 QUEST: —</div>
-          <div class="hw-pill fever" id="pillFever">🔥 FEVER 0%</div>
-          <div class="hw-pill shield" id="pillShield">🧼 SHIELD 0</div>
+          <div class="hw-pill" id="pillQuest">🎯 QUEST: —</div>
+          <div class="hw-pill" id="pillFever">🔥 FEVER 0%</div>
+          <div class="hw-pill" id="pillShield">🧼 SHIELD 0</div>
         </div>
 
         <div class="hw-row">
@@ -57,17 +65,32 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       <div class="hw-banner" id="banner" aria-live="polite"></div>
     </div>
 
+    <!-- Step Tutor (PACK AS) -->
+    <div class="hw-tutor" id="stepTutor" style="display:none" aria-live="polite">
+      <div class="hw-tutor-card">
+        <div class="hw-tutor-top">
+          <div class="hw-tutor-emoji" id="tutorEmoji">🫧</div>
+          <div class="hw-tutor-meta">
+            <div class="hw-tutor-title" id="tutorTitle">STEP 1/7 ฝ่ามือ</div>
+            <div class="hw-tutor-sub" id="tutorSub">ถูฝ่ามือให้ทั่ว</div>
+          </div>
+        </div>
+        <div class="hw-tutor-cue" id="tutorCue">Cue: ถูวน 2–3 รอบ</div>
+        <div class="hw-tutor-hint" id="tutorHint">ตีเป้า 🫧 เท่านั้น (หลบ 🦠)</div>
+      </div>
+    </div>
+
     <!-- Start Overlay -->
     <div class="hw-overlay" id="startOverlay">
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบ<br>
-          🎯 ทำ QUEST ให้ผ่านเพื่อได้โบนัส • 🧼 เก็บ SHIELD กันเชื้อ 1 ครั้ง • 🔥 FEVER ช่วงคะแนนพุ่ง!
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
+          <b>PACK AS:</b> เกมจะสอนสั้น ๆ ทุกครั้งที่เปลี่ยนขั้นตอน
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnRestart" type="button">↻ Restart</button>
+          <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
