@@ -1,19 +1,19 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
+// PlateVR Boot — PRODUCTION (PATCHED)
 // ✅ Auto view detect (no UI override)
+// ✅ Default time: play=90s (kid-friendly), research/study uses query time (or 70 if specified)
 // ✅ Loads engine from ./plate.safe.js
-// ✅ HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ Phase mood (hha:phase -> body class plate-storm / plate-boss)
-// ✅ End overlay aria-hidden only
+// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def=null)=>{
+const qs = (k, def = null) => {
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
@@ -25,7 +25,9 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  const forced = (qs('view','')||'').toLowerCase();
+  // No UI override menu.
+  // Allow forced view by query if caller passes ?view= (used for experiments)
+  const forced = (qs('view','') || '').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
@@ -40,11 +42,12 @@ function setBodyView(view){
 }
 
 function clamp(v, a, b){
-  v = Number(v)||0;
+  v = Number(v) || 0;
   return v < a ? a : (v > b ? b : v);
 }
-function pct(n){
-  n = Number(n)||0;
+
+function pctStr(n){
+  n = Number(n) || 0;
   return `${Math.round(n)}%`;
 }
 
@@ -73,10 +76,9 @@ function showCoach(msg, meta='Coach'){
 }
 
 function wireHUD(){
-  const hudScore  = DOC.getElementById('hudScore');
-  const hudTime   = DOC.getElementById('hudTime');
-  const hudCombo  = DOC.getElementById('hudCombo');
-  const hudShield = DOC.getElementById('hudShield');
+  const hudScore = DOC.getElementById('hudScore');
+  const hudTime  = DOC.getElementById('hudTime');
+  const hudCombo = DOC.getElementById('hudCombo');
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -92,7 +94,6 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
-    if(hudShield) hudShield.textContent = String(d.shield ?? d.shieldCount ?? 0);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -103,6 +104,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+    // shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -127,17 +129,6 @@ function wireHUD(){
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
-
-  // phase mood
-  WIN.addEventListener('hha:phase', (e)=>{
-    const d = e.detail || {};
-    const b = DOC.body;
-    b.classList.toggle('plate-storm', !!d.storm);
-    b.classList.toggle('plate-boss',  !!d.boss);
-
-    if(d.wave === 'storm') showCoach('⚡ STORM! ของหวาน/ทอดมาเร็วขึ้น!', 'System');
-    if(d.wave === 'boss')  showCoach('👑 BOSS! ตั้งสติแล้วเล็งให้แม่น!', 'System');
-  });
 }
 
 function wireEndControls(){
@@ -146,7 +137,9 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      location.reload(); // keep same query params
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -166,15 +159,12 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-    // guard: ถ้า event ว่าง อย่าเปิดสรุปผล
-    if(!d || (Object.keys(d).length === 0)) return;
-
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctStr(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -185,11 +175,15 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase();
-  const diff = (qs('diff','normal')||'normal').toLowerCase();
+  const run  = (qs('run','play') || 'play').toLowerCase();
+  const diff = (qs('diff','normal') || 'normal').toLowerCase();
 
-  // ✅ default 90 for Plate (ดีกับภารกิจ 2 ชั้น + ป.5)
-  const time = clamp(qs('time','90'), 20, 999);
+  // ✅ PATCH: default time
+  // - play: 90 seconds if not specified (kid-friendly pacing)
+  // - research/study: if not specified, keep 70 (common experimental short run)
+  const defaultTime = (run === 'research' || run === 'study') ? 70 : 90;
+  const time = clamp(qs('time', String(defaultTime)), 10, 999);
+
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
@@ -202,6 +196,7 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // passthrough (optional fields used by logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -223,14 +218,18 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
+  // set view class early
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
+  // ensure end overlay closed at start
   setOverlayOpen(false);
 
+  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
