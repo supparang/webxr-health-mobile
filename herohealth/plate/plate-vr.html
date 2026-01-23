@@ -1,3 +1,13 @@
+<!-- === /herohealth/plate/plate-vr.html ===
+Balanced Plate VR — PRODUCTION (HHA Standard)
+✅ Minimal A-Frame scene for Enter VR reliability
+✅ plate-layer for spawning targets
+✅ HUD + Quest (goal/mini)
+✅ Coach bubble
+✅ FX layers: bossFx/stormFx
+✅ End overlay summary + back hub
+✅ Uses: ../vr/vr-ui.js emits hha:shoot
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,13 +17,13 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame: helps WebXR Enter VR reliability -->
+  <!-- A-Frame (helps WebXR Enter VR reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- CSS -->
   <link rel="stylesheet" href="./plate-vr.css" />
 
-  <!-- Global FX + Logger + Universal VR UI -->
+  <!-- FX + Logger + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
@@ -24,6 +34,7 @@
 
 <body class="view-pc">
   <div id="app">
+
     <!-- Minimal A-Frame scene (hidden) for Enter VR -->
     <a-scene
       embedded
@@ -34,7 +45,11 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- Playfield (targets spawn inside this rect) -->
+    <!-- FX layers -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
+
+    <!-- Playfield -->
     <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
@@ -52,10 +67,6 @@
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
         </div>
-        <div class="chip shield">
-          <span class="lbl">SHIELD</span>
-          <span class="val" id="hudShield">0</span>
-        </div>
       </div>
 
       <div class="card" id="questCard">
@@ -71,7 +82,7 @@
             <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/5</div>
+            <div class="qNums" id="goalNums">0/1</div>
             <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
@@ -83,7 +94,7 @@
             <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/80</div>
+            <div class="qNums" id="miniNums">0/1</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
@@ -121,8 +132,12 @@
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically -->
+  <!-- NOTE:
+    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay.
+    plate.boot.js sets view class and boots engine.
+  -->
 </body>
 </html>
