@@ -1,11 +1,9 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration Quest VR UI — PRODUCTION (LATEST)
-✅ HUD / Quest / Water gauge
-✅ Playfield safe-area
-✅ Overlays: Start + Result
-✅ End/Boss FX hooks (class on body)
-✅ Cardboard split layers (L/R)
-✅ Targets clickable only on nodes (.hvr-target)
+Hydration Quest VR — UI (PRODUCTION / LATEST)
+✅ Safe-area aware (sat/sab) + HUD not blocking playfield
+✅ Playfield sized for PC/Mobile/VR/cVR + Cardboard split
+✅ FX hooks: .hha-hitfx .hha-endfx .hha-bossfx
+✅ Overlay + Summary cards (HHA Standard-ish)
 */
 
 :root{
@@ -13,297 +11,464 @@ Hydration Quest VR UI — PRODUCTION (LATEST)
 
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.68);
+  --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
+  --stroke2:rgba(148,163,184,.28);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --accent:#22c55e;
   --warn:#f59e0b;
   --cyan:#22d3ee;
+  --violet:#a78bfa;
   --danger:#ef4444;
 
-  --radius:18px;
+  --radius:22px;
   --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
+
+  /* HUD footprint (used by engine safe spawn too via computed) */
+  --hudTopH: 132px;  /* top row */
+  --hudMidH: 150px;  /* mission+water row */
+  --hudGap: 10px;
+
+  /* Playfield padding */
+  --pfPad: 18px;
+  --pfSide: 16px;
+
+  /* Card sizes */
+  --chipH: 36px;
+  --chipPadX: 12px;
+  --cardPad: 14px;
+
+  /* Target readability */
+  --tapMin: 44px;
+
+  /* FX */
+  --fxGlow: 0 0 18px rgba(34,197,94,.18);
+  --fxGlowWarn: 0 0 22px rgba(245,158,11,.18);
+  --fxGlowBoss: 0 0 26px rgba(239,68,68,.18);
+
+  /* Derived safe */
+  --topSafe: calc(var(--sat) + 10px);
+  --bottomSafe: calc(var(--sab) + 10px);
+  --sideSafeL: calc(var(--sal) + 10px);
+  --sideSafeR: calc(var(--sar) + 10px);
 }
 
-*{ box-sizing:border-box; }
-html,body{
-  margin:0; width:100%; height:100%;
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+  background: radial-gradient(1100px 700px at 40% -10%, rgba(34,211,238,.08), transparent 55%),
+              radial-gradient(900px 700px at 110% 20%, rgba(167,139,250,.08), transparent 60%),
+              var(--bg);
+  color: var(--text);
   overflow:hidden;
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  touch-action: manipulation;
 }
 
-/* A-Frame scene sits behind UI */
-a-scene{ position:fixed; inset:0; z-index:0; }
+/* ---------- Minimal A-Frame scene ---------- */
+a-scene[embedded]{ position:fixed; inset:0; pointer-events:none; opacity:0; }
 
-/* --- Playfield wrap --- */
-#playfieldWrap{
-  position:fixed; inset:0;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
-  z-index: 1;
-  pointer-events:none;
-}
-
-#playfield{
-  position:relative;
-  width:100%;
-  height:100%;
-  border-radius: 22px;
-  overflow:hidden;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(34,211,238,.08), transparent 55%),
-    radial-gradient(circle at 90% 80%, rgba(34,197,94,.06), transparent 55%),
-    rgba(2,6,23,.18);
-  border: 1px solid rgba(148,163,184,.10);
-  pointer-events:none;
-}
-
-.layer{
-  position:absolute; inset:0;
-  pointer-events:none;
-}
-
-/* --- HUD --- */
+/* ---------- HUD ---------- */
 #hud{
-  position:fixed; inset:0;
-  z-index: 60;
-  pointer-events:none;
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* crucial: targets are below */
+  padding-top: var(--topSafe);
+  padding-left: var(--sideSafeL);
+  padding-right: var(--sideSafeR);
 }
 
 .hud-top{
-  position:fixed;
-  top: calc(10px + var(--sat));
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
   display:flex;
-  gap:8px;
-  flex-wrap:wrap;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items:center;
+  justify-content:flex-start;
+  padding: 8px 8px 0;
   pointer-events:none;
 }
-
-.chip{
-  pointer-events:none;
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  border-radius: var(--pill);
-  padding:8px 10px;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-  box-shadow: 0 16px 60px rgba(0,0,0,.35);
-}
-.chip.big{ font-weight:900; }
-.chip.ok b{ color: var(--accent); }
-.chip.warn b{ color: var(--warn); }
-.chip.cyan b{ color: var(--cyan); }
-.chip.storm b{ color: #a78bfa; }
 
 .hud-mid{
-  position:fixed;
-  top: calc(56px + var(--sat));
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  display:grid;
-  grid-template-columns: 1.3fr .7fr;
-  gap:10px;
+  display:flex;
+  gap: 10px;
+  align-items: stretch;
+  padding: 10px 8px 0;
   pointer-events:none;
 }
-@media (max-width:720px){
-  .hud-mid{ grid-template-columns: 1fr; }
-}
 
-.quest, .waterpanel{
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.48);
-  backdrop-filter: blur(10px);
-  border-radius: 18px;
-  padding: 10px 12px;
-  box-shadow: 0 16px 60px rgba(0,0,0,.35);
+/* Chips */
+.chip{
+  height: var(--chipH);
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  padding: 0 var(--chipPadX);
+  border-radius: var(--pill);
+  background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.58));
+  border:1px solid var(--stroke);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: var(--text);
+}
+.chip.big{ font-size: 16px; }
+.chip b{ font-weight: 900; }
+
+.chip.warn{ border-color: rgba(245,158,11,.25); }
+.chip.ok{ border-color: rgba(34,197,94,.20); }
+.chip.cyan{ border-color: rgba(34,211,238,.22); }
+.chip.storm{ border-color: rgba(167,139,250,.22); }
+
+/* Mission card */
+.quest{
+  flex: 1 1 auto;
+  min-width: 220px;
+  max-width: 520px;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(2,6,23,.82), rgba(15,23,42,.58));
+  border: 1px solid var(--stroke);
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  padding: var(--cardPad);
 }
 
 .quest-title{
-  font-weight:900;
-  letter-spacing:.2px;
-  font-size:13px;
-  opacity:.96;
+  font-weight: 900;
+  font-size: 14px;
+  color: rgba(226,232,240,.95);
+  margin-bottom: 6px;
+  letter-spacing:.3px;
 }
 .quest-lines{
-  margin-top:6px;
-  font-size:12px;
-  color: rgba(229,231,235,.88);
-  line-height:1.35;
+  font-size: 12.5px;
+  color: rgba(226,232,240,.88);
+  line-height: 1.28;
 }
-.quest-lines > div{ margin:2px 0; color: rgba(229,231,235,.88); }
-.quest-lines #quest-line3,
-.quest-lines #quest-line4{ color: rgba(148,163,184,.92); }
+.quest-lines > div{
+  margin: 3px 0;
+  opacity: .95;
+}
 
-.waterpanel .water-head{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
+/* Water panel */
+.waterpanel{
+  width: 180px;
+  flex: 0 0 auto;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(2,6,23,.80), rgba(15,23,42,.56));
+  border: 1px solid var(--stroke);
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  padding: var(--cardPad);
 }
-.waterpanel .wtitle{ font-weight:900; font-size:13px; }
-.waterpanel .wzone{ font-size:12px; color: rgba(148,163,184,.95); }
+.water-head{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.wtitle{
+  font-weight: 900;
+  font-size: 13px;
+}
+.wzone{
+  font-size: 12px;
+  color: rgba(148,163,184,.9);
+}
+.wzone b{ color: rgba(226,232,240,.92); }
 
 .wbar{
-  margin-top:8px;
-  height: 10px;
-  border-radius: var(--pill);
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.12);
+  border:1px solid rgba(148,163,184,.18);
   overflow:hidden;
-  background: rgba(148,163,184,.18);
-  border: 1px solid rgba(148,163,184,.10);
 }
 .wfill{
-  height:100%;
-  width:50%;
-  border-radius: var(--pill);
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+  height: 100%;
+  width: 50%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34,211,238,.65), rgba(34,197,94,.70));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 0 16px rgba(34,211,238,.08);
+  transition: width 180ms ease;
 }
 .wpct{
-  margin-top:6px;
-  font-weight:900;
-  text-align:right;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
+  margin-top: 8px;
+  text-align: right;
+  font-weight: 900;
+  color: rgba(226,232,240,.92);
 }
 
-/* --- Overlay windows --- */
-.overlay{
-  position:fixed; inset:0;
-  z-index: 120;
-  display:grid;
-  place-items:center;
-  padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
-  background: rgba(0,0,0,.48);
-  backdrop-filter: blur(6px);
+/* ---------- Playfield ---------- */
+#playfieldWrap{
+  position: fixed;
+  inset: 0;
+  padding-top: calc(var(--topSafe) + var(--hudTopH) + var(--hudMidH) + var(--hudGap));
+  padding-bottom: calc(var(--bottomSafe) + 10px);
+  padding-left: calc(var(--sideSafeL) + var(--pfSide));
+  padding-right: calc(var(--sideSafeR) + var(--pfSide));
 }
-.overlay[hidden]{ display:none !important; }
 
-.overlay-card{
-  width:min(720px, 100%);
-  border-radius: 22px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.82);
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
-  padding: 16px;
+#playfield{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 26px;
+  border: 1px solid rgba(148,163,184,.14);
+  background: radial-gradient(800px 500px at 35% 15%, rgba(34,197,94,.05), transparent 55%),
+              radial-gradient(700px 450px at 90% 20%, rgba(34,211,238,.05), transparent 60%),
+              rgba(2,6,23,.18);
+  overflow: hidden;
+  box-shadow: 0 22px 80px rgba(0,0,0,.40);
 }
-.overlay-card.wide{ width:min(860px, 100%); }
 
-.ov-title{ font-weight:950; letter-spacing:.2px; font-size:18px; }
-.ov-sub{ color: rgba(148,163,184,.95); margin-top:6px; font-size:13px; }
-
-.ov-row{
-  display:flex; gap:10px; flex-wrap:wrap;
-  margin-top:12px;
-}
-.btn{
+/* layers */
+.layer{
+  position:absolute;
+  inset:0;
   pointer-events:auto;
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.72);
-  color: rgba(229,231,235,.95);
-  padding: 10px 12px;
-  font-weight:900;
-  cursor:pointer;
-}
-.btn.primary{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.28);
-}
-.btn.ghost{ background: transparent; }
-
-.ov-hint{
-  margin-top:10px;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-  line-height:1.35;
 }
 
-/* --- Result grid --- */
-.res-grid{
-  margin-top:10px;
-  display:grid;
-  gap:8px;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-}
-@media (max-width:720px){
-  .res-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-.res-item{
-  border:1px solid rgba(148,163,184,.14);
-  border-radius: 16px;
-  padding: 10px;
-  background: rgba(15,23,42,.55);
-  color: rgba(229,231,235,.92);
-}
-.res-note{ margin-top:10px; }
-.tier{ font-weight:950; color: rgba(34,197,94,.95); }
-.tips{
-  white-space: pre-wrap;
-  margin:10px 0 0;
-  padding: 10px;
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
-  color: rgba(229,231,235,.9);
-  font-size: 12px;
-  line-height: 1.35;
-}
-.next{ margin-top:8px; color: rgba(229,231,235,.92); }
+/* Cardboard split wrapper (hidden by default) */
+#cbWrap[hidden]{ display:none !important; }
 
-/* --- End/Boss FX hooks (hydration.safe.js toggles body classes) --- */
-body.hha-endfx #playfield{
-  animation: hhaShake .22s linear infinite;
-}
-@keyframes hhaShake{
-  0%{ transform: translate(0,0); }
-  25%{ transform: translate(1px,-1px); }
-  50%{ transform: translate(-1px,1px); }
-  75%{ transform: translate(1px,1px); }
-  100%{ transform: translate(0,0); }
-}
-body.hha-bossfx #playfield{
-  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset, 0 24px 90px rgba(239,68,68,.10);
+#cbWrap{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items: stretch;
+  justify-content: center;
+  pointer-events:none; /* layers handle events */
 }
 
-/* --- Cardboard split --- */
-#cbWrap{ position:absolute; inset:0; display:none; }
 #cbPlayfield{
-  position:absolute; inset:0;
+  position:relative;
+  width:100%;
+  height:100%;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap:10px;
-  padding:10px;
+  gap: 6px;
+  padding: 6px;
+  pointer-events:none;
 }
-body.cardboard #hydration-layer{ display:none; }
-body.cardboard #cbWrap{ display:block; }
 
-/* --- Shock element (hydration.safe.js) --- */
+#hydration-layerL,
+#hydration-layerR{
+  position:relative;
+  border-radius: 18px;
+  background: rgba(2,6,23,.10);
+  border: 1px solid rgba(148,163,184,.10);
+  overflow:hidden;
+  pointer-events:auto;
+}
+
+/* When cardboard is active: hide main layer and show cbWrap (loader toggles) */
+body.cardboard #hydration-layer{ display:none; }
+body.cardboard #cbWrap{ pointer-events:none; }
+
+/* ---------- Overlay (Start / Summary) ---------- */
+.overlay{
+  position: fixed;
+  inset: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: calc(var(--topSafe) + 14px) calc(var(--sideSafeL) + 14px) calc(var(--bottomSafe) + 14px);
+  background: rgba(2,6,23,.58);
+  backdrop-filter: blur(10px);
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.overlay-card{
+  width: min(720px, 94vw);
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(2,6,23,.90), rgba(15,23,42,.72));
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 28px 110px rgba(0,0,0,.55);
+  padding: 18px 18px 16px;
+}
+
+.overlay-card.wide{ width: min(980px, 96vw); }
+
+.ov-title{
+  font-weight: 1000;
+  letter-spacing: .3px;
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+.ov-sub{
+  color: rgba(148,163,184,.92);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.ov-row{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items:center;
+  margin-top: 10px;
+}
+
+.ov-hint{
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(148,163,184,.92);
+  line-height: 1.35;
+}
+
+/* Buttons */
+.btn{
+  height: 44px;
+  min-width: 120px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.55);
+  color: rgba(226,232,240,.96);
+  font-weight: 900;
+  letter-spacing: .2px;
+  cursor: pointer;
+}
+.btn:active{ transform: translateY(1px); }
+.btn.primary{
+  border-color: rgba(34,197,94,.35);
+  background: linear-gradient(180deg, rgba(34,197,94,.24), rgba(2,6,23,.52));
+  box-shadow: 0 14px 48px rgba(34,197,94,.10);
+}
+.btn.ghost{
+  background: rgba(15,23,42,.38);
+  border-color: rgba(148,163,184,.18);
+}
+
+/* Summary grid */
+.res-grid{
+  margin-top: 12px;
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
+}
+.res-item{
+  border-radius: 18px;
+  padding: 10px 12px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.48);
+  font-size: 12.5px;
+  color: rgba(226,232,240,.90);
+}
+.res-item b{ font-weight: 1000; }
+
+.res-note{
+  margin-top: 12px;
+  border-radius: 18px;
+  padding: 12px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.42);
+}
+.tier{
+  font-weight: 1000;
+  margin-bottom: 8px;
+}
+.tips{
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: 12.5px;
+  color: rgba(226,232,240,.88);
+  line-height: 1.35;
+}
+.next{
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(148,163,184,.92);
+}
+.next b{ color: rgba(226,232,240,.94); }
+
+/* ---------- FX hooks (from hydration.safe.js) ---------- */
+body.hha-hitfx #playfield{
+  filter: saturate(1.08) contrast(1.02);
+}
+
+body.hha-endfx #playfield{
+  box-shadow: 0 0 0 1px rgba(245,158,11,.18), 0 26px 92px rgba(0,0,0,.42), 0 0 26px rgba(245,158,11,.10);
+  animation: hhaEndBlink 420ms ease-in-out infinite;
+}
+@keyframes hhaEndBlink{
+  0%,100%{ filter: brightness(1.00); }
+  50%{ filter: brightness(1.12); }
+}
+
+body.hha-bossfx #playfield{
+  box-shadow: 0 0 0 1px rgba(239,68,68,.18), 0 28px 100px rgba(0,0,0,.44), 0 0 30px rgba(239,68,68,.10);
+}
+
+/* Shock wave element (created by JS) */
 .hha-shock{
   position:absolute;
-  left: var(--x, 50%);
-  top: var(--y, 50%);
-  width: 10px; height: 10px;
-  border-radius: 999px;
+  left: var(--x,50%);
+  top: var(--y,50%);
+  width: 10px;
+  height: 10px;
   transform: translate(-50%,-50%);
-  border: 2px solid rgba(239,68,68,.55);
-  box-shadow: 0 0 30px rgba(239,68,68,.18);
-  animation: shock .5s ease-out forwards;
+  border-radius: 999px;
+  border: 2px solid rgba(239,68,68,.25);
+  box-shadow: 0 0 18px rgba(239,68,68,.08);
+  pointer-events:none;
+  animation: shock 520ms ease-out forwards;
 }
 @keyframes shock{
-  from{ opacity:1; transform: translate(-50%,-50%) scale(1); }
-  to{ opacity:0; transform: translate(-50%,-50%) scale(9); }
+  0%{ opacity: .85; transform: translate(-50%,-50%) scale(1); }
+  100%{ opacity: 0; transform: translate(-50%,-50%) scale(12); }
 }
 
-/* Targets clickable only via their own nodes */
-.hvr-target{ pointer-events:auto; }
+/* ---------- Responsive tweaks ---------- */
+@media (max-width: 820px){
+  :root{
+    --hudTopH: 140px;
+    --hudMidH: 160px;
+  }
+  .hud-mid{
+    flex-direction: row;
+  }
+  .waterpanel{ width: 168px; }
+  .quest{ max-width: unset; }
+}
+
+@media (max-width: 520px){
+  :root{
+    --hudTopH: 156px;
+    --hudMidH: 172px;
+    --pfSide: 12px;
+  }
+  .hud-top{ gap: 6px; }
+  .chip{ height: 34px; padding: 0 10px; font-size: 12.5px; }
+  .chip.big{ font-size: 14px; }
+  .hud-mid{ flex-direction: column; }
+  .waterpanel{ width: 100%; }
+  .res-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  #playfieldWrap{
+    padding-top: calc(var(--topSafe) + var(--hudTopH) + var(--hudMidH) + 12px);
+  }
+}
+
+/* ---------- Cardboard / VR tweaks ---------- */
+body.cardboard #playfield{
+  border-radius: 18px;
+}
+body.view-vr #hud,
+body.view-cvr #hud{
+  /* HUD still on top but give a bit more play room */
+  padding-top: calc(var(--topSafe) + 2px);
+}
+body.view-cvr #playfieldWrap{
+  padding-top: calc(var(--topSafe) + var(--hudTopH) + var(--hudMidH) + 6px);
+}
+
+/* ---------- Utility: hide start overlay when loader adds class ---------- */
+#startOverlay.hide{ display:none !important; }
