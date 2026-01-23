@@ -2,10 +2,8 @@
 GroupsVR UI (HHA Standard-ish)
 ✅ HUD / Quest / Power / Coach
 ✅ Targets via CSS vars --x --y --s
-✅ Emoji crisp: blur/filter moved to ::before (emoji not affected)
-✅ FINAL-8 onboarding
-✅ FINAL-9 target separation + banner
-✅ FINAL-10 mini hint
+✅ Emoji crisp centered via .fg-emoji (no dim)
+✅ Banner + Onboarding
 */
 
 :root{
@@ -30,14 +28,7 @@ GroupsVR UI (HHA Standard-ish)
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  margin:0; padding:0;
-  width:100%; height:100%;
-  overflow:hidden;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-  background:var(--bg);
-  color:var(--text);
-}
+html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
 
 .hidden{ display:none !important; }
 
@@ -52,7 +43,7 @@ html,body{
   pointer-events:auto;
 }
 
-/* ---------------- HUD ---------------- */
+/* HUD */
 .hud{
   position:fixed;
   top: calc(var(--sat) + 10px);
@@ -66,7 +57,6 @@ html,body{
 }
 
 .hudLeft,.hudRight{ display:flex; gap:8px; flex-wrap:wrap; }
-
 .pill{
   pointer-events:none;
   display:flex;
@@ -82,7 +72,7 @@ html,body{
 .lbl{ font-size:12px; color:var(--muted); font-weight:800; letter-spacing:.2px; }
 .val{ font-size:14px; font-weight:900; }
 
-/* ---------------- Quest ---------------- */
+/* Quest */
 .questTop{
   position:fixed;
   top: calc(var(--sat) + 64px);
@@ -141,7 +131,7 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   box-shadow: 0 0 0 6px rgba(245,158,11,.12), 0 18px 40px rgba(0,0,0,.35);
 }
 
-/* ---------------- Power ---------------- */
+/* Power */
 .powerWrap{
   position:fixed;
   left: 12px;
@@ -162,7 +152,7 @@ body.mini-urgent .questTop .questCard:nth-child(2){
 .powerBar .fill{ background: rgba(34,197,94,.95); }
 .pFoot{ margin-top:8px; color:var(--muted); font-size:12px; font-weight:700; }
 
-/* ---------------- Coach ---------------- */
+/* Coach */
 .coachWrap{
   position:fixed;
   left: 12px;
@@ -192,7 +182,7 @@ body.mini-urgent .questTop .questCard:nth-child(2){
 .coachName{ font-weight: 900; color: rgba(229,231,235,.95); }
 .coachText{ margin-top:4px; font-size:12px; color: rgba(229,231,235,.90); }
 
-/* ---------------- Overlays ---------------- */
+/* overlays */
 .overlay{
   position:fixed; inset:0;
   display:flex;
@@ -214,7 +204,6 @@ body.mini-urgent .questTop .questCard:nth-child(2){
 .title{ font-weight: 1000; font-size:18px; }
 .sub{ margin-top:8px; color: rgba(229,231,235,.88); font-size:13px; }
 .note{ color: rgba(148,163,184,.95); font-size:12px; }
-
 .grid2{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -229,10 +218,8 @@ body.mini-urgent .questTop .questCard:nth-child(2){
 }
 .stat .k{ color: var(--muted); font-size:12px; font-weight:800; }
 .stat .v{ font-size:16px; font-weight:1000; margin-top:4px; }
-
 .row{ display:flex; gap:10px; justify-content:flex-end; }
 .row2{ margin-top:10px; justify-content:space-between; flex-wrap:wrap; }
-
 .btn{
   pointer-events:auto;
   border: 1px solid rgba(148,163,184,.22);
@@ -250,124 +237,7 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   background: rgba(2,6,23,.30);
 }
 
-/* =========================================================
-   TARGETS — Emoji crisp center (NO blur/filter on emoji)
-   ========================================================= */
-
-/* FINAL-9: target separation */
-.fg-target{
-  position:absolute;
-  left: var(--x, 50vw);
-  top:  var(--y, 50vh);
-  width: 92px;
-  height: 92px;
-  border-radius: 999px;
-
-  /* center emoji perfectly */
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-
-  /* crisp rendering */
-  line-height: 1;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: geometricPrecision;
-  transform: translate(-50%,-50%) translateZ(0) scale(var(--s,1));
-  will-change: transform, opacity;
-
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  /* IMPORTANT: อย่าใส่ filter/backdrop-filter ที่ตัวหลัก (จะทำ emoji ดับ) */
-  filter: none;
-  backdrop-filter: none;
-
-  /* emoji contrast */
-  color: rgba(255,255,255,.98);
-  text-shadow:
-    0 2px 10px rgba(0,0,0,.55),
-    0 1px 0 rgba(0,0,0,.35);
-  -webkit-text-stroke: 0.35px rgba(0,0,0,.20);
-
-  /* isolate pseudo layers behind emoji */
-  isolation: isolate;
-}
-
-/* background layer (blur only here) */
-.fg-target::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius: 999px;
-  z-index:0;
-
-  background: rgba(15,23,42,.82);
-  border: 2px solid rgba(255,255,255,.12);
-  box-shadow: 0 10px 24px rgba(0,0,0,.35);
-
-  /* blur only the background look, not emoji */
-  backdrop-filter: blur(6px);
-}
-
-/* keep emoji above */
-.fg-target{ z-index: 1; }
-.fg-target > *{ position:relative; z-index:2; } /* เผื่ออนาคตใส่ span */
-.fg-target{ z-index: 20; } /* เหนือ playLayer content ทั่วไป */
-
-/* good / wrong / junk accent rings (apply on ::before) */
-.fg-good::before{
-  border-color: rgba(34,197,94,.55);
-  box-shadow: 0 0 0 6px rgba(34,197,94,.12), 0 12px 28px rgba(0,0,0,.35);
-}
-.fg-wrong::before{
-  border-color: rgba(59,130,246,.55);
-  box-shadow: 0 0 0 6px rgba(59,130,246,.12), 0 12px 28px rgba(0,0,0,.35);
-  /* ถ้าอยากสดขึ้น ให้ดันที่พื้นหลัง ไม่กระทบ emoji */
-  filter: saturate(1.08) contrast(1.02);
-}
-.fg-junk::before{
-  border-color: rgba(239,68,68,.65);
-  box-shadow: 0 0 0 7px rgba(239,68,68,.16), 0 12px 28px rgba(0,0,0,.35);
-}
-
-/* junk stripes overlay (behind emoji) */
-.fg-junk::after{
-  content:"";
-  position:absolute;
-  inset:10px;
-  border-radius:999px;
-  opacity:.18;
-  background:
-    repeating-linear-gradient(45deg,
-      rgba(239,68,68,.0) 0px,
-      rgba(239,68,68,.0) 10px,
-      rgba(239,68,68,.95) 10px,
-      rgba(239,68,68,.95) 14px);
-  pointer-events:none;
-  z-index:1; /* above ::before, below emoji */
-}
-
-/* spawn / hit / out animations */
-.fg-target.spawn{
-  transform: translate(-50%,-50%) translateZ(0) scale(calc(var(--s,1)*.82));
-  opacity:.0;
-}
-.fg-target:not(.spawn){
-  transition: transform .16s ease, opacity .16s ease;
-  opacity:1;
-}
-.fg-target.hit{
-  transform: translate(-50%,-50%) translateZ(0) scale(calc(var(--s,1)*1.18));
-  opacity:0;
-}
-.fg-target.out{
-  transform: translate(-50%,-50%) translateZ(0) scale(calc(var(--s,1)*.86));
-  opacity:0;
-}
-
-/* FINAL-9 banner */
+/* Banner */
 .bigBanner{
   position:fixed;
   left:50%;
@@ -396,25 +266,86 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   to  { transform: scale(1); opacity:1; }
 }
 
-/* FINAL-8 onboarding */
+/* Onboarding */
 .overlay-onb{ z-index: 120; }
 .onbPanel{ max-width:520px; }
 
-/* FINAL-10 mini start hint */
+/* Targets */
+.fg-target{
+  position:absolute;
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  left: var(--x, 50vw);
+  top:  var(--y, 50vh);
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  border: 2px solid rgba(255,255,255,.12);
+  background: rgba(15,23,42,.88);
+  backdrop-filter: blur(6px);
+}
+
+.fg-emoji{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:100%;
+  font-weight: 900;
+  line-height: 1;
+  font-size: calc(44px * var(--emoji-scale, 1));
+  text-shadow:
+    0 2px 0 rgba(0,0,0,.35),
+    0 8px 18px rgba(0,0,0,.55);
+  filter: none !important;
+  opacity: 1;
+  transform: translateZ(0);
+  pointer-events:none;
+}
+
+.fg-good{
+  border-color: rgba(34,197,94,.55);
+  box-shadow: 0 0 0 6px rgba(34,197,94,.12), 0 12px 28px rgba(0,0,0,.35);
+}
+
+.fg-wrong{
+  border-color: rgba(59,130,246,.55);
+  box-shadow: 0 0 0 6px rgba(59,130,246,.12), 0 12px 28px rgba(0,0,0,.35);
+  /* ❌ อย่าใช้ filter: ... เพราะ emoji จะโดนดับด้วย */
+}
+
+.fg-junk{
+  border-color: rgba(239,68,68,.65);
+  box-shadow: 0 0 0 7px rgba(239,68,68,.16), 0 12px 28px rgba(0,0,0,.35);
+}
+.fg-junk::after{
+  content:"";
+  position:absolute;
+  inset:10px;
+  border-radius:999px;
+  opacity:.18;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(239,68,68,.0) 0px,
+      rgba(239,68,68,.0) 10px,
+      rgba(239,68,68,.95) 10px,
+      rgba(239,68,68,.95) 14px);
+  pointer-events:none;
+}
+
+.fg-target.spawn{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.82)); opacity:.0; }
+.fg-target:not(.spawn){ transition: transform .16s ease, opacity .16s ease; opacity:1; }
+.fg-target.hit{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.18)); opacity:0; }
+.fg-target.out{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*.86)); opacity:0; }
+
+/* mini start hint */
 body.fx-mini .questTop .questCard{
   transform: translateY(-1px);
   box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 18px 40px rgba(0,0,0,.35);
-}
-
-/* optional: clutch time */
-body.clutch .hud .pill{
-  box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 10px 26px rgba(0,0,0,.28);
-}
-
-/* optional: storm vibe */
-body.groups-storm .fg-target::before{
-  box-shadow: 0 0 0 6px rgba(34,211,238,.10), 0 12px 28px rgba(0,0,0,.35);
-}
-body.groups-storm-urgent .fg-target::before{
-  box-shadow: 0 0 0 7px rgba(34,211,238,.14), 0 16px 34px rgba(0,0,0,.40);
 }
