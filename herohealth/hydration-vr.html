@@ -1,223 +1,140 @@
-<!-- === /herohealth/hygiene-vr.html ===
-HygieneVR LAUNCHER — ROOT (Auto-detect, no override)
-✅ Redirects to ./hygiene-vr/hygiene-vr.html
-✅ Auto-detect view (PC/Mobile) but never override if ?view= exists
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/style/log/coach/dd
+<!-- === /herohealth/hydration-vr.html ===
+Hydration VR Launcher — ROOT (AUTO)
+✅ Auto-detect (no menu)
+✅ Does NOT override if ?view= already exists
+✅ Pass-through all query params (hub/run/diff/time/seed/sessionId/log/etc.)
+✅ Redirect -> /herohealth/hydration-vr/hydration-vr.html
+✅ Fallback: shows Tap-to-start if redirect blocked
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR Launcher</title>
+  <title>HeroHealth — Hydration VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --radius:22px;
-      --pill:999px;
-
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
+      --r:22px; --pill:999px;
     }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0; width:100%; height:100%;
-      background:
-        radial-gradient(circle at 10% 10%, rgba(34,197,94,.10), transparent 60%),
-        radial-gradient(circle at 90% 90%, rgba(245,158,11,.08), transparent 62%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-    }
-    .wrap{
-      min-height:100%;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      display:flex; align-items:center; justify-content:center;
-    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
-      width:min(920px,100%);
-      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.72));
-      border:1px solid var(--stroke);
-      border-radius: 28px;
-      padding: 18px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.38);
-    }
-    .top{ display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; }
-    .title{ font-weight:1100; font-size:26px; letter-spacing:.2px; }
-    .sub{ color:var(--muted); margin-top:6px; line-height:1.35; font-weight:850; }
-    .hr{ height:1px; background:var(--stroke); margin: 14px 0; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(15,23,42,.65);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 12px 14px;
-      font-weight: 1050;
-      cursor:pointer;
-      transition: transform .08s ease, border-color .12s ease, background .12s ease;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn:active{ transform: translateY(1px) scale(.99); }
-    .btn.primary{ border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.14); }
-    .btn.warn{ border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.12); }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
+      width:min(860px,100%);
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      border-radius: var(--pill);
-      padding: 8px 10px;
-      font-weight: 950;
-      font-size: 12px;
-      color: rgba(229,231,235,.92);
+      background: rgba(2,6,23,.72);
+      border-radius: var(--r);
+      padding: 16px;
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
     }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
-    .meta{
-      margin-top:10px;
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      color:rgba(229,231,235,.92);
+    .title{font-weight:950;font-size:18px;letter-spacing:.2px}
+    .sub{color:rgba(148,163,184,.95);margin-top:6px;font-size:13px;line-height:1.35}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn{
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.72);
+      color: rgba(229,231,235,.95);
+      padding: 10px 12px;
       font-weight:900;
-      font-size:12px;
-      line-height:1.35;
-      word-break:break-word;
+      cursor:pointer;
     }
-    .hint{ color:var(--muted); font-weight:900; font-size:13px; line-height:1.45; }
+    .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
+    .hint{margin-top:10px;color:rgba(148,163,184,.95);font-size:12px;line-height:1.35}
+    code{color:rgba(34,211,238,.95)}
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="top">
-        <div>
-          <div class="title">🧼 HygieneVR — Handwash Survival</div>
-          <div class="sub">
-            โหมด Survival • ทำ 7 ขั้นตอนให้ถูก ✅ • หลบเชื้อ 🦠 • รักษาคอมโบ 🔥<br>
-            เป้าเป็น emoji ชัด ๆ สำหรับ ป.5 และเล่นได้ทั้ง Mobile/PC/VR
-          </div>
-        </div>
-        <div class="row">
-          <button class="btn" id="btnCopy" type="button">📋 Copy link</button>
-          <button class="btn warn" id="btnHub" type="button">↩ HUB</button>
-        </div>
-      </div>
+<div class="wrap">
+  <div class="card">
+    <div class="title">Hydration Quest VR</div>
+    <div class="sub" id="msg">กำลังเข้าเกมอัตโนมัติ…</div>
 
-      <div class="meta" id="meta">loading…</div>
+    <div class="row" id="fallbackRow" style="display:none">
+      <button class="btn primary" id="btnGo">Tap เพื่อเข้าเกม</button>
+      <button class="btn" id="btnBack">กลับ HUB</button>
+    </div>
 
-      <div class="hr"></div>
-
-      <div class="row">
-        <button class="btn primary" id="goAuto" type="button">▶ Start (Auto-detect)</button>
-        <button class="btn" id="goMobile" type="button">📱 Mobile</button>
-        <button class="btn" id="goPC" type="button">🖥️ PC</button>
-        <button class="btn" id="goVR" type="button">🥽 Cardboard VR</button>
-        <button class="btn" id="goCVR" type="button">🎯 cVR</button>
-      </div>
-
-      <div style="height:12px;"></div>
-      <div class="hint">
-        • ปลายทาง run: <span class="mono">/herohealth/hygiene-vr/hygiene-vr.html</span><br>
-        • ส่งต่อ params อัตโนมัติ: <span class="mono">hub, run, diff, time, seed, log, studyId, phase, conditionGroup, style, coach, dd</span><br>
-        • ไม่ override <span class="mono">view</span> ถ้าคุณใส่มาเองใน URL (ตามกติกาที่ตกลงไว้)
-      </div>
+    <div class="hint">
+      RUN: <code>/herohealth/hydration-vr/hydration-vr.html</code><br/>
+      • ถ้าจะง่ายสำหรับเด็ก: <code>?kids=1</code><br/>
+      • Cardboard: <code>?view=cvr&cardboard=1</code>
     </div>
   </div>
+</div>
 
 <script>
 (function(){
   'use strict';
-  const DOC = document;
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } };
+  const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
+
+  const hub = String(qs('hub','./hub.html'));
+  const RUN_URL = './hydration-vr/hydration-vr.html';
 
   function detectView(){
-    const forced = (qs('view','')||'').toLowerCase();
-    if(forced) return forced; // ✅ ห้าม override
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-    return isMobile ? 'mobile' : 'pc';
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
+    const w = Math.max(1, innerWidth||1);
+    const h = Math.max(1, innerHeight||1);
+    const landscape = w >= h;
+
+    if (isTouch){
+      if (landscape && w >= 740) return 'cvr';
+      return 'mobile';
+    }
+    return 'pc';
   }
 
-  function buildUrl(viewOverride){
-    const u = new URL(location.href);
-    const out = new URL('./hygiene-vr/hygiene-vr.html', u);
+  function buildTargetUrl(){
+    const cur = new URL(location.href);
+    const u = new URL(RUN_URL, location.href);
 
-    const pass = ['hub','run','diff','time','seed','studyId','phase','conditionGroup','style','log','coach','dd'];
-    pass.forEach(k=>{
-      const v = u.searchParams.get(k);
-      if(v!=null && v!=='') out.searchParams.set(k, v);
-    });
+    // pass-through all params
+    cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
-    // view: if already in current URL, keep it; else use override/detect
-    const forced = (qs('view','')||'').toLowerCase();
-    if(forced){
-      out.searchParams.set('view', forced);
-    }else{
-      out.searchParams.set('view', (viewOverride || detectView()));
+    // do NOT override if user already provided view=
+    const hasView = !!cur.searchParams.get('view');
+    if (!hasView){
+      u.searchParams.set('view', detectView());
     }
 
-    // ensure hub back link
-    const hub = u.searchParams.get('hub');
-    if(!hub){
-      const hubGuess = new URL('./hub.html', u).toString();
-      out.searchParams.set('hub', hubGuess);
+    // ensure hub
+    if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
+    return u.toString();
+  }
+
+  const msg = document.getElementById('msg');
+  const fallbackRow = document.getElementById('fallbackRow');
+  const btnGo = document.getElementById('btnGo');
+  const btnBack = document.getElementById('btnBack');
+
+  btnBack?.addEventListener('click', ()=> location.href = hub);
+
+  const target = buildTargetUrl();
+
+  function go(){ location.href = target; }
+
+  // Try auto redirect quickly
+  msg.textContent = 'กำลังเข้าเกมอัตโนมัติ…';
+  setTimeout(go, 80);
+
+  // Fallback if blocked / user wants manual
+  setTimeout(()=>{
+    if (fallbackRow){
+      fallbackRow.style.display = 'flex';
+      msg.textContent = 'ถ้าไม่เด้งเข้าเกม ให้แตะปุ่ม “Tap เพื่อเข้าเกม”';
     }
-    return out.toString();
-  }
-
-  async function copyText(text){
-    try{ await navigator.clipboard.writeText(String(text||'')); alert('คัดลอกแล้ว ✅'); return true; }
-    catch{
-      try{
-        const ta = DOC.createElement('textarea');
-        ta.value = String(text||'');
-        DOC.body.appendChild(ta);
-        ta.select(); DOC.execCommand('copy');
-        ta.remove();
-        alert('คัดลอกแล้ว ✅');
-        return true;
-      }catch{ alert('Copy ไม่สำเร็จ'); return false; }
-    }
-  }
-
-  function setMeta(){
-    const sp = new URL(location.href).searchParams;
-    const arr = [];
-    sp.forEach((v,k)=>arr.push(`${k}=${v}`));
-    const forced = (qs('view','')||'').toLowerCase();
-    const view = forced || detectView();
-    DOC.getElementById('meta').textContent =
-      `View: ${view}${forced?' (forced)':''} • ` + (arr.length ? `Params: ${arr.join(' • ')}` : 'Params: —');
-  }
-  setMeta();
-
-  DOC.getElementById('goAuto').onclick   = ()=> location.href = buildUrl(null);
-  DOC.getElementById('goMobile').onclick = ()=> location.href = buildUrl('mobile');
-  DOC.getElementById('goPC').onclick     = ()=> location.href = buildUrl('pc');
-  DOC.getElementById('goVR').onclick     = ()=> location.href = buildUrl('vr');
-  DOC.getElementById('goCVR').onclick    = ()=> location.href = buildUrl('cvr');
-
-  DOC.getElementById('btnCopy').onclick  = ()=> copyText(buildUrl(null));
-  DOC.getElementById('btnHub').onclick   = ()=>{
-    const hub = qs('hub','./hub.html');
-    location.href = hub;
-  };
+    btnGo?.addEventListener('click', go);
+  }, 900);
 })();
 </script>
 </body>
