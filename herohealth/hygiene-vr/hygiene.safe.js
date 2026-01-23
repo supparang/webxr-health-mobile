@@ -1,7 +1,6 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard) PACK I
-// NEW: Boss Weakness by STEP + Combo Rescue Heart + Kid-friendly End Tips
-// Emits: hha:start, hha:time, hha:judge, hha:end, hha:boss_enter, hha:boss_clear, hha:soap_pick
+// HygieneVR SAFE — SURVIVAL (HHA Standard) PACK J v1.4.0
+// NEW: Boss Phase 2 + Streak Rewards + Teacher End Chart (?teacher=1)
 'use strict';
 
 const WIN = window;
@@ -80,6 +79,11 @@ export function boot(){
   const endTips      = DOC.getElementById('endTips');
   const endJson      = DOC.getElementById('endJson');
 
+  const teacherPanel = DOC.getElementById('teacherPanel');
+  const teacherSub   = DOC.getElementById('teacherSub');
+  const teacherBars  = DOC.getElementById('teacherBars');
+  const teacherFoot  = DOC.getElementById('teacherFoot');
+
   const btnStart   = DOC.getElementById('btnStart');
   const btnRestart = DOC.getElementById('btnRestart');
   const btnPlayAgain = DOC.getElementById('btnPlayAgain');
@@ -93,6 +97,7 @@ export function boot(){
   const diff = (qs('diff','normal')||'normal').toLowerCase();
   const view = (qs('view','pc')||'pc').toLowerCase();
   const hub = qs('hub', '');
+  const teacherOn = (qs('teacher','0') === '1');
 
   const timePlannedSec = clamp(qs('time', diff==='easy'?80:(diff==='hard'?70:75)), 20, 9999);
   const seed = Number(qs('seed', Date.now()));
@@ -111,7 +116,6 @@ export function boot(){
     if(diff==='hard') return { spawnPerSec:2.6, hazardRate:0.14, decoyRate:0.26, bpm:116 };
     return { spawnPerSec:2.2, hazardRate:0.12, decoyRate:0.22, bpm:106 };
   })();
-
   const bounds = {
     spawnPerSec:[1.2, 4.2],
     hazardRate:[0.06, 0.26],
@@ -153,9 +157,9 @@ export function boot(){
   let hazHits=0;
   const missLimit = 3;
 
-  // PACK I: Combo Rescue heart (1 per loop)
-  let heart = 1;          // current charge
-  let heartMax = 1;       // max per loop
+  // Heart rescue (1 per loop; can increase via streak)
+  let heartMax = 1;
+  let heart = 1;
   let rescuedCount = 0;
 
   let perfect = 0;
@@ -168,14 +172,18 @@ export function boot(){
   // Boss
   let bossActive = false;
   let bossHP = 0;
+  let bossHPMax = 0;
   let bossClears = 0;
   let bossNextAtMs = 0;
   let bossEndsAtMs = 0;
   let bossObj = null;
 
-  // PACK I: Boss weakness by STEP
-  let bossWeakIdx = 0;          // which step damages boss
-  let bossWeakUntilMs = 0;      // when to rotate weakness
+  // Weakness rotates
+  let bossWeakIdx = 0;
+  let bossWeakUntilMs = 0;
+
+  // PACK J: boss phase2 flag
+  let bossPhase2 = false;
 
   // Mist
   let mistUntilMs = 0;
@@ -184,14 +192,19 @@ export function boot(){
   let totalStepHits=0;
   const rtOk = [];
 
-  // mistakes per step (for kid summary)
+  // mistakes per step
   const wrongByStep = new Array(STEPS.length).fill(0);
 
+  // streak milestones (pack J)
+  let streak10 = 0;
+  let streak20 = 0;
+  let streak30 = 0;
+
   // targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
+  const targets = [];
   let nextId=1;
 
-  // ghost (last 10s)
+  // ghost (optional)
   const ghostBuf = [];
   let ghostLayer = null;
 
@@ -208,6 +221,8 @@ export function boot(){
     clearTimeout(showBanner._t);
     showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
+  function setMist(on){ DOC.body.classList.toggle('is-mist', !!on); }
+  function setBoss2(on){ DOC.body.classList.toggle('is-boss2', !!on); }
 
   function explain(kind, obj){
     if(!explainOn) return '';
@@ -224,10 +239,6 @@ export function boot(){
       return `บอสแพ้: ${w.icon} ${w.label} (ยิงเป้านั้นเพื่อทำดาเมจ)`;
     }
     return '';
-  }
-
-  function setMist(on){
-    DOC.body.classList.toggle('is-mist', !!on);
   }
 
   function getSpawnRect(){
@@ -262,7 +273,6 @@ export function boot(){
   function missionProgress(){
     if(!mission || !mission.rules) return { pct:0, done:false, text:'—' };
     const r = mission.rules;
-
     const stepAcc = getStepAcc();
 
     if(r.minLoops != null){
@@ -290,7 +300,6 @@ export function boot(){
       const done = bossClears >= r.minBossClears;
       return { pct, done, text:`boss ${bossClears}/${r.minBossClears}` };
     }
-
     return { pct:0, done:false, text:'—' };
   }
 
@@ -337,11 +346,10 @@ export function boot(){
     miniSoap && (miniSoap.textContent = `🧼 Soap: ${Math.round(soap)}%`);
     if(bossActive){
       const w = STEPS[bossWeakIdx];
-      miniBoss && (miniBoss.textContent = `👑 Boss HP ${bossHP} • แพ้: ${w.icon} ${w.label}`);
+      const ph = bossPhase2 ? 'PHASE2' : 'PHASE1';
+      miniBoss && (miniBoss.textContent = `👑 ${ph} HP ${bossHP}/${bossHPMax} • แพ้: ${w.icon} ${w.label}`);
     }else{
-      miniBoss && (miniBoss.textContent =
-        `👑 Boss: จะมาอีกใน ${Math.max(0, Math.ceil((bossNextAtMs-nowMs())/1000))}s`
-      );
+      miniBoss && (miniBoss.textContent = `👑 Boss: จะมาอีกใน ${Math.max(0, Math.ceil((bossNextAtMs-nowMs())/1000))}s`);
     }
 
     setWheel();
@@ -374,17 +382,19 @@ export function boot(){
 
     const rect = getSpawnRect();
     let x, y;
-
-    if(forcePos){
-      x = forcePos.x; y = forcePos.y;
-    }else{
+    if(forcePos){ x = forcePos.x; y = forcePos.y; }
+    else{
       x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
       y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
     }
 
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
-    el.style.setProperty('--s', (kind==='boss' ? 1.15 : (0.90 + rng()*0.25)).toFixed(3));
+
+    // PACK J: shrink targets in boss phase2 a bit (except boss itself)
+    let s = (kind==='boss') ? 1.15 : (0.90 + rng()*0.25);
+    if(bossPhase2 && kind!=='boss') s *= 0.86;
+    el.style.setProperty('--s', s.toFixed(3));
 
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
     targets.push(obj);
@@ -400,49 +410,7 @@ export function boot(){
     return clamp(dt, 0, 60000);
   }
 
-  // ---------- Ghost ----------
-  function recordGhost({kind, ok, x, y, rtMs}){
-    if(!ghostOn) return;
-    const t = nowMs();
-    ghostBuf.push({ t, kind, ok, x, y, rtMs });
-    const cut = t - 10000;
-    while(ghostBuf.length && ghostBuf[0].t < cut) ghostBuf.shift();
-    renderGhost();
-  }
-
-  function ensureGhostLayer(){
-    if(!ghostOn) return;
-    if(ghostLayer && ghostLayer.isConnected) return;
-    ghostLayer = DOC.createElement('div');
-    ghostLayer.className = 'hw-ghost';
-    ghostLayer.setAttribute('aria-hidden','true');
-    stage.appendChild(ghostLayer);
-  }
-
-  function renderGhost(){
-    if(!ghostOn) return;
-    ensureGhostLayer();
-    if(!ghostLayer) return;
-
-    const rect = getSpawnRect();
-    const t = nowMs();
-    const frag = DOC.createDocumentFragment();
-    ghostLayer.innerHTML = '';
-
-    for(const g of ghostBuf){
-      const age = (t - g.t);
-      const a = clamp(1 - age/10000, 0, 1);
-      const dot = DOC.createElement('div');
-      dot.className = 'hw-dot' + (g.ok ? ' ok':' bad');
-      dot.style.opacity = String(0.10 + a*0.55);
-      dot.style.left = ((g.x/rect.w)*100).toFixed(3) + '%';
-      dot.style.top  = ((g.y/rect.h)*100).toFixed(3) + '%';
-      frag.appendChild(dot);
-    }
-    ghostLayer.appendChild(frag);
-  }
-
-  // ---------- Spawn ----------
+  // ---------- Rhythm ----------
   function setupRhythm(){
     const P = dd ? dd.getParams() : base;
     const bpm = clamp(P.bpm ?? base.bpm, bounds.bpm[0], bounds.bpm[1]);
@@ -451,6 +419,7 @@ export function boot(){
     beatCount = 0;
   }
 
+  // ---------- Spawn ----------
   function spawnOne(){
     const cur = STEPS[stepIdx];
     const P0 = dd ? dd.getParams() : base;
@@ -461,13 +430,13 @@ export function boot(){
       decoyRate:  clamp(P0.decoyRate  * (boost ? 0.85 : 1), 0.05, 0.55),
     };
 
-    // during boss: bias spawn towards weakness step to guide play
-    if(bossActive && rng() < 0.55){
+    // during boss: bias spawn towards weakness step
+    if(bossActive && rng() < (bossPhase2 ? 0.62 : 0.55)){
       const w = STEPS[bossWeakIdx];
       return createTarget('good', w.icon, bossWeakIdx);
     }
 
-    // occasionally soap pickup (not too frequent)
+    // soap pickup
     if(!bossActive && rng() < (boost ? 0.02 : 0.035)){
       return createTarget('soap', ICON_SOAP, -2);
     }
@@ -493,20 +462,12 @@ export function boot(){
     if(targets.length > 18) return;
 
     if(b === 1){ spawnOne(); return; }
-    if(b === 2){
-      if(rng() < 0.65) spawnOne();
-      else spawnOne();
-      return;
-    }
-    if(b === 3){ spawnOne(); return; }
-    if(b === 4){
-      spawnOne();
-      if(diff==='hard' && rng() < 0.35) spawnOne();
-      return;
-    }
+    if(b === 2){ spawnOne(); if(diff==='hard' && rng()<0.25) spawnOne(); return; }
+    if(b === 3){ if(rng()<0.85) spawnOne(); return; }
+    if(b === 4){ spawnOne(); if(diff==='hard' && rng()<0.35) spawnOne(); return; }
   }
 
-  // ---------- Boss Logic (PACK I: weakness rotates) ----------
+  // ---------- Boss Logic ----------
   function scheduleNextBoss(){
     const baseGap = (diff==='easy') ? 22 : (diff==='hard' ? 16 : 19);
     const jitter = (runMode==='study') ? 0 : Math.floor(rng()*4);
@@ -514,22 +475,26 @@ export function boot(){
   }
 
   function pickWeakIdx(){
-    // deterministic-ish but fun: rotate
     bossWeakIdx = Math.floor(rng()*STEPS.length);
-    bossWeakUntilMs = nowMs() + 2500; // rotate every 2.5s
+    bossWeakUntilMs = nowMs() + (bossPhase2 ? 2100 : 2500); // phase2 rotates faster
   }
 
   function startBoss(){
     if(bossActive) return;
     bossActive = true;
-    bossHP = (diff==='easy') ? 6 : (diff==='hard' ? 8 : 7);
-    bossEndsAtMs = nowMs() + 11000;  // 11s window
+
+    bossHPMax = (diff==='easy') ? 6 : (diff==='hard' ? 8 : 7);
+    bossHP = bossHPMax;
+
+    bossPhase2 = false;
+    setBoss2(false);
+
+    bossEndsAtMs = nowMs() + (bossHPMax>=8 ? 12000 : 11000);
     mistUntilMs = bossEndsAtMs;
     setMist(true);
 
     pickWeakIdx();
 
-    // spawn boss center-ish
     const cx = WIN.innerWidth*0.5;
     const cy = WIN.innerHeight*0.44;
     bossObj = createTarget('boss', ICON_BOSS, -9, { x:cx, y:cy });
@@ -550,17 +515,30 @@ export function boot(){
   function endBossTimeout(){
     if(!bossActive) return;
     bossActive = false;
+    bossPhase2 = false;
+    setBoss2(false);
+
     if(bossObj) removeTarget(bossObj);
     setMist(false);
     scheduleNextBoss();
     showBanner(`👑 บอสหนีไป! ลองใหม่รอบหน้า`);
   }
 
+  function enterBossPhase2(){
+    if(bossPhase2) return;
+    bossPhase2 = true;
+    setBoss2(true);
+
+    // tougher: more hazards + smaller targets effect already in createTarget
+    showBanner(`😈 PHASE 2! หมอกหนาขึ้น + เป้าเล็กลง`);
+    emit('hha:boss_phase2', { atSec: elapsedSec() });
+  }
+
   function bossDamageByStepHit(hitStepIdx, source, extra){
     if(!bossActive) return false;
     if(hitStepIdx !== bossWeakIdx) return false;
 
-    // require soap >= 12 to count as damage (soft gate)
+    // need soap to count as damage
     if(soap < 12){
       showBanner(`🧼 Soap น้อยไป! เก็บ/ยิงถูกเพิ่มก่อน`);
       emit('hha:judge', { kind:'boss_needsoap', stepIdx, source, extra, soap, weakIdx: bossWeakIdx });
@@ -570,21 +548,26 @@ export function boot(){
     soap = clamp(soap - 12, 0, 100);
     bossHP -= 1;
 
+    // PHASE 2 trigger
+    if(bossHP <= Math.ceil(bossHPMax/2)) enterBossPhase2();
+
     emit('hha:judge', { kind:'boss_dmg', stepIdx, source, extra, bossHP, soap, weakIdx: bossWeakIdx });
     showBanner(`👑 โดนบอส! (HP ${bossHP})`);
 
     if(bossHP <= 0){
       bossClears++;
-      emit('hha:boss_clear', { clears: bossClears, atSec: elapsedSec() });
+      emit('hha:boss_clear', { clears: bossClears, atSec: elapsedSec(), phase2: bossPhase2 });
 
       // reward
       shield++;
-      soapBoostUntilMs = nowMs() + 6500;
-      timeLeft += 6;
+      soapBoostUntilMs = nowMs() + 7000;
+      timeLeft += 7;
       showBanner(`🏆 ชนะบอส! +🛡 +เวลา +Soap Boost`);
 
       if(bossObj) removeTarget(bossObj);
       bossActive = false;
+      bossPhase2 = false;
+      setBoss2(false);
       setMist(false);
       scheduleNextBoss();
 
@@ -619,29 +602,50 @@ export function boot(){
     }
     if(best){
       judgeHit(best, 'shoot', { lockPx, dist: bestDist });
-    }else{
-      recordGhost({ kind:'shot_miss', ok:false, x:cx, y:cy, rtMs:0 });
     }
   }
 
-  // ---------- PACK I: Heart Rescue ----------
+  // ---------- Heart Rescue ----------
   function tryRescue(kind){
-    // rescue prevents MISS increment once per loop
     if(heart <= 0) return false;
     heart--;
     rescuedCount++;
     showBanner(`💖 เซฟ! ยังไม่โดน MISS (${kind})`);
     emit('hha:judge', { kind:'rescue', cause: kind, atSec: elapsedSec(), heart });
-    // still break combo (teach)
-    combo = 0;
-    perfect = 0;
+    combo = 0; perfect = 0;
     return true;
   }
 
+  // ---------- PACK J: Streak Rewards ----------
+  function grantStreakReward(){
+    // Combo 10: +Soap
+    if(combo >= 10 && streak10 === 0){
+      streak10 = 1;
+      soap = clamp(soap + 22, 0, 100);
+      showBanner(`🔥 COMBO 10! +🧼 Soap`);
+      emit('hha:reward', { type:'combo10', soap });
+    }
+    // Combo 20: +Heart (cap heartMax 2)
+    if(combo >= 20 && streak20 === 0){
+      streak20 = 1;
+      heartMax = clamp(heartMax + 1, 1, 2);
+      heart = clamp(heart + 1, 0, heartMax);
+      showBanner(`⚡ COMBO 20! +💖 Rescue`);
+      emit('hha:reward', { type:'combo20', heart, heartMax });
+    }
+    // Combo 30: +Shield
+    if(combo >= 30 && streak30 === 0){
+      streak30 = 1;
+      shield++;
+      showBanner(`💥 COMBO 30! +🛡 Shield`);
+      emit('hha:reward', { type:'combo30', shield });
+    }
+  }
+
+  // ---------- Judge ----------
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
 
-    // Boss click = hint only (visual)
     if(obj.kind === 'boss'){
       showBanner(explain('boss_hint') || 'ยิง STEP ที่บอสแพ้!');
       emit('hha:judge', { kind:'boss_click', stepIdx, source, extra, weakIdx: bossWeakIdx });
@@ -649,35 +653,26 @@ export function boot(){
       return;
     }
 
-    // SOAP
     if(obj.kind === 'soap'){
       soap = clamp(soap + 35, 0, 100);
       soapBoostUntilMs = nowMs() + 6500;
       shield++;
       emit('hha:soap_pick', { soap, shield, atSec: elapsedSec() });
       showBanner(`🧼 เก็บสบู่! Soap Boost +🛡`);
-      recordGhost({ kind:'soap', ok:true, x:obj.x, y:obj.y, rtMs:rt });
       removeTarget(obj);
       setHud();
       return;
     }
 
-    // GOOD (step targets)
     if(obj.kind === 'good'){
-      // if boss active, good-hit on weakness step damages boss
       if(bossActive){
         rotateWeaknessIfNeeded();
-        const didBossDmg = bossDamageByStepHit(obj.stepIdx, source, extra);
-        // still count as correct learning hit too (nice feeling)
-        // (but don't auto-advance stepIdx during boss; keep learning stable)
-        if(didBossDmg){
-          recordGhost({ kind:'boss_dmg', ok:true, x:obj.x, y:obj.y, rtMs:rt });
-        }
+        bossDamageByStepHit(obj.stepIdx, source, extra);
       }
 
-      // learning progress (always)
       correctHits++;
       totalStepHits++;
+
       if(obj.stepIdx === stepIdx){
         hitsInStep++;
       }
@@ -693,19 +688,20 @@ export function boot(){
 
       combo++;
       comboMax = Math.max(comboMax, combo);
-      rtOk.push(rt);
 
+      // rewards
+      grantStreakReward();
+
+      // soap gain
       soap = clamp(soap + (isPerfect ? 12 : 8), 0, 100);
 
       coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo, perfect:isPerfect });
       dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'good', stepIdx, hitStepIdx: obj.stepIdx, rtMs: rt, source, extra, perfect:isPerfect, soap });
-      recordGhost({ kind:'good', ok:true, x:obj.x, y:obj.y, rtMs:rt });
 
       showBanner(isPerfect ? `✨ PERFECT! ${STEPS[obj.stepIdx].icon} +1` : `✅ ถูกต้อง! ${STEPS[obj.stepIdx].icon} +1`);
 
-      // only advance real STEP when hit matches current step
       if(obj.stepIdx === stepIdx){
         if(hitsInStep >= STEPS[stepIdx].hitsNeed){
           stepIdx++;
@@ -714,9 +710,10 @@ export function boot(){
           if(stepIdx >= STEPS.length){
             stepIdx=0;
             loopsDone++;
+            heart = heartMax; // refresh heart each loop
+            // reset streak thresholds each loop (สนุก/แฟร์)
+            streak10 = 0; streak20 = 0; streak30 = 0;
 
-            // PACK I: refresh heart each loop
-            heart = heartMax;
             showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone}) +💖 รีชาร์จ`);
           }else{
             showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
@@ -729,11 +726,9 @@ export function boot(){
       return;
     }
 
-    // WRONG
     if(obj.kind === 'wrong'){
-      // rescue if available
       if(tryRescue('wrong')){
-        totalStepHits++; // still affects accuracy a bit (teach)
+        totalStepHits++;
         wrongByStep[stepIdx] = (wrongByStep[stepIdx]||0) + 1;
         removeTarget(obj);
         setHud();
@@ -748,12 +743,7 @@ export function boot(){
       perfect = 0;
       soap = clamp(soap - 10, 0, 100);
 
-      coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
-
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra, soap });
-      recordGhost({ kind:'wrong', ok:false, x:obj.x, y:obj.y, rtMs:rt });
-
       showBanner(`⚠️ ${explain('wrong', obj) || 'ผิดขั้นตอน!'}`);
 
       removeTarget(obj);
@@ -762,23 +752,19 @@ export function boot(){
       return;
     }
 
-    // HAZ
     if(obj.kind === 'haz'){
       combo = 0;
       perfect = 0;
 
-      // shield blocks
       if(shield > 0){
         shield--;
         emit('hha:judge', { kind:'haz_block', stepIdx, rtMs: rt, source, extra, shield });
-        recordGhost({ kind:'haz_block', ok:true, x:obj.x, y:obj.y, rtMs:rt });
         showBanner(`🛡 กันเชื้อไว้!`);
         removeTarget(obj);
         setHud();
         return;
       }
 
-      // rescue if available
       if(tryRescue('haz')){
         removeTarget(obj);
         setHud();
@@ -788,12 +774,7 @@ export function boot(){
       hazHits++;
       soap = clamp(soap - 16, 0, 100);
 
-      coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
-      dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
-
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra, soap });
-      recordGhost({ kind:'haz', ok:false, x:obj.x, y:obj.y, rtMs:rt });
-
       showBanner(`🦠 ${explain('haz', obj) || 'โดนเชื้อ!'}`);
 
       removeTarget(obj);
@@ -821,21 +802,11 @@ export function boot(){
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
 
-    // boss schedule
-    if(!bossActive && t >= bossNextAtMs){
-      startBoss();
-    }
-    if(bossActive){
-      rotateWeaknessIfNeeded();
-    }
-    if(bossActive && t >= bossEndsAtMs){
-      endBossTimeout();
-    }
+    if(!bossActive && t >= bossNextAtMs) startBoss();
+    if(bossActive) rotateWeaknessIfNeeded();
+    if(bossActive && t >= bossEndsAtMs) endBossTimeout();
 
-    // mist auto off
-    if(t >= mistUntilMs && !bossActive){
-      setMist(false);
-    }
+    if(t >= mistUntilMs && !bossActive) setMist(false);
 
     if(timeLeft <= 0){
       endGame('time');
@@ -844,7 +815,6 @@ export function boot(){
 
     dd?.onEvent('tick', { elapsedSec: elapsedSec() });
 
-    // spawn
     if(rhythmOn){
       while(t >= nextBeatAt){
         nextBeatAt += beatMs;
@@ -896,7 +866,9 @@ export function boot(){
     soapBoostUntilMs = 0;
 
     bossActive = false;
-    bossHP = 0;
+    bossPhase2 = false;
+    setBoss2(false);
+    bossHP = 0; bossHPMax = 0;
     bossClears = 0;
     bossEndsAtMs = 0;
     bossObj = null;
@@ -906,13 +878,13 @@ export function boot(){
     mistUntilMs = 0;
     setMist(false);
 
-    ghostBuf.length = 0;
+    streak10 = 0; streak20 = 0; streak30 = 0;
+
     missionDoneFired = false;
 
     setupRhythm();
     scheduleNextBoss();
     setHud();
-    renderGhost();
   }
 
   function startGame(){
@@ -924,7 +896,7 @@ export function boot(){
     startOverlay.style.display = 'none';
     endOverlay.style.display = 'none';
 
-    emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec, rhythmOn, ghostOn, explainOn });
+    emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec, rhythmOn, ghostOn, explainOn, teacherOn });
 
     showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
     setHud();
@@ -941,15 +913,51 @@ export function boot(){
       tip = `เก่งมาก! แทบไม่พลาดขั้นตอนเลย 👍`;
     }else{
       tip = `พลาดบ่อยสุด: ${s.icon} ${s.label} (ประมาณ ${topCount} ครั้ง)\n` +
-            `ทิป: ช้าอีกนิดแล้ว “เล็งไอคอนขั้นตอน” ก่อนยิง ✨`;
+            `ทิป: ช้าอีกนิด แล้ว “มองไอคอน STEP” ก่อนยิง ✨`;
     }
 
     const extra =
-      `\n\n💡 จำง่าย 7 ขั้น: ` +
-      `${STEPS.map(x=>x.icon).join(' → ')}` +
+      `\n\n💡 จำง่าย 7 ขั้น: ${STEPS.map(x=>x.icon).join(' → ')}` +
       `\n💖 Rescue ใช้ไป: ${rescuedCount} ครั้ง`;
 
-    return `📌 คะแนนความแม่นยำ: ${accPct}%\n${tip}${extra}`;
+    return `📌 ความแม่นยำ: ${accPct}%\n${tip}${extra}`;
+  }
+
+  function renderTeacherChart(summary){
+    if(!teacherOn || !teacherPanel || !teacherBars) return;
+
+    teacherPanel.style.display = 'block';
+    const wb = summary.wrongByStep || new Array(STEPS.length).fill(0);
+    const maxV = Math.max(1, ...wb);
+
+    teacherSub && (teacherSub.textContent =
+      `Focus: ขั้นตอนที่ผิดมากสุด = ${STEPS[maxIndex(wb)].icon} ${STEPS[maxIndex(wb)].label} • miss=${summary.misses} • haz=${summary.hazHits} • acc=${Math.round(summary.stepAcc*100)}%`
+    );
+
+    teacherBars.innerHTML = '';
+    for(let i=0;i<STEPS.length;i++){
+      const v = Number(wb[i]||0);
+      const row = DOC.createElement('div');
+      row.className = 'hw-bar' + (v>0 ? ' bad' : '');
+      row.innerHTML = `
+        <div class="lab">${STEPS[i].icon}</div>
+        <div class="track"><div class="fill" style="width:${(v/maxV*100).toFixed(1)}%"></div></div>
+        <div class="val">${v}</div>
+      `;
+      teacherBars.appendChild(row);
+    }
+
+    teacherFoot && (teacherFoot.textContent =
+      `แนะแนว: ให้เด็ก “พูดชื่อ STEP” ก่อนยิง เช่น “ซอกนิ้ว!” เพื่อ reinforce การจำขั้นตอน (ลดการยิงผิดแบบเดา)`
+    );
+  }
+
+  function maxIndex(arr){
+    let mi=0, mv=-1;
+    for(let i=0;i<arr.length;i++){
+      if(arr[i] > mv){ mv = arr[i]; mi = i; }
+    }
+    return mi;
   }
 
   function endGame(reason){
@@ -958,18 +966,13 @@ export function boot(){
 
     clearTargets();
     setMist(false);
+    bossPhase2 = false;
+    setBoss2(false);
 
     const durationPlayedSec = Math.max(0, Math.round(elapsedSec()));
     const stepAcc = getStepAcc();
     const riskIncomplete = clamp(1 - stepAcc, 0, 1);
     const riskUnsafe = clamp(hazHits / Math.max(1, (loopsDone+1)*2), 0, 1);
-
-    const rtMed = (()=> {
-      const a = rtOk.slice().sort((a,b)=>a-b);
-      if(!a.length) return 0;
-      const m = (a.length-1)/2;
-      return (a.length%2) ? a[m|0] : (a[m|0] + a[(m|0)+1])/2;
-    })();
 
     let grade='C';
     if(stepAcc>=0.90 && hazHits<=1) grade='SSS';
@@ -981,19 +984,14 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
     const mp = missionProgress();
 
-    // find top mistake step
     let topStepIdx = 0, topCount = -1;
     for(let i=0;i<wrongByStep.length;i++){
-      if(wrongByStep[i] > topCount){
-        topCount = wrongByStep[i];
-        topStepIdx = i;
-      }
+      if(wrongByStep[i] > topCount){ topCount = wrongByStep[i]; topStepIdx = i; }
     }
 
     const summary = {
-      version:'1.3.0-prod',
+      version:'1.4.0-prod',
       game:'hygiene',
-      gameMode:'hygiene',
       runMode, diff, view, seed,
       sessionId,
       timestampIso: nowIso(),
@@ -1020,10 +1018,11 @@ export function boot(){
 
       bossClears,
       heartUsed: rescuedCount,
-      misses: getMissCount(),
-      medianStepMs: rtMed,
+      heartMaxEnd: heartMax,
 
-      rhythmOn, ghostOn, explainOn,
+      misses: getMissCount(),
+
+      rhythmOn, ghostOn, explainOn, teacherOn,
 
       missionId: mission ? mission.id : null,
       missionName: mission ? mission.name : null,
@@ -1035,14 +1034,6 @@ export function boot(){
 
     if(coach) Object.assign(summary, coach.getSummaryExtras());
     if(dd) Object.assign(summary, dd.getSummaryExtras());
-
-    if(ghostOn){
-      summary.ghost10s = ghostBuf.slice(-60);
-    }
-
-    if(WIN.HHA_Badges){
-      WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
-    }
 
     saveJson(LS_LAST, summary);
     const hist = loadJson(LS_HIST, []);
@@ -1056,9 +1047,10 @@ export function boot(){
     endSub.textContent =
       `Grade ${grade} • acc ${(stepAcc*100).toFixed(1)}% • boss ${bossClears} • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
 
-    if(endTips){
-      endTips.textContent = buildKidTips({ stepAcc, topStepIdx, topCount });
-    }
+    endTips && (endTips.textContent = buildKidTips({ stepAcc, topStepIdx, topCount }));
+
+    // Teacher chart
+    renderTeacherChart(summary);
 
     endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
     endOverlay.style.display = 'grid';
@@ -1087,14 +1079,6 @@ export function boot(){
 
   // cVR shoot
   WIN.addEventListener('hha:shoot', onShoot);
-
-  // particles pop (optional)
-  WIN.addEventListener('hha:badge', (e)=>{
-    const b = (e && e.detail) || {};
-    if(WIN.Particles && WIN.Particles.popText){
-      WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
-    }
-  });
 
   // init
   loadMission().finally(()=>{ resetGame(); });
