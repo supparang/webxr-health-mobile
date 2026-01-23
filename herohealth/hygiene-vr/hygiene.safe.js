@@ -1,8 +1,7 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Coach + DD) PACK G
-// NEW: Rhythm Wash Mode + Ghost Replay 10s + Explainable Coach
-// Emits: hha:start, hha:time, hha:score, hha:judge, hha:end
-// Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
+// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Coach + DD) PACK H
+// NEW: King Germ (Mini-Boss) + Soap Power-up + Mist Zone
+// Emits: hha:start, hha:time, hha:judge, hha:end, hha:boss_enter, hha:boss_clear, hha:soap_pick
 'use strict';
 
 const WIN = window;
@@ -27,12 +26,11 @@ function saveJson(key, obj){
 }
 function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
 function nowMs(){ return performance.now ? performance.now() : Date.now(); }
-
 function copyText(text){
   return navigator.clipboard?.writeText(String(text)).catch(()=>{});
 }
 
-// ------------------ Steps (emoji mapping) ------------------
+// ------------------ Steps ------------------
 const STEPS = [
   { key:'palm',  icon:'🫧', label:'ฝ่ามือ', hitsNeed:6 },
   { key:'back',  icon:'🤚', label:'หลังมือ', hitsNeed:6 },
@@ -43,9 +41,10 @@ const STEPS = [
   { key:'wrist', icon:'⌚', label:'ข้อมือ', hitsNeed:6 },
 ];
 
-const ICON_HAZ = '🦠';
+const ICON_HAZ  = '🦠';
+const ICON_SOAP = '🧼';
+const ICON_BOSS = '👑🦠';
 
-// ------------------ Engine ------------------
 export function boot(){
   const stage = DOC.getElementById('stage');
   if(!stage) return;
@@ -70,13 +69,15 @@ export function boot(){
   const wheelRow = DOC.getElementById('wheelRow');
   const wheelSub = DOC.getElementById('wheelSub');
 
+  const miniBoss = DOC.getElementById('miniBoss');
+  const miniSoap = DOC.getElementById('miniSoap');
+
   const startOverlay = DOC.getElementById('startOverlay');
   const endOverlay   = DOC.getElementById('endOverlay');
   const endTitle     = DOC.getElementById('endTitle');
   const endSub       = DOC.getElementById('endSub');
   const endJson      = DOC.getElementById('endJson');
 
-  // controls
   const btnStart   = DOC.getElementById('btnStart');
   const btnRestart = DOC.getElementById('btnRestart');
   const btnPlayAgain = DOC.getElementById('btnPlayAgain');
@@ -86,7 +87,7 @@ export function boot(){
   const btnBack2     = DOC.getElementById('btnBack2');
 
   // params
-  const runMode = (qs('run','play')||'play').toLowerCase();
+  const runMode = (qs('run','play')||'play').toLowerCase(); // play | study
   const diff = (qs('diff','normal')||'normal').toLowerCase();
   const view = (qs('view','pc')||'pc').toLowerCase();
   const hub = qs('hub', '');
@@ -95,15 +96,14 @@ export function boot(){
   const seed = Number(qs('seed', Date.now()));
   const rng = makeRNG(seed);
 
-  // feature flags (PACK G)
-  const rhythmOn = (qs('rhythm','1') !== '0');   // default ON (ดีมากกับเด็ก)
+  const rhythmOn = (qs('rhythm','1') !== '0');
   const ghostOn  = (qs('ghost','1') !== '0');
   const explainOn= (qs('explain','1') !== '0');
 
   const coachOn = (qs('coach','1') !== '0');
   const ddOn    = (qs('dd','1') !== '0');
 
-  // difficulty presets (base)
+  // base difficulty
   const base = (()=> {
     if(diff==='easy') return { spawnPerSec:1.8, hazardRate:0.09, decoyRate:0.18, bpm:96 };
     if(diff==='hard') return { spawnPerSec:2.6, hazardRate:0.14, decoyRate:0.26, bpm:116 };
@@ -117,28 +117,27 @@ export function boot(){
     bpm:[84, 132]
   };
 
-  // AI instances (optional)
+  // optional AI
   const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
   const dd = (ddOn && WIN.HHA_DD) ? WIN.HHA_DD.create({ seed, runMode, base, bounds }) : null;
 
-  // Mission (optional module)
+  // mission
   let mission = null;
   async function loadMission(){
     try{
       const mod = await import('./hygiene.missions.js');
-      const pick = mod?.pickMission;
-      if(typeof pick === 'function'){
-        mission = pick({ seed, runMode, diff });
+      if(typeof mod?.pickMission === 'function'){
+        mission = mod.pickMission({ seed, runMode, diff });
       }
     }catch{}
     if(missionBar){
       missionBar.style.display = mission ? 'block' : 'none';
       if(mission && pillMission) pillMission.textContent = `🎯 ${mission.name}`;
-      if(mission && missionText) missionText.textContent = `${mission.story}`;
+      if(mission && missionText) missionText.textContent = `${mission.name} • ${mission.story}`;
     }
   }
 
-  // state
+  // ------------------ State ------------------
   let running=false, paused=false;
   let tStartMs=0, tLastMs=0;
   let timeLeft = timePlannedSec;
@@ -152,28 +151,42 @@ export function boot(){
   let hazHits=0;
   const missLimit = 3;
 
-  // NEW: perfect streak + shield
   let perfect = 0;
-  let shield = 0; // blocks haz once
+  let shield = 0;
+
+  // Soap meter 0..100
+  let soap = 0;
+  let soapBoostUntilMs = 0;
+
+  // Boss
+  let bossActive = false;
+  let bossHP = 0;
+  let bossClears = 0;
+  let bossNextAtMs = 0;
+  let bossEndsAtMs = 0;
+  let bossObj = null;
+
+  // Mist
+  let mistUntilMs = 0;
 
   let correctHits=0;
-  let totalStepHits=0; // correct + wrong (only step targets)
-  const rtOk = []; // ms
+  let totalStepHits=0;
+  const rtOk = [];
 
   // targets
   const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
   let nextId=1;
 
-  // Ghost (last 10s)
-  const ghostBuf = []; // {t,x,y,kind,ok,rtMs}
+  // ghost (last 10s)
+  const ghostBuf = [];
   let ghostLayer = null;
 
-  // Rhythm
+  // rhythm
   let beatMs = 0;
   let nextBeatAt = 0;
   let beatCount = 0;
 
-  // ---------- Helpers ----------
+  // ------------------ Helpers ------------------
   function showBanner(msg){
     if(!banner) return;
     banner.textContent = msg;
@@ -190,12 +203,18 @@ export function boot(){
       return `ผิดขั้นตอน → ตอนนี้ต้อง ${cur.icon} ${cur.label}${wrong?` (ที่กดคือ ${wrong.icon})`:''}`;
     }
     if(kind==='haz'){
-      return shield>0 ? `🛡 กันเชื้อไว้ 1 ครั้ง!` : `โดนเชื้อ 🦠 → เล็งหลบก่อนยิง`;
+      return shield>0 ? `🛡 กันเชื้อไว้ 1 ครั้ง!` : `โดนเชื้อ 🦠 → หลบก่อนยิง`;
+    }
+    if(kind==='boss_needsoap'){
+      return `ต้องมี Soap ≥ 20% ก่อนถึงจะยิงบอสได้`;
     }
     return '';
   }
 
-  // spawn rect safe
+  function setMist(on){
+    DOC.body.classList.toggle('is-mist', !!on);
+  }
+
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
     const topSafe = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 130;
@@ -207,10 +226,9 @@ export function boot(){
     return { x0, x1, y0, y1, w, h };
   }
 
-  function getMissCount(){
-    // miss = wrong step + haz hits (blocked haz doesn't count)
-    return (wrongStepHits + hazHits);
-  }
+  function elapsedSec(){ return running ? ((nowMs() - tStartMs)/1000) : 0; }
+  function getStepAcc(){ return totalStepHits ? (correctHits / totalStepHits) : 0; }
+  function getMissCount(){ return (wrongStepHits + hazHits); }
 
   function setWheel(){
     if(!wheelRow) return;
@@ -226,6 +244,58 @@ export function boot(){
     }
   }
 
+  function missionProgress(){
+    if(!mission || !mission.rules) return { pct:0, done:false, text:'—' };
+    const r = mission.rules;
+
+    const stepAcc = getStepAcc();
+
+    if(r.minLoops != null){
+      const pct = clamp(loopsDone / Math.max(1, r.minLoops), 0, 1);
+      const done = loopsDone >= r.minLoops;
+      return { pct, done, text:`loops ${loopsDone}/${r.minLoops}` };
+    }
+    if(r.minComboMax != null){
+      const pct = clamp(comboMax / Math.max(1, r.minComboMax), 0, 1);
+      const done = comboMax >= r.minComboMax;
+      return { pct, done, text:`comboMax ${comboMax}/${r.minComboMax}` };
+    }
+    if(r.maxHazHits != null){
+      const pct = clamp((r.maxHazHits - hazHits) / Math.max(1, r.maxHazHits), 0, 1);
+      const done = (hazHits <= r.maxHazHits) && (timeLeft <= 0);
+      return { pct, done, text:`haz ${hazHits}/${r.maxHazHits}` };
+    }
+    if(r.minStepAcc != null){
+      const pct = clamp(stepAcc / Math.max(0.01, r.minStepAcc), 0, 1);
+      const done = stepAcc >= r.minStepAcc;
+      return { pct, done, text:`acc ${(stepAcc*100).toFixed(0)}%/${Math.round(r.minStepAcc*100)}%` };
+    }
+    if(r.minBossClears != null){
+      const pct = clamp(bossClears / Math.max(1, r.minBossClears), 0, 1);
+      const done = bossClears >= r.minBossClears;
+      return { pct, done, text:`boss ${bossClears}/${r.minBossClears}` };
+    }
+
+    return { pct:0, done:false, text:'—' };
+  }
+
+  let missionDoneFired = false;
+  function updateMissionUI(){
+    if(!missionBar || !missionFill || !missionText) return;
+    if(!mission){ missionBar.style.display='none'; return; }
+
+    const p = missionProgress();
+    missionFill.style.width = (p.pct*100).toFixed(1) + '%';
+    missionText.textContent = `${mission.name} • ${p.text}`;
+
+    if(p.done && !missionDoneFired){
+      missionDoneFired = true;
+      showBanner(`🎯 Mission สำเร็จ! ${mission.name}`);
+      emit('hha:mission', { id: mission.id, name: mission.name, done:true });
+      WIN.dispatchEvent(new CustomEvent('hha:badge',{detail:{icon:'🎯',title:'Mission Clear',id:'hw_mission'}}));
+    }
+  }
+
   function setHud(){
     const s = STEPS[stepIdx];
     pillStep && (pillStep.textContent = `STEP ${stepIdx+1}/7 ${s.icon} ${s.label}`);
@@ -235,7 +305,7 @@ export function boot(){
     pillPerfect && (pillPerfect.textContent = `PERFECT ${perfect}`);
     pillShield && (pillShield.textContent = `🛡 ${shield}`);
 
-    const stepAcc = totalStepHits ? (correctHits / totalStepHits) : 0;
+    const stepAcc = getStepAcc();
     const riskIncomplete = clamp(1 - stepAcc, 0, 1);
     const riskUnsafe = clamp(hazHits / Math.max(1, (loopsDone+1)*2), 0, 1);
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
@@ -244,26 +314,36 @@ export function boot(){
 
     const P = dd ? dd.getParams() : base;
     const bpm = clamp(P.bpm ?? base.bpm, bounds.bpm[0], bounds.bpm[1]);
-    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view} • ${rhythmOn?'rhythm':'flow'} bpm=${Math.round(bpm)}`);
+    hudSub && (hudSub.textContent =
+      `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view} • ${rhythmOn?'rhythm':'flow'} bpm=${Math.round(bpm)}`
+    );
+
+    miniSoap && (miniSoap.textContent = `🧼 Soap: ${Math.round(soap)}%`);
+    miniBoss && (miniBoss.textContent =
+      bossActive ? `👑 Boss: HP ${bossHP} • ใช้ Soap ยิง` : `👑 Boss: จะมาอีกใน ${Math.max(0, Math.ceil((bossNextAtMs-nowMs())/1000))}s`
+    );
 
     setWheel();
     updateMissionUI();
   }
 
+  // ---------- Targets ----------
   function clearTargets(){
     while(targets.length){
       const t = targets.pop();
       t.el?.remove();
     }
+    bossObj = null;
   }
 
   function removeTarget(obj){
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
     obj.el?.remove();
+    if(bossObj && obj.id === bossObj.id) bossObj = null;
   }
 
-  function createTarget(kind, emoji, stepRef){
+  function createTarget(kind, emoji, stepRef, forcePos=null){
     const el = DOC.createElement('button');
     el.type='button';
     el.className = `hw-tgt ${kind}`;
@@ -272,12 +352,18 @@ export function boot(){
     stage.appendChild(el);
 
     const rect = getSpawnRect();
-    const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
-    const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
+    let x, y;
+
+    if(forcePos){
+      x = forcePos.x; y = forcePos.y;
+    }else{
+      x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
+      y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
+    }
 
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
-    el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
+    el.style.setProperty('--s', (kind==='boss' ? 1.15 : (0.90 + rng()*0.25)).toFixed(3));
 
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
     targets.push(obj);
@@ -288,9 +374,77 @@ export function boot(){
     return obj;
   }
 
+  function computeRt(obj){
+    const dt = nowMs() - obj.bornMs;
+    return clamp(dt, 0, 60000);
+  }
+
+  // ---------- Ghost ----------
+  function recordGhost({kind, ok, x, y, rtMs}){
+    if(!ghostOn) return;
+    const t = nowMs();
+    ghostBuf.push({ t, kind, ok, x, y, rtMs });
+    const cut = t - 10000;
+    while(ghostBuf.length && ghostBuf[0].t < cut) ghostBuf.shift();
+    renderGhost();
+  }
+
+  function ensureGhostLayer(){
+    if(!ghostOn) return;
+    if(ghostLayer && ghostLayer.isConnected) return;
+    ghostLayer = DOC.createElement('div');
+    ghostLayer.className = 'hw-ghost';
+    ghostLayer.setAttribute('aria-hidden','true');
+    stage.appendChild(ghostLayer);
+  }
+
+  function renderGhost(){
+    if(!ghostOn) return;
+    ensureGhostLayer();
+    if(!ghostLayer) return;
+
+    const rect = getSpawnRect();
+    const t = nowMs();
+    const frag = DOC.createDocumentFragment();
+    ghostLayer.innerHTML = '';
+
+    for(const g of ghostBuf){
+      const age = (t - g.t);
+      const a = clamp(1 - age/10000, 0, 1);
+      const dot = DOC.createElement('div');
+      dot.className = 'hw-dot' + (g.ok ? ' ok':' bad');
+      dot.style.opacity = String(0.10 + a*0.55);
+      dot.style.left = ((g.x/rect.w)*100).toFixed(3) + '%';
+      dot.style.top  = ((g.y/rect.h)*100).toFixed(3) + '%';
+      frag.appendChild(dot);
+    }
+    ghostLayer.appendChild(frag);
+  }
+
+  // ---------- Spawn ----------
+  function setupRhythm(){
+    const P = dd ? dd.getParams() : base;
+    const bpm = clamp(P.bpm ?? base.bpm, bounds.bpm[0], bounds.bpm[1]);
+    beatMs = 60000 / Math.max(40, bpm);
+    nextBeatAt = nowMs() + beatMs;
+    beatCount = 0;
+  }
+
   function spawnOne(){
     const s = STEPS[stepIdx];
-    const P = dd ? dd.getParams() : base;
+    const P0 = dd ? dd.getParams() : base;
+
+    // Soap boost = ลดเชื้อ เพิ่ม good ชั่วคราว
+    const boost = nowMs() < soapBoostUntilMs;
+    const P = {
+      hazardRate: clamp(P0.hazardRate * (boost ? 0.55 : 1), 0.02, 0.40),
+      decoyRate:  clamp(P0.decoyRate  * (boost ? 0.85 : 1), 0.05, 0.55),
+    };
+
+    // occasionally spawn SOAP pickup (แต่ไม่ถี่)
+    if(!bossActive && rng() < (boost ? 0.02 : 0.035)){
+      return createTarget('soap', ICON_SOAP, -2);
+    }
 
     const r = rng();
     if(r < P.hazardRate){
@@ -307,17 +461,112 @@ export function boot(){
     }
   }
 
-  function computeRt(obj){
-    const dt = nowMs() - obj.bornMs;
-    return clamp(dt, 0, 60000);
+  function onBeat(){
+    beatCount++;
+    const b = (beatCount % 4) || 4;
+
+    if(targets.length > 18) return;
+
+    if(b === 1){ spawnOne(); return; }
+    if(b === 2){
+      if(rng() < 0.65) createTarget('good', STEPS[stepIdx].icon, stepIdx);
+      else spawnOne();
+      return;
+    }
+    if(b === 3){
+      // danger beat (ถ้ามี boost จะใจดีขึ้น)
+      spawnOne();
+      return;
+    }
+    if(b === 4){
+      spawnOne();
+      if(diff==='hard' && rng() < 0.35) spawnOne();
+      return;
+    }
   }
 
+  // ---------- Boss Logic ----------
+  function scheduleNextBoss(){
+    // research: คงที่กว่า
+    const baseGap = (diff==='easy') ? 22 : (diff==='hard' ? 16 : 19);
+    const jitter = (runMode==='study') ? 0 : Math.floor(rng()*4); // play only
+    bossNextAtMs = nowMs() + (baseGap + jitter)*1000;
+  }
+
+  function startBoss(){
+    if(bossActive) return;
+    bossActive = true;
+    bossHP = (diff==='easy') ? 5 : (diff==='hard' ? 7 : 6);
+    bossEndsAtMs = nowMs() + 9000; // 9s window
+    mistUntilMs = bossEndsAtMs;    // mist while boss
+    setMist(true);
+
+    // spawn boss at center-ish
+    const cx = WIN.innerWidth*0.5;
+    const cy = WIN.innerHeight*0.44;
+    bossObj = createTarget('boss', ICON_BOSS, -9, { x:cx, y:cy });
+
+    emit('hha:boss_enter', { hp: bossHP, atSec: elapsedSec() });
+    showBanner(`👑 King Germ โผล่! ใช้ Soap ยิงบอส!`);
+  }
+
+  function endBossTimeout(){
+    if(!bossActive) return;
+    bossActive = false;
+    if(bossObj) removeTarget(bossObj);
+    setMist(false);
+    scheduleNextBoss();
+    showBanner(`👑 บอสหนีไป! สะสม Soap แล้วสู้ใหม่`);
+  }
+
+  function hitBoss(source, extra){
+    if(!bossActive || !bossObj) return;
+
+    // require soap >= 20 to damage boss
+    if(soap < 20){
+      showBanner(`⚠️ ${explain('boss_needsoap') || 'ต้องมี Soap ก่อน!'}`);
+      emit('hha:judge', { kind:'boss_no_soap', stepIdx, source, extra, soap });
+      // tiny penalty
+      combo = 0;
+      perfect = 0;
+      soap = clamp(soap - 4, 0, 100);
+      return;
+    }
+
+    // consume soap and deal dmg
+    soap = clamp(soap - 20, 0, 100);
+    bossHP -= 1;
+
+    emit('hha:judge', { kind:'boss_hit', stepIdx, source, extra, bossHP, soap });
+    recordGhost({ kind:'boss', ok:true, x:bossObj.x, y:bossObj.y, rtMs:0 });
+
+    showBanner(`👑 โดนบอส! เหลือ HP ${bossHP}`);
+
+    if(bossHP <= 0){
+      bossClears++;
+      emit('hha:boss_clear', { clears: bossClears, atSec: elapsedSec() });
+
+      // reward: shield + time bonus + soap boost
+      shield++;
+      soapBoostUntilMs = nowMs() + 6000;
+      timeLeft += 6; // +6s reward
+      showBanner(`🏆 ชนะบอส! +🛡 +เวลา +Soap Boost`);
+      if(bossObj) removeTarget(bossObj);
+      bossActive = false;
+      setMist(false);
+      scheduleNextBoss();
+
+      // badge pop (optional)
+      WIN.dispatchEvent(new CustomEvent('hha:badge',{detail:{icon:'👑',title:'Boss Clear',id:'hw_boss'}}));
+    }
+  }
+
+  // ---------- Input ----------
   function onHitByPointer(obj, source){
     if(!running || paused) return;
     judgeHit(obj, source, null);
   }
 
-  // cVR shooting: aim from center, lockPx from vr-ui
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
@@ -339,137 +588,42 @@ export function boot(){
     if(best){
       judgeHit(best, 'shoot', { lockPx, dist: bestDist });
     }else{
-      // record "miss shot" for ghost (optional)
       recordGhost({ kind:'shot_miss', ok:false, x:cx, y:cy, rtMs:0 });
-    }
-  }
-
-  function recordGhost({kind, ok, x, y, rtMs}){
-    if(!ghostOn) return;
-    const t = nowMs();
-    ghostBuf.push({ t, kind, ok, x, y, rtMs });
-    // keep last 10s
-    const cut = t - 10000;
-    while(ghostBuf.length && ghostBuf[0].t < cut) ghostBuf.shift();
-    renderGhost();
-  }
-
-  function ensureGhostLayer(){
-    if(!ghostOn) return;
-    if(ghostLayer && ghostLayer.isConnected) return;
-    ghostLayer = DOC.createElement('div');
-    ghostLayer.className = 'hw-ghost';
-    ghostLayer.setAttribute('aria-hidden','true');
-    // put above stage but below HUD
-    stage.appendChild(ghostLayer);
-  }
-
-  function renderGhost(){
-    if(!ghostOn) return;
-    ensureGhostLayer();
-    if(!ghostLayer) return;
-
-    const rect = getSpawnRect();
-    const t = nowMs();
-    const frag = DOC.createDocumentFragment();
-
-    ghostLayer.innerHTML = '';
-    for(const g of ghostBuf){
-      const age = (t - g.t); // ms
-      const a = clamp(1 - age/10000, 0, 1);
-      const dot = DOC.createElement('div');
-      dot.className = 'hw-dot' + (g.ok ? ' ok':' bad');
-      dot.style.opacity = String(0.10 + a*0.55);
-      dot.style.transform = `translate(-50%,-50%)`;
-      // map px -> %
-      dot.style.left = ((g.x/rect.w)*100).toFixed(3) + '%';
-      dot.style.top  = ((g.y/rect.h)*100).toFixed(3) + '%';
-      frag.appendChild(dot);
-    }
-    ghostLayer.appendChild(frag);
-  }
-
-  function elapsedSec(){
-    return running ? ((nowMs() - tStartMs)/1000) : 0;
-  }
-
-  function getStepAcc(){
-    return totalStepHits ? (correctHits / totalStepHits) : 0;
-  }
-
-  // mission progress
-  function missionProgress(){
-    if(!mission || !mission.rules) return { pct:0, done:false, text:'—' };
-    const r = mission.rules;
-
-    // compute a few known stats
-    const stepAcc = getStepAcc();
-    const bossClears = 0; // (PACK H จะใส่ boss จริง) ตอนนี้ 0 ไว้ก่อน
-
-    // evaluate
-    let pct = 0;
-    let done = false;
-
-    if(r.minLoops != null){
-      pct = clamp(loopsDone / Math.max(1, r.minLoops), 0, 1);
-      done = loopsDone >= r.minLoops;
-      return { pct, done, text:`loops ${loopsDone}/${r.minLoops}` };
-    }
-    if(r.minComboMax != null){
-      pct = clamp(comboMax / Math.max(1, r.minComboMax), 0, 1);
-      done = comboMax >= r.minComboMax;
-      return { pct, done, text:`comboMax ${comboMax}/${r.minComboMax}` };
-    }
-    if(r.maxHazHits != null){
-      pct = clamp((r.maxHazHits - hazHits) / Math.max(1, r.maxHazHits), 0, 1);
-      done = hazHits <= r.maxHazHits && timeLeft<=0;
-      return { pct, done, text:`haz ${hazHits}/${r.maxHazHits}` };
-    }
-    if(r.minStepAcc != null){
-      pct = clamp(stepAcc / Math.max(0.01, r.minStepAcc), 0, 1);
-      done = stepAcc >= r.minStepAcc;
-      return { pct, done, text:`acc ${(stepAcc*100).toFixed(0)}%/${Math.round(r.minStepAcc*100)}%` };
-    }
-    if(r.minBossClears != null){
-      pct = clamp(bossClears / Math.max(1, r.minBossClears), 0, 1);
-      done = bossClears >= r.minBossClears;
-      return { pct, done, text:`boss ${bossClears}/${r.minBossClears}` };
-    }
-
-    return { pct:0, done:false, text:'—' };
-  }
-
-  let missionDoneFired = false;
-  function updateMissionUI(){
-    if(!missionBar || !missionFill || !missionText) return;
-    if(!mission){ missionBar.style.display='none'; return; }
-
-    const p = missionProgress();
-    missionFill.style.width = (p.pct*100).toFixed(1) + '%';
-    missionText.textContent = `${mission.name} • ${p.text}`;
-
-    if(p.done && !missionDoneFired){
-      missionDoneFired = true;
-      showBanner(`🎯 Mission สำเร็จ! ${mission.name}`);
-      emit('hha:mission', { id: mission.id, name: mission.name, done:true });
-      // optional: badge unlock
-      WIN.dispatchEvent(new CustomEvent('hha:badge',{detail:{icon:'🎯',title:'Mission Clear',id:'hw_mission'}}));
     }
   }
 
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
 
+    // BOSS
+    if(obj.kind === 'boss'){
+      hitBoss(source, extra);
+      setHud();
+      return;
+    }
+
+    // SOAP PICKUP
+    if(obj.kind === 'soap'){
+      soap = clamp(soap + 35, 0, 100);
+      soapBoostUntilMs = nowMs() + 6500; // 6.5s boost
+      shield++; // give a shield too
+      emit('hha:soap_pick', { soap, shield, atSec: elapsedSec() });
+      showBanner(`🧼 เก็บสบู่! Soap Boost +🛡`);
+      recordGhost({ kind:'soap', ok:true, x:obj.x, y:obj.y, rtMs:rt });
+      removeTarget(obj);
+      setHud();
+      return;
+    }
+
+    // GOOD
     if(obj.kind === 'good'){
       correctHits++;
       totalStepHits++;
       hitsInStep++;
 
-      // PERFECT = hit good within 900ms
       const isPerfect = rt <= 900;
       if(isPerfect){
         perfect++;
-        // every 4 perfect => +1 shield
         if(perfect % 4 === 0){
           shield++;
           showBanner(`🛡 ได้โล่! (Perfect x${perfect})`);
@@ -480,17 +634,18 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
+      // Soap gain
+      soap = clamp(soap + (isPerfect ? 12 : 8), 0, 100);
+
       coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo, perfect:isPerfect });
       dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
 
-      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra, perfect:isPerfect });
+      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra, perfect:isPerfect, soap });
       recordGhost({ kind:'good', ok:true, x:obj.x, y:obj.y, rtMs:rt });
 
       showBanner(isPerfect ? `✨ PERFECT! ${STEPS[stepIdx].icon} +1` : `✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
 
-      // step clear
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
-        coach?.onEvent('step_clear', { stepIdx, stepAcc: getStepAcc(), combo });
         stepIdx++;
         hitsInStep=0;
 
@@ -508,20 +663,22 @@ export function boot(){
       return;
     }
 
+    // WRONG
     if(obj.kind === 'wrong'){
       wrongStepHits++;
       totalStepHits++;
       combo = 0;
       perfect = 0;
 
+      soap = clamp(soap - 10, 0, 100);
+
       coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
       dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
-      emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
+      emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra, soap });
       recordGhost({ kind:'wrong', ok:false, x:obj.x, y:obj.y, rtMs:rt });
 
-      const msg = explain('wrong', obj);
-      showBanner(`⚠️ ${msg || 'ผิดขั้นตอน!'}`);
+      showBanner(`⚠️ ${explain('wrong', obj) || 'ผิดขั้นตอน!'}`);
 
       removeTarget(obj);
       checkFail();
@@ -529,14 +686,15 @@ export function boot(){
       return;
     }
 
+    // HAZ
     if(obj.kind === 'haz'){
       combo = 0;
       perfect = 0;
 
-      // shield blocks first haz hit
+      // shield blocks
       if(shield > 0){
         shield--;
-        emit('hha:judge', { kind:'haz_block', stepIdx, rtMs: rt, source, extra });
+        emit('hha:judge', { kind:'haz_block', stepIdx, rtMs: rt, source, extra, shield });
         recordGhost({ kind:'haz_block', ok:true, x:obj.x, y:obj.y, rtMs:rt });
         showBanner(`🛡 กันเชื้อไว้!`);
         removeTarget(obj);
@@ -545,15 +703,15 @@ export function boot(){
       }
 
       hazHits++;
+      soap = clamp(soap - 16, 0, 100);
 
       coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
       dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
 
-      emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
+      emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra, soap });
       recordGhost({ kind:'haz', ok:false, x:obj.x, y:obj.y, rtMs:rt });
 
-      const msg = explain('haz', obj);
-      showBanner(`🦠 ${msg || 'โดนเชื้อ!'}`);
+      showBanner(`🦠 ${explain('haz', obj) || 'โดนเชื้อ!'}`);
 
       removeTarget(obj);
       checkFail();
@@ -568,58 +726,7 @@ export function boot(){
     }
   }
 
-  // Rhythm: spawn per beat (kid-friendly)
-  function setupRhythm(){
-    const P = dd ? dd.getParams() : base;
-    const bpm = clamp(P.bpm ?? base.bpm, bounds.bpm[0], bounds.bpm[1]);
-    beatMs = 60000 / Math.max(40, bpm);
-    nextBeatAt = nowMs() + beatMs;
-    beatCount = 0;
-  }
-
-  function onBeat(){
-    beatCount++;
-
-    // 1-2-3-4 pattern:
-    // beat 1: good
-    // beat 2: good or decoy
-    // beat 3: hazard chance
-    // beat 4: “double” sometimes on hard
-    const P = dd ? dd.getParams() : base;
-    const b = (beatCount % 4) || 4;
-
-    // keep target count sane
-    if(targets.length > 18) return;
-
-    if(b === 1){
-      spawnOne(); // mostly good by rates
-      return;
-    }
-
-    if(b === 2){
-      // slightly favor good for learning
-      if(rng() < 0.65) createTarget('good', STEPS[stepIdx].icon, stepIdx);
-      else spawnOne();
-      return;
-    }
-
-    if(b === 3){
-      // danger beat
-      if(rng() < clamp(P.hazardRate*1.35, 0, 0.5)) createTarget('haz', ICON_HAZ, -1);
-      else spawnOne();
-      return;
-    }
-
-    if(b === 4){
-      spawnOne();
-      if(diff==='hard' && rng() < 0.35){
-        // double beat
-        spawnOne();
-      }
-      return;
-    }
-  }
-
+  // ---------- Main loop ----------
   function tick(){
     if(!running){ return; }
     const t = nowMs();
@@ -628,33 +735,41 @@ export function boot(){
 
     if(paused){ requestAnimationFrame(tick); return; }
 
-    // time
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
+
+    // boss schedule
+    if(!bossActive && t >= bossNextAtMs){
+      startBoss();
+    }
+    if(bossActive && t >= bossEndsAtMs){
+      endBossTimeout();
+    }
+
+    // mist auto off
+    if(t >= mistUntilMs && !bossActive){
+      setMist(false);
+    }
 
     if(timeLeft <= 0){
       endGame('time');
       return;
     }
 
-    // DD tick (still deterministic in study as your DD module decides)
     dd?.onEvent('tick', { elapsedSec: elapsedSec() });
 
-    // Spawn logic
+    // spawn
     if(rhythmOn){
       while(t >= nextBeatAt){
         nextBeatAt += beatMs;
         onBeat();
-        // cleanup if too many
         if(targets.length > 18){
           const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
           if(oldest) removeTarget(oldest);
         }
       }
     }else{
-      // flow mode (old style)
       const P = dd ? dd.getParams() : base;
-      // accumulator spawn
       tick.spawnAcc = (tick.spawnAcc || 0) + (P.spawnPerSec * dt);
       while(tick.spawnAcc >= 1){
         tick.spawnAcc -= 1;
@@ -684,10 +799,22 @@ export function boot(){
     perfect = 0;
     shield = 0;
 
+    soap = 0;
+    soapBoostUntilMs = 0;
+
+    bossActive = false;
+    bossHP = 0;
+    bossClears = 0;
+    bossEndsAtMs = 0;
+    bossObj = null;
+    mistUntilMs = 0;
+    setMist(false);
+
     ghostBuf.length = 0;
     missionDoneFired = false;
 
     setupRhythm();
+    scheduleNextBoss();
     setHud();
     renderGhost();
   }
@@ -714,6 +841,7 @@ export function boot(){
     running=false;
 
     clearTargets();
+    setMist(false);
 
     const durationPlayedSec = Math.max(0, Math.round(elapsedSec()));
     const stepAcc = getStepAcc();
@@ -735,17 +863,13 @@ export function boot(){
     else if(stepAcc>=0.58) grade='B';
 
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
-
-    const mprog = missionProgress();
+    const mp = missionProgress();
 
     const summary = {
-      version:'1.1.0-prod',
+      version:'1.2.0-prod',
       game:'hygiene',
       gameMode:'hygiene',
-      runMode,
-      diff,
-      view,
-      seed,
+      runMode, diff, view, seed,
       sessionId,
       timestampIso: nowIso(),
 
@@ -753,39 +877,39 @@ export function boot(){
       durationPlannedSec: timePlannedSec,
       durationPlayedSec,
 
-      // progress
       loopsDone,
       stepIdxEnd: stepIdx,
+
       hitsCorrect: correctHits,
       hitsWrongStep: wrongStepHits,
       hazHits,
 
-      // core metrics
       stepAcc,
       riskIncomplete,
       riskUnsafe,
+
       comboMax,
       perfectCount: perfect,
       shieldEnd: shield,
+      soapEnd: soap,
+
+      bossClears,
       misses: getMissCount(),
       medianStepMs: rtMed,
 
-      // feature flags
       rhythmOn, ghostOn, explainOn,
 
-      // mission
       missionId: mission ? mission.id : null,
       missionName: mission ? mission.name : null,
-      missionDone: !!mprog.done,
-      missionPct: mprog.pct
+      missionDone: !!mp.done,
+      missionPct: mp.pct
     };
 
     if(coach) Object.assign(summary, coach.getSummaryExtras());
     if(dd) Object.assign(summary, dd.getSummaryExtras());
 
-    // store ghost excerpt (last 10s)
     if(ghostOn){
-      summary.ghost10s = ghostBuf.slice(-60); // cap
+      summary.ghost10s = ghostBuf.slice(-60);
     }
 
     if(WIN.HHA_Badges){
@@ -801,7 +925,8 @@ export function boot(){
     emit('hha:end', summary);
 
     endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
-    endSub.textContent = `Grade ${grade} • acc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone} • mission ${mprog.done?'✅':'—'}`;
+    endSub.textContent =
+      `Grade ${grade} • acc ${(stepAcc*100).toFixed(1)}% • boss ${bossClears} • soap ${Math.round(soap)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
     endOverlay.style.display = 'grid';
   }
@@ -827,29 +952,17 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // cVR shoot support
+  // cVR shoot
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // optional: particles pop
+  // particles pop (optional)
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(WIN.Particles && WIN.Particles.popText){
       WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
     }
   });
-  WIN.addEventListener('hha:unlock', (e)=>{
-    const u = (e && e.detail) || {};
-    if(WIN.Particles && WIN.Particles.popText){
-      WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.28, `${u.icon||'✨'} UNLOCK!`, 'warn');
-    }
-  });
-  WIN.addEventListener('hha:coach', (e)=>{
-    const d = (e && e.detail) || {};
-    if(d && d.text) showBanner(`🤖 ${d.text}`);
-  });
 
-  // init UI + mission
-  loadMission().finally(()=>{
-    resetGame();
-  });
+  // init
+  loadMission().finally(()=>{ resetGame(); });
 }
