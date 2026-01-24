@@ -1,256 +1,166 @@
 // === /herohealth/vr/ui-water.js ===
-// Water UI (Gauge + helpers) — PRODUCTION
+// Water UI Helpers — PRODUCTION
 // Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ Safe if DOM elements missing
-// ✅ Auto-mount gauge into waterPanel if no mount exists
-// ✅ Updates: #water-pct, #water-zone, #water-bar (best-effort)
-// ✅ zoneFrom: LOW / GREEN / HIGH (configurable thresholds)
+// ✅ Works even if game already has its own Water panel (will “bridge” to #water-bar/#water-pct/#water-zone if present)
+// ✅ Optional floating mini-gauge for other games (auto-inject, non-blocking)
+// ✅ Disable floating gauge with: ?nogauge=1 or window.HHA_WATER_GAUGE = 0
 
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
 const DOC = WIN.document;
 
-function clamp(v, a, b){
+function qs(k, def=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }
+  catch(_){ return def; }
+}
+function clamp(v,a,b){
   v = Number(v) || 0;
   return v < a ? a : (v > b ? b : v);
 }
 
-function qs(sel){
-  try{ return DOC.querySelector(sel); }catch(_){ return null; }
-}
-function byId(id){
-  try{ return DOC.getElementById(id); }catch(_){ return null; }
-}
-
-const DEFAULTS = {
-  greenMin: 45,
-  greenMax: 65
-};
-
-export function zoneFrom(pct, opt){
-  const cfg = Object.assign({}, DEFAULTS, opt || {});
+export function zoneFrom(pct){
   const p = clamp(pct, 0, 100);
-  if (p < cfg.greenMin) return 'LOW';
-  if (p > cfg.greenMax) return 'HIGH';
+  // ✅ ปลอดภัย/เข้าใจง่าย: กลางคือ GREEN
+  //   LOW  : 0–44
+  //   GREEN: 45–65
+  //   HIGH : 66–100
+  if (p <= 44) return 'LOW';
+  if (p >= 66) return 'HIGH';
   return 'GREEN';
 }
 
-const STATE = {
-  mounted: false,
-  svg: null,
-  arc: null,
-  dot: null,
-  label: null,
-  sub: null,
-  lastPct: null,
-  greenMin: DEFAULTS.greenMin,
-  greenMax: DEFAULTS.greenMax
-};
-
-function ensureRoot(){
-  if (!DOC || !DOC.body) return null;
-
-  // Prefer explicit mount if exists
-  let mount = byId('waterGaugeMount');
-
-  // If not found, try to create mount inside the water panel
-  if (!mount){
-    // Try find water panel by known ids first
-    const bar = byId('water-bar');
-    const waterPanel = bar ? bar.closest('.waterPanel') : null;
-
-    if (waterPanel){
-      mount = DOC.createElement('div');
-      mount.id = 'waterGaugeMount';
-      mount.style.cssText = 'margin-top:10px; display:flex; justify-content:center; align-items:center;';
-      // place after barWrap if possible, else append
-      const barWrap = bar.closest('.barWrap');
-      if (barWrap && barWrap.parentElement){
-        barWrap.parentElement.insertBefore(mount, barWrap.nextSibling);
-      } else {
-        waterPanel.appendChild(mount);
-      }
-    } else {
-      // Last resort: create a fixed tiny mount (won’t break)
-      mount = DOC.createElement('div');
-      mount.id = 'waterGaugeMount';
-      mount.style.cssText = 'position:fixed; right:12px; bottom:12px; z-index:9999; opacity:.001;';
-      DOC.body.appendChild(mount);
-    }
-  }
-
-  return mount;
-}
-
-function buildGauge(mount){
-  // Small, readable circular gauge via SVG
-  const wrap = DOC.createElement('div');
-  wrap.style.cssText = [
-    'width:120px',
-    'height:120px',
-    'display:flex',
-    'align-items:center',
-    'justify-content:center'
-  ].join(';');
-
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = DOC.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', '0 0 120 120');
-  svg.setAttribute('width', '120');
-  svg.setAttribute('height', '120');
-  svg.style.overflow = 'visible';
-
-  const bg = DOC.createElementNS(svgNS, 'circle');
-  bg.setAttribute('cx', '60');
-  bg.setAttribute('cy', '60');
-  bg.setAttribute('r', '44');
-  bg.setAttribute('fill', 'none');
-  bg.setAttribute('stroke', 'rgba(148,163,184,.22)');
-  bg.setAttribute('stroke-width', '10');
-
-  const arc = DOC.createElementNS(svgNS, 'circle');
-  arc.setAttribute('cx', '60');
-  arc.setAttribute('cy', '60');
-  arc.setAttribute('r', '44');
-  arc.setAttribute('fill', 'none');
-  arc.setAttribute('stroke', 'rgba(34,211,238,.95)');
-  arc.setAttribute('stroke-width', '10');
-  arc.setAttribute('stroke-linecap', 'round');
-  arc.setAttribute('transform', 'rotate(-90 60 60)');
-
-  // circumference
-  const C = 2 * Math.PI * 44;
-  arc.setAttribute('stroke-dasharray', String(C));
-  arc.setAttribute('stroke-dashoffset', String(C));
-
-  const dot = DOC.createElementNS(svgNS, 'circle');
-  dot.setAttribute('cx', '60');
-  dot.setAttribute('cy', '16');
-  dot.setAttribute('r', '4');
-  dot.setAttribute('fill', 'rgba(229,231,235,.92)');
-  dot.setAttribute('opacity', '0.9');
-
-  const gText = DOC.createElement('div');
-  gText.style.cssText = [
-    'position:absolute',
-    'display:flex',
-    'flex-direction:column',
-    'align-items:center',
-    'justify-content:center',
-    'gap:2px',
-    'transform: translateY(-2px)',
-    'text-align:center'
-  ].join(';');
-
-  const label = DOC.createElement('div');
-  label.style.cssText = 'font-weight:900; font-size:22px; line-height:1;';
-  label.textContent = '50%';
-
-  const sub = DOC.createElement('div');
-  sub.style.cssText = 'font-size:12px; color:rgba(148,163,184,.95); font-weight:800; letter-spacing:.2px;';
-  sub.textContent = 'GREEN';
-
-  svg.appendChild(bg);
-  svg.appendChild(arc);
-  svg.appendChild(dot);
-
-  wrap.style.position = 'relative';
-  wrap.appendChild(svg);
-  wrap.appendChild(gText);
-  gText.appendChild(label);
-  gText.appendChild(sub);
-
-  mount.appendChild(wrap);
-
-  STATE.svg = svg;
-  STATE.arc = arc;
-  STATE.dot = dot;
-  STATE.label = label;
-  STATE.sub = sub;
-}
-
-export function ensureWaterGauge(opt){
-  if (!DOC || !DOC.body) return false;
-
-  const cfg = Object.assign({}, DEFAULTS, opt || {});
-  STATE.greenMin = clamp(cfg.greenMin, 0, 100);
-  STATE.greenMax = clamp(cfg.greenMax, 0, 100);
-
-  if (STATE.mounted && STATE.arc && STATE.label && STATE.sub) return true;
-
-  const mount = ensureRoot();
-  if (!mount) return false;
-
-  // If already exists from previous run, try reuse
-  if (mount.dataset && mount.dataset.hhaWaterGauge === '1'){
-    STATE.mounted = true;
+function shouldShowFloatingGauge(){
+  try{
+    if (WIN.HHA_WATER_GAUGE === 0) return false;
+    const ng = String(qs('nogauge','')).toLowerCase();
+    if (ng === '1' || ng === 'true' || ng === 'yes') return false;
+    return true;
+  }catch(_){
     return true;
   }
+}
 
-  // Clear only if it’s our mount
+function injectStyleOnce(){
+  if (!DOC || DOC.getElementById('hha-water-style')) return;
+  const st = DOC.createElement('style');
+  st.id = 'hha-water-style';
+  st.textContent = `
+  /* HHA Floating Water Gauge (optional) */
+  #hhaWaterGauge{
+    position:fixed;
+    right:12px;
+    top:12px;
+    z-index: 60;
+    pointer-events:none;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius: 16px;
+    border:1px solid rgba(148,163,184,.16);
+    background: rgba(2,6,23,.55);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 18px 70px rgba(0,0,0,.40);
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color: rgba(229,231,235,.92);
+    user-select:none;
+  }
+  #hhaWaterGauge .wTitle{ font-weight:900; font-size:12px; letter-spacing:.2px; opacity:.95; }
+  #hhaWaterGauge .wZone{ font-size:11px; opacity:.92; }
+  #hhaWaterGauge .wPct{ font-weight:900; font-size:18px; line-height:1; }
+  #hhaWaterGauge .wPct small{ font-size:11px; opacity:.85; font-weight:800; }
+  #hhaWaterGauge .wBarWrap{
+    width: 120px;
+    height: 10px;
+    border-radius: 999px;
+    overflow:hidden;
+    background: rgba(148,163,184,.18);
+    border:1px solid rgba(148,163,184,.10);
+  }
+  #hhaWaterGauge .wBar{
+    height:100%;
+    width:50%;
+    background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+  }
+
+  /* Safe-area friendly */
+  @supports (padding: max(0px)) {
+    #hhaWaterGauge{
+      top: max(12px, env(safe-area-inset-top, 0px));
+      right: max(12px, env(safe-area-inset-right, 0px));
+    }
+  }
+  `;
+  DOC.head.appendChild(st);
+}
+
+function createGaugeIfNeeded(){
+  if (!DOC) return null;
+  let el = DOC.getElementById('hhaWaterGauge');
+  if (el) return el;
+
+  if (!shouldShowFloatingGauge()) return null;
+
+  injectStyleOnce();
+
+  el = DOC.createElement('div');
+  el.id = 'hhaWaterGauge';
+  el.setAttribute('aria-hidden','true');
+  el.innerHTML = `
+    <div>
+      <div class="wTitle">Water</div>
+      <div class="wZone">Zone <b id="hhaWaterZone">GREEN</b></div>
+    </div>
+    <div class="wBarWrap"><div class="wBar" id="hhaWaterBar"></div></div>
+    <div class="wPct"><span id="hhaWaterPct">50</span><small>%</small></div>
+  `;
+
+  DOC.body.appendChild(el);
+  return el;
+}
+
+/**
+ * Ensure floating gauge exists (optional).
+ * Safe even if the game has its own water UI.
+ */
+export function ensureWaterGauge(){
   try{
-    mount.innerHTML = '';
-    mount.dataset.hhaWaterGauge = '1';
-  }catch(_){}
-
-  buildGauge(mount);
-  STATE.mounted = true;
-  return true;
-}
-
-function setArc(pct){
-  if (!STATE.arc) return;
-
-  const p = clamp(pct, 0, 100) / 100;
-  const r = 44;
-  const C = 2 * Math.PI * r;
-  const off = C * (1 - p);
-  STATE.arc.setAttribute('stroke-dashoffset', String(off));
-
-  // dot position (simple polar)
-  if (STATE.dot){
-    const ang = (-90 + 360 * p) * (Math.PI / 180);
-    const cx = 60 + Math.cos(ang) * r;
-    const cy = 60 + Math.sin(ang) * r;
-    STATE.dot.setAttribute('cx', cx.toFixed(2));
-    STATE.dot.setAttribute('cy', cy.toFixed(2));
+    if (!DOC) return null;
+    // do not block hydration's own panel; floating gauge is just extra
+    return createGaugeIfNeeded();
+  }catch(_){
+    return null;
   }
 }
 
-function setColorByZone(z){
-  if (!STATE.arc) return;
-  // Keep consistent with existing theme (no CSS dependency required)
-  if (z === 'GREEN') STATE.arc.setAttribute('stroke', 'rgba(34,197,94,.95)');
-  else if (z === 'LOW') STATE.arc.setAttribute('stroke', 'rgba(34,211,238,.95)');
-  else STATE.arc.setAttribute('stroke', 'rgba(245,158,11,.95)');
-}
+/**
+ * Update water gauge (floating + bridge to in-game panel if present)
+ * @param {number} pct 0..100
+ */
+export function setWaterGauge(pct){
+  if (!DOC) return;
 
-export function setWaterGauge(pct, opt){
-  const cfg = Object.assign({}, { updateDom: true }, opt || {});
   const p = clamp(pct, 0, 100);
-  const z = zoneFrom(p, { greenMin: STATE.greenMin, greenMax: STATE.greenMax });
+  const z = zoneFrom(p);
 
-  // ensure gauge exists
-  ensureWaterGauge({ greenMin: STATE.greenMin, greenMax: STATE.greenMax });
+  // 1) Bridge to in-game elements (Hydration already has these)
+  const bar2 = DOC.getElementById('water-bar');
+  const pct2 = DOC.getElementById('water-pct');
+  const zone2 = DOC.getElementById('water-zone');
+  if (bar2) bar2.style.width = `${p.toFixed(0)}%`;
+  if (pct2) pct2.textContent = String(p|0);
+  if (zone2) zone2.textContent = z;
 
-  if (STATE.label) STATE.label.textContent = `${p.toFixed(0)}%`;
-  if (STATE.sub) STATE.sub.textContent = z;
+  // 2) Floating gauge (optional)
+  const g = createGaugeIfNeeded();
+  if (!g) return;
 
-  setArc(p);
-  setColorByZone(z);
+  const bar = DOC.getElementById('hhaWaterBar');
+  const pctEl = DOC.getElementById('hhaWaterPct');
+  const zoneEl = DOC.getElementById('hhaWaterZone');
 
-  // Best-effort sync to existing Hydration DOM
-  if (cfg.updateDom){
-    const elPct = byId('water-pct');
-    const elZone = byId('water-zone');
-    const elBar = byId('water-bar');
-
-    if (elPct) elPct.textContent = String(p | 0);
-    if (elZone) elZone.textContent = z;
-    if (elBar) elBar.style.width = `${p.toFixed(0)}%`;
-  }
-
-  STATE.lastPct = p;
-  return { pct: p, zone: z };
+  if (bar) bar.style.width = `${p.toFixed(0)}%`;
+  if (pctEl) pctEl.textContent = String(p|0);
+  if (zoneEl) zoneEl.textContent = z;
 }
