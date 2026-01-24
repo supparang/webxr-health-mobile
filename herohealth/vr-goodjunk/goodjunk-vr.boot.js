@@ -1,106 +1,115 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION
-// ✅ Respect ?view= (do NOT override)
-// ✅ Auto-detect view only when ?view is missing
-// ✅ Apply body class: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Emit initial quest:update (avoid "—")
-// ✅ Boot engine: ./goodjunk.safe.js
+// ✅ Auto-detect view ONLY when ?view=auto (no override if ?view= exists)
+// ✅ Applies body classes: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Pass-through params (hub/run/diff/time/seed/studyId/phase/conditionGroup/log)
+// ✅ Starts engine (goodjunk.safe.js) exactly once when DOM ready
+// ✅ Nudges safe-area measure (resize/orientation events) so --gj-top-safe/bottom-safe settle
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
-(function(){
-  'use strict';
+const WIN = window;
+const DOC = document;
 
-  const WIN = window;
-  const DOC = document;
+function qs(k, d=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }
+  catch{ return d; }
+}
 
-  const qs = (k, d=null) => {
-    try { return new URL(location.href).searchParams.get(k) ?? d; }
-    catch { return d; }
+function setBodyView(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  if(view==='pc') b.classList.add('view-pc');
+  else if(view==='vr') b.classList.add('view-vr');
+  else if(view==='cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
+}
+
+function isProbablyMobile(){
+  const ua = navigator.userAgent || '';
+  const small = Math.min(WIN.innerWidth||9999, WIN.innerHeight||9999) <= 820;
+  return /Android|iPhone|iPad|iPod|Mobi/i.test(ua) || small;
+}
+
+async function detectViewAuto(){
+  // Best-effort: if XR immersive-vr supported -> 'vr' (but still let user enter VR via button)
+  // Otherwise mobile/pc split
+  try{
+    if(navigator.xr && navigator.xr.isSessionSupported){
+      const ok = await navigator.xr.isSessionSupported('immersive-vr');
+      if(ok) return 'vr';
+    }
+  }catch(_){}
+  return isProbablyMobile() ? 'mobile' : 'pc';
+}
+
+function applyMetaChip(){
+  const v = qs('view','auto');
+  const run  = qs('run','play');
+  const diff = qs('diff','normal');
+  const time = qs('time','80');
+  const chipMeta = DOC.getElementById('gjChipMeta');
+  if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
+}
+
+function nudgeSafeMeasure(){
+  // ให้สคริปต์ใน HTML ที่วัด gjTopbar/gjHudTop/gjHudBot ทำงานนิ่งขึ้น
+  try{
+    WIN.dispatchEvent(new Event('resize'));
+    WIN.dispatchEvent(new Event('orientationchange'));
+  }catch(_){}
+  setTimeout(()=>{ try{ WIN.dispatchEvent(new Event('resize')); }catch(_){} }, 120);
+  setTimeout(()=>{ try{ WIN.dispatchEvent(new Event('resize')); }catch(_){} }, 360);
+}
+
+let started = false;
+
+async function start(){
+  if(started) return;
+  started = true;
+
+  // Respect explicit ?view= (NO override)
+  let view = String(qs('view','auto')).toLowerCase();
+  if(view === 'auto'){
+    view = await detectViewAuto();
+  }
+
+  // Normalize view values
+  if(view === 'cardboard') view = 'cvr';
+  if(!['pc','mobile','vr','cvr'].includes(view)) view = 'mobile';
+
+  setBodyView(view);
+  applyMetaChip();
+
+  // Pass-through gameplay params
+  const opts = {
+    view,
+    run:  qs('run','play'),
+    diff: qs('diff','normal'),
+    time: Number(qs('time','80')) || 80,
+    seed: qs('seed', Date.now())
   };
 
-  function isMobileUA(){
-    const ua = (navigator.userAgent || '').toLowerCase();
-    return /android|iphone|ipad|ipod|mobile/.test(ua);
-  }
+  // optional research ctx passthrough (logger may read itself too)
+  const ctx = {
+    hub: qs('hub', null),
+    log: qs('log', null),
+    studyId: qs('studyId', null),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', null),
+    style: qs('style', null)
+  };
+  try{ WIN.__HHA_CTX__ = ctx; }catch(_){}
 
-  function hasXR(){
-    return !!(navigator.xr && navigator.xr.isSessionSupported);
-  }
+  // Start engine
+  engineBoot(opts);
 
-  async function detectViewAuto(){
-    // If XR is available, default to 'vr' only when user is likely in headset mode.
-    // We keep conservative: mobile => 'mobile', desktop => 'pc' unless user explicitly sets view.
-    // cVR should be explicitly passed as ?view=cvr in your launcher for strict crosshair mode.
-    try{
-      if(isMobileUA()) return 'mobile';
-      return 'pc';
-    }catch{
-      return 'mobile';
-    }
-  }
+  // After engine mounts, nudge safe-area measure
+  nudgeSafeMeasure();
+}
 
-  function applyViewClass(view){
-    const b = DOC.body;
-    if(!b) return;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
-    const v = String(view||'mobile').toLowerCase();
-    if(v === 'pc') b.classList.add('view-pc');
-    else if(v === 'vr') b.classList.add('view-vr');
-    else if(v === 'cvr') b.classList.add('view-cvr');
-    else b.classList.add('view-mobile');
-  }
-
-  function emitQuestInit(){
-    // กัน HUD เป็น "—" ก่อน engine ส่ง quest:update จริง
-    try{
-      WIN.dispatchEvent(new CustomEvent('quest:update', { detail:{
-        goal:{ name:'แยกของดี/ของเสีย', sub:'แตะ/ยิง “ของดี” ให้มาก และหลบ “ของเสีย”', cur:0, target:10 },
-        mini:{ name:'ครบ 3 หมู่ใน 12 วิ', sub:'ทำให้ไว ได้โบนัส', cur:0, target:3, leftSec:12, done:false },
-        allDone:false
-      }}));
-    }catch(_){}
-  }
-
-  function onReady(fn){
-    if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-    else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-  }
-
-  onReady(async ()=>{
-    // 1) Resolve view (respect explicit param)
-    let view = qs('view', null);
-    if(view){
-      view = String(view).toLowerCase();
-    }else{
-      view = await detectViewAuto(); // conservative
-    }
-
-    // 2) Apply class for CSS
-    applyViewClass(view);
-
-    // 3) Emit initial quests so HUD never blank
-    emitQuestInit();
-
-    // 4) Collect run params
-    const run  = String(qs('run','play')).toLowerCase();
-    const diff = String(qs('diff','normal')).toLowerCase();
-    const time = Number(qs('time','80')) || 80;
-    const seed = String(qs('seed', Date.now()));
-
-    // 5) Boot engine
-    try{
-      engineBoot({ view, run, diff, time, seed });
-    }catch(err){
-      console.error('[GoodJunkVR] boot failed:', err);
-      try{
-        alert('GoodJunkVR: boot failed (ดู console)');
-      }catch(_){}
-    }
-
-    // 6) Optional: if you want to mark page started
-    try{ DOC.body?.classList.add('gj-started'); }catch(_){}
-  });
-
-})();
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', start, { once:true });
+}else{
+  start();
+}
