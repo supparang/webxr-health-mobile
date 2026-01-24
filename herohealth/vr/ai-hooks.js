@@ -1,95 +1,95 @@
 // === /herohealth/vr/ai-hooks.js ===
-// AI Hooks (Explainable Prediction) — OFF by default in research
-// Emits: hha:ai { riskMiss, reasons[], suggest?, t }
-// Usage: import { attachAIHooks } from '../vr/ai-hooks.js'; attachAIHooks({ mode:'play'|'research' })
+// AI Hooks (Explainable Prediction) — Play: coach ON, Research: observe only
+// Listens: hha:score, hha:judge, hha:time
+// Emits:   hha:ai { t, riskMiss, reasons[], suggest? }
 
-export function attachAIHooks(cfg={}){
+export function attachAIHooks(cfg = {}){
   const WIN = window;
-  const mode = String(cfg.mode || 'play').toLowerCase(); // research: do not adapt, only observe
-  const state = {
+  const mode = String(cfg.mode || 'play').toLowerCase(); // play | research
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+
+  const S = {
     t0: performance.now(),
-    score:0,
-    miss:0,
-    fever:0,
-    combo:0,
-    lastJudgeTs:0,
-    judgeCount:0,
-    missCount:0,
-    goodCount:0,
-    junkCount:0,
-    expireGood:0,
-    lastCoachTs:0
+    score: 0,
+    miss: 0,
+    fever: 0,
+    combo: 0,
+
+    judgeN: 0,
+    missN: 0,
+    goodN: 0,
+    junkN: 0,
+
+    lastJudgeTs: 0,
+    lastCoachTs: 0,
   };
 
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
-
-  function emitAI(payload){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:ai', { detail: payload })); }catch{}
-  }
+  const emitAI = (d)=>{ try{ WIN.dispatchEvent(new CustomEvent('hha:ai',{detail:d})); }catch{} };
+  const coach  = (msg)=>{ try{ WIN.dispatchEvent(new CustomEvent('hha:coach',{detail:{msg,tag:'AI Coach'}})); }catch{} };
 
   function computeRisk(){
-    // ✅ Explainable risk (0..1)
-    // factors: miss rate, recent mistake streak, fever, low time
-    const t = (performance.now() - state.t0)/1000;
+    const t = (performance.now() - S.t0) / 1000;
 
-    const totalJudges = Math.max(1, state.judgeCount);
-    const missRate = state.missCount / totalJudges;
+    const total = Math.max(1, S.judgeN);
+    const missRate = S.missN / total;
 
-    const feverN = clamp(state.fever/100, 0, 1);
-    const recent = clamp((performance.now()-state.lastJudgeTs)/1500, 0, 1); // 0=recent action, 1=quiet
-    const quietPenalty = recent * 0.10; // if player stops acting, risk rises slightly
+    const feverN = clamp(S.fever / 100, 0, 1);
 
-    // weight
-    let risk = 0.45*missRate + 0.40*feverN + quietPenalty;
+    const quiet = clamp((performance.now() - (S.lastJudgeTs||S.t0)) / 1600, 0, 1);
 
-    // mild stabilization
+    // explainable weighted risk
+    let risk = 0.50*missRate + 0.38*feverN + 0.12*quiet;
     risk = clamp(risk, 0, 1);
 
     const reasons = [];
     if(missRate > 0.25) reasons.push('miss_rate_high');
     if(feverN > 0.65) reasons.push('fever_high');
-    if(recent > 0.7) reasons.push('slow_response');
+    if(quiet > 0.70)  reasons.push('slow_response');
 
     return { t, riskMiss:risk, reasons };
   }
 
   function maybeCoach(ai){
-    if(mode==='research') return;
+    if(mode === 'research') return;
     const now = performance.now();
-    if(now - state.lastCoachTs < 4500) return; // rate limit
+    if(now - S.lastCoachTs < 4500) return;
     if(ai.riskMiss < 0.62) return;
 
-    state.lastCoachTs = now;
-    const msg =
-      ai.reasons.includes('fever_high') ? 'ใจเย็น ๆ เลี่ยงขยะก่อนนะ! 😄' :
-      ai.reasons.includes('miss_rate_high') ? 'โฟกัสของดีทีละอัน ไม่ต้องรีบ! 👍' :
-      'มองกลางจอแล้วยิงทีละเป้า! 🎯';
+    S.lastCoachTs = now;
 
-    try{ WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{ msg, tag:'AI Coach' } })); }catch{}
+    const msg =
+      ai.reasons.includes('fever_high') ? 'FEVER สูง! ใจเย็น ๆ เลี่ยงขยะก่อนนะ 😄' :
+      ai.reasons.includes('miss_rate_high') ? 'พลาดบ่อย ลองเล็งทีละเป้า ไม่ต้องรีบ 👍' :
+      'ช้าลงนิดนึง มองกลางจอแล้วยิงทีละเป้า 🎯';
+
+    coach(msg);
   }
 
-  // listen to game signals (you already emit these)
-  WIN.addEventListener('hha:score', (e)=>{ state.score = Number(e?.detail?.score||0); }, {passive:true});
-  WIN.addEventListener('hha:time',  (e)=>{ /* optional */ }, {passive:true});
-  WIN.addEventListener('quest:update', ()=>{}, {passive:true});
+  WIN.addEventListener('hha:score', (e)=>{
+    const d = e?.detail || {};
+    if(typeof d.score === 'number') S.score = d.score;
+    if(typeof d.miss  === 'number') S.miss  = d.miss;
+    if(typeof d.combo === 'number') S.combo = d.combo;
+    if(typeof d.fever === 'number') S.fever = d.fever;
+  }, {passive:true});
 
   WIN.addEventListener('hha:judge', (e)=>{
-    state.lastJudgeTs = performance.now();
-    state.judgeCount++;
+    S.lastJudgeTs = performance.now();
+    S.judgeN++;
 
-    const type = String(e?.detail?.type||'');
-    const label = String(e?.detail?.label||'');
-    if(type==='miss' || label==='MISS'){
-      state.missCount++;
-    }
-    if(type==='good') state.goodCount++;
-    if(type==='bad') state.junkCount++;
+    const d = e?.detail || {};
+    const type  = String(d.type || '');
+    const label = String(d.label || '');
+
+    if(type === 'miss' || label === 'MISS') S.missN++;
+    if(type === 'good') S.goodN++;
+    if(type === 'bad')  S.junkN++;
 
     const ai = computeRisk();
     emitAI(ai);
     maybeCoach(ai);
   }, {passive:true});
 
-  // expose to debug
-  WIN.__HHA_AI_STATE__ = state;
+  // expose for debug
+  WIN.__HHA_AI_STATE__ = S;
 }
