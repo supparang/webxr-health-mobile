@@ -2,10 +2,10 @@
    /herohealth/plate/plate-vr.css
    Balanced Plate VR — UI + FX (PRODUCTION / PATCH)
    HHA Standard
-   ✅ Fix: targets must be position:absolute (left/top work)
-   ✅ Spawn safe vars: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
-   ✅ Emoji centered, crisp, readable
-   ✅ HUD compact, doesn't kill play area
+   ✅ Targets spawn with safe-zone vars: --plate-*-safe
+   ✅ Emoji centered, crisp (no blur)
+   ✅ view: pc / mobile / vr / cvr
+   ✅ cVR strict: targets pointer-events off (shoot only)
 ========================================================= */
 
 :root{
@@ -29,26 +29,35 @@
   --radius:18px;
   --pill:999px;
 
-  /* Safe area insets */
+  /* Safe-area insets */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* -------------------------------------------------------
-     Spawn-safe zone for mode-factory.js (READ BY JS)
-     NOTE: Keep these as pixels (computed OK).
-  ------------------------------------------------------- */
-  --plate-top-safe: calc(var(--sat) + 150px);
-  --plate-bottom-safe: calc(var(--sab) + 110px);
-  --plate-left-safe: calc(var(--sal) + 10px);
-  --plate-right-safe: calc(var(--sar) + 10px);
+  /* Spawn safe-rect (read by mode-factory.js) */
+  --plate-top-safe: calc(var(--sat) + 160px);
+  --plate-bottom-safe: calc(var(--sab) + 22px);
+  --plate-left-safe: calc(var(--sal) + 16px);
+  --plate-right-safe: calc(var(--sar) + 16px);
+
+  /* HUD layout tuning */
+  --hud-pad-x: 14px;
+  --hud-pad-y: 12px;
+  --hud-gap: 10px;
+
+  /* Target tuning */
+  --t-stroke: rgba(148,163,184,.22);
+  --t-bg: rgba(2,6,23,.60);
+  --t-glow-good: rgba(34,197,94,.18);
+  --t-glow-bad: rgba(239,68,68,.18);
 }
 
 /* ---------------------------------------------------------
    Global
 --------------------------------------------------------- */
 *{ box-sizing:border-box; }
+
 html,body{
   margin:0;
   width:100%;
@@ -59,7 +68,6 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-/* App root */
 #app{
   position:fixed;
   inset:0;
@@ -67,7 +75,7 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Playfield (Targets spawn inside)
+   Spawn Layer (Targets)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -77,87 +85,85 @@ html,body{
   touch-action:none;
 }
 
-/* ✅ CRITICAL FIX: must be absolute so left/top works */
+/* ✅ CRITICAL: needs absolute positioning to use left/top from JS */
 .plateTarget{
-  position:absolute;
+  position:absolute;           /* ✅ FIX: without this, left/top won't work */
   display:grid;
   place-items:center;
   border-radius:999px;
 
-  user-select:none;
-  -webkit-user-select:none;
-  cursor:pointer;
-
-  /* crisp emoji rendering */
-  font-size:30px;
+  /* Crisp emoji / text */
+  font-size:28px;
   font-weight:900;
   line-height:1;
-
-  /* hit affordance */
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.12), transparent 38%),
-    radial-gradient(circle at 70% 70%, rgba(255,255,255,.06), transparent 42%),
-    rgba(2,6,23,.62);
-
-  border:1px solid var(--stroke2);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.34),
-    inset 0 1px 0 rgba(255,255,255,.10);
-
-  /* animation: pop-in + gentle wobble */
-  animation: plate-pop .14s ease-out, plate-wobble 1.8s ease-in-out infinite;
-  will-change: transform;
-}
-
-/* crisp emoji wrapper if decorateTarget inserts <span class="emoji"> */
-.plateTarget .emoji{
-  display:block;
-  font-size:1em;
-  transform: translateZ(0);
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,.28));
-}
-
-/* Optional label under emoji (if you add later) */
-.plateTarget .label{
-  display:block;
-  margin-top:4px;
-  font-size:10px;
-  font-weight:900;
-  color:rgba(226,232,240,.86);
   letter-spacing:.2px;
-  text-shadow:0 2px 10px rgba(0,0,0,.35);
+
+  user-select:none;
+  cursor:pointer;
+
+  /* Visual */
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.12), transparent 36%),
+    radial-gradient(circle at 70% 75%, rgba(34,211,238,.06), transparent 45%),
+    var(--t-bg);
+
+  border:1px solid var(--t-stroke);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.08);
+
+  /* Keep emoji vivid */
+  filter:none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+
+  /* Motion */
+  animation: platePop .14s ease-out, plateWobble 1.8s ease-in-out infinite;
+  transform: translate(-50%,-50%); /* JS also sets, but keep safe */
 }
 
+/* Optional emoji inner (if decorateTarget inserts spans) */
+.plateTarget .emoji{
+  font-size: 1.15em;
+  line-height:1;
+  transform: translateY(-.02em);
+}
+.plateTarget .label{
+  display:none; /* keep clean. Enable later if you want text labels */
+}
+
+/* Kind styles */
 .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.36);
+  border-color:rgba(34,197,94,.35);
   box-shadow:
-    0 18px 48px rgba(0,0,0,.34),
-    0 0 26px rgba(34,197,94,.16);
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 24px var(--t-glow-good);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.36);
+  border-color:rgba(239,68,68,.35);
   box-shadow:
-    0 18px 48px rgba(0,0,0,.34),
-    0 0 26px rgba(239,68,68,.16);
-  animation-duration:1.25s;
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 24px var(--t-glow-bad);
+  animation-duration:1.2s;
 }
 
+/* Hover/Press affordance */
 .plateTarget:active{
-  transform: translate(-50%,-50%) scale(.97);
+  transform: translate(-50%,-50%) scale(.96);
 }
 
-@keyframes plate-pop{
-  0%{ transform: translate(-50%,-50%) scale(.85); opacity:0 }
-  100%{ transform: translate(-50%,-50%) scale(1); opacity:1 }
+@keyframes platePop{
+  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
+  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
 
-@keyframes plate-wobble{
-  0%{ transform: translate(-50%,-50%) rotate(0deg) }
-  25%{ transform: translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform: translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform: translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform: translate(-50%,-50%) rotate(0deg) }
+@keyframes plateWobble{
+  0%{ transform:translate(-50%,-50%) rotate(0deg) }
+  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
+  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
+  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
+  100%{ transform:translate(-50%,-50%) rotate(0deg) }
 }
 
 /* ---------------------------------------------------------
@@ -168,123 +174,127 @@ html,body{
   top:0;
   left:0;
   right:0;
-  z-index:40;
+  z-index:60;
   padding:
-    calc(var(--sat) + 10px)
-    calc(var(--sar) + 10px)
-    10px
-    calc(var(--sal) + 10px);
-  pointer-events:none; /* HUD ไม่ขวางการแตะ */
+    calc(var(--sat) + var(--hud-pad-y))
+    calc(var(--sar) + var(--hud-pad-x))
+    var(--hud-pad-y)
+    calc(var(--sal) + var(--hud-pad-x));
+  pointer-events:none;
 }
-
-/* allow buttons inside overlay to click later if needed */
-#hud *{ pointer-events:auto; }
 
 .hudRow{
   display:flex;
-  gap:10px;
+  gap:var(--hud-gap);
   align-items:stretch;
   justify-content:flex-start;
-  flex-wrap:wrap;
+  pointer-events:none;
 }
 
-/* small chips (score/time/combo) */
+/* Chips (score/time/combo) */
 .chip{
+  pointer-events:none;
   display:flex;
-  align-items:center;
-  gap:10px;
+  flex-direction:column;
+  gap:2px;
+
+  background:var(--panel2);
+  border:1px solid var(--stroke);
+  border-radius:16px;
   padding:8px 12px;
-  border-radius:999px;
-  background:rgba(2,6,23,.74);
-  border:1px solid rgba(148,163,184,.22);
+  min-width:92px;
+
+  box-shadow:0 16px 44px rgba(0,0,0,.24);
   backdrop-filter: blur(10px);
-  box-shadow:0 12px 40px rgba(0,0,0,.25);
-  min-width:110px;
 }
+
 .chip .lbl{
-  font-size:11px;
+  font-size:10px;
   font-weight:900;
-  color:rgba(148,163,184,.92);
-  letter-spacing:.3px;
+  color:var(--muted);
+  letter-spacing:.12em;
 }
+
 .chip .val{
-  font-size:16px;
+  font-size:18px;
   font-weight:1000;
+  color:var(--text);
 }
 
-.chip.score{ border-color: rgba(34,197,94,.30); }
-.chip.time{ border-color: rgba(34,211,238,.24); }
-.chip.combo{ border-color: rgba(167,139,250,.24); }
-
-/* cards */
-.card,.questCard,.panelCard{
-  margin-top:10px;
+/* Quest card */
+.card{
+  pointer-events:none;
+  margin-top:var(--hud-gap);
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
-  overflow:hidden;
 }
 
 #questCard{
-  max-width:520px;
+  padding:12px 12px 10px;
+  max-width: 520px;
 }
 
 .cardTitle{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
-  padding:10px 12px;
-  background:rgba(15,23,42,.45);
-  border-bottom:1px solid rgba(148,163,184,.12);
+  gap:10px;
+  margin-bottom:10px;
 }
+
 .cardTitle .t{
+  font-size:14px;
   font-weight:1000;
-  font-size:13px;
 }
+
 .cardTitle .hint{
-  font-weight:900;
-  font-size:11px;
-  color:rgba(148,163,184,.95);
+  font-size:12px;
+  color:var(--muted);
   text-align:right;
-  max-width:62%;
+  max-width: 260px;
 }
 
 .qItem{
   display:flex;
-  gap:12px;
   align-items:center;
   justify-content:space-between;
-  padding:10px 12px;
-}
-.qItem + .qItem{
-  border-top:1px solid rgba(148,163,184,.10);
+  gap:12px;
+
+  padding:10px 10px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.12);
+  background: rgba(15,23,42,.35);
+  margin-top:8px;
 }
 
 .qText .name{
-  font-size:12px;
+  font-size:13px;
   font-weight:1000;
 }
 .qText .sub{
+  font-size:12px;
+  color:var(--muted);
   margin-top:2px;
-  font-size:11px;
-  font-weight:800;
-  color:rgba(148,163,184,.92);
 }
 
 .qProg{
-  min-width:150px;
-}
-.qNums{
-  font-size:11px;
-  font-weight:1000;
-  text-align:right;
-  color:rgba(226,232,240,.90);
-  margin-bottom:6px;
+  width: 190px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
 }
 
-/* bars */
+.qNums{
+  font-size:12px;
+  color:var(--muted);
+  text-align:right;
+  font-weight:900;
+}
+
+/* Bars */
 .bar{
   height:10px;
   border-radius:999px;
@@ -299,41 +309,49 @@ html,body{
   transition:width .25s ease;
 }
 
+.bar.bad>i{
+  background:linear-gradient(90deg,var(--warn),var(--bad));
+  box-shadow:0 0 18px rgba(239,68,68,.35);
+}
+
 /* ---------------------------------------------------------
    Coach bubble
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  left:50%;
-  bottom:calc(var(--sab) + 14px);
-  transform:translateX(-50%);
-  z-index:65;
-  max-width:min(680px, calc(100vw - 22px));
-  background:rgba(2,6,23,.76);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:22px;
-  box-shadow:0 22px 70px rgba(0,0,0,.35);
-  backdrop-filter: blur(12px);
-  opacity:0;
+  left: calc(var(--sal) + 14px);
+  bottom: calc(var(--sab) + 14px);
+  z-index:80;
+  width:min(520px, calc(100vw - 28px));
   pointer-events:none;
+  opacity:0;
+  transform: translateY(10px);
   transition: opacity .18s ease, transform .18s ease;
 }
+
+#coachCard .inner{
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius: 20px;
+  padding:12px 14px;
+  box-shadow:0 18px 60px rgba(0,0,0,.32);
+  backdrop-filter: blur(10px);
+}
+
 #coachCard.show{
   opacity:1;
-  transform:translateX(-50%) translateY(-2px);
+  transform: translateY(0);
 }
-#coachCard .inner{
-  padding:12px 14px;
-}
+
 #coachMsg{
   font-weight:1000;
-  line-height:1.25;
+  font-size:14px;
 }
 #coachMeta{
   margin-top:6px;
-  font-size:11px;
+  font-size:12px;
+  color:var(--muted);
   font-weight:900;
-  color:rgba(148,163,184,.95);
 }
 
 /* ---------------------------------------------------------
@@ -342,77 +360,80 @@ html,body{
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index:80;
-  display:grid;
-  place-items:center;
-  padding:calc(var(--sat) + 12px) calc(var(--sar) + 12px) calc(var(--sab) + 12px) calc(var(--sal) + 12px);
-  background:rgba(2,6,23,.70);
-  backdrop-filter: blur(10px);
+  z-index:120;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: calc(var(--sat) + 18px) calc(var(--sar) + 18px) calc(var(--sab) + 18px) calc(var(--sal) + 18px);
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(8px);
 }
+
 #endOverlay[aria-hidden="true"]{
   display:none;
 }
 
 .endPanel{
-  width:min(720px, 96vw);
-  border-radius:26px;
-  border:1px solid rgba(148,163,184,.20);
-  background:rgba(2,6,23,.82);
-  box-shadow:0 28px 90px rgba(0,0,0,.45);
-  overflow:hidden;
+  width:min(640px, 100%);
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius: 24px;
+  box-shadow:0 22px 90px rgba(0,0,0,.38);
+  padding:16px 16px 14px;
 }
 
 .endTitle{
   display:flex;
+  align-items:flex-start;
   justify-content:space-between;
-  align-items:center;
-  padding:14px 16px;
-  background:rgba(15,23,42,.55);
-  border-bottom:1px solid rgba(148,163,184,.14);
+  gap:10px;
+  margin-bottom:12px;
 }
+
 .endTitle h2{
   margin:0;
-  font-size:18px;
+  font-size:20px;
   font-weight:1100;
 }
+
 .endTitle .tag{
-  font-size:11px;
-  font-weight:1000;
   padding:6px 10px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.55);
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  color: var(--muted);
+  font-weight:1000;
+  font-size:12px;
 }
 
 .endGrid{
   display:grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
+  grid-template-columns: 1fr 1fr;
   gap:10px;
-  padding:14px 16px;
 }
+
 .kpi{
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(15,23,42,.45);
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.35);
+  border-radius: 18px;
   padding:10px 12px;
 }
 .kpi .k{
-  font-size:11px;
-  font-weight:1000;
-  color:rgba(148,163,184,.95);
+  font-size:12px;
+  color:var(--muted);
+  font-weight:900;
 }
 .kpi .v{
-  margin-top:6px;
+  margin-top:4px;
   font-size:18px;
   font-weight:1100;
 }
 
 .endBtns{
+  margin-top:12px;
   display:flex;
   gap:10px;
   justify-content:flex-end;
-  padding:12px 16px 16px;
-  border-top:1px solid rgba(148,163,184,.14);
 }
 
 /* Buttons */
@@ -435,7 +456,7 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   FX layers (optional)
+   FX layers (optional hooks)
 --------------------------------------------------------- */
 #bossFx,#stormFx{
   position:fixed;
@@ -447,8 +468,7 @@ html,body{
 
 #bossFx.boss-on{
   display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
 }
 #bossFx.boss-panic{
   animation:pulseBad .25s infinite;
@@ -468,36 +488,49 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   View tuning (PC/Mobile/VR/cVR)
+   View tuning
 --------------------------------------------------------- */
+
+/* PC: HUD taller -> spawn safe top bigger */
 body.view-pc{
-  --plate-top-safe: calc(var(--sat) + 150px);
-  --plate-bottom-safe: calc(var(--sab) + 110px);
-}
-
-body.view-mobile{
   --plate-top-safe: calc(var(--sat) + 170px);
-  --plate-bottom-safe: calc(var(--sab) + 120px);
+  --plate-bottom-safe: calc(var(--sab) + 20px);
 }
 
-body.view-vr,
-body.view-cvr{
-  /* ใน VR/cVR ให้ HUD เล็กลง → พื้นที่เล่นเพิ่ม */
-  --plate-top-safe: calc(var(--sat) + 120px);
-  --plate-bottom-safe: calc(var(--sab) + 100px);
+/* Mobile: HUD stacks -> safe top bigger */
+body.view-mobile{
+  --plate-top-safe: calc(var(--sat) + 210px);
+  --plate-bottom-safe: calc(var(--sab) + 20px);
+  --hud-pad-x: 12px;
+  --hud-pad-y: 10px;
 }
 
-/* Compact HUD on small screens */
+/* VR: keep HUD compact */
+body.view-vr{
+  --plate-top-safe: calc(var(--sat) + 140px);
+  --plate-bottom-safe: calc(var(--sab) + 20px);
+}
+
+/* cVR strict: tap-to-shoot only */
+body.view-cvr #plate-layer{
+  pointer-events:none; /* ✅ important */
+}
+body.view-cvr .plateTarget{
+  pointer-events:none; /* ✅ important */
+}
+
+/* Responsive */
 @media (max-width:900px){
-  .plateTarget{ font-size:26px; }
-  .chip{ min-width:96px; padding:7px 10px; }
-  #questCard{ max-width: calc(100vw - 20px); }
-  .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .chip{ min-width: 86px; padding:8px 10px; }
+  .chip .val{ font-size:16px; }
+  #questCard{ max-width: 100%; }
+  .qProg{ width: 170px; }
+  .plateTarget{ font-size:24px; }
 }
 
-/* Ultra small */
-@media (max-width:420px){
-  .plateTarget{ font-size:24px; }
-  .chip .val{ font-size:15px; }
-  .cardTitle .hint{ display:none; }
+@media (max-width:520px){
+  .hudRow{ gap:8px; }
+  .chip{ min-width: 78px; }
+  .qProg{ width: 150px; }
+  .endGrid{ grid-template-columns: 1fr; }
 }
