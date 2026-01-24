@@ -1,10 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run)
+GoodJunkVR RUN — PRODUCTION
 ✅ CSS: ./goodjunk-vr.css
-✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ A-Frame minimal scene for Enter VR reliability
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+✅ Sets --gj-top-safe / --gj-bottom-safe for safe spawn
 -->
 <!doctype html>
 <html lang="th">
@@ -25,15 +24,12 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 </head>
 
 <body class="gj">
-  <a-scene
-    embedded
-    vr-mode-ui="enabled:false"
-    renderer="colorManagement:true; physicallyCorrectLights:false"
-    style="background: transparent;"
-  >
+  <!-- A-Frame minimal scene -->
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true" style="background: transparent;">
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
 
+  <!-- TOPBAR -->
   <header class="gj-topbar" id="gjTopbar">
     <div class="left">
       <div class="gj-chip">
@@ -48,6 +44,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </header>
 
+  <!-- HUD TOP -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
     <div class="hud-row">
       <div class="hud-pill">
@@ -89,6 +86,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </section>
 
+  <!-- HUD BOTTOM -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever" id="gjHudFever">
       <div class="meter-title">FEVER</div>
@@ -103,11 +101,13 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </section>
 
+  <!-- PLAYFIELD -->
   <main class="gj-field" id="gj-field">
     <div id="gj-layer" class="gj-layer"></div>
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
   </main>
 
+  <!-- MISSIONS PEEK -->
   <section class="gj-peek" id="missionsPeek" aria-hidden="true">
     <div class="peek-card">
       <div class="peek-title">Missions</div>
@@ -117,71 +117,84 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </section>
 
-  <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
-    <div class="gj-lowtime-ring"></div>
-    <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
-  </div>
-
   <script>
-    (function(){
-      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const hub = qs('hub', null);
+  (function(){
+    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    const hub = qs('hub', null);
 
-      const btnBack = document.getElementById('btnBackHub');
-      const btnHide = document.getElementById('btnHideHud');
-      const btnMis  = document.getElementById('btnMissions');
+    const btnBack = document.getElementById('btnBackHub');
+    const btnHide = document.getElementById('btnHideHud');
+    const btnMis  = document.getElementById('btnMissions');
 
-      const chipMeta = document.getElementById('gjChipMeta');
-      const peek = document.getElementById('missionsPeek');
-      const peekGoal = document.getElementById('peekGoal');
-      const peekMini = document.getElementById('peekMini');
+    const chipMeta = document.getElementById('gjChipMeta');
+    const peek = document.getElementById('missionsPeek');
+    const peekGoal = document.getElementById('peekGoal');
+    const peekMini = document.getElementById('peekMini');
 
-      const v = qs('view','auto');
-      const run  = qs('run','play');
-      const diff = qs('diff','normal');
-      const time = qs('time','80');
-      if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
+    const v = qs('view','auto');
+    const run  = qs('run','play');
+    const diff = qs('diff','normal');
+    const time = qs('time','80');
+    if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
-      btnBack?.addEventListener('click', ()=>{
-        if(hub) location.href = hub;
-        else alert('ยังไม่ได้ใส่ hub url');
-      });
+    btnBack?.addEventListener('click', ()=>{
+      if(hub) location.href = hub;
+      else alert('ยังไม่ได้ใส่ hub url');
+    });
 
-      btnHide?.addEventListener('click', ()=>{
-        document.body.classList.toggle('hud-hidden');
-        setTimeout(updateSafe, 0);
-      });
-
-      function toggleMissions(){
-        document.body.classList.toggle('show-missions');
-        const shown = document.body.classList.contains('show-missions');
-        peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
-        if(shown){
-          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
-          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
-        }
+    function toggleMissions(){
+      document.body.classList.toggle('show-missions');
+      const shown = document.body.classList.contains('show-missions');
+      peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
+      if(shown){
+        peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—')
+          + ' — ' + (document.getElementById('goalDesc')?.textContent || '');
+        peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
       }
-      btnMis?.addEventListener('click', toggleMissions);
-      peek?.addEventListener('click', toggleMissions);
-
-      function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-      function updateSafe(){
-        try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-          const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
-          const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
-          const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
-
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
-        }catch(_){}
-      }
-      window.addEventListener('resize', updateSafe, {passive:true});
-      window.addEventListener('orientationchange', updateSafe, {passive:true});
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 360);
-    })();
+    }
+    btnMis?.addEventListener('click', toggleMissions);
+    peek?.addEventListener('click', toggleMissions);
+
+    btnHide?.addEventListener('click', ()=>{
+      document.body.classList.toggle('hud-hidden');
+      setTimeout(updateSafe, 0);
+      setTimeout(updateSafe, 120);
+    });
+
+    // ✅ FIX: safe-zone ไม่พอง ไม่บีบสนาม
+    function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+    function updateSafe(){
+      try{
+        const root = document.documentElement;
+        const cs = getComputedStyle(root);
+        const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
+        const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+
+        const topbarH = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
+        const hudTopH = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
+        const hudBotH = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
+
+        const hudHidden = document.body.classList.contains('hud-hidden');
+
+        const topSafe = hudHidden ? (topbarH + 12 + sat) : (topbarH + hudTopH + 14 + sat);
+
+        const bottomMin = 92 + sab;
+        const bottomMax = 220 + sab;
+        const bottomSafe = Math.min(bottomMax, Math.max(bottomMin, hudBotH + 14 + sab));
+
+        root.style.setProperty('--gj-top-safe', px(topSafe));
+        root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
+      }catch(_){}
+    }
+
+    window.addEventListener('resize', updateSafe, {passive:true});
+    window.addEventListener('orientationchange', updateSafe, {passive:true});
+    setTimeout(updateSafe, 0);
+    setTimeout(updateSafe, 120);
+    setTimeout(updateSafe, 360);
+  })();
   </script>
 </body>
 </html>
