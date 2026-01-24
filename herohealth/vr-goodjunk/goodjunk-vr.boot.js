@@ -1,18 +1,22 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (works with FAIR PACK safe.js v2.3)
-// ✅ Sets body view class: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Does NOT override if ?view= already set (launcher handles it anyway)
-// ✅ Starts engine (goodjunk.safe.js) with passthrough opts
-// ✅ Keeps UI layers ready for cVR (right-eye layer exists; CSS handles pointer-events)
-// ✅ Minimal, robust, no GameEngine dependency
+// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
+// ✅ Uses: ./goodjunk.safe.js (FAIR PACK)
+// ✅ View modes: PC / Mobile / VR / cVR
+// ✅ DOES NOT override if URL already has ?view=...
+// ✅ Pass-through + ctx build (hub/run/diff/time/seed/log/style)
+// ✅ Sets body classes: view-pc/view-mobile/view-vr/view-cvr
+// ✅ Config vr-ui.js: crosshair shoot emits hha:shoot
+// ✅ Best-effort logger flush (if hha-cloud-logger exposes API)
+
+'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
+const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
 
 function normalizeView(v){
   v = String(v||'').toLowerCase();
@@ -20,71 +24,151 @@ function normalizeView(v){
   if(v === 'view-cvr') return 'cvr';
   if(v === 'cvr') return 'cvr';
   if(v === 'vr') return 'vr';
-  if(v === 'pc') return 'pc';
   if(v === 'mobile') return 'mobile';
-  return 'mobile';
+  if(v === 'pc') return 'pc';
+  return 'auto';
+}
+
+function isLikelyMobileUA(){
+  const ua = String(navigator.userAgent||'').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
+}
+
+async function detectView(){
+  // ✅ Never override if user passed view=
+  if(has('view')) return normalizeView(qs('view','auto'));
+
+  // Soft default: UA
+  let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
+
+  // If WebXR VR supported, and on mobile -> lean to 'vr' (cardboard path)
+  try{
+    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
+      const ok = await navigator.xr.isSessionSupported('immersive-vr');
+      if(ok && isLikelyMobileUA()) guess = 'vr';
+    }
+  }catch(_){}
+
+  return normalizeView(guess);
 }
 
 function setBodyView(view){
   const b = DOC.body;
   if(!b) return;
 
-  b.classList.add('gj');
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  b.classList.add('gj'); // ensure base skin
 
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
   if(view === 'pc') b.classList.add('view-pc');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile');
+  else b.classList.add('view-mobile'); // default
 }
 
-function ensureLayers(){
-  // ensure right-eye layer exists (for cVR UI layering; optional)
-  const main = DOC.getElementById('gj-layer');
-  const r = DOC.getElementById('gj-layer-r');
-  if(main && !r){
-    const rr = DOC.createElement('div');
-    rr.id = 'gj-layer-r';
-    rr.className = 'gj-layer gj-layer-r';
-    rr.setAttribute('aria-hidden','true');
-    main.parentElement?.appendChild(rr);
+function buildCtx(v){
+  const ctx = {
+    game: 'GoodJunkVR',
+    pack: 'fair',
+    view: v,
+    run: String(qs('run','play')||'play').toLowerCase(),
+    diff: String(qs('diff','normal')||'normal').toLowerCase(),
+    time: Number(qs('time','80')||80) || 80,
+    seed: String(qs('seed', Date.now())),
+    hub: qs('hub', null),
+    log: qs('log', null),
+    style: qs('style', null),
+    studyId: qs('studyId', qs('study', null)),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', qs('cond', null)),
+    ts: qs('ts', null),
+  };
+  return ctx;
+}
+
+// vr-ui config (crosshair shoot)
+function configureVRUI(ctx){
+  // This is read by ../vr/vr-ui.js
+  WIN.HHA_VRUI_CONFIG = Object.assign(
+    { lockPx: 28, cooldownMs: 90 },
+    WIN.HHA_VRUI_CONFIG || {}
+  );
+
+  // In strict cVR we want shooting only (targets pointer-events already disabled by CSS)
+  if(ctx.view === 'cvr'){
+    WIN.HHA_VRUI_CONFIG.lockPx = Math.max(22, Number(WIN.HHA_VRUI_CONFIG.lockPx)||28);
   }
 }
 
-function waitDOM(){
-  return new Promise((res)=>{
-    if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') return res();
-    DOC.addEventListener('DOMContentLoaded', ()=>res(), { once:true });
-  });
-}
+// Best-effort logger integration (doesn't assume specific API)
+function tryInitLogger(ctx){
+  if(!ctx.log) return;
 
-async function boot(){
-  await waitDOM();
-
-  const view = normalizeView(qs('view','mobile'));
-  const run  = String(qs('run','play')||'play').toLowerCase();
-  const diff = String(qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','80'), 20, 300);
-  const seed = String(qs('seed', Date.now()));
-
-  setBodyView(view);
-  ensureLayers();
-
-  // If run.html has safe-zone measurer, it will update CSS vars itself.
-  // We'll just call a best-effort resize tick to help first frame.
+  // Try a couple of likely shapes; if none exist, it silently does nothing.
   try{
-    WIN.dispatchEvent(new Event('resize'));
-    setTimeout(()=>WIN.dispatchEvent(new Event('resize')), 120);
+    if(WIN.HHACloudLogger && typeof WIN.HHACloudLogger.init === 'function'){
+      WIN.HHACloudLogger.init({ endpoint: ctx.log, ctx });
+    }
   }catch(_){}
 
-  // Start engine
-  engineBoot({
-    view,
-    run,
-    diff,
-    time,
-    seed,
-  });
+  try{
+    if(WIN.hhaCloudLogger && typeof WIN.hhaCloudLogger.init === 'function'){
+      WIN.hhaCloudLogger.init({ endpoint: ctx.log, ctx });
+    }
+  }catch(_){}
 }
 
-boot();
+function tryFlushLogger(){
+  try{
+    if(WIN.HHACloudLogger && typeof WIN.HHACloudLogger.flush === 'function') WIN.HHACloudLogger.flush();
+  }catch(_){}
+  try{
+    if(WIN.hhaCloudLogger && typeof WIN.hhaCloudLogger.flush === 'function') WIN.hhaCloudLogger.flush();
+  }catch(_){}
+}
+
+// Back HUB helper (flush-hardened)
+function installBackGuard(ctx){
+  // If page is leaving, try flush first
+  WIN.addEventListener('pagehide', tryFlushLogger, { passive:true });
+  WIN.addEventListener('beforeunload', tryFlushLogger, { passive:true });
+
+  // If someone else dispatches "hha:backhub" we honor it
+  WIN.addEventListener('hha:backhub', ()=>{
+    tryFlushLogger();
+    if(ctx.hub) location.href = ctx.hub;
+  }, { passive:true });
+}
+
+async function start(){
+  const view = await detectView();
+  const ctx = buildCtx(view);
+
+  setBodyView(view);
+  configureVRUI(ctx);
+  tryInitLogger(ctx);
+  installBackGuard(ctx);
+
+  // Boot engine (FAIR PACK)
+  engineBoot({
+    view: ctx.view,
+    run: ctx.run,
+    diff: ctx.diff,
+    time: ctx.time,
+    seed: ctx.seed,
+  });
+
+  // Optional: reflect to chip (if present)
+  try{
+    const chip = DOC.getElementById('gjChipMeta');
+    if(chip){
+      chip.textContent = `view=${ctx.view} · run=${ctx.run} · diff=${ctx.diff} · time=${ctx.time}`;
+    }
+  }catch(_){}
+}
+
+// Start once DOM is ready
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', start, { once:true });
+}else{
+  start();
+}
