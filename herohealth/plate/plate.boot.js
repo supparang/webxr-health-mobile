@@ -1,13 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (PATCH)
-// ✅ Auto view detect (no UI override)
-// ✅ Default time = 90s
-// ✅ Fix setBodyView: adds view-vr/view-cvr correctly
-// ✅ Loads engine from ./plate.safe.js
+// ✅ Auto view detect (no menu override)
+// ✅ Boots engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ PATCH: mount wait + fail-safe + logs + optional FX layers
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -26,8 +25,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -36,7 +33,6 @@ function getViewAuto(){
 function setBodyView(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
   if(view === 'cvr') b.classList.add('view-cvr');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'mobile') b.classList.add('view-mobile');
@@ -47,7 +43,6 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
 function pct(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
@@ -78,6 +73,9 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
+/* ---------------------------------------------------------
+   HUD wiring
+--------------------------------------------------------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -107,7 +105,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -134,15 +131,38 @@ function wireHUD(){
   });
 }
 
+/* ---------------------------------------------------------
+   Optional FX (boss/storm) if HTML has #bossFx/#stormFx
+--------------------------------------------------------- */
+function wireFxLayers(){
+  const bossFx = DOC.getElementById('bossFx');
+  const stormFx = DOC.getElementById('stormFx');
+
+  // Accept external engine hooks later
+  WIN.addEventListener('hha:boss', (e)=>{
+    if(!bossFx) return;
+    const d = e.detail || {};
+    bossFx.classList.toggle('boss-on', !!d.on);
+    bossFx.classList.toggle('boss-panic', !!d.panic);
+  });
+
+  WIN.addEventListener('hha:storm', (e)=>{
+    if(!stormFx) return;
+    const d = e.detail || {};
+    stormFx.classList.toggle('storm-on', !!d.on);
+  });
+}
+
+/* ---------------------------------------------------------
+   End controls + summary
+--------------------------------------------------------- */
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -176,14 +196,14 @@ function wireEndSummary(){
   });
 }
 
+/* ---------------------------------------------------------
+   Build engine config (ctx passthrough)
+--------------------------------------------------------- */
 function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-
-  // ✅ Default 90 seconds (not 70)
   const time = clamp(qs('time','90'), 10, 999);
-
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
@@ -196,6 +216,7 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // research passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -209,29 +230,60 @@ function buildEngineConfig(){
   };
 }
 
+/* ---------------------------------------------------------
+   Ready + mount wait (fix “เป้าไม่โผล่”)
+--------------------------------------------------------- */
 function ready(fn){
   if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
+function waitForMount(id, ms=2200){
+  return new Promise((resolve, reject)=>{
+    const t0 = performance.now();
+    const tick = ()=>{
+      const el = DOC.getElementById(id);
+      if(el){
+        const r = el.getBoundingClientRect();
+        // Must have area (avoid 0x0 when hidden)
+        if(r.width > 10 && r.height > 10) return resolve(el);
+      }
+      if(performance.now() - t0 > ms) return reject(new Error(`mount #${id} not ready`));
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+ready(async ()=>{
   const cfg = buildEngineConfig();
 
+  // set view class
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
+  wireFxLayers();
 
+  // ensure end overlay closed at start
   setOverlayOpen(false);
 
+  // boot engine (mount wait)
   try{
+    const mount = await waitForMount('plate-layer', 2800);
+
     engineBoot({
-      mount: DOC.getElementById('plate-layer'),
+      mount,
       cfg
     });
+
+    // tiny debug marker (optional)
+    console.log('[PlateVR] boot OK', { view: cfg.view, runMode: cfg.runMode, diff: cfg.diff, time: cfg.durationPlannedSec, seed: cfg.seed });
+
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
+    showCoach('เริ่มเกมไม่สำเร็จ: mount ไม่พร้อม', 'System');
   }
 });
