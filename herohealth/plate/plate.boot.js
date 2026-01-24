@@ -1,13 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCH)
+// PlateVR Boot — PRODUCTION (Latest)
 // ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params
-// ✅ Default time = 90 (better for Goal+Mini in one round)
-// ✅ Optional debug: ?debug=1
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -26,7 +24,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Allow system to force via query (experiments), but no menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -35,7 +32,6 @@ function getViewAuto(){
 function setBodyView(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
   if(view === 'cvr') b.classList.add('view-cvr');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'mobile') b.classList.add('view-mobile');
@@ -46,11 +42,7 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
-function pct(n){
-  n = Number(n)||0;
-  return `${Math.round(n)}%`;
-}
+function pct(n){ n = Number(n)||0; return `${Math.round(n)}%`; }
 
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
@@ -81,6 +73,7 @@ function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
+  const hudShield = DOC.getElementById('hudShield');
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -96,6 +89,7 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+    if(hudShield && d.shield!=null) hudShield.textContent = String(d.shield);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -138,9 +132,7 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -175,30 +167,22 @@ function wireEndSummary(){
 }
 
 function buildEngineConfig(){
-  const debug = (qs('debug','0') === '1');
-
-  // standard params
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-
-  // ✅ default time = 90
-  const time = clamp(qs('time','90'), 10, 999);
-
+  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  const cfg = {
+  return {
     view,
     runMode: run,
     diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -210,12 +194,6 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
-
-  if(debug){
-    console.log('[PlateVR] cfg', cfg);
-    WIN.__PLATE_DEBUG__ = true;
-  }
-  return cfg;
 }
 
 function ready(fn){
@@ -226,27 +204,16 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // ensure overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
-    const mount = DOC.getElementById('plate-layer');
-    if(!mount){
-      console.error('[PlateVR] mount #plate-layer missing');
-      showCoach('ไม่พบพื้นที่เล่นเกม (#plate-layer)', 'System');
-      return;
-    }
-
-    engineBoot({ mount, cfg });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
