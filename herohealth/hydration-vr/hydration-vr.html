@@ -1,10 +1,10 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration Quest VR RUN — PRODUCTION (LATEST)
-✅ CSS: ./hydration-vr.css
-✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js, ../vr/ui-water.js
-✅ Loader: ./hydration-vr.loader.js (auto-detect NO override + cardboard layers + start overlay)
-✅ Engine: ./hydration.safe.js (type=module)
-✅ A-Frame minimal scene for Enter VR reliability
+HydrationVR RUN — PRODUCTION
+✅ PC / Mobile / Cardboard (DOM targets on layers)
+✅ Uses hydration-vr.loader.js -> imports hydration.safe.js
+✅ Uses Universal VR UI: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
+✅ Start overlay -> emits hha:start
+✅ End summary + back HUB + retry + copy json + csv
 -->
 <!doctype html>
 <html lang="th">
@@ -15,132 +15,248 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- cache bust (pass-through v/ts) -->
+  <script>
+    (function(){
+      try{
+        const q=new URLSearchParams(location.search);
+        const v=q.get('v')||q.get('ts')||'';
+        if(!v) return;
+        window.__HHA_BUST__=encodeURIComponent(v);
+      }catch(_){}
+    })();
+  </script>
+
   <link rel="stylesheet" href="./hydration-vr.css" />
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
-  <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- Cloud Logger (flush-hardened) -->
-  <script src="../vr/hha-cloud-logger.js" defer></script>
-
-  <!-- Water gauge helper -->
-  <script src="../vr/ui-water.js" defer></script>
-
-  <!-- Loader -->
-  <script src="./hydration-vr.loader.js" defer></script>
 </head>
-
-<body>
-  <!-- Minimal A-Frame scene for Enter VR reliability -->
-  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:false">
-    <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
+<body class="view-pc">
+  <!-- ===== Minimal A-Frame scene (for reliable Enter VR UI on some devices) ===== -->
+  <!-- It can stay visually empty; gameplay is DOM. -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled:false"
+    renderer="colorManagement:true; physicallyCorrectLights:false"
+    style="position:fixed;inset:0;opacity:0.001;pointer-events:none;z-index:0"
+  >
+    <a-entity camera position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- HUD -->
-  <div id="hud">
-    <div class="hud-top">
-      <div class="chip big">💧 <span id="stat-score">0</span></div>
-      <div class="chip">Combo <b id="stat-combo">0</b></div>
-      <div class="chip warn">Miss <b id="stat-miss">0</b></div>
-      <div class="chip">Time <b id="stat-time">0</b>s</div>
-      <div class="chip ok">Grade <b id="stat-grade">C</b></div>
-      <div class="chip cyan">🛡️ <b id="shield-count">0</b></div>
-      <div class="chip storm">Storm <b id="storm-left">0</b>s</div>
-    </div>
-
-    <div class="hud-mid">
-      <div class="quest">
-        <div class="quest-title">Mission</div>
-        <div class="quest-lines">
-          <div id="quest-line1">Stage 1/3: …</div>
-          <div id="quest-line2"></div>
-          <div id="quest-line3"></div>
-          <div id="quest-line4"></div>
+  <!-- ===== HUD ===== -->
+  <header class="hud">
+    <div class="hud-left">
+      <div class="brand">
+        <div class="logo">💧</div>
+        <div class="title">
+          <div class="t1">Hydration Quest</div>
+          <div class="t2">Stage 1–3 • Storm Mini • Boss Block</div>
         </div>
       </div>
 
-      <div class="waterpanel">
-        <div class="water-head">
-          <div class="wtitle">Water</div>
-          <div class="wzone">Zone: <b id="water-zone">GREEN</b></div>
-        </div>
-        <div class="wbar"><div class="wfill" id="water-bar"></div></div>
-        <div class="wpct"><span id="water-pct">50</span>%</div>
+      <div class="stats">
+        <div class="stat"><div class="k">SCORE</div><div class="v" id="stat-score">0</div></div>
+        <div class="stat"><div class="k">COMBO</div><div class="v" id="stat-combo">0</div></div>
+        <div class="stat"><div class="k">MISS</div><div class="v" id="stat-miss">0</div></div>
+        <div class="stat"><div class="k">TIME</div><div class="v" id="stat-time">0</div></div>
+        <div class="stat"><div class="k">GRADE</div><div class="v" id="stat-grade">C</div></div>
       </div>
     </div>
-  </div>
 
-  <!-- Playfield -->
-  <div id="playfieldWrap">
-    <div id="playfield">
+    <div class="hud-right">
+      <div class="panel mini">
+        <div class="row">
+          <div class="pill">🛡️ <span id="shield-count">0</span></div>
+          <div class="pill warn">🌀 STORM <span id="storm-left">0</span>s</div>
+        </div>
+        <div class="water">
+          <div class="water-head">
+            <div class="w1">Water Balance</div>
+            <div class="w2"><span id="water-pct">50</span>% • <span id="water-zone">GREEN</span></div>
+          </div>
+          <div class="water-bar">
+            <div class="water-fill" id="water-bar" style="width:50%"></div>
+          </div>
+          <!-- ui-water.js may mount/ensure a gauge; provide a mount -->
+          <div id="waterGaugeMount" class="gaugeMount"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Quest Panel (safe.js writes quest-line1..4) ===== -->
+  <aside class="quests">
+    <div class="qtitle">ภารกิจ</div>
+    <div class="qline" id="quest-line1">Stage 1/3: ...</div>
+    <div class="qline" id="quest-line2">...</div>
+    <div class="qline" id="quest-line3">...</div>
+    <div class="qline" id="quest-line4">...</div>
+  </aside>
+
+  <!-- ===== Playfield (PC/Mobile/cVR use #playfield) ===== -->
+  <main class="stage">
+    <div id="playfield" class="playfield">
       <div id="hydration-layer" class="layer"></div>
+    </div>
 
-      <!-- Cardboard split -->
-      <div id="cbWrap" hidden>
-        <div id="cbPlayfield">
-          <div id="hydration-layerL" class="layer"></div>
-          <div id="hydration-layerR" class="layer"></div>
-        </div>
+    <!-- ===== Cardboard playfield (safe.js uses #cbPlayfield for shock coords) ===== -->
+    <div id="cbPlayfield" class="cbPlayfield" aria-hidden="true">
+      <div class="eye eyeL">
+        <div id="hydration-layerL" class="layer"></div>
+      </div>
+      <div class="eye eyeR">
+        <div id="hydration-layerR" class="layer"></div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <!-- Start overlay -->
+  <!-- ===== Start Overlay ===== -->
   <div id="startOverlay" class="overlay">
-    <div class="overlay-card">
-      <div class="ov-title">Hydration Quest</div>
-      <div class="ov-sub" id="ovSub">แตะเพื่อเริ่ม</div>
-
-      <div class="ov-row">
-        <button id="btnStart" class="btn primary">เริ่ม!</button>
-        <button class="btn ghost btnBackHub">กลับ HUB</button>
+    <div class="card">
+      <div class="h1">พร้อมลุย Hydration Quest? 💧</div>
+      <div class="p">
+        ยิง <b>💧</b> เพื่อคุมให้อยู่ <b>GREEN</b> • เก็บ <b>🛡️</b> ไว้ BLOCK ช่วงท้ายพายุ •
+        ระวัง <b>🥤</b> (ถ้าไม่มีโล่จะโดน MISS)
       </div>
 
-      <div class="ov-hint">
-        • cVR: ยิงจากกลางจอ (crosshair) <br/>
-        • Kids: ใส่ <b>?kids=1</b> (แนะนำ ป.5)
+      <div class="hint">
+        <div class="chip">PC: คลิกเป้า</div>
+        <div class="chip">Mobile: แตะเป้า</div>
+        <div class="chip">cVR: ยิงจากกลางจอ (crosshair)</div>
+        <div class="chip">Cardboard: กด ENTER VR แล้วเล่น</div>
       </div>
+
+      <div class="actions">
+        <button id="btnStart" class="btn primary">START</button>
+        <a class="btn ghost btnBackHub" href="../hub.html">กลับ HUB</a>
+      </div>
+
+      <div class="meta" id="metaLine"></div>
     </div>
   </div>
 
-  <!-- Result summary -->
-  <div id="resultBackdrop" class="overlay" hidden>
-    <div class="overlay-card wide">
-      <div class="ov-title">สรุปผล</div>
-
-      <div class="res-grid">
-        <div class="res-item">Score <b id="rScore">0</b></div>
-        <div class="res-item">Grade <b id="rGrade">C</b></div>
-        <div class="res-item">Accuracy <b id="rAcc">0%</b></div>
-        <div class="res-item">ComboMax <b id="rComboMax">0</b></div>
-        <div class="res-item">Miss <b id="rMiss">0</b></div>
-        <div class="res-item">Goals <b id="rGoals">0/0</b></div>
-        <div class="res-item">Minis <b id="rMinis">0/0</b></div>
-        <div class="res-item">GREEN hold <b id="rGreen">0s</b></div>
-        <div class="res-item">StreakMax <b id="rStreak">0</b></div>
-        <div class="res-item">Storm Cycles <b id="rStormCycles">0</b></div>
-        <div class="res-item">Storm OK <b id="rStormOk">0</b></div>
-        <div class="res-item">Storm Rate <b id="rStormRate">0%</b></div>
+  <!-- ===== Result / Summary ===== -->
+  <div id="resultBackdrop" class="result" hidden>
+    <div class="resultCard">
+      <div class="resultHead">
+        <div class="rTitle">สรุปผลการเล่น</div>
+        <button id="btnCloseSummary" class="x">✕</button>
       </div>
 
-      <div class="res-note">
-        <div id="rTier" class="tier">Tier: …</div>
-        <pre id="rTips" class="tips"></pre>
-        <div class="next">Next: <b id="rNext"></b></div>
+      <div class="grid">
+        <div class="box"><div class="k">SCORE</div><div class="v" id="rScore">0</div></div>
+        <div class="box"><div class="k">GRADE</div><div class="v" id="rGrade">C</div></div>
+        <div class="box"><div class="k">ACCURACY</div><div class="v" id="rAcc">0%</div></div>
+        <div class="box"><div class="k">COMBO MAX</div><div class="v" id="rComboMax">0</div></div>
+
+        <div class="box"><div class="k">MISS</div><div class="v" id="rMiss">0</div></div>
+        <div class="box"><div class="k">GOAL</div><div class="v" id="rGoals">0/1</div></div>
+        <div class="box"><div class="k">MINI</div><div class="v" id="rMinis">0/0</div></div>
+        <div class="box"><div class="k">TIER</div><div class="v" id="rTier">Tier: -</div></div>
       </div>
 
-      <div class="ov-row">
-        <button id="btnRetry" class="btn primary">เล่นอีกครั้ง</button>
+      <div class="subgrid">
+        <div class="box wide"><div class="k">GREEN HOLD</div><div class="v" id="rGreen">0.0s</div></div>
+        <div class="box wide"><div class="k">STREAK MAX</div><div class="v" id="rStreak">0</div></div>
+        <div class="box wide"><div class="k">STORM CYCLES</div><div class="v" id="rStormCycles">0</div></div>
+        <div class="box wide"><div class="k">STORM OK</div><div class="v" id="rStormOk">0</div></div>
+        <div class="box wide"><div class="k">STORM RATE</div><div class="v" id="rStormRate">0%</div></div>
+      </div>
+
+      <div class="tips">
+        <div class="k">คำแนะนำ</div>
+        <pre class="v" id="rTips">...</pre>
+        <div class="k">เป้าหมายรอบหน้า</div>
+        <div class="next" id="rNext">...</div>
+      </div>
+
+      <div class="resultActions">
+        <button id="btnRetry" class="btn primary">เล่นใหม่</button>
         <button id="btnCopyJSON" class="btn">Copy JSON</button>
         <button id="btnDownloadCSV" class="btn">Download CSV</button>
-        <button id="btnCloseSummary" class="btn ghost">ปิด</button>
-        <button class="btn ghost btnBackHub">กลับ HUB</button>
+        <a class="btn ghost btnBackHub" href="../hub.html">กลับ HUB</a>
       </div>
     </div>
   </div>
 
-  <!-- Engine -->
-  <script type="module" src="./hydration.safe.js"></script>
+  <!-- ===== Universal VR UI (Enter VR / Exit / Recenter + crosshair + tap-to-shoot) ===== -->
+  <script>
+    (function(){
+      try{
+        const v=window.__HHA_BUST__||'';
+        const s=document.createElement('script');
+        s.src = '../vr/vr-ui.js' + (v ? ('?v='+v) : '');
+        s.defer = true;
+        document.head.appendChild(s);
+      }catch(_){}
+    })();
+  </script>
+
+  <!-- ===== Loader: sets view classes + layers then imports hydration.safe.js ===== -->
+  <script type="module">
+    const q=new URLSearchParams(location.search);
+    const v=q.get('v')||q.get('ts')||'';
+    const src = './hydration-vr.loader.js' + (v ? ('?v='+encodeURIComponent(v)) : '');
+    import(src).catch(()=>{ /* loader already shows overlay on fail */ });
+  </script>
+
+  <!-- ===== Start wiring ===== -->
+  <script>
+    (function(){
+      const qs=(s)=>document.querySelector(s);
+      const ov=qs('#startOverlay');
+      const btn=qs('#btnStart');
+      const meta=qs('#metaLine');
+
+      function bestEffortFullscreen(){
+        try{
+          const body=document.documentElement;
+          if (document.fullscreenElement) return;
+          if (body.requestFullscreen) body.requestFullscreen().catch(()=>{});
+        }catch(_){}
+      }
+      function bestEffortLandscape(){
+        try{
+          if (screen.orientation && screen.orientation.lock){
+            screen.orientation.lock('landscape').catch(()=>{});
+          }
+        }catch(_){}
+      }
+
+      function start(){
+        try{
+          if (ov) ov.classList.add('hide');
+          setTimeout(()=>{ if (ov) ov.style.display='none'; }, 260);
+
+          // If cardboard: try fullscreen + landscape (non-blocking)
+          const isCardboard = document.body.classList.contains('cardboard');
+          if (isCardboard){
+            bestEffortFullscreen();
+            bestEffortLandscape();
+          }
+
+          window.dispatchEvent(new CustomEvent('hha:start'));
+        }catch(_){}
+      }
+
+      // Show meta
+      try{
+        const u=new URL(location.href);
+        const view=u.searchParams.get('view')||'pc';
+        const diff=u.searchParams.get('diff')||'normal';
+        const time=u.searchParams.get('time')||u.searchParams.get('durationPlannedSec')||'70';
+        const run=u.searchParams.get('run')||u.searchParams.get('runMode')||'play';
+        meta.textContent = `view=${view} • diff=${diff} • time=${time}s • run=${run}`;
+      }catch(_){}
+
+      btn && btn.addEventListener('click', start);
+
+      // Allow tap anywhere on overlay for mobile convenience
+      ov && ov.addEventListener('click', (e)=>{
+        if (e.target && (e.target.id==='btnStart')) return;
+        // don't accidentally start when clicking links/buttons
+        if (e.target && (e.target.closest && e.target.closest('a,button'))) return;
+        start();
+      });
+    })();
+  </script>
 </body>
 </html>
