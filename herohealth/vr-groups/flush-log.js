@@ -1,146 +1,70 @@
 // === /herohealth/vr-groups/flush-log.js ===
-// Flush-hardened Logger (optional)
-// ✅ active only if ?log= is provided
-// ✅ captures: hha:start, hha:time, hha:score, hha:rank, hha:judge, hha:end, quest:update, groups:power, groups:progress
-// ✅ flush on: hha:end, pagehide, visibilitychange(hidden), beforeunload
-// ✅ sendBeacon -> fetch(keepalive)
+// Flush-hardened logger (optional endpoint via ?log=...)
+// API: window.GroupsVR.bindFlushOnLeave(getSummaryFn)
 
 (function(){
   'use strict';
-  const WIN = window;
-  const DOC = document;
+  const W = window;
+  const NS = W.GroupsVR = W.GroupsVR || {};
 
-  function qs(k, d=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; }
-  }
-  const endpoint = String(qs('log','')||'').trim();
-  if (!endpoint) return;
-
-  const MAX_EVENTS = 600;
-  const BUF = [];
-  const sid = 'GVR-' + Math.random().toString(16).slice(2) + '-' + Date.now();
-  const t0 = Date.now();
-
-  function baseCtx(){
-    return {
-      sessionId: sid,
-      projectTag: 'HeroHealth',
-      gameTag: 'GroupsVR',
-      url: location.href,
-      ua: navigator.userAgent || '',
-      ts0: t0,
-      run: String(qs('run','play')||'play'),
-      diff: String(qs('diff','normal')||'normal'),
-      view: String(qs('view','mobile')||'mobile'),
-      style: String(qs('style','mix')||'mix'),
-      seed: String(qs('seed','')||''),
-      studyId: String(qs('studyId','')||''),
-      conditionGroup: String(qs('conditionGroup','')||'')
-    };
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
 
-  function push(type, detail){
-    if (BUF.length >= MAX_EVENTS) BUF.shift();
-    BUF.push({
-      type,
-      t: Date.now(),
-      dt: Date.now() - t0,
-      detail: detail || null
-    });
+  function safeJson(x){
+    try { return JSON.stringify(x); } catch { return ''; }
   }
 
-  function safeDetail(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    // light sanitize: avoid huge objects
-    try{
-      return JSON.parse(JSON.stringify(d));
-    }catch{
-      return { note:'detail_unserializable' };
-    }
-  }
+  function send(url, payload){
+    if (!url) return false;
+    const body = safeJson(payload);
+    if (!body) return false;
 
-  async function sendPayload(payload){
-    const body = JSON.stringify(payload);
+    // try beacon first
     try{
       if (navigator.sendBeacon){
-        const ok = navigator.sendBeacon(endpoint, new Blob([body], {type:'application/json'}));
+        const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if (ok) return true;
       }
     }catch(_){}
 
+    // fallback fetch keepalive
     try{
-      const res = await fetch(endpoint, {
+      fetch(url, {
         method:'POST',
         headers:{'content-type':'application/json'},
         body,
         keepalive:true,
-        mode:'cors'
-      });
-      return !!res && (res.ok || res.status===0);
-    }catch(_){
-      return false;
-    }
+        mode:'no-cors'
+      }).catch(()=>{});
+      return true;
+    }catch(_){}
+    return false;
   }
 
-  let flushing = false;
-  async function flush(reason){
-    if (flushing) return;
-    flushing = true;
+  function bindFlushOnLeave(getSummaryFn){
+    const url = String(qs('log','')||'').trim();
+    if (!url) return;
 
-    const payload = {
-      kind: 'hha_log',
-      reason: String(reason||'flush'),
-      ctx: baseCtx(),
-      events: BUF.splice(0, BUF.length)
+    const flush = ()=>{
+      try{
+        const s = getSummaryFn && getSummaryFn();
+        if (!s) return;
+        send(url, s);
+      }catch(_){}
     };
 
-    try{ await sendPayload(payload); }catch(_){}
-    flushing = false;
-  }
-
-  // public hook: bindFlushOnLeave(() => lastSummary)
-  WIN.GroupsVR = WIN.GroupsVR || {};
-  WIN.GroupsVR.bindFlushOnLeave = function(getLastSummary){
-    // attach summary snapshot on flush
-    const oldFlush = flush;
-    flush = async function(reason){
-      if (flushing) return;
-      flushing = true;
-
-      let summary = null;
-      try{ summary = (typeof getLastSummary === 'function') ? getLastSummary() : null; }catch(_){}
-
-      const payload = {
-        kind: 'hha_log',
-        reason: String(reason||'flush'),
-        ctx: baseCtx(),
-        summary: summary || null,
-        events: BUF.splice(0, BUF.length)
-      };
-
-      try{ await sendPayload(payload); }catch(_){}
-      flushing = false;
-    };
-  };
-
-  // listeners
-  const events = [
-    'hha:start','hha:time','hha:score','hha:rank','hha:judge','hha:end',
-    'quest:update','groups:power','groups:progress'
-  ];
-
-  events.forEach((name)=>{
-    WIN.addEventListener(name, (ev)=>{
-      push(name, safeDetail(ev));
-      if (name === 'hha:end') flush('hha:end');
+    // multiple hooks
+    window.addEventListener('pagehide', flush, {passive:true});
+    window.addEventListener('visibilitychange', ()=>{
+      if (document.visibilityState === 'hidden') flush();
     }, {passive:true});
-  });
+    window.addEventListener('beforeunload', flush);
 
-  // flush-hardened on leave
-  WIN.addEventListener('pagehide', ()=> flush('pagehide'), {passive:true});
-  WIN.addEventListener('beforeunload', ()=> flush('beforeunload'), {passive:true});
-  DOC.addEventListener('visibilitychange', ()=>{
-    if (DOC.visibilityState === 'hidden') flush('hidden');
-  }, {passive:true});
+    // expose manual
+    NS.flushNow = flush;
+  }
 
+  NS.bindFlushOnLeave = bindFlushOnLeave;
 })();
