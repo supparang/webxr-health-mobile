@@ -1,9 +1,11 @@
 // === /herohealth/vr/mode-factory.js ===
 // Mode Factory (Targets Spawner) — PRODUCTION (Latest)
-// ✅ Exports: boot (and alias spawnBoot)
+// ✅ Exports: boot + spawnBoot(alias)
 // ✅ Crosshair / tap-to-shoot via event: hha:shoot {x,y,lockPx}
 // ✅ decorateTarget(el, target) hook
-// ✅ Uses CSS safe vars: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
+// ✅ Generic safe vars via safeVarPrefix:
+//    --{prefix}-top-safe / bottom-safe / left-safe / right-safe
+// ✅ Generic className (default plateTarget) — backward compatible
 
 'use strict';
 
@@ -22,12 +24,12 @@ function seededRng(seed){
 
 function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-function readSafeVars(){
+function readSafeVars(prefix='plate'){
   const cs = getComputedStyle(DOC.documentElement);
-  const top = parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
-  const bottom = parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
-  const left = parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
-  const right = parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
+  const top = parseFloat(cs.getPropertyValue(`--${prefix}-top-safe`)) || 0;
+  const bottom = parseFloat(cs.getPropertyValue(`--${prefix}-bottom-safe`)) || 0;
+  const left = parseFloat(cs.getPropertyValue(`--${prefix}-left-safe`)) || 0;
+  const right = parseFloat(cs.getPropertyValue(`--${prefix}-right-safe`)) || 0;
   return { top, bottom, left, right };
 }
 
@@ -51,7 +53,11 @@ export function boot({
   onHit = ()=>{},
   onExpire = ()=>{},
   decorateTarget = null,
-  cooldownMs = 90
+  cooldownMs = 90,
+
+  // ✅ NEW (generic)
+  className = 'plateTarget',
+  safeVarPrefix = 'plate',
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
@@ -67,7 +73,7 @@ export function boot({
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
-    const safe = readSafeVars();
+    const safe = readSafeVars(safeVarPrefix);
     const left = r.left + safe.left;
     const top = r.top + safe.top;
     const right = r.right - safe.right;
@@ -128,7 +134,7 @@ export function boot({
     const kind = chosen.kind || 'good';
 
     const el = DOC.createElement('div');
-    el.className = 'plateTarget';
+    el.className = className;
     el.dataset.kind = kind;
 
     el.style.left = `${Math.round(x)}px`;
@@ -186,5 +192,4 @@ export function boot({
   };
 }
 
-// ✅ alias กันพลาด import ชื่ออื่น
-export const spawnBoot = boot;
+export const spawnBoot = boot; // ✅ alias
