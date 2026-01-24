@@ -1,0 +1,144 @@
+<!-- === /herohealth/vr-groups/dl-train.html ===
+DL Trainer (Tiny MLP 32->16->1) — On-device
+✅ Load dataset from localStorage (dl-dataset.js)
+✅ Optional import CSV
+✅ Train with Adam + class-weighted BCE
+✅ Export / Apply weights to localStorage for dl-infer.js
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GroupsVR DL Trainer</title>
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617; --panel:rgba(2,6,23,.82); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b;
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .wrap{max-width:920px;margin:0 auto;padding:14px}
+    .card{
+      background:var(--panel); border:1px solid var(--stroke); border-radius:var(--radius);
+      padding:14px; box-shadow:0 18px 44px rgba(0,0,0,.35); backdrop-filter: blur(10px);
+    }
+    .h1{font-weight:1000;font-size:18px}
+    .sub{color:rgba(229,231,235,.86);font-size:13px;margin-top:6px}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
+    @media(min-width:860px){ .grid{grid-template-columns: 1.1fr .9fr;} }
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+    .btn{
+      border:1px solid var(--stroke); background:rgba(15,23,42,.70);
+      color:var(--text); border-radius:16px; padding:10px 12px; font-weight:900;
+      cursor:pointer;
+    }
+    .btn-strong{border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.18)}
+    .btn-warn{border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.16)}
+    .btn-ghost{background:rgba(2,6,23,.25)}
+    .pill{
+      display:inline-flex;gap:8px;align-items:center;
+      padding:7px 10px;border-radius:999px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.55);font-weight:900;font-size:12px;color:rgba(229,231,235,.92)
+    }
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .k{color:var(--muted);font-weight:900;font-size:12px}
+    .v{font-weight:1000}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .stat{border:1px solid var(--stroke);border-radius:18px;background:rgba(15,23,42,.55);padding:10px}
+    .log{
+      width:100%; height:260px; resize:vertical;
+      border-radius:18px; border:1px solid var(--stroke);
+      background:rgba(2,6,23,.55); color:rgba(229,231,235,.92);
+      padding:10px; font-size:12px; line-height:1.35;
+    }
+    input[type="number"], input[type="text"]{
+      border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.45);color:var(--text);
+      padding:10px 12px;font-weight:900;
+      width:140px;
+    }
+    .muted{color:var(--muted);font-size:12px}
+    a{color:#7dd3fc}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="h1">🧠 GroupsVR — DL Trainer (Tiny MLP 32→16→1)</div>
+      <div class="sub">
+        ใช้ dataset จากเกม (เปิดเล่นด้วย <span class="pill mono">?run=play&dl=1</span>) แล้วมาฝึกโมเดลในเครื่อง
+        จากนั้นกด <b>Apply Weights</b> เพื่อให้เกมใช้ DL inference ได้ทันที (<span class="pill mono">?mode=dl</span>)
+      </div>
+
+      <div class="grid">
+        <div class="card" style="background:rgba(2,6,23,.55)">
+          <div class="row">
+            <span class="pill">Dataset: <span id="dsInfo" class="mono">—</span></span>
+            <button class="btn btn-ghost" id="btnLoadLS">↻ Load from localStorage</button>
+            <button class="btn btn-ghost" id="btnClearLS">🧹 Clear localStorage dataset</button>
+          </div>
+
+          <div class="row">
+            <label class="btn btn-ghost" for="fileCsv">📂 Import CSV</label>
+            <input id="fileCsv" type="file" accept=".csv,text/csv" style="display:none" />
+            <button class="btn btn-ghost" id="btnExportW">⬇️ Export Weights JSON</button>
+            <button class="btn btn-strong" id="btnApplyW">✅ Apply Weights</button>
+          </div>
+
+          <div class="stats">
+            <div class="stat"><div class="k">Rows</div><div class="v" id="vRows">0</div></div>
+            <div class="stat"><div class="k">Positives (y=1)</div><div class="v" id="vPos">0</div></div>
+            <div class="stat"><div class="k">Train / Val</div><div class="v" id="vSplit">—</div></div>
+            <div class="stat"><div class="k">Last Val AUC</div><div class="v" id="vAuc">—</div></div>
+          </div>
+
+          <div class="row">
+            <span class="k">Epochs</span><input id="inEpoch" type="number" value="30" min="3" max="200" />
+            <span class="k">Batch</span><input id="inBatch" type="number" value="48" min="8" max="256" />
+            <span class="k">LR</span><input id="inLR" type="text" value="0.015" />
+            <span class="k">Val%</span><input id="inVal" type="number" value="18" min="10" max="40" />
+          </div>
+
+          <div class="row">
+            <button class="btn btn-warn" id="btnTrain">🔥 Train (Adam)</button>
+            <span class="muted">แนะนำ: มีอย่างน้อย 200+ rows (pos อย่างน้อย 20+) จะเริ่มเห็นผล</span>
+          </div>
+
+          <textarea id="log" class="log mono" readonly placeholder="Log…"></textarea>
+        </div>
+
+        <div class="card" style="background:rgba(2,6,23,.55)">
+          <div class="h1">🧪 วิธีใช้ (เร็ว ๆ)</div>
+          <div class="sub">
+            1) เปิดเกม: <span class="pill mono">...?run=play&dl=1</span> (เก็บ dataset)<br/>
+            2) เล่นให้มี “miss/bad” บ้าง เพื่อให้มี label y=1<br/>
+            3) มาหน้านี้ กด Load → Train → Apply<br/>
+            4) กลับเกมเปิด: <span class="pill mono">...?run=play&mode=dl</span> แล้วดู risk
+          </div>
+
+          <div style="height:12px"></div>
+          <div class="h1">✅ Notes</div>
+          <div class="sub">
+            • โหมด <b>research/practice</b> จะปิด DL inference ตามมาตรฐาน<br/>
+            • Dataset/Weights อยู่ใน <b>localStorage เครื่องนี้เท่านั้น</b><br/>
+            • หลัง Apply แล้ว dl-infer.js จะอ่าน weights ใหม่อัตโนมัติ
+          </div>
+
+          <div style="height:12px"></div>
+          <div class="h1">🔗 กลับเกม</div>
+          <div class="sub">
+            ใช้ปุ่ม Back ของ browser ได้เลย หรือใส่พารามิเตอร์ hub=… ใน url แล้วกลับ HUB
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="./dl-train.js"></script>
+</body>
+</html>
