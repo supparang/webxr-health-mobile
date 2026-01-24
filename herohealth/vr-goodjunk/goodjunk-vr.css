@@ -343,26 +343,18 @@ body.view-cvr .gj-layer-r{
   opacity: 1;
   will-change: transform;
 }
+.gj-target:active{ transform: translate(-50%, -50%) scale(.98); }
 
-.gj-target:active{
-  transform: translate(-50%, -50%) scale(.98);
-}
-
-/* small “pop-in” only (doesn't vanish) */
 @keyframes gjPopIn{
   from{ transform: translate(-50%, -50%) scale(.72); opacity: .88; }
   to{ transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
-.gj-target.spawn{
-  animation: gjPopIn 120ms ease-out both;
-}
+.gj-target.spawn{ animation: gjPopIn 120ms ease-out both; }
 
 /* cVR strict: disable pointer events so only crosshair shooting works */
-body.view-cvr .gj-target{
-  pointer-events:none;
-}
+body.view-cvr .gj-target{ pointer-events:none; }
 
-/* --- MISS low time overlay --- */
+/* --- Low time overlay --- */
 .gj-lowtime-overlay{
   position:fixed;
   inset:0;
@@ -404,11 +396,10 @@ body.view-cvr .gj-target{
   transform: translateY(-6px);
   transition: opacity .15s ease, transform .15s ease;
 }
-
 body.show-missions .gj-peek{
   opacity:1;
   transform: translateY(0);
-  pointer-events:auto; /* tap to close */
+  pointer-events:auto;
 }
 
 .peek-card{
@@ -422,12 +413,7 @@ body.show-missions .gj-peek{
   box-shadow: 0 18px 55px rgba(0,0,0,.42);
   padding: 12px;
 }
-
-.peek-title{
-  font-size:14px;
-  font-weight:1200;
-  margin-bottom:6px;
-}
+.peek-title{ font-size:14px; font-weight:1200; margin-bottom:6px; }
 .peek-sub, .peek-mini{
   font-size:12px;
   font-weight:900;
@@ -441,7 +427,7 @@ body.show-missions .gj-peek{
   color: rgba(148,163,184,.92);
 }
 
-/* --- HUD hidden mode (maximize playfield) --- */
+/* --- HUD hidden mode --- */
 body.hud-hidden .gj-hud-top,
 body.hud-hidden .gj-hud-bot{
   display:none !important;
