@@ -1,10 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (Fair Pack)
-// ✅ Auto view detect when view=auto (pc/mobile/vr/cvr)
-// ✅ Sets body class: view-pc/view-mobile/view-vr/view-cvr
-// ✅ Calls goodjunk.safe.js boot(opts)
-// ✅ Hooks basic logging if ../vr/hha-cloud-logger.js exposes window.HHACloudLogger
-// ✅ Flush-hardened: try flush on visibilitychange/beforeunload (best-effort)
+// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
+// ✅ Sets body view class from ?view=
+// ✅ Passes opts to goodjunk.safe.js boot()
+// ✅ Adds lightweight End Summary overlay + Back HUB + Replay
+// ✅ Keeps HUD safe measurement (done in HTML) untouched
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -12,183 +11,100 @@ const WIN = window;
 const DOC = document;
 
 const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
-
-function clamp(v,min,max){ v = Number(v)||0; return Math.max(min, Math.min(max, v)); }
-
-function isLikelyMobileUA(){
-  const ua = (navigator.userAgent||'').toLowerCase();
-  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
-}
-
-function normalizeView(v){
-  v = String(v||'').toLowerCase();
-  if(v === 'cardboard') return 'vr';
-  if(v === 'view-cvr') return 'cvr';
-  if(v === 'cvr') return 'cvr';
-  if(v === 'vr') return 'vr';
-  if(v === 'mobile') return 'mobile';
-  if(v === 'pc') return 'pc';
-  return 'auto';
-}
-
-async function detectView(){
-  // if user explicitly passed view, DO NOT override
-  if(has('view')) return normalizeView(qs('view','auto'));
-
-  // soft remember
-  try{
-    const last = localStorage.getItem('HHA_LAST_VIEW');
-    if(last) return normalizeView(last);
-  }catch(_){}
-
-  // baseline guess
-  let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
-
-  // best-effort: if WebXR immersive-vr supported => treat mobile as vr
-  try{
-    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
-      const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if(ok) guess = isLikelyMobileUA() ? 'vr' : 'pc';
-    }
-  }catch(_){}
-
-  return normalizeView(guess);
-}
 
 function setBodyView(view){
   const b = DOC.body;
-  if(!b) return;
-
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'mobile') b.classList.add('view-mobile');
-  else if(view === 'cvr') b.classList.add('view-cvr');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else b.classList.add(isLikelyMobileUA() ? 'view-mobile' : 'view-pc');
+  const v = String(view||'').toLowerCase();
+  if(v==='pc') b.classList.add('view-pc');
+  else if(v==='vr') b.classList.add('view-vr');
+  else if(v==='cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
 }
 
-function makeSessionId(){
-  // stable-ish unique
-  const a = Math.random().toString(16).slice(2);
-  const b = Date.now().toString(16);
-  return `gj_${b}_${a}`.slice(0, 32);
+function makeOverlay(){
+  const wrap = DOC.createElement('div');
+  wrap.id = 'gjEndOverlay';
+  wrap.style.cssText = `
+    position:fixed; inset:0; z-index:999;
+    display:none; align-items:center; justify-content:center;
+    padding:24px; background:rgba(2,6,23,.72);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  `;
+
+  const card = DOC.createElement('div');
+  card.style.cssText = `
+    width:min(720px, 94vw);
+    background:rgba(2,6,23,.82);
+    border:1px solid rgba(148,163,184,.22);
+    border-radius:22px;
+    box-shadow:0 18px 55px rgba(0,0,0,.55);
+    padding:18px;
+    color:#e5e7eb;
+    font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+  `;
+  card.innerHTML = `
+    <div style="font-weight:1200;font-size:18px;">สรุปผล GoodJunkVR</div>
+    <div id="gjEndMeta" style="margin-top:8px;color:rgba(148,163,184,.92);font-weight:900;font-size:12px;line-height:1.45"></div>
+    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+      <button id="gjReplay" style="height:44px;padding:0 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.55);color:#e5e7eb;font-weight:1100;cursor:pointer">เล่นอีกครั้ง</button>
+      <button id="gjBackHub2" style="height:44px;padding:0 14px;border-radius:16px;border:1px solid rgba(34,197,94,.35);background:rgba(34,197,94,.16);color:#eafff3;font-weight:1200;cursor:pointer">↩ กลับ HUB</button>
+    </div>
+  `;
+
+  wrap.appendChild(card);
+  DOC.body.appendChild(wrap);
+
+  const hub = qs('hub', null);
+  card.querySelector('#gjBackHub2')?.addEventListener('click', ()=>{
+    if(hub) location.href = hub;
+    else location.href = '../hub.html';
+  });
+  card.querySelector('#gjReplay')?.addEventListener('click', ()=>{
+    location.reload();
+  });
+
+  return wrap;
 }
 
-function initLogger(ctx){
-  // Optional logger bridge: depends on your implementation in ../vr/hha-cloud-logger.js
-  // We'll support common shapes defensively.
-  const L = WIN.HHACloudLogger || WIN.__HHA_CLOUD_LOGGER__ || null;
-  if(!L) return null;
+function showOverlay(summary){
+  let ov = DOC.getElementById('gjEndOverlay');
+  if(!ov) ov = makeOverlay();
+  const meta = ov.querySelector('#gjEndMeta');
 
-  try{
-    if(typeof L.init === 'function') L.init(ctx);
-    else if(typeof L.start === 'function') L.start(ctx);
-  }catch(_){}
+  const lines = [
+    `คะแนน: ${summary?.scoreFinal ?? 0} | MISS: ${summary?.miss ?? 0} | เกรด: ${summary?.grade ?? '—'}`,
+    `คอมโบสูงสุด: ${summary?.comboMax ?? 0}`,
+    `GOOD: ${summary?.hitGood ?? 0} | JUNK HIT: ${summary?.hitJunk ?? 0} | GOOD EXPIRE: ${summary?.expireGood ?? 0}`,
+    `โหมด: view=${summary?.view ?? '-'} · run=${summary?.runMode ?? '-'} · diff=${summary?.diff ?? '-'} · time=${summary?.durationPlayedSec ?? 0}s`,
+  ];
+  if(meta) meta.innerHTML = lines.map(s=>`<div>${s}</div>`).join('');
 
-  // forward events (best-effort)
-  const onAny = (name)=> (ev)=>{
-    try{
-      const detail = ev?.detail ?? null;
-      if(typeof L.logEvent === 'function') L.logEvent(name, detail);
-      else if(typeof L.emit === 'function') L.emit(name, detail);
-    }catch(_){}
-  };
-
-  const events = ['hha:start','hha:time','hha:score','hha:judge','hha:end','hha:shoot'];
-  for(const e of events){
-    try{ WIN.addEventListener(e, onAny(e), { passive:true }); }catch(_){}
-  }
-
-  const flush = ()=>{
-    try{
-      if(typeof L.flush === 'function') L.flush();
-      else if(typeof L.close === 'function') L.close();
-    }catch(_){}
-  };
-
-  // flush-hardened
-  try{
-    DOC.addEventListener('visibilitychange', ()=>{
-      if(DOC.visibilityState === 'hidden') flush();
-    }, { passive:true });
-  }catch(_){}
-  try{ WIN.addEventListener('beforeunload', flush); }catch(_){}
-
-  return { flush };
+  ov.style.display = 'flex';
 }
 
-(async function main(){
-  // read params
-  const run  = String(qs('run','play')||'play').toLowerCase();
-  const diff = String(qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','80'), 20, 300);
-  const seed = String(qs('seed', Date.now()));
-  const hub  = qs('hub', null);
-  const style = qs('style', null);
-  const log = qs('log', null);
-  const studyId = qs('studyId', qs('study', null));
-  const phase = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', qs('cond', null));
-  const ts = qs('ts', null);
-
-  // view: if view=auto or missing => detect
-  let view = normalizeView(qs('view','auto'));
-  if(view === 'auto') view = await detectView();
-
-  // remember chosen view ONLY when user didn't force view=
-  if(!has('view')){
-    try{ localStorage.setItem('HHA_LAST_VIEW', view); }catch(_){}
-  }
-
+function main(){
+  const view = String(qs('view','mobile')).toLowerCase();
   setBodyView(view);
 
-  // optional: update chip meta (if present)
-  try{
-    const meta = DOC.getElementById('gjChipMeta');
-    if(meta) meta.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
-  }catch(_){}
-
-  // prepare ctx for logger + engine
-  const ctx = {
-    game: 'GoodJunkVR',
-    pack: 'fair',
-    view, run, diff, time,
-    seed,
-    hub,
-    style,
-    log,
-    studyId,
-    phase,
-    conditionGroup,
-    ts,
-    sessionId: makeSessionId(),
-    url: String(location.href)
+  const opts = {
+    view,
+    run: String(qs('run','play')).toLowerCase(),
+    diff: String(qs('diff','normal')).toLowerCase(),
+    time: Number(qs('time','80')) || 80,
+    seed: qs('seed', Date.now()),
   };
 
-  // init logger (best-effort)
-  const logger = initLogger(ctx);
+  WIN.addEventListener('hha:end', (ev)=>{
+    const summary = ev?.detail || null;
+    showOverlay(summary);
+  });
 
-  // start engine
-  try{
-    engineBoot({
-      view,
-      run,
-      diff,
-      time,
-      seed,
-      hub,
-      style,
-      log,
-      studyId,
-      phase,
-      conditionGroup,
-      ts,
-      sessionId: ctx.sessionId
-    });
-  }catch(err){
-    console.error('[GoodJunkVR boot] engine error:', err);
-    try{ alert('เกิดข้อผิดพลาดในการเริ่มเกม (ดู Console)'); }catch(_){}
-    try{ logger?.flush?.(); }catch(_){}
-  }
-})();
+  engineBoot(opts);
+}
+
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', main, { once:true });
+} else {
+  main();
+}
