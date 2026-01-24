@@ -1,11 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (PATCH)
 // ✅ Auto view detect (no UI override)
-// ✅ Default time = 90s (kid-friendly for Goal+Mini)
+// ✅ Switch body view to VR automatically on enter-vr / exit-vr (A-Frame)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
+// ✅ HHA Standard: save last summary + history
 // ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
@@ -13,20 +14,29 @@ import { boot as engineBoot } from './plate.safe.js';
 const WIN = window;
 const DOC = document;
 
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
+
 const qs = (k, def=null)=>{
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
 
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
+}
+
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
+  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
-  // No UI override. Allow query override for experiments only.
-  const forced = (qs('view','') || '').toLowerCase();
+  // ✅ no menu override
+  // allow explicit ?view= for experiments: pc|mobile|vr|cvr
+  const forced = String(qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
@@ -40,23 +50,20 @@ function setBodyView(view){
   else b.classList.add('view-pc');
 }
 
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function pct(n){
-  n = Number(n);
-  if(!isFinite(n)) return '—';
-  return `${Math.round(n)}%`;
-}
-
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
 
+function pct(n){
+  n = Number(n)||0;
+  return `${Math.round(n)}%`;
+}
+
+/* -------------------------------
+ * Coach bubble (boot-level)
+ * ----------------------------- */
 function showCoach(msg, meta='Coach'){
   const card = DOC.getElementById('coachCard');
   const mEl = DOC.getElementById('coachMsg');
@@ -64,8 +71,7 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = meta;
-
+  if(metaEl) metaEl.textContent = String(meta || 'Coach');
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -76,6 +82,24 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
+/* -------------------------------
+ * HHA Standard: save summary
+ * ----------------------------- */
+function saveSummary(summary){
+  try{
+    localStorage.setItem(LS_LAST, JSON.stringify(summary));
+
+    const prev = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
+    const next = Array.isArray(prev) ? prev : [];
+    next.unshift(summary);
+    // keep last 30
+    localStorage.setItem(LS_HIST, JSON.stringify(next.slice(0,30)));
+  }catch{}
+}
+
+/* -------------------------------
+ * HUD wiring
+ * ----------------------------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -105,7 +129,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -132,6 +156,9 @@ function wireHUD(){
   });
 }
 
+/* -------------------------------
+ * End overlay + controls
+ * ----------------------------- */
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
@@ -139,7 +166,7 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
+      location.reload(); // keep same params
     });
   }
   if(btnBackHub){
@@ -150,7 +177,7 @@ function wireEndControls(){
   }
 }
 
-function wireEndSummary(){
+function wireEndSummary(cfg){
   const kScore = DOC.getElementById('kScore');
   const kAcc   = DOC.getElementById('kAcc');
   const kCombo = DOC.getElementById('kCombo');
@@ -165,26 +192,85 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // engine sends accuracyGoodPct already as percent number
+    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
+    // ✅ HHA Standard save last summary
+    const summary = {
+      game: 'plate',
+      ts: Date.now(),
+      cfg: {
+        view: cfg.view,
+        runMode: cfg.runMode,
+        diff: cfg.diff,
+        time: cfg.durationPlannedSec,
+        seed: cfg.seed,
+        hub: cfg.hub || ''
+      },
+      metrics: {
+        score: d.scoreFinal ?? 0,
+        accGoodPct: d.accuracyGoodPct ?? null,
+        comboMax: d.comboMax ?? 0,
+        miss: d.misses ?? 0,
+        goals: `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`,
+        mini: `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`,
+        g1: d.g1 ?? 0, g2: d.g2 ?? 0, g3: d.g3 ?? 0, g4: d.g4 ?? 0, g5: d.g5 ?? 0
+      },
+      context: {
+        studyId: cfg.studyId || '',
+        phase: cfg.phase || '',
+        conditionGroup: cfg.conditionGroup || '',
+        sessionOrder: cfg.sessionOrder || '',
+        blockLabel: cfg.blockLabel || '',
+        siteCode: cfg.siteCode || '',
+        schoolCode: cfg.schoolCode || '',
+        schoolName: cfg.schoolName || '',
+        gradeLevel: cfg.gradeLevel || '',
+        studentKey: cfg.studentKey || ''
+      }
+    };
+    saveSummary(summary);
+
     setOverlayOpen(true);
   });
 }
 
+/* -------------------------------
+ * A-Frame enter-vr / exit-vr => switch view class
+ * ----------------------------- */
+function wireAFrameViewSwitch(baseView){
+  // baseView: pc|mobile|cvr|vr
+  const scene = DOC.querySelector('a-scene');
+  if(!scene) return;
+
+  // If forced cvr, keep it (strict center shoot)
+  const forced = String(qs('view','')||'').toLowerCase();
+  const forcedIsCvr = forced === 'cvr';
+
+  scene.addEventListener('enter-vr', ()=>{
+    if(forcedIsCvr) setBodyView('cvr');
+    else setBodyView('vr');
+  });
+
+  scene.addEventListener('exit-vr', ()=>{
+    // return to baseline (pc/mobile) unless forced
+    if(forced) setBodyView(forced);
+    else setBodyView(baseView);
+  });
+}
+
+/* -------------------------------
+ * Engine config (passthrough)
+ * ----------------------------- */
 function buildEngineConfig(){
   const view = getViewAuto();
-
-  const run  = (qs('run','play') || 'play').toLowerCase();
-  const diff = (qs('diff','normal') || 'normal').toLowerCase();
-
-  // ✅ default time = 90
+  const run  = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
   const time = clamp(qs('time','90'), 10, 999);
-
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
@@ -194,11 +280,9 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // research passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -217,24 +301,39 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
+/* -------------------------------
+ * Boot
+ * ----------------------------- */
 ready(()=>{
   const cfg = buildEngineConfig();
 
+  // set view class
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
-  wireEndSummary();
+  wireEndSummary(cfg);
 
+  // ensure end overlay closed at start
   setOverlayOpen(false);
 
+  // VR enter/exit switches view-vr automatically
+  wireAFrameViewSwitch(cfg.view);
+
+  // mount check (this is the #1 cause of "targets not showing")
+  const mount = DOC.getElementById('plate-layer');
+  if(!mount){
+    console.error('[PlateVR] mount #plate-layer missing');
+    showCoach('หาเลเยอร์เล่นเกมไม่เจอ (#plate-layer)', 'System');
+    return;
+  }
+
+  // boot engine
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู Console)', 'System');
   }
 });
