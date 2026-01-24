@@ -1,131 +1,338 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR LAUNCHER — ROOT (Auto-detect, NO override if ?view= exists)
-✅ Redirects to ./hygiene-vr/hygiene-vr.html
-✅ If ?view exists => use it (DO NOT override)
-✅ Else auto-detect: mobile/pc (and allow buttons for vr/cvr if user wants)
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/style/log/boss/dd/coach
+HygieneVR EPISODE MAP (Launcher)
+✅ Shows EP1-EP3 locked/unlocked from localStorage: HHA_HYGIENE_PROGRESS
+✅ Shows Best records (stepAcc/combo/miss) per episode
+✅ Pass-through: hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log
+✅ Click episode -> go ./hygiene-vr/hygiene-vr.html?episode=...
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR Launcher</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <title>HeroHealth — HygieneVR Episodes</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
-      --accent:#22c55e; --violet:#a78bfa; --cyan:#22d3ee; --warn:#f59e0b;
-      --radius:22px; --pill:999px;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
+      --pill:999px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;}
-    body{display:grid; place-items:center; padding: calc(18px + var(--sat)) 18px calc(18px + var(--sab));}
-    .card{
-      width:min(820px, 100%);
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; width:100%; height:100%;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 60%),
+        radial-gradient(circle at 90% 92%, rgba(167,139,250,.10), transparent 62%),
+        radial-gradient(circle at 60% 55%, rgba(34,197,94,.08), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+    }
+    .wrap{
+      min-height:100%;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      display:flex; align-items:center; justify-content:center;
+    }
+    .panel{
+      width:min(980px, 100%);
+      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.72));
       border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      background: var(--panel);
-      box-shadow: 0 22px 70px rgba(0,0,0,.48);
-      padding: 16px;
+      border-radius: 28px;
+      padding: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.38);
     }
-    .title{font-weight:1200; font-size:18px;}
-    .sub{margin-top:6px; color:var(--muted); font-weight:900; line-height:1.5; font-size:13px;}
-    .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
-    .btn{
-      appearance:none; border:1px solid rgba(148,163,184,.18);
-      background: var(--panel2); color:var(--text);
-      padding: 10px 12px; border-radius: 14px; cursor:pointer; font-weight:1000;
+    .top{ display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; }
+    .title{ font-weight:1100; font-size:26px; letter-spacing:.2px; }
+    .sub{ color:var(--muted); margin-top:6px; line-height:1.35; font-weight:850; }
+    .hr{ height:1px; background:var(--stroke); margin: 14px 0; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .pill{
+      border-radius: var(--pill);
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.55);
+      color:rgba(229,231,235,.92);
+      height:38px;
+      padding:0 12px;
+      font-weight:950;
+      cursor:pointer;
+    }
+    .pill:active{ transform:translateY(1px); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
+
+    /* Map */
+    .map{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width:860px){ .map{ grid-template-columns: 1fr; } }
+
+    .card{
+      position:relative;
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 14px;
+      overflow:hidden;
+    }
+    .badge{
+      position:absolute;
+      top:12px; right:12px;
+      font-size:12px;
+      font-weight:1000;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.65);
+      opacity:.95;
+    }
+    .badge.lock{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.12); }
+    .badge.ok{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+    .epTitle{ font-weight:1100; font-size:18px; }
+    .epTag{ color:var(--muted); font-weight:900; font-size:13px; margin-top:6px; line-height:1.35; }
+    .epStats{
+      margin-top:10px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.55);
+      border-radius:16px;
+      padding:10px 12px;
+      font-weight:900;
+      font-size:12px;
+      line-height:1.35;
+      color: rgba(229,231,235,.92);
+    }
+    .cta{
+      margin-top:12px;
+      width:100%;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 1050;
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
-    .btn.primary{ background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.45); }
-    .btn.vr{ background: rgba(167,139,250,.14); border-color: rgba(167,139,250,.45); }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      border-radius: var(--pill);
-      padding: 8px 10px;
-      font-weight: 950;
-      font-size: 12px;
-      color: rgba(229,231,235,.95);
-      margin-top:10px;
-      flex-wrap:wrap;
+    .cta:active{ transform: translateY(1px) scale(.99); }
+    .cta.primary{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+    .cta.disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter: grayscale(0.2);
     }
-    code{ color:#a7f3d0; font-weight:1000; }
+
+    .footerNote{ color:var(--muted); font-weight:900; font-size:12px; line-height:1.35; }
+    .toast{
+      position:fixed; left:50%;
+      bottom:calc(86px + env(safe-area-inset-bottom,0px));
+      transform:translateX(-50%);
+      background:rgba(2,6,23,.85);
+      color:rgba(229,231,235,.95);
+      border:1px solid rgba(148,163,184,.18);
+      padding:10px 12px;
+      border-radius:999px;
+      font: 900 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+      box-shadow:0 22px 70px rgba(0,0,0,.45);
+      z-index:9999;
+      opacity:0;
+      transition: opacity .16s ease, transform .16s ease;
+      pointer-events:none;
+      white-space:nowrap;
+    }
+    .toast.show{ opacity:1; transform:translateX(-50%) translateY(-2px); }
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <div class="title">🧼 HygieneVR — Handwash Survival</div>
-    <div class="sub">
-      เล่นตาม <b>7 ขั้นตอนล้างมือ</b> ให้ถูก • หลบเชื้อ 🦠 • เก็บสบู่ 🧼 เพื่อกันเชื้อช่วงบอส<br/>
-      <b>กติกาในเกม</b>: MISS = ผิดขั้น + โดนเชื้อ (ครบ 3 จบทันที) • มี BOSS เป็นรอบ ๆ
-    </div>
+  <div class="wrap">
+    <div class="panel">
+      <div class="top">
+        <div>
+          <div class="title">🧼 HygieneVR — Episode Map</div>
+          <div class="sub">
+            เลือกด่าน • ปลดล็อกด่านถัดไปเมื่อ “ผ่าน” • เซฟ Best record อัตโนมัติ
+          </div>
+        </div>
+        <div class="row">
+          <button class="pill" id="btnCopyLink" type="button">📋 Copy map link</button>
+          <button class="pill" id="btnGoHub" type="button">↩ กลับ HUB</button>
+          <button class="pill" id="btnResetProg" type="button">🧹 Reset Progress</button>
+        </div>
+      </div>
 
-    <div class="row">
-      <button class="btn primary" id="go">เริ่ม (Auto-detect)</button>
-      <button class="btn" id="goMobile">Mobile</button>
-      <button class="btn vr" id="goVR">Cardboard VR</button>
-      <button class="btn vr" id="goCVR">cVR</button>
-    </div>
+      <div class="hr"></div>
 
-    <div class="pill" id="pill">
-      Pass-through: <code>hub</code> <code>run</code> <code>diff</code> <code>time</code> <code>seed</code> <code>studyId</code>
-      <code>phase</code> <code>conditionGroup</code> <code>style</code> <code>log</code> <code>boss</code> <code>dd</code> <code>coach</code>
-    </div>
+      <div class="map" id="map"></div>
 
-    <div class="sub" style="margin-top:10px">
-      * ถ้า URL มี <code>?view=</code> อยู่แล้ว ระบบจะใช้ค่านั้นทันที (ไม่ override)
+      <div class="hr"></div>
+
+      <div class="footerNote">
+        Pass-through: <span class="mono">hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log</span><br/>
+        Tip: ถ้าเป็นโหมดวิจัย ให้ใช้ <span class="mono">run=research&amp;seed=...</span> เพื่อให้ deterministic
+      </div>
     </div>
   </div>
+
+  <div class="toast" id="toast">คัดลอกแล้ว ✅</div>
 
 <script>
 (function(){
   'use strict';
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } };
+  const DOC = document;
+  const LS_PROGRESS = 'HHA_HYGIENE_PROGRESS';
 
-  function detectView(){
-    // ✅ NO override rule: ถ้ามี view อยู่แล้วให้ใช้เลย
-    const forced = (qs('view','')||'').toLowerCase();
-    if(forced) return forced;
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-    return isMobile ? 'mobile' : 'pc';
+  function toast(msg){
+    const el = DOC.getElementById('toast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>el.classList.remove('show'), 900);
   }
 
-  function go(viewOverride=null){
+  async function copyText(text){
+    try{ await navigator.clipboard.writeText(String(text)); toast('คัดลอกแล้ว ✅'); return true; }
+    catch{
+      try{
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select(); DOC.execCommand('copy');
+        ta.remove();
+        toast('คัดลอกแล้ว ✅');
+        return true;
+      }catch{ toast('Copy ไม่สำเร็จ'); return false; }
+    }
+  }
+
+  function loadProg(){
+    try{
+      const s = localStorage.getItem(LS_PROGRESS);
+      const p = s ? JSON.parse(s) : null;
+      return p && typeof p==='object' ? p : { unlockedMax:1, best:{} };
+    }catch(_){
+      return { unlockedMax:1, best:{} };
+    }
+  }
+
+  function saveProg(p){
+    try{ localStorage.setItem(LS_PROGRESS, JSON.stringify(p)); }catch(_){}
+  }
+
+  function baseHubUrl(){
+    // ใช้ map ปัจจุบันเป็นตัวกลับ (รวม query ด้วย)
+    return location.href;
+  }
+
+  function buildToRun(ep){
     const u = new URL(location.href);
-
-    // ✅ pass-through มาตรฐาน + hygiene extras
-    const pass = ['hub','run','diff','time','seed','studyId','phase','conditionGroup','style','log','boss','dd','coach'];
-
     const out = new URL('./hygiene-vr/hygiene-vr.html', u);
+
+    // passthrough keys
+    const pass = ['hub','run','diff','time','seed','studyId','phase','conditionGroup','style','log','view'];
     pass.forEach(k=>{
       const v = u.searchParams.get(k);
-      if(v!=null && v!=='') out.searchParams.set(k,v);
+      if(v!=null && v!=='') out.searchParams.set(k, v);
     });
 
-    // ✅ NO override if ?view exists; if not exists, allow override or detect
-    const forced = (u.searchParams.get('view')||'').toLowerCase();
-    if(forced){
-      out.searchParams.set('view', forced);
-    }else{
-      out.searchParams.set('view', (viewOverride || detectView()));
-    }
+    // set episode + back link to map
+    out.searchParams.set('episode', String(ep));
+    out.searchParams.set('hub', baseHubUrl());
 
-    location.href = out.toString();
+    return out.toString();
   }
 
-  document.getElementById('go').onclick = ()=>go(null);
-  document.getElementById('goMobile').onclick = ()=>go('mobile');
-  document.getElementById('goVR').onclick = ()=>go('vr');
-  document.getElementById('goCVR').onclick = ()=>go('cvr');
+  function statLine(best){
+    if(!best) return 'Best: — (ยังไม่มีสถิติ)';
+    const acc = (Number(best.stepAcc||0)*100).toFixed(0);
+    const combo = best.comboMax|0;
+    const miss = best.misses|0;
+    const loops = best.loopsDone|0;
+    const boss = best.bossClear ? ' • boss✅' : '';
+    return `Best: acc ${acc}% • combo ${combo} • miss ${miss} • loops ${loops}${boss}`;
+  }
+
+  function render(){
+    const host = DOC.getElementById('map');
+    if(!host) return;
+
+    const prog = loadProg();
+    const unlockedMax = Math.max(1, Math.min(3, Number(prog.unlockedMax||1)));
+
+    const eps = [
+      { id:1, icon:'🫧', name:'Training',   desc:'ฝึก 7 ขั้นตอน • ไม่มีเชื้อ (ปลอดภัย) • เน้นความถูกต้อง' },
+      { id:2, icon:'🌀', name:'Storm Master', desc:'เจอ Germ Storm • ใช้ Shield กันเชื้อ • ต้องผ่าน Goals' },
+      { id:3, icon:'👑', name:'Final Boss', desc:'บอสจริง • ต้องคุมคอมโบและ Miss • ผ่านแล้วคือแชมป์!' }
+    ];
+
+    host.innerHTML = eps.map(ep=>{
+      const locked = ep.id > unlockedMax;
+      const best = (prog.best && prog.best[String(ep.id)]) || null;
+
+      return `
+        <div class="card">
+          <div class="badge ${locked?'lock':'ok'}">${locked?'🔒 LOCKED':'✅ AVAILABLE'}</div>
+          <div class="epTitle">${ep.icon} EP${ep.id} — ${ep.name}</div>
+          <div class="epTag">${ep.desc}</div>
+
+          <div class="epStats">${statLine(best)}</div>
+
+          <button class="cta ${(!locked && ep.id===1)?'primary':''} ${locked?'disabled':''}" data-ep="${ep.id}" ${locked?'disabled':''}>
+            <span>${locked?'ต้องผ่าน EP'+(ep.id-1)+' ก่อน':'▶ เล่นด่านนี้'}</span>
+            <span class="mono">${locked?'—':('episode='+ep.id)}</span>
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    host.querySelectorAll('[data-ep]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = Number(btn.getAttribute('data-ep')||0);
+        if(!id) return;
+        const url = buildToRun(id);
+        location.href = url;
+      }, { passive:true });
+    });
+
+    // actions
+    DOC.getElementById('btnCopyLink')?.addEventListener('click', ()=>copyText(baseHubUrl()), { passive:true });
+
+    DOC.getElementById('btnGoHub')?.addEventListener('click', ()=>{
+      const hub = qs('hub','');
+      if(hub) location.href = hub;
+      else location.href = './hub.html';
+    }, { passive:true });
+
+    DOC.getElementById('btnResetProg')?.addEventListener('click', ()=>{
+      const p = { unlockedMax:1, best:{} };
+      saveProg(p);
+      toast('รีเซ็ต Progress แล้ว 🧹');
+      render();
+    }, { passive:true });
+  }
+
+  render();
 })();
 </script>
 </body>
