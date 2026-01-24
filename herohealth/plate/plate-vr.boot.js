@@ -1,15 +1,13 @@
-// =========================================================
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (PATCH)
 // ✅ Auto view detect (no UI override)
-// ✅ Sets view class on body (pc/mobile/vr/cvr)
-// ✅ Wires HUD listeners:
-//    hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ End overlay: aria-hidden only (no display:none dependency)
+// ✅ Default time = 90s (kids-friendly + finish 5 groups)
+// ✅ Still supports override via ?time=
+// ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ End overlay: aria-hidden + class 'open' (safe with any CSS)
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
-// ✅ PATCH: configure vr-ui.js via window.HHA_VRUI_CONFIG (lockPx/cooldown)
-// =========================================================
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -27,14 +25,19 @@ function isMobile(){
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
-function getViewAuto(){
-  // Do not offer UI override.
-  // Allow forced view by query (?view=) for experiments only.
-  const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced;
+function normalizeView(v){
+  v = (v || '').toLowerCase().trim();
+  if(v === 'pc' || v === 'desktop') return 'pc';
+  if(v === 'mobile' || v === 'phone') return 'mobile';
+  if(v === 'vr') return 'vr';
+  if(v === 'cvr' || v === 'cardboard') return 'cvr';
+  return '';
+}
 
-  // If WebXR session is present later, vr-ui.js will handle enter/exit.
-  // We keep default to pc/mobile only.
+function getViewAuto(){
+  // no menu override; allow query force for experiments only
+  const forced = normalizeView(qs('view',''));
+  if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -53,8 +56,9 @@ function clamp(v, a, b){
   return v < a ? a : (v > b ? b : v);
 }
 
-function pct(n){
-  n = Number(n)||0;
+function pctText(n){
+  n = Number(n);
+  if(!isFinite(n)) return '—';
   return `${Math.round(n)}%`;
 }
 
@@ -62,6 +66,7 @@ function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+  ov.classList.toggle('open', !!open); // safe with any CSS
 }
 
 function showCoach(msg, meta='Coach'){
@@ -71,7 +76,7 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = meta;
+  if(metaEl) metaEl.textContent = String(meta || 'Coach');
 
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
@@ -112,7 +117,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expected shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -122,7 +127,7 @@ function wireHUD(){
       const tar = clamp(g.target ?? 1, 1, 9999);
 
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
-      if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
+      if(goalBar)  goalBar.style.width = `${Math.round((cur/tar)*100)}%`;
     }
 
     if(d.mini){
@@ -134,7 +139,7 @@ function wireHUD(){
       const tar = clamp(m.target ?? 1, 1, 9999);
 
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
-      if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
+      if(miniBar)  miniBar.style.width = `${Math.round((cur/tar)*100)}%`;
     }
   });
 
@@ -150,9 +155,7 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -176,8 +179,9 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
+    // accuracy is now integer percent (0..100)
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctText(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -190,16 +194,11 @@ function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90s (เด็กป.5 เล่นกำลังสนุก)
-  const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // Provide vr-ui config BEFORE vr-ui.js reads it (it loads defer; still safe)
-  // lockPx: aim-assist radius (bigger = easier)
-  // cooldownMs: minimum time between shots
-  WIN.HHA_VRUI_CONFIG = Object.assign(
-    { lockPx: clamp(qs('lockPx','28'), 14, 64), cooldownMs: clamp(qs('cooldownMs','90'), 40, 220) },
-    WIN.HHA_VRUI_CONFIG || {}
-  );
+  // ✅ Default time = 90 (override allowed by ?time=)
+  const time = clamp(qs('time','90'), 10, 999);
+
+  const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
     view,
@@ -208,10 +207,11 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // context passthrough
+    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -244,12 +244,16 @@ ready(()=>{
   // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
+  // boot engine (mount must exist)
+  const mount = DOC.getElementById('plate-layer');
+  if(!mount){
+    console.error('[PlateVR] mount #plate-layer not found');
+    showCoach('ไม่พบพื้นที่เล่น (#plate-layer)', 'System');
+    return;
+  }
+
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
