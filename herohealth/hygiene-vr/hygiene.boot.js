@@ -1,6 +1,4 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (FIX import/export)
-
 import { boot as engineBoot } from './hygiene.safe.js';
 
 (function(){
