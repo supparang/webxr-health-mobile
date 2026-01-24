@@ -1,9 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (Latest)
 // ✅ Auto view detect (no UI override)
-// ✅ Default time = 90s (override by ?time=)
+// ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ End overlay: aria-hidden only
+// ✅ Back HUB + Restart
 // ✅ Pass-through research context params
-// ✅ Wires HUD events + end overlay
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -40,11 +42,7 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
-function pct(n){
-  n = Number(n)||0;
-  return `${Math.round(n)}%`;
-}
+function pct(n){ n = Number(n)||0; return `${Math.round(n)}%`; }
 
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
@@ -60,6 +58,7 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -74,6 +73,7 @@ function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
+  const hudShield = DOC.getElementById('hudShield');
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -89,6 +89,7 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+    if(hudShield && d.shield!=null) hudShield.textContent = String(d.shield);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -169,13 +170,13 @@ function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-
-  // ✅ default 90
-  const time = clamp(qs('time','90'), 10, 999);
+  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view, runMode: run, diff,
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
