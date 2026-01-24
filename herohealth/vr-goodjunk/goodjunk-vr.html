@@ -5,7 +5,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ A-Frame minimal scene for Enter VR reliability
 ✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
-✅ End Summary Overlay (HHA Standard-ish) + Back HUB
 -->
 <!doctype html>
 <html lang="th">
@@ -19,73 +18,10 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   <link rel="stylesheet" href="./goodjunk-vr.css" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- shared modules -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- boot -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
-
-  <style>
-    /* end summary overlay (kept local to avoid touching S file) */
-    .gj-end{
-      position:fixed; inset:0; z-index:90;
-      display:none; align-items:center; justify-content:center;
-      padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-      background: rgba(2,6,23,.72);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    .gj-end[aria-hidden="false"]{ display:flex; }
-    .gj-end-card{
-      width:min(820px, 96vw);
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      padding: 16px;
-    }
-    .gj-end-title{ font-weight:1300; font-size:18px; }
-    .gj-end-sub{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
-    .gj-end-grid{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
-    .gj-end-item{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      border-radius: 18px;
-      padding: 10px 12px;
-    }
-    .gj-end-k{ font-size:11px; color:rgba(148,163,184,.92); font-weight:1000; letter-spacing:.35px; }
-    .gj-end-v{ margin-top:3px; font-size:18px; font-weight:1300; }
-    .gj-end-actions{
-      margin-top:12px;
-      display:flex; gap:10px; flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .gj-end-btn{
-      height:44px;
-      padding:0 14px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.58);
-      color:#e5e7eb;
-      font-weight:1200;
-      cursor:pointer;
-    }
-    .gj-end-btn.primary{
-      border-color: rgba(34,197,94,.40);
-      background: rgba(34,197,94,.16);
-      color:#eafff3;
-    }
-    @media (max-width:520px){
-      .gj-end-grid{ grid-template-columns: 1fr; }
-    }
-  </style>
 </head>
 
 <body class="gj">
@@ -193,34 +129,21 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- End Summary -->
-  <section id="endOverlay" class="gj-end" aria-hidden="true">
-    <div class="gj-end-card" role="dialog" aria-modal="true">
-      <div class="gj-end-title">สรุปผลการเล่น</div>
-      <div class="gj-end-sub" id="endSub">—</div>
-
-      <div class="gj-end-grid">
-        <div class="gj-end-item"><div class="gj-end-k">SCORE</div><div class="gj-end-v" id="endScore">0</div></div>
-        <div class="gj-end-item"><div class="gj-end-k">GRADE</div><div class="gj-end-v" id="endGrade">—</div></div>
-        <div class="gj-end-item"><div class="gj-end-k">MISS</div><div class="gj-end-v" id="endMiss">0</div></div>
-        <div class="gj-end-item"><div class="gj-end-k">COMBO MAX</div><div class="gj-end-v" id="endCombo">0</div></div>
-      </div>
-
-      <div class="gj-end-actions">
-        <button class="gj-end-btn" id="btnReplay" type="button">เล่นอีกครั้ง</button>
-        <button class="gj-end-btn primary" id="btnBackHub2" type="button">↩ กลับ HUB</button>
-      </div>
-    </div>
-  </section>
-
   <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
       const hub = qs('hub', null);
 
+      // apply body view classes (so CSS can react)
+      const view = String(qs('view','auto')||'auto').toLowerCase();
+      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      if(view==='pc') document.body.classList.add('view-pc');
+      else if(view==='mobile') document.body.classList.add('view-mobile');
+      else if(view==='vr') document.body.classList.add('view-vr');
+      else if(view==='cvr') document.body.classList.add('view-cvr');
+
       const btnBack = document.getElementById('btnBackHub');
-      const btnBack2 = document.getElementById('btnBackHub2');
       const btnHide = document.getElementById('btnHideHud');
       const btnMis  = document.getElementById('btnMissions');
 
@@ -229,19 +152,16 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
 
-      const v = qs('view','auto');
       const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
 
-      if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
+      if(chipMeta) chipMeta.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
 
-      function goHub(){
+      btnBack?.addEventListener('click', ()=>{
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
-      }
-      btnBack?.addEventListener('click', goHub);
-      btnBack2?.addEventListener('click', goHub);
+      });
 
       btnHide?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
@@ -260,41 +180,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ quest:update support (even if safe pack hasn't used it yet)
-      window.addEventListener('quest:update', (ev)=>{
-        const d = ev?.detail || {};
-        const goal = d.goal || {};
-        const mini = d.mini || {};
-
-        const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = (v==null?'—':String(v)); };
-
-        set('hud-goal', goal.name || '—');
-        set('goalDesc', goal.sub || '—');
-        set('hud-goal-cur', goal.cur ?? 0);
-        set('hud-goal-target', goal.target ?? 0);
-
-        set('hud-mini', mini.name || '—');
-        set('miniTimer', (mini.cur!=null && mini.target!=null) ? `${mini.cur}/${mini.target}` : (mini.timer || '—'));
-      }, {passive:true});
-
-      // ✅ End summary overlay (listens to hha:end)
-      const end = document.getElementById('endOverlay');
-      const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = (v==null?'—':String(v)); };
-
-      document.getElementById('btnReplay')?.addEventListener('click', ()=>{
-        location.reload();
-      });
-
-      window.addEventListener('hha:end', (ev)=>{
-        const s = ev?.detail || {};
-        set('endSub', `pack=${s.pack||'—'} · view=${s.view||'—'} · diff=${s.diff||'—'} · time=${s.durationPlayedSec||0}s`);
-        set('endScore', s.scoreFinal ?? 0);
-        set('endGrade', s.grade ?? '—');
-        set('endMiss',  s.miss ?? 0);
-        set('endCombo', s.comboMax ?? 0);
-        end?.setAttribute('aria-hidden','false');
-      }, {passive:true});
-
       // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
       function updateSafe(){
@@ -302,14 +187,17 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
 
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
-          const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
-          const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
+          const hudTop  = (document.body.classList.contains('hud-hidden') ? 0 :
+            (document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0));
+          const hudBot  = (document.body.classList.contains('hud-hidden') ? 0 :
+            (document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0));
 
           // top safe includes sat to prevent notch overlap
           document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
 
           // bottom safe minimum: keep some distance from thumb zone + HUD
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
+          const minThumb = 105;
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(minThumb, hudBot + 16)));
         }catch(_){}
       }
 
