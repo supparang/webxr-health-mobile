@@ -1,294 +1,221 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// PACK 17 — AI Coach + Prediction signals + (optional) Difficulty Director
-// ✅ Default: disabled unless enabled=true from groups-vr.html (your aiEnabled())
-// ✅ research/practice: ALWAYS OFF (enforced by caller + guards here)
-// ✅ Emits:
-//    - hha:ai { band, riskMissNext5s, reasons[], tipId }
-//    - hha:coach (micro tips, explainable)
-//    - hha:ai:diff { spawnMul, wrongAdd, junkAdd, sizeMul, lifeMul }  (optional apply)
-//
-// Query flags:
-//   ?ai=1        -> enable AI (tips + prediction signals)
-//   ?aiApply=1   -> allow difficulty director to affect gameplay (play only)
+// GroupsVR AI Hooks — PRODUCTION (safe by default)
+// ✅ attach({runMode, seed, enabled})
+// ✅ Collects rolling window stats from events
+// ✅ Predicts pMiss10s / pMiniFail (baseline now, ML model later)
+// ✅ Emits: groups:ai:pred, hha:coach (rate-limited)
+// ❌ Never runs in research/practice (caller must enforce too)
 
 (function(root){
   'use strict';
-  const DOC = root.document;
-  if(!DOC) return;
-
   const NS = root.GroupsVR = root.GroupsVR || {};
 
-  const clamp = (v,a,b)=>{ v=Number(v); if(!isFinite(v)) v=a; return v<a?a:(v>b?b:v); };
-  const nowMs = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
+  const clamp=(v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const now=()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
-
-  function canApply(){
-    const v = String(qs('aiApply','0')||'0').toLowerCase();
-    return (v === '1' || v === 'true');
-  }
-
-  // ---------- rate-limit helpers ----------
-  function makeLimiter(minGapMs){
-    let lastAt = -1e9;
-    return ()=> {
-      const t = nowMs();
-      if (t - lastAt < minGapMs) return false;
-      lastAt = t;
-      return true;
-    };
-  }
-  function makeDedupe(ttlMs){
-    const map = new Map();
-    return (key)=>{
-      const t = nowMs();
-      const last = map.get(key) || -1e9;
-      if (t - last < ttlMs) return false;
-      map.set(key, t);
-      // prune occasionally
-      if (map.size > 40){
-        for (const [k,v] of map){
-          if (t - v > ttlMs*2) map.delete(k);
+  function makeRing(n){
+    const a=new Array(n); let i=0, len=0;
+    return {
+      push(x){ a[i]=x; i=(i+1)%n; len=Math.min(n,len+1); },
+      toArray(){
+        const out=[];
+        for(let k=0;k<len;k++){
+          const idx=(i-len+k+n)%n;
+          out.push(a[idx]);
         }
-      }
-      return true;
+        return out;
+      },
+      size(){ return len; }
     };
   }
 
-  // ---------- prediction model (heuristic now; DL-ready signals) ----------
-  // Inputs from frames:
-  //  - misses, combo, acc, pressure, stormOn, left
-  // Output:
-  //  - riskMissNext5s in [0..1]
-  function predictRisk(s){
-    const miss = s.miss|0;
-    const combo = s.combo|0;
-    const acc = clamp(s.acc|0, 0, 100);
-    const pressure = clamp(s.pressure|0, 0, 3);
-    const stormOn = s.stormOn ? 1 : 0;
-    const left = s.left|0;
-
-    // base risk from pressure + storm + low acc
-    let r = 0.10;
-    r += pressure * 0.16;
-    r += stormOn ? 0.10 : 0.0;
-    r += (acc < 70) ? 0.12 : (acc < 82 ? 0.06 : 0.0);
-    r += (combo === 0) ? 0.05 : (combo >= 8 ? -0.05 : 0.0);
-    r += (miss >= 10) ? 0.08 : (miss >= 6 ? 0.04 : 0.0);
-
-    // clutch time boosts stress
-    if (left <= 10 && left > 0) r += 0.06;
-
-    return clamp(r, 0, 1);
+  function rateLimit(ms){
+    let t=0;
+    return ()=>{ const x=now(); if(x-t>=ms){ t=x; return true; } return false; };
   }
 
-  function bandFromRisk(r){
-    if (r >= 0.62) return 'high';
-    if (r >= 0.38) return 'mid';
-    return 'low';
+  // -------- baseline predictor (PACK 20 will refine) --------
+  function baselinePredict(f){
+    // f: features
+    // Simple logistic-ish mapping (0..1)
+    const missPressure = (f.pressureLevel||0) * 0.16;
+    const lowAcc = clamp((70 - (f.acc||0))/70, 0, 1) * 0.35;
+    const missRate = clamp((f.missRate||0)*2.2, 0, 1) * 0.30;
+    const storm = f.stormOn ? 0.12 : 0.0;
+    const lowCombo = clamp((3 - (f.combo||0))/3, 0, 1) * 0.12;
+
+    const pMiss10s = clamp(0.08 + missPressure + lowAcc + missRate + storm + lowCombo, 0, 0.98);
+
+    let pMiniFail = 0.0;
+    if (f.miniOn){
+      const need = Math.max(1, f.miniNeed||1);
+      const left = Math.max(1, f.miniLeft||1);
+      const rate = Math.max(0, f.miniHitRate||0); // hits/sec recent
+      const expected = rate * left;
+      const gap = clamp((need - expected)/need, 0, 1);
+      pMiniFail = clamp(0.10 + gap*0.75 + missRate*0.25, 0, 0.98);
+    }
+    const skillTrend = clamp((f.hitRate||0) - (f.missRate||0), -1, 1);
+    return { pMiss10s, pMiniFail, skillTrend };
   }
 
-  // ---------- micro tips (explainable) ----------
-  // Tip selection is deterministic-ish via simple scoring, not random.
-  function pickTip(s){
-    const reasons = [];
-
-    if (s.stormOn){
-      reasons.push('พายุ: เป้าถี่ขึ้น');
-      return { id:'storm_focus', mood:'fever', text:'พายุมาแล้ว! “เล็ง 1 วิ ก่อนยิง” จะคุ้มกว่า ยิงรัวนะ 🌪️', reasons };
-    }
-    if (s.pressure >= 3){
-      reasons.push('pressure สูง');
-      return { id:'pressure3', mood:'sad', text:'ตอนนี้พลาดหนักแล้ว 😤 “หยุด-เล็ง-ยิง” ทีละเป้า จะดึงคะแนนกลับได้', reasons };
-    }
-    if (s.pressure === 2){
-      reasons.push('pressure กลาง');
-      return { id:'pressure2', mood:'fever', text:'โหมดกดดัน! ลดการยิงมั่ว: เลือกเป้าที่ “สีหมู่ถูก” ก่อน 🔥', reasons };
-    }
-    if (s.acc < 72 && s.totalJudged >= 8){
-      reasons.push('accuracy ต่ำ');
-      return { id:'acc_low', mood:'neutral', text:'ทริคเพิ่มแม่น: “อ่านชื่อหมู่ใน GOAL” แล้วค่อยยิงเป้า 🧠', reasons };
-    }
-    if (s.combo === 0 && s.totalJudged >= 6){
-      reasons.push('คอมโบไม่ขึ้น');
-      return { id:'combo0', mood:'neutral', text:'อยากได้คอมโบ: ยิงดีต่อเนื่อง 3–5 ครั้งก่อน แล้วสปีดจะมาเอง ✨', reasons };
-    }
-    if (s.left <= 10 && s.left > 0){
-      reasons.push('ใกล้หมดเวลา');
-      return { id:'clutch', mood:'fever', text:'อีกไม่กี่วิ! เลือกเป้าใกล้กลางจอ แล้วเก็บให้ชัวร์ 🔥', reasons };
-    }
-    if (s.powerThr > 0 && s.power >= s.powerThr - 1){
-      reasons.push('ใกล้สลับหมู่');
-      return { id:'power_near', mood:'happy', text:'ใกล้สลับหมู่แล้ว! ยิงให้ถูกอีกนิด จะได้ “SWITCH” ⚡', reasons };
-    }
+  // -------- optional: ML model hook (TFJS) later --------
+  async function tryLoadTfjsModel(url){
+    // Placeholder: user can add tfjs and loadGraphModel later
+    // Return null now to keep zero-dependency.
     return null;
   }
 
-  // ---------- difficulty director (optional apply) ----------
-  // Output multipliers/additions (bounded)
-  function recommendDiff(s){
-    // aim: keep flow fun: if risk high -> ease a bit; if risk very low -> spice up
-    const r = s.risk;
-    let spawnMul = 1.0;
-    let wrongAdd = 0.0;
-    let junkAdd  = 0.0;
-    let sizeMul  = 1.0;
-    let lifeMul  = 1.0;
+  NS.AIHooks = {
+    attach(opts){
+      opts = opts || {};
+      const enabled = !!opts.enabled;
+      const runMode = String(opts.runMode||'play');
 
-    if (r >= 0.70){
-      spawnMul = 1.10;   // slower spawns (every * mul)
-      wrongAdd = -0.03;
-      junkAdd  = -0.02;
-      sizeMul  = 1.04;
-      lifeMul  = 1.08;
-    } else if (r >= 0.55){
-      spawnMul = 1.05;
-      wrongAdd = -0.02;
-      junkAdd  = -0.01;
-      sizeMul  = 1.02;
-      lifeMul  = 1.05;
-    } else if (r <= 0.18 && s.combo >= 6 && s.acc >= 86){
-      // player is cruising -> increase challenge a bit
-      spawnMul = 0.93;   // faster spawns
-      wrongAdd = +0.02;
-      junkAdd  = +0.01;
-      sizeMul  = 0.98;
-      lifeMul  = 0.95;
-    }
+      if(!enabled) return;
+      if(runMode === 'research' || runMode === 'practice') return;
 
-    return {
-      spawnMul: clamp(spawnMul, 0.86, 1.18),
-      wrongAdd: clamp(wrongAdd, -0.06, 0.06),
-      junkAdd:  clamp(junkAdd,  -0.05, 0.05),
-      sizeMul:  clamp(sizeMul,  0.92, 1.08),
-      lifeMul:  clamp(lifeMul,  0.88, 1.14),
-    };
-  }
+      const canTip = rateLimit(2200);
 
-  // ---------- runtime ----------
-  let st = null;
+      // rolling window: last 30 judgements, last 12 seconds snapshots
+      const judgeRing = makeRing(30);
+      const snapRing  = makeRing(12);
 
-  function attach(cfg){
-    cfg = cfg || {};
-    const enabled = !!cfg.enabled;
-    const runMode = String(cfg.runMode || 'play').toLowerCase();
+      let state = {
+        acc: 0, combo: 0, misses: 0, pressureLevel: 0,
+        stormOn: false, timeLeft: 0,
+        miniOn:false, miniNeed:0, miniLeft:0
+      };
 
-    // hard guard
-    if (!enabled) return;
-    if (runMode === 'research' || runMode === 'practice') return;
+      // --- listen events from engine / UI ---
+      const onScore = (ev)=>{
+        const d=ev.detail||{};
+        state.combo = Number(d.combo||0);
+        state.misses= Number(d.misses||0);
+      };
+      const onTime = (ev)=>{
+        const d=ev.detail||{};
+        state.timeLeft = Number(d.left||0);
+      };
+      const onRank = (ev)=>{
+        const d=ev.detail||{};
+        state.acc = Number(d.accuracy||0);
+      };
+      const onProg = (ev)=>{
+        const d=ev.detail||{};
+        if(d.kind==='storm_on') state.stormOn = true;
+        if(d.kind==='storm_off') state.stormOn = false;
+        if(d.kind==='pressure') state.pressureLevel = Number(d.level||0);
+      };
+      const onQuest = (ev)=>{
+        const d=ev.detail||{};
+        // miniTimeLeftSec present only when mini on
+        const on = (Number(d.miniTimeLeftSec||0) > 0) && (Number(d.miniTotal||0) > 1);
+        state.miniOn = !!on;
+        state.miniNeed = Number(d.miniTotal||0);
+        state.miniLeft = Number(d.miniTimeLeftSec||0);
+      };
+      const onJudge = (ev)=>{
+        const d=ev.detail||{};
+        const k=String(d.kind||'');
+        // interpret:
+        // good = hit correct, bad = hit wrong/junk, miss = expire/miss, boss etc.
+        judgeRing.push({ t: now(), kind:k });
+      };
 
-    const tipLimiter = makeLimiter(2600);
-    const tipDedupe  = makeDedupe(8000);
-    const aiLimiter  = makeLimiter(900);      // ai signal ~1Hz max
+      root.addEventListener('hha:score', onScore, {passive:true});
+      root.addEventListener('hha:time',  onTime,  {passive:true});
+      root.addEventListener('hha:rank',  onRank,  {passive:true});
+      root.addEventListener('groups:progress', onProg, {passive:true});
+      root.addEventListener('quest:update', onQuest, {passive:true});
+      root.addEventListener('hha:judge', onJudge, {passive:true});
 
-    const applyOK = canApply() && (runMode === 'play');
+      // --- compute features every 1s ---
+      const tick = ()=>{
+        const arr = judgeRing.toArray();
+        let good=0,bad=0,miss=0;
+        const tNow = now();
+        const horizonMs = 9000;
+        for(const x of arr){
+          if(tNow - x.t > horizonMs) continue;
+          if(x.kind==='good' || x.kind==='perfect' || x.kind==='boss') good++;
+          else if(x.kind==='bad') bad++;
+          else if(x.kind==='miss') miss++;
+        }
+        const total = Math.max(1, good+bad+miss);
+        const hitRate = good / (horizonMs/1000);     // hits/sec approx
+        const missRate= miss / (horizonMs/1000);
+        const miniHitRate = hitRate;                // reuse
 
-    // rolling snapshot from events
-    st = {
-      left: 0, score:0, combo:0, miss:0, acc:0, grade:'C',
-      power:0, powerThr:0, goalPct:0, miniPct:0,
-      pressure:0, stormOn:0,
-      totalJudged: 0
-    };
+        const f = {
+          acc: state.acc,
+          combo: state.combo,
+          misses: state.misses,
+          pressureLevel: state.pressureLevel,
+          stormOn: state.stormOn,
+          timeLeft: state.timeLeft,
+          hitRate, missRate,
+          miniOn: state.miniOn,
+          miniNeed: state.miniNeed,
+          miniLeft: state.miniLeft,
+          miniHitRate
+        };
 
-    const onScore = (ev)=>{
-      const d = ev.detail||{};
-      st.score = Number(d.score||0);
-      st.combo = Number(d.combo||0);
-      st.miss  = Number(d.misses||0);
-    };
-    const onTime = (ev)=>{ st.left = Number((ev.detail||{}).left||0); };
-    const onRank = (ev)=>{
-      const d = ev.detail||{};
-      st.grade = String(d.grade||'C');
-      st.acc   = Number(d.accuracy||0);
-    };
-    const onPower = (ev)=>{
-      const d = ev.detail||{};
-      st.power = Number(d.charge||0);
-      st.powerThr = Number(d.threshold||0);
-    };
-    const onQuest = (ev)=>{
-      const d = ev.detail||{};
-      st.goalPct = Number(d.goalPct||0);
-      st.miniPct = Number(d.miniPct||0);
-    };
-    const onProgress = (ev)=>{
-      const d = ev.detail||{};
-      if (d.kind === 'pressure') st.pressure = Number(d.level||0);
-      if (d.kind === 'storm_on') st.stormOn = 1;
-      if (d.kind === 'storm_off') st.stormOn = 0;
-    };
-    const onJudge = (ev)=>{
-      const d = ev.detail||{};
-      // count judged hits roughly
-      if (d.kind === 'good' || d.kind === 'bad' || d.kind === 'miss' || d.kind === 'boss') st.totalJudged++;
-    };
+        snapRing.push({ t:tNow, f });
 
-    // AI loop: driven by hha:tick (1Hz from engine)
-    const onTick = (ev)=>{
-      if (!aiLimiter()) return;
+        const pred = baselinePredict(f);
 
-      // risk + band
-      const risk = predictRisk(st);
-      const band = bandFromRisk(risk);
+        // emit prediction
+        try{
+          root.dispatchEvent(new CustomEvent('groups:ai:pred', { detail: { ...pred, f } }));
+        }catch(_){}
 
-      // emit AI signal (gets logged by PACK16)
-      const tip = pickTip(Object.assign({ risk }, st));
-      const reasons = (tip && tip.reasons) ? tip.reasons : [];
+        // micro-tips (rate-limited)
+        if(canTip()){
+          let tip = '';
+          let mood = 'neutral';
 
-      emit('hha:ai', {
-        band,
-        riskMissNext5s: Number(risk.toFixed(3)),
-        reasons,
-        tipId: tip ? tip.id : ''
-      });
+          if(state.miniOn && pred.pMiniFail >= 0.65){
+            tip = 'MINI เสี่ยงพลาด! ช้าลงนิด เล็งให้ชัวร์ แล้วค่อยยิง 🎯';
+            mood = 'fever';
+          } else if(pred.pMiss10s >= 0.65){
+            tip = 'ระวัง! โอกาสพลาดสูง ล็อกเป้าก่อนยิง (อย่ายิงมั่ว) 👀';
+            mood = 'sad';
+          } else if(pred.skillTrend > 0.35){
+            tip = 'ฟอร์มมาดี! รักษาคอมโบ แล้วเร่งเก็บเป้า 🔥';
+            mood = 'happy';
+          } else if(state.stormOn){
+            tip = 'พายุอยู่! โฟกัสเป้ากลางจอ แล้วค่อยยิง ⚡';
+            mood = 'fever';
+          }
 
-      // push band into PACK16 snapshot if you want (ML pack listens to hha:ai)
-      // micro tips (rate-limited + deduped)
-      if (tip && tipLimiter() && tipDedupe(tip.id)){
-        emit('hha:coach', { text: tip.text, mood: tip.mood });
-      }
+          if(tip){
+            try{
+              root.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text: tip, mood } }));
+            }catch(_){}
+          }
+        }
 
-      // optional difficulty director (apply only with ?aiApply=1)
-      if (applyOK){
-        const rec = recommendDiff(Object.assign({ risk }, st));
-        emit('hha:ai:diff', rec);
-      }
-    };
+        if(state.timeLeft > 0 && state.timeLeft <= 3){
+          // don't spam at clutch time
+        }
+      };
 
-    root.addEventListener('hha:score', onScore, {passive:true});
-    root.addEventListener('hha:time', onTime, {passive:true});
-    root.addEventListener('hha:rank', onRank, {passive:true});
-    root.addEventListener('groups:power', onPower, {passive:true});
-    root.addEventListener('quest:update', onQuest, {passive:true});
-    root.addEventListener('groups:progress', onProgress, {passive:true});
-    root.addEventListener('hha:judge', onJudge, {passive:true});
-    root.addEventListener('hha:tick', onTick, {passive:true});
+      const it = setInterval(tick, 1000);
 
-    NS.__AI_ATTACHED__ = true;
-
-    return {
-      detach(){
+      // clean up when game ends
+      const onEnd = ()=>{
+        clearInterval(it);
         root.removeEventListener('hha:score', onScore);
         root.removeEventListener('hha:time', onTime);
         root.removeEventListener('hha:rank', onRank);
-        root.removeEventListener('groups:power', onPower);
+        root.removeEventListener('groups:progress', onProg);
         root.removeEventListener('quest:update', onQuest);
-        root.removeEventListener('groups:progress', onProgress);
         root.removeEventListener('hha:judge', onJudge);
-        root.removeEventListener('hha:tick', onTick);
-        NS.__AI_ATTACHED__ = false;
-      }
-    };
-  }
+        root.removeEventListener('hha:end', onEnd);
+      };
+      root.addEventListener('hha:end', onEnd, {passive:true});
+    }
+  };
 
-  NS.AIHooks = { attach };
-
-})(typeof window!=='undefined' ? window : globalThis);
+})(window);
