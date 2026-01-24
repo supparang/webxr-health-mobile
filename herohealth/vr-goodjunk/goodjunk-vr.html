@@ -1,7 +1,7 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (Folder-run)
-✅ CSS: ./goodjunk-vr.css   (S)
-✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js
+✅ CSS: ./goodjunk-vr.css
+✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js (S)
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ A-Frame minimal scene for Enter VR reliability
 ✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
@@ -135,14 +135,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
       const hub = qs('hub', null);
 
-      // apply body view classes (so CSS can react)
-      const view = String(qs('view','auto')||'auto').toLowerCase();
-      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      if(view==='pc') document.body.classList.add('view-pc');
-      else if(view==='mobile') document.body.classList.add('view-mobile');
-      else if(view==='vr') document.body.classList.add('view-vr');
-      else if(view==='cvr') document.body.classList.add('view-cvr');
-
       const btnBack = document.getElementById('btnBackHub');
       const btnHide = document.getElementById('btnHideHud');
       const btnMis  = document.getElementById('btnMissions');
@@ -152,20 +144,24 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
 
+      const v = qs('view','auto');
       const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
+      if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
-      if(chipMeta) chipMeta.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
-
+      // HHA-ish back hub
       btnBack?.addEventListener('click', ()=>{
-        if(hub) location.href = hub;
-        else alert('ยังไม่ได้ใส่ hub url');
+        if(hub){
+          location.href = hub;
+        }else{
+          alert('ยังไม่ได้ใส่ hub url');
+        }
       });
 
       btnHide?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
-        setTimeout(updateSafe, 0);
+        safeKick();
       });
 
       function toggleMissions(){
@@ -176,36 +172,60 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
           peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
         }
+        safeKick();
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
       // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+
       function updateSafe(){
         try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+          const root = document.documentElement;
 
-          const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
-          const hudTop  = (document.body.classList.contains('hud-hidden') ? 0 :
-            (document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0));
-          const hudBot  = (document.body.classList.contains('hud-hidden') ? 0 :
-            (document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0));
+          const sat = parseFloat(getComputedStyle(root).getPropertyValue('--sat')) || 0;
+          const sab = parseFloat(getComputedStyle(root).getPropertyValue('--sab')) || 0;
+
+          const topbarH = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
+
+          // if HUD hidden -> keep a small top safe (just topbar + sat)
+          const hudTopH = (document.body.classList.contains('hud-hidden'))
+            ? 0
+            : (document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0);
+
+          const hudBotH = (document.body.classList.contains('hud-hidden'))
+            ? 0
+            : (document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0);
+
+          // Buffer: เพิ่มให้ “แน่นอนว่าไม่โผล่หลัง HUD” (เผื่อ font scaling / wrap)
+          const topBuffer = 22;     // เพิ่มจากเดิม
+          const bottomBuffer = 18;
+
+          // Thumb zone minimum (มือถือ)
+          const thumbMin = 120 + sab;
 
           // top safe includes sat to prevent notch overlap
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
+          root.style.setProperty('--gj-top-safe', px(topbarH + hudTopH + topBuffer + sat));
 
-          // bottom safe minimum: keep some distance from thumb zone + HUD
-          const minThumb = 105;
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(minThumb, hudBot + 16)));
+          // bottom safe minimum: keep distance from thumb zone + HUD
+          root.style.setProperty('--gj-bottom-safe', px(Math.max(thumbMin, hudBotH + bottomBuffer)));
         }catch(_){}
       }
 
-      window.addEventListener('resize', updateSafe, {passive:true});
-      window.addEventListener('orientationchange', updateSafe, {passive:true});
-      setTimeout(updateSafe, 0);
-      setTimeout(updateSafe, 120);
-      setTimeout(updateSafe, 360);
+      // run updateSafe multiple frames (fonts/viewport settle)
+      function safeKick(){
+        updateSafe();
+        requestAnimationFrame(()=>updateSafe());
+        requestAnimationFrame(()=>requestAnimationFrame(()=>updateSafe()));
+        setTimeout(updateSafe, 80);
+        setTimeout(updateSafe, 220);
+        setTimeout(updateSafe, 420);
+      }
+
+      window.addEventListener('resize', safeKick, {passive:true});
+      window.addEventListener('orientationchange', safeKick, {passive:true});
+      safeKick();
     })();
   </script>
 </body>
