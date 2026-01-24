@@ -1,396 +1,294 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// AI Hooks — PACK 8 (Prediction + Coach Tips + Norm + Deterministic Split)
-// ✅ Enabled only if enabled=true AND runMode==='play' AND query ?ai=1 already gated in groups-vr.html
-// ✅ Emits: ai:pred { risk01, pMissNext5, pScoreDropNext5, topReasons[], features, normMeta, fold }
-// ✅ Optional coach micro-tips (rate-limited) via hha:coach (explainable)
-// ✅ Stores: HHA_ML_GROUPS_NORM_LAST, HHA_ML_GROUPS_FOLD_LAST
+// PACK 17 — AI Coach + Prediction signals + (optional) Difficulty Director
+// ✅ Default: disabled unless enabled=true from groups-vr.html (your aiEnabled())
+// ✅ research/practice: ALWAYS OFF (enforced by caller + guards here)
+// ✅ Emits:
+//    - hha:ai { band, riskMissNext5s, reasons[], tipId }
+//    - hha:coach (micro tips, explainable)
+//    - hha:ai:diff { spawnMul, wrongAdd, junkAdd, sizeMul, lifeMul }  (optional apply)
 //
-// Optional model weights:
-// localStorage key: HHA_GROUPS_AI_W
-// format: JSON { b: number, w: {featureName:number,...} }
-// If present -> logistic(b + sum(w_i * x_i))
+// Query flags:
+//   ?ai=1        -> enable AI (tips + prediction signals)
+//   ?aiApply=1   -> allow difficulty director to affect gameplay (play only)
 
 (function(root){
   'use strict';
-
   const DOC = root.document;
-  const NS = root.GroupsVR = root.GroupsVR || {};
+  if(!DOC) return;
 
-  const LS_W   = 'HHA_GROUPS_AI_W';
-  const LS_NORM= 'HHA_ML_GROUPS_NORM_LAST';
-  const LS_FOLD= 'HHA_ML_GROUPS_FOLD_LAST';
+  const NS = root.GroupsVR = root.GroupsVR || {};
 
   const clamp = (v,a,b)=>{ v=Number(v); if(!isFinite(v)) v=a; return v<a?a:(v>b?b:v); };
   const nowMs = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
   function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  // ---- deterministic hash for fold split ----
-  function hash32(str){
-    str = String(str ?? '');
-    let h = 2166136261 >>> 0;
-    for (let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h>>>0;
+  function canApply(){
+    const v = String(qs('aiApply','0')||'0').toLowerCase();
+    return (v === '1' || v === 'true');
   }
 
-  function sigmoid(z){
-    z = clamp(z, -12, 12);
-    return 1/(1+Math.exp(-z));
+  // ---------- rate-limit helpers ----------
+  function makeLimiter(minGapMs){
+    let lastAt = -1e9;
+    return ()=> {
+      const t = nowMs();
+      if (t - lastAt < minGapMs) return false;
+      lastAt = t;
+      return true;
+    };
   }
-
-  function safeJsonParse(s, fallback){
-    try{ return JSON.parse(s); }catch{ return fallback; }
-  }
-
-  // ---- online mean/std (Welford) ----
-  function makeNorm(){
-    return { n:0, mean:{}, m2:{} };
-  }
-  function normUpdate(N, vec){
-    N.n++;
-    for (const k in vec){
-      const x = Number(vec[k]);
-      if (!isFinite(x)) continue;
-      const m = (N.mean[k] ?? 0);
-      const d = x - m;
-      const mNew = m + d / N.n;
-      N.mean[k] = mNew;
-      const m2 = (N.m2[k] ?? 0) + d*(x - mNew);
-      N.m2[k] = m2;
-    }
-  }
-  function normFinalize(N){
-    const out = { n:N.n, mean:{}, std:{} };
-    for (const k in N.mean){
-      out.mean[k] = Number(N.mean[k] ?? 0);
-      const v = (N.n>1) ? (Number(N.m2[k]||0) / (N.n-1)) : 0;
-      out.std[k] = Math.max(1e-6, Math.sqrt(Math.max(0, v)));
-    }
-    return out;
-  }
-  function zscore(norm, vec){
-    const z = {};
-    for (const k in vec){
-      const x = Number(vec[k]);
-      if (!isFinite(x)) continue;
-      const mu = Number(norm.mean?.[k] ?? 0);
-      const sd = Number(norm.std?.[k] ?? 1);
-      z[k] = (x - mu) / (sd || 1);
-    }
-    return z;
-  }
-
-  // ---- feature builder from stream ----
-  function makeState(){
-    return {
-      enabled:false,
-      runMode:'play',
-      seed:'',
-      view:'',
-      diff:'',
-      startAt: nowMs(),
-      lastPredAt: 0,
-      lastTipAt: 0,
-
-      // rolling window (last 10s)
-      buf: [],
-      last: {
-        left:0, score:0, combo:0, miss:0,
-        acc:0, grade:'C',
-        pressure:0,
-        miniOn:false, miniLeft:0, miniNeed:0, miniNow:0,
-        storm:false,
-        groupName:'',
-        groupKey:'',
-      },
-
-      normW: makeNorm(),
-      fold: { k:5, fold:0, split:'train' },
+  function makeDedupe(ttlMs){
+    const map = new Map();
+    return (key)=>{
+      const t = nowMs();
+      const last = map.get(key) || -1e9;
+      if (t - last < ttlMs) return false;
+      map.set(key, t);
+      // prune occasionally
+      if (map.size > 40){
+        for (const [k,v] of map){
+          if (t - v > ttlMs*2) map.delete(k);
+        }
+      }
+      return true;
     };
   }
 
-  function pushBuf(S, tSec, snap){
-    S.buf.push({ tSec, ...snap });
-    // keep last 12 seconds
-    const minT = tSec - 12;
-    while(S.buf.length && S.buf[0].tSec < minT) S.buf.shift();
+  // ---------- prediction model (heuristic now; DL-ready signals) ----------
+  // Inputs from frames:
+  //  - misses, combo, acc, pressure, stormOn, left
+  // Output:
+  //  - riskMissNext5s in [0..1]
+  function predictRisk(s){
+    const miss = s.miss|0;
+    const combo = s.combo|0;
+    const acc = clamp(s.acc|0, 0, 100);
+    const pressure = clamp(s.pressure|0, 0, 3);
+    const stormOn = s.stormOn ? 1 : 0;
+    const left = s.left|0;
+
+    // base risk from pressure + storm + low acc
+    let r = 0.10;
+    r += pressure * 0.16;
+    r += stormOn ? 0.10 : 0.0;
+    r += (acc < 70) ? 0.12 : (acc < 82 ? 0.06 : 0.0);
+    r += (combo === 0) ? 0.05 : (combo >= 8 ? -0.05 : 0.0);
+    r += (miss >= 10) ? 0.08 : (miss >= 6 ? 0.04 : 0.0);
+
+    // clutch time boosts stress
+    if (left <= 10 && left > 0) r += 0.06;
+
+    return clamp(r, 0, 1);
   }
 
-  function deltaOver(S, key, sec){
-    if (S.buf.length<2) return 0;
-    const tNow = S.buf[S.buf.length-1].tSec;
-    const tMin = tNow - sec;
-    let older = null;
-    for (let i=S.buf.length-1;i>=0;i--){
-      if (S.buf[i].tSec <= tMin){ older = S.buf[i]; break; }
-    }
-    if (!older) older = S.buf[0];
-    const now = S.buf[S.buf.length-1];
-    return Number(now[key]||0) - Number(older[key]||0);
+  function bandFromRisk(r){
+    if (r >= 0.62) return 'high';
+    if (r >= 0.38) return 'mid';
+    return 'low';
   }
 
-  function slopeCombo(S){
-    // combo trend last 5s
-    const d = deltaOver(S,'combo',5);
-    return clamp(d/5, -4, 4);
-  }
-
-  function buildFeatures(S){
-    // engineered features (small, stable)
-    const miss5  = deltaOver(S,'miss',5);
-    const miss10 = deltaOver(S,'miss',10);
-    const score5 = deltaOver(S,'score',5);
-    const comboSlope = slopeCombo(S);
-
-    const combo = Number(S.last.combo||0);
-    const acc   = Number(S.last.acc||0);
-    const press = Number(S.last.pressure||0);
-
-    const miniOn = S.last.miniOn ? 1 : 0;
-    const miniLeft = Number(S.last.miniLeft||0);
-    const storm = S.last.storm ? 1 : 0;
-
-    // normalized-ish primitives (0..1 range)
-    const f = {
-      miss5: miss5,
-      miss10: miss10,
-      score5: score5,
-      combo: combo,
-      acc: acc,
-      pressure: press,
-      comboSlope: comboSlope,
-      miniOn: miniOn,
-      miniLeft: miniLeft,
-      storm: storm
-    };
-    return f;
-  }
-
-  function explainHeuristic(f){
+  // ---------- micro tips (explainable) ----------
+  // Tip selection is deterministic-ish via simple scoring, not random.
+  function pickTip(s){
     const reasons = [];
-    if (f.miss5 >= 2) reasons.push(['miss5', 'พลาดช่วง 5 วิล่าสุดสูง']);
-    if (f.pressure >= 2) reasons.push(['pressure', 'ระดับกดดันสูง']);
-    if (f.acc <= 60) reasons.push(['acc', 'ความแม่นต่ำ']);
-    if (f.comboSlope < -0.6) reasons.push(['comboSlope','คอมโบตกต่อเนื่อง']);
-    if (f.miniOn && f.miniLeft <= 3) reasons.push(['mini','mini ใกล้หมดเวลา']);
-    if (f.storm) reasons.push(['storm','อยู่ในช่วงพายุ']);
-    return reasons.slice(0,3);
-  }
 
-  function heuristicPredict(f){
-    // risk proxy (0..1) explainable
-    // tuned for “เกมสนุก+กดดัน” ไม่ใช่โมเดลวิจัย
-    let z = 0;
-    z += 0.75 * clamp(f.miss5,0,6);
-    z += 0.45 * clamp(f.miss10,0,10);
-    z += 0.60 * clamp(f.pressure,0,3);
-    z += 0.55 * clamp((70 - f.acc)/10, -2, 4);
-    z += 0.30 * clamp(-f.comboSlope, 0, 3);
-    z += f.storm ? 0.7 : 0;
-    z += (f.miniOn && f.miniLeft<=3) ? 0.6 : 0;
-
-    // map to 0..1
-    const risk01 = sigmoid((z - 2.2) * 0.85);
-
-    // pMissNext5 roughly tied to risk + recent miss
-    const pMissNext5 = clamp(0.20 + 0.70*risk01 + 0.07*clamp(f.miss5,0,5), 0, 1);
-
-    // score drop: when miss rises + wrong/junk likely (proxy via low acc + pressure)
-    const pScoreDropNext5 = clamp(0.18 + 0.62*risk01 + 0.10*clamp((65 - f.acc)/10,0,3), 0, 1);
-
-    return { risk01, pMissNext5, pScoreDropNext5, reasons: explainHeuristic(f) };
-  }
-
-  function logisticPredict(f, weights){
-    // expects standardized features for stability
-    const b = Number(weights?.b ?? 0);
-    const w = weights?.w || {};
-    let z = b;
-    for (const k in w){
-      z += Number(w[k]||0) * Number(f[k]||0);
+    if (s.stormOn){
+      reasons.push('พายุ: เป้าถี่ขึ้น');
+      return { id:'storm_focus', mood:'fever', text:'พายุมาแล้ว! “เล็ง 1 วิ ก่อนยิง” จะคุ้มกว่า ยิงรัวนะ 🌪️', reasons };
     }
-    const p = sigmoid(z);
-    // map into multiple heads by simple transforms (placeholder)
-    return {
-      risk01: p,
-      pMissNext5: clamp(0.15 + 0.85*p, 0, 1),
-      pScoreDropNext5: clamp(0.12 + 0.78*p, 0, 1),
-      reasons: [['model','ใช้โมเดล logistic-lite จาก localStorage']]
-    };
-  }
-
-  function pickTip(pred){
-    const r = pred.risk01 || 0;
-    if (r >= 0.78) return { mood:'sad',   text:'เสี่ยงพลาดสูง! ช้าลงนิด แล้วเล็งให้ตรงหมู่ก่อนยิง 😤' };
-    if (r >= 0.62) return { mood:'fever', text:'เริ่มเสี่ยง! โฟกัสหมู่เป้าหมาย + อย่ายิงมั่ว 🔥' };
-    if (r >= 0.45) return { mood:'neutral', text:'คุมจังหวะดีๆ เล็งแล้วค่อยยิง จะคอมโบไหล ✨' };
+    if (s.pressure >= 3){
+      reasons.push('pressure สูง');
+      return { id:'pressure3', mood:'sad', text:'ตอนนี้พลาดหนักแล้ว 😤 “หยุด-เล็ง-ยิง” ทีละเป้า จะดึงคะแนนกลับได้', reasons };
+    }
+    if (s.pressure === 2){
+      reasons.push('pressure กลาง');
+      return { id:'pressure2', mood:'fever', text:'โหมดกดดัน! ลดการยิงมั่ว: เลือกเป้าที่ “สีหมู่ถูก” ก่อน 🔥', reasons };
+    }
+    if (s.acc < 72 && s.totalJudged >= 8){
+      reasons.push('accuracy ต่ำ');
+      return { id:'acc_low', mood:'neutral', text:'ทริคเพิ่มแม่น: “อ่านชื่อหมู่ใน GOAL” แล้วค่อยยิงเป้า 🧠', reasons };
+    }
+    if (s.combo === 0 && s.totalJudged >= 6){
+      reasons.push('คอมโบไม่ขึ้น');
+      return { id:'combo0', mood:'neutral', text:'อยากได้คอมโบ: ยิงดีต่อเนื่อง 3–5 ครั้งก่อน แล้วสปีดจะมาเอง ✨', reasons };
+    }
+    if (s.left <= 10 && s.left > 0){
+      reasons.push('ใกล้หมดเวลา');
+      return { id:'clutch', mood:'fever', text:'อีกไม่กี่วิ! เลือกเป้าใกล้กลางจอ แล้วเก็บให้ชัวร์ 🔥', reasons };
+    }
+    if (s.powerThr > 0 && s.power >= s.powerThr - 1){
+      reasons.push('ใกล้สลับหมู่');
+      return { id:'power_near', mood:'happy', text:'ใกล้สลับหมู่แล้ว! ยิงให้ถูกอีกนิด จะได้ “SWITCH” ⚡', reasons };
+    }
     return null;
   }
 
-  // ---------------- Public API ----------------
-  const AIHooks = NS.AIHooks = NS.AIHooks || {};
+  // ---------- difficulty director (optional apply) ----------
+  // Output multipliers/additions (bounded)
+  function recommendDiff(s){
+    // aim: keep flow fun: if risk high -> ease a bit; if risk very low -> spice up
+    const r = s.risk;
+    let spawnMul = 1.0;
+    let wrongAdd = 0.0;
+    let junkAdd  = 0.0;
+    let sizeMul  = 1.0;
+    let lifeMul  = 1.0;
 
-  AIHooks.attach = function(cfg){
-    const S = AIHooks._state || (AIHooks._state = makeState());
-
-    S.enabled = !!cfg?.enabled;
-    S.runMode = String(cfg?.runMode || 'play');
-    S.seed    = String(cfg?.seed || '');
-    S.view    = String(cfg?.view || '');
-    S.diff    = String(cfg?.diff || '');
-
-    // deterministic fold (k-fold)
-    const k = 5;
-    const h = hash32(`${S.seed}::${S.runMode}::${S.diff}::${S.view}`);
-    const fold = (h % k)|0;
-    const split = (fold===0) ? 'val' : 'train'; // simple rule (fold0=val)
-    S.fold = { k, fold, split };
-
-    try{ localStorage.setItem(LS_FOLD, JSON.stringify(S.fold)); }catch(_){}
-
-    // listeners (idempotent)
-    if (!AIHooks._wired){
-      AIHooks._wired = true;
-
-      root.addEventListener('hha:time', (ev)=>{
-        const d = ev.detail||{};
-        S.last.left = Number(d.left||0);
-      }, {passive:true});
-
-      root.addEventListener('hha:score', (ev)=>{
-        const d = ev.detail||{};
-        S.last.score = Number(d.score||0);
-        S.last.combo = Number(d.combo||0);
-        S.last.miss  = Number(d.misses||0);
-      }, {passive:true});
-
-      root.addEventListener('hha:rank', (ev)=>{
-        const d = ev.detail||{};
-        S.last.acc = Number(d.accuracy||0);
-        S.last.grade = String(d.grade||'C');
-      }, {passive:true});
-
-      root.addEventListener('quest:update', (ev)=>{
-        const d = ev.detail||{};
-        S.last.groupName = String(d.groupName||'');
-        S.last.groupKey  = String(d.groupKey||'');
-        // mini state from quest:update
-        S.last.miniOn   = !!(d.miniTimeLeftSec>0);
-        S.last.miniLeft = Number(d.miniTimeLeftSec||0);
-        S.last.miniNeed = Number(d.miniTotal||0);
-        S.last.miniNow  = Number(d.miniNow||0);
-      }, {passive:true});
-
-      root.addEventListener('groups:progress', (ev)=>{
-        const d = ev.detail||{};
-        if (d.kind==='pressure') S.last.pressure = Number(d.level||0);
-        if (d.kind==='storm_on') S.last.storm = true;
-        if (d.kind==='storm_off') S.last.storm = false;
-      }, {passive:true});
+    if (r >= 0.70){
+      spawnMul = 1.10;   // slower spawns (every * mul)
+      wrongAdd = -0.03;
+      junkAdd  = -0.02;
+      sizeMul  = 1.04;
+      lifeMul  = 1.08;
+    } else if (r >= 0.55){
+      spawnMul = 1.05;
+      wrongAdd = -0.02;
+      junkAdd  = -0.01;
+      sizeMul  = 1.02;
+      lifeMul  = 1.05;
+    } else if (r <= 0.18 && s.combo >= 6 && s.acc >= 86){
+      // player is cruising -> increase challenge a bit
+      spawnMul = 0.93;   // faster spawns
+      wrongAdd = +0.02;
+      junkAdd  = +0.01;
+      sizeMul  = 0.98;
+      lifeMul  = 0.95;
     }
 
-    // start prediction loop
-    AIHooks._startLoop();
-  };
+    return {
+      spawnMul: clamp(spawnMul, 0.86, 1.18),
+      wrongAdd: clamp(wrongAdd, -0.06, 0.06),
+      junkAdd:  clamp(junkAdd,  -0.05, 0.05),
+      sizeMul:  clamp(sizeMul,  0.92, 1.08),
+      lifeMul:  clamp(lifeMul,  0.88, 1.14),
+    };
+  }
 
-  AIHooks._startLoop = function(){
-    const S = AIHooks._state;
-    if (!S || !S.enabled) return;
-    if (S.runMode !== 'play') return; // ✅ research/practice OFF
+  // ---------- runtime ----------
+  let st = null;
 
-    if (AIHooks._loopOn) return;
-    AIHooks._loopOn = true;
+  function attach(cfg){
+    cfg = cfg || {};
+    const enabled = !!cfg.enabled;
+    const runMode = String(cfg.runMode || 'play').toLowerCase();
 
-    const t0 = nowMs();
-    const tick = ()=>{
-      if (!AIHooks._loopOn) return;
+    // hard guard
+    if (!enabled) return;
+    if (runMode === 'research' || runMode === 'practice') return;
 
-      // stop if disabled mid-run
-      if (!S.enabled || S.runMode!=='play'){
-        AIHooks._loopOn = false;
-        return;
-      }
+    const tipLimiter = makeLimiter(2600);
+    const tipDedupe  = makeDedupe(8000);
+    const aiLimiter  = makeLimiter(900);      // ai signal ~1Hz max
 
-      const t = nowMs();
-      const sec = Math.max(0, (t - t0)/1000);
+    const applyOK = canApply() && (runMode === 'play');
 
-      // snapshot for rolling buffer
-      const snap = {
-        left: S.last.left|0,
-        score: S.last.score|0,
-        combo: S.last.combo|0,
-        miss: S.last.miss|0,
-        acc: S.last.acc|0,
-        pressure: S.last.pressure|0,
-        miniOn: S.last.miniOn?1:0,
-        miniLeft: S.last.miniLeft|0,
-        storm: S.last.storm?1:0
-      };
-      pushBuf(S, sec, snap);
-
-      // every 1s predict
-      if (t - S.lastPredAt >= 1000){
-        S.lastPredAt = t;
-
-        const f = buildFeatures(S);
-
-        // update norm with raw features (for training meta)
-        normUpdate(S.normW, f);
-        const normMeta = normFinalize(S.normW);
-        try{ localStorage.setItem(LS_NORM, JSON.stringify(normMeta)); }catch(_){}
-
-        // choose model
-        const w = safeJsonParse((()=>{ try{return localStorage.getItem(LS_W)||'';}catch{return '';} })(), null);
-
-        let pred;
-        if (w && typeof w==='object' && w.w){
-          // logistic-lite expects z-scored features
-          const z = zscore(normMeta, f);
-          pred = logisticPredict(z, w);
-          pred.reasons = pred.reasons || [];
-        }else{
-          pred = heuristicPredict(f);
-        }
-
-        // attach fold + features for debugging
-        emit('ai:pred', {
-          risk01: pred.risk01,
-          pMissNext5: pred.pMissNext5,
-          pScoreDropNext5: pred.pScoreDropNext5,
-          topReasons: (pred.reasons||[]).map(x=>({ key:x[0], why:x[1] })),
-          features: f,
-          normMeta,
-          fold: S.fold,
-          groupName: S.last.groupName,
-          groupKey: S.last.groupKey
-        });
-
-        // micro-tip rate limit (every 6s)
-        if (t - S.lastTipAt >= 6000){
-          S.lastTipAt = t;
-          const tip = pickTip(pred);
-          if (tip){
-            // explainable: include 1 reason
-            const r0 = (pred.reasons && pred.reasons[0]) ? ` (${pred.reasons[0][1]})` : '';
-            emit('hha:coach', { mood: tip.mood, text: tip.text + r0 });
-          }
-        }
-      }
-
-      setTimeout(tick, 120);
+    // rolling snapshot from events
+    st = {
+      left: 0, score:0, combo:0, miss:0, acc:0, grade:'C',
+      power:0, powerThr:0, goalPct:0, miniPct:0,
+      pressure:0, stormOn:0,
+      totalJudged: 0
     };
 
-    tick();
-  };
+    const onScore = (ev)=>{
+      const d = ev.detail||{};
+      st.score = Number(d.score||0);
+      st.combo = Number(d.combo||0);
+      st.miss  = Number(d.misses||0);
+    };
+    const onTime = (ev)=>{ st.left = Number((ev.detail||{}).left||0); };
+    const onRank = (ev)=>{
+      const d = ev.detail||{};
+      st.grade = String(d.grade||'C');
+      st.acc   = Number(d.accuracy||0);
+    };
+    const onPower = (ev)=>{
+      const d = ev.detail||{};
+      st.power = Number(d.charge||0);
+      st.powerThr = Number(d.threshold||0);
+    };
+    const onQuest = (ev)=>{
+      const d = ev.detail||{};
+      st.goalPct = Number(d.goalPct||0);
+      st.miniPct = Number(d.miniPct||0);
+    };
+    const onProgress = (ev)=>{
+      const d = ev.detail||{};
+      if (d.kind === 'pressure') st.pressure = Number(d.level||0);
+      if (d.kind === 'storm_on') st.stormOn = 1;
+      if (d.kind === 'storm_off') st.stormOn = 0;
+    };
+    const onJudge = (ev)=>{
+      const d = ev.detail||{};
+      // count judged hits roughly
+      if (d.kind === 'good' || d.kind === 'bad' || d.kind === 'miss' || d.kind === 'boss') st.totalJudged++;
+    };
 
-  AIHooks.detach = function(){
-    AIHooks._loopOn = false;
-    if (AIHooks._state) AIHooks._state.enabled = false;
-  };
+    // AI loop: driven by hha:tick (1Hz from engine)
+    const onTick = (ev)=>{
+      if (!aiLimiter()) return;
+
+      // risk + band
+      const risk = predictRisk(st);
+      const band = bandFromRisk(risk);
+
+      // emit AI signal (gets logged by PACK16)
+      const tip = pickTip(Object.assign({ risk }, st));
+      const reasons = (tip && tip.reasons) ? tip.reasons : [];
+
+      emit('hha:ai', {
+        band,
+        riskMissNext5s: Number(risk.toFixed(3)),
+        reasons,
+        tipId: tip ? tip.id : ''
+      });
+
+      // push band into PACK16 snapshot if you want (ML pack listens to hha:ai)
+      // micro tips (rate-limited + deduped)
+      if (tip && tipLimiter() && tipDedupe(tip.id)){
+        emit('hha:coach', { text: tip.text, mood: tip.mood });
+      }
+
+      // optional difficulty director (apply only with ?aiApply=1)
+      if (applyOK){
+        const rec = recommendDiff(Object.assign({ risk }, st));
+        emit('hha:ai:diff', rec);
+      }
+    };
+
+    root.addEventListener('hha:score', onScore, {passive:true});
+    root.addEventListener('hha:time', onTime, {passive:true});
+    root.addEventListener('hha:rank', onRank, {passive:true});
+    root.addEventListener('groups:power', onPower, {passive:true});
+    root.addEventListener('quest:update', onQuest, {passive:true});
+    root.addEventListener('groups:progress', onProgress, {passive:true});
+    root.addEventListener('hha:judge', onJudge, {passive:true});
+    root.addEventListener('hha:tick', onTick, {passive:true});
+
+    NS.__AI_ATTACHED__ = true;
+
+    return {
+      detach(){
+        root.removeEventListener('hha:score', onScore);
+        root.removeEventListener('hha:time', onTime);
+        root.removeEventListener('hha:rank', onRank);
+        root.removeEventListener('groups:power', onPower);
+        root.removeEventListener('quest:update', onQuest);
+        root.removeEventListener('groups:progress', onProgress);
+        root.removeEventListener('hha:judge', onJudge);
+        root.removeEventListener('hha:tick', onTick);
+        NS.__AI_ATTACHED__ = false;
+      }
+    };
+  }
+
+  NS.AIHooks = { attach };
 
 })(typeof window!=='undefined' ? window : globalThis);
