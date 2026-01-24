@@ -1,12 +1,11 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION) (Latest)
-   HHA Standard
+   Balanced Plate VR — UI + FX (PRODUCTION) — PATCHED
+   ✅ FIX: targets not showing (position:absolute)
+   ✅ SAFE: spawn safe vars --plate-*-safe
 ========================================================= */
 
 :root{
-  color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
@@ -24,17 +23,18 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe area */
+  /* safe area (native) */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* ✅ spawn safe (Plate) — กัน HUD ด้านบน + ปุ่ม VR ด้านล่าง */
-  --plate-top-safe: calc(var(--sat) + 170px);
-  --plate-bottom-safe: calc(var(--sab) + 130px);
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
+  /* ✅ spawn-safe vars used by mode-factory.js */
+  /* ปรับค่าตาม HUD จริงได้ แต่ set นี้ทำให้ "ไม่ทับ HUD" ทันที */
+  --plate-top-safe: calc(var(--sat) + 140px);
+  --plate-bottom-safe: calc(var(--sab) + 18px);
+  --plate-left-safe: calc(var(--sal) + 10px);
+  --plate-right-safe: calc(var(--sar) + 10px);
 }
 
 /* ---------------------------------------------------------
@@ -52,10 +52,10 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{ position:relative; width:100%; height:100%; }
+#app{ width:100%; height:100%; }
 
 /* ---------------------------------------------------------
-   Playfield / Spawn Layer
+   Spawn Layer (Targets)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -65,32 +65,31 @@ html,body{
   touch-action:none;
 }
 
-/* ---------------------------------------------------------
-   Targets
---------------------------------------------------------- */
+/* ✅ FIX: left/top won't work without positioning */
 .plateTarget{
-  position:absolute; /* ✅ สำคัญมาก: ถ้าไม่มี เป้าจะไม่ไปตาม left/top */
+  position:absolute;                 /* ✅ สำคัญมาก */
   display:grid;
   place-items:center;
   border-radius:999px;
-  font-size:30px;
-  font-weight:900;
-  line-height:1;
   user-select:none;
   cursor:pointer;
 
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.12), transparent 36%),
-    rgba(2,6,23,.62);
+  /* emoji look crisp */
+  font-size:28px;
+  font-weight:900;
+  line-height:1;
+  text-rendering:geometricPrecision;
+  -webkit-font-smoothing:antialiased;
+  filter:none;
 
-  border:1px solid rgba(148,163,184,.28);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
+    rgba(2,6,23,.60);
+
+  border:1px solid var(--stroke);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    inset 0 1px 0 rgba(255,255,255,.10);
-
-  text-shadow:
-    0 1px 0 rgba(0,0,0,.55),
-    0 0 18px rgba(255,255,255,.10);
+    inset 0 1px 0 rgba(255,255,255,.08);
 
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
 }
@@ -114,12 +113,13 @@ html,body{
   0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
   100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
+
 @keyframes wobble{
-  0%{ rotate:0deg }
-  25%{ rotate:1.2deg }
-  50%{ rotate:-1.2deg }
-  75%{ rotate:.8deg }
-  100%{ rotate:0deg }
+  0%{ transform:translate(-50%,-50%) rotate(0deg) }
+  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
+  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
+  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
+  100%{ transform:translate(-50%,-50%) rotate(0deg) }
 }
 
 /* ---------------------------------------------------------
@@ -127,74 +127,85 @@ html,body{
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  left:0;
-  right:0;
+  left:0; right:0;
   top:0;
-  z-index:40;
-  padding: calc(var(--sat) + 12px) 12px 0 12px;
+  z-index:60;
   pointer-events:none;
+  padding:
+    calc(var(--sat) + 10px)
+    calc(var(--sar) + 10px)
+    10px
+    calc(var(--sal) + 10px);
 }
 
 .hudRow{
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
   align-items:center;
-  margin-bottom:10px;
-  pointer-events:auto;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  pointer-events:none;
 }
 
 .chip{
-  display:flex;
-  gap:8px;
+  pointer-events:none;
+  display:inline-flex;
   align-items:baseline;
+  gap:10px;
   padding:10px 12px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.70);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 16px 50px rgba(0,0,0,.25);
+  border:1px solid var(--stroke);
+  background:rgba(2,6,23,.72);
+  backdrop-filter:blur(10px);
+  box-shadow:0 18px 60px rgba(0,0,0,.22);
   font-weight:900;
 }
 
-.chip .lbl{ font-size:12px; color:var(--muted); letter-spacing:.6px; }
-.chip .val{ font-size:18px; }
+.chip .lbl{ font-size:11px; color:var(--muted); letter-spacing:.06em; }
+.chip .val{ font-size:16px; }
 
-.card{
+.card,.questCard,.panelCard{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
-  pointer-events:auto;
-  max-width:520px;
 }
 
-#questCard{ padding:12px 12px 10px 12px; }
+#questCard{
+  margin-top:10px;
+  pointer-events:none;
+  padding:12px;
+  max-width:560px;
+}
 
 .cardTitle{
   display:flex;
+  align-items:flex-start;
   justify-content:space-between;
-  align-items:baseline;
+  gap:12px;
   margin-bottom:10px;
 }
-.cardTitle .t{ font-weight:900; font-size:16px; }
-.cardTitle .hint{ font-size:12px; color:var(--muted); }
+
+.cardTitle .t{ font-weight:1000; }
+.cardTitle .hint{ color:var(--muted); font-size:12px; font-weight:800; }
 
 .qItem{
   display:flex;
+  align-items:center;
   justify-content:space-between;
-  gap:10px;
-  padding:10px 0;
-  border-top:1px solid rgba(148,163,184,.12);
+  gap:12px;
+  padding:10px 10px;
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.42);
 }
-.qItem:first-of-type{ border-top:none; padding-top:0; }
 
-.qText .name{ font-weight:900; }
-.qText .sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+.qText .name{ font-weight:1000; }
+.qText .sub{ color:var(--muted); font-size:12px; font-weight:800; }
 
-.qProg{ min-width:170px; text-align:right; }
-.qNums{ font-weight:900; color:var(--text); margin-bottom:6px; }
+.qProg{ min-width:180px; }
+.qNums{ text-align:right; font-weight:1000; font-size:12px; color:var(--muted); margin-bottom:6px; }
 
 .bar{
   height:10px;
@@ -202,6 +213,7 @@ html,body{
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
+
 .bar>i{
   display:block;
   height:100%;
@@ -215,29 +227,32 @@ html,body{
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  left:12px;
-  bottom: calc(var(--sab) + 92px);
-  z-index:60;
-  opacity:0;
-  transform: translateY(10px);
+  left:50%;
+  bottom:calc(var(--sab) + 18px);
+  transform:translateX(-50%);
+  z-index:70;
   pointer-events:none;
+  opacity:0;
+  transition:opacity .15s ease, transform .15s ease;
 }
+
+#coachCard .inner{
+  max-width:min(720px, calc(100vw - 20px));
+  padding:12px 14px;
+  border-radius:18px;
+  background:rgba(2,6,23,.78);
+  border:1px solid rgba(148,163,184,.20);
+  backdrop-filter:blur(10px);
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+}
+
+#coachMsg{ font-weight:900; }
+#coachMeta{ margin-top:6px; font-size:12px; color:var(--muted); font-weight:800; }
+
 #coachCard.show{
   opacity:1;
-  transform: translateY(0);
-  transition: opacity .18s ease, transform .18s ease;
+  transform:translateX(-50%) translateY(-6px);
 }
-#coachCard .inner{
-  max-width:320px;
-  padding:10px 12px;
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.74);
-  box-shadow:0 18px 60px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-}
-#coachMsg{ font-weight:900; }
-#coachMeta{ margin-top:6px; font-size:12px; color:var(--muted); }
 
 /* ---------------------------------------------------------
    End Overlay
@@ -245,75 +260,81 @@ html,body{
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index:80;
+  z-index:90;
   display:flex;
-  align-items:flex-end;
+  align-items:center;
   justify-content:center;
-  padding: 12px 12px calc(var(--sab) + 12px) 12px;
-  background: rgba(0,0,0,.35);
-  backdrop-filter: blur(10px);
+  padding:20px;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(8px);
 }
+
 #endOverlay[aria-hidden="true"]{ display:none; }
 
 .endPanel{
-  width:min(560px, 100%);
-  border-radius:24px;
+  width:min(860px, 96vw);
+  background:rgba(2,6,23,.86);
   border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.82);
-  box-shadow: 0 24px 90px rgba(0,0,0,.40);
-  padding:14px;
+  border-radius:22px;
+  box-shadow:0 22px 90px rgba(0,0,0,.45);
+  padding:16px;
 }
 
 .endTitle{
   display:flex;
+  align-items:center;
   justify-content:space-between;
-  align-items:baseline;
   gap:12px;
 }
-.endTitle h2{ margin:0; font-size:24px; }
+
+.endTitle h2{ margin:0; font-size:20px; }
 .endTitle .tag{
-  font-size:12px;
-  color:var(--muted);
   padding:6px 10px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(15,23,42,.60);
+  border:1px solid rgba(148,163,184,.20);
+  background:rgba(15,23,42,.55);
+  font-weight:900;
+  font-size:12px;
+  color:var(--muted);
 }
 
 .endGrid{
-  margin-top:12px;
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:repeat(3, 1fr);
   gap:10px;
+  margin-top:12px;
 }
+
 .kpi{
-  padding:10px 12px;
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(15,23,42,.55);
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.42);
+  padding:12px;
 }
-.kpi .k{ font-size:12px; color:var(--muted); }
-.kpi .v{ font-weight:900; font-size:18px; margin-top:4px; }
+.kpi .k{ color:var(--muted); font-weight:900; font-size:12px; }
+.kpi .v{ font-weight:1000; font-size:18px; margin-top:6px; }
 
 .endBtns{
   display:flex;
   gap:10px;
-  margin-top:12px;
+  justify-content:flex-end;
+  margin-top:14px;
 }
+
 .btn{
   appearance:none;
   border:none;
   border-radius:999px;
-  padding:12px 14px;
-  font-weight:900;
+  padding:10px 14px;
+  font-weight:1000;
   font-size:12px;
   cursor:pointer;
   color:var(--text);
   background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
   backdrop-filter:blur(10px);
-  flex:1;
 }
+
 .btn.primary{
   background:rgba(34,197,94,.18);
   border-color:rgba(34,197,94,.35);
@@ -324,8 +345,9 @@ html,body{
 --------------------------------------------------------- */
 @media (max-width:900px){
   :root{
-    --plate-top-safe: calc(var(--sat) + 160px);
-    --plate-bottom-safe: calc(var(--sab) + 130px);
+    --plate-top-safe: calc(var(--sat) + 150px); /* มือถือ HUD สูงขึ้นนิด */
   }
-  .plateTarget{ font-size:26px; }
+  #questCard{ max-width:92vw; }
+  .plateTarget{ font-size:24px; }
+  .endGrid{ grid-template-columns:repeat(2, 1fr); }
 }
