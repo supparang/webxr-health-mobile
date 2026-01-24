@@ -1,115 +1,130 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION
-// ✅ Auto-detect view ONLY when ?view=auto (no override if ?view= exists)
-// ✅ Applies body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Pass-through params (hub/run/diff/time/seed/studyId/phase/conditionGroup/log)
-// ✅ Starts engine (goodjunk.safe.js) exactly once when DOM ready
-// ✅ Nudges safe-area measure (resize/orientation events) so --gj-top-safe/bottom-safe settle
+// ✅ Sets body view classes: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Does NOT override explicit ?view= (launcher already respects this)
+// ✅ Calls goodjunk.safe.js boot() exactly once (guard)
+// ✅ Pass-through context: view/run/diff/time/seed/hub/log/style/studyId/phase/conditionGroup
+// ✅ Emits nothing itself; listens for hha:end to offer safe back-to-hub UX if needed
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-function qs(k, d=null){
-  try{ return new URL(location.href).searchParams.get(k) ?? d; }
-  catch{ return d; }
+const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch{ return false; } };
+
+function clamp(v,min,max){ v = Number(v)||0; return Math.max(min, Math.min(max, v)); }
+
+function normalizeView(v){
+  v = String(v||'').toLowerCase();
+  if(v==='cardboard') return 'vr';
+  if(v==='view-cvr') return 'cvr';
+  if(v==='cvr') return 'cvr';
+  if(v==='vr') return 'vr';
+  if(v==='pc') return 'pc';
+  if(v==='mobile') return 'mobile';
+  return 'mobile';
+}
+
+function isLikelyMobileUA(){
+  const ua = (navigator.userAgent||'').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
+}
+
+async function detectViewFallback(){
+  // used only if no ?view= provided
+  let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
+
+  try{
+    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
+      const ok = await navigator.xr.isSessionSupported('immersive-vr');
+      if(ok && isLikelyMobileUA()) guess = 'vr';
+    }
+  }catch(_){}
+
+  return guess;
 }
 
 function setBodyView(view){
   const b = DOC.body;
+  if(!b) return;
+
+  b.classList.add('gj');
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view==='pc') b.classList.add('view-pc');
-  else if(view==='vr') b.classList.add('view-vr');
-  else if(view==='cvr') b.classList.add('view-cvr');
+
+  const v = normalizeView(view);
+  if(v==='pc') b.classList.add('view-pc');
+  else if(v==='vr') b.classList.add('view-vr');
+  else if(v==='cvr') b.classList.add('view-cvr');
   else b.classList.add('view-mobile');
 }
 
-function isProbablyMobile(){
-  const ua = navigator.userAgent || '';
-  const small = Math.min(WIN.innerWidth||9999, WIN.innerHeight||9999) <= 820;
-  return /Android|iPhone|iPad|iPod|Mobi/i.test(ua) || small;
+function getHub(){
+  // hub= URL (encoded) from launcher/hub
+  const hub = qs('hub', null);
+  return hub;
 }
 
-async function detectViewAuto(){
-  // Best-effort: if XR immersive-vr supported -> 'vr' (but still let user enter VR via button)
-  // Otherwise mobile/pc split
+function bindBackHubButton(){
+  const hub = getHub();
+  const btn = DOC.getElementById('btnBackHub');
+  if(!btn) return;
+
+  btn.addEventListener('click', ()=>{
+    if(hub) location.href = hub;
+    else alert('ยังไม่ได้ใส่ hub url');
+  });
+}
+
+function bindEndAutoBack(){
+  // optional safety: if user ends and wants back
+  const hub = getHub();
+  WIN.addEventListener('hha:end', ()=>{
+    // ไม่ auto เด้งทันที (กันสะดุ้ง) — ผู้ใช้กดเองที่ปุ่ม ↩ กลับ HUB
+    // แต่ถ้าคุณอยาก auto-back ใน research mode ค่อยเปิดในอนาคตได้
+    void hub;
+  }, { passive:true });
+}
+
+function onceGuard(){
+  if(WIN.__HHA_GJ_BOOTED__) return false;
+  WIN.__HHA_GJ_BOOTED__ = true;
+  return true;
+}
+
+async function main(){
+  if(!onceGuard()) return;
+
+  // View: respect explicit param; otherwise fallback detect
+  let view = has('view') ? normalizeView(qs('view','mobile')) : await detectViewFallback();
+  setBodyView(view);
+
+  // Wire buttons (back hub)
+  bindBackHubButton();
+  bindEndAutoBack();
+
+  // Collect opts for engine
+  const run  = String(qs('run','play')||'play').toLowerCase();
+  const diff = String(qs('diff','normal')||'normal').toLowerCase();
+  const time = clamp(qs('time','80'), 20, 300);
+  const seed = String(qs('seed', Date.now()));
+
+  // (optional) show meta in chip if exists
   try{
-    if(navigator.xr && navigator.xr.isSessionSupported){
-      const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if(ok) return 'vr';
+    const chip = DOC.getElementById('gjChipMeta');
+    if(chip){
+      chip.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
     }
   }catch(_){}
-  return isProbablyMobile() ? 'mobile' : 'pc';
-}
-
-function applyMetaChip(){
-  const v = qs('view','auto');
-  const run  = qs('run','play');
-  const diff = qs('diff','normal');
-  const time = qs('time','80');
-  const chipMeta = DOC.getElementById('gjChipMeta');
-  if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
-}
-
-function nudgeSafeMeasure(){
-  // ให้สคริปต์ใน HTML ที่วัด gjTopbar/gjHudTop/gjHudBot ทำงานนิ่งขึ้น
-  try{
-    WIN.dispatchEvent(new Event('resize'));
-    WIN.dispatchEvent(new Event('orientationchange'));
-  }catch(_){}
-  setTimeout(()=>{ try{ WIN.dispatchEvent(new Event('resize')); }catch(_){} }, 120);
-  setTimeout(()=>{ try{ WIN.dispatchEvent(new Event('resize')); }catch(_){} }, 360);
-}
-
-let started = false;
-
-async function start(){
-  if(started) return;
-  started = true;
-
-  // Respect explicit ?view= (NO override)
-  let view = String(qs('view','auto')).toLowerCase();
-  if(view === 'auto'){
-    view = await detectViewAuto();
-  }
-
-  // Normalize view values
-  if(view === 'cardboard') view = 'cvr';
-  if(!['pc','mobile','vr','cvr'].includes(view)) view = 'mobile';
-
-  setBodyView(view);
-  applyMetaChip();
-
-  // Pass-through gameplay params
-  const opts = {
-    view,
-    run:  qs('run','play'),
-    diff: qs('diff','normal'),
-    time: Number(qs('time','80')) || 80,
-    seed: qs('seed', Date.now())
-  };
-
-  // optional research ctx passthrough (logger may read itself too)
-  const ctx = {
-    hub: qs('hub', null),
-    log: qs('log', null),
-    studyId: qs('studyId', null),
-    phase: qs('phase', null),
-    conditionGroup: qs('conditionGroup', null),
-    style: qs('style', null)
-  };
-  try{ WIN.__HHA_CTX__ = ctx; }catch(_){}
 
   // Start engine
-  engineBoot(opts);
-
-  // After engine mounts, nudge safe-area measure
-  nudgeSafeMeasure();
+  engineBoot({ view, run, diff, time, seed });
 }
 
+// DOM ready
 if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', start, { once:true });
+  DOC.addEventListener('DOMContentLoaded', main, { once:true });
 }else{
-  start();
+  main();
 }
