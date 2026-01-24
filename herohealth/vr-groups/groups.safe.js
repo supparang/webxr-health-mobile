@@ -6,10 +6,11 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
          groups:power, groups:progress, hha:judge, hha:end
 ✅ runMode: play | research | practice
-   - research: deterministic seed + adaptive OFF + AI OFF (by caller)
+   - research: deterministic seed + adaptive OFF + AI OFF
    - practice: deterministic seed + adaptive OFF + AI OFF
 ✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
-✅ PACK16/17/18: hha:tick (1Hz) + AI diff hook + emoji visible + anti-overlap tries
+✅ NEW: Emoji rendered via <span class="fg-emoji"> (crisp, centered)
+✅ NEW: Optional HHA_EMOJI pack support (fallback safe)
 */
 
 (function (root) {
@@ -65,6 +66,56 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (String(v || '').includes('vr')  || cls.includes('view-vr'))  return 'vr';
     if (String(v || '').includes('pc')  || cls.includes('view-pc'))  return 'pc';
     return 'mobile';
+  }
+
+  // ---------------- Optional Emoji Pack (safe fallback) ----------------
+  // If you load ../vr/hha-emoji-pack.js and it sets window.HHA_EMOJI, we'll use it.
+  function pickFromPack(arr, rng){
+    try{
+      if (Array.isArray(arr) && arr.length){
+        const i = (rng() * arr.length) | 0;
+        return arr[i];
+      }
+    }catch(_){}
+    return null;
+  }
+
+  // Map GROUPS key -> pack key (if pack uses Thai 5 groups g1..g5)
+  // คุณจำ mapping 5 หมู่: g1 โปรตีน, g2 คาร์บ, g3 ผัก, g4 ผลไม้, g5 ไขมัน
+  // เกม GroupsVR มี dairy เพิ่มมา — ถ้า pack ไม่มี dairy ให้ fallback ไปกลุ่มโปรตีน/นม หรือใช้ GROUPS[].emoji เดิม
+  function packKeyForGroupKey(groupKey){
+    if (groupKey === 'protein') return 'g1';
+    if (groupKey === 'grain')   return 'g2';
+    if (groupKey === 'veg')     return 'g3';
+    if (groupKey === 'fruit')   return 'g4';
+    if (groupKey === 'dairy')   return 'g1'; // fallback: dairy ~ protein/nutrition pack; adjust later if you add dairy pack
+    return 'g1';
+  }
+
+  function pickEmojiForGroup(groupObj, rng){
+    const PACK = root.HHA_EMOJI;
+    if (PACK && PACK.groups){
+      // try direct by groupKey first (future-proof)
+      const direct = PACK.groups[groupObj.key];
+      const e1 = pickFromPack(direct, rng);
+      if (e1) return e1;
+
+      // fallback g1..g5 mapping
+      const k = packKeyForGroupKey(groupObj.key);
+      const e2 = pickFromPack(PACK.groups[k], rng);
+      if (e2) return e2;
+    }
+    // fallback to local list
+    return pick(rng, groupObj.emoji);
+  }
+
+  function pickJunkEmoji(rng){
+    const PACK = root.HHA_EMOJI;
+    if (PACK && Array.isArray(PACK.junk)){
+      const e = pickFromPack(PACK.junk, rng);
+      if (e) return e;
+    }
+    return pick(rng, JUNK);
   }
 
   // ---------------- Content ----------------
@@ -252,13 +303,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this._id = 0;
 
     this.coachLastAt = 0;
-
-    // PACK17: AI diff multipliers
-    this.ai = { spawnMul:1, wrongAdd:0, junkAdd:0, sizeMul:1, lifeMul:1 };
-    this._onAiDiff = null;
-
-    // PACK16: 1Hz tick guard
-    this._tickSec = -1;
   }
 
   Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
@@ -370,28 +414,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this.startAt = nowMs();
     this.spawnTmr = 0;
 
-    // PACK17 reset AI factors
-    this.ai = { spawnMul:1, wrongAdd:0, junkAdd:0, sizeMul:1, lifeMul:1 };
-
-    // PACK17: listen ai diff (apply only in play; actual emit controlled by ai-hooks.js + ?aiApply=1)
-    if (!this._onAiDiff){
-      const self = this;
-      this._onAiDiff = function(ev){
-        if (!self.cfg || self.cfg.runMode !== 'play') return;
-        const d = ev.detail || {};
-        self.ai.spawnMul = clamp(d.spawnMul ?? 1, 0.86, 1.18);
-        self.ai.wrongAdd = clamp(d.wrongAdd ?? 0, -0.06, 0.06);
-        self.ai.junkAdd  = clamp(d.junkAdd  ?? 0, -0.05, 0.05);
-        self.ai.sizeMul  = clamp(d.sizeMul  ?? 1, 0.92, 1.08);
-        self.ai.lifeMul  = clamp(d.lifeMul  ?? 1, 0.88, 1.14);
-      };
-      root.addEventListener('hha:ai:diff', this._onAiDiff, { passive:true });
-    }
-
-    // PACK16 tick guard reset
-    this._tickSec = -1;
-
-    emit('hha:start', { runMode, diff:this.cfg.diff, seed:this.cfg.seed, timeSec:this.cfg.timeSec });
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
@@ -435,26 +457,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     if (left !== this.leftSec) {
       this.leftSec = left;
       emit('hha:time', { left: left });
-
-      // PACK16/17/18: 1Hz tick for ML + AI
-      try{
-        const tSec = (this.cfg.timeSec - left) | 0;
-        if (tSec !== this._tickSec){
-          this._tickSec = tSec;
-          const acc = this._accuracyPct();
-          emit('hha:tick', {
-            tSec,
-            left: left,
-            score: this.score|0,
-            combo: this.combo|0,
-            miss: this.misses|0,
-            acc,
-            grade: gradeFrom(acc, this.misses, this.score),
-            pressure: this.pressure|0,
-            stormOn: this.stormOn ? 1 : 0
-          });
-        }
-      }catch(_){}
 
       if (this.cfg.runMode !== 'practice'){
         if (left === 10) this._emitCoach('อีก 10 วิ! เร่งขึ้น! 🔥', 'fever');
@@ -514,9 +516,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
       this.mini = { on:true, now:0, need, leftMs:durMs, forbidJunk, ok:true, startedAt:t };
       this.miniTotal += 1;
-
-      addBodyClass('fx-mini', true);
-      setTimeout(()=>addBodyClass('fx-mini', false), 720);
 
       this._emitQuestUpdate();
       this._emitCoach(
@@ -582,12 +581,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       if (this.pressure === 3) pressMul = 0.86;
     }
 
-    let every = clamp(base * speed * pressMul, 320, 980);
-
-    // PACK17: AI spawn multiplier (play only)
-    if (this.cfg.runMode === 'play' && this.ai){
-      every = clamp(every * (this.ai.spawnMul || 1), 300, 1150);
-    }
+    const every = clamp(base * speed * pressMul, 320, 980);
 
     if (t - this.spawnTmr >= every) {
       this.spawnTmr = t;
@@ -622,12 +616,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       if (this.pressure === 3){ wrongRate += 0.08; junkRate += 0.03; }
     }
 
-    // PACK17: AI adjust rates (play only)
-    if (this.cfg.runMode === 'play' && this.ai){
-      wrongRate += (this.ai.wrongAdd || 0);
-      junkRate  += (this.ai.junkAdd  || 0);
-    }
-
     wrongRate = clamp(wrongRate, 0.05, 0.60);
     junkRate  = clamp(junkRate,  0.04, 0.45);
 
@@ -641,15 +629,16 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     let cls = 'fg-target';
 
     if (kind === 'good') {
-      emoji = pick(this.rng, gActive.emoji);
+      emoji = pickEmojiForGroup(gActive, this.rng);
       cls += ' fg-good';
       this.nTargetGoodSpawned++;
     } else if (kind === 'wrong') {
-      emoji = pick(this.rng, gOther.emoji);
+      emoji = pickEmojiForGroup(gOther, this.rng);
       cls += ' fg-wrong';
       this.nTargetWrongSpawned++;
     } else {
-      emoji = pick(this.rng, JUNK);
+      // ถ้าคุณอยากให้ junk “ว่าง” ให้ตั้ง emoji='' ได้เลย
+      emoji = pickJunkEmoji(this.rng);
       cls += ' fg-junk';
       this.nTargetJunkSpawned++;
     }
@@ -659,18 +648,12 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       if (this.pressure === 2) size *= 0.96;
       if (this.pressure === 3) size *= 0.93;
     }
-    if (this.cfg.runMode === 'play' && this.ai){
-      size *= (this.ai.sizeMul || 1);
-    }
 
     let lifeMs = this.stormOn ? 2400 : 3100;
     if (this.cfg.runMode === 'play'){
       if (this.pressure === 1) lifeMs = Math.round(lifeMs * 0.95);
       if (this.pressure === 2) lifeMs = Math.round(lifeMs * 0.90);
       if (this.pressure === 3) lifeMs = Math.round(lifeMs * 0.84);
-    }
-    if (this.cfg.runMode === 'play' && this.ai){
-      lifeMs = Math.round(lifeMs * (this.ai.lifeMul || 1));
     }
 
     this._spawnDomTarget({ kind, emoji, cls, size, lifeMs });
@@ -679,7 +662,8 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   Engine.prototype._spawnBoss = function () {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
-    const emoji = pick(this.rng, gActive.emoji);
+
+    const emoji = pickEmojiForGroup(gActive, this.rng);
 
     let hp = p.bossHp;
     if (this.cfg.runMode==='play'){
@@ -711,33 +695,25 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const view = this.view || getViewFromBodyOrParam();
     const R = computePlayRect(view);
 
-    // ✅ try a few times to avoid overlap
-    let x = 0, y = 0;
-    const tries = 9;
-    const minDist = ((spec.kind === 'boss') ? 130 : 100) * (Number(spec.size||1) || 1);
-
-    for (let k=0; k<tries; k++){
-      const tx = clamp((this.rng() * (R.xMax - R.xMin)) + R.xMin, 8, R.W - 8);
-      const ty = clamp((this.rng() * (R.yMax - R.yMin)) + R.yMin, 8, R.H - 8);
-
-      let ok = true;
-      for (let i=0; i<this.targets.length; i++){
-        const ot = this.targets[i];
-        const dx = ot.x - tx;
-        const dy = ot.y - ty;
-        if (Math.sqrt(dx*dx + dy*dy) < minDist){ ok=false; break; }
-      }
-      if (ok || k === tries-1){ x = tx; y = ty; break; }
-    }
+    const x = clamp((this.rng() * (R.xMax - R.xMin)) + R.xMin, 8, R.W - 8);
+    const y = clamp((this.rng() * (R.yMax - R.yMin)) + R.yMin, 8, R.H - 8);
 
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
-    el.setAttribute('data-emoji', spec.emoji);
-    el.textContent = spec.emoji; // ✅ SHOW EMOJI
+
+    // ✅ NEW: emoji node (crisp & centered)
+    const em = DOC.createElement('span');
+    em.className = 'fg-emoji';
+    em.textContent = String(spec.emoji || '');
+    el.appendChild(em);
 
     cssSet(el, '--x', x.toFixed(1) + 'px');
     cssSet(el, '--y', y.toFixed(1) + 'px');
     cssSet(el, '--s', String(spec.size ?? 1));
+
+    // optional scale tweak
+    // (You can override per target by setting --emoji-scale on el)
+    // cssSet(el, '--emoji-scale', '1.0');
 
     const id = (++this._id);
     const born = nowMs();
@@ -811,7 +787,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงพลาดจาก crosshair: “ไม่เพิ่ม miss” กัน miss พุ่ง
+      // ✅ ยิงพลาดจาก crosshair: “ไม่เพิ่ม miss” (กัน miss พุ่ง)
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
