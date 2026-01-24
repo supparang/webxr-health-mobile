@@ -1,12 +1,20 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION, Latest)
-// ✅ Uses mode-factory (decorateTarget + shoot + TTL)
-// ✅ Emoji by Thai food groups 1–5
-// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:end
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION) (Latest)
+// HHA Standard
+// ------------------------------------------------
+// ✅ Play / Research modes
+//   - play: adaptive ON (future hook)
+//   - research/study: deterministic seed + adaptive OFF
+// ✅ Emits:
+//   hha:start, hha:score, hha:time, quest:update,
+//   hha:coach, hha:judge, hha:end
+// ✅ Uses mode-factory spawner (spawnBoot) + decorateTarget
+// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
+// ------------------------------------------------
 
 'use strict';
 
-import { boot as spawnBoot } from '../vr/mode-factory.js';
+import { spawnBoot } from '../vr/mode-factory.js';
 
 const WIN = window;
 
@@ -14,6 +22,8 @@ const clamp = (v, a, b) => {
   v = Number(v) || 0;
   return v < a ? a : (v > b ? b : v);
 };
+
+const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
   let t = (Number(seed)||Date.now()) >>> 0;
@@ -29,31 +39,25 @@ function emit(name, detail){
   WIN.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
+function pickFrom(rng, arr){
+  return arr[Math.floor((rng?.() ?? Math.random()) * arr.length)] || arr[0];
 }
 
-/* -----------------------------
-   Emoji packs (Plate)
-   หมู่ 1 โปรตีน / หมู่ 2 คาร์บ / หมู่ 3 ผัก / หมู่ 4 ผลไม้ / หมู่ 5 ไขมัน
------------------------------- */
-const EMOJI_GROUP = [
-  ['🥚','🥛','🍗','🐟','🥜','🫘'],       // g1
-  ['🍚','🍞','🥔','🍠','🍜','🥨'],       // g2
-  ['🥦','🥬','🥒','🌽','🥕','🍄'],       // g3
-  ['🍌','🍎','🍊','🍉','🍇','🍍'],       // g4
-  ['🥑','🧈','🥥','🫒','🍳','🧀']        // g5 (บางตัวซ้อนหมู่ได้ แต่ใช้เป็น “สัญลักษณ์” ได้)
+/* ------------------------------------------------
+ * Emoji pack (5 หมู่ + junk)
+ * ------------------------------------------------ */
+const EMOJI_GROUPS = [
+  ['🥚','🥛','🍗','🐟','🥜','🫘'], // หมู่ 1 โปรตีน
+  ['🍚','🍞','🥔','🍠','🍜','🥨'], // หมู่ 2 คาร์บ
+  ['🥦','🥬','🥒','🌽','🥕','🍄'], // หมู่ 3 ผัก
+  ['🍌','🍎','🍊','🍉','🍇','🍍'], // หมู่ 4 ผลไม้
+  ['🥑','🧈','🥥','🫒','🧀','🍳'], // หมู่ 5 ไขมัน
 ];
-
 const EMOJI_JUNK = ['🍩','🍟','🍔','🥤','🍰','🍫','🧁','🍕'];
 
-function pickFrom(rng, arr){
-  return arr[Math.floor(rng() * arr.length)] || arr[0];
-}
-
-/* -----------------------------
-   Engine state
------------------------------- */
+/* ------------------------------------------------
+ * Engine state
+ * ------------------------------------------------ */
 const STATE = {
   running:false,
   ended:false,
@@ -66,6 +70,7 @@ const STATE = {
   timeLeft:0,
   timer:null,
 
+  // 5 หมู่
   g:[0,0,0,0,0],
 
   goal:{
@@ -90,26 +95,52 @@ const STATE = {
   cfg:null,
   rng:Math.random,
 
-  engine:null
+  engine:null,
+
+  shield:0, // future hook (โชว์ใน HUD)
 };
 
 function emitQuest(){
   emit('quest:update', {
-    goal:{ name:STATE.goal.name, sub:STATE.goal.sub, cur:STATE.goal.cur, target:STATE.goal.target },
-    mini:{ name:STATE.mini.name, sub:STATE.mini.sub, cur:STATE.mini.cur, target:STATE.mini.target, done:STATE.mini.done },
+    goal:{
+      name: STATE.goal.name,
+      sub: STATE.goal.sub,
+      cur: STATE.goal.cur,
+      target: STATE.goal.target
+    },
+    mini:{
+      name: STATE.mini.name,
+      sub: STATE.mini.sub,
+      cur: STATE.mini.cur,
+      target: STATE.mini.target,
+      done: STATE.mini.done
+    },
     allDone: STATE.goal.done && STATE.mini.done
   });
 }
 
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
+}
+
 function addScore(v){
   STATE.score += v;
-  emit('hha:score', { score:STATE.score, combo:STATE.combo, comboMax:STATE.comboMax });
+  emit('hha:score', {
+    score: STATE.score,
+    combo: STATE.combo,
+    comboMax: STATE.comboMax,
+    shield: STATE.shield
+  });
 }
+
 function addCombo(){
   STATE.combo++;
   STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
 }
-function resetCombo(){ STATE.combo = 0; }
+
+function resetCombo(){
+  STATE.combo = 0;
+}
 
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
@@ -123,7 +154,7 @@ function endGame(reason='timeup'){
   STATE.running = false;
   clearInterval(STATE.timer);
 
-  try{ STATE.engine && STATE.engine.stop && STATE.engine.stop(); }catch{}
+  try{ STATE.engine?.stop?.(); }catch{}
 
   emit('hha:end', {
     reason,
@@ -136,9 +167,13 @@ function endGame(reason='timeup'){
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
-    accuracyGoodPct: Math.round(accuracy()*100),
+    accuracyGoodPct: pct(accuracy() * 100),
 
-    g1: STATE.g[0], g2: STATE.g[1], g3: STATE.g[2], g4: STATE.g[3], g5: STATE.g[4]
+    g1: STATE.g[0],
+    g2: STATE.g[1],
+    g3: STATE.g[2],
+    g4: STATE.g[3],
+    g5: STATE.g[4],
   });
 }
 
@@ -149,13 +184,15 @@ function startTimer(){
     if(!STATE.running) return;
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
-    if(STATE.timeLeft <= 0) endGame('timeup');
+    if(STATE.timeLeft <= 0){
+      endGame('timeup');
+    }
   }, 1000);
 }
 
-/* -----------------------------
-   Hit handlers
------------------------------- */
+/* ------------------------------------------------
+ * Hit handlers
+ * ------------------------------------------------ */
 function onHitGood(groupIndex){
   STATE.hitGood++;
   STATE.g[groupIndex]++;
@@ -187,66 +224,65 @@ function onHitJunk(){
   resetCombo();
   addScore(-50);
   coach('ระวัง! ของหวาน/ทอด ⚠️');
-  // อัปเดต mini ด้วย (accuracy เปลี่ยน)
-  const accPct = accuracy() * 100;
-  STATE.mini.cur = Math.round(accPct);
-  emitQuest();
 }
 
 function onExpireGood(){
   STATE.expireGood++;
   STATE.miss++;
   resetCombo();
-  const accPct = accuracy() * 100;
-  STATE.mini.cur = Math.round(accPct);
-  emitQuest();
 }
 
-/* -----------------------------
-   decorateTarget (emoji)
------------------------------- */
+/* ------------------------------------------------
+ * Target decoration (emoji)
+ * ------------------------------------------------ */
 function decorateTarget(el, t){
-  // ทำให้เห็นชัดว่าเป็น “เป้า”
-  // good: emoji ตามหมู่ / junk: emoji junk
   if(t.kind === 'good'){
-    const gi = clamp(t.groupIndex ?? 0, 0, 4);
-    const emoji = pickFrom(t.rng || STATE.rng, EMOJI_GROUP[gi]);
-    el.textContent = emoji;
+    const gi = Math.max(0, Math.min(4, Number(t.groupIndex)||0));
+    el.textContent = pickFrom(t.rng, EMOJI_GROUPS[gi]);
     el.dataset.group = String(gi+1);
   }else{
-    el.textContent = pickFrom(t.rng || STATE.rng, EMOJI_JUNK);
+    el.textContent = pickFrom(t.rng, EMOJI_JUNK);
   }
 }
 
+/* ------------------------------------------------
+ * Spawner
+ * ------------------------------------------------ */
 function makeSpawner(mount){
-  const diff = (STATE.cfg.diff || 'normal').toLowerCase();
-  const spawnRate =
-    diff === 'hard' ? 650 :
-    diff === 'easy' ? 980 :
-    820;
+  const diff = (STATE.cfg?.diff || 'normal').toLowerCase();
+  const spawnRate = diff === 'hard' ? 700 : (diff === 'easy' ? 980 : 860);
 
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
     spawnRate,
-    sizeRange:[46,72],
+    sizeRange:[46,68],
     kinds:[
-      { kind:'good', weight:0.70 },
-      { kind:'junk', weight:0.30 }
+      { kind:'good', weight:0.72 },
+      { kind:'junk', weight:0.28 }
     ],
-    decorateTarget, // ✅ HERE
     onHit:(t)=>{
       if(t.kind === 'good'){
-        const gi = clamp(t.groupIndex ?? 0, 0, 4);
+        const gi = clamp(t.groupIndex ?? Math.floor(STATE.rng()*5), 0, 4);
         onHitGood(gi);
-      }else onHitJunk();
+      }else{
+        onHitJunk();
+      }
     },
     onExpire:(t)=>{
       if(t.kind === 'good') onExpireGood();
-    }
+    },
+
+    // ✅ important
+    className: 'plateTarget',
+    safeVarPrefix: 'plate',
+    decorateTarget,
   });
 }
 
+/* ------------------------------------------------
+ * Main boot
+ * ------------------------------------------------ */
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
@@ -270,7 +306,9 @@ export function boot({ mount, cfg }){
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
-  // RNG: research => deterministic
+  STATE.shield = 0;
+
+  // RNG
   if(cfg.runMode === 'research' || cfg.runMode === 'study'){
     STATE.rng = seededRng(cfg.seed || Date.now());
   }else{
@@ -291,5 +329,6 @@ export function boot({ mount, cfg }){
   startTimer();
 
   STATE.engine = makeSpawner(mount);
+
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
 }
