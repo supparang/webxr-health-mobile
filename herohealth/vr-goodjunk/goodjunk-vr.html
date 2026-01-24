@@ -1,10 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run)
-✅ CSS: ./goodjunk-vr.css   (S)
-✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js
+GoodJunkVR RUN — PRODUCTION (Folder-run) [B FULL]
+✅ CSS: ./goodjunk-vr.css
+✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ Measures HUD + VRUI safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ Listens quest:update -> updates GOAL/MINI HUD + Missions peek
 -->
 <!doctype html>
 <html lang="th">
@@ -129,7 +130,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure -->
+  <!-- UI wiring + safe-zone measure + quest/update listener -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -151,7 +152,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
       btnBack?.addEventListener('click', ()=>{
-        try{ window.HHACloudLogger?.flush?.(); }catch(_){}
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
       });
@@ -169,22 +169,76 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
           peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
         }
+        setTimeout(updateSafe, 0);
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
+      // ✅ quest:update -> update HUD + Missions peek
+      function setTxt(id, v){
+        const el = document.getElementById(id);
+        if(el) el.textContent = String(v ?? '—');
+      }
+      window.addEventListener('quest:update', (ev)=>{
+        const d = ev?.detail || {};
+        if(d.goal){
+          setTxt('hud-goal', d.goal.name || '—');
+          setTxt('goalDesc', d.goal.sub || '—');
+          setTxt('hud-goal-cur', d.goal.cur ?? 0);
+          setTxt('hud-goal-target', d.goal.target ?? 0);
+        }
+        if(d.mini){
+          setTxt('hud-mini', d.mini.name || '—');
+          setTxt('miniTimer', d.mini.timerText || (d.mini.done ? 'ผ่านแล้ว' : '—'));
+        }
+        // refresh peek if open
+        if(document.body.classList.contains('show-missions')){
+          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
+          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
+        }
+      }, { passive:true });
+
+      // ✅ measure HUD + VRUI => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+
+      function getVRUIHeight(){
+        // try common selectors (vr-ui.js)
+        const sels = [
+          '#hha-vrui', '.hha-vrui', '.hha-vr-ui', '.vrui', '.vrui-root', '#vrui',
+          '.hha-vrui-root', '.hha-vrui-bar', '.hha-vrui-buttons'
+        ];
+        let h = 0;
+        for(const s of sels){
+          const el = document.querySelector(s);
+          if(el){
+            const r = el.getBoundingClientRect();
+            h = Math.max(h, r.height || 0);
+          }
+        }
+        return h;
+      }
+
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+          const sab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
 
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
+          const vruiH = getVRUIHeight();
+
+          // top safe includes sat to prevent notch overlap
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + (document.body.classList.contains('hud-hidden') ? 0 : hudTop) + 14 + sat));
+
+          // bottom safe: HUD bottom + VRUI + thumb zone + sab
+          // (ให้แน่นทุกเครื่องกันเป้าไปชน ENTER VR/RECENTER)
+          const baseThumb = 110;
+          const hudPart = document.body.classList.contains('hud-hidden') ? 36 : (hudBot + 16);
+          const bottomSafe = Math.max(baseThumb, hudPart + vruiH + sab + 10);
+
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(bottomSafe));
         }catch(_){}
       }
 
@@ -193,6 +247,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
+      setInterval(updateSafe, 1500); // กัน VRUI โผล่ช้า/สลับโหมด
     })();
   </script>
 </body>
