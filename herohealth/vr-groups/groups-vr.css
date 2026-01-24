@@ -3,7 +3,7 @@ GroupsVR UI (HHA Standard-ish)
 ✅ HUD / Quest / Power / Coach
 ✅ Targets via CSS vars --x --y --s
 ✅ Emoji crisp centered via .fg-emoji (no dim)
-✅ Banner + Onboarding
+✅ Banner + Onboarding + Banner tones
 */
 
 :root{
@@ -266,6 +266,12 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   to  { transform: scale(1); opacity:1; }
 }
 
+/* Banner tone helpers (รองรับ JS ที่ add tone-*) */
+#bigBanner.tone-neutral .bigBannerText{ border-color: rgba(148,163,184,.22); }
+#bigBanner.tone-good    .bigBannerText{ border-color: rgba(34,197,94,.45); box-shadow: 0 0 0 7px rgba(34,197,94,.10), 0 18px 40px rgba(0,0,0,.35); }
+#bigBanner.tone-warn    .bigBannerText{ border-color: rgba(245,158,11,.55); box-shadow: 0 0 0 7px rgba(245,158,11,.10), 0 18px 40px rgba(0,0,0,.35); }
+#bigBanner.tone-bad     .bigBannerText{ border-color: rgba(239,68,68,.55); box-shadow: 0 0 0 8px rgba(239,68,68,.12), 0 18px 40px rgba(0,0,0,.35); }
+
 /* Onboarding */
 .overlay-onb{ z-index: 120; }
 .onbPanel{ max-width:520px; }
@@ -291,6 +297,7 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   backdrop-filter: blur(6px);
 }
 
+/* ✅ Emoji crisp centered (ไม่โดน filter/contrast ดับ) */
 .fg-emoji{
   display:flex;
   align-items:center;
@@ -304,7 +311,7 @@ body.mini-urgent .questTop .questCard:nth-child(2){
     0 2px 0 rgba(0,0,0,.35),
     0 8px 18px rgba(0,0,0,.55);
   filter: none !important;
-  opacity: 1;
+  opacity: 1 !important;
   transform: translateZ(0);
   pointer-events:none;
 }
@@ -317,7 +324,7 @@ body.mini-urgent .questTop .questCard:nth-child(2){
 .fg-wrong{
   border-color: rgba(59,130,246,.55);
   box-shadow: 0 0 0 6px rgba(59,130,246,.12), 0 12px 28px rgba(0,0,0,.35);
-  /* ❌ อย่าใช้ filter: ... เพราะ emoji จะโดนดับด้วย */
+  /* ❌ ห้ามใส่ filter: saturate/contrast ที่ parent เพราะ emoji จะดับ */
 }
 
 .fg-junk{
