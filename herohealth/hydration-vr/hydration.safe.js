@@ -1,15 +1,16 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — LATEST
-// ✅ FIX: Water gauge moves naturally (up/down) + drift to center (no "stuck")
-// ✅ NEW: DD (Difficulty Director) recalculated every 1s (play only), research => OFF
-// ✅ Kids-friendly (?kids=1): softer DD + easier water control
+// Hydration SAFE — PRODUCTION (FULL) — LATEST (Auto + P.5 smooth)
+// ✅ Water gauge: smooth + always can go down (passive drain) + kid-friendly deltas
+// ✅ DD calc every 1s (fair; research computes but does NOT apply)
 // ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic-ish in research
 // ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
 // ✅ Mission 3-Stage: GREEN hold -> Storm Mini -> Boss Clear
 // ✅ Cardboard layers via window.HHA_VIEW.layers from loader
 // ✅ Spawn Safe-Zone (avoid HUD + safe-area)
-// ✅ Practice 15s (play only) kids-friendly onboarding
-// ✅ Avoid duplicate send if using hha-cloud-logger.js (?log=...)
+// ✅ Practice mode 15s (play only) => kids-friendly onboarding
+// ✅ Kids-friendly tuning (?kids=1)
+// ✅ Avoid duplicate log send if using hha-cloud-logger.js (?log=...)
+// ---------------------------------------------------
 
 'use strict';
 
@@ -142,7 +143,7 @@ function popScore(text='+10'){
   pulseBody('hha-hitfx', 140);
 }
 
-// -------------------- Audio tick --------------------
+// -------------------- Audio tick (no file needed) --------------------
 let AC=null;
 function ensureAC(){
   try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
@@ -174,11 +175,11 @@ const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 const logEndpoint = String(qs('log','') || '');
 
-// Kids-friendly
+// Kids-friendly modifier
 const kidsQ = String(qs('kids','0')).toLowerCase();
 const KIDS = (kidsQ==='1' || kidsQ==='true' || kidsQ==='yes');
 
-// Practice (play-only)
+// Practice modifier (play-only, not research)
 const practiceSecQ = clamp(parseInt(qs('practice', 15),10) || 15, 0, 60);
 
 // RNG deterministic-ish
@@ -222,11 +223,8 @@ const S = {
   streakGood:0,
   streakMax:0,
 
-  // water
-  waterPct: 50,
+  waterPct:50,
   waterZone:'GREEN',
-  waterVel: 0,            // ✅ new: drift velocity
-  waterCenter: 55,        // center of GREEN
 
   shield:0,
   shieldMax:3,
@@ -265,9 +263,23 @@ const S = {
   endFxOn:false,
   endFxTickAt:0,
 
-  // Adaptive (DD)
-  adaptiveOn: (run !== 'research' && run !== 'study'),
+  // Adaptive / DD
+  adaptiveOn: (run !== 'research'),
   adaptK:0,
+
+  dd: { // updated every 1s
+    skill:0.50,
+    fatigue:0.00,
+    frustration:0.10,
+    spawnMul:1.00,
+    sizeMul:1.00,
+    badBias:0.00,
+    lockHint:56
+  },
+  _ddAcc:0,
+  _ddPrev:{
+    nGoodSpawn:0, nHitGood:0, misses:0, combo:0
+  },
 
   // Mission stage
   stage:1,
@@ -279,141 +291,99 @@ const S = {
   practiceOn:false,
   practiceSec: practiceSecQ,
   practiceLeft:0,
-  practiceDone:true,
-
-  // DD internal
-  ddLastAt: 0,
-  dd: {
-    level: 0.30,          // 0..1  (0 easy -> 1 hard)
-    sizeMul: 1.00,
-    spawnMul: 1.00,
-    badMul: 1.00,
-    lifeMul: 1.00
-  }
+  practiceDone:true
 };
 
 const TUNE = (() => {
   const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
   const spawnBaseMs0 = diff==='easy' ? 700 : diff==='hard' ? 500 : 600;
-
   const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
   const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
 
   const greenTarget = clamp(
-    Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
-    18,
-    Math.max(18, timeLimit-8)
+    Math.round(timeLimit * (diff==='easy' ? 0.40 : diff==='hard' ? 0.52 : 0.46)),
+    16,
+    Math.max(16, timeLimit-8)
   );
 
-  // base life
-  const goodLifeMs = KIDS ? (diff==='hard'?1100:1250) : (diff==='hard'? 930 : 1080);
-  const badLifeMs  = KIDS ? (diff==='hard'?1150:1320) : (diff==='hard'? 980 : 1120);
+  // Kids adjustments
+  const goodLifeMs = KIDS ? (diff==='hard'?1120:1260) : (diff==='hard'? 960 : 1100);
+  const badLifeMs  = KIDS ? (diff==='hard'?1160:1300) : (diff==='hard'? 1020 : 1160);
+  const spawnBaseMs = KIDS ? (diff==='hard'?560:660) : spawnBaseMs0;
 
   return {
-    // size & spawn
     sizeBase,
-    spawnBaseMs: KIDS ? (diff==='hard'?560:670) : spawnBaseMs0,
-    spawnJitter:170,
-
-    // life
+    spawnBaseMs,
+    spawnJitter:180,
     goodLifeMs,
     badLifeMs,
     shieldLifeMs: KIDS ? 1600 : 1400,
-
-    // storm
     stormEverySec,
     stormDurSec,
     stormSpawnMul: diff==='hard'? 0.58 : 0.66,
-    endWindowSec: 1.2,
+    endWindowSec:1.2,
     bossWindowSec: diff==='hard'? 2.4 : 2.2,
-
-    // mini target
+    missPenalty: 1,
     greenTargetSec: greenTarget,
-    pressureNeed: KIDS ? (diff==='easy'?0.62 : diff==='hard'?0.92 : 0.78)
-                      : (diff==='easy'?0.75 : diff==='hard'?1.00 : 0.90),
-
-    // water control (✅ new)
-    greenLow: 40,
-    greenHigh: 70,
-    center: 55,
-
-    // drift to center (per sec)
-    driftK: KIDS ? 0.26 : 0.20,   // bigger => returns to center faster
-    driftDamp: 0.85,              // velocity damping
-
-    // hit deltas
-    goodBase: KIDS ? 9.0 : 7.0,
-    badBase:  KIDS ? 10.5 : 12.0,
-
-    // practice soften
-    practiceBadReduce: 0.80
+    pressureNeed: KIDS ? (diff==='easy'?0.60 : diff==='hard'?0.90 : 0.78)
+                      : (diff==='easy'?0.72 : diff==='hard'?1.00 : 0.90)
   };
 })();
-
 S.endWindowSec = TUNE.endWindowSec;
 S.bossWindowSec = TUNE.bossWindowSec;
-S.waterCenter = TUNE.center;
 
-// -------------------- Water helpers (FIXED) --------------------
-function updateZone(){
-  // Prefer zoneFrom if it already matches GREEN bands in ui-water.js
-  // but to be safe, compute with TUNE thresholds too.
-  const p = clamp(S.waterPct, 0, 100);
-  // if ui-water zoneFrom exists and looks stable, use it
-  try{
-    const z = String(zoneFrom(p)||'').toUpperCase();
-    if (z) { S.waterZone = z; return; }
-  }catch(_){}
-  if (p < TUNE.greenLow) S.waterZone = 'LOW';
-  else if (p > TUNE.greenHigh) S.waterZone = 'HIGH';
-  else S.waterZone = 'GREEN';
-}
+// -------------------- Water tuning (P.5 smooth + always can go down) --------------------
+// Concept: good(💧) increases hydration, bad(🥤/🌩️) decreases.
+// Fix: add PASSIVE DRAIN so gauge will go down naturally (solves "ไม่ลดเลย").
+// Make deltas gentle for kids.
+const WATER = {
+  // % per second passive drain
+  drainPerSec: KIDS ? 0.85 : 1.05,
+  // additional drain during storm to feel urgent
+  stormDrainMul: KIDS ? 1.15 : 1.22,
 
-function waterDrift(dt){
-  // ✅ drift velocity to center => makes gauge decrease from HIGH naturally (fix "ไม่ลดลง")
-  const p = S.waterPct;
-  const toC = (S.waterCenter - p);          // + => should go up, - => should go down
-  // velocity integrates a spring-ish pull
-  S.waterVel += toC * TUNE.driftK * dt * 60; // scale to feel responsive
-  // damping
-  S.waterVel *= Math.pow(TUNE.driftDamp, dt*60);
-  // apply
-  S.waterPct = clamp(S.waterPct + S.waterVel * dt, 0, 100);
+  // hit deltas (good always +, bad always -)
+  goodLow:  KIDS ? 11 : 9,   // when LOW
+  goodGreen:KIDS ? 8  : 7,   // when GREEN
+  goodHigh: KIDS ? 4  : 3,   // when HIGH
+
+  badLow:   KIDS ? 10 : 12,  // when already LOW
+  badGreen: KIDS ? 14 : 16,  // when GREEN
+  badHigh:  KIDS ? 18 : 20,  // when HIGH
+
+  // safety: if stuck HIGH too long, small extra drain
+  highExtraDrainPerSec: KIDS ? 0.35 : 0.45
+};
+
+function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
+
+function passiveWater(dt){
+  // dt seconds
+  let d = WATER.drainPerSec;
+  if (S.stormActive) d *= WATER.stormDrainMul;
+  if (S.waterZone === 'HIGH') d += WATER.highExtraDrainPerSec;
+
+  S.waterPct = clamp(S.waterPct - d*dt, 0, 100);
   updateZone();
 }
 
 function addWaterGood(){
-  // ✅ good raises water, but if too HIGH, it raises less (so control is easier)
-  const p = S.waterPct;
-  let delta = TUNE.goodBase;
-
-  // closer to LOW => bigger help; closer to HIGH => smaller
-  if (p < TUNE.center) delta += clamp((TUNE.center - p)*0.10, 0, KIDS?4.5:3.5);
-  if (p > TUNE.greenHigh) delta *= 0.55;
-
-  // DD can make slightly harder/easier (play only)
-  if (S.adaptiveOn) delta *= (1.05 - 0.22*S.dd.level);
-  if (S.practiceOn && !S.practiceDone) delta *= 1.10;
-
-  S.waterPct = clamp(p + delta, 0, 100);
+  const z = S.waterZone;
+  const add =
+    (z === 'LOW') ? WATER.goodLow :
+    (z === 'HIGH') ? WATER.goodHigh :
+    WATER.goodGreen;
+  S.waterPct = clamp(S.waterPct + add, 0, 100);
   updateZone();
 }
 
 function subWaterBad(){
-  // ✅ bad decreases water (simple & kid-friendly)
-  const p = S.waterPct;
-  let delta = TUNE.badBase;
-
-  // if already LOW, reduce punishment a bit (avoid frustration)
-  if (p < TUNE.greenLow) delta *= 0.72;
-
-  // practice soften
-  if (S.practiceOn && !S.practiceDone) delta *= TUNE.practiceBadReduce;
-
-  // DD (harder => bigger penalty a bit)
-  if (S.adaptiveOn) delta *= (0.92 + 0.20*S.dd.level);
-
-  S.waterPct = clamp(p - delta, 0, 100);
+  const z = S.waterZone;
+  const sub =
+    (z === 'LOW') ? WATER.badLow :
+    (z === 'HIGH') ? WATER.badHigh :
+    WATER.badGreen;
+  S.waterPct = clamp(S.waterPct - sub, 0, 100);
   updateZone();
 }
 
@@ -425,6 +395,7 @@ function computeGrade(){
   const acc = computeAccuracy();
   const miss = S.misses|0;
   const mini = S.stormSuccess|0;
+
   if (acc >= 95 && miss <= (KIDS?4:2) && mini >= 1) return 'SSS';
   if (acc >= 90 && miss <= (KIDS?7:4)) return 'SS';
   if (acc >= 82) return 'S';
@@ -452,6 +423,70 @@ function setStage(n){
   pulseBody('hha-hitfx', 180);
 }
 
+// -------------------- DD calc every 1s --------------------
+function ddCompute1s(){
+  // compute deltas over last ~1s
+  const prev = S._ddPrev;
+  const dGoodSpawn = (S.nGoodSpawn - prev.nGoodSpawn);
+  const dHitGood   = (S.nHitGood - prev.nHitGood);
+  const dMiss      = (S.misses   - prev.misses);
+  const comboK     = clamp(S.combo/18, 0, 1);
+
+  prev.nGoodSpawn = S.nGoodSpawn;
+  prev.nHitGood   = S.nHitGood;
+  prev.misses     = S.misses;
+  prev.combo      = S.combo;
+
+  const hitRate = clamp(dHitGood / Math.max(1, dGoodSpawn), 0, 1);
+  const skill = clamp(hitRate*0.72 + comboK*0.28, 0, 1);
+
+  const fatigue = clamp((timeLimit - S.leftSec)/Math.max(1, timeLimit), 0, 1);
+
+  // frustration: misses in last second + low skill
+  const missPulse = clamp(dMiss/3, 0, 1);
+  const frustration = clamp(missPulse*0.65 + (1-skill)*0.35, 0, 1);
+
+  // store
+  S.dd.skill = S.dd.skill*0.78 + skill*0.22;
+  S.dd.fatigue = fatigue;
+  S.dd.frustration = S.dd.frustration*0.80 + frustration*0.20;
+
+  // convert to multipliers (fair ranges)
+  let spawnMul = 1.00;
+  let sizeMul  = 1.00;
+  let badBias  = 0.00;
+
+  if (S.adaptiveOn){
+    // higher skill => faster spawns + smaller targets
+    // higher frustration => slow down + slightly bigger + slightly fewer bads
+    const s = S.dd.skill;
+    const f = S.dd.frustration;
+
+    spawnMul = clamp(1.08 - 0.30*s + 0.22*f, KIDS?0.86:0.82, KIDS?1.18:1.22);
+    sizeMul  = clamp(1.08 - 0.22*s + 0.20*f, KIDS?0.90:0.86, KIDS?1.18:1.25);
+
+    // badBias: negative => fewer bad, positive => more bad
+    badBias  = clamp((-0.05*s + 0.06*f), KIDS?-0.05:-0.06, KIDS?0.05:0.07);
+
+    // keep a simple adaptK for legacy usage
+    S.adaptK = clamp(s*0.80 + (1-f)*0.20, 0, 1);
+  } else {
+    // research: compute but do not apply
+    spawnMul = 1.00;
+    sizeMul  = 1.00;
+    badBias  = 0.00;
+    S.adaptK = 0;
+  }
+
+  S.dd.spawnMul = spawnMul;
+  S.dd.sizeMul = sizeMul;
+  S.dd.badBias = badBias;
+
+  // hint for aim lock (not strict) - helpful for debug/telemetry
+  S.dd.lockHint = clamp(56*(1.15 - 0.55*S.dd.skill) + 10*S.dd.frustration, 32, 86);
+}
+
+// -------------------- HUD + Quest --------------------
 function syncHUD(){
   const grade = computeGrade();
   setText('stat-score', S.score|0);
@@ -474,14 +509,14 @@ function syncHUD(){
   // Practice override
   if (S.practiceOn && !S.practiceDone){
     setText('quest-line1', `Practice: ซ้อมก่อนเริ่มจริง (${Math.ceil(S.practiceLeft)}s)`);
-    setText('quest-line2', `ยิง 💧 เพื่อคุมโซน • เก็บ 🛡️ ได้เลย`);
-    setText('quest-line3', `ซ้อมสบาย ๆ — ไม่ซีเรียสเรื่องคะแนน`);
+    setText('quest-line2', `ยิง 💧 ให้คุมโซน / เก็บ 🛡️ ได้เลย`);
+    setText('quest-line3', `ซ้อมไม่ซีเรียส — เน้นความคุ้นมือ`);
     setText('quest-line4', `ครบแล้วเริ่มเกมจริงอัตโนมัติ`);
   } else {
     if (S.stage === 1){
       setText('quest-line1', `Stage 1/3: คุม GREEN ให้ครบ ${TUNE.greenTargetSec|0}s (สะสม)`);
       setText('quest-line2', `GREEN: ${S.greenHold.toFixed(1)} / ${TUNE.greenTargetSec.toFixed(0)}s`);
-      setText('quest-line3', `ทิป: อย่าให้ขึ้น HIGH/ลง LOW นานเกิน—ปล่อยให้ drift กลับ GREEN ได้`);
+      setText('quest-line3', `ทิป: ยิง 💧 เป็นจังหวะให้ค้าง GREEN นาน ๆ`);
       setText('quest-line4', `เตรียม: เก็บ 🛡️ ไว้ทำ Storm Mini`);
     } else if (S.stage === 2){
       setText('quest-line1', `Stage 2/3: ผ่าน Storm Mini อย่างน้อย 1 พายุ`);
@@ -489,14 +524,13 @@ function syncHUD(){
       if (S.stormActive){
         const m = S.miniState;
         const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
-        setText('quest-line3', `Storm Mini: ทำให้ “ไม่ GREEN” (LOW/HIGH) + BLOCK ช่วงท้าย${bossTxt}`);
-        setText(
-          'quest-line4',
+        setText('quest-line3', `Storm Mini: ทำให้ Zone เป็น LOW/HIGH + BLOCK ช่วงท้าย${bossTxt}`);
+        setText('quest-line4',
           `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
           + (m.gotHitByBad ? ' • FAIL: HIT BAD' : '')
         );
       } else {
-        setText('quest-line3', `รอ Storm… เก็บ 🛡️ แล้วเตรียม BLOCK ช่วงท้าย (End Window)`);
+        setText('quest-line3', `รอ Storm… ตอนพายุมาให้ทำ “LOW/HIGH + BLOCK ช่วงท้าย”`);
         setText('quest-line4', `Progress: ${S.stormSuccess|0}/${S.stormCycle|0} (ผ่าน/เจอพายุ)`);
       }
     } else {
@@ -512,7 +546,8 @@ function syncHUD(){
     }
   }
 
-  setWaterGauge(clamp(S.waterPct,0,100));
+  // water ui
+  setWaterGauge(S.waterPct);
   syncWaterPanelDOM();
 
   emit('hha:score', {
@@ -533,7 +568,12 @@ function syncHUD(){
     stage:S.stage|0,
     kids: !!KIDS,
     practiceOn: !!(S.practiceOn && !S.practiceDone),
-    ddLevel: S.dd.level
+
+    // dd telemetry
+    ddSkill: Number(S.dd.skill||0),
+    ddFrustration: Number(S.dd.frustration||0),
+    ddSpawnMul: Number(S.dd.spawnMul||1),
+    ddSizeMul: Number(S.dd.sizeMul||1)
   });
 
   emit('quest:update', {
@@ -581,7 +621,7 @@ function syncHUD(){
 })();
 
 // -------------------- Spawn helpers --------------------
-// ✅ Spawn within safe play-zone (avoid HUD + safe-area)
+// Spawn safe-zone: avoid HUD + safe-area
 function pickXY(){
   const r = getPlayfieldRect();
 
@@ -589,8 +629,9 @@ function pickXY(){
   const sat = parseFloat(rootStyle.getPropertyValue('--sat')) || 0;
   const sab = parseFloat(rootStyle.getPropertyValue('--sab')) || 0;
 
-  const safeTop = 140 + sat;   // top HUD stack height
-  const safeBottom = 44 + sab; // bottom gesture room
+  // slightly smaller HUD-safe for kids: more play area
+  const safeTop = (KIDS ? 124 : 140) + sat;
+  const safeBottom = 44 + sab;
   const safeSide = 18;
   const pad = 22;
 
@@ -613,95 +654,26 @@ function pickXY(){
   return { xPct, yPct };
 }
 
-// -------------------- DD (Difficulty Director) every 1s --------------------
-function ddCompute(){
-  // research => fixed
-  if (!S.adaptiveOn){
-    S.dd.level = KIDS ? 0.25 : 0.35;
-    S.dd.sizeMul = 1.00;
-    S.dd.spawnMul = 1.00;
-    S.dd.badMul = 1.00;
-    S.dd.lifeMul = 1.00;
-    return;
-  }
-
-  const acc = computeAccuracy()/100;
-  const comboK = clamp(S.combo/18, 0, 1);
-  const missRate = clamp(S.misses / Math.max(1, (timeLimit - S.leftSec) + 6), 0, 2); // misses per ~sec-ish
-  const waterStable = (S.waterZone === 'GREEN') ? 1 : 0;
-
-  // Skill estimate
-  let skill = clamp(acc*0.62 + comboK*0.28 + waterStable*0.10, 0, 1);
-
-  // Frustration
-  let frus = clamp(missRate*0.55 + (1-acc)*0.35 + (S.waterZone!=='GREEN'?0.10:0), 0, 1);
-
-  // Practice => ease
-  if (S.practiceOn && !S.practiceDone){
-    skill = clamp(skill - 0.18, 0, 1);
-    frus  = clamp(frus  - 0.20, 0, 1);
-  }
-
-  // Convert to difficulty level (higher skill => harder, higher frustration => easier)
-  let target = clamp(0.45*skill + 0.30 - 0.35*frus, 0.10, 0.90);
-
-  // Kids: cap difficulty & smooth
-  const capHi = KIDS ? 0.62 : 0.85;
-  const capLo = KIDS ? 0.12 : 0.10;
-  target = clamp(target, capLo, capHi);
-
-  // Smooth transition
-  S.dd.level = S.dd.level*0.80 + target*0.20;
-
-  // Map to knobs
-  // sizeMul: harder => smaller
-  S.dd.sizeMul  = clamp(1.10 - 0.30*S.dd.level, KIDS?0.86:0.78, 1.15);
-  // spawnMul: harder => faster spawns (smaller delay)
-  S.dd.spawnMul = clamp(1.18 - 0.40*S.dd.level, KIDS?0.86:0.78, 1.20);
-  // badMul: harder => more BAD, less GOOD
-  S.dd.badMul   = clamp(0.82 + 0.50*S.dd.level, KIDS?0.95:0.90, 1.28);
-  // lifeMul: harder => shorter life
-  S.dd.lifeMul  = clamp(1.10 - 0.35*S.dd.level, KIDS?0.85:0.70, 1.12);
-}
-
-// -------------------- Target size / life --------------------
 function targetSize(){
   let s = TUNE.sizeBase;
 
+  // practice: bigger a bit
   if (S.practiceOn && !S.practiceDone) s *= 1.10;
 
-  // storm makes smaller
-  if (S.stormActive) s *= (diff==='hard'?0.80:0.84);
+  // DD size mul (only if adaptiveOn)
+  if (S.adaptiveOn){
+    s *= (S.dd.sizeMul || 1);
+  }
 
-  // DD
-  if (S.adaptiveOn) s *= S.dd.sizeMul;
+  // storm: shrink slightly
+  if (S.stormActive) s *= (diff==='hard'?0.80:0.84);
 
   return clamp(s, 46, 94);
 }
 
-function lifeMsFor(kind){
-  let life =
-    kind==='good' ? TUNE.goodLifeMs :
-    kind==='shield' ? TUNE.shieldLifeMs :
-    TUNE.badLifeMs;
-
-  // storm slightly shorter
-  if (S.stormActive) life *= (diff==='hard'?0.92:0.95);
-
-  // DD
-  if (S.adaptiveOn) life *= S.dd.lifeMul;
-
-  // practice: longer
-  if (S.practiceOn && !S.practiceDone) life *= 1.12;
-
-  return clamp(life, 320, 2200);
-}
-
-// -------------------- Hit cooldown --------------------
 let lastHitAt=0;
 const HIT_COOLDOWN_MS=55;
 
-// -------------------- Spawn --------------------
 function spawn(kind){
   if (S.ended) return;
   const layers = getLayers();
@@ -715,7 +687,10 @@ function spawn(kind){
   if (kind==='bad') S.nBadSpawn++;
   if (kind==='shield') S.nShieldSpawn++;
 
-  const life = lifeMsFor(kind);
+  const life =
+    kind==='good' ? TUNE.goodLifeMs :
+    kind==='shield' ? TUNE.shieldLifeMs :
+    TUNE.badLifeMs;
 
   let killed=false;
   const nodes=[];
@@ -749,8 +724,9 @@ function spawn(kind){
     for (const n of nodes){ try{ n.remove(); }catch(_){ } }
 
     if (reason==='expire' && kind==='good'){
+      // practice: no harsh penalty
       if (!(S.practiceOn && !S.practiceDone)){
-        S.misses += 1;
+        S.misses += TUNE.missPenalty;
       }
       S.nExpireGood++;
       S.combo=0;
@@ -773,12 +749,11 @@ function spawn(kind){
 
     if (kind==='good'){
       S.nHitGood++;
-      const add = 10 + Math.min(15, (S.combo|0));
+      const add = 10 + Math.min(14, (S.combo|0));
       S.score += add;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
 
-      // ✅ water up naturally
       addWaterGood();
 
       S.streakGood++;
@@ -805,6 +780,7 @@ function spawn(kind){
 
         if (S.stormActive && S.inEndWindow){
           S.miniState.blockedInEnd = true;
+          if (S.waterZone !== 'GREEN') emit('hha:judge', { kind:'perfect' });
         }
         if (isBossBad) S.bossBlocked++;
 
@@ -814,6 +790,7 @@ function spawn(kind){
       } else {
         S.nHitBad++;
 
+        // practice: soften penalty
         if (!(S.practiceOn && !S.practiceDone)){
           S.misses++;
           S.combo=0;
@@ -823,9 +800,7 @@ function spawn(kind){
           S.combo=0;
         }
 
-        // ✅ water down naturally
         subWaterBad();
-
         if (S.stormActive) S.miniState.gotHitByBad = true;
 
         emit('hha:judge', { kind:'bad' });
@@ -846,53 +821,47 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Storm schedule / spawn loop --------------------
+// -------------------- Storm + spawn loop --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
 
-  // adaptive: harder => smaller delay
-  if (S.adaptiveOn) base *= S.dd.spawnMul;
+  // DD spawn mul (only if adaptiveOn)
+  if (S.adaptiveOn){
+    base *= (S.dd.spawnMul || 1);
+  }
 
-  // storm multiplier
   if (S.stormActive) base *= TUNE.stormSpawnMul;
 
-  // practice slower
-  if (S.practiceOn && !S.practiceDone) base *= 1.15;
+  // practice: slower
+  if (S.practiceOn && !S.practiceDone) base *= 1.18;
 
-  return clamp(base, 230, 1500);
+  return clamp(base, 240, 1500);
 }
 
 function pickKind(){
-  // base distribution
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
   if (S.stormActive){
-    pGood=0.52; pBad=0.38; pSh=0.10;
+    pGood=0.54; pBad=0.36; pSh=0.10;
     if (S.bossEnabled && S.bossActive){
-      pBad += 0.10; pGood -= 0.10;
+      pBad += 0.10;
+      pGood -= 0.10;
     }
   }
   if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
 
-  // practice: reduce bad
-  if (S.practiceOn && !S.practiceDone){
-    pBad = Math.max(0.14, pBad - 0.10);
-    pGood = Math.min(0.82, pGood + 0.08);
-    pSh = Math.min(0.12, pSh + 0.02);
+  // DD bias (only if adaptiveOn)
+  if (S.adaptiveOn){
+    const bb = Number(S.dd.badBias || 0);
+    pBad = clamp(pBad + bb, 0.14, 0.55);
+    pGood = clamp(1 - pBad - pSh, 0.30, 0.80);
   }
 
-  // DD: adjust bad proportion gently
-  if (S.adaptiveOn){
-    const m = S.dd.badMul; // 0.95..1.28
-    pBad = clamp(pBad * m, 0.12, 0.52);
-    // keep sum ~1 by taking from good
-    const sum0 = pGood + pBad + pSh;
-    // normalize lightly
-    pGood = clamp(1 - (pBad + pSh), 0.30, 0.82);
-    const sum = pGood + pBad + pSh;
-    if (sum > 0){
-      pGood/=sum; pBad/=sum; pSh/=sum;
-    }
+  // practice: fewer bad
+  if (S.practiceOn && !S.practiceDone){
+    pBad = Math.max(0.16, pBad - 0.10);
+    pGood = Math.min(0.80, pGood + 0.08);
+    pSh = Math.min(0.12, pSh + 0.02);
   }
 
   const r=rng();
@@ -908,6 +877,7 @@ function setEndFx(on){
 }
 
 function enterStorm(){
+  // during practice, delay storms to not overload kids
   if (S.practiceOn && !S.practiceDone) return;
 
   S.stormActive=true;
@@ -928,9 +898,10 @@ function enterStorm(){
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
-  // small perturbation to avoid too-stable GREEN
+  // mild turbulence: push out of GREEN a bit so mini is possible quickly
   if (S.waterZone==='GREEN'){
-    S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -6 : +6), 0, 100);
+    const k = KIDS ? 9 : 10;
+    S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -k : +k), 0, 100);
     updateZone();
   }
 
@@ -964,7 +935,7 @@ function exitStorm(){
     popScore('+40');
   }
 
-  // boss bonus
+  // boss bonus success
   if (S.bossEnabled && !S.bossDoneThisStorm && S.bossBlocked>=S.bossNeed){
     S.bossDoneThisStorm=true;
     S.bossClearCount++;
@@ -1005,12 +976,12 @@ function tickStorm(dt){
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
 
-  // ✅ Mini requirement: be NOT GREEN (LOW or HIGH)
+  // Mini rule: during storm, must NOT be GREEN at least once
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  // pressure grows faster when zoneOK
-  const gain = zoneOK ? 1.05 : 0.25;
+  // pressure fills faster if zoneOK
+  const gain = zoneOK ? 1.05 : 0.30;
   S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
 
@@ -1037,9 +1008,9 @@ function computeTier(sum){
   const sOk=Number(sum.stormSuccess||0);
 
   if ((g==='SSS'||g==='SS') && acc>=90 && miss<=(KIDS?9:6) && sOk>=2) return 'Legend';
-  if (g==='S' && acc>=82 && miss<=(KIDS?18:12)) return 'Master';
+  if (g==='S' && acc>=82 && miss<=(KIDS?16:12)) return 'Master';
   if (g==='A' && acc>=70) return 'Expert';
-  if (g==='B' || (acc>=55 && miss<= (KIDS?45:30))) return 'Skilled';
+  if (g==='B' || (acc>=55 && miss<= (KIDS?42:30))) return 'Skilled';
   return 'Beginner';
 }
 
@@ -1052,19 +1023,19 @@ function buildTips(sum){
   const ok = (sum.stormSuccess|0);
   const boss = (sum.bossClearCount|0);
 
-  tips.push(goalsOk ? '✅ Stage1 ผ่านแล้ว (คุม GREEN ได้ดี)' : '🎯 Stage1: อยู่ GREEN ให้ได้นานขึ้น (ปล่อย drift กลับ GREEN ได้)');
+  tips.push(goalsOk ? '✅ Stage1 ผ่านแล้ว (คุม GREEN ได้ดี)' : '🎯 Stage1: ยิง 💧 เป็นจังหวะให้ค้าง GREEN ให้นาน');
   if (cycles<=0) tips.push('🌀 ยังไม่เจอพายุ: เล่นต่ออีกนิด จะมี STORM ให้ทำ Mini');
-  else if (ok<=0) tips.push('🌀 Stage2: ตอน STORM ทำให้ “ไม่ GREEN” (LOW/HIGH) ให้ครบเวลาหน่อย + BLOCK ช่วงท้าย และห้ามโดน BAD');
+  else if (ok<=0) tips.push('🌀 Stage2: ตอน STORM ต้องทำ “LOW/HIGH” สักครั้ง + BLOCK ช่วงท้าย (End Window) และห้ามโดน 🥤');
   else tips.push(`🔥 Stage2 ผ่านแล้ว: ผ่าน Mini ${ok}/${cycles} พายุ`);
 
   tips.push(boss>0 ? '🌩️ Stage3 ผ่านแล้ว: เคลียร์ BOSS สำเร็จ!' : '🌩️ Stage3: รอ Boss Window แล้ว BLOCK 🌩️ ให้ครบ');
 
-  if (acc<60) tips.push('🎯 Accuracy ต่ำ: เล็งนิ่งขึ้นนิด แล้วค่อยยิง');
-  else if (acc>=80) tips.push('⚡ Accuracy ดีมาก! ลากคอมโบยาว ๆ เกรดพุ่ง');
+  if (acc<60) tips.push('🎯 Accuracy ต่ำ: เล็งนิ่งนิดนึงแล้วค่อยยิง (อย่ารัว)');
+  else if (acc>=80) tips.push('⚡ Accuracy ดีมาก! ลากคอมโบยาว ๆ ได้เลย');
   if (miss>=25) tips.push('💥 MISS เยอะ: ลดการรัว + เลือกยิงเป้าที่ชัวร์');
 
   let next='เพิ่ม Accuracy + ลด MISS';
-  if (!goalsOk) next='ผ่าน Stage1 ก่อน (คุม GREEN)';
+  if (!goalsOk) next='ผ่าน Stage1 ก่อน (ค้าง GREEN)';
   else if (cycles>0 && ok<=0) next='ผ่าน Stage2 ให้ได้ (Mini 1 พายุ)';
   else if (boss<=0) next='เคลียร์ Stage3 (Boss Clear 1 ครั้ง)';
   else if (acc<70) next='ดัน Accuracy > 70%';
@@ -1149,7 +1120,6 @@ function nextStormSchedule(){
   const base = TUNE.stormEverySec;
   return base + (rng()*2-1)*1.2;
 }
-
 let spawnTimer=0;
 let nextStormIn=0;
 
@@ -1178,7 +1148,7 @@ function hitTestAtCenter(lockPx){
 }
 
 // adaptive lockPx state
-const AIM = { base:56, min:32, max:90, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
+const AIM = { base:56, min:32, max:86, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
 
 function aimLockPx(){
   const accK = clamp(computeAccuracy()/100, 0, 1);
@@ -1195,7 +1165,8 @@ function aimLockPx(){
   px += Math.min(18, AIM.streakMiss*4);
   px -= Math.min(10, AIM.streakHit*1.6);
 
-  if (KIDS) px *= 1.10;
+  // kids: allow slightly larger lock (less frustration)
+  if (KIDS) px *= 1.08;
 
   return clamp(px, AIM.min, AIM.max);
 }
@@ -1231,8 +1202,8 @@ function update(dt){
 
   S.leftSec = Math.max(0, S.leftSec - dt);
 
-  // ✅ water drift always runs => prevents "stuck"
-  waterDrift(dt);
+  // water always can go down (fix "ไม่ลดเลย")
+  passiveWater(dt);
 
   if (S.waterZone==='GREEN') S.greenHold += dt;
 
@@ -1247,13 +1218,6 @@ function update(dt){
       S.combo = 0;
       S.misses = 0;
     }
-  }
-
-  // ✅ DD every 1 second (play only)
-  const tNow = performance.now();
-  if (tNow - S.ddLastAt >= 1000){
-    S.ddLastAt = tNow;
-    ddCompute();
   }
 
   // Storm schedule
@@ -1274,20 +1238,28 @@ function update(dt){
     spawnTimer += nextSpawnDelay();
   }
 
+  // DD calc every 1 second
+  S._ddAcc += dt;
+  if (S._ddAcc >= 1.0){
+    // run as many whole seconds as accumulated (rare but safe)
+    const n = Math.min(3, Math.floor(S._ddAcc));
+    for (let i=0;i<n;i++) ddCompute1s();
+    S._ddAcc -= n;
+  }
+
   // HUD + AI
   syncHUD();
 
   AICOACH.onUpdate({
-    skill: clamp((computeAccuracy()/100)*0.7 + clamp(S.combo/20,0,1)*0.3, 0, 1),
-    fatigue: clamp((timeLimit - S.leftSec)/Math.max(1,timeLimit), 0, 1),
-    frustration: clamp((S.misses/Math.max(1,(timeLimit - S.leftSec)+5))*0.7 + (1-(computeAccuracy()/100))*0.3, 0, 1),
+    skill: Number(S.dd.skill||0.5),
+    fatigue: Number(S.dd.fatigue||0),
+    frustration: Number(S.dd.frustration||0),
     inStorm: !!S.stormActive,
     inEndWindow: !!S.inEndWindow,
     waterZone: S.waterZone,
     shield: S.shield|0,
     misses: S.misses|0,
     combo: S.combo|0,
-    stage: S.stage|0,
     kids: !!KIDS,
     practiceOn: !!(S.practiceOn && !S.practiceDone)
   });
@@ -1341,8 +1313,11 @@ async function endGame(reason){
     kids: !!KIDS,
     practiceSec: S.practiceOn ? (S.practiceSec|0) : 0,
 
-    // DD snapshot
-    ddLevel: S.dd.level
+    // dd telemetry snapshot
+    ddSkill: Number(S.dd.skill||0),
+    ddFrustration: Number(S.dd.frustration||0),
+    ddSpawnMul: Number(S.dd.spawnMul||1),
+    ddSizeMul: Number(S.dd.sizeMul||1)
   };
 
   try{
@@ -1353,7 +1328,7 @@ async function endGame(reason){
   emit('hha:end', summary);
   AICOACH.onEnd(summary);
 
-  // Avoid duplicate send when hha-cloud-logger.js is enabled
+  // Avoid duplicate send when using hha-cloud-logger.js (?log=...)
   if (!window.HHA_LOGGER || !window.HHA_LOGGER.enabled){
     await sendLog(summary);
   }
@@ -1363,29 +1338,30 @@ async function endGame(reason){
 
 function boot(){
   ensureWaterGauge();
-  setWaterGauge(clamp(S.waterPct,0,100));
+  setWaterGauge(S.waterPct);
   updateZone();
   syncWaterPanelDOM();
   bindSummaryButtons();
 
   // Practice init
-  S.practiceOn = (practiceSecQ > 0) && (run !== 'research' && run !== 'study');
+  S.practiceOn = (practiceSecQ > 0) && (run !== 'research');
   S.practiceLeft = S.practiceOn ? practiceSecQ : 0;
   S.practiceDone = !S.practiceOn;
 
   spawnTimer = 320;
   nextStormIn = nextStormSchedule();
 
+  // init dd snapshot
+  S._ddPrev.nGoodSpawn = S.nGoodSpawn;
+  S._ddPrev.nHitGood = S.nHitGood;
+  S._ddPrev.misses = S.misses;
+  S._ddPrev.combo = S.combo;
+
   window.addEventListener('hha:start', ()=>{
     if (S.started) return;
     S.started=true;
     S.t0=performance.now();
     S.lastTick=S.t0;
-
-    // init DD baseline
-    S.ddLastAt = 0;
-    ddCompute();
-
     syncHUD();
     AICOACH.onStart();
 
@@ -1404,7 +1380,7 @@ function boot(){
     endGame(d.reason || 'force');
   });
 
-  // Auto-start if overlay hidden
+  // If overlay already hidden somehow, auto-start
   const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
     const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
