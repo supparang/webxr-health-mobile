@@ -1,18 +1,15 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — FAIR PACK (v3: STAR+SHIELD + SHOOT + FOOD5 + MINI window)
-// ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe from goodjunk-vr.html)
-// ✅ MISS = good expired + junk hit (shield blocks junk => not MISS)
+// GoodJunkVR SAFE — FAIR PACK (v2.2: QUEST + FOOD5 + STABLE TARGETS)
+// ✅ Spacious spawn (uses --gj-top-safe / --gj-bottom-safe)
+// ✅ MISS = good expired + junk hit
 // ✅ ⭐ Star: reduce miss by 1 (floor 0) + bonus score
 // ✅ 🛡 Shield: blocks next junk hit (blocked junk does NOT count as miss)
 // ✅ Supports: tap/click OR crosshair shoot via event hha:shoot
-// ✅ FOOD5 mapping: good targets show emoji by Thai 5 groups (seeded)
-// ✅ MINI window: “ครบ 3 หมู่ใน 12 วิ” => bonus spawn (⭐ or 🛡) + coach message
-// ✅ Low-time overlay 5..1
+// ✅ GOAL/MINI quest updates (HUD + missions peek ready)
+// ✅ Food 5 groups mapping for GOOD targets (educational)
 // Emits: hha:start, hha:score, hha:time, hha:judge, quest:update, hha:end
 
 'use strict';
-
-import { FOOD5, JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
 
 const WIN = window;
 const DOC = document;
@@ -41,7 +38,6 @@ function getSafeRect(){
 }
 
 function pickByShoot(lockPx=28){
-  // pick .gj-target nearest to center within lock window
   const r = DOC.documentElement.getBoundingClientRect();
   const cx = r.left + r.width/2;
   const cy = r.top  + r.height/2;
@@ -67,94 +63,36 @@ function pickByShoot(lockPx=28){
 
     if(!best || d2 < best.d2) best = { el, d2 };
   }
-
   return best ? best.el : null;
 }
 
-// ---------- FOOD5 helpers ----------
-function chooseGroupId(rng){
-  return 1 + Math.floor(((typeof rng==='function') ? rng() : Math.random()) * 5);
-}
-
-function decorateTarget(el, t){
-  if(!el || !t) return;
-
-  if(t.kind === 'good'){
-    const gid = t.groupId || 1;
-    const emo = emojiForGroup(t.rng, gid);
-    el.textContent = emo;
-    el.dataset.group = String(gid);
-    el.setAttribute('aria-label', `${labelForGroup(gid)} ${emo}`);
-  }else if(t.kind === 'junk'){
-    const emo = pickEmoji(t.rng, JUNK.emojis);
-    el.textContent = emo;
-    el.dataset.group = 'junk';
-    el.setAttribute('aria-label', `${JUNK.labelTH} ${emo}`);
-  }else if(t.kind === 'star'){
-    el.textContent = '⭐';
-    el.dataset.group = 'star';
-    el.setAttribute('aria-label', 'STAR');
-  }else if(t.kind === 'shield'){
-    el.textContent = '🛡️';
-    el.dataset.group = 'shield';
-    el.setAttribute('aria-label', 'SHIELD');
-  }
-}
-
-// ---------- MINI window meta ----------
-const MINI = {
-  windowSec: 12,
-  targetGroups: 3,
-  startAt: 0,
-  groups: new Set(),
-  done: false
+/* ---------------------------
+   Food 5 groups mapping (Thai)
+   หมู่ 1 โปรตีน | หมู่ 2 คาร์บ | หมู่ 3 ผัก | หมู่ 4 ผลไม้ | หมู่ 5 ไขมัน
+--------------------------- */
+const FOOD5 = {
+  1:{ label:'หมู่ 1 โปรตีน', emojis:['🥚','🐟','🍗','🥛','🫘'] },
+  2:{ label:'หมู่ 2 คาร์โบไฮเดรต', emojis:['🍚','🍞','🥔','🌽','🍜'] },
+  3:{ label:'หมู่ 3 ผัก', emojis:['🥦','🥬','🥕','🍆','🥒'] },
+  4:{ label:'หมู่ 4 ผลไม้', emojis:['🍎','🍌','🍊','🍉','🍇'] },
+  5:{ label:'หมู่ 5 ไขมัน', emojis:['🥑','🫒','🥜','🧈','🧀'] },
 };
-function nowMs(){ return (performance?.now?.() ?? Date.now()); }
-function resetMiniWindow(){
-  MINI.startAt = nowMs();
-  MINI.groups.clear();
-  MINI.done = false;
-}
+const JUNK = { label:'ขยะอาหาร', emojis:['🍟','🍔','🍕','🧋','🍩','🍭'] };
 
-// ---------- Quest UI helpers ----------
-function setText(id, v){
-  const el = DOC.getElementById(id);
-  if(el) el.textContent = String(v);
+function pickEmoji(rng, arr){
+  const a = arr || ['⭐'];
+  const i = Math.floor((rng?rng():Math.random()) * a.length);
+  return a[Math.max(0, Math.min(a.length-1, i))];
 }
-function pushQuest(goal, mini, allDone=false){
-  // update HUD text
-  if(goal){
-    setText('hud-goal', goal.name ?? '—');
-    setText('goalDesc', goal.sub ?? '—');
-    setText('hud-goal-cur', goal.cur ?? 0);
-    setText('hud-goal-target', goal.target ?? 0);
-  }
-  if(mini){
-    setText('hud-mini', mini.name ?? '—');
-    setText('miniTimer', mini.timerText ?? '—');
-  }
-
-  emit('quest:update', { goal, mini, allDone });
-}
-
-// ---------- Low time overlay ----------
-function setLowTimeOverlay(show, num){
-  const ov = DOC.getElementById('lowTimeOverlay');
-  const elNum = DOC.getElementById('gj-lowtime-num');
-  if(!ov || !elNum) return;
-  if(show){
-    ov.setAttribute('aria-hidden', 'false');
-    elNum.textContent = String(num);
-  }else{
-    ov.setAttribute('aria-hidden', 'true');
-  }
+function chooseGroupId(rng){
+  return 1 + Math.floor((rng?rng():Math.random()) * 5);
 }
 
 export function boot(opts={}){
   const view = String(opts.view || qs('view','mobile')).toLowerCase();
   const run  = String(opts.run  || qs('run','play')).toLowerCase();
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
-  const timePlan = clamp(Number(opts.time || qs('time','80'))||80, 20, 300);
+  const timePlan = clamp(opts.time ?? qs('time','80'), 20, 300);
   const seed = String(opts.seed || qs('seed', Date.now()));
 
   const elScore = DOC.getElementById('hud-score');
@@ -167,23 +105,19 @@ export function boot(opts={}){
   const elFeverText = DOC.getElementById('feverText');
   const elShield    = DOC.getElementById('shieldPills');
 
-  const rng = makeRNG(seed);
+  // Quest DOM
+  const elGoal   = DOC.getElementById('hud-goal');
+  const elGoalD  = DOC.getElementById('goalDesc');
+  const elGoalC  = DOC.getElementById('hud-goal-cur');
+  const elGoalT  = DOC.getElementById('hud-goal-target');
+  const elMini   = DOC.getElementById('hud-mini');
+  const elMiniT  = DOC.getElementById('miniTimer');
 
-  // -------- Difficulty knobs (FAIR) --------
-  // ปรับได้ภายหลังให้ “เร้าใจ” ขึ้นแบบคุมได้
-  const CFG = {
-    spawnEveryMs: (diff==='easy') ? 980 : (diff==='hard') ? 820 : 900,
-    ttlGoodMs:    (diff==='easy') ? 1750 : (diff==='hard') ? 1450 : 1600,
-    ttlJunkMs:    (diff==='easy') ? 1800 : (diff==='hard') ? 1500 : 1600,
-    ttlPowerMs:   1700,
-    // distribution
-    pGood: 0.70,
-    pJunk: 0.26,
-    pStar: 0.02,
-    pShield: 0.02,
-    // goal
-    goalTargetGood: (diff==='easy') ? 18 : (diff==='hard') ? 26 : 22
-  };
+  // Low time overlay
+  const elLowOv  = DOC.getElementById('lowTimeOverlay');
+  const elLowNum = DOC.getElementById('gj-lowtime-num');
+
+  const rng = makeRNG(seed);
 
   const S = {
     started:false, ended:false,
@@ -191,14 +125,9 @@ export function boot(opts={}){
     timePlan, timeLeft: timePlan,
     seed, rng,
 
-    score:0,
-    miss:0, // MISS = good expired + junk hit (shield blocks = not miss)
-    hitGood:0,
-    hitJunk:0,
-    expireGood:0,
-
-    combo:0,
-    comboMax:0,
+    score:0, miss:0,
+    hitGood:0, hitJunk:0, expireGood:0,
+    combo:0, comboMax:0,
 
     shield:0,
     fever:18,
@@ -206,12 +135,21 @@ export function boot(opts={}){
     lastTick:0,
     lastSpawn:0,
 
-    // goal tracking
-    goalGood:0,
-    goalTarget: CFG.goalTargetGood,
+    // for stable gameplay feel
+    maxTargets: (view==='pc') ? 8 : 6,
 
-    // low time overlay state
-    lastLowShown: null
+    // goal/mini
+    goalIndex:0,
+    goalCur:0,
+    goalTarget:0,
+
+    miniName:'',
+    miniWindowSec:12,
+    miniStartMs:0,
+    miniGroups:new Set(),
+    miniDone:false,
+    miniCooldownMs:2000,
+    miniLastRewardMs:0,
   };
 
   function setFever(p){
@@ -225,7 +163,7 @@ export function boot(opts={}){
     elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';
   }
 
-  function computeGrade(){
+  function gradeNow(){
     let g='C';
     if(S.score>=170 && S.miss<=3) g='A';
     else if(S.score>=110) g='B';
@@ -238,12 +176,9 @@ export function boot(opts={}){
     if(elScore) elScore.textContent = String(S.score);
     if(elTime)  elTime.textContent  = String(Math.ceil(S.timeLeft));
     if(elMiss)  elMiss.textContent  = String(S.miss);
-
-    const g = computeGrade();
-    if(elGrade) elGrade.textContent = g;
-
+    if(elGrade) elGrade.textContent = gradeNow();
     setShieldUI();
-    emit('hha:score', { score:S.score });
+    emit('hha:score',{ score:S.score });
   }
 
   function addScore(delta){
@@ -251,71 +186,154 @@ export function boot(opts={}){
     if(S.score<0) S.score = 0;
   }
 
-  function updateQuestUI(){
-    const goal = {
-      name: 'แยกของดี/ของเสีย',
-      sub: `เก็บของดีให้ได้ ${S.goalTarget} ชิ้น (หลบของทอด/หวาน)`,
-      cur: S.goalGood,
-      target: S.goalTarget
-    };
+  /* ---------------------------
+     Quest system (FAIR)
+  --------------------------- */
+  const GOALS = [
+    { name:'เก็บของดี', sub:'แตะ/ยิง “ของดี” ให้ครบ', target:(d)=> d==='easy'?10:(d==='hard'?16:13) },
+    { name:'เลี่ยงของเสีย', sub:'ห้ามโดน JUNK เกิน 2 ครั้ง', target:1 }, // ใช้ target เป็น “ผ่าน” (เช็คด้วย rule)
+    { name:'คอมโบสวย ๆ', sub:'ทำคอมโบให้ถึง 8', target:8 },
+    { name:'จัดการ MISS', sub:'ทำให้ MISS ไม่เกิน 5', target:1 },
+  ];
 
-    // mini timer text
-    const tNow = nowMs();
-    const left = Math.max(0, MINI.windowSec - Math.floor((tNow - MINI.startAt)/1000));
-    const mini = {
-      name: `ครบ ${MINI.targetGroups} หมู่ใน ${MINI.windowSec} วิ`,
-      sub: 'ทำได้แล้วสุ่มโบนัส ⭐/🛡',
-      cur: MINI.groups.size,
-      target: MINI.targetGroups,
-      done: MINI.done,
-      timerText: MINI.done ? '✓ สำเร็จ' : `${left}s`
-    };
-
-    pushQuest(goal, mini, false);
+  function setGoal(idx){
+    S.goalIndex = idx;
+    const g = GOALS[Math.max(0, Math.min(GOALS.length-1, idx))];
+    S.goalCur = 0;
+    S.goalTarget = (typeof g.target === 'function') ? g.target(S.diff) : g.target;
+    if(elGoal) elGoal.textContent = g.name;
+    if(elGoalD) elGoalD.textContent = g.sub;
+    if(elGoalC) elGoalC.textContent = String(S.goalCur);
+    if(elGoalT) elGoalT.textContent = String(S.goalTarget);
+    emitQuestUpdate();
   }
 
-  function giveBonus(){
-    // สุ่มโบนัสแบบแฟร์: ⭐ หรือ 🛡
-    const r = rng();
-    const kind = (r < 0.5) ? 'star' : 'shield';
-    // spawn ใกล้กลางจอเล็กน้อย (ยังอยู่ใน safe)
-    spawn(kind, { nudgeCenter: true, ttlOverride: CFG.ttlPowerMs });
-    emit('hha:coach', { msg:`สุดยอด! ได้โบนัส ${kind==='star'?'⭐':'🛡️'}!`, tag:'bonus' });
+  function emitQuestUpdate(){
+    const g = GOALS[Math.max(0, Math.min(GOALS.length-1, S.goalIndex))];
+    const goal = { name:g.name, sub:g.sub, cur:S.goalCur, target:S.goalTarget };
+
+    const mini = {
+      name: S.miniName || `ครบ 3 หมู่ใน ${S.miniWindowSec} วิ`,
+      sub: 'ทำได้แล้วได้โบนัส 🛡/⭐',
+      cur: Math.min(3, S.miniGroups.size),
+      target: 3,
+      done: S.miniDone
+    };
+
+    emit('quest:update', { goal, mini, allDone:false });
+    if(elGoalC) elGoalC.textContent = String(S.goalCur);
+    if(elGoalT) elGoalT.textContent = String(S.goalTarget);
+    if(elMini)  elMini.textContent  = mini.name;
+  }
+
+  function goalCheckAfterEvent(){
+    const idx = S.goalIndex;
+    if(idx===0){
+      // goalCur = hitGood
+      if(S.goalCur >= S.goalTarget){
+        setGoal(1);
+      }
+    }else if(idx===1){
+      // pass if junk hits <=2 at end OR early if still safe and time left < 10?
+      // We'll keep running; show goalCur as "junkHit"
+      S.goalCur = S.hitJunk;
+      if(S.goalCur <= 2 && S.timeLeft <= Math.max(10, S.timePlan*0.35)){
+        setGoal(2);
+      }
+    }else if(idx===2){
+      S.goalCur = S.comboMax;
+      if(S.goalCur >= S.goalTarget){
+        setGoal(3);
+      }
+    }else if(idx===3){
+      // pass if miss <= 5 near the end
+      S.goalCur = S.miss;
+      if(S.timeLeft <= 6){
+        // end soon; nothing here
+      }
+    }
+    emitQuestUpdate();
+  }
+
+  /* ---------------------------
+     Mini quest: “ครบ 3 หมู่ใน 12 วิ”
+  --------------------------- */
+  function resetMini(){
+    S.miniStartMs = performance.now ? performance.now() : Date.now();
+    S.miniGroups.clear();
+    S.miniDone = false;
+    S.miniName = `ครบ 3 หมู่ใน ${S.miniWindowSec} วิ`;
+    emitQuestUpdate();
+  }
+
+  function miniTick(){
+    if(!elMiniT) return;
+    const now = performance.now ? performance.now() : Date.now();
+    const left = Math.max(0, (S.miniWindowSec*1000 - (now - S.miniStartMs)) / 1000);
+    elMiniT.textContent = `${left.toFixed(0)}s`;
+    if(left<=0 && !S.miniDone){
+      resetMini();
+    }
+  }
+
+  function rewardMini(){
+    const now = performance.now ? performance.now() : Date.now();
+    if(now - S.miniLastRewardMs < S.miniCooldownMs) return;
+    S.miniLastRewardMs = now;
+
+    // Fair reward: give shield OR star effect
+    const r = S.rng();
+    if(r < 0.55){
+      S.shield = Math.min(3, S.shield + 1);
+      setShieldUI();
+      addScore(12);
+      emit('hha:judge', { type:'perfect', label:'BONUS SHIELD!' });
+    }else{
+      const before = S.miss;
+      S.miss = Math.max(0, S.miss - 1);
+      addScore(16);
+      setFever(Math.max(0, S.fever - 6));
+      emit('hha:judge', { type:'perfect', label:(before!==S.miss)?'BONUS MISS-1!':'BONUS STAR!' });
+    }
+    setHUD();
   }
 
   function onHitGoodMeta(groupId){
-    const tNow = nowMs();
-    if(!MINI.startAt) resetMiniWindow();
-
-    // หมดหน้าต่างเวลา -> รีเซ็ต
-    if(tNow - MINI.startAt > MINI.windowSec*1000){
-      resetMiniWindow();
+    const now = performance.now ? performance.now() : Date.now();
+    if(now - S.miniStartMs > S.miniWindowSec*1000){
+      resetMini();
     }
+    S.miniGroups.add(groupId);
 
-    MINI.groups.add(Number(groupId)||1);
-
-    if(!MINI.done && MINI.groups.size >= MINI.targetGroups){
-      MINI.done = true;
-      giveBonus();
-      // รีเซ็ตหน้าต่างเพื่อเริ่มรอบ mini ใหม่แบบ “ผ่านแล้วสลับทันที”
-      setTimeout(resetMiniWindow, 180);
+    if(!S.miniDone && S.miniGroups.size >= 3){
+      S.miniDone = true;
+      rewardMini();
+      // Immediately restart window (so it feels “ต่อเนื่อง”)
+      resetMini();
     }
-
-    updateQuestUI();
+    emitQuestUpdate();
   }
 
+  /* ---------------------------
+     Hit logic
+  --------------------------- */
   function onHit(kind, meta={}){
     if(S.ended) return;
 
     if(kind==='good'){
       S.hitGood++;
-      S.goalGood++;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
       addScore(10 + Math.min(10, S.combo));
       setFever(S.fever + 2);
-      emit('hha:judge', { type:'good', label:'GOOD', groupId: meta.groupId ?? null });
+      emit('hha:judge', { type:'good', label:'GOOD' });
 
+      // Goal#1 progress
+      if(S.goalIndex===0){
+        S.goalCur++;
+      }
+
+      // mini meta
       onHitGoodMeta(meta.groupId || 1);
     }
 
@@ -350,40 +368,57 @@ export function boot(opts={}){
     }
 
     setHUD();
+    goalCheckAfterEvent();
+  }
 
-    // goal cleared? (ทำให้ “ไป GOAL ต่อ” ได้ในอนาคต)
-    if(S.goalGood >= S.goalTarget){
-      emit('hha:coach', { msg:'ผ่าน GOAL! เก่งมาก 🎉', tag:'goal' });
-      // ไม่จบเกมทันที แต่คุณจะต่อยอดเป็นหลาย GOAL ได้
-      // ตอนนี้ “ล็อกเป้า” ไว้ที่ goal เดียวให้แฟร์ก่อน
+  /* ---------------------------
+     Spawn
+  --------------------------- */
+  function enforceMaxTargets(){
+    if(!layer) return;
+    const kids = layer.querySelectorAll('.gj-target');
+    if(kids.length <= S.maxTargets) return;
+    // remove oldest first
+    const extra = kids.length - S.maxTargets;
+    for(let i=0;i<extra;i++){
+      try{ kids[i].remove(); }catch(_){}
     }
   }
 
-  function spawn(kind, opt={}){
+  function spawn(kind){
     if(S.ended || !layer) return;
 
+    enforceMaxTargets();
+
     const safe = getSafeRect();
-
-    let x = safe.x + rng()*safe.w;
-    let y = safe.y + rng()*safe.h;
-
-    if(opt.nudgeCenter){
-      const cx = safe.x + safe.w/2;
-      const cy = safe.y + safe.h/2;
-      x = cx + (rng()-0.5)*safe.w*0.45;
-      y = cy + (rng()-0.5)*safe.h*0.45;
-    }
+    const x = safe.x + S.rng()*safe.w;
+    const y = safe.y + S.rng()*safe.h;
 
     const t = DOC.createElement('div');
     t.className = 'gj-target spawn';
-
-    const obj = { kind, rng, groupId: 1 };
-    if(kind==='good') obj.groupId = chooseGroupId(rng);
-
     t.dataset.kind = kind;
-    t.dataset.groupId = String(obj.groupId || '');
 
-    // size
+    // meta
+    let groupId = 0;
+
+    if(kind==='good'){
+      groupId = chooseGroupId(S.rng);
+      const pack = FOOD5[groupId] || FOOD5[1];
+      t.textContent = pickEmoji(S.rng, pack.emojis);
+      t.dataset.group = String(groupId);
+      t.setAttribute('aria-label', `${pack.label} ${t.textContent}`);
+    }else if(kind==='junk'){
+      t.textContent = pickEmoji(S.rng, JUNK.emojis);
+      t.dataset.group = 'junk';
+      t.setAttribute('aria-label', `${JUNK.label} ${t.textContent}`);
+    }else if(kind==='star'){
+      t.textContent = '⭐';
+      t.setAttribute('aria-label', 'โบนัส STAR');
+    }else{
+      t.textContent = '🛡️';
+      t.setAttribute('aria-label', 'โบนัส SHIELD');
+    }
+
     const size =
       (kind==='good') ? 56 :
       (kind==='junk') ? 58 :
@@ -392,8 +427,6 @@ export function boot(opts={}){
     t.style.left = x+'px';
     t.style.top  = y+'px';
     t.style.fontSize = size+'px';
-
-    decorateTarget(t, obj);
 
     let alive = true;
     const kill = ()=>{
@@ -405,23 +438,24 @@ export function boot(opts={}){
     t.addEventListener('pointerdown', ()=>{
       if(!alive || S.ended) return;
       kill();
-      onHit(kind, obj);
+      onHit(kind, { groupId });
     });
 
     layer.appendChild(t);
 
-    // TTL (แฟร์ ไม่แว้บ)
+    // ✅ “ไม่แว้บ”: TTL ยาวขึ้น + ไม่รกเพราะจำกัดจำนวนเป้า
+    const ttlGood  = (diff==='easy') ? 2400 : (diff==='hard' ? 2000 : 2200);
+    const ttlJunk  = (diff==='easy') ? 2600 : (diff==='hard' ? 2200 : 2400);
+    const ttlPower = 2100;
+
     const ttl =
-      (typeof opt.ttlOverride === 'number') ? opt.ttlOverride :
-      (kind==='star' || kind==='shield') ? CFG.ttlPowerMs :
-      (kind==='junk') ? CFG.ttlJunkMs :
-      CFG.ttlGoodMs;
+      (kind==='good') ? ttlGood :
+      (kind==='junk') ? ttlJunk :
+      ttlPower;
 
     setTimeout(()=>{
       if(!alive || S.ended) return;
       kill();
-
-      // expire good counts as MISS
       if(kind==='good'){
         S.expireGood++;
         S.miss++;
@@ -429,11 +463,11 @@ export function boot(opts={}){
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
         setHUD();
+        goalCheckAfterEvent();
       }
     }, ttl);
   }
 
-  // ✅ Crosshair shoot support
   function onShoot(ev){
     if(S.ended || !S.started) return;
 
@@ -442,22 +476,22 @@ export function boot(opts={}){
     if(!picked) return;
 
     const kind = picked.dataset.kind || 'good';
-    const gid  = Number(picked.dataset.groupId||0) || 1;
-    try{ picked.remove(); }catch(_){}
+    const groupId = Number(picked.dataset.group || 0) || 0;
 
-    onHit(kind, { kind, rng, groupId: gid });
+    try{ picked.remove(); }catch(_){}
+    onHit(kind, { groupId });
   }
 
+  /* ---------------------------
+     End
+  --------------------------- */
   function endGame(reason='timeup'){
     if(S.ended) return;
     S.ended = true;
 
-    setLowTimeOverlay(false, 0);
-
-    const grade = computeGrade();
     const summary = {
       game:'GoodJunkVR',
-      pack:'fair-v3',
+      pack:'fair',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -471,16 +505,27 @@ export function boot(opts={}){
       hitJunk:S.hitJunk,
       expireGood:S.expireGood,
       shieldRemaining:S.shield,
-      fever:S.fever,
-      goalGood:S.goalGood,
-      goalTarget:S.goalTarget,
-      grade,
+      grade: gradeNow(),
       reason
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
     try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
     emit('hha:end', summary);
+  }
+
+  /* ---------------------------
+     Tick
+  --------------------------- */
+  function lowTimeUI(){
+    if(!elLowOv || !elLowNum) return;
+    const t = Math.ceil(S.timeLeft);
+    if(t<=5 && t>0){
+      elLowOv.setAttribute('aria-hidden','false');
+      elLowNum.textContent = String(t);
+    }else{
+      elLowOv.setAttribute('aria-hidden','true');
+    }
   }
 
   function tick(ts){
@@ -494,33 +539,26 @@ export function boot(opts={}){
     if(elTime) elTime.textContent = String(Math.ceil(S.timeLeft));
     emit('hha:time', { left:S.timeLeft });
 
-    // low-time overlay 5..1
-    const ceilLeft = Math.ceil(S.timeLeft);
-    if(ceilLeft <= 5 && ceilLeft >= 1){
-      if(S.lastLowShown !== ceilLeft){
-        S.lastLowShown = ceilLeft;
-        setLowTimeOverlay(true, ceilLeft);
-      }
-    }else{
-      if(S.lastLowShown !== null){
-        S.lastLowShown = null;
-        setLowTimeOverlay(false, 0);
-      }
-    }
+    miniTick();
+    lowTimeUI();
 
-    // spawn
-    if(ts - S.lastSpawn >= CFG.spawnEveryMs){
+    // spawn interval (fair)
+    const spawnMs =
+      (diff==='easy') ? 980 :
+      (diff==='hard') ? 820 :
+      900;
+
+    if(ts - S.lastSpawn >= spawnMs){
       S.lastSpawn = ts;
 
-      const r = rng();
-      if(r < CFG.pGood) spawn('good');
-      else if(r < CFG.pGood + CFG.pJunk) spawn('junk');
-      else if(r < CFG.pGood + CFG.pJunk + CFG.pStar) spawn('star');
+      // fair distribution:
+      // 70% good, 26% junk, 2% star, 2% shield
+      const r = S.rng();
+      if(r < 0.70) spawn('good');
+      else if(r < 0.96) spawn('junk');
+      else if(r < 0.98) spawn('star');
       else spawn('shield');
     }
-
-    // quest update (keep timer text alive)
-    updateQuestUI();
 
     if(S.timeLeft<=0){
       endGame('timeup');
@@ -531,22 +569,14 @@ export function boot(opts={}){
 
   // start
   S.started = true;
-
-  resetMiniWindow();
   setFever(S.fever);
   setShieldUI();
   setHUD();
-  updateQuestUI();
+  setGoal(0);
+  resetMini();
 
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  emit('hha:start', {
-    game:'GoodJunkVR',
-    pack:'fair-v3',
-    view, runMode:run, diff,
-    timePlanSec:timePlan,
-    seed
-  });
-
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
