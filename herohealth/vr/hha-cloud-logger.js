@@ -1,10 +1,11 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened) — FIXED
+// HHA Cloud Logger — PRODUCTION (flush-hardened) — LATEST
 // ✅ Listens: hha:end -> sends session summary JSON
 // ✅ Queue persist localStorage (offline-safe)
 // ✅ keepalive + sendBeacon fallback
 // ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ FIX: do NOT hardcode gameMode (was goodjunk). Use event detail.
+// ✅ FIX: gameMode NOT hardcoded (use ev.detail.gameMode) + infer fallback
+// ✅ Adds: window.HHA_LOGGER = { enabled, endpoint, flush }  (so engine can avoid duplicate send)
 
 (function(){
   'use strict';
@@ -14,7 +15,6 @@
   WIN.__HHA_CLOUD_LOGGER__ = true;
 
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
   const ENDPOINT = (qs('log','')||'').trim(); // ?log=...
   const LS_KEY = 'HHA_LOG_QUEUE_V1';
 
@@ -34,7 +34,19 @@
       href: location.href,
       ua: navigator.userAgent || '',
       projectTag: qs('projectTag','HeroHealth'),
+      kind: 'session'
     };
+  }
+
+  function inferGameMode(){
+    try{
+      const p = (location.pathname || '').toLowerCase();
+      if (p.includes('hydration')) return 'hydration';
+      if (p.includes('plate')) return 'plate';
+      if (p.includes('groups')) return 'groups';
+      if (p.includes('goodjunk')) return 'goodjunk';
+    }catch(_){}
+    return (qs('gameMode','')||qs('game','')||'').toLowerCase() || 'unknown';
   }
 
   function enqueue(obj){
@@ -46,8 +58,8 @@
     try{
       const body = JSON.stringify(obj);
 
-      // unload-safe first
-      if(navigator.sendBeacon){
+      // sendBeacon (ดีที่สุดตอน unload)
+      if (navigator.sendBeacon){
         const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
         if(ok) return true;
       }
@@ -67,18 +79,19 @@
 
   async function flush(){
     if(flushing) return;
-    if(!ENDPOINT) return;
+    if(!ENDPOINT) return;         // no endpoint => do nothing
     if(queue.length === 0) return;
 
     flushing = true;
 
-    const q = queue.slice(); // oldest-first
+    // oldest-first
+    const q = queue.slice();
     let sent = 0;
 
     for(let i=0;i<q.length;i++){
       const ok = await postJson(ENDPOINT, q[i]);
       if(ok) sent++;
-      else break;
+      else break; // stop if offline
     }
 
     if(sent > 0){
@@ -89,66 +102,47 @@
     flushing = false;
   }
 
-  // Normalize device/view
-  function detectDevice(){
-    const v = (qs('view','')||'').toLowerCase();
-    if(v) return v;
-    const b = DOC.body;
-    if(b?.classList.contains('view-cvr')) return 'cvr';
-    if(b?.classList.contains('view-vr')) return 'vr';
-    if(b?.classList.contains('view-mobile')) return 'mobile';
-    if(b?.classList.contains('view-pc')) return 'pc';
-    return '';
-  }
+  // expose for engines to detect + avoid duplicate send
+  WIN.HHA_LOGGER = {
+    enabled: !!ENDPOINT,
+    endpoint: ENDPOINT,
+    flush
+  };
 
   // Listen end summary
   function onEnd(ev){
     try{
       const d = ev?.detail || {};
 
-      // IMPORTANT: take from summary first, then fallback to query
-      const gameMode = d.gameMode || d.game || qs('gameMode', qs('game','')) || 'unknown';
-      const runMode  = d.runMode  || qs('run', qs('runMode','play')) || 'play';
-      const diff     = d.diff     || qs('diff','normal') || 'normal';
-      const device   = d.device   || detectDevice();
-      const seed     = d.seed     || qs('seed','') || '';
-
-      const sessionId = d.sessionId || qs('sessionId', qs('studentKey','')) || '';
-      const studyId = d.studyId || qs('studyId','') || '';
-      const phase = d.phase || qs('phase','') || '';
-      const conditionGroup = d.conditionGroup || qs('conditionGroup','') || '';
+      // IMPORTANT: use summary fields directly (don’t overwrite gameMode)
+      const gameMode = (d.gameMode || d.game || qs('gameMode','') || inferGameMode() || 'unknown');
 
       const pack = Object.assign(payloadBase(), {
-        kind: 'session',
-
+        // routing/meta
         gameMode,
-        runMode,
-        diff,
-        device,
+        runMode: d.runMode || qs('run','play'),
+        diff: d.diff || qs('diff','normal'),
+        device: d.device || qs('view',''),
 
-        sessionId,
-        studyId,
-        phase,
-        conditionGroup,
+        // identity / research
+        sessionId: d.sessionId || qs('sessionId', qs('studentKey','')) || '',
+        seed: d.seed || qs('seed','') || '',
+        ts: d.ts || qs('ts','') || '',
 
-        seed,
-
+        // core results (safe numbers)
         durationPlannedSec: Number(d.durationPlannedSec || qs('time','0')) || 0,
-        durationPlayedSec:  Number(d.durationPlayedSec || 0) || 0,
-
+        durationPlayedSec: Number(d.durationPlayedSec || 0) || 0,
         scoreFinal: Number(d.scoreFinal || 0) || 0,
-        comboMax:   Number(d.comboMax || 0) || 0,
-        misses:     Number(d.misses || 0) || 0,
+        misses: Number(d.misses || 0) || 0,
         grade: d.grade || '—',
         reason: d.reason || 'end',
 
-        // passthrough extras if present
-        kids: (d.kids===true || String(qs('kids','0')).toLowerCase()==='1'),
-        practiceSec: Number(d.practiceSec || qs('practice','0')) || 0
+        // keep the full original summary too (so you don’t lose fields)
+        summary: d
       });
 
       enqueue(pack);
-      flush();
+      flush(); // best-effort immediate
     }catch(_){}
   }
 
@@ -166,8 +160,5 @@
 
   // periodic flush (offline -> online)
   setInterval(()=>flush(), 3500);
-
-  // expose status
-  WIN.HHA_LOGGER = { enabled: !!ENDPOINT, flush };
 
 })();
