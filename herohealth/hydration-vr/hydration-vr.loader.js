@@ -1,11 +1,11 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
 // Hydration VR Loader — PRODUCTION (LATEST)
-// ✅ Auto-detect view (only when no ?view=) — NO override
-// ✅ Sets body classes: view-pc / view-mobile / view-cvr / view-vr + optional .cardboard
-// ✅ Cardboard: mounts split layers + exposes window.HHA_VIEW.layers
-// ✅ Start overlay: tap/button -> emits hha:start
-// ✅ Back HUB: flush logger before navigating
-// ✅ Best-effort fullscreen + landscape lock (Cardboard)
+// ✅ Auto-detect view (PC/Mobile/cVR/VR) — NO override if ?view= exists
+// ✅ Cardboard toggle via ?cardboard=1 (forces view=cvr if missing)
+// ✅ Mount correct layers to window.HHA_VIEW.layers for engine
+// ✅ Start overlay: tap/click => emit hha:start + resume audio context best-effort
+// ✅ Back to HUB button (reads ?hub=...)
+// ✅ Robust against missing DOM nodes (fails safe)
 
 (function(){
   'use strict';
@@ -14,13 +14,19 @@
   if(!DOC || WIN.__HHA_HYDRATION_LOADER__) return;
   WIN.__HHA_HYDRATION_LOADER__ = true;
 
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const qs = (k, def=null)=>{
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch(_){ return def; }
+  };
+
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
 
-  const hub = String(qs('hub','../hub.html'));
-  const viewQ = (qs('view','')||'').toLowerCase().trim();
-  const cardboardQ = String(qs('cardboard','0')).toLowerCase();
-  const CARDBOARD = (cardboardQ==='1' || cardboardQ==='true' || cardboardQ==='yes');
+  function setBodyView(view){
+    const b = DOC.body;
+    if(!b) return;
+    b.classList.remove('view-pc','view-mobile','view-cvr','view-vr');
+    b.classList.add('view-'+view);
+  }
 
   function detectView(){
     const isTouch = ('ontouchstart' in WIN) || ((navigator.maxTouchPoints|0) > 0);
@@ -28,154 +34,168 @@
     const h = Math.max(1, WIN.innerHeight||1);
     const landscape = w >= h;
 
-    if(isTouch){
-      // มือถือแนวนอนจอกว้าง -> cVR (ยิงกลางจอ)
-      if(landscape && w >= 740) return 'cvr';
+    // cVR: touch + landscape-ish + wide enough
+    if (isTouch){
+      if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
     return 'pc';
   }
 
-  // IMPORTANT: do not override if user has ?view=
-  const view = viewQ || detectView();
-
-  function setBodyView(v){
-    const b = DOC.body;
-    b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
-    if(v==='pc') b.classList.add('view-pc');
-    else if(v==='mobile') b.classList.add('view-mobile');
-    else if(v==='cvr') b.classList.add('view-cvr');
-    else if(v==='vr') b.classList.add('view-vr');
-    else b.classList.add('view-mobile');
+  function ensureSafeAreaVars(){
+    // set --sat/--sab etc on :root for engines that read these via computedStyle
+    try{
+      const r = DOC.documentElement;
+      r.style.setProperty('--sat', 'env(safe-area-inset-top, 0px)');
+      r.style.setProperty('--sab', 'env(safe-area-inset-bottom, 0px)');
+      r.style.setProperty('--sal', 'env(safe-area-inset-left, 0px)');
+      r.style.setProperty('--sar', 'env(safe-area-inset-right, 0px)');
+    }catch(_){}
   }
 
-  function mountCardboard(on){
+  function setupCardboard(cardboardOn){
+    const b = DOC.body;
     const cbWrap = DOC.getElementById('cbWrap');
-    const mainLayer = DOC.getElementById('hydration-layer');
+    const pf = DOC.getElementById('playfield');
+    if(!b) return;
+
+    b.classList.toggle('cardboard', !!cardboardOn);
+
+    // show/hide cb split layers
+    if (cbWrap) cbWrap.hidden = !cardboardOn;
+
+    // if cardboard, we still keep #playfield but engine uses #cbPlayfield for rect
+    // (engine checks body.cardboard)
+  }
+
+  function setHHAViewLayers(cardboardOn){
+    // Tell engine which layer(s) to append targets to
+    const main = DOC.getElementById('hydration-layer');
     const L = DOC.getElementById('hydration-layerL');
     const R = DOC.getElementById('hydration-layerR');
-    const cbPF = DOC.getElementById('cbPlayfield');
 
-    if(on){
-      DOC.body.classList.add('cardboard');
-      if(cbWrap) cbWrap.hidden = false;
-      if(mainLayer) mainLayer.style.display = 'none';
-
-      // expose layers for engine
-      WIN.HHA_VIEW = Object.assign({}, WIN.HHA_VIEW || {}, {
-        view,
-        cardboard:true,
-        layers: ['hydration-layerL','hydration-layerR'],
-        playfieldId: 'cbPlayfield'
-      });
-
-      // small guard
-      if(!L || !R || !cbPF){
-        console.warn('[HydrationLoader] Cardboard requested but split layers missing.');
-      }
-    } else {
-      if(cbWrap) cbWrap.hidden = true;
-      if(mainLayer) mainLayer.style.display = '';
-      WIN.HHA_VIEW = Object.assign({}, WIN.HHA_VIEW || {}, {
-        view,
-        cardboard:false,
-        layers: ['hydration-layer'],
-        playfieldId: 'playfield'
-      });
+    const layers = [];
+    if (cardboardOn && L && R){
+      layers.push('hydration-layerL', 'hydration-layerR');
+    } else if (main){
+      layers.push('hydration-layer');
     }
-  }
 
-  // best-effort fullscreen + landscape (Cardboard)
-  async function tryFullscreenLandscape(){
-    try{
-      const el = DOC.documentElement;
-      if(el.requestFullscreen) await el.requestFullscreen();
-    }catch(_){}
-    try{
-      const o = screen.orientation;
-      if(o && o.lock) await o.lock('landscape');
-    }catch(_){}
-  }
-
-  // flush helper (logger listens hha:flush)
-  function flushNow(){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:flush')); }catch(_){}
-  }
-
-  // bind back hub buttons
-  function bindBackHub(){
-    const btns = Array.from(DOC.querySelectorAll('.btnBackHub'));
-    btns.forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        flushNow();
-        setTimeout(()=>{ location.href = hub; }, 80);
-      });
+    WIN.HHA_VIEW = Object.assign({}, WIN.HHA_VIEW || {}, {
+      game: 'hydration',
+      layers,
+      cardboard: !!cardboardOn,
+      view: (DOC.body?.classList.contains('view-cvr') ? 'cvr'
+          : DOC.body?.classList.contains('view-mobile') ? 'mobile'
+          : DOC.body?.classList.contains('view-vr') ? 'vr'
+          : 'pc')
     });
   }
 
-  // start overlay
-  function bindStart(){
-    const ov = DOC.getElementById('startOverlay');
-    const btn = DOC.getElementById('btnStart');
-    const ovSub = DOC.getElementById('ovSub');
-
-    // update overlay hint
-    if(ovSub){
-      const kids = String(qs('kids','0')).toLowerCase();
-      const K = (kids==='1'||kids==='true'||kids==='yes');
-      const label =
-        (view==='cvr' ? 'โหมด cVR: ยิงจากกลางจอ' :
-         view==='vr'  ? 'โหมด VR: กด ENTER VR แล้วเริ่ม' :
-         view==='mobile' ? 'โหมด Mobile: แตะเป้าเพื่อยิง' : 'โหมด PC: คลิกเป้าเพื่อยิง');
-      ovSub.textContent = label + (K ? ' • Kids=ON' : '');
-    }
-
-    function hideOverlayAndStart(){
-      if(!ov) return;
-      ov.classList.add('hide');
-      ov.style.display = 'none';
-
-      // Cardboard: try fullscreen/landscape before start (best-effort)
-      if(DOC.body.classList.contains('cardboard')) tryFullscreenLandscape();
-
-      // start
-      try{ WIN.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
-    }
-
-    // overlay tap anywhere
-    if(ov){
-      ov.addEventListener('pointerdown', (e)=>{
-        // avoid double if clicking a button
-        const t = e.target;
-        if(t && (t.closest && t.closest('button'))) return;
-        hideOverlayAndStart();
-      }, { passive:true });
-    }
-    btn?.addEventListener('click', hideOverlayAndStart);
-
-    // safety: if overlay already hidden, auto-start
-    setTimeout(()=>{
-      const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
-      if(hidden) hideOverlayAndStart();
-    }, 650);
+  function resumeAudioBestEffort(){
+    try{
+      const AC = WIN.AudioContext || WIN.webkitAudioContext;
+      if(!AC) return;
+      // many browsers auto-create contexts in engine; we just poke it
+      const ctx = new AC();
+      if (ctx && ctx.state === 'suspended'){
+        ctx.resume().catch(()=>{});
+      }
+      // close quickly
+      setTimeout(()=>{ try{ ctx.close(); }catch(_){ } }, 200);
+    }catch(_){}
   }
 
-  // --- apply ---
+  function emitStart(){
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:start', { detail:{ game:'hydration' } }));
+    }catch(_){}
+  }
+
+  // ---------- APPLY VIEW / CARDBOARD ----------
+  ensureSafeAreaVars();
+
+  const url = new URL(location.href);
+  const hasView = url.searchParams.has('view');
+  const viewParam = String(qs('view','')||'').toLowerCase();
+
+  let view = hasView ? (viewParam || 'pc') : detectView();
+
+  // cardboard flag
+  const cardboardQ = String(qs('cardboard','0')).toLowerCase();
+  const cardboardOn = (cardboardQ==='1' || cardboardQ==='true' || cardboardQ==='yes');
+
+  // If cardboard requested and view missing, force cVR (crosshair mode)
+  if (cardboardOn && !hasView){
+    view = 'cvr';
+    url.searchParams.set('view','cvr');
+    history.replaceState(null,'', url.toString());
+  }
+
+  // Normalize view values
+  if (!['pc','mobile','cvr','vr'].includes(view)) view = 'pc';
+
   setBodyView(view);
+  setupCardboard(cardboardOn);
+  setHHAViewLayers(cardboardOn);
 
-  // Cardboard logic:
-  // - if ?cardboard=1 => cardboard ON (even if view=cvr)
-  // - else if view=vr => keep non-split unless explicitly cardboard=1
-  mountCardboard(!!CARDBOARD);
+  // ---------- Start overlay wiring ----------
+  const overlay = DOC.getElementById('startOverlay');
+  const btnStart = DOC.getElementById('btnStart');
+  const hub = String(qs('hub','../hub.html')||'../hub.html');
 
-  bindBackHub();
-  bindStart();
+  function hideOverlay(){
+    if(!overlay) return;
+    overlay.classList.add('hide');
+    overlay.style.display = 'none';
+  }
 
-  // expose view early for other modules
-  WIN.HHA_VIEW = Object.assign({}, WIN.HHA_VIEW || {}, {
-    view,
-    hub,
-    ts: Number(qs('ts', Date.now())) || Date.now()
+  function startGame(){
+    resumeAudioBestEffort();
+    hideOverlay();
+    emitStart();
+  }
+
+  // Tap anywhere on overlay card area => start
+  if (overlay){
+    overlay.addEventListener('pointerdown', (ev)=>{
+      // allow buttons to handle themselves
+      const t = ev.target;
+      if (t && (t.closest && t.closest('button'))) return;
+      startGame();
+    }, { passive:true });
+  }
+
+  btnStart?.addEventListener('click', (ev)=>{
+    try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
+    startGame();
   });
+
+  DOC.querySelectorAll('.btnBackHub').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      location.href = hub;
+    });
+  });
+
+  // UX hint text
+  const ovSub = DOC.getElementById('ovSub');
+  if (ovSub){
+    const kidsQ = String(qs('kids','0')).toLowerCase();
+    const kids = (kidsQ==='1'||kidsQ==='true'||kidsQ==='yes');
+    const t = [
+      `โหมด: ${view.toUpperCase()}${cardboardOn?' (Cardboard)':''}${kids?' • Kids':''}`,
+      `แตะ/กดปุ่ม “เริ่ม!” เพื่อเริ่มเล่น`
+    ].join(' — ');
+    ovSub.textContent = t;
+  }
+
+  // If overlay already hidden by CSS or user resumed, auto start after short delay
+  setTimeout(()=>{
+    if(!overlay) return;
+    const hidden = (getComputedStyle(overlay).display === 'none') || overlay.classList.contains('hide');
+    if (hidden){
+      emitStart();
+    }
+  }, 650);
 
 })();
