@@ -4,7 +4,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
-✅ + Banner + Onboarding (first time)
+✅ NEW (1): Big Banner current group + events
+✅ NEW (2): DL-lite Predictor + Explainable micro-tips (play only; off in research/practice)
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -62,11 +63,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
-  <!-- ✅ Big Banner -->
-  <div id="bigBanner" class="bigBanner hidden">
-    <div id="bigBannerText" class="bigBannerText">—</div>
-  </div>
-
   <!-- Quest -->
   <div class="questTop">
     <div class="questCard">
@@ -86,6 +82,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <div class="bar"><div id="miniFill" class="fill"></div></div>
       <div class="qSub" id="miniSub">—</div>
     </div>
+  </div>
+
+  <!-- ✅ NEW (1): Big Banner -->
+  <div id="bigBanner" class="bigBanner hidden" aria-live="polite">
+    <div id="bigBannerText" class="bigBannerText">—</div>
   </div>
 
   <!-- Power -->
@@ -110,38 +111,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
-
-  <!-- ✅ Onboarding overlay (first time only) -->
-  <div id="onbOverlay" class="overlay overlay-onb hidden">
-    <div class="panel onbPanel">
-      <div class="title">🎮 วิธีเล่น Food Groups VR</div>
-      <div class="sub" id="onbText">
-        - ยิง/แตะ “อาหารที่อยู่หมู่ที่ถูกต้อง” ให้ได้มากที่สุด<br>
-        - หลีกเลี่ยง “ขยะอาหาร” 🗑️ และ “หมู่ผิด”<br>
-        - Power เต็ม → สลับหมู่ (ต้องเปลี่ยนเป้าที่ต้องยิง!)<br>
-        - มี MINI ภารกิจจับเวลาเป็นช่วง ๆ
-      </div>
-
-      <div class="grid2">
-        <div class="stat">
-          <div class="k">Mobile/PC</div>
-          <div class="v">แตะ/คลิกที่เป้า</div>
-        </div>
-        <div class="stat">
-          <div class="k">Cardboard (cVR)</div>
-          <div class="v">แตะจอยิงจาก crosshair</div>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:12px;">
-        <button id="btnOnbOk" class="btn btn-strong" type="button">✅ เข้าใจแล้ว</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        Tip: ถ้าเป็น cVR ใช้ปุ่ม RECENTER ให้ศูนย์กลางตรงก่อนเริ่ม
-      </div>
-    </div>
-  </div>
 
   <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
@@ -212,6 +181,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     catch { return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
   function setView(view){
     const b = DOC.body;
@@ -250,64 +220,54 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  // ✅ Banner helpers
-  let bannerT = 0;
-  function showBanner(text, ms){
+  // =========================
+  // ✅ NEW (1): Big Banner API
+  // =========================
+  let bannerTmr = 0;
+  function showBanner(text, tone='neutral', ms=1200){
     const el = $('bigBanner');
     const tx = $('bigBannerText');
     if (!el || !tx) return;
     tx.textContent = String(text||'');
     el.classList.remove('hidden');
+    el.classList.remove('tone-neutral','tone-good','tone-warn','tone-bad');
     el.classList.add('show');
-    clearTimeout(bannerT);
-    bannerT = setTimeout(()=>{
-      try{ el.classList.add('hidden'); el.classList.remove('show'); }catch(_){}
-    }, ms||1200);
-  }
+    el.classList.add('tone-'+tone);
 
-  // ✅ Onboarding (first-time)
-  const LS_ONB = 'HHA_GROUPS_ONB_SEEN_V1';
-  function shouldShowOnb(run, view){
-    if (run === 'research') return false;
-    try{
-      const seen = localStorage.getItem(LS_ONB) || '';
-      return !seen;
-    }catch(_){ return true; }
+    clearTimeout(bannerTmr);
+    bannerTmr = setTimeout(()=>{
+      try{
+        el.classList.remove('show');
+        el.classList.add('hidden');
+      }catch(_){}
+    }, clamp(ms, 600, 2500));
   }
-  function openOnb(view){
-    const el = $('onbOverlay');
-    if (!el) return;
-    $('onbText').innerHTML =
-      (view==='cvr')
-      ? `- แตะจอยิงจาก crosshair 🎯<br>- กด RECENTER ให้ศูนย์ตรงก่อนเล่น<br>- ยิงให้ถูก “หมู่ที่แสดงใน Banner/Goal”<br>- หลีกเลี่ยงขยะ 🗑️ และหมู่ผิด`
-      : `- แตะ/คลิก “เป้าอาหารที่ถูกหมู่” ให้ได้มากที่สุด<br>- หลีกเลี่ยง “ขยะอาหาร” 🗑️ และ “หมู่ผิด”<br>- Power เต็ม → สลับหมู่ (ต้องเปลี่ยนเป้าที่ต้องยิง!)<br>- มี MINI ภารกิจจับเวลาเป็นช่วง ๆ`;
-    el.classList.remove('hidden');
-  }
-  function closeOnb(){
-    const el = $('onbOverlay');
-    if (!el) return;
-    el.classList.add('hidden');
-    try{ localStorage.setItem(LS_ONB, '1'); }catch(_){}
-  }
-  $('btnOnbOk') && $('btnOnbOk').addEventListener('click', closeOnb);
 
   // ---------- HUD binds ----------
+  let _score=0,_combo=0,_miss=0,_acc=0,_left=90,_storm=false,_miniUrg=false;
+  let _groupName='—', _groupKey='', _lastGroupKey='';
+
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
-    $('vScore').textContent = String(d.score ?? 0);
-    $('vCombo').textContent = String(d.combo ?? 0);
-    $('vMiss').textContent  = String(d.misses ?? 0);
+    _score = Number(d.score ?? _score) || 0;
+    _combo = Number(d.combo ?? _combo) || 0;
+    _miss  = Number(d.misses ?? _miss) || 0;
+    $('vScore').textContent = String(_score|0);
+    $('vCombo').textContent = String(_combo|0);
+    $('vMiss').textContent  = String(_miss|0);
   }, {passive:true});
 
   window.addEventListener('hha:time', (ev)=>{
     const d = ev.detail||{};
-    $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
+    _left = Math.max(0, Math.round(d.left ?? _left));
+    $('vTime').textContent = String(_left);
   }, {passive:true});
 
   window.addEventListener('hha:rank', (ev)=>{
     const d = ev.detail||{};
     $('vRank').textContent = String(d.grade ?? 'C');
-    $('vAcc').textContent  = String((d.accuracy ?? 0) + '%');
+    _acc = Number(d.accuracy ?? _acc) || 0;
+    $('vAcc').textContent  = String(_acc + '%');
   }, {passive:true});
 
   window.addEventListener('hha:coach', (ev)=>{
@@ -331,10 +291,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('pFill').style.width = Math.round((cur/thr)*100) + '%';
   }, {passive:true});
 
-  // ✅ quest update + banner on group changes
-  let lastGroupKey = '';
   window.addEventListener('quest:update', (ev)=>{
     const d = ev.detail||{};
+
     const gTitle = String(d.goalTitle||'—');
     const gNow   = Number(d.goalNow||0);
     const gTot   = Math.max(1, Number(d.goalTotal||1));
@@ -357,24 +316,27 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
 
     const urgent = (mLeft>0 && mLeft<=3);
+    _miniUrg = urgent;
     DOC.body.classList.toggle('mini-urgent', urgent);
 
-    // Banner: show when group changes (groupKey)
-    const gk = String(d.groupKey||'');
-    const gn = String(d.groupName||'');
-    if (gk && gk !== lastGroupKey){
-      lastGroupKey = gk;
-      if (gn) showBanner(`ยิงให้ถูก: ${gn}`, 1400);
+    // ✅ NEW (1): banner when group changes / start
+    _groupName = String(d.groupName || _groupName || '—');
+    _groupKey  = String(d.groupKey  || _groupKey  || '');
+    if (_groupKey && _groupKey !== _lastGroupKey){
+      _lastGroupKey = _groupKey;
+      showBanner('หมู่ตอนนี้: ' + _groupName, 'good', 1200);
     }
   }, {passive:true});
 
-  // ✅ show banner on start
-  window.addEventListener('hha:start', (ev)=>{
+  // ---------- NEW (1): storm/boss/banner from progress ----------
+  window.addEventListener('groups:progress', (ev)=>{
     const d = ev.detail||{};
-    const view = String(d.view||'mobile');
-    const run  = String(d.runMode||'play');
-    if (shouldShowOnb(run, view)) openOnb(view);
-    showBanner('เริ่มเกม! ดูหมู่ที่ต้องยิงด้านบน 🎯', 1200);
+    const k = String(d.kind||'');
+    if (k === 'storm_on'){ _storm = true; showBanner('🌪️ STORM! เป้าถี่ขึ้น', 'warn', 1400); }
+    if (k === 'storm_off'){ _storm = false; showBanner('✨ พายุจบ! เก็บแต้มต่อ', 'good', 1100); }
+    if (k === 'boss_spawn'){ showBanner('👊 BOSS มาแล้ว!', 'warn', 1200); }
+    if (k === 'boss_down'){ showBanner('💥 BOSS แตก!', 'good', 1100); }
+    if (k === 'perfect_switch'){ showBanner('🔄 สลับหมู่!', 'neutral', 1000); }
   }, {passive:true});
 
   // ---------- Summary / History ----------
@@ -546,7 +508,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  function startCalibrationIfNeeded(view, runMode){
+  function startCalibrationIfNeeded(view){
     if (view !== 'cvr') return false;
 
     cal.on = true;
@@ -629,6 +591,122 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
+  // =========================
+  // ✅ NEW (2): DL-lite Predictor (play only, gated by ?ai=1)
+  // =========================
+  const PRED = {
+    on: false,
+    lastTipAt: 0,
+    lastWarnAt: 0,
+    hist: [], // {t, miss, acc, combo, left, storm, miniUrg}
+    maxHist: 20
+  };
+
+  function sigmoid(x){ return 1 / (1 + Math.exp(-x)); }
+
+  // “DL-lite”: neuron เดียว (linear + sigmoid) deterministic
+  function riskScore(f){
+    // f = [missRate, (100-acc)/100, comboNorm, leftLow, storm, miniUrg]
+    const w = [ 1.35, 1.10, -0.35, 0.55, 0.65, 0.55 ];
+    const b = -0.55;
+    let z = b;
+    for (let i=0;i<w.length;i++) z += w[i] * (Number(f[i])||0);
+    return sigmoid(z); // 0..1
+  }
+
+  function pushHist(){
+    const t = nowMs();
+    PRED.hist.push({
+      t,
+      miss:_miss|0,
+      acc:_acc|0,
+      combo:_combo|0,
+      left:_left|0,
+      storm: _storm?1:0,
+      miniUrg: _miniUrg?1:0
+    });
+    if (PRED.hist.length > PRED.maxHist) PRED.hist.shift();
+  }
+
+  function calcMissRate10s(){
+    const t = nowMs();
+    const cut = t - 10000;
+    const a = PRED.hist.filter(x=>x.t>=cut);
+    if (a.length < 2) return 0;
+    const dm = (a[a.length-1].miss - a[0].miss);
+    return Math.max(0, dm) / 10; // misses/sec ใน 10 วิ
+  }
+
+  function shouldTip(){
+    const t = nowMs();
+    return (t - PRED.lastTipAt) > 1600; // rate-limit
+  }
+
+  function tip(text, mood='neutral'){
+    if (!PRED.on) return;
+    if (!shouldTip()) return;
+    PRED.lastTipAt = nowMs();
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } }));
+    }catch(_){}
+  }
+
+  function tickPredictor(){
+    if (!PRED.on) return;
+
+    pushHist();
+
+    const missRate = Math.min(1, calcMissRate10s() * 2.2); // normalize
+    const accBad   = Math.min(1, (100 - _acc) / 100);
+    const comboN   = Math.max(0, Math.min(1, _combo / 10));
+    const leftLow  = Math.max(0, Math.min(1, (12 - _left) / 12)); // ใกล้หมดเวลา = สูง
+    const storm    = _storm ? 1 : 0;
+    const miniU    = _miniUrg ? 1 : 0;
+
+    const r = riskScore([missRate, accBad, comboN, leftLow, storm, miniU]);
+
+    // ✅ explainable micro-tips ตามปัจจัยที่ดัน risk
+    if (r >= 0.78){
+      if (miniU) { showBanner('⏱️ MINI ใกล้หมด! เล็ง “ชัวร์” ก่อน', 'warn', 1300); tip('MINI ใกล้หมด! เล็งให้โดนเป้าชัวร์ก่อนนะ 👀', 'fever'); }
+      else if (storm){ showBanner('🌪️ พายุ! ช้าลงนิด เล็งก่อนยิง', 'warn', 1200); tip('พายุอยู่! ช้าลงนิด แล้วเล็งให้ตรงหมู่ก่อนยิง 🔥', 'fever'); }
+      else if (missRate > 0.35){ showBanner('⚠️ พลาดถี่! หยุดยิงมั่ว', 'bad', 1200); tip('พลาดถี่แล้ว! หยุดยิงมั่ว 1 วิ แล้วค่อยยิงใหม่ 🎯', 'sad'); }
+      else { showBanner('⚠️ ระวังคะแนนร่วง!', 'warn', 1100); tip('ตั้งสติ! ดูชื่อหมู่ก่อน แล้วค่อยยิง ✅', 'neutral'); }
+    } else if (r >= 0.55){
+      if (accBad > 0.35) tip('ลอง “ช้าลงนิด” แต่ยิงให้ถูกหมู่ จะคุ้มกว่า 👍', 'neutral');
+      else if (leftLow > 0.5) tip('เวลาใกล้หมดแล้ว! เลือกยิงเป้าที่ง่ายสุดก่อน ⏳', 'fever');
+    } else {
+      // low risk: ชมเป็นระยะ (ไม่ถี่)
+      const t = nowMs();
+      if (t - PRED.lastWarnAt > 6500 && _combo >= 6){
+        PRED.lastWarnAt = t;
+        tip('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 💪', 'happy');
+      }
+    }
+
+    // ส่ง telemetry ไว้เผื่ออนาคตทำ ML จริง (ยังไม่ยุ่ง sheet ตามที่คุณสั่ง)
+    try{
+      window.dispatchEvent(new CustomEvent('groups:ai_predict', {
+        detail:{ r: Math.round(r*100)/100, missRate, acc:_acc, combo:_combo, left:_left, storm, miniU, group:_groupKey }
+      }));
+    }catch(_){}
+  }
+
+  // run predictor every 800ms (เบา + ทันเกม)
+  let predIt = 0;
+  function startPredictorIfAllowed(runMode){
+    PRED.on = (aiEnabled() && runMode === 'play');
+    if (!PRED.on) return;
+    clearInterval(predIt);
+    predIt = setInterval(tickPredictor, 800);
+    showBanner('🧠 AI Coach ON', 'neutral', 1000);
+  }
+
+  function stopPredictor(){
+    PRED.on = false;
+    clearInterval(predIt);
+  }
+
+  // ---------- PACK 15: AI hooks attach + predictor ----------
   function startReal(E){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
@@ -643,6 +721,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
     E.start(diff, { runMode: run, diff, style, time, seed });
+
+    // ✅ NEW (2): start predictor only in play + ?ai=1
+    if (run === 'play') startPredictorIfAllowed(run);
+    else stopPredictor();
 
     // PACK 15: AI hooks attach (safe)
     try{
@@ -661,7 +743,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
     setView(view);
     initViewHelper(view);
 
-    const gated = startCalibrationIfNeeded(view, run);
+    // banner at game start
+    showBanner('เริ่มเกม! เล็งให้ตรงหมู่ 🎯', 'neutral', 1000);
+
+    const gated = startCalibrationIfNeeded(view);
     if (gated) return;
 
     const practiceSec = getPracticeSec(view);
