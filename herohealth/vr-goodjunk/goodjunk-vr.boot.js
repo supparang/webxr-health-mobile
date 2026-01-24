@@ -1,174 +1,171 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (FAIR PACK)
-// ✅ Uses: ./goodjunk.safe.js (FAIR PACK)
-// ✅ View modes: PC / Mobile / VR / cVR
-// ✅ DOES NOT override if URL already has ?view=...
-// ✅ Pass-through + ctx build (hub/run/diff/time/seed/log/style)
-// ✅ Sets body classes: view-pc/view-mobile/view-vr/view-cvr
-// ✅ Config vr-ui.js: crosshair shoot emits hha:shoot
-// ✅ Best-effort logger flush (if hha-cloud-logger exposes API)
-
-'use strict';
+// GoodJunkVR BOOT — PRODUCTION (Fair Pack)
+// ✅ Reads query: view/run/diff/time/seed/hub/log/style/studyId/phase/conditionGroup/ts
+// ✅ Sets body view class: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Boots engine: ./goodjunk.safe.js (FAIR PACK)
+// ✅ Flush-hardened: best-effort end + logger flush on back/hide/unload
+// ✅ Works with vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair shoot => hha:shoot)
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
+const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch{ return false; } };
 
-function normalizeView(v){
-  v = String(v||'').toLowerCase();
-  if(v === 'cardboard') return 'vr';
-  if(v === 'view-cvr') return 'cvr';
-  if(v === 'cvr') return 'cvr';
-  if(v === 'vr') return 'vr';
-  if(v === 'mobile') return 'mobile';
-  if(v === 'pc') return 'pc';
-  return 'auto';
-}
-
-function isLikelyMobileUA(){
-  const ua = String(navigator.userAgent||'').toLowerCase();
-  return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
-}
-
-async function detectView(){
-  // ✅ Never override if user passed view=
-  if(has('view')) return normalizeView(qs('view','auto'));
-
-  // Soft default: UA
-  let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
-
-  // If WebXR VR supported, and on mobile -> lean to 'vr' (cardboard path)
-  try{
-    if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
-      const ok = await navigator.xr.isSessionSupported('immersive-vr');
-      if(ok && isLikelyMobileUA()) guess = 'vr';
-    }
-  }catch(_){}
-
-  return normalizeView(guess);
+function clamp(v,min,max){
+  v = Number(v);
+  if(!Number.isFinite(v)) v = min;
+  return Math.max(min, Math.min(max, v));
 }
 
 function setBodyView(view){
   const b = DOC.body;
-  if(!b) return;
-
-  b.classList.add('gj'); // ensure base skin
-
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile'); // default
+
+  view = String(view||'').toLowerCase();
+  if(view==='pc') b.classList.add('view-pc');
+  else if(view==='mobile') b.classList.add('view-mobile');
+  else if(view==='vr') b.classList.add('view-vr');
+  else if(view==='cvr') b.classList.add('view-cvr');
 }
 
-function buildCtx(v){
-  const ctx = {
-    game: 'GoodJunkVR',
-    pack: 'fair',
-    view: v,
-    run: String(qs('run','play')||'play').toLowerCase(),
-    diff: String(qs('diff','normal')||'normal').toLowerCase(),
-    time: Number(qs('time','80')||80) || 80,
-    seed: String(qs('seed', Date.now())),
+function safeCall(fn){
+  try{ fn && fn(); }catch(_){}
+}
+
+function nowMs(){
+  return (performance && performance.now) ? performance.now() : Date.now();
+}
+
+let STARTED = false;
+let ENDED = false;
+
+// We keep last known summary to flush / store
+let LAST_SUMMARY = null;
+
+// ---- Flush hardened helpers ----
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+
+function tryEnd(reason){
+  // Fair pack safe.js emits hha:end itself at timeup,
+  // but for safety we allow “manual end” if leaving page early.
+  if(ENDED) return;
+  ENDED = true;
+
+  // If engine already emitted end -> LAST_SUMMARY would be set by listener below
+  if(!LAST_SUMMARY){
+    LAST_SUMMARY = {
+      game:'GoodJunkVR',
+      pack:'fair',
+      view: String(qs('view','mobile')||'mobile'),
+      runMode: String(qs('run','play')||'play'),
+      diff: String(qs('diff','normal')||'normal'),
+      seed: String(qs('seed', Date.now())),
+      durationPlannedSec: clamp(qs('time','80'), 20, 300),
+      durationPlayedSec: null,
+      scoreFinal: null,
+      miss: null,
+      comboMax: null,
+      grade: null,
+      reason: String(reason||'leave')
+    };
+  }
+
+  emit('hha:end', LAST_SUMMARY);
+}
+
+function tryLoggerFlush(reason){
+  // If your hha-cloud-logger exposes a flush function, call it.
+  // We keep this as best-effort and non-breaking.
+  safeCall(()=>{
+    if(typeof WIN.HHA_LOGGER_FLUSH === 'function'){
+      WIN.HHA_LOGGER_FLUSH({ reason: String(reason||'leave') });
+    }
+  });
+}
+
+// Listen to end summary from engine (source of truth)
+WIN.addEventListener('hha:end', (ev)=>{
+  LAST_SUMMARY = ev?.detail || LAST_SUMMARY;
+  // store last summary (engine already stores too, but harmless)
+  safeCall(()=> localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(LAST_SUMMARY)));
+}, { passive:true });
+
+// ---- Boot ----
+function bootOnce(){
+  if(STARTED) return;
+  STARTED = true;
+
+  const view = String(qs('view','mobile')||'mobile').toLowerCase();
+  const run  = String(qs('run','play')||'play').toLowerCase();
+  const diff = String(qs('diff','normal')||'normal').toLowerCase();
+  const time = clamp(qs('time','80'), 20, 300);
+
+  // seed: allow string or number; engine makeRNG(Number(seed)||Date.now())
+  const seed = String(qs('seed', Date.now()));
+
+  setBodyView(view);
+
+  // Optional: expose context to logger (if your logger reads window.HHA_CTX)
+  // NOTE: this does not break anything even if logger ignores it.
+  WIN.HHA_CTX = {
+    game:'GoodJunkVR',
+    pack:'fair',
+    view, run, diff, time, seed,
     hub: qs('hub', null),
-    log: qs('log', null),
-    style: qs('style', null),
     studyId: qs('studyId', qs('study', null)),
     phase: qs('phase', null),
     conditionGroup: qs('conditionGroup', qs('cond', null)),
     ts: qs('ts', null),
+    log: qs('log', null),
+    style: qs('style', null),
   };
-  return ctx;
+
+  // Boot engine (FAIR PACK)
+  engineBoot({ view, run, diff, time, seed });
 }
 
-// vr-ui config (crosshair shoot)
-function configureVRUI(ctx){
-  // This is read by ../vr/vr-ui.js
-  WIN.HHA_VRUI_CONFIG = Object.assign(
-    { lockPx: 28, cooldownMs: 90 },
-    WIN.HHA_VRUI_CONFIG || {}
-  );
-
-  // In strict cVR we want shooting only (targets pointer-events already disabled by CSS)
-  if(ctx.view === 'cvr'){
-    WIN.HHA_VRUI_CONFIG.lockPx = Math.max(22, Number(WIN.HHA_VRUI_CONFIG.lockPx)||28);
+function ready(fn){
+  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
+    setTimeout(fn, 0);
+  }else{
+    DOC.addEventListener('DOMContentLoaded', fn, { once:true });
   }
 }
 
-// Best-effort logger integration (doesn't assume specific API)
-function tryInitLogger(ctx){
-  if(!ctx.log) return;
+ready(bootOnce);
 
-  // Try a couple of likely shapes; if none exist, it silently does nothing.
-  try{
-    if(WIN.HHACloudLogger && typeof WIN.HHACloudLogger.init === 'function'){
-      WIN.HHACloudLogger.init({ endpoint: ctx.log, ctx });
-    }
-  }catch(_){}
+// ---- Flush hardened lifecycle ----
+// 1) Back button / pagehide / visibilitychange: try to end + flush
+WIN.addEventListener('pagehide', ()=>{
+  tryEnd('pagehide');
+  tryLoggerFlush('pagehide');
+}, { passive:true });
 
-  try{
-    if(WIN.hhaCloudLogger && typeof WIN.hhaCloudLogger.init === 'function'){
-      WIN.hhaCloudLogger.init({ endpoint: ctx.log, ctx });
-    }
-  }catch(_){}
-}
+WIN.addEventListener('beforeunload', ()=>{
+  // NOTE: do minimal sync work here
+  tryEnd('beforeunload');
+  tryLoggerFlush('beforeunload');
+});
 
-function tryFlushLogger(){
-  try{
-    if(WIN.HHACloudLogger && typeof WIN.HHACloudLogger.flush === 'function') WIN.HHACloudLogger.flush();
-  }catch(_){}
-  try{
-    if(WIN.hhaCloudLogger && typeof WIN.hhaCloudLogger.flush === 'function') WIN.hhaCloudLogger.flush();
-  }catch(_){}
-}
+DOC.addEventListener('visibilitychange', ()=>{
+  if(DOC.hidden){
+    // user switched app / minimized -> flush
+    tryLoggerFlush('hidden');
+  }
+}, { passive:true });
 
-// Back HUB helper (flush-hardened)
-function installBackGuard(ctx){
-  // If page is leaving, try flush first
-  WIN.addEventListener('pagehide', tryFlushLogger, { passive:true });
-  WIN.addEventListener('beforeunload', tryFlushLogger, { passive:true });
-
-  // If someone else dispatches "hha:backhub" we honor it
-  WIN.addEventListener('hha:backhub', ()=>{
-    tryFlushLogger();
-    if(ctx.hub) location.href = ctx.hub;
-  }, { passive:true });
-}
-
-async function start(){
-  const view = await detectView();
-  const ctx = buildCtx(view);
-
-  setBodyView(view);
-  configureVRUI(ctx);
-  tryInitLogger(ctx);
-  installBackGuard(ctx);
-
-  // Boot engine (FAIR PACK)
-  engineBoot({
-    view: ctx.view,
-    run: ctx.run,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: ctx.seed,
-  });
-
-  // Optional: reflect to chip (if present)
-  try{
-    const chip = DOC.getElementById('gjChipMeta');
-    if(chip){
-      chip.textContent = `view=${ctx.view} · run=${ctx.run} · diff=${ctx.diff} · time=${ctx.time}`;
-    }
-  }catch(_){}
-}
-
-// Start once DOM is ready
-if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', start, { once:true });
-}else{
-  start();
-}
+// 2) If user clicks back hub button, A.html already navigates.
+//    But we also flush on click to be safe.
+DOC.addEventListener('click', (e)=>{
+  const t = e?.target;
+  if(!(t instanceof HTMLElement)) return;
+  if(t.id === 'btnBackHub'){
+    tryEnd('backhub');
+    tryLoggerFlush('backhub');
+  }
+}, { passive:true });
