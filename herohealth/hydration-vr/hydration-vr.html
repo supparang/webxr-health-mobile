@@ -1,13 +1,11 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 Hydration Quest VR RUN — PRODUCTION (LATEST)
 ✅ CSS: ./hydration-vr.css
-✅ Universal VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-✅ Cloud Logger: ../vr/hha-cloud-logger.js (flush-hardened) via ?log=
-✅ Water gauge helper: ../vr/ui-water.js
-✅ Loader: ./hydration-vr.loader.js (auto-detect NO override + cardboard layers + overlay wiring)
+✅ Modules: ../vr/vr-ui.js, ../vr/hha-cloud-logger.js, ../vr/ui-water.js
+✅ Loader: ./hydration-vr.loader.js (auto-detect NO override + cardboard layers + start overlay)
 ✅ Engine: ./hydration.safe.js (type=module)
-✅ A-Frame minimal scene (Enter VR reliability)
------------------------------------------------------ -->
+✅ A-Frame minimal scene for Enter VR reliability
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -18,11 +16,9 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <link rel="stylesheet" href="./hydration-vr.css" />
-
-  <!-- A-Frame minimal scene for Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Universal VR UI -->
+  <!-- Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Cloud Logger (flush-hardened) -->
@@ -31,14 +27,13 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
   <!-- Water gauge helper -->
   <script src="../vr/ui-water.js" defer></script>
 
-  <!-- Loader: view/cardboard/layers + start overlay + device hints -->
+  <!-- Loader -->
   <script src="./hydration-vr.loader.js" defer></script>
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene (keep embedded, disable default vr-ui to use our vr-ui.js) -->
-  <a-scene embedded vr-mode-ui="enabled:false"
-           renderer="colorManagement:true; physicallyCorrectLights:false">
+  <!-- Minimal A-Frame scene for Enter VR reliability -->
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:false">
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
 
@@ -79,10 +74,9 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
   <!-- Playfield -->
   <div id="playfieldWrap">
     <div id="playfield">
-      <!-- single layer -->
       <div id="hydration-layer" class="layer"></div>
 
-      <!-- Cardboard split (loader toggles body.cardboard + shows cbWrap) -->
+      <!-- Cardboard split -->
       <div id="cbWrap" hidden>
         <div id="cbPlayfield">
           <div id="hydration-layerL" class="layer"></div>
@@ -103,9 +97,9 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
         <button class="btn ghost btnBackHub">กลับ HUB</button>
       </div>
 
-      <div class="ov-hint" id="ovHint">
+      <div class="ov-hint">
         • cVR: ยิงจากกลางจอ (crosshair) <br/>
-        • เด็ก ป.5 แนะนำใส่ <b>?kids=1</b>
+        • Kids: ใส่ <b>?kids=1</b> (แนะนำ ป.5)
       </div>
     </div>
   </div>
@@ -148,34 +142,5 @@ Hydration Quest VR RUN — PRODUCTION (LATEST)
 
   <!-- Engine -->
   <script type="module" src="./hydration.safe.js"></script>
-
-  <!-- Optional tiny helper: mark water zone classes (no behavior change if missing ids) -->
-  <script>
-  (function(){
-    'use strict';
-    const body = document.body;
-    const zoneEl = document.getElementById('water-zone');
-    const pctEl  = document.getElementById('water-pct');
-
-    // CSS-only UX: pulse when number changes (helps kids feel "it moved")
-    let lastPct = null;
-    function tick(){
-      const pct = pctEl ? (parseInt(pctEl.textContent||'0',10)||0) : null;
-      if (pct !== null && pct !== lastPct){
-        lastPct = pct;
-        body.classList.add('wpulse');
-        setTimeout(()=>body.classList.remove('wpulse'), 160);
-      }
-
-      const z = zoneEl ? String(zoneEl.textContent||'').toUpperCase() : '';
-      body.classList.toggle('zone-green', z==='GREEN');
-      body.classList.toggle('zone-low',   z==='LOW');
-      body.classList.toggle('zone-high',  z==='HIGH');
-
-      requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  })();
-  </script>
 </body>
 </html>
