@@ -1,11 +1,10 @@
 // === /herohealth/vr/mode-factory.js ===
 // Mode Factory (Targets Spawner) — PRODUCTION (Latest)
 // ✅ Exports: boot + spawnBoot(alias)
-// ✅ Crosshair / tap-to-shoot via event: hha:shoot {x,y,lockPx}
 // ✅ decorateTarget(el, target) hook
-// ✅ Generic safe vars via safeVarPrefix:
-//    --{prefix}-top-safe / bottom-safe / left-safe / right-safe
-// ✅ Generic className (default plateTarget) — backward compatible
+// ✅ Safe vars by prefix: --{prefix}-top-safe/bottom-safe/left-safe/right-safe
+// ✅ Custom className
+// ✅ Crosshair/tap-to-shoot via event hha:shoot {x,y,lockPx}
 
 'use strict';
 
@@ -53,22 +52,20 @@ export function boot({
   onHit = ()=>{},
   onExpire = ()=>{},
   decorateTarget = null,
-  cooldownMs = 90,
 
-  // ✅ NEW (generic)
+  cooldownMs = 90,
   className = 'plateTarget',
   safeVarPrefix = 'plate',
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
-
   const state = {
     alive:true,
     lastSpawnAt:0,
     spawnTimer:null,
     targets:new Set(),
-    cooldownUntil:0,
+    cooldownUntil:0
   };
 
   function computeSpawnRect(){
@@ -144,7 +141,8 @@ export function boot({
     el.style.transform = 'translate(-50%,-50%)';
 
     const target = {
-      el, kind,
+      el,
+      kind,
       bornAt: now(),
       ttlMs: kind === 'junk' ? 1700 : 2100,
       groupIndex: Math.floor(rng()*5),
@@ -153,6 +151,7 @@ export function boot({
     };
     el.__hhaTarget = target;
 
+    // ✅ allow game to decorate target with emoji/icon/etc.
     try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
@@ -192,4 +191,5 @@ export function boot({
   };
 }
 
-export const spawnBoot = boot; // ✅ alias
+// alias ให้เข้ากับไฟล์เกมที่ import spawnBoot
+export const spawnBoot = boot;
