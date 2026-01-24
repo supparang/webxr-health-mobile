@@ -1,20 +1,20 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration Quest VR UI — PRODUCTION (LATEST)
-✅ HUD pointer-events:none (targets never blocked)
-✅ Safe-area insets + top safe zone to avoid HUD overlay
-✅ Works: view-pc / view-mobile / view-vr / view-cvr + cardboard
-✅ Start/Result overlays
-✅ FX: shockwave (.hha-shock), end window blink (body.hha-endfx), boss glow (body.hha-bossfx)
+✅ Safe-area insets
+✅ HUD compact, playfield big
+✅ Supports: view-pc / view-mobile / view-cvr / view-vr + .cardboard
+✅ Storm end-window FX + Boss FX + hit FX
+✅ Overlay + Result summary
 */
 
 :root{
   color-scheme: dark;
 
   --bg:#020617;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(15,23,42,.62);
-  --stroke: rgba(148,163,184,.18);
-  --stroke2: rgba(148,163,184,.28);
+  --panel:rgba(2,6,23,.72);
+  --panel2:rgba(15,23,42,.62);
+  --stroke:rgba(148,163,184,.18);
+  --stroke2:rgba(148,163,184,.28);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
@@ -22,168 +22,172 @@ Hydration Quest VR UI — PRODUCTION (LATEST)
   --accent:#22c55e;
   --warn:#f59e0b;
   --cyan:#22d3ee;
-  --violet:#a78bfa;
   --danger:#ef4444;
+  --violet:#a78bfa;
 
-  --radius:22px;
+  --r:22px;
   --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
-  /* gameplay safe area (spawn uses JS but we mirror for layout) */
-  --hud-top-h: 128px;
+  /* HUD height hint for safe spawn (engine reads via JS: fixed px + sat) */
+  --hudTop: 140px;
+  --hudBottom: 44px;
+
+  /* Water gauge (css-var updated by ui-water.js) */
+  --water-pct: 50;
 }
 
-*{ box-sizing:border-box; }
-html, body{
-  margin:0; padding:0;
-  width:100%; height:100%;
-  background: radial-gradient(1100px 800px at 30% 15%, rgba(34,211,238,.08), transparent 55%),
-              radial-gradient(1000px 700px at 70% 10%, rgba(167,139,250,.08), transparent 55%),
-              var(--bg);
-  overflow:hidden;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-  color: var(--text);
-}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+body{overflow:hidden; -webkit-tap-highlight-color: transparent;}
+a-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
 
-a-scene{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  opacity:0.001;
-}
-
-/* ----- HUD ----- */
+/* ---------------- HUD ---------------- */
 #hud{
   position:fixed;
-  inset:0;
-  z-index: 40;
-  pointer-events:none; /* KEY: HUD never blocks targets */
+  left:calc(12px + var(--sal));
+  right:calc(12px + var(--sar));
+  top:calc(10px + var(--sat));
+  z-index:20;
+  pointer-events:none;
 }
 
 .hud-top{
-  position:absolute;
-  top: calc(12px + var(--sat));
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
   display:flex;
-  gap:10px;
   flex-wrap:wrap;
+  gap:8px;
   align-items:center;
   justify-content:flex-start;
 }
 
 .chip{
-  display:inline-flex;
+  pointer-events:none;
+  display:flex;
   align-items:center;
-  gap:8px;
-  padding:10px 12px;
+  gap:6px;
+  padding:8px 10px;
   border-radius: var(--pill);
-  background: var(--panel);
   border:1px solid var(--stroke);
+  background: var(--panel);
   box-shadow: 0 18px 60px rgba(0,0,0,.35);
-  backdrop-filter: blur(10px);
-  font-size:14px;
+  font-weight:900;
+  font-size:13px;
+  color:rgba(229,231,235,.95);
   line-height:1;
+  white-space:nowrap;
 }
-.chip.big{ font-size:16px; padding:10px 14px; }
-.chip b{ font-weight:800; }
-.chip.warn{ outline:2px solid rgba(245,158,11,.18); }
-.chip.ok{ outline:2px solid rgba(34,197,94,.14); }
-.chip.cyan{ outline:2px solid rgba(34,211,238,.16); }
-.chip.storm{ outline:2px dashed rgba(167,139,250,.20); }
+.chip.big{font-size:14px;padding:9px 12px}
+.chip b{font-weight:950}
+.chip.ok{border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.12)}
+.chip.warn{border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.10)}
+.chip.cyan{border-color:rgba(34,211,238,.30); background:rgba(34,211,238,.10)}
+.chip.storm{border-color:rgba(167,139,250,.30); background:rgba(167,139,250,.10)}
 
 .hud-mid{
-  position:absolute;
-  top: calc(80px + var(--sat));
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
+  margin-top:10px;
   display:flex;
-  justify-content:space-between;
-  gap:12px;
-  padding-top: 6px;
+  gap:10px;
+  align-items:stretch;
+  pointer-events:none;
 }
 
 .quest{
-  width:min(460px, 58vw);
-  border-radius: var(--radius);
-  background: var(--panel2);
+  flex: 1 1 auto;
+  min-width: 240px;
+  border-radius: 18px;
   border:1px solid var(--stroke);
+  background: var(--panel2);
+  padding:10px 12px;
   box-shadow: 0 18px 60px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-  padding: 12px 14px;
 }
 .quest-title{
-  font-weight:900;
+  font-weight:950;
+  font-size:13px;
   letter-spacing:.2px;
-  margin-bottom:6px;
 }
 .quest-lines{
-  font-size: 13px;
-  color: var(--text);
+  margin-top:6px;
+  color:rgba(229,231,235,.92);
+  font-size:12px;
+  line-height:1.35;
 }
-.quest-lines > div{
-  margin: 4px 0;
-  color: color-mix(in oklab, var(--text) 92%, var(--muted));
-}
+.quest-lines > div{margin-top:2px}
+.quest-lines > div:empty{display:none}
 
 .waterpanel{
-  width:min(320px, 38vw);
-  border-radius: var(--radius);
-  background: var(--panel2);
+  width: 168px;
+  flex: 0 0 auto;
+  border-radius: 18px;
   border:1px solid var(--stroke);
+  background: var(--panel2);
+  padding:10px 12px;
   box-shadow: 0 18px 60px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-  padding: 12px 14px;
 }
 .water-head{
   display:flex;
   justify-content:space-between;
   align-items:baseline;
-  gap:10px;
+  gap:8px;
 }
-.wtitle{ font-weight:900; }
-.wzone{ color: var(--muted); font-size:12px; }
+.wtitle{font-weight:950;font-size:13px}
+.wzone{font-size:11px;color:rgba(148,163,184,.95)}
 .wbar{
-  margin-top:10px;
-  height: 12px;
+  margin-top:8px;
+  height: 10px;
   border-radius: var(--pill);
-  background: rgba(148,163,184,.14);
-  border:1px solid rgba(148,163,184,.18);
+  border:1px solid var(--stroke2);
+  background: rgba(2,6,23,.55);
   overflow:hidden;
 }
 .wfill{
   height:100%;
-  width: 50%;
+  width: calc(var(--water-pct) * 1%);
   border-radius: var(--pill);
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.85));
-  box-shadow: 0 0 18px rgba(34,211,238,.15);
+  background: rgba(34,197,94,.60);
+  box-shadow: 0 0 18px rgba(34,197,94,.20);
+  transition: width 140ms linear;
 }
-.wpct{ margin-top:8px; font-weight:900; }
+.wpct{
+  margin-top:6px;
+  font-weight:950;
+  font-size:12px;
+  color:rgba(229,231,235,.92);
+}
 
-/* ----- Playfield ----- */
+/* Small screens: stack mid row */
+@media (max-width:520px){
+  .hud-mid{flex-direction:column}
+  .waterpanel{width:100%}
+}
+
+/* ---------------- Playfield ---------------- */
 #playfieldWrap{
   position:fixed;
   inset:0;
-  z-index: 10;
+  z-index:10;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
 }
-
 #playfield{
-  position:absolute;
-  inset:0;
+  position:relative;
+  width:100%;
+  height:100%;
+  border-radius: 26px;
+  overflow:hidden;
+  background: transparent;
 }
 
-/* main layer */
+/* layer that targets are appended to */
 .layer{
   position:absolute;
   inset:0;
-  pointer-events:auto;
+  pointer-events:none; /* targets themselves enable pointer-events:auto in injected style */
 }
 
-/* Cardboard split */
+/* Cardboard split wrapper */
 #cbWrap{
   position:absolute;
   inset:0;
@@ -193,177 +197,151 @@ a-scene{
   inset:0;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0;
+  gap:0;
 }
-#hydration-layerL,
-#hydration-layerR{
+#hydration-layerL, #hydration-layerR{
   position:relative;
-  width:100%;
-  height:100%;
+  overflow:hidden;
 }
 
-/* ----- overlays ----- */
+/* Make click/touch work */
+#hydration-layer, #hydration-layerL, #hydration-layerR{
+  pointer-events:none;
+}
+
+/* ---------------- Overlay (Start / Result) ---------------- */
 .overlay{
   position:fixed;
   inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index: 80;
-  padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
-  background: rgba(2,6,23,.64);
+  z-index:50;
+  display:grid;
+  place-items:center;
+  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+  background: rgba(0,0,0,.55);
   backdrop-filter: blur(10px);
-  pointer-events:auto;
 }
-
 .overlay-card{
-  width:min(680px, 92vw);
-  border-radius: 26px;
-  background: rgba(2,6,23,.78);
+  width:min(760px,100%);
+  border-radius: 22px;
   border:1px solid rgba(148,163,184,.18);
-  box-shadow: 0 30px 110px rgba(0,0,0,.55);
-  padding: 18px 18px 16px;
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  padding: 16px;
 }
-.overlay-card.wide{ width:min(960px, 96vw); }
+.overlay-card.wide{ width:min(900px,100%); }
 
 .ov-title{
-  font-size: 22px;
   font-weight: 950;
+  font-size: 18px;
   letter-spacing:.2px;
-  margin-bottom: 4px;
 }
-.ov-sub{ color: var(--muted); margin-bottom: 12px; }
-
+.ov-sub{
+  margin-top:6px;
+  color: rgba(148,163,184,.95);
+  font-size: 13px;
+  line-height:1.35;
+}
 .ov-row{
   display:flex;
+  gap:10px;
   flex-wrap:wrap;
-  gap:10px;
   margin-top: 12px;
 }
-
 .btn{
-  pointer-events:auto;
-  appearance:none;
-  border:none;
-  border-radius: var(--pill);
-  padding: 12px 14px;
-  font-weight: 900;
-  background: rgba(148,163,184,.16);
-  color: var(--text);
-  border:1px solid rgba(148,163,184,.20);
+  border-radius: 16px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.72);
+  color: rgba(229,231,235,.95);
+  padding: 10px 12px;
+  font-weight: 950;
+  cursor:pointer;
 }
-.btn.primary{
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.85));
-  color:#03120a;
-  border:1px solid rgba(34,211,238,.20);
-}
-.btn.ghost{
-  background: transparent;
-  border:1px solid rgba(148,163,184,.22);
-  color: var(--text);
-}
-
+.btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
+.btn.ghost{ background: transparent; }
 .ov-hint{
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.35;
+  margin-top:10px;
+  color: rgba(148,163,184,.95);
+  font-size:12px;
+  line-height:1.35;
 }
 
-/* start overlay hide */
-#startOverlay.hide{ display:none !important; }
-
-/* ----- Result summary ----- */
+/* Result summary */
 .res-grid{
+  margin-top: 12px;
   display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:10px;
-  margin: 10px 0 12px;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
 }
 .res-item{
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(15,23,42,.60);
-  border:1px solid rgba(148,163,184,.16);
-}
-.res-item b{ font-weight:950; }
-.res-note{
-  padding: 12px 12px;
-  border-radius: 18px;
-  background: rgba(15,23,42,.55);
   border:1px solid rgba(148,163,184,.14);
-}
-.tier{
-  font-weight:950;
-  margin-bottom: 6px;
-}
-.tips{
-  margin:0;
-  white-space:pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  background: rgba(15,23,42,.55);
+  border-radius: 16px;
+  padding: 10px;
   font-size: 12px;
-  color: color-mix(in oklab, var(--text) 92%, var(--muted));
+  color: rgba(229,231,235,.92);
 }
-.next{
+.res-item b{font-weight:950;font-size:13px}
+@media (max-width:720px){
+  .res-grid{grid-template-columns: repeat(2, minmax(0,1fr));}
+}
+.res-note{
   margin-top: 10px;
-  color: var(--muted);
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.40);
+  border-radius: 16px;
+  padding: 10px;
+}
+.tier{font-weight:950}
+.tips{
+  margin: 8px 0 6px 0;
+  white-space:pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  color: rgba(229,231,235,.92);
+}
+.next{font-size:12px;color:rgba(229,231,235,.92)}
+
+/* hide helper (loader uses) */
+.overlay.hide{display:none}
+
+/* ---------------- FX ---------------- */
+body.hha-hitfx #hud{
+  filter: drop-shadow(0 0 18px rgba(34,211,238,.12));
 }
 
-/* ----- FX shockwave ----- */
+body.hha-endfx .quest{
+  animation: hhaBlink 360ms linear infinite;
+}
+@keyframes hhaBlink{
+  0%{ filter: brightness(1); transform: translateY(0); }
+  50%{ filter: brightness(1.12); transform: translateY(-1px); }
+  100%{ filter: brightness(1); transform: translateY(0); }
+}
+
+body.hha-bossfx .chip.storm{
+  border-color: rgba(239,68,68,.35);
+  background: rgba(239,68,68,.10);
+  box-shadow: 0 0 22px rgba(239,68,68,.10);
+}
+
 .hha-shock{
   position:absolute;
   left: var(--x, 50%);
-  top: var(--y, 50%);
-  width: 18px; height: 18px;
-  transform: translate(-50%,-50%);
+  top:  var(--y, 50%);
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  border: 2px solid rgba(239,68,68,.55);
-  box-shadow: 0 0 24px rgba(239,68,68,.20);
-  animation: shock 520ms ease-out forwards;
+  transform: translate(-50%,-50%);
   pointer-events:none;
+  box-shadow: 0 0 0 0 rgba(34,211,238,.20);
+  animation: shock 520ms ease-out forwards;
 }
 @keyframes shock{
-  from{ opacity:1; transform: translate(-50%,-50%) scale(1); }
-  to{ opacity:0; transform: translate(-50%,-50%) scale(8); }
+  0%{ box-shadow: 0 0 0 0 rgba(34,211,238,.20); opacity:1; }
+  100%{ box-shadow: 0 0 0 46px rgba(34,211,238,0); opacity:0; }
 }
 
-/* ----- End window + Boss FX ----- */
-body.hha-endfx #hud .chip.storm{
-  animation: blink 320ms ease-in-out infinite;
-  outline-color: rgba(245,158,11,.35);
-}
-@keyframes blink{
-  0%,100%{ filter: brightness(1); transform: translateY(0); }
-  50%{ filter: brightness(1.25); transform: translateY(-1px); }
-}
-body.hha-bossfx{
-  animation: bossGlow 720ms ease-in-out infinite;
-}
-@keyframes bossGlow{
-  0%,100%{ filter: saturate(1) brightness(1); }
-  50%{ filter: saturate(1.10) brightness(1.06); }
-}
-
-/* ----- Responsive tweaks ----- */
-body.view-pc .hud-mid{ top: calc(86px + var(--sat)); }
-body.view-mobile .hud-mid{ top: calc(94px + var(--sat)); }
-body.view-vr .hud-mid{ top: calc(92px + var(--sat)); }
-body.view-cvr .hud-mid{ top: calc(92px + var(--sat)); }
-
-body.view-mobile .quest{ width:min(520px, 64vw); }
-body.view-mobile .waterpanel{ width:min(340px, 40vw); }
-
-@media (max-width: 780px){
-  .hud-mid{
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .quest, .waterpanel{
-    width: 100%;
-  }
-  .res-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-/* kids mode slightly bigger text */
-body.kids .quest-lines{ font-size: 14px; }
-body.kids .chip{ font-size: 15px; }
+/* ---------------- Cardboard tweaks ---------------- */
+body.cardboard #hud{ opacity: .96; }
+body.cardboard .hud-mid{ gap:8px; }
+body.cardboard .waterpanel{ width: 160px; }
