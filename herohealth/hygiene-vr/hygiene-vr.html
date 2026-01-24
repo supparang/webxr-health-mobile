@@ -1,14 +1,134 @@
-<!-- === PACK BB: Progress Map + Mission Card === -->
-<div class="hw-map" id="mapRow" aria-label="progress map"></div>
+<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
+HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
+✅ Fix: vr-ui.js loaded with defer (avoid appendChild null)
+✅ Missions HUD: Goals + Mini quests + counters + hints
+✅ Engine: hygiene.safe.js (boot export)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — HygieneVR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-<div class="hw-mission" id="missionCard" style="display:none" aria-live="polite">
-  <div class="hw-m-title" id="mTitle">ภารกิจ</div>
-  <div class="hw-m-sub" id="mSub">—</div>
-  <div class="hw-m-tip" id="mTip">—</div>
-  <div class="hw-m-row">
-    <button class="hw-m-btn primary" id="btnMissionOk" type="button">ไปต่อ</button>
-    <button class="hw-m-btn" id="btnMissionHide" type="button">ซ่อน</button>
+  <link rel="stylesheet" href="./hygiene-vr.css" />
+
+  <!-- Universal VR UI (✅ defer) -->
+  <script src="../vr/vr-ui.js" defer></script>
+
+  <!-- Optional shared helpers -->
+  <script src="../vr/particles.js" defer></script>
+
+  <!-- AI Packs -->
+  <script src="../vr/hha-ai-coach.js" defer></script>
+  <script src="../vr/hha-difficulty-director.js" defer></script>
+  <script src="../vr/hha-badges.js" defer></script>
+
+  <!-- Engine -->
+  <script type="module" src="./hygiene-vr.boot.js"></script>
+</head>
+
+<body class="view-pc">
+  <div id="gameRoot" class="hw-root">
+    <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
+
+    <!-- HUD -->
+    <div class="hw-hud">
+      <div class="hw-top">
+        <div class="hw-title">🧼 Handwash Survival</div>
+        <div class="hw-sub" id="hudSub">ready…</div>
+
+        <div class="hw-row">
+          <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
+          <div class="hw-pill" id="pillHits">HITS 0/6</div>
+          <div class="hw-pill" id="pillCombo">COMBO 0</div>
+          <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
+        </div>
+
+        <!-- ✅ NEW: Missions counters -->
+        <div class="hw-row">
+          <div class="hw-pill good" id="pillGoals">GOALS 0/2</div>
+          <div class="hw-pill cyan" id="pillMini">MINI 0/3</div>
+          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
+          <div class="hw-pill" id="pillTime">TIME 70</div>
+          <button class="hw-pill btn" id="btnMissions" type="button">📌 Missions</button>
+          <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
+          <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
+        </div>
+      </div>
+
+      <div class="hw-banner" id="banner" aria-live="polite"></div>
+
+      <!-- ✅ NEW: Missions panel (toggle) -->
+      <div class="hw-missions" id="missionsPanel" style="display:none">
+        <div class="hw-mis-title">📌 Missions</div>
+        <div class="hw-mis-grid">
+          <div class="hw-mis-card">
+            <div class="hw-mis-h">🎯 GOALS</div>
+            <div class="hw-mis-t" id="goalsText">—</div>
+          </div>
+          <div class="hw-mis-card">
+            <div class="hw-mis-h">⚡ MINI QUEST (จำกัดเวลา)</div>
+            <div class="hw-mis-t" id="miniText">—</div>
+            <div class="hw-mis-sub" id="miniTimer">—</div>
+          </div>
+        </div>
+        <div class="hw-mis-sub">Tip: ยิง/แตะ “emoji ของ STEP ปัจจุบัน” เท่านั้น • หลีกเลี่ยง 🦠</div>
+      </div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div class="hw-overlay" id="startOverlay">
+      <div class="hw-card">
+        <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
+        <div class="hw-card-sub">
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • ทำ GOALS + MINI ให้ครบจะ “ผ่าน Episode”<br>
+          ยิง/แตะเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
+        </div>
+        <div class="hw-card-row">
+          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
+          <button class="hw-ghost" id="btnRestart" type="button">↻ Restart</button>
+        </div>
+        <div class="hw-card-sub" style="margin-top:10px">
+          EP: <span id="labEp">1</span> • Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- End Overlay -->
+    <div class="hw-overlay" id="endOverlay" style="display:none">
+      <div class="hw-card">
+        <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
+        <div class="hw-card-sub" id="endSub">—</div>
+        <pre class="hw-pre" id="endJson"></pre>
+        <div class="hw-card-row">
+          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
+          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
+          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
-<div class="hw-story" id="storyLine">📖 วันนี้: “หยุด Germ Storm ให้ทันเวลา!”</div>
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
+  }
+  setViewClass();
+
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+  document.getElementById('labEp').textContent   = (qs('episode','1')||'1');
+})();
+</script>
+</body>
+</html>
