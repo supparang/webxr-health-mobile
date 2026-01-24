@@ -1,6 +1,7 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
+// PlateVR Boot — PRODUCTION (PATCH)
 // ✅ Auto view detect (no UI override)
+// ✅ Default time = 90s (kid-friendly for Goal+Mini)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
@@ -24,9 +25,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow caller/system to force view by query (used in experiments), but not via menu.
-  const forced = (qs('view','')||'').toLowerCase();
+  // No UI override. Allow query override for experiments only.
+  const forced = (qs('view','') || '').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
@@ -46,7 +46,8 @@ function clamp(v, a, b){
 }
 
 function pct(n){
-  n = Number(n)||0;
+  n = Number(n);
+  if(!isFinite(n)) return '—';
   return `${Math.round(n)}%`;
 }
 
@@ -64,6 +65,7 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -103,7 +105,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
+    // { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -137,7 +139,7 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      location.reload();
+      location.reload(); // keep same query params
     });
   }
   if(btnBackHub){
@@ -158,10 +160,12 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
+    // engine sends accuracyGoodPct already as percent number
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -174,25 +178,27 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase();
-  const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ เวลา: default 90 (เหมาะกับภารกิจ 5 หมู่ + มีเวลาปรับตัว)
+  const run  = (qs('run','play') || 'play').toLowerCase();
+  const diff = (qs('diff','normal') || 'normal').toLowerCase();
+
+  // ✅ default time = 90
   const time = clamp(qs('time','90'), 10, 999);
+
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
     view,
     runMode: run,
     diff,
-
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough ctx
+    // research passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
