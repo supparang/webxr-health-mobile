@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION
-✅ CSS: ./goodjunk-vr.css (S)
+GoodJunkVR RUN — PRODUCTION (Folder-run)
+✅ CSS: ./goodjunk-vr.css   (S)
 ✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js
-✅ Uses: ../vr/vr-ui.js for EnterVR/Exit/Recenter + hha:shoot crosshair
-✅ Safe-zone measure -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+✅ A-Frame minimal scene for Enter VR reliability
+✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
 -->
 <!doctype html>
 <html lang="th">
@@ -17,12 +18,9 @@ GoodJunkVR RUN — PRODUCTION
   <link rel="stylesheet" href="./goodjunk-vr.css" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- optional shared modules -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- Boot (module) -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 </head>
 
@@ -153,9 +151,7 @@ GoodJunkVR RUN — PRODUCTION
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
       btnBack?.addEventListener('click', ()=>{
-        try{
-          window.HHACloudLogger?.flush?.();
-        }catch(_){}
+        try{ window.HHACloudLogger?.flush?.(); }catch(_){}
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
       });
