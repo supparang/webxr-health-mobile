@@ -1,11 +1,7 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot (FIX defer)
-✅ Engine: hygiene.safe.js
-✅ Optional AI: ../vr/hha-ai-coach.js, ../vr/hha-difficulty-director.js, ../vr/hha-badges.js (defer)
-✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-✅ Back HUB: ?hub=...
+✅ Uses: ../vr/vr-ui.js (defer fix) => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (exports boot)
 -->
 <!doctype html>
 <html lang="th">
@@ -24,7 +20,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <!-- Optional shared helpers -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI Packs -->
+  <!-- AI Packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
