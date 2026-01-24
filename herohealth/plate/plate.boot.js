@@ -1,11 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (Latest)
+// PlateVR Boot — PRODUCTION (PATCHED)
 // ✅ Auto view detect (no UI override)
+// ✅ Default time = 90s
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -24,6 +25,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
+  // Do not offer UI override.
+  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -42,7 +45,19 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-function pct(n){ n = Number(n)||0; return `${Math.round(n)}%`; }
+
+function pct(n){
+  n = Number(n)||0;
+  return `${Math.round(n)}%`;
+}
+
+function safePctWidth(cur, tar){
+  cur = Number(cur)||0;
+  tar = Number(tar)||1;
+  if(!isFinite(cur) || !isFinite(tar) || tar <= 0) return '0%';
+  const p = Math.max(0, Math.min(100, (cur/tar)*100));
+  return `${Math.round(p)}%`;
+}
 
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
@@ -58,10 +73,10 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
-
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
+  // auto hide
   clearTimeout(WIN.__HHA_COACH_TO__);
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
@@ -69,11 +84,19 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
+function normalizeRunMode(run){
+  run = String(run||'play').toLowerCase();
+  if(run === 'research' || run === 'study' || run === 'play') return run;
+  // allow aliases
+  if(run === 'r') return 'research';
+  if(run === 's') return 'study';
+  return 'play';
+}
+
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
-  const hudShield = DOC.getElementById('hudShield');
 
   const goalName = DOC.getElementById('goalName');
   const goalSub  = DOC.getElementById('goalSub');
@@ -89,7 +112,6 @@ function wireHUD(){
     const d = e.detail || {};
     if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
     if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
-    if(hudShield && d.shield!=null) hudShield.textContent = String(d.shield);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -100,6 +122,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -107,7 +130,7 @@ function wireHUD(){
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
-      if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
+      if(goalBar)  goalBar.style.width  = safePctWidth(cur, tar);
     }
     if(d.mini){
       const m = d.mini;
@@ -116,7 +139,7 @@ function wireHUD(){
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
-      if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
+      if(miniBar)  miniBar.style.width  = safePctWidth(cur, tar);
     }
   });
 
@@ -132,7 +155,10 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      // keep same query params
+      location.reload();
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -156,6 +182,7 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
+    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -167,22 +194,29 @@ function wireEndSummary(){
 }
 
 function buildEngineConfig(){
+  // standard params
   const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase();
+
+  const run  = normalizeRunMode(qs('run','play'));
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90
+
+  // ✅ default time = 90 (เพราะ Plate ต้อง “เก็บให้ครบ 5 หมู่ + คุมความแม่น”)
+  const time = clamp(qs('time','90'), 10, 999);
+
+  // seed
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  return {
-    view,
-    runMode: run,
-    diff,
+  // research passthrough (optional)
+  const cfg = {
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // endpoints / tags
     hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '',
+    logEndpoint: qs('log','') || '', // ?log=... used by logger/engine if needed
 
+    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -194,6 +228,8 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
+
+  return cfg;
 }
 
 function ready(fn){
@@ -204,16 +240,23 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
+  // set view class
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
+  // ensure end overlay closed at start
   setOverlayOpen(false);
 
+  // boot engine
   try{
-    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
