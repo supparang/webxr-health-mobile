@@ -1,8 +1,8 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
+HygieneVR RUN — PRODUCTION (HHA Standard + Missions BK + Storm/Boss/Shield BL)
 ✅ Fix: vr-ui.js loaded with defer (avoid appendChild null)
-✅ Missions HUD: Goals + Mini quests + counters + hints
-✅ Engine: hygiene.safe.js (boot export)
+✅ Missions HUD: Goals + Mini quests
+✅ BL: Storm phase (EP2/EP3), Boss fight (EP3), Shield powerup
 -->
 <!doctype html>
 <html lang="th">
@@ -32,11 +32,25 @@ HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
 
 <body class="view-pc">
   <div id="gameRoot" class="hw-root">
+
+    <!-- ✅ NEW: Storm FX overlay -->
+    <div class="hw-stormfx" id="stormFx" aria-hidden="true"></div>
+
     <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
 
     <!-- HUD -->
     <div class="hw-hud">
       <div class="hw-top">
+
+        <!-- ✅ NEW: Boss bar -->
+        <div class="hw-bossbar" id="bossBar" style="display:none">
+          <div class="hw-boss-title" id="bossTitle">👑 BOSS: Handwash Master</div>
+          <div class="hw-boss-track">
+            <div class="hw-boss-fill" id="bossFill" style="width:100%"></div>
+          </div>
+          <div class="hw-boss-sub" id="bossSub">ทำ STEP ให้ครบต่อเนื่องเพื่อปราบบอส!</div>
+        </div>
+
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
@@ -47,12 +61,17 @@ HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <!-- ✅ NEW: Missions counters -->
         <div class="hw-row">
           <div class="hw-pill good" id="pillGoals">GOALS 0/2</div>
           <div class="hw-pill cyan" id="pillMini">MINI 0/3</div>
+
+          <!-- ✅ NEW: Shield + Storm pills -->
+          <div class="hw-pill violet" id="pillShield">SHIELD 0</div>
+          <div class="hw-pill warn" id="pillStorm" style="display:none">STORM 0s</div>
+
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
+
           <button class="hw-pill btn" id="btnMissions" type="button">📌 Missions</button>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
@@ -61,7 +80,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
 
       <div class="hw-banner" id="banner" aria-live="polite"></div>
 
-      <!-- ✅ NEW: Missions panel (toggle) -->
+      <!-- Missions panel -->
       <div class="hw-missions" id="missionsPanel" style="display:none">
         <div class="hw-mis-title">📌 Missions</div>
         <div class="hw-mis-grid">
@@ -75,7 +94,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
             <div class="hw-mis-sub" id="miniTimer">—</div>
           </div>
         </div>
-        <div class="hw-mis-sub">Tip: ยิง/แตะ “emoji ของ STEP ปัจจุบัน” เท่านั้น • หลีกเลี่ยง 🦠</div>
+        <div class="hw-mis-sub">Tip: ยิง/แตะ “emoji ของ STEP ปัจจุบัน” เท่านั้น • หลีกเลี่ยง 🦠 • เก็บ 🛡️ เพื่อบล็อกเชื้อ</div>
       </div>
     </div>
 
@@ -84,8 +103,8 @@ HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • ทำ GOALS + MINI ให้ครบจะ “ผ่าน Episode”<br>
-          ยิง/แตะเป้า “ไอคอนขั้นตอนปัจจุบัน” เท่านั้น
+          ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • เก็บ 🛡️ ได้บล็อกเชื้อ 1 ครั้ง<br>
+          EP2 มีพายุเชื้อ 🌀 • EP3 มีบอส 👑 ต้องทำ STEP ต่อเนื่องเพื่อชนะ
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -110,6 +129,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard + Missions Pack BK)
         </div>
       </div>
     </div>
+
   </div>
 
 <script>
