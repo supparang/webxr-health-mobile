@@ -1,11 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (PATCH)
 // ✅ Auto view detect (no UI override)
-// ✅ Default time = 90s (kids-friendly + finish 5 groups)
-// ✅ Still supports override via ?time=
+// ✅ Default time = 90s
+// ✅ Fix setBodyView: adds view-vr/view-cvr correctly
 // ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ End overlay: aria-hidden + class 'open' (safe with any CSS)
+// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
@@ -25,18 +25,10 @@ function isMobile(){
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
-function normalizeView(v){
-  v = (v || '').toLowerCase().trim();
-  if(v === 'pc' || v === 'desktop') return 'pc';
-  if(v === 'mobile' || v === 'phone') return 'mobile';
-  if(v === 'vr') return 'vr';
-  if(v === 'cvr' || v === 'cardboard') return 'cvr';
-  return '';
-}
-
 function getViewAuto(){
-  // no menu override; allow query force for experiments only
-  const forced = normalizeView(qs('view',''));
+  // Do not offer UI override.
+  // Allow caller/system to force view by query (used in experiments), but not via menu.
+  const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
@@ -56,9 +48,8 @@ function clamp(v, a, b){
   return v < a ? a : (v > b ? b : v);
 }
 
-function pctText(n){
-  n = Number(n);
-  if(!isFinite(n)) return '—';
+function pct(n){
+  n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
@@ -66,7 +57,6 @@ function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-  ov.classList.toggle('open', !!open); // safe with any CSS
 }
 
 function showCoach(msg, meta='Coach'){
@@ -76,7 +66,7 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = String(meta || 'Coach');
+  if(metaEl) metaEl.textContent = meta;
 
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
@@ -117,29 +107,24 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
+    // Expect: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
       if(goalSub)  goalSub.textContent  = g.sub  || '';
-
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
-
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
-      if(goalBar)  goalBar.style.width = `${Math.round((cur/tar)*100)}%`;
+      if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
       if(miniSub)  miniSub.textContent  = m.sub  || '';
-
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
-
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
-      if(miniBar)  miniBar.style.width = `${Math.round((cur/tar)*100)}%`;
+      if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
   });
 
@@ -155,7 +140,9 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      location.reload(); // keep same query params
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -179,9 +166,8 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // accuracy is now integer percent (0..100)
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pctText(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -195,7 +181,7 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ Default time = 90 (override allowed by ?time=)
+  // ✅ Default 90 seconds (not 70)
   const time = clamp(qs('time','90'), 10, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
@@ -207,11 +193,9 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -233,27 +217,19 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine (mount must exist)
-  const mount = DOC.getElementById('plate-layer');
-  if(!mount){
-    console.error('[PlateVR] mount #plate-layer not found');
-    showCoach('ไม่พบพื้นที่เล่น (#plate-layer)', 'System');
-    return;
-  }
-
   try{
-    engineBoot({ mount, cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
