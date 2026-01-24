@@ -5,9 +5,9 @@
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
-// ✅ Default time = 90 (unless ?time=...)
-// ✅ Optional: aiEnabled (play only) via ?ai=1
+// ✅ Pass-through research context params
+// ✅ Default time = 90 (better for Goal+Mini in one round)
+// ✅ Optional debug: ?debug=1
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -26,7 +26,7 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // No menu. Allow forced query (?view=pc|mobile|vr|cvr) for experiments only.
+  // Allow system to force via query (experiments), but no menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -66,6 +66,7 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -105,7 +106,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -175,9 +175,11 @@ function wireEndSummary(){
 }
 
 function buildEngineConfig(){
-  const view = getViewAuto();
+  const debug = (qs('debug','0') === '1');
 
-  const run  = (qs('run','play')||'play').toLowerCase();   // play | study | research
+  // standard params
+  const view = getViewAuto();
+  const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
   // ✅ default time = 90
@@ -185,10 +187,7 @@ function buildEngineConfig(){
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // ✅ ai only for play (opt-in): ?ai=1
-  const aiEnabled = (qs('ai','0') === '1') && (run === 'play');
-
-  return {
+  const cfg = {
     view,
     runMode: run,
     diff,
@@ -198,9 +197,6 @@ function buildEngineConfig(){
     // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
-
-    // optional toggles
-    aiEnabled,
 
     // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
@@ -214,6 +210,12 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
+
+  if(debug){
+    console.log('[PlateVR] cfg', cfg);
+    WIN.__PLATE_DEBUG__ = true;
+  }
+  return cfg;
 }
 
 function ready(fn){
@@ -224,8 +226,10 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
+  // set view class
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
@@ -235,10 +239,14 @@ ready(()=>{
 
   // boot engine
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    const mount = DOC.getElementById('plate-layer');
+    if(!mount){
+      console.error('[PlateVR] mount #plate-layer missing');
+      showCoach('ไม่พบพื้นที่เล่นเกม (#plate-layer)', 'System');
+      return;
+    }
+
+    engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
