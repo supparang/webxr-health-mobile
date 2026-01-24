@@ -1,9 +1,10 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration VR Launcher — ROOT (AUTO ONLY)
-✅ Auto-detect view if NOT provided (pc / mobile / cvr)
-✅ NEVER override if ?view= already exists
+Hydration VR Launcher — ROOT (AUTO)
+✅ Auto-detect (PC/Mobile/cVR) — NO override if ?view= exists
+✅ Cardboard: ?cardboard=1 (forces cvr only if view missing)
 ✅ Pass-through all query params (hub/run/diff/time/seed/sessionId/log/etc.)
-✅ Go to: /herohealth/hydration-vr/hydration-vr.html
+✅ Redirect to: /herohealth/hydration-vr/hydration-vr.html
+✅ Fallback button if redirect is blocked
 -->
 <!doctype html>
 <html lang="th">
@@ -16,16 +17,25 @@ Hydration VR Launcher — ROOT (AUTO ONLY)
   <style>
     :root{
       color-scheme: dark;
-      --bg:#020617; --panel:rgba(2,6,23,.76); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
-      --r:22px;
+      --r:22px; --pill:999px;
     }
     *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    html,body{
+      margin:0; height:100%;
+      background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
     .wrap{
       min-height:100%;
       display:grid;
@@ -33,27 +43,44 @@ Hydration VR Launcher — ROOT (AUTO ONLY)
       padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
     }
     .card{
-      width:min(780px,100%);
+      width:min(760px,100%);
       border:1px solid var(--stroke);
-      background:var(--panel);
-      border-radius:var(--r);
-      padding:16px;
-      box-shadow:0 24px 90px rgba(0,0,0,.55);
+      background: rgba(2,6,23,.72);
+      border-radius: var(--r);
+      padding: 16px;
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
     }
-    .t{font-weight:950;font-size:18px;letter-spacing:.2px}
-    .s{margin-top:6px;color:rgba(148,163,184,.95);font-size:13px;line-height:1.35}
-    .mono{margin-top:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;color:rgba(34,211,238,.95)}
-    a{color:rgba(34,197,94,.95)}
+    .title{ font-weight:950; font-size:18px; letter-spacing:.2px; }
+    .sub{ margin-top:6px; color:rgba(148,163,184,.95); font-size:13px; line-height:1.35; }
+    .btn{
+      margin-top:12px;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.72);
+      color: rgba(229,231,235,.95);
+      padding: 10px 12px;
+      font-weight:900;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
+    .hint{ margin-top:10px; color:rgba(148,163,184,.95); font-size:12px; }
+    code{ color: rgba(34,211,238,.95); }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="t">Hydration Quest VR</div>
-      <div class="s" id="msg">กำลังตรวจจับอุปกรณ์ และเข้าสู่เกมอัตโนมัติ…</div>
-      <div class="mono" id="dbg"></div>
-      <div class="s" style="margin-top:10px">
-        ถ้าไม่เด้งอัตโนมัติ <a id="fallback" href="#">แตะที่นี่เพื่อเข้าเกม</a>
+      <div class="title">Hydration Quest VR</div>
+      <div class="sub" id="status">กำลังตรวจจับอุปกรณ์ และเข้าเกมอัตโนมัติ…</div>
+
+      <!-- fallback (only shows if redirect doesn't happen quickly) -->
+      <button class="btn primary" id="btnGo" style="display:none">เข้าเกม</button>
+
+      <div class="hint">
+        Tip: ถ้าเป็นเด็ก ใช้ <code>?kids=1</code> • Cardboard ใช้ <code>?cardboard=1</code>
       </div>
     </div>
   </div>
@@ -61,70 +88,82 @@ Hydration VR Launcher — ROOT (AUTO ONLY)
 <script>
 (function(){
   'use strict';
-
   const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; } };
-  const hasParam = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
 
-  // ✅ RUN file in folder
-  const RUN_URL = './hydration-vr/hydration-vr.html';
+  const RUN_URL = './hydration-vr/hydration-vr.html'; // folder=run
 
   function detectView(){
-    // touch => mobile/cvr, non-touch => pc
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
+    const isTouch = ('ontouchstart' in window) || ((navigator.maxTouchPoints|0) > 0);
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
 
     if (isTouch){
-      // heuristic: big-ish landscape touch => cVR (kids still ok, can add ?kids=1)
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
     return 'pc';
   }
 
-  function buildTargetURL(){
-    const u = new URL(RUN_URL, location.href);
+  function buildRunUrl(){
     const cur = new URL(location.href);
+    const u = new URL(RUN_URL, location.href);
 
     // pass-through everything
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
-    // ✅ NEVER override if caller already provided ?view=
-    if (!cur.searchParams.has('view')){
-      u.searchParams.set('view', detectView());
+    // hub default
+    if (!u.searchParams.get('hub')) u.searchParams.set('hub', './hub.html');
+
+    // DO NOT override if view already provided
+    const hasView = cur.searchParams.has('view');
+    const cardboardQ = String(cur.searchParams.get('cardboard') || '0').toLowerCase();
+    const cardboardOn = (cardboardQ==='1' || cardboardQ==='true' || cardboardQ==='yes');
+
+    if (!hasView){
+      let view = detectView();
+      if (cardboardOn) view = 'cvr';
+      u.searchParams.set('view', view);
+    } else {
+      // if view exists, keep it exactly
+      u.searchParams.set('view', String(cur.searchParams.get('view')||'').toLowerCase() || 'pc');
     }
 
-    // ensure hub exists
-    if (!u.searchParams.get('hub')){
-      u.searchParams.set('hub', String(qs('hub','./hub.html')));
-    }
+    // if cardboard=1 present, keep it
+    if (cardboardOn) u.searchParams.set('cardboard','1');
 
     return u.toString();
   }
 
-  const msg = document.getElementById('msg');
-  const dbg = document.getElementById('dbg');
-  const fb  = document.getElementById('fallback');
+  const status = document.getElementById('status');
+  const btnGo = document.getElementById('btnGo');
 
-  const target = buildTargetURL();
-  if (fb) fb.href = target;
+  const target = buildRunUrl();
 
-  // UI text (tiny, no menu)
-  try{
-    const v = (new URL(target).searchParams.get('view') || '').toUpperCase();
-    if (msg){
-      msg.textContent = hasParam('view')
-        ? `รับค่า view เดิมแล้ว: ${v} → กำลังเข้าเกม…`
-        : `ตรวจจับแล้ว: ${v} → กำลังเข้าเกม…`;
+  if (status){
+    const v = (new URL(target)).searchParams.get('view') || '';
+    const cb = (new URL(target)).searchParams.get('cardboard') ? ' (Cardboard)' : '';
+    status.textContent = `ตรวจจับแล้ว: ${String(v).toUpperCase()}${cb} — กำลังเข้าเกม…`;
+  }
+
+  function go(){
+    // replace to avoid back-loop
+    location.replace(target);
+  }
+
+  // Try redirect immediately
+  go();
+
+  // Fallback: show button if still here (some browsers delay)
+  setTimeout(()=>{
+    if (btnGo){
+      btnGo.style.display = 'inline-flex';
+      btnGo.onclick = go;
     }
-    if (dbg){
-      dbg.textContent = target;
+    if (status){
+      status.textContent += ' (ถ้าไม่เข้า ให้กด “เข้าเกม”)';
     }
-  }catch(_){}
-
-  // redirect fast
-  setTimeout(()=>{ location.href = target; }, 50);
+  }, 900);
 
 })();
 </script>
