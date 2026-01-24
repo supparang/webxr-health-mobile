@@ -1,75 +1,77 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (flush-hardened) — LATEST
-// ✅ Listens: hha:end -> sends session summary JSON
-// ✅ Queue persist localStorage (offline-safe)
-// ✅ keepalive + sendBeacon fallback
-// ✅ Flush triggers: hha:flush, pagehide, visibilitychange, beforeunload
-// ✅ FIX: gameMode NOT hardcoded (use ev.detail.gameMode) + infer fallback
-// ✅ Adds: window.HHA_LOGGER = { enabled, endpoint, flush }  (so engine can avoid duplicate send)
+// HHA Cloud Logger — PRODUCTION (Queue + Flush-hardened)
+// ✅ Listens to: hha:start, hha:time, hha:score, hha:judge, hha:coach, quest:update, hha:end
+// ✅ Sends to endpoint from ?log= (POST JSON)  / supports sendBeacon fallback
+// ✅ Queue (localStorage) so data doesn't drop on mobile/VR
+// ✅ Flush triggers: visibilitychange(hidden), pagehide, beforeunload, freeze
+// ✅ Safe: no-op if no ?log=
+
+// Payload schema (suggested):
+// { type, ts, sessionId, runMode, gameMode, diff, seed, studyId, conditionGroup, data }
+
+'use strict';
 
 (function(){
-  'use strict';
   const WIN = window;
   const DOC = document;
-  if(!DOC || WIN.__HHA_CLOUD_LOGGER__) return;
-  WIN.__HHA_CLOUD_LOGGER__ = true;
 
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  const ENDPOINT = (qs('log','')||'').trim(); // ?log=...
-  const LS_KEY = 'HHA_LOG_QUEUE_V1';
+  const LS_Q = 'HHA_LOG_QUEUE_V1';
 
+  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const now = ()=> Date.now();
+
+  // ---------- Config via query params ----------
+  const endpoint = String(qs('log','') || '');
+  if (!endpoint){
+    // No endpoint => still expose helper for debugging but do nothing.
+    WIN.HHA_LOGGER = { enabled:false, flush: async()=>false, enqueue: ()=>false };
+    return;
+  }
+
+  const runMode = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
+  const gameMode = String(qs('gameMode', qs('game','')) || '').toLowerCase(); // optional
+  const diff = String(qs('diff','normal')).toLowerCase();
+  const seed = String(qs('seed', qs('ts', String(now()))) || '');
+  const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
+  const studyId = String(qs('studyId','') || '');
+  const conditionGroup = String(qs('conditionGroup', qs('cond','')) || '');
+
+  const projectTag = String(qs('projectTag','HeroHealth') || 'HeroHealth');
+  const maxQueue = clamp(qs('logMax', 800), 50, 5000);      // max items in queue
+  const batchSize = clamp(qs('logBatch', 25), 5, 100);      // per flush batch
+  const minFlushGapMs = clamp(qs('logGap', 900), 200, 8000);
+  const sampleScoreEvery = clamp(qs('logScoreEvery', 2), 1, 30); // sample every N score events
+
+  // ---------- Queue helpers ----------
   function loadQ(){
-    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }catch(_){ return []; }
+    try{
+      const raw = localStorage.getItem(LS_Q);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    }catch(_){ return []; }
   }
-  function saveQ(q){
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(q.slice(-120))); }catch(_){}
+  function saveQ(arr){
+    try{ localStorage.setItem(LS_Q, JSON.stringify(arr)); }catch(_){}
   }
 
-  let queue = loadQ();
+  let Q = loadQ();
   let flushing = false;
+  let lastFlushAt = -1e9;
 
-  function payloadBase(){
-    return {
-      timestampIso: new Date().toISOString(),
-      href: location.href,
-      ua: navigator.userAgent || '',
-      projectTag: qs('projectTag','HeroHealth'),
-      kind: 'session'
-    };
-  }
-
-  function inferGameMode(){
+  // ---------- transport ----------
+  async function postJson(url, payload, useKeepalive=true){
+    // Try sendBeacon first in shutdown-y cases (caller can decide)
     try{
-      const p = (location.pathname || '').toLowerCase();
-      if (p.includes('hydration')) return 'hydration';
-      if (p.includes('plate')) return 'plate';
-      if (p.includes('groups')) return 'groups';
-      if (p.includes('goodjunk')) return 'goodjunk';
-    }catch(_){}
-    return (qs('gameMode','')||qs('game','')||'').toLowerCase() || 'unknown';
-  }
-
-  function enqueue(obj){
-    queue.push(obj);
-    saveQ(queue);
-  }
-
-  async function postJson(url, obj){
-    try{
-      const body = JSON.stringify(obj);
-
-      // sendBeacon (ดีที่สุดตอน unload)
-      if (navigator.sendBeacon){
-        const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
-        if(ok) return true;
-      }
-
+      const body = JSON.stringify(payload);
+      // fetch keepalive
       const res = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body,
-        keepalive:true,
-        mode:'cors'
+        keepalive: !!useKeepalive,
+        cache:'no-store',
+        credentials:'omit'
       });
       return !!res && res.ok;
     }catch(_){
@@ -77,88 +79,152 @@
     }
   }
 
-  async function flush(){
-    if(flushing) return;
-    if(!ENDPOINT) return;         // no endpoint => do nothing
-    if(queue.length === 0) return;
+  function beaconJson(url, payload){
+    try{
+      const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
+      return navigator.sendBeacon ? navigator.sendBeacon(url, blob) : false;
+    }catch(_){ return false; }
+  }
+
+  // ---------- build envelope ----------
+  function envelope(type, data){
+    return {
+      type,
+      ts: now(),
+      projectTag,
+      sessionId,
+      runMode,
+      gameMode: gameMode || String(qs('gameMode', qs('game','')) || ''),
+      diff,
+      seed,
+      studyId,
+      conditionGroup,
+      url: location.href,
+      ua: navigator.userAgent || '',
+      data: data ?? {}
+    };
+  }
+
+  // ---------- enqueue ----------
+  function enqueue(type, data){
+    try{
+      Q.push(envelope(type, data));
+
+      // trim oldest if too big
+      if (Q.length > maxQueue){
+        Q.splice(0, Q.length - maxQueue);
+      }
+      saveQ(Q);
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  // ---------- flush ----------
+  async function flush(opts={}){
+    if (flushing) return false;
+
+    const t = now();
+    if (!opts.force && (t - lastFlushAt) < minFlushGapMs) return false;
+    if (!Q.length) return false;
 
     flushing = true;
+    lastFlushAt = t;
 
-    // oldest-first
-    const q = queue.slice();
-    let sent = 0;
+    // send in batches
+    try{
+      while (Q.length){
+        const batch = Q.slice(0, batchSize);
+        const payload = { batch, meta:{ projectTag, sessionId, runMode, seed, diff, studyId, conditionGroup } };
 
-    for(let i=0;i<q.length;i++){
-      const ok = await postJson(ENDPOINT, q[i]);
-      if(ok) sent++;
-      else break; // stop if offline
+        let ok = false;
+
+        // if shutdown-ish, prefer beacon first
+        if (opts.useBeaconFirst){
+          ok = beaconJson(endpoint, payload);
+          if (!ok){
+            ok = await postJson(endpoint, payload, true);
+          }
+        }else{
+          ok = await postJson(endpoint, payload, true);
+          if (!ok) ok = beaconJson(endpoint, payload);
+        }
+
+        if (!ok){
+          // stop; keep remaining
+          break;
+        }
+
+        // drop sent
+        Q.splice(0, batch.length);
+        saveQ(Q);
+      }
+      return true;
+    }finally{
+      flushing = false;
     }
-
-    if(sent > 0){
-      queue = q.slice(sent);
-      saveQ(queue);
-    }
-
-    flushing = false;
   }
 
-  // expose for engines to detect + avoid duplicate send
+  // ---------- event listeners ----------
+  let scoreTick = 0;
+
+  function onEvent(type){
+    return function(ev){
+      const d = (ev && ev.detail) ? ev.detail : {};
+      // Sampling for noisy streams
+      if (type === 'hha:score'){
+        scoreTick++;
+        if ((scoreTick % sampleScoreEvery) !== 0) return;
+      }
+      enqueue(type, d);
+
+      // auto-flush lightly (don’t spam)
+      // flush more aggressively for end events
+      if (type === 'hha:end'){
+        flush({ force:true, useBeaconFirst:true });
+      } else if (type === 'hha:start'){
+        flush({ force:false });
+      }
+    };
+  }
+
+  // Attach
+  const EVENTS = ['hha:start','hha:time','hha:score','hha:judge','hha:coach','quest:update','hha:end'];
+  EVENTS.forEach(name => WIN.addEventListener(name, onEvent(name)));
+
+  // ---------- flush-hardened triggers ----------
+  function flushSoonShutdown(){
+    flush({ force:true, useBeaconFirst:true });
+  }
+
+  DOC.addEventListener('visibilitychange', ()=>{
+    if (DOC.visibilityState === 'hidden') flushSoonShutdown();
+  });
+
+  WIN.addEventListener('pagehide', flushSoonShutdown);
+  WIN.addEventListener('beforeunload', flushSoonShutdown);
+
+  // Some browsers fire "freeze" on bfcache / background
+  WIN.addEventListener('freeze', flushSoonShutdown);
+
+  // Attempt periodic flush (very light)
+  setInterval(()=>{ flush({ force:false }); }, 3500);
+
+  // ---------- expose ----------
   WIN.HHA_LOGGER = {
-    enabled: !!ENDPOINT,
-    endpoint: ENDPOINT,
-    flush
+    enabled:true,
+    endpoint,
+    enqueue,
+    flush,
+    getQueueSize: ()=> Q.length,
+    clearQueue: ()=>{
+      Q = [];
+      saveQ(Q);
+    }
   };
 
-  // Listen end summary
-  function onEnd(ev){
-    try{
-      const d = ev?.detail || {};
-
-      // IMPORTANT: use summary fields directly (don’t overwrite gameMode)
-      const gameMode = (d.gameMode || d.game || qs('gameMode','') || inferGameMode() || 'unknown');
-
-      const pack = Object.assign(payloadBase(), {
-        // routing/meta
-        gameMode,
-        runMode: d.runMode || qs('run','play'),
-        diff: d.diff || qs('diff','normal'),
-        device: d.device || qs('view',''),
-
-        // identity / research
-        sessionId: d.sessionId || qs('sessionId', qs('studentKey','')) || '',
-        seed: d.seed || qs('seed','') || '',
-        ts: d.ts || qs('ts','') || '',
-
-        // core results (safe numbers)
-        durationPlannedSec: Number(d.durationPlannedSec || qs('time','0')) || 0,
-        durationPlayedSec: Number(d.durationPlayedSec || 0) || 0,
-        scoreFinal: Number(d.scoreFinal || 0) || 0,
-        misses: Number(d.misses || 0) || 0,
-        grade: d.grade || '—',
-        reason: d.reason || 'end',
-
-        // keep the full original summary too (so you don’t lose fields)
-        summary: d
-      });
-
-      enqueue(pack);
-      flush(); // best-effort immediate
-    }catch(_){}
-  }
-
-  WIN.addEventListener('hha:end', onEnd, { passive:true });
-
-  // Manual flush hook
-  WIN.addEventListener('hha:flush', ()=>flush(), { passive:true });
-
-  // unload flush
-  WIN.addEventListener('pagehide', ()=>flush(), { passive:true });
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden') flush();
-  }, { passive:true });
-  WIN.addEventListener('beforeunload', ()=>flush(), { passive:true });
-
-  // periodic flush (offline -> online)
-  setInterval(()=>flush(), 3500);
+  // Prime flush once at boot
+  flush({ force:false });
 
 })();
