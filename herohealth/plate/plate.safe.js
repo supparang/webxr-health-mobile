@@ -1,32 +1,22 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION)
-// HHA Standard
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION + AI PACK)
 // ------------------------------------------------
-// ✅ Play / Research modes
-//   - play: adaptive ON (hook-ready)
-//   - research/study: deterministic seed + adaptive OFF
-// ✅ Emits:
-//   hha:start, hha:score, hha:time, quest:update,
-//   hha:coach, hha:judge, hha:end
-// ✅ Uses mode-factory spawn (tap + hha:shoot)
-// ✅ decorateTarget -> emoji per 5 หมู่ + junk emoji pack
+// ✅ Plate core + decorateTarget emoji (food5-th.js)
+// ✅ AI Pack (Prediction + ML-lite difficulty + pattern generator + explainable coach)
+//   - play: AI ON by default (can disable via ?ai=0)
+//   - research/study: AI OFF always (deterministic research)
+// ✅ Emits: hha:ai, hha:boss, hha:storm (hooks)
 // ------------------------------------------------
 
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
 import { emojiForGroup, pickEmoji, labelForGroup, JUNK } from '../vr/food5-th.js';
+import { createAIHooks } from '../vr/ai-hooks.js';
 
-/* ------------------------------------------------
- * Utilities
- * ------------------------------------------------ */
 const WIN = window;
 
-const clamp = (v, a, b) => {
-  v = Number(v) || 0;
-  return v < a ? a : (v > b ? b : v);
-};
-
+const clamp = (v, a, b) => { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); };
 const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
@@ -39,9 +29,6 @@ function seededRng(seed){
   };
 }
 
-/* ------------------------------------------------
- * Engine state
- * ------------------------------------------------ */
 const STATE = {
   running:false,
   ended:false,
@@ -57,108 +44,71 @@ const STATE = {
   // plate groups (5 หมู่)
   g:[0,0,0,0,0], // index 0-4
 
-  // quest
-  goal:{
-    name:'เติมจานให้ครบ 5 หมู่',
-    sub:'เก็บอาหารให้ครบทุกหมู่',
-    cur:0,
-    target:5,
-    done:false
-  },
-  mini:{
-    name:'ความแม่นยำ',
-    sub:'คุมความแม่น ≥ 80%',
-    cur:0,
-    target:80,
-    done:false
-  },
+  goal:{ name:'เติมจานให้ครบ 5 หมู่', sub:'เก็บอาหารให้ครบทุกหมู่', cur:0, target:5, done:false },
+  mini:{ name:'ความแม่นยำ', sub:'คุมความแม่น ≥ 80%', cur:0, target:80, done:false },
 
-  // counters
   hitGood:0,
   hitJunk:0,
   expireGood:0,
 
-  // mode / cfg
   cfg:null,
   rng:Math.random,
 
-  // spawn engine
-  engine:null
+  engine:null,
+
+  // AI
+  ai:null,
+  tuned:null,
+  stormUntil:0,
+  bossOn:false
 };
 
-/* ------------------------------------------------
- * Event helpers
- * ------------------------------------------------ */
 function emit(name, detail){
   WIN.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-/* ------------------------------------------------
- * Quest update
- * ------------------------------------------------ */
 function emitQuest(){
   emit('quest:update', {
-    goal:{
-      name: STATE.goal.name,
-      sub: STATE.goal.sub,
-      cur: STATE.goal.cur,
-      target: STATE.goal.target
-    },
-    mini:{
-      name: STATE.mini.name,
-      sub: STATE.mini.sub,
-      cur: STATE.mini.cur,
-      target: STATE.mini.target,
-      done: STATE.mini.done
-    },
+    goal:{ name: STATE.goal.name, sub: STATE.goal.sub, cur: STATE.goal.cur, target: STATE.goal.target },
+    mini:{ name: STATE.mini.name, sub: STATE.mini.sub, cur: STATE.mini.cur, target: STATE.mini.target, done: STATE.mini.done },
     allDone: STATE.goal.done && STATE.mini.done
   });
 }
 
-/* ------------------------------------------------
- * Coach helper
- * ------------------------------------------------ */
 function coach(msg, tag='Coach'){
   emit('hha:coach', { msg, tag });
 }
 
-/* ------------------------------------------------
- * Score helpers
- * ------------------------------------------------ */
 function emitScore(){
-  emit('hha:score', {
-    score: STATE.score,
-    combo: STATE.combo,
-    comboMax: STATE.comboMax
-  });
+  emit('hha:score', { score: STATE.score, combo: STATE.combo, comboMax: STATE.comboMax });
 }
 
-function addScore(v){
-  STATE.score += v;
-  emitScore();
-}
+function addScore(v){ STATE.score += v; emitScore(); }
+function addCombo(){ STATE.combo++; STATE.comboMax = Math.max(STATE.comboMax, STATE.combo); }
+function resetCombo(){ STATE.combo = 0; }
 
-function addCombo(){
-  STATE.combo++;
-  STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
-}
-
-function resetCombo(){
-  STATE.combo = 0;
-}
-
-/* ------------------------------------------------
- * Accuracy
- * ------------------------------------------------ */
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
   if(total <= 0) return 1;
   return STATE.hitGood / total;
 }
 
-/* ------------------------------------------------
- * End game
- * ------------------------------------------------ */
+function metricsSnapshot(extra={}){
+  const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
+  const missRate = total > 0 ? (STATE.miss / total) : 0;
+  const junkRate = total > 0 ? (STATE.hitJunk / total) : 0;
+  return {
+    leftSec: STATE.timeLeft,
+    totalSec: Number(STATE.cfg?.durationPlannedSec || 90),
+    accuracy: accuracy(),
+    missRate,
+    junkRate,
+    combo: STATE.combo,
+    score: STATE.score,
+    ...extra
+  };
+}
+
 function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
@@ -185,86 +135,46 @@ function endGame(reason='timeup'){
     g5: STATE.g[4]
   });
 
-  // stop spawner
   try{ STATE.engine?.stop?.(); }catch{}
 }
 
-/* ------------------------------------------------
- * Timer
- * ------------------------------------------------ */
 function startTimer(){
   emit('hha:time', { leftSec: STATE.timeLeft });
 
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
+
+    // AI pattern tick every sec (cheap)
+    try{
+      STATE.ai?.patternTick?.(metricsSnapshot());
+    }catch{}
+
+    // storm expiry
+    if(STATE.stormUntil && performance.now() > STATE.stormUntil){
+      STATE.stormUntil = 0;
+      emit('hha:storm', { on:false });
+      const stormFx = document.getElementById('stormFx');
+      if(stormFx) stormFx.classList.remove('storm-on');
+    }
+
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
+
     if(STATE.timeLeft <= 0){
       endGame('timeup');
     }
   }, 1000);
 }
 
-/* ------------------------------------------------
- * Hit handlers
- * ------------------------------------------------ */
-function onHitGood(groupIndex){
-  STATE.hitGood++;
-  STATE.g[groupIndex]++;
-
-  addCombo();
-  addScore(100 + STATE.combo * 5);
-
-  // goal progress
-  if(!STATE.goal.done){
-    STATE.goal.cur = STATE.g.filter(v=>v>0).length;
-    if(STATE.goal.cur >= STATE.goal.target){
-      STATE.goal.done = true;
-      coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
-    }
-  }
-
-  // mini (accuracy)
-  const accPct = accuracy() * 100;
-  STATE.mini.cur = Math.round(accPct);
-  if(!STATE.mini.done && accPct >= STATE.mini.target){
-    STATE.mini.done = true;
-    coach('ความแม่นยำดีมาก! 👍');
-  }
-
-  emitQuest();
-
-  // ✅ ถ้าผ่านครบทั้ง Goal+Mini ให้ “จบด้วยชัยชนะ” (เร็ว+สนุก)
-  if(STATE.goal.done && STATE.mini.done){
-    // bonus
-    addScore(250);
-    coach('ผ่านภารกิจครบ! 🌟', 'System');
-    endGame('cleared');
-  }
-}
-
-function onHitJunk(){
-  STATE.hitJunk++;
-  STATE.miss++;
-  resetCombo();
-  addScore(-50);
-  coach('ระวัง! ของหวาน/ทอด ⚠️');
-  emitQuest();
-}
-
-function onExpireGood(){
-  STATE.expireGood++;
-  STATE.miss++;
-  resetCombo();
-  emitQuest();
-}
-
-/* ------------------------------------------------
- * Target decorator (emoji)
- * ------------------------------------------------ */
 function decorateTarget(el, target){
-  const kind = target.kind;
-  if(kind === 'junk'){
+  // storm visual: slight shake + cyan glow
+  const inStorm = STATE.stormUntil && performance.now() < STATE.stormUntil;
+  if(inStorm){
+    el.style.animationDuration = '1.0s';
+    el.style.boxShadow += ', 0 0 22px rgba(34,211,238,.22)';
+  }
+
+  if(target.kind === 'junk'){
     const emo = pickEmoji(target.rng, JUNK.emojis);
     el.innerHTML = `<span class="fg-emoji">${emo}</span>`;
     el.dataset.group = 'junk';
@@ -272,7 +182,6 @@ function decorateTarget(el, target){
     return;
   }
 
-  // good: map 0..4 -> groupId 1..5
   const groupId = (Number(target.groupIndex)||0) + 1;
   const emo = emojiForGroup(target.rng, groupId);
   const label = labelForGroup(groupId);
@@ -286,28 +195,104 @@ function decorateTarget(el, target){
 }
 
 /* ------------------------------------------------
- * Spawn logic
+ * Hit handlers (AI updates included)
  * ------------------------------------------------ */
+function afterEventAI(extra){
+  try{
+    STATE.ai?.updateAfterEvent?.(metricsSnapshot(extra));
+    const tune = STATE.ai?.tuneDifficulty?.();
+    if(tune) STATE.tuned = tune;
+  }catch{}
+}
+
+function onHitGood(groupIndex){
+  STATE.hitGood++;
+  STATE.g[groupIndex]++;
+
+  addCombo();
+  addScore(100 + STATE.combo * 5);
+
+  if(!STATE.goal.done){
+    STATE.goal.cur = STATE.g.filter(v=>v>0).length;
+    if(STATE.goal.cur >= STATE.goal.target){
+      STATE.goal.done = true;
+      coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
+    }
+  }
+
+  const accPct = accuracy() * 100;
+  STATE.mini.cur = Math.round(accPct);
+  if(!STATE.mini.done && accPct >= STATE.mini.target){
+    STATE.mini.done = true;
+    coach('ความแม่นยำดีมาก! 👍');
+  }
+
+  emitQuest();
+  afterEventAI({ justHit:true, kind:'good' });
+
+  if(STATE.goal.done && STATE.mini.done){
+    addScore(250);
+    coach('ผ่านภารกิจครบ! 🌟', 'System');
+    endGame('cleared');
+  }
+}
+
+function onHitJunk(){
+  STATE.hitJunk++;
+  STATE.miss++;
+  resetCombo();
+  addScore(-50);
+  coach('ระวัง! ของหวาน/ทอด ⚠️');
+  emitQuest();
+  afterEventAI({ justHit:true, kind:'junk' });
+
+  // if junk hits too much -> short storm warning (fun pressure)
+  if(STATE.ai?.enabled && STATE.hitJunk >= 3 && (accuracy() < 0.8)){
+    const stormFx = document.getElementById('stormFx');
+    if(stormFx) stormFx.classList.add('storm-on');
+    STATE.stormUntil = performance.now() + 1400;
+    emit('hha:storm', { on:true, ms: 1400, reason:'junk_combo' });
+  }
+}
+
+function onExpireGood(){
+  STATE.expireGood++;
+  STATE.miss++;
+  resetCombo();
+  emitQuest();
+  afterEventAI({ kind:'expire' });
+}
+
+/* ------------------------------------------------
+ * Spawn tuning (AI Difficulty Director)
+ * ------------------------------------------------ */
+function baseSpawn(diff){
+  if(diff === 'hard') return { spawnRate: 650, sizeRange:[42,58], ttlGood: 1900, ttlJunk: 1550, junkW: 0.30 };
+  if(diff === 'easy') return { spawnRate: 980, sizeRange:[48,72], ttlGood: 2300, ttlJunk: 1750, junkW: 0.22 };
+  return { spawnRate: 820, sizeRange:[44,64], ttlGood: 2100, ttlJunk: 1700, junkW: 0.28 };
+}
+
 function makeSpawner(mount){
   const diff = STATE.cfg.diff;
-  const spawnRate =
-    diff === 'hard' ? 650 :
-    diff === 'easy' ? 980 :
-    820;
+  const base = baseSpawn(diff);
 
-  const sizeRange =
-    diff === 'hard' ? [42, 58] :
-    diff === 'easy' ? [48, 72] :
-    [44, 64];
+  // apply AI tuning (if any)
+  const tuned = STATE.tuned;
+  const spawnRate = tuned ? Math.round(base.spawnRate / tuned.spawnRateMul) : base.spawnRate;
+  const ttlMul = tuned ? tuned.ttlMul : 1.0;
+  const junkMul = tuned ? tuned.junkWeightMul : 1.0;
+
+  const junkW = clamp(base.junkW * junkMul, 0.16, 0.40);
+  const goodW = 1.0 - junkW;
 
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
     spawnRate,
-    sizeRange,
+    sizeRange: base.sizeRange,
     kinds:[
-      { kind:'good', weight:0.72 },
-      { kind:'junk', weight:0.28 }
+      { kind:'good', weight: goodW },
+      { kind:'junk', weight: junkW }
     ],
     decorateTarget,
     onHit:(t)=>{
@@ -358,19 +343,36 @@ export function boot({ mount, cfg }){
 
   STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
 
+  // AI enable rules
+  const wantAI = (cfg.aiEnabled === true);
+  const autoAI = (cfg.runMode === 'play');         // play on by default
+  const aiEnabled = (cfg.runMode === 'research' || cfg.runMode === 'study') ? false : (wantAI || autoAI);
+
+  STATE.ai = createAIHooks({
+    enabled: aiEnabled,
+    seed,
+    difficulty: cfg.diff,
+    emit: (n,d)=>emit(n,d),
+    coachEmit: (msg,tag)=>coach(msg,tag)
+  });
+
   emit('hha:start', {
     game:'plate',
     runMode: cfg.runMode,
     diff: cfg.diff,
     seed: cfg.seed,
-    durationPlannedSec: STATE.timeLeft
+    durationPlannedSec: STATE.timeLeft,
+    ai: aiEnabled ? 'on' : 'off'
   });
 
   emitScore();
   emitQuest();
   startTimer();
 
+  // start spawner
+  STATE.tuned = null;
+  STATE.stormUntil = 0;
   STATE.engine = makeSpawner(mount);
 
-  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
+  coach(aiEnabled ? 'เริ่มเลย! โหมด AI พร้อมช่วยปรับความยาก 🤖🍽️' : 'เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
 }
