@@ -1,11 +1,9 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (Boss HP + FX + SFX+ Pack)
-// ✅ Emoji targets (7 steps)
-// ✅ Miss HUD, Combo HUD, Risk HUD
-// ✅ Boss HP last 15s + soap shield
-// ✅ SFX+: ok/wrong/haz/bossStart/bossHit/bossClear/questClear
-// ✅ SFX+: combo streak (arpeggio), combo break, boss warning siren, last-3 countdown ticks + heartbeat
-// ✅ kids=1 (ง่ายขึ้น, นิ่มขึ้น)  sfx=0 ปิดเสียง
+// HygieneVR SAFE — SURVIVAL (v1.5.0-prod)
+// ✅ Perfect/Good/Miss popups + SFX
+// ✅ Streak badges (10/20/30) -> hha:badge + saved in summary
+// ✅ Boss patterns 3 types (deterministic by seed) rotate every 5s
+// ✅ Boss HP + Soap shield + last-3 countdown + siren + heartbeat
 // Params: run,diff,view,time,seed,hub,win=both|loop,kids=0|1,sfx=0|1
 'use strict';
 
@@ -62,7 +60,6 @@ function makeSFX(enabled){
     ctx = new AC();
     return ctx;
   }
-
   function unlock(){
     const c = ensure();
     if(!c) return;
@@ -75,7 +72,6 @@ function makeSFX(enabled){
       o.start(); o.stop(c.currentTime + 0.01);
     }catch(_){}
   }
-
   function tone(freq, durMs, type='sine', vol=0.05){
     const c = ensure();
     if(!c) return;
@@ -93,37 +89,31 @@ function makeSFX(enabled){
       o.start(t0); o.stop(t1 + 0.02);
     }catch(_){}
   }
-
   function chord(freqs, durMs, type='sine', vol=0.03){
     freqs.forEach((f,i)=> setTimeout(()=>tone(f, durMs, type, vol), i*8));
   }
-
   function stopSiren(){
     if(sirenTimer){ clearInterval(sirenTimer); sirenTimer = null; }
   }
   function stopHeartbeat(){
     if(heartbeatTimer){ clearInterval(heartbeatTimer); heartbeatTimer = null; }
   }
-
   function sirenStart(){
     if(!enabled) return;
     stopSiren();
     let up = true;
     let f = 520;
     sirenTimer = setInterval(()=>{
-      // ปรับขึ้นลงสลับนุ่มๆ ไม่แสบหู
       f += up ? 80 : -80;
       if(f >= 920) up = false;
       if(f <= 520) up = true;
       tone(f, 70, 'square', 0.035);
     }, 90);
   }
-
   function heartbeatStart(){
     if(!enabled) return;
     stopHeartbeat();
     heartbeatTimer = setInterval(()=>{
-      // thump-2
       tone(110, 65, 'sine', 0.05);
       setTimeout(()=>tone(140, 55, 'sine', 0.04), 85);
     }, 520);
@@ -136,6 +126,10 @@ function makeSFX(enabled){
     wrong(){ tone(220, 120, 'sawtooth', 0.05); },
     haz(){ tone(140, 140, 'square', 0.05); },
 
+    perfect(){ chord([988,1318], 70, 'sine', 0.05); },
+    good(){ tone(784, 55, 'sine', 0.045); },
+    miss(){ chord([330,247], 90, 'sawtooth', 0.035); },
+
     bossStart(){ chord([520,740], 90, 'square', 0.045); },
     bossHit(){ tone(660, 60, 'triangle', 0.055); },
     bossClear(){ chord([988,1318,1567], 120, 'triangle', 0.05); },
@@ -143,16 +137,12 @@ function makeSFX(enabled){
     questClear(){ chord([784,1046], 90, 'sine', 0.045); },
 
     comboUp(level){
-      // arpeggio ที่ 5,10,15,... (ยิ่งสูงยิ่งคึก)
       const base = level >= 15 ? 988 : (level >= 10 ? 880 : 784);
       chord([base, base*1.26, base*1.5], 70, 'sine', 0.04);
     },
-    comboBreak(){
-      chord([330,247], 90, 'sawtooth', 0.035);
-    },
+    comboBreak(){ chord([330,247], 90, 'sawtooth', 0.035); },
 
     countdownTick(n){
-      // 3-2-1 สูงขึ้นเรื่อยๆ
       const f = n===3 ? 520 : (n===2 ? 740 : 988);
       tone(f, 85, 'triangle', 0.05);
     },
@@ -181,7 +171,7 @@ export function boot(){
   const hudSub    = DOC.getElementById('hudSub');
   const banner    = DOC.getElementById('banner');
 
-  // Boss UI
+  // Boss UI (optional in html)
   const bossBar   = DOC.getElementById('bossBar');
   const bossTitle = DOC.getElementById('bossTitle');
   const bossSub   = DOC.getElementById('bossSub');
@@ -228,8 +218,8 @@ export function boot(){
   // kids mode soften
   const tuned = {
     spawnPerSec: kids ? base.spawnPerSec*0.88 : base.spawnPerSec,
-    hazardRate: kids ? base.hazardRate*0.75 : base.hazardRate,
-    decoyRate: kids ? base.decoyRate*0.85 : base.decoyRate,
+    hazardRate:  kids ? base.hazardRate*0.75 : base.hazardRate,
+    decoyRate:   kids ? base.decoyRate*0.85 : base.decoyRate,
   };
 
   // state
@@ -261,16 +251,38 @@ export function boot(){
   let soapShieldUntilMs=0;
   let bossBonus=0;
 
-  // boss warning before start
+  // boss warning
   let bossWarnOn=false;
 
   // last-3 countdown
   let lastCountdownMark = 0;
   let last3On=false;
 
+  // Boss patterns (rotate 5s, deterministic)
+  const PATTERNS = ['STORM','DECOY','SOAP'];
+  const bossPatternSeq = makeBossPatternSeq(seed);
+  let bossPattern = 'STORM';
+  let bossPatternIndex = 0;
+
+  // Streak badges
+  const streakUnlocked = new Set();
+  let streak10=false, streak20=false, streak30=false;
+
   // targets
   const targets=[];
   let nextId=1;
+
+  function makeBossPatternSeq(seed0){
+    // deterministic shuffle 3 patterns using seed
+    const r = makeRNG((seed0>>>0) ^ 0xA51B9C3D);
+    const a = PATTERNS.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(r()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    // ensure length >= 3; repeat cycle
+    return a;
+  }
 
   function showBanner(msg){
     if(!banner) return;
@@ -299,7 +311,17 @@ export function boot(){
     }catch(_){}
   }
 
-  // big center countdown (3..2..1)
+  // Big judge popup center: PERFECT / GOOD / MISS
+  function judgePop(type){
+    try{
+      const el = DOC.createElement('div');
+      el.className = `hw-judge ${type}`;
+      el.textContent = (type==='perfect') ? 'PERFECT!' : (type==='good') ? 'GOOD!' : 'MISS!';
+      stage.appendChild(el);
+      setTimeout(()=>el.remove(), 520);
+    }catch(_){}
+  }
+
   function centerCountdown(n){
     try{
       const el = DOC.createElement('div');
@@ -329,10 +351,12 @@ export function boot(){
       return;
     }
     bossBar.style.display='block';
-    if(bossTitle) bossTitle.textContent = bossCleared ? '✅ BOSS CLEARED!' : '🚨 BOSS: SOAP STORM';
+    if(bossTitle) bossTitle.textContent = bossCleared ? '✅ BOSS CLEARED!' : `🚨 BOSS: ${bossPattern}`;
     if(bossSub){
       const left = Math.max(0, Math.ceil(timeLeft));
-      bossSub.textContent = bossCleared ? `โบนัส +${bossBonus}` : `HP ${bossHits}/${bossHitsNeed} • เหลือ ${left}s`;
+      bossSub.textContent = bossCleared
+        ? `โบนัส +${bossBonus}`
+        : `HP ${bossHits}/${bossHitsNeed} • เหลือ ${left}s • pattern ${bossPatternIndex+1}/3`;
     }
     if(bossFill){
       const p = bossHitsNeed ? clamp((bossHits/bossHitsNeed)*100, 0, 100) : 0;
@@ -341,7 +365,6 @@ export function boot(){
   }
 
   function setUrgentUI(){
-    // last 10 seconds: time pill urgent
     if(pillTime){
       const urgent = timeLeft <= 10;
       pillTime.classList.toggle('urgent', urgent);
@@ -365,7 +388,7 @@ export function boot(){
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
 
     if(pillQuest){
-      if(bossActive && !bossCleared) pillQuest.textContent = `BOSS 🎯 ${bossHits}/${bossHitsNeed}`;
+      if(bossActive && !bossCleared) pillQuest.textContent = `BOSS 🎯 ${bossHits}/${bossHitsNeed} • ${bossPattern}`;
       else if(bossActive && bossCleared) pillQuest.textContent = `BOSS ✅ +${bossBonus}`;
       else pillQuest.textContent = `QUEST —`;
     }
@@ -416,22 +439,71 @@ export function boot(){
     return obj;
   }
 
+  function computeRt(obj){
+    const dt = nowMs() - obj.bornMs;
+    return clamp(dt, 0, 60000);
+  }
+
+  function getJudgeTier(rtMs){
+    // kids ใจดีขึ้นนิด
+    const p = kids ? 360 : 320;
+    const g = kids ? 700 : 620;
+    if(rtMs <= p) return 'perfect';
+    if(rtMs <= g) return 'good';
+    return 'ok';
+  }
+
+  function applyPatternRates(baseRates, pattern){
+    // baseRates = {haz, decoy, soap} additive scaling
+    if(pattern === 'STORM'){
+      return {
+        haz:  clamp(baseRates.haz * 1.55, 0.06, 0.32),
+        decoy:clamp(baseRates.decoy * 0.95, 0.08, 0.38),
+        soap: clamp(baseRates.soap * 0.95, 0.06, 0.26),
+      };
+    }
+    if(pattern === 'DECOY'){
+      return {
+        haz:  clamp(baseRates.haz * 0.95, 0.05, 0.28),
+        decoy:clamp(baseRates.decoy * 1.70, 0.12, 0.48),
+        soap: clamp(baseRates.soap * 0.90, 0.06, 0.26),
+      };
+    }
+    // SOAP
+    return {
+      haz:  clamp(baseRates.haz * 0.90, 0.05, 0.26),
+      decoy:clamp(baseRates.decoy * 0.90, 0.10, 0.40),
+      soap: clamp(baseRates.soap * 1.85, 0.10, 0.32),
+    };
+  }
+
   function spawnOne(){
     const s = STEPS[stepIdx];
 
-    // Boss phase
+    // Boss phase uses patterns
     if(bossActive && !bossCleared){
-      const rb = rng();
-      // soap helper มากขึ้นใน kids
-      const soapP = kids ? 0.14 : 0.10;
-      if(rb < soapP) return createTarget('soap', ICON_SOAP, -2);
-      // hazard ลดลงนิดใน kids
-      const hazP = clamp(tuned.hazardRate*0.85, 0.04, 0.22);
-      if(rb < soapP + hazP) return createTarget('haz', ICON_HAZ, -1);
-      // good
+      const baseRates = {
+        soap: kids ? 0.16 : 0.12,
+        haz:  clamp(tuned.hazardRate*0.85, 0.04, 0.22),
+        decoy: clamp(tuned.decoyRate*0.70, 0.08, 0.30),
+      };
+      const P = applyPatternRates(baseRates, bossPattern);
+
+      const r = rng();
+      if(r < P.soap) return createTarget('soap', ICON_SOAP, -2);
+      if(r < P.soap + P.haz) return createTarget('haz', ICON_HAZ, -1);
+      if(r < P.soap + P.haz + P.decoy){
+        let j = stepIdx;
+        for(let k=0;k<6;k++){
+          const pick = Math.floor(rng()*STEPS.length);
+          if(pick !== stepIdx){ j = pick; break; }
+        }
+        return createTarget('wrong', STEPS[j].icon, j);
+      }
       return createTarget('good', s.icon, stepIdx);
     }
 
+    // Normal
     const r = rng();
     if(r < tuned.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
@@ -445,11 +517,6 @@ export function boot(){
     }else{
       return createTarget('good', s.icon, stepIdx);
     }
-  }
-
-  function computeRt(obj){
-    const dt = nowMs() - obj.bornMs;
-    return clamp(dt, 0, 60000);
   }
 
   function onShoot(e){
@@ -493,6 +560,19 @@ export function boot(){
     setHud();
   }
 
+  function setBossPatternByTime(){
+    // During boss: rotate every 5 seconds, deterministic cycle from bossPatternSeq
+    if(!bossActive || bossCleared) return;
+    const bossElapsed = Math.max(0, bossLenSec - Math.max(0, Math.ceil(timeLeft))); // approx
+    const idx = Math.floor(bossElapsed / 5) % 3;
+    if(idx !== bossPatternIndex){
+      bossPatternIndex = idx;
+      bossPattern = bossPatternSeq[idx] || 'STORM';
+      showBanner(`⚡ BOSS PATTERN: ${bossPattern}`);
+      setHud();
+    }
+  }
+
   function maybeStartBoss(){
     if(bossActive) return;
 
@@ -512,6 +592,9 @@ export function boot(){
       soapShieldUntilMs = 0;
       bossBonus = 0;
 
+      bossPatternIndex = 0;
+      bossPattern = bossPatternSeq[0] || 'STORM';
+
       SFX.bossStart();
       showBanner(`🚨 BOSS TIME! ยิงให้ได้ ${bossHitsNeed} ใน 15 วิ`);
       setHud();
@@ -520,7 +603,6 @@ export function boot(){
 
   function maybeLast3Countdown(){
     const ceilT = Math.ceil(timeLeft);
-    // last3 zone
     if(ceilT <= 3 && ceilT > 0){
       if(!last3On){
         last3On = true;
@@ -544,16 +626,37 @@ export function boot(){
   function onComboBreak(){
     comboBreaks++;
     SFX.comboBreak();
+    SFX.miss();
+    judgePop('miss');
     showBanner('💥 คอมโบขาด!');
   }
 
+  function unlockStreakBadge(n){
+    const key = `streak_${n}`;
+    if(streakUnlocked.has(key)) return;
+    streakUnlocked.add(key);
+
+    const badge = {
+      id: key,
+      title: `Streak ${n}!`,
+      icon: n===10 ? '🔥' : (n===20 ? '⚡' : '👑'),
+      note: 'ยิงถูกต่อเนื่องแบบไม่พลาด',
+      n
+    };
+    emit('hha:badge', badge);
+    fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.22, 'good', `${badge.icon} STREAK ${n}!`);
+    showBanner(`${badge.icon} ได้ Badge: Streak ${n}!`);
+  }
+
   function maybeComboStreakSfx(){
-    // ทุก 5 คอมโบ เล่น arpeggio (kids ลดความถี่ลง)
     const step = kids ? 7 : 5;
     if(combo > 0 && combo % step === 0){
       SFX.comboUp(combo);
       showBanner(`🔥 COMBO ${combo}!`);
     }
+    if(combo === 10){ streak10=true; unlockStreakBadge(10); }
+    if(combo === 20){ streak20=true; unlockStreakBadge(20); }
+    if(combo === 30){ streak30=true; unlockStreakBadge(30); }
   }
 
   function judgeHit(obj, source, extra){
@@ -561,11 +664,10 @@ export function boot(){
     const rt = computeRt(obj);
 
     if(obj.kind === 'soap'){
-      soapShieldUntilMs = nowMs() + (kids ? 3600 : 3000); // kids นานขึ้นนิด
+      soapShieldUntilMs = nowMs() + (kids ? 3600 : 3000);
       SFX.ok();
       showBanner('🧼 โล่ฟอง! (กันเชื้อชั่วคราว)');
       fxBurst(obj.x, obj.y, 'good', '🫧');
-      try{ obj.el?.classList.add('hit'); }catch(_){}
       removeTarget(obj);
       setHud();
       return;
@@ -575,6 +677,13 @@ export function boot(){
       correctHits++;
       totalStepHits++;
       hitsInStep++;
+
+      // judge tier
+      const tier = getJudgeTier(rt);
+      if(tier === 'perfect'){ SFX.perfect(); judgePop('perfect'); }
+      else if(tier === 'good'){ SFX.good(); judgePop('good'); }
+      else { SFX.ok(); }
+
       combo++;
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
@@ -583,7 +692,7 @@ export function boot(){
         bossHits++;
         SFX.bossHit();
         fxBurst(obj.x, obj.y, 'good', '✨');
-        try{ obj.el?.classList.add('hit'); }catch(_){}
+
         if(bossHits >= bossHitsNeed){
           bossCleared = true;
           bossBonus = kids ? 140 : 120;
@@ -592,17 +701,13 @@ export function boot(){
           showBanner(`🏆 BOSS CLEARED! +${bossBonus}`);
         }
       }else{
-        SFX.ok();
         fxBurst(obj.x, obj.y, 'good', '🫧');
-        try{ obj.el?.classList.add('hit'); }catch(_){}
       }
 
-      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
+      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, tier, source, extra });
 
-      // combo streak SFX
       maybeComboStreakSfx();
 
-      // step clear
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         stepIdx++;
         hitsInStep=0;
@@ -611,7 +716,6 @@ export function boot(){
           stepIdx=0;
           loopsDone++;
 
-          // QUEST CLEAR (ครบ 7 ขั้นตอน)
           SFX.questClear();
           showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
 
@@ -638,7 +742,6 @@ export function boot(){
 
       SFX.wrong();
       fxBurst(obj.x, obj.y, 'warn', '⚠️');
-      try{ obj.el?.classList.add('hit'); }catch(_){}
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
 
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
@@ -651,7 +754,8 @@ export function boot(){
     if(obj.kind === 'haz'){
       const shieldOn = nowMs() < soapShieldUntilMs;
       if(shieldOn){
-        SFX.ok();
+        SFX.good();
+        judgePop('good');
         showBanner('🛡️ โล่ฟองกันเชื้อ!');
         fxBurst(obj.x, obj.y, 'good', '🛡️');
         removeTarget(obj);
@@ -665,8 +769,10 @@ export function boot(){
       combo = 0;
 
       SFX.haz();
+      SFX.miss();
+      judgePop('miss');
+
       fxBurst(obj.x, obj.y, 'bad', '🦠');
-      try{ obj.el?.classList.add('hit'); }catch(_){}
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
 
       showBanner(`🦠 โดนเชื้อ! ระวัง!`);
@@ -691,10 +797,11 @@ export function boot(){
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
 
-    // boss warning + boss start
+    // boss
     maybeStartBoss();
+    setBossPatternByTime();
 
-    // last-3 countdown + heartbeat
+    // last-3
     maybeLast3Countdown();
 
     // spawn
@@ -740,7 +847,12 @@ export function boot(){
     lastCountdownMark=0;
     last3On=false;
 
-    // stop any running loops
+    bossPatternIndex=0;
+    bossPattern=bossPatternSeq[0] || 'STORM';
+
+    streakUnlocked.clear();
+    streak10=streak20=streak30=false;
+
     SFX.sirenStop();
     SFX.heartbeatStop();
 
@@ -753,7 +865,6 @@ export function boot(){
     tStartMs = nowMs();
     tLastMs = tStartMs;
 
-    // unlock audio after user gesture
     SFX.unlock();
 
     startOverlay && (startOverlay.style.display='none');
@@ -770,7 +881,6 @@ export function boot(){
     if(!running) return;
     running=false;
 
-    // stop loops
     SFX.sirenStop();
     SFX.heartbeatStop();
 
@@ -794,12 +904,13 @@ export function boot(){
       correctHits*10 +
       loopsDone*90 +
       comboMax*6 +
-      bossBonus -
+      bossBonus +
+      (streak30?150:0) + (streak20?80:0) + (streak10?35:0) -
       (getMissCount()*18 + hazHits*12 + comboBreaks*6)
     ));
 
     const summary = {
-      version:'1.4.0-prod',
+      version:'1.5.0-prod',
       game:'hygiene',
       runMode, diff, view, seed, winMode,
       kids, sfxOn,
@@ -821,6 +932,7 @@ export function boot(){
       bossHits,
       bossHitsNeed,
       bossBonus,
+      bossPatternSeq,
 
       stepAcc,
       riskIncomplete,
@@ -829,6 +941,7 @@ export function boot(){
       comboBreaks,
       misses: getMissCount(),
 
+      streak10, streak20, streak30,
       scoreFinal,
       grade
     };
@@ -847,7 +960,7 @@ export function boot(){
       'จบเกม ✅';
 
     endSub.textContent =
-      `Grade ${grade} • score ${scoreFinal} • boss ${bossCleared?'✅':'❌'} (${bossHits}/${bossHitsNeed}) • miss ${getMissCount()} • loops ${loopsDone}`;
+      `Grade ${grade} • score ${scoreFinal} • boss ${bossCleared?'✅':'❌'} (${bossHits}/${bossHitsNeed}) • streak ${streak30?30:(streak20?20:(streak10?10:0))} • miss ${getMissCount()} • loops ${loopsDone}`;
 
     endJson.textContent = JSON.stringify(summary, null, 2);
     endOverlay && (endOverlay.style.display='grid');
