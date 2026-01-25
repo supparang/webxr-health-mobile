@@ -1,10 +1,10 @@
 // === /herohealth/vr/mode-factory.js ===
-// Mode Factory — PRODUCTION
-// ✅ Export: boot()
-// ✅ Deterministic seeded RNG
-// ✅ Tap hit + Crosshair shoot hit (hha:shoot)
-// ✅ Safe spawn rect (reads CSS vars --plate-*-safe)
-// ✅ decorateTarget(el, target) callback for emoji/icon customization
+// PRODUCTION (HHA Standard)
+// ✅ deterministic rng
+// ✅ decorateTarget(el,target)
+// ✅ boss HP support (hp>1 => keep until hp=0)
+// ✅ spawnCustom() for patterns (storm/boss scripted)
+// ✅ getStats() for AI predictor
 
 'use strict';
 
@@ -21,14 +21,14 @@ function seededRng(seed){
   };
 }
 
-function now(){ return performance.now ? performance.now() : Date.now(); }
+function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-function readSafeVars(){
+function readSafeVars(prefix='--plate-'){
   const cs = getComputedStyle(DOC.documentElement);
-  const top = parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
-  const bottom = parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
-  const left = parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
-  const right = parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
+  const top = parseFloat(cs.getPropertyValue(prefix + 'top-safe')) || 0;
+  const bottom = parseFloat(cs.getPropertyValue(prefix + 'bottom-safe')) || 0;
+  const left = parseFloat(cs.getPropertyValue(prefix + 'left-safe')) || 0;
+  const right = parseFloat(cs.getPropertyValue(prefix + 'right-safe')) || 0;
   return { top, bottom, left, right };
 }
 
@@ -52,7 +52,8 @@ export function boot({
   onHit = ()=>{},
   onExpire = ()=>{},
   decorateTarget = null,
-  shootCooldownMs = 90
+  cooldownMs = 90,
+  safePrefix = '--plate-',
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
@@ -62,12 +63,12 @@ export function boot({
     lastSpawnAt:0,
     spawnTimer:null,
     targets:new Set(),
-    cooldownUntil:0
+    cooldownUntil:0,
   };
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
-    const safe = readSafeVars();
+    const safe = readSafeVars(safePrefix);
     const left = r.left + safe.left;
     const top = r.top + safe.top;
     const right = r.right - safe.right;
@@ -77,12 +78,29 @@ export function boot({
     return { left, top, right, bottom, w, h };
   }
 
+  function removeTarget(target){
+    state.targets.delete(target);
+    try{ target.el.remove(); }catch{}
+  }
+
   function hit(target, meta){
     if(!state.alive) return;
     if(!state.targets.has(target)) return;
-    state.targets.delete(target);
-    try{ target.el.remove(); }catch{}
-    onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
+
+    // boss hp behavior
+    if((target.hp|0) > 1){
+      target.hp = (target.hp|0) - 1;
+      try{
+        target.el.dataset.hp = String(target.hp);
+        target.el.classList.add('hp-hit');
+        setTimeout(()=>target.el && target.el.classList && target.el.classList.remove('hp-hit'), 120);
+      }catch{}
+      onHit({ kind: target.kind, groupIndex: target.groupIndex, hpLeft: target.hp, partial:true, ...meta });
+      return;
+    }
+
+    removeTarget(target);
+    onHit({ kind: target.kind, groupIndex: target.groupIndex, hpLeft: 0, partial:false, ...meta });
   }
 
   function onShoot(e){
@@ -90,7 +108,7 @@ export function boot({
     const d = e.detail || {};
     const t = now();
     if(t < state.cooldownUntil) return;
-    state.cooldownUntil = t + (Number(shootCooldownMs)||90);
+    state.cooldownUntil = t + (Number(cooldownMs)||90);
 
     const x = Number(d.x), y = Number(d.y);
     const lockPx = Number(d.lockPx || 28);
@@ -109,23 +127,27 @@ export function boot({
 
   WIN.addEventListener('hha:shoot', onShoot);
 
-  function spawnOne(){
-    if(!state.alive) return;
+  function spawnAt(cx, cy, opts={}){
+    if(!state.alive) return null;
 
     const rect = computeSpawnRect();
-    if(rect.w < 80 || rect.h < 80) return;
+    if(rect.w < 80 || rect.h < 80) return null;
 
-    const size = Math.round(sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]));
+    const kind = String(opts.kind || 'good');
+    const size = Math.round(Number(opts.size || (sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]))));
+    const ttlMs = Math.round(Number(opts.ttlMs ?? (kind === 'junk' ? 1700 : 2100)));
+    const hp = Math.max(1, Math.round(Number(opts.hp || 1)));
+
+    // clamp center into rect with padding
     const pad = Math.max(10, Math.round(size * 0.55));
-    const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
-    const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
-
-    const chosen = pickWeighted(rng, kinds);
-    const kind = chosen.kind || 'good';
+    const x = Math.min(rect.right - pad, Math.max(rect.left + pad, cx));
+    const y = Math.min(rect.bottom - pad, Math.max(rect.top + pad, cy));
 
     const el = DOC.createElement('div');
     el.className = 'plateTarget';
     el.dataset.kind = kind;
+    if(hp > 1) el.dataset.hp = String(hp);
+
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
     el.style.width = `${size}px`;
@@ -136,19 +158,15 @@ export function boot({
       el,
       kind,
       bornAt: now(),
-      ttlMs: kind === 'junk' ? 1700 : 2100,
-      groupIndex: Math.floor(rng()*5), // 0..4
+      ttlMs,
+      groupIndex: (opts.groupIndex != null) ? Number(opts.groupIndex) : Math.floor(rng()*5),
       size,
-      rng
+      rng,
+      hp
     };
     el.__hhaTarget = target;
 
-    // decorate UI (emoji/icon)
-    try{
-      if(typeof decorateTarget === 'function') decorateTarget(el, target);
-    }catch(err){
-      console.warn('[mode-factory] decorateTarget error', err);
-    }
+    try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
@@ -161,10 +179,30 @@ export function boot({
     setTimeout(()=>{
       if(!state.alive) return;
       if(!state.targets.has(target)) return;
-      state.targets.delete(target);
-      try{ el.remove(); }catch{}
+      removeTarget(target);
       onExpire({ ...target });
-    }, target.ttlMs);
+    }, ttlMs);
+
+    return target;
+  }
+
+  function spawnOne(){
+    const rect = computeSpawnRect();
+    if(rect.w < 80 || rect.h < 80) return;
+
+    const chosen = pickWeighted(rng, kinds);
+    const kind = chosen.kind || 'good';
+
+    const size = Math.round(sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]));
+    const pad = Math.max(10, Math.round(size * 0.55));
+    const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
+    const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
+
+    // allow per-kind overrides via kinds entry
+    const ttlMs = (chosen.ttlMs != null) ? Number(chosen.ttlMs) : (kind === 'junk' ? 1700 : 2100);
+    const hp = (chosen.hp != null) ? Number(chosen.hp) : 1;
+
+    spawnAt(x, y, { kind, size, ttlMs, hp });
   }
 
   state.spawnTimer = setInterval(()=>{
@@ -184,6 +222,18 @@ export function boot({
       WIN.removeEventListener('hha:shoot', onShoot);
       for(const target of state.targets){ try{ target.el.remove(); }catch{} }
       state.targets.clear();
-    }
+    },
+    spawnCustom({ x, y, kind='good', size=null, ttlMs=null, groupIndex=null, hp=1 }){
+      return spawnAt(Number(x), Number(y), { kind, size, ttlMs, groupIndex, hp });
+    },
+    getStats(){
+      return {
+        alive: state.alive,
+        activeCount: state.targets.size,
+        cooldownUntil: state.cooldownUntil
+      };
+    },
+    computeSpawnRect,
+    rng
   };
 }
