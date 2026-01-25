@@ -1,9 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (B FULL)
+// GoodJunkVR Boot — PRODUCTION (B FULL — FIXED)
 // ✅ Auto view detect (no override if ?view= exists)
+// ✅ Normalizes view: pc/mobile/vr/cvr + cardboard/view-cvr/auto
 // ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ VRUI config: crosshair shoot lock + cooldown
-// ✅ Flush-hardened (pagehide/visibilitychange/back hub)
+// ✅ VRUI config set EARLY (before vr-ui.js reads it)
+// ✅ Flush-hardened (pagehide/visibilitychange/beforeunload/hha:end/back hub)
 // ✅ Boots SAFE engine: ./goodjunk.safe.js
 
 import { boot as safeBoot } from './goodjunk.safe.js';
@@ -12,20 +13,52 @@ const WIN = window;
 const DOC = document;
 
 const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
 const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
 
+/** 1) Set VRUI config EARLY (สำคัญมาก) */
+WIN.HHA_VRUI_CONFIG = Object.assign(
+  { lockPx: 28, cooldownMs: 90 },
+  WIN.HHA_VRUI_CONFIG || {}
+);
+
 function isMobile(){
-  const ua = navigator.userAgent || '';
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.innerWidth < 860);
+  const ua = (navigator.userAgent || '').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|silk/.test(ua) || (WIN.innerWidth < 860);
 }
 
-function detectViewAuto(){
-  // IMPORTANT: do not override if ?view exists
-  const v = String(qs('view','')).trim().toLowerCase();
-  if(v) return v;
+function normalizeView(v){
+  v = String(v || '').trim().toLowerCase();
+  if(!v) return '';
+  if(v === 'view-cvr') return 'cvr';
+  if(v === 'cardboard') return 'vr';
+  if(v === 'auto') return ''; // treat as not provided
+  if(v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
+  return '';
+}
 
-  // default: pc vs mobile
-  return isMobile() ? 'mobile' : 'pc';
+async function detectViewAuto(){
+  // IMPORTANT: do not override if ?view exists (even if view=auto)
+  const vRaw = qs('view','');
+  const vNorm = normalizeView(vRaw);
+  if(has('view') && vNorm) return vNorm;
+  if(has('view') && !vNorm) {
+    // user explicitly passed view=auto or unknown -> fallback to auto
+    // (still counts as "do not override": we won't set view param)
+  }
+
+  // base guess
+  let guess = isMobile() ? 'mobile' : 'pc';
+
+  // best-effort WebXR detection: if immersive-vr supported, allow 'vr' (prefer on mobile)
+  try{
+    if(!has('view') && navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
+      const ok = await navigator.xr.isSessionSupported('immersive-vr');
+      if(ok && isMobile()) guess = 'vr';
+    }
+  }catch(_){}
+
+  return guess;
 }
 
 function setBodyView(view){
@@ -41,8 +74,9 @@ function setBodyView(view){
   else b.classList.add('view-mobile'); // fallback
 }
 
-function getRunOpts(){
-  const view = String(qs('view', detectViewAuto())).toLowerCase();
+function getRunOptsSync(viewResolved){
+  const view = String(viewResolved || 'mobile').toLowerCase();
+
   const run  = String(qs('run','play')).toLowerCase();
   const diff = String(qs('diff','normal')).toLowerCase();
   const time = clamp(qs('time','80'), 20, 300);
@@ -58,27 +92,15 @@ function getRunOpts(){
   return { view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log };
 }
 
-function initVRUI(){
-  // vr-ui.js reads this config (if present) when it loads
-  // (ถ้า vr-ui.js โหลดก่อน boot ก็ยัง OK เพราะมัน default ได้)
-  WIN.HHA_VRUI_CONFIG = Object.assign(
-    { lockPx: 28, cooldownMs: 90 },
-    WIN.HHA_VRUI_CONFIG || {}
-  );
-}
-
 function hardenFlush(){
-  const L = WIN.HHACloudLogger;
-
-  // best-effort flush function
   const flush = (why='flush')=>{
     try{
-      if(L && typeof L.flush === 'function') L.flush({ reason: why });
+      const L = WIN.HHACloudLogger;
       if(L && typeof L.flushNow === 'function') L.flushNow({ reason: why });
+      else if(L && typeof L.flush === 'function') L.flush({ reason: why });
     }catch(_){}
   };
 
-  // flush on leave
   WIN.addEventListener('pagehide', ()=>flush('pagehide'), { passive:true });
   WIN.addEventListener('beforeunload', ()=>flush('beforeunload'), { passive:true });
 
@@ -86,20 +108,18 @@ function hardenFlush(){
     if(DOC.visibilityState === 'hidden') flush('hidden');
   }, { passive:true });
 
-  // also flush when game ends
   WIN.addEventListener('hha:end', ()=>flush('hha:end'), { passive:true });
 
-  // back hub button flush (override behavior safely)
+  // back hub button flush (capture เพื่อชนะ handler เดิมในหน้า)
   const btnBack = DOC.getElementById('btnBackHub');
   if(btnBack){
     btnBack.addEventListener('click', (ev)=>{
       try{
         const hub = qs('hub', null);
         flush('backhub');
-        // allow a tiny tick for async logger
         if(hub){
           ev.preventDefault();
-          setTimeout(()=>{ location.href = hub; }, 60);
+          setTimeout(()=>{ location.href = hub; }, 80);
         }
       }catch(_){}
     }, { capture:true });
@@ -109,8 +129,6 @@ function hardenFlush(){
 }
 
 function initLoggerContext(opts){
-  // hha-cloud-logger.js ควรจะ “ดัก event” อยู่แล้ว
-  // แต่เราส่ง context ไว้ให้ชัดเจน (ถ้ามีเมธอด)
   const L = WIN.HHACloudLogger;
   if(!L) return;
 
@@ -135,20 +153,21 @@ function initLoggerContext(opts){
   }catch(_){}
 }
 
-function start(){
-  const opts = getRunOpts();
+async function start(){
+  // 1) resolve view (no override if ?view= exists)
+  const view = normalizeView(qs('view','')) || await detectViewAuto();
 
-  // 1) view classes
-  setBodyView(opts.view);
+  // 2) set body classes
+  setBodyView(view);
 
-  // 2) vrui config
-  initVRUI();
+  // 3) build opts
+  const opts = getRunOptsSync(view);
 
-  // 3) logger ctx + flush hardening
+  // 4) logger ctx + flush hardening
   initLoggerContext(opts);
   hardenFlush();
 
-  // 4) boot SAFE engine
+  // 5) boot SAFE engine
   safeBoot({
     view: opts.view,
     run:  opts.run,
