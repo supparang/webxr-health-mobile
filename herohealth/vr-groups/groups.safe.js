@@ -9,9 +9,9 @@ Food Groups VR — SAFE (PRODUCTION-ish)
    - research: deterministic seed + adaptive OFF + AI OFF
    - practice: deterministic seed + adaptive OFF + AI OFF
 ✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
-✅ NEW: Target DOM has <span class="fg-emoji">🙂</span> (emoji crisp centered)
-✅ NEW: 5 food groups mapping (Thai fixed): g1 โปรตีน, g2 คาร์บ, g3 ผัก, g4 ผลไม้, g5 ไขมัน
-✅ NEW: Junk emoji toggle via ?junkEmoji=1 (default: blank)
+✅ Target DOM has <span class="fg-emoji">🙂</span> (emoji crisp centered)
+✅ 5 food groups mapping (Thai fixed): g1 โปรตีน, g2 คาร์บ, g3 ผัก, g4 ผลไม้, g5 ไขมัน
+✅ Junk emoji toggle via ?junkEmoji=1 (default: blank)
 */
 
 (function (root) {
@@ -75,11 +75,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   }
 
   // ---------------- Content (Thai fixed mapping 5 groups) ----------------
-  // หมู่ 1 โปรตีน (เนื้อ นม ไข่ ถั่วเมล็ดแห้ง)
-  // หมู่ 2 คาร์โบไฮเดรต (ข้าว แป้ง เผือก มัน น้ำตาล)
-  // หมู่ 3 ผัก
-  // หมู่ 4 ผลไม้
-  // หมู่ 5 ไขมัน
   const GROUPS = [
     { key: 'g1', th: 'โปรตีน', emoji: ['🍗','🥚','🐟','🫘','🥜','🍤','🍖','🥛','🧀'] },
     { key: 'g2', th: 'คาร์โบไฮเดรต', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙','🍠','🥔'] },
@@ -90,7 +85,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
-  // default: junk is blank (decoy ring), set ?junkEmoji=1 to show junk emoji
   const SHOW_JUNK_EMOJI = (String(qs('junkEmoji','0')||'0') === '1');
 
   // ---------------- Difficulty presets ----------------
@@ -141,7 +135,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     };
   }
 
-  // ✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
@@ -226,7 +219,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this.comboMax = 0;
     this.misses = 0;
 
-    this.pressure = 0; // 0..3
+    this.pressure = 0;
     this._lastPressureTip = 0;
 
     this.nTargetGoodSpawned = 0;
@@ -664,7 +657,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
 
-    // ✅ emoji crisp centered (child span avoids blur/filter side effects)
     const span = DOC.createElement('span');
     span.className = 'fg-emoji';
     span.textContent = String(spec.emoji || '');
@@ -746,8 +738,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // ✅ ยิงพลาดจาก crosshair: “ไม่เพิ่ม miss” (กัน miss พุ่ง)
-      // แต่ยัง reset combo + FX ให้รู้สึกกดดัน
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS', x: cx, y: cy });
       flashBodyFx('fx-miss', 220);
@@ -834,7 +824,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       return;
     }
 
-    // junk
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
@@ -1050,7 +1039,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this._emitCoach((this.cfg.runMode==='practice') ? 'จบฝึกแล้ว! กำลังเข้าเกมจริง…' : 'จบเกมแล้ว! กดเล่นอีกครั้งได้เลย 🏁', 'happy');
   };
 
-  // ---------------- Export ----------------
   NS.GameEngine = new Engine();
 
 })(typeof window !== 'undefined' ? window : globalThis);
