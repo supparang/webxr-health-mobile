@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-05, multi-target + research CSV) ===
+// === js/engine.js — Shadow Breaker core (UPDATED 2026-01-25) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -19,8 +19,9 @@ let hpYouTop, hpBossTop;
 let hpYouBottom, hpBossBottom;
 
 let statTime, statScore, statCombo, statPhase, statMiss, statShield;
+let statMissMeta; // ✅ NEW: miss ใน meta row (id="sb-meta-miss")
 
-let bossNameTop;           // ถ้ามีใน layout ใหม่
+let bossNameTop; // (ใน HTML ชุดนี้ไม่มี) ปล่อย null ได้
 let bossEmojiSide, bossNameSide, bossDescSide;
 let bossPhaseLabel, bossShieldLabel;
 
@@ -33,39 +34,15 @@ let btnDownloadEvents, btnDownloadSession;
 
 let resTime, resScore, resMaxCombo, resMissRes, resPhaseRes, resBossCleared, resAcc, resGrade;
 
-// ช่องกรอกข้อมูลผู้เข้าร่วม (ใช้ในโหมดวิจัย)
+// ช่องกรอกข้อมูลผู้เข้าร่วม (ใช้ในโหมดวิจัย) — ✅ match HTML ids
 let inputPartId, inputPartGroup, inputPartNote;
 
 // ----- Boss meta -----
 const BOSSES = [
-  {
-    id: 0,
-    name: 'Bubble Glove',
-    emoji: '🐣',
-    baseShield: 0,
-    hint: 'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน'
-  },
-  {
-    id: 1,
-    name: 'Spark Guard',
-    emoji: '⚡️',
-    baseShield: 1,
-    hint: 'เล็งให้ไว ระวังลูกระเบิดสีแดง'
-  },
-  {
-    id: 2,
-    name: 'Shadow Mitt',
-    emoji: '🕶️',
-    baseShield: 1,
-    hint: 'บางเป้าเป็นเป้าลวง ดูจังหวะแล้วค่อยตี'
-  },
-  {
-    id: 3,
-    name: 'Galaxy Punch',
-    emoji: '🌌',
-    baseShield: 2,
-    hint: 'ด่านสุดท้าย เป้าจะเล็กและเร็วมาก'
-  }
+  { id: 0, name: 'Bubble Glove',  emoji: '🐣', baseShield: 0, hint: 'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน' },
+  { id: 1, name: 'Spark Guard',   emoji: '⚡️', baseShield: 1, hint: 'เล็งให้ไว ระวังลูกระเบิดสีแดง' },
+  { id: 2, name: 'Shadow Mitt',   emoji: '🕶️', baseShield: 1, hint: 'บางเป้าเป็นเป้าลวง ดูจังหวะแล้วค่อยตี' },
+  { id: 3, name: 'Galaxy Punch',  emoji: '🌌', baseShield: 2, hint: 'ด่านสุดท้าย เป้าจะเล็กและเร็วมาก' }
 ];
 
 // ----- Difficulty config -----
@@ -100,12 +77,12 @@ const DIFF_CONFIG = {
 };
 
 // ----- FEVER / HP -----
-const FEVER_PER_HIT = 0.18;        // ขึ้นง่ายขึ้น
+const FEVER_PER_HIT = 0.18;
 const FEVER_DECAY_PER_SEC = 0.10;
 const FEVER_DURATION_MS = 6000;
 
 const LOWHP_THRESHOLD = 0.3;
-const BOSSFACE_THRESHOLD = 0.28;   // hp < นี้จะเรียกหน้า boss
+const BOSSFACE_THRESHOLD = 0.28;
 
 // ----- runtime state -----
 let renderer = null;
@@ -134,7 +111,13 @@ function pickWeighted(weights) {
 }
 
 const currentBoss = () =>
-  BOSSES[state.bossIndex] || BOSSES[BOSSES.length - 1];
+  (state && BOSSES[state.bossIndex]) ? BOSSES[state.bossIndex] : BOSSES[BOSSES.length - 1];
+
+function setMissUI(v) {
+  const s = String(v);
+  if (statMiss) statMiss.textContent = s;
+  if (statMissMeta) statMissMeta.textContent = s; // ✅ sync
+}
 
 // ===== view / HUD =====
 function showView(name) {
@@ -156,7 +139,7 @@ function resetHud() {
   if (statScore) statScore.textContent = '0';
   if (statCombo) statCombo.textContent = '0';
   if (statPhase) statPhase.textContent = '1';
-  if (statMiss) statMiss.textContent = '0';
+  setMissUI(0);
   if (statShield) statShield.textContent = '0';
 
   if (feverStatus) {
@@ -281,7 +264,7 @@ function spawnBossFaceTarget() {
     if (renderer) renderer.removeTarget(id, 'timeout');
 
     state.miss++;
-    if (statMiss) statMiss.textContent = String(state.miss);
+    setMissUI(state.miss);
     state.combo = 0;
     if (statCombo) statCombo.textContent = '0';
     setFeedback('พลาดหน้า boss! รอบหน้าลองโฟกัสให้ทัน 💥', 'miss');
@@ -333,7 +316,7 @@ function spawnTargetOfType(kind, extra) {
 
     if (isRealMiss) {
       state.miss++;
-      if (statMiss) statMiss.textContent = String(state.miss);
+      setMissUI(state.miss);
       state.combo = 0;
       if (statCombo) statCombo.textContent = '0';
       setFeedback('พลาดจังหวะ! ลองมองเป้าให้ชัดแล้วลองใหม่ 👀', 'miss');
@@ -347,7 +330,6 @@ function spawnTargetOfType(kind, extra) {
 function spawnOneTarget() {
   const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
 
-  // boss ใกล้ตาย → เรียกหน้า boss ครั้งเดียว
   if (!state.bossFaceSpawned && state.bossHp > 0 && state.bossHp <= BOSSFACE_THRESHOLD) {
     state.bossFaceSpawned = true;
     spawnBossFaceTarget();
@@ -422,6 +404,8 @@ function handleTargetHit(id, hitInfo) {
   if (data.type === 'bomb' || data.type === 'decoy') {
     grade = 'bomb';
     scoreDelta = -80;
+    state.bombsHit++;
+
     if (state.shield > 0) {
       shieldDelta = -1;
       setFeedback('เกราะช่วยไว้! แต่ระวังเป้าลวงให้ดี 👀', 'bad');
@@ -445,11 +429,10 @@ function handleTargetHit(id, hitInfo) {
   } else if (data.isBossFace) {
     grade = 'perfect';
     scoreDelta = 250;
-    bossDmg = DIFF_CONFIG[state.diffKey].bossDamageBossFace;
+    bossDmg = (DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal).bossDamageBossFace;
     setFeedback('หมัดเด็ดใส่หน้าบอส! 💥', 'perfect');
     state.combo++;
   } else {
-    // normal target
     if (rt < 220) {
       grade = 'perfect';
       scoreDelta = 160;
@@ -460,7 +443,7 @@ function handleTargetHit(id, hitInfo) {
       grade = 'bad';
       scoreDelta = 60;
     }
-    bossDmg = DIFF_CONFIG[state.diffKey].bossDamageNormal;
+    bossDmg = (DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal).bossDamageNormal;
     state.combo++;
     setFeedback(
       grade === 'perfect'
@@ -472,6 +455,11 @@ function handleTargetHit(id, hitInfo) {
     );
   }
 
+  // นับเกรดสำหรับ summary (เฉพาะที่เป็นคะแนน/จังหวะ)
+  if (grade === 'perfect') state.perfectCount++;
+  else if (grade === 'good') state.goodCount++;
+  else if (grade === 'bad') state.badCount++;
+
   // FEVER gauge เฉพาะ normal target
   if (data.type === 'normal') {
     state.fever += FEVER_PER_HIT;
@@ -479,6 +467,7 @@ function handleTargetHit(id, hitInfo) {
       state.feverOn = true;
       state.feverUntil = now + FEVER_DURATION_MS;
       state.fever = 1;
+      state.feverCount++;
       if (feverStatus) {
         feverStatus.textContent = 'ON';
         feverStatus.classList.add('on');
@@ -500,9 +489,8 @@ function handleTargetHit(id, hitInfo) {
   if (shieldDelta !== 0) {
     state.shield = Math.max(0, state.shield + shieldDelta);
   }
-  if (bossDmg > 0) {
-    applyHitToBoss(bossDmg);
-  }
+  if (bossDmg > 0) applyHitToBoss(bossDmg);
+
   state.totalHits++;
   if (state.combo > state.maxCombo) state.maxCombo = state.combo;
 
@@ -605,7 +593,7 @@ function gameLoop(now) {
       const isRealMiss = t.type === 'normal' || t.isBossFace;
       if (isRealMiss) {
         state.miss++;
-        if (statMiss) statMiss.textContent = String(state.miss);
+        setMissUI(state.miss);
         state.combo = 0;
         if (statCombo) statCombo.textContent = '0';
         logEvent('timeout', t, { grade: 'miss' });
@@ -662,9 +650,7 @@ function endGame(reason) {
   }
 
   if (renderer) {
-    for (const id of state.targets.keys()) {
-      renderer.removeTarget(id, 'end');
-    }
+    for (const id of state.targets.keys()) renderer.removeTarget(id, 'end');
   }
   state.targets.clear();
 
@@ -673,7 +659,7 @@ function endGame(reason) {
 
   const summary = {
     session_id: Date.now().toString(36),
-    build_version: 'shadow-breaker-2025-12-05',
+    build_version: 'shadow-breaker-2026-01-25',
 
     mode: state.mode,
     difficulty: state.diffKey,
@@ -691,21 +677,21 @@ function endGame(reason) {
     total_targets: totalTrials,
     total_hits: state.totalHits,
     total_miss: state.miss,
-    total_bombs_hit: 0,
+    total_bombs_hit: state.bombsHit,
 
     accuracy_pct: +acc.toFixed(2),
     max_combo: state.maxCombo,
 
-    perfect_count: 0,
-    good_count: 0,
-    bad_count: 0,
+    perfect_count: state.perfectCount,
+    good_count: state.goodCount,
+    bad_count: state.badCount,
 
     avg_rt_normal_ms: state.rtNormalCount ? +(state.rtNormalSum / state.rtNormalCount).toFixed(1) : '',
     std_rt_normal_ms: '',
     avg_rt_decoy_ms: state.rtDecoyCount ? +(state.rtDecoySum / state.rtDecoyCount).toFixed(1) : '',
     std_rt_decoy_ms: '',
 
-    fever_count: 0,
+    fever_count: state.feverCount,
     fever_total_time_s: +(state.feverActiveMs / 1000).toFixed(2),
     low_hp_time_s: +(state.lowHpMs / 1000).toFixed(2),
     bosses_cleared: state.clearedBosses,
@@ -763,11 +749,10 @@ function endGame(reason) {
 function startGame(mode, researchMeta) {
   const diffKey = (diffSel && diffSel.value) || 'normal';
   const durationSec = parseInt((timeSel && timeSel.value) || '60', 10) || 60;
-  DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
+  const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
 
   clearRenderer();
   resetHud();
-
   eventLogger.clear();
 
   state = {
@@ -776,28 +761,43 @@ function startGame(mode, researchMeta) {
     durationSec,
     running: true,
     timeLeftMs: durationSec * 1000,
+
     score: 0,
     combo: 0,
     maxCombo: 0,
     miss: 0,
     shield: 0,
+
     fever: 0,
     feverOn: false,
     feverUntil: 0,
     feverActiveMs: 0,
+    feverCount: 0,
+
     lowHpMs: 0,
     playerHp: 1,
+
     bossHp: 1,
     bossIndex: 0,
     bossPhase: 1,
     bossFaceSpawned: false,
     clearedBosses: 0,
+
     totalHits: 0,
+    bombsHit: 0,
+
+    perfectCount: 0,
+    goodCount: 0,
+    badCount: 0,
+
     targets: new Map(),
     nextTargetId: 1,
+
     startedAt: performance.now(),
     lastTickAt: performance.now(),
+
     researchMeta: researchMeta || null,
+
     rtNormalSum: 0,
     rtNormalCount: 0,
     rtDecoySum: 0,
@@ -817,6 +817,9 @@ function startGame(mode, researchMeta) {
   updateFeverUi(state.startedAt);
 
   showView('play');
+
+  // ตั้งค่าเวลาเริ่มต้นใน HUD ให้ตรงกับที่เลือก
+  if (statTime) statTime.textContent = (durationSec).toFixed(1) + ' s';
 
   state.lastTickAt = performance.now();
   gameLoopId = requestAnimationFrame(gameLoop);
@@ -847,9 +850,12 @@ export function initShadowBreaker() {
     statCombo = document.getElementById('sb-text-combo');
     statPhase = document.getElementById('sb-text-phase');
     statMiss = document.getElementById('sb-text-miss');
+    statMissMeta = document.getElementById('sb-meta-miss'); // ✅ NEW
     statShield = document.getElementById('sb-text-shield');
 
+    // HTML ชุดนี้ไม่มี id นี้ (ปล่อย null ได้)
     bossNameTop = document.getElementById('sb-current-boss-name');
+
     bossEmojiSide = document.getElementById('sb-meta-emoji');
     bossNameSide = document.getElementById('sb-meta-name');
     bossDescSide = document.getElementById('sb-meta-desc');
@@ -878,9 +884,10 @@ export function initShadowBreaker() {
     resAcc = document.getElementById('sb-res-acc');
     resGrade = document.getElementById('sb-res-grade');
 
-    inputPartId = document.getElementById('sb-part-id');
-    inputPartGroup = document.getElementById('sb-part-group');
-    inputPartNote = document.getElementById('sb-part-note');
+    // ✅ match HTML
+    inputPartId = document.getElementById('sb-participant-id');
+    inputPartGroup = document.getElementById('sb-participant-group');
+    inputPartNote = document.getElementById('sb-participant-note');
   }
 
   if (!wrap || !targetLayer) {
@@ -892,9 +899,7 @@ export function initShadowBreaker() {
     wired = true;
 
     if (btnPlay) {
-      btnPlay.addEventListener('click', () => {
-        startGame('play', null);
-      });
+      btnPlay.addEventListener('click', () => startGame('play', null));
     }
 
     if (btnResearch) {
@@ -904,29 +909,24 @@ export function initShadowBreaker() {
         const note = inputPartNote ? inputPartNote.value.trim() : '';
 
         if (!pid || !group) {
-          alert('กรุณากรอกรหัสผู้เข้าร่วม และเลือก/กรอกกลุ่ม ให้ครบก่อนเข้า "โหมดวิจัย"');
+          alert('กรุณากรอกรหัสผู้เข้าร่วม และกรอก/ระบุกลุ่ม ให้ครบก่อนเข้า "โหมดวิจัย"');
           return;
         }
 
-        const meta = { id: pid, group, note };
-        startGame('research', meta);
+        startGame('research', { id: pid, group, note });
       });
     }
 
     if (btnBackFromPlay) {
       btnBackFromPlay.addEventListener('click', () => {
-        if (state && state.running) {
-          endGame('stop-early');
-        }
+        if (state && state.running) endGame('stop-early');
         showView('menu');
       });
     }
 
     if (btnPauseToggle) {
       btnPauseToggle.addEventListener('change', (e) => {
-        if (e.target.checked && state && state.running) {
-          endGame('stop-early');
-        }
+        if (e.target.checked && state && state.running) endGame('stop-early');
       });
     }
 
@@ -941,9 +941,7 @@ export function initShadowBreaker() {
     }
 
     if (btnResultMenu) {
-      btnResultMenu.addEventListener('click', () => {
-        showView('menu');
-      });
+      btnResultMenu.addEventListener('click', () => showView('menu'));
     }
 
     if (btnDownloadEvents) {
