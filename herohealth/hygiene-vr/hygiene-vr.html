@@ -1,9 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr
-✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot
-✅ Engine: hygiene.safe.js
-✅ BOSS HP BAR (NEW)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (v1.5.0-prod)
+✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
+✅ Back HUB: ?hub=...
 -->
 <!doctype html>
 <html lang="th">
@@ -16,18 +17,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260125a" />
 
-  <!-- Universal VR UI (FIX: defer to avoid body null) -->
+  <!-- Universal VR UI (defer กัน body null) -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Optional shared helpers -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI Packs (optional) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
-
-  <!-- Engine -->
+  <!-- Engine boot -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260125a"></script>
 </head>
 
@@ -40,6 +36,17 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       <div class="hw-top">
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
+
+        <!-- Boss Bar (JS uses these ids) -->
+        <div class="hw-boss" id="bossBar" style="display:none">
+          <div class="hw-boss-row">
+            <div class="hw-boss-title" id="bossTitle">🚨 BOSS</div>
+            <div class="hw-boss-sub" id="bossSub">HP 0/0</div>
+          </div>
+          <div class="hw-boss-track">
+            <div class="hw-boss-fill" id="bossFill" style="width:0%"></div>
+          </div>
+        </div>
 
         <div class="hw-row">
           <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
@@ -55,23 +62,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
-
-        <!-- ✅ NEW: Boss HP bar -->
-        <div class="hw-boss" id="bossBar" style="display:none" aria-label="Boss HP">
-          <div class="hw-boss-top">
-            <div class="hw-boss-title" id="bossTitle">🚨 BOSS: SOAP STORM</div>
-            <div class="hw-boss-sub" id="bossSub">ยิงให้ครบ…</div>
-          </div>
-          <div class="hw-boss-meter">
-            <div class="hw-boss-fill" id="bossFill" style="width:0%"></div>
-          </div>
-        </div>
-
-        <!-- Quiz box -->
-        <div class="hw-quiz" id="quizBox" style="display:none">
-          <div class="hw-quiz-q" id="quizQ">QUIZ</div>
-          <div class="hw-quiz-sub" id="quizSub">—</div>
-        </div>
       </div>
 
       <div class="hw-banner" id="banner" aria-live="polite"></div>
@@ -84,8 +74,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น<br>
-          <span style="opacity:.9">* มี BOSS 15 วิท้าย + เสียงเอฟเฟกต์ (ปิดได้ด้วย <code>&sfx=0</code>)</span>
+          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -93,6 +82,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
+        </div>
+        <div class="hw-card-sub" style="margin-top:6px">
+          แนะนำเด็ก ป.5: <code>?kids=1</code> • เปิดเสียง: <code>?sfx=1</code>
         </div>
       </div>
     </div>
