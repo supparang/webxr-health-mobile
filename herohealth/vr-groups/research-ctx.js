@@ -1,39 +1,36 @@
 // === /herohealth/vr-groups/research-ctx.js ===
-// Research ctx passthrough (HHA Standard-ish)
-// Exposes: window.GroupsVR.getResearchCtx()
+// Research Context — PRODUCTION
+// ✅ Passthrough important params (studyId, conditionGroup, phase, etc.)
+// ✅ Safe: never forces anything; just exposes ctx getter
+// ✅ Intended for logging / summary merge
 
 (function(){
   'use strict';
-  const W = window;
-  const NS = W.GroupsVR = W.GroupsVR || {};
+  const WIN = window;
+  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
 
   function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
+  function norm(v){ return (v==null) ? '' : String(v); }
 
-  function norm(v){
-    v = String(v ?? '').trim();
-    return v.length ? v : undefined;
-  }
-
-  function getCtx(){
+  NS.getResearchCtx = function(){
+    const run = String(qs('run','play')||'play').toLowerCase();
     const ctx = {
-      studyId: norm(qs('studyId')),
-      participantId: norm(qs('pid')) || norm(qs('participantId')),
-      phase: norm(qs('phase')),
-      conditionGroup: norm(qs('conditionGroup')),
-      classId: norm(qs('classId')),
-      school: norm(qs('school')),
-      teacher: norm(qs('teacher')),
-      device: norm(qs('device')),
-      platform: norm(qs('platform')),
+      run: run,
+      studyId: norm(qs('studyId','')),
+      conditionGroup: norm(qs('conditionGroup','')),
+      phase: norm(qs('phase','')),
+      participantId: norm(qs('pid','')) || norm(qs('participantId','')),
+      sessionId: norm(qs('sid','')) || norm(qs('sessionId','')),
+      cohort: norm(qs('cohort','')),
+      site: norm(qs('site','')),
     };
 
-    // remove undefined
-    Object.keys(ctx).forEach(k=> (ctx[k]===undefined) && delete ctx[k]);
+    // convenience: research mode flag
+    ctx.isResearch = (run === 'research');
     return ctx;
-  }
+  };
 
-  NS.getResearchCtx = getCtx;
 })();
