@@ -1,35 +1,35 @@
-// === fitness/js/stats-store.js — Local summary store for VR Fitness ===
+// === js/session-logger.js — Session CSV logger ===
 'use strict';
 
-const KEY = 'vrfitness_stats_v1';
-
-/**
- * บันทึก summary ของ 1 session ลง localStorage
- * @param {string} gameId  เช่น 'shadow-breaker'
- * @param {Object} summary ข้อมูลสรุป session จาก engine
- */
-export function recordSession(gameId, summary) {
-  try {
-    const now = Date.now();
-    const item = { gameId, ts: now, ...summary };
-    const raw = localStorage.getItem(KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    list.unshift(item);
-    const trimmed = list.slice(0, 100); // เก็บสูงสุด 100 รอบล่าสุด
-    localStorage.setItem(KEY, JSON.stringify(trimmed));
-  } catch (e) {
-    console.warn('VRFitness: cannot save stats', e);
+export class SessionLogger {
+  constructor() {
+    this.rows = [];
   }
-}
 
-/**
- * โหลดประวัติ session ทั้งหมดจาก localStorage
- */
-export function loadSessions() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
+  clear() {
+    this.rows.length = 0;
+  }
+
+  add(row) {
+    if (!row || typeof row !== 'object') return;
+    this.rows.push(row);
+  }
+
+  toCsv() {
+    if (!this.rows.length) return '';
+
+    // รวมคอลัมน์ให้ “นิ่ง” แม้บาง row จะมี field เพิ่ม/หาย
+    const colSet = new Set();
+    for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
+    const cols = Array.from(colSet);
+
+    const esc = (v) => {
+      const s = (v === null || v === undefined) ? '' : String(v);
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const head = cols.join(',');
+    const lines = this.rows.map(r => cols.map(c => esc(r[c])).join(','));
+    return [head, ...lines].join('\n');
   }
 }
