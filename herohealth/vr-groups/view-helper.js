@@ -1,75 +1,155 @@
 // === /herohealth/vr-groups/view-helper.js ===
-// View helper: fullscreen/orientation best-effort + cVR strict tuning
-// API:
-//   window.GroupsVR.ViewHelper.init({view})
-//   window.GroupsVR.ViewHelper.tryImmersiveForCVR()
+// View Helper — PRODUCTION
+// ✅ Fullscreen best-effort (mobile/pc)
+// ✅ Landscape lock best-effort (cardboard/cVR)
+// ✅ cVR strict: disable target pointer events (tap-to-shoot only via vr-ui.js -> hha:shoot)
+// ✅ tryImmersiveForCVR(): attempt click Enter VR button created by vr-ui.js (if present)
+// ✅ Safe: never throws
 
 (function(){
   'use strict';
-  const W = window;
-  const D = document;
-  const NS = W.GroupsVR = W.GroupsVR || {};
-  const VH = NS.ViewHelper = NS.ViewHelper || {};
+  const WIN = window;
+  const DOC = document;
+  if (!DOC) return;
+
+  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
 
   function qs(k, def=null){
     try { return new URL(location.href).searchParams.get(k) ?? def; }
     catch { return def; }
   }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  function isMobile(){
-    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  function addCssOnce(id, css){
+    if (DOC.getElementById(id)) return;
+    const st = DOC.createElement('style');
+    st.id = id;
+    st.textContent = css;
+    DOC.head.appendChild(st);
   }
 
-  function setRootVars(){
-    // safe-area vars already in css, but we can expose viewport size if wanted
+  function requestFullscreen(){
+    const el = DOC.documentElement;
     try{
-      const r = D.documentElement;
-      r.style.setProperty('--vw', (W.innerWidth||0) + 'px');
-      r.style.setProperty('--vh', (W.innerHeight||0) + 'px');
+      if (DOC.fullscreenElement) return Promise.resolve(true);
+      if (el.requestFullscreen) return el.requestFullscreen().then(()=>true).catch(()=>false);
+      const any = el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (any) { any.call(el); return Promise.resolve(true); }
     }catch(_){}
+    return Promise.resolve(false);
   }
 
-  async function tryFullscreen(){
+  async function lockLandscape(){
     try{
-      const el = D.documentElement;
-      if (el.requestFullscreen) await el.requestFullscreen();
-      return true;
-    }catch(_){ return false; }
-  }
-
-  async function tryLandscape(){
-    try{
-      const s = screen.orientation;
-      if (s && s.lock) { await s.lock('landscape'); return true; }
+      const scr = screen && screen.orientation;
+      if (scr && scr.lock) {
+        await scr.lock('landscape');
+        return true;
+      }
     }catch(_){}
     return false;
   }
 
-  VH.init = function({view}){
-    view = String(view||qs('view','mobile')||'mobile').toLowerCase();
-    setRootVars();
-    W.addEventListener('resize', setRootVars, {passive:true});
+  function applySafeAreaVars(){
+    // (optional) if user wants future use; currently CSS uses env() directly
+    const r = DOC.documentElement;
+    try{
+      r.style.setProperty('--sat', 'env(safe-area-inset-top, 0px)');
+      r.style.setProperty('--sar', 'env(safe-area-inset-right, 0px)');
+      r.style.setProperty('--sab', 'env(safe-area-inset-bottom, 0px)');
+      r.style.setProperty('--sal', 'env(safe-area-inset-left, 0px)');
+    }catch(_){}
+  }
 
-    // cVR strict: prefer center-shoot, keep DOM targets tappable but aim-based
-    if (view === 'cvr'){
-      D.body.classList.add('view-cvr');
-      // no extra work here; vr-ui.js already emits hha:shoot
-    }
-    if (view === 'vr'){
-      D.body.classList.add('view-vr');
-    }
+  function setBodyView(view){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    b.classList.add('view-' + view);
+  }
+
+  function isCVR(view){
+    return String(view||'').toLowerCase() === 'cvr';
+  }
+  function isCardboard(view){
+    const v = String(view||'').toLowerCase();
+    return v === 'vr' || v === 'cvr';
+  }
+
+  function enableCVRStrict(on){
+    // Strict: targets should NOT be tappable; only tap-to-shoot via vr-ui.js -> hha:shoot
+    DOC.body.classList.toggle('cvr-strict', !!on);
+    addCssOnce('hha-cvr-strict-css', `
+      body.view-cvr.cvr-strict .fg-target{ pointer-events:none !important; }
+      body.view-cvr.cvr-strict .playLayer{ pointer-events:auto; }
+    `);
+  }
+
+  function hookAutoFS(){
+    // Best-effort: request fullscreen on first user gesture if ?fs=1 (or for VR-ish views)
+    const fsParam = String(qs('fs','')||'').toLowerCase();
+    const wantFS = (fsParam === '1' || fsParam === 'true');
+    if (!wantFS) return;
+
+    let done = false;
+    const once = async ()=>{
+      if (done) return;
+      done = true;
+      try{ await requestFullscreen(); }catch(_){}
+      DOC.removeEventListener('pointerdown', once, true);
+      DOC.removeEventListener('touchstart', once, true);
+    };
+    DOC.addEventListener('pointerdown', once, true);
+    DOC.addEventListener('touchstart', once, true);
+  }
+
+  function hookAutoLandscape(view){
+    // Best-effort: lock landscape for cardboard/cVR if ?land=1 or view is VR-ish
+    const landParam = String(qs('land','')||'').toLowerCase();
+    const want = (landParam === '1' || landParam === 'true' || isCardboard(view));
+    if (!want) return;
+
+    let done = false;
+    const once = async ()=>{
+      if (done) return;
+      done = true;
+      try{ await lockLandscape(); }catch(_){}
+      DOC.removeEventListener('pointerdown', once, true);
+      DOC.removeEventListener('touchstart', once, true);
+    };
+    DOC.addEventListener('pointerdown', once, true);
+    DOC.addEventListener('touchstart', once, true);
+  }
+
+  function tryImmersiveForCVR(){
+    // Try to click "ENTER VR" button created by /herohealth/vr/vr-ui.js (if present)
+    try{
+      const btn = DOC.querySelector('[data-hha-vrui="enter"]')
+             || DOC.querySelector('#hhaEnterVR')
+             || DOC.querySelector('button[aria-label*="Enter"]')
+             || DOC.querySelector('button[id*="Enter"]');
+      if (btn) { btn.click(); return true; }
+    }catch(_){}
+    return false;
+  }
+
+  // Public API
+  NS.ViewHelper = {
+    init({view}={}){
+      const v = String(view || qs('view','mobile') || 'mobile').toLowerCase();
+      setBodyView(v);
+
+      applySafeAreaVars();
+
+      // cVR strict ON by default
+      enableCVRStrict(isCVR(v));
+
+      hookAutoFS();
+      hookAutoLandscape(v);
+    },
+    requestFullscreen,
+    lockLandscape,
+    tryImmersiveForCVR,
+    enableCVRStrict
   };
 
-  VH.tryImmersiveForCVR = async function(){
-    // Best effort for mobile: fullscreen + landscape (user gesture usually required)
-    if (!isMobile()) return false;
-
-    const wantFS = String(qs('fs','1')||'1') !== '0';
-    const wantLS = String(qs('ls','1')||'1') !== '0';
-
-    let ok = false;
-    if (wantFS) ok = await tryFullscreen();
-    if (wantLS) await tryLandscape();
-    return ok;
-  };
 })();
