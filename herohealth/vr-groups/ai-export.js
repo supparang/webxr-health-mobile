@@ -1,139 +1,123 @@
-// === /herohealth/vr-groups/ai-export.js ===
-// AI Export Buffer (Local-first)
-// ✅ Collects groups:ai_feature / groups:ai_choice / groups:ai_dd
-// ✅ Stores to localStorage: HHA_AI_LOG_HISTORY (cap 50)
-// ✅ Attaches into HHA_LAST_SUMMARY on hha:end (if available)
-// ✅ Play only (recommended) but safe to load always
-
+/* === /herohealth/vr-groups/ai-export.js ===
+AI Export (local-first)
+✅ Collects: groups:ai_choice, groups:ai_feature, groups:ai_predict, groups:dd_suggest
+✅ Stores: HHA_AI_LOG_LAST, HHA_AI_LOG_HISTORY (last 40)
+✅ API: GroupsVR.AIExport.start(runId), stop(), get(), copy(), clear()
+*/
 (function(root){
   'use strict';
-  const DOC = root.document;
-  if(!DOC) return;
-
   const NS = root.GroupsVR = root.GroupsVR || {};
 
-  const LS_AI_HIST = 'HHA_AI_LOG_HISTORY'; // array of runs (most recent first)
-  const LS_AI_LAST = 'HHA_AI_LOG_LAST';    // single latest run
+  const LS_LAST = 'HHA_AI_LOG_LAST';
+  const LS_HIST = 'HHA_AI_LOG_HISTORY';
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowIso = ()=> new Date().toISOString();
+  const nowIso = ()=>new Date().toISOString();
 
-  function safeParse(s, def){
-    try{ return JSON.parse(s); }catch{ return def; }
+  function safeJsonParse(s, d){
+    try{ return JSON.parse(String(s||'')); }catch{ return d; }
   }
-  function safeSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
-  function safeGet(k,def){ try{ return safeParse(localStorage.getItem(k)||'', def); }catch{ return def; } }
 
-  const BUF = {
+  const LOG = {
     on:false,
     runId:'',
-    startedIso:'',
-    events:[],      // {tMs, type, ...payload}
-    cap: 900        // cap events per run
+    startedAtIso:'',
+    endedAtIso:'',
+    meta:{},
+    events:[], // {t, name, d}
+    maxEvents: 2000
   };
 
-  function pushEv(type, payload){
-    if(!BUF.on) return;
-    const tMs = (root.performance && performance.now) ? Math.round(performance.now()) : Date.now();
-    const ev = Object.assign({ tMs, type }, payload||{});
-    BUF.events.push(ev);
-    if(BUF.events.length > BUF.cap) BUF.events.shift();
+  function pushEvt(name, detail){
+    if (!LOG.on) return;
+    if (LOG.events.length >= LOG.maxEvents) return;
+    LOG.events.push({
+      t: Date.now(),
+      name: String(name||''),
+      d: detail || {}
+    });
   }
 
-  function start(runId){
-    BUF.on = true;
-    BUF.runId = String(runId || ('groups-' + Date.now()));
-    BUF.startedIso = nowIso();
-    BUF.events = [];
-    pushEv('meta', { startedIso: BUF.startedIso, runId: BUF.runId });
-  }
-
-  function stop(){
-    BUF.on = false;
-  }
-
-  function snapshot(){
-    return {
-      runId: BUF.runId,
-      startedIso: BUF.startedIso,
-      endedIso: nowIso(),
-      n: BUF.events.length,
-      events: BUF.events.slice(0)
-    };
-  }
-
-  function commit(runSummary){
-    const pack = snapshot();
-
-    // attach summary light
-    pack.summary = Object.assign({}, runSummary||{});
-
-    // save last + history
-    safeSet(LS_AI_LAST, pack);
-    const hist = safeGet(LS_AI_HIST, []);
-    hist.unshift(pack);
-    safeSet(LS_AI_HIST, hist.slice(0, 50));
-
-    // broadcast
+  function saveLast(){
+    try{ localStorage.setItem(LS_LAST, JSON.stringify(LOG)); }catch(_){}
     try{
-      root.dispatchEvent(new CustomEvent('groups:ai_export_ready', { detail: pack }));
+      const hist = safeJsonParse(localStorage.getItem(LS_HIST), []);
+      hist.unshift(LOG);
+      localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 40)));
     }catch(_){}
   }
 
-  // -------- event listeners --------
-  function onFeature(ev){ pushEv('feature', ev.detail||{}); }
-  function onChoice(ev){ pushEv('choice',  ev.detail||{}); }
-  function onDD(ev){     pushEv('dd',      ev.detail||{}); }
+  function getCtxMeta(){
+    // best effort: piggyback on summary ctx if present
+    let ctx = {};
+    try{
+      if (NS.getResearchCtx) ctx = NS.getResearchCtx() || {};
+    }catch(_){}
+    return ctx;
+  }
 
+  function start(runId, meta){
+    LOG.on = true;
+    LOG.runId = String(runId || ('GroupsVR:' + Date.now()));
+    LOG.startedAtIso = nowIso();
+    LOG.endedAtIso = '';
+    LOG.meta = Object.assign({ game:'GroupsVR' }, getCtxMeta(), meta||{});
+    LOG.events = [];
+    pushEvt('ai:start', { runId: LOG.runId, meta: LOG.meta });
+    return LOG.runId;
+  }
+
+  function stop(reason){
+    if (!LOG.on) return;
+    LOG.endedAtIso = nowIso();
+    pushEvt('ai:stop', { reason: String(reason||'stop') });
+    LOG.on = false;
+    saveLast();
+  }
+
+  // listeners
+  function onChoice(ev){ pushEvt('ai:choice', ev.detail||{}); }
+  function onFeature(ev){ pushEvt('ai:feature', ev.detail||{}); }
+  function onPredict(ev){ pushEvt('ai:predict', ev.detail||{}); }
+  function onDDSuggest(ev){ pushEvt('ai:dd', ev.detail||{}); }
+  function onEnd(ev){
+    pushEvt('game:end', ev.detail||{});
+    // auto-stop at end to freeze log
+    stop('game_end');
+  }
+
+  root.addEventListener('groups:ai_choice', onChoice, {passive:true});
   root.addEventListener('groups:ai_feature', onFeature, {passive:true});
-  root.addEventListener('groups:ai_choice',  onChoice,  {passive:true});
-  root.addEventListener('groups:ai_dd',      onDD,      {passive:true});
+  root.addEventListener('groups:ai_predict', onPredict, {passive:true});
+  root.addEventListener('groups:dd_suggest', onDDSuggest, {passive:true});
+  root.addEventListener('hha:end', onEnd, {passive:true});
 
-  // When game ends: commit AI log + try attach into last summary
-  root.addEventListener('hha:end', (ev)=>{
-    const d = ev.detail || {};
-    // commit AI regardless of mode if BUF.on
-    if(BUF.on){
-      commit({
-        gameTag:'GroupsVR',
-        runMode: d.runMode,
-        diff: d.diff,
-        seed: d.seed,
-        scoreFinal: d.scoreFinal,
-        grade: d.grade,
-        accuracyGoodPct: d.accuracyGoodPct,
-        misses: d.misses
-      });
+  async function copyToClipboard(text){
+    try{ await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch{
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = String(text||'');
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
     }
+  }
 
-    // also try attach into HHA_LAST_SUMMARY (if exists)
-    try{
-      const LS_LAST = 'HHA_LAST_SUMMARY';
-      const last = safeGet(LS_LAST, null);
-      const lastAI = safeGet(LS_AI_LAST, null);
-      if(last && lastAI){
-        last.aiLog = {
-          runId: lastAI.runId,
-          startedIso: lastAI.startedIso,
-          endedIso: lastAI.endedIso,
-          n: lastAI.n
-        };
-        safeSet(LS_LAST, last);
-      }
-    }catch(_){}
-  }, {passive:true});
-
-  // Export API
   NS.AIExport = {
     start,
     stop,
-    snapshot,
-    getLast: ()=> safeGet(LS_AI_LAST, null),
-    getHistory: ()=> safeGet(LS_AI_HIST, []),
-    reset: ()=>{
-      safeSet(LS_AI_LAST, null);
-      safeSet(LS_AI_HIST, []);
+    get: ()=>LOG,
+    clear: ()=>{
+      try{ localStorage.removeItem(LS_LAST); }catch(_){}
+      try{ localStorage.removeItem(LS_HIST); }catch(_){}
+    },
+    copy: async ()=>{
+      const ok = await copyToClipboard(JSON.stringify(LOG, null, 2));
+      return ok;
     }
   };
-
 })(typeof window!=='undefined'?window:globalThis);
