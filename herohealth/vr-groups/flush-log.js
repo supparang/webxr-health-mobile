@@ -1,70 +1,80 @@
 // === /herohealth/vr-groups/flush-log.js ===
-// Flush-hardened logger (optional endpoint via ?log=...)
-// API: window.GroupsVR.bindFlushOnLeave(getSummaryFn)
+// Flush-hardened logger — PRODUCTION
+// ✅ If URL has ?log=https://... endpoint, send summary JSON on leave/end
+// ✅ Uses navigator.sendBeacon when possible, fallback fetch keepalive
+// ✅ Safe: never throws
 
 (function(){
   'use strict';
-  const W = window;
-  const NS = W.GroupsVR = W.GroupsVR || {};
+  const WIN = window;
+  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
 
   function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
 
   function safeJson(x){
-    try { return JSON.stringify(x); } catch { return ''; }
+    try{ return JSON.stringify(x); }catch{ return '{}'; }
   }
 
-  function send(url, payload){
-    if (!url) return false;
+  async function post(endpoint, payload){
     const body = safeJson(payload);
-    if (!body) return false;
-
-    // try beacon first
     try{
       if (navigator.sendBeacon){
-        const ok = navigator.sendBeacon(url, new Blob([body], {type:'application/json'}));
+        const ok = navigator.sendBeacon(endpoint, new Blob([body], {type:'application/json'}));
         if (ok) return true;
       }
     }catch(_){}
 
-    // fallback fetch keepalive
     try{
-      fetch(url, {
+      const r = await fetch(endpoint, {
         method:'POST',
-        headers:{'content-type':'application/json'},
+        headers:{ 'content-type':'application/json' },
         body,
         keepalive:true,
-        mode:'no-cors'
-      }).catch(()=>{});
-      return true;
-    }catch(_){}
-    return false;
+        mode:'cors'
+      });
+      return !!r.ok;
+    }catch(_){
+      return false;
+    }
   }
 
-  function bindFlushOnLeave(getSummaryFn){
-    const url = String(qs('log','')||'').trim();
-    if (!url) return;
+  // Public binder: pass a function that returns lastSummary object (or null)
+  NS.bindFlushOnLeave = function(getSummary){
+    const endpoint = String(qs('log','')||'').trim();
+    if (!endpoint) return;
 
-    const flush = ()=>{
-      try{
-        const s = getSummaryFn && getSummaryFn();
-        if (!s) return;
-        send(url, s);
-      }catch(_){}
-    };
+    let sent = false;
 
-    // multiple hooks
-    window.addEventListener('pagehide', flush, {passive:true});
-    window.addEventListener('visibilitychange', ()=>{
-      if (document.visibilityState === 'hidden') flush();
-    }, {passive:true});
-    window.addEventListener('beforeunload', flush);
+    async function flush(reason){
+      if (sent) return;
+      sent = true;
 
-    // expose manual
-    NS.flushNow = flush;
-  }
+      let s = null;
+      try{ s = (typeof getSummary === 'function') ? getSummary() : null; }catch(_){}
+      if (!s) s = { reason: String(reason||'leave'), gameTag:'GroupsVR', timestampIso: new Date().toISOString() };
 
-  NS.bindFlushOnLeave = bindFlushOnLeave;
+      const payload = Object.assign({
+        gameTag:'GroupsVR',
+        reason: String(reason||'leave'),
+        url: location.href,
+        ts: Date.now()
+      }, s);
+
+      try{ await post(endpoint, payload); }catch(_){}
+    }
+
+    // flush on end if possible
+    WIN.addEventListener('hha:end', ()=>flush('end'), { once:true, passive:true });
+
+    // flush on navigation
+    WIN.addEventListener('pagehide', ()=>flush('pagehide'), { once:true, passive:true });
+    WIN.addEventListener('beforeunload', ()=>flush('beforeunload'), { once:true, passive:true });
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.visibilityState === 'hidden') flush('hidden');
+    }, { passive:true });
+  };
+
 })();
