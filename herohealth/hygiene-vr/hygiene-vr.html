@@ -1,121 +1,280 @@
-<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js
-✅ Optional AI: ../vr/hha-ai-coach.js, ../vr/hha-difficulty-director.js, ../vr/hha-badges.js
-✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-✅ Back HUB: ?hub=...
--->
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+/* === /herohealth/hygiene-vr/hygiene-vr.css ===
+HygieneVR UI — PRODUCTION (HHA Standard)
+✅ Safe-area insets
+✅ Big playable area (avoid HUD overlap)
+✅ Emoji targets centered + crisp
+✅ VR/cVR shoot-only friendly
+*/
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260124e" />
+:root{
+  color-scheme: dark;
 
-  <!-- Universal VR UI (defer: ✅ fix body null) -->
-  <script src="../vr/vr-ui.js" defer></script>
+  --bg:#020617;
+  --panel:rgba(2,6,23,.78);
+  --panel2:rgba(15,23,42,.68);
+  --stroke:rgba(148,163,184,.18);
+  --stroke2:rgba(148,163,184,.30);
 
-  <!-- Optional shared helpers -->
-  <script src="../vr/particles.js" defer></script>
+  --text:#e5e7eb;
+  --muted:#94a3b8;
 
-  <!-- AI Packs -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
+  --good:rgba(34,197,94,.92);
+  --warn:rgba(245,158,11,.95);
+  --bad:rgba(239,68,68,.95);
+  --cyan:rgba(34,211,238,.95);
+  --violet:rgba(167,139,250,.95);
 
-  <!-- Engine -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260124e"></script>
-</head>
+  --r:22px;
+  --pill:999px;
 
-<body class="view-pc">
-  <div id="gameRoot" class="hw-root">
-    <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
+  /* safe area */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
-    <!-- HUD -->
-    <div class="hw-hud">
-      <div class="hw-top">
-        <div class="hw-title">🧼 Handwash Survival</div>
-        <div class="hw-sub" id="hudSub">ready…</div>
+  /* spawn safe zone (read by engine) */
+  --hw-top-safe: 140px;     /* กัน HUD ด้านบน */
+  --hw-bottom-safe: 120px;  /* กันแถบ/ปุ่มล่าง */
+}
 
-        <div class="hw-row">
-          <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
-          <div class="hw-pill" id="pillHits">HITS 0/6</div>
-          <div class="hw-pill" id="pillCombo">COMBO 0</div>
-          <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
-        </div>
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 
-        <div class="hw-row">
-          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillTime">TIME 70</div>
-          <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
-          <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
-          <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
-        </div>
+.hw-root{
+  min-height:100%;
+  position:relative;
+  overflow:hidden;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+}
 
-        <!-- Quiz box (optional) -->
-        <div class="hw-quiz" id="quizBox" style="display:none">
-          <div class="hw-quiz-q" id="quizQ">QUIZ</div>
-          <div class="hw-quiz-sub" id="quizSub">—</div>
-        </div>
-      </div>
+/* Stage = พื้นที่เล่น */
+.hw-stage{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+}
 
-      <div class="hw-banner" id="banner" aria-live="polite"></div>
-    </div>
+/* HUD */
+.hw-hud{
+  position:absolute;
+  inset:0;
+  pointer-events:none; /* HUD ไม่ขวางการยิง */
+}
 
-    <!-- Start Overlay -->
-    <div class="hw-overlay" id="startOverlay">
-      <div class="hw-card">
-        <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
-        </div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-      </div>
-    </div>
+.hw-top{
+  position:absolute;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  top: calc(10px + var(--sat));
+}
 
-    <!-- End Overlay -->
-    <div class="hw-overlay" id="endOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
-        <div class="hw-card-sub" id="endSub">—</div>
-        <pre class="hw-pre" id="endJson"></pre>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
-        </div>
-      </div>
-    </div>
-  </div>
+.hw-title{
+  font-weight:950;
+  letter-spacing:.2px;
+  font-size:16px;
+}
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
+.hw-sub{
+  margin-top:4px;
+  color: rgba(148,163,184,.95);
+  font-size:12px;
+}
+
+.hw-row{
+  margin-top:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.hw-pill{
+  pointer-events:auto; /* ให้ปุ่ม Pause/Back กดได้ */
+  user-select:none;
+  border-radius: var(--pill);
+  border:1px solid var(--stroke);
+  background: var(--panel2);
+  color: rgba(229,231,235,.96);
+  padding: 8px 10px;
+  font-weight:900;
+  font-size:12px;
+  line-height:1;
+  backdrop-filter: blur(10px);
+}
+
+.hw-pill.btn{
+  cursor:pointer;
+}
+.hw-pill.btn:active{ transform: translateY(1px); }
+
+.hw-pill.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+.hw-pill.bad{  border-color: rgba(239,68,68,.35);  background: rgba(239,68,68,.10); }
+.hw-pill.cyan{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
+
+/* Quiz box */
+.hw-quiz{
+  margin-top:10px;
+  pointer-events:none;
+  border-radius: 18px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.70);
+  padding: 10px 12px;
+  backdrop-filter: blur(10px);
+}
+.hw-quiz-q{ font-weight:950; font-size:12px; }
+.hw-quiz-sub{ margin-top:4px; color:rgba(148,163,184,.95); font-size:12px; }
+
+/* Banner */
+.hw-banner{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  top: calc(92px + var(--sat));
+  z-index: 8;
+  pointer-events:none;
+
+  opacity:0;
+  transition: opacity .15s ease, transform .15s ease;
+  border-radius: 16px;
+  border:1px solid var(--stroke2);
+  background: rgba(15,23,42,.78);
+  padding: 10px 12px;
+  font-weight:950;
+  font-size:13px;
+  box-shadow: 0 18px 70px rgba(0,0,0,.55);
+}
+.hw-banner.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(2px);
+}
+
+/* Overlays */
+.hw-overlay{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background: rgba(2,6,23,.66);
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+.hw-card{
+  width: min(760px, 100%);
+  border-radius: 22px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  padding: 16px;
+}
+
+.hw-card-title{
+  font-weight: 1000;
+  font-size: 18px;
+  letter-spacing:.2px;
+}
+.hw-card-sub{
+  margin-top:8px;
+  color: rgba(148,163,184,.96);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.hw-card-row{
+  margin-top:12px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.hw-cta{
+  appearance:none;
+  border-radius: 16px;
+  border:1px solid rgba(34,197,94,.35);
+  background: rgba(34,197,94,.14);
+  color: rgba(229,231,235,.98);
+  padding: 10px 14px;
+  font-weight: 1000;
+  cursor:pointer;
+}
+.hw-ghost{
+  appearance:none;
+  border-radius: 16px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.58);
+  color: rgba(229,231,235,.96);
+  padding: 10px 14px;
+  font-weight: 1000;
+  cursor:pointer;
+}
+
+.hw-pre{
+  margin-top:10px;
+  max-height: 260px;
+  overflow:auto;
+  border-radius: 14px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  padding: 10px;
+  font-size: 12px;
+  color: rgba(229,231,235,.92);
+}
+
+/* Targets */
+.hw-tgt{
+  position:absolute;
+  left: calc(var(--x) * 1%);
+  top:  calc(var(--y) * 1%);
+  transform: translate(-50%,-50%) scale(var(--s));
+  width: 86px;
+  height: 86px;
+  border-radius: 999px;
+  border: 2px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.55);
+  box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+
+  /* กัน blur/contrast ดับ */
+  filter: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hw-tgt .emoji{
+  font-size: 42px;
+  line-height: 1;
+  transform: translateY(-1px);
+  text-shadow: 0 2px 0 rgba(0,0,0,.35);
+}
+
+/* kind styling */
+.hw-tgt.good{ border-color: rgba(34,197,94,.35); box-shadow: 0 18px 70px rgba(34,197,94,.18); }
+.hw-tgt.wrong{ border-color: rgba(245,158,11,.35); box-shadow: 0 18px 70px rgba(245,158,11,.18); }
+.hw-tgt.haz{ border-color: rgba(239,68,68,.35); box-shadow: 0 18px 70px rgba(239,68,68,.18); }
+
+/* Hover/active feedback (pc/mobile) */
+body.view-pc .hw-tgt:hover{ transform: translate(-50%,-50%) scale(calc(var(--s) * 1.06)); }
+body.view-pc .hw-tgt:active,
+body.view-mobile .hw-tgt:active{ transform: translate(-50%,-50%) scale(calc(var(--s) * 0.96)); }
+
+/* VR/cVR: shoot-only recommended */
+body.view-vr .hw-tgt,
+body.view-cvr .hw-tgt{
+  pointer-events:none;
+}
+
+/* Responsive: mobile smaller targets */
+@media (max-width: 520px){
+  :root{
+    --hw-top-safe: 170px;  /* มือถือ HUD สูงขึ้น */
+    --hw-bottom-safe: 130px;
   }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-})();
-</script>
-</body>
-</html>
+  .hw-tgt{ width: 74px; height: 74px; }
+  .hw-tgt .emoji{ font-size: 38px; }
+}
+
+/* cVR: leave more space top for VR buttons (ENTER VR etc.) */
+body.view-cvr{
+  --hw-top-safe: 190px;
+}
