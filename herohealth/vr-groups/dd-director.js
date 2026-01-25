@@ -1,138 +1,102 @@
-// === /herohealth/vr-groups/dd-director.js ===
-// DD Director (Fair + Smooth)
-// ✅ Calls GameEngine.applyTuning({spawnMs,sizeScale,junkWeight,stormBias})
-// ✅ Play only + ?ai=1; OFF in research/practice
-// ✅ Rate-limited + gentle clamps
-
+/* === /herohealth/vr-groups/dd-director.js ===
+DD Director (lightweight)
+✅ Consumes groups:ai_feature (risk + stats)
+✅ Emits groups:dd_suggest {spawnMul, sizeMul, wrongDelta, junkDelta, lifeMul, why}
+✅ Applies only when enabled by ai-hooks (gating is there)
+*/
 (function(root){
   'use strict';
-  const DOC = root.document;
-  if(!DOC) return;
-
   const NS = root.GroupsVR = root.GroupsVR || {};
 
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
-  const qs=(k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  let ON = false;
+  let last = null;
 
-  function isPlayAndAI(){
-    const run = String(qs('run','play')||'play').toLowerCase();
-    const ai  = String(qs('ai','0')||'0').toLowerCase();
-    return (run==='play') && (ai==='1' || ai==='true');
-  }
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
 
-  const S = {
-    on:false,
-    lastAt:0,
-    // rolling state
-    score:0, combo:0, miss:0, acc:0, left:90,
-    storm:false,
-    // tuning
-    t:{ spawnMs:0, sizeScale:1.0, junkWeight:null, stormBias:0 }
-  };
+  function suggest(f){
+    // f: {r, missRate, accBad, comboN, leftLow, storm, miniUrg}
+    const r = clamp(f.r, 0, 1);
+    const missRate = clamp(f.missRate, 0, 1);
+    const accBad   = clamp(f.accBad, 0, 1);
+    const comboN   = clamp(f.comboN, 0, 1);
+    const leftLow  = clamp(f.leftLow, 0, 1);
+    const storm    = !!f.storm;
+    const miniUrg  = !!f.miniUrg;
 
-  function apply(){
-    const E = NS.GameEngine;
-    if(!E || typeof E.applyTuning!=='function') return;
+    // เป้าหมาย: “ยุติธรรม” ไม่ให้ยากเกินเมื่อกำลังพลาดถี่
+    // spawnMul <1 = spawn ถี่ขึ้น, >1 = ช้าลง
+    let spawnMul = 1.0;
+    let sizeMul  = 1.0;
+    let lifeMul  = 1.0;
+    let wrongDelta = 0.0;
+    let junkDelta  = 0.0;
+    let why = 'steady';
 
-    // compute risk-ish
-    const accBad = clamp((100 - S.acc)/100, 0, 1);
-    const missHeavy = clamp(S.miss/14, 0, 1);
-    const comboGood = clamp(S.combo/10, 0, 1);
-
-    // base preset spawn (we don't know preset base here) -> we only set spawnMs when needed
-    // help mode
-    let sizeScale = 1.0;
-    let spawnMs   = 0;      // 0 means "engine uses preset"
-    let junkW     = null;
-    let stormBias = 0;
-
-    // If struggling: assist
-    if (missHeavy >= 0.55 || accBad >= 0.42){
-      sizeScale = 1.08 - (accBad*0.06);              // 1.08..~1.03
-      spawnMs   = 820 + Math.round(missHeavy*160);   // 820..~1040
-      junkW     = 0.12 + (accBad*0.05);              // 0.12..0.17
-      stormBias = -0.03;                              // delay storm a bit
-    }
-    // If doing great: challenge (gentle)
-    else if (S.acc >= 88 && S.miss <= 3 && comboGood >= 0.6){
-      sizeScale = 0.95;
-      spawnMs   = 560;                                // faster
-      junkW     = 0.17;                               // slightly more junk
-      stormBias = +0.02;                              // little earlier storms
-    }
-    // normal: tiny nudges only
-    else {
-      sizeScale = 1.0;
-      spawnMs   = 0;
-      junkW     = null;
-      stormBias = 0;
+    if (r >= 0.78){
+      spawnMul = 1.10;      // ช้าลงเล็กน้อย
+      sizeMul  = 1.06;      // เป้าใหญ่ขึ้น
+      lifeMul  = 1.08;      // อยู่นานขึ้น
+      wrongDelta = -0.02;   // ลดหลอก
+      junkDelta  = -0.02;   // ลดขยะ
+      why = 'protect';
+    } else if (r >= 0.55){
+      spawnMul = 1.03;
+      sizeMul  = 1.03;
+      lifeMul  = 1.03;
+      wrongDelta = -0.01;
+      junkDelta  = -0.01;
+      why = 'assist';
+    } else {
+      // เล่นดี: เพิ่มความท้าทายเบา ๆ
+      if (comboN >= 0.7 && accBad <= 0.2 && missRate <= 0.15){
+        spawnMul = 0.94;
+        sizeMul  = 0.98;
+        lifeMul  = 0.96;
+        wrongDelta = +0.01;
+        junkDelta  = +0.01;
+        why = 'challenge';
+      }
     }
 
-    // extra clamp if storm already on: don't over-tighten
-    if (S.storm){
-      sizeScale = clamp(sizeScale, 0.92, 1.10);
-      if (spawnMs) spawnMs = clamp(spawnMs, 520, 980);
+    // ช่วง miniUrg: อย่าเร่งถี่เกิน
+    if (miniUrg){
+      spawnMul = Math.max(spawnMul, 1.02);
+      why = (why==='challenge') ? 'mini_guard' : why;
     }
 
-    S.t = {
-      spawnMs: spawnMs ? clamp(spawnMs, 320, 980) : 0,
-      sizeScale: clamp(sizeScale, 0.85, 1.15),
-      junkWeight: (junkW==null) ? null : clamp(junkW, 0.10, 0.40),
-      stormBias: clamp(stormBias, -0.06, 0.06)
+    // storm: อย่าซ้ำเติม
+    if (storm){
+      spawnMul = Math.max(spawnMul, 1.05);
+      sizeMul  = Math.max(sizeMul, 1.02);
+      why = (why==='challenge') ? 'storm_guard' : why;
+    }
+
+    return {
+      spawnMul: Math.round(spawnMul*100)/100,
+      sizeMul: Math.round(sizeMul*100)/100,
+      lifeMul: Math.round(lifeMul*100)/100,
+      wrongDelta: Math.round(wrongDelta*100)/100,
+      junkDelta: Math.round(junkDelta*100)/100,
+      why
     };
-
-    E.applyTuning(S.t);
   }
 
-  function tick(){
-    if(!S.on) return;
-    const t = Date.now();
-    if (t - S.lastAt < 1000) return;
-    S.lastAt = t;
-    apply();
+  function emitDD(d){
+    last = d;
+    try{ root.dispatchEvent(new CustomEvent('groups:dd_suggest', { detail:d })); }catch(_){}
   }
 
-  // listen signals
-  root.addEventListener('hha:score', (ev)=>{
-    const d=ev.detail||{};
-    S.score = Number(d.score ?? S.score)||0;
-    S.combo = Number(d.combo ?? S.combo)||0;
-    S.miss  = Number(d.misses ?? S.miss)||0;
-  }, {passive:true});
-
-  root.addEventListener('hha:rank', (ev)=>{
-    const d=ev.detail||{};
-    S.acc = Number(d.accuracy ?? S.acc)||0;
-  }, {passive:true});
-
-  root.addEventListener('hha:time', (ev)=>{
-    const d=ev.detail||{};
-    S.left = Number(d.left ?? S.left)||0;
-  }, {passive:true});
-
-  root.addEventListener('groups:progress', (ev)=>{
-    const d=ev.detail||{};
-    const k=String(d.kind||'');
-    if (k==='storm_on') S.storm=true;
-    if (k==='storm_off') S.storm=false;
-  }, {passive:true});
-
-  // start/stop API
-  let it=0;
-  function start(){
-    if(!isPlayAndAI()) return;
-    S.on = true;
-    clearInterval(it);
-    it = setInterval(tick, 250);
-  }
-  function stop(){
-    S.on = false;
-    clearInterval(it);
+  function onFeature(ev){
+    if (!ON) return;
+    const f = ev.detail || {};
+    emitDD(suggest(f));
   }
 
-  NS.DDDirector = { start, stop };
+  root.addEventListener('groups:ai_feature', onFeature, {passive:true});
 
-  // auto-start best effort
-  try{ start(); }catch(_){}
-
+  NS.DDDirector = {
+    start: ()=>{ ON=true; },
+    stop: ()=>{ ON=false; },
+    getLast: ()=>last
+  };
 })(typeof window!=='undefined'?window:globalThis);
