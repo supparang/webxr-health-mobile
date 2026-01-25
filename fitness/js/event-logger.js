@@ -1,35 +1,42 @@
-// === /fitness/js/event-logger.js — Event-level CSV logger (LATEST, stable columns) ===
+// === js/event-logger.js — Event-level CSV logger (Shadow Breaker) ===
 'use strict';
 
 export class EventLogger {
   constructor() {
-    this.rows = [];
-  }
-
-  clear() {
-    this.rows.length = 0;
+    this.logs = [];
   }
 
   add(row) {
     if (!row || typeof row !== 'object') return;
-    this.rows.push(row);
+    this.logs.push(row);
+  }
+
+  clear() {
+    this.logs.length = 0;
   }
 
   toCsv() {
-    if (!this.rows.length) return '';
+    if (!this.logs.length) return '';
 
-    // รวมคอลัมน์ให้ “นิ่ง” แม้บาง row จะมี field เพิ่ม/หาย
-    const colSet = new Set();
-    for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
-    const cols = Array.from(colSet);
+    const cols = Object.keys(this.logs[0]);
 
     const esc = (v) => {
-      const s = (v === null || v === undefined) ? '' : String(v);
-      return `"${s.replace(/"/g, '""')}"`;
+      if (v == null) return '';
+      const s = String(v);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
     };
 
-    const head = cols.join(',');
-    const lines = this.rows.map(r => cols.map(c => esc(r[c])).join(','));
-    return [head, ...lines].join('\n');
+    const lines = [];
+    lines.push(cols.join(','));
+
+    for (const row of this.logs) {
+      const line = cols.map(col => esc(row[col]));
+      lines.push(line.join(','));
+    }
+
+    return lines.join('\n');
   }
 }
