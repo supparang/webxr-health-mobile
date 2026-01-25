@@ -1,7 +1,7 @@
 <!-- === /herohealth/hygiene-vr.html ===
-Hygiene VR Launcher — ROOT (AUTO)
+HygieneVR Launcher — ROOT (AUTO)
 ✅ Auto-detect view if no ?view=
-✅ Pass-through params
+✅ Pass-through all params
 ✅ Go to: /herohealth/hygiene-vr/hygiene-vr.html
 -->
 <!doctype html>
@@ -9,7 +9,7 @@ Hygiene VR Launcher — ROOT (AUTO)
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hygiene VR (Launcher)</title>
+  <title>HeroHealth — HygieneVR (Auto Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
@@ -19,14 +19,14 @@ Hygiene VR Launcher — ROOT (AUTO)
       --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
       --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
-      --r:22px; --pill:999px;
+      --r:22px;
     }
     *{box-sizing:border-box}
     html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
     .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
       width:min(760px,100%);
-      border:1px solid rgba(148,163,184,.18);
+      border:1px solid var(--stroke);
       background: rgba(2,6,23,.72);
       border-radius: var(--r);
       padding: 16px;
@@ -37,7 +37,7 @@ Hygiene VR Launcher — ROOT (AUTO)
     .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
     .btn{
       border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
+      border:1px solid var(--stroke);
       background: rgba(15,23,42,.72);
       color: rgba(229,231,235,.95);
       padding: 10px 12px;
@@ -52,7 +52,7 @@ Hygiene VR Launcher — ROOT (AUTO)
 <body>
 <div class="wrap">
   <div class="card">
-    <div class="title">🧼 Handwash Survival (HygieneVR)</div>
+    <div class="title">HygieneVR — Handwash Survival</div>
     <div class="sub" id="txt">กำลังเข้าเกมอัตโนมัติ…</div>
 
     <div class="row">
@@ -61,7 +61,8 @@ Hygiene VR Launcher — ROOT (AUTO)
     </div>
 
     <div class="hint">
-      Pass-through: <code>hub</code>, <code>run</code>, <code>diff</code>, <code>time</code>, <code>seed</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code>, <code>style</code>, <code>log</code>
+      ถ้าอยากบังคับมุมมอง: <code>?view=pc</code> / <code>?view=mobile</code> / <code>?view=vr</code> / <code>?view=cvr</code><br>
+      (ถ้ามี <code>?view=</code> อยู่แล้ว Launcher จะ <b>ไม่ override</b>)
     </div>
   </div>
 </div>
@@ -71,20 +72,13 @@ Hygiene VR Launcher — ROOT (AUTO)
   'use strict';
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const hub = String(qs('hub','./hub.html'));
-
-  // ✅ folder = run
   const RUN_URL = './hygiene-vr/hygiene-vr.html';
 
   function detectView(){
-    const forced = (qs('view','')||'').toLowerCase();
-    if(forced) return forced;
-
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
-
-    // heuristic: wide touch landscape => cVR
     if (isTouch){
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
@@ -95,12 +89,11 @@ Hygiene VR Launcher — ROOT (AUTO)
   function buildRunUrl(){
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
-
-    // pass-through all current params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
     // DO NOT override if view already present
-    if (!cur.searchParams.get('view')){
+    const hasView = !!cur.searchParams.get('view');
+    if (!hasView){
       u.searchParams.set('view', detectView());
     }
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
@@ -115,7 +108,7 @@ Hygiene VR Launcher — ROOT (AUTO)
   const txt = document.getElementById('txt');
   if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
-  setTimeout(go, 120);
+  setTimeout(go, 140);
 })();
 </script>
 </body>
