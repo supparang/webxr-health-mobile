@@ -5,6 +5,7 @@
 // ✅ boss HP support (hp>1 => keep until hp=0)
 // ✅ spawnCustom() for patterns (storm/boss scripted)
 // ✅ getStats() for AI predictor
+// ✅ NEW: className support in spawnCustom
 
 'use strict';
 
@@ -87,7 +88,6 @@ export function boot({
     if(!state.alive) return;
     if(!state.targets.has(target)) return;
 
-    // boss hp behavior
     if((target.hp|0) > 1){
       target.hp = (target.hp|0) - 1;
       try{
@@ -137,14 +137,14 @@ export function boot({
     const size = Math.round(Number(opts.size || (sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]))));
     const ttlMs = Math.round(Number(opts.ttlMs ?? (kind === 'junk' ? 1700 : 2100)));
     const hp = Math.max(1, Math.round(Number(opts.hp || 1)));
+    const className = String(opts.className || '').trim();
 
-    // clamp center into rect with padding
     const pad = Math.max(10, Math.round(size * 0.55));
     const x = Math.min(rect.right - pad, Math.max(rect.left + pad, cx));
     const y = Math.min(rect.bottom - pad, Math.max(rect.top + pad, cy));
 
     const el = DOC.createElement('div');
-    el.className = 'plateTarget';
+    el.className = 'plateTarget' + (className ? ` ${className}` : '');
     el.dataset.kind = kind;
     if(hp > 1) el.dataset.hp = String(hp);
 
@@ -198,7 +198,6 @@ export function boot({
     const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
     const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
 
-    // allow per-kind overrides via kinds entry
     const ttlMs = (chosen.ttlMs != null) ? Number(chosen.ttlMs) : (kind === 'junk' ? 1700 : 2100);
     const hp = (chosen.hp != null) ? Number(chosen.hp) : 1;
 
@@ -223,8 +222,8 @@ export function boot({
       for(const target of state.targets){ try{ target.el.remove(); }catch{} }
       state.targets.clear();
     },
-    spawnCustom({ x, y, kind='good', size=null, ttlMs=null, groupIndex=null, hp=1 }){
-      return spawnAt(Number(x), Number(y), { kind, size, ttlMs, groupIndex, hp });
+    spawnCustom({ x, y, kind='good', size=null, ttlMs=null, groupIndex=null, hp=1, className='' }){
+      return spawnAt(Number(x), Number(y), { kind, size, ttlMs, groupIndex, hp, className });
     },
     getStats(){
       return {
