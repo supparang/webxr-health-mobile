@@ -1,4 +1,4 @@
-// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (2026-01-25 A) ===
+// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (Pack A Latest) ===
 'use strict';
 
 const EMOJI_BY_TYPE = {
@@ -10,6 +10,8 @@ const EMOJI_BY_TYPE = {
   bossface:'👑'
 };
 
+const clamp = (v,min,max)=>Math.max(min, Math.min(max, v));
+
 export class DomRendererShadow {
   constructor(host, opts = {}) {
     this.host        = host;
@@ -20,11 +22,23 @@ export class DomRendererShadow {
     this.targets = new Map();
     this.diffKey = 'normal';
 
+    // grid-spawn memory to avoid "rowเดียว"
+    this._cells = [];
+    this._cellIdx = 0;
+    this._recentCells = [];
+    this._recentMax = 6;
+
     this._handleClick = this._handleClick.bind(this);
     if (this.host) this.host.addEventListener('click', this._handleClick);
+
+    this._rebuildGrid();
+    window.addEventListener('resize', () => this._rebuildGrid(), { passive: true });
   }
 
-  setDifficulty(diffKey) { this.diffKey = diffKey || 'normal'; }
+  setDifficulty(diffKey) {
+    this.diffKey = diffKey || 'normal';
+    this._rebuildGrid();
+  }
 
   destroy() {
     if (this.host) this.host.removeEventListener('click', this._handleClick);
@@ -36,9 +50,62 @@ export class DomRendererShadow {
       if (el.parentNode) el.parentNode.removeChild(el);
     }
     this.targets.clear();
+    this._recentCells.length = 0;
   }
 
-  // ===== public API =====
+  // ===== grid spawn =====
+  _rebuildGrid() {
+    // ใช้จำนวนคอลัมน์/แถวตาม diff เพื่อกระจายเป้า
+    // easy: ช่องใหญ่ (น้อยช่อง) / hard: ช่องเยอะ (กระจายมาก)
+    const diff = (this.diffKey || 'normal').toLowerCase();
+    const cols = diff === 'easy' ? 4 : diff === 'hard' ? 6 : 5;
+    const rows = diff === 'easy' ? 3 : diff === 'hard' ? 4 : 4;
+
+    // safe margins (กันชิดขอบ/ทับ HUD)
+    const xMin = 16, xMax = 84;
+    const yMin = 16, yMax = 84;
+
+    this._cells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = xMin + (xMax - xMin) * ((c + 0.5) / cols);
+        const y = yMin + (yMax - yMin) * ((r + 0.5) / rows);
+        this._cells.push({ x, y, r, c });
+      }
+    }
+    // shuffle
+    for (let i = this._cells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = this._cells[i];
+      this._cells[i] = this._cells[j];
+      this._cells[j] = tmp;
+    }
+    this._cellIdx = 0;
+  }
+
+  _pickCell() {
+    if (!this._cells.length) this._rebuildGrid();
+
+    // หา cell ที่ไม่อยู่ใน recent
+    let tries = 0;
+    while (tries++ < 12) {
+      const cell = this._cells[this._cellIdx++ % this._cells.length];
+      const key = `${cell.r}:${cell.c}`;
+      if (!this._recentCells.includes(key)) {
+        this._recentCells.unshift(key);
+        this._recentCells.length = Math.min(this._recentMax, this._recentCells.length);
+        return cell;
+      }
+    }
+    // fallback
+    const cell = this._cells[this._cellIdx++ % this._cells.length];
+    const key = `${cell.r}:${cell.c}`;
+    this._recentCells.unshift(key);
+    this._recentCells.length = Math.min(this._recentMax, this._recentCells.length);
+    return cell;
+  }
+
+  // ===== public API used by engine =====
   spawnTarget(data) {
     if (!this.host) return;
 
@@ -49,7 +116,7 @@ export class DomRendererShadow {
     const type = data.isBossFace ? 'bossface' : (data.type || 'normal');
     el.classList.add(`sb-target--${type}`);
 
-    const emoji = (data.isBossFace && data.bossEmoji)
+    const emoji = data.isBossFace && data.bossEmoji
       ? data.bossEmoji
       : (EMOJI_BY_TYPE[type] || EMOJI_BY_TYPE.normal);
 
@@ -59,16 +126,18 @@ export class DomRendererShadow {
     const size = data.sizePx || 120;
     el.style.setProperty('--sb-target-size', `${size}px`);
 
-    // ✅ A: กระจายตำแหน่งโดยคำนึงถึงขนาด (กันหลุดขอบ)
-    const rect = this.host.getBoundingClientRect();
-    const w = Math.max(1, rect.width);
-    const h = Math.max(1, rect.height);
-    const pad = Math.min(0.18, Math.max(0.10, (size / Math.min(w,h)) * 0.75)); // 10–18%
-    const x = (pad + Math.random() * (1 - pad * 2)) * 100;
-    const y = (pad + Math.random() * (1 - pad * 2)) * 100;
+    // === grid position + jitter (แก้ row เดียว + ลด overlap) ===
+    const cell = this._pickCell();
 
-    el.style.left = x.toFixed(2) + '%';
-    el.style.top  = y.toFixed(2) + '%';
+    // jitter ตามขนาด (กันซ้อน)
+    const jx = (Math.random() * 10 - 5);
+    const jy = (Math.random() * 10 - 5);
+
+    const x = clamp(cell.x + jx, 12, 88);
+    const y = clamp(cell.y + jy, 12, 88);
+
+    el.style.left = x + '%';
+    el.style.top  = y + '%';
 
     const core = document.createElement('span');
     core.className = 'sb-target-core';
@@ -103,7 +172,7 @@ export class DomRendererShadow {
     this._spawnBurst(cx, cy, opts);
   }
 
-  // ===== internal =====
+  // ===== internal helpers =====
   _handleClick(ev) {
     const target = ev.target.closest('.sb-target');
     if (!target) return;
@@ -115,7 +184,9 @@ export class DomRendererShadow {
     const cx = rect.left + rect.width / 2;
     const cy = rect.top  + rect.height / 2;
 
-    if (this.onTargetHit) this.onTargetHit(id, { clientX: cx, clientY: cy });
+    if (this.onTargetHit) {
+      this.onTargetHit(id, { clientX: cx, clientY: cy });
+    }
   }
 
   _spawnScoreText(x, y, { grade, scoreDelta }) {
