@@ -1,7 +1,9 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCH)
-// ✅ End summary robust (fix "summary = 0")
-// ✅ Default time=90 for ป.5
+// PlateVR Boot — PRODUCTION (AI + FX ready)
+// ✅ Auto view detect (no UI override)
+// ✅ Default time 90 sec
+// ✅ ai=0 disables AI in play
+// ✅ Wires: hha:score, hha:time, quest:update, hha:coach, hha:end, hha:ai, hha:storm, hha:boss
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -38,11 +40,7 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
-function pct(n){
-  n = Number(n)||0;
-  return `${Math.round(n)}%`;
-}
+function pct(n){ n = Number(n)||0; return `${Math.round(n)}%`; }
 
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
@@ -85,11 +83,8 @@ function wireHUD(){
 
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-    const score = (d.score ?? d.scoreNow ?? d.value ?? 0);
-    const combo = (d.combo ?? d.comboNow ?? 0);
-
-    if(hudScore) hudScore.textContent = String(score);
-    if(hudCombo) hudCombo.textContent = String(combo);
+    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
+    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -126,6 +121,68 @@ function wireHUD(){
   });
 }
 
+function wireAIHud(){
+  const chip = DOC.getElementById('aiChip');
+  const pctEl = DOC.getElementById('hudAiPct');
+  const fill = DOC.getElementById('hudAiFill');
+
+  if(pctEl) pctEl.textContent = '0%';
+  if(fill) fill.style.width = '0%';
+
+  WIN.addEventListener('hha:start', (e)=>{
+    const d = e.detail || {};
+    const aiOn = (d.ai === 'on');
+    if(!chip) return;
+    chip.classList.toggle('is-off', !aiOn);
+  });
+
+  WIN.addEventListener('hha:ai', (e)=>{
+    const d = e.detail || {};
+    if(!chip || !pctEl || !fill) return;
+
+    const p = Math.max(0, Math.min(1, Number(d.pMissSoon ?? 0)));
+    const percent = Math.round(p * 100);
+    pctEl.textContent = `${percent}%`;
+    fill.style.width = `${percent}%`;
+
+    chip.classList.remove('lv0','lv1','lv2');
+    if(percent >= 70) chip.classList.add('lv2');
+    else if(percent >= 40) chip.classList.add('lv1');
+    else chip.classList.add('lv0');
+  });
+}
+
+function wireFxLayers(){
+  const bossFx = DOC.getElementById('bossFx');
+  const stormFx = DOC.getElementById('stormFx');
+
+  WIN.addEventListener('hha:boss', (e)=>{
+    const d = e.detail || {};
+    if(!bossFx) return;
+    if(d.on){
+      bossFx.classList.add('boss-on');
+      bossFx.classList.remove('boss-panic');
+      clearTimeout(WIN.__HHA_BOSS_PANIC_TO__);
+      WIN.__HHA_BOSS_PANIC_TO__ = setTimeout(()=>bossFx.classList.add('boss-panic'), 1800);
+    }else{
+      bossFx.classList.remove('boss-on','boss-panic');
+    }
+  });
+
+  WIN.addEventListener('hha:storm', (e)=>{
+    const d = e.detail || {};
+    if(!stormFx) return;
+    if(d.on){
+      stormFx.classList.add('storm-on');
+      const ms = Number(d.ms || 1400);
+      clearTimeout(WIN.__HHA_STORM_TO__);
+      WIN.__HHA_STORM_TO__ = setTimeout(()=>stormFx.classList.remove('storm-on'), ms);
+    }else{
+      stormFx.classList.remove('storm-on');
+    }
+  });
+}
+
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
@@ -142,16 +199,6 @@ function wireEndControls(){
   }
 }
 
-function pickNum(d, keys, def=0){
-  for(const k of keys){
-    const v = d?.[k];
-    if(v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v))){
-      return Number(v);
-    }
-  }
-  return Number(def)||0;
-}
-
 function wireEndSummary(){
   const kScore = DOC.getElementById('kScore');
   const kAcc   = DOC.getElementById('kAcc');
@@ -162,29 +209,15 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
+    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    const score = pickNum(d, ['scoreFinal','scoreFinalNow','score'], 0);
-    const combo = pickNum(d, ['comboMax','comboMaxFinal','combo'], 0);
-    const miss  = pickNum(d, ['misses','miss','missCount'], 0);
+    const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
-    const acc = d.accuracyGoodPct ?? d.accuracyPct ?? null;
-
-    const goalsCleared = pickNum(d, ['goalsCleared'], 0);
-    const goalsTotal   = pickNum(d, ['goalsTotal'], 0);
-    const miniCleared  = pickNum(d, ['miniCleared'], 0);
-    const miniTotal    = pickNum(d, ['miniTotal'], 0);
-
-    if(kScore) kScore.textContent = String(score);
-    if(kCombo) kCombo.textContent = String(combo);
-    if(kMiss)  kMiss.textContent  = String(miss);
-
-    if(kAcc){
-      if(acc === null || acc === undefined) kAcc.textContent = '—';
-      else kAcc.textContent = (typeof acc === 'string') ? acc : pct(acc);
-    }
-
-    if(kGoals) kGoals.textContent = `${goalsCleared}/${goalsTotal}`;
-    if(kMini)  kMini.textContent  = `${miniCleared}/${miniTotal}`;
+    if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
+    if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
   });
@@ -195,15 +228,19 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
+  // ✅ default 90 sec (เด็ก ป.5 เล่นสนุกขึ้น เห็น boss/storm ทัน)
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
+  // ai toggle
+  const aiParam = (qs('ai','1')||'1').toLowerCase();
+  const aiOn = (run === 'play') && (aiParam !== '0' && aiParam !== 'off' && aiParam !== 'false');
+
   return {
-    view,
-    runMode: run,
-    diff,
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
+    ai: aiOn,
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
@@ -228,20 +265,18 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-
   setBodyView(cfg.view);
 
   wireHUD();
+  wireAIHud();
+  wireFxLayers();
   wireEndControls();
   wireEndSummary();
 
   setOverlayOpen(false);
 
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
