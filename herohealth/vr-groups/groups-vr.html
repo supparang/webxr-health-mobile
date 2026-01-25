@@ -4,9 +4,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
-✅ NEW (1): Big Banner current group + events
-✅ NEW (2): DL-lite Predictor + Explainable micro-tips (play only; off in research/practice)
-✅ Uses groups.safe.js (standalone)
+✅ NEW: Big Banner current group + events
+✅ NEW: DL-lite Predictor + Explainable micro-tips (play only; off in research/practice)
+✅ NEW: AI Export + Learner + DD Director modules (local-first)
 -->
 <!doctype html>
 <html lang="th">
@@ -19,40 +19,33 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- ✅ BigBanner tone styles (เพิ่มให้ชัด) -->
-  <style>
-    .bigBanner.tone-neutral .bigBannerText{ border-color: rgba(148,163,184,.28); }
-    .bigBanner.tone-good .bigBannerText{ border-color: rgba(34,197,94,.55); box-shadow: 0 0 0 6px rgba(34,197,94,.10), 0 18px 40px rgba(0,0,0,.35); }
-    .bigBanner.tone-warn .bigBannerText{ border-color: rgba(245,158,11,.60); box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 18px 40px rgba(0,0,0,.35); }
-    .bigBanner.tone-bad  .bigBannerText{ border-color: rgba(239,68,68,.65); box-shadow: 0 0 0 7px rgba(239,68,68,.12), 0 18px 40px rgba(0,0,0,.35); }
-  </style>
-
   <!-- A-Frame: minimal scene for WebXR Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
-
-  <!-- ✅ แนะนำ lockPx 28–48 (92 ใหญ่ไป) แต่ถ้าคุณตั้งใจ 92 ให้คงไว้ -->
-  <script>
-    window.HHA_VRUI_CONFIG = { lockPx: 36, cooldownMs: 90 };
-  </script>
+  <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Groups modules -->
+  <!-- Core modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>
   <script src="./effects-pack.js" defer></script>
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
 
-  <!-- Engine -->
+  <!-- ✅ NEW AI modules (local-first) -->
+  <script src="./ai-export.js" defer></script>
+  <script src="./ai-learner.js" defer></script>
+  <script src="./dd-director.js" defer></script>
+  <script src="./ai-hooks.js" defer></script>
+
+  <!-- Engine (standalone) -->
   <script src="./groups.safe.js" defer></script>
 </head>
 
-<body class="view-auto">
+<body class="view-mobile">
 
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
@@ -96,8 +89,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
-  <!-- ✅ NEW (1): Big Banner -->
-  <div id="bigBanner" class="bigBanner hidden tone-neutral" aria-live="polite">
+  <!-- ✅ Big Banner -->
+  <div id="bigBanner" class="bigBanner hidden" aria-live="polite">
     <div id="bigBannerText" class="bigBannerText">—</div>
   </div>
 
@@ -195,35 +188,26 @@ GroupsVR Run (PC/Mobile/Cardboard)
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
   function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  function detectViewAuto(){
-    // ✅ do NOT override if ?view exists
-    const pv = String(qs('view','')||'').toLowerCase();
-    if (pv) return pv;
-
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    const isMobile = isTouch && Math.min(innerWidth, innerHeight) <= 820;
-    return isMobile ? 'mobile' : 'pc';
-  }
-
   function setView(view){
     const b = DOC.body;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-auto');
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
   }
 
   function aiEnabled(){
     const run = String(qs('run','play')||'play').toLowerCase();
-    const on  = String(qs('ai','0')||'0');
-    if (run === 'research') return false;      // ✅ research: ปิดแน่นอน
+    const on  = String(qs('ai','0')||'0').toLowerCase();
+    if (run === 'research') return false;
+    if (run === 'practice') return false;
     return (on === '1' || on === 'true');
   }
 
   function getPracticeSec(view){
     const p = String(qs('practice','0')||'0');
     let sec = Number(p)||0;
-    if (p === '1') sec = 15;                  // ✅ practice=1 => 15s
+    if (p === '1') sec = 15;
     sec = clamp(sec, 0, 30);
-    if (view !== 'cvr') sec = 0;              // ✅ practice เฉพาะ cVR
+    if (view !== 'cvr') sec = 0;
     return sec;
   }
 
@@ -243,7 +227,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }
 
   // =========================
-  // ✅ NEW (1): Big Banner API
+  // Big Banner
   // =========================
   let bannerTmr = 0;
   function showBanner(text, tone='neutral', ms=1200){
@@ -253,8 +237,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
     tx.textContent = String(text||'');
     el.classList.remove('hidden');
     el.classList.remove('tone-neutral','tone-good','tone-warn','tone-bad');
-    el.classList.add('tone-'+tone);
     el.classList.add('show');
+    el.classList.add('tone-'+tone);
 
     clearTimeout(bannerTmr);
     bannerTmr = setTimeout(()=>{
@@ -265,9 +249,12 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }, clamp(ms, 600, 2500));
   }
 
-  // ---------- HUD binds ----------
+  // ---------- HUD state ----------
   let _score=0,_combo=0,_miss=0,_acc=0,_left=90,_storm=false,_miniUrg=false;
   let _groupName='—', _groupKey='', _lastGroupKey='';
+
+  // ---------- AI: current action (from learner) ----------
+  let _aiAction = 'SCATTER';
 
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
@@ -288,12 +275,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
   window.addEventListener('hha:rank', (ev)=>{
     const d = ev.detail||{};
     $('vRank').textContent = String(d.grade ?? 'C');
-
-    // ✅ robust accuracy: prefer accuracyGoodPct; fallback accuracy; keep last
-    const acc1 = (d.accuracyGoodPct != null) ? Number(d.accuracyGoodPct) :
-                 (d.accuracy != null) ? Number(d.accuracy) : null;
-    if (acc1 != null && !Number.isNaN(acc1)) _acc = Math.max(0, Math.min(100, Math.round(acc1)));
-    $('vAcc').textContent = String(_acc + '%');
+    _acc = Number(d.accuracy ?? _acc) || 0;
+    $('vAcc').textContent  = String(_acc + '%');
   }, {passive:true});
 
   window.addEventListener('hha:coach', (ev)=>{
@@ -345,16 +328,35 @@ GroupsVR Run (PC/Mobile/Cardboard)
     _miniUrg = urgent;
     DOC.body.classList.toggle('mini-urgent', urgent);
 
-    // ✅ NEW (1): banner when group changes / start
+    // banner when group changes
     _groupName = String(d.groupName || _groupName || '—');
     _groupKey  = String(d.groupKey  || _groupKey  || '');
     if (_groupKey && _groupKey !== _lastGroupKey){
       _lastGroupKey = _groupKey;
+
+      // ✅ NEW: learner chooses next “pattern action” (local bandit)
+      if (aiEnabled() && window.GroupsVR && window.GroupsVR.AILearner){
+        _aiAction = window.GroupsVR.AILearner.chooseAction({
+          acc:_acc, miss:_miss, combo:_combo, left:_left, storm:_storm, miniUrg:_miniUrg
+        }) || 'SCATTER';
+
+        // emit choice -> ai-export.js
+        try{
+          window.dispatchEvent(new CustomEvent('groups:ai_choice', {
+            detail:{
+              action:_aiAction,
+              groupKey:_groupKey,
+              acc:_acc, miss:_miss, combo:_combo, left:_left,
+              storm:_storm?1:0, miniUrg:_miniUrg?1:0
+            }
+          }));
+        }catch(_){}
+      }
+
       showBanner('หมู่ตอนนี้: ' + _groupName, 'good', 1200);
     }
   }, {passive:true});
 
-  // ---------- NEW (1): storm/boss/banner from progress ----------
   window.addEventListener('groups:progress', (ev)=>{
     const d = ev.detail||{};
     const k = String(d.kind||'');
@@ -390,11 +392,12 @@ GroupsVR Run (PC/Mobile/Cardboard)
       runMode: String(qs('run','play')||'play'),
       diff: String(qs('diff','normal')||'normal'),
       style: String(qs('style','mix')||'mix'),
-      view: String(qs('view','')||detectViewAuto()),
+      view: String(qs('view','mobile')||'mobile'),
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
       endTimeIso: endIso,
-      seed: String(qs('seed','')||'')
+      seed: String(qs('seed','')||''),
+      ai: aiEnabled() ? 1 : 0
     }, ctx, d||{});
   }
 
@@ -429,7 +432,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
     $('endScore').textContent = String(d.scoreFinal ?? 0);
     $('endRank').textContent  = String(d.grade ?? 'C');
-    $('endAcc').textContent   = String((d.accuracyGoodPct ?? _acc ?? 0) + '%');
+    $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
     $('endMiss').textContent  = String(d.misses ?? 0);
 
     const hub = String(qs('hub','')||'');
@@ -585,7 +588,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   });
 
   function startAfterCalibration(E){
-    const view = String(qs('view','')||detectViewAuto()).toLowerCase();
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const practiceSec = getPracticeSec(view);
 
     if (view === 'cvr' && practiceSec > 0){
@@ -618,7 +621,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }
 
   // =========================
-  // ✅ NEW (2): DL-lite Predictor (play only, gated by ?ai=1)
+  // DL-lite Predictor (play only, gated by ?ai=1)
   // =========================
   const PRED = {
     on: false,
@@ -640,7 +643,15 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   function pushHist(){
     const t = nowMs();
-    PRED.hist.push({ t, miss:_miss|0, acc:_acc|0, combo:_combo|0, left:_left|0, storm:_storm?1:0, miniUrg:_miniUrg?1:0 });
+    PRED.hist.push({
+      t,
+      miss:_miss|0,
+      acc:_acc|0,
+      combo:_combo|0,
+      left:_left|0,
+      storm: _storm?1:0,
+      miniUrg: _miniUrg?1:0
+    });
     if (PRED.hist.length > PRED.maxHist) PRED.hist.shift();
   }
 
@@ -653,16 +664,38 @@ GroupsVR Run (PC/Mobile/Cardboard)
     return Math.max(0, dm) / 10;
   }
 
-  function canTip(ms=1700){
+  function shouldTip(){
     const t = nowMs();
-    return (t - PRED.lastTipAt) > ms;
+    return (t - PRED.lastTipAt) > 1600;
   }
 
   function tip(text, mood='neutral'){
     if (!PRED.on) return;
-    if (!canTip()) return;
+    if (!shouldTip()) return;
     PRED.lastTipAt = nowMs();
     try{ window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } })); }catch(_){}
+  }
+
+  function emitFeature(r, missRate, accBad, comboN, leftLow, storm, miniU){
+    // ✅ NEW: feature snapshot -> ai-export.js
+    try{
+      window.dispatchEvent(new CustomEvent('groups:ai_feature', {
+        detail:{
+          r: Math.round(r*100)/100,
+          missRate: Math.round(missRate*100)/100,
+          acc:_acc|0,
+          accBad: Math.round(accBad*100)/100,
+          combo:_combo|0,
+          comboN: Math.round(comboN*100)/100,
+          left:_left|0,
+          leftLow: Math.round(leftLow*100)/100,
+          storm: storm?1:0,
+          miniUrg: miniU?1:0,
+          groupKey: _groupKey||'',
+          action: _aiAction||'SCATTER'
+        }
+      }));
+    }catch(_){}
   }
 
   function tickPredictor(){
@@ -679,6 +712,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     const r = riskScore([missRate, accBad, comboN, leftLow, storm, miniU]);
 
+    emitFeature(r, missRate, accBad, comboN, leftLow, storm, miniU);
+
     if (r >= 0.78){
       if (miniU) { showBanner('⏱️ MINI ใกล้หมด! เล็ง “ชัวร์” ก่อน', 'warn', 1300); tip('MINI ใกล้หมด! เล็งให้โดนเป้าชัวร์ก่อนนะ 👀', 'fever'); }
       else if (storm){ showBanner('🌪️ พายุ! ช้าลงนิด เล็งก่อนยิง', 'warn', 1200); tip('พายุอยู่! ช้าลงนิด แล้วเล็งให้ตรงหมู่ก่อนยิง 🔥', 'fever'); }
@@ -694,12 +729,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
         tip('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 💪', 'happy');
       }
     }
-
-    try{
-      window.dispatchEvent(new CustomEvent('groups:ai_predict', {
-        detail:{ r: Math.round(r*100)/100, missRate, acc:_acc, combo:_combo, left:_left, storm, miniU, group:_groupKey }
-      }));
-    }catch(_){}
   }
 
   let predIt = 0;
@@ -708,16 +737,16 @@ GroupsVR Run (PC/Mobile/Cardboard)
     if (!PRED.on) return;
     clearInterval(predIt);
     predIt = setInterval(tickPredictor, 800);
-    showBanner('🧠 AI Coach ON', 'neutral', 900);
+    showBanner('🧠 AI Coach ON', 'neutral', 1000);
   }
   function stopPredictor(){
     PRED.on = false;
     clearInterval(predIt);
   }
 
-  // ---------- PACK 15: AI hooks attach + predictor ----------
+  // ---------- Start Real ----------
   function startReal(E){
-    const view = String(qs('view','')||detectViewAuto()).toLowerCase();
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
     const diff = String(qs('diff','normal')||'normal').toLowerCase();
     const style= String(qs('style','mix')||'mix').toLowerCase();
@@ -731,9 +760,25 @@ GroupsVR Run (PC/Mobile/Cardboard)
     E.setLayerEl(getLayerEl());
     E.start(diff, { runMode: run, diff, style, time, seed });
 
-    if (run === 'play') startPredictorIfAllowed('play');
+    // ✅ Start AI Export run (local-first)
+    try{
+      const X = window.GroupsVR && window.GroupsVR.AIExport;
+      if (X && X.start){
+        X.start(`GroupsVR:${seed}:${Date.now()}`);
+      }
+    }catch(_){}
+
+    // ✅ Predictor only in play + ?ai=1
+    if (run === 'play') startPredictorIfAllowed(run);
     else stopPredictor();
 
+    // ✅ DD Director auto-starts inside dd-director.js, but keep safe:
+    try{
+      const DD = window.GroupsVR && window.GroupsVR.DDDirector;
+      DD && DD.start && DD.start();
+    }catch(_){}
+
+    // AI hooks attach (safe)
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -744,13 +789,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   // ---------- Start ----------
   function startFromParams(){
-    const view = String(qs('view','')||detectViewAuto()).toLowerCase();
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
     setView(view);
     initViewHelper(view);
 
-    $('vMode').textContent = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'RESEARCH' : 'PLAY';
-
-    showBanner('เริ่มเกม! เล็งให้ตรงหมู่ 🎯', 'neutral', 950);
+    showBanner('เริ่มเกม! เล็งให้ตรงหมู่ 🎯', 'neutral', 1000);
 
     const gated = startCalibrationIfNeeded(view);
     if (gated) return;
