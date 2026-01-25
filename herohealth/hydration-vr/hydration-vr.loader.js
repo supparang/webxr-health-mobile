@@ -1,8 +1,8 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Folder Loader — PRODUCTION
+// HydrationVR Folder Loader (DIAGNOSTIC+)
 // ✅ Applies view classes + layers mapping
-// ✅ Imports ./hydration.safe.js (with cache-bust)
-// ✅ Shows readable overlay on failure
+// ✅ Imports ./hydration.safe.js
+// ✅ Shows REAL error + fetch status (404/200) for each candidate
 
 'use strict';
 
@@ -43,18 +43,40 @@
     }[m]));
   }
 
-  function showFail(err, tried){
+  async function fetchStatus(url){
+    try{
+      const r = await fetch(url, { method:'GET', cache:'no-store' });
+      return { ok:r.ok, status:r.status, statusText:r.statusText || '' };
+    }catch(e){
+      return { ok:false, status:0, statusText:String(e && (e.message||e)) };
+    }
+  }
+
+  function showFail(rows){
     const el = document.createElement('div');
     el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
     el.innerHTML = `
-      <div style="max-width:900px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (folder loader)</h2>
+      <div style="max-width:980px;margin:0 auto">
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: dynamic import failed</h2>
         <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
         <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
-        <div style="margin:12px 0 8px 0;font-weight:700">Tried paths:</div>
-        <ol style="line-height:1.55">${tried.map(s=>`<li><code>${escapeHtml(s)}</code></li>`).join('')}</ol>
-        <div style="margin:12px 0 6px 0;font-weight:700">Error:</div>
-        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(String(err && (err.stack || err.message || err)))}</pre>
+
+        <div style="margin:12px 0 8px 0;font-weight:800">Candidates & diagnostics</div>
+        <ol style="line-height:1.55">
+          ${rows.map(r=>`
+            <li style="margin-bottom:10px">
+              <div><code>${escapeHtml(r.path)}</code></div>
+              <div style="opacity:.9">fetch: <b>${escapeHtml(String(r.fetchStatus))}</b></div>
+              <div style="opacity:.9">error:</div>
+              <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(r.err||'—')}</pre>
+            </li>
+          `).join('')}
+        </ol>
+
+        <div style="opacity:.9;margin-top:8px">
+          ✅ ถ้า fetch เป็น 404 = ไฟล์หาย/ชื่อไม่ตรง/พาธผิด<br/>
+          ✅ ถ้า fetch เป็น 200 แต่ import error = ไฟล์นั้น import ต่อแล้วเจอ dependency หาย หรือมี syntax error
+        </div>
       </div>
     `;
     document.body.appendChild(el);
@@ -65,11 +87,20 @@
   ].map(withBust);
 
   (async()=>{
-    const tried=[];
+    const rows=[];
     for (const p of candidates){
-      tried.push(p);
-      try{ await import(p); return; }catch(_){}
+      const st = await fetchStatus(p);
+      try{
+        await import(p);
+        return; // success
+      }catch(e){
+        rows.push({
+          path: p,
+          fetchStatus: st.status ? `${st.status} ${st.statusText||''}` : st.statusText,
+          err: String(e && (e.stack || e.message || e))
+        });
+      }
     }
-    showFail(new Error('All candidate imports failed.'), tried);
+    showFail(rows.length ? rows : [{ path:'(none)', fetchStatus:'-', err:'All candidate imports failed.' }]);
   })();
 })();
