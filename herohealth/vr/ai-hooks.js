@@ -1,208 +1,218 @@
-// === /herohealth/vr-groups/ai-hooks.js ===
-// GroupsVR — AI Hooks (2A: ML-ready data)
-// ✅ Collects shot/spawn/hit/miss telemetry (local)
-// ✅ Confusion matrix (targetGroup -> activeGroup when wrong)
-// ✅ Export JSON via window.GroupsVR.AIHooks.export()
-// ✅ Gated: only enabled when attach({enabled:true}) AND runMode==='play'
-// ❌ No network, no sheet, no research pollution
+// === /herohealth/vr/ai-hooks.js ===
+// HHA AI Hooks — PRODUCTION (shared)
+// ✅ Deterministic (seeded) when needed
+// ✅ Lightweight "ML-lite" predictors (EMA + logistic-ish score)
+// ✅ Rate-limited coach tips
+// ✅ Exports: createAIHooks(cfg)
 
-(function(){
-  'use strict';
-  const WIN = window;
-  const DOC = document;
+'use strict';
 
-  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
-  const LS_KEY = 'HHA_GROUPS_AI_DATA_V1';
+function seededRng(seed){
+  let t = (Number(seed)||Date.now()) >>> 0;
+  return function(){
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-  function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function now(){ return performance?.now ? performance.now() : Date.now(); }
 
-  function safeParse(json, def){
-    try{ return JSON.parse(json); }catch{ return def; }
-  }
+function sigmoid(x){ return 1/(1+Math.exp(-x)); }
 
-  // ---------- state ----------
-  const ST = {
-    on: false,
-    runMode: 'play',
-    seed: '',
-    startedAt: 0,
+/**
+ * createAIHooks(cfg)
+ * cfg:
+ *  - enabled: boolean
+ *  - seed: number
+ *  - difficulty: 'easy'|'normal'|'hard'
+ *  - coachEmit(fn(msg,tag,meta))
+ *  - emit(fn(name,detail))   // event bridge
+ */
+export function createAIHooks(cfg){
+  const enabled = !!cfg?.enabled;
+  const seed = Number(cfg?.seed||Date.now());
+  const rng = seededRng(seed ^ 0xA11C0DE);
 
-    // rolling snapshot from HUD events (for feature extraction)
-    score: 0,
-    combo: 0,
-    miss: 0,
-    acc: 0,
-    left: 0,
-    storm: 0,
-    miniUrg: 0,
-    groupKey: '',
-    groupName: '',
+  const emit = typeof cfg?.emit === 'function' ? cfg.emit : ()=>{};
+  const coachEmit = typeof cfg?.coachEmit === 'function' ? cfg.coachEmit : ()=>{};
 
-    // dataset
-    maxRows: 800,      // กันพอง
-    rows: [],          // event rows
-    confusion: {},     // {activeKey: {hitKey: count}}
-    lastExportAt: 0
+  // ML-lite state (EMA)
+  const s = {
+    t0: now(),
+    emaAcc: 0.92,
+    emaMissRate: 0.05,
+    emaJunkRate: 0.10,
+    emaSpeed: 0.55,     // hits/sec (rough)
+    lastHitAt: 0,
+    lastCoachAt: 0,
+    coachCooldownMs: 2200,
+    lastTuneAt: 0,
+    tuneCooldownMs: 900,
+    lastStormAt: 0,
+    stormCooldownMs: 12000,
+    bossIssued: false
   };
 
-  function pushRow(row){
-    ST.rows.push(row);
-    if (ST.rows.length > ST.maxRows) ST.rows.shift();
-  }
+  function updateAfterEvent(metrics){
+    if(!enabled) return;
 
-  function bumpConf(activeKey, seenKey){
-    if (!activeKey || !seenKey) return;
-    const a = (ST.confusion[activeKey] = ST.confusion[activeKey] || {});
-    a[seenKey] = (a[seenKey]||0) + 1;
-  }
+    const acc = clamp(metrics?.accuracy ?? 0.9, 0, 1);
+    const missRate = clamp(metrics?.missRate ?? 0.05, 0, 1);
+    const junkRate = clamp(metrics?.junkRate ?? 0.10, 0, 1);
 
-  function featureVec(){
-    // features ที่ “ML/DL ใช้ต่อ” (เบา + explainable)
-    return {
-      t: Math.round(nowMs()),
-      left: ST.left|0,
-      acc: ST.acc|0,
-      combo: ST.combo|0,
-      miss: ST.miss|0,
-      storm: ST.storm|0,
-      miniUrg: ST.miniUrg|0,
-      groupKey: String(ST.groupKey||''),
-      score: ST.score|0
-    };
-  }
+    // EMA smoothing
+    const a = 0.12;
+    s.emaAcc = (1-a)*s.emaAcc + a*acc;
+    s.emaMissRate = (1-a)*s.emaMissRate + a*missRate;
+    s.emaJunkRate = (1-a)*s.emaJunkRate + a*junkRate;
 
-  function saveLocal(){
-    try{
-      const payload = {
-        v: 1,
-        updatedAt: new Date().toISOString(),
-        seed: ST.seed,
-        rows: ST.rows.slice(-ST.maxRows),
-        confusion: ST.confusion
-      };
-      localStorage.setItem(LS_KEY, JSON.stringify(payload));
-    }catch(_){}
-  }
-
-  function loadLocal(){
-    try{
-      const p = safeParse(localStorage.getItem(LS_KEY)||'null', null);
-      if (!p || p.v !== 1) return;
-      ST.rows = Array.isArray(p.rows) ? p.rows.slice(-ST.maxRows) : [];
-      ST.confusion = p.confusion || {};
-    }catch(_){}
-  }
-
-  // ---------- listeners ----------
-  let bound = false;
-  function bind(){
-    if (bound) return;
-    bound = true;
-
-    // HUD aggregates
-    WIN.addEventListener('hha:score', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      ST.score = Number(d.score ?? ST.score) || 0;
-      ST.combo = Number(d.combo ?? ST.combo) || 0;
-      ST.miss  = Number(d.misses ?? ST.miss) || 0;
-    }, {passive:true});
-
-    WIN.addEventListener('hha:time', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      ST.left = Math.max(0, Math.round(d.left ?? ST.left));
-    }, {passive:true});
-
-    WIN.addEventListener('hha:rank', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      ST.acc = Number(d.accuracy ?? ST.acc) || 0;
-    }, {passive:true});
-
-    WIN.addEventListener('quest:update', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      ST.groupKey  = String(d.groupKey || ST.groupKey || '');
-      ST.groupName = String(d.groupName || ST.groupName || '');
-      const leftMini = Number(d.miniTimeLeftSec || 0);
-      ST.miniUrg = (leftMini>0 && leftMini<=3) ? 1 : 0;
-    }, {passive:true});
-
-    WIN.addEventListener('groups:progress', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      if (d.kind === 'storm_on') ST.storm = 1;
-      if (d.kind === 'storm_off') ST.storm = 0;
-
-      // log progress events (storm/boss/switch/pressure)
-      pushRow({ type:'progress', at: Date.now(), seed: ST.seed, runMode: ST.runMode, detail: d, f: featureVec() });
-      saveLocal();
-    }, {passive:true});
-
-    // ✅ NEW events from engine (we'll add patch in groups.safe.js)
-    WIN.addEventListener('groups:spawn', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      pushRow({ type:'spawn', at: Date.now(), seed: ST.seed, runMode: ST.runMode, d, f: featureVec() });
-      saveLocal();
-    }, {passive:true});
-
-    WIN.addEventListener('groups:shot', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      pushRow({ type:'shot', at: Date.now(), seed: ST.seed, runMode: ST.runMode, d, f: featureVec() });
-      saveLocal();
-    }, {passive:true});
-
-    WIN.addEventListener('groups:hit', (ev)=>{
-      if (!ST.on) return;
-      const d = ev.detail||{};
-      // confusion: active groupKey (ที่ต้องยิง) vs seen groupKey (ของเป้าที่โดน)
-      if (d.kind === 'wrong' && d.activeKey && d.targetKey) bumpConf(d.activeKey, d.targetKey);
-
-      pushRow({ type:'hit', at: Date.now(), seed: ST.seed, runMode: ST.runMode, d, f: featureVec() });
-      saveLocal();
-    }, {passive:true});
-  }
-
-  // ---------- public API ----------
-  NS.AIHooks = NS.AIHooks || {};
-
-  NS.AIHooks.attach = function(cfg){
-    cfg = cfg || {};
-    ST.runMode = String(cfg.runMode || 'play');
-    ST.seed    = String(cfg.seed || '');
-    ST.on      = !!cfg.enabled && (ST.runMode === 'play'); // ✅ play only
-
-    if (ST.on){
-      ST.startedAt = nowMs();
-      loadLocal();
-      bind();
-      pushRow({ type:'ai_on', at: Date.now(), seed: ST.seed, runMode: ST.runMode, f: featureVec() });
-      saveLocal();
+    // speed proxy
+    const t = now();
+    if(metrics?.justHit){
+      if(s.lastHitAt > 0){
+        const dt = Math.max(0.2, (t - s.lastHitAt)/1000);
+        const instSpeed = clamp(1/dt, 0, 4);
+        const b = 0.10;
+        s.emaSpeed = (1-b)*s.emaSpeed + b*instSpeed;
+      }
+      s.lastHitAt = t;
     }
-  };
 
-  NS.AIHooks.export = function(){
-    // คืน payload เป็น object ให้ปุ่ม Copy JSON เอาไปแปะได้
-    const payload = {
-      v: 1,
-      exportedAtIso: new Date().toISOString(),
-      seed: ST.seed,
-      runMode: ST.runMode,
-      rows: ST.rows.slice(),
-      confusion: ST.confusion
-    };
-    ST.lastExportAt = nowMs();
-    return payload;
-  };
+    // prediction (prob miss next 3s)
+    const x =
+      (+2.2)*(0.75 - s.emaAcc) +
+      (+2.0)*(s.emaMissRate) +
+      (+1.2)*(s.emaJunkRate) +
+      (+0.8)*(0.35 - s.emaSpeed);
 
-  NS.AIHooks.reset = function(){
-    ST.rows = [];
-    ST.confusion = {};
-    try{ localStorage.removeItem(LS_KEY); }catch(_){}
-  };
+    const pMissSoon = clamp(sigmoid(x), 0, 1);
 
-})();
+    emit('hha:ai', {
+      pMissSoon,
+      emaAcc: s.emaAcc,
+      emaMissRate: s.emaMissRate,
+      emaJunkRate: s.emaJunkRate,
+      emaSpeed: s.emaSpeed
+    });
+
+    maybeCoach(metrics, pMissSoon);
+  }
+
+  function maybeCoach(metrics, pMissSoon){
+    const t = now();
+    if(t - s.lastCoachAt < s.coachCooldownMs) return;
+
+    const leftSec = Number(metrics?.leftSec ?? 0);
+    const combo = Number(metrics?.combo ?? 0);
+
+    // explainable micro-tips
+    if(pMissSoon > 0.72){
+      s.lastCoachAt = t;
+      coachEmit('โฟกัสกลางจอ! เล็งให้ชัวร์ก่อนกด ✨', 'AI Coach', { reason:'pMissSoon_high' });
+      return;
+    }
+    if(s.emaJunkRate > 0.22){
+      s.lastCoachAt = t;
+      coachEmit('ระวังเป้าแดง 🍟 เจอแล้วให้หลบ!', 'AI Coach', { reason:'junk_high' });
+      return;
+    }
+    if(s.emaAcc < 0.72 && leftSec > 10){
+      s.lastCoachAt = t;
+      coachEmit('ลองช้าลงนิดนึงแล้วเก็บเป็นชุด ๆ จะตรงขึ้นนะ 👍', 'AI Coach', { reason:'acc_low' });
+      return;
+    }
+    if(combo >= 8){
+      s.lastCoachAt = t;
+      coachEmit('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 🔥', 'AI Coach', { reason:'combo_good' });
+      return;
+    }
+  }
+
+  /**
+   * difficulty director
+   * returns tuning: { spawnRateMul, ttlMul, junkWeightMul }
+   * - deterministic: depends only on EMA state (seeded init + events)
+   */
+  function tuneDifficulty(){
+    if(!enabled) return null;
+
+    const t = now();
+    if(t - s.lastTuneAt < s.tuneCooldownMs) return null;
+    s.lastTuneAt = t;
+
+    // target comfort zone
+    const acc = s.emaAcc;
+    const miss = s.emaMissRate;
+    const junk = s.emaJunkRate;
+
+    // If player struggles -> ease; if strong -> harder
+    const struggle = clamp((0.78 - acc) + miss*0.7 + junk*0.6, 0, 1);
+    const mastery  = clamp((acc - 0.88) + (0.10 - miss) + (0.14 - junk), 0, 1);
+
+    // DeepLearning-style "policy output" (but still lightweight)
+    let spawnRateMul = 1.0;
+    let ttlMul = 1.0;
+    let junkWeightMul = 1.0;
+
+    spawnRateMul *= (1.0 + mastery*0.22) * (1.0 - struggle*0.25);
+    ttlMul      *= (1.0 - mastery*0.10) * (1.0 + struggle*0.18);
+    junkWeightMul *= (1.0 + mastery*0.25) * (1.0 - struggle*0.15);
+
+    // clamp
+    spawnRateMul = clamp(spawnRateMul, 0.75, 1.28);
+    ttlMul = clamp(ttlMul, 0.82, 1.25);
+    junkWeightMul = clamp(junkWeightMul, 0.75, 1.35);
+
+    return { spawnRateMul, ttlMul, junkWeightMul, struggle, mastery };
+  }
+
+  /**
+   * Pattern Generator (storm/boss triggers)
+   * deterministic schedule bucketed by time
+   * returns: { stormOn:boolean, bossOn:boolean, stormMs:number }
+   */
+  function patternTick(metrics){
+    if(!enabled) return null;
+
+    const t = now();
+    const elapsed = (t - s.t0)/1000;
+    const leftSec = Number(metrics?.leftSec ?? 0);
+    const totalSec = Number(metrics?.totalSec ?? 90);
+
+    // boss once at ~60% progress if doing well
+    let bossOn = false;
+    const progress = clamp(1 - (leftSec/Math.max(1,totalSec)), 0, 1);
+    if(!s.bossIssued && progress >= 0.55 && s.emaAcc >= 0.83){
+      s.bossIssued = true;
+      bossOn = true;
+    }
+
+    // storm burst every ~12s if player too comfy
+    let stormOn = false;
+    let stormMs = 0;
+
+    const comfy = (s.emaAcc > 0.90 && s.emaMissRate < 0.10);
+    if(comfy && (t - s.lastStormAt > s.stormCooldownMs)){
+      s.lastStormAt = t;
+      stormOn = true;
+      // deterministic duration from rng but stable
+      stormMs = 2200 + Math.floor(rng()*1200);
+    }
+
+    // emit hooks
+    if(bossOn) emit('hha:boss', { on:true, atSec: elapsed });
+    if(stormOn) emit('hha:storm', { on:true, ms: stormMs, atSec: elapsed });
+
+    return { bossOn, stormOn, stormMs };
+  }
+
+  return {
+    enabled,
+    updateAfterEvent,
+    tuneDifficulty,
+    patternTick
+  };
+}
