@@ -1,93 +1,93 @@
-// === /herohealth/vr-groups/ai-learner.js ===
-// Contextual Bandit (Epsilon-Greedy) — lightweight
-// ✅ chooseAction(features) -> returns action string
-// ✅ learn(reward, ctx) optional
-// ✅ Stores Q-table in localStorage
-// ✅ Play only is recommended (gate in safe.js already)
-
+/* === /herohealth/vr-groups/ai-learner.js ===
+Local Learner (bandit)
+✅ chooseAction(ctx) -> string action
+✅ updateReward(action, reward) -> maintain Q
+✅ Persists in localStorage: HHA_GROUPS_BANDIT_V1
+Notes:
+- ใช้ได้เฉพาะ play + ?ai=1 (ตัว gating อยู่ที่ groups-vr.html)
+*/
 (function(root){
   'use strict';
-  const DOC = root.document;
-  if(!DOC) return;
-
   const NS = root.GroupsVR = root.GroupsVR || {};
-  const LS_Q = 'HHA_GROUPS_AI_Q';
+  const LS = 'HHA_GROUPS_BANDIT_V1';
 
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
-  function safeParse(s,def){ try{return JSON.parse(s);}catch{return def;} }
-  function loadQ(){ try{ return safeParse(localStorage.getItem(LS_Q)||'', {});}catch{ return {}; } }
-  function saveQ(q){ try{ localStorage.setItem(LS_Q, JSON.stringify(q)); }catch{} }
+  const ACTIONS = ['SCATTER','CENTER','FOCUS']; 
+  // SCATTER = กระจายปกติ, CENTER = เน้นกลาง, FOCUS = เน้นหมู่เดิม/ยิงชัวร์ (เชิง UX)
 
-  // Actions: map later in safe.js -> pattern
-  const ACTIONS = ['SCATTER','CENTER','ZIGZAG','LINE'];
-
-  const CFG = {
-    eps: 0.18,         // exploration
-    alpha: 0.22,       // learning rate
-    gamma: 0.0         // bandit (no future)
-  };
-
-  let Q = loadQ();
-
-  function bucket(features){
-    // tiny discretization (เด็ก ป.5 ใช้จริง: ไม่ต้องซับซ้อน)
-    const acc = clamp(features.acc||0, 0, 100);
-    const miss= clamp(features.miss||0,0,30);
-    const combo=clamp(features.combo||0,0,20);
-    const storm=features.storm?1:0;
-    const left = clamp(features.left||0,0,180);
-
-    const accB = (acc>=88)?'A3':(acc>=75?'A2':(acc>=60?'A1':'A0'));
-    const missB= (miss<=2)?'M0':(miss<=6?'M1':(miss<=12?'M2':'M3'));
-    const comboB=(combo>=8)?'C2':(combo>=3?'C1':'C0');
-    const leftB = (left<=12)?'T0':(left<=35?'T1':'T2');
-
-    return [accB, missB, comboB, leftB, 'S'+storm].join('_');
+  function safeParse(s, d){ try{ return JSON.parse(String(s||'')); }catch{ return d; } }
+  function save(st){ try{ localStorage.setItem(LS, JSON.stringify(st)); }catch(_){ } }
+  function load(){
+    const st = safeParse(localStorage.getItem(LS), null);
+    if (st && st.q && st.n) return st;
+    return { q:{SCATTER:0, CENTER:0, FOCUS:0}, n:{SCATTER:0, CENTER:0, FOCUS:0}, t: Date.now() };
   }
 
-  function getRow(state){
-    if(!Q[state]) Q[state] = { n:0, v:{} };
-    const row = Q[state];
-    for(const a of ACTIONS){
-      if(typeof row.v[a] !== 'number') row.v[a] = 0;
+  let ST = load();
+
+  function ucbScore(a){
+    const q = Number(ST.q[a]||0);
+    const n = Math.max(1, Number(ST.n[a]||0));
+    const total = ACTIONS.reduce((s,x)=>s+Math.max(0, Number(ST.n[x]||0)), 0) + 1;
+    // exploration
+    const c = 0.9;
+    return q + c * Math.sqrt(Math.log(total) / n);
+  }
+
+  function chooseAction(ctx){
+    ctx = ctx || {};
+    // ถ้าเสี่ยงสูง ให้ prefer FOCUS
+    const acc = Number(ctx.acc||0);
+    const miss= Number(ctx.miss||0);
+    const combo=Number(ctx.combo||0);
+    const storm=!!ctx.storm;
+    const miniUrg=!!ctx.miniUrg;
+
+    if (miniUrg || storm || miss>=10 || acc<55) return 'FOCUS';
+    if (combo>=8 && acc>=80) return 'CENTER';
+
+    // UCB
+    let bestA = 'SCATTER';
+    let best = -1e9;
+    for (const a of ACTIONS){
+      const s = ucbScore(a);
+      if (s>best){ best=s; bestA=a; }
     }
-    return row;
+    return bestA;
   }
 
-  function argmax(obj){
-    let bestK = null, bestV = -1e18;
-    for(const k in obj){
-      const v = obj[k];
-      if(v>bestV){ bestV=v; bestK=k; }
-    }
-    return bestK;
-  }
-
-  // pick action
-  function chooseAction(features){
-    const s = bucket(features||{});
-    const row = getRow(s);
-
-    // epsilon-greedy
-    if(Math.random() < CFG.eps){
-      const r = (Math.random()*ACTIONS.length)|0;
-      return ACTIONS[r];
-    }
-    return argmax(row.v) || 'SCATTER';
-  }
-
-  // optional learning hook (if you want later)
-  function learn(reward, ctx){
+  function updateReward(action, reward){
+    action = String(action||'SCATTER');
+    if (!ACTIONS.includes(action)) action='SCATTER';
     reward = Number(reward)||0;
-    const s = bucket(ctx||{});
-    const a = String((ctx && ctx.action) || '') || 'SCATTER';
-    const row = getRow(s);
-    row.n = (row.n|0) + 1;
-    row.v[a] = row.v[a] + CFG.alpha * (reward - row.v[a]);
-    Q[s] = row;
-    saveQ(Q);
+
+    const n = (Number(ST.n[action]||0) + 1);
+    const q = Number(ST.q[action]||0);
+    // incremental mean
+    const q2 = q + (reward - q)/n;
+    ST.n[action]=n;
+    ST.q[action]=Math.round(q2*1000)/1000;
+    ST.t = Date.now();
+    save(ST);
   }
 
-  NS.AILearner = { chooseAction, learn, reset: ()=>{ Q={}; saveQ(Q);} };
+  // auto reward on end: reward = accuracy - missPenalty + scoreBoost
+  root.addEventListener('hha:end', (ev)=>{
+    const d = ev.detail||{};
+    // action used last stored in window var if present
+    const a = String(root.__HHA_GROUPS_LAST_ACTION__ || 'SCATTER');
+    const acc = Number(d.accuracyGoodPct||0);
+    const miss= Number(d.misses||0);
+    const score=Number(d.scoreFinal||0);
 
+    const reward = (acc/100) - Math.min(0.6, miss*0.03) + Math.min(0.25, Math.log10(Math.max(10,score))*0.06);
+    updateReward(a, reward);
+  }, {passive:true});
+
+  NS.AILearner = {
+    actions: ACTIONS.slice(),
+    chooseAction,
+    updateReward,
+    getState: ()=>ST,
+    reset: ()=>{ ST = { q:{SCATTER:0, CENTER:0, FOCUS:0}, n:{SCATTER:0, CENTER:0, FOCUS:0}, t: Date.now() }; save(ST); }
+  };
 })(typeof window!=='undefined'?window:globalThis);
