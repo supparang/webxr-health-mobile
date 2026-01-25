@@ -103,7 +103,7 @@ function initLoggerContext(opts){
 
   const ctx = {
     game: 'GoodJunkVR',
-    pack: 'fair+fun',
+    pack: 'fair',
     view: opts.view,
     runMode: opts.run,
     diff: opts.diff,
