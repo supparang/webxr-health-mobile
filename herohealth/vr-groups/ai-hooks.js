@@ -1,189 +1,122 @@
-// === /herohealth/vr-groups/ai-hooks.js ===
-// AI Hooks + Telemetry (NO SHEET)
-// ✅ attach({runMode, seed, enabled})
-// ✅ exportTelemetry() -> { seed, runMode, frames:[...] }
-// ✅ setModel(model) / loadModel(url) (optional)
-//
-// frames: tick/event stream for ML/DL training
-// NOTE: By policy: disabled in research; gated by ?ai=1 in play (caller decides)
-
-(function(){
+/* === /herohealth/vr-groups/ai-hooks.js ===
+AI Hooks bridge
+✅ attach({runMode, seed, enabled})
+✅ Applies DD suggestion to engine preset (safe + reversible)
+✅ Disabled in research/practice by caller
+*/
+(function(root){
   'use strict';
-  const WIN = window;
-  const DOC = document;
+  const NS = root.GroupsVR = root.GroupsVR || {};
 
-  WIN.GroupsVR = WIN.GroupsVR || {};
+  let ATTACHED = false;
+  let ENABLED = false;
+  let runMode = 'play';
 
-  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
-  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
+  let base = null; // store original preset snapshot
+  let it = 0;
+  let lastDD = null;
 
-  // -------------------------
-  // Telemetry state
-  // -------------------------
-  const TEL = {
-    enabled: false,
-    runMode: 'play',
-    seed: '',
-    startIso: '',
-    frames: [],
-    maxFrames: 5000,
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
 
-    // last known game state snapshot
-    s: {
-      score: 0,
-      combo: 0,
-      miss: 0,
-      acc: 0,
-      left: 0,
-      storm: 0,
-      miniUrg: 0,
-      groupKey: '',
-      groupName: ''
-    }
-  };
-
-  function pushFrame(f){
-    if (!TEL.enabled) return;
-    f.t = Number(f.t ?? nowMs());
-    TEL.frames.push(f);
-    if (TEL.frames.length > TEL.maxFrames) TEL.frames.shift();
+  function getEngine(){
+    return NS.GameEngine || (NS.GameEngine = null);
   }
 
-  // -------------------------
-  // Listen game events
-  // -------------------------
-  WIN.addEventListener('hha:score', (ev)=>{
-    const d = ev.detail || {};
-    TEL.s.score = Number(d.score ?? TEL.s.score) || 0;
-    TEL.s.combo = Number(d.combo ?? TEL.s.combo) || 0;
-    TEL.s.miss  = Number(d.misses ?? TEL.s.miss) || 0;
-    pushFrame({ type:'score', score:TEL.s.score, combo:TEL.s.combo, miss:TEL.s.miss });
-  }, {passive:true});
-
-  WIN.addEventListener('hha:time', (ev)=>{
-    const d = ev.detail || {};
-    TEL.s.left = Math.max(0, Math.round(Number(d.left ?? TEL.s.left) || 0));
-    pushFrame({ type:'time', left:TEL.s.left });
-  }, {passive:true});
-
-  WIN.addEventListener('hha:rank', (ev)=>{
-    const d = ev.detail || {};
-    TEL.s.acc = Number(d.accuracy ?? TEL.s.acc) || 0;
-    pushFrame({ type:'rank', acc:TEL.s.acc, grade:String(d.grade||'') });
-  }, {passive:true});
-
-  WIN.addEventListener('quest:update', (ev)=>{
-    const d = ev.detail || {};
-    TEL.s.groupKey  = String(d.groupKey || TEL.s.groupKey || '');
-    TEL.s.groupName = String(d.groupName|| TEL.s.groupName|| '');
-    const mLeft  = Number(d.miniTimeLeftSec||0);
-    TEL.s.miniUrg = (mLeft>0 && mLeft<=3) ? 1 : 0;
-    pushFrame({ type:'quest', groupKey:TEL.s.groupKey, groupName:TEL.s.groupName, miniUrg:TEL.s.miniUrg, miniLeft:mLeft });
-  }, {passive:true});
-
-  WIN.addEventListener('groups:progress', (ev)=>{
-    const d = ev.detail || {};
-    const k = String(d.kind||'');
-    if (k === 'storm_on')  TEL.s.storm = 1;
-    if (k === 'storm_off') TEL.s.storm = 0;
-    pushFrame({ type:'progress', kind:k, storm:TEL.s.storm });
-  }, {passive:true});
-
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    const d = ev.detail || {};
-    pushFrame({ type:'shoot', x:d.x, y:d.y, source:String(d.source||'') });
-  }, {passive:true});
-
-  // This is emitted by your predictor/tips block already (optional)
-  WIN.addEventListener('groups:ai_predict', (ev)=>{
-    const d = ev.detail || {};
-    pushFrame({ type:'ai_predict', r:d.r, missRate:d.missRate, acc:d.acc, combo:d.combo, left:d.left, storm:d.storm, miniU:d.miniU, group:d.group });
-  }, {passive:true});
-
-  WIN.addEventListener('hha:end', (ev)=>{
-    const d = ev.detail || {};
-    pushFrame({ type:'end', reason:String(d.reason||'end') });
-  }, {passive:true});
-
-  // -------------------------
-  // Tick sampler (important for DL)
-  // -------------------------
-  let tickIt = 0;
-  function startTick(){
-    stopTick();
-    tickIt = setInterval(()=>{
-      if (!TEL.enabled) return;
-      pushFrame({
-        type:'tick',
-        score: TEL.s.score|0,
-        combo: TEL.s.combo|0,
-        miss:  TEL.s.miss|0,
-        acc:   TEL.s.acc|0,
-        left:  TEL.s.left|0,
-        storm: TEL.s.storm|0,
-        miniUrg: TEL.s.miniUrg|0,
-        groupKey: TEL.s.groupKey||'',
-      });
-    }, 250); // 4 Hz พอสำหรับ DL-lite/MLP
-  }
-  function stopTick(){
-    clearInterval(tickIt);
-    tickIt = 0;
+  function snapshotPreset(E){
+    try{
+      const p = E && E.cfg && E.cfg.preset;
+      if (!p) return null;
+      return {
+        baseSpawnMs: Number(p.baseSpawnMs),
+        targetSize: Number(p.targetSize),
+        wrongRate:  Number(p.wrongRate),
+        junkRate:   Number(p.junkRate),
+        stormEverySec: Number(p.stormEverySec),
+        stormLenSec: Number(p.stormLenSec),
+        bossHp: Number(p.bossHp),
+        powerThreshold: Number(p.powerThreshold),
+        goalTargets: Number(p.goalTargets),
+        goalsTotal: Number(p.goalsTotal)
+      };
+    }catch(_){ return null; }
   }
 
-  // -------------------------
-  // Model store (DL weights)
-  // -------------------------
-  let MODEL = null;
-
-  function setModel(model){
-    MODEL = model || null;
+  function restorePreset(E){
+    if (!base) return;
+    try{
+      const p = E.cfg.preset;
+      Object.keys(base).forEach(k=>{ p[k] = base[k]; });
+    }catch(_){}
   }
 
-  async function loadModel(url){
-    const r = await fetch(url, { cache:'no-store' });
-    if (!r.ok) throw new Error('loadModel failed: ' + r.status);
-    const j = await r.json();
-    setModel(j);
-    return j;
+  function applyDD(E, dd){
+    if (!E || !E.cfg || !E.cfg.preset) return;
+    const p = E.cfg.preset;
+
+    if (!base) base = snapshotPreset(E);
+    if (!base) return;
+
+    // apply multipliers/deltas
+    const spawnMul = clamp(dd.spawnMul, 0.78, 1.22);
+    const sizeMul  = clamp(dd.sizeMul,  0.90, 1.15);
+    const lifeMul  = clamp(dd.lifeMul,  0.88, 1.18);
+    const wrongD   = clamp(dd.wrongDelta, -0.06, 0.06);
+    const junkD    = clamp(dd.junkDelta,  -0.06, 0.06);
+
+    p.baseSpawnMs = clamp(base.baseSpawnMs * spawnMul, 320, 980);
+    p.targetSize  = clamp(base.targetSize  * sizeMul,  0.86, 1.12);
+    p.wrongRate   = clamp(base.wrongRate + wrongD,     0.10, 0.55);
+    p.junkRate    = clamp(base.junkRate  + junkD,      0.06, 0.45);
+
+    // lifeMs อยู่ใน engine เป็นค่า runtime ต่อ spawn; เรา “ส่งนัย” ผ่านตัวคูณให้ engine ใช้ได้ในอนาคต
+    // เก็บไว้เป็นค่า property เพื่ออนาคต (ไม่ทำพัง)
+    p.__lifeMul = lifeMul;
   }
 
-  function getModel(){
-    return MODEL;
+  function onDDSuggest(ev){
+    if (!ENABLED) return;
+    lastDD = ev.detail || null;
   }
 
-  // -------------------------
-  // Public API
-  // -------------------------
+  root.addEventListener('groups:dd_suggest', onDDSuggest, {passive:true});
+
+  function tick(){
+    if (!ENABLED) return;
+    const E = getEngine();
+    if (!E || !E.cfg || !E.cfg.preset) return;
+    if (!lastDD) return;
+    applyDD(E, lastDD);
+  }
+
   function attach(opts){
     opts = opts || {};
-    TEL.runMode = String(opts.runMode || 'play');
-    TEL.seed = String(opts.seed || '');
-    TEL.enabled = !!opts.enabled;
+    runMode = String(opts.runMode||'play');
+    ENABLED = !!opts.enabled && (runMode==='play');
+    ATTACHED = true;
 
-    TEL.startIso = new Date().toISOString();
-    TEL.frames = [];
-    pushFrame({ type:'meta', startIso: TEL.startIso, runMode: TEL.runMode, seed: TEL.seed, ua: navigator.userAgent });
+    // start DDDirector if available
+    try{ NS.DDDirector && NS.DDDirector.start && NS.DDDirector.start(); }catch(_){}
 
-    if (TEL.enabled) startTick();
-    else stopTick();
+    clearInterval(it);
+    it = setInterval(tick, 900);
+
+    return true;
   }
 
-  function exportTelemetry(){
-    return {
-      exportedAtIso: new Date().toISOString(),
-      seed: TEL.seed,
-      runMode: TEL.runMode,
-      frames: TEL.frames.slice(0)
-    };
+  function detach(){
+    const E = getEngine();
+    if (E && base) restorePreset(E);
+
+    ENABLED = false;
+    ATTACHED = false;
+    lastDD = null;
+
+    clearInterval(it); it = 0;
+
+    try{ NS.DDDirector && NS.DDDirector.stop && NS.DDDirector.stop(); }catch(_){}
+
+    return true;
   }
 
-  WIN.GroupsVR.AIHooks = {
-    attach,
-    exportTelemetry,
-    setModel,
-    loadModel,
-    getModel
-  };
-
-})();
+  NS.AIHooks = { attach, detach, getLastDD: ()=>lastDD };
+})(typeof window!=='undefined'?window:globalThis);
