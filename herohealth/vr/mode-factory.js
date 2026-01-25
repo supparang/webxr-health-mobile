@@ -1,11 +1,9 @@
 // === /herohealth/vr/mode-factory.js ===
-// Spawn/Mode Factory — PRODUCTION
-// ✅ export boot()
-// ✅ Safe spawn rect via CSS vars (supports both --plate-*-safe and --hha-*-safe)
-// ✅ Tap targets + Crosshair shoot via vr-ui.js (hha:shoot)
-// ✅ decorateTarget(el, target) callback
-// ✅ Returns controller with setters for runtime tuning (spawnRate/weights/ttl/size)
-// ------------------------------------------------------------
+// Mode Factory — PRODUCTION (HHA Standard)
+// ✅ Spawns DOM targets inside mount rect (safe-zone aware)
+// ✅ Supports tap + crosshair shoot via event 'hha:shoot'
+// ✅ NEW: decorateTarget(el, target) for emoji/icon UI
+// ✅ NEW: controller setters for adaptive difficulty (spawnRate/weights/ttl/sizeRange)
 
 'use strict';
 
@@ -22,89 +20,61 @@ function seededRng(seed){
   };
 }
 
-function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+function now(){ return performance?.now ? performance.now() : Date.now(); }
 
+// ✅ HHA Standard safe vars
 function readSafeVars(){
-  // Back-compat: plate-specific vars, plus generic hha vars
   const cs = getComputedStyle(DOC.documentElement);
-
-  const top =
-    parseFloat(cs.getPropertyValue('--hha-top-safe')) ||
-    parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
-
-  const bottom =
-    parseFloat(cs.getPropertyValue('--hha-bottom-safe')) ||
-    parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
-
-  const left =
-    parseFloat(cs.getPropertyValue('--hha-left-safe')) ||
-    parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
-
-  const right =
-    parseFloat(cs.getPropertyValue('--hha-right-safe')) ||
-    parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
-
+  const top = parseFloat(cs.getPropertyValue('--hha-top-safe')) || 0;
+  const bottom = parseFloat(cs.getPropertyValue('--hha-bottom-safe')) || 0;
+  const left = parseFloat(cs.getPropertyValue('--hha-left-safe')) || 0;
+  const right = parseFloat(cs.getPropertyValue('--hha-right-safe')) || 0;
   return { top, bottom, left, right };
 }
 
 function pickWeighted(rng, arr){
-  const a = Array.isArray(arr) ? arr : [];
-  if(!a.length) return { kind:'good', weight:1 };
-
   let sum = 0;
-  for(const it of a) sum += (Number(it.weight ?? 1) || 0);
-  if(sum <= 0) return a[a.length-1];
-
+  for(const it of arr) sum += (it.weight ?? 1);
   let x = rng() * sum;
-  for(const it of a){
-    x -= (Number(it.weight ?? 1) || 0);
+  for(const it of arr){
+    x -= (it.weight ?? 1);
     if(x <= 0) return it;
   }
-  return a[a.length-1];
+  return arr[arr.length-1];
 }
 
 export function boot({
   mount,
   seed = Date.now(),
-
-  // dynamic knobs
-  spawnRate = 900,              // ms between spawns (approx)
-  sizeRange = [44, 64],
+  spawnRate = 900,
+  sizeRange = [44,64],
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
-  ttlMs = { good: 2100, junk: 1700 },
-
-  // callbacks
+  ttlMs = { good: 2100, junk: 1700 },   // ✅ NEW (optional)
   onHit = ()=>{},
   onExpire = ()=>{},
-  decorateTarget = null,
-
-  // shooting
-  cooldownMs = 90,
-  lockPxDefault = 28,
+  decorateTarget = null,               // ✅ NEW
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
 
-  // ---- internal mutable config (runtime tuning) ----
-  const CFG = {
-    spawnRate: Number(spawnRate) || 900,
-    sizeRange: Array.isArray(sizeRange) ? sizeRange.slice(0,2) : [44,64],
-    kinds: Array.isArray(kinds) ? kinds.map(x=>({ ...x })) : [{ kind:'good', weight:1 }],
-    ttlMs: {
-      good: Number(ttlMs?.good ?? 2100) || 2100,
-      junk: Number(ttlMs?.junk ?? 1700) || 1700,
-    },
-    cooldownMs: Number(cooldownMs) || 90,
-    lockPxDefault: Number(lockPxDefault) || 28,
-  };
-
   const state = {
     alive:true,
     lastSpawnAt:0,
-    tickTimer:null,
+    spawnTimer:null,
     targets:new Set(),
     cooldownUntil:0,
+
+    // live-tunable params (AI Director)
+    spawnRate: Math.max(180, Number(spawnRate)||900),
+    sizeMin: Math.max(18, Number(sizeRange?.[0] ?? 44) || 44),
+    sizeMax: Math.max(20, Number(sizeRange?.[1] ?? 64) || 64),
+
+    goodW: Math.max(0.01, Number((kinds?.[0]?.kind==='good'?kinds[0].weight:null)) || 0.7),
+    junkW: Math.max(0.01, Number((kinds?.[1]?.kind==='junk'?kinds[1].weight:null)) || 0.3),
+
+    ttlGood: Math.max(400, Number(ttlMs?.good ?? 2100) || 2100),
+    ttlJunk: Math.max(350, Number(ttlMs?.junk ?? 1700) || 1700),
   };
 
   function computeSpawnRect(){
@@ -119,32 +89,23 @@ export function boot({
     return { left, top, right, bottom, w, h };
   }
 
-  function removeTarget(target){
-    if(!target) return;
-    state.targets.delete(target);
-    try{ target.el.remove(); }catch{}
-  }
-
   function hit(target, meta){
     if(!state.alive) return;
     if(!state.targets.has(target)) return;
-    removeTarget(target);
-    try{
-      onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
-    }catch{}
+    state.targets.delete(target);
+    try{ target.el.remove(); }catch{}
+    onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
   }
 
   function onShoot(e){
     if(!state.alive) return;
-
     const d = e.detail || {};
     const t = now();
     if(t < state.cooldownUntil) return;
-
-    state.cooldownUntil = t + (Number(d.cooldownMs) || CFG.cooldownMs);
+    state.cooldownUntil = t + 90;
 
     const x = Number(d.x), y = Number(d.y);
-    const lockPx = Number(d.lockPx || CFG.lockPxDefault);
+    const lockPx = Number(d.lockPx || 28);
     if(!isFinite(x) || !isFinite(y)) return;
 
     let best=null, bestDist=Infinity;
@@ -169,21 +130,23 @@ export function boot({
     const rect = computeSpawnRect();
     if(rect.w < 80 || rect.h < 80) return;
 
-    const minS = Number(CFG.sizeRange[0] ?? 44) || 44;
-    const maxS = Number(CFG.sizeRange[1] ?? 64) || 64;
-    const size = Math.round(minS + rng() * Math.max(1, (maxS - minS)));
-
+    const size = Math.round(state.sizeMin + rng() * (state.sizeMax - state.sizeMin));
     const pad = Math.max(10, Math.round(size * 0.55));
     const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
     const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
 
-    const chosen = pickWeighted(rng, CFG.kinds);
-    const kind = (chosen && chosen.kind) ? String(chosen.kind) : 'good';
+    const chosen = pickWeighted(rng, [
+      { kind:'good', weight: state.goodW },
+      { kind:'junk', weight: state.junkW },
+    ]);
+    const kind = chosen.kind || 'good';
 
     const el = DOC.createElement('div');
     el.className = 'plateTarget';
     el.dataset.kind = kind;
 
+    // IMPORTANT: position absolute is required (CSS should set it too)
+    el.style.position = 'absolute';
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
     el.style.width = `${size}px`;
@@ -193,18 +156,19 @@ export function boot({
     const target = {
       el, kind,
       bornAt: now(),
-      ttlMs: (kind === 'junk') ? CFG.ttlMs.junk : CFG.ttlMs.good,
-      groupIndex: Math.floor(rng()*5), // 0..4
+      ttlMs: (kind === 'junk') ? state.ttlJunk : state.ttlGood,
+      groupIndex: Math.floor(rng()*5),
       size,
-      rng, // expose rng for deterministic emoji picks
+      rng // expose deterministic rng for emoji picks
     };
-
     el.__hhaTarget = target;
 
-    // decorate (emoji/icon) hook
+    // ✅ decorate target UI (emoji/icon/label)
     try{
       if(typeof decorateTarget === 'function') decorateTarget(el, target);
-    }catch{}
+    }catch(err){
+      console.warn('[mode-factory] decorateTarget error', err);
+    }
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
@@ -217,26 +181,27 @@ export function boot({
     setTimeout(()=>{
       if(!state.alive) return;
       if(!state.targets.has(target)) return;
-      removeTarget(target);
-      try{ onExpire({ ...target }); }catch{}
+      state.targets.delete(target);
+      try{ el.remove(); }catch{}
+      onExpire({ ...target });
     }, target.ttlMs);
   }
 
-  state.tickTimer = setInterval(()=>{
+  state.spawnTimer = setInterval(()=>{
     if(!state.alive) return;
     const t = now();
-    if(t - state.lastSpawnAt >= CFG.spawnRate){
+    if(t - state.lastSpawnAt >= state.spawnRate){
       state.lastSpawnAt = t;
       spawnOne();
     }
   }, 60);
 
-  // ---- public controller (safe to use immediately) ----
+  // ✅ controller API for AI Difficulty Director
   const controller = {
     stop(){
       if(!state.alive) return;
       state.alive = false;
-      clearInterval(state.tickTimer);
+      clearInterval(state.spawnTimer);
       WIN.removeEventListener('hha:shoot', onShoot);
       for(const target of state.targets){
         try{ target.el.remove(); }catch{}
@@ -244,40 +209,29 @@ export function boot({
       state.targets.clear();
     },
 
-    // runtime tuning
     setSpawnRate(ms){
-      CFG.spawnRate = Math.max(120, Number(ms)||CFG.spawnRate);
+      const v = Math.max(180, Number(ms)||state.spawnRate);
+      state.spawnRate = v;
     },
-    setSizeRange(min, max){
-      const a = Math.max(24, Number(min)||44);
-      const b = Math.max(a+1, Number(max)||64);
-      CFG.sizeRange = [a,b];
-    },
-    setTTL(goodMs, junkMs){
-      if(isFinite(goodMs)) CFG.ttlMs.good = Math.max(300, Number(goodMs));
-      if(isFinite(junkMs)) CFG.ttlMs.junk = Math.max(300, Number(junkMs));
-    },
+
     setWeights(goodW, junkW){
-      // keeps same kinds but adjusts weights for good/junk
-      const gw = Math.max(0, Number(goodW));
-      const jw = Math.max(0, Number(junkW));
-      let hasGood=false, hasJunk=false;
-
-      for(const it of CFG.kinds){
-        if(it.kind === 'good'){ it.weight = gw; hasGood=true; }
-        if(it.kind === 'junk'){ it.weight = jw; hasJunk=true; }
-      }
-      if(!hasGood) CFG.kinds.push({ kind:'good', weight:gw });
-      if(!hasJunk) CFG.kinds.push({ kind:'junk', weight:jw });
-    },
-    setCooldown(ms){
-      CFG.cooldownMs = Math.max(40, Number(ms)||CFG.cooldownMs);
+      const g = Math.max(0.01, Number(goodW)||state.goodW);
+      const j = Math.max(0.01, Number(junkW)||state.junkW);
+      state.goodW = g;
+      state.junkW = j;
     },
 
-    // inspect (optional)
-    getConfig(){
-      return JSON.parse(JSON.stringify(CFG));
-    }
+    setTTL(goodMs, junkMs){
+      if(isFinite(Number(goodMs))) state.ttlGood = Math.max(400, Number(goodMs));
+      if(isFinite(Number(junkMs))) state.ttlJunk = Math.max(350, Number(junkMs));
+    },
+
+    setSizeRange(minPx, maxPx){
+      const mn = Math.max(18, Number(minPx)||state.sizeMin);
+      const mx = Math.max(mn+2, Number(maxPx)||state.sizeMax);
+      state.sizeMin = mn;
+      state.sizeMax = mx;
+    },
   };
 
   return controller;
