@@ -1,6 +1,8 @@
 // === /herohealth/vr/food5-th.js ===
 // Thai Food 5 Groups Mapping (STABLE, DO NOT CHANGE)
 // ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup
+// ✅ Supports seeded rng: pickEmoji(rng, arr)
+// ✅ Group ids are fixed 1..5 per your rule
 
 'use strict';
 
