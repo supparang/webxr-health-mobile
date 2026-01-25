@@ -1,8 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ folder run
-✅ Uses: ../vr/vr-ui.js defer => no body null
-✅ Engine: hygiene.safe.js (exports boot)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js
+✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
+✅ Back HUB: ?hub=...
 -->
 <!doctype html>
 <html lang="th">
@@ -13,21 +15,16 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS must exist in SAME folder -->
+  <!-- ✅ IMPORTANT: css must exist at /herohealth/hygiene-vr/hygiene-vr.css -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260125a" />
 
-  <!-- ✅ Universal VR UI (FIX: defer) -->
+  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Optional helpers -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI Packs (optional) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
-
-  <!-- Engine boot -->
+  <!-- Engine -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260125a"></script>
 </head>
 
@@ -54,6 +51,28 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
+        </div>
+
+        <!-- ✅ Boss bar -->
+        <div class="hw-boss" id="bossBox">
+          <div class="hw-boss-row">
+            <div>
+              <div class="hw-boss-title" id="bossTitle">🦠 Boss — Germ King</div>
+              <div class="hw-boss-sub" id="bossSub">ยิงเป้าถูกเพื่อทำดาเมจ • หลบเชื้อ</div>
+            </div>
+            <div class="hw-pill bad" id="bossHPText">HP 0/0</div>
+          </div>
+          <div class="hw-boss-bar"><div class="hw-boss-fill" id="bossHPFill"></div></div>
+        </div>
+
+        <!-- ✅ Step helper -->
+        <div class="hw-stephelp" id="stepHelp">
+          <div class="row">
+            <div class="big" id="shBig">🫧 ขั้นที่ 1: ฝ่ามือ</div>
+            <div class="mini" id="shHow">วิธีทำ: ถูฝ่ามือวน ๆ ให้ทั่ว</div>
+            <div class="next" id="shNext">ถัดไป ➜ 🤚 หลังมือ</div>
+          </div>
+          <div class="mini" id="shChant" style="margin-top:6px;">คำท่อง: ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ</div>
         </div>
 
         <!-- Quiz box -->
@@ -104,10 +123,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  const view = (qs('view','pc')||'pc').toLowerCase();
-  document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-  document.getElementById('labView').textContent = view;
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
+  }
+  setViewClass();
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 })();
