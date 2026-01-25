@@ -1,256 +1,255 @@
 // === /herohealth/vr-groups/pattern-gen.js ===
-// GroupsVR AI Pattern Generator — SAFE
-// ✅ play only (enabled via ai-hooks with ?ai=1)
-// ✅ Generates: spawn position pattern, wave/cluster, boss phase2 (fun), motion class
-// ✅ Keeps inside engine playRect (engine clamps again)
-// Emits: ai:pattern {mode, lane, waveLeft}
+// PACK 24: Pattern Generator (seeded) for Waves/Boss/Storm
+// Enabled only in play+ai=1. Deterministic by seed.
+// Emits: groups:pattern {name, phase, meta}
+//        groups:progress {kind: 'boss_spawn'|'boss_down'|'storm_on'|'storm_off'|...}
 
-(function(root){
+(function(){
   'use strict';
-  const NS = root.GroupsVR = root.GroupsVR || {};
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const WIN = window;
 
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
-  }
-
-  function makeRng(u32){
-    let s = (u32>>>0) || 1;
-    return ()=>((s = (Math.imul(1664525, s) + 1013904223)>>>0) / 4294967296);
-  }
-  function hashSeed(str){
-    str = String(str ?? '');
-    let h = 2166136261>>>0;
-    for(let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
+  // ---------- utils ----------
+  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const pick=(arr, r)=> arr[Math.floor(r()*arr.length)];
+  const hash32=(s)=>{
+    s = String(s||'');
+    let h = 2166136261 >>> 0;
+    for (let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
-    return h>>>0;
-  }
-  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
+    return h >>> 0;
+  };
+  const mulberry32=(a)=>{
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
 
-  // Pattern modes
-  const MODES = [
-    'lanes3',    // 3 lanes x center-ish
-    'arc',       // arc around center
-    'zigzag',    // alternating left/right
-    'cluster',   // small cluster bursts
-    'random'     // fallback
+  // normalized play area (avoid HUD zones)
+  function normToPx(nx, ny, bounds){
+    // bounds = {w,h, topSafePx, bottomSafePx}
+    const w=bounds.w, h=bounds.h;
+    const top=bounds.topSafePx||0, bot=bounds.bottomSafePx||0;
+    const y0 = top + 8;
+    const y1 = h - bot - 8;
+    const x = clamp(nx, 0.06, 0.94) * w;
+    const y = y0 + clamp(ny, 0.06, 0.94) * (y1 - y0);
+    return { x, y };
+  }
+
+  // ---------- pattern shapes ----------
+  function makeLine(r){
+    const left = r() < 0.5;
+    const x0 = left ? 0.18 : 0.82;
+    const x1 = left ? 0.82 : 0.18;
+    const y = 0.35 + r()*0.35;
+    return (i,n)=>({ nx: x0 + (x1-x0)*(i/(n-1)), ny: y });
+  }
+  function makeArc(r){
+    const up = r() < 0.5;
+    const cx = 0.5, cy = up ? 0.22 : 0.78;
+    const rad = 0.34;
+    const a0 = up ? Math.PI*0.15 : Math.PI*1.15;
+    const a1 = up ? Math.PI*0.85 : Math.PI*1.85;
+    return (i,n)=>{
+      const t = (n<=1)?0: (i/(n-1));
+      const a = a0 + (a1-a0)*t;
+      return { nx: cx + Math.cos(a)*rad, ny: cy + Math.sin(a)*rad };
+    };
+  }
+  function makeBurst(r){
+    const cx = 0.5 + (r()-0.5)*0.10;
+    const cy = 0.5 + (r()-0.5)*0.10;
+    return (i,n)=>{
+      const a = (Math.PI*2) * (i/n);
+      const rad = 0.14 + (i/n)*0.28;
+      return { nx: cx + Math.cos(a)*rad, ny: cy + Math.sin(a)*rad };
+    };
+  }
+  function makeSpiral(r){
+    const cx=0.5, cy=0.5;
+    const dir = (r()<0.5) ? 1 : -1;
+    return (i,n)=>{
+      const t = (i/(n-1||1));
+      const a = dir*(Math.PI*2)*(0.5 + 1.6*t);
+      const rad = 0.10 + 0.34*t;
+      return { nx: cx + Math.cos(a)*rad, ny: cy + Math.sin(a)*rad };
+    };
+  }
+  function makeZigzag(r){
+    const y0 = 0.28 + r()*0.10;
+    const y1 = 0.72 - r()*0.10;
+    return (i,n)=>{
+      const t = (i/(n-1||1));
+      const nx = 0.18 + 0.64*t;
+      const ny = (i%2===0) ? y0 : y1;
+      return { nx, ny };
+    };
+  }
+
+  const WAVE_MAKERS = [
+    { name:'LINE',   mk: makeLine },
+    { name:'ARC',    mk: makeArc },
+    { name:'BURST',  mk: makeBurst },
+    { name:'SPIRAL', mk: makeSpiral },
+    { name:'ZIGZAG', mk: makeZigzag }
   ];
 
-  function PatternGen(){
-    this.enabled = false;
-    this.runMode = 'play';
-    this.seed = '0';
-    this.rng = makeRng(123);
-    this.mode = 'lanes3';
-    this.modeUntil = 0;
+  // ---------- generator ----------
+  const Gen = {
+    on:false,
+    seedStr:'0',
+    r: ()=>Math.random(),
+    plan:[],
+    idx:0,
+    phase:'idle',
+    cur:null,
 
-    this.lane = 0;
-    this.zig = 0;
-
-    this.wave = null; // {on,left,kindBias,forceDrift}
-    this.lastTick = 0;
-
-    this.bossPhase2Ready = false; // unlocked by good streak
-    this.lastAcc = 0;
-    this.lastCombo = 0;
-    this.lastMiss = 0;
-    this.stormOn = false;
-  }
-
-  PatternGen.prototype.attach = function(cfg){
-    cfg = cfg || {};
-    const rm = String(cfg.runMode||'play').toLowerCase();
-    this.runMode = rm;
-    this.enabled = !!cfg.enabled && (rm==='play');
-
-    if(rm==='research' || rm==='practice') this.enabled = false;
-
-    this.seed = String(cfg.seed ?? '0');
-    this.rng = makeRng(hashSeed(this.seed + '::pattern'));
-
-    this.mode = pick(this.rng, MODES);
-    this.modeUntil = Date.now() + 12000 + ((this.rng()*9000)|0);
-
-    this.lane = 0;
-    this.zig = 0;
-    this.wave = null;
-
-    this.bossPhase2Ready = false;
-    this.lastAcc = 0;
-    this.lastCombo = 0;
-    this.lastMiss = 0;
-    this.stormOn = false;
-  };
-
-  PatternGen.prototype.stop = function(){
-    this.enabled = false;
-    this.wave = null;
-  };
-
-  PatternGen.prototype.onScore = function(d){
-    d = d||{};
-    this.lastCombo = Number(d.combo||0);
-    this.lastMiss  = Number(d.misses||0);
-
-    // unlock phase2 if streak feels “wow”
-    if(this.lastCombo >= 10 && this.lastMiss <= 6){
-      this.bossPhase2Ready = true;
-    }
-  };
-
-  PatternGen.prototype.onRank = function(d){
-    d = d||{};
-    this.lastAcc = Number(d.accuracy||0);
-  };
-
-  PatternGen.prototype.onProgress = function(d){
-    d = d||{};
-    const k = String(d.kind||'');
-    if(k==='storm_on')  this.stormOn = true;
-    if(k==='storm_off') this.stormOn = false;
-    if(k==='boss_down') {
-      // after boss down, small chance to trigger a wave
-      if(this.enabled && this.runMode==='play' && this.rng() < 0.55){
-        this.startWave();
+    attach({ seed, enabled, runMode }){
+      if (!enabled || String(runMode||'play')!=='play'){
+        this.on=false; this.plan=[]; this.idx=0; this.cur=null; this.phase='idle';
+        return;
       }
-    }
-  };
+      this.on=true;
+      this.seedStr = String(seed||Date.now());
+      this.r = mulberry32(hash32('GVR-P24:'+this.seedStr));
 
-  PatternGen.prototype.maybeRotateMode = function(){
-    const now = Date.now();
-    if(now >= this.modeUntil){
-      // avoid repeating same mode too often
-      const candidates = MODES.filter(m=>m!==this.mode);
-      this.mode = pick(this.rng, candidates);
-      this.modeUntil = now + 11000 + ((this.rng()*10000)|0);
-    }
-  };
+      // สร้างแผนเวลา (duration 90s default)
+      this.plan = this.buildPlan(90);
+      this.idx = 0;
+      this.cur = null;
+      this.phase='wave';
 
-  PatternGen.prototype.startWave = function(){
-    // wave: 6-10 spawns with bias + drift
-    const left = 6 + ((this.rng()*5)|0);
-    const kindBias = (this.rng()<0.65) ? 'good' : 'mixed';
-    const forceDrift = (this.rng()<0.75);
-    this.wave = { on:true, left, kindBias, forceDrift };
-    emit('ai:pattern', { mode:this.mode, lane:this.lane, waveLeft:left });
-  };
+      try{
+        WIN.dispatchEvent(new CustomEvent('groups:pattern', {
+          detail:{ name:'READY', phase:'init', meta:{ seed:this.seedStr } }
+        }));
+      }catch(_){}
+    },
 
-  PatternGen.prototype.consumeWave = function(){
-    if(!this.wave || !this.wave.on) return null;
-    this.wave.left -= 1;
-    if(this.wave.left <= 0){
-      this.wave = null;
-      emit('ai:pattern', { mode:this.mode, lane:this.lane, waveLeft:0 });
+    buildPlan(totalSec){
+      const r=this.r;
+      const plan=[];
+      let t=0;
+
+      // every ~12s a wave, boss at ~30s & ~70s, storms sprinkled
+      while (t < totalSec){
+        // boss beats
+        if (t===24 || t===60){
+          plan.push({ at:t, type:'boss', dur:8 + Math.floor(r()*4) }); // 8-11s
+          t += plan[plan.length-1].dur;
+          continue;
+        }
+
+        // storm beat (chance)
+        if (r() < 0.18){
+          const dur = 6 + Math.floor(r()*4); // 6-9s
+          plan.push({ at:t, type:'storm', dur });
+          t += dur;
+          continue;
+        }
+
+        // normal wave
+        const W = pick(WAVE_MAKERS, r);
+        const dur = 10 + Math.floor(r()*4); // 10-13s
+        plan.push({ at:t, type:'wave', dur, waveName: W.name, mk: W.mk(r) });
+        t += dur;
+      }
+      return plan;
+    },
+
+    // called by engine with elapsedSec
+    update(elapsedSec){
+      if (!this.on) return null;
+
+      // advance segment
+      const seg = this.plan[this.idx];
+      if (!seg) return null;
+
+      if (elapsedSec >= (seg.at + seg.dur)){
+        this.idx = Math.min(this.plan.length-1, this.idx+1);
+        return this.update(elapsedSec);
+      }
+
+      // if new segment
+      if (!this.cur || this.cur.at !== seg.at){
+        this.cur = seg;
+
+        try{
+          if (seg.type==='storm') WIN.dispatchEvent(new CustomEvent('groups:progress', { detail:{ kind:'storm_on' } }));
+          if (seg.type==='boss')  WIN.dispatchEvent(new CustomEvent('groups:progress', { detail:{ kind:'boss_spawn' } }));
+          if (seg.type==='wave')  WIN.dispatchEvent(new CustomEvent('groups:pattern', {
+            detail:{ name: seg.waveName, phase:'wave', meta:{ dur:seg.dur, at:seg.at } }
+          }));
+          if (seg.type==='storm') WIN.dispatchEvent(new CustomEvent('groups:pattern', {
+            detail:{ name:'STORM', phase:'storm', meta:{ dur:seg.dur, at:seg.at } }
+          }));
+          if (seg.type==='boss') WIN.dispatchEvent(new CustomEvent('groups:pattern', {
+            detail:{ name:'BOSS', phase:'boss', meta:{ dur:seg.dur, at:seg.at } }
+          }));
+        }catch(_){}
+      }
+
+      return seg;
+    },
+
+    // main hook: produce spawn suggestion
+    // ctx: { elapsedSec, nInWave, iInWave, bounds:{w,h,topSafePx,bottomSafePx}, groupIndex, wantKind: 'good'|'junk' }
+    suggest(ctx){
+      if (!this.on) return null;
+
+      const seg = this.update(ctx.elapsedSec||0);
+      if (!seg) return null;
+
+      const r=this.r;
+      const bounds = ctx.bounds || {w:window.innerWidth, h:window.innerHeight, topSafePx:0, bottomSafePx:0};
+
+      if (seg.type === 'wave'){
+        const n = Math.max(1, ctx.nInWave||6);
+        const i = clamp(ctx.iInWave||0, 0, n-1);
+        const p = seg.mk ? seg.mk(i,n) : {nx:0.5, ny:0.5};
+        const xy = normToPx(p.nx, p.ny, bounds);
+        return { x: xy.x, y: xy.y, sizeScale: 1.0, tag:'wave:'+seg.waveName };
+      }
+
+      if (seg.type === 'storm'){
+        // storm: seeded jitter but still “patterned”
+        const nx = 0.12 + r()*0.76;
+        const ny = 0.20 + r()*0.62;
+        const xy = normToPx(nx, ny, bounds);
+        return { x: xy.x, y: xy.y, sizeScale: 0.96, tag:'storm' };
+      }
+
+      if (seg.type === 'boss'){
+        // boss: spawn near center band, with small movement
+        const nx = 0.45 + (r()-0.5)*0.18;
+        const ny = 0.42 + (r()-0.5)*0.18;
+        const xy = normToPx(nx, ny, bounds);
+        return { x: xy.x, y: xy.y, sizeScale: 1.10, tag:'boss' };
+      }
+
       return null;
+    },
+
+    // call when leaving segment
+    stopStormIfNeeded(elapsedSec){
+      const seg = this.plan[this.idx];
+      if (!seg) return;
+      if (seg.type !== 'storm') return;
+      if (elapsedSec >= (seg.at + seg.dur - 0.05)){
+        try{ WIN.dispatchEvent(new CustomEvent('groups:progress', { detail:{ kind:'storm_off' } })); }catch(_){}
+      }
+    },
+
+    bossDown(){
+      try{ WIN.dispatchEvent(new CustomEvent('groups:progress', { detail:{ kind:'boss_down' } })); }catch(_){}
     }
-    return this.wave;
   };
 
-  /**
-   * nextSpawnOverride({rect, view, kindHint}) -> { x,y, motionClass, driftMs, driftAmp, kindForce? }
-   * rect = {xMin,xMax,yMin,yMax,W,H}
-   */
-  PatternGen.prototype.nextSpawnOverride = function(input){
-    if(!this.enabled || this.runMode!=='play') return null;
-    input = input || {};
-    const R = input.rect;
-    if(!R) return null;
-
-    this.maybeRotateMode();
-
-    // wave bias
-    const wave = this.wave ? this.consumeWave() : null;
-
-    // set lane width (3 lanes)
-    const lanes3 = ()=>{
-      const w = (R.xMax - R.xMin);
-      const laneW = w / 3;
-      // advance lane with some randomness
-      if(this.rng()<0.75) this.lane = (this.lane + 1) % 3;
-      const x = R.xMin + laneW*(this.lane + 0.5);
-      const y = R.yMin + (this.rng()*(R.yMax - R.yMin));
-      return { x, y };
-    };
-
-    const zigzag = ()=>{
-      const left = R.xMin + 18;
-      const right= R.xMax - 18;
-      this.zig = 1 - this.zig;
-      const x = (this.zig===0) ? left : right;
-      const y = R.yMin + (this.rng()*(R.yMax - R.yMin));
-      return { x, y };
-    };
-
-    const arc = ()=>{
-      const cx = (R.xMin + R.xMax)/2;
-      const cy = (R.yMin + R.yMax)/2;
-      const rx = (R.xMax - R.xMin)*0.42;
-      const ry = (R.yMax - R.yMin)*0.34;
-      const a = (this.rng()*Math.PI*2);
-      const x = cx + Math.cos(a)*rx;
-      const y = cy + Math.sin(a)*ry;
-      return { x, y };
-    };
-
-    const cluster = ()=>{
-      // small cluster around a pivot point for 2-4 spawns
-      const pivotX = R.xMin + (this.rng()*(R.xMax - R.xMin));
-      const pivotY = R.yMin + (this.rng()*(R.yMax - R.yMin));
-      const dx = (this.rng()*120) - 60;
-      const dy = (this.rng()*120) - 60;
-      return { x: pivotX + dx, y: pivotY + dy };
-    };
-
-    let pos;
-    if(this.mode==='lanes3') pos = lanes3();
-    else if(this.mode==='zigzag') pos = zigzag();
-    else if(this.mode==='arc') pos = arc();
-    else if(this.mode==='cluster') pos = cluster();
-    else pos = { x: R.xMin + this.rng()*(R.xMax-R.xMin), y: R.yMin + this.rng()*(R.yMax-R.yMin) };
-
-    // clamp inside rect (engine clamps again anyway)
-    pos.x = clamp(pos.x, R.xMin, R.xMax);
-    pos.y = clamp(pos.y, R.yMin, R.yMax);
-
-    // motion
-    const motionClass = (wave && wave.forceDrift) ? 'drift' : (this.rng()<0.35 ? 'drift' : '');
-    const driftMs = 1200 + ((this.rng()*900)|0);
-    const driftAmp = 10 + ((this.rng()*18)|0);
-
-    // kind force during wave (optional)
-    let kindForce = null;
-    if(wave && wave.kindBias==='good' && this.rng()<0.75){
-      kindForce = 'good';
-    }
-
-    emit('ai:pattern', { mode:this.mode, lane:this.lane, waveLeft: wave ? wave.left : 0 });
-
-    return { x:pos.x, y:pos.y, motionClass, driftMs, driftAmp, kindForce };
-  };
-
-  // boss phase2: request extra "escort" spawns after boss spawn
-  PatternGen.prototype.bossPhase2 = function(){
-    if(!this.enabled || this.runMode!=='play') return { on:false };
-    // require unlock + decent accuracy
-    const ok = this.bossPhase2Ready && this.lastAcc >= 70;
-    if(!ok) return { on:false };
-
-    // consume unlock (one-time per game, feels special)
-    this.bossPhase2Ready = false;
-
-    // 3 escorts
-    return { on:true, escorts: 3, escortKind: (this.rng()<0.65?'good':'mixed') };
-  };
-
-  // Export
-  const PG = new PatternGen();
-  NS.PatternGen = PG;
-
-  // wire listeners (safe)
-  root.addEventListener('hha:score', (ev)=>PG.onScore(ev.detail||{}), {passive:true});
-  root.addEventListener('hha:rank',  (ev)=>PG.onRank(ev.detail||{}), {passive:true});
-  root.addEventListener('groups:progress', (ev)=>PG.onProgress(ev.detail||{}), {passive:true});
-  root.addEventListener('hha:end', ()=>PG.stop(), {passive:true});
-})(window);
+  WIN.GroupsVR = WIN.GroupsVR || {};
+  WIN.GroupsVR.PatternGen = Gen;
+})();
