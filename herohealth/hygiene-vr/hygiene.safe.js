@@ -1,5 +1,5 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + A+B Win + QUEST)
+// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + A+B Win + QUEST + BOSS + FX)
 // Emits: hha:start, hha:time, hha:judge, hha:end
 // Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
 
@@ -26,7 +26,6 @@ function saveJson(key, obj){
   try{ localStorage.setItem(key, JSON.stringify(obj)); }catch{}
 }
 function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
-
 async function copyText(text){
   try{ await navigator.clipboard.writeText(String(text||'')); }catch(_){}
 }
@@ -42,6 +41,7 @@ const STEPS = [
   { key:'wrist', icon:'⌚', label:'ข้อมือ', hitsNeed:6 },
 ];
 const ICON_HAZ = '🦠';
+const ICON_SOAP = '🧼'; // boss helper
 
 // ------------------ Main ------------------
 export function boot(){
@@ -79,7 +79,7 @@ export function boot(){
   const diff    = (qs('diff','normal')||'normal').toLowerCase();
   const view    = (qs('view','pc')||'pc').toLowerCase();
   const hub     = qs('hub', '');
-  const winMode = (qs('win','both')||'both').toLowerCase(); // ✅ A+B default
+  const winMode = (qs('win','both')||'both').toLowerCase(); // A+B default
 
   const timePlannedSec = clamp(qs('time', diff==='easy'?80:(diff==='hard'?70:75)), 20, 9999);
   const seed = Number(qs('seed', Date.now()));
@@ -104,7 +104,7 @@ export function boot(){
   const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
   const dd    = (ddOn && WIN.HHA_DD) ? WIN.HHA_DD.create({ seed, runMode, base, bounds }) : null;
 
-  // state
+  // ------------------ state ------------------
   let running=false, paused=false;
   let tStartMs=0, tLastMs=0;
   let timeLeft = timePlannedSec;
@@ -112,8 +112,8 @@ export function boot(){
   let stepIdx=0;
   let hitsInStep=0;
   let loopsDone=0;
-  let bCleared=false;   // ✅ ผ่านเงื่อนไข B แล้วหรือยัง (ครบ 7 ขั้นตอน 1 รอบ)
-  let aCleared=false;   // ✅ ผ่านเงื่อนไข A (อยู่รอดครบเวลา) จะรู้ตอนจบ
+  let bCleared=false;
+  let aCleared=false;
 
   let combo=0, comboMax=0;
   let wrongStepHits=0;
@@ -126,9 +126,19 @@ export function boot(){
 
   let spawnAcc=0;
 
-  // QUEST
-  let quest = null; // {id, title, type, startMs, done, reward}
+  // QUEST (เดิม)
+  let quest = null;
   let questBonus = 0;
+
+  // -------- BOSS (ใหม่) --------
+  const bossLenSec = 15;
+  let bossActive = false;
+  let bossCleared = false;
+  let bossHits = 0;
+  let bossHitsNeed = (diff==='easy') ? 10 : (diff==='hard' ? 14 : 12);
+  let bossStartLeft = 0; // timeLeft ตอนเริ่ม
+  let soapShieldUntilMs = 0; // ชิลด์สั้น ๆ จากเป้า 🧼
+  let bossBonus = 0;
 
   // active targets
   const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
@@ -146,7 +156,6 @@ export function boot(){
 
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
-    // defined in CSS; fallback safe values
     const topSafe = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 138;
     const bottomSafe = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 124;
     const pad = 14;
@@ -157,16 +166,35 @@ export function boot(){
   }
 
   function getMissCount(){
-    // miss = wrong step + hazard
     return (wrongStepHits + hazHits);
   }
-
   function getStepAcc(){
     return totalStepHits ? (correctHits / totalStepHits) : 0;
   }
-
   function elapsedSec(){
     return running ? ((nowMs() - tStartMs)/1000) : 0;
+  }
+
+  // ------------------ FX (ใหม่) ------------------
+  function fxBurst(x, y, kind, text=null){
+    // ถ้ามี particles.js ใช้มันก่อน
+    if(WIN.Particles?.popText && text){
+      try{ WIN.Particles.popText(x, y, text, kind); }catch(_){}
+    }
+    if(WIN.Particles?.burst){
+      try{ WIN.Particles.burst(x, y, kind); }catch(_){}
+      return;
+    }
+    // fallback DOM FX (ไม่ง้อ lib)
+    try{
+      const fx = DOC.createElement('div');
+      fx.className = `hw-fx ${kind||'good'}`;
+      fx.style.left = `${x}px`;
+      fx.style.top  = `${y}px`;
+      fx.textContent = text || (kind==='bad' ? '!' : '✦');
+      stage.appendChild(fx);
+      setTimeout(()=>fx.remove(), 520);
+    }catch(_){}
   }
 
   function setHud(){
@@ -183,12 +211,17 @@ export function boot(){
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
 
+    // Boss bar ใช้ pillQuest
     if(pillQuest){
-      if(!quest) pillQuest.textContent = 'QUEST —';
+      if(bossActive && !bossCleared){
+        const left = Math.max(0, Math.ceil(timeLeft));
+        pillQuest.textContent = `BOSS 🧼 ${bossHits}/${bossHitsNeed} • ${left}s`;
+      }else if(bossActive && bossCleared){
+        pillQuest.textContent = `BOSS ✅ โบนัส +${bossBonus}`;
+      }else if(!quest) pillQuest.textContent = 'QUEST —';
       else pillQuest.textContent = quest.done ? `QUEST ✅ ${quest.title}` : `QUEST 🎯 ${quest.title}`;
     }
 
-    // “เตือนตามกติกาจริง” ที่เด็กเห็นแล้วเข้าใจ
     if(getMissCount() === missLimit-1) showBanner('⚠️ เหลือพลาดได้อีก 1 ครั้ง!');
     hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • win=${winMode} • seed=${seed} • view=${view}`);
   }
@@ -226,7 +259,6 @@ export function boot(){
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
     targets.push(obj);
 
-    // click/tap only for non-cVR strict
     if(view !== 'cvr'){
       el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'), { passive:true });
     }
@@ -237,11 +269,22 @@ export function boot(){
     const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
 
+    // BOSS: โอกาส soap ช่วย + spawn หนาแน่นขึ้น
+    if(bossActive && !bossCleared){
+      const rb = rng();
+      // 10% soap helper
+      if(rb < 0.10) return createTarget('soap', ICON_SOAP, -2);
+      // hazard หน่อย ๆ ให้ลุ้น
+      if(rb < 0.10 + clamp(P.hazardRate*0.90, 0.06, 0.26)) return createTarget('haz', ICON_HAZ, -1);
+      // ที่เหลือ: good ของ step ปัจจุบัน (ช่วยให้ “โฟกัส”)
+      return createTarget('good', s.icon, stepIdx);
+    }
+
+    // ปกติ
     const r = rng();
     if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
     }else if(r < P.hazardRate + P.decoyRate){
-      // wrong step emoji
       let j = stepIdx;
       for(let k=0;k<6;k++){
         const pick = Math.floor(rng()*STEPS.length);
@@ -263,7 +306,6 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // cVR shooting: aim from center, lockPx from vr-ui detail
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
@@ -287,110 +329,70 @@ export function boot(){
     }
   }
 
+  // ------------------ QUEST (เดิมย่อไว้) ------------------
   function questPick(){
-    // 3 แบบที่เด็กเข้าใจง่ายมาก
     const roll = Math.floor(rng()*3);
     const q = { id:`Q-${Date.now()}-${Math.floor(rng()*1e6)}`, startMs: nowMs(), done:false, reward: 50 };
-    if(roll===0){
-      q.type='combo';
-      q.need=5;
-      q.title=`ทำคอมโบให้ถึง ${q.need}`;
-    }else if(roll===1){
-      q.type='no_miss';
-      q.windowSec=10;
-      q.baseMiss=getMissCount();
-      q.title=`10 วิห้ามพลาด`;
-    }else{
-      q.type='step_fast';
-      q.needHits=6;
-      q.baseStep=stepIdx;
-      q.baseHits=hitsInStep;
-      q.windowSec=12;
-      q.title=`เคลียร์ STEP นี้ใน 12 วิ`;
-    }
+    if(roll===0){ q.type='combo'; q.need=5; q.title=`ทำคอมโบให้ถึง ${q.need}`; }
+    else if(roll===1){ q.type='no_miss'; q.windowSec=10; q.baseMiss=getMissCount(); q.title=`10 วิห้ามพลาด`; }
+    else { q.type='step_fast'; q.baseStep=stepIdx; q.windowSec=12; q.title=`เคลียร์ STEP นี้ใน 12 วิ`; }
     return q;
   }
-
   function questUpdate(){
     if(!quest || quest.done) return;
-
     if(quest.type==='combo'){
-      if(combo >= quest.need){
-        quest.done=true;
-        questBonus += quest.reward;
-        showBanner(`🎉 QUEST สำเร็จ! +${quest.reward}`);
-      }
+      if(combo >= quest.need){ quest.done=true; questBonus += quest.reward; showBanner(`🎉 QUEST สำเร็จ! +${quest.reward}`); }
       return;
     }
-
     if(quest.type==='no_miss'){
       const t = (nowMs()-quest.startMs)/1000;
-      if(getMissCount() > quest.baseMiss){
-        quest.done=true;
-        showBanner('❌ QUEST พลาดแล้ว');
-        return;
-      }
-      if(t >= quest.windowSec){
-        quest.done=true;
-        questBonus += quest.reward;
-        showBanner(`🎉 QUEST สำเร็จ! +${quest.reward}`);
-      }
+      if(getMissCount() > quest.baseMiss){ quest.done=true; showBanner('❌ QUEST พลาดแล้ว'); return; }
+      if(t >= quest.windowSec){ quest.done=true; questBonus += quest.reward; showBanner(`🎉 QUEST สำเร็จ! +${quest.reward}`); }
       return;
     }
-
     if(quest.type==='step_fast'){
       const t = (nowMs()-quest.startMs)/1000;
-      if(stepIdx !== quest.baseStep){
-        // เคลียร์สเต็ปแล้ว
-        quest.done=true;
-        questBonus += quest.reward;
-        showBanner(`🎉 QUEST สำเร็จ! +${quest.reward}`);
-        return;
-      }
-      if(t >= quest.windowSec){
-        quest.done=true;
-        showBanner('⌛ QUEST หมดเวลา');
-      }
+      if(stepIdx !== quest.baseStep){ quest.done=true; questBonus += quest.reward; showBanner(`🎉 QUEST สำเร็จ! +${quest.reward}`); return; }
+      if(t >= quest.windowSec){ quest.done=true; showBanner('⌛ QUEST หมดเวลา'); }
       return;
     }
   }
-
   function questMaybeNew(){
-    // สุ่มเปลี่ยนทุก ~12–18 วิ ให้เกมมี “อะไรเกิดขึ้นตลอด”
-    if(!quest){
-      quest = questPick();
-      return;
-    }
+    if(bossActive) return; // ช่วง boss ไม่รบกวนด้วย quest
+    if(!quest){ quest = questPick(); return; }
     const age = (nowMs()-quest.startMs)/1000;
-    if(quest.done && age > 3){
-      quest = questPick();
-    }else if(!quest.done && age > 18){
-      quest.done=true; // หมดอายุ
-      showBanner('⌛ QUEST เปลี่ยนใหม่');
-    }
+    if(quest.done && age > 3) quest = questPick();
+    else if(!quest.done && age > 18){ quest.done=true; showBanner('⌛ QUEST เปลี่ยนใหม่'); }
   }
 
+  // ------------------ SCORE ------------------
   function scoreNow(){
-    // คะแนนชัด ๆ (เด็กชอบ)
     const miss = getMissCount();
     const baseScore =
       correctHits*10 +
       loopsDone*90 +
       comboMax*6 +
-      questBonus;
+      questBonus +
+      bossBonus;
 
-    const penalty =
-      miss*18 +
-      hazHits*12;
-
-    // Bonus หลังผ่าน B แล้ว (เล่นต่อเก็บแต้ม)
+    const penalty = miss*18 + hazHits*12;
     const bBonus = bCleared ? 60 : 0;
-
     return Math.max(0, Math.round(baseScore - penalty + bBonus));
   }
 
+  // ------------------ JUDGE ------------------
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
+
+    // SOAP target (boss helper)
+    if(obj.kind === 'soap'){
+      soapShieldUntilMs = nowMs() + 3000; // 3s shield
+      showBanner('🧼 โล่ฟอง 3 วิ! (กันเชื้อ)');
+      fxBurst(obj.x, obj.y, 'good', '🫧');
+      try{ obj.el?.classList.add('hit'); }catch(_){}
+      removeTarget(obj);
+      return;
+    }
 
     if(obj.kind === 'good'){
       correctHits++;
@@ -400,12 +402,27 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
+      // Boss progress: นับเฉพาะตอน bossActive
+      if(bossActive && !bossCleared){
+        bossHits++;
+        fxBurst(obj.x, obj.y, 'good', '✨');
+        try{ obj.el?.classList.add('hit'); }catch(_){}
+        if(bossHits >= bossHitsNeed){
+          bossCleared = true;
+          bossBonus = 120;
+          showBanner(`🏆 BOSS CLEARED! +${bossBonus}`);
+        }
+      }else{
+        fxBurst(obj.x, obj.y, 'good', '🫧');
+        try{ obj.el?.classList.add('hit'); }catch(_){}
+      }
+
       coach?.onEvent?.('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
       dd?.onEvent?.('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
-      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
 
+      // step clear
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         stepIdx++;
         hitsInStep=0;
@@ -420,7 +437,6 @@ export function boot(){
             showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
           }
 
-          // ถ้าโหมด loop-only ให้จบทันที
           if(winMode === 'loop'){
             endGame('win_loop');
             return;
@@ -439,6 +455,9 @@ export function boot(){
       totalStepHits++;
       combo = 0;
 
+      fxBurst(obj.x, obj.y, 'warn', '⚠️');
+      try{ obj.el?.classList.add('hit'); }catch(_){}
+
       coach?.onEvent?.('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
       dd?.onEvent?.('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
@@ -451,8 +470,20 @@ export function boot(){
     }
 
     if(obj.kind === 'haz'){
+      // SHIELD: กัน hazard ไม่ให้นับ miss
+      const shieldOn = nowMs() < soapShieldUntilMs;
+      if(shieldOn){
+        showBanner('🛡️ โล่ฟองกันเชื้อ!');
+        fxBurst(obj.x, obj.y, 'good', '🛡️');
+        removeTarget(obj);
+        return;
+      }
+
       hazHits++;
       combo = 0;
+
+      fxBurst(obj.x, obj.y, 'bad', '🦠');
+      try{ obj.el?.classList.add('hit'); }catch(_){}
 
       coach?.onEvent?.('haz_hit', { stepAcc: getStepAcc(), combo });
       dd?.onEvent?.('haz_hit', { elapsedSec: elapsedSec() });
@@ -472,6 +503,19 @@ export function boot(){
     }
   }
 
+  function maybeStartBoss(){
+    if(bossActive) return;
+    // เริ่มเมื่อเหลือ <= 15 วิ
+    if(timeLeft <= bossLenSec){
+      bossActive = true;
+      bossStartLeft = timeLeft;
+      bossHits = 0;
+      bossCleared = false;
+      soapShieldUntilMs = 0;
+      showBanner(`🚨 BOSS TIME! ยิงให้ได้ ${bossHitsNeed} ใน ${bossLenSec} วิ`);
+    }
+  }
+
   function tick(){
     if(!running) return;
     const t = nowMs();
@@ -483,27 +527,31 @@ export function boot(){
       return;
     }
 
-    // time
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
 
-    // quest logic
+    // Boss trigger
+    maybeStartBoss();
+
+    // QUEST (หยุดตอน boss)
     questMaybeNew();
     questUpdate();
 
     // spawn
     const P0 = dd ? dd.getParams() : base;
 
-    // “โบนัสความมัน” หลังผ่าน B แล้ว: เพิ่มสปีดนิดหน่อย (แต่ไม่โหดเกิน)
+    // หลังผ่าน B แล้ว boost นิดหน่อย
     const bBoost = bCleared ? 1.12 : 1.0;
-    const spawnPerSec = clamp(P0.spawnPerSec * bBoost, 0.8, 6.0);
+
+    // Boss: เพิ่มความหนาแน่นอีก + ลด decoy เพื่อไม่ให้สับสน
+    const bossBoost = bossActive ? 1.35 : 1.0;
+
+    const spawnPerSec = clamp(P0.spawnPerSec * bBoost * bossBoost, 0.8, 6.0);
 
     spawnAcc += (spawnPerSec * dt);
     while(spawnAcc >= 1){
       spawnAcc -= 1;
       spawnOne();
-
-      // cap
       if(targets.length > 18){
         const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
         if(oldest) removeTarget(oldest);
@@ -512,21 +560,14 @@ export function boot(){
 
     dd?.onEvent?.('tick', { elapsedSec: elapsedSec() });
 
-    // end conditions
+    // end
     if(timeLeft <= 0){
       aCleared = true;
-      if(winMode === 'survival'){
-        endGame('time');
-        return;
-      }
-      // both: จบเมื่อหมดเวลาเหมือนกัน (A) แต่จะรายงานว่าผ่าน B หรือไม่
       endGame('time');
       return;
     }
 
-    // HUD update
     setHud();
-
     requestAnimationFrame(tick);
   }
 
@@ -537,12 +578,18 @@ export function boot(){
 
     stepIdx=0; hitsInStep=0; loopsDone=0;
     bCleared=false; aCleared=false;
+
     combo=0; comboMax=0;
     wrongStepHits=0; hazHits=0;
     correctHits=0; totalStepHits=0;
     rtOk.length=0;
-    quest=null; questBonus=0;
+
     spawnAcc=0;
+
+    quest=null; questBonus=0;
+
+    bossActive=false; bossCleared=false; bossHits=0; bossStartLeft=0;
+    soapShieldUntilMs=0; bossBonus=0;
 
     setHud();
   }
@@ -560,7 +607,6 @@ export function boot(){
 
     showBanner(`เริ่ม! STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
     setHud();
-
     requestAnimationFrame(tick);
   }
 
@@ -582,7 +628,6 @@ export function boot(){
       return (a.length%2) ? a[m|0] : (a[m|0] + a[(m|0)+1])/2;
     })();
 
-    // grade
     let grade='C';
     if(stepAcc>=0.90 && hazHits<=1) grade='SSS';
     else if(stepAcc>=0.82 && hazHits<=2) grade='SS';
@@ -593,14 +638,10 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.1.0-prod',
+      version:'1.2.0-prod',
       game:'hygiene',
       gameMode:'hygiene',
-      runMode,
-      diff,
-      view,
-      seed,
-      winMode,
+      runMode, diff, view, seed, winMode,
       sessionId,
       timestampIso: nowIso(),
 
@@ -608,40 +649,41 @@ export function boot(){
       durationPlannedSec: timePlannedSec,
       durationPlayedSec,
 
-      // A+B status
       passA: (reason === 'time' || aCleared),
       passB: !!bCleared,
 
-      // progress
+      // boss
+      bossActive,
+      bossCleared,
+      bossHits,
+      bossHitsNeed,
+
       loopsDone,
       stepIdxEnd: stepIdx,
       hitsCorrect: correctHits,
       hitsWrongStep: wrongStepHits,
       hazHits,
 
-      // core metrics
       stepAcc,
       riskIncomplete,
       riskUnsafe,
       comboMax,
       misses: getMissCount(),
       questBonus,
+      bossBonus,
       scoreFinal: scoreNow(),
 
       medianStepMs: rtMed,
       grade
     };
 
-    // attach AI extras (if available)
     if(coach?.getSummaryExtras) Object.assign(summary, coach.getSummaryExtras());
     if(dd?.getSummaryExtras)    Object.assign(summary, dd.getSummaryExtras());
 
-    // badges/unlocks (if exists)
     if(WIN.HHA_Badges?.evaluateBadges){
       WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
     }
 
-    // save last + history
     saveJson(LS_LAST, summary);
     const hist = loadJson(LS_HIST, []);
     const arr = Array.isArray(hist) ? hist : [];
@@ -650,10 +692,9 @@ export function boot(){
 
     emit('hha:end', summary);
 
-    // end UI
     const passTxt = `A:${summary.passA?'✅':'❌'}  B:${summary.passB?'✅':'❌'}`;
     endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : (reason==='win_loop' ? 'ผ่าน B ✅ (ครบ 7 ขั้นตอน)' : 'จบเกม ✅');
-    endSub.textContent = `Grade ${grade} • ${passTxt} • score ${summary.scoreFinal} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
+    endSub.textContent = `Grade ${grade} • ${passTxt} • score ${summary.scoreFinal} • boss ${bossCleared?'✅':'❌'} (${bossHits}/${bossHitsNeed}) • miss ${getMissCount()} • loops ${loopsDone}`;
     endJson.textContent = JSON.stringify(summary, null, 2);
     endOverlay && (endOverlay.style.display = 'grid');
   }
@@ -679,10 +720,9 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // badge/unlock popups (optional)
+  // optional coach/badge popups
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(WIN.Particles?.popText){
