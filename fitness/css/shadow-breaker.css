@@ -443,7 +443,7 @@ body {
   gap: 4px;
 }
 
-/* PLAY AREA / TARGETS (สำคัญ) */
+/* ===== PLAY AREA / TARGETS (UPDATED 2026-01-25) ===== */
 
 .sb-play-area {
   position: relative;
@@ -454,36 +454,28 @@ body {
               #020617;
   box-shadow: inset 0 0 0 1px rgba(15,23,42,.9);
   overflow: hidden;
+
+  /* คงไว้เหมือนเดิมได้ */
   min-height: min(56vh, 520px);
 }
 
+/* ✅ สำคัญสุด: ให้ layer ครอบเต็ม play-area เสมอ (ไม่พึ่ง height:100%) */
 .sb-target-layer {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+
+  /* ✅ Safe zones (px) — ปรับได้เพื่อกันเป้าชนขอบ/กันทับ UI */
+  --sb-top-safe: 14;
+  --sb-bottom-safe: 14;
+  --sb-left-safe: 14;
+  --sb-right-safe: 14;
 }
 
-/* สี ring ตามระดับความยาก / glow ตาม phase */
-.sb-wrap {
-  --sb-ring-diff: #38bdf8;
-  --sb-phase-glow: rgba(56,189,248,0.35);
-}
-
-.sb-wrap[data-diff="easy"] {
-  --sb-ring-diff: #22c55e;
-}
-.sb-wrap[data-diff="hard"] {
-  --sb-ring-diff: #fb923c;
-}
-
-.sb-wrap[data-phase="1"] {
-  --sb-phase-glow: rgba(34,197,94,0.35);
-}
-.sb-wrap[data-phase="2"] {
-  --sb-phase-glow: rgba(234,179,8,0.40);
-}
-.sb-wrap[data-phase="3"] {
-  --sb-phase-glow: rgba(248,113,113,0.55);
+/* ให้เป้าคลิกได้ */
+.sb-target-layer .sb-target {
+  pointer-events: auto;
 }
 
 /* เป้าหลัก */
