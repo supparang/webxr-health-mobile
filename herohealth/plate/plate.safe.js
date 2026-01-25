@@ -3,18 +3,19 @@
 // HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive (Prediction Director) ON
+//   - play: adaptive ON (hook-ready)
 //   - research/study: deterministic seed + adaptive OFF
 // ✅ Emits:
 //   hha:start, hha:score, hha:time, quest:update,
 //   hha:coach, hha:judge, hha:end
-// ✅ Uses mode-factory (spawn) + decorateTarget (emoji)
+// ✅ Uses mode-factory spawn (tap + hha:shoot)
+// ✅ decorateTarget -> emoji per 5 หมู่ + junk emoji pack
 // ------------------------------------------------
 
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
-import { FOOD5, JUNK, pickEmoji, emojiForGroup, labelForGroup } from '../vr/food5-th.js';
+import { emojiForGroup, pickEmoji, labelForGroup, JUNK } from '../vr/food5-th.js';
 
 /* ------------------------------------------------
  * Utilities
@@ -29,7 +30,7 @@ const clamp = (v, a, b) => {
 const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
-  let t = (Number(seed)||Date.now()) >>> 0;
+  let t = (seed >>> 0);
   return function(){
     t += 0x6D2B79F5;
     let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -81,13 +82,8 @@ const STATE = {
   cfg:null,
   rng:Math.random,
 
-  // spawner controller
-  spawner:null,
-
-  // prediction director
-  dirTimer:null,
-  lastDirAt:0,
-  dirLevel:0, // -2 .. +3
+  // spawn engine
+  engine:null
 };
 
 /* ------------------------------------------------
@@ -130,7 +126,11 @@ function coach(msg, tag='Coach'){
  * Score helpers
  * ------------------------------------------------ */
 function emitScore(){
-  emit('hha:score', { score: STATE.score, combo: STATE.combo, comboMax: STATE.comboMax });
+  emit('hha:score', {
+    score: STATE.score,
+    combo: STATE.combo,
+    comboMax: STATE.comboMax
+  });
 }
 
 function addScore(v){
@@ -159,23 +159,11 @@ function accuracy(){
 /* ------------------------------------------------
  * End game
  * ------------------------------------------------ */
-function stopAll(){
-  clearInterval(STATE.timer);
-  clearInterval(STATE.dirTimer);
-  STATE.timer = null;
-  STATE.dirTimer = null;
-  if(STATE.spawner && typeof STATE.spawner.stop === 'function'){
-    try{ STATE.spawner.stop(); }catch{}
-  }
-  STATE.spawner = null;
-}
-
 function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
   STATE.running = false;
-
-  stopAll();
+  clearInterval(STATE.timer);
 
   emit('hha:end', {
     reason,
@@ -196,6 +184,9 @@ function endGame(reason='timeup'){
     g4: STATE.g[3],
     g5: STATE.g[4]
   });
+
+  // stop spawner
+  try{ STATE.engine?.stop?.(); }catch{}
 }
 
 /* ------------------------------------------------
@@ -208,7 +199,9 @@ function startTimer(){
     if(!STATE.running) return;
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
-    if(STATE.timeLeft <= 0) endGame('timeup');
+    if(STATE.timeLeft <= 0){
+      endGame('timeup');
+    }
   }, 1000);
 }
 
@@ -222,7 +215,7 @@ function onHitGood(groupIndex){
   addCombo();
   addScore(100 + STATE.combo * 5);
 
-  // goal progress: count how many groups filled (>=1)
+  // goal progress
   if(!STATE.goal.done){
     STATE.goal.cur = STATE.g.filter(v=>v>0).length;
     if(STATE.goal.cur >= STATE.goal.target){
@@ -240,6 +233,14 @@ function onHitGood(groupIndex){
   }
 
   emitQuest();
+
+  // ✅ ถ้าผ่านครบทั้ง Goal+Mini ให้ “จบด้วยชัยชนะ” (เร็ว+สนุก)
+  if(STATE.goal.done && STATE.mini.done){
+    // bonus
+    addScore(250);
+    coach('ผ่านภารกิจครบ! 🌟', 'System');
+    endGame('cleared');
+  }
 }
 
 function onHitJunk(){
@@ -248,138 +249,67 @@ function onHitJunk(){
   resetCombo();
   addScore(-50);
   coach('ระวัง! ของหวาน/ทอด ⚠️');
+  emitQuest();
 }
 
 function onExpireGood(){
   STATE.expireGood++;
   STATE.miss++;
   resetCombo();
+  emitQuest();
 }
 
 /* ------------------------------------------------
- * Target decorate (emoji)
+ * Target decorator (emoji)
  * ------------------------------------------------ */
-function decorateTarget(el, t){
-  // t.groupIndex: 0..4 => groupId: 1..5
-  const groupId = (Number(t.groupIndex)||0) + 1;
-
-  // clear & build
-  el.innerHTML = '';
-
-  const span = document.createElement('span');
-  span.className = 'fg-emoji';
-
-  if(t.kind === 'junk'){
-    span.textContent = pickEmoji(t.rng, JUNK.emojis);
+function decorateTarget(el, target){
+  const kind = target.kind;
+  if(kind === 'junk'){
+    const emo = pickEmoji(target.rng, JUNK.emojis);
+    el.innerHTML = `<span class="fg-emoji">${emo}</span>`;
     el.dataset.group = 'junk';
-    el.setAttribute('aria-label', 'ของหวาน/ทอด');
-  }else{
-    span.textContent = emojiForGroup(t.rng, groupId);
-    el.dataset.group = `g${groupId}`;
-    // labelTH: หมู่ 1..5
-    el.setAttribute('aria-label', labelForGroup(groupId));
+    el.title = 'ขยะอาหาร';
+    return;
   }
 
-  el.appendChild(span);
-}
+  // good: map 0..4 -> groupId 1..5
+  const groupId = (Number(target.groupIndex)||0) + 1;
+  const emo = emojiForGroup(target.rng, groupId);
+  const label = labelForGroup(groupId);
 
-/* ------------------------------------------------
- * Prediction Director (rule-based AI) — PLAY ONLY
- * ------------------------------------------------ */
-function startDirectorIfPlay(){
-  const run = (STATE.cfg?.runMode || 'play').toLowerCase();
-  if(run === 'research' || run === 'study') return;
-
-  // base per diff
-  const base = {
-    spawnRate: (STATE.cfg.diff === 'hard') ? 720 : (STATE.cfg.diff === 'easy' ? 980 : 860),
-    ttlGoodMs: 2100,
-    ttlJunkMs: 1700,
-    junkW: (STATE.cfg.diff === 'easy') ? 0.24 : (STATE.cfg.diff === 'hard' ? 0.34 : 0.30),
-  };
-
-  function applyLevel(level){
-    // level: -2..+3 (higher = harder)
-    const lv = clamp(level, -2, 3);
-    const spawnRate = clamp(base.spawnRate - (lv * 70), 420, 1600);
-    const ttlGoodMs = clamp(base.ttlGoodMs - (lv * 120), 900, 3500);
-    const ttlJunkMs = clamp(base.ttlJunkMs - (lv * 90), 700, 3000);
-    const junkW = clamp(base.junkW + (lv * 0.04), 0.18, 0.55);
-    const goodW = 1 - junkW;
-
-    if(STATE.spawner?.setParams){
-      STATE.spawner.setParams({
-        spawnRate,
-        ttlGoodMs,
-        ttlJunkMs,
-        kinds: [
-          { kind:'good', weight: goodW },
-          { kind:'junk', weight: junkW }
-        ]
-      });
-    }
-  }
-
-  // start at 0
-  STATE.dirLevel = 0;
-  applyLevel(STATE.dirLevel);
-
-  STATE.dirTimer = setInterval(()=>{
-    if(!STATE.running || STATE.ended) return;
-
-    // signals
-    const acc = accuracy();                 // 0..1
-    const miss = STATE.miss;                // absolute
-    const combo = STATE.combo;              // current combo
-    const tleft = STATE.timeLeft || 0;
-
-    // quick heuristic:
-    // - if acc very high and combo decent => harder
-    // - if miss rising and acc low => easier
-    let next = STATE.dirLevel;
-
-    if(acc >= 0.90 && combo >= 4) next += 1;
-    else if(acc <= 0.72 && miss >= 3) next -= 1;
-
-    // also near end: small push
-    if(tleft <= 18 && acc >= 0.82) next += 1;
-
-    next = clamp(next, -2, 3);
-    if(next !== STATE.dirLevel){
-      STATE.dirLevel = next;
-      applyLevel(STATE.dirLevel);
-
-      // tiny coach hint (rate-limited)
-      if(STATE.dirLevel >= 2) coach('เริ่มยากขึ้นแล้วนะ! โฟกัสให้ดี 👀');
-      else if(STATE.dirLevel <= -1) coach('ค่อย ๆ ทำได้ ไม่เป็นไร 🙂');
-    }
-  }, 2200);
+  el.innerHTML = `
+    <span class="fg-emoji">${emo}</span>
+    <span class="fg-label">${label.replace('หมู่ ', 'หมู่')}</span>
+  `;
+  el.dataset.group = String(groupId);
+  el.title = label;
 }
 
 /* ------------------------------------------------
  * Spawn logic
  * ------------------------------------------------ */
 function makeSpawner(mount){
-  const diff = (STATE.cfg.diff || 'normal').toLowerCase();
+  const diff = STATE.cfg.diff;
+  const spawnRate =
+    diff === 'hard' ? 650 :
+    diff === 'easy' ? 980 :
+    820;
 
-  const spawnRate = (diff === 'hard') ? 720 : (diff === 'easy' ? 980 : 860);
-
-  // weights
-  const junkW = (diff === 'easy') ? 0.24 : (diff === 'hard' ? 0.34 : 0.30);
-  const goodW = 1 - junkW;
+  const sizeRange =
+    diff === 'hard' ? [42, 58] :
+    diff === 'easy' ? [48, 72] :
+    [44, 64];
 
   return spawnBoot({
     mount,
     seed: STATE.cfg.seed,
     spawnRate,
-    sizeRange:[48,72],
-    ttlGoodMs: 2100,
-    ttlJunkMs: 1700,
+    sizeRange,
     kinds:[
-      { kind:'good', weight: goodW },
-      { kind:'junk', weight: junkW }
+      { kind:'good', weight:0.72 },
+      { kind:'junk', weight:0.28 }
     ],
-    decorateTarget, // ✅ emoji/icon
+    decorateTarget,
     onHit:(t)=>{
       if(t.kind === 'good'){
         const gi = clamp(t.groupIndex ?? 0, 0, 4);
@@ -400,7 +330,6 @@ function makeSpawner(mount){
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
-  // reset state
   STATE.cfg = cfg;
   STATE.running = true;
   STATE.ended = false;
@@ -409,7 +338,6 @@ export function boot({ mount, cfg }){
   STATE.combo = 0;
   STATE.comboMax = 0;
   STATE.miss = 0;
-
   STATE.hitGood = 0;
   STATE.hitJunk = 0;
   STATE.expireGood = 0;
@@ -420,10 +348,10 @@ export function boot({ mount, cfg }){
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
-  // RNG: deterministic only in research/study
-  const rm = (cfg.runMode || 'play').toLowerCase();
-  if(rm === 'research' || rm === 'study'){
-    STATE.rng = seededRng(cfg.seed || Date.now());
+  // RNG
+  const seed = Number(cfg.seed || Date.now());
+  if(cfg.runMode === 'research' || cfg.runMode === 'study'){
+    STATE.rng = seededRng(seed);
   }else{
     STATE.rng = Math.random;
   }
@@ -438,15 +366,11 @@ export function boot({ mount, cfg }){
     durationPlannedSec: STATE.timeLeft
   });
 
-  emitQuest();
   emitScore();
+  emitQuest();
   startTimer();
 
-  // spawn controller
-  STATE.spawner = makeSpawner(mount);
-
-  // AI Prediction Director (PLAY only)
-  startDirectorIfPlay();
+  STATE.engine = makeSpawner(mount);
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
 }
