@@ -1,218 +1,120 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — PRODUCTION (shared)
-// ✅ Deterministic (seeded) when needed
-// ✅ Lightweight "ML-lite" predictors (EMA + logistic-ish score)
-// ✅ Rate-limited coach tips
-// ✅ Exports: createAIHooks(cfg)
+// HHA AI Hooks — STUB (Prediction/ML/DL-ready)
+// ✅ Default: heuristic prediction (no ML yet)
+// ✅ Research: deterministic-friendly (seeded runs supported by caller rng)
+// ✅ Exposes hooks for:
+//    - difficulty director (adaptive pace & ratios)
+//    - coach micro-tips (rate-limited)
+//    - pattern generator (spawn bias / streak control)
+//
+// Usage:
+//   import { createAIHooks } from '../vr/ai-hooks.js';
+//   const AI = createAIHooks({ game:'GoodJunkVR', mode:'play', rng });
+//   AI.onEvent('hit', {...});  AI.getDifficulty(t);  AI.getTip(t);
 
 'use strict';
 
-function seededRng(seed){
-  let t = (Number(seed)||Date.now()) >>> 0;
-  return function(){
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
+export function createAIHooks(cfg = {}){
+  const game = cfg.game || 'HHA';
+  const mode = String(cfg.mode || 'play').toLowerCase();     // play | research | practice
+  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function now(){ return performance?.now ? performance.now() : Date.now(); }
+  // --- rate limit tips ---
+  let lastTipAt = 0;
+  const tipCooldownMs = Number(cfg.tipCooldownMs ?? 5500);
 
-function sigmoid(x){ return 1/(1+Math.exp(-x)); }
-
-/**
- * createAIHooks(cfg)
- * cfg:
- *  - enabled: boolean
- *  - seed: number
- *  - difficulty: 'easy'|'normal'|'hard'
- *  - coachEmit(fn(msg,tag,meta))
- *  - emit(fn(name,detail))   // event bridge
- */
-export function createAIHooks(cfg){
-  const enabled = !!cfg?.enabled;
-  const seed = Number(cfg?.seed||Date.now());
-  const rng = seededRng(seed ^ 0xA11C0DE);
-
-  const emit = typeof cfg?.emit === 'function' ? cfg.emit : ()=>{};
-  const coachEmit = typeof cfg?.coachEmit === 'function' ? cfg.coachEmit : ()=>{};
-
-  // ML-lite state (EMA)
-  const s = {
-    t0: now(),
-    emaAcc: 0.92,
-    emaMissRate: 0.05,
-    emaJunkRate: 0.10,
-    emaSpeed: 0.55,     // hits/sec (rough)
-    lastHitAt: 0,
-    lastCoachAt: 0,
-    coachCooldownMs: 2200,
-    lastTuneAt: 0,
-    tuneCooldownMs: 900,
-    lastStormAt: 0,
-    stormCooldownMs: 12000,
-    bossIssued: false
+  // --- simple rolling stats ---
+  const R = {
+    hitGood:0, hitJunk:0, miss:0, combo:0,
+    last10: [], // {t, type}
   };
 
-  function updateAfterEvent(metrics){
-    if(!enabled) return;
-
-    const acc = clamp(metrics?.accuracy ?? 0.9, 0, 1);
-    const missRate = clamp(metrics?.missRate ?? 0.05, 0, 1);
-    const junkRate = clamp(metrics?.junkRate ?? 0.10, 0, 1);
-
-    // EMA smoothing
-    const a = 0.12;
-    s.emaAcc = (1-a)*s.emaAcc + a*acc;
-    s.emaMissRate = (1-a)*s.emaMissRate + a*missRate;
-    s.emaJunkRate = (1-a)*s.emaJunkRate + a*junkRate;
-
-    // speed proxy
-    const t = now();
-    if(metrics?.justHit){
-      if(s.lastHitAt > 0){
-        const dt = Math.max(0.2, (t - s.lastHitAt)/1000);
-        const instSpeed = clamp(1/dt, 0, 4);
-        const b = 0.10;
-        s.emaSpeed = (1-b)*s.emaSpeed + b*instSpeed;
-      }
-      s.lastHitAt = t;
-    }
-
-    // prediction (prob miss next 3s)
-    const x =
-      (+2.2)*(0.75 - s.emaAcc) +
-      (+2.0)*(s.emaMissRate) +
-      (+1.2)*(s.emaJunkRate) +
-      (+0.8)*(0.35 - s.emaSpeed);
-
-    const pMissSoon = clamp(sigmoid(x), 0, 1);
-
-    emit('hha:ai', {
-      pMissSoon,
-      emaAcc: s.emaAcc,
-      emaMissRate: s.emaMissRate,
-      emaJunkRate: s.emaJunkRate,
-      emaSpeed: s.emaSpeed
-    });
-
-    maybeCoach(metrics, pMissSoon);
+  function pushEvent(type, t){
+    R.last10.push({ type, t });
+    if(R.last10.length > 10) R.last10.shift();
   }
 
-  function maybeCoach(metrics, pMissSoon){
-    const t = now();
-    if(t - s.lastCoachAt < s.coachCooldownMs) return;
+  function onEvent(type, data = {}){
+    const t = Number(data.t ?? performance.now());
+    pushEvent(type, t);
 
-    const leftSec = Number(metrics?.leftSec ?? 0);
-    const combo = Number(metrics?.combo ?? 0);
-
-    // explainable micro-tips
-    if(pMissSoon > 0.72){
-      s.lastCoachAt = t;
-      coachEmit('โฟกัสกลางจอ! เล็งให้ชัวร์ก่อนกด ✨', 'AI Coach', { reason:'pMissSoon_high' });
-      return;
-    }
-    if(s.emaJunkRate > 0.22){
-      s.lastCoachAt = t;
-      coachEmit('ระวังเป้าแดง 🍟 เจอแล้วให้หลบ!', 'AI Coach', { reason:'junk_high' });
-      return;
-    }
-    if(s.emaAcc < 0.72 && leftSec > 10){
-      s.lastCoachAt = t;
-      coachEmit('ลองช้าลงนิดนึงแล้วเก็บเป็นชุด ๆ จะตรงขึ้นนะ 👍', 'AI Coach', { reason:'acc_low' });
-      return;
-    }
-    if(combo >= 8){
-      s.lastCoachAt = t;
-      coachEmit('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 🔥', 'AI Coach', { reason:'combo_good' });
-      return;
-    }
+    if(type === 'hitGood'){ R.hitGood++; R.combo++; }
+    if(type === 'hitJunk'){ R.hitJunk++; R.combo = 0; }
+    if(type === 'miss'){ R.miss++; R.combo = 0; }
+    if(type === 'comboBreak'){ R.combo = 0; }
   }
 
-  /**
-   * difficulty director
-   * returns tuning: { spawnRateMul, ttlMul, junkWeightMul }
-   * - deterministic: depends only on EMA state (seeded init + events)
-   */
-  function tuneDifficulty(){
-    if(!enabled) return null;
-
-    const t = now();
-    if(t - s.lastTuneAt < s.tuneCooldownMs) return null;
-    s.lastTuneAt = t;
-
-    // target comfort zone
-    const acc = s.emaAcc;
-    const miss = s.emaMissRate;
-    const junk = s.emaJunkRate;
-
-    // If player struggles -> ease; if strong -> harder
-    const struggle = clamp((0.78 - acc) + miss*0.7 + junk*0.6, 0, 1);
-    const mastery  = clamp((acc - 0.88) + (0.10 - miss) + (0.14 - junk), 0, 1);
-
-    // DeepLearning-style "policy output" (but still lightweight)
-    let spawnRateMul = 1.0;
-    let ttlMul = 1.0;
-    let junkWeightMul = 1.0;
-
-    spawnRateMul *= (1.0 + mastery*0.22) * (1.0 - struggle*0.25);
-    ttlMul      *= (1.0 - mastery*0.10) * (1.0 + struggle*0.18);
-    junkWeightMul *= (1.0 + mastery*0.25) * (1.0 - struggle*0.15);
-
-    // clamp
-    spawnRateMul = clamp(spawnRateMul, 0.75, 1.28);
-    ttlMul = clamp(ttlMul, 0.82, 1.25);
-    junkWeightMul = clamp(junkWeightMul, 0.75, 1.35);
-
-    return { spawnRateMul, ttlMul, junkWeightMul, struggle, mastery };
+  // --- Prediction (heuristic) ---
+  // "predict" near-future risk: based on miss rate + junk hits
+  function predictRisk(){
+    const n = R.last10.length || 1;
+    const bad = R.last10.filter(x => x.type === 'hitJunk' || x.type === 'miss').length;
+    const risk = Math.min(1, bad / n);
+    return risk; // 0..1
   }
 
-  /**
-   * Pattern Generator (storm/boss triggers)
-   * deterministic schedule bucketed by time
-   * returns: { stormOn:boolean, bossOn:boolean, stormMs:number }
-   */
-  function patternTick(metrics){
-    if(!enabled) return null;
+  // --- Difficulty Director (heuristic) ---
+  // Returns multipliers or targets for spawn pace / junk ratio
+  function getDifficulty(tSec, base){
+    // base = { spawnMs, pJunk, pGood, pStar, pShield }
+    // research/practice => adaptive OFF
+    if(mode !== 'play') return { ...base, tag:'fixed' };
 
-    const t = now();
-    const elapsed = (t - s.t0)/1000;
-    const leftSec = Number(metrics?.leftSec ?? 0);
-    const totalSec = Number(metrics?.totalSec ?? 90);
+    const risk = predictRisk(); // 0..1
+    const ramp = Math.min(1, Math.max(0, (tSec - 8) / 40)); // grow after 8s
 
-    // boss once at ~60% progress if doing well
-    let bossOn = false;
-    const progress = clamp(1 - (leftSec/Math.max(1,totalSec)), 0, 1);
-    if(!s.bossIssued && progress >= 0.55 && s.emaAcc >= 0.83){
-      s.bossIssued = true;
-      bossOn = true;
+    // if risk high => slightly reduce junk (fair) + slightly increase shield/star
+    const fairness = (risk > 0.55) ? 1 : 0;
+
+    const spawnMs = Math.max(520, base.spawnMs - (ramp * 260) + (fairness ? 80 : 0));
+    let pJunk   = Math.min(0.42, base.pJunk + ramp*0.14 - (fairness ? 0.06 : 0));
+    let pGood   = Math.max(0.52, base.pGood - ramp*0.10 + (fairness ? 0.04 : 0));
+    let pStar   = base.pStar + (fairness ? 0.01 : 0);
+    let pShield = base.pShield + (fairness ? 0.01 : 0);
+
+    // normalize
+    let s = pGood + pJunk + pStar + pShield;
+    pGood/=s; pJunk/=s; pStar/=s; pShield/=s;
+
+    return { spawnMs, pGood, pJunk, pStar, pShield, tag: fairness ? 'assist' : 'ramp' };
+  }
+
+  // --- Coach micro-tips (rate-limited) ---
+  function getTip(tSec){
+    if(mode !== 'play') return null;
+    const now = performance.now();
+    if(now - lastTipAt < tipCooldownMs) return null;
+
+    const risk = predictRisk();
+
+    let msg = null;
+    if(risk > 0.65) msg = 'ช้าลงนิดนึง 🎯 เล็ง “ของดี” ก่อน แล้วค่อยเก็บโบนัส ⭐/🛡️';
+    else if(R.combo >= 6) msg = 'คอมโบสวยมาก! 🔥 รักษาจังหวะเดิม แล้วหลบของทอด/หวานให้ทัน';
+    else if(tSec > 20 && R.miss === 0) msg = 'โคตรนิ่ง! 👏 ลองเพิ่มความเร็ว—เน้นแตะให้แม่น';
+    else if(tSec > 12 && R.hitJunk > 0) msg = 'ทริค: ของเสียมักมาเป็นชุด—เล็ง “ของดี” ให้ไวที่สุด';
+
+    if(msg){
+      lastTipAt = now;
+      return { msg, tag: `${game} Coach` };
     }
+    return null;
+  }
 
-    // storm burst every ~12s if player too comfy
-    let stormOn = false;
-    let stormMs = 0;
-
-    const comfy = (s.emaAcc > 0.90 && s.emaMissRate < 0.10);
-    if(comfy && (t - s.lastStormAt > s.stormCooldownMs)){
-      s.lastStormAt = t;
-      stormOn = true;
-      // deterministic duration from rng but stable
-      stormMs = 2200 + Math.floor(rng()*1200);
-    }
-
-    // emit hooks
-    if(bossOn) emit('hha:boss', { on:true, atSec: elapsed });
-    if(stormOn) emit('hha:storm', { on:true, ms: stormMs, atSec: elapsed });
-
-    return { bossOn, stormOn, stormMs };
+  // --- Pattern generator (stub) ---
+  function nextPatternHint(){
+    // reserved: can return 'goodStreak', 'junkWave', 'bonusDrop', etc.
+    // deterministic: use rng()
+    const r = rng();
+    if(r < 0.12) return 'bonusDrop';
+    if(r < 0.30) return 'junkWave';
+    return 'mix';
   }
 
   return {
-    enabled,
-    updateAfterEvent,
-    tuneDifficulty,
-    patternTick
+    onEvent,
+    predictRisk,
+    getDifficulty,
+    getTip,
+    nextPatternHint
   };
 }
