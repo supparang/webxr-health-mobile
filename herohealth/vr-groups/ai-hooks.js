@@ -1,34 +1,27 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
 // GroupsVR — AI Hooks (2A: ML-ready data)
-// ✅ Collects shot/spawn/hit/miss telemetry (local)
-// ✅ Confusion matrix (targetGroup -> activeGroup when wrong)
+// ✅ Collects shot/spawn/hit telemetry (local)
+// ✅ Confusion matrix (activeKey -> targetKey when wrong)
 // ✅ Export JSON via window.GroupsVR.AIHooks.export()
-// ✅ Gated: only enabled when attach({enabled:true}) AND runMode==='play'
+// ✅ Gated: enabled AND runMode==='play'
 // ❌ No network, no sheet, no research pollution
 
 (function(){
   'use strict';
   const WIN = window;
-  const DOC = document;
-
   const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
   const LS_KEY = 'HHA_GROUPS_AI_DATA_V1';
 
   function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function safeParse(json, def){ try{ return JSON.parse(json); }catch{ return def; } }
 
-  function safeParse(json, def){
-    try{ return JSON.parse(json); }catch{ return def; }
-  }
-
-  // ---------- state ----------
   const ST = {
     on: false,
     runMode: 'play',
     seed: '',
     startedAt: 0,
 
-    // rolling snapshot from HUD events (for feature extraction)
+    // rolling snapshot from HUD events
     score: 0,
     combo: 0,
     miss: 0,
@@ -39,11 +32,9 @@
     groupKey: '',
     groupName: '',
 
-    // dataset
-    maxRows: 800,      // กันพอง
-    rows: [],          // event rows
-    confusion: {},     // {activeKey: {hitKey: count}}
-    lastExportAt: 0
+    maxRows: 900,
+    rows: [],
+    confusion: {}
   };
 
   function pushRow(row){
@@ -51,14 +42,13 @@
     if (ST.rows.length > ST.maxRows) ST.rows.shift();
   }
 
-  function bumpConf(activeKey, seenKey){
-    if (!activeKey || !seenKey) return;
+  function bumpConf(activeKey, targetKey){
+    if (!activeKey || !targetKey) return;
     const a = (ST.confusion[activeKey] = ST.confusion[activeKey] || {});
-    a[seenKey] = (a[seenKey]||0) + 1;
+    a[targetKey] = (a[targetKey]||0) + 1;
   }
 
   function featureVec(){
-    // features ที่ “ML/DL ใช้ต่อ” (เบา + explainable)
     return {
       t: Math.round(nowMs()),
       left: ST.left|0,
@@ -94,13 +84,11 @@
     }catch(_){}
   }
 
-  // ---------- listeners ----------
   let bound = false;
   function bind(){
     if (bound) return;
     bound = true;
 
-    // HUD aggregates
     WIN.addEventListener('hha:score', (ev)=>{
       if (!ST.on) return;
       const d = ev.detail||{};
@@ -135,13 +123,10 @@
       const d = ev.detail||{};
       if (d.kind === 'storm_on') ST.storm = 1;
       if (d.kind === 'storm_off') ST.storm = 0;
-
-      // log progress events (storm/boss/switch/pressure)
       pushRow({ type:'progress', at: Date.now(), seed: ST.seed, runMode: ST.runMode, detail: d, f: featureVec() });
       saveLocal();
     }, {passive:true});
 
-    // ✅ NEW events from engine (we'll add patch in groups.safe.js)
     WIN.addEventListener('groups:spawn', (ev)=>{
       if (!ST.on) return;
       const d = ev.detail||{};
@@ -159,22 +144,19 @@
     WIN.addEventListener('groups:hit', (ev)=>{
       if (!ST.on) return;
       const d = ev.detail||{};
-      // confusion: active groupKey (ที่ต้องยิง) vs seen groupKey (ของเป้าที่โดน)
       if (d.kind === 'wrong' && d.activeKey && d.targetKey) bumpConf(d.activeKey, d.targetKey);
-
       pushRow({ type:'hit', at: Date.now(), seed: ST.seed, runMode: ST.runMode, d, f: featureVec() });
       saveLocal();
     }, {passive:true});
   }
 
-  // ---------- public API ----------
   NS.AIHooks = NS.AIHooks || {};
 
   NS.AIHooks.attach = function(cfg){
     cfg = cfg || {};
     ST.runMode = String(cfg.runMode || 'play');
     ST.seed    = String(cfg.seed || '');
-    ST.on      = !!cfg.enabled && (ST.runMode === 'play'); // ✅ play only
+    ST.on      = !!cfg.enabled && (ST.runMode === 'play');
 
     if (ST.on){
       ST.startedAt = nowMs();
@@ -186,8 +168,7 @@
   };
 
   NS.AIHooks.export = function(){
-    // คืน payload เป็น object ให้ปุ่ม Copy JSON เอาไปแปะได้
-    const payload = {
+    return {
       v: 1,
       exportedAtIso: new Date().toISOString(),
       seed: ST.seed,
@@ -195,8 +176,6 @@
       rows: ST.rows.slice(),
       confusion: ST.confusion
     };
-    ST.lastExportAt = nowMs();
-    return payload;
   };
 
   NS.AIHooks.reset = function(){
