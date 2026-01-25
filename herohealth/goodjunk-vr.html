@@ -1,5 +1,5 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT
+GoodJunkVR LAUNCHER — ROOT (A)
 ✅ Redirect -> ./vr-goodjunk/goodjunk-vr.html
 ✅ Auto-detect view (pc/mobile/vr) BUT:
    - If URL already has ?view=... -> DO NOT override
@@ -120,9 +120,11 @@ GoodJunkVR LAUNCHER — ROOT
     return 'auto';
   }
 
+  // 👇 Auto-detect view (but never override if user already passed view=)
   async function detectView(){
     if(has('view')) return normalizeView(qs('view','auto'));
 
+    // optional: remember last view (soft)
     try{
       const last = localStorage.getItem('HHA_LAST_VIEW');
       if(last) return normalizeView(last);
@@ -130,6 +132,7 @@ GoodJunkVR LAUNCHER — ROOT
 
     let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
 
+    // best-effort: if WebXR VR session supported, consider 'vr' for mobile
     try{
       if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
         const ok = await navigator.xr.isSessionSupported('immersive-vr');
@@ -146,6 +149,7 @@ GoodJunkVR LAUNCHER — ROOT
     const src = new URL(location.href);
     const dst = new URL(url, location.href);
 
+    // Pass-through list (safe + research)
     const keep = [
       'hub','run','diff','time','seed','ts','studyId','study','phase','conditionGroup','cond',
       'log','style'
@@ -175,6 +179,7 @@ GoodJunkVR LAUNCHER — ROOT
     setText('pDiff', diff);
     setText('pTime', time);
 
+    // Only set view param if not already provided
     const u = carryParams(DEST);
     if(!has('view') && v && v !== 'auto'){
       u.searchParams.set('view', v);
