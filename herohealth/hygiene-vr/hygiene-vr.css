@@ -1,9 +1,6 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR UI — PRODUCTION
-✅ Stage fullscreen
-✅ Safe HUD top zone
-✅ Emoji targets (good/wrong/haz)
-✅ Quiz + Quest bar
+HygieneVR UI — PRODUCTION v1.2
+✅ Boss bar + Step helper + Combo FX
 */
 
 :root{
@@ -28,9 +25,8 @@ HygieneVR UI — PRODUCTION
   --radius:22px;
   --pill:999px;
 
-  /* spawn safe zones (tweakable) */
-  --hw-top-safe: 132;     /* px: top HUD reserved */
-  --hw-bottom-safe: 120;  /* px: bottom reserved for VR buttons etc */
+  --hw-top-safe: 146;     /* px: top HUD reserved */
+  --hw-bottom-safe: 120;  /* px */
 }
 
 *{ box-sizing:border-box; }
@@ -42,6 +38,30 @@ html, body{
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
   overflow:hidden;
+}
+
+/* FX: combo break / danger */
+body.fx-shake{
+  animation: hhaShake .16s ease-in-out;
+}
+@keyframes hhaShake{
+  0%{ transform: translate(0,0); }
+  25%{ transform: translate(-2px,1px); }
+  50%{ transform: translate(2px,-1px); }
+  75%{ transform: translate(-1px,-2px); }
+  100%{ transform: translate(0,0); }
+}
+body.fx-flash::before{
+  content:"";
+  position:fixed; inset:0;
+  background: rgba(239,68,68,.14);
+  pointer-events:none;
+  z-index: 60;
+  animation: hhaFlash .28s ease-out;
+}
+@keyframes hhaFlash{
+  from{ opacity:1; }
+  to{ opacity:0; }
 }
 
 .hw-root{
@@ -62,16 +82,8 @@ html, body{
 }
 
 /* HUD */
-.hw-hud{
-  position:relative;
-  z-index:20;
-  pointer-events:none;
-}
-
-.hw-top{
-  width:min(980px, 100%);
-  pointer-events:none;
-}
+.hw-hud{ position:relative; z-index:20; pointer-events:none; }
+.hw-top{ width:min(980px, 100%); pointer-events:none; }
 
 .hw-title{
   font-weight:950;
@@ -87,13 +99,7 @@ html, body{
   margin-bottom:10px;
 }
 
-.hw-row{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin:8px 0;
-}
-
+.hw-row{ display:flex; gap:10px; flex-wrap:wrap; margin:8px 0; }
 .hw-pill{
   display:inline-flex;
   align-items:center;
@@ -111,6 +117,7 @@ html, body{
 .hw-pill.warn{ border-color: rgba(245,158,11,.35); }
 .hw-pill.bad{ border-color: rgba(239,68,68,.40); }
 .hw-pill.cyan{ border-color: rgba(34,211,238,.35); }
+.hw-pill.violet{ border-color: rgba(167,139,250,.35); }
 
 .hw-pill.btn{
   pointer-events:auto;
@@ -118,6 +125,68 @@ html, body{
   background: rgba(15,23,42,.72);
 }
 .hw-pill.btn:hover{ filter:brightness(1.05); }
+
+/* Boss bar */
+.hw-boss{
+  width:min(980px,100%);
+  margin-top:10px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.55);
+  border-radius: 18px;
+  padding: 10px;
+  pointer-events:none;
+  display:none;
+}
+.hw-boss.show{ display:block; }
+.hw-boss-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.hw-boss-title{ font-weight:950; }
+.hw-boss-sub{ color:rgba(148,163,184,.95); font-size:12px; }
+.hw-boss-bar{
+  margin-top:8px;
+  height:12px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.16);
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.18);
+}
+.hw-boss-fill{
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(239,68,68,.85), rgba(245,158,11,.75));
+  border-radius: 999px;
+  transition: width .12s ease;
+}
+
+/* Step helper (สื่อสาร 7 ขั้นตอน) */
+.hw-stephelp{
+  width:min(980px,100%);
+  margin-top:10px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.45);
+  border-radius: 18px;
+  padding: 10px;
+  pointer-events:none;
+}
+.hw-stephelp .row{
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+}
+.hw-stephelp .big{
+  font-size: 20px; font-weight:950;
+  display:flex; align-items:center; gap:8px;
+}
+.hw-stephelp .mini{
+  color:rgba(148,163,184,.95);
+  font-size:12px;
+}
+.hw-stephelp .next{
+  margin-left:auto;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+  border-radius: 16px;
+  padding: 8px 10px;
+  font-weight:900;
+  font-size:12px;
+}
 
 /* Banner */
 .hw-banner{
@@ -132,10 +201,7 @@ html, body{
   transition: all .18s ease;
   pointer-events:none;
 }
-.hw-banner.show{
-  opacity:1;
-  transform: translateY(0);
-}
+.hw-banner.show{ opacity:1; transform: translateY(0); }
 
 /* Overlay cards */
 .hw-overlay{
@@ -156,22 +222,9 @@ html, body{
   padding: 16px;
   box-shadow: 0 30px 110px rgba(0,0,0,.55);
 }
-.hw-card-title{
-  font-weight:980;
-  font-size:18px;
-  margin-bottom:6px;
-}
-.hw-card-sub{
-  color:rgba(148,163,184,.95);
-  font-size:13px;
-  line-height:1.4;
-}
-.hw-card-row{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:12px;
-}
+.hw-card-title{ font-weight:980; font-size:18px; margin-bottom:6px; }
+.hw-card-sub{ color:rgba(148,163,184,.95); font-size:13px; line-height:1.4; }
+.hw-card-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
 .hw-cta,.hw-ghost{
   appearance:none;
   border:1px solid rgba(148,163,184,.18);
@@ -182,10 +235,7 @@ html, body{
   font-weight:950;
   cursor:pointer;
 }
-.hw-cta{
-  background: rgba(34,197,94,.20);
-  border-color: rgba(34,197,94,.35);
-}
+.hw-cta{ background: rgba(34,197,94,.20); border-color: rgba(34,197,94,.35); }
 .hw-cta:hover,.hw-ghost:hover{ filter:brightness(1.06); }
 
 .hw-pre{
@@ -229,6 +279,15 @@ html, body{
 .hw-tgt.wrong{ border-color: rgba(245,158,11,.45); }
 .hw-tgt.haz{ border-color: rgba(239,68,68,.55); }
 
+/* Boss target (ใหญ่กว่า/เด่นกว่า) */
+.hw-tgt.boss{
+  width: 92px;
+  height: 92px;
+  border-color: rgba(239,68,68,.70);
+  background: rgba(2,6,23,.70);
+}
+.hw-tgt.boss .emoji{ font-size: 38px; }
+
 .hw-tgt:active{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .95)); }
 
 @keyframes pop{
@@ -236,7 +295,7 @@ html, body{
   to{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
 }
 
-/* Quiz Box */
+/* Quiz */
 .hw-quiz{
   margin-top: 10px;
   width:min(980px, 100%);
@@ -245,21 +304,11 @@ html, body{
   border-radius: 18px;
   padding: 10px;
   pointer-events:auto;
+  display:none;
 }
-.hw-quiz-q{
-  font-weight:950;
-  margin-bottom:6px;
-}
-.hw-quiz-sub{
-  color:rgba(148,163,184,.95);
-  font-size:13px;
-  margin-bottom:8px;
-}
-.hw-quiz-opts{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
+.hw-quiz-q{ font-weight:950; margin-bottom:6px; }
+.hw-quiz-sub{ color:rgba(148,163,184,.95); font-size:13px; margin-bottom:8px; }
+.hw-quiz-opts{ display:flex; gap:10px; flex-wrap:wrap; }
 .hw-opt{
   appearance:none;
   border:1px solid rgba(148,163,184,.18);
@@ -276,9 +325,5 @@ html, body{
 
 /* View tweaks */
 body.view-mobile .hw-tgt{ width: 72px; height: 72px; }
-body.view-cvr .hw-tgt{ cursor: default; } /* hit by hha:shoot */
-
-/* Make sure VR UI buttons stay visible */
-#hha-vrui{
-  z-index: 40 !important;
-}
+body.view-cvr .hw-tgt{ cursor: default; }
+#hha-vrui{ z-index: 40 !important; }
