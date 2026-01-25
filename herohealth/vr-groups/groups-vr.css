@@ -7,6 +7,7 @@ GroupsVR UI (HHA Standard-ish)
 ✅ PATCH 2A: Junk decoy scary + pulse (no emoji dim)
 ✅ PATCH 2B: Smooth target anim (no flash)
 ✅ PATCH 2C: Safe zone for vr-ui.js buttons (ENTER VR/RECENTER)
+✅ PATCH X: WRONG decoy shimmer + wiggle (very deceptive, emoji still crisp)
 */
 
 :root{
@@ -285,15 +286,9 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   from{ transform: scale(.92); opacity:.0; }
   to  { transform: scale(1); opacity:1; }
 }
-
-/* banner tones (optional) */
 #bigBanner.tone-good .bigBannerText{ border-color: rgba(34,197,94,.40); box-shadow: 0 0 0 6px rgba(34,197,94,.12), 0 18px 40px rgba(0,0,0,.35); }
 #bigBanner.tone-warn .bigBannerText{ border-color: rgba(245,158,11,.45); box-shadow: 0 0 0 6px rgba(245,158,11,.12), 0 18px 40px rgba(0,0,0,.35); }
 #bigBanner.tone-bad  .bigBannerText{ border-color: rgba(239,68,68,.45); box-shadow: 0 0 0 7px rgba(239,68,68,.14), 0 18px 40px rgba(0,0,0,.35); }
-
-/* Onboarding */
-.overlay-onb{ z-index: 120; }
-.onbPanel{ max-width:520px; }
 
 /* =========================
    TARGETS — EMOJI CRISP LAYER
@@ -306,7 +301,6 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   height: 92px;
   border-radius: 999px;
 
-  /* center */
   display:flex;
   align-items:center;
   justify-content:center;
@@ -315,16 +309,13 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 
-  /* PATCH: isolate so filters never leak to emoji */
   isolation:isolate;
 
-  /* PATCH 2B: smoother anim (no flash) */
   will-change: transform, opacity;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform-origin: center;
 
-  /* IMPORTANT: actual blur is moved to ::before (emoji stays crisp) */
   background: transparent;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -346,7 +337,6 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   z-index:0;
 }
 
-/* emoji on top — crisp */
 .fg-emoji{
   position:relative;
   z-index:2;
@@ -367,14 +357,54 @@ body.mini-urgent .questTop .questCard:nth-child(2){
   pointer-events:none;
 }
 
-/* good/wrong/junk rim via ::before (no emoji dim) */
+/* GOOD rim */
 .fg-good::before{
   border-color: rgba(34,197,94,.55);
   box-shadow: 0 0 0 6px rgba(34,197,94,.12), 0 12px 28px rgba(0,0,0,.35);
 }
+
+/* WRONG rim (base) */
 .fg-wrong::before{
-  border-color: rgba(59,130,246,.55);
-  box-shadow: 0 0 0 6px rgba(59,130,246,.12), 0 12px 28px rgba(0,0,0,.35);
+  border-color: rgba(59,130,246,.62);
+  box-shadow: 0 0 0 6px rgba(59,130,246,.14), 0 12px 28px rgba(0,0,0,.35);
+  background: radial-gradient(circle at 32% 28%,
+    rgba(59,130,246,.18),
+    rgba(15,23,42,.88) 62%);
+}
+
+/* ===== PATCH X: WRONG shimmer + wiggle (deceptive) ===== */
+.fg-wrong::after{
+  content:"";
+  position:absolute;
+  inset:10px;
+  border-radius:999px;
+  opacity:.26;
+  background:
+    repeating-linear-gradient(35deg,
+      rgba(59,130,246,.00) 0px,
+      rgba(59,130,246,.00) 9px,
+      rgba(59,130,246,.95) 9px,
+      rgba(59,130,246,.95) 13px);
+  mix-blend-mode: screen;
+  pointer-events:none;
+  z-index:1;
+  transform: translateX(-10px);
+  animation: wrongShimmer 0.95s linear infinite;
+}
+.fg-wrong{
+  animation: wrongWiggle 1.10s ease-in-out infinite;
+}
+@keyframes wrongShimmer{
+  0%   { transform: translateX(-14px) rotate(0deg); opacity:.18; }
+  50%  { transform: translateX( 14px) rotate(2deg); opacity:.28; }
+  100% { transform: translateX(-14px) rotate(0deg); opacity:.18; }
+}
+@keyframes wrongWiggle{
+  0%   { transform: translate(-50%,-50%) scale(var(--s,1)) rotate(0deg); }
+  25%  { transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.02)) rotate(-1.4deg); }
+  50%  { transform: translate(-50%,-50%) scale(var(--s,1)) rotate(1.4deg); }
+  75%  { transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.02)) rotate(-0.8deg); }
+  100% { transform: translate(-50%,-50%) scale(var(--s,1)) rotate(0deg); }
 }
 
 /* ===== PATCH 2A: JUNK DECOY LOOK (SCARY BUT CLEAN) ===== */
@@ -438,10 +468,4 @@ body.mini-urgent .questTop .questCard:nth-child(2){
 /* extra safety: never dim children */
 .fg-target, .fg-target *{
   filter: none !important;
-}
-
-/* mini start hint */
-body.fx-mini .questTop .questCard{
-  transform: translateY(-1px);
-  box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 18px 40px rgba(0,0,0,.35);
 }
