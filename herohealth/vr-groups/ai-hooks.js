@@ -1,122 +1,208 @@
-/* === /herohealth/vr-groups/ai-hooks.js ===
-AI Hooks bridge
-✅ attach({runMode, seed, enabled})
-✅ Applies DD suggestion to engine preset (safe + reversible)
-✅ Disabled in research/practice by caller
-*/
-(function(root){
+// === /herohealth/vr-groups/ai-hooks.js ===
+// GroupsVR — AI Hooks (2A: ML-ready data)
+// ✅ Collects shot/spawn/hit/miss telemetry (local)
+// ✅ Confusion matrix (targetGroup -> activeGroup when wrong)
+// ✅ Export JSON via window.GroupsVR.AIHooks.export()
+// ✅ Gated: only enabled when attach({enabled:true}) AND runMode==='play'
+// ❌ No network, no sheet, no research pollution
+
+(function(){
   'use strict';
-  const NS = root.GroupsVR = root.GroupsVR || {};
+  const WIN = window;
+  const DOC = document;
 
-  let ATTACHED = false;
-  let ENABLED = false;
-  let runMode = 'play';
+  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
+  const LS_KEY = 'HHA_GROUPS_AI_DATA_V1';
 
-  let base = null; // store original preset snapshot
-  let it = 0;
-  let lastDD = null;
+  function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-
-  function getEngine(){
-    return NS.GameEngine || (NS.GameEngine = null);
+  function safeParse(json, def){
+    try{ return JSON.parse(json); }catch{ return def; }
   }
 
-  function snapshotPreset(E){
+  // ---------- state ----------
+  const ST = {
+    on: false,
+    runMode: 'play',
+    seed: '',
+    startedAt: 0,
+
+    // rolling snapshot from HUD events (for feature extraction)
+    score: 0,
+    combo: 0,
+    miss: 0,
+    acc: 0,
+    left: 0,
+    storm: 0,
+    miniUrg: 0,
+    groupKey: '',
+    groupName: '',
+
+    // dataset
+    maxRows: 800,      // กันพอง
+    rows: [],          // event rows
+    confusion: {},     // {activeKey: {hitKey: count}}
+    lastExportAt: 0
+  };
+
+  function pushRow(row){
+    ST.rows.push(row);
+    if (ST.rows.length > ST.maxRows) ST.rows.shift();
+  }
+
+  function bumpConf(activeKey, seenKey){
+    if (!activeKey || !seenKey) return;
+    const a = (ST.confusion[activeKey] = ST.confusion[activeKey] || {});
+    a[seenKey] = (a[seenKey]||0) + 1;
+  }
+
+  function featureVec(){
+    // features ที่ “ML/DL ใช้ต่อ” (เบา + explainable)
+    return {
+      t: Math.round(nowMs()),
+      left: ST.left|0,
+      acc: ST.acc|0,
+      combo: ST.combo|0,
+      miss: ST.miss|0,
+      storm: ST.storm|0,
+      miniUrg: ST.miniUrg|0,
+      groupKey: String(ST.groupKey||''),
+      score: ST.score|0
+    };
+  }
+
+  function saveLocal(){
     try{
-      const p = E && E.cfg && E.cfg.preset;
-      if (!p) return null;
-      return {
-        baseSpawnMs: Number(p.baseSpawnMs),
-        targetSize: Number(p.targetSize),
-        wrongRate:  Number(p.wrongRate),
-        junkRate:   Number(p.junkRate),
-        stormEverySec: Number(p.stormEverySec),
-        stormLenSec: Number(p.stormLenSec),
-        bossHp: Number(p.bossHp),
-        powerThreshold: Number(p.powerThreshold),
-        goalTargets: Number(p.goalTargets),
-        goalsTotal: Number(p.goalsTotal)
+      const payload = {
+        v: 1,
+        updatedAt: new Date().toISOString(),
+        seed: ST.seed,
+        rows: ST.rows.slice(-ST.maxRows),
+        confusion: ST.confusion
       };
-    }catch(_){ return null; }
-  }
-
-  function restorePreset(E){
-    if (!base) return;
-    try{
-      const p = E.cfg.preset;
-      Object.keys(base).forEach(k=>{ p[k] = base[k]; });
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
     }catch(_){}
   }
 
-  function applyDD(E, dd){
-    if (!E || !E.cfg || !E.cfg.preset) return;
-    const p = E.cfg.preset;
-
-    if (!base) base = snapshotPreset(E);
-    if (!base) return;
-
-    // apply multipliers/deltas
-    const spawnMul = clamp(dd.spawnMul, 0.78, 1.22);
-    const sizeMul  = clamp(dd.sizeMul,  0.90, 1.15);
-    const lifeMul  = clamp(dd.lifeMul,  0.88, 1.18);
-    const wrongD   = clamp(dd.wrongDelta, -0.06, 0.06);
-    const junkD    = clamp(dd.junkDelta,  -0.06, 0.06);
-
-    p.baseSpawnMs = clamp(base.baseSpawnMs * spawnMul, 320, 980);
-    p.targetSize  = clamp(base.targetSize  * sizeMul,  0.86, 1.12);
-    p.wrongRate   = clamp(base.wrongRate + wrongD,     0.10, 0.55);
-    p.junkRate    = clamp(base.junkRate  + junkD,      0.06, 0.45);
-
-    // lifeMs อยู่ใน engine เป็นค่า runtime ต่อ spawn; เรา “ส่งนัย” ผ่านตัวคูณให้ engine ใช้ได้ในอนาคต
-    // เก็บไว้เป็นค่า property เพื่ออนาคต (ไม่ทำพัง)
-    p.__lifeMul = lifeMul;
+  function loadLocal(){
+    try{
+      const p = safeParse(localStorage.getItem(LS_KEY)||'null', null);
+      if (!p || p.v !== 1) return;
+      ST.rows = Array.isArray(p.rows) ? p.rows.slice(-ST.maxRows) : [];
+      ST.confusion = p.confusion || {};
+    }catch(_){}
   }
 
-  function onDDSuggest(ev){
-    if (!ENABLED) return;
-    lastDD = ev.detail || null;
+  // ---------- listeners ----------
+  let bound = false;
+  function bind(){
+    if (bound) return;
+    bound = true;
+
+    // HUD aggregates
+    WIN.addEventListener('hha:score', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      ST.score = Number(d.score ?? ST.score) || 0;
+      ST.combo = Number(d.combo ?? ST.combo) || 0;
+      ST.miss  = Number(d.misses ?? ST.miss) || 0;
+    }, {passive:true});
+
+    WIN.addEventListener('hha:time', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      ST.left = Math.max(0, Math.round(d.left ?? ST.left));
+    }, {passive:true});
+
+    WIN.addEventListener('hha:rank', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      ST.acc = Number(d.accuracy ?? ST.acc) || 0;
+    }, {passive:true});
+
+    WIN.addEventListener('quest:update', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      ST.groupKey  = String(d.groupKey || ST.groupKey || '');
+      ST.groupName = String(d.groupName || ST.groupName || '');
+      const leftMini = Number(d.miniTimeLeftSec || 0);
+      ST.miniUrg = (leftMini>0 && leftMini<=3) ? 1 : 0;
+    }, {passive:true});
+
+    WIN.addEventListener('groups:progress', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      if (d.kind === 'storm_on') ST.storm = 1;
+      if (d.kind === 'storm_off') ST.storm = 0;
+
+      // log progress events (storm/boss/switch/pressure)
+      pushRow({ type:'progress', at: Date.now(), seed: ST.seed, runMode: ST.runMode, detail: d, f: featureVec() });
+      saveLocal();
+    }, {passive:true});
+
+    // ✅ NEW events from engine (we'll add patch in groups.safe.js)
+    WIN.addEventListener('groups:spawn', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      pushRow({ type:'spawn', at: Date.now(), seed: ST.seed, runMode: ST.runMode, d, f: featureVec() });
+      saveLocal();
+    }, {passive:true});
+
+    WIN.addEventListener('groups:shot', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      pushRow({ type:'shot', at: Date.now(), seed: ST.seed, runMode: ST.runMode, d, f: featureVec() });
+      saveLocal();
+    }, {passive:true});
+
+    WIN.addEventListener('groups:hit', (ev)=>{
+      if (!ST.on) return;
+      const d = ev.detail||{};
+      // confusion: active groupKey (ที่ต้องยิง) vs seen groupKey (ของเป้าที่โดน)
+      if (d.kind === 'wrong' && d.activeKey && d.targetKey) bumpConf(d.activeKey, d.targetKey);
+
+      pushRow({ type:'hit', at: Date.now(), seed: ST.seed, runMode: ST.runMode, d, f: featureVec() });
+      saveLocal();
+    }, {passive:true});
   }
 
-  root.addEventListener('groups:dd_suggest', onDDSuggest, {passive:true});
+  // ---------- public API ----------
+  NS.AIHooks = NS.AIHooks || {};
 
-  function tick(){
-    if (!ENABLED) return;
-    const E = getEngine();
-    if (!E || !E.cfg || !E.cfg.preset) return;
-    if (!lastDD) return;
-    applyDD(E, lastDD);
-  }
+  NS.AIHooks.attach = function(cfg){
+    cfg = cfg || {};
+    ST.runMode = String(cfg.runMode || 'play');
+    ST.seed    = String(cfg.seed || '');
+    ST.on      = !!cfg.enabled && (ST.runMode === 'play'); // ✅ play only
 
-  function attach(opts){
-    opts = opts || {};
-    runMode = String(opts.runMode||'play');
-    ENABLED = !!opts.enabled && (runMode==='play');
-    ATTACHED = true;
+    if (ST.on){
+      ST.startedAt = nowMs();
+      loadLocal();
+      bind();
+      pushRow({ type:'ai_on', at: Date.now(), seed: ST.seed, runMode: ST.runMode, f: featureVec() });
+      saveLocal();
+    }
+  };
 
-    // start DDDirector if available
-    try{ NS.DDDirector && NS.DDDirector.start && NS.DDDirector.start(); }catch(_){}
+  NS.AIHooks.export = function(){
+    // คืน payload เป็น object ให้ปุ่ม Copy JSON เอาไปแปะได้
+    const payload = {
+      v: 1,
+      exportedAtIso: new Date().toISOString(),
+      seed: ST.seed,
+      runMode: ST.runMode,
+      rows: ST.rows.slice(),
+      confusion: ST.confusion
+    };
+    ST.lastExportAt = nowMs();
+    return payload;
+  };
 
-    clearInterval(it);
-    it = setInterval(tick, 900);
+  NS.AIHooks.reset = function(){
+    ST.rows = [];
+    ST.confusion = {};
+    try{ localStorage.removeItem(LS_KEY); }catch(_){}
+  };
 
-    return true;
-  }
-
-  function detach(){
-    const E = getEngine();
-    if (E && base) restorePreset(E);
-
-    ENABLED = false;
-    ATTACHED = false;
-    lastDD = null;
-
-    clearInterval(it); it = 0;
-
-    try{ NS.DDDirector && NS.DDDirector.stop && NS.DDDirector.stop(); }catch(_){}
-
-    return true;
-  }
-
-  NS.AIHooks = { attach, detach, getLastDD: ()=>lastDD };
-})(typeof window!=='undefined'?window:globalThis);
+})();
