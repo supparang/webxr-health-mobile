@@ -1,11 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run) [B FULL]
+GoodJunkVR RUN — PRODUCTION (Folder-run)
 ✅ CSS: ./goodjunk-vr.css
-✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
+✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Measures HUD + VRUI safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
-✅ Listens quest:update -> updates GOAL/MINI HUD + Missions peek
+✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ PATCH: mobile default HUD compact + safe calc fixed (no double safe-area)
 -->
 <!doctype html>
 <html lang="th">
@@ -46,7 +46,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) [B FULL]
     </div>
     <div class="right">
       <button class="gj-btn" id="btnMissions" type="button">Missions</button>
-      <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
+      <button class="gj-btn" id="btnHideHud" type="button">HUD</button>
       <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
     </div>
   </header>
@@ -130,7 +130,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) [B FULL]
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure + quest/update listener -->
+  <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -149,16 +149,34 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) [B FULL]
       const run  = qs('run','play');
       const diff = qs('diff','normal');
       const time = qs('time','80');
+
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
+
+      // ✅ Mobile default -> compact HUD (maximize playfield)
+      if(v === 'mobile' || v === 'auto'){
+        document.body.classList.add('hud-compact');
+      }
 
       btnBack?.addEventListener('click', ()=>{
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
       });
 
+      // ✅ Cycle HUD: compact -> full -> hidden -> compact
       btnHide?.addEventListener('click', ()=>{
-        document.body.classList.toggle('hud-hidden');
+        const b = document.body;
+
+        if(b.classList.contains('hud-hidden')){
+          b.classList.remove('hud-hidden');
+          b.classList.add('hud-compact');
+        }else if(b.classList.contains('hud-compact')){
+          b.classList.remove('hud-compact'); // full
+        }else{
+          b.classList.add('hud-hidden');
+        }
+
         setTimeout(updateSafe, 0);
+        setTimeout(updateSafe, 120);
       });
 
       function toggleMissions(){
@@ -169,76 +187,35 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) [B FULL]
           peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
           peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
         }
-        setTimeout(updateSafe, 0);
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ quest:update -> update HUD + Missions peek
-      function setTxt(id, v){
-        const el = document.getElementById(id);
-        if(el) el.textContent = String(v ?? '—');
-      }
-      window.addEventListener('quest:update', (ev)=>{
-        const d = ev?.detail || {};
-        if(d.goal){
-          setTxt('hud-goal', d.goal.name || '—');
-          setTxt('goalDesc', d.goal.sub || '—');
-          setTxt('hud-goal-cur', d.goal.cur ?? 0);
-          setTxt('hud-goal-target', d.goal.target ?? 0);
-        }
-        if(d.mini){
-          setTxt('hud-mini', d.mini.name || '—');
-          setTxt('miniTimer', d.mini.timerText || (d.mini.done ? 'ผ่านแล้ว' : '—'));
-        }
-        // refresh peek if open
-        if(document.body.classList.contains('show-missions')){
-          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
-          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
-        }
-      }, { passive:true });
-
-      // ✅ measure HUD + VRUI => set safe spawn vars used by goodjunk.safe.js getSafeRect()
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
+      // PATCH: fix double safe-area counting (use real rect positions)
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-
-      function getVRUIHeight(){
-        // try common selectors (vr-ui.js)
-        const sels = [
-          '#hha-vrui', '.hha-vrui', '.hha-vr-ui', '.vrui', '.vrui-root', '#vrui',
-          '.hha-vrui-root', '.hha-vrui-bar', '.hha-vrui-buttons'
-        ];
-        let h = 0;
-        for(const s of sels){
-          const el = document.querySelector(s);
-          if(el){
-            const r = el.getBoundingClientRect();
-            h = Math.max(h, r.height || 0);
-          }
-        }
-        return h;
-      }
-
       function updateSafe(){
         try{
-          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
-          const sab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
+          const root = document.documentElement;
 
-          const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
-          const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
-          const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
+          const topbarEl = document.getElementById('gjTopbar');
+          const hudTopEl = document.getElementById('gjHudTop');
+          const hudBotEl = document.getElementById('gjHudBot');
 
-          const vruiH = getVRUIHeight();
+          const topbar = topbarEl ? topbarEl.getBoundingClientRect() : { bottom: 0, height: 0 };
+          const hudTop = (hudTopEl && !document.body.classList.contains('hud-hidden')) ? hudTopEl.getBoundingClientRect() : { height: 0 };
+          const hudBot = (hudBotEl && !document.body.classList.contains('hud-hidden')) ? hudBotEl.getBoundingClientRect() : { height: 0 };
 
-          // top safe includes sat to prevent notch overlap
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + (document.body.classList.contains('hud-hidden') ? 0 : hudTop) + 14 + sat));
+          // VRUI height (optional) if vr-ui.js sets --hha-vrui-h
+          const vruiH = parseFloat(getComputedStyle(root).getPropertyValue('--hha-vrui-h')) || 0;
 
-          // bottom safe: HUD bottom + VRUI + thumb zone + sab
-          // (ให้แน่นทุกเครื่องกันเป้าไปชน ENTER VR/RECENTER)
-          const baseThumb = 110;
-          const hudPart = document.body.classList.contains('hud-hidden') ? 36 : (hudBot + 16);
-          const bottomSafe = Math.max(baseThumb, hudPart + vruiH + sab + 10);
+          // top safe = actual bottom of topbar + current visible HUD-top height + gap
+          const topSafe = (topbar.bottom || topbar.height || 0) + (hudTop.height || 0) + 10;
+          root.style.setProperty('--gj-top-safe', px(topSafe));
 
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(bottomSafe));
+          // bottom safe = HUD bottom + vrui bar + comfortable thumb buffer
+          const bottomSafe = Math.max(86, (hudBot.height || 0) + vruiH + 14);
+          root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
         }catch(_){}
       }
 
@@ -247,7 +224,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) [B FULL]
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
-      setInterval(updateSafe, 1500); // กัน VRUI โผล่ช้า/สลับโหมด
     })();
   </script>
 </body>
