@@ -1,12 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ A+B Win: win=both|survival|loop (default both)
-✅ QUEST: mini quest to spice up play
-✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-✅ Back HUB: ?hub=...
+✅ Views: pc/mobile/vr/cvr
+✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot
+✅ Engine: hygiene.safe.js
+✅ BOSS HP BAR (NEW)
 -->
 <!doctype html>
 <html lang="th">
@@ -59,7 +56,18 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box (optional hook) -->
+        <!-- ✅ NEW: Boss HP bar -->
+        <div class="hw-boss" id="bossBar" style="display:none" aria-label="Boss HP">
+          <div class="hw-boss-top">
+            <div class="hw-boss-title" id="bossTitle">🚨 BOSS: SOAP STORM</div>
+            <div class="hw-boss-sub" id="bossSub">ยิงให้ครบ…</div>
+          </div>
+          <div class="hw-boss-meter">
+            <div class="hw-boss-fill" id="bossFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -77,7 +85,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
           ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น<br>
-          <b>ชนะ A+B:</b> อยู่รอดครบเวลา (A) + ผ่านครบ 7 ขั้นตอนอย่างน้อย 1 รอบ (B)
+          <span style="opacity:.9">* มี BOSS 15 วิท้าย + เสียงเอฟเฟกต์ (ปิดได้ด้วย <code>&sfx=0</code>)</span>
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
