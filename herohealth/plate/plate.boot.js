@@ -1,12 +1,13 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCHED)
+// PlateVR Boot — PRODUCTION (HHA Standard)
 // ✅ Auto view detect (no UI override)
-// ✅ Default time = 90s (kid-friendly)
+// ✅ Default time=90s (unless ?time=...)
 // ✅ Loads engine from ./plate.safe.js
 // ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Flush-hardened (best effort) before leaving page
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -25,7 +26,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Allow force via ?view= for experiments only; no UI override menu.
+  // No menu override.
+  // Allow caller/system to force view by query (for experiments), but not via UI.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -75,6 +77,20 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
+/* ---------------- best-effort flush ---------------- */
+async function flushHard(reason='leave'){
+  try{
+    // If cloud logger exposes flush() use it
+    const L = WIN.HHA_CLOUD_LOGGER || WIN.__HHA_CLOUD_LOGGER__ || null;
+    if(L && typeof L.flush === 'function'){
+      await L.flush({ reason, game:'plate', ts: Date.now() });
+      return;
+    }
+    // fallback: emit a hint event (logger may listen)
+    WIN.dispatchEvent(new CustomEvent('hha:flush', { detail:{ reason, game:'plate', ts: Date.now() } }));
+  }catch{}
+}
+
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -104,23 +120,19 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
       if(goalSub)  goalSub.textContent  = g.sub  || '';
-
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
       if(miniSub)  miniSub.textContent  = m.sub  || '';
-
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
@@ -140,16 +152,25 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
+    btnRestart.addEventListener('click', async ()=>{
+      await flushHard('restart');
       location.reload(); // keep same query params
     });
   }
+
   if(btnBackHub){
-    btnBackHub.addEventListener('click', ()=>{
+    btnBackHub.addEventListener('click', async ()=>{
+      await flushHard('backhub');
       if(hub) location.href = hub;
       else history.back();
     });
   }
+
+  // global safety flush on close / navigation
+  WIN.addEventListener('pagehide', ()=>{ flushHard('pagehide'); });
+  DOC.addEventListener('visibilitychange', ()=>{
+    if(DOC.visibilityState === 'hidden') flushHard('hidden');
+  });
 }
 
 function wireEndSummary(){
@@ -162,7 +183,6 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
@@ -180,16 +200,16 @@ function wireEndSummary(){
 function buildEngineConfig(){
   const view = getViewAuto();
 
-  // standard params
-  const run  = (qs('run','play')||'play').toLowerCase();
-  const diff = (qs('diff','normal')||'normal').toLowerCase();
+  // runMode: play/research/study
+  const run  = (qs('run','play') || 'play').toLowerCase();
 
-  // ✅ DEFAULT time = 90
+  const diff = (qs('diff','normal') || 'normal').toLowerCase();
+
+  // ✅ default time=90
   const time = clamp(qs('time','90'), 10, 999);
 
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // research passthrough (optional)
   return {
     view,
     runMode: run,
@@ -197,10 +217,11 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // navigation / logging
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
+    // research passthrough (optional)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
