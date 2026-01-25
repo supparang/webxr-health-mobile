@@ -1,11 +1,4 @@
-<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (v1.5.0-prod)
-✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-✅ Back HUB: ?hub=...
--->
+<!-- === /herohealth/hygiene-vr/hygiene-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,16 +8,14 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260125a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260125b" />
 
-  <!-- Universal VR UI (defer กัน body null) -->
+  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- Optional shared helpers -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- Engine boot -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260125a"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260125b"></script>
 </head>
 
 <body class="view-pc">
@@ -62,6 +53,14 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
+
+        <!-- ✅ QUIZ BOX -->
+        <div class="hw-quiz" id="quizBox" style="display:none">
+          <div class="hw-quiz-q" id="quizQ">QUIZ</div>
+          <div class="hw-quiz-sub" id="quizSub">—</div>
+          <div class="hw-quiz-ans" id="quizAns"></div>
+          <div class="hw-quiz-hint" id="quizHint">ตอบให้ถูกเพื่อรับโบนัส 🛡️</div>
+        </div>
       </div>
 
       <div class="hw-banner" id="banner" aria-live="polite"></div>
@@ -82,9 +81,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-        <div class="hw-card-sub" style="margin-top:6px">
-          แนะนำเด็ก ป.5: <code>?kids=1</code> • เปิดเสียง: <code>?sfx=1</code>
         </div>
       </div>
     </div>
