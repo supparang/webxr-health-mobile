@@ -15,7 +15,7 @@ export function recordSession(gameId, summary) {
     const raw = localStorage.getItem(KEY);
     const list = raw ? JSON.parse(raw) : [];
     list.unshift(item);
-    const trimmed = list.slice(0, 100); // เก็บสูงสุด 100 รอบล่าสุด
+    const trimmed = list.slice(0, 100);
     localStorage.setItem(KEY, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('VRFitness: cannot save stats', e);
