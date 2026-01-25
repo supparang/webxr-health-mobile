@@ -1,17 +1,17 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + Targets (PRODUCTION)
-   HHA Standard
+   Balanced Plate VR — UI + FX (PRODUCTION)
+   HHA Standard (PATCH)
+   ✅ FIX: .plateTarget { position:absolute; } (targets will show!)
+   ✅ Safe spawn rect vars: --plate-top-safe/...
+   ✅ HUD doesn't block taps (pointer-events:none)
 ========================================================= */
 
 :root{
-  color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
-  --stroke2:rgba(148,163,184,.26);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
@@ -25,19 +25,22 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe area insets */
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* spawn safe (used by mode-factory.js) */
-  --plate-top-safe: calc(var(--sat) + 140px);      /* HUD height */
-  --plate-bottom-safe: calc(var(--sab) + 110px);   /* VR buttons */
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
+  /* ✅ spawn-safe rect (mode-factory reads these) */
+  --plate-top-safe: 150px;
+  --plate-bottom-safe: 26px;
+  --plate-left-safe: 14px;
+  --plate-right-safe: 14px;
 }
 
+/* ---------------------------------------------------------
+   Global
+--------------------------------------------------------- */
 *{ box-sizing:border-box; }
 
 html,body{
@@ -45,17 +48,15 @@ html,body{
   width:100%;
   height:100%;
   overflow:hidden;
-  background: radial-gradient(1200px 800px at 20% 20%, rgba(34,211,238,.08), transparent 60%),
-              radial-gradient(1000px 700px at 70% 30%, rgba(167,139,250,.08), transparent 65%),
-              var(--bg);
+  background:var(--bg);
   color:var(--text);
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{ position:relative; width:100%; height:100%; }
+#app{ width:100%; height:100%; }
 
 /* ---------------------------------------------------------
-   Playfield (targets spawn inside)
+   Spawn Layer (Targets)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -65,79 +66,74 @@ html,body{
   touch-action:none;
 }
 
-/* ---------------------------------------------------------
-   Target: circular + glow + emoji center
---------------------------------------------------------- */
+/* ✅ critical */
 .plateTarget{
-  position:absolute; /* ✅ IMPORTANT (so left/top works) */
+  position:absolute; /* FIX */
   display:grid;
   place-items:center;
   border-radius:999px;
+  font-size:28px;
+  font-weight:900;
   user-select:none;
   cursor:pointer;
 
   background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), transparent 38%),
-    rgba(2,6,23,.56);
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
+    rgba(2,6,23,.60);
 
-  border:1px solid var(--stroke2);
-
+  border:1px solid var(--stroke);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
     inset 0 1px 0 rgba(255,255,255,.08);
 
-  animation: pop .14s ease-out, floaty 2.1s ease-in-out infinite;
-  will-change: transform;
-}
-
-.plateTarget::after{
-  content:"";
-  position:absolute;
-  inset:-2px;
-  border-radius:inherit;
-  border:1px solid rgba(255,255,255,.08);
-  pointer-events:none;
-}
-
-.plateTarget .emoji{
-  font-size: 28px;
-  line-height: 1;
-  transform: translateZ(0);
-  filter: none;
-  text-shadow: 0 6px 22px rgba(0,0,0,.35);
+  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
 }
 
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.30);
+  border-color:rgba(34,197,94,.35);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(34,197,94,.18),
-    inset 0 1px 0 rgba(255,255,255,.08);
+    0 0 24px rgba(34,197,94,.18);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.32);
+  border-color:rgba(239,68,68,.35);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    0 0 24px rgba(239,68,68,.18),
-    inset 0 1px 0 rgba(255,255,255,.08);
-  animation-duration: 1.4s;
+    0 0 24px rgba(239,68,68,.18);
+  animation-duration:1.2s;
+}
+
+.fg-emoji{
+  line-height:1;
+  font-size:28px;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
+}
+.fg-label{
+  margin-top:2px;
+  font-size:10px;
+  font-weight:900;
+  color:rgba(226,232,240,.92);
+  opacity:.95;
+  letter-spacing:.2px;
+  text-shadow:0 2px 10px rgba(0,0,0,.35);
 }
 
 @keyframes pop{
-  0%{ transform: translate(-50%,-50%) scale(.86); opacity:0 }
-  100%{ transform: translate(-50%,-50%) scale(1); opacity:1 }
+  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
+  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
 
-/* float / wobble subtle (keep emoji readable) */
-@keyframes floaty{
-  0%{ transform: translate(-50%,-50%) translateY(0px); }
-  50%{ transform: translate(-50%,-50%) translateY(-3px); }
-  100%{ transform: translate(-50%,-50%) translateY(0px); }
+@keyframes wobble{
+  0%{ transform:translate(-50%,-50%) rotate(0deg) }
+  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
+  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
+  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
+  100%{ transform:translate(-50%,-50%) rotate(0deg) }
 }
 
 /* ---------------------------------------------------------
-   HUD
+   HUD (top) - doesn't block taps
 --------------------------------------------------------- */
 #hud{
   position:fixed;
@@ -145,106 +141,77 @@ html,body{
   left:0;
   right:0;
   z-index:40;
-  padding: calc(var(--sat) + 10px) calc(var(--sar) + 12px) 10px calc(var(--sal) + 12px);
-  pointer-events:none; /* HUD ไม่บังการยิง/แตะ */
+  padding: calc(var(--sat) + 12px) 12px 10px 12px;
+  pointer-events:none; /* ✅ don't block targets */
 }
 
 .hudRow{
   display:flex;
   gap:10px;
-  align-items:center;
-  pointer-events:none;
+  align-items:stretch;
+  flex-wrap:wrap;
 }
 
 .chip{
   pointer-events:none;
-  background: rgba(2,6,23,.62);
-  border: 1px solid var(--stroke);
-  border-radius: 16px;
-  padding: 10px 12px;
-  min-width: 92px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.22);
-  backdrop-filter: blur(10px);
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:92px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid var(--stroke);
+  background:rgba(2,6,23,.62);
+  backdrop-filter:blur(10px);
+  box-shadow:0 18px 60px rgba(0,0,0,.22);
 }
+.chip .lbl{ font-size:10px; font-weight:900; color:var(--muted); letter-spacing:.6px; }
+.chip .val{ font-size:18px; font-weight:1000; }
 
-.chip .lbl{
-  display:block;
-  font-weight:900;
-  letter-spacing:.06em;
-  font-size:11px;
-  color: rgba(229,231,235,.72);
-}
+.chip.score{ border-color:rgba(34,197,94,.28); }
+.chip.time{ border-color:rgba(34,211,238,.22); }
+.chip.combo{ border-color:rgba(167,139,250,.22); }
 
-.chip .val{
-  display:block;
-  font-weight:900;
-  font-size:18px;
-  margin-top:2px;
-}
-
-#questCard{
-  margin-top: 10px;
-  max-width: 520px;
-  pointer-events:none;
-}
-
+/* ---------------------------------------------------------
+   Quest card
+--------------------------------------------------------- */
 .card{
+  margin-top:10px;
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
+  padding:12px;
+  pointer-events:none;
+  max-width:520px;
 }
 
 .cardTitle{
   display:flex;
   justify-content:space-between;
+  align-items:center;
   gap:10px;
-  padding: 14px 14px 10px;
+  margin-bottom:10px;
 }
-
-.cardTitle .t{
-  font-weight:900;
-  font-size:16px;
-}
-
-.cardTitle .hint{
-  color: var(--muted);
-  font-weight:800;
-  font-size:12px;
-  align-self:center;
-}
+.cardTitle .t{ font-weight:1000; }
+.cardTitle .hint{ color:var(--muted); font-size:12px; font-weight:800; }
 
 .qItem{
   display:flex;
-  gap:12px;
   justify-content:space-between;
-  padding: 12px 14px;
-  border-top: 1px solid rgba(148,163,184,.10);
+  gap:10px;
+  align-items:center;
+  padding:10px;
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.45);
+  margin-top:10px;
 }
-
-.qText .name{
-  font-weight:900;
-  font-size:14px;
-}
-
-.qText .sub{
-  margin-top:4px;
-  color: var(--muted);
-  font-weight:800;
-  font-size:12px;
-}
-
-.qProg{
-  min-width: 140px;
-  text-align:right;
-}
-
-.qNums{
-  font-weight:900;
-  font-size:13px;
-  margin-bottom:8px;
-}
+.qText .name{ font-weight:1000; }
+.qText .sub{ color:var(--muted); font-size:12px; font-weight:800; margin-top:2px; }
+.qProg{ min-width:150px; text-align:right; }
+.qNums{ font-weight:1000; font-size:12px; color:rgba(226,232,240,.92); margin-bottom:6px; }
 
 .bar{
   height:10px;
@@ -252,13 +219,12 @@ html,body{
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
-
 .bar>i{
   display:block;
   height:100%;
   width:0%;
-  background: var(--accent);
-  transition: width .25s ease;
+  background:var(--accent);
+  transition:width .25s ease;
 }
 
 /* ---------------------------------------------------------
@@ -266,41 +232,29 @@ html,body{
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  left: calc(var(--sal) + 14px);
-  bottom: calc(var(--sab) + 120px);
+  left:12px;
+  bottom: calc(var(--sab) + 12px);
   z-index:60;
-  max-width: 520px;
+  max-width: min(520px, calc(100vw - 24px));
   opacity:0;
-  transform: translateY(6px);
+  transform:translateY(8px);
+  transition:opacity .18s ease, transform .18s ease;
   pointer-events:none;
 }
-
 #coachCard.show{
   opacity:1;
-  transform: translateY(0);
-  transition: opacity .15s ease, transform .15s ease;
+  transform:translateY(0);
 }
-
 #coachCard .inner{
-  background: rgba(2,6,23,.72);
-  border: 1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding: 12px 14px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 55px rgba(0,0,0,.25);
+  background:rgba(2,6,23,.78);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:18px;
+  padding:12px 14px;
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+  backdrop-filter:blur(10px);
 }
-
-#coachMsg{
-  font-weight:900;
-  font-size:14px;
-}
-
-#coachMeta{
-  margin-top:6px;
-  color: var(--muted);
-  font-weight:800;
-  font-size:12px;
-}
+#coachMsg{ font-weight:900; }
+#coachMeta{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:800; }
 
 /* ---------------------------------------------------------
    End Overlay
@@ -309,78 +263,59 @@ html,body{
   position:fixed;
   inset:0;
   z-index:80;
-  display:none;
+  display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
+  padding: calc(var(--sat) + 18px) 16px calc(var(--sab) + 18px) 16px;
+  background:rgba(2,6,23,.72);
+  backdrop-filter:blur(10px);
 }
-
-#endOverlay[aria-hidden="false"]{ display:flex; }
+#endOverlay[aria-hidden="true"]{ display:none; }
 
 .endPanel{
-  width:min(720px, 92vw);
-  border-radius: 22px;
-  background: rgba(2,6,23,.78);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 26px 90px rgba(0,0,0,.35);
-  padding: 16px;
+  width:min(720px, 100%);
+  background:rgba(2,6,23,.88);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:22px;
+  box-shadow:0 22px 90px rgba(0,0,0,.45);
+  padding:16px;
 }
-
 .endTitle{
   display:flex;
+  align-items:baseline;
   justify-content:space-between;
-  align-items:center;
-  gap:12px;
-  padding: 8px 6px 10px;
+  gap:10px;
 }
-
-.endTitle h2{
-  margin:0;
-  font-size: 28px;
-  font-weight: 1000;
-}
-
+.endTitle h2{ margin:0; font-size:22px; font-weight:1000; }
 .endTitle .tag{
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  font-weight: 900;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(15,23,42,.55);
+  font-weight:900;
+  font-size:12px;
+  color:rgba(226,232,240,.92);
 }
-
 .endGrid{
+  margin-top:12px;
   display:grid;
   grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 10px;
-  margin-top: 10px;
+  gap:10px;
 }
-
 .kpi{
-  border: 1px solid rgba(148,163,184,.12);
-  border-radius: 16px;
-  background: rgba(15,23,42,.40);
-  padding: 12px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.45);
+  border-radius:16px;
+  padding:10px;
 }
-
-.kpi .k{
-  color: var(--muted);
-  font-weight: 900;
-  font-size: 12px;
-}
-
-.kpi .v{
-  margin-top: 6px;
-  font-weight: 1000;
-  font-size: 18px;
-}
+.kpi .k{ color:var(--muted); font-size:12px; font-weight:900; }
+.kpi .v{ margin-top:4px; font-size:18px; font-weight:1000; }
 
 .endBtns{
   display:flex;
   gap:10px;
   justify-content:flex-end;
-  margin-top: 12px;
+  margin-top:14px;
 }
 
 .btn{
@@ -388,7 +323,7 @@ html,body{
   border:none;
   border-radius:999px;
   padding:10px 14px;
-  font-weight:900;
+  font-weight:1000;
   font-size:12px;
   cursor:pointer;
   color:var(--text);
@@ -396,21 +331,62 @@ html,body{
   border:1px solid rgba(148,163,184,.22);
   backdrop-filter:blur(10px);
 }
-
 .btn.primary{
   background:rgba(34,197,94,.18);
   border-color:rgba(34,197,94,.35);
 }
 
 /* ---------------------------------------------------------
-   Responsive tuning
+   FX layers (optional)
 --------------------------------------------------------- */
+#bossFx,#stormFx{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:55;
+  display:none;
+}
+#bossFx.boss-on{
+  display:block;
+  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+}
+#bossFx.boss-panic{ animation:pulseBad .25s infinite; }
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
+}
+@keyframes pulseBad{
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.25) }
+  100%{ filter:brightness(1) }
+}
+
+/* ---------------------------------------------------------
+   Responsive + view tuning => SAFE RECT
+--------------------------------------------------------- */
+body.view-pc{
+  --plate-top-safe: 158px;
+  --plate-bottom-safe: 24px;
+  --plate-left-safe: 14px;
+  --plate-right-safe: 14px;
+}
+body.view-mobile{
+  --plate-top-safe: 190px;
+  --plate-bottom-safe: 32px;
+  --plate-left-safe: 10px;
+  --plate-right-safe: 10px;
+}
+body.view-vr, body.view-cvr{
+  --plate-top-safe: 150px;
+  --plate-bottom-safe: 22px;
+  --plate-left-safe: 10px;
+  --plate-right-safe: 10px;
+}
+
 @media (max-width:900px){
-  :root{
-    --plate-top-safe: calc(var(--sat) + 160px);
-    --plate-bottom-safe: calc(var(--sab) + 120px);
-  }
-  #questCard{ max-width: 92vw; }
-  .plateTarget .emoji{ font-size: 26px; }
+  .plateTarget{ font-size:24px; }
+  .fg-emoji{ font-size:26px; }
   .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
