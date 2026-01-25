@@ -1,61 +1,67 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge helpers (HeroHealth Standard-ish)
-// Exports: ensureWaterGauge(), setWaterGauge(pct), zoneFrom(pct)
+// Water Gauge helpers — PRODUCTION
+// ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
+// ✅ Works with hydration-vr.html elements: #water-bar #water-pct #water-zone
 
 'use strict';
 
-const DOC = (typeof document !== 'undefined') ? document : null;
+const DOC = (typeof window !== 'undefined') ? window.document : null;
 
+function clamp(v, a, b){
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
+}
+
+// Zone thresholds (ปรับได้ง่าย)
 export function zoneFrom(pct){
-  const p = Math.max(0, Math.min(100, Number(pct)||0));
-  // ปรับ threshold ให้ “ออก GREEN ง่ายขึ้น” สำหรับ Storm mini
-  if (p < 47) return 'LOW';
-  if (p > 63) return 'HIGH';
+  const p = clamp(pct, 0, 100);
+
+  // GREEN ช่วงกลาง “พอจับได้” สำหรับเด็ก ป.5
+  // ถ้ายังรู้สึกยาก: ขยาย GREEN เป็น 42–68
+  const GREEN_LO = 45;
+  const GREEN_HI = 65;
+
+  if (p < GREEN_LO) return 'LOW';
+  if (p > GREEN_HI) return 'HIGH';
   return 'GREEN';
 }
 
-function qs(id){ return DOC ? DOC.getElementById(id) : null; }
+function gid(id){
+  try{ return DOC?.getElementById(id) || null; }catch(_){ return null; }
+}
+
+let cached = null;
 
 export function ensureWaterGauge(){
   if (!DOC) return;
+  if (cached) return cached;
 
-  // ถ้ามี panel อยู่แล้ว (Hydration HUD) ก็ไม่ต้องสร้างใหม่
-  if (qs('water-bar') && qs('water-pct') && qs('water-zone')) return;
+  const bar = gid('water-bar');
+  const pct = gid('water-pct');
+  const zone = gid('water-zone');
 
-  // fallback gauge (ถ้าเกมอื่นเรียกใช้แล้วไม่มี DOM)
-  const wrap = DOC.createElement('div');
-  wrap.id = 'hha-water-gauge';
-  wrap.style.cssText = `
-    position:fixed; left:12px; bottom:12px; z-index:9999;
-    width:220px; padding:10px 10px; border-radius:16px;
-    background:rgba(2,6,23,.72); border:1px solid rgba(148,163,184,.18);
-    backdrop-filter: blur(10px); color:#e5e7eb; font-family:system-ui;
-    box-shadow: 0 18px 60px rgba(0,0,0,.45);
-  `;
+  cached = { bar, pct, zone };
 
-  wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <div style="font-weight:900">Water</div>
-      <div style="font-weight:900">
-        <span id="water-pct">50</span><span style="opacity:.85;font-size:12px">%</span>
-      </div>
-    </div>
-    <div style="opacity:.9;font-size:12px;margin-top:2px">Zone <b id="water-zone">GREEN</b></div>
-    <div style="margin-top:8px;height:10px;border-radius:999px;background:rgba(148,163,184,.18);overflow:hidden;border:1px solid rgba(148,163,184,.12)">
-      <div id="water-bar" style="height:100%;width:50%;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95))"></div>
-    </div>
-  `;
-  DOC.body.appendChild(wrap);
+  // ตั้งค่า default ให้เห็นชัด
+  try{
+    if (bar && !bar.style.width) bar.style.width = '50%';
+    if (pct && !pct.textContent) pct.textContent = '50';
+    if (zone && !zone.textContent) zone.textContent = 'GREEN';
+  }catch(_){}
+
+  return cached;
 }
 
-export function setWaterGauge(pct){
+export function setWaterGauge(pctValue){
   if (!DOC) return;
-  const p = Math.max(0, Math.min(100, Number(pct)||0));
-  const bar = qs('water-bar');
-  const pctEl = qs('water-pct');
-  const zoneEl = qs('water-zone');
 
-  if (bar) bar.style.width = p.toFixed(0) + '%';
-  if (pctEl) pctEl.textContent = String(p|0);
-  if (zoneEl) zoneEl.textContent = zoneFrom(p);
+  const ui = ensureWaterGauge() || {};
+  const p = clamp(pctValue, 0, 100);
+  const z = zoneFrom(p);
+
+  try{
+    if (ui.bar) ui.bar.style.width = p.toFixed(0) + '%';
+    if (ui.pct) ui.pct.textContent = String(p|0);
+    if (ui.zone) ui.zone.textContent = z;
+  }catch(_){}
 }
