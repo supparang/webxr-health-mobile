@@ -1,11 +1,7 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (PATCH)
-// ✅ Auto view detect (no UI override)
-// ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only + robust KPI mapping (fix "summary = 0")
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// ✅ End summary robust (fix "summary = 0")
+// ✅ Default time=90 for ป.5
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -24,7 +20,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Allow force via ?view= (used in experiments) but NO UI menu
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -137,9 +132,7 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload();
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -149,7 +142,6 @@ function wireEndControls(){
   }
 }
 
-// ✅ robust getter (fix summary = 0)
 function pickNum(d, keys, def=0){
   for(const k of keys){
     const v = d?.[k];
@@ -171,12 +163,10 @@ function wireEndSummary(){
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
 
-    // score: prefer scoreFinal
     const score = pickNum(d, ['scoreFinal','scoreFinalNow','score'], 0);
     const combo = pickNum(d, ['comboMax','comboMaxFinal','combo'], 0);
     const miss  = pickNum(d, ['misses','miss','missCount'], 0);
 
-    // accuracy: engine sends accuracyGoodPct already in %
     const acc = d.accuracyGoodPct ?? d.accuracyPct ?? null;
 
     const goalsCleared = pickNum(d, ['goalsCleared'], 0);
@@ -205,7 +195,6 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ เวลา: 90 วินาทีเหมาะสุดเป็น default สำหรับ ป.5 (ไม่อึดเกิน/ไม่สั้นเกิน)
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
@@ -219,7 +208,6 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
