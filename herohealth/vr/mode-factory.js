@@ -1,11 +1,11 @@
 // === /herohealth/vr/mode-factory.js ===
-// PRODUCTION (HHA Standard)
-// ✅ deterministic rng
-// ✅ decorateTarget(el,target)
-// ✅ boss HP support (hp>1 => keep until hp=0)
-// ✅ spawnCustom() for patterns (storm/boss scripted)
-// ✅ getStats() for AI predictor
-// ✅ NEW: className support in spawnCustom
+// Spawn/Mode Factory — PRODUCTION
+// ✅ export boot()
+// ✅ Safe spawn rect via CSS vars (supports both --plate-*-safe and --hha-*-safe)
+// ✅ Tap targets + Crosshair shoot via vr-ui.js (hha:shoot)
+// ✅ decorateTarget(el, target) callback
+// ✅ Returns controller with setters for runtime tuning (spawnRate/weights/ttl/size)
+// ------------------------------------------------------------
 
 'use strict';
 
@@ -24,52 +24,92 @@ function seededRng(seed){
 
 function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-function readSafeVars(prefix='--plate-'){
+function readSafeVars(){
+  // Back-compat: plate-specific vars, plus generic hha vars
   const cs = getComputedStyle(DOC.documentElement);
-  const top = parseFloat(cs.getPropertyValue(prefix + 'top-safe')) || 0;
-  const bottom = parseFloat(cs.getPropertyValue(prefix + 'bottom-safe')) || 0;
-  const left = parseFloat(cs.getPropertyValue(prefix + 'left-safe')) || 0;
-  const right = parseFloat(cs.getPropertyValue(prefix + 'right-safe')) || 0;
+
+  const top =
+    parseFloat(cs.getPropertyValue('--hha-top-safe')) ||
+    parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
+
+  const bottom =
+    parseFloat(cs.getPropertyValue('--hha-bottom-safe')) ||
+    parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
+
+  const left =
+    parseFloat(cs.getPropertyValue('--hha-left-safe')) ||
+    parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
+
+  const right =
+    parseFloat(cs.getPropertyValue('--hha-right-safe')) ||
+    parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
+
   return { top, bottom, left, right };
 }
 
 function pickWeighted(rng, arr){
+  const a = Array.isArray(arr) ? arr : [];
+  if(!a.length) return { kind:'good', weight:1 };
+
   let sum = 0;
-  for(const it of arr) sum += (it.weight ?? 1);
+  for(const it of a) sum += (Number(it.weight ?? 1) || 0);
+  if(sum <= 0) return a[a.length-1];
+
   let x = rng() * sum;
-  for(const it of arr){
-    x -= (it.weight ?? 1);
+  for(const it of a){
+    x -= (Number(it.weight ?? 1) || 0);
     if(x <= 0) return it;
   }
-  return arr[arr.length-1];
+  return a[a.length-1];
 }
 
 export function boot({
   mount,
   seed = Date.now(),
-  spawnRate = 900,
-  sizeRange = [44,64],
+
+  // dynamic knobs
+  spawnRate = 900,              // ms between spawns (approx)
+  sizeRange = [44, 64],
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
+  ttlMs = { good: 2100, junk: 1700 },
+
+  // callbacks
   onHit = ()=>{},
   onExpire = ()=>{},
   decorateTarget = null,
+
+  // shooting
   cooldownMs = 90,
-  safePrefix = '--plate-',
+  lockPxDefault = 28,
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
+
+  // ---- internal mutable config (runtime tuning) ----
+  const CFG = {
+    spawnRate: Number(spawnRate) || 900,
+    sizeRange: Array.isArray(sizeRange) ? sizeRange.slice(0,2) : [44,64],
+    kinds: Array.isArray(kinds) ? kinds.map(x=>({ ...x })) : [{ kind:'good', weight:1 }],
+    ttlMs: {
+      good: Number(ttlMs?.good ?? 2100) || 2100,
+      junk: Number(ttlMs?.junk ?? 1700) || 1700,
+    },
+    cooldownMs: Number(cooldownMs) || 90,
+    lockPxDefault: Number(lockPxDefault) || 28,
+  };
+
   const state = {
     alive:true,
     lastSpawnAt:0,
-    spawnTimer:null,
+    tickTimer:null,
     targets:new Set(),
     cooldownUntil:0,
   };
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
-    const safe = readSafeVars(safePrefix);
+    const safe = readSafeVars();
     const left = r.left + safe.left;
     const top = r.top + safe.top;
     const right = r.right - safe.right;
@@ -80,6 +120,7 @@ export function boot({
   }
 
   function removeTarget(target){
+    if(!target) return;
     state.targets.delete(target);
     try{ target.el.remove(); }catch{}
   }
@@ -87,31 +128,23 @@ export function boot({
   function hit(target, meta){
     if(!state.alive) return;
     if(!state.targets.has(target)) return;
-
-    if((target.hp|0) > 1){
-      target.hp = (target.hp|0) - 1;
-      try{
-        target.el.dataset.hp = String(target.hp);
-        target.el.classList.add('hp-hit');
-        setTimeout(()=>target.el && target.el.classList && target.el.classList.remove('hp-hit'), 120);
-      }catch{}
-      onHit({ kind: target.kind, groupIndex: target.groupIndex, hpLeft: target.hp, partial:true, ...meta });
-      return;
-    }
-
     removeTarget(target);
-    onHit({ kind: target.kind, groupIndex: target.groupIndex, hpLeft: 0, partial:false, ...meta });
+    try{
+      onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
+    }catch{}
   }
 
   function onShoot(e){
     if(!state.alive) return;
+
     const d = e.detail || {};
     const t = now();
     if(t < state.cooldownUntil) return;
-    state.cooldownUntil = t + (Number(cooldownMs)||90);
+
+    state.cooldownUntil = t + (Number(d.cooldownMs) || CFG.cooldownMs);
 
     const x = Number(d.x), y = Number(d.y);
-    const lockPx = Number(d.lockPx || 28);
+    const lockPx = Number(d.lockPx || CFG.lockPxDefault);
     if(!isFinite(x) || !isFinite(y)) return;
 
     let best=null, bestDist=Infinity;
@@ -120,33 +153,36 @@ export function boot({
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
       const dist = Math.hypot(cx-x, cy-y);
-      if(dist <= lockPx && dist < bestDist){ bestDist = dist; best = target; }
+      if(dist <= lockPx && dist < bestDist){
+        bestDist = dist;
+        best = target;
+      }
     }
     if(best) hit(best, { source:'shoot' });
   }
 
   WIN.addEventListener('hha:shoot', onShoot);
 
-  function spawnAt(cx, cy, opts={}){
-    if(!state.alive) return null;
+  function spawnOne(){
+    if(!state.alive) return;
 
     const rect = computeSpawnRect();
-    if(rect.w < 80 || rect.h < 80) return null;
+    if(rect.w < 80 || rect.h < 80) return;
 
-    const kind = String(opts.kind || 'good');
-    const size = Math.round(Number(opts.size || (sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]))));
-    const ttlMs = Math.round(Number(opts.ttlMs ?? (kind === 'junk' ? 1700 : 2100)));
-    const hp = Math.max(1, Math.round(Number(opts.hp || 1)));
-    const className = String(opts.className || '').trim();
+    const minS = Number(CFG.sizeRange[0] ?? 44) || 44;
+    const maxS = Number(CFG.sizeRange[1] ?? 64) || 64;
+    const size = Math.round(minS + rng() * Math.max(1, (maxS - minS)));
 
     const pad = Math.max(10, Math.round(size * 0.55));
-    const x = Math.min(rect.right - pad, Math.max(rect.left + pad, cx));
-    const y = Math.min(rect.bottom - pad, Math.max(rect.top + pad, cy));
+    const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
+    const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
+
+    const chosen = pickWeighted(rng, CFG.kinds);
+    const kind = (chosen && chosen.kind) ? String(chosen.kind) : 'good';
 
     const el = DOC.createElement('div');
-    el.className = 'plateTarget' + (className ? ` ${className}` : '');
+    el.className = 'plateTarget';
     el.dataset.kind = kind;
-    if(hp > 1) el.dataset.hp = String(hp);
 
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
@@ -155,18 +191,20 @@ export function boot({
     el.style.transform = 'translate(-50%,-50%)';
 
     const target = {
-      el,
-      kind,
+      el, kind,
       bornAt: now(),
-      ttlMs,
-      groupIndex: (opts.groupIndex != null) ? Number(opts.groupIndex) : Math.floor(rng()*5),
+      ttlMs: (kind === 'junk') ? CFG.ttlMs.junk : CFG.ttlMs.good,
+      groupIndex: Math.floor(rng()*5), // 0..4
       size,
-      rng,
-      hp
+      rng, // expose rng for deterministic emoji picks
     };
+
     el.__hhaTarget = target;
 
-    try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
+    // decorate (emoji/icon) hook
+    try{
+      if(typeof decorateTarget === 'function') decorateTarget(el, target);
+    }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
@@ -180,59 +218,67 @@ export function boot({
       if(!state.alive) return;
       if(!state.targets.has(target)) return;
       removeTarget(target);
-      onExpire({ ...target });
-    }, ttlMs);
-
-    return target;
+      try{ onExpire({ ...target }); }catch{}
+    }, target.ttlMs);
   }
 
-  function spawnOne(){
-    const rect = computeSpawnRect();
-    if(rect.w < 80 || rect.h < 80) return;
-
-    const chosen = pickWeighted(rng, kinds);
-    const kind = chosen.kind || 'good';
-
-    const size = Math.round(sizeRange[0] + rng() * (sizeRange[1]-sizeRange[0]));
-    const pad = Math.max(10, Math.round(size * 0.55));
-    const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
-    const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
-
-    const ttlMs = (chosen.ttlMs != null) ? Number(chosen.ttlMs) : (kind === 'junk' ? 1700 : 2100);
-    const hp = (chosen.hp != null) ? Number(chosen.hp) : 1;
-
-    spawnAt(x, y, { kind, size, ttlMs, hp });
-  }
-
-  state.spawnTimer = setInterval(()=>{
+  state.tickTimer = setInterval(()=>{
     if(!state.alive) return;
     const t = now();
-    if(t - state.lastSpawnAt >= spawnRate){
+    if(t - state.lastSpawnAt >= CFG.spawnRate){
       state.lastSpawnAt = t;
       spawnOne();
     }
   }, 60);
 
-  return {
+  // ---- public controller (safe to use immediately) ----
+  const controller = {
     stop(){
       if(!state.alive) return;
       state.alive = false;
-      clearInterval(state.spawnTimer);
+      clearInterval(state.tickTimer);
       WIN.removeEventListener('hha:shoot', onShoot);
-      for(const target of state.targets){ try{ target.el.remove(); }catch{} }
+      for(const target of state.targets){
+        try{ target.el.remove(); }catch{}
+      }
       state.targets.clear();
     },
-    spawnCustom({ x, y, kind='good', size=null, ttlMs=null, groupIndex=null, hp=1, className='' }){
-      return spawnAt(Number(x), Number(y), { kind, size, ttlMs, groupIndex, hp, className });
+
+    // runtime tuning
+    setSpawnRate(ms){
+      CFG.spawnRate = Math.max(120, Number(ms)||CFG.spawnRate);
     },
-    getStats(){
-      return {
-        alive: state.alive,
-        activeCount: state.targets.size,
-        cooldownUntil: state.cooldownUntil
-      };
+    setSizeRange(min, max){
+      const a = Math.max(24, Number(min)||44);
+      const b = Math.max(a+1, Number(max)||64);
+      CFG.sizeRange = [a,b];
     },
-    computeSpawnRect,
-    rng
+    setTTL(goodMs, junkMs){
+      if(isFinite(goodMs)) CFG.ttlMs.good = Math.max(300, Number(goodMs));
+      if(isFinite(junkMs)) CFG.ttlMs.junk = Math.max(300, Number(junkMs));
+    },
+    setWeights(goodW, junkW){
+      // keeps same kinds but adjusts weights for good/junk
+      const gw = Math.max(0, Number(goodW));
+      const jw = Math.max(0, Number(junkW));
+      let hasGood=false, hasJunk=false;
+
+      for(const it of CFG.kinds){
+        if(it.kind === 'good'){ it.weight = gw; hasGood=true; }
+        if(it.kind === 'junk'){ it.weight = jw; hasJunk=true; }
+      }
+      if(!hasGood) CFG.kinds.push({ kind:'good', weight:gw });
+      if(!hasJunk) CFG.kinds.push({ kind:'junk', weight:jw });
+    },
+    setCooldown(ms){
+      CFG.cooldownMs = Math.max(40, Number(ms)||CFG.cooldownMs);
+    },
+
+    // inspect (optional)
+    getConfig(){
+      return JSON.parse(JSON.stringify(CFG));
+    }
   };
+
+  return controller;
 }
