@@ -1,13 +1,8 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HHA Standard)
+// PlateVR Boot — PRODUCTION
+// ✅ Default time: 90s (grade-5 friendly)
 // ✅ Auto view detect (no UI override)
-// ✅ Default time=90s (unless ?time=...)
 // ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
-// ✅ Flush-hardened (best effort) before leaving page
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -26,8 +21,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // No menu override.
-  // Allow caller/system to force view by query (for experiments), but not via UI.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -66,7 +59,6 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
-
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -75,20 +67,6 @@ function showCoach(msg, meta='Coach'){
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
   }, 2200);
-}
-
-/* ---------------- best-effort flush ---------------- */
-async function flushHard(reason='leave'){
-  try{
-    // If cloud logger exposes flush() use it
-    const L = WIN.HHA_CLOUD_LOGGER || WIN.__HHA_CLOUD_LOGGER__ || null;
-    if(L && typeof L.flush === 'function'){
-      await L.flush({ reason, game:'plate', ts: Date.now() });
-      return;
-    }
-    // fallback: emit a hint event (logger may listen)
-    WIN.dispatchEvent(new CustomEvent('hha:flush', { detail:{ reason, game:'plate', ts: Date.now() } }));
-  }catch{}
 }
 
 function wireHUD(){
@@ -152,25 +130,14 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', async ()=>{
-      await flushHard('restart');
-      location.reload(); // keep same query params
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
-
   if(btnBackHub){
-    btnBackHub.addEventListener('click', async ()=>{
-      await flushHard('backhub');
+    btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
       else history.back();
     });
   }
-
-  // global safety flush on close / navigation
-  WIN.addEventListener('pagehide', ()=>{ flushHard('pagehide'); });
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden') flushHard('hidden');
-  });
 }
 
 function wireEndSummary(){
@@ -199,29 +166,21 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
+  const run  = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // runMode: play/research/study
-  const run  = (qs('run','play') || 'play').toLowerCase();
-
-  const diff = (qs('diff','normal') || 'normal').toLowerCase();
-
-  // ✅ default time=90
+  // ✅ default time = 90
   const time = clamp(qs('time','90'), 10, 999);
-
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view,
-    runMode: run,
-    diff,
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // navigation / logging
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // research passthrough (optional)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -242,24 +201,15 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
-
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
