@@ -1,7 +1,6 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SPACIOUS (Fair+Fun Pack)
+GoodJunkVR UI — SPACIOUS (Fair Pack) (S)
 ✅ Gameplay area BIG (HUD compact)
-✅ Mobile default: body.hud-compact (คืนพื้นที่เล่น)
 ✅ Safe-area insets + top/bottom safe vars for spawn: --gj-top-safe / --gj-bottom-safe
 ✅ Supports: view-pc / view-mobile / view-vr / view-cvr
 ✅ HUD hide mode: body.hud-hidden
@@ -43,14 +42,11 @@ GoodJunkVR UI — SPACIOUS (Fair+Fun Pack)
   --topbar-h: 56px;
   --hud-gap: 10px;
   --card-pad: 10px;
-
-  /* target */
-  --t-shadow: 0 18px 55px rgba(0,0,0,.45);
-  --t-stroke: rgba(148,163,184,.22);
 }
 
 *{ box-sizing:border-box; }
 html,body{ width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:var(--bg); }
+
 body.gj{
   font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
   color:var(--text);
@@ -249,12 +245,14 @@ a-scene[embedded]{
   padding: 10px;
   pointer-events:none;
 }
+
 .meter-title{
   font-weight:1200;
   font-size:12px;
   letter-spacing:.35px;
   color: rgba(229,231,235,.92);
 }
+
 .meter-bar{
   margin-top:8px;
   height: 10px;
@@ -269,12 +267,14 @@ a-scene[embedded]{
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
 }
+
 .meter-num{
   margin-top:8px;
   font-size:12px;
   color: rgba(148,163,184,.92);
   font-weight:900;
 }
+
 .meter-shield{
   margin-top:8px;
   padding:8px 10px;
@@ -284,6 +284,7 @@ a-scene[embedded]{
   font-weight:1200;
   color: rgba(229,231,235,.95);
 }
+
 .meter-tip{
   margin-top:8px;
   font-size:11px;
@@ -299,6 +300,7 @@ a-scene[embedded]{
   z-index:10;
   pointer-events:auto;
 }
+
 .gj-layer,
 .gj-layer-r{
   position:absolute;
@@ -306,7 +308,6 @@ a-scene[embedded]{
   pointer-events:auto;
 }
 
-/* right-eye layer (optional) */
 .gj-layer-r{
   opacity:0;
   pointer-events:none;
@@ -322,8 +323,8 @@ body.view-cvr .gj-layer-r{
   user-select:none;
   -webkit-user-select:none;
   touch-action: manipulation;
-
   line-height:1;
+
   filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
   text-shadow: 0 10px 30px rgba(0,0,0,.35);
 
@@ -335,9 +336,11 @@ body.view-cvr .gj-layer-r{
   opacity: 1;
   will-change: transform;
 }
+
 .gj-target:active{
   transform: translate(-50%, -50%) scale(.98);
 }
+
 @keyframes gjPopIn{
   from{ transform: translate(-50%, -50%) scale(.72); opacity: .88; }
   to{ transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -349,36 +352,6 @@ body.view-cvr .gj-layer-r{
 /* cVR strict: disable pointer events so only crosshair shooting works */
 body.view-cvr .gj-target{
   pointer-events:none;
-}
-
-/* --- MISS low time overlay --- */
-.gj-lowtime-overlay{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:70;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .15s ease;
-}
-.gj-lowtime-overlay[aria-hidden="false"]{ opacity:1; }
-
-.gj-lowtime-ring{
-  width:min(260px, 62vw);
-  height:min(260px, 62vw);
-  border-radius: 999px;
-  border: 2px solid rgba(245,158,11,.45);
-  box-shadow: 0 0 0 12px rgba(245,158,11,.08);
-  background: radial-gradient(circle, rgba(245,158,11,.06), transparent 60%);
-}
-.gj-lowtime-num{
-  position:absolute;
-  font-size: clamp(54px, 10vw, 84px);
-  font-weight:1300;
-  color:#fff;
-  text-shadow: 0 18px 55px rgba(0,0,0,.55);
 }
 
 /* --- Missions Peek --- */
@@ -436,11 +409,6 @@ body.hud-hidden .gj-hud-bot{
   display:none !important;
 }
 
-/* ✅ MOBILE FIX: Compact HUD by default (คืนพื้นที่เล่น) */
-body.hud-compact .quest-row{ display:none !important; }
-body.hud-compact .gj-hud-bot{ grid-template-columns: 1fr; }
-body.hud-compact .meter-tip{ display:none; }
-
 /* --- Responsive tweaks --- */
 @media (max-width: 520px){
   :root{
@@ -466,44 +434,7 @@ body.hud-compact .meter-tip{ display:none; }
   }
 }
 
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce){
   .gj-target.spawn{ animation:none; }
   .gj-peek{ transition:none; }
-  .gj-lowtime-overlay{ transition:none; }
-}
-
-/* ===== FUN PACK FX ===== */
-.gj-target.telegraph-junk{
-  box-shadow: 0 0 0 10px rgba(239,68,68,.10);
-  border-color: rgba(239,68,68,.35);
-  background: rgba(239,68,68,.08);
-}
-@keyframes gjDangerPulse{
-  0%   { transform: translate(-50%,-50%) scale(.88); opacity:.92; }
-  70%  { transform: translate(-50%,-50%) scale(1.02); opacity:1; }
-  100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
-}
-.gj-target.telegraph-junk{
-  animation: gjDangerPulse 120ms ease-out both;
-}
-
-@keyframes gjHitPop{
-  from{ transform: translate(-50%,-50%) scale(1); }
-  to  { transform: translate(-50%,-50%) scale(1.06); }
-}
-.gj-target.hit-pop{
-  animation: gjHitPop 90ms ease-out both;
-}
-
-body.combo-hot .gj-chip{
-  border-color: rgba(34,197,94,.55);
-  box-shadow: 0 10px 30px rgba(34,197,94,.18);
-}
-body.combo-hot .hud-pill.grade{
-  border-color: rgba(34,197,94,.40);
-}
-
-body.lowtime .gj-hud-top{
-  filter: saturate(1.06);
 }
