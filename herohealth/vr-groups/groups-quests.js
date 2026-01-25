@@ -1,32 +1,53 @@
-/* === /herohealth/vr-groups/groups-quests.js ===
-Quest Templates — PRODUCTION
-✅ provides GroupsVR.Quests.getGoalText(groupName)
-✅ provides GroupsVR.Quests.getMiniText({need, forbidJunk, sec})
-*/
+// === /herohealth/vr-groups/groups-quests.js ===
+// Quests Helper — PRODUCTION (Safe / Non-breaking)
+// ✅ ไม่ไปยุ่ง engine logic (เพราะ groups.safe.js ทำ quest อยู่แล้ว)
+// ✅ ทำหน้าที่เป็น "ตัวช่วย" เก็บสถานะ goal/mini ล่าสุด + ส่ง event เสริมให้ UI/อนาคต
+// ✅ Safe: มีหรือไม่มีก็ไม่ทำให้เกมพัง
 
-(function(root){
+(function(){
   'use strict';
-  const NS = root.GroupsVR = root.GroupsVR || {};
+  const WIN = window;
+  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
 
-  const Quests = {
-    getGoalText(groupName){
-      return `ยิงให้ถูกหมู่ “${groupName}” ให้ได้ตามเป้าหมาย`;
-    },
-    getMiniText({need=5, forbidJunk=false, sec=9}={}){
-      if (forbidJunk) return `MINI: ให้ถูก ${need} ภายใน ${sec} วิ และห้ามโดนขยะ!`;
-      return `MINI: ให้ถูก ${need} ภายใน ${sec} วิ`;
-    },
-    // optional coach lines for variety (seeded usage later)
-    coachLines(){
-      return [
-        'หยุด-เล็ง-ยิง 👀',
-        'ดูชื่อหมู่ก่อนแล้วยิง ✅',
-        'ถ้าไม่แน่ใจ อย่ายิงมั่วนะ',
-        'คอมโบมาแล้ววว 🔥'
-      ];
-    }
+  const STATE = {
+    lastQuest: null,
+    lastGroupKey: '',
+    lastGoalPct: 0,
+    lastMiniPct: 0
   };
 
-  NS.Quests = Quests;
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+  }
 
-})(typeof window !== 'undefined' ? window : globalThis);
+  WIN.addEventListener('quest:update', (ev)=>{
+    const d = ev.detail || {};
+    STATE.lastQuest = d;
+
+    const gk = String(d.groupKey || '');
+    if (gk && gk !== STATE.lastGroupKey){
+      STATE.lastGroupKey = gk;
+      emit('groups:quest_info', { kind:'group_change', groupKey:gk, groupName:String(d.groupName||'') });
+    }
+
+    const gp = Number(d.goalPct ?? 0) || 0;
+    const mp = Number(d.miniPct ?? 0) || 0;
+
+    // milestones (optional)
+    if (gp >= 100 && STATE.lastGoalPct < 100){
+      emit('groups:quest_info', { kind:'goal_clear', goalIndex:d.goalIndex, goalsTotal:d.goalsTotal });
+    }
+    if (mp >= 100 && STATE.lastMiniPct < 100){
+      emit('groups:quest_info', { kind:'mini_clear' });
+    }
+
+    STATE.lastGoalPct = gp;
+    STATE.lastMiniPct = mp;
+
+  }, {passive:true});
+
+  NS.Quests = {
+    getLast(){ return STATE.lastQuest; }
+  };
+
+})();
