@@ -1,137 +1,189 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// AI hooks attach point (disabled by default; play only with ?ai=1)
-// Collects lightweight telemetry from events for future ML/DL training.
-// API:
-//   window.GroupsVR.AIHooks.attach({runMode, seed, enabled})
-//   window.GroupsVR.AIHooks.exportTelemetry()  -> JSON object
-//   window.GroupsVR.AIHooks.clearTelemetry()
+// AI Hooks + Telemetry (NO SHEET)
+// ✅ attach({runMode, seed, enabled})
+// ✅ exportTelemetry() -> { seed, runMode, frames:[...] }
+// ✅ setModel(model) / loadModel(url) (optional)
+//
+// frames: tick/event stream for ML/DL training
+// NOTE: By policy: disabled in research; gated by ?ai=1 in play (caller decides)
 
 (function(){
   'use strict';
-  const W = window;
-  const D = document;
-  const NS = W.GroupsVR = W.GroupsVR || {};
-  const AI = NS.AIHooks = NS.AIHooks || {};
+  const WIN = window;
+  const DOC = document;
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  WIN.GroupsVR = WIN.GroupsVR || {};
 
-  const STATE = {
-    on:false,
-    runMode:'play',
-    seed:'',
-    startedAt:0,
-    buf:[],           // telemetry frames
-    max: 600,         // ~ 8 นาที @ 800ms
-    last: { score:0, combo:0, miss:0, acc:0, left:0, group:'' }
+  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
+
+  // -------------------------
+  // Telemetry state
+  // -------------------------
+  const TEL = {
+    enabled: false,
+    runMode: 'play',
+    seed: '',
+    startIso: '',
+    frames: [],
+    maxFrames: 5000,
+
+    // last known game state snapshot
+    s: {
+      score: 0,
+      combo: 0,
+      miss: 0,
+      acc: 0,
+      left: 0,
+      storm: 0,
+      miniUrg: 0,
+      groupKey: '',
+      groupName: ''
+    }
   };
 
-  function pushFrame(extra){
-    if (!STATE.on) return;
-    const t = nowMs();
-    const f = Object.assign({
-      t,
-      score: STATE.last.score|0,
-      combo: STATE.last.combo|0,
-      miss:  STATE.last.miss|0,
-      acc:   STATE.last.acc|0,
-      left:  STATE.last.left|0,
-      group: String(STATE.last.group||'')
-    }, extra||{});
-    STATE.buf.push(f);
-    if (STATE.buf.length > STATE.max) STATE.buf.shift();
+  function pushFrame(f){
+    if (!TEL.enabled) return;
+    f.t = Number(f.t ?? nowMs());
+    TEL.frames.push(f);
+    if (TEL.frames.length > TEL.maxFrames) TEL.frames.shift();
   }
 
-  function onScore(ev){
-    const d = ev.detail||{};
-    STATE.last.score = Number(d.score ?? STATE.last.score) || 0;
-    STATE.last.combo = Number(d.combo ?? STATE.last.combo) || 0;
-    STATE.last.miss  = Number(d.misses ?? STATE.last.miss) || 0;
-  }
-  function onRank(ev){
-    const d = ev.detail||{};
-    STATE.last.acc = Number(d.accuracy ?? STATE.last.acc) || 0;
-  }
-  function onTime(ev){
-    const d = ev.detail||{};
-    STATE.last.left = Number(d.left ?? STATE.last.left) || 0;
-  }
-  function onQuest(ev){
-    const d = ev.detail||{};
-    STATE.last.group = String(d.groupKey || STATE.last.group || '');
-  }
+  // -------------------------
+  // Listen game events
+  // -------------------------
+  WIN.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail || {};
+    TEL.s.score = Number(d.score ?? TEL.s.score) || 0;
+    TEL.s.combo = Number(d.combo ?? TEL.s.combo) || 0;
+    TEL.s.miss  = Number(d.misses ?? TEL.s.miss) || 0;
+    pushFrame({ type:'score', score:TEL.s.score, combo:TEL.s.combo, miss:TEL.s.miss });
+  }, {passive:true});
 
-  function onAIPredict(ev){
-    // from groups-vr.html predictor: {r, missRate, acc, combo, left, storm, miniU, group}
-    const d = ev.detail||{};
-    pushFrame({
-      type:'ai_predict',
-      r: Number(d.r ?? 0),
-      missRate: Number(d.missRate ?? 0),
-      storm: Number(d.storm ?? 0),
-      miniU: Number(d.miniU ?? 0)
-    });
-  }
+  WIN.addEventListener('hha:time', (ev)=>{
+    const d = ev.detail || {};
+    TEL.s.left = Math.max(0, Math.round(Number(d.left ?? TEL.s.left) || 0));
+    pushFrame({ type:'time', left:TEL.s.left });
+  }, {passive:true});
 
-  function onProgress(ev){
-    const d = ev.detail||{};
+  WIN.addEventListener('hha:rank', (ev)=>{
+    const d = ev.detail || {};
+    TEL.s.acc = Number(d.accuracy ?? TEL.s.acc) || 0;
+    pushFrame({ type:'rank', acc:TEL.s.acc, grade:String(d.grade||'') });
+  }, {passive:true});
+
+  WIN.addEventListener('quest:update', (ev)=>{
+    const d = ev.detail || {};
+    TEL.s.groupKey  = String(d.groupKey || TEL.s.groupKey || '');
+    TEL.s.groupName = String(d.groupName|| TEL.s.groupName|| '');
+    const mLeft  = Number(d.miniTimeLeftSec||0);
+    TEL.s.miniUrg = (mLeft>0 && mLeft<=3) ? 1 : 0;
+    pushFrame({ type:'quest', groupKey:TEL.s.groupKey, groupName:TEL.s.groupName, miniUrg:TEL.s.miniUrg, miniLeft:mLeft });
+  }, {passive:true});
+
+  WIN.addEventListener('groups:progress', (ev)=>{
+    const d = ev.detail || {};
     const k = String(d.kind||'');
-    pushFrame({ type:'progress', k, level: d.level, why: d.why });
+    if (k === 'storm_on')  TEL.s.storm = 1;
+    if (k === 'storm_off') TEL.s.storm = 0;
+    pushFrame({ type:'progress', kind:k, storm:TEL.s.storm });
+  }, {passive:true});
+
+  WIN.addEventListener('hha:shoot', (ev)=>{
+    const d = ev.detail || {};
+    pushFrame({ type:'shoot', x:d.x, y:d.y, source:String(d.source||'') });
+  }, {passive:true});
+
+  // This is emitted by your predictor/tips block already (optional)
+  WIN.addEventListener('groups:ai_predict', (ev)=>{
+    const d = ev.detail || {};
+    pushFrame({ type:'ai_predict', r:d.r, missRate:d.missRate, acc:d.acc, combo:d.combo, left:d.left, storm:d.storm, miniU:d.miniU, group:d.group });
+  }, {passive:true});
+
+  WIN.addEventListener('hha:end', (ev)=>{
+    const d = ev.detail || {};
+    pushFrame({ type:'end', reason:String(d.reason||'end') });
+  }, {passive:true});
+
+  // -------------------------
+  // Tick sampler (important for DL)
+  // -------------------------
+  let tickIt = 0;
+  function startTick(){
+    stopTick();
+    tickIt = setInterval(()=>{
+      if (!TEL.enabled) return;
+      pushFrame({
+        type:'tick',
+        score: TEL.s.score|0,
+        combo: TEL.s.combo|0,
+        miss:  TEL.s.miss|0,
+        acc:   TEL.s.acc|0,
+        left:  TEL.s.left|0,
+        storm: TEL.s.storm|0,
+        miniUrg: TEL.s.miniUrg|0,
+        groupKey: TEL.s.groupKey||'',
+      });
+    }, 250); // 4 Hz พอสำหรับ DL-lite/MLP
+  }
+  function stopTick(){
+    clearInterval(tickIt);
+    tickIt = 0;
   }
 
-  AI.attach = function({runMode, seed, enabled}){
-    runMode = String(runMode||'play').toLowerCase();
-    seed = String(seed||'');
-    enabled = !!enabled;
+  // -------------------------
+  // Model store (DL weights)
+  // -------------------------
+  let MODEL = null;
 
-    // hard gate: research/practice OFF always
-    if (runMode !== 'play') enabled = false;
+  function setModel(model){
+    MODEL = model || null;
+  }
 
-    // also must pass ?ai=1 (your html already gates predictor, but keep safe)
-    const aiParam = String(qs('ai','0')||'0');
-    if (!(aiParam==='1' || aiParam==='true')) enabled = false;
+  async function loadModel(url){
+    const r = await fetch(url, { cache:'no-store' });
+    if (!r.ok) throw new Error('loadModel failed: ' + r.status);
+    const j = await r.json();
+    setModel(j);
+    return j;
+  }
 
-    STATE.on = enabled;
-    STATE.runMode = runMode;
-    STATE.seed = seed;
-    STATE.startedAt = nowMs();
-    STATE.buf.length = 0;
+  function getModel(){
+    return MODEL;
+  }
 
-    if (!STATE.on) return;
+  // -------------------------
+  // Public API
+  // -------------------------
+  function attach(opts){
+    opts = opts || {};
+    TEL.runMode = String(opts.runMode || 'play');
+    TEL.seed = String(opts.seed || '');
+    TEL.enabled = !!opts.enabled;
 
-    // bind listeners once per attach
-    W.addEventListener('hha:score', onScore, {passive:true});
-    W.addEventListener('hha:rank',  onRank,  {passive:true});
-    W.addEventListener('hha:time',  onTime,  {passive:true});
-    W.addEventListener('quest:update', onQuest, {passive:true});
-    W.addEventListener('groups:ai_predict', onAIPredict, {passive:true});
-    W.addEventListener('groups:progress', onProgress, {passive:true});
+    TEL.startIso = new Date().toISOString();
+    TEL.frames = [];
+    pushFrame({ type:'meta', startIso: TEL.startIso, runMode: TEL.runMode, seed: TEL.seed, ua: navigator.userAgent });
 
-    // periodic frame (features for future ML/DL)
-    const it = setInterval(()=>{
-      if (!STATE.on){ clearInterval(it); return; }
-      pushFrame({ type:'tick' });
-    }, 800);
+    if (TEL.enabled) startTick();
+    else stopTick();
+  }
 
-    pushFrame({ type:'attach', seed: STATE.seed });
-  };
-
-  AI.exportTelemetry = function(){
+  function exportTelemetry(){
     return {
-      gameTag:'GroupsVR',
-      seed: STATE.seed,
-      runMode: STATE.runMode,
-      startedAtMs: STATE.startedAt,
-      frames: STATE.buf.slice(0)
+      exportedAtIso: new Date().toISOString(),
+      seed: TEL.seed,
+      runMode: TEL.runMode,
+      frames: TEL.frames.slice(0)
     };
-  };
+  }
 
-  AI.clearTelemetry = function(){
-    STATE.buf.length = 0;
+  WIN.GroupsVR.AIHooks = {
+    attach,
+    exportTelemetry,
+    setModel,
+    loadModel,
+    getModel
   };
 
 })();
