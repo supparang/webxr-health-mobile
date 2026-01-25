@@ -34,12 +34,12 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- FX layers (optional) -->
+    <!-- Playfield -->
+    <div id="plate-layer" aria-label="playfield"></div>
+
+    <!-- FX layers (BOSS / STORM) -->
     <div id="bossFx" aria-hidden="true"></div>
     <div id="stormFx" aria-hidden="true"></div>
-
-    <!-- Playfield (targets spawn inside this rect) -->
-    <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
     <div id="hud" aria-label="hud">
@@ -55,6 +55,13 @@
         <div class="chip combo">
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
+        </div>
+
+        <!-- ✅ NEW: AI Danger Meter -->
+        <div class="chip ai" id="aiChip" title="AI คาดการณ์โอกาสพลาดในอีกไม่กี่วินาที">
+          <span class="lbl">AI</span>
+          <span class="val" id="hudAiPct">0%</span>
+          <span class="miniBar" aria-hidden="true"><i id="hudAiFill"></i></span>
         </div>
       </div>
 
@@ -122,7 +129,5 @@
       </div>
     </div>
   </div>
-
-  <!-- vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair automatically -->
 </body>
 </html>
