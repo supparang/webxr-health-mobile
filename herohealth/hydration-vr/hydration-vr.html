@@ -7,9 +7,6 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- Universal VR UI (Enter VR / Exit / Recenter + crosshair/tap-to-shoot -> hha:shoot) -->
-  <script src="../vr/vr-ui.js" defer></script>
-
   <!-- Global FX + optional logger -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
@@ -40,7 +37,6 @@
     html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     a{ color:inherit; }
 
-    /* Background soft glow */
     body::before{
       content:"";
       position:fixed; inset:0;
@@ -150,12 +146,8 @@
       touch-action:manipulation;
     }
     #hydration-layer{
-      position:absolute;
-      inset:0;
+      position:absolute; inset:0;
       pointer-events:auto;
-      z-index:20;
-      width:100%;
-      height:100%;
     }
 
     /* cardboard: split L/R */
@@ -169,13 +161,7 @@
     }
     .cbHalf.left{ left:0; }
     .cbHalf.right{ right:0; }
-    .cbLayer{
-      position:absolute; inset:0;
-      pointer-events:auto;
-      z-index:20;
-      width:100%;
-      height:100%;
-    }
+    .cbLayer{ position:absolute; inset:0; pointer-events:auto; }
     .cbHalf::before{
       content:"";
       position:absolute; inset:0;
@@ -193,9 +179,7 @@
     /* cVR (crosshair ยิงกลางจอ) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
-    body.view-cvr #hydration-layer{
-      pointer-events:none; /* สำคัญ: ยิงจากกลางจอ ไม่แตะเป้าโดยตรง */
-    }
+    body.view-cvr #hydration-layer{ pointer-events:none; } /* ยิงจากกลางจอ */
 
     .crosshair{
       position:fixed;
@@ -224,7 +208,7 @@
     }
     body.view-cvr .crosshair{ display:block; }
 
-    /* ---------- Start Overlay ---------- */
+    /* ---------- Start Overlay (tap to start only) ---------- */
     #startOverlay{
       position:fixed;
       inset:0;
@@ -246,10 +230,7 @@
       box-shadow: 0 24px 90px rgba(0,0,0,.55);
       padding:18px;
     }
-    .header{
-      display:flex; gap:14px; align-items:center;
-      margin-bottom:14px;
-    }
+    .header{ display:flex; gap:14px; align-items:center; margin-bottom:10px; }
     .logo{
       width:52px; height:52px; border-radius:14px;
       background:rgba(34,211,238,.12);
@@ -259,18 +240,13 @@
     }
     .title{ font-size:18px; font-weight:900; margin:0; }
     .sub{
-      margin:4px 0 0 0;
+      margin:6px 0 0 0;
       color:rgba(148,163,184,.95);
       font-size:13px;
       line-height:1.35;
       white-space:pre-line;
     }
-    .btnRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:14px;
-    }
+    .btnRow{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
     .btn{
       pointer-events:auto;
       appearance:none;
@@ -287,10 +263,6 @@
     .btn.primary{
       border-color: rgba(34,197,94,.26);
       background: rgba(34,197,94,.16);
-    }
-    .btn.cyan{
-      border-color: rgba(34,211,238,.26);
-      background: rgba(34,211,238,.12);
     }
     .btn.warn{
       border-color: rgba(245,158,11,.26);
@@ -326,9 +298,7 @@
       box-shadow: 0 24px 90px rgba(0,0,0,.55);
       padding:16px;
     }
-    .resultTop{
-      display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
-    }
+    .resultTop{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .resultTop h2{ margin:0; font-size:16px; font-weight:900; }
     .resultGrid{
       margin-top:12px;
@@ -351,31 +321,14 @@
       line-height:1.3;
     }
 
-    /* ---------------- FX HOOKS ---------------- */
-    body.hha-endfx{
-      animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
-    }
-    @keyframes endBlink{
-      0%,100%{ filter: brightness(1); }
-      50%{ filter: brightness(1.08) saturate(1.06); }
-    }
-    @keyframes endShake{
-      0%,100%{ transform: translate3d(0,0,0); }
-      50%{ transform: translate3d(0,1px,0); }
-    }
-
+    /* FX hooks */
+    body.hha-endfx{ animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite; }
+    @keyframes endBlink{ 0%,100%{ filter: brightness(1);} 50%{ filter: brightness(1.08) saturate(1.06);} }
+    @keyframes endShake{ 0%,100%{ transform: translate3d(0,0,0);} 50%{ transform: translate3d(0,1px,0);} }
     body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
-    @keyframes hitPulse{
-      0%{ filter: brightness(1); }
-      60%{ filter: brightness(1.12) saturate(1.10); }
-      100%{ filter: brightness(1); }
-    }
-
+    @keyframes hitPulse{ 0%{ filter: brightness(1);} 60%{ filter: brightness(1.12) saturate(1.10);} 100%{ filter: brightness(1);} }
     body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
-    @keyframes bossFlash{
-      0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
-      50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); }
-    }
+    @keyframes bossFlash{ 0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0);} 50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04);} }
 
     .hha-shock{
       position:absolute;
@@ -394,24 +347,6 @@
     @keyframes shock{
       0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; }
       100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
-    }
-
-    /* ================================
-       ✅ PATCH: FORCE TARGET VISIBLE
-       ================================ */
-    #hydration-layer, #hydration-layerL, #hydration-layerR{
-      position:absolute !important;
-      inset:0 !important;
-      width:100% !important;
-      height:100% !important;
-      z-index:20 !important;
-    }
-    #playfield .hvr-target, #cbPlayfield .hvr-target{
-      z-index:30 !important;
-      opacity:1 !important;
-      display:flex !important;
-      visibility:visible !important;
-      transform:translate(-50%,-50%) scale(1) !important;
     }
   </style>
 </head>
@@ -486,34 +421,26 @@
     <div style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
-  <!-- START OVERLAY -->
+  <!-- START OVERLAY (tap to start only) -->
   <div id="startOverlay">
     <div class="card">
       <div class="header">
         <div class="logo">💧</div>
         <div>
           <p class="title">HeroHealth — Hydration VR</p>
-          <p class="sub">เลือกโหมดการเล่นให้ตรงอุปกรณ์
-• PC: เมาส์/คลิก
-• Mobile: แตะหน้าจอ
-• VR Cardboard: จอแยกซ้าย–ขวา + fullscreen/landscape (best-effort)
-• cVR: crosshair กลางจอ + แตะเพื่อยิง (เหมาะกับ Cardboard แบบ strict ยิงจากกลางจอ)</p>
+          <p class="sub" id="start-sub">กำลังตรวจจับอุปกรณ์…</p>
         </div>
       </div>
 
       <div class="btnRow">
-        <button class="btn" id="btnPC">🖥️ PC</button>
-        <button class="btn" id="btnMobile">📱 Mobile</button>
-        <button class="btn primary" id="btnCardboard">🕶️ VR Cardboard (Split)</button>
-        <button class="btn cyan" id="btnCVR">🎯 cVR (Crosshair ยิงกลางจอ)</button>
-        <button class="btn warn btnBackHub">🏠 Back HUB</button>
+        <button class="btn primary" id="btnStart">▶️ Tap to Start</button>
+        <button class="btn warn" id="btnBackHub">🏠 Back HUB</button>
       </div>
 
-      <div class="note">
-ทิปผ่าน Stage:
+      <div class="note" id="start-note">
 Stage1) คุม GREEN ให้ครบเวลาที่กำหนด (สะสม)
-Stage2) ผ่าน Storm Mini อย่างน้อย 1 พายุ: ทำให้น้ำไม่ GREEN (LOW/HIGH) + BLOCK ช่วง End Window และห้ามโดน BAD ตอนพายุ
-Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss Window) จะมี 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบตามจำนวน
+Stage2) ผ่าน Storm Mini อย่างน้อย 1 พายุ: ต้อง “ไม่ GREEN” (LOW/HIGH) + BLOCK ช่วง End Window และห้ามโดน BAD ระหว่างพายุ
+Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss Window) จะมี 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบ
       </div>
     </div>
   </div>
@@ -564,46 +491,74 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     </div>
   </div>
 
-  <!-- View select + fullscreen helper -->
+  <!-- Minimal start + hub + cVR shoot helper -->
   <script>
   (function(){
     const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
     const hub = String(qs('hub','../hub.html'));
+    const btnBack = document.getElementById('btnBackHub');
+    const overlay = document.getElementById('startOverlay');
+    const sub = document.getElementById('start-sub');
 
+    btnBack?.addEventListener('click', ()=> location.href = hub);
     document.querySelectorAll('.btnBackHub').forEach(btn=>{
       btn.addEventListener('click', ()=> location.href = hub);
     });
 
-    async function enterFull(){
+    function getView(){ return String(qs('view','')).toLowerCase(); }
+
+    // show detected view text (loader will set body class)
+    function viewLabel(){
+      const b = document.body;
+      if (b.classList.contains('cardboard')) return 'VR Cardboard (Split)';
+      if (b.classList.contains('view-cvr')) return 'cVR (Crosshair ยิงกลางจอ)';
+      if (b.classList.contains('view-mobile')) return 'Mobile';
+      return 'PC';
+    }
+
+    async function enterFullIfNeeded(){
       try{
-        const el = document.documentElement;
-        if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({navigationUI:'hide'});
+        const v = getView();
+        const b = document.body;
+        const isMobile = matchMedia && matchMedia('(pointer:coarse)').matches;
+        const want = (v==='cardboard' || v==='cvr' || b.classList.contains('cardboard') || b.classList.contains('view-cvr'));
+        if (!want) return;
+        // fullscreen + landscape best-effort (ต้องมาจาก gesture)
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen){
+          await document.documentElement.requestFullscreen({navigationUI:'hide'});
+        }
+        if (isMobile && screen.orientation && screen.orientation.lock){
+          try{ await screen.orientation.lock('landscape'); }catch(_){}
+        }
       }catch(_){}
-      try{
-        if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-      }catch(_){}
     }
 
-    async function go(view){
-      if (view === 'cardboard' || view === 'cvr'){
-        await enterFull();
-      }
-      const u = new URL(location.href);
-      u.searchParams.set('view', view);
-      if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
-      location.href = u.toString();
+    // cVR: tap anywhere => emit hha:shoot (ยิงจากกลางจอ)
+    function bindCVRShoot(){
+      const pf = document.getElementById('playfield');
+      if (!pf) return;
+      pf.addEventListener('pointerdown', (ev)=>{
+        try{
+          if (!document.body.classList.contains('view-cvr')) return;
+          window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'tap' } }));
+        }catch(_){}
+      }, {passive:true});
     }
+    bindCVRShoot();
 
-    document.getElementById('btnPC')?.addEventListener('click', ()=>go('pc'));
-    document.getElementById('btnMobile')?.addEventListener('click', ()=>go('mobile'));
-    document.getElementById('btnCardboard')?.addEventListener('click', ()=>go('cardboard'));
-    document.getElementById('btnCVR')?.addEventListener('click', ()=>go('cvr'));
+    // Start button => hide overlay + start game (also allow audio/fullscreen)
+    document.getElementById('btnStart')?.addEventListener('click', async ()=>{
+      await enterFullIfNeeded();
+      overlay?.classList.add('hide');
+      try{ window.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
+    });
 
-    const view = String(qs('view','')).toLowerCase();
-    if (view){
-      document.getElementById('startOverlay')?.classList.add('hide');
-      window.dispatchEvent(new CustomEvent('hha:start'));
+    // Update subtitle once body class ready
+    function refreshText(){
+      if (sub) sub.textContent = `โหมดตรวจจับแล้ว: ${viewLabel()}  •  แตะเพื่อเริ่ม`;
     }
+    setTimeout(refreshText, 120);
+    setTimeout(refreshText, 520);
   })();
   </script>
 
