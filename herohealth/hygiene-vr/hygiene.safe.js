@@ -1,19 +1,18 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard)
-// ✅ Emoji targets (7 steps)
-// ✅ SCORE + QUEST + MINI QUIZ
-// ✅ A) Boss Phase "เชื้อระบาด" + Boss Bar + Shield 🛡️
-// ✅ B) Badges/Unlock (localStorage + events)
-// Emits: hha:start, hha:time, hha:judge, hha:end, hha:badge, hha:unlock
+// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Coach/DD hooks)
+// ✅ Targets: emoji (good/wrong/haz)
+// ✅ HUD counters: step/hits/combo/miss/risk/time/quest
+// ✅ Supports crosshair shooting via hha:shoot for VR/cVR (and optional mobile)
+// ✅ Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
+// ✅ Emits: hha:start, hha:time, hha:judge, hha:end
+
 'use strict';
 
 const WIN = window;
 const DOC = document;
 
-const LS_LAST   = 'HHA_LAST_SUMMARY';
-const LS_HIST   = 'HHA_SUMMARY_HISTORY';
-const LS_BADGES = 'HHA_BADGES';
-const LS_UNLOCK = 'HHA_UNLOCKS';
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
 const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
@@ -23,160 +22,52 @@ function makeRNG(seed){
   let x = (Number(seed)||Date.now()) >>> 0;
   return ()=> (x = (1664525*x + 1013904223) >>> 0) / 4294967296;
 }
-function loadJson(key, fb){ try{ const s = localStorage.getItem(key); return s? JSON.parse(s): fb; }catch{ return fb; } }
-function saveJson(key, obj){ try{ localStorage.setItem(key, JSON.stringify(obj)); }catch{} }
+
+function loadJson(key, fb){
+  try{ const s = localStorage.getItem(key); return s? JSON.parse(s): fb; }catch{ return fb; }
+}
+function saveJson(key, obj){
+  try{ localStorage.setItem(key, JSON.stringify(obj)); }catch{}
+}
+
 function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
 function nowMs(){ return performance.now ? performance.now() : Date.now(); }
 
-// ------------------ Steps ------------------
+function copyText(text){
+  try{ return navigator.clipboard?.writeText(String(text)).catch(()=>{}); }catch{ return Promise.resolve(); }
+}
+
+// ------------------ Steps (emoji mapping) ------------------
 const STEPS = [
-  { key:'palm',  icon:'🫧', label:'ฝ่ามือ', hitsNeed:6 },
-  { key:'back',  icon:'🤚', label:'หลังมือ', hitsNeed:6 },
-  { key:'gaps',  icon:'🧩', label:'ซอกนิ้ว', hitsNeed:6 },
-  { key:'knuck', icon:'👊', label:'ข้อนิ้ว', hitsNeed:6 },
-  { key:'thumb', icon:'👍', label:'หัวแม่มือ', hitsNeed:6 },
-  { key:'nails', icon:'💅', label:'ปลายนิ้ว/เล็บ', hitsNeed:6 },
-  { key:'wrist', icon:'⌚', label:'ข้อมือ', hitsNeed:6 },
+  { key:'palm',  icon:'🫧', label:'ฝ่ามือ', hitsNeed:6, tip:'ถูฝ่ามือวน ๆ ให้ทั่ว' },
+  { key:'back',  icon:'🤚', label:'หลังมือ', hitsNeed:6, tip:'สลับมือ ถูหลังมือให้ทั่ว' },
+  { key:'gaps',  icon:'🧩', label:'ซอกนิ้ว', hitsNeed:6, tip:'ประสานนิ้ว ถูซอกนิ้ว' },
+  { key:'knuck', icon:'👊', label:'ข้อนิ้ว', hitsNeed:6, tip:'ถูข้อพับนิ้วกับฝ่ามือ' },
+  { key:'thumb', icon:'👍', label:'หัวแม่มือ', hitsNeed:6, tip:'กำหัวแม่มือแล้วถูวน' },
+  { key:'nails', icon:'💅', label:'ปลายนิ้ว/เล็บ', hitsNeed:6, tip:'ขัดปลายนิ้ว/เล็บกับฝ่ามือ' },
+  { key:'wrist', icon:'⌚', label:'ข้อมือ', hitsNeed:6, tip:'ถูรอบข้อมือทั้งสองข้าง' },
 ];
+const ICON_HAZ = '🦠';
 
-const ICON_HAZ    = '🦠';
-const ICON_SHIELD = '🛡️';
-
-// ------------------ QUESTS ------------------
-const QUEST_POOL = [
-  { id:'streak',    label:'คอมโบติดกัน', pick:(rng)=> ({ n: rng()<0.5 ? 8 : 10 }) },
-  { id:'cleanloop', label:'ครบ 1 รอบแบบสะอาด', pick:()=> ({}) },
-  { id:'speedstep', label:'ผ่านขั้นภายในเวลา', pick:(rng)=> ({ sec: rng()<0.5 ? 8 : 10 }) },
-];
-
-// ------------------ SCORE RULES ------------------
-const SCORE_RULES = {
-  good: 10,
-  stepClear: 30,
-  loopClear: 80,
-  quizCorrect: 40,
-  questComplete: 60,
-  bossSurvive: 120,
-  shieldPick: 20,
-
-  wrong: -12,
-  haz: -18,
-  quizWrong: -10
-};
-
-function popText(x,y,text,kind){
-  try{
-    if(WIN.Particles && typeof WIN.Particles.popText === 'function'){
-      WIN.Particles.popText(x,y,String(text), kind||'good');
-    }
-  }catch{}
-}
-function setFx(cls){
-  try{
-    DOC.body.classList.remove('fx-good','fx-warn','fx-bad');
-    DOC.body.classList.add(cls);
-    clearTimeout(setFx._t);
-    setFx._t = setTimeout(()=> DOC.body.classList.remove('fx-good','fx-warn','fx-bad'), 160);
-  }catch{}
-}
-
-// ------------------ SFX (WebAudio) ------------------
-function makeSfx(enabled){
-  let ctx=null;
-  function ensure(){
-    if(!enabled) return null;
-    if(ctx) return ctx;
-    try{
-      const AC = WIN.AudioContext || WIN.webkitAudioContext;
-      if(!AC) return null;
-      ctx = new AC();
-      return ctx;
-    }catch{ return null; }
-  }
-  async function unlock(){
-    const c = ensure();
-    if(!c) return;
-    try{ if(c.state === 'suspended') await c.resume(); }catch{}
-  }
-  function tone(freq, ms, type='sine', gain=0.05){
-    const c = ensure();
-    if(!c) return;
-    try{
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.type = type;
-      o.frequency.value = freq;
-      g.gain.value = gain;
-      o.connect(g); g.connect(c.destination);
-      o.start();
-      o.stop(c.currentTime + (ms/1000));
-    }catch{}
-  }
-  return {
-    unlock,
-    good(){ tone(740, 70, 'triangle', 0.06); },
-    step(){ tone(880, 110, 'triangle', 0.07); },
-    quest(){ tone(988, 140, 'sine', 0.08); },
-    quizOk(){ tone(660, 90, 'square', 0.05); tone(880, 90, 'square', 0.05); },
-    shield(){ tone(520, 110, 'triangle', 0.07); },
-    bad(){ tone(220, 110, 'sawtooth', 0.05); },
-    haz(){ tone(160, 140, 'sawtooth', 0.06); },
-    boss(){ tone(140, 160, 'sawtooth', 0.06); tone(120, 160, 'sawtooth', 0.05); },
-  };
-}
-
-// ------------------ Badges/Unlock (fallback) ------------------
-function getBadgeStore(){
-  const s = loadJson(LS_BADGES, {});
-  return (s && typeof s === 'object') ? s : {};
-}
-function getUnlockStore(){
-  const s = loadJson(LS_UNLOCK, {});
-  return (s && typeof s === 'object') ? s : {};
-}
-function unlockBadge(id, title, icon){
-  const store = getBadgeStore();
-  if(store[id]) return false;
-  store[id] = { id, title, icon, unlockedAt: nowIso() };
-  saveJson(LS_BADGES, store);
-  emit('hha:badge', { id, title, icon });
-  return true;
-}
-function unlockFeature(id, title, icon){
-  const store = getUnlockStore();
-  if(store[id]) return false;
-  store[id] = { id, title, icon, unlockedAt: nowIso() };
-  saveJson(LS_UNLOCK, store);
-  emit('hha:unlock', { id, title, icon });
-  return true;
-}
-
-// ------------------ Engine ------------------
+// ------------------ Boot ------------------
 export function boot(){
   const stage = DOC.getElementById('stage');
   if(!stage) return;
 
   // UI handles
-  const pillStep = DOC.getElementById('pillStep');
-  const pillHits = DOC.getElementById('pillHits');
-  const pillScore= DOC.getElementById('pillScore');
-  const pillCombo= DOC.getElementById('pillCombo');
-  const pillMiss = DOC.getElementById('pillMiss');
-  const pillRisk = DOC.getElementById('pillRisk');
-  const pillTime = DOC.getElementById('pillTime');
-  const pillQuest= DOC.getElementById('pillQuest');
-  const hudSub   = DOC.getElementById('hudSub');
-  const banner   = DOC.getElementById('banner');
+  const pillStep  = DOC.getElementById('pillStep');
+  const pillHits  = DOC.getElementById('pillHits');
+  const pillCombo = DOC.getElementById('pillCombo');
+  const pillMiss  = DOC.getElementById('pillMiss');
+  const pillRisk  = DOC.getElementById('pillRisk');
+  const pillTime  = DOC.getElementById('pillTime');
+  const pillQuest = DOC.getElementById('pillQuest');
+  const hudSub    = DOC.getElementById('hudSub');
+  const banner    = DOC.getElementById('banner');
 
-  const quizBox  = DOC.getElementById('quizBox');
-  const quizQ    = DOC.getElementById('quizQ');
-  const quizSub  = DOC.getElementById('quizSub');
-
-  // Boss UI
-  const bossBar  = DOC.getElementById('bossBar');
-  const bossText = DOC.getElementById('bossText');
-  const bossTime = DOC.getElementById('bossTime');
-  const bossFill = DOC.getElementById('bossFill');
+  const quizBox = DOC.getElementById('quizBox');
+  const quizQ   = DOC.getElementById('quizQ');
+  const quizSub = DOC.getElementById('quizSub');
 
   const startOverlay = DOC.getElementById('startOverlay');
   const endOverlay   = DOC.getElementById('endOverlay');
@@ -185,8 +76,8 @@ export function boot(){
   const endJson      = DOC.getElementById('endJson');
 
   // controls
-  const btnStart   = DOC.getElementById('btnStart');
-  const btnRestart = DOC.getElementById('btnRestart');
+  const btnStart     = DOC.getElementById('btnStart');
+  const btnRestart   = DOC.getElementById('btnRestart');
   const btnPlayAgain = DOC.getElementById('btnPlayAgain');
   const btnCopyJson  = DOC.getElementById('btnCopyJson');
   const btnPause     = DOC.getElementById('btnPause');
@@ -203,128 +94,91 @@ export function boot(){
   const seed = Number(qs('seed', Date.now()));
   const rng = makeRNG(seed);
 
-  const sfxOn = (qs('sfx','1') !== '0');
-  const SFX = makeSfx(sfxOn);
+  const coachOn = (qs('coach','1') !== '0');
+  const ddOn    = (qs('dd','1') !== '0');
 
-  // base difficulty
+  // base difficulty presets
   const base = (()=> {
-    if(diff==='easy') return { spawnPerSec:1.8, hazardRate:0.09, decoyRate:0.18 };
-    if(diff==='hard') return { spawnPerSec:2.6, hazardRate:0.14, decoyRate:0.26 };
-    return { spawnPerSec:2.2, hazardRate:0.12, decoyRate:0.22 };
+    if(diff==='easy') return { spawnPerSec:1.75, hazardRate:0.08, decoyRate:0.18 };
+    if(diff==='hard') return { spawnPerSec:2.55, hazardRate:0.14, decoyRate:0.26 };
+    return { spawnPerSec:2.20, hazardRate:0.12, decoyRate:0.22 };
   })();
+
+  const bounds = {
+    spawnPerSec:[1.2, 4.2],
+    hazardRate:[0.06, 0.26],
+    decoyRate:[0.10, 0.40]
+  };
+
+  // Optional AI (if your packs exist)
+  const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
+  const dd = (ddOn && WIN.HHA_DD) ? WIN.HHA_DD.create({ seed, runMode, base, bounds }) : null;
 
   // state
   let running=false, paused=false;
   let tStartMs=0, tLastMs=0;
   let timeLeft = timePlannedSec;
 
-  let stepIdx=0, hitsInStep=0, loopsDone=0;
+  let stepIdx=0;
+  let hitsInStep=0;
+  let loopsDone=0;
+
   let combo=0, comboMax=0;
-  let wrongStepHits=0, hazHits=0;
+  let wrongStepHits=0;
+  let hazHits=0;
+
   const missLimit = 3;
 
-  let correctHits=0, totalStepHits=0;
-  const rtOk = [];
+  let correctHits=0;
+  let totalStepHits=0; // correct + wrong (only step targets)
+  const rtOk = []; // ms
 
-  // SCORE
-  let score=0;
-  let scoreGain=0, scoreLose=0;
+  let spawnAcc=0;
 
-  // QUEST
-  let quest=null;
-  let questDone=0;
-  let questStartMs=0;
-  let cleanLoopOk=true;
-  let questCompleted=0;
+  // quest (สื่อสารการเล่นให้เด็กป.5 ชัดขึ้น)
+  // Quest: "ครบ 7 ขั้นตอน 1 รอบโดยไม่พลาด (ไม่โดน haz และไม่กดผิด)"
+  let questTargetLoops = 1;
+  let questOkThisLoop = true; // reset each 7-step loop
 
-  // QUIZ
-  let quizActive=false;
-  let quizCorrectStep=-1;
-  let quizEndsMs=0;
-  let quizCorrect=0, quizWrong=0;
-
-  // Boss Phase
-  let bossActive=false;
-  let bossStartMs=0;
-  let bossEndsMs=0;
-  let nextBossAtSec=0;
-  let bossSurvived=0;
-  let bossClean=true; // survive without mistake during boss
-
-  // Shield
-  let shieldUntilMs=0; // if > now => shield active
-  let shieldBlocks=0;  // blocks count
-
-  // targets
+  // active targets: {id, el, kind, stepIdx, bornMs, x, y}
   const targets = [];
   let nextId=1;
-  let spawnAcc=0;
 
   function showBanner(msg){
     if(!banner) return;
     banner.textContent = msg;
     banner.classList.add('show');
     clearTimeout(showBanner._t);
-    showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1300);
-  }
-  function showQuiz(on, title='', sub=''){
-    if(!quizBox) return;
-    quizBox.style.display = on ? 'block' : 'none';
-    if(quizQ) quizQ.textContent = title || '🧠 MINI QUIZ';
-    if(quizSub) quizSub.textContent = sub || '';
+    showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
-  function addScore(delta, label=''){
-    const before = score;
-    score = Math.max(0, (score + (delta|0)));
-    if(delta>0) scoreGain += delta;
-    if(delta<0) scoreLose += (-delta);
-    popText(WIN.innerWidth*0.5, WIN.innerHeight*0.20, `${delta>0?'+':''}${delta} ${label}`.trim(), delta>=0?'good':'bad');
-    if(before !== score) setHud();
+  function showTip(){
+    if(!quizBox || !quizQ || !quizSub) return;
+    const s = STEPS[stepIdx];
+    quizQ.textContent = `TIP ขั้น ${stepIdx+1}/7 ${s.icon} ${s.label}`;
+    quizSub.textContent = s.tip || 'ทำให้ถูกจุด แล้วคอมโบจะยาว!';
+    quizBox.style.display = 'block';
+    clearTimeout(showTip._t);
+    showTip._t = setTimeout(()=>{ quizBox.style.display='none'; }, 2200);
   }
 
-  function getSpawnRect(){
-    const w = WIN.innerWidth, h = WIN.innerHeight;
-    const cs = getComputedStyle(DOC.documentElement);
-    const topSafe = parseFloat(cs.getPropertyValue('--hw-top-safe')) || 130;
-    const bottomSafe = parseFloat(cs.getPropertyValue('--hw-bottom-safe')) || 120;
-    const pad = 14;
-    return { x0:pad, x1:w-pad, y0:topSafe+pad, y1:h-bottomSafe-pad, w, h };
+  function getMissCount(){
+    // hygiene: miss = wrong step hits + hazard hits (นับง่ายและแฟร์)
+    return (wrongStepHits + hazHits);
   }
 
-  function getMissCount(){ return (wrongStepHits + hazHits); }
-  function getStepAcc(){ return totalStepHits ? (correctHits / totalStepHits) : 0; }
-  function elapsedSec(){ return running ? ((nowMs() - tStartMs)/1000) : 0; }
-  function shieldOn(){ return nowMs() < shieldUntilMs; }
-
-  function questText(){
-    if(!quest) return 'QUEST —';
-    if(quest.id==='streak') return `QUEST: คอมโบ ${questDone}/${quest.n}`;
-    if(quest.id==='cleanloop') return `QUEST: รอบสะอาด ${questDone}/1`;
-    if(quest.id==='speedstep') return `QUEST: ผ่านขั้นใน ${quest.sec}s (${questDone}/1)`;
-    return `QUEST —`;
+  function getStepAcc(){
+    return totalStepHits ? (correctHits / totalStepHits) : 0;
   }
 
-  function setBossUI(){
-    if(!bossBar) return;
-    if(!bossActive){
-      bossBar.style.display = 'none';
-      return;
-    }
-    bossBar.style.display = 'block';
-    const left = Math.max(0, (bossEndsMs - nowMs())/1000);
-    if(bossText) bossText.textContent = shieldOn() ? '🦠 เชื้อระบาด! (🛡️ โล่ทำงาน)' : '🦠 เชื้อระบาด!';
-    if(bossTime) bossTime.textContent = `${Math.ceil(left)}s`;
-    const total = Math.max(0.001, (bossEndsMs - bossStartMs));
-    const prog = clamp((nowMs() - bossStartMs)/total, 0, 1);
-    if(bossFill) bossFill.style.width = `${(prog*100).toFixed(1)}%`;
+  function elapsedSec(){
+    return running ? ((nowMs() - tStartMs)/1000) : 0;
   }
 
   function setHud(){
     const s = STEPS[stepIdx];
     pillStep && (pillStep.textContent = `STEP ${stepIdx+1}/7 ${s.icon} ${s.label}`);
     pillHits && (pillHits.textContent = `HITS ${hitsInStep}/${s.hitsNeed}`);
-    pillScore && (pillScore.textContent = `SCORE ${score}`);
     pillCombo && (pillCombo.textContent = `COMBO ${combo}`);
     pillMiss && (pillMiss.textContent = `MISS ${getMissCount()} / ${missLimit}`);
 
@@ -334,55 +188,14 @@ export function boot(){
 
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
+
+    // quest
+    if(pillQuest){
+      const ok = questOkThisLoop ? 'OK' : 'BROKEN';
+      pillQuest.textContent = `QUEST รอบปลอดพลาด: ${loopsDone}/${questTargetLoops} • ${ok}`;
+    }
+
     hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
-    pillQuest && (pillQuest.textContent = questText());
-
-    setBossUI();
-  }
-
-  function newQuest(){
-    const pick = QUEST_POOL[Math.floor(rng()*QUEST_POOL.length)];
-    quest = Object.assign({ id: pick.id }, pick.pick(rng));
-    questDone = 0;
-    questStartMs = nowMs();
-    if(quest.id==='cleanloop') cleanLoopOk = true;
-    showBanner(`🎯 QUEST: ${pick.label}!`);
-    setHud();
-  }
-
-  function completeQuest(){
-    if(!quest) return;
-    questCompleted++;
-    SFX.quest();
-    setFx('fx-good');
-    addScore(SCORE_RULES.questComplete, 'QUEST');
-    showBanner('🏆 QUEST สำเร็จ! +BONUS');
-    quest = null;
-    questDone = 0;
-    questStartMs = 0;
-    setTimeout(()=>{ if(running && !paused) newQuest(); }, 900);
-    setHud();
-  }
-
-  function questOnGoodHit(){
-    if(!quest) return;
-    if(quest.id==='streak'){
-      questDone = Math.min(quest.n, combo);
-      if(questDone >= quest.n) completeQuest();
-    }
-  }
-  function questOnMistake(){
-    if(bossActive) bossClean = false;
-    if(quest && quest.id==='cleanloop') cleanLoopOk = false;
-  }
-  function questOnStepClear(stepClearMs){
-    if(!quest) return;
-    if(quest.id==='speedstep'){
-      if(stepClearMs/1000 <= quest.sec){
-        questDone = 1;
-        completeQuest();
-      }
-    }
   }
 
   function clearTargets(){
@@ -392,29 +205,19 @@ export function boot(){
     }
   }
 
-  function createTarget(kind, emoji, stepRef){
-    const el = DOC.createElement('button');
-    el.type='button';
-    el.className = `hw-tgt ${kind}`;
-    el.innerHTML = `<span class="emoji">${emoji}</span>`;
-    el.dataset.id = String(nextId);
-    stage.appendChild(el);
+  // spawn safe rect
+  function getSpawnRect(){
+    const w = WIN.innerWidth, h = WIN.innerHeight;
+    const cs = getComputedStyle(DOC.documentElement);
+    const topSafe = parseFloat(cs.getPropertyValue('--hw-top-safe')) || 130;
+    const bottomSafe = parseFloat(cs.getPropertyValue('--hw-bottom-safe')) || 120;
+    const pad = 14;
 
-    const rect = getSpawnRect();
-    const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
-    const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
+    const x0 = pad, x1 = w - pad;
+    const y0 = topSafe + pad;
+    const y1 = h - bottomSafe - pad;
 
-    el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
-    el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
-    el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
-
-    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
-    targets.push(obj);
-
-    if(view !== 'cvr'){
-      el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'), { passive:true });
-    }
-    return obj;
+    return { x0, x1, y0, y1, w, h };
   }
 
   function removeTarget(obj){
@@ -423,33 +226,42 @@ export function boot(){
     obj.el?.remove();
   }
 
-  function getParams(){
-    // boss boost
-    if(!bossActive) return base;
-    return {
-      spawnPerSec: clamp(base.spawnPerSec * 1.85, 1.2, 5.0),
-      hazardRate: clamp(base.hazardRate + 0.16, 0.05, 0.42),
-      decoyRate: clamp(base.decoyRate + 0.08, 0.08, 0.45),
-      shieldRate: 0.10 // chance of shield spawn during boss
-    };
+  function createTarget(kind, emoji, stepRef){
+    const el = DOC.createElement('button');
+    el.type='button';
+    el.className = `hw-tgt ${kind}`;
+    el.innerHTML = `<span class="emoji">${emoji}</span>`;
+    el.dataset.id = String(nextId);
+
+    stage.appendChild(el);
+
+    const rect = getSpawnRect();
+    const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
+    const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
+
+    el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
+    el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
+    el.style.setProperty('--s', (0.92 + rng()*0.22).toFixed(3));
+
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
+    targets.push(obj);
+
+    // click/tap works for pc/mobile; VR/cVR will rely on hha:shoot (crosshair)
+    if(view === 'pc' || view === 'mobile'){
+      el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'), { passive:true });
+    }
+    return obj;
   }
 
   function spawnOne(){
-    if(quizActive) return;
-    const P = getParams();
     const s = STEPS[stepIdx];
+    const P = dd ? dd.getParams() : base;
+
     const r = rng();
-
-    // boss shield
-    if(bossActive && r < (P.shieldRate||0)){
-      return createTarget('shield', ICON_SHIELD, -2);
-    }
-
-    // decide type
-    const r2 = rng();
-    if(r2 < P.hazardRate){
+    if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
-    }else if(r2 < P.hazardRate + P.decoyRate){
+    }else if(r < P.hazardRate + P.decoyRate){
+      // wrong step emoji (not current)
       let j = stepIdx;
       for(let k=0;k<6;k++){
         const pick = Math.floor(rng()*STEPS.length);
@@ -471,10 +283,12 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // cVR aim-from-center
+  // crosshair shooting: aim from center, choose nearest target within lockPx
   function onShoot(e){
     if(!running || paused) return;
-    if(view !== 'cvr') return;
+
+    // allow for VR + cVR (และถ้าจะให้ mobile ยิงได้ด้วยก็ปล่อยไว้)
+    if(view !== 'vr' && view !== 'cvr' && view !== 'mobile') return;
 
     const d = (e && e.detail) || {};
     const lockPx = Number(d.lockPx||28);
@@ -495,79 +309,6 @@ export function boot(){
     }
   }
 
-  function startMiniQuiz(){
-    if(quizActive) return;
-    if(bossActive) return;         // ❗ช่วงบอสไม่เปิด quiz
-    if(rng() > 0.22) return;
-
-    quizActive = true;
-    clearTargets();
-
-    quizCorrectStep = stepIdx;
-    quizEndsMs = nowMs() + 4500;
-
-    showQuiz(true, '🧠 MINI QUIZ', 'ยิง/แตะ “ขั้นที่ถูกต้องตอนนี้” ให้ทันเวลา!');
-    showBanner('🧠 QUIZ! เลือกให้ถูก!');
-
-    const options = [quizCorrectStep];
-    while(options.length < 3){
-      const p = Math.floor(rng()*STEPS.length);
-      if(!options.includes(p)) options.push(p);
-    }
-    for(let i=options.length-1;i>0;i--){
-      const j = Math.floor(rng()*(i+1));
-      [options[i], options[j]] = [options[j], options[i]];
-    }
-    options.forEach(si=> createTarget('quiz', STEPS[si].icon, si));
-  }
-
-  function endMiniQuiz(success){
-    quizActive = false;
-    showQuiz(false);
-    clearTargets();
-
-    if(success){
-      quizCorrect++;
-      SFX.quizOk();
-      setFx('fx-good');
-      addScore(SCORE_RULES.quizCorrect, 'QUIZ');
-      showBanner('✅ ตอบถูก! +SCORE');
-    }else{
-      showBanner('⏳ หมดเวลา! ไปต่อ…');
-    }
-    setHud();
-  }
-
-  function startBoss(){
-    bossActive = true;
-    bossStartMs = nowMs();
-    bossEndsMs = bossStartMs + 10000; // 10s
-    bossClean = true;
-
-    if(bossBar) bossBar.style.display = 'block';
-    SFX.boss();
-    setFx('fx-bad');
-    showBanner('🦠 BOSS: เชื้อระบาด! หลบให้รอด + เก็บโล่!');
-    setHud();
-  }
-
-  function endBoss(){
-    bossActive = false;
-    if(bossBar) bossBar.style.display = 'none';
-
-    bossSurvived++;
-    if(bossClean){
-      addScore(SCORE_RULES.bossSurvive, 'BOSS');
-      showBanner('🏁 รอดบอสแบบสะอาด! +BONUS');
-      setFx('fx-good');
-    }else{
-      showBanner('🏁 ผ่านบอส! (มีพลาดนิดหน่อย)');
-    }
-    // schedule next boss
-    nextBossAtSec = elapsedSec() + (18 + Math.floor(rng()*10)); // 18–27s
-    setHud();
-  }
-
   function checkFail(){
     if(getMissCount() >= missLimit){
       endGame('fail');
@@ -577,47 +318,6 @@ export function boot(){
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
 
-    // shield pickup
-    if(obj.kind === 'shield'){
-      removeTarget(obj);
-      shieldUntilMs = nowMs() + 6000; // 6s
-      SFX.shield();
-      setFx('fx-good');
-      addScore(SCORE_RULES.shieldPick, 'SHIELD');
-      showBanner('🛡️ โล่สบู่! กันเชื้อได้ 6 วินาที');
-      emit('hha:judge', { kind:'shield', rtMs: rt, source, extra });
-      setHud();
-      return;
-    }
-
-    // QUIZ mode
-    if(quizActive){
-      const picked = obj.stepIdx;
-      removeTarget(obj);
-
-      if(picked === quizCorrectStep){
-        endMiniQuiz(true);
-      }else{
-        quizWrong++;
-        wrongStepHits++;
-        combo = 0;
-
-        SFX.bad();
-        setFx('fx-warn');
-        addScore(SCORE_RULES.quizWrong, 'QUIZ');
-        questOnMistake();
-        showBanner(`❌ ผิด! ตอนนี้ต้อง ${STEPS[quizCorrectStep].icon} ${STEPS[quizCorrectStep].label}`);
-
-        if(nowMs() >= quizEndsMs || targets.length === 0){
-          endMiniQuiz(false);
-        }
-        setHud();
-      }
-
-      emit('hha:judge', { kind:'quiz', picked, correct: quizCorrectStep, rtMs: rt, source, extra });
-      return;
-    }
-
     if(obj.kind === 'good'){
       correctHits++;
       totalStepHits++;
@@ -626,50 +326,40 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      SFX.good();
-      setFx('fx-good');
-      addScore(SCORE_RULES.good, 'HIT');
-      questOnGoodHit();
+      coach?.onEvent?.('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
-      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon}`);
+      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
-        const stepClearMs = nowMs() - questStartMs;
-
-        SFX.step();
-        addScore(SCORE_RULES.stepClear, 'STEP');
-        showBanner(`✨ ผ่านขั้น: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-
         stepIdx++;
         hitsInStep=0;
 
         if(stepIdx >= STEPS.length){
+          // loop complete
           stepIdx=0;
           loopsDone++;
 
-          addScore(SCORE_RULES.loopClear, 'LOOP');
-          showBanner(`🏁 ครบ 7 ขั้นตอน! +LOOP (${loopsDone})`);
-
-          if(quest && quest.id==='cleanloop'){
-            if(cleanLoopOk){
-              questDone = 1;
-              completeQuest();
-            }else{
-              cleanLoopOk = true;
-              showBanner('🧼 รอบก่อนมีพลาด… รอบนี้เอาใหม่!');
-            }
+          if(questOkThisLoop){
+            showBanner(`🏁 ครบ 7 ขั้นตอนแบบไม่พลาด! (${loopsDone}/${questTargetLoops})`);
           }else{
-            if(!quest) newQuest();
+            showBanner(`🏁 ครบ 7 ขั้นตอน แต่มีพลาด (ลองใหม่ให้ “ปลอดพลาด”)`);
           }
 
-          questStartMs = nowMs();
-        }else{
-          questOnStepClear(stepClearMs);
-          questStartMs = nowMs();
-          showBanner(`➡️ ต่อไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+          // quest check (ครบ 1 รอบแบบไม่พลาด)
+          if(loopsDone >= questTargetLoops && questOkThisLoop){
+            // reward: small bonus + keep playing until time
+            combo += 2;
+            showBanner(`🎉 QUEST สำเร็จ! โบนัส COMBO +2`);
+          }
 
-          startMiniQuiz();
+          // reset quest flag for next loop
+          questOkThisLoop = true;
+
+        }else{
+          showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+          showTip();
         }
       }
 
@@ -682,14 +372,13 @@ export function boot(){
       wrongStepHits++;
       totalStepHits++;
       combo = 0;
+      questOkThisLoop = false;
 
-      SFX.bad();
-      setFx('fx-warn');
-      addScore(SCORE_RULES.wrong, 'WRONG');
-      questOnMistake();
+      coach?.onEvent?.('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
-      showBanner(`⚠️ ผิดขั้น! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+      showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
 
       removeTarget(obj);
       checkFail();
@@ -698,29 +387,15 @@ export function boot(){
     }
 
     if(obj.kind === 'haz'){
-      // shield blocks hazard
-      if(shieldOn()){
-        shieldBlocks++;
-        SFX.good();
-        setFx('fx-good');
-        showBanner('🛡️ โล่กันเชื้อไว้ได้!');
-        popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `BLOCK`, 'good');
-        removeTarget(obj);
-        emit('hha:judge', { kind:'haz_block', stepIdx, rtMs: rt, source, extra });
-        setHud();
-        return;
-      }
-
       hazHits++;
       combo = 0;
+      questOkThisLoop = false;
 
-      SFX.haz();
-      setFx('fx-bad');
-      addScore(SCORE_RULES.haz, 'HAZ');
-      questOnMistake();
+      coach?.onEvent?.('haz_hit', { stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('haz_hit', { elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
-      showBanner('🦠 โดนเชื้อ! ระวัง!');
+      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
 
       removeTarget(obj);
       checkFail();
@@ -731,7 +406,6 @@ export function boot(){
 
   function tick(){
     if(!running) return;
-
     const t = nowMs();
     const dt = Math.max(0, (t - tLastMs)/1000);
     tLastMs = t;
@@ -741,39 +415,29 @@ export function boot(){
       return;
     }
 
+    // time
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
-
     if(timeLeft <= 0){
       endGame('time');
       return;
     }
 
-    // boss schedule
-    if(!bossActive && elapsedSec() >= nextBossAtSec && elapsedSec() > 4){
-      startBoss();
-    }
-    if(bossActive && nowMs() >= bossEndsMs){
-      endBoss();
-    }
-
-    if(quizActive && nowMs() >= quizEndsMs){
-      endMiniQuiz(false);
-    }
-
     // spawn
-    if(!quizActive){
-      const P = getParams();
-      spawnAcc += (P.spawnPerSec * dt);
-      while(spawnAcc >= 1){
-        spawnAcc -= 1;
-        spawnOne();
-        if(targets.length > 18){
-          const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
-          if(oldest) removeTarget(oldest);
-        }
+    const P = dd ? dd.getParams() : base;
+    spawnAcc += (P.spawnPerSec * dt);
+    while(spawnAcc >= 1){
+      spawnAcc -= 1;
+      spawnOne();
+
+      // cap targets
+      if(targets.length > 18){
+        const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
+        if(oldest) removeTarget(oldest);
       }
     }
+
+    dd?.onEvent?.('tick', { elapsedSec: elapsedSec() });
 
     setHud();
     requestAnimationFrame(tick);
@@ -782,6 +446,7 @@ export function boot(){
   function resetGame(){
     running=false; paused=false;
     clearTargets();
+
     timeLeft = timePlannedSec;
 
     stepIdx=0; hitsInStep=0; loopsDone=0;
@@ -789,20 +454,9 @@ export function boot(){
     wrongStepHits=0; hazHits=0;
     correctHits=0; totalStepHits=0;
     rtOk.length=0;
+
+    questOkThisLoop = true;
     spawnAcc=0;
-
-    score=0; scoreGain=0; scoreLose=0;
-
-    quest=null; questDone=0; questStartMs=nowMs(); cleanLoopOk=true; questCompleted=0;
-
-    quizActive=false; quizCorrectStep=-1; quizEndsMs=0; quizCorrect=0; quizWrong=0;
-    showQuiz(false);
-
-    bossActive=false; bossStartMs=0; bossEndsMs=0; bossSurvived=0; bossClean=true;
-    nextBossAtSec = 12 + Math.floor(rng()*8); // 12–19s first boss
-    if(bossBar) bossBar.style.display = 'none';
-
-    shieldUntilMs=0; shieldBlocks=0;
 
     setHud();
   }
@@ -810,36 +464,19 @@ export function boot(){
   function startGame(){
     resetGame();
     running=true;
-
-    SFX.unlock();
-
     tStartMs = nowMs();
     tLastMs = tStartMs;
 
-    startOverlay.style.display = 'none';
-    endOverlay.style.display = 'none';
+    startOverlay && (startOverlay.style.display = 'none');
+    endOverlay && (endOverlay.style.display = 'none');
 
     emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
 
-    newQuest();
     showBanner(`เริ่ม! STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
+    showTip();
     setHud();
 
     requestAnimationFrame(tick);
-  }
-
-  function evaluateBadges(summary){
-    // Badges
-    if(summary.hazHits === 0) unlockBadge('no_germ', 'No Germ', '🧼');
-    if(summary.misses === 0 && summary.loopsDone >= 1) unlockBadge('perfect_loop', 'Perfect Loop', '✨');
-    if(summary.comboMax >= 12) unlockBadge('combo_hero', 'Combo Hero', '🔥');
-    if(summary.quizCorrect >= 2 && summary.quizWrong === 0) unlockBadge('quiz_master', 'Quiz Master', '🧠');
-    if(summary.bossSurvived >= 1 && summary.bossCleanWins >= 1) unlockBadge('boss_clean', 'Boss Cleaner', '🦠🛡️');
-
-    // Unlocks (จริงจัง: เปิดโหมด/รางวัล)
-    if(summary.score >= 600) unlockFeature('unlock_gold_soap', 'Golden Soap Skin', '🏅');
-    if(summary.stepAcc >= 0.85 && summary.reason !== 'fail') unlockFeature('unlock_hard_hint', 'Hard Mode Hint', '⚙️');
-    if(summary.shieldBlocks >= 3) unlockFeature('unlock_shield_master', 'Shield Mastery', '🛡️');
   }
 
   function endGame(reason){
@@ -847,8 +484,6 @@ export function boot(){
     running=false;
 
     clearTargets();
-    showQuiz(false);
-    if(bossBar) bossBar.style.display = 'none';
 
     const durationPlayedSec = Math.max(0, Math.round(elapsedSec()));
     const stepAcc = getStepAcc();
@@ -862,6 +497,7 @@ export function boot(){
       return (a.length%2) ? a[m|0] : (a[m|0] + a[(m|0)+1])/2;
     })();
 
+    // grade
     let grade='C';
     if(stepAcc>=0.90 && hazHits<=1) grade='SSS';
     else if(stepAcc>=0.82 && hazHits<=2) grade='SS';
@@ -871,15 +507,8 @@ export function boot(){
 
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
-    // boss clean wins: count as 1 if survived and bossClean stayed true at end of that boss
-    // here we approximate: bossClean true only during last boss; so compute from score bonus event?
-    // Keep simple: if bossSurvived>=1 and (bossClean==true at end state doesn't mean much), so track in summary:
-    // We'll compute clean wins from "bossSurvived with bonus" by scoreGain? Instead: keep a counter in runtime.
-    // (We didn't store it: so derive minimal.)
-    const bossCleanWins = 0; // kept for forward compatibility
-
     const summary = {
-      version:'1.3.0-prod',
+      version:'1.0.1-prod',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
@@ -895,7 +524,6 @@ export function boot(){
 
       loopsDone,
       stepIdxEnd: stepIdx,
-
       hitsCorrect: correctHits,
       hitsWrongStep: wrongStepHits,
       hazHits,
@@ -905,26 +533,17 @@ export function boot(){
       riskUnsafe,
       comboMax,
       misses: getMissCount(),
-      medianStepMs: rtMed,
 
-      // score & extras
-      score,
-      scoreGain,
-      scoreLose,
-      questCompleted,
-      quizCorrect,
-      quizWrong,
-
-      // boss/shield
-      bossSurvived,
-      bossCleanWins,
-      shieldBlocks,
+      medianStepMs: rtMed
     };
 
-    // Badges/Unlock (fallback)
-    evaluateBadges(Object.assign({}, summary));
+    if(coach?.getSummaryExtras) Object.assign(summary, coach.getSummaryExtras());
+    if(dd?.getSummaryExtras) Object.assign(summary, dd.getSummaryExtras());
 
-    // Save last + history
+    if(WIN.HHA_Badges?.evaluateBadges){
+      WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
+    }
+
     saveJson(LS_LAST, summary);
     const hist = loadJson(LS_HIST, []);
     const arr = Array.isArray(hist) ? hist : [];
@@ -933,11 +552,15 @@ export function boot(){
 
     emit('hha:end', summary);
 
-    endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
-    endSub.textContent =
-      `Score ${score} • Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • boss ${bossSurvived} • shieldBlocks ${shieldBlocks} • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
-    endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
-    endOverlay.style.display = 'grid';
+    if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
+    if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
+    if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
+    if(endOverlay) endOverlay.style.display = 'grid';
+  }
+
+  function goHub(){
+    if(hub) location.href = hub;
+    else location.href = '../hub.html';
   }
 
   // UI binds
@@ -945,26 +568,39 @@ export function boot(){
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
 
   btnPlayAgain?.addEventListener('click', startGame, { passive:true });
-  btnCopyJson?.addEventListener('click', async ()=>{
-    try{ await navigator.clipboard.writeText(String(endJson.textContent||'')); }catch{}
-  }, { passive:true });
+  btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
 
-  function goHub(){
-    if(hub) location.href = hub;
-    else location.href = '../hub.html';
-  }
   btnBack?.addEventListener('click', goHub, { passive:true });
   btnBack2?.addEventListener('click', goHub, { passive:true });
 
   btnPause?.addEventListener('click', ()=>{
     if(!running) return;
     paused = !paused;
-    btnPause.textContent = paused ? '▶ Resume' : '⏸ Pause';
+    if(btnPause) btnPause.textContent = paused ? '▶ Resume' : '⏸ Pause';
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
+  // crosshair shooting support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // initial
+  // optional coach/badge popups
+  WIN.addEventListener('hha:badge', (e)=>{
+    const b = (e && e.detail) || {};
+    if(WIN.Particles?.popText){
+      WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
+    }
+  });
+  WIN.addEventListener('hha:unlock', (e)=>{
+    const u = (e && e.detail) || {};
+    if(WIN.Particles?.popText){
+      WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.28, `${u.icon||'✨'} UNLOCK!`, 'warn');
+    }
+  });
+  WIN.addEventListener('hha:coach', (e)=>{
+    const d = (e && e.detail) || {};
+    if(d?.text) showBanner(`🤖 ${d.text}`);
+  });
+
+  // init
   setHud();
 }
