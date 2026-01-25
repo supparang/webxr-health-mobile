@@ -1,8 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
-// ✅ Default time: 90s (grade-5 friendly)
+// PlateVR Boot — PRODUCTION (PATCH)
 // ✅ Auto view detect (no UI override)
 // ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ End overlay: aria-hidden only + robust KPI mapping (fix "summary = 0")
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -21,6 +24,7 @@ function isMobile(){
 }
 
 function getViewAuto(){
+  // Allow force via ?view= (used in experiments) but NO UI menu
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -86,8 +90,11 @@ function wireHUD(){
 
   WIN.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
-    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+    const score = (d.score ?? d.scoreNow ?? d.value ?? 0);
+    const combo = (d.combo ?? d.comboNow ?? 0);
+
+    if(hudScore) hudScore.textContent = String(score);
+    if(hudCombo) hudCombo.textContent = String(combo);
   });
 
   WIN.addEventListener('hha:time', (e)=>{
@@ -130,7 +137,9 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      location.reload();
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -138,6 +147,17 @@ function wireEndControls(){
       else history.back();
     });
   }
+}
+
+// ✅ robust getter (fix summary = 0)
+function pickNum(d, keys, def=0){
+  for(const k of keys){
+    const v = d?.[k];
+    if(v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v))){
+      return Number(v);
+    }
+  }
+  return Number(def)||0;
 }
 
 function wireEndSummary(){
@@ -150,15 +170,31 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
-    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
-    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
+    // score: prefer scoreFinal
+    const score = pickNum(d, ['scoreFinal','scoreFinalNow','score'], 0);
+    const combo = pickNum(d, ['comboMax','comboMaxFinal','combo'], 0);
+    const miss  = pickNum(d, ['misses','miss','missCount'], 0);
 
-    if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
-    if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
+    // accuracy: engine sends accuracyGoodPct already in %
+    const acc = d.accuracyGoodPct ?? d.accuracyPct ?? null;
+
+    const goalsCleared = pickNum(d, ['goalsCleared'], 0);
+    const goalsTotal   = pickNum(d, ['goalsTotal'], 0);
+    const miniCleared  = pickNum(d, ['miniCleared'], 0);
+    const miniTotal    = pickNum(d, ['miniTotal'], 0);
+
+    if(kScore) kScore.textContent = String(score);
+    if(kCombo) kCombo.textContent = String(combo);
+    if(kMiss)  kMiss.textContent  = String(miss);
+
+    if(kAcc){
+      if(acc === null || acc === undefined) kAcc.textContent = '—';
+      else kAcc.textContent = (typeof acc === 'string') ? acc : pct(acc);
+    }
+
+    if(kGoals) kGoals.textContent = `${goalsCleared}/${goalsTotal}`;
+    if(kMini)  kMini.textContent  = `${miniCleared}/${miniTotal}`;
 
     setOverlayOpen(true);
   });
@@ -169,18 +205,21 @@ function buildEngineConfig(){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default time = 90
+  // ✅ เวลา: 90 วินาทีเหมาะสุดเป็น default สำหรับ ป.5 (ไม่อึดเกิน/ไม่สั้นเกิน)
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
-    view, runMode: run, diff,
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -201,15 +240,20 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
+
   setBodyView(cfg.view);
 
   wireHUD();
   wireEndControls();
   wireEndSummary();
+
   setOverlayOpen(false);
 
   try{
-    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
