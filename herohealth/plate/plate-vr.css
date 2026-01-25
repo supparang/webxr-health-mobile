@@ -1,10 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION)
+   Balanced Plate VR — UI + Targets (PRODUCTION)
    HHA Standard
-   ✅ Spawn safe-rect vars: --plate-top-safe/left/right/bottom-safe
-   ✅ Targets (emoji) centered + crisp
-   ✅ HUD doesn't block taps (pointer-events:none on HUD)
 ========================================================= */
 
 :root{
@@ -14,7 +11,7 @@
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
-  --stroke2:rgba(148,163,184,.28);
+  --stroke2:rgba(148,163,184,.26);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
@@ -28,28 +25,19 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe-area */
+  /* safe area insets */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* HUD sizing (tunable) */
-  --hud-top-row-h: 56px;
-  --hud-quest-h: 162px;
-  --hud-gap: 10px;
-
-  /* ✅ Spawn-safe margins (what mode-factory reads) */
-  /* top safe = safe-area + HUD height + some breathing */
-  --plate-top-safe: calc(var(--sat) + var(--hud-top-row-h) + var(--hud-gap) + var(--hud-quest-h) + 14px);
-  --plate-bottom-safe: calc(var(--sab) + 18px);
+  /* spawn safe (used by mode-factory.js) */
+  --plate-top-safe: calc(var(--sat) + 140px);      /* HUD height */
+  --plate-bottom-safe: calc(var(--sab) + 110px);   /* VR buttons */
   --plate-left-safe: calc(var(--sal) + 14px);
   --plate-right-safe: calc(var(--sar) + 14px);
 }
 
-/* ---------------------------------------------------------
-   Global
---------------------------------------------------------- */
 *{ box-sizing:border-box; }
 
 html,body{
@@ -57,15 +45,17 @@ html,body{
   width:100%;
   height:100%;
   overflow:hidden;
-  background:var(--bg);
+  background: radial-gradient(1200px 800px at 20% 20%, rgba(34,211,238,.08), transparent 60%),
+              radial-gradient(1000px 700px at 70% 30%, rgba(167,139,250,.08), transparent 65%),
+              var(--bg);
   color:var(--text);
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{ position:fixed; inset:0; }
+#app{ position:relative; width:100%; height:100%; }
 
 /* ---------------------------------------------------------
-   Playfield (Targets spawn inside this rect)
+   Playfield (targets spawn inside)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -76,214 +66,184 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Targets
+   Target: circular + glow + emoji center
 --------------------------------------------------------- */
 .plateTarget{
-  position:fixed; /* left/top set by spawner */
+  position:absolute; /* ✅ IMPORTANT (so left/top works) */
   display:grid;
   place-items:center;
-
   border-radius:999px;
   user-select:none;
   cursor:pointer;
 
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.12), transparent 38%),
-    rgba(2,6,23,.62);
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), transparent 38%),
+    rgba(2,6,23,.56);
 
-  border:1px solid var(--stroke);
+  border:1px solid var(--stroke2);
+
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
     inset 0 1px 0 rgba(255,255,255,.08);
 
-  /* crisp */
-  -webkit-tap-highlight-color: transparent;
-  transform: translate(-50%,-50%);
+  animation: pop .14s ease-out, floaty 2.1s ease-in-out infinite;
+  will-change: transform;
+}
 
-  /* animations */
-  animation: platePop .14s ease-out, plateWobble 1.8s ease-in-out infinite;
-  will-change: transform, opacity;
+.plateTarget::after{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  border-radius:inherit;
+  border:1px solid rgba(255,255,255,.08);
+  pointer-events:none;
+}
+
+.plateTarget .emoji{
+  font-size: 28px;
+  line-height: 1;
+  transform: translateZ(0);
+  filter: none;
+  text-shadow: 0 6px 22px rgba(0,0,0,.35);
 }
 
 .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.35);
+  border-color: rgba(34,197,94,.30);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    0 0 26px rgba(34,197,94,.18),
+    0 0 24px rgba(34,197,94,.18),
     inset 0 1px 0 rgba(255,255,255,.08);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.35);
+  border-color: rgba(239,68,68,.32);
   box-shadow:
     0 18px 48px rgba(0,0,0,.32),
-    0 0 26px rgba(239,68,68,.18),
+    0 0 24px rgba(239,68,68,.18),
     inset 0 1px 0 rgba(255,255,255,.08);
-  animation-duration:1.2s;
+  animation-duration: 1.4s;
 }
 
-/* ✅ Emoji/icon inside target */
-.plateEmoji{
-  display:grid;
-  place-items:center;
-  width:100%;
-  height:100%;
-  font-size:28px;
-  font-weight:900;
-  line-height:1;
-  filter: none;
-  text-shadow:
-    0 2px 10px rgba(0,0,0,.55),
-    0 0 18px rgba(255,255,255,.08);
-}
-
-/* optional label (if you add text later) */
-.plateLabel{
-  position:absolute;
-  bottom:6px;
-  left:50%;
-  transform:translateX(-50%);
-  font-size:10px;
-  font-weight:900;
-  color:rgba(229,231,235,.86);
-  opacity:.9;
-  letter-spacing:.2px;
-  pointer-events:none;
-  text-shadow:0 2px 10px rgba(0,0,0,.65);
-}
-
-@keyframes platePop{
-  0%{ transform: translate(-50%,-50%) scale(.85); opacity:0 }
+@keyframes pop{
+  0%{ transform: translate(-50%,-50%) scale(.86); opacity:0 }
   100%{ transform: translate(-50%,-50%) scale(1); opacity:1 }
 }
 
-@keyframes plateWobble{
-  0%{ transform: translate(-50%,-50%) rotate(0deg) }
-  25%{ transform: translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform: translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform: translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform: translate(-50%,-50%) rotate(0deg) }
+/* float / wobble subtle (keep emoji readable) */
+@keyframes floaty{
+  0%{ transform: translate(-50%,-50%) translateY(0px); }
+  50%{ transform: translate(-50%,-50%) translateY(-3px); }
+  100%{ transform: translate(-50%,-50%) translateY(0px); }
 }
 
 /* ---------------------------------------------------------
-   HUD (fixed, non-blocking)
+   HUD
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  top:0; left:0; right:0;
-  z-index:60;
-  padding:
-    calc(var(--sat) + 10px)
-    calc(var(--sar) + 10px)
-    0
-    calc(var(--sal) + 10px);
-
-  /* ✅ do NOT block taps/shoot */
-  pointer-events:none;
+  top:0;
+  left:0;
+  right:0;
+  z-index:40;
+  padding: calc(var(--sat) + 10px) calc(var(--sar) + 12px) 10px calc(var(--sal) + 12px);
+  pointer-events:none; /* HUD ไม่บังการยิง/แตะ */
 }
 
 .hudRow{
   display:flex;
   gap:10px;
-  align-items:stretch;
+  align-items:center;
+  pointer-events:none;
 }
 
-/* chips */
 .chip{
   pointer-events:none;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  min-width:92px;
-  padding:10px 12px;
-  border-radius:999px;
-  background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow:0 16px 46px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
+  background: rgba(2,6,23,.62);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  padding: 10px 12px;
+  min-width: 92px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.22);
+  backdrop-filter: blur(10px);
 }
 
 .chip .lbl{
-  font-size:10px;
+  display:block;
   font-weight:900;
-  letter-spacing:.7px;
-  color:rgba(148,163,184,.95);
+  letter-spacing:.06em;
+  font-size:11px;
+  color: rgba(229,231,235,.72);
 }
 
 .chip .val{
+  display:block;
+  font-weight:900;
   font-size:18px;
-  font-weight:1000;
+  margin-top:2px;
 }
 
-/* quest card */
 #questCard{
-  margin-top:10px;
+  margin-top: 10px;
+  max-width: 520px;
   pointer-events:none;
+}
+
+.card{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
-
-  padding:12px 12px 10px;
-  max-width:520px;
 }
 
 .cardTitle{
   display:flex;
-  align-items:flex-end;
   justify-content:space-between;
   gap:10px;
-  margin-bottom:10px;
+  padding: 14px 14px 10px;
 }
 
 .cardTitle .t{
-  font-weight:1000;
-  font-size:14px;
-}
-.cardTitle .hint{
   font-weight:900;
-  font-size:11px;
-  color:rgba(148,163,184,.95);
+  font-size:16px;
+}
+
+.cardTitle .hint{
+  color: var(--muted);
+  font-weight:800;
+  font-size:12px;
+  align-self:center;
 }
 
 .qItem{
   display:flex;
   gap:12px;
-  align-items:center;
-  padding:10px 10px;
-  border-radius:16px;
-  background:rgba(15,23,42,.56);
-  border:1px solid rgba(148,163,184,.16);
-  margin-top:8px;
+  justify-content:space-between;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(148,163,184,.10);
 }
 
-.qText{ flex:1; min-width:0; }
 .qText .name{
-  font-weight:1000;
-  font-size:12px;
+  font-weight:900;
+  font-size:14px;
 }
+
 .qText .sub{
+  margin-top:4px;
+  color: var(--muted);
   font-weight:800;
-  font-size:11px;
-  color:rgba(148,163,184,.95);
-  margin-top:2px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  font-size:12px;
 }
 
 .qProg{
-  width:170px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-.qNums{
+  min-width: 140px;
   text-align:right;
-  font-weight:1000;
-  font-size:11px;
-  color:rgba(229,231,235,.92);
+}
+
+.qNums{
+  font-weight:900;
+  font-size:13px;
+  margin-bottom:8px;
 }
 
 .bar{
@@ -292,12 +252,13 @@ html,body{
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
-.bar > i{
+
+.bar>i{
   display:block;
   height:100%;
   width:0%;
-  background:var(--accent);
-  transition:width .25s ease;
+  background: var(--accent);
+  transition: width .25s ease;
 }
 
 /* ---------------------------------------------------------
@@ -305,42 +266,40 @@ html,body{
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  z-index:70;
-  left:50%;
-  bottom: calc(var(--sab) + 16px);
-  transform:translateX(-50%);
-  pointer-events:none;
-
+  left: calc(var(--sal) + 14px);
+  bottom: calc(var(--sab) + 120px);
+  z-index:60;
+  max-width: 520px;
   opacity:0;
-  translate: 0 12px;
-  transition: opacity .18s ease, translate .18s ease;
+  transform: translateY(6px);
+  pointer-events:none;
 }
 
 #coachCard.show{
   opacity:1;
-  translate: 0 0;
+  transform: translateY(0);
+  transition: opacity .15s ease, transform .15s ease;
 }
 
 #coachCard .inner{
-  background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:20px;
-  box-shadow:0 18px 60px rgba(0,0,0,.35);
-  backdrop-filter:blur(10px);
-  padding:12px 14px;
-  min-width: 240px;
-  max-width: min(520px, calc(100vw - 24px));
+  background: rgba(2,6,23,.72);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 12px 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 55px rgba(0,0,0,.25);
 }
 
 #coachMsg{
-  font-weight:1000;
-  font-size:13px;
+  font-weight:900;
+  font-size:14px;
 }
+
 #coachMeta{
   margin-top:6px;
-  font-weight:900;
-  font-size:11px;
-  color:rgba(148,163,184,.95);
+  color: var(--muted);
+  font-weight:800;
+  font-size:12px;
 }
 
 /* ---------------------------------------------------------
@@ -349,86 +308,79 @@ html,body{
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index:90;
-  display:flex;
+  z-index:80;
+  display:none;
   align-items:center;
   justify-content:center;
-
-  background:rgba(2,6,23,.62);
-  backdrop-filter:blur(10px);
-
-  /* aria-hidden toggles visibility */
-  opacity:1;
-  pointer-events:auto;
+  padding: calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
 }
 
-#endOverlay[aria-hidden="true"]{
-  opacity:0;
-  pointer-events:none;
-}
+#endOverlay[aria-hidden="false"]{ display:flex; }
 
 .endPanel{
-  width:min(720px, calc(100vw - 24px));
-  border-radius:22px;
-  background:rgba(2,6,23,.82);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow:0 24px 90px rgba(0,0,0,.45);
-  padding:16px 16px 14px;
+  width:min(720px, 92vw);
+  border-radius: 22px;
+  background: rgba(2,6,23,.78);
+  border: 1px solid rgba(148,163,184,.18);
+  box-shadow: 0 26px 90px rgba(0,0,0,.35);
+  padding: 16px;
 }
 
 .endTitle{
   display:flex;
-  align-items:flex-end;
   justify-content:space-between;
-  gap:10px;
+  align-items:center;
+  gap:12px;
+  padding: 8px 6px 10px;
 }
+
 .endTitle h2{
   margin:0;
-  font-size:18px;
-  font-weight:1100;
+  font-size: 28px;
+  font-weight: 1000;
 }
+
 .endTitle .tag{
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(15,23,42,.62);
-  font-weight:1000;
-  font-size:11px;
-  color:rgba(229,231,235,.92);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+  font-weight: 900;
 }
 
 .endGrid{
-  margin-top:12px;
   display:grid;
   grid-template-columns: repeat(3, minmax(0,1fr));
-  gap:10px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .kpi{
-  border-radius:18px;
-  background:rgba(15,23,42,.56);
-  border:1px solid rgba(148,163,184,.16);
-  padding:12px 12px;
+  border: 1px solid rgba(148,163,184,.12);
+  border-radius: 16px;
+  background: rgba(15,23,42,.40);
+  padding: 12px;
 }
+
 .kpi .k{
-  font-weight:900;
-  font-size:11px;
-  color:rgba(148,163,184,.95);
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
 }
+
 .kpi .v{
-  margin-top:4px;
-  font-weight:1100;
-  font-size:18px;
+  margin-top: 6px;
+  font-weight: 1000;
+  font-size: 18px;
 }
 
 .endBtns{
-  margin-top:12px;
   display:flex;
   gap:10px;
   justify-content:flex-end;
-
-  /* ✅ buttons clickable even though HUD blocks taps */
-  pointer-events:auto;
+  margin-top: 12px;
 }
 
 .btn{
@@ -436,7 +388,7 @@ html,body{
   border:none;
   border-radius:999px;
   padding:10px 14px;
-  font-weight:1000;
+  font-weight:900;
   font-size:12px;
   cursor:pointer;
   color:var(--text);
@@ -450,86 +402,15 @@ html,body{
   border-color:rgba(34,197,94,.35);
 }
 
-.btn.warn{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.35);
-}
-
-/* ---------------------------------------------------------
-   FX layers (optional hooks)
---------------------------------------------------------- */
-#bossFx,#stormFx{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:55;
-  display:none;
-}
-
-#bossFx.boss-on{
-  display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
-}
-
-#bossFx.boss-panic{
-  animation:pulseBad .25s infinite;
-}
-
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
-}
-
-@keyframes pulseBad{
-  0%{ filter:brightness(1) }
-  50%{ filter:brightness(1.25) }
-  100%{ filter:brightness(1) }
-}
-
 /* ---------------------------------------------------------
    Responsive tuning
 --------------------------------------------------------- */
 @media (max-width:900px){
   :root{
-    --hud-top-row-h: 52px;
-    --hud-quest-h: 176px;
-    --plate-left-safe: calc(var(--sal) + 10px);
-    --plate-right-safe: calc(var(--sar) + 10px);
-    --plate-bottom-safe: calc(var(--sab) + 14px);
-    --plate-top-safe: calc(var(--sat) + var(--hud-top-row-h) + var(--hud-gap) + var(--hud-quest-h) + 12px);
+    --plate-top-safe: calc(var(--sat) + 160px);
+    --plate-bottom-safe: calc(var(--sab) + 120px);
   }
-
-  .chip{ min-width:86px; padding:9px 10px; }
-  .chip .val{ font-size:17px; }
-
-  #questCard{ max-width: 100%; }
-  .qProg{ width:160px; }
-
-  .plateEmoji{ font-size:26px; }
+  #questCard{ max-width: 92vw; }
+  .plateTarget .emoji{ font-size: 26px; }
+  .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
-
-@media (max-width:420px){
-  .hudRow{ gap:8px; }
-  .chip{ min-width:80px; }
-  .chip .val{ font-size:16px; }
-  .qProg{ width:140px; }
-  .plateEmoji{ font-size:24px; }
-}
-
-/* ---------------------------------------------------------
-   View-specific tweaks
---------------------------------------------------------- */
-body.view-cvr #hud{
-  /* in cVR, keep HUD a bit tighter (more play area) */
-  padding-top: calc(var(--sat) + 8px);
-}
-body.view-cvr :root{
-  /* (note: :root inside body doesn't apply; keep safe via media/inline if needed) */
-}
-
-/* If vr-ui.js puts controls at top-left/top-right,
-   keep them above HUD: it uses its own z-index anyway.
-   Our HUD is z-index 60. vr-ui typically higher (>=80). */
