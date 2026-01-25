@@ -1,11 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (Folder-run)
-✅ CSS: ./goodjunk-vr.css (S)
+✅ CSS: ./goodjunk-vr.css   (S)
 ✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ A-Frame minimal scene for Enter VR reliability
 ✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
-✅ Mobile default: body.hud-compact (คืนพื้นที่เล่น)
 -->
 <!doctype html>
 <html lang="th">
@@ -26,10 +25,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 </head>
 
 <body class="gj">
-  <!-- A-Frame minimal scene (behind UI) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled:false"
+  <a-scene embedded vr-mode-ui="enabled:false"
     renderer="colorManagement:true; physicallyCorrectLights:false"
     style="background: transparent;"
   >
@@ -124,12 +120,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </section>
 
-  <!-- Low time overlay -->
-  <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
-    <div class="gj-lowtime-ring"></div>
-    <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
-  </div>
-
   <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
@@ -150,11 +140,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const diff = qs('diff','normal');
       const time = qs('time','80');
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
-
-      // ✅ Mobile default: compact HUD (คืนพื้นที่เล่น)
-      try{
-        if((window.innerWidth||0) <= 520) document.body.classList.add('hud-compact');
-      }catch(_){}
 
       btnBack?.addEventListener('click', ()=>{
         if(hub) location.href = hub;
@@ -178,7 +163,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
       function updateSafe(){
         try{
@@ -189,7 +173,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
           document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(95, hudBot + 14)));
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
         }catch(_){}
       }
 
