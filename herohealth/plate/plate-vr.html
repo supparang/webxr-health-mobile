@@ -34,6 +34,10 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
+    <!-- FX layers (optional) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
+
     <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
@@ -51,10 +55,6 @@
         <div class="chip combo">
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
-        </div>
-        <div class="chip shield">
-          <span class="lbl">SHIELD</span>
-          <span class="val" id="hudShield">0</span>
         </div>
       </div>
 
@@ -123,6 +123,6 @@
     </div>
   </div>
 
-  <!-- vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay -->
+  <!-- vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair automatically -->
 </body>
 </html>
