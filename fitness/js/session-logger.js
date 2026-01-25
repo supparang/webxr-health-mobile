@@ -1,4 +1,4 @@
-// === /fitness/js/session-logger.js — Session CSV logger (fixed export) ===
+// === js/session-logger.js — Session CSV logger (FIXED export) ===
 'use strict';
 
 export class SessionLogger {
@@ -18,7 +18,7 @@ export class SessionLogger {
   toCsv() {
     if (!this.rows.length) return '';
 
-    // รวมคอลัมน์ให้ “นิ่ง” แม้บาง row จะมี field เพิ่ม/หาย
+    // รวมคอลัมน์ให้นิ่ง
     const colSet = new Set();
     for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
     const cols = Array.from(colSet);
