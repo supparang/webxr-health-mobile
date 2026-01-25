@@ -1,10 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (Folder-run)
-✅ CSS: ./goodjunk-vr.css
-✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
+✅ CSS: ./goodjunk-vr.css (S)
+✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe
-✅ PATCH: include VRUI bar height in bottom safe
+✅ A-Frame minimal scene for Enter VR reliability
+✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ Mobile default: body.hud-compact (คืนพื้นที่เล่น)
 -->
 <!doctype html>
 <html lang="th">
@@ -25,6 +26,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 </head>
 
 <body class="gj">
+  <!-- A-Frame minimal scene (behind UI) -->
   <a-scene
     embedded
     vr-mode-ui="enabled:false"
@@ -149,6 +151,11 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const time = qs('time','80');
       if(chipMeta) chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
 
+      // ✅ Mobile default: compact HUD (คืนพื้นที่เล่น)
+      try{
+        if((window.innerWidth||0) <= 520) document.body.classList.add('hud-compact');
+      }catch(_){}
+
       btnBack?.addEventListener('click', ()=>{
         if(hub) location.href = hub;
         else alert('ยังไม่ได้ใส่ hub url');
@@ -171,9 +178,8 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-
-      // ✅ measure HUD + VRUI => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
@@ -182,11 +188,8 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          // VRUI floating bar (from vr-ui.js)
-          const vruiH = document.querySelector('.hha-vrui-bar')?.getBoundingClientRect().height || 0;
-
           document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16, vruiH + 18)));
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(95, hudBot + 14)));
         }catch(_){}
       }
 
@@ -195,7 +198,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
-      setTimeout(updateSafe, 900); // เผื่อ vr-ui.js ใส่ DOM ช้ากว่า
     })();
   </script>
 </body>
