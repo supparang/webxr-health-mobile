@@ -1,10 +1,8 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run)
-✅ CSS: ./goodjunk-vr.css   (S)
-✅ Boot: ./goodjunk-vr.boot.js (B) -> ./goodjunk.safe.js
-✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-✅ A-Frame minimal scene for Enter VR reliability
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+GoodJunkVR RUN — PRODUCTION (A FULL v5)
+✅ Compact HUD + collapsible quest cards (default collapsed)
+✅ Missions peek overlay
+✅ Safe-zone measure: topbar + score row only
 -->
 <!doctype html>
 <html lang="th">
@@ -24,8 +22,11 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 </head>
 
-<body class="gj">
-  <a-scene embedded vr-mode-ui="enabled:false"
+<body class="gj quest-collapsed">
+  <!-- A-Frame minimal scene (behind UI) -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled:false"
     renderer="colorManagement:true; physicallyCorrectLights:false"
     style="background: transparent;"
   >
@@ -42,6 +43,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
     <div class="right">
       <button class="gj-btn" id="btnMissions" type="button">Missions</button>
+      <button class="gj-btn" id="btnQuest" type="button">Toggle Quest</button>
       <button class="gj-btn" id="btnHideHud" type="button">Hide HUD</button>
       <button class="gj-btn primary" id="btnBackHub" type="button">↩ กลับ HUB</button>
     </div>
@@ -49,7 +51,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 
   <!-- HUD TOP -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
-    <div class="hud-row">
+    <div class="hud-row" id="hudRowTop">
       <div class="hud-pill">
         <div class="hud-label">SCORE</div>
         <div class="hud-value" id="hud-score">0</div>
@@ -68,7 +70,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       </div>
     </div>
 
-    <div class="quest-row">
+    <div class="quest-row" id="questRow">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
         <div class="q-desc" id="goalDesc">—</div>
@@ -120,6 +122,12 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </section>
 
+  <!-- Low time overlay -->
+  <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
+    <div class="gj-lowtime-ring"></div>
+    <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
+  </div>
+
   <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
@@ -129,6 +137,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const btnBack = document.getElementById('btnBackHub');
       const btnHide = document.getElementById('btnHideHud');
       const btnMis  = document.getElementById('btnMissions');
+      const btnQuest= document.getElementById('btnQuest');
 
       const chipMeta = document.getElementById('gjChipMeta');
       const peek = document.getElementById('missionsPeek');
@@ -151,6 +160,11 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         setTimeout(updateSafe, 0);
       });
 
+      btnQuest?.addEventListener('click', ()=>{
+        document.body.classList.toggle('quest-collapsed'); // ✅ default collapsed -> toggle expand
+        setTimeout(updateSafe, 0);
+      });
+
       function toggleMissions(){
         document.body.classList.toggle('show-missions');
         const shown = document.body.classList.contains('show-missions');
@@ -163,17 +177,28 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
+      // IMPORTANT: top-safe should NOT include full quest cards height (they can collapse/peek)
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+          const sab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
 
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
-          const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
+
+          // ✅ ONLY count compact score row (not full quest cards)
+          const scoreRow = document.getElementById('hudRowTop')?.getBoundingClientRect().height || 0;
+
+          // bottom HUD height
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
+          // top safe: topbar + score row + small margin + sat
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + scoreRow + 12 + sat));
+
+          // bottom safe: hudBot + thumb margin + sab
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(90, hudBot + 10 + sab)));
         }catch(_){}
       }
 
