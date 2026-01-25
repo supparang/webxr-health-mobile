@@ -1,7 +1,7 @@
-// === js/session-logger.js — Session CSV logger ===
+// === /fitness/js/event-logger.js — Event-level CSV logger (LATEST, stable columns) ===
 'use strict';
 
-export class SessionLogger {
+export class EventLogger {
   constructor() {
     this.rows = [];
   }
