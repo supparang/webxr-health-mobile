@@ -1,16 +1,13 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SPACIOUS (Fair Pack)
-✅ Gameplay area BIG (HUD compact)
-✅ Safe-area insets + top/bottom safe vars for spawn: --gj-top-safe / --gj-bottom-safe
-✅ Supports: view-pc / view-mobile / view-vr / view-cvr
-✅ HUD hide mode: body.hud-hidden
-✅ Missions peek: body.show-missions
-✅ Targets: stable (no blink), clear hit affordance
+GoodJunkVR UI — MOBILE SPACIOUS (Patch A)
+✅ Mobile default: compact HUD (only pills) -> BIG playfield
+✅ Goal/Mini shown via Missions Peek (tap Missions)
+✅ Bottom meters become compact floating strip OR auto-hide
+✅ Safe-area vars: --gj-top-safe / --gj-bottom-safe
 */
 
 :root{
   color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.72);
   --panel2:rgba(15,23,42,.62);
@@ -28,25 +25,19 @@ GoodJunkVR UI — SPACIOUS (Fair Pack)
   --radius:22px;
   --pill:999px;
 
-  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* spawn safe (JS will overwrite) */
-  --gj-top-safe: 168px;
-  --gj-bottom-safe: 140px;
+  /* spawn safe (JS overwrite via updateSafe()) */
+  --gj-top-safe: 150px;
+  --gj-bottom-safe: 90px;
 
-  /* (optional) VRUI bar height (set by vr-ui.js if patched) */
-  --hha-vrui-h: 0px;
-
-  /* layout density */
   --topbar-h: 56px;
   --hud-gap: 10px;
   --card-pad: 10px;
 
-  /* target */
   --t-shadow: 0 18px 55px rgba(0,0,0,.45);
   --t-stroke: rgba(148,163,184,.22);
 }
@@ -62,16 +53,16 @@ body.gj{
     var(--bg);
 }
 
-/* --- A-Frame scene behind UI --- */
+/* A-Frame behind UI */
 a-scene[embedded]{
   position:fixed !important;
   inset:0 !important;
   z-index:0 !important;
-  pointer-events:none !important; /* UI handles input */
+  pointer-events:none !important;
   background:transparent !important;
 }
 
-/* --- TOPBAR --- */
+/* TOPBAR */
 .gj-topbar{
   position:fixed;
   left:0; right:0;
@@ -100,8 +91,6 @@ a-scene[embedded]{
   font-weight:1000;
   white-space:nowrap;
 }
-.gj-chip b{ letter-spacing:.2px; }
-
 .gj-topbar .right{
   display:flex;
   align-items:center;
@@ -127,14 +116,14 @@ a-scene[embedded]{
   color:#eafff3;
 }
 
-/* --- HUD TOP (compact) --- */
+/* HUD TOP (pills only by default on mobile) */
 .gj-hud-top{
   position:fixed;
   left:0; right:0;
   top: calc(var(--topbar-h) + var(--sat));
   padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
   z-index:40;
-  pointer-events:none; /* HUD should not block gameplay */
+  pointer-events:none;
 }
 
 .hud-row{
@@ -171,14 +160,8 @@ a-scene[embedded]{
 .hud-pill.warn{ border-color: rgba(245,158,11,.35); }
 .hud-pill.grade{ border-color: rgba(167,139,250,.35); }
 
-.quest-row{
-  margin-top:10px;
-  display:grid;
-  grid-template-columns: 1.25fr .95fr;
-  gap:10px;
-  pointer-events:none;
-}
-
+/* ✅ Quest cards hidden in compact mode */
+.quest-row{ display:grid; grid-template-columns: 1.25fr .95fr; gap:10px; margin-top:10px; }
 .quest-card{
   border-radius: var(--radius);
   border:1px solid var(--stroke);
@@ -192,41 +175,12 @@ a-scene[embedded]{
 .quest-card.goal{ border-color: rgba(34,211,238,.28); }
 .quest-card.mini{ border-color: rgba(167,139,250,.22); }
 
-.q-title{
-  font-weight:1200;
-  font-size:13px;
-  letter-spacing:.2px;
-  display:flex;
-  gap:8px;
-  align-items:center;
-  justify-content:space-between;
-}
-.q-desc{
-  margin-top:6px;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-  font-weight:900;
-  line-height:1.35;
-  min-height: 32px;
-}
-.q-bar{
-  margin-top:8px;
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:space-between;
-  font-size:11px;
-  color: rgba(148,163,184,.92);
-  font-weight:900;
-}
-.q-num{
-  padding:6px 10px;
-  border-radius: 999px;
-  border:1px solid var(--stroke);
-  background: rgba(15,23,42,.55);
-}
+.q-title{ font-weight:1200; font-size:13px; display:flex; justify-content:space-between; gap:8px; }
+.q-desc{ margin-top:6px; font-size:12px; color: rgba(229,231,235,.92); font-weight:900; line-height:1.35; min-height: 32px; }
+.q-bar{ margin-top:8px; display:flex; justify-content:space-between; gap:10px; font-size:11px; color: rgba(148,163,184,.92); font-weight:900; }
+.q-num{ padding:6px 10px; border-radius:999px; border:1px solid var(--stroke); background: rgba(15,23,42,.55); }
 
-/* --- HUD BOTTOM (compact) --- */
+/* HUD BOTTOM -> compact floating bar on mobile */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
@@ -251,149 +205,42 @@ a-scene[embedded]{
   pointer-events:none;
 }
 
-.meter-title{
-  font-weight:1200;
-  font-size:12px;
-  letter-spacing:.35px;
-  color: rgba(229,231,235,.92);
-}
+.meter-title{ font-weight:1200; font-size:12px; letter-spacing:.35px; color: rgba(229,231,235,.92); }
+.meter-bar{ margin-top:8px; height:10px; border-radius:999px; border:1px solid var(--stroke); background: rgba(15,23,42,.55); overflow:hidden; }
+.meter-fill{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95)); }
+.meter-num{ margin-top:8px; font-size:12px; color: rgba(148,163,184,.92); font-weight:900; }
+.meter-shield{ margin-top:8px; padding:8px 10px; border-radius:16px; border:1px solid var(--stroke); background: rgba(15,23,42,.55); font-weight:1200; color: rgba(229,231,235,.95); }
+.meter-tip{ margin-top:8px; font-size:11px; color: rgba(148,163,184,.92); font-weight:900; line-height:1.25; }
 
-.meter-bar{
-  margin-top:8px;
-  height: 10px;
-  border-radius: 999px;
-  border:1px solid var(--stroke);
-  background: rgba(15,23,42,.55);
-  overflow:hidden;
-}
-.meter-fill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
-}
+/* PLAYFIELD */
+.gj-field{ position:fixed; inset:0; z-index:10; pointer-events:auto; }
+.gj-layer,.gj-layer-r{ position:absolute; inset:0; pointer-events:auto; }
+.gj-layer-r{ opacity:0; pointer-events:none; }
+body.view-cvr .gj-layer-r{ opacity:1; }
 
-.meter-num{
-  margin-top:8px;
-  font-size:12px;
-  color: rgba(148,163,184,.92);
-  font-weight:900;
-}
-
-.meter-shield{
-  margin-top:8px;
-  padding:8px 10px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: rgba(15,23,42,.55);
-  font-weight:1200;
-  color: rgba(229,231,235,.95);
-}
-
-.meter-tip{
-  margin-top:8px;
-  font-size:11px;
-  color: rgba(148,163,184,.92);
-  font-weight:900;
-  line-height:1.25;
-}
-
-/* --- PLAYFIELD --- */
-.gj-field{
-  position:fixed;
-  inset:0;
-  z-index:10;
-  pointer-events:auto;
-}
-
-.gj-layer,
-.gj-layer-r{
-  position:absolute;
-  inset:0;
-  pointer-events:auto;
-}
-
-/* right-eye layer (optional) */
-.gj-layer-r{
-  opacity:0;
-  pointer-events:none;
-}
-body.view-cvr .gj-layer-r{
-  opacity:1;
-}
-
-/* --- Targets --- */
+/* Targets */
 .gj-target{
   position:absolute;
   transform: translate(-50%, -50%);
   user-select:none;
   -webkit-user-select:none;
   touch-action: manipulation;
-
   line-height:1;
   filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
   text-shadow: 0 10px 30px rgba(0,0,0,.35);
-
-  /* hit affordance */
   padding: 10px;
   border-radius: 999px;
   background: rgba(2,6,23,.35);
   border: 1px solid rgba(148,163,184,.20);
-
-  /* IMPORTANT: no blink */
   opacity: 1;
   will-change: transform;
 }
+.gj-target:active{ transform: translate(-50%, -50%) scale(.98); }
+@keyframes gjPopIn{ from{ transform: translate(-50%, -50%) scale(.72); opacity: .88; } to{ transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+.gj-target.spawn{ animation: gjPopIn 120ms ease-out both; }
+body.view-cvr .gj-target{ pointer-events:none; }
 
-.gj-target:active{
-  transform: translate(-50%, -50%) scale(.98);
-}
-
-/* small “pop-in” only (doesn't vanish) */
-@keyframes gjPopIn{
-  from{ transform: translate(-50%, -50%) scale(.72); opacity: .88; }
-  to{ transform: translate(-50%, -50%) scale(1); opacity: 1; }
-}
-.gj-target.spawn{
-  animation: gjPopIn 120ms ease-out both;
-}
-
-/* cVR strict: disable pointer events so only crosshair shooting works */
-body.view-cvr .gj-target{
-  pointer-events:none;
-}
-
-/* --- MISS low time overlay --- */
-.gj-lowtime-overlay{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:70;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .15s ease;
-}
-.gj-lowtime-overlay[aria-hidden="false"]{ opacity:1; }
-
-.gj-lowtime-ring{
-  width:min(260px, 62vw);
-  height:min(260px, 62vw);
-  border-radius: 999px;
-  border: 2px solid rgba(245,158,11,.45);
-  box-shadow: 0 0 0 12px rgba(245,158,11,.08);
-  background: radial-gradient(circle, rgba(245,158,11,.06), transparent 60%);
-}
-.gj-lowtime-num{
-  position:absolute;
-  font-size: clamp(54px, 10vw, 84px);
-  font-weight:1300;
-  color:#fff;
-  text-shadow: 0 18px 55px rgba(0,0,0,.55);
-}
-
-/* --- Missions Peek --- */
+/* Missions Peek */
 .gj-peek{
   position:fixed;
   left:0; right:0;
@@ -405,13 +252,11 @@ body.view-cvr .gj-target{
   transform: translateY(-6px);
   transition: opacity .15s ease, transform .15s ease;
 }
-
 body.show-missions .gj-peek{
   opacity:1;
   transform: translateY(0);
-  pointer-events:auto; /* tap to close */
+  pointer-events:auto;
 }
-
 .peek-card{
   width:min(720px, 96vw);
   margin: 0 auto;
@@ -423,103 +268,39 @@ body.show-missions .gj-peek{
   box-shadow: 0 18px 55px rgba(0,0,0,.42);
   padding: 12px;
 }
+.peek-title{ font-size:14px; font-weight:1200; margin-bottom:6px; }
+.peek-sub,.peek-mini{ font-size:12px; font-weight:900; color: rgba(229,231,235,.92); margin-top:4px; }
+.peek-tip{ margin-top:8px; font-size:11px; font-weight:900; color: rgba(148,163,184,.92); }
 
-.peek-title{
-  font-size:14px;
-  font-weight:1200;
-  margin-bottom:6px;
+/* ✅ Compact mode (default on mobile) */
+body.compact .quest-row{ display:none !important; }
+
+/* ✅ Compact bottom: show only FEVER bar, hide SHIELD panel unless has shield or user opens */
+body.compact .gj-hud-bot{
+  grid-template-columns: 1fr;
 }
-.peek-sub, .peek-mini{
-  font-size:12px;
-  font-weight:900;
-  color: rgba(229,231,235,.92);
-  margin-top:4px;
-}
-.peek-tip{
-  margin-top:8px;
-  font-size:11px;
-  font-weight:900;
-  color: rgba(148,163,184,.92);
+body.compact #gjHudShield{
+  display:none;
 }
 
-/* --- HUD hidden mode (maximize playfield) --- */
+/* If player has shield -> show small strip */
+body.compact.has-shield #gjHudShield{
+  display:block;
+}
+
+/* Hide HUD mode */
 body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
-  display:none !important;
-}
+body.hud-hidden .gj-hud-bot{ display:none !important; }
 
-/* --- Responsive tweaks --- */
+/* Responsive tweaks */
 @media (max-width: 520px){
-  :root{
-    --topbar-h: 52px;
-    --card-pad: 9px;
-  }
+  :root{ --topbar-h: 52px; --card-pad: 9px; }
   .gj-btn{ height:40px; border-radius: 14px; }
-  .hud-pill{ min-width: 86px; }
-  .hud-pill .hud-value{ font-size: 17px; }
+  .hud-pill{ min-width: 82px; padding: 9px 10px; }
+  .hud-pill .hud-value{ font-size: 16px; }
   .quest-row{ grid-template-columns: 1fr; }
-  .gj-hud-bot{ grid-template-columns: 1fr; }
 }
-
-@media (min-width: 900px){
-  :root{ --topbar-h: 58px; }
-  .gj-hud-top{
-    padding-left: calc(18px + var(--sal));
-    padding-right: calc(18px + var(--sar));
-  }
-  .gj-hud-bot{
-    padding-left: calc(18px + var(--sal));
-    padding-right: calc(18px + var(--sar));
-  }
-}
-
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce){
   .gj-target.spawn{ animation:none; }
   .gj-peek{ transition:none; }
-  .gj-lowtime-overlay{ transition:none; }
-}
-
-/* =========================================================
-   PATCH: HUD COMPACT (mobile default) — maximize gameplay
-   ========================================================= */
-
-/* โหมด compact: ซ่อนการ์ด GOAL/MINI ใหญ่ */
-body.hud-compact .quest-row{
-  display:none !important;
-}
-
-/* ย่อ HUD TOP ให้เตี้ย */
-body.hud-compact .gj-hud-top{
-  padding-top: 4px !important;
-}
-
-/* ย่อ pill ตัวเลข */
-body.hud-compact .hud-row{ gap:6px !important; }
-body.hud-compact .hud-pill{
-  min-width: 74px !important;
-  padding: 8px 10px !important;
-  border-radius: 16px !important;
-}
-body.hud-compact .hud-pill .hud-label{ font-size:10px !important; }
-body.hud-compact .hud-pill .hud-value{ font-size:16px !important; }
-
-/* HUD BOTTOM ให้บางลง + จัดเป็น 1 คอลัมน์ */
-body.hud-compact .gj-hud-bot{
-  grid-template-columns: 1fr !important;
-  gap: 8px !important;
-}
-
-/* ย่อกล่อง FEVER/SHIELD */
-body.hud-compact .meter{
-  padding: 8px !important;
-  border-radius: 18px !important;
-}
-body.hud-compact .meter-bar{ height: 8px !important; }
-body.hud-compact .meter-num{ font-size:11px !important; }
-body.hud-compact .meter-title{ font-size:11px !important; }
-
-/* ลดความรก: ซ่อน tip ยาวใน compact */
-body.hud-compact #gjHudShield .meter-tip{
-  display:none !important;
 }
