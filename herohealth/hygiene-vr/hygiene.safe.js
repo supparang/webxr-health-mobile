@@ -122,18 +122,18 @@ export function boot(){
 
   let correctHits=0;
   let totalStepHits=0;
-  const rtOk = []; // ms
+  const rtOk = [];
   let spawnAcc=0;
 
   // quest/quiz
   let questText = 'ทำ STEP ให้ถูก!';
   let questDone = 0;
-  let quizOpen = false;
   let quizRight = 0;
   let quizWrong = 0;
+  let quizOpen = false;
 
   // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
+  const targets = [];
   let nextId=1;
 
   function showBanner(msg){
@@ -153,8 +153,7 @@ export function boot(){
   function pickQuiz(){
     const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
     if(!Array.isArray(bank) || !bank.length) return null;
-    const q = bank[Math.floor(rng()*bank.length)];
-    return q || null;
+    return bank[Math.floor(rng()*bank.length)] || null;
   }
 
   function openRandomQuiz(){
@@ -163,37 +162,34 @@ export function boot(){
 
     setQuizVisible(true);
     quizQ.textContent = `🧠 Quiz: ${q.q}`;
-    // สุ่มตัวเลือก 4 ข้อ (คำตอบ + 3 wrong)
+
     const options = [q.a].concat((q.wrong||[]).slice(0,3));
-    // shuffle
     for(let i=options.length-1;i>0;i--){
       const j = Math.floor(rng()*(i+1));
       [options[i],options[j]] = [options[j],options[i]];
     }
-    quizSub.textContent = 'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
-      + '  (ตอบโดย “แตะ/ยิง” เป้าหมายถูกต่อเนื่อง 2 ครั้ง เพื่อยืนยัน)';
+    quizSub.textContent =
+      'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
+      + '  (ตอบแบบ ป.5: ทำ “ถูกขั้นตอน” ต่อเนื่อง 2 ครั้งใน 4 วิ = ผ่าน)';
 
-    // กลไกตอบแบบง่ายสำหรับ ป.5:
-    // ถ้าผู้เล่นทำ “ถูกขั้นตอน” ต่อเนื่อง 2 ครั้งใน 4 วินาที → นับว่า “ตอบถูก”
-    // ถ้า miss เกิดระหว่างนี้ → นับ “ตอบผิด”
-    quizOpen._armed = true;
-    quizOpen._t0 = nowMs();
-    quizOpen._needStreak = 2;
-    quizOpen._streak = 0;
+    openRandomQuiz._armed = true;
+    openRandomQuiz._t0 = nowMs();
+    openRandomQuiz._needStreak = 2;
+    openRandomQuiz._streak = 0;
   }
 
   function closeQuiz(msg){
     if(quizOpen){
       setQuizVisible(false);
       quizOpen = false;
-      quizOpen._armed = false;
+      openRandomQuiz._armed = false;
       if(msg) showBanner(msg);
     }
   }
 
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
-    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 160;
+    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 180;
     const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 160;
     const pad = 14;
 
@@ -221,7 +217,6 @@ export function boot(){
 
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
-
     pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
     hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
   }
@@ -245,14 +240,12 @@ export function boot(){
     el.className = `hw-tgt ${kind}`;
     el.innerHTML = `<span class="emoji">${emoji}</span>`;
     el.dataset.id = String(nextId);
-
     stage.appendChild(el);
 
     const rect = getSpawnRect();
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
-    // ใช้ vh/vw (1vw = 1% width, 1vh = 1% height)
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
@@ -274,7 +267,6 @@ export function boot(){
     if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
     }else if(r < P.hazardRate + P.decoyRate){
-      // wrong step emoji
       let j = stepIdx;
       for(let k=0;k<7;k++){
         const pick = Math.floor(rng()*STEPS.length);
@@ -296,7 +288,6 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // cVR shoot: pick nearest target within lockPx
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
@@ -315,9 +306,7 @@ export function boot(){
         best = t; bestDist = dist;
       }
     }
-    if(best){
-      judgeHit(best, 'shoot', { lockPx, dist: bestDist });
-    }
+    if(best) judgeHit(best, 'shoot', { lockPx, dist: bestDist });
   }
 
   function getStepAcc(){
@@ -329,9 +318,6 @@ export function boot(){
   }
 
   function bumpQuestOnGoodHit(){
-    // Quest สุ่มแบบง่าย ๆ ที่เด็กเข้าใจ
-    // - random every ~12-18s หรือเมื่อเคลียร์ step
-    // - 3 แบบ: COMBO, NO HAZ, FAST STEP
     const t = elapsedSec();
     if(t < 2) return;
 
@@ -357,7 +343,6 @@ export function boot(){
       bumpQuestOnGoodHit._fastStepT0 = nowMs();
       bumpQuestOnGoodHit._fastStepIdx = stepIdx;
     }
-
     showBanner(`🎯 QUEST: ${questText}`);
   }
 
@@ -383,12 +368,12 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      // quiz armed streak
-      if(quizOpen && quizOpen._armed){
-        const within = (nowMs() - quizOpen._t0) <= 4000;
+      // quiz streak logic
+      if(quizOpen && openRandomQuiz._armed){
+        const within = (nowMs() - openRandomQuiz._t0) <= 4000;
         if(within){
-          quizOpen._streak++;
-          if(quizOpen._streak >= (quizOpen._needStreak||2)){
+          openRandomQuiz._streak++;
+          if(openRandomQuiz._streak >= (openRandomQuiz._needStreak||2)){
             quizRight++;
             closeQuiz('✅ Quiz ผ่าน!');
           }
@@ -405,14 +390,12 @@ export function boot(){
       bumpQuestOnGoodHit();
       showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
 
-      // step clear
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
 
         stepIdx++;
         hitsInStep=0;
 
-        // fast step quest check
         if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
           const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
           if(dt <= 6500){
@@ -425,11 +408,9 @@ export function boot(){
           stepIdx=0;
           loopsDone++;
           showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
-          // สุ่ม quiz เมื่อครบ 7
           if(!quizOpen) openRandomQuiz();
         }else{
           showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-          // สุ่ม quiz บางครั้งหลังผ่าน step
           if(!quizOpen && rng() < 0.25) openRandomQuiz();
         }
       }
@@ -439,13 +420,12 @@ export function boot(){
       return;
     }
 
-    // wrong step
     if(obj.kind === 'wrong'){
       wrongStepHits++;
       totalStepHits++;
       combo = 0;
 
-      if(quizOpen && quizOpen._armed){
+      if(quizOpen && openRandomQuiz._armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
       }
@@ -462,12 +442,11 @@ export function boot(){
       return;
     }
 
-    // hazard
     if(obj.kind === 'haz'){
       hazHits++;
       combo = 0;
 
-      if(quizOpen && quizOpen._armed){
+      if(quizOpen && openRandomQuiz._armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
       }
@@ -486,7 +465,8 @@ export function boot(){
   }
 
   function tick(){
-    if(!running){ return; }
+    if(!running) return;
+
     const t = nowMs();
     const dt = Math.max(0, (t - tLastMs)/1000);
     tLastMs = t;
@@ -496,20 +476,14 @@ export function boot(){
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
 
-    if(timeLeft <= 0){
-      endGame('time');
-      return;
-    }
+    if(timeLeft <= 0){ endGame('time'); return; }
 
-    // spawn
     const P = dd ? dd.getParams() : base;
     spawnAcc += (P.spawnPerSec * dt);
-
     while(spawnAcc >= 1){
       spawnAcc -= 1;
       spawnOne();
 
-      // cap targets
       if(targets.length > 18){
         const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
         if(oldest) removeTarget(oldest);
@@ -634,7 +608,6 @@ export function boot(){
 
     emit('hha:end', summary);
 
-    // show end UI
     if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
     if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
@@ -664,14 +637,13 @@ export function boot(){
   // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // optional: visuals
+  // optional visuals
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(WIN.Particles && WIN.Particles.popText){
       WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
     }
   });
-
   WIN.addEventListener('hha:coach', (e)=>{
     const d = (e && e.detail) || {};
     if(d && d.text) showBanner(`🤖 ${d.text}`);
