@@ -1,7 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
    Balanced Plate VR — UI + FX (PRODUCTION)
-   HHA Standard (SAFE RECT + targets absolute)
+   HHA Standard + Safe Spawn Vars
 ========================================================= */
 
 :root{
@@ -28,11 +28,11 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* ✅ spawn-safe margins (mode-factory reads these) */
-  --plate-top-safe: calc(var(--sat) + 170px);
-  --plate-bottom-safe: calc(var(--sab) + 22px);
-  --plate-left-safe: calc(var(--sal) + 12px);
-  --plate-right-safe: calc(var(--sar) + 12px);
+  /* ✅ Spawn safe rect (JS will overwrite to avoid HUD overlap) */
+  --plate-top-safe: 96px;
+  --plate-bottom-safe: 14px;
+  --plate-left-safe: 10px;
+  --plate-right-safe: 10px;
 }
 
 *{ box-sizing:border-box; }
@@ -48,7 +48,7 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   Playfield layer
+   Spawn Layer (Targets)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -58,14 +58,14 @@ html,body{
   touch-action:none;
 }
 
-/* ---------------------------------------------------------
-   Targets
---------------------------------------------------------- */
+/* ✅ IMPORTANT: absolute so left/top works */
 .plateTarget{
-  position:absolute; /* ✅ must be absolute */
+  position:absolute;
   display:grid;
   place-items:center;
   border-radius:999px;
+  font-size:28px;
+  font-weight:900;
   user-select:none;
   cursor:pointer;
 
@@ -82,11 +82,9 @@ html,body{
 }
 
 .plateTarget .fg-emoji{
-  font-size:28px;
-  font-weight:900;
-  line-height:1;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
-  transform: translateZ(0);
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 8px 12px rgba(0,0,0,.35));
 }
 
 .plateTarget[data-kind="good"]{
@@ -104,219 +102,60 @@ html,body{
   animation-duration:1.2s;
 }
 
-@keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
-  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
-}
-
+@keyframes pop{ 0%{ transform:scale(.85); opacity:0 } 100%{ transform:scale(1); opacity:1 } }
 @keyframes wobble{
-  0%{ rotate:0deg }
-  25%{ rotate:1.2deg }
-  50%{ rotate:-1.2deg }
-  75%{ rotate:.8deg }
-  100%{ rotate:0deg }
+  0%{ transform:rotate(0deg) }
+  25%{ transform:rotate(1.2deg) }
+  50%{ transform:rotate(-1.2deg) }
+  75%{ transform:rotate(.8deg) }
+  100%{ transform:rotate(0deg) }
 }
 
 /* ---------------------------------------------------------
-   HUD
+   HUD (ขั้นต่ำ: คุณมีของเดิมอยู่แล้ว แค่ให้ไม่บังสนาม)
 --------------------------------------------------------- */
 #hud{
   position:fixed;
   top: calc(var(--sat) + 10px);
   left: calc(var(--sal) + 10px);
-  z-index:40;
-  width: min(420px, calc(100vw - var(--sal) - var(--sar) - 20px));
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none; /* ✅ do not block hits */
-}
-
-.hudRow{
-  display:flex;
-  gap:10px;
-  pointer-events:none;
-}
-
-.chip{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  padding:10px 12px;
-  border-radius:14px;
-  background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.18);
-  backdrop-filter:blur(10px);
-  box-shadow:0 16px 50px rgba(0,0,0,.22);
-}
-
-.chip .lbl{ font-size:11px; font-weight:900; color:var(--muted); letter-spacing:.08em; }
-.chip .val{ font-size:20px; font-weight:1000; }
-
-.card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
-  pointer-events:none;
-}
-
-#questCard{ padding:12px; }
-
-.cardTitle{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:10px;
-}
-.cardTitle .t{ font-weight:1000; }
-.cardTitle .hint{ font-size:12px; color:var(--muted); font-weight:900; }
-
-.qItem{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  padding:10px 10px;
-  border-radius:14px;
-  background:rgba(15,23,42,.45);
-  border:1px solid rgba(148,163,184,.14);
-  margin-top:8px;
-}
-
-.qText .name{ font-weight:1000; }
-.qText .sub{ font-size:12px; color:var(--muted); font-weight:900; margin-top:2px; }
-
-.qProg{ min-width:140px; display:flex; flex-direction:column; gap:6px; }
-.qNums{ text-align:right; font-size:12px; color:var(--muted); font-weight:1000; }
-
-.bar{
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.12);
-  overflow:hidden;
-}
-.bar>i{
-  display:block;
-  height:100%;
-  width:0%;
-  background:var(--accent);
-  transition:width .25s ease;
-}
-
-/* ---------------------------------------------------------
-   Coach bubble
---------------------------------------------------------- */
-#coachCard{
-  position:fixed;
-  left:50%;
-  bottom: calc(var(--sab) + 16px);
-  transform:translateX(-50%);
+  right: calc(var(--sar) + 10px);
   z-index:60;
-  max-width:min(560px, calc(100vw - 24px));
   pointer-events:none;
-  opacity:0;
-  transition:opacity .18s ease, transform .18s ease;
 }
 
-#coachCard.show{
-  opacity:1;
-  transform:translateX(-50%) translateY(-4px);
-}
-
-#coachCard .inner{
-  background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:18px;
-  padding:12px 14px;
-  box-shadow:0 18px 60px rgba(0,0,0,.35);
-  backdrop-filter:blur(10px);
-}
-
-#coachMsg{ font-weight:1000; }
-#coachMeta{ margin-top:4px; color:var(--muted); font-size:12px; font-weight:900; }
+#hud .chip, #hud .card{ pointer-events:auto; }
 
 /* ---------------------------------------------------------
-   End overlay
+   Boss / Storm FX layers
 --------------------------------------------------------- */
-#endOverlay{
+#bossFx,#stormFx{
   position:fixed;
   inset:0;
-  z-index:80;
-  display:grid;
-  place-items:center;
-  background:rgba(0,0,0,.55);
+  pointer-events:none;
+  z-index:55;
+  display:none;
 }
-#endOverlay[aria-hidden="true"]{ display:none; }
+#bossFx.boss-on{
+  display:block;
+  background: radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+}
+#bossFx.boss-panic{ animation:pulseBad .25s infinite; }
 
-.endPanel{
-  width:min(640px, calc(100vw - 24px));
-  background:rgba(2,6,23,.86);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:22px;
-  box-shadow:0 24px 80px rgba(0,0,0,.5);
-  padding:16px;
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
 }
-
-.endTitle{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
-.endTitle h2{ margin:0; font-size:22px; font-weight:1100; }
-.endTitle .tag{ color:var(--muted); font-weight:900; }
-
-.endGrid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:10px;
-}
-.kpi{
-  padding:12px;
-  border-radius:16px;
-  background:rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.14);
-}
-.kpi .k{ color:var(--muted); font-weight:900; font-size:12px; }
-.kpi .v{ font-weight:1100; font-size:18px; margin-top:4px; }
-
-.endBtns{
-  display:flex;
-  gap:10px;
-  margin-top:14px;
-}
-.btn{
-  flex:1;
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:12px 14px;
-  font-weight:1000;
-  font-size:13px;
-  cursor:pointer;
-  color:var(--text);
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-}
-.btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
+@keyframes pulseBad{
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.25) }
+  100%{ filter:brightness(1) }
 }
 
 /* ---------------------------------------------------------
-   View tuning
+   Responsive tuning
 --------------------------------------------------------- */
-body.view-mobile{
-  --plate-top-safe: calc(var(--sat) + 220px);  /* HUD สูงขึ้น */
-  --plate-bottom-safe: calc(var(--sab) + 70px);/* กันนิ้ว */
-}
-
-body.view-vr,
-body.view-cvr{
-  --plate-top-safe: calc(var(--sat) + 120px);
-  --plate-bottom-safe: calc(var(--sab) + 18px);
-}
-
 @media (max-width:900px){
-  .plateTarget .fg-emoji{ font-size:24px; }
-  .chip .val{ font-size:18px; }
-  .qProg{ min-width:120px; }
+  .plateTarget .fg-emoji{ font-size:28px }
 }
