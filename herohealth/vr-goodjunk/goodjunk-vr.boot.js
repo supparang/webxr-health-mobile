@@ -1,10 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (B FULL)
-// ✅ Auto view detect (no override if ?view= exists)
-// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ VRUI config: crosshair shoot lock + cooldown
-// ✅ Flush-hardened (pagehide/visibilitychange/back hub)
-// ✅ Boots SAFE engine: ./goodjunk.safe.js
+// GoodJunkVR Boot — PRODUCTION (B FULL + Pack 14 Practice 15s)
 
 import { boot as safeBoot } from './goodjunk.safe.js';
 
@@ -63,7 +58,6 @@ function initVRUI(){
 
 function hardenFlush(){
   const L = WIN.HHACloudLogger;
-
   const flush = (why='flush')=>{
     try{
       if(L && typeof L.flush === 'function') L.flush({ reason: why });
@@ -122,14 +116,63 @@ function initLoggerContext(opts){
   }catch(_){}
 }
 
+function redirect(url){
+  try{ location.replace(url); }catch(_){ location.href = url; }
+}
+
 function start(){
   const opts = getRunOpts();
 
-  setBodyView(opts.view);
-  initVRUI();
-  initLoggerContext(opts);
-  hardenFlush();
+  // 0) Practice preflight (Pack 14)
+  // - default: only VR/cVR do practice (run=play -> run=practice)
+  try{
+    const P = WIN.HHAPractice;
+    if(P && typeof P.preflight === 'function'){
+      const r = P.preflight({ practiceSec: 15, views:['vr','cvr'], practiceDiff:'easy' });
+      if(r && r.action === 'redirect' && r.url){
+        redirect(r.url);
+        return;
+      }
+    }
+  }catch(_){}
 
+  // 1) view classes
+  setBodyView(opts.view);
+
+  // 2) vrui config
+  initVRUI();
+
+  // 3) logger ctx + flush hardening
+  const flush = hardenFlush();
+  initLoggerContext(opts);
+
+  // 4) show overlay if this is practice run
+  try{
+    if(opts.run === 'practice' && WIN.HHAPractice){
+      WIN.HHAPractice.setOverlay?.('Practice 15s — ฝึกก่อนเริ่มรอบจริง');
+    }else{
+      WIN.HHAPractice?.hideOverlay?.();
+    }
+  }catch(_){}
+
+  // 5) if practice ends -> redirect to real run
+  //    (we listen once and check run=practice)
+  WIN.addEventListener('hha:end', ()=>{
+    try{
+      if(opts.run !== 'practice') return;
+
+      // best-effort flush before redirect
+      try{ flush && flush('practice->real'); }catch(_){}
+
+      const P = WIN.HHAPractice;
+      const next = P && typeof P.onEndRedirect === 'function' ? P.onEndRedirect() : null;
+      if(next){
+        setTimeout(()=>redirect(next), 120);
+      }
+    }catch(_){}
+  }, { passive:true, once:false });
+
+  // 6) boot SAFE engine
   safeBoot({
     view: opts.view,
     run:  opts.run,
