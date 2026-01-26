@@ -4,8 +4,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
-✅ NEW (1): Big Banner current group + events
-✅ NEW (2): DL-lite Predictor + Explainable micro-tips (play only; off in research/practice)
+✅ Big Banner current group + events
+✅ DL-lite from engine via groups:dl (play only; off in research/practice)
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -55,6 +55,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <div class="pill"><span class="lbl">⭐ SCORE</span><span id="vScore" class="val">0</span></div>
       <div class="pill"><span class="lbl">🔥 COMBO</span><span id="vCombo" class="val">0</span></div>
       <div class="pill"><span class="lbl">❌ MISS</span><span id="vMiss" class="val">0</span></div>
+      <div class="pill dl"><span class="lbl">🧠 DL</span><span id="vDL" class="val">off</span></div>
     </div>
     <div class="hudRight">
       <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
@@ -112,7 +113,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- Calibration overlay (cVR only) -->
+  <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
     <div class="panel calPanel">
       <div class="title">🧭 Calibration (Cardboard)</div>
@@ -170,7 +171,520 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
-<!-- ✅ ส่วน <script> ยาว ๆ ของคุณ (HUD+Calibration+Predictor) ให้ใช้ “ตามที่คุณแปะล่าสุด” ได้เลย -->
-<!-- เพราะตัวนี้ถูกต้องแล้ว และ CSS ด้านบนรองรับ tone + safe zone แล้ว -->
+<script>
+(function(){
+  'use strict';
+  const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
+
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+
+  function setView(view){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    b.classList.add('view-'+view);
+  }
+
+  function aiEnabled(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const on  = String(qs('ai','0')||'0');
+    if (run === 'research') return false;
+    if (run === 'practice') return false;
+    return (on === '1' || on === 'true');
+  }
+
+  function getPracticeSec(view){
+    const p = String(qs('practice','0')||'0');
+    let sec = Number(p)||0;
+    if (p === '1') sec = 15;
+    sec = clamp(sec, 0, 30);
+    if (view !== 'cvr') sec = 0;
+    return sec;
+  }
+
+  async function copyText(text){
+    try { await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch {
+      try{
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select();
+        DOC.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
+    }
+  }
+
+  // ============== Banner API ==============
+  let bannerTmr = 0;
+  function showBanner(text, tone='neutral', ms=1200){
+    const el = $('bigBanner');
+    const tx = $('bigBannerText');
+    if (!el || !tx) return;
+    tx.textContent = String(text||'');
+    el.classList.remove('hidden');
+    el.classList.remove('tone-neutral','tone-good','tone-warn','tone-bad');
+    el.classList.add('tone-'+tone);
+    el.classList.add('show');
+
+    clearTimeout(bannerTmr);
+    bannerTmr = setTimeout(()=>{
+      try{
+        el.classList.remove('show');
+        el.classList.add('hidden');
+      }catch(_){}
+    }, clamp(ms, 600, 2500));
+  }
+
+  // ---------- HUD binds ----------
+  let _score=0,_combo=0,_miss=0,_acc=0,_left=90,_storm=false,_miniUrg=false;
+  let _groupName='—', _groupKey='', _lastGroupKey='';
+
+  window.addEventListener('hha:score', (ev)=>{
+    const d = ev.detail||{};
+    _score = Number(d.score ?? _score) || 0;
+    _combo = Number(d.combo ?? _combo) || 0;
+    _miss  = Number(d.misses ?? _miss) || 0;
+    $('vScore').textContent = String(_score|0);
+    $('vCombo').textContent = String(_combo|0);
+    $('vMiss').textContent  = String(_miss|0);
+  }, {passive:true});
+
+  window.addEventListener('hha:time', (ev)=>{
+    const d = ev.detail||{};
+    _left = Math.max(0, Math.round(d.left ?? _left));
+    $('vTime').textContent = String(_left);
+  }, {passive:true});
+
+  window.addEventListener('hha:rank', (ev)=>{
+    const d = ev.detail||{};
+    $('vRank').textContent = String(d.grade ?? 'C');
+    _acc = Number(d.accuracy ?? _acc) || 0;
+    $('vAcc').textContent  = String(_acc + '%');
+  }, {passive:true});
+
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev.detail||{};
+    $('coachText').textContent = String(d.text||'');
+    const mood = String(d.mood||'neutral');
+    const img =
+      (mood==='happy') ? '../img/coach-happy.png' :
+      (mood==='sad')   ? '../img/coach-sad.png' :
+      (mood==='fever') ? '../img/coach-fever.png' :
+                        '../img/coach-neutral.png';
+    $('coachImg').src = img;
+  }, {passive:true});
+
+  window.addEventListener('groups:power', (ev)=>{
+    const d = ev.detail||{};
+    const cur = Number(d.charge||0);
+    const thr = Math.max(1, Number(d.threshold||8));
+    $('pCur').textContent = String(cur|0);
+    $('pThr').textContent = String(thr|0);
+    $('pFill').style.width = Math.round((cur/thr)*100) + '%';
+  }, {passive:true});
+
+  window.addEventListener('quest:update', (ev)=>{
+    const d = ev.detail||{};
+
+    const gTitle = String(d.goalTitle||'—');
+    const gNow   = Number(d.goalNow||0);
+    const gTot   = Math.max(1, Number(d.goalTotal||1));
+    const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
+
+    const mTitle = String(d.miniTitle||'—');
+    const mNow   = Number(d.miniNow||0);
+    const mTot   = Math.max(1, Number(d.miniTotal||1));
+    const mPct   = clamp(d.miniPct ?? (mNow/mTot*100), 0, 100);
+    const mLeft  = Number(d.miniTimeLeftSec||0);
+
+    $('goalTitle').textContent = '🎯 GOAL';
+    $('goalCount').textContent = `${gNow}/${gTot}`;
+    $('goalFill').style.width = Math.round(gPct) + '%';
+    $('goalSub').textContent = gTitle;
+
+    $('miniTitle').textContent = '⚡ MINI';
+    $('miniFill').style.width = Math.round(mPct) + '%';
+    $('miniSub').textContent = mTitle;
+    $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
+
+    const urgent = (mLeft>0 && mLeft<=3);
+    _miniUrg = urgent;
+    DOC.body.classList.toggle('mini-urgent', urgent);
+
+    _groupName = String(d.groupName || _groupName || '—');
+    _groupKey  = String(d.groupKey  || _groupKey  || '');
+    if (_groupKey && _groupKey !== _lastGroupKey){
+      _lastGroupKey = _groupKey;
+      showBanner('หมู่ตอนนี้: ' + _groupName, 'good', 1200);
+    }
+  }, {passive:true});
+
+  window.addEventListener('groups:progress', (ev)=>{
+    const d = ev.detail||{};
+    const k = String(d.kind||'');
+    if (k === 'storm_on'){ _storm = true; showBanner('🌪️ STORM! เป้าถี่ขึ้น', 'warn', 1400); }
+    if (k === 'storm_off'){ _storm = false; showBanner('✨ พายุจบ! เก็บแต้มต่อ', 'good', 1100); }
+    if (k === 'boss_spawn'){ showBanner('👊 BOSS มาแล้ว!', 'warn', 1200); }
+    if (k === 'boss_down'){ showBanner('💥 BOSS แตก!', 'good', 1100); }
+    if (k === 'perfect_switch'){ showBanner('🔄 สลับหมู่!', 'neutral', 1000); }
+  }, {passive:true});
+
+  // ============== ✅ DL listener (from engine) ==============
+  const DL = { on:false, lastTipAt:0, lastPraiseAt:0 };
+
+  function tip(text, mood='neutral'){
+    const t = nowMs();
+    if (t - DL.lastTipAt < 1600) return;
+    DL.lastTipAt = t;
+    try{ window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } })); }catch(_){}
+  }
+
+  window.addEventListener('groups:dl', (ev)=>{
+    const d = ev.detail||{};
+    DL.on = true;
+    $('vDL').textContent = `r=${d.risk} p=${d.pMiss5}`;
+
+    // explainable
+    const top = Array.isArray(d.top) ? d.top : [];
+    const r = Number(d.risk||0);
+
+    if (!aiEnabled()) return;
+
+    if (r >= 0.78){
+      if (top.includes('miniUrg')){
+        showBanner('⏱️ MINI ใกล้หมด! เล็งชัวร์ก่อน', 'warn', 1300);
+        tip('MINI ใกล้หมด! เล็ง “เป้าชัวร์” ก่อนนะ 👀', 'fever');
+      } else if (top.includes('storm')){
+        showBanner('🌪️ พายุ! ช้าลงนิด เล็งก่อนยิง', 'warn', 1200);
+        tip('พายุอยู่! ช้าลงนิด แล้วเล็งให้ตรงหมู่ก่อนยิง 🔥', 'fever');
+      } else if (top.includes('missRate5')){
+        showBanner('⚠️ พลาดถี่! หยุดยิงมั่ว', 'bad', 1200);
+        tip('พลาดถี่แล้ว! หยุดยิงมั่ว 1 วิ แล้วค่อยยิงใหม่ 🎯', 'sad');
+      } else if (top.includes('accBad')){
+        showBanner('🎯 ความแม่นลด! ดูหมู่ก่อนยิง', 'warn', 1100);
+        tip('ดูชื่อหมู่ก่อน แล้วค่อยยิง จะคุ้มกว่า ✅', 'neutral');
+      } else {
+        showBanner('⚠️ ระวังคะแนนร่วง!', 'warn', 1100);
+        tip('ตั้งสติ! เล็งให้ตรงหมู่ก่อนยิง ✅', 'neutral');
+      }
+    } else if (r <= 0.35 && (_combo >= 6)) {
+      const t = nowMs();
+      if (t - DL.lastPraiseAt > 6500){
+        DL.lastPraiseAt = t;
+        tip('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 💪', 'happy');
+      }
+    }
+  }, {passive:true});
+
+  // ---------- Summary / History ----------
+  const LS_LAST = 'HHA_LAST_SUMMARY';
+  const LS_HIST = 'HHA_SUMMARY_HISTORY';
+
+  let lastSummary = null;
+  let startIso = new Date().toISOString();
+
+  function saveLast(summary){
+    try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
+    try{
+      const hist = JSON.parse(localStorage.getItem(LS_HIST)||'[]');
+      hist.unshift(summary);
+      localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
+    }catch{}
+  }
+
+  function buildBaseSummary(d, endIso){
+    const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
+    return Object.assign({
+      timestampIso: endIso,
+      projectTag: 'HeroHealth',
+      gameTag: 'GroupsVR',
+      runMode: String(qs('run','play')||'play'),
+      diff: String(qs('diff','normal')||'normal'),
+      style: String(qs('style','mix')||'mix'),
+      view: String(qs('view','mobile')||'mobile'),
+      durationPlannedSec: Number(qs('time',90)||90),
+      startTimeIso: startIso,
+      endTimeIso: endIso,
+      seed: String(qs('seed','')||'')
+    }, ctx, d||{});
+  }
+
+  try{
+    const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
+    B && B(()=>lastSummary);
+  }catch(_){}
+
+  let practiceActive = false;
+  let practiceDone = false;
+
+  window.addEventListener('hha:end', (ev)=>{
+    const d = ev.detail||{};
+    const endIso = new Date().toISOString();
+
+    if (practiceActive && !practiceDone){
+      practiceDone = true;
+      practiceActive = false;
+      const E = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function'){
+        setTimeout(()=> startReal(E), 180);
+      }
+      return;
+    }
+
+    lastSummary = buildBaseSummary(d, endIso);
+    saveLast(lastSummary);
+
+    $('endOverlay').classList.remove('hidden');
+    $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
+    $('endScore').textContent = String(d.scoreFinal ?? 0);
+    $('endRank').textContent  = String(d.grade ?? 'C');
+    $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
+    $('endMiss').textContent  = String(d.misses ?? 0);
+
+    const hub = String(qs('hub','')||'');
+    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
+  }, {passive:true});
+
+  $('btnRestart').addEventListener('click', ()=> location.reload());
+
+  $('btnCopy').addEventListener('click', async ()=>{
+    if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
+    const ok = await copyText(JSON.stringify(lastSummary, null, 2));
+    alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  });
+
+  $('btnBackLauncher').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    const u = new URL('../groups-vr.html', location.href);
+    if (hub) u.searchParams.set('hub', hub);
+
+    const sp = new URL(location.href).searchParams;
+    sp.forEach((v,k)=>{
+      if (k==='hub') return;
+      u.searchParams.set(k,v);
+    });
+    location.href = u.toString();
+  });
+
+  $('btnHub').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+    location.href = hub;
+  });
+
+  // ---------- Engine helpers ----------
+  function waitForEngine(cb){
+    const t0 = Date.now();
+    const it = setInterval(()=>{
+      const E = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function'){
+        clearInterval(it);
+        cb(E);
+        return;
+      }
+      if (Date.now() - t0 > 7000){
+        clearInterval(it);
+        try{
+          window.dispatchEvent(new CustomEvent('hha:coach', {
+            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js). เช็ค path/ชื่อไฟล์ แล้วรีเฟรชอีกครั้ง', mood:'sad' }
+          }));
+        }catch(_){}
+      }
+    }, 60);
+  }
+
+  function getLayerEl(){
+    return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
+  }
+
+  function initViewHelper(view){
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.init && H.init({ view });
+    }catch(_){}
+  }
+
+  // ---------- PACK 13: Calibration ----------
+  const cal = { on:false, step:0, shots:0, done:false };
+
+  function showCal(on){
+    const el = $('calOverlay');
+    if (!el) return;
+    el.classList.toggle('hidden', !on);
+    DOC.body.classList.toggle('calibration', !!on);
+  }
+
+  function setCalStep(step){
+    cal.step = step;
+    const stepEl = $('calStep');
+    const subEl  = $('calSub');
+    const shotsEl= $('calShots');
+    const nextBt = $('btnCalNext');
+
+    if (stepEl) stepEl.textContent = `${step}/2`;
+    if (shotsEl) shotsEl.textContent = `${cal.shots}/3`;
+
+    if (subEl){
+      if (step === 1){
+        subEl.innerHTML = `Step 1/2: กด <b>RECENTER</b> แล้วถือมือถือให้นิ่งตรงหน้า`;
+      }else{
+        subEl.innerHTML = `Step 2/2: ลองยิง <b>3 ครั้ง</b> (แตะจอ) เพื่อทดสอบ crosshair`;
+      }
+    }
+
+    if (nextBt){
+      if (step === 1){
+        nextBt.textContent = '✅ ต่อไป';
+        nextBt.disabled = false;
+      }else{
+        nextBt.textContent = (cal.shots>=3) ? '🚀 เริ่มเลย' : 'ยิงให้ครบ 3 ครั้ง';
+        nextBt.disabled = (cal.shots < 3);
+      }
+    }
+  }
+
+  function startCalibrationIfNeeded(view){
+    if (view !== 'cvr') return false;
+
+    cal.on = true;
+    cal.done = false;
+    cal.shots = 0;
+
+    showCal(true);
+    setCalStep(1);
+
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail:{ text:'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood:'neutral' }
+      }));
+    }catch(_){}
+
+    return true;
+  }
+
+  function finishCalibration(){
+    cal.on = false;
+    cal.done = true;
+    showCal(false);
+  }
+
+  window.addEventListener('hha:shoot', ()=>{
+    if (!cal.on) return;
+    if (cal.step !== 2) return;
+    cal.shots = Math.min(3, (cal.shots|0) + 1);
+    setCalStep(2);
+  }, {passive:true});
+
+  $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
+    if (!cal.on) return;
+    if (cal.step === 1){
+      setCalStep(2);
+      return;
+    }
+    if (cal.step === 2 && cal.shots >= 3){
+      finishCalibration();
+      waitForEngine((E)=> startAfterCalibration(E));
+    }
+  });
+
+  $('btnCalSkip') && $('btnCalSkip').addEventListener('click', ()=>{
+    if (!cal.on) return;
+    finishCalibration();
+    waitForEngine((E)=> startAfterCalibration(E));
+  });
+
+  function startAfterCalibration(E){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const practiceSec = getPracticeSec(view);
+
+    if (view === 'cvr' && practiceSec > 0){
+      const diff = String(qs('diff','normal')||'normal').toLowerCase();
+      const style= String(qs('style','mix')||'mix').toLowerCase();
+      const seed = String(qs('seed', Date.now()) || Date.now());
+      startPractice(E, { diff, style, seed, practiceSec });
+      return;
+    }
+    startReal(E);
+  }
+
+  // ---------- PACK 14: Practice ----------
+  function startPractice(E, cfg){
+    practiceActive = true;
+    practiceDone = false;
+    $('vMode').textContent = 'PRACTICE';
+
+    const seedP = String(cfg.seed) + '-practice';
+    startIso = new Date().toISOString();
+
+    initViewHelper('cvr');
+    E.setLayerEl(getLayerEl());
+    E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
+
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
+    }catch(_){}
+  }
+
+  // ---------- Start real ----------
+  function startReal(E){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const style= String(qs('style','mix')||'mix').toLowerCase();
+    const time = clamp(qs('time',90), 30, 180);
+    const seed = String(qs('seed', Date.now()) || Date.now());
+
+    $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
+    startIso = new Date().toISOString();
+
+    initViewHelper(view);
+    E.setLayerEl(getLayerEl());
+    E.start(diff, { runMode: run, diff, style, time, seed });
+
+    // PACK 15: AI hooks attach (safe)
+    try{
+      const AI = window.GroupsVR && window.GroupsVR.AIHooks;
+      if (AI && AI.attach){
+        AI.attach({ runMode: run, seed, enabled: aiEnabled() && run!=='research' });
+      }
+    }catch(_){}
+  }
+
+  // ---------- Start ----------
+  function startFromParams(){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    setView(view);
+    initViewHelper(view);
+
+    showBanner('เริ่มเกม! เล็งให้ตรงหมู่ 🎯', 'neutral', 1000);
+
+    const gated = startCalibrationIfNeeded(view);
+    if (gated) return;
+
+    const practiceSec = getPracticeSec(view);
+    waitForEngine((E)=>{
+      if (view === 'cvr' && practiceSec > 0){
+        const diff = String(qs('diff','normal')||'normal').toLowerCase();
+        const style= String(qs('style','mix')||'mix').toLowerCase();
+        const seed = String(qs('seed', Date.now()) || Date.now());
+        startPractice(E, { diff, style, seed, practiceSec });
+        return;
+      }
+      startReal(E);
+    });
+  }
+
+  startFromParams();
+})();
+</script>
 </body>
 </html>
