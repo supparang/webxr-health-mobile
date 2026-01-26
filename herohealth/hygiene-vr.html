@@ -61,9 +61,7 @@ HygieneVR Launcher — ROOT (AUTO)
     </div>
 
     <div class="hint">
-      Pass-through: <code>hub</code>, <code>run</code>, <code>diff</code>, <code>time</code>, <code>seed</code>,
-      <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code>, <code>style</code>, <code>log</code>
-      (และ params อื่น ๆ ก็ส่งผ่านหมด)
+      โหมดเด็ก ป.5 แนะนำ <code>?diff=easy&time=80</code> และบนแท็บ run จะมี Quiz แบบสุ่มแล้ว
     </div>
   </div>
 </div>
@@ -71,10 +69,9 @@ HygieneVR Launcher — ROOT (AUTO)
 <script>
 (function(){
   'use strict';
-  const RUN_URL = './hygiene-vr/hygiene-vr.html';
-
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const hub = String(qs('hub','./hub.html'));
+  const RUN_URL = './hygiene-vr/hygiene-vr.html';
 
   function detectView(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
@@ -93,12 +90,10 @@ HygieneVR Launcher — ROOT (AUTO)
     const cur = new URL(location.href);
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
-    // DO NOT override view if already present
     const hasView = !!cur.searchParams.get('view');
-    if (!hasView){
-      u.searchParams.set('view', detectView());
-    }
+    if (!hasView) u.searchParams.set('view', detectView());
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
     return u.toString();
   }
 
@@ -110,7 +105,6 @@ HygieneVR Launcher — ROOT (AUTO)
   const txt = document.getElementById('txt');
   if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
-  // auto redirect
   setTimeout(go, 120);
 })();
 </script>
