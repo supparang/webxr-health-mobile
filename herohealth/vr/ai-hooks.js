@@ -1,120 +1,150 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — STUB (Prediction/ML/DL-ready)
-// ✅ Default: heuristic prediction (no ML yet)
-// ✅ Research: deterministic-friendly (seeded runs supported by caller rng)
-// ✅ Exposes hooks for:
-//    - difficulty director (adaptive pace & ratios)
-//    - coach micro-tips (rate-limited)
-//    - pattern generator (spawn bias / streak control)
-//
-// Usage:
-//   import { createAIHooks } from '../vr/ai-hooks.js';
-//   const AI = createAIHooks({ game:'GoodJunkVR', mode:'play', rng });
-//   AI.onEvent('hit', {...});  AI.getDifficulty(t);  AI.getTip(t);
+// HHA AI Hooks — Central AI Plug-in Points (OFF by default in research)
+// ✅ One module for all games
+// ✅ Research/practice: AI OFF (deterministic)
+// ✅ Play: AI ON optional (via ?ai=1 or window.HHA_AI=1)
+// ✅ Provides:
+//    - Difficulty Director hook (optional)
+//    - Pattern Generator hook (optional)
+//    - AI Coach hook (optional, explainable micro-tips with rate-limit)
+// ✅ Emits: hha:ai { on, reason, mode }, hha:coach { msg, tag }, hha:diff (if director emits)
 
 'use strict';
 
-export function createAIHooks(cfg = {}){
-  const game = cfg.game || 'HHA';
-  const mode = String(cfg.mode || 'play').toLowerCase();     // play | research | practice
-  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
+const WIN = window;
 
-  // --- rate limit tips ---
-  let lastTipAt = 0;
-  const tipCooldownMs = Number(cfg.tipCooldownMs ?? 5500);
+const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+const toBool = (v)=>{
+  const s = String(v ?? '').trim().toLowerCase();
+  if(!s) return false;
+  return (s === '1' || s === 'true' || s === 'yes' || s === 'on');
+};
 
-  // --- simple rolling stats ---
-  const R = {
-    hitGood:0, hitJunk:0, miss:0, combo:0,
-    last10: [], // {t, type}
-  };
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+}
 
-  function pushEvent(type, t){
-    R.last10.push({ type, t });
-    if(R.last10.length > 10) R.last10.shift();
+function modeDefault(){
+  const run = String(qs('run','play')).toLowerCase();
+  // HHA standard: research + practice must be deterministic => AI off
+  if(run === 'research' || run === 'practice') return run;
+  return 'play';
+}
+
+function aiEnabled({ mode }){
+  // 1) hard rules
+  if(mode === 'research' || mode === 'practice') return false;
+
+  // 2) explicit enable
+  if(toBool(qs('ai', '0'))) return true;
+  if(toBool(WIN.HHA_AI)) return true;
+
+  // 3) default: OFF (ปลอดภัย + คุมผล)
+  return false;
+}
+
+function makeRNG(seed){
+  let x = (Number(seed)||Date.now()) % 2147483647;
+  if (x <= 0) x += 2147483646;
+  return ()=> (x = x * 16807 % 2147483647) / 2147483647;
+}
+
+/* ---------------------------------------------------------
+ * AI Coach (micro-tips) — explainable + rate-limit
+ * --------------------------------------------------------- */
+function createCoach({ on=false, cooldownMs=6500 } = {}){
+  let lastAt = 0;
+
+  function say(msg, tag='Coach'){
+    if(!on) return;
+    const now = Date.now();
+    if(now - lastAt < cooldownMs) return;
+    lastAt = now;
+    emit('hha:coach', { msg, tag });
   }
 
-  function onEvent(type, data = {}){
-    const t = Number(data.t ?? performance.now());
-    pushEvent(type, t);
+  // simple explainable rules (NO ML yet) — safe baseline
+  function observe({ missRate=0, fever=0, combo=0, timeLeft=999 } = {}){
+    if(!on) return;
 
-    if(type === 'hitGood'){ R.hitGood++; R.combo++; }
-    if(type === 'hitJunk'){ R.hitJunk++; R.combo = 0; }
-    if(type === 'miss'){ R.miss++; R.combo = 0; }
-    if(type === 'comboBreak'){ R.combo = 0; }
+    if(timeLeft <= 7) say('ใกล้หมดเวลา! โฟกัส “ของดี” ก่อนนะ ⏱️');
+    if(fever >= 70)   say('FEVER สูง! ชะลอความเสี่ยง เลี่ยงของทอด/หวาน 🔥');
+    if(missRate >= 0.9) say('พลาดถี่ไปนิด ลอง “มองกลางจอ” แล้วค่อยยิง 🎯');
+    if(combo >= 10)   say('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 💪');
   }
 
-  // --- Prediction (heuristic) ---
-  // "predict" near-future risk: based on miss rate + junk hits
-  function predictRisk(){
-    const n = R.last10.length || 1;
-    const bad = R.last10.filter(x => x.type === 'hitJunk' || x.type === 'miss').length;
-    const risk = Math.min(1, bad / n);
-    return risk; // 0..1
-  }
+  return { say, observe };
+}
 
-  // --- Difficulty Director (heuristic) ---
-  // Returns multipliers or targets for spawn pace / junk ratio
-  function getDifficulty(tSec, base){
-    // base = { spawnMs, pJunk, pGood, pStar, pShield }
-    // research/practice => adaptive OFF
-    if(mode !== 'play') return { ...base, tag:'fixed' };
+/* ---------------------------------------------------------
+ * Pattern Generator — deterministic hook (optional)
+ * --------------------------------------------------------- */
+function createPatternGen({ on=false, rng=null } = {}){
+  const R = (typeof rng === 'function') ? rng : Math.random;
 
-    const risk = predictRisk(); // 0..1
-    const ramp = Math.min(1, Math.max(0, (tSec - 8) / 40)); // grow after 8s
-
-    // if risk high => slightly reduce junk (fair) + slightly increase shield/star
-    const fairness = (risk > 0.55) ? 1 : 0;
-
-    const spawnMs = Math.max(520, base.spawnMs - (ramp * 260) + (fairness ? 80 : 0));
-    let pJunk   = Math.min(0.42, base.pJunk + ramp*0.14 - (fairness ? 0.06 : 0));
-    let pGood   = Math.max(0.52, base.pGood - ramp*0.10 + (fairness ? 0.04 : 0));
-    let pStar   = base.pStar + (fairness ? 0.01 : 0);
-    let pShield = base.pShield + (fairness ? 0.01 : 0);
-
-    // normalize
-    let s = pGood + pJunk + pStar + pShield;
-    pGood/=s; pJunk/=s; pStar/=s; pShield/=s;
-
-    return { spawnMs, pGood, pJunk, pStar, pShield, tag: fairness ? 'assist' : 'ramp' };
-  }
-
-  // --- Coach micro-tips (rate-limited) ---
-  function getTip(tSec){
-    if(mode !== 'play') return null;
-    const now = performance.now();
-    if(now - lastTipAt < tipCooldownMs) return null;
-
-    const risk = predictRisk();
-
-    let msg = null;
-    if(risk > 0.65) msg = 'ช้าลงนิดนึง 🎯 เล็ง “ของดี” ก่อน แล้วค่อยเก็บโบนัส ⭐/🛡️';
-    else if(R.combo >= 6) msg = 'คอมโบสวยมาก! 🔥 รักษาจังหวะเดิม แล้วหลบของทอด/หวานให้ทัน';
-    else if(tSec > 20 && R.miss === 0) msg = 'โคตรนิ่ง! 👏 ลองเพิ่มความเร็ว—เน้นแตะให้แม่น';
-    else if(tSec > 12 && R.hitJunk > 0) msg = 'ทริค: ของเสียมักมาเป็นชุด—เล็ง “ของดี” ให้ไวที่สุด';
-
-    if(msg){
-      lastTipAt = now;
-      return { msg, tag: `${game} Coach` };
+  // returns pattern descriptor you can use if/when you add storm/boss
+  function next({ bias=0.5 } = {}){
+    if(!on){
+      return { kind:'none', speed:1, spread:1 };
     }
-    return null;
+    // deterministic when rng is seeded
+    const r = R();
+    const hard = (r < bias);
+    if(hard){
+      return { kind:'storm', speed:1.25, spread:1.15 };
+    }
+    return { kind:'line', speed:1.05, spread:1.0 };
   }
 
-  // --- Pattern generator (stub) ---
-  function nextPatternHint(){
-    // reserved: can return 'goodStreak', 'junkWave', 'bonusDrop', etc.
-    // deterministic: use rng()
-    const r = rng();
-    if(r < 0.12) return 'bonusDrop';
-    if(r < 0.30) return 'junkWave';
-    return 'mix';
+  return { next };
+}
+
+/* ---------------------------------------------------------
+ * Main factory
+ * --------------------------------------------------------- */
+export function createAIHooks({
+  game='Game',
+  mode=modeDefault(),         // play | research | practice
+  diff=String(qs('diff','normal')).toLowerCase(),
+  seed=String(qs('seed', Date.now())),
+  emitAIEvents=true
+} = {}){
+
+  const on = aiEnabled({ mode });
+
+  if(emitAIEvents){
+    emit('hha:ai', { on, reason: on ? 'enabled' : 'disabled', mode, game, diff, seed });
+  }
+
+  // seeded rng for AI when ON (still deterministic per seed)
+  const rng = makeRNG(seed + ':ai');
+
+  // Coach: only when AI is ON (play)
+  const coach = createCoach({ on });
+
+  // Pattern generator: optional (on when AI on)
+  const patterns = createPatternGen({ on, rng });
+
+  // Difficulty Director: you can import createDirector and wire here later,
+  // but leaving as "pass-through hook" is fine for now.
+  // (We keep a stub so engines can call hooks.director?.tick() safely.)
+  const director = null;
+
+  function observeTelemetry(t){
+    // unified place to feed coach/patterns in future
+    // expected fields: missRate, fever, combo, timeLeft, score, etc.
+    coach.observe(t || {});
   }
 
   return {
-    onEvent,
-    predictRisk,
-    getDifficulty,
-    getTip,
-    nextPatternHint
+    on,
+    mode,
+    diff,
+    seed,
+    rng,
+    coach,
+    patterns,
+    director,
+    observeTelemetry
   };
 }
