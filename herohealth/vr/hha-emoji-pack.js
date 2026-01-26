@@ -1,185 +1,176 @@
 // === /herohealth/vr/hha-emoji-pack.js ===
-// HHA Emoji Pack — UNIVERSAL (PRODUCTION)
-// ✅ One place to manage emojis/icons used across ALL games
-// ✅ Works with mode-factory.js decorateTarget(el, target)
-// ✅ Deterministic if you pass target.rng (seeded) from mode-factory
-//
-// Depends on: ./food5-th.js (stable mapping, do not drift)
+// HHA Emoji Pack — SHARED (PRODUCTION)
+// ------------------------------------------------------------
+// ✅ Centralize emoji + labels across ALL games
+// ✅ Reuse stable mapping from ./food5-th.js (DO NOT DRIFT)
+// ✅ Provide decorateTarget helpers for mode-factory decorateTarget
+// ✅ Supports seeded rng by receiving target.rng (deterministic research)
+// ------------------------------------------------------------
 
 'use strict';
 
 import { FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup } from './food5-th.js';
 
-/* -----------------------------------------
- * Game Icons (top-level / menu / tags)
- * ----------------------------------------- */
-export const GAME_ICONS = Object.freeze({
-  plate: '🍽️',
-  groups: '🧠',
-  goodjunk: '🍭',
-  hydration: '💧',
+/* ------------------------------------------------------------
+ * Helpers
+ * ------------------------------------------------------------ */
+function clamp(n, a, b){
+  n = Number(n)||0;
+  return n < a ? a : (n > b ? b : n);
+}
+
+function ensureNode(el, sel, tag='div', cls=''){
+  let n = el.querySelector(sel);
+  if(!n){
+    n = document.createElement(tag);
+    if(cls) n.className = cls;
+    el.appendChild(n);
+  }
+  return n;
+}
+
+function setText(el, txt){
+  if(!el) return;
+  el.textContent = String(txt ?? '');
+}
+
+/* ------------------------------------------------------------
+ * Public: Packs for UI lists, legends, etc.
+ * ------------------------------------------------------------ */
+export const HHA_PACK = Object.freeze({
+  FOOD5,
+  JUNK,
+  pickEmoji,
+  labelForGroup,
+  emojiForGroup,
 });
 
-/* -----------------------------------------
- * Target UI templates
- * ----------------------------------------- */
-function clearEl(el){
-  while(el.firstChild) el.removeChild(el.firstChild);
-}
-
-function mkSpan(cls, text){
-  const s = document.createElement('span');
-  s.className = cls;
-  s.textContent = text;
-  return s;
-}
-
-function mkBadge(text, tone='neutral'){
-  const b = document.createElement('span');
-  b.className = `hhaBadge ${tone}`;
-  b.textContent = text;
-  return b;
-}
-
-/* -----------------------------------------
- * Emoji picking rules (deterministic-friendly)
- * ----------------------------------------- */
-function rngFromTarget(target){
-  // mode-factory exposes `target.rng` (seeded)
-  // fallback to Math.random for non-seeded games
-  return (target && typeof target.rng === 'function') ? target.rng : Math.random;
-}
-
-export function pickFoodEmojiForTarget(target, groupId){
-  const rng = rngFromTarget(target);
-  return emojiForGroup(rng, groupId);
-}
-
-export function pickJunkEmojiForTarget(target){
-  const rng = rngFromTarget(target);
-  return pickEmoji(rng, JUNK.emojis);
-}
-
-/* -----------------------------------------
- * Decorators (call from mode-factory decorateTarget)
- * ----------------------------------------- */
+/* ------------------------------------------------------------
+ * Target Decorators (for mode-factory decorateTarget)
+ * - el: target DOM element
+ * - t : target meta from mode-factory (has: kind, groupIndex, size, rng)
+ * ------------------------------------------------------------ */
 
 /**
- * Plate: good => show food emoji of 5 groups, junk => show junk emoji.
- * Also adds small group badge ("หมู่ 1..5") for learning reinforcement.
+ * decorateTargetPlate
+ * Plate: good => emoji by groupIndex (0..4 => groupId 1..5)
+ *       junk => emoji from JUNK
+ * Adds:
+ *  - .hhaEmoji (big)
+ *  - .hhaBadge (label short)
  */
-export function decoratePlateTarget(el, target){
-  // Expect: target.kind ('good'|'junk'), target.groupIndex (0..4)
-  const kind = (target?.kind || 'good');
-  const gi0 = Number(target?.groupIndex ?? 0);
-  const groupId = clampInt(gi0 + 1, 1, 5);
+export function decorateTargetPlate(el, t){
+  if(!el || !t) return;
 
-  clearEl(el);
+  // size var for CSS scaling
+  const size = clamp(t.size ?? 56, 36, 96);
+  el.style.setProperty('--t', `${size}px`);
 
-  const main = mkSpan('fg-emoji', kind === 'junk'
-    ? pickJunkEmojiForTarget(target)
-    : pickFoodEmojiForTarget(target, groupId)
-  );
+  const rng = (typeof t.rng === 'function') ? t.rng : Math.random;
 
-  // badge text
-  const badgeText = (kind === 'junk')
-    ? 'JUNK'
-    : `หมู่ ${groupId}`;
+  const emojiNode = ensureNode(el, '.hhaEmoji', 'span', 'hhaEmoji');
+  const badgeNode = ensureNode(el, '.hhaBadge', 'span', 'hhaBadge');
 
-  const badgeTone = (kind === 'junk') ? 'bad' : 'good';
-
-  el.appendChild(main);
-  el.appendChild(mkBadge(badgeText, badgeTone));
-
-  // add data for CSS hooks
-  el.dataset.group = String(groupId);
-}
-
-/**
- * Groups: always "good" conceptually, but we still support kind.
- * Show an emoji by group + always show the Thai label (short).
- * Great for practice mode (kids recognize faster).
- */
-export function decorateGroupsTarget(el, target){
-  const kind = (target?.kind || 'good');
-  const gi0 = Number(target?.groupIndex ?? 0);
-  const groupId = clampInt(gi0 + 1, 1, 5);
-
-  clearEl(el);
-
-  const main = mkSpan('fg-emoji', (kind === 'junk')
-    ? pickJunkEmojiForTarget(target)
-    : pickFoodEmojiForTarget(target, groupId)
-  );
-
-  // short label: "หมู่ 1" etc (avoid long text blocking play)
-  const badgeTone = (kind === 'junk') ? 'bad' : 'good';
-  const badge = mkBadge(kind === 'junk' ? 'JUNK' : `หมู่ ${groupId}`, badgeTone);
-
-  el.appendChild(main);
-  el.appendChild(badge);
-
-  el.dataset.group = String(groupId);
-}
-
-/**
- * GoodJunk: no mapping 5 groups by default (recommended),
- * but if you want "learning overlay", you can enable it with opts.showGroupBadge = true
- */
-export function decorateGoodJunkTarget(el, target, opts={}){
-  const kind = (target?.kind || 'good');
-  const gi0 = Number(target?.groupIndex ?? 0);
-  const groupId = clampInt(gi0 + 1, 1, 5);
-  const showGroupBadge = !!opts.showGroupBadge;
-
-  clearEl(el);
-
-  const mainEmoji = (kind === 'junk')
-    ? pickJunkEmojiForTarget(target)
-    : pickFoodEmojiForTarget(target, groupId);
-
-  el.appendChild(mkSpan('fg-emoji', mainEmoji));
-
-  // Only show group badge if explicitly enabled (keeps GoodJunk simple + fast)
-  if(showGroupBadge && kind !== 'junk'){
-    el.appendChild(mkBadge(`หมู่ ${groupId}`, 'good'));
-  }else{
-    // tiny semantic badge for good/junk
-    el.appendChild(mkBadge(kind === 'junk' ? 'NO' : 'YES', kind === 'junk' ? 'bad' : 'good'));
+  if((t.kind||'') === 'junk'){
+    setText(emojiNode, pickEmoji(rng, JUNK.emojis));
+    setText(badgeNode, 'JUNK');
+    el.dataset.badge = 'junk';
+    return;
   }
 
-  el.dataset.group = String(groupId);
+  // good
+  const groupId = clamp((t.groupIndex ?? 0) + 1, 1, 5);
+  setText(emojiNode, emojiForGroup(rng, groupId));
+
+  // short label
+  // หมู่ 1 โปรตีน -> "โปรตีน", หมู่ 2 คาร์โบไฮเดรต -> "คาร์บ", ฯลฯ
+  const g = FOOD5[groupId];
+  const short =
+    (groupId===1) ? 'โปรตีน' :
+    (groupId===2) ? 'คาร์บ' :
+    (groupId===3) ? 'ผัก' :
+    (groupId===4) ? 'ผลไม้' :
+    (groupId===5) ? 'ไขมัน' : 'หมู่?';
+
+  setText(badgeNode, short);
+  el.dataset.badge = g?.key || `g${groupId}`;
 }
 
-/* -----------------------------------------
- * Generic decorateTarget router
- * ----------------------------------------- */
 /**
- * Universal entry: decorateTargetByGame('plate'|'groups'|'goodjunk', el, target, opts)
+ * decorateTargetGroups
+ * Groups: ALWAYS show emoji for the group itself (no junk concept by default)
+ * If you want wrong-target style, set t.kind='junk' from spawner kinds.
  */
-export function decorateTargetByGame(gameKey, el, target, opts={}){
-  const k = String(gameKey || '').toLowerCase();
-  if(k === 'plate') return decoratePlateTarget(el, target);
-  if(k === 'groups') return decorateGroupsTarget(el, target);
-  if(k === 'goodjunk') return decorateGoodJunkTarget(el, target, opts);
-  // fallback: plate-style
-  return decoratePlateTarget(el, target);
+export function decorateTargetGroups(el, t){
+  if(!el || !t) return;
+
+  const size = clamp(t.size ?? 58, 40, 104);
+  el.style.setProperty('--t', `${size}px`);
+
+  const rng = (typeof t.rng === 'function') ? t.rng : Math.random;
+
+  const emojiNode = ensureNode(el, '.hhaEmoji', 'span', 'hhaEmoji');
+  const badgeNode = ensureNode(el, '.hhaBadge', 'span', 'hhaBadge');
+
+  if((t.kind||'') === 'junk'){
+    setText(emojiNode, pickEmoji(rng, JUNK.emojis));
+    setText(badgeNode, 'ผิด');
+    el.dataset.badge = 'junk';
+    return;
+  }
+
+  const groupId = clamp((t.groupIndex ?? 0) + 1, 1, 5);
+  setText(emojiNode, emojiForGroup(rng, groupId));
+
+  const short =
+    (groupId===1) ? 'โปรตีน' :
+    (groupId===2) ? 'คาร์บ' :
+    (groupId===3) ? 'ผัก' :
+    (groupId===4) ? 'ผลไม้' :
+    (groupId===5) ? 'ไขมัน' : 'หมู่?';
+
+  setText(badgeNode, short);
+  el.dataset.badge = `g${groupId}`;
 }
 
-/* -----------------------------------------
- * Helpers
- * ----------------------------------------- */
-function clampInt(v, a, b){
-  v = Math.floor(Number(v) || 0);
-  return v < a ? a : (v > b ? b : v);
+/**
+ * decorateTargetGoodJunk
+ * GoodJunk: do NOT force 5 หมู่ (keep it "ดี vs ขยะ" for clarity)
+ * good => random “healthy” emoji pool from FOOD5 mixed (lightly)
+ * junk => JUNK
+ */
+export function decorateTargetGoodJunk(el, t){
+  if(!el || !t) return;
+
+  const size = clamp(t.size ?? 56, 36, 96);
+  el.style.setProperty('--t', `${size}px`);
+
+  const rng = (typeof t.rng === 'function') ? t.rng : Math.random;
+
+  const emojiNode = ensureNode(el, '.hhaEmoji', 'span', 'hhaEmoji');
+  const badgeNode = ensureNode(el, '.hhaBadge', 'span', 'hhaBadge');
+
+  if((t.kind||'') === 'junk'){
+    setText(emojiNode, pickEmoji(rng, JUNK.emojis));
+    setText(badgeNode, 'ขยะ');
+    el.dataset.badge = 'junk';
+    return;
+  }
+
+  // healthy pool: sample from all FOOD5 emojis (balanced-ish)
+  const gid = clamp(Math.floor(rng()*5)+1, 1, 5);
+  setText(emojiNode, emojiForGroup(rng, gid));
+  setText(badgeNode, 'ดี');
+  el.dataset.badge = 'good';
 }
 
-/* -----------------------------------------
- * Optional: provide CSS baseline classnames used by decorators
- * (You can style these in each game's css)
- * -----------------------------------------
- * .fg-emoji { font-size: 28px; line-height: 1; }
- * .hhaBadge { font-size: 10px; font-weight: 900; padding: 3px 7px; border-radius: 999px; }
- * .hhaBadge.good { background: rgba(34,197,94,.18); border: 1px solid rgba(34,197,94,.35); }
- * .hhaBadge.bad  { background: rgba(239,68,68,.18); border: 1px solid rgba(239,68,68,.35); }
- */
+/* ------------------------------------------------------------
+ * Convenience: get decorator by game key
+ * ------------------------------------------------------------ */
+export function decoratorFor(game){
+  const g = String(game||'').toLowerCase();
+  if(g === 'plate') return decorateTargetPlate;
+  if(g === 'groups') return decorateTargetGroups;
+  if(g === 'goodjunk') return decorateTargetGoodJunk;
+  return null;
+}
