@@ -1,35 +1,25 @@
-// === fitness/js/stats-store.js — Local summary store for VR Fitness ===
+// === js/stats-store.js — simple localStorage store ===
 'use strict';
 
-const KEY = 'vrfitness_stats_v1';
+const KEY = 'VRFIT_SESSIONS_V1';
 
-/**
- * บันทึก summary ของ 1 session ลง localStorage
- * @param {string} gameId  เช่น 'shadow-breaker'
- * @param {Object} summary ข้อมูลสรุป session จาก engine
- */
-export function recordSession(gameId, summary) {
-  try {
-    const now = Date.now();
-    const item = { gameId, ts: now, ...summary };
-    const raw = localStorage.getItem(KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    list.unshift(item);
-    const trimmed = list.slice(0, 100);
-    localStorage.setItem(KEY, JSON.stringify(trimmed));
-  } catch (e) {
-    console.warn('VRFitness: cannot save stats', e);
-  }
-}
-
-/**
- * โหลดประวัติ session ทั้งหมดจาก localStorage
- */
 export function loadSessions() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (_) {
     return [];
   }
+}
+
+export function saveSessions(arr) {
+  try { localStorage.setItem(KEY, JSON.stringify(arr || [])); } catch (_) {}
+}
+
+export function recordSession(gameKey, summary) {
+  const arr = loadSessions();
+  arr.push({ game: gameKey, ...summary });
+  while (arr.length > 250) arr.shift();
+  saveSessions(arr);
 }
