@@ -6,364 +6,60 @@
   <title>VR Fitness Academy — Hub</title>
   <meta name="color-scheme" content="light dark"/>
   <link rel="icon" href="./favicon.ico"/>
-
   <style>
-    :root{
-      color-scheme: dark;
-      --bg: #020617;
-      --card: rgba(15,23,42,0.96);
-      --card-soft: rgba(15,23,42,0.9);
-      --border: rgba(148,163,184,0.75);
-      --accent: #38bdf8;
-      --accent2: #a855f7;
-      --accent3: #22c55e;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --danger: #fb7185;
-      --gold: #facc15;
-    }
-
-    *{box-sizing:border-box;}
-
-    html,body{
-      margin:0;
-      padding:0;
-      height:100%;
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.20),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(168,85,247,0.22),transparent 55%),
-        var(--bg);
-      color:var(--text);
-    }
-
-    body{
-      display:flex;
-      justify-content:center;
-      align-items:stretch;
-    }
-
-    .fitness-wrap{
-      width:100%;
-      max-width:1100px;
-      margin:0 auto;
-      padding:16px 14px 28px;
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      gap:16px;
-    }
-
-    header.fitness-header{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:16px;
-    }
-
-    .fh-left{
-      max-width:640px;
-    }
-
-    .fh-title{
-      margin:0 0 4px;
-      font-size:1.8rem;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .fh-title span.icon{
-      font-size:1.8rem;
-      filter:drop-shadow(0 0 10px rgba(56,189,248,0.9));
-    }
-    .fh-sub{
-      margin:0;
-      font-size:.9rem;
-      color:var(--muted);
-    }
-
-    .fh-badges{
-      margin-top:8px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      font-size:.78rem;
-    }
-    .fh-badge{
-      padding:3px 9px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.7);
-      background:rgba(15,23,42,0.9);
-      color:var(--muted);
-    }
-    .fh-badge strong{
-      color:var(--text);
-      font-weight:600;
-    }
-
-    .fh-right{
-      text-align:right;
-      font-size:.8rem;
-      color:var(--muted);
-    }
-    .fh-right a{
-      color:var(--accent);
-      text-decoration:none;
-    }
-    .fh-right a:hover{text-decoration:underline;}
-
-    /* Mode toggle */
-
-    .mode-toggle{
-      margin-top:10px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-      font-size:.82rem;
-    }
-
-    .mode-buttons{
-      display:inline-flex;
-      gap:6px;
-      padding:3px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.96);
-      border:1px solid rgba(148,163,184,0.7);
-    }
-
-    .mode-btn{
-      border-radius:999px;
-      border:none;
-      padding:5px 12px;
-      font-size:.8rem;
-      cursor:pointer;
-      background:transparent;
-      color:var(--muted);
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-    }
-    .mode-btn span.icon{font-size:1rem;}
-    .mode-btn.active{
-      background:linear-gradient(135deg,#38bdf8,#a855f7);
-      color:#020617;
-      font-weight:600;
-      box-shadow:0 0 14px rgba(56,189,248,0.9);
-    }
-
-    #mode-desc{
-      color:var(--muted);
-      font-size:.8rem;
-    }
-
-    .fitness-main{
-      flex:1;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
-
-    .fitness-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-      gap:14px;
-    }
-
-    .game-card{
-      position:relative;
-      border-radius:22px;
-      padding:14px 14px 16px;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.20),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(15,118,110,0.30),transparent 60%),
-        var(--card);
-      border:1px solid rgba(15,23,42,0.9);
-      box-shadow:0 18px 42px rgba(0,0,0,0.85);
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .game-card--shadow{
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.26),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(248,113,113,0.28),transparent 60%),
-        var(--card);
-    }
-    .game-card--rhythm{
-      background:
-        radial-gradient(circle at top left,rgba(168,85,247,0.30),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(56,189,248,0.26),transparent 60%),
-        var(--card);
-    }
-    .game-card--jump{
-      background:
-        radial-gradient(circle at top left,rgba(34,197,94,0.30),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(234,179,8,0.26),transparent 60%),
-        var(--card);
-    }
-    .game-card--balance{
-      background:
-        radial-gradient(circle at top left,rgba(59,130,246,0.30),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(14,165,233,0.26),transparent 60%),
-        var(--card-soft);
-    }
-
-    .gc-header{
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      align-items:flex-start;
-    }
-    .gc-title{
-      margin:0;
-      font-size:1.05rem;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .gc-title span.icon{
-      font-size:1.4rem;
-    }
-    .gc-sub{
-      margin:0;
-      font-size:.82rem;
-      color:#cbd5f5;
-    }
-    .gc-tag{
-      font-size:.72rem;
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:rgba(15,23,42,0.9);
-      color:var(--muted);
-    }
-    .gc-tag.research{
-      border-color:rgba(56,189,248,0.9);
-      color:#bae6fd;
-      box-shadow:0 0 12px rgba(56,189,248,0.6);
-    }
-
-    .gc-body{
-      font-size:.8rem;
-      color:var(--muted);
-    }
-
-    .gc-meta{
-      margin-top:6px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      font-size:.76rem;
-    }
-    .gc-chip{
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.65);
-      background:rgba(15,23,42,0.92);
-    }
-
-    .game-actions{
-      margin-top:10px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .btn{
-      border-radius:999px;
-      border:1px solid transparent;
-      padding:7px 12px;
-      font-size:.86rem;
-      font-weight:500;
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      transition:transform .1s,box-shadow .1s,filter .1s,background .1s;
-      color:var(--text);
-      background:rgba(15,23,42,0.92);
-      border-color:rgba(148,163,184,0.7);
-    }
-    .btn-primary{
-      background:linear-gradient(135deg,#38bdf8,#a855f7);
-      color:#020617;
-      border-color:transparent;
-      box-shadow:0 14px 34px rgba(15,23,42,1);
-    }
-    .btn-primary:hover{
-      filter:brightness(1.05);
-      transform:translateY(-1px);
-      box-shadow:0 18px 40px rgba(15,23,42,1);
-    }
-    .btn-ghost{
-      background:rgba(15,23,42,0.7);
-      color:var(--muted);
-    }
-    .btn-ghost:hover{
-      color:var(--text);
-      background:rgba(15,23,42,0.95);
-      transform:translateY(-1px);
-    }
-    .btn-disabled{
-      opacity:.55;
-      cursor:not-allowed;
-    }
-
-    .fitness-footer{
-      margin-top:8px;
-      font-size:.78rem;
-      color:var(--muted);
-      text-align:right;
-    }
-
-    /* small screen */
-    @media (max-width:768px){
-      .fitness-wrap{
-        padding:12px 10px 24px;
-      }
-      header.fitness-header{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-      .fh-right{
-        text-align:left;
-      }
-      .mode-toggle{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-    }
+    /* (ใช้ CSS inline จากที่คุณส่งมาได้เลย) */
+    :root{color-scheme:dark;--bg:#020617;--card:rgba(15,23,42,0.96);--card-soft:rgba(15,23,42,0.9);--border:rgba(148,163,184,0.75);--accent:#38bdf8;--accent2:#a855f7;--accent3:#22c55e;--text:#e5e7eb;--muted:#9ca3af;--danger:#fb7185;--gold:#facc15}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at top left,rgba(56,189,248,0.20),transparent 55%),radial-gradient(circle at bottom right,rgba(168,85,247,0.22),transparent 55%),var(--bg);color:var(--text)}
+    body{display:flex;justify-content:center;align-items:stretch}
+    .fitness-wrap{width:100%;max-width:1100px;margin:0 auto;padding:16px 14px 28px;min-height:100vh;display:flex;flex-direction:column;gap:16px}
+    header.fitness-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+    .fh-left{max-width:640px}
+    .fh-title{margin:0 0 4px;font-size:1.8rem;display:flex;align-items:center;gap:8px}
+    .fh-title span.icon{font-size:1.8rem;filter:drop-shadow(0 0 10px rgba(56,189,248,0.9))}
+    .fh-sub{margin:0;font-size:.9rem;color:var(--muted)}
+    .mode-toggle{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.82rem}
+    .mode-buttons{display:inline-flex;gap:6px;padding:3px;border-radius:999px;background:rgba(15,23,42,0.96);border:1px solid rgba(148,163,184,0.7)}
+    .mode-btn{border-radius:999px;border:none;padding:5px 12px;font-size:.8rem;cursor:pointer;background:transparent;color:var(--muted);display:inline-flex;align-items:center;gap:4px}
+    .mode-btn span.icon{font-size:1rem}
+    .mode-btn.active{background:linear-gradient(135deg,#38bdf8,#a855f7);color:#020617;font-weight:600;box-shadow:0 0 14px rgba(56,189,248,0.9)}
+    #mode-desc{color:var(--muted);font-size:.8rem}
+    .fitness-main{flex:1;display:flex;flex-direction:column;gap:14px}
+    .fitness-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+    .game-card{position:relative;border-radius:22px;padding:14px 14px 16px;background:radial-gradient(circle at top left,rgba(56,189,248,0.20),transparent 60%),radial-gradient(circle at bottom right,rgba(15,118,110,0.30),transparent 60%),var(--card);border:1px solid rgba(15,23,42,0.9);box-shadow:0 18px 42px rgba(0,0,0,0.85);overflow:hidden;display:flex;flex-direction:column;gap:8px}
+    .game-card--shadow{background:radial-gradient(circle at top left,rgba(56,189,248,0.26),transparent 60%),radial-gradient(circle at bottom right,rgba(248,113,113,0.28),transparent 60%),var(--card)}
+    .gc-header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+    .gc-title{margin:0;font-size:1.05rem;display:flex;align-items:center;gap:6px}
+    .gc-title span.icon{font-size:1.4rem}
+    .gc-sub{margin:0;font-size:.82rem;color:#cbd5f5}
+    .gc-tag{font-size:.72rem;padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.8);background:rgba(15,23,42,0.9);color:var(--muted)}
+    .gc-tag.research{border-color:rgba(56,189,248,0.9);color:#bae6fd;box-shadow:0 0 12px rgba(56,189,248,0.6)}
+    .gc-body{font-size:.8rem;color:var(--muted)}
+    .gc-meta{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;font-size:.76rem}
+    .gc-chip{padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,0.65);background:rgba(15,23,42,0.92)}
+    .game-actions{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+    .btn{border-radius:999px;border:1px solid transparent;padding:7px 12px;font-size:.86rem;font-weight:500;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:transform .1s,box-shadow .1s,filter .1s,background .1s;color:var(--text);background:rgba(15,23,42,0.92);border-color:rgba(148,163,184,0.7)}
+    .btn-primary{background:linear-gradient(135deg,#38bdf8,#a855f7);color:#020617;border-color:transparent;box-shadow:0 14px 34px rgba(15,23,42,1)}
+    .btn-primary:hover{filter:brightness(1.05);transform:translateY(-1px);box-shadow:0 18px 40px rgba(15,23,42,1)}
+    .btn-ghost{background:rgba(15,23,42,0.7);color:var(--muted)}
+    .btn-ghost:hover{color:var(--text);background:rgba(15,23,42,0.95);transform:translateY(-1px)}
+    .fitness-footer{margin-top:8px;font-size:.78rem;color:var(--muted);text-align:right}
+    @media (max-width:768px){.fitness-wrap{padding:12px 10px 24px}header.fitness-header{flex-direction:column;align-items:flex-start}.mode-toggle{flex-direction:column;align-items:flex-start}}
   </style>
 </head>
 <body>
   <div class="fitness-wrap">
     <header class="fitness-header">
       <div class="fh-left">
-        <h1 class="fh-title">
-          <span class="icon">🏋️‍♀️</span>
-          <span>VR Fitness Academy — Hub</span>
-        </h1>
-        <p class="fh-sub">
-          ชุดเกมออกกำลังกาย 4 สไตล์ พร้อมโหมด Normal/Research สำหรับใช้งานจริงในห้องเรียนและงานวิจัย
-        </p>
+        <h1 class="fh-title"><span class="icon">🏋️‍♀️</span><span>VR Fitness Academy — Hub</span></h1>
+        <p class="fh-sub">ชุดเกมออกกำลังกาย 4 สไตล์ พร้อมโหมด Normal/Research สำหรับใช้งานจริงในห้องเรียนและงานวิจัย</p>
 
-        <!-- Mode toggle bar -->
         <div class="mode-toggle">
           <div class="mode-buttons">
-            <button id="mode-normal" type="button" class="mode-btn active">
-              <span class="icon">🎮</span><span>Normal</span>
-            </button>
-            <button id="mode-research" type="button" class="mode-btn">
-              <span class="icon">📊</span><span>Research</span>
-            </button>
+            <button id="mode-normal" type="button" class="mode-btn active"><span class="icon">🎮</span><span>Normal</span></button>
+            <button id="mode-research" type="button" class="mode-btn"><span class="icon">📊</span><span>Research</span></button>
           </div>
-          <div id="mode-desc">
-            Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
-          </div>
+          <div id="mode-desc">Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</div>
         </div>
       </div>
 
@@ -375,153 +71,34 @@
 
     <main class="fitness-main">
       <section class="fitness-grid">
-        <!-- Shadow Breaker -->
         <article class="game-card game-card--shadow">
           <div class="gc-header">
             <div>
-              <h2 class="gc-title">
-                <span class="icon">🥊</span>
-                <span>Shadow Breaker</span>
-              </h2>
-              <p class="gc-sub">
-                เกมตีเป้า Boss หลายเฟส พร้อม HP, Shield, FEVER และตัวล่อให้หลบ
-              </p>
+              <h2 class="gc-title"><span class="icon">🥊</span><span>Shadow Breaker</span></h2>
+              <p class="gc-sub">เกมตีเป้า Boss หลายเฟส พร้อม HP, Shield, FEVER และตัวล่อให้หลบ</p>
             </div>
             <div class="gc-tag research">Research-ready</div>
           </div>
 
           <div class="gc-body">
-            <p>
-              วัด Reaction Time ตามเฟส/โซน, จำนวนนับ Miss, Combo, FEVER และ Shield —
-              บันทึก CSV แยก Session / Event สำหรับวิเคราะห์เชิงลึก
-            </p>
+            <p>วัด Reaction Time, Miss, Combo, FEVER และ Shield — บันทึก CSV แยก Session / Event สำหรับวิเคราะห์เชิงลึก</p>
             <div class="gc-meta">
-              <span class="gc-chip">RT per phase & zone</span>
+              <span class="gc-chip">RT per phase</span>
               <span class="gc-chip">HP / Shield / Miss</span>
               <span class="gc-chip">Rank SSS–C</span>
             </div>
           </div>
 
           <div class="game-actions">
-            <button type="button" class="btn btn-primary" data-game="shadow">
-              ▶ เล่นบนจอ (Shadow Breaker)
-            </button>
-            <button type="button" class="btn btn-ghost" data-game="shadow-vr">
-              🥽 เล่นโหมด VR
-            </button>
-          </div>
-        </article>
-
-        <!-- Rhythm Boxer -->
-        <article class="game-card game-card--rhythm">
-          <div class="gc-header">
-            <div>
-              <h2 class="gc-title">
-                <span class="icon">🎵</span>
-                <span>Rhythm Boxer</span>
-              </h2>
-              <p class="gc-sub">
-                เกมชกตามจังหวะ 5 เลน พร้อม Hit judgment (Perfect / Great / Good / Miss)
-              </p>
-            </div>
-            <div class="gc-tag research">Research-ready</div>
-          </div>
-
-          <div class="gc-body">
-            <p>
-              ใช้เพลงเป็นตัวกำหนดจังหวะ — เก็บ offset mean/SD, hit count, combo, FEVER และ Progress
-              สำหรับวิเคราะห์ timing control และ motor reaction
-            </p>
-            <div class="gc-meta">
-              <span class="gc-chip">Offset mean / SD</span>
-              <span class="gc-chip">Hit P / G / Gd / M</span>
-              <span class="gc-chip">HP, Shield, FEVER</span>
-            </div>
-          </div>
-
-          <div class="game-actions">
-            <button type="button" class="btn btn-primary" data-game="rhythm">
-              ▶ เล่น Rhythm Boxer
-            </button>
-          </div>
-        </article>
-
-        <!-- Jump-Duck -->
-        <article class="game-card game-card--jump">
-          <div class="gc-header">
-            <div>
-              <h2 class="gc-title">
-                <span class="icon">🦘</span>
-                <span>Jump-Duck</span>
-              </h2>
-              <p class="gc-sub">
-                กระโดด–ก้มหลบสิ่งกีดขวาง เพื่อฝึก core, balance และ decision speed
-              </p>
-            </div>
-            <div class="gc-tag">Prototype</div>
-          </div>
-
-          <div class="gc-body">
-            <p>
-              วัดจำนวน Hit / Miss, Stability score และ RT เฉลี่ยต่อ obstacle —
-              เหมาะกับการเชื่อมกับท่าออกกำลังกายจริงในห้องเรียน
-            </p>
-            <div class="gc-meta">
-              <span class="gc-chip">Hit / Miss / Accuracy</span>
-              <span class="gc-chip">Stability (min %)</span>
-              <span class="gc-chip">RT ต่อสิ่งกีดขวาง</span>
-            </div>
-          </div>
-
-          <div class="game-actions">
-            <button type="button" class="btn btn-primary" data-game="jump">
-              ▶ เข้าเกม Jump-Duck
-            </button>
-          </div>
-        </article>
-
-        <!-- Balance-Hold -->
-        <article class="game-card game-card--balance">
-          <div class="gc-header">
-            <div>
-              <h2 class="gc-title">
-                <span class="icon">🧘‍♀️</span>
-                <span>Balance-Hold</span>
-              </h2>
-              <p class="gc-sub">
-                เกมฝึกการทรงตัวและคงท่า เน้น static balance และ time-in-pose
-              </p>
-            </div>
-            <div class="gc-tag">Coming soon</div>
-          </div>
-
-          <div class="gc-body">
-            <p>
-              สงวนพื้นที่สำหรับโหมด Balance-Hold ในอนาคต — สามารถต่อยอดวัดเวลาคงท่า,
-              จำนวนครั้งที่เสียสมดุล และเปรียบเทียบ Pre–Post โปรแกรมฝึก
-            </p>
-            <div class="gc-meta">
-              <span class="gc-chip">Time in pose</span>
-              <span class="gc-chip">Postural sway</span>
-              <span class="gc-chip">Pre–Post design</span>
-            </div>
-          </div>
-
-          <div class="game-actions">
-            <button type="button" class="btn btn-ghost btn-disabled" data-game="balance">
-              🔧 อยู่ระหว่างพัฒนา
-            </button>
+            <a class="btn btn-primary" data-game="shadow" href="./shadow-breaker.html">▶ เล่น Shadow Breaker</a>
           </div>
         </article>
       </section>
     </main>
 
-    <footer class="fitness-footer">
-      VR Fitness Academy · เลือกโหมด Normal / Research ที่ด้านบน แล้วจึงกดเกมที่ต้องการเข้าเล่น
-    </footer>
+    <footer class="fitness-footer">VR Fitness Academy · เลือกโหมด Normal / Research ที่ด้านบน แล้วจึงกดเกมที่ต้องการเข้าเล่น</footer>
   </div>
 
-  <!-- เชื่อมกับ /fitness/hub.js -->
-  <script src="hub.js"></script>
+  <script type="module" src="./js/hub.js"></script>
 </body>
 </html>
