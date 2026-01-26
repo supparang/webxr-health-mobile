@@ -1,160 +1,238 @@
 // === /herohealth/vr/ai-predictor.js ===
-// AI Predictor (ML-lite) — explainable + safe
-// ✅ Online logistic-like predictor (tiny ML) for "risk of miss soon" in play mode
-// ✅ No network, no heavy deps, deterministic optional
-// ✅ Built-in rate-limited micro-tips
-// ✅ Designed so later you can swap to Deep Learning (TF.js) without touching game logic
-//
-// Usage:
-//   import { createPredictor } from '../vr/ai-predictor.js';
-//   const P = createPredictor({ enabled:true, seed:'123' });
-//   const risk = P.predictRisk({ rtAvg, miss, combo, fever, onScreen, diff });
-//   P.observe({ event:'hit_good'|'hit_junk'|'expire_good'|'block_junk'|'pickup_star'|'pickup_shield', rtMs, missDelta });
-//   const tip = P.maybeTip({ risk, feats });
+// AI Predictor (Lightweight ML + tiny MLP option) — HHA
+// ✅ Deterministic-friendly (uses stable weights; optional online learning only in play)
+// ✅ Predicts "miss risk" for next 2–3 seconds
+// ✅ Emits: hha:predict { pMiss, risk, why[], tsSec }
+// ✅ Optional coach tips (caller decides)
+// Modes:
+//   - research/practice => prediction ON (ok) but NO online-learning + NO auto tips by default
+//   - play => prediction + optional online learning + tips OK
 
 'use strict';
 
 const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
-const nowMs = ()=> (performance?.now?.() ?? Date.now());
+const sigmoid = (x)=> 1 / (1 + Math.exp(-x));
 
-function sigmoid(x){
-  // stable-ish sigmoid
-  if(x < -20) return 0;
-  if(x > 20) return 1;
-  return 1 / (1 + Math.exp(-x));
+function nowSec(){
+  const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  return t/1000;
 }
 
-export function createPredictor(opts={}){
-  const enabled = !!opts.enabled;
+export function createPredictor({
+  mode='play',
+  model='logit',          // 'logit' | 'mlp'
+  enableOnline=false,     // allow small SGD updates (ONLY recommended in play)
+  lr=0.03,
+  emit=()=>{},
+  tipCooldownSec=4.5,
+} = {}){
 
-  // weights: small feature set (hand-started), then online nudged
-  // Features:
-  //  x0=1 (bias)
-  //  x1=rtAvg/900
-  //  x2=miss/10
-  //  x3=fever/100
-  //  x4=onScreen/10
-  //  x5=combo/15 (negative effect)
-  const W = {
-    b:  -0.25,
-    rt:  1.10,
-    miss:1.05,
-    fever:0.65,
-    scr: 0.55,
-    combo:-0.70
+  const allowLearn = (mode === 'play') && !!enableOnline;
+
+  // ---- feature normalization helpers (roughly 0..1) ----
+  const fFever = (fever)=> clamp((Number(fever)||0)/100, 0, 1);
+  const fCombo = (combo)=> clamp((Number(combo)||0)/18, 0, 1);
+  const fMissRate = (missDeltaPerSec)=> clamp((Number(missDeltaPerSec)||0)/1.2, 0, 1); // 0..~1
+  const fSpawn = (spawnMs)=> clamp((900 - (Number(spawnMs)||900))/420, 0, 1); // faster spawn => higher
+  const fBoss = (boss)=> boss ? 1 : 0;
+  const fPattern = (name)=>{
+    // riskier patterns get higher
+    const n = String(name||'').toLowerCase();
+    if(n.includes('boss')) return 1;
+    if(n === 'rain') return 0.85;
+    if(n === 'zigzag') return 0.70;
+    if(n === 'lanes') return 0.55;
+    if(n === 'ring') return 0.50;
+    return 0.25; // calm/unknown
   };
 
-  let lastTipAt = 0;
-  let lastLearnAt = 0;
+  // ---- state ----
+  const S = {
+    lastSec: 0,
+    lastMiss: 0,
+    missRate: 0,          // EWMA miss per sec
+    pMiss: 0.15,
+    lastTipAt: -1e9,
+    // for online learning
+    lastLabelMissHit: 0,  // label window marker
+  };
 
-  // online learning rate (gentle)
-  const LR = 0.035;
+  // ---- LOGIT weights (stable) ----
+  // score = b + Σ(w_i * f_i)
+  let W = {
+    b: -1.10,
+    fever:  1.35,
+    missR:  2.10,
+    spawn:  1.25,
+    boss:   1.00,
+    pattern:0.85,
+    combo: -0.90
+  };
 
-  function featurize(feats){
-    const rtAvg = clamp(Number(feats?.rtAvg)||0, 0, 2500);
-    const miss  = clamp(Number(feats?.miss)||0, 0, 999);
-    const fever = clamp(Number(feats?.fever)||0, 0, 100);
-    const scr   = clamp(Number(feats?.onScreen)||0, 0, 30);
-    const combo = clamp(Number(feats?.combo)||0, 0, 99);
+  // ---- Tiny MLP option (2-layer) ----
+  // hidden = relu(Ax + a0) ; out = sigmoid(B·hidden + b0)
+  // (weights are fixed & small; online learning optional but off by default)
+  let MLP = {
+    A: [
+      [ 0.90, 1.30, 0.80, 0.70, 0.40, -0.60], // h1
+      [ 0.60, 1.70, 1.10, 0.90, 0.55, -0.80], // h2
+      [ 1.10, 0.90, 1.40, 0.80, 0.65, -0.55], // h3
+      [ 0.75, 1.05, 0.95, 0.90, 0.50, -0.70], // h4
+    ],
+    a0: [ -0.55, -0.65, -0.60, -0.58 ],
+    B:  [  1.10,  1.25,  1.05,  1.15 ],
+    b0: -1.05
+  };
 
-    const x = {
-      x0: 1,
-      x1: rtAvg / 900,
-      x2: miss / 10,
-      x3: fever / 100,
-      x4: scr / 10,
-      x5: combo / 15
-    };
-    return x;
+  function relu(x){ return x>0 ? x : 0; }
+
+  function packFeatures(x){
+    // x = { fever, missRate, spawn, boss, pattern, combo }
+    const v = [
+      fFever(x.fever),
+      fMissRate(x.missRate),
+      fSpawn(x.spawnMs),
+      fBoss(x.bossActive),
+      fPattern(x.patternName),
+      fCombo(x.combo)
+    ];
+    return v;
   }
 
-  function score(feats){
-    const x = featurize(feats);
-    const z =
-      W.b +
-      W.rt   * x.x1 +
-      W.miss * x.x2 +
-      W.fever* x.x3 +
-      W.scr  * x.x4 +
-      W.combo* x.x5;
-    return sigmoid(z);
+  function scoreLogit(v){
+    const b = W.b;
+    const s =
+      b +
+      W.fever  * v[0] +
+      W.missR  * v[1] +
+      W.spawn  * v[2] +
+      W.boss   * v[3] +
+      W.pattern* v[4] +
+      W.combo  * v[5];
+    return s;
   }
 
-  function learn(feats, y){
-    // y: 1 = "bad happened" (miss increased), 0 = ok
-    if(!enabled) return;
-    const t = nowMs();
-    // rate-limit learning to avoid jitter
-    if(t - lastLearnAt < 220) return;
-    lastLearnAt = t;
-
-    const x = featurize(feats);
-    const p = score(feats);
-    const err = (p - y);
-
-    // gradient descent
-    W.b     -= LR * err * x.x0;
-    W.rt    -= LR * err * x.x1;
-    W.miss  -= LR * err * x.x2;
-    W.fever -= LR * err * x.x3;
-    W.scr   -= LR * err * x.x4;
-    W.combo -= LR * err * x.x5;
-
-    // clamp weights to keep stable
-    W.b     = clamp(W.b,     -2.0,  2.0);
-    W.rt    = clamp(W.rt,    -0.3,  2.2);
-    W.miss  = clamp(W.miss,  -0.2,  2.4);
-    W.fever = clamp(W.fever, -0.2,  2.0);
-    W.scr   = clamp(W.scr,   -0.2,  1.6);
-    W.combo = clamp(W.combo, -2.0,  0.2);
-  }
-
-  // internal snapshot to learn from events
-  let lastFeats = null;
-
-  function predictRisk(feats){
-    lastFeats = Object.assign({}, feats);
-    return enabled ? score(feats) : 0.0;
-  }
-
-  function observe(ev){
-    if(!enabled) return;
-    const missDelta = Number(ev?.missDelta || 0);
-
-    // learn from outcome: miss increased => y=1
-    if(lastFeats){
-      if(missDelta > 0) learn(lastFeats, 1);
-      else learn(lastFeats, 0);
+  function scoreMLP(v){
+    const h = [];
+    for(let i=0;i<MLP.A.length;i++){
+      let z = MLP.a0[i];
+      const row = MLP.A[i];
+      for(let j=0;j<v.length;j++) z += row[j]*v[j];
+      h.push(relu(z));
     }
+    let s = MLP.b0;
+    for(let i=0;i<h.length;i++) s += MLP.B[i]*h[i];
+    return s;
   }
 
-  function maybeTip({ risk, feats }){
-    if(!enabled) return null;
-
-    const t = nowMs();
-    if(t - lastTipAt < 5200) return null; // rate-limit tips
-    if(risk < 0.62) return null;          // only when risk high-ish
-
-    lastTipAt = t;
-
-    const rtAvg = Number(feats?.rtAvg||0);
-    const fever = Number(feats?.fever||0);
-    const onScreen = Number(feats?.onScreen||0);
-    const combo = Number(feats?.combo||0);
-
-    // explainable micro-tips (no BS)
-    if(rtAvg > 900) return 'ลอง “เล็งกลางจอ” แล้วค่อยยิง/แตะ จะทันขึ้น 👀';
-    if(onScreen >= 7) return 'อย่าไล่ทุกอัน! โฟกัส “ของดี” ที่ใกล้มือก่อน ✅';
-    if(fever >= 70) return 'FEVER สูงแล้ว! ช้า ๆ แต่ชัวร์ เลี่ยงของทอด/หวาน 🍟🚫';
-    if(combo === 0) return 'ทำคอมโบให้ติดสัก 3–4 ครั้ง คะแนนจะพุ่งเอง ⚡';
-    return 'โฟกัสของดี + เลี่ยงของเสีย จะผ่าน GOAL ได้ไวขึ้น ✅';
+  function explain(v, p){
+    // pick top 2 contributors (simple heuristic)
+    const parts = [
+      { k:'FEVER สูง',   val: v[0], w:(model==='logit'?W.fever:1.0) },
+      { k:'MISS ถี่',    val: v[1], w:(model==='logit'?W.missR:1.6) },
+      { k:'เป้าออกถี่',  val: v[2], w:(model==='logit'?W.spawn:1.1) },
+      { k:'โหมดบอส',    val: v[3], w:(model==='logit'?W.boss:0.9) },
+      { k:'แพทเทิร์นยาก',val: v[4], w:(model==='logit'?W.pattern:1.0) },
+      { k:'คอมโบต่ำ',   val: (1 - v[5]), w:0.8 },
+    ];
+    parts.sort((a,b)=> (b.val*b.w) - (a.val*a.w));
+    const why = parts.slice(0,2).map(p=>p.k);
+    let risk = 'low';
+    if(p >= 0.68) risk='high';
+    else if(p >= 0.45) risk='mid';
+    return { why, risk };
   }
 
-  return {
-    enabled,
-    predictRisk,
-    observe,
-    maybeTip,
-    _debugWeights: ()=>Object.assign({}, W) // optional
-  };
+  function onlineUpdateLogit(v, label){
+    // label: 1 => miss happened in recent window, 0 => no miss
+    const p = sigmoid(scoreLogit(v));
+    const err = (label - p); // gradient ascent on log-likelihood
+    W.b += lr * err;
+    W.fever   += lr * err * v[0];
+    W.missR   += lr * err * v[1];
+    W.spawn   += lr * err * v[2];
+    W.boss    += lr * err * v[3];
+    W.pattern += lr * err * v[4];
+    W.combo   += lr * err * v[5];
+  }
+
+  function update(input={}){
+    const tSec = nowSec();
+    if(!S.lastSec) S.lastSec = tSec;
+
+    const miss = Number(input.miss||0);
+    const dt = Math.max(0.001, tSec - S.lastSec);
+
+    // miss per second (delta), then EWMA
+    const dMiss = Math.max(0, miss - (S.lastMiss||0));
+    const rate = dMiss / dt;
+    S.missRate = (S.missRate*0.70) + (rate*0.30);
+
+    S.lastMiss = miss;
+    S.lastSec = tSec;
+
+    const v = packFeatures({
+      fever: input.fever,
+      missRate: S.missRate,
+      spawnMs: input.spawnMs,
+      bossActive: !!input.bossActive,
+      patternName: input.patternName,
+      combo: input.combo
+    });
+
+    let s = (model === 'mlp') ? scoreMLP(v) : scoreLogit(v);
+    let p = sigmoid(s);
+
+    // smooth output a bit (prevent jumpy)
+    S.pMiss = (S.pMiss*0.72) + (p*0.28);
+
+    const ex = explain(v, S.pMiss);
+
+    // emit predict event
+    try{
+      emit('hha:predict', {
+        pMiss: S.pMiss,
+        risk: ex.risk,
+        why: ex.why,
+        tsSec: tSec
+      });
+    }catch(_){}
+
+    return { pMiss: S.pMiss, risk: ex.risk, why: ex.why };
+  }
+
+  // Label training helper: call this when a MISS happens (or in window)
+  function labelMissHappened(){
+    if(!allowLearn) return;
+    S.lastLabelMissHit = nowSec();
+  }
+
+  // call periodically (e.g., every 1s) to apply learning signal for recent window
+  function learnTick(latestFeatures){
+    if(!allowLearn) return;
+
+    const t = nowSec();
+    const label = (t - S.lastLabelMissHit) <= 1.2 ? 1 : 0; // miss in last ~1.2s
+    const v = packFeatures({
+      fever: latestFeatures.fever,
+      missRate: S.missRate,
+      spawnMs: latestFeatures.spawnMs,
+      bossActive: !!latestFeatures.bossActive,
+      patternName: latestFeatures.patternName,
+      combo: latestFeatures.combo
+    });
+
+    // only logit learning (mlp learning is intentionally off here)
+    onlineUpdateLogit(v, label);
+  }
+
+  // simple tip gating (caller may use)
+  function canTip(){
+    const t = nowSec();
+    if((t - S.lastTipAt) < tipCooldownSec) return false;
+    S.lastTipAt = t;
+    return true;
+  }
+
+  return { update, labelMissHappened, learnTick, canTip };
 }
