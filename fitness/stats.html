@@ -1,154 +1,62 @@
-<!-- === /fitness/stats.html === -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness Academy — Stats</title>
-  <meta name="color-scheme" content="light dark"/>
-  <link rel="icon" href="./favicon.ico"/>
-
-  <link rel="stylesheet" href="./css/stats.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — สรุปผลล่าสุด</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./css/stats.css" />
 </head>
 <body>
-  <div class="stats-wrap">
-    <header class="stats-header">
-      <div class="sh-left">
-        <h1 class="sh-title"><span class="icon">📊</span><span>VR Fitness Academy — สรุปผล</span></h1>
-        <p class="sh-sub">แสดงผลรอบล่าสุด + สถิติรวมจากเครื่องนี้ (LocalStorage)</p>
+  <div class="st-wrap">
+    <header class="st-header">
+      <div class="st-title">
+        <span class="st-emoji">📊</span>
+        <div>
+          <div class="st-kicker">VR Fitness — สรุปผลล่าสุด</div>
+          <div class="st-sub">ดูประวัติผลการเล่น (localStorage) และดาวน์โหลด CSV ได้จากหน้าเกม</div>
+        </div>
       </div>
-      <div class="sh-right">
-        <a class="btn" href="./hub.html">🏠 กลับ Hub</a>
-        <a class="btn ghost" href="./shadow-breaker.html">🥊 ไป Shadow Breaker</a>
+
+      <div class="st-actions">
+        <a class="st-btn" href="./hub.html">🏠 กลับ Hub</a>
+        <a class="st-btn st-btn-primary" href="./shadow-breaker.html">🥊 เข้า Shadow Breaker</a>
       </div>
     </header>
 
-    <main class="stats-main">
-      <section class="card">
-        <div class="card-head">
-          <h2>ตัวกรอง + การจัดการข้อมูล</h2>
-          <div class="head-actions">
-            <button id="btn-export-json" class="btn">⬇ Export JSON</button>
-            <button id="btn-export-csv" class="btn">⬇ Export CSV</button>
-            <button id="btn-clear" class="btn danger">🗑 ล้างข้อมูลทั้งหมด</button>
-          </div>
+    <main class="st-main">
+      <section class="st-card">
+        <h2 class="st-h2">Shadow Breaker — Sessions ล่าสุด</h2>
+        <div class="st-toolbar">
+          <button id="st-clear" class="st-btn st-btn-ghost">🧹 ล้างประวัติ (เครื่องนี้)</button>
         </div>
 
-        <div class="filters">
-          <label class="field">
-            <span>เกม</span>
-            <select id="filter-game">
-              <option value="all" selected>ทั้งหมด</option>
-              <option value="shadow-breaker">Shadow Breaker</option>
-              <option value="rhythm-boxer">Rhythm Boxer</option>
-              <option value="jump-duck">Jump-Duck</option>
-              <option value="balance-hold">Balance-Hold</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>ช่วงเวลา</span>
-            <select id="filter-range">
-              <option value="all" selected>ทั้งหมด</option>
-              <option value="24h">24 ชั่วโมงล่าสุด</option>
-              <option value="7d">7 วันล่าสุด</option>
-              <option value="30d">30 วันล่าสุด</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>ค้นหา (เช่น diff/grade)</span>
-            <input id="filter-q" type="text" placeholder="เช่น hard, SSS, normal"/>
-          </label>
-
-          <label class="field">
-            <span>เรียงตาม</span>
-            <select id="filter-sort">
-              <option value="newest" selected>ใหม่สุดก่อน</option>
-              <option value="oldest">เก่าสุดก่อน</option>
-              <option value="score_desc">Score มาก→น้อย</option>
-              <option value="acc_desc">Accuracy มาก→น้อย</option>
-            </select>
-          </label>
-        </div>
-
-        <p class="hint">
-          หมายเหตุ: หน้านี้อ่านข้อมูลจาก LocalStorage ในเครื่อง/เบราว์เซอร์นี้เท่านั้น
-        </p>
-      </section>
-
-      <section class="grid-2">
-        <article class="card">
-          <div class="card-head">
-            <h2>สรุปภาพรวม</h2>
-          </div>
-          <div class="kpis">
-            <div class="kpi">
-              <div class="kpi-label">จำนวนรอบทั้งหมด</div>
-              <div class="kpi-value" id="kpi-total">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Score เฉลี่ย</div>
-              <div class="kpi-value" id="kpi-avg-score">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Accuracy เฉลี่ย</div>
-              <div class="kpi-value" id="kpi-avg-acc">0%</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">เกรดที่พบบ่อย</div>
-              <div class="kpi-value" id="kpi-top-grade">-</div>
-            </div>
-          </div>
-
-          <div class="mini">
-            <div><span class="muted">รอบล่าสุด:</span> <strong id="last-when">-</strong></div>
-            <div><span class="muted">เกม:</span> <strong id="last-game">-</strong></div>
-            <div><span class="muted">Score:</span> <strong id="last-score">-</strong></div>
-            <div><span class="muted">Accuracy:</span> <strong id="last-acc">-</strong></div>
-            <div><span class="muted">Grade:</span> <strong id="last-grade">-</strong></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <div class="card-head">
-            <h2>Top 5 รอบคะแนนสูง</h2>
-          </div>
-          <ol id="top-list" class="top-list"></ol>
-          <div class="hint">Tip: ใช้ Export CSV เพื่อนำไปทำกราฟต่อใน Excel / R / Python ได้เลย</div>
-        </article>
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2>ประวัติการเล่น</h2>
-          <div class="muted small" id="rows-info">0 แถว</div>
-        </div>
-
-        <div class="table-wrap">
-          <table class="table">
+        <div class="st-table-wrap">
+          <table class="st-table">
             <thead>
               <tr>
                 <th>เวลา</th>
-                <th>เกม</th>
-                <th>diff</th>
-                <th class="num">Score</th>
-                <th class="num">Acc%</th>
+                <th>โหมด</th>
+                <th>Diff</th>
+                <th>Score</th>
+                <th>Accuracy</th>
                 <th>Grade</th>
-                <th class="num">Duration(s)</th>
+                <th>Bosses</th>
+                <th>Duration</th>
               </tr>
             </thead>
-            <tbody id="tbody">
-              <!-- rows -->
+            <tbody id="st-body">
+              <tr><td colspan="8" class="st-empty">ยังไม่มีข้อมูล — ลองเล่น 1 รอบ แล้วกลับมาหน้านี้</td></tr>
             </tbody>
           </table>
         </div>
+
+        <p class="st-note">
+          หมายเหตุ: หน้านี้ดึงจาก <code>localStorage</code> ของเครื่อง/เบราว์เซอร์นี้เท่านั้น
+        </p>
       </section>
     </main>
-
-    <footer class="stats-footer">
-      VR Fitness Academy · Stats (Local) · <span class="muted">v1</span>
-    </footer>
   </div>
 
   <script type="module" src="./js/stats.js"></script>
