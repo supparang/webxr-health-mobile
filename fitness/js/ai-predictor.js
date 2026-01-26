@@ -1,129 +1,80 @@
 // === /fitness/js/ai-predictor.js ===
-// ML-lite: Online Logistic Regression (tiny) + rolling stats
-// Predicts pMiss in next few seconds based on recent RT/grade/miss trend.
-// ✅ No deps, fast, safe.
-// ✅ Not used in research mode (engine controls).
-
+// Lightweight predictor (ML-ready) — no external libs
+// Predict: fatigue risk from RT trend + miss rate window
 'use strict';
 
 export class AIPredictor {
   constructor(opts = {}) {
     this.cfg = Object.assign({
-      lr: 0.08,            // learning rate
-      l2: 0.0008,          // weight decay
-      maxHist: 36,         // rolling window
-      clampZ: 8,           // stability
+      windowHits: 18,
+      rtBadMs: 520,
+      missBadRate: 0.22,
     }, opts);
-
-    // weights for features: [bias, rt, missStreak, bombStreak, hpLow, feverOn, phase, diffHard]
-    this.w = new Float32Array(8);
-    this.w[0] = -0.15; // bias: default slightly "ok"
-
-    this.hist = []; // each {y, x[]} y=1 miss-like, 0 hit-like
-    this.lastP = 0.35;
+    this.reset();
   }
 
-  _sigmoid(z) {
-    const cz = Math.max(-this.cfg.clampZ, Math.min(this.cfg.clampZ, z));
-    return 1 / (1 + Math.exp(-cz));
+  reset(){
+    this.rt = [];
+    this.misses = 0;
+    this.hits = 0;
+
+    // online regression y = a + b*x (x = hit index)
+    this.n = 0;
+    this.sumX = 0; this.sumY = 0;
+    this.sumXX = 0; this.sumXY = 0;
+
+    this.lastScore = null;
+    this.fatigue = 0; // 0..1
   }
 
-  _dot(w, x) {
-    let s = 0;
-    for (let i = 0; i < w.length; i++) s += w[i] * x[i];
-    return s;
+  // feed only when "real" normal hits (not decoy/bomb/heal/shield)
+  pushRt(rtMs){
+    const x = this.n;
+    const y = rtMs;
+
+    this.n++;
+    this.sumX += x; this.sumY += y;
+    this.sumXX += x*x; this.sumXY += x*y;
+
+    this.rt.push(rtMs);
+    if (this.rt.length > this.cfg.windowHits) this.rt.shift();
   }
 
-  _normRt(rtMs) {
-    // normalize: 0..1 roughly (fast->0, slow->1), cap at 1200ms
-    if (rtMs == null || rtMs === '') return 0.5;
-    const v = Math.max(0, Math.min(1200, rtMs));
-    return v / 1200;
-  }
+  addHit(){ this.hits++; }
+  addMiss(){ this.misses++; }
 
-  _pushHist(item) {
-    this.hist.push(item);
-    while (this.hist.length > this.cfg.maxHist) this.hist.shift();
-  }
+  // returns fatigue prediction {risk, label, hint}
+  predict(){
+    const rtAvg = this.rt.length ? (this.rt.reduce((a,b)=>a+b,0)/this.rt.length) : 0;
 
-  _streakCount(pred) {
-    let c = 0;
-    for (let i = this.hist.length - 1; i >= 0; i--) {
-      if (pred(this.hist[i])) c++;
-      else break;
-    }
-    return c;
-  }
-
-  /**
-   * Observe one resolved event (hit/timeout/bomb/decoy)
-   * @param {Object} e { type, grade, rtMs, playerHp, feverOn, bossPhase, diffKey }
-   */
-  observe(e) {
-    if (!e) return;
-
-    const isMissLike = (e.type === 'timeout') || (e.grade === 'bomb');
-    const y = isMissLike ? 1 : 0;
-
-    const missStreak = Math.min(6, this._streakCount(h => h.y === 1)) / 6;
-    const bombStreak = Math.min(6, this._streakCount(h => h.meta && h.meta.bomb === 1)) / 6;
-
-    const hpLow = (e.playerHp != null && e.playerHp <= 0.32) ? 1 : 0;
-    const feverOn = e.feverOn ? 1 : 0;
-    const phase = Math.max(1, Math.min(3, e.bossPhase || 1)) / 3;
-    const diffHard = (e.diffKey === 'hard') ? 1 : 0;
-
-    const x = new Float32Array(8);
-    x[0] = 1; // bias
-    x[1] = this._normRt(e.rtMs);
-    x[2] = missStreak;
-    x[3] = bombStreak;
-    x[4] = hpLow;
-    x[5] = feverOn;
-    x[6] = phase;
-    x[7] = diffHard;
-
-    const z = this._dot(this.w, x);
-    const p = this._sigmoid(z);
-    this.lastP = p;
-
-    // SGD update: w = w - lr * (p - y) * x  + L2
-    const err = (p - y);
-    const lr = this.cfg.lr;
-
-    for (let i = 0; i < this.w.length; i++) {
-      const grad = err * x[i] + this.cfg.l2 * this.w[i];
-      this.w[i] = this.w[i] - lr * grad;
+    // slope b
+    let b = 0;
+    const denom = (this.n * this.sumXX - this.sumX * this.sumX);
+    if (this.n >= 6 && denom !== 0) {
+      b = (this.n * this.sumXY - this.sumX * this.sumY) / denom; // ms per hit
     }
 
-    this._pushHist({
-      y,
-      x: Array.from(x),
-      meta: { bomb: (e.grade === 'bomb') ? 1 : 0 }
-    });
-  }
+    const total = this.hits + this.misses;
+    const missRate = total ? (this.misses / total) : 0;
 
-  /**
-   * Predict probability of near-future miss (0..1)
-   */
-  predict() {
-    // smooth with short history miss rate
-    if (!this.hist.length) return this.lastP;
+    // risk composition (0..1)
+    let risk = 0;
+    if (rtAvg > this.cfg.rtBadMs) risk += 0.45;
+    if (b > 6) risk += 0.25;      // getting slower
+    if (missRate > this.cfg.missBadRate) risk += 0.35;
 
-    let miss = 0;
-    for (const h of this.hist) miss += h.y;
-    const missRate = miss / this.hist.length;
+    risk = Math.max(0, Math.min(1, risk));
+    this.fatigue = risk;
 
-    // blend model p with empirical missRate
-    const p = 0.65 * this.lastP + 0.35 * missRate;
-    return Math.max(0.02, Math.min(0.98, p));
-  }
+    const label =
+      risk >= 0.75 ? 'HIGH' :
+      risk >= 0.45 ? 'MID' : 'LOW';
 
-  debugSnapshot() {
-    return {
-      pMiss: this.predict(),
-      w: Array.from(this.w).map(v => +v.toFixed(3)),
-      n: this.hist.length
-    };
+    const hint =
+      label === 'HIGH' ? 'เหนื่อยแล้ว! ลดความเสี่ยง: โฟกัสเป้าชัด ๆ และรอจังหวะ' :
+      label === 'MID' ? 'เริ่มล้า: เล็งให้ชัด เน้น “ไม่พลาด” ก่อน' :
+      'กำลังดี: รักษาจังหวะ แล้วไล่คอมโบต่อ!';
+
+    return { risk, label, hint, rtAvg: Math.round(rtAvg), slope: +b.toFixed(2), missRate: +missRate.toFixed(3) };
   }
 }
