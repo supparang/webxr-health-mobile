@@ -1,117 +1,150 @@
 // === /herohealth/vr/view-helper.js ===
 // HHA View Helper — PRODUCTION
-// - Apply body view classes: view-pc / view-mobile / view-vr / view-cvr
-// - Best-effort fullscreen + landscape lock for cVR
-// - HUD guard: expose safe bottom offset to avoid covering EnterVR button
-// - Emits: hha:view (detail: { view, isFS, isLandscape, safeBottomPx })
+// ✅ Auto-detect view (pc/mobile/vr/cvr) BUT never override if ?view= exists
+// ✅ Applies body classes: view-pc/view-mobile/view-vr/view-cvr
+// ✅ Best-effort fullscreen + landscape lock for (vr/cvr) on user gesture
+// ✅ view=cvr strict: mark strict mode + helper APIs
+// ✅ Exposes: window.HHAView = { getView, apply, requestImmersion, isMobile }
+// ✅ Optional remember last view via localStorage key HHA_LAST_VIEW
+//
+// NOTE: ไม่ทำ auto fullscreen ทันที (ต้อง user gesture) เพื่อไม่ติด policy ของ browser
 
 (function(){
   'use strict';
-  const ROOT = window;
-  const DOC  = document;
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch(_){ return def; }
+  const WIN = window;
+  const DOC = document;
+
+  if(WIN.__HHA_VIEW_HELPER__) return;
+  WIN.__HHA_VIEW_HELPER__ = true;
+
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
+
+  function isMobile(){
+    const ua = (navigator.userAgent||'').toLowerCase();
+    return /android|iphone|ipad|ipod|mobile|silk/.test(ua) || (WIN.innerWidth < 860);
   }
 
-  const VIEW = (qs('view','mobile')||'mobile').toLowerCase();
-  const view = (VIEW==='cvr')?'cvr':(VIEW==='vr')?'vr':(VIEW==='pc')?'pc':'mobile';
-
-  function emit(name, detail){
-    try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+  function normalizeView(v){
+    v = String(v||'').trim().toLowerCase();
+    if(v === 'view-cvr') return 'cvr';
+    if(v === 'cardboard') return 'vr';
+    if(v === 'vr') return 'vr';
+    if(v === 'cvr') return 'cvr';
+    if(v === 'pc') return 'pc';
+    if(v === 'mobile') return 'mobile';
+    return '';
   }
 
-  function isFullscreen(){
-    return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
-  }
-
-  function isLandscape(){
-    const so = ROOT.screen && ROOT.screen.orientation;
-    if(so && typeof so.type === 'string'){
-      return so.type.includes('landscape');
+  async function canVR(){
+    try{
+      if(!navigator.xr || typeof navigator.xr.isSessionSupported !== 'function') return false;
+      return await navigator.xr.isSessionSupported('immersive-vr');
+    }catch(_){
+      return false;
     }
-    return (ROOT.innerWidth || 0) >= (ROOT.innerHeight || 0);
   }
 
-  function applyBodyView(){
+  async function detectAutoView(){
+    // IMPORTANT: never override explicit ?view=
+    if(has('view')){
+      return normalizeView(qs('view','')) || (isMobile() ? 'mobile' : 'pc');
+    }
+
+    // soft remember
+    try{
+      const last = localStorage.getItem('HHA_LAST_VIEW');
+      const nv = normalizeView(last);
+      if(nv) return nv;
+    }catch(_){}
+
+    // baseline
+    let guess = isMobile() ? 'mobile' : 'pc';
+
+    // if WebXR available, allow vr for mobile
+    try{
+      const ok = await canVR();
+      if(ok){
+        guess = isMobile() ? 'vr' : 'pc';
+      }
+    }catch(_){}
+
+    return guess;
+  }
+
+  function applyBodyView(view){
     const b = DOC.body;
     if(!b) return;
+
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    b.classList.add(view==='cvr'?'view-cvr':view==='vr'?'view-vr':view==='pc'?'view-pc':'view-mobile');
+    if(view === 'cvr') b.classList.add('view-cvr');
+    else if(view === 'vr') b.classList.add('view-vr');
+    else if(view === 'pc') b.classList.add('view-pc');
+    else b.classList.add('view-mobile');
+
+    // mark strict cVR mode (ยิงกลางจอเท่านั้น)
+    if(view === 'cvr'){
+      b.dataset.viewStrict = '1';
+    }else{
+      delete b.dataset.viewStrict;
+    }
+
+    // remember only when not explicitly set by URL (soft)
+    if(!has('view')){
+      try{ localStorage.setItem('HHA_LAST_VIEW', view); }catch(_){}
+    }
+  }
+
+  async function getView(){
+    const explicit = normalizeView(qs('view',''));
+    if(explicit) return explicit;
+    return await detectAutoView();
   }
 
   async function requestFullscreen(){
+    const el = DOC.documentElement;
     try{
-      const el = DOC.documentElement;
-      if(el.requestFullscreen) await el.requestFullscreen();
-      else if(el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-      return true;
-    }catch(_){ return false; }
+      if(DOC.fullscreenElement) return true;
+      if(el.requestFullscreen){ await el.requestFullscreen(); return true; }
+      // iOS safari fallback: no real fullscreen (ignore)
+    }catch(_){}
+    return false;
   }
 
   async function lockLandscape(){
     try{
-      const so = ROOT.screen && ROOT.screen.orientation;
-      if(so && so.lock){
-        await so.lock('landscape');
+      const o = screen.orientation;
+      if(o && o.lock){
+        await o.lock('landscape');
         return true;
       }
     }catch(_){}
     return false;
   }
 
-  function calcSafeBottom(){
-    // สำหรับกัน HUD ทับ EnterVR/exit/recenter (และ safe-area iOS)
-    const sab = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sab')) || 0;
-    const base = 10 + sab;
-    // cVR ควรยกพื้นที่ปุ่มให้สูงขึ้นหน่อย
-    const extra = (view==='cvr') ? 16 : 0;
-    return Math.round(base + extra);
-  }
-
-  function applyHudGuard(){
-    const safeBottomPx = calcSafeBottom();
-    DOC.documentElement.style.setProperty('--hhaSafeBottom', safeBottomPx + 'px');
-    emit('hha:view', { view, isFS: isFullscreen(), isLandscape: isLandscape(), safeBottomPx });
-  }
-
-  async function ensureCVR(){
-    if(view !== 'cvr') return;
-    // Best effort: fullscreen + landscape (user gesture required in many browsers)
+  async function requestImmersion({ preferLandscape=true } = {}){
+    // Call this on a user gesture (Tap/Click)
     await requestFullscreen();
-    await lockLandscape();
-    applyHudGuard();
+    if(preferLandscape) await lockLandscape();
   }
 
-  function init(){
-    applyBodyView();
-    applyHudGuard();
+  // auto-apply once DOM ready (view only, not fullscreen)
+  async function init(){
+    const v = await getView();
+    applyBodyView(v);
 
-    // keep updating on changes
-    ROOT.addEventListener('resize', applyHudGuard, { passive:true });
-    ROOT.addEventListener('orientationchange', applyHudGuard, { passive:true });
-    DOC.addEventListener('fullscreenchange', applyHudGuard, { passive:true });
-    DOC.addEventListener('webkitfullscreenchange', applyHudGuard, { passive:true });
-
-    const vv = ROOT.visualViewport;
-    if(vv){
-      vv.addEventListener('resize', applyHudGuard, { passive:true });
-      vv.addEventListener('scroll', applyHudGuard, { passive:true });
-    }
-
-    // expose helper
-    ROOT.HHA_VIEW_HELPER = {
-      view,
-      ensureCVR,
-      requestFullscreen,
-      lockLandscape,
-      applyHudGuard,
-      isFullscreen,
-      isLandscape,
-    };
+    WIN.HHAView = Object.freeze({
+      getView,
+      apply: applyBodyView,
+      requestImmersion,
+      isMobile
+    });
   }
 
-  init();
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', init, { once:true });
+  }else{
+    init();
+  }
 })();
