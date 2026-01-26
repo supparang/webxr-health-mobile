@@ -1,12 +1,6 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (PATCHED)
-// ✅ Auto view detect (no UI override)
-// ✅ Default time = 90s (kid-friendly)
-// ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params
+// PlateVR Boot — PRODUCTION (flush-hardened patch)
+// ✅ Calls HHA_LOGGER.init(cfg) + flush on end/nav/restart
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -25,7 +19,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Allow force via ?view= for experiments only; no UI override menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -44,11 +37,7 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-
-function pct(n){
-  n = Number(n)||0;
-  return `${Math.round(n)}%`;
-}
+function pct(n){ n = Number(n)||0; return `${Math.round(n)}%`; }
 
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
@@ -64,7 +53,6 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
-
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -104,23 +92,19 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
       if(goalSub)  goalSub.textContent  = g.sub  || '';
-
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
       if(miniSub)  miniSub.textContent  = m.sub  || '';
-
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
@@ -139,15 +123,24 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
+  const flushThen = (fn)=>{
+    try{ WIN.HHA_LOGGER?.log('nav', { action:'click' }); }catch{}
+    try{ WIN.HHA_LOGGER?.flush('nav'); }catch{}
+    // give beacon a tiny window
+    setTimeout(fn, 120);
+  };
+
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query params
+      flushThen(()=> location.reload());
     });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
-      else history.back();
+      flushThen(()=>{
+        if(hub) location.href = hub;
+        else history.back();
+      });
     });
   }
 }
@@ -162,7 +155,6 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
@@ -174,33 +166,29 @@ function wireEndSummary(){
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
+
+    // ✅ flush-hardened: end => flush
+    try{ WIN.HHA_LOGGER?.log('endOverlay', { opened:true }); }catch{}
+    try{ WIN.HHA_LOGGER?.flush('endOverlay'); }catch{}
   });
 }
 
 function buildEngineConfig(){
   const view = getViewAuto();
-
-  // standard params
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-
-  // ✅ DEFAULT time = 90
-  const time = clamp(qs('time','90'), 10, 999);
-
+  const time = clamp(qs('time','70'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // research passthrough (optional)
-  return {
-    view,
-    runMode: run,
-    diff,
+  const cfg = {
+    game: 'plate',
+    view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -212,6 +200,8 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
+
+  return cfg;
 }
 
 function ready(fn){
@@ -222,6 +212,9 @@ function ready(fn){
 ready(()=>{
   const cfg = buildEngineConfig();
 
+  // ✅ init logger (flush-hardened)
+  try{ WIN.HHA_LOGGER?.init(cfg); }catch{}
+
   // set view class
   setBodyView(cfg.view);
 
@@ -230,10 +223,8 @@ ready(()=>{
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
   try{
     engineBoot({
       mount: DOC.getElementById('plate-layer'),
@@ -241,6 +232,8 @@ ready(()=>{
     });
   }catch(err){
     console.error('[PlateVR] boot error', err);
+    try{ WIN.HHA_LOGGER?.log('bootError', { msg:String(err?.message||err), stack:String(err?.stack||'') }); }catch{}
+    try{ WIN.HHA_LOGGER?.flush('bootError'); }catch{}
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
   }
 });
