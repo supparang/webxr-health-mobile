@@ -1,8 +1,9 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Folder Loader — DEBUG-STRONG
-// ✅ Shows real import error (SyntaxError / 404 / export mismatch)
-// ✅ Keeps cache-bust via ?v=
-// ✅ Tries multiple candidates
+// HydrationVR Folder Loader — PRODUCTION (A+C)
+// ✅ Fix: import failed diagnostics (shows real error + fetch status/MIME)
+// ✅ Auto-detect view if no ?view= (PC/Mobile) BUT never override existing view
+// ✅ Cardboard layers mapping via window.HHA_VIEW.layers
+// ✅ Cache bust using ts/v when present
 
 'use strict';
 
@@ -15,17 +16,41 @@
     return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v);
   }
 
-  const view = String(q.get('view') || '').toLowerCase();
+  function isMobileUA(){
+    try{
+      const ua = navigator.userAgent || '';
+      return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+    }catch(_){ return false; }
+  }
+
+  // Respect existing view (do NOT override)
+  function detectViewIfMissing(){
+    const existing = String(q.get('view') || '').toLowerCase();
+    if (existing) return existing;
+
+    // Optional hints (from hub if you ever pass them)
+    const hint = String(q.get('mode') || q.get('device') || '').toLowerCase();
+    if (hint === 'cvr' || hint === 'cardboard' || hint === 'vr') return hint === 'vr' ? 'cvr' : hint;
+
+    // Default detect: mobile -> mobile, else pc
+    return isMobileUA() ? 'mobile' : 'pc';
+  }
+
+  const view = detectViewIfMissing();
   const body = document.body;
 
   function setBodyView(){
     body.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
+
     if (view === 'mobile') body.classList.add('view-mobile');
     else if (view === 'cardboard') body.classList.add('cardboard');
     else if (view === 'cvr') body.classList.add('view-cvr');
     else body.classList.add('view-pc');
   }
   setBodyView();
+
+  // Expose current view (useful for HUD copy)
+  try{ window.HHA_VIEWMODE = view; }catch(_){}
 
   // map layers for safe.js
   (function setLayers(){
@@ -43,71 +68,60 @@
     }[m]));
   }
 
-  async function probe(url){
-    // ช่วยบอก 404/OK แบบชัดๆ
-    try{
-      const res = await fetch(url, { method:'GET', cache:'no-store' });
-      return { ok: res.ok, status: res.status, ct: res.headers.get('content-type') || '' };
-    }catch(e){
-      return { ok:false, status:0, ct:'', err: e };
-    }
-  }
-
-  function showFail(err, tried, probes){
+  function showFail(err, tried){
     const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
+    el.style.cssText =
+      'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
     el.innerHTML = `
       <div style="max-width:980px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (REAL ERROR)</h2>
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (folder loader)</h2>
         <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
         <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
+        <div style="opacity:.9;margin-bottom:10px">Detected view: <b>${escapeHtml(view)}</b> (won't override existing ?view=)</div>
 
-        <div style="margin:12px 0 8px 0;font-weight:800">Tried paths:</div>
-        <ol style="line-height:1.65">
-          ${tried.map((s,i)=>{
-            const p = probes[i] || {};
-            const badge = p.ok ? `✅ ${p.status} (${escapeHtml(p.ct||'')})` : `❌ ${p.status||'ERR'}`;
-            return `<li><code>${escapeHtml(s)}</code> <span style="opacity:.85">— ${badge}</span></li>`;
-          }).join('')}
+        <div style="margin:12px 0 8px 0;font-weight:800">Tried paths + fetch check:</div>
+        <ol style="line-height:1.6">
+          ${tried.map(t=>`
+            <li>
+              <code>${escapeHtml(t.path)}</code>
+              <div style="opacity:.85;font-size:12px;margin-top:4px">
+                fetch: ${escapeHtml(t.fetchInfo || '—')}
+              </div>
+            </li>
+          `).join('')}
         </ol>
 
-        <div style="margin:12px 0 6px 0;font-weight:800">Error:</div>
+        <div style="margin:12px 0 6px 0;font-weight:800">Last Error:</div>
         <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(String(err && (err.stack || err.message || err)))}</pre>
 
-        <div style="margin-top:10px;opacity:.9;line-height:1.5">
-          <b>Hint:</b><br/>
-          • ถ้าเห็น <code>404</code> = path ผิด/ไฟล์ไม่ถูก deploy<br/>
-          • ถ้าเห็น <code>SyntaxError</code> = โค้ดไฟล์ใดไฟล์หนึ่งพัง (ดูบรรทัดใน stack)<br/>
-          • ถ้าเห็น <code>does not provide an export named</code> = export/import ชื่อไม่ตรง
+        <div style="margin-top:12px;opacity:.9;font-size:12px;line-height:1.45">
+          Tip: ถ้า fetch ได้ <b>200</b> แต่ content-type เป็น <b>text/html</b> แปลว่าโดน 404 แล้ว GH Pages ส่งหน้า HTML กลับมา (path หรือชื่อไฟล์ผิด/case-sensitive)
         </div>
       </div>
     `;
     document.body.appendChild(el);
   }
 
+  async function probeFetch(url){
+    try{
+      const r = await fetch(url, { method:'GET', cache:'no-store' });
+      const ct = r.headers.get('content-type') || '';
+      return `status=${r.status} ok=${r.ok} type=${ct}`;
+    }catch(e){
+      return `fetch-error: ${String(e && (e.message||e))}`;
+    }
+  }
+
+  // Candidates (more robust)
   const candidates = [
     './hydration.safe.js',
-    './hydration.safe.mjs',
-    '../hydration.safe.js'
+    'hydration.safe.js',
+    './hydration.safe.js?ts=' + encodeURIComponent(Date.now()),
   ].map(withBust);
 
   (async()=>{
     const tried=[];
-    const probes=[];
-    let lastErr = null;
+    let lastErr=null;
 
     for (const p of candidates){
-      tried.push(p);
-      probes.push(await probe(p));
-
-      try{
-        await import(p);
-        return; // ✅ success
-      }catch(e){
-        lastErr = e;
-        // ไม่กลืนทิ้งแล้ว
-      }
-    }
-    showFail(lastErr || new Error('All candidate imports failed.'), tried, probes);
-  })();
-})();
+      const info =
