@@ -1,10 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + Targets (PRODUCTION)
-   HHA Standard
-   ✅ Safe-zone vars: --hha-top-safe/--hha-bottom-safe/--hha-left-safe/--hha-right-safe
-   ✅ Targets: emoji bubble + tag + wobble
-   ✅ HUD: non-blocking spawn area via safe vars
+   Balanced Plate VR — UI + FX (PRODUCTION)
+   HHA Standard (SAFE RECT + targets absolute)
 ========================================================= */
 
 :root{
@@ -25,25 +22,19 @@
   --radius:18px;
   --pill:999px;
 
-  /* iOS safe area */
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* -------------------------------------------------------
-     HHA Standard safe-zone for GAME PLAYFIELD
-     (spawn must avoid HUD / top buttons / bottom bars)
-     ------------------------------------------------------- */
-  --hha-top-safe:   calc(var(--sat) + 140px);
-  --hha-bottom-safe:calc(var(--sab) + 130px);
-  --hha-left-safe:  calc(var(--sal) + 12px);
-  --hha-right-safe: calc(var(--sar) + 12px);
+  /* ✅ spawn-safe margins (mode-factory reads these) */
+  --plate-top-safe: calc(var(--sat) + 170px);
+  --plate-bottom-safe: calc(var(--sab) + 22px);
+  --plate-left-safe: calc(var(--sal) + 12px);
+  --plate-right-safe: calc(var(--sar) + 12px);
 }
 
-/* ---------------------------------------------------------
-   Global
---------------------------------------------------------- */
 *{ box-sizing:border-box; }
 
 html,body{
@@ -56,14 +47,8 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{
-  position:relative;
-  width:100%;
-  height:100%;
-}
-
 /* ---------------------------------------------------------
-   Playfield (Targets spawn inside this rect)
+   Playfield layer
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -71,111 +56,65 @@ html,body{
   z-index:10;
   pointer-events:auto;
   touch-action:none;
-
-  /* ✅ IMPORTANT: make absolute children anchor correctly */
-  position:fixed;
 }
 
 /* ---------------------------------------------------------
-   Targets — emoji bubble style (match your screenshot)
+   Targets
 --------------------------------------------------------- */
 .plateTarget{
-  position:absolute;
+  position:absolute; /* ✅ must be absolute */
   display:grid;
   place-items:center;
   border-radius:999px;
   user-select:none;
   cursor:pointer;
 
-  /* base size from JS */
-  /* width/height set inline */
-
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.16), transparent 38%),
-    radial-gradient(circle at 70% 75%, rgba(0,0,0,.12), transparent 55%),
-    rgba(2,6,23,.62);
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
+    rgba(2,6,23,.60);
 
-  border:1px solid rgba(148,163,184,.22);
-
+  border:1px solid var(--stroke);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.38),
-    inset 0 1px 0 rgba(255,255,255,.10),
-    inset 0 -10px 18px rgba(0,0,0,.18);
+    0 18px 48px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.08);
 
-  animation: pop .14s ease-out, wobble 1.7s ease-in-out infinite;
-  will-change: transform;
+  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
+}
+
+.plateTarget .fg-emoji{
+  font-size:28px;
+  font-weight:900;
+  line-height:1;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
+  transform: translateZ(0);
 }
 
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.36);
+  border-color:rgba(34,197,94,.35);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.38),
-    0 0 22px rgba(34,197,94,.16),
-    inset 0 1px 0 rgba(255,255,255,.10),
-    inset 0 -10px 18px rgba(0,0,0,.18);
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 24px rgba(34,197,94,.18);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.36);
+  border-color:rgba(239,68,68,.35);
   box-shadow:
-    0 18px 52px rgba(0,0,0,.38),
-    0 0 22px rgba(239,68,68,.16),
-    inset 0 1px 0 rgba(255,255,255,.10),
-    inset 0 -10px 18px rgba(0,0,0,.18);
-  animation-duration:1.15s;
+    0 18px 48px rgba(0,0,0,.32),
+    0 0 24px rgba(239,68,68,.18);
+  animation-duration:1.2s;
 }
 
 @keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.86); opacity:0 }
+  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
   100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
 
 @keyframes wobble{
-  0%{ transform:translate(-50%,-50%) rotate(0deg) }
-  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform:translate(-50%,-50%) rotate(0deg) }
-}
-
-/* Emoji inside target */
-.plateEmoji{
-  display:grid;
-  place-items:center;
-  width:100%;
-  height:100%;
-  font-size: 28px;
-  line-height:1;
-  font-weight:900;
-  filter: drop-shadow(0 10px 14px rgba(0,0,0,.25));
-}
-
-/* Tiny tag badge: group label / JUNK */
-.plateTag{
-  position:absolute;
-  bottom:-10px;
-  left:50%;
-  transform:translateX(-50%);
-  padding:5px 10px;
-  border-radius:999px;
-  font-size:11px;
-  font-weight:900;
-  white-space:nowrap;
-
-  background: rgba(15,23,42,.78);
-  border:1px solid rgba(148,163,184,.18);
-  box-shadow: 0 14px 30px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-
-  pointer-events:none;
-}
-
-.plateTarget[data-kind="good"] .plateTag{
-  border-color: rgba(34,197,94,.26);
-}
-
-.plateTarget[data-kind="junk"] .plateTag{
-  border-color: rgba(239,68,68,.26);
+  0%{ rotate:0deg }
+  25%{ rotate:1.2deg }
+  50%{ rotate:-1.2deg }
+  75%{ rotate:.8deg }
+  100%{ rotate:0deg }
 }
 
 /* ---------------------------------------------------------
@@ -183,122 +122,75 @@ html,body{
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  inset:0;
-  z-index:40;
-  pointer-events:none; /* ✅ allow tapping targets under HUD */
-}
-
-/* Top row chips */
-.hudRow{
-  position:fixed;
   top: calc(var(--sat) + 10px);
   left: calc(var(--sal) + 10px);
-  right: calc(var(--sar) + 10px);
+  z-index:40;
+  width: min(420px, calc(100vw - var(--sal) - var(--sar) - 20px));
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none; /* ✅ do not block hits */
+}
+
+.hudRow{
   display:flex;
   gap:10px;
-  justify-content:flex-start;
-  align-items:center;
   pointer-events:none;
 }
 
 .chip{
+  flex:1;
   display:flex;
-  gap:8px;
-  align-items:baseline;
+  flex-direction:column;
+  gap:2px;
   padding:10px 12px;
-  border-radius:999px;
+  border-radius:14px;
   background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.20);
-  box-shadow:0 16px 40px rgba(0,0,0,.24);
-  backdrop-filter: blur(10px);
+  border:1px solid rgba(148,163,184,.18);
+  backdrop-filter:blur(10px);
+  box-shadow:0 16px 50px rgba(0,0,0,.22);
 }
 
-.chip .lbl{
-  font-weight:900;
-  font-size:11px;
-  color:var(--muted);
-  letter-spacing:.4px;
-}
+.chip .lbl{ font-size:11px; font-weight:900; color:var(--muted); letter-spacing:.08em; }
+.chip .val{ font-size:20px; font-weight:1000; }
 
-.chip .val{
-  font-weight:1000;
-  font-size:14px;
-  color:var(--text);
-}
-
-/* Quest card */
 .card{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
-}
-
-#questCard{
-  position:fixed;
-  top: calc(var(--sat) + 62px);
-  right: calc(var(--sar) + 10px);
-  width: min(360px, calc(100vw - 20px));
-  padding:12px 12px 10px;
   pointer-events:none;
 }
 
+#questCard{ padding:12px; }
+
 .cardTitle{
   display:flex;
-  justify-content:space-between;
   align-items:center;
-  gap:10px;
+  justify-content:space-between;
   margin-bottom:10px;
 }
-
-.cardTitle .t{
-  font-weight:1000;
-  font-size:14px;
-}
-
-.cardTitle .hint{
-  font-size:12px;
-  color:var(--muted);
-  text-align:right;
-}
+.cardTitle .t{ font-weight:1000; }
+.cardTitle .hint{ font-size:12px; color:var(--muted); font-weight:900; }
 
 .qItem{
   display:flex;
-  gap:10px;
-  align-items:center;
+  justify-content:space-between;
+  gap:12px;
   padding:10px 10px;
   border-radius:14px;
-  border:1px solid rgba(148,163,184,.14);
   background:rgba(15,23,42,.45);
+  border:1px solid rgba(148,163,184,.14);
+  margin-top:8px;
 }
 
-.qItem + .qItem{ margin-top:8px; }
+.qText .name{ font-weight:1000; }
+.qText .sub{ font-size:12px; color:var(--muted); font-weight:900; margin-top:2px; }
 
-.qText .name{
-  font-weight:1000;
-  font-size:13px;
-  margin-bottom:2px;
-}
-.qText .sub{
-  font-size:12px;
-  color:var(--muted);
-}
+.qProg{ min-width:140px; display:flex; flex-direction:column; gap:6px; }
+.qNums{ text-align:right; font-size:12px; color:var(--muted); font-weight:1000; }
 
-.qProg{
-  margin-left:auto;
-  width:120px;
-  text-align:right;
-}
-
-.qNums{
-  font-weight:1000;
-  font-size:12px;
-  margin-bottom:6px;
-  color:var(--text);
-}
-
-/* bars */
 .bar{
   height:10px;
   border-radius:999px;
@@ -322,35 +214,28 @@ html,body{
   bottom: calc(var(--sab) + 16px);
   transform:translateX(-50%);
   z-index:60;
-  opacity:0;
+  max-width:min(560px, calc(100vw - 24px));
   pointer-events:none;
+  opacity:0;
   transition:opacity .18s ease, transform .18s ease;
 }
 
 #coachCard.show{
   opacity:1;
-  transform:translateX(-50%) translateY(-6px);
+  transform:translateX(-50%) translateY(-4px);
 }
 
 #coachCard .inner{
-  padding:12px 14px;
-  border-radius:18px;
   background:rgba(2,6,23,.78);
   border:1px solid rgba(148,163,184,.18);
-  box-shadow:0 18px 60px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-  min-width: min(520px, calc(100vw - 24px));
+  border-radius:18px;
+  padding:12px 14px;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  backdrop-filter:blur(10px);
 }
 
-#coachMsg{
-  font-weight:900;
-  font-size:14px;
-}
-#coachMeta{
-  margin-top:6px;
-  font-size:12px;
-  color:var(--muted);
-}
+#coachMsg{ font-weight:1000; }
+#coachMeta{ margin-top:4px; color:var(--muted); font-size:12px; font-weight:900; }
 
 /* ---------------------------------------------------------
    End overlay
@@ -359,129 +244,79 @@ html,body{
   position:fixed;
   inset:0;
   z-index:80;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  padding: calc(var(--sat) + 12px) calc(var(--sar) + 12px) calc(var(--sab) + 12px) calc(var(--sal) + 12px);
+  display:grid;
+  place-items:center;
   background:rgba(0,0,0,.55);
-  backdrop-filter: blur(6px);
 }
-
 #endOverlay[aria-hidden="true"]{ display:none; }
 
 .endPanel{
-  width:min(680px, 92vw);
-  background:rgba(2,6,23,.88);
+  width:min(640px, calc(100vw - 24px));
+  background:rgba(2,6,23,.86);
   border:1px solid rgba(148,163,184,.18);
   border-radius:22px;
-  box-shadow:0 22px 70px rgba(0,0,0,.46);
-  padding:16px 16px 14px;
+  box-shadow:0 24px 80px rgba(0,0,0,.5);
+  padding:16px;
 }
 
-.endTitle{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:12px;
-  margin-bottom:12px;
-}
-
-.endTitle h2{
-  margin:0;
-  font-size:18px;
-  font-weight:1000;
-}
-
-.endTitle .tag{
-  padding:6px 10px;
-  border-radius:999px;
-  background:rgba(15,23,42,.70);
-  border:1px solid rgba(148,163,184,.18);
-  font-size:12px;
-  font-weight:900;
-  color:var(--muted);
-}
+.endTitle{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.endTitle h2{ margin:0; font-size:22px; font-weight:1100; }
+.endTitle .tag{ color:var(--muted); font-weight:900; }
 
 .endGrid{
+  margin-top:12px;
   display:grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0,1fr));
   gap:10px;
-  margin:12px 0 12px;
 }
-
 .kpi{
-  padding:10px 10px;
+  padding:12px;
   border-radius:16px;
   background:rgba(15,23,42,.55);
   border:1px solid rgba(148,163,184,.14);
 }
-.kpi .k{
-  font-size:12px;
-  color:var(--muted);
-  font-weight:900;
-}
-.kpi .v{
-  margin-top:4px;
-  font-size:16px;
-  font-weight:1000;
-}
+.kpi .k{ color:var(--muted); font-weight:900; font-size:12px; }
+.kpi .v{ font-weight:1100; font-size:18px; margin-top:4px; }
 
 .endBtns{
   display:flex;
   gap:10px;
-  justify-content:flex-end;
-  margin-top:10px;
+  margin-top:14px;
 }
-
 .btn{
+  flex:1;
   appearance:none;
   border:none;
   border-radius:999px;
-  padding:10px 14px;
+  padding:12px 14px;
   font-weight:1000;
-  font-size:12px;
+  font-size:13px;
   cursor:pointer;
   color:var(--text);
   background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
 }
-
 .btn.primary{
   background:rgba(34,197,94,.18);
   border-color:rgba(34,197,94,.35);
 }
 
 /* ---------------------------------------------------------
-   Responsive tuning
+   View tuning
 --------------------------------------------------------- */
-@media (max-width:900px){
-  :root{
-    --hha-top-safe:    calc(var(--sat) + 152px);
-    --hha-bottom-safe: calc(var(--sab) + 140px);
-  }
-
-  .plateEmoji{ font-size:24px; }
-
-  #questCard{
-    right: calc(var(--sar) + 8px);
-    top: calc(var(--sat) + 58px);
-    width: min(340px, calc(100vw - 16px));
-  }
-
-  .endGrid{ grid-template-columns: repeat(2, 1fr); }
+body.view-mobile{
+  --plate-top-safe: calc(var(--sat) + 220px);  /* HUD สูงขึ้น */
+  --plate-bottom-safe: calc(var(--sab) + 70px);/* กันนิ้ว */
 }
 
-@media (max-width:520px){
-  :root{
-    --hha-top-safe:    calc(var(--sat) + 168px);
-    --hha-bottom-safe: calc(var(--sab) + 150px);
-  }
+body.view-vr,
+body.view-cvr{
+  --plate-top-safe: calc(var(--sat) + 120px);
+  --plate-bottom-safe: calc(var(--sab) + 18px);
+}
 
-  .hudRow{
-    flex-wrap:wrap;
-    gap:8px;
-  }
-  .chip{ padding:9px 11px; }
-  #questCard{ width: calc(100vw - 16px); }
+@media (max-width:900px){
+  .plateTarget .fg-emoji{ font-size:24px; }
+  .chip .val{ font-size:18px; }
+  .qProg{ min-width:120px; }
 }
