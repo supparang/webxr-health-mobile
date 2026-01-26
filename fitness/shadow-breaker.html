@@ -158,7 +158,7 @@
         </div>
 
         <div class="sb-play-area">
-          <div id="sb-target-layer" class="sb-target-layer"></div>
+          <div id="sb-target-layer" class="sb-target-layer" aria-label="target-layer"></div>
         </div>
 
         <div class="sb-fever-row">
@@ -190,7 +190,6 @@
           <div class="sb-result-actions">
             <button id="sb-btn-result-retry" class="sb-btn-primary">▶ เล่นซ้ำรอบเดิม</button>
             <button id="sb-btn-result-menu" class="sb-btn-secondary">↩ กลับเมนูเลือกโหมด</button>
-
             <div class="sb-result-note">
               ใช้ปุ่ม <em>สรุปผลล่าสุด</em> บนแถบด้านบน เพื่อดูสถิติรวมหลายรอบ
             </div>
@@ -206,9 +205,6 @@
   </main>
 </div>
 
-<script type="module">
-  import { initShadowBreaker } from './js/engine.js';
-  initShadowBreaker();
-</script>
+<script type="module" src="./js/engine.js"></script>
 </body>
 </html>
