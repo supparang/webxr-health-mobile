@@ -1,79 +1,84 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge UI + Zone helper (HHA)
-// ✅ ensureWaterGauge(): mounts small fixed gauge (optional)
-// ✅ setWaterGauge(pct): updates gauge (0-100)
-// ✅ zoneFrom(pct, prevZone?): returns 'LOW' | 'GREEN' | 'HIGH' with hysteresis
+// Water Gauge UI helper (HeroHealth)
+// ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
+// ✅ Works with existing DOM ids: #water-bar #water-pct #water-zone #water-tip
+// ✅ If not found, auto-create a compact floating gauge
 
 'use strict';
 
-const WIN = window;
-const DOC = document;
+const DOC = (typeof window !== 'undefined') ? window.document : null;
 
-let mounted = false;
+export function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-function clamp(v, a, b){
-  v = Number(v) || 0;
-  return v < a ? a : (v > b ? b : v);
+export function zoneFrom(pct){
+  const p = clamp(pct,0,100);
+  // ปรับ threshold ให้ "GREEN ไม่แคบเกิน" (เล่นสนุก)
+  if (p < 45) return 'LOW';
+  if (p > 65) return 'HIGH';
+  return 'GREEN';
 }
 
-export function ensureWaterGauge(){
-  if (mounted) return;
-  mounted = true;
+function qs(id){ return DOC ? DOC.getElementById(id) : null; }
 
-  // ถ้าหน้าเกมมี panel ของตัวเองอยู่แล้ว ก็ไม่จำเป็นต้องสร้างซ้ำ
-  // แต่เผื่อบางเกมอยากมีเกจเล็กมุมจอ เราทำแบบ best-effort
-  if (DOC.getElementById('hha-water-mini')) return;
+function ensureNode(){
+  if (!DOC) return;
 
+  // ถ้ามี panel อยู่แล้ว ใช้ของเดิม
+  if (qs('water-bar') && qs('water-pct') && qs('water-zone')) return;
+
+  // สร้าง floating gauge แบบเล็ก (fallback)
   const wrap = DOC.createElement('div');
-  wrap.id = 'hha-water-mini';
+  wrap.id = 'hha-water-fallback';
   wrap.style.cssText = `
-    position:fixed; right:12px; bottom:12px; z-index:60;
-    width:140px; padding:10px 10px; border-radius:14px;
-    background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18);
+    position:fixed; right:12px; top:12px; z-index:9999;
+    width:220px; padding:10px 10px; border-radius:16px;
+    background: rgba(2,6,23,.72);
+    border:1px solid rgba(148,163,184,.18);
+    color:#e5e7eb; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
     backdrop-filter: blur(10px);
-    display:none; /* ซ่อนไว้เป็นค่าเริ่มต้น (หน้า hydration มีของตัวเองแล้ว) */
     pointer-events:none;
-    color:#e5e7eb; font: 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
   `;
   wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-      <b>Water</b><span id="hha-water-mini-pct">50%</span>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+      <div style="font-weight:900;font-size:12px;letter-spacing:.2px">Water</div>
+      <div style="font-weight:900;font-size:16px">
+        <span id="water-pct">50</span><span style="opacity:.75;font-size:12px">%</span>
+      </div>
     </div>
-    <div style="height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.12);">
-      <div id="hha-water-mini-bar" style="height:100%;width:50%;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));"></div>
+    <div style="margin-top:6px;opacity:.9;font-size:12px">Zone <b id="water-zone">GREEN</b></div>
+    <div style="margin-top:8px;height:10px;border-radius:999px;background:rgba(148,163,184,.18);overflow:hidden;border:1px solid rgba(148,163,184,.12)">
+      <div id="water-bar" style="height:100%;width:50%;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));"></div>
     </div>
-    <div style="margin-top:6px;opacity:.9">Zone: <b id="hha-water-mini-zone">GREEN</b></div>
+    <div id="water-tip" style="margin-top:8px;font-size:11px;opacity:.88;white-space:pre-line;line-height:1.25">
+      Tip: คุม GREEN ให้นาน ๆ
+    </div>
   `;
   DOC.body.appendChild(wrap);
 }
 
-export function setWaterGauge(pct){
-  const p = clamp(pct, 0, 100);
-  const bar = DOC.getElementById('hha-water-mini-bar');
-  const t = DOC.getElementById('hha-water-mini-pct');
-  const z = DOC.getElementById('hha-water-mini-zone');
-  if (bar) bar.style.width = p.toFixed(0) + '%';
-  if (t) t.textContent = p.toFixed(0) + '%';
-  if (z) z.textContent = zoneFrom(p);
+export function ensureWaterGauge(){
+  ensureNode();
 }
 
-/**
- * zoneFrom(pct, prevZone?)
- * GREEN กว้างขึ้น + มี hysteresis กันสั่น:
- * - GREEN base: 42..68
- * - ถ้า prevZone เป็น GREEN จะยังถือ GREEN จนกว่าจะหลุดเกิน 40..70
- */
-export function zoneFrom(pct, prevZone){
-  const p = clamp(pct, 0, 100);
+export function setWaterGauge(pct){
+  if (!DOC) return;
+  ensureNode();
 
-  const GREEN_LO = 42, GREEN_HI = 68;
-  const HOLD_LO  = 40, HOLD_HI  = 70; // hysteresis band
+  const p = clamp(pct,0,100);
+  const z = zoneFrom(p);
 
-  if (String(prevZone||'').toUpperCase() === 'GREEN'){
-    if (p >= HOLD_LO && p <= HOLD_HI) return 'GREEN';
-    return (p < HOLD_LO) ? 'LOW' : 'HIGH';
+  const bar = qs('water-bar');
+  const pctEl = qs('water-pct');
+  const zoneEl = qs('water-zone');
+  const tipEl = qs('water-tip');
+
+  if (bar) bar.style.width = `${p.toFixed(0)}%`;
+  if (pctEl) pctEl.textContent = String(p|0);
+  if (zoneEl) zoneEl.textContent = z;
+
+  if (tipEl){
+    if (z === 'GREEN') tipEl.textContent = '✅ GREEN: ดีมาก! รักษาให้ต่อเนื่อง\nทิป: ยิง 💧 คุมสมดุล + เก็บ 🛡️ รอพายุ';
+    else if (z === 'LOW') tipEl.textContent = '🟦 LOW: น้ำต่ำไป\nทิป: ยิง 💧 เพิ่มเพื่อกลับ GREEN และเตรียมกันพายุ';
+    else tipEl.textContent = '🟥 HIGH: น้ำสูงไป\nทิป: คุมจังหวะ อย่ารัว แล้วกลับเข้า GREEN';
   }
-
-  if (p >= GREEN_LO && p <= GREEN_HI) return 'GREEN';
-  return (p < GREEN_LO) ? 'LOW' : 'HIGH';
 }
