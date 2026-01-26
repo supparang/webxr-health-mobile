@@ -65,6 +65,7 @@ Hygiene VR Launcher — ROOT (AUTO)
     </div>
 
     <div class="hint">
+      ไปที่ Run: <code>/herohealth/hygiene-vr/hygiene-vr.html</code><br>
       Pass-through: <code>hub</code>, <code>run</code>, <code>diff</code>, <code>time</code>, <code>seed</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code>, <code>style</code>, <code>log</code><br>
       ทดสอบเร็ว: <code>?run=play&diff=normal&time=75&seed=1</code>
     </div>
@@ -79,13 +80,15 @@ Hygiene VR Launcher — ROOT (AUTO)
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
   function detectView(){
+    const forced = (qs('view','')||'').toLowerCase();
+    if(forced) return forced;
+
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
 
     if (isTouch){
-      // มือถือจอใหญ่แนวนอน -> cVR
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
@@ -96,7 +99,7 @@ Hygiene VR Launcher — ROOT (AUTO)
     const cur = new URL(location.href);
     const out = new URL(RUN_URL, location.href);
 
-    // pass-through all current params
+    // pass-through all params
     cur.searchParams.forEach((v,k)=> out.searchParams.set(k,v));
 
     // ensure hub exists
@@ -104,12 +107,11 @@ Hygiene VR Launcher — ROOT (AUTO)
       out.searchParams.set('hub', String(qs('hub','./hub.html')));
     }
 
-    // DO NOT override if view already present
+    // DO NOT override if view already present, except manual override by buttons
     const hasView = !!cur.searchParams.get('view');
     if (!hasView){
       out.searchParams.set('view', viewOverride || detectView());
     }else if(viewOverride){
-      // manual override only when user explicitly clicks a view button
       out.searchParams.set('view', viewOverride);
     }
 
@@ -117,13 +119,8 @@ Hygiene VR Launcher — ROOT (AUTO)
   }
 
   function go(viewOverride=null){
-    const url = buildRunUrl(viewOverride);
-    location.href = url;
+    location.href = buildRunUrl(viewOverride);
   }
-
-  const txt = document.getElementById('txt');
-  const target = buildRunUrl(null);
-  if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
   document.getElementById('btnGo')?.addEventListener('click', ()=>go(null));
   document.getElementById('btnMobile')?.addEventListener('click', ()=>go('mobile'));
@@ -131,8 +128,11 @@ Hygiene VR Launcher — ROOT (AUTO)
   document.getElementById('btnCVR')?.addEventListener('click', ()=>go('cvr'));
   document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = String(qs('hub','./hub.html')) );
 
-  // auto redirect (กัน “ค้าง” ด้วยการมีปุ่มให้กดเองเสมอ)
-  setTimeout(()=>go(null), 160);
+  const txt = document.getElementById('txt');
+  if (txt) txt.textContent = 'กำลังพาเข้าเกม… (ถ้าค้าง กด “เข้าเกม”)';
+
+  // auto redirect
+  setTimeout(()=>go(null), 180);
 })();
 </script>
 </body>
