@@ -1,7 +1,8 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO)
+Hygiene VR Launcher — ROOT (AUTO)
 ✅ Auto-detect view if no ?view=
-✅ Pass-through all params
+✅ DO NOT override view if already present
+✅ Pass-through params
 ✅ Go to: /herohealth/hygiene-vr/hygiene-vr.html
 -->
 <!doctype html>
@@ -26,7 +27,7 @@ HygieneVR Launcher — ROOT (AUTO)
     .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
       width:min(760px,100%);
-      border:1px solid var(--stroke);
+      border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.72);
       border-radius: var(--r);
       padding: 16px;
@@ -37,7 +38,7 @@ HygieneVR Launcher — ROOT (AUTO)
     .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
     .btn{
       border-radius: 16px;
-      border:1px solid var(--stroke);
+      border:1px solid rgba(148,163,184,.18);
       background: rgba(15,23,42,.72);
       color: rgba(229,231,235,.95);
       padding: 10px 12px;
@@ -52,17 +53,20 @@ HygieneVR Launcher — ROOT (AUTO)
 <body>
 <div class="wrap">
   <div class="card">
-    <div class="title">HygieneVR — Handwash Survival</div>
+    <div class="title">🧼 Handwash Survival (HygieneVR)</div>
     <div class="sub" id="txt">กำลังเข้าเกมอัตโนมัติ…</div>
 
     <div class="row">
       <button class="btn primary" id="btnGo">เข้าเกม</button>
+      <button class="btn" id="btnMobile">Mobile</button>
+      <button class="btn" id="btnVR">Cardboard VR</button>
+      <button class="btn" id="btnCVR">cVR</button>
       <button class="btn" id="btnHub">กลับ HUB</button>
     </div>
 
     <div class="hint">
-      ถ้าอยากบังคับมุมมอง: <code>?view=pc</code> / <code>?view=mobile</code> / <code>?view=vr</code> / <code>?view=cvr</code><br>
-      (ถ้ามี <code>?view=</code> อยู่แล้ว Launcher จะ <b>ไม่ override</b>)
+      Pass-through: <code>hub</code>, <code>run</code>, <code>diff</code>, <code>time</code>, <code>seed</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code>, <code>style</code>, <code>log</code><br>
+      ทดสอบเร็ว: <code>?run=play&diff=normal&time=75&seed=1</code>
     </div>
   </div>
 </div>
@@ -70,45 +74,65 @@ HygieneVR Launcher — ROOT (AUTO)
 <script>
 (function(){
   'use strict';
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const hub = String(qs('hub','./hub.html'));
+
   const RUN_URL = './hygiene-vr/hygiene-vr.html';
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
   function detectView(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
+
     if (isTouch){
+      // มือถือจอใหญ่แนวนอน -> cVR
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
     return 'pc';
   }
 
-  function buildRunUrl(){
-    const u = new URL(RUN_URL, location.href);
+  function buildRunUrl(viewOverride=null){
     const cur = new URL(location.href);
-    cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
+    const out = new URL(RUN_URL, location.href);
+
+    // pass-through all current params
+    cur.searchParams.forEach((v,k)=> out.searchParams.set(k,v));
+
+    // ensure hub exists
+    if (!out.searchParams.get('hub')){
+      out.searchParams.set('hub', String(qs('hub','./hub.html')));
+    }
 
     // DO NOT override if view already present
     const hasView = !!cur.searchParams.get('view');
     if (!hasView){
-      u.searchParams.set('view', detectView());
+      out.searchParams.set('view', viewOverride || detectView());
+    }else if(viewOverride){
+      // manual override only when user explicitly clicks a view button
+      out.searchParams.set('view', viewOverride);
     }
-    if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
-    return u.toString();
+
+    return out.toString();
   }
 
-  function go(){ location.href = buildRunUrl(); }
-
-  document.getElementById('btnGo')?.addEventListener('click', go);
-  document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = hub);
+  function go(viewOverride=null){
+    const url = buildRunUrl(viewOverride);
+    location.href = url;
+  }
 
   const txt = document.getElementById('txt');
+  const target = buildRunUrl(null);
   if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
-  setTimeout(go, 140);
+  document.getElementById('btnGo')?.addEventListener('click', ()=>go(null));
+  document.getElementById('btnMobile')?.addEventListener('click', ()=>go('mobile'));
+  document.getElementById('btnVR')?.addEventListener('click', ()=>go('vr'));
+  document.getElementById('btnCVR')?.addEventListener('click', ()=>go('cvr'));
+  document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = String(qs('hub','./hub.html')) );
+
+  // auto redirect (กัน “ค้าง” ด้วยการมีปุ่มให้กดเองเสมอ)
+  setTimeout(()=>go(null), 160);
 })();
 </script>
 </body>
