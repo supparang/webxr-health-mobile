@@ -1,35 +1,19 @@
-// === js/session-logger.js — Session CSV logger (FIXED export) ===
 'use strict';
 
 export class SessionLogger {
-  constructor() {
-    this.rows = [];
-  }
-
-  clear() {
-    this.rows.length = 0;
-  }
-
-  add(row) {
-    if (!row || typeof row !== 'object') return;
-    this.rows.push(row);
-  }
-
-  toCsv() {
-    if (!this.rows.length) return '';
-
-    // รวมคอลัมน์ให้นิ่ง
-    const colSet = new Set();
-    for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
-    const cols = Array.from(colSet);
-
-    const esc = (v) => {
-      const s = (v === null || v === undefined) ? '' : String(v);
-      return `"${s.replace(/"/g, '""')}"`;
+  constructor(){ this.logs = []; }
+  add(row){ if (row && typeof row === 'object') this.logs.push(row); }
+  clear(){ this.logs.length = 0; }
+  toCsv(){
+    if(!this.logs.length) return '';
+    const cols = Object.keys(this.logs[0]);
+    const esc = (v)=>{
+      if(v == null) return '';
+      const s = String(v);
+      return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
     };
-
-    const head = cols.join(',');
-    const lines = this.rows.map(r => cols.map(c => esc(r[c])).join(','));
-    return [head, ...lines].join('\n');
+    const lines = [cols.join(',')];
+    for(const row of this.logs) lines.push(cols.map(c=>esc(row[c])).join(','));
+    return lines.join('\n');
   }
 }
