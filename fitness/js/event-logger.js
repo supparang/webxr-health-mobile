@@ -1,26 +1,21 @@
-// === js/event-logger.js — Event-level CSV logger (LATEST) ===
 'use strict';
 
 export class EventLogger {
   constructor() { this.logs = []; }
-
   add(row) { if (row && typeof row === 'object') this.logs.push(row); }
-
   clear() { this.logs.length = 0; }
-
   toCsv() {
     if (!this.logs.length) return '';
-    const colSet = new Set();
-    for (const r of this.logs) Object.keys(r).forEach(k => colSet.add(k));
-    const cols = Array.from(colSet);
-
+    const cols = Object.keys(this.logs[0]);
     const esc = (v) => {
-      const s = (v === null || v === undefined) ? '' : String(v);
-      return `"${s.replace(/"/g, '""')}"`;
+      if (v == null) return '';
+      const s = String(v);
+      return (s.includes(',') || s.includes('"') || s.includes('\n'))
+        ? '"' + s.replace(/"/g, '""') + '"'
+        : s;
     };
-
-    const head = cols.join(',');
-    const lines = this.logs.map(r => cols.map(c => esc(r[c])).join(','));
-    return [head, ...lines].join('\n');
+    const lines = [cols.join(',')];
+    for (const row of this.logs) lines.push(cols.map(c => esc(row[c])).join(','));
+    return lines.join('\n');
   }
 }
