@@ -1,11 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js
-✅ Quiz: quiz.bank.js (random)
-✅ End Summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-✅ Back HUB: ?hub=...
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot (cVR)
+✅ Engine: hygiene.safe.js (module)
+✅ Quiz bank: hygiene.quiz-bank.js (defer)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,21 +14,22 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- ✅ CSS in same folder -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260126a" />
 
-  <!-- ✅ FIX: defer to avoid body null -->
+  <!-- ✅ VR UI (avoid body null) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Optional packs (ถ้ามีอยู่แล้วก็ทำงานได้ / ถ้าไม่มีไม่กระทบ) -->
+  <!-- Optional helpers -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (สุ่ม) -->
-  <script src="./quiz.bank.js?v=20260126a" defer></script>
+  <!-- ✅ Quiz bank (global) -->
+  <script src="./hygiene.quiz-bank.js?v=20260126a" defer></script>
 
-  <!-- Engine -->
+  <!-- ✅ Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260126a"></script>
 </head>
 
@@ -53,7 +52,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
         <div class="hw-row">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillTime">TIME 75</div>
+          <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
@@ -64,18 +63,19 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
         </div>
-      </div>
 
-      <div class="hw-banner" id="banner" aria-live="polite"></div>
+        <div class="hw-banner" id="banner" aria-live="polite"></div>
+      </div>
     </div>
 
     <!-- Start Overlay -->
     <div class="hw-overlay" id="startOverlay">
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub" id="startText">
+        <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”
+          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
+          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -84,7 +84,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
         </div>
-        <div class="hw-card-sub" id="errBox" style="display:none;margin-top:10px;color:#fca5a5;font-weight:900"></div>
       </div>
     </div>
 
@@ -107,26 +106,14 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  const view = (qs('view','pc')||'pc').toLowerCase();
 
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
+  document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+
+  document.getElementById('labView').textContent = view;
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-
-  // show errors on overlay (กัน “ค้าง”)
-  const errBox = document.getElementById('errBox');
-  window.addEventListener('error', (e)=>{
-    try{
-      const msg = (e && (e.message || (e.error && e.error.message))) || 'Unknown error';
-      errBox.style.display = 'block';
-      errBox.textContent = '❌ ERROR: ' + msg;
-    }catch(_){}
-  });
 })();
 </script>
 </body>
