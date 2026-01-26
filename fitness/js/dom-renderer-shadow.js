@@ -1,171 +1,212 @@
-// === js/dom-renderer-shadow.js — DOM target renderer (safe bounds + hit FX) ===
+// === /fitness/js/dom-renderer-shadow.js ===
+// DOM renderer for Shadow Breaker targets
+// ✅ supports spawnHint {zone,biasX,biasY,tag}
+// ✅ avoids HUD overlap + corner clumps
+
 'use strict';
 
 export class DomRendererShadow {
-  constructor(layerEl, opts = {}) {
-    this.layerEl = layerEl;
+  constructor(targetLayer, opts = {}) {
+    this.layer = targetLayer;
     this.wrapEl = opts.wrapEl || null;
     this.feedbackEl = opts.feedbackEl || null;
-    this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
+    this.onTargetHit = opts.onTargetHit || null;
 
-    this.diffKey = 'normal';
     this.targets = new Map();
+    this.diffKey = 'normal';
 
-    this._onPointerDown = this._onPointerDown.bind(this);
-    this._onResize = this._onResize.bind(this);
+    this._onPointer = this._onPointer.bind(this);
+    this.layer.addEventListener('pointerdown', this._onPointer, { passive: true });
 
-    if (this.layerEl) {
-      this.layerEl.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+    // cached rect
+    this.lastRectAt = 0;
+    this.rect = null;
+  }
+
+  setDifficulty(key) {
+    this.diffKey = key || 'normal';
+  }
+
+  _getRect() {
+    const now = performance.now();
+    if (!this.rect || now - this.lastRectAt > 200) {
+      this.rect = this.layer.getBoundingClientRect();
+      this.lastRectAt = now;
     }
-    window.addEventListener('resize', this._onResize, { passive: true });
+    return this.rect;
   }
 
-  setDifficulty(diffKey) {
-    this.diffKey = diffKey || 'normal';
-  }
+  _zoneToRange(z) {
+    // 0 TL,1 TR,2 CL,3 CR,4 BL,5 BR
+    // returns [x0,x1,y0,y1] in 0..1
+    const left = [0.06, 0.48];
+    const right = [0.52, 0.94];
+    const top = [0.10, 0.38];
+    const mid = [0.40, 0.62];
+    const bot = [0.64, 0.90];
 
-  destroy() {
-    try {
-      if (this.layerEl) this.layerEl.removeEventListener('pointerdown', this._onPointerDown);
-      window.removeEventListener('resize', this._onResize);
-    } catch (_) {}
-    for (const id of this.targets.keys()) this.removeTarget(id, 'destroy');
-    this.targets.clear();
-  }
-
-  _onResize() {
-    // no-op for now (spawn uses %)
-  }
-
-  _layerRect() {
-    if (!this.layerEl) return null;
-    return this.layerEl.getBoundingClientRect();
+    switch (z) {
+      case 0: return [left[0], left[1], top[0], top[1]];
+      case 1: return [right[0], right[1], top[0], top[1]];
+      case 2: return [left[0], left[1], mid[0], mid[1]];
+      case 3: return [right[0], right[1], mid[0], mid[1]];
+      case 4: return [left[0], left[1], bot[0], bot[1]];
+      case 5: return [right[0], right[1], bot[0], bot[1]];
+      default: return [0.08, 0.92, 0.12, 0.88];
+    }
   }
 
   _rand(min, max) {
     return min + Math.random() * (max - min);
   }
 
-  _pickPosPct(sizePx) {
-    const rect = this._layerRect();
-    // fallback safe
-    if (!rect || rect.width < 50 || rect.height < 50) {
-      return { leftPct: this._rand(18, 82), topPct: this._rand(18, 82) };
+  _pickPos(sizePx, hint) {
+    const rect = this._getRect();
+    const pad = Math.max(10, Math.min(18, rect.width * 0.02));
+
+    // safe area shrink to avoid edges + HUD
+    const W = rect.width;
+    const H = rect.height;
+
+    const sz = Math.max(44, sizePx);
+    const half = sz / 2;
+
+    // zone range
+    const z = hint && typeof hint.zone === 'number' ? hint.zone : null;
+    const [x0n, x1n, y0n, y1n] = (z != null) ? this._zoneToRange(z) : [0.08,0.92,0.12,0.88];
+
+    // convert to pixels
+    let x0 = x0n * W, x1 = x1n * W;
+    let y0 = y0n * H, y1 = y1n * H;
+
+    // apply padding
+    x0 = Math.max(pad + half, x0);
+    x1 = Math.min(W - pad - half, x1);
+    y0 = Math.max(pad + half, y0);
+    y1 = Math.min(H - pad - half, y1);
+
+    // bias
+    const bx = (hint && hint.biasX) ? hint.biasX : 0;
+    const by = (hint && hint.biasY) ? hint.biasY : 0;
+
+    let x = this._rand(x0, x1) + bx * W;
+    let y = this._rand(y0, y1) + by * H;
+
+    // clamp again
+    x = Math.max(pad + half, Math.min(W - pad - half, x));
+    y = Math.max(pad + half, Math.min(H - pad - half, y));
+
+    // avoid clump: push away from last few targets
+    const recent = Array.from(this.targets.values()).slice(-5);
+    for (let k = 0; k < recent.length; k++) {
+      const t = recent[k];
+      const dx = x - t.x;
+      const dy = y - t.y;
+      const d2 = dx*dx + dy*dy;
+      const minD = Math.max(60, sz * 0.78);
+      if (d2 < minD * minD) {
+        // nudge
+        x = x + (dx >= 0 ? 1 : -1) * minD * 0.35;
+        y = y + (dy >= 0 ? 1 : -1) * minD * 0.35;
+        x = Math.max(pad + half, Math.min(W - pad - half, x));
+        y = Math.max(pad + half, Math.min(H - pad - half, y));
+      }
     }
 
-    // Padding based on size (avoid edges)
-    const padPx = Math.max(18, Math.min(56, sizePx * 0.22));
-    const minX = padPx / rect.width;
-    const maxX = 1 - minX;
-    const minY = padPx / rect.height;
-    const maxY = 1 - minY;
-
-    const left = this._rand(minX, maxX) * 100;
-    const top = this._rand(minY, maxY) * 100;
-    return { leftPct: left, topPct: top };
-  }
-
-  _emojiForType(t) {
-    if (t === 'bomb') return '💣';
-    if (t === 'decoy') return '🫥';
-    if (t === 'heal') return '🩹';
-    if (t === 'shield') return '🛡️';
-    if (t === 'bossface') return '👊';
-    return '🥊';
+    return { x, y };
   }
 
   spawnTarget(data) {
-    if (!this.layerEl || !data) return;
+    if (!data || !this.layer) return;
 
-    const size = Math.max(72, Math.round(data.sizePx || 120));
-    const { leftPct, topPct } = this._pickPosPct(size);
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'sb-target';
+    el.dataset.tid = String(data.id);
+    el.dataset.kind = data.type;
 
-    const el = document.createElement('div');
-    el.className = `sb-target ${data.type || 'normal'}`;
-    el.dataset.id = String(data.id);
+    if (data.isBossFace) el.classList.add('is-bossface');
+    if (data.isBomb) el.classList.add('is-bomb');
+    if (data.isDecoy) el.classList.add('is-decoy');
+    if (data.isHeal) el.classList.add('is-heal');
+    if (data.isShield) el.classList.add('is-shield');
+
+    const size = Math.max(52, Math.round(data.sizePx || 110));
     el.style.width = size + 'px';
     el.style.height = size + 'px';
-    el.style.left = leftPct + '%';
-    el.style.top = topPct + '%';
 
-    const emoji = document.createElement('div');
-    emoji.className = 'sb-target-emoji';
-    emoji.textContent = data.isBossFace ? (data.bossEmoji || '😈') : (data.bossEmoji || this._emojiForType(data.type));
-    el.appendChild(emoji);
+    // text/emoji
+    let txt = '🥊';
+    if (data.isBossFace) txt = (data.bossEmoji || '👊');
+    else if (data.isBomb) txt = '💣';
+    else if (data.isDecoy) txt = '🎭';
+    else if (data.isHeal) txt = '🩹';
+    else if (data.isShield) txt = '🛡️';
+    else txt = '🎯';
 
-    this.layerEl.appendChild(el);
-    this.targets.set(data.id, el);
+    el.innerHTML = `<span class="sb-target-emoji">${txt}</span>`;
+
+    // position
+    const hint = data.spawnHint || null;
+    const pos = this._pickPos(size, hint);
+    el.style.left = (pos.x - size/2) + 'px';
+    el.style.top = (pos.y - size/2) + 'px';
+
+    // store
+    this.targets.set(data.id, { id: data.id, el, x: pos.x, y: pos.y, size });
+
+    this.layer.appendChild(el);
+
+    // pop-in animation via css class
+    requestAnimationFrame(() => el.classList.add('is-live'));
   }
 
   removeTarget(id, reason) {
-    const el = this.targets.get(id);
-    if (!el) return;
+    const t = this.targets.get(id);
+    if (!t) return;
+    const el = t.el;
     this.targets.delete(id);
+    if (!el) return;
 
-    // quick fade
-    el.style.transition = 'transform .08s ease, opacity .08s ease, filter .08s ease';
-    el.style.opacity = '0';
-    el.style.transform = 'translate(-50%,-50%) scale(0.92)';
+    el.classList.add('is-out');
     setTimeout(() => {
-      try { el.remove(); } catch (_) {}
-    }, 90);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }, 140);
   }
 
-  playHitFx(id, info = {}) {
-    const el = this.targets.get(id);
-    if (!el || !this.layerEl) return;
-
-    // pop
-    el.style.transform = 'translate(-50%,-50%) scale(1.08)';
-    setTimeout(() => {
-      if (el && el.style) el.style.transform = 'translate(-50%,-50%) scale(1.00)';
-    }, 60);
-
-    const fx = document.createElement('div');
-    fx.className = 'sb-hit-fx';
-    const txt = (info.grade === 'perfect') ? `+${info.scoreDelta} ✨`
-      : (info.grade === 'good') ? `+${info.scoreDelta}`
-      : (info.grade === 'bad') ? `+${info.scoreDelta}`
-      : (info.grade === 'bomb') ? `${info.scoreDelta} 💥`
-      : (info.grade === 'heal') ? `+${info.scoreDelta} 🩹`
-      : (info.grade === 'shield') ? `+${info.scoreDelta} 🛡️`
-      : `+${info.scoreDelta}`;
-
-    fx.textContent = txt;
-
-    const rect = this._layerRect();
-    const cx = (info.clientX != null && rect) ? (info.clientX - rect.left) : (rect ? rect.width * 0.5 : 120);
-    const cy = (info.clientY != null && rect) ? (info.clientY - rect.top) : (rect ? rect.height * 0.5 : 120);
-
-    fx.style.position = 'absolute';
-    fx.style.left = cx + 'px';
-    fx.style.top = cy + 'px';
-    fx.style.transform = 'translate(-50%,-60%)';
-    fx.style.pointerEvents = 'none';
-    fx.style.fontWeight = '900';
-    fx.style.fontSize = '14px';
-    fx.style.textShadow = '0 8px 18px rgba(0,0,0,.55)';
-
-    // minimal tone (no hardcoded colors needed; CSS can override)
-    this.layerEl.appendChild(fx);
-    setTimeout(() => {
-      fx.style.transition = 'transform .45s ease, opacity .45s ease';
-      fx.style.opacity = '0';
-      fx.style.transform = 'translate(-50%,-120%)';
-    }, 0);
-    setTimeout(() => { try { fx.remove(); } catch (_) {} }, 520);
-  }
-
-  _onPointerDown(e) {
-    // prevent scroll on mobile if tapping targets
-    const t = e.target && e.target.closest ? e.target.closest('.sb-target') : null;
+  playHitFx(id, fx) {
+    const t = this.targets.get(id);
     if (!t) return;
 
-    e.preventDefault();
-    const id = parseInt(t.dataset.id || '0', 10);
+    // small floating text
+    const tag = document.createElement('div');
+    tag.className = 'sb-fx';
+    const delta = fx?.scoreDelta || 0;
+    const grade = fx?.grade || '';
+    tag.textContent = (delta >= 0 ? `+${delta}` : `${delta}`) + (grade ? ` ${grade.toUpperCase()}` : '');
+    tag.style.left = (t.x) + 'px';
+    tag.style.top = (t.y - 10) + 'px';
+    this.layer.appendChild(tag);
+    setTimeout(() => tag.remove(), 520);
+  }
+
+  _onPointer(e) {
+    const el = e.target && e.target.closest ? e.target.closest('.sb-target') : null;
+    if (!el) return;
+
+    const id = Number(el.dataset.tid || '0');
     if (!id) return;
 
-    const hitInfo = { clientX: e.clientX, clientY: e.clientY };
-    if (this.onTargetHit) this.onTargetHit(id, hitInfo);
+    if (typeof this.onTargetHit === 'function') {
+      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
+    }
+  }
+
+  destroy() {
+    try {
+      if (this.layer) this.layer.removeEventListener('pointerdown', this._onPointer);
+    } catch(e) {}
+    for (const id of this.targets.keys()) this.removeTarget(id, 'destroy');
+    this.targets.clear();
   }
 }
