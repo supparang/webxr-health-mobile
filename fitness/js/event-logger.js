@@ -1,3 +1,4 @@
+// === js/event-logger.js — Event-level CSV logger (Shadow Breaker) ===
 'use strict';
 
 export class EventLogger {
@@ -10,9 +11,8 @@ export class EventLogger {
     const esc = (v) => {
       if (v == null) return '';
       const s = String(v);
-      return (s.includes(',') || s.includes('"') || s.includes('\n'))
-        ? '"' + s.replace(/"/g, '""') + '"'
-        : s;
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
     };
     const lines = [cols.join(',')];
     for (const row of this.logs) lines.push(cols.map(c => esc(row[c])).join(','));
