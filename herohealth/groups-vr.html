@@ -1,37 +1,100 @@
 <!-- === /herohealth/groups-vr.html ===
-GroupsVR LAUNCHER — ROOT (Auto Detect)
-✅ Redirect -> ./vr-groups/groups.html
-✅ Auto-detect view ONLY if ?view is not provided
-✅ Pass-through hub/run/diff/time/seed/style/practice/ai/log/...
+GroupsVR LAUNCHER — ROOT (Production)
+✅ Auto-detect view: pc / mobile / vr / cvr
+✅ DO NOT override if ?view= already exists
+✅ Pass-through: hub/run/diff/time/seed/style/studyId/conditionGroup/log/practice/ai
+✅ Remembers last view (localStorage) if no explicit ?view=
+✅ Clear entry buttons (PC/Mobile/VR/Cardboard) BUT auto redirect by default
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — GroupsVR Launcher</title>
+  <meta name="color-scheme" content="dark"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    :root{ color-scheme:dark; --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; }
+    :root{
+      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
+      --accent:#22c55e; --warn:#f59e0b; --radius:22px; --pill:999px;
+      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{ box-sizing:border-box; }
     html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
-    .wrap{ min-height:100%; display:grid; place-items:center; padding:18px; }
-    .card{ width:min(640px,100%); background:var(--panel); border:1px solid var(--stroke); border-radius:22px; padding:16px 14px; box-shadow:0 18px 44px rgba(0,0,0,.35); }
-    .t{ font-weight:900; font-size:18px; }
-    .s{ margin-top:8px; color:var(--muted); font-size:13px; line-height:1.5; }
-    .bar{ margin-top:12px; height:10px; border-radius:999px; background:rgba(148,163,184,.12); overflow:hidden; }
-    .fill{ height:100%; width:0%; background:rgba(34,197,94,.9); transition:width .2s ease; }
-    .mono{ margin-top:10px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; color:rgba(229,231,235,.85); word-break:break-all; }
+    .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding: calc(var(--sat) + 18px) 14px calc(var(--sab) + 18px); }
+    .card{
+      width:min(760px, 100%);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow: 0 18px 44px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+    }
+    h1{ margin:0; font-size:18px; letter-spacing:.2px; }
+    .sub{ margin-top:6px; color:rgba(229,231,235,.86); font-size:13px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:var(--pill);
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      font-weight:900; font-size:12px;
+    }
+    .grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (min-width: 780px){ .grid{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
+    button{
+      width:100%;
+      border-radius:18px;
+      padding:12px 12px;
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(15,23,42,.68);
+      color:var(--text);
+      font-weight:1000;
+      cursor:pointer;
+    }
+    button.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.35); }
+    button.warn{ background:rgba(245,158,11,.16); border-color:rgba(245,158,11,.35); }
+    .note{ margin-top:10px; color:var(--muted); font-size:12px; }
+    .small{ font-size:12px; color:rgba(229,231,235,.78); }
+    .hr{ height:1px; background:rgba(148,163,184,.12); margin:14px 0; border-radius:999px; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="t">กำลังเข้าเกม Food Groups VR…</div>
-      <div class="s" id="sub">กำลังตรวจอุปกรณ์และตั้งค่าโหมดมุมมองอัตโนมัติ</div>
-      <div class="bar"><div class="fill" id="fill"></div></div>
-      <div class="mono" id="dbg"></div>
+      <h1>🥦 HeroHealth — Food Groups VR</h1>
+      <div class="sub">Auto detect อุปกรณ์แล้วเข้าเล่นเอง (แต่ยังมีปุ่มให้เลือกเข้าแบบชัดเจน)</div>
+
+      <div class="row">
+        <span class="pill">🎮 run: <span id="vRun">play</span></span>
+        <span class="pill">⚙️ diff: <span id="vDiff">normal</span></span>
+        <span class="pill">⏱️ time: <span id="vTime">90</span>s</span>
+        <span class="pill">🪪 view: <span id="vView">auto</span></span>
+        <span class="pill">🧠 ai: <span id="vAI">off</span></span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid">
+        <button id="btnAuto" class="primary" type="button">🚀 เข้าเล่น (Auto)</button>
+        <button id="btnPC" type="button">🖥️ PC</button>
+        <button id="btnMobile" type="button">📱 Mobile</button>
+        <button id="btnVR" class="warn" type="button">🥽 VR / Cardboard</button>
+      </div>
+
+      <div class="note">
+        • ถ้ามี <b>?view=</b> อยู่แล้วจะ <b>ไม่ override</b><br/>
+        • Cardboard (cVR): แนะนำ <b>?practice=15</b> (หรือ practice=1) เพื่อฝึก 15 วิ แล้วค่อยเริ่มจริง<br/>
+        <span class="small">ตัวอย่าง: <code>?run=play&diff=normal&time=90&ai=1&practice=15</code></span>
+      </div>
     </div>
   </div>
 
@@ -39,61 +102,91 @@ GroupsVR LAUNCHER — ROOT (Auto Detect)
 (function(){
   'use strict';
   const DOC = document;
-  const $ = (id)=>DOC.getElementById(id);
+  const LS_VIEW = 'HHA_GROUPS_LAST_VIEW';
 
-  function qsAll(){
-    try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); }
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
-  function hasParam(k){
-    try{ return new URL(location.href).searchParams.has(k); }catch{ return false; }
-  }
-  function setFill(p){ try{ $('fill').style.width = Math.max(0,Math.min(100,p|0))+'%'; }catch{} }
 
-  // ✅ view auto-detect (ONLY when ?view is not provided)
+  function setText(id, v){
+    const el = DOC.getElementById(id);
+    if (el) el.textContent = String(v ?? '');
+  }
+
+  function isLikelyMobile(){
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod/i.test(ua);
+  }
+
+  function isLikelyCardboard(){
+    // heuristic: mobile + wide viewport OR explicit fullscreen/pointer coarse
+    const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
+    return isLikelyMobile() && coarse;
+  }
+
   function detectView(){
-    const ua = (navigator.userAgent||'').toLowerCase();
-    const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua) || (Math.min(screen.width, screen.height) <= 820);
+    // ✅ if explicit ?view= exists, do not override
+    const v = String(qs('view','')||'').toLowerCase();
+    if (v) return v;
 
-    // Heuristic for cardboard/cVR: user likely opens from mobile + wants VR; allow forcing by deviceorientation availability
-    const hasDO = ('DeviceOrientationEvent' in window);
-    const hasXR = !!(navigator.xr);
+    // ✅ else read remembered
+    try{
+      const saved = String(localStorage.getItem(LS_VIEW)||'').toLowerCase();
+      if (saved) return saved;
+    }catch{}
 
-    // Default choices:
-    // - Desktop: pc
-    // - Mobile: mobile
-    // - If user later presses ENTER VR, vr-ui.js will handle XR; view param mainly adjusts DOM layout / crosshair rules.
-    // - If you want strict cardboard aiming: set view=cvr manually (we won't override).
-    if (!isMobile) return 'pc';
-
-    // If XR exists and user is on mobile, still keep mobile layout by default (safer).
-    // Encourage cVR only when explicitly provided.
-    return 'mobile';
+    // ✅ heuristic
+    if (isLikelyCardboard()) return 'cvr';
+    if (isLikelyMobile()) return 'mobile';
+    return 'pc';
   }
 
-  // Build redirect
-  const sp = qsAll();
-  const runUrl = new URL('./vr-groups/groups.html', location.href);
+  function buildRunUrl(viewOverride){
+    const runPath = './vr-groups/groups-vr.html';
+    const u = new URL(runPath, location.href);
 
-  // Pass-through all params
-  sp.forEach((v,k)=> runUrl.searchParams.set(k,v));
+    const sp = new URL(location.href).searchParams;
 
-  // Add view if missing
-  if (!hasParam('view')){
-    runUrl.searchParams.set('view', detectView());
+    // pass-through every param
+    sp.forEach((v,k)=> u.searchParams.set(k,v));
+
+    // decide view
+    const explicit = String(sp.get('view')||'').toLowerCase();
+    const view = explicit ? explicit : (viewOverride || detectView());
+
+    if (!explicit) u.searchParams.set('view', view);
+
+    // remember
+    try{ localStorage.setItem(LS_VIEW, view); }catch{}
+
+    return u.toString();
   }
 
-  // Friendly default seed if missing
-  if (!runUrl.searchParams.get('seed')){
-    runUrl.searchParams.set('seed', String(Date.now()));
+  // HUD
+  setText('vRun',  String(qs('run','play')||'play'));
+  setText('vDiff', String(qs('diff','normal')||'normal'));
+  setText('vTime', String(qs('time','90')||'90'));
+  const a = String(qs('ai','0')||'0');
+  setText('vAI', (a==='1'||a==='true') ? 'on' : 'off');
+
+  const view = detectView();
+  setText('vView', view);
+
+  function go(view){
+    location.href = buildRunUrl(view);
   }
 
-  setFill(35);
-  $('sub').textContent = 'กำลังพาเข้าเกม…';
-  $('dbg').textContent = runUrl.toString();
-  setFill(80);
+  DOC.getElementById('btnAuto').addEventListener('click', ()=> go(null));
+  DOC.getElementById('btnPC').addEventListener('click', ()=> go('pc'));
+  DOC.getElementById('btnMobile').addEventListener('click', ()=> go('mobile'));
+  DOC.getElementById('btnVR').addEventListener('click', ()=> go('cvr'));
 
-  // Redirect now
-  location.replace(runUrl.toString());
+  // ✅ auto redirect quickly (unless user explicitly wants to stay: ?stay=1)
+  const stay = String(qs('stay','0')||'0');
+  if (!(stay==='1' || stay==='true')){
+    setTimeout(()=> go(null), 350);
+  }
 })();
 </script>
 </body>
