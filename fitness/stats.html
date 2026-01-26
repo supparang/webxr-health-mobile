@@ -3,62 +3,56 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>VR Fitness — สรุปผลล่าสุด</title>
+  <title>VR Fitness — Stats</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./css/stats.css" />
+  <style>
+    :root{ color-scheme: dark; --bg:#020617; --card:rgba(15,23,42,0.92); --stroke:rgba(148,163,184,0.22); --text:#e5e7eb; --muted:#9ca3af; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+    a{color:#38bdf8;text-decoration:none}
+    .card{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.6)}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.14);text-align:left}
+    th{color:#cbd5f5;font-weight:600}
+    .muted{color:var(--muted);font-size:12px}
+    .btn{border-radius:999px;border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.92);color:var(--text);padding:7px 12px;cursor:pointer}
+  </style>
 </head>
 <body>
-  <div class="st-wrap">
-    <header class="st-header">
-      <div class="st-title">
-        <span class="st-emoji">📊</span>
-        <div>
-          <div class="st-kicker">VR Fitness — สรุปผลล่าสุด</div>
-          <div class="st-sub">ดูประวัติผลการเล่น (localStorage) และดาวน์โหลด CSV ได้จากหน้าเกม</div>
-        </div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div style="font-weight:700">📊 VR Fitness — สรุปผลล่าสุด</div>
+        <div class="muted">แสดงข้อมูลจาก localStorage (stats-store.js)</div>
       </div>
-
-      <div class="st-actions">
-        <a class="st-btn" href="./hub.html">🏠 กลับ Hub</a>
-        <a class="st-btn st-btn-primary" href="./shadow-breaker.html">🥊 เข้า Shadow Breaker</a>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a href="./hub.html">← กลับ Hub</a>
+        <button id="btn-clear" class="btn">ล้างสถิติ</button>
       </div>
     </header>
 
-    <main class="st-main">
-      <section class="st-card">
-        <h2 class="st-h2">Shadow Breaker — Sessions ล่าสุด</h2>
-        <div class="st-toolbar">
-          <button id="st-clear" class="st-btn st-btn-ghost">🧹 ล้างประวัติ (เครื่องนี้)</button>
-        </div>
-
-        <div class="st-table-wrap">
-          <table class="st-table">
-            <thead>
-              <tr>
-                <th>เวลา</th>
-                <th>โหมด</th>
-                <th>Diff</th>
-                <th>Score</th>
-                <th>Accuracy</th>
-                <th>Grade</th>
-                <th>Bosses</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-            <tbody id="st-body">
-              <tr><td colspan="8" class="st-empty">ยังไม่มีข้อมูล — ลองเล่น 1 รอบ แล้วกลับมาหน้านี้</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p class="st-note">
-          หมายเหตุ: หน้านี้ดึงจาก <code>localStorage</code> ของเครื่อง/เบราว์เซอร์นี้เท่านั้น
-        </p>
-      </section>
-    </main>
+    <section class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>เวลา</th>
+            <th>เกม</th>
+            <th>คะแนน</th>
+            <th>Accuracy</th>
+            <th>Grade</th>
+            <th>Bosses</th>
+            <th>Diff</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="muted" style="display:none;margin-top:10px">ยังไม่มีสถิติ ลองเล่นเกมก่อนนะ</div>
+    </section>
   </div>
 
-  <script type="module" src="./js/stats.js"></script>
+  <script type="module" src="./js/stats-page.js"></script>
 </body>
 </html>
