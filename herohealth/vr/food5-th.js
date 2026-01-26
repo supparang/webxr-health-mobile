@@ -3,9 +3,18 @@
 // ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup
 // ✅ Supports seeded rng: pickEmoji(rng, arr)
 // ✅ Group ids are fixed 1..5 per your rule
+//
+// หมู่ 1 โปรตีน: เนื้อ นม ไข่ ถั่วเมล็ดแห้ง
+// หมู่ 2 คาร์บ: ข้าว แป้ง เผือก มัน น้ำตาล
+// หมู่ 3 ผัก
+// หมู่ 4 ผลไม้
+// หมู่ 5 ไขมัน
+//
+// NOTE: Keep mapping stable across all games.
 
 'use strict';
 
+// ✅ Fixed Thai food group mapping (must not drift)
 export const FOOD5 = Object.freeze({
   1: Object.freeze({
     id: 1,
@@ -51,6 +60,7 @@ export const JUNK = Object.freeze({
   emojis: Object.freeze(['🍟','🍔','🍕','🌭','🍩','🍪','🧁','🍰','🥤','🧋'])
 });
 
+// --- helpers ---
 export function pickEmoji(rng, arr){
   const a = Array.isArray(arr) ? arr : [];
   if(!a.length) return '❓';
