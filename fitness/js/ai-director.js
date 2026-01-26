@@ -1,132 +1,120 @@
-// === js/ai-director.js — AI Difficulty Director (Pack A) ===
-// Prediction-lite: EMA + streak + accuracy + rt trend → ปรับ spawn/ttl/size/weights แบบ "นุ่ม"
-// NOTE: ใน research mode แนะนำให้ disable หรือ constrain ให้นิ่ง (engine ส่ง allowAdaptive=false ได้)
-
+// === js/ai-director.js — AI Director (Prediction hooks + ML/DL placeholders) ===
 'use strict';
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const lerp = (a, b, t) => a + (b - a) * t;
-
-// weights baseline (รวม ~100)
-const BASE_WEIGHTS = {
-  normal: 64,
-  decoy: 10,
-  bomb: 8,
-  heal: 9,
-  shield: 9
-};
+/**
+ * แนวคิด: ทำให้เกม “สนุก-ท้าทาย-เร้าใจ” แบบฉลาดขึ้น
+ * - AI Prediction: คาดการณ์ความเร็วตอบสนอง / fatigue จากสถิติช่วงล่าสุด
+ * - ML (เบื้องต้น): ปรับพารามิเตอร์เกมด้วยกติกา + rolling window (เหมาะ production)
+ * - DL (placeholder): จุดเสียบโมเดลภายนอกในอนาคต (ไม่เปิดใช้ default)
+ */
 
 export class AIDirector {
   constructor() {
-    this.reset();
+    this.enabled = true;
+
+    // rolling window (ล่าสุด N ครั้ง)
+    this.windowN = 18;
+    this.rtHistory = [];
+    this.hitHistory = []; // 1=hit,0=miss
+
+    // prediction state
+    this.pred = {
+      rt_p50: null,
+      rt_p80: null,
+      fatigue: 0,         // 0..1
+      skill: 0.5          // 0..1
+    };
   }
 
   reset() {
-    // performance traces
-    this.emaAcc = 0.78;         // 0..1
-    this.emaRt = 420;           // ms
-    this.emaMissRate = 0.15;    // 0..1
-    this.streak = 0;            // hit streak for "hype"
-    this.hype = 0;              // 0..1
-    this.lastUpdateAt = performance.now();
-  }
-
-  // call per hit/timeout
-  observeEvent(ev) {
-    // ev: {type:'hit'|'timeout', targetType, rtMs, isRealMiss, scoreDelta}
-    const a = 0.14; // EMA alpha
-
-    if (ev.type === 'hit') {
-      this.streak = Math.min(25, this.streak + 1);
-      // approx accuracy ↑
-      this.emaAcc = lerp(this.emaAcc, 1.0, a);
-      if (typeof ev.rtMs === 'number' && isFinite(ev.rtMs)) {
-        this.emaRt = lerp(this.emaRt, clamp(ev.rtMs, 120, 1800), a);
-      }
-      // miss rate ↓
-      this.emaMissRate = lerp(this.emaMissRate, 0.0, a * 0.8);
-    } else if (ev.type === 'timeout') {
-      this.streak = Math.max(0, this.streak - 3);
-      // accuracy ↓ only when real miss
-      if (ev.isRealMiss) {
-        this.emaAcc = lerp(this.emaAcc, 0.0, a * 0.55);
-        this.emaMissRate = lerp(this.emaMissRate, 1.0, a * 0.45);
-      } else {
-        // skip-types don't punish much
-        this.emaMissRate = lerp(this.emaMissRate, this.emaMissRate, a * 0.2);
-      }
-    }
-
-    // hype: grows with streak, decays with misses
-    const streakBoost = clamp((this.streak - 4) / 14, 0, 1);
-    const calmPenalty = clamp((this.emaMissRate - 0.12) / 0.22, 0, 1);
-    const targetHype = clamp(streakBoost * (1 - calmPenalty), 0, 1);
-    this.hype = lerp(this.hype, targetHype, 0.18);
+    this.rtHistory.length = 0;
+    this.hitHistory.length = 0;
+    this.pred = { rt_p50: null, rt_p80: null, fatigue: 0, skill: 0.5 };
   }
 
   /**
-   * คำนวณ output สำหรับ engine ใช้ปรับ spawn/ttl/size/weights
-   * @param {Object} ctx
-   *  - diffKey, bossPhase, feverOn, allowAdaptive (bool)
+   * update จาก event ล่าสุด
+   * @param {Object} e {type:'hit'|'timeout', rt_ms, isRealMiss}
    */
-  compute(ctx) {
-    const allow = ctx && ctx.allowAdaptive !== false;
+  update(e) {
+    if (!this.enabled || !e) return;
 
-    // skill estimate: good acc + low rt + low miss
-    const acc = clamp(this.emaAcc, 0, 1);
-    const rtN = clamp((680 - this.emaRt) / 520, -1, 1); // faster => positive
-    const missN = clamp(1 - (this.emaMissRate / 0.45), 0, 1);
-    let skill = clamp(0.50 * acc + 0.30 * (0.5 + 0.5 * rtN) + 0.20 * missN, 0, 1);
+    if (e.type === 'hit' && typeof e.rt_ms === 'number') {
+      this.rtHistory.push(e.rt_ms);
+      this.hitHistory.push(1);
+    } else if (e.type === 'timeout' && e.isRealMiss) {
+      this.hitHistory.push(0);
+    }
 
-    // phase factor (late phase is already hard)
-    const phase = (ctx && ctx.bossPhase) || 1;
-    const phaseHard = phase === 1 ? 0.0 : phase === 2 ? 0.08 : 0.14;
+    // trim
+    while (this.rtHistory.length > this.windowN) this.rtHistory.shift();
+    while (this.hitHistory.length > this.windowN) this.hitHistory.shift();
 
-    // if fever on, don't over-punish
-    const feverSoft = (ctx && ctx.feverOn) ? -0.05 : 0.0;
+    this._recomputePrediction();
+  }
 
-    // desired intensity 0..1
-    let intensity = clamp(skill + phaseHard + feverSoft, 0, 1);
+  _recomputePrediction() {
+    const rts = this.rtHistory.slice().sort((a,b)=>a-b);
+    if (rts.length) {
+      const p = (q)=>{
+        const i = Math.max(0, Math.min(rts.length-1, Math.round((rts.length-1)*q)));
+        return rts[i];
+      };
+      this.pred.rt_p50 = p(0.5);
+      this.pred.rt_p80 = p(0.8);
+    }
 
-    // research mode or disabled: keep near baseline
-    if (!allow) intensity = 0.50;
+    // skill ~ accuracy ใน window (hit ratio)
+    if (this.hitHistory.length) {
+      const acc = this.hitHistory.reduce((a,b)=>a+b,0) / this.hitHistory.length;
+      this.pred.skill = Math.max(0, Math.min(1, acc));
+    }
 
-    // spawn faster with higher intensity
-    const spawnIntervalMul = clamp(lerp(1.10, 0.78, intensity), 0.72, 1.18);
+    // fatigue heuristic: rt_p80 สูง + acc ลด => fatigue สูง
+    const rt80 = this.pred.rt_p80 || 0;
+    const fatigueFromRT = rt80 ? Math.max(0, Math.min(1, (rt80 - 420) / 500)) : 0;
+    const fatigueFromAcc = 1 - this.pred.skill;
+    this.pred.fatigue = Math.max(0, Math.min(1, 0.6*fatigueFromRT + 0.4*fatigueFromAcc));
+  }
 
-    // TTL slightly shorter with intensity (but not too brutal)
-    const ttlMul = clamp(lerp(1.06, 0.86, intensity), 0.82, 1.10);
+  /**
+   * ML-style difficulty tuning (เบา ๆ ใช้งานจริงได้)
+   * คืนค่า { spawnMul, ttlMul, sizeMul, bombW, decoyW }
+   */
+  proposeTuning() {
+    if (!this.enabled) {
+      return { spawnMul: 1, ttlMul: 1, sizeMul: 1, bombW: 1, decoyW: 1 };
+    }
 
-    // size smaller with intensity
-    const sizeMul = clamp(lerp(1.08, 0.88, intensity), 0.85, 1.15);
+    const { skill, fatigue, rt_p50 } = this.pred;
 
-    // weights: more bombs/decoys on higher intensity; more heal/shield on lower intensity
-    const w = { ...BASE_WEIGHTS };
-    const t = intensity;
+    // เร้าใจ: ถ้า skill สูง => spawn ไวขึ้น/เป้าเล็กลงเล็กน้อย
+    const spawnMul = 1 - 0.10 * (skill - 0.5);   // skill 1 => 0.95, skill 0 => 1.05
+    const sizeMul  = 1 - 0.08 * (skill - 0.5);   // skill 1 => 0.96
 
-    // push challenge
-    w.decoy = Math.round(lerp(8, 14, t));
-    w.bomb  = Math.round(lerp(6, 12, t));
+    // ถ้า fatigue สูง => ช่วยให้ไม่หัวร้อน: TTL ยาวขึ้นนิด + ลด bomb/decoy
+    const ttlMul = 1 + 0.18 * fatigue;           // fatigue 1 => 1.18
+    const bombW  = 1 - 0.25 * fatigue;           // fatigue 1 => 0.75
+    const decoyW = 1 - 0.20 * fatigue;           // fatigue 1 => 0.80
 
-    // assist when struggling
-    w.heal  = Math.round(lerp(12, 7, t));
-    w.shield= Math.round(lerp(12, 7, t));
-
-    // keep normal as remainder-ish but stable
-    const sumOther = w.decoy + w.bomb + w.heal + w.shield;
-    w.normal = Math.max(45, 100 - sumOther);
-
-    // "surprise burst": short spike when hype high
-    const hype = this.hype;
-    const burst = allow && hype > 0.78 ? clamp((hype - 0.78) / 0.22, 0, 1) : 0;
+    // ถ้า median RT ช้ามาก ให้ช่วยเล็กน้อย
+    const rtAssist = rt_p50 && rt_p50 > 520 ? 0.06 : 0;
 
     return {
-      intensity,
-      spawnIntervalMul,
-      ttlMul,
-      sizeMul,
-      weights: w,
-      burst // 0..1
+      spawnMul: Math.max(0.88, Math.min(1.12, spawnMul + rtAssist)),
+      ttlMul:   Math.max(0.90, Math.min(1.25, ttlMul)),
+      sizeMul:  Math.max(0.92, Math.min(1.10, sizeMul)),
+      bombW:    Math.max(0.60, Math.min(1.20, bombW)),
+      decoyW:   Math.max(0.60, Math.min(1.20, decoyW)),
     };
+  }
+
+  /**
+   * DL hook (placeholder)
+   * - หากวันหนึ่งมีโมเดล TensorFlow.js / ONNX runtime
+   * - เอา features -> model -> policy -> tuning
+   */
+  async proposeTuningFromDL(/*features*/) {
+    return null; // default ปิดไว้
   }
 }
