@@ -1,10 +1,8 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Folder Loader — AUTO DETECT (NO MENU)
-// ✅ If ?view= exists => respect it (NO override)
-// ✅ Else auto-detect: pc vs mobile (safe heuristic)
-// ✅ Cardboard/cVR still available via ?view=cardboard or ?view=cvr
-// ✅ Sets window.HHA_VIEW.layers for hydration.safe.js
-// ✅ Imports ./hydration.safe.js (cache-busted by ?v=ts if provided)
+// HydrationVR Folder Loader — DEBUG-STRONG
+// ✅ Shows real import error (SyntaxError / 404 / export mismatch)
+// ✅ Keeps cache-bust via ?v=
+// ✅ Tries multiple candidates
 
 'use strict';
 
@@ -17,32 +15,7 @@
     return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v);
   }
 
-  function isMobileUA(){
-    try{
-      const ua = navigator.userAgent || '';
-      const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-      const coarse = window.matchMedia && window.matchMedia('(any-pointer:coarse)').matches;
-      const touch = (navigator.maxTouchPoints|0) > 0;
-      return mobile || (coarse && touch);
-    }catch(_){ return false; }
-  }
-
-  function detectView(){
-    // safest: only decide pc vs mobile automatically
-    try{
-      const fine = window.matchMedia && window.matchMedia('(any-pointer:fine)').matches;
-      const mobile = isMobileUA();
-      if (!mobile && fine) return 'pc';
-      return 'mobile';
-    }catch(_){
-      return 'pc';
-    }
-  }
-
-  // --- view: respect existing param, else detect ---
-  const viewParam = String(q.get('view') || '').toLowerCase();
-  const view = viewParam || detectView();
-
+  const view = String(q.get('view') || '').toLowerCase();
   const body = document.body;
 
   function setBodyView(){
@@ -54,11 +27,9 @@
   }
   setBodyView();
 
-  // expose view + layers for game
+  // map layers for safe.js
   (function setLayers(){
     const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
-    cfg.view = view;
-
     if (body.classList.contains('cardboard')){
       cfg.layers = ['hydration-layerL','hydration-layerR'];
     } else {
@@ -72,26 +43,42 @@
     }[m]));
   }
 
-  function showFail(err, tried){
+  async function probe(url){
+    // ช่วยบอก 404/OK แบบชัดๆ
+    try{
+      const res = await fetch(url, { method:'GET', cache:'no-store' });
+      return { ok: res.ok, status: res.status, ct: res.headers.get('content-type') || '' };
+    }catch(e){
+      return { ok:false, status:0, ct:'', err: e };
+    }
+  }
+
+  function showFail(err, tried, probes){
     const el = document.createElement('div');
     el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
     el.innerHTML = `
-      <div style="max-width:900px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (folder loader)</h2>
+      <div style="max-width:980px;margin:0 auto">
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (REAL ERROR)</h2>
         <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
         <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
-        <div style="opacity:.9;margin-bottom:10px">view: <b>${escapeHtml(view)}</b> (param: ${escapeHtml(viewParam||'—')})</div>
-        <div style="margin:12px 0 8px 0;font-weight:700">Tried paths:</div>
-        <ol style="line-height:1.55">${tried.map(s=>`<li><code>${escapeHtml(s)}</code></li>`).join('')}</ol>
-        <div style="margin:12px 0 6px 0;font-weight:700">Error:</div>
+
+        <div style="margin:12px 0 8px 0;font-weight:800">Tried paths:</div>
+        <ol style="line-height:1.65">
+          ${tried.map((s,i)=>{
+            const p = probes[i] || {};
+            const badge = p.ok ? `✅ ${p.status} (${escapeHtml(p.ct||'')})` : `❌ ${p.status||'ERR'}`;
+            return `<li><code>${escapeHtml(s)}</code> <span style="opacity:.85">— ${badge}</span></li>`;
+          }).join('')}
+        </ol>
+
+        <div style="margin:12px 0 6px 0;font-weight:800">Error:</div>
         <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(String(err && (err.stack || err.message || err)))}</pre>
+
         <div style="margin-top:10px;opacity:.9;line-height:1.5">
-          ✅ เช็กว่าไฟล์นี้มีจริงบน GitHub Pages:
-          <ul>
-            <li><code>hydration-vr/hydration.safe.js</code></li>
-            <li><code>vr/ui-water.js</code></li>
-            <li><code>vr/ai-coach.js</code></li>
-          </ul>
+          <b>Hint:</b><br/>
+          • ถ้าเห็น <code>404</code> = path ผิด/ไฟล์ไม่ถูก deploy<br/>
+          • ถ้าเห็น <code>SyntaxError</code> = โค้ดไฟล์ใดไฟล์หนึ่งพัง (ดูบรรทัดใน stack)<br/>
+          • ถ้าเห็น <code>does not provide an export named</code> = export/import ชื่อไม่ตรง
         </div>
       </div>
     `;
@@ -100,14 +87,27 @@
 
   const candidates = [
     './hydration.safe.js',
+    './hydration.safe.mjs',
+    '../hydration.safe.js'
   ].map(withBust);
 
   (async()=>{
     const tried=[];
+    const probes=[];
+    let lastErr = null;
+
     for (const p of candidates){
       tried.push(p);
-      try{ await import(p); return; }catch(_){}
+      probes.push(await probe(p));
+
+      try{
+        await import(p);
+        return; // ✅ success
+      }catch(e){
+        lastErr = e;
+        // ไม่กลืนทิ้งแล้ว
+      }
     }
-    showFail(new Error('All candidate imports failed.'), tried);
+    showFail(lastErr || new Error('All candidate imports failed.'), tried, probes);
   })();
 })();
