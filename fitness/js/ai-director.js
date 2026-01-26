@@ -1,120 +1,138 @@
-// === js/ai-director.js — AI Director (Prediction hooks + ML/DL placeholders) ===
+// === /fitness/js/ai-director.js ===
+// AI Director: uses predictor to adjust spawn pacing & item mix fairly.
+// ✅ Play mode only (engine decides).
+// ✅ Rate-limited micro-tips (AI Coach).
+// ✅ Never makes it impossible: caps adjustments.
+
 'use strict';
 
-/**
- * แนวคิด: ทำให้เกม “สนุก-ท้าทาย-เร้าใจ” แบบฉลาดขึ้น
- * - AI Prediction: คาดการณ์ความเร็วตอบสนอง / fatigue จากสถิติช่วงล่าสุด
- * - ML (เบื้องต้น): ปรับพารามิเตอร์เกมด้วยกติกา + rolling window (เหมาะ production)
- * - DL (placeholder): จุดเสียบโมเดลภายนอกในอนาคต (ไม่เปิดใช้ default)
- */
+import { AIPredictor } from './ai-predictor.js';
 
 export class AIDirector {
-  constructor() {
-    this.enabled = true;
+  constructor(opts = {}) {
+    this.cfg = Object.assign({
+      // fairness caps
+      minDelayMul: 0.82,
+      maxDelayMul: 1.18,
+      minTtlMul: 0.85,
+      maxTtlMul: 1.15,
 
-    // rolling window (ล่าสุด N ครั้ง)
-    this.windowN = 18;
-    this.rtHistory = [];
-    this.hitHistory = []; // 1=hit,0=miss
+      // mixing caps
+      maxBombW: 12,
+      minBombW: 4,
+      maxDecoyW: 14,
+      minDecoyW: 6,
 
-    // prediction state
-    this.pred = {
-      rt_p50: null,
-      rt_p80: null,
-      fatigue: 0,         // 0..1
-      skill: 0.5          // 0..1
-    };
+      // coach
+      tipCooldownMs: 2200,
+      tipChance: 0.32,
+      dangerTipChance: 0.55
+    }, opts);
+
+    this.predictor = new AIPredictor();
+    this.lastTipAt = 0;
+    this.lastP = 0.35;
   }
 
-  reset() {
-    this.rtHistory.length = 0;
-    this.hitHistory.length = 0;
-    this.pred = { rt_p50: null, rt_p80: null, fatigue: 0, skill: 0.5 };
-  }
-
-  /**
-   * update จาก event ล่าสุด
-   * @param {Object} e {type:'hit'|'timeout', rt_ms, isRealMiss}
-   */
-  update(e) {
-    if (!this.enabled || !e) return;
-
-    if (e.type === 'hit' && typeof e.rt_ms === 'number') {
-      this.rtHistory.push(e.rt_ms);
-      this.hitHistory.push(1);
-    } else if (e.type === 'timeout' && e.isRealMiss) {
-      this.hitHistory.push(0);
-    }
-
-    // trim
-    while (this.rtHistory.length > this.windowN) this.rtHistory.shift();
-    while (this.hitHistory.length > this.windowN) this.hitHistory.shift();
-
-    this._recomputePrediction();
-  }
-
-  _recomputePrediction() {
-    const rts = this.rtHistory.slice().sort((a,b)=>a-b);
-    if (rts.length) {
-      const p = (q)=>{
-        const i = Math.max(0, Math.min(rts.length-1, Math.round((rts.length-1)*q)));
-        return rts[i];
-      };
-      this.pred.rt_p50 = p(0.5);
-      this.pred.rt_p80 = p(0.8);
-    }
-
-    // skill ~ accuracy ใน window (hit ratio)
-    if (this.hitHistory.length) {
-      const acc = this.hitHistory.reduce((a,b)=>a+b,0) / this.hitHistory.length;
-      this.pred.skill = Math.max(0, Math.min(1, acc));
-    }
-
-    // fatigue heuristic: rt_p80 สูง + acc ลด => fatigue สูง
-    const rt80 = this.pred.rt_p80 || 0;
-    const fatigueFromRT = rt80 ? Math.max(0, Math.min(1, (rt80 - 420) / 500)) : 0;
-    const fatigueFromAcc = 1 - this.pred.skill;
-    this.pred.fatigue = Math.max(0, Math.min(1, 0.6*fatigueFromRT + 0.4*fatigueFromAcc));
+  observeResolvedEvent(info) {
+    this.predictor.observe(info);
+    this.lastP = this.predictor.predict();
   }
 
   /**
-   * ML-style difficulty tuning (เบา ๆ ใช้งานจริงได้)
-   * คืนค่า { spawnMul, ttlMul, sizeMul, bombW, decoyW }
+   * Compute spawn delay multiplier (lower = faster/harder)
+   * If player is struggling (pMiss high) => slow down a bit.
+   * If player is strong (pMiss low) => speed up a bit.
    */
-  proposeTuning() {
-    if (!this.enabled) {
-      return { spawnMul: 1, ttlMul: 1, sizeMul: 1, bombW: 1, decoyW: 1 };
-    }
+  spawnDelayMul() {
+    const p = this.lastP;
+    // map p 0..1 => mul ~ 0.90..1.10 (then clamp)
+    let mul = 1.0 + (p - 0.45) * 0.35;
+    mul = Math.max(this.cfg.minDelayMul, Math.min(this.cfg.maxDelayMul, mul));
+    return mul;
+  }
 
-    const { skill, fatigue, rt_p50 } = this.pred;
-
-    // เร้าใจ: ถ้า skill สูง => spawn ไวขึ้น/เป้าเล็กลงเล็กน้อย
-    const spawnMul = 1 - 0.10 * (skill - 0.5);   // skill 1 => 0.95, skill 0 => 1.05
-    const sizeMul  = 1 - 0.08 * (skill - 0.5);   // skill 1 => 0.96
-
-    // ถ้า fatigue สูง => ช่วยให้ไม่หัวร้อน: TTL ยาวขึ้นนิด + ลด bomb/decoy
-    const ttlMul = 1 + 0.18 * fatigue;           // fatigue 1 => 1.18
-    const bombW  = 1 - 0.25 * fatigue;           // fatigue 1 => 0.75
-    const decoyW = 1 - 0.20 * fatigue;           // fatigue 1 => 0.80
-
-    // ถ้า median RT ช้ามาก ให้ช่วยเล็กน้อย
-    const rtAssist = rt_p50 && rt_p50 > 520 ? 0.06 : 0;
-
-    return {
-      spawnMul: Math.max(0.88, Math.min(1.12, spawnMul + rtAssist)),
-      ttlMul:   Math.max(0.90, Math.min(1.25, ttlMul)),
-      sizeMul:  Math.max(0.92, Math.min(1.10, sizeMul)),
-      bombW:    Math.max(0.60, Math.min(1.20, bombW)),
-      decoyW:   Math.max(0.60, Math.min(1.20, decoyW)),
-    };
+  ttlMul() {
+    const p = this.lastP;
+    // struggling => longer TTL
+    let mul = 1.0 + (p - 0.45) * 0.30;
+    mul = Math.max(this.cfg.minTtlMul, Math.min(this.cfg.maxTtlMul, mul));
+    return mul;
   }
 
   /**
-   * DL hook (placeholder)
-   * - หากวันหนึ่งมีโมเดล TensorFlow.js / ONNX runtime
-   * - เอา features -> model -> policy -> tuning
+   * Return weights for pickWeighted
+   * Base: normal 64 decoy 10 bomb 8 heal 9 shield 9
+   * If struggling => more heal/shield, slightly less bomb/decoy
+   * If strong => slightly more bomb/decoy, less heal/shield
    */
-  async proposeTuningFromDL(/*features*/) {
-    return null; // default ปิดไว้
+  weights() {
+    const p = this.lastP;
+
+    let normal = 64;
+    let decoy  = 10;
+    let bomb   = 8;
+    let heal   = 9;
+    let shield = 9;
+
+    if (p >= 0.62) {
+      // help player
+      heal += 3;
+      shield += 3;
+      bomb -= 2;
+      decoy -= 2;
+      normal += 1;
+    } else if (p <= 0.30) {
+      // challenge player
+      bomb += 2;
+      decoy += 2;
+      heal -= 2;
+      shield -= 2;
+      normal -= 0;
+    }
+
+    // clamp fairness
+    bomb = Math.max(this.cfg.minBombW, Math.min(this.cfg.maxBombW, bomb));
+    decoy = Math.max(this.cfg.minDecoyW, Math.min(this.cfg.maxDecoyW, decoy));
+    heal = Math.max(5, Math.min(14, heal));
+    shield = Math.max(5, Math.min(14, shield));
+    normal = Math.max(52, Math.min(74, normal));
+
+    return [
+      { v: 'normal', w: normal },
+      { v: 'decoy',  w: decoy },
+      { v: 'bomb',   w: bomb },
+      { v: 'heal',   w: heal },
+      { v: 'shield', w: shield }
+    ];
+  }
+
+  /**
+   * Micro tip (AI Coach) — rate-limited
+   * @param {Object} ctx { now, lastGrade, feverOn, playerHp, missDelta, hitType }
+   */
+  maybeTip(ctx) {
+    const now = ctx?.now || performance.now();
+    if (now - this.lastTipAt < this.cfg.tipCooldownMs) return null;
+
+    const p = this.lastP;
+    const struggling = p >= 0.62 || (ctx && ctx.playerHp != null && ctx.playerHp <= 0.34);
+
+    const r = Math.random();
+    if (!struggling && r > this.cfg.tipChance) return null;
+    if (struggling && r > this.cfg.dangerTipChance) return null;
+
+    this.lastTipAt = now;
+
+    // tips
+    if (ctx && ctx.hitType === 'bomb') return 'ทริค: ถ้าเห็น 💣 หรือ 🫥 ให้ “เว้นจังหวะ” ไม่ต้องตีทุกอันนะ!';
+    if (ctx && ctx.missDelta > 0) return 'ทริค: มอง “กลางจอ” แล้วใช้สายตากวาดเร็ว ๆ จะลด Miss ได้เยอะ 👀';
+    if (ctx && ctx.feverOn) return 'FEVER ON! ตอนนี้คะแนน ×1.5 รีบเก็บเป้าจริงต่อเนื่อง!';
+    if (struggling) return 'ตั้งหลักก่อน: โฟกัสเป้าจริง 🥊 แล้วค่อยเพิ่มความเร็วทีละนิด';
+    return 'สายโปร! ลองคุมจังหวะให้ PERFECT ติด ๆ กัน จะได้ FEVER ไว';
+  }
+
+  debug() {
+    return this.predictor.debugSnapshot();
   }
 }
