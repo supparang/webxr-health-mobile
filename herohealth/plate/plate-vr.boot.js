@@ -1,6 +1,5 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (flush-hardened patch)
-// ✅ Calls HHA_LOGGER.init(cfg) + flush on end/nav/restart
+// PlateVR Boot — PRODUCTION (HUD safe-rect auto + default time=90)
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -123,24 +122,13 @@ function wireEndControls(){
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  const flushThen = (fn)=>{
-    try{ WIN.HHA_LOGGER?.log('nav', { action:'click' }); }catch{}
-    try{ WIN.HHA_LOGGER?.flush('nav'); }catch{}
-    // give beacon a tiny window
-    setTimeout(fn, 120);
-  };
-
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      flushThen(()=> location.reload());
-    });
+    btnRestart.addEventListener('click', ()=>location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
-      flushThen(()=>{
-        if(hub) location.href = hub;
-        else history.back();
-      });
+      if(hub) location.href = hub;
+      else history.back();
     });
   }
 }
@@ -166,22 +154,56 @@ function wireEndSummary(){
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
-
-    // ✅ flush-hardened: end => flush
-    try{ WIN.HHA_LOGGER?.log('endOverlay', { opened:true }); }catch{}
-    try{ WIN.HHA_LOGGER?.flush('endOverlay'); }catch{}
   });
+}
+
+// ✅ AUTO SAFE RECT: avoid HUD blocking targets
+function applyPlayfieldSafeRect(){
+  const hud = DOC.getElementById('hud');
+  const root = DOC.documentElement;
+  const margin = 12;
+
+  // defaults
+  let topSafe = 90;
+  let bottomSafe = 12;
+  let leftSafe = 10;
+  let rightSafe = 10;
+
+  try{
+    if(hud){
+      const r = hud.getBoundingClientRect();
+      // reserve area from top down to HUD bottom
+      topSafe = Math.max(72, Math.round(r.bottom + margin));
+    }
+
+    // little extra on mobile bottom (thumb area)
+    if(DOC.body.classList.contains('view-mobile')){
+      bottomSafe = 84;
+      leftSafe = 10;
+      rightSafe = 10;
+    }
+
+    // cVR / VR: keep center clear a bit more
+    if(DOC.body.classList.contains('view-cvr') || DOC.body.classList.contains('view-vr')){
+      topSafe += 18;
+      bottomSafe = Math.max(bottomSafe, 64);
+    }
+  }catch{}
+
+  root.style.setProperty('--plate-top-safe', `${topSafe}px`);
+  root.style.setProperty('--plate-bottom-safe', `${bottomSafe}px`);
+  root.style.setProperty('--plate-left-safe', `${leftSafe}px`);
+  root.style.setProperty('--plate-right-safe', `${rightSafe}px`);
 }
 
 function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','70'), 10, 999);
+  const time = clamp(qs('time','90'), 10, 999);      // ✅ default 90
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  const cfg = {
-    game: 'plate',
+  return {
     view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
@@ -200,8 +222,6 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -211,29 +231,23 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
-
-  // ✅ init logger (flush-hardened)
-  try{ WIN.HHA_LOGGER?.init(cfg); }catch{}
-
-  // set view class
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
-
   setOverlayOpen(false);
 
+  // apply safe rect after layout settles
+  const tick = ()=>{ applyPlayfieldSafeRect(); };
+  tick();
+  setTimeout(tick, 60);
+  WIN.addEventListener('resize', ()=>setTimeout(tick, 80));
+
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    try{ WIN.HHA_LOGGER?.log('bootError', { msg:String(err?.message||err), stack:String(err?.stack||'') }); }catch{}
-    try{ WIN.HHA_LOGGER?.flush('bootError'); }catch{}
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
   }
 });
