@@ -1,149 +1,280 @@
-// === /herohealth/vr/ai-director.js ===
-// AI Difficulty Director — FAIR + FUN (HHA)
-// ✅ Adjust difficulty smoothly (no sudden spikes)
-// ✅ Research/practice: deterministic + adaptive OFF by default
-// ✅ Play: adaptive ON (optional)
-// ✅ Outputs: { spawnMs, ttlMs, pJunk, pPower, patternBias, bossOn }
-// ✅ Emits: hha:diff { level, why[], params }
-
+// === /fitness/js/ai-director.js — PACK A: Predictive Difficulty Director + Pattern ===
 'use strict';
 
-const clamp = (v,min,max)=>Math.max(min,Math.min(max, v));
-const lerp  = (a,b,t)=> a + (b-a)*t;
+/**
+ * AI Director (PACK A)
+ * - เก็บ skill model แบบเรียลไทม์ (EMA RT, accuracy, bombRate, comboBreak)
+ * - ปรับ spawn interval / weight ของเป้า / size multiplier แบบ smooth
+ * - สร้าง pattern สั้น ๆ ให้รู้สึกว่ามี “แผน” (ไม่สุ่มล้วน)
+ */
 
-export function createDirector({
-  mode='play',            // play | research | practice
-  diff='normal',          // easy | normal | hard
-  adaptive=true,          // play only recommended
-  emit=()=>{},
-} = {}){
+export class AIDirector {
+  constructor(opts = {}) {
+    this.cfg = Object.assign({
+      // smoothing
+      emaAlpha: 0.12,           // EMA speed
+      minDelayMul: 0.72,
+      maxDelayMul: 1.28,
+      minSizeMul: 0.86,
+      maxSizeMul: 1.18,
 
-  const adaptiveOn = (mode === 'play') && !!adaptive;
+      // pattern
+      patternCooldownMs: 6500,  // เว้นช่วงก่อนจะสร้าง pattern ใหม่
+      patternMaxLen: 6,
 
-  const base = {
-    easy:   { spawnMs: 980, ttlMs: 1850, pJunk: 0.22, pPower: 0.06 },
-    normal: { spawnMs: 900, ttlMs: 1650, pJunk: 0.26, pPower: 0.04 },
-    hard:   { spawnMs: 820, ttlMs: 1500, pJunk: 0.30, pPower: 0.03 },
-  }[String(diff||'normal').toLowerCase()] || { spawnMs:900, ttlMs:1650, pJunk:0.26, pPower:0.04 };
+      // coaching
+      tipEveryMs: 4200,
 
-  const S = {
-    level: 0.18,          // 0..1
-    targetLevel: 0.18,
-    lastEmitAt: 0,
-    // performance EWMA
-    hitRate: 0.55,        // good hits /(good hits+miss) approx
-    missRate: 0.00,       // miss per sec
-    comboN: 0.0,
-    feverN: 0.18,
-    lastMiss: 0,
-    lastTimeLeft: null,
-    lastTickMs: 0,
-  };
+      // clamps (กันกระชาก)
+      adjustRate: 0.08
+    }, opts);
 
-  function normCombo(combo){ return clamp((combo||0)/18, 0, 1); }
-  function normFever(fever){ return clamp((fever||0)/100, 0, 1); }
-
-  function updateTelemetry({ timeLeft, score, miss, hitGood, hitJunk, expireGood, combo, fever } = {}, tsMs=performance.now()){
-    const dt = Math.max(0.001, ((tsMs - (S.lastTickMs||tsMs))/1000));
-    S.lastTickMs = tsMs;
-
-    const dMiss = Math.max(0, (miss||0) - (S.lastMiss||0));
-    const rate  = dMiss / dt;
-    S.missRate  = (S.missRate*0.75) + (rate*0.25);
-    S.lastMiss  = (miss||0);
-
-    // hitRate heuristic
-    const good = (hitGood||0);
-    const bad  = (hitJunk||0) + (expireGood||0);
-    const denom = Math.max(1, good + bad);
-    const hr = clamp(good/denom, 0, 1);
-    S.hitRate = (S.hitRate*0.72) + (hr*0.28);
-
-    S.comboN = (S.comboN*0.70) + (normCombo(combo)*0.30);
-    S.feverN = (S.feverN*0.70) + (normFever(fever)*0.30);
+    this.reset();
   }
 
-  function computeTargetLevel(){
-    // Curriculum (เวลาเดิน = โหดขึ้นช้า ๆ)
-    // ถ้าเล่นเก่ง -> เร่งขึ้น, ถ้าเริ่มพลาด -> ผ่อนลง
-    const skill = clamp(
-      0.55*S.hitRate +
-      0.25*S.comboN +
-      0.20*(1 - clamp(S.missRate/1.2, 0, 1)),
-      0, 1
-    );
+  reset() {
+    this.skill = {
+      // real-time estimates
+      emaRt: 420,         // ms
+      emaRtAbsDev: 90,    // ms
+      hits: 0,
+      misses: 0,
+      bombsHit: 0,
+      decoysHit: 0,
+      comboBreaks: 0,
+      lastCombo: 0,
+      feverHits: 0,
+      feverActiveMs: 0
+    };
 
-    const stress = clamp(
-      0.55*S.feverN +
-      0.45*clamp(S.missRate/1.1, 0, 1),
-      0, 1
-    );
+    this.tuning = {
+      delayMul: 1.0,   // <1 = faster spawn
+      sizeMul: 1.0,    // <1 = smaller targets
+      bombMul: 1.0,    // >1 = more bombs
+      decoyMul: 1.0,   // >1 = more decoys
+      healMul: 1.0,
+      shieldMul: 1.0
+    };
 
-    // แฟร์: ถ้า stress สูง จะไม่ดันขึ้นแรง
-    let tgt = clamp(0.20 + 0.75*skill - 0.55*stress, 0, 1);
-
-    // โหดขึ้นแบบ “ค่อย ๆ”
-    // (ระดับสูงสุดถูกจำกัดไว้เพื่อเด็ก ป.5)
-    const cap = 0.78;
-    tgt = Math.min(cap, tgt);
-
-    return { tgt, skill, stress };
+    this.pattern = null;        // { steps:[{kind, extraDelay}], idx }
+    this.nextPatternAt = performance.now() + 4000;
+    this.lastTipAt = 0;
+    this.lastAdjustAt = performance.now();
   }
 
-  function stepLevel(tsMs){
-    const { tgt, skill, stress } = computeTargetLevel();
-    S.targetLevel = tgt;
+  // เรียกทุก hit/timeout (จาก engine)
+  onEvent(e) {
+    if (!e) return;
 
-    // Smooth change: ขึ้นช้า ลงเร็วกว่า (กัน frustration)
-    const upSpeed   = 0.012;   // per tick
-    const downSpeed = 0.020;
+    // combo break detection
+    if (typeof e.comboAfter === 'number') {
+      if (this.skill.lastCombo > 0 && e.comboAfter === 0) this.skill.comboBreaks++;
+      this.skill.lastCombo = e.comboAfter;
+    }
 
-    const dir = (S.targetLevel >= S.level) ? 1 : -1;
-    const spd = (dir>0) ? upSpeed : downSpeed;
+    if (e.type === 'hit') {
+      this.skill.hits++;
+      if (e.targetType === 'bomb') this.skill.bombsHit++;
+      if (e.targetType === 'decoy') this.skill.decoysHit++;
+      if (typeof e.rtMs === 'number' && e.rtMs > 0) {
+        // EMA RT
+        const a = this.cfg.emaAlpha;
+        const prev = this.skill.emaRt;
+        const rt = e.rtMs;
+        this.skill.emaRt = prev + a * (rt - prev);
 
-    S.level = clamp(S.level + dir*spd, 0, 1);
+        // EMA abs deviation (stability)
+        const dev = Math.abs(rt - this.skill.emaRt);
+        this.skill.emaRtAbsDev = this.skill.emaRtAbsDev + a * (dev - this.skill.emaRtAbsDev);
+      }
 
-    if(tsMs - S.lastEmitAt > 900){
-      S.lastEmitAt = tsMs;
-      const why = [];
-      if(skill > 0.64) why.push('เล่นแม่นขึ้น');
-      if(stress > 0.55) why.push('เริ่มกดดัน/พลาดถี่');
-      if(S.feverN > 0.55) why.push('FEVER สูง');
-      emit('hha:diff', { level: S.level, target: S.targetLevel, why });
+      if (e.feverOn) this.skill.feverHits++;
+    }
+
+    if (e.type === 'timeout') {
+      // real miss เฉพาะ normal/bossface ถูกนับจาก engine แล้ว
+      if (e.isRealMiss) this.skill.misses++;
+    }
+
+    if (typeof e.feverActiveMs === 'number') {
+      this.skill.feverActiveMs = e.feverActiveMs;
     }
   }
 
-  function params(){
-    // baseline + level scaling
-    const L = S.level;
-
-    // spawn faster with level (but capped)
-    const spawnMs = Math.round(clamp(base.spawnMs - 220*L, 640, 1100));
-
-    // ttl shorter with level (but not too short = fair)
-    const ttlMs   = Math.round(clamp(base.ttlMs - 260*L, 1100, 2100));
-
-    // more junk with level
-    const pJunk   = clamp(base.pJunk + 0.14*L, 0.12, 0.42);
-
-    // powerups: if stress high -> give slightly more
-    const stressBoost = 0.035 * clamp(S.feverN + clamp(S.missRate/1.2,0,1), 0, 1);
-    const pPower = clamp(base.pPower + stressBoost - 0.02*L, 0.02, 0.10);
-
-    // pattern bias: more difficult patterns at higher level
-    const patternBias = clamp(0.25 + 0.70*L, 0.25, 0.95);
-
-    // boss on when high level AND stable enough
-    const bossOn = (L > 0.62) && (S.hitRate > 0.52) && (S.feverN < 0.75);
-
-    return { spawnMs, ttlMs, pJunk, pPower, patternBias, bossOn, level:L };
+  // ===== derived metrics =====
+  accuracyPct() {
+    const t = this.skill.hits + this.skill.misses;
+    return t > 0 ? (this.skill.hits / t) * 100 : 100;
   }
 
-  function tick(tsMs=performance.now()){
-    if(!adaptiveOn) return params(); // fixed-ish outputs (still computed) but no level step
-    stepLevel(tsMs);
-    return params();
+  bombRatePct() {
+    const h = this.skill.hits || 0;
+    return h > 0 ? (this.skill.bombsHit / h) * 100 : 0;
   }
 
-  return { updateTelemetry, tick, params, get level(){ return S.level; }, get targetLevel(){ return S.targetLevel; } };
+  stabilityScore() {
+    // ต่ำ = สม่ำเสมอ (ดี), สูง = ไม่นิ่ง
+    // normalize: 60..220
+    const d = this.skill.emaRtAbsDev;
+    const cl = Math.max(60, Math.min(220, d));
+    return 1 - (cl - 60) / (220 - 60); // 0..1 (1 ดี)
+  }
+
+  // ===== main adjust loop =====
+  tick(now, state) {
+    if (!state || !state.running) return;
+
+    const dt = now - this.lastAdjustAt;
+    if (dt < 450) return;
+    this.lastAdjustAt = now;
+
+    // เป้าหมายของเกม: ให้ผู้เล่นอยู่ใน “flow zone”
+    // - accuracy: 78..92
+    // - EMA RT: อยู่ในช่วงเหมาะกับ diff/phase
+    // - bomb rate: ไม่สูงเกินไป
+
+    const acc = this.accuracyPct();
+    const rt = this.skill.emaRt;
+    const stab = this.stabilityScore();
+    const bombRate = this.bombRatePct();
+
+    // baseline “ความยาก” ต่อ phase (phase 3 ควรเร็วขึ้น)
+    const phaseBias =
+      state.bossPhase === 1 ? 0.00 :
+      state.bossPhase === 2 ? 0.06 : 0.12;
+
+    // want faster when: acc สูง + rt ต่ำ + stability ดี
+    const perf =
+      (acc - 82) / 20 +         // -? .. +?
+      (420 - rt) / 280 +        // rt ต่ำ => บวก
+      (stab - 0.55);            // นิ่ง => บวก
+
+    // want easier when: bomb rate สูง + combo break สูง
+    const comboPenalty = Math.min(1, this.skill.comboBreaks / 8);
+    const bombPenalty = Math.min(1, bombRate / 18);
+
+    let targetDelayMul = 1.0 - (0.18 * perf) - phaseBias + (0.16 * bombPenalty) + (0.12 * comboPenalty);
+
+    // size: ถ้า perf ดี => เล็กลงนิด, ถ้า miss เยอะ => ใหญ่ขึ้นนิด
+    let targetSizeMul = 1.0 - (0.10 * perf) + (0.10 * comboPenalty);
+
+    // bombs/decoys: ถ้าผู้เล่นเก่ง => เพิ่ม decoy/bomb เล็กน้อย
+    let targetBombMul = 1.0 + (0.22 * Math.max(0, perf)) - (0.35 * bombPenalty);
+    let targetDecoyMul = 1.0 + (0.20 * Math.max(0, perf));
+
+    // heal/shield: ถ้าผู้เล่นกำลังจะตาย หรือ bomb penalty สูง => เพิ่มช่วย
+    const lowHp = state.playerHp <= 0.34;
+    let targetHealMul = 1.0 + (lowHp ? 0.55 : 0) + (bombPenalty * 0.25);
+    let targetShieldMul = 1.0 + (lowHp ? 0.45 : 0) + (bombPenalty * 0.30);
+
+    // clamp
+    targetDelayMul = this._clamp(targetDelayMul, this.cfg.minDelayMul, this.cfg.maxDelayMul);
+    targetSizeMul  = this._clamp(targetSizeMul,  this.cfg.minSizeMul,  this.cfg.maxSizeMul);
+
+    // smooth apply (avoid jerk)
+    const r = this.cfg.adjustRate;
+    this.tuning.delayMul  = this._lerp(this.tuning.delayMul,  targetDelayMul, r);
+    this.tuning.sizeMul   = this._lerp(this.tuning.sizeMul,   targetSizeMul,  r);
+    this.tuning.bombMul   = this._lerp(this.tuning.bombMul,   targetBombMul,  r);
+    this.tuning.decoyMul  = this._lerp(this.tuning.decoyMul,  targetDecoyMul, r);
+    this.tuning.healMul   = this._lerp(this.tuning.healMul,   targetHealMul,  r);
+    this.tuning.shieldMul = this._lerp(this.tuning.shieldMul, targetShieldMul,r);
+
+    // pattern scheduling
+    if (!this.pattern && now >= this.nextPatternAt) {
+      this.pattern = this._makePattern(state);
+      this.nextPatternAt = now + this.cfg.patternCooldownMs + Math.random() * 2200;
+    }
+  }
+
+  // ===== apply to spawn =====
+  getSpawnDelay(cfg) {
+    const base = this._rand(cfg.spawnIntervalMin, cfg.spawnIntervalMax);
+    const d = base * this.tuning.delayMul;
+    return Math.max(220, Math.round(d));
+  }
+
+  getSizeMul() {
+    return this.tuning.sizeMul;
+  }
+
+  // เลือกชนิดเป้าถัดไป (ถ้ามี pattern ให้ใช้ก่อน)
+  nextKind(state) {
+    if (this.pattern && this.pattern.steps && this.pattern.idx < this.pattern.steps.length) {
+      const step = this.pattern.steps[this.pattern.idx++];
+      if (this.pattern.idx >= this.pattern.steps.length) this.pattern = null;
+      return step.kind;
+    }
+
+    // default weighted (ถูกคูณด้วย tuning)
+    const wNormal = 64;
+    const wDecoy  = 10 * this.tuning.decoyMul;
+    const wBomb   = 8  * this.tuning.bombMul;
+    const wHeal   = 9  * this.tuning.healMul;
+    const wShield = 9  * this.tuning.shieldMul;
+
+    return this._pickWeighted([
+      { v: 'normal', w: wNormal },
+      { v: 'decoy',  w: wDecoy },
+      { v: 'bomb',   w: wBomb },
+      { v: 'heal',   w: wHeal },
+      { v: 'shield', w: wShield }
+    ]);
+  }
+
+  // ใช้สำหรับ coach (สรุปสถานะ)
+  snapshotForCoach(state) {
+    return {
+      acc: +this.accuracyPct().toFixed(1),
+      emaRt: Math.round(this.skill.emaRt),
+      stab: +this.stabilityScore().toFixed(2),
+      bombRate: +this.bombRatePct().toFixed(1),
+      delayMul: +this.tuning.delayMul.toFixed(2),
+      sizeMul: +this.tuning.sizeMul.toFixed(2),
+      phase: state ? state.bossPhase : 1
+    };
+  }
+
+  // ===== internal pattern =====
+  _makePattern(state) {
+    // pattern สั้น ๆ ให้เหมือนบอส “มีแผน”
+    // phase สูงขึ้น => ซับซ้อนขึ้น
+    const p = state.bossPhase || 1;
+    const len = Math.min(this.cfg.patternMaxLen, p === 1 ? 4 : p === 2 ? 5 : 6);
+
+    const patterns = [
+      // 1) fake-out: normal → decoy → normal
+      ['normal','decoy','normal','normal','shield','normal'],
+      // 2) trap: normal → bomb → heal
+      ['normal','bomb','heal','normal','decoy','normal'],
+      // 3) feint: decoy → normal → bomb → normal
+      ['decoy','normal','bomb','normal','shield','normal'],
+      // 4) pressure: normal x2 → bomb → normal → heal
+      ['normal','normal','bomb','normal','heal','normal']
+    ];
+
+    // เลือก pattern แบบสุ่ม แต่ phase 3 ให้หนักขึ้น (เลือก trap/pressure บ่อย)
+    const pick = (p === 3)
+      ? this._pickWeighted([{v:1,w:1},{v:3,w:2},{v:4,w:3},{v:2,w:2}])
+      : this._pickWeighted([{v:1,w:2},{v:2,w:2},{v:3,w:1.5},{v:4,w:1.8}]);
+
+    const base = patterns[Math.max(0, pick - 1)] || patterns[0];
+    const steps = base.slice(0, len).map(k => ({ kind: k }));
+
+    return { steps, idx: 0 };
+  }
+
+  _pickWeighted(weights) {
+    const total = weights.reduce((acc, w) => acc + w.w, 0);
+    let r = Math.random() * total;
+    for (const item of weights) {
+      if (r < item.w) return item.v;
+      r -= item.w;
+    }
+    return weights[weights.length - 1].v;
+  }
+
+  _rand(min, max) { return min + Math.random() * (max - min); }
+  _clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  _lerp(a, b, t) { return a + (b - a) * t; }
 }
