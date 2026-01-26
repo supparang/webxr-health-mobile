@@ -4,16 +4,15 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 ✅ Hit radius scales by size + view (cVR assist)
 ✅ miniTotal/miniCleared tracked
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update,
-         groups:power, groups:progress, hha:judge, hha:end
+         groups:power, groups:progress, groups:dl, hha:judge, hha:end
 ✅ runMode: play | research | practice
    - research: deterministic seed + adaptive OFF + AI OFF
    - practice: deterministic seed + adaptive OFF + AI OFF
 ✅ Rank: SSS, SS, S, A, B, C (Miss มีน้ำหนักจริง)
-✅ NEW: Target DOM has <span class="fg-emoji">🙂</span> (emoji crisp centered)
-✅ NEW: 5 food groups mapping (Thai fixed): g1 โปรตีน, g2 คาร์บ, g3 ผัก, g4 ผลไม้, g5 ไขมัน
-✅ NEW: Junk emoji toggle via ?junkEmoji=1 (default: blank)
-
-✅ PATCH Y: cVR crosshair magnet (GOOD only, play mode only, fair, uses detail.lockPx from vr-ui.js)
+✅ Target DOM has <span class="fg-emoji">🙂</span> (emoji crisp centered)
+✅ 5 food groups mapping (Thai fixed): g1 โปรตีน, g2 คาร์บ, g3 ผัก, g4 ผลไม้, g5 ไขมัน
+✅ Junk emoji toggle via ?junkEmoji=1 (default: blank)
+✅ DL-lite emit via groups:dl (play only; requires ?ai=1)
 */
 
 (function (root) {
@@ -77,11 +76,6 @@ Food Groups VR — SAFE (PRODUCTION-ish)
   }
 
   // ---------------- Content (Thai fixed mapping 5 groups) ----------------
-  // หมู่ 1 โปรตีน (เนื้อ นม ไข่ ถั่วเมล็ดแห้ง)
-  // หมู่ 2 คาร์โบไฮเดรต (ข้าว แป้ง เผือก มัน น้ำตาล)
-  // หมู่ 3 ผัก
-  // หมู่ 4 ผลไม้
-  // หมู่ 5 ไขมัน
   const GROUPS = [
     { key: 'g1', th: 'โปรตีน', emoji: ['🍗','🥚','🐟','🫘','🥜','🍤','🍖','🥛','🧀'] },
     { key: 'g2', th: 'คาร์โบไฮเดรต', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙','🍠','🥔'] },
@@ -94,6 +88,43 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
   // default: junk is blank (decoy ring), set ?junkEmoji=1 to show junk emoji
   const SHOW_JUNK_EMOJI = (String(qs('junkEmoji','0')||'0') === '1');
+
+  // ✅ AI flag (engine-side): play only + must have ?ai=1
+  const AI_QS = String(qs('ai','0')||'0');
+  function aiEnabledByParam(){
+    return (AI_QS === '1' || AI_QS === 'true');
+  }
+
+  // =========================
+  // ✅ DL-lite (Engine-side) — emits groups:dl
+  // =========================
+  function sigmoid(x){ return 1 / (1 + Math.exp(-x)); }
+
+  function dlRiskFromFeatures(f){
+    const w = { missRate5: 1.45, accBad: 1.10, comboN: -0.35, leftLow: 0.60, storm: 0.70, miniUrg: 0.55 };
+    const b = -0.60;
+    let z = b
+      + w.missRate5 * (Number(f.missRate5)||0)
+      + w.accBad     * (Number(f.accBad)||0)
+      + w.comboN     * (Number(f.comboN)||0)
+      + w.leftLow    * (Number(f.leftLow)||0)
+      + w.storm      * (Number(f.storm)||0)
+      + w.miniUrg    * (Number(f.miniUrg)||0);
+    return sigmoid(z);
+  }
+
+  function topContribs(f){
+    const items = [
+      ['missRate5',  Number(f.missRate5)||0],
+      ['accBad',     Number(f.accBad)||0],
+      ['leftLow',    Number(f.leftLow)||0],
+      ['storm',      Number(f.storm)||0],
+      ['miniUrg',    Number(f.miniUrg)||0],
+      ['comboN',     Number(f.comboN)||0]
+    ];
+    items.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+    return items.slice(0,2).map(x=>x[0]);
+  }
 
   // ---------------- Difficulty presets ----------------
   function diffPreset(diff) {
@@ -270,6 +301,12 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this._id = 0;
 
     this.coachLastAt = 0;
+
+    // ✅ DL-lite state
+    this._dlOn = false;
+    this._dlLastEmitAt = 0;
+    this._dlHist = [];   // {t, misses}
+    this._dlMaxHist = 16;
   }
 
   Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
@@ -327,6 +364,11 @@ Food Groups VR — SAFE (PRODUCTION-ish)
 
     this.view = getViewFromBodyOrParam(opts.view);
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
+
+    // ✅ DL-lite gate (engine-side)
+    this._dlOn = (runMode === 'play') && aiEnabledByParam();
+    this._dlLastEmitAt = 0;
+    this._dlHist = [];
 
     this.leftSec = Math.round(timeSec);
 
@@ -392,14 +434,12 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     this._loop();
   };
 
-  // ✅ PATCH Y: pass event.detail to _shootCrosshair(detail)
   Engine.prototype._installInput = function () {
     const self = this;
     if (!this._onShoot) {
-      this._onShoot = function (e) {
+      this._onShoot = function () {
         if (!self.running) return;
-        const d = (e && e.detail) ? e.detail : null;
-        self._shootCrosshair(d);
+        self._shootCrosshair();
       };
       root.addEventListener('hha:shoot', this._onShoot, { passive: true });
     }
@@ -415,6 +455,7 @@ Food Groups VR — SAFE (PRODUCTION-ish)
       self._tickMini(t);
       self._tickSpawn(t);
       self._tickExpire(t);
+      self._tickDL(t);     // ✅ NEW
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -568,6 +609,57 @@ Food Groups VR — SAFE (PRODUCTION-ish)
         this._removeTarget(i, 'expire');
       }
     }
+  };
+
+  // ✅ DL-lite tick: emit groups:dl (play + ?ai=1)
+  Engine.prototype._miniLeftSec = function(){
+    if (!this.mini || !this.mini.on) return 0;
+    const t = nowMs();
+    const left = Math.max(0, (this.mini.leftMs - (t - this.mini.startedAt)));
+    return Math.ceil(left/1000);
+  };
+
+  Engine.prototype._tickDL = function(t){
+    if (!this._dlOn) return;
+    if (!this.cfg || this.cfg.runMode !== 'play') return;
+
+    if (t - this._dlLastEmitAt < 900) return;
+    this._dlLastEmitAt = t;
+
+    this._dlHist.push({ t, misses: this.misses|0 });
+    if (this._dlHist.length > this._dlMaxHist) this._dlHist.shift();
+
+    const cut = t - 5000;
+    const a = this._dlHist.filter(x=>x.t>=cut);
+    let dm = 0;
+    if (a.length >= 2) dm = (a[a.length-1].misses - a[0].misses);
+    dm = Math.max(0, dm);
+
+    const pMiss5 = clamp(dm / 2.5, 0, 1);
+
+    const acc = this._accuracyPct();
+    const f = {
+      missRate5: clamp((dm/5) * 2.2, 0, 1),
+      accBad: clamp((100 - acc)/100, 0, 1),
+      comboN: clamp((this.combo|0)/10, 0, 1),
+      leftLow: clamp((12 - (this.leftSec|0))/12, 0, 1),
+      storm: this.stormOn ? 1 : 0,
+      miniUrg: (this._miniLeftSec()<=3) ? 1 : 0
+    };
+
+    const risk = dlRiskFromFeatures(f);
+    const top = topContribs(f);
+
+    emit('groups:dl', {
+      risk: Math.round(risk*100)/100,
+      pMiss5: Math.round(pMiss5*100)/100,
+      top,
+      left: this.leftSec|0,
+      acc,
+      combo: this.combo|0,
+      storm: !!f.storm,
+      miniUrg: !!f.miniUrg
+    });
   };
 
   Engine.prototype._spawnOne = function () {
@@ -731,45 +823,10 @@ Food Groups VR — SAFE (PRODUCTION-ish)
     }
   };
 
-  // ✅ PATCH Y: now accepts detail.lockPx and uses magnet in cVR + play
-  Engine.prototype._shootCrosshair = function (detail) {
+  Engine.prototype._shootCrosshair = function () {
     const cx = (root.innerWidth || 0) * 0.5;
     const cy = (root.innerHeight || 0) * 0.5;
 
-    const view = this.view || getViewFromBodyOrParam();
-    const runMode = (this.cfg && this.cfg.runMode) ? this.cfg.runMode : 'play';
-
-    const lockPxIn = (detail && detail.lockPx != null) ? Number(detail.lockPx) : NaN;
-    const lockPx = (isFinite(lockPxIn) && lockPxIn > 0) ? lockPxIn : 0;
-
-    // ===== PATCH Y: crosshair magnet =====
-    // เฉพาะ cVR + play เท่านั้น และ "ล็อกเฉพาะ good" เพื่อความยุติธรรม
-    if (view === 'cvr' && runMode === 'play' && lockPx > 0) {
-      let bestGoodI = -1;
-      let bestGoodD = 1e9;
-
-      for (let i = 0; i < this.targets.length; i++) {
-        const tg = this.targets[i];
-        if (!tg || tg.kind !== 'good') continue;
-
-        const dx = tg.x - cx;
-        const dy = tg.y - cy;
-        const d = Math.sqrt(dx*dx + dy*dy);
-
-        // fairness clamp: ไม่ดูดเกิน lockPx และไม่เกิน r*1.15
-        const allow = Math.min(lockPx, (tg.r || 0) * 1.15);
-        if (d <= allow && d < bestGoodD) { bestGoodD = d; bestGoodI = i; }
-      }
-
-      if (bestGoodI >= 0) {
-        const tg = this.targets[bestGoodI];
-        this._onHit(tg, bestGoodI, 'shoot', nowMs());
-        return;
-      }
-      // ถ้าไม่เจอ good ใกล้ ๆ -> ใช้กติกาเดิมด้านล่าง
-    }
-
-    // ===== เดิม: ต้องอยู่ใน radius ของเป้า =====
     let bestI = -1;
     let bestD = 1e9;
 
