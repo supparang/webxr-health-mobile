@@ -1,9 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr (via body classes)
-✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot (cVR)
-✅ Engine: hygiene.safe.js (module)
-✅ Quiz bank: hygiene.quiz-bank.js (defer)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz: ./hygiene.quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
 -->
 <!doctype html>
 <html lang="th">
@@ -14,22 +14,23 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS in same folder -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260126a" />
 
-  <!-- ✅ VR UI (avoid body null) -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Optional helpers -->
+  <!-- Optional shared helpers -->
   <script src="../vr/particles.js" defer></script>
+
+  <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (global) -->
-  <script src="./hygiene.quiz-bank.js?v=20260126a" defer></script>
+  <!-- Quiz bank (MUST exist if you want quiz) -->
+  <script src="./hygiene.quiz-bank.js" defer></script>
 
-  <!-- ✅ Boot (module) -->
+  <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260126a"></script>
 </head>
 
@@ -63,9 +64,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
         </div>
-
-        <div class="hw-banner" id="banner" aria-live="polite"></div>
       </div>
+
+      <div class="hw-banner" id="banner" aria-live="polite"></div>
     </div>
 
     <!-- Start Overlay -->
@@ -106,12 +107,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  const view = (qs('view','pc')||'pc').toLowerCase();
-
-  document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-
-  document.getElementById('labView').textContent = view;
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
+  }
+  setViewClass();
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 })();
