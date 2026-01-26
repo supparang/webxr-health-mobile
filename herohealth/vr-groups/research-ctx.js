@@ -1,36 +1,28 @@
-// === /herohealth/vr-groups/research-ctx.js ===
-// Research Context — PRODUCTION
-// ✅ Passthrough important params (studyId, conditionGroup, phase, etc.)
-// ✅ Safe: never forces anything; just exposes ctx getter
-// ✅ Intended for logging / summary merge
-
-(function(){
+/* === /herohealth/vr-groups/research-ctx.js ===
+Research Context — HHA Standard-ish
+✅ getResearchCtx()
+Reads: studyId, conditionGroup, phase, participantId, sessionId, run, diff, seed
+*/
+(function(root){
   'use strict';
-  const WIN = window;
-  const NS = (WIN.GroupsVR = WIN.GroupsVR || {});
+  const NS = root.GroupsVR = root.GroupsVR || {};
 
   function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
-  function norm(v){ return (v==null) ? '' : String(v); }
 
   NS.getResearchCtx = function(){
-    const run = String(qs('run','play')||'play').toLowerCase();
     const ctx = {
-      run: run,
-      studyId: norm(qs('studyId','')),
-      conditionGroup: norm(qs('conditionGroup','')),
-      phase: norm(qs('phase','')),
-      participantId: norm(qs('pid','')) || norm(qs('participantId','')),
-      sessionId: norm(qs('sid','')) || norm(qs('sessionId','')),
-      cohort: norm(qs('cohort','')),
-      site: norm(qs('site','')),
+      studyId: String(qs('studyId','')||''),
+      conditionGroup: String(qs('conditionGroup','')||''),
+      phase: String(qs('phase','')||''),
+      participantId: String(qs('participantId','')||''),
+      sessionId: String(qs('sessionId','')||''),
+      runMode: String(qs('run','play')||'play'),
+      diff: String(qs('diff','normal')||'normal'),
+      seed: String(qs('seed','')||'')
     };
-
-    // convenience: research mode flag
-    ctx.isResearch = (run === 'research');
     return ctx;
   };
-
-})();
+})(typeof window!=='undefined' ? window : globalThis);
