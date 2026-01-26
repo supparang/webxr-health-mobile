@@ -64,30 +64,15 @@
           <div class="sb-menu-grid">
             <div class="sb-menu-field">
               <label for="sb-participant-id">รหัสผู้เข้าร่วม <span class="sb-required">*</span></label>
-              <input
-                id="sb-participant-id"
-                type="text"
-                placeholder="เช่น P001, S-01"
-                autocomplete="off"
-              />
+              <input id="sb-participant-id" type="text" placeholder="เช่น P001, S-01" />
             </div>
             <div class="sb-menu-field">
               <label for="sb-participant-group">กลุ่ม / เงื่อนไขการทดลอง <span class="sb-required">*</span></label>
-              <input
-                id="sb-participant-group"
-                type="text"
-                placeholder="เช่น Control / Training"
-                autocomplete="off"
-              />
+              <input id="sb-participant-group" type="text" placeholder="เช่น Control / Training" />
             </div>
             <div class="sb-menu-field">
               <label for="sb-participant-note">บันทึกเพิ่มเติม (ไม่บังคับ)</label>
-              <input
-                id="sb-participant-note"
-                type="text"
-                placeholder="เช่น เล่นด้วย VR หรือจอมือถือ"
-                autocomplete="off"
-              />
+              <input id="sb-participant-note" type="text" placeholder="เช่น เล่นด้วย VR หรือจอมือถือ" />
             </div>
           </div>
           <p class="sb-menu-research-hint">
@@ -96,12 +81,8 @@
         </section>
 
         <div class="sb-menu-actions">
-          <button id="sb-btn-play" class="sb-btn-primary">
-            ▶ เริ่มเล่นโหมดปกติ
-          </button>
-          <button id="sb-btn-research" class="sb-btn-ghost">
-            📈 โหมดวิจัย (บันทึก CSV)
-          </button>
+          <button id="sb-btn-play" class="sb-btn-primary">▶ เริ่มเล่นโหมดปกติ</button>
+          <button id="sb-btn-research" class="sb-btn-ghost">📈 โหมดวิจัย (บันทึก CSV)</button>
         </div>
 
         <section class="sb-menu-detail">
@@ -117,24 +98,14 @@
 
     <!-- ====== VIEW: PLAY ====== -->
     <section id="sb-view-play" class="sb-view">
-      <!-- แถวบน: สถิติ / HP+เวลา / Boss info -->
       <div class="sb-top-row">
-        <!-- สถิติเกมนี้ -->
         <section class="sb-card sb-card-stats">
           <h2 class="sb-card-title">สถิติเกมนี้</h2>
           <dl class="sb-stat-grid">
-            <div class="sb-stat-item">
-              <dt>Score</dt><dd id="sb-text-score">0</dd>
-            </div>
-            <div class="sb-stat-item">
-              <dt>Max Combo</dt><dd id="sb-text-combo">0</dd>
-            </div>
-            <div class="sb-stat-item">
-              <dt>Miss</dt><dd id="sb-text-miss">0</dd>
-            </div>
-            <div class="sb-stat-item">
-              <dt>Shield</dt><dd id="sb-text-shield">0</dd>
-            </div>
+            <div class="sb-stat-item"><dt>Score</dt><dd id="sb-text-score">0</dd></div>
+            <div class="sb-stat-item"><dt>Max Combo</dt><dd id="sb-text-combo">0</dd></div>
+            <div class="sb-stat-item"><dt>Miss</dt><dd id="sb-text-miss">0</dd></div>
+            <div class="sb-stat-item"><dt>Shield</dt><dd id="sb-text-shield">0</dd></div>
           </dl>
           <div class="sb-pause-help">
             โหมด Pause: ใช้สำหรับหยุดก่อนจบ Session (จะนับเป็น stop-early ในไฟล์วิจัย)
@@ -143,45 +114,28 @@
             <input type="checkbox" id="sb-btn-pause" />
             <span>Pause / จบก่อนเวลา</span>
           </label>
-          <button id="sb-btn-back-menu" class="sb-btn-secondary">
-            ⏹ จบและกลับเมนู
-          </button>
+          <button id="sb-btn-back-menu" class="sb-btn-secondary">⏹ จบและกลับเมนู</button>
         </section>
 
-        <!-- HP + แถวข้อมูลแนวนอน -->
         <section class="sb-card sb-card-center">
           <div class="sb-hp-row">
             <div class="sb-hp-block">
               <div class="sb-hp-label">PLAYER HP</div>
-              <div class="sb-hp-bar">
-                <div id="sb-hp-you-top" class="sb-hp-fill sb-hp-fill-player"></div>
-              </div>
+              <div class="sb-hp-bar"><div id="sb-hp-you-top" class="sb-hp-fill sb-hp-fill-player"></div></div>
             </div>
             <div class="sb-hp-block">
               <div class="sb-hp-label">BOSS HP</div>
-              <div class="sb-hp-bar">
-                <div id="sb-hp-boss-top" class="sb-hp-fill sb-hp-fill-boss"></div>
-              </div>
+              <div class="sb-hp-bar"><div id="sb-hp-boss-top" class="sb-hp-fill sb-hp-fill-boss"></div></div>
             </div>
           </div>
 
           <div class="sb-meta-row">
-            <div class="sb-meta-item">
-              <span class="sb-meta-label">Time left</span>
-              <span id="sb-text-time" class="sb-meta-value">60.0 s</span>
-            </div>
-            <div class="sb-meta-item">
-              <span class="sb-meta-label">Phase</span>
-              <span id="sb-text-phase" class="sb-meta-value">1</span>
-            </div>
-            <div class="sb-meta-item">
-              <span class="sb-meta-label">Miss</span>
-              <span id="sb-meta-miss" class="sb-meta-value">0</span>
-            </div>
+            <div class="sb-meta-item"><span class="sb-meta-label">Time left</span><span id="sb-text-time" class="sb-meta-value">60.0 s</span></div>
+            <div class="sb-meta-item"><span class="sb-meta-label">Phase</span><span id="sb-text-phase" class="sb-meta-value">1</span></div>
+            <div class="sb-meta-item"><span class="sb-meta-label">Miss</span><span id="sb-meta-miss" class="sb-meta-value">0</span></div>
           </div>
         </section>
 
-        <!-- Boss info ขวาสุด -->
         <aside class="sb-card sb-card-boss">
           <header class="sb-boss-header">
             <div class="sb-boss-avatar" id="sb-meta-emoji">🐣</div>
@@ -193,21 +147,14 @@
               </div>
             </div>
           </header>
-          <p id="sb-meta-desc" class="sb-boss-desc">
-            โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน
-          </p>
+          <p id="sb-meta-desc" class="sb-boss-desc">โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน</p>
         </aside>
       </div>
 
-      <!-- พื้นที่เล่น + FEVER + ข้อความ -->
       <section class="sb-play-shell">
         <div class="sb-hp-overview">
-          <div class="sb-hp-bar sb-hp-bar-compact">
-            <div id="sb-hp-you-bottom" class="sb-hp-fill sb-hp-fill-player"></div>
-          </div>
-          <div class="sb-hp-bar sb-hp-bar-compact">
-            <div id="sb-hp-boss-bottom" class="sb-hp-fill sb-hp-fill-boss"></div>
-          </div>
+          <div class="sb-hp-bar sb-hp-bar-compact"><div id="sb-hp-you-bottom" class="sb-hp-fill sb-hp-fill-player"></div></div>
+          <div class="sb-hp-bar sb-hp-bar-compact"><div id="sb-hp-boss-bottom" class="sb-hp-fill sb-hp-fill-boss"></div></div>
         </div>
 
         <div class="sb-play-area">
@@ -215,68 +162,34 @@
         </div>
 
         <div class="sb-fever-row">
-          <div class="sb-fever-label">
-            FEVER <span id="sb-label-fever">READY</span>
-          </div>
-          <div class="sb-fever-bar-outer">
-            <div id="sb-fever-bar" class="sb-fever-bar-inner"></div>
-          </div>
+          <div class="sb-fever-label">FEVER <span id="sb-label-fever">READY</span></div>
+          <div class="sb-fever-bar-outer"><div id="sb-fever-bar" class="sb-fever-bar-inner"></div></div>
         </div>
 
-        <p id="sb-msg-main" class="sb-msg-main">
-          แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!
-        </p>
+        <p id="sb-msg-main" class="sb-msg-main">แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!</p>
       </section>
     </section>
 
-    <!-- ====== VIEW: RESULT (สรุปจบเกม) ====== -->
+    <!-- ====== VIEW: RESULT ====== -->
     <section id="sb-view-result" class="sb-view">
       <div class="sb-card sb-card-result">
         <h2 class="sb-card-title">สรุปผลรอบนี้</h2>
 
         <div class="sb-result-grid">
           <div class="sb-result-main">
-            <div class="sb-result-row">
-              <span>เวลาเล่น</span>
-              <strong id="sb-res-time">60.0 s</strong>
-            </div>
-            <div class="sb-result-row">
-              <span>Score</span>
-              <strong id="sb-res-score">0</strong>
-            </div>
-            <div class="sb-result-row">
-              <span>Max Combo</span>
-              <strong id="sb-res-max-combo">0</strong>
-            </div>
-            <div class="sb-result-row">
-              <span>Miss</span>
-              <strong id="sb-res-miss">0</strong>
-            </div>
-            <div class="sb-result-row">
-              <span>Phase สุดท้าย</span>
-              <strong id="sb-res-phase">1</strong>
-            </div>
-            <div class="sb-result-row">
-              <span>จำนวนบอสที่เคลียร์ได้</span>
-              <strong id="sb-res-boss-cleared">0</strong>
-            </div>
-            <div class="sb-result-row">
-              <span>Accuracy</span>
-              <strong id="sb-res-acc">0 %</strong>
-            </div>
-            <div class="sb-result-row">
-              <span>เกรด</span>
-              <strong id="sb-res-grade">B</strong>
-            </div>
+            <div class="sb-result-row"><span>เวลาเล่น</span><strong id="sb-res-time">60.0 s</strong></div>
+            <div class="sb-result-row"><span>Score</span><strong id="sb-res-score">0</strong></div>
+            <div class="sb-result-row"><span>Max Combo</span><strong id="sb-res-max-combo">0</strong></div>
+            <div class="sb-result-row"><span>Miss</span><strong id="sb-res-miss">0</strong></div>
+            <div class="sb-result-row"><span>Phase สุดท้าย</span><strong id="sb-res-phase">1</strong></div>
+            <div class="sb-result-row"><span>จำนวนบอสที่เคลียร์ได้</span><strong id="sb-res-boss-cleared">0</strong></div>
+            <div class="sb-result-row"><span>Accuracy</span><strong id="sb-res-acc">0 %</strong></div>
+            <div class="sb-result-row"><span>เกรด</span><strong id="sb-res-grade">B</strong></div>
           </div>
 
           <div class="sb-result-actions">
-            <button id="sb-btn-result-retry" class="sb-btn-primary">
-              ▶ เล่นซ้ำรอบเดิม
-            </button>
-            <button id="sb-btn-result-menu" class="sb-btn-secondary">
-              ↩ กลับเมนูเลือกโหมด
-            </button>
+            <button id="sb-btn-result-retry" class="sb-btn-primary">▶ เล่นซ้ำรอบเดิม</button>
+            <button id="sb-btn-result-menu" class="sb-btn-secondary">↩ กลับเมนูเลือกโหมด</button>
 
             <div class="sb-result-note">
               ใช้ปุ่ม <em>สรุปผลล่าสุด</em> บนแถบด้านบน เพื่อดูสถิติรวมหลายรอบ
@@ -285,18 +198,17 @@
         </div>
 
         <div class="sb-result-downloads">
-          <button id="sb-btn-download-events" class="sb-btn-ghost">
-            ⬇ ดาวน์โหลด CSV (event-level)
-          </button>
-          <button id="sb-btn-download-session" class="sb-btn-ghost">
-            ⬇ ดาวน์โหลด CSV (session-level)
-          </button>
+          <button id="sb-btn-download-events" class="sb-btn-ghost">⬇ ดาวน์โหลด CSV (event-level)</button>
+          <button id="sb-btn-download-session" class="sb-btn-ghost">⬇ ดาวน์โหลด CSV (session-level)</button>
         </div>
       </div>
     </section>
   </main>
 </div>
 
-<script type="module" src="./js/engine.js"></script>
+<script type="module">
+  import { initShadowBreaker } from './js/engine.js';
+  initShadowBreaker();
+</script>
 </body>
 </html>
