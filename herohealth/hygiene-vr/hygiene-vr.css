@@ -1,297 +1,367 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR UI — PRODUCTION (HUD safe-area + spawn safe-zone)
-✅ Prevent HUD blocking gameplay
-✅ Better mobile portrait/landscape
-✅ Works with targets using CSS vars: --x (vw%), --y (vh%), --s
+HygieneVR UI — PRODUCTION
+✅ Responsive: pc / mobile / vr / cvr
+✅ Uses spawn-safe zones via CSS vars:
+   --hw-top-safe, --hw-bottom-safe (engine reads these)
+✅ Targets use CSS vars: --x --y --s (set by JS)
+✅ HUD safe-area aware (not blocking gameplay)
 */
 
 :root{
-  --bg:#020617;
-  --panel:rgba(2,6,23,.72);
-  --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.18);
-  --text:#e5e7eb;
-  --muted:#94a3b8;
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --bad:#ef4444;
-  --cyan:#22d3ee;
+  color-scheme: light dark;
 
-  --r:22px;
-  --pill:999px;
+  --hw-bg: #0b1220;
+  --hw-stage: rgba(255,255,255,.02);
+  --hw-panel: rgba(2,6,23,.72);
+  --hw-stroke: rgba(148,163,184,.20);
 
-  /* iOS safe-area */
+  --hw-text: rgba(229,231,235,.98);
+  --hw-muted: rgba(148,163,184,.95);
+
+  --hw-green: rgba(34,197,94,1);
+  --hw-cyan: rgba(34,211,238,1);
+  --hw-warn: rgba(245,158,11,1);
+  --hw-bad: rgba(244,63,94,1);
+
+  --hw-radius: 22px;
+  --hw-pill: 999px;
+
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ KEY: spawn safe-zone (used by JS via getComputedStyle on :root) */
-  --hw-top-safe: 172px;    /* will be overridden by view classes below */
-  --hw-bottom-safe: 150px; /* keep space for VR UI buttons */
+  /* ✅ Game-safe zones (engine reads them) */
+  --hw-top-safe: 180px;
+  --hw-bottom-safe: 160px;
+
+  /* target sizes */
+  --hw-tgt-size: 84px;
+  --hw-tgt-shadow: 0 16px 60px rgba(0,0,0,.35);
+
+  /* animation */
+  --hw-pop: 160ms;
+  --hw-float: 1.6s;
+
+  /* z-layers */
+  --z-stage: 1;
+  --z-tgt: 5;
+  --z-hud: 20;
+  --z-overlay: 40;
+  --z-vrui: 9999; /* vr-ui crosshair uses 9999 */
 }
 
 *{ box-sizing:border-box; }
-html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-body{ overflow:hidden; }
-
-/* ---------- Root layout ---------- */
-.hw-root{
-  position:relative;
-  width:100%;
-  height:100%;
-  background:
-    radial-gradient(1200px 700px at 30% 20%, rgba(34,197,94,.10), transparent 60%),
-    radial-gradient(900px 600px at 70% 75%, rgba(34,211,238,.08), transparent 60%),
-    linear-gradient(180deg, rgba(2,6,23,1), rgba(2,6,23,.92));
+html,body{ height:100%; margin:0; }
+body{
+  background: radial-gradient(1200px 600px at 50% -20%, rgba(34,211,238,.12), transparent 55%),
+              radial-gradient(900px 500px at 20% 110%, rgba(34,197,94,.12), transparent 60%),
+              var(--hw-bg);
+  color: var(--hw-text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  overflow:hidden;
+  touch-action: manipulation;
 }
 
-/* Gameplay stage is full-screen; targets live here */
+.hw-root{
+  position: relative;
+  height:100%;
+  width:100%;
+  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
+}
+
 .hw-stage{
   position:absolute;
-  inset:0;
-  overflow:hidden;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.00));
+  border-radius: 0;
+  z-index: var(--z-stage);
 }
 
-/* ---------- HUD (top) ---------- */
+/* ---------------- HUD ---------------- */
 .hw-hud{
-  position:absolute;
-  inset:0;
-  pointer-events:none; /* only controls enable pointer */
-  z-index:50;
+  position: relative;
+  z-index: var(--z-hud);
+  pointer-events: none; /* ✅ HUD ไม่บังเกม */
 }
 
 .hw-top{
-  position:absolute;
-  left:0; right:0; top:0;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) 10px calc(10px + var(--sal));
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-top: 8px;
   pointer-events:none;
 }
 
 .hw-title{
-  font-weight:950;
-  font-size:18px;
-  letter-spacing:.2px;
-  text-shadow: 0 10px 30px rgba(0,0,0,.45);
+  font-weight: 950;
+  letter-spacing: .2px;
+  font-size: 18px;
+  text-shadow: 0 10px 40px rgba(0,0,0,.35);
 }
+
 .hw-sub{
-  margin-top:4px;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--hw-muted);
 }
 
 .hw-row{
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
-  margin-top:10px;
-  align-items:center;
-  pointer-events:none;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .hw-pill{
+  pointer-events:none;
   display:inline-flex;
   align-items:center;
-  gap:8px;
-  padding:10px 12px;
-  border-radius: var(--pill);
-  border:1px solid var(--stroke);
-  background: var(--panel);
-  color: rgba(229,231,235,.95);
-  font-weight:900;
-  font-size:13px;
-  line-height:1;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--hw-pill);
+  border: 1px solid var(--hw-stroke);
+  background: rgba(2,6,23,.62);
   backdrop-filter: blur(10px);
-  pointer-events:none;
+  box-shadow: 0 18px 70px rgba(0,0,0,.25);
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--hw-text);
 }
 
-.hw-pill.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.10); }
-.hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.08); }
-.hw-pill.bad{ border-color: rgba(239,68,68,.22); background: rgba(239,68,68,.10); }
+.hw-pill.warn{
+  border-color: rgba(245,158,11,.35);
+  background: rgba(245,158,11,.12);
+}
+.hw-pill.cyan{
+  border-color: rgba(34,211,238,.35);
+  background: rgba(34,211,238,.10);
+}
+.hw-pill.bad{
+  border-color: rgba(244,63,94,.35);
+  background: rgba(244,63,94,.10);
+}
 
 .hw-pill.btn{
-  pointer-events:auto;
+  pointer-events:auto; /* ✅ ปุ่มกดได้ */
   cursor:pointer;
   user-select:none;
-  touch-action: manipulation;
-  background: rgba(15,23,42,.80);
 }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
+/* Quiz box */
+.hw-quiz{
+  margin-top: 10px;
+  border-radius: var(--hw-radius);
+  border: 1px solid rgba(34,211,238,.28);
+  background: rgba(2,6,23,.64);
+  backdrop-filter: blur(10px);
+  padding: 10px 12px;
+  box-shadow: 0 26px 90px rgba(0,0,0,.35);
+  pointer-events:none;
+}
+.hw-quiz-q{
+  font-weight: 950;
+  font-size: 13px;
+  letter-spacing: .2px;
+}
+.hw-quiz-sub{
+  margin-top: 6px;
+  color: rgba(148,163,184,.95);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 /* Banner */
 .hw-banner{
-  margin-top:10px;
-  display:inline-block;
-  max-width:min(820px, 100%);
-  padding:10px 12px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.60);
-  color: rgba(229,231,235,.95);
-  font-weight:900;
-  font-size:13px;
-  opacity:0;
+  margin-top: 10px;
+  border-radius: var(--hw-radius);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+  backdrop-filter: blur(10px);
+  padding: 10px 12px;
+  font-weight: 900;
+  font-size: 13px;
+  opacity: 0;
   transform: translateY(-6px);
-  transition: opacity .18s ease, transform .18s ease;
+  transition: opacity 160ms ease, transform 160ms ease;
   pointer-events:none;
 }
 .hw-banner.show{
-  opacity:1;
+  opacity: 1;
   transform: translateY(0);
 }
 
-/* Quiz box (top area, below pills) */
-.hw-quiz{
-  margin-top:10px;
-  padding:12px 12px;
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.70);
-  max-width:min(920px,100%);
-  pointer-events:none;
-}
-.hw-quiz-q{ font-weight:950; font-size:13px; }
-.hw-quiz-sub{ margin-top:6px; font-size:12px; color: rgba(229,231,235,.92); line-height:1.35; }
-
-/* ---------- Overlays (start/end) ---------- */
-.hw-overlay{
-  position:absolute;
-  inset:0;
-  display:grid;
-  place-items:center;
-  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-  background: rgba(2,6,23,.55);
-  z-index:90;
-}
-
-.hw-card{
-  width:min(880px, 100%);
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.78);
-  border-radius: var(--r);
-  padding: 16px;
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
-}
-.hw-card-title{ font-weight:950; font-size:18px; }
-.hw-card-sub{ margin-top:8px; font-size:13px; color: rgba(229,231,235,.92); line-height:1.45; }
-
-.hw-card-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-.hw-cta, .hw-ghost{
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  padding: 10px 12px;
-  font-weight:950;
-  cursor:pointer;
-  user-select:none;
-  touch-action: manipulation;
-}
-.hw-cta{
-  background: rgba(34,197,94,.20);
-  border-color: rgba(34,197,94,.28);
-  color: rgba(229,231,235,.98);
-}
-.hw-ghost{
-  background: rgba(15,23,42,.75);
-  color: rgba(229,231,235,.94);
-}
-.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
-
-.hw-pre{
-  margin-top:10px;
-  max-height: 40vh;
-  overflow:auto;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(0,0,0,.25);
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-}
-
-/* ---------- Targets ---------- */
+/* ---------------- Targets ---------------- */
 .hw-tgt{
-  position:absolute;
+  position: fixed;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%, -50%) scale(var(--s, 1));
-  width: 78px;
-  height: 78px;
+  transform: translate(-50%,-50%) scale(var(--s, 1));
+  width: var(--hw-tgt-size);
+  height: var(--hw-tgt-size);
   border-radius: 999px;
-  border: 2px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.20);
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.40);
   backdrop-filter: blur(8px);
+  box-shadow: var(--hw-tgt-shadow);
+  z-index: var(--z-tgt);
   display:grid;
   place-items:center;
-
   cursor:pointer;
-  pointer-events:auto;
   user-select:none;
-  touch-action: manipulation;
-
-  box-shadow:
-    0 14px 40px rgba(0,0,0,.35),
-    0 0 0 6px rgba(2,6,23,.32);
-
-  animation: hwPop .12s ease;
+  -webkit-tap-highlight-color: transparent;
+  animation: hwPop var(--hw-pop) ease-out;
 }
 
 .hw-tgt .emoji{
-  font-size: 38px;
+  font-size: 34px;
   line-height: 1;
-  filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
 }
 
-.hw-tgt.good{ border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.10); }
-.hw-tgt.wrong{ border-color: rgba(245,158,11,.30); background: rgba(245,158,11,.10); }
-.hw-tgt.haz{ border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
+.hw-tgt.good{
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.10);
+}
+.hw-tgt.wrong{
+  border-color: rgba(245,158,11,.40);
+  background: rgba(245,158,11,.12);
+}
+.hw-tgt.haz{
+  border-color: rgba(244,63,94,.40);
+  background: rgba(244,63,94,.12);
+}
 
-.hw-tgt:active{ transform: translate(-50%, -50%) scale(calc(var(--s,1) * 0.97)); }
+.hw-tgt:active{ transform: translate(-50%,-50%) scale(calc(var(--s, 1) * .98)); }
 
 @keyframes hwPop{
-  from{ transform: translate(-50%, -50%) scale(calc(var(--s,1) * .90)); opacity:.85; }
-  to  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
+  from{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78)); }
+  to{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* ---------- View presets: set spawn safe-zone ---------- */
-/* PC: HUD ไม่สูงมาก */
+/* ---------------- Overlays ---------------- */
+.hw-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: grid;
+  place-items: center;
+  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+  background: radial-gradient(900px 420px at 50% 0%, rgba(34,211,238,.14), transparent 65%),
+              rgba(2,6,23,.55);
+  backdrop-filter: blur(8px);
+}
+
+.hw-card{
+  width: min(820px, 100%);
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.72);
+  border-radius: var(--hw-radius);
+  padding: 16px;
+  box-shadow: 0 26px 110px rgba(0,0,0,.55);
+}
+
+.hw-card-title{
+  font-weight: 950;
+  font-size: 18px;
+  letter-spacing: .2px;
+}
+.hw-card-sub{
+  margin-top: 8px;
+  color: rgba(148,163,184,.95);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.hw-card-row{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.hw-cta, .hw-ghost{
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(15,23,42,.70);
+  color: rgba(229,231,235,.98);
+  padding: 10px 12px;
+  font-weight: 950;
+  cursor: pointer;
+}
+.hw-cta{
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.18);
+}
+.hw-ghost{ background: rgba(15,23,42,.60); }
+.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
+
+.hw-pre{
+  margin-top: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(0,0,0,.28);
+  padding: 10px 12px;
+  max-height: 38vh;
+  overflow:auto;
+  color: rgba(229,231,235,.95);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* ---------------- View tuning ---------------- */
+/* PC default */
 body.view-pc{
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 140px;
+  --hw-top-safe: 190px;
+  --hw-bottom-safe: 160px;
+  --hw-tgt-size: 86px;
 }
 
-/* Mobile portrait: HUD ซ้อนหลายแถว -> เพิ่ม top safe */
+/* Mobile: HUD ชิดขึ้น + target ใหญ่ขึ้นนิด */
 body.view-mobile{
-  --hw-top-safe: 230px;
-  --hw-bottom-safe: 170px;
+  --hw-top-safe: 210px;
+  --hw-bottom-safe: 150px;
+  --hw-tgt-size: 92px;
 }
+body.view-mobile .hw-title{ font-size: 18px; }
+body.view-mobile .hw-pill{ font-size: 12px; padding: 9px 12px; }
 
-/* VR: เว้นปุ่ม VR UI ด้านล่างเพิ่ม */
+/* VR (cardboard/webxr enter vr): ยก safe zone เพื่อไม่ชน HUD */
 body.view-vr{
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 210px;
+  --hw-top-safe: 220px;
+  --hw-bottom-safe: 170px;
+  --hw-tgt-size: 92px;
 }
 
-/* cVR: เว้นปุ่มล่าง + crosshair */
+/* cVR strict: HUD เล็กลงอีก + เปิดพื้นที่กลางจอมากสุด */
 body.view-cvr{
-  --hw-top-safe: 200px;
-  --hw-bottom-safe: 230px;
+  --hw-top-safe: 170px;
+  --hw-bottom-safe: 145px;
+  --hw-tgt-size: 92px;
+}
+body.view-cvr .hw-pill{ font-size: 11px; padding: 8px 10px; }
+body.view-cvr .hw-sub{ font-size: 11px; }
+
+/* Small screens */
+@media (max-width: 380px){
+  :root{ --hw-tgt-size: 88px; }
+  body.view-mobile{ --hw-top-safe: 225px; }
 }
 
-/* Extra responsive tweaks */
-@media (max-width: 420px){
-  .hw-pill{ padding:9px 10px; font-size:12px; }
-  .hw-title{ font-size:17px; }
-  .hw-tgt{ width:74px; height:74px; }
-  .hw-tgt .emoji{ font-size:36px; }
-  body.view-mobile{ --hw-top-safe: 250px; }
+/* Landscape phones: ลด top safe ให้มีพื้นที่เล่น */
+@media (max-height: 520px) and (orientation: landscape){
+  body.view-mobile{
+    --hw-top-safe: 150px;
+    --hw-bottom-safe: 120px;
+  }
+  .hw-sub{ display:none; }
 }
 
-@media (max-height: 680px){
-  /* กันจอเตี้ยแล้ว top safe กินเยอะจนไม่มีพื้นที่เล่น */
-  body.view-mobile{ --hw-top-safe: 210px; }
-  body.view-cvr{ --hw-top-safe: 185px; }
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hw-tgt{ animation: none; }
+  .hw-banner{ transition: none; }
 }
-
-/* Make sure VR UI buttons are above everything but not blocking touches on gameplay */
-#hhaVrUiRoot{ z-index: 120 !important; }
-#hhaCrosshair{ z-index: 130 !important; }
