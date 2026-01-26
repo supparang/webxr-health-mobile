@@ -1,321 +1,210 @@
 // === /herohealth/vr/calibration-helper.js ===
-// HeroHealth — Calibration + Recenter Helper (Cardboard/cVR friendly)
-// - Stores a small offset (dx,dy) applied to "centerPoint" aiming.
-// - Provides UI overlay: Calibrate + Recenter + Reset
-// - Deterministic storage key per gameMode (default "herohealth")
+// HHA Calibration Helper — PRODUCTION (Pack 13)
+// ✅ Cardboard/VR/cVR calibration overlay (simple, kid-friendly)
+// ✅ One-tap "Recenter now" (best-effort)
+// ✅ Auto-show on first user gesture when view=vr/cvr (unless disabled)
+// ✅ Rate-limited (won't spam), remembers "dismissed" for this session
+// ✅ Exposes: window.HHACalib = { show, hide, recenter, prime }
+//
+// Notes:
+// - Works with vr-ui.js (ENTER VR / RECENTER button) but can run standalone.
+// - Recenter is "best-effort": triggers WebXR reference-space reset when possible,
+//   and also dispatches a generic event for your engine to handle if needed.
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document;
 
-  const Cal = {
-    keyBase: 'HHA_CAL_',
-    state: { dx:0, dy:0 }, // px
-    enabled: true
+  const WIN = window;
+  const DOC = document;
+
+  if(WIN.__HHA_CALIB_LOADED__) return;
+  WIN.__HHA_CALIB_LOADED__ = true;
+
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+  const STATE = {
+    mounted:false,
+    visible:false,
+    dismissed:false,
+    lastShowAt:0,
+    cooldownMs: 8000
   };
 
-  function qs(k, d=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; }
+  function isVRView(){
+    const v = String(qs('view','') || '').toLowerCase();
+    return (v === 'vr' || v === 'cvr' || v === 'view-cvr' || v === 'cardboard');
   }
 
-  function gameKey(){
-    return String(qs('gameMode', qs('game','hydration')) || 'herohealth').toLowerCase();
-  }
+  function el(id){ return DOC.getElementById(id); }
 
-  function storageKey(){
-    return Cal.keyBase + gameKey();
-  }
-
-  function load(){
-    try{
-      const raw = localStorage.getItem(storageKey());
-      if (!raw) return;
-      const obj = JSON.parse(raw);
-      Cal.state.dx = Number(obj.dx)||0;
-      Cal.state.dy = Number(obj.dy)||0;
-    }catch(_){}
-  }
-
-  function save(){
-    try{
-      localStorage.setItem(storageKey(), JSON.stringify({ dx: Cal.state.dx, dy: Cal.state.dy }));
-    }catch(_){}
-  }
-
-  function set(dx,dy){
-    Cal.state.dx = clamp(dx, -120, 120);
-    Cal.state.dy = clamp(dy, -120, 120);
-    save();
-    emit('hha:recenter', { dx:Cal.state.dx, dy:Cal.state.dy, game:gameKey() });
-  }
-
-  function recenter(){
-    // "recenter" = set offset to 0 (or keep, if you want to "freeze current")
-    set(0,0);
-  }
-
-  function reset(){
-    try{ localStorage.removeItem(storageKey()); }catch(_){}
-    Cal.state.dx=0; Cal.state.dy=0;
-    emit('hha:recenter', { dx:0, dy:0, reset:true, game:gameKey() });
-  }
-
-  function get(){
-    return { dx: Cal.state.dx, dy: Cal.state.dy };
-  }
-
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
-
-  // ---------- UI ----------
-  function ensureStyles(){
-    if (DOC.getElementById('hha-cal-style')) return;
-    const st = DOC.createElement('style');
-    st.id = 'hha-cal-style';
-    st.textContent = `
-      .hha-cal-backdrop{
-        position:fixed; inset:0; z-index:150;
-        background:rgba(2,6,23,.78);
-        backdrop-filter: blur(10px);
-        display:flex; align-items:center; justify-content:center;
-        padding: calc(14px + env(safe-area-inset-top,0px))
-                 calc(14px + env(safe-area-inset-right,0px))
-                 calc(14px + env(safe-area-inset-bottom,0px))
-                 calc(14px + env(safe-area-inset-left,0px));
-      }
-      .hha-cal-card{
-        width:min(920px, 100%);
-        border-radius:22px;
-        border:1px solid rgba(148,163,184,.18);
-        background:rgba(2,6,23,.72);
-        box-shadow: 0 24px 90px rgba(0,0,0,.55);
-        padding:16px;
-        color:#e5e7eb;
-        font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      }
-      .hha-cal-top{
-        display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
-      }
-      .hha-cal-title{
-        margin:0; font-size:16px; font-weight:900; letter-spacing:.2px;
-      }
-      .hha-cal-sub{
-        margin:6px 0 0 0;
-        font-size:12px; line-height:1.35;
-        color:rgba(148,163,184,.95);
-        white-space:pre-line;
-      }
-      .hha-cal-grid{
-        margin-top:14px;
-        display:grid;
-        grid-template-columns: 1fr 1fr;
-        gap:12px;
-      }
-      .hha-cal-pane{
-        border-radius:18px;
-        border:1px solid rgba(148,163,184,.16);
-        background:rgba(15,23,42,.55);
-        padding:12px;
-      }
-      .hha-cal-aim{
-        position:relative;
-        width:100%;
-        aspect-ratio: 16/10;
-        border-radius:16px;
-        border:1px solid rgba(148,163,184,.18);
-        overflow:hidden;
-        background:
-          radial-gradient(circle at 50% 50%, rgba(34,211,238,.10), transparent 55%),
-          radial-gradient(circle at 10% 15%, rgba(34,197,94,.08), transparent 55%),
-          rgba(2,6,23,.55);
-      }
-      .hha-cal-center{
-        position:absolute;
-        left:50%; top:50%;
-        transform:translate(-50%,-50%);
-        width:22px; height:22px;
-        border-radius:999px;
-        border:2px solid rgba(229,231,235,.85);
-        box-shadow: 0 10px 30px rgba(0,0,0,.55);
-      }
-      .hha-cal-dot{
-        position:absolute;
-        left:50%; top:50%;
-        transform:translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--dy,0px)));
-        width:8px; height:8px;
-        border-radius:999px;
-        background:rgba(34,211,238,.95);
-        box-shadow: 0 12px 30px rgba(0,0,0,.55);
-      }
-      .hha-cal-cross{
-        position:absolute; inset:0;
-        background:
-          linear-gradient(to right, transparent 49.7%, rgba(148,163,184,.28) 50%, transparent 50.3%),
-          linear-gradient(to bottom, transparent 49.7%, rgba(148,163,184,.28) 50%, transparent 50.3%);
-        opacity:.8;
-        pointer-events:none;
-      }
-      .hha-cal-controls{
-        display:flex; flex-wrap:wrap; gap:10px;
-        margin-top:10px;
-      }
-      .hha-btn{
-        appearance:none; border:1px solid rgba(148,163,184,.18);
-        background:rgba(15,23,42,.62);
-        color:#e5e7eb;
-        padding:10px 12px;
-        border-radius:14px;
-        font-weight:900; font-size:13px;
-        cursor:pointer; user-select:none;
-      }
-      .hha-btn.primary{ border-color: rgba(34,197,94,.26); background: rgba(34,197,94,.16); }
-      .hha-btn.cyan{ border-color: rgba(34,211,238,.26); background: rgba(34,211,238,.12); }
-      .hha-btn.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.14); }
-      .hha-cal-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
-      .hha-cal-row label{ font-size:12px; color:rgba(148,163,184,.95); }
-      .hha-cal-row input[type="range"]{ width:100%; }
-      .hha-cal-val{ font-weight:900; min-width:64px; text-align:right; }
-      .hha-cal-hint{
-        margin-top:10px;
-        font-size:12px; line-height:1.35;
-        color:rgba(229,231,235,.88);
-        white-space:pre-line;
-      }
-    `;
-    DOC.head.appendChild(st);
-  }
-
-  function openUI(){
-    ensureStyles();
-    closeUI(); // ensure single
-
-    DOC.body.classList.add('ui-overlay');
+  function mount(){
+    if(STATE.mounted) return;
+    STATE.mounted = true;
 
     const wrap = DOC.createElement('div');
-    wrap.className = 'hha-cal-backdrop';
-    wrap.id = 'hha-cal-ui';
+    wrap.id = 'hha-calib';
+    wrap.setAttribute('aria-hidden','true');
+    wrap.style.cssText = `
+      position:fixed; inset:0; z-index:9999;
+      display:flex; align-items:center; justify-content:center;
+      padding: env(safe-area-inset-top,0px) env(safe-area-inset-right,0px)
+               env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);
+      pointer-events:none; opacity:0; transition:opacity .18s ease;
+      background: radial-gradient(circle at center, rgba(0,0,0,.42), rgba(0,0,0,.62));
+      font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    `;
+
     wrap.innerHTML = `
-      <div class="hha-cal-card">
-        <div class="hha-cal-top">
-          <div>
-            <h3 class="hha-cal-title">🎛️ Calibration / Recenter (Cardboard & cVR)</h3>
-            <div class="hha-cal-sub">จูนจุดเล็งให้อยู่ “กลางสายตา”
-• ถ้าเป้ารู้สึกเบี้ยว/หลุดกลาง: ปรับ Offset
-• cVR: ยิงจาก crosshair กลางจอ → Offset ช่วยให้ตรงขึ้น
-• Cardboard: ช่วยแก้อาการจอกึ่งกลางไม่พอดี</div>
+      <div id="hha-calib-card" style="
+        width:min(720px, 94vw);
+        border-radius:22px;
+        border:1px solid rgba(148,163,184,.22);
+        background: rgba(2,6,23,.76);
+        box-shadow: 0 18px 55px rgba(0,0,0,.55);
+        padding:14px;
+        pointer-events:auto;
+        color:#e5e7eb;
+      ">
+        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+          <div style="font-weight:1200; font-size:16px;">
+            🎯 ตั้งท่าก่อนเริ่ม (Calibration)
           </div>
-          <button class="hha-btn" id="hhaCalClose">✖ Close</button>
+          <button id="hha-calib-close" type="button" style="
+            height:38px; padding:0 12px;
+            border-radius:14px; border:1px solid rgba(148,163,184,.22);
+            background: rgba(15,23,42,.55);
+            color:#e5e7eb; font-weight:1100; cursor:pointer;
+          ">ปิด</button>
         </div>
 
-        <div class="hha-cal-grid">
-          <div class="hha-cal-pane">
-            <div class="hha-cal-aim" id="hhaCalAim">
-              <div class="hha-cal-cross"></div>
-              <div class="hha-cal-center"></div>
-              <div class="hha-cal-dot" id="hhaCalDot"></div>
-            </div>
+        <div style="margin-top:10px; font-weight:900; color:rgba(229,231,235,.92); line-height:1.45; font-size:13px;">
+          1) จับมือถือให้อยู่กึ่งกลางหน้า / ใส่แว่นให้พอดี<br/>
+          2) มองตรงไปข้างหน้า แล้วกด <b>Recenter</b><br/>
+          3) ถ้า HUD บัง: กด <b>Hide HUD</b> (หรือขยับหัวให้พ้น HUD)
+        </div>
 
-            <div class="hha-cal-row">
-              <label>Offset X</label>
-              <div class="hha-cal-val"><span id="hhaCalDx">0</span>px</div>
-            </div>
-            <input type="range" min="-80" max="80" step="1" id="hhaCalDxRange" />
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="hha-calib-recenter" type="button" style="
+            height:44px; padding:0 14px;
+            border-radius:16px; border:1px solid rgba(34,197,94,.40);
+            background: rgba(34,197,94,.16);
+            color:#eafff3; font-weight:1200; cursor:pointer;
+          ">✅ Recenter now</button>
 
-            <div class="hha-cal-row">
-              <label>Offset Y</label>
-              <div class="hha-cal-val"><span id="hhaCalDy">0</span>px</div>
-            </div>
-            <input type="range" min="-80" max="80" step="1" id="hhaCalDyRange" />
+          <button id="hha-calib-tryfs" type="button" style="
+            height:44px; padding:0 14px;
+            border-radius:16px; border:1px solid rgba(148,163,184,.22);
+            background: rgba(15,23,42,.55);
+            color:#e5e7eb; font-weight:1100; cursor:pointer;
+          ">⛶ Fullscreen</button>
 
-            <div class="hha-cal-controls">
-              <button class="hha-btn cyan" id="hhaCalRecenter">🎯 Recenter (0,0)</button>
-              <button class="hha-btn warn" id="hhaCalReset">🧹 Reset Saved</button>
-            </div>
-          </div>
+          <button id="hha-calib-dismiss" type="button" style="
+            height:44px; padding:0 14px;
+            border-radius:16px; border:1px solid rgba(148,163,184,.22);
+            background: rgba(15,23,42,.55);
+            color:#e5e7eb; font-weight:1100; cursor:pointer;
+          ">อย่าแสดงอีก (รอบนี้)</button>
+        </div>
 
-          <div class="hha-cal-pane">
-            <div class="hha-cal-hint">
-วิธีทำให้เร็ว (แนะนำเด็กทำเอง):
-1) ใส่ Cardboard → มอง “จุดฟ้า” ให้ตรงกลางวง
-2) ถ้าจุดฟ้าไปซ้าย → ปรับ X ไปขวา (เพิ่มค่า)
-3) ถ้าจุดฟ้าไปบน → ปรับ Y ลง (ลดค่า)
-4) เสร็จแล้ว Close แล้วเล่นต่อ
-
-ทิป:
-• ถ้าคนละเครื่อง: ค่า Offset จะต่างกันเล็กน้อย
-• ถ้ากด Fullscreen แล้วภาพเบี้ยว: เปิด Calibration อีกครั้งและจูนใหม่
-            </div>
-
-            <div class="hha-cal-controls">
-              <button class="hha-btn primary" id="hhaCalSaveClose">✅ Save & Close</button>
-              <button class="hha-btn" id="hhaCalClose2">Close</button>
-            </div>
-          </div>
+        <div id="hha-calib-note" style="
+          margin-top:10px; font-size:11px; font-weight:900;
+          color: rgba(148,163,184,.92);
+          line-height:1.35;
+        ">
+          ทิป: ถ้าเป็น <b>cVR</b> ให้เล็งด้วยเป้ากลางจอแล้วยิง (ไม่ต้องแตะเป้า)
         </div>
       </div>
     `;
+
     DOC.body.appendChild(wrap);
 
-    const dot = DOC.getElementById('hhaCalDot');
-    const dxR = DOC.getElementById('hhaCalDxRange');
-    const dyR = DOC.getElementById('hhaCalDyRange');
-    const dxT = DOC.getElementById('hhaCalDx');
-    const dyT = DOC.getElementById('hhaCalDy');
+    el('hha-calib-close')?.addEventListener('click', hide);
+    el('hha-calib-dismiss')?.addEventListener('click', ()=>{
+      STATE.dismissed = true;
+      hide();
+    });
 
-    const cur = get();
-    dxR.value = String(cur.dx|0);
-    dyR.value = String(cur.dy|0);
+    el('hha-calib-tryfs')?.addEventListener('click', async ()=>{
+      try{
+        // integrate with ViewHelper if available
+        if(WIN.HHAView && typeof WIN.HHAView.requestImmersion === 'function'){
+          await WIN.HHAView.requestImmersion({ preferLandscape:true });
+        }else{
+          // fallback fullscreen
+          const root = DOC.documentElement;
+          if(!DOC.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
+        }
+      }catch(_){}
+    });
 
-    function render(){
-      const dx = Number(dxR.value)||0;
-      const dy = Number(dyR.value)||0;
-      dxT.textContent = String(dx);
-      dyT.textContent = String(dy);
-      if (dot){
-        dot.style.setProperty('--dx', dx+'px');
-        dot.style.setProperty('--dy', dy+'px');
+    el('hha-calib-recenter')?.addEventListener('click', recenter);
+  }
+
+  function show(){
+    if(STATE.dismissed) return;
+    const t = Date.now();
+    if(t - STATE.lastShowAt < STATE.cooldownMs) return;
+    STATE.lastShowAt = t;
+
+    mount();
+    const w = el('hha-calib');
+    if(!w) return;
+
+    w.setAttribute('aria-hidden','false');
+    w.style.opacity = '1';
+    w.style.pointerEvents = 'auto';
+    STATE.visible = true;
+  }
+
+  function hide(){
+    const w = el('hha-calib');
+    if(!w) return;
+
+    w.setAttribute('aria-hidden','true');
+    w.style.opacity = '0';
+    w.style.pointerEvents = 'none';
+    STATE.visible = false;
+  }
+
+  async function recenter(){
+    // 1) ask vr-ui.js to recenter if it exposed anything (not required)
+    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'calib' } })); }catch(_){}
+
+    // 2) best-effort WebXR reference space reset if scene exists
+    try{
+      const scene = DOC.querySelector('a-scene');
+      const xr = scene && scene.renderer && scene.renderer.xr;
+      if(xr && xr.getSession){
+        const sess = xr.getSession();
+        if(sess && sess.requestReferenceSpace){
+          // "local" reference space refresh attempt
+          await sess.requestReferenceSpace('local');
+        }
       }
-      set(dx,dy);
-    }
+    }catch(_){}
 
-    dxR.addEventListener('input', render);
-    dyR.addEventListener('input', render);
+    // tiny feedback: auto-hide after recenter
+    try{ setTimeout(hide, 450); }catch(_){}
+  }
 
-    DOC.getElementById('hhaCalRecenter')?.addEventListener('click', ()=>{
-      dxR.value='0'; dyR.value='0'; render();
-    });
-    DOC.getElementById('hhaCalReset')?.addEventListener('click', ()=>{
-      reset();
-      dxR.value='0'; dyR.value='0';
-      // do NOT call render() here (reset already emits)
-      if (dot){ dot.style.setProperty('--dx','0px'); dot.style.setProperty('--dy','0px'); }
-      dxT.textContent='0'; dyT.textContent='0';
-    });
+  function prime(){
+    // show on first gesture ONLY when VR-ish view
+    if(!isVRView()) return;
 
-    const close = ()=>{
-      closeUI();
-      // if game is running, remove overlay
-      try{ DOC.body.classList.remove('ui-overlay'); }catch(_){}
+    const once = ()=>{
+      DOC.removeEventListener('pointerdown', once, true);
+      // only show if not already hidden by user
+      show();
     };
-
-    DOC.getElementById('hhaCalClose')?.addEventListener('click', close);
-    DOC.getElementById('hhaCalClose2')?.addEventListener('click', close);
-    DOC.getElementById('hhaCalSaveClose')?.addEventListener('click', close);
-
-    // initial dot
-    render();
+    DOC.addEventListener('pointerdown', once, true);
   }
 
-  function closeUI(){
-    const el = DOC.getElementById('hha-cal-ui');
-    if (el) try{ el.remove(); }catch(_){}
+  WIN.HHACalib = Object.freeze({ show, hide, recenter, prime });
+
+  // auto prime (soft)
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', prime, { once:true });
+  }else{
+    prime();
   }
-
-  // public API
-  load();
-  root.HHA_Calibration = { get, set, recenter, reset, openUI, closeUI, storageKey };
-
-})(typeof window !== 'undefined' ? window : globalThis);
+})();
