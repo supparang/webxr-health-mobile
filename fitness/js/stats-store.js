@@ -2,15 +2,10 @@
 'use strict';
 
 const KEY = 'vrfitness_stats_v1';
-const MAX = 100;
+const MAX_KEEP = 100;
 
-function safeParse(raw) {
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
+function safeParse(raw, fallback) {
+  try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
 }
 
 /**
@@ -20,21 +15,15 @@ function safeParse(raw) {
  */
 export function recordSession(gameId, summary) {
   try {
-    if (!gameId) return;
-
     const now = Date.now();
-    const item = {
-      gameId: String(gameId),
-      ts: now,
-      ...(summary && typeof summary === 'object' ? summary : {})
-    };
+    const item = { gameId, ts: now, ...summary };
 
     const raw = localStorage.getItem(KEY);
-    const list = raw ? safeParse(raw) : [];
-    list.unshift(item);
+    const list = safeParse(raw, []);
 
-    // กันข้อมูลพัง/ใหญ่เกิน: เก็บล่าสุด MAX รายการ
-    const trimmed = list.slice(0, MAX);
+    list.unshift(item);
+    const trimmed = list.slice(0, MAX_KEEP); // เก็บสูงสุด 100 รอบล่าสุด
+
     localStorage.setItem(KEY, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('VRFitness: cannot save stats', e);
@@ -43,36 +32,24 @@ export function recordSession(gameId, summary) {
 
 /**
  * โหลดประวัติ session ทั้งหมดจาก localStorage
- * @returns {Array<Object>}
+ * @returns {Array}
  */
 export function loadSessions() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? safeParse(raw) : [];
+    return safeParse(raw, []);
   } catch {
     return [];
   }
 }
 
 /**
- * ล้างสถิติทั้งหมด (ใช้ตอน debug)
+ * (เสริม) ล้างประวัติทั้งหมด
  */
 export function clearSessions() {
   try {
     localStorage.removeItem(KEY);
-  } catch {}
-}
-
-/**
- * ดึง session ล่าสุดของเกมที่กำหนด
- * @param {string} gameId
- * @returns {Object|null}
- */
-export function getLatestSession(gameId) {
-  const list = loadSessions();
-  const gid = String(gameId || '');
-  for (const it of list) {
-    if (it && it.gameId === gid) return it;
+  } catch (e) {
+    console.warn('VRFitness: cannot clear stats', e);
   }
-  return null;
 }
