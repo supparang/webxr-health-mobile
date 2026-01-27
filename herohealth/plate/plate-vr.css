@@ -1,7 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
    Balanced Plate VR — UI + FX (PRODUCTION)
-   HHA Standard
+   HHA Standard (HUD-safe spawn + emoji target)
 ========================================================= */
 
 :root{
@@ -22,21 +22,25 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe area */
+  /* safe area (OS notch) */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* playfield safe (mode-factory.js reads these) */
-  --plate-top-safe: calc(var(--sat) + 150px);
-  --plate-bottom-safe: calc(var(--sab) + 24px);
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
+  /* ======================================================
+     HUD-safe spawn padding (used by mode-factory.js)
+     ✅ IMPORTANT: these define "no-spawn" areas so targets
+     won't appear behind HUD / overlays.
+     ====================================================== */
+  --plate-top-safe:   calc(var(--sat) + 96px);
+  --plate-bottom-safe:calc(var(--sab) + 140px);
+  --plate-left-safe:  calc(var(--sal) + 16px);
+  --plate-right-safe: calc(var(--sar) + 16px);
 
-  /* hud sizing knobs */
-  --hud-gap: 10px;
-  --hud-maxw: 360px;
+  /* sizing hints */
+  --hud-max-w: 380px;
+  --hud-gap: 12px;
 }
 
 /* ---------------------------------------------------------
@@ -54,10 +58,14 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{ position:fixed; inset:0; }
+#app{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
+}
 
 /* ---------------------------------------------------------
-   Playfield (Targets spawn inside this rect)
+   Spawn Layer (Targets)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -67,16 +75,18 @@ html,body{
   touch-action:none;
 }
 
-/* ✅ IMPORTANT: must be absolute for left/top to work */
+/* target base */
 .plateTarget{
-  position:absolute; /* ✅ FIX: without this => "เป้าไม่โผล่/ไม่ขยับ" */
   display:grid;
   place-items:center;
   border-radius:999px;
-  font-size:28px;
-  font-weight:900;
   user-select:none;
   cursor:pointer;
+
+  /* the important bits for emoji crispness */
+  font-weight:900;
+  line-height:1;
+  text-align:center;
 
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
@@ -88,9 +98,26 @@ html,body{
     inset 0 1px 0 rgba(255,255,255,.08);
 
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
-  will-change: transform;
+  transform-origin:center;
 }
 
+/* emoji inside target (decorateTarget should create this span) */
+.plateTarget .tg-emoji{
+  font-size: clamp(18px, 2.6vw, 30px);
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.22));
+}
+
+/* optional small label under emoji */
+.plateTarget .tg-label{
+  display:block;
+  margin-top:2px;
+  font-size:10px;
+  font-weight:900;
+  color: rgba(229,231,235,.88);
+  text-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+
+/* kind styles */
 .plateTarget[data-kind="good"]{
   border-color:rgba(34,197,94,.35);
   box-shadow:
@@ -104,12 +131,6 @@ html,body{
     0 18px 48px rgba(0,0,0,.32),
     0 0 24px rgba(239,68,68,.18);
   animation-duration:1.2s;
-}
-
-.plateTarget .plateEmoji{
-  line-height:1;
-  transform: translateY(-1px);
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.35));
 }
 
 @keyframes pop{
@@ -126,76 +147,143 @@ html,body{
 }
 
 /* ---------------------------------------------------------
-   HUD
+   HUD (Top-left stack)
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  top: calc(var(--sat) + var(--hud-gap));
-  left: calc(var(--sal) + var(--hud-gap));
   z-index:40;
+  left: calc(12px + var(--sal));
+  top:  calc(12px + var(--sat));
+  width: min(var(--hud-max-w), calc(100vw - 24px - var(--sal) - var(--sar)));
   display:flex;
   flex-direction:column;
-  gap:10px;
-  max-width: min(var(--hud-maxw), calc(100vw - var(--sal) - var(--sar) - 20px));
-  pointer-events:none; /* ✅ let gameplay through */
+  gap: var(--hud-gap);
+  pointer-events:none; /* ✅ HUD should not block play */
 }
 
+#hud *{ pointer-events:auto; } /* allow button clicks if any */
+
+/* HUD row chips */
 .hudRow{
   display:flex;
-  gap:8px;
+  gap:10px;
   align-items:stretch;
-  pointer-events:none;
 }
 
 .chip{
-  pointer-events:none;
-  background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:999px;
-  padding:8px 10px;
+  flex:1;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius);
+  box-shadow:0 18px 60px rgba(0,0,0,.24);
+  backdrop-filter:blur(10px);
+  padding:10px 12px;
   display:flex;
   flex-direction:column;
   gap:2px;
-  min-width:92px;
-  box-shadow:0 14px 40px rgba(0,0,0,.22);
-  backdrop-filter: blur(10px);
 }
-.chip .lbl{ font-size:10px; font-weight:900; color:var(--muted); letter-spacing:.08em; }
-.chip .val{ font-size:16px; font-weight:900; color:var(--text); }
 
+.chip .lbl{
+  font-size:11px;
+  color:var(--muted);
+  font-weight:900;
+  letter-spacing:.4px;
+}
+
+.chip .val{
+  font-size:20px;
+  font-weight:1000;
+  line-height:1.05;
+}
+
+.chip.score .val{ color: var(--accent); }
+.chip.time  .val{ color: var(--cyan); }
+.chip.combo .val{ color: var(--violet); }
+
+/* cards */
 .card,.questCard,.panelCard{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
-  pointer-events:auto; /* ✅ allow scroll/click if needed */
 }
 
-#questCard{ padding:12px; }
-.cardTitle{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.cardTitle .t{ font-weight:900; }
-.cardTitle .hint{ font-size:12px; color:var(--muted); font-weight:800; }
+#questCard{
+  padding:12px 12px 10px;
+}
+
+.cardTitle{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+  margin-bottom:10px;
+}
+
+.cardTitle .t{
+  font-size:14px;
+  font-weight:1000;
+}
+
+.cardTitle .hint{
+  font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+  text-align:right;
+}
 
 .qItem{
   display:flex;
+  gap:10px;
   align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:10px 0;
-  border-top:1px solid rgba(148,163,184,.14);
+  padding:10px 10px;
+  border-radius:14px;
+  background:rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.16);
+  margin-top:8px;
 }
-.qText .name{ font-weight:900; }
-.qText .sub{ font-size:12px; color:var(--muted); font-weight:800; margin-top:2px; }
-.qProg{ min-width:140px; display:flex; flex-direction:column; gap:6px; }
-.qNums{ text-align:right; font-size:12px; color:var(--muted); font-weight:900; }
 
+.qText{
+  flex:1;
+  min-width:0;
+}
+
+.qText .name{
+  font-weight:1000;
+  font-size:12px;
+}
+
+.qText .sub{
+  font-weight:800;
+  font-size:11px;
+  color:var(--muted);
+  margin-top:2px;
+}
+
+.qProg{
+  width:124px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:flex-end;
+}
+
+.qNums{
+  font-size:12px;
+  font-weight:1000;
+  color:rgba(229,231,235,.95);
+}
+
+/* bars */
 .bar{
   height:10px;
+  width:100%;
   border-radius:999px;
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
+
 .bar>i{
   display:block;
   height:100%;
@@ -209,29 +297,75 @@ html,body{
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  right: calc(var(--sar) + 12px);
-  bottom: calc(var(--sab) + 12px);
-  z-index:45;
-  width:min(360px, calc(100vw - var(--sal) - var(--sar) - 24px));
+  z-index:60;
+  left: calc(12px + var(--sal));
+  bottom: calc(12px + var(--sab));
+  width: min(440px, calc(100vw - 24px - var(--sal) - var(--sar)));
+  pointer-events:none;
   opacity:0;
   transform: translateY(10px);
-  pointer-events:none;
   transition: opacity .18s ease, transform .18s ease;
 }
+
 #coachCard.show{
   opacity:1;
-  transform: translateY(0px);
+  transform: translateY(0);
 }
+
 #coachCard .inner{
-  background:rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.76);
+  border:1px solid rgba(148,163,184,.20);
   border-radius:20px;
-  padding:12px 12px;
-  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  box-shadow:0 22px 70px rgba(0,0,0,.34);
   backdrop-filter: blur(10px);
+  padding:12px 14px;
 }
-#coachMsg{ font-weight:900; }
-#coachMeta{ margin-top:6px; font-size:12px; color:var(--muted); font-weight:900; }
+
+#coachMsg{
+  font-size:14px;
+  font-weight:900;
+}
+
+#coachMeta{
+  margin-top:6px;
+  font-size:11px;
+  font-weight:900;
+  color:var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Boss / Storm FX layers (hooks)
+--------------------------------------------------------- */
+#bossFx,#stormFx{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:55;
+  display:none;
+}
+
+#bossFx.boss-on{
+  display:block;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+}
+
+#bossFx.boss-panic{
+  animation:pulseBad .25s infinite;
+}
+
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
+}
+
+@keyframes pulseBad{
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.25) }
+  100%{ filter:brightness(1) }
+}
 
 /* ---------------------------------------------------------
    End Overlay
@@ -239,62 +373,95 @@ html,body{
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index:60;
+  z-index:80;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(var(--sat) + 18px) calc(var(--sar) + 18px) calc(var(--sab) + 18px) calc(var(--sal) + 18px);
-  background:rgba(0,0,0,.55);
-  backdrop-filter: blur(8px);
+  background:rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .18s ease;
+  padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
 }
-#endOverlay[aria-hidden="true"]{ display:none; }
+
+#endOverlay[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
+}
 
 .endPanel{
-  width:min(560px, 100%);
-  background:rgba(2,6,23,.86);
-  border:1px solid rgba(148,163,184,.18);
+  width:min(720px, 100%);
+  background:rgba(2,6,23,.80);
+  border:1px solid rgba(148,163,184,.20);
   border-radius:24px;
-  padding:16px;
-  box-shadow:0 28px 90px rgba(0,0,0,.5);
+  box-shadow:0 26px 90px rgba(0,0,0,.40);
+  padding:18px 18px 16px;
 }
-.endTitle{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
-.endTitle h2{ margin:0; font-size:20px; }
-.endTitle .tag{
-  font-weight:900;
+
+.endTitle{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.endTitle h2{
+  margin:0;
+  font-size:20px;
+  font-weight:1000;
+}
+
+.tag{
   font-size:12px;
+  font-weight:1000;
   padding:6px 10px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.65);
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(15,23,42,.60);
 }
+
 .endGrid{
-  margin-top:12px;
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap:10px;
+  margin-top:10px;
 }
+
 .kpi{
   background:rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:18px;
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:16px;
   padding:10px 12px;
 }
-.kpi .k{ font-size:12px; color:var(--muted); font-weight:900; }
-.kpi .v{ font-size:16px; font-weight:900; margin-top:2px; }
+
+.kpi .k{
+  font-size:11px;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.kpi .v{
+  margin-top:4px;
+  font-size:16px;
+  font-weight:1000;
+}
 
 .endBtns{
-  margin-top:14px;
   display:flex;
   gap:10px;
   justify-content:flex-end;
+  margin-top:14px;
 }
 
+/* buttons */
 .btn{
   appearance:none;
   border:none;
   border-radius:999px;
   padding:10px 14px;
-  font-weight:900;
+  font-weight:1000;
   font-size:12px;
   cursor:pointer;
   color:var(--text);
@@ -302,51 +469,63 @@ html,body{
   border:1px solid rgba(148,163,184,.22);
   backdrop-filter:blur(10px);
 }
+
 .btn.primary{
   background:rgba(34,197,94,.18);
   border-color:rgba(34,197,94,.35);
 }
+
 .btn.warn{
   background:rgba(245,158,11,.18);
   border-color:rgba(245,158,11,.35);
 }
 
 /* ---------------------------------------------------------
-   View tuning (safe zones)
+   Responsive tuning
 --------------------------------------------------------- */
-body.view-pc{
-  --hud-maxw: 360px;
-  --plate-top-safe: calc(var(--sat) + 150px);
-  --plate-bottom-safe: calc(var(--sab) + 24px);
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
-}
-
-body.view-mobile{
-  --hud-maxw: 360px;
-  --plate-top-safe: calc(var(--sat) + 210px);   /* ✅ กัน chip+quest */
-  --plate-bottom-safe: calc(var(--sab) + 90px); /* ✅ กัน coach bubble + bottom UI */
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
-}
-
-body.view-vr, body.view-cvr{
-  --hud-maxw: 360px;
-  --plate-top-safe: calc(var(--sat) + 140px);
-  --plate-bottom-safe: calc(var(--sab) + 24px);
-  --plate-left-safe: calc(var(--sal) + 14px);
-  --plate-right-safe: calc(var(--sar) + 14px);
-}
-
 @media (max-width:900px){
-  .plateTarget{ font-size:24px; }
-  .chip{ min-width:86px; }
-  .endGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  :root{
+    --hud-max-w: 360px;
+    --plate-top-safe:    calc(var(--sat) + 92px);
+    --plate-bottom-safe: calc(var(--sab) + 160px);
+  }
+
+  .chip .val{ font-size:18px; }
+  .qProg{ width:116px; }
+
+  .plateTarget .tg-emoji{
+    font-size: clamp(18px, 7vw, 30px);
+  }
+
+  .endGrid{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
 }
 
-@media (max-width:520px){
-  #hud{ max-width: calc(100vw - var(--sal) - var(--sar) - 20px); }
-  .endGrid{ grid-template-columns:1fr; }
-  .endBtns{ justify-content:stretch; }
-  .endBtns .btn{ flex:1; }
+@media (max-width:420px){
+  :root{
+    --hud-max-w: 340px;
+    --plate-top-safe:    calc(var(--sat) + 104px);
+    --plate-bottom-safe: calc(var(--sab) + 180px);
+  }
+
+  .hudRow{ gap:8px; }
+  .chip{ padding:9px 10px; }
+  .chip .val{ font-size:17px; }
+  .cardTitle .hint{ display:none; } /* บีบสุด ๆ ไม่ให้แน่น */
+}
+
+/* ---------------------------------------------------------
+   View specific tweaks
+--------------------------------------------------------- */
+body.view-cvr{
+  /* cVR มักมีปุ่ม vr-ui อยู่ด้านบน + crosshair กลางจอ */
+  --plate-top-safe:    calc(var(--sat) + 112px);
+  --plate-bottom-safe: calc(var(--sab) + 160px);
+}
+
+body.view-vr{
+  /* Cardboard: เน้นพื้นที่กลางจอ */
+  --plate-top-safe:    calc(var(--sat) + 108px);
+  --plate-bottom-safe: calc(var(--sab) + 160px);
 }
