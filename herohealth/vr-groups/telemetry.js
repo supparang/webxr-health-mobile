@@ -1,15 +1,15 @@
 // === /herohealth/vr-groups/telemetry.js ===
-// GroupsVR Telemetry (PACK 13) — PRODUCTION v3
-// ✅ Modes: off | lite | full  (persist LS + ?telemetry=off|lite|full)
+// GroupsVR Telemetry (PACK 13.9) — PRODUCTION v4
+// ✅ Modes: off | lite | full (persist LS + ?telemetry=off|lite|full)
 // ✅ Gated: research/practice => OFF hard
-// ✅ Throttle per event + batch send (no spam)
-// ✅ Recovery: unsent batches saved to localStorage, resent on next load
-// ✅ Flush-hardened: pagehide/hidden/freeze/beforeunload flushNow()
-// ✅ Export pending: Telemetry.exportPending()
-// ✅ Sampling (FULL): ลด event หนักๆ เช่น spawn/hit/expire
-//    - Default sample rates in CFG.sample
-//    - Override via ?teleSample=spawn:0.2,hit:0.25,expire:0.15 (0..1)
-// ✅ API: getQueueSize(), getQueueBatches(), clearQueue(), getConfig()
+// ✅ Throttle + batch send + localStorage queue
+// ✅ Flush-hardened: pagehide/hidden/freeze/beforeunload => flushNow()
+// ✅ Recovery: keep unsent batches, resend on next load/online
+// ✅ Sampling for FULL-heavy events, override: ?teleSample=spawn:0.2,hit:0.25,expire:0.15,judge:0.3
+// ✅ NEW: Status heartbeat event: groups:telemetry_status (for HUD health)
+// ✅ NEW: Telemetry.resendNow(), Telemetry.getLastStatus(), Telemetry.setHudHook(fn)
+
+// NOTE: endpoint uses ?log=... (same convention as flush-log), optional.
 
 (function (root) {
   'use strict';
@@ -50,9 +50,9 @@
   function frac01(u32){ return (u32 >>> 0) / 4294967296; }
 
   // ---------------- storage keys ----------------
-  const LS_MODE  = 'HHA_TELEMETRY_MODE_GroupsVR';   // 'off'|'lite'|'full'
-  const LS_QUEUE = 'HHA_TELEMETRY_QUEUE_GroupsVR';  // array of batches
-  const LS_SEQ   = 'HHA_TELEMETRY_SEQ_GroupsVR';    // seq counter
+  const LS_MODE  = 'HHA_TELEMETRY_MODE_GroupsVR';
+  const LS_QUEUE = 'HHA_TELEMETRY_QUEUE_GroupsVR';
+  const LS_SEQ   = 'HHA_TELEMETRY_SEQ_GroupsVR';
 
   // ---------------- state ----------------
   const Telemetry = NS.Telemetry = NS.Telemetry || {};
@@ -78,27 +78,34 @@
       'groups:expire': 160,
       'hha:judge': 80
     },
-    // ✅ Sampling for FULL-heavy events (0..1)
-    // NOTE: lite ignores these (because lite doesn't record full-level anyway)
     sample: {
       'groups:spawn': 0.22,
       'groups:hit': 0.30,
       'groups:expire': 0.18,
       'hha:judge': 0.35
     },
-    ui: { hudId: 'vTele' }       // optional <span id="vTele">
+    statusEveryMs: 850,
   };
 
   let _batch = [];
   let _flushIt = 0;
+  let _statusIt = 0;
   let _inFlight = false;
   let _lastEventAt = Object.create(null);
   let _seq = loadSeq();
   let _installed = false;
   let _eventsAttached = false;
 
-  // deterministic sampling counter per event
   let _sampleCounter = Object.create(null);
+
+  // status
+  let _lastSentAt = 0;
+  let _lastFailAt = 0;
+  let _lastSendResult = 'idle';
+  let _lastStatus = null;
+
+  // optional HUD hook callback
+  let _hudHook = null;
 
   // ---------------- public API ----------------
   Telemetry.init = function init(opt){
@@ -111,13 +118,11 @@
     CFG.flushEveryMs = clamp(opt.flushEveryMs ?? CFG.flushEveryMs, 600, 6000);
     CFG.maxEventsPerBatch = clamp(opt.maxEventsPerBatch ?? CFG.maxEventsPerBatch, 20, 120);
     CFG.maxQueueBatches = clamp(opt.maxQueueBatches ?? CFG.maxQueueBatches, 6, 30);
+    CFG.statusEveryMs = clamp(opt.statusEveryMs ?? CFG.statusEveryMs, 350, 2500);
 
-    // sampling override
     applySampleOverrideFromQuery();
 
-    // mode resolution:
-    // 1) research/practice => OFF hard
-    // 2) ?telemetry=... (for play only) else localStorage else default 'lite'
+    // mode resolution
     let mode = 'lite';
     const q  = String(qs('telemetry','')||'').toLowerCase().trim();
     const ls = String(loadMode()||'').toLowerCase().trim();
@@ -131,8 +136,8 @@
     attachEventListeners();
     tryResendQueue();
     startTimer();
+    startStatusHeartbeat();
     installLeaveFlush();
-    updateHudMode();
 
     return true;
   };
@@ -140,7 +145,7 @@
   Telemetry.setMode = function setMode(mode){
     mode = String(mode||'').toLowerCase();
     if (!(mode === 'off' || mode === 'lite' || mode === 'full')) mode = 'lite';
-    if (CFG.runMode !== 'play') mode = 'off'; // hard gate
+    if (CFG.runMode !== 'play') mode = 'off';
     setModeInternal(mode, false);
   };
 
@@ -155,8 +160,17 @@
       flushEveryMs: CFG.flushEveryMs,
       maxEventsPerBatch: CFG.maxEventsPerBatch,
       maxQueueBatches: CFG.maxQueueBatches,
-      sample: Object.assign({}, CFG.sample)
+      sample: Object.assign({}, CFG.sample),
+      statusEveryMs: CFG.statusEveryMs
     };
+  };
+
+  Telemetry.setHudHook = function setHudHook(fn){
+    _hudHook = (typeof fn === 'function') ? fn : null;
+  };
+
+  Telemetry.getLastStatus = function getLastStatus(){
+    return _lastStatus;
   };
 
   Telemetry.getQueueBatches = function getQueueBatches(){
@@ -175,16 +189,40 @@
     return true;
   };
 
+  Telemetry.exportPending = function exportPending(){
+    const q = loadQueue();
+    let ev = 0;
+    for (const b of q) ev += (b && b.events && b.events.length) ? b.events.length : 0;
+
+    const payload = {
+      exportedAt: isoNow(),
+      gameTag: 'GroupsVR',
+      runMode: CFG.runMode,
+      mode: CFG.mode,
+      endpoint: CFG.endpoint,
+      sample: Object.assign({}, CFG.sample),
+      pending: { batches: q.length, events: ev },
+      queueBatches: q
+    };
+    return safeJson(payload, '{"error":"export_failed"}');
+  };
+
+  Telemetry.resendNow = async function resendNow(){
+    if (_batch.length) packBatch('manual');
+    const r = await sendQueued('manual');
+    publishStatus('manual');
+    return r;
+  };
+
   Telemetry.push = function push(name, detail, level){
     if (!CFG.enabled) return false;
 
     name = String(name||'evt');
     const t = nowMs();
 
-    // mode gate
     if (CFG.mode === 'lite' && level === 'full') return false;
 
-    // sampling for FULL-heavy events
+    // sampling for FULL-heavy
     if (level === 'full' && CFG.mode === 'full') {
       const rate = Number(CFG.sample[name]);
       if (isFinite(rate)) {
@@ -192,7 +230,7 @@
       }
     }
 
-    // throttle (after sampling)
+    // throttle
     const thr  = Number(CFG.throttle[name] ?? 0) || 0;
     const last = Number(_lastEventAt[name] || 0) || 0;
     if (thr > 0 && (t - last) < thr) return false;
@@ -210,25 +248,9 @@
   Telemetry.flushNow = async function flushNow(reason){
     reason = String(reason||'flush');
     packBatch(reason);
-    return await sendQueued('flushNow');
-  };
-
-  Telemetry.exportPending = function exportPending(){
-    const q = loadQueue();
-    let ev = 0;
-    for (const b of q) ev += (b && b.events && b.events.length) ? b.events.length : 0;
-
-    const payload = {
-      exportedAt: isoNow(),
-      gameTag: 'GroupsVR',
-      runMode: CFG.runMode,
-      mode: CFG.mode,
-      endpoint: CFG.endpoint,
-      sample: Object.assign({}, CFG.sample),
-      pending: { batches: q.length, events: ev },
-      queueBatches: q
-    };
-    return safeJson(payload, '{"error":"export_failed"}');
+    const r = await sendQueued('flushNow');
+    publishStatus('flushNow');
+    return r;
   };
 
   // ---------------- internal helpers ----------------
@@ -287,25 +309,15 @@
     CFG.mode = mode;
     CFG.enabled = (mode !== 'off' && CFG.runMode === 'play');
     saveMode(mode);
-    updateHudMode();
 
-    if (!silent) {
-      try { root.dispatchEvent(new CustomEvent('groups:telemetry_mode', { detail:{ mode } })); } catch (_) {}
-    }
-  }
+    if (!silent) publishStatus('mode_change');
 
-  function updateHudMode(){
-    try{
-      const id = CFG.ui && CFG.ui.hudId;
-      if (!id) return;
-      const el = DOC.getElementById(id);
-      if (!el) return;
-      el.textContent = (CFG.enabled ? CFG.mode.toUpperCase() : 'OFF');
-    }catch(_){}
+    try { root.dispatchEvent(new CustomEvent('groups:telemetry_mode', { detail:{ mode } })); } catch (_) {}
   }
 
   function packBatch(reason){
     if (!_batch.length) return;
+
     const seq  = bumpSeq();
     const seed = String(qs('seed','')||'');
     const diff = String(qs('diff','')||'');
@@ -313,7 +325,7 @@
     const style= String(qs('style','')||'');
 
     const batch = {
-      v: 3,
+      v: 4,
       kind: 'telemetry',
       gameTag: 'GroupsVR',
       runMode: CFG.runMode,
@@ -335,6 +347,7 @@
   function flushSoon(reason){
     packBatch(reason || 'soon');
     sendQueued('flushSoon').catch(()=>{});
+    publishStatus('flushSoon');
   }
 
   async function sendQueued(reason){
@@ -360,9 +373,15 @@
     }
 
     if (sent > 0){
+      _lastSentAt = nowMs();
+      _lastSendResult = 'ok';
       const nq = loadQueue().slice(sent);
       saveQueue(nq);
+    } else {
+      _lastFailAt = nowMs();
+      _lastSendResult = 'fail';
     }
+
     return { ok: sent>0, sent, reason: String(reason||'send') };
   }
 
@@ -397,15 +416,17 @@
   function startTimer(){
     clearInterval(_flushIt);
     _flushIt = setInterval(()=>{
-      if (!CFG.enabled) return;
+      if (!CFG.enabled) { publishStatus('tick_off'); return; }
       if (_batch.length) packBatch('tick');
       sendQueued('tick').catch(()=>{});
+      publishStatus('tick');
     }, CFG.flushEveryMs);
   }
 
   function tryResendQueue(){
     if (!CFG.endpoint) return;
     sendQueued('init').catch(()=>{});
+    publishStatus('init');
   }
 
   // ---------------- sampling ----------------
@@ -424,7 +445,6 @@
     const s = String(qs('teleSample','')||'').trim();
     if (!s) return;
 
-    // teleSample format: "spawn:0.2,hit:0.25,expire:0.15,judge:0.3"
     const map = {
       spawn: 'groups:spawn',
       hit: 'groups:hit',
@@ -441,6 +461,40 @@
       const evt = map[k] || '';
       if (evt) CFG.sample[evt] = v;
     }
+  }
+
+  // ---------------- status heartbeat ----------------
+  function publishStatus(tag){
+    const q = loadQueue();
+    let ev = 0;
+    for (const b of q) ev += (b && b.events && b.events.length) ? b.events.length : 0;
+
+    const st = _lastStatus = {
+      t: nowMs(),
+      tag: String(tag||'status'),
+      enabled: !!CFG.enabled,
+      mode: CFG.mode,
+      runMode: CFG.runMode,
+      endpoint: !!CFG.endpoint,
+      inFlight: !!_inFlight,
+      pendingBatches: q.length,
+      pendingEvents: ev,
+      lastSentMsAgo: _lastSentAt ? (nowMs() - _lastSentAt) : -1,
+      lastFailMsAgo: _lastFailAt ? (nowMs() - _lastFailAt) : -1,
+      lastSendResult: _lastSendResult
+    };
+
+    try { root.dispatchEvent(new CustomEvent('groups:telemetry_status', { detail: st })); } catch(_){}
+
+    if (_hudHook) {
+      try { _hudHook(st); } catch(_){}
+    }
+  }
+
+  function startStatusHeartbeat(){
+    clearInterval(_statusIt);
+    _statusIt = setInterval(()=> publishStatus('beat'), CFG.statusEveryMs);
+    publishStatus('start');
   }
 
   // ---------------- event listeners ----------------
@@ -501,6 +555,8 @@
     root.addEventListener('hha:end', ()=>{
       Telemetry.flushNow('end').catch(()=>{});
     }, { passive:true });
+
+    root.addEventListener('online', ()=>{ tryResendQueue(); }, { passive:true });
   }
 
   // ---------------- flush hardened ----------------
@@ -519,8 +575,6 @@
     DOC.addEventListener('visibilitychange', ()=>{
       if (DOC.visibilityState === 'hidden') hard();
     }, { capture:true });
-
-    root.addEventListener('online', ()=>{ tryResendQueue(); }, { passive:true });
   }
 
 })(typeof window !== 'undefined' ? window : globalThis);
