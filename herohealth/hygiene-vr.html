@@ -1,8 +1,9 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO) [LATEST]
-✅ Auto-detect view if no ?view=
-✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
+HygieneVR Launcher — ROOT (AUTO)
 ✅ Root=launcher, folder=run
+✅ Auto-detect view ONLY if no ?view=
+✅ Pass-through params to: /herohealth/hygiene-vr/hygiene-vr.html
+✅ Buttons: Go / Back HUB
 -->
 <!doctype html>
 <html lang="th">
@@ -19,13 +20,11 @@ HygieneVR Launcher — ROOT (AUTO) [LATEST]
       --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
       --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
-      --r:22px;
+      --r:22px; --pill:999px;
     }
     *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{min-height:100%;display:grid;place-items:center;
-      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
       width:min(760px,100%);
       border:1px solid var(--stroke);
@@ -48,6 +47,12 @@ HygieneVR Launcher — ROOT (AUTO) [LATEST]
     }
     .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
     code{color:rgba(34,197,94,.95)}
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+      line-height:1.35;
+    }
   </style>
 </head>
 <body>
@@ -57,12 +62,13 @@ HygieneVR Launcher — ROOT (AUTO) [LATEST]
     <div class="sub" id="txt">กำลังเข้าเกมอัตโนมัติ…</div>
 
     <div class="row">
-      <button class="btn primary" id="btnGo">เข้าเกม</button>
-      <button class="btn" id="btnHub">กลับ HUB</button>
+      <button class="btn primary" id="btnGo" type="button">เข้าเกม</button>
+      <button class="btn" id="btnHub" type="button">กลับ HUB</button>
     </div>
 
-    <div class="sub" style="margin-top:10px">
-      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code>
+    <div class="hint">
+      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code><br>
+      (ระบบจะ auto-detect <code>view</code> เฉพาะตอนที่ “ไม่มี ?view=” เท่านั้น)
     </div>
   </div>
 </div>
@@ -70,6 +76,7 @@ HygieneVR Launcher — ROOT (AUTO) [LATEST]
 <script>
 (function(){
   'use strict';
+
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
   const hub = String(qs('hub','./hub.html'));
@@ -82,6 +89,7 @@ HygieneVR Launcher — ROOT (AUTO) [LATEST]
     const landscape = w >= h;
 
     if (isTouch){
+      // ✅ cVR heuristic: landscape + wide enough
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
@@ -92,20 +100,21 @@ HygieneVR Launcher — ROOT (AUTO) [LATEST]
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
-    // pass-through all params (DO NOT DROP ANYTHING)
+    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
     // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
-
-    // ensure hub
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
     return u.toString();
   }
 
-  function go(){ location.href = buildRunUrl(); }
+  function go(){
+    location.href = buildRunUrl();
+  }
 
   document.getElementById('btnGo')?.addEventListener('click', go);
   document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = hub);
@@ -113,8 +122,8 @@ HygieneVR Launcher — ROOT (AUTO) [LATEST]
   const txt = document.getElementById('txt');
   if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
-  // short delay to allow UI paint first
-  setTimeout(go, 140);
+  // auto redirect
+  setTimeout(go, 120);
 })();
 </script>
 </body>
