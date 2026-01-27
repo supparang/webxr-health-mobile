@@ -1,10 +1,7 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION, FULL)
-   ✅ Fix: .plateTarget = position:absolute (เป้าโผล่ชัวร์)
-   ✅ HUD compact + pointer-events none (ไม่บัง tap/ยิง)
-   ✅ Safe spawn vars: --hha-*-safe (mode-factory ใช้)
-   ✅ PC / Mobile / VR / cVR classes
+   Balanced Plate VR — UI + FX (PRODUCTION)
+   HHA Standard
 ========================================================= */
 
 :root{
@@ -31,24 +28,15 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* HUD footprint (ใช้คุมพื้นที่เล่น; ค่านี้ “ตั้งใจให้ไม่กินพื้นที่เยอะ”) */
-  --hud-top: calc(var(--sat) + 10px);
+  /* playfield safe (mode-factory.js reads these) */
+  --plate-top-safe: calc(var(--sat) + 150px);
+  --plate-bottom-safe: calc(var(--sab) + 24px);
+  --plate-left-safe: calc(var(--sal) + 14px);
+  --plate-right-safe: calc(var(--sar) + 14px);
+
+  /* hud sizing knobs */
   --hud-gap: 10px;
-  --hud-row-h: 44px;
-  --hud-card-h: 132px;  /* quest card โดยประมาณ (compact) */
-  --hud-stack: calc(var(--hud-row-h) + var(--hud-gap) + var(--hud-card-h));
-
-  /* ✅ Spawn safe rect (mode-factory อ่านตัวนี้) */
-  --hha-top-safe: calc(var(--hud-top) + var(--hud-stack) + 14px);
-  --hha-bottom-safe: calc(var(--sab) + 14px);
-  --hha-left-safe: calc(var(--sal) + 14px);
-  --hha-right-safe: calc(var(--sar) + 14px);
-
-  /* fallback legacy names (ถ้ามีไฟล์อื่นอ่าน) */
-  --plate-top-safe: var(--hha-top-safe);
-  --plate-bottom-safe: var(--hha-bottom-safe);
-  --plate-left-safe: var(--hha-left-safe);
-  --plate-right-safe: var(--hha-right-safe);
+  --hud-maxw: 360px;
 }
 
 /* ---------------------------------------------------------
@@ -66,15 +54,10 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-#app{
-  position:relative;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-}
+#app{ position:fixed; inset:0; }
 
 /* ---------------------------------------------------------
-   Spawn Layer (Targets)
+   Playfield (Targets spawn inside this rect)
 --------------------------------------------------------- */
 #plate-layer{
   position:fixed;
@@ -84,10 +67,9 @@ html,body{
   touch-action:none;
 }
 
+/* ✅ IMPORTANT: must be absolute for left/top to work */
 .plateTarget{
-  /* ✅ MUST: ถ้าไม่ใส่ เป้าจะไม่โผล่/ตำแหน่งเพี้ยน */
-  position:absolute;
-
+  position:absolute; /* ✅ FIX: without this => "เป้าไม่โผล่/ไม่ขยับ" */
   display:grid;
   place-items:center;
   border-radius:999px;
@@ -95,7 +77,6 @@ html,body{
   font-weight:900;
   user-select:none;
   cursor:pointer;
-  letter-spacing:.2px;
 
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
@@ -107,7 +88,7 @@ html,body{
     inset 0 1px 0 rgba(255,255,255,.08);
 
   animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
-  will-change: transform, opacity;
+  will-change: transform;
 }
 
 .plateTarget[data-kind="good"]{
@@ -125,407 +106,65 @@ html,body{
   animation-duration:1.2s;
 }
 
+.plateTarget .plateEmoji{
+  line-height:1;
+  transform: translateY(-1px);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.35));
+}
+
 @keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
-  100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
+  0%{ transform:scale(.85); opacity:0 }
+  100%{ transform:scale(1); opacity:1 }
 }
 
 @keyframes wobble{
-  0%{ transform:translate(-50%,-50%) rotate(0deg) }
-  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform:translate(-50%,-50%) rotate(0deg) }
+  0%{ transform:rotate(0deg) }
+  25%{ transform:rotate(1.2deg) }
+  50%{ transform:rotate(-1.2deg) }
+  75%{ transform:rotate(.8deg) }
+  100%{ transform:rotate(0deg) }
 }
 
 /* ---------------------------------------------------------
-   HUD (ไม่บังพื้นที่เล่น)
-   - HUD ทั้งก้อน pointer-events:none
-   - เฉพาะส่วนที่ต้องคลิกจริงค่อยเปิด (end overlay buttons)
+   HUD
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  left:0; right:0;
-  top:0;
+  top: calc(var(--sat) + var(--hud-gap));
+  left: calc(var(--sal) + var(--hud-gap));
   z-index:40;
-
-  padding:
-    var(--hud-top)
-    calc(var(--sar) + 12px)
-    10px
-    calc(var(--sal) + 12px);
-
   display:flex;
   flex-direction:column;
-  gap:var(--hud-gap);
-
-  pointer-events:none;
+  gap:10px;
+  max-width: min(var(--hud-maxw), calc(100vw - var(--sal) - var(--sar) - 20px));
+  pointer-events:none; /* ✅ let gameplay through */
 }
 
 .hudRow{
   display:flex;
-  gap:10px;
+  gap:8px;
   align-items:stretch;
-  justify-content:flex-start;
-  flex-wrap:wrap;
+  pointer-events:none;
 }
 
 .chip{
   pointer-events:none;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
+  background:rgba(2,6,23,.72);
+  border:1px solid rgba(148,163,184,.18);
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(15,23,42,.62);
-  backdrop-filter:blur(10px);
+  padding:8px 10px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:92px;
   box-shadow:0 14px 40px rgba(0,0,0,.22);
-  min-height: var(--hud-row-h);
+  backdrop-filter: blur(10px);
 }
+.chip .lbl{ font-size:10px; font-weight:900; color:var(--muted); letter-spacing:.08em; }
+.chip .val{ font-size:16px; font-weight:900; color:var(--text); }
 
-.chip .lbl{
-  font-weight:900;
-  font-size:11px;
-  color:var(--muted);
-  letter-spacing:.4px;
-}
-
-.chip .val{
-  font-weight:1000;
-  font-size:16px;
-}
-
-.chip.score .val{ color:var(--accent); }
-.chip.time  .val{ color:var(--cyan); }
-.chip.combo .val{ color:var(--violet); }
-
-/* Cards */
-.card{
+.card,.questCard,.panelCard{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter:blur(10px);
-}
-
-/* Quest card: วางชิดขวาแบบ compact (ไม่กินจอ) */
-#questCard{
-  width:min(360px, 92vw);
-  margin-left:auto;
-  padding:12px 12px 10px;
-}
-
-.cardTitle{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-.cardTitle .t{
-  font-weight:1000;
-  font-size:14px;
-}
-
-.cardTitle .hint{
-  font-weight:800;
-  font-size:11px;
-  color:var(--muted);
-  text-align:right;
-}
-
-/* Quest items */
-.qItem{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:10px 10px;
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.40);
-}
-
-.qItem + .qItem{ margin-top:8px; }
-
-.qText .name{
-  font-weight:1000;
-  font-size:13px;
-  margin-bottom:2px;
-}
-
-.qText .sub{
-  font-weight:800;
-  font-size:11px;
-  color:var(--muted);
-}
-
-.qProg{
-  width:140px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  align-items:flex-end;
-}
-
-.qNums{
-  font-weight:1000;
-  font-size:11px;
-  color:var(--text);
-  opacity:.9;
-}
-
-/* bars */
-.bar{
-  width:100%;
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.12);
-  overflow:hidden;
-}
-
-.bar > i{
-  display:block;
-  height:100%;
-  width:0%;
-  background:var(--accent);
-  transition:width .25s ease;
-}
-
-.bar.bad>i{
-  background:linear-gradient(90deg,var(--warn),var(--bad));
-  box-shadow:0 0 18px rgba(239,68,68,.35);
-}
-
-/* ---------------------------------------------------------
-   Coach bubble
---------------------------------------------------------- */
-#coachCard{
-  position:fixed;
-  z-index:48;
-  left:calc(var(--sal) + 12px);
-  bottom:calc(var(--sab) + 12px);
-
-  width:min(420px, 92vw);
-  pointer-events:none;
-  opacity:0;
-  transform:translateY(10px);
-  transition:opacity .2s ease, transform .2s ease;
-}
-
-#coachCard.show{
-  opacity:1;
-  transform:translateY(0);
-}
-
-#coachCard .inner{
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:18px;
-  padding:12px 14px;
-  backdrop-filter:blur(10px);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-}
-
-#coachMsg{
-  font-weight:900;
-  font-size:14px;
-  line-height:1.3;
-}
-
-#coachMeta{
-  margin-top:6px;
-  font-weight:900;
-  font-size:11px;
-  color:var(--muted);
-}
-
-/* ---------------------------------------------------------
-   FX layers
---------------------------------------------------------- */
-#bossFx,#stormFx{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:55;
-  display:none;
-}
-
-#bossFx.boss-on{
-  display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
-}
-
-#bossFx.boss-panic{
-  animation:pulseBad .25s infinite;
-}
-
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
-}
-
-@keyframes pulseBad{
-  0%{ filter:brightness(1) }
-  50%{ filter:brightness(1.25) }
-  100%{ filter:brightness(1) }
-}
-
-/* ---------------------------------------------------------
-   End Overlay (ต้องคลิกได้)
---------------------------------------------------------- */
-#endOverlay{
-  position:fixed;
-  inset:0;
-  z-index:90;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:
-    calc(var(--sat) + 18px)
-    calc(var(--sar) + 14px)
-    calc(var(--sab) + 18px)
-    calc(var(--sal) + 14px);
-
-  background:rgba(2,6,23,.72);
-  backdrop-filter:blur(10px);
-
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .18s ease;
-}
-
-#endOverlay[aria-hidden="false"]{
-  opacity:1;
-  pointer-events:auto;
-}
-
-.endPanel{
-  width:min(560px, 96vw);
-  background:rgba(15,23,42,.78);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:22px;
-  box-shadow:0 24px 90px rgba(0,0,0,.40);
-  padding:16px 16px 14px;
-}
-
-.endTitle{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:12px;
-}
-
-.endTitle h2{
-  margin:0;
-  font-size:18px;
-  font-weight:1000;
-}
-
-.endTitle .tag{
-  font-size:11px;
-  font-weight:1000;
-  color:var(--muted);
-  border:1px solid rgba(148,163,184,.20);
-  padding:6px 10px;
-  border-radius:999px;
-  background:rgba(2,6,23,.55);
-}
-
-.endGrid{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:10px;
-  margin-bottom:14px;
-}
-
-.kpi{
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.40);
-  border-radius:16px;
-  padding:10px 12px;
-}
-
-.kpi .k{
-  font-weight:900;
-  font-size:11px;
-  color:var(--muted);
-  margin-bottom:4px;
-}
-
-.kpi .v{
-  font-weight:1000;
-  font-size:16px;
-}
-
-.endBtns{
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-
-/* Buttons */
-.btn{
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:10px 14px;
-  font-weight:1000;
-  font-size:12px;
-  cursor:pointer;
-  color:var(--text);
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.22);
-  backdrop-filter:blur(10px);
-}
-
-.btn.primary{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.35);
-}
-
-.btn.warn{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.35);
-}
-
-/* ---------------------------------------------------------
-   View tuning
---------------------------------------------------------- */
-body.view-mobile{
-  --hud-row-h: 42px;
-  --hud-card-h: 124px;
-  --hud-gap: 8px;
-}
-
-body.view-mobile #questCard{
-  width:min(340px, 94vw);
-}
-
-body.view-vr,
-body.view-cvr{
-  /* ใน VR ให้ HUD กินพื้นที่น้อยลง */
-  --hud-row-h: 40px;
-  --hud-card-h: 116px;
-  --hud-gap: 8px;
-}
-
-body.view-vr #questCard,
-body.view-cvr #questCard{
-  width:min(320px, 88vw);
-  opacity:.92;
-}
-
-/* เป้าขนาดเหมาะสมกับมือถือ */
-@media (max-width:900px){
-  .plateTarget{ font-size:24px; }
-  .qProg{ width:130px; }
-  .endGrid{ grid-template-columns:1fr; }
-}
+  box-shadow
