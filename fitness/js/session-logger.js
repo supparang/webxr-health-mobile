@@ -1,24 +1,29 @@
 // === /fitness/js/session-logger.js ===
-// Session-level CSV logger (Shadow Breaker) — FIXED export: SessionLogger
 'use strict';
 
+/**
+ * Session-level CSV logger
+ * - เก็บ 1 แถวต่อ 1 session (สรุป)
+ * - รองรับ export class SessionLogger ตามที่ engine import
+ */
 export class SessionLogger {
   constructor() {
-    this.rows = [];
+    this.logs = [];
   }
 
   add(row) {
     if (!row || typeof row !== 'object') return;
-    this.rows.push(row);
+    this.logs.push(row);
   }
 
   clear() {
-    this.rows.length = 0;
+    this.logs.length = 0;
   }
 
   toCsv() {
-    if (!this.rows.length) return '';
-    const cols = Object.keys(this.rows[0]);
+    if (!this.logs.length) return '';
+
+    const cols = Object.keys(this.logs[0]);
 
     const esc = (v) => {
       if (v == null) return '';
@@ -31,7 +36,7 @@ export class SessionLogger {
 
     const lines = [];
     lines.push(cols.join(','));
-    for (const row of this.rows) {
+    for (const row of this.logs) {
       lines.push(cols.map(c => esc(row[c])).join(','));
     }
     return lines.join('\n');
