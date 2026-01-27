@@ -1,9 +1,7 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION (UPDATED)
+// Water Gauge Utilities — PRODUCTION (no-duplicate)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ Prevents duplicate gauge if page already has #water-bar/#water-pct/#water-zone panel
-// ✅ Tuned GREEN band wider (easier): 40..70
-// ✅ Safe: no-op if DOM missing
+// ✅ Avoid duplicate gauge if page already has native ids: water-bar/water-pct/water-zone
 
 'use strict';
 
@@ -12,7 +10,8 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-// โซนน้ำ: ปรับให้ GREEN กว้างขึ้น เล่นง่ายขึ้น (ลดความ “ยากมาก” ของ gauge)
+// ✅ โซนน้ำ (คุมง่ายขึ้นนิดนึง)
+// GREEN กว้างขึ้น: 40–70 (เดิม 45–65) -> เล่นสนุกขึ้น ไม่ทรมาน
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
   if (p >= 40 && p <= 70) return 'GREEN';
@@ -20,13 +19,17 @@ export function zoneFrom(pct){
   return 'HIGH';
 }
 
+function hasNativeWaterPanel(){
+  if (!DOC) return false;
+  return !!(DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone'));
+}
+
 export function ensureWaterGauge(){
   if (!DOC) return;
 
-  // ✅ ถ้าหน้าเกมมี panel ของตัวเองอยู่แล้ว (id: water-bar/water-pct/water-zone) -> ไม่สร้าง gauge ซ้ำ
-  if (DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone')) return;
+  // ✅ ถ้ามีของเดิมในหน้าอยู่แล้ว -> ไม่ inject ซ้ำ
+  if (hasNativeWaterPanel()) return;
 
-  // ✅ ถ้ามี gauge utility อยู่แล้ว -> ไม่สร้างซ้ำ
   if (DOC.getElementById('hha-water-gauge')) return;
 
   const wrap = DOC.createElement('div');
@@ -68,18 +71,24 @@ export function ensureWaterGauge(){
 
 export function setWaterGauge(pct){
   if (!DOC) return;
-
-  // ถ้าหน้าเกมมี panel ของตัวเอง -> ไม่แตะ utility gauge (กันซ้ำ / กันสับสน)
-  if (DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone')) return;
-
   const p = clamp(pct,0,100);
+
+  // ถ้ามี native panel -> อัปเดต native ก่อน (ไม่งั้นจะอัปเดตของ injected)
+  const barNative = DOC.getElementById('water-bar');
+  const pctNative = DOC.getElementById('water-pct');
+  const zoneNative = DOC.getElementById('water-zone');
+
+  const zone = zoneFrom(p);
+
+  if (barNative) barNative.style.width = p.toFixed(0) + '%';
+  if (pctNative) pctNative.textContent = String(p|0);
+  if (zoneNative) zoneNative.textContent = zone;
+
   const bar = DOC.getElementById('hha-water-bar');
   const t = DOC.getElementById('hha-water-pct');
   const z = DOC.getElementById('hha-water-zone');
 
   if (bar) bar.style.width = p.toFixed(0) + '%';
   if (t) t.textContent = String(p|0);
-
-  const zone = zoneFrom(p);
   if (z) z.textContent = zone;
 }
