@@ -1,189 +1,95 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (B FULL + Pack 14 Practice 15s)
+// GoodJunkVR Boot — PRODUCTION (PATCHED)
+// ✅ Parses query: view/run/diff/time/seed/hub
+// ✅ Sets body classes: view-mobile / view-cvr / view-cardboard
+// ✅ Calls goodjunk.safe.js boot({view,run,diff,time,seed})
+// ✅ Triggers gj:measureSafe multiple times (after UI mounts)
+// ✅ Safe: no crash if some modules absent
 
-import { boot as safeBoot } from './goodjunk.safe.js';
+'use strict';
+
+import { boot as bootGoodJunk } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
 const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
+const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
 
-function isMobile(){
-  const ua = navigator.userAgent || '';
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.innerWidth < 860);
+function normView(v){
+  v = String(v||'').toLowerCase();
+  if(!v || v==='auto') return 'mobile';
+  if(v==='cvr' || v==='cardboard' || v==='vr') return v;
+  if(v==='pc' || v==='desktop') return 'pc';
+  return v;
 }
 
-function detectViewAuto(){
-  const v = String(qs('view','')).trim().toLowerCase();
-  if(v) return v;
-  return isMobile() ? 'mobile' : 'pc';
+function setBodyViewClasses(view){
+  try{
+    DOC.body.classList.remove('view-mobile','view-cvr','view-cardboard','view-pc');
+    if(view === 'cvr') DOC.body.classList.add('view-cvr');
+    else if(view === 'cardboard' || view === 'vr') DOC.body.classList.add('view-cardboard');
+    else if(view === 'pc') DOC.body.classList.add('view-pc');
+    else DOC.body.classList.add('view-mobile');
+  }catch(_){}
 }
 
-function setBodyView(view){
-  const b = DOC.body;
-  if(!b) return;
-
-  b.classList.add('gj');
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
-  if(view === 'cvr') b.classList.add('view-cvr');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'pc') b.classList.add('view-pc');
-  else b.classList.add('view-mobile');
+function updateChipMeta(view, run, diff, time){
+  const el = DOC.getElementById('gjChipMeta');
+  if(!el) return;
+  el.textContent = `view=${view} · run=${run} · diff=${diff} · time=${time}`;
 }
 
-function getRunOpts(){
-  const view = String(qs('view', detectViewAuto())).toLowerCase();
+function multiMeasureSafe(){
+  // ยิงหลายครั้ง เพราะ VR UI / font / layout อาจโผล่ช้า
+  emit('gj:measureSafe', {});
+  setTimeout(()=>emit('gj:measureSafe', {}), 80);
+  setTimeout(()=>emit('gj:measureSafe', {}), 220);
+  setTimeout(()=>emit('gj:measureSafe', {}), 520);
+  setTimeout(()=>emit('gj:measureSafe', {}), 980);
+}
+
+function main(){
+  const view = normView(qs('view','mobile'));
   const run  = String(qs('run','play')).toLowerCase();
   const diff = String(qs('diff','normal')).toLowerCase();
-  const time = clamp(qs('time','80'), 20, 300);
+  const time = clamp(Number(qs('time','80'))||80, 20, 300);
   const seed = String(qs('seed', Date.now()));
+  const hub  = qs('hub', null);
 
-  const hub = qs('hub', null);
-  const studyId = qs('studyId', null);
-  const phase = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', null);
-  const log = qs('log', null);
+  setBodyViewClasses(view);
+  updateChipMeta(view, run, diff, time);
 
-  return { view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log };
-}
-
-function initVRUI(){
-  WIN.HHA_VRUI_CONFIG = Object.assign(
-    { lockPx: 28, cooldownMs: 90 },
-    WIN.HHA_VRUI_CONFIG || {}
-  );
-}
-
-function hardenFlush(){
-  const L = WIN.HHACloudLogger;
-  const flush = (why='flush')=>{
-    try{
-      if(L && typeof L.flush === 'function') L.flush({ reason: why });
-      if(L && typeof L.flushNow === 'function') L.flushNow({ reason: why });
-    }catch(_){}
-  };
-
-  WIN.addEventListener('pagehide', ()=>flush('pagehide'), { passive:true });
-  WIN.addEventListener('beforeunload', ()=>flush('beforeunload'), { passive:true });
-
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden') flush('hidden');
-  }, { passive:true });
-
-  WIN.addEventListener('hha:end', ()=>flush('hha:end'), { passive:true });
-
+  // ให้ปุ่มกลับ hub ใช้ค่า hub ถ้ามี
   const btnBack = DOC.getElementById('btnBackHub');
   if(btnBack){
-    btnBack.addEventListener('click', (ev)=>{
-      try{
-        const hub = qs('hub', null);
-        flush('backhub');
-        if(hub){
-          ev.preventDefault();
-          setTimeout(()=>{ location.href = hub; }, 60);
-        }
-      }catch(_){}
-    }, { capture:true });
+    btnBack.onclick = ()=>{
+      if(hub) location.href = hub;
+      else alert('ยังไม่ได้ใส่ hub url');
+    };
   }
 
-  return flush;
-}
+  // Measure safe early + after UI mounts
+  multiMeasureSafe();
+  WIN.addEventListener('resize', multiMeasureSafe, {passive:true});
+  WIN.addEventListener('orientationchange', multiMeasureSafe, {passive:true});
 
-function initLoggerContext(opts){
-  const L = WIN.HHACloudLogger;
-  if(!L) return;
-
-  const ctx = {
-    game: 'GoodJunkVR',
-    pack: 'fair',
-    view: opts.view,
-    runMode: opts.run,
-    diff: opts.diff,
-    timePlanSec: opts.time,
-    seed: opts.seed,
-    hub: opts.hub,
-    studyId: opts.studyId,
-    phase: opts.phase,
-    conditionGroup: opts.conditionGroup,
-    log: opts.log
-  };
-
+  // Start game
   try{
-    if(typeof L.setContext === 'function') L.setContext(ctx);
-    else if(typeof L.init === 'function') L.init(ctx);
-  }catch(_){}
-}
+    bootGoodJunk({ view, run, diff, time, seed });
+  }catch(err){
+    console.error('[GoodJunkVR] boot failed:', err);
+    // กันจอดำ: อย่างน้อยให้ user เห็นใน console
+    emit('hha:error', { game:'GoodJunkVR', error:String(err?.message||err) });
+  }
 
-function redirect(url){
-  try{ location.replace(url); }catch(_){ location.href = url; }
-}
-
-function start(){
-  const opts = getRunOpts();
-
-  // 0) Practice preflight (Pack 14)
-  // - default: only VR/cVR do practice (run=play -> run=practice)
-  try{
-    const P = WIN.HHAPractice;
-    if(P && typeof P.preflight === 'function'){
-      const r = P.preflight({ practiceSec: 15, views:['vr','cvr'], practiceDiff:'easy' });
-      if(r && r.action === 'redirect' && r.url){
-        redirect(r.url);
-        return;
-      }
-    }
-  }catch(_){}
-
-  // 1) view classes
-  setBodyView(opts.view);
-
-  // 2) vrui config
-  initVRUI();
-
-  // 3) logger ctx + flush hardening
-  const flush = hardenFlush();
-  initLoggerContext(opts);
-
-  // 4) show overlay if this is practice run
-  try{
-    if(opts.run === 'practice' && WIN.HHAPractice){
-      WIN.HHAPractice.setOverlay?.('Practice 15s — ฝึกก่อนเริ่มรอบจริง');
-    }else{
-      WIN.HHAPractice?.hideOverlay?.();
-    }
-  }catch(_){}
-
-  // 5) if practice ends -> redirect to real run
-  //    (we listen once and check run=practice)
-  WIN.addEventListener('hha:end', ()=>{
-    try{
-      if(opts.run !== 'practice') return;
-
-      // best-effort flush before redirect
-      try{ flush && flush('practice->real'); }catch(_){}
-
-      const P = WIN.HHAPractice;
-      const next = P && typeof P.onEndRedirect === 'function' ? P.onEndRedirect() : null;
-      if(next){
-        setTimeout(()=>redirect(next), 120);
-      }
-    }catch(_){}
-  }, { passive:true, once:false });
-
-  // 6) boot SAFE engine
-  safeBoot({
-    view: opts.view,
-    run:  opts.run,
-    diff: opts.diff,
-    time: opts.time,
-    seed: opts.seed
-  });
+  // อีกทีหลังเริ่ม (ป้องกัน quest/boss/progress เปลี่ยน layout)
+  setTimeout(multiMeasureSafe, 250);
 }
 
 if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', start, { once:true });
+  DOC.addEventListener('DOMContentLoaded', main, {once:true});
 }else{
-  start();
+  main();
 }
