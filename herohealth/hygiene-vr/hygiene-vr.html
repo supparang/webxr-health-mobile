@@ -1,11 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
 ✅ Views: pc/mobile/vr/cvr (via body classes)
-✅ Uses: ../vr/vr-ui.js => crosshair + hha:shoot (cVR)
-✅ FX: ../vr/particles.js
+✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot
+✅ FX:  ../vr/particles.js (defer)
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Boot: hygiene-vr.boot.js (anti-stall + diagnostics)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,22 +15,22 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS (ต้องมี ไม่งั้นจะรู้สึก “เอฟเฟกต์หาย/ค้าง” เพราะตำแหน่งกับชั้น HUD เพี้ยน) -->
+  <!-- CSS (ต้องได้ 200 ไม่ใช่ 404) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260127a" />
 
   <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js?v=20260127a" defer></script>
+  <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
-  <script src="../vr/particles.js?v=20260127a" defer></script>
+  <!-- FX (MUST defer) -->
+  <script src="../vr/particles.js" defer></script>
 
-  <!-- Optional AI packs -->
-  <script src="../vr/hha-ai-coach.js?v=20260127a" defer></script>
-  <script src="../vr/hha-difficulty-director.js?v=20260127a" defer></script>
-  <script src="../vr/hha-badges.js?v=20260127a" defer></script>
+  <!-- AI packs (optional) -->
+  <script src="../vr/hha-ai-coach.js" defer></script>
+  <script src="../vr/hha-difficulty-director.js" defer></script>
+  <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
-  <script src="./hygiene-quiz-bank.js?v=20260127a" defer></script>
+  <!-- ✅ Quiz bank (ชื่อไฟล์ต้องตรง: hygiene-quiz-bank.js) -->
+  <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260127a"></script>
@@ -115,18 +114,20 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
-      view==='mobile' ? 'view-mobile' :
-      view==='vr'     ? 'view-vr' :
-      view==='cvr'    ? 'view-cvr' : 'view-pc'
+      view==='mobile'?'view-mobile':
+      (view==='vr'?'view-vr':
+      (view==='cvr'?'view-cvr':'view-pc'))
     );
-
     const el = document.getElementById('labView');
     if(el) el.textContent = view;
   }
 
   setViewClass();
-  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
-  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
+
+  const elMode = document.getElementById('labMode');
+  const elDiff = document.getElementById('labDiff');
+  if(elMode) elMode.textContent = (qs('run','play')||'play');
+  if(elDiff) elDiff.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
