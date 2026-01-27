@@ -1,9 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4 (Boss+Progress)
+// GoodJunkVR SAFE — v4 (Boss+Progress) PATCHED
 // ✅ Boss Phase (ท้ายเกม): HP bar + rules
 // ✅ Progress bar fill
-// ✅ Mobile HUD fix: quest cards hidden by CSS; safe zone auto-remeasure via gj:measureSafe
-// ✅ All existing: GOAL/MINI + AI hooks + crosshair shoot
+// ✅ Mobile safe-zone via CSS vars --gj-top-safe/--gj-bottom-safe (measured in HTML)
+// ✅ AI hooks SAFE: never throws even if ai-hooks missing funcs
 'use strict';
 
 import { createAIHooks } from '../vr/ai-hooks.js';
@@ -120,10 +120,10 @@ export function boot(opts={}){
   const elLowOverlay = DOC.getElementById('lowTimeOverlay');
   const elLowNum = DOC.getElementById('gj-lowtime-num');
 
-  // ✅ progress
+  // progress
   const elProgFill = DOC.getElementById('gjProgressFill');
 
-  // ✅ boss UI
+  // boss UI
   const elBossBar  = DOC.getElementById('bossBar');
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
@@ -153,7 +153,6 @@ export function boot(opts={}){
 
     mini: { windowSec: 12, windowStartAt: 0, groups: new Set(), done: false },
 
-    // ✅ boss phase
     boss: {
       active:false,
       startedAtSec: null,
@@ -167,7 +166,11 @@ export function boot(opts={}){
   const adaptiveOn = (run === 'play');
   const aiOn = (run === 'play');
 
-  const AI = createAIHooks({ game:'GoodJunkVR', mode: run, rng });
+  // ✅ AI hooks (SAFE WRAP)
+  const AI = createAIHooks({ game:'GoodJunkVR', mode: run, rng }) || {};
+  const aiOnEvent = (typeof AI.onEvent === 'function') ? AI.onEvent.bind(AI) : ()=>{};
+  const aiGetTip  = (typeof AI.getTip === 'function') ? AI.getTip.bind(AI) : ()=>null;
+  const aiGetDiff = (typeof AI.getDifficulty === 'function') ? AI.getDifficulty.bind(AI) : null;
 
   function setFever(p){
     S.fever = clamp(p,0,100);
@@ -222,7 +225,6 @@ export function boot(opts={}){
       cur = S.comboMax; target = g.targetCombo;
       if(elGoalDesc) elGoalDesc.textContent = `${g.desc} (คอมโบสูงสุด ≥ ${g.targetCombo})`;
     }else{
-      // survive goal => show miss constraint
       cur = Math.max(0, Math.floor(S.timePlan - S.timeLeft));
       target = Math.floor(S.timePlan);
       if(elGoalDesc) elGoalDesc.textContent = `${g.desc} (MISS ≤ ${g.maxMiss})`;
@@ -317,7 +319,6 @@ export function boot(opts={}){
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
-    // trigger safe measure so playfield doesn't shrink incorrectly
     emit('gj:measureSafe', {});
   }
   function updateBossUI(){
@@ -329,9 +330,8 @@ export function boot(opts={}){
   function startBossIfNeeded(){
     if(S.boss.active || S.boss.cleared) return;
 
-    // ✅ trigger boss near end (ท้ายเกม) — deterministic, simple
     const played = S.timePlan - S.timeLeft;
-    const triggerAt = Math.max(18, S.timePlan * 0.70); // 70% of duration or 18s min
+    const triggerAt = Math.max(18, S.timePlan * 0.70);
     if(played >= triggerAt){
       S.boss.active = true;
       S.boss.startedAtSec = played;
@@ -340,7 +340,7 @@ export function boot(opts={}){
       updateBossUI();
       if(elBossHint) elBossHint.textContent = 'โหมดบอส: เก็บของดีเพื่อลดพลังบอส / อย่าโดนของเสีย!';
       emit('hha:coach', { msg:'⚡ เข้าสู่ BOSS PHASE! เก็บของดีให้แม่น ๆ', tag:'Coach' });
-      setFever(Math.min(100, S.fever + 8)); // fever burst
+      setFever(Math.min(100, S.fever + 8));
     }
   }
 
@@ -355,7 +355,6 @@ export function boot(opts={}){
       setFever(Math.max(0, S.fever - 18));
       emit('hha:judge', { type:'perfect', label:'BOSS CLEAR!' });
       emit('hha:coach', { msg:'🏆 บอสแพ้แล้ว! เก่งมาก!', tag:'Coach' });
-      // reward: +1 shield
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
     }else{
@@ -378,15 +377,12 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
       emit('hha:judge', { type:'good', label:'GOOD' });
-      if(aiOn) AI.onEvent('hitGood', { t:tNow });
+      if(aiOn) aiOnEvent('hitGood', { t:tNow });
 
-      // ✅ boss hp decrease
       if(S.boss.active){
         S.boss.hp = Math.max(0, S.boss.hp - 6);
         updateBossUI();
-        if(S.boss.hp <= 0){
-          endBoss(true);
-        }
+        if(S.boss.hp <= 0) endBoss(true);
       }
     }
 
@@ -402,9 +398,8 @@ export function boot(opts={}){
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
-        if(aiOn) AI.onEvent('hitJunk', { t:tNow });
+        if(aiOn) aiOnEvent('hitJunk', { t:tNow });
 
-        // ✅ boss hp increase on mistake
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
           updateBossUI();
@@ -429,7 +424,7 @@ export function boot(opts={}){
 
     if(aiOn){
       const played = S.timePlan - S.timeLeft;
-      const tip = AI.getTip(played);
+      const tip = aiGetTip(played);
       if(tip) emit('hha:coach', tip);
     }
 
@@ -492,9 +487,8 @@ export function boot(opts={}){
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-        if(aiOn) AI.onEvent('miss', { t:performance.now() });
+        if(aiOn) aiOnEvent('miss', { t:performance.now() });
 
-        // boss punish on miss
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
           updateBossUI();
@@ -525,7 +519,6 @@ export function boot(opts={}){
     if(S.ended) return;
     S.ended = true;
 
-    // if boss active, close it (not success)
     if(S.boss.active) endBoss(false);
 
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
@@ -572,13 +565,11 @@ export function boot(opts={}){
 
     const played = (S.timePlan - S.timeLeft);
 
-    // base dist
     let base = { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
 
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
     else if(diff === 'hard'){ base.spawnMs=820; base.pJunk=0.30; base.pGood=0.66; }
 
-    // ✅ boss overrides (เร้าใจขึ้นชัด)
     if(S.boss.active){
       base.spawnMs = Math.max(520, base.spawnMs - 260);
       base.pJunk = Math.min(0.52, base.pJunk + 0.16);
@@ -587,20 +578,23 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    const D = (adaptiveOn && aiOn) ? AI.getDifficulty(played, base)
-            : (adaptiveOn ? {
-                spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
-                pGood: base.pGood - Math.min(0.10, played*0.002),
-                pJunk: base.pJunk + Math.min(0.10, played*0.002),
-                pStar: base.pStar,
-                pShield: base.pShield
-              } : { ...base });
+    // ✅ AI difficulty (safe) — if missing, fallback to simple ramp
+    const D = (adaptiveOn && aiOn && aiGetDiff)
+      ? aiGetDiff(played, base)
+      : (adaptiveOn ? {
+          spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
+          pGood: base.pGood - Math.min(0.10, played*0.002),
+          pJunk: base.pJunk + Math.min(0.10, played*0.002),
+          pStar: base.pStar,
+          pShield: base.pShield
+        } : { ...base });
 
     // normalize
     {
-      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
+      let s = (D.pGood||0) + (D.pJunk||0) + (D.pStar||0) + (D.pShield||0);
       if(s <= 0) s = 1;
-      D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
+      D.pGood=(D.pGood||0)/s; D.pJunk=(D.pJunk||0)/s; D.pStar=(D.pStar||0)/s; D.pShield=(D.pShield||0)/s;
+      D.spawnMs = clamp(Number(D.spawnMs)||base.spawnMs, 420, 1300);
     }
 
     if(ts - S.lastSpawn >= D.spawnMs){
@@ -612,7 +606,6 @@ export function boot(opts={}){
       else spawn('shield');
     }
 
-    // boss duration end (if still active)
     if(S.boss.active && S.boss.startedAtSec != null){
       if(played - S.boss.startedAtSec >= S.boss.durationSec){
         endBoss(false);
@@ -634,8 +627,6 @@ export function boot(opts={}){
   setHUD();
   updateQuestUI();
   updateProgress();
-
-  // ensure boss bar hidden on start
   setBossUI(false);
 
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
