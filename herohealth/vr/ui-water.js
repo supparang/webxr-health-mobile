@@ -1,9 +1,8 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION (NO DUPLICATE)
+// Water Gauge Utilities — PRODUCTION (NO-DUP + EASIER GREEN)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ If hydration page already has its own panel (#water-bar/#water-pct/#water-zone),
-//    this utility will NOT inject overlay gauge (prevents duplicate).
-// ✅ Force overlay with ?waterOverlay=1 if you really want it.
+// ✅ Avoid duplicate gauge if page already has its own water panel
+// ✅ Slightly wider GREEN zone for better play-feel
 
 'use strict';
 
@@ -12,31 +11,36 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
-
-// โซนน้ำ: ปรับได้ตามต้องการ
+// โซนน้ำ (ปรับให้ง่ายขึ้นนิดนึง)
+// เดิม: GREEN 45..65  -> ใหม่: GREEN 42..68 (คุมง่ายขึ้น)
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
-  if (p >= 45 && p <= 65) return 'GREEN';
-  if (p < 45) return 'LOW';
+  if (p >= 42 && p <= 68) return 'GREEN';
+  if (p < 42) return 'LOW';
   return 'HIGH';
 }
 
-// Detect if page already has its own water panel
-function hasNativeWaterPanel(){
+function pageAlreadyHasWaterPanel(){
   if (!DOC) return false;
-  return !!(DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone'));
+  // ถ้าเกมมี panel ของตัวเองอยู่แล้ว ให้ไม่ฉีด gauge ลอยเพิ่ม
+  return !!(
+    DOC.getElementById('water-bar') ||
+    DOC.getElementById('water-zone') ||
+    DOC.getElementById('water-pct') ||
+    DOC.getElementById('water-panel') ||
+    DOC.querySelector('[data-hha-water-panel="1"]')
+  );
 }
 
 export function ensureWaterGauge(){
   if (!DOC) return;
 
-  // If page already provides water UI -> don't inject overlay (prevents 2 gauges)
-  const forceOverlay = String(qs('waterOverlay','0')).toLowerCase() === '1';
-  if (!forceOverlay && hasNativeWaterPanel()) return;
+  // allow explicit disable from page:
+  // <script>window.HHA_WATER_GAUGE_DISABLE = 1;</script>
+  if (ROOT.HHA_WATER_GAUGE_DISABLE) return;
+
+  // ✅ สำคัญ: ถ้าหน้าเกมมี water panel อยู่แล้ว ไม่ฉีดซ้อน
+  if (pageAlreadyHasWaterPanel()) return;
 
   if (DOC.getElementById('hha-water-gauge')) return;
 
@@ -82,19 +86,19 @@ export function setWaterGauge(pct){
   const p = clamp(pct,0,100);
   const zone = zoneFrom(p);
 
-  // Update overlay if exists
-  const bar = DOC.getElementById('hha-water-bar');
-  const t = DOC.getElementById('hha-water-pct');
-  const z = DOC.getElementById('hha-water-zone');
-  if (bar) bar.style.width = p.toFixed(0) + '%';
-  if (t) t.textContent = String(p|0);
-  if (z) z.textContent = zone;
+  // injected gauge (if exists)
+  const bar1 = DOC.getElementById('hha-water-bar');
+  const t1   = DOC.getElementById('hha-water-pct');
+  const z1   = DOC.getElementById('hha-water-zone');
+  if (bar1) bar1.style.width = p.toFixed(0) + '%';
+  if (t1) t1.textContent = String(p|0);
+  if (z1) z1.textContent = zone;
 
-  // Also update native panel if exists (hydration-vr.html style)
+  // page water panel (if exists)
   const bar2 = DOC.getElementById('water-bar');
   const pct2 = DOC.getElementById('water-pct');
-  const zone2 = DOC.getElementById('water-zone');
+  const z2   = DOC.getElementById('water-zone');
   if (bar2) bar2.style.width = p.toFixed(0) + '%';
   if (pct2) pct2.textContent = String(p|0);
-  if (zone2) zone2.textContent = zone;
+  if (z2) z2.textContent = zone;
 }
