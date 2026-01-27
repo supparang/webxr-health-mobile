@@ -1,9 +1,11 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+HygieneVR RUN — PRODUCTION (HHA Standard) — LATEST
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot (cVR)
+✅ FX: ../vr/particles.js (defer) => Particles.popText/burst
+✅ AI (optional): ../vr/hha-ai-coach.js, ../vr/hha-difficulty-director.js, ../vr/hha-badges.js (defer)
+✅ Quiz: ./hygiene-quiz-bank.js (defer) => window.HHA_HYGIENE_QUIZ_BANK
+✅ Boot: hygiene-vr.boot.js (module) imports hygiene.safe.js (must export boot)
 -->
 <!doctype html>
 <html lang="th">
@@ -14,23 +16,24 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- ✅ CSS (ต้องมี ไม่งั้น “Effect หาย/เป้าเพี้ยน/ดูเหมือนค้าง”) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260127a" />
 
-  <!-- Universal VR UI (MUST defer) -->
+  <!-- ✅ Universal VR UI (MUST defer: กัน body null + ใช้ patch mount ได้) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX helpers (MUST defer) -->
+  <!-- ✅ FX particles (MUST defer) -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
+  <!-- ✅ AI packs (optional: ถ้าไม่มีไฟล์ จะ 404 แต่เกมยังรันได้) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (filename MUST match your real file) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์ตามที่คุณมีจริง) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot (module) -->
+  <!-- ✅ Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260127a"></script>
 </head>
 
@@ -76,12 +79,14 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
+          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
+
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
+
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
         </div>
@@ -103,20 +108,31 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    const lab = document.getElementById('labView'); if(lab) lab.textContent = view;
-  }
-  setViewClass();
-  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
-  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
-})();
-</script>
+  <!-- View class setter (must be after body exists) -->
+  <script>
+  (function(){
+    'use strict';
+    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
+    function setViewClass(){
+      const view = (qs('view','pc')||'pc').toLowerCase();
+      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      document.body.classList.add(
+        view==='mobile' ? 'view-mobile' :
+        view==='vr'     ? 'view-vr' :
+        view==='cvr'    ? 'view-cvr' : 'view-pc'
+      );
+      const el = document.getElementById('labView');
+      if(el) el.textContent = view;
+    }
+
+    setViewClass();
+
+    const m = document.getElementById('labMode');
+    const d = document.getElementById('labDiff');
+    if(m) m.textContent = (qs('run','play')||'play');
+    if(d) d.textContent = (qs('diff','normal')||'normal');
+  })();
+  </script>
 </body>
 </html>
