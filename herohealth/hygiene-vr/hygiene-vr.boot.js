@@ -1,112 +1,82 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + readable diagnostics)
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics v2)
 //
-// ✅ Imports engine: ./hygiene.safe.js (must export boot)
-// ✅ Verifies: stage DOM, CSS loaded, Particles loaded, Quiz bank loaded
-// ✅ If missing/404/import error -> show readable error on screen (not silent stall)
-// ✅ Works on GitHub Pages
+// ✅ Imports engine: hygiene.safe.js (must export boot)
+// ✅ Warn if CSS not loaded (hygiene-vr.css)
+// ✅ Warn if Quiz bank missing (window.HHA_HYGIENE_QUIZ_BANK)
+// ✅ If missing DOM or import fails -> show readable error on screen
 //
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
 
-function setBanner(msg){
-  const banner = $id('banner');
-  if(!banner) return;
-  banner.textContent = msg;
-  banner.classList.add('show');
-  clearTimeout(setBanner._t);
-  setBanner._t = setTimeout(()=>banner.classList.remove('show'), 1800);
-}
-
-function setHudSub(msg){
-  const sub = $id('hudSub');
-  if(sub) sub.textContent = msg;
-}
-
-function showStartOverlayError(html){
-  const startOverlay = $id('startOverlay');
-  if(!startOverlay) return;
-  const card = startOverlay.querySelector('.hw-card-sub');
-  if(card) card.innerHTML = html;
-  startOverlay.style.display = 'grid';
-}
-
 function showFatal(msg, err){
   console.error('[HygieneBoot]', msg, err||'');
-  setHudSub(`BOOT ERROR: ${msg}`);
-  setBanner(`❌ ${msg}`);
+  const sub = $id('hudSub');
+  const banner = $id('banner');
+  const startOverlay = $id('startOverlay');
 
-  showStartOverlayError(`
-    <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
-    <span style="color:#94a3b8">${msg}</span><br>
-    <span style="color:#94a3b8">เปิด Console/Network ดูว่าไฟล์ 404 หรือ import ผิด</span>
-  `);
-}
-
-function hasStylesheetContains(part){
-  try{
-    return [...document.styleSheets].some(s=>{
-      try{ return (s.href||'').includes(part); }catch{ return false; }
-    });
-  }catch{
-    return false;
+  if(sub) sub.textContent = `BOOT ERROR: ${msg}`;
+  if(banner){
+    banner.textContent = `❌ ${msg}`;
+    banner.classList.add('show');
+  }
+  if(startOverlay){
+    const card = startOverlay.querySelector('.hw-card-sub');
+    if(card){
+      card.innerHTML = `
+        <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
+        <span style="color:#94a3b8">${msg}</span><br>
+        <span style="color:#94a3b8">เปิด Console/Network ดูว่าไฟล์ 404 หรือ import ผิด</span>
+      `;
+    }
+    startOverlay.style.display = 'grid';
   }
 }
 
-// Wait global var exists (from defer scripts)
-function waitForGlobal(getter, timeoutMs){
-  const t0 = Date.now();
-  return new Promise(resolve=>{
-    (function tick(){
-      let v = null;
-      try{ v = getter(); }catch{}
-      if(v) return resolve(true);
-      if(Date.now()-t0 > timeoutMs) return resolve(false);
-      setTimeout(tick, 50);
-    })();
-  });
+function warn(msg){
+  console.warn('[HygieneBoot]', msg);
+  const sub = $id('hudSub');
+  if(sub && !String(sub.textContent||'').includes('⚠️')){
+    sub.textContent = `⚠️ ${msg}`;
+  }
+}
+
+function hasStylesheetMatch(needle){
+  try{
+    for(const s of document.styleSheets){
+      try{
+        const href = String(s && s.href ? s.href : '');
+        if(href.includes(needle)) return true;
+      }catch(_){}
+    }
+  }catch(_){}
+  return false;
 }
 
 async function main(){
-  // 1) DOM must exist
+  // DOM must exist
   const stage = $id('stage');
   if(!stage){
     showFatal('ไม่พบ #stage (hygiene-vr.html ไม่ครบหรือ id ไม่ตรง)');
     return;
   }
 
-  // 2) Quick presence hints (non-blocking)
-  // CSS
-  const cssOk = hasStylesheetContains('/hygiene-vr/hygiene-vr.css') || hasStylesheetContains('hygiene-vr.css');
-  if(!cssOk){
-    console.warn('[HygieneBoot] hygiene-vr.css may be missing/blocked');
-    setHudSub('⚠️ CSS อาจหาย/ไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)');
-    setBanner('⚠️ CSS อาจไม่โหลด (ดู Network)');
+  // CSS presence hints
+  // NOTE: ใช้ "hygiene-vr.css" (ไม่ fix เป็น /hygiene-vr.css)
+  if(!hasStylesheetMatch('hygiene-vr.css')){
+    warn('CSS อาจหาย/ไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)');
   }
 
-  // 3) Wait for Particles + Quiz bank (defer scripts may load slightly after module starts)
-  // Particles: not required, but affects "effect feels alive"
-  const particlesOk = await waitForGlobal(()=>window.Particles && typeof window.Particles.popText==='function', 1200);
-  if(!particlesOk){
-    console.warn('[HygieneBoot] particles.js not ready/missing');
-    setBanner('⚠️ เอฟเฟกต์อาจหาย (particles.js ไม่โหลด)');
-  }else{
-    console.log('[HygieneBoot] Particles OK');
+  // Quiz bank hints (non-blocking)
+  // ต้องเป็น window.HHA_HYGIENE_QUIZ_BANK จาก hygiene-quiz-bank.js
+  if(!Array.isArray(window.HHA_HYGIENE_QUIZ_BANK)){
+    warn('Quiz bank ยังไม่โหลด (เช็คไฟล์: hygiene-quiz-bank.js)');
+  }else if(!window.HHA_HYGIENE_QUIZ_BANK.length){
+    warn('Quiz bank ว่างเปล่า (HHA_HYGIENE_QUIZ_BANK.length=0)');
   }
 
-  // Quiz bank: optional, but you asked for it
-  // Your real file defines: window.HHA_HYGIENE_QUIZ_BANK
-  const quizOk = await waitForGlobal(()=>Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) && window.HHA_HYGIENE_QUIZ_BANK.length>0, 1600);
-  if(!quizOk){
-    console.warn('[HygieneBoot] quiz bank missing or empty: window.HHA_HYGIENE_QUIZ_BANK');
-    setBanner('⚠️ Quiz ยังไม่พร้อม (เช็ค hygiene-quiz-bank.js)');
-    // not fatal
-  }else{
-    console.log('[HygieneBoot] Quiz bank OK:', window.HHA_HYGIENE_QUIZ_BANK.length);
-  }
-
-  // 4) Import engine safely (must be module)
+  // Import engine safely
   let engine;
   try{
     engine = await import('./hygiene.safe.js');
@@ -120,14 +90,10 @@ async function main(){
     return;
   }
 
-  // 5) Run engine boot (catch crash)
+  // Run engine boot
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
-    setHudSub('ready ✅');
-    if(particlesOk){
-      try{ window.Particles.popText(window.innerWidth*0.5, window.innerHeight*0.2, 'พร้อมเริ่ม ▶', 'cyan'); }catch{}
-    }
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
