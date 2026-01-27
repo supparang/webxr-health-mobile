@@ -1,11 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — Progressive Boss + AI Coach
-// ✅ Prevents duplicate water gauge (ui-water.js will skip if page already has water panel)
-// ✅ Progressive Boss: Lv1..5 โหดขึ้นตามลำดับ (need↑, window↓, spawn↑, life↓)
-// ✅ Uses createAICoach(...) immediately
-// ✅ Smart Aim Assist via hha:shoot (cVR) adaptive + fair + deterministic in research
-// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
-// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
+// Hydration SAFE — PRODUCTION (FULL)
+// ✅ Fix: water gauge too hard (easier control + wider GREEN by ui-water.js)
+// ✅ Fix: duplicate gauge handled in ui-water.js
+// ✅ NEW: Progressive Boss (ramps by storm cycles/success)
+// ✅ Export boot() for loader, and also auto-boot for side-effect import
 
 'use strict';
 
@@ -100,7 +98,7 @@ function centerPoint(){
   return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
 }
 
-// -------------------- FX Helpers (Particles + DOM shock) --------------------
+// -------------------- FX Helpers --------------------
 function pulseBody(cls, ms=140){
   try{
     DOC.body.classList.add(cls);
@@ -207,7 +205,8 @@ const S = {
   streakGood:0,
   streakMax:0,
 
-  waterPct:50,
+  // ✅ start mid (easier)
+  waterPct:55,
   waterZone:'GREEN',
 
   shield:0,
@@ -234,7 +233,7 @@ const S = {
     gotHitByBad:false
   },
 
-  // Boss (progressive)
+  // Boss
   bossEnabled:true,
   bossActive:false,
   bossNeed:2,
@@ -242,7 +241,9 @@ const S = {
   bossDoneThisStorm:false,
   bossWindowSec:2.2,
   bossClearCount:0,
-  bossLevel:1,
+
+  // Progressive boss level
+  bossLevel:0,
 
   // End window fx
   endFxOn:false,
@@ -260,15 +261,20 @@ const S = {
 
 const TUNE = (() => {
   const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
-  const spawnBaseMs = diff==='easy' ? 680 : diff==='hard' ? 480 : 580;
+  const spawnBaseMs = diff==='easy' ? 690 : diff==='hard' ? 480 : 585;
+
   const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
-  const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
+  const stormDurSec   = diff==='easy' ? 5.0 : diff==='hard' ? 6.2 : 5.7;
 
   const greenTarget = clamp(
-    Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
-    18,
-    Math.max(18, timeLimit-8)
+    Math.round(timeLimit * (diff==='easy' ? 0.38 : diff==='hard' ? 0.52 : 0.45)),
+    16,
+    Math.max(16, timeLimit-8)
   );
+
+  // ✅ easier water control
+  const nudgeToMid = diff==='easy' ? 8.0 : diff==='hard' ? 6.2 : 7.2;
+  const badPush    = diff==='easy' ? 5.6 : diff==='hard' ? 7.2 : 6.4;
 
   return {
     sizeBase,
@@ -277,67 +283,47 @@ const TUNE = (() => {
     goodLifeMs: diff==='hard'? 930 : 1080,
     badLifeMs:  diff==='hard'? 980 : 1120,
     shieldLifeMs:1350,
+
     stormEverySec,
     stormDurSec,
     stormSpawnMul: diff==='hard'? 0.56 : 0.64,
-    endWindowSec:1.2,
-    bossWindowSec: diff==='hard'? 2.4 : 2.2,
 
-    // ✅ ทำให้คุม GREEN ไม่โหดเกิน (เล่นลื่นขึ้น)
-    nudgeToMid:6.5,
-    badPush:6.0,
+    endWindowSec:1.2,
+
+    // base boss window (progressive will shrink)
+    bossWindowBaseSec: diff==='hard'? 2.35 : 2.2,
+
+    nudgeToMid,
+    badPush,
 
     missPenalty:1,
     greenTargetSec: greenTarget,
-    pressureNeed: diff==='easy' ? 0.72 : diff==='hard' ? 0.98 : 0.88
+
+    // mini pressure
+    pressureNeed: diff==='easy' ? 0.70 : diff==='hard' ? 1.00 : 0.88
   };
 })();
 S.endWindowSec = TUNE.endWindowSec;
-S.bossWindowSec = TUNE.bossWindowSec;
+S.bossWindowSec = TUNE.bossWindowBaseSec;
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
+
 function nudgeWaterGood(){
-  const mid=55, d=mid - S.waterPct;
+  const mid=55;
+  const d=mid - S.waterPct;
   const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
+
 function pushWaterBad(){
-  const mid=55, d=S.waterPct - mid;
-  const step=(d>=0?+1:-1)*TUNE.badPush;
+  const mid=55;
+  const d=S.waterPct - mid;
+  const dir = (d>=0?+1:-1);
+  const step = dir * TUNE.badPush;
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
-}
-
-// -------------------- Progressive Boss --------------------
-function computeBossLevel(){
-  const base = 1;
-  const afterStage2 = (S.stage2Done ? 1 : 0);
-  const lv = base
-    + afterStage2
-    + Math.floor((S.stormCycle)/2)
-    + Math.floor((S.bossClearCount)/1);
-  return clamp(lv, 1, 5) | 0;
-}
-function applyBossTuning(){
-  S.bossLevel = computeBossLevel();
-  const L = S.bossLevel;
-
-  S.bossNeed = clamp(2 + (L>=2?1:0) + (L>=4?1:0), 2, 4);
-  S.bossWindowSec = clamp((diff==='hard'?2.4:2.2) - (L-1)*0.12, 1.6, 2.6);
-}
-function bossBadBoost(){
-  const L = S.bossLevel|0;
-  return clamp(0.08 + 0.04*(L-1), 0.08, 0.24);
-}
-function bossSpeedBoost(){
-  const L = S.bossLevel|0;
-  return clamp(1.00 - 0.06*(L-1), 0.72, 1.00);
-}
-function bossLifeBoost(){
-  const L = S.bossLevel|0;
-  return clamp(1.00 - 0.05*(L-1), 0.75, 1.00);
 }
 
 // -------------------- Accuracy/Grade --------------------
@@ -354,6 +340,23 @@ function computeGrade(){
   if (acc >= 70) return 'A';
   if (acc >= 55) return 'B';
   return 'C';
+}
+
+// -------------------- Progressive Boss --------------------
+function computeBossLevel(){
+  const base = (diff==='hard') ? 1 : 0;
+  const byCycle = Math.floor((S.stormCycle)/2);
+  const bySuccess = Math.floor((S.stormSuccess)/2);
+  return clamp(base + Math.max(byCycle, bySuccess), 0, 4);
+}
+function applyBossTuning(){
+  S.bossLevel = computeBossLevel();
+
+  const needBase = (diff==='easy') ? 2 : (diff==='hard') ? 3 : 2;
+  S.bossNeed = clamp(needBase + S.bossLevel, 2, 7);
+
+  const shrink = 0.15 * S.bossLevel;
+  S.bossWindowSec = clamp(TUNE.bossWindowBaseSec - shrink, 1.35, 2.6);
 }
 
 // -------------------- UI sync --------------------
@@ -385,6 +388,7 @@ function syncHUD(){
   setText('storm-left', S.stormActive ? (S.stormLeftSec|0) : 0);
   setText('shield-count', S.shield|0);
 
+  // Stage logic
   S.stage1Done = (S.greenHold >= TUNE.greenTargetSec);
   S.stage2Done = (S.stormSuccess >= 1);
   S.stage3Done = (S.bossClearCount >= 1);
@@ -393,17 +397,18 @@ function syncHUD(){
   else if (!S.stage2Done) setStage(2);
   else if (!S.stage3Done) setStage(3);
 
+  // Stage text
   if (S.stage === 1){
     setText('quest-line1', `Stage 1/3: คุม GREEN ให้ครบ ${TUNE.greenTargetSec|0}s (สะสม)`);
     setText('quest-line2', `GREEN: ${S.greenHold.toFixed(1)} / ${TUNE.greenTargetSec.toFixed(0)}s`);
-    setText('quest-line3', `ทิป: ยิง 💧 ให้คุมสมดุลน้ำให้อยู่ GREEN นาน ๆ`);
+    setText('quest-line3', `ทิป: ยิง 💧 เพื่อคุมสมดุลน้ำให้อยู่ GREEN นาน ๆ`);
     setText('quest-line4', `เตรียม: เก็บ 🛡️ ไว้ทำ Storm Mini`);
   } else if (S.stage === 2){
     setText('quest-line1', `Stage 2/3: ผ่าน Storm Mini อย่างน้อย 1 พายุ`);
     setText('quest-line2', `Mini ผ่านแล้ว: ${S.stormSuccess|0} / 1`);
     if (S.stormActive){
       const m = S.miniState;
-      const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS Lv${S.bossLevel} 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
+      const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
       setText('quest-line3', `Storm Mini: LOW/HIGH + BLOCK${bossTxt}`);
       setText('quest-line4',
         `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
@@ -417,7 +422,7 @@ function syncHUD(){
     setText('quest-line1', `Stage 3/3: เคลียร์ BOSS (BLOCK 🌩️ ให้ครบ ${S.bossNeed|0})`);
     setText('quest-line2', `Boss Clear: ${S.bossClearCount|0} / 1`);
     if (S.bossEnabled && S.bossActive){
-      setText('quest-line3', `BOSS Lv${S.bossLevel}! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบ`);
+      setText('quest-line3', `BOSS WINDOW! 🌩️ โหดระดับ ${S.bossLevel} — ใช้ 🛡️ BLOCK 🌩️ ให้ครบ`);
       setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${S.bossNeed|0} (รอบนี้)`);
     } else {
       setText('quest-line3', `รอช่วงท้ายพายุ (Boss Window) แล้วค่อย BLOCK 🌩️`);
@@ -425,6 +430,7 @@ function syncHUD(){
     }
   }
 
+  // external water UI
   try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
 
@@ -443,8 +449,7 @@ function syncHUD(){
     stormCycles:S.stormCycle|0,
     stormSuccess:S.stormSuccess|0,
     bossClearCount:S.bossClearCount|0,
-    stage:S.stage|0,
-    bossLevel:S.bossLevel|0
+    stage:S.stage|0
   });
 
   emit('quest:update', {
@@ -534,12 +539,10 @@ function spawn(kind){
   if (kind==='bad') S.nBadSpawn++;
   if (kind==='shield') S.nShieldSpawn++;
 
-  const lifeBase =
+  const life =
     kind==='good' ? TUNE.goodLifeMs :
     kind==='shield' ? TUNE.shieldLifeMs :
     TUNE.badLifeMs;
-
-  const life = (isBossBad ? Math.round(lifeBase * bossLifeBoost()) : lifeBase);
 
   let killed=false;
   const nodes=[];
@@ -664,7 +667,6 @@ function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
-  if (S.bossEnabled && S.bossActive) base *= bossSpeedBoost();
   return clamp(base, 210, 1200);
 }
 function pickKind(){
@@ -672,10 +674,12 @@ function pickKind(){
 
   if (S.stormActive){
     pGood=0.52; pBad=0.38; pSh=0.10;
+
+    // ✅ progressive boss: heavier bad in boss window
     if (S.bossEnabled && S.bossActive){
-      const boost = bossBadBoost();
-      pBad += boost;
-      pGood -= boost;
+      const bump = 0.06 + 0.03*S.bossLevel;
+      pBad += bump;
+      pGood -= bump;
     }
   }
   if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
@@ -693,6 +697,7 @@ function setEndFx(on){
 }
 
 function enterStorm(){
+  // ✅ progressive tuning each storm start
   applyBossTuning();
 
   S.stormActive=true;
@@ -713,6 +718,7 @@ function enterStorm(){
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
+  // drift out of perfect green slightly
   if (S.waterZone==='GREEN'){
     S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -6 : +6), 0, 100);
     updateZone();
@@ -748,6 +754,7 @@ function exitStorm(){
     popScore('+40');
   }
 
+  // boss bonus success
   if (S.bossEnabled && !S.bossDoneThisStorm && S.bossBlocked>=S.bossNeed){
     S.bossDoneThisStorm=true;
     S.bossClearCount++;
@@ -771,6 +778,7 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
+  // End window FX + beep
   if (inEnd){
     setEndFx(true);
     const now = performance.now();
@@ -784,17 +792,19 @@ function tickStorm(dt){
     setEndFx(false);
   }
 
+  // Boss window (progressive)
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
-  S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm && S.stage >= 2);
+  S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
 
+  // mini zone
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  const pressureNeed = clamp(TUNE.pressureNeed + (S.bossLevel>=4?0.08:(S.bossLevel>=2?0.04:0)), 0.70, 1.15);
-  const gain = zoneOK ? 1.05 : 0.25;
-  S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.6);
-  if (S.miniState.pressure >= pressureNeed) S.miniState.pressureOK = true;
+  // pressure
+  const gain = zoneOK ? (1.05 + 0.10*S.bossLevel) : 0.25;
+  S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
+  if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
 
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
@@ -1011,6 +1021,7 @@ function update(dt){
 
   if (S.waterZone==='GREEN') S.greenHold += dt;
 
+  // Storm schedule
   if (!S.stormActive){
     nextStormIn -= dt;
     if (nextStormIn <= 0 && S.leftSec > (TUNE.stormDurSec + 2)){
@@ -1021,12 +1032,14 @@ function update(dt){
     tickStorm(dt);
   }
 
+  // Spawn
   spawnTimer -= dt*1000;
   while (spawnTimer <= 0){
     spawn(pickKind());
     spawnTimer += nextSpawnDelay();
   }
 
+  // HUD + AI
   syncHUD();
 
   AICOACH.onUpdate({
@@ -1080,8 +1093,9 @@ async function endGame(reason){
     stormSuccess: success,
     stormRatePct: clamp((success/Math.max(1,cycles))*100, 0, 100),
 
+    bossLevel: S.bossLevel|0,
+    bossNeed: S.bossNeed|0,
     bossClearCount: S.bossClearCount|0,
-    bossLevelFinal: S.bossLevel|0,
     stageCleared: (S.stage3Done ? 3 : S.stage2Done ? 2 : S.stage1Done ? 1 : 0),
 
     accuracyGoodPct: acc,
@@ -1103,23 +1117,15 @@ async function endGame(reason){
   fillSummary(summary);
 }
 
-function boot(){
-  // ✅ สำคัญ: ป้องกัน “water gauge 2 อัน”
-  // - ถ้าหน้า hydration-vr.html มี panel (#water-bar/#water-pct/#water-zone) อยู่แล้ว
-  //   ให้ “ไม่สร้าง” gauge floating
-  // - ui-water.js จะสร้าง gauge เฉพาะเมื่อไม่มี #hha-water-gauge (แต่หน้าอาจมีของตัวเอง)
-  //   เราเลยเช็คเพิ่ม: ถ้ามี water-bar ของหน้าอยู่แล้ว => ไม่เรียก ensureWaterGauge
-  const hasPagePanel =
-    !!DOC.getElementById('water-bar') ||
-    !!DOC.getElementById('water-pct') ||
-    !!DOC.getElementById('water-zone');
-
-  try{ if (!hasPagePanel) ensureWaterGauge(); }catch(_){}
-
-  updateZone();
+// ✅ Export for loader
+export function boot(){
+  try{ ensureWaterGauge(); }catch(_){}
   try{ setWaterGauge(S.waterPct); }catch(_){}
+  updateZone();
   syncWaterPanelDOM();
   bindSummaryButtons();
+
+  applyBossTuning();
 
   spawnTimer = 320;
   nextStormIn = nextStormSchedule();
@@ -1154,4 +1160,5 @@ function boot(){
   }, 600);
 }
 
+// ✅ also auto-boot for side-effect import
 boot();
