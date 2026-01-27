@@ -1,12 +1,15 @@
 // === /herohealth/vr-groups/telemetry.js ===
-// GroupsVR Telemetry (PACK 13) — PRODUCTION v2
+// GroupsVR Telemetry (PACK 13) — PRODUCTION v3
 // ✅ Modes: off | lite | full  (persist LS + ?telemetry=off|lite|full)
 // ✅ Gated: research/practice => OFF hard
 // ✅ Throttle per event + batch send (no spam)
 // ✅ Recovery: unsent batches saved to localStorage, resent on next load
 // ✅ Flush-hardened: pagehide/hidden/freeze/beforeunload flushNow()
 // ✅ Export pending: Telemetry.exportPending()
-// ✅ NEW API: getQueueSize(), getQueueBatches(), clearQueue(), getConfig()
+// ✅ Sampling (FULL): ลด event หนักๆ เช่น spawn/hit/expire
+//    - Default sample rates in CFG.sample
+//    - Override via ?teleSample=spawn:0.2,hit:0.25,expire:0.15 (0..1)
+// ✅ API: getQueueSize(), getQueueBatches(), clearQueue(), getConfig()
 
 (function (root) {
   'use strict';
@@ -34,6 +37,18 @@
     return u ? u : '';
   }
 
+  // stable hash for deterministic sampling (no Math.random)
+  function hashSeed(str) {
+    str = String(str ?? '');
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function frac01(u32){ return (u32 >>> 0) / 4294967296; }
+
   // ---------------- storage keys ----------------
   const LS_MODE  = 'HHA_TELEMETRY_MODE_GroupsVR';   // 'off'|'lite'|'full'
   const LS_QUEUE = 'HHA_TELEMETRY_QUEUE_GroupsVR';  // array of batches
@@ -55,8 +70,21 @@
       'quest:update': 900,
       'groups:power': 900,
       'groups:progress': 250,
-      'hha:judge': 80,           // FULL only
-      'groups:ai_predict': 800
+      'groups:ai_predict': 800,
+
+      // FULL-heavy (ยัง throttle ต่ออยู่)
+      'groups:spawn': 120,
+      'groups:hit': 80,
+      'groups:expire': 160,
+      'hha:judge': 80
+    },
+    // ✅ Sampling for FULL-heavy events (0..1)
+    // NOTE: lite ignores these (because lite doesn't record full-level anyway)
+    sample: {
+      'groups:spawn': 0.22,
+      'groups:hit': 0.30,
+      'groups:expire': 0.18,
+      'hha:judge': 0.35
     },
     ui: { hudId: 'vTele' }       // optional <span id="vTele">
   };
@@ -69,6 +97,9 @@
   let _installed = false;
   let _eventsAttached = false;
 
+  // deterministic sampling counter per event
+  let _sampleCounter = Object.create(null);
+
   // ---------------- public API ----------------
   Telemetry.init = function init(opt){
     opt = opt || {};
@@ -80,6 +111,9 @@
     CFG.flushEveryMs = clamp(opt.flushEveryMs ?? CFG.flushEveryMs, 600, 6000);
     CFG.maxEventsPerBatch = clamp(opt.maxEventsPerBatch ?? CFG.maxEventsPerBatch, 20, 120);
     CFG.maxQueueBatches = clamp(opt.maxQueueBatches ?? CFG.maxQueueBatches, 6, 30);
+
+    // sampling override
+    applySampleOverrideFromQuery();
 
     // mode resolution:
     // 1) research/practice => OFF hard
@@ -120,13 +154,13 @@
       endpoint: CFG.endpoint,
       flushEveryMs: CFG.flushEveryMs,
       maxEventsPerBatch: CFG.maxEventsPerBatch,
-      maxQueueBatches: CFG.maxQueueBatches
+      maxQueueBatches: CFG.maxQueueBatches,
+      sample: Object.assign({}, CFG.sample)
     };
   };
 
   Telemetry.getQueueBatches = function getQueueBatches(){
-    const q = loadQueue();
-    return q;
+    return loadQueue();
   };
 
   Telemetry.getQueueSize = function getQueueSize(){
@@ -147,17 +181,24 @@
     name = String(name||'evt');
     const t = nowMs();
 
-    // throttle
+    // mode gate
+    if (CFG.mode === 'lite' && level === 'full') return false;
+
+    // sampling for FULL-heavy events
+    if (level === 'full' && CFG.mode === 'full') {
+      const rate = Number(CFG.sample[name]);
+      if (isFinite(rate)) {
+        if (!shouldSample(name, clamp(rate, 0, 1))) return false;
+      }
+    }
+
+    // throttle (after sampling)
     const thr  = Number(CFG.throttle[name] ?? 0) || 0;
     const last = Number(_lastEventAt[name] || 0) || 0;
     if (thr > 0 && (t - last) < thr) return false;
     _lastEventAt[name] = t;
 
-    // mode gate
-    if (CFG.mode === 'lite' && level === 'full') return false;
-
     const d = sanitizeDetail(detail);
-
     _batch.push({ t: Math.round(t), name, d });
 
     if (_batch.length >= CFG.maxEventsPerBatch) {
@@ -183,6 +224,7 @@
       runMode: CFG.runMode,
       mode: CFG.mode,
       endpoint: CFG.endpoint,
+      sample: Object.assign({}, CFG.sample),
       pending: { batches: q.length, events: ev },
       queueBatches: q
     };
@@ -271,7 +313,7 @@
     const style= String(qs('style','')||'');
 
     const batch = {
-      v: 2,
+      v: 3,
       kind: 'telemetry',
       gameTag: 'GroupsVR',
       runMode: CFG.runMode,
@@ -280,6 +322,7 @@
       ts: isoNow(),
       seq,
       meta: { seed, diff, view, style, url: String(location.href||'') },
+      sample: Object.assign({}, CFG.sample),
       events: _batch.splice(0, _batch.length)
     };
 
@@ -365,6 +408,41 @@
     sendQueued('init').catch(()=>{});
   }
 
+  // ---------------- sampling ----------------
+  function shouldSample(name, rate01){
+    if (rate01 <= 0) return false;
+    if (rate01 >= 1) return true;
+
+    const key = String(name||'evt');
+    const c = (_sampleCounter[key] = ((_sampleCounter[key]||0) + 1));
+    const seed = String(qs('seed','')||'') + '::tele' + '::' + key + '::' + String(c);
+    const u = hashSeed(seed);
+    return (frac01(u) < rate01);
+  }
+
+  function applySampleOverrideFromQuery(){
+    const s = String(qs('teleSample','')||'').trim();
+    if (!s) return;
+
+    // teleSample format: "spawn:0.2,hit:0.25,expire:0.15,judge:0.3"
+    const map = {
+      spawn: 'groups:spawn',
+      hit: 'groups:hit',
+      expire: 'groups:expire',
+      judge: 'hha:judge'
+    };
+
+    const parts = s.split(',');
+    for (const p of parts){
+      const t = p.split(':');
+      if (t.length !== 2) continue;
+      const k = String(t[0]||'').trim().toLowerCase();
+      const v = clamp(t[1], 0, 1);
+      const evt = map[k] || '';
+      if (evt) CFG.sample[evt] = v;
+    }
+  }
+
   // ---------------- event listeners ----------------
   function attachEventListeners(){
     if (_eventsAttached) return;
@@ -401,6 +479,19 @@
 
     root.addEventListener('groups:ai_predict', (ev)=>{
       Telemetry.push('groups:ai_predict', ev.detail||{}, 'lite');
+    }, { passive:true });
+
+    // FULL-heavy (sampled + throttled)
+    root.addEventListener('groups:spawn', (ev)=>{
+      Telemetry.push('groups:spawn', ev.detail||{}, 'full');
+    }, { passive:true });
+
+    root.addEventListener('groups:hit', (ev)=>{
+      Telemetry.push('groups:hit', ev.detail||{}, 'full');
+    }, { passive:true });
+
+    root.addEventListener('groups:expire', (ev)=>{
+      Telemetry.push('groups:expire', ev.detail||{}, 'full');
     }, { passive:true });
 
     root.addEventListener('hha:judge', (ev)=>{
