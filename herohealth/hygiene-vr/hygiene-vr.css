@@ -1,146 +1,112 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION (HHA Standard)
-✅ HUD safe zones via --hw-top-safe / --hw-bottom-safe
-✅ Target spawn layer + z-index correct
-✅ Target animations (pop + float + wobble)
-✅ Banner animation (show/hide)
-✅ Quiz box styles
-✅ Mobile/cVR friendly sizes
+HygieneVR Styles — PRODUCTION (HHA Standard)
+✅ Safe-area ready
+✅ Stage spawn rect via CSS vars (--hw-top-safe / --hw-bottom-safe)
+✅ Targets: good / wrong / haz
+✅ HUD overlays + banners + quiz box
+✅ Works with view-pc / view-mobile / view-vr / view-cvr classes
 */
 
 :root{
-  color-scheme: light dark;
+  --bg:#0b1020;
+  --panel:rgba(2,6,23,.72);
+  --stroke:rgba(148,163,184,.18);
+  --text:rgba(229,231,235,.96);
+  --muted:rgba(148,163,184,.95);
 
-  --bg: #0b1220;
-  --panel: rgba(2,6,23,.72);
-  --stroke: rgba(148,163,184,.18);
-  --text: rgba(229,231,235,.96);
-  --muted: rgba(148,163,184,.95);
+  --accent: rgba(34,197,94,1);
+  --cyan: rgba(34,211,238,1);
+  --warn: rgba(245,158,11,1);
+  --bad: rgba(239,68,68,1);
 
-  --good: rgba(34,197,94,.95);
-  --warn: rgba(245,158,11,.95);
-  --bad:  rgba(239,68,68,.95);
-  --cyan: rgba(34,211,238,.95);
-
-  --r: 22px;
-  --pill: 999px;
-
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ Spawn safe zones (engine reads these) */
-  --hw-top-safe: 160px;
-  --hw-bottom-safe: 170px;
+  --r:22px;
+  --pill:999px;
 
-  /* base sizes */
-  --tgt: 74px;
-  --tgt-font: 34px;
+  /* spawn-safe zones used by hygiene.safe.js (read via getComputedStyle) */
+  --hw-top-safe: 170;
+  --hw-bottom-safe: 170;
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background: var(--bg); color: var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-body{ overflow:hidden; }
-
-/* View modifiers */
-body.view-mobile{
-  --tgt: 78px;
-  --tgt-font: 36px;
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 190px;
-}
-body.view-cvr{
-  --tgt: 86px;
-  --tgt-font: 40px;
-  --hw-top-safe: 150px;
-  --hw-bottom-safe: 180px;
-}
-body.view-vr{
-  --tgt: 88px;
-  --tgt-font: 42px;
-  --hw-top-safe: 150px;
-  --hw-bottom-safe: 170px;
-}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+button{font:inherit}
 
 .hw-root{
-  position: relative;
-  width:100%;
-  height:100%;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
-}
-
-/* Stage = spawn surface */
-.hw-stage{
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
+  min-height:100%;
+  position:relative;
+  overflow:hidden;
   background:
-    radial-gradient(1200px 900px at 30% 20%, rgba(34,211,238,.12), transparent 60%),
-    radial-gradient(1000px 800px at 80% 10%, rgba(34,197,94,.10), transparent 60%),
-    radial-gradient(1200px 900px at 60% 80%, rgba(245,158,11,.10), transparent 60%),
-    linear-gradient(180deg, rgba(2,6,23,.0), rgba(2,6,23,.45));
+    radial-gradient(1000px 600px at 50% -10%, rgba(34,211,238,.10), transparent 55%),
+    radial-gradient(900px 520px at 30% 0%, rgba(34,197,94,.10), transparent 60%),
+    radial-gradient(900px 520px at 70% 0%, rgba(168,85,247,.10), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,1), rgba(2,6,23,.82));
 }
 
-/* HUD layer */
+/* Stage = click/tap area */
+.hw-stage{
+  position:absolute;
+  inset:0;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+  overflow:hidden;
+  touch-action: manipulation;
+}
+
+/* HUD */
 .hw-hud{
-  position: relative;
-  z-index: 5;
-  pointer-events: none; /* ✅ HUD ไม่บังการกดยิง (ยกเว้นปุ่ม) */
+  position:absolute;
+  inset:0;
+  pointer-events:none;
 }
 
 .hw-top{
-  pointer-events: none;
-  width: min(980px, 100%);
-  margin: 0 auto;
-  padding-top: 8px;
+  pointer-events:none;
+  position:absolute;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(12px + var(--sat));
 }
 
 .hw-title{
-  font-weight: 950;
-  letter-spacing: .2px;
-  font-size: 18px;
-  text-shadow: 0 10px 28px rgba(0,0,0,.55);
+  font-weight:950;
+  letter-spacing:.2px;
+  font-size:18px;
+  text-shadow: 0 14px 40px rgba(0,0,0,.45);
 }
 .hw-sub{
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top:6px;
   color: var(--muted);
+  font-size:12px;
 }
 
 .hw-row{
+  margin-top:10px;
   display:flex;
+  flex-wrap:wrap;
   gap:8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
 }
 
 .hw-pill{
-  pointer-events: auto;
-  user-select: none;
+  pointer-events:auto;
+  user-select:none;
   border-radius: var(--pill);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
-  color: var(--text);
   padding: 8px 10px;
-  font-weight: 900;
-  font-size: 12px;
-  line-height: 1;
-  box-shadow: 0 18px 55px rgba(0,0,0,.35);
+  font-weight:900;
+  font-size:12px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
+  color: var(--text);
+  box-shadow: 0 16px 60px rgba(0,0,0,.35);
 }
-
-.hw-pill.btn{
-  cursor: pointer;
-  background: rgba(15,23,42,.70);
-}
-.hw-pill.btn:active{ transform: translateY(1px); }
-
+.hw-pill.btn{ cursor:pointer; }
 .hw-pill.warn{
   border-color: rgba(245,158,11,.26);
-  background: rgba(245,158,11,.10);
+  background: rgba(245,158,11,.12);
 }
 .hw-pill.cyan{
   border-color: rgba(34,211,238,.26);
@@ -148,209 +114,185 @@ body.view-vr{
 }
 .hw-pill.bad{
   border-color: rgba(239,68,68,.26);
-  background: rgba(239,68,68,.10);
+  background: rgba(239,68,68,.12);
 }
 
-/* Banner */
+/* banner */
 .hw-banner{
+  position:absolute;
+  left:50%;
+  top: calc(118px + var(--sat));
+  transform: translateX(-50%);
+  max-width: min(640px, calc(100% - 24px - var(--sal) - var(--sar)));
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.70);
+  color: rgba(229,231,235,.95);
+  font-weight:900;
+  font-size:13px;
+  letter-spacing:.2px;
+  box-shadow: 0 22px 90px rgba(0,0,0,.48);
+  opacity:0;
   pointer-events:none;
-  position: fixed;
-  left: 50%;
-  top: calc(var(--hw-top-safe) - 18px);
-  transform: translate(-50%,-10px);
-  z-index: 9;
-  opacity: 0;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.72);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 22px 80px rgba(0,0,0,.55);
-  font-weight: 950;
-  font-size: 13px;
-  white-space: nowrap;
-  max-width: min(92vw, 820px);
-  overflow:hidden;
-  text-overflow: ellipsis;
+  transition: opacity .18s ease, transform .18s ease;
 }
 .hw-banner.show{
-  animation: hwBannerIn 280ms ease-out forwards, hwBannerOut 260ms ease-in forwards 900ms;
-}
-@keyframes hwBannerIn{
-  from{ opacity:0; transform: translate(-50%,-14px) scale(.96); }
-  to{ opacity:1; transform: translate(-50%,0px) scale(1); }
-}
-@keyframes hwBannerOut{
-  from{ opacity:1; transform: translate(-50%,0px) scale(1); }
-  to{ opacity:0; transform: translate(-50%,-10px) scale(.98); }
+  opacity:1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* Quiz box */
 .hw-quiz{
-  pointer-events: auto;
-  margin-top: 10px;
-  border: 1px solid rgba(34,211,238,.22);
-  background: rgba(34,211,238,.08);
-  border-radius: 16px;
+  margin-top:10px;
+  pointer-events:auto;
+  border-radius: 18px;
+  border:1px solid rgba(34,211,238,.22);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(12px);
   padding: 10px 12px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 55px rgba(0,0,0,.35);
+  box-shadow: 0 18px 70px rgba(0,0,0,.35);
 }
 .hw-quiz-q{
-  font-weight: 950;
-  font-size: 13px;
+  font-weight:950;
+  font-size:13px;
 }
 .hw-quiz-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(229,231,235,.92);
-  line-height: 1.35;
+  margin-top:6px;
+  font-size:12px;
+  color: rgba(148,163,184,.95);
+  line-height:1.35;
 }
 
 /* Overlays */
 .hw-overlay{
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
   padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-  background: radial-gradient(1200px 900px at 50% 20%, rgba(2,6,23,.35), rgba(2,6,23,.78));
-  backdrop-filter: blur(8px);
+  background: radial-gradient(900px 520px at 50% 0%, rgba(34,211,238,.10), transparent 60%),
+              rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
 }
+
 .hw-card{
-  width: min(860px, 100%);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.72);
+  width:min(760px,100%);
   border-radius: var(--r);
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.75);
+  box-shadow: 0 30px 120px rgba(0,0,0,.55);
   padding: 16px;
-  box-shadow: 0 24px 90px rgba(0,0,0,.62);
 }
-.hw-card-title{
-  font-weight: 950;
-  font-size: 18px;
-}
-.hw-card-sub{
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-}
+
+.hw-card-title{ font-weight:950; font-size:18px; letter-spacing:.2px; }
+.hw-card-sub{ margin-top:8px; color: rgba(148,163,184,.95); font-size:13px; line-height:1.45; }
+
 .hw-card-row{
-  margin-top: 12px;
   display:flex;
   gap:10px;
-  flex-wrap: wrap;
+  flex-wrap:wrap;
+  margin-top:12px;
 }
 
-.hw-cta,.hw-ghost{
-  pointer-events: auto;
+.hw-cta, .hw-ghost{
+  pointer-events:auto;
   border-radius: 16px;
-  border: 1px solid var(--stroke);
-  background: rgba(15,23,42,.72);
-  color: var(--text);
+  border:1px solid rgba(148,163,184,.18);
   padding: 10px 12px;
-  font-weight: 950;
-  cursor: pointer;
+  font-weight:950;
+  cursor:pointer;
 }
 .hw-cta{
-  border-color: rgba(34,197,94,.25);
-  background: rgba(34,197,94,.14);
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.28);
+  color: rgba(229,231,235,.95);
 }
-.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
+.hw-ghost{
+  background: rgba(15,23,42,.62);
+  color: rgba(229,231,235,.92);
+}
 
 .hw-pre{
-  margin-top: 10px;
-  width:100%;
-  max-height: 44vh;
+  margin-top:10px;
+  max-height: 260px;
   overflow:auto;
+  background: rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.18);
   border-radius: 16px;
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
-  padding: 10px 12px;
+  padding: 10px;
   color: rgba(229,231,235,.92);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size:12px;
 }
 
 /* Targets */
 .hw-tgt{
-  position: absolute;
-  z-index: 2; /* ✅ อยู่เหนือ stage แต่ใต้ HUD/overlay */
-  width: var(--tgt);
-  height: var(--tgt);
+  position:absolute;
+  left: calc(var(--x,50) * 1vw);
+  top:  calc(var(--y,50) * 1vh);
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  width: 78px;
+  height: 78px;
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
+  background: rgba(2,6,23,.40);
   backdrop-filter: blur(10px);
-  box-shadow: 0 22px 70px rgba(0,0,0,.45);
-  cursor: pointer;
-  user-select: none;
+  box-shadow: 0 22px 80px rgba(0,0,0,.45);
+  cursor:pointer;
+  pointer-events:auto;
+  display:grid;
+  place-items:center;
+  user-select:none;
   -webkit-tap-highlight-color: transparent;
 
-  left: calc(var(--x, 50) * 1vw);
-  top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
-  opacity: 0;
-
-  animation:
-    hwPop 220ms ease-out forwards,
-    hwFloat 1400ms ease-in-out infinite 260ms,
-    hwWobble 2100ms ease-in-out infinite 260ms;
+  animation: hwPopIn 220ms ease-out both;
 }
 
 .hw-tgt .emoji{
-  display:grid;
-  place-items:center;
-  width:100%;
-  height:100%;
-  font-size: var(--tgt-font);
-  filter: drop-shadow(0 10px 26px rgba(0,0,0,.35));
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 12px 28px rgba(0,0,0,.45));
 }
 
 .hw-tgt.good{
   border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.12);
+  background: rgba(34,197,94,.10);
 }
 .hw-tgt.wrong{
   border-color: rgba(245,158,11,.26);
-  background: rgba(245,158,11,.12);
+  background: rgba(245,158,11,.10);
 }
 .hw-tgt.haz{
   border-color: rgba(239,68,68,.28);
   background: rgba(239,68,68,.10);
 }
 
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
+@keyframes hwPopIn{
+  0%{ opacity:0; transform: translate(-50%,-50%) scale(.82); }
+  100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* Pop-in */
-@keyframes hwPop{
-  from{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .82)); }
-  to  { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+/* View tuning */
+body.view-mobile :root{
+  --hw-top-safe: 190;
+  --hw-bottom-safe: 190;
 }
-/* Gentle float */
-@keyframes hwFloat{
-  0%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
-  50%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(-10px); }
-  100%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
+body.view-mobile .hw-tgt{
+  width: 72px;
+  height: 72px;
 }
-/* Micro wobble */
-@keyframes hwWobble{
-  0%{ filter: none; }
-  50%{ filter: drop-shadow(0 10px 26px rgba(0,0,0,.32)); }
-  100%{ filter: none; }
+body.view-cvr :root{
+  --hw-top-safe: 220;
+  --hw-bottom-safe: 210;
+}
+/* cVR: targets should not capture pointer if you shoot from crosshair */
+body.view-cvr .hw-tgt{
+  pointer-events:none;
+  opacity:.98;
 }
 
-/* Make sure VR UI / particles always visible */
-#hhaCrosshair{ z-index: 9999 !important; }
-#hha-particles{ z-index: 9999 !important; }
-
-/* Small screens */
-@media (max-width: 520px){
-  .hw-title{ font-size: 16px; }
-  .hw-pill{ font-size: 11px; padding: 7px 10px; }
-  .hw-banner{ font-size: 12px; }
-  .hw-pre{ max-height: 38vh; }
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hw-tgt{ animation:none; }
+  .hw-banner{ transition:none; }
 }
