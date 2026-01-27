@@ -1,12 +1,12 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SPACIOUS (v3 FIX)
+GoodJunkVR UI — SPACIOUS (Fair Pack)
 ✅ Gameplay area BIG (HUD compact)
-✅ FIX: safe-zone measure no double-count sat
-✅ Mobile: quest cards auto-hide (use Missions peek instead)
-✅ Adds: progress bar + boss bar (thin, non-blocking)
+✅ Safe-area insets + top/bottom safe vars for spawn: --gj-top-safe / --gj-bottom-safe
 ✅ Supports: view-pc / view-mobile / view-vr / view-cvr
 ✅ HUD hide mode: body.hud-hidden
 ✅ Missions peek: body.show-missions
+✅ Targets: stable (no blink), clear hit affordance
+✅ PATCH: Boss bar peek->compact on mobile + mobile slim HUD
 */
 
 :root{
@@ -36,8 +36,8 @@ GoodJunkVR UI — SPACIOUS (v3 FIX)
   --sar: env(safe-area-inset-right, 0px);
 
   /* spawn safe (JS will overwrite) */
-  --gj-top-safe: 132px;
-  --gj-bottom-safe: 120px;
+  --gj-top-safe: 168px;
+  --gj-bottom-safe: 140px;
 
   /* layout density */
   --topbar-h: 56px;
@@ -80,7 +80,7 @@ a-scene[embedded]{
   align-items:flex-end;
   justify-content:space-between;
   gap:10px;
-  z-index:60;
+  z-index:50;
   pointer-events:auto;
 }
 
@@ -125,34 +125,95 @@ a-scene[embedded]{
   color:#eafff3;
 }
 
-/* --- PROGRESS (thin, under topbar) --- */
+/* --- PROGRESS BAR (thin) --- */
 .gj-progress{
   position:fixed;
   left: calc(12px + var(--sal));
   right: calc(12px + var(--sar));
-  top: calc(var(--topbar-h) + var(--sat) + 6px);
+  top: calc(var(--topbar-h) + var(--sat));
   height: 10px;
   border-radius: 999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.44);
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.50);
   overflow:hidden;
-  z-index:55;
+  z-index:45;
   pointer-events:none;
 }
-.gj-progress-fill{
+.gj-progress > i{
+  display:block;
   height:100%;
   width:0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.92));
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
 }
+
+/* --- BOSS BAR --- */
+.gj-bossbar{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--topbar-h) + var(--sat) + 14px);
+  padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+  z-index:46;
+  pointer-events:none;
+  opacity:0;
+  transform: translateY(-6px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+.gj-bossbar[aria-hidden="false"]{
+  opacity:1;
+  transform: translateY(0);
+}
+.boss-card{
+  border-radius: var(--radius);
+  border:1px solid rgba(245,158,11,.30);
+  background: rgba(2,6,23,.66);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 45px rgba(0,0,0,.32);
+  padding: 10px 12px;
+}
+.boss-title{
+  font-weight:1200;
+  font-size:12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.boss-hint{
+  margin-top:6px;
+  font-size:12px;
+  font-weight:900;
+  color: rgba(229,231,235,.92);
+}
+.boss-bar{
+  margin-top:8px;
+  height: 10px;
+  border-radius: 999px;
+  border:1px solid rgba(148,163,184,.25);
+  background: rgba(15,23,42,.55);
+  overflow:hidden;
+}
+.boss-fill{
+  height:100%;
+  width:100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
+}
+
+/* boss compact mode (peek then compact) */
+body.boss-compact .gj-bossbar .boss-card{ padding: 8px 10px; }
+body.boss-compact .gj-bossbar .boss-hint{ display:none !important; }
+body.boss-compact .gj-bossbar .boss-title{ font-size:11px; }
+body.boss-compact .gj-bossbar .boss-bar{ margin-top:6px; height:9px; }
 
 /* --- HUD TOP (compact) --- */
 .gj-hud-top{
   position:fixed;
   left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat) + 20px); /* below progress */
-  padding: 6px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:50;
+  top: calc(var(--topbar-h) + var(--sat) + 28px);
+  padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+  z-index:40;
   pointer-events:none; /* HUD should not block gameplay */
 }
 
@@ -169,7 +230,7 @@ a-scene[embedded]{
   min-width: 92px;
   padding: 10px 12px;
   border-radius: 18px;
-  background: rgba(2,6,23,.62);
+  background: rgba(2,6,23,.64);
   border:1px solid var(--stroke);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -245,64 +306,13 @@ a-scene[embedded]{
   background: rgba(15,23,42,.55);
 }
 
-/* --- BOSS BAR (thin, top-center) --- */
-.gj-bossbar{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  top: calc(var(--topbar-h) + var(--sat) + 40px);
-  z-index:58;
-  pointer-events:none;
-  opacity:1;
-}
-.gj-bossbar[aria-hidden="true"]{ opacity:0; }
-.boss-card{
-  border-radius: 16px;
-  border:1px solid rgba(245,158,11,.22);
-  background: rgba(2,6,23,.58);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding:10px 12px;
-  box-shadow: 0 14px 44px rgba(0,0,0,.34);
-}
-.boss-title{
-  font-weight:1200;
-  font-size:12px;
-  letter-spacing:.35px;
-  color: rgba(255,255,255,.92);
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-}
-.boss-hint{
-  margin-top:6px;
-  font-size:11px;
-  font-weight:900;
-  color: rgba(229,231,235,.86);
-  line-height:1.25;
-}
-.boss-bar{
-  margin-top:8px;
-  height: 10px;
-  border-radius: 999px;
-  border:1px solid rgba(245,158,11,.22);
-  background: rgba(15,23,42,.55);
-  overflow:hidden;
-}
-.boss-fill{
-  height:100%;
-  width:100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.92));
-}
-
 /* --- HUD BOTTOM (compact) --- */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
   bottom:0;
   padding: 0 calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
-  z-index:50;
+  z-index:40;
   pointer-events:none;
   display:grid;
   grid-template-columns: 1.2fr .8fr;
@@ -412,9 +422,11 @@ body.view-cvr .gj-layer-r{
   opacity: 1;
   will-change: transform;
 }
+
 .gj-target:active{
   transform: translate(-50%, -50%) scale(.98);
 }
+
 @keyframes gjPopIn{
   from{ transform: translate(-50%, -50%) scale(.72); opacity: .88; }
   to{ transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -431,7 +443,7 @@ body.view-cvr .gj-target{ pointer-events:none; }
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:80;
+  z-index:70;
   pointer-events:none;
   opacity:0;
   transition: opacity .15s ease;
@@ -458,19 +470,21 @@ body.view-cvr .gj-target{ pointer-events:none; }
 .gj-peek{
   position:fixed;
   left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat) + 10px);
+  top: calc(var(--topbar-h) + var(--sat) + 8px);
   padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:75;
+  z-index:60;
   pointer-events:none;
   opacity:0;
   transform: translateY(-6px);
   transition: opacity .15s ease, transform .15s ease;
 }
+
 body.show-missions .gj-peek{
   opacity:1;
   transform: translateY(0);
   pointer-events:auto;
 }
+
 .peek-card{
   width:min(720px, 96vw);
   margin: 0 auto;
@@ -482,7 +496,12 @@ body.show-missions .gj-peek{
   box-shadow: 0 18px 55px rgba(0,0,0,.42);
   padding: 12px;
 }
-.peek-title{ font-size:14px; font-weight:1200; margin-bottom:6px; }
+
+.peek-title{
+  font-size:14px;
+  font-weight:1200;
+  margin-bottom:6px;
+}
 .peek-sub, .peek-mini{
   font-size:12px;
   font-weight:900;
@@ -496,11 +515,9 @@ body.show-missions .gj-peek{
   color: rgba(148,163,184,.92);
 }
 
-/* --- HUD hidden mode --- */
+/* --- HUD hidden mode (maximize playfield) --- */
 body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot,
-body.hud-hidden .gj-progress,
-body.hud-hidden .gj-bossbar{
+body.hud-hidden .gj-hud-bot{
   display:none !important;
 }
 
@@ -510,14 +527,15 @@ body.hud-hidden .gj-bossbar{
     --topbar-h: 52px;
     --card-pad: 9px;
   }
-  .gj-btn{ height:40px; border-radius: 14px; }
-  .hud-pill{ min-width: 86px; }
-  .hud-pill .hud-value{ font-size: 17px; }
-
-  /* ✅ key fix: hide quest cards on mobile (use Missions peek) */
-  .quest-row{ display:none !important; }
-
+  .gj-chip{ padding:8px 10px; }
+  .gj-btn{ height:38px; border-radius: 14px; padding:0 10px; }
+  .hud-pill{ min-width: 78px; padding:8px 10px; border-radius:16px; }
+  .hud-pill .hud-value{ font-size: 16px; }
+  .quest-row{ grid-template-columns: 1fr; }
   .gj-hud-bot{ grid-template-columns: 1fr; }
+  .gj-progress{ height:9px; }
+  .gj-hud-top{ top: calc(var(--topbar-h) + var(--sat) + 16px); }
+  .gj-bossbar{ top: calc(var(--topbar-h) + var(--sat) + 12px); }
 }
 
 @media (min-width: 900px){
@@ -534,10 +552,6 @@ body.hud-hidden .gj-bossbar{
     left: calc(18px + var(--sal));
     right: calc(18px + var(--sar));
   }
-  .gj-bossbar{
-    left: calc(18px + var(--sal));
-    right: calc(18px + var(--sar));
-  }
 }
 
 /* Respect reduced motion */
@@ -545,4 +559,5 @@ body.hud-hidden .gj-bossbar{
   .gj-target.spawn{ animation:none; }
   .gj-peek{ transition:none; }
   .gj-lowtime-overlay{ transition:none; }
+  .gj-bossbar{ transition:none; }
 }
