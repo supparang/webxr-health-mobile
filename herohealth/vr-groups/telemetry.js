@@ -1,15 +1,16 @@
 // === /herohealth/vr-groups/telemetry.js ===
-// GroupsVR Telemetry (PACK 13.9) — PRODUCTION v4
+// GroupsVR Telemetry (PACK 13.95) — PRODUCTION v4.1
 // ✅ Modes: off | lite | full (persist LS + ?telemetry=off|lite|full)
 // ✅ Gated: research/practice => OFF hard
 // ✅ Throttle + batch send + localStorage queue
 // ✅ Flush-hardened: pagehide/hidden/freeze/beforeunload => flushNow()
 // ✅ Recovery: keep unsent batches, resend on next load/online
 // ✅ Sampling for FULL-heavy events, override: ?teleSample=spawn:0.2,hit:0.25,expire:0.15,judge:0.3
-// ✅ NEW: Status heartbeat event: groups:telemetry_status (for HUD health)
-// ✅ NEW: Telemetry.resendNow(), Telemetry.getLastStatus(), Telemetry.setHudHook(fn)
-
-// NOTE: endpoint uses ?log=... (same convention as flush-log), optional.
+// ✅ Status heartbeat event: groups:telemetry_status (for HUD health)
+// ✅ Telemetry.resendNow(), Telemetry.getLastStatus(), Telemetry.setHudHook(fn)
+// ✅ NEW (13.95): Auto-downgrade by FPS (FULL→LITE→OFF) for smooth play
+//    - Enable: default ON (play only). Disable: ?teleAuto=0
+//    - Threshold: ?teleFps=40 (default 42), hard: ?teleFpsHard=26 (default 28)
 
 (function (root) {
   'use strict';
@@ -85,6 +86,18 @@
       'hha:judge': 0.35
     },
     statusEveryMs: 850,
+
+    // ✅ PACK 13.95: auto downgrade
+    auto: {
+      enabled: true,          // disable with ?teleAuto=0
+      fpsLow: 42,             // FULL -> LITE if fps < fpsLow for holdMs
+      fpsHard: 28,            // LITE -> OFF if fps < fpsHard for holdMsHard
+      holdMs: 2600,           // low fps continuous duration
+      holdMsHard: 2600,
+      cooldownMs: 9000,       // after a switch, wait before next
+      sampleWindowMs: 1000,   // FPS average window
+      warnEveryMs: 1200
+    }
   };
 
   let _batch = [];
@@ -107,6 +120,16 @@
   // optional HUD hook callback
   let _hudHook = null;
 
+  // auto downgrade runtime
+  let _fpsRaf = 0;
+  let _fpsFrames = 0;
+  let _fpsT0 = 0;
+  let _fpsAvg = 60;
+  let _lowStart = 0;
+  let _hardStart = 0;
+  let _lastAutoSwitchAt = 0;
+  let _lastAutoWarnAt = 0;
+
   // ---------------- public API ----------------
   Telemetry.init = function init(opt){
     opt = opt || {};
@@ -121,6 +144,7 @@
     CFG.statusEveryMs = clamp(opt.statusEveryMs ?? CFG.statusEveryMs, 350, 2500);
 
     applySampleOverrideFromQuery();
+    applyAutoOverrideFromQuery();
 
     // mode resolution
     let mode = 'lite';
@@ -138,6 +162,9 @@
     startTimer();
     startStatusHeartbeat();
     installLeaveFlush();
+
+    // ✅ auto downgrade: play only + enabled
+    if (CFG.runMode === 'play' && CFG.auto.enabled) startFpsMonitor();
 
     return true;
   };
@@ -161,7 +188,8 @@
       maxEventsPerBatch: CFG.maxEventsPerBatch,
       maxQueueBatches: CFG.maxQueueBatches,
       sample: Object.assign({}, CFG.sample),
-      statusEveryMs: CFG.statusEveryMs
+      statusEveryMs: CFG.statusEveryMs,
+      auto: Object.assign({}, CFG.auto)
     };
   };
 
@@ -169,13 +197,9 @@
     _hudHook = (typeof fn === 'function') ? fn : null;
   };
 
-  Telemetry.getLastStatus = function getLastStatus(){
-    return _lastStatus;
-  };
+  Telemetry.getLastStatus = function getLastStatus(){ return _lastStatus; };
 
-  Telemetry.getQueueBatches = function getQueueBatches(){
-    return loadQueue();
-  };
+  Telemetry.getQueueBatches = function getQueueBatches(){ return loadQueue(); };
 
   Telemetry.getQueueSize = function getQueueSize(){
     const q = loadQueue();
@@ -186,6 +210,7 @@
 
   Telemetry.clearQueue = function clearQueue(){
     try { localStorage.removeItem(LS_QUEUE); } catch {}
+    publishStatus('clear_queue');
     return true;
   };
 
@@ -201,6 +226,7 @@
       mode: CFG.mode,
       endpoint: CFG.endpoint,
       sample: Object.assign({}, CFG.sample),
+      auto: Object.assign({}, CFG.auto),
       pending: { batches: q.length, events: ev },
       queueBatches: q
     };
@@ -325,7 +351,7 @@
     const style= String(qs('style','')||'');
 
     const batch = {
-      v: 4,
+      v: 41,
       kind: 'telemetry',
       gameTag: 'GroupsVR',
       runMode: CFG.runMode,
@@ -333,8 +359,9 @@
       reason: String(reason||'tick'),
       ts: isoNow(),
       seq,
-      meta: { seed, diff, view, style, url: String(location.href||'') },
+      meta: { seed, diff, view, style, url: String(location.href||''), fpsAvg: Math.round(_fpsAvg) },
       sample: Object.assign({}, CFG.sample),
+      auto: Object.assign({}, CFG.auto),
       events: _batch.splice(0, _batch.length)
     };
 
@@ -463,6 +490,127 @@
     }
   }
 
+  // ---------------- auto downgrade (PACK 13.95) ----------------
+  function applyAutoOverrideFromQuery(){
+    const a = String(qs('teleAuto','')||'').trim();
+    if (a === '0' || a === 'false') CFG.auto.enabled = false;
+
+    const fps = qs('teleFps', null);
+    if (fps != null) CFG.auto.fpsLow = clamp(fps, 30, 58);
+
+    const fpsH = qs('teleFpsHard', null);
+    if (fpsH != null) CFG.auto.fpsHard = clamp(fpsH, 18, 40);
+  }
+
+  function startFpsMonitor(){
+    cancelAnimationFrame(_fpsRaf);
+    _fpsFrames = 0;
+    _fpsT0 = nowMs();
+    _fpsAvg = 60;
+    _lowStart = 0;
+    _hardStart = 0;
+    _lastAutoSwitchAt = 0;
+    _lastAutoWarnAt = 0;
+
+    const tick = ()=>{
+      _fpsFrames++;
+      const t = nowMs();
+      const dt = t - _fpsT0;
+      if (dt >= CFG.auto.sampleWindowMs){
+        const fps = (_fpsFrames * 1000) / dt;
+        _fpsAvg = fps;
+        _fpsFrames = 0;
+        _fpsT0 = t;
+
+        autoDecide(t, fps);
+      }
+      _fpsRaf = requestAnimationFrame(tick);
+    };
+    _fpsRaf = requestAnimationFrame(tick);
+  }
+
+  function autoDecide(t, fps){
+    if (!CFG.auto.enabled) return;
+    if (CFG.runMode !== 'play') return;
+    if (CFG.mode === 'off') return; // already minimal
+
+    // cooldown guard
+    if (_lastAutoSwitchAt && (t - _lastAutoSwitchAt) < CFG.auto.cooldownMs) {
+      maybeWarnLowFps(t, fps);
+      return;
+    }
+
+    const low = (fps < CFG.auto.fpsLow);
+    const hard = (fps < CFG.auto.fpsHard);
+
+    if (hard) {
+      if (!_hardStart) _hardStart = t;
+    } else {
+      _hardStart = 0;
+    }
+
+    if (low) {
+      if (!_lowStart) _lowStart = t;
+    } else {
+      _lowStart = 0;
+    }
+
+    // FULL -> LITE
+    if (CFG.mode === 'full' && _lowStart && (t - _lowStart) >= CFG.auto.holdMs) {
+      doAutoSwitch('lite', 'fps_low_full_to_lite', fps);
+      _lowStart = 0;
+      _hardStart = 0;
+      return;
+    }
+
+    // LITE -> OFF (hard low)
+    if (CFG.mode === 'lite' && _hardStart && (t - _hardStart) >= CFG.auto.holdMsHard) {
+      doAutoSwitch('off', 'fps_hard_lite_to_off', fps);
+      _lowStart = 0;
+      _hardStart = 0;
+      return;
+    }
+
+    maybeWarnLowFps(t, fps);
+  }
+
+  function maybeWarnLowFps(t, fps){
+    if (fps >= CFG.auto.fpsLow) return;
+    if (_lastAutoWarnAt && (t - _lastAutoWarnAt) < CFG.auto.warnEveryMs) return;
+    _lastAutoWarnAt = t;
+
+    // status event for UI (non-invasive)
+    try{
+      root.dispatchEvent(new CustomEvent('groups:telemetry_auto', {
+        detail:{ kind:'warn', mode:CFG.mode, fps:Math.round(fps), fpsLow:CFG.auto.fpsLow, fpsHard:CFG.auto.fpsHard }
+      }));
+    }catch(_){}
+  }
+
+  function doAutoSwitch(mode, reason, fps){
+    const from = CFG.mode;
+    setModeInternal(mode, false);
+    _lastAutoSwitchAt = nowMs();
+
+    // pack current batch quickly so nothing lost
+    if (_batch.length) packBatch('auto_switch');
+    sendQueued('auto_switch').catch(()=>{});
+    publishStatus('auto_switch');
+
+    try{
+      root.dispatchEvent(new CustomEvent('groups:telemetry_auto', {
+        detail:{
+          kind:'switch',
+          from, to:mode,
+          reason:String(reason||'auto'),
+          fps:Math.round(fps),
+          fpsLow:CFG.auto.fpsLow,
+          fpsHard:CFG.auto.fpsHard
+        }
+      }));
+    }catch(_){}
+  }
+
   // ---------------- status heartbeat ----------------
   function publishStatus(tag){
     const q = loadQueue();
@@ -481,7 +629,8 @@
       pendingEvents: ev,
       lastSentMsAgo: _lastSentAt ? (nowMs() - _lastSentAt) : -1,
       lastFailMsAgo: _lastFailAt ? (nowMs() - _lastFailAt) : -1,
-      lastSendResult: _lastSendResult
+      lastSendResult: _lastSendResult,
+      fpsAvg: Math.round(_fpsAvg)
     };
 
     try { root.dispatchEvent(new CustomEvent('groups:telemetry_status', { detail: st })); } catch(_){}
