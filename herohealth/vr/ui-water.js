@@ -1,8 +1,8 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION (NO-DUP + EASIER GREEN)
+// Water Gauge Utilities — PRODUCTION (No-dup)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ Avoid duplicate gauge if page already has its own water panel
-// ✅ Slightly wider GREEN zone for better play-feel
+// ✅ IMPORTANT: Will NOT inject floating gauge if page already has a water panel
+//    - detects: [data-hha-water-panel="1"] OR #waterPanel OR .water-panel OR #water-bar/#water-zone
 
 'use strict';
 
@@ -11,36 +11,35 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-// โซนน้ำ (ปรับให้ง่ายขึ้นนิดนึง)
-// เดิม: GREEN 45..65  -> ใหม่: GREEN 42..68 (คุมง่ายขึ้น)
+function pageHasWaterPanel(){
+  try{
+    if (!DOC) return true;
+    return !!(
+      DOC.querySelector('[data-hha-water-panel="1"]') ||
+      DOC.getElementById('waterPanel') ||
+      DOC.querySelector('.water-panel') ||
+      DOC.getElementById('water-bar') ||
+      DOC.getElementById('water-zone')
+    );
+  }catch(_){
+    return true;
+  }
+}
+
+// โซนน้ำ: ทำให้ “คุม GREEN ง่ายขึ้น” (กว้างขึ้นเล็กน้อย)
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
+  // เดิม 45–65 => ปรับเป็น 42–68 (เล่นง่ายขึ้นนิดนึง)
   if (p >= 42 && p <= 68) return 'GREEN';
   if (p < 42) return 'LOW';
   return 'HIGH';
 }
 
-function pageAlreadyHasWaterPanel(){
-  if (!DOC) return false;
-  // ถ้าเกมมี panel ของตัวเองอยู่แล้ว ให้ไม่ฉีด gauge ลอยเพิ่ม
-  return !!(
-    DOC.getElementById('water-bar') ||
-    DOC.getElementById('water-zone') ||
-    DOC.getElementById('water-pct') ||
-    DOC.getElementById('water-panel') ||
-    DOC.querySelector('[data-hha-water-panel="1"]')
-  );
-}
-
 export function ensureWaterGauge(){
   if (!DOC) return;
 
-  // allow explicit disable from page:
-  // <script>window.HHA_WATER_GAUGE_DISABLE = 1;</script>
-  if (ROOT.HHA_WATER_GAUGE_DISABLE) return;
-
-  // ✅ สำคัญ: ถ้าหน้าเกมมี water panel อยู่แล้ว ไม่ฉีดซ้อน
-  if (pageAlreadyHasWaterPanel()) return;
+  // ✅ ถ้าหน้ามี water panel อยู่แล้ว: ไม่ฉีด gauge ลอย
+  if (pageHasWaterPanel()) return;
 
   if (DOC.getElementById('hha-water-gauge')) return;
 
@@ -83,22 +82,18 @@ export function ensureWaterGauge(){
 
 export function setWaterGauge(pct){
   if (!DOC) return;
+
+  // ถ้ามี panel ของหน้าเกมอยู่แล้ว ก็ไม่ยุ่ง (ใช้ของหน้าเกม)
+  if (pageHasWaterPanel()) return;
+
   const p = clamp(pct,0,100);
+  const bar = DOC.getElementById('hha-water-bar');
+  const t = DOC.getElementById('hha-water-pct');
+  const z = DOC.getElementById('hha-water-zone');
+
+  if (bar) bar.style.width = p.toFixed(0) + '%';
+  if (t) t.textContent = String(p|0);
+
   const zone = zoneFrom(p);
-
-  // injected gauge (if exists)
-  const bar1 = DOC.getElementById('hha-water-bar');
-  const t1   = DOC.getElementById('hha-water-pct');
-  const z1   = DOC.getElementById('hha-water-zone');
-  if (bar1) bar1.style.width = p.toFixed(0) + '%';
-  if (t1) t1.textContent = String(p|0);
-  if (z1) z1.textContent = zone;
-
-  // page water panel (if exists)
-  const bar2 = DOC.getElementById('water-bar');
-  const pct2 = DOC.getElementById('water-pct');
-  const z2   = DOC.getElementById('water-zone');
-  if (bar2) bar2.style.width = p.toFixed(0) + '%';
-  if (pct2) pct2.textContent = String(p|0);
-  if (z2) z2.textContent = zone;
+  if (z) z.textContent = zone;
 }
