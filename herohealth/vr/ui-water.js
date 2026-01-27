@@ -1,7 +1,8 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION
+// Water Gauge Utilities — PRODUCTION v1.1 (dedupe + dual-sync)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ Works with hydration.safe.js import
+// ✅ DEDUPE: If page already has #water-bar/#water-pct/#water-zone, skip overlay gauge
+// ✅ Dual-sync: setWaterGauge updates BOTH (page panel + overlay) if present
 // ✅ Safe: no-op if DOM missing
 
 'use strict';
@@ -10,17 +11,26 @@ const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function hasPageWaterPanel(){
+  if (!DOC) return false;
+  return !!(DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone'));
+}
 
-// โซนน้ำ: ปรับได้ตามต้องการ
+// โซนน้ำ (ปรับได้): แนะนำให้ “ง่ายขึ้นนิด” โดยขยาย GREEN (เดี๋ยวข้อ 2 จะจูนเพิ่ม)
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
-  if (p >= 45 && p <= 65) return 'GREEN';
-  if (p < 45) return 'LOW';
+  // เดิม 45–65 → ขยายเป็น 42–68 ให้คุมง่ายขึ้นเล็กน้อย
+  if (p >= 42 && p <= 68) return 'GREEN';
+  if (p < 42) return 'LOW';
   return 'HIGH';
 }
 
 export function ensureWaterGauge(){
   if (!DOC) return;
+
+  // ✅ ถ้าหน้ามี panel ของตัวเองอยู่แล้ว → ไม่สร้าง overlay ซ้ำ
+  if (hasPageWaterPanel()) return;
+
   if (DOC.getElementById('hha-water-gauge')) return;
 
   const wrap = DOC.createElement('div');
@@ -63,16 +73,21 @@ export function ensureWaterGauge(){
 export function setWaterGauge(pct){
   if (!DOC) return;
   const p = clamp(pct,0,100);
-  const bar = DOC.getElementById('hha-water-bar');
-  const t = DOC.getElementById('hha-water-pct');
-  const z = DOC.getElementById('hha-water-zone');
+  const zone = zoneFrom(p);
 
+  // ✅ Update page panel (ถ้ามี)
+  const bar2 = DOC.getElementById('water-bar');
+  const t2   = DOC.getElementById('water-pct');
+  const z2   = DOC.getElementById('water-zone');
+  if (bar2) bar2.style.width = p.toFixed(0) + '%';
+  if (t2) t2.textContent = String(p|0);
+  if (z2) z2.textContent = zone;
+
+  // ✅ Update overlay gauge (ถ้ามี) — แต่จะถูก ensureWaterGauge ข้ามไปเองถ้าซ้ำ
+  const bar = DOC.getElementById('hha-water-bar');
+  const t   = DOC.getElementById('hha-water-pct');
+  const z   = DOC.getElementById('hha-water-zone');
   if (bar) bar.style.width = p.toFixed(0) + '%';
   if (t) t.textContent = String(p|0);
-
-  const zone = zoneFrom(p);
   if (z) z.textContent = zone;
-
-  // ถ้าหน้าเกมมี panel ของตัวเองอยู่แล้ว (เช่น hydration-vr.html) ก็ไม่ชนกัน
-  // ไฟล์นี้เป็น “utility” ให้ import ผ่าน + ใช้ร่วมกันได้ทั้งระบบ
 }
