@@ -1,21 +1,8 @@
-// === /fitness/js/event-logger.js — Event-level CSV logger (Shadow Breaker) (PATCH 2026-01-27) ===
+// === /fitness/js/event-logger.js — Event-level CSV logger (PATCH 2026-01-27) ===
 'use strict';
 
 export class EventLogger {
   constructor() {
-    /**
-     * เก็บ log ราย event
-     * ตัวอย่าง row:
-     * {
-     *   ts_ms, mode, diff,
-     *   boss_index, boss_phase,
-     *   target_id, target_type, is_boss_face,
-     *   event_type, rt_ms, grade,
-     *   score_delta, combo_after, score_after,
-     *   player_hp, boss_hp,
-     *   participant_id, participant_group, participant_note, ...
-     * }
-     */
     this.logs = [];
   }
 
@@ -28,19 +15,12 @@ export class EventLogger {
     this.logs.length = 0;
   }
 
-  /**
-   * แปลง logs → CSV text
-   * ✅ รวมคอลัมน์ให้ “นิ่ง” จากทุก row (เหมือน SessionLogger)
-   * ✅ escape ค่าที่มี comma/quote/newline
-   */
   toCsv() {
     if (!this.logs.length) return '';
 
-    // ✅ สร้าง set ของทุกคีย์ในทุกแถว เพื่อให้ header ครบ
+    // ✅ รวมคอลัมน์ให้ “นิ่ง” แม้บาง row จะมี field เพิ่ม/หาย
     const colSet = new Set();
-    for (const r of this.logs) {
-      Object.keys(r).forEach(k => colSet.add(k));
-    }
+    for (const r of this.logs) Object.keys(r).forEach(k => colSet.add(k));
     const cols = Array.from(colSet);
 
     const esc = (v) => {
@@ -79,6 +59,7 @@ export function downloadEventCsv(logger, filename = 'shadow-breaker-events.csv')
     a.download = filename;
     document.body.appendChild(a);
     a.click();
+
     setTimeout(() => {
       a.remove();
       URL.revokeObjectURL(url);
