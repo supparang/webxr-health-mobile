@@ -1,9 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4 (Boss+Progress) PATCHED
-// ✅ Boss Phase (ท้ายเกม): HP bar + rules
-// ✅ Progress bar fill
-// ✅ Mobile safe-zone via CSS vars --gj-top-safe/--gj-bottom-safe (measured in HTML)
-// ✅ AI hooks SAFE: never throws even if ai-hooks missing funcs
+// GoodJunkVR SAFE — v4 (Boss+Progress) [PATCHED]
+// ✅ FIX: AI.getDifficulty always guarded
+// ✅ FIX: low-time overlay never shows "0" and hides on endGame
+// ✅ FIX: emits gj:measureSafe when boss bar toggles
 'use strict';
 
 import { createAIHooks } from '../vr/ai-hooks.js';
@@ -12,7 +11,7 @@ import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js
 const WIN = window;
 const DOC = document;
 
-const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,Number(v)||0));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
 
@@ -84,7 +83,6 @@ function decorateTarget(el, t){
   }
 }
 
-// --- Quests ---
 function makeGoals(){
   return [
     { key:'clean', name:'แยกของดี/ของเสีย', desc:'เก็บของดีให้เยอะ และอย่าโดนของเสีย', targetGood:18, maxMiss:6 },
@@ -120,10 +118,10 @@ export function boot(opts={}){
   const elLowOverlay = DOC.getElementById('lowTimeOverlay');
   const elLowNum = DOC.getElementById('gj-lowtime-num');
 
-  // progress
+  // ✅ progress
   const elProgFill = DOC.getElementById('gjProgressFill');
 
-  // boss UI
+  // ✅ boss UI
   const elBossBar  = DOC.getElementById('bossBar');
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
@@ -166,11 +164,7 @@ export function boot(opts={}){
   const adaptiveOn = (run === 'play');
   const aiOn = (run === 'play');
 
-  // ✅ AI hooks (SAFE WRAP)
-  const AI = createAIHooks({ game:'GoodJunkVR', mode: run, rng }) || {};
-  const aiOnEvent = (typeof AI.onEvent === 'function') ? AI.onEvent.bind(AI) : ()=>{};
-  const aiGetTip  = (typeof AI.getTip === 'function') ? AI.getTip.bind(AI) : ()=>null;
-  const aiGetDiff = (typeof AI.getDifficulty === 'function') ? AI.getDifficulty.bind(AI) : null;
+  const AI = createAIHooks({ game:'GoodJunkVR', mode: run, rng });
 
   function setFever(p){
     S.fever = clamp(p,0,100);
@@ -203,7 +197,6 @@ export function boot(opts={}){
     if(S.score<0) S.score = 0;
   }
 
-  // --- quests ---
   function currentGoal(){ return S.goals[S.goalIndex] || S.goals[0]; }
   function resetMiniWindow(){
     S.mini.windowStartAt = (performance.now ? performance.now() : Date.now());
@@ -261,7 +254,7 @@ export function boot(opts={}){
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
     if(done){
       const prev = S.goalIndex;
-      S.goalIndex = Math.min(S.goals.length - 1, S.goalIndex + 1);
+      S.goalIndex = Math.min(S.goals.length - 1, S.goals.length ? S.goalIndex + 1 : 0);
       if(S.goalIndex !== prev){
         emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
       }
@@ -295,11 +288,15 @@ export function boot(opts={}){
     }
   }
 
-  // --- low time overlay ---
+  // ✅ FIX: low time overlay — never show "0"
   function updateLowTime(){
     if(!elLowOverlay || !elLowNum) return;
+    if(S.ended){
+      elLowOverlay.setAttribute('aria-hidden','true');
+      return;
+    }
     const t = Math.ceil(S.timeLeft);
-    if(t <= 5 && t >= 0){
+    if(t <= 5 && t > 0){
       elLowOverlay.setAttribute('aria-hidden','false');
       elLowNum.textContent = String(t);
     }else{
@@ -307,7 +304,6 @@ export function boot(opts={}){
     }
   }
 
-  // --- progress ---
   function updateProgress(){
     if(!elProgFill) return;
     const played = clamp(S.timePlan - S.timeLeft, 0, S.timePlan);
@@ -315,11 +311,10 @@ export function boot(opts={}){
     elProgFill.style.width = `${Math.round(p*100)}%`;
   }
 
-  // --- boss ui ---
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
-    emit('gj:measureSafe', {});
+    emit('gj:measureSafe', {}); // ✅ ask HTML to re-measure safe zone
   }
   function updateBossUI(){
     if(!elBossFill) return;
@@ -329,7 +324,6 @@ export function boot(opts={}){
 
   function startBossIfNeeded(){
     if(S.boss.active || S.boss.cleared) return;
-
     const played = S.timePlan - S.timeLeft;
     const triggerAt = Math.max(18, S.timePlan * 0.70);
     if(played >= triggerAt){
@@ -363,7 +357,6 @@ export function boot(opts={}){
     setHUD();
   }
 
-  // --- hits ---
   function onHit(kind, extra = {}){
     if(S.ended) return;
 
@@ -377,7 +370,7 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
       emit('hha:judge', { type:'good', label:'GOOD' });
-      if(aiOn) aiOnEvent('hitGood', { t:tNow });
+      if(aiOn) AI.onEvent('hitGood', { t:tNow });
 
       if(S.boss.active){
         S.boss.hp = Math.max(0, S.boss.hp - 6);
@@ -398,7 +391,7 @@ export function boot(opts={}){
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
-        if(aiOn) aiOnEvent('hitJunk', { t:tNow });
+        if(aiOn) AI.onEvent('hitJunk', { t:tNow });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
@@ -413,6 +406,7 @@ export function boot(opts={}){
       addScore(18);
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
+      if(aiOn) AI.onEvent('star', {});
     }
 
     else if(kind==='shield'){
@@ -420,11 +414,12 @@ export function boot(opts={}){
       setShieldUI();
       addScore(8);
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
+      if(aiOn) AI.onEvent('shield', {});
     }
 
     if(aiOn){
       const played = S.timePlan - S.timeLeft;
-      const tip = aiGetTip(played);
+      const tip = AI.getTip(played);
       if(tip) emit('hha:coach', tip);
     }
 
@@ -487,7 +482,7 @@ export function boot(opts={}){
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-        if(aiOn) aiOnEvent('miss', { t:performance.now() });
+        if(aiOn) AI.onEvent('miss', { t:performance.now() });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
@@ -518,6 +513,9 @@ export function boot(opts={}){
   function endGame(reason='timeup'){
     if(S.ended) return;
     S.ended = true;
+
+    // ✅ kill low overlay instantly
+    try{ elLowOverlay?.setAttribute('aria-hidden','true'); }catch(_){}
 
     if(S.boss.active) endBoss(false);
 
@@ -566,7 +564,6 @@ export function boot(opts={}){
     const played = (S.timePlan - S.timeLeft);
 
     let base = { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
-
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
     else if(diff === 'hard'){ base.spawnMs=820; base.pJunk=0.30; base.pGood=0.66; }
 
@@ -578,23 +575,22 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    // ✅ AI difficulty (safe) — if missing, fallback to simple ramp
-    const D = (adaptiveOn && aiOn && aiGetDiff)
-      ? aiGetDiff(played, base)
-      : (adaptiveOn ? {
-          spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
-          pGood: base.pGood - Math.min(0.10, played*0.002),
-          pJunk: base.pJunk + Math.min(0.10, played*0.002),
-          pStar: base.pStar,
-          pShield: base.pShield
-        } : { ...base });
+    const hasGetDiff = !!(AI && typeof AI.getDifficulty === 'function');
+
+    const D = (adaptiveOn && aiOn && hasGetDiff) ? AI.getDifficulty(played, base)
+            : (adaptiveOn ? {
+                spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
+                pGood: base.pGood - Math.min(0.10, played*0.002),
+                pJunk: base.pJunk + Math.min(0.10, played*0.002),
+                pStar: base.pStar,
+                pShield: base.pShield
+              } : { ...base });
 
     // normalize
     {
-      let s = (D.pGood||0) + (D.pJunk||0) + (D.pStar||0) + (D.pShield||0);
+      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
       if(s <= 0) s = 1;
-      D.pGood=(D.pGood||0)/s; D.pJunk=(D.pJunk||0)/s; D.pStar=(D.pStar||0)/s; D.pShield=(D.pShield||0)/s;
-      D.spawnMs = clamp(Number(D.spawnMs)||base.spawnMs, 420, 1300);
+      D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
     }
 
     if(ts - S.lastSpawn >= D.spawnMs){
