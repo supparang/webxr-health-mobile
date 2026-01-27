@@ -1,18 +1,15 @@
 /* === /herohealth/vr-groups/telemetry.js ===
-HHA Telemetry Pack — PACK 13 (Lite/Full/Off + Throttle + Flush-hardened + Recover/Export)
-✅ Mode: ?tlm=off|lite|full  (default: lite)
-✅ Throttle/Dedup: prevents spam
-✅ Flush-hardened: visibilitychange/pagehide/beforeunload/freeze + interval autosnap
-✅ Recover: last pack + history packs (keep 10)
-✅ Export: JSON + sessions.csv + events.csv
+HHA Telemetry Pack — PACK 13.7
+✅ Mode: ?tlm=off|lite|full (default: lite)
+✅ Throttle/Dedup/Sampling
+✅ Flush-hardened: visibilitychange/pagehide/beforeunload/freeze + autosnap
+✅ Multi-pack storage: keeps last N packs as full payload (not only meta)
+✅ History browser helpers + Export selected pack (JSON/CSV)
 
-Usage (in groups-vr.html):
-  const TLM = window.HHA_TLM.create({...});
-  TLM.start();
-  TLM.state({...});
-  TLM.event('score', {...}, {level:'lite', throttleMs:400, dedupKey:'score'});
-  TLM.end(summary);
-  TLM.recoverLast(); TLM.exportPack(pack);
+Storage keys:
+  - HHA_TLM_PACK_LAST            (last pack JSON)
+  - HHA_TLM_PACK_INDEX           (array meta: [{key,id,gameTag,mode,savedAtIso,reason,bytes}])
+  - HHA_TLM_PACK__<key>          (full payload JSON)
 */
 
 (function(root){
@@ -26,6 +23,7 @@ Usage (in groups-vr.html):
   function clamp(n,a,b){ n=Number(n)||0; return n<a?a:(n>b?b:n); }
   function safeJson(x, fallback){ try{ return JSON.stringify(x); }catch{ return fallback||'{}'; } }
   function safeParse(s, fallback){ try{ return JSON.parse(s); }catch{ return fallback; } }
+  function strBytes(s){ try{ return (s||'').length; }catch{ return 0; } }
 
   function csvEscape(v){
     const s = (v==null)?'':String(v);
@@ -53,35 +51,81 @@ Usage (in groups-vr.html):
   }
 
   function makeId(){
-    // short deterministic-ish id
     const r = Math.floor(Math.random()*1e9).toString(36);
     return Date.now().toString(36) + '-' + r;
   }
-
   function getParam(name, def){
     try{ return new URL(location.href).searchParams.get(name) ?? def; }
     catch{ return def; }
   }
 
+  // ---- storage keys ----
+  const LS_LAST  = 'HHA_TLM_PACK_LAST';
+  const LS_INDEX = 'HHA_TLM_PACK_INDEX';
+  const LS_PREFIX= 'HHA_TLM_PACK__'; // + key
+
+  function readIndex(){
+    return safeParse(localStorage.getItem(LS_INDEX), []) || [];
+  }
+  function writeIndex(arr){
+    try{ localStorage.setItem(LS_INDEX, safeJson(arr, '[]')); }catch(_){}
+  }
+  function packKeyFrom(sessionId, savedAtIso){
+    // short stable key for localStorage key
+    const t = String(savedAtIso||isoNow()).replace(/[:.TZ-]/g,'').slice(0,14);
+    return `${t}__${String(sessionId||'').slice(0,24)}`;
+  }
+
+  function pruneOldPacks(keep){
+    keep = clamp(keep, 1, 30);
+    const idx = readIndex();
+    if (idx.length <= keep) return;
+
+    const drop = idx.slice(keep);
+    const keepArr = idx.slice(0, keep);
+
+    for (const it of drop){
+      try{ localStorage.removeItem(LS_PREFIX + it.key); }catch(_){}
+    }
+    writeIndex(keepArr);
+  }
+
+  function eventRow(e){
+    return {
+      t: e.tIso || '',
+      ms: e.ms ?? '',
+      type: e.type || '',
+      kind: e.kind || '',
+      left: e.left ?? '',
+      score: e.score ?? '',
+      combo: e.combo ?? '',
+      misses: e.misses ?? '',
+      acc: e.acc ?? '',
+      grade: e.grade ?? '',
+      groupKey: e.groupKey ?? '',
+      groupName: e.groupName ?? '',
+      note: e.note ?? '',
+      json: e.json ?? ''
+    };
+  }
+
   // ---------------- Factory ----------------
   const API = {};
-  const LS_LAST = 'HHA_TLM_LAST_PACK';
-  const LS_HIST = 'HHA_TLM_PACK_HISTORY'; // array of {id, savedAtIso, gameTag, mode, reason, bytes}
 
   API.create = function(cfg){
     cfg = cfg || {};
-    const gameTag  = String(cfg.gameTag || 'Game');
+    const gameTag    = String(cfg.gameTag || 'Game');
     const projectTag = String(cfg.projectTag || 'HeroHealth');
-    const sessionId = String(cfg.sessionId || makeId());
+    const sessionId  = String(cfg.sessionId || makeId());
     const ctxFn = (typeof cfg.ctxFn === 'function') ? cfg.ctxFn : ()=>({});
 
     const modeIn = String(cfg.mode || getParam('tlm','lite') || 'lite').toLowerCase();
     const MODE = (modeIn==='off'||modeIn==='full'||modeIn==='lite') ? modeIn : 'lite';
 
-    const snapEveryMs = clamp(cfg.snapEveryMs ?? 10000, 6000, 30000);
-    const maxEventsFull = clamp(cfg.maxEventsFull ?? 3500, 200, 8000);
-    const maxEventsLite = clamp(cfg.maxEventsLite ?? 900,  100, 2500);
-    const keepHistory = clamp(cfg.keepHistory ?? 10, 1, 30);
+    const snapEveryMs    = clamp(cfg.snapEveryMs ?? 10000, 6000, 30000);
+    const maxEventsFull  = clamp(cfg.maxEventsFull ?? 3500, 200, 8000);
+    const maxEventsLite  = clamp(cfg.maxEventsLite ?? 900,  100, 2500);
+    const keepHistory    = clamp(cfg.keepHistory ?? 10, 1, 30);
 
     const levelRank = { off:0, lite:1, full:2 };
     const allowLevel = (lvl)=>{
@@ -91,30 +135,26 @@ Usage (in groups-vr.html):
     };
 
     let startedAtIso = isoNow();
-    let startedAtMs = nowMs();
+    let startedAtMs  = nowMs();
 
     let lastState = Object.assign({
       left:'', score:'', combo:'', misses:'', acc:'', grade:'',
       groupKey:'', groupName:'', miniLeftSec:''
     }, cfg.initialState||{});
 
-    // session row + events
     let sessionRow = null;
     const events = [];
 
-    // throttle/dedup maps
-    const lastEventAt = new Map();     // key -> ms
-    const lastEventSig= new Map();     // key -> signature string
-    const lastFlushAt = { ms:0 };
+    const lastEventAt  = new Map();
+    const lastEventSig = new Map();
+    const lastFlushAt  = { ms:0 };
 
-    // autosnap
     let snapIt = 0;
     let armed = false;
     let ended = false;
 
     function ctxBase(){
       const ctx = ctxFn() || {};
-      // normalize a bit
       ctx.projectTag = ctx.projectTag || projectTag;
       ctx.gameTag = ctx.gameTag || gameTag;
       ctx.sessionId = ctx.sessionId || sessionId;
@@ -141,35 +181,14 @@ Usage (in groups-vr.html):
       }, ctx);
     }
 
-    function eventRow(e){
-      return {
-        t: e.tIso || '',
-        ms: e.ms ?? '',
-        type: e.type || '',
-        kind: e.kind || '',
-        left: e.left ?? '',
-        score: e.score ?? '',
-        combo: e.combo ?? '',
-        misses: e.misses ?? '',
-        acc: e.acc ?? '',
-        grade: e.grade ?? '',
-        groupKey: e.groupKey ?? '',
-        groupName: e.groupName ?? '',
-        note: e.note ?? '',
-        json: e.json ?? ''
-      };
-    }
-
     function capEvents(){
       const lim = (MODE==='full') ? maxEventsFull : maxEventsLite;
-      if (events.length > lim){
-        events.splice(0, events.length - lim);
-      }
+      if (events.length > lim) events.splice(0, events.length - lim);
     }
 
     function packPayload(reason){
-      const payload = {
-        v: 13,
+      return {
+        v: 13.7,
         savedAtIso: isoNow(),
         reason: String(reason||'flush'),
         projectTag, gameTag, sessionId,
@@ -178,26 +197,38 @@ Usage (in groups-vr.html):
         state: lastState,
         ctx: ctxBase(),
         sessionRow: sessionRow,
-        // keep events trimmed already
         events: events
       };
-      return payload;
     }
 
-    function saveHistoryMeta(payloadStr, payloadObj){
-      try{
-        const bytes = payloadStr.length;
-        const hist = safeParse(localStorage.getItem(LS_HIST), []) || [];
-        hist.unshift({
-          id: payloadObj.sessionId || sessionId,
-          savedAtIso: payloadObj.savedAtIso || isoNow(),
-          gameTag: payloadObj.gameTag || gameTag,
-          mode: payloadObj.mode || MODE,
-          reason: payloadObj.reason || '',
-          bytes
-        });
-        localStorage.setItem(LS_HIST, safeJson(hist.slice(0, keepHistory), '[]'));
-      }catch(_){}
+    // ✅ Multi-pack save (full payload per key)
+    function savePackToStorage(payload){
+      const key = packKeyFrom(sessionId, payload.savedAtIso);
+      const str = safeJson(payload, '');
+      const bytes = strBytes(str);
+
+      // write last
+      localStorage.setItem(LS_LAST, str);
+
+      // write pack by key
+      localStorage.setItem(LS_PREFIX + key, str);
+
+      // update index (dedup by key)
+      const idx = readIndex();
+      const meta = {
+        key,
+        id: sessionId,
+        gameTag: payload.gameTag || gameTag,
+        mode: payload.mode || MODE,
+        savedAtIso: payload.savedAtIso || isoNow(),
+        reason: payload.reason || '',
+        bytes
+      };
+      const next = [meta].concat(idx.filter(x=>x.key !== key));
+      writeIndex(next.slice(0, keepHistory));
+
+      pruneOldPacks(keepHistory);
+      return true;
     }
 
     function flushToLocalStorage(reason){
@@ -205,28 +236,24 @@ Usage (in groups-vr.html):
 
       capEvents();
       const payload = packPayload(reason);
-      const tries = [3500, 2200, 1400, 900, 550, 300, 150];
 
+      // try progressively trimming events if quota issues
+      const tries = [3500, 2200, 1400, 900, 550, 300, 150, 80];
       for (const lim of tries){
         try{
-          // if too big, temporarily slice events further
           const saved = Object.assign({}, payload, {
             events: payload.events.slice(Math.max(0, payload.events.length - lim))
           });
-          const str = safeJson(saved, '');
-          localStorage.setItem(LS_LAST, str);
-          saveHistoryMeta(str, saved);
+          savePackToStorage(saved);
           lastFlushAt.ms = nowMs();
           return true;
         }catch(_){}
       }
 
-      // emergency lite
+      // emergency minimal
       try{
-        const saved = Object.assign({}, payload, { events: payload.events.slice(Math.max(0, payload.events.length - 80)), emergency:true });
-        const str = safeJson(saved, '');
-        localStorage.setItem(LS_LAST, str);
-        saveHistoryMeta(str, saved);
+        const saved = Object.assign({}, payload, { events: payload.events.slice(-50), emergency:true });
+        savePackToStorage(saved);
         lastFlushAt.ms = nowMs();
         return true;
       }catch(_){}
@@ -243,15 +270,38 @@ Usage (in groups-vr.html):
       return safeParse(s, null);
     }
 
-    function recoverHistory(){
-      const hist = safeParse(localStorage.getItem(LS_HIST), []) || [];
-      // return only meta; actual pack is LS_LAST only (simple). If want multi-pack storage later, expand.
-      return hist;
+    function listHistory(){
+      return readIndex(); // meta list newest-first
     }
 
-    function clearRecover(){
+    function recoverByKey(key){
+      if (!key) return null;
+      const s = localStorage.getItem(LS_PREFIX + key);
+      if (!s) return null;
+      return safeParse(s, null);
+    }
+
+    function clearAllPacks(){
       try{ localStorage.removeItem(LS_LAST); }catch(_){}
-      // keep history meta by design (optional)
+      const idx = readIndex();
+      for (const it of idx){
+        try{ localStorage.removeItem(LS_PREFIX + it.key); }catch(_){}
+      }
+      try{ localStorage.removeItem(LS_INDEX); }catch(_){}
+    }
+
+    function exportPack(pack){
+      const p = pack || recoverLast();
+      if (!p){ alert('ไม่มี pack ให้ export'); return false; }
+
+      const evRows = (p.events||[]).map(eventRow);
+      const sesRows = [p.sessionRow || buildSessionRow(p.sessionRow||{})];
+
+      const base = `HHA-${p.gameTag||gameTag}-${p.sessionId||sessionId}`;
+      const ok1 = downloadText(`${base}.json`, safeJson(p, '{}'));
+      const ok2 = downloadText(`${base}-sessions.csv`, toCSV(sesRows));
+      const ok3 = downloadText(`${base}-events.csv`, toCSV(evRows));
+      return !!(ok1 && ok2 && ok3);
     }
 
     function startAutoSnapshot(){
@@ -264,16 +314,13 @@ Usage (in groups-vr.html):
       snapIt = 0;
     }
 
-    // Flush-hardened hooks
     function armFlushHardened(){
       if (armed) return;
       armed = true;
 
       const onVis = ()=>{
         if (!DOC) return;
-        if (DOC.visibilityState === 'hidden'){
-          hardFlush('vis_hidden');
-        }
+        if (DOC.visibilityState === 'hidden') hardFlush('vis_hidden');
       };
       const onPageHide = ()=> hardFlush('pagehide');
       const onBeforeUnload = ()=> hardFlush('beforeunload');
@@ -289,21 +336,18 @@ Usage (in groups-vr.html):
     function start(){
       ended = false;
       startedAtIso = isoNow();
-      startedAtMs = nowMs();
+      startedAtMs  = nowMs();
       armFlushHardened();
       startAutoSnapshot();
-      // initial pack
       flushToLocalStorage('start');
     }
 
     function state(patch){
       if (MODE === 'off') return;
       try{ lastState = Object.assign(lastState, patch||{}); }catch(_){}
-      // in lite: don’t log state as event every time; snapshot handles it
     }
 
     // event(type, data, opts)
-    // opts: { level:'lite'|'full', throttleMs, dedupKey, sigFn }
     function event(type, data, opts){
       if (MODE === 'off') return;
       opts = opts || {};
@@ -312,7 +356,6 @@ Usage (in groups-vr.html):
 
       const t = nowMs();
 
-      // throttle
       const throttleMs = Number(opts.throttleMs || 0);
       if (throttleMs > 0){
         const k = String(opts.dedupKey || type);
@@ -321,12 +364,9 @@ Usage (in groups-vr.html):
         lastEventAt.set(k, t);
       }
 
-      // dedup (signature)
       const dedupKey = (opts.dedupKey != null) ? String(opts.dedupKey) : null;
       if (dedupKey){
-        const sig = (typeof opts.sigFn === 'function')
-          ? String(opts.sigFn(data||{}))
-          : safeJson(data||{}, '');
+        const sig = (typeof opts.sigFn === 'function') ? String(opts.sigFn(data||{})) : safeJson(data||{}, '');
         const prev = lastEventSig.get(dedupKey);
         if (prev === sig) return;
         lastEventSig.set(dedupKey, sig);
@@ -347,47 +387,30 @@ Usage (in groups-vr.html):
         groupKey: d.groupKey ?? lastState.groupKey ?? '',
         groupName: d.groupName ?? lastState.groupName ?? '',
         note: d.note ?? '',
-        json: (MODE==='full') ? safeJson(d, '') : '' // full only
+        json: (MODE==='full') ? safeJson(d, '') : ''
       };
+
+      // ✅ optional sampling (full only) — if user passes opts.sample=0..1
+      const sample = (opts.sample != null) ? clamp(opts.sample, 0, 1) : 1;
+      if (sample < 1 && Math.random() > sample) return;
 
       events.push(row);
       capEvents();
 
-      // lite: occasional flush if long time no flush
-      if (MODE !== 'off'){
-        const since = nowMs() - (lastFlushAt.ms || 0);
-        if (since > Math.max(12000, snapEveryMs*1.2)){
-          flushToLocalStorage('soft_flush');
-        }
-      }
+      // soft flush occasionally
+      const since = nowMs() - (lastFlushAt.ms || 0);
+      if (since > Math.max(12000, snapEveryMs*1.2)) flushToLocalStorage('soft_flush');
     }
 
     function end(summary){
       if (ended) return;
       ended = true;
-
       stopAutoSnapshot();
-      // sessionRow for export
       sessionRow = buildSessionRow(summary||{});
-
-      // always log end event in lite/full (if not off)
       if (MODE !== 'off'){
-        event('end', Object.assign({kind:'end'}, summary||{}), { level:'lite', throttleMs:0, dedupKey:'end' });
+        event('end', Object.assign({kind:'end'}, summary||{}), { level:'lite', dedupKey:'end' });
         flushToLocalStorage('end');
       }
-    }
-
-    function exportPack(pack){
-      const p = pack || recoverLast();
-      if (!p){ alert('ไม่มี pack ให้ export'); return false; }
-
-      const evRows = (p.events||[]).map(eventRow);
-      const sesRows = [p.sessionRow || buildSessionRow(p.sessionRow||{})];
-
-      const ok1 = downloadText(`HHA-${p.gameTag||gameTag}-${p.sessionId||sessionId}.json`, safeJson(p, '{}'));
-      const ok2 = downloadText(`HHA-${p.gameTag||gameTag}-${p.sessionId||sessionId}-sessions.csv`, toCSV(sesRows));
-      const ok3 = downloadText(`HHA-${p.gameTag||gameTag}-${p.sessionId||sessionId}-events.csv`, toCSV(evRows));
-      return !!(ok1 && ok2 && ok3);
     }
 
     return {
@@ -396,7 +419,12 @@ Usage (in groups-vr.html):
       start, end, state, event,
       flush: (reason)=>flushToLocalStorage(reason||'manual'),
       hardFlush,
-      recoverLast, recoverHistory, clearRecover,
+
+      // ✅ multi-pack APIs
+      recoverLast,
+      listHistory,
+      recoverByKey,
+      clearAllPacks,
       exportPack
     };
   };
