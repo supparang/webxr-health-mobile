@@ -1,190 +1,148 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — PRODUCTION SAFE (Prediction + ML-ish + DL-ish hooks)
-// ✅ API: createAIHooks({game, mode, rng})
-// ✅ Returns: { onEvent, getDifficulty, getTip }
-// ✅ research/practice: deterministic + adaptive OFF (returns base)
-// ✅ play: adaptive ON (fair, smooth) + tips rate-limit
+// AI Hooks (HHA Standard) — SAFE DEFAULT
+// ✅ createAIHooks({game, mode, rng})
+// ✅ API: getDifficulty(playedSec, base), onEvent(name,payload), getTip(playedSec)
+// ✅ SAFE: if mode != 'play' => returns base (deterministic friendly)
+//
+// NOTE:
+// - "Prediction/ML/DL" ในที่นี้เป็น hook-ready scaffold
+// - ค่าเริ่มต้นใช้ heuristic + EMA (เหมือน tiny-ML) เพื่อ "adaptive fair"
+// - ถ้าคุณจะต่อ Deep Learning จริง ให้เสียบภายหลังที่ TODO:DL
+
 'use strict';
 
-const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-const nowMs = () => (performance && performance.now) ? performance.now() : Date.now();
+const clamp = (v, a, b)=>Math.max(a, Math.min(b, v));
+const nowMs = ()=> (performance?.now ? performance.now() : Date.now());
 
-function makeEMA(alpha = 0.12, init = 0){
-  let x = init;
-  return {
-    push(v){ x = (alpha * v) + ((1 - alpha) * x); return x; },
-    value(){ return x; }
-  };
-}
+export function createAIHooks({ game='Game', mode='play', rng=null } = {}){
+  const aiEnabled = (String(mode).toLowerCase() === 'play');
 
-export function createAIHooks(cfg = {}){
-  const game = String(cfg.game || 'Game').trim();
-  const mode = String(cfg.mode || 'play').toLowerCase();   // play | research | practice
-  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
-
-  // ✅ In research/practice: keep deterministic + no adaptive
-  const adaptiveEnabled = (mode === 'play');
-
-  // --- state ---
+  // --- tiny state for "prediction/ML-like" (EMA + trend) ---
   const S = {
-    game, mode,
+    game,
+    mode,
+    enabled: aiEnabled,
     t0: nowMs(),
-    lastTipAt: 0,
-    tipCooldownMs: 2600,
-
-    // perf counters (recent window)
+    // hit/miss tracking
     hitGood: 0,
     hitJunk: 0,
     miss: 0,
-
-    // rolling signals (ML-ish)
-    emaAcc: makeEMA(0.10, 0.70),     // accuracy proxy
-    emaMistake: makeEMA(0.12, 0.20), // mistake rate proxy
-    emaPace: makeEMA(0.10, 0.50),    // pace proxy (how fast they are interacting)
-    lastActionAt: 0,
-
-    // “prediction” memory: if player keeps missing, we predict struggle
-    struggle: 0,   // 0..1
-    focus: 0       // 0..1 (good streak)
+    // rolling window (EMA)
+    emaAcc: 0.72,     // estimated accuracy 0..1
+    emaSpeed: 1.0,    // estimated reaction speed factor
+    lastEventAt: 0,
+    // rate-limit tips
+    lastTipAt: 0,
+    tipCooldownMs: 3200,
   };
 
-  function onEvent(name, payload = {}){
-    if(!adaptiveEnabled) return;
+  // ---------- helpers ----------
+  function ema(prev, x, a){ return prev*(1-a) + x*a; }
 
-    const t = (payload && typeof payload.t === 'number') ? payload.t : nowMs();
+  function updateFromEvent(name){
+    // accuracy proxy: good hit = +, junk hit/miss = -
+    let xAcc = 0.0;
+    if(name === 'hitGood') xAcc = 1.0;
+    else if(name === 'hitJunk') xAcc = 0.0;
+    else if(name === 'miss') xAcc = 0.0;
+    else xAcc = null;
 
-    // pace (time between actions)
-    if(S.lastActionAt){
-      const dt = clamp((t - S.lastActionAt) / 1000, 0.05, 3.0);
-      const pace01 = clamp(1.0 - (dt / 2.2), 0, 1); // faster actions -> higher pace
-      S.emaPace.push(pace01);
-    }
-    S.lastActionAt = t;
+    const t = nowMs();
+    const dt = S.lastEventAt ? (t - S.lastEventAt) : 900;
+    S.lastEventAt = t;
 
-    if(name === 'hitGood'){
-      S.hitGood++;
-      // accuracy rises, mistake drops
-      S.emaAcc.push(1);
-      S.emaMistake.push(0);
+    // speed proxy: faster actions => higher "speed"
+    const speed = clamp(1200 / clamp(dt, 250, 2000), 0.6, 1.35);
 
-      // focus grows, struggle decays
-      S.focus = clamp(S.focus + 0.08, 0, 1);
-      S.struggle = clamp(S.struggle - 0.06, 0, 1);
-    }
-    else if(name === 'hitJunk' || name === 'miss'){
-      if(name === 'hitJunk') S.hitJunk++;
-      if(name === 'miss') S.miss++;
-
-      S.emaAcc.push(0);
-      S.emaMistake.push(1);
-
-      // struggle grows, focus decays
-      S.struggle = clamp(S.struggle + 0.10, 0, 1);
-      S.focus = clamp(S.focus - 0.07, 0, 1);
+    if(xAcc != null){
+      S.emaAcc = clamp(ema(S.emaAcc, xAcc, 0.12), 0.10, 0.98);
+      S.emaSpeed = clamp(ema(S.emaSpeed, speed, 0.10), 0.60, 1.40);
     }
   }
 
-  // --- DL-ish hook (placeholder) ---
-  // เรา “ไม่ train จริง” ใน production prototype แต่ให้ output เป็นเส้นทางเดียวกัน
-  // เพื่อไปต่อกับ DL model ภายหลังได้ โดยไม่ทำให้เกมพัง
-  function dlSuggestDifficulty(playedSec, base){
-    // simple non-linear mix: struggle pushes easier, focus pushes harder
-    const acc = S.emaAcc.value();
-    const mis = S.emaMistake.value();
-    const pace = S.emaPace.value();
-
-    // pseudo “latent” = combine signals
-    const latent = clamp((0.55*acc + 0.25*pace - 0.45*mis), -0.6, 0.9);
-
-    // target difficulty delta (- easier .. + harder)
-    const delta = clamp(latent, -0.35, 0.35);
-
-    const D = { ...base };
-
-    // spawnMs: smaller -> harder
-    const hardMs = base.spawnMs * (1 - 0.18*delta);
-    const easyMs = base.spawnMs * (1 - 0.18*delta);
-
-    // if struggling, push easier (bigger ms); if focusing, push harder (smaller ms)
-    const mix = (S.struggle > 0.55) ? -Math.abs(delta) : (S.focus > 0.60 ? Math.abs(delta) : delta);
-    D.spawnMs = Math.round(clamp(base.spawnMs * (1 - 0.22*mix), 520, 1200));
-
-    // probabilities: harder => more junk, easier => more good/powerups
-    const j = clamp(base.pJunk + (0.10*mix), 0.10, 0.60);
-    const g = clamp(base.pGood - (0.09*mix), 0.30, 0.85);
-
-    // give a bit more shield/star when struggling (assist)
-    const assist = clamp(S.struggle - 0.35, 0, 0.45);
-    const pShield = clamp(base.pShield + 0.03*assist, 0.01, 0.09);
-    const pStar   = clamp(base.pStar   + 0.02*assist, 0.01, 0.07);
-
-    D.pGood = g;
-    D.pJunk = j;
-    D.pShield = pShield;
-    D.pStar = pStar;
-
-    // normalize
-    let s = D.pGood + D.pJunk + D.pStar + D.pShield;
-    if(s <= 0) s = 1;
-    D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
-
-    return D;
+  // ---------- public API ----------
+  function onEvent(name, payload={}){
+    if(!S.enabled) return;
+    if(name === 'hitGood') S.hitGood++;
+    else if(name === 'hitJunk') S.hitJunk++;
+    else if(name === 'miss') S.miss++;
+    updateFromEvent(name);
   }
 
   function getDifficulty(playedSec, base){
-    // research/practice: return base unchanged
-    if(!adaptiveEnabled) return { ...base };
+    // ✅ SAFE: if AI not enabled => return base
+    if(!S.enabled) return { ...base };
 
-    // “Prediction” guardrail: early game don't overreact
-    const warmup = (playedSec < 6);
+    // base sanity
+    const B = Object.assign({ spawnMs: 900, pGood:0.70, pJunk:0.26, pStar:0.02, pShield:0.02 }, base || {});
+    let spawnMs = B.spawnMs;
 
-    // ML-ish smoothing: we still use dlSuggestDifficulty but clamp changes gently
-    const D = dlSuggestDifficulty(playedSec, base);
+    // --- "Prediction" layer: estimate difficulty need ---
+    // if player accuracy high => make slightly harder, else easier
+    const acc = clamp(S.emaAcc, 0, 1);     // 0..1
+    const spd = clamp(S.emaSpeed, 0.6, 1.4);
 
-    if(warmup){
-      // during warmup: keep near base
-      D.spawnMs = Math.round(base.spawnMs * 0.98 + D.spawnMs * 0.02);
-      D.pJunk   = base.pJunk   * 0.98 + D.pJunk   * 0.02;
-      D.pGood   = base.pGood   * 0.98 + D.pGood   * 0.02;
-      D.pStar   = base.pStar   * 0.98 + D.pStar   * 0.02;
-      D.pShield = base.pShield * 0.98 + D.pShield * 0.02;
+    // target difficulty scalar (0.85..1.18)
+    let k = 1.0;
+    // accuracy drives (bigger accuracy => harder)
+    k *= clamp(0.92 + (acc * 0.40), 0.85, 1.18);
+    // speed drives (faster => slightly harder)
+    k *= clamp(0.95 + ((spd - 1.0) * 0.18), 0.88, 1.12);
 
-      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
-      if(s <= 0) s = 1;
-      D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
-    }
+    // time ramp (late game little harder but capped)
+    const ramp = clamp(playedSec / 60, 0, 1); // 0..1 per 60s
+    k *= (1.0 + 0.10 * ramp);
 
-    return D;
+    // apply to spawnMs (harder => smaller spawnMs)
+    spawnMs = clamp(spawnMs / k, 520, 1200);
+
+    // --- "ML-ish" layer: adjust probabilities fairly ---
+    // if player misses a lot => give more good & shield
+    const missPressure = clamp((S.miss + S.hitJunk) / Math.max(1, S.hitGood + S.hitJunk + S.miss), 0, 0.7);
+
+    let pGood   = clamp(B.pGood   + (0.08 * missPressure) - (0.06 * (acc - 0.6)), 0.35, 0.86);
+    let pJunk   = clamp(B.pJunk   - (0.06 * missPressure) + (0.08 * (acc - 0.6)), 0.10, 0.55);
+    let pStar   = clamp(B.pStar   + (0.01 * ramp), 0.01, 0.06);
+    let pShield = clamp(B.pShield + (0.03 * missPressure), 0.01, 0.08);
+
+    // normalize
+    let s = pGood + pJunk + pStar + pShield;
+    if(s <= 0) s = 1;
+    pGood/=s; pJunk/=s; pStar/=s; pShield/=s;
+
+    return { spawnMs, pGood, pJunk, pStar, pShield };
   }
 
   function getTip(playedSec){
-    if(!adaptiveEnabled) return null;
+    if(!S.enabled) return null;
 
     const t = nowMs();
     if(t - S.lastTipAt < S.tipCooldownMs) return null;
 
-    // only tip when signal is strong
-    const struggle = S.struggle;
-    const focus = S.focus;
+    // lightweight tips depending on failure pattern
+    const missish = S.miss + S.hitJunk;
+    const total = Math.max(1, S.hitGood + S.hitJunk + S.miss);
+    const missRate = missish / total;
 
-    let msg = '';
-    if(struggle > 0.70){
-      msg = (rng() < 0.5)
-        ? 'ลอง “รอจังหวะ” แล้วยิง/แตะของดีทีละอันนะ 🎯'
-        : 'โฟกัสของดี (ผัก/ผลไม้/โปรตีน) แล้วเลี่ยงของทอด/หวาน 🍟❌';
-    }else if(focus > 0.72){
-      msg = (rng() < 0.5)
-        ? 'เริ่มแม่นแล้ว! ลองทำคอมโบของดีต่อเนื่องให้สูงขึ้น 🔥'
-        : 'เก่งมาก! ระวังของเสียที่โผล่ถี่ขึ้นช่วงท้าย ⚡';
-    }else{
-      // occasional small tip only
-      if(rng() < 0.75) return null;
-      msg = 'กด Missions เพื่อดูเป้าหมาย/มินิเควสท์ได้เลย ✅';
+    let msg = null;
+    if(missRate > 0.42){
+      msg = 'ลอง “ช้าลงนิดนึง” แล้วเล็งของดีให้ชัดก่อนยิง 🎯';
+    }else if(S.hitGood < S.hitJunk){
+      msg = 'โฟกัสของดีให้มากขึ้น—ของทอด/หวานคือ “ของเสีย” 🍟❌';
+    }else if(playedSec > 20 && S.emaAcc > 0.78){
+      msg = 'ทำได้ดีมาก! ช่วงท้ายจะเร็วขึ้น—รักษาคอมโบไว้ 🔥';
     }
+
+    if(!msg) return null;
 
     S.lastTipAt = t;
     return { msg, tag: 'AI Coach' };
   }
 
-  return Object.freeze({ onEvent, getDifficulty, getTip });
+  return Object.freeze({
+    enabled: S.enabled,
+    onEvent,
+    getDifficulty,
+    getTip
+  });
 }
