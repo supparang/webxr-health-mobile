@@ -1,5 +1,5 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO)
+HygieneVR Launcher — ROOT (AUTO) [LATEST]
 ✅ Auto-detect view if no ?view=
 ✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
 ✅ Root=launcher, folder=run
@@ -22,8 +22,10 @@ HygieneVR Launcher — ROOT (AUTO)
       --r:22px;
     }
     *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{min-height:100%;display:grid;place-items:center;
+      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
       width:min(760px,100%);
       border:1px solid var(--stroke);
@@ -69,6 +71,7 @@ HygieneVR Launcher — ROOT (AUTO)
 (function(){
   'use strict';
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
   const hub = String(qs('hub','./hub.html'));
   const RUN_URL = './hygiene-vr/hygiene-vr.html';
 
@@ -77,6 +80,7 @@ HygieneVR Launcher — ROOT (AUTO)
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
+
     if (isTouch){
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
@@ -88,13 +92,15 @@ HygieneVR Launcher — ROOT (AUTO)
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
-    // pass-through all params
+    // pass-through all params (DO NOT DROP ANYTHING)
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
     // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
+
+    // ensure hub
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
     return u.toString();
   }
@@ -107,7 +113,8 @@ HygieneVR Launcher — ROOT (AUTO)
   const txt = document.getElementById('txt');
   if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
-  setTimeout(go, 120);
+  // short delay to allow UI paint first
+  setTimeout(go, 140);
 })();
 </script>
 </body>
