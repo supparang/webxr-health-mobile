@@ -1,11 +1,11 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Views: pc/mobile/vr/cvr (via body classes)
 ✅ Uses: ../vr/vr-ui.js => crosshair + hha:shoot (cVR)
-✅ FX:   ../vr/particles.js (effects)
-✅ Engine: ./hygiene.safe.js (export boot)
-✅ Quiz bank: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Boot: ./hygiene-vr.boot.js (anti-stall + diagnostics)
+✅ FX: ../vr/particles.js
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Boot: hygiene-vr.boot.js (anti-stall + diagnostics)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,24 +16,24 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS MUST exist (อยู่ใน folder เดียวกันกับ run) -->
+  <!-- CSS (ต้องมี ไม่งั้นจะรู้สึก “เอฟเฟกต์หาย/ค้าง” เพราะตำแหน่งกับชั้น HUD เพี้ยน) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260127a" />
 
-  <!-- ✅ VR UI MUST defer (กัน body null + mount safe) -->
-  <script src="../vr/vr-ui.js" defer></script>
+  <!-- Universal VR UI (MUST defer) -->
+  <script src="../vr/vr-ui.js?v=20260127a" defer></script>
 
-  <!-- ✅ FX -->
-  <script src="../vr/particles.js" defer></script>
+  <!-- FX -->
+  <script src="../vr/particles.js?v=20260127a" defer></script>
 
-  <!-- (Optional AI packs) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
+  <!-- Optional AI packs -->
+  <script src="../vr/hha-ai-coach.js?v=20260127a" defer></script>
+  <script src="../vr/hha-difficulty-director.js?v=20260127a" defer></script>
+  <script src="../vr/hha-badges.js?v=20260127a" defer></script>
 
-  <!-- ✅ QUIZ BANK (ชื่อไฟล์จริงของคุณ: hygiene-quiz-bank.js) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+  <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
+  <script src="./hygiene-quiz-bank.js?v=20260127a" defer></script>
 
-  <!-- ✅ Boot (module) -->
+  <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260127a"></script>
 </head>
 
@@ -62,7 +62,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box (in-HUD) -->
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -106,31 +106,28 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
-  <!-- ✅ View class sync + labels (runs immediately; safe) -->
-  <script>
-  (function(){
-    'use strict';
-    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-    function setViewClass(){
-      const view = (qs('view','pc')||'pc').toLowerCase();
-      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      document.body.classList.add(
-        view==='mobile'?'view-mobile':
-        (view==='vr'?'view-vr':
-        (view==='cvr'?'view-cvr':'view-pc'))
-      );
-      const el = document.getElementById('labView');
-      if(el) el.textContent = view;
-    }
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(
+      view==='mobile' ? 'view-mobile' :
+      view==='vr'     ? 'view-vr' :
+      view==='cvr'    ? 'view-cvr' : 'view-pc'
+    );
 
-    setViewClass();
+    const el = document.getElementById('labView');
+    if(el) el.textContent = view;
+  }
 
-    const m = document.getElementById('labMode');
-    const d = document.getElementById('labDiff');
-    if(m) m.textContent = (qs('run','play')||'play');
-    if(d) d.textContent = (qs('diff','normal')||'normal');
-  })();
-  </script>
+  setViewClass();
+  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
+  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
+})();
+</script>
 </body>
 </html>
