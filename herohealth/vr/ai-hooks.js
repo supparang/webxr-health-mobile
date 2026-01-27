@@ -1,150 +1,155 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — Central AI Plug-in Points (OFF by default in research)
-// ✅ One module for all games
-// ✅ Research/practice: AI OFF (deterministic)
-// ✅ Play: AI ON optional (via ?ai=1 or window.HHA_AI=1)
-// ✅ Provides:
-//    - Difficulty Director hook (optional)
-//    - Pattern Generator hook (optional)
-//    - AI Coach hook (optional, explainable micro-tips with rate-limit)
-// ✅ Emits: hha:ai { on, reason, mode }, hha:coach { msg, tag }, hha:diff (if director emits)
+// AI Hooks (HHA Standard) — Lightweight Prediction + Difficulty Director
+// ✅ createAIHooks({game, mode, rng})
+// ✅ Methods: onEvent(name,payload), getTip(playedSec), getDifficulty(playedSec, base)
+// Notes:
+// - mode: play | research | practice
+// - research/practice: adaptive OFF by default (deterministic / fair)
 
 'use strict';
 
-const WIN = window;
+export function createAIHooks(cfg = {}){
+  const game = String(cfg.game || 'HHA').trim();
+  const mode = String(cfg.mode || 'play').toLowerCase();
+  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
 
-const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-const toBool = (v)=>{
-  const s = String(v ?? '').trim().toLowerCase();
-  if(!s) return false;
-  return (s === '1' || s === 'true' || s === 'yes' || s === 'on');
-};
+  const adaptiveOn = (mode === 'play'); // ✅ only play mode
+  const tipsOn = (mode === 'play');     // ✅ only play mode
 
-function emit(name, detail){
-  try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
-}
-
-function modeDefault(){
-  const run = String(qs('run','play')).toLowerCase();
-  // HHA standard: research + practice must be deterministic => AI off
-  if(run === 'research' || run === 'practice') return run;
-  return 'play';
-}
-
-function aiEnabled({ mode }){
-  // 1) hard rules
-  if(mode === 'research' || mode === 'practice') return false;
-
-  // 2) explicit enable
-  if(toBool(qs('ai', '0'))) return true;
-  if(toBool(WIN.HHA_AI)) return true;
-
-  // 3) default: OFF (ปลอดภัย + คุมผล)
-  return false;
-}
-
-function makeRNG(seed){
-  let x = (Number(seed)||Date.now()) % 2147483647;
-  if (x <= 0) x += 2147483646;
-  return ()=> (x = x * 16807 % 2147483647) / 2147483647;
-}
-
-/* ---------------------------------------------------------
- * AI Coach (micro-tips) — explainable + rate-limit
- * --------------------------------------------------------- */
-function createCoach({ on=false, cooldownMs=6500 } = {}){
-  let lastAt = 0;
-
-  function say(msg, tag='Coach'){
-    if(!on) return;
-    const now = Date.now();
-    if(now - lastAt < cooldownMs) return;
-    lastAt = now;
-    emit('hha:coach', { msg, tag });
-  }
-
-  // simple explainable rules (NO ML yet) — safe baseline
-  function observe({ missRate=0, fever=0, combo=0, timeLeft=999 } = {}){
-    if(!on) return;
-
-    if(timeLeft <= 7) say('ใกล้หมดเวลา! โฟกัส “ของดี” ก่อนนะ ⏱️');
-    if(fever >= 70)   say('FEVER สูง! ชะลอความเสี่ยง เลี่ยงของทอด/หวาน 🔥');
-    if(missRate >= 0.9) say('พลาดถี่ไปนิด ลอง “มองกลางจอ” แล้วค่อยยิง 🎯');
-    if(combo >= 10)   say('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 💪');
-  }
-
-  return { say, observe };
-}
-
-/* ---------------------------------------------------------
- * Pattern Generator — deterministic hook (optional)
- * --------------------------------------------------------- */
-function createPatternGen({ on=false, rng=null } = {}){
-  const R = (typeof rng === 'function') ? rng : Math.random;
-
-  // returns pattern descriptor you can use if/when you add storm/boss
-  function next({ bias=0.5 } = {}){
-    if(!on){
-      return { kind:'none', speed:1, spread:1 };
-    }
-    // deterministic when rng is seeded
-    const r = R();
-    const hard = (r < bias);
-    if(hard){
-      return { kind:'storm', speed:1.25, spread:1.15 };
-    }
-    return { kind:'line', speed:1.05, spread:1.0 };
-  }
-
-  return { next };
-}
-
-/* ---------------------------------------------------------
- * Main factory
- * --------------------------------------------------------- */
-export function createAIHooks({
-  game='Game',
-  mode=modeDefault(),         // play | research | practice
-  diff=String(qs('diff','normal')).toLowerCase(),
-  seed=String(qs('seed', Date.now())),
-  emitAIEvents=true
-} = {}){
-
-  const on = aiEnabled({ mode });
-
-  if(emitAIEvents){
-    emit('hha:ai', { on, reason: on ? 'enabled' : 'disabled', mode, game, diff, seed });
-  }
-
-  // seeded rng for AI when ON (still deterministic per seed)
-  const rng = makeRNG(seed + ':ai');
-
-  // Coach: only when AI is ON (play)
-  const coach = createCoach({ on });
-
-  // Pattern generator: optional (on when AI on)
-  const patterns = createPatternGen({ on, rng });
-
-  // Difficulty Director: you can import createDirector and wire here later,
-  // but leaving as "pass-through hook" is fine for now.
-  // (We keep a stub so engines can call hooks.director?.tick() safely.)
-  const director = null;
-
-  function observeTelemetry(t){
-    // unified place to feed coach/patterns in future
-    // expected fields: missRate, fever, combo, timeLeft, score, etc.
-    coach.observe(t || {});
-  }
-
-  return {
-    on,
-    mode,
-    diff,
-    seed,
-    rng,
-    coach,
-    patterns,
-    director,
-    observeTelemetry
+  // --- rolling stats for "prediction" ---
+  const S = {
+    startedAt: (performance.now ? performance.now() : Date.now()),
+    events: [],
+    hitGood: 0,
+    hitJunk: 0,
+    miss: 0,
+    comboBreak: 0,
+    lastTipAtSec: -999,
+    // simple rolling accuracy proxy
+    window: [], // store last N event outcomes
+    windowN: 18
   };
+
+  function pushWindow(v){
+    S.window.push(v);
+    if(S.window.length > S.windowN) S.window.shift();
+  }
+
+  function nowSec(){
+    const t = (performance.now ? performance.now() : Date.now());
+    return (t - S.startedAt) / 1000;
+  }
+
+  // --- public: event intake ---
+  function onEvent(name, payload){
+    if(!adaptiveOn && !tipsOn) return;
+    const n = String(name||'');
+    if(n === 'hitGood'){
+      S.hitGood++;
+      pushWindow(1);
+    }else if(n === 'hitJunk'){
+      S.hitJunk++;
+      pushWindow(0);
+      S.comboBreak++;
+    }else if(n === 'miss'){
+      S.miss++;
+      pushWindow(0);
+      S.comboBreak++;
+    }else if(n === 'comboBreak'){
+      S.comboBreak++;
+      pushWindow(0);
+    }
+    // keep small log (optional)
+    S.events.push({ t: nowSec(), name:n, p: payload||null });
+    if(S.events.length > 60) S.events.shift();
+  }
+
+  // --- prediction: estimate player performance (0..1) ---
+  function predictSkill(){
+    // skill ~ rolling accuracy (recent)
+    const w = S.window;
+    if(!w.length) return 0.55;
+    const acc = w.reduce((a,b)=>a+b,0)/w.length; // 0..1
+    // penalize too many misses/junk
+    const penalty = Math.min(0.25, (S.miss + S.hitJunk) * 0.015);
+    return clamp01(acc - penalty);
+  }
+
+  // --- public: difficulty director ---
+  function getDifficulty(playedSec, base){
+    // base: {spawnMs, pGood,pJunk,pStar,pShield}
+    const B = Object.assign({}, base || {});
+
+    if(!adaptiveOn){
+      return B; // research/practice => deterministic (no adapt)
+    }
+
+    const skill = predictSkill(); // 0..1
+    // target difficulty wants "flow": if skill high -> harder, low -> easier
+    // map skill to factor: 0.0..1.0 -> -1..+1
+    const f = (skill - 0.55) * 2.0; // around 0 when avg
+
+    // adjust spawn rate (ms)
+    // good players => faster spawns, struggling => slower
+    const spawnAdj = Math.round(clamp(B.spawnMs + (-120 * f), 520, 1200));
+
+    // adjust probabilities
+    // good players => slightly more junk, slightly less good
+    let pGood = clamp(B.pGood + (-0.06 * f), 0.40, 0.86);
+    let pJunk = clamp(B.pJunk + ( 0.06 * f), 0.10, 0.55);
+
+    // keep powerups gentle (don’t swing too much)
+    const pStar   = clamp(B.pStar   + (S.miss >= 3 ? 0.004 : 0), 0.01, 0.06);
+    const pShield = clamp(B.pShield + (S.miss >= 2 ? 0.006 : 0), 0.01, 0.08);
+
+    // normalize
+    let s = pGood + pJunk + pStar + pShield;
+    if(s <= 0) s = 1;
+    pGood/=s; pJunk/=s; // star/shield will be normalized below too
+    const pStarN = pStar/s;
+    const pShieldN = pShield/s;
+
+    return {
+      spawnMs: spawnAdj,
+      pGood,
+      pJunk,
+      pStar: pStarN,
+      pShield: pShieldN,
+      // expose predicted skill (optional use)
+      skill
+    };
+  }
+
+  // --- public: micro tips (coach) ---
+  function getTip(playedSec){
+    if(!tipsOn) return null;
+
+    // rate limit tips
+    const t = Number(playedSec||0);
+    if(t - S.lastTipAtSec < 6) return null;
+
+    const skill = predictSkill();
+    let msg = null;
+
+    if(S.miss >= 4 && (rng() < 0.65)){
+      msg = 'ลอง “ชะลอแล้วเล็ง” ก่อนยิงนะ 👀 พลาดติด ๆ กันจะโดนปรับ MISS';
+    }else if(S.hitJunk >= 3 && (rng() < 0.60)){
+      msg = 'ของทอด/หวานคือขยะอาหาร 😅 เลี่ยงไว้ก่อน แล้วเก็บของดีให้ครบ';
+    }else if(skill > 0.78 && (rng() < 0.55)){
+      msg = 'โห เก่งมาก! 🔥 เดี๋ยวระบบจะเร่งความเร็วให้ท้าทายขึ้นนิดนึง';
+    }else if(skill < 0.45 && (rng() < 0.55)){
+      msg = 'ไม่เป็นไรนะ ✨ โฟกัสของดีทีละอัน เดี๋ยวจะเริ่มเข้ามือเอง';
+    }
+
+    if(!msg) return null;
+    S.lastTipAtSec = t;
+
+    return { msg, tag: `${game} Coach` };
+  }
+
+  return { onEvent, getTip, getDifficulty };
 }
+
+// --- utils ---
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function clamp01(v){ return clamp(v,0,1); }
