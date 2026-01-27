@@ -1,39 +1,65 @@
-// === /fitness/js/event-logger.js ===
+// === /fitness/js/event-logger.js — Event-level CSV logger (PATCH 2026-01-27) ===
 'use strict';
 
 export class EventLogger {
   constructor() {
-    this.logs = [];
+    this.rows = [];
+  }
+
+  clear() {
+    this.rows.length = 0;
   }
 
   add(row) {
     if (!row || typeof row !== 'object') return;
-    this.logs.push(row);
-  }
-
-  clear() {
-    this.logs.length = 0;
+    this.rows.push(row);
   }
 
   toCsv() {
-    if (!this.logs.length) return '';
+    if (!this.rows.length) return '';
 
-    const cols = Object.keys(this.logs[0]);
+    // รวมคอลัมน์ให้ “นิ่ง” แม้บาง row จะมี field เพิ่ม/หาย
+    const colSet = new Set();
+    for (const r of this.rows) {
+      Object.keys(r).forEach(k => colSet.add(k));
+    }
+    const cols = Array.from(colSet);
 
     const esc = (v) => {
-      if (v == null) return '';
-      const s = String(v);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
+      const s = (v === null || v === undefined) ? '' : String(v);
+      return `"${s.replace(/"/g, '""')}"`;
     };
 
-    const lines = [];
-    lines.push(cols.join(','));
-    for (const row of this.logs) {
-      lines.push(cols.map(c => esc(row[c])).join(','));
+    const head = cols.join(',');
+    const lines = this.rows.map(r => cols.map(c => esc(r[c])).join(','));
+    return [head, ...lines].join('\n');
+  }
+}
+
+/**
+ * helper: ดาวน์โหลด CSV (event-level)
+ * @param {string} filename
+ * @param {string} csvText
+ */
+export function downloadEventCsv(filename, csvText) {
+  try {
+    if (!csvText) {
+      alert('ยังไม่มีข้อมูลให้ดาวน์โหลด');
+      return;
     }
-    return lines.join('\n');
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'shadow-breaker-events.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 0);
+  } catch (err) {
+    console.error('Download event CSV failed', err);
+    alert('ไม่สามารถดาวน์โหลดไฟล์ CSV (event) ได้');
   }
 }
