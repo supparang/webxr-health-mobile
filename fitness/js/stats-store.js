@@ -2,6 +2,16 @@
 'use strict';
 
 const KEY = 'vrfitness_stats_v1';
+const MAX_ITEMS = 100;
+
+function safeJsonParse(raw, fallback) {
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 /**
  * บันทึก summary ของ 1 session ลง localStorage
@@ -10,16 +20,15 @@ const KEY = 'vrfitness_stats_v1';
  */
 export function recordSession(gameId, summary) {
   try {
+    if (!gameId) return;
     const now = Date.now();
-    const item = { gameId, ts: now, ...summary };
+    const item = { gameId: String(gameId), ts: now, ...(summary || {}) };
 
     const raw = localStorage.getItem(KEY);
-    const list = raw ? JSON.parse(raw) : [];
+    const list = raw ? safeJsonParse(raw, []) : [];
 
     list.unshift(item);
-
-    // เก็บสูงสุด 100 รอบล่าสุด
-    const trimmed = list.slice(0, 100);
+    const trimmed = list.slice(0, MAX_ITEMS);
     localStorage.setItem(KEY, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('VRFitness: cannot save stats', e);
@@ -33,9 +42,17 @@ export function recordSession(gameId, summary) {
 export function loadSessions() {
   try {
     const raw = localStorage.getItem(KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list : [];
-  } catch (e) {
+    return raw ? safeJsonParse(raw, []) : [];
+  } catch {
     return [];
   }
+}
+
+/**
+ * ล้างประวัติทั้งหมด (เผื่อทำปุ่ม reset ในหน้า stats)
+ */
+export function clearSessions() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
 }
