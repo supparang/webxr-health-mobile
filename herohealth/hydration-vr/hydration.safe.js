@@ -1,9 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — 1-4 DONE
-// ✅ (1) Water gauge no-duplicate via ui-water.js native-panel detect
-// ✅ (2) AI Coach module: /herohealth/vr/ai-coach.js (PRODUCTION)
-// ✅ (3) Research mode lock: deterministic seed + adaptive OFF + AI OFF
-// ✅ (4) Logging + flush-hardened: events + session summary (keepalive/beacon)
+// Hydration SAFE — PRODUCTION (FULL) — 1-4 DONE (AIM + FX + 3-STAGE + Progressive Boss)
+// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
+// ✅ Progressive Boss: โหดขึ้นตามลำดับ (need↑, window↓, spawn pressure↑)
+// ✅ Water gauge easier: GREEN wider + good nudge↑ + bad push↓ + gentle drift to mid
+// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
+// ✅ Export boot() for loader compatibility (and auto-boot)
 
 'use strict';
 
@@ -132,7 +135,7 @@ function popScore(text='+10'){
   pulseBody('hha-hitfx', 140);
 }
 
-// -------------------- Audio tick (no file needed) --------------------
+// -------------------- Audio tick --------------------
 let AC=null;
 function ensureAC(){
   try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
@@ -156,26 +159,15 @@ function tickBeep(freq=900, dur=0.045, vol=0.06){
 // -------------------- Config --------------------
 const diff = String(qs('diff','normal')).toLowerCase();
 const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
-const isResearch = (run === 'research' || run === 'study');
 const timeLimit = clamp(parseInt(qs('time', qs('durationPlannedSec', 70)),10) || 70, 20, 600);
 const hub = String(qs('hub','../hub.html'));
 
 const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
-
-// --- Deterministic seed lock (research) ---
-const seedParam = qs('seed', null);
-const tsParam = qs('ts', null);
-const ts = String(isResearch ? (tsParam ?? '0') : (tsParam ?? Date.now()));
-const seed = String(
-  isResearch
-    ? (seedParam || sessionId || 'research')
-    : (seedParam || (sessionId ? (sessionId + '|' + ts) : ts))
-);
-
-// logging endpoint
+const ts = String(qs('ts', Date.now()));
+const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 const logEndpoint = String(qs('log','') || '');
 
-// RNG deterministic
+// RNG deterministic-ish
 function hashStr(s){
   s=String(s||''); let h=2166136261;
   for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -191,89 +183,6 @@ function makeRng(seedStr){
   };
 }
 const rng = makeRng(seed);
-
-// -------------------- Event logging (buffer + flush-hardened) --------------------
-const EVENT_BUF = [];
-const EVENT_BUF_MAX = 220;
-
-function pushEvent(type, data){
-  try{
-    const evt = {
-      kind:'event',
-      type: String(type||'event'),
-      at: Date.now(),
-      runMode: run,
-      gameMode: 'hydration',
-      diff,
-      seed,
-      sessionId: sessionId || '',
-      tLeft: S?.leftSec ?? null,
-      score: S?.score ?? null,
-      waterPct: S?.waterPct ?? null,
-      waterZone: S?.waterZone ?? null,
-      shield: S?.shield ?? null,
-      ...((data && typeof data === 'object') ? data : {})
-    };
-    EVENT_BUF.push(evt);
-    if (EVENT_BUF.length > EVENT_BUF_MAX) EVENT_BUF.splice(0, EVENT_BUF.length - EVENT_BUF_MAX);
-  }catch(_){}
-}
-
-function postPayload(payload){
-  if (!logEndpoint) return Promise.resolve(false);
-
-  // Prefer sendBeacon (best for unload)
-  try{
-    if (navigator.sendBeacon){
-      const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
-      const ok = navigator.sendBeacon(logEndpoint, blob);
-      return Promise.resolve(!!ok);
-    }
-  }catch(_){}
-
-  // Fallback fetch keepalive
-  return fetch(logEndpoint, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(payload),
-    keepalive:true
-  }).then(()=>true).catch(()=>false);
-}
-
-async function flushEvents(reason='flush'){
-  if (!logEndpoint) return;
-  if (!EVENT_BUF.length) return;
-  const batch = EVENT_BUF.splice(0, EVENT_BUF.length);
-  const payload = {
-    kind:'events',
-    reason,
-    at: Date.now(),
-    runMode: run,
-    gameMode:'hydration',
-    diff,
-    seed,
-    sessionId: sessionId || '',
-    events: batch
-  };
-  await postPayload(payload);
-}
-
-// send summary (session) — keepalive
-async function sendLog(payload){
-  if (!logEndpoint) return;
-  payload = Object.assign({ kind:'session' }, payload);
-  await postPayload(payload);
-}
-
-// Flush hooks
-function installFlushHooks(){
-  // When leaving page
-  window.addEventListener('pagehide', ()=>{ flushEvents('pagehide'); }, { capture:true });
-  window.addEventListener('beforeunload', ()=>{ flushEvents('beforeunload'); }, { capture:true });
-  document.addEventListener('visibilitychange', ()=>{
-    if (document.visibilityState === 'hidden') flushEvents('hidden');
-  }, { capture:true });
-}
 
 // -------------------- State --------------------
 const S = {
@@ -326,21 +235,20 @@ const S = {
     gotHitByBad:false
   },
 
-  // Boss-mini (progressive boss tuning)
+  // Boss
   bossEnabled:true,
   bossActive:false,
-  bossNeed:2,
+  bossNeed:2,        // dynamic per storm (progressive)
   bossBlocked:0,
   bossDoneThisStorm:false,
-  bossWindowSec:2.2,
+  bossWindowSec:2.2, // dynamic per storm (progressive)
   bossClearCount:0,
 
   // End window fx
   endFxOn:false,
   endFxTickAt:0,
 
-  // (3) Research lock: adaptive OFF in research
-  adaptiveOn: !isResearch,
+  adaptiveOn: (run !== 'research'),
   adaptK:0,
 
   // Mission stage
@@ -353,14 +261,20 @@ const S = {
 const TUNE = (() => {
   const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
   const spawnBaseMs = diff==='easy' ? 680 : diff==='hard' ? 480 : 580;
+
   const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
-  const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
+  const stormDurSec   = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
 
   const greenTarget = clamp(
     Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
     18,
     Math.max(18, timeLimit-8)
   );
+
+  // ✅ Water ease tuning
+  const nudgeToMid = diff==='easy' ? 8.0 : diff==='hard' ? 6.0 : 7.0;  // good hits pull more
+  const badPush    = diff==='easy' ? 6.0 : diff==='hard' ? 8.0 : 7.0;  // bad pushes less on normal/easy
+  const driftToMid = diff==='easy' ? 0.95 : diff==='hard' ? 0.45 : 0.70; // per sec (gentle)
 
   return {
     sizeBase,
@@ -369,19 +283,19 @@ const TUNE = (() => {
     goodLifeMs: diff==='hard'? 930 : 1080,
     badLifeMs:  diff==='hard'? 980 : 1120,
     shieldLifeMs:1350,
-
     stormEverySec,
     stormDurSec,
-    stormSpawnMul: diff==='hard'? 0.56 : 0.64,
 
+    stormSpawnMul: diff==='hard'? 0.56 : 0.64,
     endWindowSec:1.2,
 
-    // Boss window base
-    bossWindowSec: diff==='hard'? 2.4 : 2.2,
+    // base boss window (progressive will reduce)
+    bossWindowBase: diff==='hard'? 2.35 : 2.20,
 
-    // Water tuning (make gauge easier/less jumpy)
-    nudgeToMid:4.0,     // was 5.0
-    badPush:6.0,        // was 8.0
+    // water
+    nudgeToMid,
+    badPush,
+    driftToMid,
 
     missPenalty:1,
     greenTargetSec: greenTarget,
@@ -389,12 +303,39 @@ const TUNE = (() => {
   };
 })();
 S.endWindowSec = TUNE.endWindowSec;
-S.bossWindowSec = TUNE.bossWindowSec;
+
+// -------------------- Progressive Boss params --------------------
+function bossProgressLevel(){
+  // โหดขึ้นตาม “ความคืบหน้า”
+  // - stage 2/3 เริ่มมี boss pressure
+  // - ยิ่งผ่านพายุ/เคลียร์บอส -> level สูงขึ้น
+  const base = Math.max(0, (S.stormCycle|0) - 1);
+  const cleared = (S.bossClearCount|0) * 1.5;
+  const stageBoost = (S.stage>=3) ? 1.2 : (S.stage>=2 ? 0.5 : 0);
+  const raw = base*0.55 + cleared + stageBoost;
+  return clamp(raw, 0, 5);
+}
+function computeBossNeed(){
+  const L = bossProgressLevel();
+  const baseNeed = diff==='hard' ? 2 : 2;
+  // level 0..5 -> need 2..5 (ประมาณ)
+  const add = Math.floor(L*0.55);
+  return clamp(baseNeed + add, 2, 6);
+}
+function computeBossWindowSec(){
+  const L = bossProgressLevel();
+  const base = TUNE.bossWindowBase;
+  // โหดขึ้น = window สั้นลงเล็กน้อย
+  const w = base - (L*0.10);
+  return clamp(w, 1.55, base);
+}
+function applyBossParamsForThisStorm(){
+  S.bossNeed = computeBossNeed();
+  S.bossWindowSec = computeBossWindowSec();
+}
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
-
-// Make water more forgiving: smaller steps, smoother drift back to mid
 function nudgeWaterGood(){
   const mid=55, d=mid - S.waterPct;
   const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
@@ -404,6 +345,15 @@ function nudgeWaterGood(){
 function pushWaterBad(){
   const mid=55, d=S.waterPct - mid;
   const step=(d>=0?+1:-1)*TUNE.badPush;
+  S.waterPct = clamp(S.waterPct + step, 0, 100);
+  updateZone();
+}
+function driftWaterToMid(dt){
+  // gentle drift to mid when not in storm (ช่วยให้คุม GREEN ง่ายขึ้น)
+  if (S.stormActive) return;
+  const mid = 55;
+  const d = mid - S.waterPct;
+  const step = clamp(d, -1, 1) * (TUNE.driftToMid * dt);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
@@ -433,7 +383,6 @@ function syncWaterPanelDOM(){
   if (pct) pct.textContent = String(S.waterPct|0);
   if (zone) zone.textContent = String(S.waterZone||'');
 }
-
 function setStage(n){
   const nn = clamp(n,1,3)|0;
   if (S.stage === nn) return;
@@ -441,9 +390,7 @@ function setStage(n){
   emit('hha:coach', { type:'stage', stage: S.stage });
   tickBeep(1200, 0.06, 0.07);
   pulseBody('hha-hitfx', 180);
-  pushEvent('stage', { stage:S.stage });
 }
-
 function syncHUD(){
   const grade = computeGrade();
   setText('stat-score', S.score|0);
@@ -489,14 +436,14 @@ function syncHUD(){
     setText('quest-line2', `Boss Clear: ${S.bossClearCount|0} / 1`);
     if (S.bossEnabled && S.bossActive){
       setText('quest-line3', `BOSS WINDOW! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK 🌩️ ให้ครบ`);
-      setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${S.bossNeed|0} (รอบนี้)`);
+      setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${S.bossNeed|0} (รอบนี้)` );
     } else {
       setText('quest-line3', `รอช่วงท้ายพายุ (Boss Window) แล้วค่อย BLOCK 🌩️`);
       setText('quest-line4', `Tip: เก็บ 🛡️ ไว้ 1–2 อันก่อนพายุ`);
     }
   }
 
-  // external water UI (utility + native panel)
+  // external water UI (if exists)
   try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
 
@@ -576,21 +523,15 @@ function pickXY(){
   const yPct = (y/Math.max(1,r.height))*100;
   return { xPct, yPct };
 }
-
 function targetSize(){
   let s = TUNE.sizeBase;
-
-  // (3) adaptive OFF in research
   if (S.adaptiveOn){
     const acc = computeAccuracy()/100;
     const c = clamp(S.combo/20, 0, 1);
     const k = clamp(acc*0.7 + c*0.3, 0, 1);
     S.adaptK = k;
     s = s * (1.02 - 0.22*k);
-  } else {
-    S.adaptK = 0;
   }
-
   if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
   return clamp(s,44,86);
 }
@@ -652,7 +593,6 @@ function spawn(kind){
       S.nExpireGood++;
       S.combo=0;
       S.streakGood=0;
-      pushEvent('miss_expire_good', {});
       syncHUD();
     }
   }
@@ -680,7 +620,6 @@ function spawn(kind){
       S.streakGood++;
       S.streakMax = Math.max(S.streakMax, S.streakGood);
 
-      pushEvent('hit_good', { add });
       emit('hha:judge', { kind:'good' });
       pulseBody('hha-hitfx', 140);
       popScore('+'+add);
@@ -689,8 +628,6 @@ function spawn(kind){
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
       S.shield = clamp(S.shield+1, 0, S.shieldMax);
-
-      pushEvent('hit_shield', {});
       emit('hha:judge', { kind:'shield' });
       pulseBody('hha-hitfx', 120);
       popScore('+6');
@@ -708,7 +645,6 @@ function spawn(kind){
         }
         if (isBossBad) S.bossBlocked++;
 
-        pushEvent('block_bad', { boss: isBossBad ? 1 : 0 });
         emit('hha:judge', { kind:'block' });
         pulseBody('hha-hitfx', 120);
         popScore('+4');
@@ -721,7 +657,6 @@ function spawn(kind){
 
         if (S.stormActive) S.miniState.gotHitByBad = true;
 
-        pushEvent('hit_bad', {});
         emit('hha:judge', { kind:'bad' });
         shockAt(hx, hy);
         pulseBody('hha-hitfx', 160);
@@ -743,24 +678,29 @@ function spawn(kind){
 // -------------------- Storm + spawn loop --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-
-  // (3) adaptive OFF in research
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
-
   if (S.stormActive) base *= TUNE.stormSpawnMul;
   return clamp(base, 210, 1200);
 }
-
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
   if (S.stormActive){
     pGood=0.52; pBad=0.38; pSh=0.10;
+
+    // ✅ Progressive boss pressure: bossActive เพิ่ม BAD อีกนิด
     if (S.bossEnabled && S.bossActive){
-      pBad += 0.10;
-      pGood -= 0.10;
+      pBad += 0.12;
+      pGood -= 0.12;
     }
+
+    // ยิ่ง level สูง ยิ่งมี BAD มากขึ้นนิด ๆ
+    const L = bossProgressLevel();
+    const extra = clamp(L*0.015, 0, 0.06);
+    pBad += extra;
+    pGood -= extra;
   }
+
   if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
 
   const r=rng();
@@ -775,25 +715,13 @@ function setEndFx(on){
   DOC.body.classList.toggle('hha-endfx', on);
 }
 
-// Progressive Boss: boss gets tougher each storm cycle (fair & readable)
-function progressiveBossTune(){
-  // grows with stormCycle (1..)
-  const k = clamp((S.stormCycle - 1) / 4, 0, 1); // after ~5 storms reaches max
-  const addNeed = Math.round(1 * k);             // +0..+1
-  const need = clamp(2 + addNeed, 2, 3);         // 2->3 blocks
-  const window = clamp(TUNE.bossWindowSec + 0.3*k, TUNE.bossWindowSec, TUNE.bossWindowSec+0.3);
-
-  S.bossNeed = need;
-  S.bossWindowSec = window;
-}
-
 function enterStorm(){
   S.stormActive=true;
   S.stormLeftSec=TUNE.stormDurSec;
   S.stormCycle++;
 
-  // progressive boss per storm
-  progressiveBossTune();
+  // ✅ apply progressive params per storm
+  applyBossParamsForThisStorm();
 
   S.miniState = {
     zoneOK:false,
@@ -809,6 +737,7 @@ function enterStorm(){
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
+  // กวนให้หลุด GREEN ตอนเข้าพายุเล็กน้อย (แต่เบาลงแล้ว)
   if (S.waterZone==='GREEN'){
     S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -6 : +6), 0, 100);
     updateZone();
@@ -817,7 +746,6 @@ function enterStorm(){
   setEndFx(false);
   S.endFxTickAt = 0;
 
-  pushEvent('storm_enter', { stormCycle:S.stormCycle, bossNeed:S.bossNeed, bossWindowSec:S.bossWindowSec });
   emit('hha:judge', { kind:'storm' });
   syncHUD();
 }
@@ -840,12 +768,9 @@ function exitStorm(){
     S.miniState.doneThisStorm=true;
     S.stormSuccess++;
     S.score += 40;
-    pushEvent('storm_pass', {});
     emit('hha:judge', { kind:'streak' });
     pulseBody('hha-hitfx', 180);
     popScore('+40');
-  } else {
-    pushEvent('storm_fail', { gotHitByBad: S.miniState.gotHitByBad ? 1 : 0 });
   }
 
   // boss bonus success
@@ -854,7 +779,6 @@ function exitStorm(){
     S.bossClearCount++;
     S.stormSuccess++;
     S.score += 50;
-    pushEvent('boss_clear', { bossBlocked:S.bossBlocked, bossNeed:S.bossNeed });
     emit('hha:judge', { kind:'perfect' });
     pulseBody('hha-hitfx', 200);
     popScore('+50');
@@ -873,7 +797,6 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
-  // End window FX + beep
   if (inEnd){
     setEndFx(true);
     const now = performance.now();
@@ -887,7 +810,7 @@ function tickStorm(dt){
     setEndFx(false);
   }
 
-  // Boss window (progressive)
+  // ✅ Boss window uses progressive bossWindowSec (shorter when harder)
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
@@ -904,7 +827,19 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-// -------------------- Summary helpers --------------------
+// -------------------- Summary / logging --------------------
+async function sendLog(payload){
+  if (!logEndpoint) return;
+  try{
+    await fetch(logEndpoint, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+      keepalive:true
+    });
+  }catch(_){}
+}
+
 function computeTier(sum){
   const g=String(sum.grade||'C');
   const acc=Number(sum.accuracyGoodPct||0);
@@ -987,17 +922,12 @@ function bindSummaryButtons(){
   const btnCSV = DOC.getElementById('btnDownloadCSV');
 
   DOC.querySelectorAll('.btnBackHub').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      // (4) flush events before leaving
-      await flushEvents('backHub');
-      location.href = hub;
-    });
+    btn.addEventListener('click', ()=> location.href = hub);
   });
 
   btnRetry?.addEventListener('click', ()=>{
     const u = new URL(location.href);
     u.searchParams.set('ts', String(Date.now()));
-    if (!isResearch) u.searchParams.set('seed', String(Date.now())); // new run randomness (play)
     location.href = u.toString();
   });
 
@@ -1017,15 +947,11 @@ function bindSummaryButtons(){
   });
 }
 
-// -------------------- AI Coach (2) --------------------
-// (3) Research lock: AI OFF in research
+// -------------------- AI Coach --------------------
 const AICOACH = createAICoach({
   emit,
   game:'hydration',
-  runMode: run,
-  enabled: !isResearch,
-  cooldownMs: 3000,
-  maxPerMinute: 7
+  cooldownMs: 3000
 });
 
 // -------------------- Storm schedule --------------------
@@ -1037,7 +963,7 @@ function nextStormSchedule(){
 let spawnTimer=0;
 let nextStormIn=0;
 
-// -------------------- Aim Assist for cVR (crosshair) --------------------
+// -------------------- Aim Assist for cVR --------------------
 function hitTestAtCenter(lockPx){
   const { cx, cy } = centerPoint();
   const targets = Array.from(DOC.querySelectorAll('.hvr-target'));
@@ -1061,7 +987,6 @@ function hitTestAtCenter(lockPx){
   return best;
 }
 
-// adaptive lockPx state (deterministic given deterministic play)
 const AIM = { base:56, min:32, max:86, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
 
 function aimLockPx(){
@@ -1097,14 +1022,12 @@ window.addEventListener('hha:shoot', ()=>{
 
   if (!el){
     registerShot(false);
-    pushEvent('shoot_miss', { lockPx });
     emit('hha:judge', { kind:'miss' });
     pulseBody('hha-hitfx', 90);
     return;
   }
 
   registerShot(true);
-  pushEvent('shoot_hit', { lockPx, kind: el?.dataset?.kind || '' });
   try{ el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true })); }catch(_){}
 }, { passive:true });
 
@@ -1113,6 +1036,9 @@ function update(dt){
   if (!S.started || S.ended) return;
 
   S.leftSec = Math.max(0, S.leftSec - dt);
+
+  // ✅ water drift to mid (easier)
+  driftWaterToMid(dt);
 
   if (S.waterZone==='GREEN') S.greenHold += dt;
 
@@ -1137,7 +1063,6 @@ function update(dt){
   // HUD + AI
   syncHUD();
 
-  // (3) AI OFF in research
   AICOACH.onUpdate({
     skill: clamp((computeAccuracy()/100)*0.7 + clamp(S.combo/20,0,1)*0.3, 0, 1),
     fatigue: clamp((timeLimit - S.leftSec)/Math.max(1,timeLimit), 0, 1),
@@ -1168,7 +1093,6 @@ async function endGame(reason){
   const played = clamp(timeLimit - S.leftSec, 0, timeLimit);
 
   const summary = {
-    kind: 'session',
     timestampIso: qs('timestampIso', new Date().toISOString()),
     projectTag: qs('projectTag','HeroHealth'),
     runMode: run,
@@ -1205,26 +1129,20 @@ async function endGame(reason){
     localStorage.setItem('hha_last_summary', JSON.stringify(summary));
   }catch(_){}
 
-  pushEvent('end', { reason: summary.reason, grade: summary.grade, acc: summary.accuracyGoodPct });
   emit('hha:end', summary);
   AICOACH.onEnd(summary);
 
-  // (4) flush events BEFORE summary
-  await flushEvents('endGame');
   await sendLog(summary);
-
   fillSummary(summary);
 }
 
-function boot(){
-  // (1) water gauge module init (will NOT duplicate if native panel exists)
+// ✅ export for loader compatibility
+export function boot(){
   try{ ensureWaterGauge(); }catch(_){}
   try{ setWaterGauge(S.waterPct); }catch(_){}
   updateZone();
   syncWaterPanelDOM();
-
   bindSummaryButtons();
-  installFlushHooks();
 
   spawnTimer = 320;
   nextStormIn = nextStormSchedule();
@@ -1234,8 +1152,6 @@ function boot(){
     S.started=true;
     S.t0=performance.now();
     S.lastTick=S.t0;
-
-    pushEvent('start', { isResearch: isResearch ? 1 : 0 });
     syncHUD();
     AICOACH.onStart();
 
@@ -1254,7 +1170,6 @@ function boot(){
     endGame(d.reason || 'force');
   });
 
-  // If overlay already hidden somehow, auto-start
   const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
     const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
@@ -1262,4 +1177,5 @@ function boot(){
   }, 600);
 }
 
+// ✅ auto-boot
 boot();
