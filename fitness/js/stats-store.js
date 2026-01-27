@@ -1,42 +1,78 @@
-// === /fitness/js/stats-store.js ===
+// === /fitness/js/stats-store.js — Local summary store for VR Fitness (PATCH 2026-01-27) ===
 'use strict';
 
-const KEY = 'VRFITNESS_STATS_V1';
+const KEY = 'vrfitness_stats_v1';
+const MAX = 100;
 
-function readAll() {
+function safeParse(raw) {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return {};
-    const obj = JSON.parse(raw);
-    return obj && typeof obj === 'object' ? obj : {};
-  } catch (_) {
-    return {};
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
   }
 }
 
-function writeAll(obj) {
+/**
+ * บันทึก summary ของ 1 session ลง localStorage
+ * @param {string} gameId  เช่น 'shadow-breaker'
+ * @param {Object} summary ข้อมูลสรุป session จาก engine
+ */
+export function recordSession(gameId, summary) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(obj));
-  } catch (_) {}
+    if (!gameId) return;
+
+    const now = Date.now();
+    const item = {
+      gameId: String(gameId),
+      ts: now,
+      ...(summary && typeof summary === 'object' ? summary : {})
+    };
+
+    const raw = localStorage.getItem(KEY);
+    const list = raw ? safeParse(raw) : [];
+    list.unshift(item);
+
+    // กันข้อมูลพัง/ใหญ่เกิน: เก็บล่าสุด MAX รายการ
+    const trimmed = list.slice(0, MAX);
+    localStorage.setItem(KEY, JSON.stringify(trimmed));
+  } catch (e) {
+    console.warn('VRFitness: cannot save stats', e);
+  }
 }
 
-export function recordSession(gameKey, row) {
-  const all = readAll();
-  if (!all[gameKey]) all[gameKey] = [];
-  all[gameKey].unshift(row);
-  all[gameKey] = all[gameKey].slice(0, 50);
-  writeAll(all);
+/**
+ * โหลดประวัติ session ทั้งหมดจาก localStorage
+ * @returns {Array<Object>}
+ */
+export function loadSessions() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? safeParse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
-export function getSessions(gameKey) {
-  const all = readAll();
-  return Array.isArray(all[gameKey]) ? all[gameKey] : [];
+/**
+ * ล้างสถิติทั้งหมด (ใช้ตอน debug)
+ */
+export function clearSessions() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
 }
 
-export function getAllStats() {
-  return readAll();
-}
-
-export function clearStats() {
-  writeAll({});
+/**
+ * ดึง session ล่าสุดของเกมที่กำหนด
+ * @param {string} gameId
+ * @returns {Object|null}
+ */
+export function getLatestSession(gameId) {
+  const list = loadSessions();
+  const gid = String(gameId || '');
+  for (const it of list) {
+    if (it && it.gameId === gid) return it;
+  }
+  return null;
 }
