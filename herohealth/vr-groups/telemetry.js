@@ -1,11 +1,12 @@
 // === /herohealth/vr-groups/telemetry.js ===
-// GroupsVR Telemetry (PACK 13) — PRODUCTION
-// ✅ Modes: off | lite | full  (persist in localStorage + allow ?telemetry=off|lite|full)
+// GroupsVR Telemetry (PACK 13) — PRODUCTION v2
+// ✅ Modes: off | lite | full  (persist LS + ?telemetry=off|lite|full)
 // ✅ Gated: research/practice => OFF hard
 // ✅ Throttle per event + batch send (no spam)
 // ✅ Recovery: unsent batches saved to localStorage, resent on next load
 // ✅ Flush-hardened: pagehide/hidden/freeze/beforeunload flushNow()
 // ✅ Export pending: Telemetry.exportPending()
+// ✅ NEW API: getQueueSize(), getQueueBatches(), clearQueue(), getConfig()
 
 (function (root) {
   'use strict';
@@ -34,9 +35,9 @@
   }
 
   // ---------------- storage keys ----------------
-  const LS_MODE = 'HHA_TELEMETRY_MODE_GroupsVR';         // 'off'|'lite'|'full'
-  const LS_QUEUE = 'HHA_TELEMETRY_QUEUE_GroupsVR';       // array of batches
-  const LS_SEQ = 'HHA_TELEMETRY_SEQ_GroupsVR';           // seq counter
+  const LS_MODE  = 'HHA_TELEMETRY_MODE_GroupsVR';   // 'off'|'lite'|'full'
+  const LS_QUEUE = 'HHA_TELEMETRY_QUEUE_GroupsVR';  // array of batches
+  const LS_SEQ   = 'HHA_TELEMETRY_SEQ_GroupsVR';    // seq counter
 
   // ---------------- state ----------------
   const Telemetry = NS.Telemetry = NS.Telemetry || {};
@@ -49,26 +50,24 @@
     maxEventsPerBatch: 60,
     maxQueueBatches: 16,         // stored in LS
     throttle: {
-      // default throttle per eventName
       'hha:score': 600,
       'hha:rank': 800,
       'quest:update': 900,
       'groups:power': 900,
       'groups:progress': 250,
-      'hha:judge': 80,           // only in FULL
-      'groups:ai_predict': 800   // from your predictor
+      'hha:judge': 80,           // FULL only
+      'groups:ai_predict': 800
     },
-    ui: {
-      hudId: 'vTele'             // optional <span id="vTele">
-    }
+    ui: { hudId: 'vTele' }       // optional <span id="vTele">
   };
 
-  let _batch = [];               // current events
+  let _batch = [];
   let _flushIt = 0;
   let _inFlight = false;
   let _lastEventAt = Object.create(null);
   let _seq = loadSeq();
   let _installed = false;
+  let _eventsAttached = false;
 
   // ---------------- public API ----------------
   Telemetry.init = function init(opt){
@@ -86,7 +85,7 @@
     // 1) research/practice => OFF hard
     // 2) ?telemetry=... (for play only) else localStorage else default 'lite'
     let mode = 'lite';
-    const q = String(qs('telemetry','')||'').toLowerCase().trim();
+    const q  = String(qs('telemetry','')||'').toLowerCase().trim();
     const ls = String(loadMode()||'').toLowerCase().trim();
 
     if (q === 'off' || q === 'lite' || q === 'full') mode = q;
@@ -95,17 +94,11 @@
     if (CFG.runMode !== 'play') mode = 'off';
     setModeInternal(mode, true);
 
-    // attach listeners (always attach safe; push() will no-op if disabled)
     attachEventListeners();
-
-    // attempt resend queue on init
     tryResendQueue();
-
-    // start periodic flushing
     startTimer();
-
-    // hard flush handlers
     installLeaveFlush();
+    updateHudMode();
 
     return true;
   };
@@ -119,15 +112,43 @@
 
   Telemetry.getMode = function getMode(){ return CFG.mode; };
 
+  Telemetry.getConfig = function getConfig(){
+    return {
+      enabled: !!CFG.enabled,
+      mode: CFG.mode,
+      runMode: CFG.runMode,
+      endpoint: CFG.endpoint,
+      flushEveryMs: CFG.flushEveryMs,
+      maxEventsPerBatch: CFG.maxEventsPerBatch,
+      maxQueueBatches: CFG.maxQueueBatches
+    };
+  };
+
+  Telemetry.getQueueBatches = function getQueueBatches(){
+    const q = loadQueue();
+    return q;
+  };
+
+  Telemetry.getQueueSize = function getQueueSize(){
+    const q = loadQueue();
+    let ev = 0;
+    for (const b of q) ev += (b && b.events && b.events.length) ? b.events.length : 0;
+    return { batches: q.length, events: ev };
+  };
+
+  Telemetry.clearQueue = function clearQueue(){
+    try { localStorage.removeItem(LS_QUEUE); } catch {}
+    return true;
+  };
+
   Telemetry.push = function push(name, detail, level){
-    // level: 'lite'|'full' (optional). If omitted, depends on mode.
     if (!CFG.enabled) return false;
 
     name = String(name||'evt');
     const t = nowMs();
 
     // throttle
-    const thr = Number(CFG.throttle[name] ?? 0) || 0;
+    const thr  = Number(CFG.throttle[name] ?? 0) || 0;
     const last = Number(_lastEventAt[name] || 0) || 0;
     if (thr > 0 && (t - last) < thr) return false;
     _lastEventAt[name] = t;
@@ -135,16 +156,10 @@
     // mode gate
     if (CFG.mode === 'lite' && level === 'full') return false;
 
-    // shrink detail if huge
     const d = sanitizeDetail(detail);
 
-    _batch.push({
-      t: Math.round(t),
-      name,
-      d
-    });
+    _batch.push({ t: Math.round(t), name, d });
 
-    // auto flush if too big
     if (_batch.length >= CFG.maxEventsPerBatch) {
       flushSoon('batch_full');
     }
@@ -153,19 +168,22 @@
 
   Telemetry.flushNow = async function flushNow(reason){
     reason = String(reason||'flush');
-    // pack current batch -> queue -> send
     packBatch(reason);
     return await sendQueued('flushNow');
   };
 
   Telemetry.exportPending = function exportPending(){
     const q = loadQueue();
+    let ev = 0;
+    for (const b of q) ev += (b && b.events && b.events.length) ? b.events.length : 0;
+
     const payload = {
       exportedAt: isoNow(),
       gameTag: 'GroupsVR',
       runMode: CFG.runMode,
       mode: CFG.mode,
       endpoint: CFG.endpoint,
+      pending: { batches: q.length, events: ev },
       queueBatches: q
     };
     return safeJson(payload, '{"error":"export_failed"}');
@@ -173,13 +191,11 @@
 
   // ---------------- internal helpers ----------------
   function sanitizeDetail(detail){
-    // keep telemetry light: drop functions, clamp strings
     if (detail == null) return null;
     const t = typeof detail;
     if (t === 'string') return (detail.length > 240) ? detail.slice(0,240) : detail;
     if (t === 'number' || t === 'boolean') return detail;
     if (t === 'object') {
-      // shallow copy + clamp
       const out = Array.isArray(detail) ? detail.slice(0, 12) : {};
       if (!Array.isArray(detail)) {
         const keys = Object.keys(detail).slice(0, 24);
@@ -206,10 +222,7 @@
   }
 
   function loadSeq(){
-    try {
-      const s = Number(localStorage.getItem(LS_SEQ)||'0')||0;
-      return s;
-    } catch { return 0; }
+    try { return Number(localStorage.getItem(LS_SEQ)||'0')||0; } catch { return 0; }
   }
   function bumpSeq(){
     _seq = (_seq|0) + 1;
@@ -231,11 +244,9 @@
   function setModeInternal(mode, silent){
     CFG.mode = mode;
     CFG.enabled = (mode !== 'off' && CFG.runMode === 'play');
-
     saveMode(mode);
     updateHudMode();
 
-    // in OFF => clear batch timer only; keep queue for export
     if (!silent) {
       try { root.dispatchEvent(new CustomEvent('groups:telemetry_mode', { detail:{ mode } })); } catch (_) {}
     }
@@ -247,21 +258,20 @@
       if (!id) return;
       const el = DOC.getElementById(id);
       if (!el) return;
-      const m = CFG.mode.toUpperCase();
-      el.textContent = (CFG.enabled ? m : 'OFF');
+      el.textContent = (CFG.enabled ? CFG.mode.toUpperCase() : 'OFF');
     }catch(_){}
   }
 
   function packBatch(reason){
     if (!_batch.length) return;
-    const seq = bumpSeq();
+    const seq  = bumpSeq();
     const seed = String(qs('seed','')||'');
     const diff = String(qs('diff','')||'');
     const view = String(qs('view','')||'');
     const style= String(qs('style','')||'');
 
     const batch = {
-      v: 1,
+      v: 2,
       kind: 'telemetry',
       gameTag: 'GroupsVR',
       runMode: CFG.runMode,
@@ -273,7 +283,6 @@
       events: _batch.splice(0, _batch.length)
     };
 
-    // push to queue storage (recovery)
     const q = loadQueue();
     q.push(batch);
     while (q.length > CFG.maxQueueBatches) q.shift();
@@ -281,9 +290,7 @@
   }
 
   function flushSoon(reason){
-    // pack immediately (so it survives tab crash)
     packBatch(reason || 'soon');
-    // then try send soon
     sendQueued('flushSoon').catch(()=>{});
   }
 
@@ -295,8 +302,6 @@
     if (!q.length) return { ok:true, reason:'empty' };
 
     _inFlight = true;
-
-    // send at most 2 batches per call to avoid heavy unload
     const maxSend = 2;
     let sent = 0;
 
@@ -322,7 +327,6 @@
     const body = safeJson(batch, null);
     if (!body) return false;
 
-    // sendBeacon first (best for unload)
     let ok = false;
     try{
       if (navigator && typeof navigator.sendBeacon === 'function') {
@@ -330,7 +334,6 @@
       }
     }catch(_){}
 
-    // fallback fetch keepalive
     if (!ok){
       try{
         const res = await fetch(endpoint, {
@@ -352,46 +355,38 @@
     clearInterval(_flushIt);
     _flushIt = setInterval(()=>{
       if (!CFG.enabled) return;
-      // pack if any events, then try send
       if (_batch.length) packBatch('tick');
       sendQueued('tick').catch(()=>{});
     }, CFG.flushEveryMs);
   }
 
   function tryResendQueue(){
-    // no-op if disabled; but still okay to resend in enabled mode
     if (!CFG.endpoint) return;
     sendQueued('init').catch(()=>{});
   }
 
-  // ---------------- event listeners (no engine edits required) ----------------
-  let _eventsAttached = false;
+  // ---------------- event listeners ----------------
   function attachEventListeners(){
     if (_eventsAttached) return;
     _eventsAttached = true;
 
-    // Lite & Full: score/rank/quest/power/progress/ai_predict
     root.addEventListener('hha:score', (ev)=>{
       const d = ev.detail||{};
-      Telemetry.push('hha:score', {
-        score: d.score|0, combo: d.combo|0, miss: d.misses|0
-      }, 'lite');
+      Telemetry.push('hha:score', { score:d.score|0, combo:d.combo|0, miss:d.misses|0 }, 'lite');
     }, { passive:true });
 
     root.addEventListener('hha:rank', (ev)=>{
       const d = ev.detail||{};
-      Telemetry.push('hha:rank', {
-        grade: String(d.grade||''), acc: Number(d.accuracy||0)
-      }, 'lite');
+      Telemetry.push('hha:rank', { grade:String(d.grade||''), acc:Number(d.accuracy||0) }, 'lite');
     }, { passive:true });
 
     root.addEventListener('quest:update', (ev)=>{
       const d = ev.detail||{};
       Telemetry.push('quest:update', {
-        g: String(d.groupKey||''), gName: String(d.groupName||''),
-        goalNow: d.goalNow|0, goalTot: d.goalTotal|0, goalPct: Math.round(Number(d.goalPct||0)),
-        miniNow: d.miniNow|0, miniTot: d.miniTotal|0, miniLeft: d.miniTimeLeftSec|0,
-        miniCleared: d.miniCountCleared|0, miniTotal: d.miniCountTotal|0
+        g:String(d.groupKey||''), gName:String(d.groupName||''),
+        goalNow:d.goalNow|0, goalTot:d.goalTotal|0, goalPct:Math.round(Number(d.goalPct||0)),
+        miniNow:d.miniNow|0, miniTot:d.miniTotal|0, miniLeft:d.miniTimeLeftSec|0,
+        miniCleared:d.miniCountCleared|0, miniTotal:d.miniCountTotal|0
       }, 'lite');
     }, { passive:true });
 
@@ -401,25 +396,18 @@
     }, { passive:true });
 
     root.addEventListener('groups:progress', (ev)=>{
-      const d = ev.detail||{};
-      Telemetry.push('groups:progress', d, 'lite');
+      Telemetry.push('groups:progress', ev.detail||{}, 'lite');
     }, { passive:true });
 
     root.addEventListener('groups:ai_predict', (ev)=>{
-      // comes from your predictor in groups-vr.html
-      const d = ev.detail||{};
-      Telemetry.push('groups:ai_predict', d, 'lite');
+      Telemetry.push('groups:ai_predict', ev.detail||{}, 'lite');
     }, { passive:true });
 
-    // FULL: judge events (hit/miss/score popups) — heavy, so gated inside push by mode
     root.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail||{};
-      Telemetry.push('hha:judge', d, 'full');
+      Telemetry.push('hha:judge', ev.detail||{}, 'full');
     }, { passive:true });
 
-    // When game ends: pack+flush
     root.addEventListener('hha:end', ()=>{
-      // pack whatever remains and send
       Telemetry.flushNow('end').catch(()=>{});
     }, { passive:true });
   }
@@ -430,9 +418,7 @@
     _installed = true;
 
     const hard = ()=> {
-      // pack batch first (recovery)
       if (_batch.length) packBatch('leave');
-      // try send quickly
       Telemetry.flushNow('leave').catch(()=>{});
     };
 
@@ -443,9 +429,7 @@
       if (DOC.visibilityState === 'hidden') hard();
     }, { capture:true });
 
-    root.addEventListener('online', ()=>{
-      tryResendQueue();
-    }, { passive:true });
+    root.addEventListener('online', ()=>{ tryResendQueue(); }, { passive:true });
   }
 
 })(typeof window !== 'undefined' ? window : globalThis);
