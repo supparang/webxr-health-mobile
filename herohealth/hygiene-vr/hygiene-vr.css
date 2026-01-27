@@ -1,114 +1,113 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR UI — PRODUCTION (HHA Standard) [LATEST]
-✅ Safe-area aware + sets --hw-top-safe / --hw-bottom-safe
-✅ Targets visible (no HUD overlap) + responsive sizes
-✅ Works with particles.js (z-index harmony)
+HygieneVR CSS — PRODUCTION (HHA Standard)
+✅ HUD safe zones (top/bottom) + stage spawn bounds via CSS vars
+✅ Targets crisp / visible / non-blocked
+✅ Works: PC / Mobile / VR / cVR
+✅ Quiz box + overlays + banner
 */
 
 :root{
-  --bg: #071018;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(15,23,42,.72);
-  --stroke: rgba(148,163,184,.18);
+  /* theme */
+  --bg:#0b1020;
   --text: rgba(229,231,235,.96);
   --muted: rgba(148,163,184,.95);
+  --panel: rgba(2,6,23,.70);
+  --panel2: rgba(15,23,42,.62);
+  --stroke: rgba(148,163,184,.18);
 
-  --good: rgba(34,197,94,.95);
-  --warn: rgba(245,158,11,.95);
-  --bad:  rgba(239,68,68,.95);
-  --cyan: rgba(34,211,238,.95);
+  --good: rgba(34,197,94,1);
+  --cyan: rgba(34,211,238,1);
+  --warn: rgba(245,158,11,1);
+  --bad:  rgba(239,68,68,1);
 
   --r: 22px;
   --pill: 999px;
 
-  /* safe-area */
+  /* Safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* engine spawn safe bands (used by hygiene.safe.js) */
-  --hw-top-safe: 168;     /* px */
-  --hw-bottom-safe: 168;  /* px */
+  /* IMPORTANT: spawn-safe bands (used by JS getComputedStyle) */
+  --hw-top-safe: 170;
+  --hw-bottom-safe: 170;
 }
 
-*{ box-sizing:border-box; }
-html,body{ margin:0; height:100%; }
-body{
-  background: radial-gradient(1200px 900px at 50% -10%, rgba(34,211,238,.08), transparent 55%),
-              radial-gradient(1100px 800px at 12% 10%, rgba(34,197,94,.06), transparent 55%),
-              radial-gradient(1000px 900px at 90% 10%, rgba(168,85,247,.05), transparent 60%),
-              linear-gradient(180deg, #040a12, #071018 55%, #04070b);
-  color: var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  overflow:hidden;
-}
-
-/* view presets */
-body.view-pc{
-  --hw-top-safe: 168;
-  --hw-bottom-safe: 168;
-}
+/* Per-view tuning (ลด HUD ให้เด็กเล่นได้จริง) */
 body.view-mobile{
-  --hw-top-safe: 182;
-  --hw-bottom-safe: 182;
-}
-body.view-vr{
   --hw-top-safe: 150;
-  --hw-bottom-safe: 160;
+  --hw-bottom-safe: 190; /* เว้นที่ให้ปุ่ม/คีย์บอร์ดมือถือ */
 }
 body.view-cvr{
   --hw-top-safe: 150;
   --hw-bottom-safe: 160;
 }
-
-/* root */
-.hw-root{
-  position:relative;
-  width:100%;
-  height:100%;
-  padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
+body.view-vr{
+  --hw-top-safe: 150;
+  --hw-bottom-safe: 160;
 }
 
-/* stage = spawn surface */
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  background: radial-gradient(1200px 700px at 60% 20%, rgba(34,211,238,.08), transparent 55%),
+              radial-gradient(900px 600px at 20% 75%, rgba(34,197,94,.08), transparent 55%),
+              linear-gradient(180deg, #050814 0%, #050a18 40%, #040615 100%);
+  color: var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  overflow:hidden;
+}
+
+/* Root + Stage */
+.hw-root{
+  position:relative;
+  height:100%;
+  width:100%;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+}
+
 .hw-stage{
   position:absolute;
   inset:0;
+  /* ✅ stage remains interactive */
+  pointer-events:auto;
   overflow:hidden;
-  border-radius: calc(var(--r) + 6px);
 }
 
-/* subtle motion to feel alive */
+/* Subtle animated background sparkle (cheap) */
 .hw-stage::before{
-  content:"";
+  content:'';
   position:absolute;
   inset:-10%;
   background:
-    radial-gradient(700px 500px at 30% 20%, rgba(34,211,238,.08), transparent 58%),
-    radial-gradient(700px 520px at 75% 25%, rgba(34,197,94,.06), transparent 60%),
-    radial-gradient(900px 700px at 55% 70%, rgba(168,85,247,.05), transparent 64%);
-  filter: blur(6px);
-  animation: hwFloat 10.5s ease-in-out infinite;
-  opacity:.9;
+    radial-gradient(4px 4px at 10% 20%, rgba(255,255,255,.10), transparent 60%),
+    radial-gradient(3px 3px at 55% 35%, rgba(34,211,238,.12), transparent 60%),
+    radial-gradient(3px 3px at 85% 70%, rgba(34,197,94,.10), transparent 60%),
+    radial-gradient(4px 4px at 25% 80%, rgba(255,255,255,.07), transparent 60%);
+  opacity:.55;
+  filter: blur(.2px);
+  animation: hwFloat 12s ease-in-out infinite;
+  pointer-events:none;
 }
 @keyframes hwFloat{
-  0%{ transform: translate3d(-1%,0,0) scale(1.02); }
-  50%{ transform: translate3d(1%,-1%,0) scale(1.04); }
-  100%{ transform: translate3d(-1%,0,0) scale(1.02); }
+  0%{ transform: translate3d(0,0,0) scale(1); opacity:.50; }
+  50%{ transform: translate3d(-8px,6px,0) scale(1.02); opacity:.62; }
+  100%{ transform: translate3d(0,0,0) scale(1); opacity:.50; }
 }
 
 /* HUD */
 .hw-hud{
-  position:absolute;
-  left:0; right:0; top:0;
-  pointer-events:none; /* allow taps to go through except buttons */
-  z-index: 6000; /* below particles(9999) but above targets */
+  position:relative;
+  z-index: 30;
+  pointer-events:none; /* ✅ HUD does not block tapping targets */
 }
 
 .hw-top{
-  width:min(980px, 100%);
+  width: min(980px, calc(100vw - 24px - var(--sal) - var(--sar)));
   margin: 0 auto;
-  padding: 10px 10px 0;
+  padding-top: 6px;
 }
 
 .hw-title{
@@ -117,225 +116,266 @@ body.view-cvr{
   font-size: 18px;
   text-shadow: 0 16px 40px rgba(0,0,0,.55);
 }
+
 .hw-sub{
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: 4px;
   color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .hw-row{
   display:flex;
-  gap: 8px;
   flex-wrap:wrap;
+  gap: 8px;
   margin-top: 10px;
 }
 
-/* pills */
 .hw-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 8px 10px;
   border-radius: var(--pill);
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.64);
-  backdrop-filter: blur(10px);
-  color: var(--text);
+  background: rgba(2,6,23,.56);
+  color: rgba(229,231,235,.96);
   font-weight: 900;
   font-size: 12px;
-  padding: 8px 10px;
+  line-height: 1;
   box-shadow: 0 18px 60px rgba(0,0,0,.35);
-}
-.hw-pill.warn{
-  border-color: rgba(245,158,11,.22);
-  background: rgba(245,158,11,.10);
-}
-.hw-pill.cyan{
-  border-color: rgba(34,211,238,.22);
-  background: rgba(34,211,238,.10);
-}
-.hw-pill.bad{
-  border-color: rgba(239,68,68,.22);
-  background: rgba(239,68,68,.10);
+  backdrop-filter: blur(10px);
+  pointer-events:none;
 }
 
-/* buttons inside HUD must be clickable */
 .hw-pill.btn{
-  pointer-events:auto;
+  pointer-events:auto;            /* ✅ buttons clickable */
   cursor:pointer;
   user-select:none;
+  background: rgba(15,23,42,.62);
 }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
-/* quiz box */
-.hw-quiz{
-  margin-top: 10px;
-  border: 1px solid rgba(34,211,238,.22);
-  background: rgba(2,6,23,.66);
-  border-radius: 16px;
-  padding: 10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+.hw-pill.warn{
+  border-color: rgba(245,158,11,.26);
+  background: rgba(245,158,11,.10);
 }
-.hw-quiz-q{
-  font-weight: 950;
-  font-size: 13px;
+.hw-pill.cyan{
+  border-color: rgba(34,211,238,.26);
+  background: rgba(34,211,238,.10);
 }
-.hw-quiz-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(203,213,225,.92);
-  line-height: 1.35;
+.hw-pill.bad{
+  border-color: rgba(239,68,68,.26);
+  background: rgba(239,68,68,.10);
 }
 
-/* banner */
+/* Banner */
 .hw-banner{
-  width:min(980px, 100%);
-  margin: 10px auto 0;
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
+  position: fixed;
+  left: 50%;
+  top: calc(98px + var(--sat));
+  transform: translate(-50%,-8px);
+  z-index: 60;
+  min-width: min(520px, calc(100vw - 24px));
   padding: 10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.72);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 90px rgba(0,0,0,.50);
+  color: rgba(229,231,235,.96);
+  font-weight: 950;
+  text-align:center;
   opacity: 0;
-  transform: translateY(-6px);
+  pointer-events:none;
   transition: opacity .18s ease, transform .18s ease;
 }
 .hw-banner.show{
   opacity: 1;
-  transform: translateY(0px);
+  transform: translate(-50%,0px);
 }
 
-/* overlays */
+/* Quiz box */
+.hw-quiz{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(34,211,238,.24);
+  background: rgba(34,211,238,.08);
+  box-shadow: 0 24px 90px rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+  pointer-events:none;
+}
+.hw-quiz-q{
+  font-weight: 950;
+  font-size: 13px;
+  letter-spacing:.1px;
+}
+.hw-quiz-sub{
+  margin-top: 6px;
+  color: rgba(203,213,225,.95);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+/* Overlays (start/end) */
 .hw-overlay{
-  position:absolute;
+  position: fixed;
   inset:0;
+  z-index: 80;
   display:grid;
   place-items:center;
-  z-index: 7000; /* above HUD */
-  background: linear-gradient(180deg, rgba(2,6,23,.55), rgba(2,6,23,.35));
-  backdrop-filter: blur(10px);
+  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+  background: rgba(0,0,0,.30);
+  backdrop-filter: blur(6px);
 }
 
 .hw-card{
   width: min(720px, 100%);
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.72);
   border-radius: var(--r);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 26px 120px rgba(0,0,0,.62);
   padding: 16px;
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
-  color: var(--text);
 }
+
 .hw-card-title{
   font-weight: 950;
   font-size: 18px;
 }
 .hw-card-sub{
   margin-top: 8px;
+  color: rgba(203,213,225,.95);
   font-size: 13px;
-  line-height: 1.45;
-  color: rgba(203,213,225,.92);
+  line-height: 1.35;
 }
 .hw-card-row{
   display:flex;
-  gap:10px;
+  gap: 10px;
   flex-wrap:wrap;
   margin-top: 12px;
 }
 
-.hw-cta{
-  pointer-events:auto;
+.hw-cta,
+.hw-ghost{
   border-radius: 16px;
-  border: 1px solid rgba(34,197,94,.28);
-  background: rgba(34,197,94,.16);
+  border: 1px solid var(--stroke);
+  background: rgba(15,23,42,.70);
   color: rgba(229,231,235,.96);
-  padding: 10px 14px;
   font-weight: 950;
+  padding: 10px 12px;
   cursor:pointer;
 }
-.hw-ghost{
-  pointer-events:auto;
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.60);
-  color: rgba(229,231,235,.92);
-  padding: 10px 14px;
-  font-weight: 950;
-  cursor:pointer;
+.hw-cta{
+  border-color: rgba(34,197,94,.28);
+  background: rgba(34,197,94,.14);
 }
 .hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
   margin-top: 10px;
-  padding: 10px;
+  padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  max-height: 42vh;
+  background: rgba(2,6,23,.55);
+  color: rgba(229,231,235,.92);
+  max-height: 36vh;
   overflow:auto;
   font-size: 11px;
-  color: rgba(226,232,240,.92);
+  line-height: 1.3;
 }
 
-/* targets */
+/* -------- Targets -------- */
 .hw-tgt{
   position:absolute;
   left: calc(var(--x,50) * 1vw);
   top:  calc(var(--y,50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
-  width: 64px;
-  height: 64px;
+  width: 76px;
+  height: 76px;
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
+  background: rgba(15,23,42,.62);
+  box-shadow: 0 26px 90px rgba(0,0,0,.45);
   backdrop-filter: blur(10px);
-  box-shadow:
-    0 22px 70px rgba(0,0,0,.45),
-    inset 0 0 0 1px rgba(255,255,255,.03);
   cursor:pointer;
   user-select:none;
-  z-index: 5000; /* below HUD */
+  -webkit-tap-highlight-color: transparent;
   display:grid;
   place-items:center;
-  pointer-events:auto;
-  animation: hwSpawn .14s ease-out both;
-}
-@keyframes hwSpawn{
-  from{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .86)); opacity:.0; }
-  to  { transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
+  z-index: 10;
+  pointer-events:auto; /* ✅ clickable */
 }
 
 .hw-tgt .emoji{
-  font-size: 28px;
+  font-size: 34px;
   line-height: 1;
-  filter: drop-shadow(0 12px 26px rgba(0,0,0,.45));
+  filter: drop-shadow(0 12px 26px rgba(0,0,0,.55));
+  transform: translateZ(0);
 }
 
-/* type styling */
+/* Visual identity by kind */
 .hw-tgt.good{
-  border-color: rgba(34,197,94,.26);
+  border-color: rgba(34,197,94,.28);
   background: rgba(34,197,94,.10);
 }
 .hw-tgt.wrong{
-  border-color: rgba(245,158,11,.26);
-  background: rgba(245,158,11,.12);
+  border-color: rgba(245,158,11,.28);
+  background: rgba(245,158,11,.10);
 }
 .hw-tgt.haz{
-  border-color: rgba(239,68,68,.26);
+  border-color: rgba(239,68,68,.30);
   background: rgba(239,68,68,.10);
 }
 
-/* view scaling */
-body.view-mobile .hw-tgt{ width: 68px; height: 68px; }
-body.view-mobile .hw-tgt .emoji{ font-size: 30px; }
-body.view-cvr .hw-tgt{ width: 70px; height: 70px; }
-body.view-cvr .hw-tgt .emoji{ font-size: 30px; }
-
-/* cVR strict: targets should NOT capture pointer if using crosshair shoot */
-body.view-cvr .hw-tgt{
-  pointer-events:none;
+/* Tiny pulse so it never feels "dead" */
+.hw-tgt{
+  animation: tgtPulse 900ms ease-in-out infinite;
+}
+@keyframes tgtPulse{
+  0%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.98)); }
+  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.02)); }
+  100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.98)); }
 }
 
-/* small screens safe tweaks */
-@media (max-width: 420px){
+/* Mobile sizing */
+body.view-mobile .hw-tgt{
+  width: 70px;
+  height: 70px;
+}
+body.view-mobile .hw-tgt .emoji{
+  font-size: 32px;
+}
+
+/* cVR sizing + make targets non-clickable if view-cvr strict (shoot only)
+   NOTE: your JS already disables click listener when view==='cvr',
+         but pointer-events is fine either way.
+*/
+body.view-cvr .hw-tgt{
+  width: 72px;
+  height: 72px;
+}
+
+/* Make sure HUD never blocks taps on stage area */
+.hw-top{
+  pointer-events:none;
+}
+.hw-top .hw-pill.btn{
+  pointer-events:auto;
+}
+.hw-overlay{
+  pointer-events:auto; /* overlay blocks stage intentionally until start */
+}
+
+/* Small screens */
+@media (max-width: 430px){
   .hw-title{ font-size: 16px; }
   .hw-pill{ font-size: 11px; padding: 7px 9px; }
-  .hw-card{ padding: 14px; }
-  :root{ --hw-top-safe: 190; --hw-bottom-safe: 190; }
+  .hw-banner{ top: calc(92px + var(--sat)); }
+}
+
+/* Landscape mobile (more room) */
+@media (max-height: 430px){
+  body.view-mobile{ --hw-top-safe: 120; --hw-bottom-safe: 130; }
+  .hw-banner{ top: calc(76px + var(--sat)); }
 }
