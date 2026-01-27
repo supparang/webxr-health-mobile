@@ -7,40 +7,152 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ color-scheme: dark; --bg:#020617; --card:rgba(15,23,42,0.92); --stroke:rgba(148,163,184,0.22); --text:#e5e7eb; --muted:#9ca3af; }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
-    .wrap{max-width:980px;margin:0 auto;padding:16px}
-    header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
-    a{color:#38bdf8;text-decoration:none}
-    .card{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.6)}
-    table{width:100%;border-collapse:collapse;font-size:14px}
-    th,td{padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.14);text-align:left}
-    th{color:#cbd5f5;font-weight:600}
-    .muted{color:var(--muted);font-size:12px}
-    .btn{border-radius:999px;border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.92);color:var(--text);padding:7px 12px;cursor:pointer}
+    :root{
+      --bg:#020617;
+      --panel:rgba(15,23,42,0.86);
+      --stroke:rgba(148,163,184,0.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#38bdf8;
+      --accent2:#a855f7;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+      --radius:20px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{box-sizing:border-box;}
+    html,body{height:100%; margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text);}
+    .wrap{
+      min-height:100vh;
+      padding: calc(14px + var(--sat)) 12px calc(16px + var(--sab));
+      max-width:980px;
+      margin:0 auto;
+    }
+    header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    h1{margin:0; font-size:1.4rem;}
+    .sub{color:var(--muted); margin-top:4px; font-size:.9rem;}
+    .nav{
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+    }
+    .btn{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.28);
+      background:rgba(15,23,42,0.72);
+      color:var(--text);
+      padding:8px 12px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .btn.primary{
+      background:linear-gradient(135deg,#38bdf8,#a855f7);
+      color:#020617;
+      border-color:transparent;
+      font-weight:700;
+    }
+    .card{
+      border-radius:var(--radius);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      box-shadow:0 18px 42px rgba(0,0,0,0.75);
+      padding:14px;
+      margin-bottom:12px;
+    }
+    .row{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      padding:8px 10px;
+      border-radius:14px;
+      background:rgba(2,6,23,0.40);
+      border:1px solid rgba(148,163,184,0.14);
+      margin-bottom:8px;
+      font-size:.92rem;
+    }
+    .muted{color:var(--muted);}
+    .table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0 8px;
+    }
+    .table th{
+      text-align:left;
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:600;
+      padding:0 8px;
+    }
+    .table td{
+      background:rgba(2,6,23,0.40);
+      border:1px solid rgba(148,163,184,0.14);
+      padding:10px 8px;
+      border-left:none;
+      border-right:none;
+      font-size:.92rem;
+    }
+    .table tr td:first-child{border-top-left-radius:14px; border-bottom-left-radius:14px; border-left:1px solid rgba(148,163,184,0.14);}
+    .table tr td:last-child{border-top-right-radius:14px; border-bottom-right-radius:14px; border-right:1px solid rgba(148,163,184,0.14);}
+    .badge{
+      display:inline-flex;
+      padding:2px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.24);
+      background:rgba(15,23,42,0.72);
+      font-size:.82rem;
+      color:var(--muted);
+    }
+    .grade{font-weight:800;}
+    .grade.SSS,.grade.SS,.grade.S{color:#bae6fd;}
+    .grade.A{color:#bbf7d0;}
+    .grade.B{color:#fde68a;}
+    .grade.C{color:#fecdd3;}
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <div>
-        <div style="font-weight:700">📊 VR Fitness — สรุปผลล่าสุด</div>
-        <div class="muted">แสดงข้อมูลจาก localStorage (stats-store.js)</div>
+        <h1>📊 สรุปผลล่าสุด (VR Fitness)</h1>
+        <div class="sub">ดึงจาก localStorage — ใช้ทดสอบก่อนเชื่อม Google Sheet</div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <a href="./hub.html">← กลับ Hub</a>
-        <button id="btn-clear" class="btn">ล้างสถิติ</button>
+      <div class="nav">
+        <a class="btn" href="./hub.html">🏠 กลับ Hub</a>
+        <button class="btn" id="btn-clear">🧹 ล้างสถิติ</button>
       </div>
     </header>
 
     <section class="card">
-      <table>
+      <div class="row">
+        <span class="muted">เกม</span>
+        <strong>Shadow Breaker</strong>
+      </div>
+      <div class="row">
+        <span class="muted">จำนวนรอบที่บันทึก</span>
+        <strong id="count">0</strong>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row" style="margin-bottom:12px">
+        <strong>รายการล่าสุด</strong>
+        <span class="badge">Top 50 sessions</span>
+      </div>
+
+      <table class="table">
         <thead>
           <tr>
             <th>เวลา</th>
-            <th>เกม</th>
-            <th>คะแนน</th>
+            <th>Score</th>
             <th>Accuracy</th>
             <th>Grade</th>
             <th>Bosses</th>
@@ -49,7 +161,10 @@
         </thead>
         <tbody id="rows"></tbody>
       </table>
-      <div id="empty" class="muted" style="display:none;margin-top:10px">ยังไม่มีสถิติ ลองเล่นเกมก่อนนะ</div>
+
+      <div id="empty" class="muted" style="display:none;margin-top:10px">
+        ยังไม่มีข้อมูล — เข้าเกม Shadow Breaker แล้วเล่นให้จบอย่างน้อย 1 รอบก่อน
+      </div>
     </section>
   </div>
 
