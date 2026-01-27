@@ -1,190 +1,149 @@
 // === /herohealth/vr/ai-hooks.js ===
-// AI Hooks — PRODUCTION SAFE (HeroHealth Standard)
-// ✅ Difficulty Director (lightweight + fair)
-// ✅ Coach micro-tips (rate-limited, explainable)
-// ✅ Telemetry for Prediction features (rolling stats)
-// ✅ Deterministic-friendly: in research/practice => return null / no-op
+// HHA AI Hooks — PRODUCTION SAFE (v1)
+// ✅ Export: createAIHooks({game, mode, rng})
+// ✅ Always returns functions: getDifficulty(), getTip(), onEvent()
+// ✅ mode=play => adaptive ON (rule-based, deterministic-ish via rng)
+// ✅ mode=study/research => adaptive OFF (returns base unchanged)
+// ✅ NEVER throws (guards all calls)
+
 'use strict';
 
-const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
-const nowMs = ()=> (performance?.now ? performance.now() : Date.now());
-
 export function createAIHooks(cfg = {}){
-  const game = String(cfg.game || 'Game');
-  const mode = String(cfg.mode || 'play').toLowerCase(); // play | research | practice
+  const game = String(cfg.game || 'HHA').trim() || 'HHA';
+  const mode = String(cfg.mode || 'play').toLowerCase();
   const rng  = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
 
-  const isResearch = (mode === 'research' || mode === 'practice');
+  // research/study => keep deterministic & no adaptation
+  const adaptive = (mode === 'play');
 
-  // -----------------------------
-  // Telemetry (Prediction features)
-  // -----------------------------
-  const T = {
-    t0: nowMs(),
-    lastTipAt: 0,
-    tipCooldownMs: 2400,
-
-    // rolling counts
+  const S = {
+    // rolling counters
     hitGood: 0,
     hitJunk: 0,
     miss: 0,
-    expireGood: 0,
-
-    // streak
-    combo: 0,
-    comboMax: 0,
-
-    // recent window (for "prediction")
-    windowMs: 12000,
-    recent: [], // [{t, type}]
+    // timestamps for pacing
+    lastEventAt: 0,
+    lastTipAt: 0,
+    // simple difficulty scalar 0..1
+    d: 0.0,
+    // smoothed performance
+    perf: 0.5,   // 0..1
+    // anti-spam
+    tipCooldownMs: 6500
   };
 
-  function pushRecent(type){
-    const t = nowMs();
-    T.recent.push({ t, type });
-    const cut = t - T.windowMs;
-    while(T.recent.length && T.recent[0].t < cut) T.recent.shift();
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const lerp  = (a,b,t)=>a + (b-a)*t;
+
+  function updatePerf(){
+    // perf higher when more good hits, lower when junk/miss
+    const good = S.hitGood;
+    const bad  = S.hitJunk + S.miss;
+    const total = good + bad;
+
+    let p = 0.5;
+    if(total > 0){
+      // weighted: junk+miss hurt a bit more
+      p = clamp((good) / (good + 1.25*bad), 0, 1);
+    }
+    // smooth
+    S.perf = lerp(S.perf, p, 0.12);
+
+    // convert perf into difficulty scalar:
+    // if perf high -> increase difficulty; if low -> ease off
+    const targetD = clamp((S.perf - 0.45) / 0.35, 0, 1); // perf 0.45..0.80 -> d 0..1
+    S.d = lerp(S.d, targetD, 0.10);
   }
 
-  function recentRate(type){
-    if(!T.recent.length) return 0;
-    const n = T.recent.filter(x=>x.type===type).length;
-    return n / T.recent.length;
+  function onEvent(name, data){
+    try{
+      if(!adaptive) return;
+      const t = nowMs();
+      S.lastEventAt = t;
+
+      const ev = String(name||'').toLowerCase();
+      if(ev === 'hitgood') S.hitGood++;
+      else if(ev === 'hitjunk') S.hitJunk++;
+      else if(ev === 'miss') S.miss++;
+
+      updatePerf();
+    }catch(_){}
   }
 
-  // -----------------------------
-  // Difficulty Director (fair)
-  // -----------------------------
   function getDifficulty(playedSec, base){
-    if(isResearch) return null; // IMPORTANT: do not adapt in research/practice
+    // always safe
+    try{
+      const B = base || { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
+      if(!adaptive){
+        return { ...B };
+      }
 
-    const b = Object.assign({}, base || {});
-    // Fallback defaults
-    b.spawnMs = Number(b.spawnMs)||900;
-    b.pGood   = Number(b.pGood)||0.70;
-    b.pJunk   = Number(b.pJunk)||0.26;
-    b.pStar   = Number(b.pStar)||0.02;
-    b.pShield = Number(b.pShield)||0.02;
+      // also ramp up slightly with time played (makes it exciting)
+      const timeRamp = clamp((Number(playedSec)||0) / 70, 0, 1); // 0..1 ~70s
+      const d = clamp(S.d*0.75 + timeRamp*0.25, 0, 1);
 
-    // --- prediction signals (simple but meaningful)
-    const missRateRecent  = recentRate('miss');      // 0..1
-    const junkRateRecent  = recentRate('hitJunk');   // 0..1
-    const goodRateRecent  = recentRate('hitGood');   // 0..1
+      // spawn speed: faster when d higher
+      const spawnMs = clamp(
+        Math.round(lerp(B.spawnMs, Math.max(520, B.spawnMs - 320), d)),
+        420, 1300
+      );
 
-    // "stress" ~ mistakes and misses in recent window
-    const stress = clamp( (missRateRecent*1.2 + junkRateRecent*0.9) - goodRateRecent*0.4, 0, 1 );
+      // probabilities: more junk when d higher (but keep fair)
+      let pJunk = clamp(B.pJunk + d*0.14, 0.16, 0.56);
+      let pGood = clamp(B.pGood - d*0.12, 0.35, 0.78);
 
-    // "skill" ~ combo + good consistency
-    const skill = clamp( (T.comboMax/10)*0.6 + goodRateRecent*0.5 - missRateRecent*0.4, 0, 1 );
+      // keep bonuses meaningful: when player struggles (perf low) => more shield/star
+      const struggle = clamp(0.55 - S.perf, 0, 0.55) / 0.55; // 0..1
+      let pShield = clamp(B.pShield + struggle*0.04 + (rng()*0.005), 0.01, 0.08);
+      let pStar   = clamp(B.pStar   + struggle*0.03 + (rng()*0.005), 0.01, 0.07);
 
-    // Director rule:
-    // - If stress high => ease slightly (fair)
-    // - If skill high & stress low => ramp (challenge)
-    let spawnMs = b.spawnMs;
-    spawnMs *= (1.0 + stress*0.22);   // ease -> slower spawns
-    spawnMs *= (1.0 - skill*0.18);    // ramp -> faster spawns
-    spawnMs = clamp(spawnMs, 520, 1100);
+      // normalize
+      let sum = pGood + pJunk + pStar + pShield;
+      if(sum <= 0) sum = 1;
+      pGood/=sum; pJunk/=sum; pStar/=sum; pShield/=sum;
 
-    // probabilities: adjust gently (do not swing wildly)
-    let pGood = b.pGood;
-    let pJunk = b.pJunk;
-    let pStar = b.pStar;
-    let pShield = b.pShield;
-
-    // If player struggling => more good + more shield, slightly less junk
-    pGood   += stress*0.06;
-    pShield += stress*0.02;
-    pJunk   -= stress*0.06;
-
-    // If player cruising => more junk + slightly fewer helpers
-    pJunk   += skill*0.06;
-    pGood   -= skill*0.05;
-    pStar   -= skill*0.01;
-    pShield -= skill*0.01;
-
-    // clamp
-    pGood   = clamp(pGood,   0.40, 0.86);
-    pJunk   = clamp(pJunk,   0.10, 0.55);
-    pStar   = clamp(pStar,   0.00, 0.05);
-    pShield = clamp(pShield, 0.00, 0.07);
-
-    return { spawnMs, pGood, pJunk, pStar, pShield, _signals:{ stress, skill } };
+      return { spawnMs, pGood, pJunk, pStar, pShield };
+    }catch(_){
+      return { ...(base||{}) };
+    }
   }
 
-  // -----------------------------
-  // Coach micro-tips (explainable)
-  // -----------------------------
   function getTip(playedSec){
-    if(isResearch) return null;
+    try{
+      if(!adaptive) return null;
+      const t = nowMs();
+      if(t - S.lastTipAt < S.tipCooldownMs) return null;
 
-    const t = nowMs();
-    if(t - T.lastTipAt < T.tipCooldownMs) return null;
+      // trigger tip occasionally based on struggle or boss-like high d
+      const struggle = (S.perf < 0.45) || (S.miss >= 3);
+      const spicy    = (S.d > 0.65);
 
-    // generate explainable tips from telemetry
-    const missRate = recentRate('miss');
-    const junkRate = recentRate('hitJunk');
-    const goodRate = recentRate('hitGood');
+      // small random gate
+      const gate = rng();
+      if(!struggle && !spicy && gate < 0.70) return null;
 
-    let msg = null;
+      S.lastTipAt = t;
 
-    if(missRate > 0.28){
-      msg = 'ลอง “ชะลอมือ” นิดนึง 🎯 เล็งให้โดนของดีเป็นหลัก (MISS สูง)';
-    }else if(junkRate > 0.26){
-      msg = 'ระวังของทอด/หวาน 🍟🍩 ถ้าเห็นหลายอันพร้อมกันให้เก็บ “ของดี” ก่อน';
-    }else if(goodRate > 0.65 && T.comboMax >= 6){
-      msg = 'สุดยอดคอมโบ! 🔥 ลองรักษาจังหวะเดิม แล้วหลบของเสียให้เนียนขึ้น';
-    }else if(playedSec > 8 && T.comboMax < 3){
-      msg = 'ทริค: เก็บของดีติดกัน 3–5 ชิ้นก่อน จะทำให้คะแนนพุ่งเร็วมาก ✅';
-    }
+      let msg = '';
+      if(struggle){
+        msg = 'ทิป: โฟกัส “ของดี” ก่อน แล้วค่อยหลบของเสีย 👀';
+      }else if(spicy){
+        msg = 'ทิป: ตอนนี้เกมเริ่มโหดขึ้น—คุมคอมโบให้ได้ แล้วจะคะแนนพุ่ง! 🔥';
+      }else{
+        msg = 'ทิป: ยิง/แตะให้เร็ว แต่ต้องแม่น—อย่าเผลอโดนของเสีย 😊';
+      }
 
-    if(!msg) return null;
-
-    T.lastTipAt = t;
-    return { msg, tag: `${game} Coach` };
-  }
-
-  // -----------------------------
-  // Event intake (for prediction)
-  // -----------------------------
-  function onEvent(name, payload = {}){
-    // allow no-op in research for purity (still ok to log externally)
-    if(isResearch) return;
-
-    const n = String(name||'').toLowerCase();
-
-    if(n === 'hitgood'){
-      T.hitGood++;
-      T.combo++;
-      T.comboMax = Math.max(T.comboMax, T.combo);
-      pushRecent('hitGood');
-    }else if(n === 'hitjunk'){
-      T.hitJunk++;
-      T.combo = 0;
-      pushRecent('hitJunk');
-    }else if(n === 'miss'){
-      T.miss++;
-      T.combo = 0;
-      pushRecent('miss');
-    }else if(n === 'expiregood'){
-      T.expireGood++;
-      T.combo = 0;
-      pushRecent('miss');
+      return { msg, tag: `${game} AI` };
+    }catch(_){
+      return null;
     }
   }
 
-  return {
-    // required by your engine calls:
-    getDifficulty,
-    getTip,
+  // ✅ Always return a complete interface
+  return Object.freeze({
     onEvent,
-
-    // optional debugging/analysis:
-    getSignals: ()=>({
-      hitGood:T.hitGood, hitJunk:T.hitJunk, miss:T.miss,
-      comboMax:T.comboMax,
-      recentCount:T.recent.length,
-      missRateRecent: recentRate('miss'),
-      junkRateRecent: recentRate('hitJunk')
-    })
-  };
+    getDifficulty,
+    getTip
+  });
 }
