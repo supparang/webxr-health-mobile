@@ -1,8 +1,7 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr (via body classes)
-✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot
-✅ FX:  ../vr/particles.js (defer)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
 -->
@@ -15,13 +14,12 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS (ต้องได้ 200 ไม่ใช่ 404) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260127a" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX (MUST defer) -->
+  <!-- FX helpers (MUST defer) -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -29,7 +27,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์ต้องตรง: hygiene-quiz-bank.js) -->
+  <!-- Quiz bank (filename MUST match your real file) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
@@ -109,25 +107,15 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile'?'view-mobile':
-      (view==='vr'?'view-vr':
-      (view==='cvr'?'view-cvr':'view-pc'))
-    );
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    const lab = document.getElementById('labView'); if(lab) lab.textContent = view;
   }
-
   setViewClass();
-
-  const elMode = document.getElementById('labMode');
-  const elDiff = document.getElementById('labDiff');
-  if(elMode) elMode.textContent = (qs('run','play')||'play');
-  if(elDiff) elDiff.textContent = (qs('diff','normal')||'normal');
+  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
+  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
