@@ -5,7 +5,7 @@ export class EventLogger {
   constructor() {
     /**
      * เก็บ log ราย event
-     * แถวตัวอย่าง:
+     * ตัวอย่าง row:
      * {
      *   ts_ms, mode, diff,
      *   boss_index, boss_phase,
@@ -28,10 +28,15 @@ export class EventLogger {
     this.logs.length = 0;
   }
 
+  /**
+   * แปลง logs → CSV text
+   * ✅ รวมคอลัมน์ให้ “นิ่ง” จากทุก row (เหมือน SessionLogger)
+   * ✅ escape ค่าที่มี comma/quote/newline
+   */
   toCsv() {
     if (!this.logs.length) return '';
 
-    // ✅ รวมคอลัมน์ให้ “นิ่ง” แม้บาง row จะมี field เพิ่ม/หาย
+    // ✅ สร้าง set ของทุกคีย์ในทุกแถว เพื่อให้ header ครบ
     const colSet = new Set();
     for (const r of this.logs) {
       Object.keys(r).forEach(k => colSet.add(k));
@@ -50,18 +55,23 @@ export class EventLogger {
 }
 
 /**
- * helper: ดาวน์โหลด CSV event-level
+ * helper สำหรับดาวน์โหลดไฟล์ CSV event-level
  * @param {EventLogger} logger
  * @param {string} filename
  */
 export function downloadEventCsv(logger, filename = 'shadow-breaker-events.csv') {
   try {
-    if (!logger || typeof logger.toCsv !== 'function') return;
+    if (!logger || typeof logger.toCsv !== 'function') {
+      console.warn('[EventLogger] invalid logger for download');
+      return;
+    }
+
     const csv = logger.toCsv();
     if (!csv) {
       alert('ยังไม่มีข้อมูลเหตุการณ์ในรอบนี้');
       return;
     }
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -69,8 +79,10 @@ export function downloadEventCsv(logger, filename = 'shadow-breaker-events.csv')
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 0);
   } catch (err) {
     console.error('Download event CSV failed', err);
     alert('ไม่สามารถดาวน์โหลดไฟล์ CSV (event) ได้');
