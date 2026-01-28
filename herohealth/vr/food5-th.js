@@ -1,8 +1,8 @@
 // === /herohealth/vr/food5-th.js ===
 // Thai Food 5 Groups Mapping (STABLE, DO NOT CHANGE)
-// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup, groupIdFromIndex0
-// ✅ Supports seeded rng: pickEmoji(rng, arr) / emojiForGroup(rng, groupId)
-// ✅ Group ids are fixed 1..5 per your rule (DO NOT DRIFT)
+// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup
+// ✅ Supports seeded rng: pickEmoji(rng, arr)
+// ✅ Group ids are fixed 1..5 per your rule
 
 'use strict';
 
@@ -41,7 +41,7 @@ export const FOOD5 = Object.freeze({
     key: 'g5',
     labelTH: 'หมู่ 5 ไขมัน',
     descTH: 'ไขมันให้พลังงานและความอบอุ่น',
-    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🥜','🌰','🍳','🧀'])
+    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🌰','🥜','🍳','🧀'])
   })
 });
 
@@ -70,12 +70,4 @@ export function emojiForGroup(rng, groupId){
   const g = FOOD5[groupId];
   if(!g) return '🥦';
   return pickEmoji(rng, g.emojis);
-}
-
-// convenience: convert 0..4 -> 1..5 (used by spawners)
-export function groupIdFromIndex0(idx0){
-  const i = Number(idx0);
-  if(!isFinite(i)) return 1;
-  const n = Math.max(0, Math.min(4, Math.floor(i)));
-  return n + 1;
 }
