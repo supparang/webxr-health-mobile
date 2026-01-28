@@ -1,9 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run)
-✅ Progress bar (#gjProgressFill)
-✅ Boss bar (#bossBar #bossFill #bossHint)
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe
-✅ Re-measure via event gj:measureSafe (boss/hud toggle)
+GoodJunkVR RUN — PRODUCTION
+✅ Mobile: quest cards hidden (CSS) + NEW QuestLine 1 row (Goal • Mini)
+✅ QuestLine updates from 'quest:update' event (from goodjunk.safe.js)
+✅ Safe-zone measure includes: topbar + progress + boss + questline + hudTop/hudBot
+✅ Re-measure via event gj:measureSafe
 -->
 <!doctype html>
 <html lang="th">
@@ -49,14 +49,25 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     </div>
   </header>
 
-  <!-- ✅ PROGRESS (thin, never blocks) -->
+  <!-- PROGRESS -->
   <div class="gj-progress" aria-hidden="false">
     <div class="gj-progress-track">
       <div class="gj-progress-fill" id="gjProgressFill"></div>
     </div>
   </div>
 
-  <!-- ✅ BOSS BAR (only shown when active) -->
+  <!-- ✅ NEW: QuestLine (1 row; Mobile-first) -->
+  <div class="gj-questline" id="gjQuestLine" aria-hidden="false">
+    <div class="ql-pill">
+      <span class="ql-tag">GOAL</span>
+      <span class="ql-text" id="qlGoal">—</span>
+      <span class="ql-sep">•</span>
+      <span class="ql-tag mini">MINI</span>
+      <span class="ql-text" id="qlMini">—</span>
+    </div>
+  </div>
+
+  <!-- BOSS BAR -->
   <section class="gj-boss" id="bossBar" aria-hidden="true">
     <div class="boss-card">
       <div class="boss-title">BOSS</div>
@@ -86,6 +97,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       </div>
     </div>
 
+    <!-- Quest cards (PC OK; Mobile hidden by CSS) -->
     <div class="quest-row" id="questRow">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
@@ -144,7 +156,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure -->
+  <!-- UI wiring + safe-zone measure + QuestLine sync -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -158,6 +170,10 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       const peek = document.getElementById('missionsPeek');
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
+
+      // QuestLine
+      const qlGoal = document.getElementById('qlGoal');
+      const qlMini = document.getElementById('qlMini');
 
       const v = qs('view','auto');
       const run  = qs('run','play');
@@ -180,13 +196,38 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         const shown = document.body.classList.contains('show-missions');
         peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
         if(shown){
-          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
-          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
+          // use HUD text (or QuestLine) as source
+          const g = (document.getElementById('hud-goal')?.textContent || qlGoal?.textContent || '—');
+          const m = (document.getElementById('hud-mini')?.textContent || qlMini?.textContent || '—');
+          peekGoal.textContent = g || '—';
+          peekMini.textContent = m || '—';
         }
         setTimeout(updateSafe, 0);
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
+
+      // ✅ Sync QuestLine from SAFE engine events
+      window.addEventListener('quest:update', (ev)=>{
+        try{
+          const d = ev?.detail || {};
+          const goal = d.goal || {};
+          const mini = d.mini || {};
+
+          // short, readable
+          const gText = goal.name ? `${goal.name} (${goal.cur}/${goal.target})` : '—';
+          const mText = mini.name ? `${mini.name} (${mini.cur}/${mini.target})` : '—';
+
+          if(qlGoal) qlGoal.textContent = gText;
+          if(qlMini) qlMini.textContent = (mini.done ? 'ผ่านแล้ว ✅' : mText);
+
+          // if peek is open, update live too
+          if(document.body.classList.contains('show-missions')){
+            if(peekGoal) peekGoal.textContent = (goal.name || '—');
+            if(peekMini) peekMini.textContent = (mini.name || '—');
+          }
+        }catch(_){}
+      }, { passive:true });
 
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
       function updateSafe(){
@@ -195,6 +236,8 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
 
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
           const prog   = document.querySelector('.gj-progress')?.getBoundingClientRect().height || 0;
+          const qline  = document.getElementById('gjQuestLine')?.getBoundingClientRect().height || 0;
+
           const boss   = (document.getElementById('bossBar')?.getAttribute('aria-hidden') === 'false')
                         ? (document.getElementById('bossBar')?.getBoundingClientRect().height || 0)
                         : 0;
@@ -204,18 +247,14 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           const hudBot  = (document.body.classList.contains('hud-hidden') ? 0 :
                           (document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0));
 
-          // ✅ TOP safe includes sat + topbar + progress + (boss if shown) + HUD top
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + prog + boss + hudTop + 12 + sat));
-
-          // ✅ bottom safe keeps thumb + HUD bottom
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(88, hudBot + 14)));
+          // ✅ TOP safe = topbar + progress + questline + (boss if shown) + HUD top
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + prog + qline + boss + hudTop + 10 + sat));
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(84, hudBot + 12)));
         }catch(_){}
       }
 
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
-
-      // ✅ allow SAFE engine to request re-measure (boss on/off)
       window.addEventListener('gj:measureSafe', ()=>setTimeout(updateSafe, 0), {passive:true});
 
       setTimeout(updateSafe, 0);
