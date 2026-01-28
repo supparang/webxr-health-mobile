@@ -1,8 +1,7 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION
+// Water Gauge Utilities — PRODUCTION (no-duplicate)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ Avoid double gauge if page already has its own water panel (#water-bar/#water-pct/#water-zone)
-// ✅ Safer zones (tuned for fun): GREEN wider a bit
+// ✅ Avoid duplicate gauges if page already has its own water panel
 
 'use strict';
 
@@ -11,33 +10,32 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-// ✅ Zones (tuned)
-// GREEN wider a bit so it's less frustrating on mobile
+// โซนน้ำ: ปรับให้ GREEN กว้างขึ้นเล็กน้อย (คุมง่ายขึ้น)
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
+  // เดิม 45–65 → ปรับเป็น 42–68 (ช่วยลด “เด้งหลุดโซน”)
   if (p >= 42 && p <= 68) return 'GREEN';
   if (p < 42) return 'LOW';
   return 'HIGH';
 }
 
-function pageHasNativeWaterPanel(){
+function pageHasWaterPanel(){
   if (!DOC) return false;
-  // hydration.safe.js already updates these if they exist
-  return !!(DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone'));
+  // ถ้าหน้าเกมมี panel น้ำอยู่แล้ว ให้ถือว่ามี gauge แล้ว
+  const ids = ['waterPanel','water-panel','waterGauge','water-gauge','waterHUD','hudWater','water'];
+  for (const id of ids){
+    if (DOC.getElementById(id)) return true;
+  }
+  // หรือมี element ที่ระบุด้วย class ที่มักใช้
+  if (DOC.querySelector('.water-panel,.hud-water,.waterGauge,.water-gauge')) return true;
+  return false;
 }
 
 export function ensureWaterGauge(){
   if (!DOC) return;
 
-  // ✅ If page already has its own water panel => do NOT create overlay
-  if (pageHasNativeWaterPanel()) return;
-
-  // Optional kill switch
-  try{
-    const sp = new URL(location.href).searchParams;
-    if (sp.get('waterOverlay') === '0') return;
-    if (ROOT.HHA_WATER_OVERLAY === false) return;
-  }catch(_){}
+  // ✅ กันซ้ำ: ถ้าหน้ามี panel น้ำของตัวเองอยู่แล้ว -> ไม่สร้าง overlay
+  if (pageHasWaterPanel()) return;
 
   if (DOC.getElementById('hha-water-gauge')) return;
 
@@ -81,11 +79,9 @@ export function ensureWaterGauge(){
 export function setWaterGauge(pct){
   if (!DOC) return;
 
+  // ถ้าหน้ามี panel ของตัวเองอยู่แล้ว ก็ปล่อยให้ hydration.safe.js sync ของมันทำงานได้
+  // แต่ยัง set ตัว overlay ได้หาก overlay ถูกสร้าง
   const p = clamp(pct,0,100);
-
-  // If native panel exists => let hydration.safe.js update it (no clash)
-  if (pageHasNativeWaterPanel()) return;
-
   const bar = DOC.getElementById('hha-water-bar');
   const t = DOC.getElementById('hha-water-pct');
   const z = DOC.getElementById('hha-water-zone');
