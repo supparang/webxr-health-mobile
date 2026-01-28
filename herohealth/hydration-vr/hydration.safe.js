@@ -1,12 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — 1-4 DONE (AIM + FX + 3-STAGE + Progressive Boss)
+// Hydration SAFE — PRODUCTION (FULL) — Progressive Boss + Easier Water + Storm Side
 // ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
 // ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
-// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
-// ✅ Progressive Boss: โหดขึ้นตามลำดับ (need↑, window↓, spawn pressure↑)
-// ✅ Water gauge easier: GREEN wider + good nudge↑ + bad push↓ + gentle drift to mid
+// ✅ Mission 3-Stage: GREEN -> Storm Mini (LOW/HIGH side) -> Boss Clear (progressive)
 // ✅ Cardboard layers via window.HHA_VIEW.layers from loader
-// ✅ Export boot() for loader compatibility (and auto-boot)
+// ✅ Fix: avoid double water gauge if native water panel exists in hydration-vr.html
 
 'use strict';
 
@@ -221,6 +219,7 @@ const S = {
   stormLeftSec:0,
   stormCycle:0,
   stormSuccess:0,
+  stormSide:'', // 'LOW' | 'HIGH'
 
   endWindowSec:1.2,
   inEndWindow:false,
@@ -235,14 +234,15 @@ const S = {
     gotHitByBad:false
   },
 
-  // Boss
+  // Boss (progressive)
   bossEnabled:true,
   bossActive:false,
-  bossNeed:2,        // dynamic per storm (progressive)
+  bossNeed:2,
   bossBlocked:0,
   bossDoneThisStorm:false,
-  bossWindowSec:2.2, // dynamic per storm (progressive)
+  bossWindowSec:2.2,
   bossClearCount:0,
+  bossTier:0,
 
   // End window fx
   endFxOn:false,
@@ -260,100 +260,89 @@ const S = {
 
 const TUNE = (() => {
   const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
-  const spawnBaseMs = diff==='easy' ? 680 : diff==='hard' ? 480 : 580;
+  const spawnBaseMs = diff==='easy' ? 700 : diff==='hard' ? 500 : 600;
 
-  const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
-  const stormDurSec   = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
+  const stormEverySec = diff==='easy' ? 19 : diff==='hard' ? 14 : 16;
+  const stormDurSec = diff==='easy' ? 5.1 : diff==='hard' ? 6.1 : 5.7;
 
   const greenTarget = clamp(
-    Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
-    18,
-    Math.max(18, timeLimit-8)
+    Math.round(timeLimit * (diff==='easy' ? 0.40 : diff==='hard' ? 0.53 : 0.46)),
+    16,
+    Math.max(16, timeLimit-8)
   );
-
-  // ✅ Water ease tuning
-  const nudgeToMid = diff==='easy' ? 8.0 : diff==='hard' ? 6.0 : 7.0;  // good hits pull more
-  const badPush    = diff==='easy' ? 6.0 : diff==='hard' ? 8.0 : 7.0;  // bad pushes less on normal/easy
-  const driftToMid = diff==='easy' ? 0.95 : diff==='hard' ? 0.45 : 0.70; // per sec (gentle)
 
   return {
     sizeBase,
     spawnBaseMs,
-    spawnJitter:170,
-    goodLifeMs: diff==='hard'? 930 : 1080,
-    badLifeMs:  diff==='hard'? 980 : 1120,
-    shieldLifeMs:1350,
+    spawnJitter:180,
+
+    goodLifeMs: diff==='hard'? 980 : 1120,
+    badLifeMs:  diff==='hard'? 1020 : 1180,
+    shieldLifeMs:1400,
+
     stormEverySec,
     stormDurSec,
+    stormSpawnMul: diff==='hard'? 0.58 : 0.66,
 
-    stormSpawnMul: diff==='hard'? 0.56 : 0.64,
     endWindowSec:1.2,
 
-    // base boss window (progressive will reduce)
-    bossWindowBase: diff==='hard'? 2.35 : 2.20,
-
-    // water
-    nudgeToMid,
-    badPush,
-    driftToMid,
+    // ✅ EASIER WATER CONTROL
+    // - good pulls toward mid stronger
+    // - bad push weaker
+    nudgeToMid: diff==='hard' ? 6.5 : 7.5,
+    badPush:    diff==='hard' ? 6.2 : 5.6,
 
     missPenalty:1,
     greenTargetSec: greenTarget,
-    pressureNeed: diff==='easy' ? 0.75 : diff==='hard' ? 1.0 : 0.9
+
+    pressureNeed: diff==='easy' ? 0.72 : diff==='hard' ? 0.96 : 0.86
   };
 })();
 S.endWindowSec = TUNE.endWindowSec;
 
-// -------------------- Progressive Boss params --------------------
-function bossProgressLevel(){
-  // โหดขึ้นตาม “ความคืบหน้า”
-  // - stage 2/3 เริ่มมี boss pressure
-  // - ยิ่งผ่านพายุ/เคลียร์บอส -> level สูงขึ้น
-  const base = Math.max(0, (S.stormCycle|0) - 1);
-  const cleared = (S.bossClearCount|0) * 1.5;
-  const stageBoost = (S.stage>=3) ? 1.2 : (S.stage>=2 ? 0.5 : 0);
-  const raw = base*0.55 + cleared + stageBoost;
-  return clamp(raw, 0, 5);
+// -------------------- Progressive Boss --------------------
+function bossTierNow(){
+  // Play: escalate; Research: keep stable
+  if (run === 'research') return 0;
+
+  // Tier grows with storm cycles + clears (bounded)
+  const byStorm = Math.floor(Math.max(0, S.stormCycle - 1) / 2);     // every 2 storms
+  const byClear = Math.floor(Math.max(0, S.bossClearCount) / 1);     // each clear
+  const t = clamp(byStorm + byClear, 0, 4);
+  return t|0;
 }
-function computeBossNeed(){
-  const L = bossProgressLevel();
-  const baseNeed = diff==='hard' ? 2 : 2;
-  // level 0..5 -> need 2..5 (ประมาณ)
-  const add = Math.floor(L*0.55);
-  return clamp(baseNeed + add, 2, 6);
+function bossNeedForTier(t){
+  // Tier 0..4 => need 2..5
+  return clamp(2 + (t|0), 2, 5);
 }
-function computeBossWindowSec(){
-  const L = bossProgressLevel();
-  const base = TUNE.bossWindowBase;
-  // โหดขึ้น = window สั้นลงเล็กน้อย
-  const w = base - (L*0.10);
-  return clamp(w, 1.55, base);
+function bossWindowForTier(t){
+  // Higher tier => shorter window (harder)
+  const base = (diff==='hard' ? 2.35 : 2.20);
+  return clamp(base - (t*0.12), 1.70, base);
 }
-function applyBossParamsForThisStorm(){
-  S.bossNeed = computeBossNeed();
-  S.bossWindowSec = computeBossWindowSec();
+function bossBadBoostForTier(t){
+  // Higher tier => more bossbad density
+  return clamp(0.10 + t*0.05, 0.10, 0.32);
 }
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
 function nudgeWaterGood(){
-  const mid=55, d=mid - S.waterPct;
+  // Pull toward mid (55) with stronger pull, easier to keep GREEN
+  const mid=55;
+  const d=mid - S.waterPct;
   const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
-  S.waterPct = clamp(S.waterPct + step, 0, 100);
+  // small bonus pull when very off-center
+  const extra = Math.min(2.0, Math.abs(d)/22);
+  S.waterPct = clamp(S.waterPct + step + Math.sign(d)*extra, 0, 100);
   updateZone();
 }
 function pushWaterBad(){
-  const mid=55, d=S.waterPct - mid;
-  const step=(d>=0?+1:-1)*TUNE.badPush;
-  S.waterPct = clamp(S.waterPct + step, 0, 100);
-  updateZone();
-}
-function driftWaterToMid(dt){
-  // gentle drift to mid when not in storm (ช่วยให้คุม GREEN ง่ายขึ้น)
-  if (S.stormActive) return;
-  const mid = 55;
-  const d = mid - S.waterPct;
-  const step = clamp(d, -1, 1) * (TUNE.driftToMid * dt);
+  // Bad pushes away from mid but weaker than before
+  const mid=55;
+  const d=S.waterPct - mid;
+  const dir=(d>=0?+1:-1);
+  const step=dir*TUNE.badPush;
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
@@ -383,6 +372,7 @@ function syncWaterPanelDOM(){
   if (pct) pct.textContent = String(S.waterPct|0);
   if (zone) zone.textContent = String(S.waterZone||'');
 }
+
 function setStage(n){
   const nn = clamp(n,1,3)|0;
   if (S.stage === nn) return;
@@ -391,6 +381,7 @@ function setStage(n){
   tickBeep(1200, 0.06, 0.07);
   pulseBody('hha-hitfx', 180);
 }
+
 function syncHUD(){
   const grade = computeGrade();
   setText('stat-score', S.score|0);
@@ -421,22 +412,25 @@ function syncHUD(){
     setText('quest-line2', `Mini ผ่านแล้ว: ${S.stormSuccess|0} / 1`);
     if (S.stormActive){
       const m = S.miniState;
-      const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
-      setText('quest-line3', `Storm Mini: LOW/HIGH + BLOCK${bossTxt}`);
+      const side = S.stormSide || 'LOW/HIGH';
+      setText('quest-line3', `Storm Mini: ไปโซน “${side}” + สะสมแรงกด + BLOCK ช่วงท้าย`);
       setText('quest-line4',
-        `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
+        `Mini: side=${side} zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
         + (m.gotHitByBad ? ' • FAIL: HIT BAD' : '')
       );
     } else {
-      setText('quest-line3', `รอ Storm… เก็บ 🛡️ แล้วเตรียม BLOCK ช่วงท้าย`);
+      setText('quest-line3', `รอ Storm… (แต่ละพายุจะกำหนดฝั่ง LOW หรือ HIGH ให้ทำตาม)`);
       setText('quest-line4', `Progress: ${S.stormSuccess|0}/${S.stormCycle|0} (ผ่าน/เจอพายุ)`);
     }
   } else {
-    setText('quest-line1', `Stage 3/3: เคลียร์ BOSS (BLOCK 🌩️ ให้ครบ ${S.bossNeed|0})`);
-    setText('quest-line2', `Boss Clear: ${S.bossClearCount|0} / 1`);
+    const t = S.bossTier|0;
+    const need = S.bossNeed|0;
+    const side = S.stormSide || '';
+    setText('quest-line1', `Stage 3/3: เคลียร์ BOSS (BLOCK 🌩️ ให้ครบ ${need})`);
+    setText('quest-line2', `Boss Clear: ${S.bossClearCount|0} / 1  (Tier ${t})`);
     if (S.bossEnabled && S.bossActive){
-      setText('quest-line3', `BOSS WINDOW! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK 🌩️ ให้ครบ`);
-      setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${S.bossNeed|0} (รอบนี้)` );
+      setText('quest-line3', `BOSS WINDOW! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบ`);
+      setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${need|0}` + (side?` • Storm side=${side}`:''));
     } else {
       setText('quest-line3', `รอช่วงท้ายพายุ (Boss Window) แล้วค่อย BLOCK 🌩️`);
       setText('quest-line4', `Tip: เก็บ 🛡️ ไว้ 1–2 อันก่อนพายุ`);
@@ -462,7 +456,8 @@ function syncHUD(){
     stormCycles:S.stormCycle|0,
     stormSuccess:S.stormSuccess|0,
     bossClearCount:S.bossClearCount|0,
-    stage:S.stage|0
+    stage:S.stage|0,
+    stormSide: S.stormSide || ''
   });
 
   emit('quest:update', {
@@ -503,8 +498,8 @@ function syncHUD(){
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
   .hvr-target.bossbad{
-    outline: 2px dashed rgba(239,68,68,.35);
-    box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
+    outline: 2px dashed rgba(239,68,68,.40);
+    box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 26px rgba(239,68,68,.12);
   }`;
   DOC.head.appendChild(st);
 })();
@@ -532,8 +527,8 @@ function targetSize(){
     S.adaptK = k;
     s = s * (1.02 - 0.22*k);
   }
-  if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
-  return clamp(s,44,86);
+  if (S.stormActive) s *= (diff==='hard'?0.80:0.84);
+  return clamp(s,46,88);
 }
 
 let lastHitAt=0;
@@ -680,25 +675,22 @@ function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
-  return clamp(base, 210, 1200);
+  return clamp(base, 220, 1300);
 }
+
 function pickKind(){
-  let pGood=0.66, pBad=0.28, pSh=0.06;
+  // base mix
+  let pGood=0.68, pBad=0.26, pSh=0.06;
 
   if (S.stormActive){
-    pGood=0.52; pBad=0.38; pSh=0.10;
+    pGood=0.54; pBad=0.36; pSh=0.10;
 
-    // ✅ Progressive boss pressure: bossActive เพิ่ม BAD อีกนิด
     if (S.bossEnabled && S.bossActive){
-      pBad += 0.12;
-      pGood -= 0.12;
+      // ✅ progressive boss boosts bossbad density
+      const boost = bossBadBoostForTier(S.bossTier);
+      pBad += boost;
+      pGood -= boost;
     }
-
-    // ยิ่ง level สูง ยิ่งมี BAD มากขึ้นนิด ๆ
-    const L = bossProgressLevel();
-    const extra = clamp(L*0.015, 0, 0.06);
-    pBad += extra;
-    pGood -= extra;
   }
 
   if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
@@ -720,8 +712,8 @@ function enterStorm(){
   S.stormLeftSec=TUNE.stormDurSec;
   S.stormCycle++;
 
-  // ✅ apply progressive params per storm
-  applyBossParamsForThisStorm();
+  // ✅ storm side set (LOW/HIGH) — clearer objective
+  S.stormSide = (rng()<0.5 ? 'LOW' : 'HIGH');
 
   S.miniState = {
     zoneOK:false,
@@ -733,13 +725,19 @@ function enterStorm(){
     gotHitByBad:false
   };
 
+  // Progressive boss params (play only)
+  S.bossTier = bossTierNow();
+  S.bossNeed = bossNeedForTier(S.bossTier);
+  S.bossWindowSec = bossWindowForTier(S.bossTier);
+
   S.bossActive=false;
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
-  // กวนให้หลุด GREEN ตอนเข้าพายุเล็กน้อย (แต่เบาลงแล้ว)
+  // Give a small “kick” away from GREEN to make side-goal readable
   if (S.waterZone==='GREEN'){
-    S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -6 : +6), 0, 100);
+    const kick = (S.stormSide === 'LOW') ? -8 : +8;
+    S.waterPct = clamp(S.waterPct + kick, 0, 100);
     updateZone();
   }
 
@@ -747,6 +745,8 @@ function enterStorm(){
   S.endFxTickAt = 0;
 
   emit('hha:judge', { kind:'storm' });
+  emit('hha:coach', { type:'tip', key:'storm_side', msg:`พายุรอบนี้: ไปโซน ${S.stormSide} แล้วค่อย BLOCK ช่วงท้าย!` });
+
   syncHUD();
 }
 
@@ -773,15 +773,14 @@ function exitStorm(){
     popScore('+40');
   }
 
-  // boss bonus success
+  // boss success (does NOT double-count stormSuccess)
   if (S.bossEnabled && !S.bossDoneThisStorm && S.bossBlocked>=S.bossNeed){
     S.bossDoneThisStorm=true;
     S.bossClearCount++;
-    S.stormSuccess++;
-    S.score += 50;
+    S.score += 55 + (S.bossTier*6);
     emit('hha:judge', { kind:'perfect' });
-    pulseBody('hha-hitfx', 200);
-    popScore('+50');
+    pulseBody('hha-hitfx', 210);
+    popScore('+'+(55 + (S.bossTier*6)));
   }
 
   S.bossActive=false;
@@ -797,6 +796,7 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
+  // End window FX + beep
   if (inEnd){
     setEndFx(true);
     const now = performance.now();
@@ -810,18 +810,21 @@ function tickStorm(dt){
     setEndFx(false);
   }
 
-  // ✅ Boss window uses progressive bossWindowSec (shorter when harder)
+  // Boss window (progressive)
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
 
-  // mini zone
-  const zoneOK = (S.waterZone !== 'GREEN');
+  // ✅ storm side objective
+  const zoneOK = (S.stormSide === 'LOW')
+    ? (S.waterZone === 'LOW')
+    : (S.waterZone === 'HIGH');
+
   if (zoneOK) S.miniState.zoneOK = true;
 
-  // pressure
-  const gain = zoneOK ? 1.05 : 0.25;
-  S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
+  // pressure (faster when correct side)
+  const gain = zoneOK ? 1.10 : 0.28;
+  S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.6);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
 
   if (S.stormLeftSec <= 0.001) exitStorm();
@@ -845,8 +848,9 @@ function computeTier(sum){
   const acc=Number(sum.accuracyGoodPct||0);
   const miss=Number(sum.misses||0);
   const sOk=Number(sum.stormSuccess||0);
+  const boss=Number(sum.bossClearCount||0);
 
-  if ((g==='SSS'||g==='SS') && acc>=90 && miss<=6 && sOk>=2) return 'Legend';
+  if ((g==='SSS'||g==='SS') && acc>=90 && miss<=6 && (sOk>=2 || boss>=1)) return 'Legend';
   if (g==='S' && acc>=82 && miss<=12) return 'Master';
   if (g==='A' && acc>=70) return 'Expert';
   if (g==='B' || (acc>=55 && miss<=30)) return 'Skilled';
@@ -864,7 +868,7 @@ function buildTips(sum){
 
   tips.push(goalsOk ? '✅ Stage1 ผ่านแล้ว (คุม GREEN ได้ดี)' : '🎯 Stage1: โฟกัสคุม GREEN ให้ผ่านก่อน');
   if (cycles<=0) tips.push('🌀 ยังไม่เจอพายุ: เล่นต่ออีกนิด จะมี STORM ให้ทำ Mini');
-  else if (ok<=0) tips.push('🌀 Stage2: STORM ต้องทำ “LOW/HIGH” + BLOCK ช่วงท้าย (End Window) และห้ามโดน BAD');
+  else if (ok<=0) tips.push('🌀 Stage2: ทำตามฝั่ง LOW/HIGH ที่พายุกำหนด + BLOCK ช่วง End Window และห้ามโดน BAD');
   else tips.push(`🔥 Stage2 ผ่านแล้ว: ผ่าน Mini ${ok}/${cycles} พายุ`);
 
   tips.push(boss>0 ? '🌩️ Stage3 ผ่านแล้ว: เคลียร์ BOSS สำเร็จ!' : '🌩️ Stage3: รอ Boss Window แล้ว BLOCK 🌩️ ให้ครบ');
@@ -963,7 +967,7 @@ function nextStormSchedule(){
 let spawnTimer=0;
 let nextStormIn=0;
 
-// -------------------- Aim Assist for cVR --------------------
+// -------------------- Aim Assist for cVR (crosshair) --------------------
 function hitTestAtCenter(lockPx){
   const { cx, cy } = centerPoint();
   const targets = Array.from(DOC.querySelectorAll('.hvr-target'));
@@ -1037,9 +1041,6 @@ function update(dt){
 
   S.leftSec = Math.max(0, S.leftSec - dt);
 
-  // ✅ water drift to mid (easier)
-  driftWaterToMid(dt);
-
   if (S.waterZone==='GREEN') S.greenHold += dt;
 
   // Storm schedule
@@ -1089,7 +1090,6 @@ async function endGame(reason){
 
   const cycles = S.stormCycle|0;
   const success = S.stormSuccess|0;
-
   const played = clamp(timeLimit - S.leftSec, 0, timeLimit);
 
   const summary = {
@@ -1136,15 +1136,21 @@ async function endGame(reason){
   fillSummary(summary);
 }
 
-// ✅ export for loader compatibility
-export function boot(){
-  try{ ensureWaterGauge(); }catch(_){}
+function boot(){
+  // ✅ avoid double gauge: inject only if native panel is missing
+  const hasNativePanel =
+    !!DOC.getElementById('water-bar') ||
+    !!DOC.getElementById('water-pct') ||
+    !!DOC.getElementById('water-zone');
+
+  try{ if (!hasNativePanel) ensureWaterGauge(); }catch(_){}
   try{ setWaterGauge(S.waterPct); }catch(_){}
+
   updateZone();
   syncWaterPanelDOM();
   bindSummaryButtons();
 
-  spawnTimer = 320;
+  spawnTimer = 340;
   nextStormIn = nextStormSchedule();
 
   window.addEventListener('hha:start', ()=>{
@@ -1170,6 +1176,7 @@ export function boot(){
     endGame(d.reason || 'force');
   });
 
+  // If overlay already hidden somehow, auto-start
   const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
     const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
@@ -1177,5 +1184,4 @@ export function boot(){
   }, 600);
 }
 
-// ✅ auto-boot
 boot();
