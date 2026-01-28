@@ -1,9 +1,11 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth HUB — FUN EDITION
+HeroHealth HUB — FUN EDITION (Production)
 ✅ Story-like mission line (เด็ก ป.5 อ่านแล้วอยากกด)
 ✅ Survival 1-click (play, normal, time=70, random seed)
 ✅ Research 1-click (run=research&seed=123456)
-✅ Passthrough params + auto hub back link
+✅ Passthrough params + auto hub back link (?hub=...)
+✅ Copy HUB link
+✅ Safe: optional chaining for missing buttons + robust param passthrough
 -->
 <!doctype html>
 <html lang="th">
@@ -327,7 +329,7 @@ HeroHealth HUB — FUN EDITION
           <div class="row2" style="margin-top:10px;">
             <button class="btn btnResearch" id="btnGroupsResearch" type="button">
               <span>Research 1-click (seed=123456)</span>
-              <span class="tag cyan">research</span>
+              <span class="tag good">research</span>
             </button>
             <button class="btn" id="btnGroupsPlayNormal" type="button">
               <span>เล่นปกติ (play)</span>
@@ -359,7 +361,7 @@ HeroHealth HUB — FUN EDITION
           <div class="row2" style="margin-top:10px;">
             <button class="btn btnResearch" id="btnHydrationResearch" type="button">
               <span>Research 1-click (seed=123456)</span>
-              <span class="tag cyan">research</span>
+              <span class="tag good">research</span>
             </button>
             <button class="btn" id="btnHydrationPlayNormal" type="button">
               <span>เล่นปกติ (play)</span>
@@ -428,7 +430,7 @@ HeroHealth HUB — FUN EDITION
     const sp = new URL(location.href).searchParams;
 
     sp.forEach((v,k)=>{
-      if (k === 'hub') return;
+      if (k === 'hub') return; // เราจะ set hub ใหม่ให้เป็นหน้าปัจจุบัน
       if (!to.searchParams.has(k)) to.searchParams.set(k, v);
     });
 
@@ -455,11 +457,12 @@ HeroHealth HUB — FUN EDITION
   }
 
   function setMeta(){
+    const box = DOC.getElementById('metaBox');
+    if (!box) return;
     const sp = new URL(location.href).searchParams;
     const showKeys = [];
     sp.forEach((v,k)=> showKeys.push(`${k}=${v}`));
-    DOC.getElementById('metaBox').textContent =
-      showKeys.length ? ('Params: ' + showKeys.join(' • ')) : 'Params: — (no query params)';
+    box.textContent = showKeys.length ? ('Params: ' + showKeys.join(' • ')) : 'Params: — (no query params)';
   }
 
   async function copyText(text){
@@ -512,6 +515,7 @@ HeroHealth HUB — FUN EDITION
   });
 
   // ===== Groups =====
+  // ✅ ชี้ไป launcher /herohealth/groups-vr.html (แล้ว launcher redirect เข้า /herohealth/vr-groups/groups-vr.html)
   DOC.getElementById('btnGroupsSurvival')?.addEventListener('click', ()=>{
     location.href = buildToWith('./groups-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
   });
