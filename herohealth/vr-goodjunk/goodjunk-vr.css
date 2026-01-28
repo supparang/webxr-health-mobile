@@ -1,8 +1,10 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SPACIOUS (Fair Pack) — PATCH (Layout Safe-area v1)
-✅ Auto compact for short viewports via body.hud-compact
-✅ Quest cards auto-hide on compact (use Missions peek instead)
-✅ Safe-area vars used by engine: --gj-top-safe / --gj-bottom-safe (measured in HTML)
+GoodJunkVR UI — SPACIOUS (Fair Pack) — PATCH v4
+✅ Mobile: hide quest cards + bottom meters by default (Missions peek instead)
+✅ Adds: Progress bar (#gjProgressFill)
+✅ Adds: Boss bar (#bossBar/#bossFill/#bossHint)
+✅ Safe vars: --gj-top-safe / --gj-bottom-safe (JS measure)
+✅ Supports: view-pc / view-mobile / view-vr / view-cvr
 */
 
 :root{
@@ -31,18 +33,14 @@ GoodJunkVR UI — SPACIOUS (Fair Pack) — PATCH (Layout Safe-area v1)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* spawn safe (HTML will overwrite) */
-  --gj-top-safe: 112px;
-  --gj-bottom-safe: 100px;
+  /* spawn safe (JS will overwrite) */
+  --gj-top-safe: 168px;
+  --gj-bottom-safe: 140px;
 
   /* layout density */
   --topbar-h: 56px;
   --hud-gap: 10px;
   --card-pad: 10px;
-
-  /* target */
-  --t-shadow: 0 18px 55px rgba(0,0,0,.45);
-  --t-stroke: rgba(148,163,184,.22);
 }
 
 *{ box-sizing:border-box; }
@@ -121,12 +119,33 @@ a-scene[embedded]{
   color:#eafff3;
 }
 
-/* --- HUD TOP --- */
+/* --- PROGRESS (thin, does not eat space) --- */
+#gjProgress{
+  position:fixed;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(var(--topbar-h) + var(--sat) + 4px);
+  height: 6px;
+  border-radius: 999px;
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.55);
+  overflow:hidden;
+  z-index:45;
+  pointer-events:none;
+}
+#gjProgressFill{
+  height:100%;
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
+}
+
+/* --- HUD TOP (compact) --- */
 .gj-hud-top{
   position:fixed;
   left:0; right:0;
   top: calc(var(--topbar-h) + var(--sat));
-  padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+  padding: 12px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
   z-index:40;
   pointer-events:none;
 }
@@ -183,6 +202,7 @@ a-scene[embedded]{
   padding: var(--card-pad);
   pointer-events:none;
 }
+
 .quest-card.goal{ border-color: rgba(34,211,238,.28); }
 .quest-card.mini{ border-color: rgba(167,139,250,.22); }
 
@@ -220,7 +240,7 @@ a-scene[embedded]{
   background: rgba(15,23,42,.55);
 }
 
-/* --- HUD BOTTOM --- */
+/* --- HUD BOTTOM (compact) --- */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
@@ -287,6 +307,39 @@ a-scene[embedded]{
   line-height:1.25;
 }
 
+/* --- BOSS BAR (tiny, overlay) --- */
+#bossBar{
+  position:fixed;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  bottom: calc(14px + var(--sab));
+  z-index:65;
+  pointer-events:none;
+}
+#bossBar[aria-hidden="true"]{ display:none; }
+
+#bossHint{
+  font-size:12px;
+  font-weight:1000;
+  color: rgba(229,231,235,.95);
+  text-shadow: 0 14px 40px rgba(0,0,0,.55);
+  margin-bottom:8px;
+}
+#bossTrack{
+  height: 14px;
+  border-radius: 999px;
+  border:1px solid rgba(245,158,11,.35);
+  background: rgba(2,6,23,.62);
+  overflow:hidden;
+  box-shadow: 0 16px 50px rgba(0,0,0,.42);
+}
+#bossFill{
+  height:100%;
+  width:100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.92));
+}
+
 /* --- PLAYFIELD --- */
 .gj-field{
   position:fixed;
@@ -294,13 +347,17 @@ a-scene[embedded]{
   z-index:10;
   pointer-events:auto;
 }
+
 .gj-layer,
 .gj-layer-r{
   position:absolute;
   inset:0;
   pointer-events:auto;
 }
-.gj-layer-r{ opacity:0; pointer-events:none; }
+.gj-layer-r{
+  opacity:0;
+  pointer-events:none;
+}
 body.view-cvr .gj-layer-r{ opacity:1; }
 
 /* --- Targets --- */
@@ -331,7 +388,7 @@ body.view-cvr .gj-layer-r{ opacity:1; }
 /* cVR strict: disable pointer events so only crosshair shooting works */
 body.view-cvr .gj-target{ pointer-events:none; }
 
-/* --- Low time overlay --- */
+/* --- MISS low time overlay --- */
 .gj-lowtime-overlay{
   position:fixed;
   inset:0;
@@ -344,6 +401,7 @@ body.view-cvr .gj-target{ pointer-events:none; }
   transition: opacity .15s ease;
 }
 .gj-lowtime-overlay[aria-hidden="false"]{ opacity:1; }
+
 .gj-lowtime-ring{
   width:min(260px, 62vw);
   height:min(260px, 62vw);
@@ -377,6 +435,7 @@ body.show-missions .gj-peek{
   transform: translateY(0);
   pointer-events:auto;
 }
+
 .peek-card{
   width:min(720px, 96vw);
   margin: 0 auto;
@@ -404,66 +463,27 @@ body.show-missions .gj-peek{
 
 /* --- HUD hidden mode (maximize playfield) --- */
 body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
+body.hud-hidden .gj-hud-bot,
+body.hud-hidden #gjProgress{
   display:none !important;
 }
 
-/* =========================================================
-   ✅ PATCH: Auto HUD Compact (short viewports)
-   - ลดพื้นที่ HUD บังจอ: ซ่อน quest cards
-   - ลดความหนา pill/meter ให้เล่นได้เต็มจอ
-========================================================= */
-body.hud-compact :root{ /* (noop - keep for readability) */ }
-
-body.hud-compact .quest-row{
-  display:none !important;
-}
-
-body.hud-compact .gj-btn{
-  height:38px;
-  border-radius: 14px;
-}
-
-body.hud-compact .hud-pill{
-  min-width: 82px;
-  padding: 8px 10px;
-  border-radius: 16px;
-}
-
-body.hud-compact .hud-pill .hud-value{
-  font-size:16px;
-}
-
-body.hud-compact .gj-hud-bot{
-  grid-template-columns: 1fr; /* stack to reduce width/height pressure */
-  gap:8px;
-}
-
-body.hud-compact .meter{
-  padding: 8px;
-  border-radius: 18px;
-}
-
-body.hud-compact .meter-bar{
-  height: 9px;
-}
-
-body.hud-compact .meter-shield{
-  margin-top:6px;
-  padding:7px 10px;
-}
-
-/* --- Responsive tweaks --- */
+/* --- Mobile compact (THE FIX) --- */
 @media (max-width: 520px){
   :root{
     --topbar-h: 52px;
     --card-pad: 9px;
   }
   .gj-btn{ height:40px; border-radius: 14px; }
-  .hud-pill{ min-width: 86px; }
-  .hud-pill .hud-value{ font-size: 17px; }
-  .quest-row{ grid-template-columns: 1fr; }
-  .gj-hud-bot{ grid-template-columns: 1fr; }
+  .hud-pill{ min-width: 84px; padding: 8px 10px; }
+  .hud-pill .hud-value{ font-size: 16px; }
+
+  /* ✅ KEY: do not eat screen on mobile */
+  .quest-row{ display:none !important; }
+  .gj-hud-bot{ display:none !important; }
+
+  /* progress slightly thinner */
+  #gjProgress{ height:5px; }
 }
 
 @media (min-width: 900px){
