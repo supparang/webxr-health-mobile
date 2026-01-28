@@ -1,16 +1,17 @@
 // === /herohealth/vr-groups/telemetry.js ===
-// GroupsVR Telemetry (PACK 13.95) — PRODUCTION v4.1
+// GroupsVR Telemetry (PACK 14.5) — PRODUCTION v4.2
 // ✅ Modes: off | lite | full (persist LS + ?telemetry=off|lite|full)
 // ✅ Gated: research/practice => OFF hard
 // ✅ Throttle + batch send + localStorage queue
 // ✅ Flush-hardened: pagehide/hidden/freeze/beforeunload => flushNow()
 // ✅ Recovery: keep unsent batches, resend on next load/online
-// ✅ Sampling for FULL-heavy events, override: ?teleSample=spawn:0.2,hit:0.25,expire:0.15,judge:0.3
-// ✅ Status heartbeat event: groups:telemetry_status (for HUD health)
-// ✅ Telemetry.resendNow(), Telemetry.getLastStatus(), Telemetry.setHudHook(fn)
-// ✅ NEW (13.95): Auto-downgrade by FPS (FULL→LITE→OFF) for smooth play
-//    - Enable: default ON (play only). Disable: ?teleAuto=0
-//    - Threshold: ?teleFps=40 (default 42), hard: ?teleFpsHard=26 (default 28)
+// ✅ Sampling for FULL-heavy events + override: ?teleSample=spawn:0.2,hit:0.25,expire:0.15,judge:0.3
+// ✅ Status heartbeat event: groups:telemetry_status
+// ✅ PACK 13.95: Auto-downgrade by FPS (FULL→LITE→OFF)
+// ✅ PACK 14.5: Smart Throttle + Adaptive Sampling + Backpressure
+//    - If queue grows or recent sends fail => auto reduce sampling + increase throttle
+//    - If queue is huge => clamp FULL-heavy events harder; may force mode down (optional)
+//    - Keeps gameplay smooth & prevents “queue explosion”
 
 (function (root) {
   'use strict';
@@ -54,6 +55,7 @@
   const LS_MODE  = 'HHA_TELEMETRY_MODE_GroupsVR';
   const LS_QUEUE = 'HHA_TELEMETRY_QUEUE_GroupsVR';
   const LS_SEQ   = 'HHA_TELEMETRY_SEQ_GroupsVR';
+  const LS_ADAPT = 'HHA_TELEMETRY_ADAPT_GroupsVR'; // store adaptive state snapshot (optional)
 
   // ---------------- state ----------------
   const Telemetry = NS.Telemetry = NS.Telemetry || {};
@@ -65,7 +67,7 @@
     flushEveryMs: 2000,
     maxEventsPerBatch: 60,
     maxQueueBatches: 16,         // stored in LS
-    throttle: {
+    throttleBase: {              // base throttle (ms)
       'hha:score': 600,
       'hha:rank': 800,
       'quest:update': 900,
@@ -73,13 +75,13 @@
       'groups:progress': 250,
       'groups:ai_predict': 800,
 
-      // FULL-heavy (ยัง throttle ต่ออยู่)
+      // FULL-heavy
       'groups:spawn': 120,
       'groups:hit': 80,
       'groups:expire': 160,
       'hha:judge': 80
     },
-    sample: {
+    sampleBase: {                // base sample rate
       'groups:spawn': 0.22,
       'groups:hit': 0.30,
       'groups:expire': 0.18,
@@ -87,22 +89,53 @@
     },
     statusEveryMs: 850,
 
-    // ✅ PACK 13.95: auto downgrade
+    // ✅ PACK 13.95: auto downgrade (fps)
     auto: {
-      enabled: true,          // disable with ?teleAuto=0
-      fpsLow: 42,             // FULL -> LITE if fps < fpsLow for holdMs
-      fpsHard: 28,            // LITE -> OFF if fps < fpsHard for holdMsHard
-      holdMs: 2600,           // low fps continuous duration
+      enabled: true,
+      fpsLow: 42,
+      fpsHard: 28,
+      holdMs: 2600,
       holdMsHard: 2600,
-      cooldownMs: 9000,       // after a switch, wait before next
-      sampleWindowMs: 1000,   // FPS average window
+      cooldownMs: 9000,
+      sampleWindowMs: 1000,
       warnEveryMs: 1200
+    },
+
+    // ✅ PACK 14.5: adaptive backpressure
+    adapt: {
+      enabled: true,             // disable: ?teleAdapt=0
+      evalEveryMs: 1200,
+      // queue thresholds
+      qWarnBatches: 6,
+      qWarnEvents: 220,
+      qHighBatches: 10,
+      qHighEvents: 380,
+      qCriticalBatches: 14,
+      qCriticalEvents: 520,
+
+      // if last send fails and stays failing
+      failGraceMs: 2600,         // ignore brief fails
+      failHighMs: 6500,          // persistent fail => stronger clamp
+
+      // how hard to clamp
+      maxThrottleMul: 3.2,       // throttle multiplier upper bound
+      minSampleMul: 0.18,        // sample multiplier lower bound
+
+      // optional mode pressure (keeps it playable)
+      allowModeClamp: true,      // can force full->lite / lite->off when critical
+      allowModeRecover: true,    // can recover (off->lite->full) if healthy (only if user didn't pin ?telemetry=)
+      recoverStableMs: 12000,    // healthy window to recover
+      recoverStepMs: 7000,       // step-up interval
+
+      // when queue is huge, increase flush interval a bit to reduce contention
+      flushEveryMulMax: 1.8
     }
   };
 
   let _batch = [];
   let _flushIt = 0;
   let _statusIt = 0;
+  let _adaptIt = 0;
   let _inFlight = false;
   let _lastEventAt = Object.create(null);
   let _seq = loadSeq();
@@ -130,6 +163,31 @@
   let _lastAutoSwitchAt = 0;
   let _lastAutoWarnAt = 0;
 
+  // ✅ adapt runtime (PACK 14.5)
+  let ADAPT = {
+    // current multipliers (applied on top of base)
+    throttleMul: 1.0,
+    sampleMul: 1.0,
+    flushEveryMul: 1.0,
+
+    // queue health
+    pressure: 0, // 0 ok, 1 warn, 2 high, 3 critical
+    lastEvalAt: 0,
+
+    // failure health
+    failing: false,
+    failSince: 0,
+
+    // mode clamp state
+    pinnedByQuery: false,
+    lastModeStepAt: 0,
+    healthySince: 0
+  };
+
+  // computed derived maps (throttle/sample)
+  let THROTTLE = Object.assign({}, CFG.throttleBase);
+  let SAMPLE   = Object.assign({}, CFG.sampleBase);
+
   // ---------------- public API ----------------
   Telemetry.init = function init(opt){
     opt = opt || {};
@@ -145,11 +203,14 @@
 
     applySampleOverrideFromQuery();
     applyAutoOverrideFromQuery();
+    applyAdaptOverrideFromQuery();
 
-    // mode resolution
+    // mode resolution + detect pinned mode
     let mode = 'lite';
     const q  = String(qs('telemetry','')||'').toLowerCase().trim();
     const ls = String(loadMode()||'').toLowerCase().trim();
+
+    ADAPT.pinnedByQuery = (q === 'off' || q === 'lite' || q === 'full');
 
     if (q === 'off' || q === 'lite' || q === 'full') mode = q;
     else if (ls === 'off' || ls === 'lite' || ls === 'full') mode = ls;
@@ -157,14 +218,17 @@
     if (CFG.runMode !== 'play') mode = 'off';
     setModeInternal(mode, true);
 
+    resetAdaptState();
+    recomputeDerivedMaps();
+
     attachEventListeners();
     tryResendQueue();
     startTimer();
     startStatusHeartbeat();
     installLeaveFlush();
 
-    // ✅ auto downgrade: play only + enabled
     if (CFG.runMode === 'play' && CFG.auto.enabled) startFpsMonitor();
+    if (CFG.runMode === 'play' && CFG.adapt.enabled) startAdaptLoop();
 
     return true;
   };
@@ -173,6 +237,8 @@
     mode = String(mode||'').toLowerCase();
     if (!(mode === 'off' || mode === 'lite' || mode === 'full')) mode = 'lite';
     if (CFG.runMode !== 'play') mode = 'off';
+    // manual set => consider pinned (user intent)
+    ADAPT.pinnedByQuery = true;
     setModeInternal(mode, false);
   };
 
@@ -187,9 +253,14 @@
       flushEveryMs: CFG.flushEveryMs,
       maxEventsPerBatch: CFG.maxEventsPerBatch,
       maxQueueBatches: CFG.maxQueueBatches,
-      sample: Object.assign({}, CFG.sample),
+      sampleBase: Object.assign({}, CFG.sampleBase),
+      throttleBase: Object.assign({}, CFG.throttleBase),
+      sampleNow: Object.assign({}, SAMPLE),
+      throttleNow: Object.assign({}, THROTTLE),
       statusEveryMs: CFG.statusEveryMs,
-      auto: Object.assign({}, CFG.auto)
+      auto: Object.assign({}, CFG.auto),
+      adapt: Object.assign({}, CFG.adapt),
+      adaptState: Object.assign({}, ADAPT)
     };
   };
 
@@ -225,7 +296,9 @@
       runMode: CFG.runMode,
       mode: CFG.mode,
       endpoint: CFG.endpoint,
-      sample: Object.assign({}, CFG.sample),
+      sampleNow: Object.assign({}, SAMPLE),
+      throttleNow: Object.assign({}, THROTTLE),
+      adaptState: Object.assign({}, ADAPT),
       auto: Object.assign({}, CFG.auto),
       pending: { batches: q.length, events: ev },
       queueBatches: q
@@ -250,14 +323,14 @@
 
     // sampling for FULL-heavy
     if (level === 'full' && CFG.mode === 'full') {
-      const rate = Number(CFG.sample[name]);
+      const rate = Number(SAMPLE[name]);
       if (isFinite(rate)) {
         if (!shouldSample(name, clamp(rate, 0, 1))) return false;
       }
     }
 
     // throttle
-    const thr  = Number(CFG.throttle[name] ?? 0) || 0;
+    const thr  = Number(THROTTLE[name] ?? 0) || 0;
     const last = Number(_lastEventAt[name] || 0) || 0;
     if (thr > 0 && (t - last) < thr) return false;
     _lastEventAt[name] = t;
@@ -331,6 +404,10 @@
     try { localStorage.setItem(LS_QUEUE, safeJson(q, '[]')); } catch {}
   }
 
+  function saveAdaptSnapshot(){
+    try { localStorage.setItem(LS_ADAPT, safeJson(ADAPT, '{}')); } catch {}
+  }
+
   function setModeInternal(mode, silent){
     CFG.mode = mode;
     CFG.enabled = (mode !== 'off' && CFG.runMode === 'play');
@@ -351,7 +428,7 @@
     const style= String(qs('style','')||'');
 
     const batch = {
-      v: 41,
+      v: 42,
       kind: 'telemetry',
       gameTag: 'GroupsVR',
       runMode: CFG.runMode,
@@ -360,8 +437,9 @@
       ts: isoNow(),
       seq,
       meta: { seed, diff, view, style, url: String(location.href||''), fpsAvg: Math.round(_fpsAvg) },
-      sample: Object.assign({}, CFG.sample),
-      auto: Object.assign({}, CFG.auto),
+      adapt: Object.assign({}, ADAPT),
+      sampleNow: Object.assign({}, SAMPLE),
+      throttleNow: Object.assign({}, THROTTLE),
       events: _batch.splice(0, _batch.length)
     };
 
@@ -447,7 +525,7 @@
       if (_batch.length) packBatch('tick');
       sendQueued('tick').catch(()=>{});
       publishStatus('tick');
-    }, CFG.flushEveryMs);
+    }, Math.round(CFG.flushEveryMs * ADAPT.flushEveryMul));
   }
 
   function tryResendQueue(){
@@ -486,7 +564,7 @@
       const k = String(t[0]||'').trim().toLowerCase();
       const v = clamp(t[1], 0, 1);
       const evt = map[k] || '';
-      if (evt) CFG.sample[evt] = v;
+      if (evt) CFG.sampleBase[evt] = v;
     }
   }
 
@@ -500,6 +578,199 @@
 
     const fpsH = qs('teleFpsHard', null);
     if (fpsH != null) CFG.auto.fpsHard = clamp(fpsH, 18, 40);
+  }
+
+  // ---------------- adapt (PACK 14.5) ----------------
+  function applyAdaptOverrideFromQuery(){
+    const a = String(qs('teleAdapt','')||'').trim();
+    if (a === '0' || a === 'false') CFG.adapt.enabled = false;
+  }
+
+  function resetAdaptState(){
+    ADAPT.throttleMul = 1.0;
+    ADAPT.sampleMul = 1.0;
+    ADAPT.flushEveryMul = 1.0;
+    ADAPT.pressure = 0;
+    ADAPT.lastEvalAt = 0;
+    ADAPT.failing = false;
+    ADAPT.failSince = 0;
+    ADAPT.lastModeStepAt = 0;
+    ADAPT.healthySince = 0;
+  }
+
+  function recomputeDerivedMaps(){
+    // throttle = base * mul, clamp to safe range
+    THROTTLE = Object.assign({}, CFG.throttleBase);
+    for (const k of Object.keys(THROTTLE)){
+      const base = Number(CFG.throttleBase[k]||0);
+      THROTTLE[k] = Math.round(clamp(base * ADAPT.throttleMul, Math.max(10, base), base * CFG.adapt.maxThrottleMul));
+    }
+
+    // sample = base * mul, clamp
+    SAMPLE = Object.assign({}, CFG.sampleBase);
+    for (const k of Object.keys(SAMPLE)){
+      const base = clamp(CFG.sampleBase[k], 0, 1);
+      const v = clamp(base * ADAPT.sampleMul, 0, 1);
+      // do not go below minSampleMul unless already tiny
+      const minv = clamp(base * CFG.adapt.minSampleMul, 0, 1);
+      SAMPLE[k] = clamp(v, Math.min(base, minv), 1);
+    }
+
+    // flushEvery multiplier
+    ADAPT.flushEveryMul = clamp(ADAPT.flushEveryMul, 1.0, CFG.adapt.flushEveryMulMax);
+    startTimer(); // re-arm timer with new interval
+    saveAdaptSnapshot();
+  }
+
+  function queueCounts(){
+    const q = loadQueue();
+    let ev = 0;
+    for (const b of q) ev += (b && b.events && b.events.length) ? b.events.length : 0;
+    return { batches:q.length, events:ev };
+  }
+
+  function computePressure(q){
+    const A = CFG.adapt;
+    if (q.batches >= A.qCriticalBatches || q.events >= A.qCriticalEvents) return 3;
+    if (q.batches >= A.qHighBatches     || q.events >= A.qHighEvents)     return 2;
+    if (q.batches >= A.qWarnBatches     || q.events >= A.qWarnEvents)     return 1;
+    return 0;
+  }
+
+  function startAdaptLoop(){
+    clearInterval(_adaptIt);
+    _adaptIt = setInterval(()=> adaptTick(), CFG.adapt.evalEveryMs);
+  }
+
+  function adaptTick(){
+    if (!CFG.adapt.enabled) return;
+    if (CFG.runMode !== 'play') return;
+    if (CFG.mode === 'off') return; // already minimal
+
+    const t = nowMs();
+    const q = queueCounts();
+
+    // detect failing state
+    const failingNow = (_lastSendResult === 'fail' && _lastFailAt && (t - _lastFailAt) < 5000);
+    if (failingNow) {
+      if (!ADAPT.failing) { ADAPT.failing = true; ADAPT.failSince = t; }
+    } else {
+      ADAPT.failing = false;
+      ADAPT.failSince = 0;
+    }
+
+    const p = computePressure(q);
+    ADAPT.pressure = p;
+
+    // adjust multipliers by pressure + failure persistence
+    const A = CFG.adapt;
+    let thrMul = 1.0;
+    let samMul = 1.0;
+    let flMul  = 1.0;
+
+    if (p === 1) { thrMul = 1.25; samMul = 0.78; flMul = 1.05; }
+    if (p === 2) { thrMul = 1.65; samMul = 0.55; flMul = 1.18; }
+    if (p === 3) { thrMul = 2.35; samMul = 0.35; flMul = 1.35; }
+
+    // persistent failures => stronger clamp
+    if (ADAPT.failing && ADAPT.failSince){
+      const dur = t - ADAPT.failSince;
+      if (dur > A.failGraceMs) {
+        thrMul = Math.max(thrMul, 2.0);
+        samMul = Math.min(samMul, 0.45);
+        flMul  = Math.max(flMul, 1.25);
+      }
+      if (dur > A.failHighMs) {
+        thrMul = Math.max(thrMul, 2.8);
+        samMul = Math.min(samMul, 0.28);
+        flMul  = Math.max(flMul, 1.45);
+      }
+    }
+
+    // apply
+    const changed =
+      (Math.abs(ADAPT.throttleMul - thrMul) > 0.05) ||
+      (Math.abs(ADAPT.sampleMul - samMul) > 0.05) ||
+      (Math.abs(ADAPT.flushEveryMul - flMul) > 0.05);
+
+    ADAPT.throttleMul = clamp(thrMul, 1.0, A.maxThrottleMul);
+    ADAPT.sampleMul   = clamp(samMul, 0.05, 1.0);
+    ADAPT.flushEveryMul = clamp(flMul, 1.0, A.flushEveryMulMax);
+
+    if (changed) {
+      recomputeDerivedMaps();
+      try{
+        root.dispatchEvent(new CustomEvent('groups:telemetry_adapt', {
+          detail:{
+            kind:'adapt',
+            pressure:p,
+            qBatches:q.batches, qEvents:q.events,
+            failing:!!ADAPT.failing,
+            thrMul:Math.round(ADAPT.throttleMul*100)/100,
+            samMul:Math.round(ADAPT.sampleMul*100)/100,
+            flMul:Math.round(ADAPT.flushEveryMul*100)/100
+          }
+        }));
+      }catch(_){}
+    }
+
+    // optional mode clamp on critical
+    if (A.allowModeClamp && !ADAPT.pinnedByQuery) {
+      if (p >= 3 || (ADAPT.failing && ADAPT.failSince && (t - ADAPT.failSince) > A.failHighMs)) {
+        // step down mode
+        if (!ADAPT.lastModeStepAt || (t - ADAPT.lastModeStepAt) > 1800) {
+          ADAPT.lastModeStepAt = t;
+          if (CFG.mode === 'full') {
+            setModeInternal('lite', false);
+            announceAuto('mode_clamp', 'full_to_lite', q, p);
+          } else if (CFG.mode === 'lite') {
+            setModeInternal('off', false);
+            announceAuto('mode_clamp', 'lite_to_off', q, p);
+          }
+          // pack immediately so nothing lost
+          if (_batch.length) packBatch('mode_clamp');
+          sendQueued('mode_clamp').catch(()=>{});
+        }
+      }
+    }
+
+    // optional mode recover if healthy
+    if (A.allowModeRecover && !ADAPT.pinnedByQuery) {
+      const healthy = (p === 0) && (!_lastFailAt || (t - _lastFailAt) > 9000);
+      if (healthy) {
+        if (!ADAPT.healthySince) ADAPT.healthySince = t;
+      } else {
+        ADAPT.healthySince = 0;
+      }
+
+      if (ADAPT.healthySince && (t - ADAPT.healthySince) > A.recoverStableMs) {
+        if (!ADAPT.lastModeStepAt || (t - ADAPT.lastModeStepAt) > A.recoverStepMs) {
+          ADAPT.lastModeStepAt = t;
+          if (CFG.mode === 'off') { setModeInternal('lite', false); announceAuto('mode_recover','off_to_lite', q, p); }
+          else if (CFG.mode === 'lite') { setModeInternal('full', false); announceAuto('mode_recover','lite_to_full', q, p); }
+        }
+      }
+    }
+
+    // status publish (so HUD can show)
+    publishStatus('adapt');
+  }
+
+  function announceAuto(kind, reason, q, p){
+    try{
+      root.dispatchEvent(new CustomEvent('groups:telemetry_auto', {
+        detail:{
+          kind:'switch',
+          from:'(auto)',
+          to:CFG.mode,
+          reason:String(kind||'auto') + ':' + String(reason||''),
+          fps:Math.round(_fpsAvg),
+          qBatches:q.batches|0,
+          qEvents:q.events|0,
+          pressure:p|0
+        }
+      }));
+    }catch(_){}
   }
 
   function startFpsMonitor(){
@@ -532,9 +803,8 @@
   function autoDecide(t, fps){
     if (!CFG.auto.enabled) return;
     if (CFG.runMode !== 'play') return;
-    if (CFG.mode === 'off') return; // already minimal
+    if (CFG.mode === 'off') return;
 
-    // cooldown guard
     if (_lastAutoSwitchAt && (t - _lastAutoSwitchAt) < CFG.auto.cooldownMs) {
       maybeWarnLowFps(t, fps);
       return;
@@ -543,31 +813,18 @@
     const low = (fps < CFG.auto.fpsLow);
     const hard = (fps < CFG.auto.fpsHard);
 
-    if (hard) {
-      if (!_hardStart) _hardStart = t;
-    } else {
-      _hardStart = 0;
-    }
+    if (hard) { if (!_hardStart) _hardStart = t; } else _hardStart = 0;
+    if (low)  { if (!_lowStart)  _lowStart  = t; } else _lowStart  = 0;
 
-    if (low) {
-      if (!_lowStart) _lowStart = t;
-    } else {
-      _lowStart = 0;
-    }
-
-    // FULL -> LITE
     if (CFG.mode === 'full' && _lowStart && (t - _lowStart) >= CFG.auto.holdMs) {
       doAutoSwitch('lite', 'fps_low_full_to_lite', fps);
-      _lowStart = 0;
-      _hardStart = 0;
+      _lowStart = 0; _hardStart = 0;
       return;
     }
 
-    // LITE -> OFF (hard low)
     if (CFG.mode === 'lite' && _hardStart && (t - _hardStart) >= CFG.auto.holdMsHard) {
       doAutoSwitch('off', 'fps_hard_lite_to_off', fps);
-      _lowStart = 0;
-      _hardStart = 0;
+      _lowStart = 0; _hardStart = 0;
       return;
     }
 
@@ -579,7 +836,6 @@
     if (_lastAutoWarnAt && (t - _lastAutoWarnAt) < CFG.auto.warnEveryMs) return;
     _lastAutoWarnAt = t;
 
-    // status event for UI (non-invasive)
     try{
       root.dispatchEvent(new CustomEvent('groups:telemetry_auto', {
         detail:{ kind:'warn', mode:CFG.mode, fps:Math.round(fps), fpsLow:CFG.auto.fpsLow, fpsHard:CFG.auto.fpsHard }
@@ -592,7 +848,6 @@
     setModeInternal(mode, false);
     _lastAutoSwitchAt = nowMs();
 
-    // pack current batch quickly so nothing lost
     if (_batch.length) packBatch('auto_switch');
     sendQueued('auto_switch').catch(()=>{});
     publishStatus('auto_switch');
@@ -630,7 +885,15 @@
       lastSentMsAgo: _lastSentAt ? (nowMs() - _lastSentAt) : -1,
       lastFailMsAgo: _lastFailAt ? (nowMs() - _lastFailAt) : -1,
       lastSendResult: _lastSendResult,
-      fpsAvg: Math.round(_fpsAvg)
+      fpsAvg: Math.round(_fpsAvg),
+
+      // ✅ PACK 14.5 fields
+      adaptEnabled: !!CFG.adapt.enabled,
+      adaptPressure: ADAPT.pressure|0,
+      thrMul: Math.round(ADAPT.throttleMul*100)/100,
+      samMul: Math.round(ADAPT.sampleMul*100)/100,
+      flushMul: Math.round(ADAPT.flushEveryMul*100)/100,
+      pinned: !!ADAPT.pinnedByQuery
     };
 
     try { root.dispatchEvent(new CustomEvent('groups:telemetry_status', { detail: st })); } catch(_){}
