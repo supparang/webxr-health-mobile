@@ -1,26 +1,27 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-✅ HUD + Overlay + Stage + Targets + Quiz + Banner + Motion FX
-✅ Views: body.view-pc / .view-mobile / .view-vr / .view-cvr
-✅ Safe-area aware: uses env(safe-area-inset-*)
-✅ Important: targets position via CSS vars --x --y --s
+✅ HUD safe-area + stage full
+✅ Spawn safe vars: --hw-top-safe / --hw-bottom-safe (read by engine)
+✅ Targets use --x --y --s (%vw/%vh scale)
+✅ view-cvr: targets pointer-events:none (shoot only)
 */
 
 :root{
-  --bg:#0b1220;
-  --panel: rgba(2,6,23,.70);
-  --panel2: rgba(15,23,42,.58);
-  --stroke: rgba(148,163,184,.18);
+  color-scheme: light dark;
 
+  --bg: #0b1220;
+  --panel: rgba(2,6,23,.72);
+  --stroke: rgba(148,163,184,.18);
   --text: rgba(229,231,235,.95);
   --muted: rgba(148,163,184,.95);
 
-  --accent: rgba(34,197,94,.95);
-  --cyan: rgba(34,211,238,.95);
-  --warn: rgba(245,158,11,.95);
-  --bad: rgba(239,68,68,.95);
+  --good: rgba(34,197,94,.22);
+  --good2: rgba(34,197,94,.10);
+  --warn: rgba(245,158,11,.26);
+  --bad:  rgba(239,68,68,.26);
+  --cyan: rgba(34,211,238,.26);
 
-  --radius: 22px;
+  --r: 22px;
   --pill: 999px;
 
   --sat: env(safe-area-inset-top, 0px);
@@ -28,337 +29,274 @@ HygieneVR CSS — PRODUCTION (HHA Standard)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* spawn safe zone top/bottom (engine reads from these) */
-  --hw-top-safe: 160;
-  --hw-bottom-safe: 160;
+  /* ✅ สำคัญ: engine อ่าน 2 ตัวนี้ เพื่อไม่ spawn ทับ HUD */
+  --hw-top-safe: 190;
+  --hw-bottom-safe: 190;
 
-  /* stage */
-  --stage-pad: 14px;
-  --tgt-size: 64px;
-
-  /* motion */
-  --easeOut: cubic-bezier(.2,.8,.2,1);
+  --hud-gap: 10px;
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  height:100%;
-  margin:0;
-  background: radial-gradient(1200px 700px at 50% 10%, rgba(34,211,238,.10), transparent 60%),
-              radial-gradient(900px 700px at 20% 80%, rgba(34,197,94,.08), transparent 60%),
-              linear-gradient(180deg, #070c16, #070a12 60%, #060812);
-  color: var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
+html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+button{ font-family: inherit; }
 
 .hw-root{
-  min-height:100%;
-  position:relative;
-  overflow:hidden;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: radial-gradient(1100px 500px at 50% 0%, rgba(34,211,238,.10), transparent 60%),
+              radial-gradient(1000px 520px at 0% 100%, rgba(34,197,94,.08), transparent 55%),
+              linear-gradient(180deg, rgba(2,6,23,.0), rgba(2,6,23,.30));
 }
 
-/* ---------- Stage ---------- */
+/* Stage = พื้นที่เล่น */
 .hw-stage{
-  position:absolute;
-  inset:0;
-  overflow:hidden;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: manipulation;
 }
 
-/* ---------- HUD ---------- */
+/* HUD */
 .hw-hud{
-  position:relative;
-  z-index:50;
-  pointer-events:none;
+  position: relative;
+  z-index: 50;
+  pointer-events: none; /* ✅ default: HUD ไม่บล็อกการแตะเป้า */
 }
+
 .hw-top{
-  width:min(980px, 100%);
-  margin: 0 auto;
-  padding-top: 6px;
+  pointer-events: auto;
+  padding:
+    calc(10px + var(--sat))
+    calc(12px + var(--sar))
+    10px
+    calc(12px + var(--sal));
 }
+
 .hw-title{
   font-weight: 950;
-  letter-spacing:.2px;
+  letter-spacing: .2px;
   font-size: 18px;
-  text-shadow: 0 18px 44px rgba(0,0,0,.55);
+  text-shadow: 0 12px 36px rgba(0,0,0,.45);
 }
 .hw-sub{
-  margin-top:4px;
+  margin-top: 4px;
   font-size: 12px;
   color: var(--muted);
-  text-shadow: 0 18px 44px rgba(0,0,0,.55);
 }
 
 .hw-row{
   display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:10px;
+  flex-wrap: wrap;
+  gap: var(--hud-gap);
+  margin-top: 10px;
 }
 
 /* Pills */
 .hw-pill{
-  pointer-events:auto;
-  user-select:none;
+  pointer-events: auto;
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: var(--pill);
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.60);
+  background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
-  color: var(--text);
-  padding: 8px 12px;
   font-weight: 900;
   font-size: 12px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.35);
-  transform: translateZ(0);
-}
-.hw-pill.warn{
-  border-color: rgba(245,158,11,.25);
-  background: rgba(245,158,11,.10);
-}
-.hw-pill.cyan{
-  border-color: rgba(34,211,238,.25);
-  background: rgba(34,211,238,.10);
-}
-.hw-pill.bad{
-  border-color: rgba(239,68,68,.25);
-  background: rgba(239,68,68,.10);
+  color: var(--text);
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
 }
 
 .hw-pill.btn{
   cursor:pointer;
+  user-select:none;
+  background: rgba(15,23,42,.68);
 }
-.hw-pill.btn:hover{ filter: brightness(1.06); }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
-/* ---------- Banner ---------- */
+.hw-pill.warn{ border-color: var(--warn); background: rgba(245,158,11,.10); }
+.hw-pill.cyan{ border-color: var(--cyan); background: rgba(34,211,238,.10); }
+.hw-pill.bad{  border-color: var(--bad);  background: rgba(239,68,68,.10); }
+
+/* Banner */
 .hw-banner{
-  pointer-events:none;
+  pointer-events: none;
   position: fixed;
   left: 50%;
-  top: calc(96px + var(--sat));
-  transform: translate(-50%, -12px);
-  opacity: 0;
+  top: calc(120px + var(--sat));
+  transform: translateX(-50%);
+  z-index: 80;
+  max-width: min(720px, calc(100vw - 24px));
   padding: 10px 14px;
-  border-radius: var(--pill);
-  border: 1px solid rgba(148,163,184,.16);
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
   background: rgba(2,6,23,.72);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 22px 70px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 26px 90px rgba(0,0,0,.45);
+  color: var(--text);
   font-weight: 950;
   font-size: 13px;
-  color: rgba(229,231,235,.98);
-  transition: opacity 180ms var(--easeOut), transform 180ms var(--easeOut);
-  z-index: 200;
+  opacity: 0;
+  transition: opacity .16s ease, transform .16s ease;
 }
 .hw-banner.show{
   opacity: 1;
-  transform: translate(-50%, 0px);
+  transform: translateX(-50%) translateY(0);
 }
 
-/* ---------- Quiz Box ---------- */
+/* Quiz box */
 .hw-quiz{
+  pointer-events: auto;
   margin-top: 10px;
-  border-radius: var(--radius);
-  border: 1px solid rgba(34,211,238,.18);
-  background: rgba(2,6,23,.60);
-  backdrop-filter: blur(10px);
-  padding: 12px 12px;
-  box-shadow: 0 24px 80px rgba(0,0,0,.35);
+  border-radius: var(--r);
+  border: 1px solid rgba(34,211,238,.25);
+  background: rgba(34,211,238,.08);
+  padding: 10px 12px;
 }
-.hw-quiz-q{
-  font-weight: 950;
-  font-size: 13px;
-  color: rgba(229,231,235,.98);
-}
-.hw-quiz-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(148,163,184,.98);
-  line-height: 1.35;
-}
+.hw-quiz-q{ font-weight: 950; }
+.hw-quiz-sub{ margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
-/* ---------- Overlays ---------- */
+/* Overlays */
 .hw-overlay{
   position: fixed;
   inset: 0;
   display: grid;
-  place-items:center;
-  padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-  background: radial-gradient(900px 700px at 50% 10%, rgba(34,211,238,.10), transparent 60%),
-              rgba(2,6,23,.62);
+  place-items: center;
+  z-index: 90;
+  background: radial-gradient(900px 500px at 50% 0%, rgba(34,211,238,.10), transparent 60%),
+              rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
-  z-index: 150;
+  padding:
+    calc(18px + var(--sat))
+    calc(16px + var(--sar))
+    calc(18px + var(--sab))
+    calc(16px + var(--sal));
 }
+
 .hw-card{
   width: min(820px, 100%);
-  border-radius: var(--radius);
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.72);
-  box-shadow: 0 28px 120px rgba(0,0,0,.55);
-  padding: 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.74);
+  box-shadow: 0 30px 110px rgba(0,0,0,.55);
+  padding: 16px;
 }
+
 .hw-card-title{
   font-weight: 950;
   font-size: 18px;
-  letter-spacing: .2px;
 }
 .hw-card-sub{
-  margin-top: 8px;
+  margin-top: 6px;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
-  color: rgba(148,163,184,.98);
 }
+
 .hw-card-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
   margin-top: 12px;
+  display:flex;
+  gap:10px;
+  flex-wrap: wrap;
 }
+
 .hw-cta, .hw-ghost{
-  pointer-events:auto;
-  cursor:pointer;
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
+  border: 1px solid var(--stroke);
   padding: 10px 12px;
   font-weight: 950;
-  font-size: 13px;
+  cursor:pointer;
 }
 .hw-cta{
   background: rgba(34,197,94,.18);
   border-color: rgba(34,197,94,.28);
-  color: rgba(229,231,235,.98);
+  color: var(--text);
 }
-.hw-cta:hover{ filter: brightness(1.07); }
 .hw-ghost{
   background: rgba(15,23,42,.62);
-  color: rgba(229,231,235,.92);
+  color: var(--text);
 }
-.hw-ghost:hover{ filter: brightness(1.05); }
+.hw-cta:active, .hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
-  margin-top:10px;
-  padding: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.52);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.55);
   color: rgba(229,231,235,.92);
-  max-height: 40vh;
-  overflow:auto;
+  max-height: 260px;
+  overflow: auto;
   font-size: 12px;
+  line-height: 1.35;
 }
 
-/* ---------- Targets ---------- */
+/* Targets */
 .hw-tgt{
   position: absolute;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
-  width: var(--tgt-size);
-  height: var(--tgt-size);
+  transform: translate(-50%,-50%) scale(var(--s, 1));
+  width: 68px;
+  height: 68px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.55);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.45);
   backdrop-filter: blur(10px);
-  box-shadow: 0 22px 80px rgba(0,0,0,.38);
-  cursor: pointer;
+  box-shadow: 0 18px 70px rgba(0,0,0,.40);
   display:grid;
   place-items:center;
-  will-change: transform, opacity;
-  animation: hwSpawn 260ms var(--easeOut) both, hwFloat 1300ms ease-in-out infinite;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  animation: hwIn .16s ease-out both;
 }
+
 .hw-tgt .emoji{
-  font-size: 26px;
-  transform: translateZ(0);
+  font-size: 28px;
   filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
 }
 
-/* type styles */
-.hw-tgt.good{
-  border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.10);
-}
-.hw-tgt.wrong{
-  border-color: rgba(245,158,11,.26);
-  background: rgba(245,158,11,.12);
-}
-.hw-tgt.haz{
-  border-color: rgba(239,68,68,.28);
-  background: rgba(239,68,68,.10);
+.hw-tgt.good{ border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.10); }
+.hw-tgt.wrong{ border-color: rgba(245,158,11,.32); background: rgba(245,158,11,.10); }
+.hw-tgt.haz{ border-color: rgba(239,68,68,.34); background: rgba(239,68,68,.10); }
+
+.hw-tgt:active{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98)); }
+
+@keyframes hwIn{
+  0%{ opacity: 0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
+  100%{ opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
-}
-
-/* Spawn + Float animations */
-@keyframes hwSpawn{
-  0%{ opacity:0; transform: translate(-50%,-50%) scale(.72); }
-  100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-@keyframes hwFloat{
-  0%,100%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
-  50%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(-6px); }
-}
-
-/* ---------- View tweaks ---------- */
-body.view-mobile :root{}
-body.view-mobile .hw-title{ font-size: 16px; }
-body.view-mobile .hw-pill{ font-size: 11px; padding: 7px 10px; }
-body.view-mobile .hw-banner{
-  top: calc(90px + var(--sat));
-  font-size: 12px;
-}
+/* ✅ view-specific safe zones */
 body.view-mobile{
-  /* tighter safe zone for mobile so targets don’t go behind HUD */
-}
-body.view-mobile .hw-root{
-  padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(10px + var(--sab)) calc(8px + var(--sal));
-}
-body.view-mobile{
-  /* bigger safe top/bottom */
-}
-body.view-mobile{
-  /* NOTE: engine reads computed style from documentElement,
-     so set vars on :root using body selectors */
-}
-body.view-mobile :root{
-  --hw-top-safe: 190;
-  --hw-bottom-safe: 190;
-  --tgt-size: 68px;
-}
-
-/* VR/Cardboard (HUD minimal & more safe area) */
-body.view-vr :root{
-  --hw-top-safe: 210;
-  --hw-bottom-safe: 210;
-  --tgt-size: 72px;
-}
-body.view-vr .hw-title{ font-size: 16px; }
-body.view-vr .hw-sub{ font-size: 11px; }
-body.view-vr .hw-pill{ font-size: 11px; padding: 7px 10px; }
-
-/* cVR strict: show crosshair via vr-ui.js; keep UI light */
-body.view-cvr :root{
   --hw-top-safe: 220;
-  --hw-bottom-safe: 220;
-  --tgt-size: 72px;
+  --hw-bottom-safe: 190;
 }
-body.view-cvr .hw-pill.btn{ opacity:.95; }
-body.view-cvr .hw-tgt{
-  /* IMPORTANT: do not block pointer events in cVR strict,
-     but engine ignores click in cvr anyway. keep normal. */
+body.view-cvr{
+  --hw-top-safe: 210;
+  --hw-bottom-safe: 200;
 }
-
-/* ---------- Accessibility ---------- */
-@media (prefers-reduced-motion: reduce){
-  .hw-tgt{ animation: hwSpawn 260ms var(--easeOut) both; }
-  .hw-banner{ transition:none; }
+body.view-vr{
+  --hw-top-safe: 200;
+  --hw-bottom-safe: 200;
 }
 
-/* ---------- Small screens ---------- */
+/* ✅ โหมด cVR: เป้าไม่รับ touch/click (ยิงด้วย crosshair ผ่าน hha:shoot) */
+body.view-cvr .hw-stage{ touch-action: none; }
+body.view-cvr .hw-tgt{ pointer-events: none; }
+
+/* Small screens */
 @media (max-width: 420px){
-  .hw-card-title{ font-size: 16px; }
-  .hw-card-sub{ font-size: 12px; }
-  .hw-pre{ font-size: 11px; }
-  :root{ --tgt-size: 66px; }
+  .hw-title{ font-size: 16px; }
+  .hw-pill{ font-size: 11px; padding: 7px 9px; }
+  .hw-tgt{ width: 62px; height: 62px; }
+  .hw-tgt .emoji{ font-size: 26px; }
+}
+
+/* Taller phones: reduce banner overlap a bit */
+@media (min-height: 780px){
+  .hw-banner{ top: calc(135px + var(--sat)); }
 }
