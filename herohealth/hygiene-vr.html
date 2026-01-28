@@ -78,6 +78,7 @@ HygieneVR Launcher — ROOT (AUTO)
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
     if (isTouch){
+      // Landscape + wide touch device -> likely cardboard/cVR
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
@@ -88,6 +89,7 @@ HygieneVR Launcher — ROOT (AUTO)
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
+    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
     // DO NOT override if view already present
@@ -95,10 +97,6 @@ HygieneVR Launcher — ROOT (AUTO)
       u.searchParams.set('view', detectView());
     }
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
-
-    // cache-bust tiny (optional)
-    if (!u.searchParams.get('v')) u.searchParams.set('v', String(Date.now()));
-
     return u.toString();
   }
 
