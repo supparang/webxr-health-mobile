@@ -1,204 +1,116 @@
 // === /herohealth/vr/ai-coach.js ===
 // HHA AI Coach — PRODUCTION
-// ✅ createAICoach({ emit, game, cooldownMs }) -> { onStart, onUpdate, onEnd }
+// ✅ createAICoach({ emit, game, cooldownMs, locale })
 // ✅ Explainable micro-tips (rate-limited)
-// ✅ Works with hydration.safe.js immediately
+// ✅ Safe no-op if emit missing
 
 'use strict';
 
-export function createAICoach(opts = {}){
-  const emit = typeof opts.emit === 'function' ? opts.emit : (_name,_detail)=>{};
-  const game = String(opts.game || 'hha');
-  const cooldownMs = Math.max(800, Number(opts.cooldownMs || 2800));
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function nowMs(){ try{ return performance.now(); }catch(_){ return Date.now(); } }
 
-  const S = {
-    started:false,
-    ended:false,
-    lastTipAt:0,
-    lastKey:'',
-    lastCtx:null,
-    tipCount:0,
-    // short “memory” to avoid repeating
-    seen: Object.create(null),
+export function createAICoach(cfg={}){
+  const emit = (typeof cfg.emit === 'function') ? cfg.emit : null;
+  const game = String(cfg.game || 'game');
+  const cooldownMs = clamp(cfg.cooldownMs ?? 3000, 800, 20000);
+  const locale = String(cfg.locale || 'th').toLowerCase();
+
+  let lastTipAt = 0;
+  let lastKey = '';
+  let startedAt = 0;
+
+  const say = (key, msg, why, extra={})=>{
+    if (!emit) return;
+    const t = nowMs();
+    if (t - lastTipAt < cooldownMs) return;
+    if (key && key === lastKey && (t - lastTipAt) < cooldownMs*1.8) return;
+    lastTipAt = t;
+    lastKey = key || '';
+    emit('hha:coach', {
+      game,
+      type:'tip',
+      key,
+      message: msg,
+      explain: why || '',
+      timestampMs: t|0,
+      ...extra
+    });
   };
 
-  function nowMs(){
-    try{ return performance.now(); }catch(_){ return Date.now(); }
-  }
-
-  function canSpeak(key){
-    const t = nowMs();
-    if ((t - S.lastTipAt) < cooldownMs) return false;
-    if (key && key === S.lastKey) return false;
-    // extra anti-spam: if we already said same key too often
-    if (key && S.seen[key] && S.seen[key] >= 3) return false;
-    return true;
-  }
-
-  function say(key, message, why, meta={}){
-    if (!canSpeak(key)) return false;
-
-    const detail = Object.assign({
-      type: 'tip',
-      game,
-      key,
-      message,
-      why: why || '',
-      ts: Date.now(),
-      priority: meta.priority ?? 0.5,
-      tag: meta.tag || 'coach'
-    }, meta || {});
-
-    S.lastTipAt = nowMs();
-    S.lastKey = key || '';
-    S.tipCount++;
-    if (key){
-      S.seen[key] = (S.seen[key] || 0) + 1;
+  const T = {
+    th: {
+      stormPrep: 'เก็บ 🛡️ ไว้ก่อนพายุ—ช่วงท้ายต้อง BLOCK ให้ทัน!',
+      stormWhy: 'Mini จะผ่านเมื่อทำ LOW/HIGH ตามที่สั่ง + สะสม pressure + BLOCK ใน End Window และห้ามโดน BAD',
+      endWindow: 'เข้า End Window แล้ว! เล็ง “🌩️/🥤” แล้ว BLOCK ด้วย 🛡️',
+      endWhy: 'End Window คือช่วงท้ายพายุ ถ้าบล็อกสำเร็จจะนับผ่าน Mini / Boss เร็วมาก',
+      low: 'พายุสั่งไป “LOW” → ทำให้น้ำต่ำลง (ต่ำกว่า GREEN)',
+      high: 'พายุสั่งไป “HIGH” → ทำให้น้ำสูงขึ้น (สูงกว่า GREEN)',
+      waterTooHard: 'คุมน้ำยากไป? ลอง “เล็งชัวร์ก่อนยิง” และอย่ารัวยิง BAD',
+      waterWhy: 'ยิง 💧 จะดึงกลับเข้า GREEN แบบนุ่ม ๆ ส่วนโดน BAD จะดันน้ำแรง',
+      accuracy: 'Accuracy ตก—หยุดรัว 1 วิ แล้วค่อยยิงเป้าที่อยู่ใกล้กลางจอ',
+      accWhy: 'ยิงมั่วจะ MISS เพิ่ม ทำให้คุม GREEN และคอมโบยากขึ้น',
+      combo: 'ดีมาก! ลากคอมโบต่อ—คะแนนจะโตไวขึ้น',
+      comboWhy: 'คอมโบช่วยเพิ่มแต้มต่อ hit และสะท้อนความนิ่งในการเล็ง',
+      shield0: 'ไม่มี 🛡️ แล้ว—ให้รีบเก็บ 🛡️ ก่อนพายุ/ก่อน Boss window',
+      shieldWhy: 'ถ้าไม่มีโล่ ชน BAD จะนับ MISS + น้ำหลุดโซน',
+      boss: 'Boss เริ่มโหดขึ้นแล้ว—เก็บโล่ไว้ 1–2 อัน แล้วรอจังหวะ BLOCK 🌩️',
+      bossWhy: 'Boss ต้อง BLOCK ให้ครบตามจำนวนที่กำหนด ยิ่งท้ายเกมยิ่งต้องนิ่ง'
     }
-
-    emit('hha:coach', detail);
-    return true;
-  }
-
-  function pct(n){
-    n = Number(n)||0;
-    return Math.max(0, Math.min(100, n));
-  }
-
-  function pickTip(ctx){
-    // ctx schema is “best-effort” (hydration.safe.js sends these keys)
-    const inStorm = !!ctx.inStorm;
-    const inEndWindow = !!ctx.inEndWindow;
-    const waterZone = String(ctx.waterZone || '');
-    const shield = Number(ctx.shield || 0);
-    const misses = Number(ctx.misses || 0);
-    const combo = Number(ctx.combo || 0);
-    const skill = Math.max(0, Math.min(1, Number(ctx.skill ?? 0.5)));
-    const fatigue = Math.max(0, Math.min(1, Number(ctx.fatigue ?? 0)));
-    const frustration = Math.max(0, Math.min(1, Number(ctx.frustration ?? 0.2)));
-
-    // 1) Storm End Window / Boss: top priority
-    if (inStorm && inEndWindow){
-      if (shield <= 0){
-        return {
-          key:'storm_end_need_shield',
-          msg:'⏱️ เข้า End Window แล้ว! แต่ไม่มี 🛡️ — รีบเก็บ 🛡️ ก่อนพายุรอบหน้าไว้ BLOCK ตอนท้าย',
-          why:'ช่วงท้ายพายุคือจังหวะสำคัญของ Mini/Boss และต้องใช้ Shield เพื่อ BLOCK'
-        };
-      }
-      return {
-        key:'storm_end_block_now',
-        msg:'⏱️ End Window! ใช้ 🛡️ BLOCK 🌩️/🥤 ให้ครบ “ห้ามโดน BAD”',
-        why:'Mini/Boss จะนับผ่านก็ต่อเมื่อ BLOCK ช่วงท้ายและไม่โดนโจมตี'
-      };
-    }
-
-    // 2) In Storm (but not end window): stay in required side
-    if (inStorm){
-      if (waterZone === 'GREEN'){
-        return {
-          key:'storm_leave_green',
-          msg:'🌀 STORM: อย่าอยู่ GREEN — ดันน้ำไปฝั่ง LOW หรือ HIGH ตามโจทย์ก่อน แล้วค่อยคุมให้นิ่ง',
-          why:'Mini ต้องอยู่ฝั่งที่กำหนด + สะสม pressure เพื่อผ่านพายุ'
-        };
-      }
-      if (shield <= 0){
-        return {
-          key:'storm_get_shield',
-          msg:'🛡️ แนะนำ: เก็บ Shield สัก 1–2 อัน “ก่อน” เข้า End Window',
-          why:'ปลายพายุจะต้อง BLOCK ถ้าไม่มี Shield จะผ่าน Mini/Boss ยากมาก'
-        };
-      }
-      return {
-        key:'storm_keep_side',
-        msg:'🌀 STORM: คุมน้ำให้นิ่งในฝั่งที่กำหนด + เก็บ 🛡️ รอปลายพายุ',
-        why:'ความนิ่งช่วยให้ pressure ผ่านไว และพร้อม BLOCK ตอนท้าย'
-      };
-    }
-
-    // 3) Water control (outside storm)
-    if (waterZone !== 'GREEN'){
-      return {
-        key:'water_back_green',
-        msg:'💧 โซนน้ำหลุดแล้ว — ยิง 💧 เพื่อดึงกลับเข้า GREEN (อย่ารัว ให้เล็งชัวร์)',
-        why:'Stage 1 ต้องสะสมเวลาใน GREEN และคุมให้เสถียร'
-      };
-    }
-
-    // 4) Miss / accuracy management
-    if (misses >= 10 && frustration > 0.55){
-      return {
-        key:'reduce_spam',
-        msg:'🎯 MISS เริ่มเยอะ — ลดการรัว แล้วเลือกยิงเป้าที่ “ชัวร์” ก่อน คอมโบจะกลับมาเอง',
-        why:'ยิงพลาดบ่อยทำให้คะแนนและคุมน้ำยากขึ้น'
-      };
-    }
-
-    // 5) Combo encouragement
-    if (combo >= 12 && skill > 0.65){
-      return {
-        key:'combo_push',
-        msg:'⚡ คอมโบกำลังดี! ลากต่ออีกนิด คะแนนจะพุ่งเร็วมาก',
-        why:'คอมโบสูงช่วยดันเกรดและความท้าทายแบบสนุก'
-      };
-    }
-
-    // 6) Fatigue pacing
-    if (fatigue > 0.75 && misses > 0){
-      return {
-        key:'late_game_pace',
-        msg:'⏳ ช่วงท้ายแล้ว — เล่นนิ่ง ๆ เน้นชัวร์ + เก็บ 🛡️ เผื่อพายุ',
-        why:'ท้ายเกมมักพลาดง่าย ถ้าเล่นนิ่งจะเก็บแต้มได้ต่อเนื่อง'
-      };
-    }
-
-    return null;
-  }
+  }[locale.startsWith('th') ? 'th' : 'th'];
 
   function onStart(){
-    S.started = true;
-    S.ended = false;
-    S.lastTipAt = 0;
-    S.lastKey = '';
-    S.tipCount = 0;
-    S.seen = Object.create(null);
-
-    say('start', '👋 พร้อมแล้ว! คุมโซนน้ำให้อยู่ GREEN แล้วเตรียม 🛡️ ไว้ทำ STORM', 'เริ่มเกม: เป้าหมายหลักคือ GREEN + Shield');
+    startedAt = nowMs();
+    lastTipAt = 0;
+    lastKey = '';
   }
 
-  function onUpdate(ctx = {}){
-    if (!S.started || S.ended) return;
-    S.lastCtx = ctx;
+  function onUpdate(s={}){
+    const inStorm = !!s.inStorm;
+    const inEnd = !!s.inEndWindow;
+    const shield = (s.shield|0);
+    const misses = (s.misses|0);
+    const combo = (s.combo|0);
+    const acc = clamp((s.skill ?? 0.5), 0, 1);
 
-    const tip = pickTip(ctx);
-    if (!tip) return;
+    // 1) End window is urgent
+    if (inEnd){
+      if (shield > 0) say('end', T.endWindow, T.endWhy, { urgent:true });
+      else say('shield0', T.shield0, T.shieldWhy, { urgent:true });
+      return;
+    }
 
-    // mild priority bias
-    const priority = (ctx.inStorm && ctx.inEndWindow) ? 0.95 : (ctx.inStorm ? 0.8 : 0.55);
-    say(tip.key, tip.msg, tip.why, { priority });
+    // 2) Storm general prep
+    if (inStorm){
+      if (shield <= 0) say('shield0', T.shield0, T.shieldWhy);
+      else say('storm', T.stormPrep, T.stormWhy);
+      return;
+    }
+
+    // 3) Accuracy / frustration hints
+    if (misses >= 10 && acc < 0.55){
+      say('acc', T.accuracy, T.accWhy);
+      return;
+    }
+
+    // 4) Combo praise (sparingly)
+    if (combo >= 12 && (nowMs() - startedAt) > 6000){
+      say('combo', T.combo, T.comboWhy);
+      return;
+    }
+
+    // 5) Shield reminder sometimes
+    if (shield <= 0 && (nowMs() - startedAt) > 5000){
+      say('shield0', T.shield0, T.shieldWhy);
+      return;
+    }
   }
 
-  function onEnd(summary = {}){
-    if (S.ended) return;
-    S.ended = true;
-
-    // small, non-spammy wrap-up
+  function onEnd(summary={}){
+    // optional: end recap tip (rate-limited by caller usage)
     const grade = String(summary.grade || '');
-    const acc = pct(summary.accuracyGoodPct || 0);
-    const miss = Number(summary.misses || 0);
-    const mini = Number(summary.stormSuccess || 0);
-    const boss = Number(summary.bossClearCount || 0);
-
-    let msg = `🏁 จบเกม! เกรด ${grade} • Accuracy ${acc.toFixed(0)}% • MISS ${miss}`;
-    if (mini > 0) msg += ` • Mini ผ่าน ${mini}`;
-    if (boss > 0) msg += ` • Boss Clear ✅`;
-
-    emit('hha:coach', {
-      type:'end',
-      game,
-      message: msg,
-      ts: Date.now()
-    });
+    if (grade === 'C'){
+      say('endC', T.waterTooHard, T.waterWhy, { final:true });
+    }
   }
 
   return { onStart, onUpdate, onEnd };
