@@ -1,11 +1,8 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SPACIOUS (Fair Pack)
-✅ Gameplay area BIG (HUD compact)
-✅ Safe-area insets + top/bottom safe vars for spawn: --gj-top-safe / --gj-bottom-safe
-✅ Supports: view-pc / view-mobile / view-vr / view-cvr
-✅ HUD hide mode: body.hud-hidden
-✅ Missions peek: body.show-missions
-✅ Targets: stable (no blink), clear hit affordance
+GoodJunkVR UI — SPACIOUS (Fair Pack) — PATCH (Layout Safe-area v1)
+✅ Auto compact for short viewports via body.hud-compact
+✅ Quest cards auto-hide on compact (use Missions peek instead)
+✅ Safe-area vars used by engine: --gj-top-safe / --gj-bottom-safe (measured in HTML)
 */
 
 :root{
@@ -34,9 +31,9 @@ GoodJunkVR UI — SPACIOUS (Fair Pack)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* spawn safe (JS will overwrite) */
-  --gj-top-safe: 168px;
-  --gj-bottom-safe: 140px;
+  /* spawn safe (HTML will overwrite) */
+  --gj-top-safe: 112px;
+  --gj-bottom-safe: 100px;
 
   /* layout density */
   --topbar-h: 56px;
@@ -64,7 +61,7 @@ a-scene[embedded]{
   position:fixed !important;
   inset:0 !important;
   z-index:0 !important;
-  pointer-events:none !important; /* UI handles input */
+  pointer-events:none !important;
   background:transparent !important;
 }
 
@@ -124,14 +121,14 @@ a-scene[embedded]{
   color:#eafff3;
 }
 
-/* --- HUD TOP (compact) --- */
+/* --- HUD TOP --- */
 .gj-hud-top{
   position:fixed;
   left:0; right:0;
   top: calc(var(--topbar-h) + var(--sat));
   padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
   z-index:40;
-  pointer-events:none; /* HUD should not block gameplay */
+  pointer-events:none;
 }
 
 .hud-row{
@@ -223,7 +220,7 @@ a-scene[embedded]{
   background: rgba(15,23,42,.55);
 }
 
-/* --- HUD BOTTOM (compact) --- */
+/* --- HUD BOTTOM --- */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
@@ -247,14 +244,12 @@ a-scene[embedded]{
   padding: 10px;
   pointer-events:none;
 }
-
 .meter-title{
   font-weight:1200;
   font-size:12px;
   letter-spacing:.35px;
   color: rgba(229,231,235,.92);
 }
-
 .meter-bar{
   margin-top:8px;
   height: 10px;
@@ -269,14 +264,12 @@ a-scene[embedded]{
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
 }
-
 .meter-num{
   margin-top:8px;
   font-size:12px;
   color: rgba(148,163,184,.92);
   font-weight:900;
 }
-
 .meter-shield{
   margin-top:8px;
   padding:8px 10px;
@@ -286,7 +279,6 @@ a-scene[embedded]{
   font-weight:1200;
   color: rgba(229,231,235,.95);
 }
-
 .meter-tip{
   margin-top:8px;
   font-size:11px;
@@ -302,38 +294,14 @@ a-scene[embedded]{
   z-index:10;
   pointer-events:auto;
 }
-
-/* ✅ L/R layers (patched for true split in cVR) */
-.gj-layer, .gj-layer-r{
+.gj-layer,
+.gj-layer-r{
   position:absolute;
-  top:0;
-  bottom:0;
+  inset:0;
   pointer-events:auto;
 }
-
-/* default (non-cVR) */
-#gj-layer{ left:0; right:0; }
-#gj-layer-r{
-  left:0; right:0;
-  opacity:0;
-  pointer-events:none;
-}
-
-/* ✅ cVR: true 50/50 split */
-body.view-cvr #gj-layer{
-  left:0;
-  width:50vw;
-  right:auto;
-  overflow:hidden;
-}
-body.view-cvr #gj-layer-r{
-  left:50vw;
-  width:50vw;
-  right:auto;
-  opacity:1;
-  overflow:hidden;
-  pointer-events:none; /* strict shoot */
-}
+.gj-layer-r{ opacity:0; pointer-events:none; }
+body.view-cvr .gj-layer-r{ opacity:1; }
 
 /* --- Targets --- */
 .gj-target{
@@ -342,20 +310,16 @@ body.view-cvr #gj-layer-r{
   user-select:none;
   -webkit-user-select:none;
   touch-action: manipulation;
-
   line-height:1;
   filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
   text-shadow: 0 10px 30px rgba(0,0,0,.35);
-
   padding: 10px;
   border-radius: 999px;
   background: rgba(2,6,23,.35);
   border: 1px solid rgba(148,163,184,.20);
-
   opacity: 1;
   will-change: transform;
 }
-
 .gj-target:active{ transform: translate(-50%, -50%) scale(.98); }
 
 @keyframes gjPopIn{
@@ -364,10 +328,10 @@ body.view-cvr #gj-layer-r{
 }
 .gj-target.spawn{ animation: gjPopIn 120ms ease-out both; }
 
-/* cVR strict: targets cannot be clicked */
+/* cVR strict: disable pointer events so only crosshair shooting works */
 body.view-cvr .gj-target{ pointer-events:none; }
 
-/* --- MISS low time overlay --- */
+/* --- Low time overlay --- */
 .gj-lowtime-overlay{
   position:fixed;
   inset:0;
@@ -380,7 +344,6 @@ body.view-cvr .gj-target{ pointer-events:none; }
   transition: opacity .15s ease;
 }
 .gj-lowtime-overlay[aria-hidden="false"]{ opacity:1; }
-
 .gj-lowtime-ring{
   width:min(260px, 62vw);
   height:min(260px, 62vw);
@@ -439,19 +402,70 @@ body.show-missions .gj-peek{
   color: rgba(148,163,184,.92);
 }
 
-/* --- HUD hidden mode --- */
+/* --- HUD hidden mode (maximize playfield) --- */
 body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{ display:none !important; }
+body.hud-hidden .gj-hud-bot{
+  display:none !important;
+}
+
+/* =========================================================
+   ✅ PATCH: Auto HUD Compact (short viewports)
+   - ลดพื้นที่ HUD บังจอ: ซ่อน quest cards
+   - ลดความหนา pill/meter ให้เล่นได้เต็มจอ
+========================================================= */
+body.hud-compact :root{ /* (noop - keep for readability) */ }
+
+body.hud-compact .quest-row{
+  display:none !important;
+}
+
+body.hud-compact .gj-btn{
+  height:38px;
+  border-radius: 14px;
+}
+
+body.hud-compact .hud-pill{
+  min-width: 82px;
+  padding: 8px 10px;
+  border-radius: 16px;
+}
+
+body.hud-compact .hud-pill .hud-value{
+  font-size:16px;
+}
+
+body.hud-compact .gj-hud-bot{
+  grid-template-columns: 1fr; /* stack to reduce width/height pressure */
+  gap:8px;
+}
+
+body.hud-compact .meter{
+  padding: 8px;
+  border-radius: 18px;
+}
+
+body.hud-compact .meter-bar{
+  height: 9px;
+}
+
+body.hud-compact .meter-shield{
+  margin-top:6px;
+  padding:7px 10px;
+}
 
 /* --- Responsive tweaks --- */
 @media (max-width: 520px){
-  :root{ --topbar-h: 52px; --card-pad: 9px; }
+  :root{
+    --topbar-h: 52px;
+    --card-pad: 9px;
+  }
   .gj-btn{ height:40px; border-radius: 14px; }
   .hud-pill{ min-width: 86px; }
   .hud-pill .hud-value{ font-size: 17px; }
   .quest-row{ grid-template-columns: 1fr; }
   .gj-hud-bot{ grid-template-columns: 1fr; }
 }
+
 @media (min-width: 900px){
   :root{ --topbar-h: 58px; }
   .gj-hud-top{
@@ -463,6 +477,8 @@ body.hud-hidden .gj-hud-bot{ display:none !important; }
     padding-right: calc(18px + var(--sar));
   }
 }
+
+/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce){
   .gj-target.spawn{ animation:none; }
   .gj-peek{ transition:none; }
