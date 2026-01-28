@@ -1,5 +1,5 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO)
+HygieneVR Launcher — ROOT (AUTO) — v20260128a
 ✅ Auto-detect view if no ?view=
 ✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
 ✅ Root=launcher, folder=run
@@ -23,7 +23,12 @@ HygieneVR Launcher — ROOT (AUTO)
     }
     *{box-sizing:border-box}
     html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
+    .wrap{
+      min-height:100%;
+      display:grid;
+      place-items:center;
+      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))
+    }
     .card{
       width:min(760px,100%);
       border:1px solid var(--stroke);
@@ -46,21 +51,42 @@ HygieneVR Launcher — ROOT (AUTO)
     }
     .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
     code{color:rgba(34,197,94,.95)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .tiny{font-size:12px;opacity:.9}
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.60);
+      font-weight:900; font-size:12px;
+    }
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
-    <div class="title">🧼 HygieneVR — Handwash Survival</div>
-    <div class="sub" id="txt">กำลังเข้าเกมอัตโนมัติ…</div>
+    <div class="title">🧼 HygieneVR — Launcher</div>
+    <div class="sub" id="txt">กำลังพาเข้าเกมอัตโนมัติ…</div>
+
+    <div class="row">
+      <span class="pill" id="pillView">view: —</span>
+      <span class="pill" id="pillMode">run: —</span>
+      <span class="pill" id="pillDiff">diff: —</span>
+    </div>
 
     <div class="row">
       <button class="btn primary" id="btnGo">เข้าเกม</button>
       <button class="btn" id="btnHub">กลับ HUB</button>
+      <button class="btn" id="btnCopy">Copy URL</button>
+    </div>
+
+    <div class="sub tiny" style="margin-top:10px">
+      เป้าหมาย: <span class="mono" id="dest">—</span>
     </div>
 
     <div class="sub" style="margin-top:10px">
-      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code>
+      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code><br>
+      <span class="tiny">* ถ้ามี <code>?view=</code> อยู่แล้ว จะไม่ override</span>
     </div>
   </div>
 </div>
@@ -77,6 +103,8 @@ HygieneVR Launcher — ROOT (AUTO)
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
+
+    // touch + landscape + wide => cVR
     if (isTouch){
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
@@ -95,18 +123,47 @@ HygieneVR Launcher — ROOT (AUTO)
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
+
+    // ensure hub exists
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
     return u.toString();
   }
 
   function go(){ location.href = buildRunUrl(); }
 
+  // UI
+  const dest = document.getElementById('dest');
+  const txt  = document.getElementById('txt');
+  const pillView = document.getElementById('pillView');
+  const pillMode = document.getElementById('pillMode');
+  const pillDiff = document.getElementById('pillDiff');
+
+  const run = (qs('run','play')||'play');
+  const diff = (qs('diff','normal')||'normal');
+  const view = (qs('view','')||detectView());
+
+  if(pillView) pillView.textContent = 'view: ' + view;
+  if(pillMode) pillMode.textContent = 'run: ' + run;
+  if(pillDiff) pillDiff.textContent = 'diff: ' + diff;
+
+  const target = buildRunUrl();
+  if(dest) dest.textContent = target;
+  if(txt) txt.textContent = 'กำลังพาเข้าเกม…';
+
   document.getElementById('btnGo')?.addEventListener('click', go);
   document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = hub);
+  document.getElementById('btnCopy')?.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(target);
+      if(txt) txt.textContent = '✅ คัดลอก URL แล้ว';
+      setTimeout(()=>{ if(txt) txt.textContent = 'กำลังพาเข้าเกม…'; }, 900);
+    }catch{
+      if(txt) txt.textContent = '⚠️ คัดลอกไม่สำเร็จ';
+    }
+  });
 
-  const txt = document.getElementById('txt');
-  if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
-
+  // auto redirect (กันโดน browser block: ใช้ delay สั้น)
   setTimeout(go, 120);
 })();
 </script>
