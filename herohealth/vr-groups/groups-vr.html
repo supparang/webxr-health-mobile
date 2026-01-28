@@ -4,9 +4,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
+✅ PACK 13.95: Telemetry (lite/full/off) + throttle + flush-hardened + auto-downgrade by FPS
 ✅ NEW (1): Big Banner current group + events
 ✅ NEW (2): DL-lite Predictor + Explainable micro-tips (play only; off in research/practice)
-✅ PACK 13.9: Telemetry HUD status + Dock (Resend/Export) + Flush-hardened
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -28,9 +28,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Telemetry (PACK 13.9) -->
-  <script src="./telemetry.js" defer></script>
-
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
@@ -39,6 +36,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
+
+  <!-- ✅ PACK 13.95: Telemetry -->
+  <script src="./telemetry.js" defer></script>
 
   <!-- Engine -->
   <script src="./groups.safe.js" defer></script>
@@ -60,18 +60,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <div class="pill"><span class="lbl">🔥 COMBO</span><span id="vCombo" class="val">0</span></div>
       <div class="pill"><span class="lbl">❌ MISS</span><span id="vMiss" class="val">0</span></div>
     </div>
-
     <div class="hudRight">
       <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
       <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
       <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
-
-      <!-- ✅ PACK 13.9: Telemetry status pill -->
-      <div id="telePill" class="pill pill-tele">
-        <span class="lbl">📡 TELE</span>
-        <span id="vTele" class="val">OFF</span>
-        <span id="vTeleQ" class="teleq">0/0</span>
-      </div>
     </div>
   </div>
 
@@ -96,7 +88,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
-  <!-- Big Banner -->
+  <!-- ✅ NEW (1): Big Banner -->
   <div id="bigBanner" class="bigBanner hidden" aria-live="polite">
     <div id="bigBannerText" class="bigBannerText">—</div>
   </div>
@@ -124,21 +116,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- ✅ PACK 13.9: Telemetry Dock (optional, show when ?teleUI=1) -->
-  <div id="teleDock" class="teleDock hidden">
-    <div class="teleDockHead">📡 Telemetry</div>
-    <div class="teleDockRow">
-      <button id="btnTeleResend" class="teleBtn" type="button">📤 Resend now</button>
-      <button id="btnTeleExport" class="teleBtn" type="button">🧾 Export pending</button>
-    </div>
-    <div class="teleDockRow">
-      <button id="btnTeleCopy" class="teleBtn teleBtnGhost" type="button">📋 Copy JSON</button>
-      <button id="btnTeleClear" class="teleBtn teleBtnGhost" type="button">🧹 Clear queue</button>
-    </div>
-    <div id="teleDockLine" class="teleDockLine">OFF • 0 batches / 0 events</div>
-  </div>
-
-  <!-- Calibration overlay (cVR only) -->
+  <!-- PACK 13: Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
     <div class="panel calPanel">
       <div class="title">🧭 Calibration (Cardboard)</div>
@@ -188,12 +166,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <div class="row row2">
         <button id="btnBackLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
         <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
-      </div>
-
-      <!-- ✅ PACK 13.9: Telemetry quick actions (always safe) -->
-      <div class="row row2">
-        <button id="btnTeleResend2" class="btn btn-ghost" type="button">📡 Resend logs</button>
-        <button id="btnTeleExport2" class="btn btn-ghost" type="button">🧾 Export pending</button>
       </div>
 
       <div class="note" style="margin-top:10px;">
@@ -252,7 +224,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
+  // =========================
   // Big Banner API
+  // =========================
   let bannerTmr = 0;
   function showBanner(text, tone='neutral', ms=1200){
     const el = $('bigBanner');
@@ -272,6 +246,25 @@ GroupsVR Run (PC/Mobile/Cardboard)
       }catch(_){}
     }, clamp(ms, 600, 2500));
   }
+
+  // ✅ PACK 13.95: show banner when telemetry auto-switch happens
+  window.addEventListener('groups:telemetry_auto', (ev)=>{
+    const d = ev.detail || {};
+    if (d.kind === 'switch'){
+      const msg =
+        (d.to === 'lite') ? `📡 TELE ลดเป็น LITE (FPS ${d.fps})` :
+        (d.to === 'off')  ? `📡 TELE ปิดชั่วคราว (FPS ${d.fps})` :
+                            `📡 TELE → ${String(d.to||'')}`;
+
+      showBanner(msg, 'warn', 1300);
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:coach', {
+          detail:{ text:`เครื่องเริ่มหน่วง (FPS ${d.fps}) เลยลดการเก็บ log เพื่อให้เล่นลื่นขึ้น ✅`, mood:'neutral' }
+        }));
+      }catch(_){}
+    }
+  }, { passive:true });
 
   // ---------- HUD binds ----------
   let _score=0,_combo=0,_miss=0,_acc=0,_left=90,_storm=false,_miniUrg=false;
@@ -324,6 +317,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   window.addEventListener('quest:update', (ev)=>{
     const d = ev.detail||{};
 
+    const gTitle = String(d.goalTitle||'—');
     const gNow   = Number(d.goalNow||0);
     const gTot   = Math.max(1, Number(d.goalTotal||1));
     const gPct   = clamp(d.goalPct ?? (gNow/gTot*100), 0, 100);
@@ -337,7 +331,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('goalTitle').textContent = '🎯 GOAL';
     $('goalCount').textContent = `${gNow}/${gTot}`;
     $('goalFill').style.width = Math.round(gPct) + '%';
-    $('goalSub').textContent = String(d.goalTitle||'—');
+    $('goalSub').textContent = gTitle;
 
     $('miniTitle').textContent = '⚡ MINI';
     $('miniFill').style.width = Math.round(mPct) + '%';
@@ -366,88 +360,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     if (k === 'perfect_switch'){ showBanner('🔄 สลับหมู่!', 'neutral', 1000); }
   }, {passive:true});
 
-  // ---------- Telemetry UI (PACK 13.9) ----------
-  function teleUIOn(){
-    const on = String(qs('teleUI','0')||'0');
-    return (on === '1' || on === 'true');
-  }
-
-  function setTelePillState(st){
-    const pill = $('telePill');
-    if (!pill) return;
-
-    const mode = (st && st.enabled) ? String(st.mode||'off').toUpperCase() : 'OFF';
-    const qtxt = `${st ? (st.pendingBatches|0) : 0}/${st ? (st.pendingEvents|0) : 0}`;
-
-    $('vTele').textContent = mode;
-    $('vTeleQ').textContent = qtxt;
-
-    pill.classList.remove('tele-off','tele-ok','tele-pending','tele-fail');
-
-    if (!st || !st.enabled) pill.classList.add('tele-off');
-    else if ((st.pendingEvents|0) > 0) pill.classList.add('tele-pending');
-    else if (String(st.lastSendResult||'') === 'fail' && (st.lastFailMsAgo>=0 && st.lastFailMsAgo < 15000)) pill.classList.add('tele-fail');
-    else pill.classList.add('tele-ok');
-
-    // tooltip line (dock)
-    const line = $('teleDockLine');
-    if (line){
-      const ep = st && st.endpoint ? 'EP✅' : 'EP—';
-      const infl = st && st.inFlight ? 'SENDING' : 'IDLE';
-      line.textContent = `${mode} • ${qtxt} • ${ep} • ${infl}`;
-    }
-  }
-
-  window.addEventListener('groups:telemetry_status', (ev)=>{
-    setTelePillState(ev.detail||null);
-  }, {passive:true});
-
-  function tele(){
-    return window.GroupsVR && window.GroupsVR.Telemetry;
-  }
-
-  function showTeleDock(on){
-    const el = $('teleDock');
-    if (!el) return;
-    el.classList.toggle('hidden', !on);
-  }
-
-  function bindTeleButtons(){
-    const resend = async ()=>{
-      const T = tele();
-      if (!T || !T.resendNow) { alert('Telemetry ไม่พร้อม'); return; }
-      const r = await T.resendNow();
-      showBanner(r && r.ok ? '📤 ส่ง log แล้ว' : '⚠️ ส่งไม่สำเร็จ (ค้างในคิว)', r && r.ok ? 'good' : 'warn', 1000);
-    };
-
-    const exportP = async ()=>{
-      const T = tele();
-      if (!T || !T.exportPending) { alert('Telemetry ไม่พร้อม'); return; }
-      const s = T.exportPending();
-      const ok = await copyText(s);
-      showBanner(ok ? '📋 คัดลอก pending JSON แล้ว' : 'Copy ไม่สำเร็จ', ok ? 'good' : 'warn', 1100);
-    };
-
-    const clearQ = ()=>{
-      const T = tele();
-      if (!T || !T.clearQueue) { alert('Telemetry ไม่พร้อม'); return; }
-      T.clearQueue();
-      showBanner('🧹 ล้างคิวแล้ว', 'neutral', 900);
-    };
-
-    const b1 = $('btnTeleResend');  b1 && b1.addEventListener('click', resend);
-    const b2 = $('btnTeleExport');  b2 && b2.addEventListener('click', exportP);
-    const b3 = $('btnTeleCopy');    b3 && b3.addEventListener('click', exportP);
-    const b4 = $('btnTeleClear');   b4 && b4.addEventListener('click', clearQ);
-
-    const e1 = $('btnTeleResend2'); e1 && e1.addEventListener('click', resend);
-    const e2 = $('btnTeleExport2'); e2 && e2.addEventListener('click', exportP);
-  }
-
   // ---------- Summary / History ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
-
   let lastSummary = null;
   let startIso = new Date().toISOString();
 
@@ -490,6 +405,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
+    // practice chain → auto start real run
     if (practiceActive && !practiceDone){
       practiceDone = true;
       practiceActive = false;
@@ -570,6 +486,24 @@ GroupsVR Run (PC/Mobile/Cardboard)
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.init && H.init({ view });
+    }catch(_){}
+  }
+
+  // ✅ PACK 13.95: init Telemetry (safe)
+  function initTelemetry(runMode){
+    try{
+      const T = window.GroupsVR && window.GroupsVR.Telemetry;
+      if (!T || !T.init) return;
+
+      // runMode: play|research|practice (ย้ำอีกที)
+      T.init({
+        runMode,
+        endpoint: String(qs('log','')||''),
+        flushEveryMs: 2000,
+        maxEventsPerBatch: 60,
+        maxQueueBatches: 16,
+        statusEveryMs: 850
+      });
     }catch(_){}
   }
 
@@ -670,9 +604,18 @@ GroupsVR Run (PC/Mobile/Cardboard)
       const diff = String(qs('diff','normal')||'normal').toLowerCase();
       const style= String(qs('style','mix')||'mix').toLowerCase();
       const seed = String(qs('seed', Date.now()) || Date.now());
+
+      // ✅ init telemetry as PRACTICE (will force off)
+      initTelemetry('practice');
+
       startPractice(E, { diff, style, seed, practiceSec });
       return;
     }
+
+    // ✅ init telemetry as PLAY/RESEARCH (will force off on research)
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    initTelemetry(run);
+
     startReal(E);
   }
 
@@ -695,7 +638,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // ---------- DL-lite Predictor (เดิม) ----------
+  // =========================
+  // ✅ NEW (2): DL-lite Predictor (play only, gated by ?ai=1)
+  // =========================
   const PRED = {
     on: false,
     lastTipAt: 0,
@@ -705,6 +650,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   };
 
   function sigmoid(x){ return 1 / (1 + Math.exp(-x)); }
+
   function riskScore(f){
     const w = [ 1.35, 1.10, -0.35, 0.55, 0.65, 0.55 ];
     const b = -0.55;
@@ -712,11 +658,21 @@ GroupsVR Run (PC/Mobile/Cardboard)
     for (let i=0;i<w.length;i++) z += w[i] * (Number(f[i])||0);
     return sigmoid(z);
   }
+
   function pushHist(){
     const t = nowMs();
-    PRED.hist.push({ t, miss:_miss|0, acc:_acc|0, combo:_combo|0, left:_left|0, storm:_storm?1:0, miniUrg:_miniUrg?1:0 });
+    PRED.hist.push({
+      t,
+      miss:_miss|0,
+      acc:_acc|0,
+      combo:_combo|0,
+      left:_left|0,
+      storm: _storm?1:0,
+      miniUrg: _miniUrg?1:0
+    });
     if (PRED.hist.length > PRED.maxHist) PRED.hist.shift();
   }
+
   function calcMissRate10s(){
     const t = nowMs();
     const cut = t - 10000;
@@ -725,18 +681,24 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const dm = (a[a.length-1].miss - a[0].miss);
     return Math.max(0, dm) / 10;
   }
+
   function shouldTip(){
     const t = nowMs();
     return (t - PRED.lastTipAt) > 1600;
   }
+
   function tip(text, mood='neutral'){
     if (!PRED.on) return;
     if (!shouldTip()) return;
     PRED.lastTipAt = nowMs();
-    try{ window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } })); }catch(_){}
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } }));
+    }catch(_){}
   }
+
   function tickPredictor(){
     if (!PRED.on) return;
+
     pushHist();
 
     const missRate = Math.min(1, calcMissRate10s() * 2.2);
@@ -773,7 +735,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   let predIt = 0;
   function startPredictorIfAllowed(runMode){
-    PRED.on = (aiEnabled() && runMode === 'play');
+    const on = String(qs('ai','0')||'0');
+    PRED.on = ((on==='1'||on==='true') && runMode === 'play');
     if (!PRED.on) return;
     clearInterval(predIt);
     predIt = setInterval(tickPredictor, 800);
@@ -784,7 +747,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     clearInterval(predIt);
   }
 
-  // ---------- Start game ----------
+  // ---------- PACK 15: AI hooks attach + predictor ----------
   function startReal(E){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
@@ -795,12 +758,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
     startIso = new Date().toISOString();
-
-    // ✅ PACK 13.9: init telemetry early (play only; research/practice off hard inside)
-    try{
-      const T = window.GroupsVR && window.GroupsVR.Telemetry;
-      if (T && T.init) T.init({ runMode: run, endpoint: String(qs('log','')||'') });
-    }catch(_){}
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
@@ -817,15 +774,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
+  // ---------- Start ----------
   function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
-
     setView(view);
     initViewHelper(view);
-
-    // ✅ show dock if asked
-    showTeleDock(teleUIOn());
-    bindTeleButtons();
 
     showBanner('เริ่มเกม! เล็งให้ตรงหมู่ 🎯', 'neutral', 1000);
 
@@ -838,9 +791,17 @@ GroupsVR Run (PC/Mobile/Cardboard)
         const diff = String(qs('diff','normal')||'normal').toLowerCase();
         const style= String(qs('style','mix')||'mix').toLowerCase();
         const seed = String(qs('seed', Date.now()) || Date.now());
+
+        // ✅ init telemetry as PRACTICE (forces off)
+        initTelemetry('practice');
+
         startPractice(E, { diff, style, seed, practiceSec });
         return;
       }
+
+      const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+      initTelemetry(run);
+
       startReal(E);
     });
   }
