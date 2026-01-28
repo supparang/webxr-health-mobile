@@ -1,9 +1,8 @@
 <!-- === /herohealth/hygiene-vr.html ===
 HygieneVR Launcher — ROOT (AUTO)
-✅ Auto-detect view if NO ?view=
-✅ Pass-through ALL params -> /herohealth/hygiene-vr/hygiene-vr.html (RUN in folder)
+✅ Auto-detect view if no ?view=
+✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
 ✅ Root=launcher, folder=run
-✅ DO NOT override if user already sets ?view=
 -->
 <!doctype html>
 <html lang="th">
@@ -20,16 +19,11 @@ HygieneVR Launcher — ROOT (AUTO)
       --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
       --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
-      --r:22px; --pill:999px;
+      --r:22px;
     }
     *{box-sizing:border-box}
     html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{
-      min-height:100%;
-      display:grid;
-      place-items:center;
-      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-    }
+    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
       width:min(760px,100%);
       border:1px solid var(--stroke);
@@ -52,18 +46,6 @@ HygieneVR Launcher — ROOT (AUTO)
     }
     .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
     code{color:rgba(34,197,94,.95)}
-    .pill{
-      display:inline-flex;align-items:center;gap:8px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      border-radius: var(--pill);
-      padding: 6px 10px;
-      font-weight:900;
-      font-size:12px;
-      color: rgba(229,231,235,.95);
-      margin-top:10px;
-    }
-    .pill .muted{color:rgba(148,163,184,.95);font-weight:800}
   </style>
 </head>
 <body>
@@ -77,17 +59,8 @@ HygieneVR Launcher — ROOT (AUTO)
       <button class="btn" id="btnHub">กลับ HUB</button>
     </div>
 
-    <div class="pill">
-      <span>View:</span>
-      <span class="muted" id="labView">detect…</span>
-      <span style="opacity:.55">•</span>
-      <span>Run URL:</span>
-      <span class="muted" id="labUrl">—</span>
-    </div>
-
     <div class="sub" style="margin-top:10px">
-      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code><br>
-      ✅ ถ้ามี <code>?view=</code> อยู่แล้ว Launcher จะ <b>ไม่ override</b>
+      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code>
     </div>
   </div>
 </div>
@@ -95,25 +68,19 @@ HygieneVR Launcher — ROOT (AUTO)
 <script>
 (function(){
   'use strict';
-
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-
   const hub = String(qs('hub','./hub.html'));
-  const RUN_URL = './hygiene-vr/hygiene-vr.html'; // ✅ folder=run
+  const RUN_URL = './hygiene-vr/hygiene-vr.html';
 
   function detectView(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
-
-    // Touch devices: mobile or cvr (landscape wide)
     if (isTouch){
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
-
-    // Desktop: pc
     return 'pc';
   }
 
@@ -121,38 +88,28 @@ HygieneVR Launcher — ROOT (AUTO)
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
-    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
     // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
-
-    // ensure hub
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
+    // cache-bust tiny (optional)
+    if (!u.searchParams.get('v')) u.searchParams.set('v', String(Date.now()));
 
     return u.toString();
   }
 
   function go(){ location.href = buildRunUrl(); }
 
-  // UI
   document.getElementById('btnGo')?.addEventListener('click', go);
   document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = hub);
 
   const txt = document.getElementById('txt');
   if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
-  // show debug labels
-  const u = buildRunUrl();
-  const v = (new URL(u, location.href)).searchParams.get('view') || '—';
-  const labView = document.getElementById('labView');
-  const labUrl  = document.getElementById('labUrl');
-  if (labView) labView.textContent = v;
-  if (labUrl)  labUrl.textContent  = '…/hygiene-vr/hygiene-vr.html';
-
-  // auto redirect
   setTimeout(go, 120);
 })();
 </script>
