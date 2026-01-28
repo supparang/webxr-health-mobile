@@ -1,58 +1,35 @@
-// === /fitness/js/stats-store.js — Local summary store for VR Fitness (PATCH 2026-01-27) ===
+// === /fitness/js/stats-store.js ===
+// Local stats store for VR Fitness Academy
+
 'use strict';
 
-const KEY = 'vrfitness_stats_v1';
-const MAX_ITEMS = 100;
+const KEY = 'VRFIT_STATS_V1';
 
-function safeJsonParse(raw, fallback) {
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v : fallback;
-  } catch {
-    return fallback;
-  }
+function safeParse(s){
+  try{ return JSON.parse(s); }catch(_){ return null; }
 }
 
-/**
- * บันทึก summary ของ 1 session ลง localStorage
- * @param {string} gameId  เช่น 'shadow-breaker'
- * @param {Object} summary ข้อมูลสรุป session จาก engine
- */
-export function recordSession(gameId, summary) {
-  try {
-    if (!gameId) return;
-    const now = Date.now();
-    const item = { gameId: String(gameId), ts: now, ...(summary || {}) };
+export function recordSession(gameKey, summary){
+  const raw = localStorage.getItem(KEY);
+  const obj = safeParse(raw) || { sessions: [] };
 
-    const raw = localStorage.getItem(KEY);
-    const list = raw ? safeJsonParse(raw, []) : [];
+  obj.sessions.push({
+    game: gameKey,
+    ...summary
+  });
 
-    list.unshift(item);
-    const trimmed = list.slice(0, MAX_ITEMS);
-    localStorage.setItem(KEY, JSON.stringify(trimmed));
-  } catch (e) {
-    console.warn('VRFitness: cannot save stats', e);
-  }
+  // cap
+  if (obj.sessions.length > 500) obj.sessions.splice(0, obj.sessions.length - 500);
+
+  localStorage.setItem(KEY, JSON.stringify(obj));
 }
 
-/**
- * โหลดประวัติ session ทั้งหมดจาก localStorage
- * @returns {Array<Object>}
- */
-export function loadSessions() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? safeJsonParse(raw, []) : [];
-  } catch {
-    return [];
-  }
+export function loadSessions(){
+  const raw = localStorage.getItem(KEY);
+  const obj = safeParse(raw) || { sessions: [] };
+  return Array.isArray(obj.sessions) ? obj.sessions : [];
 }
 
-/**
- * ล้างประวัติทั้งหมด (เผื่อทำปุ่ม reset ในหน้า stats)
- */
-export function clearSessions() {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {}
+export function clearSessions(){
+  localStorage.removeItem(KEY);
 }
