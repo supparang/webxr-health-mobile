@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run) — PATCH (Layout Safe-area v1)
-✅ Safe-zone measure แบบแยกส่วน (topbar + hud row + quest row เฉพาะตอนแสดง)
-✅ Auto HUD Compact บนจอเตี้ย: body.hud-compact (ลดการบังพื้นที่เล่น)
-✅ Listen: gj:measureSafe -> re-measure (engine เรียกได้)
-✅ Still supports: Missions peek, Hide HUD, Back HUB
+GoodJunkVR RUN — PRODUCTION — PATCH v4
+✅ CSS: ./goodjunk-vr.css
+✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
+✅ Adds: Progress + Boss UI IDs for safe.js v4
+✅ Hooks: gj:measureSafe -> updateSafe()
+✅ A-Frame minimal scene for Enter VR reliability
 -->
 <!doctype html>
 <html lang="th">
@@ -49,9 +50,14 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) — PATCH (Layout Safe-area v1)
     </div>
   </header>
 
+  <!-- ✅ PROGRESS -->
+  <div id="gjProgress" aria-hidden="false">
+    <div id="gjProgressFill"></div>
+  </div>
+
   <!-- HUD TOP -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
-    <div class="hud-row" id="gjHudRow">
+    <div class="hud-row">
       <div class="hud-pill">
         <div class="hud-label">SCORE</div>
         <div class="hud-value" id="hud-score">0</div>
@@ -70,8 +76,8 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) — PATCH (Layout Safe-area v1)
       </div>
     </div>
 
-    <!-- Quest cards (auto-hide on small height via body.hud-compact) -->
-    <div class="quest-row" id="gjQuestRow">
+    <!-- quest cards (mobile จะถูก CSS ซ่อน) -->
+    <div class="quest-row">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
         <div class="q-desc" id="goalDesc">—</div>
@@ -92,7 +98,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) — PATCH (Layout Safe-area v1)
     </div>
   </section>
 
-  <!-- HUD BOTTOM -->
+  <!-- HUD BOTTOM (mobile จะถูก CSS ซ่อน) -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever" id="gjHudFever">
       <div class="meter-title">FEVER</div>
@@ -129,12 +135,16 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) — PATCH (Layout Safe-area v1)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
+  <!-- ✅ BOSS BAR (safe.js v4 uses these ids) -->
+  <div id="bossBar" aria-hidden="true">
+    <div id="bossHint">—</div>
+    <div id="bossTrack"><div id="bossFill"></div></div>
+  </div>
+
   <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const px=(n)=>Math.max(0, Math.floor(Number(n)||0)) + 'px';
-
       const hub = qs('hub', null);
 
       const btnBack = document.getElementById('btnBackHub');
@@ -159,7 +169,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) — PATCH (Layout Safe-area v1)
 
       btnHide?.addEventListener('click', ()=>{
         document.body.classList.toggle('hud-hidden');
-        // re-measure safe-zone after toggling
         setTimeout(updateSafe, 0);
       });
 
@@ -176,68 +185,49 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) — PATCH (Layout Safe-area v1)
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ---- Auto compact HUD when viewport is short (common on mobile) ----
-      function applyAutoCompact(){
-        try{
-          const h = window.innerHeight || document.documentElement.clientHeight || 700;
-          const w = window.innerWidth  || document.documentElement.clientWidth  || 360;
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
+      function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
 
-          // heuristics: short height OR very tall-narrow
-          const compact = (h < 720) || (h < 820 && w < 520);
-
-          document.body.classList.toggle('hud-compact', !!compact);
-        }catch(_){}
+      function isDisplayed(el){
+        if(!el) return false;
+        const cs = getComputedStyle(el);
+        return cs.display !== 'none' && cs.visibility !== 'hidden';
       }
 
-      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function updateSafe(){
         try{
-          applyAutoCompact();
+          const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
 
-          const root = document.documentElement;
-          const cs = getComputedStyle(root);
+          const topbarEl = document.getElementById('gjTopbar');
+          const hudTopEl = document.getElementById('gjHudTop');
+          const hudBotEl = document.getElementById('gjHudBot');
+          const progEl   = document.getElementById('gjProgress');
+          const bossEl   = document.getElementById('bossBar');
 
-          const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
-          const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+          const topbarH = isDisplayed(topbarEl) ? (topbarEl.getBoundingClientRect().height || 0) : 0;
+          const hudTopH = isDisplayed(hudTopEl) ? (hudTopEl.getBoundingClientRect().height || 0) : 0;
 
-          const topbar = document.getElementById('gjTopbar');
-          const hudRow = document.getElementById('gjHudRow');
-          const questRow = document.getElementById('gjQuestRow');
-          const hudBot = document.getElementById('gjHudBot');
+          // progress is thin; count tiny padding only
+          const progH   = isDisplayed(progEl)   ? (progEl.getBoundingClientRect().height || 0) : 0;
 
-          const topbarH = topbar ? topbar.getBoundingClientRect().height : 0;
-          const hudRowH = (document.body.classList.contains('hud-hidden') ? 0 : (hudRow ? hudRow.getBoundingClientRect().height : 0));
+          // bottom safe includes hudBot + boss (if visible)
+          const hudBotH = isDisplayed(hudBotEl) ? (hudBotEl.getBoundingClientRect().height || 0) : 0;
+          const bossH   = isDisplayed(bossEl)   ? (bossEl.getBoundingClientRect().height || 0) : 0;
 
-          // quest row counts ONLY if it is visible (not compact + not hidden)
-          let questH = 0;
-          const compact = document.body.classList.contains('hud-compact');
-          const hudHidden = document.body.classList.contains('hud-hidden');
+          // top safe includes sat
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbarH + hudTopH + progH + 10 + sat));
 
-          if(!compact && !hudHidden && questRow){
-            // if display:none -> height=0
-            questH = questRow.getBoundingClientRect().height || 0;
-          }
-
-          const hudBotH = (hudHidden ? 0 : (hudBot ? hudBot.getBoundingClientRect().height : 0));
-
-          // Top safe = topbar + hudRow + (quest if showing) + some gap + sat
-          const topSafe = topbarH + hudRowH + questH + 12 + sat;
-
-          // Bottom safe = hudBot + some gap + sab, but keep thumb zone min
-          const bottomSafe = Math.max(90, hudBotH + 14 + sab);
-
-          root.style.setProperty('--gj-top-safe', px(topSafe));
-          root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
+          // bottom safe: keep thumb zone even if hudBot hidden on mobile
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(95, hudBotH + bossH + 12)));
         }catch(_){}
       }
 
-      // engine can ask us to re-measure (e.g. boss bar show/hide)
-      window.addEventListener('gj:measureSafe', ()=>setTimeout(updateSafe, 0), { passive:true });
+      window.addEventListener('resize', updateSafe, {passive:true});
+      window.addEventListener('orientationchange', updateSafe, {passive:true});
 
-      window.addEventListener('resize', ()=>setTimeout(updateSafe, 0), { passive:true });
-      window.addEventListener('orientationchange', ()=>setTimeout(updateSafe, 0), { passive:true });
+      // ✅ CRITICAL: safe.js v4 emits this when boss bar toggles
+      window.addEventListener('gj:measureSafe', ()=>setTimeout(updateSafe, 0), {passive:true});
 
-      // initial measures
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
