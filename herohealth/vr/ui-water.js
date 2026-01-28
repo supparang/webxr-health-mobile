@@ -1,8 +1,8 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION (UPDATED)
-// ✅ ensureWaterGauge() will NOT create if page already has built-in water panel
-// ✅ Supports thresholds via window.HHA_WATER_ZONE = { greenMin, greenMax }
+// Water Gauge Utilities — PRODUCTION (Adaptive Position)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
+// ✅ Auto-position by view: PC=BL, Mobile=BR, cVR=TL, Cardboard=TL (safe for lens)
+// ✅ Safe-area aware + no pointer blocking
 
 'use strict';
 
@@ -11,46 +11,89 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-function getThresholds(){
-  // Optional override:
-  // window.HHA_WATER_ZONE = { greenMin: 42, greenMax: 68 }
-  const z = ROOT.HHA_WATER_ZONE || {};
-  const greenMin = clamp(z.greenMin ?? 45, 0, 100);
-  const greenMax = clamp(z.greenMax ?? 65, 0, 100);
-  const lo = Math.min(greenMin, greenMax);
-  const hi = Math.max(greenMin, greenMax);
-  return { greenMin: lo, greenMax: hi };
+// ---------- View helpers ----------
+function getView(){
+  try{
+    const body = DOC?.body;
+    if (!body) return 'pc';
+    if (body.classList.contains('view-cvr')) return 'cvr';
+    if (body.classList.contains('cardboard')) return 'cardboard';
+    if (body.classList.contains('view-mobile')) return 'mobile';
+    if (body.classList.contains('view-pc')) return 'pc';
+    // fallback by query
+    const v = new URL(location.href).searchParams.get('view');
+    return (v||'pc').toLowerCase();
+  }catch(_){ return 'pc'; }
 }
 
-// Zone
+function setPosStyle(el, view){
+  // safe-area
+  const sat = 'env(safe-area-inset-top, 0px)';
+  const sar = 'env(safe-area-inset-right, 0px)';
+  const sab = 'env(safe-area-inset-bottom, 0px)';
+  const sal = 'env(safe-area-inset-left, 0px)';
+
+  // reset anchors
+  el.style.top = '';
+  el.style.right = '';
+  el.style.bottom = '';
+  el.style.left = '';
+
+  // base offsets
+  const pad = 12;           // UI margin
+  const topPad = 12;
+  const bottomPad = 12;
+
+  // Position rules:
+  // - PC: bottom-left
+  // - Mobile: bottom-right (avoid quest/left HUD)
+  // - cVR/Cardboard: top-left (avoid lens cut + keep center clear)
+  if (view === 'mobile'){
+    el.style.right  = `calc(${pad}px + ${sar})`;
+    el.style.bottom = `calc(${bottomPad}px + ${sab})`;
+    el.style.left = 'auto';
+    el.style.top = 'auto';
+    el.style.transform = 'none';
+  } else if (view === 'cvr' || view === 'cardboard'){
+    el.style.left = `calc(${pad}px + ${sal})`;
+    el.style.top  = `calc(${topPad}px + ${sat})`;
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.transform = 'none';
+  } else {
+    // pc default
+    el.style.left   = `calc(${pad}px + ${sal})`;
+    el.style.bottom = `calc(${bottomPad}px + ${sab})`;
+    el.style.right = 'auto';
+    el.style.top = 'auto';
+    el.style.transform = 'none';
+  }
+}
+
+// ---------- Zone ----------
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
-  const { greenMin, greenMax } = getThresholds();
-  if (p >= greenMin && p <= greenMax) return 'GREEN';
-  if (p < greenMin) return 'LOW';
+  if (p >= 45 && p <= 65) return 'GREEN';
+  if (p < 45) return 'LOW';
   return 'HIGH';
 }
 
-function hasBuiltInPanel(){
-  if (!DOC) return false;
-  // hydration.safe.js uses these ids for its own panel
-  return !!(DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone'));
-}
-
+// ---------- Mount ----------
 export function ensureWaterGauge(){
   if (!DOC) return;
-
-  // ✅ Prevent double gauge if page already has panel
-  if (hasBuiltInPanel()) return;
-
-  if (DOC.getElementById('hha-water-gauge')) return;
+  if (DOC.getElementById('hha-water-gauge')) {
+    // ensure position updates if view changed after loader
+    try{
+      const el = DOC.getElementById('hha-water-gauge');
+      if (el) setPosStyle(el, getView());
+    }catch(_){}
+    return;
+  }
 
   const wrap = DOC.createElement('div');
   wrap.id = 'hha-water-gauge';
   wrap.style.cssText = [
     'position:fixed',
-    'left:12px',
-    'bottom:12px',
     'z-index:60',
     'pointer-events:none',
     'width:220px',
@@ -79,28 +122,40 @@ export function ensureWaterGauge(){
     </div>
   `;
 
+  // set adaptive position now + later (orientation changes)
+  setPosStyle(wrap, getView());
+
   DOC.body.appendChild(wrap);
+
+  // keep position correct on rotate / resize / view class changes after load
+  const onReflow = ()=>{
+    try{ setPosStyle(wrap, getView()); }catch(_){}
+  };
+  try{
+    window.addEventListener('resize', onReflow, { passive:true });
+    window.addEventListener('orientationchange', onReflow, { passive:true });
+    // also reflow after a short delay (some mobile browsers apply safe-area later)
+    setTimeout(onReflow, 250);
+    setTimeout(onReflow, 900);
+  }catch(_){}
 }
 
 export function setWaterGauge(pct){
   if (!DOC) return;
   const p = clamp(pct,0,100);
-  const zone = zoneFrom(p);
-
-  // 1) If we have the utility gauge, update it
   const bar = DOC.getElementById('hha-water-bar');
   const t = DOC.getElementById('hha-water-pct');
   const z = DOC.getElementById('hha-water-zone');
 
   if (bar) bar.style.width = p.toFixed(0) + '%';
   if (t) t.textContent = String(p|0);
+
+  const zone = zoneFrom(p);
   if (z) z.textContent = zone;
 
-  // 2) If page has built-in panel ids, update them too (safe no-op)
-  const bar2 = DOC.getElementById('water-bar');
-  const pct2 = DOC.getElementById('water-pct');
-  const zone2 = DOC.getElementById('water-zone');
-  if (bar2) bar2.style.width = p.toFixed(0) + '%';
-  if (pct2) pct2.textContent = String(p|0);
-  if (zone2) zone2.textContent = zone;
+  // ensure position stays correct (in case view class is applied after import)
+  try{
+    const wrap = DOC.getElementById('hha-water-gauge');
+    if (wrap) setPosStyle(wrap, getView());
+  }catch(_){}
 }
