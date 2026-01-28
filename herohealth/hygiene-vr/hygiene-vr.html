@@ -1,11 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr (via body class)
-✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot (cVR)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz bank: ./hygiene-quiz-bank.js (global window.HHA_HYGIENE_QUIZ_BANK)
-✅ Particles FX: ../vr/particles.js (defer)
-✅ Boot: hygiene-vr.boot.js (module) with anti-stall + readable errors
+✅ Quiz bank: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ FX: listens to hha:judge + hha:badge and uses Particles
 -->
 <!doctype html>
 <html lang="th">
@@ -16,24 +15,23 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS (ต้อง 200 ไม่ใช่ 404 ไม่งั้น “Effect หายหมด”) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260128a" />
 
-  <!-- ✅ Universal VR UI (MUST defer) -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- ✅ FX / helpers -->
+  <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- ✅ AI packs (optional) -->
+  <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์ต้องตรงของคุณ) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์จริง) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- ✅ Boot (module) -->
+  <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260128a"></script>
 </head>
 
@@ -85,13 +83,8 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
-
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-
-        <div class="hw-card-sub" id="fxHint" style="margin-top:8px; opacity:.95">
-          ตรวจ FX: <span id="fxCss">CSS …</span> • <span id="fxQuiz">Quiz …</span> • <span id="fxPart">Particles …</span>
         </div>
       </div>
     </div>
@@ -119,11 +112,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile' ? 'view-mobile' :
-      (view==='vr' ? 'view-vr' :
-      (view==='cvr' ? 'view-cvr' : 'view-pc'))
-    );
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
     const el = document.getElementById('labView');
     if(el) el.textContent = view;
   }
@@ -132,27 +121,53 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
   const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
 
-  // ✅ FX sanity check (ช่วยตอบโจทย์ “Effect หายหมด”)
-  function fx(id, ok, text){
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.textContent = (ok ? '✅ ' : '⚠️ ') + text;
-    el.style.color = ok ? 'rgba(34,197,94,.95)' : 'rgba(245,158,11,.95)';
-  }
+  // --- FX Hook (เอฟเฟกต์กลับมา) ---
+  window.addEventListener('DOMContentLoaded', ()=>{
+    const hudSub = document.getElementById('hudSub');
 
-  // CSS loaded?
-  const cssOk = [...document.styleSheets].some(s=>{
-    try{ return (s.href||'').includes('hygiene-vr.css'); }catch{ return false; }
+    // แจ้งเตือนถ้า quiz bank ไม่โหลด
+    setTimeout(()=>{
+      const ok = Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) && window.HHA_HYGIENE_QUIZ_BANK.length>0;
+      if(!ok && hudSub){
+        hudSub.textContent = (hudSub.textContent||'') + '  •  ⚠️ Quiz bank not loaded (check hygiene-quiz-bank.js 404)';
+      }
+    }, 350);
+
+    function fxPop(text, cls){
+      try{
+        if(window.Particles && window.Particles.popText){
+          window.Particles.popText(window.innerWidth*0.5, window.innerHeight*0.24, text, cls||'');
+        }
+      }catch(_){}
+    }
+    function fxBurst(x,y, cls){
+      try{
+        if(window.Particles && window.Particles.burst){
+          window.Particles.burst(x,y,{ count: 12, spread: 46, className: cls||'' });
+        }
+      }catch(_){}
+    }
+
+    // ฟังผลการยิง/แตะ จาก engine
+    window.addEventListener('hha:judge', (e)=>{
+      const d = (e && e.detail) || {};
+      const kind = d.kind || '';
+      if(kind === 'good'){
+        fxPop('✅ +1', 'good');
+      }else if(kind === 'wrong'){
+        fxPop('⚠️ ผิดขั้น!', 'warn');
+      }else if(kind === 'haz'){
+        fxPop('🦠 โดนเชื้อ!', 'bad');
+      }
+    });
+
+    // badge celebration
+    window.addEventListener('hha:badge', (e)=>{
+      const b = (e && e.detail) || {};
+      fxPop(`${b.icon||'🏅'} ${b.title||'Badge!'}`, 'cyan');
+      fxBurst(window.innerWidth*0.5, window.innerHeight*0.22, 'cyan');
+    });
   });
-  fx('fxCss', cssOk, cssOk ? 'CSS OK' : 'CSS ไม่ถูกโหลด (เช็ค 404)');
-
-  // Quiz loaded?
-  const quizOk = Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) && window.HHA_HYGIENE_QUIZ_BANK.length > 0;
-  fx('fxQuiz', quizOk, quizOk ? ('Quiz '+window.HHA_HYGIENE_QUIZ_BANK.length+' ข้อ') : 'Quiz bank ไม่เจอ (ชื่อไฟล์/พาธ)');
-
-  // Particles loaded?
-  const partOk = !!(window.Particles && typeof window.Particles.popText === 'function');
-  fx('fxPart', partOk, partOk ? 'Particles OK' : 'Particles ไม่ขึ้น (ไฟล์หาย/พาธผิด)');
 })();
 </script>
 </body>
