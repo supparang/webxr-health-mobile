@@ -1,10 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION — PATCH v4
+GoodJunkVR RUN — PRODUCTION (v5 UI)
 ✅ CSS: ./goodjunk-vr.css
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ Adds: Progress + Boss UI IDs for safe.js v4
-✅ Hooks: gj:measureSafe -> updateSafe()
-✅ A-Frame minimal scene for Enter VR reliability
+✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
+✅ Adds: Progress bar + Boss bar (ids used by safe.js)
+✅ Safe-zone: listens to gj:measureSafe + resize/orientationchange
 -->
 <!doctype html>
 <html lang="th">
@@ -50,10 +50,29 @@ GoodJunkVR RUN — PRODUCTION — PATCH v4
     </div>
   </header>
 
-  <!-- ✅ PROGRESS -->
-  <div id="gjProgress" aria-hidden="false">
-    <div id="gjProgressFill"></div>
+  <!-- ✅ PROGRESS (thin, always on top, doesn't block) -->
+  <div class="gj-progress" id="gjProgress" aria-hidden="false">
+    <div class="gj-progress-track">
+      <div class="gj-progress-fill" id="gjProgressFill"></div>
+    </div>
+    <div class="gj-progress-label">
+      <span>PROGRESS</span>
+      <span style="opacity:.75" id="gjProgressHint">ไปเรื่อย ๆ</span>
+    </div>
   </div>
+
+  <!-- ✅ BOSS BAR (hidden by default; safe.js toggles aria-hidden) -->
+  <section class="gj-boss" id="bossBar" aria-hidden="true">
+    <div class="boss-card">
+      <div class="boss-title">
+        <b>⚡ BOSS</b>
+        <span id="bossHint" style="opacity:.85">—</span>
+      </div>
+      <div class="boss-track">
+        <div class="boss-fill" id="bossFill"></div>
+      </div>
+    </div>
+  </section>
 
   <!-- HUD TOP -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
@@ -76,7 +95,6 @@ GoodJunkVR RUN — PRODUCTION — PATCH v4
       </div>
     </div>
 
-    <!-- quest cards (mobile จะถูก CSS ซ่อน) -->
     <div class="quest-row">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
@@ -98,7 +116,7 @@ GoodJunkVR RUN — PRODUCTION — PATCH v4
     </div>
   </section>
 
-  <!-- HUD BOTTOM (mobile จะถูก CSS ซ่อน) -->
+  <!-- HUD BOTTOM -->
   <section class="gj-hud-bot" id="gjHudBot" aria-hidden="false">
     <div class="meter fever" id="gjHudFever">
       <div class="meter-title">FEVER</div>
@@ -133,12 +151,6 @@ GoodJunkVR RUN — PRODUCTION — PATCH v4
   <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
     <div class="gj-lowtime-ring"></div>
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
-  </div>
-
-  <!-- ✅ BOSS BAR (safe.js v4 uses these ids) -->
-  <div id="bossBar" aria-hidden="true">
-    <div id="bossHint">—</div>
-    <div id="bossTrack"><div id="bossFill"></div></div>
   </div>
 
   <!-- UI wiring + safe-zone measure -->
@@ -187,46 +199,47 @@ GoodJunkVR RUN — PRODUCTION — PATCH v4
 
       // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-
-      function isDisplayed(el){
+      function isShown(el){
         if(!el) return false;
-        const cs = getComputedStyle(el);
-        return cs.display !== 'none' && cs.visibility !== 'hidden';
+        const ah = el.getAttribute('aria-hidden');
+        if(ah === 'true') return false;
+        const st = getComputedStyle(el);
+        if(st.display === 'none' || st.visibility === 'hidden') return false;
+        return true;
       }
 
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
 
-          const topbarEl = document.getElementById('gjTopbar');
+          const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
+          const prog   = document.getElementById('gjProgress')?.getBoundingClientRect().height || 0;
+
           const hudTopEl = document.getElementById('gjHudTop');
           const hudBotEl = document.getElementById('gjHudBot');
-          const progEl   = document.getElementById('gjProgress');
-          const bossEl   = document.getElementById('bossBar');
 
-          const topbarH = isDisplayed(topbarEl) ? (topbarEl.getBoundingClientRect().height || 0) : 0;
-          const hudTopH = isDisplayed(hudTopEl) ? (hudTopEl.getBoundingClientRect().height || 0) : 0;
+          const hudTop  = (hudTopEl && isShown(hudTopEl) && !document.body.classList.contains('hud-hidden'))
+            ? (hudTopEl.getBoundingClientRect().height || 0) : 0;
 
-          // progress is thin; count tiny padding only
-          const progH   = isDisplayed(progEl)   ? (progEl.getBoundingClientRect().height || 0) : 0;
+          const hudBot  = (hudBotEl && isShown(hudBotEl) && !document.body.classList.contains('hud-hidden'))
+            ? (hudBotEl.getBoundingClientRect().height || 0) : 0;
 
-          // bottom safe includes hudBot + boss (if visible)
-          const hudBotH = isDisplayed(hudBotEl) ? (hudBotEl.getBoundingClientRect().height || 0) : 0;
-          const bossH   = isDisplayed(bossEl)   ? (bossEl.getBoundingClientRect().height || 0) : 0;
+          const bossEl = document.getElementById('bossBar');
+          const bossH  = (bossEl && isShown(bossEl)) ? (bossEl.getBoundingClientRect().height || 0) : 0;
 
-          // top safe includes sat
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbarH + hudTopH + progH + 10 + sat));
+          // top safe includes sat to prevent notch overlap
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + prog + bossH + hudTop + 14 + sat));
 
-          // bottom safe: keep thumb zone even if hudBot hidden on mobile
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(95, hudBotH + bossH + 12)));
+          // bottom safe minimum: keep some distance from thumb zone + HUD
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
         }catch(_){}
       }
 
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
 
-      // ✅ CRITICAL: safe.js v4 emits this when boss bar toggles
-      window.addEventListener('gj:measureSafe', ()=>setTimeout(updateSafe, 0), {passive:true});
+      // ✅ IMPORTANT: safe.js emits this when boss toggles
+      window.addEventListener('gj:measureSafe', ()=>{ setTimeout(updateSafe, 0); }, {passive:true});
 
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
