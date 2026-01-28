@@ -78,7 +78,6 @@ HygieneVR Launcher — ROOT (AUTO)
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
     if (isTouch){
-      // Landscape + wide touch device -> likely cardboard/cVR
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
