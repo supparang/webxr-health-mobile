@@ -1,17 +1,165 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-ADD-ON PATCH: QuestLine 1 row (mobile-first)
-(ใส่ต่อจากไฟล์เดิมของคุณได้ หรือแทนทั้งไฟล์ถ้าคุณใช้เวอร์ชันล่าสุดของผมอยู่แล้ว)
+GoodJunkVR UI — SPACIOUS (Fair Pack) — FULL LATEST
+✅ Gameplay area BIG (HUD compact)
+✅ Safe-area insets + top/bottom safe vars for spawn: --gj-top-safe / --gj-bottom-safe
+✅ Supports: view-pc / view-mobile / view-vr / view-cvr
+✅ HUD hide mode: body.hud-hidden
+✅ Missions peek: body.show-missions
+✅ Targets: stable (no blink), clear hit affordance
+✅ NEW: Progress bar
+✅ NEW: QuestLine 1 row (mobile-first) => goal • mini (no blocking)
+✅ NEW: Boss bar UI (show/hide via aria-hidden)
 */
 
+:root{
+  color-scheme: dark;
+
+  --bg:#020617;
+  --panel:rgba(2,6,23,.72);
+  --panel2:rgba(15,23,42,.62);
+  --stroke:rgba(148,163,184,.18);
+  --stroke2:rgba(148,163,184,.28);
+
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+
+  --accent:#22c55e;
+  --warn:#f59e0b;
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
+
+  --radius:22px;
+  --pill:999px;
+
+  /* safe area */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  /* spawn safe (JS will overwrite) */
+  --gj-top-safe: 168px;
+  --gj-bottom-safe: 140px;
+
+  /* layout density */
+  --topbar-h: 56px;
+  --hud-gap: 10px;
+  --card-pad: 10px;
+
+  /* target */
+  --t-shadow: 0 18px 55px rgba(0,0,0,.45);
+  --t-stroke: rgba(148,163,184,.22);
+}
+
+*{ box-sizing:border-box; }
+html,body{ width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:var(--bg); }
+body.gj{
+  font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 60%),
+    var(--bg);
+}
+
+/* --- A-Frame scene behind UI --- */
+a-scene[embedded]{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:0 !important;
+  pointer-events:none !important; /* UI handles input */
+  background:transparent !important;
+}
+
+/* --- TOPBAR --- */
+.gj-topbar{
+  position:fixed;
+  left:0; right:0;
+  top:0;
+  height: var(--topbar-h);
+  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  z-index:70;
+  pointer-events:auto;
+}
+
+.gj-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius: var(--pill);
+  background: rgba(2,6,23,.62);
+  border:1px solid var(--stroke);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-weight:1000;
+  white-space:nowrap;
+}
+.gj-chip b{ letter-spacing:.2px; }
+
+.gj-topbar .right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.gj-btn{
+  height:42px;
+  padding:0 12px;
+  border-radius: 16px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.58);
+  color:var(--text);
+  font-weight:1100;
+  cursor:pointer;
+}
+.gj-btn:active{ transform: translateY(1px); }
+.gj-btn.primary{
+  border-color: rgba(34,197,94,.40);
+  background: rgba(34,197,94,.16);
+  color:#eafff3;
+}
+
+/* --- PROGRESS --- */
+.gj-progress{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--topbar-h) + var(--sat));
+  padding: 6px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+  z-index:66;
+  pointer-events:none;
+}
+.gj-progress-track{
+  height: 10px;
+  border-radius: 999px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  overflow:hidden;
+  box-shadow: 0 12px 34px rgba(0,0,0,.24);
+}
+.gj-progress-fill{
+  height:100%;
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95));
+}
+
+/* --- QUESTLINE (1 row; mobile-first) --- */
 .gj-questline{
   position: fixed;
   left:0; right:0;
   top: calc(var(--topbar-h) + var(--sat) + 18px);
   padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index: 64;
+  z-index: 65;
   pointer-events: none; /* ✅ never block gameplay */
 }
-
 .ql-pill{
   width: fit-content;
   max-width: min(920px, 96vw);
@@ -33,7 +181,6 @@ ADD-ON PATCH: QuestLine 1 row (mobile-first)
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-
 .ql-tag{
   font-size: 11px;
   letter-spacing: .35px;
@@ -53,28 +200,424 @@ ADD-ON PATCH: QuestLine 1 row (mobile-first)
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ql-sep{
-  opacity: .55;
-  padding: 0 2px;
+.ql-sep{ opacity: .55; padding: 0 2px; }
+
+/* --- BOSS BAR --- */
+.gj-boss{
+  position: fixed;
+  left:0; right:0;
+  top: calc(var(--topbar-h) + var(--sat) + 62px); /* below progress+questline */
+  padding: 10px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+  z-index:64;
+  pointer-events:none;
+}
+.gj-boss[aria-hidden="true"]{ display:none; }
+
+.boss-card{
+  width:min(720px, 96vw);
+  margin: 0 auto;
+  border-radius: var(--radius);
+  border:1px solid rgba(245,158,11,.28);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 18px 55px rgba(0,0,0,.36);
+  padding: 10px;
+}
+.boss-title{
+  font-weight:1200;
+  font-size:12px;
+  letter-spacing:.35px;
+  color: rgba(255,240,210,.95);
+}
+.boss-track{
+  margin-top:8px;
+  height: 10px;
+  border-radius: 999px;
+  border:1px solid rgba(245,158,11,.30);
+  background: rgba(15,23,42,.55);
+  overflow:hidden;
+}
+.boss-fill{
+  height:100%;
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.92));
+}
+.boss-hint{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:900;
+  color: rgba(229,231,235,.90);
+  line-height:1.25;
 }
 
-/* ✅ Make room: HUD TOP starts lower because questline exists */
+/* --- HUD TOP (compact) --- */
 .gj-hud-top{
-  top: calc(var(--topbar-h) + var(--sat) + 54px); /* was ~18px; now leaves space */
+  position:fixed;
+  left:0; right:0;
+  /* leave space for progress + questline (+ boss if shown; safe rect handles spawn) */
+  top: calc(var(--topbar-h) + var(--sat) + 54px);
+  padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+  z-index:50;
+  pointer-events:none; /* HUD should not block gameplay */
 }
 
-/* ✅ Mobile: QuestLine stays, quest cards OFF, bottom becomes 1 column */
+.hud-row{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-start;
+  pointer-events:none;
+}
+
+.hud-pill{
+  min-width: 92px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: rgba(2,6,23,.64);
+  border:1px solid var(--stroke);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 10px 30px rgba(0,0,0,.28);
+}
+.hud-pill .hud-label{
+  font-size:11px;
+  letter-spacing:.4px;
+  color: rgba(148,163,184,.92);
+  font-weight:1000;
+}
+.hud-pill .hud-value{
+  margin-top:2px;
+  font-size:18px;
+  font-weight:1200;
+  line-height:1;
+}
+.hud-pill.warn{
+  border-color: rgba(245,158,11,.35);
+}
+.hud-pill.grade{
+  border-color: rgba(167,139,250,.35);
+}
+
+/* Quest cards (PC OK; mobile hides) */
+.quest-row{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns: 1.25fr .95fr;
+  gap:10px;
+  pointer-events:none;
+}
+.quest-card{
+  border-radius: var(--radius);
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.60);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 45px rgba(0,0,0,.32);
+  padding: var(--card-pad);
+  pointer-events:none;
+}
+.quest-card.goal{ border-color: rgba(34,211,238,.28); }
+.quest-card.mini{ border-color: rgba(167,139,250,.22); }
+
+.q-title{
+  font-weight:1200;
+  font-size:13px;
+  letter-spacing:.2px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:space-between;
+}
+.q-desc{
+  margin-top:6px;
+  font-size:12px;
+  color: rgba(229,231,235,.92);
+  font-weight:900;
+  line-height:1.35;
+  min-height: 32px;
+}
+.q-bar{
+  margin-top:8px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:space-between;
+  font-size:11px;
+  color: rgba(148,163,184,.92);
+  font-weight:900;
+}
+.q-num{
+  padding:6px 10px;
+  border-radius: 999px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+}
+
+/* --- HUD BOTTOM (compact) --- */
+.gj-hud-bot{
+  position:fixed;
+  left:0; right:0;
+  bottom:0;
+  padding: 0 calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
+  z-index:40;
+  pointer-events:none;
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap:10px;
+  align-items:end;
+}
+
+.meter{
+  border-radius: var(--radius);
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.60);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 45px rgba(0,0,0,.32);
+  padding: 10px;
+  pointer-events:none;
+}
+.meter-title{
+  font-weight:1200;
+  font-size:12px;
+  letter-spacing:.35px;
+  color: rgba(229,231,235,.92);
+}
+.meter-bar{
+  margin-top:8px;
+  height: 10px;
+  border-radius: 999px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  overflow:hidden;
+}
+.meter-fill{
+  height:100%;
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
+}
+.meter-num{
+  margin-top:8px;
+  font-size:12px;
+  color: rgba(148,163,184,.92);
+  font-weight:900;
+}
+.meter-shield{
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius: 16px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  font-weight:1200;
+  color: rgba(229,231,235,.95);
+}
+.meter-tip{
+  margin-top:8px;
+  font-size:11px;
+  color: rgba(148,163,184,.92);
+  font-weight:900;
+  line-height:1.25;
+}
+
+/* --- PLAYFIELD --- */
+.gj-field{
+  position:fixed;
+  inset:0;
+  z-index:10;
+  pointer-events:auto;
+}
+.gj-layer,
+.gj-layer-r{
+  position:absolute;
+  inset:0;
+  pointer-events:auto;
+}
+
+/* right-eye layer (optional) */
+.gj-layer-r{
+  opacity:0;
+  pointer-events:none;
+}
+body.view-cvr .gj-layer-r{
+  opacity:1;
+}
+
+/* --- Targets --- */
+.gj-target{
+  position:absolute;
+  transform: translate(-50%, -50%);
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action: manipulation;
+
+  line-height:1;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
+  text-shadow: 0 10px 30px rgba(0,0,0,.35);
+
+  /* hit affordance */
+  padding: 10px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.35);
+  border: 1px solid rgba(148,163,184,.20);
+
+  /* IMPORTANT: no blink */
+  opacity: 1;
+  will-change: transform;
+}
+.gj-target:active{
+  transform: translate(-50%, -50%) scale(.98);
+}
+
+/* small “pop-in” only (doesn't vanish) */
+@keyframes gjPopIn{
+  from{ transform: translate(-50%, -50%) scale(.72); opacity: .88; }
+  to{ transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.gj-target.spawn{
+  animation: gjPopIn 120ms ease-out both;
+}
+
+/* cVR strict: disable pointer events so only crosshair shooting works */
+body.view-cvr .gj-target{
+  pointer-events:none;
+}
+
+/* --- LOW TIME overlay --- */
+.gj-lowtime-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:80;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .15s ease;
+}
+.gj-lowtime-overlay[aria-hidden="false"]{ opacity:1; }
+.gj-lowtime-ring{
+  width:min(260px, 62vw);
+  height:min(260px, 62vw);
+  border-radius: 999px;
+  border: 2px solid rgba(245,158,11,.45);
+  box-shadow: 0 0 0 12px rgba(245,158,11,.08);
+  background: radial-gradient(circle, rgba(245,158,11,.06), transparent 60%);
+}
+.gj-lowtime-num{
+  position:absolute;
+  font-size: clamp(54px, 10vw, 84px);
+  font-weight:1300;
+  color:#fff;
+  text-shadow: 0 18px 55px rgba(0,0,0,.55);
+}
+
+/* --- Missions Peek --- */
+.gj-peek{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--topbar-h) + var(--sat) + 8px);
+  padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+  z-index:90;
+  pointer-events:none;
+  opacity:0;
+  transform: translateY(-6px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+body.show-missions .gj-peek{
+  opacity:1;
+  transform: translateY(0);
+  pointer-events:auto; /* tap to close */
+}
+.peek-card{
+  width:min(720px, 96vw);
+  margin: 0 auto;
+  border-radius: var(--radius);
+  border:1px solid var(--stroke2);
+  background: rgba(2,6,23,.70);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 18px 55px rgba(0,0,0,.42);
+  padding: 12px;
+}
+.peek-title{
+  font-size:14px;
+  font-weight:1200;
+  margin-bottom:6px;
+}
+.peek-sub, .peek-mini{
+  font-size:12px;
+  font-weight:900;
+  color: rgba(229,231,235,.92);
+  margin-top:4px;
+}
+.peek-tip{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:900;
+  color: rgba(148,163,184,.92);
+}
+
+/* --- HUD hidden mode (maximize playfield) --- */
+body.hud-hidden .gj-hud-top,
+body.hud-hidden .gj-hud-bot{
+  display:none !important;
+}
+
+/* also hide questline/progress when fully hidden (pure playfield) */
+body.hud-hidden .gj-questline,
+body.hud-hidden .gj-progress{
+  display:none !important;
+}
+
+/* --- Responsive tweaks --- */
 @media (max-width: 520px){
+  :root{
+    --topbar-h: 52px;
+    --card-pad: 9px;
+  }
+  .gj-btn{ height:40px; border-radius: 14px; }
+  .hud-pill{ min-width: 86px; }
+  .hud-pill .hud-value{ font-size: 17px; }
+
+  /* ✅ MOBILE: hide big quest cards => use questline instead */
+  .quest-row{ display:none !important; }
+
+  .gj-hud-bot{ grid-template-columns: 1fr; }
+
   .gj-questline{ padding-top: 6px; }
   .ql-pill{ font-size: 11px; padding: 7px 9px; }
   .ql-text{ max-width: 60vw; }
 
-  /* Quest cards already hidden in your file; keep it enforced */
-  .quest-row{ display:none !important; }
-
-  /* HUD TOP tighter */
+  /* keep HUD top compact and below questline+progress */
   .gj-hud-top{
     padding-top: 6px;
     top: calc(var(--topbar-h) + var(--sat) + 54px);
   }
+
+  /* boss card tighter on mobile */
+  .boss-card{ padding: 9px; }
+}
+
+@media (min-width: 900px){
+  :root{ --topbar-h: 58px; }
+
+  .gj-hud-top{
+    padding-left: calc(18px + var(--sal));
+    padding-right: calc(18px + var(--sar));
+  }
+  .gj-hud-bot{
+    padding-left: calc(18px + var(--sal));
+    padding-right: calc(18px + var(--sar));
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .gj-target.spawn{ animation:none; }
+  .gj-peek{ transition:none; }
+  .gj-lowtime-overlay{ transition:none; }
 }
