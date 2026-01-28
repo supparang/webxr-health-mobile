@@ -1,91 +1,69 @@
 // === /fitness/js/ai-director.js ===
+// Shadow Breaker — AI Difficulty Director (fair, explainable, lightweight)
+// ✅ Adjust spawn tempo + target mix by performance (only in PLAY mode)
+// ✅ NEVER changes research mode (avoid bias)
+
 'use strict';
 
-/**
- * AI Director (hooks-only) — Phase A
- * - ตอนนี้ยังไม่ทำ ML/DL จริง: เป็น "policy hooks" เพื่อให้ต่อยอดได้แบบ deterministic/วิจัยได้
- * - ใช้ได้ทั้ง play และ research (แต่ใน research ควร lock policy คงที่)
- */
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
 export class AIDirector {
   constructor(opts = {}) {
-    this.enabled = !!opts.enabled;
-    this.mode = opts.mode || 'play'; // play | research
-    this.diffKey = opts.diffKey || 'normal';
+    this.enabled = !!(opts.enabled ?? true);
 
-    // runtime rolling stats
-    this.window = [];
-    this.windowMax = opts.windowMax || 24;
+    // moving indicators
+    this.missStreak = 0;
+    this.hitStreak = 0;
 
-    // suggestion state
-    this.lastSuggestionAt = 0;
-    this.suggestionCooldownMs = opts.suggestionCooldownMs || 2500;
+    // difficulty factor (0.85..1.20)
+    this.tempo = 1.0;      // affects spawn interval
+    this.heat  = 1.0;      // affects bomb/decoy weights a bit
+
+    // smoothing
+    this.alpha = opts.alpha ?? 0.12;
   }
 
-  setEnabled(v) { this.enabled = !!v; }
-  setMode(m) { this.mode = m || 'play'; }
-  setDiffKey(k) { this.diffKey = k || 'normal'; }
+  onHit(grade){
+    this.hitStreak++;
+    this.missStreak = 0;
 
-  /** feed one event summary (hit/timeout) */
-  observe(ev) {
-    if (!ev) return;
-    this.window.push(ev);
-    if (this.window.length > this.windowMax) this.window.shift();
+    // reward strong play
+    const bump = (grade === 'perfect') ? 0.018 : 0.010;
+    this.tempo = clamp((1-this.alpha)*this.tempo + this.alpha*(this.tempo + bump), 0.85, 1.20);
+    this.heat  = clamp((1-this.alpha)*this.heat  + this.alpha*(this.heat  + bump*0.7), 0.85, 1.18);
   }
 
-  /** lightweight prediction: next-performance tendency (not ML, heuristic) */
-  predict() {
-    const w = this.window;
-    if (!w.length) return { trend: 'unknown', conf: 0 };
+  onMiss(){
+    this.missStreak++;
+    this.hitStreak = 0;
 
-    let hits = 0, miss = 0, bad = 0, perfect = 0;
-    for (const e of w) {
-      if (e.type === 'hit') hits++;
-      else if (e.type === 'timeout') miss++;
-      if (e.grade === 'bad') bad++;
-      if (e.grade === 'perfect') perfect++;
-    }
-
-    const total = hits + miss;
-    const acc = total ? hits / total : 0;
-    const perf = (perfect + (hits - perfect - bad) * 0.6) / Math.max(1, hits);
-
-    let trend = 'stable';
-    if (acc < 0.65 || miss >= hits) trend = 'down';
-    else if (acc > 0.85 && perf > 0.65) trend = 'up';
-
-    const conf = Math.min(0.95, 0.35 + w.length / this.windowMax * 0.55);
-    return { trend, conf, acc: +(acc * 100).toFixed(1) };
+    // soften when struggling (fair)
+    const drop = (this.missStreak >= 2) ? 0.030 : 0.018;
+    this.tempo = clamp((1-this.alpha)*this.tempo + this.alpha*(this.tempo - drop), 0.85, 1.20);
+    this.heat  = clamp((1-this.alpha)*this.heat  + this.alpha*(this.heat  - drop*0.6), 0.85, 1.18);
   }
 
-  /** optional coach micro-tip */
-  maybeSuggest(nowMs) {
-    if (!this.enabled) return null;
-    if (this.mode === 'research') return null; // research: ปิด micro-tip ได้ตามมาตรฐาน
-    if (nowMs - this.lastSuggestionAt < this.suggestionCooldownMs) return null;
-
-    const p = this.predict();
-    if (p.trend === 'down' && p.conf > 0.6) {
-      this.lastSuggestionAt = nowMs;
-      return 'ลองโฟกัสที่ “เป้าจริง 🎯” ก่อน แล้วค่อยเสี่ยงเก็บ 🛡️/🩹 นะ';
-    }
-    if (p.trend === 'up' && p.conf > 0.6) {
-      this.lastSuggestionAt = nowMs;
-      return 'จังหวะดีมาก! ลองเร่งให้ได้ PERFECT ต่อเนื่อง 🔥';
-    }
-    return null;
+  onHpLow(){
+    // if HP low, soften more
+    this.tempo = clamp((1-this.alpha)*this.tempo + this.alpha*(this.tempo - 0.030), 0.85, 1.20);
+    this.heat  = clamp((1-this.alpha)*this.heat  + this.alpha*(this.heat  - 0.022), 0.85, 1.18);
   }
 
-  /**
-   * adjust difficulty recommendation
-   * - เป็น recommendation เท่านั้น (ไม่บังคับ)
-   */
-  recommendDiff() {
-    if (!this.enabled) return null;
-    const p = this.predict();
-    if (this.mode === 'research') return null;
-    if (p.trend === 'up' && p.acc >= 88) return 'hard';
-    if (p.trend === 'down' && p.acc <= 70) return 'easy';
-    return null;
+  // returns multipliers applied to config
+  multipliers(ctx){
+    // ctx: { phase, storm, feverOn, combo }
+    const phase = clamp(ctx.phase,1,3)|0;
+    const storm = ctx.storm ? 1 : 0;
+
+    // small phase push: later phase slightly faster
+    const phaseBoost = (phase === 3) ? 0.06 : (phase === 2 ? 0.03 : 0);
+
+    // storm already fast; director won't overdo
+    const stormCap = storm ? 0.04 : 0.10;
+
+    const tempo = clamp(this.tempo + phaseBoost, 0.85, 1.10 + stormCap);
+    const heat  = clamp(this.heat, 0.85, 1.18);
+
+    return { tempo, heat };
   }
 }
