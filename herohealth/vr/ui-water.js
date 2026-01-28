@@ -1,7 +1,8 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION
+// Water Gauge Utilities — PRODUCTION (NO-DUP gauge)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ Avoids duplicate gauge if page already has its own water panel (#water-bar/#water-pct/#water-zone)
+// ✅ If page already has water panel (#water-bar/#water-pct/#water-zone) -> do NOT create overlay
+// ✅ setWaterGauge updates BOTH overlay + page panel (if present)
 
 'use strict';
 
@@ -10,30 +11,32 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-// โซนน้ำ
+// โซนน้ำ (ปรับให้ง่ายขึ้น: GREEN กว้างขึ้น)
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
-  if (p >= 45 && p <= 65) return 'GREEN';
-  if (p < 45) return 'LOW';
+  if (p >= 40 && p <= 70) return 'GREEN';
+  if (p < 40) return 'LOW';
   return 'HIGH';
 }
 
-function pageHasBuiltInWaterPanel(){
+function pageHasNativePanel(){
   if (!DOC) return false;
-  // ถ้ามี UI ของหน้าเกมเองแล้ว -> ไม่สร้าง overlay ซ้ำ
+  // hydration.safe.js มี panel ของตัวเองอยู่แล้วใน hydration-vr.html
   return !!(
     DOC.getElementById('water-bar') ||
     DOC.getElementById('water-pct') ||
-    DOC.getElementById('water-zone') ||
-    DOC.querySelector('[data-water-panel]') ||
-    DOC.querySelector('.water-card')
+    DOC.getElementById('water-zone')
   );
 }
 
 export function ensureWaterGauge(){
   if (!DOC) return;
+
+  // ✅ ถ้าหน้าเกมมี panel อยู่แล้ว -> ไม่สร้าง overlay ซ้ำ
+  if (pageHasNativePanel()) return;
+
+  // ✅ overlay already created
   if (DOC.getElementById('hha-water-gauge')) return;
-  if (pageHasBuiltInWaterPanel()) return; // ✅ ป้องกัน “ซ้ำ”
 
   const wrap = DOC.createElement('div');
   wrap.id = 'hha-water-gauge';
@@ -68,34 +71,27 @@ export function ensureWaterGauge(){
       Zone: <b id="hha-water-zone" style="color:#e5e7eb">GREEN</b>
     </div>
   `;
-
   DOC.body.appendChild(wrap);
 }
 
 export function setWaterGauge(pct){
   if (!DOC) return;
-
-  // ถ้าหน้าเกมมี panel เอง -> อัปเดตของหน้าเกม (ไม่แตะ overlay)
-  const builtinBar = DOC.getElementById('water-bar');
-  const builtinPct = DOC.getElementById('water-pct');
-  const builtinZone = DOC.getElementById('water-zone');
-
   const p = clamp(pct,0,100);
   const zone = zoneFrom(p);
 
-  if (builtinBar || builtinPct || builtinZone){
-    if (builtinBar) builtinBar.style.width = p.toFixed(0)+'%';
-    if (builtinPct) builtinPct.textContent = String(p|0);
-    if (builtinZone) builtinZone.textContent = zone;
-    return;
-  }
+  // overlay (if exists)
+  const barO = DOC.getElementById('hha-water-bar');
+  const pctO = DOC.getElementById('hha-water-pct');
+  const zoneO = DOC.getElementById('hha-water-zone');
+  if (barO) barO.style.width = p.toFixed(0) + '%';
+  if (pctO) pctO.textContent = String(p|0);
+  if (zoneO) zoneO.textContent = zone;
 
-  // overlay
-  const bar = DOC.getElementById('hha-water-bar');
-  const t = DOC.getElementById('hha-water-pct');
-  const z = DOC.getElementById('hha-water-zone');
-
-  if (bar) bar.style.width = p.toFixed(0) + '%';
-  if (t) t.textContent = String(p|0);
-  if (z) z.textContent = zone;
+  // native page panel (if exists)
+  const barP = DOC.getElementById('water-bar');
+  const pctP = DOC.getElementById('water-pct');
+  const zoneP = DOC.getElementById('water-zone');
+  if (barP) barP.style.width = p.toFixed(0) + '%';
+  if (pctP) pctP.textContent = String(p|0);
+  if (zoneP) zoneP.textContent = zone;
 }
