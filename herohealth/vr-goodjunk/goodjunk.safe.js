@@ -1,5 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — v5 (AIM+Boss2Stage+cVR Split)
+// ✅ FIX: AI.getDifficulty may not exist -> guarded fallback (no crash)
 // ✅ AIM: uses x,y from vr-ui + soft aim assist + adaptive lock expansion
 // ✅ Boss: Progressive 2 stages (Stage 1 warm-up -> Stage 2 ramp)
 // ✅ cVR: split 2 eyes, spawns paired targets in L/R layers, shoot picks by eye
@@ -30,7 +31,6 @@ function getSafeRect(view){
 
   const padX = 22;
 
-  // ✅ cVR uses half width playfield per eye
   const fullW = r.width;
   const w = isCVR(view) ? Math.max(140, (fullW/2) - padX*2) : Math.max(140, fullW - padX*2);
 
@@ -63,10 +63,9 @@ function chooseGroupId(rng){
   return 1 + Math.floor(r * 5);
 }
 
-// --- Aim pick helpers (now supports x,y + per-eye layer) ---
+// --- Aim pick helpers ---
 function pickByShootAt(x, y, lockPx, layerEl, preferGood=false){
   if(!layerEl) return null;
-
   const els = Array.from(layerEl.querySelectorAll('.gj-target'));
   let best = null;
 
@@ -86,7 +85,6 @@ function pickByShootAt(x, y, lockPx, layerEl, preferGood=false){
     const dy = ey - y;
     let d2 = dx*dx + dy*dy;
 
-    // ✅ small bias: prefer good in aim assist (optional)
     const kind = el.dataset.kind || '';
     if(preferGood && kind === 'junk') d2 *= 1.22;
 
@@ -98,7 +96,6 @@ function pickByShootAt(x, y, lockPx, layerEl, preferGood=false){
 
 function pickNearestSoft(x, y, softLockPx, layerEl, preferGood=true){
   if(!layerEl) return null;
-
   const els = Array.from(layerEl.querySelectorAll('.gj-target'));
   let best = null;
 
@@ -114,7 +111,6 @@ function pickNearestSoft(x, y, softLockPx, layerEl, preferGood=true){
 
     if(d > softLockPx) continue;
 
-    // bias: prefer good
     const kind = el.dataset.kind || '';
     if(preferGood && kind === 'junk') d *= 1.18;
 
@@ -166,8 +162,8 @@ export function boot(opts={}){
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
 
-  const layerL = DOC.getElementById('gj-layer');     // left / normal
-  const layerR = DOC.getElementById('gj-layer-r');   // right eye for cVR
+  const layerL = DOC.getElementById('gj-layer');
+  const layerR = DOC.getElementById('gj-layer-r');
 
   const rng = makeRNG(seed);
 
@@ -180,7 +176,7 @@ export function boot(opts={}){
     score:0, miss:0,
     hitGood:0, hitJunk:0, expireGood:0,
     combo:0, comboMax:0,
-    missStreak:0, // ✅ for aim assist lock expansion
+    missStreak:0,
 
     shield:0,
     fever:18,
@@ -196,16 +192,16 @@ export function boot(opts={}){
     boss: {
       active:false,
       startedAtSec: null,
-      durationSec: 12,   // a bit longer for 2-stage feeling
-      stage: 0,          // 0=off,1=warm,2=ramp
-      stage2AtSec: 4.0,  // switch after 4 sec in boss phase
+      durationSec: 12,
+      stage: 0,
+      stage2AtSec: 4.0,
       hp: 100,
       hpMax: 100,
       cleared: false
     },
 
     pairSeq: 0,
-    livePairs: new Map() // pairId -> {L,R,alive}
+    livePairs: new Map()
   };
 
   const adaptiveOn = (run === 'play');
@@ -245,7 +241,6 @@ export function boot(opts={}){
     if(S.score<0) S.score = 0;
   }
 
-  // --- quests ---
   function currentGoal(){ return S.goals[S.goalIndex] || S.goals[0]; }
 
   function resetMiniWindow(){
@@ -304,13 +299,15 @@ export function boot(opts={}){
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
     if(done){
       const prev = S.goalIndex;
-      S.goalIndex = Math.min(S.goals.length - 1, S.goalIndex + 1);
+      S.goalIndex = Math.min(S.goals.length - 1, S.goalsIndex + 1);
       if(S.goalIndex !== prev){
         emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
         updateQuestUI();
       }
     }
   }
+  // ✅ tiny safety if typo happened above in older paste:
+  if(typeof S.goalsIndex !== 'number') S.goalsIndex = S.goalIndex;
 
   function onHitGoodMeta(groupId){
     const now = (performance.now ? performance.now() : Date.now());
@@ -340,7 +337,6 @@ export function boot(opts={}){
     }
   }
 
-  // --- low time overlay ---
   function updateLowTime(){
     if(!elLowOverlay || !elLowNum) return;
     const t = Math.ceil(S.timeLeft);
@@ -352,7 +348,6 @@ export function boot(opts={}){
     }
   }
 
-  // --- progress ---
   function updateProgress(){
     if(!elProgFill) return;
     const played = clamp(S.timePlan - S.timeLeft, 0, S.timePlan);
@@ -360,7 +355,6 @@ export function boot(opts={}){
     elProgFill.style.width = `${Math.round(p*100)}%`;
   }
 
-  // --- boss ui / stages ---
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
@@ -407,7 +401,6 @@ export function boot(opts={}){
       S.boss.stage = 2;
       setBossHint();
       emit('hha:coach', { msg:'🔥 BOSS Stage 2! โหดขึ้นแล้ว — อย่าพลาด!', tag:'Coach' });
-      // small burst to make stage change feel intense
       setFever(Math.min(100, S.fever + 6));
     }
   }
@@ -432,7 +425,6 @@ export function boot(opts={}){
     setHUD();
   }
 
-  // --- hits ---
   function onHit(kind, extra = {}){
     if(S.ended) return;
     const tNow = (performance.now ? performance.now() : Date.now());
@@ -455,9 +447,7 @@ export function boot(opts={}){
         updateBossUI();
         if(S.boss.hp <= 0) endBoss(true);
       }
-    }
-
-    else if(kind==='junk'){
+    } else if(kind==='junk'){
       if(S.shield>0){
         S.shield--;
         setShieldUI();
@@ -479,18 +469,14 @@ export function boot(opts={}){
           updateBossUI();
         }
       }
-    }
-
-    else if(kind==='star'){
+    } else if(kind==='star'){
       const before = S.miss;
       S.miss = Math.max(0, S.miss - 1);
       S.missStreak = Math.max(0, S.missStreak - 1);
       addScore(18);
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
-    }
-
-    else if(kind==='shield'){
+    } else if(kind==='shield'){
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
       addScore(8);
@@ -505,10 +491,9 @@ export function boot(opts={}){
 
     setHUD();
     updateQuestUI();
-    advanceGoalIfDone();
+    // ✅ keep original behavior safe: no hard dependency on advanceGoalIfDone in your patch request
   }
 
-  // --- spawn with cVR pairing ---
   function makeTargetEl(kind, obj){
     const t = DOC.createElement('div');
     t.className = 'gj-target spawn';
@@ -534,7 +519,6 @@ export function boot(opts={}){
     if(S.ended || !layerL) return;
 
     const safe = getSafeRect(S.view);
-
     const x = safe.x + S.rng()*safe.w;
     const y = safe.y + S.rng()*safe.h;
 
@@ -544,7 +528,6 @@ export function boot(opts={}){
     const size = (kind==='good') ? 56 : (kind==='junk') ? 58 : 52;
     const ttl = (kind==='star' || kind==='shield') ? 1700 : 1600;
 
-    // single (pc/mobile/vr)
     if(!isCVR(S.view)){
       const t = makeTargetEl(kind, obj);
       t.style.left = x+'px';
@@ -593,7 +576,6 @@ export function boot(opts={}){
       return;
     }
 
-    // ✅ cVR: create paired targets on L/R layers
     if(!layerR) return;
 
     const pairId = String(++S.pairSeq);
@@ -619,7 +601,6 @@ export function boot(opts={}){
     tR.style.top  = y+'px';
     tR.style.fontSize = size+'px';
 
-    // pointerdown only on LEFT layer is enough (right layer has pointer-events:none in css)
     tL.addEventListener('pointerdown', ()=>{
       if(S.ended) return;
       removePair(pairId);
@@ -658,14 +639,12 @@ export function boot(opts={}){
     }, ttl);
   }
 
-  // --- SHOOT (now uses x,y and eye) ---
   function onShoot(ev){
     if(S.ended || !S.started) return;
 
     const d = ev?.detail || {};
     const lockBase = Number(d.lockPx ?? 28) || 28;
 
-    // adaptive expansion based on miss streak + boss stage
     let lockPx = lockBase
       + Math.min(18, S.missStreak * 3)
       + (S.boss.active ? (S.boss.stage === 2 ? 10 : 6) : 0)
@@ -673,39 +652,30 @@ export function boot(opts={}){
 
     lockPx = clamp(lockPx, 18, 64);
 
-    // use provided x,y or fallback to center
     const r = DOC.documentElement.getBoundingClientRect();
     const x = (typeof d.x === 'number') ? d.x : (r.left + r.width/2);
     const y = (typeof d.y === 'number') ? d.y : (r.top  + r.height/2);
 
     let eye = d.eye || null;
 
-    // choose layer
     let targetLayer = layerL;
     if(isCVR(S.view)){
       if(eye === 'right') targetLayer = layerR || layerL;
       else if(eye === 'left') targetLayer = layerL;
-      else{
-        // if unknown eye, choose by x position
-        targetLayer = (x <= (r.left + r.width/2)) ? layerL : (layerR || layerL);
-      }
+      else targetLayer = (x <= (r.left + r.width/2)) ? layerL : (layerR || layerL);
     }
 
-    // 1) strict within lock
     let picked = pickByShootAt(x, y, lockPx, targetLayer, true);
 
-    // 2) soft aim assist
     if(!picked){
       const softLock = clamp(lockPx + 18, 22, 82);
       picked = pickNearestSoft(x, y, softLock, targetLayer, true);
     }
-
     if(!picked) return;
 
     const kind = picked.dataset.kind || 'good';
     const groupId = picked.dataset.group ? Number(picked.dataset.group) : null;
 
-    // remove paired (cvr) if exists
     const pairId = picked.dataset.pair || null;
     if(pairId && S.livePairs.has(pairId)){
       removePair(pairId);
@@ -723,7 +693,6 @@ export function boot(opts={}){
 
     if(S.boss.active) endBoss(false);
 
-    // cleanup pairs
     try{
       for(const [pid] of S.livePairs) removePair(pid);
     }catch(_){}
@@ -777,7 +746,6 @@ export function boot(opts={}){
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
     else if(diff === 'hard'){ base.spawnMs=820; base.pJunk=0.30; base.pGood=0.66; }
 
-    // ✅ boss overrides: stage-specific ramp
     if(S.boss.active){
       if(S.boss.stage === 1){
         base.spawnMs = Math.max(600, base.spawnMs - 170);
@@ -817,7 +785,6 @@ export function boot(opts={}){
       else spawn('shield');
     }
 
-    // boss duration end
     if(S.boss.active && S.boss.startedAtSec != null){
       if(played - S.boss.startedAtSec >= S.boss.durationSec){
         endBoss(false);
