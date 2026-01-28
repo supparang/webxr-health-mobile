@@ -1,11 +1,10 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth HUB — FUN EDITION (Production)
+HeroHealth HUB — FUN EDITION (Groups-first)
 ✅ Story-like mission line (เด็ก ป.5 อ่านแล้วอยากกด)
 ✅ Survival 1-click (play, normal, time=70, random seed)
 ✅ Research 1-click (run=research&seed=123456)
-✅ Passthrough params + auto hub back link (?hub=...)
-✅ Copy HUB link
-✅ Safe: optional chaining for missing buttons + robust param passthrough
+✅ Passthrough params + auto hub back link
+✅ IMPORTANT: ตอนนี้อัปเดตครบ “GroupsVR” เท่านั้น (เกมอื่นปิดปุ่มไว้ก่อน)
 -->
 <!doctype html>
 <html lang="th">
@@ -224,6 +223,17 @@ HeroHealth HUB — FUN EDITION (Production)
       line-height: 1.4;
     }
     .footerNote b{ color:#fff; }
+
+    /* Disabled (เกมอื่นพักไว้ก่อน) */
+    .isDisabled{
+      opacity:.62;
+      filter:saturate(.7);
+    }
+    .btn[disabled]{
+      opacity:.65;
+      cursor:not-allowed;
+      transform:none !important;
+    }
   </style>
 </head>
 
@@ -234,7 +244,10 @@ HeroHealth HUB — FUN EDITION (Production)
         <div>
           <div class="title">🏠 HeroHealth — HUB</div>
           <div class="sub">
-            เลือกเกมเข้าเล่น • โหมด <b>Survival</b> = เล่นสนุกสุ่มฉาก • โหมด <b>Research</b> = ล็อกเงื่อนไข
+            เลือกเกมเข้าเล่น • โหมด <b>Survival</b> = เล่นสนุกสุ่มฉาก • โหมด <b>Research</b> = ล็อกเงื่อนไข<br/>
+            <span style="color:rgba(239,68,68,.95); font-weight:1000;">
+              ⚠️ ตอนนี้อัปเดตครบแค่ <b>GroupsVR</b> (เกมอื่นยังไม่อัปเดตตามแพ็ก/มาตรฐานที่ตกลงกันไว้)
+            </span>
           </div>
         </div>
         <button class="pill" id="btnCopyHub" type="button">📋 Copy HUB link</button>
@@ -246,30 +259,30 @@ HeroHealth HUB — FUN EDITION (Production)
 
       <div class="grid">
 
-        <!-- Hygiene -->
-        <div class="card">
-          <div class="h">🧼 Hygiene VR</div>
+        <!-- Hygiene (disabled) -->
+        <div class="card isDisabled" aria-disabled="true">
+          <div class="h">🧼 Hygiene VR <span class="tag warn">ยังไม่อัปเดต</span></div>
           <div class="mission">🎮 ภารกิจ: <b>“รอดจากเชื้อโรค!”</b> ล้างมือให้ทัน • หลบจุดเสี่ยง • มินิเควสท์โผล่มาเป็นช่วง ๆ</div>
 
           <div class="row2">
-            <button class="btn btnSurvival" id="btnHygieneSurvival" type="button">
+            <button class="btn btnSurvival" disabled type="button">
               <span>🔥 เล่นเลย: Survival (70s)</span>
-              <span class="tag hot">hot</span>
+              <span class="tag hot">locked</span>
             </button>
-            <button class="btn btnDirect" id="btnHygieneRun" type="button">
+            <button class="btn btnDirect" disabled type="button">
               <span>เข้าเกม (Run) — direct</span>
-              <span class="tag warn">direct</span>
+              <span class="tag warn">locked</span>
             </button>
           </div>
 
           <div class="row2" style="margin-top:10px;">
-            <button class="btn btnResearch" id="btnHygieneResearch" type="button">
+            <button class="btn btnResearch" disabled type="button">
               <span>Research 1-click (seed=123456)</span>
-              <span class="tag good">research</span>
+              <span class="tag good">locked</span>
             </button>
-            <button class="btn btnLaunch" id="btnHygieneLauncher" type="button">
+            <button class="btn btnLaunch" disabled type="button">
               <span>เข้า Launcher (Auto-detect)</span>
-              <span class="tag cyan">launcher</span>
+              <span class="tag cyan">locked</span>
             </button>
           </div>
 
@@ -278,30 +291,30 @@ HeroHealth HUB — FUN EDITION (Production)
           </div>
         </div>
 
-        <!-- GoodJunk -->
-        <div class="card">
-          <div class="h">🥦🍟 GoodJunkVR</div>
+        <!-- GoodJunk (disabled) -->
+        <div class="card isDisabled" aria-disabled="true">
+          <div class="h">🥦🍟 GoodJunkVR <span class="tag warn">ยังไม่อัปเดต</span></div>
           <div class="mission">🛡️ ภารกิจ: <b>“รอดให้ได้!”</b> เก็บของดีให้ทัน • ห้ามโดนขยะ • บอสมาเป็นช่วง ๆ</div>
 
           <div class="row2">
-            <button class="btn btnSurvival" id="btnGoodJunkSurvival" type="button">
+            <button class="btn btnSurvival" disabled type="button">
               <span>🔥 เล่นเลย: Survival (70s)</span>
-              <span class="tag hot">hot</span>
+              <span class="tag hot">locked</span>
             </button>
-            <button class="btn btnLaunch" id="btnGoodJunkLauncher" type="button">
+            <button class="btn btnLaunch" disabled type="button">
               <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
-              <span class="tag cyan">launcher</span>
+              <span class="tag cyan">locked</span>
             </button>
           </div>
 
           <div class="row2" style="margin-top:10px;">
-            <button class="btn btnResearch" id="btnGoodJunkResearch" type="button">
+            <button class="btn btnResearch" disabled type="button">
               <span>Research 1-click (seed=123456)</span>
-              <span class="tag good">research</span>
+              <span class="tag good">locked</span>
             </button>
-            <button class="btn" id="btnGoodJunkPlayNormal" type="button">
+            <button class="btn" disabled type="button">
               <span>เล่นปกติ (play)</span>
-              <span class="tag">play</span>
+              <span class="tag">locked</span>
             </button>
           </div>
 
@@ -310,9 +323,9 @@ HeroHealth HUB — FUN EDITION (Production)
           </div>
         </div>
 
-        <!-- Groups -->
+        <!-- Groups (ACTIVE) -->
         <div class="card">
-          <div class="h">🍽️ Food Groups VR</div>
+          <div class="h">🍽️ Food Groups VR <span class="tag good">พร้อมทดสอบ</span></div>
           <div class="mission">⚡ ภารกิจ: <b>“จับคู่ให้ไว!”</b> ยิงให้ถูกหมวด • พายุ/สลับเป้าทำให้ยากขึ้น • เก็บคอมโบ</div>
 
           <div class="row2">
@@ -321,7 +334,7 @@ HeroHealth HUB — FUN EDITION (Production)
               <span class="tag hot">hot</span>
             </button>
             <button class="btn btnLaunch" id="btnGroupsLauncher" type="button">
-              <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
+              <span>เข้า Launcher (Auto-detect)</span>
               <span class="tag cyan">launcher</span>
             </button>
           </div>
@@ -342,30 +355,30 @@ HeroHealth HUB — FUN EDITION (Production)
           </div>
         </div>
 
-        <!-- Hydration -->
-        <div class="card">
-          <div class="h">🥤 Hydration VR</div>
+        <!-- Hydration (disabled) -->
+        <div class="card isDisabled" aria-disabled="true">
+          <div class="h">🥤 Hydration VR <span class="tag warn">ยังไม่อัปเดต</span></div>
           <div class="mission">💧 ภารกิจ: <b>“รักษาสมดุลน้ำ”</b> เก็บน้ำให้พอดี • หลบสิ่งกวน • ช่วงเร่งสปีด/พายุ</div>
 
           <div class="row2">
-            <button class="btn btnSurvival" id="btnHydrationSurvival" type="button">
+            <button class="btn btnSurvival" disabled type="button">
               <span>🔥 เล่นเลย: Survival (70s)</span>
-              <span class="tag hot">hot</span>
+              <span class="tag hot">locked</span>
             </button>
-            <button class="btn btnDirect" id="btnHydrationRun" type="button">
+            <button class="btn btnDirect" disabled type="button">
               <span>เข้าเกม (Run) — direct</span>
-              <span class="tag warn">direct</span>
+              <span class="tag warn">locked</span>
             </button>
           </div>
 
           <div class="row2" style="margin-top:10px;">
-            <button class="btn btnResearch" id="btnHydrationResearch" type="button">
+            <button class="btn btnResearch" disabled type="button">
               <span>Research 1-click (seed=123456)</span>
-              <span class="tag good">research</span>
+              <span class="tag good">locked</span>
             </button>
-            <button class="btn" id="btnHydrationPlayNormal" type="button">
+            <button class="btn" disabled type="button">
               <span>เล่นปกติ (play)</span>
-              <span class="tag">play</span>
+              <span class="tag">locked</span>
             </button>
           </div>
 
@@ -374,30 +387,30 @@ HeroHealth HUB — FUN EDITION (Production)
           </div>
         </div>
 
-        <!-- Plate -->
-        <div class="card">
-          <div class="h">🍱 Balanced Plate VR</div>
+        <!-- Plate (disabled) -->
+        <div class="card isDisabled" aria-disabled="true">
+          <div class="h">🍱 Balanced Plate VR <span class="tag warn">ยังไม่อัปเดต</span></div>
           <div class="mission">🍽️ ภารกิจ: <b>“จัดจานให้บาลานซ์”</b> เลือกให้ถูกสัดส่วน • โหมดเร่งเวลา • ล่าคอมโบ</div>
 
           <div class="row2">
-            <button class="btn btnSurvival" id="btnPlateSurvival" type="button">
+            <button class="btn btnSurvival" disabled type="button">
               <span>🔥 เล่นเลย: Survival (70s)</span>
-              <span class="tag hot">hot</span>
+              <span class="tag hot">locked</span>
             </button>
-            <button class="btn btnDirect" id="btnPlateRun" type="button">
+            <button class="btn btnDirect" disabled type="button">
               <span>เข้าเกม (Run) — direct</span>
-              <span class="tag violet">direct</span>
+              <span class="tag violet">locked</span>
             </button>
           </div>
 
           <div class="row2" style="margin-top:10px;">
-            <button class="btn btnResearch" id="btnPlateResearch" type="button">
+            <button class="btn btnResearch" disabled type="button">
               <span>Research 1-click (seed=123456)</span>
-              <span class="tag violet">research</span>
+              <span class="tag violet">locked</span>
             </button>
-            <button class="btn" id="btnPlatePlayNormal" type="button">
+            <button class="btn" disabled type="button">
               <span>เล่นปกติ (play)</span>
-              <span class="tag">play</span>
+              <span class="tag">locked</span>
             </button>
           </div>
 
@@ -411,7 +424,8 @@ HeroHealth HUB — FUN EDITION (Production)
       <div class="hr"></div>
 
       <div class="footerNote">
-        ⭐ แนะนำสำหรับเด็ก ป.5: กด <b>🔥 Survival</b> ก่อน (เล่นสนุกไม่จำเจ) • ถ้าทำวิจัยกด <b>Research 1-click</b> (ล็อกเงื่อนไขเทียบกันได้) • เล่นจบแล้วกดกลับ HUB ได้ทันที
+        ⭐ ตอนนี้แนะนำเด็ก ป.5: กด <b>🔥 GroupsVR Survival</b> ก่อน (สนุก-เร้าใจ-ไม่จำเจ) • ถ้าทำวิจัยกด <b>Research 1-click</b> (ล็อก seed เทียบกันได้) • เล่นจบแล้วกดกลับ HUB ได้ทันที<br/>
+        ⚠️ เตือน: ตอนนี้ยัง “ทำ/อัปเดต” แค่ <b>GroupsVR</b> (GoodJunk/Hydration/Plate ยังไม่ใส่แพ็ก/มาตรฐานล่าสุด) — ยกเว้น App Script ที่พักไว้
       </div>
     </div>
   </div>
@@ -430,7 +444,7 @@ HeroHealth HUB — FUN EDITION (Production)
     const sp = new URL(location.href).searchParams;
 
     sp.forEach((v,k)=>{
-      if (k === 'hub') return; // เราจะ set hub ใหม่ให้เป็นหน้าปัจจุบัน
+      if (k === 'hub') return;
       if (!to.searchParams.has(k)) to.searchParams.set(k, v);
     });
 
@@ -457,12 +471,11 @@ HeroHealth HUB — FUN EDITION (Production)
   }
 
   function setMeta(){
-    const box = DOC.getElementById('metaBox');
-    if (!box) return;
     const sp = new URL(location.href).searchParams;
     const showKeys = [];
     sp.forEach((v,k)=> showKeys.push(`${k}=${v}`));
-    box.textContent = showKeys.length ? ('Params: ' + showKeys.join(' • ')) : 'Params: — (no query params)';
+    DOC.getElementById('metaBox').textContent =
+      showKeys.length ? ('Params: ' + showKeys.join(' • ')) : 'Params: — (no query params)';
   }
 
   async function copyText(text){
@@ -486,36 +499,7 @@ HeroHealth HUB — FUN EDITION (Production)
   const SURV_DIFF = 'normal';   // ✅ default
   const RESEARCH_SEED = 123456; // ✅ locked seed for research
 
-  // ===== Hygiene =====
-  DOC.getElementById('btnHygieneSurvival')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hygiene-vr/hygiene-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
-  });
-  DOC.getElementById('btnHygieneRun')?.addEventListener('click', ()=>{
-    location.href = buildTo('./hygiene-vr/hygiene-vr.html');
-  });
-  DOC.getElementById('btnHygieneResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hygiene-vr/hygiene-vr.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
-  });
-  DOC.getElementById('btnHygieneLauncher')?.addEventListener('click', ()=>{
-    location.href = buildTo('./hygiene-vr.html');
-  });
-
-  // ===== GoodJunk =====
-  DOC.getElementById('btnGoodJunkSurvival')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./goodjunk-vr-launcher.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
-  });
-  DOC.getElementById('btnGoodJunkLauncher')?.addEventListener('click', ()=>{
-    location.href = buildTo('./goodjunk-vr-launcher.html');
-  });
-  DOC.getElementById('btnGoodJunkResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./goodjunk-vr-launcher.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
-  });
-  DOC.getElementById('btnGoodJunkPlayNormal')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./goodjunk-vr-launcher.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
-  });
-
-  // ===== Groups =====
-  // ✅ ชี้ไป launcher /herohealth/groups-vr.html (แล้ว launcher redirect เข้า /herohealth/vr-groups/groups-vr.html)
+  // ===== Groups (ACTIVE) =====
   DOC.getElementById('btnGroupsSurvival')?.addEventListener('click', ()=>{
     location.href = buildToWith('./groups-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
   });
@@ -527,34 +511,6 @@ HeroHealth HUB — FUN EDITION (Production)
   });
   DOC.getElementById('btnGroupsPlayNormal')?.addEventListener('click', ()=>{
     location.href = buildToWith('./groups-vr.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
-  });
-
-  // ===== Hydration =====
-  DOC.getElementById('btnHydrationSurvival')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hydration-vr/hydration-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
-  });
-  DOC.getElementById('btnHydrationRun')?.addEventListener('click', ()=>{
-    location.href = buildTo('./hydration-vr/hydration-vr.html');
-  });
-  DOC.getElementById('btnHydrationResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hydration-vr/hydration-vr.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
-  });
-  DOC.getElementById('btnHydrationPlayNormal')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./hydration-vr/hydration-vr.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
-  });
-
-  // ===== Plate =====
-  DOC.getElementById('btnPlateSurvival')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./plate/plate-vr.html', { run:'play', diff:SURV_DIFF, time:SURV_TIME, seed:'' });
-  });
-  DOC.getElementById('btnPlateRun')?.addEventListener('click', ()=>{
-    location.href = buildTo('./plate/plate-vr.html');
-  });
-  DOC.getElementById('btnPlateResearch')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./plate/plate-vr.html', { run:'research', seed:RESEARCH_SEED, diff:'normal', time:SURV_TIME });
-  });
-  DOC.getElementById('btnPlatePlayNormal')?.addEventListener('click', ()=>{
-    location.href = buildToWith('./plate/plate-vr.html', { run:'play', diff:'normal', time:SURV_TIME, seed:'' });
   });
 
   // Copy HUB
