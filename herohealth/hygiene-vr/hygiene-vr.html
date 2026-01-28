@@ -4,6 +4,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ FX: listens hha:judge + hha:badge -> Particles
 -->
 <!doctype html>
 <html lang="th">
@@ -27,7 +28,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (NOTE: file name uses hyphen) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
@@ -106,54 +107,58 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 <script>
 (function(){
   'use strict';
+  const WIN = window;
+  const DOC = document;
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-  // --- view class ---
+  // -------- View class --------
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile' ? 'view-mobile' :
-      (view==='vr' ? 'view-vr' :
-      (view==='cvr' ? 'view-cvr' : 'view-pc'))
-    );
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    DOC.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    DOC.getElementById('labView').textContent = view;
   }
   setViewClass();
-  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
-  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
+  DOC.getElementById('labMode').textContent = (qs('run','play')||'play');
+  DOC.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 
-  // --- FX: show effects on judge ---
-  // รองรับทั้งกรณี engine ส่ง x,y มาแล้ว (แนะนำให้ส่ง)
-  // และกรณียังไม่ส่งก็ fallback เป็นกลางจอ
-  window.addEventListener('hha:judge', (e)=>{
-    const det = (e && e.detail) || {};
-    const kind = String(det.kind || '');
-    const x = Number.isFinite(det.x) ? det.x : (window.innerWidth*0.5);
-    const y = Number.isFinite(det.y) ? det.y : (window.innerHeight*0.24);
+  // -------- ✅ FX bridge (ทำให้ Effect กลับมา) --------
+  function fxText(x,y,text,cls){
+    const P = WIN.Particles;
+    if(P && typeof P.popText === 'function'){
+      P.popText(x,y,text,cls||'');
+    }
+  }
+  function fxBurst(x,y,cls){
+    const P = WIN.Particles;
+    if(P && typeof P.burst === 'function'){
+      P.burst(x,y,{count:14, spread:44, className: (cls||'')});
+    }
+  }
 
-    try{
-      if(window.Particles?.popText){
-        if(kind === 'good') window.Particles.popText(x, y, '✅ +1', 'good');
-        else if(kind === 'wrong') window.Particles.popText(x, y, '⚠️ ผิดขั้น!', 'warn');
-        else if(kind === 'haz') window.Particles.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
-      }
-      if(window.Particles?.burst){
-        if(kind === 'good') window.Particles.burst(x, y, { count: 10, spread: 44, className:'good' });
-        else if(kind === 'haz') window.Particles.burst(x, y, { count: 14, spread: 56, className:'bad' });
-      }
-    }catch{}
+  // รับ event จาก engine
+  WIN.addEventListener('hha:judge', (e)=>{
+    const d = (e && e.detail) || {};
+    const x = Number(d.x ?? WIN.innerWidth*0.5);
+    const y = Number(d.y ?? WIN.innerHeight*0.28);
+
+    if(d.kind === 'good'){
+      fxText(x,y,'✅ +1','good');
+      fxBurst(x,y,'');
+    }else if(d.kind === 'wrong'){
+      fxText(x,y,'⚠️ ผิดขั้น!','warn');
+    }else if(d.kind === 'haz'){
+      fxText(x,y,'🦠 โดนเชื้อ!','bad');
+    }
   });
 
-  // debug: quiz bank presence
-  setTimeout(()=>{
-    try{
-      const ok = Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) && window.HHA_HYGIENE_QUIZ_BANK.length;
-      if(!ok) console.warn('[HygieneRUN] Quiz bank missing: hygiene-quiz-bank.js?');
-      else console.log('[HygieneRUN] Quiz bank ok:', window.HHA_HYGIENE_QUIZ_BANK.length);
-    }catch{}
-  }, 350);
+  WIN.addEventListener('hha:badge', (e)=>{
+    const b = (e && e.detail) || {};
+    const x = WIN.innerWidth*0.5;
+    const y = WIN.innerHeight*0.18;
+    fxText(x,y,`${b.icon||'🏅'} ${b.title||'Badge!'}`,'good');
+    fxBurst(x,y,'');
+  });
 })();
 </script>
 </body>
