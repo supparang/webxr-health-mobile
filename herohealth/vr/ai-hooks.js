@@ -1,170 +1,135 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — PRODUCTION (Lightweight, Deterministic-friendly)
-// ✅ createAIHooks({ game, mode, rng, diff? })
-// ✅ Methods: onEvent(name,payload), getTip(playedSec), getDifficulty(playedSec, base)
-// ✅ Play mode: adaptive ON (fair + smooth)
-// ✅ Study/Research: adaptive OFF (returns base) for determinism
+// HHA AI Hooks — PRODUCTION (LIGHT, DETERMINISTIC-FRIENDLY)
+// ✅ createAIHooks({game, mode, rng})
+// ✅ API: onEvent(name, payload), getTip(playedSec), getDifficulty(playedSec, base)
+// Notes:
+// - mode: 'play' => adaptive ON, else => adaptive OFF (return base)
+// - rng: seeded rng preferred (for research reproducibility)
 
 'use strict';
 
-const clamp = (v, a, b)=> Math.max(a, Math.min(b, Number(v)||0));
+export function createAIHooks(opts = {}){
+  const game = String(opts.game || 'HHA').trim();
+  const mode = String(opts.mode || 'play').trim().toLowerCase();
+  const rng  = (typeof opts.rng === 'function') ? opts.rng : Math.random;
 
-function nowMs(){
-  try{ return performance.now(); }catch(_){ return Date.now(); }
-}
+  const adaptive = (mode === 'play');
 
-function ewma(prev, x, alpha){
-  if(!isFinite(prev)) return x;
-  return prev + alpha * (x - prev);
-}
-
-export function createAIHooks(cfg = {}){
-  const game = String(cfg.game || 'HHA').trim();
-  const mode = String(cfg.mode || cfg.run || 'play').toLowerCase(); // play | study | research
-  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : null;
-  const diff = String(cfg.diff || 'normal').toLowerCase();
-
-  const adaptiveOn = (mode === 'play');
-
+  // --- simple state (EMA) ---
   const S = {
-    startedAtMs: nowMs(),
-    lastEventMs: 0,
+    lastTipAt: 0,
+    tipCooldownMs: 3500,
 
-    hitsGood: 0,
-    hitsJunk: 0,
+    // performance indicators
+    hitGood: 0,
+    hitJunk: 0,
     miss: 0,
 
-    streakGood: 0,
-    streakBad: 0,
+    // EMA of "error pressure" (0..1)
+    // higher => struggling => ease down
+    errEMA: 0.18,
 
-    ewmaBadRate: 0,
-    ewmaSpeed: 0,
-    ewmaCombo: 0,
+    // EMA of "speed" (higher => doing well => can raise)
+    goodEMA: 0.22,
 
-    lastTipMs: 0,
-    tipEveryMs: 1900,
-
-    lastD: null,
+    // internal difficulty scalar (0.75 .. 1.35)
+    diff: 1.0,
   };
 
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, Number(v)||0)); }
+  function nowMs(){ try{ return performance.now(); }catch{ return Date.now(); } }
+
+  function ema(prev, x, k){ return prev + k*(x - prev); }
+
+  // --- events from game ---
   function onEvent(name, payload = {}){
-    const t = Number(payload.t || nowMs());
-    const dt = (S.lastEventMs>0) ? (t - S.lastEventMs) : 0;
-    if(dt>0 && dt<15000){
-      const sp = 1000 / dt; // events/sec
-      S.ewmaSpeed = ewma(S.ewmaSpeed, sp, 0.15);
-    }
-    S.lastEventMs = t;
+    if(!adaptive) return;
 
-    const n = String(name || '').toLowerCase();
-
+    const n = String(name||'').toLowerCase();
     if(n === 'hitgood'){
-      S.hitsGood++;
-      S.streakGood++;
-      S.streakBad = 0;
-      S.ewmaCombo = ewma(S.ewmaCombo, S.streakGood, 0.20);
-      S.ewmaBadRate = ewma(S.ewmaBadRate, 0, 0.18);
+      S.hitGood++;
+      S.goodEMA = ema(S.goodEMA, 1.0, 0.08);
+      S.errEMA  = ema(S.errEMA, 0.0, 0.06);
     }else if(n === 'hitjunk'){
-      S.hitsJunk++;
-      S.miss++;
-      S.streakBad++;
-      S.streakGood = 0;
-      S.ewmaBadRate = ewma(S.ewmaBadRate, 1, 0.22);
+      S.hitJunk++;
+      S.errEMA  = ema(S.errEMA, 1.0, 0.10);
+      S.goodEMA = ema(S.goodEMA, 0.0, 0.05);
     }else if(n === 'miss'){
       S.miss++;
-      S.streakBad++;
-      S.streakGood = 0;
-      S.ewmaBadRate = ewma(S.ewmaBadRate, 1, 0.22);
+      S.errEMA  = ema(S.errEMA, 1.0, 0.12);
+      S.goodEMA = ema(S.goodEMA, 0.0, 0.06);
     }
   }
 
-  function getTip(){
-    if(!adaptiveOn) return null;
+  // --- micro tips (rate-limited) ---
+  function getTip(playedSec){
+    if(!adaptive) return null;
+
     const t = nowMs();
-    if(t - S.lastTipMs < S.tipEveryMs) return null;
+    if(t - S.lastTipAt < S.tipCooldownMs) return null;
 
-    const risk = clamp(S.ewmaBadRate, 0, 1);
-    const speed = clamp(S.ewmaSpeed, 0, 6);
-    const combo = clamp(S.ewmaCombo, 0, 20);
+    // tip conditions (light)
+    const struggling = (S.errEMA > 0.55);
+    const doingWell  = (S.goodEMA > 0.55 && S.errEMA < 0.35);
 
-    let msg = null;
-    if(risk > 0.55) msg = 'โฟกัส “ของดี” ก่อนนะ 🎯 ลดพลาดแล้วคะแนนจะพุ่ง';
-    else if(S.streakBad >= 2) msg = 'ใจเย็น ๆ 👀 เล็งกลางจอแล้วค่อยยิง จะพลาดน้อยลง';
-    else if(combo >= 6 && risk < 0.25) msg = 'คอมโบดีมาก! 🔥 รักษาจังหวะเดิมไว้ คะแนนจะไหล';
-    else if(speed > 3.0 && risk > 0.35) msg = 'จังหวะเร็วขึ้นแล้วนะ ⏱️ เลือกยิงเฉพาะที่มั่นใจ';
+    let msg = '';
+    if(struggling){
+      msg = 'ลอง “เล็งของดี” ก่อน แล้วค่อยหลบของเสีย 👀';
+    }else if(doingWell){
+      msg = 'เยี่ยม! ลองทำคอมโบของดีให้ยาวขึ้นอีกนิด 💥';
+    }else{
+      // small random variety
+      msg = (rng() < 0.5) ? 'อย่าลืม SHIELD บล็อคขยะได้นะ 🛡️' : 'MINI: เก็บให้ครบ 3 หมู่ในเวลาที่กำหนด 🎯';
+    }
 
-    if(!msg) return null;
-
-    S.lastTipMs = t;
-    return { msg, tag: `${game} AI` };
+    S.lastTipAt = t;
+    return { msg, tag:'AI Coach' };
   }
 
-  // ✅ fixes: AI.getDifficulty exists
-  function getDifficulty(playedSec = 0, base = {}){
-    const B = Object.assign(
-      { spawnMs: 900, pGood:0.70, pJunk:0.26, pStar:0.02, pShield:0.02 },
-      base || {}
-    );
+  // --- difficulty mixer ---
+  function getDifficulty(playedSec, base){
+    // If not play mode => deterministic / research: return base as-is
+    if(!adaptive) return Object.assign({}, base);
 
-    if(!adaptiveOn){
-      return { ...B };
-    }
+    const b = Object.assign({
+      spawnMs: 900,
+      pGood: 0.70,
+      pJunk: 0.26,
+      pStar: 0.02,
+      pShield: 0.02
+    }, base || {});
 
-    const risk = clamp(S.ewmaBadRate, 0, 1);
-    const combo = clamp(S.ewmaCombo, 0, 16);
-    const badStreak = clamp(S.streakBad, 0, 6);
-    const goodStreak = clamp(S.streakGood, 0, 10);
+    // time ramp (slow increase)
+    const ramp = clamp((Number(playedSec)||0) / 60, 0, 1); // 0..1 over 60s
 
-    let predRisk =
-      0.55 * risk +
-      0.12 * (badStreak/6) +
-      0.08 * (1 - Math.min(1, goodStreak/8)) -
-      0.10 * Math.min(1, combo/10);
+    // update diff scalar from EMA
+    // - more errors => reduce difficulty
+    // - more good => increase a bit
+    const target =
+      1.02
+      + (S.goodEMA - 0.35) * 0.35
+      - (S.errEMA  - 0.30) * 0.55
+      + ramp * 0.20;
 
-    predRisk = clamp(predRisk, 0, 1);
+    S.diff = clamp(ema(S.diff, target, 0.06), 0.75, 1.35);
 
-    const ease = clamp((predRisk - 0.45) / 0.55, 0, 1); // struggling
-    const push = clamp((0.40 - predRisk) / 0.40, 0, 1); // doing well
+    // apply to spawnMs (lower ms => harder)
+    const spawnMs = clamp(b.spawnMs / S.diff, 520, 1200);
 
-    const diffMul =
-      (diff === 'easy') ? 0.92 :
-      (diff === 'hard') ? 1.08 : 1.00;
+    // mix probabilities (harder => more junk)
+    const hard = clamp((S.diff - 1.0) / 0.35, -1, 1); // -1..1
+    let pGood   = clamp(b.pGood  - hard*0.08, 0.35, 0.85);
+    let pJunk   = clamp(b.pJunk  + hard*0.08, 0.10, 0.55);
+    let pStar   = clamp(b.pStar  + (S.errEMA>0.55 ? 0.01 : 0), 0.01, 0.06);
+    let pShield = clamp(b.pShield+ (S.errEMA>0.50 ? 0.02 : 0), 0.01, 0.10);
 
-    const spawnDelta = (+160 * ease) + (-140 * push);
-    let spawnMs = clamp(Math.round((B.spawnMs + spawnDelta) / diffMul), 520, 1120);
-
-    let pGood = B.pGood + (0.10 * ease) - (0.07 * push);
-    let pJunk = B.pJunk - (0.08 * ease) + (0.09 * push);
-    let pStar = B.pStar + (0.01 * push);
-    let pShield = B.pShield + (0.03 * ease) + (0.01 * push);
-
-    pGood   = clamp(pGood,   0.40, 0.86);
-    pJunk   = clamp(pJunk,   0.10, 0.56);
-    pStar   = clamp(pStar,   0.01, 0.06);
-    pShield = clamp(pShield, 0.01, 0.10);
-
-    if(S.lastD){
-      const a = 0.35;
-      spawnMs = Math.round(ewma(S.lastD.spawnMs, spawnMs, a));
-      pGood   = ewma(S.lastD.pGood,   pGood,   a);
-      pJunk   = ewma(S.lastD.pJunk,   pJunk,   a);
-      pStar   = ewma(S.lastD.pStar,   pStar,   a);
-      pShield = ewma(S.lastD.pShield, pShield, a);
-    }
-
+    // normalize
     let s = pGood + pJunk + pStar + pShield;
     if(s <= 0) s = 1;
     pGood/=s; pJunk/=s; pStar/=s; pShield/=s;
 
-    const D = { spawnMs, pGood, pJunk, pStar, pShield, predRisk };
-    S.lastD = { spawnMs, pGood, pJunk, pStar, pShield };
-
-    return D;
+    return { spawnMs, pGood, pJunk, pStar, pShield, diffScalar: S.diff };
   }
 
-  return Object.freeze({
-    onEvent,
-    getTip,
-    getDifficulty
-  });
+  return { onEvent, getTip, getDifficulty };
 }
