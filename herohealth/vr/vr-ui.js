@@ -1,270 +1,230 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — PRODUCTION (PACK 12: view=cvr strict)
-// ✅ ENTER VR / EXIT / RECENTER buttons
-// ✅ Crosshair overlay
-// ✅ Tap-to-shoot => emits hha:shoot {x,y,lockPx,source,view}
-// ✅ view=cvr strict: ignores tap coordinates, always shoots from screen center
-// ✅ Does NOT override ?view= (only reads it)
+// Universal VR UI — PRODUCTION (AIM-ASSIST PATCH)
+// ✅ Crosshair overlay + tap-to-shoot
+// ✅ Emits: hha:shoot {x,y,lockPx,eye,source,cooldownMsUsed}
+// ✅ Supports view=cvr strict (split 2 eyes) -> chooses eye by tap position
+// ✅ Adaptive: lockPx + cooldown varies with tap cadence (prevents spam / improves aim)
+//
+// Config (optional):
+// window.HHA_VRUI_CONFIG = {
+//   lockPx: 28,
+//   lockMin: 22,
+//   lockMax: 54,
+//   cooldownMs: 90,
+//   cooldownMin: 70,
+//   cooldownMax: 140,
+//   adaptive: true
+// }
 
 (function(){
   'use strict';
-
   const WIN = window;
   const DOC = document;
-  if (!DOC || WIN.__HHA_VRUI_LOADED__) return;
+
+  if(!DOC || WIN.__HHA_VRUI_LOADED__) return;
   WIN.__HHA_VRUI_LOADED__ = true;
 
-  // ---- config ----
-  const CFG = Object.assign(
-    { lockPx: 28, cooldownMs: 90, crosshairSize: 34 },
-    WIN.HHA_VRUI_CONFIG || {}
-  );
+  const CFG = Object.assign({
+    lockPx: 28,
+    lockMin: 22,
+    lockMax: 54,
+    cooldownMs: 90,
+    cooldownMin: 70,
+    cooldownMax: 140,
+    adaptive: true
+  }, WIN.HHA_VRUI_CONFIG || {});
 
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>{ try{ return performance.now(); }catch{ return Date.now(); } };
-
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
-  }
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
   function getView(){
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v) return v;              // DO NOT override explicit view
-    // best-effort: mobile vs pc only (no forced vr/cvr)
-    const coarse = WIN.matchMedia && WIN.matchMedia('(pointer: coarse)').matches;
-    const small  = Math.min(WIN.innerWidth||360, WIN.innerHeight||640) <= 520;
-    return (coarse || small) ? 'mobile' : 'pc';
+    const v = String(qs('view','')||'').trim().toLowerCase();
+    return v || (DOC.body?.classList.contains('view-cvr') ? 'cvr'
+             : DOC.body?.classList.contains('view-vr') ? 'vr'
+             : DOC.body?.classList.contains('view-mobile') ? 'mobile'
+             : 'pc');
   }
 
-  const VIEW = getView();
-  const STRICT_CVR = (VIEW === 'cvr');
+  // --- Crosshair layer ---
+  function ensureCrosshair(){
+    let el = DOC.getElementById('hha-crosshair');
+    if(el) return el;
 
-  // ---- mount root ----
-  function ensureRoot(){
-    let root = DOC.getElementById('hha-vrui-root');
-    if (root) return root;
+    el = DOC.createElement('div');
+    el.id = 'hha-crosshair';
+    el.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'pointer-events:none',
+      'z-index:9999'
+    ].join(';');
 
-    root = DOC.createElement('div');
-    root.id = 'hha-vrui-root';
-    root.style.position = 'fixed';
-    root.style.left = '0';
-    root.style.top = '0';
-    root.style.right = '0';
-    root.style.bottom = '0';
-    root.style.zIndex = '180';
-    root.style.pointerEvents = 'none'; // children will enable pointerEvents
-    DOC.body.appendChild(root);
-    return root;
+    // Single crosshair (pc/mobile/vr) + dual crosshair for cVR
+    const c1 = DOC.createElement('div');
+    c1.id = 'hha-xhair-1';
+    c1.style.cssText = [
+      'position:absolute',
+      'left:50%',
+      'top:50%',
+      'width:26px',
+      'height:26px',
+      'transform:translate(-50%,-50%)',
+      'border-radius:999px',
+      'border:2px solid rgba(255,255,255,.75)',
+      'box-shadow:0 0 0 7px rgba(255,255,255,.08)',
+      'opacity:.95'
+    ].join(';');
+
+    const c2 = DOC.createElement('div');
+    c2.id = 'hha-xhair-2';
+    c2.style.cssText = [
+      'position:absolute',
+      'left:25%',
+      'top:50%',
+      'width:26px',
+      'height:26px',
+      'transform:translate(-50%,-50%)',
+      'border-radius:999px',
+      'border:2px solid rgba(255,255,255,.55)',
+      'box-shadow:0 0 0 7px rgba(255,255,255,.06)',
+      'opacity:0'
+    ].join(';');
+
+    const c3 = DOC.createElement('div');
+    c3.id = 'hha-xhair-3';
+    c3.style.cssText = [
+      'position:absolute',
+      'left:75%',
+      'top:50%',
+      'width:26px',
+      'height:26px',
+      'transform:translate(-50%,-50%)',
+      'border-radius:999px',
+      'border:2px solid rgba(255,255,255,.55)',
+      'box-shadow:0 0 0 7px rgba(255,255,255,.06)',
+      'opacity:0'
+    ].join(';');
+
+    el.appendChild(c1);
+    el.appendChild(c2);
+    el.appendChild(c3);
+    DOC.body.appendChild(el);
+
+    return el;
   }
 
-  // ---- styles ----
-  function injectCss(){
-    if (DOC.getElementById('hha-vrui-css')) return;
-    const st = DOC.createElement('style');
-    st.id = 'hha-vrui-css';
-    st.textContent = `
-      #hha-vrui-root{ font-family: system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; }
-      .hha-vrui-btns{
-        position: fixed;
-        top: calc(env(safe-area-inset-top, 0px) + 10px);
-        right: calc(env(safe-area-inset-right, 0px) + 10px);
-        display:flex; gap:8px; z-index: 190;
-        pointer-events: auto;
-      }
-      .hha-vrui-btn{
-        appearance:none; border:1px solid rgba(148,163,184,.24);
-        background: rgba(2,6,23,.55);
-        color: rgba(229,231,235,.92);
-        border-radius: 999px;
-        padding: 8px 10px;
-        font-weight: 900;
-        font-size: 12px;
-        backdrop-filter: blur(10px);
-        cursor: pointer;
-        user-select:none;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .hha-vrui-btn:active{ transform: translateY(1px); }
+  function syncCrosshairMode(){
+    const view = getView();
+    const c1 = DOC.getElementById('hha-xhair-1');
+    const c2 = DOC.getElementById('hha-xhair-2');
+    const c3 = DOC.getElementById('hha-xhair-3');
+    if(!c1 || !c2 || !c3) return;
 
-      .hha-crosshair{
-        position: fixed; left: 50%; top: 50%;
-        width: ${clamp(CFG.crosshairSize, 20, 60)}px;
-        height:${clamp(CFG.crosshairSize, 20, 60)}px;
-        transform: translate(-50%,-50%);
-        z-index: 185;
-        pointer-events:none;
-        opacity: .95;
-        filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
-      }
-      .hha-crosshair::before, .hha-crosshair::after{
-        content:'';
-        position:absolute; left:50%; top:50%;
-        background: rgba(229,231,235,.92);
-        border-radius: 999px;
-        transform: translate(-50%,-50%);
-      }
-      .hha-crosshair::before{ width: 2px; height: 100%; }
-      .hha-crosshair::after{ width: 100%; height: 2px; }
-
-      .hha-crosshair-dot{
-        position:absolute; left:50%; top:50%;
-        width: 6px; height:6px;
-        transform: translate(-50%,-50%);
-        background: rgba(34,197,94,.95);
-        border-radius: 999px;
-      }
-
-      /* PACK 12: view=cvr strict hint */
-      body.view-cvr .hha-crosshair-dot{ background: rgba(245,158,11,.95); }
-    `;
-    DOC.head.appendChild(st);
+    if(view === 'cvr'){
+      c1.style.opacity = '0';
+      c2.style.opacity = '.95';
+      c3.style.opacity = '.95';
+    }else{
+      c1.style.opacity = '.95';
+      c2.style.opacity = '0';
+      c3.style.opacity = '0';
+    }
   }
 
-  // ---- buttons ----
-  function makeBtn(text, onClick){
-    const b = DOC.createElement('button');
-    b.type = 'button';
-    b.className = 'hha-vrui-btn';
-    b.textContent = text;
-    b.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); onClick && onClick(e); });
-    return b;
+  // --- Adaptive lock/cooldown by cadence ---
+  const T = {
+    lastShotMs: 0,
+    lastTapMs: 0,
+    emaTapHz: 0,
+    lockPx: CFG.lockPx,
+    cooldownMs: CFG.cooldownMs
+  };
+
+  function updateCadence(t){
+    const dt = T.lastTapMs ? (t - T.lastTapMs) : 0;
+    T.lastTapMs = t;
+    if(dt > 0 && dt < 1600){
+      const hz = 1000 / dt;
+      T.emaTapHz = (T.emaTapHz === 0) ? hz : (T.emaTapHz + 0.22 * (hz - T.emaTapHz));
+    }
   }
 
-  function findScene(){
-    try{ return DOC.querySelector('a-scene'); }catch{ return null; }
-  }
-
-  function ensureUI(){
-    const root = ensureRoot();
-    injectCss();
-
-    // buttons
-    let bar = DOC.getElementById('hha-vrui-btns');
-    if (!bar){
-      bar = DOC.createElement('div');
-      bar.id = 'hha-vrui-btns';
-      bar.className = 'hha-vrui-btns';
-
-      const btnEnter = makeBtn('ENTER VR', ()=>{
-        const scene = findScene();
-        try{ scene && scene.enterVR && scene.enterVR(); }catch{}
-      });
-
-      const btnExit = makeBtn('EXIT', ()=>{
-        const scene = findScene();
-        try{ scene && scene.exitVR && scene.exitVR(); }catch{}
-      });
-
-      const btnRecenter = makeBtn('RECENTER', ()=>{
-        // emit (engine can listen)
-        try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ view: VIEW } })); }catch{}
-        // best-effort: A-Frame reset (optional)
-        try{
-          const cam = DOC.querySelector('a-camera');
-          cam && cam.emit && cam.emit('recenter');
-        }catch{}
-      });
-
-      bar.appendChild(btnEnter);
-      bar.appendChild(btnExit);
-      bar.appendChild(btnRecenter);
-      root.appendChild(bar);
+  function computeAdaptiveParams(){
+    if(!CFG.adaptive){
+      return {
+        lockPx: clamp(CFG.lockPx, CFG.lockMin, CFG.lockMax),
+        cooldownMs: clamp(CFG.cooldownMs, CFG.cooldownMin, CFG.cooldownMax)
+      };
     }
 
-    // crosshair
-    let ch = DOC.getElementById('hha-crosshair');
-    if (!ch){
-      ch = DOC.createElement('div');
-      ch.id = 'hha-crosshair';
-      ch.className = 'hha-crosshair';
-      const dot = DOC.createElement('div');
-      dot.className = 'hha-crosshair-dot';
-      ch.appendChild(dot);
-      root.appendChild(ch);
-    }
+    const view = getView();
+    const hz = clamp(T.emaTapHz, 0, 8);
 
-    // set body class (does NOT override query param; only reflects it)
-    try{
-      const b = DOC.body;
-      if (b){
-        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-        b.classList.add('view-' + (VIEW || 'mobile'));
-      }
-    }catch{}
+    let cd = CFG.cooldownMs + (hz > 3 ? (hz - 3) * 10 : 0);
+    cd = clamp(cd, CFG.cooldownMin, CFG.cooldownMax);
 
-    // announce mode
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:vrui:mode', {
-        detail:{ view: VIEW, strictCVR: STRICT_CVR, lockPx: CFG.lockPx }
-      }));
-    }catch{}
+    let lock = CFG.lockPx + (hz < 1.6 ? 8 : hz > 4.5 ? -4 : 0);
+    if(view === 'cvr') lock += 10;
+    else if(view === 'vr') lock += 6;
+    else if(view === 'mobile') lock += 2;
+
+    lock = clamp(lock, CFG.lockMin, CFG.lockMax);
+
+    T.lockPx = lock;
+    T.cooldownMs = cd;
+
+    return { lockPx: lock, cooldownMs: cd };
   }
 
-  // ---- tap-to-shoot ----
-  let lastShootAt = 0;
-
-  function isClickOnVRUI(ev){
-    try{
-      const t = ev && ev.target;
-      if (!t) return false;
-      return !!(t.closest && t.closest('#hha-vrui-root'));
-    }catch{ return false; }
+  function emitShoot(detail){
+    try{ WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail })); }catch(_){}
   }
 
-  function emitShoot(source, x, y){
+  function handleShootFromTap(ev){
     const t = nowMs();
-    if ((t - lastShootAt) < clamp(CFG.cooldownMs, 30, 240)) return;
-    lastShootAt = t;
+    updateCadence(t);
+    const P = computeAdaptiveParams();
 
-    const cx = Math.round(x);
-    const cy = Math.round(y);
+    if(T.lastShotMs && (t - T.lastShotMs) < P.cooldownMs) return;
+    T.lastShotMs = t;
 
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:shoot', {
-        detail:{
-          x: cx,
-          y: cy,
-          lockPx: clamp(CFG.lockPx, 10, 140),
-          source: String(source||'tap'),
-          view: VIEW,
-          strictCVR: STRICT_CVR
-        }
-      }));
-    }catch{}
-  }
+    const view = getView();
+    const r = DOC.documentElement.getBoundingClientRect();
+    const tapX = (ev && typeof ev.clientX === 'number') ? ev.clientX : (r.left + r.width/2);
+    const tapY = (ev && typeof ev.clientY === 'number') ? ev.clientY : (r.top  + r.height/2);
 
-  function onPointerDown(ev){
-    if (!ev) return;
-    if (isClickOnVRUI(ev)) return;
+    let aimX = r.left + r.width/2;
+    let aimY = r.top  + r.height/2;
+    let eye = null;
 
-    // do not block scrolling on mobile pages by default; only handle tap
-    let x = 0, y = 0;
-
-    if (STRICT_CVR){
-      // PACK 12: strict center shoot
-      x = (WIN.innerWidth||0) / 2;
-      y = (WIN.innerHeight||0) / 2;
-      emitShoot('cvr_center', x, y);
-      return;
+    if(view === 'cvr'){
+      const mid = r.left + r.width/2;
+      eye = (tapX <= mid) ? 'left' : 'right';
+      aimX = (eye === 'left') ? (r.left + r.width*0.25) : (r.left + r.width*0.75);
+      aimY = (r.top + r.height*0.50);
     }
 
-    // normal: shoot at tap point
-    if (ev.touches && ev.touches[0]){
-      x = ev.touches[0].clientX;
-      y = ev.touches[0].clientY;
-    } else {
-      x = ev.clientX;
-      y = ev.clientY;
-    }
-    emitShoot('tap', x, y);
+    emitShoot({
+      x: aimX,
+      y: aimY,
+      eye,
+      lockPx: P.lockPx,
+      cooldownMsUsed: P.cooldownMs,
+      source: 'vr-ui'
+    });
   }
 
-  // ---- init ----
-  ensureUI();
+  // Init
+  ensureCrosshair();
+  syncCrosshairMode();
 
-  // Listen on document (capture) so targets don't steal events
-  try{ DOC.addEventListener('pointerdown', onPointerDown, { passive:true, capture:true }); }catch{}
-  try{ DOC.addEventListener('touchstart', onPointerDown, { passive:true, capture:true }); }catch{}
+  DOC.addEventListener('pointerdown', (ev)=>{
+    if(ev && ev.isPrimary === false) return;
+    handleShootFromTap(ev);
+  }, { passive:true });
+
+  WIN.addEventListener('resize', ()=>syncCrosshairMode(), { passive:true });
+  WIN.addEventListener('orientationchange', ()=>syncCrosshairMode(), { passive:true });
 
 })();
