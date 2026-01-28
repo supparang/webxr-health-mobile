@@ -1,174 +1,201 @@
-// === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker — spawns targets, hit fx, zones, storm drift
+// === /fitness/js/dom-renderer-shadow.js — Shadow Breaker Renderer (A-9 FIX) ===
 'use strict';
+
+const EMOJI_BY_TYPE = {
+  normal:  '🥊',
+  bomb:    '💣',
+  decoy:   '🎭',
+  heal:    '❤️',
+  shield:  '🛡️',
+  bossface:'👑'
+};
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
 export class DomRendererShadow {
-  constructor(layerEl, opts = {}) {
-    this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;
-    this.feedbackEl = opts.feedbackEl || null;
+  constructor(host, opts = {}) {
+    this.host        = host;
+    this.wrapEl      = opts.wrapEl || document.body;
+    this.feedbackEl  = opts.feedbackEl || null;
     this.onTargetHit = opts.onTargetHit || null;
 
     this.targets = new Map();
     this.diffKey = 'normal';
 
-    // runtime flags
-    this.storm = false;
-
-    this._boundOnClick = (e)=>this._handlePointer(e);
-    this.layer.addEventListener('pointerdown', this._boundOnClick, { passive:false });
+    this._handleClick = this._handleClick.bind(this);
+    if (this.host) this.host.addEventListener('click', this._handleClick);
   }
 
-  setDifficulty(diffKey){
-    this.diffKey = diffKey || 'normal';
+  setDifficulty(diffKey) { this.diffKey = diffKey || 'normal'; }
+
+  destroy() {
+    if (this.host) this.host.removeEventListener('click', this._handleClick);
+    this.clearTargets();
   }
 
-  setStorm(on){
-    this.storm = !!on;
-  }
-
-  destroy(){
-    try{
-      this.layer.removeEventListener('pointerdown', this._boundOnClick);
-    }catch{}
-    for (const id of this.targets.keys()) this.removeTarget(id, 'destroy');
+  clearTargets() {
+    for (const el of this.targets.values()) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }
     this.targets.clear();
   }
 
-  // 6 zones = 3 columns x 2 rows
-  _zoneFromXY(x, y){
-    const r = this.layer.getBoundingClientRect();
-    const px = clamp((x - r.left) / r.width, 0, 0.999999);
-    const py = clamp((y - r.top)  / r.height,0, 0.999999);
-
-    const col = Math.min(2, Math.floor(px * 3)); // 0..2
-    const row = Math.min(1, Math.floor(py * 2)); // 0..1
-    return row*3 + col; // 0..5
+  _zoneFromXY(clientX, clientY, rect){
+    // rect: layer rect
+    const x = clamp(clientX - rect.left, 0, rect.width);
+    const y = clamp(clientY - rect.top,  0, rect.height);
+    const col = clamp(Math.floor((x / rect.width) * 3), 0, 2);
+    const row = clamp(Math.floor((y / rect.height) * 2), 0, 1);
+    return row * 3 + col; // 0..5
   }
 
-  spawnTarget(data){
-    if (!data) return;
-    const id = data.id;
+  spawnTarget(data) {
+    if (!this.host) return;
+
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'sb-target sb-target--' + (data.type || 'normal');
-    el.dataset.id = String(id);
-    el.style.setProperty('--sb-target-size', (data.sizePx || 120) + 'px');
+    el.className = 'sb-target';
 
-    // place in safe bounds
-    const r = this.layer.getBoundingClientRect();
+    const type = data.isBossFace ? 'bossface' : (data.type || 'normal');
+    el.classList.add(`sb-target--${type}`);
+
+    const emoji = data.isBossFace && data.bossEmoji
+      ? data.bossEmoji
+      : (EMOJI_BY_TYPE[type] || EMOJI_BY_TYPE.normal);
+
+    el.dataset.id = String(data.id);
+    el.dataset.type = type;
+
+    const size = Number(data.sizePx || 120);
+    el.style.setProperty('--sb-target-size', `${size}px`);
+
+    // --- robust px placement (fix "row เดียว") ---
+    const rect = this.host.getBoundingClientRect();
     const pad = 18;
-    const size = Number(data.sizePx||120);
-    const half = size/2;
+    const half = size / 2;
 
-    const minX = pad + half;
-    const maxX = Math.max(minX+1, r.width - pad - half);
-    const minY = pad + half;
-    const maxY = Math.max(minY+1, r.height - pad - half);
+    const minXAll = pad + half;
+    const maxXAll = Math.max(minXAll + 1, rect.width  - pad - half);
+    const minYAll = pad + half;
+    const maxYAll = Math.max(minYAll + 1, rect.height - pad - half);
 
-    const x = minX + Math.random() * (maxX - minX);
-    const y = minY + Math.random() * (maxY - minY);
+    let xMin = minXAll, xMax = maxXAll, yMin = minYAll, yMax = maxYAll;
 
-    el.style.left = x + 'px';
-    el.style.top  = y + 'px';
+    if (data.preferZone != null) {
+      const z = clamp(data.preferZone, 0, 5);
+      const col = z % 3;
+      const row = (z / 3) | 0;
 
-    // compute zone id at spawn
-    const zoneId = this._zoneFromXY(r.left + x, r.top + y);
+      const colW = (maxXAll - minXAll) / 3;
+      const rowH = (maxYAll - minYAll) / 2;
+
+      xMin = minXAll + col * colW;
+      xMax = minXAll + (col + 1) * colW;
+      yMin = minYAll + row * rowH;
+      yMax = minYAll + (row + 1) * rowH;
+
+      const inset = 10;
+      xMin += inset; xMax -= inset;
+      yMin += inset; yMax -= inset;
+
+      if (xMax <= xMin + 6) { xMin = minXAll; xMax = maxXAll; }
+      if (yMax <= yMin + 6) { yMin = minYAll; yMax = maxYAll; }
+    }
+
+    const x = xMin + Math.random() * (xMax - xMin);
+    const y = yMin + Math.random() * (yMax - yMin);
+
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
+
+    const zoneId = this._zoneFromXY(rect.left + x, rect.top + y, rect);
     el.dataset.zone = String(zoneId);
 
-    // core emoji
-    const core = document.createElement('div');
+    const core = document.createElement('span');
     core.className = 'sb-target-core';
-    core.textContent = (data.isBossFace && data.bossEmoji) ? data.bossEmoji : this._emojiFor(data.type);
+    core.textContent = emoji;
     el.appendChild(core);
 
-    // drift (only in storm)
-    if (this.storm) {
-      const dx = (Math.random()*2-1) * 28;
-      const dy = (Math.random()*2-1) * 18;
-      el.animate([
-        { transform: 'translate(-50%,-50%)' },
-        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))` }
-      ], { duration: 520, direction:'alternate', iterations: Infinity, easing:'ease-in-out' });
-    }
-
-    this.layer.appendChild(el);
-    this.targets.set(id, el);
+    this.host.appendChild(el);
+    this.targets.set(data.id, el);
   }
 
-  _emojiFor(type){
-    if (type==='bomb') return '💣';
-    if (type==='decoy') return '👻';
-    if (type==='heal') return '🩹';
-    if (type==='shield') return '🛡️';
-    if (type==='bossface') return '👑';
-    return '🥊';
-  }
-
-  removeTarget(id, why){
+  removeTarget(id, reason) {
     const el = this.targets.get(id);
     if (!el) return;
-    el.classList.add('sb-target--gone');
-    setTimeout(()=>{
-      try{ el.remove(); }catch{}
-    }, 120);
     this.targets.delete(id);
+
+    el.classList.add('sb-target--gone');
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, reason === 'hit' ? 250 : 150);
   }
 
-  playHitFx(id, info){
-    // reuse CSS fx classes already in your stylesheet
-    const x = Number(info?.clientX) || (window.innerWidth/2);
-    const y = Number(info?.clientY) || (window.innerHeight/2);
+  playHitFx(id, opts) {
+    const el = this.targets.get(id);
+    if (!el) return;
 
-    const grade = String(info?.grade||'good');
-    const delta = Number(info?.scoreDelta||0);
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top  + rect.height / 2;
 
-    const txt = document.createElement('div');
-    txt.className = 'sb-fx-score is-live sb-fx-' + (grade==='perfect'?'perfect':grade==='bad'?'bad':'good');
-    txt.textContent = (delta>=0?'+':'') + String(delta);
-    txt.style.left = x + 'px';
-    txt.style.top  = y + 'px';
-    document.body.appendChild(txt);
-
-    setTimeout(()=>{ txt.classList.remove('is-live'); }, 160);
-    setTimeout(()=>{ try{ txt.remove(); }catch{} }, 520);
-
-    // dots
-    const n = 10;
-    for (let i=0;i<n;i++){
-      const dot = document.createElement('div');
-      dot.className = 'sb-fx-dot is-live sb-fx-' + (grade==='perfect'?'perfect':grade==='bad'?'bad':'good');
-      dot.style.left = x + 'px';
-      dot.style.top  = y + 'px';
-      dot.style.setProperty('--sb-fx-dx', ((Math.random()*2-1)*60).toFixed(1)+'px');
-      dot.style.setProperty('--sb-fx-dy', ((Math.random()*2-1)*48).toFixed(1)+'px');
-      dot.style.setProperty('--sb-fx-scale', (0.6+Math.random()*1.2).toFixed(2));
-      document.body.appendChild(dot);
-      setTimeout(()=>{ try{ dot.remove(); }catch{} }, 520);
-    }
+    this._spawnScoreText(cx, cy, opts);
+    this._spawnBurst(cx, cy, opts);
   }
 
-  _handlePointer(e){
-    // let clicks fall through unless hitting target
-    const t = e.target;
-    if (!(t instanceof HTMLElement)) return;
+  _handleClick(ev) {
+    const target = ev.target.closest('.sb-target');
+    if (!target) return;
 
-    const btn = t.closest('.sb-target');
-    if (!btn) return;
+    const id = parseInt(target.dataset.id, 10);
+    if (!this.targets.has(id)) return;
 
-    e.preventDefault();
-
-    const id = Number(btn.dataset.id);
-    const zoneId = Number(btn.dataset.zone);
+    const rect = target.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top  + rect.height / 2;
 
     if (this.onTargetHit) {
       this.onTargetHit(id, {
-        clientX: e.clientX,
-        clientY: e.clientY,
-        zoneId
+        clientX: cx,
+        clientY: cy,
+        zoneId: parseInt(target.dataset.zone || '0', 10)
       });
+    }
+  }
+
+  _spawnScoreText(x, y, { grade, scoreDelta }) {
+    const el = document.createElement('div');
+    el.className = `sb-fx-score sb-fx-${grade || 'good'}`;
+    el.textContent = (scoreDelta > 0 ? '+' : '') + scoreDelta;
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
+
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('is-live'));
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 700);
+  }
+
+  _spawnBurst(x, y, { grade }) {
+    const n = grade === 'perfect' ? 20 : 12;
+    for (let i = 0; i < n; i++) {
+      const dot = document.createElement('div');
+      dot.className = `sb-fx-dot sb-fx-${grade || 'good'}`;
+      dot.style.left = `${x}px`;
+      dot.style.top  = `${y}px`;
+
+      const ang = (Math.PI * 2 * i) / n;
+      const dist = 40 + Math.random() * 40;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist;
+      const scale = 0.6 + Math.random() * 0.6;
+
+      dot.style.setProperty('--sb-fx-dx', `${dx}px`);
+      dot.style.setProperty('--sb-fx-dy', `${dy}px`);
+      dot.style.setProperty('--sb-fx-scale', scale.toString());
+
+      document.body.appendChild(dot);
+      requestAnimationFrame(() => dot.classList.add('is-live'));
+      setTimeout(() => { if (dot.parentNode) dot.parentNode.removeChild(dot); }, 550);
     }
   }
 }
