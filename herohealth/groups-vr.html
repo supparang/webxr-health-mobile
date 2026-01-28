@@ -1,10 +1,11 @@
 <!-- === /herohealth/groups-vr.html ===
 GroupsVR LAUNCHER — ROOT (Production)
-✅ Auto-detect view: pc / mobile / vr / cvr
+✅ Auto-detect view: pc / mobile / cvr
 ✅ DO NOT override if ?view= already exists
-✅ Pass-through: hub/run/diff/time/seed/style/studyId/conditionGroup/log/practice/ai
+✅ Pass-through: hub/run/diff/time/seed/style/studyId/conditionGroup/log/practice/ai (+others)
 ✅ Remembers last view (localStorage) if no explicit ?view=
-✅ Clear entry buttons (PC/Mobile/VR/Cardboard) BUT auto redirect by default
+✅ Clear entry buttons (PC/Mobile/Cardboard) BUT auto redirect by default
+✅ Safe: guards matchMedia / missing buttons
 -->
 <!doctype html>
 <html lang="th">
@@ -65,6 +66,7 @@ GroupsVR LAUNCHER — ROOT (Production)
     .note{ margin-top:10px; color:var(--muted); font-size:12px; }
     .small{ font-size:12px; color:rgba(229,231,235,.78); }
     .hr{ height:1px; background:rgba(148,163,184,.12); margin:14px 0; border-radius:999px; }
+    code{ font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
   </style>
 </head>
 <body>
@@ -114,15 +116,21 @@ GroupsVR LAUNCHER — ROOT (Production)
     if (el) el.textContent = String(v ?? '');
   }
 
+  function mm(q){
+    try{ return !!(window.matchMedia && window.matchMedia(q).matches); }
+    catch{ return false; }
+  }
+
   function isLikelyMobile(){
     const ua = navigator.userAgent || '';
-    return /Android|iPhone|iPad|iPod/i.test(ua);
+    const coarse = mm('(pointer: coarse)');
+    const small  = Math.min(window.innerWidth||360, window.innerHeight||640) <= 520;
+    return /Android|iPhone|iPad|iPod/i.test(ua) || coarse || small;
   }
 
   function isLikelyCardboard(){
-    // heuristic: mobile + wide viewport OR explicit fullscreen/pointer coarse
-    const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
-    return isLikelyMobile() && coarse;
+    // heuristic: mobile + coarse pointer (มือถือ) → default cVR
+    return isLikelyMobile() && mm('(pointer: coarse)');
   }
 
   function detectView(){
@@ -143,12 +151,13 @@ GroupsVR LAUNCHER — ROOT (Production)
   }
 
   function buildRunUrl(viewOverride){
+    // ✅ RUN file เดียวใน vr-groups
     const runPath = './vr-groups/groups-vr.html';
     const u = new URL(runPath, location.href);
 
     const sp = new URL(location.href).searchParams;
 
-    // pass-through every param
+    // pass-through all params
     sp.forEach((v,k)=> u.searchParams.set(k,v));
 
     // decide view
@@ -163,28 +172,38 @@ GroupsVR LAUNCHER — ROOT (Production)
     return u.toString();
   }
 
+  function bind(id, fn){
+    const el = DOC.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', fn);
+  }
+
   // HUD
   setText('vRun',  String(qs('run','play')||'play'));
   setText('vDiff', String(qs('diff','normal')||'normal'));
   setText('vTime', String(qs('time','90')||'90'));
-  const a = String(qs('ai','0')||'0');
-  setText('vAI', (a==='1'||a==='true') ? 'on' : 'off');
+
+  const aiRaw = String(qs('ai','0')||'0').toLowerCase();
+  const aiOn  = (aiRaw==='1'||aiRaw==='true'||aiRaw==='yes'||aiRaw==='on');
+  setText('vAI', aiOn ? 'on' : 'off');
 
   const view = detectView();
   setText('vView', view);
 
-  function go(view){
-    location.href = buildRunUrl(view);
+  function go(viewOverride){
+    location.href = buildRunUrl(viewOverride);
   }
 
-  DOC.getElementById('btnAuto').addEventListener('click', ()=> go(null));
-  DOC.getElementById('btnPC').addEventListener('click', ()=> go('pc'));
-  DOC.getElementById('btnMobile').addEventListener('click', ()=> go('mobile'));
-  DOC.getElementById('btnVR').addEventListener('click', ()=> go('cvr'));
+  bind('btnAuto',   ()=> go(null));
+  bind('btnPC',     ()=> go('pc'));
+  bind('btnMobile', ()=> go('mobile'));
+  bind('btnVR',     ()=> go('cvr'));
 
   // ✅ auto redirect quickly (unless user explicitly wants to stay: ?stay=1)
-  const stay = String(qs('stay','0')||'0');
-  if (!(stay==='1' || stay==='true')){
+  const stayRaw = String(qs('stay','0')||'0').toLowerCase();
+  const stay = (stayRaw==='1'||stayRaw==='true'||stayRaw==='yes'||stayRaw==='on');
+
+  if (!stay){
     setTimeout(()=> go(null), 350);
   }
 })();
