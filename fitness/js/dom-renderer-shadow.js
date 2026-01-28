@@ -1,216 +1,174 @@
-// === /fitness/js/dom-renderer-shadow.js — Shadow Breaker Renderer (PATCH 2026-01-27) ===
+// === /fitness/js/dom-renderer-shadow.js ===
+// DOM renderer for Shadow Breaker — spawns targets, hit fx, zones, storm drift
 'use strict';
 
-const EMOJI_BY_TYPE = {
-  normal:   '🥊',
-  bomb:     '💣',
-  decoy:    '🎭',
-  heal:     '❤️',
-  shield:   '🛡️',
-  bossface: '👑' // จะถูกแทนด้วย bossEmoji จริงตอน spawn
-};
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
 export class DomRendererShadow {
-  constructor(host, opts = {}) {
-    this.host        = host;
-    this.wrapEl      = opts.wrapEl || document.body;
-    this.feedbackEl  = opts.feedbackEl || null;
+  constructor(layerEl, opts = {}) {
+    this.layer = layerEl;
+    this.wrapEl = opts.wrapEl || null;
+    this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = opts.onTargetHit || null;
 
     this.targets = new Map();
     this.diffKey = 'normal';
 
-    // สำหรับกันซ้อน: เก็บ bounding box ล่าสุด
-    this._placed = [];
+    // runtime flags
+    this.storm = false;
 
-    this._handleClick = this._handleClick.bind(this);
-    if (this.host) {
-      this.host.addEventListener('click', this._handleClick);
-    }
+    this._boundOnClick = (e)=>this._handlePointer(e);
+    this.layer.addEventListener('pointerdown', this._boundOnClick, { passive:false });
   }
 
-  setDifficulty(diffKey) {
+  setDifficulty(diffKey){
     this.diffKey = diffKey || 'normal';
   }
 
-  destroy() {
-    if (this.host) {
-      this.host.removeEventListener('click', this._handleClick);
-    }
-    this.clearTargets();
+  setStorm(on){
+    this.storm = !!on;
   }
 
-  clearTargets() {
-    for (const el of this.targets.values()) {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }
+  destroy(){
+    try{
+      this.layer.removeEventListener('pointerdown', this._boundOnClick);
+    }catch{}
+    for (const id of this.targets.keys()) this.removeTarget(id, 'destroy');
     this.targets.clear();
-    this._placed.length = 0;
   }
 
-  // ===== public API used by engine =====
+  // 6 zones = 3 columns x 2 rows
+  _zoneFromXY(x, y){
+    const r = this.layer.getBoundingClientRect();
+    const px = clamp((x - r.left) / r.width, 0, 0.999999);
+    const py = clamp((y - r.top)  / r.height,0, 0.999999);
 
-  spawnTarget(data) {
-    if (!this.host) return;
+    const col = Math.min(2, Math.floor(px * 3)); // 0..2
+    const row = Math.min(1, Math.floor(py * 2)); // 0..1
+    return row*3 + col; // 0..5
+  }
 
+  spawnTarget(data){
+    if (!data) return;
+    const id = data.id;
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'sb-target';
+    el.className = 'sb-target sb-target--' + (data.type || 'normal');
+    el.dataset.id = String(id);
+    el.style.setProperty('--sb-target-size', (data.sizePx || 120) + 'px');
 
-    const type = data.isBossFace ? 'bossface' : (data.type || 'normal');
-    el.classList.add(`sb-target--${type}`);
+    // place in safe bounds
+    const r = this.layer.getBoundingClientRect();
+    const pad = 18;
+    const size = Number(data.sizePx||120);
+    const half = size/2;
 
-    const emoji = data.isBossFace && data.bossEmoji
-      ? data.bossEmoji
-      : (EMOJI_BY_TYPE[type] || EMOJI_BY_TYPE.normal);
+    const minX = pad + half;
+    const maxX = Math.max(minX+1, r.width - pad - half);
+    const minY = pad + half;
+    const maxY = Math.max(minY+1, r.height - pad - half);
 
-    el.dataset.id = String(data.id);
-    el.dataset.type = type;
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
 
-    // ขนาดเป้า: ควบคุมผ่าน CSS variable
-    const size = Math.max(64, data.sizePx || 120);
-    el.style.setProperty('--sb-target-size', `${size}px`);
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
 
-    // โครงสร้างภายใน
-    const core = document.createElement('span');
+    // compute zone id at spawn
+    const zoneId = this._zoneFromXY(r.left + x, r.top + y);
+    el.dataset.zone = String(zoneId);
+
+    // core emoji
+    const core = document.createElement('div');
     core.className = 'sb-target-core';
-    core.textContent = emoji;
+    core.textContent = (data.isBossFace && data.bossEmoji) ? data.bossEmoji : this._emojiFor(data.type);
     el.appendChild(core);
 
-    // ใส่เข้าก่อน เพื่อให้คำนวณได้ (ถ้าต้องการ)
-    this.host.appendChild(el);
-
-    // ===== PATCH: ตำแหน่งแบบ px clamp + กันซ้อน =====
-    // ใช้ขนาด host จริงในการวาง เพื่อไม่ให้เป้าไปกองแถวเดียว
-    const hostRect = this.host.getBoundingClientRect();
-    const w = Math.max(1, hostRect.width);
-    const h = Math.max(1, hostRect.height);
-
-    // margin กันชนขอบ + กันไม่ให้เป้าทับ HUD/ขอบ
-    const margin = Math.max(10, Math.round(size * 0.15));
-    const minX = margin + size * 0.5;
-    const maxX = Math.max(minX + 1, w - margin - size * 0.5);
-    const minY = margin + size * 0.5;
-    const maxY = Math.max(minY + 1, h - margin - size * 0.5);
-
-    // ระยะห่างขั้นต่ำกันซ้อน (ปรับตามขนาด)
-    const minDist = Math.max(26, Math.round(size * 0.55));
-
-    let px = (minX + Math.random() * (maxX - minX));
-    let py = (minY + Math.random() * (maxY - minY));
-
-    // ลองหาตำแหน่งใหม่หลายครั้งเพื่อลดการซ้อน
-    let ok = false;
-    for (let attempt = 0; attempt < 14; attempt++) {
-      ok = true;
-      for (const p of this._placed) {
-        const dx = px - p.x;
-        const dy = py - p.y;
-        if ((dx * dx + dy * dy) < (minDist * minDist)) {
-          ok = false;
-          break;
-        }
-      }
-      if (ok) break;
-      px = (minX + Math.random() * (maxX - minX));
-      py = (minY + Math.random() * (maxY - minY));
+    // drift (only in storm)
+    if (this.storm) {
+      const dx = (Math.random()*2-1) * 28;
+      const dy = (Math.random()*2-1) * 18;
+      el.animate([
+        { transform: 'translate(-50%,-50%)' },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))` }
+      ], { duration: 520, direction:'alternate', iterations: Infinity, easing:'ease-in-out' });
     }
 
-    // วางด้วย px เพื่อแม่นสุด
-    el.style.left = `${px}px`;
-    el.style.top  = `${py}px`;
-
-    // บันทึกตำแหน่งที่วางไว้
-    this._placed.push({ id: data.id, x: px, y: py, size });
-
-    this.targets.set(data.id, el);
+    this.layer.appendChild(el);
+    this.targets.set(id, el);
   }
 
-  removeTarget(id, reason) {
+  _emojiFor(type){
+    if (type==='bomb') return '💣';
+    if (type==='decoy') return '👻';
+    if (type==='heal') return '🩹';
+    if (type==='shield') return '🛡️';
+    if (type==='bossface') return '👑';
+    return '🥊';
+  }
+
+  removeTarget(id, why){
     const el = this.targets.get(id);
     if (!el) return;
-
-    this.targets.delete(id);
-    this._placed = this._placed.filter(p => p.id !== id);
-
     el.classList.add('sb-target--gone');
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, reason === 'hit' ? 250 : 150);
+    setTimeout(()=>{
+      try{ el.remove(); }catch{}
+    }, 120);
+    this.targets.delete(id);
   }
 
-  playHitFx(id, opts = {}) {
-    const el = this.targets.get(id);
-    if (!el) return;
+  playHitFx(id, info){
+    // reuse CSS fx classes already in your stylesheet
+    const x = Number(info?.clientX) || (window.innerWidth/2);
+    const y = Number(info?.clientY) || (window.innerHeight/2);
 
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top  + rect.height / 2;
+    const grade = String(info?.grade||'good');
+    const delta = Number(info?.scoreDelta||0);
 
-    this._spawnScoreText(cx, cy, opts);
-    this._spawnBurst(cx, cy, opts);
+    const txt = document.createElement('div');
+    txt.className = 'sb-fx-score is-live sb-fx-' + (grade==='perfect'?'perfect':grade==='bad'?'bad':'good');
+    txt.textContent = (delta>=0?'+':'') + String(delta);
+    txt.style.left = x + 'px';
+    txt.style.top  = y + 'px';
+    document.body.appendChild(txt);
+
+    setTimeout(()=>{ txt.classList.remove('is-live'); }, 160);
+    setTimeout(()=>{ try{ txt.remove(); }catch{} }, 520);
+
+    // dots
+    const n = 10;
+    for (let i=0;i<n;i++){
+      const dot = document.createElement('div');
+      dot.className = 'sb-fx-dot is-live sb-fx-' + (grade==='perfect'?'perfect':grade==='bad'?'bad':'good');
+      dot.style.left = x + 'px';
+      dot.style.top  = y + 'px';
+      dot.style.setProperty('--sb-fx-dx', ((Math.random()*2-1)*60).toFixed(1)+'px');
+      dot.style.setProperty('--sb-fx-dy', ((Math.random()*2-1)*48).toFixed(1)+'px');
+      dot.style.setProperty('--sb-fx-scale', (0.6+Math.random()*1.2).toFixed(2));
+      document.body.appendChild(dot);
+      setTimeout(()=>{ try{ dot.remove(); }catch{} }, 520);
+    }
   }
 
-  // ===== internal helpers =====
+  _handlePointer(e){
+    // let clicks fall through unless hitting target
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
 
-  _handleClick(ev) {
-    const btn = ev.target.closest('.sb-target');
+    const btn = t.closest('.sb-target');
     if (!btn) return;
 
-    const id = parseInt(btn.dataset.id, 10);
-    if (!this.targets.has(id)) return;
+    e.preventDefault();
 
-    const rect = btn.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top  + rect.height / 2;
+    const id = Number(btn.dataset.id);
+    const zoneId = Number(btn.dataset.zone);
 
     if (this.onTargetHit) {
-      this.onTargetHit(id, { clientX: cx, clientY: cy });
-    }
-  }
-
-  _spawnScoreText(x, y, { grade, scoreDelta }) {
-    const root = this.wrapEl || document.body;
-
-    const el = document.createElement('div');
-    el.className = `sb-fx-score sb-fx-${grade || 'good'}`;
-    el.textContent = (scoreDelta > 0 ? '+' : '') + scoreDelta;
-
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
-
-    root.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('is-live'));
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, 700);
-  }
-
-  _spawnBurst(x, y, { grade }) {
-    const root = this.wrapEl || document.body;
-
-    const n = grade === 'perfect' ? 20 : 12;
-    for (let i = 0; i < n; i++) {
-      const dot = document.createElement('div');
-      dot.className = `sb-fx-dot sb-fx-${grade || 'good'}`;
-      dot.style.left = `${x}px`;
-      dot.style.top  = `${y}px`;
-
-      const ang = (Math.PI * 2 * i) / n;
-      const dist = 40 + Math.random() * 40;
-      const dx = Math.cos(ang) * dist;
-      const dy = Math.sin(ang) * dist;
-      const scale = 0.6 + Math.random() * 0.6;
-
-      dot.style.setProperty('--sb-fx-dx', `${dx}px`);
-      dot.style.setProperty('--sb-fx-dy', `${dy}px`);
-      dot.style.setProperty('--sb-fx-scale', String(scale));
-
-      root.appendChild(dot);
-      requestAnimationFrame(() => dot.classList.add('is-live'));
-      setTimeout(() => {
-        if (dot.parentNode) dot.parentNode.removeChild(dot);
-      }, 550);
+      this.onTargetHit(id, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        zoneId
+      });
     }
   }
 }
