@@ -3,24 +3,24 @@
 
 export class EventLogger {
   constructor() {
-    this.logs = [];
+    this.rows = [];
+  }
+
+  clear() {
+    this.rows.length = 0;
   }
 
   add(row) {
     if (!row || typeof row !== 'object') return;
-    this.logs.push(row);
-  }
-
-  clear() {
-    this.logs.length = 0;
+    this.rows.push(row);
   }
 
   toCsv() {
-    if (!this.logs.length) return '';
+    if (!this.rows.length) return '';
 
-    // ✅ รวมคอลัมน์ให้ “นิ่ง” แม้บาง row จะมี field เพิ่ม/หาย
+    // ✅ ทำคอลัมน์ให้ “นิ่ง” โดย union keys ทุกแถว (กัน field เพิ่ม/หาย)
     const colSet = new Set();
-    for (const r of this.logs) Object.keys(r).forEach(k => colSet.add(k));
+    for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
     const cols = Array.from(colSet);
 
     const esc = (v) => {
@@ -29,43 +29,30 @@ export class EventLogger {
     };
 
     const head = cols.join(',');
-    const lines = this.logs.map(r => cols.map(c => esc(r[c])).join(','));
+    const lines = this.rows.map(r => cols.map(c => esc(r[c])).join(','));
     return [head, ...lines].join('\n');
   }
 }
 
 /**
  * helper สำหรับดาวน์โหลดไฟล์ CSV event-level
- * @param {EventLogger} logger
  * @param {string} filename
+ * @param {string} csvText
  */
-export function downloadEventCsv(logger, filename = 'shadow-breaker-events.csv') {
-  try {
-    if (!logger || typeof logger.toCsv !== 'function') {
-      console.warn('[EventLogger] invalid logger for download');
-      return;
-    }
-
-    const csv = logger.toCsv();
-    if (!csv) {
-      alert('ยังไม่มีข้อมูลเหตุการณ์ในรอบนี้');
-      return;
-    }
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-
-    setTimeout(() => {
-      a.remove();
-      URL.revokeObjectURL(url);
-    }, 0);
-  } catch (err) {
-    console.error('Download event CSV failed', err);
-    alert('ไม่สามารถดาวน์โหลดไฟล์ CSV (event) ได้');
+export function downloadCsv(filename, csvText) {
+  if (!csvText) {
+    alert('ยังไม่มีข้อมูลให้ดาวน์โหลด');
+    return;
   }
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'events.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
 }
