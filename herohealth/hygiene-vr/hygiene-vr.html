@@ -1,10 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — v20260128a
+HygieneVR RUN — PRODUCTION (HHA Standard)
 ✅ Views: pc/mobile/vr/cvr (via body classes)
-✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
-✅ FX: ../vr/particles.js (Effect hook restored)
+✅ Uses: ../vr/vr-ui.js (defer) => Enter VR/Exit/Recenter + crosshair + hha:shoot
+✅ FX: ../vr/particles.js (defer)
+✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Boot: ./hygiene-vr.boot.js (module) imports ./hygiene.safe.js (export boot)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,21 +15,21 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — v20260128a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
+  <!-- CSS (MUST exist) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260128a" />
 
-  <!-- Universal VR UI (MUST defer) -->
+  <!-- Universal VR UI (MUST defer to avoid body null) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
+  <!-- FX layer -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
+  <!-- Optional AI packs (safe if missing, but you included them) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์ต้องตรง!) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์ต้องตรงกับของจริง) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
@@ -110,66 +110,32 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — v20260128a
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-  // ----- View classes -----
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    document.body.classList.add(
+      view==='mobile' ? 'view-mobile' :
+      (view==='vr' ? 'view-vr' :
+      (view==='cvr' ? 'view-cvr' : 'view-pc'))
+    );
+
+    const labView = document.getElementById('labView');
+    if(labView) labView.textContent = view;
   }
+
   setViewClass();
+
   const labMode = document.getElementById('labMode');
   const labDiff = document.getElementById('labDiff');
   if(labMode) labMode.textContent = (qs('run','play')||'play');
   if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
 
-  // ----- FX hook (restore effects) -----
-  function fxReady(fn){
-    const t0 = Date.now();
-    (function loop(){
-      if(window.Particles && typeof window.Particles.popText === 'function') return fn();
-      if(Date.now()-t0 > 1800) return; // don't block
-      requestAnimationFrame(loop);
-    })();
-  }
-
-  fxReady(()=>{
-    const P = window.Particles;
-
-    // judge => pop text at hit position (needs engine to emit x,y; if missing, fallback center)
-    window.addEventListener('hha:judge', (e)=>{
-      const d = (e && e.detail) || {};
-      const x = Number.isFinite(d.x) ? d.x : (innerWidth*0.5);
-      const y = Number.isFinite(d.y) ? d.y : (innerHeight*0.55);
-
-      if(d.kind === 'good'){
-        P.popText(x, y, '✅ +1', 'good');
-        P.burst(x, y, { count: 10, spread: 36, className: 'good' });
-      }else if(d.kind === 'haz'){
-        P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
-      }else if(d.kind === 'wrong'){
-        P.popText(x, y, '⚠️ ผิดขั้น!', 'warn');
-      }
-    }, { passive:true });
-
-    window.addEventListener('hha:badge', (e)=>{
-      const b = (e && e.detail) || {};
-      P.popText(innerWidth*0.5, innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'cyan');
-      P.burst(innerWidth*0.5, innerHeight*0.22, { count: 14, spread: 54, className:'cyan' });
-    }, { passive:true });
-
-    window.addEventListener('hha:end', (e)=>{
-      P.popText(innerWidth*0.5, innerHeight*0.30, '🎉 จบเกม!', 'good');
-      P.burst(innerWidth*0.5, innerHeight*0.35, { count: 18, spread: 70, className:'good' });
-    }, { passive:true });
-
-    // boot sanity logs
-    try{
-      const ok = Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) ? window.HHA_HYGIENE_QUIZ_BANK.length : 0;
-      console.log('[HygieneRUN] FX hook OK, quizBank=', ok);
-    }catch{}
-  });
+  // tiny diagnostics hint (ไม่ block)
+  try{
+    if(!window.HHA_HYGIENE_QUIZ_BANK){
+      console.warn('[HygieneVR] quiz bank not ready yet (ok if defer loading)');
+    }
+  }catch{}
 })();
 </script>
 </body>
