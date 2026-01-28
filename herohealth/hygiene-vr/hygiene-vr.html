@@ -4,7 +4,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ FX: listens hha:judge + hha:badge -> Particles
+✅ FX: listens hha:judge -> Particles.popText/burst
 -->
 <!doctype html>
 <html lang="th">
@@ -20,7 +20,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
+  <!-- FX helper (MUST exist for effects) -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -28,7 +28,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
+  <!-- ✅ Quiz bank: ชื่อไฟล์ที่คุณมีจริง -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
@@ -107,57 +107,42 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 <script>
 (function(){
   'use strict';
-  const WIN = window;
-  const DOC = document;
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-  // -------- View class --------
+  // ---- set view class ----
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
-    DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    DOC.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    DOC.getElementById('labView').textContent = view;
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    const el = document.getElementById('labView');
+    if(el) el.textContent = view;
   }
   setViewClass();
-  DOC.getElementById('labMode').textContent = (qs('run','play')||'play');
-  DOC.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 
-  // -------- ✅ FX bridge (ทำให้ Effect กลับมา) --------
-  function fxText(x,y,text,cls){
-    const P = WIN.Particles;
-    if(P && typeof P.popText === 'function'){
-      P.popText(x,y,text,cls||'');
+  const m = document.getElementById('labMode');
+  const d = document.getElementById('labDiff');
+  if(m) m.textContent = (qs('run','play')||'play');
+  if(d) d.textContent = (qs('diff','normal')||'normal');
+
+  // ---- FX hook: hha:judge -> Particles ----
+  // ทำให้ "Effect ไม่หาย" แม้ engine จะยังไม่เรียกเอง
+  window.addEventListener('hha:judge', (e)=>{
+    const p = window.Particles;
+    if(!p) return;
+    const det = (e && e.detail) || {};
+    const x = Number(det.x ?? window.innerWidth*0.5);
+    const y = Number(det.y ?? window.innerHeight*0.5);
+
+    if(det.kind === 'good'){
+      p.popText(x, y, '✅ +1', 'good');
+      p.burst(x, y, { count: 10, spread: 44, className: '' });
+    }else if(det.kind === 'wrong'){
+      p.popText(x, y, '⚠️ ผิด', 'warn');
+      p.burst(x, y, { count: 12, spread: 52, className: '' });
+    }else if(det.kind === 'haz'){
+      p.popText(x, y, '🦠 โดน!', 'bad');
+      p.burst(x, y, { count: 14, spread: 56, className: '' });
     }
-  }
-  function fxBurst(x,y,cls){
-    const P = WIN.Particles;
-    if(P && typeof P.burst === 'function'){
-      P.burst(x,y,{count:14, spread:44, className: (cls||'')});
-    }
-  }
-
-  // รับ event จาก engine
-  WIN.addEventListener('hha:judge', (e)=>{
-    const d = (e && e.detail) || {};
-    const x = Number(d.x ?? WIN.innerWidth*0.5);
-    const y = Number(d.y ?? WIN.innerHeight*0.28);
-
-    if(d.kind === 'good'){
-      fxText(x,y,'✅ +1','good');
-      fxBurst(x,y,'');
-    }else if(d.kind === 'wrong'){
-      fxText(x,y,'⚠️ ผิดขั้น!','warn');
-    }else if(d.kind === 'haz'){
-      fxText(x,y,'🦠 โดนเชื้อ!','bad');
-    }
-  });
-
-  WIN.addEventListener('hha:badge', (e)=>{
-    const b = (e && e.detail) || {};
-    const x = WIN.innerWidth*0.5;
-    const y = WIN.innerHeight*0.18;
-    fxText(x,y,`${b.icon||'🏅'} ${b.title||'Badge!'}`,'good');
-    fxBurst(x,y,'');
   });
 })();
 </script>
