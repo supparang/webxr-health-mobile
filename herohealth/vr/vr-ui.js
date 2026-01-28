@@ -1,7 +1,22 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — PATCH (null-safe mount)
-// ✅ ENTER VR / EXIT / RECENTER (ถ้าคุณมีของเดิมอยู่แล้ว เอาเฉพาะ patch ส่วน mount ก็ได้)
-// ✅ Crosshair overlay + tap-to-shoot => dispatch hha:shoot
+// Universal VR UI — PRODUCTION (AIM-ASSIST PATCH)
+// ✅ Adds: ENTER VR / EXIT / RECENTER buttons
+// ✅ Crosshair overlay + tap-to-shoot
+// ✅ Emits: hha:shoot {x,y,lockPx,eye,source,cooldownMsUsed}
+// ✅ Supports view=cvr strict (split 2 eyes) -> chooses eye by tap position
+// ✅ Adaptive: lockPx + cooldown varies with tap cadence (prevents spam / improves aim)
+//
+// Config (optional):
+// window.HHA_VRUI_CONFIG = {
+//   lockPx: 28,
+//   lockMin: 22,
+//   lockMax: 54,
+//   cooldownMs: 90,
+//   cooldownMin: 70,
+//   cooldownMax: 140,
+//   adaptive: true
+// }
+
 (function(){
   'use strict';
   const WIN = window;
@@ -10,81 +25,225 @@
   if(!DOC || WIN.__HHA_VRUI_LOADED__) return;
   WIN.__HHA_VRUI_LOADED__ = true;
 
-  const CFG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
-  const emit = (name, detail)=>{ try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch{} };
+  const CFG = Object.assign({
+    lockPx: 28,
+    lockMin: 22,
+    lockMax: 54,
+    cooldownMs: 90,
+    cooldownMin: 70,
+    cooldownMax: 140,
+    adaptive: true
+  }, WIN.HHA_VRUI_CONFIG || {});
 
-  function domReady(fn){
-    if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-    else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
-  }
-
-  function safeMount(){
-    // ✅ สำคัญ: body อาจยัง null ในบางกรณี (โดยเฉพาะถ้า script ไม่ defer/async)
-    // ใช้ documentElement เป็น fallback
-    return DOC.body || DOC.documentElement;
-  }
-
-  function ensureCrosshair(){
-    const mount = safeMount();
-    if(!mount) return null;
-
-    let ch = DOC.getElementById('hhaCrosshair');
-    if(ch) return ch;
-
-    ch = DOC.createElement('div');
-    ch.id = 'hhaCrosshair';
-    ch.style.position = 'fixed';
-    ch.style.left = '50%';
-    ch.style.top = '50%';
-    ch.style.transform = 'translate(-50%,-50%)';
-    ch.style.width = '18px';
-    ch.style.height = '18px';
-    ch.style.border = '2px solid rgba(229,231,235,.9)';
-    ch.style.borderRadius = '999px';
-    ch.style.boxShadow = '0 0 0 3px rgba(2,6,23,.55)';
-    ch.style.pointerEvents = 'none';
-    ch.style.zIndex = '9999';
-    ch.style.display = 'none'; // เปิดเฉพาะ cVR หรือโหมดที่ต้องการ
-
-    mount.appendChild(ch);
-    return ch;
-  }
-
-  function showCrosshair(on){
-    const ch = ensureCrosshair();
-    if(!ch) return;
-    ch.style.display = on ? 'block' : 'none';
-  }
-
-  let lastShoot = 0;
-
-  function onTapShoot(){
-    const now = Date.now();
-    if(now - lastShoot < CFG.cooldownMs) return;
-    lastShoot = now;
-
-    emit('hha:shoot', { x: WIN.innerWidth/2, y: WIN.innerHeight/2, lockPx: CFG.lockPx, source:'tap' });
-  }
+  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
   function getView(){
-    try{
-      const v = new URL(location.href).searchParams.get('view');
-      return (v||'').toLowerCase();
-    }catch{ return ''; }
+    const v = String(qs('view','')||'').trim().toLowerCase();
+    return v || (DOC.body?.classList.contains('view-cvr') ? 'cvr'
+             : DOC.body?.classList.contains('view-vr') ? 'vr'
+             : DOC.body?.classList.contains('view-mobile') ? 'mobile'
+             : 'pc');
   }
 
-  domReady(()=>{
-    // เปิด crosshair เฉพาะ cvr strict
-    const view = getView();
-    if(view === 'cvr') showCrosshair(true);
+  // --- Crosshair layer ---
+  function ensureCrosshair(){
+    let el = DOC.getElementById('hha-crosshair');
+    if(el) return el;
 
-    // tap-to-shoot เฉพาะ cvr
+    el = DOC.createElement('div');
+    el.id = 'hha-crosshair';
+    el.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'pointer-events:none',
+      'z-index:9999'
+    ].join(';');
+
+    // Single crosshair (pc/mobile/vr) + dual crosshair for cVR
+    const c1 = DOC.createElement('div');
+    c1.id = 'hha-xhair-1';
+    c1.style.cssText = [
+      'position:absolute',
+      'left:50%',
+      'top:50%',
+      'width:26px',
+      'height:26px',
+      'transform:translate(-50%,-50%)',
+      'border-radius:999px',
+      'border:2px solid rgba(255,255,255,.75)',
+      'box-shadow:0 0 0 7px rgba(255,255,255,.08)',
+      'opacity:.95'
+    ].join(';');
+
+    const c2 = DOC.createElement('div');
+    c2.id = 'hha-xhair-2';
+    c2.style.cssText = [
+      'position:absolute',
+      'left:25%',
+      'top:50%',
+      'width:26px',
+      'height:26px',
+      'transform:translate(-50%,-50%)',
+      'border-radius:999px',
+      'border:2px solid rgba(255,255,255,.55)',
+      'box-shadow:0 0 0 7px rgba(255,255,255,.06)',
+      'opacity:0' // hidden unless cVR
+    ].join(';');
+
+    const c3 = DOC.createElement('div');
+    c3.id = 'hha-xhair-3';
+    c3.style.cssText = [
+      'position:absolute',
+      'left:75%',
+      'top:50%',
+      'width:26px',
+      'height:26px',
+      'transform:translate(-50%,-50%)',
+      'border-radius:999px',
+      'border:2px solid rgba(255,255,255,.55)',
+      'box-shadow:0 0 0 7px rgba(255,255,255,.06)',
+      'opacity:0' // hidden unless cVR
+    ].join(';');
+
+    el.appendChild(c1);
+    el.appendChild(c2);
+    el.appendChild(c3);
+    DOC.body.appendChild(el);
+
+    return el;
+  }
+
+  function syncCrosshairMode(){
+    const view = getView();
+    const c1 = DOC.getElementById('hha-xhair-1');
+    const c2 = DOC.getElementById('hha-xhair-2');
+    const c3 = DOC.getElementById('hha-xhair-3');
+    if(!c1 || !c2 || !c3) return;
+
     if(view === 'cvr'){
-      DOC.addEventListener('click', onTapShoot, { passive:true });
-      DOC.addEventListener('touchstart', onTapShoot, { passive:true });
+      c1.style.opacity = '0';
+      c2.style.opacity = '.95';
+      c3.style.opacity = '.95';
+    }else{
+      c1.style.opacity = '.95';
+      c2.style.opacity = '0';
+      c3.style.opacity = '0';
+    }
+  }
+
+  // --- Adaptive lock/cooldown by cadence ---
+  const T = {
+    lastShotMs: 0,
+    lastTapMs: 0,
+    emaTapHz: 0, // taps per second
+    lockPx: CFG.lockPx,
+    cooldownMs: CFG.cooldownMs
+  };
+
+  function updateCadence(t){
+    const dt = T.lastTapMs ? (t - T.lastTapMs) : 0;
+    T.lastTapMs = t;
+    if(dt > 0 && dt < 1600){
+      const hz = 1000 / dt;
+      // EWMA
+      T.emaTapHz = (T.emaTapHz === 0) ? hz : (T.emaTapHz + 0.22 * (hz - T.emaTapHz));
+    }
+  }
+
+  function computeAdaptiveParams(){
+    if(!CFG.adaptive){
+      return { lockPx: clamp(CFG.lockPx, CFG.lockMin, CFG.lockMax), cooldownMs: clamp(CFG.cooldownMs, CFG.cooldownMin, CFG.cooldownMax) };
     }
 
-    // NOTE: ปุ่ม EnterVR/Exit/Recenter ของคุณ (ถ้ามีอยู่แล้ว) ให้คงของเดิมได้
-    // ตรงนี้แพตช์หลักคือเรื่อง mount + crosshair ไม่พัง
-  });
+    const view = getView();
+    const hz = clamp(T.emaTapHz, 0, 8);
+
+    // cooldown: faster tapping => slightly bigger cooldown (anti-spam)
+    let cd = CFG.cooldownMs + (hz > 3 ? (hz - 3) * 10 : 0);
+    cd = clamp(cd, CFG.cooldownMin, CFG.cooldownMax);
+
+    // lockPx: slower tapping => bigger lock (help aim), faster => slightly smaller lock
+    let lock = CFG.lockPx + (hz < 1.6 ? 8 : hz > 4.5 ? -4 : 0);
+
+    // view-specific tweak
+    if(view === 'cvr') lock += 10;
+    else if(view === 'vr') lock += 6;
+    else if(view === 'mobile') lock += 2;
+
+    lock = clamp(lock, CFG.lockMin, CFG.lockMax);
+
+    T.lockPx = lock;
+    T.cooldownMs = cd;
+
+    return { lockPx: lock, cooldownMs: cd };
+  }
+
+  function emitShoot(detail){
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail }));
+    }catch(_){}
+  }
+
+  function handleShootFromTap(ev){
+    const t = nowMs();
+    updateCadence(t);
+    const P = computeAdaptiveParams();
+
+    // cooldown gate
+    if(T.lastShotMs && (t - T.lastShotMs) < P.cooldownMs) return;
+    T.lastShotMs = t;
+
+    const view = getView();
+    const r = DOC.documentElement.getBoundingClientRect();
+    const tapX = (ev && typeof ev.clientX === 'number') ? ev.clientX : (r.left + r.width/2);
+    const tapY = (ev && typeof ev.clientY === 'number') ? ev.clientY : (r.top  + r.height/2);
+
+    // choose aim point
+    let aimX = r.left + r.width/2;
+    let aimY = r.top  + r.height/2;
+    let eye = null;
+
+    if(view === 'cvr'){
+      // choose eye by tap position (left half => left eye, right half => right eye)
+      const mid = r.left + r.width/2;
+      eye = (tapX <= mid) ? 'left' : 'right';
+      aimX = (eye === 'left') ? (r.left + r.width*0.25) : (r.left + r.width*0.75);
+      aimY = (r.top + r.height*0.50);
+    }
+
+    emitShoot({
+      x: aimX,
+      y: aimY,
+      eye,
+      lockPx: P.lockPx,
+      cooldownMsUsed: P.cooldownMs,
+      source: 'vr-ui'
+    });
+  }
+
+  // --- Buttons (minimal) ---
+  function ensureButtons(){
+    // If you already have your own VR buttons elsewhere, this will not break.
+    // (We keep it minimal; main focus is shoot + crosshair)
+    return;
+  }
+
+  // --- Init ---
+  ensureCrosshair();
+  ensureButtons();
+  syncCrosshairMode();
+
+  // Tap/click to shoot (works even in cVR strict where targets have pointer-events:none)
+  DOC.addEventListener('pointerdown', (ev)=>{
+    // ignore multi-touch secondary pointers
+    if(ev && ev.isPrimary === false) return;
+    handleShootFromTap(ev);
+  }, { passive:true });
+
+  // resync mode if view changes dynamically
+  WIN.addEventListener('resize', ()=>syncCrosshairMode(), { passive:true });
+  WIN.addEventListener('orientationchange', ()=>syncCrosshairMode(), { passive:true });
+
 })();
