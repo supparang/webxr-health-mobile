@@ -1,5 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HUD safe-rect auto + default time=90)
+// PlateVR Boot — PRODUCTION
+// ✅ Auto view detect (no UI override)
+// ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ End overlay: aria-hidden only
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -18,6 +24,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
+  // Do not offer UI override.
+  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -36,7 +44,11 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-function pct(n){ n = Number(n)||0; return `${Math.round(n)}%`; }
+
+function pct(n){
+  n = Number(n)||0;
+  return `${Math.round(n)}%`;
+}
 
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
@@ -55,6 +67,7 @@ function showCoach(msg, meta='Coach'){
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
+  // auto hide
   clearTimeout(WIN.__HHA_COACH_TO__);
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
@@ -91,6 +104,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -123,7 +137,10 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      // keep same query params
+      location.reload();
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -147,6 +164,7 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
+    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -157,60 +175,25 @@ function wireEndSummary(){
   });
 }
 
-// ✅ AUTO SAFE RECT: avoid HUD blocking targets
-function applyPlayfieldSafeRect(){
-  const hud = DOC.getElementById('hud');
-  const root = DOC.documentElement;
-  const margin = 12;
-
-  // defaults
-  let topSafe = 90;
-  let bottomSafe = 12;
-  let leftSafe = 10;
-  let rightSafe = 10;
-
-  try{
-    if(hud){
-      const r = hud.getBoundingClientRect();
-      // reserve area from top down to HUD bottom
-      topSafe = Math.max(72, Math.round(r.bottom + margin));
-    }
-
-    // little extra on mobile bottom (thumb area)
-    if(DOC.body.classList.contains('view-mobile')){
-      bottomSafe = 84;
-      leftSafe = 10;
-      rightSafe = 10;
-    }
-
-    // cVR / VR: keep center clear a bit more
-    if(DOC.body.classList.contains('view-cvr') || DOC.body.classList.contains('view-vr')){
-      topSafe += 18;
-      bottomSafe = Math.max(bottomSafe, 64);
-    }
-  }catch{}
-
-  root.style.setProperty('--plate-top-safe', `${topSafe}px`);
-  root.style.setProperty('--plate-bottom-safe', `${bottomSafe}px`);
-  root.style.setProperty('--plate-left-safe', `${leftSafe}px`);
-  root.style.setProperty('--plate-right-safe', `${rightSafe}px`);
-}
-
 function buildEngineConfig(){
+  // standard params
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);      // ✅ default 90
+  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90s (better for learning loop)
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  return {
+  // research passthrough (optional)
+  const cfg = {
     view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // endpoints / tags
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // context passthrough (optional fields used by cloud logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -222,6 +205,8 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
+
+  return cfg;
 }
 
 function ready(fn){
@@ -231,21 +216,24 @@ function ready(fn){
 
 ready(()=>{
   const cfg = buildEngineConfig();
+
+  // set view class
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
+
+  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // apply safe rect after layout settles
-  const tick = ()=>{ applyPlayfieldSafeRect(); };
-  tick();
-  setTimeout(tick, 60);
-  WIN.addEventListener('resize', ()=>setTimeout(tick, 80));
-
+  // boot engine
   try{
-    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
