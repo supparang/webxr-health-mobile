@@ -1,80 +1,127 @@
 // === /fitness/js/ai-predictor.js ===
-// Lightweight predictor (ML-ready) — no external libs
-// Predict: fatigue risk from RT trend + miss rate window
+// On-device AI Predictor (Explainable) — "ML feel" without servers
 'use strict';
 
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
 export class AIPredictor {
-  constructor(opts = {}) {
-    this.cfg = Object.assign({
-      windowHits: 18,
-      rtBadMs: 520,
-      missBadRate: 0.22,
-    }, opts);
-    this.reset();
+  constructor(){
+    // 6 zones: 0..5 (3x2)
+    this.zones = Array.from({length:6}, ()=>({
+      hit:0, miss:0,
+      rtSum:0, rtN:0,
+      lastSeen:0
+    }));
+
+    this.global = {
+      hits:0, miss:0,
+      rtSum:0, rtN:0
+    };
+
+    // lightweight weights for "risk score"
+    this.w = {
+      base: 0.15,
+      missRate: 0.60,
+      rtSlow: 0.35,
+      storm: 0.10
+    };
+
+    this.lastAdviceAt = 0;
+    this.adviceCooldownMs = 1800;
   }
 
-  reset(){
-    this.rt = [];
-    this.misses = 0;
-    this.hits = 0;
+  // update from events
+  update(ev){
+    if (!ev) return;
 
-    // online regression y = a + b*x (x = hit index)
-    this.n = 0;
-    this.sumX = 0; this.sumY = 0;
-    this.sumXX = 0; this.sumXY = 0;
+    const z = (ev.zoneId!=null) ? Number(ev.zoneId) : null;
+    const rt = (ev.rtMs!=null) ? Number(ev.rtMs) : null;
 
-    this.lastScore = null;
-    this.fatigue = 0; // 0..1
-  }
-
-  // feed only when "real" normal hits (not decoy/bomb/heal/shield)
-  pushRt(rtMs){
-    const x = this.n;
-    const y = rtMs;
-
-    this.n++;
-    this.sumX += x; this.sumY += y;
-    this.sumXX += x*x; this.sumXY += x*y;
-
-    this.rt.push(rtMs);
-    if (this.rt.length > this.cfg.windowHits) this.rt.shift();
-  }
-
-  addHit(){ this.hits++; }
-  addMiss(){ this.misses++; }
-
-  // returns fatigue prediction {risk, label, hint}
-  predict(){
-    const rtAvg = this.rt.length ? (this.rt.reduce((a,b)=>a+b,0)/this.rt.length) : 0;
-
-    // slope b
-    let b = 0;
-    const denom = (this.n * this.sumXX - this.sumX * this.sumX);
-    if (this.n >= 6 && denom !== 0) {
-      b = (this.n * this.sumXY - this.sumX * this.sumY) / denom; // ms per hit
+    if (ev.type === 'hit'){
+      this.global.hits++;
+      if (rt!=null){
+        this.global.rtSum += rt;
+        this.global.rtN++;
+      }
+      if (z!=null && this.zones[z]){
+        const a = this.zones[z];
+        a.hit++;
+        a.lastSeen = performance.now();
+        if (rt!=null){ a.rtSum += rt; a.rtN++; }
+      }
     }
 
-    const total = this.hits + this.misses;
-    const missRate = total ? (this.misses / total) : 0;
+    if (ev.type === 'timeout' && ev.miss){
+      this.global.miss++;
+      if (z!=null && this.zones[z]){
+        const a = this.zones[z];
+        a.miss++;
+        a.lastSeen = performance.now();
+      }
+    }
+  }
 
-    // risk composition (0..1)
-    let risk = 0;
-    if (rtAvg > this.cfg.rtBadMs) risk += 0.45;
-    if (b > 6) risk += 0.25;      // getting slower
-    if (missRate > this.cfg.missBadRate) risk += 0.35;
+  // risk score per zone (0..1)
+  riskOfZone(z, inStorm){
+    const a = this.zones[z];
+    if (!a) return 0.2;
 
-    risk = Math.max(0, Math.min(1, risk));
-    this.fatigue = risk;
+    const trials = a.hit + a.miss;
+    const missRate = trials>0 ? a.miss / trials : 0.25;
 
-    const label =
-      risk >= 0.75 ? 'HIGH' :
-      risk >= 0.45 ? 'MID' : 'LOW';
+    const avgRt = a.rtN>0 ? a.rtSum / a.rtN : 520;
+    // normalize: 220..750 => 0..1
+    const rtSlow = clamp((avgRt - 220) / (750 - 220), 0, 1);
 
-    const hint =
-      label === 'HIGH' ? 'เหนื่อยแล้ว! ลดความเสี่ยง: โฟกัสเป้าชัด ๆ และรอจังหวะ' :
-      label === 'MID' ? 'เริ่มล้า: เล็งให้ชัด เน้น “ไม่พลาด” ก่อน' :
-      'กำลังดี: รักษาจังหวะ แล้วไล่คอมโบต่อ!';
+    let score = this.w.base
+      + this.w.missRate * missRate
+      + this.w.rtSlow * rtSlow
+      + (inStorm ? this.w.storm : 0);
 
-    return { risk, label, hint, rtAvg: Math.round(rtAvg), slope: +b.toFixed(2), missRate: +missRate.toFixed(3) };
+    return clamp(score, 0, 1);
+  }
+
+  // choose top risk zone (argmax)
+  topRiskZone(inStorm){
+    let bestZ = 0, best = -1;
+    for (let z=0; z<6; z++){
+      const s = this.riskOfZone(z, inStorm);
+      if (s > best){ best = s; bestZ = z; }
+    }
+    return { zoneId: bestZ, risk: best };
+  }
+
+  // Fair adaptive: return preferred zone + weight bias (capped)
+  spawnPlan(inStorm){
+    const top = this.topRiskZone(inStorm);
+    // bias 1.0..1.7
+    const bias = 1.0 + 0.7 * top.risk;
+
+    // 70% chance to spawn at weak zone, else random for fairness
+    const prefer = (Math.random() < 0.70) ? top.zoneId : null;
+
+    return { preferZone: prefer, bias, top };
+  }
+
+  // short explainable tip (rate-limited)
+  getAdvice(inStorm){
+    const now = performance.now();
+    if (now - this.lastAdviceAt < this.adviceCooldownMs) return null;
+
+    const { zoneId, risk } = this.topRiskZone(inStorm);
+    const a = this.zones[zoneId];
+    const trials = a.hit + a.miss;
+    const missRate = trials>0 ? (a.miss/trials) : 0.25;
+    const avgRt = a.rtN>0 ? (a.rtSum/a.rtN) : 520;
+
+    let msg = `AI: โซน ${zoneId+1} เสี่ยงสุด`;
+    if (missRate > 0.35) msg += ` (พลาดบ่อย ${(missRate*100).toFixed(0)}%)`;
+    else if (avgRt > 520) msg += ` (RT ช้า ${(avgRt).toFixed(0)}ms)`;
+    else msg += ` (ต้องโฟกัสเพิ่ม)`;
+
+    if (inStorm) msg += ` • ตอนนี้ STORM → เล็งก่อนแตะ`;
+
+    this.lastAdviceAt = now;
+    return { zoneId, risk, msg };
   }
 }
