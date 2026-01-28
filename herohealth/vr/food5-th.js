@@ -45,6 +45,7 @@ export const FOOD5 = Object.freeze({
   })
 });
 
+// “ขยะอาหาร” ใช้ร่วมกันทุกเกมได้ (GoodJunk/Plate/Groups boss etc.)
 export const JUNK = Object.freeze({
   key: 'junk',
   labelTH: 'ขยะอาหาร',
