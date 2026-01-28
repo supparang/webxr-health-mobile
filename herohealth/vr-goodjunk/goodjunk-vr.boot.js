@@ -1,10 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (B FULL)
-// ✅ Auto view detect (no override if ?view= exists)
-// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ VRUI config: crosshair shoot lock + cooldown
-// ✅ Flush-hardened (pagehide/visibilitychange/back hub)
-// ✅ Boots SAFE engine: ./goodjunk.safe.js
 
 import { boot as safeBoot } from './goodjunk.safe.js';
 
@@ -124,8 +119,10 @@ function initLoggerContext(opts){
 
 function start(){
   const opts = getRunOpts();
+
   setBodyView(opts.view);
   initVRUI();
+
   initLoggerContext(opts);
   hardenFlush();
 
