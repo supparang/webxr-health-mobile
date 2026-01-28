@@ -1,11 +1,5 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run) + END SUMMARY (Patch 7)
-✅ CSS: ./goodjunk-vr.css
-✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-✅ A-Frame minimal scene for Enter VR reliability
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
-✅ END SUMMARY overlay: listens hha:end + uses HHA_LAST_SUMMARY
+GoodJunkVR RUN — PRODUCTION (Folder-run) + PROGRESS + BOSS UI (Patch 8)
 -->
 <!doctype html>
 <html lang="th">
@@ -26,13 +20,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) + END SUMMARY (Patch 7)
 </head>
 
 <body class="gj">
-  <!-- A-Frame minimal scene (behind UI) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled:false"
-    renderer="colorManagement:true; physicallyCorrectLights:false"
-    style="background: transparent;"
-  >
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:false" style="background: transparent;">
     <a-entity camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
   </a-scene>
 
@@ -51,25 +39,29 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) + END SUMMARY (Patch 7)
     </div>
   </header>
 
+  <!-- ✅ PROGRESS (Patch 8) -->
+  <div class="gj-progress" id="gjProgress" aria-hidden="false">
+    <div class="gj-progress-bar"><div class="gj-progress-fill" id="gjProgressFill"></div></div>
+  </div>
+
+  <!-- ✅ BOSS BAR (Patch 8) -->
+  <section class="gj-boss" id="bossBar" aria-hidden="true">
+    <div class="boss-card">
+      <div class="boss-top">
+        <div class="boss-title">BOSS</div>
+        <div class="boss-hint" id="bossHint">—</div>
+      </div>
+      <div class="boss-bar"><div class="boss-fill" id="bossFill"></div></div>
+    </div>
+  </section>
+
   <!-- HUD TOP -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
     <div class="hud-row">
-      <div class="hud-pill">
-        <div class="hud-label">SCORE</div>
-        <div class="hud-value" id="hud-score">0</div>
-      </div>
-      <div class="hud-pill">
-        <div class="hud-label">TIME</div>
-        <div class="hud-value"><span id="hud-time">0</span>s</div>
-      </div>
-      <div class="hud-pill warn">
-        <div class="hud-label">MISS</div>
-        <div class="hud-value" id="hud-miss">0</div>
-      </div>
-      <div class="hud-pill grade">
-        <div class="hud-label">GRADE</div>
-        <div class="hud-value" id="hud-grade">—</div>
-      </div>
+      <div class="hud-pill"><div class="hud-label">SCORE</div><div class="hud-value" id="hud-score">0</div></div>
+      <div class="hud-pill"><div class="hud-label">TIME</div><div class="hud-value"><span id="hud-time">0</span>s</div></div>
+      <div class="hud-pill warn"><div class="hud-label">MISS</div><div class="hud-value" id="hud-miss">0</div></div>
+      <div class="hud-pill grade"><div class="hud-label">GRADE</div><div class="hud-value" id="hud-grade">—</div></div>
     </div>
 
     <div class="quest-row">
@@ -130,49 +122,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) + END SUMMARY (Patch 7)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- ✅ END SUMMARY OVERLAY (Patch 7) -->
-  <section class="gj-summary" id="gjSummary" aria-hidden="true">
-    <div class="sum-card" role="dialog" aria-modal="true">
-      <div class="sum-head">
-        <div>
-          <div class="sum-title">สรุปผลการเล่น (End Summary)</div>
-          <div class="sum-sub" id="sumMeta">—</div>
-        </div>
-        <div class="sum-badge">GRADE <span id="sumGrade">—</span></div>
-      </div>
-
-      <div class="sum-body">
-        <div class="sum-box">
-          <h3>ผลคะแนน</h3>
-          <div class="sum-grid">
-            <div class="sum-item"><div class="k">SCORE</div><div class="v" id="sumScore">0</div></div>
-            <div class="sum-item"><div class="k">MISS</div><div class="v" id="sumMiss">0</div></div>
-            <div class="sum-item"><div class="k">COMBO MAX</div><div class="v" id="sumCombo">0</div></div>
-            <div class="sum-item"><div class="k">SHIELD เหลือ</div><div class="v" id="sumShield">0</div></div>
-          </div>
-        </div>
-
-        <div class="sum-box">
-          <h3>สถิติเป้า</h3>
-          <div class="sum-grid">
-            <div class="sum-item"><div class="k">HIT GOOD</div><div class="v" id="sumHitGood">0</div></div>
-            <div class="sum-item"><div class="k">HIT JUNK</div><div class="v" id="sumHitJunk">0</div></div>
-            <div class="sum-item"><div class="k">EXPIRE GOOD</div><div class="v" id="sumExpire">0</div></div>
-            <div class="sum-item"><div class="k">BOSS</div><div class="v" id="sumBoss">—</div></div>
-          </div>
-          <div class="sum-notes" id="sumNote" style="margin-top:10px;">—</div>
-        </div>
-      </div>
-
-      <div class="sum-actions">
-        <button class="sum-btn" id="btnCloseSummary" type="button">ปิด</button>
-        <button class="sum-btn warn" id="btnPlayAgain" type="button">↻ เล่นใหม่</button>
-        <button class="sum-btn primary" id="btnBackHub2" type="button">↩ กลับ HUB</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- UI wiring + safe-zone measure + end summary -->
+  <!-- UI wiring + safe-zone measure -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -215,21 +165,29 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) + END SUMMARY (Patch 7)
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
-      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
+
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+
           const topbar = document.getElementById('gjTopbar')?.getBoundingClientRect().height || 0;
+          const prog   = document.getElementById('gjProgress')?.getBoundingClientRect().height || 0;
+
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 14 + sat));
+          // ✅ bossBar counted only when visible
+          const bossEl = document.getElementById('bossBar');
+          const bossVisible = bossEl && bossEl.getAttribute('aria-hidden') === 'false';
+          const bossH = bossVisible ? (bossEl.getBoundingClientRect().height || 0) : 0;
+
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + prog + bossH + hudTop + 14 + sat));
           document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 16)));
         }catch(_){}
       }
 
-      // ✅ allow SAFE engine to request re-measure (boss bar / etc.)
       window.addEventListener('gj:measureSafe', ()=>setTimeout(updateSafe, 0), { passive:true });
 
       window.addEventListener('resize', updateSafe, {passive:true});
@@ -237,83 +195,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run) + END SUMMARY (Patch 7)
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
-
-      /* =========================
-         ✅ END SUMMARY (Patch 7)
-         ========================= */
-      const summary = document.getElementById('gjSummary');
-      const setText = (id, v)=>{ const el=document.getElementById(id); if(el) el.textContent = String(v ?? '—'); };
-
-      function showSummary(data){
-        document.body.classList.add('show-summary');
-        summary?.setAttribute('aria-hidden','false');
-
-        // close mission peek if open
-        document.body.classList.remove('show-missions');
-
-        setText('sumMeta', `view=${data.view||'—'} · run=${data.runMode||'—'} · diff=${data.diff||'—'} · time=${data.durationPlayedSec||0}s / ${data.durationPlannedSec||0}s`);
-        setText('sumGrade', data.grade || '—');
-        setText('sumScore', data.scoreFinal ?? 0);
-        setText('sumMiss', data.miss ?? 0);
-        setText('sumCombo', data.comboMax ?? 0);
-        setText('sumShield', data.shieldRemaining ?? 0);
-
-        setText('sumHitGood', data.hitGood ?? 0);
-        setText('sumHitJunk', data.hitJunk ?? 0);
-        setText('sumExpire', data.expireGood ?? 0);
-        setText('sumBoss', (data.bossCleared ? 'CLEAR ✅' : '—'));
-
-        const note = [];
-        if((data.miss||0) <= 3) note.push('แม่นมาก! 🎯');
-        if((data.comboMax||0) >= 8) note.push('คอมโบสุดปัง! 🔥');
-        if(data.bossCleared) note.push('ผ่านบอสได้! 🏆');
-        setText('sumNote', note.length ? note.join(' ') : 'ลองลด MISS และทำคอมโบให้สูงขึ้น แล้วคะแนนจะพุ่งเร็วมาก ✅');
-      }
-
-      function hideSummary(){
-        document.body.classList.remove('show-summary');
-        summary?.setAttribute('aria-hidden','true');
-      }
-
-      document.getElementById('btnCloseSummary')?.addEventListener('click', hideSummary);
-      summary?.addEventListener('click', (e)=>{
-        // click outside card closes
-        if(e.target === summary) hideSummary();
-      });
-
-      // play again = same URL but new seed
-      document.getElementById('btnPlayAgain')?.addEventListener('click', ()=>{
-        try{
-          const u = new URL(location.href);
-          u.searchParams.set('seed', String(Date.now()));
-          location.href = u.toString();
-        }catch(_){
-          location.reload();
-        }
-      });
-
-      // back hub
-      const goHub = ()=>{
-        if(hub) location.href = hub;
-        else alert('ยังไม่ได้ใส่ hub url');
-      };
-      document.getElementById('btnBackHub2')?.addEventListener('click', goHub);
-
-      // ✅ listen end event from safe.js
-      window.addEventListener('hha:end', (ev)=>{
-        try{
-          const data = ev?.detail || {};
-          showSummary(data);
-        }catch(_){}
-      }, { passive:true });
-
-      // ✅ if page opened with last summary existing (optional)
-      try{
-        const last = localStorage.getItem('HHA_LAST_SUMMARY');
-        if(last && qs('showLast','') === '1'){
-          showSummary(JSON.parse(last));
-        }
-      }catch(_){}
     })();
   </script>
 </body>
