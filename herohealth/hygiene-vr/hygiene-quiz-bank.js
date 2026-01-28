@@ -42,18 +42,11 @@
     // fun recap
     { tag:'mnemonic', q:'คำท่อง 7 ขั้นตอนคืออะไร?', a:'ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ', wrong:['โป้ง-เล็บ-ฝ่า-ซอก-หลัง-ข้อ-ข้อมือ', 'ฝ่า-ซอก-เล็บ-หลัง', 'หลัง-ข้อ-โป้ง'] },
 
-    // extra pool (เพิ่มความหลากหลาย)
+    // extra pool
     { tag:'extra', q:'ถ้ามีแผลที่มือ ควรทำอย่างไรตอนล้างมือ?', a:'ล้างเบา ๆ ระวังแผล แล้วเช็ดให้แห้ง', wrong:['ไม่ต้องล้างมือ', 'เอาแผลไปโดนน้ำสกปรก', 'ใช้แอลกอฮอล์แทนทุกครั้ง'] },
     { tag:'extra', q:'ล้างมือเสร็จควรทำอะไรต่อ?', a:'ล้างน้ำให้สะอาด แล้วเช็ดมือให้แห้ง', wrong:['สะบัดมือใส่เพื่อน', 'จับหน้าเลย', 'เอามือเช็ดเสื้อเพื่อน'] },
   ];
 
-  // ✅ expose global
-  try{
-    window.HHA_HYGIENE_QUIZ_BANK = BANK;
-  }catch{}
-
-  // ✅ optional: log once
-  try{
-    console.log('[HygieneQuizBank] loaded:', BANK.length);
-  }catch{}
+  try{ window.HHA_HYGIENE_QUIZ_BANK = BANK; }catch{}
+  try{ console.log('[HygieneQuizBank] loaded:', BANK.length); }catch{}
 })();
