@@ -1,5 +1,7 @@
-// === /fitness/js/dom-renderer-shadow.js — Shadow Breaker Renderer (A-9 FIX) ===
+// === /fitness/js/dom-renderer-shadow.js — Shadow Breaker Renderer (A-10) ===
 'use strict';
+
+import { pickClosestTarget, makeAssistMessenger } from './aim-assist.js';
 
 const EMOJI_BY_TYPE = {
   normal:  '🥊',
@@ -22,11 +24,16 @@ export class DomRendererShadow {
     this.targets = new Map();
     this.diffKey = 'normal';
 
+    // Aim Assist config
+    this.lockPx = (opts.lockPx != null) ? Number(opts.lockPx) : (matchMedia('(pointer:coarse)').matches ? 44 : 28);
+    this.assistTell = makeAssistMessenger({ cooldownMs: 1100 });
+
     this._handleClick = this._handleClick.bind(this);
     if (this.host) this.host.addEventListener('click', this._handleClick);
   }
 
   setDifficulty(diffKey) { this.diffKey = diffKey || 'normal'; }
+  setLockPx(px){ this.lockPx = clamp(px, 8, 120); }
 
   destroy() {
     if (this.host) this.host.removeEventListener('click', this._handleClick);
@@ -35,13 +42,12 @@ export class DomRendererShadow {
 
   clearTargets() {
     for (const el of this.targets.values()) {
-      if (el.parentNode) el.parentNode.removeChild(el);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
     }
     this.targets.clear();
   }
 
   _zoneFromXY(clientX, clientY, rect){
-    // rect: layer rect
     const x = clamp(clientX - rect.left, 0, rect.width);
     const y = clamp(clientY - rect.top,  0, rect.height);
     const col = clamp(Math.floor((x / rect.width) * 3), 0, 2);
@@ -69,7 +75,6 @@ export class DomRendererShadow {
     const size = Number(data.sizePx || 120);
     el.style.setProperty('--sb-target-size', `${size}px`);
 
-    // --- robust px placement (fix "row เดียว") ---
     const rect = this.host.getBoundingClientRect();
     const pad = 18;
     const half = size / 2;
@@ -144,7 +149,23 @@ export class DomRendererShadow {
   }
 
   _handleClick(ev) {
-    const target = ev.target.closest('.sb-target');
+    if (!this.onTargetHit) return;
+
+    // 1) direct hit?
+    let target = ev.target.closest('.sb-target');
+
+    // 2) if miss click, try Aim Assist (snap)
+    if (!target) {
+      const best = pickClosestTarget(this.targets, ev.clientX, ev.clientY, this.lockPx);
+      if (best) {
+        target = this.targets.get(best.id);
+        // explainable message (rate-limited)
+        this.assistTell((msg, tone)=>{
+          try{ window.dispatchEvent(new CustomEvent('sb:assist',{ detail:{ msg, tone } })); }catch{}
+        });
+      }
+    }
+
     if (!target) return;
 
     const id = parseInt(target.dataset.id, 10);
@@ -154,13 +175,11 @@ export class DomRendererShadow {
     const cx = rect.left + rect.width / 2;
     const cy = rect.top  + rect.height / 2;
 
-    if (this.onTargetHit) {
-      this.onTargetHit(id, {
-        clientX: cx,
-        clientY: cy,
-        zoneId: parseInt(target.dataset.zone || '0', 10)
-      });
-    }
+    this.onTargetHit(id, {
+      clientX: cx,
+      clientY: cy,
+      zoneId: parseInt(target.dataset.zone || '0', 10)
+    });
   }
 
   _spawnScoreText(x, y, { grade, scoreDelta }) {
