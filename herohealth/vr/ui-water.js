@@ -1,8 +1,8 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION
+// Water Gauge Utilities — PRODUCTION (UPDATED)
+// ✅ ensureWaterGauge() will NOT create if page already has built-in water panel
+// ✅ Supports thresholds via window.HHA_WATER_ZONE = { greenMin, greenMax }
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ Avoid duplicate gauge if page already has its own water panel (#water-bar / #water-panel)
-// ✅ GREEN zone widened to make control easier
 
 'use strict';
 
@@ -11,34 +11,37 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-// ✅ โซนน้ำ (คุมง่ายขึ้น): GREEN กว้างขึ้น
-// - GREEN: 42..68
-// - LOW  : <42
-// - HIGH : >68
+function getThresholds(){
+  // Optional override:
+  // window.HHA_WATER_ZONE = { greenMin: 42, greenMax: 68 }
+  const z = ROOT.HHA_WATER_ZONE || {};
+  const greenMin = clamp(z.greenMin ?? 45, 0, 100);
+  const greenMax = clamp(z.greenMax ?? 65, 0, 100);
+  const lo = Math.min(greenMin, greenMax);
+  const hi = Math.max(greenMin, greenMax);
+  return { greenMin: lo, greenMax: hi };
+}
+
+// Zone
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
-  if (p >= 42 && p <= 68) return 'GREEN';
-  if (p < 42) return 'LOW';
+  const { greenMin, greenMax } = getThresholds();
+  if (p >= greenMin && p <= greenMax) return 'GREEN';
+  if (p < greenMin) return 'LOW';
   return 'HIGH';
 }
 
-// ตรวจว่าหน้าเกมมี gauge/panel ของตัวเองอยู่แล้วไหม
-function hasNativeWaterPanel(){
+function hasBuiltInPanel(){
   if (!DOC) return false;
-  // hydration-vr.html มักมี panel ของตัวเอง เช่น #water-bar/#water-pct/#water-zone หรือ #water-panel
-  return !!(
-    DOC.getElementById('water-panel') ||
-    DOC.getElementById('water-bar') ||
-    DOC.getElementById('water-pct') ||
-    DOC.getElementById('water-zone')
-  );
+  // hydration.safe.js uses these ids for its own panel
+  return !!(DOC.getElementById('water-bar') || DOC.getElementById('water-pct') || DOC.getElementById('water-zone'));
 }
 
 export function ensureWaterGauge(){
   if (!DOC) return;
 
-  // ✅ ถ้าหน้ามี panel ของตัวเองอยู่แล้ว => ไม่สร้าง overlay ซ้ำ
-  if (hasNativeWaterPanel()) return;
+  // ✅ Prevent double gauge if page already has panel
+  if (hasBuiltInPanel()) return;
 
   if (DOC.getElementById('hha-water-gauge')) return;
 
@@ -82,15 +85,22 @@ export function ensureWaterGauge(){
 export function setWaterGauge(pct){
   if (!DOC) return;
   const p = clamp(pct,0,100);
+  const zone = zoneFrom(p);
 
-  // overlay gauge (ถ้ามี)
+  // 1) If we have the utility gauge, update it
   const bar = DOC.getElementById('hha-water-bar');
   const t = DOC.getElementById('hha-water-pct');
   const z = DOC.getElementById('hha-water-zone');
 
   if (bar) bar.style.width = p.toFixed(0) + '%';
   if (t) t.textContent = String(p|0);
-
-  const zone = zoneFrom(p);
   if (z) z.textContent = zone;
+
+  // 2) If page has built-in panel ids, update them too (safe no-op)
+  const bar2 = DOC.getElementById('water-bar');
+  const pct2 = DOC.getElementById('water-pct');
+  const zone2 = DOC.getElementById('water-zone');
+  if (bar2) bar2.style.width = p.toFixed(0) + '%';
+  if (pct2) pct2.textContent = String(p|0);
+  if (zone2) zone2.textContent = zone;
 }
