@@ -1,13 +1,12 @@
 // === /herohealth/vr/mode-factory.js ===
-// HHA Mode Factory — Target Spawner (PRODUCTION) — LATEST
-// ------------------------------------------------------
-// ✅ EXPORT: boot({ ... })  (ให้ plate.safe.js import { boot as spawnBoot } ได้ชัวร์)
-// ✅ FIX: “controller before init” (ลำดับประกาศตัวแปร/คืนค่า controller ให้ถูก)
-// ✅ NEW: decorateTarget(el, target) สำหรับตกแต่ง UI เป้า (emoji/icon/label)
-// ✅ Supports tap + crosshair shoot via vr-ui.js => window event: hha:shoot {x,y,lockPx,source}
-// ✅ stop(): clear interval + remove listener + clear DOM targets
-// ✅ deterministic: seededRng(seed) + target.rng ให้ใช้ pickEmoji แบบ reproducible
-// ------------------------------------------------------
+// HHA Mode Factory — PRODUCTION (DOM spawn engine)
+// --------------------------------------------------
+// ✅ export boot(...)
+// ✅ FIX: “controller before init” (จัดลำดับตัวแปร/ฟังก์ชันใหม่ ไม่อ้างก่อนประกาศ)
+// ✅ Supports: decorateTarget(el, target) for emoji/icon UI
+// ✅ Supports: tap (pointerdown) + crosshair shoot via vr-ui.js => hha:shoot {x,y,lockPx}
+// ✅ stop(): clears timers, removes listeners, removes targets (no “แว๊บๆ”)
+// --------------------------------------------------
 
 'use strict';
 
@@ -30,95 +29,74 @@ function now(){
 
 function clamp(v,a,b){
   v = Number(v)||0;
-  return v<a ? a : (v>b ? b : v);
+  return v < a ? a : (v > b ? b : v);
 }
 
-/* ------------------------------------------------
- * Safe-area vars (per-game defines these CSS vars)
- * Default: 0 if not provided
- * ------------------------------------------------ */
-function readSafeVars(){
+function readSafeVars(prefix='plate'){
+  // ใช้ตัวแปร CSS แบบ per-game ได้ (เช่น --plate-top-safe, --groups-top-safe)
   const cs = getComputedStyle(DOC.documentElement);
-
-  // plate-safe vars (PlateVR). Games can define their own naming; keep fallback = 0.
-  const top = parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
-  const bottom = parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
-  const left = parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
-  const right = parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
-
+  const top    = parseFloat(cs.getPropertyValue(`--${prefix}-top-safe`))    || 0;
+  const bottom = parseFloat(cs.getPropertyValue(`--${prefix}-bottom-safe`)) || 0;
+  const left   = parseFloat(cs.getPropertyValue(`--${prefix}-left-safe`))   || 0;
+  const right  = parseFloat(cs.getPropertyValue(`--${prefix}-right-safe`))  || 0;
   return { top, bottom, left, right };
 }
 
 function pickWeighted(rng, arr){
-  const a = Array.isArray(arr) ? arr : [];
-  if(!a.length) return { kind:'good', weight:1 };
-
   let sum = 0;
-  for(const it of a) sum += (Number(it.weight) || 0) || 1;
-
+  for(const it of arr) sum += (it.weight ?? 1);
   let x = rng() * sum;
-  for(const it of a){
-    x -= (Number(it.weight) || 0) || 1;
+  for(const it of arr){
+    x -= (it.weight ?? 1);
     if(x <= 0) return it;
   }
-  return a[a.length - 1];
+  return arr[arr.length-1];
 }
 
-/* ------------------------------------------------
- * Exported boot()
- * ------------------------------------------------ */
+/**
+ * boot({
+ *   mount,
+ *   seed,
+ *   spawnRate,
+ *   sizeRange,
+ *   kinds: [{kind:'good',weight:0.7},{kind:'junk',weight:0.3}],
+ *   onHit({kind,groupIndex,source}),
+ *   onExpire(target),
+ *   decorateTarget(el,target),
+ *   safePrefix: 'plate' (default)
+ * })
+ */
 export function boot({
   mount,
   seed = Date.now(),
   spawnRate = 900,
-  sizeRange = [44, 64],
+  sizeRange = [44,64],
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
-
   onHit = ()=>{},
   onExpire = ()=>{},
-
-  decorateTarget = null,        // ✅ NEW
-  cooldownMs = 90,              // shoot cooldown
-  lockPxDefault = 28,           // aim assist radius default
-  ttlGoodMs = 2100,
-  ttlJunkMs = 1700,
+  decorateTarget = null,
+  safePrefix = 'plate'
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
 
-  // FIX “controller before init”: ประกาศ state + controller ก่อนให้ stop เรียกได้ชัวร์
   const state = {
     alive: true,
     lastSpawnAt: 0,
     spawnTimer: null,
-    cooldownUntil: 0,
     targets: new Set(),
-  };
-
-  // controller object returned
-  const controller = {
-    stop(){
-      if(!state.alive) return;
-      state.alive = false;
-
-      try{ clearInterval(state.spawnTimer); }catch{}
-      try{ WIN.removeEventListener('hha:shoot', onShoot); }catch{}
-
-      for(const t of state.targets){
-        try{ t.el.remove(); }catch{}
-      }
-      state.targets.clear();
-    }
+    shootCooldownUntil: 0,
+    expireTimers: new Map(), // target -> timeoutId
   };
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
-    const safe = readSafeVars();
+    const safe = readSafeVars(safePrefix);
 
-    const left = r.left + safe.left;
-    const top = r.top + safe.top;
-    const right = r.right - safe.right;
+    const left   = r.left   + safe.left;
+    const top    = r.top    + safe.top;
+    const right  = r.right  - safe.right;
     const bottom = r.bottom - safe.bottom;
 
     const w = Math.max(0, right - left);
@@ -128,9 +106,17 @@ export function boot({
   }
 
   function removeTarget(target){
-    if(!state.targets.has(target)) return;
-    state.targets.delete(target);
-    try{ target.el.remove(); }catch{}
+    // ลบจากเซ็ต + เคลียร์ timeout ของเป้านั้น
+    if(!target) return;
+    if(state.targets.has(target)) state.targets.delete(target);
+
+    const to = state.expireTimers.get(target);
+    if(to){
+      clearTimeout(to);
+      state.expireTimers.delete(target);
+    }
+
+    try{ target.el && target.el.remove(); }catch{}
   }
 
   function hit(target, meta){
@@ -139,14 +125,10 @@ export function boot({
 
     removeTarget(target);
 
-    // call game callback
     try{
       onHit({
         kind: target.kind,
         groupIndex: target.groupIndex,
-        size: target.size,
-        bornAt: target.bornAt,
-        ttlMs: target.ttlMs,
         ...meta
       });
     }catch(err){
@@ -154,28 +136,33 @@ export function boot({
     }
   }
 
-  function onShoot(e){
+  function handleShoot(e){
     if(!state.alive) return;
 
     const d = e.detail || {};
     const t = now();
-
-    if(t < state.cooldownUntil) return;
-    state.cooldownUntil = t + (Number(d.cooldownMs)||0) || cooldownMs;
+    if(t < state.shootCooldownUntil) return;
 
     const x = Number(d.x);
     const y = Number(d.y);
-    const lockPx = clamp(Number(d.lockPx || lockPxDefault), 6, 120);
+    const lockPx = clamp(d.lockPx ?? 28, 8, 120);
 
     if(!isFinite(x) || !isFinite(y)) return;
 
+    // cooldown (match vr-ui default-ish)
+    state.shootCooldownUntil = t + clamp(d.cooldownMs ?? 90, 30, 500);
+
+    // หาเป้าที่ใกล้ที่สุดในระยะ lockPx
     let best = null;
     let bestDist = Infinity;
 
     for(const target of state.targets){
-      const r = target.el.getBoundingClientRect();
+      const el = target.el;
+      if(!el) continue;
+
+      const r = el.getBoundingClientRect();
       const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
+      const cy = r.top  + r.height/2;
       const dist = Math.hypot(cx - x, cy - y);
 
       if(dist <= lockPx && dist < bestDist){
@@ -184,10 +171,11 @@ export function boot({
       }
     }
 
-    if(best) hit(best, { source: d.source || 'shoot', x, y, lockPx });
+    if(best) hit(best, { source:'shoot' });
   }
 
-  WIN.addEventListener('hha:shoot', onShoot);
+  // ✅ ยิงด้วย crosshair (vr-ui.js ส่ง hha:shoot)
+  WIN.addEventListener('hha:shoot', handleShoot);
 
   function spawnOne(){
     if(!state.alive) return;
@@ -195,51 +183,47 @@ export function boot({
     const rect = computeSpawnRect();
     if(rect.w < 80 || rect.h < 80) return;
 
-    const minS = Math.min(sizeRange[0], sizeRange[1]);
-    const maxS = Math.max(sizeRange[0], sizeRange[1]);
+    const size = Math.round(sizeRange[0] + rng() * (sizeRange[1] - sizeRange[0]));
+    const pad  = Math.max(10, Math.round(size * 0.55));
 
-    const size = Math.round(minS + rng() * (maxS - minS));
-    const pad = Math.max(10, Math.round(size * 0.55));
-
-    const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad*2));
-    const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad*2));
+    const x = rect.left + pad + rng() * Math.max(1, rect.w - pad*2);
+    const y = rect.top  + pad + rng() * Math.max(1, rect.h - pad*2);
 
     const chosen = pickWeighted(rng, kinds);
-    const kind = (chosen && chosen.kind) ? String(chosen.kind) : 'good';
+    const kind = String(chosen.kind || 'good');
 
     const el = DOC.createElement('div');
     el.className = 'plateTarget';
     el.dataset.kind = kind;
+
     el.style.position = 'absolute';
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
-    el.style.width = `${size}px`;
+    el.style.width  = `${size}px`;
     el.style.height = `${size}px`;
     el.style.transform = 'translate(-50%,-50%)';
 
     const target = {
       el,
       kind,
-      size,
       bornAt: now(),
-      ttlMs: (kind === 'junk') ? ttlJunkMs : ttlGoodMs,
-      groupIndex: Math.floor(rng() * 5),   // 0..4
-      rng,                                 // deterministic picks
+      ttlMs: (kind === 'junk') ? 1700 : 2100,
+      groupIndex: Math.floor(rng() * 5),
+      size,
+      rng // expose rng for deterministic emoji picks
     };
 
-    // attach for debugging
-    try{ el.__hhaTarget = target; }catch{}
+    el.__hhaTarget = target;
 
-    // ✅ decorate hook
+    // ✅ allow game to decorate (emoji/icon/label)
     try{
       if(typeof decorateTarget === 'function') decorateTarget(el, target);
     }catch(err){
-      console.warn('[mode-factory] decorateTarget error', err);
+      console.error('[mode-factory] decorateTarget error', err);
     }
 
     // tap/click
     el.addEventListener('pointerdown', (ev)=>{
-      if(!state.alive) return;
       ev.preventDefault();
       hit(target, { source:'tap' });
     }, { passive:false });
@@ -247,29 +231,22 @@ export function boot({
     mount.appendChild(el);
     state.targets.add(target);
 
-    // expire timer
-    setTimeout(()=>{
+    // expiry
+    const tid = setTimeout(()=>{
       if(!state.alive) return;
       if(!state.targets.has(target)) return;
 
       removeTarget(target);
 
-      try{
-        onExpire({
-          kind: target.kind,
-          groupIndex: target.groupIndex,
-          size: target.size,
-          bornAt: target.bornAt,
-          ttlMs: target.ttlMs,
-        });
-      }catch(err){
+      try{ onExpire({ ...target }); }catch(err){
         console.error('[mode-factory] onExpire error', err);
       }
     }, target.ttlMs);
+
+    state.expireTimers.set(target, tid);
   }
 
-  // spawn loop
-  const tickMs = 60;
+  // main loop
   state.spawnTimer = setInterval(()=>{
     if(!state.alive) return;
     const t = now();
@@ -277,7 +254,27 @@ export function boot({
       state.lastSpawnAt = t;
       spawnOne();
     }
-  }, tickMs);
+  }, 60);
 
-  return controller;
+  return {
+    stop(){
+      if(!state.alive) return;
+      state.alive = false;
+
+      clearInterval(state.spawnTimer);
+      WIN.removeEventListener('hha:shoot', handleShoot);
+
+      // remove all targets safely
+      for(const target of Array.from(state.targets)){
+        removeTarget(target);
+      }
+      state.targets.clear();
+
+      // clear any leftover timers
+      for(const tid of state.expireTimers.values()){
+        try{ clearTimeout(tid); }catch{}
+      }
+      state.expireTimers.clear();
+    }
+  };
 }
