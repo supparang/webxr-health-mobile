@@ -1,10 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr via body classes
-✅ Uses: ../vr/vr-ui.js (defer) => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ FX: ../vr/particles.js (defer) => popText/burst
-✅ Quiz: ./hygiene-quiz-bank.js (defer) => window.HHA_HYGIENE_QUIZ_BANK
-✅ Boot: ./hygiene-vr.boot.js (module)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ FX:   ../vr/particles.js (DOM particles layer)
+✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Boot: ./hygiene-vr.boot.js (module) -> imports hygiene.safe.js and runs boot()
 -->
 <!doctype html>
 <html lang="th">
@@ -15,25 +15,25 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS (must exist) -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260128a" />
+  <!-- ✅ CSS (MUST exist) -->
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260129a" />
 
-  <!-- Universal VR UI (MUST defer) -->
+  <!-- ✅ Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX layer (particles) -->
+  <!-- ✅ FX layer (MUST defer) -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional; safe if missing features inside) -->
+  <!-- ✅ Optional AI packs (defer, safe if missing features) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (NOTE: you have hygiene-quiz-bank.js, not hygiene.quiz-bank.js) -->
+  <!-- ✅ Quiz bank (IMPORTANT: filename uses dash) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260128a"></script>
+  <!-- ✅ Boot (module) -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260129a"></script>
 </head>
 
 <body class="view-pc">
@@ -57,6 +57,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
+
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
@@ -82,7 +83,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghostunnable="false"; } </script>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
@@ -106,33 +106,45 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
-  <!-- View class binder (must run after body exists) -->
-  <script>
-  (function(){
-    'use strict';
-    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-    function setViewClass(){
-      const view = String(qs('view','pc')||'pc').toLowerCase();
-      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      document.body.classList.add(
-        view==='mobile' ? 'view-mobile' :
-        (view==='vr' ? 'view-vr' :
-        (view==='cvr' ? 'view-cvr' : 'view-pc'))
-      );
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(
+      view==='mobile' ? 'view-mobile' :
+      (view==='vr' ? 'view-vr' :
+      (view==='cvr' ? 'view-cvr' : 'view-pc'))
+    );
 
-      const labView = document.getElementById('labView');
-      if(labView) labView.textContent = view;
+    const labView = document.getElementById('labView');
+    if(labView) labView.textContent = view;
+  }
 
-      const labMode = document.getElementById('labMode');
-      if(labMode) labMode.textContent = String(qs('run','play')||'play');
+  setViewClass();
 
-      const labDiff = document.getElementById('labDiff');
-      if(labDiff) labDiff.textContent = String(qs('diff','normal')||'normal');
+  const labMode = document.getElementById('labMode');
+  const labDiff = document.getElementById('labDiff');
+  if(labMode) labMode.textContent = (qs('run','play')||'play');
+  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
+
+  // quick non-blocking diagnostics for "effect missing"
+  // (Particles is optional but helps visibility; warn if not loaded)
+  setTimeout(()=>{
+    if(!window.Particles){
+      console.warn('[Hygiene] Particles not loaded (effects may look missing). Check ../vr/particles.js');
+      const hudSub = document.getElementById('hudSub');
+      if(hudSub) hudSub.textContent = '⚠️ FX อาจไม่ทำงาน (เช็คโหลด ../vr/particles.js)';
     }
-
-    setViewClass();
-  })();
-  </script>
+    if(!window.HHA_HYGIENE_QUIZ_BANK){
+      console.warn('[Hygiene] Quiz bank not loaded. Check ./hygiene-quiz-bank.js');
+      // ไม่ต้องบล็อกเกม—แค่เตือน
+    }
+  }, 350);
+})();
+</script>
 </body>
 </html>
