@@ -6,280 +6,216 @@
   <title>VR Fitness — Rhythm Boxer</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="favicon.ico"/>
-
   <link rel="stylesheet" href="css/rhythm-boxer.css"/>
 </head>
 <body>
 <div id="rb-wrap" data-diff="normal">
-  <!-- flash ตอนโดน / miss -->
   <div id="rb-flash"></div>
 
   <!-- ===== VIEW: MENU ===== -->
   <main id="rb-view-menu" class="rb-view">
     <header class="rb-header">
-      <div>
+      <div class="rb-head-main">
+        <span class="rb-pill">VR Fitness · Rhythm</span>
         <h1 class="rb-title">Rhythm Boxer</h1>
-        <p class="rb-subtitle">
-          ต่อยตามโน้ตให้ตรงจังหวะ ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV
-        </p>
+        <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV</p>
+        <span class="rb-sub-small">Tip: เริ่ม Easy 1–2 รอบก่อน แล้วค่อย Research</span>
       </div>
-      <a href="hub.html" class="rb-back-link">← กลับ HUB</a>
+      <a href="hub.html" class="rb-back">← กลับ HUB</a>
     </header>
 
-    <!-- เลือกโหมด -->
-    <section class="rb-card rb-card-menu">
-      <h2 class="rb-section-title">เลือกโหมดการเล่น</h2>
-      <div class="rb-mode-row">
-        <label class="rb-radio">
-          <input type="radio" name="rb-mode" value="normal" checked/>
-          <span>Normal</span>
-        </label>
-        <label class="rb-radio">
-          <input type="radio" name="rb-mode" value="research"/>
-          <span>Research (วิจัย)</span>
-        </label>
-      </div>
-      <p id="rb-mode-desc" class="rb-hint">
-        Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
-      </p>
-    </section>
+    <section class="rb-section rb-grid-2">
+      <div class="rb-research-box">
+        <h2 class="rb-section-title">โหมดการเล่น</h2>
 
-    <!-- เลือกเพลง / ระดับ -->
-    <section class="rb-card rb-card-menu">
-      <h2 class="rb-section-title">เลือกเพลง / ระดับ</h2>
-      <p id="rb-track-mode-label" class="rb-subsection-title">
-        โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก
-      </p>
+        <div class="rb-mode-toggle" role="radiogroup" aria-label="mode">
+          <label class="rb-mode-btn">
+            <input type="radio" name="rb-mode" value="normal" checked/>
+            <span>Normal</span>
+          </label>
+          <label class="rb-mode-btn">
+            <input type="radio" name="rb-mode" value="research"/>
+            <span>Research</span>
+          </label>
+        </div>
 
-      <div id="rb-track-options" class="rb-mode-row">
-        <!-- Normal: 3 เพลง (n1,n2,n3) -->
-        <label class="rb-radio" data-mode="normal">
-          <input type="radio" name="rb-track" value="n1" checked/>
-          <span>Warm-up Groove · ง่าย · 100 BPM</span>
-        </label>
-        <label class="rb-radio" data-mode="normal">
-          <input type="radio" name="rb-track" value="n2"/>
-          <span>Focus Combo · ปกติ · 120 BPM</span>
-        </label>
-        <label class="rb-radio" data-mode="normal">
-          <input type="radio" name="rb-track" value="n3"/>
-          <span>Speed Rush · ยาก · 140 BPM</span>
-        </label>
+        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</p>
 
-        <!-- Research-only (r1) -->
-        <label class="rb-radio" data-mode="research">
-          <input type="radio" name="rb-track" value="r1"/>
-          <span>Research Track 120 · ทดลอง · 120 BPM</span>
-        </label>
+        <div id="rb-research-fields" class="rb-section hidden">
+          <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
+
+          <div class="rb-field">
+            <label for="rb-participant">Participant ID</label>
+            <input id="rb-participant" type="text" placeholder="เช่น P001, S05 ฯลฯ"/>
+          </div>
+          <div class="rb-field">
+            <label for="rb-group">กลุ่ม / เงื่อนไข</label>
+            <input id="rb-group" type="text" placeholder="เช่น Control, VR-High, L/R-Swap"/>
+          </div>
+          <div class="rb-field">
+            <label for="rb-note">โน้ตเพิ่มเติม</label>
+            <input id="rb-note" type="text" placeholder="เช่น รอบก่อนฝึก, หลังฝึก, เวลาเล่น ฯลฯ"/>
+          </div>
+
+          <p class="rb-hint-inline">
+            Research จะบันทึก Event CSV + Session CSV (offset, side, FEVER, HP) เพื่อใช้วิเคราะห์เชิงสถิติ
+          </p>
+        </div>
       </div>
 
-      <p id="rb-track-hint" class="rb-hint">
-        แนะนำให้เริ่มจาก Warm-up Groove (ง่าย) ก่อน แล้วค่อยลองเพลงที่ยากขึ้น
-      </p>
-    </section>
+      <div class="rb-research-box">
+        <h2 class="rb-section-title">เพลง / ระดับ</h2>
+        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก</p>
 
-    <!-- ฟอร์มวิจัย -->
-    <section id="rb-research-fields" class="rb-card rb-card-menu rb-research hidden">
-      <h2 class="rb-section-title">ข้อมูลสำหรับงานวิจัย</h2>
+        <div id="rb-track-options" class="rb-section">
+          <label class="rb-mode-btn" data-mode="normal">
+            <input type="radio" name="rb-track" value="n1" checked/>
+            <span>Warm-up Groove · ง่าย · 100 BPM</span>
+          </label>
+          <label class="rb-mode-btn" data-mode="normal">
+            <input type="radio" name="rb-track" value="n2"/>
+            <span>Focus Combo · ปกติ · 120 BPM</span>
+          </label>
+          <label class="rb-mode-btn" data-mode="normal">
+            <input type="radio" name="rb-track" value="n3"/>
+            <span>Speed Rush · ยาก · 140 BPM</span>
+          </label>
 
-      <div class="rb-field-row">
-        <label for="rb-participant">Participant ID</label>
-        <input id="rb-participant" type="text" placeholder="เช่น P001, S05 ฯลฯ"/>
-      </div>
-      <div class="rb-field-row">
-        <label for="rb-group">กลุ่ม / เงื่อนไข</label>
-        <input id="rb-group" type="text" placeholder="เช่น Control, VR-High, L/R-Swap"/>
-      </div>
-      <div class="rb-field-row">
-        <label for="rb-note">โน้ตเพิ่มเติม</label>
-        <input id="rb-note" type="text" placeholder="เช่น รอบก่อนฝึก, หลังฝึก, เวลาเล่น ฯลฯ"/>
-      </div>
+          <label class="rb-mode-btn" data-mode="research">
+            <input type="radio" name="rb-track" value="r1"/>
+            <span>Research Track 120 · ทดลอง · 120 BPM</span>
+          </label>
+        </div>
 
-      <p class="rb-hint">
-        โหมดวิจัยจะบันทึก Event CSV + Session CSV พร้อม offset, side (L/R), FEVER และ HP
-        เพื่อใช้วิเคราะห์เชิงสถิติ
-      </p>
-    </section>
+        <div class="rb-hint-block">
+          <p class="rb-hint-title">วิธีเล่น</p>
+          <ul class="rb-hint-list">
+            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี</li>
+            <li>Perfect/Great/Good เพิ่ม FEVER; Miss ลด HP</li>
+            <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
+          </ul>
+        </div>
 
-    <!-- ปุ่มเริ่ม -->
-    <section class="rb-card rb-card-menu">
-      <div class="rb-menu-actions">
-        <button id="rb-btn-start" class="rb-btn rb-btn-primary">
-          ▶ เริ่มเล่น Rhythm Boxer
-        </button>
+        <div class="rb-section">
+          <button id="rb-btn-start" class="rb-btn rb-btn-primary">▶ เริ่มเล่น Rhythm Boxer</button>
+        </div>
       </div>
-      <p class="rb-hint">
-        💡 เคล็ดลับ: ให้นักเรียนลองเล่นเพลงง่าย 1–2 รอบก่อน จากนั้นค่อยใช้ Research Track
-        ร่วมกับการเก็บข้อมูลเชิงวิจัย
-      </p>
     </section>
   </main>
 
   <!-- ===== VIEW: PLAY ===== -->
   <main id="rb-view-play" class="rb-view hidden">
-    <header class="rb-header rb-header-play">
+    <header class="rb-play-header">
       <div>
-        <h1 class="rb-title">Rhythm Boxer · Play</h1>
-        <p class="rb-subtitle">
-          แตะเลนให้ตรงจังหวะ · สังเกต FEVER bar และความแม่นยำด้านบน
-        </p>
+        <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
+        <p class="rb-sub-sm">แตะเลนให้ตรงจังหวะ · ดู FEVER / ACC / HP</p>
       </div>
-      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">
-        ⏹ หยุดก่อนเวลา
-      </button>
+      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
     </header>
 
-    <!-- HUD + แถบ FEVER/Progress (อัดให้สั้น เพื่อไม่ต้องเลื่อนจอ) -->
-    <section class="rb-card">
-      <div class="rb-hud-line">
-        <span class="rb-tag">Mode</span>
-        <span id="rb-hud-mode" class="rb-hud-val">Normal</span>
-        <span class="rb-tag">Track</span>
-        <span id="rb-hud-track" class="rb-hud-val">Warm-up Groove</span>
+    <section class="rb-research-box rb-hud">
+      <div class="rb-hud-row">
+        <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
+        <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
       </div>
-      <div class="rb-hud-line">
-        <span class="rb-tag">Score</span>
-        <span id="rb-hud-score" class="rb-hud-val rb-hud-score">0</span>
-        <span class="rb-tag">Combo</span>
-        <span id="rb-hud-combo" class="rb-hud-val">0</span>
-        <span class="rb-tag">Acc</span>
-        <span id="rb-hud-acc" class="rb-hud-val">0.0%</span>
+      <div class="rb-hud-row">
+        <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
+        <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
+        <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
       </div>
-      <div class="rb-hud-line">
-        <span class="rb-tag">HP</span>
-        <span id="rb-hud-hp" class="rb-hud-val">100</span>
-        <span class="rb-tag">Shield</span>
-        <span id="rb-hud-shield" class="rb-hud-val">0</span>
-        <span class="rb-tag">Time</span>
-        <span id="rb-hud-time" class="rb-hud-val">0.0</span>
+      <div class="rb-hud-row">
+        <span class="rb-chip">HP: <b id="rb-hud-hp">100</b></span>
+        <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
+        <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
       </div>
-
-      <div class="rb-hitstats-row">
-        <span>Perfect: <strong id="rb-hud-perfect">0</strong></span>
-        <span>Great: <strong id="rb-hud-great">0</strong></span>
-        <span>Good: <strong id="rb-hud-good">0</strong></span>
-        <span>Miss: <strong id="rb-hud-miss">0</strong></span>
+      <div class="rb-hud-row rb-hud-judge-row">
+        <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
+        <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
+        <span class="rb-chip">Good: <b id="rb-hud-good">0</b></span>
+        <span class="rb-chip">Miss: <b id="rb-hud-miss">0</b></span>
       </div>
 
       <div class="rb-bars">
-        <div class="rb-bar-label-row">
-          <span>FEVER</span>
-          <span id="rb-fever-status" class="rb-fever-status">READY</span>
+        <div class="rb-bar-block">
+          <span class="rb-bar-label">FEVER</span>
+          <div class="rb-bar"><div id="rb-fever-fill" class="rb-bar-fill rb-bar-fever"></div></div>
+          <span id="rb-fever-status" class="rb-bar-status">READY</span>
         </div>
-        <div class="rb-fever-bar">
-          <div id="rb-fever-fill" class="rb-fever-fill"></div>
-        </div>
-
-        <div class="rb-bar-label-row rb-bar-label-row-progress">
-          <span>PROGRESS</span>
-          <span id="rb-progress-text" class="rb-hud-val">0%</span>
-        </div>
-        <div class="rb-progress-bar">
-          <div id="rb-progress-fill" class="rb-progress-fill"></div>
+        <div class="rb-bar-block">
+          <span class="rb-bar-label">PROG</span>
+          <div class="rb-bar"><div id="rb-progress-fill" class="rb-bar-fill rb-bar-progress"></div></div>
+          <span id="rb-progress-text" class="rb-bar-status">0%</span>
         </div>
       </div>
     </section>
 
-    <!-- สนาม + เลน -->
-    <section id="rb-field">
-      <!-- เส้นตี + ไกด์จังหวะ -->
-      <div class="rb-timing-guide">
-        <div class="rb-timing-row">
-          <span class="rb-beat">จังหวะตี</span>
-          <span>ตีให้โน้ตตรงเส้นจุดไข่ปลา</span>
-        </div>
-        <div class="rb-hit-line"></div>
-      </div>
-
-      <div id="rb-feedback" class="rb-feedback"></div>
-
-      <div id="rb-lanes" class="rb-lanes">
-        <div class="rb-lane" data-lane="0">
-          <div class="rb-lane-label">L2</div>
-        </div>
-        <div class="rb-lane" data-lane="1">
-          <div class="rb-lane-label">L1</div>
-        </div>
-        <div class="rb-lane" data-lane="2">
-          <div class="rb-lane-label">C</div>
-        </div>
-        <div class="rb-lane" data-lane="3">
-          <div class="rb-lane-label">R1</div>
-        </div>
-        <div class="rb-lane" data-lane="4">
-          <div class="rb-lane-label">R2</div>
+    <section class="rb-field-wrap">
+      <div id="rb-field">
+        <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
+        <div class="rb-lanes" id="rb-lanes">
+          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
+          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
+          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
+          <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
+          <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
         </div>
       </div>
+      <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่เหนือป้ายเลน) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
     </section>
-
-    <footer class="rb-footer-play">
-      <span>แตะเลนซ้าย/ขวาให้ตรงกับโน้ตที่ตกลงมา · ใช้ได้ทั้งจอสัมผัสและเมาส์</span>
-    </footer>
 
     <audio id="rb-audio" preload="auto"></audio>
   </main>
 
   <!-- ===== VIEW: RESULT ===== -->
   <main id="rb-view-result" class="rb-view hidden">
-    <header class="rb-header rb-header-play">
-      <div>
+    <header class="rb-header">
+      <div class="rb-head-main">
+        <span class="rb-pill">Result</span>
         <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
-        <p class="rb-subtitle">
-          ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง
-        </p>
+        <p class="rb-sub">ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง</p>
       </div>
     </header>
 
-    <section class="rb-card rb-result-grid">
+    <section class="rb-result-grid">
       <div class="rb-result-card">
-        <h2 class="rb-section-title">Overview</h2>
-        <div class="rb-result-line"><span>Mode</span> · <b id="rb-res-mode">-</b></div>
-        <div class="rb-result-line"><span>Track</span> · <b id="rb-res-track">-</b></div>
-        <div class="rb-result-line"><span>End reason</span> · <b id="rb-res-endreason">-</b></div>
-        <div class="rb-result-line"><span>Score</span> · <b id="rb-res-score">0</b></div>
-        <div class="rb-result-line"><span>Max Combo</span> · <b id="rb-res-maxcombo">0</b></div>
-        <div class="rb-result-line">
-          <span>Hit P / G / Gd / Miss</span> ·
-          <b id="rb-res-detail-hit">0 / 0 / 0 / 0</b>
-        </div>
-        <div class="rb-result-line"><span>Accuracy</span> · <b id="rb-res-acc">0.0 %</b></div>
-        <div class="rb-result-line"><span>Duration</span> · <b id="rb-res-duration">0.0 s</b></div>
-        <div class="rb-result-line"><span>Rank</span> · <b id="rb-res-rank">-</b></div>
+        <h2 class="rb-result-title">Overview</h2>
+        <div class="rb-result-row"><span>Mode</span><b id="rb-res-mode">-</b></div>
+        <div class="rb-result-row"><span>Track</span><b id="rb-res-track">-</b></div>
+        <div class="rb-result-row"><span>End reason</span><b id="rb-res-endreason">-</b></div>
+        <div class="rb-result-row"><span>Score</span><b id="rb-res-score">0</b></div>
+        <div class="rb-result-row"><span>Max Combo</span><b id="rb-res-maxcombo">0</b></div>
+        <div class="rb-result-row"><span>Hit P/G/Gd/Miss</span><b id="rb-res-detail-hit">0 / 0 / 0 / 0</b></div>
+        <div class="rb-result-row"><span>Accuracy</span><b id="rb-res-acc">0.0 %</b></div>
+        <div class="rb-result-row"><span>Duration</span><b id="rb-res-duration">0.0 s</b></div>
+        <div class="rb-result-row"><span>Rank</span><b id="rb-res-rank">-</b></div>
       </div>
 
       <div class="rb-result-card">
-        <h2 class="rb-section-title">Timing / Research</h2>
-        <div class="rb-result-line"><span>Offset mean</span> · <b id="rb-res-offset-avg">-</b></div>
-        <div class="rb-result-line"><span>Offset std</span> · <b id="rb-res-offset-std">-</b></div>
-        <div class="rb-result-line"><span>Participant</span> · <b id="rb-res-participant">-</b></div>
+        <h2 class="rb-result-title">Timing / Research</h2>
+        <div class="rb-result-row"><span>Offset mean</span><b id="rb-res-offset-avg">-</b></div>
+        <div class="rb-result-row"><span>Offset std</span><b id="rb-res-offset-std">-</b></div>
+        <div class="rb-result-row"><span>Participant</span><b id="rb-res-participant">-</b></div>
       </div>
     </section>
 
     <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
 
-    <section class="rb-card rb-result-actions">
-      <button id="rb-btn-again" class="rb-btn rb-btn-primary">
-        🔁 เล่นเพลงเดิมอีกครั้ง
-      </button>
-      <button id="rb-btn-back-menu" class="rb-btn rb-btn-secondary">
-        ⬅ กลับหน้าเลือกโหมด
-      </button>
+    <section class="rb-section rb-btn-row">
+      <button id="rb-btn-again" class="rb-btn rb-btn-primary">🔁 เล่นเพลงเดิมอีกครั้ง</button>
+      <button id="rb-btn-back-menu" class="rb-btn">⬅ กลับหน้าเลือกโหมด</button>
     </section>
 
-    <section class="rb-card">
-      <h2 class="rb-section-title">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
-      <p class="rb-hint">
-        Event CSV: ระดับโน้ต / การกดแต่ละครั้ง · Session CSV: สรุป 1 แถวต่อการเล่น 1 รอบ
-      </p>
-      <div class="rb-result-actions">
-        <button id="rb-btn-dl-events" class="rb-btn rb-btn-ghost">⬇ ดาวน์โหลด Event CSV</button>
-        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-ghost">⬇ ดาวน์โหลด Session CSV</button>
+    <section class="rb-research-box rb-section">
+      <h2 class="rb-section-title-sm">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
+      <p class="rb-hint-inline">Event CSV: การกดแต่ละครั้ง · Session CSV: สรุป 1 แถวต่อการเล่น 1 รอบ</p>
+      <div class="rb-btn-row">
+        <button id="rb-btn-dl-events" class="rb-btn rb-btn-sm">⬇ Event CSV</button>
+        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-sm">⬇ Session CSV</button>
       </div>
     </section>
   </main>
 </div>
 
-<!-- SCRIPTS -->
 <script src="js/dom-renderer-rhythm.js"></script>
 <script src="js/rhythm-engine.js"></script>
 <script src="js/rhythm-boxer.js"></script>

@@ -21,10 +21,10 @@
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
-  const trackLabels   = $$('#rb-track-options .rb-radio');
+  const trackLabels   = $$('#rb-track-options .rb-mode-btn');
   const modeDescEl    = $('#rb-mode-desc');
   const trackModeLbl  = $('#rb-track-mode-label');
-  const trackHintEl   = $('#rb-track-hint');
+  const trackHintEl   = null; // (เวอร์ชันนี้ใส่ how-to ใน card แล้ว)
   const researchBox   = $('#rb-research-fields');
 
   // ฟอร์มวิจัย
@@ -85,8 +85,6 @@
   };
 
   let engine = null;
-  let lastTrackKey = 'n1';
-  let lastMode = 'normal';
 
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
@@ -99,22 +97,16 @@
   }
 
   function setSelectedTrackKey(key) {
-    trackRadios.forEach(r => {
-      r.checked = (r.value === key);
-    });
-    lastTrackKey = key;
+    trackRadios.forEach(r => { r.checked = (r.value === key); });
   }
 
   function updateModeUI() {
     const mode = getSelectedMode();
-    lastMode = mode;
 
     if (mode === 'normal') {
       modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
       trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      trackHintEl.textContent =
-        'แนะนำให้เริ่มจาก Warm-up Groove (ง่าย) ก่อน แล้วค่อยลองเพลงที่ยากขึ้น';
       researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
@@ -123,16 +115,12 @@
         else lbl.classList.remove('hidden');
       });
 
-      if (!TRACK_CONFIG[getSelectedTrackKey()] ||
-          getSelectedTrackKey() === 'r1') {
-        setSelectedTrackKey('n1');
-      }
+      if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
+
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (ปิด AI/Practice เพื่อความคงที่)';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
-      trackHintEl.textContent =
-        'ใช้ Research Track 120 สำหรับเก็บ Reaction Time, Accuracy และตัวแปรงานวิจัย';
       researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
@@ -155,33 +143,10 @@
     else if (name === 'result') viewResult.classList.remove('hidden');
   }
 
-  // ===== Mobile audio unlock (tap-to-start) =====
-  function unlockAudioOnce(){
-    if (!audioEl) return;
-    if (audioEl.__rb_unlocked) return;
-    audioEl.__rb_unlocked = true;
-
-    try{
-      audioEl.muted = true;
-      const p = audioEl.play();
-      if (p && p.catch) p.catch(()=>{});
-      setTimeout(()=>{
-        try{
-          audioEl.pause();
-          audioEl.currentTime = 0;
-          audioEl.muted = false;
-        }catch(_){}
-      }, 60);
-    }catch(_){}
-  }
-  document.addEventListener('pointerdown', unlockAudioOnce, { once:true });
-
   function createEngine() {
     const renderer = new window.RbDomRenderer(fieldEl, {
       flashEl,
       feedbackEl,
-      fieldEl,
-      lanesEl,
       wrapEl: document.body
     });
 
@@ -192,9 +157,7 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: {
-        onEnd: handleEngineEnd
-      }
+      hooks: { onEnd: handleEngineEnd }
     });
   }
 
@@ -205,16 +168,15 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    // ปรับขนาดโน้ตตามระดับ (CSS)
     wrap.dataset.diff = cfg.diff;
 
     hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     hud.track.textContent = cfg.labelShort;
 
     const meta = {
-      id:   inputParticipant.value.trim(),
-      group: inputGroup.value.trim(),
-      note: inputNote.value.trim()
+      id:   (inputParticipant && inputParticipant.value || '').trim(),
+      group:(inputGroup && inputGroup.value || '').trim(),
+      note: (inputNote && inputNote.value || '').trim()
     };
 
     engine.start(mode, cfg.engineId, meta);
@@ -222,9 +184,7 @@
   }
 
   function stopGame(reason) {
-    if (engine) {
-      engine.stop(reason || 'manual-stop');
-    }
+    if (engine) engine.stop(reason || 'manual-stop');
   }
 
   function handleEngineEnd(summary) {
@@ -233,16 +193,13 @@
     res.endReason.textContent = summary.endReason;
     res.score.textContent     = summary.finalScore;
     res.maxCombo.textContent  = summary.maxCombo;
-    res.hits.textContent      =
-      `${summary.hitPerfect} / ${summary.hitGreat} / ` +
-      `${summary.hitGood} / ${summary.hitMiss}`;
+    res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
     res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
     res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
     res.rank.textContent      = summary.rank;
-    res.offsetAvg.textContent =
-      summary.offsetMean.toFixed ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    res.offsetStd.textContent =
-      summary.offsetStd.toFixed ? summary.offsetStd.toFixed(3) + ' s' : '-';
+
+    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
     res.participant.textContent = summary.participant || '-';
 
     if (summary.qualityNote) {
@@ -269,59 +226,17 @@
     URL.revokeObjectURL(url);
   }
 
-  // ===== Crosshair shoot support (HHA VR UI) =====
-  // vr-ui.js emits: hha:shoot {x,y,lockPx,source}
-  function laneFromXY(x, y){
-    if (!lanesEl) return null;
-    const r = lanesEl.getBoundingClientRect();
-    if (x < r.left || x > r.right || y < r.top || y > r.bottom) return null;
-
-    const laneEls = $$('.rb-lane');
-    if (!laneEls.length) return null;
-
-    let bestLane = null;
-    let bestDist = Infinity;
-    for (const el of laneEls){
-      const lr = el.getBoundingClientRect();
-      const cx = lr.left + lr.width/2;
-      const cy = lr.top + lr.height/2;
-      const dx = x - cx, dy = y - cy;
-      const d2 = dx*dx + dy*dy;
-      if (d2 < bestDist){
-        bestDist = d2;
-        bestLane = parseInt(el.dataset.lane || '0', 10);
-      }
-    }
-    return bestLane;
-  }
-
-  window.addEventListener('hha:shoot', (ev)=>{
-    if (!engine) return;
-    if (viewPlay.classList.contains('hidden')) return;
-    const d = ev && ev.detail ? ev.detail : {};
-    const lane = laneFromXY(d.x, d.y);
-    if (lane == null) return;
-    engine.handleLaneTap(lane);
-  });
-
-  // ===== event wiring =====
+  // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-
-  btnStart.addEventListener('click', () => startGame());
+  btnStart.addEventListener('click', startGame);
   btnStop.addEventListener('click', () => stopGame('manual-stop'));
-
-  btnAgain.addEventListener('click', () => {
-    switchView('menu');
-    startGame();
-  });
-
+  btnAgain.addEventListener('click', () => startGame());
   btnBackMenu.addEventListener('click', () => switchView('menu'));
 
   btnDlEvents.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
-
   btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
