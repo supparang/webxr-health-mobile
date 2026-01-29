@@ -1,10 +1,13 @@
 // === /herohealth/vr-groups/view-helper.js ===
-// GroupsVR ViewHelper — PRODUCTION (PC/Mobile/VR/Cardboard)
-// ✅ set view classes: view-pc/view-mobile/view-vr/view-cvr
-// ✅ best-effort fullscreen + orientation lock (cVR/mobile)
-// ✅ tryImmersiveForCVR(): request VR session (if supported) without hard fail
-// ✅ safe-area + HUD safe-zone measurement helper
-// ✅ never throw (SAFE)
+// View Helper — PRODUCTION (HHA Standard)
+// ✅ init({view}) sets body class + safe viewport flags
+// ✅ fullscreen + best-effort orientation lock (mobile/cVR)
+// ✅ tryImmersiveForCVR(): attempt enter immersive-vr on user gesture
+// ✅ applyCVRStrict(): disable pointer-events for targets; shooting only via crosshair (hha:shoot)
+// ✅ emits: groups:view {view}
+// Notes:
+// - "cvr" = Cardboard-like (mobile, crosshair shooting)
+// - This module is defensive: no-throw on unsupported APIs.
 
 (function(){
   'use strict';
@@ -14,14 +17,21 @@
   if (!DOC) return;
 
   WIN.GroupsVR = WIN.GroupsVR || {};
-  if (WIN.GroupsVR.ViewHelper) return;
+  if (WIN.GroupsVR.ViewHelper && WIN.GroupsVR.ViewHelper.__loaded) return;
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+
+  const STATE = {
+    view: 'pc',
+    inited: false,
+    strictApplied: false,
+    gestureBound: false,
+    lastFSAt: 0
+  };
 
   function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
 
   function isMobileUA(){
@@ -29,259 +39,249 @@
     return /Android|iPhone|iPad|iPod/i.test(ua);
   }
 
-  function prefersCoarsePointer(){
-    try{
-      return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-    }catch(_){ return false; }
+  function isCoarsePointer(){
+    try{ return matchMedia && matchMedia('(pointer: coarse)').matches; }
+    catch{ return false; }
   }
 
-  function normalizeView(v){
-    v = String(v||'').toLowerCase().trim();
-    if (v === 'pc' || v === 'desktop') return 'pc';
-    if (v === 'mobile' || v === 'phone') return 'mobile';
+  function likelyMobile(){
+    return isMobileUA() || isCoarsePointer();
+  }
+
+  function normView(v){
+    v = String(v||'').toLowerCase();
     if (v === 'vr') return 'vr';
-    if (v === 'cvr' || v === 'cardboard') return 'cvr';
-    return '';
-  }
-
-  function autoDetectView(){
-    // priority: ?view= explicit
-    const explicit = normalizeView(qs('view',''));
-    if (explicit) return explicit;
-
-    // heuristic
-    if (isMobileUA() && prefersCoarsePointer()) return 'cvr'; // common case for cardboard-like
-    if (isMobileUA()) return 'mobile';
+    if (v === 'cvr') return 'cvr';
+    if (v === 'mobile') return 'mobile';
     return 'pc';
   }
 
-  function setBodyClass(view){
+  function setBodyViewClass(view){
     const b = DOC.body;
     if (!b) return;
-
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    b.classList.add('view-' + view);
+    b.classList.add('view-'+view);
+
+    // helpful flags
+    b.classList.toggle('is-mobile', view==='mobile' || view==='cvr' || likelyMobile());
+    b.classList.toggle('is-cvr', view==='cvr');
   }
 
-  // ---------------------------
-  // Fullscreen / Orientation
-  // ---------------------------
-  async function requestFullscreen(el){
+  function emitView(view){
     try{
-      el = el || DOC.documentElement;
-      if (!el) return false;
+      WIN.dispatchEvent(new CustomEvent('groups:view', { detail:{ view } }));
+    }catch(_){}
+  }
 
-      // already fullscreen
+  // ---------- Fullscreen + Orientation ----------
+  async function requestFullscreen(){
+    const t = Date.now();
+    if (t - STATE.lastFSAt < 700) return false;
+    STATE.lastFSAt = t;
+
+    const el = DOC.documentElement;
+    if (!el) return false;
+
+    try{
       if (DOC.fullscreenElement) return true;
-
-      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-      if (!fn) return false;
-
-      await fn.call(el);
-      return !!DOC.fullscreenElement;
+      if (el.requestFullscreen){ await el.requestFullscreen(); return true; }
+      // iOS Safari doesn't really support; ignore
+      return false;
     }catch(_){
       return false;
     }
   }
 
-  async function lockLandscape(){
-    // best-effort
+  async function lockOrientationLandscape(){
     try{
-      const scr = screen;
-      if (!scr || !scr.orientation || !scr.orientation.lock) return false;
-      await scr.orientation.lock('landscape');
+      // Only if supported + usually must be fullscreen
+      if (!screen || !screen.orientation || !screen.orientation.lock) return false;
+      await screen.orientation.lock('landscape');
       return true;
     }catch(_){
       return false;
     }
   }
 
-  async function unlockOrientation(){
-    try{
-      const scr = screen;
-      if (!scr || !scr.orientation || !scr.orientation.unlock) return false;
-      scr.orientation.unlock();
-      return true;
-    }catch(_){
-      return false;
-    }
+  async function bestEffortMobileUX(view){
+    // For mobile + cvr, try fullscreen and landscape lock
+    if (!(view==='mobile' || view==='cvr')) return;
+    await requestFullscreen();
+    await lockOrientationLandscape();
   }
 
-  // ---------------------------
-  // WebXR immersive helper (cVR)
-  // ---------------------------
-  async function tryImmersiveForCVR(){
-    // "สุภาพ": ไม่บังคับ, ไม่ throw, ถ้าไม่ได้ก็จบ
+  // ---------- cVR strict ----------
+  function applyCVRStrict(root){
+    // disables pointer events so taps do not click targets;
+    // instead, shooting comes from vr-ui.js crosshair event hha:shoot
     try{
-      // A-Frame present?
+      const b = DOC.body;
+      if (!b) return;
+      b.classList.add('view-cvr-strict');
+
+      // Root is usually #playLayer
+      const host = root || DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
+
+      // disable pointer events in play layer
+      if (host){
+        host.style.pointerEvents = 'none';
+        host.setAttribute('data-cvr-strict','1');
+      }
+
+      // BUT keep overlays clickable
+      const allowSel = [
+        '.overlay', '.overlay *',
+        '.hud', '.hud *',
+        '.questTop', '.questTop *',
+        '.powerWrap', '.powerWrap *',
+        '.coachWrap', '.coachWrap *',
+        '#bigBanner', '#bigBanner *'
+      ];
+      allowSel.forEach(sel=>{
+        const nodes = DOC.querySelectorAll(sel);
+        nodes && nodes.forEach(n=>{
+          try{ n.style.pointerEvents = 'auto'; }catch(_){}
+        });
+      });
+
+      STATE.strictApplied = true;
+    }catch(_){}
+  }
+
+  function removeCVRStrict(root){
+    try{
+      DOC.body && DOC.body.classList.remove('view-cvr-strict','view-cvr-strict');
+      const host = root || DOC.getElementById('playLayer') || DOC.querySelector('.playLayer');
+      if (host){
+        host.style.pointerEvents = '';
+        host.removeAttribute('data-cvr-strict');
+      }
+      STATE.strictApplied = false;
+    }catch(_){}
+  }
+
+  // minimal css injection for strict
+  function ensureCss(){
+    if (DOC.getElementById('groupsViewHelperCss')) return;
+    const st = DOC.createElement('style');
+    st.id = 'groupsViewHelperCss';
+    st.textContent = `
+      /* cVR strict: targets should not capture taps */
+      body.view-cvr .playLayer[data-cvr-strict="1"]{ pointer-events:none; }
+      /* keep overlays interactive */
+      body.view-cvr .hud,
+      body.view-cvr .questTop,
+      body.view-cvr .powerWrap,
+      body.view-cvr .coachWrap,
+      body.view-cvr #bigBanner,
+      body.view-cvr .overlay { pointer-events:auto; }
+
+      /* optional: reduce accidental selections */
+      body.is-mobile *{ -webkit-tap-highlight-color: transparent; }
+    `;
+    DOC.head.appendChild(st);
+  }
+
+  // ---------- Try immersive for cVR ----------
+  async function tryEnterImmersiveVR(){
+    // best effort: click/tap must happen
+    try{
       const scene = DOC.querySelector('a-scene');
-      const xrSys = scene && scene.systems && scene.systems['webxr'];
-      // If A-Frame has enterVR method, prefer it
-      if (scene && typeof scene.enterVR === 'function'){
-        // If already in VR, skip
-        if (scene.is && scene.is('vr-mode')) return true;
+      if (!scene) return false;
+
+      // A-Frame 1.5: enterVR exists
+      if (scene.enterVR){
         scene.enterVR();
         return true;
       }
 
-      // Raw WebXR fallback
+      // fallback: WebXR session request (rarely needed here)
       const xr = navigator.xr;
-      if (!xr || !xr.isSessionSupported) return false;
-
-      const ok = await xr.isSessionSupported('immersive-vr');
-      if (!ok) return false;
-
-      const session = await xr.requestSession('immersive-vr', {
-        optionalFeatures: ['local-floor','bounded-floor','hand-tracking','layers']
-      });
-
-      // Immediately end; this is only to "warm up" / allow UI to show.
-      // Real immersive should be via ENTER VR button (vr-ui.js / A-Frame).
-      try{ await session.end(); }catch(_){}
-      return true;
+      if (xr && xr.isSessionSupported){
+        const ok = await xr.isSessionSupported('immersive-vr');
+        if (ok && xr.requestSession){
+          await xr.requestSession('immersive-vr', { optionalFeatures:['local-floor','bounded-floor'] });
+          return true;
+        }
+      }
+      return false;
     }catch(_){
       return false;
     }
   }
 
-  // ---------------------------
-  // Safe-zone measurement
-  // ---------------------------
-  function measureSafeZone(){
-    // return rectangles so engine can avoid spawning behind HUD
-    // If elements missing, return conservative safe margin
-    const res = {
-      ts: Date.now(),
-      w: window.innerWidth || 0,
-      h: window.innerHeight || 0,
-      hudTop: 0,
-      questTop: 0,
-      coachBottom: 0,
-      powerBottom: 0
+  function bindOneGestureForMobile(view){
+    if (STATE.gestureBound) return;
+    if (!(view==='mobile' || view==='cvr')) return;
+
+    STATE.gestureBound = true;
+
+    const onFirst = async ()=>{
+      // run once
+      DOC.removeEventListener('pointerdown', onFirst, true);
+      DOC.removeEventListener('touchstart', onFirst, true);
+
+      // best-effort UX
+      await bestEffortMobileUX(view);
+
+      // cVR: optionally try enter immersive if user uses Cardboard
+      if (view==='cvr'){
+        // do not force; allow vr-ui buttons to handle too
+        // but we can attempt if "autoVR=1"
+        const autoVR = String(qs('autoVR','0')||'0');
+        if (autoVR==='1' || autoVR==='true'){
+          await tryEnterImmersiveVR();
+        }
+      }
     };
 
-    try{
-      const hud = DOC.querySelector('.hud');
-      if (hud){
-        const r = hud.getBoundingClientRect();
-        res.hudTop = Math.max(0, r.bottom);
-      }
-    }catch(_){}
-
-    try{
-      const qt = DOC.querySelector('.questTop');
-      if (qt){
-        const r = qt.getBoundingClientRect();
-        res.questTop = Math.max(res.questTop, r.bottom);
-      }
-    }catch(_){}
-
-    try{
-      const cw = DOC.querySelector('.coachWrap');
-      if (cw){
-        const r = cw.getBoundingClientRect();
-        // bottom overlay eats space from bottom
-        res.coachBottom = Math.max(0, res.h - r.top);
-      }
-    }catch(_){}
-
-    try{
-      const pw = DOC.querySelector('.powerWrap');
-      if (pw){
-        const r = pw.getBoundingClientRect();
-        res.powerBottom = Math.max(0, res.h - r.top);
-      }
-    }catch(_){}
-
-    // clamp
-    res.hudTop = clamp(res.hudTop, 0, res.h);
-    res.questTop = clamp(res.questTop, 0, res.h);
-    res.coachBottom = clamp(res.coachBottom, 0, res.h);
-    res.powerBottom = clamp(res.powerBottom, 0, res.h);
-
-    // emit for anyone who listens
-    try{
-      WIN.dispatchEvent(new CustomEvent('groups:safezone', { detail: res }));
-    }catch(_){}
-
-    return res;
+    DOC.addEventListener('pointerdown', onFirst, true);
+    DOC.addEventListener('touchstart', onFirst, true);
   }
 
-  function bindAutoMeasure(){
-    let tmr = 0;
-    const kick = ()=>{
-      clearTimeout(tmr);
-      tmr = setTimeout(()=> measureSafeZone(), 80);
-    };
-    WIN.addEventListener('resize', kick, { passive:true });
-    WIN.addEventListener('orientationchange', kick, { passive:true });
-    // allow manual measure
-    WIN.addEventListener('groups:measureSafe', kick, { passive:true });
-    kick();
-  }
-
-  // ---------------------------
-  // init
-  // ---------------------------
-  let _view = 'pc';
-
+  // ---------- Public API ----------
   function init(opts){
     opts = opts || {};
-    const v = normalizeView(opts.view || '') || autoDetectView();
-    _view = v;
+    const view = normView(opts.view || qs('view','') || (likelyMobile() ? 'mobile' : 'pc'));
+    STATE.view = view;
+    STATE.inited = true;
 
-    setBodyClass(v);
-    bindAutoMeasure();
+    ensureCss();
+    setBodyViewClass(view);
+    emitView(view);
 
-    // best-effort fullscreen/orientation for mobile/cvr
-    const wantFS = (v === 'mobile' || v === 'cvr');
-    const wantLock = (v === 'cvr');
+    // bind gesture helpers for mobile/cvr
+    bindOneGestureForMobile(view);
 
-    // defer to user gesture if browser blocks
-    setTimeout(async ()=>{
-      if (wantFS) await requestFullscreen(DOC.documentElement);
-      if (wantLock) await lockLandscape();
-    }, 120);
+    // strict mode for cVR
+    if (view === 'cvr'){
+      applyCVRStrict(opts.layerEl || null);
+    }else{
+      removeCVRStrict(opts.layerEl || null);
+    }
 
-    // helpful coach hint
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{
-          text: (v==='cvr')
-            ? 'โหมด Cardboard: แตะจอเพื่อยิงจาก crosshair • กด RECENTER เพื่อปรับศูนย์ ✅'
-            : (v==='mobile')
-              ? 'โหมด Mobile: แตะ/กดยิงได้เลย • ถ้าจอเต็มไม่ขึ้น ลองกดปุ่ม fullscreen ✅'
-              : 'โหมด PC: คลิก/เมาส์ยิงได้เลย ✅',
-          mood:'neutral'
-        }
-      }));
-    }catch(_){}
+    return view;
   }
 
-  function getView(){ return _view; }
-
-  function goFullscreen(){
-    return requestFullscreen(DOC.documentElement);
+  function tryImmersiveForCVR(){
+    // called by run page after engine start
+    if (STATE.view !== 'cvr') return false;
+    // best effort; must be from user gesture ideally
+    return tryEnterImmersiveVR();
   }
 
-  function lockCVR(){
-    return lockLandscape();
+  function getView(){
+    return STATE.view;
   }
 
-  function unlock(){
-    return unlockOrientation();
-  }
-
-  // expose
   WIN.GroupsVR.ViewHelper = {
+    __loaded: true,
     init,
     getView,
-    autoDetectView,
-    setBodyClass,
-    goFullscreen,
-    lockCVR,
-    unlock,
-    measureSafeZone,
+    applyCVRStrict,
+    removeCVRStrict,
+    requestFullscreen,
+    lockOrientationLandscape,
     tryImmersiveForCVR
   };
 
