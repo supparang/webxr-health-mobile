@@ -1,110 +1,135 @@
 // === /herohealth/vr/ai-hooks.js ===
-// AI Hooks (PRODUCTION MIN)
-// ✅ createAIHooks({game, mode, rng})
-// ✅ Methods: onEvent(type,payload), getTip(playedSec), getDifficulty(playedSec, base)
-// Notes: default "fair & explainable", no ML/DL inference yet (future plug-in)
+// HHA AI Hooks — STANDARD (SAFE, NO-CRASH)
+// ✅ Always returns methods: getDifficulty(), getTip(), onEvent(), isEnabled()
+// ✅ Deterministic-ready: uses provided rng when needed
+// ✅ Default is "OFF" in research by convention (mode !== 'play') unless explicitly enabled
+// ✅ Does NOT implement real ML/DL; it's a stable hook surface for later AI modules.
 
 'use strict';
 
-export function createAIHooks(cfg={}){
+export function createAIHooks(cfg = {}){
   const game = String(cfg.game || 'HHA').trim();
-  const mode = String(cfg.mode || 'play').trim(); // play | research
-  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : null;
+  const mode = String(cfg.mode || 'play').trim().toLowerCase();   // play | research | study
+  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
 
-  // --- simple running stats ---
-  const S = {
-    t0: (performance.now ? performance.now() : Date.now()),
+  // If user passes ?ai=1 you may enable later; for now keep simple:
+  const forceAI = Boolean(cfg.forceAI);
+  const enabled = forceAI || (mode === 'play'); // default: ON only in play
+
+  // lightweight memory for heuristics (NOT ML):
+  const mem = {
+    lastTipAtSec: -999,
+    lastEvents: [],
     hitGood: 0,
     hitJunk: 0,
     miss: 0,
-    comboMax: 0,
-    lastTipAt: -1,
-    // EMA (explainable)
-    emaAcc: 0.72,   // higher = better
-    emaMiss: 0.12,  // higher = worse
+    comboBreak: 0,
+    t0: (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()
   };
 
-  const clamp=(v,a,b)=>Math.max(a, Math.min(b, v));
-  const lerp=(a,b,t)=>a+(b-a)*t;
-
-  function updateEMA(){
-    const total = S.hitGood + S.hitJunk + S.miss;
-    if(total <= 0) return;
-    const acc = S.hitGood / total;
-    const miss = S.miss / total;
-    // slow EMA
-    S.emaAcc  = lerp(S.emaAcc,  acc,  0.08);
-    S.emaMiss = lerp(S.emaMiss, miss, 0.10);
+  function nowSec(){
+    const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    return (t - mem.t0) / 1000;
   }
 
-  function onEvent(type, payload={}){
-    switch(String(type||'')){
-      case 'hitGood': S.hitGood++; break;
-      case 'hitJunk': S.hitJunk++; break;
-      case 'miss':    S.miss++; break;
-      case 'comboMax':
-        S.comboMax = Math.max(S.comboMax, Number(payload?.value)||0);
-        break;
-      default: break;
-    }
-    updateEMA();
+  function pushEvent(name, data){
+    mem.lastEvents.push({ name, t: nowSec(), data: data || null });
+    if(mem.lastEvents.length > 50) mem.lastEvents.shift();
   }
 
-  // --- micro tips (rate limit) ---
-  function getTip(playedSec){
-    // rate-limit 1 tip / ~7s
-    const t = Math.floor(playedSec || 0);
-    if(t < 6) return null;
-    if(S.lastTipAt >= 0 && (t - S.lastTipAt) < 7) return null;
-
-    // choose tip from stats (explainable)
-    let msg = '';
-    if(S.emaMiss > 0.18) msg = 'ลอง “รอให้เป้าเข้ากลาง” แล้วค่อยยิง จะพลาดน้อยลง 👀';
-    else if(S.emaAcc > 0.78) msg = 'แม่นมาก! ลองเน้นคอมโบของดีต่อเนื่อง 🔥';
-    else msg = 'จำไว้: ของดี = หมู่ 1–5 / ของเสีย = หวาน-ทอด-น้ำอัดลม 🍟🥤';
-
-    S.lastTipAt = t;
-    return { msg, tag:'AI Coach' };
+  function onEvent(name, data){
+    if(!enabled) return;
+    const n = String(name || '').toLowerCase();
+    if(n === 'hitgood') mem.hitGood++;
+    else if(n === 'hitjunk') mem.hitJunk++;
+    else if(n === 'miss') mem.miss++;
+    else if(n === 'combobreak') mem.comboBreak++;
+    pushEvent(n, data);
   }
 
-  // --- difficulty director (explainable) ---
-  // base = {spawnMs,pGood,pJunk,pStar,pShield}
+  // ✅ The function you are missing: getDifficulty(playedSec, base)
+  // Returns an object with spawnMs + probabilities.
   function getDifficulty(playedSec, base){
-    // default: return base if invalid
-    const B = Object.assign({ spawnMs:900, pGood:.70, pJunk:.26, pStar:.02, pShield:.02 }, base||{});
+    // base must exist
+    const B = base || { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
 
-    // factor in performance (fair): more miss => ease a bit; better acc => harder a bit
-    const miss = clamp(S.emaMiss, 0, 0.40);
-    const acc  = clamp(S.emaAcc,  0.40, 0.92);
+    // If not enabled -> return base unchanged
+    if(!enabled) return { ...B };
 
-    // target difficulty ramps with time
-    const ramp = clamp((Number(playedSec)||0) / 45, 0, 1); // 0..1 in ~45s
+    const t = Math.max(0, Number(playedSec) || 0);
 
-    // compute adjustments
-    const ease = clamp((miss - 0.12) * 1.6, -0.18, 0.22); // + = easier
-    const hard = clamp((acc  - 0.72) * 1.2, -0.16, 0.18); // + = harder
-    const k = (hard - ease); // + harder
+    // simple heuristics (fair + fun):
+    // - if player misses a lot -> slightly slow spawn + add powerups
+    // - if player is doing well -> slightly faster spawn + increase junk a bit
+    const missRate = mem.miss / Math.max(1, (mem.hitGood + mem.hitJunk + mem.miss));
+    const doingWell = (missRate < 0.18 && mem.hitGood >= 10);
 
-    // spawn speed: harder => lower spawnMs
-    let spawnMs = B.spawnMs * (1 - 0.18*ramp*k);
-    spawnMs = clamp(spawnMs, 520, 1200);
+    let spawnMs = B.spawnMs;
+    let pGood   = B.pGood;
+    let pJunk   = B.pJunk;
+    let pStar   = B.pStar;
+    let pShield = B.pShield;
 
-    // distributions: harder => more junk, less good (small, fair)
-    let pJunk = B.pJunk + clamp(0.10*ramp*k, -0.08, 0.10);
-    let pGood = B.pGood - clamp(0.10*ramp*k, -0.10, 0.08);
+    // ramp over time a tiny bit
+    spawnMs = Math.max(520, spawnMs - Math.min(220, t * 2.5));
+    pJunk   = pJunk + Math.min(0.08, t * 0.0018);
+    pGood   = pGood - Math.min(0.08, t * 0.0016);
 
-    // help powerups when miss high
-    let help = clamp((miss - 0.14) * 0.12, 0, 0.03); // 0..0.03
-    let pShield = B.pShield + help;
-    let pStar   = B.pStar   + help*0.6;
+    if(missRate >= 0.30){
+      spawnMs = Math.min(1100, spawnMs + 120);
+      pShield += 0.02;
+      pStar   += 0.01;
+      pJunk   -= 0.03;
+      pGood   += 0.00;
+    }else if(doingWell){
+      spawnMs = Math.max(500, spawnMs - 70);
+      pJunk   += 0.03;
+      pShield -= 0.01;
+      pStar   -= 0.005;
+    }
 
-    // normalize guard
+    // tiny randomness (seeded rng allowed)
+    const jitter = (rng() - 0.5) * 40;
+    spawnMs = Math.max(480, Math.round(spawnMs + jitter));
+
+    // normalize
     let s = pGood + pJunk + pStar + pShield;
     if(s <= 0) s = 1;
-    pGood/=s; pJunk/=s; pStar/=s; pShield/=s;
+    pGood /= s; pJunk /= s; pStar /= s; pShield /= s;
 
     return { spawnMs, pGood, pJunk, pStar, pShield };
   }
 
-  return { game, mode, onEvent, getTip, getDifficulty };
+  function getTip(playedSec){
+    if(!enabled) return null;
+
+    const t = Math.max(0, Number(playedSec) || 0);
+    // rate limit tips: every >= 7s
+    if(t - mem.lastTipAtSec < 7) return null;
+    mem.lastTipAtSec = t;
+
+    // simple explainable tips
+    const missRate = mem.miss / Math.max(1, (mem.hitGood + mem.hitJunk + mem.miss));
+    if(missRate > 0.28){
+      return { msg:'ลองช้าลงนิดนึง เน้น “ของดี” ก่อนนะ ✅', tag:'Coach' };
+    }
+    if(mem.hitJunk >= 4 && mem.hitGood < mem.hitJunk){
+      return { msg:'ระวังของทอด/หวาน 🍟🍩 เล็งให้ชัดแล้วค่อยยิง', tag:'Coach' };
+    }
+    if(mem.hitGood >= 12 && missRate < 0.18){
+      return { msg:'ฟอร์มดีมาก! ลองทำคอมโบต่อเนื่องให้ยาวขึ้น 🔥', tag:'Coach' };
+    }
+    return null;
+  }
+
+  function isEnabled(){ return enabled; }
+
+  // ✅ STANDARD API guaranteed
+  return Object.freeze({
+    game, mode,
+    isEnabled,
+    onEvent,
+    getTip,
+    getDifficulty
+  });
 }
