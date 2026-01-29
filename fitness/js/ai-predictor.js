@@ -1,115 +1,177 @@
-// === js/ai-predictor.js — Lightweight AI Prediction (Deterministic, no deps) ===
-// Purpose: provide "AI-like" predictions (fatigue / skill) + micro-coach tips
-// Notes:
-// - Deterministic: output depends only on aggregated gameplay features (no randomness)
-// - Not a trained ML/DL model (yet). We expose a tiny interface so you can swap in a real model later.
-// - Safe for Research mode: does NOT change judging unless allowAdapt=true.
+// === /fitness/js/ai-predictor.js — Light AI Prediction HUD (A-40) ===
+'use strict';
 
-(function(){
-  'use strict';
+const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+const lerp = (a,b,t)=>a+(b-a)*t;
 
-  const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
-  const sigmoid = (x)=> 1/(1+Math.exp(-x));
+// EWMA helper
+function ewma(prev, x, alpha){
+  if (prev == null || !isFinite(prev)) return x;
+  return prev*(1-alpha) + x*alpha;
+}
 
-  // Tiny "model" (logistic-ish) with hand-tuned weights.
-  // You can replace weights with trained params later.
-  const W_FATIGUE = { bias:-1.6, missRate: 3.4, hpLow: 2.2, latePct: 1.2, jitter: 1.6, blankTap: 1.1 };
-  const W_SKILL   = { bias:-0.4, acc: 2.2, perfectRate: 1.6, jitter:-1.4, missRate:-2.6, combo: 0.7 };
+/**
+ * Predictor outputs:
+ * - focusScore 0..100
+ * - missRisk 0..100
+ * - pace 0..100
+ * Explainable signals:
+ * - rtEwma, missEwma, bombEwma, hitRateEwma
+ */
+export class AIPredictor {
+  constructor(opts = {}) {
+    this.enabled = !!opts.enabled;
+    this.alphaRt = opts.alphaRt ?? 0.18;        // RT smoothing
+    this.alphaRate = opts.alphaRate ?? 0.12;    // rate smoothing
+    this.alphaMiss = opts.alphaMiss ?? 0.14;    // miss smoothing
 
-  function calcFatigueRisk(f){
-    // features should be 0..1-ish
-    const z =
-      W_FATIGUE.bias +
-      W_FATIGUE.missRate * f.missRate +
-      W_FATIGUE.hpLow    * f.hpLow +
-      W_FATIGUE.latePct  * f.latePct +
-      W_FATIGUE.jitter   * f.jitter +
-      W_FATIGUE.blankTap * f.blankTapRate;
-    return clamp(sigmoid(z), 0, 1);
+    this.reset();
   }
 
-  function calcSkillScore(f){
-    const z =
-      W_SKILL.bias +
-      W_SKILL.acc         * f.acc +
-      W_SKILL.perfectRate * f.perfectRate +
-      W_SKILL.jitter      * f.jitter +
-      W_SKILL.missRate    * f.missRate +
-      W_SKILL.combo       * f.comboNorm;
-    return clamp(sigmoid(z), 0, 1);
+  setEnabled(v){ this.enabled = !!v; }
+
+  reset(){
+    this.rtEwma = null;
+    this.missEwma = 0;
+    this.bombEwma = 0;
+    this.hitRateEwma = 0; // hits per sec
+    this.lastHitTs = 0;
+    this.lastEventTs = 0;
+
+    this.focusScore = 70;
+    this.missRisk = 25;
+    this.pace = 60;
+
+    this.reason = '';
   }
 
-  function toLabel01(v){
-    if (v >= 0.80) return 'high';
-    if (v >= 0.55) return 'mid';
-    return 'low';
-  }
+  /**
+   * @param {Object} state minimal needed: diffKey, bossPhase, shield, feverOn, playerHp
+   * @param {Object} ev { type:'hit'|'miss'|'bomb'|'decoy'|'timeout', rtMs?, isNormal?, isBomb?, isDecoy? }
+   * @param {number} now performance.now()
+   */
+  onEvent(state, ev, now){
+    if (!this.enabled) return;
 
-  function makeTip({fatigueRisk, skillScore, earlyPct, latePct, jitter, missStreak}){
-    // rate-limited upstream; this returns a single short tip
-    if (fatigueRisk >= 0.75) return 'พักไหล่/ข้อมือ 10–15 วิ แล้วค่อยกลับมาเล่น';
-    if (missStreak >= 3) return 'ช้าลงนิด: โฟกัส “จังหวะเส้นตี” มากกว่ารีบกด';
-    if (jitter >= 0.55) return 'จังหวะยังไม่นิ่ง: ลองหายใจลึก แล้วกดให้สม่ำเสมอ';
-    if (latePct - earlyPct >= 0.20) return 'กดช้าไปนิด: ลองกด “ก่อน” เส้นตีเล็กน้อย';
-    if (earlyPct - latePct >= 0.20) return 'กดเร็วไปนิด: รอให้เข้าใกล้เส้นตีอีกหน่อย';
-    if (skillScore >= 0.75) return 'ทำได้ดีมาก! ลองเพิ่มเพลง/ระดับที่ยากขึ้นได้';
-    return 'ดี! รักษาจังหวะให้คงที่ แล้วค่อย ๆ เพิ่มคอมโบ';
-  }
+    const type = ev?.type || '';
+    const rt = (typeof ev?.rtMs === 'number') ? ev.rtMs : null;
 
-  function suggestDifficulty({fatigueRisk, skillScore}){
-    // suggestion only (does not auto-change unless allowAdapt)
-    if (fatigueRisk >= 0.80) return 'easy';
-    if (skillScore >= 0.85 && fatigueRisk <= 0.45) return 'hard';
-    return 'normal';
-  }
+    // --- RT tracking (only when hit normal/bossface) ---
+    if (type === 'hit' && rt != null) {
+      this.rtEwma = ewma(this.rtEwma, rt, this.alphaRt);
 
-  class AIPredictor{
-    constructor(opts={}){
-      this.allowAdapt = !!opts.allowAdapt;  // play-mode may enable
-      this.lastTipAt = 0;
-      this.tipCooldownMs = opts.tipCooldownMs || 4500;
-      this.state = {
-        fatigueRisk: 0,
-        skillScore:  0.5,
-        fatigueLabel:'low',
-        skillLabel:  'mid',
-        suggestedDifficulty:'normal',
-        tip:''
-      };
-    }
-
-    update(features, nowMs){
-      const t = Number(nowMs)||0;
-
-      const fatigueRisk = calcFatigueRisk(features);
-      const skillScore  = calcSkillScore(features);
-
-      const out = {
-        fatigueRisk,
-        skillScore,
-        fatigueLabel: toLabel01(fatigueRisk),
-        skillLabel:   toLabel01(skillScore),
-        suggestedDifficulty: suggestDifficulty({fatigueRisk, skillScore}),
-        tip: this.state.tip || ''
-      };
-
-      // generate tip with cooldown
-      if (t - this.lastTipAt >= this.tipCooldownMs){
-        out.tip = makeTip({
-          fatigueRisk,
-          skillScore,
-          earlyPct: features.earlyPct,
-          latePct: features.latePct,
-          jitter: features.jitter,
-          missStreak: features.missStreak
-        });
-        this.lastTipAt = t;
+      // hit rate (hits/sec) using dt since last hit
+      if (this.lastHitTs > 0) {
+        const dt = Math.max(80, now - this.lastHitTs);
+        const instRate = 1000 / dt;
+        this.hitRateEwma = ewma(this.hitRateEwma, instRate, this.alphaRate);
       }
+      this.lastHitTs = now;
 
-      this.state = out;
-      return out;
+      // miss probability decays on good play
+      this.missEwma = ewma(this.missEwma, 0, this.alphaMiss * 0.6);
+      this.bombEwma = ewma(this.bombEwma, 0, this.alphaMiss * 0.6);
+    }
+
+    // --- Miss tracking ---
+    if (type === 'miss' || type === 'timeout') {
+      this.missEwma = ewma(this.missEwma, 1, this.alphaMiss);
+    } else {
+      this.missEwma = ewma(this.missEwma, 0, this.alphaMiss * 0.35);
+    }
+
+    // --- Bomb/decoy tracking ---
+    if (type === 'bomb' || type === 'decoy') {
+      this.bombEwma = ewma(this.bombEwma, 1, this.alphaMiss);
+    } else {
+      this.bombEwma = ewma(this.bombEwma, 0, this.alphaMiss * 0.35);
+    }
+
+    this.lastEventTs = now;
+
+    this._compute(state);
+  }
+
+  /**
+   * Periodic health check (low hp / fever / idle)
+   */
+  tick(state, now){
+    if (!this.enabled) return;
+
+    // idle -> risk rises a bit
+    if (this.lastEventTs > 0 && now - this.lastEventTs > 1600) {
+      this.missEwma = ewma(this.missEwma, 0.55, this.alphaMiss * 0.35);
+      this._compute(state);
     }
   }
 
-  window.RB_AIPredictor = AIPredictor;
-})();
+  _targetRtForDiff(diffKey){
+    if (diffKey === 'easy') return 520;
+    if (diffKey === 'hard') return 420;
+    return 470; // normal
+  }
+
+  _targetRateForDiff(diffKey){
+    // approximate hits/sec expectation
+    if (diffKey === 'easy') return 0.90;
+    if (diffKey === 'hard') return 1.25;
+    return 1.05;
+  }
+
+  _compute(state){
+    const diffKey = state?.diffKey || 'normal';
+    const hp = clamp(state?.playerHp ?? 1, 0, 1);
+    const shield = state?.shield ?? 0;
+    const feverOn = !!state?.feverOn;
+    const phase = state?.bossPhase ?? 1;
+
+    const rtTarget = this._targetRtForDiff(diffKey);
+    const rateTarget = this._targetRateForDiff(diffKey);
+
+    const rt = (this.rtEwma == null) ? rtTarget : this.rtEwma;
+    const rtBad = clamp((rt - rtTarget) / 260, 0, 1); // 0..1
+    const miss = clamp(this.missEwma, 0, 1);
+    const bomb = clamp(this.bombEwma, 0, 1);
+
+    const rate = clamp(this.hitRateEwma, 0, 2.2);
+    const paceRaw = clamp(rate / rateTarget, 0, 1.35);
+
+    // risk combines: miss, bomb, slow rt, low hp
+    let risk = 0;
+    risk += miss * 0.45;
+    risk += bomb * 0.22;
+    risk += rtBad * 0.23;
+    risk += (1 - hp) * 0.18;
+
+    // shield reduces risk a bit, fever reduces risk (momentum)
+    if (shield > 0) risk *= 0.90;
+    if (feverOn) risk *= 0.88;
+
+    // phase 3 is harder -> slight risk boost
+    if (phase === 3) risk *= 1.08;
+
+    risk = clamp(risk, 0, 1);
+
+    // focus is inverse risk + pace alignment bonus
+    const paceScore = clamp((paceRaw - 0.65) / 0.55, 0, 1); // 0..1
+    let focus = 1 - risk;
+    focus = focus * 0.78 + paceScore * 0.22;
+    if (feverOn) focus = clamp(focus + 0.06, 0, 1);
+
+    // pace output: 0..100 (centered at 100 when >= target)
+    const paceOut = clamp(paceRaw / 1.0, 0, 1.25);
+
+    this.missRisk = Math.round(risk * 100);
+    this.focusScore = Math.round(clamp(focus, 0, 1) * 100);
+    this.pace = Math.round(clamp(paceOut, 0, 1.25) * 80); // 0..100-ish
+
+    // explainable reason (short)
+    const parts = [];
+    if (miss > 0.40) parts.push('missสูง');
+    if (bomb > 0.35) parts.push('bomb/decoyบ่อย');
+    if (rtBad > 0.45) parts.push('RTช้า');
+    if (hp < 0.35) parts.push('HPต่ำ');
+    if (!parts.length) parts.push('คุมจังหวะดี');
+    this.reason = parts.join(' · ');
+  }
+}
