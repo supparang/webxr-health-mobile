@@ -1,23 +1,23 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-GroupsVR UI — PRODUCTION (HHA Standard)
-✅ HUD/Quest/Coach always visible (z-index)
-✅ Safe zones for targets (playLayer padding)
-✅ Overlays: calibration + end summary
-✅ BigBanner + tones
-✅ View modes: pc/mobile/vr/cvr
+   GroupsVR UI — PRODUCTION (HHA Standard)
+   ✅ FIX: playLayer has real usable area (prevents "blank screen")
+   ✅ HUD / Quest / Power / Coach layout for PC/Mobile/VR/cVR
+   ✅ Big Banner + Overlays (calibration/end)
 */
 
 :root{
   --bg:#020617;
-  --panel:rgba(2,6,23,.62);
-  --panel2:rgba(15,23,42,.68);
+
+  --panel:rgba(2,6,23,.72);
+  --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  --good:#22c55e;
+  --accent:#22c55e;
   --warn:#f59e0b;
-  --bad:#ef4444;
+  --danger:#ef4444;
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
@@ -29,387 +29,502 @@ GroupsVR UI — PRODUCTION (HHA Standard)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Layout tuning */
-  --hudTop: calc(var(--sat) + 10px);
-  --hudSide: calc(var(--sal) + 10px);
-  --hudSideR: calc(var(--sar) + 10px);
+  /* Layout rails (tuned for “เด็ก ป.5 เห็นชัด”) */
+  --hudH: 54px;
+  --questH: 118px;
 
-  /* Reserve zones so targets don't spawn behind HUD/Quest/Coach */
-  --reserveTop: 156px;     /* HUD + quest line */
-  --reserveBottom: 120px;  /* coach + bottom safe */
-  --reserveSide: 10px;
+  --bottomRail: 168px;   /* power+coach zone */
+  --sidePad: 12px;
 
-  --shadow: 0 18px 50px rgba(0,0,0,.38);
+  /* Target sizing defaults */
+  --tSize: 108px;        /* mobile target size */
+  --tSizePc: 96px;
+  --tSizeVr: 118px;
 }
 
 *{ box-sizing:border-box; }
-html,body{ margin:0; width:100%; height:100%; background:var(--bg); color:var(--text); }
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+  overscroll-behavior: none;
+}
+
 body{
-  font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-  overflow:hidden;
+  position: relative;
+  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
-
-  background:
-    radial-gradient(circle at 12% 10%, rgba(34,211,238,.10), transparent 60%),
-    radial-gradient(circle at 90% 92%, rgba(167,139,250,.10), transparent 62%),
-    radial-gradient(circle at 60% 55%, rgba(34,197,94,.07), transparent 60%),
-    var(--bg);
+  touch-action: manipulation;
 }
 
-/* ---- A-Frame scene behind everything ---- */
+/* -------------------------
+   XR Scene behind DOM
+------------------------- */
 .xr-scene{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:0 !important;
-  pointer-events:none !important;
-}
-.xr-scene canvas{
-  width:100% !important;
-  height:100% !important;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
-/* ---- Main play layer: targets live here ---- */
-.playLayer{
-  position:fixed;
-  inset:0;
-  z-index:10;
-  pointer-events:none; /* targets can enable pointer-events themselves if needed */
-  padding:
-    calc(var(--sat) + var(--reserveTop))
-    calc(var(--sar) + var(--reserveSide))
-    calc(var(--sab) + var(--reserveBottom))
-    calc(var(--sal) + var(--reserveSide));
-}
-
-/* If engine creates clickable targets, allow them */
-.playLayer .target,
-.playLayer [data-target],
-.playLayer .tg,
-.playLayer .hit{
-  pointer-events:auto;
-}
-
-/* ---- HUD ---- */
+/* -------------------------
+   HUD (Top)
+------------------------- */
 .hud{
-  position:fixed;
-  top:var(--hudTop);
-  left:var(--hudSide);
-  right:var(--hudSideR);
+  position: fixed;
+  top: calc(var(--sat) + 8px);
+  left: calc(var(--sal) + 10px);
+  right: calc(var(--sar) + 10px);
+  height: var(--hudH);
   display:flex;
-  justify-content:space-between;
-  gap:10px;
-  z-index:80;
-  pointer-events:none;
+  justify-content: space-between;
+  align-items:center;
+  gap: 10px;
+  z-index: 30;
+  pointer-events: none; /* keep play layer tappable */
 }
 
-.hudLeft, .hudRight{
+.hudLeft,.hudRight{
   display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  pointer-events:none;
+  align-items:center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .pill{
   display:inline-flex;
   align-items:center;
   gap:8px;
-  padding:8px 10px;
-  border-radius:var(--pill);
-  background: rgba(2,6,23,.55);
+  height: 38px;
+  padding: 0 12px;
+  border-radius: var(--pill);
   border:1px solid rgba(148,163,184,.18);
-  box-shadow: 0 10px 26px rgba(0,0,0,.18);
+  background: rgba(2,6,23,.55);
+  box-shadow: 0 8px 24px rgba(0,0,0,.22);
   backdrop-filter: blur(10px);
-  pointer-events:none;
-}
-.pill .lbl{
-  font-size:11px;
-  color: rgba(229,231,235,.80);
-  font-weight:950;
-  letter-spacing:.2px;
-}
-.pill .val{
-  font-size:13px;
-  font-weight:1100;
+  pointer-events: none;
+  user-select: none;
 }
 
-/* ---- Quest cards ---- */
-.questTop{
-  position:fixed;
-  top: calc(var(--hudTop) + 56px);
-  left: var(--hudSide);
-  right: var(--hudSideR);
-  display:flex;
-  gap:10px;
-  z-index:78;
-  pointer-events:none;
+.pill .lbl{
+  font-weight: 1000;
+  font-size: 11px;
+  letter-spacing: .2px;
+  color: rgba(229,231,235,.84);
 }
+.pill .val{
+  font-weight: 1100;
+  font-size: 13px;
+  color: #fff;
+}
+
+/* -------------------------
+   Quest (Top mid)
+------------------------- */
+.questTop{
+  position: fixed;
+  top: calc(var(--sat) + var(--hudH) + 14px);
+  left: calc(var(--sal) + 10px);
+  right: calc(var(--sar) + 10px);
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  z-index: 25;
+  pointer-events: none;
+}
+
 .questCard{
-  flex:1;
-  min-width: 0;
-  background: rgba(2,6,23,.56);
+  background: rgba(2,6,23,.62);
   border:1px solid rgba(148,163,184,.18);
   border-radius: 16px;
   padding: 10px 12px;
-  box-shadow: 0 14px 44px rgba(0,0,0,.28);
+  box-shadow: 0 12px 34px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
+  min-height: 82px;
 }
+
 .qTitle{
   display:flex;
   align-items:center;
-  justify-content:space-between;
+  justify-content: space-between;
   gap:10px;
-  font-weight:1100;
+  font-weight: 1100;
+  font-size: 12px;
 }
-.qSub{
-  margin-top:8px;
-  font-size:12px;
-  font-weight:900;
-  color: rgba(229,231,235,.86);
-  line-height:1.25;
-}
+
 .tag{
-  font-size:12px;
-  font-weight:1000;
-  padding: 5px 10px;
   border-radius: var(--pill);
+  padding: 5px 10px;
   border:1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.55);
+  font-weight: 1100;
+  font-size: 12px;
   color: rgba(229,231,235,.92);
-  white-space:nowrap;
+  white-space: nowrap;
 }
-.miniTime{ font-variant-numeric: tabular-nums; }
 
 .bar{
-  height:10px;
+  margin-top: 8px;
+  height: 10px;
   border-radius: 999px;
-  background: rgba(148,163,184,.14);
-  border:1px solid rgba(148,163,184,.10);
   overflow:hidden;
-  margin-top:8px;
+  background: rgba(148,163,184,.14);
 }
-.fill{
+.bar .fill{
   height:100%;
-  width:0%;
+  width: 0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.85));
-  transition: width .14s linear;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+  transition: width .12s ease;
 }
 
-/* MINI urgent: make it pop */
-body.mini-urgent .questTop .questCard:last-child{
-  border-color: rgba(245,158,11,.38);
-  box-shadow: 0 16px 50px rgba(245,158,11,.12);
-}
-body.mini-urgent .questTop .questCard:last-child .fill{
-  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.85));
+.qSub{
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 950;
+  color: rgba(229,231,235,.86);
+  line-height: 1.2;
+  min-height: 18px;
 }
 
-/* ---- Big banner ---- */
+/* MINI urgent */
+body.mini-urgent .questCard:nth-child(2){
+  border-color: rgba(245,158,11,.45);
+  box-shadow: 0 14px 44px rgba(245,158,11,.10);
+}
+body.mini-urgent .questCard:nth-child(2) .bar .fill{
+  background: linear-gradient(90deg, rgba(245,158,11,.98), rgba(239,68,68,.95));
+}
+
+/* -------------------------
+   Big Banner (NEW)
+------------------------- */
 .bigBanner{
-  position:fixed;
-  left:50%;
-  top: calc(var(--hudTop) + 112px);
+  position: fixed;
+  top: calc(var(--sat) + var(--hudH) + var(--questH) + 18px);
+  left: 50%;
   transform: translateX(-50%);
-  z-index:79;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .12s ease, transform .12s ease;
-}
-.bigBanner.show{
-  opacity:1;
-  transform: translateX(-50%) translateY(0);
+  z-index: 40;
+  pointer-events: none;
 }
 .bigBanner.hidden{ display:none; }
+
 .bigBannerText{
-  background: rgba(2,6,23,.68);
-  border:1px solid rgba(148,163,184,.18);
   border-radius: 999px;
   padding: 10px 14px;
-  font-weight:1100;
-  font-size:13px;
-  letter-spacing:.1px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(12px);
+  font-weight: 1100;
+  font-size: 13px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.70);
+  box-shadow: 0 14px 46px rgba(0,0,0,.30);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transform: translateY(-6px) scale(.98);
+  transition: opacity .12s ease, transform .12s ease;
+  white-space: nowrap;
 }
+.bigBanner.show .bigBannerText{
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.bigBanner.tone-neutral .bigBannerText{ border-color: rgba(148,163,184,.20); }
+.bigBanner.tone-good .bigBannerText{ border-color: rgba(34,197,94,.42); }
+.bigBanner.tone-warn .bigBannerText{ border-color: rgba(245,158,11,.42); }
+.bigBanner.tone-bad  .bigBannerText{ border-color: rgba(239,68,68,.42); }
 
-/* tones */
-.bigBanner.tone-neutral .bigBannerText{ border-color: rgba(148,163,184,.22); }
-.bigBanner.tone-good .bigBannerText{ border-color: rgba(34,197,94,.40); }
-.bigBanner.tone-warn .bigBannerText{ border-color: rgba(245,158,11,.45); }
-.bigBanner.tone-bad .bigBannerText{ border-color: rgba(239,68,68,.45); }
-
-/* ---- Power card ---- */
+/* -------------------------
+   Power (bottom mid)
+------------------------- */
 .powerWrap{
-  position:fixed;
-  left: var(--hudSide);
-  bottom: calc(var(--sab) + 84px);
-  z-index:70;
-  pointer-events:none;
+  position: fixed;
+  left: calc(var(--sal) + 10px);
+  right: calc(var(--sar) + 10px);
+  bottom: calc(var(--sab) + 78px);
+  z-index: 24;
+  pointer-events: none;
+  display:flex;
+  justify-content:center;
 }
 .powerCard{
-  width: min(340px, calc(100vw - 22px - var(--sal) - var(--sar)));
-  background: rgba(2,6,23,.56);
+  width: min(640px, 100%);
+  background: rgba(2,6,23,.62);
   border:1px solid rgba(148,163,184,.18);
   border-radius: 16px;
   padding: 10px 12px;
-  box-shadow: 0 16px 52px rgba(0,0,0,.26);
+  box-shadow: 0 12px 34px rgba(0,0,0,.26);
   backdrop-filter: blur(10px);
 }
-.pHead{ font-weight:1100; font-size:13px; }
-.powerBar{ margin-top:8px; }
+.pHead{
+  font-weight: 1100;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.powerBar{ height: 10px; }
 .pFoot{
-  margin-top:8px;
-  font-size:12px;
-  font-weight:900;
-  color: rgba(229,231,235,.82);
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 950;
+  color: rgba(229,231,235,.84);
 }
 
-/* ---- Coach ---- */
+/* -------------------------
+   Coach (bottom left)
+------------------------- */
 .coachWrap{
-  position:fixed;
-  left: var(--hudSide);
-  right: var(--hudSideR);
+  position: fixed;
+  left: calc(var(--sal) + 10px);
   bottom: calc(var(--sab) + 10px);
-  z-index:75;
-  pointer-events:none;
+  z-index: 26;
+  pointer-events: none;
 }
 .coachCard{
   display:flex;
-  gap:10px;
+  gap: 10px;
   align-items:flex-end;
-  width:min(560px, 100%);
-}
-.coachImg{
-  width:56px;
-  height:56px;
-  object-fit:contain;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
-}
-.coachBubble{
-  flex:1;
-  min-width:0;
-  background: rgba(2,6,23,.62);
+  background: rgba(2,6,23,.58);
   border:1px solid rgba(148,163,184,.18);
   border-radius: 18px;
-  padding: 10px 12px;
-  box-shadow: 0 18px 55px rgba(0,0,0,.28);
+  padding: 10px 10px;
+  box-shadow: 0 12px 34px rgba(0,0,0,.26);
   backdrop-filter: blur(10px);
+  max-width: min(520px, calc(100vw - 22px));
 }
-.coachName{ font-weight:1100; font-size:12px; color: rgba(229,231,235,.90); }
+.coachImg{
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.coachBubble{
+  display:flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.coachName{
+  font-weight: 1100;
+  font-size: 12px;
+  color: rgba(229,231,235,.92);
+}
 .coachText{
-  margin-top:6px;
-  font-weight:950;
-  font-size:13px;
-  line-height:1.25;
-  color: rgba(229,231,235,.90);
-  word-break:break-word;
+  font-weight: 950;
+  font-size: 12.5px;
+  line-height: 1.25;
+  color: rgba(229,231,235,.88);
 }
 
-/* ---- Overlays ---- */
+/* -------------------------
+   Play Layer (MOST IMPORTANT FIX)
+   ✅ gives engine a real spawn area
+------------------------- */
+.playLayer{
+  position: fixed;
+  left: calc(var(--sal) + var(--sidePad));
+  right: calc(var(--sar) + var(--sidePad));
+  top: calc(var(--sat) + var(--hudH) + var(--questH) + 22px);
+  bottom: calc(var(--sab) + var(--bottomRail));
+  z-index: 10;
+  border-radius: 18px;
+  overflow: hidden;
+  /* keep it tappable */
+  pointer-events: auto;
+}
+
+/* Fallback visual hint (very subtle) */
+.playLayer::before{
+  content:'';
+  position:absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(34,197,94,.06), transparent 50%),
+    radial-gradient(circle at 90% 84%, rgba(34,211,238,.05), transparent 55%);
+  pointer-events:none;
+}
+
+/* -------------------------
+   Targets (generic — supports multiple engine class names)
+------------------------- */
+.playLayer .target,
+.playLayer .tgt,
+.playLayer .hha-target,
+.playLayer [data-target]{
+  position: absolute;
+  width: var(--tSize);
+  height: var(--tSize);
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+  box-shadow: 0 16px 46px rgba(0,0,0,.28);
+  backdrop-filter: blur(10px);
+  display:grid;
+  place-items:center;
+  user-select:none;
+  cursor: pointer;
+  transform: translateZ(0);
+}
+
+/* emoji / label inside */
+.playLayer .target .emoji,
+.playLayer .tgt .emoji,
+.playLayer .hha-target .emoji,
+.playLayer [data-target] .emoji{
+  font-size: 42px;
+  line-height: 1;
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,.24));
+}
+.playLayer .target .label,
+.playLayer .tgt .label,
+.playLayer .hha-target .label,
+.playLayer [data-target] .label{
+  position:absolute;
+  bottom: 8px;
+  left: 10px;
+  right: 10px;
+  font-weight: 1100;
+  font-size: 12px;
+  text-align:center;
+  color: rgba(229,231,235,.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hit / good / bad (if engine toggles classes) */
+.playLayer .good{ border-color: rgba(34,197,94,.40); }
+.playLayer .bad{ border-color: rgba(239,68,68,.42); }
+.playLayer .warn{ border-color: rgba(245,158,11,.42); }
+
+/* -------------------------
+   Overlays (Calibration / End)
+------------------------- */
 .overlay{
-  position:fixed;
-  inset:0;
-  z-index:100;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
+  padding: calc(var(--sat) + 18px) calc(var(--sar) + 14px) calc(var(--sab) + 18px) calc(var(--sal) + 14px);
   background: rgba(2,6,23,.62);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
 }
 .overlay.hidden{ display:none; }
 
 .panel{
-  width:min(720px, 100%);
-  background: rgba(2,6,23,.78);
-  border:1px solid rgba(148,163,184,.18);
+  width: min(720px, 100%);
+  background: rgba(2,6,23,.84);
+  border:1px solid rgba(148,163,184,.20);
   border-radius: 22px;
   padding: 14px;
-  box-shadow: 0 22px 80px rgba(0,0,0,.42);
+  box-shadow: 0 18px 60px rgba(0,0,0,.42);
 }
-.panel .title{ font-weight:1200; font-size:18px; }
-.panel .sub{ margin-top:8px; color: rgba(229,231,235,.86); font-weight:900; }
+
+.panel .title{
+  font-weight: 1200;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.panel .sub{
+  font-weight: 950;
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(229,231,235,.86);
+}
 
 .grid2{
-  margin-top:12px;
+  margin-top: 12px;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap:10px;
+  gap: 10px;
 }
-@media (max-width:520px){
-  .grid2{ grid-template-columns: 1fr; }
-}
+@media (max-width:560px){ .grid2{ grid-template-columns:1fr; } }
+
 .stat{
-  background: rgba(15,23,42,.62);
-  border:1px solid rgba(148,163,184,.14);
   border-radius: 16px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(15,23,42,.55);
   padding: 10px 12px;
 }
-.stat .k{ font-size:12px; color: rgba(229,231,235,.78); font-weight:950; }
-.stat .v{ font-size:18px; font-weight:1200; margin-top:4px; }
+.stat .k{ font-weight: 1000; font-size: 12px; color: rgba(229,231,235,.80); }
+.stat .v{ font-weight: 1200; font-size: 18px; margin-top: 6px; }
 
-.row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-.row2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; width:100%; }
+.row{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width:520px){ .row2{ grid-template-columns:1fr; } }
 
 .btn{
-  appearance:none;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.70);
-  color: var(--text);
+  appearance: none;
+  width: 100%;
   border-radius: 16px;
   padding: 12px 12px;
-  font-weight:1100;
-  cursor:pointer;
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.65);
+  color: var(--text);
+  font-weight: 1100;
+  cursor: pointer;
   user-select:none;
 }
-.btn:active{ transform: translateY(1px) scale(.99); }
+.btn:active{ transform: translateY(1px); }
 .btn-strong{
-  border-color: rgba(34,197,94,.30);
-  background: linear-gradient(180deg, rgba(34,197,94,.18), rgba(15,23,42,.70));
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.16);
 }
 .btn-ghost{
-  background: rgba(2,6,23,.35);
+  border-color: rgba(148,163,184,.18);
+  background: rgba(2,6,23,.45);
 }
-.btn[disabled]{ opacity:.55; cursor:not-allowed; }
 
 .note{
-  color: rgba(229,231,235,.78);
-  font-weight:900;
-  font-size:12px;
-  line-height:1.35;
+  color: rgba(229,231,235,.82);
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
-/* ---- View tuning ---- */
+/* -------------------------
+   View-specific tuning
+------------------------- */
 body.view-pc{
-  --reserveTop: 160px;
-  --reserveBottom: 120px;
+  --hudH: 54px;
+  --questH: 108px;
+  --bottomRail: 150px;
+  --tSize: var(--tSizePc);
 }
+
 body.view-mobile{
-  --reserveTop: 170px;
-  --reserveBottom: 128px;
+  --hudH: 58px;
+  --questH: 124px;
+  --bottomRail: 178px;
 }
+
 body.view-vr{
-  --reserveTop: 140px;
-  --reserveBottom: 110px;
+  --hudH: 52px;
+  --questH: 104px;
+  --bottomRail: 150px;
+  --tSize: var(--tSizeVr);
 }
+
 body.view-cvr{
-  --reserveTop: 150px;
-  --reserveBottom: 120px;
+  --hudH: 50px;
+  --questH: 96px;
+  --bottomRail: 150px;
+  --tSize: var(--tSizeVr);
 }
 
-/* In very short height, compact */
-@media (max-height: 680px){
-  :root{
-    --reserveTop: 140px;
-    --reserveBottom: 108px;
-  }
-  .coachImg{ width:50px; height:50px; }
-  .pill{ padding:7px 9px; }
-  .questCard{ padding:9px 11px; }
-}
+/* In cVR, reduce visual clutter a bit */
+body.view-cvr .coachCard{ max-width: min(420px, calc(100vw - 22px)); }
+body.view-cvr .powerCard{ width: min(520px, 100%); }
 
-/* IMPORTANT: keep HUD above any particle layer */
-#hha-particles, #hha-vrui, #hha-vrui-crosshair{
-  z-index: 90 !important;
+/* Ensure particles overlay stays above everything but overlays */
+#hha-particles{
+  position: fixed !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 55 !important;
 }
