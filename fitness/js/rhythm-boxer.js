@@ -117,21 +117,19 @@
         'แนะนำให้เริ่มจาก Warm-up Groove (ง่าย) ก่อน แล้วค่อยลองเพลงที่ยากขึ้น';
       researchBox.classList.add('hidden');
 
-      // ซ่อน track เฉพาะวิจัย, แสดง track ปกติ
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
         if (m === 'research') lbl.classList.add('hidden');
         else lbl.classList.remove('hidden');
       });
 
-      // ถ้าเลือก r1 อยู่ ให้กลับไป n1
       if (!TRACK_CONFIG[getSelectedTrackKey()] ||
           getSelectedTrackKey() === 'r1') {
         setSelectedTrackKey('n1');
       }
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (ปิด AI/Practice เพื่อความคงที่)';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       trackHintEl.textContent =
         'ใช้ Research Track 120 สำหรับเก็บ Reaction Time, Accuracy และตัวแปรงานวิจัย';
@@ -157,10 +155,33 @@
     else if (name === 'result') viewResult.classList.remove('hidden');
   }
 
+  // ===== Mobile audio unlock (tap-to-start) =====
+  function unlockAudioOnce(){
+    if (!audioEl) return;
+    if (audioEl.__rb_unlocked) return;
+    audioEl.__rb_unlocked = true;
+
+    try{
+      audioEl.muted = true;
+      const p = audioEl.play();
+      if (p && p.catch) p.catch(()=>{});
+      setTimeout(()=>{
+        try{
+          audioEl.pause();
+          audioEl.currentTime = 0;
+          audioEl.muted = false;
+        }catch(_){}
+      }, 60);
+    }catch(_){}
+  }
+  document.addEventListener('pointerdown', unlockAudioOnce, { once:true });
+
   function createEngine() {
     const renderer = new window.RbDomRenderer(fieldEl, {
       flashEl,
       feedbackEl,
+      fieldEl,
+      lanesEl,
       wrapEl: document.body
     });
 
@@ -184,7 +205,7 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    // ปรับขนาดโน้ตตามระดับ
+    // ปรับขนาดโน้ตตามระดับ (CSS)
     wrap.dataset.diff = cfg.diff;
 
     hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
@@ -207,7 +228,6 @@
   }
 
   function handleEngineEnd(summary) {
-    // เติมข้อมูลหน้า result
     res.mode.textContent      = summary.modeLabel;
     res.track.textContent     = summary.trackName;
     res.endReason.textContent = summary.endReason;
@@ -249,42 +269,64 @@
     URL.revokeObjectURL(url);
   }
 
+  // ===== Crosshair shoot support (HHA VR UI) =====
+  // vr-ui.js emits: hha:shoot {x,y,lockPx,source}
+  function laneFromXY(x, y){
+    if (!lanesEl) return null;
+    const r = lanesEl.getBoundingClientRect();
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom) return null;
+
+    const laneEls = $$('.rb-lane');
+    if (!laneEls.length) return null;
+
+    let bestLane = null;
+    let bestDist = Infinity;
+    for (const el of laneEls){
+      const lr = el.getBoundingClientRect();
+      const cx = lr.left + lr.width/2;
+      const cy = lr.top + lr.height/2;
+      const dx = x - cx, dy = y - cy;
+      const d2 = dx*dx + dy*dy;
+      if (d2 < bestDist){
+        bestDist = d2;
+        bestLane = parseInt(el.dataset.lane || '0', 10);
+      }
+    }
+    return bestLane;
+  }
+
+  window.addEventListener('hha:shoot', (ev)=>{
+    if (!engine) return;
+    if (viewPlay.classList.contains('hidden')) return;
+    const d = ev && ev.detail ? ev.detail : {};
+    const lane = laneFromXY(d.x, d.y);
+    if (lane == null) return;
+    engine.handleLaneTap(lane);
+  });
+
   // ===== event wiring =====
-  modeRadios.forEach(r => {
-    r.addEventListener('change', updateModeUI);
-  });
+  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
 
-  btnStart.addEventListener('click', () => {
-    startGame();
-  });
-
-  btnStop.addEventListener('click', () => {
-    stopGame('manual-stop');
-  });
+  btnStart.addEventListener('click', () => startGame());
+  btnStop.addEventListener('click', () => stopGame('manual-stop'));
 
   btnAgain.addEventListener('click', () => {
-    // เล่นเพลงเดิมอีกครั้ง (mode เดิม / track เดิม)
     switchView('menu');
     startGame();
   });
 
-  btnBackMenu.addEventListener('click', () => {
-    switchView('menu');
-  });
+  btnBackMenu.addEventListener('click', () => switchView('menu'));
 
   btnDlEvents.addEventListener('click', () => {
     if (!engine) return;
-    const csv = engine.getEventsCsv();
-    downloadCsv(csv, 'rb-events.csv');
+    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
 
   btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
-    const csv = engine.getSessionCsv();
-    downloadCsv(csv, 'rb-sessions.csv');
+    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // เริ่มต้นที่หน้าเมนู
   updateModeUI();
   switchView('menu');
 
