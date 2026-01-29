@@ -242,6 +242,22 @@
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
+  // ==== apply mode from URL (?mode=research|play) ====
+  (function applyModeFromQuery(){
+    try{
+      const sp = new URL(location.href).searchParams;
+      const m = (sp.get('mode')||'').toLowerCase();
+      if (m === 'research'){
+        const r = modeRadios.find(x => x.value === 'research');
+        if (r) r.checked = true;
+      } else if (m === 'play' || m === 'normal'){
+        const r = modeRadios.find(x => x.value === 'normal');
+        if (r) r.checked = true;
+      }
+    }catch(_){}
+  })();
+
+
   updateModeUI();
   switchView('menu');
 

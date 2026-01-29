@@ -11,25 +11,26 @@
   let mode = 'normal';
 
   function setMode(m){
-    mode = m === 'research' ? 'research' : 'normal';
+    mode = (m === 'research') ? 'research' : 'normal';
     if (btnNormal) btnNormal.classList.toggle('active', mode === 'normal');
     if (btnResearch) btnResearch.classList.toggle('active', mode === 'research');
 
     if (desc){
       desc.textContent = (mode === 'normal')
         ? 'Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)'
-        : 'Research: สำหรับเก็บข้อมูลงานวิจัย (แนะนำให้กรอกรหัส/กลุ่มในหน้าเกม แล้วดาวน์โหลด CSV)';
+        : 'Research: สำหรับเก็บข้อมูลงานวิจัย (กรอกผู้เข้าร่วม/กลุ่มในหน้าเกม แล้วดาวน์โหลด CSV)';
     }
   }
 
   function openGame(gameKey){
+    const q = (mode === 'research') ? 'mode=research&from=hub' : 'mode=play&from=hub';
+
     if (gameKey === 'shadow'){
-      // โหมด research แค่ “ตั้งค่า” ให้หน้าเกมรู้ว่ามาจาก hub แบบวิจัย
-      // แต่เกมยังให้เลือกกด Play/Research เองในหน้าเมนู
-      const url = (mode === 'research')
-        ? './shadow-breaker.html?from=hub&mode=research'
-        : './shadow-breaker.html?from=hub&mode=play';
-      location.href = url;
+      location.href = './shadow-breaker.html?' + q;
+      return;
+    }
+    if (gameKey === 'rhythm'){
+      location.href = './rhythm-boxer.html?' + q;
       return;
     }
 
