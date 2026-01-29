@@ -1,173 +1,157 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR UI — PRODUCTION (HHA Standard)
-✅ Fullscreen stage + safe spawn zones via --hw-top-safe / --hw-bottom-safe
-✅ HUD (pills) + banner animation + overlays
-✅ Targets: good/wrong/haz (spawn via --x --y in % => vw/vh)
-✅ Quiz box styling
-✅ Works with Particles (../vr/particles.js) overlay
+HygieneVR — PRODUCTION UI (HHA Standard)
+✅ Supports body classes: view-pc / view-mobile / view-vr / view-cvr
+✅ Safe zones for spawns: --hw-top-safe / --hw-bottom-safe
+✅ Targets positioned by CSS vars from JS: --x (vw%), --y (vh%), --s (scale)
 */
 
 :root{
   color-scheme: light dark;
 
-  /* Theme */
+  /* theme */
   --bg:#020617;
-  --panel: rgba(2,6,23,.70);
-  --panel2: rgba(15,23,42,.70);
+  --panel: rgba(2,6,23,.74);
+  --panel2: rgba(15,23,42,.72);
   --stroke: rgba(148,163,184,.18);
 
-  --text: rgba(229,231,235,.95);
-  --muted: rgba(148,163,184,.95);
+  --text: rgba(229,231,235,.96);
+  --muted: rgba(148,163,184,.92);
 
-  --accent: rgba(34,197,94,.95);
+  --good: rgba(34,197,94,.95);
   --cyan: rgba(34,211,238,.95);
   --warn: rgba(245,158,11,.95);
-  --bad: rgba(239,68,68,.95);
+  --bad:  rgba(239,68,68,.95);
 
-  --r: 22px;
+  --radius: 22px;
   --pill: 999px;
 
-  /* Safe area insets */
+  /* safe-area (iOS etc.) */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Spawn safe zones (JS reads these via getComputedStyle) */
-  --hw-top-safe: 160;
-  --hw-bottom-safe: 170;
+  /* spawn-safe zones (JS reads these) */
+  --hw-top-safe: 170;     /* px */
+  --hw-bottom-safe: 170;  /* px */
 
-  /* Target sizing */
-  --tgt-size: 74px;
-  --tgt-font: 40px;
-}
+  /* target sizing */
+  --tgt-size: 64px;
+  --tgt-font: 30px;
 
-/* view presets */
-body.view-pc{
-  --hw-top-safe: 170;
-  --hw-bottom-safe: 180;
-  --tgt-size: 78px;
-  --tgt-font: 42px;
-}
-body.view-mobile{
-  --hw-top-safe: 190;
-  --hw-bottom-safe: 200;
-  --tgt-size: 76px;
-  --tgt-font: 42px;
-}
-body.view-vr{
-  --hw-top-safe: 170;
-  --hw-bottom-safe: 190;
-  --tgt-size: 82px;
-  --tgt-font: 46px;
-}
-body.view-cvr{
-  /* crosshair shoot strict: อย่าให้เป้าทับ HUD / ปุ่ม EnterVR */
-  --hw-top-safe: 210;
-  --hw-bottom-safe: 210;
-  --tgt-size: 86px;
-  --tgt-font: 48px;
+  /* HUD sizing */
+  --hud-pad: 14px;
+  --hud-gap: 10px;
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; }
-body{
+*{ box-sizing: border-box; }
+html,body{
+  margin:0;
+  height:100%;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
   overflow:hidden;
+  touch-action: manipulation;
 }
+button{ font: inherit; }
 
-/* Root */
+/* ---- root ---- */
 .hw-root{
-  position:fixed;
-  inset:0;
-}
-
-/* Stage (targets live here) */
-.hw-stage{
-  position:fixed;
-  inset:0;
+  position: relative;
+  width:100vw;
+  height:100vh;
   overflow:hidden;
   background:
-    radial-gradient(1200px 700px at 50% 10%, rgba(34,211,238,.10), transparent 55%),
-    radial-gradient(800px 520px at 20% 30%, rgba(34,197,94,.09), transparent 55%),
-    radial-gradient(900px 700px at 80% 40%, rgba(168,85,247,.08), transparent 55%),
-    linear-gradient(180deg, rgba(2,6,23,.0) 0%, rgba(2,6,23,.16) 60%, rgba(2,6,23,.55) 100%);
+    radial-gradient(1200px 800px at 50% 0%, rgba(34,211,238,.10), transparent 55%),
+    radial-gradient(1200px 800px at 10% 20%, rgba(34,197,94,.07), transparent 55%),
+    radial-gradient(1200px 800px at 90% 20%, rgba(239,68,68,.06), transparent 55%),
+    linear-gradient(180deg, rgba(2,6,23,1), rgba(2,6,23,.98));
 }
 
-/* HUD */
+/* stage for targets */
+.hw-stage{
+  position:absolute;
+  inset:0;
+  z-index: 1;
+  overflow:hidden;
+  /* subtle texture */
+  background:
+    radial-gradient(900px 520px at 50% 30%, rgba(148,163,184,.08), transparent 65%),
+    radial-gradient(820px 520px at 20% 70%, rgba(148,163,184,.05), transparent 70%);
+}
+
+/* ---- HUD ---- */
 .hw-hud{
-  position:fixed;
-  left:0; right:0;
-  top:0;
-  padding:
-    calc(14px + var(--sat))
-    calc(14px + var(--sar))
-    14px
-    calc(14px + var(--sal));
-  pointer-events:none; /* enable clicks only on buttons inside with pointer-events:auto */
+  position:absolute;
+  inset:0;
+  pointer-events:none; /* only allow on specific buttons */
+  z-index: 30;
 }
 
 .hw-top{
-  width:min(1020px, 100%);
-  margin:0 auto;
+  position:absolute;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(10px + var(--sat));
+  pointer-events:none;
 }
 
 .hw-title{
-  font-weight:950;
-  letter-spacing:.2px;
-  font-size:18px;
-  text-shadow: 0 10px 24px rgba(0,0,0,.45);
+  font-weight: 950;
+  letter-spacing: .2px;
+  font-size: 16px;
+  text-shadow: 0 14px 40px rgba(0,0,0,.55);
 }
 .hw-sub{
   margin-top:6px;
+  font-size: 12px;
   color: var(--muted);
-  font-size:12.5px;
-  line-height:1.35;
+  text-shadow: 0 14px 40px rgba(0,0,0,.55);
 }
 
 .hw-row{
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
-  margin-top:10px;
+  gap: var(--hud-gap);
+  margin-top: 10px;
 }
 
-/* Pills */
 .hw-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 9px 12px;
   border-radius: var(--pill);
-  border:1px solid var(--stroke);
+  border: 1px solid var(--stroke);
   background: var(--panel);
   color: var(--text);
-  padding: 8px 11px;
   font-weight: 900;
-  font-size: 12.5px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 16px 70px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
   pointer-events:none;
 }
 
 .hw-pill.warn{
-  border-color: rgba(245,158,11,.28);
+  border-color: rgba(245,158,11,.26);
   background: rgba(245,158,11,.10);
 }
 .hw-pill.cyan{
-  border-color: rgba(34,211,238,.28);
+  border-color: rgba(34,211,238,.26);
   background: rgba(34,211,238,.10);
 }
 .hw-pill.bad{
-  border-color: rgba(239,68,68,.28);
+  border-color: rgba(239,68,68,.26);
   background: rgba(239,68,68,.10);
 }
-
 .hw-pill.btn{
-  pointer-events:auto;
+  pointer-events:auto; /* clickable */
   cursor:pointer;
   user-select:none;
   border-color: rgba(148,163,184,.22);
-  background: rgba(15,23,42,.72);
+  background: rgba(15,23,42,.74);
 }
 .hw-pill.btn:active{
   transform: translateY(1px);
@@ -175,45 +159,43 @@ body{
 
 /* Banner */
 .hw-banner{
-  margin-top:12px;
-  width:min(740px, 100%);
-  border-radius: 18px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  color: rgba(229,231,235,.98);
-  padding: 10px 12px;
-  font-weight: 950;
-  font-size: 13px;
-  line-height:1.25;
-  box-shadow: 0 24px 90px rgba(0,0,0,.50);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  position:absolute;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(138px + var(--sat));
+  z-index: 60;
   opacity:0;
-  transform: translateY(-8px);
+  transform: translateY(-6px);
+  transition: opacity .18s ease, transform .18s ease;
   pointer-events:none;
-}
 
-.hw-banner.show{
-  animation: hwBannerIn 220ms ease-out forwards;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.72);
+  color: rgba(229,231,235,.96);
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1.25;
+  box-shadow: 0 18px 80px rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
 }
-@keyframes hwBannerIn{
-  from{ opacity:0; transform: translateY(-10px); }
-  to  { opacity:1; transform: translateY(0px); }
+.hw-banner.show{
+  opacity:1;
+  transform: translateY(0);
 }
 
 /* Quiz box */
 .hw-quiz{
-  margin-top:10px;
-  width:min(880px, 100%);
-  border-radius: 20px;
-  border:1px solid rgba(34,211,238,.22);
-  background: rgba(2,6,23,.60);
-  box-shadow: 0 26px 100px rgba(0,0,0,.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  padding: 12px 12px 10px;
+  margin-top: 12px;
+  pointer-events:none;
+  padding: 12px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(34,211,238,.28);
+  background: rgba(34,211,238,.10);
+  box-shadow: 0 18px 90px rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
 }
-
 .hw-quiz-q{
   font-weight: 950;
   font-size: 14px;
@@ -221,181 +203,185 @@ body{
 }
 .hw-quiz-sub{
   margin-top:6px;
-  color: rgba(148,163,184,.98);
-  font-size: 12.5px;
+  color: rgba(229,231,235,.92);
+  font-size: 12px;
   line-height: 1.35;
 }
 
-/* Overlays (Start / End) */
+/* ---- Overlays ---- */
 .hw-overlay{
-  position:fixed;
+  position:absolute;
   inset:0;
   display:grid;
   place-items:center;
-  padding:
-    calc(18px + var(--sat))
-    calc(16px + var(--sar))
-    calc(18px + var(--sab))
-    calc(16px + var(--sal));
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 50;
+  z-index: 80;
+  background: radial-gradient(1200px 700px at 50% 20%, rgba(2,6,23,.65), rgba(2,6,23,.88));
+  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
 }
 
 .hw-card{
-  width:min(820px, 100%);
-  border:1px solid rgba(148,163,184,.18);
+  width: min(860px, 100%);
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
   background: rgba(2,6,23,.74);
-  border-radius: var(--r);
-  box-shadow: 0 30px 120px rgba(0,0,0,.62);
+  box-shadow: 0 26px 120px rgba(0,0,0,.60);
   padding: 16px;
+  backdrop-filter: blur(12px);
 }
-
 .hw-card-title{
-  font-weight: 1000;
+  font-weight: 950;
   font-size: 18px;
   letter-spacing:.2px;
 }
 .hw-card-sub{
-  margin-top:8px;
-  color: rgba(148,163,184,.98);
+  margin-top:10px;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
 }
-
 .hw-card-row{
-  margin-top:12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
+  margin-top: 14px;
 }
-
-.hw-cta{
-  pointer-events:auto;
-  cursor:pointer;
-  border:1px solid rgba(34,197,94,.30);
-  background: rgba(34,197,94,.16);
-  color: rgba(229,231,235,.98);
-  padding: 10px 12px;
+.hw-cta, .hw-ghost{
+  border: 1px solid rgba(148,163,184,.18);
   border-radius: 16px;
-  font-weight: 1000;
+  padding: 10px 12px;
+  font-weight: 950;
+  cursor:pointer;
+  user-select:none;
+}
+.hw-cta{
+  background: rgba(34,197,94,.16);
+  border-color: rgba(34,197,94,.26);
+  color: rgba(229,231,235,.98);
 }
 .hw-ghost{
-  pointer-events:auto;
-  cursor:pointer;
-  border:1px solid rgba(148,163,184,.20);
   background: rgba(15,23,42,.72);
-  color: rgba(229,231,235,.95);
-  padding: 10px 12px;
-  border-radius: 16px;
-  font-weight: 950;
+  color: rgba(229,231,235,.92);
 }
-.hw-cta:active,
-.hw-ghost:active{
-  transform: translateY(1px);
-}
+.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
-  margin-top:10px;
-  padding: 12px;
+  margin-top: 10px;
+  padding: 10px;
   border-radius: 16px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.60);
   color: rgba(229,231,235,.92);
+  max-height: 38vh;
+  overflow:auto;
   font-size: 12px;
   line-height: 1.35;
-  overflow:auto;
-  max-height: min(46vh, 420px);
 }
 
-/* Targets */
+/* ---- Targets ---- */
 .hw-tgt{
   position:absolute;
   left: calc(var(--x,50) * 1vw);
   top:  calc(var(--y,50) * 1vh);
+  transform: translate(-50%,-50%) scale(var(--s,1));
   width: var(--tgt-size);
   height: var(--tgt-size);
   border-radius: 999px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.56);
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.58);
   box-shadow:
     0 18px 70px rgba(0,0,0,.55),
-    inset 0 1px 0 rgba(255,255,255,.08);
-  transform: translate(-50%,-50%) scale(var(--s,1));
+    inset 0 0 0 2px rgba(255,255,255,.04);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  user-select: none;
+  z-index: 10;
   display:grid;
   place-items:center;
-  padding:0;
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  will-change: transform, opacity;
-  animation: hwPop 140ms ease-out;
-}
 
-@keyframes hwPop{
-  from{ opacity:.0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78)); }
-  to  { opacity:1;  transform: translate(-50%,-50%) scale(var(--s,1)); }
+  /* entrance */
+  animation: hwPopIn .14s ease-out both;
 }
 
 .hw-tgt .emoji{
   font-size: var(--tgt-font);
-  line-height:1;
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.45));
+  line-height: 1;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
+  transform: translateZ(0);
 }
 
+/* types */
 .hw-tgt.good{
-  border-color: rgba(34,197,94,.30);
+  border-color: rgba(34,197,94,.26);
   background: rgba(34,197,94,.12);
 }
 .hw-tgt.wrong{
-  border-color: rgba(245,158,11,.30);
+  border-color: rgba(245,158,11,.26);
   background: rgba(245,158,11,.12);
 }
 .hw-tgt.haz{
-  border-color: rgba(239,68,68,.34);
+  border-color: rgba(239,68,68,.28);
   background: rgba(239,68,68,.12);
 }
 
-/* subtle float (only for non-low-end) */
-.hw-tgt{
-  animation: hwPop 140ms ease-out, hwFloat 1400ms ease-in-out infinite;
-}
-@keyframes hwFloat{
-  0%,100%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
-  50%    { transform: translate(-50%,-50%) scale(var(--s,1)) translateY(-6px); }
-}
-
 .hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .95));
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-/* cVR strict: targets should NOT steal clicks; shooting is via crosshair */
-body.view-cvr .hw-tgt{
-  pointer-events:none;
+@keyframes hwPopIn{
+  from{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .86)); }
+  to  { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* Make sure overlays are above targets */
-.hw-overlay{ pointer-events:auto; }
-.hw-card, .hw-cta, .hw-ghost{ pointer-events:auto; }
+/* ---- View variants ---- */
+body.view-pc{
+  --tgt-size: 66px;
+  --tgt-font: 30px;
+  --hw-top-safe: 176;
+  --hw-bottom-safe: 160;
+}
 
-/* tiny screens */
-@media (max-width: 420px){
-  :root{
-    --tgt-size: 72px;
-    --tgt-font: 40px;
-  }
+body.view-mobile{
+  --tgt-size: 74px;
+  --tgt-font: 34px;
+  --hw-top-safe: 190;
+  --hw-bottom-safe: 170;
+}
+
+body.view-vr{
+  --tgt-size: 76px;
+  --tgt-font: 34px;
+  --hw-top-safe: 190;
+  --hw-bottom-safe: 170;
+}
+
+/* cVR: เน้นยิงกลางจอ → ขยายเป้านิด, ลด HUD ให้ไม่บัง */
+body.view-cvr{
+  --tgt-size: 82px;
+  --tgt-font: 36px;
+  --hw-top-safe: 170;
+  --hw-bottom-safe: 160;
+}
+
+/* ---- Responsive tweaks ---- */
+@media (max-width: 520px){
+  .hw-title{ font-size: 15px; }
+  .hw-pill{ font-size: 11px; padding: 8px 10px; }
+  .hw-banner{ top: calc(150px + var(--sat)); }
+  :root{ --hud-gap: 8px; }
+}
+@media (min-width: 960px){
   .hw-title{ font-size: 17px; }
-  .hw-pill{ font-size: 12px; padding: 7px 10px; }
-  .hw-banner{ font-size: 12.5px; }
+  .hw-pill{ font-size: 12px; }
 }
 
-/* reduce motion support */
+/* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .hw-tgt{ animation: none; }
-  .hw-banner.show{ animation: none; opacity:1; transform:none; }
+  .hw-banner{ transition:none; }
 }
 
-/* Safety: ensure Particles layer is always above targets but below overlays (Particles uses z-index 9999 already)
-   Overlays z-index:50; targets default; HUD fixed (pointer-events none).
-*/
+/* ---- Make sure HUD buttons are reachable ---- */
+#btnPause, #btnBack{ pointer-events:auto; }
+
+/* (Optional) small hint: keep stage clickable on mobile */
+.hw-stage{ -webkit-tap-highlight-color: transparent; }
