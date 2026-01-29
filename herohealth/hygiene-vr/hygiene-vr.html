@@ -1,10 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ FX:   ../vr/particles.js (DOM particles layer)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Boot: ./hygiene-vr.boot.js (module) -> imports hygiene.safe.js and runs boot()
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js => crosshair + hha:shoot (cVR) + EnterVR/Exit/Recenter (ถ้ามีชุดเต็มของคุณ)
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz bank: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ FX: ../vr/particles.js
 -->
 <!doctype html>
 <html lang="th">
@@ -15,24 +15,24 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS (MUST exist) -->
+  <!-- CSS (MUST exist) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260129a" />
 
-  <!-- ✅ Universal VR UI (MUST defer) -->
+  <!-- Universal VR UI (MUST defer to avoid body null) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- ✅ FX layer (MUST defer) -->
+  <!-- FX helpers (optional but recommended) -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- ✅ Optional AI packs (defer, safe if missing features) -->
+  <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (IMPORTANT: filename uses dash) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- ✅ Boot (module) -->
+  <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260129a"></script>
 </head>
 
@@ -57,7 +57,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
-
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
@@ -111,39 +110,26 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
+  // ✅ set body class from ?view=
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
       view==='mobile' ? 'view-mobile' :
-      (view==='vr' ? 'view-vr' :
-      (view==='cvr' ? 'view-cvr' : 'view-pc'))
+      view==='vr'     ? 'view-vr' :
+      view==='cvr'    ? 'view-cvr' : 'view-pc'
     );
-
-    const labView = document.getElementById('labView');
-    if(labView) labView.textContent = view;
+    const v = document.getElementById('labView');
+    if(v) v.textContent = view;
   }
 
   setViewClass();
 
-  const labMode = document.getElementById('labMode');
-  const labDiff = document.getElementById('labDiff');
-  if(labMode) labMode.textContent = (qs('run','play')||'play');
-  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
+  const m = document.getElementById('labMode');
+  if(m) m.textContent = (qs('run','play')||'play');
 
-  // quick non-blocking diagnostics for "effect missing"
-  // (Particles is optional but helps visibility; warn if not loaded)
-  setTimeout(()=>{
-    if(!window.Particles){
-      console.warn('[Hygiene] Particles not loaded (effects may look missing). Check ../vr/particles.js');
-      const hudSub = document.getElementById('hudSub');
-      if(hudSub) hudSub.textContent = '⚠️ FX อาจไม่ทำงาน (เช็คโหลด ../vr/particles.js)';
-    }
-    if(!window.HHA_HYGIENE_QUIZ_BANK){
-      console.warn('[Hygiene] Quiz bank not loaded. Check ./hygiene-quiz-bank.js');
-      // ไม่ต้องบล็อกเกม—แค่เตือน
-    }
-  }, 350);
+  const d = document.getElementById('labDiff');
+  if(d) d.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
