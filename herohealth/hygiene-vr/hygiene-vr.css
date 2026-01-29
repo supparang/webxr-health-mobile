@@ -1,25 +1,26 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR UI — PRODUCTION (HHA Standard)
-✅ Safe spawn rect via CSS vars: --hw-top-safe / --hw-bottom-safe (engine reads these)
-✅ Layering fixes: stage/hud/overlay/particles z-index
-✅ Responsive: pc/mobile/cvr/vr via body.view-*
+HygieneVR CSS — PRODUCTION (HHA Standard)
+✅ HUD safe zones for spawn rect: --hw-top-safe, --hw-bottom-safe
+✅ Targets: .hw-tgt (good/wrong/haz) with pop/float anim + hit feedback
+✅ Overlays: start/end cards
+✅ Banner + Quiz box
+✅ Views: body.view-pc / view-mobile / view-cvr / view-vr
 */
 
 :root{
   color-scheme: light dark;
 
-  --bg:#0b1220;
-  --panel: rgba(2,6,23,.78);
-  --panel2: rgba(15,23,42,.72);
+  --bg:#070a12;
+  --panel: rgba(2,6,23,.72);
+  --panel2: rgba(15,23,42,.70);
   --stroke: rgba(148,163,184,.18);
+  --text: rgba(229,231,235,.95);
+  --muted: rgba(148,163,184,.95);
 
-  --text: rgba(229,231,235,.96);
-  --muted: rgba(148,163,184,.92);
-
-  --good: rgba(34,197,94,.92);
-  --warn: rgba(245,158,11,.92);
-  --bad:  rgba(239,68,68,.92);
-  --cyan: rgba(34,211,238,.92);
+  --accent: rgba(34,197,94,.95);
+  --cyan: rgba(34,211,238,.95);
+  --warn: rgba(245,158,11,.95);
+  --bad: rgba(239,68,68,.95);
 
   --r: 22px;
   --pill: 999px;
@@ -29,16 +30,15 @@ HygieneVR UI — PRODUCTION (HHA Standard)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ Spawn safe zone used by engine (px) */
-  --hw-top-safe: 170;
-  --hw-bottom-safe: 165;
+  /* ✅ spawn-safe zones (JS reads these via computed style) */
+  --hw-top-safe: 160px;
+  --hw-bottom-safe: 170px;
 
-  /* target sizing */
-  --tgt-size: 64px;
-  --tgt-font: 34px;
+  --tgt-size: 58px;
+  --tgt-size-mobile: 66px;
+  --tgt-size-cvr: 72px;
 
-  /* stage padding (visual) */
-  --stage-pad: 10px;
+  --shadow: 0 24px 90px rgba(0,0,0,.55);
 }
 
 *{ box-sizing:border-box; }
@@ -48,174 +48,262 @@ html,body{
   background: var(--bg);
   color: var(--text);
   font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  overscroll-behavior: none;
+  overflow:hidden;
 }
 
-/* ---------- Root layout ---------- */
 .hw-root{
-  position: relative;
-  min-height: 100%;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+  height:100%;
+  width:100%;
+  position:relative;
 }
 
-/* Stage sits behind HUD but above background */
+/* ---------- Stage ---------- */
 .hw-stage{
-  position: relative;
-  width: 100%;
-  height: calc(100vh - (20px + var(--sat) + var(--sab)));
-  border-radius: var(--r);
-  overflow: hidden; /* keep targets inside */
-  background: radial-gradient(1200px 800px at 50% 35%, rgba(34,211,238,.06), transparent 55%),
-              radial-gradient(900px 700px at 30% 70%, rgba(34,197,94,.06), transparent 55%),
-              linear-gradient(180deg, rgba(2,6,23,.45), rgba(2,6,23,.72));
-  border: 1px solid var(--stroke);
-  box-shadow: 0 26px 90px rgba(0,0,0,.45);
-  z-index: 1;
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(1200px 800px at 25% 20%, rgba(34,211,238,.08), transparent 60%),
+    radial-gradient(1000px 700px at 75% 30%, rgba(34,197,94,.06), transparent 62%),
+    radial-gradient(900px 700px at 55% 85%, rgba(148,163,184,.06), transparent 62%),
+    linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.55));
+  transform: translateZ(0);
+  overflow:hidden;
+}
+
+/* subtle floating bubbles */
+.hw-stage::before{
+  content:"";
+  position:absolute;
+  inset:-20%;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(34,211,238,.10) 0 2px, transparent 3px),
+    radial-gradient(circle at 65% 25%, rgba(229,231,235,.08) 0 2px, transparent 3px),
+    radial-gradient(circle at 35% 70%, rgba(34,197,94,.08) 0 2px, transparent 3px),
+    radial-gradient(circle at 75% 78%, rgba(229,231,235,.06) 0 2px, transparent 3px);
+  opacity:.7;
+  filter: blur(.2px);
+  animation: hwDrift 10s linear infinite;
+}
+@keyframes hwDrift{
+  0%{ transform: translate3d(0,0,0); }
+  50%{ transform: translate3d(-18px, 12px,0); }
+  100%{ transform: translate3d(0,0,0); }
 }
 
 /* ---------- HUD ---------- */
 .hw-hud{
-  position: absolute;
-  inset: 0;
-  pointer-events: none; /* default none; enable only on buttons */
-  z-index: 20;
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  padding:
+    calc(14px + var(--sat))
+    calc(14px + var(--sar))
+    calc(14px + var(--sab))
+    calc(14px + var(--sal));
 }
 
 .hw-top{
-  position: absolute;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  top: calc(12px + var(--sat));
-  display: grid;
-  gap: 10px;
+  width: min(980px, 100%);
+  margin: 0 auto;
 }
 
 .hw-title{
   font-weight: 950;
+  letter-spacing:.2px;
   font-size: 18px;
-  letter-spacing: .2px;
-  text-shadow: 0 10px 24px rgba(0,0,0,.55);
+  text-shadow: 0 12px 28px rgba(0,0,0,.55);
 }
 
 .hw-sub{
-  font-size: 12px;
-  color: var(--muted);
+  margin-top: 6px;
+  font-size: 13px;
   line-height: 1.35;
+  color: var(--muted);
 }
 
 .hw-row{
-  display: flex;
-  flex-wrap: wrap;
+  display:flex;
+  flex-wrap:wrap;
   gap: 8px;
+  margin-top: 10px;
 }
 
 .hw-pill{
-  pointer-events: none;
+  pointer-events:auto;
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: var(--pill);
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  padding: 8px 10px;
+  background: var(--panel);
+  box-shadow: 0 18px 50px rgba(0,0,0,.40);
   font-weight: 900;
   font-size: 12px;
   color: var(--text);
-  box-shadow: 0 10px 28px rgba(0,0,0,.25);
+  backdrop-filter: blur(10px);
+}
+
+.hw-pill.btn{
+  cursor:pointer;
+  background: var(--panel2);
 }
 
 .hw-pill.warn{
-  border-color: rgba(245,158,11,.28);
+  border-color: rgba(245,158,11,.22);
   background: rgba(245,158,11,.10);
 }
-.hw-pill.bad{
-  border-color: rgba(239,68,68,.28);
-  background: rgba(239,68,68,.10);
-}
+
 .hw-pill.cyan{
-  border-color: rgba(34,211,238,.28);
+  border-color: rgba(34,211,238,.22);
   background: rgba(34,211,238,.10);
 }
 
-/* buttons must be clickable */
-.hw-pill.btn{
-  pointer-events: auto;
-  cursor: pointer;
-  user-select: none;
-  background: rgba(15,23,42,.72);
-}
-.hw-pill.btn:active{
-  transform: translateY(1px);
+.hw-pill.bad{
+  border-color: rgba(239,68,68,.22);
+  background: rgba(239,68,68,.10);
 }
 
 /* Banner */
 .hw-banner{
-  position: absolute;
-  left: 50%;
-  top: calc(120px + var(--sat));
-  transform: translateX(-50%);
-  min-width: min(720px, calc(100% - 24px));
-  max-width: min(820px, calc(100% - 24px));
-  border-radius: var(--pill);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(12px);
+  margin: 10px auto 0;
+  width: min(980px, 100%);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity .18s ease, transform .18s ease;
   padding: 10px 12px;
+  border-radius: 18px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  pointer-events:none;
+  color: var(--text);
   font-weight: 900;
   font-size: 13px;
-  color: var(--text);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 30;
-  box-shadow: 0 18px 48px rgba(0,0,0,.35);
 }
 .hw-banner.show{
   opacity: 1;
+  transform: translateY(0px);
 }
 
-/* Quiz */
+/* Quiz box */
 .hw-quiz{
-  pointer-events: none;
+  margin-top: 10px;
+  padding: 10px 12px;
   border-radius: 18px;
-  border: 1px solid rgba(34,211,238,.28);
+  border: 1px solid rgba(34,211,238,.22);
   background: rgba(34,211,238,.08);
   backdrop-filter: blur(10px);
-  padding: 12px 12px;
-  box-shadow: 0 18px 48px rgba(0,0,0,.28);
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  pointer-events:none;
 }
 .hw-quiz-q{
   font-weight: 950;
-  font-size: 14px;
+  font-size: 13px;
+  letter-spacing:.1px;
 }
 .hw-quiz-sub{
-  margin-top: 6px;
-  color: var(--muted);
+  margin-top: 4px;
+  color: rgba(229,231,235,.92);
   font-size: 12px;
   line-height: 1.35;
 }
 
+/* ---------- Targets ---------- */
+.hw-tgt{
+  position:absolute;
+  left: calc(var(--x,50) * 1vw);
+  top:  calc(var(--y,50) * 1vh);
+  width: var(--tgt-size);
+  height: var(--tgt-size);
+  border-radius: 22px;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.45);
+  box-shadow: 0 18px 55px rgba(0,0,0,.52);
+  backdrop-filter: blur(10px);
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  animation: hwPopIn .14s ease-out both, hwFloat 2.1s ease-in-out infinite;
+}
+
+.hw-tgt .emoji{
+  font-size: 28px;
+  line-height: 1;
+  filter: drop-shadow(0 10px 26px rgba(0,0,0,.45));
+}
+
+.hw-tgt.good{
+  border-color: rgba(34,197,94,.26);
+  background: rgba(34,197,94,.08);
+}
+.hw-tgt.wrong{
+  border-color: rgba(245,158,11,.26);
+  background: rgba(245,158,11,.08);
+}
+.hw-tgt.haz{
+  border-color: rgba(239,68,68,.28);
+  background: rgba(239,68,68,.09);
+}
+
+.hw-tgt:active{
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
+}
+
+@keyframes hwPopIn{
+  from{ opacity:0; transform: translate(-50%,-50%) scale(.86); }
+  to  { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+}
+@keyframes hwFloat{
+  0%  { translate: 0 0; }
+  50% { translate: 0 -10px; }
+  100%{ translate: 0 0; }
+}
+
+/* Hit feedback helper classes (optional if you want future) */
+.hw-tgt.hit{
+  animation: hwHit .18s ease-out both;
+}
+@keyframes hwHit{
+  0%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.00)); }
+  60%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.08)); }
+  100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98)); opacity:.0; }
+}
+
 /* ---------- Overlays ---------- */
 .hw-overlay{
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  z-index: 40;
+  position:fixed;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:
+    calc(18px + var(--sat))
+    calc(16px + var(--sar))
+    calc(18px + var(--sab))
+    calc(16px + var(--sal));
+  background: radial-gradient(900px 600px at 50% 18%, rgba(2,6,23,.22), rgba(2,6,23,.65));
+  backdrop-filter: blur(6px);
+  pointer-events:auto;
 }
 
 .hw-card{
-  width: min(820px, calc(100% - 22px));
-  border-radius: var(--r);
+  width: min(760px, 100%);
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.78);
+  background: rgba(2,6,23,.72);
+  border-radius: var(--r);
   padding: 16px;
-  box-shadow: 0 30px 110px rgba(0,0,0,.55);
+  box-shadow: var(--shadow);
 }
 
 .hw-card-title{
   font-weight: 950;
   font-size: 18px;
-  letter-spacing: .2px;
+  letter-spacing:.2px;
 }
 .hw-card-sub{
   margin-top: 8px;
@@ -223,154 +311,93 @@ html,body{
   font-size: 13px;
   line-height: 1.45;
 }
+
 .hw-card-row{
   margin-top: 12px;
   display:flex;
-  gap:10px;
-  flex-wrap: wrap;
+  gap: 10px;
+  flex-wrap:wrap;
 }
 
 .hw-cta, .hw-ghost{
-  pointer-events: auto;
-  cursor: pointer;
-  user-select:none;
   border-radius: 16px;
+  border: 1px solid var(--stroke);
   padding: 10px 12px;
   font-weight: 950;
-  border: 1px solid var(--stroke);
+  cursor:pointer;
   background: rgba(15,23,42,.72);
   color: var(--text);
 }
 .hw-cta{
   border-color: rgba(34,197,94,.28);
-  background: rgba(34,197,94,.14);
+  background: rgba(34,197,94,.16);
 }
-.hw-cta:active, .hw-ghost:active{ transform: translateY(1px); }
+.hw-ghost{
+  background: rgba(15,23,42,.62);
+}
 
 .hw-pre{
-  margin: 10px 0 0;
-  max-height: 42vh;
-  overflow:auto;
+  margin-top: 10px;
+  padding: 10px 12px;
   border-radius: 16px;
   border: 1px solid var(--stroke);
   background: rgba(2,6,23,.55);
-  padding: 10px;
-  font-size: 11px;
   color: rgba(229,231,235,.92);
+  max-height: 280px;
+  overflow:auto;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
-/* ---------- Targets ---------- */
-.hw-tgt{
-  position: absolute;
-  left: calc(var(--x,50) * 1vw);
-  top:  calc(var(--y,50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
-  width: var(--tgt-size);
-  height: var(--tgt-size);
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.58);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 46px rgba(0,0,0,.35);
-  cursor: pointer;
-  z-index: 5; /* above stage bg, below HUD */
-  display: grid;
-  place-items: center;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
+/* ---------- View tuning ---------- */
 
-.hw-tgt .emoji{
-  font-size: var(--tgt-font);
-  line-height: 1;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,.38));
-}
-
-.hw-tgt.good{
-  border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.10);
-}
-.hw-tgt.wrong{
-  border-color: rgba(245,158,11,.28);
-  background: rgba(245,158,11,.10);
-}
-.hw-tgt.haz{
-  border-color: rgba(239,68,68,.28);
-  background: rgba(239,68,68,.10);
-}
-
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
-}
-
-/* ---------- Layer fixes: Particles must be visible ---------- */
-/* particles.js creates #hha-particles with z-index:9999 already,
-   but some browsers can still hide if parent stacking contexts exist.
-   Force it. */
-#hha-particles{
-  position: fixed !important;
-  inset: 0 !important;
-  pointer-events: none !important;
-  z-index: 9999 !important;
-}
-
-/* Crosshair from vr-ui.js */
-#hhaCrosshair{
-  z-index: 9998 !important;
-}
-
-/* ---------- View-specific tuning ---------- */
-body.view-mobile :root,
+/* Mobile: bigger targets + bigger safe zones */
 body.view-mobile{
-  /* a bit larger targets on phones */
+  --tgt-size: var(--tgt-size-mobile);
+  --hw-top-safe: 190px;
+  --hw-bottom-safe: 190px;
 }
+body.view-mobile .hw-title{ font-size: 18px; }
+body.view-mobile .hw-pill{ font-size: 12px; padding: 9px 10px; }
 
-body.view-mobile{
-  --tgt-size: 72px;
-  --tgt-font: 38px;
-  --hw-top-safe: 178;
-  --hw-bottom-safe: 175;
-}
-
+/* cVR: bigger targets + keep top/bottom safer (HUD heavier) */
 body.view-cvr{
-  /* cVR: crosshair aiming—targets not clickable; make them slightly bigger */
-  --tgt-size: 76px;
-  --tgt-font: 40px;
-  --hw-top-safe: 168;
-  --hw-bottom-safe: 185;
+  --tgt-size: var(--tgt-size-cvr);
+  --hw-top-safe: 210px;
+  --hw-bottom-safe: 210px;
 }
+body.view-cvr .hw-stage{ cursor:none; }
+body.view-cvr .hw-tgt{ pointer-events:none; } /* strict: shoot from crosshair */
 
-/* In cVR, prevent accidental tap scrolling + keep HUD buttons usable */
-body.view-cvr{
-  touch-action: manipulation;
-}
-
-/* VR: keep HUD less tall, more room for stage */
+/* VR: minimal HUD footprint */
 body.view-vr{
-  --hw-top-safe: 150;
-  --hw-bottom-safe: 150;
+  --hw-top-safe: 150px;
+  --hw-bottom-safe: 150px;
+}
+body.view-vr .hw-pill.btn{
+  opacity:.90;
 }
 
-/* PC widescreen: slightly tighter */
-@media (min-width: 980px){
-  body.view-pc{
-    --tgt-size: 62px;
-    --tgt-font: 34px;
-    --hw-top-safe: 165;
-    --hw-bottom-safe: 155;
-  }
-}
-
-/* Small screens: HUD can get tall -> increase top safe */
+/* small screens: tighten rows */
 @media (max-width: 420px){
   :root{
-    --hw-top-safe: 192;
-    --hw-bottom-safe: 185;
+    --hw-top-safe: 210px;
+    --hw-bottom-safe: 210px;
   }
+  .hw-title{ font-size: 17px; }
+  .hw-pill{ font-size: 11px; }
+  .hw-card{ padding: 14px; }
+  .hw-pre{ max-height: 240px; }
 }
 
-/* ---------- Reduce motion accessibility ---------- */
-@media (prefers-reduced-motion: reduce){
-  .hw-banner{ transition: none; }
-  .hw-tgt{ transition: none; }
+/* landscape phone: reduce top safe so play area not squeezed */
+@media (max-height: 420px){
+  body.view-mobile{
+    --hw-top-safe: 150px;
+    --hw-bottom-safe: 150px;
+  }
+  body.view-cvr{
+    --hw-top-safe: 170px;
+    --hw-bottom-safe: 170px;
+  }
 }
