@@ -1,129 +1,129 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR UI — PRODUCTION (HHA Standard)
-✅ HUD safe zones (sets --hw-top-safe / --hw-bottom-safe for spawnRect)
-✅ Targets positioned by --x/--y in vw/vh (%)
-✅ Works: PC / Mobile / VR / cVR
-✅ Overlays + Quiz + Banner + Buttons (pointer-events safe)
+✅ Stage + Targets (good/wrong/haz) + spawn positioning via CSS vars --x --y --s
+✅ HUD safe zones + banner + overlays + quiz box
+✅ Effects: pop/scale/shake/glow (lightweight)
+✅ Views: view-pc / view-mobile / view-vr / view-cvr
+✅ cVR: targets pointer-events disabled (shoot only) + crosshair friendly
 */
 
 :root{
-  color-scheme: dark;
+  color-scheme: light dark;
+
   --bg:#020617;
-  --panel:rgba(2,6,23,.70);
-  --panel2:rgba(15,23,42,.68);
+  --panel:rgba(2,6,23,.72);
+  --panel2:rgba(15,23,42,.66);
   --stroke:rgba(148,163,184,.18);
+
   --text:rgba(229,231,235,.96);
-  --muted:rgba(148,163,184,.96);
+  --muted:rgba(148,163,184,.95);
 
   --good:rgba(34,197,94,1);
   --cyan:rgba(34,211,238,1);
   --warn:rgba(245,158,11,1);
-  --bad: rgba(239,68,68,1);
+  --bad:rgba(239,68,68,1);
 
   --r:22px;
   --pill:999px;
+
+  /* ✅ safe-zone knobs (JS reads --hw-top-safe / --hw-bottom-safe) */
+  --hw-top-safe: 172px;
+  --hw-bottom-safe: 170px;
 
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ Spawn-safe zones (used by hygiene.safe.js getSpawnRect()) */
-  --hw-top-safe: 176;     /* px */
-  --hw-bottom-safe: 152;  /* px */
+  --shadow: 0 24px 90px rgba(0,0,0,.55);
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-button{ font:inherit; }
+html,body{
+  margin:0;
+  height:100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  overflow:hidden;
+}
 
-/* Root */
+/* ---------- Root ---------- */
 .hw-root{
   position:relative;
   width:100%;
   height:100%;
-  overflow:hidden;
-  background:
-    radial-gradient(1200px 520px at 30% 0%, rgba(34,211,238,.14), transparent 55%),
-    radial-gradient(900px 520px at 85% 10%, rgba(34,197,94,.10), transparent 60%),
-    radial-gradient(900px 600px at 60% 100%, rgba(168,85,247,.08), transparent 65%),
-    var(--bg);
+  isolation:isolate;
 }
 
-/* Stage (targets live here) */
+/* ---------- Stage (spawn area) ---------- */
 .hw-stage{
   position:absolute;
   inset:0;
   overflow:hidden;
-  /* keep room for safe areas via variables (engine uses vars but stage stays full) */
-  touch-action: manipulation;
+  /* soft vignette to make targets pop */
+  background:
+    radial-gradient(1200px 800px at 50% 30%, rgba(34,211,238,.06), transparent 70%),
+    radial-gradient(900px 700px at 20% 60%, rgba(34,197,94,.05), transparent 70%),
+    radial-gradient(900px 700px at 80% 70%, rgba(239,68,68,.04), transparent 70%),
+    linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.96));
 }
 
-/* HUD container */
+/* ---------- HUD ---------- */
 .hw-hud{
-  position:fixed;
+  position:absolute;
   inset:0;
-  pointer-events:none; /* ✅ allow clicking only on explicit controls */
-  z-index:6000;
-}
-
-/* Top HUD block */
-.hw-top{
-  position:fixed;
-  top:0;
-  left:0;
-  right:0;
-  padding:
-    calc(10px + var(--sat))
-    calc(12px + var(--sar))
-    10px
-    calc(12px + var(--sal));
   pointer-events:none;
+  padding:
+    calc(12px + var(--sat))
+    calc(14px + var(--sar))
+    calc(12px + var(--sab))
+    calc(14px + var(--sal));
+  z-index:10;
 }
 
-/* Title + sub */
+.hw-top{
+  pointer-events:none;
+  max-width: min(980px, 100%);
+}
+
 .hw-title{
-  font-weight:950;
-  letter-spacing:.2px;
-  font-size:16px;
-  text-shadow:0 14px 38px rgba(0,0,0,.55);
+  font-weight: 950;
+  font-size: 18px;
+  letter-spacing: .2px;
+  text-shadow: 0 12px 30px rgba(0,0,0,.55);
 }
 .hw-sub{
-  margin-top:4px;
-  color:var(--muted);
-  font-size:12px;
-  line-height:1.25;
-  text-shadow:0 10px 24px rgba(0,0,0,.55);
+  margin-top:6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.35;
 }
 
-/* Pill rows */
 .hw-row{
-  margin-top:8px;
+  margin-top: 10px;
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
-  pointer-events:none;
+  gap: 8px;
 }
 
 .hw-pill{
   pointer-events:none;
-  user-select:none;
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding:8px 10px;
-  border-radius:16px;
-  border:1px solid var(--stroke);
-  background:var(--panel2);
-  color:var(--text);
-  font-weight:900;
-  font-size:12px;
-  line-height:1;
-  box-shadow:0 18px 60px rgba(0,0,0,.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 8px 10px;
+  font-weight: 900;
+  font-size: 12.5px;
+  color: rgba(229,231,235,.95);
+  background: rgba(15,23,42,.72);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 16px 60px rgba(0,0,0,.35);
 }
 
+.hw-pill.bad{
+  border-color: rgba(239,68,68,.26);
+  background: rgba(239,68,68,.10);
+}
 .hw-pill.warn{
   border-color: rgba(245,158,11,.26);
   background: rgba(245,158,11,.12);
@@ -132,254 +132,252 @@ button{ font:inherit; }
   border-color: rgba(34,211,238,.26);
   background: rgba(34,211,238,.10);
 }
-.hw-pill.bad{
-  border-color: rgba(239,68,68,.26);
-  background: rgba(239,68,68,.10);
-}
 
-/* Buttons inside pills */
+/* Buttons in HUD must be clickable */
 .hw-pill.btn{
-  pointer-events:auto; /* ✅ clickable */
+  pointer-events:auto;
   cursor:pointer;
-  border-color: rgba(148,163,184,.22);
-  background: rgba(15,23,42,.74);
+  user-select:none;
 }
-.hw-pill.btn:hover{ filter: brightness(1.06); }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
-/* Quiz box */
-.hw-quiz{
-  margin-top:10px;
-  pointer-events:none;
-  width:min(820px, 100%);
-  border-radius:18px;
-  border:1px solid rgba(34,211,238,.22);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  padding:10px 12px;
-  box-shadow:0 22px 80px rgba(0,0,0,.45);
-}
-.hw-quiz-q{
-  font-weight:950;
-  font-size:13px;
-  letter-spacing:.2px;
-}
-.hw-quiz-sub{
-  margin-top:6px;
-  font-size:12px;
-  line-height:1.35;
-  color: rgba(229,231,235,.92);
-}
-
-/* Banner (toast) */
+/* ---------- Banner ---------- */
 .hw-banner{
-  position:fixed;
-  left:50%;
-  top: calc(118px + var(--sat));
-  transform: translateX(-50%);
-  max-width: min(820px, calc(100% - 24px));
+  pointer-events:none;
+  margin-top: 10px;
+  width: min(860px, 100%);
   padding: 10px 12px;
   border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.62);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 80px rgba(0,0,0,.45);
   opacity:0;
-  pointer-events:none;
-  z-index:6500;
-  font-weight:950;
-  letter-spacing:.2px;
-  text-align:center;
+  transform: translateY(-6px) scale(.98);
+  transition: opacity .18s ease, transform .18s ease;
+  font-weight: 900;
+  color: rgba(229,231,235,.95);
 }
 .hw-banner.show{
-  animation: hwBanner 1200ms ease-out both;
-}
-@keyframes hwBanner{
-  0%   { opacity:0; transform: translateX(-50%) translateY(-10px) scale(.98); }
-  14%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
-  75%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
-  100% { opacity:0; transform: translateX(-50%) translateY(-8px) scale(.99); }
+  opacity:1;
+  transform: translateY(0px) scale(1);
 }
 
-/* Overlays */
+/* ---------- Quiz box ---------- */
+.hw-quiz{
+  pointer-events:none;
+  margin-top: 10px;
+  width: min(920px, 100%);
+  border-radius: 18px;
+  border:1px solid rgba(34,211,238,.26);
+  background: rgba(34,211,238,.08);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 22px 90px rgba(0,0,0,.45);
+  padding: 10px 12px;
+}
+.hw-quiz-q{
+  font-weight: 950;
+  font-size: 13.5px;
+  letter-spacing: .1px;
+}
+.hw-quiz-sub{
+  margin-top: 4px;
+  color: rgba(229,231,235,.90);
+  font-weight: 800;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+/* ---------- Overlays ---------- */
 .hw-overlay{
-  position:fixed;
+  position:absolute;
   inset:0;
-  z-index:7000;
   display:grid;
   place-items:center;
   padding:
-    calc(16px + var(--sat))
+    calc(18px + var(--sat))
     calc(16px + var(--sar))
-    calc(16px + var(--sab))
+    calc(18px + var(--sab))
     calc(16px + var(--sal));
-  background:
-    radial-gradient(900px 520px at 30% 0%, rgba(34,211,238,.16), transparent 60%),
-    radial-gradient(900px 520px at 80% 15%, rgba(34,197,94,.10), transparent 62%),
-    rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: radial-gradient(1200px 900px at 50% 20%, rgba(34,211,238,.08), transparent 60%),
+              rgba(2,6,23,.62);
+  z-index: 20;
 }
+
 .hw-card{
-  width:min(760px, 100%);
+  width: min(720px, 100%);
   border-radius: var(--r);
-  border:1px solid var(--stroke);
+  border: 1px solid var(--stroke);
   background: rgba(2,6,23,.78);
-  box-shadow: 0 28px 110px rgba(0,0,0,.65);
+  box-shadow: var(--shadow);
   padding: 16px;
+  backdrop-filter: blur(12px);
 }
+
 .hw-card-title{
-  font-weight: 990;
+  font-weight: 950;
   font-size: 18px;
-  letter-spacing:.2px;
+  letter-spacing: .2px;
 }
 .hw-card-sub{
-  margin-top:8px;
-  color: rgba(148,163,184,.96);
+  margin-top: 8px;
+  color: var(--muted);
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.4;
 }
+
 .hw-card-row{
-  margin-top:12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
+  margin-top: 12px;
 }
 
-/* CTA buttons */
 .hw-cta, .hw-ghost{
   pointer-events:auto;
   cursor:pointer;
+  user-select:none;
   border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
   padding: 10px 12px;
   font-weight: 950;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.96);
+  font-size: 13px;
 }
 .hw-cta{
-  border-color: rgba(34,197,94,.28);
   background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.28);
+  color: rgba(229,231,235,.95);
 }
-.hw-cta:hover, .hw-ghost:hover{ filter: brightness(1.06); }
-.hw-cta:active, .hw-ghost:active{ transform: translateY(1px); }
+.hw-ghost{
+  background: rgba(15,23,42,.72);
+  color: rgba(229,231,235,.95);
+}
+.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
-  margin-top:10px;
-  max-height: 38vh;
-  overflow:auto;
-  padding: 10px;
-  border-radius: 14px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.55);
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.62);
   color: rgba(229,231,235,.92);
   font-size: 12px;
-  line-height: 1.35;
+  overflow:auto;
+  max-height: 42vh;
 }
 
-/* Targets */
+/* ---------- Targets ---------- */
+/* position uses --x/--y in % of viewport */
 .hw-tgt{
   position:absolute;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
+  transform: translate(-50%,-50%) scale(var(--s, 1));
   width: 74px;
   height: 74px;
   border-radius: 999px;
-  border: 2px solid rgba(148,163,184,.20);
-  background: rgba(15,23,42,.55);
-  box-shadow:
-    0 26px 80px rgba(0,0,0,.55),
-    inset 0 0 0 2px rgba(2,6,23,.35);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.56);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  cursor: pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 18px 70px rgba(0,0,0,.45);
   display:grid;
   place-items:center;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
 
-  animation: hwPop 220ms ease-out both, hwFloat 1500ms ease-in-out infinite;
+  /* entrance + float */
+  animation: hwSpawn .18s ease-out both, hwFloat 1.55s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 .hw-tgt .emoji{
-  font-size: 30px;
+  font-size: 32px;
   line-height: 1;
-  transform: translateY(-1px);
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.40));
 }
 
-/* Kinds */
+/* kinds */
 .hw-tgt.good{
   border-color: rgba(34,197,94,.28);
   background: rgba(34,197,94,.10);
 }
 .hw-tgt.wrong{
-  border-color: rgba(245,158,11,.28);
-  background: rgba(245,158,11,.12);
+  border-color: rgba(245,158,11,.26);
+  background: rgba(245,158,11,.10);
 }
 .hw-tgt.haz{
   border-color: rgba(239,68,68,.28);
   background: rgba(239,68,68,.10);
 }
 
-/* Pop + Float */
-@keyframes hwPop{
-  0%   { opacity:0; transform: translate(-50%,-50%) scale(.78); }
-  100% { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+/* tap feedback */
+.hw-tgt:active{
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
 }
+
+/* ---------- Animations ---------- */
+@keyframes hwSpawn{
+  0% { opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .86)); }
+  100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+}
+
 @keyframes hwFloat{
   0%   { transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
   50%  { transform: translate(-50%,-50%) scale(var(--s,1)) translateY(-8px); }
   100% { transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
 }
 
-/* Tap feedback */
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
-  filter: brightness(1.05);
+/* subtle glow pulse for hazards (makes “effect” obvious) */
+.hw-tgt.haz{
+  animation: hwSpawn .18s ease-out both, hwFloat 1.35s ease-in-out infinite, hwGlowBad 1.0s ease-in-out infinite;
+}
+@keyframes hwGlowBad{
+  0%   { box-shadow: 0 18px 70px rgba(0,0,0,.45), 0 0 0 0 rgba(239,68,68,.0); }
+  50%  { box-shadow: 0 18px 70px rgba(0,0,0,.45), 0 0 0 10px rgba(239,68,68,.10); }
+  100% { box-shadow: 0 18px 70px rgba(0,0,0,.45), 0 0 0 0 rgba(239,68,68,.0); }
 }
 
-/* ✅ cVR strict: no clicking targets (shoot only) */
+/* ---------- Views ---------- */
+body.view-pc{
+  --hw-top-safe: 178px;
+  --hw-bottom-safe: 170px;
+}
+
+body.view-mobile{
+  --hw-top-safe: 196px;
+  --hw-bottom-safe: 188px;
+}
+
+body.view-vr{
+  --hw-top-safe: 160px;
+  --hw-bottom-safe: 150px;
+}
+
+body.view-cvr{
+  --hw-top-safe: 150px;    /* leave room for HUD but keep playfield big */
+  --hw-bottom-safe: 142px; /* crosshair shoot zone */
+}
+
+/* cVR: click/touch should shoot, so targets must not intercept touches */
 body.view-cvr .hw-tgt{
   pointer-events:none;
-  cursor: default;
 }
 
-/* Views: tune safe zones + sizes */
-body.view-pc{
-  --hw-top-safe: 176;
-  --hw-bottom-safe: 152;
-}
-body.view-mobile{
-  --hw-top-safe: 214;
-  --hw-bottom-safe: 178;
-}
-body.view-vr{
-  --hw-top-safe: 176;
-  --hw-bottom-safe: 152;
-}
-body.view-cvr{
-  --hw-top-safe: 204;
-  --hw-bottom-safe: 168;
-}
+/* HUD buttons still clickable in all views */
+.hw-hud .btn{ pointer-events:auto; }
 
-/* Mobile adjustments */
+/* ---------- Mobile sizing tweaks ---------- */
 @media (max-width: 520px){
-  .hw-title{ font-size:15px; }
-  .hw-pill{ font-size:11px; padding:7px 9px; }
-  .hw-banner{ top: calc(132px + var(--sat)); font-size: 13px; }
-  .hw-tgt{ width: 68px; height: 68px; }
-  .hw-tgt .emoji{ font-size: 28px; }
+  .hw-title{ font-size: 16px; }
+  .hw-pill{ font-size: 12px; padding: 7px 9px; border-radius: 14px; }
+  .hw-tgt{ width: 64px; height: 64px; }
+  .hw-tgt .emoji{ font-size: 30px; }
+  .hw-card{ padding: 14px; }
 }
 
-/* Reduced motion */
+/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce){
-  .hw-tgt{ animation: none; }
-  .hw-banner.show{ animation: none; opacity:1; }
+  .hw-tgt{ animation: none !important; }
+  .hw-banner{ transition:none; }
 }
-
-/* Safety: prevent selection */
-.hw-root, .hw-hud, .hw-overlay{ -webkit-user-select:none; user-select:none; }
