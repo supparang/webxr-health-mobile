@@ -1,9 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (AI + FX ready)
+// PlateVR Boot — PRODUCTION (START-GATED + SAFE MEASURE)
 // ✅ Auto view detect (no UI override)
-// ✅ Default time 90 sec
-// ✅ ai=0 disables AI in play
-// ✅ Wires: hha:score, hha:time, quest:update, hha:coach, hha:end, hha:ai, hha:storm, hha:boss
+// ✅ Optional start gate via #btnStart (if exists)
+// ✅ measureSafe() sets --plate-*-safe based on HUD/Intro panels
+// ✅ Loads engine from ./plate.safe.js
+// ✅ Wires HUD listeners + end overlay + back hub/restart
+// ✅ Pass-through research ctx params
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -40,12 +42,23 @@ function clamp(v, a, b){
   v = Number(v)||0;
   return v < a ? a : (v > b ? b : v);
 }
-function pct(n){ n = Number(n)||0; return `${Math.round(n)}%`; }
+
+function pct(n){
+  n = Number(n)||0;
+  return `${Math.round(n)}%`;
+}
 
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+function setIntroOpen(open){
+  const intro = DOC.getElementById('introOverlay');
+  if(!intro) return;
+  intro.style.display = open ? '' : 'none';
+  intro.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
 
 function showCoach(msg, meta='Coach'){
@@ -64,6 +77,63 @@ function showCoach(msg, meta='Coach'){
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
   }, 2200);
+}
+
+/* ---------------------------
+ * SAFE-ZONE MEASURE (สำคัญมาก)
+ * --------------------------- */
+function setVar(name, px){
+  try{ DOC.documentElement.style.setProperty(name, `${Math.max(0, Math.round(px||0))}px`); }catch{}
+}
+
+function measureSafe(){
+  // 기준: ให้พื้นที่ spawn ไม่โดน HUD/Intro ทับ
+  const hud = DOC.getElementById('hudTop');        // ถ้ามี
+  const quest = DOC.getElementById('questPanel');  // ถ้ามี
+  const intro = DOC.getElementById('introOverlay');// ถ้ามี
+
+  // default
+  let topSafe = 0, bottomSafe = 0, leftSafe = 0, rightSafe = 0;
+
+  // top safe from HUD/Quest (เอาค่าล่างสุดของ panel ที่ทับบน)
+  const tops = [];
+  if(hud && hud.offsetParent !== null){
+    const r = hud.getBoundingClientRect();
+    tops.push(r.bottom + 10);
+  }
+  if(quest && quest.offsetParent !== null){
+    const r = quest.getBoundingClientRect();
+    tops.push(r.bottom + 10);
+  }
+  // ถ้า intro ยังเปิดอยู่ อย่าให้ใช้ค่านี้ (มันจะบังทั้งจอจน spawnRect = 0)
+  if(intro && intro.offsetParent !== null){
+    // intro เปิดอยู่ -> กันไม่ให้ spawn (ปล่อย topSafe สูงไว้ชั่วคราว)
+    const r = intro.getBoundingClientRect();
+    tops.push(r.bottom + 12);
+  }
+
+  if(tops.length) topSafe = Math.max(...tops);
+
+  // bottom safe for VR UI buttons (enter/exit/recenter)
+  const vrui = DOC.getElementById('hha-vrui'); // ถ้า vr-ui.js สร้าง layer นี้
+  if(vrui && vrui.offsetParent !== null){
+    const r = vrui.getBoundingClientRect();
+    // พื้นที่ด้านล่างที่ปุ่มทับ (เอาความสูง)
+    bottomSafe = Math.max(0, (innerHeight - r.top) + 8);
+  }else{
+    bottomSafe = 0;
+  }
+
+  // side safe (เผื่อ notch/side UI)
+  leftSafe = 0; rightSafe = 0;
+
+  setVar('--plate-top-safe', topSafe);
+  setVar('--plate-bottom-safe', bottomSafe);
+  setVar('--plate-left-safe', leftSafe);
+  setVar('--plate-right-safe', rightSafe);
+
+  // ดีบักได้ถ้าต้องการ:
+  // console.log('[Plate] safe', { topSafe, bottomSafe, leftSafe, rightSafe });
 }
 
 function wireHUD(){
@@ -121,68 +191,6 @@ function wireHUD(){
   });
 }
 
-function wireAIHud(){
-  const chip = DOC.getElementById('aiChip');
-  const pctEl = DOC.getElementById('hudAiPct');
-  const fill = DOC.getElementById('hudAiFill');
-
-  if(pctEl) pctEl.textContent = '0%';
-  if(fill) fill.style.width = '0%';
-
-  WIN.addEventListener('hha:start', (e)=>{
-    const d = e.detail || {};
-    const aiOn = (d.ai === 'on');
-    if(!chip) return;
-    chip.classList.toggle('is-off', !aiOn);
-  });
-
-  WIN.addEventListener('hha:ai', (e)=>{
-    const d = e.detail || {};
-    if(!chip || !pctEl || !fill) return;
-
-    const p = Math.max(0, Math.min(1, Number(d.pMissSoon ?? 0)));
-    const percent = Math.round(p * 100);
-    pctEl.textContent = `${percent}%`;
-    fill.style.width = `${percent}%`;
-
-    chip.classList.remove('lv0','lv1','lv2');
-    if(percent >= 70) chip.classList.add('lv2');
-    else if(percent >= 40) chip.classList.add('lv1');
-    else chip.classList.add('lv0');
-  });
-}
-
-function wireFxLayers(){
-  const bossFx = DOC.getElementById('bossFx');
-  const stormFx = DOC.getElementById('stormFx');
-
-  WIN.addEventListener('hha:boss', (e)=>{
-    const d = e.detail || {};
-    if(!bossFx) return;
-    if(d.on){
-      bossFx.classList.add('boss-on');
-      bossFx.classList.remove('boss-panic');
-      clearTimeout(WIN.__HHA_BOSS_PANIC_TO__);
-      WIN.__HHA_BOSS_PANIC_TO__ = setTimeout(()=>bossFx.classList.add('boss-panic'), 1800);
-    }else{
-      bossFx.classList.remove('boss-on','boss-panic');
-    }
-  });
-
-  WIN.addEventListener('hha:storm', (e)=>{
-    const d = e.detail || {};
-    if(!stormFx) return;
-    if(d.on){
-      stormFx.classList.add('storm-on');
-      const ms = Number(d.ms || 1400);
-      clearTimeout(WIN.__HHA_STORM_TO__);
-      WIN.__HHA_STORM_TO__ = setTimeout(()=>stormFx.classList.remove('storm-on'), ms);
-    }else{
-      stormFx.classList.remove('storm-on');
-    }
-  });
-}
-
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
@@ -227,20 +235,13 @@ function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-
-  // ✅ default 90 sec (เด็ก ป.5 เล่นสนุกขึ้น เห็น boss/storm ทัน)
-  const time = clamp(qs('time','90'), 10, 999);
+  const time = clamp(qs('time','90'), 10, 999);  // ✅ default 90
   const seed = Number(qs('seed', Date.now())) || Date.now();
-
-  // ai toggle
-  const aiParam = (qs('ai','1')||'1').toLowerCase();
-  const aiOn = (run === 'play') && (aiParam !== '0' && aiParam !== 'off' && aiParam !== 'false');
 
   return {
     view, runMode: run, diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
-    ai: aiOn,
 
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
@@ -263,22 +264,56 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
+let __BOOTED__ = false;
+
+function startGame(){
+  if(__BOOTED__) return;
+  __BOOTED__ = true;
+
+  // hide intro if exists, then re-measure safe and boot
+  setIntroOpen(false);
+  measureSafe();
+
+  // ensure end overlay closed at start
+  setOverlayOpen(false);
+
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
-  wireHUD();
-  wireAIHud();
-  wireFxLayers();
-  wireEndControls();
-  wireEndSummary();
-
-  setOverlayOpen(false);
-
   try{
-    engineBoot({ mount: DOC.getElementById('plate-layer'), cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
+    __BOOTED__ = false;
+  }
+}
+
+ready(()=>{
+  // wire UI
+  wireHUD();
+  wireEndControls();
+  wireEndSummary();
+
+  // initial safe measurement (intro may exist)
+  measureSafe();
+  WIN.addEventListener('resize', ()=>measureSafe(), { passive:true });
+
+  // If page has a start button => gate start by click
+  const btnStart = DOC.getElementById('btnStart');
+  if(btnStart){
+    btnStart.addEventListener('click', ()=>{
+      btnStart.disabled = true;
+      startGame();
+    }, { passive:true });
+    // intro open by default
+    setIntroOpen(true);
+    showCoach('กดเริ่มเกมได้เลย ✅', 'Coach');
+  }else{
+    // no start UI => autostart
+    startGame();
   }
 });
