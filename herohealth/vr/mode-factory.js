@@ -1,11 +1,17 @@
 // === /herohealth/vr/mode-factory.js ===
-// HHA Mode Factory — PRODUCTION (Plate/Groups compatible)
-// ✅ FIX: named export 'boot'
-// ✅ FIX: "controller before init" (no TDZ usage)
-// ✅ Supports decorateTarget(el, target)
-// ✅ Supports crosshair/tap-to-shoot via hha:shoot {x,y,lockPx}
-// ✅ Deterministic spawn via seeded RNG
-// ✅ stop(): removes listeners, clears targets, stops spawner
+// HHA Mode Factory (DOM Spawner) — PRODUCTION
+// ------------------------------------------------------------
+// ✅ export boot (named)
+// ✅ FIX: no “controller before init” (clean init order)
+// ✅ Supports:
+//   - decorateTarget(el, target) to customize UI (emoji/icon)
+//   - hha:shoot {x,y,lockPx,source} (vr-ui.js crosshair/tap-to-shoot)
+//   - stop(): clears timers + listeners + removes targets
+// ✅ Options for Plate/others:
+//   - safePrefix: '--plate' => reads CSS vars: --plate-top-safe/... etc
+//   - ttlGoodMs / ttlJunkMs
+//   - defaultLockPx, shootCooldownMs
+// ------------------------------------------------------------
 
 'use strict';
 
@@ -23,153 +29,156 @@ function seededRng(seed){
 }
 
 function nowMs(){
-  try { return performance.now(); } catch { return Date.now(); }
+  try{ return performance.now(); }catch(_){ return Date.now(); }
 }
 
-function readSafeVars(prefix='--plate'){
-  // Example CSS vars:
-  // --plate-top-safe, --plate-bottom-safe, --plate-left-safe, --plate-right-safe
-  const cs = getComputedStyle(DOC.documentElement);
-  const top = parseFloat(cs.getPropertyValue(`${prefix}-top-safe`)) || 0;
-  const bottom = parseFloat(cs.getPropertyValue(`${prefix}-bottom-safe`)) || 0;
-  const left = parseFloat(cs.getPropertyValue(`${prefix}-left-safe`)) || 0;
-  const right = parseFloat(cs.getPropertyValue(`${prefix}-right-safe`)) || 0;
-  return { top, bottom, left, right };
+function clamp(v, a, b){
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
 }
 
 function pickWeighted(rng, arr){
+  const a = Array.isArray(arr) ? arr : [];
+  if(!a.length) return { kind:'good', weight:1 };
   let sum = 0;
-  for(const it of arr) sum += (it.weight ?? 1);
+  for(const it of a) sum += (it.weight ?? 1);
   let x = rng() * sum;
-  for(const it of arr){
+  for(const it of a){
     x -= (it.weight ?? 1);
     if(x <= 0) return it;
   }
-  return arr[arr.length - 1];
+  return a[a.length - 1];
 }
 
+function readSafeVars(prefix){
+  // prefix: '--plate' => vars are --plate-top-safe, --plate-bottom-safe, etc.
+  const p = String(prefix || '--plate');
+  const cs = getComputedStyle(DOC.documentElement);
+
+  const top    = parseFloat(cs.getPropertyValue(`${p}-top-safe`))    || 0;
+  const bottom = parseFloat(cs.getPropertyValue(`${p}-bottom-safe`)) || 0;
+  const left   = parseFloat(cs.getPropertyValue(`${p}-left-safe`))   || 0;
+  const right  = parseFloat(cs.getPropertyValue(`${p}-right-safe`))  || 0;
+
+  return { top, bottom, left, right };
+}
+
+/**
+ * boot({ mount, ... })
+ * returns controller { stop() }
+ */
 export function boot({
   mount,
+
+  // determinism
   seed = Date.now(),
 
-  // spawn cadence
-  spawnRate = 900,          // ms between spawns (approx)
-  tickMs = 60,              // scheduler tick
+  // spawn pacing
+  spawnRate = 900,              // ms between spawns (approx)
+  sizeRange = [44, 64],         // px
+  kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
 
-  // target shape
-  sizeRange = [44, 64],     // px
+  // TTL (ms)
   ttlGoodMs = 2100,
   ttlJunkMs = 1700,
 
-  // selection
-  kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
+  // safe area css vars
+  safePrefix = '--plate',
+
+  // input
+  defaultLockPx = 28,
+  shootCooldownMs = 90,
 
   // callbacks
   onHit = ()=>{},
   onExpire = ()=>{},
-
-  // ✅ NEW
   decorateTarget = null,
 
-  // lock settings for shoot
-  shootCooldownMs = 90,
-  defaultLockPx = 28,
-
-  // safe-area vars prefix (plate uses --plate-*)
-  safePrefix = '--plate',
-}){
+  // className override (optional)
+  targetClass = 'plateTarget'
+} = {}){
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
 
   const state = {
     alive: true,
-    lastSpawnAt: 0,
     spawnTimer: null,
     targets: new Set(),
-    cooldownUntil: 0,
-    safePrefix,
+    lastSpawnAt: 0,
+    cooldownUntil: 0
   };
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
-    const safe = readSafeVars(state.safePrefix);
+    const safe = readSafeVars(safePrefix);
+
     const left = r.left + safe.left;
     const top = r.top + safe.top;
     const right = r.right - safe.right;
     const bottom = r.bottom - safe.bottom;
+
     const w = Math.max(0, right - left);
     const h = Math.max(0, bottom - top);
+
     return { left, top, right, bottom, w, h };
   }
 
   function removeTarget(target){
-    try{ target?.el?.remove(); }catch{}
+    try{ target.el && target.el.remove(); }catch(_){}
+    try{ state.targets.delete(target); }catch(_){}
   }
 
   function hit(target, meta){
     if(!state.alive) return;
-    if(!target || !state.targets.has(target)) return;
+    if(!state.targets.has(target)) return;
 
-    state.targets.delete(target);
     removeTarget(target);
 
-    // meta can include {source:'tap'|'shoot'}
     try{
-      onHit({
-        kind: target.kind,
-        groupIndex: target.groupIndex,
-        groupId: (target.groupIndex ?? 0) + 1,
-        size: target.size,
-        bornAt: target.bornAt,
-        ttlMs: target.ttlMs,
-        ...meta
-      });
-    }catch{}
+      onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
+    }catch(_){}
   }
 
-  function onShoot(e){
+  function onShoot(ev){
     if(!state.alive) return;
 
-    const d = e.detail || {};
+    const d = ev && ev.detail ? ev.detail : {};
     const t = nowMs();
+
     if(t < state.cooldownUntil) return;
-    state.cooldownUntil = t + shootCooldownMs;
+    state.cooldownUntil = t + (Number(shootCooldownMs) || 90);
 
     const x = Number(d.x);
     const y = Number(d.y);
-    const lockPx = Number(d.lockPx || defaultLockPx);
+    const lockPx = Number(d.lockPx || defaultLockPx || 28);
 
-    if(!isFinite(x) || !isFinite(y) || !isFinite(lockPx)) return;
+    if(!isFinite(x) || !isFinite(y)) return;
 
     let best = null;
     let bestDist = Infinity;
 
     for(const target of state.targets){
-      const el = target.el;
-      if(!el) continue;
-
-      const r = el.getBoundingClientRect();
+      const r = target.el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       const dist = Math.hypot(cx - x, cy - y);
-
       if(dist <= lockPx && dist < bestDist){
         bestDist = dist;
         best = target;
       }
     }
 
-    if(best) hit(best, { source: 'shoot' });
+    if(best) hit(best, { source:'shoot' });
   }
 
+  // attach shoot listener once
   WIN.addEventListener('hha:shoot', onShoot);
 
   function spawnOne(){
     if(!state.alive) return;
 
     const rect = computeSpawnRect();
-    // if playfield too small (HUD overlay/safe-area too big) => don't spawn
     if(rect.w < 90 || rect.h < 90) return;
 
     const size = Math.round(sizeRange[0] + rng() * (sizeRange[1] - sizeRange[0]));
@@ -179,55 +188,39 @@ export function boot({
     const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad * 2));
 
     const chosen = pickWeighted(rng, kinds);
-    const kind = (chosen && chosen.kind) ? String(chosen.kind) : 'good';
+    const kind = String(chosen.kind || 'good');
 
     const el = DOC.createElement('div');
-    el.className = 'plateTarget';
+    el.className = targetClass;
     el.dataset.kind = kind;
-
-    // positioning
+    el.style.position = 'fixed';           // IMPORTANT: allow spawn in viewport coords
     el.style.left = `${Math.round(x)}px`;
-    el.style.top = `${Math.round(y)}px`;
-    el.style.width = `${size}px`;
+    el.style.top  = `${Math.round(y)}px`;
+    el.style.width  = `${size}px`;
     el.style.height = `${size}px`;
     el.style.transform = 'translate(-50%,-50%)';
-
-    // touch optimizations
     el.style.touchAction = 'none';
-    el.style.webkitTapHighlightColor = 'transparent';
 
     const target = {
       el,
       kind,
-      bornAt: nowMs(),
-      ttlMs: (kind === 'junk') ? ttlJunkMs : ttlGoodMs,
-      groupIndex: Math.floor(rng() * 5), // 0..4
       size,
-      rng, // expose deterministic rng to decorator
-      seed,
+      bornAt: nowMs(),
+      ttlMs: (kind === 'junk') ? (Number(ttlJunkMs) || 1700) : (Number(ttlGoodMs) || 2100),
+      groupIndex: Math.floor(rng() * 5),
+      rng
     };
 
-    el.__hhaTarget = target;
-
-    // ✅ decorate hook (emoji/icon)
+    // allow external customization
     try{
-      if(typeof decorateTarget === 'function'){
-        decorateTarget(el, target);
-      }else{
-        // sane default if no decorator:
-        el.textContent = (kind === 'junk') ? '✖' : '●';
-        el.style.display = 'grid';
-        el.style.placeItems = 'center';
-        el.style.fontSize = `${Math.round(size * 0.5)}px`;
-        el.style.userSelect = 'none';
-      }
-    }catch{}
+      if(typeof decorateTarget === 'function') decorateTarget(el, target);
+    }catch(_){}
 
     // tap hit
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      hit(target, { source: 'tap' });
-    }, { passive: false });
+    el.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      hit(target, { source:'tap' });
+    }, { passive:false });
 
     mount.appendChild(el);
     state.targets.add(target);
@@ -237,51 +230,38 @@ export function boot({
       if(!state.alive) return;
       if(!state.targets.has(target)) return;
 
-      state.targets.delete(target);
       removeTarget(target);
 
       try{
-        onExpire({
-          kind: target.kind,
-          groupIndex: target.groupIndex,
-          groupId: target.groupIndex + 1,
-          size: target.size,
-          bornAt: target.bornAt,
-          ttlMs: target.ttlMs
-        });
-      }catch{}
+        onExpire({ ...target });
+      }catch(_){}
     }, target.ttlMs);
   }
 
+  // spawn loop (lightweight)
   state.spawnTimer = setInterval(()=>{
     if(!state.alive) return;
     const t = nowMs();
-    if(t - state.lastSpawnAt >= spawnRate){
+    if(t - state.lastSpawnAt >= (Number(spawnRate) || 900)){
       state.lastSpawnAt = t;
       spawnOne();
     }
-  }, tickMs);
+  }, 60);
 
-  // ✅ controller returned after everything initialized (no TDZ)
-  const controller = {
+  return {
     stop(){
       if(!state.alive) return;
       state.alive = false;
 
-      try{ clearInterval(state.spawnTimer); }catch{}
-      try{ WIN.removeEventListener('hha:shoot', onShoot); }catch{}
+      try{ clearInterval(state.spawnTimer); }catch(_){}
+      state.spawnTimer = null;
+
+      WIN.removeEventListener('hha:shoot', onShoot);
 
       for(const target of state.targets){
-        removeTarget(target);
+        try{ target.el.remove(); }catch(_){}
       }
       state.targets.clear();
-    },
-
-    // optional debug helpers
-    _state: state,
-    _rng: rng,
-    computeSpawnRect,
+    }
   };
-
-  return controller;
 }
