@@ -1,8 +1,9 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge Utilities — PRODUCTION (PATCH: no-dup + adaptive placement)
+// Water Gauge Utilities — PRODUCTION (v2)
 // ✅ Exports: ensureWaterGauge, setWaterGauge, zoneFrom
-// ✅ No duplicate if page already has #water-bar panel (hydration-vr.html)
-// ✅ Adaptive placement by device/view
+// ✅ Avoid duplicate gauge if page already has its own water panel
+// ✅ Easier control: wider GREEN zone
+// ✅ Adaptive placement: mobile/cVR/cardboard safe
 
 'use strict';
 
@@ -11,70 +12,85 @@ const DOC = ROOT.document;
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
+// โซนน้ำ (ทำให้ง่ายขึ้น): GREEN กว้างขึ้น
 export function zoneFrom(pct){
   const p = clamp(pct,0,100);
-  // ✅ wider GREEN (easier)
-  if (p >= 42 && p <= 68) return 'GREEN';
-  if (p < 42) return 'LOW';
+  if (p >= 40 && p <= 70) return 'GREEN'; // เดิม 45-65
+  if (p < 40) return 'LOW';
   return 'HIGH';
 }
 
-function isMobile(){
-  try{ return matchMedia('(max-width: 700px)').matches; }catch(_){ return false; }
+function hasNativeWaterPanel(){
+  if (!DOC) return false;
+  // ถ้าหน้าเกมมี panel ของตัวเองอยู่แล้ว (เช่น #water-bar/#water-pct/#water-zone)
+  // จะไม่สร้าง gauge ซ้ำ
+  return !!(
+    DOC.getElementById('water-bar') ||
+    DOC.getElementById('water-pct') ||
+    DOC.getElementById('water-zone') ||
+    DOC.querySelector('[data-water-panel]') ||
+    DOC.getElementById('hydration-water-panel')
+  );
 }
-function hasInternalHydrationPanel(){
-  return !!DOC.getElementById('water-bar') || !!DOC.getElementById('water-panel');
-}
-function getViewClass(){
-  const b = DOC.body;
-  if (!b) return '';
-  if (b.classList.contains('cardboard')) return 'cardboard';
-  if (b.classList.contains('view-cvr')) return 'cvr';
-  return isMobile() ? 'mobile' : 'pc';
-}
-function applyPlacement(wrap){
-  if (!wrap) return;
-  const v = getViewClass();
+
+function setPlacementStyle(el){
+  if (!DOC || !el) return;
+
+  const body = DOC.body;
+  const isCVR = body?.classList?.contains('view-cvr');
+  const isCardboard = body?.classList?.contains('cardboard');
+  const small = (typeof window !== 'undefined') && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
+
+  // safe-area
   const sat = 'env(safe-area-inset-top, 0px)';
   const sab = 'env(safe-area-inset-bottom, 0px)';
   const sal = 'env(safe-area-inset-left, 0px)';
   const sar = 'env(safe-area-inset-right, 0px)';
 
-  // default bottom-left
-  let left = `calc(12px + ${sal})`, right = 'auto', top = 'auto', bottom = `calc(12px + ${sab})`;
+  // ค่าเริ่มต้น: ซ้ายล่าง (PC ดีสุด)
+  let css = [
+    'position:fixed',
+    `left:calc(12px + ${sal})`,
+    `bottom:calc(12px + ${sab})`,
+    'top:auto',
+    'right:auto',
+  ];
 
-  // cVR / Cardboard: push to top-left to avoid crosshair zone / thumbs
-  if (v === 'cvr' || v === 'cardboard'){
-    top = `calc(12px + ${sat})`;
-    bottom = 'auto';
+  // Mobile / cVR: ขวาล่าง (กันนิ้วโป้งซ้าย + กัน HUD ซ้าย)
+  if (small || isCVR){
+    css = [
+      'position:fixed',
+      `right:calc(12px + ${sar})`,
+      `bottom:calc(12px + ${sab})`,
+      'left:auto',
+      'top:auto',
+    ];
   }
 
-  // mobile: bottom-right usually less conflict with left HUD stacks
-  if (v === 'mobile'){
-    right = `calc(12px + ${sar})`;
-    left = 'auto';
-    bottom = `calc(12px + ${sab})`;
-    top = 'auto';
+  // Cardboard: ย้ายขึ้นซ้ายบน (กัน crosshair/ยิงกลางจอ + กันโซนล่าง)
+  if (isCardboard){
+    css = [
+      'position:fixed',
+      `left:calc(12px + ${sal})`,
+      `top:calc(12px + ${sat})`,
+      'right:auto',
+      'bottom:auto',
+    ];
   }
 
-  wrap.style.left = left;
-  wrap.style.right = right;
-  wrap.style.top = top;
-  wrap.style.bottom = bottom;
+  el.style.cssText = el.style.cssText + ';' + css.join(';');
 }
 
 export function ensureWaterGauge(){
   if (!DOC) return;
-
-  // ✅ If hydration page already has its own water panel, do NOT inject overlay.
-  if (hasInternalHydrationPanel()) return;
-
   if (DOC.getElementById('hha-water-gauge')) return;
+
+  // ✅ ถ้ามี panel water ของหน้าเกมอยู่แล้ว ไม่สร้างซ้ำ
+  if (hasNativeWaterPanel()) return;
 
   const wrap = DOC.createElement('div');
   wrap.id = 'hha-water-gauge';
   wrap.style.cssText = [
-    'position:fixed',
     'z-index:60',
     'pointer-events:none',
     'width:220px',
@@ -104,23 +120,21 @@ export function ensureWaterGauge(){
   `;
 
   DOC.body.appendChild(wrap);
-  applyPlacement(wrap);
+  setPlacementStyle(wrap);
 
-  // Re-apply on resize/orientation (safe)
-  try{
-    let raf=0;
-    const onR = ()=>{ cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>applyPlacement(wrap)); };
-    addEventListener('resize', onR, {passive:true});
-    addEventListener('orientationchange', onR, {passive:true});
-  }catch(_){}
+  // ถ้ามีการเปลี่ยน class view ภายหลัง ให้ reposition อีกครั้ง
+  setTimeout(()=>{ try{ setPlacementStyle(wrap); }catch(_){ } }, 350);
 }
 
 export function setWaterGauge(pct){
   if (!DOC) return;
   const p = clamp(pct,0,100);
+
+  // ถ้าไม่ได้สร้าง gauge (เพราะมี native panel) ก็ไม่ทำอะไร
   const bar = DOC.getElementById('hha-water-bar');
   const t = DOC.getElementById('hha-water-pct');
   const z = DOC.getElementById('hha-water-zone');
+  if (!bar && !t && !z) return;
 
   if (bar) bar.style.width = p.toFixed(0) + '%';
   if (t) t.textContent = String(p|0);
