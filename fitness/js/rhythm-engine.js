@@ -329,6 +329,7 @@
       this._spawnNotes(songTime);
       this._updateNotePositions(songTime);
       this._autoJudgeMiss(songTime);
+      this._updateAI(songTime);
 
       if (this.feverActive) {
         this.feverTotalTimeSec += dt;
@@ -401,6 +402,8 @@
 
     _applyHit(note, songTime, dt, judgment) {
       note.state = 'hit';
+
+      this.aiMissStreak = 0;
       if (note.el) { note.el.remove(); note.el = null; }
 
       const side = sideOfLane(note.lane);
@@ -455,6 +458,8 @@
 
     _applyMiss(note, songTime, dtOrNull, byTap) {
       note.state = 'miss';
+
+      this.aiMissStreak = (this.aiMissStreak||0) + 1;
       if (note.el) { note.el.remove(); note.el = null; }
 
       this.hitMiss++;
@@ -674,64 +679,4 @@
   }
 
   window.RhythmBoxerEngine = RhythmBoxerEngine;
-})();
-    // ===== AI PREDICTION (lightweight) =====
-    _updateAI(songTime){
-      if (!this.ai) return;
-      const now = performance.now();
-      // update every ~250ms max to keep it light
-      if (now - (this.aiLastUpdateAt||0) < 250) return;
-      this.aiLastUpdateAt = now;
-
-      const totalJudged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
-      const totalNotes = this.totalNotes || 1;
-      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) : 0;
-
-      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
-      const missRate = totalJudged ? (this.hitMiss / totalJudged) : 0;
-      const perfectRate = totalHits ? (this.hitPerfect / totalHits) : 0;
-
-      const offsetsAbs = this.offsetsAbs || [];
-      const jitter = offsetsAbs.length ? Math.min(1, (mean(offsetsAbs) / 0.18)) : 0; // normalized jitter proxy
-
-      const earlyPct = totalHits ? (this.earlyHits / totalHits) : 0;
-      const latePct  = totalHits ? (this.lateHits / totalHits) : 0;
-
-      const hpLow = (this.hp <= 55) ? 1 : (this.hp <= 70 ? 0.5 : 0);
-
-      const blankTapRate = totalJudged ? (this.eventTable.rows.filter(r=>r.event_type==='blank-tap').length / Math.max(1,totalJudged)) : 0;
-
-      const comboNorm = Math.min(1, (this.combo / 25));
-
-      const features = {
-        acc,
-        missRate,
-        perfectRate,
-        jitter,
-        earlyPct,
-        latePct,
-        hpLow,
-        blankTapRate,
-        comboNorm,
-        missStreak: this.aiMissStreak||0
-      };
-
-      const aiState = this.ai.update(features, now);
-
-      // expose on HUD
-      this.aiState = aiState;
-
-      // optional: adaptation hook (ONLY when allowAdapt=true, i.e., non-research)
-      if (this.ai.allowAdapt){
-        // gentle auto-assist: slightly widen timing window if fatigue is high
-        const widen = aiState.fatigueRisk >= 0.78 ? 0.02 : (aiState.fatigueRisk >= 0.6 ? 0.01 : 0);
-        this._assistWiden = widen;
-      } else {
-        this._assistWiden = 0;
-      }
-
-      if (this.hooks && typeof this.hooks.onAI === 'function'){
-        this.hooks.onAI(Object.assign({ songTime }, aiState));
-      }
-    }
-
+})()
