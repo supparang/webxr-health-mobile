@@ -1,237 +1,288 @@
 // === /herohealth/vr-groups/view-helper.js ===
-// ViewHelper — PRODUCTION (GroupsVR)
-// ✅ set body class: view-pc / view-mobile / view-vr / view-cvr
-// ✅ best-effort fullscreen + landscape (cVR)
-// ✅ safe-area CSS vars + HUD safe top zone for vr-ui buttons
-// ✅ mount helpers: getLayerEl(), ensureLayer(), ensureHudSafe()
-// ✅ optional debug overlay (?debug=1) for "HUD up but no events" diagnosis
-// Exposes: window.GroupsVR.ViewHelper
+// GroupsVR ViewHelper — PRODUCTION (PC/Mobile/VR/Cardboard)
+// ✅ set view classes: view-pc/view-mobile/view-vr/view-cvr
+// ✅ best-effort fullscreen + orientation lock (cVR/mobile)
+// ✅ tryImmersiveForCVR(): request VR session (if supported) without hard fail
+// ✅ safe-area + HUD safe-zone measurement helper
+// ✅ never throw (SAFE)
 
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
-  if (!DOC || WIN.__HHA_GROUPS_VIEWHELPER_LOADED__) return;
-  WIN.__HHA_GROUPS_VIEWHELPER_LOADED__ = true;
+  if (!DOC) return;
 
   WIN.GroupsVR = WIN.GroupsVR || {};
+  if (WIN.GroupsVR.ViewHelper) return;
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const qs = (k, def=null)=>{
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  };
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
-  function isLikelyMobile(){
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
+  }
+
+  function isMobileUA(){
     const ua = navigator.userAgent || '';
-    return /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer: coarse)').matches);
+    return /Android|iPhone|iPad|iPod/i.test(ua);
+  }
+
+  function prefersCoarsePointer(){
+    try{
+      return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    }catch(_){ return false; }
   }
 
   function normalizeView(v){
     v = String(v||'').toLowerCase().trim();
-    if (v === 'cardboard') v = 'cvr';
-    if (v === 'vr') v = 'vr';
-    if (v === 'cvr') return 'cvr';
-    if (v === 'mobile') return 'mobile';
-    if (v === 'pc') return 'pc';
-    if (v === 'desktop') return 'pc';
-    // fallback heuristic
-    return isLikelyMobile() ? 'mobile' : 'pc';
+    if (v === 'pc' || v === 'desktop') return 'pc';
+    if (v === 'mobile' || v === 'phone') return 'mobile';
+    if (v === 'vr') return 'vr';
+    if (v === 'cvr' || v === 'cardboard') return 'cvr';
+    return '';
   }
 
-  // -----------------------------
-  // Safe-area helpers
-  // -----------------------------
-  function setSafeAreaVars(){
-    // CSS env() is handled by browser; here we add JS px vars for calculations if needed
+  function autoDetectView(){
+    // priority: ?view= explicit
+    const explicit = normalizeView(qs('view',''));
+    if (explicit) return explicit;
+
+    // heuristic
+    if (isMobileUA() && prefersCoarsePointer()) return 'cvr'; // common case for cardboard-like
+    if (isMobileUA()) return 'mobile';
+    return 'pc';
+  }
+
+  function setBodyClass(view){
+    const b = DOC.body;
+    if (!b) return;
+
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    b.classList.add('view-' + view);
+  }
+
+  // ---------------------------
+  // Fullscreen / Orientation
+  // ---------------------------
+  async function requestFullscreen(el){
     try{
-      const r = DOC.documentElement;
-      // visualViewport may exist on mobile
-      const vv = WIN.visualViewport;
-      const vw = vv ? vv.width : WIN.innerWidth;
-      const vh = vv ? vv.height : WIN.innerHeight;
+      el = el || DOC.documentElement;
+      if (!el) return false;
 
-      r.style.setProperty('--hha-vw', Math.round(vw) + 'px');
-      r.style.setProperty('--hha-vh', Math.round(vh) + 'px');
-    }catch(_){}
-  }
+      // already fullscreen
+      if (DOC.fullscreenElement) return true;
 
-  // -----------------------------
-  // Layer mount helpers
-  // -----------------------------
-  function getLayerEl(){
-    return DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
-  }
+      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (!fn) return false;
 
-  function ensureLayer(){
-    // Make sure playLayer exists and is above the XR scene but below HUD/overlays
-    let el = DOC.getElementById('playLayer');
-    if (!el){
-      el = DOC.createElement('div');
-      el.id = 'playLayer';
-      el.className = 'playLayer';
-      DOC.body.appendChild(el);
+      await fn.call(el);
+      return !!DOC.fullscreenElement;
+    }catch(_){
+      return false;
     }
-    // harden styles in case css failed to load
-    try{
-      const st = el.style;
-      st.position = 'fixed';
-      st.inset = '0';
-      st.zIndex = '20';         // XR scene is behind, HUD usually 40+, overlays 80+
-      st.pointerEvents = 'none';// targets inside will set pointer-events individually
-    }catch(_){}
-    return el;
-  }
-
-  // -----------------------------
-  // HUD safe zone for vr-ui
-  // -----------------------------
-  function ensureHudSafe(view){
-    // We leave actual layout to CSS, but we can set a "safe top" variable
-    // so HUD doesn't cover EnterVR/Exit/Recenter (usually top-right / top).
-    try{
-      const b = DOC.body;
-      const topBase = (view === 'cvr' || view === 'vr') ? 64 : 10; // px
-      b.style.setProperty('--hha-hud-safe-top', topBase + 'px');
-    }catch(_){}
-  }
-
-  // -----------------------------
-  // Fullscreen / orientation (best effort)
-  // -----------------------------
-  async function requestFullscreen(){
-    const el = DOC.documentElement;
-    try{
-      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    }catch(_){}
   }
 
   async function lockLandscape(){
+    // best-effort
     try{
-      const o = screen.orientation;
-      if (o && o.lock) await o.lock('landscape');
+      const scr = screen;
+      if (!scr || !scr.orientation || !scr.orientation.lock) return false;
+      await scr.orientation.lock('landscape');
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  async function unlockOrientation(){
+    try{
+      const scr = screen;
+      if (!scr || !scr.orientation || !scr.orientation.unlock) return false;
+      scr.orientation.unlock();
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  // ---------------------------
+  // WebXR immersive helper (cVR)
+  // ---------------------------
+  async function tryImmersiveForCVR(){
+    // "สุภาพ": ไม่บังคับ, ไม่ throw, ถ้าไม่ได้ก็จบ
+    try{
+      // A-Frame present?
+      const scene = DOC.querySelector('a-scene');
+      const xrSys = scene && scene.systems && scene.systems['webxr'];
+      // If A-Frame has enterVR method, prefer it
+      if (scene && typeof scene.enterVR === 'function'){
+        // If already in VR, skip
+        if (scene.is && scene.is('vr-mode')) return true;
+        scene.enterVR();
+        return true;
+      }
+
+      // Raw WebXR fallback
+      const xr = navigator.xr;
+      if (!xr || !xr.isSessionSupported) return false;
+
+      const ok = await xr.isSessionSupported('immersive-vr');
+      if (!ok) return false;
+
+      const session = await xr.requestSession('immersive-vr', {
+        optionalFeatures: ['local-floor','bounded-floor','hand-tracking','layers']
+      });
+
+      // Immediately end; this is only to "warm up" / allow UI to show.
+      // Real immersive should be via ENTER VR button (vr-ui.js / A-Frame).
+      try{ await session.end(); }catch(_){}
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  // ---------------------------
+  // Safe-zone measurement
+  // ---------------------------
+  function measureSafeZone(){
+    // return rectangles so engine can avoid spawning behind HUD
+    // If elements missing, return conservative safe margin
+    const res = {
+      ts: Date.now(),
+      w: window.innerWidth || 0,
+      h: window.innerHeight || 0,
+      hudTop: 0,
+      questTop: 0,
+      coachBottom: 0,
+      powerBottom: 0
+    };
+
+    try{
+      const hud = DOC.querySelector('.hud');
+      if (hud){
+        const r = hud.getBoundingClientRect();
+        res.hudTop = Math.max(0, r.bottom);
+      }
+    }catch(_){}
+
+    try{
+      const qt = DOC.querySelector('.questTop');
+      if (qt){
+        const r = qt.getBoundingClientRect();
+        res.questTop = Math.max(res.questTop, r.bottom);
+      }
+    }catch(_){}
+
+    try{
+      const cw = DOC.querySelector('.coachWrap');
+      if (cw){
+        const r = cw.getBoundingClientRect();
+        // bottom overlay eats space from bottom
+        res.coachBottom = Math.max(0, res.h - r.top);
+      }
+    }catch(_){}
+
+    try{
+      const pw = DOC.querySelector('.powerWrap');
+      if (pw){
+        const r = pw.getBoundingClientRect();
+        res.powerBottom = Math.max(0, res.h - r.top);
+      }
+    }catch(_){}
+
+    // clamp
+    res.hudTop = clamp(res.hudTop, 0, res.h);
+    res.questTop = clamp(res.questTop, 0, res.h);
+    res.coachBottom = clamp(res.coachBottom, 0, res.h);
+    res.powerBottom = clamp(res.powerBottom, 0, res.h);
+
+    // emit for anyone who listens
+    try{
+      WIN.dispatchEvent(new CustomEvent('groups:safezone', { detail: res }));
+    }catch(_){}
+
+    return res;
+  }
+
+  function bindAutoMeasure(){
+    let tmr = 0;
+    const kick = ()=>{
+      clearTimeout(tmr);
+      tmr = setTimeout(()=> measureSafeZone(), 80);
+    };
+    WIN.addEventListener('resize', kick, { passive:true });
+    WIN.addEventListener('orientationchange', kick, { passive:true });
+    // allow manual measure
+    WIN.addEventListener('groups:measureSafe', kick, { passive:true });
+    kick();
+  }
+
+  // ---------------------------
+  // init
+  // ---------------------------
+  let _view = 'pc';
+
+  function init(opts){
+    opts = opts || {};
+    const v = normalizeView(opts.view || '') || autoDetectView();
+    _view = v;
+
+    setBodyClass(v);
+    bindAutoMeasure();
+
+    // best-effort fullscreen/orientation for mobile/cvr
+    const wantFS = (v === 'mobile' || v === 'cvr');
+    const wantLock = (v === 'cvr');
+
+    // defer to user gesture if browser blocks
+    setTimeout(async ()=>{
+      if (wantFS) await requestFullscreen(DOC.documentElement);
+      if (wantLock) await lockLandscape();
+    }, 120);
+
+    // helpful coach hint
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:coach', {
+        detail:{
+          text: (v==='cvr')
+            ? 'โหมด Cardboard: แตะจอเพื่อยิงจาก crosshair • กด RECENTER เพื่อปรับศูนย์ ✅'
+            : (v==='mobile')
+              ? 'โหมด Mobile: แตะ/กดยิงได้เลย • ถ้าจอเต็มไม่ขึ้น ลองกดปุ่ม fullscreen ✅'
+              : 'โหมด PC: คลิก/เมาส์ยิงได้เลย ✅',
+          mood:'neutral'
+        }
+      }));
     }catch(_){}
   }
 
-  async function tryImmersiveForCVR(){
-    // cVR usually needs fullscreen to feel "VR-like" even without true WebXR headset
-    await requestFullscreen();
-    await lockLandscape();
+  function getView(){ return _view; }
+
+  function goFullscreen(){
+    return requestFullscreen(DOC.documentElement);
   }
 
-  // -----------------------------
-  // Debug overlay (optional)
-  // -----------------------------
-  let dbg = null;
-  let dbgOn = false;
-
-  function ensureDebug(){
-    if (dbg) return dbg;
-    dbg = DOC.createElement('div');
-    dbg.id = 'hha-debug';
-    dbg.style.cssText =
-      'position:fixed;left:10px;bottom:10px;z-index:9999;' +
-      'background:rgba(2,6,23,.72);color:#e5e7eb;border:1px solid rgba(148,163,184,.22);' +
-      'border-radius:14px;padding:8px 10px;font:12px ui-monospace,monospace;' +
-      'max-width:min(92vw,520px);pointer-events:none;backdrop-filter:blur(8px);';
-    dbg.textContent = 'debug…';
-    DOC.body.appendChild(dbg);
-    return dbg;
+  function lockCVR(){
+    return lockLandscape();
   }
 
-  function setDbg(text){
-    if (!dbgOn) return;
-    ensureDebug().textContent = String(text||'');
+  function unlock(){
+    return unlockOrientation();
   }
 
-  function installDebugListeners(){
-    if (!dbgOn) return;
-
-    let last = { time:0, score:0, quest:0, end:0 };
-    const bump = (k)=>{ last[k] = Date.now(); };
-
-    WIN.addEventListener('hha:time', ()=> bump('time'), { passive:true });
-    WIN.addEventListener('hha:score',()=> bump('score'),{ passive:true });
-    WIN.addEventListener('quest:update',()=> bump('quest'),{ passive:true });
-    WIN.addEventListener('hha:end', ()=> bump('end'),  { passive:true });
-
-    setInterval(()=>{
-      const now = Date.now();
-      const age = (t)=> t ? (now - t) : 999999;
-      const view = String(qs('view','')||'').toLowerCase();
-      const run  = String(qs('run','play')||'play').toLowerCase();
-      const hasEngine = !!(WIN.GroupsVR && WIN.GroupsVR.GameEngine);
-      const hasParticles = !!WIN.Particles;
-      const hasFX = !!(WIN.GroupsVR && (WIN.GroupsVR.Effects || WIN.GroupsVR.EffectsPack));
-      const hasUI = !!WIN.__HHA_VRUI_LOADED__;
-
-      setDbg(
-        `view=${view||'-'} run=${run} engine=${hasEngine?'OK':'NO'} ` +
-        `vrui=${hasUI?'OK':'NO'} fx=${hasFX?'OK':'NO'} particles=${hasParticles?'OK':'NO'}\n` +
-        `evt: time ${age(last.time)}ms | score ${age(last.score)}ms | quest ${age(last.quest)}ms | end ${age(last.end)}ms`
-      );
-    }, 600);
-  }
-
-  // -----------------------------
-  // Main init
-  // -----------------------------
-  const ViewHelper = {
-    _inited:false,
-    _view:'pc',
-
-    init(opts){
-      if (this._inited) return;
-      this._inited = true;
-
-      const v = normalizeView((opts && opts.view) || qs('view',''));
-      this._view = v;
-
-      // set body classes
-      const b = DOC.body;
-      try{
-        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-        b.classList.add('view-'+v);
-      }catch(_){}
-
-      // always ensure layer exists (even if CSS fails)
-      ensureLayer();
-      ensureHudSafe(v);
-      setSafeAreaVars();
-
-      // respond to viewport changes
-      try{
-        WIN.addEventListener('resize', ()=>{ setSafeAreaVars(); ensureHudSafe(this._view); }, { passive:true });
-        if (WIN.visualViewport){
-          WIN.visualViewport.addEventListener('resize', ()=>{ setSafeAreaVars(); }, { passive:true });
-        }
-      }catch(_){}
-
-      // optional debug
-      const debug = String(qs('debug','0')||'0');
-      dbgOn = (debug === '1' || debug === 'true');
-      if (dbgOn) installDebugListeners();
-    },
-
-    getView(){ return this._view; },
-
-    getLayerEl,
-    ensureLayer,
-    ensureHudSafe,
-
-    async tryImmersiveForCVR(){
-      // only apply for cVR
-      if (normalizeView(qs('view','')) !== 'cvr' && this._view !== 'cvr') return;
-      await tryImmersiveForCVR();
-    }
+  // expose
+  WIN.GroupsVR.ViewHelper = {
+    init,
+    getView,
+    autoDetectView,
+    setBodyClass,
+    goFullscreen,
+    lockCVR,
+    unlock,
+    measureSafeZone,
+    tryImmersiveForCVR
   };
 
-  WIN.GroupsVR.ViewHelper = ViewHelper;
-
-  // tiny ready event
-  try{
-    WIN.dispatchEvent(new CustomEvent('groups:viewhelper_ready', { detail:{ ok:true } }));
-  }catch(_){}
 })();
