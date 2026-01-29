@@ -1,5 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (B FULL)
+// GoodJunkVR Boot — PRODUCTION (B FULL v2.1)
+// ✅ Auto view detect (no override if ?view= exists)
+// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
+// ✅ Mobile-first: auto hide HUD on mobile (unless ?hud=1)
+// ✅ VRUI config: crosshair shoot lock + cooldown
+// ✅ Flush-hardened (pagehide/visibilitychange/back hub)
+// ✅ Boots SAFE engine: ./goodjunk.safe.js
 
 import { boot as safeBoot } from './goodjunk.safe.js';
 
@@ -15,8 +21,10 @@ function isMobile(){
 }
 
 function detectViewAuto(){
+  // IMPORTANT: do not override if ?view exists
   const v = String(qs('view','')).trim().toLowerCase();
   if(v) return v;
+
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -30,7 +38,13 @@ function setBodyView(view){
   if(view === 'cvr') b.classList.add('view-cvr');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'pc') b.classList.add('view-pc');
-  else b.classList.add('view-mobile');
+  else b.classList.add('view-mobile'); // fallback
+
+  // ✅ Mobile-first: default hide HUD (unless ?hud=1)
+  const hud = String(qs('hud','')).trim();
+  if(view === 'mobile' && hud !== '1'){
+    b.classList.add('hud-hidden');
+  }
 }
 
 function getRunOpts(){
@@ -40,6 +54,7 @@ function getRunOpts(){
   const time = clamp(qs('time','80'), 20, 300);
   const seed = String(qs('seed', Date.now()));
 
+  // passthrough ctx (for logger)
   const hub = qs('hub', null);
   const studyId = qs('studyId', null);
   const phase = qs('phase', null);
@@ -98,7 +113,7 @@ function initLoggerContext(opts){
 
   const ctx = {
     game: 'GoodJunkVR',
-    pack: 'fair-v4-boss',
+    pack: 'fair',
     view: opts.view,
     runMode: opts.run,
     diff: opts.diff,
