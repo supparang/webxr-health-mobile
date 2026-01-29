@@ -1,12 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — v2.1 (GoogleSheet no-cors + Easier Water + Storm Side + Progressive Boss)
-// ✅ Google Sheet Logger: POST text/plain + mode:'no-cors' (no preflight)
-// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
+// Hydration SAFE — PRODUCTION (FULL) — v2.1 (Easier Water + Storm Side + Progressive Boss + Fix dup nextSpawnDelay + Fix double gauge)
+// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic-ish (seeded RNG)
 // ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
 // ✅ Cardboard layers via window.HHA_VIEW.layers from loader
 // ✅ Easier water control + clearer Storm LOW/HIGH + Progressive Boss difficulty
-// ✅ FIX: remove duplicate nextSpawnDelay() declaration (prevents SyntaxError)
+// ✅ FIX: nextSpawnDelay declared once
+// ✅ FIX: Water gauge won't duplicate if page has its own water panel
 
 'use strict';
 
@@ -270,7 +270,7 @@ const TUNE = (() => {
   const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
   const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.3 : 5.8;
 
-  // ✅ ทำ Stage1 ให้ผ่านง่ายขึ้นเล็กน้อย (ไม่ยาวเกิน)
+  // ✅ Stage1 ผ่านง่ายขึ้นนิด
   const greenTarget = clamp(
     Math.round(timeLimit * (diff==='easy' ? 0.40 : diff==='hard' ? 0.52 : 0.45)),
     16,
@@ -298,7 +298,7 @@ const TUNE = (() => {
     missPenalty:1,
     greenTargetSec: greenTarget,
 
-    // ✅ Pressure ต้องการน้อยลงนิด (ผ่าน mini ง่ายขึ้น)
+    // ✅ Pressure ต้องการน้อยลงนิด
     pressureNeed: diff==='easy' ? 0.68 : diff==='hard' ? 0.92 : 0.82
   };
 })();
@@ -306,16 +306,12 @@ S.endWindowSec = TUNE.endWindowSec;
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
-
-// ✅ ยิงดี: ดันกลับ GREEN เร็วขึ้น + ไม่เด้งแรง
 function nudgeWaterGood(){
   const mid=55, d=mid - S.waterPct;
   const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
-
-// ✅ โดน BAD: ยังเจ็บ แต่ไม่พังจนคุมไม่อยู่
 function pushWaterBad(){
   const mid=55, d=S.waterPct - mid;
   const step=(d>=0?+1:-1)*TUNE.badPush;
@@ -666,7 +662,7 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Storm + spawn loop --------------------
+// -------------------- Spawn loop timing (DECLARED ONCE ✅) --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
   if (S.adaptiveOn) base *= (1.00 - 0.24*S.adaptK);
@@ -674,6 +670,7 @@ function nextSpawnDelay(){
   return clamp(base, 220, 1250);
 }
 
+// -------------------- Progressive Boss --------------------
 function bossLevel(){
   const lvl = 1 + Math.floor((Math.max(0, S.stormCycle - 1))/2) + Math.min(1, S.bossClearCount|0);
   return clamp(lvl, 1, 4);
@@ -829,15 +826,13 @@ function tickStorm(dt){
 }
 
 // -------------------- Summary / logging --------------------
-// ✅ Google Sheet logger — no CORS/preflight (Apps Script รองรับ text/plain)
 async function sendLog(payload){
   if (!logEndpoint) return;
   try{
     await fetch(logEndpoint, {
       method:'POST',
-      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload),
-      mode:'no-cors',
       keepalive:true
     });
   }catch(_){}
@@ -1136,8 +1131,23 @@ async function endGame(reason){
 }
 
 // -------------------- Init / boot --------------------
+function pageHasBuiltInWaterPanel(){
+  // ถ้า hydration-vr.html มี panel น้ำของตัวเองอยู่แล้ว -> ไม่สร้าง gauge utility ซ้ำ
+  return !!(
+    DOC.getElementById('water-bar') ||
+    DOC.getElementById('water-pct') ||
+    DOC.getElementById('water-zone')
+  );
+}
+
 function boot(){
-  try{ ensureWaterGauge(); }catch(_){}
+  // ✅ FIX double gauge: create utility gauge only if page doesn't have its own
+  try{
+    if (!pageHasBuiltInWaterPanel()){
+      ensureWaterGauge();
+    }
+  }catch(_){}
+
   updateZone();
   try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
