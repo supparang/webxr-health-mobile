@@ -1,71 +1,99 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PATCH: robust import paths + cache-bust
-'use strict';
+// Hydration VR Loader — PRODUCTION (FIX import path)
+// ✅ Always import hydration.safe.js from the SAME folder as this loader
+// ✅ Robust candidate import + clear error UI
+// ✅ Adds body classes for view: pc/mobile/vr/cvr (optional)
 
 (function(){
+  'use strict';
+
+  const WIN = window;
   const DOC = document;
 
   function qs(k, def=null){
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    catch(_){ return def; }
   }
-
-  async function tryImport(paths){
-    const tried = [];
-    for (const p of paths){
-      tried.push(p);
-      try{
-        // eslint-disable-next-line no-unused-vars
-        const mod = await import(p);
-        return { ok:true, mod, tried };
-      }catch(e){
-        // continue
+  function setErr(msg, extra){
+    try{
+      console.error(msg, extra||'');
+      const el = DOC.getElementById('bootError');
+      if (el){
+        el.hidden = false;
+        el.textContent = String(msg) + (extra ? '\n' + String(extra) : '');
       }
-    }
-    return { ok:false, tried };
+    }catch(_){}
   }
 
-  function showError(title, url, baseURI, tried, err){
-    const pre = DOC.createElement('pre');
-    pre.style.cssText = 'white-space:pre-wrap;padding:14px;border-radius:14px;border:1px solid rgba(239,68,68,.25);background:rgba(2,6,23,.75);color:#fee2e2;font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-    pre.textContent =
-      `❌ ${title}\n`+
-      `URL: ${url}\n`+
-      `baseURI: ${baseURI}\n`+
-      `Tried paths:\n` + tried.map(t=>' - '+t).join('\n') + '\n' +
-      (err ? `\nError:\n${String(err?.stack || err)}` : '');
-    DOC.body.appendChild(pre);
+  // ✅ CRITICAL: base must be the folder containing this loader
+  // If this loader is at /herohealth/hydration-vr/hydration-vr.loader.js
+  // then base becomes /herohealth/hydration-vr/
+  function baseFolderURL(){
+    try{
+      const u = new URL(import.meta.url);
+      u.hash = '';
+      u.search = '';
+      u.pathname = u.pathname.replace(/[^/]*$/, ''); // drop filename
+      return u.toString();
+    }catch(_){
+      // Fallback: use script src
+      const s = DOC.currentScript;
+      if (s && s.src){
+        const u = new URL(s.src, location.href);
+        u.hash=''; u.search='';
+        u.pathname = u.pathname.replace(/[^/]*$/, '');
+        return u.toString();
+      }
+      return new URL('./', location.href).toString();
+    }
+  }
+
+  async function tryImport(relPath){
+    const base = baseFolderURL();
+    const url = new URL(relPath, base);
+    return import(url.toString());
+  }
+
+  function applyViewClass(){
+    const v = String(qs('view','')).toLowerCase();
+    const b = DOC.body;
+    if (!b) return;
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
+    if (v==='cvr' || v==='cardboard'){
+      b.classList.add('view-cvr','cardboard');
+    } else if (v==='vr'){
+      b.classList.add('view-vr');
+    } else if (v==='mobile'){
+      b.classList.add('view-mobile');
+    } else {
+      b.classList.add('view-pc');
+    }
   }
 
   async function boot(){
-    const v = String(qs('v', Date.now()));
-    const baseURI = location.href;
+    applyViewClass();
 
-    // candidates: most-likely first
+    const v = Date.now();
     const candidates = [
       `./hydration.safe.js?v=${v}`,
-      `./hydration.safe.js?ts=${v}`,
-      `./hydration.safe.js`,
-
-      // fallbacks (in case structure changed)
-      `../hydration-vr/hydration.safe.js?v=${v}`,
-      `../hydration-vr/hydration.safe.js`,
-      `../hydration.safe.js?v=${v}`,
-      `../hydration.safe.js`,
+      `./hydration.safe.js`
     ];
 
-    const res = await tryImport(candidates);
-    if (!res.ok){
-      showError('HydrationVR: import failed (folder loader)', location.href, baseURI, res.tried, new Error('All candidate imports failed.'));
-      return;
+    let lastErr = null;
+    for (const p of candidates){
+      try{
+        await tryImport(p);
+        return; // success
+      }catch(e){
+        lastErr = e;
+      }
     }
 
-    // If hydration.safe.js expects start signal from overlay:
-    // You likely already do this in your HTML; keep it safe here too.
-    try{
-      // Optional: auto fire hha:start after user hits Start in your overlay.
-      // (No-op here to avoid double-start.)
-    }catch(_){}
+    const base = baseFolderURL();
+    setErr(
+      `❌ HydrationVR: import failed (loader)\nbase: ${base}\nTried:\n- ${candidates.join('\n- ')}`,
+      lastErr && (lastErr.stack || lastErr.message || String(lastErr))
+    );
   }
 
   boot();
