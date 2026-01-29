@@ -1,11 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot (defer)
-✅ FX: ../vr/particles.js (defer)  ✅ required for effects
-✅ Engine: ./hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Boot: ./hygiene-vr.boot.js (module) — anti-stall + diagnostics
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js => crosshair + hha:shoot (defer)
+✅ Effects: ../vr/particles.js (defer)  ✅ (Effect หาย = เช็คไฟล์นี้ 404)
+✅ Quiz: ./hygiene-quiz-bank.js (global window.HHA_HYGIENE_QUIZ_BANK)  ✅ FIX ชื่อไฟล์
+✅ Boot: hygiene-vr.boot.js (module)  ✅ anti-stall + diagnostics
 -->
 <!doctype html>
 <html lang="th">
@@ -16,24 +15,24 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS (must exist) -->
+  <!-- ✅ CSS MUST exist -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260129a" />
 
-  <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js" defer></script>
+  <!-- ✅ Universal VR UI (defer to avoid body null) -->
+  <script src="../vr/vr-ui.js?v=20260129a" defer></script>
 
-  <!-- FX (MUST defer) -->
-  <script src="../vr/particles.js" defer></script>
+  <!-- ✅ Effects (Particles) -->
+  <script src="../vr/particles.js?v=20260129a" defer></script>
 
-  <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
+  <!-- ✅ Optional AI packs (safe even if off) -->
+  <script src="../vr/hha-ai-coach.js?v=20260129a" defer></script>
+  <script src="../vr/hha-difficulty-director.js?v=20260129a" defer></script>
+  <script src="../vr/hha-badges.js?v=20260129a" defer></script>
 
-  <!-- Quiz bank (MUST match filename on disk) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+  <!-- ✅ Quiz bank (FIX: file name is hygiene-quiz-bank.js NOT hygiene.quiz-bank.js) -->
+  <script src="./hygiene-quiz-bank.js?v=20260129a" defer></script>
 
-  <!-- Boot (module) -->
+  <!-- ✅ Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260129a"></script>
 </head>
 
@@ -109,16 +108,18 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 <script>
 (function(){
   'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
-      view==='mobile' ? 'view-mobile' :
-      (view==='vr' ? 'view-vr' :
-      (view==='cvr' ? 'view-cvr' : 'view-pc'))
+      view==='mobile' ? 'view-mobile'
+      : view==='vr'   ? 'view-vr'
+      : view==='cvr'  ? 'view-cvr'
+      : 'view-pc'
     );
+
     const el = document.getElementById('labView');
     if(el) el.textContent = view;
   }
@@ -129,16 +130,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   const d = document.getElementById('labDiff');
   if(m) m.textContent = (qs('run','play')||'play');
   if(d) d.textContent = (qs('diff','normal')||'normal');
-
-  // quick hints if quiz bank missing (non-blocking)
-  setTimeout(()=>{
-    try{
-      if(!Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) || !window.HHA_HYGIENE_QUIZ_BANK.length){
-        const sub = document.getElementById('hudSub');
-        if(sub) sub.textContent = '⚠️ Quiz bank ไม่ถูกโหลด (เช็คไฟล์ hygiene-quiz-bank.js ใน Network)';
-      }
-    }catch{}
-  }, 400);
 })();
 </script>
 </body>
