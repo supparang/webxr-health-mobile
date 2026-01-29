@@ -145,11 +145,13 @@
     }
   }
 
-  function judgeFromOffset(dt) {
+  function judgeFromOffset(dt, extraWindow) {
+    const ex = Number(extraWindow)||0;
+
     const adt = Math.abs(dt);
-    if (adt <= HIT_WINDOWS.perfect) return 'perfect';
-    if (adt <= HIT_WINDOWS.great) return 'great';
-    if (adt <= HIT_WINDOWS.good) return 'good';
+    if (adt <= HIT_WINDOWS.perfect + ex) return 'perfect';
+    if (adt <= HIT_WINDOWS.great + ex) return 'great';
+    if (adt <= HIT_WINDOWS.good + ex) return 'good';
     return 'miss';
   }
 
@@ -166,6 +168,11 @@
 
       this.eventTable = new CsvTable();
       this.sessionTable = new CsvTable();
+
+      // AI predictor (lightweight, deterministic)
+      this.ai = (window.RB_AIPredictor) ? new window.RB_AIPredictor({ allowAdapt:false }) : null;
+      this.aiLastUpdateAt = 0;
+      this.aiMissStreak = 0;
 
       this._rafId = null;
       this._chartIndex = 0;
@@ -186,6 +193,8 @@
       if (this._rafId != null) { cancelAnimationFrame(this._rafId); this._rafId = null; }
 
       this.mode = mode || 'normal';
+      // In research mode: keep gameplay parameters fixed (no adaptation)
+      if (this.ai) this.ai.allowAdapt = (this.mode !== 'research');
       this.meta = meta || {};
       this.track = TRACKS.find((t) => t.id === trackId) || TRACKS[0];
 
@@ -233,6 +242,8 @@
       this._chartIndex = 0;
 
       this.eventTable.clear();
+      this.aiMissStreak = 0;
+      this.aiLastUpdateAt = 0;
 
       this._setupAudio();
       this._updateHUD(0);
@@ -270,7 +281,8 @@
       }
 
       const { note, dt } = best;
-      const judgment = judgeFromOffset(dt);
+      const extra = (this._assistWiden||0);
+      const judgment = judgeFromOffset(dt, extra);
 
       if (judgment === 'miss') this._applyMiss(note, songTime, dt, true);
       else this._applyHit(note, songTime, dt, judgment);
@@ -400,6 +412,7 @@
 
       if (side === 'L') this.leftHits++; else if (side === 'R') this.rightHits++;
 
+      this.aiMissStreak = 0;
       if (judgment === 'perfect') this.hitPerfect++;
       else if (judgment === 'great') this.hitGreat++;
       else if (judgment === 'good') this.hitGood++;
@@ -445,6 +458,7 @@
       if (note.el) { note.el.remove(); note.el = null; }
 
       this.hitMiss++;
+      this.aiMissStreak = (this.aiMissStreak||0) + 1;
       this.combo = 0;
 
       this.hp = clamp(this.hp - 5, 0, 100);
@@ -552,7 +566,10 @@
         bpm: this.track.bpm,
         difficulty: this.track.diff,
         device_type: this.deviceType,
-        created_at_iso: new Date().toISOString()
+        created_at_iso: new Date().toISOString(),
+        ai_fatigue: (this.aiState && this.aiState.fatigueRisk!=null) ? Number(this.aiState.fatigueRisk.toFixed(3)) : '',
+        ai_skill:   (this.aiState && this.aiState.skillScore!=null) ? Number(this.aiState.skillScore.toFixed(3)) : '',
+        ai_suggested: (this.aiState && this.aiState.suggestedDifficulty) ? this.aiState.suggestedDifficulty : ''
       };
       this.eventTable.add(Object.assign(base, extra));
     }
@@ -622,6 +639,9 @@
         duration_sec: dur,
         device_type: this.deviceType,
         trial_valid: trialValid,
+        ai_fatigue_end: (this.aiState && this.aiState.fatigueRisk!=null) ? this.aiState.fatigueRisk : '',
+        ai_skill_end: (this.aiState && this.aiState.skillScore!=null) ? this.aiState.skillScore : '',
+        ai_suggested_end: (this.aiState && this.aiState.suggestedDifficulty) ? this.aiState.suggestedDifficulty : '',
         rank,
         created_at_iso: new Date().toISOString()
       });
@@ -642,6 +662,10 @@
         durationSec: dur,
         participant: this.meta.id || this.meta.participant_id || '',
         rank,
+        aiFatigue: (this.aiState && this.aiState.fatigueRisk!=null) ? this.aiState.fatigueRisk : 0,
+        aiSkill:   (this.aiState && this.aiState.skillScore!=null) ? this.aiState.skillScore : 0.5,
+        aiSuggested: (this.aiState && this.aiState.suggestedDifficulty) ? this.aiState.suggestedDifficulty : 'normal',
+        aiTip: (this.aiState && this.aiState.tip) ? this.aiState.tip : '',
         qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
@@ -651,3 +675,63 @@
 
   window.RhythmBoxerEngine = RhythmBoxerEngine;
 })();
+    // ===== AI PREDICTION (lightweight) =====
+    _updateAI(songTime){
+      if (!this.ai) return;
+      const now = performance.now();
+      // update every ~250ms max to keep it light
+      if (now - (this.aiLastUpdateAt||0) < 250) return;
+      this.aiLastUpdateAt = now;
+
+      const totalJudged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
+      const totalNotes = this.totalNotes || 1;
+      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) : 0;
+
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
+      const missRate = totalJudged ? (this.hitMiss / totalJudged) : 0;
+      const perfectRate = totalHits ? (this.hitPerfect / totalHits) : 0;
+
+      const offsetsAbs = this.offsetsAbs || [];
+      const jitter = offsetsAbs.length ? Math.min(1, (mean(offsetsAbs) / 0.18)) : 0; // normalized jitter proxy
+
+      const earlyPct = totalHits ? (this.earlyHits / totalHits) : 0;
+      const latePct  = totalHits ? (this.lateHits / totalHits) : 0;
+
+      const hpLow = (this.hp <= 55) ? 1 : (this.hp <= 70 ? 0.5 : 0);
+
+      const blankTapRate = totalJudged ? (this.eventTable.rows.filter(r=>r.event_type==='blank-tap').length / Math.max(1,totalJudged)) : 0;
+
+      const comboNorm = Math.min(1, (this.combo / 25));
+
+      const features = {
+        acc,
+        missRate,
+        perfectRate,
+        jitter,
+        earlyPct,
+        latePct,
+        hpLow,
+        blankTapRate,
+        comboNorm,
+        missStreak: this.aiMissStreak||0
+      };
+
+      const aiState = this.ai.update(features, now);
+
+      // expose on HUD
+      this.aiState = aiState;
+
+      // optional: adaptation hook (ONLY when allowAdapt=true, i.e., non-research)
+      if (this.ai.allowAdapt){
+        // gentle auto-assist: slightly widen timing window if fatigue is high
+        const widen = aiState.fatigueRisk >= 0.78 ? 0.02 : (aiState.fatigueRisk >= 0.6 ? 0.01 : 0);
+        this._assistWiden = widen;
+      } else {
+        this._assistWiden = 0;
+      }
+
+      if (this.hooks && typeof this.hooks.onAI === 'function'){
+        this.hooks.onAI(Object.assign({ songTime }, aiState));
+      }
+    }
+

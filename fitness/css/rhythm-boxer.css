@@ -498,3 +498,11 @@ html,body{
   .rb-grid-2{ grid-template-columns:1fr; }
   #rb-field{ min-height:240px; }
 }
+
+
+/* === AI HUD chips === */
+.rb-hud-row-ai{ gap:8px; flex-wrap:wrap; }
+.rb-chip-ai{ border-color: rgba(168,85,247,.55); background: rgba(15,23,42,.78); }
+.rb-chip-tip{ width:100%; max-width:640px; }
+.rb-chip-tip-label{ opacity:.8; margin-right:6px; }
+#rb-hud-ai-tip.hidden{ display:none; }
