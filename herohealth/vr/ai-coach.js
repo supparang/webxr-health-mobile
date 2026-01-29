@@ -1,4 +1,4 @@
-// === /herohealth/vr/ai-coach.js ===
+// === /herohealth/vr/ai-coach.js === 
 // AI Coach — PRODUCTION (HHA Standard)
 // ✅ createAICoach({ emit, game, cooldownMs })
 // ✅ Explainable micro-tips + rate-limit + anti-spam
