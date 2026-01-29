@@ -1,102 +1,93 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + readable diagnostics)
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
 //
-// ✅ Imports engine: ./hygiene.safe.js (must export boot)
-// ✅ If missing DOM / import fails / crash -> show readable error on screen
-// ✅ Warn if CSS missing / Quiz bank missing / Particles missing
+// ✅ Imports engine: hygiene.safe.js (must export boot)
+// ✅ Detects missing CSS / Quiz bank / Particles and surfaces in HUD/banner
 //
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
 
-function setBanner(text){
+function showBanner(msg){
   const banner = $id('banner');
   if(!banner) return;
-  banner.textContent = String(text || '');
+  banner.textContent = msg;
   banner.classList.add('show');
-}
-
-function setHudSub(text){
-  const sub = $id('hudSub');
-  if(sub) sub.textContent = String(text || '');
-}
-
-function showOverlayError(title, detail){
-  const startOverlay = $id('startOverlay');
-  if(!startOverlay) return;
-
-  const sub = startOverlay.querySelector('.hw-card-sub');
-  if(sub){
-    sub.innerHTML = `
-      <b style="color:#fca5a5">${title}</b><br>
-      <span style="color:#94a3b8">${detail || ''}</span><br>
-      <span style="color:#94a3b8">เปิด DevTools → Console/Network เพื่อตรวจ 404 หรือ path ผิด</span>
-    `;
-  }
-  startOverlay.style.display = 'grid';
+  clearTimeout(showBanner._t);
+  showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1500);
 }
 
 function showFatal(msg, err){
-  console.error('[HygieneBoot] FATAL:', msg, err || '');
-  setHudSub(`BOOT ERROR: ${msg}`);
-  setBanner(`❌ ${msg}`);
-  showOverlayError('เกิดปัญหาโหลดเกม', msg);
-}
-
-function warn(msg){
-  console.warn('[HygieneBoot] WARN:', msg);
-  // ไม่บล็อกเกม แค่เตือนให้เห็น
+  console.error('[HygieneBoot]', msg, err||'');
   const sub = $id('hudSub');
-  if(sub && (sub.textContent || '').includes('ready')) sub.textContent = `⚠️ ${msg}`;
+  const startOverlay = $id('startOverlay');
+
+  if(sub) sub.textContent = `BOOT ERROR: ${msg}`;
+  showBanner(`❌ ${msg}`);
+
+  if(startOverlay){
+    const card = startOverlay.querySelector('.hw-card-sub');
+    if(card){
+      card.innerHTML = `
+        <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
+        <span style="color:#94a3b8">${msg}</span><br>
+        <span style="color:#94a3b8">เปิด Console/Network ดูว่าไฟล์ 404 หรือ import ผิด</span>
+      `;
+    }
+    startOverlay.style.display = 'grid';
+  }
 }
 
-function cssLooksLoaded(){
-  // best-effort: check any stylesheet href contains hygiene-vr.css
+function hasCssHrefContains(part){
   try{
-    const sheets = Array.from(document.styleSheets || []);
-    return sheets.some(s => {
-      try{ return (s.href || '').includes('hygiene-vr.css'); }catch{ return false; }
+    return [...document.styleSheets].some(s=>{
+      try{ return (s.href||'').includes(part); }catch{ return false; }
     });
   }catch{ return false; }
 }
 
-function domHasCore(){
-  // ถ้า id ไม่ครบ จะดูเหมือนค้าง
-  const need = ['stage','hudSub','startOverlay','banner','btnStart'];
-  return need.every(id => !!$id(id));
-}
-
-function stableTickDelay(fn){
-  // requestAnimationFrame then microtask to avoid "DOM not ready" edge cases
-  requestAnimationFrame(()=> Promise.resolve().then(fn));
-}
-
 async function main(){
-  // 1) DOM sanity
-  if(!domHasCore()){
-    showFatal('DOM ของ hygiene-vr.html ไม่ครบ (เช็ค id: stage/hudSub/startOverlay/banner/btnStart)');
+  // DOM must exist
+  const stage = $id('stage');
+  if(!stage){
+    showFatal('ไม่พบ #stage (hygiene-vr.html ไม่ครบหรือ id ไม่ตรง)');
     return;
   }
 
-  // 2) Quick non-blocking diagnostics
-  if(!cssLooksLoaded()){
-    warn('CSS อาจไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)');
-  }
-  // FX / Quiz bank are optional แต่ถ้าหายจะรู้สึก “โล่ง”
-  if(!window.Particles){
-    warn('Particles FX ไม่ขึ้น (เช็ค ../vr/particles.js)');
-  }
-  // bank ชื่อไฟล์คุณคือ hygiene-quiz-bank.js และตั้ง window.HHA_HYGIENE_QUIZ_BANK
-  if(!window.HHA_HYGIENE_QUIZ_BANK){
-    warn('Quiz bank ไม่พบ (เช็ค ./hygiene-quiz-bank.js)');
+  const sub = $id('hudSub');
+
+  // CSS check
+  const cssOk = hasCssHrefContains('/hygiene-vr.css') || hasCssHrefContains('hygiene-vr.css');
+  if(!cssOk){
+    console.warn('[HygieneBoot] hygiene-vr.css may be missing or blocked');
+    if(sub) sub.textContent = '⚠️ CSS อาจหาย/ไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)';
+    showBanner('⚠️ CSS อาจไม่ถูกโหลด (เช็ค hygiene-vr.css)');
   }
 
-  // 3) Import engine safely (module)
+  // Quiz bank check (defer script should set global)
+  const quizOk = Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) && window.HHA_HYGIENE_QUIZ_BANK.length > 0;
+  if(!quizOk){
+    console.warn('[HygieneBoot] Quiz bank missing: window.HHA_HYGIENE_QUIZ_BANK');
+    showBanner('⚠️ ยังไม่มี Quiz bank (hygiene-quiz-bank.js)');
+  }else{
+    console.log('[HygieneBoot] Quiz bank OK:', window.HHA_HYGIENE_QUIZ_BANK.length);
+  }
+
+  // Particles check
+  const fxOk = !!(window.Particles && (window.Particles.popText || window.Particles.pop));
+  if(!fxOk){
+    console.warn('[HygieneBoot] Particles missing: ../vr/particles.js');
+    showBanner('⚠️ เอฟเฟกต์ (Particles) ยังไม่โหลด');
+  }else{
+    console.log('[HygieneBoot] Particles OK');
+  }
+
+  // Import engine safely
   let engine;
   try{
     engine = await import('./hygiene.safe.js');
   }catch(err){
-    showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ได้เป็น module)', err);
+    showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
   }
 
@@ -105,32 +96,15 @@ async function main(){
     return;
   }
 
-  // 4) Anti-stall: ถ้า boot ไม่ทำงานหรือ throw ให้แสดงบนจอ
-  let booted = false;
-
-  // watchdog: ถ้า 1.8s แล้วยังไม่ booted ให้เตือน (แต่ไม่บล็อก)
-  const watchdog = setTimeout(()=>{
-    if(!booted){
-      warn('Boot ช้า/เหมือนค้าง (เช็ค Console/Network ว่ามี 404 หรือ error)');
-      setBanner('⏳ กำลังโหลด... (ถ้าค้าง เปิด Console ดู error)');
-    }
-  }, 1800);
-
+  // Run engine boot
   try{
-    stableTickDelay(()=>{
-      try{
-        engine.boot();
-        booted = true;
-        clearTimeout(watchdog);
-        console.log('[HygieneBoot] engine.boot OK');
-      }catch(err){
-        clearTimeout(watchdog);
-        showFatal('engine.boot() crash', err);
-      }
-    });
+    engine.boot();
+    console.log('[HygieneBoot] engine.boot OK');
+    if(sub && (!sub.textContent || sub.textContent.includes('ready'))){
+      sub.textContent = 'พร้อมแล้ว ✅ (กด Start)';
+    }
   }catch(err){
-    clearTimeout(watchdog);
-    showFatal('boot wrapper crash', err);
+    showFatal('engine.boot() crash', err);
   }
 }
 
