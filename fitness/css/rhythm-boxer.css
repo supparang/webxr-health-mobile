@@ -731,3 +731,45 @@ html,body{
     min-height:280px;
   }
 }
+/* ===== Rhythm FX (score + fragments) ===== */
+.rb-score-fx{
+  position:fixed;
+  transform:translate(-50%,-50%);
+  font-weight:800;
+  font-size:1.05rem;
+  letter-spacing:.2px;
+  opacity:0;
+  transition:transform .16s ease, opacity .16s ease;
+  z-index:80;
+  pointer-events:none;
+  text-shadow:0 6px 14px rgba(0,0,0,.65);
+}
+.rb-score-fx.is-live{
+  opacity:1;
+  transform:translate(-50%,-70%);
+}
+.rb-score-perfect{ color: var(--rb-gold); }
+.rb-score-great{ color: #93c5fd; }
+.rb-score-good{ color: var(--rb-success); }
+.rb-score-boss{ color: #fda4af; }
+
+.rb-frag{
+  position:fixed;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  opacity:.95;
+  pointer-events:none;
+  z-index:79;
+  animation: rb-frag-move var(--life,420ms) ease-out forwards;
+  filter:drop-shadow(0 8px 10px rgba(0,0,0,.65));
+}
+.rb-frag-perfect{ background: var(--rb-gold); }
+.rb-frag-great{ background: #60a5fa; }
+.rb-frag-good{ background: var(--rb-success); }
+.rb-frag-miss{ background: var(--rb-danger); }
+.rb-frag-boss{ background: #fb7185; }
+
+@keyframes rb-frag-move{
+  from{ transform:translate(-50%,-50%) translate3d(0,0,0) scale(1); opacity:.95; }
+  to{ transform:translate(-50%,-50%) translate3d(var(--dx,0px),var(--dy,18px),0) scale(.35); opacity:0; }
+}
