@@ -1,12 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v5 (Mini Rotation + Boss 2 Stage + Progress + AI safe)
-// ✅ Mini quests rotate: ผ่านแล้วสลับทันที
-// ✅ Boss 2 stage: HP -> Storm survival
-// ✅ Progress bar fill (#gjProgressFill)
-// ✅ Mobile HUD fix: safe zone auto-measure via gj:measureSafe (HTML listens)
-// ✅ AI hooks safe: getDifficulty/getTip/onEvent always guarded
-// ✅ Crosshair shoot (hha:shoot)
-// Emits: hha:start, hha:score, hha:time, hha:judge, quest:update, hha:coach, hha:end
+// GoodJunkVR SAFE — v4.1 (Boss+Progress + AI-safe wrapper)
+// ✅ Boss Phase (ท้ายเกม): HP bar + rules
+// ✅ Progress bar fill
+// ✅ Mobile HUD fix: quest cards hidden by CSS; safe zone auto-remeasure via gj:measureSafe
+// ✅ All existing: GOAL/MINI + AI hooks + crosshair shoot
+// ✅ FIX: AI.getDifficulty is not a function (fallback wrapper)
 
 'use strict';
 
@@ -16,7 +14,7 @@ import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js
 const WIN = window;
 const DOC = document;
 
-const clamp = (v,min,max)=>Math.max(min,Math.min(max,Number(v)||0));
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
 
@@ -88,57 +86,12 @@ function decorateTarget(el, t){
   }
 }
 
-// --- Quests (GOALS) ---
+// --- Quests ---
 function makeGoals(){
   return [
-    { key:'clean',  name:'แยกของดี/ของเสีย', desc:'เก็บของดีให้เยอะ และอย่าโดนของเสีย', targetGood:18, maxMiss:6 },
-    { key:'combo',  name:'คอมโบของดี', desc:'ทำคอมโบของดีให้ถึง 8', targetCombo:8 },
-    { key:'survive',name:'ช่วงบอส', desc:'ช่วงท้ายอย่าให้พลาด (MISS ไม่เกิน 3)', maxMiss:3 }
-  ];
-}
-
-// --- Mini Quest Rotation (ผ่านแล้วสลับทันที) ---
-function makeMiniPool(){
-  return [
-    {
-      key:'g3in12',
-      name:'ครบ 3 หมู่ใน 12 วิ',
-      desc:'ยิงของดีให้ได้ “ต่างหมู่” ครบ 3 ภายในเวลา',
-      init:(S)=>{ S.mini.windowSec=12; S.mini.windowStartAt=0; S.mini.groups.clear(); S.mini.count=0; },
-      onGood:(S, groupId)=>{
-        const now = (performance.now?performance.now():Date.now());
-        if(!S.mini.windowStartAt) S.mini.windowStartAt = now;
-        if(now - S.mini.windowStartAt > S.mini.windowSec*1000){
-          S.mini.windowStartAt = now;
-          S.mini.groups.clear();
-        }
-        S.mini.groups.add(Number(groupId)||1);
-        S.mini.count = S.mini.groups.size;
-        return (S.mini.count >= 3);
-      },
-      ui:(S)=>{
-        const now = (performance.now?performance.now():Date.now());
-        const left = S.mini.windowStartAt ? Math.max(0, (S.mini.windowSec*1000 - (now - S.mini.windowStartAt))/1000) : S.mini.windowSec;
-        return { text:`ครบ 3 หมู่ใน ${S.mini.windowSec} วิ (${S.mini.count||0}/3)`, timer:`${left.toFixed(0)}s` };
-      }
-    },
-    {
-      key:'streak6',
-      name:'คอมโบ 6 ติด',
-      desc:'ยิงของดีติดกัน 6 ครั้ง (ห้ามพลาด)',
-      init:(S)=>{ S.mini.count=0; },
-      onGood:(S)=>{ S.mini.count = clamp(S.combo,0,99); return (S.mini.count >= 6); },
-      onMissOrJunk:(S)=>{ S.mini.count = 0; },
-      ui:(S)=>({ text:`คอมโบ 6 ติด (${Math.min(6,S.mini.count||0)}/6)`, timer:'—' })
-    },
-    {
-      key:'block2',
-      name:'บล็อค 2 ครั้ง',
-      desc:'เก็บโล่ แล้วบล็อคขยะให้ได้ 2 ครั้ง',
-      init:(S)=>{ S.mini.count=0; },
-      onBlock:(S)=>{ S.mini.count++; return (S.mini.count >= 2); },
-      ui:(S)=>({ text:`บล็อคขยะ 2 ครั้ง (${Math.min(2,S.mini.count||0)}/2)`, timer:'—' })
-    }
+    { key:'clean', name:'แยกของดี/ของเสีย', desc:'เก็บของดีให้เยอะ และอย่าโดนของเสีย', targetGood:18, maxMiss:6 },
+    { key:'combo', name:'คอมโบของดี', desc:'ทำคอมโบของดีให้ถึง 8', targetCombo:8 },
+    { key:'survive', name:'ช่วงบอส', desc:'ช่วงท้ายอย่าให้พลาด (MISS ไม่เกิน 3)', maxMiss:3 }
   ];
 }
 
@@ -169,15 +122,16 @@ export function boot(opts={}){
   const elLowOverlay = DOC.getElementById('lowTimeOverlay');
   const elLowNum = DOC.getElementById('gj-lowtime-num');
 
-  // ✅ progress
+  // ✅ progress (optional)
   const elProgFill = DOC.getElementById('gjProgressFill');
 
-  // ✅ boss UI (from patched HTML)
+  // ✅ boss UI (optional)
   const elBossBar  = DOC.getElementById('bossBar');
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
 
   const layer = DOC.getElementById('gj-layer');
+
   const rng = makeRNG(seed);
 
   const S = {
@@ -199,57 +153,54 @@ export function boot(opts={}){
     goals: makeGoals(),
     goalIndex: 0,
 
-    // ✅ mini rotation state
-    miniPool: makeMiniPool(),
-    miniIndex: 0,
-    mini: {
-      activeKey:'g3in12',
-      windowSec:12,
-      windowStartAt:0,
-      groups:new Set(),
-      count:0,
-      done:false
-    },
+    mini: { windowSec: 12, windowStartAt: 0, groups: new Set(), done: false },
 
-    // ✅ boss 2 stage
     boss: {
       active:false,
-      mode:'hp', // 'hp' -> 'storm'
-      startedAtSec:null,
+      startedAtSec: null,
       durationSec: 10,
-      hp:100,
-      hpMax:100,
-      stormSec: 8,
-      stormStartSec:null,
-      cleared:false
+      hp: 100,
+      hpMax: 100,
+      cleared: false
     }
   };
 
   const adaptiveOn = (run === 'play');
-  const aiOn = (run === 'play');
+  const aiOn = (run === 'play'); // play only (research stays deterministic)
 
-  // ✅ AI hooks (safe guard)
-  const AI = (() => {
-    try{ return createAIHooks({ game:'GoodJunkVR', mode: run, rng }); }catch(_){ return {}; }
-  })();
+  // ------------------------------------------------------------------
+  // ✅ AI SAFE WRAPPER: no-crash even if ai-hooks doesn't implement methods
+  // ------------------------------------------------------------------
+  let AIraw = null;
+  try{
+    AIraw = createAIHooks({ game:'GoodJunkVR', mode: run, rng });
+  }catch(_){
+    AIraw = null;
+  }
 
-  function AI_getDifficulty(played, base){
-    try{
-      if(AI && typeof AI.getDifficulty === 'function') return AI.getDifficulty(played, base);
-    }catch(_){}
-    return { ...base };
-  }
-  function AI_getTip(played){
-    try{
-      if(AI && typeof AI.getTip === 'function') return AI.getTip(played);
-    }catch(_){}
-    return null;
-  }
-  function AI_onEvent(type, payload){
-    try{
-      if(AI && typeof AI.onEvent === 'function') AI.onEvent(type, payload);
-    }catch(_){}
-  }
+  const AI = {
+    onEvent: (name, payload)=>{
+      try{
+        if(AIraw && typeof AIraw.onEvent === 'function') AIraw.onEvent(name, payload);
+      }catch(_){}
+    },
+    getTip: (playedSec)=>{
+      try{
+        if(AIraw && typeof AIraw.getTip === 'function') return AIraw.getTip(playedSec) || null;
+      }catch(_){}
+      return null;
+    },
+    getDifficulty: (playedSec, base)=>{
+      // MUST return an object {spawnMs,pGood,pJunk,pStar,pShield}
+      try{
+        if(AIraw && typeof AIraw.getDifficulty === 'function'){
+          const out = AIraw.getDifficulty(playedSec, base);
+          if(out && typeof out === 'object') return out;
+        }
+      }catch(_){}
+      return { ...base }; // fallback -> never crash
+    }
+  };
 
   function setFever(p){
     S.fever = clamp(p,0,100);
@@ -262,9 +213,9 @@ export function boot(opts={}){
   }
 
   function gradeNow(){
-    if(S.score >= 210 && S.miss <= 3) return 'A';
-    if(S.score >= 140 && S.miss <= 6) return 'B';
-    if(S.score >= 80) return 'C';
+    if(S.score >= 190 && S.miss <= 3) return 'A';
+    if(S.score >= 125 && S.miss <= 6) return 'B';
+    if(S.score >= 70) return 'C';
     return 'D';
   }
 
@@ -282,75 +233,21 @@ export function boot(opts={}){
     if(S.score<0) S.score = 0;
   }
 
-  // --- goals ---
+  // --- quests ---
   function currentGoal(){ return S.goals[S.goalIndex] || S.goals[0]; }
-
-  function advanceGoalIfDone(){
-    const g = currentGoal();
-    let done = false;
-    if(g?.targetGood) done = (S.hitGood >= g.targetGood) && (S.miss <= g.maxMiss);
-    else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
-
-    if(done){
-      const prev = S.goalIndex;
-      S.goalIndex = Math.min(S.goals.length - 1, S.goalIndex + 1);
-      if(S.goalIndex !== prev){
-        emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
-      }
-    }
-  }
-
-  // --- mini rotation ---
-  function currentMini(){
-    return S.miniPool[S.miniIndex] || S.miniPool[0];
-  }
-
-  function startMini(idx = null){
-    if(typeof idx === 'number') S.miniIndex = (idx % S.miniPool.length + S.miniPool.length) % S.miniPool.length;
-
-    const m = currentMini();
-    S.mini.activeKey = m.key;
-    S.mini.done = false;
-    S.mini.windowStartAt = 0;
+  function resetMiniWindow(){
+    S.mini.windowStartAt = (performance.now ? performance.now() : Date.now());
     S.mini.groups.clear();
-    S.mini.count = 0;
-
-    try{ if(m.init) m.init(S); }catch(_){}
-    emit('hha:coach', { msg:`🎯 MINI: ${m.name}`, tag:'Coach' });
-    updateQuestUI();
-  }
-
-  function completeMini(){
-    if(S.mini.done) return;
-    S.mini.done = true;
-
-    // reward rule: if miss high -> shield else star-like benefit
-    const preferShield = (S.miss >= 2 || S.boss.active);
-    if(preferShield){
-      S.shield = Math.min(3, S.shield + 1);
-      addScore(18);
-      emit('hha:judge', { type:'perfect', label:'MINI BONUS 🛡️' });
-      emit('hha:coach', { msg:'ได้โบนัส: 🛡️ +1', tag:'Coach' });
-    }else{
-      const before = S.miss;
-      S.miss = Math.max(0, S.miss - 1);
-      addScore(22);
-      emit('hha:judge', { type:'perfect', label:(before!==S.miss)?'MINI MISS-1':'MINI ⭐' });
-      emit('hha:coach', { msg:'ได้โบนัส: ลด MISS -1', tag:'Coach' });
-    }
-
-    setHUD();
-
-    // rotate immediately
-    const next = (S.miniIndex + 1) % S.miniPool.length;
-    setTimeout(()=>startMini(next), 380);
+    S.mini.done = false;
   }
 
   function updateQuestUI(){
     const g = currentGoal();
     if(elGoalName) elGoalName.textContent = g?.name || '—';
+    if(elGoalDesc) elGoalDesc.textContent = g?.desc || '—';
 
     let cur = 0, target = 1;
+
     if(g?.targetGood){
       cur = S.hitGood; target = g.targetGood;
       if(elGoalDesc) elGoalDesc.textContent = `${g.desc} (ของดี ≥ ${g.targetGood}, MISS ≤ ${g.maxMiss})`;
@@ -366,27 +263,69 @@ export function boot(opts={}){
     if(elGoalCur) elGoalCur.textContent = String(cur);
     if(elGoalTarget) elGoalTarget.textContent = String(target);
 
-    const m = currentMini();
-    let miniText = `${m.name}`;
-    let miniTimer = '—';
-    try{
-      const ui = m.ui ? m.ui(S) : null;
-      if(ui?.text) miniText = ui.text;
-      if(ui?.timer != null) miniTimer = ui.timer;
-    }catch(_){}
+    const now = (performance.now ? performance.now() : Date.now());
+    const left = Math.max(0, (S.mini.windowSec*1000 - (now - S.mini.windowStartAt)) / 1000);
+    const miniCur = S.mini.groups.size;
+    const miniTar = 3;
 
     if(elMiniText){
-      elMiniText.textContent = S.mini.done ? `ผ่านแล้ว! 🎁` : miniText;
+      elMiniText.textContent = S.mini.done
+        ? `ผ่านแล้ว! 🎁 รับโบนัสแล้ว`
+        : `ครบ ${miniTar} หมู่ใน ${S.mini.windowSec} วิ (${miniCur}/${miniTar})`;
     }
     if(elMiniTimer){
-      elMiniTimer.textContent = S.mini.done ? 'DONE' : miniTimer;
+      elMiniTimer.textContent = S.mini.done ? 'DONE' : `${left.toFixed(0)}s`;
     }
 
     emit('quest:update', {
       goal:{ name:g?.name||'—', sub:g?.desc||'—', cur, target, done:false },
-      mini:{ name:m?.name||'—', sub:m?.desc||'—', cur:S.mini.count||0, target:999, done:S.mini.done },
+      mini:{ name:`ครบ ${miniTar} หมู่ใน ${S.mini.windowSec} วิ`, sub:'โบนัส ⭐/🛡️', cur:miniCur, target:miniTar, done:S.mini.done },
       allDone:false
     });
+  }
+
+  function advanceGoalIfDone(){
+    const g = currentGoal();
+    let done = false;
+    if(g?.targetGood) done = (S.hitGood >= g.targetGood) && (S.miss <= g.maxMiss);
+    else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
+
+    if(done){
+      const prev = S.goalIndex;
+      S.goalIndex = Math.min(S.goals.length - 1, S.goals.length ? (S.goalIndex + 1) : 0);
+      if(S.goalIndex !== prev){
+        emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
+      }
+    }
+  }
+
+  function onHitGoodMeta(groupId){
+    const now = (performance.now ? performance.now() : Date.now());
+    if(!S.mini.windowStartAt) resetMiniWindow();
+    if(now - S.mini.windowStartAt > S.mini.windowSec*1000) resetMiniWindow();
+
+    if(!S.mini.done){
+      S.mini.groups.add(Number(groupId)||1);
+      const tar = 3;
+
+      if(S.mini.groups.size >= tar){
+        S.mini.done = true;
+
+        const preferShield = (S.miss >= 2);
+        if(preferShield){
+          S.shield = Math.min(3, S.shield + 1);
+          addScore(14);
+          emit('hha:judge', { type:'perfect', label:'BONUS 🛡️' });
+        }else{
+          const before = S.miss;
+          S.miss = Math.max(0, S.miss - 1);
+          addScore(18);
+          emit('hha:judge', { type:'perfect', label:(before!==S.miss)?'BONUS MISS-1':'BONUS ⭐' });
+        }
+
+        emit('hha:coach', { msg:`สุดยอด! ครบ 3 หมู่ใน ${S.mini.windowSec} วิ 🎁 โบนัสแล้ว!`, tag:'Coach' });
+      }
+    }
   }
 
   // --- low time overlay ---
@@ -409,25 +348,17 @@ export function boot(opts={}){
     elProgFill.style.width = `${Math.round(p*100)}%`;
   }
 
-  // --- boss UI ---
+  // --- boss ui ---
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
-    emit('gj:measureSafe', {}); // HTML will re-measure
+    // ask UI to re-measure safe-zone (HUD height changed)
+    emit('gj:measureSafe', {});
   }
   function updateBossUI(){
     if(!elBossFill) return;
-
-    if(S.boss.mode === 'hp'){
-      const p = clamp(S.boss.hp / S.boss.hpMax, 0, 1);
-      elBossFill.style.width = `${Math.round(p*100)}%`;
-    }else{
-      // storm: bar shows time left
-      const played = S.timePlan - S.timeLeft;
-      const left = Math.max(0, S.boss.stormSec - (played - (S.boss.stormStartSec || played)));
-      const p = (S.boss.stormSec > 0) ? clamp(left / S.boss.stormSec, 0, 1) : 0;
-      elBossFill.style.width = `${Math.round(p*100)}%`;
-    }
+    const p = clamp(S.boss.hp / S.boss.hpMax, 0, 1);
+    elBossFill.style.width = `${Math.round(p*100)}%`;
   }
 
   function startBossIfNeeded(){
@@ -437,24 +368,16 @@ export function boot(opts={}){
     const triggerAt = Math.max(18, S.timePlan * 0.70);
     if(played >= triggerAt){
       S.boss.active = true;
-      S.boss.mode = 'hp';
       S.boss.startedAtSec = played;
-      S.boss.hp = S.boss.hpMax = (diff === 'hard') ? 140 : (diff === 'easy') ? 100 : 120;
-      setBossUI(true);
-      if(elBossHint) elBossHint.textContent = 'Stage 1: เก็บของดีเพื่อลด HP / อย่าโดนของเสีย!';
-      setFever(Math.min(100, S.fever + 10));
-      emit('hha:coach', { msg:'⚡ เข้าสู่ BOSS! Stage 1: ตบ HP ด้วยของดี!', tag:'Coach' });
-      updateBossUI();
-    }
-  }
+      S.boss.hp = S.boss.hpMax = (diff === 'hard') ? 120 : (diff === 'easy') ? 90 : 100;
 
-  function startStormStage(){
-    const played = S.timePlan - S.timeLeft;
-    S.boss.mode = 'storm';
-    S.boss.stormStartSec = played;
-    if(elBossHint) elBossHint.textContent = 'Stage 2: STORM! เอาตัวรอด 8 วิ (หลบของเสีย)';
-    emit('hha:coach', { msg:'🌪️ STORM STAGE! หลบของเสียให้รอด!', tag:'Coach' });
-    updateBossUI();
+      setBossUI(true);
+      updateBossUI();
+      if(elBossHint) elBossHint.textContent = 'โหมดบอส: เก็บของดีเพื่อลดพลังบอส / อย่าโดนของเสีย!';
+      emit('hha:coach', { msg:'⚡ เข้าสู่ BOSS PHASE! เก็บของดีให้แม่น ๆ', tag:'Coach' });
+
+      setFever(Math.min(100, S.fever + 8));
+    }
   }
 
   function endBoss(success){
@@ -464,14 +387,17 @@ export function boot(opts={}){
     setBossUI(false);
 
     if(success){
-      addScore(160);
-      setFever(Math.max(0, S.fever - 20));
-      S.shield = Math.min(3, S.shield + 1);
+      addScore(120);
+      setFever(Math.max(0, S.fever - 18));
       emit('hha:judge', { type:'perfect', label:'BOSS CLEAR!' });
-      emit('hha:coach', { msg:'🏆 BOSS CLEAR! โบนัสใหญ่ + โล่เพิ่ม!', tag:'Coach' });
+      emit('hha:coach', { msg:'🏆 บอสแพ้แล้ว! เก่งมาก!', tag:'Coach' });
+
+      S.shield = Math.min(3, S.shield + 1);
+      setShieldUI();
     }else{
-      emit('hha:coach', { msg:'จบช่วงบอส! รอบหน้าลองคุมจังหวะให้แน่นขึ้นนะ', tag:'Coach' });
+      emit('hha:coach', { msg:'จบช่วงบอส! รอบหน้าลองเน้นของดีให้มากขึ้นนะ', tag:'Coach' });
     }
+
     setHUD();
   }
 
@@ -479,7 +405,7 @@ export function boot(opts={}){
   function onHit(kind, extra = {}){
     if(S.ended) return;
 
-    const tNow = performance.now?.() || Date.now();
+    const tNow = performance.now();
 
     if(kind==='good'){
       S.hitGood++;
@@ -487,25 +413,16 @@ export function boot(opts={}){
       S.comboMax = Math.max(S.comboMax, S.combo);
       addScore(10 + Math.min(10, S.combo));
       setFever(S.fever + 2);
+
+      if(extra.groupId) onHitGoodMeta(extra.groupId);
+
       emit('hha:judge', { type:'good', label:'GOOD' });
-      AI_onEvent('hitGood', { t:tNow });
+      if(aiOn) AI.onEvent('hitGood', { t:tNow });
 
-      // mini progress
-      try{
-        const m = currentMini();
-        let ok = false;
-        if(m?.onGood) ok = !!m.onGood(S, extra.groupId);
-        S.mini.count = S.mini.count || 0;
-        if(ok) completeMini();
-      }catch(_){}
-
-      // boss HP damage
-      if(S.boss.active && S.boss.mode === 'hp'){
-        S.boss.hp = Math.max(0, S.boss.hp - 7);
+      if(S.boss.active){
+        S.boss.hp = Math.max(0, S.boss.hp - 6);
         updateBossUI();
-        if(S.boss.hp <= 0){
-          startStormStage(); // go to stage2 instead of ending
-        }
+        if(S.boss.hp <= 0) endBoss(true);
       }
     }
 
@@ -514,34 +431,17 @@ export function boot(opts={}){
         S.shield--;
         setShieldUI();
         emit('hha:judge', { type:'perfect', label:'BLOCK!' });
-        AI_onEvent('block', { t:tNow });
-
-        // mini progress for block2
-        try{
-          const m = currentMini();
-          if(m?.onBlock){
-            const ok = !!m.onBlock(S);
-            if(ok) completeMini();
-          }
-        }catch(_){}
-
       }else{
         S.hitJunk++;
         S.miss++;
         S.combo = 0;
         addScore(-6);
         setFever(S.fever + 6);
+
         emit('hha:judge', { type:'bad', label:'OOPS' });
-        AI_onEvent('hitJunk', { t:tNow });
+        if(aiOn) AI.onEvent('hitJunk', { t:tNow });
 
-        // mini reset for streak mini
-        try{
-          const m = currentMini();
-          if(m?.onMissOrJunk) m.onMissOrJunk(S);
-        }catch(_){}
-
-        // boss punishment
-        if(S.boss.active && S.boss.mode === 'hp'){
+        if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
           updateBossUI();
         }
@@ -563,10 +463,9 @@ export function boot(opts={}){
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
     }
 
-    // AI tip occasionally
     if(aiOn){
       const played = S.timePlan - S.timeLeft;
-      const tip = AI_getTip(played);
+      const tip = AI.getTip(played);
       if(tip) emit('hha:coach', tip);
     }
 
@@ -623,22 +522,17 @@ export function boot(opts={}){
     setTimeout(()=>{
       if(!alive || S.ended) return;
       kill();
+
       if(kind==='good'){
         S.expireGood++;
         S.miss++;
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-        AI_onEvent('miss', { t: performance.now?.() || Date.now() });
 
-        // mini reset for streak mini
-        try{
-          const m = currentMini();
-          if(m?.onMissOrJunk) m.onMissOrJunk(S);
-        }catch(_){}
+        if(aiOn) AI.onEvent('miss', { t:performance.now() });
 
-        // boss punish
-        if(S.boss.active && S.boss.mode === 'hp'){
+        if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
           updateBossUI();
         }
@@ -668,13 +562,12 @@ export function boot(opts={}){
     if(S.ended) return;
     S.ended = true;
 
-    // close boss if active
     if(S.boss.active) endBoss(false);
 
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
     const summary = {
       game:'GoodJunkVR',
-      pack:'fair-v5-mini-boss2',
+      pack:'fair-v4.1-boss',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -721,26 +614,18 @@ export function boot(opts={}){
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
     else if(diff === 'hard'){ base.spawnMs=820; base.pJunk=0.30; base.pGood=0.66; }
 
-    // boss stage overrides
+    // boss overrides
     if(S.boss.active){
-      if(S.boss.mode === 'hp'){
-        base.spawnMs = Math.max(540, base.spawnMs - 240);
-        base.pJunk = Math.min(0.52, base.pJunk + 0.14);
-        base.pGood = Math.max(0.40, base.pGood - 0.12);
-        base.pStar += 0.01;
-        base.pShield += 0.02;
-      }else{
-        // storm: fast + junk heavy
-        base.spawnMs = 520;
-        base.pJunk = 0.46;
-        base.pGood = 0.46;
-        base.pStar = 0.03;
-        base.pShield = 0.05;
-      }
+      base.spawnMs = Math.max(520, base.spawnMs - 260);
+      base.pJunk = Math.min(0.52, base.pJunk + 0.16);
+      base.pGood = Math.max(0.40, base.pGood - 0.14);
+      base.pStar = base.pStar + 0.01;
+      base.pShield = base.pShield + 0.02;
     }
 
+    // ✅ safe: AI.getDifficulty always exists now
     const D = (adaptiveOn && aiOn)
-      ? AI_getDifficulty(played, base)
+      ? AI.getDifficulty(played, base)
       : (adaptiveOn ? {
           spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
           pGood: base.pGood - Math.min(0.10, played*0.002),
@@ -753,11 +638,13 @@ export function boot(opts={}){
     {
       let s = (D.pGood||0) + (D.pJunk||0) + (D.pStar||0) + (D.pShield||0);
       if(s <= 0) s = 1;
-      D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
-      D.spawnMs = clamp(D.spawnMs, 520, 1400);
+      D.pGood = (D.pGood||0)/s;
+      D.pJunk = (D.pJunk||0)/s;
+      D.pStar = (D.pStar||0)/s;
+      D.pShield = (D.pShield||0)/s;
     }
 
-    if(ts - S.lastSpawn >= D.spawnMs){
+    if(ts - S.lastSpawn >= (D.spawnMs||900)){
       S.lastSpawn = ts;
       const r = S.rng();
       if(r < D.pGood) spawn('good');
@@ -766,23 +653,10 @@ export function boot(opts={}){
       else spawn('shield');
     }
 
-    // boss stage timers
-    if(S.boss.active){
-      if(S.boss.mode === 'hp' && S.boss.startedAtSec != null){
-        if(played - S.boss.startedAtSec >= S.boss.durationSec){
-          // if not cleared HP by time -> fail boss
-          endBoss(false);
-        }
-      }
-      if(S.boss.mode === 'storm'){
-        if(S.boss.stormStartSec == null) S.boss.stormStartSec = played;
-        const left = S.boss.stormSec - (played - S.boss.stormStartSec);
-        updateBossUI();
-        if(left <= 0){
-          // survive success if miss not too high in boss goal spirit
-          const ok = (S.miss <= (diff==='hard' ? 7 : diff==='easy' ? 9 : 8));
-          endBoss(ok);
-        }
+    // boss duration end
+    if(S.boss.active && S.boss.startedAtSec != null){
+      if(played - S.boss.startedAtSec >= S.boss.durationSec){
+        endBoss(false);
       }
     }
 
@@ -795,21 +669,16 @@ export function boot(opts={}){
 
   // start
   S.started = true;
+  resetMiniWindow();
   setFever(S.fever);
   setShieldUI();
   setHUD();
-
-  // init mini at start
-  startMini(0);
-
   updateQuestUI();
   updateProgress();
-
-  // ensure boss bar hidden on start
   setBossUI(false);
 
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v5-mini-boss2', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.1-boss', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
