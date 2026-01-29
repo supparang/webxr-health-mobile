@@ -1,4 +1,4 @@
-// === js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
+// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
 'use strict';
 
 (function(){
@@ -11,7 +11,6 @@
     }
 
     _screenPosFromLane(lane){
-      // เอา center ของ lane มาเป็นตำแหน่ง FX
       const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
       if(!laneEl){
         const r = this.wrapEl.getBoundingClientRect();
@@ -19,13 +18,13 @@
       }
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
-      // เส้นตีอยู่เหนือ label นิดหน่อย (~42px จาก bottom)
-      const y = rect.top + rect.height - 42;
+      const y = rect.top + rect.height - 42; // hit line ~ bottom-42
       return { x, y };
     }
 
     _flash(kind){
       if(!this.flashEl) return;
+      // kind เผื่ออนาคตอยากแยกสี
       this.flashEl.classList.add('active');
       clearTimeout(this._flashT);
       this._flashT = setTimeout(()=>this.flashEl.classList.remove('active'), 140);
@@ -34,7 +33,7 @@
     _feedback(text, cls){
       if(!this.feedbackEl) return;
       this.feedbackEl.textContent = text;
-      this.feedbackEl.classList.remove('perfect','great','good','miss');
+      this.feedbackEl.classList.remove('perfect','great','good','miss','bomb'); // ✅ clear all
       if(cls) this.feedbackEl.classList.add(cls);
     }
 
@@ -42,6 +41,10 @@
       const p = this._screenPosFromLane(lane);
       this.spawnHitParticle(p.x, p.y, judgment);
       this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
+
+      // ✅ flash เล็กๆ ตอน hit ที่ดี
+      if(judgment === 'perfect' || judgment === 'great') this._flash('hit');
+
       this._feedback(judgment.toUpperCase(), judgment);
     }
 
