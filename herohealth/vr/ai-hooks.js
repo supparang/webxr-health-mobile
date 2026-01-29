@@ -1,209 +1,186 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — STABLE (Production-safe)
-// ✅ createAIHooks({game, mode, rng})
-// ✅ Methods: onEvent(name,payload), getTip(playedSec), getDifficulty(playedSec, base)
-// ✅ Safe fallback: always returns usable functions (prevents "is not a function")
-// ✅ Research/Study: default AI OFF (mode !== 'play') unless explicitly enabled via ?ai=1
+// HHA AI Hooks — PRODUCTION (Deterministic-friendly)
+// ✅ createAIHooks({ game, mode, rng })
+// ✅ getDifficulty(tSec, base) -> {spawnMs,pGood,pJunk,pStar,pShield}
+// ✅ getTip(tSec) -> {msg,tag} rate-limited
+// ✅ onEvent(type, payload)
+// Notes:
+// - "mode": 'play' => adaptive ON by default, 'research' => adaptive OFF by default
+// - still safe if caller uses only some methods
 
 'use strict';
 
-const WIN = window;
+export function createAIHooks(opts = {}){
+  const WIN = window;
+  const DOC = document;
 
-const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
-const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+  const game = String(opts.game || 'HHA').trim();
+  const mode = String(opts.mode || 'play').toLowerCase();
+  const rng  = (typeof opts.rng === 'function') ? opts.rng : Math.random;
 
-function defaultRng(){
-  return Math.random;
-}
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
 
-function shouldEnableAI(mode){
-  // play: AI on (director+coach) by default
-  // study/research: AI off unless ?ai=1
-  const aiParam = String(qs('ai','')).trim();
-  if(mode === 'play') return aiParam === '0' ? false : true;
-  return aiParam === '1';
-}
+  // ✅ allow override: ?ai=0 disables, ?ai=1 enables
+  const qAi = qs('ai', null);
+  const enabled =
+    (qAi === '0') ? false :
+    (qAi === '1') ? true  :
+    (mode === 'play');
 
-function pick(rng, arr){
-  const a = Array.isArray(arr) ? arr : [];
-  if(!a.length) return null;
-  const r = (typeof rng === 'function') ? rng() : Math.random();
-  const i = Math.max(0, Math.min(a.length-1, Math.floor(r * a.length)));
-  return a[i];
-}
-
-export function createAIHooks(cfg={}){
-  const game = String(cfg.game || 'HHA').trim() || 'HHA';
-  const mode = String(cfg.mode || 'play').toLowerCase();
-  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : defaultRng();
-
-  const enabled = shouldEnableAI(mode);
-
-  // lightweight rolling stats (no ML heavy) — “AI Director” แบบ explainable
-  const M = {
+  // --- rolling stats (simple + fair) ---
+  const S = {
     enabled,
-    game,
-    mode,
-    t0: nowMs(),
-    lastTipAt: 0,
-    tipCooldownMs: 2600,
+    tLastTip: 0,
+    tipCooldownMs: 6500,
 
-    // window stats
-    events: [],
-    windowMs: 9000,
+    // counters
+    hitGood: 0,
+    hitJunk: 0,
+    miss: 0,          // (expired good) or other miss events
+    comboMax: 0,
 
-    // derived
-    missRate: 0,      // per sec-ish
-    junkHitRate: 0,
-    goodHitRate: 0,
-    expireRate: 0,
-    comboMax: 0
+    // streaks
+    missStreak: 0,
+    goodStreak: 0,
+
+    // EWMA skill
+    skill: 0.55,      // 0..1
+    stress: 0.20,     // 0..1 (higher => ease a bit)
+
+    // last event time
+    lastEvMs: 0
   };
 
-  function prune(now){
-    const cut = now - M.windowMs;
-    while(M.events.length && M.events[0].t < cut) M.events.shift();
+  function nowMs(){
+    try{ return performance.now(); }catch(_){ return Date.now(); }
   }
 
-  function updateRates(now){
-    prune(now);
-    const dt = Math.max(1, M.windowMs/1000);
-    let miss=0, junk=0, good=0, exp=0;
-    let comboMax=0;
-
-    for(const e of M.events){
-      if(e.name === 'miss') miss++;
-      else if(e.name === 'hitJunk') junk++;
-      else if(e.name === 'hitGood') good++;
-      else if(e.name === 'expireGood') exp++;
-      if(typeof e.comboMax === 'number') comboMax = Math.max(comboMax, e.comboMax);
-    }
-
-    M.missRate = miss/dt;
-    M.junkHitRate = junk/dt;
-    M.goodHitRate = good/dt;
-    M.expireRate = exp/dt;
-    M.comboMax = comboMax;
+  function updateEWMA(prev, x, a){
+    return prev*(1-a) + x*a;
   }
 
-  function onEvent(name, payload={}){
-    if(!M.enabled) return;
-    const t = (typeof payload.t === 'number') ? payload.t : nowMs();
-    M.events.push({ t, name, comboMax: payload.comboMax });
-    updateRates(t);
+  // caller not required to call, but good for telemetry
+  function onEvent(type, payload = {}){
+    if(!S.enabled) return;
+
+    const t = Number(payload.t || nowMs());
+    S.lastEvMs = t;
+
+    if(type === 'hitGood'){
+      S.hitGood++;
+      S.goodStreak++;
+      S.missStreak = 0;
+
+      // accuracy proxy: good => 1
+      S.skill = updateEWMA(S.skill, 1.0, 0.06);
+      S.stress = updateEWMA(S.stress, 0.10, 0.05);
+    }
+    else if(type === 'hitJunk'){
+      S.hitJunk++;
+      S.missStreak++;
+      S.goodStreak = 0;
+
+      // junk => 0
+      S.skill = updateEWMA(S.skill, 0.0, 0.08);
+      S.stress = updateEWMA(S.stress, 0.75, 0.08);
+    }
+    else if(type === 'miss'){
+      S.miss++;
+      S.missStreak++;
+      S.goodStreak = 0;
+
+      S.skill = updateEWMA(S.skill, 0.15, 0.07);
+      S.stress = updateEWMA(S.stress, 0.85, 0.08);
+    }
+    else if(type === 'comboMax'){
+      const cm = clamp(payload.value, 0, 999);
+      S.comboMax = Math.max(S.comboMax, cm);
+    }
   }
 
-  // Coach micro-tips (rate-limited)
-  function getTip(playedSec){
-    if(!M.enabled) return null;
+  // --- Difficulty Director (fair & smooth) ---
+  function getDifficulty(tSec, base){
+    // base: {spawnMs,pGood,pJunk,pStar,pShield}
+    const B = Object.assign({}, base || {});
+    if(!S.enabled) return B;
 
-    const t = nowMs();
-    if(t - M.lastTipAt < M.tipCooldownMs) return null;
+    const t = clamp(tSec, 0, 9999);
 
-    // only start tips after a few seconds
-    if((playedSec||0) < 6) return null;
+    // smooth ramp with time (0..1)
+    const ramp = clamp((t - 6) / 24, 0, 1);
 
-    // heuristics — explainable
-    const tips = [];
+    // skill & stress shaping
+    const skill = clamp(S.skill, 0.05, 0.95);
+    const stress = clamp(S.stress, 0, 1);
 
-    if(M.junkHitRate >= 0.25){
-      tips.push({ msg:'ระวังของเสีย! ลอง “รอให้ดีโผล่กลางจอ” แล้วค่อยยิง จะ MISS ลดลง 👀', tag:'Coach' });
-    }
-    if(M.expireRate >= 0.25){
-      tips.push({ msg:'ของดีหมดไว! ลองกวาดสายตาเป็นรูป “ตัว Z” จะเก็บทันมากขึ้น ⚡', tag:'Coach' });
-    }
-    if(M.goodHitRate < 0.35 && (M.junkHitRate > 0.10)){
-      tips.push({ msg:'โฟกัสของดีเป็นหลักก่อนนะ แล้วค่อยไล่คอมโบ 🔥', tag:'Coach' });
-    }
-    if(M.comboMax >= 7){
-      tips.push({ msg:'คอมโบกำลังดีมาก! รักษาจังหวะเดิม แล้วคะแนนจะพุ่งเร็ว 🚀', tag:'Coach' });
+    // aim: harder when skill high, easier when stress high
+    const hardBias = clamp((skill - 0.55) * 0.9 - (stress - 0.25) * 0.7, -0.35, 0.35);
+
+    // spawnMs adjust (cap changes)
+    let spawnMs = Number(B.spawnMs || 900);
+    spawnMs = spawnMs * (1 - 0.16*ramp) * (1 - 0.18*hardBias);
+
+    // keep playable bounds
+    spawnMs = clamp(spawnMs, 520, 1100);
+
+    // probabilities adjust (small nudges)
+    let pGood   = clamp(Number(B.pGood   ?? 0.70), 0.10, 0.90);
+    let pJunk   = clamp(Number(B.pJunk   ?? 0.26), 0.05, 0.85);
+    let pStar   = clamp(Number(B.pStar   ?? 0.02), 0.00, 0.20);
+    let pShield = clamp(Number(B.pShield ?? 0.02), 0.00, 0.20);
+
+    // when harder: slightly more junk, less good
+    const delta = 0.06 * hardBias + 0.05*ramp;
+    pJunk = clamp(pJunk + delta, 0.06, 0.60);
+    pGood = clamp(pGood - delta, 0.35, 0.85);
+
+    // stress safety: give more shield/star if struggling
+    const help = clamp((stress - 0.35) * 0.12, 0, 0.08);
+    if(help > 0){
+      pShield = clamp(pShield + help*0.65, 0.01, 0.12);
+      pStar   = clamp(pStar   + help*0.35, 0.01, 0.10);
+      // compensate by taking from junk a bit
+      pJunk   = clamp(pJunk - help*0.60, 0.06, 0.60);
     }
 
-    const tip = pick(rng, tips);
-    if(tip){
-      M.lastTipAt = t;
-      return tip;
+    return { spawnMs, pGood, pJunk, pStar, pShield };
+  }
+
+  // --- AI Coach tips (rate-limited) ---
+  function getTip(tSec){
+    if(!S.enabled) return null;
+
+    const now = nowMs();
+    if(now - S.tLastTip < S.tipCooldownMs) return null;
+
+    // conditions
+    if(S.missStreak >= 3){
+      S.tLastTip = now;
+      return { tag:'AI Coach', msg:'ลอง “หยุดเร็วครึ่งวิ” ก่อนยิงนะ 🎯 โฟกัสของดีทีละอัน จะลด MISS ได้มาก' };
     }
+    if(S.hitJunk >= 3 && S.hitGood < 6){
+      S.tLastTip = now;
+      return { tag:'AI Coach', msg:'จำง่าย ๆ: ของดี “อาหารหลัก” ยิงเลย ✅ ของเสีย “ทอด/หวาน/น้ำอัดลม” เลี่ยงทันที' };
+    }
+    if(S.goodStreak >= 6){
+      S.tLastTip = now;
+      return { tag:'AI Coach', msg:'คอมโบกำลังมา! 🔥 รักษาจังหวะเดิม แล้วรอของดีชัด ๆ ไม่ต้องรีบ' };
+    }
+
+    // occasional neutral tip
+    if(rng() < 0.14){
+      S.tLastTip = now;
+      return { tag:'AI Coach', msg:'ทริค: ถ้าเริ่มพลาดติด ๆ กัน ให้เน้น “ของดีใกล้กลางจอ” ก่อน จะคุมง่ายขึ้น' };
+    }
+
     return null;
   }
 
-  // ✅ Director: returns adjusted spawnMs + probabilities
-  function getDifficulty(playedSec, base){
-    // Always return a valid object
-    const b = Object.assign(
-      { spawnMs: 900, pGood:0.70, pJunk:0.26, pStar:0.02, pShield:0.02 },
-      (base||{})
-    );
-
-    if(!M.enabled){
-      // AI OFF: return base (sanitized)
-      return sanitize(b);
-    }
-
-    // simple ramp over time (mild)
-    const p = clamp((playedSec||0)/Math.max(1, (Number(qs('time','80'))||80)), 0, 1);
-
-    // performance pressure: if junk hits high => slightly slow spawn + slightly more shield
-    // if good hits high and junk low => slightly faster spawn + slightly more junk
-    let spawnMs = b.spawnMs;
-    let pGood   = b.pGood;
-    let pJunk   = b.pJunk;
-    let pStar   = b.pStar;
-    let pShield = b.pShield;
-
-    // time-based excitement
-    spawnMs = spawnMs - (p*140); // up to -140ms
-
-    // error-protection
-    if(M.junkHitRate >= 0.22 || M.missRate >= 0.22){
-      spawnMs = spawnMs + 90;
-      pShield = pShield + 0.018;
-      pStar   = pStar   + 0.006;
-      pJunk   = pJunk   - 0.020;
-      pGood   = pGood   - 0.004;
-    }else if(M.goodHitRate >= 0.55 && M.junkHitRate <= 0.10){
-      spawnMs = spawnMs - 70;
-      pJunk   = pJunk   + 0.026;
-      pGood   = pGood   - 0.018;
-    }
-
-    // keep in bounds
-    spawnMs = clamp(spawnMs, 520, 1150);
-
-    return sanitize({ spawnMs, pGood, pJunk, pStar, pShield });
-  }
-
-  function sanitize(D){
-    const out = Object.assign({}, D);
-    out.spawnMs = clamp(out.spawnMs, 420, 1600);
-
-    // normalize
-    let s = (out.pGood||0) + (out.pJunk||0) + (out.pStar||0) + (out.pShield||0);
-    if(!(s > 0)) s = 1;
-    out.pGood = (out.pGood||0)/s;
-    out.pJunk = (out.pJunk||0)/s;
-    out.pStar = (out.pStar||0)/s;
-    out.pShield = (out.pShield||0)/s;
-
-    // clamp probs (avoid negative)
-    out.pGood = clamp(out.pGood, 0.05, 0.92);
-    out.pJunk = clamp(out.pJunk, 0.05, 0.75);
-    out.pStar = clamp(out.pStar, 0.00, 0.12);
-    out.pShield = clamp(out.pShield, 0.00, 0.12);
-
-    // re-normalize again
-    let ss = out.pGood + out.pJunk + out.pStar + out.pShield;
-    out.pGood/=ss; out.pJunk/=ss; out.pStar/=ss; out.pShield/=ss;
-
-    return out;
-  }
-
-  // Always return full API (never missing funcs)
-  return Object.freeze({
+  return {
     enabled,
     onEvent,
-    getTip,
-    getDifficulty
-  });
+    getDifficulty,
+    getTip
+  };
 }
