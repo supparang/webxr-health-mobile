@@ -1,4 +1,4 @@
-// === /herohealth/vr/ai-coach.js === 
+// === /herohealth/vr/ai-coach.js ===
 // AI Coach — PRODUCTION (HHA Standard)
 // ✅ createAICoach({ emit, game, cooldownMs })
 // ✅ Explainable micro-tips + rate-limit + anti-spam
@@ -64,7 +64,6 @@ export function createAICoach(cfg={}){
   }
 
   function sayUrgent(key, text, why){
-    // urgent tips bypass some cooldown (still avoids spam by key)
     const t = nowMs();
     const last = S.lastKeyAt.get(key) || 0;
     if (t - last < 750) return false;
@@ -84,7 +83,6 @@ export function createAICoach(cfg={}){
     S.seenEndWindow = false;
     S.lastState = null;
 
-    // small welcome (only once)
     say('start', 'เริ่มแล้ว! โฟกัสยิง 💧 ให้แม่น ๆ แล้วลากคอมโบยาว ๆ', 'คอมโบช่วยดันคะแนนและเกรด');
   }
 
@@ -105,7 +103,6 @@ export function createAICoach(cfg={}){
     }catch(_){}
   }
 
-  // Heuristic coach for Hydration (but generic-friendly)
   function onUpdate(st){
     if (!S.started || !st) return;
 
@@ -120,14 +117,12 @@ export function createAICoach(cfg={}){
     const misses = (st.misses|0);
     const combo = (st.combo|0);
 
-    // 0) panic control
     if (frustration > 0.82 && misses > S.lastMiss + 2){
       if (say('calm', 'ใจเย็น ๆ ลดการรัวก่อน แล้วโฟกัสยิงทีละเป้าให้ชัวร์', 'รัวมั่ว = MISS เพิ่มเร็วมาก')){
         S.quietUntil = nowMs() + 1200;
       }
     }
 
-    // 1) accuracy/skill tips
     if (!inStorm && skill < 0.38 && misses >= 6){
       say('aim', 'เล็งให้นิ่งนิดนึงก่อนยิง 💧 จะคุมเกจง่ายขึ้นมาก', 'ยิงแม่นช่วยคุมโซนได้เร็ว');
     }
@@ -135,13 +130,11 @@ export function createAICoach(cfg={}){
       say('combo', 'คอมโบกำลังมา! รักษาจังหวะ อย่าเสี่ยงยิง BAD', 'คอมโบยาว = คะแนนไหล');
     }
 
-    // 2) water zone nudges (hydration-specific tone)
     if (!inStorm){
       if (waterZone === 'LOW')  say('water_low',  'น้ำต่ำไป → เน้นยิง 💧 ต่อเนื่องให้กลับ GREEN', 'อยู่ GREEN นาน ๆ จะผ่าน Stage1 เร็ว');
       if (waterZone === 'HIGH') say('water_high', 'น้ำสูงไป → หลีกเลี่ยงยิงมั่ว/โดน 🥤 แล้วค่อยคุมกลับ GREEN', 'โดน BAD จะดันน้ำหลุดโซน');
     }
 
-    // 3) storm tips
     if (inStorm && !S.seenStorm){
       S.seenStorm = true;
       say('storm_intro', 'STORM มาแล้ว! ทำ “LOW/HIGH” ให้ตรงคำสั่ง แล้วเก็บ 🛡️ ไว้ BLOCK ช่วงท้าย', 'Mini ผ่านต้องครบเงื่อนไข');
@@ -151,19 +144,16 @@ export function createAICoach(cfg={}){
       say('no_shield', 'ตอนนี้ไม่มี 🛡️! หา 🛡️ ก่อนเข้า End Window จะปลอดภัยกว่า', 'BLOCK ช่วงท้ายต้องใช้ 🛡️');
     }
 
-    // 4) end-window urgent coaching
     if (inEndWindow && !S.seenEndWindow){
       S.seenEndWindow = true;
       sayUrgent('endwindow_now', 'END WINDOW! ตอนนี้ให้ “BLOCK” เป็นหลัก (อย่าเสี่ยงโดน BAD)', 'ช่วงท้ายคือจุดตัดสิน Mini/Boss');
     }
     if (!inEndWindow) S.seenEndWindow = false;
 
-    // 5) fatigue guidance
     if (fatigue > 0.74 && combo === 0 && misses > 10){
       say('fatigue', 'ใกล้หมดเวลาแล้ว: เล่นแบบ “ชัวร์” ลดความเสี่ยง จะดันเกรดขึ้นได้', 'ปลายเกมเน้นความปลอดภัย');
     }
 
-    // update memory
     S.lastCombo = combo;
     S.lastMiss = misses;
     S.lastAcc = clamp(skill*100, 0, 100);
