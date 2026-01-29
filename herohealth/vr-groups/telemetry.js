@@ -1,438 +1,395 @@
 // === /herohealth/vr-groups/telemetry.js ===
-// GroupsVR Telemetry — PRODUCTION (Pack 13.95)
-// ✅ mode: off | lite | full
-// ✅ throttle per event type + batch queue
-// ✅ autoDowngrade by FPS (full->lite->off)
-// ✅ flush-hardened: sendBeacon fallback, retry window
-// ✅ emits: window event "groups:telemetry_auto" {kind:'switch', from,to,fps}
-// ✅ safe no-op if endpoint missing or mode=off
-//
-// Public API (window.GroupsVR.Telemetry):
-// - init(cfg)
-// - track(type, payload, opts?)
-// - mark(name, payload?)
-// - setMode(mode, reason?)
-// - flush(reason?)
-// - getState()
+// Telemetry — PACK 13.95 (GroupsVR)
+// ✅ Modes: full | lite | off (default: lite on mobile, full on pc)
+// ✅ Auto downgrade by FPS: full -> lite -> off (emit groups:telemetry_auto)
+// ✅ Throttle spammy events + batch queue
+// ✅ Flush-hardened: pagehide/visibilitychange/beforeunload + sendBeacon/fetch keepalive
+// ✅ Safe when endpoint missing (collect in-memory only, no errors)
+// ✅ Can override via ?tele=full|lite|off
 
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
+  if (!DOC || WIN.__HHA_GROUPS_TELE_LOADED__) return;
+  WIN.__HHA_GROUPS_TELE_LOADED__ = true;
 
   WIN.GroupsVR = WIN.GroupsVR || {};
-  if (WIN.GroupsVR.Telemetry && WIN.GroupsVR.Telemetry.__loaded__) return;
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>{ try{ return performance.now(); }catch{ return Date.now(); } };
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
 
-  // ---------- defaults ----------
-  const DEF = {
-    mode: 'off',            // off|lite|full
-    runMode: 'play',        // play|research|practice
-    endpoint: '',
-
-    seed: '',
-    diff: 'normal',
-    style: 'mix',
-    view: 'pc',
-
-    flushEveryMs: 2000,
-    statusEveryMs: 850,
-
-    maxEventsPerBatch: 60,
-    maxQueueBatches: 16,
-
-    autoDowngrade: true,
-    fpsWindowMs: 1800,
-    fpsLiteBelow: 34,
-    fpsOffBelow: 24,
-
-    // Throttle map (ms) — prevent spam
-    throttleMs: {
-      'shot': 90,
-      'hit': 70,
-      'miss': 120,
-      'judge': 180,
-      'coach': 800,
-      'quest': 250,
-      'progress': 260,
-      'power': 220,
-      'time': 500,
-      'score': 280,
-      'ui': 400
-    }
-  };
-
-  // ---------- state ----------
-  const S = {
-    inited: false,
-    mode: 'off',
-    endpoint: '',
-    runMode: 'play',
-    ctx: {},
-    queue: [],          // array of batches {t0, events:[]}
-    lastFlushMs: 0,
-    lastStatusMs: 0,
-    lastTypeMs: Object.create(null),
-
-    // fps sampler
-    fps: {
-      enabled: false,
-      lastRAF: 0,
-      frames: 0,
-      t0: 0,
-      lastFps: 60,
-      rafId: 0
-    },
-
-    // retry
-    flushing: false,
-    failCount: 0
-  };
-
-  // ---------- helpers ----------
-  function isModeValid(m){ return (m==='off'||m==='lite'||m==='full'); }
-
-  function baseEvent(type, payload){
-    return {
-      ts: Date.now(),
-      type: String(type||'event'),
-      runMode: S.runMode,
-      mode: S.mode,
-      view: S.ctx.view || 'pc',
-      seed: S.ctx.seed || '',
-      diff: S.ctx.diff || 'normal',
-      style: S.ctx.style || 'mix',
-      payload: payload || {}
-    };
+  function isLikelyMobile(){
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer: coarse)').matches);
   }
 
-  function ensureBatch(){
-    let b = S.queue[S.queue.length-1];
-    if (!b || (b.events && b.events.length >= (S.ctx.maxEventsPerBatch||DEF.maxEventsPerBatch))){
-      b = { t0: Date.now(), events: [] };
-      S.queue.push(b);
-      if (S.queue.length > (S.ctx.maxQueueBatches||DEF.maxQueueBatches)){
-        // drop oldest batch to keep memory safe
-        S.queue.shift();
-        emit('groups:telemetry_auto', { kind:'drop', reason:'maxQueueBatches' });
-      }
-    }
-    return b;
-  }
+  // -------------------------
+  // Transport (beacon/fetch)
+  // -------------------------
+  async function postJson(url, payload){
+    if (!url) return false;
+    const body = JSON.stringify(payload);
 
-  function throttleOk(type){
-    const t = String(type||'event');
-    const map = S.ctx.throttleMs || DEF.throttleMs;
-    const ms = clamp(map[t] ?? 120, 0, 5000);
-    if (!ms) return true;
-
-    const last = Number(S.lastTypeMs[t]||0);
-    const n = nowMs();
-    if (n - last < ms) return false;
-    S.lastTypeMs[t] = n;
-    return true;
-  }
-
-  function canSend(){
-    if (!S.inited) return false;
-    if (!S.endpoint) return false;
-    if (S.mode === 'off') return false;
-    return true;
-  }
-
-  // ---------- fps auto downgrade ----------
-  function fpsStart(){
-    if (!S.ctx.autoDowngrade) return;
-    if (S.fps.rafId) return;
-
-    S.fps.enabled = true;
-    S.fps.lastRAF = 0;
-    S.fps.frames = 0;
-    S.fps.t0 = nowMs();
-
-    const tick = (t)=>{
-      if (!S.fps.enabled) return;
-      if (!S.fps.lastRAF) S.fps.lastRAF = t;
-      S.fps.frames++;
-
-      const elapsed = t - S.fps.t0;
-      const winMs = clamp(S.ctx.fpsWindowMs ?? DEF.fpsWindowMs, 800, 5000);
-
-      if (elapsed >= winMs){
-        const fps = Math.round((S.fps.frames / (elapsed/1000)) * 10) / 10;
-        S.fps.lastFps = fps;
-        S.fps.frames = 0;
-        S.fps.t0 = t;
-
-        // downgrade logic (only in play)
-        if (S.runMode === 'play'){
-          const liteBelow = Number(S.ctx.fpsLiteBelow ?? DEF.fpsLiteBelow);
-          const offBelow  = Number(S.ctx.fpsOffBelow  ?? DEF.fpsOffBelow);
-
-          if (S.mode === 'full' && fps < liteBelow){
-            setModeInternal('lite', `fps<${liteBelow}`, fps);
-          }else if ((S.mode === 'full' || S.mode === 'lite') && fps < offBelow){
-            setModeInternal('off', `fps<${offBelow}`, fps);
-          }
-        }
-      }
-
-      S.fps.rafId = WIN.requestAnimationFrame(tick);
-    };
-
-    S.fps.rafId = WIN.requestAnimationFrame(tick);
-  }
-
-  function fpsStop(){
-    S.fps.enabled = false;
-    if (S.fps.rafId){
-      try{ WIN.cancelAnimationFrame(S.fps.rafId); }catch(_){}
-      S.fps.rafId = 0;
-    }
-  }
-
-  function setModeInternal(next, reason, fps){
-    if (!isModeValid(next)) return;
-    const prev = S.mode;
-    if (prev === next) return;
-
-    S.mode = next;
-
-    emit('groups:telemetry_auto', {
-      kind:'switch',
-      from: prev,
-      to: next,
-      reason: String(reason||''),
-      fps: (typeof fps === 'number') ? fps : S.fps.lastFps
-    });
-
-    // also store a marker (no throttle)
+    // try beacon first
     try{
-      const b = ensureBatch();
-      b.events.push(baseEvent('telemetry_mode', { from: prev, to: next, reason, fps: S.fps.lastFps }));
+      if (navigator.sendBeacon){
+        const ok = navigator.sendBeacon(url, new Blob([body], { type:'application/json' }));
+        if (ok) return true;
+      }
     }catch(_){}
-  }
 
-  // ---------- network send ----------
-  async function postJson(url, body){
-    // fetch first
+    // fallback fetch keepalive
     try{
-      const r = await fetch(url, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type':'application/json' },
-        body: JSON.stringify(body),
-        keepalive: true
+        body,
+        keepalive: true,
+        mode: 'cors',
+        credentials: 'omit'
       });
-      return !!(r && r.ok);
+      return !!res && (res.ok || (res.status>=200 && res.status<300));
     }catch(_){
-      // fallback to sendBeacon
+      return false;
+    }
+  }
+
+  // -------------------------
+  // Telemetry core
+  // -------------------------
+  const Tele = {
+    _inited: false,
+    _mode: 'lite',              // full|lite|off
+    _runMode: 'play',           // play|research|practice
+    _endpoint: '',
+    _flushEveryMs: 2000,
+    _statusEveryMs: 850,
+    _maxEventsPerBatch: 60,
+    _maxQueueBatches: 16,
+
+    _queue: [],                 // batches [{t, events:[...]}]
+    _cur: null,                 // current batch
+    _lastFlushAt: 0,
+    _lastStatusAt: 0,
+    _lastEventAtByType: Object.create(null),
+
+    _fps: 60,
+    _fpsMode: 'full',           // monitoring state
+    _autoEnabled: true,
+    _rafId: 0,
+
+    // ---- config ----
+    init(cfg){
+      if (this._inited) return;
+      this._inited = true;
+
+      cfg = cfg || {};
+      this._runMode = String(cfg.runMode || 'play');
+      this._endpoint = String(cfg.endpoint || qs('log','') || '');
+      this._flushEveryMs = clamp(cfg.flushEveryMs ?? 2000, 600, 8000);
+      this._statusEveryMs= clamp(cfg.statusEveryMs ?? 850, 400, 3000);
+      this._maxEventsPerBatch = clamp(cfg.maxEventsPerBatch ?? 60, 20, 200);
+      this._maxQueueBatches   = clamp(cfg.maxQueueBatches ?? 16, 4, 60);
+
+      // decide base mode
+      let forced = String(qs('tele','') || qs('telemetry','') || '').toLowerCase().trim();
+      if (forced === '0' || forced === 'off' || forced === 'false') forced = 'off';
+      if (forced === '1' || forced === 'on'  || forced === 'true')  forced = 'lite';
+
+      if (forced === 'full' || forced === 'lite' || forced === 'off'){
+        this._mode = forced;
+        this._autoEnabled = false;
+      } else {
+        // default: research/practice => off, play => lite on mobile, full on pc
+        if (this._runMode === 'research' || this._runMode === 'practice'){
+          this._mode = 'off';
+        } else {
+          this._mode = isLikelyMobile() ? 'lite' : 'full';
+        }
+        this._autoEnabled = true;
+      }
+
+      // start batch
+      this._cur = { t: Date.now(), events: [] };
+
+      // hooks
+      this._installListeners();
+      this._installFlushHardened();
+
+      // FPS monitor (only if auto enabled and not forced off)
+      if (this._autoEnabled && this._mode !== 'off' && this._runMode === 'play'){
+        this._startFpsMonitor();
+      }
+
+      // ping status
+      this._emitAuto('init', { to:this._mode, fps:this._fps, runMode:this._runMode, endpoint: !!this._endpoint });
+    },
+
+    mode(){ return this._mode; },
+
+    setMode(m, reason){
+      m = String(m||'').toLowerCase();
+      if (!(m==='full' || m==='lite' || m==='off')) return;
+      if (this._mode === m) return;
+
+      const from = this._mode;
+      this._mode = m;
+
+      this._emitAuto('switch', { from, to:m, fps:this._fps, reason: String(reason||'') });
+    },
+
+    _emitAuto(kind, extra){
       try{
-        const blob = new Blob([JSON.stringify(body)], { type:'application/json' });
-        return !!navigator.sendBeacon(url, blob);
-      }catch(_2){
-        return false;
+        WIN.dispatchEvent(new CustomEvent('groups:telemetry_auto', {
+          detail: Object.assign({ kind }, extra||{})
+        }));
+      }catch(_){}
+    },
+
+    // ---- event logging ----
+    log(type, data, opts){
+      if (!this._inited) return;
+      if (this._mode === 'off') return;
+
+      type = String(type||'evt');
+      data = data || {};
+      opts = opts || {};
+
+      // throttle per type
+      const minGap = clamp(opts.minGapMs ?? this._throttleFor(type), 0, 5000);
+      if (minGap > 0){
+        const t = nowMs();
+        const last = this._lastEventAtByType[type] || 0;
+        if (t - last < minGap) return;
+        this._lastEventAtByType[type] = t;
       }
-    }
-  }
 
-  async function flush(reason){
-    if (!canSend()) return false;
-    if (S.flushing) return false;
-    if (!S.queue.length) return true;
+      // lite mode drops heavy payloads
+      let payload = data;
+      if (this._mode === 'lite'){
+        payload = this._liteFilter(type, data);
+      }
 
-    S.flushing = true;
-
-    // take one batch at a time to keep payload small
-    const batch = S.queue[0];
-    const payload = {
-      meta: Object.assign({
+      // append
+      if (!this._cur) this._cur = { t: Date.now(), events: [] };
+      this._cur.events.push({
         ts: Date.now(),
-        reason: String(reason||'tick'),
-        runMode: S.runMode,
-        mode: S.mode
-      }, S.ctx || {}),
-      events: (batch && batch.events) ? batch.events.slice(0) : []
-    };
+        type,
+        d: payload
+      });
 
-    let ok = false;
-    try{
-      ok = await postJson(S.endpoint, payload);
-    }catch(_){
-      ok = false;
-    }
-
-    if (ok){
-      S.queue.shift();
-      S.failCount = 0;
-    }else{
-      S.failCount++;
-      // if repeatedly failing, stop sending but keep minimal queue
-      if (S.failCount >= 6){
-        setModeInternal('off', 'network_fail', S.fps.lastFps);
-        // drop old queue to avoid memory
-        while (S.queue.length > 2) S.queue.shift();
-      }
-    }
-
-    S.lastFlushMs = nowMs();
-    S.flushing = false;
-    return ok;
-  }
-
-  // ---------- API ----------
-  function init(cfg){
-    cfg = cfg || {};
-    S.ctx = Object.assign({}, DEF, cfg);
-
-    S.endpoint = String(S.ctx.endpoint || '');
-    S.runMode  = String(S.ctx.runMode || 'play');
-    S.mode     = isModeValid(S.ctx.mode) ? S.ctx.mode : DEF.mode;
-
-    // Hard safety: research/practice force off
-    if (S.runMode !== 'play') S.mode = 'off';
-
-    S.inited = true;
-
-    // FPS sampling only when play & autoDowngrade
-    if (S.runMode === 'play' && S.ctx.autoDowngrade && S.mode !== 'off') fpsStart();
-    else fpsStop();
-
-    // periodic flush tick
-    const flushEveryMs = clamp(S.ctx.flushEveryMs ?? DEF.flushEveryMs, 300, 10000);
-    const statusEveryMs= clamp(S.ctx.statusEveryMs?? DEF.statusEveryMs, 350, 3000);
-
-    // one-time marker
-    try{
-      const b = ensureBatch();
-      b.events.push(baseEvent('telemetry_init', {
-        endpoint: !!S.endpoint,
-        mode: S.mode,
-        runMode: S.runMode,
-        view: S.ctx.view,
-        diff: S.ctx.diff,
-        style: S.ctx.style
-      }));
-    }catch(_){}
-
-    // tick loop (lightweight)
-    let alive = true;
-    function tick(){
-      if (!alive) return;
-
-      const n = nowMs();
-
-      if (canSend() && (n - S.lastFlushMs >= flushEveryMs)){
-        flush('tick');
-      }
-
-      // optional status event
-      if (canSend() && (n - S.lastStatusMs >= statusEveryMs)){
-        S.lastStatusMs = n;
-        if (S.mode !== 'off'){
-          // status is lite-safe
-          const b = ensureBatch();
-          b.events.push(baseEvent('status', {
-            fps: S.fps.lastFps,
-            q: S.queue.length,
-            fail: S.failCount
-          }));
+      // rotate batch
+      if (this._cur.events.length >= this._maxEventsPerBatch){
+        this._queue.push(this._cur);
+        this._cur = { t: Date.now(), events: [] };
+        if (this._queue.length > this._maxQueueBatches){
+          // drop oldest (never throw)
+          this._queue.shift();
         }
       }
 
-      setTimeout(tick, 180);
+      // periodic flush
+      const tNow = nowMs();
+      if (tNow - this._lastFlushAt >= this._flushEveryMs){
+        this.flush(false);
+        this._lastFlushAt = tNow;
+      }
+    },
+
+    _throttleFor(type){
+      // sane defaults
+      if (type === 'hha:time') return 900;         // once/0.9s
+      if (type === 'hha:score')return 260;         // ~4/s
+      if (type === 'quest:update') return 350;     // ~3/s
+      if (type === 'groups:ai_predict') return 1200;
+      return 0;
+    },
+
+    _liteFilter(type, d){
+      // keep key signals only
+      try{
+        if (type === 'hha:time')  return { left: d.left };
+        if (type === 'hha:score') return { score:d.score, combo:d.combo, misses:d.misses };
+        if (type === 'hha:rank')  return { grade:d.grade, accuracy:d.accuracy };
+        if (type === 'quest:update') return {
+          goalNow:d.goalNow, goalTotal:d.goalTotal,
+          miniNow:d.miniNow, miniTotal:d.miniTotal,
+          miniTimeLeftSec:d.miniTimeLeftSec,
+          groupKey:d.groupKey
+        };
+        if (type === 'hha:judge') return { ok:!!d.ok, group:d.groupKey || d.group };
+        if (type === 'groups:progress') return { kind:d.kind };
+        if (type === 'groups:ai_predict') return { r:d.r, acc:d.acc, combo:d.combo, left:d.left, storm:d.storm, miniU:d.miniU };
+        return d && typeof d === 'object' ? d : { v:d };
+      }catch(_){
+        return { ok:true };
+      }
+    },
+
+    // ---- flush ----
+    async flush(force){
+      if (!this._inited) return false;
+      if (this._mode === 'off') return false;
+
+      const endpoint = this._endpoint;
+      if (!endpoint){
+        // nothing to send (still keep in memory)
+        return false;
+      }
+
+      // build batches
+      const out = [];
+      if (this._cur && this._cur.events && this._cur.events.length){
+        // keep current as batch too (do not clear if not forced)
+        out.push(this._cur);
+        if (force){
+          this._cur = { t: Date.now(), events: [] };
+        }
+      }
+      while (this._queue.length){
+        out.unshift(this._queue.shift());
+      }
+      if (!out.length) return false;
+
+      const ctx = (WIN.GroupsVR && WIN.GroupsVR.getResearchCtx) ? WIN.GroupsVR.getResearchCtx() : {};
+      const meta = {
+        projectTag: 'HeroHealth',
+        gameTag: 'GroupsVR',
+        runMode: this._runMode,
+        view: String(qs('view','')||''),
+        diff: String(qs('diff','')||''),
+        time: Number(qs('time','')||0),
+        seed: String(qs('seed','')||''),
+        ua: navigator.userAgent || '',
+        ts: Date.now()
+      };
+
+      const payload = { meta: Object.assign(meta, ctx), batches: out };
+
+      const ok = await postJson(endpoint, payload);
+      if (!ok){
+        // if failed, re-queue (bounded)
+        try{
+          for (let i=0;i<out.length;i++){
+            this._queue.push(out[i]);
+            if (this._queue.length > this._maxQueueBatches){
+              this._queue.shift();
+            }
+          }
+        }catch(_){}
+      }
+      return ok;
+    },
+
+    // ---- listeners ----
+    _installListeners(){
+      const on = (name, fn)=> WIN.addEventListener(name, fn, { passive:true });
+
+      on('hha:time', (ev)=> this.log('hha:time', ev.detail||{}, { minGapMs: this._throttleFor('hha:time') }));
+      on('hha:score',(ev)=> this.log('hha:score',ev.detail||{}, { minGapMs: this._throttleFor('hha:score') }));
+      on('hha:rank', (ev)=> this.log('hha:rank', ev.detail||{}, { minGapMs: this._throttleFor('hha:rank') }));
+      on('hha:judge',(ev)=> this.log('hha:judge',ev.detail||{}, { minGapMs: this._throttleFor('hha:judge') }));
+      on('quest:update',(ev)=> this.log('quest:update',ev.detail||{}, { minGapMs: this._throttleFor('quest:update') }));
+      on('groups:power',(ev)=> this.log('groups:power',ev.detail||{}, { minGapMs: 280 }));
+      on('groups:progress',(ev)=> this.log('groups:progress',ev.detail||{}, { minGapMs: 60 }));
+      on('groups:ai_predict',(ev)=> this.log('groups:ai_predict',ev.detail||{}, { minGapMs: this._throttleFor('groups:ai_predict') }));
+      on('hha:end',(ev)=> {
+        this.log('hha:end', ev.detail||{}, { minGapMs: 0 });
+        // force flush at end (best effort)
+        this.flush(true);
+      });
+    },
+
+    _installFlushHardened(){
+      const safeFlush = ()=>{ try{ this.flush(true); }catch(_){} };
+
+      // pagehide is best on mobile
+      WIN.addEventListener('pagehide', safeFlush, { passive:true });
+      WIN.addEventListener('beforeunload', safeFlush, { passive:true });
+
+      DOC.addEventListener('visibilitychange', ()=>{
+        if (DOC.visibilityState === 'hidden') safeFlush();
+      }, { passive:true });
+    },
+
+    // ---- fps monitor + auto downgrade ----
+    _startFpsMonitor(){
+      let last = 0;
+      let frames = 0;
+      let lastReport = nowMs();
+
+      const tick = (t)=>{
+        frames++;
+        if (!last) last = t;
+
+        // report every ~1s
+        if (t - lastReport >= 1000){
+          const dt = (t - lastReport) || 1000;
+          const fps = Math.round((frames * 1000) / dt);
+          this._fps = clamp(fps, 5, 90);
+
+          frames = 0;
+          lastReport = t;
+
+          this._autoStepByFps();
+        }
+
+        this._rafId = WIN.requestAnimationFrame(tick);
+      };
+
+      try{
+        this._rafId = WIN.requestAnimationFrame(tick);
+      }catch(_){}
+    },
+
+    _autoStepByFps(){
+      if (!this._autoEnabled) return;
+      if (this._runMode !== 'play') return;
+
+      // if forced by query, auto disabled earlier
+      const fps = this._fps;
+
+      // downgrade thresholds
+      // - below 35: full -> lite
+      // - below 26: lite -> off
+      // - recover: off -> lite when > 40, lite -> full when > 52 (with hysteresis)
+      if (this._mode === 'full' && fps < 35){
+        this.setMode('lite', 'low_fps');
+      } else if (this._mode === 'lite' && fps < 26){
+        this.setMode('off', 'very_low_fps');
+      } else if (this._mode === 'off' && fps > 40){
+        this.setMode('lite', 'fps_recover');
+      } else if (this._mode === 'lite' && fps > 52 && !isLikelyMobile()){
+        this.setMode('full', 'fps_good');
+      }
+
+      // status ping (optional)
+      const t = nowMs();
+      if (t - this._lastStatusAt > this._statusEveryMs){
+        this._lastStatusAt = t;
+        try{
+          WIN.dispatchEvent(new CustomEvent('groups:telemetry_status', {
+            detail:{ mode:this._mode, fps:this._fps, runMode:this._runMode, hasEndpoint: !!this._endpoint }
+          }));
+        }catch(_){}
+      }
     }
-    setTimeout(tick, 180);
-
-    // flush on leave
-    WIN.addEventListener('pagehide', ()=>{ try{ flush('pagehide'); }catch(_){ } }, {capture:true});
-    WIN.addEventListener('visibilitychange', ()=>{
-      if (DOC.visibilityState === 'hidden'){ try{ flush('hidden'); }catch(_){ } }
-    }, {capture:true});
-
-    // expose shutdown
-    S._stop = ()=>{ alive=false; fpsStop(); };
-  }
-
-  function track(type, payload, opts){
-    if (!S.inited) return;
-    if (S.mode === 'off') return;
-
-    const t = String(type||'event');
-
-    // lite filter: allow only some
-    if (S.mode === 'lite'){
-      const allow = (
-        t === 'status' || t === 'telemetry_mode' ||
-        t === 'judge'  || t === 'quest' || t === 'progress' ||
-        t === 'score'  || t === 'time'  || t === 'power' ||
-        t === 'coach'
-      );
-      if (!allow) return;
-    }
-
-    const bypass = !!(opts && opts.bypassThrottle);
-    if (!bypass && !throttleOk(t)) return;
-
-    const b = ensureBatch();
-    b.events.push(baseEvent(t, payload||{}));
-  }
-
-  function mark(name, payload){
-    // no throttle marker
-    if (!S.inited) return;
-    if (S.mode === 'off') return;
-    try{
-      const b = ensureBatch();
-      b.events.push(baseEvent('mark', Object.assign({ name: String(name||'') }, payload||{})));
-    }catch(_){}
-  }
-
-  function setMode(m, reason){
-    if (!S.inited) return;
-    const next = String(m||'').toLowerCase();
-    if (!isModeValid(next)) return;
-
-    // research/practice force off always
-    if (S.runMode !== 'play'){
-      if (S.mode !== 'off') setModeInternal('off', 'forced_nonplay', S.fps.lastFps);
-      return;
-    }
-
-    setModeInternal(next, reason||'manual', S.fps.lastFps);
-
-    // start/stop fps sampling based on mode
-    if (S.ctx.autoDowngrade && next !== 'off') fpsStart();
-    if (next === 'off') fpsStop();
-  }
-
-  function getState(){
-    return {
-      inited: S.inited,
-      mode: S.mode,
-      runMode: S.runMode,
-      endpoint: !!S.endpoint,
-      queueBatches: S.queue.length,
-      fps: S.fps.lastFps,
-      failCount: S.failCount
-    };
-  }
-
-  // expose
-  WIN.GroupsVR.Telemetry = {
-    __loaded__: true,
-    init,
-    track,
-    mark,
-    setMode,
-    flush,
-    getState
   };
 
+  // expose
+  WIN.GroupsVR.Telemetry = Tele;
+
+  // tiny ready event (so HUD can debug)
+  try{
+    WIN.dispatchEvent(new CustomEvent('groups:telemetry_ready', {
+      detail:{ ok:true }
+    }));
+  }catch(_){}
 })();
