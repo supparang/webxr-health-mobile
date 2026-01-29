@@ -1,157 +1,146 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR — PRODUCTION UI (HHA Standard)
-✅ Supports body classes: view-pc / view-mobile / view-vr / view-cvr
-✅ Safe zones for spawns: --hw-top-safe / --hw-bottom-safe
-✅ Targets positioned by CSS vars from JS: --x (vw%), --y (vh%), --s (scale)
+HygieneVR UI — PRODUCTION (HHA Standard)
+✅ Safe spawn rect via CSS vars: --hw-top-safe / --hw-bottom-safe (engine reads these)
+✅ Layering fixes: stage/hud/overlay/particles z-index
+✅ Responsive: pc/mobile/cvr/vr via body.view-*
 */
 
 :root{
   color-scheme: light dark;
 
-  /* theme */
-  --bg:#020617;
-  --panel: rgba(2,6,23,.74);
+  --bg:#0b1220;
+  --panel: rgba(2,6,23,.78);
   --panel2: rgba(15,23,42,.72);
   --stroke: rgba(148,163,184,.18);
 
   --text: rgba(229,231,235,.96);
   --muted: rgba(148,163,184,.92);
 
-  --good: rgba(34,197,94,.95);
-  --cyan: rgba(34,211,238,.95);
-  --warn: rgba(245,158,11,.95);
-  --bad:  rgba(239,68,68,.95);
+  --good: rgba(34,197,94,.92);
+  --warn: rgba(245,158,11,.92);
+  --bad:  rgba(239,68,68,.92);
+  --cyan: rgba(34,211,238,.92);
 
-  --radius: 22px;
+  --r: 22px;
   --pill: 999px;
 
-  /* safe-area (iOS etc.) */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* spawn-safe zones (JS reads these) */
-  --hw-top-safe: 170;     /* px */
-  --hw-bottom-safe: 170;  /* px */
+  /* ✅ Spawn safe zone used by engine (px) */
+  --hw-top-safe: 170;
+  --hw-bottom-safe: 165;
 
   /* target sizing */
   --tgt-size: 64px;
-  --tgt-font: 30px;
+  --tgt-font: 34px;
 
-  /* HUD sizing */
-  --hud-pad: 14px;
-  --hud-gap: 10px;
+  /* stage padding (visual) */
+  --stage-pad: 10px;
 }
 
-*{ box-sizing: border-box; }
+*{ box-sizing:border-box; }
 html,body{
   margin:0;
   height:100%;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  overflow:hidden;
-  touch-action: manipulation;
+  overscroll-behavior: none;
 }
-button{ font: inherit; }
 
-/* ---- root ---- */
+/* ---------- Root layout ---------- */
 .hw-root{
   position: relative;
-  width:100vw;
-  height:100vh;
-  overflow:hidden;
-  background:
-    radial-gradient(1200px 800px at 50% 0%, rgba(34,211,238,.10), transparent 55%),
-    radial-gradient(1200px 800px at 10% 20%, rgba(34,197,94,.07), transparent 55%),
-    radial-gradient(1200px 800px at 90% 20%, rgba(239,68,68,.06), transparent 55%),
-    linear-gradient(180deg, rgba(2,6,23,1), rgba(2,6,23,.98));
+  min-height: 100%;
+  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
 }
 
-/* stage for targets */
+/* Stage sits behind HUD but above background */
 .hw-stage{
-  position:absolute;
-  inset:0;
+  position: relative;
+  width: 100%;
+  height: calc(100vh - (20px + var(--sat) + var(--sab)));
+  border-radius: var(--r);
+  overflow: hidden; /* keep targets inside */
+  background: radial-gradient(1200px 800px at 50% 35%, rgba(34,211,238,.06), transparent 55%),
+              radial-gradient(900px 700px at 30% 70%, rgba(34,197,94,.06), transparent 55%),
+              linear-gradient(180deg, rgba(2,6,23,.45), rgba(2,6,23,.72));
+  border: 1px solid var(--stroke);
+  box-shadow: 0 26px 90px rgba(0,0,0,.45);
   z-index: 1;
-  overflow:hidden;
-  /* subtle texture */
-  background:
-    radial-gradient(900px 520px at 50% 30%, rgba(148,163,184,.08), transparent 65%),
-    radial-gradient(820px 520px at 20% 70%, rgba(148,163,184,.05), transparent 70%);
 }
 
-/* ---- HUD ---- */
+/* ---------- HUD ---------- */
 .hw-hud{
-  position:absolute;
-  inset:0;
-  pointer-events:none; /* only allow on specific buttons */
-  z-index: 30;
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* default none; enable only on buttons */
+  z-index: 20;
 }
 
 .hw-top{
-  position:absolute;
+  position: absolute;
   left: calc(12px + var(--sal));
   right: calc(12px + var(--sar));
-  top: calc(10px + var(--sat));
-  pointer-events:none;
+  top: calc(12px + var(--sat));
+  display: grid;
+  gap: 10px;
 }
 
 .hw-title{
   font-weight: 950;
+  font-size: 18px;
   letter-spacing: .2px;
-  font-size: 16px;
-  text-shadow: 0 14px 40px rgba(0,0,0,.55);
+  text-shadow: 0 10px 24px rgba(0,0,0,.55);
 }
+
 .hw-sub{
-  margin-top:6px;
   font-size: 12px;
   color: var(--muted);
-  text-shadow: 0 14px 40px rgba(0,0,0,.55);
+  line-height: 1.35;
 }
 
 .hw-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap: var(--hud-gap);
-  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .hw-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding: 9px 12px;
+  pointer-events: none;
   border-radius: var(--pill);
   border: 1px solid var(--stroke);
-  background: var(--panel);
-  color: var(--text);
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+  padding: 8px 10px;
   font-weight: 900;
   font-size: 12px;
-  line-height: 1;
-  box-shadow: 0 16px 70px rgba(0,0,0,.45);
-  backdrop-filter: blur(10px);
-  pointer-events:none;
+  color: var(--text);
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
 
 .hw-pill.warn{
-  border-color: rgba(245,158,11,.26);
+  border-color: rgba(245,158,11,.28);
   background: rgba(245,158,11,.10);
 }
-.hw-pill.cyan{
-  border-color: rgba(34,211,238,.26);
-  background: rgba(34,211,238,.10);
-}
 .hw-pill.bad{
-  border-color: rgba(239,68,68,.26);
+  border-color: rgba(239,68,68,.28);
   background: rgba(239,68,68,.10);
 }
+.hw-pill.cyan{
+  border-color: rgba(34,211,238,.28);
+  background: rgba(34,211,238,.10);
+}
+
+/* buttons must be clickable */
 .hw-pill.btn{
-  pointer-events:auto; /* clickable */
-  cursor:pointer;
-  user-select:none;
-  border-color: rgba(148,163,184,.22);
-  background: rgba(15,23,42,.74);
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(15,23,42,.72);
 }
 .hw-pill.btn:active{
   transform: translateY(1px);
@@ -159,229 +148,229 @@ button{ font: inherit; }
 
 /* Banner */
 .hw-banner{
-  position:absolute;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  top: calc(138px + var(--sat));
-  z-index: 60;
-  opacity:0;
-  transform: translateY(-6px);
-  transition: opacity .18s ease, transform .18s ease;
-  pointer-events:none;
-
+  position: absolute;
+  left: 50%;
+  top: calc(120px + var(--sat));
+  transform: translateX(-50%);
+  min-width: min(720px, calc(100% - 24px));
+  max-width: min(820px, calc(100% - 24px));
+  border-radius: var(--pill);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(12px);
   padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.72);
-  color: rgba(229,231,235,.96);
   font-weight: 900;
   font-size: 13px;
-  line-height: 1.25;
-  box-shadow: 0 18px 80px rgba(0,0,0,.55);
-  backdrop-filter: blur(10px);
+  color: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: 0 18px 48px rgba(0,0,0,.35);
 }
 .hw-banner.show{
-  opacity:1;
-  transform: translateY(0);
+  opacity: 1;
 }
 
-/* Quiz box */
+/* Quiz */
 .hw-quiz{
-  margin-top: 12px;
-  pointer-events:none;
-  padding: 12px 12px;
+  pointer-events: none;
   border-radius: 18px;
   border: 1px solid rgba(34,211,238,.28);
-  background: rgba(34,211,238,.10);
-  box-shadow: 0 18px 90px rgba(0,0,0,.55);
+  background: rgba(34,211,238,.08);
   backdrop-filter: blur(10px);
+  padding: 12px 12px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.28);
 }
 .hw-quiz-q{
   font-weight: 950;
   font-size: 14px;
-  letter-spacing:.2px;
 }
 .hw-quiz-sub{
-  margin-top:6px;
-  color: rgba(229,231,235,.92);
+  margin-top: 6px;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
 }
 
-/* ---- Overlays ---- */
+/* ---------- Overlays ---------- */
 .hw-overlay{
-  position:absolute;
-  inset:0;
-  display:grid;
-  place-items:center;
-  z-index: 80;
-  background: radial-gradient(1200px 700px at 50% 20%, rgba(2,6,23,.65), rgba(2,6,23,.88));
-  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+  z-index: 40;
 }
 
 .hw-card{
-  width: min(860px, 100%);
-  border-radius: var(--radius);
+  width: min(820px, calc(100% - 22px));
+  border-radius: var(--r);
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.74);
-  box-shadow: 0 26px 120px rgba(0,0,0,.60);
+  background: rgba(2,6,23,.78);
   padding: 16px;
-  backdrop-filter: blur(12px);
+  box-shadow: 0 30px 110px rgba(0,0,0,.55);
 }
+
 .hw-card-title{
   font-weight: 950;
   font-size: 18px;
-  letter-spacing:.2px;
+  letter-spacing: .2px;
 }
 .hw-card-sub{
-  margin-top:10px;
+  margin-top: 8px;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
 }
 .hw-card-row{
+  margin-top: 12px;
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
-  margin-top: 14px;
+  flex-wrap: wrap;
 }
+
 .hw-cta, .hw-ghost{
-  border: 1px solid rgba(148,163,184,.18);
+  pointer-events: auto;
+  cursor: pointer;
+  user-select:none;
   border-radius: 16px;
   padding: 10px 12px;
   font-weight: 950;
-  cursor:pointer;
-  user-select:none;
+  border: 1px solid var(--stroke);
+  background: rgba(15,23,42,.72);
+  color: var(--text);
 }
 .hw-cta{
-  background: rgba(34,197,94,.16);
-  border-color: rgba(34,197,94,.26);
-  color: rgba(229,231,235,.98);
+  border-color: rgba(34,197,94,.28);
+  background: rgba(34,197,94,.14);
 }
-.hw-ghost{
-  background: rgba(15,23,42,.72);
-  color: rgba(229,231,235,.92);
-}
-.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
+.hw-cta:active, .hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.60);
-  color: rgba(229,231,235,.92);
-  max-height: 38vh;
+  margin: 10px 0 0;
+  max-height: 42vh;
   overflow:auto;
-  font-size: 12px;
-  line-height: 1.35;
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.55);
+  padding: 10px;
+  font-size: 11px;
+  color: rgba(229,231,235,.92);
 }
 
-/* ---- Targets ---- */
+/* ---------- Targets ---------- */
 .hw-tgt{
-  position:absolute;
+  position: absolute;
   left: calc(var(--x,50) * 1vw);
   top:  calc(var(--y,50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
   width: var(--tgt-size);
   height: var(--tgt-size);
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.58);
-  box-shadow:
-    0 18px 70px rgba(0,0,0,.55),
-    inset 0 0 0 2px rgba(255,255,255,.04);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.58);
   backdrop-filter: blur(10px);
+  box-shadow: 0 18px 46px rgba(0,0,0,.35);
   cursor: pointer;
+  z-index: 5; /* above stage bg, below HUD */
+  display: grid;
+  place-items: center;
   user-select: none;
-  z-index: 10;
-  display:grid;
-  place-items:center;
-
-  /* entrance */
-  animation: hwPopIn .14s ease-out both;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .hw-tgt .emoji{
   font-size: var(--tgt-font);
   line-height: 1;
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
-  transform: translateZ(0);
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.38));
 }
 
-/* types */
 .hw-tgt.good{
   border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.12);
+  background: rgba(34,197,94,.10);
 }
 .hw-tgt.wrong{
-  border-color: rgba(245,158,11,.26);
-  background: rgba(245,158,11,.12);
+  border-color: rgba(245,158,11,.28);
+  background: rgba(245,158,11,.10);
 }
 .hw-tgt.haz{
   border-color: rgba(239,68,68,.28);
-  background: rgba(239,68,68,.12);
+  background: rgba(239,68,68,.10);
 }
 
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-@keyframes hwPopIn{
-  from{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .86)); }
-  to  { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+/* ---------- Layer fixes: Particles must be visible ---------- */
+/* particles.js creates #hha-particles with z-index:9999 already,
+   but some browsers can still hide if parent stacking contexts exist.
+   Force it. */
+#hha-particles{
+  position: fixed !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 9999 !important;
 }
 
-/* ---- View variants ---- */
-body.view-pc{
-  --tgt-size: 66px;
-  --tgt-font: 30px;
-  --hw-top-safe: 176;
-  --hw-bottom-safe: 160;
+/* Crosshair from vr-ui.js */
+#hhaCrosshair{
+  z-index: 9998 !important;
+}
+
+/* ---------- View-specific tuning ---------- */
+body.view-mobile :root,
+body.view-mobile{
+  /* a bit larger targets on phones */
 }
 
 body.view-mobile{
-  --tgt-size: 74px;
-  --tgt-font: 34px;
-  --hw-top-safe: 190;
-  --hw-bottom-safe: 170;
+  --tgt-size: 72px;
+  --tgt-font: 38px;
+  --hw-top-safe: 178;
+  --hw-bottom-safe: 175;
 }
 
-body.view-vr{
-  --tgt-size: 76px;
-  --tgt-font: 34px;
-  --hw-top-safe: 190;
-  --hw-bottom-safe: 170;
-}
-
-/* cVR: เน้นยิงกลางจอ → ขยายเป้านิด, ลด HUD ให้ไม่บัง */
 body.view-cvr{
-  --tgt-size: 82px;
-  --tgt-font: 36px;
-  --hw-top-safe: 170;
-  --hw-bottom-safe: 160;
+  /* cVR: crosshair aiming—targets not clickable; make them slightly bigger */
+  --tgt-size: 76px;
+  --tgt-font: 40px;
+  --hw-top-safe: 168;
+  --hw-bottom-safe: 185;
 }
 
-/* ---- Responsive tweaks ---- */
-@media (max-width: 520px){
-  .hw-title{ font-size: 15px; }
-  .hw-pill{ font-size: 11px; padding: 8px 10px; }
-  .hw-banner{ top: calc(150px + var(--sat)); }
-  :root{ --hud-gap: 8px; }
-}
-@media (min-width: 960px){
-  .hw-title{ font-size: 17px; }
-  .hw-pill{ font-size: 12px; }
+/* In cVR, prevent accidental tap scrolling + keep HUD buttons usable */
+body.view-cvr{
+  touch-action: manipulation;
 }
 
-/* reduce motion */
+/* VR: keep HUD less tall, more room for stage */
+body.view-vr{
+  --hw-top-safe: 150;
+  --hw-bottom-safe: 150;
+}
+
+/* PC widescreen: slightly tighter */
+@media (min-width: 980px){
+  body.view-pc{
+    --tgt-size: 62px;
+    --tgt-font: 34px;
+    --hw-top-safe: 165;
+    --hw-bottom-safe: 155;
+  }
+}
+
+/* Small screens: HUD can get tall -> increase top safe */
+@media (max-width: 420px){
+  :root{
+    --hw-top-safe: 192;
+    --hw-bottom-safe: 185;
+  }
+}
+
+/* ---------- Reduce motion accessibility ---------- */
 @media (prefers-reduced-motion: reduce){
-  .hw-tgt{ animation: none; }
-  .hw-banner{ transition:none; }
+  .hw-banner{ transition: none; }
+  .hw-tgt{ transition: none; }
 }
-
-/* ---- Make sure HUD buttons are reachable ---- */
-#btnPause, #btnBack{ pointer-events:auto; }
-
-/* (Optional) small hint: keep stage clickable on mobile */
-.hw-stage{ -webkit-tap-highlight-color: transparent; }
