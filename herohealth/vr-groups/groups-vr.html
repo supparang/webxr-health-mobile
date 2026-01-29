@@ -7,6 +7,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PACK 13.95: Telemetry (lite/full/off) + throttle + flush-hardened + auto-downgrade by FPS
 ✅ NEW (1): Big Banner current group + events
 ✅ NEW (2): DL-lite Predictor + Explainable micro-tips (play only; off in research/practice)
+✅ PATCH (BOOT): On-screen Debug HUD + global error trap + dependency status
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -42,9 +43,43 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <!-- Engine -->
   <script src="./groups.safe.js" defer></script>
+
+  <style>
+    /* Debug HUD (on-screen) */
+    #dbgHud{
+      position:fixed;
+      left:12px; right:12px;
+      bottom: calc(env(safe-area-inset-bottom,0px) + 10px);
+      z-index: 9999;
+      pointer-events:none;
+      display:none;
+    }
+    #dbgHud.show{ display:block; }
+    #dbgBox{
+      background: rgba(2,6,23,.86);
+      border: 1px solid rgba(148,163,184,.22);
+      border-radius: 16px;
+      padding: 10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      font: 12px/1.35 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+      color: rgba(229,231,235,.92);
+      white-space: pre-wrap;
+      max-height: 42vh;
+      overflow:auto;
+    }
+    #dbgHint{
+      margin-top:8px;
+      font: 12px/1.25 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+      color: rgba(229,231,235,.82);
+      font-weight: 900;
+      pointer-events:none;
+    }
+    #dbgHint b{ color:#fff; }
+  </style>
 </head>
 
-<body class="view-mobile">
+<body>
 
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
@@ -88,7 +123,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
-  <!-- ✅ NEW (1): Big Banner -->
+  <!-- Big Banner -->
   <div id="bigBanner" class="bigBanner hidden" aria-live="polite">
     <div id="bigBannerText" class="bigBannerText">—</div>
   </div>
@@ -116,7 +151,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- PACK 13: Calibration overlay (cVR only) -->
+  <!-- Calibration overlay (cVR only) -->
   <div id="calOverlay" class="overlay overlay-cal hidden">
     <div class="panel calPanel">
       <div class="title">🧭 Calibration (Cardboard)</div>
@@ -174,6 +209,12 @@ GroupsVR Run (PC/Mobile/Cardboard)
     </div>
   </div>
 
+  <!-- ✅ DEBUG HUD -->
+  <div id="dbgHud" aria-live="polite">
+    <div id="dbgBox">debug…</div>
+    <div id="dbgHint">ถ้าเห็นกล่องนี้ แปลว่ามี <b>Error</b> หรือ <b>Engine/FX</b> ยังไม่พร้อม</div>
+  </div>
+
 <script>
 (function(){
   'use strict';
@@ -187,6 +228,93 @@ GroupsVR Run (PC/Mobile/Cardboard)
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
   function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
+  // =========================
+  // ✅ DEBUG / ERROR TRAP
+  // =========================
+  const DBG = {
+    on: (String(qs('debug','0')||'0') === '1' || String(qs('debug','0')||'0') === 'true'),
+    logs: [],
+    max: 120,
+    shown: false
+  };
+
+  function dlog(line){
+    const s = String(line||'');
+    DBG.logs.push(s);
+    if (DBG.logs.length > DBG.max) DBG.logs.shift();
+    if (DBG.on) showDbg();
+    if (DBG.shown) renderDbg();
+  }
+
+  function showDbg(force=false){
+    if (!force && !DBG.on) return;
+    DBG.shown = true;
+    $('dbgHud')?.classList.add('show');
+    renderDbg();
+  }
+
+  function renderDbg(){
+    const box = $('dbgBox');
+    if (!box) return;
+    const head = [
+      'GroupsVR DEBUG HUD',
+      'url: ' + location.href,
+      'time: ' + new Date().toISOString(),
+      '----------------------------------------'
+    ].join('\n');
+    box.textContent = head + '\n' + DBG.logs.join('\n');
+  }
+
+  // show debug if any script error happens (even if debug=0)
+  function showDbgOnError(msg){
+    dlog('❌ ERROR: ' + msg);
+    showDbg(true);
+  }
+
+  window.addEventListener('error', (ev)=>{
+    const m = ev?.message || 'unknown';
+    const src = ev?.filename ? (' @ ' + ev.filename.split('/').slice(-2).join('/') + ':' + (ev.lineno||0)) : '';
+    showDbgOnError(m + src);
+  });
+
+  window.addEventListener('unhandledrejection', (ev)=>{
+    const r = ev?.reason;
+    const m = (r && (r.stack || r.message)) ? (r.stack || r.message) : String(r||'unhandledrejection');
+    showDbgOnError(m);
+  });
+
+  // capture resource load errors (script/css/img)
+  window.addEventListener('error', (ev)=>{
+    const t = ev?.target;
+    if (!t) return;
+    const tag = (t.tagName||'').toLowerCase();
+    if (tag === 'script' || tag === 'link' || tag === 'img'){
+      const src = t.src || t.href || '(no-src)';
+      showDbgOnError(`resource failed: <${tag}> ${src}`);
+    }
+  }, true);
+
+  // helper: dependency status snapshot
+  function depStatus(){
+    const has = (v)=> (typeof v !== 'undefined' && v !== null);
+    const P = has(window.Particles);
+    const V = has(window.__HHA_VRUI_LOADED__) || has(window.HHA_VRUI_CONFIG);
+    const G = has(window.GroupsVR);
+    const E = !!(window.GroupsVR && window.GroupsVR.GameEngine && typeof window.GroupsVR.GameEngine.start === 'function');
+    const T = !!(window.GroupsVR && window.GroupsVR.Telemetry && typeof window.GroupsVR.Telemetry.init === 'function');
+    const VH= !!(window.GroupsVR && window.GroupsVR.ViewHelper && typeof window.GroupsVR.ViewHelper.init === 'function');
+    const FX= !!(window.GroupsVR && window.GroupsVR.EffectsPack);
+    return { Particles:P, VRUI:V, GroupsVR:G, Engine:E, Telemetry:T, ViewHelper:VH, EffectsPack:FX };
+  }
+
+  function reportDeps(prefix){
+    const s = depStatus();
+    dlog(prefix + ' deps: ' + Object.entries(s).map(([k,v])=>`${k}=${v?'OK':'NO'}`).join(' • '));
+  }
+
+  // =========================
+  // View
+  // =========================
   function setView(view){
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
@@ -247,7 +375,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }, clamp(ms, 600, 2500));
   }
 
-  // ✅ PACK 13.95: show banner when telemetry auto-switch happens
+  // show banner when telemetry auto-switch happens
   window.addEventListener('groups:telemetry_auto', (ev)=>{
     const d = ev.detail || {};
     if (d.kind === 'switch'){
@@ -266,7 +394,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }, { passive:true });
 
-  // ---------- HUD binds ----------
+  // =========================
+  // HUD binds
+  // =========================
   let _score=0,_combo=0,_miss=0,_acc=0,_left=90,_storm=false,_miniUrg=false;
   let _groupName='—', _groupKey='', _lastGroupKey='';
 
@@ -360,7 +490,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     if (k === 'perfect_switch'){ showBanner('🔄 สลับหมู่!', 'neutral', 1000); }
   }, {passive:true});
 
-  // ---------- Summary / History ----------
+  // =========================
+  // Summary / History
+  // =========================
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
   let lastSummary = null;
@@ -405,7 +537,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
-    // practice chain → auto start real run
     if (practiceActive && !practiceDone){
       practiceDone = true;
       practiceActive = false;
@@ -457,27 +588,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     location.href = hub;
   });
 
-  // ---------- Engine helpers ----------
-  function waitForEngine(cb){
-    const t0 = Date.now();
-    const it = setInterval(()=>{
-      const E = window.GroupsVR && window.GroupsVR.GameEngine;
-      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function'){
-        clearInterval(it);
-        cb(E);
-        return;
-      }
-      if (Date.now() - t0 > 7000){
-        clearInterval(it);
-        try{
-          window.dispatchEvent(new CustomEvent('hha:coach', {
-            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js). เช็ค path/ชื่อไฟล์ แล้วรีเฟรชอีกครั้ง', mood:'sad' }
-          }));
-        }catch(_){}
-      }
-    }, 60);
-  }
-
+  // =========================
+  // Engine helpers
+  // =========================
   function getLayerEl(){
     return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
   }
@@ -486,16 +599,16 @@ GroupsVR Run (PC/Mobile/Cardboard)
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.init && H.init({ view });
-    }catch(_){}
+    }catch(e){
+      showDbgOnError('ViewHelper.init failed: ' + (e?.message||e));
+    }
   }
 
-  // ✅ PACK 13.95: init Telemetry (safe)
+  // Telemetry init (safe)
   function initTelemetry(runMode){
     try{
       const T = window.GroupsVR && window.GroupsVR.Telemetry;
       if (!T || !T.init) return;
-
-      // runMode: play|research|practice
       T.init({
         runMode,
         endpoint: String(qs('log','')||''),
@@ -504,10 +617,39 @@ GroupsVR Run (PC/Mobile/Cardboard)
         maxQueueBatches: 16,
         statusEveryMs: 850
       });
-    }catch(_){}
+    }catch(e){
+      showDbgOnError('Telemetry.init failed: ' + (e?.message||e));
+    }
   }
 
-  // ---------- PACK 13: Calibration ----------
+  // WAIT FOR ENGINE + HARD REPORT
+  function waitForEngine(cb){
+    const t0 = Date.now();
+    const tick = ()=>{
+      const E = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function'){
+        dlog('✅ Engine ready');
+        cb(E);
+        return;
+      }
+      if (Date.now() - t0 > 8000){
+        reportDeps('⏱️ timeout');
+        showDbgOnError('Engine not ready after 8s (groups.safe.js loaded but API missing?)');
+        try{
+          window.dispatchEvent(new CustomEvent('hha:coach', {
+            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js). แต่ไฟล์ครบแล้ว → น่าจะมี error ระหว่างรัน (ดู DEBUG HUD)', mood:'sad' }
+          }));
+        }catch(_){}
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  // =========================
+  // Calibration (cVR)
+  // =========================
   const cal = { on:false, step:0, shots:0, done:false };
 
   function showCal(on){
@@ -548,20 +690,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   function startCalibrationIfNeeded(view){
     if (view !== 'cvr') return false;
-
     cal.on = true;
     cal.done = false;
     cal.shots = 0;
-
     showCal(true);
     setCalStep(1);
-
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail:{ text:'Calibration: กด RECENTER ก่อน แล้วกด “ต่อไป” ✅', mood:'neutral' }
-      }));
-    }catch(_){}
-
     return true;
   }
 
@@ -601,25 +734,24 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const practiceSec = getPracticeSec(view);
 
     if (view === 'cvr' && practiceSec > 0){
-      const diff = String(qs('diff','normal')||'normal').toLowerCase();
-      const style= String(qs('style','mix')||'mix').toLowerCase();
-      const seed = String(qs('seed', Date.now()) || Date.now());
-
-      // ✅ init telemetry as PRACTICE (will force off)
       initTelemetry('practice');
-
-      startPractice(E, { diff, style, seed, practiceSec });
+      startPractice(E, {
+        diff: String(qs('diff','normal')||'normal').toLowerCase(),
+        style:String(qs('style','mix')||'mix').toLowerCase(),
+        seed: String(qs('seed', Date.now()) || Date.now()),
+        practiceSec
+      });
       return;
     }
 
-    // ✅ init telemetry as PLAY/RESEARCH (will force off on research)
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
     initTelemetry(run);
-
     startReal(E);
   }
 
-  // ---------- PACK 14: Practice ----------
+  // =========================
+  // Practice 15s (cVR)
+  // =========================
   function startPractice(E, cfg){
     practiceActive = true;
     practiceDone = false;
@@ -631,26 +763,13 @@ GroupsVR Run (PC/Mobile/Cardboard)
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
     E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
-
-    try{
-      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
-      H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
-    }catch(_){}
   }
 
   // =========================
-  // ✅ NEW (2): DL-lite Predictor (play only, gated by ?ai=1)
+  // AI Predictor (unchanged)
   // =========================
-  const PRED = {
-    on: false,
-    lastTipAt: 0,
-    lastWarnAt: 0,
-    hist: [],
-    maxHist: 20
-  };
-
+  const PRED = { on:false, lastTipAt:0, lastWarnAt:0, hist:[], maxHist:20 };
   function sigmoid(x){ return 1 / (1 + Math.exp(-x)); }
-
   function riskScore(f){
     const w = [ 1.35, 1.10, -0.35, 0.55, 0.65, 0.55 ];
     const b = -0.55;
@@ -658,21 +777,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
     for (let i=0;i<w.length;i++) z += w[i] * (Number(f[i])||0);
     return sigmoid(z);
   }
-
   function pushHist(){
     const t = nowMs();
-    PRED.hist.push({
-      t,
-      miss:_miss|0,
-      acc:_acc|0,
-      combo:_combo|0,
-      left:_left|0,
-      storm: _storm?1:0,
-      miniUrg: _miniUrg?1:0
-    });
+    PRED.hist.push({ t, miss:_miss|0, acc:_acc|0, combo:_combo|0, left:_left|0, storm:_storm?1:0, miniUrg:_miniUrg?1:0 });
     if (PRED.hist.length > PRED.maxHist) PRED.hist.shift();
   }
-
   function calcMissRate10s(){
     const t = nowMs();
     const cut = t - 10000;
@@ -681,33 +790,22 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const dm = (a[a.length-1].miss - a[0].miss);
     return Math.max(0, dm) / 10;
   }
-
-  function shouldTip(){
-    const t = nowMs();
-    return (t - PRED.lastTipAt) > 1600;
-  }
-
+  function shouldTip(){ return (nowMs() - PRED.lastTipAt) > 1600; }
   function tip(text, mood='neutral'){
     if (!PRED.on) return;
     if (!shouldTip()) return;
     PRED.lastTipAt = nowMs();
-    try{
-      window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } }));
-    }catch(_){}
+    try{ window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } })); }catch(_){}
   }
-
   function tickPredictor(){
     if (!PRED.on) return;
-
     pushHist();
-
     const missRate = Math.min(1, calcMissRate10s() * 2.2);
     const accBad   = Math.min(1, (100 - _acc) / 100);
     const comboN   = Math.max(0, Math.min(1, _combo / 10));
     const leftLow  = Math.max(0, Math.min(1, (12 - _left) / 12));
     const storm    = _storm ? 1 : 0;
     const miniU    = _miniUrg ? 1 : 0;
-
     const r = riskScore([missRate, accBad, comboN, leftLow, storm, miniU]);
 
     if (r >= 0.78){
@@ -725,12 +823,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
         tip('คอมโบสวยมาก! รักษาจังหวะนี้ไว้ 💪', 'happy');
       }
     }
-
-    try{
-      window.dispatchEvent(new CustomEvent('groups:ai_predict', {
-        detail:{ r: Math.round(r*100)/100, missRate, acc:_acc, combo:_combo, left:_left, storm, miniU, group:_groupKey }
-      }));
-    }catch(_){}
   }
 
   let predIt = 0;
@@ -747,7 +839,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     clearInterval(predIt);
   }
 
-  // ---------- PACK 15: AI hooks attach + predictor ----------
+  // =========================
+  // Start Real
+  // =========================
   function startReal(E){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
@@ -759,9 +853,25 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
     startIso = new Date().toISOString();
 
+    // report deps before start
+    reportDeps('▶ before start');
+
     initViewHelper(view);
-    E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode: run, diff, style, time, seed });
+
+    const layer = getLayerEl();
+    if (!layer){
+      showDbgOnError('playLayer missing (#playLayer)');
+      return;
+    }
+    E.setLayerEl(layer);
+
+    try{
+      E.start(diff, { runMode: run, diff, style, time, seed });
+      dlog('✅ Engine.start OK (diff=' + diff + ', time=' + time + ', run=' + run + ')');
+    }catch(e){
+      showDbgOnError('Engine.start failed: ' + (e?.stack||e?.message||e));
+      return;
+    }
 
     if (run === 'play') startPredictorIfAllowed(run);
     else stopPredictor();
@@ -770,17 +880,39 @@ GroupsVR Run (PC/Mobile/Cardboard)
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
       if (AI && AI.attach){
         AI.attach({ runMode: run, seed, enabled: aiEnabled() && run!=='research' });
+        dlog('✅ AIHooks.attach called (enabled=' + (aiEnabled() && run!=='research') + ')');
+      }else{
+        dlog('ℹ AIHooks.attach not found (ok if disabled)');
       }
-    }catch(_){}
+    }catch(e){
+      showDbgOnError('AIHooks.attach failed: ' + (e?.message||e));
+    }
   }
 
-  // ---------- Start ----------
+  // =========================
+  // START FROM PARAMS
+  // =========================
   function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     setView(view);
-    initViewHelper(view);
+
+    // show debug HUD if ?debug=1
+    if (DBG.on){
+      dlog('debug=1 enabled');
+      reportDeps('init');
+      showDbg(true);
+    }else{
+      // still print init deps to internal buffer
+      reportDeps('init');
+    }
 
     showBanner('เริ่มเกม! เล็งให้ตรงหมู่ 🎯', 'neutral', 1000);
+
+    // if user wants quick sanity test: ?selftest=1 -> ping FX
+    if (String(qs('selftest','0')||'0') === '1'){
+      try{ window.Particles && window.Particles.popText(40, 80, 'FX OK', 'ok'); dlog('✅ Particles.popText OK'); }
+      catch(e){ showDbgOnError('Particles selftest failed: ' + (e?.message||e)); }
+    }
 
     const gated = startCalibrationIfNeeded(view);
     if (gated) return;
@@ -788,20 +920,17 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const practiceSec = getPracticeSec(view);
     waitForEngine((E)=>{
       if (view === 'cvr' && practiceSec > 0){
-        const diff = String(qs('diff','normal')||'normal').toLowerCase();
-        const style= String(qs('style','mix')||'mix').toLowerCase();
-        const seed = String(qs('seed', Date.now()) || Date.now());
-
-        // ✅ init telemetry as PRACTICE (forces off)
         initTelemetry('practice');
-
-        startPractice(E, { diff, style, seed, practiceSec });
+        startPractice(E, {
+          diff: String(qs('diff','normal')||'normal').toLowerCase(),
+          style:String(qs('style','mix')||'mix').toLowerCase(),
+          seed: String(qs('seed', Date.now()) || Date.now()),
+          practiceSec
+        });
         return;
       }
-
       const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
       initTelemetry(run);
-
       startReal(E);
     });
   }
