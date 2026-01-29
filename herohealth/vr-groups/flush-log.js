@@ -1,232 +1,123 @@
 // === /herohealth/vr-groups/flush-log.js ===
-// GroupsVR Flush Log — PRODUCTION (PACK 13)
-// ✅ Flush-hardened: pagehide, visibilitychange(hidden), beforeunload, freeze
-// ✅ Throttle + single-flight lock
-// ✅ Recovery: store pending summary in localStorage if send fails, auto resend on next load
-// ✅ Also flush Telemetry queue if GroupsVR.Telemetry exists
-// ✅ Endpoint: from ?log=... (POST JSON via sendBeacon or fetch keepalive)
+// Flush-on-leave helper — PRODUCTION (SAFE)
+// ✅ bindFlushOnLeave(getSummaryFn)
+// ✅ tries: pagehide / visibilitychange / beforeunload
+// ✅ best-effort: navigator.sendBeacon (if endpoint) or fetch keepalive
+// ✅ never throws
 
-(function (root) {
+(function(){
   'use strict';
 
-  const DOC = root.document;
+  const WIN = window;
+  const DOC = document;
   if (!DOC) return;
 
-  const NS = root.GroupsVR = root.GroupsVR || {};
-  if (NS.__FLUSH_LOG_LOADED__) return;
-  NS.__FLUSH_LOG_LOADED__ = true;
+  WIN.GroupsVR = WIN.GroupsVR || {};
+  if (WIN.GroupsVR.bindFlushOnLeave) return;
 
-  // ---------- utils ----------
-  function qs(k, def = null) {
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function isoNow() { try { return new Date().toISOString(); } catch { return String(Date.now()); } }
-  function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
-  function safeParse(s, fb) { try { return JSON.parse(s); } catch { return fb; } }
-
-  function getEndpoint() {
-    const u = String(qs('log', '') || '').trim();
-    return u ? u : '';
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
 
-  // localStorage keys
-  const LS_PENDING = 'HHA_PENDING_SUMMARY_GroupsVR';
-  const LS_PENDING_TS = 'HHA_PENDING_SUMMARY_GroupsVR_TS';
+  function safeJson(obj){
+    try{ return JSON.stringify(obj); }catch{ return ''; }
+  }
 
-  // throttle/lock
-  let _lastFlushAt = 0;
-  let _inFlight = false;
+  function nowIso(){
+    try{ return new Date().toISOString(); }catch{ return ''; }
+  }
 
-  // allow user to bind: GroupsVR.bindFlushOnLeave(() => lastSummary)
-  NS.bindFlushOnLeave = function bindFlushOnLeave(getSummaryFn, opt) {
-    opt = opt || {};
-    const endpoint = String(opt.endpoint || getEndpoint() || '');
-    const throttleMs = Number(opt.throttleMs || 700);
-    const alsoFlushTelemetry = (opt.alsoFlushTelemetry !== false); // default true
+  function getEndpoint(){
+    // prefer query ?log=... (Apps Script, endpoint)
+    const ep = String(qs('log','')||'').trim();
+    return ep || '';
+  }
 
-    if (!endpoint) {
-      // still keep recovery storage so user can export later
-      // (we keep it passive; no endpoint means no send)
-    }
+  function postPayload(endpoint, payloadObj){
+    // payloadObj should be small
+    const endpointUrl = String(endpoint||'').trim();
+    if (!endpointUrl) return false;
 
-    // try resend pending from previous crash/close
-    tryResendPending(endpoint, alsoFlushTelemetry);
+    const body = safeJson(payloadObj);
+    if (!body) return false;
 
-    const flushHard = (reason) => {
-      const t = nowMs();
-      if (t - _lastFlushAt < throttleMs) return;
-      if (_inFlight) return;
-      _lastFlushAt = t;
-
-      const summary = (typeof getSummaryFn === 'function') ? getSummaryFn() : null;
-      // store pending first (so even if the tab dies mid-send, we can resend later)
-      if (summary) storePending(summary);
-
-      // fire and forget send + telemetry flush
-      _inFlight = true;
-      sendSummary(endpoint, summary, reason || 'leave')
-        .catch(() => {})
-        .finally(() => { _inFlight = false; });
-
-      if (alsoFlushTelemetry) {
-        try {
-          const T = NS.Telemetry;
-          if (T && typeof T.flushNow === 'function') {
-            // do not await (unload-safe)
-            T.flushNow('leave').catch(() => {});
-          }
-        } catch (_) {}
+    // 1) sendBeacon (best on unload)
+    try{
+      if (navigator && navigator.sendBeacon){
+        const blob = new Blob([body], { type:'text/plain;charset=utf-8' });
+        const ok = navigator.sendBeacon(endpointUrl, blob);
+        if (ok) return true;
       }
-    };
+    }catch(_){}
 
-    // install guards once
-    installOnce(flushHard);
-
-    // optional manual flush API for debug
-    NS.flushNow = async function flushNow(reason) {
-      const summary = (typeof getSummaryFn === 'function') ? getSummaryFn() : null;
-      if (summary) storePending(summary);
-      const r = await sendSummary(endpoint, summary, reason || 'manual');
-      if (alsoFlushTelemetry) {
-        try {
-          const T = NS.Telemetry;
-          if (T && typeof T.flushNow === 'function') await T.flushNow('manual');
-        } catch (_) {}
-      }
-      return r;
-    };
-
-    return true;
-  };
-
-  // ---------- pending storage ----------
-  function storePending(summary) {
-    try {
-      localStorage.setItem(LS_PENDING, JSON.stringify(summary));
-      localStorage.setItem(LS_PENDING_TS, isoNow());
-    } catch (_) {}
-  }
-
-  function clearPending() {
-    try {
-      localStorage.removeItem(LS_PENDING);
-      localStorage.removeItem(LS_PENDING_TS);
-    } catch (_) {}
-  }
-
-  function loadPending() {
-    try {
-      const s = localStorage.getItem(LS_PENDING);
-      if (!s) return null;
-      return safeParse(s, null);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ---------- sender ----------
-  async function sendSummary(endpoint, summary, reason) {
-    reason = String(reason || 'send');
-    // If no endpoint, just keep pending (recovery/export)
-    if (!endpoint) {
-      return { ok: false, reason: 'no-endpoint', stored: !!summary };
-    }
-    if (!summary) {
-      return { ok: true, reason: 'no-summary', sent: 0 };
-    }
-
-    const payload = {
-      v: 1,
-      kind: 'summary',
-      ts: isoNow(),
-      reason,
-      url: String(location.href || ''),
-      summary
-    };
-
-    const body = JSON.stringify(payload);
-
-    // sendBeacon first
-    let ok = false;
-    try {
-      if (navigator && typeof navigator.sendBeacon === 'function') {
-        ok = navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
-      }
-    } catch (_) {}
-
-    // fallback fetch keepalive
-    if (!ok) {
-      try {
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
+    // 2) fetch keepalive (best-effort)
+    try{
+      if (WIN.fetch){
+        WIN.fetch(endpointUrl, {
+          method:'POST',
+          headers:{ 'Content-Type':'text/plain;charset=utf-8' },
           body,
-          keepalive: true,
-          mode: 'no-cors'
-        });
-        ok = !!res;
-      } catch (_) {
-        ok = false;
+          keepalive:true,
+          mode:'no-cors'
+        }).catch(()=>{});
+        return true;
       }
-    }
+    }catch(_){}
 
-    if (ok) {
-      // if we sent successfully, clear pending
-      clearPending();
-      return { ok: true, reason: 'sent' };
-    }
-
-    // keep pending for recovery
-    return { ok: false, reason: 'send-failed', stored: true };
+    return false;
   }
 
-  // ---------- resend pending on next load ----------
-  function tryResendPending(endpoint, alsoFlushTelemetry) {
-    const pending = loadPending();
-    if (!pending) return;
+  function bindFlushOnLeave(getSummaryFn){
+    // getSummaryFn: ()=> summaryObj | null
+    let fired = false;
 
-    // don't spam: resend once on load if endpoint exists
-    if (!endpoint) return;
+    function fire(reason){
+      if (fired) return;
+      fired = true;
 
-    // attempt quickly, no UI blocking
-    sendSummary(endpoint, pending, 'recover')
-      .catch(() => {})
-      .finally(() => {});
+      let summary = null;
+      try{ summary = getSummaryFn ? getSummaryFn() : null; }catch(_){ summary = null; }
+      if (!summary || typeof summary !== 'object') return;
 
-    if (alsoFlushTelemetry) {
-      try {
-        const T = NS.Telemetry;
-        if (T && typeof T.flushNow === 'function') {
-          T.flushNow('recover').catch(() => {});
+      // attach minimal meta
+      try{
+        summary.flushReason = String(reason||'leave');
+        summary.flushAtIso = nowIso();
+      }catch(_){}
+
+      // if Telemetry module exists, let it flush first
+      try{
+        const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
+        if (T && typeof T.flushNow === 'function'){
+          T.flushNow({ reason: String(reason||'leave') });
         }
-      } catch (_) {}
-    }
-  }
+      }catch(_){}
 
-  // ---------- guard install ----------
-  let _guardsInstalled = false;
-  function installOnce(flushFn) {
-    if (_guardsInstalled) return;
-    _guardsInstalled = true;
-
-    const hard = () => flushFn('leave');
-
-    root.addEventListener('pagehide', hard, { capture: true });
-    root.addEventListener('beforeunload', hard, { capture: true });
-
-    DOC.addEventListener('visibilitychange', () => {
-      if (DOC.visibilityState === 'hidden') hard();
-    }, { capture: true });
-
-    // Chrome freeze
-    root.addEventListener('freeze', hard, { capture: true });
-
-    // optional: online => try resend pending
-    root.addEventListener('online', () => {
+      // Optional endpoint push (summary only, lightweight)
       const ep = getEndpoint();
-      tryResendPending(ep, true);
-    }, { passive: true });
+      if (!ep) return;
+
+      // Wrap to align with Apps Script rows[] style if needed
+      const payload = { kind:'summary', rows:[summary] };
+      postPayload(ep, payload);
+    }
+
+    // pagehide is the most reliable on mobile safari / chrome
+    WIN.addEventListener('pagehide', ()=>fire('pagehide'), { passive:true });
+
+    // visibilitychange: when tab backgrounded
+    DOC.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden') fire('hidden');
+    }, { passive:true });
+
+    // beforeunload: desktop fallback
+    WIN.addEventListener('beforeunload', ()=>fire('beforeunload'), { passive:true });
+
+    // expose manual flush too
+    return { flush: fire };
   }
 
-})(typeof window !== 'undefined' ? window : globalThis);
+  WIN.GroupsVR.bindFlushOnLeave = bindFlushOnLeave;
+
+})();
