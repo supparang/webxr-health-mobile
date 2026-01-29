@@ -1,10 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — v2.1 (Easier Water + Storm Side + Progressive Boss + Fix dup func)
-// ✅ Progressive Boss difficulty
-// ✅ Easier water control
-// ✅ Storm side LOW/HIGH clearer
-// ✅ FIX: nextSpawnDelay declared once (prevents import SyntaxError)
-// ✅ Avoid double water gauge: only create utility gauge if page has no #water-bar panel
+// Hydration SAFE — PRODUCTION (FULL) — v2.1 (GoogleSheet no-cors + Easier Water + Storm Side + Progressive Boss)
+// ✅ Google Sheet Logger: POST text/plain + mode:'no-cors' (no preflight)
+// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
+// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
+// ✅ Easier water control + clearer Storm LOW/HIGH + Progressive Boss difficulty
+// ✅ FIX: remove duplicate nextSpawnDelay() declaration (prevents SyntaxError)
 
 'use strict';
 
@@ -99,7 +101,7 @@ function centerPoint(){
   return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
 }
 
-// -------------------- FX Helpers --------------------
+// -------------------- FX Helpers (Particles + DOM shock) --------------------
 function pulseBody(cls, ms=140){
   try{
     DOC.body.classList.add(cls);
@@ -220,7 +222,7 @@ const S = {
   stormCycle:0,
   stormSuccess:0,
 
-  // Storm side target
+  // ✅ Storm side target
   stormTargetZone:'LOW', // 'LOW' | 'HIGH'
   stormTargetLabel:'LOW',
   stormOrderShown:false,
@@ -238,7 +240,7 @@ const S = {
     gotHitByBad:false
   },
 
-  // Boss
+  // Boss-mini
   bossEnabled:true,
   bossActive:false,
   bossNeed:1,
@@ -268,6 +270,7 @@ const TUNE = (() => {
   const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
   const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.3 : 5.8;
 
+  // ✅ ทำ Stage1 ให้ผ่านง่ายขึ้นเล็กน้อย (ไม่ยาวเกิน)
   const greenTarget = clamp(
     Math.round(timeLimit * (diff==='easy' ? 0.40 : diff==='hard' ? 0.52 : 0.45)),
     16,
@@ -288,13 +291,14 @@ const TUNE = (() => {
     stormSpawnMul: diff==='hard'? 0.58 : 0.66,
     endWindowSec:1.25,
 
-    // easier water control
+    // ✅ คุมน้ำง่ายขึ้น
     nudgeToMid: 7.0,
     badPush:    6.2,
 
     missPenalty:1,
     greenTargetSec: greenTarget,
 
+    // ✅ Pressure ต้องการน้อยลงนิด (ผ่าน mini ง่ายขึ้น)
     pressureNeed: diff==='easy' ? 0.68 : diff==='hard' ? 0.92 : 0.82
   };
 })();
@@ -302,12 +306,16 @@ S.endWindowSec = TUNE.endWindowSec;
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
+
+// ✅ ยิงดี: ดันกลับ GREEN เร็วขึ้น + ไม่เด้งแรง
 function nudgeWaterGood(){
   const mid=55, d=mid - S.waterPct;
   const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
+
+// ✅ โดน BAD: ยังเจ็บ แต่ไม่พังจนคุมไม่อยู่
 function pushWaterBad(){
   const mid=55, d=S.waterPct - mid;
   const step=(d>=0?+1:-1)*TUNE.badPush;
@@ -406,7 +414,7 @@ function syncHUD(){
     }
   }
 
-  // external water utility (no-op if gauge not created)
+  // external water utility (will no-op if gauge not created)
   try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
 
@@ -470,7 +478,9 @@ function syncHUD(){
     outline: 2px dashed rgba(239,68,68,.40);
     box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 26px rgba(239,68,68,.12);
   }
-  body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{ animation: hhaBlink .22s alternate infinite; }
+  body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
+    animation: hhaBlink .22s alternate infinite;
+  }
   body.hha-endfx{ animation: hhaShake .18s linear infinite; }
   body.hha-bossfx .hvr-target.bossbad{ filter: drop-shadow(0 0 10px rgba(239,68,68,.18)); }
   .hha-shock{
@@ -656,7 +666,7 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Spawn timing (DECLARED ONCE) --------------------
+// -------------------- Storm + spawn loop --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
   if (S.adaptiveOn) base *= (1.00 - 0.24*S.adaptK);
@@ -664,7 +674,6 @@ function nextSpawnDelay(){
   return clamp(base, 220, 1250);
 }
 
-// -------------------- Progressive Boss --------------------
 function bossLevel(){
   const lvl = 1 + Math.floor((Math.max(0, S.stormCycle - 1))/2) + Math.min(1, S.bossClearCount|0);
   return clamp(lvl, 1, 4);
@@ -820,13 +829,15 @@ function tickStorm(dt){
 }
 
 // -------------------- Summary / logging --------------------
+// ✅ Google Sheet logger — no CORS/preflight (Apps Script รองรับ text/plain)
 async function sendLog(payload){
   if (!logEndpoint) return;
   try{
     await fetch(logEndpoint, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
       body: JSON.stringify(payload),
+      mode:'no-cors',
       keepalive:true
     });
   }catch(_){}
@@ -1126,14 +1137,7 @@ async function endGame(reason){
 
 // -------------------- Init / boot --------------------
 function boot(){
-  // ✅ Avoid double gauge:
-  // - If page already has water panel (#water-bar exists), DO NOT create utility gauge.
-  // - Else create adaptive gauge (ui-water.js).
-  try{
-    const hasPanel = !!DOC.getElementById('water-bar');
-    if (!hasPanel) ensureWaterGauge();
-  }catch(_){}
-
+  try{ ensureWaterGauge(); }catch(_){}
   updateZone();
   try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
