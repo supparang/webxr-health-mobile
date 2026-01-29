@@ -1,12 +1,12 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SPACIOUS (Fair Pack) — PATCH v2026-01-29
-✅ Mobile fix: auto “compact mode” hides quest cards (playfield becomes BIG)
-✅ HUD never blocks input (pointer-events:none on HUD)
+GoodJunkVR UI — SPACIOUS + PROGRESS + BOSS (v2026-01-29)
+✅ Mobile gameplay area BIG (quest cards hidden on mobile/cVR)
 ✅ Safe-area insets + top/bottom safe vars for spawn: --gj-top-safe / --gj-bottom-safe
 ✅ Supports: view-pc / view-mobile / view-vr / view-cvr
 ✅ HUD hide mode: body.hud-hidden
 ✅ Missions peek: body.show-missions
-✅ Progress bar + Boss bar (for goodjunk.safe.js v4)
+✅ Targets: stable (no blink), clear hit affordance
+✅ Adds: Progress bar + Boss bar elements (IDs used by goodjunk.safe.js v4)
 */
 
 :root{
@@ -35,9 +35,9 @@ GoodJunkVR UI — SPACIOUS (Fair Pack) — PATCH v2026-01-29
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* spawn safe (JS will overwrite by measuring HUD) */
-  --gj-top-safe: 120px;
-  --gj-bottom-safe: 110px;
+  /* spawn safe (JS overwrite by measureSafe) */
+  --gj-top-safe: 84px;
+  --gj-bottom-safe: 96px;
 
   /* layout density */
   --topbar-h: 56px;
@@ -69,9 +69,7 @@ a-scene[embedded]{
   background:transparent !important;
 }
 
-/* =========================================================
-   TOPBAR
-   ========================================================= */
+/* --- TOPBAR --- */
 .gj-topbar{
   position:fixed;
   left:0; right:0;
@@ -127,16 +125,14 @@ a-scene[embedded]{
   color:#eafff3;
 }
 
-/* =========================================================
-   HUD TOP (compact) + QUEST CARDS
-   ========================================================= */
+/* --- HUD TOP (compact) --- */
 .gj-hud-top{
   position:fixed;
   left:0; right:0;
   top: calc(var(--topbar-h) + var(--sat));
   padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
   z-index:50;
-  pointer-events:none; /* ✅ HUD never blocks gameplay */
+  pointer-events:none; /* HUD should not block gameplay */
 }
 
 .hud-row{
@@ -173,7 +169,69 @@ a-scene[embedded]{
 .hud-pill.warn{ border-color: rgba(245,158,11,.35); }
 .hud-pill.grade{ border-color: rgba(167,139,250,.35); }
 
-/* --- Quest cards (desktop/tablet) --- */
+/* ✅ Progress bar (tiny, no blocking) */
+.gj-progress{
+  margin-top:8px;
+  height: 8px;
+  border-radius: 999px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  overflow:hidden;
+  pointer-events:none;
+}
+.gj-progress-fill{
+  height:100%;
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
+}
+
+/* ✅ Boss bar (compact, appears only in boss phase) */
+.boss-bar{
+  margin-top:10px;
+  border-radius: var(--radius);
+  border:1px solid rgba(245,158,11,.28);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 45px rgba(0,0,0,.32);
+  padding: 10px;
+  pointer-events:none;
+}
+.boss-bar[aria-hidden="true"]{ display:none; }
+
+.boss-title{
+  font-weight:1200;
+  font-size:12px;
+  letter-spacing:.35px;
+  color: rgba(229,231,235,.95);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.boss-track{
+  margin-top:8px;
+  height: 10px;
+  border-radius: 999px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  overflow:hidden;
+}
+.boss-fill{
+  height:100%;
+  width:100%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.92));
+}
+.boss-hint{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:900;
+  color: rgba(148,163,184,.92);
+  line-height:1.25;
+}
+
+/* --- Quest cards (desktop ok) --- */
 .quest-row{
   margin-top:10px;
   display:grid;
@@ -228,71 +286,13 @@ a-scene[embedded]{
   background: rgba(15,23,42,.55);
 }
 
-/* =========================================================
-   PROGRESS BAR (thin, non-blocking)
-   ========================================================= */
-.gj-progress{
-  position:fixed;
-  left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat) + 2px);
-  height: 8px;
-  padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:55;
-  pointer-events:none;
-}
-.gj-progress-track{
-  height: 8px;
-  border-radius: 999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.52);
-  overflow:hidden;
-}
-.gj-progress-fill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
+/* ✅ Mobile / cVR: hide quest cards to free gameplay space */
+body.view-mobile .quest-row,
+body.view-cvr .quest-row{
+  display:none !important;
 }
 
-/* =========================================================
-   BOSS BAR (only shown when active; thin)
-   ========================================================= */
-.gj-boss{
-  position:fixed;
-  left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat) + 16px);
-  padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:56;
-  pointer-events:none;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-.gj-boss[aria-hidden="true"]{ display:none; }
-
-.gj-boss-track{
-  height: 10px;
-  border-radius: 999px;
-  border:1px solid rgba(245,158,11,.35);
-  background: rgba(15,23,42,.55);
-  overflow:hidden;
-}
-.gj-boss-fill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
-}
-.gj-boss-hint{
-  font-size:11px;
-  font-weight:900;
-  color: rgba(229,231,235,.92);
-  text-shadow: 0 12px 40px rgba(0,0,0,.55);
-}
-
-/* =========================================================
-   HUD BOTTOM (compact)
-   ========================================================= */
+/* --- HUD BOTTOM (compact) --- */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
@@ -316,12 +316,14 @@ a-scene[embedded]{
   padding: 10px;
   pointer-events:none;
 }
+
 .meter-title{
   font-weight:1200;
   font-size:12px;
   letter-spacing:.35px;
   color: rgba(229,231,235,.92);
 }
+
 .meter-bar{
   margin-top:8px;
   height: 10px;
@@ -336,12 +338,14 @@ a-scene[embedded]{
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
 }
+
 .meter-num{
   margin-top:8px;
   font-size:12px;
   color: rgba(148,163,184,.92);
   font-weight:900;
 }
+
 .meter-shield{
   margin-top:8px;
   padding:8px 10px;
@@ -359,9 +363,7 @@ a-scene[embedded]{
   line-height:1.25;
 }
 
-/* =========================================================
-   PLAYFIELD
-   ========================================================= */
+/* --- PLAYFIELD --- */
 .gj-field{
   position:fixed;
   inset:0;
@@ -377,13 +379,8 @@ a-scene[embedded]{
 }
 
 /* right-eye layer (optional) */
-.gj-layer-r{
-  opacity:0;
-  pointer-events:none;
-}
-body.view-cvr .gj-layer-r{
-  opacity:1;
-}
+.gj-layer-r{ opacity:0; pointer-events:none; }
+body.view-cvr .gj-layer-r{ opacity:1; }
 
 /* --- Targets --- */
 .gj-target{
@@ -406,35 +403,26 @@ body.view-cvr .gj-layer-r{
   opacity: 1;
   will-change: transform;
 }
+.gj-target:active{ transform: translate(-50%, -50%) scale(.98); }
 
-.gj-target:active{
-  transform: translate(-50%, -50%) scale(.98);
-}
-
-/* small “pop-in” only (doesn't vanish) */
+/* small pop-in only */
 @keyframes gjPopIn{
   from{ transform: translate(-50%, -50%) scale(.72); opacity: .88; }
   to{ transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
-.gj-target.spawn{
-  animation: gjPopIn 120ms ease-out both;
-}
+.gj-target.spawn{ animation: gjPopIn 120ms ease-out both; }
 
 /* cVR strict: disable pointer events so only crosshair shooting works */
-body.view-cvr .gj-target{
-  pointer-events:none;
-}
+body.view-cvr .gj-target{ pointer-events:none; }
 
-/* =========================================================
-   LOW TIME OVERLAY
-   ========================================================= */
+/* --- LOW TIME overlay --- */
 .gj-lowtime-overlay{
   position:fixed;
   inset:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:80;
+  z-index:70;
   pointer-events:none;
   opacity:0;
   transition: opacity .15s ease;
@@ -457,27 +445,23 @@ body.view-cvr .gj-target{
   text-shadow: 0 18px 55px rgba(0,0,0,.55);
 }
 
-/* =========================================================
-   MISSIONS PEEK
-   ========================================================= */
+/* --- Missions Peek --- */
 .gj-peek{
   position:fixed;
   left:0; right:0;
   top: calc(var(--topbar-h) + var(--sat) + 8px);
   padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:90;
+  z-index:80;
   pointer-events:none;
   opacity:0;
   transform: translateY(-6px);
   transition: opacity .15s ease, transform .15s ease;
 }
-
 body.show-missions .gj-peek{
   opacity:1;
   transform: translateY(0);
-  pointer-events:auto; /* tap to close */
+  pointer-events:auto;
 }
-
 .peek-card{
   width:min(720px, 96vw);
   margin: 0 auto;
@@ -489,12 +473,7 @@ body.show-missions .gj-peek{
   box-shadow: 0 18px 55px rgba(0,0,0,.42);
   padding: 12px;
 }
-
-.peek-title{
-  font-size:14px;
-  font-weight:1200;
-  margin-bottom:6px;
-}
+.peek-title{ font-size:14px; font-weight:1200; margin-bottom:6px; }
 .peek-sub, .peek-mini{
   font-size:12px;
   font-weight:900;
@@ -508,72 +487,19 @@ body.show-missions .gj-peek{
   color: rgba(148,163,184,.92);
 }
 
-/* =========================================================
-   HUD hidden mode (maximize playfield)
-   ========================================================= */
+/* --- HUD hidden mode --- */
 body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot,
-body.hud-hidden .gj-progress,
-body.hud-hidden .gj-boss{
-  display:none !important;
-}
+body.hud-hidden .gj-hud-bot{ display:none !important; }
 
-/* =========================================================
-   ✅ MOBILE COMPACT MODE (KEY FIX)
-   - quest cards hidden
-   - pills smaller
-   - buttons smaller
-   - playfield becomes BIG
-   ========================================================= */
-body.mobile-compact .quest-row{
-  display:none !important;
-}
-
-body.mobile-compact .gj-topbar{
-  height: 52px;
-  padding: calc(8px + var(--sat)) calc(10px + var(--sar)) 8px calc(10px + var(--sal));
-}
-body.mobile-compact .gj-btn{
-  height:38px;
-  padding:0 10px;
-  border-radius:14px;
-  font-size:12px;
-}
-body.mobile-compact .gj-chip{
-  padding:9px 10px;
-  gap:8px;
-}
-
-body.mobile-compact .gj-hud-top{
-  padding-top: 6px;
-}
-
-body.mobile-compact .hud-pill{
-  min-width: 76px;
-  padding: 8px 10px;
-  border-radius: 16px;
-}
-body.mobile-compact .hud-pill .hud-value{
-  font-size: 16px;
-}
-
-body.mobile-compact .gj-hud-bot{
-  grid-template-columns: 1fr; /* stack */
-}
-body.mobile-compact .meter{
-  padding: 9px;
-}
-
-/* =========================================================
-   Responsive tweaks (keep)
-   ========================================================= */
+/* --- Responsive tweaks --- */
 @media (max-width: 520px){
   :root{
     --topbar-h: 52px;
     --card-pad: 9px;
   }
-  /* (we also apply mobile-compact via JS; this is extra safety) */
-  .quest-row{ display:none !important; }
+  .gj-btn{ height:40px; border-radius: 14px; }
+  .hud-pill{ min-width: 86px; }
+  .hud-pill .hud-value{ font-size: 17px; }
   .gj-hud-bot{ grid-template-columns: 1fr; }
 }
 
