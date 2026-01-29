@@ -1,186 +1,110 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — PRODUCTION (Deterministic-friendly)
-// ✅ createAIHooks({ game, mode, rng })
-// ✅ getDifficulty(tSec, base) -> {spawnMs,pGood,pJunk,pStar,pShield}
-// ✅ getTip(tSec) -> {msg,tag} rate-limited
-// ✅ onEvent(type, payload)
-// Notes:
-// - "mode": 'play' => adaptive ON by default, 'research' => adaptive OFF by default
-// - still safe if caller uses only some methods
+// AI Hooks (PRODUCTION MIN)
+// ✅ createAIHooks({game, mode, rng})
+// ✅ Methods: onEvent(type,payload), getTip(playedSec), getDifficulty(playedSec, base)
+// Notes: default "fair & explainable", no ML/DL inference yet (future plug-in)
 
 'use strict';
 
-export function createAIHooks(opts = {}){
-  const WIN = window;
-  const DOC = document;
+export function createAIHooks(cfg={}){
+  const game = String(cfg.game || 'HHA').trim();
+  const mode = String(cfg.mode || 'play').trim(); // play | research
+  const rng  = (typeof cfg.rng === 'function') ? cfg.rng : null;
 
-  const game = String(opts.game || 'HHA').trim();
-  const mode = String(opts.mode || 'play').toLowerCase();
-  const rng  = (typeof opts.rng === 'function') ? opts.rng : Math.random;
-
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-
-  // ✅ allow override: ?ai=0 disables, ?ai=1 enables
-  const qAi = qs('ai', null);
-  const enabled =
-    (qAi === '0') ? false :
-    (qAi === '1') ? true  :
-    (mode === 'play');
-
-  // --- rolling stats (simple + fair) ---
+  // --- simple running stats ---
   const S = {
-    enabled,
-    tLastTip: 0,
-    tipCooldownMs: 6500,
-
-    // counters
+    t0: (performance.now ? performance.now() : Date.now()),
     hitGood: 0,
     hitJunk: 0,
-    miss: 0,          // (expired good) or other miss events
+    miss: 0,
     comboMax: 0,
-
-    // streaks
-    missStreak: 0,
-    goodStreak: 0,
-
-    // EWMA skill
-    skill: 0.55,      // 0..1
-    stress: 0.20,     // 0..1 (higher => ease a bit)
-
-    // last event time
-    lastEvMs: 0
+    lastTipAt: -1,
+    // EMA (explainable)
+    emaAcc: 0.72,   // higher = better
+    emaMiss: 0.12,  // higher = worse
   };
 
-  function nowMs(){
-    try{ return performance.now(); }catch(_){ return Date.now(); }
+  const clamp=(v,a,b)=>Math.max(a, Math.min(b, v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+
+  function updateEMA(){
+    const total = S.hitGood + S.hitJunk + S.miss;
+    if(total <= 0) return;
+    const acc = S.hitGood / total;
+    const miss = S.miss / total;
+    // slow EMA
+    S.emaAcc  = lerp(S.emaAcc,  acc,  0.08);
+    S.emaMiss = lerp(S.emaMiss, miss, 0.10);
   }
 
-  function updateEWMA(prev, x, a){
-    return prev*(1-a) + x*a;
+  function onEvent(type, payload={}){
+    switch(String(type||'')){
+      case 'hitGood': S.hitGood++; break;
+      case 'hitJunk': S.hitJunk++; break;
+      case 'miss':    S.miss++; break;
+      case 'comboMax':
+        S.comboMax = Math.max(S.comboMax, Number(payload?.value)||0);
+        break;
+      default: break;
+    }
+    updateEMA();
   }
 
-  // caller not required to call, but good for telemetry
-  function onEvent(type, payload = {}){
-    if(!S.enabled) return;
+  // --- micro tips (rate limit) ---
+  function getTip(playedSec){
+    // rate-limit 1 tip / ~7s
+    const t = Math.floor(playedSec || 0);
+    if(t < 6) return null;
+    if(S.lastTipAt >= 0 && (t - S.lastTipAt) < 7) return null;
 
-    const t = Number(payload.t || nowMs());
-    S.lastEvMs = t;
+    // choose tip from stats (explainable)
+    let msg = '';
+    if(S.emaMiss > 0.18) msg = 'ลอง “รอให้เป้าเข้ากลาง” แล้วค่อยยิง จะพลาดน้อยลง 👀';
+    else if(S.emaAcc > 0.78) msg = 'แม่นมาก! ลองเน้นคอมโบของดีต่อเนื่อง 🔥';
+    else msg = 'จำไว้: ของดี = หมู่ 1–5 / ของเสีย = หวาน-ทอด-น้ำอัดลม 🍟🥤';
 
-    if(type === 'hitGood'){
-      S.hitGood++;
-      S.goodStreak++;
-      S.missStreak = 0;
-
-      // accuracy proxy: good => 1
-      S.skill = updateEWMA(S.skill, 1.0, 0.06);
-      S.stress = updateEWMA(S.stress, 0.10, 0.05);
-    }
-    else if(type === 'hitJunk'){
-      S.hitJunk++;
-      S.missStreak++;
-      S.goodStreak = 0;
-
-      // junk => 0
-      S.skill = updateEWMA(S.skill, 0.0, 0.08);
-      S.stress = updateEWMA(S.stress, 0.75, 0.08);
-    }
-    else if(type === 'miss'){
-      S.miss++;
-      S.missStreak++;
-      S.goodStreak = 0;
-
-      S.skill = updateEWMA(S.skill, 0.15, 0.07);
-      S.stress = updateEWMA(S.stress, 0.85, 0.08);
-    }
-    else if(type === 'comboMax'){
-      const cm = clamp(payload.value, 0, 999);
-      S.comboMax = Math.max(S.comboMax, cm);
-    }
+    S.lastTipAt = t;
+    return { msg, tag:'AI Coach' };
   }
 
-  // --- Difficulty Director (fair & smooth) ---
-  function getDifficulty(tSec, base){
-    // base: {spawnMs,pGood,pJunk,pStar,pShield}
-    const B = Object.assign({}, base || {});
-    if(!S.enabled) return B;
+  // --- difficulty director (explainable) ---
+  // base = {spawnMs,pGood,pJunk,pStar,pShield}
+  function getDifficulty(playedSec, base){
+    // default: return base if invalid
+    const B = Object.assign({ spawnMs:900, pGood:.70, pJunk:.26, pStar:.02, pShield:.02 }, base||{});
 
-    const t = clamp(tSec, 0, 9999);
+    // factor in performance (fair): more miss => ease a bit; better acc => harder a bit
+    const miss = clamp(S.emaMiss, 0, 0.40);
+    const acc  = clamp(S.emaAcc,  0.40, 0.92);
 
-    // smooth ramp with time (0..1)
-    const ramp = clamp((t - 6) / 24, 0, 1);
+    // target difficulty ramps with time
+    const ramp = clamp((Number(playedSec)||0) / 45, 0, 1); // 0..1 in ~45s
 
-    // skill & stress shaping
-    const skill = clamp(S.skill, 0.05, 0.95);
-    const stress = clamp(S.stress, 0, 1);
+    // compute adjustments
+    const ease = clamp((miss - 0.12) * 1.6, -0.18, 0.22); // + = easier
+    const hard = clamp((acc  - 0.72) * 1.2, -0.16, 0.18); // + = harder
+    const k = (hard - ease); // + harder
 
-    // aim: harder when skill high, easier when stress high
-    const hardBias = clamp((skill - 0.55) * 0.9 - (stress - 0.25) * 0.7, -0.35, 0.35);
+    // spawn speed: harder => lower spawnMs
+    let spawnMs = B.spawnMs * (1 - 0.18*ramp*k);
+    spawnMs = clamp(spawnMs, 520, 1200);
 
-    // spawnMs adjust (cap changes)
-    let spawnMs = Number(B.spawnMs || 900);
-    spawnMs = spawnMs * (1 - 0.16*ramp) * (1 - 0.18*hardBias);
+    // distributions: harder => more junk, less good (small, fair)
+    let pJunk = B.pJunk + clamp(0.10*ramp*k, -0.08, 0.10);
+    let pGood = B.pGood - clamp(0.10*ramp*k, -0.10, 0.08);
 
-    // keep playable bounds
-    spawnMs = clamp(spawnMs, 520, 1100);
+    // help powerups when miss high
+    let help = clamp((miss - 0.14) * 0.12, 0, 0.03); // 0..0.03
+    let pShield = B.pShield + help;
+    let pStar   = B.pStar   + help*0.6;
 
-    // probabilities adjust (small nudges)
-    let pGood   = clamp(Number(B.pGood   ?? 0.70), 0.10, 0.90);
-    let pJunk   = clamp(Number(B.pJunk   ?? 0.26), 0.05, 0.85);
-    let pStar   = clamp(Number(B.pStar   ?? 0.02), 0.00, 0.20);
-    let pShield = clamp(Number(B.pShield ?? 0.02), 0.00, 0.20);
-
-    // when harder: slightly more junk, less good
-    const delta = 0.06 * hardBias + 0.05*ramp;
-    pJunk = clamp(pJunk + delta, 0.06, 0.60);
-    pGood = clamp(pGood - delta, 0.35, 0.85);
-
-    // stress safety: give more shield/star if struggling
-    const help = clamp((stress - 0.35) * 0.12, 0, 0.08);
-    if(help > 0){
-      pShield = clamp(pShield + help*0.65, 0.01, 0.12);
-      pStar   = clamp(pStar   + help*0.35, 0.01, 0.10);
-      // compensate by taking from junk a bit
-      pJunk   = clamp(pJunk - help*0.60, 0.06, 0.60);
-    }
+    // normalize guard
+    let s = pGood + pJunk + pStar + pShield;
+    if(s <= 0) s = 1;
+    pGood/=s; pJunk/=s; pStar/=s; pShield/=s;
 
     return { spawnMs, pGood, pJunk, pStar, pShield };
   }
 
-  // --- AI Coach tips (rate-limited) ---
-  function getTip(tSec){
-    if(!S.enabled) return null;
-
-    const now = nowMs();
-    if(now - S.tLastTip < S.tipCooldownMs) return null;
-
-    // conditions
-    if(S.missStreak >= 3){
-      S.tLastTip = now;
-      return { tag:'AI Coach', msg:'ลอง “หยุดเร็วครึ่งวิ” ก่อนยิงนะ 🎯 โฟกัสของดีทีละอัน จะลด MISS ได้มาก' };
-    }
-    if(S.hitJunk >= 3 && S.hitGood < 6){
-      S.tLastTip = now;
-      return { tag:'AI Coach', msg:'จำง่าย ๆ: ของดี “อาหารหลัก” ยิงเลย ✅ ของเสีย “ทอด/หวาน/น้ำอัดลม” เลี่ยงทันที' };
-    }
-    if(S.goodStreak >= 6){
-      S.tLastTip = now;
-      return { tag:'AI Coach', msg:'คอมโบกำลังมา! 🔥 รักษาจังหวะเดิม แล้วรอของดีชัด ๆ ไม่ต้องรีบ' };
-    }
-
-    // occasional neutral tip
-    if(rng() < 0.14){
-      S.tLastTip = now;
-      return { tag:'AI Coach', msg:'ทริค: ถ้าเริ่มพลาดติด ๆ กัน ให้เน้น “ของดีใกล้กลางจอ” ก่อน จะคุมง่ายขึ้น' };
-    }
-
-    return null;
-  }
-
-  return {
-    enabled,
-    onEvent,
-    getDifficulty,
-    getTip
-  };
+  return { game, mode, onEvent, getTip, getDifficulty };
 }
