@@ -1,239 +1,129 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION (FULL)
-// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr + cardboard
-// ✅ Exposes window.HHA_VIEW.layers for Cardboard split layers
-// ✅ Robust import hydration.safe.js from SAME folder as this loader (import.meta.url base)
-// ✅ Optional: auto-load Universal VR UI (/herohealth/vr/vr-ui.js) if ?vrui=1 OR view=cvr/vr
-// ✅ Error UI (creates overlay if page doesn't have #bootError)
+// Hydration VR Loader — PRODUCTION (HHA Standard)
+// ✅ Auto-detect view (PC / Mobile) — respects ?view= if provided (no override)
+// ✅ Supports: view=pc | mobile | cvr | cardboard
+// ✅ Sets body classes: view-pc / view-mobile / view-cvr / cardboard
+// ✅ Exposes window.HHA_VIEW.layers for SAFE (Cardboard split L/R)
+// ✅ Imports hydration.safe.js (game logic)
+// Notes:
+// - Tap-to-start gesture + fullscreen/orientation handled in hydration-vr.html overlay
+// - Universal VR UI loaded via ../vr/vr-ui.js (defer) in hydration-vr.html
 
-(function(){
-  'use strict';
+'use strict';
 
-  const WIN = window;
-  const DOC = document;
+const WIN = window;
+const DOC = document;
 
-  const qs = (k, def=null)=>{
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch(_){ return def; }
-  };
+const qs = (k, def=null)=>{
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; }
+};
 
-  function normalizeView(v){
-    v = String(v||'').toLowerCase();
-    if (v==='cvr' || v==='cardboard') return 'cvr';
-    if (v==='vr') return 'vr';
-    if (v==='mobile') return 'mobile';
-    if (v==='pc' || v==='desktop') return 'pc';
-    return '';
+function setOverlayText(msg){
+  const el = DOC.getElementById('start-sub');
+  if (el) el.textContent = String(msg || '');
+}
+
+function normalizeView(v){
+  v = String(v||'').toLowerCase().trim();
+  if (v==='pc' || v==='desktop') return 'pc';
+  if (v==='m' || v==='mob' || v==='phone' || v==='mobile') return 'mobile';
+  if (v==='cvr' || v==='cardboard-vr' || v==='viewer') return 'cvr';
+  if (v==='cardboard' || v==='cb' || v==='vr') return 'cardboard';
+  return '';
+}
+
+function isCoarsePointer(){
+  try{ return !!(matchMedia && matchMedia('(pointer:coarse)').matches); }catch(_){ return false; }
+}
+function isTouch(){
+  try{ return ('ontouchstart' in WIN) || (navigator.maxTouchPoints>0); }catch(_){ return false; }
+}
+
+function autoDetectView(){
+  // ✅ do not override ?view= if provided — handled outside
+  // Heuristic only (safe + predictable)
+  const coarse = isCoarsePointer();
+  const touch  = isTouch();
+
+  // Default: mobile if coarse/touch, else pc
+  if (coarse || touch) return 'mobile';
+  return 'pc';
+}
+
+function applyBodyClasses(view){
+  const b = DOC.body;
+  if (!b) return;
+
+  // clear known classes
+  b.classList.remove('view-pc','view-mobile','view-cvr','cardboard','view-vr');
+
+  if (view === 'cardboard'){
+    b.classList.add('cardboard','view-vr'); // split L/R
+  } else if (view === 'cvr'){
+    b.classList.add('view-cvr','view-vr');  // strict crosshair mode (targets unclickable in html)
+  } else if (view === 'mobile'){
+    b.classList.add('view-mobile');
+  } else {
+    b.classList.add('view-pc');
   }
+}
 
-  function getView(){
-    // Prefer explicit ?view=
-    const v = normalizeView(qs('view',''));
-    if (v) return v;
-
-    // fallback by screen/UA
-    const ua = (navigator.userAgent||'').toLowerCase();
-    const isMobile = /android|iphone|ipad|ipod/.test(ua) ||
-      (WIN.matchMedia && WIN.matchMedia('(max-width: 820px)').matches);
-
-    // if XR headset UA
-    if (navigator.xr && /oculus|quest|vive|pico|hololens/.test(ua)) return 'vr';
-
-    // if mobile + vr keywords -> cvr
-    if (isMobile && /cardboard|vrbox|daydream|gearvr|vr/.test(ua)) return 'cvr';
-
-    return isMobile ? 'mobile' : 'pc';
+function computeLayers(view){
+  // Provide ids for SAFE to mount targets to correct layers
+  if (view === 'cardboard'){
+    return ['hydration-layerL','hydration-layerR'];
   }
+  return ['hydration-layer'];
+}
 
-  function applyViewClass(view){
-    const b = DOC.body;
-    if (!b) return;
+function viewLabel(){
+  const b = DOC.body;
+  if (b?.classList.contains('cardboard')) return 'VR Cardboard (Split)';
+  if (b?.classList.contains('view-cvr')) return 'cVR (Crosshair ยิงกลางจอ)';
+  if (b?.classList.contains('view-mobile')) return 'Mobile';
+  return 'PC';
+}
 
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
+async function boot(){
+  try{
+    // 1) Decide view (respect ?view=)
+    const forced = normalizeView(qs('view',''));
+    const view = forced || autoDetectView();
 
-    if (view==='cvr'){
-      b.classList.add('view-cvr','cardboard'); // HHA convention: cvr counts as cardboard-mode behavior
-      // NOTE: page may still use single playfield; "cardboard" is mainly to support helpers/styles
-    } else if (view==='vr'){
-      b.classList.add('view-vr');
-    } else if (view==='mobile'){
-      b.classList.add('view-mobile');
-    } else {
-      b.classList.add('view-pc');
-    }
+    // 2) Apply body classes
+    applyBodyClasses(view);
 
-    // Optional: if user explicitly wants split-cardboard view (true L/R)
-    // Support ?cardboard=1 to force split layers
-    const forceSplit = String(qs('cardboard','0')) === '1';
-    if (forceSplit) b.classList.add('cardboard');
-  }
-
-  function baseFolderURL(){
-    // ✅ CRITICAL: base folder where this loader lives
-    try{
-      const u = new URL(import.meta.url);
-      u.hash = ''; u.search = '';
-      u.pathname = u.pathname.replace(/[^/]*$/, ''); // drop filename
-      return u.toString();
-    }catch(_){
-      // fallback to currentScript
-      const s = DOC.currentScript;
-      if (s && s.src){
-        const u = new URL(s.src, location.href);
-        u.hash=''; u.search='';
-        u.pathname = u.pathname.replace(/[^/]*$/, '');
-        return u.toString();
-      }
-      return new URL('./', location.href).toString();
-    }
-  }
-
-  function ensureBootErrorEl(){
-    let el = DOC.getElementById('bootError');
-    if (el) return el;
-
-    // Create overlay error panel if not present
-    const wrap = DOC.createElement('div');
-    wrap.id = 'bootErrorWrap';
-    wrap.style.cssText = [
-      'position:fixed','inset:0','z-index:9999',
-      'display:none','align-items:center','justify-content:center',
-      'padding:16px','background:rgba(2,6,23,.86)','backdrop-filter:blur(10px)'
-    ].join(';');
-
-    el = DOC.createElement('pre');
-    el.id = 'bootError';
-    el.style.cssText = [
-      'margin:0','max-width:980px','width:100%',
-      'white-space:pre-wrap','word-break:break-word',
-      'background:rgba(15,23,42,.80)','border:1px solid rgba(148,163,184,.22)',
-      'border-radius:16px','padding:14px','color:#e5e7eb',
-      'font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'
-    ].join(';');
-
-    wrap.appendChild(el);
-    DOC.body.appendChild(wrap);
-    return el;
-  }
-
-  function showErr(msg, extra){
-    try{
-      console.error(msg, extra||'');
-      const pre = ensureBootErrorEl();
-      const wrap = DOC.getElementById('bootErrorWrap');
-      if (wrap) wrap.style.display = 'flex';
-      if (pre){
-        pre.textContent =
-          String(msg) +
-          (extra ? '\n\n' + String(extra) : '') +
-          '\n\n(ตรวจสอบ path/ไฟล์: hydration.safe.js, import modules, และ console error)';
-      }
-    }catch(_){}
-  }
-
-  async function tryImport(relPath){
-    const base = baseFolderURL();
-    const url = new URL(relPath, base);
-    return import(url.toString());
-  }
-
-  function setHHAView(view){
-    // Provide layers config so hydration.safe.js can render to correct layer(s)
-    // Single playfield layer:
-    const main = 'hydration-layer';
-    // Split layers for Cardboard:
-    const L = 'hydration-layerL';
-    const R = 'hydration-layerR';
-
-    const body = DOC.body;
-    const split = !!(body && body.classList.contains('cardboard') && DOC.getElementById(L) && DOC.getElementById(R));
+    // 3) Expose HHA_VIEW for SAFE
+    const layers = computeLayers(view);
 
     WIN.HHA_VIEW = Object.assign({}, WIN.HHA_VIEW || {}, {
+      game: 'hydration',
       view,
-      // ✅ hydration.safe.js reads HHA_VIEW.layers if available
-      layers: split ? [L, R] : [main],
-      split: split,
-      playfieldId: split ? 'cbPlayfield' : 'playfield'
+      layers,
+      // helpful flags
+      isCardboard: (view === 'cardboard'),
+      isCVR: (view === 'cvr'),
+      // ids used by html
+      playfieldId: (view === 'cardboard') ? 'cbPlayfield' : 'playfield'
     });
+
+    // 4) Update overlay text
+    setOverlayText(`โหมดตรวจจับแล้ว: ${viewLabel()}  •  แตะเพื่อเริ่ม`);
+
+    // 5) Import SAFE game logic (listens to hha:start)
+    //    (SAFE will read window.HHA_VIEW.layers)
+    await import('./hydration.safe.js');
+
+    // 6) Optional: tell others we're ready
+    try{ WIN.dispatchEvent(new CustomEvent('hha:ready', { detail:{ game:'hydration', view, layers } })); }catch(_){}
+  }catch(err){
+    console.error('[Hydration Loader] boot failed:', err);
+    setOverlayText('โหลดเกมไม่สำเร็จ — เปิด Console เพื่อดู error');
   }
+}
 
-  function shouldLoadVRUI(view){
-    // Default OFF (to avoid breaking existing custom crosshair)
-    // Enable by: ?vrui=1
-    // Or auto-enable in VR/cVR if you want: set AUTO_VRUI=true
-    const AUTO_VRUI = false;
-
-    const flag = String(qs('vrui','0')) === '1';
-    if (flag) return true;
-    if (AUTO_VRUI && (view==='vr' || view==='cvr')) return true;
-    return false;
-  }
-
-  function injectScript(url){
-    return new Promise((resolve, reject)=>{
-      try{
-        // avoid double load
-        const exists = Array.from(DOC.scripts).some(s => (s.src||'') === url);
-        if (exists) return resolve(true);
-
-        const s = DOC.createElement('script');
-        s.src = url;
-        s.async = true;
-        s.onload = ()=>resolve(true);
-        s.onerror = ()=>reject(new Error('script load failed: ' + url));
-        DOC.head.appendChild(s);
-      }catch(e){
-        reject(e);
-      }
-    });
-  }
-
-  async function loadUniversalVRUI(){
-    // vr-ui.js is IIFE script (non-module)
-    // Path from hydration-vr/ folder -> ../vr/vr-ui.js
-    const base = baseFolderURL();
-    const url = new URL('../vr/vr-ui.js', base).toString();
-    await injectScript(url);
-  }
-
-  async function boot(){
-    const view = getView();
-    applyViewClass(view);
-    setHHAView(view);
-
-    // Optional: load Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-    if (shouldLoadVRUI(view)){
-      try{ await loadUniversalVRUI(); }catch(e){ console.warn(e); }
-    }
-
-    // Load hydration.safe.js (same folder)
-    const v = Date.now();
-    const candidates = [
-      `./hydration.safe.js?v=${v}`,
-      `./hydration.safe.js`
-    ];
-
-    let lastErr = null;
-    for (const p of candidates){
-      try{
-        await tryImport(p);
-        return; // success
-      }catch(e){
-        lastErr = e;
-      }
-    }
-
-    const base = baseFolderURL();
-    showErr(
-      `❌ HydrationVR: import failed (loader)\nbase: ${base}\nview: ${view}\nTried:\n- ${candidates.join('\n- ')}`,
-      lastErr && (lastErr.stack || lastErr.message || String(lastErr))
-    );
-  }
-
-  // Start boot when DOM ready enough
-  if (DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', boot, { once:true });
-  } else {
-    boot();
-  }
-})();
+if (DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', boot, { once:true });
+} else {
+  boot();
+}
