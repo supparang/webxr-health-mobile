@@ -1,5 +1,5 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — v2.1 (Easier Water + Storm Side + Progressive Boss + Fix dup nextSpawnDelay + Fix double gauge)
+// Hydration SAFE — PRODUCTION (FULL) — v2.2 (Storm Banner Wired)
 // ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic-ish (seeded RNG)
 // ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
@@ -7,6 +7,7 @@
 // ✅ Easier water control + clearer Storm LOW/HIGH + Progressive Boss difficulty
 // ✅ FIX: nextSpawnDelay declared once
 // ✅ FIX: Water gauge won't duplicate if page has its own water panel
+// ✅ NEW: Storm Command Banner (LOW/HIGH + checklist + FAIL + pulse in End Window)
 
 'use strict';
 
@@ -345,6 +346,64 @@ function syncWaterPanelDOM(){
   if (zone) zone.textContent = String(S.waterZone||'');
 }
 
+/* ===================== STORM BANNER (NEW) ===================== */
+const UI_STORM = {
+  banner: null,
+  cmd: null,
+  checks: null,
+  fail: null
+};
+function initStormBanner(){
+  if (!DOC) return;
+  UI_STORM.banner = DOC.getElementById('stormBanner');
+  UI_STORM.cmd = DOC.getElementById('stormCmd');
+  UI_STORM.checks = DOC.getElementById('stormChecks');
+  UI_STORM.fail = DOC.getElementById('stormFail');
+}
+function setStormBannerVisible(on){
+  const b = UI_STORM.banner;
+  if (!b) return;
+  b.hidden = !on;
+}
+function fmtCheck(ok){ return ok ? '✅' : '…'; }
+function syncStormBanner(){
+  if (!UI_STORM.banner) initStormBanner();
+
+  const banner = UI_STORM.banner;
+  const cmd = UI_STORM.cmd;
+  const checks = UI_STORM.checks;
+  const fail = UI_STORM.fail;
+
+  if (!banner || !cmd || !checks || !fail) return;
+
+  if (!S.stormActive){
+    setStormBannerVisible(false);
+    try{ DOC.body.classList.remove('hha-stormPulse'); }catch(_){}
+    return;
+  }
+
+  setStormBannerVisible(true);
+
+  const tgt = (S.stormTargetZone === 'LOW') ? 'LOW (น้ำต่ำ)' : 'HIGH (น้ำสูง)';
+  const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked|0}/${S.bossNeed|0}` : '';
+  cmd.innerHTML = `STORM: ไปที่ <b>${tgt}</b>${bossTxt}`;
+
+  const m = S.miniState || {};
+  const sZone = fmtCheck(!!m.zoneOK);
+  const sPres = fmtCheck(!!m.pressureOK);
+  const sEnd  = fmtCheck(!!m.endWindow);
+  const sBlk  = fmtCheck(!!m.blockedInEnd);
+  checks.textContent = `zone ${sZone}  |  pressure ${sPres}  |  end ${sEnd}  |  block ${sBlk}`;
+
+  const isFail = !!m.gotHitByBad;
+  fail.hidden = !isFail;
+
+  // pulse banner ช่วง End Window ถ้ายังไม่ BLOCK และยังไม่ FAIL
+  const pulse = (!!S.inEndWindow) && (!m.blockedInEnd) && (!isFail);
+  try{ DOC.body.classList.toggle('hha-stormPulse', pulse); }catch(_){}
+}
+/* ============================================================= */
+
 function setStage(n){
   const nn = clamp(n,1,3)|0;
   if (S.stage === nn) return;
@@ -413,6 +472,9 @@ function syncHUD(){
   // external water utility (will no-op if gauge not created)
   try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
+
+  // ✅ NEW: storm banner realtime
+  syncStormBanner();
 
   emit('hha:score', {
     score:S.score|0,
@@ -748,6 +810,9 @@ function enterStorm(){
   setEndFx(false);
   S.endFxTickAt = 0;
 
+  // ✅ show banner now
+  syncStormBanner();
+
   emit('hha:judge', { kind:'storm', target:S.stormTargetZone });
   syncHUD();
 }
@@ -786,6 +851,10 @@ function exitStorm(){
   }
 
   S.bossActive=false;
+
+  // ✅ hide banner after storm
+  syncStormBanner();
+
   syncHUD();
 }
 
@@ -821,6 +890,9 @@ function tickStorm(dt){
   const gain = zoneOK ? 1.25 : 0.18;
   S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
+
+  // ✅ keep banner realtime
+  syncStormBanner();
 
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
@@ -1075,6 +1147,7 @@ async function endGame(reason){
   S.ended = true;
   setEndFx(false);
   DOC.body.classList.remove('hha-bossfx');
+  try{ DOC.body.classList.remove('hha-stormPulse'); }catch(_){}
 
   const grade = computeGrade();
   const acc = computeAccuracy();
@@ -1141,6 +1214,10 @@ function pageHasBuiltInWaterPanel(){
 }
 
 function boot(){
+  // ✅ init banner refs
+  initStormBanner();
+  syncStormBanner();
+
   // ✅ FIX double gauge: create utility gauge only if page doesn't have its own
   try{
     if (!pageHasBuiltInWaterPanel()){
