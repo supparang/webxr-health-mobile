@@ -106,23 +106,12 @@ export function boot(){
     bounds:{ spawnPerSec:[1.2, 4.2], hazardRate:[0.05, 0.26], decoyRate:[0.10, 0.40] }
   }) : null;
 
-  // -------- FX helpers (Particles) --------
-  function fxPop(x, y, text, cls){
-    try{
-      if(WIN.Particles && typeof WIN.Particles.popText === 'function'){
-        WIN.Particles.popText(x, y, text, cls||'');
-      }
-    }catch(_){}
+  // FX helpers (Particles)
+  function fxText(x,y,txt,cls){
+    try{ WIN.Particles?.popText?.(x,y,txt,cls||''); }catch{}
   }
-  function fxBurst(x, y, cls){
-    try{
-      if(WIN.Particles && typeof WIN.Particles.burst === 'function'){
-        WIN.Particles.burst(x, y, { count: 14, spread: 52, upBias: 0.82, className: cls||'' });
-      }
-    }catch(_){}
-  }
-  function fxCenter(text, cls){
-    fxPop(WIN.innerWidth*0.5, WIN.innerHeight*0.22, text, cls);
+  function fxBurst(x,y,cls){
+    try{ WIN.Particles?.burst?.(x,y,{count:12,spread:46,upBias:.8,className:cls||''}); }catch{}
   }
 
   // state
@@ -155,17 +144,12 @@ export function boot(){
   const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
   let nextId=1;
 
-  function showBanner(msg, cls){
-    if(banner){
-      banner.textContent = msg;
-      banner.classList.add('show');
-      clearTimeout(showBanner._t);
-      showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
-    }
-    // FX header
-    if(msg){
-      fxCenter(msg, cls||'');
-    }
+  function showBanner(msg){
+    if(!banner) return;
+    banner.textContent = msg;
+    banner.classList.add('show');
+    clearTimeout(showBanner._t);
+    showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
   function setQuizVisible(on){
@@ -175,7 +159,7 @@ export function boot(){
   }
 
   function pickQuiz(){
-    const bank = WIN.HHA_HYGIENE_QUIZ_BANK; // ✅ from hygiene-quiz-bank.js
+    const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
     if(!Array.isArray(bank) || !bank.length) return null;
     const q = bank[Math.floor(rng()*bank.length)];
     return q || null;
@@ -187,23 +171,20 @@ export function boot(){
 
     setQuizVisible(true);
     quizQ.textContent = `🧠 Quiz: ${q.q}`;
-
-    // options: answer + 3 wrong
     const options = [q.a].concat((q.wrong||[]).slice(0,3));
     for(let i=options.length-1;i>0;i--){
       const j = Math.floor(rng()*(i+1));
       [options[i],options[j]] = [options[j],options[i]];
     }
     quizSub.textContent = 'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
-      + '  (ตอบโดย “ถูกขั้นตอน” ต่อเนื่อง 2 ครั้งใน 4 วิ)';
+      + '  (ตอบโดย “แตะ/ยิง” เป้าหมายถูกต่อเนื่อง 2 ครั้ง เพื่อยืนยัน)';
 
-    // simple confirm
     quizOpen._armed = true;
     quizOpen._t0 = nowMs();
     quizOpen._needStreak = 2;
     quizOpen._streak = 0;
 
-    showBanner('🧠 QUIZ มาแล้ว!', 'cyan');
+    showBanner('🧠 มี Quiz! ทำ “ถูก” ติดกัน 2 ครั้ง');
   }
 
   function closeQuiz(msg){
@@ -211,7 +192,7 @@ export function boot(){
       setQuizVisible(false);
       quizOpen = false;
       quizOpen._armed = false;
-      if(msg) showBanner(msg, msg.includes('ผ่าน') ? 'good' : 'bad');
+      if(msg) showBanner(msg);
     }
   }
 
@@ -276,7 +257,6 @@ export function boot(){
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
-    // vw/vh placement
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
@@ -292,8 +272,8 @@ export function boot(){
 
   function spawnOne(){
     const P = dd ? dd.getParams() : base;
-    const r = rng();
 
+    const r = rng();
     if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
     }else if(r < P.hazardRate + P.decoyRate){
@@ -339,9 +319,6 @@ export function boot(){
     }
     if(best){
       judgeHit(best, 'shoot', { lockPx, dist: bestDist });
-    }else{
-      // ยิงวืดเบา ๆ (ไม่คิด miss) แต่ให้มี feedback
-      fxPop(cx, cy, '•', 'cyan');
     }
   }
 
@@ -380,7 +357,8 @@ export function boot(){
       bumpQuestOnGoodHit._fastStepIdx = stepIdx;
     }
 
-    showBanner(`🎯 QUEST: ${questText}`, 'cyan');
+    showBanner(`🎯 QUEST: ${questText}`);
+    fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.18, `🎯 ${questText}`, 'cyan');
   }
 
   function updateQuestTick(){
@@ -389,8 +367,8 @@ export function boot(){
       if(t >= bumpQuestOnGoodHit._noHazUntil){
         questDone = 1;
         bumpQuestOnGoodHit._noHazUntil = 0;
-        showBanner('🏅 QUEST ผ่าน!', 'good');
-        fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.28, 'good');
+        showBanner('🏅 QUEST ผ่าน!');
+        fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.18, '🏅 QUEST ผ่าน!', 'good');
       }
     }
   }
@@ -398,7 +376,6 @@ export function boot(){
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
 
-    // GOOD
     if(obj.kind === 'good'){
       correctHits++;
       totalStepHits++;
@@ -407,14 +384,10 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      // FX at target
-      fxPop(obj.x, obj.y, `+1`, 'good');
-      if(combo > 0 && combo % 6 === 0){
-        fxPop(obj.x, obj.y - 24, `COMBO ${combo}!`, 'cyan');
-        fxBurst(obj.x, obj.y, 'cyan');
-      }
+      // ✅ FX (restore visible effects)
+      fxBurst(obj.x, obj.y, 'good');
+      fxText(obj.x, obj.y, `✅ +1`, 'good');
 
-      // quiz armed streak
       if(quizOpen && quizOpen._armed){
         const within = (nowMs() - quizOpen._t0) <= 4000;
         if(within){
@@ -422,7 +395,7 @@ export function boot(){
           if(quizOpen._streak >= (quizOpen._needStreak||2)){
             quizRight++;
             closeQuiz('✅ Quiz ผ่าน!');
-            fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.26, 'good');
+            fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, '✅ Quiz ผ่าน!', 'good');
           }
         }else{
           closeQuiz(null);
@@ -434,67 +407,60 @@ export function boot(){
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
 
-      removeTarget(obj);
       bumpQuestOnGoodHit();
+      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
 
-      // step clear
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
-
-        // clear FX
-        fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.33, 'good');
 
         stepIdx++;
         hitsInStep=0;
 
-        // fast step quest check
         if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
           const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
           if(dt <= 6500){
             questDone = 1;
-            showBanner('🏅 QUEST ผ่าน! (ไวมาก)', 'good');
-            fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.26, 'good');
+            showBanner('🏅 QUEST ผ่าน! (ไวมาก)');
+            fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.18, '🏅 QUEST ผ่าน! (ไวมาก)', 'good');
           }
         }
 
         if(stepIdx >= STEPS.length){
           stepIdx=0;
           loopsDone++;
-          showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`, 'good');
-          fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.28, 'good');
-
+          showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
+          fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.18, `🏁 ครบ 7 ขั้นตอน!`, 'cyan');
           if(!quizOpen) openRandomQuiz();
         }else{
-          showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`, 'cyan');
+          showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
           if(!quizOpen && rng() < 0.25) openRandomQuiz();
         }
       }
 
+      removeTarget(obj);
       setHud();
       return;
     }
 
-    // WRONG STEP
     if(obj.kind === 'wrong'){
       wrongStepHits++;
       totalStepHits++;
       combo = 0;
 
-      fxPop(obj.x, obj.y, 'ผิด!', 'warn');
       fxBurst(obj.x, obj.y, 'warn');
+      fxText(obj.x, obj.y, '⚠️ ผิด!', 'warn');
 
       if(quizOpen && quizOpen._armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
-        fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.26, 'bad');
+        fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, '❌ Quiz พลาด!', 'bad');
       }
 
       coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
       dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
-
-      showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`, 'warn');
+      showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
 
       removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
@@ -502,25 +468,24 @@ export function boot(){
       return;
     }
 
-    // HAZARD
     if(obj.kind === 'haz'){
       hazHits++;
       combo = 0;
 
-      fxPop(obj.x, obj.y, '🦠!', 'bad');
       fxBurst(obj.x, obj.y, 'bad');
+      fxText(obj.x, obj.y, '🦠 โดนเชื้อ!', 'bad');
 
       if(quizOpen && quizOpen._armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
-        fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.26, 'bad');
+        fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, '❌ Quiz พลาด!', 'bad');
       }
 
       coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
       dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
-      showBanner('🦠 โดนเชื้อ! ระวัง!', 'bad');
+      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
 
       removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
@@ -545,7 +510,6 @@ export function boot(){
       return;
     }
 
-    // spawn
     const P = dd ? dd.getParams() : base;
     spawnAcc += (P.spawnPerSec * dt);
 
@@ -553,7 +517,6 @@ export function boot(){
       spawnAcc -= 1;
       spawnOne();
 
-      // cap targets
       if(targets.length > 18){
         const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
         if(oldest) removeTarget(oldest);
@@ -596,9 +559,8 @@ export function boot(){
     endOverlay && (endOverlay.style.display = 'none');
 
     emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
-    showBanner(`เริ่ม! STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`, 'good');
-    fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.30, 'good');
-
+    showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
+    fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.18, `START! ${STEPS[0].icon}`, 'cyan');
     setHud();
     requestAnimationFrame(tick);
   }
@@ -680,20 +642,12 @@ export function boot(){
 
     emit('hha:end', summary);
 
-    // end FX
-    if(reason === 'fail'){
-      showBanner('❌ MISS เต็มแล้ว!', 'bad');
-      fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.28, 'bad');
-    }else{
-      showBanner(`✅ จบเกม! Grade ${grade}`, 'good');
-      fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.28, 'good');
-    }
-
-    // show end UI
     if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
     if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
     if(endOverlay) endOverlay.style.display = 'grid';
+
+    fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.20, `🏁 END • Grade ${grade}`, reason==='fail'?'bad':'good');
   }
 
   function goHub(){
@@ -703,7 +657,7 @@ export function boot(){
 
   // UI binds
   btnStart?.addEventListener('click', startGame, { passive:true });
-  btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว', 'cyan'); }, { passive:true });
+  btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.18, '↻ RESET', 'warn'); }, { passive:true });
   btnPlayAgain?.addEventListener('click', startGame, { passive:true });
   btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
   btnBack?.addEventListener('click', goHub, { passive:true });
@@ -713,23 +667,22 @@ export function boot(){
     if(!running) return;
     paused = !paused;
     if(btnPause) btnPause.textContent = paused ? '▶ Resume' : '⏸ Pause';
-    showBanner(paused ? 'พักเกม' : 'ไปต่อ!', paused ? 'warn' : 'good');
+    showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
+    fxText(WIN.innerWidth*0.5, WIN.innerHeight*0.18, paused?'⏸ PAUSE':'▶ RESUME', paused?'warn':'cyan');
   }, { passive:true });
 
   // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // badges -> FX
+  // badge / coach events -> banner
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
-    fxCenter(`${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
-    fxBurst(WIN.innerWidth*0.5, WIN.innerHeight*0.24, 'good');
+    try{ WIN.Particles?.popText?.(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good'); }catch{}
   });
 
-  // coach -> show banner
   WIN.addEventListener('hha:coach', (e)=>{
     const d = (e && e.detail) || {};
-    if(d && d.text) showBanner(`🤖 ${d.text}`, 'cyan');
+    if(d && d.text) showBanner(`🤖 ${d.text}`);
   });
 
   // initial
