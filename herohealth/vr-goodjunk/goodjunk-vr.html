@@ -1,12 +1,13 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
+GoodJunkVR RUN — PRODUCTION (Folder-run) v2026-01-30
 ✅ CSS: ./goodjunk-vr.css
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
 ✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe
-✅ NEW: progress bar + boss bar included in safe-zone measurement
-✅ NEW: listens gj:measureSafe to remeasure immediately (boss toggle)
+✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ NEW: Mission line always visible + quest:update wiring + auto popup
+✅ NEW: boss bar + progress bar DOM
+✅ NEW: listens gj:measureSafe to re-measure safe rect on UI changes
 -->
 <!doctype html>
 <html lang="th">
@@ -27,6 +28,13 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
 </head>
 
 <body class="gj">
+  <!-- PROGRESS BAR -->
+  <div class="gj-progress" aria-hidden="true">
+    <div class="gj-progress-track">
+      <div class="gj-progress-fill" id="gjProgressFill"></div>
+    </div>
+  </div>
+
   <!-- A-Frame minimal scene (behind UI) -->
   <a-scene
     embedded
@@ -41,8 +49,11 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
   <header class="gj-topbar" id="gjTopbar">
     <div class="left">
       <div class="gj-chip">
-        <b>GoodJunkVR</b>
-        <span style="opacity:.75" id="gjChipMeta">view=auto · run=play</span>
+        <div class="row1">
+          <b>GoodJunkVR</b>
+          <span style="opacity:.75" id="gjChipMeta">view=auto · run=play</span>
+        </div>
+        <span class="gj-missionline" id="gjMissionLine">ภารกิจ: —</span>
       </div>
     </div>
     <div class="right">
@@ -52,19 +63,17 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
     </div>
   </header>
 
-  <!-- ✅ PROGRESS (thin, non-blocking) -->
-  <div class="gj-progress" id="gjProgress" aria-hidden="false">
-    <div class="gj-progress-fill" id="gjProgressFill"></div>
-  </div>
-
-  <!-- ✅ BOSS BAR (compact) -->
-  <div class="gj-boss" id="bossBar" aria-hidden="true">
-    <div class="gj-boss-row">
-      <div class="gj-boss-title">BOSS</div>
+  <!-- BOSS BAR -->
+  <section class="gj-boss" id="bossBar" aria-hidden="true">
+    <div class="gj-boss-card">
+      <div class="gj-boss-title">
+        <span>⚡ BOSS PHASE</span>
+        <span style="opacity:.85">HP</span>
+      </div>
       <div class="gj-boss-track"><div class="gj-boss-fill" id="bossFill"></div></div>
-      <div class="gj-boss-num" id="bossHint">—</div>
+      <div class="gj-boss-hint" id="bossHint">—</div>
     </div>
-  </div>
+  </section>
 
   <!-- HUD TOP -->
   <section class="gj-hud-top" id="gjHudTop" aria-hidden="false">
@@ -87,6 +96,7 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
       </div>
     </div>
 
+    <!-- (PC/tablet) quest cards still available; mobile CSS hides this to free play area -->
     <div class="quest-row">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
@@ -145,7 +155,7 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- UI wiring + safe-zone measure -->
+  <!-- UI wiring + safe-zone measure + quest:update binding -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -156,9 +166,12 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
       const btnMis  = document.getElementById('btnMissions');
 
       const chipMeta = document.getElementById('gjChipMeta');
+
       const peek = document.getElementById('missionsPeek');
       const peekGoal = document.getElementById('peekGoal');
       const peekMini = document.getElementById('peekMini');
+
+      const missionLine = document.getElementById('gjMissionLine');
 
       const v = qs('view','auto');
       const run  = qs('run','play');
@@ -180,17 +193,12 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
         document.body.classList.toggle('show-missions');
         const shown = document.body.classList.contains('show-missions');
         peek?.setAttribute('aria-hidden', shown ? 'false' : 'true');
-        if(shown){
-          peekGoal.textContent = (document.getElementById('hud-goal')?.textContent || '—');
-          peekMini.textContent = (document.getElementById('hud-mini')?.textContent || '—');
-        }
       }
       btnMis?.addEventListener('click', toggleMissions);
       peek?.addEventListener('click', toggleMissions);
 
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
-
-      // ✅ measure UI => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function updateSafe(){
         try{
           const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
@@ -199,29 +207,77 @@ GoodJunkVR RUN — PRODUCTION (A FULL v2.1)
           const hudTop  = document.getElementById('gjHudTop')?.getBoundingClientRect().height || 0;
           const hudBot  = document.getElementById('gjHudBot')?.getBoundingClientRect().height || 0;
 
-          const prog = document.getElementById('gjProgress')?.getBoundingClientRect().height || 0;
+          // top safe includes sat to prevent notch overlap
+          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + hudTop + 12 + sat));
 
-          const bossEl = document.getElementById('bossBar');
-          const bossVisible = bossEl && bossEl.getAttribute('aria-hidden') === 'false';
-          const bossH = bossVisible ? (bossEl.getBoundingClientRect().height || 0) : 0;
-
-          // top safe includes sat + topbar + thin progress + (optional boss) + hudTop
-          document.documentElement.style.setProperty('--gj-top-safe', px(topbar + prog + bossH + hudTop + 12 + sat));
-
-          // bottom safe minimum
-          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(105, hudBot + 14)));
+          // bottom safe minimum: keep distance from thumb zone + HUD
+          document.documentElement.style.setProperty('--gj-bottom-safe', px(Math.max(96, hudBot + 14)));
         }catch(_){}
       }
 
       window.addEventListener('resize', updateSafe, {passive:true});
       window.addEventListener('orientationchange', updateSafe, {passive:true});
 
-      // ✅ listen measure request from engine (boss toggle)
-      window.addEventListener('gj:measureSafe', ()=>setTimeout(updateSafe, 0), {passive:true});
+      // ✅ safe.js can request re-measure when boss bar toggles etc.
+      window.addEventListener('gj:measureSafe', ()=>{ setTimeout(updateSafe, 0); }, {passive:true});
 
       setTimeout(updateSafe, 0);
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
+
+      // ✅ Listen quest updates from goodjunk.safe.js
+      let lastGoalKey = '';
+      function showMissionsAuto(ms=1800){
+        document.body.classList.add('show-missions');
+        peek?.setAttribute('aria-hidden','false');
+        setTimeout(()=>{
+          document.body.classList.remove('show-missions');
+          peek?.setAttribute('aria-hidden','true');
+        }, ms);
+      }
+
+      window.addEventListener('quest:update', (ev)=>{
+        const q = ev?.detail || {};
+        const g = q.goal || {};
+        const m = q.mini || {};
+
+        // Fill HUD text (if present)
+        const hudGoal = document.getElementById('hud-goal');
+        const hudMini = document.getElementById('hud-mini');
+        const goalDesc = document.getElementById('goalDesc');
+        const goalCur = document.getElementById('hud-goal-cur');
+        const goalTar = document.getElementById('hud-goal-target');
+
+        if(hudGoal) hudGoal.textContent = g.name || '—';
+        if(goalDesc && g.sub) goalDesc.textContent = g.sub;
+        if(goalCur) goalCur.textContent = String(g.cur ?? 0);
+        if(goalTar) goalTar.textContent = String(g.target ?? 0);
+
+        if(hudMini){
+          hudMini.textContent = m.name ? `${m.name} (${m.cur||0}/${m.target||0})` : (m.sub || '—');
+        }
+
+        // Fill Peek (Missions panel)
+        if(peekGoal) peekGoal.textContent = `${g.name||'—'}  ${g.cur ?? 0}/${g.target ?? 0}`;
+        if(peekMini) peekMini.textContent = `${m.name||'—'}  ${m.cur ?? 0}/${m.target ?? 0}`;
+
+        // Mission line on topbar (always visible)
+        if(missionLine){
+          const goalLine = `${g.name||'GOAL'} ${g.cur ?? 0}/${g.target ?? 0}`;
+          const miniLine = `${m.cur ?? 0}/${m.target ?? 0}`;
+          missionLine.textContent = `ภารกิจ: ${goalLine} · MINI ${miniLine}`;
+        }
+
+        // Auto popup when GOAL changes (helps kids)
+        const goalKey = String(g.name || '');
+        if(goalKey && goalKey !== lastGoalKey){
+          lastGoalKey = goalKey;
+          showMissionsAuto(2200);
+        }
+      });
+
+      // ✅ show missions briefly on first load so player knows what to do
+      setTimeout(()=>showMissionsAuto(2200), 900);
     })();
   </script>
 </body>
