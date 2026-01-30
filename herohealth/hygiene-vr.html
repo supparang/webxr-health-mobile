@@ -1,8 +1,8 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO)
+HygieneVR Launcher — ROOT (AUTO) — v20260130a
 ✅ Auto-detect view if no ?view=
 ✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
-✅ Root=launcher, folder=run
+✅ DOES NOT override existing ?view=
 -->
 <!doctype html>
 <html lang="th">
@@ -88,12 +88,18 @@ HygieneVR Launcher — ROOT (AUTO)
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
+    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
+    // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
+    // cache-bust (optional): keep stable if you want
+    // u.searchParams.set('v', '20260130a');
+
     return u.toString();
   }
 
