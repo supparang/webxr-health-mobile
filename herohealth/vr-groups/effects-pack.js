@@ -1,10 +1,12 @@
 // === /herohealth/vr-groups/effects-pack.js ===
-// GroupsVR Effects Pack — UMD (NO ES export) — PRODUCTION
-// ✅ Works with <script defer> (non-module)
-// ✅ window.GroupsVR.EffectsPack.init({layerEl})
-// ✅ Auto-listen: hha:score, quest:update, groups:progress, hha:coach
-// ✅ Uses window.Particles if available (../vr/particles.js)
-// ✅ Lightweight, mobile-safe, caps + throttles
+// GroupsVR Effects Pack — PRODUCTION
+// ✅ Integrates Particles (DOM FX) if present
+// ✅ Screen flash + shake (lightweight, throttled)
+// ✅ Hooks common events: hha:score / hha:rank / groups:progress / quest:update / hha:end
+// ✅ Optional API:
+//    - window.GroupsVR.EffectsPack.setSafeRect(rect)
+//    - window.GroupsVR.EffectsPack.pop(text, tone, x?, y?)
+// Notes: Safe on low-end devices; auto-degrades if fps/telemetry requests.
 (function(){
   'use strict';
 
@@ -12,291 +14,298 @@
   const DOC = document;
 
   WIN.GroupsVR = WIN.GroupsVR || {};
+  const FX = WIN.GroupsVR.EffectsPack = WIN.GroupsVR.EffectsPack || {};
 
-  // ---------- utils ----------
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+  const nowMs = ()=>{ try{ return performance.now(); }catch{ return Date.now(); } };
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-
-  // ---------- config ----------
-  const CFG = {
-    // level: 'full' | 'lite' | 'off'
-    level: String(qs('fx','')||'').toLowerCase() || 'full',
-    // hard caps
-    minGapMs: 90,
-    flashGapMs: 240,
-    shakeGapMs: 260
+  // ---------------- Safe rect from ViewHelper ----------------
+  let SAFE = null; // {x,y,w,h,...}
+  FX.setSafeRect = function setSafeRect(r){
+    if (!r) return;
+    SAFE = r;
   };
 
-  // allow telemetry to downgrade FX too (optional)
-  WIN.addEventListener('groups:telemetry_auto', (ev)=>{
-    const d = ev.detail||{};
-    if (d.kind === 'switch' && (d.to === 'lite' || d.to === 'off')){
-      setLevel(d.to);
-    }
-  }, { passive:true });
-
-  function setLevel(level){
-    level = String(level||'full').toLowerCase();
-    if (level !== 'full' && level !== 'lite' && level !== 'off') level = 'full';
-    CFG.level = level;
-    // reflect to banner if available
-    try{
-      WIN.dispatchEvent(new CustomEvent('groups:fx_level', { detail:{ level } }));
-    }catch(_){}
-  }
-
-  // ---------- DOM layers ----------
-  let wrap = null;
+  // ---------------- Layer / flash / shake ----------------
+  let layer = null;
   let flashEl = null;
-  let shakeEl = null;
-  let layerEl = null;
-
-  function ensureLayers(){
-    if (!DOC) return;
-
-    // wrap for shake + flash
-    if (!wrap){
-      wrap = DOC.createElement('div');
-      wrap.id = 'hhaFxWrap';
-      wrap.style.cssText =
-        'position:fixed; inset:0; pointer-events:none; z-index:9998; ' +
-        'contain:layout style paint;';
-
-      // shake root (we apply transform here)
-      shakeEl = DOC.createElement('div');
-      shakeEl.id = 'hhaShake';
-      shakeEl.style.cssText =
-        'position:absolute; inset:0; will-change:transform;';
-
-      // flash overlay
-      flashEl = DOC.createElement('div');
-      flashEl.id = 'hhaFlash';
-      flashEl.style.cssText =
-        'position:absolute; inset:0; opacity:0; transition:opacity 120ms ease; ' +
-        'background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.18), rgba(255,255,255,0) 60%);';
-
-      shakeEl.appendChild(flashEl);
-      wrap.appendChild(shakeEl);
-      (DOC.body || DOC.documentElement).appendChild(wrap);
-    }
-
-    // default effect anchor layer (play layer)
-    if (!layerEl){
-      layerEl = DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
-    }
-  }
-
-  function setLayerEl(el){
-    layerEl = el || layerEl || DOC.body;
-  }
-
-  // ---------- coordinate helper ----------
-  function centerOf(el){
-    try{
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    }catch(_){
-      return { x: window.innerWidth/2, y: window.innerHeight/2 };
-    }
-  }
-  function centerScreen(){
-    return { x: window.innerWidth/2, y: window.innerHeight/2 };
-  }
-
-  // ---------- FX primitives ----------
-  let lastPopAt = 0;
-  let lastFlashAt = 0;
+  let shakeOn = false;
   let lastShakeAt = 0;
+  let lastFlashAt = 0;
+  let lastPopAt = 0;
 
-  function canDo(kind){
+  function ensureLayer(){
+    if (layer) return layer;
+    layer = DOC.createElement('div');
+    layer.id = 'groupsFxLayer';
+    layer.style.position = 'fixed';
+    layer.style.inset = '0';
+    layer.style.pointerEvents = 'none';
+    layer.style.zIndex = '9998';
+    layer.style.overflow = 'hidden';
+    DOC.body.appendChild(layer);
+
+    flashEl = DOC.createElement('div');
+    flashEl.id = 'groupsFxFlash';
+    flashEl.style.position = 'fixed';
+    flashEl.style.inset = '0';
+    flashEl.style.pointerEvents = 'none';
+    flashEl.style.zIndex = '9999';
+    flashEl.style.opacity = '0';
+    flashEl.style.transition = 'opacity 120ms ease';
+    flashEl.style.background = 'rgba(255,255,255,.14)';
+    DOC.body.appendChild(flashEl);
+
+    // shake via body class
+    const st = DOC.createElement('style');
+    st.textContent = `
+      @keyframes hhaShake { 0%{transform:translate(0,0)} 20%{transform:translate(-2px,1px)} 40%{transform:translate(2px,-1px)} 60%{transform:translate(-1px,-2px)} 80%{transform:translate(1px,2px)} 100%{transform:translate(0,0)} }
+      body.hha-shake { animation: hhaShake 180ms linear; }
+      .fx-pop{
+        position:absolute; left:0; top:0;
+        transform: translate(-50%,-50%);
+        padding:8px 10px;
+        border-radius:999px;
+        font-weight:1000;
+        font-size:13px;
+        letter-spacing:.2px;
+        color:#fff;
+        background: rgba(2,6,23,.75);
+        border:1px solid rgba(148,163,184,.22);
+        box-shadow: 0 10px 26px rgba(0,0,0,.25);
+        backdrop-filter: blur(8px);
+        will-change: transform, opacity;
+        opacity:0;
+        transition: transform 260ms ease, opacity 260ms ease;
+        white-space:nowrap;
+      }
+      .fx-pop.show{ opacity:1; transform: translate(-50%,-65%); }
+      .fx-pop.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.18); }
+      .fx-pop.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.16); }
+      .fx-pop.bad { border-color: rgba(239,68,68,.40); background: rgba(239,68,68,.18); }
+      .fx-pop.neutral{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.10); }
+    `;
+    DOC.head.appendChild(st);
+    return layer;
+  }
+
+  function flash(intensity=0.14){
     const t = nowMs();
-    if (CFG.level === 'off') return false;
-
-    if (kind === 'pop'){
-      if (t - lastPopAt < CFG.minGapMs) return false;
-      lastPopAt = t; return true;
-    }
-    if (kind === 'flash'){
-      if (CFG.level === 'lite') return false;
-      if (t - lastFlashAt < CFG.flashGapMs) return false;
-      lastFlashAt = t; return true;
-    }
-    if (kind === 'shake'){
-      if (CFG.level !== 'full') return false;
-      if (t - lastShakeAt < CFG.shakeGapMs) return false;
-      lastShakeAt = t; return true;
-    }
-    return true;
-  }
-
-  function popText(text, x, y, cls){
-    if (!canDo('pop')) return;
-    if (WIN.Particles && typeof WIN.Particles.popText === 'function'){
-      try{ WIN.Particles.popText(x, y, String(text||''), cls||''); return; }catch(_){}
-    }
-    // fallback minimal bubble
-    try{
-      const el = DOC.createElement('div');
-      el.textContent = String(text||'');
-      el.style.cssText =
-        `position:fixed; left:${Math.round(x)}px; top:${Math.round(y)}px; transform:translate(-50%,-50%);`+
-        `padding:6px 10px; border-radius:999px; font-weight:900; font-size:12px;`+
-        `background:rgba(2,6,23,.75); border:1px solid rgba(148,163,184,.25); color:#fff;`+
-        `z-index:9999; pointer-events:none; opacity:0; transition:transform 260ms ease, opacity 180ms ease;`;
-      (DOC.body||DOC.documentElement).appendChild(el);
-      requestAnimationFrame(()=>{
-        el.style.opacity = '1';
-        el.style.transform = 'translate(-50%,-60%)';
-      });
-      setTimeout(()=>{
-        el.style.opacity = '0';
-        el.style.transform = 'translate(-50%,-90%)';
-        setTimeout(()=> el.remove(), 220);
-      }, 520);
-    }catch(_){}
-  }
-
-  function flash(){
-    if (!canDo('flash')) return;
-    ensureLayers();
+    if (t - lastFlashAt < 110) return;
+    lastFlashAt = t;
+    ensureLayer();
     if (!flashEl) return;
-    try{
-      flashEl.style.opacity = '1';
-      setTimeout(()=>{ try{ flashEl.style.opacity = '0'; }catch(_){ } }, 120);
-    }catch(_){}
+    flashEl.style.background = `rgba(255,255,255,${clamp(intensity,0.06,0.28)})`;
+    flashEl.style.opacity = '1';
+    setTimeout(()=>{ if (flashEl) flashEl.style.opacity = '0'; }, 70);
   }
 
   function shake(){
-    if (!canDo('shake')) return;
-    ensureLayers();
-    if (!shakeEl) return;
+    const t = nowMs();
+    if (t - lastShakeAt < 180) return;
+    lastShakeAt = t;
+    if (shakeOn) return;
+    shakeOn = true;
     try{
-      // tiny shake (safe)
-      const dx = (Math.random()*8 - 4);
-      const dy = (Math.random()*6 - 3);
-      shakeEl.style.transform = `translate(${dx}px, ${dy}px)`;
-      setTimeout(()=>{ try{ shakeEl.style.transform = 'translate(0,0)'; }catch(_){ } }, 120);
-    }catch(_){}
+      DOC.body.classList.add('hha-shake');
+      setTimeout(()=>{
+        DOC.body.classList.remove('hha-shake');
+        shakeOn = false;
+      }, 210);
+    }catch(_){ shakeOn = false; }
   }
 
-  // ---------- semantic FX ----------
-  function fxHitGood(pos){
-    pos = pos || centerScreen();
-    popText('✅', pos.x, pos.y, 'good');
-    flash();
-  }
-  function fxHitBad(pos){
-    pos = pos || centerScreen();
-    popText('❌', pos.x, pos.y, 'bad');
-    shake();
-  }
-  function fxCombo(n){
-    if (CFG.level === 'off') return;
-    if ((n|0) >= 5){
-      const p = centerScreen();
-      popText('🔥 COMBO x' + (n|0), p.x, p.y - 70, 'good');
-    }
-  }
-  function fxStorm(on){
-    const p = centerScreen();
-    popText(on ? '🌪️ STORM!' : '✨ STORM END', p.x, p.y - 90, on ? 'warn' : 'good');
-    if (on) shake();
-  }
-  function fxBoss(kind){
-    const p = centerScreen();
-    popText(kind === 'spawn' ? '👊 BOSS!' : '💥 BOSS DOWN!', p.x, p.y - 90, kind==='spawn'?'warn':'good');
-    if (kind === 'spawn') shake();
-    else flash();
+  function randInSafe(){
+    const vw = WIN.innerWidth || 360;
+    const vh = WIN.innerHeight || 640;
+    const r = SAFE || { x: 24, y: 120, w: vw-48, h: vh-280 };
+    const x = r.x + Math.random()*Math.max(40, r.w);
+    const y = r.y + Math.random()*Math.max(60, r.h);
+    return { x, y };
   }
 
-  // ---------- auto listeners (จากเกมที่คุณทำไว้แล้ว) ----------
-  let prevScore = 0;
-  let prevMiss = 0;
-  let prevCombo = 0;
+  function popDom(text, tone='neutral', x=null, y=null){
+    const t = nowMs();
+    if (t - lastPopAt < 90) return;
+    lastPopAt = t;
 
-  function onScore(ev){
-    const d = ev.detail || {};
-    const score = Number(d.score ?? prevScore) || 0;
-    const miss  = Number(d.misses ?? prevMiss) || 0;
-    const combo = Number(d.combo ?? prevCombo) || 0;
-
-    // heuristic: score went up => good hit; miss went up => bad hit
-    if (score > prevScore){
-      fxHitGood(centerScreen());
-    } else if (miss > prevMiss){
-      fxHitBad(centerScreen());
-    }
-
-    if (combo > prevCombo) fxCombo(combo);
-
-    prevScore = score;
-    prevMiss  = miss;
-    prevCombo = combo;
+    ensureLayer();
+    const p = DOC.createElement('div');
+    p.className = `fx-pop ${tone||'neutral'}`;
+    p.textContent = String(text||'');
+    const pos = (x==null || y==null) ? randInSafe() : { x, y };
+    p.style.left = (pos.x|0) + 'px';
+    p.style.top  = (pos.y|0) + 'px';
+    layer.appendChild(p);
+    requestAnimationFrame(()=> p.classList.add('show'));
+    setTimeout(()=>{
+      try{ p.style.opacity = '0'; p.style.transform = 'translate(-50%,-90%)'; }catch(_){}
+      setTimeout(()=>{ try{ p.remove(); }catch(_){ } }, 240);
+    }, 520);
   }
 
-  function onQuestUpdate(ev){
-    const d = ev.detail||{};
-    // group switch banner already in html, here just add tiny pop
-    if (d.groupKey && d.groupKey !== WIN.__HHA_LAST_GROUPKEY__){
-      WIN.__HHA_LAST_GROUPKEY__ = d.groupKey;
-      const p = centerScreen();
-      popText('🔄 ' + String(d.groupName||'สลับหมู่'), p.x, p.y - 110, 'neutral');
-    }
+  // ---------------- Particles bridge ----------------
+  function popParticles(text, tone='neutral', x=null, y=null){
+    const P = WIN.Particles;
+    if (!P || !P.popText) return false;
+    const pos = (x==null || y==null) ? randInSafe() : { x, y };
+    const cls =
+      (tone==='good') ? 'hha-good' :
+      (tone==='warn') ? 'hha-warn' :
+      (tone==='bad')  ? 'hha-bad'  :
+                        'hha-neutral';
+    try{
+      P.popText(pos.x, pos.y, String(text||''), cls);
+      return true;
+    }catch(_){ return false; }
   }
 
-  function onProgress(ev){
-    const d = ev.detail||{};
-    const k = String(d.kind||'');
-    if (k === 'storm_on') fxStorm(true);
-    if (k === 'storm_off') fxStorm(false);
-    if (k === 'boss_spawn') fxBoss('spawn');
-    if (k === 'boss_down') fxBoss('down');
-  }
-
-  // ---------- public API ----------
-  function init(opts){
-    ensureLayers();
-    if (opts && opts.layerEl) setLayerEl(opts.layerEl);
-
-    // attach listeners once
-    if (!WIN.__HHA_GROUPS_FX_LISTENERS__){
-      WIN.__HHA_GROUPS_FX_LISTENERS__ = true;
-      try{
-        WIN.addEventListener('hha:score', onScore, { passive:true });
-        WIN.addEventListener('quest:update', onQuestUpdate, { passive:true });
-        WIN.addEventListener('groups:progress', onProgress, { passive:true });
-      }catch(_){}
-    }
-
-    // announce ready
-    try{ WIN.dispatchEvent(new CustomEvent('groups:fx_ready', { detail:{ level: CFG.level } })); }catch(_){}
-    return true;
-  }
-
-  WIN.GroupsVR.EffectsPack = {
-    init,
-    setLayerEl,
-    setLevel,
-    level: ()=>CFG.level,
-    // optional manual triggers
-    popText: (text,x,y,cls)=>popText(text,x,y,cls),
-    flash,
-    shake,
-    hitGood: fxHitGood,
-    hitBad: fxHitBad,
-    storm: fxStorm,
-    boss: fxBoss
+  FX.pop = function pop(text, tone='neutral', x=null, y=null){
+    // prefer Particles if present, fallback to DOM pop
+    if (!popParticles(text, tone, x, y)) popDom(text, tone, x, y);
   };
 
-  // auto-init when DOM ready (safe)
-  try{
-    if (DOC && (DOC.readyState === 'complete' || DOC.readyState === 'interactive')) init({});
-    else DOC.addEventListener('DOMContentLoaded', ()=>init({}), { once:true });
-  }catch(_){}
+  // ---------------- Behavior toggles ----------------
+  let mode = 'full'; // full | lite | off
+  FX.setMode = function setMode(m){
+    mode = String(m||'full');
+  };
+
+  // If telemetry tells us to downgrade, follow it
+  WIN.addEventListener('groups:telemetry_auto', (ev)=>{
+    const d = ev.detail || {};
+    if (d.kind !== 'switch') return;
+    if (d.to === 'lite') mode = 'lite';
+    if (d.to === 'off')  mode = 'off';
+  }, { passive:true });
+
+  // ---------------- Event hooks ----------------
+  let lastScore = 0;
+  let lastCombo = 0;
+  let lastMiss  = 0;
+  let lastGrade = 'C';
+  let lastAcc   = 0;
+
+  // Score updates -> small pops on milestones
+  WIN.addEventListener('hha:score', (ev)=>{
+    if (mode === 'off') return;
+    const d = ev.detail || {};
+    const score = Number(d.score ?? lastScore) || 0;
+    const combo = Number(d.combo ?? lastCombo) || 0;
+    const miss  = Number(d.misses ?? lastMiss) || 0;
+
+    // combo streak
+    if (combo > lastCombo){
+      if (mode === 'full'){
+        if (combo === 3) FX.pop('🔥 COMBO x3!', 'good');
+        else if (combo === 6) FX.pop('⚡ COMBO x6!', 'good');
+        else if (combo === 10) FX.pop('💥 COMBO x10!', 'good');
+      } else {
+        if (combo === 6) FX.pop('⚡ COMBO x6!', 'good');
+      }
+    }
+
+    // miss spike
+    if (miss > lastMiss){
+      if (mode === 'full') { FX.pop('❌ พลาด!', 'bad'); shake(); }
+      else { FX.pop('❌', 'bad'); }
+    }
+
+    // score milestones
+    if (score >= lastScore + 100 && mode === 'full'){
+      FX.pop('⭐ +100', 'neutral');
+    }
+
+    lastScore = score; lastCombo = combo; lastMiss = miss;
+  }, { passive:true });
+
+  // Rank/accuracy feedback
+  WIN.addEventListener('hha:rank', (ev)=>{
+    if (mode === 'off') return;
+    const d = ev.detail || {};
+    const grade = String(d.grade ?? lastGrade);
+    const acc   = Number(d.accuracy ?? lastAcc) || 0;
+
+    if (grade !== lastGrade){
+      if (grade === 'S' || grade === 'A'){
+        FX.pop('🏅 RANK UP! ' + grade, 'good');
+        if (mode === 'full') flash(0.18);
+      } else if (grade === 'D'){
+        FX.pop('⚠️ โดนลดแรงค์', 'warn');
+      }
+    } else {
+      if (mode === 'full' && acc >= 85 && lastAcc < 85){
+        FX.pop('🎯 แม่นมาก!', 'good');
+      }
+    }
+
+    lastGrade = grade; lastAcc = acc;
+  }, { passive:true });
+
+  // Quest updates (mini urgent)
+  WIN.addEventListener('quest:update', (ev)=>{
+    if (mode !== 'full') return;
+    const d = ev.detail || {};
+    const left = Number(d.miniTimeLeftSec||0);
+    if (left === 3) FX.pop('⏱️ เหลือ 3 วิ!', 'warn');
+    if (left === 1) FX.pop('⏱️ 1 วิ!', 'warn');
+  }, { passive:true });
+
+  // Progress events from engine (storm/boss/switch)
+  WIN.addEventListener('groups:progress', (ev)=>{
+    if (mode === 'off') return;
+    const d = ev.detail || {};
+    const k = String(d.kind||'');
+
+    if (k === 'storm_on'){
+      FX.pop('🌪️ STORM!', 'warn');
+      if (mode === 'full'){ flash(0.16); }
+      return;
+    }
+    if (k === 'storm_off'){
+      FX.pop('✨ พายุจบ!', 'good');
+      return;
+    }
+    if (k === 'boss_spawn'){
+      FX.pop('👊 BOSS!', 'warn');
+      if (mode === 'full'){ shake(); flash(0.20); }
+      return;
+    }
+    if (k === 'boss_down'){
+      FX.pop('💥 BOSS แตก!', 'good');
+      if (mode === 'full'){ flash(0.22); }
+      return;
+    }
+    if (k === 'perfect_switch'){
+      FX.pop('🔄 สลับหมู่!', 'neutral');
+      return;
+    }
+  }, { passive:true });
+
+  // End
+  WIN.addEventListener('hha:end', (ev)=>{
+    if (mode === 'off') return;
+    const d = ev.detail || {};
+    const grade = String(d.grade || 'C');
+    const score = Number(d.scoreFinal ?? 0) || 0;
+
+    if (mode === 'full'){
+      if (grade === 'S') { FX.pop('🏆 สุดยอด! S', 'good'); flash(0.22); }
+      else if (grade === 'A') { FX.pop('🥇 เก่งมาก! A', 'good'); flash(0.18); }
+      else if (grade === 'B') FX.pop('👍 ดีมาก! B', 'neutral');
+      else FX.pop('😤 ลองใหม่ได้!', 'warn');
+    } else {
+      FX.pop('🏁 ' + grade + ' • ' + score, (grade==='S'||grade==='A')?'good':'neutral');
+    }
+  }, { passive:true });
+
+  // expose a tiny helper for debugging
+  FX._debug = function(){
+    return { mode, safe: SAFE };
+  };
+
+  // ensure layer after first user interaction (mobile autoplay policies)
+  const kick = ()=>{ ensureLayer(); WIN.removeEventListener('pointerdown', kick); };
+  WIN.addEventListener('pointerdown', kick, { once:true, passive:true });
 
 })();
