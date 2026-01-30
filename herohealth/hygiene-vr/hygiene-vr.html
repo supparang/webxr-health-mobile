@@ -1,11 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ FX: ../vr/particles.js => Particles.popText/burst overlay
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js (defer) + particles.js (defer)
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Boot: hygiene-vr.boot.js (anti-stall diagnostics)
+✅ Quiz bank: hygiene-quiz-bank.js => window.HHA_HYGIENE_QUIZ_BANK
+✅ Boot: hygiene-vr.boot.js (module) anti-stall + readable errors
 -->
 <!doctype html>
 <html lang="th">
@@ -16,24 +15,24 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS (must exist) -->
+  <!-- ✅ CSS (must exist) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260129a" />
 
-  <!-- Universal VR UI (MUST defer to avoid body null) -->
+  <!-- ✅ Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX layer (Particles) -->
+  <!-- ✅ FX (MUST defer) -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
+  <!-- Optional AI packs (ok if missing but recommended to keep consistent with other games) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (NOTE: your file name is hygiene-quiz-bank.js) -->
+  <!-- ✅ Quiz bank (NOTE: your real file name is hygiene-quiz-bank.js) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot (module) -->
+  <!-- ✅ Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260129a"></script>
 </head>
 
@@ -79,7 +78,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          <span style="opacity:.92">แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น</span>
+          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -116,28 +115,26 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
       view==='mobile' ? 'view-mobile' :
-      (view==='vr' ? 'view-vr' :
-      (view==='cvr' ? 'view-cvr' : 'view-pc'))
+      view==='vr'     ? 'view-vr' :
+      view==='cvr'    ? 'view-cvr' :
+                        'view-pc'
     );
-    const labView = document.getElementById('labView');
-    if(labView) labView.textContent = view;
+    const el = document.getElementById('labView');
+    if(el) el.textContent = view;
   }
-
   setViewClass();
 
-  const labMode = document.getElementById('labMode');
-  if(labMode) labMode.textContent = (qs('run','play')||'play');
+  const elMode = document.getElementById('labMode');
+  const elDiff = document.getElementById('labDiff');
+  if(elMode) elMode.textContent = (qs('run','play')||'play');
+  if(elDiff) elDiff.textContent = (qs('diff','normal')||'normal');
 
-  const labDiff = document.getElementById('labDiff');
-  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
-
-  // tiny diagnostics: show if quiz bank present
-  window.addEventListener('DOMContentLoaded', ()=>{
+  // tiny: show quiz bank status (helps debug "quiz missing" without opening console)
+  const sub = document.getElementById('hudSub');
+  window.addEventListener('load', ()=>{
     const hasBank = Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) && window.HHA_HYGIENE_QUIZ_BANK.length>0;
-    if(!hasBank){
-      const sub = document.getElementById('hudSub');
-      if(sub) sub.textContent = '⚠️ Quiz bank ยังไม่โหลด (เช็ค Network: hygiene-quiz-bank.js)';
-      console.warn('[Hygiene] quiz bank missing: ./hygiene-quiz-bank.js');
+    if(sub && !hasBank){
+      sub.textContent = '⚠️ Quiz bank ไม่ถูกโหลด (เช็ค: hygiene-quiz-bank.js 404?)';
     }
   }, { once:true });
 })();
