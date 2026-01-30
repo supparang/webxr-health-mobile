@@ -1,239 +1,146 @@
-// === /fitness/js/ai-director.js — Adaptive Pattern Director (A-41) ===
+// === /fitness/js/ai-director.js — AI Difficulty Director (deterministic, fair) ===
 'use strict';
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+(function(){
+  // Director ทำ 3 อย่าง:
+  // 1) ประเมิน skill/fatigue จากสถิติช่วงล่าสุด (prediction)
+  // 2) แนะนำ difficulty + intensity ของ mods (double/ghost/hold/swap)
+  // 3) ส่ง “Coach tip” แบบ rate-limit เพื่อไม่รก
 
-function pickWeighted(weights, rng=Math.random){
-  const total = weights.reduce((acc, w) => acc + w.w, 0);
-  let r = rng() * total;
-  for (const item of weights) {
-    if (r < item.w) return item.v;
-    r -= item.w;
-  }
-  return weights[weights.length - 1].v;
-}
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:v>b?b:v; }
+  function sigmoid(x){ return 1/(1+Math.exp(-x)); }
 
-export class AIDirector {
-  constructor(opts = {}) {
-    this.enabled = !!opts.enabled;
-    this.rng = opts.rng || Math.random;
-
-    // stateful windows
-    this.challengeUntil = 0;
-    this.recoverUntil = 0;
-
-    // for trigger detection
-    this._goodStreakMs = 0;
-    this._lastTickAt = 0;
-
-    // config
-    this.challengeMinMs = opts.challengeMinMs ?? 5500;  // ต้องเล่นดีต่อเนื่องก่อน
-    this.challengeLenMs = opts.challengeLenMs ?? 4500;  // burst duration
-    this.recoverLenMs = opts.recoverLenMs ?? 5200;      // recovery duration
+  // EWMA memory (เก็บล่าสุดแบบเบา ๆ)
+  function ewma(prev, x, alpha){
+    if (prev == null || !Number.isFinite(prev)) return x;
+    return prev*(1-alpha) + x*alpha;
   }
 
-  setEnabled(v){ this.enabled = !!v; }
+  class RbAIDirector{
+    constructor(opts={}){
+      this.enabled = !!opts.enabled;
+      this.cooldownMs = opts.cooldownMs || 2500; // tip cooldown
+      this._lastTipAt = 0;
 
-  reset(){
-    this.challengeUntil = 0;
-    this.recoverUntil = 0;
-    this._goodStreakMs = 0;
-    this._lastTickAt = 0;
-  }
+      // memory states
+      this.skill = 0.5;       // 0..1
+      this.fatigue = 0.0;     // 0..1
+      this.stability = 0.6;   // 0..1 (ความนิ่งของ timing)
 
-  /**
-   * Update internal windows based on predictor signals.
-   * @param {Object} state game state
-   * @param {Object} predictor {focusScore, missRisk}
-   * @param {number} now performance.now()
-   */
-  tick(state, predictor, now){
-    if (!this.enabled) return;
-
-    const focus = predictor?.focusScore ?? 60;
-    const risk  = predictor?.missRisk ?? 30;
-    const hp = clamp(state?.playerHp ?? 1, 0, 1);
-
-    // dt
-    const last = this._lastTickAt || now;
-    const dt = Math.max(0, now - last);
-    this._lastTickAt = now;
-
-    // --- Recovery trigger ---
-    // ถ้าเสี่ยงมาก / HP ต่ำ → เข้าหน้าฟื้นตัว
-    if (risk >= 65 || hp <= 0.32) {
-      this.recoverUntil = Math.max(this.recoverUntil, now + this.recoverLenMs);
-      // ตัด streak เพื่อไม่ให้ burst ต่อทันที
-      this._goodStreakMs = 0;
+      // แนะนำ difficulty ล่าสุด
+      this.suggestedDifficulty = 'normal';
+      this.modIntensity = { double:0, ghost:0, hold:0, swap:0 }; // 0..1
     }
 
-    // --- Good streak for Challenge Burst ---
-    // เล่นดีต่อเนื่อง: focus สูง + risk ต่ำ + hp โอเค → สะสมเวลา
-    const inRecover = now < this.recoverUntil;
-    const good = (focus >= 86 && risk <= 26 && hp >= 0.45 && !inRecover);
+    reset(){
+      this.skill = 0.5;
+      this.fatigue = 0.0;
+      this.stability = 0.6;
+      this.suggestedDifficulty = 'normal';
+      this.modIntensity = { double:0, ghost:0, hold:0, swap:0 };
+      this._lastTipAt = 0;
+    }
 
-    if (good) this._goodStreakMs += dt;
-    else this._goodStreakMs = Math.max(0, this._goodStreakMs - dt * 0.65);
+    // metrics ที่ส่งเข้ามา: {acc, missRate, offsetAbsMean, offsetStd, blankTapRate, hp, combo, feverPct, segIndex, elapsedPct}
+    update(metrics){
+      if (!this.enabled) return this._snapshot('', metrics);
 
-    // trigger burst
-    const inChallenge = now < this.challengeUntil;
-    if (!inChallenge && this._goodStreakMs >= this.challengeMinMs) {
-      this.challengeUntil = now + this.challengeLenMs;
-      this._goodStreakMs = 0;
+      const acc = clamp(metrics.acc, 0, 100) / 100;             // 0..1
+      const miss = clamp(metrics.missRate, 0, 1);               // 0..1
+      const blank = clamp(metrics.blankTapRate, 0, 1);          // 0..1
+
+      // timing error: abs mean ~ 0.00..0.25 (sec)
+      const absMean = clamp(metrics.offsetAbsMean || 0, 0, 0.35);
+      const std = clamp(metrics.offsetStd || 0, 0, 0.35);
+
+      // แปลงเป็น 0..1
+      const timingBad = clamp(absMean / 0.25, 0, 1);            // สูง=แย่
+      const jitterBad = clamp(std / 0.20, 0, 1);
+
+      // fatigueRisk: miss+blank+hp drop+jitter
+      const hp = clamp(metrics.hp, 0, 100) / 100;
+      const fatigueNow = clamp(
+        0.38*miss + 0.18*blank + 0.24*(1-hp) + 0.20*jitterBad,
+        0, 1
+      );
+
+      // skillScore: acc สูง + timing ดี + combo/fever ช่วยเล็กน้อย
+      const comboBoost = clamp((metrics.combo||0)/20, 0, 1) * 0.10;
+      const feverBoost = clamp((metrics.feverPct||0)/40, 0, 1) * 0.10;
+      const skillNow = clamp(
+        0.62*acc + 0.28*(1-timingBad) + comboBoost + feverBoost,
+        0, 1
+      );
+
+      // stability: inverse jitter + inverse blank
+      const stabilityNow = clamp( 0.65*(1-jitterBad) + 0.35*(1-blank), 0, 1);
+
+      // smooth
+      this.fatigue = ewma(this.fatigue, fatigueNow, 0.20);
+      this.skill   = ewma(this.skill,   skillNow,   0.18);
+      this.stability = ewma(this.stability, stabilityNow, 0.22);
+
+      // suggestedDifficulty (fair): พิจารณา skill - fatigue
+      const dScore = this.skill - 0.85*this.fatigue;
+
+      this.suggestedDifficulty =
+        dScore > 0.78 ? 'hard' :
+        dScore > 0.58 ? 'normal' : 'easy';
+
+      // intensity ของ mods (เพื่อทำให้ “เร้าใจ” แบบไม่ทำร้ายคนล้า)
+      // - double: เพิ่มเมื่อ skill สูง
+      // - ghost: เพิ่มเมื่อ stability สูง (ไม่ jitter)
+      // - hold: เพิ่มเมื่อ timing ดี
+      // - swap: เพิ่มเมื่อ skill สูง แต่ลดถ้า fatigue สูง
+      const doubleI = clamp(sigmoid((this.skill-0.62)*7), 0, 1);
+      const ghostI  = clamp(sigmoid((this.stability-0.62)*7), 0, 1);
+      const holdI   = clamp(sigmoid(((1-timingBad)-0.60)*7), 0, 1);
+      const swapI   = clamp(sigmoid((dScore-0.58)*8), 0, 1);
+
+      // fatigue gate (คุมไม่ให้โหดตอนล้า)
+      const gate = clamp(1 - this.fatigue*1.15, 0, 1);
+
+      this.modIntensity = {
+        double: doubleI*gate,
+        ghost:  ghostI*gate,
+        hold:   holdI*gate,
+        swap:   swapI*gate
+      };
+
+      // Coach tip (rate-limited)
+      const tip = this._makeTip({acc, miss, blank, timingBad, jitterBad, hp, segIndex:metrics.segIndex});
+
+      return this._snapshot(tip, metrics);
+    }
+
+    _makeTip(x){
+      const now = Date.now();
+      if (now - this._lastTipAt < this.cooldownMs) return '';
+
+      // เลือก tip ที่ “อธิบายได้” + actionable
+      let tip = '';
+      if (x.hp < 0.45 && x.miss > 0.25) tip = 'พักจังหวะครึ่งวินาที ลดการกดรัว แล้วค่อยเร่งใหม่';
+      else if (x.blank > 0.18) tip = 'พยายาม “รอเส้นตี” ก่อนแตะ ลด blank tap';
+      else if (x.timingBad > 0.55) tip = 'โฟกัสที่เส้นตี: แตะให้ “ตรงจุด” มากกว่าตามสายตาโน้ต';
+      else if (x.jitterBad > 0.55) tip = 'คุมจังหวะมือให้สม่ำเสมอ อย่าขยับมือไปมาระหว่างเลน';
+      else if (x.acc > 0.92 && x.miss < 0.08) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงที่ยากขึ้นได้เลย';
+
+      if (tip) this._lastTipAt = now;
+      return tip;
+    }
+
+    _snapshot(tip, metrics){
+      return {
+        fatigueRisk: clamp(this.fatigue,0,1),
+        skillScore: clamp(this.skill,0,1),
+        stabilityScore: clamp(this.stability,0,1),
+        suggestedDifficulty: this.suggestedDifficulty,
+        modIntensity: this.modIntensity,
+        tip: tip || '',
+        segIndex: metrics && metrics.segIndex || 1
+      };
     }
   }
 
-  getMode(now){
-    if (!this.enabled) return 'base';
-    if (now < this.recoverUntil) return 'recover';
-    if (now < this.challengeUntil) return 'challenge';
-    return 'base';
-  }
-
-  /**
-   * Spawn delay multiplier.
-   * @returns {number} multiplier (0.75..1.35)
-   */
-  spawnDelayMul(state, predictor, now){
-    if (!this.enabled) return 1;
-
-    const focus = predictor?.focusScore ?? 60;
-    const risk  = predictor?.missRisk ?? 30;
-    const hp = clamp(state?.playerHp ?? 1, 0, 1);
-
-    const mode = this.getMode(now);
-
-    if (mode === 'recover') return 1.22;     // ช้าลง
-    if (mode === 'challenge') return 0.82;   // เร็วขึ้น
-
-    // base adaptive (นิ่ม ๆ)
-    // focus สูง -> เร็วขึ้นนิด, risk สูง/HP ต่ำ -> ช้าลง
-    let mul = 1.0;
-    mul *= (focus >= 85) ? 0.92 : (focus <= 50 ? 1.05 : 1.0);
-    mul *= (risk >= 55) ? 1.08 : (risk <= 25 ? 0.97 : 1.0);
-    mul *= (hp <= 0.40) ? 1.06 : 1.0;
-
-    return clamp(mul, 0.80, 1.22);
-  }
-
-  /**
-   * Lifetime multiplier for targets (TTL).
-   * @returns {number} multiplier (0.85..1.30)
-   */
-  lifetimeMul(state, predictor, now){
-    if (!this.enabled) return 1;
-
-    const risk = predictor?.missRisk ?? 30;
-    const hp = clamp(state?.playerHp ?? 1, 0, 1);
-    const mode = this.getMode(now);
-
-    if (mode === 'recover') return 1.22;      // อยู่ให้นานขึ้น ช่วยให้ทัน
-    if (mode === 'challenge') return 0.92;    // เร็วขึ้นนิด
-
-    let mul = 1.0;
-    if (risk >= 60 || hp <= 0.35) mul = 1.18;
-    else if (risk <= 25 && hp >= 0.60) mul = 0.96;
-
-    return clamp(mul, 0.90, 1.26);
-  }
-
-  /**
-   * Choose target kind based on mode.
-   * kinds: normal/decoy/bomb/heal/shield
-   */
-  pickKind(state, predictor, now){
-    const mode = this.getMode(now);
-    const focus = predictor?.focusScore ?? 60;
-    const risk  = predictor?.missRisk ?? 30;
-    const hp = clamp(state?.playerHp ?? 1, 0, 1);
-    const shield = state?.shield ?? 0;
-
-    // weights baseline
-    let weights = [
-      { v: 'normal', w: 64 },
-      { v: 'decoy',  w: 10 },
-      { v: 'bomb',   w: 8  },
-      { v: 'heal',   w: 9  },
-      { v: 'shield', w: 9  }
-    ];
-
-    if (!this.enabled) return pickWeighted(weights, this.rng);
-
-    if (mode === 'recover') {
-      // ฟื้นตัว: ลด bomb/decoy, เพิ่ม heal/shield, normal เยอะขึ้น
-      weights = [
-        { v: 'normal', w: 70 },
-        { v: 'decoy',  w: 6  },
-        { v: 'bomb',   w: 3  },
-        { v: 'heal',   w: (hp < 0.55 ? 14 : 10) },
-        { v: 'shield', w: (shield <= 0 ? 12 : 8) }
-      ];
-      return pickWeighted(weights, this.rng);
-    }
-
-    if (mode === 'challenge') {
-      // โหมดมันส์: เพิ่ม decoy/bomb (แต่ยังให้ heal/shield บ้าง)
-      weights = [
-        { v: 'normal', w: 56 },
-        { v: 'decoy',  w: 16 },
-        { v: 'bomb',   w: 14 },
-        { v: 'heal',   w: 7  },
-        { v: 'shield', w: 7  }
-      ];
-      // ถ้า HP เริ่มตก ให้ลด bomb ลงหน่อยกันพัง
-      if (hp < 0.48) {
-        weights = [
-          { v: 'normal', w: 58 },
-          { v: 'decoy',  w: 15 },
-          { v: 'bomb',   w: 10 },
-          { v: 'heal',   w: 9  },
-          { v: 'shield', w: 8  }
-        ];
-      }
-      return pickWeighted(weights, this.rng);
-    }
-
-    // base adaptive
-    // เล่นดี: เพิ่ม decoy/bomb
-    // เสี่ยง: เพิ่ม heal/shield
-    let bombW = 8, decoyW = 10, healW = 9, shieldW = 9, normalW = 64;
-
-    if (focus >= 85 && risk <= 30 && hp >= 0.50) {
-      bombW += 3;
-      decoyW += 3;
-      normalW -= 4;
-      healW -= 1;
-      shieldW -= 1;
-    }
-
-    if (risk >= 55 || hp <= 0.40) {
-      bombW -= 3;
-      decoyW -= 2;
-      healW += 3;
-      shieldW += 3;
-      normalW += 2;
-    }
-
-    if (shield <= 0 && risk >= 45) {
-      shieldW += 2;
-      normalW -= 1;
-    }
-
-    // clamp & normalize-ish
-    bombW = Math.max(2, bombW);
-    decoyW = Math.max(3, decoyW);
-    healW = Math.max(5, healW);
-    shieldW = Math.max(5, shieldW);
-    normalW = Math.max(45, normalW);
-
-    weights = [
-      { v: 'normal', w: normalW },
-      { v: 'decoy',  w: decoyW  },
-      { v: 'bomb',   w: bombW   },
-      { v: 'heal',   w: healW   },
-      { v: 'shield', w: shieldW }
-    ];
-
-    return pickWeighted(weights, this.rng);
-  }
-}
+  window.RbAIDirector = RbAIDirector;
+})();
