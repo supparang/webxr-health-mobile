@@ -3,8 +3,8 @@
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
-// ✅ Warn if CSS / quiz bank missing (non-fatal)
-
+// ✅ Detect quiz bank presence + Particles presence
+//
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -39,24 +39,29 @@ function showWarn(msg){
   if(sub) sub.textContent = `⚠️ ${msg}`;
 }
 
+function hasLoadedScriptPart(part){
+  const ss = document.querySelectorAll('script[src]');
+  for(const s of ss){
+    const src = String(s.getAttribute('src')||'');
+    if(src.includes(part)) return true;
+  }
+  return false;
+}
+
 async function main(){
+  // DOM must exist
   const stage = $id('stage');
   if(!stage){
     showFatal('ไม่พบ #stage (hygiene-vr.html ไม่ครบหรือ id ไม่ตรง)');
     return;
   }
 
-  // CSS presence hint (non-blocking)
-  const cssOk = [...document.styleSheets].some(s=>{
-    try{ return (s.href||'').includes('/hygiene-vr.css'); }catch{ return false; }
-  });
-  if(!cssOk){
-    showWarn('CSS อาจหาย/ไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)');
+  // Quick presence hints (non-blocking)
+  if(!hasLoadedScriptPart('/vr/particles.js') && !hasLoadedScriptPart('../vr/particles.js')){
+    showWarn('particles.js อาจไม่ถูกโหลด → เอฟเฟกต์ (FX) จะไม่ขึ้น');
   }
-
-  // Quiz bank presence hint (non-blocking)
-  if(!Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) || !window.HHA_HYGIENE_QUIZ_BANK.length){
-    showWarn('Quiz bank ยังไม่พร้อม (เช็ค hygiene-quiz-bank.js โหลดได้ไหม)');
+  if(!hasLoadedScriptPart('hygiene-quiz-bank.js')){
+    showWarn('hygiene-quiz-bank.js อาจไม่ถูกโหลด → Quiz จะไม่ขึ้น');
   }
 
   // Import engine safely
@@ -76,7 +81,19 @@ async function main(){
   // Run engine boot
   try{
     engine.boot();
-    console.log('[HygieneBoot] engine.boot OK');
+
+    // Post diagnostics (after boot)
+    const hasParticles = !!window.Particles;
+    const quizCount = Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) ? window.HHA_HYGIENE_QUIZ_BANK.length : 0;
+
+    console.log('[HygieneBoot] OK', { hasParticles, quizCount });
+
+    if(!hasParticles){
+      showWarn('Particles ไม่พร้อม (window.Particles 없음) → FX จะหาย');
+    }
+    if(quizCount <= 0){
+      showWarn('Quiz bank ว่าง/ไม่พบ (window.HHA_HYGIENE_QUIZ_BANK) → Quiz จะไม่สุ่ม');
+    }
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
