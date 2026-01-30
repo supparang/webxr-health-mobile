@@ -1,12 +1,13 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
 // Hydration VR Loader — PRODUCTION (FIX import path)
-// ✅ Always import hydration.safe.js from the SAME folder as hydration-vr.html
+// ✅ Always import hydration.safe.js from the SAME folder as this loader
 // ✅ Robust candidate import + clear error UI
 // ✅ Adds body classes for view: pc/mobile/vr/cvr (optional)
 
 (function(){
   'use strict';
 
+  const WIN = window;
   const DOC = document;
 
   function qs(k, def=null){
@@ -25,14 +26,26 @@
     }catch(_){}
   }
 
-  // ✅ Base = folder of hydration-vr.html (same folder as this loader is referenced from)
-  // hydration-vr.html is at /herohealth/hydration-vr/hydration-vr.html
-  // so new URL('./', location.href) => /herohealth/hydration-vr/
+  // ✅ CRITICAL: base must be the folder containing this loader
+  // If this loader is at /herohealth/hydration-vr/hydration-vr.loader.js
+  // then base becomes /herohealth/hydration-vr/
   function baseFolderURL(){
     try{
-      return new URL('./', location.href).toString();
+      const u = new URL(import.meta.url);
+      u.hash = '';
+      u.search = '';
+      u.pathname = u.pathname.replace(/[^/]*$/, ''); // drop filename
+      return u.toString();
     }catch(_){
-      return './';
+      // Fallback: use script src
+      const s = DOC.currentScript;
+      if (s && s.src){
+        const u = new URL(s.src, location.href);
+        u.hash=''; u.search='';
+        u.pathname = u.pathname.replace(/[^/]*$/, '');
+        return u.toString();
+      }
+      return new URL('./', location.href).toString();
     }
   }
 
@@ -46,7 +59,9 @@
     const v = String(qs('view','')).toLowerCase();
     const b = DOC.body;
     if (!b) return;
+
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
+
     if (v==='cvr' || v==='cardboard'){
       b.classList.add('view-cvr','cardboard');
     } else if (v==='vr'){
