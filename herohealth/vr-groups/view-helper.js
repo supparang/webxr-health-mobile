@@ -1,9 +1,12 @@
 // === /herohealth/vr-groups/view-helper.js ===
-// GroupsVR ViewHelper — PRODUCTION
-// ✅ init({view}) : apply body class + safe-zone + input hints
-// ✅ tryImmersiveForCVR(): fullscreen + best-effort landscape lock (Cardboard)
-// ✅ measureSafe(): compute safe play area (avoid HUD/Quest/Power/Coach) + emit groups:safe
-// ✅ no "override" of ?view — respects caller param
+// GroupsVR ViewHelper — PRODUCTION (SAFE)
+// ✅ Determines/locks view: pc | mobile | vr | cvr
+// ✅ Fullscreen helper (best-effort) + landscape lock on mobile/cVR
+// ✅ cVR strict: shoot from crosshair center (ignore pointer events on targets)
+// ✅ Prevent HUD from blocking VR UI buttons (safe top inset class)
+// ✅ Optional: tryImmersiveForCVR() (doesn't force, just best-effort)
+// Exposes: window.GroupsVR.ViewHelper.init({view}), .tryImmersiveForCVR(), .get()
+
 (function(){
   'use strict';
 
@@ -14,188 +17,166 @@
   const VH = WIN.GroupsVR.ViewHelper = WIN.GroupsVR.ViewHelper || {};
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const qs = (k, def=null)=>{
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  };
 
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
-  }
-
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
-
-  function hasEl(sel){ try{ return !!DOC.querySelector(sel); }catch{ return false; } }
-  function q(sel){ try{ return DOC.querySelector(sel); }catch{ return null; } }
+  const S = {
+    view: 'pc',
+    inited: false,
+    // ui safe top (avoid covering vr-ui.js buttons)
+    safeTopPx: 86
+  };
 
   function setBodyView(view){
     const b = DOC.body;
     if (!b) return;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    b.classList.add('view-' + view);
+    b.classList.add('view-'+view);
+
+    // cVR strict mode: disable target pointer events so shooting uses crosshair center
+    // (targets should still be "hit" via engine mapping + hha:shoot)
+    if (view === 'cvr'){
+      b.classList.add('strict-cvr');
+    }else{
+      b.classList.remove('strict-cvr');
+    }
   }
 
-  // ---------------- Fullscreen / Orientation helpers ----------------
-  async function requestFullscreen(){
-    const el = DOC.documentElement || DOC.body;
-    if (!el) return false;
+  function isMobile(){
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod/i.test(ua);
+  }
 
+  function bestView(){
+    const v = String(qs('view','')||'').toLowerCase();
+    if (v) return v;
+    // if explicit none, fallback by UA
+    return isMobile() ? 'mobile' : 'pc';
+  }
+
+  function getScene(){
+    return DOC.querySelector('a-scene');
+  }
+
+  function requestFullscreen(el){
+    if (!el) return Promise.resolve(false);
     try{
-      if (DOC.fullscreenElement) return true;
-      if (el.requestFullscreen) { await el.requestFullscreen({ navigationUI:'hide' }); return true; }
-    }catch(_){}
-    return false;
+      const f = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (!f) return Promise.resolve(false);
+      const out = f.call(el);
+      return Promise.resolve(out).then(()=>true).catch(()=>false);
+    }catch(_){ return Promise.resolve(false); }
   }
 
   async function lockLandscape(){
+    // Best-effort. Not all browsers allow it without user gesture.
     try{
-      const so = screen.orientation;
-      if (so && so.lock) { await so.lock('landscape'); return true; }
+      const ori = screen && screen.orientation;
+      if (ori && ori.lock){
+        await ori.lock('landscape');
+        return true;
+      }
     }catch(_){}
     return false;
   }
 
-  function nudgeScrollTop(){
-    // mobile Safari/Chrome address bar minimize
-    try{ WIN.scrollTo(0, 0); }catch(_){}
-  }
+  function measureSafeTop(){
+    // Try detect vr-ui top buttons area; fallback to fixed
+    // We want HUD/Quest not to cover vr-ui.js buttons.
+    let px = S.safeTopPx;
 
-  // ---------------- Safe-zone measurement ----------------
-  // We measure “avoid areas” from HUD/Quest/Power/Coach to help spawning & FX
-  // and expose as CSS variables + event groups:safe
-  function rectOf(el){
-    if (!el || !el.getBoundingClientRect) return null;
-    const r = el.getBoundingClientRect();
-    if (!isFinite(r.left+r.top+r.width+r.height)) return null;
-    if (r.width <= 2 || r.height <= 2) return null;
-    return r;
-  }
-
-  function measureSafe(){
-    const vw = Math.max(320, WIN.innerWidth||360);
-    const vh = Math.max(480, WIN.innerHeight||640);
-
-    // baseline insets (small padding)
-    let top = 10, left = 10, right = 10, bottom = 10;
-
-    // avoid HUD (top left/right)
-    const hud = q('.hud');
-    const quest = q('.questTop');
-    const power = q('.powerWrap');
-    const coach = q('.coachWrap');
-    const vrui = q('#hhaVrUi') || q('.hha-vrui') || q('#hha-vr-ui'); // best-effort
-
-    const rh = rectOf(hud);
-    const rq = rectOf(quest);
-    const rp = rectOf(power);
-    const rc = rectOf(coach);
-    const rv = rectOf(vrui);
-
-    // top avoid: max bottom of hud/quest
-    const topAvoid = Math.max(
-      rh ? rh.bottom : 0,
-      rq ? rq.bottom : 0,
-      rv ? rv.bottom : 0,
-      92 // minimal top safe for notches/HUD
-    );
-    top = Math.max(top, Math.min(vh*0.45, topAvoid + 10));
-
-    // bottom avoid: power/coach take space
-    const bottomAvoid = Math.max(
-      rp ? (vh - rp.top) : 0,
-      rc ? (vh - rc.top) : 0,
-      180
-    );
-    bottom = Math.max(bottom, Math.min(vh*0.55, bottomAvoid + 10));
-
-    // left/right small insets
-    left  = Math.max(left, 12);
-    right = Math.max(right, 12);
-
-    // clamp final safe rect
-    const safe = {
-      x: left,
-      y: top,
-      w: Math.max(120, vw - left - right),
-      h: Math.max(160, vh - top - bottom),
-      vw, vh,
-      top, bottom, left, right
-    };
-
-    // expose css vars (optional use in CSS / engines)
     try{
-      DOC.documentElement.style.setProperty('--hha-safe-x', safe.x + 'px');
-      DOC.documentElement.style.setProperty('--hha-safe-y', safe.y + 'px');
-      DOC.documentElement.style.setProperty('--hha-safe-w', safe.w + 'px');
-      DOC.documentElement.style.setProperty('--hha-safe-h', safe.h + 'px');
-      DOC.documentElement.style.setProperty('--hha-safe-top', safe.top + 'px');
-      DOC.documentElement.style.setProperty('--hha-safe-bottom', safe.bottom + 'px');
-    }catch(_){}
-
-    emit('groups:safe', safe);
-    return safe;
-  }
-
-  // throttled measure
-  let _msrTmr = 0;
-  function measureSafeSoon(){
-    clearTimeout(_msrTmr);
-    _msrTmr = setTimeout(measureSafe, 60);
-  }
-
-  // ---------------- Public API ----------------
-  VH.init = function init(opts={}){
-    const view = String(opts.view || qs('view','mobile') || 'mobile').toLowerCase();
-    setBodyView(view);
-
-    // tiny UX hints by view
-    try{
-      if (view === 'cvr'){
-        DOC.body.classList.add('is-cvr');
-        // keep targets clickable (do NOT disable pointer-events) because engine uses elementFromPoint.
-        // vr-ui.js provides crosshair tap-to-shoot; we only help fullscreen/landscape.
-      }else{
-        DOC.body.classList.remove('is-cvr');
+      const btn = DOC.querySelector('.hha-vrui-bar, .hha-vrui, .hha-vrui-top, #hhaVruI, .hha-vrui-btn');
+      if (btn){
+        const r = btn.getBoundingClientRect();
+        px = Math.max(px, Math.round(r.bottom + 10));
       }
     }catch(_){}
 
-    // initial safe
-    measureSafeSoon();
+    // clamp for mobile
+    px = clamp(px, 64, 140);
+    S.safeTopPx = px;
 
-    // re-measure on resize/orientation changes
-    WIN.addEventListener('resize', measureSafeSoon, { passive:true });
-    WIN.addEventListener('orientationchange', ()=>{
-      setTimeout(()=>{ nudgeScrollTop(); measureSafeSoon(); }, 80);
-    }, { passive:true });
+    try{
+      DOC.documentElement.style.setProperty('--hha-safeTop', px + 'px');
+    }catch(_){}
+  }
 
-    // if FX pack exists and wants safe rect
-    WIN.addEventListener('groups:safe', (ev)=>{
-      try{
-        const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
-        FX && FX.setSafeRect && FX.setSafeRect(ev.detail);
-      }catch(_){}
-    }, { passive:true });
+  function applySafeTopClass(){
+    // add a class to body so CSS can use padding-top: var(--hha-safeTop)
+    try{
+      DOC.body && DOC.body.classList.add('hha-safeTop');
+      measureSafeTop();
+      // remeasure after a short delay (vr-ui may mount later)
+      setTimeout(measureSafeTop, 200);
+      setTimeout(measureSafeTop, 700);
+    }catch(_){}
+  }
 
-    // allow external trigger
-    WIN.addEventListener('groups:measureSafe', measureSafeSoon, { passive:true });
+  function ensureCVRStrict(){
+    // In cVR strict: targets should not catch clicks (shoot from crosshair)
+    try{
+      const b = DOC.body;
+      if (!b) return;
+      if (S.view === 'cvr') b.classList.add('strict-cvr');
+      else b.classList.remove('strict-cvr');
+    }catch(_){}
+  }
 
-    return view;
+  VH.get = function(){
+    return { view: S.view, safeTopPx: S.safeTopPx, inited: S.inited };
   };
 
-  VH.measureSafe = measureSafe;
+  VH.init = function(opts){
+    try{
+      opts = opts || {};
+      const view = String(opts.view || bestView() || 'pc').toLowerCase();
 
-  VH.tryImmersiveForCVR = async function tryImmersiveForCVR(){
-    // Cardboard “feel”: fullscreen + landscape lock (best-effort)
-    // Do not force WebXR enterVR here; vr-ui.js handles Enter VR button when supported.
-    nudgeScrollTop();
+      S.view = (view==='cvr'||view==='vr'||view==='mobile'||view==='pc') ? view : 'pc';
+      setBodyView(S.view);
+      ensureCVRStrict();
+      applySafeTopClass();
 
-    const fs = await requestFullscreen();
-    const lk = await lockLandscape();
+      // If mobile/cVR, try to set meta/behavioral hints
+      if (S.view === 'mobile' || S.view === 'cvr'){
+        // prevent double-tap zoom
+        DOC.addEventListener('touchstart', ()=>{}, {passive:true});
+      }
 
-    // re-measure after transition
-    setTimeout(()=>{ nudgeScrollTop(); measureSafeSoon(); }, 120);
+      // Recompute safeTop on resize/orientation
+      WIN.addEventListener('resize', ()=>{ measureSafeTop(); }, {passive:true});
+      WIN.addEventListener('orientationchange', ()=>{ setTimeout(measureSafeTop, 250); }, {passive:true});
 
-    emit('groups:viewhelper', { kind:'cvr_immersive', fullscreen:!!fs, landscapeLock:!!lk });
-    return { fullscreen:!!fs, landscapeLock:!!lk };
+      S.inited = true;
+      return true;
+    }catch(_){
+      return false;
+    }
+  };
+
+  // Best-effort helper for cVR:
+  // 1) fullscreen body
+  // 2) landscape lock
+  // 3) (optional) ask a-scene to enter VR via vr-ui.js buttons (we don't force here)
+  VH.tryImmersiveForCVR = async function(){
+    try{
+      if (S.view !== 'cvr') return false;
+
+      // try fullscreen on body / scene
+      const sc = getScene();
+      const okFs = await requestFullscreen(sc || DOC.documentElement || DOC.body);
+
+      // try lock landscape
+      await lockLandscape();
+
+      // remeasure safeTop (vr-ui may shift)
+      setTimeout(measureSafeTop, 350);
+
+      return !!okFs;
+    }catch(_){
+      return false;
+    }
   };
 
 })();
