@@ -7,6 +7,7 @@ GoodJunkVR UI — PRODUCTION (Mobile-first, Big Playfield)
 ✅ Missions peek + mission line always visible
 ✅ Boss bar + Progress bar + End Summary overlay
 ✅ Targets clear + non-blinking
+✅ PATCH: Bottom HUD Compact + Tap-to-peek (body.hud-bot-open)
 */
 
 :root{
@@ -51,6 +52,7 @@ GoodJunkVR UI — PRODUCTION (Mobile-first, Big Playfield)
 
 *{ box-sizing:border-box; }
 html,body{ width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:var(--bg); }
+
 body.gj{
   font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
   color:var(--text);
@@ -248,7 +250,6 @@ a-scene[embedded]{
   gap:10px;
   pointer-events:none;
 }
-
 .quest-card{
   border-radius: var(--radius);
   border:1px solid var(--stroke);
@@ -320,14 +321,12 @@ a-scene[embedded]{
   padding: 10px;
   pointer-events:none;
 }
-
 .meter-title{
   font-weight:1200;
   font-size:12px;
   letter-spacing:.35px;
   color: rgba(229,231,235,.92);
 }
-
 .meter-bar{
   margin-top:8px;
   height: 10px;
@@ -342,14 +341,12 @@ a-scene[embedded]{
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
 }
-
 .meter-num{
   margin-top:8px;
   font-size:12px;
   color: rgba(148,163,184,.92);
   font-weight:900;
 }
-
 .meter-shield{
   margin-top:8px;
   padding:8px 10px;
@@ -359,7 +356,6 @@ a-scene[embedded]{
   font-weight:1200;
   color: rgba(229,231,235,.95);
 }
-
 .meter-tip{
   margin-top:8px;
   font-size:11px;
@@ -511,7 +507,6 @@ body.view-cvr .gj-target{ pointer-events:none; }
   transform: translateY(-6px);
   transition: opacity .15s ease, transform .15s ease;
 }
-
 body.show-missions .gj-peek{
   opacity:1;
   transform: translateY(0);
@@ -529,7 +524,6 @@ body.show-missions .gj-peek{
   box-shadow: 0 18px 55px rgba(0,0,0,.42);
   padding: 12px;
 }
-
 .peek-title{
   font-size:14px;
   font-weight:1200;
@@ -626,6 +620,7 @@ body.hud-hidden .gj-hud-bot{
     --topbar-h: 50px;
     --card-pad: 9px;
   }
+
   .gj-btn{ height:38px; border-radius: 13px; padding:0 10px; }
   .hud-pill{ min-width: 84px; }
   .hud-pill .hud-value{ font-size: 16px; }
@@ -643,6 +638,7 @@ body.hud-hidden .gj-hud-bot{
   .gj-hud-top{ top: calc(var(--topbar-h) + var(--sat) + 50px); }
 }
 
+/* Desktop spacious */
 @media (min-width: 900px){
   :root{ --topbar-h: 56px; }
   .gj-hud-top{
@@ -660,4 +656,56 @@ body.hud-hidden .gj-hud-bot{
   .gj-target.spawn{ animation:none; }
   .gj-peek{ transition:none; }
   .gj-lowtime-overlay{ transition:none; }
+}
+
+/* =========================================================
+   PATCH: Mobile Bottom HUD Compact + Tap Peek (BIGGER FIELD!)
+   - default: compact (short)
+   - tap HUD bottom -> body.hud-bot-open for 2.2s (JS handles)
+========================================================= */
+@media (max-width: 520px){
+
+  /* ให้แตะ HUD ล่างได้เพื่อ peek */
+  .gj-hud-bot{ pointer-events:auto; }
+
+  /* โหมด compact (default) */
+  .gj-hud-bot{
+    gap:8px;
+    padding-bottom: calc(8px + var(--sab));
+  }
+  .gj-hud-bot .meter{
+    padding: 8px 10px;
+    border-radius: 18px;
+  }
+
+  /* ลดความสูง FEVER/SHIELD */
+  .gj-hud-bot .meter-title{ font-size:11px; }
+  .gj-hud-bot .meter-bar{ height: 8px; margin-top:6px; }
+  .gj-hud-bot .meter-num{ display:none; }     /* ซ่อนข้อความยาว */
+  .gj-hud-bot .meter-tip{ display:none; }     /* ซ่อนคำอธิบายยาว */
+  .gj-hud-bot .meter-shield{
+    margin-top:6px;
+    padding: 6px 10px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+
+  /* โหมดเปิด (peek) */
+  body.hud-bot-open .gj-hud-bot .meter-num{ display:block; }
+  body.hud-bot-open .gj-hud-bot .meter-tip{ display:block; }
+  body.hud-bot-open .gj-hud-bot .meter-bar{ height: 10px; }
+  body.hud-bot-open .gj-hud-bot .meter{ padding: 10px; }
+
+  /* boss thinner */
+  .boss-card{ padding: 8px 10px; }
+  .boss-title{ font-size: 11px; }
+  .boss-hint{
+    font-size: 11px;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .boss-bar{ height: 8px; margin-top:6px; }
 }
