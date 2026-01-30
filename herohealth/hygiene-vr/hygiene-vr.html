@@ -1,10 +1,11 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot
-✅ FX: ../vr/particles.js (defer) => popText/burst
-✅ Engine: hygiene.safe.js (export boot)
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js (defer) -> crosshair + hha:shoot
+✅ FX:  ../vr/particles.js (defer)
+✅ AI (optional): ../vr/hha-ai-coach.js, ../vr/hha-difficulty-director.js, ../vr/hha-badges.js (defer)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Boot: ./hygiene-vr.boot.js (module; imports ./hygiene.safe.js)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,20 +16,21 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- CSS (MUST exist) -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260130a" />
 
-  <!-- Universal VR UI -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
+  <!-- AI packs (optional; safe if missing = will 404 -> you will see in Network) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์ที่มีจริง) -->
+  <!-- Quiz bank (FILE NAME MUST MATCH YOUR FILE) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
@@ -74,7 +76,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     <div class="hw-overlay" id="startOverlay">
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub" id="startSub">
+        <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
           ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
@@ -112,21 +114,23 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+    document.body.classList.add(
+      view==='mobile' ? 'view-mobile'
+      : view==='vr'   ? 'view-vr'
+      : view==='cvr'  ? 'view-cvr'
+      : 'view-pc'
+    );
 
-  // ✅ quick diagnostics (ไม่บังคับ)
-  window.addEventListener('load', ()=>{
-    const sub = document.getElementById('hudSub');
-    const warn = [];
-    if(!window.Particles) warn.push('Particles=missing');
-    if(!window.HHA_HYGIENE_QUIZ_BANK) warn.push('QuizBank=missing');
-    if(sub && warn.length) sub.textContent = '⚠️ ' + warn.join(' • ') + ' (เช็ค Network 404)';
-  }, { once:true });
+    const labView = document.getElementById('labView');
+    if(labView) labView.textContent = view;
+  }
+
+  setViewClass();
+
+  const labMode = document.getElementById('labMode');
+  const labDiff = document.getElementById('labDiff');
+  if(labMode) labMode.textContent = (qs('run','play')||'play');
+  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
