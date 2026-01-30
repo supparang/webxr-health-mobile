@@ -1,12 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (LATEST)
 // ✅ Auto view detect (no UI override menu)
-// ✅ Default time=90 (ปรับได้ด้วย ?time=)
-// ✅ FIX: safe-zone vars for mode-factory (เป้าไม่ทับ HUD)
-// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ End overlay: aria-hidden only + restart/back hub
-// ✅ Keeps engine controller (so plate.safe.js can stop spawner on end if it wants)
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ Boots engine from ./plate.safe.js
+// ✅ Wires HUD: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ End overlay (aria-hidden only), Restart + Back HUB
+// ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
+// ✅ Guard: prevent double-boot + show error via coach bubble
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -23,11 +22,6 @@ function clamp(v, a, b){
   return v < a ? a : (v > b ? b : v);
 }
 
-function pct(n){
-  n = Number(n)||0;
-  return `${Math.round(n)}%`;
-}
-
 function isMobile(){
   const ua = navigator.userAgent || '';
   const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
@@ -35,9 +29,10 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // ไม่ทำเมนูให้เลือกเอง แต่ "อนุญาต" ให้ force ด้วย query สำหรับงานทดลอง
+  // ✅ ไม่มี UI ให้เลือก view เอง
+  // อนุญาตให้ผู้เรียก "บังคับ" ด้วย query ได้ (ใช้ทดสอบ) แต่ไม่มีเมนู override
   const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced; // pc/mobile/vr/cvr
+  if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -48,6 +43,11 @@ function setBodyView(view){
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'mobile') b.classList.add('view-mobile');
   else b.classList.add('view-pc');
+}
+
+function pct(n){
+  n = Number(n)||0;
+  return `${Math.round(n)}%`;
 }
 
 function setOverlayOpen(open){
@@ -72,62 +72,7 @@ function showCoach(msg, meta='Coach'){
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
-  }, 2200);
-}
-
-/* ------------------------------------------------
- * SAFE ZONE: ให้ mode-factory หลีก HUD / ขอบบน-ล่าง
- * mode-factory.js จะอ่าน CSS vars:
- * --plate-top-safe --plate-bottom-safe --plate-left-safe --plate-right-safe
- * ------------------------------------------------ */
-function measureSafeZone(){
-  const root = DOC.documentElement;
-  const hud = DOC.getElementById('hud');
-  const layer = DOC.getElementById('plate-layer');
-
-  // base safe = safe-area inset
-  const cs = getComputedStyle(root);
-  const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
-  const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
-  const sal = parseFloat(cs.getPropertyValue('--sal')) || 0;
-  const sar = parseFloat(cs.getPropertyValue('--sar')) || 0;
-
-  // padding กันเป้าชนขอบ
-  const PAD = 10;
-
-  let topSafe = sat + PAD;
-  let bottomSafe = sab + PAD;
-  let leftSafe = sal + PAD;
-  let rightSafe = sar + PAD;
-
-  // กัน HUD (ถ้ามี)
-  if(hud && layer){
-    const rHud = hud.getBoundingClientRect();
-    const rLay = layer.getBoundingClientRect();
-
-    // HUD ปกติอยู่ด้านบน => กันความสูง HUD เป็น topSafe เพิ่ม
-    // (ถ้าอนาคตย้าย HUD ลงล่าง ก็ยังทำงานได้ด้วยการเทียบตำแหน่ง)
-    const hudTopInLayer = rHud.top - rLay.top;
-    const hudBottomInLayer = rLay.bottom - rHud.bottom;
-
-    // ถ้า HUD อยู่ด้านบนจริง
-    if(hudTopInLayer <= 24){
-      topSafe = Math.max(topSafe, (rHud.height + sat + PAD));
-    }else{
-      // ถ้า HUD ไม่ได้อยู่ชิดบน ให้กันแบบ conservative
-      topSafe = Math.max(topSafe, sat + PAD);
-    }
-
-    // เผื่อบาง layout มี HUD/ปุ่มด้านล่าง (อนาคต)
-    if(hudBottomInLayer <= 24){
-      bottomSafe = Math.max(bottomSafe, (rHud.height + sab + PAD));
-    }
-  }
-
-  root.style.setProperty('--plate-top-safe', `${Math.round(topSafe)}px`);
-  root.style.setProperty('--plate-bottom-safe', `${Math.round(bottomSafe)}px`);
-  root.style.setProperty('--plate-left-safe', `${Math.round(leftSafe)}px`);
-  root.style.setProperty('--plate-right-safe', `${Math.round(rightSafe)}px`);
+  }, 2400);
 }
 
 function wireHUD(){
@@ -159,7 +104,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-
+    // shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -169,7 +114,6 @@ function wireHUD(){
       if(goalNums) goalNums.textContent = `${cur}/${tar}`;
       if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
     if(d.mini){
       const m = d.mini;
       if(miniName) miniName.textContent = m.name || 'Mini Quest';
@@ -179,9 +123,6 @@ function wireHUD(){
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
-
-    // update safe-zone หลัง HUD เปลี่ยนขนาด (บางภาษา/บางจอ)
-    measureSafeZone();
   });
 
   WIN.addEventListener('hha:coach', (e)=>{
@@ -197,9 +138,10 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      location.reload();
+      location.reload(); // keep same query params
     });
   }
+
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
       if(hub) location.href = hub;
@@ -234,15 +176,14 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
-
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
 
-  // ✅ default 90
+  // ✅ default 90s (ตามที่คุยกัน)
   const time = clamp(qs('time','90'), 10, 999);
 
-  const seedRaw = qs('seed', String(Date.now()));
-  const seed = Number(seedRaw) || Date.now();
+  const seedQ = qs('seed','');
+  const seed = Number(seedQ || Date.now()) || Date.now();
 
   return {
     view,
@@ -254,7 +195,7 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough research context (optional)
+    // research passthrough
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -274,34 +215,29 @@ function ready(fn){
 }
 
 ready(()=>{
+  // ✅ กันบูตซ้ำ
+  if(WIN.__HHA_PLATE_BOOTED__) return;
+  WIN.__HHA_PLATE_BOOTED__ = true;
+
   const cfg = buildEngineConfig();
 
-  // view class
   setBodyView(cfg.view);
-
-  // UI wiring
   wireHUD();
   wireEndControls();
   wireEndSummary();
-
-  // overlay closed at start
   setOverlayOpen(false);
 
-  // SAFE ZONE (initial + responsive)
-  measureSafeZone();
-  WIN.addEventListener('resize', ()=>measureSafeZone(), { passive:true });
+  const mount = DOC.getElementById('plate-layer');
+  if(!mount){
+    console.error('[PlateVR] mount missing');
+    showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
+    return;
+  }
 
-  // boot engine
   try{
-    const mount = DOC.getElementById('plate-layer');
-    if(!mount) throw new Error('PlateVR: #plate-layer missing');
-
-    // เก็บ controller ไว้เผื่อ stop ตอนจบ/ออกหน้า (plate.safe.js จะใช้ได้)
-    const controller = engineBoot({ mount, cfg }) || null;
-    WIN.__HHA_PLATE_CONTROLLER__ = controller;
-
+    engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
+    showCoach('เริ่มเกมไม่สำเร็จ (เปิด Console ดู error)', 'System');
   }
 });
