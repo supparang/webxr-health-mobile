@@ -1,19 +1,9 @@
 // === /herohealth/vr-groups/view-helper.js ===
-// View Helper — PRODUCTION (GroupsVR)
-// ✅ Sets body view class: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Safe-area CSS vars + re-measure hooks (mobile notch friendly)
-// ✅ Fullscreen + best-effort orientation lock for mobile/cVR
-// ✅ tryImmersiveForCVR(): nudges fullscreen/landscape on first user gesture
-// ✅ Guard: never throws, works even if APIs missing
-//
-// Conventions:
-// - "cvr" = Cardboard style: crosshair center + tap-to-shoot (via vr-ui.js)
-// - "vr"  = WebXR immersive; still safe to run on mobile
-//
-// Notes:
-// - Does NOT auto-redirect or override URL params (launcher handles that).
-// - This file only helps layout + platform UX.
-
+// GroupsVR ViewHelper — PRODUCTION
+// ✅ init({view}) : apply body class + safe-zone + input hints
+// ✅ tryImmersiveForCVR(): fullscreen + best-effort landscape lock (Cardboard)
+// ✅ measureSafe(): compute safe play area (avoid HUD/Quest/Power/Coach) + emit groups:safe
+// ✅ no "override" of ?view — respects caller param
 (function(){
   'use strict';
 
@@ -21,7 +11,7 @@
   const DOC = document;
 
   WIN.GroupsVR = WIN.GroupsVR || {};
-  if (WIN.GroupsVR.ViewHelper && WIN.GroupsVR.ViewHelper.__loaded) return;
+  const VH = WIN.GroupsVR.ViewHelper = WIN.GroupsVR.ViewHelper || {};
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
 
@@ -30,223 +20,182 @@
     catch{ return def; }
   }
 
-  function normView(v){
-    v = String(v||'').toLowerCase().trim();
-    if (v === 'cardboard') v = 'cvr';
-    if (v === 'mobile') return 'mobile';
-    if (v === 'pc') return 'pc';
-    if (v === 'vr') return 'vr';
-    if (v === 'cvr') return 'cvr';
-    return ''; // unknown
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  function detectViewFallback(){
-    // Only used if caller passes empty.
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && matchMedia('(pointer: coarse)').matches);
-    if (!isMobile) return 'pc';
-    // Heuristic: treat coarse pointer mobile as mobile; let launcher decide cvr mostly
-    return 'mobile';
-  }
+  function hasEl(sel){ try{ return !!DOC.querySelector(sel); }catch{ return false; } }
+  function q(sel){ try{ return DOC.querySelector(sel); }catch{ return null; } }
 
-  // -------- Safe-area + viewport units --------
-  function setCssVar(name, val){
-    try{ DOC.documentElement.style.setProperty(name, String(val)); }catch(_){}
-  }
-
-  function measureSafeArea(){
-    // Use visualViewport when available for mobile address-bar shrink/expand behavior
-    try{
-      const vv = WIN.visualViewport;
-      const w = vv ? vv.width : WIN.innerWidth;
-      const h = vv ? vv.height : WIN.innerHeight;
-
-      setCssVar('--vh', (h * 0.01) + 'px');
-      setCssVar('--vw', (w * 0.01) + 'px');
-
-      // Some layouts like to know if "short height"
-      setCssVar('--hha-short', (h < 620) ? '1' : '0');
-    }catch(_){}
-  }
-
-  let _measT = 0;
-  function scheduleMeasure(){
-    clearTimeout(_measT);
-    _measT = setTimeout(measureSafeArea, 40);
-  }
-
-  // -------- Fullscreen / Orientation --------
-  function canFullscreen(){
-    const el = DOC.documentElement;
-    return !!(el && (el.requestFullscreen || el.webkitRequestFullscreen));
-  }
-
-  function isFullscreen(){
-    return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
-  }
-
-  async function requestFullscreen(){
-    try{
-      const el = DOC.documentElement;
-      if (!el) return false;
-      if (isFullscreen()) return true;
-
-      if (el.requestFullscreen) { await el.requestFullscreen({ navigationUI: 'hide' }); return true; }
-      if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); return true; }
-      return false;
-    }catch(_){
-      return false;
-    }
-  }
-
-  async function lockLandscape(){
-    // best effort — only works on some mobile browsers + only after user gesture
-    try{
-      const scr = screen;
-      const so = scr && scr.orientation;
-      if (so && so.lock){
-        await so.lock('landscape');
-        return true;
-      }
-      // iOS Safari: no lock; return false
-      return false;
-    }catch(_){
-      return false;
-    }
-  }
-
-  function hintInstallTouchStart(fn){
-    // ensure a "user gesture" hook runs once
-    let done = false;
-    function once(){
-      if (done) return;
-      done = true;
-      try{ fn(); }catch(_){}
-      try{
-        DOC.removeEventListener('touchstart', once, { passive:true });
-        DOC.removeEventListener('mousedown', once);
-        DOC.removeEventListener('pointerdown', once);
-      }catch(_){}
-    }
-    try{ DOC.addEventListener('touchstart', once, { passive:true }); }catch(_){}
-    try{ DOC.addEventListener('pointerdown', once, { passive:true }); }catch(_){}
-    try{ DOC.addEventListener('mousedown', once); }catch(_){}
-  }
-
-  // -------- Body class / UI guards --------
-  function setBodyViewClass(view){
+  function setBodyView(view){
     const b = DOC.body;
     if (!b) return;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-' + view);
-
-    // helpful attribute for CSS / debugging
-    try{ b.setAttribute('data-view', view); }catch(_){}
   }
 
-  function applyTouchOptimizations(view){
-    // prevent scroll bounce during play
+  // ---------------- Fullscreen / Orientation helpers ----------------
+  async function requestFullscreen(){
+    const el = DOC.documentElement || DOC.body;
+    if (!el) return false;
+
     try{
-      DOC.documentElement.style.overscrollBehavior = 'none';
-      DOC.body.style.overscrollBehavior = 'none';
-      DOC.body.style.touchAction = 'manipulation';
+      if (DOC.fullscreenElement) return true;
+      if (el.requestFullscreen) { await el.requestFullscreen({ navigationUI:'hide' }); return true; }
+    }catch(_){}
+    return false;
+  }
+
+  async function lockLandscape(){
+    try{
+      const so = screen.orientation;
+      if (so && so.lock) { await so.lock('landscape'); return true; }
+    }catch(_){}
+    return false;
+  }
+
+  function nudgeScrollTop(){
+    // mobile Safari/Chrome address bar minimize
+    try{ WIN.scrollTo(0, 0); }catch(_){}
+  }
+
+  // ---------------- Safe-zone measurement ----------------
+  // We measure “avoid areas” from HUD/Quest/Power/Coach to help spawning & FX
+  // and expose as CSS variables + event groups:safe
+  function rectOf(el){
+    if (!el || !el.getBoundingClientRect) return null;
+    const r = el.getBoundingClientRect();
+    if (!isFinite(r.left+r.top+r.width+r.height)) return null;
+    if (r.width <= 2 || r.height <= 2) return null;
+    return r;
+  }
+
+  function measureSafe(){
+    const vw = Math.max(320, WIN.innerWidth||360);
+    const vh = Math.max(480, WIN.innerHeight||640);
+
+    // baseline insets (small padding)
+    let top = 10, left = 10, right = 10, bottom = 10;
+
+    // avoid HUD (top left/right)
+    const hud = q('.hud');
+    const quest = q('.questTop');
+    const power = q('.powerWrap');
+    const coach = q('.coachWrap');
+    const vrui = q('#hhaVrUi') || q('.hha-vrui') || q('#hha-vr-ui'); // best-effort
+
+    const rh = rectOf(hud);
+    const rq = rectOf(quest);
+    const rp = rectOf(power);
+    const rc = rectOf(coach);
+    const rv = rectOf(vrui);
+
+    // top avoid: max bottom of hud/quest
+    const topAvoid = Math.max(
+      rh ? rh.bottom : 0,
+      rq ? rq.bottom : 0,
+      rv ? rv.bottom : 0,
+      92 // minimal top safe for notches/HUD
+    );
+    top = Math.max(top, Math.min(vh*0.45, topAvoid + 10));
+
+    // bottom avoid: power/coach take space
+    const bottomAvoid = Math.max(
+      rp ? (vh - rp.top) : 0,
+      rc ? (vh - rc.top) : 0,
+      180
+    );
+    bottom = Math.max(bottom, Math.min(vh*0.55, bottomAvoid + 10));
+
+    // left/right small insets
+    left  = Math.max(left, 12);
+    right = Math.max(right, 12);
+
+    // clamp final safe rect
+    const safe = {
+      x: left,
+      y: top,
+      w: Math.max(120, vw - left - right),
+      h: Math.max(160, vh - top - bottom),
+      vw, vh,
+      top, bottom, left, right
+    };
+
+    // expose css vars (optional use in CSS / engines)
+    try{
+      DOC.documentElement.style.setProperty('--hha-safe-x', safe.x + 'px');
+      DOC.documentElement.style.setProperty('--hha-safe-y', safe.y + 'px');
+      DOC.documentElement.style.setProperty('--hha-safe-w', safe.w + 'px');
+      DOC.documentElement.style.setProperty('--hha-safe-h', safe.h + 'px');
+      DOC.documentElement.style.setProperty('--hha-safe-top', safe.top + 'px');
+      DOC.documentElement.style.setProperty('--hha-safe-bottom', safe.bottom + 'px');
     }catch(_){}
 
-    // in cVR/mobile we often want to block accidental selection
-    if (view === 'mobile' || view === 'cvr'){
-      try{
-        DOC.body.style.userSelect = 'none';
-        DOC.body.style.webkitUserSelect = 'none';
-      }catch(_){}
-    }
+    emit('groups:safe', safe);
+    return safe;
   }
 
-  function ensureVrUiNotBlocked(){
-    // When HUD overlays exist, make sure VR UI buttons remain clickable.
-    // Convention: vr-ui.js creates a fixed layer; we can't depend on its id, so we just reduce pointer interception at edges.
-    // Your CSS should already do this, but this is a safety guard.
+  // throttled measure
+  let _msrTmr = 0;
+  function measureSafeSoon(){
+    clearTimeout(_msrTmr);
+    _msrTmr = setTimeout(measureSafe, 60);
+  }
+
+  // ---------------- Public API ----------------
+  VH.init = function init(opts={}){
+    const view = String(opts.view || qs('view','mobile') || 'mobile').toLowerCase();
+    setBodyView(view);
+
+    // tiny UX hints by view
     try{
-      // ensure any top overlays don't swallow pointer events in the extreme top zone
-      const hud = DOC.querySelector('.hud');
-      if (hud){
-        // Let HUD remain interactive, but do not block top-most UI (ENTER VR / RECENTER) that sits near top
-        hud.style.paddingTop = 'max(8px, env(safe-area-inset-top, 0px))';
+      if (view === 'cvr'){
+        DOC.body.classList.add('is-cvr');
+        // keep targets clickable (do NOT disable pointer-events) because engine uses elementFromPoint.
+        // vr-ui.js provides crosshair tap-to-shoot; we only help fullscreen/landscape.
+      }else{
+        DOC.body.classList.remove('is-cvr');
       }
     }catch(_){}
-  }
 
-  // -------- Public API --------
-  const API = {
-    __loaded: true,
+    // initial safe
+    measureSafeSoon();
 
-    getView(){
-      return normView(qs('view','')) || detectViewFallback();
-    },
+    // re-measure on resize/orientation changes
+    WIN.addEventListener('resize', measureSafeSoon, { passive:true });
+    WIN.addEventListener('orientationchange', ()=>{
+      setTimeout(()=>{ nudgeScrollTop(); measureSafeSoon(); }, 80);
+    }, { passive:true });
 
-    isCVR(){
-      const v = API.getView();
-      return v === 'cvr';
-    },
-
-    isMobile(){
-      const v = API.getView();
-      return (v === 'mobile' || v === 'cvr');
-    },
-
-    init(opts={}){
-      // opts: { view }
-      const view = normView(opts.view) || API.getView();
-
-      setBodyViewClass(view);
-      applyTouchOptimizations(view);
-      ensureVrUiNotBlocked();
-
-      // First measure + listeners
-      measureSafeArea();
+    // if FX pack exists and wants safe rect
+    WIN.addEventListener('groups:safe', (ev)=>{
       try{
-        WIN.addEventListener('resize', scheduleMeasure, { passive:true });
-        if (WIN.visualViewport){
-          WIN.visualViewport.addEventListener('resize', scheduleMeasure, { passive:true });
-          WIN.visualViewport.addEventListener('scroll', scheduleMeasure, { passive:true });
-        }
-        // manual hook for engine/layout adjustments
-        WIN.addEventListener('groups:measureSafe', scheduleMeasure, { passive:true });
+        const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
+        FX && FX.setSafeRect && FX.setSafeRect(ev.detail);
       }catch(_){}
+    }, { passive:true });
 
-      // For mobile/cVR: best effort to prep fullscreen/landscape on first gesture
-      if (view === 'mobile' || view === 'cvr'){
-        hintInstallTouchStart(async ()=>{
-          // don't force; best effort only
-          if (canFullscreen() && !isFullscreen()){
-            await requestFullscreen();
-          }
-          await lockLandscape();
-          scheduleMeasure();
-        });
-      }
+    // allow external trigger
+    WIN.addEventListener('groups:measureSafe', measureSafeSoon, { passive:true });
 
-      return view;
-    },
-
-    // Call this from run page after E.start(...) if you want to encourage immersive UX for cVR.
-    // (It DOES NOT enter WebXR; it only tries fullscreen+landscape after gesture.)
-    tryImmersiveForCVR(){
-      const view = API.getView();
-      if (view !== 'cvr') return;
-
-      hintInstallTouchStart(async ()=>{
-        // try fullscreen + landscape, but don't block gameplay
-        await requestFullscreen();
-        await lockLandscape();
-        scheduleMeasure();
-      });
-    },
-
-    requestFullscreen,
-    lockLandscape,
-    measureSafeArea
+    return view;
   };
 
-  WIN.GroupsVR.ViewHelper = API;
+  VH.measureSafe = measureSafe;
+
+  VH.tryImmersiveForCVR = async function tryImmersiveForCVR(){
+    // Cardboard “feel”: fullscreen + landscape lock (best-effort)
+    // Do not force WebXR enterVR here; vr-ui.js handles Enter VR button when supported.
+    nudgeScrollTop();
+
+    const fs = await requestFullscreen();
+    const lk = await lockLandscape();
+
+    // re-measure after transition
+    setTimeout(()=>{ nudgeScrollTop(); measureSafeSoon(); }, 120);
+
+    emit('groups:viewhelper', { kind:'cvr_immersive', fullscreen:!!fs, landscapeLock:!!lk });
+    return { fullscreen:!!fs, landscapeLock:!!lk };
+  };
 
 })();
