@@ -1,177 +1,143 @@
-// === /fitness/js/ai-predictor.js — Light AI Prediction HUD (A-40) ===
+// === /fitness/js/ai-predictor.js ===
+// Rhythm Boxer AI Predictor (Lite ML/DL-style heuristic, deterministic-friendly)
+// ✅ fatigueRisk 0..1
+// ✅ skillScore  0..1
+// ✅ suggestedDifficulty: easy|normal|hard
+// ✅ micro-tip (rate-limited)
+// ✅ onUpdate(cb)
+
 'use strict';
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
-const lerp = (a,b,t)=>a+(b-a)*t;
+(function(){
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const now=()=>{ try{return performance.now();}catch(_){return Date.now();} };
 
-// EWMA helper
-function ewma(prev, x, alpha){
-  if (prev == null || !isFinite(prev)) return x;
-  return prev*(1-alpha) + x*alpha;
-}
+  class AiPredictorRB{
+    constructor(opts={}){
+      this.enabled = !!opts.enabled;
+      this.mode = opts.mode || 'normal';
+      this.rateMs = opts.rateMs || 800;  // update frequency
+      this.tipMs  = opts.tipMs  || 2500; // tip rate limit
+      this.cb = null;
 
-/**
- * Predictor outputs:
- * - focusScore 0..100
- * - missRisk 0..100
- * - pace 0..100
- * Explainable signals:
- * - rtEwma, missEwma, bombEwma, hitRateEwma
- */
-export class AIPredictor {
-  constructor(opts = {}) {
-    this.enabled = !!opts.enabled;
-    this.alphaRt = opts.alphaRt ?? 0.18;        // RT smoothing
-    this.alphaRate = opts.alphaRate ?? 0.12;    // rate smoothing
-    this.alphaMiss = opts.alphaMiss ?? 0.14;    // miss smoothing
+      this.reset();
+    }
 
-    this.reset();
-  }
+    reset(){
+      this.t0 = now();
+      this.lastEmit = 0;
+      this.lastTip = 0;
 
-  setEnabled(v){ this.enabled = !!v; }
+      // rolling windows
+      this.win = []; // {t, hit, judge, absOff, dt, blank, hp, combo}
+      this.winSec = 10.0;
 
-  reset(){
-    this.rtEwma = null;
-    this.missEwma = 0;
-    this.bombEwma = 0;
-    this.hitRateEwma = 0; // hits per sec
-    this.lastHitTs = 0;
-    this.lastEventTs = 0;
+      // outputs
+      this.fatigueRisk = 0;
+      this.skillScore = 0.5;
+      this.suggestedDifficulty = 'normal';
+      this.tip = '';
+    }
 
-    this.focusScore = 70;
-    this.missRisk = 25;
-    this.pace = 60;
+    onUpdate(cb){ this.cb = (typeof cb==='function')?cb:null; }
 
-    this.reason = '';
-  }
+    setEnabled(v){ this.enabled = !!v; }
 
-  /**
-   * @param {Object} state minimal needed: diffKey, bossPhase, shield, feverOn, playerHp
-   * @param {Object} ev { type:'hit'|'miss'|'bomb'|'decoy'|'timeout', rtMs?, isNormal?, isBomb?, isDecoy? }
-   * @param {number} now performance.now()
-   */
-  onEvent(state, ev, now){
-    if (!this.enabled) return;
+    pushEvent(e){
+      if(!this.enabled) return;
 
-    const type = ev?.type || '';
-    const rt = (typeof ev?.rtMs === 'number') ? ev.rtMs : null;
+      // e: {songTime, isHit, judgment, absOffset, rawOffset, blankTap, hp, combo}
+      const t = Number(e.songTime)||0;
+      this.win.push({
+        t,
+        hit: e.isHit?1:0,
+        judge: e.judgment||'',
+        absOff: Number(e.absOffset)||0,
+        dt: Number(e.rawOffset)||0,
+        blank: e.blankTap?1:0,
+        hp: Number(e.hp)||0,
+        combo: Number(e.combo)||0
+      });
 
-    // --- RT tracking (only when hit normal/bossface) ---
-    if (type === 'hit' && rt != null) {
-      this.rtEwma = ewma(this.rtEwma, rt, this.alphaRt);
+      // trim window
+      const minT = t - this.winSec;
+      while(this.win.length && this.win[0].t < minT) this.win.shift();
 
-      // hit rate (hits/sec) using dt since last hit
-      if (this.lastHitTs > 0) {
-        const dt = Math.max(80, now - this.lastHitTs);
-        const instRate = 1000 / dt;
-        this.hitRateEwma = ewma(this.hitRateEwma, instRate, this.alphaRate);
+      const ts = now();
+      if(ts - this.lastEmit >= this.rateMs){
+        this.lastEmit = ts;
+        this._recalcAndEmit(t);
       }
-      this.lastHitTs = now;
-
-      // miss probability decays on good play
-      this.missEwma = ewma(this.missEwma, 0, this.alphaMiss * 0.6);
-      this.bombEwma = ewma(this.bombEwma, 0, this.alphaMiss * 0.6);
     }
 
-    // --- Miss tracking ---
-    if (type === 'miss' || type === 'timeout') {
-      this.missEwma = ewma(this.missEwma, 1, this.alphaMiss);
-    } else {
-      this.missEwma = ewma(this.missEwma, 0, this.alphaMiss * 0.35);
+    _recalcAndEmit(songTime){
+      const w = this.win;
+      if(!w.length) return;
+
+      const n = w.length;
+      const hitN = w.reduce((s,x)=>s+x.hit,0);
+      const missN = n - hitN;
+
+      const absMean = w.reduce((s,x)=>s+x.absOff,0)/n;
+      const blankN = w.reduce((s,x)=>s+x.blank,0);
+
+      // ความเสถียร: variance ของ abs offset (ใช้ mean square แบบง่าย)
+      const m = absMean;
+      const varAbs = w.reduce((s,x)=>{ const d=x.absOff-m; return s+d*d; },0)/Math.max(1,n);
+      const jitter = Math.sqrt(varAbs); // 0..?
+
+      // proxy: skill สูงเมื่อ hit rate สูง + abs offset ต่ำ + jitter ต่ำ + combo เฉลี่ยสูง
+      const hitRate = hitN / Math.max(1,n);
+      const comboAvg = w.reduce((s,x)=>s+x.combo,0)/n;
+
+      // normalize (heuristic)
+      const offScore = 1 - clamp(absMean/0.18, 0, 1);     // 0.18s ~ แย่
+      const jitScore = 1 - clamp(jitter/0.14, 0, 1);      // jitter 0.14 ~ แย่
+      const comboScore = clamp(comboAvg/18, 0, 1);
+
+      let skill = 0.45*hitRate + 0.25*offScore + 0.15*jitScore + 0.15*comboScore;
+      skill = clamp(skill, 0, 1);
+
+      // fatigue risk: miss เพิ่ม, blank เพิ่ม, jitter เพิ่ม, hp ต่ำ
+      const hpNow = w[w.length-1].hp;
+      const hpRisk = 1 - clamp(hpNow/100, 0, 1);
+      let fatigue = 0.40*clamp(missN/Math.max(1,n),0,1) + 0.20*clamp(blankN/Math.max(1,n),0,1) +
+                    0.20*(1-jitScore) + 0.20*hpRisk;
+      fatigue = clamp(fatigue, 0, 1);
+
+      // suggested difficulty (ทำให้ “แฟร์”)
+      let sug = 'normal';
+      if(skill > 0.78 && fatigue < 0.38) sug = 'hard';
+      else if(skill < 0.42 || fatigue > 0.70) sug = 'easy';
+
+      // tip (rate limited)
+      let tip = '';
+      const ts = now();
+      if(ts - this.lastTip >= this.tipMs){
+        this.lastTip = ts;
+        if(fatigue > 0.75) tip = 'พักมือ 3–5 วิ แล้วกลับมาเน้น “ตรงจังหวะ” มากกว่ากดรัว';
+        else if(blankN >= 2) tip = 'อย่ากดรัว—รอให้โน้ตใกล้เส้นตี แล้วแตะ “จังหวะเดียว”';
+        else if(absMean > 0.14) tip = 'ลองช้าลงนิด: แตะตอนโน้ต “ทับเส้นตี” จะได้ Perfect มากขึ้น';
+        else if(skill > 0.80 && hitRate > 0.85) tip = 'ดีมาก! ลองคุมคอมโบยาว ๆ แล้วรอช่วง Storm ให้พีก';
+        else tip = ''; // เงียบได้
+      }
+
+      this.skillScore = skill;
+      this.fatigueRisk = fatigue;
+      this.suggestedDifficulty = sug;
+      this.tip = tip;
+
+      if(this.cb){
+        this.cb({
+          songTime,
+          fatigueRisk: this.fatigueRisk,
+          skillScore: this.skillScore,
+          suggestedDifficulty: this.suggestedDifficulty,
+          tip: this.tip
+        });
+      }
     }
-
-    // --- Bomb/decoy tracking ---
-    if (type === 'bomb' || type === 'decoy') {
-      this.bombEwma = ewma(this.bombEwma, 1, this.alphaMiss);
-    } else {
-      this.bombEwma = ewma(this.bombEwma, 0, this.alphaMiss * 0.35);
-    }
-
-    this.lastEventTs = now;
-
-    this._compute(state);
   }
 
-  /**
-   * Periodic health check (low hp / fever / idle)
-   */
-  tick(state, now){
-    if (!this.enabled) return;
-
-    // idle -> risk rises a bit
-    if (this.lastEventTs > 0 && now - this.lastEventTs > 1600) {
-      this.missEwma = ewma(this.missEwma, 0.55, this.alphaMiss * 0.35);
-      this._compute(state);
-    }
-  }
-
-  _targetRtForDiff(diffKey){
-    if (diffKey === 'easy') return 520;
-    if (diffKey === 'hard') return 420;
-    return 470; // normal
-  }
-
-  _targetRateForDiff(diffKey){
-    // approximate hits/sec expectation
-    if (diffKey === 'easy') return 0.90;
-    if (diffKey === 'hard') return 1.25;
-    return 1.05;
-  }
-
-  _compute(state){
-    const diffKey = state?.diffKey || 'normal';
-    const hp = clamp(state?.playerHp ?? 1, 0, 1);
-    const shield = state?.shield ?? 0;
-    const feverOn = !!state?.feverOn;
-    const phase = state?.bossPhase ?? 1;
-
-    const rtTarget = this._targetRtForDiff(diffKey);
-    const rateTarget = this._targetRateForDiff(diffKey);
-
-    const rt = (this.rtEwma == null) ? rtTarget : this.rtEwma;
-    const rtBad = clamp((rt - rtTarget) / 260, 0, 1); // 0..1
-    const miss = clamp(this.missEwma, 0, 1);
-    const bomb = clamp(this.bombEwma, 0, 1);
-
-    const rate = clamp(this.hitRateEwma, 0, 2.2);
-    const paceRaw = clamp(rate / rateTarget, 0, 1.35);
-
-    // risk combines: miss, bomb, slow rt, low hp
-    let risk = 0;
-    risk += miss * 0.45;
-    risk += bomb * 0.22;
-    risk += rtBad * 0.23;
-    risk += (1 - hp) * 0.18;
-
-    // shield reduces risk a bit, fever reduces risk (momentum)
-    if (shield > 0) risk *= 0.90;
-    if (feverOn) risk *= 0.88;
-
-    // phase 3 is harder -> slight risk boost
-    if (phase === 3) risk *= 1.08;
-
-    risk = clamp(risk, 0, 1);
-
-    // focus is inverse risk + pace alignment bonus
-    const paceScore = clamp((paceRaw - 0.65) / 0.55, 0, 1); // 0..1
-    let focus = 1 - risk;
-    focus = focus * 0.78 + paceScore * 0.22;
-    if (feverOn) focus = clamp(focus + 0.06, 0, 1);
-
-    // pace output: 0..100 (centered at 100 when >= target)
-    const paceOut = clamp(paceRaw / 1.0, 0, 1.25);
-
-    this.missRisk = Math.round(risk * 100);
-    this.focusScore = Math.round(clamp(focus, 0, 1) * 100);
-    this.pace = Math.round(clamp(paceOut, 0, 1.25) * 80); // 0..100-ish
-
-    // explainable reason (short)
-    const parts = [];
-    if (miss > 0.40) parts.push('missสูง');
-    if (bomb > 0.35) parts.push('bomb/decoyบ่อย');
-    if (rtBad > 0.45) parts.push('RTช้า');
-    if (hp < 0.35) parts.push('HPต่ำ');
-    if (!parts.length) parts.push('คุมจังหวะดี');
-    this.reason = parts.join(' · ');
-  }
-}
+  window.AiPredictorRB = AiPredictorRB;
+})();
