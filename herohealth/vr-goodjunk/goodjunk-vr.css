@@ -1,14 +1,14 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR (PRODUCTION) — Mobile Big Playfield
-FOCUS ✅ พื้นที่เล่นใหญ่จริงบนมือถือ
-✅ HUD ไม่บังเกม (HUD bottom pointer-events:none + safe-zone vars)
-✅ Safe-area ครบ (notch/home bar)
-✅ รองรับ Hide HUD / Missions Peek
-✅ รองรับ Boss Bar / Progress Bar
-✅ Targets ชัด อยู่เหนือพื้นหลัง + แตะง่าย
+GoodJunkVR UI — PRODUCTION (Mobile-first, Big Playfield)
+✅ Playfield BIG on mobile (HUD compact, quest cards collapse)
+✅ Safe-area insets + auto safe vars: --gj-top-safe / --gj-bottom-safe
+✅ Supports: view-pc / view-mobile / view-vr / view-cvr
+✅ HUD hide mode: body.hud-hidden
+✅ Missions peek + mission line always visible
+✅ Boss bar + Progress bar + End Summary overlay
+✅ Targets clear + non-blinking
 */
 
-/* ---------------- Root / Theme ---------------- */
 :root{
   color-scheme: dark;
 
@@ -25,7 +25,6 @@ FOCUS ✅ พื้นที่เล่นใหญ่จริงบนมื�
   --warn:#f59e0b;
   --cyan:#22d3ee;
   --violet:#a78bfa;
-  --danger:#fb7185;
 
   --radius:22px;
   --pill:999px;
@@ -36,42 +35,32 @@ FOCUS ✅ พื้นที่เล่นใหญ่จริงบนมื�
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ Spawn safe zone used by goodjunk.safe.js getSafeRect() */
-  --gj-top-safe: 120px;
-  --gj-bottom-safe: 120px;
+  /* spawn safe (JS overwrites by measurement) */
+  --gj-top-safe: 92px;
+  --gj-bottom-safe: 96px;
 
-  /* layout density */
-  --topbar-h: 56px;
+  /* layout */
+  --topbar-h: 52px;
+  --hud-gap: 8px;
   --card-pad: 10px;
 
-  /* targets */
-  --target-pad: 10px;
-  --target-bg: rgba(2,6,23,.26);
-  --target-stroke: rgba(148,163,184,.18);
+  /* target */
+  --t-shadow: 0 18px 55px rgba(0,0,0,.45);
+  --t-stroke: rgba(148,163,184,.22);
 }
 
-/* ---------------- Base ---------------- */
 *{ box-sizing:border-box; }
-html,body{
-  width:100%;
-  height:100%;
-  margin:0;
-  padding:0;
-  overflow:hidden;
-  background:var(--bg);
-}
+html,body{ width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:var(--bg); }
 body.gj{
   font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
   color:var(--text);
   background:
-    radial-gradient(1200px 900px at 18% 10%, rgba(34,197,94,.14), transparent 60%),
-    radial-gradient(900px 760px at 86% 86%, rgba(34,211,238,.10), transparent 60%),
-    linear-gradient(180deg, rgba(2,6,23,1), rgba(2,6,23,1));
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+    radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 60%),
+    var(--bg);
 }
 
-/* A-Frame scene behind UI */
+/* --- A-Frame scene behind UI --- */
 a-scene[embedded]{
   position:fixed !important;
   inset:0 !important;
@@ -80,22 +69,19 @@ a-scene[embedded]{
   background:transparent !important;
 }
 
-/* ---------------- TOPBAR ---------------- */
+/* --- TOPBAR --- */
 .gj-topbar{
   position:fixed;
   left:0; right:0;
   top:0;
   height: var(--topbar-h);
-  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  padding: calc(8px + var(--sat)) calc(10px + var(--sar)) 8px calc(10px + var(--sal));
   display:flex;
   align-items:flex-end;
   justify-content:space-between;
   gap:10px;
-  z-index:80;
+  z-index:60;
   pointer-events:auto;
-  background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.10));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .gj-chip{
@@ -107,17 +93,12 @@ a-scene[embedded]{
   background: rgba(2,6,23,.62);
   border:1px solid var(--stroke);
   box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font-weight:1000;
   white-space:nowrap;
-  max-width: 72vw;
 }
 .gj-chip b{ letter-spacing:.2px; }
-.gj-chip span{
-  opacity:.78;
-  font-size:12px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
 
 .gj-topbar .right{
   display:flex;
@@ -128,9 +109,9 @@ a-scene[embedded]{
 }
 
 .gj-btn{
-  height:42px;
+  height:40px;
   padding:0 12px;
-  border-radius: 16px;
+  border-radius: 14px;
   border:1px solid var(--stroke);
   background: rgba(2,6,23,.58);
   color:var(--text);
@@ -144,166 +125,88 @@ a-scene[embedded]{
   color:#eafff3;
 }
 
-/* ---------------- ALWAYS-ON MISSION LINE (กัน “ไม่รู้ต้องทำอะไร”) ----------------
-   ใช้ได้ทั้งกรณีมี element #missionLine หรือไม่มี (ไม่พัง)
-*/
-#missionLine{
+/* --- Mission Line (ALWAYS visible, tiny) --- */
+.gj-missionline{
   position:fixed;
   left:0; right:0;
   top: calc(var(--topbar-h) + var(--sat));
-  padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:75;
+  padding: 6px calc(10px + var(--sar)) 0 calc(10px + var(--sal));
+  z-index:55;
   pointer-events:none;
 }
-#missionLine .ml-wrap{
-  width:min(920px, 96vw);
+.mline{
+  width:min(820px, 98vw);
   margin: 0 auto;
+  border-radius: 16px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 12px 35px rgba(0,0,0,.25);
+  padding: 8px 10px;
   display:flex;
   gap:10px;
   align-items:center;
   justify-content:space-between;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.64);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 14px 46px rgba(0,0,0,.30);
 }
-#missionLine .ml-left{
-  min-width: 0;
-  display:flex;
-  flex-direction:column;
-  gap:3px;
-}
-#missionLine .ml-title{
+.mline .txt{
   font-size:12px;
-  font-weight:1200;
-  letter-spacing:.2px;
-  white-space:nowrap;
+  font-weight:1000;
+  color: rgba(229,231,235,.94);
+  line-height:1.2;
   overflow:hidden;
   text-overflow:ellipsis;
+  white-space:nowrap;
 }
-#missionLine .ml-sub{
+.mline .mini{
   font-size:12px;
+  font-weight:1000;
+  color: rgba(167,139,250,.95);
+  white-space:nowrap;
+}
+.mline .hint{
+  font-size:11px;
   font-weight:900;
-  color: rgba(229,231,235,.88);
+  color: rgba(148,163,184,.90);
   white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-#missionLine .ml-right{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-shrink:0;
-}
-#missionLine .ml-pill{
-  padding: 7px 10px;
-  border-radius: var(--pill);
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  font-size:12px;
-  font-weight:1100;
-  color: rgba(229,231,235,.92);
 }
 
-/* ---------------- PROGRESS BAR ---------------- */
-#gjProgress{
+/* --- Progress Bar (top thin) --- */
+.gj-progress{
   position:fixed;
   left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat) + 62px);
-  padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:74;
+  top: calc(var(--topbar-h) + var(--sat) + 38px);
+  padding: 0 calc(10px + var(--sar)) 0 calc(10px + var(--sal));
+  z-index:54;
   pointer-events:none;
 }
-#gjProgress .pj-wrap{
-  width:min(920px, 96vw);
+.gj-progress .bar{
+  width:min(820px, 98vw);
   margin: 0 auto;
+  height: 7px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.52);
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.45);
   overflow:hidden;
-  height: 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.22);
 }
-#gjProgressFill{
+.gj-progress .fill{
   height:100%;
   width:0%;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
 }
 
-/* ---------------- BOSS BAR ---------------- */
-#bossBar{
-  position:fixed;
-  left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat) + 92px);
-  padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:73;
-  pointer-events:none;
-}
-#bossBar[aria-hidden="true"]{ display:none; }
-
-#bossBar .boss-wrap{
-  width:min(920px, 96vw);
-  margin: 0 auto;
-  border-radius: 18px;
-  border: 1px solid rgba(251,113,133,.28);
-  background: rgba(2,6,23,.60);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 16px 52px rgba(0,0,0,.32);
-  padding: 10px 12px;
-}
-#bossBar .boss-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-#bossBar .boss-title{
-  font-weight:1200;
-  font-size:12px;
-  letter-spacing:.2px;
-}
-#bossBar .boss-hint{
-  font-weight:900;
-  font-size:12px;
-  color: rgba(229,231,235,.86);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-#bossBar .boss-meter{
-  margin-top:8px;
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(251,113,133,.22);
-  background: rgba(15,23,42,.55);
-  overflow:hidden;
-}
-#bossFill{
-  height:100%;
-  width:100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(251,113,133,.95), rgba(245,158,11,.95));
-}
-
-/* ---------------- HUD TOP ---------------- */
+/* --- HUD TOP (compact) --- */
 .gj-hud-top{
   position:fixed;
   left:0; right:0;
-  /* ✅ วางต่ำลงเพื่อไม่แย่งพื้นที่เล่น (topbar+missionline+progress+boss) */
-  top: calc(var(--topbar-h) + var(--sat) + 136px);
-  padding: 8px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:60;
-  pointer-events:none; /* สำคัญ: HUD ไม่บังการแตะ */
+  top: calc(var(--topbar-h) + var(--sat) + 54px);
+  padding: 6px calc(10px + var(--sar)) 0 calc(10px + var(--sal));
+  z-index:50;
+  pointer-events:none;
 }
 
 .hud-row{
-  width:min(920px, 96vw);
-  margin:0 auto;
   display:flex;
   gap:8px;
   flex-wrap:wrap;
@@ -313,54 +216,55 @@ a-scene[embedded]{
 }
 
 .hud-pill{
-  min-width: 92px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: rgba(2,6,23,.64);
+  min-width: 88px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgba(2,6,23,.58);
   border:1px solid var(--stroke);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 10px 30px rgba(0,0,0,.28);
+  box-shadow: 0 10px 28px rgba(0,0,0,.22);
 }
 .hud-pill .hud-label{
-  font-size:11px;
+  font-size:10px;
   letter-spacing:.4px;
   color: rgba(148,163,184,.92);
   font-weight:1000;
 }
 .hud-pill .hud-value{
   margin-top:2px;
-  font-size:18px;
+  font-size:17px;
   font-weight:1200;
   line-height:1;
 }
 .hud-pill.warn{ border-color: rgba(245,158,11,.35); }
 .hud-pill.grade{ border-color: rgba(167,139,250,.35); }
 
-/* Quest cards (บนมือถือจะซ่อนอัตโนมัติด้านล่าง) */
+/* Quest cards (desktop ok, mobile collapses) */
 .quest-row{
-  width:min(920px, 96vw);
-  margin:10px auto 0 auto;
+  margin-top:8px;
   display:grid;
   grid-template-columns: 1.25fr .95fr;
   gap:10px;
   pointer-events:none;
 }
+
 .quest-card{
   border-radius: var(--radius);
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.60);
+  background: rgba(2,6,23,.56);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 16px 45px rgba(0,0,0,.32);
+  box-shadow: 0 14px 40px rgba(0,0,0,.26);
   padding: var(--card-pad);
+  pointer-events:none;
 }
-.quest-card.goal{ border-color: rgba(34,211,238,.28); }
-.quest-card.mini{ border-color: rgba(167,139,250,.22); }
+.quest-card.goal{ border-color: rgba(34,211,238,.22); }
+.quest-card.mini{ border-color: rgba(167,139,250,.18); }
 
 .q-title{
   font-weight:1200;
-  font-size:13px;
+  font-size:12px;
   letter-spacing:.2px;
   display:flex;
   gap:8px;
@@ -373,7 +277,7 @@ a-scene[embedded]{
   color: rgba(229,231,235,.92);
   font-weight:900;
   line-height:1.35;
-  min-height: 32px;
+  min-height: 28px;
 }
 .q-bar{
   margin-top:8px;
@@ -389,17 +293,17 @@ a-scene[embedded]{
   padding:6px 10px;
   border-radius: 999px;
   border:1px solid var(--stroke);
-  background: rgba(15,23,42,.55);
+  background: rgba(15,23,42,.50);
 }
 
-/* ---------------- HUD BOTTOM ---------------- */
+/* --- HUD BOTTOM (compact) --- */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
   bottom:0;
-  padding: 0 calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
-  z-index:55;
-  pointer-events:none; /* ✅ สำคัญ: ไม่บังการเล่น */
+  padding: 0 calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+  z-index:50;
+  pointer-events:none;
   display:grid;
   grid-template-columns: 1.2fr .8fr;
   gap:10px;
@@ -409,24 +313,27 @@ a-scene[embedded]{
 .meter{
   border-radius: var(--radius);
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.60);
+  background: rgba(2,6,23,.56);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 16px 45px rgba(0,0,0,.32);
+  box-shadow: 0 14px 40px rgba(0,0,0,.26);
   padding: 10px;
+  pointer-events:none;
 }
+
 .meter-title{
   font-weight:1200;
   font-size:12px;
   letter-spacing:.35px;
   color: rgba(229,231,235,.92);
 }
+
 .meter-bar{
   margin-top:8px;
   height: 10px;
   border-radius: 999px;
   border:1px solid var(--stroke);
-  background: rgba(15,23,42,.55);
+  background: rgba(15,23,42,.52);
   overflow:hidden;
 }
 .meter-fill{
@@ -435,21 +342,24 @@ a-scene[embedded]{
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95));
 }
+
 .meter-num{
   margin-top:8px;
   font-size:12px;
   color: rgba(148,163,184,.92);
   font-weight:900;
 }
+
 .meter-shield{
   margin-top:8px;
   padding:8px 10px;
-  border-radius: 16px;
+  border-radius: 14px;
   border:1px solid var(--stroke);
-  background: rgba(15,23,42,.55);
+  background: rgba(15,23,42,.52);
   font-weight:1200;
   color: rgba(229,231,235,.95);
 }
+
 .meter-tip{
   margin-top:8px;
   font-size:11px;
@@ -458,27 +368,78 @@ a-scene[embedded]{
   line-height:1.25;
 }
 
-/* ---------------- PLAYFIELD (พื้นที่เล่น) ---------------- */
+/* --- Boss Bar (overlay, top center) --- */
+.gj-boss{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--topbar-h) + var(--sat) + 74px);
+  padding: 0 calc(10px + var(--sar)) 0 calc(10px + var(--sal));
+  z-index:57;
+  pointer-events:none;
+  display:none;
+}
+.gj-boss[aria-hidden="false"]{ display:block; }
+
+.boss-card{
+  width:min(520px, 94vw);
+  margin: 0 auto;
+  border-radius: 18px;
+  border:1px solid rgba(245,158,11,.30);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 45px rgba(0,0,0,.30);
+  padding: 10px 12px;
+}
+.boss-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  font-weight:1200;
+  font-size:12px;
+}
+.boss-hint{
+  margin-top:6px;
+  font-size:11px;
+  font-weight:900;
+  color: rgba(229,231,235,.92);
+}
+.boss-bar{
+  margin-top:8px;
+  height: 10px;
+  border-radius: 999px;
+  border:1px solid rgba(245,158,11,.30);
+  background: rgba(15,23,42,.52);
+  overflow:hidden;
+}
+.boss-fill{
+  height:100%;
+  width:100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
+}
+
+/* --- PLAYFIELD --- */
 .gj-field{
   position:fixed;
   inset:0;
   z-index:10;
   pointer-events:auto;
 }
-.gj-layer{
+.gj-layer,
+.gj-layer-r{
   position:absolute;
   inset:0;
   pointer-events:auto;
 }
 .gj-layer-r{
-  position:absolute;
-  inset:0;
-  pointer-events:none;
   opacity:0;
+  pointer-events:none;
 }
 body.view-cvr .gj-layer-r{ opacity:1; }
 
-/* ---------------- Targets ---------------- */
+/* --- Targets --- */
 .gj-target{
   position:absolute;
   transform: translate(-50%, -50%);
@@ -486,14 +447,13 @@ body.view-cvr .gj-layer-r{ opacity:1; }
   -webkit-user-select:none;
   touch-action: manipulation;
   line-height:1;
-
-  filter: drop-shadow(0 12px 28px rgba(0,0,0,.45));
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
   text-shadow: 0 10px 30px rgba(0,0,0,.35);
 
-  padding: var(--target-pad);
+  padding: 10px;
   border-radius: 999px;
-  background: var(--target-bg);
-  border: 1px solid var(--target-stroke);
+  background: rgba(2,6,23,.32);
+  border: 1px solid rgba(148,163,184,.18);
 
   opacity: 1;
   will-change: transform;
@@ -506,63 +466,17 @@ body.view-cvr .gj-layer-r{ opacity:1; }
 }
 .gj-target.spawn{ animation: gjPopIn 120ms ease-out both; }
 
-/* ✅ cVR strict: ยิงจาก crosshair เท่านั้น */
+/* cVR strict: disable pointer events so only crosshair shooting works */
 body.view-cvr .gj-target{ pointer-events:none; }
 
-/* ---------------- Missions Peek Overlay ---------------- */
-.gj-peek{
-  position:fixed;
-  left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat) + 8px);
-  padding: 0 calc(12px + var(--sar)) 0 calc(12px + var(--sal));
-  z-index:90;
-  pointer-events:none;
-  opacity:0;
-  transform: translateY(-6px);
-  transition: opacity .15s ease, transform .15s ease;
-}
-body.show-missions .gj-peek{
-  opacity:1;
-  transform: translateY(0);
-  pointer-events:auto;
-}
-.peek-card{
-  width:min(720px, 96vw);
-  margin: 0 auto;
-  border-radius: var(--radius);
-  border:1px solid var(--stroke2);
-  background: rgba(2,6,23,.70);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 18px 55px rgba(0,0,0,.42);
-  padding: 12px;
-}
-.peek-title{
-  font-size:14px;
-  font-weight:1200;
-  margin-bottom:6px;
-}
-.peek-sub, .peek-mini{
-  font-size:12px;
-  font-weight:900;
-  color: rgba(229,231,235,.92);
-  margin-top:4px;
-}
-.peek-tip{
-  margin-top:8px;
-  font-size:11px;
-  font-weight:900;
-  color: rgba(148,163,184,.92);
-}
-
-/* ---------------- Low time overlay ---------------- */
+/* --- Low time overlay --- */
 .gj-lowtime-overlay{
   position:fixed;
   inset:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:95;
+  z-index:80;
   pointer-events:none;
   opacity:0;
   transition: opacity .15s ease;
@@ -585,43 +499,152 @@ body.show-missions .gj-peek{
   text-shadow: 0 18px 55px rgba(0,0,0,.55);
 }
 
-/* ---------------- HUD Hidden Mode ---------------- */
+/* --- Missions Peek --- */
+.gj-peek{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--topbar-h) + var(--sat) + 8px);
+  padding: 0 calc(10px + var(--sar)) 0 calc(10px + var(--sal));
+  z-index:75;
+  pointer-events:none;
+  opacity:0;
+  transform: translateY(-6px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+body.show-missions .gj-peek{
+  opacity:1;
+  transform: translateY(0);
+  pointer-events:auto;
+}
+
+.peek-card{
+  width:min(720px, 96vw);
+  margin: 0 auto;
+  border-radius: var(--radius);
+  border:1px solid var(--stroke2);
+  background: rgba(2,6,23,.70);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 18px 55px rgba(0,0,0,.42);
+  padding: 12px;
+}
+
+.peek-title{
+  font-size:14px;
+  font-weight:1200;
+  margin-bottom:6px;
+}
+.peek-sub, .peek-mini{
+  font-size:12px;
+  font-weight:900;
+  color: rgba(229,231,235,.92);
+  margin-top:4px;
+}
+.peek-tip{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:900;
+  color: rgba(148,163,184,.92);
+}
+
+/* --- End Summary Overlay --- */
+.gj-summary{
+  position:fixed;
+  inset:0;
+  z-index:95;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.gj-summary[aria-hidden="false"]{ display:flex; }
+
+.summary-card{
+  width:min(720px, 96vw);
+  border-radius: 26px;
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.86);
+  box-shadow: 0 24px 80px rgba(0,0,0,.55);
+  padding: 14px;
+}
+.summary-title{
+  font-size:18px;
+  font-weight:1300;
+  letter-spacing:.2px;
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+}
+.summary-grid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:10px;
+}
+.summary-item{
+  border-radius: 18px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(15,23,42,.45);
+  padding: 10px;
+}
+.summary-item .k{
+  font-size:11px;
+  font-weight:1100;
+  color: rgba(148,163,184,.92);
+}
+.summary-item .v{
+  margin-top:4px;
+  font-size:18px;
+  font-weight:1300;
+}
+.summary-actions{
+  margin-top:12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  justify-content:flex-end;
+}
+.summary-actions .gj-btn{
+  height:44px;
+  border-radius: 16px;
+}
+
+/* --- HUD hidden mode (maximize playfield) --- */
 body.hud-hidden .gj-hud-top,
 body.hud-hidden .gj-hud-bot{
   display:none !important;
 }
 
-/* ---------------- Responsive (ทำให้ “พื้นที่เล่นใหญ่” บนมือถือ) ---------------- */
+/* --- Responsive tweaks (mobile-first) --- */
 @media (max-width: 520px){
   :root{
-    --topbar-h: 52px;
+    --topbar-h: 50px;
     --card-pad: 9px;
   }
-  .gj-btn{ height:40px; border-radius: 14px; padding: 0 10px; }
-  .gj-chip{ padding: 9px 11px; max-width: 66vw; }
-  .hud-pill{ min-width: 86px; }
-  .hud-pill .hud-value{ font-size: 17px; }
+  .gj-btn{ height:38px; border-radius: 13px; padding:0 10px; }
+  .hud-pill{ min-width: 84px; }
+  .hud-pill .hud-value{ font-size: 16px; }
 
-  /* ✅ ลด HUD บนมือถือ: ซ่อน MINI card (เหลือแต่ GOAL card) */
-  .quest-row{ grid-template-columns: 1fr; }
-  .quest-card.mini{ display:none; }
-
-  /* bottom HUD จัดเป็นคอลัมน์เดียว */
+  /* KEY: collapse quest cards -> playfield huge */
+  .quest-row{ display:none !important; }
   .gj-hud-bot{ grid-template-columns: 1fr; }
 
-  /* mission line / progress / boss compact */
-  #missionLine .ml-wrap{ padding: 9px 10px; }
-  #gjProgress .pj-wrap{ height: 9px; }
+  /* move boss a bit lower on small screens */
+  .gj-boss{ top: calc(var(--topbar-h) + var(--sat) + 62px); }
+
+  /* mission line stays, but tighter */
+  .mline .hint{ display:none; }
+  .gj-progress{ top: calc(var(--topbar-h) + var(--sat) + 36px); }
+  .gj-hud-top{ top: calc(var(--topbar-h) + var(--sat) + 50px); }
 }
 
-@media (max-height: 650px){
-  /* ✅ จอสั้น: ซ่อน quest cards ทั้งแถว เพื่อคืนพื้นที่เล่น */
-  .quest-row{ display:none; }
-}
-
-/* Desktop breathing room */
 @media (min-width: 900px){
-  :root{ --topbar-h: 58px; }
+  :root{ --topbar-h: 56px; }
   .gj-hud-top{
     padding-left: calc(18px + var(--sal));
     padding-right: calc(18px + var(--sar));
@@ -632,7 +655,7 @@ body.hud-hidden .gj-hud-bot{
   }
 }
 
-/* Reduced motion */
+/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce){
   .gj-target.spawn{ animation:none; }
   .gj-peek{ transition:none; }
