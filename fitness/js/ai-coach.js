@@ -1,174 +1,195 @@
-// === /fitness/js/ai-coach.js — Explainable micro-tips + rate-limit (A-39) ===
+// === /fitness/js/ai-coach.js — AI Coach (Explainable micro-tips, rate-limited) (A-43) ===
 'use strict';
-
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
 
 export class AICoach {
   constructor(opts = {}) {
-    this.enabled = !!opts.enabled;
-    this.cooldownMs = Math.max(1200, opts.cooldownMs || 2600);
-    this.minPlayMs = Math.max(1500, opts.minPlayMs || 2200);
-    this.lastTipAt = 0;
+    this.enabled = opts.enabled !== false;
+    this.rng = opts.rng || Math.random;
 
-    this.lastState = null;
+    this.cooldownMs = opts.cooldownMs ?? 2600; // rate-limit tip popup
+    this.minGapMs = opts.minGapMs ?? 1200;     // กัน “ทับ” feedback สำคัญ
+    this.lastTipAt = -1e9;
 
-    this.missStreak = 0;
-    this.bombStreak = 0;
-    this.slowStreak = 0;
+    this.comboMilestones = new Set([5, 10, 15, 20, 30]);
 
-    this.lastShownKey = '';
-    this.repeatBlockMs = Math.max(4000, opts.repeatBlockMs || 6500);
-    this.lastShownAt = 0;
+    // rolling stats (short window)
+    this.windowMs = 8000;
+    this.events = []; // {t,type,targetType,rt,grade}
 
-    this.onTip = typeof opts.onTip === 'function' ? opts.onTip : null;
+    // counters
+    this.decoyHits = 0;
+    this.bombHits = 0;
+    this.normalHits = 0;
+    this.timeoutsNormal = 0;
+    this.timeoutsBossFace = 0;
+
+    this.lastDecisionAt = 0;
   }
 
-  setEnabled(v){ this.enabled = !!v; }
-
-  reset(now){
-    this.lastTipAt = 0;
-    this.lastState = null;
-    this.missStreak = 0;
-    this.bombStreak = 0;
-    this.slowStreak = 0;
-    this.lastShownKey = '';
-    this.lastShownAt = 0;
+  reset() {
+    this.events.length = 0;
+    this.decoyHits = 0;
+    this.bombHits = 0;
+    this.normalHits = 0;
+    this.timeoutsNormal = 0;
+    this.timeoutsBossFace = 0;
+    this.lastTipAt = -1e9;
+    this.lastDecisionAt = 0;
   }
 
-  // event: {type:'hit'|'miss'|'bomb'|'decoy'|'heal'|'shield'|'phase', rtMs?, grade?, bossPhase?, inBurst?}
-  observeEvent(state, event, now){
+  // เก็บเหตุการณ์เพื่อวิเคราะห์ “ช่วงสั้น” (explainable)
+  onEvent(now, ev) {
     if (!this.enabled) return;
+    if (!ev) return;
 
-    if (!state || !state.running) return;
-    const playedMs = now - (state.startedAt || now);
-    if (playedMs < this.minPlayMs) return;
+    const e = {
+      t: now,
+      type: ev.event_type || ev.type || '',
+      targetType: ev.target_type || ev.targetType || '',
+      isBossFace: !!(ev.is_boss_face ?? ev.isBossFace),
+      grade: ev.grade || '',
+      rt: (ev.rt_ms ?? ev.rtMs),
+      comboAfter: ev.combo_after ?? ev.comboAfter ?? 0,
+      playerHp: typeof ev.player_hp === 'number' ? ev.player_hp : (ev.playerHp),
+      bossHp: typeof ev.boss_hp === 'number' ? ev.boss_hp : (ev.bossHp),
+    };
 
-    // --- update streaks ---
-    const et = event && event.type;
+    this.events.push(e);
+    this._trim(now);
 
-    if (et === 'miss') this.missStreak++;
-    else this.missStreak = Math.max(0, this.missStreak - 1);
-
-    if (et === 'bomb' || et === 'decoy') this.bombStreak++;
-    else this.bombStreak = Math.max(0, this.bombStreak - 1);
-
-    // slow: rt high on normal hits
-    const rt = event && typeof event.rtMs === 'number' ? event.rtMs : null;
-    const isSlow = rt != null && rt > 520;
-    if (et === 'hit' && isSlow) this.slowStreak++;
-    else if (et === 'hit') this.slowStreak = Math.max(0, this.slowStreak - 1);
-
-    // --- decide tip ---
-    const tip = this._decideTip(state, now, event);
-    if (tip) this._emit(tip, now);
-  }
-
-  // periodic check (call from gameLoop sometimes)
-  tick(state, now){
-    if (!this.enabled) return;
-    if (!state || !state.running) return;
-    const playedMs = now - (state.startedAt || now);
-    if (playedMs < this.minPlayMs) return;
-
-    // low-hp coaching (not too often)
-    const lowHp = (state.playerHp != null && state.playerHp <= 0.30);
-    if (lowHp && this._canSpeak(now)) {
-      const tip = {
-        key: 'lowhp',
-        tone: 'bad',
-        msg: 'HP ต่ำแล้ว! โฟกัส “เป้าเขียว (normal)” ก่อน หลีกเลี่ยง bomb/decoy 🧠',
-        why: `เพราะ HP=${(state.playerHp*100).toFixed(0)}% และ missEwma=${((state.missEwma||0)*100).toFixed(0)}%`
-      };
-      this._emit(tip, now);
+    if (e.type === 'hit') {
+      if (e.targetType === 'decoy') this.decoyHits++;
+      else if (e.targetType === 'bomb') this.bombHits++;
+      else if (e.isBossFace) {/* ignore */}
+      else if (e.targetType === 'normal') this.normalHits++;
+    } else if (e.type === 'timeout') {
+      if (e.isBossFace) this.timeoutsBossFace++;
+      else if (e.targetType === 'normal') this.timeoutsNormal++;
     }
   }
 
-  _canSpeak(now){
-    if (now - this.lastTipAt < this.cooldownMs) return false;
-    if (this.lastShownKey && (now - this.lastShownAt) < this.repeatBlockMs) return false;
-    return true;
+  // ตัด event เก่า
+  _trim(now) {
+    const t0 = now - this.windowMs;
+    while (this.events.length && this.events[0].t < t0) this.events.shift();
   }
 
-  _emit(tip, now){
-    if (!this._canSpeak(now)) return;
+  // สร้าง tip แบบ explainable
+  decideTip(now, snapshot) {
+    if (!this.enabled) return null;
+    if (now - this.lastTipAt < this.cooldownMs) return null;
 
-    // block repeats
-    if (tip.key) {
-      this.lastShownKey = tip.key;
-      this.lastShownAt = now;
+    // กัน tip ไปทับ feedback หลักที่เพิ่งถูกตั้ง
+    if (snapshot && snapshot.lastFeedbackAt != null) {
+      if (now - snapshot.lastFeedbackAt < this.minGapMs) return null;
     }
 
-    this.lastTipAt = now;
-    if (this.onTip) {
-      try { this.onTip(tip); } catch(_) {}
-    }
-  }
+    const w = this.events;
+    const n = w.length;
+    if (n < 4) return null;
 
-  _decideTip(state, now, event){
-    // no spam during fever text bursts: allow only high priority
-    const feverOn = !!state.feverOn;
-    const phase = state.bossPhase || 1;
+    // สถิติช่วงสั้น
+    const hits = w.filter(x => x.type === 'hit').length;
+    const timeouts = w.filter(x => x.type === 'timeout').length;
+    const avgRt = this._avgRt(w);
+    const slowRt = (avgRt != null && avgRt > 520);
+    const verySlowRt = (avgRt != null && avgRt > 650);
 
-    // priority 1: miss streak
-    if (this.missStreak >= 2 && this._canSpeak(now)) {
-      return {
-        key: 'missstreak',
-        tone: 'bad',
-        msg: 'พลาดติดกัน! ลอง “รอให้เป้าเข้ากลางวง” 0.2 วิ แล้วค่อยชก 🎯',
-        why: `เพราะ missStreak=${this.missStreak}, rtMean=${(state.rtMean||0).toFixed(0)}ms`
-      };
-    }
+    const decoyHitRecent = w.filter(x => x.type === 'hit' && x.targetType === 'decoy').length;
+    const bombHitRecent = w.filter(x => x.type === 'hit' && x.targetType === 'bomb').length;
+    const missRecent = w.filter(x => x.type === 'timeout' && (x.targetType === 'normal' || x.isBossFace)).length;
 
-    // priority 2: bomb/decoy streak
-    if (this.bombStreak >= 2 && this._canSpeak(now)) {
-      return {
-        key: 'bombstreak',
-        tone: 'bad',
-        msg: 'โดน bomb/decoy บ่อย! ให้สังเกต “สีแดง/ม่วง” แล้วเว้นชก 👀',
-        why: `เพราะ bombStreak=${this.bombStreak}, bombEwma=${((state.bombEwma||0)*100).toFixed(0)}%`
-      };
+    const hp = snapshot?.playerHp ?? null;
+    const fever = snapshot?.fever ?? 0;
+    const feverOn = !!snapshot?.feverOn;
+
+    // 1) พลาดเยอะ → สายตา/โฟกัส
+    if (missRecent >= 3 && (slowRt || verySlowRt)) {
+      return this._tip(
+        'โฟกัส “เป้าสีเขียว/ปกติ” ก่อน 🟢',
+        `ช่วง 8 วิที่ผ่านมา พลาด ${missRecent} ครั้ง และ RT เฉลี่ย ~${Math.round(avgRt)}ms → ลอง “จ้องกลางจอ” แล้วแตะทันทีที่เป้าโผล่`
+      );
     }
 
-    // priority 3: too slow
-    if (this.slowStreak >= 2 && this._canSpeak(now)) {
-      return {
-        key: 'slow',
-        tone: 'good',
-        msg: 'ช้าไปนิด! ลอง “เล็งล่วงหน้า” ตามแพทเทิร์นเฟสนี้ แล้วชกไวขึ้น ⚡️',
-        why: `เพราะ slowStreak=${this.slowStreak}, rtMean=${(state.rtMean||0).toFixed(0)}ms, phase=${phase}`
-      };
+    // 2) โดน decoy บ่อย → อธิบายชัด
+    if (decoyHitRecent >= 2) {
+      return this._tip(
+        'ระวัง “เป้าลวง” 🎭',
+        `คุณโดนเป้าลวง ${decoyHitRecent} ครั้งในช่วงสั้น ๆ → ให้รอจังหวะชัด ๆ ก่อนแตะ (อย่าตะบี้ตะบัน)`
+      );
     }
 
-    // priority 4: phase guidance (only sometimes)
-    if (!feverOn && event && event.type === 'phase' && this._canSpeak(now)) {
-      if (phase === 2) {
-        return {
-          key: 'phase2',
-          tone: 'good',
-          msg: 'เข้าสู่ Phase 2! เป้าจะ “สลับซ้าย-ขวา” ชัดขึ้น — ตามจังหวะให้ทัน 🔁',
-          why: `phase=${phase}`
-        };
-      }
-      if (phase === 3) {
-        return {
-          key: 'phase3',
-          tone: 'good',
-          msg: 'Phase 3 แล้ว! เป้าเล็ก/เร็วขึ้น — โฟกัส normal ก่อน แล้วค่อยเก็บโบนัส 🥊',
-          why: `phase=${phase}`
-        };
-      }
+    // 3) โดน bomb บ่อย → สอนใช้ shield
+    if (bombHitRecent >= 2) {
+      return this._tip(
+        'เห็น 💣 ให้ชะลอ 0.2 วิ',
+        `โดนระเบิด ${bombHitRecent} ครั้ง → ถ้ามี 🛡️ ค่อยเสี่ยง ถ้าไม่มีให้ “ปล่อยผ่าน” เพื่อรักษา HP`
+      );
     }
 
-    // priority 5: burst info (if inBurst)
-    if (event && event.inBurst && !feverOn && this._canSpeak(now)) {
-      return {
-        key: 'burst',
-        tone: 'perfect',
-        msg: '🔥 Burst มาแล้ว! ช่วงนี้ตีต่อเนื่อง จะได้คะแนนพุ่ง + FEVER ขึ้นไว!',
-        why: `inBurst=1, combo=${state.combo||0}`
-      };
+    // 4) HP ต่ำ → ค้นหา heal/shield
+    if (hp != null && hp <= 0.35) {
+      return this._tip(
+        'HP ต่ำ! เล็งหา ❤️ / 🛡️',
+        `ตอนนี้ HP เหลือน้อย → ตีเป้า ❤️ เพื่อฟื้น หรือ 🛡️ กัน 💣 จะอยู่ได้นานขึ้น`
+      );
+    }
+
+    // 5) FEVER เกือบเต็ม → เร่งให้สนุก
+    if (!feverOn && fever >= 0.72) {
+      return this._tip(
+        'อีกนิดเข้า FEVER! 🔥',
+        `เกจใกล้เต็มแล้ว → รีบตี “เป้าปกติ” ติดต่อกันเพื่อเปิด FEVER และได้คูณคะแนน`
+      );
+    }
+
+    // 6) เล่นดีต่อเนื่อง → “hype”
+    if (hits >= 6 && timeouts === 0 && !verySlowRt) {
+      const hype = this._pick([
+        'จังหวะดีมาก! ไปต่อ! ⚡',
+        'กำลังเข้ามือ! คุมเกมให้ได้! 😎',
+        'โคตรนิ่ง! รักษาคอมโบไว้! 💎'
+      ]);
+      return this._tip(hype, `ช่วงสั้น ๆ นี้ hit ${hits} ครั้งแทบไม่พลาด → ลองเพิ่มความเร็วแตะให้คมขึ้นอีกนิด`);
     }
 
     return null;
+  }
+
+  // milestone: combo → hype แบบไม่ถี่
+  decideComboHype(now, combo) {
+    if (!this.enabled) return null;
+    if (!this.comboMilestones.has(combo)) return null;
+    if (now - this.lastTipAt < this.cooldownMs) return null;
+
+    const line = this._pick([
+      `คอมโบ ${combo}! สุดยอด! ✨`,
+      `คอมโบ ${combo}! อย่าหลุดนะ! 🔥`,
+      `คอมโบ ${combo}! ล็อกเป้าให้แน่น! 🎯`
+    ]);
+    return this._tip(line, `คุณทำคอมโบถึง ${combo} → จังหวะมือกับตาเข้าที่แล้ว รักษา rhythm ต่อเนื่อง`);
+  }
+
+  commitTip(now) {
+    this.lastTipAt = now;
+    this.lastDecisionAt = now;
+  }
+
+  _avgRt(list) {
+    const rts = list
+      .filter(x => x.type === 'hit' && typeof x.rt === 'number' && x.rt >= 0 && x.rt < 5000)
+      .map(x => x.rt);
+    if (!rts.length) return null;
+    const sum = rts.reduce((a, b) => a + b, 0);
+    return sum / rts.length;
+  }
+
+  _pick(arr) {
+    const i = Math.floor(this.rng() * arr.length);
+    return arr[Math.max(0, Math.min(arr.length - 1, i))];
+  }
+
+  _tip(title, why) {
+    return { title, why };
   }
 }
