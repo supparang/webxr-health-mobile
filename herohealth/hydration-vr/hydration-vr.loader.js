@@ -18,11 +18,28 @@
   function setErr(msg, extra){
     try{
       console.error(msg, extra||'');
-      const el = DOC.getElementById('bootError');
-      if (el){
-        el.hidden = false;
-        el.textContent = String(msg) + (extra ? '\n' + String(extra) : '');
+      let el = DOC.getElementById('bootError');
+      if (!el){
+        el = DOC.createElement('pre');
+        el.id = 'bootError';
+        el.style.cssText = [
+          'position:fixed',
+          'left:12px','right:12px','bottom:12px',
+          'z-index:9999',
+          'max-height:44vh',
+          'overflow:auto',
+          'white-space:pre-wrap',
+          'padding:12px',
+          'border-radius:14px',
+          'border:1px solid rgba(239,68,68,.35)',
+          'background:rgba(2,6,23,.86)',
+          'color:#fca5a5',
+          'font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace'
+        ].join(';');
+        DOC.body.appendChild(el);
       }
+      el.hidden = false;
+      el.textContent = String(msg) + (extra ? '\n' + String(extra) : '');
     }catch(_){}
   }
 
@@ -37,7 +54,7 @@
       u.pathname = u.pathname.replace(/[^/]*$/, ''); // drop filename
       return u.toString();
     }catch(_){
-      // Fallback: use script src
+      // Fallback: use script src (works if loaded as classic script)
       const s = DOC.currentScript;
       if (s && s.src){
         const u = new URL(s.src, location.href);
@@ -76,17 +93,21 @@
   async function boot(){
     applyViewClass();
 
+    // cache-bust per load
     const v = Date.now();
+
+    // hydration.safe.js MUST be in same folder: /herohealth/hydration-vr/hydration.safe.js
     const candidates = [
       `./hydration.safe.js?v=${v}`,
       `./hydration.safe.js`
     ];
 
     let lastErr = null;
+
     for (const p of candidates){
       try{
         await tryImport(p);
-        return; // success
+        return; // ✅ success
       }catch(e){
         lastErr = e;
       }
