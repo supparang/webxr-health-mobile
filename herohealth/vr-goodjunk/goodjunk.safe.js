@@ -1,10 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4.3 (Boss+Progress + AI-guard + Food5)
-// ✅ Boss Phase + HP bar
+// GoodJunkVR SAFE — v4.1 (Boss+Progress + HUD safe + AI-guard)
+// ✅ Boss Phase (ท้ายเกม): HP bar + rules
 // ✅ Progress bar fill
-// ✅ Mobile-first: quest cards hidden by CSS; safe zone remeasure via gj:measureSafe
-// ✅ Crosshair shoot (hha:shoot)
-// ✅ AI hooks safe-guard: NO CRASH even if ai-hooks missing methods
+// ✅ Mobile layout: quest cards hidden by CSS; safe zone auto-remeasure via gj:measureSafe
+// ✅ All existing: GOAL/MINI + AI hooks + crosshair shoot
+// ✅ FIX: AI.getDifficulty is not a function (guard + fallback)
+
 'use strict';
 
 import { createAIHooks } from '../vr/ai-hooks.js';
@@ -121,8 +122,10 @@ export function boot(opts={}){
   const elLowOverlay = DOC.getElementById('lowTimeOverlay');
   const elLowNum = DOC.getElementById('gj-lowtime-num');
 
+  // progress
   const elProgFill = DOC.getElementById('gjProgressFill');
 
+  // boss UI
   const elBossBar  = DOC.getElementById('bossBar');
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
@@ -162,33 +165,37 @@ export function boot(opts={}){
     }
   };
 
-  const aiOn = (run === 'play');
   const adaptiveOn = (run === 'play');
+  const aiOn = (run === 'play');
 
-  // ✅ AI hooks (safe-guard)
-  let AI = {};
-  try{
-    AI = createAIHooks({ game:'GoodJunkVR', mode: run, rng }) || {};
-  }catch(_){
-    AI = {};
+  const AI = createAIHooks({ game:'GoodJunkVR', mode: run, rng });
+
+  // ✅ AI guards (fix getDifficulty missing)
+  const hasOnEvent = AI && typeof AI.onEvent === 'function';
+  const hasGetTip  = AI && typeof AI.getTip === 'function';
+  const hasGetDifficulty = AI && typeof AI.getDifficulty === 'function';
+
+  function aiOnEvent(name, payload){
+    try{ if(hasOnEvent) AI.onEvent(name, payload); }catch(_){}
   }
-  const aiOnEvent = (name, payload)=>{
-    try{ if(aiOn && typeof AI.onEvent === 'function') AI.onEvent(name, payload); }catch(_){}
-  };
-  const aiGetTip = (played)=>{
-    try{ return (aiOn && typeof AI.getTip === 'function') ? AI.getTip(played) : null; }catch(_){ return null; }
-  };
-  const aiGetDifficulty = (played, base)=>{
-    if(!(aiOn && adaptiveOn)) return null;
-    const fn = AI.getDifficulty || AI.getDifficultyPlan || AI.getDifficultyNow || AI.getDiff;
-    if(typeof fn !== 'function') return null;
-    try{
-      const out = fn.call(AI, played, base);
-      return out && typeof out === 'object' ? out : null;
-    }catch(_){
-      return null;
+  function aiGetTip(played){
+    try{ return hasGetTip ? AI.getTip(played) : null; }catch(_){ return null; }
+  }
+  function aiGetDifficulty(played, base){
+    // if ai-hooks lacks getDifficulty -> fallback adaptive
+    if(hasGetDifficulty){
+      try{ return AI.getDifficulty(played, base); }catch(_){}
     }
-  };
+    // fallback (deterministic enough, fair)
+    const D = {
+      spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
+      pGood: base.pGood - Math.min(0.10, played*0.002),
+      pJunk: base.pJunk + Math.min(0.10, played*0.002),
+      pStar: base.pStar,
+      pShield: base.pShield
+    };
+    return D;
+  }
 
   function setFever(p){
     S.fever = clamp(p,0,100);
@@ -221,6 +228,7 @@ export function boot(opts={}){
     if(S.score<0) S.score = 0;
   }
 
+  // --- quests ---
   function currentGoal(){ return S.goals[S.goalIndex] || S.goals[0]; }
   function resetMiniWindow(){
     S.mini.windowStartAt = (performance.now ? performance.now() : Date.now());
@@ -264,8 +272,9 @@ export function boot(opts={}){
       elMiniTimer.textContent = S.mini.done ? 'DONE' : `${left.toFixed(0)}s`;
     }
 
+    // ✅ feed UI via event so player ALWAYS knows missions
     emit('quest:update', {
-      goal:{ name:g?.name||'—', sub:g?.desc||'—', cur, target, done:false },
+      goal:{ name:g?.name||'—', sub:(elGoalDesc?.textContent||g?.desc||'—'), cur, target, done:false },
       mini:{ name:`ครบ ${miniTar} หมู่ใน ${S.mini.windowSec} วิ`, sub:'โบนัส ⭐/🛡️', cur:miniCur, target:miniTar, done:S.mini.done },
       allDone:false
     });
@@ -276,12 +285,12 @@ export function boot(opts={}){
     let done = false;
     if(g?.targetGood) done = (S.hitGood >= g.targetGood) && (S.miss <= g.maxMiss);
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
-
     if(done){
       const prev = S.goalIndex;
       S.goalIndex = Math.min(S.goals.length - 1, S.goalIndex + 1);
       if(S.goalIndex !== prev){
         emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
+        updateQuestUI();
       }
     }
   }
@@ -309,10 +318,12 @@ export function boot(opts={}){
           emit('hha:judge', { type:'perfect', label:(before!==S.miss)?'BONUS MISS-1':'BONUS ⭐' });
         }
         emit('hha:coach', { msg:`สุดยอด! ครบ 3 หมู่ใน ${S.mini.windowSec} วิ 🎁 โบนัสแล้ว!`, tag:'Coach' });
+        updateQuestUI();
       }
     }
   }
 
+  // --- low time overlay ---
   function updateLowTime(){
     if(!elLowOverlay || !elLowNum) return;
     const t = Math.ceil(S.timeLeft);
@@ -324,6 +335,7 @@ export function boot(opts={}){
     }
   }
 
+  // --- progress ---
   function updateProgress(){
     if(!elProgFill) return;
     const played = clamp(S.timePlan - S.timeLeft, 0, S.timePlan);
@@ -331,6 +343,7 @@ export function boot(opts={}){
     elProgFill.style.width = `${Math.round(p*100)}%`;
   }
 
+  // --- boss ui ---
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
@@ -353,7 +366,7 @@ export function boot(opts={}){
       S.boss.hp = S.boss.hpMax = (diff === 'hard') ? 120 : (diff === 'easy') ? 90 : 100;
       setBossUI(true);
       updateBossUI();
-      if(elBossHint) elBossHint.textContent = 'เก็บของดีเพื่อลดพลังบอส / เลี่ยงของเสีย';
+      if(elBossHint) elBossHint.textContent = 'โหมดบอส: เก็บของดีเพื่อลดพลังบอส / อย่าโดนของเสีย!';
       emit('hha:coach', { msg:'⚡ เข้าสู่ BOSS PHASE! เก็บของดีให้แม่น ๆ', tag:'Coach' });
       setFever(Math.min(100, S.fever + 8));
     }
@@ -378,6 +391,7 @@ export function boot(opts={}){
     setHUD();
   }
 
+  // --- hits ---
   function onHit(kind, extra = {}){
     if(S.ended) return;
 
@@ -391,7 +405,7 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
       emit('hha:judge', { type:'good', label:'GOOD' });
-      aiOnEvent('hitGood', { t:tNow });
+      if(aiOn) aiOnEvent('hitGood', { t:tNow });
 
       if(S.boss.active){
         S.boss.hp = Math.max(0, S.boss.hp - 6);
@@ -412,7 +426,7 @@ export function boot(opts={}){
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
-        aiOnEvent('hitJunk', { t:tNow });
+        if(aiOn) aiOnEvent('hitJunk', { t:tNow });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
@@ -436,9 +450,11 @@ export function boot(opts={}){
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
     }
 
-    const played = S.timePlan - S.timeLeft;
-    const tip = aiGetTip(played);
-    if(tip) emit('hha:coach', tip);
+    if(aiOn){
+      const played = S.timePlan - S.timeLeft;
+      const tip = aiGetTip(played);
+      if(tip) emit('hha:coach', tip);
+    }
 
     setHUD();
     updateQuestUI();
@@ -499,7 +515,7 @@ export function boot(opts={}){
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-        aiOnEvent('miss', { t:performance.now() });
+        if(aiOn) aiOnEvent('miss', { t:performance.now() });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
@@ -536,7 +552,7 @@ export function boot(opts={}){
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
     const summary = {
       game:'GoodJunkVR',
-      pack:'fair-v4.3-boss',
+      pack:'fair-v4.1-boss',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -577,11 +593,13 @@ export function boot(opts={}){
 
     const played = (S.timePlan - S.timeLeft);
 
+    // base dist
     let base = { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
 
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
     else if(diff === 'hard'){ base.spawnMs=820; base.pJunk=0.30; base.pGood=0.66; }
 
+    // boss overrides
     if(S.boss.active){
       base.spawnMs = Math.max(520, base.spawnMs - 260);
       base.pJunk = Math.min(0.52, base.pJunk + 0.16);
@@ -590,23 +608,24 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    const fromAI = aiGetDifficulty(played, base);
+    const D = (adaptiveOn && aiOn)
+      ? aiGetDifficulty(played, base)
+      : (adaptiveOn ? {
+          spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
+          pGood: base.pGood - Math.min(0.10, played*0.002),
+          pJunk: base.pJunk + Math.min(0.10, played*0.002),
+          pStar: base.pStar,
+          pShield: base.pShield
+        } : { ...base });
 
-    const D = fromAI || (adaptiveOn ? {
-      spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
-      pGood: base.pGood - Math.min(0.10, played*0.002),
-      pJunk: base.pJunk + Math.min(0.10, played*0.002),
-      pStar: base.pStar,
-      pShield: base.pShield
-    } : { ...base });
-
+    // normalize
     {
-      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
+      let s = (D.pGood||0) + (D.pJunk||0) + (D.pStar||0) + (D.pShield||0);
       if(s <= 0) s = 1;
-      D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
+      D.pGood=(D.pGood||0)/s; D.pJunk=(D.pJunk||0)/s; D.pStar=(D.pStar||0)/s; D.pShield=(D.pShield||0)/s;
     }
 
-    if(ts - S.lastSpawn >= D.spawnMs){
+    if(ts - S.lastSpawn >= (D.spawnMs || 900)){
       S.lastSpawn = ts;
       const r = S.rng();
       if(r < D.pGood) spawn('good');
@@ -615,6 +634,7 @@ export function boot(opts={}){
       else spawn('shield');
     }
 
+    // boss duration end
     if(S.boss.active && S.boss.startedAtSec != null){
       if(played - S.boss.startedAtSec >= S.boss.durationSec){
         endBoss(false);
@@ -628,6 +648,7 @@ export function boot(opts={}){
     requestAnimationFrame(tick);
   }
 
+  // start
   S.started = true;
   resetMiniWindow();
   setFever(S.fever);
@@ -635,10 +656,11 @@ export function boot(opts={}){
   setHUD();
   updateQuestUI();
   updateProgress();
+
   setBossUI(false);
 
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.3-boss', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.1-boss', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
