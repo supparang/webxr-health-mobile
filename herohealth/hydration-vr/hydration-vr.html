@@ -208,6 +208,46 @@
     }
     body.view-cvr .crosshair{ display:block; }
 
+    /* ---------- STORM COMMAND BANNER (NEW) ---------- */
+    .stormBanner{
+      position:fixed;
+      left:50%;
+      top: calc(12px + var(--sat));
+      transform: translateX(-50%);
+      z-index:110;
+      pointer-events:none;
+      width:min(520px, 92vw);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+      padding:10px 12px;
+    }
+    .stormCmd{
+      font-weight:1000;
+      font-size:16px;
+      letter-spacing:.2px;
+    }
+    .stormCmd b{ color: rgba(34,211,238,.95); }
+    .stormChecks{
+      margin-top:6px;
+      font-size:12px;
+      color: rgba(229,231,235,.92);
+    }
+    .stormFail{
+      margin-top:6px;
+      font-weight:1000;
+      color: rgba(239,68,68,.95);
+    }
+    body.hha-stormPulse #stormBanner{
+      animation: stormPulse .42s ease-in-out infinite;
+    }
+    @keyframes stormPulse{
+      0%,100%{ transform:translateX(-50%) scale(1); filter:brightness(1); }
+      50%{ transform:translateX(-50%) scale(1.03); filter:brightness(1.10); }
+    }
+
     /* ---------- Start Overlay (tap to start only) ---------- */
     #startOverlay{
       position:fixed;
@@ -369,6 +409,13 @@
 
   <!-- Crosshair for cVR -->
   <div class="crosshair" aria-hidden="true"></div>
+
+  <!-- STORM Command Banner (NEW) -->
+  <div id="stormBanner" class="stormBanner" hidden>
+    <div class="stormCmd" id="stormCmd">STORM: ไปที่ <b>LOW</b></div>
+    <div class="stormChecks" id="stormChecks">zone …  |  pressure …  |  end …  |  block …</div>
+    <div class="stormFail" id="stormFail" hidden>FAIL รอบนี้ (โดน BAD)</div>
+  </div>
 
   <!-- HUD -->
   <div class="hud">
