@@ -1,10 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (A)
-✅ Redirect -> ./vr-goodjunk/goodjunk-vr.html
-✅ Auto-detect view (pc/mobile/vr) BUT:
-   - If URL already has ?view=... -> DO NOT override
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/ts/log/style
-✅ Remembers last view (optional) via localStorage (safe)
+GoodJunkVR LAUNCHER — ROOT (No menu, auto detect)
+✅ Redirects to ./vr-goodjunk/goodjunk-vr.html
+✅ Respects existing ?view= (does NOT override)
+✅ If no view: mobile => view=mobile, desktop => view=pc
+✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/style/ai/telemetry
 -->
 <!doctype html>
 <html lang="th">
@@ -15,198 +14,65 @@ GoodJunkVR LAUNCHER — ROOT (A)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --r:22px;
-    }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0; width:100%; height:100%; overflow:hidden;
-      background:
-        radial-gradient(circle at top left, rgba(34,197,94,.12), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 60%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-    }
-    .wrap{
-      min-height:100%;
-      display:flex; align-items:center; justify-content:center;
-      padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-    }
-    .card{
-      width:min(720px, 94vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--r);
-      padding:18px;
-      box-shadow:0 18px 55px rgba(0,0,0,.45);
-    }
-    .title{ font-size:22px; font-weight:1200; }
-    .sub{ margin-top:6px; color:var(--muted); font-weight:900; }
-    .row{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:10px 12px; border-radius:999px;
-      background:rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      color:var(--text);
-      font-weight:1000;
-      font-size:12px;
-    }
-    .go{
-      margin-top:14px;
-      height:54px; width:100%;
-      border-radius:16px;
-      border:1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.16);
-      color:#eafff3;
-      font-weight:1200;
-      font-size:16px;
-      cursor:pointer;
-    }
-    .go:active{ transform: translateY(1px); }
-    .muted{ color:var(--muted); font-weight:900; font-size:12px; margin-top:10px; line-height:1.45; }
-    .tiny{ font-size:11px; color:rgba(148,163,184,.85); font-weight:900; margin-top:8px; }
+    :root{ --bg:#020617; --text:#e5e7eb; --muted:#94a3b8; --stroke:rgba(148,163,184,.18); }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card{ width:min(560px, 92vw); border:1px solid var(--stroke); border-radius:22px; padding:16px; background:rgba(2,6,23,.70); }
+    .t{ font-weight:1200; font-size:16px; }
+    .s{ margin-top:8px; color:var(--muted); font-weight:900; font-size:13px; line-height:1.4; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card" role="main">
-      <div class="title">GoodJunkVR</div>
-      <div class="sub">กำลังพาเข้าเกม… (auto-detect view, ไม่ override ถ้ามี ?view=)</div>
-
-      <div class="row">
-        <div class="pill">view: <span id="pView">auto</span></div>
-        <div class="pill">run: <span id="pRun">play</span></div>
-        <div class="pill">diff: <span id="pDiff">normal</span></div>
-        <div class="pill">time: <span id="pTime">80</span>s</div>
-      </div>
-
-      <button class="go" id="btnGo" type="button">Tap to Start</button>
-
-      <div class="muted">
-        ถ้าเข้า VR: กด ENTER VR ในหน้าเกม (มีปุ่มจาก vr-ui.js)<br/>
-        ถ้าต้องการบังคับโหมด: ใส่ <b>?view=pc</b> หรือ <b>?view=mobile</b> หรือ <b>?view=vr</b> หรือ <b>?view=cvr</b>
-      </div>
-
-      <div class="tiny" id="dbg">…</div>
+    <div class="card">
+      <div class="t">กำลังเข้าเกม GoodJunkVR…</div>
+      <div class="s" id="status">Auto-detect view และส่งพารามิเตอร์ไปหน้าเล่น</div>
     </div>
   </div>
 
-<script>
-(function(){
-  const DEST = './vr-goodjunk/goodjunk-vr.html';
+  <script>
+    (function(){
+      const status = document.getElementById('status');
+      const from = new URL(location.href);
+      const to = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
 
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
-
-  function isLikelyMobileUA(){
-    const ua = (navigator.userAgent||'').toLowerCase();
-    return /android|iphone|ipad|ipod|mobile|silk/.test(ua);
-  }
-  function normalizeView(v){
-    v = String(v||'').toLowerCase();
-    if(v==='cardboard') return 'vr';
-    if(v==='vr') return 'vr';
-    if(v==='cvr' || v==='view-cvr') return 'cvr';
-    if(v==='pc') return 'pc';
-    if(v==='mobile') return 'mobile';
-    return 'auto';
-  }
-
-  // 👇 Auto-detect view (but never override if user already passed view=)
-  async function detectView(){
-    if(has('view')) return normalizeView(qs('view','auto'));
-
-    // optional: remember last view (soft)
-    try{
-      const last = localStorage.getItem('HHA_LAST_VIEW');
-      if(last) return normalizeView(last);
-    }catch(_){}
-
-    let guess = isLikelyMobileUA() ? 'mobile' : 'pc';
-
-    // best-effort: if WebXR VR session supported, consider 'vr' for mobile
-    try{
-      if(navigator.xr && typeof navigator.xr.isSessionSupported === 'function'){
-        const ok = await navigator.xr.isSessionSupported('immersive-vr');
-        if(ok){
-          guess = isLikelyMobileUA() ? 'vr' : 'pc';
-        }
+      function isMobileUA(){
+        try{
+          const ua = navigator.userAgent || '';
+          return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+        }catch(_){ return false; }
       }
-    }catch(_){}
 
-    return normalizeView(guess);
-  }
+      // pass-through whitelist
+      const keys = [
+        'hub','run','diff','time','seed',
+        'studyId','phase','conditionGroup','siteCode',
+        'log','style','ai','telemetry',
+        'view' // keep if provided
+      ];
 
-  function carryParams(url){
-    const src = new URL(location.href);
-    const dst = new URL(url, location.href);
-
-    // Pass-through list (safe + research)
-    const keep = [
-      'hub','run','diff','time','seed','ts','studyId','study','phase','conditionGroup','cond',
-      'log','style'
-    ];
-    for(const k of keep){
-      if(src.searchParams.has(k)){
-        dst.searchParams.set(k, src.searchParams.get(k));
+      for(const k of keys){
+        const v = from.searchParams.get(k);
+        if(v != null) to.searchParams.set(k, v);
       }
-    }
-    return dst;
-  }
 
-  function setText(id, v){
-    const el = document.getElementById(id);
-    if(el) el.textContent = String(v);
-  }
+      // auto view only if not provided
+      if(!to.searchParams.get('view')){
+        const v = isMobileUA() ? 'mobile' : 'pc';
+        to.searchParams.set('view', v);
+      }
 
-  let finalUrl = null;
+      // make sure we at least have seed (deterministic-friendly)
+      if(!to.searchParams.get('seed')){
+        to.searchParams.set('seed', String(Date.now()));
+      }
 
-  async function build(){
-    const v = await detectView();
-    const run  = String(qs('run','play')||'play');
-    const diff = String(qs('diff','normal')||'normal');
-    const time = String(qs('time','80')||'80');
+      if(status){
+        status.textContent = `ไปหน้าเล่น: view=${to.searchParams.get('view')} · run=${to.searchParams.get('run')||'play'} · diff=${to.searchParams.get('diff')||'normal'}`;
+      }
 
-    setText('pRun', run);
-    setText('pDiff', diff);
-    setText('pTime', time);
-
-    // Only set view param if not already provided
-    const u = carryParams(DEST);
-    if(!has('view') && v && v !== 'auto'){
-      u.searchParams.set('view', v);
-      try{ localStorage.setItem('HHA_LAST_VIEW', v); }catch(_){}
-    }
-    setText('pView', has('view') ? normalizeView(qs('view','auto')) : (v || 'auto'));
-
-    finalUrl = u.toString();
-    const dbg = document.getElementById('dbg');
-    if(dbg) dbg.textContent = finalUrl;
-  }
-
-  function go(){
-    if(finalUrl){
-      location.href = finalUrl;
-    }else{
-      location.href = carryParams(DEST).toString();
-    }
-  }
-
-  document.getElementById('btnGo')?.addEventListener('click', go);
-
-  build().then(()=>{
-    setTimeout(go, 300);
-  });
-
-})();
-</script>
+      location.replace(to.toString());
+    })();
+  </script>
 </body>
 </html>
