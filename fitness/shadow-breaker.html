@@ -38,7 +38,6 @@
           เลือกระดับความยากและเวลา จากนั้นเริ่มฝึกชกเป้าตามจังหวะเพื่อโจมตีบอส
         </p>
 
-        <!-- เลือกระดับความยาก + เวลา -->
         <div class="sb-menu-grid">
           <div class="sb-menu-field">
             <label for="sb-diff">ระดับความยาก</label>
@@ -58,7 +57,6 @@
           </div>
         </div>
 
-        <!-- ฟอร์มข้อมูลผู้เข้าร่วมสำหรับโหมดวิจัย -->
         <section class="sb-menu-detail sb-menu-detail-research">
           <h3>ข้อมูลผู้เข้าร่วม (ใช้เฉพาะตอนเล่นโหมดวิจัย)</h3>
           <div class="sb-menu-grid">
@@ -107,6 +105,7 @@
             <div class="sb-stat-item"><dt>Miss</dt><dd id="sb-text-miss">0</dd></div>
             <div class="sb-stat-item"><dt>Shield</dt><dd id="sb-text-shield">0</dd></div>
           </dl>
+
           <div class="sb-pause-help">
             โหมด Pause: ใช้สำหรับหยุดก่อนจบ Session (จะนับเป็น stop-early ในไฟล์วิจัย)
           </div>
@@ -130,9 +129,18 @@
           </div>
 
           <div class="sb-meta-row">
-            <div class="sb-meta-item"><span class="sb-meta-label">Time left</span><span id="sb-text-time" class="sb-meta-value">60.0 s</span></div>
-            <div class="sb-meta-item"><span class="sb-meta-label">Phase</span><span id="sb-text-phase" class="sb-meta-value">1</span></div>
-            <div class="sb-meta-item"><span class="sb-meta-label">Miss</span><span id="sb-meta-miss" class="sb-meta-value">0</span></div>
+            <div class="sb-meta-item">
+              <span class="sb-meta-label">Time left</span>
+              <span id="sb-text-time" class="sb-meta-value">60.0 s</span>
+            </div>
+            <div class="sb-meta-item">
+              <span class="sb-meta-label">Phase</span>
+              <span id="sb-text-phase" class="sb-meta-value">1</span>
+            </div>
+            <div class="sb-meta-item">
+              <span class="sb-meta-label">Miss</span>
+              <span id="sb-meta-miss" class="sb-meta-value">0</span>
+            </div>
           </div>
         </section>
 
@@ -158,7 +166,7 @@
         </div>
 
         <div class="sb-play-area">
-          <div id="sb-target-layer" class="sb-target-layer" aria-label="target-layer"></div>
+          <div id="sb-target-layer" class="sb-target-layer"></div>
         </div>
 
         <div class="sb-fever-row">
@@ -167,6 +175,42 @@
         </div>
 
         <p id="sb-msg-main" class="sb-msg-main">แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!</p>
+
+        <!-- ===== A-53 HUD BAR (Quest + Skills + Rage) ===== -->
+        <section class="sb-hud-bar" aria-label="Quest and skills">
+          <div class="sb-hud-left">
+            <div class="sb-hud-title">
+              🎯 <span id="sb-quest-title">QUEST: —</span>
+              <span class="sb-hud-sub" id="sb-quest-meta">0/0</span>
+            </div>
+            <div class="sb-hud-meter">
+              <div class="sb-hud-meter-fill" id="sb-quest-bar" style="transform:scaleX(0)"></div>
+            </div>
+          </div>
+
+          <div class="sb-hud-mid">
+            <button class="sb-skill-btn" id="sb-skill-heal" type="button" title="Heal (กด 1)">
+              🩹 <span class="sb-skill-label">HEAL</span>
+              <span class="sb-skill-count" id="sb-skill-heal-count">0</span>
+            </button>
+            <button class="sb-skill-btn" id="sb-skill-shield" type="button" title="Shield (กด 2)">
+              🛡️ <span class="sb-skill-label">SHIELD</span>
+              <span class="sb-skill-count" id="sb-skill-shield-count">0</span>
+            </button>
+            <button class="sb-skill-btn" id="sb-skill-slow" type="button" title="Slow-Mo (กด 3)">
+              🌀 <span class="sb-skill-label">SLOW</span>
+              <span class="sb-skill-count" id="sb-skill-slow-count">0</span>
+            </button>
+          </div>
+
+          <div class="sb-hud-right">
+            <div class="sb-rage-label">😈 RAGE</div>
+            <div class="sb-rage-meter">
+              <div class="sb-rage-fill" id="sb-rage-bar" style="transform:scaleX(0)"></div>
+            </div>
+            <div class="sb-rage-tip" id="sb-rage-tip">ใจเย็น ๆ เล่นให้แม่น บอสจะอ่อนลง</div>
+          </div>
+        </section>
       </section>
     </section>
 
@@ -190,9 +234,7 @@
           <div class="sb-result-actions">
             <button id="sb-btn-result-retry" class="sb-btn-primary">▶ เล่นซ้ำรอบเดิม</button>
             <button id="sb-btn-result-menu" class="sb-btn-secondary">↩ กลับเมนูเลือกโหมด</button>
-            <div class="sb-result-note">
-              ใช้ปุ่ม <em>สรุปผลล่าสุด</em> บนแถบด้านบน เพื่อดูสถิติรวมหลายรอบ
-            </div>
+            <div class="sb-result-note">ใช้ปุ่ม <em>สรุปผลล่าสุด</em> บนแถบด้านบน เพื่อดูสถิติรวมหลายรอบ</div>
           </div>
         </div>
 
