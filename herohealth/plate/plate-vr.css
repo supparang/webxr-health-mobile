@@ -1,7 +1,9 @@
 /* =========================================================
    /herohealth/plate/plate-vr.css
-   Balanced Plate VR — UI + FX (PRODUCTION)
-   HHA Standard + SAFE-ZONE for spawner
+   Balanced Plate VR — UI + FX (PRODUCTION) — LATEST
+   HHA Standard
+   - Provides safe-zone CSS vars for mode-factory spawnRect:
+     --plate-top-safe --plate-bottom-safe --plate-left-safe --plate-right-safe
 ========================================================= */
 
 :root{
@@ -22,20 +24,25 @@
   --radius:18px;
   --pill:999px;
 
-  /* iOS safe area */
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* ===== Spawn SAFE-ZONE (mode-factory reads these) =====
-     ค่าเริ่มต้น: เว้น top เผื่อ HUD / quest card
-     เดี๋ยวแต่ละ view จะปรับใน body.view-* อีกที
+  /* ========= Spawn Safe Zone (read by mode-factory.js) =========
+     ต้อง “กัน HUD” ไม่ให้เป้าไปโผล่ใต้การ์ด/ชิป
+     mode-factory.js จะอ่าน 4 ตัวนี้จาก :root
   */
-  --plate-top-safe: 140px;
-  --plate-bottom-safe: 96px;
-  --plate-left-safe: 12px;
-  --plate-right-safe: 12px;
+  --plate-top-safe: calc(var(--sat) + 92px);
+  --plate-right-safe: calc(var(--sar) + 14px);
+  --plate-left-safe: calc(var(--sal) + 14px);
+  --plate-bottom-safe: calc(var(--sab) + 18px);
+
+  /* target tuning */
+  --t-shadow: 0 22px 54px rgba(0,0,0,.38);
+  --t-glow-good: 0 0 26px rgba(34,197,94,.18);
+  --t-glow-junk: 0 0 26px rgba(239,68,68,.18);
 }
 
 /* ---------------------------------------------------------
@@ -55,11 +62,10 @@ html,body{
 
 body{
   position:relative;
-  overscroll-behavior:none;
 }
 
 /* ---------------------------------------------------------
-   App container
+   App shell
 --------------------------------------------------------- */
 #app{
   position:fixed;
@@ -77,117 +83,66 @@ body{
   touch-action:none;
 }
 
-/* Target: “วงกลม” + emoji กลางวง + ring แบบในภาพ */
+/* emoji target (like screenshot) */
 .plateTarget{
-  position:absolute;
+  position:fixed;            /* important: left/top are viewport coords */
+  transform:translate(-50%,-50%);
   display:grid;
   place-items:center;
+
   border-radius:999px;
   user-select:none;
   cursor:pointer;
 
-  /* base glass */
+  font-size:30px;
+  font-weight:900;
+  line-height:1;
+
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.14), transparent 38%),
-    radial-gradient(circle at 50% 70%, rgba(34,211,238,.10), transparent 58%),
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.12), transparent 38%),
     rgba(2,6,23,.62);
 
-  border:1px solid rgba(148,163,184,.24);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    inset 0 1px 0 rgba(255,255,255,.10);
+  border:1px solid var(--stroke);
+  box-shadow: var(--t-shadow), inset 0 1px 0 rgba(255,255,255,.08);
 
-  transform:translate(-50%,-50%);
-  animation: platePop .14s ease-out, plateWobble 1.8s ease-in-out infinite;
-}
-
-.plateTarget::before{
-  content:"";
-  position:absolute;
-  inset:-6px;
-  border-radius:999px;
-  pointer-events:none;
-  opacity:.9;
-  /* outer ring */
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(255,255,255,.14),
-      rgba(255,255,255,0) 55%);
+  animation: pop .14s ease-out, wobble 1.8s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 .plateTarget::after{
-  content:"";
+  content:'';
   position:absolute;
-  inset:6px;
+  inset:0;
   border-radius:999px;
   pointer-events:none;
-  opacity:.55;
-  /* inner ring */
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(34,211,238,.12),
-      rgba(34,211,238,0) 62%);
+  box-shadow: inset 0 -8px 18px rgba(0,0,0,.22);
+  opacity:.9;
 }
 
-/* emoji */
-.plateTarget .emoji{
-  font-size:28px;
-  line-height:1;
-  font-weight:900;
-  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
-}
-
-.plateTarget .tag{
-  position:absolute;
-  bottom:-10px;
-  left:50%;
-  transform:translateX(-50%);
-  font-size:10px;
-  font-weight:900;
-  padding:3px 8px;
-  border-radius:999px;
-  background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.22);
-  color:rgba(229,231,235,.92);
-  backdrop-filter: blur(10px);
-}
-
-/* kind styling */
 .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.30);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 26px rgba(34,197,94,.16);
-}
-
-.plateTarget[data-kind="good"]::after{
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(34,197,94,.14),
-      rgba(34,197,94,0) 64%);
+  border-color:rgba(34,197,94,.35);
+  box-shadow: var(--t-shadow), var(--t-glow-good);
 }
 
 .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.30);
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.32),
-    0 0 26px rgba(239,68,68,.16);
-  animation-duration:1.2s;
+  border-color:rgba(239,68,68,.35);
+  box-shadow: var(--t-shadow), var(--t-glow-junk);
+  animation-duration:1.25s;
 }
 
-.plateTarget[data-kind="junk"]::after{
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(239,68,68,.14),
-      rgba(239,68,68,0) 64%);
-}
+/* optional group tint by dataset.groupId (1..5) */
+.plateTarget[data-group-id="1"]{ box-shadow: var(--t-shadow), 0 0 22px rgba(34,197,94,.16); }
+.plateTarget[data-group-id="2"]{ box-shadow: var(--t-shadow), 0 0 22px rgba(34,211,238,.16); }
+.plateTarget[data-group-id="3"]{ box-shadow: var(--t-shadow), 0 0 22px rgba(245,158,11,.16); }
+.plateTarget[data-group-id="4"]{ box-shadow: var(--t-shadow), 0 0 22px rgba(167,139,250,.16); }
+.plateTarget[data-group-id="5"]{ box-shadow: var(--t-shadow), 0 0 22px rgba(244,114,182,.16); }
 
-@keyframes platePop{
-  0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
+@keyframes pop{
+  0%{ transform:translate(-50%,-50%) scale(.84); opacity:0 }
   100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
 
-@keyframes plateWobble{
+@keyframes wobble{
   0%{ transform:translate(-50%,-50%) rotate(0deg) }
   25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
   50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
@@ -195,22 +150,27 @@ body{
   100%{ transform:translate(-50%,-50%) rotate(0deg) }
 }
 
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation:none; }
+}
+
 /* ---------------------------------------------------------
    HUD
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  top: calc(10px + var(--sat));
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
+  left:calc(var(--sal) + 12px);
+  right:calc(var(--sar) + 12px);
+  top:calc(var(--sat) + 10px);
   z-index:40;
-  pointer-events:none; /* HUD ไม่บังการยิง/แตะเป้า */
+  pointer-events:none; /* let targets be clickable */
 }
 
 .hudRow{
   display:flex;
   gap:10px;
-  align-items:stretch;
+  align-items:center;
   justify-content:flex-start;
   pointer-events:none;
 }
@@ -221,107 +181,103 @@ body{
   flex-direction:column;
   gap:2px;
   padding:8px 10px;
-  border-radius:16px;
-  background:rgba(2,6,23,.72);
-  border:1px solid rgba(148,163,184,.20);
-  backdrop-filter:blur(10px);
-  box-shadow:0 16px 48px rgba(0,0,0,.25);
   min-width:86px;
+  border-radius:999px;
+  border:1px solid var(--stroke);
+  background:rgba(2,6,23,.64);
+  backdrop-filter: blur(10px);
+  box-shadow:0 16px 48px rgba(0,0,0,.25);
 }
 
 .chip .lbl{
   font-size:10px;
-  letter-spacing:.12em;
-  color:rgba(148,163,184,.92);
-  font-weight:900;
+  letter-spacing:.08em;
+  color:var(--muted);
+  font-weight:800;
 }
 
 .chip .val{
-  font-size:18px;
-  font-weight:1000;
-  color:rgba(229,231,235,.98);
+  font-size:14px;
+  font-weight:950;
 }
 
-/* card base */
-.card,.questCard,.panelCard{
+/* quest card */
+.card{
+  margin-top:10px;
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
-}
-
-/* quest card */
-#questCard{
-  margin-top:10px;
   padding:12px 12px 10px;
   pointer-events:none;
 }
 
 .cardTitle{
   display:flex;
-  align-items:baseline;
   justify-content:space-between;
-  gap:12px;
-  padding:2px 2px 10px;
+  align-items:flex-end;
+  gap:10px;
+  margin-bottom:8px;
 }
 
 .cardTitle .t{
-  font-weight:1000;
+  font-weight:950;
   font-size:14px;
 }
 
 .cardTitle .hint{
-  font-weight:900;
-  font-size:11px;
-  color:rgba(148,163,184,.95);
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  text-align:right;
 }
 
 .qItem{
   display:flex;
-  gap:10px;
   align-items:center;
   justify-content:space-between;
-  padding:10px 8px;
+  gap:12px;
+  padding:8px 10px;
   border-radius:14px;
-  background:rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.16);
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.48);
   margin-top:8px;
 }
 
 .qText .name{
-  font-weight:1000;
-  font-size:12px;
+  font-weight:950;
+  font-size:13px;
 }
 
 .qText .sub{
+  font-size:12px;
+  color:var(--muted);
   margin-top:2px;
-  font-size:11px;
-  color:rgba(148,163,184,.95);
-  font-weight:800;
+  font-weight:700;
 }
 
 .qProg{
+  min-width:140px;
   display:flex;
   flex-direction:column;
   gap:6px;
-  min-width:120px;
-  text-align:right;
+  align-items:flex-end;
 }
 
 .qNums{
-  font-size:11px;
-  font-weight:1000;
-  color:rgba(229,231,235,.92);
+  font-size:12px;
+  color:var(--muted);
+  font-weight:900;
 }
 
 .bar{
+  width:140px;
   height:10px;
   border-radius:999px;
   background:rgba(148,163,184,.12);
   overflow:hidden;
 }
-
 .bar>i{
   display:block;
   height:100%;
@@ -335,139 +291,135 @@ body{
 --------------------------------------------------------- */
 #coachCard{
   position:fixed;
-  left: calc(12px + var(--sal));
-  bottom: calc(12px + var(--sab));
+  left:50%;
+  transform:translateX(-50%);
+  bottom:calc(var(--sab) + 22px);
   z-index:60;
-  width:min(520px, calc(100vw - 24px - var(--sal) - var(--sar)));
-  transform: translateY(18px);
-  opacity:0;
+  max-width:min(520px, calc(100vw - 24px));
   pointer-events:none;
-  transition: transform .2s ease, opacity .2s ease;
+  opacity:0;
+  translate:0 10px;
+  transition:opacity .18s ease, translate .18s ease;
 }
 
 #coachCard.show{
-  transform: translateY(0px);
   opacity:1;
+  translate:0 0;
 }
 
 #coachCard .inner{
   background:rgba(2,6,23,.78);
   border:1px solid rgba(148,163,184,.22);
-  border-radius:18px;
+  border-radius:22px;
   padding:12px 14px;
-  box-shadow:0 22px 66px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
 }
 
 #coachMsg{
-  font-size:14px;
   font-weight:900;
-  color:rgba(229,231,235,.98);
+  font-size:14px;
 }
 
 #coachMeta{
   margin-top:6px;
-  font-size:11px;
-  font-weight:900;
-  color:rgba(148,163,184,.95);
+  font-size:12px;
+  color:var(--muted);
+  font-weight:800;
 }
 
 /* ---------------------------------------------------------
-   End overlay
+   End Overlay
 --------------------------------------------------------- */
 #endOverlay{
   position:fixed;
   inset:0;
   z-index:80;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
-  background: rgba(2,6,23,.64);
-  backdrop-filter: blur(8px);
+  display:grid;
+  place-items:center;
+  padding:calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
+  background:rgba(2,6,23,.66);
+  backdrop-filter: blur(10px);
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .18s ease;
+}
+
+#endOverlay[aria-hidden="false"]{
+  opacity:1;
   pointer-events:auto;
 }
 
-#endOverlay[aria-hidden="true"]{
-  display:none;
-}
-
 .endPanel{
-  width:min(760px, 100%);
-  background: rgba(2,6,23,.82);
+  width:min(560px, 100%);
+  background:rgba(15,23,42,.78);
   border:1px solid rgba(148,163,184,.22);
-  border-radius:22px;
-  box-shadow:0 30px 100px rgba(0,0,0,.45);
-  padding:16px;
+  border-radius:26px;
+  box-shadow:0 24px 90px rgba(0,0,0,.45);
+  padding:16px 16px 14px;
 }
 
 .endTitle{
   display:flex;
-  align-items:baseline;
+  align-items:flex-end;
   justify-content:space-between;
-  gap:12px;
-  padding:4px 6px 12px;
+  gap:10px;
 }
 
 .endTitle h2{
   margin:0;
-  font-size:18px;
-  font-weight:1000;
+  font-size:20px;
+  font-weight:950;
 }
 
 .endTitle .tag{
-  font-size:11px;
-  font-weight:1000;
-  padding:5px 10px;
-  border-radius:999px;
+  font-size:12px;
+  font-weight:950;
+  color:rgba(229,231,235,.9);
   border:1px solid rgba(148,163,184,.22);
-  background:rgba(15,23,42,.62);
-  color:rgba(229,231,235,.92);
+  background:rgba(2,6,23,.5);
+  padding:6px 10px;
+  border-radius:999px;
 }
 
 .endGrid{
   display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap:10px;
-  padding:6px;
+  margin-top:14px;
 }
 
 .kpi{
-  background: rgba(15,23,42,.62);
-  border:1px solid rgba(148,163,184,.16);
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.55);
   border-radius:16px;
   padding:10px 12px;
 }
 
 .kpi .k{
-  font-size:11px;
+  font-size:12px;
+  color:var(--muted);
   font-weight:900;
-  color:rgba(148,163,184,.95);
 }
-
 .kpi .v{
   margin-top:4px;
-  font-size:18px;
-  font-weight:1000;
-  color:rgba(229,231,235,.98);
+  font-size:16px;
+  font-weight:950;
 }
 
 .endBtns{
+  margin-top:14px;
   display:flex;
   gap:10px;
   justify-content:flex-end;
-  padding:10px 6px 6px;
 }
 
-/* ---------------------------------------------------------
-   Buttons
---------------------------------------------------------- */
 .btn{
   appearance:none;
   border:none;
   border-radius:999px;
   padding:10px 14px;
-  font-weight:1000;
+  font-weight:950;
   font-size:12px;
   cursor:pointer;
   color:var(--text);
@@ -481,49 +433,84 @@ body{
   border-color:rgba(34,197,94,.35);
 }
 
-.btn.warn{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.35);
+/* ---------------------------------------------------------
+   Boss / Storm FX layers
+--------------------------------------------------------- */
+#bossFx,#stormFx{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:55;
+  display:none;
+}
+
+#bossFx.boss-on{
+  display:block;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+}
+
+#bossFx.boss-panic{
+  animation:pulseBad .25s infinite;
+}
+
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%);
+}
+
+@keyframes pulseBad{
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.25) }
+  100%{ filter:brightness(1) }
 }
 
 /* ---------------------------------------------------------
-   View tuning + SAFE-ZONE adjustments
+   View tuning (PC/Mobile/cVR/VR)
 --------------------------------------------------------- */
-body.view-pc{
-  --plate-top-safe: 148px;
-  --plate-bottom-safe: 110px;
-  --plate-left-safe: 12px;
-  --plate-right-safe: 12px;
+body.view-mobile :root{
+  --plate-top-safe: calc(var(--sat) + 112px);
 }
 
-body.view-mobile{
-  --plate-top-safe: 164px;
-  --plate-bottom-safe: 120px;
-  --plate-left-safe: 10px;
-  --plate-right-safe: 10px;
+body.view-mobile .hudRow{
+  gap:8px;
 }
 
-body.view-vr,
-body.view-cvr{
-  /* VR/cVR: HUD จะถูก vr-ui.js วางปุ่มไว้ด้านบน + crosshair กลางจอ
-     เราเว้น top เพิ่มนิดกันชน */
-  --plate-top-safe: 176px;
-  --plate-bottom-safe: 110px;
-  --plate-left-safe: 10px;
-  --plate-right-safe: 10px;
+body.view-mobile .chip{
+  min-width:78px;
+  padding:8px 10px;
 }
 
-/* Responsive tweak */
+body.view-mobile .cardTitle .hint{
+  display:none; /* ลดแน่น */
+}
+
+body.view-mobile .qProg{
+  min-width:120px;
+}
+body.view-mobile .bar{ width:120px; }
+
+body.view-cvr :root{
+  /* cVR ต้องกันปุ่ม ENTER VR/RECENTER ที่ vr-ui.js ฉีดเข้ามา (ด้านล่าง/ขวา) */
+  --plate-bottom-safe: calc(var(--sab) + 90px);
+}
+
+body.view-vr :root{
+  /* VR: HUD มักเล็กลง, ปล่อยพื้นที่ให้เป้าเยอะขึ้น */
+  --plate-top-safe: calc(var(--sat) + 86px);
+}
+
+/* ---------------------------------------------------------
+   Responsive
+--------------------------------------------------------- */
 @media (max-width:900px){
-  .plateTarget .emoji{ font-size:24px; }
-  .chip{ min-width:80px; }
-  .endGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plateTarget{ font-size:26px; }
+  .endGrid{ grid-template-columns: 1fr; }
 }
 
 @media (max-width:420px){
-  #hud{ top: calc(8px + var(--sat)); }
-  .hudRow{ gap:8px; }
-  .chip .val{ font-size:16px; }
-  #questCard{ padding:10px; }
-  .qProg{ min-width:104px; }
+  .plateTarget{ font-size:24px; }
+  .chip .val{ font-size:13px; }
 }
