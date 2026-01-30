@@ -1,157 +1,112 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (B FULL v2.1)
-// ✅ Auto view detect (no override if ?view= exists)
-// ✅ Sets body classes: view-pc / view-mobile / view-vr / view-cvr
-// ✅ Mobile-first: auto hide HUD on mobile (unless ?hud=1)
-// ✅ VRUI config: crosshair shoot lock + cooldown
-// ✅ Flush-hardened (pagehide/visibilitychange/back hub)
-// ✅ Boots SAFE engine: ./goodjunk.safe.js
+// GoodJunkVR Boot — PRODUCTION
+// ✅ Detect view + set body class (view-pc/view-mobile/view-cvr/view-vr)
+// ✅ Calls goodjunk.safe.js boot()
+// ✅ Hooks: hha:coach / hha:judge -> Particles feedback (if available)
+// ✅ Hooks: logging passthrough (if HHA_CloudLogger loaded)
+// ✅ Robust start (DOM ready + small defer)
 
-import { boot as safeBoot } from './goodjunk.safe.js';
+'use strict';
+
+import { boot as bootSafe } from './goodjunk.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
+const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-function isMobile(){
-  const ua = navigator.userAgent || '';
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.innerWidth < 860);
+function isMobileUA(){
+  try{
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  }catch(_){ return false; }
 }
 
-function detectViewAuto(){
-  // IMPORTANT: do not override if ?view exists
-  const v = String(qs('view','')).trim().toLowerCase();
+function setViewClass(view){
+  const v = String(view||'mobile').toLowerCase();
+  DOC.body.classList.remove('view-pc','view-mobile','view-cvr','view-vr');
+  if(v === 'pc') DOC.body.classList.add('view-pc');
+  else if(v === 'cvr') DOC.body.classList.add('view-cvr');
+  else if(v === 'vr') DOC.body.classList.add('view-vr');
+  else DOC.body.classList.add('view-mobile');
+}
+
+function chooseAutoView(){
+  // do NOT override if user already set ?view=
+  const v = qs('view', '');
   if(v) return v;
-
-  return isMobile() ? 'mobile' : 'pc';
+  // best-effort: mobile => mobile, desktop => pc
+  return isMobileUA() ? 'mobile' : 'pc';
 }
 
-function setBodyView(view){
-  const b = DOC.body;
-  if(!b) return;
-
-  b.classList.add('gj');
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-
-  if(view === 'cvr') b.classList.add('view-cvr');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'pc') b.classList.add('view-pc');
-  else b.classList.add('view-mobile'); // fallback
-
-  // ✅ Mobile-first: default hide HUD (unless ?hud=1)
-  const hud = String(qs('hud','')).trim();
-  if(view === 'mobile' && hud !== '1'){
-    b.classList.add('hud-hidden');
-  }
-}
-
-function getRunOpts(){
-  const view = String(qs('view', detectViewAuto())).toLowerCase();
-  const run  = String(qs('run','play')).toLowerCase();
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const time = clamp(qs('time','80'), 20, 300);
-  const seed = String(qs('seed', Date.now()));
-
-  // passthrough ctx (for logger)
-  const hub = qs('hub', null);
-  const studyId = qs('studyId', null);
-  const phase = qs('phase', null);
-  const conditionGroup = qs('conditionGroup', null);
-  const log = qs('log', null);
-
-  return { view, run, diff, time, seed, hub, studyId, phase, conditionGroup, log };
-}
-
-function initVRUI(){
-  WIN.HHA_VRUI_CONFIG = Object.assign(
-    { lockPx: 28, cooldownMs: 90 },
-    WIN.HHA_VRUI_CONFIG || {}
-  );
-}
-
-function hardenFlush(){
-  const L = WIN.HHACloudLogger;
-
-  const flush = (why='flush')=>{
+function attachFx(){
+  // Coach tips -> top particles
+  WIN.addEventListener('hha:coach', (ev)=>{
     try{
-      if(L && typeof L.flush === 'function') L.flush({ reason: why });
-      if(L && typeof L.flushNow === 'function') L.flushNow({ reason: why });
+      const msg = ev?.detail?.msg || ev?.detail?.message || '';
+      if(!msg) return;
+      if(WIN.Particles && typeof WIN.Particles.popText === 'function'){
+        const r = DOC.documentElement.getBoundingClientRect();
+        WIN.Particles.popText(r.width/2, 130, String(msg).slice(0, 120), 'hha-coach');
+      }
+    }catch(_){}
+  }, { passive:true });
+
+  // Judge labels -> small burst near center
+  WIN.addEventListener('hha:judge', (ev)=>{
+    try{
+      const label = ev?.detail?.label || '';
+      if(!label) return;
+      if(WIN.Particles && typeof WIN.Particles.popText === 'function'){
+        const r = DOC.documentElement.getBoundingClientRect();
+        WIN.Particles.popText(r.width/2, r.height*0.58, String(label).slice(0, 32), 'hha-judge');
+      }
+    }catch(_){}
+  }, { passive:true });
+}
+
+function attachLogger(){
+  // optional — if you loaded ../vr/hha-cloud-logger.js
+  // We don't assume endpoint here; logger file may configure itself via ?log=
+  const L = WIN.HHA_CloudLogger || WIN.HHA_Logger || null;
+  if(!L) return;
+
+  const safeCall = (fn, payload)=>{
+    try{
+      if(typeof L[fn] === 'function') L[fn](payload);
     }catch(_){}
   };
 
-  WIN.addEventListener('pagehide', ()=>flush('pagehide'), { passive:true });
-  WIN.addEventListener('beforeunload', ()=>flush('beforeunload'), { passive:true });
-
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden') flush('hidden');
-  }, { passive:true });
-
-  WIN.addEventListener('hha:end', ()=>flush('hha:end'), { passive:true });
-
-  const btnBack = DOC.getElementById('btnBackHub');
-  if(btnBack){
-    btnBack.addEventListener('click', (ev)=>{
-      try{
-        const hub = qs('hub', null);
-        flush('backhub');
-        if(hub){
-          ev.preventDefault();
-          setTimeout(()=>{ location.href = hub; }, 60);
-        }
-      }catch(_){}
-    }, { capture:true });
-  }
-
-  return flush;
-}
-
-function initLoggerContext(opts){
-  const L = WIN.HHACloudLogger;
-  if(!L) return;
-
-  const ctx = {
-    game: 'GoodJunkVR',
-    pack: 'fair',
-    view: opts.view,
-    runMode: opts.run,
-    diff: opts.diff,
-    timePlanSec: opts.time,
-    seed: opts.seed,
-    hub: opts.hub,
-    studyId: opts.studyId,
-    phase: opts.phase,
-    conditionGroup: opts.conditionGroup,
-    log: opts.log
-  };
-
-  try{
-    if(typeof L.setContext === 'function') L.setContext(ctx);
-    else if(typeof L.init === 'function') L.init(ctx);
-  }catch(_){}
+  WIN.addEventListener('hha:start', (ev)=>safeCall('onStart', ev.detail), { passive:true });
+  WIN.addEventListener('hha:end',   (ev)=>safeCall('onEnd',   ev.detail), { passive:true });
+  WIN.addEventListener('hha:score', (ev)=>safeCall('onScore', ev.detail), { passive:true });
+  WIN.addEventListener('hha:time',  (ev)=>safeCall('onTime',  ev.detail), { passive:true });
 }
 
 function start(){
-  const opts = getRunOpts();
+  // View setup
+  const view = chooseAutoView();
+  setViewClass(view);
 
-  setBodyView(opts.view);
-  initVRUI();
+  // Optional: tune VR UI crosshair lock
+  WIN.HHA_VRUI_CONFIG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
 
-  initLoggerContext(opts);
-  hardenFlush();
+  attachFx();
+  attachLogger();
 
-  safeBoot({
-    view: opts.view,
-    run:  opts.run,
-    diff: opts.diff,
-    time: opts.time,
-    seed: opts.seed
+  // Boot SAFE game
+  bootSafe({
+    view,
+    run:  qs('run','play'),
+    diff: qs('diff','normal'),
+    time: qs('time','80'),
+    seed: qs('seed', String(Date.now()))
   });
 }
 
+// Ensure DOM ready, then small defer so CSS/layout measures are stable
 if(DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', start, { once:true });
+  DOC.addEventListener('DOMContentLoaded', ()=>setTimeout(start, 30), { once:true });
 }else{
-  start();
+  setTimeout(start, 30);
 }
