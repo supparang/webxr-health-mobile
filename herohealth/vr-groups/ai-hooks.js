@@ -1,104 +1,113 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// GroupsVR AI Hooks (NON-MODULE) — SAFE
-// ✅ No "export" (works with <script defer>)
+// GroupsVR AI Hooks — UMD (NO ES export) — PRODUCTION
+// ✅ Works with <script defer> (non-module)
 // ✅ window.GroupsVR.AIHooks.attach({runMode, seed, enabled})
-// ✅ Emits lightweight events; default disabled (enabled=false)
-// Notes: This is a hook layer (no heavy ML). Predictor is in groups-vr.html gated by ?ai=1.
+// ✅ window.dispatchEvent('groups:ai_event', {kind,...}) for optional listeners
+// Note: Default is SAFE/OFF unless enabled=true (and runMode !== 'research')
 
 (function(){
   'use strict';
+
   const WIN = window;
   WIN.GroupsVR = WIN.GroupsVR || {};
 
-  const AIHooks = {
-    _enabled: false,
-    _runMode: 'play',
-    _seed: '',
-    _off: [],
-    _last: {
-      score: 0, combo: 0, miss: 0,
-      acc: 0, grade: 'C',
-      left: 0,
-      groupKey: '', groupName: ''
-    },
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
 
-    attach(opts){
-      opts = opts || {};
-      this._runMode = String(opts.runMode || 'play');
-      this._seed = String(opts.seed || '');
-      this._enabled = !!opts.enabled && this._runMode === 'play';
+  // --- internal state ---
+  const S = {
+    attached: false,
+    enabled: false,
+    runMode: 'play',
+    seed: '',
+    startedAt: 0,
+    // optional metrics snapshot (if engine emits events we listen to)
+    score: 0,
+    combo: 0,
+    miss: 0,
+    acc: 0,
+    left: 0
+  };
 
-      // cleanup old listeners
-      this.detach();
+  function emit(kind, detail){
+    try{
+      WIN.dispatchEvent(new CustomEvent('groups:ai_event', {
+        detail: Object.assign({ kind, t: nowMs(), runMode: S.runMode, seed: S.seed, enabled: S.enabled }, detail||{})
+      }));
+    }catch(_){}
+  }
 
-      // If disabled: keep it quiet but not broken
-      const on = (type, fn, opt)=>{
-        WIN.addEventListener(type, fn, opt || { passive:true });
-        this._off.push([type, fn, opt || { passive:true }]);
-      };
+  function attach(cfg){
+    cfg = cfg || {};
+    S.attached = true;
+    S.runMode  = String(cfg.runMode || S.runMode || 'play');
+    S.seed     = String(cfg.seed || S.seed || '');
+    S.enabled  = !!cfg.enabled && (S.runMode !== 'research') && (S.runMode !== 'practice');
+    S.startedAt = nowMs();
 
-      // Listen to gameplay signals (optional)
-      on('hha:score', (ev)=>{
-        const d = ev.detail || {};
-        this._last.score = Number(d.score ?? this._last.score) || 0;
-        this._last.combo = Number(d.combo ?? this._last.combo) || 0;
-        this._last.miss  = Number(d.misses ?? this._last.miss) || 0;
+    emit('attach', { ok:true });
 
-        if (!this._enabled) return;
-        // Hook point (future): adaptive difficulty signal
-        // WIN.dispatchEvent(new CustomEvent('groups:ai_signal', { detail:{ kind:'score', ...this._last } }));
-      });
-
-      on('hha:rank', (ev)=>{
-        const d = ev.detail || {};
-        this._last.grade = String(d.grade ?? this._last.grade || 'C');
-        this._last.acc   = Number(d.accuracy ?? this._last.acc) || 0;
-
-        if (!this._enabled) return;
-      });
-
-      on('hha:time', (ev)=>{
-        const d = ev.detail || {};
-        this._last.left = Math.max(0, Math.round(Number(d.left ?? this._last.left) || 0));
-        if (!this._enabled) return;
-      });
-
-      on('quest:update', (ev)=>{
-        const d = ev.detail || {};
-        this._last.groupKey  = String(d.groupKey  || this._last.groupKey  || '');
-        this._last.groupName = String(d.groupName || this._last.groupName || '');
-        if (!this._enabled) return;
-      });
-
-      // Example: consume predictor output (from groups-vr.html when ?ai=1)
-      on('groups:ai_predict', (ev)=>{
-        if (!this._enabled) return;
-        const d = ev.detail || {};
-        // Hook point (future): record AI traces / explainability
-        // console.log('[AIHooks] predict', d);
-      });
-
-      // Tell the world we’re ready
+    // ถ้าเปิด enabled จริง ค่อยปล่อยข้อความเบา ๆ (ไม่รบกวนเด็ก)
+    if (S.enabled){
       try{
-        WIN.dispatchEvent(new CustomEvent('groups:aihooks_ready', {
-          detail:{ enabled:this._enabled, runMode:this._runMode, seed:this._seed }
+        WIN.dispatchEvent(new CustomEvent('hha:coach', {
+          detail:{ text:'🧠 AI hooks พร้อมแล้ว (โหมดเล่น) — จะช่วยเก็บสัญญาณเพื่อทำคำแนะนำแบบเบา ๆ', mood:'neutral' }
         }));
       }catch(_){}
+    }
+    return true;
+  }
 
-      return { enabled: this._enabled };
-    },
+  function detach(){
+    S.attached = false;
+    S.enabled = false;
+    emit('detach', { ok:true });
+  }
 
-    detach(){
+  // --- Optional listeners: ถ้าเกม/หน้า run ยิง event มา เราเก็บ snapshot ไว้ (ไม่บังคับ) ---
+  function onScore(ev){
+    const d = ev.detail||{};
+    S.score = Number(d.score ?? S.score) || 0;
+    S.combo = Number(d.combo ?? S.combo) || 0;
+    S.miss  = Number(d.misses ?? S.miss) || 0;
+  }
+  function onRank(ev){
+    const d = ev.detail||{};
+    S.acc = Number(d.accuracy ?? S.acc) || 0;
+  }
+  function onTime(ev){
+    const d = ev.detail||{};
+    S.left = Math.max(0, Math.round(d.left ?? S.left));
+  }
+
+  // ติด listener ไว้ตลอดแบบ passive (เบามาก)
+  try{
+    WIN.addEventListener('hha:score', onScore, { passive:true });
+    WIN.addEventListener('hha:rank',  onRank,  { passive:true });
+    WIN.addEventListener('hha:time',  onTime,  { passive:true });
+  }catch(_){}
+
+  // --- public API ---
+  WIN.GroupsVR.AIHooks = {
+    attach,
+    detach,
+    state: ()=>Object.assign({}, S),
+    // simple helper for other modules
+    enabled: ()=>!!S.enabled,
+    ping: (msg)=>emit('ping', { msg:String(msg||'') }),
+    // a tiny explainable tip helper (rate-limited; still safe)
+    tip: (text, mood='neutral')=>{
+      if (!S.enabled) return false;
+      const t = nowMs();
+      // rate-limit: no more than 1 tip / 1500ms
+      if (WIN.__HHA_AI_LAST_TIP__ && (t - WIN.__HHA_AI_LAST_TIP__ < 1500)) return false;
+      WIN.__HHA_AI_LAST_TIP__ = t;
       try{
-        const off = this._off || [];
-        for (let i=0;i<off.length;i++){
-          const it = off[i];
-          WIN.removeEventListener(it[0], it[1], it[2]);
-        }
+        WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text:String(text||''), mood:String(mood||'neutral') } }));
       }catch(_){}
-      this._off = [];
+      emit('tip', { text:String(text||''), mood:String(mood||'neutral') });
+      return true;
     }
   };
 
-  WIN.GroupsVR.AIHooks = AIHooks;
 })();
