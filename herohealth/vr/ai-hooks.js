@@ -1,168 +1,160 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — PRODUCTION SAFE (v2026-01-29)
-// ✅ createAIHooks({game, mode, rng})
-// ✅ Methods (all optional-safe):
-//    - getDifficulty(tSec, base) -> {spawnMs,pGood,pJunk,pStar,pShield}
-//    - getTip(tSec) -> {msg, tag}?  (rate-limited)
-//    - onEvent(name, data) -> void
-// ✅ Default: in research mode => returns base (no adaptation)
-// ✅ Deterministic-friendly when rng is seeded
+// HHA AI Hooks — SAFE PRODUCTION
+// ✅ Always provides: getDifficulty(), getTip(), onEvent()
+// ✅ Disabled by default for non-play modes (research/practice)
+// ✅ Deterministic-friendly: uses provided rng if any
+// Notes: This is NOT "real ML" - it's a safe adaptive director + explainable tips.
 
 'use strict';
+
+const WIN = window;
 
 const clamp = (v, a, b)=>Math.max(a, Math.min(b, Number(v)||0));
 const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
 export function createAIHooks(opts = {}){
-  const game = String(opts.game || 'HHA').trim();
-  const mode = String(opts.mode || 'play').toLowerCase(); // play / research / practice
+  const game = String(opts.game || 'HHA').slice(0, 40);
+  const mode = String(opts.mode || 'play').toLowerCase();
   const rng  = (typeof opts.rng === 'function') ? opts.rng : Math.random;
 
-  // ✅ In research mode: disable adaptation by default (fair + reproducible)
-  const adaptiveEnabled = (mode === 'play');
+  const enabled = (mode === 'play'); // keep OFF for research/practice by design
 
   // --- rolling stats ---
   const S = {
-    game, mode,
-    // performance
+    enabled,
+    game,
+    mode,
+    // recent window (EMA)
+    emaAcc: 0.72,     // "good hit" tendency
+    emaMist: 0.10,    // mistakes tendency
+    emaSpeed: 0.50,   // pace proxy
+    lastEventAt: 0,
+
+    // counters
     hitGood: 0,
     hitJunk: 0,
-    miss: 0,         // includes expireGood
-    streakGood: 0,
-    lastEventAt: 0,
-    // tip rate limit
+    miss: 0,
+
+    // tips
     lastTipAt: 0,
-    tipCooldownMs: 3000,
-    // tiny memory window
-    windowMs: 9000,
-    events: [] // {t, name}
+    tipCooldownMs: 6500,
+    lastTipKey: ''
   };
 
-  function pushEvent(name){
-    const t = nowMs();
-    S.events.push({ t, name });
-    // prune
-    const cut = t - S.windowMs;
-    while(S.events.length && S.events[0].t < cut) S.events.shift();
-  }
+  function onEvent(type, payload = {}){
+    if(!S.enabled) return;
 
-  function countsInWindow(){
-    let g=0,j=0,m=0;
-    for(const e of S.events){
-      if(e.name==='hitGood') g++;
-      else if(e.name==='hitJunk') j++;
-      else if(e.name==='miss') m++;
+    const t = Number(payload.t ?? nowMs());
+    if(t < S.lastEventAt) S.lastEventAt = t;
+    S.lastEventAt = t;
+
+    // update simple EMAs
+    // accuracy proxy: hitGood is good, hitJunk/miss are bad
+    if(type === 'hitGood'){
+      S.hitGood++;
+      S.emaAcc = S.emaAcc*0.90 + 0.10*(1.0);
+      S.emaMist = S.emaMist*0.92 + 0.08*(0.0);
+      S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.70);
+    }else if(type === 'hitJunk'){
+      S.hitJunk++;
+      S.emaAcc = S.emaAcc*0.90 + 0.10*(0.0);
+      S.emaMist = S.emaMist*0.92 + 0.08*(1.0);
+      S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.55);
+    }else if(type === 'miss'){
+      S.miss++;
+      S.emaAcc = S.emaAcc*0.92 + 0.08*(0.0);
+      S.emaMist = S.emaMist*0.90 + 0.10*(1.0);
+      S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.40);
+    }else if(type === 'shoot'){
+      // pace proxy (frequent shooting => higher speed)
+      S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.85);
     }
-    return { g,j,m };
   }
 
-  function getDifficulty(tSec, base){
-    // Always return a fully-formed difficulty object
-    const B = Object.assign({ spawnMs: 900, pGood: .70, pJunk: .26, pStar: .02, pShield: .02 }, base || {});
-    if(!adaptiveEnabled) return { ...B };
+  // --- Adaptive Difficulty Director ---
+  // returns adjusted {spawnMs,pGood,pJunk,pStar,pShield}
+  function getDifficulty(playedSec, base){
+    const b = Object.assign({}, base || {});
+    if(!S.enabled) return b;
 
-    // window performance
-    const W = countsInWindow();
-    const total = (W.g + W.j + W.m) || 1;
-    const badRate = (W.j + W.m) / total;   // 0..1
-    const goodRate = W.g / total;          // 0..1
+    const t = clamp(playedSec, 0, 9999);
 
-    // streak effect (skill)
-    const streakBoost = clamp(S.streakGood / 10, 0, 1);
+    // compute "stress" from mistakes and pace
+    const mist = clamp(S.emaMist, 0, 1);
+    const acc  = clamp(S.emaAcc, 0, 1);
+    const spd  = clamp(S.emaSpeed, 0, 1);
 
-    // Difficulty scalar: higher => harder
-    // - if player doing well => increase hardness
-    // - if failing => reduce hardness
-    let hard = 0.5;
-    hard += (goodRate - 0.55) * 0.8; // reward skill
-    hard -= (badRate - 0.35) * 0.9;  // protect if struggling
-    hard += (streakBoost - 0.25) * 0.35;
-    hard = clamp(hard, 0.10, 0.95);
+    // target: keep player in "flow"
+    // if too many mistakes -> ease a bit (slower spawn, less junk)
+    // if too accurate -> increase challenge (faster spawn, more junk)
+    let k = 0;
+    k += (acc - 0.72) * 0.90;   // good performance pushes harder
+    k -= (mist - 0.12) * 1.10;  // mistakes pull easier
+    k += (spd - 0.55) * 0.35;   // fast pace can handle slightly more
 
-    // spawnMs: faster when hard, slower when easy
-    const spawnMs = clamp(
-      B.spawnMs * (1.18 - hard * 0.55),
-      520,
-      1200
-    );
+    // small deterministic wobble (optional) to avoid monotony
+    const wob = (rng() - 0.5) * 0.06;
+    k = clamp(k + wob, -0.35, 0.35);
 
-    // probabilities: when hard -> more junk, less good, slightly more shields
-    let pJunk  = B.pJunk  + (hard - 0.5) * 0.16;
-    let pGood  = B.pGood  - (hard - 0.5) * 0.14;
-    let pStar  = B.pStar  + (hard - 0.5) * 0.02;
-    let pShield= B.pShield+ (0.5 - hard) * 0.04; // easier => more shield
+    // apply
+    const spawnMin = 520;
+    const spawnMax = 1100;
 
-    // clamp
-    pGood   = clamp(pGood,   0.38, 0.82);
-    pJunk   = clamp(pJunk,   0.16, 0.55);
-    pStar   = clamp(pStar,   0.01, 0.06);
-    pShield = clamp(pShield, 0.01, 0.08);
+    const spawnMs = clamp((b.spawnMs || 900) * (1 - k*0.22), spawnMin, spawnMax);
 
-    // normalize (sum=1)
-    let s = pGood + pJunk + pStar + pShield;
-    if(s <= 0) s = 1;
-    pGood/=s; pJunk/=s; pStar/=s; pShield/=s;
+    // adjust distribution
+    let pJunk  = clamp((b.pJunk  ?? 0.26) + k*0.07, 0.18, 0.55);
+    let pGood  = clamp((b.pGood  ?? 0.70) - k*0.07, 0.35, 0.78);
+    let pStar  = clamp((b.pStar  ?? 0.02) + (-k)*0.01, 0.01, 0.06);
+    let pShield= clamp((b.pShield?? 0.02) + (-k)*0.02, 0.01, 0.10);
+
+    // mild ramp by time (later => slightly harder, but capped)
+    if(t > 10){
+      const r = clamp((t-10)/60, 0, 1); // up to +1
+      pJunk = clamp(pJunk + r*0.03, 0.18, 0.60);
+      pGood = clamp(pGood - r*0.03, 0.30, 0.78);
+    }
 
     return { spawnMs, pGood, pJunk, pStar, pShield };
   }
 
-  function getTip(tSec){
-    if(!adaptiveEnabled) return null;
+  // --- Explainable micro-tips ---
+  function getTip(playedSec){
+    if(!S.enabled) return null;
 
     const t = nowMs();
     if(t - S.lastTipAt < S.tipCooldownMs) return null;
 
-    const W = countsInWindow();
+    const mist = clamp(S.emaMist, 0, 1);
+    const acc  = clamp(S.emaAcc, 0, 1);
 
-    // Simple, explainable micro-tips (เด็ก ป.5 อ่านง่าย)
+    let key = '';
     let msg = '';
-    if(W.m >= 2){
-      msg = 'ลอง “โฟกัสของดี” ก่อนนะ 👀 ของดีพลาดแล้วจะเป็น MISS';
-    }else if(W.j >= 2){
-      msg = 'ระวังของทอด/หวาน! 🍟🍩 ถ้าเห็นให้เลี่ยงหรือใช้ 🛡️';
-    }else if(S.streakGood >= 6){
-      msg = 'คอมโบกำลังมา! 🔥 รักษาจังหวะแล้วจะได้คะแนนเพิ่ม';
-    }else if(tSec > 20 && (W.g===0 && W.j===0 && W.m===0)){
-      msg = 'ถ้าเล่นโหมดแว่น ใช้เป้าเล็งกลางจอแล้วยิงได้เลย 🎯';
+
+    if(mist > 0.22){
+      key = 'mist';
+      msg = 'โฟกัส “ของดี” ก่อนนะ 👀 ถ้าเห็นของเสียใกล้จุดเล็งให้ชะลอ 0.5 วิแล้วค่อยยิง';
+    }else if(acc > 0.86){
+      key = 'acc';
+      msg = 'เก่งมาก! ต่อไปลองคุมคอมโบให้ยาวขึ้น 🔥 อย่ารีบยิงถ้ายังไม่ชัวร์ว่าเป็นของดี';
+    }else{
+      key = 'flow';
+      msg = 'เคล็ดลับ: เล็งกลางจอแล้วค่อยยิง 🎯 ถ้าพลาดบ่อยให้ใช้ SHIELD ช่วยกัน MISS';
     }
 
-    if(!msg) return null;
+    // avoid repeating same tip
+    if(key === S.lastTipKey && (t - S.lastTipAt < S.tipCooldownMs*1.6)) return null;
 
     S.lastTipAt = t;
-    return { msg, tag: 'Coach' };
-  }
+    S.lastTipKey = key;
 
-  function onEvent(name, data){
-    // no-throw safe
-    try{
-      const n = String(name || '').trim();
-      if(!n) return;
-
-      pushEvent(n);
-      S.lastEventAt = nowMs();
-
-      if(n === 'hitGood'){
-        S.hitGood++;
-        S.streakGood++;
-      }else if(n === 'hitJunk'){
-        S.hitJunk++;
-        S.streakGood = 0;
-      }else if(n === 'miss'){
-        S.miss++;
-        S.streakGood = 0;
-      }
-
-      // (reserved) future ML/DL hooks:
-      // - send features to predictor
-      // - update bandit policy
-      void(data);
-    }catch(_){}
+    return { msg, tag: `${game} AI` };
   }
 
   return {
-    enabled: adaptiveEnabled,
+    enabled: S.enabled,
+    onEvent,
     getDifficulty,
-    getTip,
-    onEvent
+    getTip
   };
 }
