@@ -1,357 +1,165 @@
 // === /herohealth/vr-groups/effects-pack.js ===
-// Groups Effects Pack — PRODUCTION (DOM FX)
-// ✅ Depends: /herohealth/vr/particles.js (window.Particles.*)
-// ✅ Hooks common events:
-//    - hha:shoot
-//    - groups:hit (from engine) {ok, x, y, groupKey, groupName, points}
-//    - groups:miss (from engine) {x, y, reason}
-//    - groups:progress {kind:...}
-//    - quest:update (for group change banner accent)
-// ✅ Safe caps + no-throw + reduced motion friendly
-// Notes:
-// - Engine should emit groups:hit/miss with screen coords if possible.
-// - If no coords, we fallback to center of playLayer.
-// - Keeps effects lightweight on mobile.
+// GroupsVR Effects Pack (NON-MODULE) — SAFE
+// ✅ No "export"
+// ✅ window.GroupsVR.EffectsPack.init({ layerEl })
+// ✅ Listens: groups:fx (hit/miss/switch/storm/boss) + provides helpers
+// ✅ Uses window.Particles if available; fallback to small DOM FX
 
 (function(){
   'use strict';
-
   const WIN = window;
   const DOC = document;
   WIN.GroupsVR = WIN.GroupsVR || {};
 
-  if (WIN.GroupsVR.Effects && WIN.GroupsVR.Effects.__loaded) return;
-  WIN.GroupsVR.Effects = WIN.GroupsVR.Effects || {};
-
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
   const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
-  const prefersReduced = (()=> {
-    try { return !!matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    catch { return false; }
-  })();
+  // ---- fallback tiny FX layer ----
+  let fxLayer = null;
+  function ensureLayer(){
+    if (fxLayer) return fxLayer;
+    fxLayer = DOC.createElement('div');
+    fxLayer.id = 'groupsFxLayer';
+    fxLayer.style.cssText = [
+      'position:fixed','inset:0','pointer-events:none','z-index:9998'
+    ].join(';');
+    DOC.body.appendChild(fxLayer);
+    return fxLayer;
+  }
 
-  const CFG = {
-    // overall safety caps
-    maxFxPerSec: 18,
-    minGapMs: prefersReduced ? 140 : 55,
+  function popDot(x,y,kind){
+    const el = DOC.createElement('div');
+    el.style.cssText = [
+      'position:fixed',
+      'left:'+(x|0)+'px','top:'+(y|0)+'px',
+      'width:10px','height:10px',
+      'border-radius:999px',
+      'transform:translate(-50%,-50%) scale(1)',
+      'opacity:0.9',
+      'box-shadow:0 0 0 10px rgba(255,255,255,.08)',
+      'background:'+(kind==='bad' ? 'rgba(239,68,68,.95)' : 'rgba(34,197,94,.95)'),
+      'transition: transform .32s ease, opacity .32s ease'
+    ].join(';');
 
-    // mild screen shake
-    shakeMs: prefersReduced ? 0 : 90,
-    shakePx: prefersReduced ? 0 : 5,
+    ensureLayer().appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.transform = 'translate(-50%,-50%) scale(1.9)';
+      el.style.opacity = '0';
+    });
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 420);
+  }
 
-    // flash
-    flashMs: prefersReduced ? 0 : 95,
-
-    // pop text
-    popGoodClass: 'fx-good',
-    popBadClass: 'fx-bad',
-    popWarnClass: 'fx-warn',
-
-    // sound (optional)
-    sound: true
-  };
-
-  const S = {
-    lastFxAt: 0,
-    fxCountWinStart: 0,
-    fxCount: 0,
-
-    // audio
-    aOk: null,
-    aBad: null,
-    aTick: null
-  };
-
-  function canFx(){
-    const t = nowMs();
-    if ((t - S.lastFxAt) < CFG.minGapMs) return false;
-
-    // windowed cap 1s
-    if ((t - S.fxCountWinStart) > 1000){
-      S.fxCountWinStart = t;
-      S.fxCount = 0;
+  function popText(x,y,text,cls){
+    if (WIN.Particles && typeof WIN.Particles.popText === 'function'){
+      WIN.Particles.popText(x,y,text,cls);
+      return;
     }
-    if (S.fxCount >= CFG.maxFxPerSec) return false;
+    // fallback
+    const el = DOC.createElement('div');
+    el.textContent = String(text||'');
+    el.style.cssText = [
+      'position:fixed',
+      'left:'+(x|0)+'px','top:'+(y|0)+'px',
+      'transform:translate(-50%,-50%)',
+      'font-weight:1000',
+      'font-size:14px',
+      'padding:6px 10px',
+      'border-radius:999px',
+      'background:rgba(2,6,23,.72)',
+      'border:1px solid rgba(148,163,184,.24)',
+      'color:rgba(229,231,235,.95)',
+      'opacity:1',
+      'transition: transform .42s ease, opacity .42s ease'
+    ].join(';');
 
-    S.lastFxAt = t;
-    S.fxCount++;
-    return true;
+    ensureLayer().appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.transform = 'translate(-50%,-70%)';
+      el.style.opacity = '0';
+    });
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
   }
 
-  function qsPlayLayer(){
-    return DOC.getElementById('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
-  }
+  // ---- main pack ----
+  const EffectsPack = {
+    _on: false,
+    _layerEl: null,
+    _off: [],
+    _lastFlashAt: 0,
 
-  function centerOf(el){
-    try{
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    }catch{
-      return { x: innerWidth/2, y: innerHeight/2 };
-    }
-  }
+    init(opts){
+      opts = opts || {};
+      this._layerEl = opts.layerEl || null;
+      this._on = true;
 
-  function posFromDetail(d){
-    const x = Number(d && d.x);
-    const y = Number(d && d.y);
-    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
-    return centerOf(qsPlayLayer());
-  }
+      // clean old listeners
+      this.stop();
 
-  // -------------------------
-  // DOM helpers: flash + shake
-  // -------------------------
-  function ensureFxLayer(){
-    let el = DOC.getElementById('hhaFxLayer');
-    if (el) return el;
+      const on = (type, fn, opt)=>{
+        WIN.addEventListener(type, fn, opt || { passive:true });
+        this._off.push([type, fn, opt || { passive:true }]);
+      };
 
-    el = DOC.createElement('div');
-    el.id = 'hhaFxLayer';
-    el.style.position = 'fixed';
-    el.style.inset = '0';
-    el.style.pointerEvents = 'none';
-    el.style.zIndex = '9998';
-    DOC.body.appendChild(el);
+      // Generic FX channel from engine (recommended)
+      on('groups:fx', (ev)=>{
+        const d = ev.detail || {};
+        const kind = String(d.kind || '');
+        const x = Number(d.x ?? d.cx ?? (WIN.innerWidth/2));
+        const y = Number(d.y ?? d.cy ?? (WIN.innerHeight/2));
 
-    // flash element
-    let f = DOC.getElementById('hhaFxFlash');
-    if (!f){
-      f = DOC.createElement('div');
-      f.id = 'hhaFxFlash';
-      f.style.position = 'fixed';
-      f.style.inset = '0';
-      f.style.background = 'rgba(255,255,255,.10)';
-      f.style.opacity = '0';
-      f.style.pointerEvents = 'none';
-      f.style.transition = 'opacity 90ms ease';
-      f.style.zIndex = '9999';
-      DOC.body.appendChild(f);
-    }
-    return el;
-  }
+        if (kind === 'hit'){
+          popText(x,y, d.text || '✅', 'good');
+          popDot(x,y,'good');
+        } else if (kind === 'miss'){
+          popText(x,y, d.text || '❌', 'bad');
+          popDot(x,y,'bad');
+        } else if (kind === 'switch'){
+          popText(WIN.innerWidth/2, WIN.innerHeight*0.45, '🔄 สลับหมู่!', 'warn');
+        } else if (kind === 'storm_on'){
+          popText(WIN.innerWidth/2, WIN.innerHeight*0.40, '🌪️ STORM!', 'warn');
+        } else if (kind === 'storm_off'){
+          popText(WIN.innerWidth/2, WIN.innerHeight*0.40, '✨ พายุจบ!', 'good');
+        } else if (kind === 'boss'){
+          popText(WIN.innerWidth/2, WIN.innerHeight*0.40, '👊 BOSS!', 'warn');
+        }
+      });
 
-  function flash(kind){
-    if (CFG.flashMs <= 0) return;
-    const f = DOC.getElementById('hhaFxFlash');
-    if (!f) return;
+      // Optional: simple hit flash on score spike (safe)
+      on('hha:score', (ev)=>{
+        const d = ev.detail || {};
+        const combo = Number(d.combo||0);
+        if (combo >= 6){
+          const t = nowMs();
+          if (t - this._lastFlashAt < 650) return;
+          this._lastFlashAt = t;
+          // If you have a DOM flash element in future, hook here.
+        }
+      });
 
-    const op =
-      (kind === 'good') ? 0.18 :
-      (kind === 'bad')  ? 0.14 :
-      (kind === 'warn') ? 0.12 :
-                          0.10;
-
-    f.style.opacity = String(op);
-    setTimeout(()=>{ try{ f.style.opacity = '0'; }catch(_){} }, CFG.flashMs);
-  }
-
-  function shake(){
-    if (CFG.shakeMs <= 0 || CFG.shakePx <= 0) return;
-    const host = DOC.body;
-    const px = CFG.shakePx;
-    host.style.willChange = 'transform';
-    host.style.transform = `translate(${(Math.random()*2-1)*px}px, ${(Math.random()*2-1)*px}px)`;
-    setTimeout(()=>{
       try{
-        host.style.transform = '';
-        host.style.willChange = '';
+        WIN.dispatchEvent(new CustomEvent('groups:effectspack_ready', { detail:{ ok:true } }));
       }catch(_){}
-    }, CFG.shakeMs);
-  }
-
-  // -------------------------
-  // Particles wrappers
-  // -------------------------
-  function popText(x,y,text, cls){
-    if (!WIN.Particles || !WIN.Particles.popText) return;
-    try{ WIN.Particles.popText(x,y,String(text||''), cls||''); }catch(_){}
-  }
-
-  function burst(x,y, opts){
-    if (!WIN.Particles || !WIN.Particles.burst) return;
-    try{ WIN.Particles.burst(x,y, opts||{}); }catch(_){}
-  }
-
-  // -------------------------
-  // Audio (optional)
-  // -------------------------
-  function mkOscBeep(freq, ms, gain){
-    try{
-      const AC = WIN.AudioContext || WIN.webkitAudioContext;
-      if (!AC) return null;
-      const ctx = mkOscBeep._ctx || (mkOscBeep._ctx = new AC());
-      if (ctx.state === 'suspended') { ctx.resume().catch(()=>{}); }
-
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq;
-      g.gain.value = gain;
-
-      o.connect(g);
-      g.connect(ctx.destination);
-
-      o.start();
-      o.stop(ctx.currentTime + (ms/1000));
 
       return true;
-    }catch{
-      return null;
-    }
-  }
+    },
 
-  function beepOk(){ if (!CFG.sound) return; mkOscBeep(740, 70, 0.05); }
-  function beepBad(){ if (!CFG.sound) return; mkOscBeep(220, 85, 0.06); }
-  function beepTick(){ if (!CFG.sound) return; mkOscBeep(520, 55, 0.03); }
+    stop(){
+      try{
+        const off = this._off || [];
+        for (let i=0;i<off.length;i++){
+          const it = off[i];
+          WIN.removeEventListener(it[0], it[1], it[2]);
+        }
+      }catch(_){}
+      this._off = [];
+      this._on = false;
+    },
 
-  // -------------------------
-  // Main FX handlers
-  // -------------------------
-  function fxHit(d){
-    if (!canFx()) return;
-    ensureFxLayer();
+    // helpers for engine calls (if engine wants direct API)
+    hit(x,y,text){ popText(x,y,text||'✅','good'); popDot(x,y,'good'); },
+    miss(x,y,text){ popText(x,y,text||'❌','bad');  popDot(x,y,'bad');  },
+    banner(text){ popText(WIN.innerWidth/2, WIN.innerHeight*0.42, text||'—', 'neutral'); }
+  };
 
-    const p = posFromDetail(d);
-    const pts = Number(d && d.points);
-    const groupName = String(d && (d.groupName || d.group)) || '';
-
-    flash('good');
-    // a tiny burst
-    burst(p.x, p.y, { count: prefersReduced ? 6 : 12, spread: 22, drift: 0.75 });
-
-    // score pop
-    const label = Number.isFinite(pts) ? `+${pts|0}` : '+';
-    popText(p.x, p.y, label, CFG.popGoodClass);
-
-    // occasional group name pop (lighter)
-    if (groupName && (Math.random() < 0.20) && !prefersReduced){
-      popText(p.x, p.y - 26, groupName, 'fx-neutral');
-    }
-
-    beepOk();
-  }
-
-  function fxMiss(d){
-    if (!canFx()) return;
-    ensureFxLayer();
-
-    const p = posFromDetail(d);
-    flash('bad');
-    shake();
-
-    burst(p.x, p.y, { count: prefersReduced ? 4 : 10, spread: 28, drift: 1.0 });
-
-    const reason = String(d && d.reason) || 'MISS';
-    popText(p.x, p.y, reason, CFG.popBadClass);
-
-    beepBad();
-  }
-
-  function fxShoot(d){
-    // very light feedback for tap-to-shoot / crosshair
-    if (!canFx()) return;
-    const p = posFromDetail(d || {});
-    if (!prefersReduced && Math.random() < 0.30){
-      popText(p.x, p.y, '•', 'fx-dot');
-    }
-    beepTick();
-  }
-
-  function fxProgress(d){
-    if (!d) return;
-    const k = String(d.kind||'');
-    if (!k) return;
-
-    if (k === 'storm_on'){
-      if (!canFx()) return;
-      flash('warn');
-      burst(innerWidth*0.5, innerHeight*0.25, { count: prefersReduced ? 10 : 22, spread: 70, drift: 1.0 });
-      popText(innerWidth*0.5, innerHeight*0.25, 'STORM!', CFG.popWarnClass);
-      return;
-    }
-    if (k === 'storm_off'){
-      if (!canFx()) return;
-      flash('good');
-      burst(innerWidth*0.5, innerHeight*0.25, { count: prefersReduced ? 10 : 24, spread: 76, drift: 0.9 });
-      popText(innerWidth*0.5, innerHeight*0.25, 'CLEAR!', CFG.popGoodClass);
-      return;
-    }
-    if (k === 'boss_spawn'){
-      if (!canFx()) return;
-      flash('warn');
-      shake();
-      popText(innerWidth*0.5, innerHeight*0.22, 'BOSS!', CFG.popWarnClass);
-      return;
-    }
-    if (k === 'boss_down'){
-      if (!canFx()) return;
-      flash('good');
-      burst(innerWidth*0.5, innerHeight*0.22, { count: prefersReduced ? 16 : 34, spread: 88, drift: 0.95 });
-      popText(innerWidth*0.5, innerHeight*0.22, 'NICE!', CFG.popGoodClass);
-      return;
-    }
-    if (k === 'perfect_switch'){
-      if (!canFx()) return;
-      flash('neutral');
-      const name = String(d.groupName||'');
-      burst(innerWidth*0.5, innerHeight*0.22, { count: prefersReduced ? 12 : 26, spread: 78, drift: 0.9 });
-      popText(innerWidth*0.5, innerHeight*0.22, name ? ('→ ' + name) : 'SWITCH!', 'fx-neutral');
-      return;
-    }
-  }
-
-  // -------------------------
-  // CSS injection for text classes
-  // -------------------------
-  function injectCss(){
-    if (DOC.getElementById('groupsFxCss')) return;
-    const st = DOC.createElement('style');
-    st.id = 'groupsFxCss';
-    st.textContent = `
-      .fx-good{ color: rgba(34,197,94,1); font-weight: 1000; text-shadow: 0 4px 18px rgba(34,197,94,.22); }
-      .fx-bad{ color: rgba(239,68,68,1); font-weight: 1100; text-shadow: 0 4px 18px rgba(239,68,68,.22); }
-      .fx-warn{ color: rgba(245,158,11,1); font-weight: 1050; text-shadow: 0 4px 18px rgba(245,158,11,.22); }
-      .fx-neutral{ color: rgba(229,231,235,.95); font-weight: 980; text-shadow: 0 4px 16px rgba(0,0,0,.35); }
-      .fx-dot{ color: rgba(229,231,235,.75); font-weight: 900; }
-    `;
-    DOC.head.appendChild(st);
-  }
-
-  // -------------------------
-  // Init / bind
-  // -------------------------
-  function bind(){
-    injectCss();
-    ensureFxLayer();
-
-    WIN.addEventListener('hha:shoot', (ev)=> fxShoot(ev.detail||{}), { passive:true });
-    WIN.addEventListener('groups:hit', (ev)=> fxHit(ev.detail||{}), { passive:true });
-    WIN.addEventListener('groups:miss', (ev)=> fxMiss(ev.detail||{}), { passive:true });
-    WIN.addEventListener('groups:progress', (ev)=> fxProgress(ev.detail||{}), { passive:true });
-
-    // subtle tick when quest updates (group change already handled by big banner, but add micro FX)
-    WIN.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail||{};
-      if (!d.groupKey) return;
-      if (!canFx()) return;
-      if (prefersReduced) return;
-      // tiny sparkle at top
-      burst(innerWidth*0.5, innerHeight*0.14, { count: 10, spread: 52, drift: 0.8 });
-    }, { passive:true });
-  }
-
-  // Some pages load Particles with defer; wait a bit but still bind.
-  function start(){
-    bind();
-    WIN.GroupsVR.Effects.__loaded = true;
-    WIN.GroupsVR.Effects.ping = ()=>{ try{ popText(innerWidth*0.5, innerHeight*0.5, 'FX OK', 'fx-neutral'); }catch(_){} };
-  }
-
-  if (DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', start, { once:true });
-  }else{
-    start();
-  }
-
+  WIN.GroupsVR.EffectsPack = EffectsPack;
 })();
