@@ -1,230 +1,216 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — PRODUCTION (AIM-ASSIST PATCH)
-// ✅ Crosshair overlay + tap-to-shoot
-// ✅ Emits: hha:shoot {x,y,lockPx,eye,source,cooldownMsUsed}
-// ✅ Supports view=cvr strict (split 2 eyes) -> chooses eye by tap position
-// ✅ Adaptive: lockPx + cooldown varies with tap cadence (prevents spam / improves aim)
-//
-// Config (optional):
-// window.HHA_VRUI_CONFIG = {
-//   lockPx: 28,
-//   lockMin: 22,
-//   lockMax: 54,
-//   cooldownMs: 90,
-//   cooldownMin: 70,
-//   cooldownMax: 140,
-//   adaptive: true
-// }
+// Universal VR UI — PRODUCTION PATCHED
+// ✅ ENTER VR / EXIT / RECENTER buttons (best effort)
+// ✅ Crosshair overlay
+// ✅ Tap-to-shoot emits: hha:shoot {x,y,lockPx,source}
+// ✅ PATCH: mobile/pc uses touch point (real finger coordinate)
+// ✅ cVR strict uses center crosshair (shoot from center)
+// Config: window.HHA_VRUI_CONFIG = { lockPx: 92, cooldownMs: 90 }
 
 (function(){
   'use strict';
+
   const WIN = window;
   const DOC = document;
 
   if(!DOC || WIN.__HHA_VRUI_LOADED__) return;
   WIN.__HHA_VRUI_LOADED__ = true;
 
-  const CFG = Object.assign({
-    lockPx: 28,
-    lockMin: 22,
-    lockMax: 54,
-    cooldownMs: 90,
-    cooldownMin: 70,
-    cooldownMax: 140,
-    adaptive: true
-  }, WIN.HHA_VRUI_CONFIG || {});
+  const CFG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
+  const qs = (s)=>DOC.querySelector(s);
 
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function nowMs(){ try{ return performance.now(); }catch(_){ return Date.now(); } }
 
   function getView(){
-    const v = String(qs('view','')||'').trim().toLowerCase();
-    return v || (DOC.body?.classList.contains('view-cvr') ? 'cvr'
-             : DOC.body?.classList.contains('view-vr') ? 'vr'
-             : DOC.body?.classList.contains('view-mobile') ? 'mobile'
-             : 'pc');
+    try{
+      const v = new URL(location.href).searchParams.get('view');
+      return (v||'').toLowerCase();
+    }catch(_){ return ''; }
   }
 
-  // --- Crosshair layer ---
-  function ensureCrosshair(){
-    let el = DOC.getElementById('hha-crosshair');
-    if(el) return el;
+  function isCvrStrict(){
+    const v = getView();
+    return (v === 'cvr'); // strict center shooting only for cvr
+  }
 
-    el = DOC.createElement('div');
-    el.id = 'hha-crosshair';
-    el.style.cssText = [
-      'position:fixed',
-      'inset:0',
-      'pointer-events:none',
-      'z-index:9999'
+  // ---------------- UI root ----------------
+  const root = DOC.createElement('div');
+  root.id = 'hha-vrui';
+  root.style.cssText = [
+    'position:fixed',
+    'inset:0',
+    'pointer-events:none',
+    'z-index:9998'
+  ].join(';');
+
+  // Crosshair
+  const cross = DOC.createElement('div');
+  cross.id = 'hha-crosshair';
+  cross.style.cssText = [
+    'position:absolute',
+    'left:50%',
+    'top:50%',
+    'width:18px',
+    'height:18px',
+    'transform:translate(-50%,-50%)',
+    'border:2px solid rgba(255,255,255,.70)',
+    'border-radius:999px',
+    'box-shadow:0 0 0 2px rgba(2,6,23,.35)',
+    'opacity:.85',
+    'pointer-events:none'
+  ].join(';');
+  root.appendChild(cross);
+
+  // Buttons container
+  const btnWrap = DOC.createElement('div');
+  btnWrap.style.cssText = [
+    'position:absolute',
+    'top:calc(env(safe-area-inset-top,0px) + 10px)',
+    'right:calc(env(safe-area-inset-right,0px) + 10px)',
+    'display:flex',
+    'gap:8px',
+    'pointer-events:auto',
+    'z-index:9999'
+  ].join(';');
+
+  function mkBtn(txt){
+    const b = DOC.createElement('button');
+    b.type = 'button';
+    b.textContent = txt;
+    b.style.cssText = [
+      'appearance:none',
+      'border:1px solid rgba(148,163,184,.22)',
+      'background:rgba(2,6,23,.55)',
+      'color:rgba(255,255,255,.92)',
+      'border-radius:14px',
+      'padding:10px 12px',
+      'font:800 12px/1.1 system-ui,-apple-system,"Noto Sans Thai",sans-serif',
+      'backdrop-filter: blur(10px)',
+      'box-shadow:0 10px 30px rgba(0,0,0,.25)',
+      'cursor:pointer'
     ].join(';');
-
-    // Single crosshair (pc/mobile/vr) + dual crosshair for cVR
-    const c1 = DOC.createElement('div');
-    c1.id = 'hha-xhair-1';
-    c1.style.cssText = [
-      'position:absolute',
-      'left:50%',
-      'top:50%',
-      'width:26px',
-      'height:26px',
-      'transform:translate(-50%,-50%)',
-      'border-radius:999px',
-      'border:2px solid rgba(255,255,255,.75)',
-      'box-shadow:0 0 0 7px rgba(255,255,255,.08)',
-      'opacity:.95'
-    ].join(';');
-
-    const c2 = DOC.createElement('div');
-    c2.id = 'hha-xhair-2';
-    c2.style.cssText = [
-      'position:absolute',
-      'left:25%',
-      'top:50%',
-      'width:26px',
-      'height:26px',
-      'transform:translate(-50%,-50%)',
-      'border-radius:999px',
-      'border:2px solid rgba(255,255,255,.55)',
-      'box-shadow:0 0 0 7px rgba(255,255,255,.06)',
-      'opacity:0'
-    ].join(';');
-
-    const c3 = DOC.createElement('div');
-    c3.id = 'hha-xhair-3';
-    c3.style.cssText = [
-      'position:absolute',
-      'left:75%',
-      'top:50%',
-      'width:26px',
-      'height:26px',
-      'transform:translate(-50%,-50%)',
-      'border-radius:999px',
-      'border:2px solid rgba(255,255,255,.55)',
-      'box-shadow:0 0 0 7px rgba(255,255,255,.06)',
-      'opacity:0'
-    ].join(';');
-
-    el.appendChild(c1);
-    el.appendChild(c2);
-    el.appendChild(c3);
-    DOC.body.appendChild(el);
-
-    return el;
+    return b;
   }
 
-  function syncCrosshairMode(){
-    const view = getView();
-    const c1 = DOC.getElementById('hha-xhair-1');
-    const c2 = DOC.getElementById('hha-xhair-2');
-    const c3 = DOC.getElementById('hha-xhair-3');
-    if(!c1 || !c2 || !c3) return;
+  const btnEnter = mkBtn('ENTER VR');
+  const btnExit  = mkBtn('EXIT');
+  const btnRec   = mkBtn('RECENTER');
 
-    if(view === 'cvr'){
-      c1.style.opacity = '0';
-      c2.style.opacity = '.95';
-      c3.style.opacity = '.95';
-    }else{
-      c1.style.opacity = '.95';
-      c2.style.opacity = '0';
-      c3.style.opacity = '0';
-    }
+  btnWrap.appendChild(btnEnter);
+  btnWrap.appendChild(btnExit);
+  btnWrap.appendChild(btnRec);
+  root.appendChild(btnWrap);
+
+  DOC.body.appendChild(root);
+
+  // ---------------- XR hooks (best effort) ----------------
+  function getScene(){
+    // find a-scene if exists
+    return DOC.querySelector('a-scene');
   }
 
-  // --- Adaptive lock/cooldown by cadence ---
-  const T = {
-    lastShotMs: 0,
-    lastTapMs: 0,
-    emaTapHz: 0,
-    lockPx: CFG.lockPx,
-    cooldownMs: CFG.cooldownMs
-  };
+  btnEnter.addEventListener('click', ()=>{
+    try{
+      const sc = getScene();
+      if (sc && sc.enterVR) sc.enterVR();
+    }catch(_){}
+  });
 
-  function updateCadence(t){
-    const dt = T.lastTapMs ? (t - T.lastTapMs) : 0;
-    T.lastTapMs = t;
-    if(dt > 0 && dt < 1600){
-      const hz = 1000 / dt;
-      T.emaTapHz = (T.emaTapHz === 0) ? hz : (T.emaTapHz + 0.22 * (hz - T.emaTapHz));
-    }
-  }
+  btnExit.addEventListener('click', ()=>{
+    try{
+      const sc = getScene();
+      if (sc && sc.exitVR) sc.exitVR();
+    }catch(_){}
+  });
 
-  function computeAdaptiveParams(){
-    if(!CFG.adaptive){
-      return {
-        lockPx: clamp(CFG.lockPx, CFG.lockMin, CFG.lockMax),
-        cooldownMs: clamp(CFG.cooldownMs, CFG.cooldownMin, CFG.cooldownMax)
-      };
-    }
+  btnRec.addEventListener('click', ()=>{
+    // best-effort: A-Frame has different recenter methods by device; we just emit an event others can listen
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ t: nowMs() } }));
+    }catch(_){}
+  });
 
-    const view = getView();
-    const hz = clamp(T.emaTapHz, 0, 8);
+  // ---------------- Shooting (PATCH CORE) ----------------
+  let lastShotAt = 0;
 
-    let cd = CFG.cooldownMs + (hz > 3 ? (hz - 3) * 10 : 0);
-    cd = clamp(cd, CFG.cooldownMin, CFG.cooldownMax);
-
-    let lock = CFG.lockPx + (hz < 1.6 ? 8 : hz > 4.5 ? -4 : 0);
-    if(view === 'cvr') lock += 10;
-    else if(view === 'vr') lock += 6;
-    else if(view === 'mobile') lock += 2;
-
-    lock = clamp(lock, CFG.lockMin, CFG.lockMax);
-
-    T.lockPx = lock;
-    T.cooldownMs = cd;
-
-    return { lockPx: lock, cooldownMs: cd };
-  }
-
-  function emitShoot(detail){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail })); }catch(_){}
-  }
-
-  function handleShootFromTap(ev){
+  function emitShoot(x, y, source){
     const t = nowMs();
-    updateCadence(t);
-    const P = computeAdaptiveParams();
+    if (t - lastShotAt < CFG.cooldownMs) return;
+    lastShotAt = t;
 
-    if(T.lastShotMs && (t - T.lastShotMs) < P.cooldownMs) return;
-    T.lastShotMs = t;
+    const lockPx = clamp(CFG.lockPx, 10, 220);
 
-    const view = getView();
-    const r = DOC.documentElement.getBoundingClientRect();
-    const tapX = (ev && typeof ev.clientX === 'number') ? ev.clientX : (r.left + r.width/2);
-    const tapY = (ev && typeof ev.clientY === 'number') ? ev.clientY : (r.top  + r.height/2);
-
-    let aimX = r.left + r.width/2;
-    let aimY = r.top  + r.height/2;
-    let eye = null;
-
-    if(view === 'cvr'){
-      const mid = r.left + r.width/2;
-      eye = (tapX <= mid) ? 'left' : 'right';
-      aimX = (eye === 'left') ? (r.left + r.width*0.25) : (r.left + r.width*0.75);
-      aimY = (r.top + r.height*0.50);
-    }
-
-    emitShoot({
-      x: aimX,
-      y: aimY,
-      eye,
-      lockPx: P.lockPx,
-      cooldownMsUsed: P.cooldownMs,
-      source: 'vr-ui'
-    });
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:shoot', {
+        detail:{ x, y, lockPx, source: source || 'tap' }
+      }));
+    }catch(_){}
   }
 
-  // Init
-  ensureCrosshair();
-  syncCrosshairMode();
+  function centerXY(){
+    // use visualViewport if available (mobile browsers)
+    const vv = WIN.visualViewport;
+    const w = vv ? vv.width : WIN.innerWidth;
+    const h = vv ? vv.height : WIN.innerHeight;
+    const ox = vv ? vv.offsetLeft : 0;
+    const oy = vv ? vv.offsetTop : 0;
+    return { x: ox + w/2, y: oy + h/2 };
+  }
 
-  DOC.addEventListener('pointerdown', (ev)=>{
-    if(ev && ev.isPrimary === false) return;
-    handleShootFromTap(ev);
-  }, { passive:true });
+  function pointFromEvent(ev){
+    // pointer/touch/mouse compatible
+    if (!ev) return null;
 
-  WIN.addEventListener('resize', ()=>syncCrosshairMode(), { passive:true });
-  WIN.addEventListener('orientationchange', ()=>syncCrosshairMode(), { passive:true });
+    // touch
+    const te = ev.touches && ev.touches[0];
+    const ce = ev.changedTouches && ev.changedTouches[0];
+    const t0 = te || ce;
+    if (t0 && typeof t0.clientX === 'number'){
+      return { x: t0.clientX, y: t0.clientY };
+    }
+
+    // pointer/mouse
+    if (typeof ev.clientX === 'number'){
+      return { x: ev.clientX, y: ev.clientY };
+    }
+    return null;
+  }
+
+  function shouldIgnoreTarget(ev){
+    // ignore clicks on UI buttons
+    const t = ev && ev.target;
+    if (!t) return false;
+    if (t === btnEnter || t === btnExit || t === btnRec) return true;
+    if (t.closest && t.closest('#hha-vrui')) {
+      // if inside vrui and is button area
+      if (t.closest('button')) return true;
+    }
+    return false;
+  }
+
+  function onShootInput(ev){
+    if (shouldIgnoreTarget(ev)) return;
+
+    // cVR strict: always shoot from center (crosshair)
+    if (isCvrStrict()){
+      const c = centerXY();
+      emitShoot(c.x, c.y, 'cvr-center');
+      return;
+    }
+
+    // mobile/pc: shoot at finger point (PATCH FIX)
+    const p = pointFromEvent(ev);
+    if (!p) {
+      const c = centerXY();
+      emitShoot(c.x, c.y, 'fallback-center');
+      return;
+    }
+    emitShoot(p.x, p.y, 'touch-point');
+  }
+
+  // Use pointer events (best), fallback touch
+  DOC.addEventListener('pointerdown', onShootInput, { passive:true });
+  DOC.addEventListener('touchstart',  onShootInput, { passive:true });
 
 })();
