@@ -1,9 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR LAUNCHER — ROOT (Production)
-✅ Redirects to ./vr-goodjunk/goodjunk-vr.html
-✅ Auto-detect view (only if no ?view= set)
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/v/style
-✅ Never override an explicit ?view=
+✅ Redirects to: ./vr-goodjunk/goodjunk-vr.html
+✅ Does NOT override view if ?view= already exists
+✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/style/log/telemetry + any extra params
+✅ Adds best-effort view=auto only when missing (optional)
 -->
 <!doctype html>
 <html lang="th">
@@ -11,138 +11,155 @@ GoodJunkVR LAUNCHER — ROOT (Production)
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunkVR</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --radius:22px;
-      --sat: env(safe-area-inset-top,0px);
-      --sab: env(safe-area-inset-bottom,0px);
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
+      --radius:22px; --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
     }
-    html,body{ height:100%; }
+    html,body{height:100%;}
     body{
-      margin:0;
-      background: radial-gradient(1200px 700px at 20% 15%, rgba(34,197,94,.14), transparent 55%),
-                  radial-gradient(900px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
-                  var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
+      margin:0; background:radial-gradient(1200px 800px at 50% 20%, rgba(34,197,94,.12), transparent 55%), var(--bg);
+      color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      display:flex; align-items:center; justify-content:center; padding:calc(16px + var(--sat)) 16px 16px;
     }
     .card{
-      width:min(560px, 92vw);
-      border-radius: 26px;
-      background: var(--panel);
+      width:min(720px, 100%);
+      background:var(--panel);
       border:1px solid var(--stroke);
-      box-shadow: 0 22px 60px rgba(0,0,0,.40);
-      padding: 18px 18px;
+      border-radius:var(--radius);
+      padding:22px;
+      box-shadow:0 18px 70px rgba(0,0,0,.35);
     }
-    h1{ margin:0; font-size:22px; font-weight:950; }
-    p{ margin:10px 0 0; opacity:.78; }
-    .row{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
-    .btn{
-      appearance:none; border:none; cursor:pointer;
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: rgba(15,23,42,.70);
-      border: 1px solid rgba(148,163,184,.18);
-      color: var(--text);
-      font-weight:900;
+    .top{
+      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;
     }
-    .btn.primary{
-      background: rgba(34,197,94,.16);
-      border-color: rgba(34,197,94,.35);
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      border:1px solid var(--stroke);
+      padding:8px 12px; border-radius:var(--pill);
+      background:rgba(15,23,42,.55);
+      font-weight:700;
     }
-    .meta{
-      margin-top:12px;
-      font-size:12px;
-      opacity:.72;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      word-break: break-all;
+    .muted{color:var(--muted); font-weight:500;}
+    .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+    button{
+      appearance:none; border:1px solid var(--stroke);
+      background:rgba(15,23,42,.55); color:var(--text);
+      padding:10px 14px; border-radius:14px; cursor:pointer;
+      font-weight:700;
     }
+    button.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.35); }
+    .row{display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;}
+    code{
+      background:rgba(0,0,0,.25);
+      border:1px solid rgba(148,163,184,.18);
+      padding:2px 6px; border-radius:10px;
+    }
+    .small{font-size:13px; line-height:1.45;}
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <h1>GoodJunkVR</h1>
-    <p>กำลังเปิดเกม… ถ้าไม่เด้งอัตโนมัติ ให้กด “Start”</p>
-    <div class="row">
-      <button class="btn primary" id="btnStart" type="button">Start</button>
-      <button class="btn" id="btnBack" type="button">กลับ HUB</button>
+  <div class="card" role="main" aria-label="GoodJunkVR Launcher">
+    <div class="top">
+      <div class="pill">🥦 GoodJunkVR <span class="muted">Launcher</span></div>
+      <div class="muted small" id="meta">redirecting…</div>
     </div>
-    <div class="meta" id="meta">—</div>
+
+    <div class="row small">
+      <div>Run page: <code>./vr-goodjunk/goodjunk-vr.html</code></div>
+      <div>Mode: <code id="mRun">—</code></div>
+      <div>Diff: <code id="mDiff">—</code></div>
+      <div>Time: <code id="mTime">—</code></div>
+      <div>View: <code id="mView">—</code></div>
+    </div>
+
+    <div class="btns">
+      <button class="primary" id="btnGo" type="button">เริ่มเกม</button>
+      <button id="btnCopy" type="button">คัดลอกลิงก์นี้</button>
+      <button id="btnHub" type="button">↩ กลับ HUB</button>
+    </div>
+
+    <p class="muted small" style="margin:14px 0 0;">
+      ถ้าเข้าจาก HUB ปกติจะเด้งเข้าเกมอัตโนมัติภายใน 0.2 วิ (ปุ่มมีไว้กันกรณีเบราว์เซอร์บล็อค redirect)
+    </p>
   </div>
 
   <script>
     (function(){
-      const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      const RUN_PATH = './vr-goodjunk/goodjunk-vr.html';
 
-      const hub = qs('hub', null);
+      const meta = document.getElementById('meta');
+      const mRun  = document.getElementById('mRun');
+      const mDiff = document.getElementById('mDiff');
+      const mTime = document.getElementById('mTime');
+      const mView = document.getElementById('mView');
 
-      function detectView(){
-        const forced = (qs('view','')||'').toLowerCase();
-        if(forced) return forced; // ✅ do not override
-        const ua = (navigator.userAgent||'').toLowerCase();
-        const isMobile = /android|iphone|ipad|ipod/.test(ua);
-        const isXRUA = /oculus|quest|vive|pico|webkitxr/.test(ua);
-        if(isXRUA) return 'vr';
-        return isMobile ? 'mobile' : 'pc';
+      const btnGo = document.getElementById('btnGo');
+      const btnCopy = document.getElementById('btnCopy');
+      const btnHub = document.getElementById('btnHub');
+
+      const u = new URL(location.href);
+      const p = u.searchParams;
+
+      // --- defaults (only if missing) ---
+      if(!p.get('run'))  p.set('run','play');
+      if(!p.get('diff')) p.set('diff','normal');
+      if(!p.get('time')) p.set('time','80');
+      if(!p.get('seed')) p.set('seed', String(Date.now()));
+
+      // IMPORTANT: do NOT override view if provided
+      if(!p.get('view')){
+        // best effort default — safe for downstream boot (it will detect again)
+        p.set('view','auto');
       }
 
-      function buildUrl(){
-        // ✅ target run page
-        const base = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      // UI meta
+      mRun.textContent  = p.get('run')  || '—';
+      mDiff.textContent = p.get('diff') || '—';
+      mTime.textContent = p.get('time') || '—';
+      mView.textContent = p.get('view') || '—';
 
-        // pass-through keys (add more if you want)
-        const keys = ['hub','run','diff','time','seed','studyId','phase','conditionGroup','log','v','style'];
-        for(const k of keys){
-          const v = qs(k, null);
-          if(v != null) base.searchParams.set(k, v);
-        }
-
-        // only set view if not provided
-        if(qs('view', null) == null){
-          base.searchParams.set('view', detectView());
-        }
-
-        // always have seed
-        if(!base.searchParams.get('seed')){
-          base.searchParams.set('seed', String(Date.now()));
-        }
-
-        // default cache tag if missing
-        if(!base.searchParams.get('v')){
-          base.searchParams.set('v', '20260131a');
-        }
-
-        return base.toString();
+      // build destination URL (pass through everything)
+      const dest = new URL(RUN_PATH, u);
+      // copy all params (including hub, log, telemetry, studyId, phase, conditionGroup, etc.)
+      for(const [k,v] of p.entries()){
+        dest.searchParams.set(k, v);
       }
 
-      function go(){
-        const url = buildUrl();
-        document.getElementById('meta').textContent = url;
-        location.replace(url);
+      // Hub button uses hub param if present
+      function goHub(){
+        const hub = dest.searchParams.get('hub');
+        if(hub){
+          location.href = hub;
+        }else{
+          alert('ยังไม่ได้ใส่ ?hub=');
+        }
       }
+      btnHub?.addEventListener('click', goHub);
 
-      document.getElementById('btnStart').addEventListener('click', go);
-      document.getElementById('btnBack').addEventListener('click', ()=>{
-        if(hub) location.href = hub;
-        else alert('ยังไม่ได้ใส่ hub url');
+      btnCopy?.addEventListener('click', async ()=>{
+        try{
+          await navigator.clipboard.writeText(location.href);
+          meta.textContent = 'คัดลอกลิงก์แล้ว ✅';
+          setTimeout(()=> meta.textContent = 'พร้อมเริ่ม', 1200);
+        }catch(_){
+          meta.textContent = 'คัดลอกไม่สำเร็จ (เบราว์เซอร์บล็อค)';
+        }
       });
 
-      // auto
-      setTimeout(go, 150);
+      function go(){
+        meta.textContent = 'กำลังเข้าเกม…';
+        location.replace(dest.toString());
+      }
+      btnGo?.addEventListener('click', go);
+
+      // auto redirect quickly
+      setTimeout(go, 220);
     })();
   </script>
 </body>
