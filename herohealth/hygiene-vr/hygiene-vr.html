@@ -1,8 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Uses: ../vr/vr-ui.js + ../vr/particles.js
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+✅ Quiz bank: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
 -->
 <!doctype html>
 <html lang="th">
@@ -13,6 +14,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- bump version to bust cache -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260131a" />
 
   <!-- Universal VR UI (MUST defer) -->
@@ -26,11 +28,33 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์จริง) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+  <!-- ✅ Quiz bank (correct filename) -->
+  <script src="./hygiene-quiz-bank.js?v=20260131a" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260131a"></script>
+
+  <!-- Fallback: if quiz bank not found / wrong name -->
+  <script>
+  (function(){
+    'use strict';
+    function add(src){
+      try{
+        var s=document.createElement('script');
+        s.defer=true; s.src=src;
+        document.head.appendChild(s);
+      }catch(_){}
+    }
+    // ถ้าจบโหลดแล้วไม่มี BANK → ลองชื่อเดิมให้อัตโนมัติ (กันพลาด)
+    window.addEventListener('load', function(){
+      try{
+        if(!Array.isArray(window.HHA_HYGIENE_QUIZ_BANK) || !window.HHA_HYGIENE_QUIZ_BANK.length){
+          add('./hygiene.quiz-bank.js?v=' + Date.now());
+        }
+      }catch(_){}
+    }, { once:true });
+  })();
+  </script>
 </head>
 
 <body class="view-pc">
@@ -58,19 +82,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- ✅ Quiz box (อัปเกรด) -->
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
-
-          <!-- ✅ Options -->
-          <div class="hw-quiz-opts" id="quizOpts">
-            <!-- JS จะเติมปุ่ม 1–4 -->
-          </div>
-
-          <div class="hw-quiz-hint" id="quizHint">
-            แตะเลือกคำตอบ • ถ้าเป็น Cardboard/cVR ให้เล็ง crosshair แล้ว “ยิง” เพื่อเลือก
-          </div>
         </div>
       </div>
 
