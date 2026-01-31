@@ -1,3 +1,11 @@
+<!-- === /herohealth/hydration-vr/hydration-vr.html ===
+Hydration VR RUN — PRODUCTION
+✅ HUD + Playfield + Cardboard split + cVR crosshair (ยิงกลางจอ)
+✅ Tap-to-start overlay (gesture for fullscreen/orientation/audio)
+✅ End Summary (copy JSON / download CSV / back hub / retry)
+✅ Loads: ../vr/particles.js, ../vr/hha-cloud-logger.js (optional)
+✅ Boot: ./hydration-vr.loader.js (imports hydration.safe.js)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -6,13 +14,6 @@
   <title>HeroHealth — Hydration VR</title>
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-
-  <!-- HHA Standard UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
-  <script>
-    // Optional config (leave defaults if you want)
-    window.HHA_VRUI_CONFIG = Object.assign({ lockPx: 28, cooldownMs: 90 }, window.HHA_VRUI_CONFIG || {});
-  </script>
-  <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Global FX + optional logger -->
   <script src="../vr/particles.js" defer></script>
@@ -183,10 +184,37 @@
     body.cardboard #playfield{ display:none; }
     body.cardboard #cbPlayfield{ display:block; }
 
-    /* cVR: ยิงจาก crosshair กลางจอ (vr-ui.js จะจัดการ tap-to-shoot ให้) */
+    /* cVR (crosshair ยิงกลางจอ) */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
     body.view-cvr #hydration-layer{ pointer-events:none; } /* ยิงจากกลางจอ */
+
+    .crosshair{
+      position:fixed;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      z-index:95;
+      pointer-events:none;
+      width:22px; height:22px;
+      opacity:.92;
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
+      display:none;
+    }
+    .crosshair::before, .crosshair::after{
+      content:"";
+      position:absolute; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+    }
+    .crosshair::before{
+      width:18px; height:18px;
+      border:2px solid rgba(229,231,235,.85);
+    }
+    .crosshair::after{
+      width:4px; height:4px;
+      background:rgba(34,211,238,.95);
+    }
+    body.view-cvr .crosshair{ display:block; }
 
     /* ---------- Start Overlay (tap to start only) ---------- */
     #startOverlay{
@@ -347,6 +375,9 @@
     </div>
   </div>
 
+  <!-- Crosshair for cVR -->
+  <div class="crosshair" aria-hidden="true"></div>
+
   <!-- HUD -->
   <div class="hud">
     <div class="panel">
@@ -398,7 +429,7 @@
     <div style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
-  <!-- START OVERLAY -->
+  <!-- START OVERLAY (tap to start only) -->
   <div id="startOverlay">
     <div class="card">
       <div class="header">
@@ -468,7 +499,7 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     </div>
   </div>
 
-  <!-- Minimal start + hub helper (NO tap-to-shoot here; vr-ui.js handles it) -->
+  <!-- Minimal start + hub + cVR shoot helper -->
   <script>
   (function(){
     const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -484,12 +515,12 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
 
     function getView(){ return String(qs('view','')).toLowerCase(); }
 
+    // show detected view text (loader will set body class)
     function viewLabel(){
       const b = document.body;
       if (b.classList.contains('cardboard')) return 'VR Cardboard (Split)';
       if (b.classList.contains('view-cvr')) return 'cVR (Crosshair ยิงกลางจอ)';
       if (b.classList.contains('view-mobile')) return 'Mobile';
-      if (b.classList.contains('view-vr')) return 'VR';
       return 'PC';
     }
 
@@ -500,7 +531,7 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
         const isMobile = matchMedia && matchMedia('(pointer:coarse)').matches;
         const want = (v==='cardboard' || v==='cvr' || b.classList.contains('cardboard') || b.classList.contains('view-cvr'));
         if (!want) return;
-
+        // fullscreen + landscape best-effort (ต้องมาจาก gesture)
         if (!document.fullscreenElement && document.documentElement.requestFullscreen){
           await document.documentElement.requestFullscreen({navigationUI:'hide'});
         }
@@ -510,12 +541,27 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
       }catch(_){}
     }
 
+    // cVR: tap anywhere => emit hha:shoot (ยิงจากกลางจอ)
+    function bindCVRShoot(){
+      const pf = document.getElementById('playfield');
+      if (!pf) return;
+      pf.addEventListener('pointerdown', (ev)=>{
+        try{
+          if (!document.body.classList.contains('view-cvr')) return;
+          window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'tap' } }));
+        }catch(_){}
+      }, {passive:true});
+    }
+    bindCVRShoot();
+
+    // Start button => hide overlay + start game (also allow audio/fullscreen)
     document.getElementById('btnStart')?.addEventListener('click', async ()=>{
       await enterFullIfNeeded();
       overlay?.classList.add('hide');
       try{ window.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
     });
 
+    // Update subtitle once body class ready
     function refreshText(){
       if (sub) sub.textContent = `โหมดตรวจจับแล้ว: ${viewLabel()}  •  แตะเพื่อเริ่ม`;
     }
