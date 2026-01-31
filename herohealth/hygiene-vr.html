@@ -70,6 +70,8 @@ HygieneVR Launcher — ROOT (AUTO)
   'use strict';
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const hub = String(qs('hub','./hub.html'));
+
+  // RUN file
   const RUN_URL = './hygiene-vr/hygiene-vr.html';
 
   function detectView(){
@@ -77,7 +79,9 @@ HygieneVR Launcher — ROOT (AUTO)
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
+
     if (isTouch){
+      // หมายเหตุ: cVR มักอยากได้ landscape หน่อย + จอกว้างพอ
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
@@ -88,15 +92,15 @@ HygieneVR Launcher — ROOT (AUTO)
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
+    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
+    // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
 
-    // ใส่ cache-buster ให้ชัวร์เวลา GH pages cache
-    if (!u.searchParams.get('v')) u.searchParams.set('v', String(Date.now()));
     return u.toString();
   }
 
