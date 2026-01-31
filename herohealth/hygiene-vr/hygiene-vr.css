@@ -1,15 +1,20 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR UI — PRODUCTION
-✅ stage full-screen
-✅ safe zones for HUD
-✅ targets positioned via --x/--y/--s (vw/vh)
-✅ overlays + banner + quiz box
+HygieneVR CSS — PRODUCTION (HHA Standard)
+✅ Stage + HUD + Overlays
+✅ Targets use CSS vars: --x, --y, --s  (vw/vh positioning)
+✅ Safe zones: --hw-top-safe / --hw-bottom-safe (used by engine spawn rect)
+✅ view classes: .view-pc .view-mobile .view-vr .view-cvr
 */
 
 :root{
-  --bg:#060b18;
-  --panel: rgba(2,6,23,.74);
+  color-scheme: light dark;
+
+  --bg0:#020617;
+  --bg1:#071224;
+  --panel: rgba(2,6,23,.72);
+  --panel2: rgba(15,23,42,.72);
   --stroke: rgba(148,163,184,.18);
+
   --text: rgba(229,231,235,.96);
   --muted: rgba(148,163,184,.95);
 
@@ -18,57 +23,80 @@ HygieneVR UI — PRODUCTION
   --warn: rgba(245,158,11,.95);
   --bad:  rgba(239,68,68,.95);
 
-  --radius: 22px;
+  --r: 22px;
   --pill: 999px;
-
-  /* ✅ spawn safe zones used by hygiene.safe.js */
-  --hw-top-safe: 170;
-  --hw-bottom-safe: 160;
 
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
+
+  /* ✅ spawn-safe zone (engine reads these) */
+  --hw-top-safe: 168;    /* px number (no unit) */
+  --hw-bottom-safe: 156; /* px number (no unit) */
+
+  /* target sizing */
+  --tgt: 56px;           /* base size */
+  --tgt-ring: 10px;
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; }
+html,body{ margin:0; height:100%; background: var(--bg0); color: var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 body{
-  color: var(--text);
-  background: radial-gradient(1200px 900px at 50% 20%, rgba(34,211,238,.10), transparent 55%),
-              radial-gradient(900px 700px at 20% 70%, rgba(34,197,94,.08), transparent 55%),
-              linear-gradient(180deg, #050816, #030411);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
   overflow:hidden;
+  background:
+    radial-gradient(1200px 700px at 20% 10%, rgba(34,211,238,.10), transparent 55%),
+    radial-gradient(900px 600px at 70% 18%, rgba(34,197,94,.10), transparent 55%),
+    radial-gradient(900px 700px at 45% 80%, rgba(245,158,11,.08), transparent 60%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
 }
 
-/* Root */
+/* =========================
+   Root & Stage
+========================= */
 .hw-root{
-  position: fixed;
-  inset: 0;
+  position:fixed;
+  inset:0;
+  display:block;
 }
 
-/* Stage area */
 .hw-stage{
-  position:absolute;
+  position:fixed;
   inset:0;
   overflow:hidden;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action: manipulation;
+  z-index: 1;
+  /* allow clicking targets */
+  pointer-events:auto;
 }
 
-/* HUD */
-.hw-hud{
+/* subtle grid */
+.hw-stage::before{
+  content:"";
   position:absolute;
-  inset:0;
+  inset:-10%;
+  background:
+    linear-gradient(rgba(148,163,184,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,.06) 1px, transparent 1px);
+  background-size: 52px 52px;
+  transform: translateZ(0);
+  opacity:.22;
   pointer-events:none;
+}
+
+/* =========================
+   HUD (top overlay)
+========================= */
+.hw-hud{
+  position:fixed;
+  inset:0;
+  z-index: 50;
+  pointer-events:none; /* ✅ default none so targets still clickable */
 }
 
 .hw-top{
   position:absolute;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
+  left: calc(14px + var(--sal));
+  right: calc(14px + var(--sar));
   top: calc(12px + var(--sat));
   display:flex;
   flex-direction:column;
@@ -78,187 +106,289 @@ body{
 .hw-title{
   font-weight: 950;
   letter-spacing:.2px;
-  font-size: 18px;
-  text-shadow: 0 16px 50px rgba(0,0,0,.55);
+  font-size: 16px;
+  text-shadow: 0 14px 28px rgba(0,0,0,.45);
 }
 
 .hw-sub{
   font-size: 12px;
   color: var(--muted);
-  margin-top: -4px;
 }
 
 .hw-row{
   display:flex;
+  gap:10px;
   flex-wrap:wrap;
-  gap:8px;
+  align-items:center;
 }
 
 .hw-pill{
-  pointer-events:auto;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
   padding: 8px 10px;
-  font-weight: 900;
-  font-size: 12px;
-  line-height: 1;
-  box-shadow: 0 20px 70px rgba(0,0,0,.35);
+  border-radius: var(--pill);
+  border:1px solid var(--stroke);
+  background: var(--panel);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text);
+  box-shadow: 0 18px 60px rgba(0,0,0,.30);
 }
+
+.hw-pill.warn{ border-color: rgba(245,158,11,.30); background: rgba(245,158,11,.12); }
+.hw-pill.cyan{ border-color: rgba(34,211,238,.30); background: rgba(34,211,238,.10); }
+.hw-pill.bad { border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
 
 .hw-pill.btn{
   cursor:pointer;
-  background: rgba(15,23,42,.72);
+  pointer-events:auto;  /* ✅ allow clicking buttons */
+  user-select:none;
 }
-.hw-pill.warn{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
-.hw-pill.cyan{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.10); }
-.hw-pill.bad { border-color: rgba(239,68,68,.28);  background: rgba(239,68,68,.10); }
+.hw-pill.btn:active{ transform: translateY(1px); }
 
-/* Banner */
 .hw-banner{
-  position:absolute;
+  position: absolute;
   left: 50%;
-  top: calc(106px + var(--sat));
+  top: calc(110px + var(--sat));
   transform: translateX(-50%);
-  min-width: min(680px, calc(100% - 24px));
-  max-width: min(680px, calc(100% - 24px));
-  text-align:center;
-  font-weight: 950;
-  font-size: 14px;
+  min-width: min(560px, calc(100% - 32px));
+  max-width: min(720px, calc(100% - 32px));
   padding: 10px 12px;
-  border-radius: 999px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.68);
   backdrop-filter: blur(10px);
-  box-shadow: 0 24px 90px rgba(0,0,0,.35);
-  opacity: 0;
+  -webkit-backdrop-filter: blur(10px);
+  font-weight: 950;
+  font-size: 13px;
+  color: rgba(229,231,235,.98);
+  text-align:center;
+  box-shadow: 0 22px 80px rgba(0,0,0,.40);
+  opacity:0;
   pointer-events:none;
-  transition: opacity .12s ease, transform .12s ease;
 }
 .hw-banner.show{
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  animation: hwBannerIn 1.2s ease-out forwards;
+}
+@keyframes hwBannerIn{
+  0%{ opacity:0; transform: translateX(-50%) translateY(-6px) scale(.98); }
+  15%{ opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
+  70%{ opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
+  100%{ opacity:0; transform: translateX(-50%) translateY(-10px) scale(.99); }
 }
 
-/* Quiz box */
+/* =========================
+   Quiz box
+========================= */
 .hw-quiz{
-  pointer-events:auto;
+  margin-top: 6px;
+  width: min(720px, 100%);
   border-radius: 18px;
-  border:1px solid rgba(34,211,238,.26);
+  border: 1px solid rgba(34,211,238,.26);
   background: rgba(34,211,238,.10);
-  backdrop-filter: blur(10px);
   padding: 10px 12px;
-  box-shadow: 0 24px 90px rgba(0,0,0,.35);
+  box-shadow: 0 22px 80px rgba(0,0,0,.40);
+  pointer-events:none; /* informational */
 }
-.hw-quiz-q{ font-weight: 950; }
-.hw-quiz-sub{ margin-top:6px; font-size: 12px; color: var(--muted); line-height:1.35; }
-
-/* Overlays */
-.hw-overlay{
-  position:absolute;
-  inset:0;
-  display:grid;
-  place-items:center;
-  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-  background: radial-gradient(1200px 900px at 50% 20%, rgba(2,6,23,.55), rgba(2,6,23,.72));
-}
-.hw-card{
-  width: min(760px, 100%);
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.72);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: 0 28px 110px rgba(0,0,0,.55);
-}
-.hw-card-title{ font-weight: 950; font-size: 18px; }
-.hw-card-sub{ margin-top:8px; color: var(--muted); font-size: 13px; line-height:1.35; }
-.hw-card-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-
-.hw-cta{
-  pointer-events:auto;
-  cursor:pointer;
-  border:1px solid rgba(34,197,94,.28);
-  background: rgba(34,197,94,.16);
-  color: var(--text);
-  border-radius: 16px;
-  padding: 10px 12px;
+.hw-quiz-q{
   font-weight: 950;
+  font-size: 13px;
 }
-.hw-ghost{
-  pointer-events:auto;
-  cursor:pointer;
-  border:1px solid var(--stroke);
-  background: rgba(15,23,42,.62);
-  color: var(--text);
-  border-radius: 16px;
-  padding: 10px 12px;
-  font-weight: 950;
-}
-.hw-pre{
-  margin-top:10px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
-  color: rgba(229,231,235,.9);
+.hw-quiz-sub{
+  margin-top: 4px;
   font-size: 12px;
-  overflow:auto;
-  max-height: 46vh;
+  color: rgba(229,231,235,.92);
+  line-height: 1.35;
 }
 
-/* Targets */
+/* =========================
+   Targets (buttons)
+========================= */
 .hw-tgt{
   position:absolute;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s, 1));
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.45);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 22px 80px rgba(0,0,0,.35);
-  cursor: pointer;
+  width: var(--tgt);
+  height: var(--tgt);
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
   display:grid;
   place-items:center;
-  will-change: transform, opacity;
-  animation: hwPop .14s ease-out;
+  cursor:pointer;
+  user-select:none;
+
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  transform-origin: center center;
+
+  box-shadow:
+    0 22px 70px rgba(0,0,0,.42),
+    0 0 0 var(--tgt-ring) rgba(2,6,23,.35);
+
+  animation:
+    hwTgtIn 240ms ease-out both,
+    hwTgtFloat 1.35s ease-in-out infinite;
+  z-index: 2;
 }
 
 .hw-tgt .emoji{
-  font-size: 34px;
+  font-size: 26px;
   line-height: 1;
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
 }
 
+.hw-tgt:active{
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
+}
+
+.hw-tgt:focus-visible{
+  outline: 3px solid rgba(34,211,238,.55);
+  outline-offset: 2px;
+}
+
+/* kinds */
 .hw-tgt.good{
-  border-color: rgba(34,197,94,.28);
+  border-color: rgba(34,197,94,.30);
   background: rgba(34,197,94,.10);
 }
 .hw-tgt.wrong{
-  border-color: rgba(245,158,11,.28);
-  background: rgba(245,158,11,.10);
+  border-color: rgba(245,158,11,.32);
+  background: rgba(245,158,11,.12);
 }
 .hw-tgt.haz{
-  border-color: rgba(239,68,68,.28);
+  border-color: rgba(239,68,68,.32);
   background: rgba(239,68,68,.10);
 }
 
-@keyframes hwPop{
-  from{ opacity:0; transform: translate(-50%,-50%) scale(.86); }
-  to  { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+/* small ring glow */
+.hw-tgt.good{ box-shadow: 0 22px 70px rgba(0,0,0,.42), 0 0 0 var(--tgt-ring) rgba(34,197,94,.12); }
+.hw-tgt.wrong{ box-shadow: 0 22px 70px rgba(0,0,0,.42), 0 0 0 var(--tgt-ring) rgba(245,158,11,.12); }
+.hw-tgt.haz{ box-shadow: 0 22px 70px rgba(0,0,0,.42), 0 0 0 var(--tgt-ring) rgba(239,68,68,.12); }
+
+@keyframes hwTgtIn{
+  0%{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
+  100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+}
+@keyframes hwTgtFloat{
+  0%,100%{ filter: brightness(1); }
+  50%{ filter: brightness(1.04); }
 }
 
-/* View tweaks */
-body.view-mobile{ }
-body.view-cvr{
-  /* cVR: ให้พื้นที่ล่างมากขึ้น (กันโดนปุ่ม/นิ้ว) */
-  --hw-bottom-safe: 190;
+/* =========================
+   Overlays
+========================= */
+.hw-overlay{
+  position:fixed;
+  inset:0;
+  z-index: 200;
+  display:grid;
+  place-items:center;
+  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events:auto;
 }
+
+.hw-card{
+  width: min(760px, 100%);
+  border-radius: var(--r);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 28px 110px rgba(0,0,0,.55);
+  padding: 16px;
+}
+
+.hw-card-title{
+  font-weight: 950;
+  font-size: 18px;
+  letter-spacing:.2px;
+}
+.hw-card-sub{
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.42;
+  color: var(--muted);
+}
+
+.hw-card-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top: 14px;
+}
+
+.hw-cta, .hw-ghost{
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-weight: 950;
+  cursor:pointer;
+  border:1px solid var(--stroke);
+  background: var(--panel2);
+  color: rgba(229,231,235,.96);
+  pointer-events:auto;
+}
+.hw-cta{
+  border-color: rgba(34,197,94,.28);
+  background: rgba(34,197,94,.16);
+}
+.hw-cta:active, .hw-ghost:active{ transform: translateY(1px); }
+
+.hw-pre{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.65);
+  color: rgba(229,231,235,.95);
+  font-size: 12px;
+  max-height: min(56vh, 520px);
+  overflow:auto;
+}
+
+/* =========================
+   View tweaks
+========================= */
+body.view-pc{
+  --tgt: 58px;
+  --hw-top-safe: 168;
+  --hw-bottom-safe: 150;
+}
+
+body.view-mobile{
+  --tgt: 64px;
+  --hw-top-safe: 182;
+  --hw-bottom-safe: 172;
+}
+
+body.view-cvr{
+  --tgt: 66px;
+  --hw-top-safe: 190;
+  --hw-bottom-safe: 182;
+}
+
+/* In VR we keep HUD compact */
+body.view-vr{
+  --tgt: 60px;
+  --hw-top-safe: 160;
+  --hw-bottom-safe: 140;
+}
+
+/* Small screens: tighten HUD rows */
 @media (max-width: 420px){
-  .hw-tgt{ width:64px; height:64px; border-radius:20px; }
-  .hw-tgt .emoji{ font-size: 30px; }
-  .hw-title{ font-size: 16px; }
+  .hw-title{ font-size: 15px; }
+  .hw-pill{ font-size: 11px; padding: 7px 9px; }
+  .hw-banner{ top: calc(116px + var(--sat)); font-size: 12px; }
+}
+
+/* Reduce motion preference */
+@media (prefers-reduced-motion: reduce){
+  .hw-tgt{ animation: none; }
+  .hw-banner.show{ animation: none; opacity:1; }
 }
