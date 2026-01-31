@@ -14,10 +14,11 @@
 
   // Namespace
   WIN.HHA = WIN.HHA || {};
+
   const clamp = (v, a, b)=>Math.max(a, Math.min(b, Number(v)||0));
   const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
-  // ---------- Factory (was: export function createAIHooks) ----------
+  // ---------- Factory ----------
   function createAIHooks(opts = {}){
     const game = String(opts.game || 'HHA').slice(0, 40);
     const mode = String(opts.mode || 'play').toLowerCase();
@@ -26,15 +27,15 @@
     // OFF by design for research/practice unless explicitly forced
     const enabled = (mode === 'play') && (opts.enabled !== false);
 
-    // --- rolling stats ---
     const S = {
       enabled,
       game,
       mode,
-      // recent window (EMA)
-      emaAcc: 0.72,     // "good hit" tendency
-      emaMist: 0.10,    // mistakes tendency
-      emaSpeed: 0.50,   // pace proxy
+
+      // EMA stats
+      emaAcc: 0.72,
+      emaMist: 0.10,
+      emaSpeed: 0.50,
       lastEventAt: 0,
 
       // counters
@@ -55,29 +56,26 @@
       if(t < S.lastEventAt) S.lastEventAt = t;
       S.lastEventAt = t;
 
-      // update simple EMAs
       if(type === 'hitGood'){
         S.hitGood++;
-        S.emaAcc  = S.emaAcc*0.90  + 0.10*(1.0);
-        S.emaMist = S.emaMist*0.92 + 0.08*(0.0);
-        S.emaSpeed= S.emaSpeed*0.92+ 0.08*(0.70);
+        S.emaAcc   = S.emaAcc*0.90   + 0.10*(1.0);
+        S.emaMist  = S.emaMist*0.92  + 0.08*(0.0);
+        S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.70);
       }else if(type === 'hitJunk'){
         S.hitJunk++;
-        S.emaAcc  = S.emaAcc*0.90  + 0.10*(0.0);
-        S.emaMist = S.emaMist*0.92 + 0.08*(1.0);
-        S.emaSpeed= S.emaSpeed*0.92+ 0.08*(0.55);
+        S.emaAcc   = S.emaAcc*0.90   + 0.10*(0.0);
+        S.emaMist  = S.emaMist*0.92  + 0.08*(1.0);
+        S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.55);
       }else if(type === 'miss'){
         S.miss++;
-        S.emaAcc  = S.emaAcc*0.92  + 0.08*(0.0);
-        S.emaMist = S.emaMist*0.90 + 0.10*(1.0);
-        S.emaSpeed= S.emaSpeed*0.92+ 0.08*(0.40);
+        S.emaAcc   = S.emaAcc*0.92   + 0.08*(0.0);
+        S.emaMist  = S.emaMist*0.90  + 0.10*(1.0);
+        S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.40);
       }else if(type === 'shoot'){
-        S.emaSpeed= S.emaSpeed*0.92+ 0.08*(0.85);
+        S.emaSpeed = S.emaSpeed*0.92 + 0.08*(0.85);
       }
     }
 
-    // --- Adaptive Difficulty Director ---
-    // returns adjusted {spawnMs,pGood,pJunk,pStar,pShield}
     function getDifficulty(playedSec, base){
       const b = Object.assign({}, base || {});
       if(!S.enabled) return b;
@@ -93,7 +91,6 @@
       k -= (mist - 0.12) * 1.10;
       k += (spd  - 0.55) * 0.35;
 
-      // deterministic-ish wobble (uses provided rng if any)
       const wob = (rng() - 0.5) * 0.06;
       k = clamp(k + wob, -0.35, 0.35);
 
@@ -107,7 +104,6 @@
       let pStar   = clamp((b.pStar   ?? 0.02) + (-k)*0.01, 0.01, 0.06);
       let pShield = clamp((b.pShield ?? 0.02) + (-k)*0.02, 0.01, 0.10);
 
-      // mild ramp by time
       if(t > 10){
         const r = clamp((t-10)/60, 0, 1);
         pJunk = clamp(pJunk + r*0.03, 0.18, 0.60);
@@ -117,7 +113,6 @@
       return { spawnMs, pGood, pJunk, pStar, pShield };
     }
 
-    // --- Explainable micro-tips ---
     function getTip(){
       if(!S.enabled) return null;
 
@@ -151,8 +146,7 @@
     return { enabled: S.enabled, onEvent, getDifficulty, getTip };
   }
 
-  // ---------- Stable “always-present” wrapper ----------
-  // (so calling code never crashes even when disabled)
+  // ---------- safe wrapper ----------
   function makeSafe(ai){
     ai = ai || { enabled:false };
     if (typeof ai.onEvent !== 'function') ai.onEvent = ()=>{};
@@ -161,15 +155,13 @@
     return ai;
   }
 
-  // Export to window (classic)
+  // Export to window
   WIN.HHA.createAIHooks = createAIHooks;
   WIN.HHA.AIHooks = WIN.HHA.AIHooks || {};
   WIN.HHA.AIHooks.create = (opts)=> makeSafe(createAIHooks(opts||{}));
   WIN.HHA.AIHooks.stub   = ()=> makeSafe(null);
 
-  // ---------- Compat for GroupsVR style: GroupsVR.AIHooks.attach(...) ----------
-  // Your GroupsVR code calls: AI.attach({ runMode, seed, enabled:false })
-  // We'll store instance on GroupsVR.AIHooks._ai and provide getDifficulty/getTip/onEvent passthrough.
+  // ---------- Compat: GroupsVR.AIHooks.attach ----------
   try{
     WIN.GroupsVR = WIN.GroupsVR || {};
     WIN.GroupsVR.AIHooks = WIN.GroupsVR.AIHooks || {};
@@ -177,9 +169,7 @@
     WIN.GroupsVR.AIHooks.attach = function attach(cfg = {}){
       const runMode = String(cfg.runMode || cfg.mode || 'play').toLowerCase();
       const game    = String(cfg.game || 'GroupsVR');
-      const enabled = !!cfg.enabled && (runMode === 'play'); // force OFF unless play + enabled=true
-
-      // optional deterministic rng hook (if caller provides)
+      const enabled = !!cfg.enabled && (runMode === 'play');
       const rng = (typeof cfg.rng === 'function') ? cfg.rng : Math.random;
 
       const ai = makeSafe(createAIHooks({ game, mode: runMode, rng, enabled }));
@@ -190,7 +180,6 @@
     WIN.GroupsVR.AIHooks.onEvent = (t,p)=> (WIN.GroupsVR.AIHooks._ai || makeSafe(null)).onEvent(t,p);
     WIN.GroupsVR.AIHooks.getDifficulty = (s,b)=> (WIN.GroupsVR.AIHooks._ai || makeSafe(null)).getDifficulty(s,b);
     WIN.GroupsVR.AIHooks.getTip = (s)=> (WIN.GroupsVR.AIHooks._ai || makeSafe(null)).getTip(s);
-
-  }catch(_){ /* ignore */ }
+  }catch(_){}
 
 })();
