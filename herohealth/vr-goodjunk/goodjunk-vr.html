@@ -1,13 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (Folder-run)
+GoodJunkVR RUN — PRODUCTION (clean)
 ✅ CSS: ./goodjunk-vr.css
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ Modules: ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js
-✅ AI: ../vr/ai-hooks.js (classic script => window.HHA.createAIHooks)
-✅ FX: ../vr/effects-lite.js (classic script; listens hha:judge/hha:coach, uses Particles)
+✅ Scripts: ../vr/particles.js (effects), ../vr/vr-ui.js, ../vr/hha-cloud-logger.js
+✅ AI: ../vr/ai-hooks.js (classic => window.HHA.createAIHooks)
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
-✅ Mission line always visible + Missions peek + End summary
+✅ Safe-zone measure -> sets --gj-top-safe / --gj-bottom-safe
+✅ Missions peek + Always mission line + End summary
 -->
 <!doctype html>
 <html lang="th">
@@ -21,18 +20,15 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   <link rel="stylesheet" href="./goodjunk-vr.css" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Core overlays -->
+  <!-- Effects + common runtime helpers -->
   <script defer src="../vr/particles.js"></script>
   <script defer src="../vr/hha-cloud-logger.js"></script>
   <script defer src="../vr/vr-ui.js"></script>
 
-  <!-- ✅ AI hooks must load BEFORE module boot -->
+  <!-- IMPORTANT: classic AI hooks must load BEFORE module boot -->
   <script defer src="../vr/ai-hooks.js?v=20260131a"></script>
 
-  <!-- ✅ FX: lightweight effects (popText/burst) -->
-  <script defer src="../vr/effects-lite.js?v=20260131a"></script>
-
-  <!-- Boot (module) -->
+  <!-- Start game (ESM) -->
   <script type="module" defer src="./goodjunk-vr.boot.js"></script>
 </head>
 
@@ -109,7 +105,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       </div>
     </div>
 
-    <!-- quest cards: desktop only (mobile collapses via CSS) -->
+    <!-- quest cards -->
     <div class="quest-row">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
@@ -194,7 +190,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-
       const hub = qs('hub', null);
 
       const btnBack = document.getElementById('btnBackHub');
@@ -255,6 +250,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       btnMis?.addEventListener('click', ()=>toggleMissions());
       peek?.addEventListener('click', ()=>toggleMissions(false));
 
+      // Mission line updates from quest:update (emitted by safe.js)
       window.addEventListener('quest:update', (ev)=>{
         try{
           const d = ev.detail || {};
@@ -267,6 +263,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         }catch(_){}
       }, { passive:true });
 
+      // End summary UI from hha:end
       window.addEventListener('hha:end', (ev)=>{
         try{
           const s = ev.detail || {};
@@ -275,7 +272,6 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
           sumMiss.textContent  = String(s.miss ?? 0);
           sumCombo.textContent = String(s.comboMax ?? 0);
           sumBoss.textContent  = (s.bossCleared === true) ? 'CLEAR ✅' : (s.bossCleared === false ? 'FAIL' : '—');
-
           endSummary?.setAttribute('aria-hidden','false');
           setTimeout(updateSafe, 0);
         }catch(_){}
@@ -291,6 +287,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
         }
       });
 
+      // Safe-zone measure => sets vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
 
       function updateSafe(){
@@ -328,6 +325,7 @@ GoodJunkVR RUN — PRODUCTION (Folder-run)
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
 
+      // quick missions peek when play
       if((run || 'play') === 'play'){
         setTimeout(()=>toggleMissions(true), 350);
         setTimeout(()=>toggleMissions(false), 2850);
