@@ -1,6 +1,6 @@
 // === /herohealth/vr/food5-th.js ===
 // Thai Food 5 Groups Mapping (STABLE, DO NOT CHANGE)
-// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup, descForGroup
+// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup, groupForKey
 // ✅ Supports seeded rng: pickEmoji(rng, arr)
 // ✅ Group ids are fixed 1..5 per your rule
 
@@ -41,11 +41,12 @@ export const FOOD5 = Object.freeze({
     key: 'g5',
     labelTH: 'หมู่ 5 ไขมัน',
     descTH: 'ไขมันให้พลังงานและความอบอุ่น',
-    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🥜','🌰','🍳','🧀'])
+    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🌰','🥜','🧀','🍳'])
   })
 });
 
 export const JUNK = Object.freeze({
+  id: 0,
   key: 'junk',
   labelTH: 'ขยะอาหาร',
   descTH: 'หวาน/ทอด/น้ำอัดลม/ขนมกรุบกรอบ',
@@ -56,7 +57,6 @@ export const JUNK = Object.freeze({
 export function pickEmoji(rng, arr){
   const a = Array.isArray(arr) ? arr : [];
   if(!a.length) return '❓';
-
   const r = (typeof rng === 'function') ? rng() : Math.random();
   const i = Math.max(0, Math.min(a.length - 1, Math.floor(r * a.length)));
   return a[i];
@@ -64,20 +64,21 @@ export function pickEmoji(rng, arr){
 
 export function labelForGroup(groupId){
   const g = FOOD5[groupId];
-  return g ? g.labelTH : 'หมู่ ?';
-}
-
-export function descForGroup(groupId){
-  const g = FOOD5[groupId];
-  return g ? g.descTH : '';
+  return g ? g.labelTH : (groupId === 0 ? JUNK.labelTH : 'หมู่ ?');
 }
 
 export function emojiForGroup(rng, groupId){
+  if(groupId === 0) return pickEmoji(rng, JUNK.emojis);
   const g = FOOD5[groupId];
-  if(!g) return '🍽️';
+  if(!g) return '❓';
   return pickEmoji(rng, g.emojis);
 }
 
-export function emojiForJunk(rng){
-  return pickEmoji(rng, JUNK.emojis);
+export function groupForKey(key){
+  const k = String(key||'').toLowerCase();
+  if(k === 'junk') return 0;
+  for(const id of [1,2,3,4,5]){
+    if(FOOD5[id].key === k) return id;
+  }
+  return null;
 }
