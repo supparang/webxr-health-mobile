@@ -1,143 +1,182 @@
 // === /fitness/js/ai-predictor.js ===
-// Rhythm Boxer AI Predictor (Lite ML/DL-style heuristic, deterministic-friendly)
-// ✅ fatigueRisk 0..1
-// ✅ skillScore  0..1
-// ✅ suggestedDifficulty: easy|normal|hard
-// ✅ micro-tip (rate-limited)
-// ✅ onUpdate(cb)
-
-'use strict';
+// Rhythm Boxer AI Predictor + Explainable Coach (lightweight, on-device)
+// ✅ Real-time prediction (fatigueRisk / skillScore / suggestedDifficulty)
+// ✅ Explainable micro-tips (rate-limited)
+// ✅ Weak-side training suggestion (side bias window)
+// NOTE: default OFF in research; engine decides gating
 
 (function(){
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const now=()=>{ try{return performance.now();}catch(_){return Date.now();} };
+  'use strict';
 
-  class AiPredictorRB{
+  function clamp(v,a,b){ return v<a?a : v>b?b : v; }
+
+  class RbAiPredictor{
     constructor(opts={}){
-      this.enabled = !!opts.enabled;
-      this.mode = opts.mode || 'normal';
-      this.rateMs = opts.rateMs || 800;  // update frequency
-      this.tipMs  = opts.tipMs  || 2500; // tip rate limit
-      this.cb = null;
+      this.cfg = Object.assign({
+        tipCooldownMs: 2600,
+        windowSec: 8.0
+      }, opts);
 
-      this.reset();
+      this._lastTipAt = 0;
+      this._lastKey = '';
+      this._rolling = []; // store recent snapshots
     }
 
-    reset(){
-      this.t0 = now();
-      this.lastEmit = 0;
-      this.lastTip = 0;
+    // stats: snapshot from engine
+    update(stats){
+      if(!stats) return null;
 
-      // rolling windows
-      this.win = []; // {t, hit, judge, absOff, dt, blank, hp, combo}
-      this.winSec = 10.0;
-
-      // outputs
-      this.fatigueRisk = 0;
-      this.skillScore = 0.5;
-      this.suggestedDifficulty = 'normal';
-      this.tip = '';
-    }
-
-    onUpdate(cb){ this.cb = (typeof cb==='function')?cb:null; }
-
-    setEnabled(v){ this.enabled = !!v; }
-
-    pushEvent(e){
-      if(!this.enabled) return;
-
-      // e: {songTime, isHit, judgment, absOffset, rawOffset, blankTap, hp, combo}
-      const t = Number(e.songTime)||0;
-      this.win.push({
-        t,
-        hit: e.isHit?1:0,
-        judge: e.judgment||'',
-        absOff: Number(e.absOffset)||0,
-        dt: Number(e.rawOffset)||0,
-        blank: e.blankTap?1:0,
-        hp: Number(e.hp)||0,
-        combo: Number(e.combo)||0
+      // ---- rolling window ----
+      const now = stats.songTime || 0;
+      this._rolling.push({
+        t: now,
+        acc: stats.accPct,
+        miss: stats.hitMiss,
+        blank: stats.blankTapCount || 0,
+        offsetMean: stats.offsetMean,
+        offsetStd: stats.offsetStd,
+        earlyPct: stats.earlyPct,
+        latePct: stats.latePct,
+        leftPct: stats.leftHitPct,
+        rightPct: stats.rightHitPct,
+        hp: stats.hp
       });
 
-      // trim window
-      const minT = t - this.winSec;
-      while(this.win.length && this.win[0].t < minT) this.win.shift();
-
-      const ts = now();
-      if(ts - this.lastEmit >= this.rateMs){
-        this.lastEmit = ts;
-        this._recalcAndEmit(t);
+      // keep last windowSec
+      const w = this.cfg.windowSec;
+      while(this._rolling.length && (now - this._rolling[0].t) > w){
+        this._rolling.shift();
       }
+
+      const agg = this._aggregate();
+
+      // ---- predictions ----
+      const fatigueRisk = this._fatigueRisk(agg);
+      const skillScore  = this._skillScore(agg);
+
+      const suggestedDifficulty =
+        skillScore > 0.82 && fatigueRisk < 0.35 ? 'hard' :
+        skillScore > 0.62 && fatigueRisk < 0.55 ? 'normal' :
+        'easy';
+
+      // ---- explainable tip (rate-limited) ----
+      const tipObj = this._makeTip(agg, suggestedDifficulty);
+
+      // ---- weak-side training suggestion ----
+      const training = this._weakSideTraining(agg);
+
+      return {
+        fatigueRisk,
+        skillScore,
+        suggestedDifficulty,
+        tip: tipObj.tip,
+        tipKey: tipObj.key,
+        training
+      };
     }
 
-    _recalcAndEmit(songTime){
-      const w = this.win;
-      if(!w.length) return;
+    _aggregate(){
+      const a = this._rolling;
+      if(!a.length){
+        return {
+          acc:0, missRate:0, blankRate:0,
+          offsetMean:0, offsetStd:0,
+          latePct:50, earlyPct:50,
+          leftPct:50, rightPct:50,
+          hp:100
+        };
+      }
+      const last = a[a.length-1];
 
-      const n = w.length;
-      const hitN = w.reduce((s,x)=>s+x.hit,0);
-      const missN = n - hitN;
+      // use last snapshot (engine already computed totals)
+      // plus simple derived rates:
+      const totalJudged = (last.miss || 0) + 1; // avoid 0
+      const missRate = clamp((last.miss || 0) / (totalJudged + 10), 0, 1); // soft
+      const blankRate = clamp((last.blank || 0) / 12, 0, 1); // heuristic
 
-      const absMean = w.reduce((s,x)=>s+x.absOff,0)/n;
-      const blankN = w.reduce((s,x)=>s+x.blank,0);
+      return {
+        acc: clamp((last.acc || 0)/100, 0, 1),
+        missRate,
+        blankRate,
+        offsetMean: Number.isFinite(last.offsetMean) ? last.offsetMean : 0,
+        offsetStd: Number.isFinite(last.offsetStd) ? last.offsetStd : 0.1,
+        latePct: clamp((last.latePct||50)/100, 0, 1),
+        earlyPct: clamp((last.earlyPct||50)/100, 0, 1),
+        leftPct: clamp((last.leftPct||50)/100, 0, 1),
+        rightPct: clamp((last.rightPct||50)/100, 0, 1),
+        hp: clamp((last.hp||100)/100, 0, 1)
+      };
+    }
 
-      // ความเสถียร: variance ของ abs offset (ใช้ mean square แบบง่าย)
-      const m = absMean;
-      const varAbs = w.reduce((s,x)=>{ const d=x.absOff-m; return s+d*d; },0)/Math.max(1,n);
-      const jitter = Math.sqrt(varAbs); // 0..?
+    _fatigueRisk(agg){
+      // fatigue rises when hp low + miss/blank high + timing unstable
+      const hpBad = 1 - agg.hp;
+      const timingUnstable = clamp(agg.offsetStd / 0.18, 0, 1); // 0.18s std = very unstable
+      return clamp(
+        0.45*hpBad + 0.25*agg.missRate + 0.20*agg.blankRate + 0.10*timingUnstable,
+        0, 1
+      );
+    }
 
-      // proxy: skill สูงเมื่อ hit rate สูง + abs offset ต่ำ + jitter ต่ำ + combo เฉลี่ยสูง
-      const hitRate = hitN / Math.max(1,n);
-      const comboAvg = w.reduce((s,x)=>s+x.combo,0)/n;
+    _skillScore(agg){
+      // skill rises with acc + low std + low miss/blank
+      const timingStable = 1 - clamp(agg.offsetStd / 0.16, 0, 1);
+      const cleanPlay = 1 - clamp(0.6*agg.missRate + 0.4*agg.blankRate, 0, 1);
+      return clamp(0.55*agg.acc + 0.25*timingStable + 0.20*cleanPlay, 0, 1);
+    }
 
-      // normalize (heuristic)
-      const offScore = 1 - clamp(absMean/0.18, 0, 1);     // 0.18s ~ แย่
-      const jitScore = 1 - clamp(jitter/0.14, 0, 1);      // jitter 0.14 ~ แย่
-      const comboScore = clamp(comboAvg/18, 0, 1);
+    _makeTip(agg, suggested){
+      // rate-limit tips
+      const nowMs = Date.now();
+      if(nowMs - this._lastTipAt < this.cfg.tipCooldownMs){
+        return { tip:'', key:'' };
+      }
 
-      let skill = 0.45*hitRate + 0.25*offScore + 0.15*jitScore + 0.15*comboScore;
-      skill = clamp(skill, 0, 1);
-
-      // fatigue risk: miss เพิ่ม, blank เพิ่ม, jitter เพิ่ม, hp ต่ำ
-      const hpNow = w[w.length-1].hp;
-      const hpRisk = 1 - clamp(hpNow/100, 0, 1);
-      let fatigue = 0.40*clamp(missN/Math.max(1,n),0,1) + 0.20*clamp(blankN/Math.max(1,n),0,1) +
-                    0.20*(1-jitScore) + 0.20*hpRisk;
-      fatigue = clamp(fatigue, 0, 1);
-
-      // suggested difficulty (ทำให้ “แฟร์”)
-      let sug = 'normal';
-      if(skill > 0.78 && fatigue < 0.38) sug = 'hard';
-      else if(skill < 0.42 || fatigue > 0.70) sug = 'easy';
-
-      // tip (rate limited)
+      // pick the most actionable issue
       let tip = '';
-      const ts = now();
-      if(ts - this.lastTip >= this.tipMs){
-        this.lastTip = ts;
-        if(fatigue > 0.75) tip = 'พักมือ 3–5 วิ แล้วกลับมาเน้น “ตรงจังหวะ” มากกว่ากดรัว';
-        else if(blankN >= 2) tip = 'อย่ากดรัว—รอให้โน้ตใกล้เส้นตี แล้วแตะ “จังหวะเดียว”';
-        else if(absMean > 0.14) tip = 'ลองช้าลงนิด: แตะตอนโน้ต “ทับเส้นตี” จะได้ Perfect มากขึ้น';
-        else if(skill > 0.80 && hitRate > 0.85) tip = 'ดีมาก! ลองคุมคอมโบยาว ๆ แล้วรอช่วง Storm ให้พีก';
-        else tip = ''; // เงียบได้
+      let key = '';
+
+      if(agg.blankRate > 0.35){
+        key = 'blank';
+        tip = `อย่ากดรัว (blank tap เยอะ) รอให้โน้ตเข้าเส้นแล้วค่อยแตะ`;
+      } else if(agg.missRate > 0.35){
+        key = 'miss';
+        tip = `Miss เยอะ ลองลดความเร็วมือและโฟกัส “เส้นตี” ก่อน (แนะนำ ${suggested})`;
+      } else if(agg.latePct > 0.70){
+        key = 'late';
+        tip = `คุณ “ช้า (late)” บ่อย ลองแตะก่อนประมาณ 0.05–0.08s`;
+      } else if(agg.earlyPct > 0.70){
+        key = 'early';
+        tip = `คุณ “เร็ว (early)” บ่อย ลองรอให้โน้ตใกล้เส้นอีกนิดก่อนแตะ`;
+      } else if(Math.abs(agg.leftPct - agg.rightPct) > 0.22){
+        key = 'side';
+        tip = `ฝั่งหนึ่งอ่อนกว่า เดี๋ยวจะเปิดช่วงฝึกฝั่งอ่อนให้ 8–10s`;
+      } else {
+        key = 'ok';
+        tip = `ดีมาก! รักษาจังหวะและอย่ารีบ ถ้าไหวลอง ${suggested} รอบถัดไป`;
       }
 
-      this.skillScore = skill;
-      this.fatigueRisk = fatigue;
-      this.suggestedDifficulty = sug;
-      this.tip = tip;
-
-      if(this.cb){
-        this.cb({
-          songTime,
-          fatigueRisk: this.fatigueRisk,
-          skillScore: this.skillScore,
-          suggestedDifficulty: this.suggestedDifficulty,
-          tip: this.tip
-        });
+      // avoid repeating same tip too often
+      if(key && key === this._lastKey){
+        return { tip:'', key:'' };
       }
+      this._lastKey = key;
+      this._lastTipAt = nowMs;
+      return { tip, key };
+    }
+
+    _weakSideTraining(agg){
+      const diff = agg.leftPct - agg.rightPct;
+      // If right is much lower -> train right, if left lower -> train left
+      if(diff > 0.22){
+        return { side:'R', durationSec: 9 };
+      }
+      if(diff < -0.22){
+        return { side:'L', durationSec: 9 };
+      }
+      return null;
     }
   }
 
-  window.AiPredictorRB = AiPredictorRB;
+  window.RbAiPredictor = RbAiPredictor;
 })();
