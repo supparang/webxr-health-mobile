@@ -202,16 +202,18 @@ HydrationVR LAUNCHER — ROOT (Production)
 
   function detectView(){
     // Priority:
-    // 1) If has XR headset signature => vr
-    // 2) If mobile + cardboard hint => cvr
+    // 1) If in VR session => vr (heuristic)
+    // 2) If mobile + likely cardboard => cvr (heuristic)
     // 3) If mobile => mobile
     // 4) else => pc
     const ua = (navigator.userAgent || '').toLowerCase();
     const isMobile = /android|iphone|ipad|ipod/.test(ua) || (WIN.matchMedia && WIN.matchMedia('(max-width: 820px)').matches);
     const hasXR = !!(navigator.xr);
 
+    // Heuristic: headset UA => vr
     if (hasXR && /oculus|quest|vive|pico|hololens/.test(ua)) return 'vr';
 
+    // cVR heuristic: mobile + "vr" keywords
     const cvrHint = isMobile && (/cardboard|vrbox|daydream|gearvr|vr/.test(ua));
     if (cvrHint) return 'cvr';
 
@@ -240,14 +242,12 @@ HydrationVR LAUNCHER — ROOT (Production)
     // --- pass-through whitelist ---
     const passKeys = [
       'hub','run','runMode','diff','time','seed','style',
-      'studyId','phase','conditionGroup',
-      // research/site metadata (optional but useful)
-      'siteCode','schoolYear','semester',
+      'studyId','phase','conditionGroup','siteCode','schoolYear','semester',
       'sessionId','studentKey',
-      // logging / toggles
       'log','practice','ai','ts'
     ];
 
+    // copy allowed params
     passKeys.forEach(k=>{
       const v = u0.searchParams.get(k);
       if (v !== null) out.searchParams.set(k, v);
@@ -259,7 +259,7 @@ HydrationVR LAUNCHER — ROOT (Production)
     if (!out.searchParams.get('diff')) out.searchParams.set('diff', String(qs('diff','normal')));
     if (!out.searchParams.get('time')) out.searchParams.set('time', String(clamp(parseInt(qs('time',70),10)||70, 20, 600)));
 
-    // ts default (important for session uniqueness)
+    // ts default
     if (!out.searchParams.get('ts')) out.searchParams.set('ts', String(Date.now()));
 
     // view logic: DO NOT override if explicit view exists in current URL
@@ -288,7 +288,7 @@ HydrationVR LAUNCHER — ROOT (Production)
     const time = clamp(parseInt(qs('time',70),10)||70, 20, 600);
 
     let v = '';
-    if (hasExplicitView()) v = normalizeView(qs('view','')) || 'auto';
+    if (hasExplicitView()) v = normalizeView(qs('view','')) || 'auto(explicit?)';
     else {
       try{ v = normalizeView(localStorage.getItem(STORAGE_KEY)) || detectView(); }
       catch(_){ v = detectView(); }
@@ -301,7 +301,6 @@ HydrationVR LAUNCHER — ROOT (Production)
 
     const dst = buildTargetUrl('');
     setText('dst', dst.pathname + dst.search);
-
     setText('pass', [
       'hub','run','diff','time','seed','view','log','studyId','conditionGroup','ai','practice','ts'
     ].map(k=>k+'='+(dst.searchParams.get(k)||'')).join('&'));
@@ -318,7 +317,8 @@ HydrationVR LAUNCHER — ROOT (Production)
   DOC.getElementById('btnVR')?.addEventListener('click', ()=>go('vr'));
   DOC.getElementById('btnCVR')?.addEventListener('click', ()=>go('cvr'));
 
-  // Optional auto-redirect: set ?autogo=1
+  // Auto redirect fast (like other launchers) — but keep 1 tap-friendly moment
+  // If you want immediate redirect with no UI, set ?autogo=1
   const autogo = String(qs('autogo','0')) === '1';
   updatePreview();
   if (autogo){
