@@ -1,100 +1,130 @@
-// === /fitness/js/pattern-gen.js ===
-// Pattern Generator (seeded, fair, fun)
-// ✅ returns pattern steps (spawn bursts / sweeps / baits / storms)
-
+// === js/pattern-gen.js — AI Pattern Generator (deterministic) ===
 'use strict';
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-export class PatternGen {
-  constructor(rng){
-    this.rng = rng || Math.random;
-  }
-
-  pick(arr){
-    return arr[(this.rng()*arr.length)|0];
-  }
-
-  // phase: 1..3  => intensity increases
-  patternFor(phase, diffKey){
-    phase = clamp(phase,1,3)|0;
-    const diff = (diffKey||'normal');
-
-    const base = (phase===1) ? 1 : (phase===2) ? 2 : 3;
-    const diffBoost = (diff==='hard') ? 1 : (diff==='easy') ? -1 : 0;
-    const intensity = clamp(base + diffBoost, 1, 4);
-
-    const patterns = [
-      'sweep',   // กวาดซ้าย->ขวา
-      'burst',   // ชุด 3-5 ลูกติด
-      'bait',    // หลอกด้วย decoy/bomb ก่อนให้เลือก
-      'storm'    // ช่วงพายุ spawn ถี่ขึ้น (สั้น ๆ)
-    ];
-
-    // phase สูงขึ้น = storm/burst โอกาสมากขึ้น
-    const bag = [];
-    for (const p of patterns) {
-      if (p==='sweep') bag.push(p,p);
-      if (p==='burst') bag.push(p, ...(intensity>=3 ? [p] : []));
-      if (p==='bait')  bag.push(p);
-      if (p==='storm') bag.push(p, ...(intensity>=3 ? [p] : []), ...(intensity>=4 ? [p] : []));
+(function(){
+  // --- tiny seeded RNG (mulberry32) ---
+  function hashSeed(str){
+    let h = 1779033703 ^ str.length;
+    for (let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h<<13) | (h>>>19);
     }
-
-    return this.pick(bag);
+    return (h>>>0);
+  }
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t>>>15), t | 1);
+      t ^= t + Math.imul(t ^ (t>>>7), t | 61);
+      return ((t ^ (t>>>14)) >>> 0) / 4294967296;
+    };
   }
 
-  // build steps: each step = { kind, count, intervalMs, biasZone, stormMs }
-  build(pattern, phase, diffKey){
-    phase = clamp(phase,1,3)|0;
-    const diff = (diffKey||'normal');
+  // --- helpers ---
+  const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+  const LANES = [0,1,2,3,4];
+  const sideOf = (lane)=> lane===2?'C':(lane<=1?'L':'R');
 
-    const fast = diff==='hard' ? 0.85 : diff==='easy' ? 1.08 : 1.0;
-    const baseInterval = (phase===1) ? 520 : (phase===2) ? 440 : 360;
+  // pattern states (DL-ish policy)
+  const BASE_PATTERNS = {
+    easy:   [2,1,3,2,1,3,2,3],
+    normal: [2,3,1,2,3,4,2,3],
+    hard:   [1,3,2,4,0,2,3,1]
+  };
 
-    if (pattern === 'sweep') {
-      // 6 zones sweep
-      const dir = (this.rng() < 0.5) ? 1 : -1;
-      const start = dir===1 ? 0 : 5;
-      const steps = [];
-      for (let i=0;i<6;i++){
-        steps.push({
-          kind: 'normal',
-          count: 1,
-          intervalMs: Math.round(baseInterval*fast),
-          biasZone: start + dir*i
-        });
+  // constraints: กัน “โหดเกิน” และกันซ้ำเลนเดิมติด ๆ
+  function pickNextLane(rng, prevLane, diff, phase, skill){
+    const temp = clamp(0.15 + (diff==='hard'?0.25:diff==='easy'?0.05:0.15) + (1-skill)*0.15, 0.08, 0.55);
+    const biasCenter = (phase==='warmup') ? 0.22 : (phase==='boss') ? 0.08 : 0.14;
+
+    // candidate weights
+    const w = LANES.map(l=>{
+      let wt = 1.0;
+      if(l === prevLane) wt *= 0.25;            // กันซ้ำ
+      if(sideOf(l) === sideOf(prevLane) && l!==2 && prevLane!==2) wt *= 0.85; // กันอยู่ข้างเดิมนาน
+      if(l === 2) wt *= (1 + biasCenter);       // center ง่ายกว่าเล็กน้อย
+      if(diff==='hard' && (l===0 || l===4)) wt *= 1.12; // hard ดันสุดขอบนิด
+      if(phase==='boss') wt *= (l===2 ? 0.9 : 1.08);    // boss กระจายมากขึ้น
+      // temperature
+      wt = Math.pow(wt, 1/temp);
+      return wt;
+    });
+
+    // sample
+    const sum = w.reduce((s,x)=>s+x,0) || 1;
+    let r = rng() * sum;
+    for(let i=0;i<w.length;i++){
+      r -= w[i];
+      if(r <= 0) return LANES[i];
+    }
+    return 2;
+  }
+
+  // generate chart: bpm, durationSec, diff, seed, phaseMap, (optional) skill
+  function generateChart(opts){
+    const bpm = opts.bpm || 120;
+    const dur = opts.durationSec || 32;
+    const diff = (opts.diff || 'normal');
+    const seedStr = String(opts.seed || ('RB-'+Date.now()));
+    const rng = mulberry32(hashSeed(seedStr));
+    const skill = clamp(opts.skillScore ?? 0.5, 0, 1);
+
+    // beat
+    const beat = 60 / bpm;
+    let t = 2.0; // start after 2s
+    const out = [];
+
+    let prev = 2;
+    const base = BASE_PATTERNS[diff] || BASE_PATTERNS.normal;
+    let baseI = 0;
+
+    const phaseAt = opts.phaseAt || function(songTime){
+      if(songTime < 10.5) return 'warmup';
+      if(songTime < 20.0) return 'build';
+      if(songTime < 27.0) return 'boss';
+      return 'finale';
+    };
+
+    while(t < dur - 2){
+      const phase = phaseAt(t);
+
+      // density scaling by phase (finale แน่นขึ้น)
+      let step = beat;
+      if(phase==='warmup') step = beat * 1.0;
+      if(phase==='build')  step = beat * 0.95;
+      if(phase==='boss')   step = beat * 0.90;
+      if(phase==='finale') step = beat * 0.85;
+
+      // DL-ish: ผสม base pattern + policy sampling
+      const useBase = (rng() < (diff==='easy'?0.75:diff==='hard'?0.45:0.60));
+      let lane;
+      if(useBase){
+        lane = base[baseI % base.length];
+        baseI++;
+        // คุมไม่ให้ซ้ำเลนเดิมติดกันเกิน
+        if(lane === prev && rng() < 0.65){
+          lane = pickNextLane(rng, prev, diff, phase, skill);
+        }
+      }else{
+        lane = pickNextLane(rng, prev, diff, phase, skill);
       }
-      return steps;
+
+      // occasional burst (boss/finale) ทำให้ “เร้าใจ”
+      if((phase==='boss' || phase==='finale') && rng() < (diff==='hard'?0.22:0.14)){
+        // ใส่โน้ตแฝดเร็ว (half-beat)
+        out.push({ time: t, lane, type:'note' });
+        const lane2 = pickNextLane(rng, lane, diff, phase, skill);
+        out.push({ time: t + step*0.5, lane: lane2, type:'note' });
+      }else{
+        out.push({ time: t, lane, type:'note' });
+      }
+
+      prev = lane;
+      t += step;
     }
 
-    if (pattern === 'burst') {
-      const n = (phase===3) ? 5 : (phase===2) ? 4 : 3;
-      const z = (this.rng()*6)|0;
-      return [{
-        kind: 'normal',
-        count: n,
-        intervalMs: Math.round((baseInterval*0.72)*fast),
-        biasZone: z
-      }];
-    }
-
-    if (pattern === 'bait') {
-      const z = (this.rng()*6)|0;
-      // หลอก 1-2 ลูก แล้วให้ normal ตาม
-      const dec = (this.rng()<0.5) ? 'decoy' : 'bomb';
-      const nDec = (phase===3) ? 2 : 1;
-      return [
-        { kind: dec, count: nDec, intervalMs: Math.round((baseInterval*0.82)*fast), biasZone: z },
-        { kind: 'normal', count: 2, intervalMs: Math.round((baseInterval*0.70)*fast), biasZone: z }
-      ];
-    }
-
-    if (pattern === 'storm') {
-      // เปิด storm สั้น ๆ ให้รู้สึก “โหดขึ้น”
-      const stormMs = (phase===3) ? 5200 : (phase===2) ? 4200 : 3200;
-      return [{ kind: 'storm', count: 1, intervalMs: 0, stormMs }];
-    }
-
-    return [{ kind: 'normal', count: 2, intervalMs: Math.round(baseInterval*fast), biasZone: -1 }];
+    return out;
   }
-}
+
+  window.RB_PatternGen = { generateChart };
+})();
