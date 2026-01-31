@@ -1,192 +1,113 @@
 // === /fitness/js/boss-moves.js ===
-// BossMoves: signature moves per boss/phase + short "overdrive windows"
-// - provides spawn directives (forced target kinds + zones)
-// - provides temporary multipliers (spawn/ttl/size) on top of DifficultyDirector
-// - logs moveName for research/event csv
-
+// A-64 Boss Signature Moves (pattern scripts)
 'use strict';
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+import { buildStormPattern } from './pattern-gen.js';
 
-export class BossMoves{
-  constructor(){
-    this.reset();
-  }
+function rand(a,b){ return a + Math.random()*(b-a); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-  reset(){
-    this.activeMove = null;     // {name, endsAt, meta}
-    this.cooldownUntil = 0;
-    this.queue = [];            // spawn directives: {kind, zoneId, ttlMul, sizeMul, tag}
-    this.over = { spawnMul:1, ttlMul:1, sizeMul:1 }; // temporary overlay multipliers
-    this.lastMoveName = '';
-  }
+export function pickBossMove(state){
+  const bossId = state?.bossIndex ?? 0;
+  const phase = state?.bossPhase ?? 1;
 
-  // call when boss or phase changes
-  onBossPhase(bossIndex, bossPhase, now){
-    // small "phase bump" feel
-    const bump = bossPhase === 3 ? 0.92 : bossPhase === 2 ? 0.96 : 1.00;
-    this.over = { spawnMul:bump, ttlMul:bump, sizeMul:bump };
-    this.activeMove = null;
-    this.queue.length = 0;
-    this.cooldownUntil = Math.max(this.cooldownUntil, now + 800); // avoid immediate spam
-  }
+  // โอกาส “ท่าไม้ตาย” ต่อเหตุการณ์ (ไม่ใช่ทุก spawn)
+  // phase 3 จะเจอบ่อยขึ้น
+  const p = phase === 1 ? 0.35 : (phase === 2 ? 0.48 : 0.62);
+  if (Math.random() > p) return null;
 
-  getOverlay(){
-    return {
-      ...this.over,
-      moveName: this.lastMoveName || (this.activeMove ? this.activeMove.name : '')
-    };
-  }
+  // บอสลายเซ็น
+  if (bossId === 0) return moveBubbleGlove(state);
+  if (bossId === 1) return moveSparkGuard(state);
+  if (bossId === 2) return moveShadowMitt(state);
+  return moveGalaxyPunch(state);
+}
 
-  // engine calls periodically in gameLoop
-  update(now, state, patterns){
-    if (!state || !state.running) return;
+// --- Boss 0: Bubble Glove ---
+// จุดเด่น: “ฟองใหญ่ → ฟองเล็กเป็นชุด” (สอนให้จับแพทเทิร์น)
+function moveBubbleGlove(state){
+  const phase = state.bossPhase || 1;
+  const k = phase === 1 ? 5 : (phase === 2 ? 6 : 7);
+  const pts = buildStormPattern(k, state);
+  return {
+    name: 'Bubble Wave',
+    message: '🫧 BUBBLE WAVE! ฟองมาเป็นคลื่น — ไล่ตามแนวโค้ง!',
+    spawns: pts.map((pos, i)=>({
+      delayMs: i * (phase === 3 ? 90 : 110),
+      kind: 'normal',
+      pos,
+      sizeMul: phase === 1 ? 1.05 : (phase === 2 ? 0.95 : 0.88)
+    }))
+  };
+}
 
-    // expire active move
-    if (this.activeMove && now >= this.activeMove.endsAt){
-      this.activeMove = null;
-      this.lastMoveName = '';
-      this.over = { spawnMul:1, ttlMul:1, sizeMul:1 };
-      this.cooldownUntil = now + 1400;
-    }
+// --- Boss 1: Spark Guard ---
+// จุดเด่น: “สายฟ้า + ระเบิดหลอก” ให้คนตัดสินใจเร็ว
+function moveSparkGuard(state){
+  const phase = state.bossPhase || 1;
+  const k = phase === 1 ? 5 : 6;
+  const pts = buildStormPattern(k, state);
+  return {
+    name: 'Spark Trap',
+    message: '⚡ SPARK TRAP! มีลูกหลอกแทรก — อย่าตีสีแดงมั่ว!',
+    spawns: pts.map((pos, i)=>{
+      const roll = Math.random();
+      let kind = 'normal';
+      // แทรก bomb/decoy ให้รู้สึก “ต้องคิด”
+      if (phase >= 2 && roll < 0.16) kind = 'decoy';
+      if (phase === 3 && roll < 0.12) kind = 'bomb';
+      return {
+        delayMs: i * (phase === 3 ? 95 : 120),
+        kind,
+        pos,
+        sizeMul: phase === 3 ? 0.88 : 0.96
+      };
+    })
+  };
+}
 
-    // if queue has enough directives, no need to start move now
-    if (this.queue.length >= 4) return;
+// --- Boss 2: Shadow Mitt ---
+// จุดเด่น: “เงา/ลวง” สลับ normal กับ decoy เป็นจังหวะ
+function moveShadowMitt(state){
+  const phase = state.bossPhase || 1;
+  const k = phase === 1 ? 6 : (phase === 2 ? 7 : 8);
+  const pts = buildStormPattern(k, state);
+  return {
+    name: 'Shadow Swap',
+    message: '🕶️ SHADOW SWAP! เป้าลวงสลับจริง — ดูจังหวะก่อนตี!',
+    spawns: pts.map((pos, i)=>{
+      const kind = (i % 3 === 2 && phase >= 2) ? 'decoy' : 'normal';
+      return {
+        delayMs: i * (phase === 3 ? 90 : 110),
+        kind,
+        pos,
+        sizeMul: phase === 3 ? 0.84 : 0.92
+      };
+    })
+  };
+}
 
-    // trigger move conditions:
-    // - phase3 more often
-    // - low boss hp region: dramatic storm
-    const phase = state.bossPhase || 1;
-    const boss = state.bossIndex || 0;
-
-    const want =
-      (phase === 3 && Math.random() < 0.020) ||
-      (phase === 2 && Math.random() < 0.012) ||
-      (phase === 1 && Math.random() < 0.008);
-
-    if (!want) return;
-    if (now < this.cooldownUntil) return;
-    if (this.activeMove) return;
-
-    // start a signature move
-    const move = this.pickMove(boss, phase);
-    this.startMove(move, boss, phase, now, patterns);
-  }
-
-  pickMove(bossIndex, bossPhase){
-    // signature mapping (keep it readable)
-    if (bossIndex === 0) return bossPhase >= 2 ? 'BUBBLE_SWEEP' : 'BUBBLE_RALLY';
-    if (bossIndex === 1) return bossPhase >= 2 ? 'SPARK_BURST' : 'SPARK_FEINT';
-    if (bossIndex === 2) return bossPhase >= 2 ? 'SHADOW_TRICK' : 'SHADOW_TUNNEL';
-    return bossPhase >= 2 ? 'GALAXY_STORM' : 'GALAXY_SPIRAL';
-  }
-
-  startMove(name, bossIndex, bossPhase, now, patterns){
-    const dur =
-      name === 'GALAXY_STORM' ? 5200 :
-      name === 'SPARK_BURST'  ? 4200 :
-      3600;
-
-    this.activeMove = { name, endsAt: now + dur, meta: { bossIndex, bossPhase } };
-    this.lastMoveName = name;
-
-    // overlay multipliers during move
-    const tight = bossPhase === 3;
-    if (name === 'GALAXY_STORM'){
-      this.over = { spawnMul: tight ? 0.72 : 0.82, ttlMul: tight ? 0.78 : 0.86, sizeMul: tight ? 0.86 : 0.92 };
-    } else if (name === 'SPARK_BURST'){
-      this.over = { spawnMul: tight ? 0.78 : 0.86, ttlMul: tight ? 0.86 : 0.92, sizeMul: 0.95 };
-    } else if (name.startsWith('SHADOW')){
-      this.over = { spawnMul: 0.90, ttlMul: tight ? 0.82 : 0.88, sizeMul: tight ? 0.88 : 0.94 };
-    } else {
-      this.over = { spawnMul: 0.92, ttlMul: 0.92, sizeMul: 0.96 };
-    }
-
-    // build queue directives per move
-    this.queue.length = 0;
-
-    const push = (kind, zoneId, tag) => this.queue.push({ kind, zoneId, tag });
-
-    // zones 0..5. Use patterns to keep "boss identity"
-    const z = ()=>patterns.next(bossIndex, bossPhase);
-
-    if (name === 'BUBBLE_RALLY'){
-      // friendly: normals + one reward
-      push('normal', z(), 'rally');
-      push('normal', z(), 'rally');
-      push('cleanse', z(), 'reward'); // risk-reward target
-      push('normal', z(), 'rally');
-    }
-
-    if (name === 'BUBBLE_SWEEP'){
-      // sweep + a heal
-      push('normal', z(), 'sweep');
-      push('normal', z(), 'sweep');
-      push('heal', z(), 'heal');
-      push('normal', z(), 'sweep');
-      push('decoy', z(), 'feint');
-    }
-
-    if (name === 'SPARK_FEINT'){
-      // decoy cluster then real
-      push('decoy', z(), 'feint');
-      push('decoy', z(), 'feint');
-      push('normal', z(), 'strike');
-      push('shield', z(), 'shield');
-    }
-
-    if (name === 'SPARK_BURST'){
-      // fast burst with bombs sprinkled + reward focus
-      push('normal', z(), 'burst');
-      push('bomb',  z(), 'burst');
-      push('normal', z(), 'burst');
-      push('bomb',  z(), 'burst');
-      push('focus', z(), 'reward'); // slows spawn for short
-      push('normal', z(), 'burst');
-    }
-
-    if (name === 'SHADOW_TUNNEL'){
-      // tunnel: repeated zone -> forces attention
-      const kz = z();
-      push('decoy', kz, 'tunnel');
-      push('normal', kz, 'tunnel');
-      push('decoy', kz, 'tunnel');
-      push('normal', kz, 'tunnel');
-      push('cleanse', z(), 'reward');
-    }
-
-    if (name === 'SHADOW_TRICK'){
-      // trick: decoys + bomb + then 2 normals
-      push('decoy', z(), 'trick');
-      push('bomb',  z(), 'trick');
-      push('normal', z(), 'strike');
-      push('normal', z(), 'strike');
-      push('shield', z(), 'shield');
-    }
-
-    if (name === 'GALAXY_SPIRAL'){
-      // spiral: steady hardening
-      push('normal', z(), 'spiral');
-      push('normal', z(), 'spiral');
-      push('decoy', z(), 'spiral');
-      push('heal', z(), 'heal');
-      push('normal', z(), 'spiral');
-    }
-
-    if (name === 'GALAXY_STORM'){
-      // storm: rapid mixed, includes one big reward
-      push('normal', z(), 'storm');
-      push('bomb',  z(), 'storm');
-      push('decoy', z(), 'storm');
-      push('normal', z(), 'storm');
-      push('cleanse', z(), 'reward');
-      push('normal', z(), 'storm');
-      push('bomb',  z(), 'storm');
-    }
-  }
-
-  // engine calls before choosing random kind
-  popDirective(){
-    return this.queue.length ? this.queue.shift() : null;
-  }
+// --- Boss 3: Galaxy Punch ---
+// จุดเด่น: “Galaxy Burst” เร็ว + เล็ก + รัวสั้น ๆ
+function moveGalaxyPunch(state){
+  const phase = state.bossPhase || 1;
+  const k = phase === 1 ? 6 : (phase === 2 ? 7 : 9);
+  const pts = buildStormPattern(k, state);
+  return {
+    name: 'Galaxy Burst',
+    message: '🌌 GALAXY BURST! รัวเร็วมาก — ตีทันทีที่เห็น!',
+    spawns: pts.map((pos, i)=>{
+      // phase 3 แทรก bomb นิด ๆ ให้ลุ้น
+      let kind = 'normal';
+      const r = Math.random();
+      if (phase === 3 && r < 0.10) kind = 'bomb';
+      else if (phase === 3 && r < 0.18) kind = 'decoy';
+      return {
+        delayMs: i * (phase === 3 ? 80 : 100),
+        kind,
+        pos,
+        sizeMul: phase === 3 ? 0.78 : 0.86
+      };
+    })
+  };
 }
