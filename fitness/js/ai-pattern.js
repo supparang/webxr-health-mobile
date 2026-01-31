@@ -1,163 +1,146 @@
-// === /fitness/js/ai-pattern.js ===
-// Seeded Pattern Generator for Rhythm Boxer (Normal/Play)
-// Research-safe: deterministic by seed; can be disabled in research
+// === fitness/js/ai-pattern.js ===
+// Shadow Breaker — AI Pattern Generator (Pack D)
+// Goals:
+// 1) Make spawns feel "designed" (waves / zigzag / corners / center-bait)
+// 2) Keep it fair and readable (no impossible clusters)
+// 3) Deterministic per session if seed provided
+//
+// Usage:
+//   const pat = new PatternGenerator(seed, { gridX: 5, gridY: 3 });
+//   const p = pat.next({ t01, phase, diffKey, lastHitGrade, bias });
+//   -> { xPct, yPct, tag }
+
 'use strict';
 
-(function(){
-  // ---- seeded rng (mulberry32) ----
-  function mulberry32(seed){
-    let t = seed >>> 0;
-    return function(){
-      t += 0x6D2B79F5;
-      let r = Math.imul(t ^ (t >>> 15), 1 | t);
-      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+export class PatternGenerator {
+  constructor(seed = Date.now(), opts = {}) {
+    const s = Number.isFinite(seed) ? seed : Date.now();
+    this.rng = mulberry32((s ^ 0x9E3779B9) >>> 0);
+    this.gridX = clamp(opts.gridX || 5, 3, 8);
+    this.gridY = clamp(opts.gridY || 3, 2, 5);
+
+    this.step = 0;
+    this.mode = 'wave';
+    this.lastCell = null;
+
+    // weights by phase: later phase = more motion across screen
+    this.phaseMode = {
+      1: [{ v: 'wave', w: 45 }, { v: 'center', w: 25 }, { v: 'zigzag', w: 20 }, { v: 'corners', w: 10 }],
+      2: [{ v: 'zigzag', w: 35 }, { v: 'wave', w: 25 }, { v: 'corners', w: 20 }, { v: 'center', w: 20 }],
+      3: [{ v: 'corners', w: 35 }, { v: 'zigzag', w: 30 }, { v: 'wave', w: 20 }, { v: 'center', w: 15 }]
     };
   }
-  function hashSeed(str){
-    // stable hash for strings
-    let h = 2166136261 >>> 0;
-    for (let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
+
+  _pickWeighted(list) {
+    const total = list.reduce((a, o) => a + o.w, 0);
+    let r = this.rng() * total;
+    for (const o of list) {
+      if (r < o.w) return o.v;
+      r -= o.w;
     }
-    return h >>> 0;
-  }
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-
-  // lanes: 0..4 => L2,L1,C,R1,R2
-  const LANES = [0,1,2,3,4];
-
-  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
-
-  function laneMirror(l){ return 4 - l; }
-
-  // density profile per diff
-  const DIFF = {
-    easy:   { bpm:100, stepMin:1.0, stepMax:1.4, fakeRate:0.00, stormRate:0.06, jumpRate:0.08 },
-    normal: { bpm:120, stepMin:0.75,stepMax:1.1, fakeRate:0.03, stormRate:0.10, jumpRate:0.12 },
-    hard:   { bpm:140, stepMin:0.55,stepMax:0.95,fakeRate:0.07, stormRate:0.16, jumpRate:0.18 },
-  };
-
-  // “style” affects lane transitions
-  const STYLES = {
-    focus:   { centerBias:0.38, mirrorBias:0.18, zigzagBias:0.20 },
-    mix:     { centerBias:0.25, mirrorBias:0.22, zigzagBias:0.28 },
-    chaos:   { centerBias:0.18, mirrorBias:0.10, zigzagBias:0.40 },
-    research:{ centerBias:0.30, mirrorBias:0.20, zigzagBias:0.22 },
-  };
-
-  function buildChart(opts){
-    // opts: {seed, bpm, durationSec, diffKey, styleKey, boss:true/false}
-    const dur = opts.durationSec || 32;
-    const diffKey = opts.diffKey || 'normal';
-    const styleKey = opts.styleKey || 'mix';
-
-    const dcfg = DIFF[diffKey] || DIFF.normal;
-    const scfg = STYLES[styleKey] || STYLES.mix;
-
-    const seed = (typeof opts.seed === 'number')
-      ? (opts.seed >>> 0)
-      : hashSeed(String(opts.seed||'seed'));
-
-    const rng = mulberry32(seed);
-
-    const chart = [];
-    let t = 2.0; // start after intro
-    let lane = 2; // start center
-    let lastLane = lane;
-
-    const beat = 60 / (opts.bpm || dcfg.bpm || 120);
-
-    // phases: 1..3 normal, optional boss in last segment
-    const boss = !!opts.boss;
-    const bossStart = dur * 0.68;
-    const bossEnd   = dur - 2.0;
-
-    // helper to choose next lane
-    function nextLane(){
-      const r = rng();
-      // center bias
-      if (r < scfg.centerBias) return 2;
-
-      // mirror bias (left-right symmetry)
-      if (r < scfg.centerBias + scfg.mirrorBias) {
-        return laneMirror(lastLane);
-      }
-
-      // zigzag bias (jump across)
-      if (r < scfg.centerBias + scfg.mirrorBias + scfg.zigzagBias) {
-        const choices = [0,4,1,3];
-        return pick(rng, choices);
-      }
-
-      // otherwise move small step
-      const step = (rng()<0.5 ? -1 : 1) * (rng()<0.25 ? 2 : 1);
-      return clamp(lastLane + step, 0, 4);
-    }
-
-    // “storm” => short burst of rapid notes
-    function addStorm(at){
-      const stormLen = 0.9 + rng()*0.8;       // 0.9–1.7s
-      const stormBeat = beat * (0.55 + rng()*0.15); // faster
-      let tt = at;
-      while (tt < at + stormLen){
-        const l = nextLane();
-        chart.push({ time: tt, lane: l, type:'note', tag:'storm' });
-        lastLane = l;
-        tt += stormBeat;
-      }
-    }
-
-    // “fake” note => does not score, but distracts
-    function maybeFake(at, l){
-      if (rng() < dcfg.fakeRate){
-        chart.push({ time: at + beat*0.22, lane: l, type:'fake', tag:'fake' });
-      }
-    }
-
-    // main timeline
-    while (t < dur - 2.0){
-      // boss phase: more intensity + patterns
-      const inBoss = boss && t >= bossStart && t <= bossEnd;
-      const localStep = inBoss
-        ? beat * (0.52 + rng()*0.18)   // denser
-        : beat * (dcfg.stepMin + rng()*(dcfg.stepMax-dcfg.stepMin));
-
-      // storm burst
-      if (!inBoss && rng() < dcfg.stormRate && t > 4.0 && t < dur-6.0){
-        addStorm(t);
-        t += 0.8 + rng()*0.8;
-        continue;
-      }
-
-      // choose lane with style
-      lane = nextLane();
-      chart.push({ time: t, lane, type:'note', tag: inBoss ? 'boss' : 'main' });
-
-      // optional fake note for distraction
-      maybeFake(t, lane);
-
-      // boss special: “double punch”
-      if (inBoss && rng() < 0.22){
-        const l2 = clamp(lane + (rng()<0.5?-1:1), 0, 4);
-        chart.push({ time: t + beat*0.35, lane: l2, type:'note', tag:'boss2' });
-        maybeFake(t + beat*0.35, l2);
-        lastLane = l2;
-      } else {
-        lastLane = lane;
-      }
-
-      t += localStep;
-    }
-
-    // sort & finalize
-    chart.sort((a,b)=>a.time-b.time);
-    return { seed, chart, bossStart, bossEnd };
+    return list[list.length - 1].v;
   }
 
-  window.AI_PATTERN = {
-    buildChart,
-    hashSeed
-  };
-})();
+  _cellToPct(cx, cy) {
+    // center of cell → pct
+    const x = (cx + 0.5) / this.gridX;
+    const y = (cy + 0.5) / this.gridY;
+    // keep inside safe zone
+    return { xPct: clamp(x, 0.06, 0.94), yPct: clamp(y, 0.12, 0.88) };
+  }
+
+  _chooseMode(phase = 1) {
+    const list = this.phaseMode[phase] || this.phaseMode[1];
+    // small chance to keep same mode for "theme"
+    if (this.step % 8 !== 0 && this.rng() < 0.65) return this.mode;
+    return this._pickWeighted(list);
+  }
+
+  next(ctx = {}) {
+    const phase = Number(ctx.phase || 1);
+    const diffKey = (ctx.diffKey || 'normal');
+    const t01 = clamp(Number(ctx.t01 || 0), 0, 1);
+
+    // difficulty nudges: hard = more cross-screen motion, easy = more center readability
+    const hardBias = diffKey === 'hard' ? 1 : diffKey === 'easy' ? -1 : 0;
+
+    this.mode = this._chooseMode(phase);
+
+    // introduce occasional "teaching" patterns early in the run
+    if (t01 < 0.18 && this.rng() < 0.55) this.mode = 'center';
+    if (t01 > 0.80 && this.rng() < 0.55) this.mode = 'corners';
+
+    let cx = 0, cy = 0;
+    const sx = this.gridX - 1;
+    const sy = this.gridY - 1;
+
+    if (this.mode === 'center') {
+      cx = Math.floor(this.gridX / 2);
+      cy = Math.floor(this.gridY / 2);
+      // tiny jitter inside neighbors
+      if (this.rng() < 0.45) cx = clamp(cx + (this.rng() < 0.5 ? -1 : 1), 0, sx);
+      if (this.rng() < 0.25) cy = clamp(cy + (this.rng() < 0.5 ? -1 : 1), 0, sy);
+    } else if (this.mode === 'wave') {
+      // left → right → left (wave), row chosen by phase
+      const dir = (Math.floor(this.step / this.gridX) % 2) === 0 ? 1 : -1;
+      const k = this.step % this.gridX;
+      cx = dir === 1 ? k : (sx - k);
+      cy = phase === 1 ? 1 : (phase === 2 ? (this.rng() < 0.6 ? 1 : 0) : (this.rng() < 0.6 ? 0 : 2));
+      cy = clamp(cy, 0, sy);
+      if (hardBias > 0 && this.rng() < 0.35) cy = clamp(cy + (this.rng() < 0.5 ? -1 : 1), 0, sy);
+    } else if (this.mode === 'zigzag') {
+      // jump across lanes
+      const jump = hardBias > 0 ? 2 : 1;
+      cx = (this.step * jump) % this.gridX;
+      if (this.step % 2 === 1) cx = sx - cx;
+      cy = (this.step % this.gridY);
+    } else if (this.mode === 'corners') {
+      // rotate corners + edges
+      const corner = this.step % 4;
+      if (corner === 0) { cx = 0; cy = 0; }
+      else if (corner === 1) { cx = sx; cy = 0; }
+      else if (corner === 2) { cx = sx; cy = sy; }
+      else { cx = 0; cy = sy; }
+      // sometimes pull slightly inwards for fairness
+      if (this.rng() < 0.55) {
+        if (cx === 0) cx = 1;
+        else if (cx === sx) cx = sx - 1;
+        if (cy === 0) cy = 1;
+        else if (cy === sy) cy = sy - 1;
+      }
+    } else {
+      // fallback random cell
+      cx = Math.floor(this.rng() * this.gridX);
+      cy = Math.floor(this.rng() * this.gridY);
+    }
+
+    // avoid repeating exact same cell too often
+    const key = `${cx},${cy}`;
+    if (this.lastCell === key && this.rng() < 0.85) {
+      cx = clamp(cx + (this.rng() < 0.5 ? -1 : 1), 0, sx);
+      cy = clamp(cy + (this.rng() < 0.5 ? -1 : 1), 0, sy);
+    }
+    this.lastCell = `${cx},${cy}`;
+
+    const pct = this._cellToPct(cx, cy);
+    this.step++;
+
+    return {
+      xPct: pct.xPct,
+      yPct: pct.yPct,
+      tag: this.mode
+    };
+  }
+}
