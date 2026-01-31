@@ -1,22 +1,20 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION v4.1 (Boss+Progress+Missions+End Summary)
-// ✅ Boss Phase (ท้ายเกม): HP bar + rules
-// ✅ Progress bar fill
-// ✅ Mobile HUD fix: quest cards hidden by CSS; safe zone auto-remeasure via gj:measureSafe
-// ✅ Missions events: quest:update -> mission line + peek (handled in html)
-// ✅ End Summary: emits hha:end (handled in html overlay)
-// ✅ AI hooks: safe fallback if AI.getDifficulty / AI.getTip missing
-// ✅ Shoot: supports both events: hha:shoot (from vr-ui.js) and gj:shoot (from boot bridge fallback)
-
+// GoodJunkVR SAFE — v4.1 (Boss+Progress+Missions+End Summary)
+// ✅ FIX: AI hooks compat with CLASSIC script (window.HHA.createAIHooks)
+// ✅ FIX: Never crash if AI missing (stub getDifficulty/getTip/onEvent)
+// ✅ Supports shoot from both: hha:shoot and gj:shoot
+// ✅ Mobile HUD fix + safe-zone remeasure via gj:measureSafe
 'use strict';
 
-import { createAIHooks } from '../vr/ai-hooks.js';
+// ❌ DO NOT import ai-hooks as module (your ai-hooks.js is classic script)
+// import { createAIHooks } from '../vr/ai-hooks.js';
+
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
 
 const WIN = window;
 const DOC = document;
 
-const clamp = (v,min,max)=>Math.max(min,Math.min(max, Number(v)||0));
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
 
@@ -97,37 +95,26 @@ function makeGoals(){
   ];
 }
 
-function nowMs(){
-  try{ return performance.now(); }catch(_){ return Date.now(); }
-}
+// ✅ AI safe wrapper (CLASSIC script compat)
+function makeAI(opts){
+  let ai = null;
 
-// ---- Difficulty fallback (when AI hooks lacks getDifficulty) ----
-function fallbackDifficulty(playedSec, base, diff){
-  const p = Math.max(0, playedSec || 0);
+  // Preferred: window.HHA.AIHooks.create
+  try{
+    if(WIN.HHA && WIN.HHA.AIHooks && typeof WIN.HHA.AIHooks.create === 'function'){
+      ai = WIN.HHA.AIHooks.create(opts || {});
+    }else if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
+      ai = WIN.HHA.createAIHooks(opts || {});
+    }
+  }catch(_){ ai = null; }
 
-  let spawnMs = base.spawnMs;
-  if(p > 6) spawnMs = Math.max(520, spawnMs - (p - 6) * 7);
+  ai = ai || {};
+  if(typeof ai.onEvent !== 'function') ai.onEvent = ()=>{};
+  if(typeof ai.getTip !== 'function') ai.getTip = ()=>null;
+  if(typeof ai.getDifficulty !== 'function') ai.getDifficulty = (_sec, base)=>Object.assign({}, base||{});
+  if(typeof ai.enabled !== 'boolean') ai.enabled = false;
 
-  let pGood = base.pGood, pJunk = base.pJunk, pStar = base.pStar, pShield = base.pShield;
-
-  const drift = Math.min(0.12, p * 0.0022);
-  pGood = Math.max(0.40, pGood - drift);
-  pJunk = Math.min(0.55, pJunk + drift);
-
-  pStar = clamp(pStar, 0.01, 0.05);
-  pShield = clamp(pShield, 0.01, 0.06);
-
-  if(diff === 'easy'){
-    spawnMs = Math.min(1100, spawnMs + 80);
-    pJunk = Math.max(0.18, pJunk - 0.04);
-    pGood = Math.min(0.78, pGood + 0.04);
-  }else if(diff === 'hard'){
-    spawnMs = Math.max(460, spawnMs - 70);
-    pJunk = Math.min(0.60, pJunk + 0.05);
-    pGood = Math.max(0.36, pGood - 0.05);
-  }
-
-  return { spawnMs, pGood, pJunk, pStar, pShield };
+  return ai;
 }
 
 export function boot(opts={}){
@@ -157,14 +144,15 @@ export function boot(opts={}){
   const elLowOverlay = DOC.getElementById('lowTimeOverlay');
   const elLowNum = DOC.getElementById('gj-lowtime-num');
 
+  // ✅ progress
   const elProgFill = DOC.getElementById('gjProgressFill');
 
+  // ✅ boss UI
   const elBossBar  = DOC.getElementById('bossBar');
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
 
   const layer = DOC.getElementById('gj-layer');
-
   const rng = makeRNG(seed);
 
   const S = {
@@ -188,6 +176,7 @@ export function boot(opts={}){
 
     mini: { windowSec: 12, windowStartAt: 0, groups: new Set(), done: false },
 
+    // ✅ boss phase
     boss: {
       active:false,
       startedAtSec: null,
@@ -201,17 +190,8 @@ export function boot(opts={}){
   const adaptiveOn = (run === 'play');
   const aiOn = (run === 'play');
 
-  const AI = createAIHooks({ game:'GoodJunkVR', mode: run, rng });
-
-  const hasGetDifficulty = AI && typeof AI.getDifficulty === 'function';
-  const hasGetTip = AI && typeof AI.getTip === 'function';
-  const aiEvent = (name, payload)=>{
-    try{
-      if(!aiOn || !AI) return;
-      if(typeof AI.onEvent === 'function') AI.onEvent(name, payload);
-      else if(typeof AI.on === 'function') AI.on(name, payload);
-    }catch(_){}
-  };
+  // ✅ create AI from window (classic) — safe always
+  const AI = makeAI({ game:'GoodJunkVR', mode: run, rng, enabled: true });
 
   function setFever(p){
     S.fever = clamp(p,0,100);
@@ -247,7 +227,7 @@ export function boot(opts={}){
   // --- quests ---
   function currentGoal(){ return S.goals[S.goalIndex] || S.goals[0]; }
   function resetMiniWindow(){
-    S.mini.windowStartAt = nowMs();
+    S.mini.windowStartAt = (performance.now ? performance.now() : Date.now());
     S.mini.groups.clear();
     S.mini.done = false;
   }
@@ -274,7 +254,7 @@ export function boot(opts={}){
     if(elGoalCur) elGoalCur.textContent = String(cur);
     if(elGoalTarget) elGoalTarget.textContent = String(target);
 
-    const now = nowMs();
+    const now = (performance.now ? performance.now() : Date.now());
     const left = Math.max(0, (S.mini.windowSec*1000 - (now - S.mini.windowStartAt)) / 1000);
     const miniCur = S.mini.groups.size;
     const miniTar = 3;
@@ -302,7 +282,7 @@ export function boot(opts={}){
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
     if(done){
       const prev = S.goalIndex;
-      S.goalIndex = Math.min(S.goals.length - 1, S.goals.length ? S.goalIndex + 1 : 0);
+      S.goalIndex = Math.min(S.goals.length - 1, S.goalIndex + 1);
       if(S.goalIndex !== prev){
         emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
       }
@@ -310,7 +290,7 @@ export function boot(opts={}){
   }
 
   function onHitGoodMeta(groupId){
-    const now = nowMs();
+    const now = (performance.now ? performance.now() : Date.now());
     if(!S.mini.windowStartAt) resetMiniWindow();
     if(now - S.mini.windowStartAt > S.mini.windowSec*1000) resetMiniWindow();
 
@@ -336,6 +316,7 @@ export function boot(opts={}){
     }
   }
 
+  // --- low time overlay ---
   function updateLowTime(){
     if(!elLowOverlay || !elLowNum) return;
     const t = Math.ceil(S.timeLeft);
@@ -347,6 +328,7 @@ export function boot(opts={}){
     }
   }
 
+  // --- progress ---
   function updateProgress(){
     if(!elProgFill) return;
     const played = clamp(S.timePlan - S.timeLeft, 0, S.timePlan);
@@ -354,6 +336,7 @@ export function boot(opts={}){
     elProgFill.style.width = `${Math.round(p*100)}%`;
   }
 
+  // --- boss ui ---
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
@@ -401,10 +384,11 @@ export function boot(opts={}){
     setHUD();
   }
 
+  // --- hits ---
   function onHit(kind, extra = {}){
     if(S.ended) return;
 
-    const tNow = nowMs();
+    const tNow = performance.now();
 
     if(kind==='good'){
       S.hitGood++;
@@ -414,7 +398,7 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
       emit('hha:judge', { type:'good', label:'GOOD' });
-      aiEvent('hitGood', { t:tNow });
+      if(aiOn) AI.onEvent('hitGood', { t:tNow });
 
       if(S.boss.active){
         S.boss.hp = Math.max(0, S.boss.hp - 6);
@@ -422,6 +406,7 @@ export function boot(opts={}){
         if(S.boss.hp <= 0) endBoss(true);
       }
     }
+
     else if(kind==='junk'){
       if(S.shield>0){
         S.shield--;
@@ -434,7 +419,7 @@ export function boot(opts={}){
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
-        aiEvent('hitJunk', { t:tNow });
+        if(aiOn) AI.onEvent('hitJunk', { t:tNow });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
@@ -442,6 +427,7 @@ export function boot(opts={}){
         }
       }
     }
+
     else if(kind==='star'){
       const before = S.miss;
       S.miss = Math.max(0, S.miss - 1);
@@ -449,6 +435,7 @@ export function boot(opts={}){
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
     }
+
     else if(kind==='shield'){
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
@@ -456,12 +443,10 @@ export function boot(opts={}){
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
     }
 
-    if(aiOn && hasGetTip){
-      try{
-        const played = S.timePlan - S.timeLeft;
-        const tip = AI.getTip(played);
-        if(tip) emit('hha:coach', tip);
-      }catch(_){}
+    if(aiOn){
+      const played = S.timePlan - S.timeLeft;
+      const tip = AI.getTip(played);
+      if(tip) emit('hha:coach', tip);
     }
 
     setHUD();
@@ -523,7 +508,7 @@ export function boot(opts={}){
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-        aiEvent('miss', { t:nowMs() });
+        if(aiOn) AI.onEvent('miss', { t:performance.now() });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
@@ -536,9 +521,10 @@ export function boot(opts={}){
     }, ttl);
   }
 
-  function handleShoot(detail){
+  function onShoot(ev){
     if(S.ended || !S.started) return;
-    const lockPx = Number(detail?.lockPx ?? 28) || 28;
+    const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
+    if(aiOn) AI.onEvent('shoot', { t:performance.now() });
 
     const picked = pickByShoot(lockPx);
     if(!picked) return;
@@ -550,9 +536,6 @@ export function boot(opts={}){
     if(kind === 'good') onHit('good', { groupId });
     else onHit(kind);
   }
-
-  function onShoot(ev){ handleShoot(ev?.detail || {}); }   // hha:shoot
-  function onShoot2(ev){ handleShoot(ev?.detail || {}); }  // gj:shoot
 
   function endGame(reason='timeup'){
     if(S.ended) return;
@@ -583,8 +566,10 @@ export function boot(opts={}){
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
-    try{ WIN.removeEventListener('hha:shoot', onShoot); }catch(_){}
-    try{ WIN.removeEventListener('gj:shoot', onShoot2); }catch(_){}
+    try{
+      WIN.removeEventListener('hha:shoot', onShoot);
+      WIN.removeEventListener('gj:shoot', onShoot);
+    }catch(_){}
     emit('hha:end', summary);
   }
 
@@ -606,6 +591,7 @@ export function boot(opts={}){
     const played = (S.timePlan - S.timeLeft);
 
     let base = { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
+
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
     else if(diff === 'hard'){ base.spawnMs=820; base.pJunk=0.30; base.pGood=0.66; }
 
@@ -617,16 +603,17 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    let D;
-    if(adaptiveOn && aiOn && hasGetDifficulty){
-      try{ D = AI.getDifficulty(played, base); }
-      catch(_){ D = fallbackDifficulty(played, base, diff); }
-    }else{
-      D = fallbackDifficulty(played, base, diff);
-    }
+    const D = (adaptiveOn && aiOn) ? AI.getDifficulty(played, base)
+            : (adaptiveOn ? {
+                spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
+                pGood: base.pGood - Math.min(0.10, played*0.002),
+                pJunk: base.pJunk + Math.min(0.10, played*0.002),
+                pStar: base.pStar,
+                pShield: base.pShield
+              } : { ...base });
 
-    { // normalize
-      let s = (D.pGood + D.pJunk + D.pStar + D.pShield);
+    {
+      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
       if(s <= 0) s = 1;
       D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
     }
@@ -661,11 +648,11 @@ export function boot(opts={}){
   setHUD();
   updateQuestUI();
   updateProgress();
-
   setBossUI(false);
 
+  // ✅ listen both shoot events
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
-  WIN.addEventListener('gj:shoot',  onShoot2, { passive:true });
+  WIN.addEventListener('gj:shoot', onShoot, { passive:true });
 
   emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.1-boss', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
