@@ -1,11 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
-// ✅ Auto view detect (no UI override)
-// ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// PlateVR Boot — PRODUCTION (anti-freeze)
+// ✅ No menu: auto-start
+// ✅ Auto view detect (UI does not override); supports ?view= for experiments
+// ✅ Sets CSS safe vars: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
+// ✅ Wires HUD listeners + coach + end overlay
+// ✅ Robust start: retries if mount/layout not ready
+// ✅ Global error trap: shows coach instead of silent freeze
+// ✅ Pass-through research context params
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -17,6 +18,11 @@ const qs = (k, def=null)=>{
   catch { return def; }
 };
 
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
+}
+
 function isMobile(){
   const ua = navigator.userAgent || '';
   const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
@@ -24,10 +30,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow caller/system to force view by query (used in experiments), but not via menu.
   const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced;
+  if(forced) return forced; // allow experiment forcing
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -38,11 +42,6 @@ function setBodyView(view){
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'mobile') b.classList.add('view-mobile');
   else b.classList.add('view-pc');
-}
-
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
 }
 
 function pct(n){
@@ -56,7 +55,7 @@ function setOverlayOpen(open){
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
 
-function showCoach(msg, meta='Coach'){
+function showCoach(msg, meta='System'){
   const card = DOC.getElementById('coachCard');
   const mEl = DOC.getElementById('coachMsg');
   const metaEl = DOC.getElementById('coachMeta');
@@ -64,15 +63,94 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
-  // auto hide
   clearTimeout(WIN.__HHA_COACH_TO__);
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
-  }, 2200);
+  }, 2400);
+}
+
+// --- Global error trap (prevents silent freeze) ---
+function attachGlobalErrorTrap(){
+  if(WIN.__PLATE_ERR_TRAP__) return;
+  WIN.__PLATE_ERR_TRAP__ = true;
+
+  WIN.addEventListener('error', (ev)=>{
+    try{
+      const msg = (ev && (ev.message || (ev.error && ev.error.message))) || 'เกิดข้อผิดพลาด';
+      console.error('[PlateVR] window.error', ev.error || ev);
+      showCoach(`Error: ${msg}`, 'System');
+    }catch{}
+  });
+
+  WIN.addEventListener('unhandledrejection', (ev)=>{
+    try{
+      console.error('[PlateVR] unhandledrejection', ev.reason);
+      const msg = (ev && ev.reason && (ev.reason.message || String(ev.reason))) || 'Promise error';
+      showCoach(`Error: ${msg}`, 'System');
+    }catch{}
+  });
+}
+
+// --- Safe-zone measure: set CSS vars so mode-factory spawn rect avoids HUD/VR UI ---
+function setSafeVars({top=0,bottom=0,left=0,right=0}){
+  const root = DOC.documentElement;
+  root.style.setProperty('--plate-top-safe', `${Math.max(0, Math.round(top))}px`);
+  root.style.setProperty('--plate-bottom-safe', `${Math.max(0, Math.round(bottom))}px`);
+  root.style.setProperty('--plate-left-safe', `${Math.max(0, Math.round(left))}px`);
+  root.style.setProperty('--plate-right-safe', `${Math.max(0, Math.round(right))}px`);
+}
+
+function measureHudSafe(){
+  // We compute how much the HUD overlaps the playfield edges.
+  // Then we convert overlap into padding to keep targets away from those zones.
+  const layer = DOC.getElementById('plate-layer');
+  const hud = DOC.getElementById('hud');
+  if(!layer) return;
+
+  const rLayer = layer.getBoundingClientRect();
+  let top = 0, bottom = 0, left = 0, right = 0;
+
+  const addRectSafe = (r)=>{
+    if(!r) return;
+    // overlap with layer bounds
+    const ovTop = Math.max(0, (r.bottom - rLayer.top));          // HUD intrudes from top
+    const ovBottom = Math.max(0, (rLayer.bottom - r.top));       // HUD intrudes from bottom
+    const ovLeft = Math.max(0, (r.right - rLayer.left));         // from left
+    const ovRight = Math.max(0, (rLayer.right - r.left));        // from right
+
+    // but only count if actually overlapping that side band
+    if(r.top <= rLayer.top + 2) top = Math.max(top, ovTop);
+    if(r.bottom >= rLayer.bottom - 2) bottom = Math.max(bottom, ovBottom);
+    if(r.left <= rLayer.left + 2) left = Math.max(left, ovLeft);
+    if(r.right >= rLayer.right - 2) right = Math.max(right, ovRight);
+  };
+
+  // HUD
+  if(hud){
+    const rHud = hud.getBoundingClientRect();
+    addRectSafe(rHud);
+  }
+
+  // Optional: vr-ui.js injected controls container (best-effort)
+  // NOTE: if your vr-ui uses different ids/classes, this still won't break anything.
+  const vrBtns = DOC.querySelector('#hha-vrui, .hha-vrui, #vrui, .vrui');
+  if(vrBtns){
+    addRectSafe(vrBtns.getBoundingClientRect());
+  }
+
+  // add small margin for comfort + finger space
+  const margin = isMobile() ? 10 : 8;
+  setSafeVars({
+    top: top + margin,
+    bottom: bottom + margin,
+    left: left + margin,
+    right: right + margin
+  });
 }
 
 function wireHUD(){
@@ -104,7 +182,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -123,6 +200,9 @@ function wireHUD(){
       if(miniNums) miniNums.textContent = `${cur}/${tar}`;
       if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
     }
+
+    // After quest UI changes, recalc safe-zone (prevents target overlapping)
+    requestAnimationFrame(measureHudSafe);
   });
 
   WIN.addEventListener('hha:coach', (e)=>{
@@ -138,7 +218,6 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      // keep same query params
       location.reload();
     });
   }
@@ -164,7 +243,6 @@ function wireEndSummary(){
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    // accuracy: prefer accuracyGoodPct
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
@@ -172,20 +250,22 @@ function wireEndSummary(){
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
+    requestAnimationFrame(measureHudSafe);
   });
 }
 
 function buildEngineConfig(){
-  // standard params
   const view = getViewAuto();
+
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999); // ✅ default 90s (better for learning loop)
+  const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
-  // research passthrough (optional)
-  const cfg = {
-    view, runMode: run, diff,
+  return {
+    view,
+    runMode: run,
+    diff,
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
@@ -193,7 +273,7 @@ function buildEngineConfig(){
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // context passthrough (optional fields used by cloud logger)
+    // research passthrough (optional fields used by logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -205,8 +285,6 @@ function buildEngineConfig(){
     gradeLevel: qs('gradeLevel','') || '',
     studentKey: qs('studentKey','') || '',
   };
-
-  return cfg;
 }
 
 function ready(fn){
@@ -214,28 +292,72 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
-  const cfg = buildEngineConfig();
+// --- start engine with mount/layout readiness checks ---
+function bootEngineWithRetry({ mount, cfg }){
+  const maxTry = 20;      // ~2 seconds worst case
+  let tries = 0;
 
-  // set view class
+  const attempt = ()=>{
+    tries++;
+
+    if(!mount){
+      if(tries >= maxTry) throw new Error('PlateVR: mount missing');
+      return requestAnimationFrame(attempt);
+    }
+
+    // ensure safe vars exist even before measurement
+    setSafeVars({ top: 0, bottom: 0, left: 0, right: 0 });
+
+    // mount must have reasonable rect
+    const r = mount.getBoundingClientRect();
+    if(r.width < 120 || r.height < 120){
+      if(tries >= maxTry){
+        console.warn('[PlateVR] mount rect too small', r);
+        return engineBoot({ mount, cfg }); // try anyway as last resort
+      }
+      return requestAnimationFrame(attempt);
+    }
+
+    // measure HUD safe after layout settles
+    requestAnimationFrame(()=>{
+      measureHudSafe();
+      // and boot engine
+      engineBoot({ mount, cfg });
+      // measure again after engine adds stuff
+      requestAnimationFrame(measureHudSafe);
+    });
+  };
+
+  attempt();
+}
+
+ready(()=>{
+  attachGlobalErrorTrap();
+
+  const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
-  // wire UI
+  // Wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
-
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // boot engine
+  // Keep safe-zone updated on resize/orientation
+  let __rzTO = 0;
+  const onResize = ()=>{
+    clearTimeout(__rzTO);
+    __rzTO = setTimeout(()=>measureHudSafe(), 120);
+  };
+  WIN.addEventListener('resize', onResize);
+  WIN.addEventListener('orientationchange', onResize);
+
+  // Boot
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    const mount = DOC.getElementById('plate-layer');
+    bootEngineWithRetry({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู Console)', 'System');
   }
 });
