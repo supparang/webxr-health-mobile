@@ -1,428 +1,405 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR — PRODUCTION UI (HHA Standard)
-✅ HUD glass + safe spawn zone vars
-✅ Targets: glow rings + pop-in animation
-✅ Responsive: pc / mobile / cvr / vr
-✅ Uses CSS vars from safe.js targets: --x --y --s (vw/vh placement)
+HygieneVR CSS — PRODUCTION (FX restored + safe zones)
+✅ Keeps stage FX visible (no clipping)
+✅ Clear z-index: stage < targets < particles < HUD < overlays
+✅ Targets: glow + pulse ring + hover/tap feedback
+✅ Safe zones vars used by hygiene.safe.js:
+   --hw-top-safe / --hw-bottom-safe
 */
 
-/* ---------- Base ---------- */
 :root{
   color-scheme: dark;
-
   --bg0:#020617;
-  --bg1:#0b1220;
-
-  --text: rgba(229,231,235,.96);
-  --muted: rgba(148,163,184,.96);
-
+  --bg1:#0b1224;
+  --panel: rgba(2,6,23,.72);
+  --panel2: rgba(15,23,42,.62);
   --stroke: rgba(148,163,184,.18);
-  --glass: rgba(2,6,23,.66);
-  --glass2: rgba(15,23,42,.58);
+  --text: rgba(229,231,235,.96);
+  --muted: rgba(148,163,184,.92);
 
-  --good: rgba(34,197,94,.90);
+  --good: rgba(34,197,94,.92);
+  --cyan: rgba(34,211,238,.92);
   --warn: rgba(245,158,11,.92);
   --bad:  rgba(239,68,68,.92);
-  --cyan: rgba(34,211,238,.92);
 
-  --r: 22px;
+  --radius: 22px;
   --pill: 999px;
 
-  /* safe area (iOS) */
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* IMPORTANT: used by hygiene.safe.js getSpawnRect() */
-  --hw-top-safe: 210;     /* px (fallback) */
-  --hw-bottom-safe: 130;  /* px (fallback) */
+  /* JS reads these (defaults; JS can override with computed if you want later) */
+  --hw-top-safe: 170px;
+  --hw-bottom-safe: 160px;
 
-  /* target sizing */
-  --tgt: 74px;        /* base target size (pc) */
-  --tgt-mobile: 86px; /* bigger on phone */
+  /* target size */
+  --tgt: 84px;
+  --tgt-min: 66px;
+
+  /* background vignette */
+  --v0: rgba(2,6,23,.0);
+  --v1: rgba(2,6,23,.55);
+  --v2: rgba(2,6,23,.92);
 }
 
 *{ box-sizing:border-box; }
 html,body{
   margin:0;
   height:100%;
-  background: radial-gradient(1200px 900px at 50% 0%, rgba(34,211,238,.08), transparent 52%),
-              radial-gradient(1000px 900px at 0% 60%, rgba(34,197,94,.06), transparent 55%),
-              radial-gradient(1000px 900px at 100% 70%, rgba(239,68,68,.05), transparent 58%),
-              linear-gradient(180deg, var(--bg0), var(--bg1));
+  background: var(--bg0);
   color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+/* Important: do NOT apply transform/filter on body/html that can break fixed overlays */
+body{
   overflow:hidden;
 }
 
-/* view classes: set by hygiene-vr.html */
-body.view-pc{ }
-body.view-mobile{ }
-body.view-vr{ }
-body.view-cvr{ }
-
-/* ---------- Root / Stage ---------- */
+/* root */
 .hw-root{
-  position:relative;
-  width:100%;
-  height:100%;
-  overflow:hidden;
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.10), transparent 55%),
+    radial-gradient(1000px 740px at 80% 25%, rgba(34,197,94,.08), transparent 55%),
+    radial-gradient(900px 900px at 50% 80%, rgba(148,163,184,.07), transparent 58%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
 }
 
+/* Stage: MUST NOT clip, so FX (rings) stays visible */
 .hw-stage{
   position:absolute;
   inset:0;
-  overflow:hidden;
-  /* allow targets area */
+  z-index: 10;
+  overflow: visible;     /* ✅ no clip */
+  contain: none;         /* ✅ do not contain paint (prevents clipping issues) */
   touch-action: manipulation;
-  user-select:none;
 }
 
-/* subtle vignette */
-.hw-stage::before{
-  content:"";
-  position:absolute;
-  inset:-2px;
-  pointer-events:none;
-  background:
-    radial-gradient(900px 700px at 50% 10%, rgba(255,255,255,.06), transparent 55%),
-    radial-gradient(1200px 900px at 50% 80%, rgba(0,0,0,.50), transparent 60%),
-    radial-gradient(1400px 1200px at 50% 50%, transparent 55%, rgba(0,0,0,.50));
-}
-
-/* ---------- HUD ---------- */
+/* HUD */
 .hw-hud{
   position:absolute;
-  inset:0;
-  pointer-events:none; /* important: stage still clickable */
+  inset: 0;
+  z-index: 80;
+  pointer-events: none; /* ✅ allow stage clicks through except interactive elements */
 }
 
 .hw-top{
   position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) 10px calc(14px + var(--sal));
-  pointer-events:none;
-}
-
-/* Make room for spawn: update CSS vars roughly per view */
-body.view-pc :root{}
-body.view-pc{
-  --hw-top-safe: 210;
-  --hw-bottom-safe: 120;
-}
-body.view-mobile{
-  --hw-top-safe: 235;
-  --hw-bottom-safe: 150;
-}
-body.view-cvr{
-  --hw-top-safe: 240;
-  --hw-bottom-safe: 160;
-}
-body.view-vr{
-  --hw-top-safe: 200;
-  --hw-bottom-safe: 120;
+  left: calc(14px + var(--sal));
+  right: calc(14px + var(--sar));
+  top: calc(12px + var(--sat));
+  background: rgba(2,6,23,.38);
+  border: 1px solid rgba(148,163,184,.10);
+  border-radius: var(--radius);
+  padding: 12px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 28px 120px rgba(0,0,0,.48);
 }
 
 .hw-title{
   font-weight: 950;
-  font-size: 18px;
   letter-spacing: .2px;
-  text-shadow: 0 18px 40px rgba(0,0,0,.45);
+  display:flex;
+  gap:10px;
+  align-items:center;
+  font-size: 18px;
 }
 .hw-sub{
   margin-top: 4px;
   font-size: 12px;
   color: var(--muted);
-  opacity: .95;
 }
 
 .hw-row{
   display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:10px;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .hw-pill{
-  pointer-events:auto;
   display:inline-flex;
   align-items:center;
-  gap:8px;
+  justify-content:center;
+  gap: 8px;
   padding: 10px 12px;
   border-radius: var(--pill);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+  border: 1px solid rgba(148,163,184,.14);
+  background: rgba(2,6,23,.52);
+  color: rgba(229,231,235,.96);
   font-weight: 900;
   font-size: 13px;
   line-height: 1;
-  color: rgba(229,231,235,.96);
+  min-height: 38px;
+  white-space: nowrap;
 }
 
-.hw-pill.bad{
-  border-color: rgba(239,68,68,.24);
-  background: rgba(239,68,68,.10);
-}
 .hw-pill.warn{
-  border-color: rgba(245,158,11,.24);
+  border-color: rgba(245,158,11,.20);
   background: rgba(245,158,11,.10);
 }
 .hw-pill.cyan{
-  border-color: rgba(34,211,238,.24);
+  border-color: rgba(34,211,238,.22);
   background: rgba(34,211,238,.10);
+}
+.hw-pill.bad{
+  border-color: rgba(239,68,68,.22);
+  background: rgba(239,68,68,.10);
 }
 
 .hw-pill.btn{
-  cursor:pointer;
-  background: rgba(15,23,42,.62);
+  pointer-events: auto; /* ✅ clickable */
+  cursor: pointer;
+  user-select: none;
+  background: rgba(15,23,42,.64);
+  border-color: rgba(148,163,184,.18);
 }
-.hw-pill.btn:active{
-  transform: translateY(1px);
-}
+.hw-pill.btn:active{ transform: scale(.98); }
 
 /* Banner */
 .hw-banner{
   position:absolute;
-  top: calc(118px + var(--sat));
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(680px, calc(100% - 24px));
+  left: calc(14px + var(--sal));
+  right: calc(14px + var(--sar));
+  top: calc(12px + var(--sat) + 132px);
+  z-index: 85;
+  display:none;
   pointer-events:none;
-
-  padding: 10px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.62);
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.14);
+  background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
-  box-shadow: 0 26px 90px rgba(0,0,0,.45);
-
   font-weight: 950;
-  font-size: 13px;
   color: rgba(229,231,235,.96);
-
-  opacity:0;
-  transform-origin:center;
+  box-shadow: 0 24px 80px rgba(0,0,0,.42);
 }
-
-.hw-banner.show{
-  animation: hwBanner 1200ms ease-out forwards;
-}
+.hw-banner.show{ display:block; animation: hwBanner 1.15s ease-out both; }
 
 @keyframes hwBanner{
-  0%   { opacity:0; transform: translateX(-50%) translateY(-6px) scale(.98); }
-  12%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
-  78%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
-  100% { opacity:0; transform: translateX(-50%) translateY(-6px) scale(.99); }
+  0%{ opacity:0; transform: translateY(-8px) scale(.98); }
+  15%{ opacity:1; transform: translateY(0) scale(1); }
+  70%{ opacity:1; }
+  100%{ opacity:0; transform: translateY(-10px) scale(.99); }
 }
 
 /* Quiz box */
 .hw-quiz{
   margin-top: 10px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(34,211,238,.22);
+  pointer-events: none;
+  border: 1px solid rgba(34,211,238,.18);
   background: rgba(34,211,238,.08);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 22px 70px rgba(0,0,0,.30);
-  pointer-events:none;
+  border-radius: 18px;
+  padding: 10px 12px;
 }
 .hw-quiz-q{
   font-weight: 950;
-  font-size: 13px;
+  font-size: 14px;
 }
 .hw-quiz-sub{
-  margin-top: 6px;
+  margin-top: 4px;
+  color: rgba(226,232,240,.90);
   font-size: 12px;
-  color: rgba(229,231,235,.92);
-  opacity: .95;
   line-height: 1.35;
 }
 
-/* ---------- Overlays ---------- */
+/* Overlays */
 .hw-overlay{
   position:absolute;
   inset:0;
   display:grid;
   place-items:center;
+  z-index: 120;
   padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-  background: radial-gradient(1000px 800px at 50% 10%, rgba(34,211,238,.10), transparent 55%),
-              rgba(0,0,0,.40);
+  background: radial-gradient(1200px 900px at 50% 20%, rgba(2,6,23,.55), rgba(2,6,23,.86));
   backdrop-filter: blur(10px);
-  z-index: 50;
 }
-
 .hw-card{
   width: min(760px, 100%);
-  border-radius: var(--r);
-  border: 1px solid var(--stroke);
+  border: 1px solid rgba(148,163,184,.16);
   background: rgba(2,6,23,.72);
-  box-shadow: 0 26px 120px rgba(0,0,0,.55);
+  border-radius: var(--radius);
   padding: 16px;
+  box-shadow: 0 28px 140px rgba(0,0,0,.55);
 }
-
 .hw-card-title{
-  font-weight: 950;
   font-size: 18px;
+  font-weight: 950;
 }
 .hw-card-sub{
   margin-top: 8px;
-  color: var(--muted);
+  color: rgba(148,163,184,.95);
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
-
 .hw-card-row{
+  margin-top: 12px;
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
-  margin-top: 12px;
-}
-
-.hw-cta, .hw-ghost{
-  pointer-events:auto;
-  border-radius: 16px;
-  padding: 10px 14px;
-  font-weight: 950;
-  border: 1px solid rgba(148,163,184,.18);
-  cursor:pointer;
-  color: rgba(229,231,235,.96);
+  flex-wrap: wrap;
 }
 .hw-cta{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.28);
+  pointer-events: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(34,197,94,.26);
+  background: rgba(34,197,94,.16);
+  color: rgba(229,231,235,.98);
+  padding: 10px 14px;
+  font-weight: 950;
+  cursor:pointer;
 }
 .hw-ghost{
-  background: rgba(15,23,42,.62);
+  pointer-events: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.68);
+  color: rgba(229,231,235,.96);
+  padding: 10px 14px;
+  font-weight: 950;
+  cursor:pointer;
 }
-.hw-cta:active, .hw-ghost:active{ transform: translateY(1px); }
+.hw-cta:active,.hw-ghost:active{ transform: scale(.98); }
 
 .hw-pre{
   margin-top: 10px;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  color: rgba(229,231,235,.92);
-  max-height: 280px;
+  max-height: min(44vh, 520px);
   overflow:auto;
-  font-size: 11px;
-  line-height: 1.35;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.55);
+  padding: 12px;
+  color: rgba(226,232,240,.94);
+  font-size: 12px;
 }
 
-/* ---------- Targets (Buttons) ---------- */
-/* created by hygiene.safe.js: class="hw-tgt good|wrong|haz" */
+/* ---- Targets ---- */
 .hw-tgt{
-  position:absolute;
+  pointer-events: auto;
+  position: absolute;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
   width: var(--tgt);
   height: var(--tgt);
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.30);
+  border: 2px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
-  box-shadow: 0 24px 90px rgba(0,0,0,.38);
-  cursor:pointer;
-  padding:0;
-  outline:none;
-
+  box-shadow:
+    0 18px 70px rgba(0,0,0,.45),
+    0 0 0 6px rgba(2,6,23,.30);
   display:grid;
   place-items:center;
-
-  /* pop-in */
-  opacity:0;
-  animation: hwPopIn 220ms ease-out forwards;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  z-index: 30;
+  animation: tgtIn .22s ease-out both;
 }
-@keyframes hwPopIn{
-  0%{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
+
+@keyframes tgtIn{
+  0%{ opacity:0; transform: translate(-50%,-50%) scale(var(--s,1)) scale(.86); }
   100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* Emoji */
 .hw-tgt .emoji{
   font-size: 34px;
   line-height: 1;
-  filter: drop-shadow(0 14px 28px rgba(0,0,0,.42));
-  transform: translateZ(0);
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.40));
 }
 
-/* Glow rings (the “effect” look) */
-.hw-tgt::before,
-.hw-tgt::after{
-  content:"";
-  position:absolute;
-  inset:-8px;
-  border-radius: 999px;
-  pointer-events:none;
-}
+/* Ring FX (restores “effect feeling”) */
 .hw-tgt::before{
-  border: 2px solid rgba(34,197,94,.22);
-  box-shadow: 0 0 0 4px rgba(34,197,94,.10), 0 20px 60px rgba(0,0,0,.22);
-  opacity:.75;
+  content:'';
+  position:absolute;
+  inset:-14px;
+  border-radius: 999px;
+  border: 2px solid rgba(34,211,238,.18);
+  box-shadow: 0 0 0 6px rgba(34,211,238,.06);
+  opacity: .75;
+  animation: ringPulse 1.25s ease-in-out infinite;
 }
-.hw-tgt::after{
-  inset:-18px;
-  border: 2px solid rgba(34,197,94,.10);
-  opacity:.50;
-  animation: hwRing 1500ms ease-in-out infinite;
-}
-@keyframes hwRing{
-  0%{ transform: scale(.96); opacity:.28; }
-  55%{ transform: scale(1.02); opacity:.55; }
-  100%{ transform: scale(.96); opacity:.28; }
+@keyframes ringPulse{
+  0%{ transform: scale(.92); opacity:.55; }
+  55%{ transform: scale(1.02); opacity:.85; }
+  100%{ transform: scale(1.06); opacity:.20; }
 }
 
-/* Type coloring */
-.hw-tgt.good{
-  background: rgba(34,197,94,.10);
-  border-color: rgba(34,197,94,.22);
+.hw-tgt:active{
+  transform: translate(-50%,-50%) scale(var(--s,1)) scale(.96);
 }
-.hw-tgt.good::before{ border-color: rgba(34,197,94,.22); box-shadow: 0 0 0 4px rgba(34,197,94,.10); }
-.hw-tgt.good::after { border-color: rgba(34,197,94,.10); }
+
+/* Good / Wrong / Hazard skins */
+.hw-tgt.good{
+  border-color: rgba(34,197,94,.26);
+  background: rgba(34,197,94,.10);
+  box-shadow:
+    0 18px 70px rgba(0,0,0,.45),
+    0 0 0 6px rgba(2,6,23,.30),
+    0 0 26px rgba(34,197,94,.18);
+}
+.hw-tgt.good::before{
+  border-color: rgba(34,197,94,.22);
+  box-shadow: 0 0 0 6px rgba(34,197,94,.07);
+}
 
 .hw-tgt.wrong{
+  border-color: rgba(245,158,11,.26);
   background: rgba(245,158,11,.10);
-  border-color: rgba(245,158,11,.22);
+  box-shadow:
+    0 18px 70px rgba(0,0,0,.45),
+    0 0 0 6px rgba(2,6,23,.30),
+    0 0 26px rgba(245,158,11,.18);
 }
-.hw-tgt.wrong::before{ border-color: rgba(245,158,11,.22); box-shadow: 0 0 0 4px rgba(245,158,11,.10); }
-.hw-tgt.wrong::after { border-color: rgba(245,158,11,.10); }
+.hw-tgt.wrong::before{
+  border-color: rgba(245,158,11,.22);
+  box-shadow: 0 0 0 6px rgba(245,158,11,.08);
+}
 
 .hw-tgt.haz{
+  border-color: rgba(239,68,68,.26);
   background: rgba(239,68,68,.10);
+  box-shadow:
+    0 18px 70px rgba(0,0,0,.45),
+    0 0 0 6px rgba(2,6,23,.30),
+    0 0 26px rgba(239,68,68,.18);
+}
+.hw-tgt.haz::before{
   border-color: rgba(239,68,68,.22);
-}
-.hw-tgt.haz::before{ border-color: rgba(239,68,68,.22); box-shadow: 0 0 0 4px rgba(239,68,68,.10); }
-.hw-tgt.haz::after { border-color: rgba(239,68,68,.10); }
-
-/* Touch feedback */
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
+  box-shadow: 0 0 0 6px rgba(239,68,68,.08);
+  animation-duration: .95s;
 }
 
-/* cVR: targets should not capture pointer (shoot from crosshair) */
-body.view-cvr .hw-tgt{
-  pointer-events:none;
+/* ---- View tweaks ---- */
+body.view-mobile{
+  --tgt: 78px;
+  --hw-top-safe: 162px;
+  --hw-bottom-safe: 170px;
+}
+body.view-cvr{
+  --tgt: 74px;
+  --hw-top-safe: 158px;
+  --hw-bottom-safe: 190px;
+}
+body.view-pc{
+  --tgt: 86px;
 }
 
-/* ---------- Responsive tweaks ---------- */
-@media (max-width: 520px){
-  :root{ --tgt: var(--tgt-mobile); }
-  .hw-title{ font-size: 17px; }
-  .hw-pill{ font-size: 12.5px; padding: 10px 12px; }
-  .hw-banner{ top: calc(128px + var(--sat)); }
-  .hw-tgt .emoji{ font-size: 36px; }
+/* Make space for HUD automatically on small screens */
+@media (max-width: 420px){
+  :root{ --hw-top-safe: 178px; }
+  .hw-pill{ font-size:12px; padding: 9px 11px; min-height: 36px; }
+  .hw-title{ font-size:17px; }
+  .hw-top{ padding: 11px; }
 }
 
-/* VR mode: keep HUD a bit smaller */
-body.view-vr .hw-pill{
-  font-size: 12px;
-  padding: 9px 11px;
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hw-tgt, .hw-tgt::before, .hw-banner.show{ animation: none !important; }
 }
-
-/* ---------- Safety: make sure overlays above all ---------- */
-#startOverlay, #endOverlay{ z-index: 80; }
