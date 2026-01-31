@@ -1,165 +1,142 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Loader — PRODUCTION (FULL)
-// ✅ Auto-detect view (pc/mobile/cvr/cardboard) if no ?view=
-// ✅ Respects explicit ?view= if provided
-// ✅ Sets body classes: view-pc / view-mobile / view-cvr / cardboard
-// ✅ Exposes window.HHA_VIEW = { view, layers:[...] } (used by hydration.safe.js for split layers)
-// ✅ Robust import + error display on start overlay
-// ✅ Does NOT start game automatically (start button triggers hha:start in hydration-vr.html)
+// Hydration VR Loader — PRODUCTION (FULL)
+// ✅ Auto-detect view (pc/mobile/cvr/cardboard) WITHOUT overriding if ?view= exists
+// ✅ Applies body classes: view-pc / view-mobile / view-cvr / cardboard
+// ✅ Sets window.HHA_VIEW.layers for Cardboard split: hydration-layerL/R
+// ✅ Loads Universal VR UI (../vr/vr-ui.js) -> Enter VR/Exit/Recenter + crosshair/tap-to-shoot => hha:shoot
+// ✅ Imports hydration.safe.js after view is ready
+// Notes:
+// - hydration-vr.html already has its own crosshair + tap-to-shoot helper (safe even if vr-ui also exists)
+// - vr-ui.js is safe to load multiple times (guarded by __HHA_VRUI_LOADED__)
 
-(function(){
-  'use strict';
+'use strict';
 
-  const WIN = window;
-  const DOC = document;
+const WIN = window;
+const DOC = document;
 
-  const qs = (k, def=null)=>{
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch(_){ return def; }
-  };
+const qs = (k, def = null) => {
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
+};
 
-  const setText = (id, v)=>{
-    const el = DOC.getElementById(id);
-    if (el) el.textContent = String(v);
-  };
+function hasExplicitViewParam(){
+  const v = String(qs('view','') || '').trim();
+  return !!v;
+}
 
-  const addBodyClass = (...cls)=>{ try{ DOC.body.classList.add(...cls); }catch(_){ } };
-  const remBodyClass = (...cls)=>{ try{ DOC.body.classList.remove(...cls); }catch(_){ } };
+function normalizeView(v){
+  v = String(v || '').toLowerCase().trim();
+  if (v === 'pc' || v === 'desktop') return 'pc';
+  if (v === 'mobile' || v === 'm') return 'mobile';
+  if (v === 'cvr' || v === 'cardboard-strict' || v === 'crosshair') return 'cvr';
+  if (v === 'cardboard' || v === 'vr' || v === 'split') return 'cardboard';
+  return '';
+}
 
-  function isMobileCoarse(){
+function detectViewAuto(){
+  // Heuristic: coarse pointer => mobile-ish
+  const coarse = !!(WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
+  const w = Math.max(1, WIN.innerWidth || 0);
+  const h = Math.max(1, WIN.innerHeight || 0);
+  const landscape = w >= h;
+
+  // If user is likely using Cardboard launcher, they usually pass view=cardboard or view=cvr.
+  // If no param, choose:
+  // - mobile => mobile
+  // - desktop => pc
+  if (coarse) return 'mobile';
+  // on desktop, keep pc
+  return 'pc';
+}
+
+function applyBodyClasses(view){
+  const b = DOC.body;
+  if (!b) return;
+
+  // reset canonical classes
+  b.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
+
+  if (view === 'cardboard'){
+    b.classList.add('cardboard');
+  } else if (view === 'cvr'){
+    b.classList.add('view-cvr');
+  } else if (view === 'mobile'){
+    b.classList.add('view-mobile');
+  } else {
+    b.classList.add('view-pc');
+  }
+}
+
+function setLayersConfig(view){
+  // hydration.safe.js uses HHA_VIEW.layers to decide L/R targets (Cardboard)
+  // hydration-vr.html has:
+  // - main: hydration-layer
+  // - L/R: hydration-layerL / hydration-layerR
+  WIN.HHA_VIEW = WIN.HHA_VIEW || {};
+  if (view === 'cardboard'){
+    WIN.HHA_VIEW.layers = ['hydration-layerL','hydration-layerR'];
+  } else {
+    WIN.HHA_VIEW.layers = ['hydration-layer'];
+  }
+}
+
+function ensureVrUiLoaded(){
+  return new Promise((resolve) => {
     try{
-      return !!(matchMedia && matchMedia('(pointer:coarse)').matches);
+      if (WIN.__HHA_VRUI_LOADED__) return resolve(true);
+
+      // If user config exists, keep it; otherwise set sane defaults
+      WIN.HHA_VRUI_CONFIG = Object.assign(
+        { lockPx: 28, cooldownMs: 90 },
+        WIN.HHA_VRUI_CONFIG || {}
+      );
+
+      const s = DOC.createElement('script');
+      s.src = '../vr/vr-ui.js';
+      s.defer = true;
+      s.onload = () => resolve(true);
+      s.onerror = () => resolve(false);
+      DOC.head.appendChild(s);
     }catch(_){
-      return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+      resolve(false);
     }
-  }
+  });
+}
 
-  function supportsWebXR(){
-    // Best-effort: if WebXR exists, consider VR-capable
-    try{ return !!(navigator && navigator.xr); }catch(_){ return false; }
-  }
+function bindBasicErrorTrap(){
+  // lightweight guard: don’t crash silently
+  try{
+    WIN.addEventListener('error', (ev)=>{
+      console.warn('[Hydration Loader] window.error:', ev?.message || ev);
+    });
+    WIN.addEventListener('unhandledrejection', (ev)=>{
+      console.warn('[Hydration Loader] unhandledrejection:', ev?.reason || ev);
+    });
+  }catch(_){}
+}
 
-  function normalizeView(v){
-    v = String(v||'').toLowerCase().trim();
-    if (v === 'vr') v = 'cardboard';       // allow alias
-    if (v === 'cb') v = 'cardboard';       // alias
-    if (v === 'cvr') v = 'cvr';
-    if (v === 'pc') v = 'pc';
-    if (v === 'mobile') v = 'mobile';
-    if (v === 'cardboard') v = 'cardboard';
-    return v;
-  }
+async function main(){
+  bindBasicErrorTrap();
 
-  function detectView(){
-    // If user explicitly provides ?view=, respect it.
-    const explicit = normalizeView(qs('view',''));
-    if (explicit) return explicit;
+  // 1) Decide view (do NOT override if ?view= exists)
+  const vParam = normalizeView(qs('view',''));
+  const view = hasExplicitViewParam() ? (vParam || 'pc') : detectViewAuto();
 
-    // Auto-detect:
-    // - If ?force=cvr or ?cvr=1 -> cvr
-    const cvr1 = String(qs('cvr','')).toLowerCase();
-    if (cvr1 === '1' || cvr1 === 'true') return 'cvr';
+  // 2) Apply classes + layer config
+  applyBodyClasses(view);
+  setLayersConfig(view);
 
-    // - If VR device exists and mobile coarse pointer -> default to cvr (fast crosshair mode)
-    //   (ผู้ใช้ส่วนใหญ่: มือถือ + cardboard = cvr / cardboard แล้วแต่ root launcher ส่งมา)
-    const mobile = isMobileCoarse();
-    const xr = supportsWebXR();
+  // 3) Load vr-ui.js (for ENTER VR/EXIT/RECENTER + crosshair shoot event)
+  //    Even if hydration-vr.html already supports cVR shooting, vr-ui adds standard buttons.
+  await ensureVrUiLoaded();
 
-    // Heuristic:
-    // - If explicit cardboard requested via ?vr=1 or ?cardboard=1
-    const cb1 = String(qs('cardboard','')).toLowerCase();
-    const vr1 = String(qs('vr','')).toLowerCase();
-    if (cb1 === '1' || cb1 === 'true' || vr1 === '1' || vr1 === 'true') return 'cardboard';
+  // 4) Import game safe after view is ready
+  //    hydration.safe.js will boot itself and wait for hha:start
+  await import('./hydration.safe.js');
+}
 
-    // If mobile + xr -> cvr (ยิงกลางจอ ใช้ง่ายกว่า)
-    if (mobile && xr) return 'cvr';
-
-    // If mobile without xr -> mobile
-    if (mobile) return 'mobile';
-
-    // else PC
-    return 'pc';
-  }
-
-  function applyView(view){
-    // clear all known classes first
-    remBodyClass('view-pc','view-mobile','view-cvr','cardboard');
-
-    if (view === 'cardboard'){
-      // split L/R
-      addBodyClass('cardboard');
-      WIN.HHA_VIEW = { view:'cardboard', layers:['hydration-layerL','hydration-layerR'] };
-
-      // ensure cbPlayfield visible (CSS will do via .cardboard)
-      // nothing else needed
-      return;
-    }
-
-    if (view === 'cvr'){
-      addBodyClass('view-cvr');
-      WIN.HHA_VIEW = { view:'cvr', layers:['hydration-layer'] };
-      return;
-    }
-
-    if (view === 'mobile'){
-      addBodyClass('view-mobile');
-      WIN.HHA_VIEW = { view:'mobile', layers:['hydration-layer'] };
-      return;
-    }
-
-    // default pc
-    addBodyClass('view-pc');
-    WIN.HHA_VIEW = { view:'pc', layers:['hydration-layer'] };
-  }
-
-  function prettyViewLabel(){
-    const b = DOC.body;
-    if (b.classList.contains('cardboard')) return 'VR Cardboard (Split)';
-    if (b.classList.contains('view-cvr')) return 'cVR (Crosshair ยิงกลางจอ)';
-    if (b.classList.contains('view-mobile')) return 'Mobile';
-    return 'PC';
-  }
-
-  function showBootStatus(){
-    const overlay = DOC.getElementById('startOverlay');
-    // overlay is visible by default; we just update subtitle
-    setText('start-sub', `โหมดตรวจจับแล้ว: ${prettyViewLabel()}  •  แตะ ▶️ เพื่อเริ่ม`);
-    if (!overlay) return;
-  }
-
-  async function boot(){
-    try{
-      // Ensure body exists
-      if (!DOC.body){
-        await new Promise(r=>setTimeout(r, 10));
-      }
-
-      const v = detectView();
-      applyView(v);
-      showBootStatus();
-
-      // Import engine (hydration.safe.js) — it will wait for 'hha:start'
-      // NOTE: keep path relative to this loader file
-      await import('./hydration.safe.js');
-
-      // (Optional) let UI know everything loaded
-      try{
-        WIN.dispatchEvent(new CustomEvent('hha:loader_ready', {
-          detail:{ view: (WIN.HHA_VIEW && WIN.HHA_VIEW.view) || v }
-        }));
-      }catch(_){}
-
-    }catch(err){
-      console.error('[HydrationVR Loader] failed:', err);
-
-      // Show error on start overlay
-      const msg =
-        (err && (err.message || String(err))) || 'Unknown error';
-
-      setText('start-sub', `โหลดไม่สำเร็จ ❌\n${msg}\n(ตรวจสอบ path / module import / cache)`);
-      // keep overlay visible; user can still press Back HUB
-    }
-  }
-
-  boot();
-})();
+if (DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', main, { once:true });
+} else {
+  main();
+}
