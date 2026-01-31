@@ -1,130 +1,76 @@
-// === js/pattern-gen.js — AI Pattern Generator (deterministic) ===
+// === /fitness/js/pattern-gen.js ===
+// A-63 Pattern Generator: arc/zigzag/corners + storm burst patterns
 'use strict';
 
-(function(){
-  // --- tiny seeded RNG (mulberry32) ---
-  function hashSeed(str){
-    let h = 1779033703 ^ str.length;
-    for (let i=0;i<str.length;i++){
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h<<13) | (h>>>19);
+const clamp = (v,a,b)=>Math.max(a, Math.min(b,v));
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+function jitter(v, j){
+  return v + (Math.random()*2-1)*j;
+}
+
+export function pickPatternPos(state){
+  const phase = state?.bossPhase ?? 1;
+  // baseline safe margins (percent)
+  const m = phase === 3 ? 13 : (phase === 2 ? 14 : 15);
+
+  const x = Math.random() * (100 - 2*m) + m;
+  const y = Math.random() * (100 - 2*m) + m;
+  return { xPct:x, yPct:y };
+}
+
+// สร้าง “ชุดตำแหน่ง” สำหรับ storm  (k จุด)
+export function buildStormPattern(k, state){
+  const phase = state?.bossPhase ?? 1;
+  const typeRoll = Math.random();
+
+  // safe margins
+  const m = phase === 3 ? 12 : 14;
+  const left = m, right = 100 - m, top = m, bottom = 100 - m;
+
+  const pts = [];
+
+  if (typeRoll < 0.34) {
+    // ARC (ครึ่งวงกลม)
+    const cx = 50, cy = 54;
+    const r = phase === 3 ? 28 : 30;
+    const a0 = Math.PI * (0.15 + Math.random()*0.05);
+    const a1 = Math.PI * (0.85 - Math.random()*0.05);
+    for (let i=0;i<k;i++){
+      const t = (k===1) ? 0.5 : i/(k-1);
+      const a = lerp(a0, a1, t);
+      const x = clamp(cx + Math.cos(a)*r + jitter(0, 2.2), left, right);
+      const y = clamp(cy - Math.sin(a)*r + jitter(0, 2.2), top, bottom);
+      pts.push({ xPct:x, yPct:y });
     }
-    return (h>>>0);
-  }
-  function mulberry32(a){
-    return function(){
-      let t = a += 0x6D2B79F5;
-      t = Math.imul(t ^ (t>>>15), t | 1);
-      t ^= t + Math.imul(t ^ (t>>>7), t | 61);
-      return ((t ^ (t>>>14)) >>> 0) / 4294967296;
-    };
+    return pts;
   }
 
-  // --- helpers ---
-  const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-  const LANES = [0,1,2,3,4];
-  const sideOf = (lane)=> lane===2?'C':(lane<=1?'L':'R');
-
-  // pattern states (DL-ish policy)
-  const BASE_PATTERNS = {
-    easy:   [2,1,3,2,1,3,2,3],
-    normal: [2,3,1,2,3,4,2,3],
-    hard:   [1,3,2,4,0,2,3,1]
-  };
-
-  // constraints: กัน “โหดเกิน” และกันซ้ำเลนเดิมติด ๆ
-  function pickNextLane(rng, prevLane, diff, phase, skill){
-    const temp = clamp(0.15 + (diff==='hard'?0.25:diff==='easy'?0.05:0.15) + (1-skill)*0.15, 0.08, 0.55);
-    const biasCenter = (phase==='warmup') ? 0.22 : (phase==='boss') ? 0.08 : 0.14;
-
-    // candidate weights
-    const w = LANES.map(l=>{
-      let wt = 1.0;
-      if(l === prevLane) wt *= 0.25;            // กันซ้ำ
-      if(sideOf(l) === sideOf(prevLane) && l!==2 && prevLane!==2) wt *= 0.85; // กันอยู่ข้างเดิมนาน
-      if(l === 2) wt *= (1 + biasCenter);       // center ง่ายกว่าเล็กน้อย
-      if(diff==='hard' && (l===0 || l===4)) wt *= 1.12; // hard ดันสุดขอบนิด
-      if(phase==='boss') wt *= (l===2 ? 0.9 : 1.08);    // boss กระจายมากขึ้น
-      // temperature
-      wt = Math.pow(wt, 1/temp);
-      return wt;
-    });
-
-    // sample
-    const sum = w.reduce((s,x)=>s+x,0) || 1;
-    let r = rng() * sum;
-    for(let i=0;i<w.length;i++){
-      r -= w[i];
-      if(r <= 0) return LANES[i];
+  if (typeRoll < 0.67) {
+    // ZIGZAG
+    const rows = Math.max(2, Math.min(4, Math.round(k/2)));
+    for (let i=0;i<k;i++){
+      const t = (k===1) ? 0.5 : i/(k-1);
+      const y = lerp(top+6, bottom-6, t);
+      const flip = (i % 2 === 0);
+      const x = flip ? left+8 : right-8;
+      pts.push({ xPct: clamp(x + jitter(0,3.0), left, right), yPct: clamp(y + jitter(0,2.0), top, bottom) });
     }
-    return 2;
+    return pts;
   }
 
-  // generate chart: bpm, durationSec, diff, seed, phaseMap, (optional) skill
-  function generateChart(opts){
-    const bpm = opts.bpm || 120;
-    const dur = opts.durationSec || 32;
-    const diff = (opts.diff || 'normal');
-    const seedStr = String(opts.seed || ('RB-'+Date.now()));
-    const rng = mulberry32(hashSeed(seedStr));
-    const skill = clamp(opts.skillScore ?? 0.5, 0, 1);
-
-    // beat
-    const beat = 60 / bpm;
-    let t = 2.0; // start after 2s
-    const out = [];
-
-    let prev = 2;
-    const base = BASE_PATTERNS[diff] || BASE_PATTERNS.normal;
-    let baseI = 0;
-
-    const phaseAt = opts.phaseAt || function(songTime){
-      if(songTime < 10.5) return 'warmup';
-      if(songTime < 20.0) return 'build';
-      if(songTime < 27.0) return 'boss';
-      return 'finale';
-    };
-
-    while(t < dur - 2){
-      const phase = phaseAt(t);
-
-      // density scaling by phase (finale แน่นขึ้น)
-      let step = beat;
-      if(phase==='warmup') step = beat * 1.0;
-      if(phase==='build')  step = beat * 0.95;
-      if(phase==='boss')   step = beat * 0.90;
-      if(phase==='finale') step = beat * 0.85;
-
-      // DL-ish: ผสม base pattern + policy sampling
-      const useBase = (rng() < (diff==='easy'?0.75:diff==='hard'?0.45:0.60));
-      let lane;
-      if(useBase){
-        lane = base[baseI % base.length];
-        baseI++;
-        // คุมไม่ให้ซ้ำเลนเดิมติดกันเกิน
-        if(lane === prev && rng() < 0.65){
-          lane = pickNextLane(rng, prev, diff, phase, skill);
-        }
-      }else{
-        lane = pickNextLane(rng, prev, diff, phase, skill);
-      }
-
-      // occasional burst (boss/finale) ทำให้ “เร้าใจ”
-      if((phase==='boss' || phase==='finale') && rng() < (diff==='hard'?0.22:0.14)){
-        // ใส่โน้ตแฝดเร็ว (half-beat)
-        out.push({ time: t, lane, type:'note' });
-        const lane2 = pickNextLane(rng, lane, diff, phase, skill);
-        out.push({ time: t + step*0.5, lane: lane2, type:'note' });
-      }else{
-        out.push({ time: t, lane, type:'note' });
-      }
-
-      prev = lane;
-      t += step;
-    }
-
-    return out;
+  // CORNERS → CENTER
+  const corners = [
+    {xPct:left+6, yPct:top+6},
+    {xPct:right-6, yPct:top+6},
+    {xPct:left+6, yPct:bottom-6},
+    {xPct:right-6, yPct:bottom-6},
+    {xPct:50, yPct:50}
+  ];
+  for (let i=0;i<k;i++){
+    const c = corners[i % corners.length];
+    pts.push({ xPct: clamp(c.xPct + jitter(0,2.5), left, right), yPct: clamp(c.yPct + jitter(0,2.5), top, bottom) });
   }
-
-  window.RB_PatternGen = { generateChart };
-})();
+  return pts;
+}
