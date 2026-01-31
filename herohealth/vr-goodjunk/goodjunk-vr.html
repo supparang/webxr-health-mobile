@@ -1,12 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (clean)
+GoodJunkVR RUN — PRODUCTION (Folder-run)
 ✅ CSS: ./goodjunk-vr.css
 ✅ Boot: ./goodjunk-vr.boot.js -> ./goodjunk.safe.js
-✅ Scripts: ../vr/particles.js (effects), ../vr/vr-ui.js, ../vr/hha-cloud-logger.js
-✅ AI: ../vr/ai-hooks.js (classic => window.HHA.createAIHooks)
+✅ Modules (classic): ../vr/particles.js, ../vr/hha-cloud-logger.js, ../vr/vr-ui.js, ../vr/ai-hooks.js
+✅ IMPORTANT: classic scripts must load BEFORE module boot
 ✅ A-Frame minimal scene for Enter VR reliability
-✅ Safe-zone measure -> sets --gj-top-safe / --gj-bottom-safe
-✅ Missions peek + Always mission line + End summary
+✅ Measures HUD safe-zone -> sets --gj-top-safe / --gj-bottom-safe for safe.js getSafeRect()
+✅ Mission line always visible + Missions peek + End summary
 -->
 <!doctype html>
 <html lang="th">
@@ -20,16 +20,14 @@ GoodJunkVR RUN — PRODUCTION (clean)
   <link rel="stylesheet" href="./goodjunk-vr.css" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Effects + common runtime helpers -->
-  <script defer src="../vr/particles.js"></script>
-  <script defer src="../vr/hha-cloud-logger.js"></script>
-  <script defer src="../vr/vr-ui.js"></script>
-
-  <!-- IMPORTANT: classic AI hooks must load BEFORE module boot -->
+  <!-- ✅ Classic libs (effects / logger / VR UI / AI hooks) -->
+  <script defer src="../vr/particles.js?v=20260131a"></script>
+  <script defer src="../vr/hha-cloud-logger.js?v=20260131a"></script>
+  <script defer src="../vr/vr-ui.js?v=20260131a"></script>
   <script defer src="../vr/ai-hooks.js?v=20260131a"></script>
 
-  <!-- Start game (ESM) -->
-  <script type="module" defer src="./goodjunk-vr.boot.js"></script>
+  <!-- ✅ Module boot LAST -->
+  <script type="module" defer src="./goodjunk-vr.boot.js?v=20260131a"></script>
 </head>
 
 <body class="gj">
@@ -105,7 +103,7 @@ GoodJunkVR RUN — PRODUCTION (clean)
       </div>
     </div>
 
-    <!-- quest cards -->
+    <!-- quest cards: desktop only (mobile collapses via CSS) -->
     <div class="quest-row">
       <div class="quest-card goal">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
@@ -145,6 +143,11 @@ GoodJunkVR RUN — PRODUCTION (clean)
   <!-- PLAYFIELD -->
   <main class="gj-field" id="gj-field">
     <div id="gj-layer" class="gj-layer"></div>
+
+    <!-- ✅ FX layer: for particles/effects bursts (always pointer-events none) -->
+    <div id="gj-fx" class="gj-fx" aria-hidden="true"></div>
+
+    <!-- optional: mirrored/secondary layer for special views -->
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
   </main>
 
@@ -186,10 +189,11 @@ GoodJunkVR RUN — PRODUCTION (clean)
     </div>
   </section>
 
-  <!-- UI wiring + safe-zone measure -->
+  <!-- UI wiring + safe-zone measure + FX helpers -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
       const hub = qs('hub', null);
 
       const btnBack = document.getElementById('btnBackHub');
@@ -287,7 +291,24 @@ GoodJunkVR RUN — PRODUCTION (clean)
         }
       });
 
-      // Safe-zone measure => sets vars used by goodjunk.safe.js getSafeRect()
+      // ✅ expose tiny FX helpers (so safe.js can call without import)
+      window.GJFX = window.GJFX || {};
+      window.GJFX.popText = function(x,y,text,cls){
+        try{
+          if(window.Particles && typeof window.Particles.popText === 'function'){
+            window.Particles.popText(x,y,text,cls);
+          }
+        }catch(_){}
+      };
+      window.GJFX.burst = function(x,y,opts){
+        try{
+          if(window.Particles && typeof window.Particles.burst === 'function'){
+            window.Particles.burst(x,y,opts||{});
+          }
+        }catch(_){}
+      };
+
+      // ✅ measure HUD => set safe spawn vars used by goodjunk.safe.js getSafeRect()
       function px(n){ return Math.max(0, Math.floor(n||0)) + 'px'; }
 
       function updateSafe(){
@@ -325,7 +346,7 @@ GoodJunkVR RUN — PRODUCTION (clean)
       setTimeout(updateSafe, 120);
       setTimeout(updateSafe, 360);
 
-      // quick missions peek when play
+      // auto show missions briefly at start (play only)
       if((run || 'play') === 'play'){
         setTimeout(()=>toggleMissions(true), 350);
         setTimeout(()=>toggleMissions(false), 2850);
