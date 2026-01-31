@@ -1,11 +1,21 @@
-// === /fitness/js/ai-pattern.js — Seeded Pattern Generator (deterministic) ===
+// === /fitness/js/ai-pattern.js ===
+// Seeded Pattern Generator for Rhythm Boxer (Normal/Play)
+// Research-safe: deterministic by seed; can be disabled in research
 'use strict';
 
 (function(){
-  // Deterministic RNG: mulberry32
-  function hashSeed(s){
-    // string -> uint32
-    const str = String(s == null ? '' : s);
+  // ---- seeded rng (mulberry32) ----
+  function mulberry32(seed){
+    let t = seed >>> 0;
+    return function(){
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hashSeed(str){
+    // stable hash for strings
     let h = 2166136261 >>> 0;
     for (let i=0;i<str.length;i++){
       h ^= str.charCodeAt(i);
@@ -13,155 +23,141 @@
     }
     return h >>> 0;
   }
-  function mulberry32(a){
-    return function(){
-      let t = a += 0x6D2B79F5;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:v>b?b:v; }
-  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
-  // lanes: 0..4 = L2 L1 C R1 R2
+  // lanes: 0..4 => L2,L1,C,R1,R2
   const LANES = [0,1,2,3,4];
 
-  // “แพทเทิร์นพื้นฐาน” (อ่านง่ายสำหรับเด็ก ป.5 แต่ยังเร้าใจ)
-  const PATTERNS = {
-    // ง่าย: สลับ C กับ L/R ใกล้ ๆ
-    easy: [
-      [2,1,2,3],
-      [2,1,2,1],
-      [2,3,2,3],
-      [1,2,3,2],
-      [1,2,1,2],
-      [3,2,3,2]
-    ],
-    // ปกติ: เพิ่ม cross + double
-    normal: [
-      [1,2,3,2],
-      [0,2,4,2],
-      [1,3,1,3],
-      [2,1,3,4],
-      [2,3,1,0],
-      [1,2,1,3],
-      [3,2,3,1]
-    ],
-    // ยาก: เพิ่ม “ข้ามเลน” + “ไซด์สลับ” + “ดับเบิล”
-    hard: [
-      [0,2,4,2],
-      [4,2,0,2],
-      [0,1,3,4],
-      [4,3,1,0],
-      [1,4,2,0],
-      [3,0,2,4],
-      [0,3,1,4]
-    ]
+  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
+
+  function laneMirror(l){ return 4 - l; }
+
+  // density profile per diff
+  const DIFF = {
+    easy:   { bpm:100, stepMin:1.0, stepMax:1.4, fakeRate:0.00, stormRate:0.06, jumpRate:0.08 },
+    normal: { bpm:120, stepMin:0.75,stepMax:1.1, fakeRate:0.03, stormRate:0.10, jumpRate:0.12 },
+    hard:   { bpm:140, stepMin:0.55,stepMax:0.95,fakeRate:0.07, stormRate:0.16, jumpRate:0.18 },
   };
 
-  function difficultyFromTrack(trackId, fallback){
-    // track diff meta อาจอยู่ใน engine อยู่แล้ว; ที่นี่กันพลาด
-    if (trackId === 'n1') return 'easy';
-    if (trackId === 'n2') return 'normal';
-    if (trackId === 'n3') return 'hard';
-    if (trackId === 'r1') return 'normal';
-    return fallback || 'normal';
-  }
+  // “style” affects lane transitions
+  const STYLES = {
+    focus:   { centerBias:0.38, mirrorBias:0.18, zigzagBias:0.20 },
+    mix:     { centerBias:0.25, mirrorBias:0.22, zigzagBias:0.28 },
+    chaos:   { centerBias:0.18, mirrorBias:0.10, zigzagBias:0.40 },
+    research:{ centerBias:0.30, mirrorBias:0.20, zigzagBias:0.22 },
+  };
 
-  // generator: สร้าง chart = [{time,lane,type}]
-  // opts:
-  // - bpm, durationSec, seed, difficulty
-  // - mods: {doubleI, ghostI, holdI, swapI} 0..1
-  // - density: 0.8..1.35 (จำนวนโน้ตถี่ขึ้น)
-  // - allowHolds: boolean
-  function generateChart(opts){
-    const bpm = Number(opts.bpm)||120;
-    const dur = Number(opts.durationSec)||32;
-    const seed = (opts.seed == null ? '' : opts.seed);
-    const diff = opts.difficulty || 'normal';
-    const density = clamp(opts.density == null ? 1.0 : opts.density, 0.75, 1.45);
+  function buildChart(opts){
+    // opts: {seed, bpm, durationSec, diffKey, styleKey, boss:true/false}
+    const dur = opts.durationSec || 32;
+    const diffKey = opts.diffKey || 'normal';
+    const styleKey = opts.styleKey || 'mix';
 
-    const mods = Object.assign({ doubleI:0, ghostI:0, holdI:0, swapI:0 }, opts.mods||{});
-    const allowHolds = !!opts.allowHolds;
+    const dcfg = DIFF[diffKey] || DIFF.normal;
+    const scfg = STYLES[styleKey] || STYLES.mix;
 
-    const rng = mulberry32(hashSeed(seed + '::RBCHART::' + diff + '::' + bpm));
+    const seed = (typeof opts.seed === 'number')
+      ? (opts.seed >>> 0)
+      : hashSeed(String(opts.seed||'seed'));
 
-    // base beat
-    const beat = 60 / bpm;
-    const step = beat / density; // density>1 => ถี่ขึ้น
+    const rng = mulberry32(seed);
 
-    // เริ่มหลัง 2s (เหมือน engine เดิม)
-    let t = 2.0;
+    const chart = [];
+    let t = 2.0; // start after intro
+    let lane = 2; // start center
+    let lastLane = lane;
 
-    const out = [];
-    const total = Math.floor((dur - 3) / step);
+    const beat = 60 / (opts.bpm || dcfg.bpm || 120);
 
-    // อาจทำ swap side (ซ้าย/ขวาสลับ) เพื่อเร้าใจ แต่ต้อง deterministic
-    const doSwap = (rng() < mods.swapI);
+    // phases: 1..3 normal, optional boss in last segment
+    const boss = !!opts.boss;
+    const bossStart = dur * 0.68;
+    const bossEnd   = dur - 2.0;
 
-    const patternBank = PATTERNS[diff] || PATTERNS.normal;
-    let pat = pick(rng, patternBank);
-    let pi = 0;
+    // helper to choose next lane
+    function nextLane(){
+      const r = rng();
+      // center bias
+      if (r < scfg.centerBias) return 2;
 
-    // helper swap lane
-    function swapLane(l){
-      if (!doSwap) return l;
-      // 0<->4, 1<->3, 2 stays
-      if (l===0) return 4;
-      if (l===4) return 0;
-      if (l===1) return 3;
-      if (l===3) return 1;
-      return 2;
-    }
-
-    for (let i=0;i<total && t < dur-2;i++){
-      // เปลี่ยน pattern เป็นช่วง ๆ (กันจำเจ)
-      if (i % 12 === 0 && i > 0 && rng() < 0.55){
-        pat = pick(rng, patternBank);
-        pi = 0;
+      // mirror bias (left-right symmetry)
+      if (r < scfg.centerBias + scfg.mirrorBias) {
+        return laneMirror(lastLane);
       }
 
-      let lane = pat[pi % pat.length];
-      pi++;
-
-      lane = swapLane(lane);
-
-      // ghost: บางโน้ตกลายเป็น “ghost” (คะแนนน้อย/เป็นตัวล่อ)
-      // (คุณจะตัดสินใน engine ว่ากด ghost แล้วได้คะแนนยังไง)
-      const isGhost = (rng() < mods.ghostI*0.22);
-
-      // hold: โน้ตค้าง (สำหรับอนาคต) — ตอนนี้ใส่ type ไว้ก่อน
-      const isHold = allowHolds && (rng() < mods.holdI*0.18);
-
-      out.push({
-        time: Number(t.toFixed(3)),
-        lane: lane,
-        type: isHold ? 'hold' : (isGhost ? 'ghost' : 'note')
-      });
-
-      // double: บางจังหวะเพิ่มโน้ตที่เลนใกล้กัน (เร้าใจ)
-      if (rng() < mods.doubleI*0.28){
-        // เลนคู่: เลือกใกล้ lane (กันโหดเกิน)
-        const neighbors = lane===2 ? [1,3] : lane===0 ? [1] : lane===4 ? [3] : [2];
-        const lane2 = swapLane(pick(rng, neighbors));
-        out.push({
-          time: Number((t + step*0.08).toFixed(3)),
-          lane: lane2,
-          type: 'note'
-        });
+      // zigzag bias (jump across)
+      if (r < scfg.centerBias + scfg.mirrorBias + scfg.zigzagBias) {
+        const choices = [0,4,1,3];
+        return pick(rng, choices);
       }
 
-      t += step;
+      // otherwise move small step
+      const step = (rng()<0.5 ? -1 : 1) * (rng()<0.25 ? 2 : 1);
+      return clamp(lastLane + step, 0, 4);
     }
 
-    // เรียงเวลาสุดท้าย
-    out.sort((a,b)=>a.time-b.time);
-    return out;
+    // “storm” => short burst of rapid notes
+    function addStorm(at){
+      const stormLen = 0.9 + rng()*0.8;       // 0.9–1.7s
+      const stormBeat = beat * (0.55 + rng()*0.15); // faster
+      let tt = at;
+      while (tt < at + stormLen){
+        const l = nextLane();
+        chart.push({ time: tt, lane: l, type:'note', tag:'storm' });
+        lastLane = l;
+        tt += stormBeat;
+      }
+    }
+
+    // “fake” note => does not score, but distracts
+    function maybeFake(at, l){
+      if (rng() < dcfg.fakeRate){
+        chart.push({ time: at + beat*0.22, lane: l, type:'fake', tag:'fake' });
+      }
+    }
+
+    // main timeline
+    while (t < dur - 2.0){
+      // boss phase: more intensity + patterns
+      const inBoss = boss && t >= bossStart && t <= bossEnd;
+      const localStep = inBoss
+        ? beat * (0.52 + rng()*0.18)   // denser
+        : beat * (dcfg.stepMin + rng()*(dcfg.stepMax-dcfg.stepMin));
+
+      // storm burst
+      if (!inBoss && rng() < dcfg.stormRate && t > 4.0 && t < dur-6.0){
+        addStorm(t);
+        t += 0.8 + rng()*0.8;
+        continue;
+      }
+
+      // choose lane with style
+      lane = nextLane();
+      chart.push({ time: t, lane, type:'note', tag: inBoss ? 'boss' : 'main' });
+
+      // optional fake note for distraction
+      maybeFake(t, lane);
+
+      // boss special: “double punch”
+      if (inBoss && rng() < 0.22){
+        const l2 = clamp(lane + (rng()<0.5?-1:1), 0, 4);
+        chart.push({ time: t + beat*0.35, lane: l2, type:'note', tag:'boss2' });
+        maybeFake(t + beat*0.35, l2);
+        lastLane = l2;
+      } else {
+        lastLane = lane;
+      }
+
+      t += localStep;
+    }
+
+    // sort & finalize
+    chart.sort((a,b)=>a.time-b.time);
+    return { seed, chart, bossStart, bossEnd };
   }
 
-  window.RbPatternGen = {
-    generateChart,
-    difficultyFromTrack
+  window.AI_PATTERN = {
+    buildChart,
+    hashSeed
   };
 })();
