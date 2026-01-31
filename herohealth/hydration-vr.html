@@ -5,6 +5,7 @@ HydrationVR LAUNCHER — ROOT (Production)
 ✅ Pass-through: hub/run/diff/time/seed/style/studyId/phase/conditionGroup/log/practice/ai/ts
 ✅ Optional: remembers last view (localStorage) if no explicit ?view=
 ✅ Redirect to ./hydration-vr/hydration-vr.html
+✅ PATCH: ignore empty seed (seed=) + auto seed fallback (sessionId|ts or ts)
 -->
 <!doctype html>
 <html lang="th">
@@ -54,9 +55,7 @@ HydrationVR LAUNCHER — ROOT (Production)
       display:flex; gap:14px; align-items:center; justify-content:space-between;
       flex-wrap:wrap;
     }
-    .brand{
-      display:flex; gap:12px; align-items:center;
-    }
+    .brand{ display:flex; gap:12px; align-items:center; }
     .logo{
       width:44px; height:44px; border-radius:14px;
       display:grid; place-items:center;
@@ -83,9 +82,7 @@ HydrationVR LAUNCHER — ROOT (Production)
       grid-template-columns: 1.2fr .8fr;
       gap:14px;
     }
-    @media (max-width: 820px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    @media (max-width: 820px){ .grid{ grid-template-columns: 1fr; } }
     .panel{
       border:1px solid var(--stroke);
       background: rgba(15,23,42,.48);
@@ -124,7 +121,7 @@ HydrationVR LAUNCHER — ROOT (Production)
       line-height: 1.45;
     }
     .small{ font-size:12px; color: var(--muted); }
-    code{ color: rgba(34,211,238,.95); }
+    code{ color: rgba(34,211,238,.95); word-break: break-all; }
   </style>
 </head>
 
@@ -248,9 +245,15 @@ HydrationVR LAUNCHER — ROOT (Production)
       'log','practice','ai','ts'
     ];
 
+    // ✅ copy allowed params (ignore empty seed)
     passKeys.forEach(k=>{
       const v = u0.searchParams.get(k);
-      if (v !== null) out.searchParams.set(k, v);
+      if (v === null) return;
+
+      // PATCH: do not pass seed= (empty)
+      if (k === 'seed' && !String(v).trim()) return;
+
+      out.searchParams.set(k, v);
     });
 
     // ensure run/diff/time defaults if missing
@@ -261,6 +264,15 @@ HydrationVR LAUNCHER — ROOT (Production)
 
     // ts default (important for session uniqueness)
     if (!out.searchParams.get('ts')) out.searchParams.set('ts', String(Date.now()));
+
+    // ✅ seed default (critical for RNG + research reproducibility)
+    // treat empty seed as missing
+    const seedNow = out.searchParams.get('seed');
+    if (!seedNow || !String(seedNow).trim()){
+      const sid = out.searchParams.get('sessionId') || out.searchParams.get('studentKey') || '';
+      const tss = out.searchParams.get('ts') || String(Date.now());
+      out.searchParams.set('seed', sid ? `${sid}|${tss}` : tss);
+    }
 
     // view logic: DO NOT override if explicit view exists in current URL
     if (hasExplicitView()){
@@ -303,7 +315,7 @@ HydrationVR LAUNCHER — ROOT (Production)
     setText('dst', dst.pathname + dst.search);
 
     setText('pass', [
-      'hub','run','diff','time','seed','view','log','studyId','conditionGroup','ai','practice','ts'
+      'hub','run','diff','time','seed','view','log','studyId','conditionGroup','ai','practice','ts','sessionId','studentKey'
     ].map(k=>k+'='+(dst.searchParams.get(k)||'')).join('&'));
   }
 
