@@ -1,13 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — v2.2 (Storm Banner Wired)
-// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic-ish (seeded RNG)
-// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// Hydration SAFE — PRODUCTION (FULL) — v2.1 + PATCH (water gauge + Storm LOW/HIGH)
+// ✅ Storm: หลุด GREEN ง่ายขึ้น + ยิง 💧 แล้วดันไป LOW/HIGH ตามคำสั่ง
+// ✅ Added: stormTargetCenter(), nudgeToward(), Storm drift
+// ✅ TUNE: nudgeToMid ลดลง, badPush เพิ่มขึ้น
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
-// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
-// ✅ Easier water control + clearer Storm LOW/HIGH + Progressive Boss difficulty
 // ✅ FIX: nextSpawnDelay declared once
 // ✅ FIX: Water gauge won't duplicate if page has its own water panel
-// ✅ NEW: Storm Command Banner (LOW/HIGH + checklist + FAIL + pulse in End Window)
 
 'use strict';
 
@@ -292,9 +290,9 @@ const TUNE = (() => {
     stormSpawnMul: diff==='hard'? 0.58 : 0.66,
     endWindowSec:1.25,
 
-    // ✅ คุมน้ำง่ายขึ้น
-    nudgeToMid: 7.0,
-    badPush:    6.2,
+    // ✅ คุมน้ำง่ายขึ้น (PATCH)
+    nudgeToMid: 4.8,
+    badPush:    7.0,
 
     missPenalty:1,
     greenTargetSec: greenTarget,
@@ -307,7 +305,32 @@ S.endWindowSec = TUNE.endWindowSec;
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
+
+// ✅ PATCH: helpers for Storm LOW/HIGH steering
+function stormTargetCenter(){
+  // ✅ เลือกค่า "กลางโซน" ที่อยากให้ไปอยู่ระหว่าง Storm
+  // ปรับได้ตามนิยาม zoneFrom() ของคุณ (ตอนนี้ตั้งเป็น LOW≈25, HIGH≈85)
+  return (S.stormTargetZone === 'LOW') ? 25 : 85;
+}
+function nudgeToward(target, step){
+  const d = target - S.waterPct;
+  const s = Math.sign(d) * Math.min(Math.abs(d), step);
+  S.waterPct = clamp(S.waterPct + s, 0, 100);
+  updateZone();
+}
+
 function nudgeWaterGood(){
+  if (S.stormActive){
+    // ✅ PATCH: ตอน Storm ยิง 💧 ต้องช่วยพาไป LOW/HIGH ตามคำสั่ง (ไม่ดูดกลับ GREEN)
+    const step =
+      diff==='easy' ? 11 :
+      diff==='hard' ? 8 : 9;
+
+    nudgeToward(stormTargetCenter(), step);
+    return;
+  }
+
+  // ปกติ: ค่อย ๆ ดันกลับ mid เพื่อคุมให้อยู่โซนปลอดภัย
   const mid=55, d=mid - S.waterPct;
   const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
@@ -345,64 +368,6 @@ function syncWaterPanelDOM(){
   if (pct) pct.textContent = String(S.waterPct|0);
   if (zone) zone.textContent = String(S.waterZone||'');
 }
-
-/* ===================== STORM BANNER (NEW) ===================== */
-const UI_STORM = {
-  banner: null,
-  cmd: null,
-  checks: null,
-  fail: null
-};
-function initStormBanner(){
-  if (!DOC) return;
-  UI_STORM.banner = DOC.getElementById('stormBanner');
-  UI_STORM.cmd = DOC.getElementById('stormCmd');
-  UI_STORM.checks = DOC.getElementById('stormChecks');
-  UI_STORM.fail = DOC.getElementById('stormFail');
-}
-function setStormBannerVisible(on){
-  const b = UI_STORM.banner;
-  if (!b) return;
-  b.hidden = !on;
-}
-function fmtCheck(ok){ return ok ? '✅' : '…'; }
-function syncStormBanner(){
-  if (!UI_STORM.banner) initStormBanner();
-
-  const banner = UI_STORM.banner;
-  const cmd = UI_STORM.cmd;
-  const checks = UI_STORM.checks;
-  const fail = UI_STORM.fail;
-
-  if (!banner || !cmd || !checks || !fail) return;
-
-  if (!S.stormActive){
-    setStormBannerVisible(false);
-    try{ DOC.body.classList.remove('hha-stormPulse'); }catch(_){}
-    return;
-  }
-
-  setStormBannerVisible(true);
-
-  const tgt = (S.stormTargetZone === 'LOW') ? 'LOW (น้ำต่ำ)' : 'HIGH (น้ำสูง)';
-  const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked|0}/${S.bossNeed|0}` : '';
-  cmd.innerHTML = `STORM: ไปที่ <b>${tgt}</b>${bossTxt}`;
-
-  const m = S.miniState || {};
-  const sZone = fmtCheck(!!m.zoneOK);
-  const sPres = fmtCheck(!!m.pressureOK);
-  const sEnd  = fmtCheck(!!m.endWindow);
-  const sBlk  = fmtCheck(!!m.blockedInEnd);
-  checks.textContent = `zone ${sZone}  |  pressure ${sPres}  |  end ${sEnd}  |  block ${sBlk}`;
-
-  const isFail = !!m.gotHitByBad;
-  fail.hidden = !isFail;
-
-  // pulse banner ช่วง End Window ถ้ายังไม่ BLOCK และยังไม่ FAIL
-  const pulse = (!!S.inEndWindow) && (!m.blockedInEnd) && (!isFail);
-  try{ DOC.body.classList.toggle('hha-stormPulse', pulse); }catch(_){}
-}
-/* ============================================================= */
 
 function setStage(n){
   const nn = clamp(n,1,3)|0;
@@ -472,9 +437,6 @@ function syncHUD(){
   // external water utility (will no-op if gauge not created)
   try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
-
-  // ✅ NEW: storm banner realtime
-  syncStormBanner();
 
   emit('hha:score', {
     score:S.score|0,
@@ -801,17 +763,20 @@ function enterStorm(){
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
-  if (S.waterZone==='GREEN'){
-    const n = (S.stormTargetZone==='LOW') ? -10 : +10;
-    S.waterPct = clamp(S.waterPct + n, 0, 100);
-    updateZone();
+  // ✅ PATCH: Force move ออกจาก GREEN เพื่อให้ทำ LOW/HIGH ได้จริง
+  const target = stormTargetCenter();
+  const kick =
+    diff==='easy' ? 18 :
+    diff==='hard' ? 14 : 16;
+
+  if (Math.abs(S.waterPct - 55) < 8){
+    nudgeToward(target, kick);
+  } else {
+    nudgeToward(target, kick * 0.8);
   }
 
   setEndFx(false);
   S.endFxTickAt = 0;
-
-  // ✅ show banner now
-  syncStormBanner();
 
   emit('hha:judge', { kind:'storm', target:S.stormTargetZone });
   syncHUD();
@@ -851,10 +816,6 @@ function exitStorm(){
   }
 
   S.bossActive=false;
-
-  // ✅ hide banner after storm
-  syncStormBanner();
-
   syncHUD();
 }
 
@@ -884,15 +845,23 @@ function tickStorm(dt){
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
 
+  // ✅ PATCH: Drift ระหว่าง Storm กันค้าง GREEN + ทำให้โซน “ขยับจริง”
+  const driftPerSec =
+    diff==='easy' ? 6.0 :
+    diff==='hard' ? 4.5 : 5.2;
+
+  if (!S.inEndWindow){
+    const dir = (S.stormTargetZone==='LOW') ? -1 : +1;
+    S.waterPct = clamp(S.waterPct + dir * driftPerSec * dt, 0, 100);
+    updateZone();
+  }
+
   const zoneOK = (S.waterZone === S.stormTargetZone);
   if (zoneOK) S.miniState.zoneOK = true;
 
   const gain = zoneOK ? 1.25 : 0.18;
   S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
-
-  // ✅ keep banner realtime
-  syncStormBanner();
 
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
@@ -1147,7 +1116,6 @@ async function endGame(reason){
   S.ended = true;
   setEndFx(false);
   DOC.body.classList.remove('hha-bossfx');
-  try{ DOC.body.classList.remove('hha-stormPulse'); }catch(_){}
 
   const grade = computeGrade();
   const acc = computeAccuracy();
@@ -1205,7 +1173,6 @@ async function endGame(reason){
 
 // -------------------- Init / boot --------------------
 function pageHasBuiltInWaterPanel(){
-  // ถ้า hydration-vr.html มี panel น้ำของตัวเองอยู่แล้ว -> ไม่สร้าง gauge utility ซ้ำ
   return !!(
     DOC.getElementById('water-bar') ||
     DOC.getElementById('water-pct') ||
@@ -1214,10 +1181,6 @@ function pageHasBuiltInWaterPanel(){
 }
 
 function boot(){
-  // ✅ init banner refs
-  initStormBanner();
-  syncStormBanner();
-
   // ✅ FIX double gauge: create utility gauge only if page doesn't have its own
   try{
     if (!pageHasBuiltInWaterPanel()){
