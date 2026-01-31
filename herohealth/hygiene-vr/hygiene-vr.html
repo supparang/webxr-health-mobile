@@ -1,8 +1,7 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
 ✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => crosshair + hha:shoot (cvr)
-✅ FX: ../vr/particles.js (popText/burst)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
 -->
@@ -15,10 +14,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS (ต้องมีจริงใน folder นี้) -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260126b" />
+  <!-- CSS -->
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260131a" />
 
-  <!-- Universal VR UI -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
@@ -29,11 +28,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (ชื่อไฟล์จริงของคุณคือ hygiene-quiz-bank.js) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์ต้องตรงกับที่มีจริง) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260126b"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260131a"></script>
 </head>
 
 <body class="view-pc">
@@ -109,37 +108,16 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile'?'view-mobile':
-      (view==='vr'?'view-vr':
-      (view==='cvr'?'view-cvr':'view-pc'))
-    );
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
     const el = document.getElementById('labView');
     if(el) el.textContent = view;
   }
   setViewClass();
-
-  const m = document.getElementById('labMode');
-  const d = document.getElementById('labDiff');
-  if(m) m.textContent = (qs('run','play')||'play');
-  if(d) d.textContent = (qs('diff','normal')||'normal');
-
-  // ✅ FX sanity check (ถ้า Particles มาจริง จะเห็นทันที)
-  window.addEventListener('DOMContentLoaded', ()=>{
-    setTimeout(()=>{
-      try{
-        if(window.Particles && typeof window.Particles.popText === 'function'){
-          window.Particles.popText(window.innerWidth*0.5, window.innerHeight*0.22, '✨ FX OK', 'cyan');
-        }else{
-          console.warn('[Hygiene] Particles not ready (effect may look missing)');
-        }
-      }catch(_){}
-    }, 250);
-  }, { once:true });
+  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
+  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
