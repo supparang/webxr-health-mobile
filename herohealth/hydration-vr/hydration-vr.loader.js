@@ -1,139 +1,159 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION (fixed base path + view classes + layers)
-// ✅ Base path resolves from import.meta.url (same folder)
-// ✅ Applies body classes: view-pc / view-mobile / view-vr / view-cvr + cardboard
-// ✅ Provides window.HHA_VIEW.layers for SAFE (cardboard L/R)
-// ✅ Robust import candidates + clear error UI
+// Hydration VR Loader — PRODUCTION
+// ✅ Auto-detect view if no ?view=
+// ✅ Do NOT override if ?view= exists
+// ✅ Ensures URL has view param (replaceState only when missing) so vr-ui.js works reliably
+// ✅ Sets body classes: view-pc / view-mobile / view-cvr / cardboard
+// ✅ Sets window.HHA_VIEW.layers for main vs cardboard split
+// ✅ Imports hydration.safe.js
+
+'use strict';
 
 (function(){
-  'use strict';
-
   const WIN = window;
   const DOC = document;
 
-  function qs(k, def=null){
+  const qs = (k, def=null)=>{
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
     catch(_){ return def; }
+  };
+
+  const hasViewParam = ()=>{
+    try{ return !!new URL(location.href).searchParams.get('view'); }
+    catch(_){ return false; }
+  };
+
+  const isCoarse = ()=>{
+    try{ return !!(matchMedia && matchMedia('(pointer:coarse)').matches); }
+    catch(_){ return false; }
+  };
+
+  function normalizeView(v){
+    v = String(v||'').toLowerCase().trim();
+    if (!v) return '';
+    if (v === 'pc' || v === 'desktop') return 'pc';
+    if (v === 'mobile' || v === 'phone') return 'mobile';
+    if (v === 'cvr' || v === 'cardboard-crosshair') return 'cvr';
+    if (v === 'cardboard' || v === 'vrbox' || v === 'split') return 'cardboard';
+    if (v === 'vr') return 'vr';
+    return v; // unknown -> keep
   }
 
-  function setErr(msg, extra){
+  function detectView(){
+    // Respect param if provided (no override)
+    const pv = normalizeView(qs('view',''));
+    if (pv) return pv;
+
+    // Minimal detection: coarse pointer => mobile; otherwise pc
+    // (Cardboard/cVR normally comes from link params / launcher)
+    return isCoarse() ? 'mobile' : 'pc';
+  }
+
+  function ensureViewParam(view){
+    // Only if missing
+    if (hasViewParam()) return;
     try{
-      console.error(msg, extra||'');
-      let el = DOC.getElementById('bootError');
-      if (!el){
-        el = DOC.createElement('pre');
-        el.id = 'bootError';
-        el.style.position = 'fixed';
-        el.style.left = '12px';
-        el.style.right = '12px';
-        el.style.bottom = '12px';
-        el.style.zIndex = '9999';
-        el.style.padding = '12px';
-        el.style.borderRadius = '14px';
-        el.style.border = '1px solid rgba(239,68,68,.35)';
-        el.style.background = 'rgba(2,6,23,.88)';
-        el.style.color = 'rgba(229,231,235,.95)';
-        el.style.whiteSpace = 'pre-wrap';
-        el.style.font = '12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-        DOC.body.appendChild(el);
-      }
-      el.hidden = false;
-      el.textContent = String(msg) + (extra ? '\n' + String(extra) : '');
+      const u = new URL(location.href);
+      u.searchParams.set('view', view);
+      history.replaceState(null, '', u.toString());
     }catch(_){}
   }
 
-  function baseFolderURL(){
-    try{
-      const u = new URL(import.meta.url);
-      u.hash = '';
-      u.search = '';
-      u.pathname = u.pathname.replace(/[^/]*$/, ''); // drop filename
-      return u.toString();
-    }catch(_){
-      // fallback: currentScript src
-      const s = DOC.currentScript;
-      if (s && s.src){
-        const u = new URL(s.src, location.href);
-        u.hash=''; u.search='';
-        u.pathname = u.pathname.replace(/[^/]*$/, '');
-        return u.toString();
-      }
-      return new URL('./', location.href).toString();
-    }
-  }
-
-  async function tryImport(relPath){
-    const base = baseFolderURL();
-    const url = new URL(relPath, base);
-    return import(url.toString());
-  }
-
-  function applyViewClass(){
-    const v = String(qs('view','')).toLowerCase();
+  function applyBodyClasses(view){
     const b = DOC.body;
     if (!b) return;
 
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
-    if (v==='cvr' || v==='cardboard'){
-      b.classList.add('view-cvr','cardboard');
-    } else if (v==='vr'){
+    b.classList.remove('view-pc','view-mobile','view-cvr','view-vr','cardboard');
+
+    if (view === 'cardboard'){
+      b.classList.add('cardboard');
+      // keep a hint class too (optional)
       b.classList.add('view-vr');
-    } else if (v==='mobile'){
+    } else if (view === 'cvr'){
+      b.classList.add('view-cvr');
+      b.classList.add(isCoarse() ? 'view-mobile' : 'view-pc');
+    } else if (view === 'mobile'){
       b.classList.add('view-mobile');
+    } else if (view === 'vr'){
+      // DOM-based VR (Quest browser) — treat like mobile/pc with vr hint
+      b.classList.add('view-vr');
+      b.classList.add(isCoarse() ? 'view-mobile' : 'view-pc');
     } else {
       b.classList.add('view-pc');
     }
   }
 
-  function wireLayers(){
-    // Provide standard layer IDs for SAFE
-    // - PC/Mobile/cVR: hydration-layer
-    // - Cardboard: hydration-layerL / hydration-layerR
-    try{
-      const b = DOC.body;
-      const isCardboard = b && b.classList.contains('cardboard');
+  function setHHAViewConfig(view){
+    // For hydration.safe.js -> getLayers()
+    const isCard = (view === 'cardboard');
+    WIN.HHA_VIEW = Object.assign({}, WIN.HHA_VIEW || {}, {
+      view,
+      layers: isCard ? ['hydration-layerL','hydration-layerR'] : ['hydration-layer']
+    });
+  }
 
-      const main = DOC.getElementById('hydration-layer');
-      const L = DOC.getElementById('hydration-layerL');
-      const R = DOC.getElementById('hydration-layerR');
+  function updateStartSubtitle(){
+    const sub = DOC.getElementById('start-sub');
+    if (!sub) return;
 
-      const layers = (isCardboard && L && R) ? ['hydration-layerL','hydration-layerR']
-                   : (main ? ['hydration-layer'] : []);
+    const b = DOC.body;
+    let label = 'PC';
+    if (b.classList.contains('cardboard')) label = 'VR Cardboard (Split)';
+    else if (b.classList.contains('view-cvr')) label = 'cVR (Crosshair ยิงกลางจอ)';
+    else if (b.classList.contains('view-mobile')) label = 'Mobile';
+    else if (b.classList.contains('view-vr')) label = 'VR';
 
-      WIN.HHA_VIEW = WIN.HHA_VIEW || {};
-      WIN.HHA_VIEW.layers = layers;
+    sub.textContent = `โหมดตรวจจับแล้ว: ${label}  •  แตะเพื่อเริ่ม`;
+  }
 
-      // Optional: expose playfield ids for debugging
-      WIN.HHA_VIEW.playfield = isCardboard ? 'cbPlayfield' : 'playfield';
-    }catch(_){}
+  function hardenGlobalErrors(){
+    if (WIN.__HHA_HYD_LOADER_ERR__) return;
+    WIN.__HHA_HYD_LOADER_ERR__ = true;
+
+    WIN.addEventListener('error', (ev)=>{
+      try{
+        const msg = (ev && ev.message) ? String(ev.message) : 'Unknown error';
+        WIN.dispatchEvent(new CustomEvent('hha:error', { detail:{ source:'loader', msg } }));
+      }catch(_){}
+    });
+
+    WIN.addEventListener('unhandledrejection', (ev)=>{
+      try{
+        const msg = ev && ev.reason ? String(ev.reason) : 'Unhandled rejection';
+        WIN.dispatchEvent(new CustomEvent('hha:error', { detail:{ source:'loader', msg } }));
+      }catch(_){}
+    });
   }
 
   async function boot(){
-    applyViewClass();
-    wireLayers();
+    hardenGlobalErrors();
 
-    const v = Date.now();
-    const candidates = [
-      `./hydration.safe.js?v=${v}`,
-      `./hydration.safe.js`
-    ];
+    const view = detectView();
+    ensureViewParam(view);         // ONLY if missing
+    applyBodyClasses(view);
+    setHHAViewConfig(view);
+    updateStartSubtitle();
 
-    let lastErr = null;
-    for (const p of candidates){
+    // Small delay helps ensure defer scripts are ready (vr-ui/particles/logger)
+    await new Promise(r=>setTimeout(r, 0));
+
+    try{
+      await import('./hydration.safe.js');
+      WIN.dispatchEvent(new CustomEvent('hha:loader_ready', { detail:{ view } }));
+    }catch(err){
       try{
-        await tryImport(p);
-        return; // success
-      }catch(e){
-        lastErr = e;
-      }
+        const msg = err ? String(err) : 'import failed';
+        WIN.dispatchEvent(new CustomEvent('hha:error', { detail:{ source:'loader', msg } }));
+      }catch(_){}
+      // Also show on start subtitle if possible
+      const sub = DOC.getElementById('start-sub');
+      if (sub) sub.textContent = `โหลดเกมไม่สำเร็จ: ${String(err||'error')}`;
     }
-
-    const base = baseFolderURL();
-    setErr(
-      `❌ HydrationVR: import failed (loader)\nbase: ${base}\nTried:\n- ${candidates.join('\n- ')}`,
-      lastErr && (lastErr.stack || lastErr.message || String(lastErr))
-    );
   }
 
-  boot();
+  if (DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', boot, { once:true });
+  } else {
+    boot();
+  }
 })();
