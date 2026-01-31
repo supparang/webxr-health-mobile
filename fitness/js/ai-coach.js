@@ -1,59 +1,94 @@
-// === /fitness/js/ai-coach.js ===
-// A-63 AI Coach: rule-based micro-tips (explainable + rate-limited)
+// === fitness/js/ai-coach.js ===
+// Shadow Breaker — Explainable micro-coach (rate-limited)
+// Uses predictor contributions to generate short tips (Thai) while keeping game readable.
 
 'use strict';
 
-function nowMs(){ return performance.now(); }
+const clamp = (v,a,b)=>Math.max(a, Math.min(b,v));
+
+function topKContrib(contrib, k=2){
+  // contrib: {key: weight*value}
+  const arr = Object.entries(contrib || {})
+    .map(([k,v])=>({k, v: Number(v)||0, a: Math.abs(Number(v)||0)}))
+    .sort((a,b)=> b.a - a.a);
+  return arr.slice(0,k).map(o=>o.k);
+}
+
+function tipFor(keys, f){
+  // Keep tips short, actionable, kid-friendly (Grade 5)
+  const has = (k)=> keys.includes(k);
+
+  // Priority: streak/miss/pressure then RT/vol then cadence
+  if (has('streak') || has('miss') || has('pressure')) {
+    if ((f.missStreak||0) >= 3) {
+      return { msg: 'เริ่มพลาดติดกันแล้วนะ 😵 ลอง “ชะลอ 1 จังหวะ” แล้วค่อยต่อยให้ตรงกลาง!', tone:'coach' };
+    }
+    if ((f.pressure||0) > 0.65) {
+      return { msg: 'ตอนนี้เกมกดดันขึ้น 🔥 โฟกัส “เป้าปกติ” ก่อน แล้วค่อยหลบระเบิด!', tone:'coach' };
+    }
+    return { msg: 'ถ้าเริ่มพลาดบ่อย ให้เล็งกลางจอ + ต่อยให้ชัวร์ก่อนเร็ว 👍', tone:'coach' };
+  }
+
+  if (has('rt') || has('vol')) {
+    if ((f.vol||0) > 0.65) {
+      return { msg: 'จังหวะยังไม่นิ่งนะ 🎯 ลองหายใจเข้า-ออก 1 ครั้ง แล้วต่อยให้เสมอกัน', tone:'coach' };
+    }
+    if ((f.rt||0) > 0.65) {
+      return { msg: 'ตอนนี้ตอบสนองช้าลงนิดนึง ⏱️ ลอง “เตรียมมือไว้กลางจอ” แล้วต่อยทันทีที่เห็นเป้า', tone:'coach' };
+    }
+    return { msg: 'ดีมาก! ความเร็วกำลังมา ✨ รักษาจังหวะเดิมแล้วคุมความแม่นต่อไป', tone:'coach' };
+  }
+
+  if (has('aps')) {
+    if ((f.aps||0) > 0.75) {
+      return { msg: 'ต่อยถี่มาก! 💥 ระวังหลุดเป้า—เน้น “แม่นก่อนเร็ว” นะ', tone:'coach' };
+    }
+    return { msg: 'เพิ่มจังหวะอีกนิดได้ 👊 แต่ยังต้อง “ตรงเป้า” ก่อนเสมอ', tone:'coach' };
+  }
+
+  // fallback
+  return { msg: 'สุดยอด! ไปต่อเลย 🚀', tone:'coach' };
+}
 
 export class AICoach {
-  constructor(opts){
-    const o = opts || {};
-    this.cooldownMs = typeof o.cooldownMs === 'number' ? o.cooldownMs : 3800;
-    this.lastTipAt = 0;
+  constructor(opts={}) {
+    this.cfg = Object.assign({
+      cooldownMs: 6500,
+      minScoreDelta: 0, // future hook
+    }, opts);
+
+    this._lastTipAt = 0;
+    this._lastShownAt = 0;
   }
 
-  canTip(){
-    return (nowMs() - this.lastTipAt) >= this.cooldownMs;
+  noteFeedbackShown(){
+    this._lastShownAt = performance.now();
   }
 
-  tip(state){
-    if (!state) return null;
-    if (!this.canTip()) return null;
+  maybeTip(pred, features, state){
+    const now = performance.now();
+    if (now - this._lastTipAt < this.cfg.cooldownMs) return null;
 
-    const p = state.ml?.lastPMiss ?? 0.12;
-    const fatigue = state.perf?.fatigue ?? 0.0;
-    const emaRt = state.perf?.emaRt ?? 420;
-    const phase = state.bossPhase ?? 1;
-    const lowHp = (state.playerHp ?? 1) < 0.42;
+    // don't spam when other feedback just shown
+    if (now - this._lastShownAt < 900) return null;
 
-    // เงื่อนไขหลัก (เรียงความสำคัญ)
-    if (lowHp && (p >= 0.55 || fatigue >= 0.65)) {
-      return this._emit('HP ต่ำ + เสี่ยงพลาดสูง — เล่น “ชัวร์ก่อนเร็ว” โฟกัสเป้ากลาง 👀', 'miss');
-    }
+    // Only when AI enabled and game running
+    if (!state?.aiEnabled || !state?.running) return null;
 
-    if (fatigue >= 0.72) {
-      return this._emit('AI ตรวจเจอเริ่มล้า (RT ช้าลงต่อเนื่อง) — หายใจลึก ๆ แล้วตีจังหวะเดิม 🔄', 'miss');
-    }
+    const pO = Number(pred?.pOverwhelm);
+    const pM = Number(pred?.pMiss);
 
-    if (phase === 3 && emaRt > 520) {
-      return this._emit('เฟส 3 เร็วขึ้นแล้ว — ลอง “แตะทันทีที่เห็น” ไม่ต้องรอเป้าใหญ่ 👍', 'good');
-    }
+    // Trigger conditions
+    const trigger =
+      (Number.isFinite(pO) && pO > 0.62) ||
+      (Number.isFinite(pM) && pM > 0.62) ||
+      ((features?.missStreak||0) >= 3);
 
-    // ถ้าพลาดติด ๆ
-    if ((state.perf?.missStreak ?? 0) >= 2) {
-      return this._emit('พลาดติดกัน — ลดการสแกนทั้งจอ แล้วล็อกโซนกลางก่อน 🎯', 'miss');
-    }
+    if (!trigger) return null;
 
-    // ถ้าโดน bomb บ่อย
-    if ((state.perf?.bombHits ?? 0) >= 2 && (state.perf?.bombHits % 2 === 0)) {
-      return this._emit('โดนระเบิดหลายครั้ง — อย่าตี “สีแดง” ถ้ามั่นใจไม่พอ ให้ผ่านไป ⛔', 'bad');
-    }
-
-    return null;
-  }
-
-  _emit(text, tone){
-    this.lastTipAt = nowMs();
-    return { text, tone: tone || 'good' };
+    const keys = topKContrib(pred?.contrib, 2);
+    const tip = tipFor(keys, features || {});
+    this._lastTipAt = now;
+    return tip;
   }
 }
