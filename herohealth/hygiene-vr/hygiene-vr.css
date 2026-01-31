@@ -1,152 +1,211 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION (HHA Standard)
-✅ HUD safe-zone + responsive
-✅ Targets (good/wrong/haz) with spawn anim + hit feedback
-✅ view-cvr: targets pointer-events:none (shoot only)
+HygieneVR — PRODUCTION UI (HHA Standard)
+✅ HUD glass + safe spawn zone vars
+✅ Targets: glow rings + pop-in animation
+✅ Responsive: pc / mobile / cvr / vr
+✅ Uses CSS vars from safe.js targets: --x --y --s (vw/vh placement)
 */
 
+/* ---------- Base ---------- */
 :root{
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  --bg:#030712;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(15,23,42,.72);
+  --bg0:#020617;
+  --bg1:#0b1220;
+
+  --text: rgba(229,231,235,.96);
+  --muted: rgba(148,163,184,.96);
+
   --stroke: rgba(148,163,184,.18);
-  --text: rgba(229,231,235,.95);
-  --muted: rgba(148,163,184,.95);
+  --glass: rgba(2,6,23,.66);
+  --glass2: rgba(15,23,42,.58);
 
-  --good: rgba(34,197,94,.92);
-  --cyan: rgba(34,211,238,.92);
+  --good: rgba(34,197,94,.90);
   --warn: rgba(245,158,11,.92);
   --bad:  rgba(239,68,68,.92);
+  --cyan: rgba(34,211,238,.92);
 
   --r: 22px;
   --pill: 999px;
 
+  /* safe area (iOS) */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these) */
-  --hw-top-safe: 170;      /* px */
-  --hw-bottom-safe: 170;   /* px */
+  /* IMPORTANT: used by hygiene.safe.js getSpawnRect() */
+  --hw-top-safe: 210;     /* px (fallback) */
+  --hw-bottom-safe: 130;  /* px (fallback) */
 
   /* target sizing */
-  --tgt: 62px;      /* base size */
-  --emoji: 30px;    /* emoji size */
+  --tgt: 74px;        /* base target size (pc) */
+  --tgt-mobile: 86px; /* bigger on phone */
 }
 
 *{ box-sizing:border-box; }
 html,body{
   margin:0;
   height:100%;
-  background: var(--bg);
+  background: radial-gradient(1200px 900px at 50% 0%, rgba(34,211,238,.08), transparent 52%),
+              radial-gradient(1000px 900px at 0% 60%, rgba(34,197,94,.06), transparent 55%),
+              radial-gradient(1000px 900px at 100% 70%, rgba(239,68,68,.05), transparent 58%),
+              linear-gradient(180deg, var(--bg0), var(--bg1));
   color: var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   overflow:hidden;
 }
 
+/* view classes: set by hygiene-vr.html */
+body.view-pc{ }
+body.view-mobile{ }
+body.view-vr{ }
+body.view-cvr{ }
+
+/* ---------- Root / Stage ---------- */
 .hw-root{
   position:relative;
   width:100%;
   height:100%;
-  background:
-    radial-gradient(1200px 600px at 20% 10%, rgba(34,211,238,.12), transparent 55%),
-    radial-gradient(900px 520px at 85% 10%, rgba(34,197,94,.10), transparent 55%),
-    radial-gradient(900px 620px at 55% 100%, rgba(239,68,68,.08), transparent 60%),
-    linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.55));
+  overflow:hidden;
 }
 
-/* -------------------- Stage -------------------- */
 .hw-stage{
   position:absolute;
   inset:0;
   overflow:hidden;
-  pointer-events:auto;
-  contain: layout style paint;
+  /* allow targets area */
+  touch-action: manipulation;
+  user-select:none;
 }
 
-/* -------------------- HUD -------------------- */
+/* subtle vignette */
+.hw-stage::before{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  pointer-events:none;
+  background:
+    radial-gradient(900px 700px at 50% 10%, rgba(255,255,255,.06), transparent 55%),
+    radial-gradient(1200px 900px at 50% 80%, rgba(0,0,0,.50), transparent 60%),
+    radial-gradient(1400px 1200px at 50% 50%, transparent 55%, rgba(0,0,0,.50));
+}
+
+/* ---------- HUD ---------- */
 .hw-hud{
   position:absolute;
   inset:0;
-  pointer-events:none; /* ✅ HUD does not block targets */
-  z-index: 30;
+  pointer-events:none; /* important: stage still clickable */
 }
 
 .hw-top{
   position:absolute;
-  left:0; right:0;
   top:0;
-  padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  left:0;
+  right:0;
+  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) 10px calc(14px + var(--sal));
+  pointer-events:none;
+}
+
+/* Make room for spawn: update CSS vars roughly per view */
+body.view-pc :root{}
+body.view-pc{
+  --hw-top-safe: 210;
+  --hw-bottom-safe: 120;
+}
+body.view-mobile{
+  --hw-top-safe: 235;
+  --hw-bottom-safe: 150;
+}
+body.view-cvr{
+  --hw-top-safe: 240;
+  --hw-bottom-safe: 160;
+}
+body.view-vr{
+  --hw-top-safe: 200;
+  --hw-bottom-safe: 120;
 }
 
 .hw-title{
   font-weight: 950;
   font-size: 18px;
   letter-spacing: .2px;
-  text-shadow: 0 14px 40px rgba(0,0,0,.55);
+  text-shadow: 0 18px 40px rgba(0,0,0,.45);
 }
-
 .hw-sub{
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 12px;
-  line-height: 1.35;
   color: var(--muted);
+  opacity: .95;
 }
 
 .hw-row{
-  margin-top: 10px;
   display:flex;
-  gap:8px;
+  gap:10px;
   flex-wrap:wrap;
+  margin-top:10px;
 }
 
 .hw-pill{
-  pointer-events:auto; /* allow buttons */
+  pointer-events:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 10px 12px;
   border-radius: var(--pill);
   border: 1px solid var(--stroke);
-  background: var(--panel);
-  padding: 8px 10px;
-  font-size: 12px;
-  line-height: 1;
-  font-weight: 900;
+  background: rgba(2,6,23,.62);
   backdrop-filter: blur(10px);
-  box-shadow: 0 12px 42px rgba(0,0,0,.35);
-  user-select:none;
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1;
+  color: rgba(229,231,235,.96);
 }
 
-.hw-pill.bad{ border-color: rgba(239,68,68,.28); background: rgba(239,68,68,.12); }
-.hw-pill.warn{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.12); }
-.hw-pill.cyan{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.12); }
+.hw-pill.bad{
+  border-color: rgba(239,68,68,.24);
+  background: rgba(239,68,68,.10);
+}
+.hw-pill.warn{
+  border-color: rgba(245,158,11,.24);
+  background: rgba(245,158,11,.10);
+}
+.hw-pill.cyan{
+  border-color: rgba(34,211,238,.24);
+  background: rgba(34,211,238,.10);
+}
 
 .hw-pill.btn{
   cursor:pointer;
-  background: rgba(15,23,42,.72);
+  background: rgba(15,23,42,.62);
 }
-.hw-pill.btn:active{ transform: translateY(1px); }
+.hw-pill.btn:active{
+  transform: translateY(1px);
+}
 
 /* Banner */
 .hw-banner{
   position:absolute;
-  left:50%;
-  top: calc(124px + var(--sat));
+  top: calc(118px + var(--sat));
+  left: 50%;
   transform: translateX(-50%);
-  max-width: min(820px, calc(100% - 24px));
-  padding: 10px 12px;
-  border-radius: 16px;
+  max-width: min(680px, calc(100% - 24px));
+  pointer-events:none;
+
+  padding: 10px 14px;
+  border-radius: 18px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.68);
-  color: rgba(229,231,235,.96);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 26px 90px rgba(0,0,0,.45);
+
   font-weight: 950;
   font-size: 13px;
-  text-align:center;
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
-  backdrop-filter: blur(12px);
-  opacity: 0;
-  pointer-events:none;
-  z-index: 40;
+  color: rgba(229,231,235,.96);
+
+  opacity:0;
+  transform-origin:center;
 }
 
 .hw-banner.show{
@@ -154,22 +213,21 @@ html,body{
 }
 
 @keyframes hwBanner{
-  0%   { opacity:0; transform: translateX(-50%) translateY(-8px) scale(.98); }
-  12%  { opacity:1; transform: translateX(-50%) translateY(0) scale(1); }
-  65%  { opacity:1; transform: translateX(-50%) translateY(0) scale(1); }
-  100% { opacity:0; transform: translateX(-50%) translateY(-10px) scale(.99); }
+  0%   { opacity:0; transform: translateX(-50%) translateY(-6px) scale(.98); }
+  12%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
+  78%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1.00); }
+  100% { opacity:0; transform: translateX(-50%) translateY(-6px) scale(.99); }
 }
 
 /* Quiz box */
 .hw-quiz{
   margin-top: 10px;
+  padding: 12px 14px;
   border-radius: 18px;
-  border: 1px solid rgba(34,211,238,.26);
-  background: rgba(34,211,238,.10);
-  padding: 10px 12px;
-  max-width: min(920px, calc(100% - 6px));
-  box-shadow: 0 18px 70px rgba(0,0,0,.45);
-  backdrop-filter: blur(12px);
+  border: 1px solid rgba(34,211,238,.22);
+  background: rgba(34,211,238,.08);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 22px 70px rgba(0,0,0,.30);
   pointer-events:none;
 }
 .hw-quiz-q{
@@ -179,36 +237,37 @@ html,body{
 .hw-quiz-sub{
   margin-top: 6px;
   font-size: 12px;
-  line-height: 1.35;
   color: rgba(229,231,235,.92);
+  opacity: .95;
+  line-height: 1.35;
 }
 
-/* -------------------- Overlays -------------------- */
+/* ---------- Overlays ---------- */
 .hw-overlay{
   position:absolute;
   inset:0;
   display:grid;
   place-items:center;
-  background: rgba(2,6,23,.72);
+  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+  background: radial-gradient(1000px 800px at 50% 10%, rgba(34,211,238,.10), transparent 55%),
+              rgba(0,0,0,.40);
   backdrop-filter: blur(10px);
   z-index: 50;
 }
 
 .hw-card{
-  width: min(820px, calc(100% - 26px));
+  width: min(760px, 100%);
   border-radius: var(--r);
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.70);
-  box-shadow: 0 28px 120px rgba(0,0,0,.65);
+  background: rgba(2,6,23,.72);
+  box-shadow: 0 26px 120px rgba(0,0,0,.55);
   padding: 16px;
 }
 
 .hw-card-title{
   font-weight: 950;
   font-size: 18px;
-  letter-spacing:.2px;
 }
-
 .hw-card-sub{
   margin-top: 8px;
   color: var(--muted);
@@ -217,150 +276,153 @@ html,body{
 }
 
 .hw-card-row{
-  margin-top: 12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
+  margin-top: 12px;
 }
 
-.hw-cta{
-  cursor:pointer;
-  border: 1px solid rgba(34,197,94,.28);
-  background: rgba(34,197,94,.14);
-  color: rgba(229,231,235,.96);
+.hw-cta, .hw-ghost{
+  pointer-events:auto;
+  border-radius: 16px;
+  padding: 10px 14px;
   font-weight: 950;
-  padding: 10px 14px;
-  border-radius: 16px;
-}
-.hw-cta:active{ transform: translateY(1px); }
-
-.hw-ghost{
+  border: 1px solid rgba(148,163,184,.18);
   cursor:pointer;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(15,23,42,.68);
-  color: rgba(229,231,235,.95);
-  font-weight: 900;
-  padding: 10px 14px;
-  border-radius: 16px;
+  color: rgba(229,231,235,.96);
 }
-.hw-ghost:active{ transform: translateY(1px); }
+.hw-cta{
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.28);
+}
+.hw-ghost{
+  background: rgba(15,23,42,.62);
+}
+.hw-cta:active, .hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
   margin-top: 10px;
-  background: rgba(15,23,42,.70);
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(148,163,184,.18);
-  border-radius: 16px;
-  padding: 10px 12px;
-  max-height: min(52vh, 440px);
+  background: rgba(15,23,42,.55);
+  color: rgba(229,231,235,.92);
+  max-height: 280px;
   overflow:auto;
   font-size: 11px;
   line-height: 1.35;
-  color: rgba(229,231,235,.92);
 }
 
-/* -------------------- Targets -------------------- */
-/* position uses --x, --y in vw/vh via % set in JS */
+/* ---------- Targets (Buttons) ---------- */
+/* created by hygiene.safe.js: class="hw-tgt good|wrong|haz" */
 .hw-tgt{
   position:absolute;
-  left: calc(var(--x,50) * 1vw);
-  top:  calc(var(--y,50) * 1vh);
+  left: calc(var(--x, 50) * 1vw);
+  top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
   width: var(--tgt);
   height: var(--tgt);
   border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.30);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 90px rgba(0,0,0,.38);
+  cursor:pointer;
+  padding:0;
+  outline:none;
 
   display:grid;
   place-items:center;
-  padding:0;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 22px 70px rgba(0,0,0,.55);
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
 
-  animation: tgtIn 220ms ease-out forwards;
+  /* pop-in */
+  opacity:0;
+  animation: hwPopIn 220ms ease-out forwards;
+}
+@keyframes hwPopIn{
+  0%{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
+  100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
+/* Emoji */
 .hw-tgt .emoji{
-  font-size: var(--emoji);
+  font-size: 34px;
   line-height: 1;
-  transform: translateY(1px);
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
+  filter: drop-shadow(0 14px 28px rgba(0,0,0,.42));
+  transform: translateZ(0);
 }
 
-@keyframes tgtIn{
-  0%   { opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .82)); }
-  100% { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+/* Glow rings (the “effect” look) */
+.hw-tgt::before,
+.hw-tgt::after{
+  content:"";
+  position:absolute;
+  inset:-8px;
+  border-radius: 999px;
+  pointer-events:none;
+}
+.hw-tgt::before{
+  border: 2px solid rgba(34,197,94,.22);
+  box-shadow: 0 0 0 4px rgba(34,197,94,.10), 0 20px 60px rgba(0,0,0,.22);
+  opacity:.75;
+}
+.hw-tgt::after{
+  inset:-18px;
+  border: 2px solid rgba(34,197,94,.10);
+  opacity:.50;
+  animation: hwRing 1500ms ease-in-out infinite;
+}
+@keyframes hwRing{
+  0%{ transform: scale(.96); opacity:.28; }
+  55%{ transform: scale(1.02); opacity:.55; }
+  100%{ transform: scale(.96); opacity:.28; }
 }
 
+/* Type coloring */
+.hw-tgt.good{
+  background: rgba(34,197,94,.10);
+  border-color: rgba(34,197,94,.22);
+}
+.hw-tgt.good::before{ border-color: rgba(34,197,94,.22); box-shadow: 0 0 0 4px rgba(34,197,94,.10); }
+.hw-tgt.good::after { border-color: rgba(34,197,94,.10); }
+
+.hw-tgt.wrong{
+  background: rgba(245,158,11,.10);
+  border-color: rgba(245,158,11,.22);
+}
+.hw-tgt.wrong::before{ border-color: rgba(245,158,11,.22); box-shadow: 0 0 0 4px rgba(245,158,11,.10); }
+.hw-tgt.wrong::after { border-color: rgba(245,158,11,.10); }
+
+.hw-tgt.haz{
+  background: rgba(239,68,68,.10);
+  border-color: rgba(239,68,68,.22);
+}
+.hw-tgt.haz::before{ border-color: rgba(239,68,68,.22); box-shadow: 0 0 0 4px rgba(239,68,68,.10); }
+.hw-tgt.haz::after { border-color: rgba(239,68,68,.10); }
+
+/* Touch feedback */
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .96));
 }
 
-/* kinds */
-.hw-tgt.good{
-  border-color: rgba(34,197,94,.30);
-  background: rgba(34,197,94,.12);
+/* cVR: targets should not capture pointer (shoot from crosshair) */
+body.view-cvr .hw-tgt{
+  pointer-events:none;
 }
 
-.hw-tgt.wrong{
-  border-color: rgba(245,158,11,.30);
-  background: rgba(245,158,11,.12);
-}
-
-.hw-tgt.haz{
-  border-color: rgba(239,68,68,.30);
-  background: rgba(239,68,68,.12);
-}
-
-/* Optional "pulse" to make targets feel alive */
-.hw-tgt.good{ animation: tgtIn 220ms ease-out forwards, tgtPulse 1200ms ease-in-out infinite; }
-.hw-tgt.wrong{ animation: tgtIn 220ms ease-out forwards, tgtPulse 1400ms ease-in-out infinite; }
-.hw-tgt.haz{ animation: tgtIn 220ms ease-out forwards, tgtPulse 900ms ease-in-out infinite; }
-
-@keyframes tgtPulse{
-  0%{ box-shadow: 0 22px 70px rgba(0,0,0,.55); }
-  50%{ box-shadow: 0 28px 90px rgba(0,0,0,.62); }
-  100%{ box-shadow: 0 22px 70px rgba(0,0,0,.55); }
-}
-
-/* ✅ cVR: shoot only (avoid accidental tap) */
-.view-cvr .hw-stage{ pointer-events:none; }
-.view-cvr .hw-tgt{ pointer-events:none; }
-
-/* But keep HUD buttons clickable */
-.view-cvr .hw-pill.btn{ pointer-events:auto; }
-
-/* -------------------- Responsive tuning -------------------- */
+/* ---------- Responsive tweaks ---------- */
 @media (max-width: 520px){
-  :root{
-    --hw-top-safe: 196;
-    --hw-bottom-safe: 156;
-    --tgt: 58px;
-    --emoji: 28px;
-  }
-  .hw-title{ font-size: 16px; }
-  .hw-pill{ font-size: 11px; padding: 7px 9px; }
-  .hw-banner{ top: calc(136px + var(--sat)); font-size: 12px; }
+  :root{ --tgt: var(--tgt-mobile); }
+  .hw-title{ font-size: 17px; }
+  .hw-pill{ font-size: 12.5px; padding: 10px 12px; }
+  .hw-banner{ top: calc(128px + var(--sat)); }
+  .hw-tgt .emoji{ font-size: 36px; }
 }
 
-@media (min-width: 980px){
-  :root{
-    --hw-top-safe: 160;
-    --hw-bottom-safe: 160;
-    --tgt: 66px;
-    --emoji: 32px;
-  }
+/* VR mode: keep HUD a bit smaller */
+body.view-vr .hw-pill{
+  font-size: 12px;
+  padding: 9px 11px;
 }
 
-/* -------------------- Safety: reduce motion -------------------- */
-@media (prefers-reduced-motion: reduce){
-  .hw-banner.show{ animation: none; opacity:1; }
-  .hw-tgt{ animation: none; }
-}
-
-/* -------------------- Small helpers -------------------- */
-a{ color: rgba(34,211,238,.92); }
-code{ color: rgba(34,197,94,.92); }
+/* ---------- Safety: make sure overlays above all ---------- */
+#startOverlay, #endOverlay{ z-index: 80; }
