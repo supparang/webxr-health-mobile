@@ -1,77 +1,65 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (No menu, auto detect)
+GoodJunkVR LAUNCHER — ROOT
 ✅ Redirects to ./vr-goodjunk/goodjunk-vr.html
-✅ Respects existing ?view= (does NOT override)
-✅ If no view: mobile => view=mobile, desktop => view=pc
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/style/ai/telemetry
+✅ Auto-detect view (but NO override if ?view= exists)
+✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/style
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR</title>
+  <title>HeroHealth — GoodJunkVR Launcher</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ --bg:#020617; --text:#e5e7eb; --muted:#94a3b8; --stroke:rgba(148,163,184,.18); }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
-    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding:24px; }
-    .card{ width:min(560px, 92vw); border:1px solid var(--stroke); border-radius:22px; padding:16px; background:rgba(2,6,23,.70); }
-    .t{ font-weight:1200; font-size:16px; }
-    .s{ margin-top:8px; color:var(--muted); font-weight:900; font-size:13px; line-height:1.4; }
+    :root{ --bg:#020617; --text:#e5e7eb; --muted:#94a3b8; }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; }
+    .card{ max-width:560px; width:100%; border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.7); border-radius:22px; padding:18px; }
+    .t{ font-size:18px; font-weight:1100; }
+    .s{ margin-top:8px; color:var(--muted); font-size:13px; line-height:1.4; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="t">กำลังเข้าเกม GoodJunkVR…</div>
-      <div class="s" id="status">Auto-detect view และส่งพารามิเตอร์ไปหน้าเล่น</div>
+      <div class="t">กำลังเข้าสู่เกม GoodJunkVR…</div>
+      <div class="s">ถ้าไม่เด้งอัตโนมัติ ให้รีเฟรช 1 ครั้ง</div>
     </div>
   </div>
 
   <script>
     (function(){
-      const status = document.getElementById('status');
-      const from = new URL(location.href);
-      const to = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      const u = new URL(location.href);
+      const p = u.searchParams;
 
-      function isMobileUA(){
-        try{
-          const ua = navigator.userAgent || '';
-          return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-        }catch(_){ return false; }
-      }
+      const target = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
 
-      // pass-through whitelist
+      // passthrough known params
       const keys = [
-        'hub','run','diff','time','seed',
-        'studyId','phase','conditionGroup','siteCode',
-        'log','style','ai','telemetry',
-        'view' // keep if provided
+        'hub','run','diff','time','seed','studyId','phase','conditionGroup',
+        'log','style','telemetry','ai','view'
       ];
+      keys.forEach(k=>{
+        if(p.has(k)) target.searchParams.set(k, p.get(k));
+      });
 
-      for(const k of keys){
-        const v = from.searchParams.get(k);
-        if(v != null) to.searchParams.set(k, v);
+      // if view not provided -> best effort detect (do NOT override if already present)
+      if(!target.searchParams.get('view') || target.searchParams.get('view') === 'auto'){
+        const ua = (navigator.userAgent||'').toLowerCase();
+        const isMobile = /android|iphone|ipad|ipod/.test(ua);
+        const isXRUA = /oculus|quest|vive|pico|webkitxr/.test(ua);
+        const view = isXRUA ? 'vr' : (isMobile ? 'mobile' : 'pc');
+        if(!target.searchParams.get('view')) target.searchParams.set('view', view);
       }
 
-      // auto view only if not provided
-      if(!to.searchParams.get('view')){
-        const v = isMobileUA() ? 'mobile' : 'pc';
-        to.searchParams.set('view', v);
-      }
+      // cache bust optional (for faster dev)
+      if(!target.searchParams.get('v')) target.searchParams.set('v', String(Date.now()).slice(-6));
 
-      // make sure we at least have seed (deterministic-friendly)
-      if(!to.searchParams.get('seed')){
-        to.searchParams.set('seed', String(Date.now()));
-      }
-
-      if(status){
-        status.textContent = `ไปหน้าเล่น: view=${to.searchParams.get('view')} · run=${to.searchParams.get('run')||'play'} · diff=${to.searchParams.get('diff')||'normal'}`;
-      }
-
-      location.replace(to.toString());
+      location.replace(target.toString());
     })();
   </script>
 </body>
