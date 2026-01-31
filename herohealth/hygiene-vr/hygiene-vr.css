@@ -1,405 +1,364 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION (FX restored + safe zones)
-✅ Keeps stage FX visible (no clipping)
-✅ Clear z-index: stage < targets < particles < HUD < overlays
-✅ Targets: glow + pulse ring + hover/tap feedback
-✅ Safe zones vars used by hygiene.safe.js:
-   --hw-top-safe / --hw-bottom-safe
+HygieneVR CSS — PRODUCTION (HHA Standard)
+✅ Stage full-screen + targets spawn using CSS vars --x --y --s
+✅ Safe zones: --hw-top-safe / --hw-bottom-safe (used by hygiene.safe.js)
+✅ HUD + overlays + banner + quiz box
+✅ Views: body.view-pc / view-mobile / view-cvr / view-vr
 */
 
 :root{
-  color-scheme: dark;
-  --bg0:#020617;
-  --bg1:#0b1224;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(15,23,42,.62);
+  color-scheme: light dark;
+
+  --bg: #0b1220;
+  --panel: rgba(2,6,23,.68);
+  --panel2: rgba(15,23,42,.72);
   --stroke: rgba(148,163,184,.18);
+
   --text: rgba(229,231,235,.96);
-  --muted: rgba(148,163,184,.92);
+  --muted: rgba(148,163,184,.95);
 
-  --good: rgba(34,197,94,.92);
-  --cyan: rgba(34,211,238,.92);
-  --warn: rgba(245,158,11,.92);
-  --bad:  rgba(239,68,68,.92);
+  --good: rgba(34,197,94,.95);
+  --cyan: rgba(34,211,238,.95);
+  --warn: rgba(245,158,11,.95);
+  --bad: rgba(239,68,68,.95);
 
-  --radius: 22px;
+  --r: 22px;
   --pill: 999px;
 
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* JS reads these (defaults; JS can override with computed if you want later) */
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 160px;
+  /* ✅ spawn safe zones (JS reads these) */
+  --hw-top-safe: 160px;
+  --hw-bottom-safe: 170px;
 
-  /* target size */
-  --tgt: 84px;
-  --tgt-min: 66px;
-
-  /* background vignette */
-  --v0: rgba(2,6,23,.0);
-  --v1: rgba(2,6,23,.55);
-  --v2: rgba(2,6,23,.92);
+  /* target size baseline */
+  --tgt: 64px;
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  margin:0;
-  height:100%;
-  background: var(--bg0);
-  color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-}
-
-/* Important: do NOT apply transform/filter on body/html that can break fixed overlays */
+html,body{ height:100%; margin:0; }
 body{
+  background: radial-gradient(1200px 700px at 50% -10%, rgba(34,211,238,.10), transparent 55%),
+              radial-gradient(900px 600px at 10% 30%, rgba(34,197,94,.08), transparent 55%),
+              linear-gradient(180deg, #050b16 0%, #020617 100%);
+  color: var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
   overflow:hidden;
 }
 
-/* root */
+/* ---------------- Root ---------------- */
 .hw-root{
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.10), transparent 55%),
-    radial-gradient(1000px 740px at 80% 25%, rgba(34,197,94,.08), transparent 55%),
-    radial-gradient(900px 900px at 50% 80%, rgba(148,163,184,.07), transparent 58%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-/* Stage: MUST NOT clip, so FX (rings) stays visible */
+/* Full-screen stage where targets appear */
 .hw-stage{
   position:absolute;
   inset:0;
-  z-index: 10;
-  overflow: visible;     /* ✅ no clip */
-  contain: none;         /* ✅ do not contain paint (prevents clipping issues) */
+  overflow:hidden;
   touch-action: manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* HUD */
-.hw-hud{
+/* subtle grid vibe */
+.hw-stage::before{
+  content:"";
   position:absolute;
+  inset:-40px;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(34,211,238,.08), transparent 55%),
+    linear-gradient(transparent 0 95%, rgba(148,163,184,.05) 95% 100%),
+    linear-gradient(90deg, transparent 0 95%, rgba(148,163,184,.05) 95% 100%);
+  background-size: 100% 100%, 44px 44px, 44px 44px;
+  opacity:.7;
+  pointer-events:none;
+}
+
+/* ---------------- HUD ---------------- */
+.hw-hud{
+  position: absolute;
   inset: 0;
-  z-index: 80;
-  pointer-events: none; /* ✅ allow stage clicks through except interactive elements */
+  pointer-events:none; /* HUD doesn't block gameplay */
+  z-index: 9000;       /* Particles layer is 9999 => will still appear */
 }
 
 .hw-top{
   position:absolute;
-  left: calc(14px + var(--sal));
-  right: calc(14px + var(--sar));
   top: calc(12px + var(--sat));
-  background: rgba(2,6,23,.38);
-  border: 1px solid rgba(148,163,184,.10);
-  border-radius: var(--radius);
-  padding: 12px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 28px 120px rgba(0,0,0,.48);
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  pointer-events:none;
 }
 
 .hw-title{
   font-weight: 950;
   letter-spacing: .2px;
-  display:flex;
-  gap:10px;
-  align-items:center;
   font-size: 18px;
+  text-shadow: 0 14px 40px rgba(0,0,0,.55);
 }
 .hw-sub{
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.35;
   color: var(--muted);
+  text-shadow: 0 10px 28px rgba(0,0,0,.55);
 }
 
 .hw-row{
   display:flex;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 8px;
   margin-top: 10px;
+  pointer-events:none;
 }
 
 .hw-pill{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap: 8px;
-  padding: 10px 12px;
   border-radius: var(--pill);
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.52);
-  color: rgba(229,231,235,.96);
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  padding: 8px 10px;
   font-weight: 900;
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1;
-  min-height: 38px;
-  white-space: nowrap;
+  color: var(--text);
+  box-shadow: 0 20px 70px rgba(0,0,0,.45);
+  pointer-events:none;
 }
 
-.hw-pill.warn{
-  border-color: rgba(245,158,11,.20);
-  background: rgba(245,158,11,.10);
+.hw-pill.btn{
+  pointer-events:auto; /* buttons clickable */
+  cursor:pointer;
+  background: rgba(15,23,42,.70);
 }
+.hw-pill.btn:active{ transform: translateY(1px); }
+
 .hw-pill.cyan{
   border-color: rgba(34,211,238,.22);
   background: rgba(34,211,238,.10);
+}
+.hw-pill.warn{
+  border-color: rgba(245,158,11,.22);
+  background: rgba(245,158,11,.12);
 }
 .hw-pill.bad{
   border-color: rgba(239,68,68,.22);
   background: rgba(239,68,68,.10);
 }
 
-.hw-pill.btn{
-  pointer-events: auto; /* ✅ clickable */
-  cursor: pointer;
-  user-select: none;
-  background: rgba(15,23,42,.64);
-  border-color: rgba(148,163,184,.18);
-}
-.hw-pill.btn:active{ transform: scale(.98); }
-
-/* Banner */
+/* banner toast */
 .hw-banner{
-  position:absolute;
-  left: calc(14px + var(--sal));
-  right: calc(14px + var(--sar));
-  top: calc(12px + var(--sat) + 132px);
-  z-index: 85;
-  display:none;
-  pointer-events:none;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.55);
+  position: absolute;
+  left: 50%;
+  top: calc(98px + var(--sat));
+  transform: translateX(-50%);
+  max-width: min(720px, calc(100% - 24px));
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.70);
   backdrop-filter: blur(10px);
+  padding: 10px 14px;
   font-weight: 950;
+  font-size: 13px;
   color: rgba(229,231,235,.96);
-  box-shadow: 0 24px 80px rgba(0,0,0,.42);
+  box-shadow: 0 30px 110px rgba(0,0,0,.55);
+  opacity: 0;
+  pointer-events:none;
+  z-index: 9100;
 }
-.hw-banner.show{ display:block; animation: hwBanner 1.15s ease-out both; }
-
+.hw-banner.show{
+  animation: hwBanner 1200ms ease-out forwards;
+}
 @keyframes hwBanner{
-  0%{ opacity:0; transform: translateY(-8px) scale(.98); }
-  15%{ opacity:1; transform: translateY(0) scale(1); }
-  70%{ opacity:1; }
-  100%{ opacity:0; transform: translateY(-10px) scale(.99); }
+  0%   { opacity:0; transform: translateX(-50%) translateY(-8px) scale(.98); }
+  15%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1); }
+  80%  { opacity:1; transform: translateX(-50%) translateY(0px) scale(1); }
+  100% { opacity:0; transform: translateX(-50%) translateY(-10px) scale(.99); }
 }
 
-/* Quiz box */
+/* quiz box */
 .hw-quiz{
   margin-top: 10px;
-  pointer-events: none;
-  border: 1px solid rgba(34,211,238,.18);
-  background: rgba(34,211,238,.08);
   border-radius: 18px;
+  border: 1px solid rgba(34,211,238,.22);
+  background: rgba(34,211,238,.10);
+  backdrop-filter: blur(10px);
   padding: 10px 12px;
+  box-shadow: 0 26px 90px rgba(0,0,0,.45);
+  pointer-events:none;
 }
 .hw-quiz-q{
   font-weight: 950;
-  font-size: 14px;
+  font-size: 13px;
 }
 .hw-quiz-sub{
-  margin-top: 4px;
-  color: rgba(226,232,240,.90);
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 12.5px;
   line-height: 1.35;
+  color: rgba(229,231,235,.92);
 }
 
-/* Overlays */
+/* ---------------- Overlays (start/end) ---------------- */
 .hw-overlay{
   position:absolute;
   inset:0;
   display:grid;
   place-items:center;
-  z-index: 120;
-  padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-  background: radial-gradient(1200px 900px at 50% 20%, rgba(2,6,23,.55), rgba(2,6,23,.86));
+  padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
+  background: radial-gradient(900px 600px at 50% 15%, rgba(34,211,238,.10), transparent 55%),
+              rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
+  z-index: 9200;
 }
 .hw-card{
   width: min(760px, 100%);
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.72);
-  border-radius: var(--radius);
+  border-radius: var(--r);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.74);
+  box-shadow: 0 30px 140px rgba(0,0,0,.60);
   padding: 16px;
-  box-shadow: 0 28px 140px rgba(0,0,0,.55);
 }
 .hw-card-title{
-  font-size: 18px;
   font-weight: 950;
+  font-size: 18px;
+  letter-spacing: .2px;
 }
 .hw-card-sub{
   margin-top: 8px;
-  color: rgba(148,163,184,.95);
+  color: rgba(148,163,184,.96);
   font-size: 13px;
   line-height: 1.45;
 }
 .hw-card-row{
-  margin-top: 12px;
   display:flex;
   gap:10px;
-  flex-wrap: wrap;
+  flex-wrap:wrap;
+  margin-top: 12px;
 }
-.hw-cta{
-  pointer-events: auto;
-  border-radius: 16px;
-  border: 1px solid rgba(34,197,94,.26);
-  background: rgba(34,197,94,.16);
-  color: rgba(229,231,235,.98);
-  padding: 10px 14px;
-  font-weight: 950;
-  cursor:pointer;
-}
-.hw-ghost{
-  pointer-events: auto;
+.hw-cta,.hw-ghost{
   border-radius: 16px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.68);
-  color: rgba(229,231,235,.96);
-  padding: 10px 14px;
+  padding: 10px 12px;
   font-weight: 950;
   cursor:pointer;
 }
-.hw-cta:active,.hw-ghost:active{ transform: scale(.98); }
+.hw-cta{
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.28);
+  color: rgba(229,231,235,.96);
+}
+.hw-ghost{
+  background: rgba(15,23,42,.70);
+  color: rgba(229,231,235,.96);
+}
+.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
   margin-top: 10px;
-  max-height: min(44vh, 520px);
+  max-height: min(42vh, 420px);
   overflow:auto;
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.55);
   padding: 12px;
-  color: rgba(226,232,240,.94);
   font-size: 12px;
+  color: rgba(229,231,235,.92);
 }
 
-/* ---- Targets ---- */
+/* ---------------- Targets ----------------
+Targets use CSS vars from JS:
+--x (vw%), --y (vh%), --s (scale)
+*/
 .hw-tgt{
-  pointer-events: auto;
-  position: absolute;
+  position:absolute;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
   width: var(--tgt);
   height: var(--tgt);
   border-radius: 999px;
-  border: 2px solid rgba(148,163,184,.18);
+  border: 1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
-  box-shadow:
-    0 18px 70px rgba(0,0,0,.45),
-    0 0 0 6px rgba(2,6,23,.30);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
   display:grid;
   place-items:center;
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  z-index: 30;
-  animation: tgtIn .22s ease-out both;
-}
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  cursor:pointer;
 
+  animation: tgtIn 150ms ease-out both;
+}
 @keyframes tgtIn{
-  0%{ opacity:0; transform: translate(-50%,-50%) scale(var(--s,1)) scale(.86); }
-  100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+  from{ opacity:0; transform: translate(-50%,-50%) scale(.88); }
+  to  { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
 .hw-tgt .emoji{
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.40));
+  filter: drop-shadow(0 14px 26px rgba(0,0,0,.55));
 }
 
-/* Ring FX (restores “effect feeling”) */
-.hw-tgt::before{
-  content:'';
-  position:absolute;
-  inset:-14px;
-  border-radius: 999px;
-  border: 2px solid rgba(34,211,238,.18);
-  box-shadow: 0 0 0 6px rgba(34,211,238,.06);
-  opacity: .75;
-  animation: ringPulse 1.25s ease-in-out infinite;
-}
-@keyframes ringPulse{
-  0%{ transform: scale(.92); opacity:.55; }
-  55%{ transform: scale(1.02); opacity:.85; }
-  100%{ transform: scale(1.06); opacity:.20; }
-}
-
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(var(--s,1)) scale(.96);
-}
-
-/* Good / Wrong / Hazard skins */
+/* type colors */
 .hw-tgt.good{
-  border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.10);
-  box-shadow:
-    0 18px 70px rgba(0,0,0,.45),
-    0 0 0 6px rgba(2,6,23,.30),
-    0 0 26px rgba(34,197,94,.18);
-}
-.hw-tgt.good::before{
   border-color: rgba(34,197,94,.22);
-  box-shadow: 0 0 0 6px rgba(34,197,94,.07);
+  background: rgba(34,197,94,.08);
 }
-
 .hw-tgt.wrong{
-  border-color: rgba(245,158,11,.26);
+  border-color: rgba(245,158,11,.24);
   background: rgba(245,158,11,.10);
-  box-shadow:
-    0 18px 70px rgba(0,0,0,.45),
-    0 0 0 6px rgba(2,6,23,.30),
-    0 0 26px rgba(245,158,11,.18);
 }
-.hw-tgt.wrong::before{
-  border-color: rgba(245,158,11,.22);
-  box-shadow: 0 0 0 6px rgba(245,158,11,.08);
-}
-
 .hw-tgt.haz{
-  border-color: rgba(239,68,68,.26);
+  border-color: rgba(239,68,68,.24);
   background: rgba(239,68,68,.10);
-  box-shadow:
-    0 18px 70px rgba(0,0,0,.45),
-    0 0 0 6px rgba(2,6,23,.30),
-    0 0 26px rgba(239,68,68,.18);
-}
-.hw-tgt.haz::before{
-  border-color: rgba(239,68,68,.22);
-  box-shadow: 0 0 0 6px rgba(239,68,68,.08);
-  animation-duration: .95s;
 }
 
-/* ---- View tweaks ---- */
-body.view-mobile{
-  --tgt: 78px;
-  --hw-top-safe: 162px;
-  --hw-bottom-safe: 170px;
+/* slight pulsing for clarity */
+.hw-tgt.good{ animation: tgtIn 150ms ease-out both, pulseGood 900ms ease-in-out infinite; }
+@keyframes pulseGood{
+  0%,100%{ box-shadow: 0 24px 90px rgba(0,0,0,.55), 0 0 0 0 rgba(34,197,94,.18); }
+  50%    { box-shadow: 0 24px 90px rgba(0,0,0,.55), 0 0 0 10px rgba(34,197,94,0); }
 }
-body.view-cvr{
-  --tgt: 74px;
-  --hw-top-safe: 158px;
-  --hw-bottom-safe: 190px;
+.hw-tgt.haz{ animation: tgtIn 150ms ease-out both, pulseHaz 860ms ease-in-out infinite; }
+@keyframes pulseHaz{
+  0%,100%{ box-shadow: 0 24px 90px rgba(0,0,0,.55), 0 0 0 0 rgba(239,68,68,.18); }
+  50%    { box-shadow: 0 24px 90px rgba(0,0,0,.55), 0 0 0 10px rgba(239,68,68,0); }
 }
+
+/* ---------------- View tuning ---------------- */
 body.view-pc{
-  --tgt: 86px;
+  --hw-top-safe: 160px;
+  --hw-bottom-safe: 170px;
+  --tgt: 66px;
 }
 
-/* Make space for HUD automatically on small screens */
+body.view-mobile{
+  --hw-top-safe: 168px;
+  --hw-bottom-safe: 190px;
+  --tgt: 66px;
+}
+
+body.view-cvr{
+  --hw-top-safe: 170px;
+  --hw-bottom-safe: 200px;
+  --tgt: 72px;
+}
+
+body.view-vr{
+  --hw-top-safe: 168px;
+  --hw-bottom-safe: 190px;
+  --tgt: 72px;
+}
+
+/* make HUD compact on narrow screens */
 @media (max-width: 420px){
-  :root{ --hw-top-safe: 178px; }
-  .hw-pill{ font-size:12px; padding: 9px 11px; min-height: 36px; }
-  .hw-title{ font-size:17px; }
-  .hw-top{ padding: 11px; }
-}
-
-/* Reduce motion */
-@media (prefers-reduced-motion: reduce){
-  .hw-tgt, .hw-tgt::before, .hw-banner.show{ animation: none !important; }
+  .hw-title{ font-size: 16px; }
+  .hw-pill{ font-size: 12px; padding: 7px 9px; }
+  .hw-banner{ top: calc(104px + var(--sat)); font-size: 12.5px; }
 }
