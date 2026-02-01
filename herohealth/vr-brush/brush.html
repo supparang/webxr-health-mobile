@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — BrushVR</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico"/>
+
+  <link rel="stylesheet" href="./brush.css"/>
+
+  <!-- Universal VR UI (Enter VR/Exit/Recenter + crosshair/tap-to-shoot) -->
+  <script src="../vr/vr-ui.js"></script>
+</head>
+<body data-view="pc">
+  <!-- gameplay layer (DOM targets/notes live here) -->
+  <div id="playLayer" aria-label="play area"></div>
+
+  <!-- HUD overlay -->
+  <div id="hud">
+    <div id="hud-timer" class="hud-panel">
+      <div class="bar"><i id="tFill" style="width:60%"></i></div>
+      <div class="meta">
+        <div class="phase" id="tPhase">INTRO</div>
+        <div class="time" id="tLeft">01:30</div>
+      </div>
+    </div>
+
+    <div id="hud-coverage" class="hud-panel">
+      <div class="hud-label">Coverage</div>
+      <div class="grid">
+        <div class="cov-cell" id="cov-q1" data-ok="0"><div class="t">Q1</div><div class="p">0%</div></div>
+        <div class="cov-cell" id="cov-q2" data-ok="0"><div class="t">Q2</div><div class="p">0%</div></div>
+        <div class="cov-cell" id="cov-q3" data-ok="0"><div class="t">Q3</div><div class="p">0%</div></div>
+        <div class="cov-cell" id="cov-q4" data-ok="0"><div class="t">Q4</div><div class="p">0%</div></div>
+      </div>
+    </div>
+
+    <div id="hud-combo" class="hud-panel">
+      <div class="kpi">
+        <div>
+          <div class="hud-label">Combo</div>
+          <div class="comboN" id="cCombo">0</div>
+        </div>
+        <div>
+          <div class="hud-label">Mul</div>
+          <div class="mul" id="cMul">x1.0</div>
+        </div>
+      </div>
+      <div class="fever">
+        <div class="bar"><i id="fFill" style="width:0%"></i></div>
+        <div class="txt"><span id="fTxt">Fever</span><span id="fN">0/20</span></div>
+      </div>
+    </div>
+
+    <div id="hud-boss" class="hud-panel" data-on="0">
+      <div class="hdr">
+        <div class="name">Tartar Titan</div>
+        <div class="phase" id="bPhase">Phase 1/4</div>
+      </div>
+      <div class="bar"><i id="bFill" style="width:100%"></i></div>
+    </div>
+
+    <div id="hud-uv" data-on="0">
+      <div class="btn" id="uvBtn" role="button" aria-label="UV Scan">
+        <div class="icon">UV</div>
+        <div class="txt">
+          <div class="title">UV Scan</div>
+          <div class="sub" id="uvSub">Reveal stealth plaque</div>
+        </div>
+        <div class="energy" id="uvEnergy">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud-toast" data-on="0">
+      <div class="toast">
+        <div class="t" id="toastT">เบามือหน่อย!</div>
+        <div class="s" id="toastS">แปรงแรงเกินไป อาจทำให้เหงือกเจ็บ</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- game scripts -->
+  <script src="./brush.safe.js"></script>
+  <script src="./brush.boot.js"></script>
+</body>
+</html>
