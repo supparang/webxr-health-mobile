@@ -3,9 +3,10 @@
 // ✅ Fix: rafLoop is defined (internal requestAnimationFrame loop)
 // ✅ API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
 // ✅ Emits: hha:time, hha:score, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:end
-// ✅ NEW PATCH: Emits groups:hit for EffectsPack (hit_good/hit_bad/shot_miss/timeout_miss)
 // ✅ Deterministic RNG (seeded) for research/play
-// ✅ Mobile/cVR friendly: hit test via hha:shoot {x,y,lockPx,source,locked}
+// ✅ Mobile/cVR friendly: hit test via hha:shoot {x,y,lockPx,source}
+// ✅ PATCH (CRITICAL): LockPx aim assist works (fix "miss all the time")
+// ✅ PATCH (FX): Emits groups:hit {x,y,kind,good,miss,groupKey,currentKey} for effects-pack.js
 // ✅ Lightweight DOM targets in #playLayer
 (function(){
   'use strict';
@@ -53,15 +54,6 @@
 
   function pick(rng, arr){
     return arr[(rng()*arr.length)|0];
-  }
-
-  function rectCenter(el){
-    try{
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    }catch(_){
-      return { x: (WIN.innerWidth||360)/2, y: (WIN.innerHeight||640)/2 };
-    }
   }
 
   // ---------------- food groups (ไทย) ----------------
@@ -137,8 +129,9 @@
     if (S.wrapEl && DOC.body.contains(S.wrapEl)) return;
     const w = DOC.createElement('div');
     w.id = 'groupsPlayWrap';
+    // ✅ PATCH: pointer-events MUST be auto so elementFromPoint can hit children reliably across browsers
     w.style.cssText =
-      'position:relative; width:100%; height:100%; pointer-events:none; ' +
+      'position:relative; width:100%; height:100%; pointer-events:auto; ' +
       'contain:layout style paint;';
     S.wrapEl = w;
     // layerEl is where targets should go (playLayer)
@@ -170,26 +163,34 @@
     el.className = 'tgt';
     el.setAttribute('data-group', groupKey);
     el.setAttribute('role','button');
+
+    // keep inline style minimal (CSS in groups-vr.css can override)
     el.style.cssText =
-      'position:absolute; width:72px; height:72px; border-radius:18px; '+
+      'position:absolute; border-radius:18px; '+
       'display:flex; align-items:center; justify-content:center; '+
       'font-size:34px; font-weight:900; '+
       'background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.22); '+
       'box-shadow:0 12px 30px rgba(0,0,0,.22); '+
       'pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent;';
+
     el.textContent = emoji;
 
-    // position: avoid top HUD and bottom power/coach roughly (legacy; playLayer overflow handles)
-    const vw = Math.max(320, WIN.innerWidth||360);
-    const vh = Math.max(480, WIN.innerHeight||640);
+    // ✅ PATCH: position based on PLAY LAYER size (not full viewport)
+    const layer = S.layerEl || DOC.getElementById('playLayer') || DOC.body;
+    const rect = layer.getBoundingClientRect ? layer.getBoundingClientRect() : { left:0, top:0, width:(WIN.innerWidth||360), height:(WIN.innerHeight||640) };
 
-    const topSafe = 120;
-    const botSafe = 210;
-    const leftSafe = 14;
-    const rightSafe = 14;
+    const w = Math.max(240, rect.width || (WIN.innerWidth||360));
+    const h = Math.max(240, rect.height|| (WIN.innerHeight||640));
 
-    const x = leftSafe + (S.rng() * (vw - leftSafe - rightSafe - 72));
-    const y = topSafe + (S.rng() * (vh - topSafe - botSafe - 72));
+    const approxSize = 92;
+
+    const topSafe = 10;
+    const botSafe = 10;
+    const leftSafe = 10;
+    const rightSafe = 10;
+
+    const x = leftSafe + (S.rng() * Math.max(20, (w - leftSafe - rightSafe - approxSize)));
+    const y = topSafe  + (S.rng() * Math.max(20, (h - topSafe - botSafe - approxSize)));
 
     el.style.left = Math.round(x) + 'px';
     el.style.top  = Math.round(y) + 'px';
@@ -197,15 +198,30 @@
     // simple appear anim
     el.style.transform = 'scale(.82)';
     el.style.opacity = '0';
-    requestAnimationFrame(()=>{
-      el.style.transition = 'transform 160ms ease, opacity 140ms ease';
-      el.style.transform = 'scale(1)';
-      el.style.opacity = '1';
-    });
 
     const born = nowMs();
     const t = { el, groupKey, born, dieAt: born + lifeMs, hit:false };
+
     S.wrapEl.appendChild(el);
+
+    requestAnimationFrame(()=>{
+      try{
+        el.style.transition = 'transform 160ms ease, opacity 140ms ease';
+        el.style.transform = 'scale(1)';
+        el.style.opacity = '1';
+      }catch(_){}
+    });
+
+    // ✅ PATCH: direct click/tap also works (PC/mouse)
+    el.addEventListener('pointerdown', (pev)=>{
+      if(!S.running) return;
+      try{
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width/2;
+        const cy = r.top + r.height/2;
+        handleShoot({ detail:{ x:cx, y:cy, lockPx: 0, source:'direct' } });
+      }catch(_){}
+    }, { passive:true });
 
     return t;
   }
@@ -323,7 +339,6 @@
 
   function onGoodHit(){
     S.goalNow = Math.min(S.goalTot, S.goalNow + 1);
-
     if (S.miniActive){
       S.miniNow = Math.min(S.miniTot, S.miniNow + 1);
       if (S.miniNow >= S.miniTot){
@@ -387,19 +402,82 @@
     }
   }
 
-  // ---------------- hit test ----------------
-  function hitTest(x,y){
+  // ---------------- hit test (PATCH: lockPx assist) ----------------
+  function hitTestDirect(x,y){
     x = Number(x)||0;
     y = Number(y)||0;
-    let el = null;
     try{
-      el = DOC.elementFromPoint(x,y);
+      let el = DOC.elementFromPoint(x,y);
       if (!el) return null;
       if (el.classList && el.classList.contains('tgt')) return el;
       const p = el.closest ? el.closest('.tgt') : null;
       return p || null;
     }catch(_){
       return null;
+    }
+  }
+
+  function hitTestByRadius(x,y, lockPx){
+    lockPx = Number(lockPx)||0;
+    if (lockPx <= 0) return null;
+    if (!S.targets || !S.targets.length) return null;
+
+    let best = null;
+    let bestD2 = Infinity;
+
+    for (let i=0;i<S.targets.length;i++){
+      const t = S.targets[i];
+      if (!t || t.hit || !t.el) continue;
+      let r;
+      try{ r = t.el.getBoundingClientRect(); }catch(_){ continue; }
+      if (!r || !r.width || !r.height) continue;
+
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+
+      const dx = cx - x;
+      const dy = cy - y;
+      const d2 = dx*dx + dy*dy;
+
+      if (d2 < bestD2){
+        bestD2 = d2;
+        best = t.el;
+      }
+    }
+
+    if (!best) return null;
+    if (bestD2 <= (lockPx*lockPx)) return best;
+    return null;
+  }
+
+  function resolveHitTarget(x,y, lockPx){
+    const direct = hitTestDirect(x,y);
+    if (direct) return direct;
+    return hitTestByRadius(x,y, lockPx);
+  }
+
+  // ✅ FX event for effects-pack.js
+  function emitHitFx(x,y, kind, good, miss, tgKey, cgKey){
+    emit('groups:hit', {
+      x:Number(x)||0,
+      y:Number(y)||0,
+      kind:String(kind||'').toLowerCase(),
+      good:!!good,
+      miss:!!miss,
+      groupKey:String(tgKey||''),
+      currentKey:String(cgKey||'')
+    });
+  }
+
+  function removeTargetEl(tgtEl){
+    if (!tgtEl) return;
+    try{
+      tgtEl.style.transition = 'transform 140ms ease, opacity 120ms ease';
+      tgtEl.style.transform = 'scale(.75)';
+      tgtEl.style.opacity = '0';
+      setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
+    }catch(_){
+      try{ tgtEl.remove(); }catch(_2){}
     }
   }
 
@@ -410,27 +488,21 @@
     const d = ev.detail||{};
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
-    const locked = !!d.locked;
-    const source = String(d.source||'tap');
+    const lockPx = clamp(d.lockPx ?? 0, 0, 120); // ✅ from vr-ui.js
 
     S.shots++;
 
-    const tgtEl = hitTest(x,y);
-    if (!tgtEl){
-      // ✅ NEW: FX event for miss shot
-      emit('groups:hit', {
-        kind:'shot_miss', miss:true, good:false,
-        x, y, locked, source,
-        t: nowMs()
-      });
+    const cg = currentGroup().key;
+    const tgtEl = resolveHitTarget(x,y, lockPx);
 
+    if (!tgtEl){
       addScore(false);
       onBadHit();
+      emitHitFx(x,y,'shot_miss', false, true, '', cg);
       return;
     }
 
     const tg = String(tgtEl.getAttribute('data-group')||'');
-    const cg = currentGroup().key;
 
     // mark target as hit (remove)
     try{
@@ -439,44 +511,31 @@
         const t = S.targets[idx];
         if (!t.hit){
           t.hit = true;
-          try{
-            tgtEl.style.transition = 'transform 140ms ease, opacity 120ms ease';
-            tgtEl.style.transform = 'scale(.75)';
-            tgtEl.style.opacity = '0';
-            setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
-          }catch(_){}
+          removeTargetEl(tgtEl);
           S.targets.splice(idx,1);
         }
       }else{
-        try{ tgtEl.remove(); }catch(_){}
+        removeTargetEl(tgtEl);
       }
-    }catch(_){}
+    }catch(_){
+      removeTargetEl(tgtEl);
+    }
 
     const good = (tg === cg);
-
-    // ✅ NEW: FX event for hit
-    emit('groups:hit', {
-      kind: good ? 'hit_good' : 'hit_bad',
-      good: !!good,
-      miss: false,
-      x, y, locked, source,
-      targetGroupKey: tg,
-      currentGroupKey: cg,
-      t: nowMs()
-    });
-
     addScore(good);
 
     if (good){
       onGoodHit();
       if (S.boss) bossHit();
+      emitHitFx(x,y,'hit_good', true, false, tg, cg);
     }else{
       onBadHit();
       coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+      emitHitFx(x,y,'hit_bad', false, false, tg, cg);
     }
   }
 
-  // ---------------- RAF loop (FIX rafLoop) ----------------
+  // ---------------- RAF loop ----------------
   function rafLoop(){
     if (!S.running) return;
 
@@ -512,11 +571,8 @@
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
-
       if (t >= tg.dieAt){
         const cg = currentGroup().key;
-
-        // missed: count miss only if it was current group (fair)
         if (tg.groupKey === cg){
           S.miss++;
           S.combo = 0;
@@ -525,24 +581,16 @@
           emitRank();
           onBadHit();
 
-          // ✅ NEW: FX event for timeout miss (center of target)
-          const c = rectCenter(tg.el);
-          emit('groups:hit', {
-            kind:'timeout_miss', miss:true, good:false,
-            x: c.x, y: c.y,
-            locked:false, source:'timeout',
-            targetGroupKey: tg.groupKey,
-            currentGroupKey: cg,
-            t
-          });
+          // ✅ FX: timeout miss at target center
+          try{
+            const r = tg.el.getBoundingClientRect();
+            emitHitFx(r.left + r.width/2, r.top + r.height/2, 'timeout_miss', false, true, tg.groupKey, cg);
+          }catch(_){
+            emitHitFx(0,0,'timeout_miss', false, true, tg.groupKey, cg);
+          }
         }
 
-        try{
-          tg.el.style.transition = 'transform 120ms ease, opacity 120ms ease';
-          tg.el.style.transform = 'scale(.85)';
-          tg.el.style.opacity = '0';
-          setTimeout(()=>{ try{ tg.el.remove(); }catch(_){ } }, 130);
-        }catch(_){}
+        removeTargetEl(tg.el);
         S.targets.splice(i,1);
       }
     }
@@ -638,17 +686,14 @@
     S.lastCoachAt = 0;
     S.lastQuestEmitAt = 0;
 
-    // seed / rng
     S.seed = String(ctx && ctx.seed ? ctx.seed : (qs('seed','')||Date.now()));
     const u32 = strSeedToU32(S.seed);
     S.rng = makeRng(u32);
 
-    // time
     const t = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
     S.timePlannedSec = clamp(t, 15, 180);
     S.timeLeftSec = S.timePlannedSec;
 
-    // spawn timer
     S.spawnIt = 0;
 
     emitPower();
@@ -657,7 +702,6 @@
     emitTime();
 
     emitQuest(true);
-
     coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
   }
 
@@ -762,7 +806,6 @@
     };
 
     emit('hha:end', summary);
-
     clearTargets();
   }
 
@@ -783,11 +826,7 @@
   }
 
   // ---------------- expose ----------------
-  WIN.GroupsVR.GameEngine = {
-    setLayerEl,
-    start,
-    stop
-  };
+  WIN.GroupsVR.GameEngine = { setLayerEl, start, stop };
   WIN.GroupsVR.bindFlushOnLeave = bindFlushOnLeave;
 
   WIN.GroupsVR.getResearchCtx = function(){
