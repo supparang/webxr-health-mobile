@@ -17,29 +17,24 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
   const trackLabels   = $$('#rb-track-options .rb-mode-btn');
   const modeDescEl    = $('#rb-mode-desc');
   const trackModeLbl  = $('#rb-track-mode-label');
-  const trackHintEl   = null; // (เวอร์ชันนี้ใส่ how-to ใน card แล้ว)
   const researchBox   = $('#rb-research-fields');
 
-  // ฟอร์มวิจัย
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // ปุ่มตอนเล่น / สรุปผล
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD elements
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -57,13 +52,14 @@
     feverStatus:  $('#rb-fever-status'),
     progFill:     $('#rb-progress-fill'),
     progText:     $('#rb-progress-text'),
+
+    // AI HUD
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // แสดงผลสรุป
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -80,7 +76,6 @@
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // mapping เพลงในเมนู → engine trackId + diff + label
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -90,30 +85,14 @@
 
   let engine = null;
 
-  // === AI assist toggle ===
-  // - Research mode: แสดง AI prediction ได้ แต่ "ห้าม" AI ปรับเกม (ล็อก 100%)
-  // - Normal mode: เปิด AI assist ได้ด้วยพารามิเตอร์ ?ai=1
-  //   (ถ้าไม่ใส่ จะยังคงแสดงค่า prediction แต่ไม่ปรับ judge/dmg/scale)
-  let aiAssistEnabled = false;
-  (function readAiFlag(){
-    try{
-      const sp = new URL(location.href).searchParams;
-      aiAssistEnabled = (sp.get('ai') === '1');
-    }catch(_){
-      aiAssistEnabled = false;
-    }
-  })();
-
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
   }
-
   function getSelectedTrackKey() {
     const r = trackRadios.find(x => x.checked);
     return r ? r.value : 'n1';
   }
-
   function setSelectedTrackKey(key) {
     trackRadios.forEach(r => { r.checked = (r.value === key); });
   }
@@ -137,7 +116,7 @@
 
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดงผลได้ แต่ล็อกไม่ให้ปรับเกม)';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       researchBox.classList.remove('hidden');
 
@@ -161,6 +140,17 @@
     else if (name === 'result') viewResult.classList.remove('hidden');
   }
 
+  function handleAIUpdate(ai){
+    if (!ai || !hud) return;
+    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
+    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
+    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+    if (hud.aiTip){
+      hud.aiTip.textContent = ai.tip || '';
+      hud.aiTip.classList.toggle('hidden', !ai.tip);
+    }
+  }
+
   function createEngine() {
     const renderer = new window.RbDomRenderer(fieldEl, {
       flashEl,
@@ -175,7 +165,10 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd, onAIUpdate: handleAIUpdate }
+      hooks: {
+        onEnd: handleEngineEnd,
+        onAIUpdate: handleAIUpdate // ✅ สำคัญ: ต่อ AI HUD ให้ทำงานจริง
+      }
     });
   }
 
@@ -194,9 +187,7 @@
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim(),
-      // Normal only: allow AI to adapt with ?ai=1
-      aiAssist: (mode !== 'research') && aiAssistEnabled
+      note: (inputNote && inputNote.value || '').trim()
     };
 
     engine.start(mode, cfg.engineId, meta);
@@ -233,17 +224,6 @@
     switchView('result');
   }
 
-
-  function handleAIUpdate(ai){
-    if (!ai || !hud) return;
-    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
-    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
-    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
-    if (hud.aiTip){
-      hud.aiTip.textContent = ai.tip || '';
-      hud.aiTip.classList.toggle('hidden', !ai.tip);
-    }
-  }
   function downloadCsv(csvText, filename) {
     if (!csvText) return;
     const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
@@ -273,7 +253,7 @@
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // ==== apply mode from URL (?mode=research|play) ====
+  // ==== apply mode from URL (?mode=research|play|normal) ====
   (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
@@ -287,7 +267,6 @@
       }
     }catch(_){}
   })();
-
 
   updateModeUI();
   switchView('menu');
