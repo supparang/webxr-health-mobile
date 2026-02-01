@@ -1,150 +1,276 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — FAIR PACK (Unified)
-// ✅ Works with ../vr/particles.js if present
-// ✅ Listens: hha:judge, hha:storm, hha:boss, hha:celebrate, hha:end
-// ✅ Non-blocking overlay, rate-limited
-// ✅ Same feel across all games (but each game can still keep its own identity)
+// HHA FX Director — ULTRA (shared)
+// ✅ Bridges game events -> Particles FX + body pulse classes
+// ✅ Safe if Particles missing
+// ✅ Rate-limit for spam events (kid-proof)
+// ✅ Works across all games (GoodJunk/Groups/Hydration/Plate)
+//
+// Events expected (soft):
+// - hha:judge {label, x,y, kind}   kind: good|bad|star|shield|diamond|boss|storm|rage|miss
+// - hha:coach {msg, kind}         kind: tip|warn|praise|boss|storm|rage
+// - hha:celebrate {kind, grade}   kind: mini|goal|end|boss
+// - hha:end {scoreFinal, misses, grade, reason}
+// - hha:time {t}  (optional)
+// - hha:score {score} (optional)
+//
+// Adds body classes briefly:
+//  fx-good, fx-bad, fx-star, fx-shield, fx-diamond, fx-boss, fx-storm, fx-rage, fx-miss, fx-ping
+//
+// Note: CSS animations live in game css (e.g., goodjunk-vr.css) but this file works even without them.
 
-(function(){
+(function(root){
   'use strict';
-  const WIN = window;
-  const DOC = document;
-  if(!DOC || WIN.__HHA_FX_DIRECTOR__) return;
-  WIN.__HHA_FX_DIRECTOR__ = true;
 
-  const clamp=(v,a,b)=> v<a?a:(v>b?b:v);
-  const now=()=> (performance?.now?.() ?? Date.now());
+  const DOC = root.document;
+  if(!DOC || root.__HHA_FX_DIRECTOR__) return;
+  root.__HHA_FX_DIRECTOR__ = true;
 
-  function P(){
-    return (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || WIN.Particles || null;
-  }
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+  const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
-  // rate limit (avoid spam)
-  const RL = {
-    judge: { t:0, gap: 80 },
-    big:   { t:0, gap: 450 },
-  };
-  function allow(key){
-    const r = RL[key] || RL.judge;
-    const t = now();
-    if(t - r.t < r.gap) return false;
-    r.t = t;
-    return true;
-  }
+  const CFG = Object.assign({
+    // rate limit
+    judgeCooldownMs: 70,
+    coachCooldownMs: 900,
+    celebrateCooldownMs: 450,
+    pingMs: 120,
 
-  function vp(){
-    const W = DOC.documentElement.clientWidth || innerWidth || 1;
-    const H = DOC.documentElement.clientHeight || innerHeight || 1;
-    return { W,H };
-  }
+    // default FX position when not provided
+    defaultX: ()=> Math.floor((DOC.documentElement.clientWidth || innerWidth || 800) * 0.5),
+    defaultY: ()=> Math.floor((DOC.documentElement.clientHeight || innerHeight || 600) * 0.45),
 
-  function pop(x,y,text,cls,opts){
-    const p = P();
-    if(!p) return;
+    // pop text
+    popGood: '+',
+    popBad:  '−',
+  }, root.HHA_FX_CONFIG || {});
+
+  // --- helpers ---
+  function P(){ return root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles) || null; }
+
+  function bodyPulse(cls, ms=CFG.pingMs){
     try{
-      if(typeof p.popText === 'function') p.popText(x,y,text,cls,opts);
-      else if(typeof p.scorePop === 'function') p.scorePop(x,y,text);
+      DOC.body.classList.add(cls);
+      setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){} }, ms);
     }catch(_){}
   }
 
-  function ring(x,y,kind,opts){
-    const p = P();
-    if(!p) return;
-    try{ if(typeof p.ringPulse === 'function') p.ringPulse(x,y,kind,opts); }catch(_){}
+  function pickXY(d){
+    const x = Number(d && (d.x ?? d.clientX)) || CFG.defaultX();
+    const y = Number(d && (d.y ?? d.clientY)) || CFG.defaultY();
+    return {
+      x: clamp(x, 0, (root.innerWidth||DOC.documentElement.clientWidth||9999)),
+      y: clamp(y, 0, (root.innerHeight||DOC.documentElement.clientHeight||9999)),
+    };
   }
 
-  function burst(x,y,kind,opts){
-    const p = P();
-    if(!p) return;
-    try{ if(typeof p.burstAt === 'function') p.burstAt(x,y,kind,opts); }catch(_){}
+  // --- cooldown buckets ---
+  let tJudge=0, tCoach=0, tCele=0;
+
+  function canJudge(){
+    const t = now();
+    if(t - tJudge < CFG.judgeCooldownMs) return false;
+    tJudge = t; return true;
+  }
+  function canCoach(){
+    const t = now();
+    if(t - tCoach < CFG.coachCooldownMs) return false;
+    tCoach = t; return true;
+  }
+  function canCele(){
+    const t = now();
+    if(t - tCele < CFG.celebrateCooldownMs) return false;
+    tCele = t; return true;
   }
 
-  function celebrate(kind, opts){
-    const p = P();
-    if(!p) return;
-    try{ if(typeof p.celebrate === 'function') p.celebrate(kind, opts); }catch(_){}
+  // --- fx mapping ---
+  function fxForKind(kind){
+    kind = String(kind||'').toLowerCase();
+    if(kind==='good') return { cls:'fx-good', textCls:'fx-good' };
+    if(kind==='bad') return { cls:'fx-bad', textCls:'fx-bad' };
+    if(kind==='miss') return { cls:'fx-miss', textCls:'fx-warn' };
+    if(kind==='star') return { cls:'fx-star', textCls:'fx-warn' };
+    if(kind==='shield') return { cls:'fx-shield', textCls:'fx-good' };
+    if(kind==='diamond') return { cls:'fx-diamond', textCls:'fx-violet' };
+    if(kind==='boss') return { cls:'fx-boss', textCls:'fx-warn' };
+    if(kind==='storm') return { cls:'fx-storm', textCls:'fx-warn' };
+    if(kind==='rage') return { cls:'fx-rage', textCls:'fx-bad' };
+    return { cls:'fx-ping', textCls:'' };
   }
 
-  function centerTopY(){
-    const { H } = vp();
-    return Math.floor(H * 0.22);
+  function judgeToKind(label){
+    const s = String(label||'').toLowerCase();
+    if(s.includes('good')) return 'good';
+    if(s.includes('oops') || s.includes('bad')) return 'bad';
+    if(s.includes('miss')) return 'miss';
+    if(s.includes('star')) return 'star';
+    if(s.includes('shield') || s.includes('block')) return 'shield';
+    if(s.includes('diamond')) return 'diamond';
+    if(s.includes('boss')) return 'boss';
+    if(s.includes('storm')) return 'storm';
+    if(s.includes('rage')) return 'rage';
+    if(s.includes('goal')) return 'star';
+    if(s.includes('mini')) return 'star';
+    return 'good';
   }
 
-  // ---- event handlers ----
+  // --- handlers ---
   function onJudge(ev){
-    if(!allow('judge')) return;
-    const d = ev?.detail || {};
-    const { W,H } = vp();
-    const x = clamp(Number(d.x ?? (W/2)), 20, W-20);
-    const y = clamp(Number(d.y ?? (H*0.32)), 20, H-20);
-    const type = String(d.type||'').toLowerCase();
-    const label = String(d.label||'').slice(0,24);
+    if(!canJudge()) return;
+    const d = ev && ev.detail ? ev.detail : {};
+    const label = d.label ?? d.text ?? '';
+    const kind = d.kind || judgeToKind(label);
+    const map = fxForKind(kind);
+    const {x,y} = pickXY(d);
 
-    if(!label) return;
+    // body pulse
+    bodyPulse(map.cls, 140);
 
-    if(type === 'good' || type === 'perfect'){
-      burst(x,y,'good');
-      ring(x,y,'good',{ size: 120 });
-      pop(x,y,label,'good',{ size: 16 });
-    } else if(type === 'bad' || type === 'miss'){
-      burst(x,y,'bad');
-      ring(x,y,'bad',{ size: 150 });
-      pop(x,y,label,'bad',{ size: 16 });
-    } else if(type === 'block'){
-      burst(x,y,'shield');
-      ring(x,y,'shield',{ size: 150 });
-      pop(x,y,label,'cyan',{ size: 16 });
-    } else {
-      pop(x,y,label,'warn',{ size: 14 });
+    const p = P();
+    if(!p) return;
+
+    // decide which FX to show
+    try{
+      if(kind==='good'){
+        p.burst && p.burst(x,y,{ n: 10, spread: 150, life: 520 });
+        p.popText && p.popText(x,y, label || CFG.popGood, map.textCls);
+      }else if(kind==='bad' || kind==='miss'){
+        p.shockwave && p.shockwave(x,y,{ r: 190, life: 420, alpha: 0.30, thick: 3 });
+        p.burst && p.burst(x,y,{ n: 12, spread: 170, life: 600, grav: 1.05 });
+        p.popText && p.popText(x,y, label || CFG.popBad, map.textCls);
+      }else if(kind==='star'){
+        p.sparkle && p.sparkle(x,y,{ n: 18, spread: 240, life: 700 });
+        p.popText && p.popText(x,y, label || '⭐', map.textCls);
+      }else if(kind==='shield'){
+        p.shockwave && p.shockwave(x,y,{ r: 160, life: 360, alpha: 0.34, thick: 3 });
+        p.sparkle && p.sparkle(x,y,{ n: 12, spread: 180, life: 520 });
+        p.popText && p.popText(x,y, label || 'BLOCK', map.textCls);
+      }else if(kind==='diamond'){
+        p.celebrate && p.celebrate({ n: 34, y: y });
+        p.popText && p.popText(x,y, label || '💎', map.textCls);
+      }else if(kind==='boss' || kind==='storm' || kind==='rage'){
+        p.shockwave && p.shockwave(x,y,{ r: 260, life: 520, alpha: 0.34, thick: 4 });
+        p.burst && p.burst(x,y,{ n: 22, spread: 260, life: 820, grav: 1.15, drift: 0.7 });
+        p.popText && p.popText(x,y, label || kind.toUpperCase(), map.textCls);
+      }else{
+        p.popText && p.popText(x,y, label || '!', map.textCls);
+      }
+    }catch(_){}
+  }
+
+  function onCoach(ev){
+    if(!canCoach()) return;
+    const d = ev && ev.detail ? ev.detail : {};
+    const kind = String(d.kind||'tip').toLowerCase();
+    const msg  = String(d.msg||d.text||'').trim();
+    if(!msg) return;
+
+    const {x,y} = pickXY(d);
+    const p = P();
+
+    if(kind==='warn' || kind==='storm'){
+      bodyPulse('fx-storm', 180);
+      try{
+        p && p.popText && p.popText(x, y-20, msg, 'fx-warn');
+        p && p.shockwave && p.shockwave(x, y, { r: 210, life: 520, alpha: 0.22, thick: 3 });
+      }catch(_){}
+      return;
     }
-  }
 
-  function onStorm(ev){
-    if(!allow('big')) return;
-    const d = ev?.detail || {};
-    const on = !!d.on;
-    if(!on) return;
-    const { W } = vp();
-    const x = Math.floor(W/2);
-    const y = centerTopY();
-    ring(x,y,'star',{ size: 240 });
-    pop(x,y,'STORM!','warn',{ size: 22 });
-  }
+    if(kind==='rage'){
+      bodyPulse('fx-rage', 180);
+      try{
+        p && p.popText && p.popText(x, y-20, msg, 'fx-bad');
+        p && p.burst && p.burst(x,y,{ n: 16, spread: 220, life: 720, grav: 1.2 });
+      }catch(_){}
+      return;
+    }
 
-  function onBoss(ev){
-    if(!allow('big')) return;
-    const d = ev?.detail || {};
-    if(!d.on) return;
-    const { W } = vp();
-    const x = Math.floor(W/2);
-    const y = centerTopY();
-    const hp = (d.hp!=null && d.hpMax!=null) ? `HP ${d.hp}/${d.hpMax}` : '';
-    const phase = (d.phase===2) ? 'PHASE 2' : 'BOSS';
-    ring(x,y,'violet',{ size: 280 });
-    pop(x,y,phase,'violet',{ size: 22 });
-    if(hp) pop(x,y+34,hp,'warn',{ size: 14 });
+    if(kind==='boss'){
+      bodyPulse('fx-boss', 180);
+      try{
+        p && p.popText && p.popText(x, y-20, msg, 'fx-warn');
+        p && p.shockwave && p.shockwave(x,y,{ r: 240, life: 560, alpha: 0.26, thick: 4 });
+      }catch(_){}
+      return;
+    }
+
+    // tip / praise
+    bodyPulse('fx-ping', 120);
+    try{
+      p && p.popText && p.popText(x, y-30, msg, (kind==='praise') ? 'fx-good' : '');
+      if(kind==='praise'){
+        p && p.sparkle && p.sparkle(x,y,{ n: 12, spread: 170, life: 560 });
+      }
+    }catch(_){}
   }
 
   function onCelebrate(ev){
-    if(!allow('big')) return;
-    const d = ev?.detail || {};
-    const kind = String(d.kind || 'win');
-    celebrate(kind, { count: 18 });
+    if(!canCele()) return;
+    const d = ev && ev.detail ? ev.detail : {};
+    const kind = String(d.kind||'').toLowerCase();
+    const grade = String(d.grade||'').toUpperCase();
+
+    const p = P();
+    if(!p) return;
+
+    try{
+      if(kind==='mini' || kind==='goal'){
+        bodyPulse('fx-star', 220);
+        p.celebrate && p.celebrate({ n: 26, y: Math.floor((DOC.documentElement.clientHeight||innerHeight||600)*0.35) });
+      }else if(kind==='boss'){
+        bodyPulse('fx-boss', 260);
+        p.celebrate && p.celebrate({ n: 38, y: Math.floor((DOC.documentElement.clientHeight||innerHeight||600)*0.38), r: 280 });
+      }else if(kind==='end'){
+        bodyPulse('fx-star', 260);
+        p.celebrate && p.celebrate({ n: 44, y: Math.floor((DOC.documentElement.clientHeight||innerHeight||600)*0.34), r: 320 });
+        if(grade){
+          p.popText && p.popText(CFG.defaultX(), Math.floor(CFG.defaultY()*0.8), `GRADE ${grade}`, 'fx-violet');
+        }
+      }else{
+        bodyPulse('fx-ping', 180);
+        p.celebrate && p.celebrate({ n: 22 });
+      }
+    }catch(_){}
   }
 
   function onEnd(ev){
-    if(!allow('big')) return;
-    const d = ev?.detail || {};
-    const grade = String(d.grade||'').trim();
-    if(!grade) return;
-    const { W } = vp();
-    pop(Math.floor(W/2), centerTopY(), `GRADE ${grade}`, 'good', { size: 22 });
+    const d = ev && ev.detail ? ev.detail : {};
+    const grade = String(d.grade||'').toUpperCase();
+    const reason = String(d.reason||'');
+    const p = P();
+
+    // tiny end pulse (not too noisy)
+    bodyPulse('fx-ping', 140);
+
+    try{
+      if(p && p.popText){
+        const msg = grade ? `จบเกม! เกรด ${grade}` : 'จบเกม!';
+        p.popText(CFG.defaultX(), Math.floor(CFG.defaultY()*0.75), msg, 'fx-violet');
+        if(reason) p.popText(CFG.defaultX(), Math.floor(CFG.defaultY()*0.82), `reason: ${reason}`, '');
+      }
+    }catch(_){}
   }
 
-  WIN.addEventListener('hha:judge', onJudge, { passive:true });
-  WIN.addEventListener('hha:storm', onStorm, { passive:true });
-  WIN.addEventListener('hha:boss', onBoss, { passive:true });
-  WIN.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  WIN.addEventListener('hha:end', onEnd, { passive:true });
+  // Bind events (window + document for safety)
+  function on(name, fn){
+    try{ root.addEventListener(name, fn, { passive:true }); }catch(_){}
+    try{ DOC.addEventListener(name, fn, { passive:true }); }catch(_){}
+  }
 
-})();
+  on('hha:judge', onJudge);
+  on('hha:coach', onCoach);
+  on('hha:celebrate', onCelebrate);
+  on('hha:end', onEnd);
+
+  // Optional: debugging ping
+  root.HHA_FX_PING = function(label='PING'){
+    try{
+      const p = P();
+      const x = CFG.defaultX(), y = CFG.defaultY();
+      bodyPulse('fx-ping', 140);
+      p && p.popText && p.popText(x,y,label,'fx-good');
+      p && p.burst && p.burst(x,y,{ n: 12, spread: 180, life: 600 });
+    }catch(_){}
+  };
+
+})(window);
