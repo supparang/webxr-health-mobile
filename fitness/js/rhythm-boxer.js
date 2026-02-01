@@ -1,22 +1,6 @@
-// === js/rhythm-boxer.js — UI glue (menu / play / result) + cVR 3-lane (L/C/R) ===
 'use strict';
 
 (function () {
-
-  function readQuery(k, d=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; }
-  }
-  function getView(){
-    const v = String(readQuery("view", "")).toLowerCase();
-    if(v === "cvr" || v === "cardboard" || v === "vr-cardboard") return "cvr";
-    return v || "";
-  }
-
-  // Apply view class early for CSS (e.g., view-cvr)
-  (function applyViewClass(){
-    const v = getView();
-    if (v) document.body.classList.add('view-' + v);
-  })();
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -31,13 +15,6 @@
   const lanesEl    = $('#rb-lanes');
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
-
-  // cVR controls overlay
-  const cvrControls = $('#rb-cvr-controls');
-  const cvrPadL = $('#rb-cvr-pad-l');
-  const cvrPadC = $('#rb-cvr-pad-c');
-  const cvrPadR = $('#rb-cvr-pad-r');
-  const cvrHint = $('#rb-cvr-hint');
 
   // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
@@ -111,25 +88,6 @@
 
   let engine = null;
 
-  function isViewCvr(){
-    return getView() === 'cvr';
-  }
-
-  function applyCvrUi(){
-    if(!isViewCvr()) return;
-    if(cvrControls) cvrControls.classList.remove('hidden');
-    if(cvrHint) cvrHint.textContent = 'Cardboard/cVR: ใช้ปุ่ม L / C / R ด้านล่างเพื่อชกตามจังหวะ';
-
-    // relabel visible lanes to L/C/R (we hide lane 0 and 4 by CSS)
-    const setLbl = (lane, txt)=>{
-      const el = document.querySelector(`.rb-lane[data-lane="${lane}"] .rb-lane-label`);
-      if(el) el.textContent = txt;
-    };
-    setLbl(1, 'L');
-    setLbl(2, 'C');
-    setLbl(3, 'R');
-  }
-
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
@@ -201,7 +159,7 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd }
+      hooks: { onEnd: handleEngineEnd, onAI: handleAIUpdate }
     });
   }
 
@@ -225,9 +183,6 @@
 
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
-
-    // show cVR overlay only during play
-    if(isViewCvr() && cvrControls) cvrControls.classList.remove('hidden');
   }
 
   function stopGame(reason) {
@@ -257,8 +212,18 @@
       res.qualityNote.classList.add('hidden');
     }
 
-    if(cvrControls) cvrControls.classList.add('hidden');
     switchView('result');
+  }
+
+  function handleAIUpdate(ai){
+    if (!ai || !hud) return;
+    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
+    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
+    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+    if (hud.aiTip){
+      hud.aiTip.textContent = ai.tip || '';
+      hud.aiTip.classList.toggle('hidden', !ai.tip);
+    }
   }
 
   function downloadCsv(csvText, filename) {
@@ -279,7 +244,7 @@
   btnStart.addEventListener('click', startGame);
   btnStop.addEventListener('click', () => stopGame('manual-stop'));
   btnAgain.addEventListener('click', () => startGame());
-  btnBackMenu.addEventListener('click', () => { if(cvrControls) cvrControls.classList.add('hidden'); switchView('menu'); });
+  btnBackMenu.addEventListener('click', () => switchView('menu'));
 
   btnDlEvents.addEventListener('click', () => {
     if (!engine) return;
@@ -289,25 +254,6 @@
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
-
-  // cVR pads: send side hit
-  function bindCvrPad(btn, side){
-    if(!btn) return;
-    const fire = (e)=>{
-      e.preventDefault();
-      if(engine && engine.running){
-        engine.handleLaneTap(side); // 'L'|'C'|'R'
-      }
-      btn.classList.add('is-active');
-      setTimeout(()=>btn.classList.remove('is-active'), 90);
-    };
-    btn.addEventListener('pointerdown', fire, { passive:false });
-    btn.addEventListener('touchstart', fire, { passive:false });
-    btn.addEventListener('mousedown', fire, { passive:false });
-  }
-  bindCvrPad(cvrPadL, 'L');
-  bindCvrPad(cvrPadC, 'C');
-  bindCvrPad(cvrPadR, 'R');
 
   // ==== apply mode from URL (?mode=research|play) ====
   (function applyModeFromQuery(){
@@ -324,7 +270,6 @@
     }catch(_){}
   })();
 
-  applyCvrUi();
   updateModeUI();
   switchView('menu');
 
