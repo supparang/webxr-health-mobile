@@ -1,9 +1,8 @@
 // === /herohealth/vr/food5-th.js ===
 // Thai Food 5 Groups Mapping (STABLE, DO NOT CHANGE)
-// ✅ Exports: FOOD5, JUNK
-// ✅ Helpers: pickEmoji, labelForGroup, emojiForGroup, emojiForJunk, groupIdFromIndex
+// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup
 // ✅ Supports seeded rng: pickEmoji(rng, arr)
-// ✅ Group ids are fixed 1..5 (per your rule)
+// ✅ Group ids are fixed 1..5 per your rule
 
 'use strict';
 
@@ -16,6 +15,7 @@ export const FOOD5 = Object.freeze({
     descTH: 'เนื้อ นม ไข่ ถั่วเมล็ดแห้ง',
     emojis: Object.freeze(['🥚','🥛','🍗','🍖','🐟','🫘','🥜','🧀'])
   }),
+
   2: Object.freeze({
     id: 2,
     key: 'g2',
@@ -23,6 +23,7 @@ export const FOOD5 = Object.freeze({
     descTH: 'ข้าว แป้ง เผือก มัน น้ำตาล',
     emojis: Object.freeze(['🍚','🍞','🥖','🍜','🍝','🥔','🍠','🥟'])
   }),
+
   3: Object.freeze({
     id: 3,
     key: 'g3',
@@ -30,6 +31,7 @@ export const FOOD5 = Object.freeze({
     descTH: 'ผักสีเขียว เหลือง และหลากสี',
     emojis: Object.freeze(['🥦','🥬','🥒','🌽','🥕','🍆','🫑','🍅'])
   }),
+
   4: Object.freeze({
     id: 4,
     key: 'g4',
@@ -37,12 +39,13 @@ export const FOOD5 = Object.freeze({
     descTH: 'ผลไม้ให้วิตามินและใยอาหาร',
     emojis: Object.freeze(['🍎','🍌','🍊','🍉','🍇','🍍','🥭','🍓'])
   }),
+
   5: Object.freeze({
     id: 5,
     key: 'g5',
     labelTH: 'หมู่ 5 ไขมัน',
     descTH: 'ไขมันให้พลังงานและความอบอุ่น',
-    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🌰','🥜','🧀','🍳'])
+    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🥜','🌰','🍳','🧀'])
   })
 });
 
@@ -62,13 +65,6 @@ export function pickEmoji(rng, arr){
   return a[i];
 }
 
-export function groupIdFromIndex(groupIndex){
-  // groupIndex: 0..4 => groupId: 1..5
-  const gi = Number(groupIndex);
-  if(!Number.isFinite(gi)) return 1;
-  return Math.max(1, Math.min(5, Math.floor(gi) + 1));
-}
-
 export function labelForGroup(groupId){
   const g = FOOD5[groupId];
   return g ? g.labelTH : 'หมู่ ?';
@@ -78,8 +74,4 @@ export function emojiForGroup(rng, groupId){
   const g = FOOD5[groupId];
   if(!g) return '🥦';
   return pickEmoji(rng, g.emojis);
-}
-
-export function emojiForJunk(rng){
-  return pickEmoji(rng, JUNK.emojis);
 }
