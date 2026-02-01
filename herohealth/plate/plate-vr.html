@@ -34,10 +34,10 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- Playfield -->
+    <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
-    <!-- FX layers (BOSS / STORM) -->
+    <!-- ✅ FX layers (must exist for CSS hooks to work) -->
     <div id="bossFx" aria-hidden="true"></div>
     <div id="stormFx" aria-hidden="true"></div>
 
@@ -55,13 +55,6 @@
         <div class="chip combo">
           <span class="lbl">COMBO</span>
           <span class="val" id="hudCombo">0</span>
-        </div>
-
-        <!-- ✅ NEW: AI Danger Meter -->
-        <div class="chip ai" id="aiChip" title="AI คาดการณ์โอกาสพลาดในอีกไม่กี่วินาที">
-          <span class="lbl">AI</span>
-          <span class="val" id="hudAiPct">0%</span>
-          <span class="miniBar" aria-hidden="true"><i id="hudAiFill"></i></span>
         </div>
       </div>
 
@@ -97,7 +90,7 @@
       </div>
     </div>
 
-    <!-- Coach bubble -->
+    <!-- Coach bubble (optional) -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
@@ -129,5 +122,10 @@
       </div>
     </div>
   </div>
+
+  <!-- NOTE:
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
+  -->
 </body>
 </html>
