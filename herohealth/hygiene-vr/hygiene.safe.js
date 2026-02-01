@@ -127,7 +127,9 @@ export function boot(){
   // quest/quiz
   let questText = 'ทำ STEP ให้ถูก!';
   let questDone = 0;
-  let quizOpen = false;
+
+  // ✅ FIX: quiz state must be object (not boolean)
+  const quiz = { open:false, armed:false, t0:0, needStreak:2, streak:0 };
   let quizRight = 0;
   let quizWrong = 0;
 
@@ -163,7 +165,7 @@ export function boot(){
   }
 
   function setQuizVisible(on){
-    quizOpen = !!on;
+    quiz.open = !!on;
     if(!quizBox) return;
     quizBox.style.display = on ? 'block' : 'none';
   }
@@ -192,17 +194,19 @@ export function boot(){
     quizSub.textContent = 'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
       + '  (ตอบโดย “ถูกต่อเนื่อง 2 ครั้ง” เพื่อยืนยัน)';
 
-    quizOpen._armed = true;
-    quizOpen._t0 = nowMs();
-    quizOpen._needStreak = 2;
-    quizOpen._streak = 0;
+    // ✅ FIX: keep quiz state in object
+    quiz.armed = true;
+    quiz.t0 = nowMs();
+    quiz.needStreak = 2;
+    quiz.streak = 0;
   }
 
   function closeQuiz(msg){
-    if(quizOpen){
+    if(quiz.open){
       setQuizVisible(false);
-      quizOpen = false;
-      quizOpen._armed = false;
+      quiz.open = false;
+      quiz.armed = false;
+      quiz.streak = 0;
       if(msg) showBanner(msg);
     }
   }
@@ -395,11 +399,12 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      if(quizOpen && quizOpen._armed){
-        const within = (nowMs() - quizOpen._t0) <= 4000;
+      // ✅ FIX: quiz state check
+      if(quiz.open && quiz.armed){
+        const within = (nowMs() - quiz.t0) <= 4000;
         if(within){
-          quizOpen._streak++;
-          if(quizOpen._streak >= (quizOpen._needStreak||2)){
+          quiz.streak++;
+          if(quiz.streak >= (quiz.needStreak||2)){
             quizRight++;
             closeQuiz('✅ Quiz ผ่าน!');
           }
@@ -424,8 +429,8 @@ export function boot(){
         hitsInStep=0;
 
         if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
-          const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
-          if(dt <= 6500){
+          const dt2 = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
+          if(dt2 <= 6500){
             questDone = 1;
             showBanner('🏅 QUEST ผ่าน! (ไวมาก)');
           }
@@ -435,10 +440,10 @@ export function boot(){
           stepIdx=0;
           loopsDone++;
           showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
-          if(!quizOpen) openRandomQuiz();
+          if(!quiz.open) openRandomQuiz();
         }else{
           showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-          if(!quizOpen && rng() < 0.25) openRandomQuiz();
+          if(!quiz.open && rng() < 0.25) openRandomQuiz();
         }
       }
 
@@ -452,7 +457,8 @@ export function boot(){
       totalStepHits++;
       combo = 0;
 
-      if(quizOpen && quizOpen._armed){
+      // ✅ FIX
+      if(quiz.open && quiz.armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
       }
@@ -474,7 +480,8 @@ export function boot(){
       hazHits++;
       combo = 0;
 
-      if(quizOpen && quizOpen._armed){
+      // ✅ FIX
+      if(quiz.open && quiz.armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
       }
@@ -542,9 +549,18 @@ export function boot(){
 
     questText = 'ทำ STEP ให้ถูก!';
     questDone = 0;
+
     quizRight = 0;
     quizWrong = 0;
+
+    // ✅ FIX: reset quiz object
+    quiz.open = false;
+    quiz.armed = false;
+    quiz.t0 = 0;
+    quiz.needStreak = 2;
+    quiz.streak = 0;
     setQuizVisible(false);
+
     setHud();
   }
 
@@ -591,7 +607,7 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.0.1-prod',
+      version:'1.0.2-prod',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
