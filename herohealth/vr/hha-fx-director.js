@@ -1,297 +1,394 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (SAFE, SHARED)
-// ✅ Normalizes FX across games via events
-// ✅ Uses window.Particles (from /vr/particles.js) if present
-// ✅ Listens:
-//    - hha:judge      {label, kind, x,y, clientX, clientY}
-//    - hha:celebrate  {kind:'mini'|'end'|'boss'|'storm'|'rage', grade, x,y}
-//    - quest:update   (optional; no heavy FX)
-//    - hha:time       {t} (optional low-time tick)
-// ✅ Exposes:
-//    window.HHA_FX.fire(type, detail)  // manual call if needed
-// Notes:
-// - Safe: never throws
-// - Keeps FX layer above playfield but does not block clicks (pointer-events none)
-// - If reduced motion enabled, uses lighter FX.
+// HHA FX Director — PRODUCTION (SAFE)
+// ✅ Unified FX mapping for all games (Good/Junk/Miss/Goal/Mini/Fever/Shield/Boss/Storm/Rage)
+// ✅ Works with either window.HHA_FX (preferred) or window.Particles (back-compat)
+// ✅ Safe: never throws; rate-limited; respects reduced-motion
+// ✅ Listens to:
+//    - hha:judge {label, kind, x,y, clientX,clientY}
+//    - hha:celebrate {kind, grade, x,y}
+//    - hha:coach {msg, kind, x,y}
+//    - quest:update {goal, mini}
+//    - optional custom hooks: hha:storm / hha:boss / hha:rage
+// ✅ Public helper: window.HHA_FX_DIRECTOR.ping(kind, payload)
 
 (function (root) {
   'use strict';
-  const doc = root && root.document;
-  if (!doc || root.__HHA_FX_DIRECTOR__) return;
+
+  const DOC = root.document;
+  if (!DOC || root.__HHA_FX_DIRECTOR__) return;
   root.__HHA_FX_DIRECTOR__ = true;
 
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
-  const isReducedMotion = (() => {
-    try { return !!root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    catch { return false; }
-  })();
+  // ---------- helpers ----------
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
+  const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
-  function ensureCSSOnce(){
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  }
+
+  function reducedMotion(){
     try{
-      if (doc.getElementById('hha-fx-director-css')) return;
-      const st = doc.createElement('style');
-      st.id = 'hha-fx-director-css';
-      st.textContent = `
-        /* Optional semantic classes for Particles */
-        .fx-good { filter: drop-shadow(0 12px 28px rgba(34,197,94,.25)); }
-        .fx-bad  { filter: drop-shadow(0 12px 28px rgba(251,113,133,.20)); }
-        .fx-warn { filter: drop-shadow(0 12px 28px rgba(245,158,11,.18)); }
-        .fx-cyan { filter: drop-shadow(0 12px 28px rgba(34,211,238,.20)); }
-        .fx-violet{filter: drop-shadow(0 12px 28px rgba(167,139,250,.20)); }
-
-        /* body pulses (optional, non-blocking) */
-        @keyframes hhaPulseGood { 0%{filter:none} 40%{filter:saturate(1.08) brightness(1.08)} 100%{filter:none} }
-        @keyframes hhaPulseBad  { 0%{filter:none} 40%{filter:saturate(1.15) brightness(1.02)} 100%{filter:none} }
-        @keyframes hhaPulseWarn { 0%{filter:none} 40%{filter:saturate(1.10) brightness(1.05)} 100%{filter:none} }
-
-        body.hha-pulse-good { animation: hhaPulseGood 180ms ease-out; }
-        body.hha-pulse-bad  { animation: hhaPulseBad  200ms ease-out; }
-        body.hha-pulse-warn { animation: hhaPulseWarn 220ms ease-out; }
-      `;
-      doc.head.appendChild(st);
-    }catch(_){}
+      return root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }catch(_){ return false; }
   }
 
-  function P(){ return root.Particles || null; }
-
-  function safeXY(detail){
-    const W = doc.documentElement.clientWidth || 360;
-    const H = doc.documentElement.clientHeight || 640;
-
-    // prefer clientX/Y then x/y
-    const x = (detail && (detail.clientX ?? detail.x)) ?? (W * 0.5);
-    const y = (detail && (detail.clientY ?? detail.y)) ?? (H * 0.52);
-
-    // clamp to viewport
-    return {
-      x: clamp(x, 12, W - 12),
-      y: clamp(y, 12, H - 12),
-      W, H
-    };
+  function getFX(){
+    return root.HHA_FX || root.Particles || null;
   }
 
-  function pulseBody(cls){
+  function toXY(p){
+    // Accept: {x,y}, {clientX,clientY}, or direct numbers
     try{
-      doc.body.classList.remove('hha-pulse-good','hha-pulse-bad','hha-pulse-warn');
-      doc.body.classList.add(cls);
-      setTimeout(()=>{ try{ doc.body.classList.remove(cls); }catch(_){} }, 260);
+      if(!p) return null;
+      if(typeof p === 'object'){
+        if(Number.isFinite(p.x) && Number.isFinite(p.y)) return {x:p.x,y:p.y};
+        if(Number.isFinite(p.clientX) && Number.isFinite(p.clientY)) return {x:p.clientX,y:p.clientY};
+      }
     }catch(_){}
+    return null;
   }
 
-  // ----------- FX primitives (composed) -----------
-  function fxGood(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popText(x,y,'+',{ className:'fx-good', dur: 420, size: 18 });
-      return;
-    }
-    p.burst(x,y,{ className:'fx-good', count: 10, spread: 95, dur: 420 });
-    p.popEmoji(x,y,'✨',{ className:'fx-good', dur: 520, size: 24 });
+  function centerXY(){
+    try{
+      const W = DOC.documentElement.clientWidth || innerWidth || 360;
+      const H = DOC.documentElement.clientHeight || innerHeight || 640;
+      return { x: Math.round(W/2), y: Math.round(H/2) };
+    }catch(_){ return {x:180,y:320}; }
   }
 
-  function fxBad(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popText(x,y,'-',{ className:'fx-bad', dur: 420, size: 18 });
-      return;
+  function safeCall(fn, ...args){
+    try{
+      const FX = getFX();
+      if(!FX) return false;
+      const f = FX[fn];
+      if(typeof f !== 'function') return false;
+      f.apply(FX, args);
+      return true;
+    }catch(_){ return false; }
+  }
+
+  // ---------- rate limit ----------
+  const lastAt = Object.create(null);
+  function allow(key, gapMs){
+    const t = now();
+    const prev = lastAt[key] || 0;
+    if(t - prev < gapMs) return false;
+    lastAt[key] = t;
+    return true;
+  }
+
+  // ---------- tuning ----------
+  // intensity: 0..2 (0 = subtle, 1 = normal, 2 = brutal)
+  const intensity = clamp(Number(qs('fx', null) ?? 1), 0, 2);
+
+  // allow global override via window.HHA_FX_CONFIG
+  const CFG = Object.assign({
+    intensity,
+    // gaps
+    gapPopMs: 60,
+    gapBurstMs: 90,
+    gapConfettiMs: 260,
+    // base sizes
+    popSize: 18,
+    emojiSize: 30,
+    // if reduced-motion => fewer effects
+    respectReducedMotion: true,
+  }, root.HHA_FX_CONFIG || {});
+
+  function iScale(a,b,c){
+    // map intensity {0,1,2} => {a,b,c}
+    const k = clamp(CFG.intensity, 0, 2);
+    return (k < 0.5) ? a : (k < 1.5) ? b : c;
+  }
+
+  // ---------- theme mapping ----------
+  // hue choices: used only if underlying FX supports hue in options
+  const HUE = {
+    good: 120,
+    junk: 10,
+    miss: 0,
+    star: 55,
+    shield: 200,
+    diamond: 270,
+    goal: 150,
+    mini: 190,
+    feverUp: 330,
+    feverDown: 190,
+    boss: 295,
+    storm: 210,
+    rage: 0
+  };
+
+  function fxGood(x,y, extra){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('good', CFG.gapBurstMs)) return;
+    safeCall('flash', x,y, { size: iScale(18, 26, 34) });
+    safeCall('ring',  x,y, { size: iScale(18, 22, 28), hue:HUE.good });
+    safeCall('burst', x,y, {
+      count: iScale(8, 10, 14),
+      speed: iScale(420, 520, 680),
+      size:  iScale(8, 10, 12),
+      lifeMs:iScale(420, 520, 650),
+      hue: HUE.good
+    });
+    if(extra?.text && allow('goodText', CFG.gapPopMs)){
+      safeCall('popText', x,y, extra.text, { size: iScale(16, 18, 22), hue:HUE.good });
     }
-    p.burst(x,y,{ className:'fx-bad', count: 12, spread: 110, dur: 440, ringColor:'rgba(251,113,133,.18)' });
-    p.popEmoji(x,y,'💥',{ className:'fx-bad', dur: 520, size: 26 });
+  }
+
+  function fxJunk(x,y, extra){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('junk', CFG.gapBurstMs)) return;
+    safeCall('flash', x,y, { size: iScale(18, 26, 34) });
+    safeCall('ring',  x,y, { size: iScale(20, 26, 34), hue:HUE.junk });
+    safeCall('burst', x,y, {
+      count: iScale(9, 12, 18),
+      speed: iScale(520, 700, 900),
+      size:  iScale(10, 12, 14),
+      lifeMs:iScale(520, 650, 820),
+      hue: HUE.junk
+    });
+    if(extra?.text && allow('junkText', CFG.gapPopMs)){
+      safeCall('popText', x,y, extra.text, { size: iScale(16, 18, 22), hue:HUE.junk });
+    }
+  }
+
+  function fxBlock(x,y){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('block', CFG.gapBurstMs)) return;
+    safeCall('ring', x,y, { size: iScale(22, 30, 36), hue:HUE.shield });
+    safeCall('burst', x,y, {
+      count: iScale(7, 9, 12),
+      speed: iScale(420, 520, 680),
+      size:  iScale(8, 10, 12),
+      lifeMs:iScale(420, 520, 650),
+      hue:HUE.shield
+    });
+    if(allow('blockEmoji', 120)) safeCall('popEmoji', x,y, '🛡️', { size: iScale(26, 30, 36) });
+  }
+
+  function fxMiss(x,y){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('miss', CFG.gapBurstMs)) return;
+    safeCall('ring', x,y, { size: iScale(20, 26, 34), hue:HUE.miss });
+    safeCall('burst', x,y, {
+      count: iScale(6, 9, 14),
+      speed: iScale(380, 520, 720),
+      size:  iScale(9, 11, 13),
+      lifeMs:iScale(420, 520, 680),
+      hue:HUE.miss
+    });
+    if(allow('missText', 120)) safeCall('popText', x,y, 'MISS!', { size: iScale(16, 18, 22), hue:HUE.miss });
   }
 
   function fxStar(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popEmoji(x,y,'⭐',{ className:'fx-warn', dur: 480, size: 24 });
-      return;
-    }
-    p.ring(x,y,{ className:'fx-warn', size: 100, dur: 380, color:'rgba(245,158,11,.35)' });
-    p.confetti(x,y,{ className:'fx-warn', count: 12, spread: 120, dur: 780 });
-    p.popEmoji(x,y,'⭐',{ className:'fx-warn', dur: 520, size: 28 });
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('star', CFG.gapBurstMs)) return;
+    safeCall('ring', x,y, { size: iScale(20, 26, 30), hue:HUE.star });
+    safeCall('burst', x,y, {
+      count: iScale(10, 14, 18),
+      speed: iScale(520, 650, 820),
+      size:  iScale(8, 10, 11),
+      lifeMs:iScale(520, 650, 820),
+      hue:HUE.star
+    });
+    safeCall('popEmoji', x,y, '⭐', { size: iScale(28, 34, 40) });
+    if(allow('starText', 180)) safeCall('popText', x,y, 'MISS -1', { size: iScale(14, 16, 18), hue:HUE.star });
   }
 
   function fxShield(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popEmoji(x,y,'🛡️',{ className:'fx-cyan', dur: 520, size: 26 });
-      return;
-    }
-    p.burst(x,y,{ className:'fx-cyan', count: 10, spread: 90, dur: 420, ringColor:'rgba(34,211,238,.18)' });
-    p.popEmoji(x,y,'🛡️',{ className:'fx-cyan', dur: 560, size: 28 });
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('shield', CFG.gapBurstMs)) return;
+    safeCall('ring', x,y, { size: iScale(22, 28, 34), hue:HUE.shield });
+    safeCall('burst', x,y, {
+      count: iScale(9, 12, 16),
+      speed: iScale(520, 650, 820),
+      size:  iScale(8, 10, 12),
+      lifeMs:iScale(520, 650, 820),
+      hue:HUE.shield
+    });
+    safeCall('popEmoji', x,y, '🛡️', { size: iScale(28, 34, 42) });
   }
 
-  function fxDiamond(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popEmoji(x,y,'💎',{ className:'fx-violet', dur: 560, size: 28 });
-      return;
-    }
-    p.flash({ color:'rgba(167,139,250,.14)' });
-    p.confetti(x,y,{ className:'fx-violet', count: 18, spread: 180, dur: 900 });
-    p.popEmoji(x,y,'💎',{ className:'fx-violet', dur: 620, size: 30 });
+  function fxDiamond(x,y, extra){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('diamond', CFG.gapConfettiMs)) return;
+    safeCall('confetti', x,y, { count: iScale(14, 18, 24), lifeMs: iScale(800, 1000, 1300), hue:HUE.diamond });
+    safeCall('ring', x,y, { size: iScale(26, 34, 42), hue:HUE.diamond });
+    safeCall('popEmoji', x,y, '💎', { size: iScale(32, 40, 52) });
+    if(extra?.text) safeCall('popText', x,y, extra.text, { size: iScale(16, 18, 22), hue:HUE.diamond });
   }
 
   function fxMiniClear(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popText(x,y,'MINI!',{ className:'fx-good', dur: 520, size: 20 });
-      return;
-    }
-    p.flash({ color:'rgba(34,197,94,.12)' });
-    p.confetti(x,y,{ count: 18, spread: 190, dur: 900 });
-    p.popText(x,y,'MINI CLEAR!',{ className:'fx-good', dur: 720, size: 18, weight: 1000 });
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('mini', CFG.gapConfettiMs)) return;
+    safeCall('confetti', x,y, { count: iScale(12, 16, 22), lifeMs:iScale(780, 980, 1200), hue:HUE.mini });
+    safeCall('ring', x,y, { size: iScale(24, 30, 38), hue:HUE.mini });
+    safeCall('popText', x,y, 'MINI CLEAR!', { size: iScale(16, 18, 22), hue:HUE.mini });
   }
 
-  function fxEnd(grade, x, y){
-    const p = P(); if(!p) return;
-    const g = String(grade || '').toUpperCase();
-    const label = g ? `GRADE ${g}` : 'FINISH';
-    if(isReducedMotion){
-      p.popText(x,y,label,{ className:'fx-good', dur: 820, size: 22, weight: 1100 });
-      return;
-    }
-    p.flash({ color:'rgba(255,255,255,.12)' });
-    p.confetti(x,y,{ count: 26, spread: 260, dur: 1100 });
-    p.popText(x,y,label,{ className:'fx-good', dur: 980, size: 24, weight: 1100 });
+  function fxGoal(x,y){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('goal', CFG.gapConfettiMs)) return;
+    safeCall('confetti', x,y, { count: iScale(12, 18, 26), lifeMs:iScale(850, 1050, 1350), hue:HUE.goal });
+    safeCall('ring', x,y, { size: iScale(26, 34, 44), hue:HUE.goal });
+    safeCall('popText', x,y, 'GOAL!', { size: iScale(18, 22, 28), hue:HUE.goal });
+  }
+
+  function fxEnd(x,y, grade){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('end', 800)) return;
+    const hue = grade==='S' ? 140 : grade==='A' ? 180 : grade==='B' ? 210 : grade==='C' ? 40 : 0;
+    safeCall('confetti', x,y, { count: iScale(18, 24, 32), lifeMs:iScale(1000, 1400, 1700), hue });
+    safeCall('ring', x,y, { size: iScale(34, 46, 60), hue });
+    safeCall('popText', x,y, `GRADE ${grade||'-'}`, { size: iScale(20, 26, 34), hue });
   }
 
   function fxStorm(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popText(x,y,'STORM',{ className:'fx-warn', dur: 520, size: 18, weight: 1100 });
-      return;
-    }
-    p.ring(x,y,{ className:'fx-warn', size: 140, dur: 520, color:'rgba(245,158,11,.26)' });
-    p.burst(x,y,{ className:'fx-warn', count: 16, spread: 160, dur: 520 });
-    p.popText(x,y,'STORM!',{ className:'fx-warn', dur: 720, size: 20, weight: 1100 });
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('storm', 520)) return;
+    safeCall('ring', x,y, { size: iScale(30, 44, 56), hue:HUE.storm });
+    safeCall('burst', x,y, { count:iScale(16, 22, 30), speed:iScale(720, 920, 1200), size:iScale(8, 10, 12), lifeMs:iScale(650, 850, 1000), hue:HUE.storm });
+    safeCall('popText', x,y, 'STORM!', { size:iScale(18, 22, 28), hue:HUE.storm });
+  }
+
+  function fxBoss(x,y){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('boss', 520)) return;
+    safeCall('ring', x,y, { size: iScale(34, 48, 62), hue:HUE.boss });
+    safeCall('burst', x,y, { count:iScale(18, 26, 34), speed:iScale(780, 980, 1280), size:iScale(10, 12, 14), lifeMs:iScale(720, 900, 1100), hue:HUE.boss });
+    safeCall('popText', x,y, 'BOSS!', { size:iScale(18, 22, 30), hue:HUE.boss });
   }
 
   function fxRage(x,y){
-    const p = P(); if(!p) return;
-    if(isReducedMotion){
-      p.popText(x,y,'RAGE',{ className:'fx-bad', dur: 520, size: 18, weight: 1100 });
-      return;
-    }
-    p.flash({ color:'rgba(251,113,133,.16)' });
-    p.ring(x,y,{ className:'fx-bad', size: 160, dur: 560, color:'rgba(251,113,133,.26)' });
-    p.burst(x,y,{ className:'fx-bad', count: 18, spread: 190, dur: 560 });
-    p.popText(x,y,'RAGE!',{ className:'fx-bad', dur: 780, size: 22, weight: 1200 });
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('rage', 520)) return;
+    safeCall('ring', x,y, { size: iScale(36, 52, 66), hue:HUE.rage });
+    safeCall('burst', x,y, { count:iScale(20, 28, 40), speed:iScale(900, 1150, 1450), size:iScale(10, 12, 14), lifeMs:iScale(720, 950, 1250), hue:HUE.rage });
+    safeCall('popText', x,y, 'RAGE!', { size:iScale(18, 24, 32), hue:HUE.rage });
   }
 
-  // ----------- Normalization: map judge labels/kinds -> FX -----------
-  function normalizeJudge(detail){
-    const d = detail || {};
+  // ---------- event router ----------
+  function handleJudge(ev){
+    const d = ev && ev.detail ? ev.detail : null;
+    if(!d) return;
+
+    // locate position: d.x/y or clientX/Y or fallback center
+    const p = toXY(d) || centerXY();
+    const x = p.x, y = p.y;
+
     const label = String(d.label || '').toUpperCase();
     const kind  = String(d.kind  || '').toLowerCase();
 
-    if (kind) return kind;
+    // Kind-first mapping (recommended)
+    switch(kind){
+      case 'good':    fxGood(x,y, { text: d.text }); return;
+      case 'junk':    fxJunk(x,y, { text: d.text }); return;
+      case 'block':   fxBlock(x,y); return;
+      case 'miss':    fxMiss(x,y); return;
+      case 'star':    fxStar(x,y); return;
+      case 'shield':  fxShield(x,y); return;
+      case 'diamond': fxDiamond(x,y, { text: d.text }); return;
+      case 'goal':    fxGoal(x,y); return;
+      case 'mini':    fxMiniClear(x,y); return;
+      case 'boss':    fxBoss(x,y); return;
+      case 'storm':   fxStorm(x,y); return;
+      case 'rage':    fxRage(x,y); return;
+      default: break;
+    }
 
-    // heuristic by label
-    if (label.includes('GOOD')) return 'good';
-    if (label.includes('BLOCK')) return 'block';
-    if (label.includes('OOPS') || label.includes('MISS') || label.includes('BAD')) return 'bad';
-    if (label.includes('STAR')) return 'star';
-    if (label.includes('SHIELD')) return 'shield';
-    if (label.includes('DIAMOND')) return 'diamond';
-    if (label.includes('MINI')) return 'mini';
-    if (label.includes('STORM')) return 'storm';
-    if (label.includes('RAGE')) return 'rage';
+    // Label fallback mapping (back-compat with current safe.js that emits label only)
+    if(label.includes('GOOD'))   return fxGood(x,y, { text: d.text || '+', });
+    if(label.includes('OOPS'))   return fxJunk(x,y, { text: d.text || '-', });
+    if(label.includes('BLOCK'))  return fxBlock(x,y);
+    if(label.includes('MISS'))   return fxMiss(x,y);
+    if(label.includes('STAR'))   return fxStar(x,y);
+    if(label.includes('SHIELD')) return fxShield(x,y);
+    if(label.includes('DIAMOND'))return fxDiamond(x,y, { text: d.text || '+', });
+    if(label.includes('GOAL'))   return fxGoal(x,y);
+    if(label.includes('MINI'))   return fxMiniClear(x,y);
 
-    return 'neutral';
+    // do nothing
   }
 
-  function fire(type, detail){
-    try{
-      ensureCSSOnce();
-      const xy = safeXY(detail);
-      const x = xy.x, y = xy.y;
+  function handleCelebrate(ev){
+    const d = ev && ev.detail ? ev.detail : null;
+    const p = toXY(d) || centerXY();
+    const x = p.x, y = p.y;
 
-      switch(String(type||'').toLowerCase()){
-        case 'good':   pulseBody('hha-pulse-good'); fxGood(x,y); break;
-        case 'bad':    pulseBody('hha-pulse-bad');  fxBad(x,y); break;
-        case 'block':  pulseBody('hha-pulse-warn'); fxShield(x,y); break;
-        case 'star':   pulseBody('hha-pulse-warn'); fxStar(x,y); break;
-        case 'shield': pulseBody('hha-pulse-warn'); fxShield(x,y); break;
-        case 'diamond':pulseBody('hha-pulse-good'); fxDiamond(x,y); break;
-        case 'mini':   pulseBody('hha-pulse-good'); fxMiniClear(x,y); break;
-        case 'storm':  pulseBody('hha-pulse-warn'); fxStorm(x,y); break;
-        case 'rage':   pulseBody('hha-pulse-bad');  fxRage(x,y); break;
-        case 'end': {
-          const grade = (detail && detail.grade) || '';
-          pulseBody('hha-pulse-good');
-          fxEnd(grade, x, y);
-          break;
+    const kind = String(d?.kind || '').toLowerCase();
+    if(kind === 'mini') return fxMiniClear(x,y);
+    if(kind === 'end')  return fxEnd(x,y, d?.grade);
+    if(kind === 'goal') return fxGoal(x,y);
+
+    // generic celebration
+    if(!allow('celebrate', 420)) return;
+    safeCall('confetti', x,y, { count:iScale(10, 14, 20), lifeMs:iScale(800, 1000, 1200), hue: rndHue() });
+    safeCall('ring', x,y, { size:iScale(26, 34, 42), hue: rndHue() });
+  }
+
+  function rndHue(){
+    return Math.floor(Math.random()*360);
+  }
+
+  // optional: react to coach tips (very light)
+  function handleCoach(ev){
+    if(CFG.respectReducedMotion && reducedMotion()) return;
+    if(!allow('coach', 900)) return;
+    const d = ev && ev.detail ? ev.detail : null;
+    if(!d) return;
+
+    const p = toXY(d) || centerXY();
+    const x = p.x, y = p.y;
+
+    const k = String(d.kind||'').toLowerCase();
+    const emoji = k==='warn' ? '⚠️' : k==='tip' ? '💡' : '✨';
+    safeCall('popEmoji', x, y, emoji, { size:iScale(22, 26, 30) });
+  }
+
+  // Optional custom hooks
+  function handleStorm(){ fxStorm(centerXY().x, centerXY().y); }
+  function handleBoss(){  fxBoss(centerXY().x, centerXY().y); }
+  function handleRage(){  fxRage(centerXY().x, centerXY().y); }
+
+  // ---------- bind listeners ----------
+  root.addEventListener('hha:judge', handleJudge, { passive:true });
+  root.addEventListener('hha:celebrate', handleCelebrate, { passive:true });
+  root.addEventListener('hha:coach', handleCoach, { passive:true });
+
+  // Custom optional events
+  root.addEventListener('hha:storm', handleStorm, { passive:true });
+  root.addEventListener('hha:boss',  handleBoss,  { passive:true });
+  root.addEventListener('hha:rage',  handleRage,  { passive:true });
+
+  // Expose API for manual pings
+  root.HHA_FX_DIRECTOR = {
+    config: CFG,
+    ping: function(kind, payload){
+      try{
+        const p = toXY(payload) || centerXY();
+        const x = p.x, y = p.y;
+        const k = String(kind||'').toLowerCase();
+        if(k==='good') return fxGood(x,y,payload);
+        if(k==='junk') return fxJunk(x,y,payload);
+        if(k==='block')return fxBlock(x,y);
+        if(k==='miss') return fxMiss(x,y);
+        if(k==='star') return fxStar(x,y);
+        if(k==='shield') return fxShield(x,y);
+        if(k==='diamond')return fxDiamond(x,y,payload);
+        if(k==='goal') return fxGoal(x,y);
+        if(k==='mini') return fxMiniClear(x,y);
+        if(k==='end')  return fxEnd(x,y, payload?.grade);
+        if(k==='storm')return fxStorm(x,y);
+        if(k==='boss') return fxBoss(x,y);
+        if(k==='rage') return fxRage(x,y);
+        // fallback: confetti burst
+        if(allow('pingAny', 220)){
+          safeCall('confetti', x,y, { count:iScale(10, 14, 20), lifeMs:iScale(800, 1000, 1300), hue:rndHue() });
+          safeCall('ring', x,y, { size:iScale(26, 34, 42), hue:rndHue() });
         }
-        default:
-          // neutral: do tiny pop if asked
-          if(detail && detail.text){
-            const p = P(); if(p) p.popText(x,y,String(detail.text),{ dur: 520, size: 16 });
-          }
-          break;
-      }
-    }catch(_){}
-  }
-
-  // ----------- Event listeners -----------
-  function onJudge(ev){
-    try{
-      const d = ev && ev.detail ? ev.detail : {};
-      const kind = normalizeJudge(d);
-      fire(kind, d);
-    }catch(_){}
-  }
-
-  function onCelebrate(ev){
-    try{
-      const d = ev && ev.detail ? ev.detail : {};
-      const k = String(d.kind || '').toLowerCase();
-      if(k === 'mini') fire('mini', d);
-      else if(k === 'end') fire('end', d);
-      else if(k === 'storm') fire('storm', d);
-      else if(k === 'rage') fire('rage', d);
-      else if(k === 'boss') fire('storm', d); // boss intro = heavy
-      else fire('neutral', d);
-    }catch(_){}
-  }
-
-  // optional: time-based tick (for dramatic feel, but light)
-  let lastLowTickAt = 0;
-  function onTime(ev){
-    try{
-      const t = Number(ev && ev.detail ? ev.detail.t : NaN);
-      if(!Number.isFinite(t)) return;
-      if(t > 10) return;
-      const ts = now();
-      if(ts - lastLowTickAt < 650) return;
-      lastLowTickAt = ts;
-
-      const p = P(); if(!p) return;
-      const W = doc.documentElement.clientWidth || 360;
-      const H = doc.documentElement.clientHeight || 640;
-      // tiny ring at center for low time
-      if(isReducedMotion){
-        p.popText(W*0.5, H*0.22, `⏱ ${Math.ceil(t)}`, { dur: 520, size: 18, weight: 1100 });
-      }else{
-        p.ring(W*0.5, H*0.22, { size: 120, dur: 380, color:'rgba(255,255,255,.18)' });
-      }
-    }catch(_){}
-  }
-
-  // Ensure CSS and FX layer (best effort)
-  ensureCSSOnce();
-  try{ if(P() && P().ensureLayer) P().ensureLayer(); }catch(_){}
-
-  root.addEventListener('hha:judge', onJudge, { passive:true });
-  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  root.addEventListener('hha:time', onTime, { passive:true });
-
-  // Also listen on document (some pages dispatch there)
-  doc.addEventListener('hha:judge', onJudge, { passive:true });
-  doc.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  doc.addEventListener('hha:time', onTime, { passive:true });
-
-  // Public manual trigger
-  root.HHA_FX = root.HHA_FX || {};
-  root.HHA_FX.fire = fire;
+      }catch(_){}
+    }
+  };
 
 })(window);
