@@ -1,386 +1,304 @@
 // === /herohealth/vr/particles.js ===
-// Particles FX Layer — ULTRA (SAFE, shared across all games)
-// ✅ ensureLayer(): fixed FX layer on top
-// ✅ popText(x,y,text,cls?)
-// ✅ burst(x,y,opts?)
-// ✅ sparkle(x,y,opts?)
-// ✅ shockwave(x,y,opts?)
-// ✅ celebrate(opts?)  // confetti-ish
+// HHA Particles — PRODUCTION FX PACK (SAFE, NO-DEPS)
+// ✅ Shared FX layer for all games (GoodJunk/Groups/Hydration/Plate/...)
+// ✅ Always-on-top: z-index forced high, pointer-events none
+// ✅ APIs:
+//    Particles.popText(x,y,text,opts)
+//    Particles.popEmoji(x,y,emoji,opts)
+//    Particles.burst(x,y,opts)          // radial spark burst
+//    Particles.confetti(x,y,opts)       // confetti burst
+//    Particles.ring(x,y,opts)           // shockwave ring
+//    Particles.flash(opts)              // screen flash
 // Notes:
-// - No deps, never throws.
-// - Respects prefers-reduced-motion.
-// - Uses lightweight DOM + CSS animations.
-// - Designed to work with hha-fx-director.js (body pulse + calls into Particles).
+// - Safe: never throws, auto-mounts layer and CSS once.
+// - Works in mobile/PC, ignores in SSR/no-document.
+// - You can pass className like "fx-good fx-warn fx-bad fx-violet" to match CSS.
 
 (function (root) {
   'use strict';
+  const doc = root && root.document;
+  if (!doc || root.__HHA_PARTICLES_V2__) return;
+  root.__HHA_PARTICLES_V2__ = true;
 
-  const DOC = root.document;
-  if (!DOC || root.__HHA_PARTICLES__) return;
-  root.__HHA_PARTICLES__ = true;
-
+  // ------------------------ helpers ------------------------
   const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
   const rnd = (a, b) => a + Math.random() * (b - a);
   const now = () => (root.performance && performance.now) ? performance.now() : Date.now();
 
-  function prefersReduceMotion(){
+  function ensureLayer() {
     try{
-      return !!root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    }catch(_){
-      return false;
-    }
-  }
-
-  function ensureLayer(){
-    try{
-      let layer = DOC.querySelector('.hha-fx-layer');
-      if (layer) return layer;
-
-      layer = DOC.createElement('div');
+      let layer = doc.querySelector('.hha-fx-layer');
+      if (layer) {
+        // harden style (in case CSS changed)
+        layer.style.position = 'fixed';
+        layer.style.inset = '0';
+        layer.style.pointerEvents = 'none';
+        layer.style.overflow = 'hidden';
+        layer.style.zIndex = '9999';
+        layer.setAttribute('aria-hidden', 'true');
+        return layer;
+      }
+      layer = doc.createElement('div');
       layer.className = 'hha-fx-layer';
       layer.setAttribute('aria-hidden', 'true');
-      layer.style.cssText =
-        'position:fixed;inset:0;pointer-events:none;z-index:190;overflow:hidden;' +
-        'contain:layout style paint;';
-
-      DOC.body.appendChild(layer);
+      layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+      doc.body.appendChild(layer);
       return layer;
     }catch(_){
       return null;
     }
   }
 
-  function safeAppend(el){
+  function mountCSSOnce() {
     try{
-      const layer = ensureLayer();
-      if (!layer) return null;
+      if (doc.getElementById('hha-particles-css')) return;
+      const st = doc.createElement('style');
+      st.id = 'hha-particles-css';
+      st.textContent = `
+        .hha-fx-layer{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:9999; }
+        .hha-fx{ position:absolute; left:0; top:0; transform:translate(-50%,-50%); will-change:transform,opacity,filter; pointer-events:none; }
+
+        /* pop text / emoji */
+        @keyframes hhaPopUp{
+          0%   { transform:translate(-50%,-50%) scale(.88); opacity:.0; }
+          16%  { opacity:1; }
+          70%  { transform:translate(-50%,-86%) scale(1.18); opacity:1; }
+          100% { transform:translate(-50%,-105%) scale(1.02); opacity:0; }
+        }
+
+        /* ring */
+        @keyframes hhaRing{
+          0%   { transform:translate(-50%,-50%) scale(.35); opacity:.0; }
+          10%  { opacity:.65; }
+          100% { transform:translate(-50%,-50%) scale(1.55); opacity:0; }
+        }
+
+        /* confetti piece */
+        @keyframes hhaConf{
+          0%   { transform:translate(-50%,-50%) translate(0,0) rotate(0deg); opacity:1; }
+          100% { transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity:0; }
+        }
+
+        /* spark */
+        @keyframes hhaSpark{
+          0%   { transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
+          100% { transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(.7); opacity:0; }
+        }
+
+        /* screen flash */
+        .hha-flash{
+          position:fixed; inset:0; pointer-events:none;
+          background: rgba(255,255,255,.18);
+          opacity:0;
+          animation: hhaFlash 180ms ease-out forwards;
+        }
+        @keyframes hhaFlash{
+          0%{ opacity:0; }
+          25%{ opacity:1; }
+          100%{ opacity:0; }
+        }
+      `;
+      doc.head.appendChild(st);
+    }catch(_){}
+  }
+
+  function addEl(el, ttlMs) {
+    const layer = ensureLayer();
+    if (!layer) return null;
+    try{
       layer.appendChild(el);
+      const kill = () => { try{ el.remove(); }catch(_){ } };
+      setTimeout(kill, clamp(ttlMs, 80, 5000));
       return el;
     }catch(_){
       return null;
     }
   }
 
-  function removeLater(el, ms){
+  // ------------------------ FX primitives ------------------------
+  function popText(x, y, text, opts) {
     try{
-      root.setTimeout(()=>{ try{ el && el.remove && el.remove(); }catch(_){ } }, ms);
-    }catch(_){}
+      mountCSSOnce();
+      const el = doc.createElement('div');
+      el.className = 'hha-fx ' + (opts && opts.className ? String(opts.className) : '');
+      el.textContent = String(text ?? '');
+      const size = clamp(opts && opts.size ? opts.size : 18, 10, 56);
+      const dur = clamp(opts && opts.dur ? opts.dur : 520, 140, 1600);
+      const weight = clamp(opts && opts.weight ? opts.weight : 900, 400, 1200);
+      const color = (opts && opts.color) ? String(opts.color) : '#fff';
+      const shadow = (opts && opts.shadow) ? String(opts.shadow) : '0 8px 22px rgba(0,0,0,.55)';
+      el.style.left = (Number(x) || 0) + 'px';
+      el.style.top  = (Number(y) || 0) + 'px';
+      el.style.font = `${weight} ${size}px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif`;
+      el.style.color = color;
+      el.style.textShadow = shadow;
+      el.style.opacity = '0';
+      el.style.animation = `hhaPopUp ${dur}ms ease-out forwards`;
+      return addEl(el, dur + 120);
+    }catch(_){
+      return null;
+    }
   }
 
-  // --- CSS ---
-  (function injectCSS(){
-    try{
-      const st = DOC.createElement('style');
-      st.textContent = `
-        .hha-fx-layer{ isolation:isolate; }
-        .hha-fx-text{
-          position:absolute;
-          transform:translate(-50%,-50%);
-          font: 1000 18px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-          letter-spacing:.2px;
-          color:#fff;
-          text-shadow: 0 10px 26px rgba(0,0,0,.55);
-          opacity:.98;
-          will-change: transform, opacity, filter;
-          filter: saturate(1.05);
-          animation: hhaPop 520ms cubic-bezier(.2,.9,.2,1) forwards;
-        }
-
-        .hha-fx-dot{
-          position:absolute;
-          width:10px;height:10px;
-          border-radius:999px;
-          transform:translate(-50%,-50%);
-          opacity:.98;
-          will-change: transform, opacity;
-        }
-
-        .hha-fx-spark{
-          position:absolute;
-          width:6px;height:6px;
-          border-radius:999px;
-          transform:translate(-50%,-50%);
-          opacity:.98;
-          will-change: transform, opacity;
-        }
-
-        .hha-fx-ring{
-          position:absolute;
-          width:32px;height:32px;
-          border-radius:999px;
-          border:2px solid rgba(255,255,255,.55);
-          transform:translate(-50%,-50%) scale(.55);
-          opacity:.0;
-          will-change: transform, opacity;
-          animation: hhaRing 520ms ease-out forwards;
-          mix-blend-mode: screen;
-        }
-
-        .hha-fx-conf{
-          position:absolute;
-          width:9px;height:14px;
-          border-radius:3px;
-          transform:translate(-50%,-50%);
-          opacity:.98;
-          will-change: transform, opacity;
-        }
-
-        @keyframes hhaPop{
-          0%{ transform:translate(-50%,-50%) scale(.90); opacity:.00; filter:blur(1px); }
-          35%{ transform:translate(-50%,-70%) scale(1.18); opacity:1; filter:blur(0); }
-          100%{ transform:translate(-50%,-94%) scale(1.05); opacity:0; }
-        }
-
-        @keyframes hhaDot{
-          0%{ transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
-          100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(.55); opacity:0; }
-        }
-
-        @keyframes hhaSpark{
-          0%{ transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
-          100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(.30); opacity:0; }
-        }
-
-        @keyframes hhaRing{
-          0%{ transform:translate(-50%,-50%) scale(.55); opacity:.00; }
-          20%{ opacity:.75; }
-          100%{ transform:translate(-50%,-50%) scale(1.8); opacity:0; }
-        }
-
-        @keyframes hhaConf{
-          0%{ transform:translate(-50%,-50%) translate(0,0) rotate(0deg); opacity:1; }
-          100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity:0; }
-        }
-
-        /* optional semantic helpers (CSS can also live in game CSS) */
-        .fx-good{ color: rgba(234,255,243,.98); }
-        .fx-bad{ color: rgba(255,240,240,.98); }
-        .fx-warn{ color: rgba(255,250,235,.98); }
-        .fx-violet{ color: rgba(245,240,255,.98); }
-      `;
-      DOC.head.appendChild(st);
-    }catch(_){}
-  })();
-
-  // --- API ---
-  function popText(x, y, text, cls){
-    try{
-      const layer = ensureLayer();
-      if(!layer) return;
-
-      const el = DOC.createElement('div');
-      el.className = 'hha-fx-text' + (cls ? (' ' + String(cls)) : '');
-      el.textContent = String(text == null ? '' : text);
-
-      const X = clamp(x, -2000, 200000);
-      const Y = clamp(y, -2000, 200000);
-
-      el.style.left = X + 'px';
-      el.style.top  = Y + 'px';
-
-      safeAppend(el);
-      removeLater(el, prefersReduceMotion() ? 120 : 650);
-    }catch(_){}
+  function popEmoji(x, y, emoji, opts) {
+    opts = opts || {};
+    if (!('size' in opts)) opts.size = 26;
+    if (!('weight' in opts)) opts.weight = 900;
+    return popText(x, y, emoji, opts);
   }
 
-  function shockwave(x, y, opts){
+  function ring(x, y, opts) {
     try{
-      if(prefersReduceMotion()) return;
-      const layer = ensureLayer();
-      if(!layer) return;
-
-      opts = opts || {};
-      const size = clamp(opts.size || 36, 18, 160);
-      const color = String(opts.color || 'rgba(255,255,255,.55)');
-      const dur = clamp(opts.dur || 520, 180, 1200);
-
-      const ring = DOC.createElement('div');
-      ring.className = 'hha-fx-ring' + (opts.cls ? (' ' + String(opts.cls)) : '');
-      ring.style.left = clamp(x, -2000, 200000) + 'px';
-      ring.style.top  = clamp(y, -2000, 200000) + 'px';
-      ring.style.width = size + 'px';
-      ring.style.height= size + 'px';
-      ring.style.borderColor = color;
-      ring.style.animationDuration = dur + 'ms';
-
-      safeAppend(ring);
-      removeLater(ring, dur + 120);
-    }catch(_){}
+      mountCSSOnce();
+      const el = doc.createElement('div');
+      el.className = 'hha-fx ' + (opts && opts.className ? String(opts.className) : '');
+      const dur = clamp(opts && opts.dur ? opts.dur : 380, 180, 1200);
+      const size = clamp(opts && opts.size ? opts.size : 86, 30, 240);
+      const stroke = clamp(opts && opts.stroke ? opts.stroke : 2, 1, 6);
+      const color = (opts && opts.color) ? String(opts.color) : 'rgba(255,255,255,.35)';
+      el.style.left = (Number(x) || 0) + 'px';
+      el.style.top  = (Number(y) || 0) + 'px';
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.borderRadius = '999px';
+      el.style.border = `${stroke}px solid ${color}`;
+      el.style.boxShadow = `0 0 0 14px rgba(255,255,255,.04), 0 0 0 40px rgba(255,255,255,.02)`;
+      el.style.opacity = '0';
+      el.style.animation = `hhaRing ${dur}ms ease-out forwards`;
+      return addEl(el, dur + 120);
+    }catch(_){
+      return null;
+    }
   }
 
-  function burst(x, y, opts){
+  function burst(x, y, opts) {
     try{
-      const layer = ensureLayer();
-      if(!layer) return;
+      mountCSSOnce();
+      const count = clamp(opts && opts.count ? opts.count : 10, 4, 28);
+      const dur = clamp(opts && opts.dur ? opts.dur : 420, 200, 1200);
+      const spread = clamp(opts && opts.spread ? opts.spread : 88, 30, 220);
+      const size = clamp(opts && opts.size ? opts.size : 6, 3, 14);
+      const color = (opts && opts.color) ? String(opts.color) : 'rgba(255,255,255,.85)';
+      const className = (opts && opts.className) ? String(opts.className) : '';
 
-      opts = opts || {};
-      const n = clamp(opts.n || 10, 4, 28);
-      const spread = clamp(opts.spread || 90, 30, 220);
-      const dur = clamp(opts.dur || 520, 180, 1200);
-      const baseSize = clamp(opts.size || 10, 6, 22);
-      const colors = Array.isArray(opts.colors) && opts.colors.length ? opts.colors : [
-        'rgba(34,197,94,.95)',  // green
-        'rgba(34,211,238,.92)', // cyan
-        'rgba(167,139,250,.92)',// violet
-        'rgba(245,158,11,.92)', // amber
-        'rgba(255,255,255,.92)'
-      ];
+      for (let i = 0; i < count; i++) {
+        const el = doc.createElement('div');
+        el.className = 'hha-fx ' + className;
+        el.style.left = (Number(x) || 0) + 'px';
+        el.style.top  = (Number(y) || 0) + 'px';
+        el.style.width = size + 'px';
+        el.style.height = size + 'px';
+        el.style.borderRadius = '999px';
+        el.style.background = color;
+        el.style.filter = 'drop-shadow(0 10px 24px rgba(0,0,0,.35))';
 
-      // optional ring
-      if(opts.ring !== false && !prefersReduceMotion()){
-        shockwave(x, y, { size: clamp(opts.ringSize || 34, 18, 120), color:'rgba(255,255,255,.45)', dur: clamp(dur, 220, 900), cls: opts.cls });
+        const ang = rnd(0, Math.PI * 2);
+        const r = rnd(spread * 0.55, spread);
+        const dx = Math.cos(ang) * r;
+        const dy = Math.sin(ang) * r;
+        el.style.setProperty('--dx', dx.toFixed(1) + 'px');
+        el.style.setProperty('--dy', dy.toFixed(1) + 'px');
+        el.style.opacity = '1';
+        el.style.animation = `hhaSpark ${dur}ms ease-out forwards`;
+        addEl(el, dur + 120);
       }
 
-      for(let i=0;i<n;i++){
-        const dot = DOC.createElement('div');
-        dot.className = 'hha-fx-dot' + (opts.cls ? (' ' + String(opts.cls)) : '');
-        dot.style.left = clamp(x, -2000, 200000) + 'px';
-        dot.style.top  = clamp(y, -2000, 200000) + 'px';
-
-        const ang = (Math.PI * 2) * (i / n) + rnd(-0.12, 0.12);
-        const dist = rnd(spread*0.45, spread);
-        const dx = Math.cos(ang) * dist;
-        const dy = Math.sin(ang) * dist;
-
-        dot.style.setProperty('--dx', dx.toFixed(1) + 'px');
-        dot.style.setProperty('--dy', dy.toFixed(1) + 'px');
-
-        const s = rnd(baseSize*0.75, baseSize*1.25);
-        dot.style.width = s.toFixed(1) + 'px';
-        dot.style.height= s.toFixed(1) + 'px';
-
-        dot.style.background = String(colors[Math.floor(Math.random()*colors.length)]);
-
-        if(prefersReduceMotion()){
-          dot.style.opacity = '0';
-          safeAppend(dot);
-          removeLater(dot, 60);
-        }else{
-          dot.style.animation = `hhaDot ${dur}ms ease-out forwards`;
-          safeAppend(dot);
-          removeLater(dot, dur + 120);
-        }
+      // optional ring under burst
+      if (!opts || opts.ring !== false) {
+        ring(x, y, {
+          dur: Math.max(220, dur * 0.8),
+          size: clamp(spread * 1.1, 56, 320),
+          stroke: 2,
+          color: (opts && opts.ringColor) ? String(opts.ringColor) : 'rgba(255,255,255,.18)',
+          className
+        });
       }
-    }catch(_){}
+      return true;
+    }catch(_){
+      return false;
+    }
   }
 
-  function sparkle(x, y, opts){
+  function confetti(x, y, opts) {
     try{
-      const layer = ensureLayer();
-      if(!layer) return;
+      mountCSSOnce();
+      const count = clamp(opts && opts.count ? opts.count : 14, 6, 42);
+      const dur = clamp(opts && opts.dur ? opts.dur : 680, 260, 1600);
+      const spread = clamp(opts && opts.spread ? opts.spread : 140, 60, 360);
+      const size = clamp(opts && opts.size ? opts.size : 8, 4, 14);
+      const className = (opts && opts.className) ? String(opts.className) : '';
 
-      opts = opts || {};
-      const n = clamp(opts.n || 12, 5, 36);
-      const spread = clamp(opts.spread || 110, 40, 260);
-      const dur = clamp(opts.dur || 620, 220, 1400);
-      const colors = Array.isArray(opts.colors) && opts.colors.length ? opts.colors : [
-        'rgba(255,255,255,.96)',
-        'rgba(245,158,11,.92)',
-        'rgba(34,211,238,.92)'
-      ];
+      const colors = (opts && opts.colors && Array.isArray(opts.colors) && opts.colors.length)
+        ? opts.colors.map(String)
+        : ['rgba(34,197,94,.95)','rgba(34,211,238,.95)','rgba(245,158,11,.95)','rgba(167,139,250,.95)','rgba(251,113,133,.95)'];
 
-      if(prefersReduceMotion()){
-        // fallback: just a tiny popText sparkle
-        popText(x, y, '✨', opts.cls || 'fx-warn');
-        return;
+      for (let i = 0; i < count; i++) {
+        const el = doc.createElement('div');
+        el.className = 'hha-fx ' + className;
+        el.style.left = (Number(x) || 0) + 'px';
+        el.style.top  = (Number(y) || 0) + 'px';
+
+        const w = size + rnd(-2, 4);
+        const h = size + rnd(4, 10);
+        el.style.width = Math.max(3, w).toFixed(0) + 'px';
+        el.style.height = Math.max(6, h).toFixed(0) + 'px';
+        el.style.borderRadius = rnd(2, 6).toFixed(0) + 'px';
+        el.style.background = colors[i % colors.length];
+        el.style.filter = 'drop-shadow(0 10px 22px rgba(0,0,0,.32))';
+
+        const dx = rnd(-spread, spread);
+        const dy = rnd(spread * 0.45, spread * 1.2);
+        const rot = rnd(-720, 720).toFixed(0) + 'deg';
+
+        el.style.setProperty('--dx', dx.toFixed(1) + 'px');
+        el.style.setProperty('--dy', dy.toFixed(1) + 'px');
+        el.style.setProperty('--rot', rot);
+
+        el.style.opacity = '1';
+        el.style.animation = `hhaConf ${dur}ms cubic-bezier(.2,.9,.2,1) forwards`;
+        addEl(el, dur + 160);
       }
 
-      for(let i=0;i<n;i++){
-        const sp = DOC.createElement('div');
-        sp.className = 'hha-fx-spark' + (opts.cls ? (' ' + String(opts.cls)) : '');
-        sp.style.left = clamp(x, -2000, 200000) + 'px';
-        sp.style.top  = clamp(y, -2000, 200000) + 'px';
-
-        const ang = rnd(0, Math.PI*2);
-        const dist = rnd(spread*0.35, spread);
-        const dx = Math.cos(ang) * dist;
-        const dy = Math.sin(ang) * dist;
-
-        sp.style.setProperty('--dx', dx.toFixed(1) + 'px');
-        sp.style.setProperty('--dy', dy.toFixed(1) + 'px');
-
-        const s = rnd(4.2, 7.0);
-        sp.style.width = s.toFixed(1) + 'px';
-        sp.style.height= s.toFixed(1) + 'px';
-
-        sp.style.background = String(colors[Math.floor(Math.random()*colors.length)]);
-        sp.style.boxShadow = '0 0 18px rgba(255,255,255,.18)';
-
-        sp.style.animation = `hhaSpark ${dur}ms ease-out forwards`;
-        safeAppend(sp);
-        removeLater(sp, dur + 120);
-      }
-    }catch(_){}
+      return true;
+    }catch(_){
+      return false;
+    }
   }
 
-  function celebrate(opts){
+  function flash(opts) {
     try{
-      const layer = ensureLayer();
-      if(!layer) return;
-
-      opts = opts || {};
-      const W = root.innerWidth || 1000;
-      const H = root.innerHeight || 800;
-
-      const n = clamp(opts.n || 26, 10, 80);
-      const dur = clamp(opts.dur || 900, 380, 2000);
-      const spreadX = clamp(opts.spreadX || (W * 0.55), 160, 1200);
-      const dropY = clamp(opts.dropY || (H * 0.70), 180, 1200);
-      const y0 = clamp(opts.y || (H * 0.18), 0, H);
-      const x0 = clamp(opts.x || (W * 0.50), 0, W);
-
-      const colors = Array.isArray(opts.colors) && opts.colors.length ? opts.colors : [
-        'rgba(34,197,94,.92)',
-        'rgba(245,158,11,.92)',
-        'rgba(34,211,238,.92)',
-        'rgba(167,139,250,.92)',
-        'rgba(255,255,255,.92)',
-        'rgba(239,68,68,.92)'
-      ];
-
-      if(prefersReduceMotion()){
-        popText(x0, y0, '🎉', opts.cls || 'fx-warn');
-        return;
-      }
-
-      for(let i=0;i<n;i++){
-        const cf = DOC.createElement('div');
-        cf.className = 'hha-fx-conf' + (opts.cls ? (' ' + String(opts.cls)) : '');
-        cf.style.left = x0 + 'px';
-        cf.style.top  = y0 + 'px';
-
-        const dx = rnd(-spreadX, spreadX);
-        const dy = rnd(dropY*0.70, dropY);
-        const rot = rnd(-540, 540) + 'deg';
-
-        cf.style.setProperty('--dx', dx.toFixed(1) + 'px');
-        cf.style.setProperty('--dy', dy.toFixed(1) + 'px');
-        cf.style.setProperty('--rot', rot);
-
-        cf.style.background = String(colors[Math.floor(Math.random()*colors.length)]);
-        cf.style.opacity = String(rnd(0.75, 0.98));
-
-        const w = rnd(7, 11);
-        const h = rnd(10, 16);
-        cf.style.width = w.toFixed(1) + 'px';
-        cf.style.height= h.toFixed(1) + 'px';
-
-        cf.style.animation = `hhaConf ${dur}ms cubic-bezier(.18,.9,.18,1) forwards`;
-        safeAppend(cf);
-        removeLater(cf, dur + 140);
-      }
-    }catch(_){}
+      mountCSSOnce();
+      const el = doc.createElement('div');
+      el.className = 'hha-flash ' + (opts && opts.className ? String(opts.className) : '');
+      if (opts && opts.color) el.style.background = String(opts.color);
+      return addEl(el, 260);
+    }catch(_){
+      return null;
+    }
   }
 
-  // Expose
+  // ------------------------ expose ------------------------
   root.Particles = root.Particles || {};
   root.Particles.ensureLayer = ensureLayer;
   root.Particles.popText = popText;
+  root.Particles.popEmoji = popEmoji;
   root.Particles.burst = burst;
-  root.Particles.sparkle = sparkle;
-  root.Particles.shockwave = shockwave;
-  root.Particles.celebrate = celebrate;
+  root.Particles.confetti = confetti;
+  root.Particles.ring = ring;
+  root.Particles.flash = flash;
 
-  // tiny sanity ping (optional)
-  try{ root.Particles.__ts = now(); }catch(_){}
+  // small smoke test hook (optional)
+  root.Particles._ping = function () {
+    try{
+      const t = now();
+      popEmoji(80, 120, '✨', { className:'fx-violet', dur: 520, size: 26 });
+      burst(140, 120, { className:'fx-good', count: 10, spread: 90, dur: 420 });
+      ring(220, 120, { className:'fx-warn', size: 90, dur: 380 });
+      confetti(300, 120, { count: 12, spread: 120, dur: 720 });
+      return { ok:true, t };
+    }catch(_){
+      return { ok:false };
+    }
+  };
+
 })(window);
