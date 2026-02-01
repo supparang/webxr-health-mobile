@@ -1,144 +1,137 @@
+// === /fitness/js/dom-renderer-shadow.js ===
+// DOM renderer for Shadow Breaker targets
+// ✅ spawn/remove targets in #sb-target-layer
+// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ FX via FxBurst
+
 'use strict';
 
-import { burstText, burstRing } from './fx-burst.js';
+import { FxBurst } from './fx-burst.js';
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function rand(min,max){ return min + Math.random()*(max-min); }
 
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
-    this.layerEl = layerEl;
+    this.layer = layerEl;
     this.wrapEl = opts.wrapEl || null;
     this.feedbackEl = opts.feedbackEl || null;
-    this.onTargetHit = opts.onTargetHit || null;
+    this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
-    this.targets = new Map();
     this.diffKey = 'normal';
-
-    this._onPointerDown = this._onPointerDown.bind(this);
-    this._onKeyDown = this._onKeyDown.bind(this);
-
-    if (this.layerEl) {
-      this.layerEl.addEventListener('pointerdown', this._onPointerDown, { passive: true });
-      window.addEventListener('keydown', this._onKeyDown);
-    }
+    this.targets = new Map();
+    this._onPointer = this._onPointer.bind(this);
   }
 
-  setDifficulty(diffKey) {
-    this.diffKey = diffKey || 'normal';
-  }
+  setDifficulty(k){ this.diffKey = k || 'normal'; }
 
-  destroy() {
-    if (this.layerEl) {
-      this.layerEl.removeEventListener('pointerdown', this._onPointerDown);
-    }
-    window.removeEventListener('keydown', this._onKeyDown);
-
-    // remove nodes
-    for (const [id, el] of this.targets) {
+  destroy(){
+    for (const [id, el] of this.targets.entries()) {
+      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
       try { el.remove(); } catch {}
     }
     this.targets.clear();
   }
 
-  spawnTarget(data) {
-    if (!this.layerEl || !data) return;
+  _safeAreaRect(){
+    const r = this.layer.getBoundingClientRect();
+    // keep margins away from HUD/meta
+    const pad = Math.min(42, Math.max(18, r.width * 0.04));
+    const top = pad + 10;
+    const left = pad + 10;
+    const right = r.width - pad - 10;
+    const bottom = r.height - pad - 10;
+    return { r, left, top, right, bottom };
+  }
+
+  _emojiForType(t, bossEmoji){
+    if (t === 'normal') return '🎯';
+    if (t === 'decoy') return '👀';
+    if (t === 'bomb') return '💣';
+    if (t === 'heal') return '🩹';
+    if (t === 'shield') return '🛡️';
+    if (t === 'bossface') return bossEmoji || '👊';
+    return '🎯';
+  }
+
+  spawnTarget(data){
+    if (!this.layer || !data) return;
+
+    const { r, left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
-    el.className = 'sb-target';
+    el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
 
-    if (data.isBomb) el.classList.add('is-bomb');
-    if (data.isDecoy) el.classList.add('is-decoy');
-    if (data.isHeal) el.classList.add('is-heal');
-    if (data.isShield) el.classList.add('is-shield');
-    if (data.isBossFace) el.classList.add('is-bossface');
-
-    const emoji = document.createElement('div');
-    emoji.className = 'emoji';
-
-    if (data.isBomb) emoji.textContent = '💣';
-    else if (data.isDecoy) emoji.textContent = '👻';
-    else if (data.isHeal) emoji.textContent = '🩹';
-    else if (data.isShield) emoji.textContent = '🛡️';
-    else if (data.isBossFace) emoji.textContent = data.bossEmoji || '🥊';
-    else emoji.textContent = '🎯';
-
-    el.appendChild(emoji);
-
-    // position random but safe
-    const r = this.layerEl.getBoundingClientRect();
-    const w = r.width;
-    const h = r.height;
-    const size = data.sizePx || 120;
-
-    const pad = Math.max(10, size * 0.55);
-    const x = clamp(Math.random() * w, pad, w - pad);
-    const y = clamp(Math.random() * h, pad, h - pad);
-
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    const size = clamp(Number(data.sizePx) || 120, 70, 320);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    this.layerEl.appendChild(el);
+    // random position
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
+
+    // content
+    const emoji = this._emojiForType(data.type, data.bossEmoji);
+    el.textContent = emoji;
+
+    el.addEventListener('pointerdown', this._onPointer, { passive: true });
+
+    this.layer.appendChild(el);
     this.targets.set(data.id, el);
   }
 
-  removeTarget(id, reason) {
+  _onPointer(e){
+    const el = e.currentTarget;
+    if (!el) return;
+    const id = Number(el.dataset.id);
+    if (!Number.isFinite(id)) return;
+
+    // forward hit
+    if (this.onTargetHit) {
+      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
+    }
+  }
+
+  removeTarget(id, reason){
     const el = this.targets.get(id);
     if (!el) return;
-    this.targets.delete(id);
+    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
+    this.targets.delete(id);
   }
 
-  playHitFx(id, fx) {
-    // fx: {grade, scoreDelta, clientX, clientY}
-    const grade = fx && fx.grade ? fx.grade : 'good';
-    const scoreDelta = fx && fx.scoreDelta != null ? fx.scoreDelta : 0;
+  playHitFx(id, info = {}){
+    const el = this.targets.get(id);
+    const rect = el ? el.getBoundingClientRect() : null;
+    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
+    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
 
-    const x = fx && fx.clientX != null ? fx.clientX : (window.innerWidth/2);
-    const y = fx && fx.clientY != null ? fx.clientY : (window.innerHeight/2);
+    const grade = info.grade || 'good';
+    const scoreDelta = Number(info.scoreDelta) || 0;
 
-    const label =
-      scoreDelta >= 0 ? `+${scoreDelta}` : `${scoreDelta}`;
-
-    burstText(x, y, label, grade);
-    burstRing(x, y, grade);
-  }
-
-  // ===== Input handling =====
-  _onPointerDown(e) {
-    const t = e.target.closest('.sb-target');
-    if (!t) return;
-    const id = Number(t.dataset.id);
-    if (!id) return;
-
-    if (typeof this.onTargetHit === 'function') {
-      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY, source: 'pointer' });
-    }
-  }
-
-  _onKeyDown(e) {
-    // debug: space hit nearest target
-    if (e.code !== 'Space') return;
-    if (!this.layerEl) return;
-
-    let best = null;
-    let bestD = 1e9;
-    const r = this.layerEl.getBoundingClientRect();
-    const cx = r.left + r.width/2;
-    const cy = r.top + r.height/2;
-
-    for (const [id, el] of this.targets) {
-      const br = el.getBoundingClientRect();
-      const ex = br.left + br.width/2;
-      const ey = br.top + br.height/2;
-      const d = (ex-cx)*(ex-cx) + (ey-cy)*(ey-cy);
-      if (d < bestD) { bestD = d; best = id; }
-    }
-
-    if (best && typeof this.onTargetHit === 'function') {
-      this.onTargetHit(best, { clientX: cx, clientY: cy, source: 'space' });
+    if (grade === 'perfect') {
+      FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
+      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
+    } else if (grade === 'good') {
+      FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
+    } else if (grade === 'bad') {
+      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
+    } else if (grade === 'bomb') {
+      FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
+      FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
+    } else if (grade === 'heal') {
+      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
+      FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
+    } else if (grade === 'shield') {
+      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
+      FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
+    } else {
+      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
   }
 }
