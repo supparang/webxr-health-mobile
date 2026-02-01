@@ -1,42 +1,79 @@
+// === /fitness/js/dl-features.js ===
+// Feature tracker for “DL-lite” analytics (no training here)
+// Keeps rolling stats that can be exported later.
+
 'use strict';
 
-/**
- * dl-features.js
- * - สร้าง feature vector “DL-lite” จากสถานะ/หน้าต่างข้อมูล
- * - ใช้ร่วมกับ ai-predictor.js (heuristic) เพื่อให้เหตุผลได้ (explainable)
- */
+export class FeatureTracker {
+  constructor() {
+    this.reset();
+  }
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+  reset() {
+    this.n = 0;
+    this.sumAcc = 0;
+    this.sumHp = 0;
+    this.sumMiss = 0;
+    this.sumCombo = 0;
 
-export function buildFeatureVector(snapshot){
-  // snapshot: {acc, missRate, avgRt, combo, hp, feverOn, phase, diff, timeLeftMs}
-  const acc = clamp((snapshot.acc ?? 85)/100, 0, 1);
-  const miss = clamp(snapshot.missRate ?? 0.12, 0, 1);
-  const rt = clamp((snapshot.avgRt ?? 520)/1200, 0, 1);
-  const combo = clamp((snapshot.combo ?? 0)/30, 0, 1);
-  const hp = clamp(snapshot.hp ?? 1, 0, 1);
-  const fever = snapshot.feverOn ? 1 : 0;
-  const phase = clamp(((snapshot.phase ?? 1)-1)/2, 0, 1);
-  const diff = snapshot.diff === 'hard' ? 1 : snapshot.diff === 'easy' ? 0 : 0.5;
-  const tleft = clamp((snapshot.timeLeftMs ?? 30000)/90000, 0, 1);
+    this.last = {};
+  }
 
-  // vector length 9
-  return [acc, 1-miss, 1-rt, combo, hp, fever, phase, diff, tleft];
-}
+  updateFromSnapshot(snap = {}) {
+    const acc = Number(snap.accPct) || 0;
+    const hp = Number(snap.hp) || 0;
+    const miss = Number(snap.hitMiss) || 0;
+    const combo = Number(snap.combo) || 0;
 
-export function explainVector(vec){
-  if(!Array.isArray(vec) || vec.length < 9) return [];
-  const [acc, surv, spd, combo, hp, fever, phase, diff, tleft] = vec;
+    this.n += 1;
+    this.sumAcc += acc;
+    this.sumHp += hp;
+    this.sumMiss += miss;
+    this.sumCombo += combo;
 
-  const tips = [];
-  if(acc < 0.75) tips.push('ความแม่นยำยังต่ำ — โฟกัสเป้า “Normal” ให้ชัดก่อน');
-  if(spd < 0.6) tips.push('จังหวะยังช้า — ลดการส่ายมือ แล้วชกให้สั้น/ไว');
-  if(combo < 0.3) tips.push('คอมโบยังไม่ต่อเนื่อง — เลือกเป้าง่ายก่อนเพื่อไต่คอมโบ');
-  if(hp < 0.55) tips.push('HP ต่ำ — หา Heal/Shield เพื่อยื้อเกม');
-  if(!fever && combo > 0.4) tips.push('ใกล้ติด FEVER — รักษาคอมโบต่ออีกนิด!');
-  if(phase > 0.66) tips.push('เฟสท้ายแล้ว — เป้าจะเร็วขึ้น ระวัง Bomb/Decoy');
-  if(diff > 0.8) tips.push('โหมด Hard — อย่าลืม “กันระเบิด” ด้วย Shield');
-  if(tleft < 0.25) tips.push('ใกล้หมดเวลา — โฟกัสตีเป้า Normal เพื่อปิดบอส');
+    this.last = {
+      accPct: acc,
+      hp,
+      miss,
+      combo,
+      rtMean: Number(snap.rtMean) || 0,
+      bossIndex: snap.bossIndex ?? 0,
+      phase: snap.phase ?? 1,
+      fever: Number(snap.fever) || 0,
+      shield: Number(snap.shield) || 0,
+      t: Number(snap.songTime) || 0,
+    };
+  }
 
-  return tips;
+  getAverages() {
+    const n = Math.max(1, this.n);
+    return {
+      n: this.n,
+      accPct_mean: this.sumAcc / n,
+      hp_mean: this.sumHp / n,
+      miss_mean: this.sumMiss / n,
+      combo_mean: this.sumCombo / n,
+      last: this.last,
+    };
+  }
+
+  toRow() {
+    const avg = this.getAverages();
+    return {
+      n: avg.n,
+      accPct_mean: avg.accPct_mean.toFixed(2),
+      hp_mean: avg.hp_mean.toFixed(2),
+      miss_mean: avg.miss_mean.toFixed(2),
+      combo_mean: avg.combo_mean.toFixed(2),
+      last_accPct: (avg.last.accPct ?? 0).toFixed(2),
+      last_hp: (avg.last.hp ?? 0).toFixed(2),
+      last_miss: (avg.last.miss ?? 0),
+      last_combo: (avg.last.combo ?? 0),
+      last_rtMean: (avg.last.rtMean ?? 0).toFixed(2),
+      last_phase: avg.last.phase ?? 1,
+      last_bossIndex: avg.last.bossIndex ?? 0,
+      last_fever: (avg.last.fever ?? 0),
+      last_shield: (avg.last.shield ?? 0),
+    };
+  }
 }
