@@ -143,14 +143,33 @@ export function boot(){
     showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
-  // ✅ FX on hit (particles.js) — show at actual hit point if provided
-  function fxHit(kind, obj, extra){
+  // ✅ FX center-on-target (DOMRect) — แม่นยำสุด
+  function getTargetCenterPx(obj){
+    try{
+      const el = obj && obj.el;
+      if(el && el.getBoundingClientRect){
+        const r = el.getBoundingClientRect();
+        if(r && isFinite(r.left) && isFinite(r.top) && r.width>0 && r.height>0){
+          return {
+            x: r.left + r.width/2,
+            y: r.top  + r.height/2
+          };
+        }
+      }
+    }catch(_){}
+    // fallback (กรณีหา rect ไม่ได้)
+    const x = Number(obj && obj.x) || (WIN.innerWidth*0.5);
+    const y = Number(obj && obj.y) || (WIN.innerHeight*0.5);
+    return { x, y };
+  }
+
+  function fxHit(kind, obj){
     const P = WIN.Particles;
     if(!P) return;
 
-    // ✅ hit point first (extra.x/y), fallback to obj.x/y (spawn point)
-    const x = Number((extra && extra.x) ?? obj?.x ?? (WIN.innerWidth*0.5));
-    const y = Number((extra && extra.y) ?? obj?.y ?? (WIN.innerHeight*0.5));
+    const c = getTargetCenterPx(obj);
+    const x = clamp(c.x, 0, WIN.innerWidth||999999);
+    const y = clamp(c.y, 0, WIN.innerHeight||999999);
 
     if(kind === 'good'){
       P.popText(x, y, '✅ +1', 'good');
@@ -171,8 +190,7 @@ export function boot(){
   }
 
   function pickQuiz(){
-    // ✅ hygiene-quiz-bank.js ต้อง define window.HHA_HYGIENE_QUIZ_BANK
-    const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
+    const bank = WIN.HHA_HYGIENE_QUIZ_BANK; // from hygiene-quiz-bank.js
     if(!Array.isArray(bank) || !bank.length) return null;
     const q = bank[Math.floor(rng()*bank.length)];
     return q || null;
@@ -277,10 +295,8 @@ export function boot(){
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
     targets.push(obj);
 
-    // tap/click only when not cVR strict
     if(view !== 'cvr'){
-      // ✅ pass event to capture real hit point
-      el.addEventListener('click', (ev)=> onHitByPointer(obj, 'tap', ev), { passive:true });
+      el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'), { passive:true });
     }
     return obj;
   }
@@ -309,15 +325,11 @@ export function boot(){
     return clamp(dt, 0, 60000);
   }
 
-  // ✅ pointer hit includes exact x/y
-  function onHitByPointer(obj, source, ev){
+  function onHitByPointer(obj, source){
     if(!running || paused) return;
-    const x = ev?.clientX ?? obj?.x ?? (WIN.innerWidth*0.5);
-    const y = ev?.clientY ?? obj?.y ?? (WIN.innerHeight*0.5);
-    judgeHit(obj, source, { x, y });
+    judgeHit(obj, source, null);
   }
 
-  // cVR shoot: pick nearest target within lockPx
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
@@ -337,8 +349,7 @@ export function boot(){
       }
     }
     if(best){
-      // ✅ include hit point at crosshair center
-      judgeHit(best, 'shoot', { lockPx, dist: bestDist, x: cx, y: cy });
+      judgeHit(best, 'shoot', { lockPx, dist: bestDist });
     }
   }
 
@@ -422,7 +433,7 @@ export function boot(){
 
       bumpQuestOnGoodHit();
       showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
-      fxHit('good', obj, extra); // ✅ FX at hit point
+      fxHit('good', obj); // ✅ FX ตรงเป้า
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
@@ -431,8 +442,8 @@ export function boot(){
         hitsInStep=0;
 
         if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
-          const dt2 = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
-          if(dt2 <= 6500){
+          const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
+          if(dt <= 6500){
             questDone = 1;
             showBanner('🏅 QUEST ผ่าน! (ไวมาก)');
           }
@@ -469,7 +480,7 @@ export function boot(){
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-      fxHit('wrong', obj, extra); // ✅ FX at hit point
+      fxHit('wrong', obj); // ✅ FX ตรงเป้า
 
       removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
@@ -491,7 +502,7 @@ export function boot(){
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
       showBanner(`🦠 โดนเชื้อ! ระวัง!`);
-      fxHit('haz', obj, extra); // ✅ FX at hit point
+      fxHit('haz', obj); // ✅ FX ตรงเป้า
 
       removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
