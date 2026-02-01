@@ -1,22 +1,17 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — ULTRA (shared)
-// ✅ Bridges game events -> Particles FX + body pulse classes
-// ✅ Safe if Particles missing
-// ✅ Rate-limit for spam events (kid-proof)
-// ✅ Works across all games (GoodJunk/Groups/Hydration/Plate)
-//
-// Events expected (soft):
-// - hha:judge {label, x,y, kind}   kind: good|bad|star|shield|diamond|boss|storm|rage|miss
-// - hha:coach {msg, kind}         kind: tip|warn|praise|boss|storm|rage
-// - hha:celebrate {kind, grade}   kind: mini|goal|end|boss
-// - hha:end {scoreFinal, misses, grade, reason}
-// - hha:time {t}  (optional)
-// - hha:score {score} (optional)
-//
-// Adds body classes briefly:
-//  fx-good, fx-bad, fx-star, fx-shield, fx-diamond, fx-boss, fx-storm, fx-rage, fx-miss, fx-ping
-//
-// Note: CSS animations live in game css (e.g., goodjunk-vr.css) but this file works even without them.
+// HHA FX Director — ULTRA (shared across games)
+// ✅ Listens to: hha:judge, hha:time, hha:score, hha:end, hha:celebrate, quest:update
+// ✅ Standard states:
+//    - storm: timeLeft <= 30s
+//    - boss : miss >= 4
+//    - rage : miss >= 5
+// ✅ Uses window.Particles (particles.js) if present; otherwise safe no-op
+// ✅ Adds body classes for CSS-driven FX: hha-storm, hha-boss, hha-rage, hha-hitgood, hha-hitbad, hha-tick
+// ✅ Exposes: window.HHA_FX = { setMode, pulse, burstAt, pop, sparkle, celebrate }
+// Notes:
+// - Never throws.
+// - Works for DOM games (GoodJunk/Groups/Hydration/Plate) and can co-exist with A-Frame scenes.
+// - Keep z-index sane: fx layer uses z-index 190, your HUD can be 180–185.
 
 (function(root){
   'use strict';
@@ -25,252 +20,345 @@
   if(!DOC || root.__HHA_FX_DIRECTOR__) return;
   root.__HHA_FX_DIRECTOR__ = true;
 
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
   const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
   const CFG = Object.assign({
-    // rate limit
-    judgeCooldownMs: 70,
-    coachCooldownMs: 900,
-    celebrateCooldownMs: 450,
-    pingMs: 120,
+    // Mode thresholds (as requested)
+    stormTimeSec: 30,
+    bossMiss: 4,
+    rageMiss: 5,
 
-    // default FX position when not provided
-    defaultX: ()=> Math.floor((DOC.documentElement.clientWidth || innerWidth || 800) * 0.5),
-    defaultY: ()=> Math.floor((DOC.documentElement.clientHeight || innerHeight || 600) * 0.45),
+    // Pulse durations
+    pulseMs: 180,
+    tickMs: 120,
 
-    // pop text
-    popGood: '+',
-    popBad:  '−',
+    // Rate limits
+    minJudgeGapMs: 70,
+    minBigFxGapMs: 180,
+
+    // Try to guess XY from event.detail
+    // fallback to screen center
   }, root.HHA_FX_CONFIG || {});
 
-  // --- helpers ---
+  // --- safe Particles access ---
   function P(){ return root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles) || null; }
+  function hasP(fn){
+    const p = P();
+    return !!(p && typeof p[fn] === 'function');
+  }
 
-  function bodyPulse(cls, ms=CFG.pingMs){
+  // --- class helpers ---
+  function addC(c){
+    try{ DOC.body && DOC.body.classList.add(c); }catch(_){}
+  }
+  function rmC(c){
+    try{ DOC.body && DOC.body.classList.remove(c); }catch(_){}
+  }
+  function pulse(cls, ms){
     try{
-      DOC.body.classList.add(cls);
-      setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){} }, ms);
+      const b = DOC.body;
+      if(!b) return;
+      b.classList.add(cls);
+      setTimeout(()=>{ try{ b.classList.remove(cls); }catch(_){} }, ms||CFG.pulseMs);
     }catch(_){}
   }
 
-  function pickXY(d){
-    const x = Number(d && (d.x ?? d.clientX)) || CFG.defaultX();
-    const y = Number(d && (d.y ?? d.clientY)) || CFG.defaultY();
-    return {
-      x: clamp(x, 0, (root.innerWidth||DOC.documentElement.clientWidth||9999)),
-      y: clamp(y, 0, (root.innerHeight||DOC.documentElement.clientHeight||9999)),
-    };
+  function centerXY(){
+    const w = DOC.documentElement?.clientWidth || root.innerWidth || 1000;
+    const h = DOC.documentElement?.clientHeight|| root.innerHeight|| 700;
+    return { x: Math.floor(w/2), y: Math.floor(h/2) };
   }
 
-  // --- cooldown buckets ---
-  let tJudge=0, tCoach=0, tCele=0;
-
-  function canJudge(){
-    const t = now();
-    if(t - tJudge < CFG.judgeCooldownMs) return false;
-    tJudge = t; return true;
-  }
-  function canCoach(){
-    const t = now();
-    if(t - tCoach < CFG.coachCooldownMs) return false;
-    tCoach = t; return true;
-  }
-  function canCele(){
-    const t = now();
-    if(t - tCele < CFG.celebrateCooldownMs) return false;
-    tCele = t; return true;
-  }
-
-  // --- fx mapping ---
-  function fxForKind(kind){
-    kind = String(kind||'').toLowerCase();
-    if(kind==='good') return { cls:'fx-good', textCls:'fx-good' };
-    if(kind==='bad') return { cls:'fx-bad', textCls:'fx-bad' };
-    if(kind==='miss') return { cls:'fx-miss', textCls:'fx-warn' };
-    if(kind==='star') return { cls:'fx-star', textCls:'fx-warn' };
-    if(kind==='shield') return { cls:'fx-shield', textCls:'fx-good' };
-    if(kind==='diamond') return { cls:'fx-diamond', textCls:'fx-violet' };
-    if(kind==='boss') return { cls:'fx-boss', textCls:'fx-warn' };
-    if(kind==='storm') return { cls:'fx-storm', textCls:'fx-warn' };
-    if(kind==='rage') return { cls:'fx-rage', textCls:'fx-bad' };
-    return { cls:'fx-ping', textCls:'' };
-  }
-
-  function judgeToKind(label){
-    const s = String(label||'').toLowerCase();
-    if(s.includes('good')) return 'good';
-    if(s.includes('oops') || s.includes('bad')) return 'bad';
-    if(s.includes('miss')) return 'miss';
-    if(s.includes('star')) return 'star';
-    if(s.includes('shield') || s.includes('block')) return 'shield';
-    if(s.includes('diamond')) return 'diamond';
-    if(s.includes('boss')) return 'boss';
-    if(s.includes('storm')) return 'storm';
-    if(s.includes('rage')) return 'rage';
-    if(s.includes('goal')) return 'star';
-    if(s.includes('mini')) return 'star';
-    return 'good';
-  }
-
-  // --- handlers ---
-  function onJudge(ev){
-    if(!canJudge()) return;
-    const d = ev && ev.detail ? ev.detail : {};
-    const label = d.label ?? d.text ?? '';
-    const kind = d.kind || judgeToKind(label);
-    const map = fxForKind(kind);
-    const {x,y} = pickXY(d);
-
-    // body pulse
-    bodyPulse(map.cls, 140);
-
-    const p = P();
-    if(!p) return;
-
-    // decide which FX to show
+  function pickXY(detail){
     try{
-      if(kind==='good'){
-        p.burst && p.burst(x,y,{ n: 10, spread: 150, life: 520 });
-        p.popText && p.popText(x,y, label || CFG.popGood, map.textCls);
-      }else if(kind==='bad' || kind==='miss'){
-        p.shockwave && p.shockwave(x,y,{ r: 190, life: 420, alpha: 0.30, thick: 3 });
-        p.burst && p.burst(x,y,{ n: 12, spread: 170, life: 600, grav: 1.05 });
-        p.popText && p.popText(x,y, label || CFG.popBad, map.textCls);
-      }else if(kind==='star'){
-        p.sparkle && p.sparkle(x,y,{ n: 18, spread: 240, life: 700 });
-        p.popText && p.popText(x,y, label || '⭐', map.textCls);
-      }else if(kind==='shield'){
-        p.shockwave && p.shockwave(x,y,{ r: 160, life: 360, alpha: 0.34, thick: 3 });
-        p.sparkle && p.sparkle(x,y,{ n: 12, spread: 180, life: 520 });
-        p.popText && p.popText(x,y, label || 'BLOCK', map.textCls);
-      }else if(kind==='diamond'){
-        p.celebrate && p.celebrate({ n: 34, y: y });
-        p.popText && p.popText(x,y, label || '💎', map.textCls);
-      }else if(kind==='boss' || kind==='storm' || kind==='rage'){
-        p.shockwave && p.shockwave(x,y,{ r: 260, life: 520, alpha: 0.34, thick: 4 });
-        p.burst && p.burst(x,y,{ n: 22, spread: 260, life: 820, grav: 1.15, drift: 0.7 });
-        p.popText && p.popText(x,y, label || kind.toUpperCase(), map.textCls);
-      }else{
-        p.popText && p.popText(x,y, label || '!', map.textCls);
-      }
-    }catch(_){}
-  }
+      // allow: {x,y} or {clientX,clientY} or {px,py}
+      const d = detail || {};
+      let x = d.x ?? d.clientX ?? d.px ?? null;
+      let y = d.y ?? d.clientY ?? d.py ?? null;
 
-  function onCoach(ev){
-    if(!canCoach()) return;
-    const d = ev && ev.detail ? ev.detail : {};
-    const kind = String(d.kind||'tip').toLowerCase();
-    const msg  = String(d.msg||d.text||'').trim();
-    if(!msg) return;
-
-    const {x,y} = pickXY(d);
-    const p = P();
-
-    if(kind==='warn' || kind==='storm'){
-      bodyPulse('fx-storm', 180);
-      try{
-        p && p.popText && p.popText(x, y-20, msg, 'fx-warn');
-        p && p.shockwave && p.shockwave(x, y, { r: 210, life: 520, alpha: 0.22, thick: 3 });
-      }catch(_){}
-      return;
-    }
-
-    if(kind==='rage'){
-      bodyPulse('fx-rage', 180);
-      try{
-        p && p.popText && p.popText(x, y-20, msg, 'fx-bad');
-        p && p.burst && p.burst(x,y,{ n: 16, spread: 220, life: 720, grav: 1.2 });
-      }catch(_){}
-      return;
-    }
-
-    if(kind==='boss'){
-      bodyPulse('fx-boss', 180);
-      try{
-        p && p.popText && p.popText(x, y-20, msg, 'fx-warn');
-        p && p.shockwave && p.shockwave(x,y,{ r: 240, life: 560, alpha: 0.26, thick: 4 });
-      }catch(_){}
-      return;
-    }
-
-    // tip / praise
-    bodyPulse('fx-ping', 120);
-    try{
-      p && p.popText && p.popText(x, y-30, msg, (kind==='praise') ? 'fx-good' : '');
-      if(kind==='praise'){
-        p && p.sparkle && p.sparkle(x,y,{ n: 12, spread: 170, life: 560 });
-      }
-    }catch(_){}
-  }
-
-  function onCelebrate(ev){
-    if(!canCele()) return;
-    const d = ev && ev.detail ? ev.detail : {};
-    const kind = String(d.kind||'').toLowerCase();
-    const grade = String(d.grade||'').toUpperCase();
-
-    const p = P();
-    if(!p) return;
-
-    try{
-      if(kind==='mini' || kind==='goal'){
-        bodyPulse('fx-star', 220);
-        p.celebrate && p.celebrate({ n: 26, y: Math.floor((DOC.documentElement.clientHeight||innerHeight||600)*0.35) });
-      }else if(kind==='boss'){
-        bodyPulse('fx-boss', 260);
-        p.celebrate && p.celebrate({ n: 38, y: Math.floor((DOC.documentElement.clientHeight||innerHeight||600)*0.38), r: 280 });
-      }else if(kind==='end'){
-        bodyPulse('fx-star', 260);
-        p.celebrate && p.celebrate({ n: 44, y: Math.floor((DOC.documentElement.clientHeight||innerHeight||600)*0.34), r: 320 });
-        if(grade){
-          p.popText && p.popText(CFG.defaultX(), Math.floor(CFG.defaultY()*0.8), `GRADE ${grade}`, 'fx-violet');
+      // GoodJunk sometimes emits without XY; attempt target rect if id given
+      if((x==null || y==null) && d.targetId){
+        const el = DOC.querySelector(`[data-id="${CSS && CSS.escape ? CSS.escape(String(d.targetId)) : String(d.targetId)}"]`);
+        if(el && el.getBoundingClientRect){
+          const r = el.getBoundingClientRect();
+          x = r.left + r.width/2;
+          y = r.top  + r.height/2;
         }
+      }
+
+      if(x==null || y==null) return centerXY();
+      return { x: Math.floor(Number(x)||0), y: Math.floor(Number(y)||0) };
+    }catch(_){
+      return centerXY();
+    }
+  }
+
+  // --- FX wrappers ---
+  function pop(x,y,text,cls){
+    try{
+      if(hasP('popText')) P().popText(x,y,text,cls);
+    }catch(_){}
+  }
+  function burstAt(x,y,kind){
+    try{
+      const k = String(kind||'good');
+      const cls =
+        (k==='good') ? 'fx-good' :
+        (k==='bad')  ? 'fx-bad' :
+        (k==='star') ? 'fx-warn' :
+        (k==='shield') ? 'fx-violet' :
+        (k==='diamond')? 'fx-violet' :
+        '';
+      if(hasP('burst')) P().burst(x,y,{ cls });
+      else if(hasP('sparkle')) P().sparkle(x,y,{ cls });
+    }catch(_){}
+  }
+  function sparkle(x,y,kind){
+    try{
+      const cls =
+        (kind==='star') ? 'fx-warn' :
+        (kind==='shield'||kind==='diamond') ? 'fx-violet' :
+        '';
+      if(hasP('sparkle')) P().sparkle(x,y,{ cls });
+      else if(hasP('burst')) P().burst(x,y,{ cls, n: 8, spread: 80 });
+    }catch(_){}
+  }
+  function celebrate(kind){
+    try{
+      const k = String(kind||'end');
+      const c = centerXY();
+      if(hasP('celebrate')){
+        P().celebrate({ x:c.x, y:Math.floor(c.y*0.60), n: (k==='end'? 34 : 24), cls:'fx-warn' });
       }else{
-        bodyPulse('fx-ping', 180);
-        p.celebrate && p.celebrate({ n: 22 });
+        pop(c.x, Math.floor(c.y*0.60), '🎉', 'fx-warn');
       }
     }catch(_){}
   }
 
-  function onEnd(ev){
-    const d = ev && ev.detail ? ev.detail : {};
-    const grade = String(d.grade||'').toUpperCase();
-    const reason = String(d.reason||'');
-    const p = P();
-
-    // tiny end pulse (not too noisy)
-    bodyPulse('fx-ping', 140);
-
-    try{
-      if(p && p.popText){
-        const msg = grade ? `จบเกม! เกรด ${grade}` : 'จบเกม!';
-        p.popText(CFG.defaultX(), Math.floor(CFG.defaultY()*0.75), msg, 'fx-violet');
-        if(reason) p.popText(CFG.defaultX(), Math.floor(CFG.defaultY()*0.82), `reason: ${reason}`, '');
-      }
-    }catch(_){}
-  }
-
-  // Bind events (window + document for safety)
-  function on(name, fn){
-    try{ root.addEventListener(name, fn, { passive:true }); }catch(_){}
-    try{ DOC.addEventListener(name, fn, { passive:true }); }catch(_){}
-  }
-
-  on('hha:judge', onJudge);
-  on('hha:coach', onCoach);
-  on('hha:celebrate', onCelebrate);
-  on('hha:end', onEnd);
-
-  // Optional: debugging ping
-  root.HHA_FX_PING = function(label='PING'){
-    try{
-      const p = P();
-      const x = CFG.defaultX(), y = CFG.defaultY();
-      bodyPulse('fx-ping', 140);
-      p && p.popText && p.popText(x,y,label,'fx-good');
-      p && p.burst && p.burst(x,y,{ n: 12, spread: 180, life: 600 });
-    }catch(_){}
+  // --- mode / state ---
+  const S = {
+    timeLeft: null,
+    miss: null,
+    score: null,
+    modeStorm: false,
+    modeBoss: false,
+    modeRage: false,
+    lastJudgeAt: 0,
+    lastBigAt: 0,
   };
 
+  function applyModes(){
+    const t = (S.timeLeft==null) ? null : Number(S.timeLeft);
+    const m = (S.miss==null) ? null : Number(S.miss);
+
+    const storm = (t!=null && t <= CFG.stormTimeSec);
+    const boss  = (m!=null && m >= CFG.bossMiss);
+    const rage  = (m!=null && m >= CFG.rageMiss);
+
+    if(storm !== S.modeStorm){
+      S.modeStorm = storm;
+      if(storm) addC('hha-storm'); else rmC('hha-storm');
+      if(storm) pulse('hha-storm-pop', 240);
+    }
+    if(boss !== S.modeBoss){
+      S.modeBoss = boss;
+      if(boss) addC('hha-boss'); else rmC('hha-boss');
+      if(boss) pulse('hha-boss-pop', 240);
+    }
+    if(rage !== S.modeRage){
+      S.modeRage = rage;
+      if(rage) addC('hha-rage'); else rmC('hha-rage');
+      if(rage) pulse('hha-rage-pop', 240);
+    }
+
+    // If rage -> boss implicitly; keep both classes (ok)
+    if(S.modeRage) addC('hha-boss');
+  }
+
+  function setMode(name, on){
+    try{
+      const v = !!on;
+      if(name==='storm'){ S.modeStorm=v; v?addC('hha-storm'):rmC('hha-storm'); }
+      if(name==='boss'){ S.modeBoss=v; v?addC('hha-boss'):rmC('hha-boss'); }
+      if(name==='rage'){ S.modeRage=v; v?addC('hha-rage'):rmC('hha-rage'); }
+    }catch(_){}
+  }
+
+  // --- judge handler (main) ---
+  function onJudge(ev){
+    try{
+      const tNow = now();
+      if(tNow - S.lastJudgeAt < CFG.minJudgeGapMs) return;
+      S.lastJudgeAt = tNow;
+
+      const d = ev && ev.detail ? ev.detail : {};
+      const label = String(d.label || d.kind || '').trim().toLowerCase();
+      const xy = pickXY(d);
+
+      // normalize kinds
+      let kind = d.kind || null;
+      if(!kind){
+        if(label.includes('good')) kind='good';
+        else if(label.includes('oops') || label.includes('miss') || label.includes('bad')) kind='bad';
+        else if(label.includes('star')) kind='star';
+        else if(label.includes('shield') || label.includes('block')) kind='shield';
+        else if(label.includes('diamond')) kind='diamond';
+        else if(label.includes('mini')) kind='mini';
+        else if(label.includes('goal')) kind='goal';
+      }
+      kind = String(kind || '').toLowerCase();
+
+      // small pulses (CSS-driven)
+      if(kind==='good'){ pulse('hha-hitgood', CFG.pulseMs); }
+      if(kind==='bad'){ pulse('hha-hitbad',  CFG.pulseMs); }
+      if(kind==='shield'){ pulse('hha-hitshield', CFG.pulseMs); }
+      if(kind==='star'){ pulse('hha-hitstar', CFG.pulseMs); }
+      if(kind==='diamond'){ pulse('hha-hitdiamond', CFG.pulseMs); }
+
+      // FX calls
+      if(kind==='good'){
+        burstAt(xy.x, xy.y, 'good');
+        // optional text
+        if(d.text) pop(xy.x, xy.y, d.text, 'fx-good');
+      }else if(kind==='bad'){
+        burstAt(xy.x, xy.y, 'bad');
+        // more aggressive when rage
+        if(S.modeRage && (tNow - S.lastBigAt > CFG.minBigFxGapMs)){
+          S.lastBigAt = tNow;
+          if(hasP('shockwave')) P().shockwave(xy.x, xy.y, { size: 64, color:'rgba(255,255,255,.45)', dur: 520, cls:'fx-bad' });
+          pop(xy.x, xy.y, 'MISS!', 'fx-bad');
+        }else{
+          pop(xy.x, xy.y, d.text || 'OOPS', 'fx-bad');
+        }
+      }else if(kind==='shield'){
+        sparkle(xy.x, xy.y, 'shield');
+        pop(xy.x, xy.y, d.text || 'BLOCK', 'fx-violet');
+      }else if(kind==='star'){
+        sparkle(xy.x, xy.y, 'star');
+        pop(xy.x, xy.y, d.text || 'MISS -1', 'fx-warn');
+      }else if(kind==='diamond'){
+        // diamond = big reward
+        if(tNow - S.lastBigAt > CFG.minBigFxGapMs){
+          S.lastBigAt = tNow;
+          if(hasP('celebrate')) P().celebrate({ x: xy.x, y: xy.y, n: 20, cls:'fx-violet', dur: 900 });
+          else burstAt(xy.x, xy.y, 'diamond');
+        }else{
+          burstAt(xy.x, xy.y, 'diamond');
+        }
+        pop(xy.x, xy.y, d.text || 'BONUS!', 'fx-violet');
+      }else if(kind==='mini'){
+        // mini clear
+        if(tNow - S.lastBigAt > CFG.minBigFxGapMs){
+          S.lastBigAt = tNow;
+          celebrate('mini');
+        }else{
+          burstAt(xy.x, xy.y, 'star');
+        }
+        pop(xy.x, xy.y, d.text || 'MINI!', 'fx-warn');
+      }else if(kind==='goal'){
+        if(tNow - S.lastBigAt > CFG.minBigFxGapMs){
+          S.lastBigAt = tNow;
+          celebrate('goal');
+        }
+        pop(xy.x, xy.y, d.text || 'GOAL!', 'fx-warn');
+      }else{
+        // fallback
+        if(d.text || d.label) pop(xy.x, xy.y, d.text || d.label, '');
+      }
+    }catch(_){}
+  }
+
+  // --- time handler (storm + ticking) ---
+  function onTime(ev){
+    try{
+      const d = ev && ev.detail ? ev.detail : {};
+      const tLeft = (d.t != null) ? Number(d.t) : (d.timeLeftSec != null ? Number(d.timeLeftSec) : null);
+      if(tLeft == null || !Number.isFinite(tLeft)) return;
+
+      S.timeLeft = tLeft;
+      applyModes();
+
+      // tick when very low time (<=5)
+      if(tLeft <= 5){
+        pulse('hha-tick', CFG.tickMs);
+      }
+    }catch(_){}
+  }
+
+  // --- score handler (optional) ---
+  function onScore(ev){
+    try{
+      const d = ev && ev.detail ? ev.detail : {};
+      const sc = (d.score != null) ? Number(d.score) : null;
+      if(sc == null || !Number.isFinite(sc)) return;
+      S.score = sc;
+    }catch(_){}
+  }
+
+  // --- hook miss from hha:end OR hha:log OR custom ---
+  function onEnd(ev){
+    try{
+      const d = ev && ev.detail ? ev.detail : {};
+      // capture miss if present
+      if(d.misses != null) S.miss = Number(d.misses);
+      if(d.miss != null)   S.miss = Number(d.miss);
+      applyModes();
+      // end celebration
+      celebrate('end');
+      pulse('hha-end', 380);
+    }catch(_){}
+  }
+
+  // quest update may include current miss (optional)
+  function onQuest(ev){
+    try{
+      const d = ev && ev.detail ? ev.detail : {};
+      if(d && d.stats && d.stats.miss != null){
+        S.miss = Number(d.stats.miss);
+        applyModes();
+      }
+    }catch(_){}
+  }
+
+  // External setter for miss (GoodJunk can call if needed)
+  function setMiss(m){
+    S.miss = Number(m);
+    applyModes();
+  }
+
+  // --- listen ---
+  root.addEventListener('hha:judge', onJudge, { passive:true });
+  root.addEventListener('hha:time',  onTime,  { passive:true });
+  root.addEventListener('hha:score', onScore, { passive:true });
+  root.addEventListener('hha:end',   onEnd,   { passive:true });
+  root.addEventListener('hha:celebrate', (ev)=>{ try{ celebrate(ev?.detail?.kind || 'end'); }catch(_){} }, { passive:true });
+
+  // optional
+  root.addEventListener('quest:update', onQuest, { passive:true });
+
+  // allow games to inform miss changes (if they want)
+  root.addEventListener('hha:miss', (ev)=>{
+    try{
+      const m = ev?.detail?.miss;
+      if(m!=null) setMiss(m);
+    }catch(_){}
+  }, { passive:true });
+
+  // expose
+  root.HHA_FX = {
+    setMode,
+    setMiss,
+    pulse,
+    burstAt,
+    pop,
+    sparkle,
+    celebrate,
+    _state: S,
+  };
+
+  // initial: ensure layer exists early (optional)
+  try{
+    if(hasP('ensureLayer')) P().ensureLayer();
+  }catch(_){}
 })(window);
