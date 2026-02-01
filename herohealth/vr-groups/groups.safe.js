@@ -1,14 +1,10 @@
 // === /herohealth/vr-groups/groups.safe.js ===
 // GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION
-// ✅ Fix: rafLoop is defined (internal requestAnimationFrame loop)
+// ✅ FIX: Aim assist (lockPx) + direct tap fallback (target pointerdown)
+// ✅ FIX: Spawn positions based on playLayer rect (not full viewport)
+// ✅ NEW: Emits 'groups:hit' for EffectsPack (hit_good/hit_bad/shot_miss/timeout_miss)
 // ✅ API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
-// ✅ Emits: hha:time, hha:score, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:end
-// ✅ Deterministic RNG (seeded) for research/play
-// ✅ Mobile/cVR friendly: hit test via hha:shoot {x,y,lockPx,source}
-// ✅ Lightweight DOM targets in #playLayer
-// ✅ PATCH: emits groups:hit for FX pack (hit_good/hit_bad/shot_miss/timeout_miss)
-// ✅ PATCH: spawn coordinates are relative to playLayer bounds (fix "hit not registering" / "targets off")
-// ✅ PATCH: target size reads CSS var(--tSize) to match UI
+
 (function(){
   'use strict';
 
@@ -57,18 +53,7 @@
     return arr[(rng()*arr.length)|0];
   }
 
-  function getCssNum(varName, fallback){
-    try{
-      const v = getComputedStyle(DOC.body).getPropertyValue(varName);
-      const n = Number(String(v||'').trim().replace('px',''));
-      return (Number.isFinite(n) && n>0) ? n : fallback;
-    }catch(_){
-      return fallback;
-    }
-  }
-
   // ---------------- food groups (ไทย) ----------------
-  // mapping ที่คุณล็อกไว้: หมู่ 1 โปรตีน, หมู่ 2 คาร์บ, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
   const GROUPS = [
     { key:'g1', name:'หมู่ 1 โปรตีน', emoji:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
     { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', emoji:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
@@ -140,11 +125,12 @@
     if (S.wrapEl && DOC.body.contains(S.wrapEl)) return;
     const w = DOC.createElement('div');
     w.id = 'groupsPlayWrap';
+    // NOTE: pointer-events none on wrapper, targets themselves are pointer-events auto
     w.style.cssText =
       'position:relative; width:100%; height:100%; pointer-events:none; ' +
       'contain:layout style paint;';
     S.wrapEl = w;
-    // layerEl is where targets should go (playLayer)
+
     if (S.layerEl){
       S.layerEl.innerHTML = '';
       S.layerEl.appendChild(w);
@@ -168,61 +154,42 @@
     S.targets.length = 0;
   }
 
-  function layerBounds(){
-    // bounds relative to viewport
-    let r = null;
-    try{
-      const el = S.layerEl || DOC.getElementById('playLayer') || DOC.body;
-      r = el.getBoundingClientRect();
-    }catch(_){}
-    if(!r){
-      r = { left:0, top:0, width:Math.max(320, WIN.innerWidth||360), height:Math.max(480, WIN.innerHeight||640) };
-    }
-    // safe padding inside playLayer
-    const pad = 10;
-    return {
-      left: r.left + pad,
-      top:  r.top  + pad,
-      width: Math.max(120, r.width - pad*2),
-      height:Math.max(160, r.height - pad*2)
-    };
+  function layerRect(){
+    const el = S.layerEl || DOC.getElementById('playLayer');
+    if (el && el.getBoundingClientRect) return el.getBoundingClientRect();
+    return { left:0, top:0, width: (WIN.innerWidth||360), height:(WIN.innerHeight||640) };
   }
 
   function mkTarget(groupKey, emoji, lifeMs){
-    const size = Math.max(64, Math.round(getCssNum('--tSize', 108))); // follow CSS
     const el = DOC.createElement('div');
     el.className = 'tgt';
     el.setAttribute('data-group', groupKey);
     el.setAttribute('role','button');
 
-    // keep inline minimal; visuals mostly from CSS
+    // NOTE: size here is base; CSS can override (.tgt in playLayer)
     el.style.cssText =
-      `position:absolute; width:${size}px; height:${size}px; border-radius:18px; `+
+      'position:absolute; width:72px; height:72px; border-radius:18px; '+
       'display:flex; align-items:center; justify-content:center; '+
       'font-size:34px; font-weight:900; '+
+      'background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.22); '+
+      'box-shadow:0 12px 30px rgba(0,0,0,.22); '+
       'pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent;';
 
     el.textContent = emoji;
 
-    // ✅ position inside playLayer bounds (NOT full viewport)
-    const b = layerBounds();
+    // ✅ IMPORTANT: spawn inside playLayer (rect), not full viewport
+    const r = layerRect();
+    const w = Math.max(240, r.width|0);
+    const h = Math.max(280, r.height|0);
 
-    const w = size;
-    const h = size;
+    const size = 72;
+    const padL = 10, padR = 10, padT = 10, padB = 10;
 
-    const xAbs = b.left + (S.rng() * Math.max(1, (b.width  - w)));
-    const yAbs = b.top  + (S.rng() * Math.max(1, (b.height - h)));
+    const x = padL + (S.rng() * Math.max(1, (w - padL - padR - size)));
+    const y = padT + (S.rng() * Math.max(1, (h - padT - padB - size)));
 
-    // since wrapEl is inside layerEl (relative), convert absolute->relative to layerEl
-    let relX = xAbs, relY = yAbs;
-    try{
-      const lr = (S.layerEl || DOC.body).getBoundingClientRect();
-      relX = xAbs - lr.left;
-      relY = yAbs - lr.top;
-    }catch(_){}
-
-    el.style.left = Math.round(relX) + 'px';
-    el.style.top  = Math.round(relY) + 'px';
+    el.style.left = Math.round(x) + 'px';
+    el.style.top  = Math.round(y) + 'px';
 
     // appear anim
     el.style.transform = 'scale(.82)';
@@ -237,16 +204,24 @@
     const t = { el, groupKey, born, dieAt: born + lifeMs, hit:false };
     S.wrapEl.appendChild(el);
 
+    // ✅ DIRECT TAP FALLBACK (works even if vr-ui emits wrong coords)
+    const onDown = (ev)=>{
+      if(!S.running) return;
+      try{ ev.preventDefault(); }catch(_){}
+      const rc = el.getBoundingClientRect();
+      const cx = rc.left + rc.width/2;
+      const cy = rc.top  + rc.height/2;
+      processShot(cx, cy, { source:'direct', lockPx: 0 });
+    };
+    el.addEventListener('pointerdown', onDown, { passive:false });
+    el.addEventListener('touchstart', onDown, { passive:false });
+
     return t;
   }
 
   // ---------------- events (HUD/Quest/Coach) ----------------
-  function emitScore(){
-    emit('hha:score', { score:S.score, combo:S.combo, misses:S.miss });
-  }
-  function emitTime(){
-    emit('hha:time', { left:S.timeLeftSec });
-  }
+  function emitScore(){ emit('hha:score', { score:S.score, combo:S.combo, misses:S.miss }); }
+  function emitTime(){ emit('hha:time', { left:S.timeLeftSec }); }
   function emitRank(){
     const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
     const grade =
@@ -256,9 +231,7 @@
       (acc>=62) ? 'C' : 'D';
     emit('hha:rank', { accuracy: acc, grade });
   }
-  function emitPower(){
-    emit('groups:power', { charge:S.powerCur, threshold:S.powerThr });
-  }
+  function emitPower(){ emit('groups:power', { charge:S.powerCur, threshold:S.powerThr }); }
 
   function currentGroup(){
     return GROUPS[clamp(S.groupIdx, 0, GROUPS.length-1)];
@@ -310,8 +283,8 @@
   function maybeStartMini(){
     if (S.runMode === 'practice') return;
     if (S.miniActive) return;
-
     if (S.timeLeftSec <= 0) return;
+
     if (S.timeLeftSec % 11 === 0 && S.timeLeftSec <= (S.timePlannedSec-6)){
       resetMini();
       coach('MINI มาแล้ว! ยิงให้ “ถูกหมู่” ติดกันเร็ว ๆ ⚡', 'fever');
@@ -417,7 +390,7 @@
     }
   }
 
-  // ---------------- hit test ----------------
+  // ---------------- hit test + aim assist ----------------
   function hitTest(x,y){
     x = Number(x)||0;
     y = Number(y)||0;
@@ -433,38 +406,50 @@
     }
   }
 
-  function handleShoot(ev){
-    if (!S.running) return;
-    if (!ev || !ev.detail) return;
+  function nearestTargetWithin(x,y, lockPx){
+    const r = Math.max(0, Number(lockPx)||0);
+    if(r <= 0) return null;
+    let best = null;
+    let bestD2 = r*r;
 
-    const d = ev.detail||{};
-    const x = Number(d.x)||0;
-    const y = Number(d.y)||0;
+    for(const t of S.targets){
+      if(!t || t.hit || !t.el) continue;
+      const rc = t.el.getBoundingClientRect();
+      const cx = rc.left + rc.width/2;
+      const cy = rc.top  + rc.height/2;
+      const dx = cx - x;
+      const dy = cy - y;
+      const d2 = dx*dx + dy*dy;
+      if(d2 <= bestD2){
+        bestD2 = d2;
+        best = t.el;
+      }
+    }
+    return best;
+  }
+
+  // central shot processor (used by vr-ui + direct target tap)
+  function processShot(x,y, meta){
+    if (!S.running) return;
+    const lockPx = meta && meta.lockPx != null ? meta.lockPx : 0;
 
     S.shots++;
 
-    const tgtEl = hitTest(x,y);
-    if (!tgtEl){
-      // ✅ FX hook: miss shot (no target under crosshair)
-      emit('groups:hit', { x: Math.round(x), y: Math.round(y), good:false, miss:true, kind:'shot_miss' });
+    let tgtEl = hitTest(x,y);
+    if (!tgtEl) tgtEl = nearestTargetWithin(x,y, lockPx);
 
+    if (!tgtEl){
+      // miss (shot into empty)
       addScore(false);
       onBadHit();
+      emit('groups:hit', { kind:'shot_miss', x, y, miss:true, source: meta?.source||'shoot' });
       return;
     }
 
     const tg = String(tgtEl.getAttribute('data-group')||'');
     const cg = currentGroup().key;
 
-    // ✅ compute hit center (viewport coords)
-    let cx = x, cy = y;
-    try{
-      const r = tgtEl.getBoundingClientRect();
-      cx = r.left + r.width/2;
-      cy = r.top  + r.height/2;
-    }catch(_){}
-
-    // mark target as hit (remove)
+    // remove target once
     try{
       const idx = S.targets.findIndex(t=>t.el===tgtEl);
       if (idx>=0){
@@ -485,25 +470,27 @@
     }catch(_){}
 
     const good = (tg === cg);
-
-    // ✅ FX hook: hit result at position
-    emit('groups:hit', {
-      x: Math.round(cx), y: Math.round(cy),
-      good,
-      group: tg,
-      need: cg,
-      kind: good ? 'hit_good' : 'hit_bad'
-    });
-
     addScore(good);
 
     if (good){
       onGoodHit();
       if (S.boss) bossHit();
+      emit('groups:hit', { kind:'hit_good', x, y, good:true, group: tg, source: meta?.source||'shoot' });
     }else{
       onBadHit();
       coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+      emit('groups:hit', { kind:'hit_bad', x, y, good:false, group: tg, source: meta?.source||'shoot' });
     }
+  }
+
+  function handleShoot(ev){
+    if (!S.running) return;
+    if (!ev || !ev.detail) return;
+    const d = ev.detail||{};
+    const x = Number(d.x)||0;
+    const y = Number(d.y)||0;
+    const lockPx = Number(d.lockPx||0) || 0;
+    processShot(x,y, { source: String(d.source||'hha'), lockPx });
   }
 
   // ---------------- RAF loop ----------------
@@ -514,14 +501,12 @@
     const dt = Math.min(0.06, Math.max(0.001, (t - S.lastTickT) / 1000));
     S.lastTickT = t;
 
-    // timer
     const elapsed = (t - S.startT) / 1000;
     const left = Math.max(0, Math.ceil(S.timePlannedSec - elapsed));
     if (left !== S.timeLeftSec){
       S.timeLeftSec = left;
       emitTime();
 
-      // mini countdown
       if (S.miniActive){
         S.miniLeft = Math.max(0, (S.miniLeft|0) - 1);
         if (S.miniLeft <= 0){
@@ -538,35 +523,25 @@
       startBossIfNeeded();
     }
 
-    // target expiry
+    // expiry
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
       if (t >= tg.dieAt){
         const cg = currentGroup().key;
-
-        // missed: count miss only if it was current group (fair)
         if (tg.groupKey === cg){
-          // ✅ FX hook: timeout miss on correct-group target
-          try{
-            const r = tg.el.getBoundingClientRect();
-            emit('groups:hit', {
-              x: Math.round(r.left + r.width/2),
-              y: Math.round(r.top  + r.height/2),
-              good:false,
-              miss:true,
-              kind:'timeout_miss'
-            });
-          }catch(_){}
-
           S.miss++;
           S.combo = 0;
           S.score = Math.max(0, S.score - 6);
           emitScore();
           emitRank();
           onBadHit();
+          // effect: timeout miss (only if it was correct-group target)
+          try{
+            const rc = tg.el.getBoundingClientRect();
+            emit('groups:hit', { kind:'timeout_miss', x: rc.left+rc.width/2, y: rc.top+rc.height/2, miss:true, source:'timeout' });
+          }catch(_){}
         }
-
         try{
           tg.el.style.transition = 'transform 120ms ease, opacity 120ms ease';
           tg.el.style.transform = 'scale(.85)';
@@ -592,7 +567,6 @@
       }
     }
 
-    // end
     if (S.timeLeftSec <= 0){
       endRun('time');
       return;
@@ -608,7 +582,6 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
-    // mix spawn: mostly correct group
     let gKey = '';
     const r = S.rng();
     if (r < 0.58) gKey = cg.key;
@@ -626,7 +599,6 @@
     const t = mkTarget(g.key, em, life);
     S.targets.push(t);
 
-    // cap targets (mobile-safe)
     const cap = (S.view==='pc') ? 12 : 10;
     if (S.targets.length > cap){
       let idx = S.targets.findIndex(x=>x.groupKey !== currentGroup().key);
@@ -670,24 +642,20 @@
     S.lastCoachAt = 0;
     S.lastQuestEmitAt = 0;
 
-    // seed / rng
     S.seed = String(ctx && ctx.seed ? ctx.seed : (qs('seed','')||Date.now()));
     const u32 = strSeedToU32(S.seed);
     S.rng = makeRng(u32);
 
-    // time
     const t = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
     S.timePlannedSec = clamp(t, 15, 180);
     S.timeLeftSec = S.timePlannedSec;
 
-    // spawn timer
     S.spawnIt = 0;
 
     emitPower();
     emitScore();
     emitRank();
     emitTime();
-
     emitQuest(true);
 
     coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
@@ -704,40 +672,10 @@
 
     setLayerEl(S.layerEl || DOC.getElementById('playLayer') || DOC.body);
 
-    // init ViewHelper (optional)
-    try{
-      const H = WIN.GroupsVR && WIN.GroupsVR.ViewHelper;
-      H && H.init && H.init({ view:S.view });
-    }catch(_){}
-
-    // init FX (optional)
+    // init FX pack (important)
     try{
       const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
       FX && FX.init && FX.init({ layerEl: S.layerEl });
-    }catch(_){}
-
-    // init Telemetry (optional)
-    try{
-      const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
-      if (T && T.init){
-        const ep = String(qs('log','')||'');
-        T.init({
-          runMode: S.runMode,
-          endpoint: ep,
-          flushEveryMs: 2000,
-          maxEventsPerBatch: 60,
-          maxQueueBatches: 16,
-          statusEveryMs: 850
-        });
-      }
-    }catch(_){}
-
-    // AI hooks attach (optional) — engine แค่ปล่อย event
-    try{
-      const AI = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
-      if (AI && AI.attach){
-        AI.attach({ runMode:S.runMode, seed:S.seed, enabled:false });
-      }
     }catch(_){}
 
     resetRun(ctx||{});
@@ -798,11 +736,9 @@
     };
 
     emit('hha:end', summary);
-
     clearTargets();
   }
 
-  // ---------------- flush harden hook (optional) ----------------
   function bindFlushOnLeave(getSummaryFn){
     function safeCall(){
       try{
@@ -819,11 +755,7 @@
   }
 
   // ---------------- expose ----------------
-  WIN.GroupsVR.GameEngine = {
-    setLayerEl,
-    start,
-    stop
-  };
+  WIN.GroupsVR.GameEngine = { setLayerEl, start, stop };
   WIN.GroupsVR.bindFlushOnLeave = bindFlushOnLeave;
 
   WIN.GroupsVR.getResearchCtx = function(){
