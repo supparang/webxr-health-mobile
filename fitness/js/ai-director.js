@@ -1,149 +1,109 @@
-// === /fitness/js/ai-director.js ===
-// Shadow Breaker — AI Difficulty Director (pack A)
-//
-// Responsibilities:
-// - Turn predictor output into smooth difficulty assistance
-// - Adjust: spawn interval multiplier + target-type weights
-// - Keep it fair: bounded, gradual, explainable
-
 'use strict';
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b,v));
+/**
+ * ai-director.js
+ * - “Fair adaptive pacing” แบบ deterministic-friendly
+ * - ใช้เฉพาะ Play mode (research ควรปิด adaptive)
+ *
+ * NOTE: ไฟล์นี้ไม่ได้ export AIPredictor
+ * export:
+ *   - AIDirector
+ *   - computeAssist
+ */
 
-function ema(prev, next, alpha){
-  if (!Number.isFinite(prev)) return next;
-  return prev + alpha*(next-prev);
-}
+const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
 
-// Backward-compatible helper used by engine.js
-export function computeAssist(state){
-  // base heuristic (fallback if AI not available)
-  const hp = Number(state?.playerHp ?? 1);
-  const miss = Number(state?.miss ?? 0);
-  const streak = Number(state?.missStreak ?? 0);
+export function computeAssist(features){
+  // features: {acc, missRate, avgRt, combo, feverOn, hp, timeLeft}
+  const acc = clamp((features.acc ?? 85) / 100, 0, 1);
+  const miss = clamp(features.missRate ?? 0.12, 0, 1);
+  const rt = clamp((features.avgRt ?? 520) / 1200, 0, 1); // normalized
+  const combo = clamp((features.combo ?? 0) / 25, 0, 1);
+  const hp = clamp(features.hp ?? 1, 0, 1);
 
-  // spawnMul > 1 = slower spawn
-  let spawnMul = 1.0;
-  if (hp < 0.4) spawnMul *= 1.12;
-  if (miss >= 10) spawnMul *= 1.06;
-  if (streak >= 3) spawnMul *= 1.08;
+  // higher when struggling
+  const struggle = clamp((1-acc)*0.55 + miss*0.35 + rt*0.25 + (1-hp)*0.20 - combo*0.25, 0, 1);
+  // pace factor: 0.75..1.25
+  const pace = 1.0 - (struggle*0.25) + (combo*0.08);
+  // size boost: 0..0.18
+  const sizeBoost = struggle*0.18;
+  // spawn relax: 0..0.22
+  const relax = struggle*0.22;
 
-  // ttlMul > 1 = longer time-to-live
-  let ttlMul = 1.0;
-  if (hp < 0.45) ttlMul *= 1.10;
-  if (streak >= 3) ttlMul *= 1.08;
-
-  // sizeMul > 1 = larger targets
-  let sizeMul = 1.0;
-  if (hp < 0.4) sizeMul *= 1.07;
-  if (streak >= 4) sizeMul *= 1.08;
-
-  const out = {
-    spawnMul: clamp(spawnMul, 0.75, 1.35),
-    ttlMul: clamp(ttlMul, 0.90, 1.35),
-    sizeMul: clamp(sizeMul, 0.90, 1.25),
-    targetWeights: null,
-    prediction: null,
+  return {
+    struggle,
+    pace: clamp(pace, 0.75, 1.25),
+    sizeBoost: clamp(sizeBoost, 0, 0.18),
+    relax: clamp(relax, 0, 0.22)
   };
-
-  // AI-powered override if available (play + ?ai=1 only)
-  if (state?.aiEnabled && state?.ai?.director && state?.ai?.lastFeatures) {
-    const dir = state.ai.director;
-    const f = state.ai.lastFeatures;
-
-    const pred = dir.predict(f);
-    out.prediction = pred;
-
-    // Blend spawn multiplier (keep bounded)
-    const aiSpawnMul = dir.getSpawnMul(f);
-    out.spawnMul = clamp(out.spawnMul * aiSpawnMul, 0.75, 1.35);
-
-    // Dynamic target weights
-    out.targetWeights = dir.getWeights(f);
-  }
-
-  return out;
 }
 
 export class AIDirector {
-  constructor(predictor, opts={}){
-    this.predictor = predictor;
-    this.cfg = Object.assign({
-      // strength: 0..1
-      strength: 0.85,
-      emaAlpha: 0.20
-    }, opts);
-
-    this._emaMiss = NaN;
-    this._emaOver = NaN;
-    this.lastPred = null;
+  constructor(){
+    this.reset();
   }
 
-  predict(features){
-    const raw = this.predictor.predict(features);
-    this._emaMiss = ema(this._emaMiss, raw.pMiss, this.cfg.emaAlpha);
-    this._emaOver = ema(this._emaOver, raw.pOverwhelm, this.cfg.emaAlpha);
-
-    const pMiss = clamp(this._emaMiss, 0.05, 0.95);
-    const pOverwhelm = clamp(this._emaOver, 0.05, 0.95);
-
-    const out = { ...raw, pMiss, pOverwhelm };
-    this.lastPred = out;
-    return out;
+  reset(){
+    this._accWindow = [];
+    this._rtWindow = [];
+    this._miss = 0;
+    this._hits = 0;
+    this._combo = 0;
+    this._hp = 1;
+    this._t = 0;
+    this._feverOn = false;
   }
 
-  getSpawnMul(features){
-    const pred = this.predict(features);
-    const pO = pred.pOverwhelm;
+  updateFromEvent(e){
+    // e: {type, grade, rtMs, comboAfter, playerHp, feverOn, tsMs}
+    if(!e) return;
+    if(e.tsMs != null) this._t = e.tsMs;
+    if(e.playerHp != null) this._hp = e.playerHp;
+    if(e.comboAfter != null) this._combo = e.comboAfter;
+    if(e.feverOn != null) this._feverOn = e.feverOn;
 
-    // struggle: higher => slow down spawns
-    const struggle = clamp((pO - 0.58) / 0.32, 0, 1);
-    // hot: lower overwhelm => can speed up a bit
-    const hot = clamp((0.48 - pO) / 0.22, 0, 1);
+    if(e.type === 'hit'){
+      this._hits++;
+      if(e.rtMs != null) this._rtWindow.push(e.rtMs);
+      if(e.grade === 'bad') this._accWindow.push(0.6);
+      else if(e.grade === 'good') this._accWindow.push(0.82);
+      else if(e.grade === 'perfect') this._accWindow.push(0.97);
+      else this._accWindow.push(0.8);
+    } else if(e.type === 'timeout'){
+      this._miss++;
+      this._accWindow.push(0);
+    }
 
-    let mul = 1.0;
-    mul *= (1 + this.cfg.strength * 0.22 * struggle);
-    mul *= (1 - this.cfg.strength * 0.10 * hot);
-
-    return clamp(mul, 0.75, 1.35);
+    // cap windows
+    while(this._accWindow.length > 40) this._accWindow.shift();
+    while(this._rtWindow.length > 25) this._rtWindow.shift();
   }
 
-  getWeights(features){
-    const pred = this.predict(features);
-    const pO = pred.pOverwhelm;
+  getFeatures(timeLeftMs){
+    const acc = this._accWindow.length
+      ? (this._accWindow.reduce((a,b)=>a+b,0)/this._accWindow.length)*100
+      : 85;
 
-    // base weights (sum doesn't need to be 100; relative only)
-    let wNormal = 64, wDecoy = 10, wBomb = 8, wHeal = 9, wShield = 9;
+    const avgRt = this._rtWindow.length
+      ? (this._rtWindow.reduce((a,b)=>a+b,0)/this._rtWindow.length)
+      : 520;
 
-    const struggle = clamp((pO - 0.58) / 0.32, 0, 1);
-    const hot = clamp((0.48 - pO) / 0.22, 0, 1);
+    const total = this._hits + this._miss;
+    const missRate = total ? (this._miss/total) : 0.12;
 
-    // If struggling: fewer bombs/decoys, more heal/shield, slightly more normal
-    wBomb  *= (1 - 0.55*struggle);
-    wDecoy *= (1 - 0.35*struggle);
-    wHeal  *= (1 + 0.55*struggle);
-    wShield*= (1 + 0.40*struggle);
-    wNormal*= (1 + 0.12*struggle);
+    return {
+      acc,
+      missRate,
+      avgRt,
+      combo: this._combo,
+      feverOn: !!this._feverOn,
+      hp: this._hp,
+      timeLeft: timeLeftMs ?? 0
+    };
+  }
 
-    // If doing great: nudge challenge (more bomb/decoy)
-    wBomb  *= (1 + 0.35*hot);
-    wDecoy *= (1 + 0.25*hot);
-    wHeal  *= (1 - 0.18*hot);
-    wShield*= (1 - 0.12*hot);
-
-    // keep sane bounds
-    wBomb = clamp(wBomb, 3, 20);
-    wDecoy = clamp(wDecoy, 5, 18);
-    wHeal = clamp(wHeal, 4, 18);
-    wShield = clamp(wShield, 4, 18);
-    wNormal = clamp(wNormal, 45, 85);
-
-    return [
-      { v:'normal', w:wNormal },
-      { v:'decoy',  w:wDecoy },
-      { v:'bomb',   w:wBomb },
-      { v:'heal',   w:wHeal },
-      { v:'shield', w:wShield }
-    ];
+  getAssist(timeLeftMs){
+    const f = this.getFeatures(timeLeftMs);
+    return computeAssist(f);
   }
 }
