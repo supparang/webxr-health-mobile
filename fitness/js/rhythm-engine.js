@@ -2,18 +2,14 @@
 (function () {
   'use strict';
 
-  // ===== CONFIG =====
-  const LANES = [0, 1, 2, 3, 4]; // L2, L1, C, R1, R2
+  const LANES = [0, 1, 2, 3, 4]; // L2 L1 C R1 R2
   const NOTE_EMOJI_BY_LANE = ['🥊', '💥', '⭐', '💥', '🥊'];
 
-  // base hit windows (seconds)
   const HIT_WINDOWS = { perfect: 0.06, great: 0.12, good: 0.20 };
-
-  // note travel time (sec)
   const PRE_SPAWN_SEC = 2.0;
 
-  // ===== TRACKS =====
-  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
+  function clamp01(v) { return clamp(v, 0, 1); }
   function mean(arr) { return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0; }
   function std(arr) {
     if (arr.length < 2) return 0;
@@ -61,13 +57,13 @@
     return out;
   }
 
-  // ✅ ใช้ไฟล์จริงใน /fitness/sfx ตามที่คุณมีอยู่
+  // ✅ เพลงอยู่ใน /fitness/audio/ ตามรูปที่คุณส่ง
   const TRACKS = [
     {
       id: 'n1',
       name: 'Warm-up Groove (ง่าย · 100 BPM)',
-      nameShort: 'Warm-up',
-      audio: './sfx/warm-up.mp3',
+      nameShort: 'Warm-up Groove',
+      audio: './audio/warmup-groove.mp3',
       bpm: 100,
       durationSec: 32,
       diff: 'easy',
@@ -76,8 +72,8 @@
     {
       id: 'n2',
       name: 'Focus Combo (ปกติ · 120 BPM)',
-      nameShort: 'Combo',
-      audio: './sfx/combo.mp3',
+      nameShort: 'Focus Combo',
+      audio: './audio/focus-combo.mp3',
       bpm: 120,
       durationSec: 32,
       diff: 'normal',
@@ -86,8 +82,8 @@
     {
       id: 'n3',
       name: 'Speed Rush (ยาก · 140 BPM)',
-      nameShort: 'Battle',
-      audio: './sfx/bgm-battle.mp3',
+      nameShort: 'Speed Rush',
+      audio: './audio/speed-rush.mp3',
       bpm: 140,
       durationSec: 32,
       diff: 'hard',
@@ -97,7 +93,7 @@
       id: 'r1',
       name: 'Research Track 120 (ทดลอง · 120 BPM)',
       nameShort: 'Research 120',
-      audio: './sfx/bgm-menu.mp3',
+      audio: './audio/research-120.mp3',
       bpm: 120,
       durationSec: 32,
       diff: 'normal',
@@ -105,12 +101,10 @@
     }
   ];
 
-  // ให้ UI (rhythm-boxer.js) ใช้อ่านชื่อเพลง
   window.RB_TRACKS_META = TRACKS.map(t => ({
     id: t.id, name: t.name, nameShort: t.nameShort || t.name, bpm: t.bpm, diff: t.diff
   }));
 
-  // ===== CSV TABLE =====
   class CsvTable {
     constructor() { this.rows = []; }
     clear() { this.rows = []; }
@@ -134,7 +128,6 @@
     }
   }
 
-  // ===== ENGINE =====
   class RhythmBoxerEngine {
     constructor(opts) {
       this.wrap = opts.wrap;
@@ -148,14 +141,12 @@
       this.eventTable = new CsvTable();
       this.sessionTable = new CsvTable();
 
-      // AI predictor bridge (classic script: window.RB_AI)
       this.ai = window.RB_AI ? { api: window.RB_AI, allowAdapt: false } : null;
       this.aiState = null;
       this._aiNextAt = 0;
 
-      // Assist knobs (NORMAL + ?ai=1 only)
-      this._assistWiden = 0.0;   // widen hit windows
-      this._assistDmgMul = 1.0;  // damage multiplier
+      this._assistWiden = 0.0;
+      this._assistDmgMul = 1.0;
       this._preSpawnSec = PRE_SPAWN_SEC;
 
       this._rafId = null;
@@ -192,7 +183,6 @@
       this.running = true;
       this.ended = false;
 
-      // stats
       this.score = 0;
       this.combo = 0;
       this.maxCombo = 0;
@@ -214,7 +204,6 @@
       this.leftHits = 0;
       this.rightHits = 0;
 
-      // fever
       this.feverGauge = 0;
       this.feverActive = false;
       this.feverEntryCount = 0;
@@ -222,12 +211,10 @@
       this.timeToFirstFeverSec = null;
       this.feverEndTime = 0;
 
-      // reset assist
       this._assistWiden = 0.0;
       this._assistDmgMul = 1.0;
       this._preSpawnSec = PRE_SPAWN_SEC;
 
-      // AI: research locked by RB_AI; normal requires ?ai=1
       let allowAdapt = false;
       if (this.ai && this.ai.api && typeof this.ai.api.isAssistEnabled === 'function') {
         allowAdapt = !!this.ai.api.isAssistEnabled();
@@ -236,7 +223,6 @@
       this.aiState = null;
       this._aiNextAt = 0;
 
-      // notes
       this.notes = [];
       this.nextNoteId = 1;
       this._chartIndex = 0;
@@ -256,19 +242,15 @@
     _setupAudio() {
       if (!this.audio) return;
 
-      try {
-        this.audio.pause();
-        this.audio.currentTime = 0;
-      } catch (_) {}
+      try { this.audio.pause(); this.audio.currentTime = 0; } catch (_) {}
 
-      // ✅ ชี้ไฟล์ที่มีจริง
+      // ✅ ใช้ไฟล์จริงใน /fitness/audio/
       this.audio.src = this.track.audio || '';
       this.audio.preload = 'auto';
-
       try { this.audio.load(); } catch (_) {}
 
       const p = this.audio.play();
-      if (p && typeof p.catch === 'function') p.catch(() => { /* autoplay fail ok */ });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
     }
 
     _loop() {
@@ -286,10 +268,7 @@
       this._updateTimeline(songTime, dt);
       this._updateHUD(songTime);
 
-      if (songTime >= dur) {
-        this._finish('song-end');
-        return;
-      }
+      if (songTime >= dur) { this._finish('song-end'); return; }
 
       this._rafId = requestAnimationFrame(() => this._loop());
     }
@@ -299,8 +278,7 @@
       this._updateNotePositions(songTime);
       this._autoJudgeMiss(songTime);
 
-      // ✅ FIX: รองรับโค้ดเก่าที่เรียก _updateAI()
-      // (บางแพ็คเรียกใน _updateTimeline)
+      // ✅ FIX: โค้ดเก่าบางชุดเรียก _updateAI() -> ทำ alias ให้ไม่พัง
       this._updateAI(songTime);
 
       if (this.feverActive) {
@@ -313,7 +291,7 @@
       if (this.hp < 50) this.hpUnder50Time += dt;
     }
 
-    // ✅ FIX: alias ให้ไม่พัง (แก้ error ที่คุณเจอ)
+    // ✅ FIX: alias ให้แน่นอน
     _updateAI(songTime) {
       this._aiTick(songTime);
     }
@@ -351,7 +329,6 @@
 
       this.aiState = state;
 
-      // HUD
       const h = this.hud || {};
       if (h.aiFatigue) h.aiFatigue.textContent = Math.round((state.fatigueRisk || 0) * 100) + '%';
       if (h.aiSkill)   h.aiSkill.textContent   = Math.round((state.skillScore || 0) * 100) + '%';
@@ -361,13 +338,11 @@
         h.aiTip.classList.toggle('hidden', !state.tip);
       }
 
-      // hook
       if (this.hooks && typeof this.hooks.onAIUpdate === 'function') {
         const locked = (ai.api && typeof ai.api.isLocked === 'function') ? !!ai.api.isLocked() : false;
         this.hooks.onAIUpdate(state, snap, { allowAdapt: !!ai.allowAdapt, locked });
       }
 
-      // Apply assist ONLY when enabled (normal + ?ai=1)
       if (ai.allowAdapt) this._applyAIDirector(state);
     }
 
@@ -521,8 +496,6 @@
 
       this.offsets.push(dt);
       this.offsetsAbs.push(abs);
-      if (dt < 0) this.earlyHits++; else this.lateHits++;
-      if (side === 'L') this.leftHits++; else if (side === 'R') this.rightHits++;
 
       if (judgment === 'perfect') this.hitPerfect++;
       else if (judgment === 'great') this.hitGreat++;
