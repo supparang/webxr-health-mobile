@@ -1,4 +1,5 @@
-// === js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// Classic Script (NO export)
 'use strict';
 
 (function () {
@@ -24,7 +25,6 @@
   const trackLabels   = $$('#rb-track-options .rb-mode-btn');
   const modeDescEl    = $('#rb-mode-desc');
   const trackModeLbl  = $('#rb-track-mode-label');
-  const trackHintEl   = null; // (เวอร์ชันนี้ใส่ how-to ใน card แล้ว)
   const researchBox   = $('#rb-research-fields');
 
   // ฟอร์มวิจัย
@@ -57,6 +57,7 @@
     feverStatus:  $('#rb-fever-status'),
     progFill:     $('#rb-progress-fill'),
     progText:     $('#rb-progress-text'),
+
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
@@ -111,7 +112,7 @@
       modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
       trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      researchBox.classList.add('hidden');
+      if (researchBox) researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -123,9 +124,9 @@
 
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction แต่ล็อกไม่ให้ปรับเกม 100%)';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
-      researchBox.classList.remove('hidden');
+      if (researchBox) researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -161,7 +162,10 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd }
+      hooks: {
+        onEnd: handleEngineEnd,
+        onAI: handleAIUpdate
+      }
     });
   }
 
@@ -174,8 +178,8 @@
 
     wrap.dataset.diff = cfg.diff;
 
-    hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
-    hud.track.textContent = cfg.labelShort;
+    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    if (hud.track) hud.track.textContent = cfg.labelShort;
 
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
@@ -217,17 +221,24 @@
     switchView('result');
   }
 
-
   function handleAIUpdate(ai){
     if (!ai || !hud) return;
+
+    // แสดง prediction เสมอ
     if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
     if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
     if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+
     if (hud.aiTip){
       hud.aiTip.textContent = ai.tip || '';
-      hud.aiTip.classList.toggle('hidden', !ai.tip);
+      const show = !!ai.tip;
+      hud.aiTip.classList.toggle('hidden', !show);
     }
+
+    // (optional) ถ้าอยากให้บอกสถานะ assist/lock บน UI เพิ่มทีหลังได้
+    // ai.locked / ai.assistEnabled ถูกส่งมาจาก engine แล้ว
   }
+
   function downloadCsv(csvText, filename) {
     if (!csvText) return;
     const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
@@ -257,7 +268,7 @@
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // ==== apply mode from URL (?mode=research|play) ====
+  // ==== apply mode from URL (?mode=research|play|normal) ====
   (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
@@ -271,7 +282,6 @@
       }
     }catch(_){}
   })();
-
 
   updateModeUI();
   switchView('menu');
