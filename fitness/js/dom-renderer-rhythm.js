@@ -1,4 +1,3 @@
-// === js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
 'use strict';
 
 (function(){
@@ -11,7 +10,6 @@
     }
 
     _screenPosFromLane(lane){
-      // เอา center ของ lane มาเป็นตำแหน่ง FX
       const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
       if(!laneEl){
         const r = this.wrapEl.getBoundingClientRect();
@@ -19,7 +17,6 @@
       }
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
-      // เส้นตีอยู่เหนือ label นิดหน่อย (~42px จาก bottom)
       const y = rect.top + rect.height - 42;
       return { x, y };
     }
