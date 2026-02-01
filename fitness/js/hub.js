@@ -1,31 +1,52 @@
+/* /fitness/js/hub.js — Mode toggle + routing (Hub) */
 'use strict';
 
 (function(){
-  const modeNormal = document.getElementById('mode-normal');
-  const modeResearch = document.getElementById('mode-research');
-  const modeDesc = document.getElementById('mode-desc');
+  const $ = (id)=>document.getElementById(id);
 
-  function setMode(m){
-    modeNormal?.classList.toggle('active', m === 'normal');
-    modeResearch?.classList.toggle('active', m === 'research');
-    if (modeDesc) {
-      modeDesc.textContent = (m === 'research')
-        ? 'Research: ใช้สำหรับเก็บข้อมูล (ต้องกรอกข้อมูลผู้เข้าร่วมในหน้าเกม)'
+  const btnNormal = $('mode-normal');
+  const btnResearch = $('mode-research');
+  const desc = $('mode-desc');
+
+  const MODE_KEY = 'VRFIT_MODE';
+  const getMode = ()=> (localStorage.getItem(MODE_KEY) || 'normal');
+  const setMode = (m)=> localStorage.setItem(MODE_KEY, m);
+
+  function applyMode(m){
+    if(btnNormal) btnNormal.classList.toggle('active', m==='normal');
+    if(btnResearch) btnResearch.classList.toggle('active', m==='research');
+
+    if(desc){
+      desc.textContent = (m==='research')
+        ? 'Research: สำหรับเก็บข้อมูล (Session / Event CSV) — กรุณากรอก Participant/Group ในเกมที่รองรับ'
         : 'Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
     }
   }
 
-  modeNormal?.addEventListener('click', ()=>setMode('normal'));
-  modeResearch?.addEventListener('click', ()=>setMode('research'));
+  function go(game){
+    const m = getMode();
+    const map = {
+      shadow: './shadow-breaker.html?mode='+m+'&from=hub',
+      'shadow-vr': './shadow-breaker.html?mode='+m+'&view=vr&from=hub',
+      rhythm: './rhythm.html?mode='+m+'&from=hub',
+      jump: './jump-duck.html?mode='+m+'&from=hub',
+      balance: './balance-hold.html?mode='+m+'&from=hub'
+    };
+    const url = map[game];
+    if(url) location.href = url;
+  }
 
-  document.querySelectorAll('[data-game]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const g = btn.getAttribute('data-game');
-      if (g === 'shadow' || g === 'shadow-vr') location.href = './shadow-breaker.html';
-      if (g === 'rhythm') alert('Rhythm Boxer: ยังไม่ปล่อยในชุดนี้');
-      if (g === 'jump') alert('Jump-Duck: ยังไม่ปล่อยในชุดนี้');
-    });
+  // bind
+  if(btnNormal) btnNormal.addEventListener('click', ()=>{ setMode('normal'); applyMode('normal'); });
+  if(btnResearch) btnResearch.addEventListener('click', ()=>{ setMode('research'); applyMode('research'); });
+
+  document.addEventListener('click', (e)=>{
+    const t = e.target.closest('[data-game]');
+    if(!t) return;
+    const key = t.getAttribute('data-game');
+    if(t.classList.contains('btn-disabled')) return;
+    go(key);
   });
 
-  setMode('normal');
+  applyMode(getMode());
 })();
