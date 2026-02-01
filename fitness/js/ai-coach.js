@@ -1,36 +1,27 @@
+// === /fitness/js/ai-coach.js ===
+// Explainable micro-tips (rate-limited)
+
 'use strict';
 
-/**
- * ai-coach.js
- * - “Explainable micro-tips” แบบ rate-limit
- * - ใช้กับ Play mode เพื่อความสนุก/แนะแนว
- */
-
 export class AICoach {
-  constructor(){
+  constructor() {
+    this.lastTip = '';
+    this.cooldownMs = 1600;
     this.lastAt = 0;
-    this.cooldownMs = 1400;
   }
 
-  canSpeak(now){
-    return (now - this.lastAt) >= this.cooldownMs;
-  }
+  maybeTip(pred, snap) {
+    const now = performance.now();
+    if (now - this.lastAt < this.cooldownMs) return '';
 
-  pickTip(pred, extraTips){
-    // pred: {risk, focus, hint}
-    const tips = [];
-    if(pred && pred.hint) tips.push(pred.hint);
-    if(Array.isArray(extraTips)) tips.push(...extraTips);
+    const tip = String(pred?.tip || '').trim();
+    if (!tip) return '';
 
-    if(!tips.length) return '';
-    // simple rotate
-    const i = Math.floor(Math.random() * tips.length);
-    return tips[i];
-  }
+    // avoid repeating the exact same tip too frequently
+    if (tip === this.lastTip && (now - this.lastAt) < 4000) return '';
 
-  speak(now, pred, extraTips){
-    if(!this.canSpeak(now)) return '';
+    this.lastTip = tip;
     this.lastAt = now;
-    return this.pickTip(pred, extraTips);
+    return tip;
   }
 }
