@@ -1,11 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION (FULL) — v2.1 + PATCH (water gauge + Storm LOW/HIGH)
-// ✅ Storm: หลุด GREEN ง่ายขึ้น + ยิง 💧 แล้วดันไป LOW/HIGH ตามคำสั่ง
-// ✅ Added: stormTargetCenter(), nudgeToward(), Storm drift
-// ✅ TUNE: nudgeToMid ลดลง, badPush เพิ่มขึ้น
+// Hydration SAFE — PRODUCTION (FULL) — Hardened for missing layers
+// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
-// ✅ FIX: nextSpawnDelay declared once
-// ✅ FIX: Water gauge won't duplicate if page has its own water panel
+// ✅ HARDEN: auto-create playfield/layers if missing (prevents "targets not showing")
 
 'use strict';
 
@@ -68,25 +66,128 @@ async function copyToClipboard(text){
   return false;
 }
 
-// -------------------- View / layers --------------------
+// -------------------- HARDEN LAYERS --------------------
+function ensureBanner(msg){
+  try{
+    let b = DOC.getElementById('hha-hydration-banner');
+    if (!b){
+      b = DOC.createElement('div');
+      b.id='hha-hydration-banner';
+      b.style.cssText = [
+        'position:fixed','left:12px','top:12px','z-index:9999',
+        'padding:10px 12px','border-radius:14px',
+        'background:rgba(239,68,68,.14)','border:1px solid rgba(239,68,68,.25)',
+        'color:rgba(229,231,235,.95)','font:600 12px system-ui',
+        'backdrop-filter:blur(10px)','max-width:min(560px, calc(100vw - 24px))',
+        'pointer-events:none','white-space:pre-line'
+      ].join(';');
+      DOC.body.appendChild(b);
+    }
+    b.textContent = msg;
+  }catch(_){}
+}
+
+function ensureEl(tag,id,parent){
+  let el = DOC.getElementById(id);
+  if (el) return el;
+  el = DOC.createElement(tag);
+  el.id = id;
+  parent.appendChild(el);
+  return el;
+}
+
 function isCardboard(){
   try{ return DOC.body.classList.contains('cardboard'); }catch(_){ return false; }
 }
 function isCVR(){
   try{ return DOC.body.classList.contains('view-cvr'); }catch(_){ return false; }
 }
+
+function ensureLayersHard(){
+  try{
+    // playfield container
+    const pf = DOC.getElementById('playfield') || ensureEl('div','playfield', DOC.body);
+    if (!pf.style.position){
+      pf.style.position='fixed';
+      pf.style.inset='0';
+      pf.style.zIndex='10';
+      pf.style.overflow='hidden';
+      pf.style.touchAction='manipulation';
+    }
+
+    const cb = DOC.getElementById('cbPlayfield') || ensureEl('div','cbPlayfield', DOC.body);
+    if (!cb.style.position){
+      cb.style.position='fixed';
+      cb.style.inset='0';
+      cb.style.zIndex='10';
+      cb.style.overflow='hidden';
+      cb.style.display='none';
+    }
+
+    const main = DOC.getElementById('hydration-layer') || ensureEl('div','hydration-layer', pf);
+    if (!main.style.position){
+      main.style.position='absolute';
+      main.style.inset='0';
+      main.style.pointerEvents='auto';
+    }
+
+    // cardboard halves if needed (safe even if not used)
+    let left = cb.querySelector('.cbHalf.left');
+    if (!left){
+      left = DOC.createElement('div');
+      left.className='cbHalf left';
+      cb.appendChild(left);
+    }
+    let right = cb.querySelector('.cbHalf.right');
+    if (!right){
+      right = DOC.createElement('div');
+      right.className='cbHalf right';
+      cb.appendChild(right);
+    }
+    if (!left.style.position){
+      left.style.position='absolute'; left.style.top='0'; left.style.bottom='0'; left.style.left='0';
+      left.style.width='50%'; left.style.overflow='hidden'; left.style.pointerEvents='auto';
+    }
+    if (!right.style.position){
+      right.style.position='absolute'; right.style.top='0'; right.style.bottom='0'; right.style.right='0';
+      right.style.width='50%'; right.style.overflow='hidden'; right.style.pointerEvents='auto';
+    }
+
+    const L = DOC.getElementById('hydration-layerL') || ensureEl('div','hydration-layerL', left);
+    const R = DOC.getElementById('hydration-layerR') || ensureEl('div','hydration-layerR', right);
+    if (!L.style.position){ L.style.position='absolute'; L.style.inset='0'; L.style.pointerEvents='auto'; }
+    if (!R.style.position){ R.style.position='absolute'; R.style.inset='0'; R.style.pointerEvents='auto'; }
+
+    // keep HHA_VIEW.layers consistent
+    const cfg = ROOT.HHA_VIEW || (ROOT.HHA_VIEW = {});
+    if (isCardboard()){
+      cfg.layers = ['hydration-layerL','hydration-layerR'];
+      pf.style.display='none';
+      cb.style.display='block';
+    } else {
+      cfg.layers = ['hydration-layer'];
+      pf.style.display='block';
+      cb.style.display='none';
+    }
+  }catch(_){}
+}
+
 function getLayers(){
+  ensureLayersHard();
+
   const cfg = ROOT.HHA_VIEW;
   if (cfg && Array.isArray(cfg.layers) && cfg.layers.length){
     const arr = cfg.layers.map(id=>DOC.getElementById(id)).filter(Boolean);
     if (arr.length) return arr;
   }
+
   const main = DOC.getElementById('hydration-layer');
   const L = DOC.getElementById('hydration-layerL');
   const R = DOC.getElementById('hydration-layerR');
   if (isCardboard() && L && R) return [L,R];
   return [main].filter(Boolean);
 }
+
 function getPlayfieldEl(){
   return isCardboard() ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
 }
@@ -100,7 +201,7 @@ function centerPoint(){
   return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
 }
 
-// -------------------- FX Helpers (Particles + DOM shock) --------------------
+// -------------------- FX Helpers --------------------
 function pulseBody(cls, ms=140){
   try{
     DOC.body.classList.add(cls);
@@ -134,7 +235,7 @@ function popScore(text='+10'){
   pulseBody('hha-hitfx', 140);
 }
 
-// -------------------- Audio tick (no file needed) --------------------
+// -------------------- Audio tick --------------------
 let AC=null;
 function ensureAC(){
   try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
@@ -166,7 +267,7 @@ const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 const logEndpoint = String(qs('log','') || '');
 
-// RNG deterministic-ish
+// RNG
 function hashStr(s){
   s=String(s||''); let h=2166136261;
   for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -187,7 +288,6 @@ const rng = makeRng(seed);
 const S = {
   started:false,
   ended:false,
-  t0:0,
   lastTick:0,
   leftSec: timeLimit,
 
@@ -207,7 +307,7 @@ const S = {
   streakGood:0,
   streakMax:0,
 
-  waterPct:55,
+  waterPct:50,
   waterZone:'GREEN',
 
   shield:0,
@@ -215,16 +315,10 @@ const S = {
 
   greenHold:0,
 
-  // Storm/Mini
   stormActive:false,
   stormLeftSec:0,
   stormCycle:0,
   stormSuccess:0,
-
-  // ✅ Storm side target
-  stormTargetZone:'LOW', // 'LOW' | 'HIGH'
-  stormTargetLabel:'LOW',
-  stormOrderShown:false,
 
   endWindowSec:1.2,
   inEndWindow:false,
@@ -239,23 +333,20 @@ const S = {
     gotHitByBad:false
   },
 
-  // Boss-mini
   bossEnabled:true,
   bossActive:false,
-  bossNeed:1,
+  bossNeed:2,
   bossBlocked:0,
   bossDoneThisStorm:false,
   bossWindowSec:2.2,
   bossClearCount:0,
 
-  // End window fx
   endFxOn:false,
   endFxTickAt:0,
 
   adaptiveOn: (run !== 'research'),
   adaptK:0,
 
-  // Mission stage
   stage:1,
   stage1Done:false,
   stage2Done:false,
@@ -263,74 +354,42 @@ const S = {
 };
 
 const TUNE = (() => {
-  const sizeBase = diff==='easy' ? 80 : diff==='hard' ? 58 : 68;
-  const spawnBaseMs = diff==='easy' ? 700 : diff==='hard' ? 500 : 600;
-
+  const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
+  const spawnBaseMs = diff==='easy' ? 680 : diff==='hard' ? 480 : 580;
   const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
-  const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.3 : 5.8;
+  const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
 
-  // ✅ Stage1 ผ่านง่ายขึ้นนิด
   const greenTarget = clamp(
-    Math.round(timeLimit * (diff==='easy' ? 0.40 : diff==='hard' ? 0.52 : 0.45)),
-    16,
-    Math.max(16, timeLimit-8)
+    Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
+    18,
+    Math.max(18, timeLimit-8)
   );
 
   return {
     sizeBase,
     spawnBaseMs,
-    spawnJitter:175,
-    goodLifeMs: diff==='hard'? 960 : 1100,
-    badLifeMs:  diff==='hard'? 1020 : 1160,
-    shieldLifeMs:1400,
-
+    spawnJitter:170,
+    goodLifeMs: diff==='hard'? 930 : 1080,
+    badLifeMs:  diff==='hard'? 980 : 1120,
+    shieldLifeMs:1350,
     stormEverySec,
     stormDurSec,
-
-    stormSpawnMul: diff==='hard'? 0.58 : 0.66,
-    endWindowSec:1.25,
-
-    // ✅ คุมน้ำง่ายขึ้น (PATCH)
-    nudgeToMid: 4.8,
-    badPush:    7.0,
-
+    stormSpawnMul: diff==='hard'? 0.56 : 0.64,
+    endWindowSec:1.2,
+    bossWindowSec: diff==='hard'? 2.4 : 2.2,
+    nudgeToMid:5.0,
+    badPush:8.0,
     missPenalty:1,
     greenTargetSec: greenTarget,
-
-    // ✅ Pressure ต้องการน้อยลงนิด
-    pressureNeed: diff==='easy' ? 0.68 : diff==='hard' ? 0.92 : 0.82
+    pressureNeed: diff==='easy' ? 0.75 : diff==='hard' ? 1.0 : 0.9
   };
 })();
 S.endWindowSec = TUNE.endWindowSec;
+S.bossWindowSec = TUNE.bossWindowSec;
 
 // -------------------- Water helpers --------------------
 function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
-
-// ✅ PATCH: helpers for Storm LOW/HIGH steering
-function stormTargetCenter(){
-  // ✅ เลือกค่า "กลางโซน" ที่อยากให้ไปอยู่ระหว่าง Storm
-  // ปรับได้ตามนิยาม zoneFrom() ของคุณ (ตอนนี้ตั้งเป็น LOW≈25, HIGH≈85)
-  return (S.stormTargetZone === 'LOW') ? 25 : 85;
-}
-function nudgeToward(target, step){
-  const d = target - S.waterPct;
-  const s = Math.sign(d) * Math.min(Math.abs(d), step);
-  S.waterPct = clamp(S.waterPct + s, 0, 100);
-  updateZone();
-}
-
 function nudgeWaterGood(){
-  if (S.stormActive){
-    // ✅ PATCH: ตอน Storm ยิง 💧 ต้องช่วยพาไป LOW/HIGH ตามคำสั่ง (ไม่ดูดกลับ GREEN)
-    const step =
-      diff==='easy' ? 11 :
-      diff==='hard' ? 8 : 9;
-
-    nudgeToward(stormTargetCenter(), step);
-    return;
-  }
-
-  // ปกติ: ค่อย ๆ ดันกลับ mid เพื่อคุมให้อยู่โซนปลอดภัย
   const mid=55, d=mid - S.waterPct;
   const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
@@ -380,7 +439,6 @@ function setStage(n){
 
 function syncHUD(){
   const grade = computeGrade();
-
   setText('stat-score', S.score|0);
   setText('stat-combo', S.combo|0);
   setText('stat-miss', S.misses|0);
@@ -389,7 +447,6 @@ function syncHUD(){
   setText('storm-left', S.stormActive ? (S.stormLeftSec|0) : 0);
   setText('shield-count', S.shield|0);
 
-  // Stage logic
   S.stage1Done = (S.greenHold >= TUNE.greenTargetSec);
   S.stage2Done = (S.stormSuccess >= 1);
   S.stage3Done = (S.bossClearCount >= 1);
@@ -398,35 +455,31 @@ function syncHUD(){
   else if (!S.stage2Done) setStage(2);
   else if (!S.stage3Done) setStage(3);
 
-  // Stage text
   if (S.stage === 1){
     setText('quest-line1', `Stage 1/3: คุม GREEN ให้ครบ ${TUNE.greenTargetSec|0}s (สะสม)`);
     setText('quest-line2', `GREEN: ${S.greenHold.toFixed(1)} / ${TUNE.greenTargetSec.toFixed(0)}s`);
-    setText('quest-line3', `ทิป: ยิง 💧 ให้แม่น แล้วคอมโบจะช่วยคุมเกจง่ายขึ้น`);
+    setText('quest-line3', `ทิป: ยิง 💧 ให้คุมสมดุลน้ำให้อยู่ GREEN นาน ๆ`);
     setText('quest-line4', `เตรียม: เก็บ 🛡️ ไว้ทำ Storm Mini`);
   } else if (S.stage === 2){
     setText('quest-line1', `Stage 2/3: ผ่าน Storm Mini อย่างน้อย 1 พายุ`);
     setText('quest-line2', `Mini ผ่านแล้ว: ${S.stormSuccess|0} / 1`);
-
     if (S.stormActive){
       const m = S.miniState;
-      const tgt = (S.stormTargetZone==='LOW') ? 'LOW (น้ำต่ำ)' : 'HIGH (น้ำสูง)';
       const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
-      setText('quest-line3', `Storm: ไปที่ ${tgt} + สะสม Pressure + BLOCK ท้ายพายุ${bossTxt}`);
+      setText('quest-line3', `Storm Mini: LOW/HIGH + BLOCK${bossTxt}`);
       setText('quest-line4',
-        `Mini: zone=${m.zoneOK?'OK':'..'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
+        `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
         + (m.gotHitByBad ? ' • FAIL: HIT BAD' : '')
       );
     } else {
-      setText('quest-line3', `รอ Storm… เก็บ 🛡️ แล้วเตรียมทำคำสั่ง LOW/HIGH`);
+      setText('quest-line3', `รอ Storm… เก็บ 🛡️ แล้วเตรียม BLOCK ช่วงท้าย`);
       setText('quest-line4', `Progress: ${S.stormSuccess|0}/${S.stormCycle|0} (ผ่าน/เจอพายุ)`);
     }
   } else {
     setText('quest-line1', `Stage 3/3: เคลียร์ BOSS (BLOCK 🌩️ ให้ครบ ${S.bossNeed|0})`);
     setText('quest-line2', `Boss Clear: ${S.bossClearCount|0} / 1`);
-
     if (S.bossEnabled && S.bossActive){
-      setText('quest-line3', `BOSS WINDOW! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK 🌩️ ให้ครบ`);
+      setText('quest-line3', `BOSS WINDOW! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบ`);
       setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${S.bossNeed|0} (รอบนี้)`);
     } else {
       setText('quest-line3', `รอช่วงท้ายพายุ (Boss Window) แล้วค่อย BLOCK 🌩️`);
@@ -434,8 +487,7 @@ function syncHUD(){
     }
   }
 
-  // external water utility (will no-op if gauge not created)
-  try{ setWaterGauge(S.waterPct); }catch(_){}
+  setWaterGauge(S.waterPct);
   syncWaterPanelDOM();
 
   emit('hha:score', {
@@ -453,8 +505,7 @@ function syncHUD(){
     stormCycles:S.stormCycle|0,
     stormSuccess:S.stormSuccess|0,
     bossClearCount:S.bossClearCount|0,
-    stage:S.stage|0,
-    stormTargetZone:S.stormTargetZone
+    stage:S.stage|0
   });
 
   emit('quest:update', {
@@ -490,32 +541,14 @@ function syncHUD(){
     pointer-events:auto;
     cursor:pointer;
     will-change: transform, filter, opacity;
+    z-index: 20;
   }
   .hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
   .hvr-target.bossbad{
-    outline: 2px dashed rgba(239,68,68,.40);
-    box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 26px rgba(239,68,68,.12);
-  }
-  body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
-    animation: hhaBlink .22s alternate infinite;
-  }
-  body.hha-endfx{ animation: hhaShake .18s linear infinite; }
-  body.hha-bossfx .hvr-target.bossbad{ filter: drop-shadow(0 0 10px rgba(239,68,68,.18)); }
-  .hha-shock{
-    position:absolute; left:var(--x); top:var(--y);
-    width:18px; height:18px; transform:translate(-50%,-50%);
-    border-radius:999px; border:2px solid rgba(239,68,68,.55);
-    animation:hhaShock .52s ease-out forwards;
-    pointer-events:none;
-  }
-  @keyframes hhaShock{ from{opacity:1; transform:translate(-50%,-50%) scale(1);} to{opacity:0; transform:translate(-50%,-50%) scale(3.1);} }
-  @keyframes hhaBlink{ from{filter:brightness(1);} to{filter:brightness(1.25);} }
-  @keyframes hhaShake{
-    0%{transform:translate(0,0)} 25%{transform:translate(1px,-1px)}
-    50%{transform:translate(-1px,1px)} 75%{transform:translate(1px,1px)}
-    100%{transform:translate(0,0)}
+    outline: 2px dashed rgba(239,68,68,.35);
+    box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
   }`;
   DOC.head.appendChild(st);
 })();
@@ -541,10 +574,10 @@ function targetSize(){
     const c = clamp(S.combo/20, 0, 1);
     const k = clamp(acc*0.7 + c*0.3, 0, 1);
     S.adaptK = k;
-    s = s * (1.02 - 0.20*k);
+    s = s * (1.02 - 0.22*k);
   }
-  if (S.stormActive) s *= (diff==='hard'?0.80:0.84);
-  return clamp(s,46,88);
+  if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
+  return clamp(s,44,86);
 }
 
 let lastHitAt=0;
@@ -552,8 +585,16 @@ const HIT_COOLDOWN_MS=55;
 
 function spawn(kind){
   if (S.ended) return;
+
   const layers = getLayers();
-  if (!layers.length) return;
+  if (!layers.length){
+    ensureBanner(
+      '⚠️ Hydration: ไม่พบ layer สำหรับ spawn เป้า\n' +
+      'เช็กว่า #hydration-layer / #hydration-layerL,R อยู่ใน DOM\n' +
+      'ตอนนี้ระบบพยายามสร้างให้แล้ว แต่ยังหาไม่เจอ'
+    );
+    return;
+  }
 
   const { xPct, yPct } = pickXY();
   const s = targetSize();
@@ -686,42 +727,23 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Spawn loop timing (DECLARED ONCE ✅) --------------------
+// -------------------- Storm + spawn loop --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-  if (S.adaptiveOn) base *= (1.00 - 0.24*S.adaptK);
+  if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
-  return clamp(base, 220, 1250);
+  return clamp(base, 210, 1200);
 }
-
-// -------------------- Progressive Boss --------------------
-function bossLevel(){
-  const lvl = 1 + Math.floor((Math.max(0, S.stormCycle - 1))/2) + Math.min(1, S.bossClearCount|0);
-  return clamp(lvl, 1, 4);
-}
-function bossNeedForLevel(lvl){
-  return clamp(1 + (lvl>=2?1:0) + (lvl>=3?1:0) + (lvl>=4?1:0), 1, 4);
-}
-function bossWindowForLevel(lvl){
-  const base = (diff==='hard'? 2.35 : 2.20);
-  return clamp(base - 0.12*(lvl-1), 1.75, 2.35);
-}
-
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
   if (S.stormActive){
-    pGood=0.54; pBad=0.36; pSh=0.10;
-
+    pGood=0.52; pBad=0.38; pSh=0.10;
     if (S.bossEnabled && S.bossActive){
-      const lvl = bossLevel();
-      const extra = 0.08 + 0.04*(lvl-1);
-      pBad += extra;
-      pGood -= extra;
-      pSh += (lvl>=3 ? 0.02 : 0);
+      pBad += 0.10;
+      pGood -= 0.10;
     }
   }
-
   if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
 
   const r=rng();
@@ -741,10 +763,6 @@ function enterStorm(){
   S.stormLeftSec=TUNE.stormDurSec;
   S.stormCycle++;
 
-  S.stormTargetZone = (rng()<0.5 ? 'LOW' : 'HIGH');
-  S.stormTargetLabel = (S.stormTargetZone==='LOW') ? 'LOW (น้ำต่ำ)' : 'HIGH (น้ำสูง)';
-  S.stormOrderShown = false;
-
   S.miniState = {
     zoneOK:false,
     pressure:0,
@@ -755,30 +773,19 @@ function enterStorm(){
     gotHitByBad:false
   };
 
-  const lvl = bossLevel();
-  S.bossNeed = bossNeedForLevel(lvl);
-  S.bossWindowSec = bossWindowForLevel(lvl);
-
   S.bossActive=false;
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
-  // ✅ PATCH: Force move ออกจาก GREEN เพื่อให้ทำ LOW/HIGH ได้จริง
-  const target = stormTargetCenter();
-  const kick =
-    diff==='easy' ? 18 :
-    diff==='hard' ? 14 : 16;
-
-  if (Math.abs(S.waterPct - 55) < 8){
-    nudgeToward(target, kick);
-  } else {
-    nudgeToward(target, kick * 0.8);
+  if (S.waterZone==='GREEN'){
+    S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -7 : +7), 0, 100);
+    updateZone();
   }
 
   setEndFx(false);
   S.endFxTickAt = 0;
 
-  emit('hha:judge', { kind:'storm', target:S.stormTargetZone });
+  emit('hha:judge', { kind:'storm' });
   syncHUD();
 }
 
@@ -832,10 +839,10 @@ function tickStorm(dt){
     setEndFx(true);
     const now = performance.now();
     const rate = clamp(S.stormLeftSec / TUNE.endWindowSec, 0, 1);
-    const interval = 330 - 200*(1-rate);
+    const interval = 320 - 190*(1-rate);
     if (now - S.endFxTickAt > interval){
       S.endFxTickAt = now;
-      tickBeep(900 + (1-rate)*520, 0.04, 0.05);
+      tickBeep(900 + (1-rate)*500, 0.04, 0.05);
     }
   } else {
     setEndFx(false);
@@ -845,21 +852,10 @@ function tickStorm(dt){
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
   DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
 
-  // ✅ PATCH: Drift ระหว่าง Storm กันค้าง GREEN + ทำให้โซน “ขยับจริง”
-  const driftPerSec =
-    diff==='easy' ? 6.0 :
-    diff==='hard' ? 4.5 : 5.2;
-
-  if (!S.inEndWindow){
-    const dir = (S.stormTargetZone==='LOW') ? -1 : +1;
-    S.waterPct = clamp(S.waterPct + dir * driftPerSec * dt, 0, 100);
-    updateZone();
-  }
-
-  const zoneOK = (S.waterZone === S.stormTargetZone);
+  const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  const gain = zoneOK ? 1.25 : 0.18;
+  const gain = zoneOK ? 1.05 : 0.25;
   S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
 
@@ -903,7 +899,7 @@ function buildTips(sum){
 
   tips.push(goalsOk ? '✅ Stage1 ผ่านแล้ว (คุม GREEN ได้ดี)' : '🎯 Stage1: โฟกัสคุม GREEN ให้ผ่านก่อน');
   if (cycles<=0) tips.push('🌀 ยังไม่เจอพายุ: เล่นต่ออีกนิด จะมี STORM ให้ทำ Mini');
-  else if (ok<=0) tips.push('🌀 Stage2: ตอน Storm ต้องทำ LOW/HIGH ให้ตรงคำสั่ง + สะสม Pressure + BLOCK ช่วงท้าย และห้ามโดน BAD');
+  else if (ok<=0) tips.push('🌀 Stage2: STORM ต้องทำ “LOW/HIGH” + BLOCK ช่วงท้าย (End Window) และห้ามโดน BAD');
   else tips.push(`🔥 Stage2 ผ่านแล้ว: ผ่าน Mini ${ok}/${cycles} พายุ`);
 
   tips.push(boss>0 ? '🌩️ Stage3 ผ่านแล้ว: เคลียร์ BOSS สำเร็จ!' : '🌩️ Stage3: รอ Boss Window แล้ว BLOCK 🌩️ ให้ครบ');
@@ -990,7 +986,7 @@ function bindSummaryButtons(){
 const AICOACH = createAICoach({
   emit,
   game:'hydration',
-  cooldownMs: 3000
+  cooldownMs: 2600
 });
 
 // -------------------- Storm schedule --------------------
@@ -1002,7 +998,7 @@ function nextStormSchedule(){
 let spawnTimer=0;
 let nextStormIn=0;
 
-// -------------------- Aim Assist for cVR (crosshair) --------------------
+// -------------------- Aim Assist (cVR) --------------------
 function hitTestAtCenter(lockPx){
   const { cx, cy } = centerPoint();
   const targets = Array.from(DOC.querySelectorAll('.hvr-target'));
@@ -1026,7 +1022,7 @@ function hitTestAtCenter(lockPx){
   return best;
 }
 
-const AIM = { base:58, min:32, max:88, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
+const AIM = { base:56, min:32, max:86, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
 
 function aimLockPx(){
   const accK = clamp(computeAccuracy()/100, 0, 1);
@@ -1105,7 +1101,8 @@ function update(dt){
     waterZone: S.waterZone,
     shield: S.shield|0,
     misses: S.misses|0,
-    combo: S.combo|0
+    combo: S.combo|0,
+    stage: S.stage|0
   });
 
   if (S.leftSec <= 0.0001) endGame('timeup');
@@ -1123,8 +1120,6 @@ async function endGame(reason){
   const cycles = S.stormCycle|0;
   const success = S.stormSuccess|0;
 
-  const played = clamp(timeLimit - S.leftSec, 0, timeLimit);
-
   const summary = {
     timestampIso: qs('timestampIso', new Date().toISOString()),
     projectTag: qs('projectTag','HeroHealth'),
@@ -1134,7 +1129,7 @@ async function endGame(reason){
     diff,
     seed,
     durationPlannedSec: timeLimit,
-    durationPlayedSec: played,
+    durationPlayedSec: timeLimit,
     scoreFinal: S.score|0,
     comboMax: S.comboMax|0,
     misses: S.misses|0,
@@ -1149,8 +1144,6 @@ async function endGame(reason){
 
     bossClearCount: S.bossClearCount|0,
     stageCleared: (S.stage3Done ? 3 : S.stage2Done ? 2 : S.stage1Done ? 1 : 0),
-
-    stormTargetLast: S.stormTargetZone,
 
     accuracyGoodPct: acc,
     grade,
@@ -1171,25 +1164,11 @@ async function endGame(reason){
   fillSummary(summary);
 }
 
-// -------------------- Init / boot --------------------
-function pageHasBuiltInWaterPanel(){
-  return !!(
-    DOC.getElementById('water-bar') ||
-    DOC.getElementById('water-pct') ||
-    DOC.getElementById('water-zone')
-  );
-}
-
 function boot(){
-  // ✅ FIX double gauge: create utility gauge only if page doesn't have its own
-  try{
-    if (!pageHasBuiltInWaterPanel()){
-      ensureWaterGauge();
-    }
-  }catch(_){}
-
+  ensureLayersHard();
+  ensureWaterGauge();
+  setWaterGauge(S.waterPct);
   updateZone();
-  try{ setWaterGauge(S.waterPct); }catch(_){}
   syncWaterPanelDOM();
   bindSummaryButtons();
 
@@ -1199,8 +1178,7 @@ function boot(){
   window.addEventListener('hha:start', ()=>{
     if (S.started) return;
     S.started=true;
-    S.t0=performance.now();
-    S.lastTick=S.t0;
+    S.lastTick=performance.now();
     syncHUD();
     AICOACH.onStart();
 
