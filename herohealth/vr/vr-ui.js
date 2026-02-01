@@ -1,216 +1,272 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — PRODUCTION PATCHED
-// ✅ ENTER VR / EXIT / RECENTER buttons (best effort)
-// ✅ Crosshair overlay
-// ✅ Tap-to-shoot emits: hha:shoot {x,y,lockPx,source}
-// ✅ PATCH: mobile/pc uses touch point (real finger coordinate)
-// ✅ cVR strict uses center crosshair (shoot from center)
-// Config: window.HHA_VRUI_CONFIG = { lockPx: 92, cooldownMs: 90 }
+// Universal VR UI — PRODUCTION (HHA Standard) — PATCH ULTRA AIM-ASSIST
+// ✅ ENTER VR / EXIT / RECENTER buttons
+// ✅ Crosshair overlay + tap-to-shoot => emits: hha:shoot {x,y,lockPx,source}
+// ✅ view=cvr strict: shoot from center screen (crosshair) + lock to nearest target in #playLayer
+// ✅ Aim-assist never locks HUD: restrict to #playLayer only
+// ✅ Config via window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 }
 
 (function(){
   'use strict';
-
   const WIN = window;
   const DOC = document;
 
   if(!DOC || WIN.__HHA_VRUI_LOADED__) return;
   WIN.__HHA_VRUI_LOADED__ = true;
 
-  const CFG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
-  const qs = (s)=>DOC.querySelector(s);
+  // ---------------- config ----------------
+  const CFG = Object.assign({
+    lockPx: 28,
+    cooldownMs: 90,
+    playLayerId: 'playLayer',
+    // include the class names used across HHA games
+    targetSelector: '.tgt,.target,.hha-target,[data-target],[data-group]',
+    // optional: block shots if pointer is outside playLayer (mobile/pc)
+    restrictPointerToPlayLayer: true
+  }, WIN.HHA_VRUI_CONFIG || {});
 
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function nowMs(){ try{ return performance.now(); }catch(_){ return Date.now(); } }
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+
+  function qs(k, d=''){
+    try{ return new URL(location.href).searchParams.get(k) ?? d; }
+    catch(_){ return d; }
+  }
 
   function getView(){
-    try{
-      const v = new URL(location.href).searchParams.get('view');
-      return (v||'').toLowerCase();
-    }catch(_){ return ''; }
+    const v = String(qs('view','')||'').toLowerCase();
+    // do not override if caller forced view; default to mobile
+    return v || 'mobile';
   }
 
-  function isCvrStrict(){
-    const v = getView();
-    return (v === 'cvr'); // strict center shooting only for cvr
+  const VIEW = getView();
+
+  // ---------------- UI mount ----------------
+  function mkEl(tag, css, html){
+    const el = DOC.createElement(tag);
+    if(css) el.style.cssText = css;
+    if(html != null) el.innerHTML = html;
+    return el;
   }
 
-  // ---------------- UI root ----------------
-  const root = DOC.createElement('div');
-  root.id = 'hha-vrui';
-  root.style.cssText = [
-    'position:fixed',
-    'inset:0',
-    'pointer-events:none',
-    'z-index:9998'
-  ].join(';');
+  // Root overlay (pointer-events:none so gameplay layer still tappable)
+  const ui = mkEl('div', [
+    'position:fixed','inset:0','z-index:80','pointer-events:none',
+    'font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif'
+  ].join(';'));
+  DOC.body.appendChild(ui);
 
-  // Crosshair
-  const cross = DOC.createElement('div');
-  cross.id = 'hha-crosshair';
-  cross.style.cssText = [
-    'position:absolute',
-    'left:50%',
-    'top:50%',
-    'width:18px',
-    'height:18px',
+  // Crosshair (for cVR + optional)
+  const cross = mkEl('div', [
+    'position:fixed','left:50%','top:50%',
     'transform:translate(-50%,-50%)',
-    'border:2px solid rgba(255,255,255,.70)',
-    'border-radius:999px',
-    'box-shadow:0 0 0 2px rgba(2,6,23,.35)',
-    'opacity:.85',
+    'width:18px','height:18px','border-radius:999px',
+    'border:2px solid rgba(229,231,235,.85)',
+    'box-shadow:0 10px 26px rgba(0,0,0,.35)',
+    'opacity:' + ((VIEW==='cvr' || VIEW==='vr') ? '1' : '0'),
     'pointer-events:none'
-  ].join(';');
-  root.appendChild(cross);
+  ].join(';'));
+  ui.appendChild(cross);
 
-  // Buttons container
-  const btnWrap = DOC.createElement('div');
-  btnWrap.style.cssText = [
-    'position:absolute',
+  // Button bar (top-right)
+  const bar = mkEl('div', [
+    'position:fixed',
     'top:calc(env(safe-area-inset-top,0px) + 10px)',
     'right:calc(env(safe-area-inset-right,0px) + 10px)',
-    'display:flex',
-    'gap:8px',
-    'pointer-events:auto',
-    'z-index:9999'
-  ].join(';');
+    'display:flex','gap:8px',
+    'pointer-events:auto','z-index:90'
+  ].join(';'));
+  ui.appendChild(bar);
 
   function mkBtn(txt){
-    const b = DOC.createElement('button');
-    b.type = 'button';
-    b.textContent = txt;
-    b.style.cssText = [
+    const b = mkEl('button', [
       'appearance:none',
-      'border:1px solid rgba(148,163,184,.22)',
-      'background:rgba(2,6,23,.55)',
-      'color:rgba(255,255,255,.92)',
       'border-radius:14px',
       'padding:10px 12px',
-      'font:800 12px/1.1 system-ui,-apple-system,"Noto Sans Thai",sans-serif',
-      'backdrop-filter: blur(10px)',
-      'box-shadow:0 10px 30px rgba(0,0,0,.25)',
-      'cursor:pointer'
-    ].join(';');
+      'border:1px solid rgba(148,163,184,.22)',
+      'background:rgba(2,6,23,.68)',
+      'color:rgba(229,231,235,.95)',
+      'font-weight:1000','font-size:12px',
+      'backdrop-filter:blur(10px)',
+      'cursor:pointer','user-select:none'
+    ].join(';'), txt);
+    b.addEventListener('pointerdown', (e)=>{ try{ e.stopPropagation(); }catch(_){ } }, {passive:true});
     return b;
   }
 
   const btnEnter = mkBtn('ENTER VR');
   const btnExit  = mkBtn('EXIT');
-  const btnRec   = mkBtn('RECENTER');
+  const btnRecenter = mkBtn('RECENTER');
 
-  btnWrap.appendChild(btnEnter);
-  btnWrap.appendChild(btnExit);
-  btnWrap.appendChild(btnRec);
-  root.appendChild(btnWrap);
+  bar.appendChild(btnEnter);
+  bar.appendChild(btnExit);
+  bar.appendChild(btnRecenter);
 
-  DOC.body.appendChild(root);
-
-  // ---------------- XR hooks (best effort) ----------------
+  // ---------------- WebXR actions ----------------
   function getScene(){
-    // find a-scene if exists
-    return DOC.querySelector('a-scene');
+    try{
+      // prefer a-scene if exists
+      return DOC.querySelector('a-scene') || null;
+    }catch(_){ return null; }
   }
 
-  btnEnter.addEventListener('click', ()=>{
+  function tryEnterVR(){
     try{
       const sc = getScene();
-      if (sc && sc.enterVR) sc.enterVR();
+      if(sc && sc.enterVR) sc.enterVR();
     }catch(_){}
-  });
+  }
 
-  btnExit.addEventListener('click', ()=>{
+  function tryExitVR(){
     try{
       const sc = getScene();
-      if (sc && sc.exitVR) sc.exitVR();
+      if(sc && sc.exitVR) sc.exitVR();
+      const xr = WIN.navigator && WIN.navigator.xr;
+      // no direct exit here; scene.exitVR is enough for A-Frame
     }catch(_){}
-  });
+  }
 
-  btnRec.addEventListener('click', ()=>{
-    // best-effort: A-Frame has different recenter methods by device; we just emit an event others can listen
+  function tryRecenter(){
+    // A-Frame: emit "recenter" style events if you have hooks; otherwise do safe no-op
     try{
-      WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ t: nowMs() } }));
+      WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ t: nowMs(), view: VIEW } }));
     }catch(_){}
-  });
+  }
 
-  // ---------------- Shooting (PATCH CORE) ----------------
+  btnEnter.addEventListener('click', tryEnterVR);
+  btnExit.addEventListener('click', tryExitVR);
+  btnRecenter.addEventListener('click', tryRecenter);
+
+  // ---------------- Aim Assist (ULTRA) ----------------
+  function getPlayLayer(){
+    try{
+      return DOC.getElementById(CFG.playLayerId) || DOC.querySelector('.playLayer') || null;
+    }catch(_){ return null; }
+  }
+
+  function pointInsideRect(x,y,r){
+    return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+  }
+
+  function lockToNearestTarget(x,y){
+    const lockPx = clamp(CFG.lockPx, 0, 220);
+    if(lockPx <= 0) return { x, y, locked:false };
+
+    const layer = getPlayLayer();
+    if(!layer) return { x, y, locked:false };
+
+    const layerRect = layer.getBoundingClientRect();
+    // if caller wants pointer restricted, don't lock if outside play area
+    if(CFG.restrictPointerToPlayLayer && !pointInsideRect(x,y,layerRect)){
+      return { x, y, locked:false };
+    }
+
+    let best = null;
+    let bestD = 1e9;
+
+    // query only within playLayer => never locks HUD
+    const nodes = layer.querySelectorAll(CFG.targetSelector);
+    for(let i=0;i<nodes.length;i++){
+      const el = nodes[i];
+      if(!el || !el.getBoundingClientRect) continue;
+
+      const r = el.getBoundingClientRect();
+      if(r.width < 6 || r.height < 6) continue;
+
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+
+      // distance to center
+      const dx = (cx - x);
+      const dy = (cy - y);
+      const d = Math.hypot(dx,dy);
+
+      // prefer visible ones
+      if(d < bestD && d <= lockPx){
+        bestD = d;
+        best = { x: cx, y: cy, el };
+      }
+    }
+
+    if(best){
+      return { x: best.x, y: best.y, locked:true, dist: bestD };
+    }
+    return { x, y, locked:false };
+  }
+
+  // ---------------- Shoot emission ----------------
   let lastShotAt = 0;
 
-  function emitShoot(x, y, source){
+  function emitShoot(rawX, rawY, source){
     const t = nowMs();
-    if (t - lastShotAt < CFG.cooldownMs) return;
+    if(t - lastShotAt < clamp(CFG.cooldownMs, 30, 240)) return;
     lastShotAt = t;
 
-    const lockPx = clamp(CFG.lockPx, 10, 220);
+    let x = Number(rawX)||0;
+    let y = Number(rawY)||0;
+
+    // In cVR strict: always shoot from center crosshair
+    if(VIEW === 'cvr'){
+      x = (WIN.innerWidth  || 360) / 2;
+      y = (WIN.innerHeight || 640) / 2;
+    }
+
+    // Aim-assist lock (always tries inside playLayer only)
+    const locked = lockToNearestTarget(x,y);
+    x = locked.x; y = locked.y;
 
     try{
       WIN.dispatchEvent(new CustomEvent('hha:shoot', {
-        detail:{ x, y, lockPx, source: source || 'tap' }
+        detail: {
+          x, y,
+          lockPx: clamp(CFG.lockPx, 0, 220),
+          locked: !!locked.locked,
+          source: source || (VIEW==='cvr' ? 'crosshair' : 'tap'),
+          t
+        }
       }));
     }catch(_){}
   }
 
-  function centerXY(){
-    // use visualViewport if available (mobile browsers)
-    const vv = WIN.visualViewport;
-    const w = vv ? vv.width : WIN.innerWidth;
-    const h = vv ? vv.height : WIN.innerHeight;
-    const ox = vv ? vv.offsetLeft : 0;
-    const oy = vv ? vv.offsetTop : 0;
-    return { x: ox + w/2, y: oy + h/2 };
+  // ---------------- Input hooks ----------------
+  // IMPORTANT: ui is pointer-events:none, so we listen on document/window
+  function onPointerDown(e){
+    // ignore multi-touch / right click
+    if(!e) return;
+    if(typeof e.button === 'number' && e.button > 0) return;
+
+    const x = (typeof e.clientX === 'number') ? e.clientX : 0;
+    const y = (typeof e.clientY === 'number') ? e.clientY : 0;
+
+    // If restrictPointerToPlayLayer, ignore taps outside playLayer (prevents HUD misfire)
+    if(CFG.restrictPointerToPlayLayer){
+      const layer = getPlayLayer();
+      if(layer){
+        const r = layer.getBoundingClientRect();
+        if(!pointInsideRect(x,y,r)) return;
+      }
+    }
+
+    emitShoot(x,y,'pointer');
   }
 
-  function pointFromEvent(ev){
-    // pointer/touch/mouse compatible
-    if (!ev) return null;
-
-    // touch
-    const te = ev.touches && ev.touches[0];
-    const ce = ev.changedTouches && ev.changedTouches[0];
-    const t0 = te || ce;
-    if (t0 && typeof t0.clientX === 'number'){
-      return { x: t0.clientX, y: t0.clientY };
+  // Keyboard fallback (space) => shoot
+  function onKeyDown(e){
+    if(!e) return;
+    const k = String(e.key||'').toLowerCase();
+    if(k === ' ' || k === 'spacebar' || k === 'enter'){
+      emitShoot((WIN.innerWidth||360)/2, (WIN.innerHeight||640)/2, 'key');
     }
-
-    // pointer/mouse
-    if (typeof ev.clientX === 'number'){
-      return { x: ev.clientX, y: ev.clientY };
-    }
-    return null;
   }
 
-  function shouldIgnoreTarget(ev){
-    // ignore clicks on UI buttons
-    const t = ev && ev.target;
-    if (!t) return false;
-    if (t === btnEnter || t === btnExit || t === btnRec) return true;
-    if (t.closest && t.closest('#hha-vrui')) {
-      // if inside vrui and is button area
-      if (t.closest('button')) return true;
-    }
-    return false;
+  // In cVR, you usually want tap-to-shoot anywhere (but still restricted to playLayer by default)
+  DOC.addEventListener('pointerdown', onPointerDown, { passive:true });
+  DOC.addEventListener('keydown', onKeyDown, { passive:true });
+
+  // Optional: show/hide crosshair on view change (if page changes query)
+  function refreshCrosshair(){
+    cross.style.opacity = (VIEW==='cvr' || VIEW==='vr') ? '1' : '0';
   }
-
-  function onShootInput(ev){
-    if (shouldIgnoreTarget(ev)) return;
-
-    // cVR strict: always shoot from center (crosshair)
-    if (isCvrStrict()){
-      const c = centerXY();
-      emitShoot(c.x, c.y, 'cvr-center');
-      return;
-    }
-
-    // mobile/pc: shoot at finger point (PATCH FIX)
-    const p = pointFromEvent(ev);
-    if (!p) {
-      const c = centerXY();
-      emitShoot(c.x, c.y, 'fallback-center');
-      return;
-    }
-    emitShoot(p.x, p.y, 'touch-point');
-  }
-
-  // Use pointer events (best), fallback touch
-  DOC.addEventListener('pointerdown', onShootInput, { passive:true });
-  DOC.addEventListener('touchstart',  onShootInput, { passive:true });
+  refreshCrosshair();
 
 })();
