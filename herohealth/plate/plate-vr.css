@@ -2,6 +2,8 @@
    /herohealth/plate/plate-vr.css
    Balanced Plate VR — UI + FX (PRODUCTION)
    HHA Standard
+   ✅ Spawn safe-rect vars: --plate-*-safe (used by mode-factory.js)
+   ✅ HUD safe area, PC/Mobile/cVR/VR tuning
 ========================================================= */
 
 :root{
@@ -22,17 +24,17 @@
   --radius:18px;
   --pill:999px;
 
-  /* safe area (device) */
+  /* safe area insets */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* ✅ safe margins for spawn system (mode-factory.js reads these) */
-  --plate-top-safe:    calc(var(--sat) + 116px); /* เว้น HUD บน */
-  --plate-bottom-safe: calc(var(--sab) + 18px);
-  --plate-left-safe:   calc(var(--sal) + 14px);
-  --plate-right-safe:  calc(var(--sar) + 14px);
+  /* spawn safe rect (mode-factory.js reads these) */
+  --plate-top-safe: 118px;     /* keep clear of HUD */
+  --plate-bottom-safe: 180px;  /* keep clear of end overlay buttons / bottom UI */
+  --plate-left-safe: 16px;
+  --plate-right-safe: 16px;
 }
 
 /* ---------------------------------------------------------
@@ -50,14 +52,7 @@ html,body{
   font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
 }
 
-/* ---------------------------------------------------------
-   App root
---------------------------------------------------------- */
-#app{
-  position:fixed;
-  inset:0;
-  overflow:hidden;
-}
+#app{ position:relative; width:100%; height:100%; }
 
 /* ---------------------------------------------------------
    Spawn Layer (Targets)
@@ -70,9 +65,8 @@ html,body{
   touch-action:none;
 }
 
-/* ✅ IMPORTANT: left/top work only when absolute */
 .plateTarget{
-  position:absolute; /* ✅ FIX */
+  position:absolute; /* IMPORTANT */
   display:grid;
   place-items:center;
   border-radius:999px;
@@ -108,17 +102,41 @@ html,body{
   animation-duration:1.2s;
 }
 
+.plateTarget .emoji{
+  line-height:1;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+}
+.plateTarget .tag{
+  position:absolute;
+  bottom:-10px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:2px 8px;
+  font-size:11px;
+  font-weight:900;
+  border-radius:999px;
+  background:rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.22);
+  color:rgba(229,231,235,.92);
+  white-space:nowrap;
+  pointer-events:none;
+}
+
+.plateTarget[data-kind="junk"] .tag{
+  background:rgba(239,68,68,.16);
+  border-color:rgba(239,68,68,.30);
+}
+
 @keyframes pop{
   0%{ transform:translate(-50%,-50%) scale(.85); opacity:0 }
   100%{ transform:translate(-50%,-50%) scale(1); opacity:1 }
 }
-
 @keyframes wobble{
-  0%{ transform:translate(-50%,-50%) rotate(0deg) }
-  25%{ transform:translate(-50%,-50%) rotate(1.2deg) }
-  50%{ transform:translate(-50%,-50%) rotate(-1.2deg) }
-  75%{ transform:translate(-50%,-50%) rotate(.8deg) }
-  100%{ transform:translate(-50%,-50%) rotate(0deg) }
+  0%{ rotate:0deg }
+  25%{ rotate:1.2deg }
+  50%{ rotate:-1.2deg }
+  75%{ rotate:.8deg }
+  100%{ rotate:0deg }
 }
 
 /* ---------------------------------------------------------
@@ -126,10 +144,10 @@ html,body{
 --------------------------------------------------------- */
 #hud{
   position:fixed;
-  top: calc(var(--sat) + 12px);
-  left: calc(var(--sal) + 12px);
-  right: calc(var(--sar) + 12px);
-  z-index:40;
+  top:calc(10px + var(--sat));
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  z-index:50;
   pointer-events:none;
   display:flex;
   flex-direction:column;
@@ -145,64 +163,92 @@ html,body{
 .chip{
   pointer-events:none;
   display:flex;
-  flex-direction:column;
-  gap:2px;
+  align-items:baseline;
+  gap:8px;
   padding:8px 10px;
-  border-radius:14px;
-  border:1px solid var(--stroke);
-  background:rgba(15,23,42,.60);
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.20);
+  background:rgba(2,6,23,.62);
+  box-shadow:0 16px 50px rgba(0,0,0,.25);
   backdrop-filter:blur(10px);
-  box-shadow:0 18px 60px rgba(0,0,0,.18);
-  min-width:92px;
+}
+.chip .lbl{
+  font-size:11px;
+  font-weight:900;
+  color:rgba(148,163,184,.92);
+  letter-spacing:.6px;
+}
+.chip .val{
+  font-size:16px;
+  font-weight:1000;
+  color:var(--text);
 }
 
-.chip .lbl{ font-size:11px; opacity:.75; font-weight:900; letter-spacing:.4px; }
-.chip .val{ font-size:16px; font-weight:900; }
+#questCard{
+  pointer-events:none;
+  padding:12px 12px;
+}
 
-.card,.questCard,.panelCard{
+.card{
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--radius);
   box-shadow:0 18px 60px rgba(0,0,0,.28);
   backdrop-filter:blur(10px);
-  pointer-events:none;
-}
-
-#questCard{
-  padding:12px;
-  max-width:520px;
 }
 
 .cardTitle{
   display:flex;
+  align-items:flex-end;
   justify-content:space-between;
-  align-items:flex-start;
   gap:10px;
   margin-bottom:10px;
 }
-.cardTitle .t{ font-weight:900; }
-.cardTitle .hint{ font-size:12px; opacity:.75; }
+.cardTitle .t{
+  font-weight:1000;
+  font-size:14px;
+}
+.cardTitle .hint{
+  font-weight:900;
+  font-size:12px;
+  color:rgba(148,163,184,.95);
+  text-align:right;
+}
 
 .qItem{
   display:flex;
+  align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding:10px;
+  padding:8px 10px;
   border-radius:14px;
-  background:rgba(15,23,42,.40);
-  border:1px solid rgba(148,163,184,.12);
-  margin-top:10px;
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(15,23,42,.45);
+}
+.qItem + .qItem{ margin-top:8px; }
+
+.qText .name{
+  font-weight:1000;
+  font-size:13px;
+}
+.qText .sub{
+  font-weight:800;
+  font-size:12px;
+  color:rgba(148,163,184,.95);
+  margin-top:2px;
 }
 
-.qText .name{ font-weight:900; }
-.qText .sub{ font-size:12px; opacity:.75; margin-top:2px; }
-
-.qProg{ min-width:160px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
-.qNums{ font-size:12px; opacity:.8; font-weight:900; }
+.qProg{ width:min(46%, 260px); }
+.qNums{
+  text-align:right;
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(229,231,235,.92);
+  margin-bottom:6px;
+}
 
 .bar{
   height:10px;
-  width:160px;
   border-radius:999px;
   background:rgba(148,163,184,.12);
   overflow:hidden;
@@ -221,28 +267,34 @@ html,body{
 #coachCard{
   position:fixed;
   left:50%;
-  bottom: calc(var(--sab) + 18px);
+  bottom:calc(18px + var(--sab));
   transform:translateX(-50%);
   z-index:60;
-  max-width:min(720px, calc(100vw - 24px));
-  opacity:0;
   pointer-events:none;
-  transition:opacity .18s ease, transform .18s ease;
+  opacity:0;
+  translate:0 14px;
+  transition:opacity .18s ease, translate .18s ease;
 }
 #coachCard.show{
   opacity:1;
-  transform:translateX(-50%) translateY(-4px);
+  translate:0 0;
 }
 #coachCard .inner{
-  background:rgba(2,6,23,.78);
-  border:1px solid var(--stroke);
-  border-radius:18px;
-  padding:12px 14px;
+  background:rgba(2,6,23,.72);
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:22px;
+  padding:10px 14px;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
   backdrop-filter:blur(10px);
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
+  min-width:min(520px, calc(100vw - 24px));
 }
-#coachMsg{ font-weight:900; }
-#coachMeta{ font-size:12px; opacity:.75; margin-top:4px; }
+#coachMsg{ font-weight:1000; font-size:14px; }
+#coachMeta{
+  margin-top:4px;
+  font-weight:900;
+  font-size:12px;
+  color:rgba(148,163,184,.95);
+}
 
 /* ---------------------------------------------------------
    Boss / Storm FX layers
@@ -254,11 +306,9 @@ html,body{
   z-index:55;
   display:none;
 }
-
 #bossFx.boss-on{
   display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
+  background:radial-gradient(circle at 50% 50%, rgba(167,139,250,.14), transparent 60%);
 }
 #bossFx.boss-panic{ animation:pulseBad .25s infinite; }
 
@@ -281,67 +331,86 @@ html,body{
   position:fixed;
   inset:0;
   z-index:80;
-  display:grid;
-  place-items:center;
-  background:rgba(2,6,23,.72);
-  backdrop-filter:blur(10px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(8px);
 }
-#endOverlay[aria-hidden="true"]{ display:none; }
+#endOverlay[aria-hidden="false"]{ display:flex; }
 
 .endPanel{
-  width:min(760px, calc(100vw - 24px));
-  border-radius:22px;
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.18);
-  box-shadow:0 22px 80px rgba(0,0,0,.38);
-  padding:16px;
+  width:min(720px, 100%);
+  background:rgba(2,6,23,.86);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius:26px;
+  box-shadow:0 24px 90px rgba(0,0,0,.45);
+  padding:16px 16px;
 }
-
-.endTitle{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-.endTitle h2{ margin:0; font-size:18px; font-weight:900; }
-
-.tag{
+.endTitle{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.endTitle h2{
+  margin:0;
+  font-size:18px;
+  font-weight:1100;
+}
+.endTitle .tag{
+  font-weight:1000;
+  font-size:12px;
   padding:6px 10px;
   border-radius:999px;
-  background:rgba(2,6,23,.55);
-  border:1px solid rgba(148,163,184,.18);
-  font-weight:900;
-  font-size:12px;
+  border:1px solid rgba(148,163,184,.20);
+  background:rgba(15,23,42,.55);
+  color:rgba(229,231,235,.92);
 }
 
 .endGrid{
   display:grid;
-  grid-template-columns:repeat(3, 1fr);
+  grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:10px;
-  margin-top:12px;
+  margin:12px 0 14px;
 }
 .kpi{
-  background:rgba(2,6,23,.55);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:16px;
-  padding:10px;
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(15,23,42,.42);
+  padding:10px 10px;
 }
-.kpi .k{ font-size:12px; opacity:.75; font-weight:900; }
-.kpi .v{ font-size:16px; font-weight:900; margin-top:4px; }
+.kpi .k{
+  font-weight:900;
+  font-size:12px;
+  color:rgba(148,163,184,.95);
+}
+.kpi .v{
+  margin-top:6px;
+  font-weight:1100;
+  font-size:18px;
+}
 
 .endBtns{
   display:flex;
-  justify-content:flex-end;
   gap:10px;
-  margin-top:12px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
 }
-
 .btn{
   appearance:none;
   border:none;
   border-radius:999px;
   padding:10px 14px;
-  font-weight:900;
+  font-weight:1000;
   font-size:12px;
   cursor:pointer;
   color:var(--text);
   background:rgba(2,6,23,.70);
   border:1px solid rgba(148,163,184,.22);
+  backdrop-filter:blur(10px);
 }
 .btn.primary{
   background:rgba(34,197,94,.18);
@@ -352,7 +421,42 @@ html,body{
    Responsive tuning
 --------------------------------------------------------- */
 @media (max-width:900px){
+  :root{
+    --plate-top-safe: 170px;
+    --plate-bottom-safe: 220px;
+    --plate-left-safe: 12px;
+    --plate-right-safe: 12px;
+  }
   .plateTarget{ font-size:24px; }
-  #questCard{ max-width:unset; }
-  .endGrid{ grid-template-columns:repeat(2, 1fr); }
+  .endGrid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  #coachCard .inner{ min-width:min(520px, calc(100vw - 18px)); }
 }
+
+@media (max-width:420px){
+  :root{
+    --plate-top-safe: 190px;
+    --plate-bottom-safe: 240px;
+  }
+  .chip .val{ font-size:15px; }
+}
+
+/* ---------------------------------------------------------
+   View modes
+--------------------------------------------------------- */
+body.view-mobile{
+  /* a bit more safe space; mobile HUD tends to be taller */
+  --plate-top-safe: 180px;
+  --plate-bottom-safe: 230px;
+}
+body.view-vr{
+  /* VR: keep center cleaner */
+  --plate-top-safe: 110px;
+  --plate-bottom-safe: 160px;
+}
+body.view-cvr{
+  /* cVR strict: aim by crosshair -> disable pointer events on targets */
+  --plate-top-safe: 110px;
+  --plate-bottom-safe: 160px;
+}
+body.view-cvr #plate-layer{ pointer-events:none; }
+body.view-cvr .plateTarget{ pointer-events:none; }
