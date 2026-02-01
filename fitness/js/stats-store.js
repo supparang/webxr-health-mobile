@@ -1,35 +1,43 @@
-// === /fitness/js/stats-store.js ===
-// Local stats store for VR Fitness Academy
-
 'use strict';
 
-const KEY = 'VRFIT_STATS_V1';
+/**
+ * stats-store.js
+ * - เก็บ session summary แบบ lightweight ลง localStorage
+ * - ไม่บังคับใช้: ถ้า localStorage ใช้ไม่ได้จะไม่พัง
+ */
 
-function safeParse(s){
-  try{ return JSON.parse(s); }catch(_){ return null; }
+const KEY = 'VRFIT_SESSIONS_V1';
+
+function safeParse(s) {
+  try { return JSON.parse(s); } catch { return null; }
 }
 
-export function recordSession(gameKey, summary){
-  const raw = localStorage.getItem(KEY);
-  const obj = safeParse(raw) || { sessions: [] };
-
-  obj.sessions.push({
-    game: gameKey,
-    ...summary
-  });
-
-  // cap
-  if (obj.sessions.length > 500) obj.sessions.splice(0, obj.sessions.length - 500);
-
-  localStorage.setItem(KEY, JSON.stringify(obj));
+function safeStringify(obj) {
+  try { return JSON.stringify(obj); } catch { return ''; }
 }
 
-export function loadSessions(){
-  const raw = localStorage.getItem(KEY);
-  const obj = safeParse(raw) || { sessions: [] };
-  return Array.isArray(obj.sessions) ? obj.sessions : [];
+export function readSessions() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    const arr = safeParse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
 }
 
-export function clearSessions(){
-  localStorage.removeItem(KEY);
+export function recordSession(gameKey, session) {
+  try {
+    const all = readSessions();
+    all.push({ game: gameKey, ...session });
+    // keep last 200
+    while (all.length > 200) all.shift();
+    localStorage.setItem(KEY, safeStringify(all));
+  } catch (e) {
+    // ignore
+  }
+}
+
+export function clearSessions() {
+  try { localStorage.removeItem(KEY); } catch {}
 }
