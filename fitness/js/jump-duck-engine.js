@@ -1,73 +1,68 @@
-// === js/jump-duck-engine.js — Jump Duck Rush engine (research-ready v1) ===
+// === js/jump-duck-engine.js — Jump Duck Rush engine (research-ready v1.1 PATCH) ===
 'use strict';
 
 export function initJumpDuck(opts){
-  const field        = opts.field;
-  const obstaclesHost= opts.obstaclesHost;
-  const avatar       = opts.avatar;
-  const hud          = opts.hud || {};
-  const feedbackEl   = opts.feedbackEl || null;
+  const field         = opts.field;
+  const obstaclesHost = opts.obstaclesHost;
+  const avatar        = opts.avatar;
+  const hud           = opts.hud || {};
+  const feedbackEl    = opts.feedbackEl || null;
 
-  const $fieldHitClass = {
-    hit:  'jd-hit',
-    miss: 'jd-miss'
-  };
+  const $fieldHitClass = { hit:'jd-hit', miss:'jd-miss' };
 
   // ===== CONFIG =====
   const DIFF_CONFIG = {
-    easy: {
-      spawnIntervalMs: 1200,
-      obstacleSpeedPx: 260,   // px/sec
-      hpMiss: 5,
-      feverGainPerCorrect: 10
-    },
-    normal: {
-      spawnIntervalMs: 900,
-      obstacleSpeedPx: 320,
-      hpMiss: 8,
-      feverGainPerCorrect: 12
-    },
-    hard: {
-      spawnIntervalMs: 700,
-      obstacleSpeedPx: 400,
-      hpMiss: 12,
-      feverGainPerCorrect: 14
-    }
+    easy:   { spawnIntervalMs: 1200, obstacleSpeedPx: 260, hpMiss: 5,  feverGainPerCorrect: 10 },
+    normal: { spawnIntervalMs:  900, obstacleSpeedPx: 320, hpMiss: 8,  feverGainPerCorrect: 12 },
+    hard:   { spawnIntervalMs:  700, obstacleSpeedPx: 400, hpMiss: 12, feverGainPerCorrect: 14 }
   };
 
-  const FEVER = {
-    threshold: 100,
-    decayPerSec: 10,
-    durationSec: 5
-  };
+  const FEVER = { threshold: 100, decayPerSec: 10, durationSec: 5 };
 
   // ===== STATE =====
-  let mode        = 'normal';
+  let mode        = 'training'; // ✅ training/test/research
   let diffKey     = 'normal';
   let durationSec = 60;
 
-  let running = false;
-  let startPerf = 0;
-  let lastPerf  = 0;
-  let elapsedSec= 0;
-  let hp        = 100;
-  let score     = 0;
-  let combo     = 0;
-  let missCount = 0;
-  let feverGauge= 0;
+  let running     = false;
+  let rafId       = null;
+
+  let startPerf   = 0;
+  let lastPerf    = 0;
+  let elapsedSec  = 0;
+
+  let hp          = 100;
+  let score       = 0;
+  let combo       = 0;
+  let maxCombo    = 0;
+  let missCount   = 0;
+
+  let feverGauge  = 0;
   let feverActive = false;
   let feverRemain = 0;
 
-  let spawnTimer = 0;
-  let obstacles = []; // {id,type,requiredAction,xPx,isJudged,hit} type: 'low'/'high'
+  let spawnTimerMs = 0;
+  let obstacles    = []; // {id,type,requiredAction,xPx,isJudged,hit,createdAtPerf,centerPerf,el}
   let nextObstacleId = 1;
 
   // research metadata
-  let participantMeta = { participant_id:'',group:'',note:'' };
+  let participantMeta = { participant_id:'', group:'', note:'' };
   let sessionId = '';
 
+  // deterministic rng
+  let seed = 0;
+  let rng  = null;
+
+  // counters for correct metrics
+  let obstaclesSpawned = 0;
+  let obstaclesJudged  = 0;
+  let hitCount         = 0;
+
+  // RT list (ms)
+  const rtMsList = [];
+
   // loggers
-  const eventRows = [];
+  const eventRows   = [];
   const sessionRows = [];
 
   function resetLogger(){
@@ -81,14 +76,29 @@ export function initJumpDuck(opts){
     return `JD-${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
   }
 
-  // ====== EVENT LOGGING ======
-  function logEvent(row){
-    eventRows.push(row);
+  function readQueryNum(key, fallback){
+    try{
+      const v = new URL(location.href).searchParams.get(key);
+      if (v == null || v === '') return fallback;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }catch{
+      return fallback;
+    }
   }
 
-  function logSession(row){
-    sessionRows.push(row);
+  function makeRNG(seed0){
+    // LCG deterministic
+    let x = (Number(seed0) || Date.now()) >>> 0;
+    return function(){
+      x = (1664525 * x + 1013904223) >>> 0;
+      return x / 4294967296;
+    };
   }
+
+  // ====== EVENT LOGGING ======
+  function logEvent(row){ eventRows.push(row); }
+  function logSession(row){ sessionRows.push(row); }
 
   function toCsv(rows){
     if (!rows.length) return '';
@@ -112,25 +122,44 @@ export function initJumpDuck(opts){
 
   function start(config){
     const cfg = config || {};
-    mode        = cfg.mode || 'normal';
-    diffKey     = cfg.diff || 'normal';
-    durationSec = cfg.durationSec || 60;
-    participantMeta = cfg.meta || {participant_id:'',group:'',note:''};
 
-    running = true;
-    startPerf = performance.now();
-    lastPerf  = startPerf;
-    elapsedSec= 0;
-    hp        = 100;
-    score     = 0;
-    combo     = 0;
-    missCount = 0;
-    feverGauge= 0;
-    feverActive= false;
-    feverRemain= 0;
-    spawnTimer= 0;
-    obstacles = [];
-    nextObstacleId = 1;
+    // ✅ mode/diff แยกความหมายให้ชัด
+    mode        = cfg.mode || 'training';         // training | test | research
+    diffKey     = cfg.diff || 'normal';           // easy | normal | hard
+    durationSec = Number(cfg.durationSec || 60);  // seconds
+    participantMeta = cfg.meta || {participant_id:'', group:'', note:''};
+
+    // ✅ deterministic seed: priority = cfg.seed -> ?seed= -> Date.now()
+    seed = Number.isFinite(Number(cfg.seed)) ? Number(cfg.seed) : readQueryNum('seed', Date.now());
+    rng  = makeRNG(seed);
+
+    // prevent double start
+    if (running) stop('restart');
+
+    running       = true;
+    startPerf     = performance.now();
+    lastPerf      = startPerf;
+    elapsedSec    = 0;
+
+    hp            = 100;
+    score         = 0;
+    combo         = 0;
+    maxCombo      = 0;
+    missCount     = 0;
+
+    feverGauge    = 0;
+    feverActive   = false;
+    feverRemain   = 0;
+
+    spawnTimerMs  = 0;
+    obstacles     = [];
+    nextObstacleId= 1;
+
+    obstaclesSpawned = 0;
+    obstaclesJudged  = 0;
+    hitCount         = 0;
+    rtMsList.length  = 0;
+
     sessionId = makeSessionId();
     resetLogger();
 
@@ -141,59 +170,76 @@ export function initJumpDuck(opts){
       ? 'โหมดวิจัย: ตั้งใจหลบให้เต็มที่นะ!'
       : 'หลบสิ่งกีดขวางด้วย Jump / Duck ให้ทันเวลาค่ะ ✨');
 
-    requestAnimationFrame(loop);
+    if (rafId != null) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
   }
 
   function stop(reason){
     if (!running) return;
     running = false;
+    if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
     finalizeSession(reason || 'manual-stop');
   }
 
   function loop(now){
     if (!running) return;
-    const dtSec = (now - lastPerf) / 1000;
-    lastPerf = now;
-    elapsedSec = (now - startPerf) / 1000;
+
+    const dtMs  = (now - lastPerf);
+    const dtSec = dtMs / 1000;
+    lastPerf    = now;
+    elapsedSec  = (now - startPerf) / 1000;
 
     // time end
     if (elapsedSec >= durationSec){
-      running = false;
       elapsedSec = durationSec;
       updateHud(dtSec);
-      finalizeSession('time-up');
+      stop('time-up');
       return;
     }
 
     const diffCfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
 
-    // spawn obstacles
-    spawnTimer += dtSec * 1000;
-    if (spawnTimer >= diffCfg.spawnIntervalMs){
-      spawnTimer = 0;
-      spawnObstacle();
+    // spawn obstacles (✅ keep residual timer)
+    spawnTimerMs += dtMs;
+
+    // training อาจจะเร่งท้ายเกม (optional)
+    let spawnInterval = diffCfg.spawnIntervalMs;
+    if (mode === 'training'){
+      const prog = Math.min(1, elapsedSec / durationSec);
+      spawnInterval = diffCfg.spawnIntervalMs * Math.max(0.65, (1 - 0.25*prog));
+    }
+
+    while (spawnTimerMs >= spawnInterval){
+      spawnTimerMs -= spawnInterval;
+      spawnObstacle(now);
     }
 
     // move obstacles
-    updateObstacles(dtSec, diffCfg.obstacleSpeedPx);
+    let speed = diffCfg.obstacleSpeedPx;
+    if (mode === 'training'){
+      const prog = Math.min(1, elapsedSec / durationSec);
+      speed *= (1 + 0.20*prog);
+    }
+    updateObstacles(dtSec, speed, now);
 
     // update FEVER
     updateFever(dtSec);
 
     updateHud(dtSec);
-    requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
   }
 
-  function spawnObstacle(){
+  function spawnObstacle(nowPerf){
     const id = nextObstacleId++;
-    // สุ่ม low / high
-    const type = (Math.random() < 0.5 ? 'low' : 'high');
+
+    // ✅ deterministic low/high
+    const type = (rng ? rng() : Math.random()) < 0.5 ? 'low' : 'high';
     const requiredAction = type === 'low' ? 'jump' : 'duck';
 
     const el = document.createElement('div');
     el.className = 'jd-obstacle ' + (type === 'low' ? 'jd-obstacle--low' : 'jd-obstacle--high');
     el.dataset.id = String(id);
-    el.textContent = (type === 'low' ? '⬜' : '⬛');
+    el.textContent = (type === 'low' ? '⬆' : '⬇');
 
     obstaclesHost.appendChild(el);
 
@@ -204,26 +250,36 @@ export function initJumpDuck(opts){
       xPx: field.clientWidth + 80,
       el,
       isJudged: false,
-      hit: false
+      hit: false,
+      createdAtPerf: nowPerf,
+      centerPerf: null
     });
+
+    obstaclesSpawned++;
   }
 
   function clearObstaclesDom(){
     obstaclesHost.innerHTML = '';
   }
 
-  function updateObstacles(dtSec, speedPxPerSec){
+  function updateObstacles(dtSec, speedPxPerSec, nowPerf){
     const hitLineX = field.clientWidth * 0.20; // ใกล้ avatar
 
     for (const ob of obstacles){
       ob.xPx -= speedPxPerSec * dtSec;
+
       if (ob.el){
         ob.el.style.transform = `translate3d(${ob.xPx}px,0,0)`;
       }
 
-      // ถ้าผ่านเส้นชนไปแล้วและยังไม่ถูก judge → miss
+      // mark center time once
+      if (!ob.centerPerf && ob.xPx <= hitLineX){
+        ob.centerPerf = nowPerf;
+      }
+
+      // ถ้าผ่านเส้นชนไปแล้วและยังไม่ถูก judge → miss (late)
       if (!ob.isJudged && ob.xPx < hitLineX - 40){
-        applyMiss(ob, 'late-no-action');
+        applyMiss(ob, 'late-no-action', '', elapsedSec, nowPerf);
       }
     }
 
@@ -240,11 +296,13 @@ export function initJumpDuck(opts){
 
   function handleAction(action){
     if (!running) return;
-    const nowPerf = performance.now();
+
+    const nowPerf  = performance.now();
     const songTime = elapsedSec;
 
-    // หา obstacle ที่ใกล้เส้นชนที่สุดด้านหน้า avatar
     const hitLineX = field.clientWidth * 0.20;
+
+    // หา obstacle ที่ใกล้เส้นชนที่สุดและยังไม่ถูก judge
     let candidate = null;
     let minDist = Infinity;
 
@@ -257,21 +315,14 @@ export function initJumpDuck(opts){
       }
     }
 
-    // ถ้าไม่มี candidate → นับเป็น miss แบบ tap วืด
-    if (!candidate){
-      fakeMissTap(action, songTime, nowPerf);
-      return;
-    }
-
     // window ในหน่วย px ที่ถือว่าอยู่ในเขตชน
     const windowPx = 40;
 
-    if (minDist > windowPx){
+    if (!candidate || minDist > windowPx){
       fakeMissTap(action, songTime, nowPerf);
       return;
     }
 
-    // ตัดสินว่าถูก/ผิด
     if (candidate.requiredAction === action){
       applyHit(candidate, action, songTime, nowPerf);
     }else{
@@ -282,11 +333,22 @@ export function initJumpDuck(opts){
   function applyHit(ob, action, songTime, perf){
     ob.isJudged = true;
     ob.hit = true;
+
+    obstaclesJudged++;
+    hitCount++;
+
     combo++;
-    const baseScore = 100;
+    if (combo > maxCombo) maxCombo = combo;
+
+    const baseScore  = 100;
     const feverBonus = (feverActive ? 1.5 : 1);
-    const gain = Math.round(baseScore * feverBonus);
+    const gain       = Math.round(baseScore * feverBonus);
     score += gain;
+
+    // RT (ms): use centerPerf when available
+    const tRef = ob.centerPerf || perf;
+    const rtMs = Math.max(0, perf - tRef);
+    rtMsList.push(rtMs);
 
     const diffCfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
     feverGauge = Math.min(100, feverGauge + diffCfg.feverGainPerCorrect);
@@ -309,13 +371,16 @@ export function initJumpDuck(opts){
       note:           participantMeta.note || '',
       mode,
       diff: diffKey,
+      seed,
       created_at_iso: new Date().toISOString(),
 
       event_type: 'hit',
       song_time_s: songTime.toFixed(3),
+      obstacle_id: ob.id,
       obstacle_type: ob.type,
       required_action: ob.requiredAction,
       action,
+      rt_ms: Math.round(rtMs),
       hit: 1,
       miss_reason: '',
       combo_after: combo,
@@ -330,37 +395,47 @@ export function initJumpDuck(opts){
   }
 
   function applyMiss(ob, reason, action, songTime, perf){
-    ob.isJudged = true;
-    ob.hit = false;
+    if (ob && !ob.isJudged){
+      ob.isJudged = true;
+      ob.hit = false;
+      obstaclesJudged++;
+    }
+
     combo = 0;
     missCount++;
+
     const diffCfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
     hp = Math.max(0, hp - diffCfg.hpMiss);
 
+    flashField('miss');
+
     if (hp <= 0){
       running = false;
-      flashField('miss');
       showFeedback('จบเกม: HP หมดแล้ว ลองใหม่อีกครั้งได้เลยนะ 💪');
+      if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
       finalizeSession('hp-zero');
+      return;
     }else{
       showFeedback('พลาด! ลองจับจังหวะใหม่อีกทีนะ');
-      flashField('miss');
     }
 
-    const row = {
+    logEvent({
       session_id: sessionId,
       participant_id: participantMeta.participant_id || '',
       group:          participantMeta.group || '',
       note:           participantMeta.note || '',
       mode,
       diff: diffKey,
+      seed,
       created_at_iso: new Date().toISOString(),
 
       event_type: 'miss',
       song_time_s: songTime != null ? songTime.toFixed(3) : '',
-      obstacle_type: ob.type,
-      required_action: ob.requiredAction,
+      obstacle_id: ob ? ob.id : '',
+      obstacle_type: ob ? ob.type : '',
+      required_action: ob ? ob.requiredAction : '',
       action: action || '',
+      rt_ms: '',
       hit: 0,
       miss_reason: reason || '',
       combo_after: combo,
@@ -369,8 +444,7 @@ export function initJumpDuck(opts){
       hp_after: hp,
       fever_after: feverGauge,
       fever_active: feverActive ? 1 : 0
-    };
-    logEvent(row);
+    });
 
     updateHud(0);
   }
@@ -378,10 +452,11 @@ export function initJumpDuck(opts){
   function fakeMissTap(action, songTime, perf){
     combo = 0;
     missCount++;
+
     const diffCfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
     hp = Math.max(0, hp - diffCfg.hpMiss * 0.7);
 
-    showFeedback('แตะผิดจังหวะนิดหน่อย ลองใหม่อีกทีนะ 🎧');
+    showFeedback('แตะคลาดจังหวะนิดหน่อย ลองใหม่อีกทีนะ 🎧');
     flashField('miss');
 
     logEvent({
@@ -391,13 +466,16 @@ export function initJumpDuck(opts){
       note:           participantMeta.note || '',
       mode,
       diff: diffKey,
+      seed,
       created_at_iso: new Date().toISOString(),
 
       event_type: 'miss-tap',
       song_time_s: songTime != null ? songTime.toFixed(3) : '',
+      obstacle_id: '',
       obstacle_type: '',
       required_action: '',
       action: action || '',
+      rt_ms: '',
       hit: 0,
       miss_reason: 'tap-out-of-window',
       combo_after: combo,
@@ -410,6 +488,7 @@ export function initJumpDuck(opts){
 
     if (hp <= 0){
       running = false;
+      if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
       finalizeSession('hp-zero');
     }else{
       updateHud(0);
@@ -425,7 +504,6 @@ export function initJumpDuck(opts){
         showFeedback('FEVER จบแล้ว ลองสะสมเกจใหม่อีกรอบ!');
       }
     }else{
-      // decay gauge
       feverGauge = Math.max(0, feverGauge - FEVER.decayPerSec * dtSec);
     }
   }
@@ -438,17 +516,11 @@ export function initJumpDuck(opts){
     if (hud.time)  hud.time.textContent  = elapsedSec.toFixed(1);
 
     const prog = Math.min(1, elapsedSec / durationSec);
-    if (hud.progFill){
-      hud.progFill.style.transform = `scaleX(${prog.toFixed(3)})`;
-    }
-    if (hud.progText){
-      hud.progText.textContent = Math.round(prog * 100) + '%';
-    }
+    if (hud.progFill) hud.progFill.style.transform = `scaleX(${prog.toFixed(3)})`;
+    if (hud.progText) hud.progText.textContent = Math.round(prog * 100) + '%';
 
     const feverRatio = Math.min(1, feverGauge / 100);
-    if (hud.feverFill){
-      hud.feverFill.style.transform = `scaleX(${feverRatio.toFixed(3)})`;
-    }
+    if (hud.feverFill) hud.feverFill.style.transform = `scaleX(${feverRatio.toFixed(3)})`;
     if (hud.feverStatus){
       if (feverActive){
         hud.feverStatus.textContent = 'FEVER!';
@@ -476,16 +548,17 @@ export function initJumpDuck(opts){
   function playFeverSfx(){
     const el = document.getElementById('jd-sfx-fever');
     if (!el) return;
-    try{
-      el.currentTime = 0;
-      el.play().catch(()=>{});
-    }catch{}
+    try{ el.currentTime = 0; el.play().catch(()=>{}); }catch{}
   }
 
   function finalizeSession(endReason){
-    const totalEvents = eventRows.length;
-    const totalHit    = eventRows.filter(r=>r.hit === 1).length;
-    const acc = totalEvents > 0 ? (totalHit / totalEvents) * 100 : 0;
+    // ✅ accuracy = hits / judged obstacles (exclude miss-tap)
+    const judged = obstaclesJudged || 0;
+    const hits   = hitCount || 0;
+    const accPct = judged ? (hits / judged) * 100 : 0;
+
+    // RT mean (ms)
+    const rtMean = rtMsList.length ? (rtMsList.reduce((a,b)=>a+b,0) / rtMsList.length) : 0;
 
     const row = {
       session_id: sessionId,
@@ -494,51 +567,55 @@ export function initJumpDuck(opts){
       note:           participantMeta.note || '',
       mode,
       diff: diffKey,
+      seed,
       duration_sec: elapsedSec.toFixed(2),
       duration_planned_sec: durationSec,
-      score_final: score,
+      obstacles_spawned: obstaclesSpawned,
+      obstacles_judged: judged,
+      hits_total: hits,
       miss_total: missCount,
-      acc_pct: acc.toFixed(2),
+      acc_pct: accPct.toFixed(2),
+      rt_mean_ms: rtMean ? rtMean.toFixed(1) : '',
+      score_final: score,
+      max_combo: maxCombo,
       hp_end: hp,
       end_reason: endReason,
       created_at_iso: new Date().toISOString()
     };
     logSession(row);
 
-    // อัปเดตหน้าสรุป
-    fillResult(endReason, acc);
+    fillResult(endReason, accPct, rtMean);
   }
 
-  function fillResult(endReason, acc){
+  function fillResult(endReason, accPct, rtMean){
     const setText = (id,v)=>{
       const el = document.getElementById(id);
-      if (el) el.textContent = v;
+      if (el) el.textContent = String(v);
     };
 
-    setText('jd-res-mode', mode === 'research' ? 'Research' : 'Normal');
-    setText('jd-res-diff',
-      diffKey === 'easy' ? 'Easy' :
-      diffKey === 'hard' ? 'Hard' : 'Normal'
-    );
+    setText('jd-res-mode', mode === 'research' ? 'Research' : (mode === 'test' ? 'Test' : 'Training'));
+    setText('jd-res-diff', diffKey === 'easy' ? 'Easy' : diffKey === 'hard' ? 'Hard' : 'Normal');
     setText('jd-res-endreason', endReason);
     setText('jd-res-score', score);
-    setText('jd-res-maxcombo', combo); // combo สุดท้าย (ถ้าอยากได้ max จริงต้อง track แยกในอนาคต)
+    setText('jd-res-maxcombo', maxCombo);
+
     const jumpOk = eventRows.filter(r => r.event_type === 'hit' && r.required_action === 'jump').length;
     const duckOk = eventRows.filter(r => r.event_type === 'hit' && r.required_action === 'duck').length;
-    const miss   = missCount;
 
     setText('jd-res-jump-ok', jumpOk);
     setText('jd-res-duck-ok', duckOk);
-    setText('jd-res-miss', miss);
-    setText('jd-res-acc', acc.toFixed(1) + ' %');
+    setText('jd-res-miss', missCount);
+    setText('jd-res-acc', Number(accPct).toFixed(1) + ' %');
+    setText('jd-res-rtmean', rtMean ? Number(rtMean).toFixed(0) + ' ms' : '-');
     setText('jd-res-duration', elapsedSec.toFixed(1) + ' s');
 
     setText('jd-res-participant', participantMeta.participant_id || '-');
     setText('jd-res-group',       participantMeta.group || '-');
     setText('jd-res-note',        participantMeta.note || '-');
+    setText('jd-res-seed',        seed);
 
-    const resView = document.getElementById('jd-view-result');
-    const playView= document.getElementById('jd-view-play');
+    const resView  = document.getElementById('jd-view-result') || document.getElementById('jd-view-result');
+    const playView = document.getElementById('jd-view-play')   || document.getElementById('jd-view-play');
     if (resView && playView){
       playView.classList.add('jd-hidden');
       resView.classList.remove('jd-hidden');
@@ -550,11 +627,36 @@ export function initJumpDuck(opts){
     start,
     stop,
     handleAction,
-    getEventsCsv(){
-      return toCsv(eventRows);
-    },
-    getSessionCsv(){
-      return toCsv(sessionRows);
+    getEventsCsv(){  return toCsv(eventRows); },
+    getSessionCsv(){ return toCsv(sessionRows); },
+
+    // convenience summaries (useful for research)
+    getSummary(){
+      const judged = obstaclesJudged || 0;
+      const hits   = hitCount || 0;
+      const accPct = judged ? (hits / judged) * 100 : 0;
+      const rtMean = rtMsList.length ? (rtMsList.reduce((a,b)=>a+b,0) / rtMsList.length) : 0;
+
+      return {
+        session_id: sessionId,
+        participant_id: participantMeta.participant_id || '',
+        group: participantMeta.group || '',
+        note: participantMeta.note || '',
+        mode,
+        diff: diffKey,
+        seed,
+        duration_planned_s: durationSec,
+        duration_actual_s: +elapsedSec.toFixed(2),
+        obstacles_spawned: obstaclesSpawned,
+        obstacles_judged: judged,
+        hits_total: hits,
+        miss_total: missCount,
+        acc_pct: +accPct.toFixed(2),
+        rt_mean_ms: rtMean ? +rtMean.toFixed(1) : 0,
+        score_final: score,
+        max_combo: maxCombo,
+        hp_end: hp
+      };
     }
   };
 }
