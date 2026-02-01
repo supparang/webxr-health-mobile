@@ -1,58 +1,40 @@
-// === /fitness/js/event-logger.js — Event-level CSV logger (PATCH 2026-01-27) ===
 'use strict';
 
 export class EventLogger {
   constructor() {
-    this.rows = [];
-  }
-
-  clear() {
-    this.rows.length = 0;
+    this.logs = [];
   }
 
   add(row) {
     if (!row || typeof row !== 'object') return;
-    this.rows.push(row);
+    this.logs.push(row);
+  }
+
+  clear() {
+    this.logs.length = 0;
   }
 
   toCsv() {
-    if (!this.rows.length) return '';
+    if (!this.logs.length) return '';
 
-    // ✅ ทำคอลัมน์ให้ “นิ่ง” โดย union keys ทุกแถว (กัน field เพิ่ม/หาย)
-    const colSet = new Set();
-    for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
-    const cols = Array.from(colSet);
-
+    const cols = Object.keys(this.logs[0]);
     const esc = (v) => {
-      const s = (v === null || v === undefined) ? '' : String(v);
-      return `"${s.replace(/"/g, '""')}"`;
+      if (v == null) return '';
+      const s = String(v);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
     };
 
-    const head = cols.join(',');
-    const lines = this.rows.map(r => cols.map(c => esc(r[c])).join(','));
-    return [head, ...lines].join('\n');
-  }
-}
+    const lines = [];
+    lines.push(cols.join(','));
 
-/**
- * helper สำหรับดาวน์โหลดไฟล์ CSV event-level
- * @param {string} filename
- * @param {string} csvText
- */
-export function downloadCsv(filename, csvText) {
-  if (!csvText) {
-    alert('ยังไม่มีข้อมูลให้ดาวน์โหลด');
-    return;
+    for (const row of this.logs) {
+      const line = cols.map(col => esc(row[col]));
+      lines.push(line.join(','));
+    }
+
+    return lines.join('\n');
   }
-  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename || 'events.csv';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 0);
 }
