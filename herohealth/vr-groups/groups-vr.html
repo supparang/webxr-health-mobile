@@ -8,6 +8,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ NEW (1): Big Banner current group + events
 ✅ NEW (2): DL-lite Predictor + Explainable micro-tips (play only; off in research/practice)
 ✅ PATCH (BOOT): On-screen Debug HUD + global error trap + dependency status
+✅ PATCH G: Shot marker + shoot debug (shows real shot point + what it hits)
+✅ PATCH H: lockPx reduced (fix "hit not registering" / wrong layer capture)
 ✅ Uses groups.safe.js (standalone)
 -->
 <!doctype html>
@@ -26,7 +28,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
-  <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
+
+  <!-- ✅ PATCH H: lockPx 92 -> 28 (avoid "aim radius too wide" causing wrong hit layer) -->
+  <script>window.HHA_VRUI_CONFIG = { lockPx: 28 };</script>
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Groups modules -->
@@ -76,6 +80,30 @@ GroupsVR Run (PC/Mobile/Cardboard)
       pointer-events:none;
     }
     #dbgHint b{ color:#fff; }
+
+    /* =========================
+       ✅ PATCH G: Shot marker (debug)
+    ========================= */
+    #shotMark{
+      position: fixed;
+      left: 0; top: 0;
+      width: 22px; height: 22px;
+      margin-left: -11px; margin-top: -11px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,.9);
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      pointer-events: none;
+      z-index: 9998;
+      opacity: 0;
+      transform: translate3d(0,0,0) scale(.85);
+      transition: opacity .10s ease, transform .10s ease;
+    }
+    #shotMark.show{
+      opacity: 1;
+      transform: translate3d(0,0,0) scale(1);
+    }
+    #shotMark.good{ border-color: rgba(34,197,94,.95); }
+    #shotMark.bad { border-color: rgba(239,68,68,.95); }
   </style>
 </head>
 
@@ -215,6 +243,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     <div id="dbgHint">ถ้าเห็นกล่องนี้ แปลว่ามี <b>Error</b> หรือ <b>Engine/FX</b> ยังไม่พร้อม</div>
   </div>
 
+  <!-- ✅ PATCH G: Shot marker -->
+  <div id="shotMark" aria-hidden="true"></div>
+
 <script>
 (function(){
   'use strict';
@@ -265,7 +296,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     box.textContent = head + '\n' + DBG.logs.join('\n');
   }
 
-  // show debug if any script error happens (even if debug=0)
   function showDbgOnError(msg){
     dlog('❌ ERROR: ' + msg);
     showDbg(true);
@@ -283,7 +313,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     showDbgOnError(m);
   });
 
-  // capture resource load errors (script/css/img)
   window.addEventListener('error', (ev)=>{
     const t = ev?.target;
     if (!t) return;
@@ -294,7 +323,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }, true);
 
-  // helper: dependency status snapshot
   function depStatus(){
     const has = (v)=> (typeof v !== 'undefined' && v !== null);
     const P = has(window.Particles);
@@ -311,6 +339,51 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const s = depStatus();
     dlog(prefix + ' deps: ' + Object.entries(s).map(([k,v])=>`${k}=${v?'OK':'NO'}`).join(' • '));
   }
+
+  // =========================
+  // ✅ PATCH G: visualize shot point + what it hits
+  // =========================
+  const shotMark = $('shotMark');
+  let shotTmr = 0;
+
+  function showShot(x,y, ok){
+    if (!shotMark) return;
+    shotMark.classList.remove('good','bad','show');
+    shotMark.classList.add(ok ? 'good' : 'bad');
+    shotMark.style.left = (x|0) + 'px';
+    shotMark.style.top  = (y|0) + 'px';
+    clearTimeout(shotTmr);
+    requestAnimationFrame(()=> shotMark.classList.add('show'));
+    shotTmr = setTimeout(()=> shotMark.classList.remove('show'), 220);
+  }
+
+  window.addEventListener('hha:shoot', (ev)=>{
+    const d = ev.detail || {};
+    const x = Number(d.x)||0;
+    const y = Number(d.y)||0;
+    const lockPx = Number(d.lockPx)||0;
+
+    let hitTag = '(none)';
+    try{
+      const el = document.elementFromPoint(x,y);
+      if (el){
+        const tgt = (el.classList?.contains('tgt')) ? el : (el.closest?.('.tgt') || null);
+        if (tgt){
+          hitTag = 'TGT data-group=' + (tgt.getAttribute('data-group')||'');
+        }else{
+          hitTag = '<' + (el.tagName||'').toLowerCase() + '>' + (el.id?('#'+el.id):'');
+        }
+      }
+    }catch(_){}
+
+    const dbgOn = (String(qs('debug','0')||'0') === '1' || String(qs('selftest','0')||'0') === '1');
+    if (dbgOn){
+      const ok = hitTag.startsWith('TGT');
+      showShot(x,y, ok);
+      dlog(`🎯 shoot x=${x|0} y=${y|0} lockPx=${lockPx|0} -> ${hitTag}`);
+      if (!ok) showDbg(true);
+    }
+  }, { passive:true });
 
   // =========================
   // View
@@ -375,7 +448,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }, clamp(ms, 600, 2500));
   }
 
-  // show banner when telemetry auto-switch happens
   window.addEventListener('groups:telemetry_auto', (ev)=>{
     const d = ev.detail || {};
     if (d.kind === 'switch'){
@@ -524,7 +596,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }, ctx, d||{});
   }
 
-  // flush-hardened hook (optional)
   try{
     const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
     B && B(()=>lastSummary);
@@ -604,7 +675,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  // Telemetry init (safe)
   function initTelemetry(runMode){
     try{
       const T = window.GroupsVR && window.GroupsVR.Telemetry;
@@ -622,7 +692,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }
   }
 
-  // WAIT FOR ENGINE + HARD REPORT
   function waitForEngine(cb){
     const t0 = Date.now();
     const tick = ()=>{
@@ -853,7 +922,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
     startIso = new Date().toISOString();
 
-    // report deps before start
     reportDeps('▶ before start');
 
     initViewHelper(view);
@@ -896,19 +964,16 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
     setView(view);
 
-    // show debug HUD if ?debug=1
     if (DBG.on){
       dlog('debug=1 enabled');
       reportDeps('init');
       showDbg(true);
     }else{
-      // still print init deps to internal buffer
       reportDeps('init');
     }
 
     showBanner('เริ่มเกม! เล็งให้ตรงหมู่ 🎯', 'neutral', 1000);
 
-    // if user wants quick sanity test: ?selftest=1 -> ping FX
     if (String(qs('selftest','0')||'0') === '1'){
       try{ window.Particles && window.Particles.popText(40, 80, 'FX OK', 'ok'); dlog('✅ Particles.popText OK'); }
       catch(e){ showDbgOnError('Particles selftest failed: ' + (e?.message||e)); }
