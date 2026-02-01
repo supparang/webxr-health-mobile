@@ -1,78 +1,102 @@
 // === /fitness/js/ai-predictor.js ===
-// DL-lite predictor (heuristic) — ES module
-// ✅ Export AIPredictor for module engines
-// ✅ Research-lock aware via query params
-
+// Classic Script (NO export) — safe for <script src="...">
 'use strict';
 
-const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+(function () {
+  const WIN = window;
 
-function readQueryFlag(key) {
-  try {
-    const v = new URL(location.href).searchParams.get(key);
-    return v === '1' || v === 'true' || v === 'yes';
-  } catch (_) {
-    return false;
+  // ---- small helpers ----
+  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
+
+  function readQueryFlag(key) {
+    try {
+      const v = new URL(location.href).searchParams.get(key);
+      return v === '1' || v === 'true' || v === 'yes';
+    } catch (_) {
+      return false;
+    }
   }
-}
-function readQueryMode() {
-  try {
-    const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
-    if (m === 'research') return 'research';
-    return 'normal';
-  } catch (_) {
-    return 'normal';
-  }
-}
-
-function predictFromSnapshot(s) {
-  const acc = clamp01((Number(s.accPct) || 0) / 100);
-  const hp = clamp01((Number(s.hp) || 100) / 100);
-
-  const miss = Number(s.hitMiss) || 0;
-  const hits = Number(s.hits) || 0;
-  const judged = hits + miss;
-  const missRate = judged > 0 ? clamp01(miss / judged) : 0;
-
-  const rtMean = Number(s.rtMean);
-  const rtScore = Number.isFinite(rtMean) ? clamp01(1 - (rtMean / 900)) : 0.6;
-
-  const fatigueRisk = clamp01(
-    (1 - hp) * 0.45 +
-    missRate * 0.35 +
-    (1 - rtScore) * 0.20
-  );
-
-  const skillScore = clamp01(
-    acc * 0.55 +
-    rtScore * 0.30 +
-    (1 - missRate) * 0.15
-  );
-
-  let suggestedDifficulty = 'normal';
-  if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
-  else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
-
-  let tip = '';
-  if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเป้าหลัก แล้วค่อยตี';
-  else if (rtScore < 0.45) tip = 'ลอง “รอให้เห็นเป้าชัด” ก่อนตี จะตรงขึ้น';
-  else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความยาก/ความเร็วได้';
-  else if (hp < 0.45) tip = 'ระวัง HP—อย่าโลภเป้าล่อ โฟกัสเป้าปลอดภัย';
-
-  return { fatigueRisk, skillScore, suggestedDifficulty, tip };
-}
-
-export class AIPredictor {
-  getMode() { return readQueryMode(); }
-  isLocked() { return readQueryMode() === 'research'; }
-
-  isAssistEnabled() {
-    const mode = readQueryMode();
-    if (mode === 'research') return false; // locked
-    return readQueryFlag('ai');            // require ?ai=1 in normal
+  function readQueryMode() {
+    try {
+      const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
+      if (m === 'research') return 'research';
+      return 'normal';
+    } catch (_) {
+      return 'normal';
+    }
   }
 
-  predict(snapshot) {
-    return predictFromSnapshot(snapshot || {});
+  // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
+  // Inputs we "expect" (best effort) from engine snapshot:
+  // { accPct, hitMiss, combo, offsetAbsMean, hp, songTime, durationSec }
+  function predictFromSnapshot(s) {
+    const acc = clamp01((Number(s.accPct) || 0) / 100);
+    const hp = clamp01((Number(s.hp) || 100) / 100);
+
+    // offsetAbsMean in seconds; smaller => better
+    const off = Number(s.offsetAbsMean);
+    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ fairly loose cap
+
+    const miss = Number(s.hitMiss) || 0;
+    const judged = (Number(s.hitPerfect)||0) + (Number(s.hitGreat)||0) + (Number(s.hitGood)||0) + miss;
+    const missRate = judged > 0 ? clamp01(miss / judged) : 0;
+
+    // fatigueRisk: rises if hp low, missRate high, offset large
+    const fatigueRisk = clamp01(
+      (1 - hp) * 0.45 +
+      missRate * 0.35 +
+      (1 - offScore) * 0.20
+    );
+
+    // skillScore: high if accuracy high + offset good + miss low
+    const skillScore = clamp01(
+      acc * 0.55 +
+      offScore * 0.30 +
+      (1 - missRate) * 0.15
+    );
+
+    // suggest difficulty (string)
+    let suggestedDifficulty = 'normal';
+    if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
+    else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
+
+    // micro tip
+    let tip = '';
+    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
+    else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
+    else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
+    else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+
+    return {
+      fatigueRisk,
+      skillScore,
+      suggestedDifficulty,
+      tip
+    };
   }
-}
+
+  // ---- Public bridge used by engine/UI ----
+  // Research lock rule:
+  // - if mode=research => lock adjustments ALWAYS
+  // - if normal => allow adjustments only when ?ai=1
+  const API = {
+    getMode() {
+      return readQueryMode(); // 'research' | 'normal'
+    },
+    isAssistEnabled() {
+      const mode = readQueryMode();
+      if (mode === 'research') return false;   // locked
+      return readQueryFlag('ai');              // normal: require ?ai=1
+    },
+    isLocked() {
+      return readQueryMode() === 'research';
+    },
+    predict(snapshot) {
+      return predictFromSnapshot(snapshot || {});
+    }
+  };
+
+  // expose globally
+  WIN.RB_AI = API;
+})();
