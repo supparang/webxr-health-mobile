@@ -3,9 +3,10 @@
 // ✅ window.Particles.popText(x,y,text,cls?)
 // ✅ window.Particles.pop(x,y,text) (alias)
 // ✅ window.Particles.burst(x,y,opts)
-// ✅ window.Particles.beam(x0,y0,x1,y1,opts) -> returns ms
+// ✅ window.Particles.beam(x1,y1,x2,y2,opts)  <-- NEW
 // ✅ Auto creates fixed overlay layer (pointer-events:none)
 // ✅ Safe on mobile / low-end devices (caps + cleanup)
+// Notes: coordinates x,y are viewport pixels.
 
 (function(){
   'use strict';
@@ -16,10 +17,6 @@
   WIN.__HHA_PARTICLES_LOADED__ = true;
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-
-  function safeMount(){
-    return DOC.body || DOC.documentElement;
-  }
 
   // ---------- Layer ----------
   function ensureLayer(){
@@ -61,10 +58,22 @@
         background: rgba(2,6,23,.55);
         backdrop-filter: blur(10px);
       }
-      .hha-popText.good{ border-color: rgba(34,197,94,.24); background: rgba(34,197,94,.10); }
-      .hha-popText.cyan{ border-color: rgba(34,211,238,.26); background: rgba(34,211,238,.10); }
-      .hha-popText.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.12); }
-      .hha-popText.bad { border-color: rgba(239,68,68,.26); background: rgba(239,68,68,.10); }
+      .hha-popText.good{
+        border-color: rgba(34,197,94,.24);
+        background: rgba(34,197,94,.10);
+      }
+      .hha-popText.cyan{
+        border-color: rgba(34,211,238,.26);
+        background: rgba(34,211,238,.10);
+      }
+      .hha-popText.warn{
+        border-color: rgba(245,158,11,.26);
+        background: rgba(245,158,11,.12);
+      }
+      .hha-popText.bad{
+        border-color: rgba(239,68,68,.26);
+        background: rgba(239,68,68,.10);
+      }
 
       @keyframes hhaPopUp {
         0%   { opacity: 0; transform: translate(-50%,-50%) scale(.86) translateY(10px); }
@@ -88,42 +97,31 @@
         100% { opacity:0;   transform: translate(-50%,-50%) translate(var(--dx,0px), var(--dy,-36px)) scale(.6); }
       }
 
-      /* ---- Beam ---- */
+      /* === BEAM === */
       .hha-beam{
         position:absolute;
         left:0; top:0;
-        height:4px;
-        border-radius:999px;
+        height: 4px;
         transform-origin: 0 50%;
+        border-radius: 999px;
+        opacity: .95;
+        background: rgba(229,231,235,.95);
+        filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
         will-change: transform, opacity;
-        opacity:.9;
-        filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
-        background: rgba(229,231,235,.9);
-        box-shadow: 0 0 18px rgba(229,231,235,.35);
       }
-      .hha-beam.good{
-        background: rgba(34,197,94,.95);
-        box-shadow: 0 0 18px rgba(34,197,94,.35);
-      }
-      .hha-beam.warn{
-        background: rgba(245,158,11,.95);
-        box-shadow: 0 0 18px rgba(245,158,11,.35);
-      }
-      .hha-beam.bad{
-        background: rgba(239,68,68,.95);
-        box-shadow: 0 0 18px rgba(239,68,68,.35);
-      }
-      .hha-beam.cyan{
-        background: rgba(34,211,238,.95);
-        box-shadow: 0 0 18px rgba(34,211,238,.35);
-      }
+      .hha-beam.good{ background: rgba(34,197,94,.95); }
+      .hha-beam.warn{ background: rgba(245,158,11,.95); }
+      .hha-beam.bad { background: rgba(239,68,68,.95); }
+      .hha-beam.cyan{ background: rgba(34,211,238,.95); }
+
       @keyframes hhaBeam {
-        0%   { opacity: .92; }
-        100% { opacity: 0; }
+        0%   { opacity: 0; transform: translate(0,0) rotate(var(--a,0rad)) scaleX(.20); }
+        25%  { opacity: .95; transform: translate(0,0) rotate(var(--a,0rad)) scaleX(1.00); }
+        100% { opacity: 0; transform: translate(0,0) rotate(var(--a,0rad)) scaleX(.98); }
       }
     `;
-    try{ DOC.head.appendChild(st); }catch{}
-    try{ safeMount().appendChild(layer); }catch{}
+    DOC.head.appendChild(st);
+    DOC.body.appendChild(layer);
     return layer;
   }
 
@@ -133,7 +131,7 @@
     maxSparks: 24,
     popDurationMs: 520,
     sparkDurationMs: 420,
-    beamDurationMs: 120
+    beamDurationMs: 140
   };
 
   function cleanupIfNeeded(layer){
@@ -164,7 +162,8 @@
     el.style.animation = `hhaPopUp ${LIMIT.popDurationMs}ms ease-out forwards`;
 
     layer.appendChild(el);
-    // force reflow (mobile reliable)
+    // force reflow then show
+    // eslint-disable-next-line no-unused-expressions
     el.offsetHeight;
     el.style.opacity = '1';
 
@@ -177,7 +176,7 @@
     cleanupIfNeeded(layer);
 
     const count = clamp((opts && opts.count) || 12, 4, LIMIT.maxSparks)|0;
-    const spread = clamp((opts && opts.spread) || 42, 18, 140);
+    const spread = clamp((opts && opts.spread) || 42, 18, 120);
     const upBias = clamp((opts && opts.upBias) || 0.78, 0, 1);
     const cls = (opts && opts.className) ? String(opts.className) : '';
 
@@ -186,7 +185,7 @@
 
     for (let i=0;i<count;i++){
       const s = DOC.createElement('div');
-      s.className = 'hha-spark' + (cls ? ' ' + cls : '');
+      s.className = 'hha-spark ' + cls;
 
       const a = (i/count) * Math.PI * 2;
       const r = spread * (0.35 + Math.random()*0.85);
@@ -200,7 +199,8 @@
       s.style.left = vx + 'px';
       s.style.top  = vy + 'px';
       s.style.setProperty('--dx', dx.toFixed(1) + 'px');
-      s.style.setProperty('--dy', (dy*-1).toFixed(1) + 'px');
+      s.style.setProperty('--dy', (dy*-1).toFixed(1) + 'px'); // go up
+
       s.style.animation = `hhaSpark ${LIMIT.sparkDurationMs}ms ease-out forwards`;
 
       layer.appendChild(s);
@@ -209,44 +209,43 @@
     return true;
   }
 
-  function beam(x0, y0, x1, y1, opts){
+  // NEW: beam from (x1,y1) -> (x2,y2)
+  function beam(x1,y1,x2,y2, opts){
     const layer = ensureLayer();
     cleanupIfNeeded(layer);
 
-    const ms = clamp((opts && opts.ms) || LIMIT.beamDurationMs, 50, 260);
-    const cls = (opts && opts.className) ? String(opts.className) : '';
-    const thickness = clamp((opts && opts.thickness) || 4, 2, 14);
+    const vx1 = clamp(x1, 0, WIN.innerWidth||999999);
+    const vy1 = clamp(y1, 0, WIN.innerHeight||999999);
+    const vx2 = clamp(x2, 0, WIN.innerWidth||999999);
+    const vy2 = clamp(y2, 0, WIN.innerHeight||999999);
 
-    const ax = clamp(x0, 0, WIN.innerWidth||999999);
-    const ay = clamp(y0, 0, WIN.innerHeight||999999);
-    const bx = clamp(x1, 0, WIN.innerWidth||999999);
-    const by = clamp(y1, 0, WIN.innerHeight||999999);
-
-    const dx = (bx - ax);
-    const dy = (by - ay);
-    const len = Math.max(8, Math.hypot(dx, dy));
-    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    const dx = vx2 - vx1;
+    const dy = vy2 - vy1;
+    const len = Math.max(6, Math.hypot(dx,dy));
+    const ang = Math.atan2(dy,dx);
 
     const el = DOC.createElement('div');
-    el.className = 'hha-beam' + (cls ? ' ' + cls : '');
-    el.style.height = thickness.toFixed(0) + 'px';
+    el.className = 'hha-beam' + ((opts && opts.className) ? (' ' + String(opts.className)) : '');
+    el.style.left = vx1 + 'px';
+    el.style.top  = vy1 + 'px';
+    el.style.width = len.toFixed(1) + 'px';
+    el.style.setProperty('--a', ang.toFixed(6) + 'rad');
 
-    el.style.left = ax + 'px';
-    el.style.top  = ay + 'px';
-    el.style.width = len.toFixed(2) + 'px';
-    el.style.transform = `translateY(-50%) rotate(${ang.toFixed(2)}deg)`;
+    const thick = clamp((opts && opts.thickness) || 4, 2, 16);
+    el.style.height = thick.toFixed(1) + 'px';
+
+    const ms = clamp((opts && opts.ms) || LIMIT.beamDurationMs, 60, 360);
     el.style.animation = `hhaBeam ${ms}ms ease-out forwards`;
 
     layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, ms + 40);
-    return ms;
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, ms + 60);
+    return true;
   }
 
-  function pop(x,y,text){
-    return popText(x,y,text,'');
-  }
+  function pop(x,y,text){ return popText(x,y,text,''); }
 
   const API = { popText, pop, burst, beam };
+
   WIN.Particles = API;
   WIN.GAME_MODULES = WIN.GAME_MODULES || {};
   WIN.GAME_MODULES.Particles = API;
