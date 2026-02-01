@@ -1,80 +1,90 @@
-// === fitness/js/fx-burst.js ===
-// Shadow Breaker — lightweight burst FX (Pack D)
-// No dependencies, safe on mobile.
-// Usage:
-//   FxBurst.popText(x,y,'+100','good')
-//   FxBurst.burst(x,y,{count:10})
 'use strict';
 
-const DOC = document;
+/**
+ * fx-burst.js
+ * - DOM-based lightweight FX (no canvas)
+ * - burstText(x,y,text,grade)
+ * - burstRing(x,y,grade)
+ */
 
-function ensureLayer() {
-  let layer = DOC.getElementById('sb-fx-layer');
-  if (layer) return layer;
-  layer = DOC.createElement('div');
+function ensureLayer(){
+  let layer = document.getElementById('sb-fx-layer');
+  if(layer) return layer;
+  layer = document.createElement('div');
   layer.id = 'sb-fx-layer';
   layer.style.position = 'fixed';
   layer.style.inset = '0';
   layer.style.pointerEvents = 'none';
   layer.style.zIndex = '9999';
-  DOC.body.appendChild(layer);
+  document.body.appendChild(layer);
   return layer;
 }
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-
-function makeEl(cls, x, y, text) {
-  const el = DOC.createElement('div');
-  el.className = cls;
-  el.textContent = text || '';
-  el.style.position = 'absolute';
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  el.style.transform = 'translate(-50%,-50%)';
-  el.style.willChange = 'transform, opacity';
-  return el;
+function colorByGrade(grade){
+  if(grade === 'perfect') return '#facc15';
+  if(grade === 'good') return '#22c55e';
+  if(grade === 'bad') return '#fb7185';
+  if(grade === 'miss') return '#e5e7eb';
+  if(grade === 'bomb') return '#fb7185';
+  if(grade === 'shield') return '#38bdf8';
+  if(grade === 'heal') return '#22c55e';
+  return '#e5e7eb';
 }
 
-export const FxBurst = {
-  popText(x, y, text, tone) {
-    try {
-      const layer = ensureLayer();
-      const el = makeEl('sb-fx-text ' + (tone || ''), x, y, text);
-      layer.appendChild(el);
+export function burstText(x,y,text,grade){
+  const layer = ensureLayer();
+  const el = document.createElement('div');
+  el.className = 'sb-fx-text';
+  el.textContent = text;
 
-      const dx = (Math.random() * 2 - 1) * 18;
-      const dy = -18 - Math.random() * 14;
+  const c = colorByGrade(grade);
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.color = c;
+  el.style.fontSize = (grade === 'perfect' ? '22px' : '18px');
+  el.style.opacity = '1';
 
-      requestAnimationFrame(() => {
-        el.style.opacity = '0';
-        el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.02)`;
-      });
+  layer.appendChild(el);
 
-      setTimeout(() => el.remove(), 520);
-    } catch (e) {}
-  },
+  const t0 = performance.now();
+  const dur = 520;
 
-  burst(x, y, opts = {}) {
-    try {
-      const layer = ensureLayer();
-      const count = clamp(opts.count || 10, 4, 18);
-      const spread = clamp(opts.spread || 46, 22, 80);
-
-      for (let i = 0; i < count; i++) {
-        const dot = makeEl('sb-fx-dot', x, y, '');
-        const a = (Math.PI * 2) * (i / count) + (Math.random() * 0.6);
-        const r = spread * (0.6 + Math.random() * 0.6);
-        const dx = Math.cos(a) * r;
-        const dy = Math.sin(a) * r;
-        const s = 0.8 + Math.random() * 0.8;
-
-        layer.appendChild(dot);
-        requestAnimationFrame(() => {
-          dot.style.opacity = '0';
-          dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${s})`;
-        });
-        setTimeout(() => dot.remove(), 520);
-      }
-    } catch (e) {}
+  function tick(now){
+    const p = Math.min(1, (now - t0)/dur);
+    const dy = -18 * p;
+    el.style.transform = `translate(-50%,-50%) translateY(${dy}px) scale(${1 + 0.08*p})`;
+    el.style.opacity = String(1 - p);
+    if(p < 1) requestAnimationFrame(tick);
+    else el.remove();
   }
-};
+  requestAnimationFrame(tick);
+}
+
+export function burstRing(x,y,grade){
+  const layer = ensureLayer();
+  const el = document.createElement('div');
+  el.style.position = 'fixed';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.width = '18px';
+  el.style.height = '18px';
+  el.style.borderRadius = '999px';
+  el.style.border = '2px solid ' + colorByGrade(grade);
+  el.style.transform = 'translate(-50%,-50%) scale(1)';
+  el.style.opacity = '0.9';
+  el.style.boxShadow = '0 0 22px rgba(56,189,248,0.18)';
+  layer.appendChild(el);
+
+  const t0 = performance.now();
+  const dur = 420;
+
+  function tick(now){
+    const p = Math.min(1, (now - t0)/dur);
+    const s = 1 + p*2.2;
+    el.style.transform = `translate(-50%,-50%) scale(${s})`;
+    el.style.opacity = String(0.9*(1-p));
+    if(p < 1) requestAnimationFrame(tick);
+    else el.remove();
+  }
+  requestAnimationFrame(tick);
+}
