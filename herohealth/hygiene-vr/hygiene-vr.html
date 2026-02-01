@@ -1,6 +1,7 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Uses: ../vr/vr-ui.js + ../vr/particles.js
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
 -->
@@ -19,15 +20,15 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
-  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/particles.js?v=20260201a" defer></script>
 
   <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank ✅ (ชื่อไฟล์ให้ตรงของจริง) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+  <!-- Quiz bank (ชื่อไฟล์จริง) -->
+  <script src="./hygiene-quiz-bank.js?v=20260201a" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260201a"></script>
@@ -109,9 +110,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc'))
-    );
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
     document.getElementById('labView').textContent = view;
   }
   setViewClass();
