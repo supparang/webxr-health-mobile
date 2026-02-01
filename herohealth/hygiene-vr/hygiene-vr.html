@@ -1,11 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => crosshair + hha:shoot (cvr)
-✅ FX: ../vr/particles.js (DOM overlay particles)
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Boot: hygiene-vr.boot.js (anti-stall + diagnostics)
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js (defer) => crosshair + hha:shoot
+✅ Effects: ../vr/particles.js (defer)
+✅ Quiz bank: ./hygiene-quiz-bank.js (defer) => window.HHA_HYGIENE_QUIZ_BANK
+✅ Boot: ./hygiene-vr.boot.js (module) imports ./hygiene.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -16,25 +15,25 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ IMPORTANT: CSS must exist in SAME folder -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260131a" />
+  <!-- CSS -->
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260201a" />
 
-  <!-- ✅ Universal VR UI (must defer) -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- ✅ FX layer -->
+  <!-- Effects (MUST load before engine events if you want popText/burst reliably) -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- Optional AI packs (safe if missing; engine checks window.*) -->
+  <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ QUIZ BANK: (ชื่อไฟล์ของคุณมีขีด -) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- ✅ Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260131a"></script>
+  <!-- Boot (module) -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260201a"></script>
 </head>
 
 <body class="view-pc">
@@ -109,7 +108,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 <script>
 (function(){
   'use strict';
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
@@ -119,21 +118,15 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       (view==='vr' ? 'view-vr' :
       (view==='cvr' ? 'view-cvr' : 'view-pc'))
     );
-    const labView = document.getElementById('labView');
-    if(labView) labView.textContent = view;
+    const el = document.getElementById('labView');
+    if(el) el.textContent = view;
   }
-
   setViewClass();
 
-  const labMode = document.getElementById('labMode');
-  const labDiff = document.getElementById('labDiff');
-  if(labMode) labMode.textContent = (qs('run','play')||'play');
-  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
-
-  // tiny hint logs
-  try{
-    console.log('[HygieneRun] view=', (qs('view','pc')||'pc'), 'diff=', (qs('diff','normal')||'normal'));
-  }catch{}
+  const m = document.getElementById('labMode');
+  const d = document.getElementById('labDiff');
+  if(m) m.textContent = (qs('run','play')||'play');
+  if(d) d.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
