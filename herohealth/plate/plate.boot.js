@@ -1,21 +1,19 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (LATEST)
-// ✅ Auto view detect (no UI override/menu)
-// ✅ Boots engine from ./plate.safe.js
-// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params
-// ✅ Anti-hang watchdog: if no targets / no start signals, show coach + console hints
+// PlateVR Boot — PRODUCTION
+// ✅ Auto view detect
+// ✅ Starts immediately (no waiting screen)
+// ✅ Wires HUD + quest + coach + end overlay
+// ✅ Pass-through research params
+// ✅ Safe error handling
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def = null) => {
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
+const qs = (k, def=null)=>{
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }
+  catch{ return def; }
 };
 
 function isMobile(){
@@ -25,10 +23,8 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // No UI override menu.
-  // Allow forced view by query for testing/experiments.
-  const forced = (qs('view','') || '').toLowerCase();
-  if(forced) return forced;
+  const forced = (qs('view','')||'').toLowerCase();
+  if(forced) return forced; // allow for experiments
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -41,13 +37,13 @@ function setBodyView(view){
   else b.classList.add('view-pc');
 }
 
-function clamp(v, a, b){
-  v = Number(v) || 0;
-  return v < a ? a : (v > b ? b : v);
+function clamp(v,a,b){
+  v = Number(v)||0;
+  return v<a ? a : (v>b ? b : v);
 }
 
 function pct(n){
-  n = Number(n) || 0;
+  n = Number(n)||0;
   return `${Math.round(n)}%`;
 }
 
@@ -76,9 +72,6 @@ function showCoach(msg, meta='Coach'){
   }, 2200);
 }
 
-/* ------------------------------------------------
- * HUD wiring
- * ------------------------------------------------ */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -103,7 +96,7 @@ function wireHUD(){
   WIN.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t) || 0)));
+    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
   });
 
   WIN.addEventListener('quest:update', (e)=>{
@@ -134,18 +127,13 @@ function wireHUD(){
   });
 }
 
-/* ------------------------------------------------
- * End controls + summary
- * ------------------------------------------------ */
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload();
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -170,7 +158,7 @@ function wireEndSummary(){
     if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc == null) ? '—' : pct(acc);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
@@ -179,13 +167,10 @@ function wireEndSummary(){
   });
 }
 
-/* ------------------------------------------------
- * Config builder
- * ------------------------------------------------ */
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play') || 'play').toLowerCase();
-  const diff = (qs('diff','normal') || 'normal').toLowerCase();
+  const run  = (qs('run','play')||'play').toLowerCase(); // play | research | study
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
@@ -212,76 +197,27 @@ function buildEngineConfig(){
   };
 }
 
-/* ------------------------------------------------
- * Anti-hang watchdog
- * ------------------------------------------------ */
-function installWatchdog(mount){
-  let sawStart = false;
-
-  const onStart = ()=>{ sawStart = true; };
-  WIN.addEventListener('hha:start', onStart, { once:true });
-
-  const t1 = setTimeout(()=>{
-    const n = mount?.children?.length || 0;
-    if(!sawStart){
-      console.warn('[PlateVR] watchdog: no hha:start yet');
-      showCoach('ยังไม่เริ่มเกม… ตรวจสอบ Console (F12) 🔧', 'System');
-    }else if(n === 0){
-      console.warn('[PlateVR] watchdog: started but no targets spawned yet');
-      showCoach('เริ่มแล้ว แต่เป้ายังไม่โผล่—เช็ค safe-zone/CSS 🔧', 'System');
-    }
-  }, 1600);
-
-  const t2 = setTimeout(()=>{
-    const n = mount?.children?.length || 0;
-    if(n === 0){
-      console.warn('[PlateVR] watchdog: still zero targets after 3.2s');
-      showCoach('เป้าไม่ขึ้น—อาจมี error ใน mode-factory / import', 'System');
-    }
-  }, 3200);
-
-  return ()=>{ clearTimeout(t1); clearTimeout(t2); };
-}
-
-/* ------------------------------------------------
- * Ready
- * ------------------------------------------------ */
 function ready(fn){
   if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
 ready(()=>{
-  const mount = DOC.getElementById('plate-layer');
-  if(!mount){
-    console.error('[PlateVR] mount #plate-layer missing');
-    showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
-    return;
-  }
-
   const cfg = buildEngineConfig();
-
-  // view class first (affects safe-zone vars)
   setBodyView(cfg.view);
 
-  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
-
-  // ensure end overlay closed at start
   setOverlayOpen(false);
 
-  // watchdog
-  const uninstall = installWatchdog(mount);
-
-  // boot engine
   try{
-    engineBoot({ mount, cfg });
+    engineBoot({
+      mount: DOC.getElementById('plate-layer'),
+      cfg
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู Console)', 'System');
-  }finally{
-    WIN.addEventListener('hha:end', ()=>{ try{ uninstall(); }catch{} }, { once:true });
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
   }
 });
