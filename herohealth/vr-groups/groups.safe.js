@@ -3,12 +3,10 @@
 // ✅ Fix: rafLoop is defined (internal requestAnimationFrame loop)
 // ✅ API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
 // ✅ Emits: hha:time, hha:score, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:end
+// ✅ NEW PATCH: Emits groups:hit for EffectsPack (hit_good/hit_bad/shot_miss/timeout_miss)
 // ✅ Deterministic RNG (seeded) for research/play
-// ✅ Mobile/cVR friendly: hit test via hha:shoot {x,y,lockPx,source}
+// ✅ Mobile/cVR friendly: hit test via hha:shoot {x,y,lockPx,source,locked}
 // ✅ Lightweight DOM targets in #playLayer
-// ✅ PATCH: emits groups:hit for EffectsPack (hit/miss/timeout)
-// ✅ PATCH: wrapper pointer-events => auto (fix "have targets but can't hit")
-// ✅ PATCH: spawn positions use playLayer rect (real usable area)
 (function(){
   'use strict';
 
@@ -28,17 +26,6 @@
 
   function emit(name, detail){
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
-
-  // ✅ PATCH: FX bridge (EffectsPack listens on groups:hit)
-  function emitHitFX(kind, x, y, extra){
-    try{
-      emit('groups:hit', Object.assign({
-        kind: String(kind||''),
-        x: Number(x)||0,
-        y: Number(y)||0
-      }, extra||{}));
-    }catch(_){}
   }
 
   function strSeedToU32(s){
@@ -66,6 +53,15 @@
 
   function pick(rng, arr){
     return arr[(rng()*arr.length)|0];
+  }
+
+  function rectCenter(el){
+    try{
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    }catch(_){
+      return { x: (WIN.innerWidth||360)/2, y: (WIN.innerHeight||640)/2 };
+    }
   }
 
   // ---------------- food groups (ไทย) ----------------
@@ -141,12 +137,11 @@
     if (S.wrapEl && DOC.body.contains(S.wrapEl)) return;
     const w = DOC.createElement('div');
     w.id = 'groupsPlayWrap';
-    // ✅ PATCH: pointer-events:auto (fix hitTest elementFromPoint + tapping targets)
     w.style.cssText =
-      'position:relative; width:100%; height:100%; pointer-events:auto; ' +
+      'position:relative; width:100%; height:100%; pointer-events:none; ' +
       'contain:layout style paint;';
     S.wrapEl = w;
-
+    // layerEl is where targets should go (playLayer)
     if (S.layerEl){
       S.layerEl.innerHTML = '';
       S.layerEl.appendChild(w);
@@ -170,19 +165,6 @@
     S.targets.length = 0;
   }
 
-  function getPlayRect(){
-    try{
-      const el = S.layerEl || DOC.getElementById('playLayer');
-      if (el && el.getBoundingClientRect){
-        const r = el.getBoundingClientRect();
-        // guard tiny rect
-        if (r.width > 10 && r.height > 10) return r;
-      }
-    }catch(_){}
-    // fallback to viewport
-    return { left:0, top:0, width: Math.max(320, WIN.innerWidth||360), height: Math.max(480, WIN.innerHeight||640) };
-  }
-
   function mkTarget(groupKey, emoji, lifeMs){
     const el = DOC.createElement('div');
     el.className = 'tgt';
@@ -197,24 +179,20 @@
       'pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent;';
     el.textContent = emoji;
 
-    // ✅ PATCH: position within playLayer rect (real playable area)
-    const rect = getPlayRect();
-    const w = 72, h = 72;
+    // position: avoid top HUD and bottom power/coach roughly (legacy; playLayer overflow handles)
+    const vw = Math.max(320, WIN.innerWidth||360);
+    const vh = Math.max(480, WIN.innerHeight||640);
 
-    const topSafe = 10;
-    const botSafe = 10;
-    const leftSafe = 10;
-    const rightSafe = 10;
+    const topSafe = 120;
+    const botSafe = 210;
+    const leftSafe = 14;
+    const rightSafe = 14;
 
-    const usableW = Math.max(60, rect.width - leftSafe - rightSafe - w);
-    const usableH = Math.max(60, rect.height - topSafe - botSafe - h);
+    const x = leftSafe + (S.rng() * (vw - leftSafe - rightSafe - 72));
+    const y = topSafe + (S.rng() * (vh - topSafe - botSafe - 72));
 
-    const xIn = leftSafe + (S.rng() * usableW);
-    const yIn = topSafe + (S.rng() * usableH);
-
-    // position relative to wrap (0,0 inside playLayer)
-    el.style.left = Math.round(xIn) + 'px';
-    el.style.top  = Math.round(yIn) + 'px';
+    el.style.left = Math.round(x) + 'px';
+    el.style.top  = Math.round(y) + 'px';
 
     // simple appear anim
     el.style.transform = 'scale(.82)';
@@ -432,13 +410,20 @@
     const d = ev.detail||{};
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
+    const locked = !!d.locked;
+    const source = String(d.source||'tap');
 
     S.shots++;
 
     const tgtEl = hitTest(x,y);
     if (!tgtEl){
-      // ✅ PATCH: shot miss FX
-      emitHitFX('shot_miss', x, y, { miss:true, good:false });
+      // ✅ NEW: FX event for miss shot
+      emit('groups:hit', {
+        kind:'shot_miss', miss:true, good:false,
+        x, y, locked, source,
+        t: nowMs()
+      });
+
       addScore(false);
       onBadHit();
       return;
@@ -469,12 +454,15 @@
 
     const good = (tg === cg);
 
-    // ✅ PATCH: hit FX (good/bad)
-    emitHitFX(good ? 'hit_good' : 'hit_bad', x, y, {
-      good,
-      miss:false,
-      groupKey: tg,
-      currentGroupKey: cg
+    // ✅ NEW: FX event for hit
+    emit('groups:hit', {
+      kind: good ? 'hit_good' : 'hit_bad',
+      good: !!good,
+      miss: false,
+      x, y, locked, source,
+      targetGroupKey: tg,
+      currentGroupKey: cg,
+      t: nowMs()
     });
 
     addScore(good);
@@ -488,7 +476,7 @@
     }
   }
 
-  // ---------------- RAF loop ----------------
+  // ---------------- RAF loop (FIX rafLoop) ----------------
   function rafLoop(){
     if (!S.running) return;
 
@@ -524,24 +512,29 @@
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
+
       if (t >= tg.dieAt){
         const cg = currentGroup().key;
 
+        // missed: count miss only if it was current group (fair)
         if (tg.groupKey === cg){
-          // ✅ PATCH: timeout miss FX at target center
-          try{
-            const r = tg.el.getBoundingClientRect();
-            const cx = r.left + r.width*0.5;
-            const cy = r.top  + r.height*0.5;
-            emitHitFX('timeout_miss', cx, cy, { miss:true, good:false, groupKey: tg.groupKey, currentGroupKey: cg });
-          }catch(_){}
-
           S.miss++;
           S.combo = 0;
           S.score = Math.max(0, S.score - 6);
           emitScore();
           emitRank();
           onBadHit();
+
+          // ✅ NEW: FX event for timeout miss (center of target)
+          const c = rectCenter(tg.el);
+          emit('groups:hit', {
+            kind:'timeout_miss', miss:true, good:false,
+            x: c.x, y: c.y,
+            locked:false, source:'timeout',
+            targetGroupKey: tg.groupKey,
+            currentGroupKey: cg,
+            t
+          });
         }
 
         try{
@@ -585,13 +578,11 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
-    // mix spawn: mostly random, but bias toward correct group so playable
     let gKey = '';
     const r = S.rng();
     if (r < 0.58) gKey = cg.key;
     else gKey = pick(S.rng, GROUPS).key;
 
-    // in boss: increase correct targets
     if (S.boss && S.rng() < 0.70) gKey = cg.key;
 
     const g = GROUPS.find(x=>x.key===gKey) || cg;
@@ -604,7 +595,6 @@
     const t = mkTarget(g.key, em, life);
     S.targets.push(t);
 
-    // cap targets (mobile-safe)
     const cap = (S.view==='pc') ? 12 : 10;
     if (S.targets.length > cap){
       let idx = S.targets.findIndex(x=>x.groupKey !== currentGroup().key);
@@ -668,7 +658,6 @@
 
     emitQuest(true);
 
-    // intro coach
     coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
   }
 
@@ -683,19 +672,16 @@
 
     setLayerEl(S.layerEl || DOC.getElementById('playLayer') || DOC.body);
 
-    // init ViewHelper (optional)
     try{
       const H = WIN.GroupsVR && WIN.GroupsVR.ViewHelper;
       H && H.init && H.init({ view:S.view });
     }catch(_){}
 
-    // init FX (optional)
     try{
       const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
       FX && FX.init && FX.init({ layerEl: S.layerEl });
     }catch(_){}
 
-    // init Telemetry (optional)
     try{
       const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
       if (T && T.init){
@@ -711,7 +697,6 @@
       }
     }catch(_){}
 
-    // AI hooks attach (optional)
     try{
       const AI = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -719,17 +704,14 @@
       }
     }catch(_){}
 
-    // reset + run
     resetRun(ctx||{});
 
     S.running = true;
     S.startT = nowMs();
     S.lastTickT = S.startT;
 
-    // listen shoot
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
 
-    // GO!
     S.rafId = requestAnimationFrame(rafLoop);
     return true;
   }
@@ -757,7 +739,6 @@
     }
     WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
 
-    // final stats
     const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
     const grade =
       (acc>=92 && S.score>=220) ? 'S' :
