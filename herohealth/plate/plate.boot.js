@@ -1,10 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION
-// ✅ Auto view detect
-// ✅ Starts immediately (no waiting screen)
-// ✅ Wires HUD + quest + coach + end overlay
-// ✅ Pass-through research params
-// ✅ Safe error handling
+// PlateVR Boot — PRODUCTION (anti-stuck)
+// ✅ Auto view detect (no UI override menu)
+// ✅ Robust start: waits for mount, then boots engine
+// ✅ Watchdog: if no hha:start within 1.8s -> show coach warning
+// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ End overlay: aria-hidden only
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -12,34 +14,37 @@ const WIN = window;
 const DOC = document;
 
 const qs = (k, def=null)=>{
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }
-  catch{ return def; }
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
 };
+
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
+}
 
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
+  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
 function getViewAuto(){
+  // Allow forcing via query (?view=pc/mobile/vr/cvr) for experiments,
+  // but NO UI to override.
   const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced; // allow for experiments
+  if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
 function setBodyView(view){
   const b = DOC.body;
+  if(!b) return;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
   if(view === 'cvr') b.classList.add('view-cvr');
   else if(view === 'vr') b.classList.add('view-vr');
   else if(view === 'mobile') b.classList.add('view-mobile');
   else b.classList.add('view-pc');
-}
-
-function clamp(v,a,b){
-  v = Number(v)||0;
-  return v<a ? a : (v>b ? b : v);
 }
 
 function pct(n){
@@ -60,7 +65,7 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = meta;
+  if(metaEl) metaEl.textContent = String(meta || 'Coach');
 
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
@@ -133,7 +138,10 @@ function wireEndControls(){
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      // keep same query params
+      location.reload();
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -169,7 +177,7 @@ function wireEndSummary(){
 
 function buildEngineConfig(){
   const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase(); // play | research | study
+  const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
@@ -181,6 +189,7 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // passthrough
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
@@ -202,22 +211,56 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
+async function waitForEl(id, ms=1200){
+  const t0 = performance.now();
+  while(performance.now() - t0 < ms){
+    const el = DOC.getElementById(id);
+    if(el) return el;
+    await new Promise(r=>setTimeout(r, 30));
+  }
+  return DOC.getElementById(id);
+}
+
+ready(async ()=>{
+  // always close end overlay at start
+  setOverlayOpen(false);
+
+  // build cfg + set view class early
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
+  // wire UI
   wireHUD();
   wireEndControls();
   wireEndSummary();
-  setOverlayOpen(false);
 
+  // mount must exist
+  const mount = await waitForEl('plate-layer', 1500);
+  if(!mount){
+    console.error('[PlateVR] mount missing #plate-layer');
+    showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
+    return;
+  }
+
+  // watchdog: if engine fails to emit hha:start => warn
+  let started = false;
+  const onStart = ()=>{ started = true; };
+  WIN.addEventListener('hha:start', onStart, { once:true });
+
+  const wd = setTimeout(()=>{
+    if(!started){
+      showCoach('ยังไม่เริ่มเกม—เช็ก console ถ้ามี error import/engine', 'System');
+    }
+  }, 1800);
+
+  // boot engine
   try{
-    engineBoot({
-      mount: DOC.getElementById('plate-layer'),
-      cfg
-    });
+    engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู console)', 'System');
+  }finally{
+    // keep watchdog alive until timeout, but clear if started earlier
+    WIN.addEventListener('hha:start', ()=>clearTimeout(wd), { once:true });
   }
 });
