@@ -12,25 +12,28 @@
 
   function setMode(m){
     mode = (m === 'research') ? 'research' : 'normal';
+
     if (btnNormal) btnNormal.classList.toggle('active', mode === 'normal');
     if (btnResearch) btnResearch.classList.toggle('active', mode === 'research');
 
     if (desc){
       desc.textContent = (mode === 'normal')
         ? 'Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)'
-        : 'Research: สำหรับเก็บข้อมูลงานวิจัย (แนะนำให้กรอกรหัส/กลุ่มในหน้าเกม แล้วดาวน์โหลด CSV)';
+        : 'Research: สำหรับเก็บข้อมูลงานวิจัย (AI แสดง prediction แต่ “ล็อกไม่ให้ปรับเกม” 100%)';
     }
   }
 
   function openGame(gameKey){
-    const m = (mode === 'research') ? 'research' : 'play';
+    const modeParam = (mode === 'research') ? 'research' : 'play';
 
     if (gameKey === 'shadow'){
-      location.href = `./shadow-breaker.html?from=hub&mode=${m}`;
+      location.href = `./shadow-breaker.html?from=hub&mode=${modeParam}`;
       return;
     }
+
     if (gameKey === 'rhythm'){
-      location.href = `./rhythm-boxer.html?from=hub&mode=${m}`;
+      // เปิด Rhythm Boxer จริง
+      location.href = `./rhythm-boxer.html?from=hub&mode=${modeParam}`;
       return;
     }
 
@@ -43,8 +46,11 @@
   document.addEventListener('click', (e)=>{
     const el = e.target && e.target.closest ? e.target.closest('[data-game]') : null;
     if (!el) return;
+    if (el.classList.contains('btn-disabled')) return;
+
     const key = el.getAttribute('data-game');
-    if (!key || el.classList.contains('btn-disabled')) return;
+    if (!key) return;
+
     openGame(key);
   });
 
