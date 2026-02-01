@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — BrushVR Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{ color-scheme: dark; --bg:#020617; --txt:#e5e7eb; --muted:#94a3b8; }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    .wrap{ min-height:100%; display:grid; place-items:center; padding:24px; }
+    .card{ width:min(720px, 92vw); border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.72); border-radius:20px; padding:18px 18px 14px; }
+    .t{ font-size:18px; font-weight:900; letter-spacing:.2px; }
+    .s{ margin-top:6px; color:var(--muted); font-size:13px; line-height:1.5; }
+    .p{ margin-top:14px; color:rgba(229,231,235,.85); font-size:12px; }
+    .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; margin-right:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="status" aria-live="polite">
+      <div class="t"><span class="dot"></span>กำลังเตรียมเข้าเกมแปรงฟัน…</div>
+      <div class="s">ระบบจะตรวจอุปกรณ์และพาเข้าเกมอัตโนมัติ (ไม่เปลี่ยนค่า view ถ้ามีส่งมาแล้ว)</div>
+      <div class="p" id="dbg"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+  const dbg = document.getElementById('dbg');
+
+  function qs(key, def=null){
+    try{ return new URL(location.href).searchParams.get(key) ?? def; }catch(_){ return def; }
+  }
+
+  function setParamIfMissing(sp, key, val){
+    if(!sp.has(key) && val!=null) sp.set(key, String(val));
+  }
+
+  function detectBaseViewSync(){
+    const ua = (navigator.userAgent||'').toLowerCase();
+    const isMobile = /android|iphone|ipad|ipod/.test(ua) || (navigator.maxTouchPoints||0) >= 2;
+    const isLandscape = (window.innerWidth > window.innerHeight);
+    // cVR heuristic: mobile + landscape
+    if(isMobile && isLandscape) return 'cvr';
+    return isMobile ? 'mobile' : 'pc';
+  }
+
+  async function detectViewAsyncFallback(){
+    // If WebXR immersive-vr supported, prefer view=vr
+    try{
+      if(navigator.xr && navigator.xr.isSessionSupported){
+        const ok = await navigator.xr.isSessionSupported('immersive-vr');
+        if(ok) return 'vr';
+      }
+    }catch(_){}
+    return detectBaseViewSync();
+  }
+
+  async function go(){
+    const url = new URL(location.href);
+    const sp = new URLSearchParams(url.search);
+
+    // Defaults (set ONLY if missing)
+    setParamIfMissing(sp, 'run', 'play');
+    setParamIfMissing(sp, 'diff', 'normal');
+    setParamIfMissing(sp, 'time', '90');
+
+    // IMPORTANT: do not override view if provided
+    if(!sp.has('view')){
+      const v = await detectViewAsyncFallback();
+      sp.set('view', v);
+    }
+
+    // Keep everything, just redirect to run page
+    const runUrl = new URL('./vr-brush/brush.html', location.href);
+    runUrl.search = sp.toString();
+
+    if(dbg){
+      dbg.textContent = 'Redirect → ' + runUrl.pathname + '?' + sp.toString();
+    }
+
+    location.replace(runUrl.toString());
+  }
+
+  go();
+})();
+</script>
+</body>
+</html>
