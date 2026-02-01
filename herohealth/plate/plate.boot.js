@@ -1,12 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (anti-stuck)
-// ✅ Auto view detect (no UI override menu)
-// ✅ Robust start: waits for mount, then boots engine
-// ✅ Watchdog: if no hha:start within 1.8s -> show coach warning
-// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// PlateVR Boot — PRODUCTION (ANTI-HANG)
+// ✅ Start immediately on DOM ready (no start screen)
+// ✅ Auto view detect (no UI override) + allow ?view=
+// ✅ Passthrough research/play params (run/diff/time/seed/studyId/...)
+// ✅ Wires HUD: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
+// ✅ End overlay open/close via aria-hidden only
+// ✅ Restart + Back HUB
+// ✅ Safe guards: never crashes if elements missing
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -18,22 +18,33 @@ const qs = (k, def=null)=>{
   catch { return def; }
 };
 
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
 function isMobile(){
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
   return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
 }
 
-function getViewAuto(){
-  // Allow forcing via query (?view=pc/mobile/vr/cvr) for experiments,
-  // but NO UI to override.
+async function detectXR(){
+  // best effort: never block boot
+  try{
+    const xr = navigator.xr;
+    if(!xr || typeof xr.isSessionSupported !== 'function') return null;
+    const ok = await xr.isSessionSupported('immersive-vr');
+    return ok ? 'vr' : null;
+  }catch{
+    return null;
+  }
+}
+
+async function getViewAuto(){
+  // ✅ No UI override. Allow caller to force via query only.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
+
+  // best effort: if XR available, prefer 'vr'
+  const xr = await detectXR();
+  if(xr) return xr;
+
   return isMobile() ? 'mobile' : 'pc';
 }
 
@@ -47,6 +58,11 @@ function setBodyView(view){
   else b.classList.add('view-pc');
 }
 
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
+}
+
 function pct(n){
   n = Number(n)||0;
   return `${Math.round(n)}%`;
@@ -58,7 +74,7 @@ function setOverlayOpen(open){
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
 
-function showCoach(msg, meta='Coach'){
+function showCoach(msg, meta='Coach', ms=2200){
   const card = DOC.getElementById('coachCard');
   const mEl = DOC.getElementById('coachMsg');
   const metaEl = DOC.getElementById('coachMeta');
@@ -74,7 +90,7 @@ function showCoach(msg, meta='Coach'){
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
-  }, 2200);
+  }, clamp(ms, 500, 8000));
 }
 
 function wireHUD(){
@@ -106,6 +122,7 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+    // shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -130,6 +147,19 @@ function wireHUD(){
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
+
+  // optional: judge events can be surfaced as quick toasts
+  WIN.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    const type = (d.type || '').toUpperCase();
+    const msg = d.msg || '';
+    if(!msg) return;
+
+    // keep it subtle (avoid spam)
+    if(type === 'PERFECT' || type === 'CLEAR' || type === 'BOSS' || type === 'STORM'){
+      showCoach(msg, type, 1600);
+    }
+  });
 }
 
 function wireEndControls(){
@@ -139,8 +169,7 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      // keep same query params
-      location.reload();
+      location.reload(); // keep same query
     });
   }
   if(btnBackHub){
@@ -175,10 +204,11 @@ function wireEndSummary(){
   });
 }
 
-function buildEngineConfig(){
-  const view = getViewAuto();
+function buildEngineConfig(view){
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
+
+  // note: time 90 is a good default for Plate
   const time = clamp(qs('time','90'), 10, 999);
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
@@ -189,10 +219,10 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    // passthrough
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
+    // passthrough context (for logger)
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -211,56 +241,44 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-async function waitForEl(id, ms=1200){
-  const t0 = performance.now();
-  while(performance.now() - t0 < ms){
-    const el = DOC.getElementById(id);
-    if(el) return el;
-    await new Promise(r=>setTimeout(r, 30));
-  }
-  return DOC.getElementById(id);
-}
-
 ready(async ()=>{
-  // always close end overlay at start
+  // always close overlay at start
   setOverlayOpen(false);
 
-  // build cfg + set view class early
-  const cfg = buildEngineConfig();
-  setBodyView(cfg.view);
-
-  // wire UI
+  // wire UI first (never blocks engine)
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // mount must exist
-  const mount = await waitForEl('plate-layer', 1500);
-  if(!mount){
-    console.error('[PlateVR] mount missing #plate-layer');
-    showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
-    return;
+  // decide view (async XR check, but bounded—never hangs)
+  let view = 'pc';
+  try{
+    // cap XR detect time
+    const p = getViewAuto();
+    view = await Promise.race([
+      p,
+      new Promise(res => setTimeout(()=>res(isMobile() ? 'mobile' : 'pc'), 250))
+    ]);
+  }catch{
+    view = isMobile() ? 'mobile' : 'pc';
   }
 
-  // watchdog: if engine fails to emit hha:start => warn
-  let started = false;
-  const onStart = ()=>{ started = true; };
-  WIN.addEventListener('hha:start', onStart, { once:true });
+  setBodyView(view);
 
-  const wd = setTimeout(()=>{
-    if(!started){
-      showCoach('ยังไม่เริ่มเกม—เช็ก console ถ้ามี error import/engine', 'System');
-    }
-  }, 1800);
+  const cfg = buildEngineConfig(view);
 
   // boot engine
   try{
+    const mount = DOC.getElementById('plate-layer');
+    if(!mount){
+      console.error('[PlateVR] mount #plate-layer missing');
+      showCoach('ไม่พบพื้นที่เล่น (#plate-layer)', 'System', 3000);
+      return;
+    }
+
     engineBoot({ mount, cfg });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู console)', 'System');
-  }finally{
-    // keep watchdog alive until timeout, but clear if started earlier
-    WIN.addEventListener('hha:start', ()=>clearTimeout(wd), { once:true });
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System', 3200);
   }
 });
