@@ -1,4 +1,4 @@
-// === fitness/js/jump-duck.js — Jump Duck Rush (Research-ready v2 — 2025-12-02) ===
+// === fitness/js/jump-duck.js — Jump Duck Rush (Research-ready v2.1 PATCH) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -99,6 +99,26 @@ let judgeTimer = null;
 /* input state */
 let lastAction = null; // { type:'jump'|'duck', time:number }
 
+/* ---------- Helpers ---------- */
+
+function qs(key, def=null){
+  try{
+    const v = new URL(location.href).searchParams.get(key);
+    return (v == null ? def : v);
+  }catch{
+    return def;
+  }
+}
+
+function makeRNG(seed){
+  // LCG deterministic
+  let x = (Number(seed) || Date.now()) >>> 0;
+  return function rng(){
+    x = (1664525 * x + 1013904223) >>> 0;
+    return x / 4294967296;
+  };
+}
+
 /* ---------- Helper: view switching ---------- */
 
 function showView(name){
@@ -124,8 +144,11 @@ function playSfx(id){
 function showJudge(text, kind){
   if (!elJudge) return;
   elJudge.textContent = text;
+
+  // อย่าไปทับ class อื่น ๆ แปลก ๆ ให้คง base ไว้
   elJudge.className = 'jd-judge show';
   if (kind) elJudge.classList.add(kind);
+
   if (judgeTimer) clearTimeout(judgeTimer);
   judgeTimer = setTimeout(()=>{
     elJudge.classList.remove('show');
@@ -186,6 +209,7 @@ function buildSummary(){
     session_id: state.sessionId,
     mode: state.mode,
     diff: state.diffKey,
+    seed: state.seed || '',
     duration_planned_s: (state.durationMs||0)/1000,
     duration_actual_s: (state.elapsedMs||0)/1000,
     obstacles_total: totalObs,
@@ -230,7 +254,12 @@ function startGameBase(opts){
   const isTutorial= !!opts.isTutorial;
   const participant = collectParticipant(mode);
 
-  const now = performance.now();
+  const t0 = performance.now();
+
+  // deterministic seed for test/research (optional for training too)
+  const seedQ = qs('seed', '');
+  const seed = seedQ !== '' ? Number(seedQ) : Date.now();
+  const rng = makeRNG(seed);
 
   state = {
     sessionId: makeSessionId(),
@@ -239,8 +268,11 @@ function startGameBase(opts){
     diffKey,
     cfg:diffCfg,
 
+    seed,
+    rng,
+
     durationMs,
-    startTime: now,
+    startTime: t0,
     elapsedMs: 0,
     remainingMs: durationMs,
 
@@ -248,7 +280,7 @@ function startGameBase(opts){
     minStability: 100,
 
     obstacles: [],
-    nextSpawnAt: now + 600,
+    nextSpawnAt: t0 + 600,
     obstaclesSpawned: 0,
     hits: 0,
     miss: 0,
@@ -269,7 +301,7 @@ function startGameBase(opts){
   };
 
   running   = true;
-  lastFrame = now;
+  lastFrame = t0;
 
   // Reset UI
   if (elHudMode) elHudMode.textContent = modeLabel(mode);
@@ -328,14 +360,12 @@ function endGame(reason){
   // สร้างสรุปสำหรับแสดงผล
   const totalObs = state.obstaclesSpawned || 0;
   const hits     = state.hits || 0;
-  const misses   = state.miss || 0;
   const acc      = totalObs ? hits/totalObs : 0;
   const rtMean   = state.hitRTs.length
     ? state.hitRTs.reduce((a,b)=>a+b,0)/state.hitRTs.length
     : 0;
 
   fillResultView(acc, rtMean, totalObs);
-
   showView('result');
 }
 
@@ -406,7 +436,7 @@ function loop(ts){
     state.nextSpawnAt += interval;
   }
 
-  // move & resolve obstacles — Training mode เร็วขึ้นช่วงท้าย
+  // move & resolve obstacles
   updateObstacles(dt, ts, progress);
 
   // update HUD
@@ -422,7 +452,7 @@ function loop(ts){
   rafId = requestAnimationFrame(loop);
 }
 
-let nextObstacleId = 1;
+/* ---------- Obstacles ---------- */
 
 let nextObstacleId = 1;
 
@@ -430,26 +460,31 @@ function spawnObstacle(ts){
   if (!elObsHost || !state) return;
 
   // ======= ป้องกันไม่ให้กองเป็นกำแพง =======
-  // ถ้าก้อนสุดท้ายยังอยู่ใกล้ ๆ ขวา (x > 70) ก็ยังไม่ spawn ก้อนใหม่
   const last = state.obstacles[state.obstacles.length - 1];
-  if (last && last.x > 70) {
-    return; // ข้ามรอบนี้ไปก่อน ให้เว้นระยะ
-  }
+  if (last && last.x > 70) return;
 
-  const isHigh = Math.random() < 0.5;
+  // ✅ deterministic rng
+  const r = state.rng ? state.rng() : Math.random();
+  const isHigh = r < 0.5;
+
   const type   = isHigh ? 'high' : 'low';  // high = ต้อง DUCK, low = ต้อง JUMP
 
   const el = document.createElement('div');
-  el.className = 'jd-obstacle ' + (type === 'high' ? 'jd-obstacle--high' : 'jd-obstacle--low');
+
+  // เผื่อ CSS ของคุณใช้ชื่อแบบไหน ก็ใส่ให้ทั้งคู่
+  el.className = 'jd-obstacle ' +
+    (type === 'high'
+      ? 'high jd-obstacle--high'
+      : 'low  jd-obstacle--low');
+
   el.dataset.id = String(nextObstacleId);
 
-  // ======= ด้านในมีกล่อง icon + tag =======
   const inner = document.createElement('div');
   inner.className = 'jd-obstacle-inner';
 
   const iconSpan = document.createElement('span');
   iconSpan.className = 'jd-obs-icon';
-  iconSpan.textContent = isHigh ? '⬇' : '⬆';   // ลูกศรลง = DUCK, ขึ้น = JUMP
+  iconSpan.textContent = isHigh ? '⬇' : '⬆';
 
   const tagSpan = document.createElement('span');
   tagSpan.className = 'jd-obs-tag';
@@ -470,22 +505,20 @@ function spawnObstacle(ts){
     hit:false,
     miss:false,
     element: el,
-    centerTime: null,
+    centerTime: null,   // ✅ เวลาที่แตะ CENTER_X ครั้งแรก
     warned: false
   });
 
   state.obstaclesSpawned++;
 }
 
-
 function updateObstacles(dt, now, progress){
   if (!state) return;
   const cfg = state.cfg || JD_DIFFS.normal;
   let speed = cfg.speedUnitsPerSec;
 
-  // Training mode: เพิ่มความเร็วเล็กน้อยช่วงท้าย
   if (state.mode === 'training' && !state.isTutorial){
-    const speedFactor = 1 + 0.25*progress; // +0–25%
+    const speedFactor = 1 + 0.25*progress;
     speed *= speedFactor;
   }
 
@@ -500,29 +533,31 @@ function updateObstacles(dt, now, progress){
 
     obs.x -= move;
 
-    // update DOM position (ใช้ left%)
     if (obs.element){
       obs.element.style.left = obs.x + '%';
     }
 
     const needType = (obs.type === 'high') ? 'duck' : 'jump';
 
-    // mark centerTime
+    // ✅ mark centerTime เมื่อแตะ CENTER ครั้งแรก
     if (!obs.centerTime && obs.x <= CENTER_X){
       obs.centerTime = now;
     }
 
-    // เตือนก่อนเข้าเขต (beep)
+    // เตือนก่อนเข้าเขต
     if (!obs.warned && obs.x <= CENTER_X + 18){
       obs.warned = true;
       playSfx('jd-sfx-beep');
     }
 
-    // Check HIT window (ใกล้ center)
+    // ===== HIT window =====
     if (!obs.resolved && obs.x <= CENTER_X + 6 && obs.x >= CENTER_X - 6){
       const action = lastAction;
+
       if (action && action.time){
-        const dtAction = Math.abs(action.time - now);
+        // ✅ เทียบกับเวลาที่ obstacle อยู่ CENTER จริง ๆ
+        const tRef = obs.centerTime || now;
+        const dtAction = Math.abs(action.time - tRef);
         const matchPose= (action.type === needType);
 
         if (matchPose && dtAction <= cfg.hitWindowMs){
@@ -554,11 +589,11 @@ function updateObstacles(dt, now, progress){
           const rt = dtAction;
           state.hitRTs.push(rt);
 
-          // log event
           pushEvent({
             session_id: state.sessionId,
             mode: state.mode,
             diff: state.diffKey,
+            seed: state.seed || '',
             event_type: 'hit',
             obstacle_type: obs.type,
             required_action: needType,
@@ -573,7 +608,6 @@ function updateObstacles(dt, now, progress){
             note:           state.participant?.note || ''
           });
 
-          // Feedback
           if (state.combo >= 8){
             showJudge('COMBO x'+state.combo+' 🔥', 'combo');
             playSfx('jd-sfx-combo');
@@ -589,7 +623,7 @@ function updateObstacles(dt, now, progress){
       }
     }
 
-    // MISS – ผ่าน zone แล้วไม่ถูกตี
+    // ===== MISS =====
     if (!obs.resolved && obs.x <= MISS_X){
       obs.resolved = true;
       obs.miss     = true;
@@ -607,11 +641,11 @@ function updateObstacles(dt, now, progress){
         obs.element = null;
       }
 
-      // log event (miss)
       pushEvent({
         session_id: state.sessionId,
         mode: state.mode,
         diff: state.diffKey,
+        seed: state.seed || '',
         event_type: 'miss',
         obstacle_type: obs.type,
         required_action: needType,
@@ -628,6 +662,7 @@ function updateObstacles(dt, now, progress){
 
       showJudge('MISS ลองใหม่อีกที ✨', 'miss');
       playSfx('jd-sfx-miss');
+
       if (elPlayArea){
         elPlayArea.classList.add('shake');
         setTimeout(()=> elPlayArea.classList.remove('shake'), 180);
@@ -648,7 +683,7 @@ function updateObstacles(dt, now, progress){
     state.obstacles = state.obstacles.filter(o => !toRemove.includes(o));
   }
 
-  // เคลียร์ action หลังจากใช้แล้วสักพัก
+  // clear action after a short while
   if (lastAction && now - lastAction.time > 260){
     lastAction = null;
   }
@@ -658,8 +693,8 @@ function updateObstacles(dt, now, progress){
 
 function triggerAction(type){
   if (!state || !running) return;
-  const now = performance.now();
-  lastAction = { type, time: now };
+  const t = performance.now();
+  lastAction = { type, time: t };
 
   if (!elAvatar) return;
   elAvatar.classList.remove('jump','duck');
@@ -706,39 +741,22 @@ function updateResearchVisibility(){
 }
 
 function initJD(){
-  // เริ่มเล่นจากเมนู
-  $('[data-action="start"]')?.addEventListener('click', ()=>{
-    startGame();
-  });
+  $('[data-action="start"]')?.addEventListener('click', startGame);
+  $('[data-action="tutorial"]')?.addEventListener('click', startTutorial);
 
-  // Tutorial
-  $('[data-action="tutorial"]')?.addEventListener('click', ()=>{
-    startTutorial();
-  });
-
-  // หยุดก่อนเวลา
   $('[data-action="stop-early"]')?.addEventListener('click', ()=>{
-    if (running){
-      endGame('manual');
-    }
+    if (running) endGame('manual');
   });
 
-  // result actions
-  $('[data-action="play-again"]')?.addEventListener('click', ()=>{
-    startGame();
-  });
+  $('[data-action="play-again"]')?.addEventListener('click', startGame);
 
   $$('[data-action="back-menu"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      showView('menu');
-    });
+    btn.addEventListener('click', ()=> showView('menu'));
   });
 
-  // input listeners
   window.addEventListener('keydown', handleKeyDown, {passive:false});
   elPlayArea?.addEventListener('pointerdown', handlePointerDown, {passive:false});
 
-  // mode change
   elMode?.addEventListener('change', updateResearchVisibility);
   updateResearchVisibility();
 
@@ -748,12 +766,8 @@ function initJD(){
 /* ---------- Export interface for research ---------- */
 
 window.JD_EXPORT = {
-  getSummary(){
-    return buildSummary();
-  },
-  getEventsCsv(){
-    return buildEventsCsv();
-  }
+  getSummary(){ return buildSummary(); },
+  getEventsCsv(){ return buildEventsCsv(); }
 };
 
 window.addEventListener('DOMContentLoaded', initJD);
