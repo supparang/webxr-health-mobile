@@ -1,115 +1,102 @@
-// === js/ai-predictor.js — Lightweight AI Prediction (Deterministic, no deps) ===
-// Purpose: provide "AI-like" predictions (fatigue / skill) + micro-coach tips
-// Notes:
-// - Deterministic: output depends only on aggregated gameplay features (no randomness)
-// - Not a trained ML/DL model (yet). We expose a tiny interface so you can swap in a real model later.
-// - Safe for Research mode: does NOT change judging unless allowAdapt=true.
+// === /fitness/js/ai-predictor.js ===
+// Classic Script (NO export) — safe for <script src="...">
+'use strict';
 
-(function(){
-  'use strict';
+(function () {
+  const WIN = window;
 
-  const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
-  const sigmoid = (x)=> 1/(1+Math.exp(-x));
+  // ---- small helpers ----
+  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
 
-  // Tiny "model" (logistic-ish) with hand-tuned weights.
-  // You can replace weights with trained params later.
-  const W_FATIGUE = { bias:-1.6, missRate: 3.4, hpLow: 2.2, latePct: 1.2, jitter: 1.6, blankTap: 1.1 };
-  const W_SKILL   = { bias:-0.4, acc: 2.2, perfectRate: 1.6, jitter:-1.4, missRate:-2.6, combo: 0.7 };
-
-  function calcFatigueRisk(f){
-    // features should be 0..1-ish
-    const z =
-      W_FATIGUE.bias +
-      W_FATIGUE.missRate * f.missRate +
-      W_FATIGUE.hpLow    * f.hpLow +
-      W_FATIGUE.latePct  * f.latePct +
-      W_FATIGUE.jitter   * f.jitter +
-      W_FATIGUE.blankTap * f.blankTapRate;
-    return clamp(sigmoid(z), 0, 1);
-  }
-
-  function calcSkillScore(f){
-    const z =
-      W_SKILL.bias +
-      W_SKILL.acc         * f.acc +
-      W_SKILL.perfectRate * f.perfectRate +
-      W_SKILL.jitter      * f.jitter +
-      W_SKILL.missRate    * f.missRate +
-      W_SKILL.combo       * f.comboNorm;
-    return clamp(sigmoid(z), 0, 1);
-  }
-
-  function toLabel01(v){
-    if (v >= 0.80) return 'high';
-    if (v >= 0.55) return 'mid';
-    return 'low';
-  }
-
-  function makeTip({fatigueRisk, skillScore, earlyPct, latePct, jitter, missStreak}){
-    // rate-limited upstream; this returns a single short tip
-    if (fatigueRisk >= 0.75) return 'พักไหล่/ข้อมือ 10–15 วิ แล้วค่อยกลับมาเล่น';
-    if (missStreak >= 3) return 'ช้าลงนิด: โฟกัส “จังหวะเส้นตี” มากกว่ารีบกด';
-    if (jitter >= 0.55) return 'จังหวะยังไม่นิ่ง: ลองหายใจลึก แล้วกดให้สม่ำเสมอ';
-    if (latePct - earlyPct >= 0.20) return 'กดช้าไปนิด: ลองกด “ก่อน” เส้นตีเล็กน้อย';
-    if (earlyPct - latePct >= 0.20) return 'กดเร็วไปนิด: รอให้เข้าใกล้เส้นตีอีกหน่อย';
-    if (skillScore >= 0.75) return 'ทำได้ดีมาก! ลองเพิ่มเพลง/ระดับที่ยากขึ้นได้';
-    return 'ดี! รักษาจังหวะให้คงที่ แล้วค่อย ๆ เพิ่มคอมโบ';
-  }
-
-  function suggestDifficulty({fatigueRisk, skillScore}){
-    // suggestion only (does not auto-change unless allowAdapt)
-    if (fatigueRisk >= 0.80) return 'easy';
-    if (skillScore >= 0.85 && fatigueRisk <= 0.45) return 'hard';
-    return 'normal';
-  }
-
-  class AIPredictor{
-    constructor(opts={}){
-      this.allowAdapt = !!opts.allowAdapt;  // play-mode may enable
-      this.lastTipAt = 0;
-      this.tipCooldownMs = opts.tipCooldownMs || 4500;
-      this.state = {
-        fatigueRisk: 0,
-        skillScore:  0.5,
-        fatigueLabel:'low',
-        skillLabel:  'mid',
-        suggestedDifficulty:'normal',
-        tip:''
-      };
+  function readQueryFlag(key) {
+    try {
+      const v = new URL(location.href).searchParams.get(key);
+      return v === '1' || v === 'true' || v === 'yes';
+    } catch (_) {
+      return false;
     }
-
-    update(features, nowMs){
-      const t = Number(nowMs)||0;
-
-      const fatigueRisk = calcFatigueRisk(features);
-      const skillScore  = calcSkillScore(features);
-
-      const out = {
-        fatigueRisk,
-        skillScore,
-        fatigueLabel: toLabel01(fatigueRisk),
-        skillLabel:   toLabel01(skillScore),
-        suggestedDifficulty: suggestDifficulty({fatigueRisk, skillScore}),
-        tip: this.state.tip || ''
-      };
-
-      // generate tip with cooldown
-      if (t - this.lastTipAt >= this.tipCooldownMs){
-        out.tip = makeTip({
-          fatigueRisk,
-          skillScore,
-          earlyPct: features.earlyPct,
-          latePct: features.latePct,
-          jitter: features.jitter,
-          missStreak: features.missStreak
-        });
-        this.lastTipAt = t;
-      }
-
-      this.state = out;
-      return out;
+  }
+  function readQueryMode() {
+    try {
+      const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
+      if (m === 'research') return 'research';
+      return 'normal';
+    } catch (_) {
+      return 'normal';
     }
   }
 
-  window.RB_AIPredictor = AIPredictor;
+  // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
+  // Inputs we "expect" (best effort) from engine snapshot:
+  // { accPct, hitMiss, combo, offsetAbsMean, hp, songTime, durationSec }
+  function predictFromSnapshot(s) {
+    const acc = clamp01((Number(s.accPct) || 0) / 100);
+    const hp = clamp01((Number(s.hp) || 100) / 100);
+
+    // offsetAbsMean in seconds; smaller => better
+    const off = Number(s.offsetAbsMean);
+    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ fairly loose cap
+
+    const miss = Number(s.hitMiss) || 0;
+    const judged = (Number(s.hitPerfect)||0) + (Number(s.hitGreat)||0) + (Number(s.hitGood)||0) + miss;
+    const missRate = judged > 0 ? clamp01(miss / judged) : 0;
+
+    // fatigueRisk: rises if hp low, missRate high, offset large
+    const fatigueRisk = clamp01(
+      (1 - hp) * 0.45 +
+      missRate * 0.35 +
+      (1 - offScore) * 0.20
+    );
+
+    // skillScore: high if accuracy high + offset good + miss low
+    const skillScore = clamp01(
+      acc * 0.55 +
+      offScore * 0.30 +
+      (1 - missRate) * 0.15
+    );
+
+    // suggest difficulty (string)
+    let suggestedDifficulty = 'normal';
+    if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
+    else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
+
+    // micro tip
+    let tip = '';
+    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
+    else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
+    else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
+    else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+
+    return {
+      fatigueRisk,
+      skillScore,
+      suggestedDifficulty,
+      tip
+    };
+  }
+
+  // ---- Public bridge used by engine/UI ----
+  // Research lock rule:
+  // - if mode=research => lock adjustments ALWAYS
+  // - if normal => allow adjustments only when ?ai=1
+  const API = {
+    getMode() {
+      return readQueryMode(); // 'research' | 'normal'
+    },
+    isAssistEnabled() {
+      const mode = readQueryMode();
+      if (mode === 'research') return false;   // locked
+      return readQueryFlag('ai');              // normal: require ?ai=1
+    },
+    isLocked() {
+      return readQueryMode() === 'research';
+    },
+    predict(snapshot) {
+      return predictFromSnapshot(snapshot || {});
+    }
+  };
+
+  // expose globally
+  WIN.RB_AI = API;
 })();
