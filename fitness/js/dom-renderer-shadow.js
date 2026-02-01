@@ -1,94 +1,144 @@
-// === fitness/js/dom-renderer-shadow.js ===
-// Shadow Breaker — DOM Renderer (Pack D)
-// ✅ Supports deterministic spawn via xPct/yPct (0..1)
-// ✅ Keeps previous safe clamp
 'use strict';
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+import { burstText, burstRing } from './fx-burst.js';
+
+const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
 
 export class DomRendererShadow {
-  constructor(layerEl) {
-    this.layer = layerEl;
-    this.targets = new Map(); // id -> el
-    this.onHit = null; // fn(id, clientX, clientY)
+  constructor(layerEl, opts = {}) {
+    this.layerEl = layerEl;
+    this.wrapEl = opts.wrapEl || null;
+    this.feedbackEl = opts.feedbackEl || null;
+    this.onTargetHit = opts.onTargetHit || null;
+
+    this.targets = new Map();
+    this.diffKey = 'normal';
+
+    this._onPointerDown = this._onPointerDown.bind(this);
+    this._onKeyDown = this._onKeyDown.bind(this);
+
+    if (this.layerEl) {
+      this.layerEl.addEventListener('pointerdown', this._onPointerDown, { passive: true });
+      window.addEventListener('keydown', this._onKeyDown);
+    }
   }
 
-  clear() {
-    for (const el of this.targets.values()) el.remove();
+  setDifficulty(diffKey) {
+    this.diffKey = diffKey || 'normal';
+  }
+
+  destroy() {
+    if (this.layerEl) {
+      this.layerEl.removeEventListener('pointerdown', this._onPointerDown);
+    }
+    window.removeEventListener('keydown', this._onKeyDown);
+
+    // remove nodes
+    for (const [id, el] of this.targets) {
+      try { el.remove(); } catch {}
+    }
     this.targets.clear();
   }
 
-  setOnHit(fn) {
-    this.onHit = fn;
-  }
-
-  _pickSpawnPoint(rect, size) {
-    const margin = clamp(size * 0.65, 42, 120);
-    const x = margin + Math.random() * Math.max(10, rect.width - margin * 2);
-    const y = margin + Math.random() * Math.max(10, rect.height - margin * 2);
-    return { x, y };
-  }
-
   spawnTarget(data) {
-    if (!data || !data.id) return;
-
-    const rect = this.layer.getBoundingClientRect();
-
-    const size = clamp(Number(data.sizePx) || 120, 80, 240);
-    let x = 0;
-    let y = 0;
-    // If engine provides xPct/yPct (0..1), use it for deterministic patterns.
-    if (Number.isFinite(data.xPct) && Number.isFinite(data.yPct) && rect.width > 10 && rect.height > 10) {
-      const xp = clamp(Number(data.xPct), 0.06, 0.94);
-      const yp = clamp(Number(data.yPct), 0.12, 0.88);
-      x = xp * rect.width;
-      y = yp * rect.height;
-    } else {
-      const pt = this._pickSpawnPoint(rect, size);
-      x = pt.x;
-      y = pt.y;
-    }
+    if (!this.layerEl || !data) return;
 
     const el = document.createElement('div');
     el.className = 'sb-target';
+    el.dataset.id = String(data.id);
 
-    if (data.type === 'decoy') el.classList.add('sb-target--decoy');
-    if (data.isBossFace) el.classList.add('sb-target--bossface');
+    if (data.isBomb) el.classList.add('is-bomb');
+    if (data.isDecoy) el.classList.add('is-decoy');
+    if (data.isHeal) el.classList.add('is-heal');
+    if (data.isShield) el.classList.add('is-shield');
+    if (data.isBossFace) el.classList.add('is-bossface');
 
-    el.dataset.id = data.id;
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
+    const emoji = document.createElement('div');
+    emoji.className = 'emoji';
+
+    if (data.isBomb) emoji.textContent = '💣';
+    else if (data.isDecoy) emoji.textContent = '👻';
+    else if (data.isHeal) emoji.textContent = '🩹';
+    else if (data.isShield) emoji.textContent = '🛡️';
+    else if (data.isBossFace) emoji.textContent = data.bossEmoji || '🥊';
+    else emoji.textContent = '🎯';
+
+    el.appendChild(emoji);
+
+    // position random but safe
+    const r = this.layerEl.getBoundingClientRect();
+    const w = r.width;
+    const h = r.height;
+    const size = data.sizePx || 120;
+
+    const pad = Math.max(10, size * 0.55);
+    const x = clamp(Math.random() * w, pad, w - pad);
+    const y = clamp(Math.random() * h, pad, h - pad);
+
     el.style.left = x + 'px';
     el.style.top = y + 'px';
-    el.style.transform = 'translate(-50%,-50%)';
-    el.style.fontSize = clamp(size * 0.52, 26, 56) + 'px';
-    el.textContent = data.emoji || '🎯';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
 
-    const hit = (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const id = el.dataset.id;
-      const cx = (ev.touches && ev.touches[0]) ? ev.touches[0].clientX : ev.clientX;
-      const cy = (ev.touches && ev.touches[0]) ? ev.touches[0].clientY : ev.clientY;
-      if (this.onHit) this.onHit(id, cx, cy);
-    };
-
-    el.addEventListener('click', hit, { passive: false });
-    el.addEventListener('touchstart', hit, { passive: false });
-
-    this.layer.appendChild(el);
+    this.layerEl.appendChild(el);
     this.targets.set(data.id, el);
   }
 
-  despawn(id) {
+  removeTarget(id, reason) {
     const el = this.targets.get(id);
     if (!el) return;
-    el.remove();
     this.targets.delete(id);
+    try { el.remove(); } catch {}
   }
 
-  playHitFx(x, y, grade) {
-    // Visual handled in engine (FxBurst) for Pack D
-    // This stays for compatibility if you want to add extra renderer-only FX later.
+  playHitFx(id, fx) {
+    // fx: {grade, scoreDelta, clientX, clientY}
+    const grade = fx && fx.grade ? fx.grade : 'good';
+    const scoreDelta = fx && fx.scoreDelta != null ? fx.scoreDelta : 0;
+
+    const x = fx && fx.clientX != null ? fx.clientX : (window.innerWidth/2);
+    const y = fx && fx.clientY != null ? fx.clientY : (window.innerHeight/2);
+
+    const label =
+      scoreDelta >= 0 ? `+${scoreDelta}` : `${scoreDelta}`;
+
+    burstText(x, y, label, grade);
+    burstRing(x, y, grade);
+  }
+
+  // ===== Input handling =====
+  _onPointerDown(e) {
+    const t = e.target.closest('.sb-target');
+    if (!t) return;
+    const id = Number(t.dataset.id);
+    if (!id) return;
+
+    if (typeof this.onTargetHit === 'function') {
+      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY, source: 'pointer' });
+    }
+  }
+
+  _onKeyDown(e) {
+    // debug: space hit nearest target
+    if (e.code !== 'Space') return;
+    if (!this.layerEl) return;
+
+    let best = null;
+    let bestD = 1e9;
+    const r = this.layerEl.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+
+    for (const [id, el] of this.targets) {
+      const br = el.getBoundingClientRect();
+      const ex = br.left + br.width/2;
+      const ey = br.top + br.height/2;
+      const d = (ex-cx)*(ex-cx) + (ey-cy)*(ey-cy);
+      if (d < bestD) { bestD = d; best = id; }
+    }
+
+    if (best && typeof this.onTargetHit === 'function') {
+      this.onTargetHit(best, { clientX: cx, clientY: cy, source: 'space' });
+    }
   }
 }
