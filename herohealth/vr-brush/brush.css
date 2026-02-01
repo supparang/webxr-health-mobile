@@ -1,0 +1,300 @@
+/* add at top of brush.css */
+#playLayer{
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+  touch-action: none;
+}
+/* ===== BrushVR HUD (overlay) — production ===== */
+:root{
+  --hudScale: 1;
+  --hudPad: 14px;
+  --hudGap: 10px;
+  --hudRadius: 16px;
+
+  --hudBg: rgba(2,6,23,.58);
+  --hudBg2: rgba(2,6,23,.40);
+  --hudStroke: rgba(148,163,184,.22);
+  --hudText: rgba(229,231,235,1);
+  --hudMuted: rgba(148,163,184,1);
+
+  --hudShadow: 0 10px 30px rgba(0,0,0,.35);
+  --hudBlur: 10px;
+
+  --safeTop: calc(env(safe-area-inset-top, 0px) + 10px);
+  --safeBottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  --safeLeft: calc(env(safe-area-inset-left, 0px) + 10px);
+  --safeRight: calc(env(safe-area-inset-right, 0px) + 10px);
+
+  --fontSm: clamp(12px, 1.8vw, 14px);
+  --fontMd: clamp(13px, 2.0vw, 16px);
+  --fontLg: clamp(16px, 2.2vw, 20px);
+}
+
+html, body{
+  height:100%;
+  margin:0;
+  background:#020617;
+  color: var(--hudText);
+}
+
+/* View scaling helpers */
+body[data-view="pc"]{ --hudScale: 1.0; }
+body[data-view="mobile"]{ --hudScale: 1.15; }
+body[data-view="cvr"]{ --hudScale: 1.10; } /* cardboard/cVR */
+body[data-view="vr"]{ --hudScale: 1.05; }
+
+/* HUD root */
+#hud{
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* default: do not block gameplay */
+  z-index: 40;
+  transform: translateZ(0);
+}
+
+/* Shared panel style */
+.hud-panel{
+  background: var(--hudBg);
+  border: 1px solid var(--hudStroke);
+  border-radius: var(--hudRadius);
+  box-shadow: var(--hudShadow);
+  backdrop-filter: blur(var(--hudBlur));
+  -webkit-backdrop-filter: blur(var(--hudBlur));
+  padding: calc(10px * var(--hudScale));
+  pointer-events: none;
+}
+
+.hud-row{ display:flex; align-items:center; gap: calc(var(--hudGap) * var(--hudScale)); }
+.hud-col{ display:flex; flex-direction:column; gap: calc(6px * var(--hudScale)); }
+
+.hud-label{ font-size: var(--fontSm); color: var(--hudMuted); letter-spacing:.2px; }
+.hud-value{ font-size: var(--fontMd); font-weight: 700; }
+
+.hud-pill{
+  display:inline-flex; align-items:center; gap:8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--hudBg2);
+  border: 1px solid var(--hudStroke);
+}
+
+/* ===== Timer (Top Center) ===== */
+#hud-timer{
+  position: fixed;
+  top: calc(var(--safeTop) + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(var(--hudScale));
+  transform-origin: top center;
+  width: min(520px, 64vw);
+}
+#hud-timer .bar{
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.20);
+  overflow:hidden;
+  border: 1px solid rgba(148,163,184,.18);
+}
+#hud-timer .bar > i{
+  display:block;
+  height:100%;
+  width: 60%;
+  background: rgba(34,197,94,.85);
+}
+#hud-timer .meta{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top: 8px;
+}
+#hud-timer .phase{ font-size: var(--fontSm); color: var(--hudMuted); }
+#hud-timer .time{
+  font-size: var(--fontLg);
+  font-weight: 900;
+  letter-spacing: .5px;
+}
+
+/* ===== Coverage Map (Top Left) ===== */
+#hud-coverage{
+  position: fixed;
+  top: calc(var(--safeTop) + 8px);
+  left: calc(var(--safeLeft) + 10px);
+  transform: scale(var(--hudScale));
+  transform-origin: top left;
+  width: 170px;
+}
+#hud-coverage .grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.cov-cell{
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,.18);
+  padding: 8px;
+  background: rgba(2,6,23,.38);
+}
+.cov-cell .t{ font-size: 11px; color: var(--hudMuted); }
+.cov-cell .p{ font-size: 14px; font-weight: 800; margin-top: 4px; }
+.cov-cell[data-ok="1"]{
+  background: rgba(34,197,94,.14);
+  border-color: rgba(34,197,94,.28);
+}
+.cov-cell[data-reclaim="1"]{
+  outline: 2px solid rgba(239,68,68,.35); /* reclaim warning */
+  outline-offset: 1px;
+}
+
+/* ===== Combo/Fever (Top Right) ===== */
+#hud-combo{
+  position: fixed;
+  top: calc(var(--safeTop) + 8px);
+  right: calc(var(--safeRight) + 10px);
+  transform: scale(var(--hudScale));
+  transform-origin: top right;
+  width: 190px;
+}
+#hud-combo .kpi{
+  display:flex; justify-content:space-between; align-items:baseline;
+}
+#hud-combo .comboN{ font-size: 20px; font-weight: 900; }
+#hud-combo .mul{ font-size: 14px; font-weight: 800; color: rgba(34,197,94,.95); }
+
+#hud-combo .fever{
+  margin-top: 8px;
+}
+#hud-combo .fever .bar{
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.20);
+  overflow:hidden;
+  border: 1px solid rgba(148,163,184,.18);
+}
+#hud-combo .fever .bar > i{
+  display:block;
+  height:100%;
+  width: 30%;
+  background: rgba(234,179,8,.85);
+}
+#hud-combo .fever .txt{
+  display:flex; justify-content:space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--hudMuted);
+}
+
+/* ===== UV Button (Bottom Left) ===== */
+#hud-uv{
+  position: fixed;
+  left: calc(var(--safeLeft) + 10px);
+  bottom: calc(var(--safeBottom) + 10px);
+  transform: scale(var(--hudScale));
+  transform-origin: bottom left;
+  display:none;
+  pointer-events: auto; /* allow click */
+}
+#hud-uv[data-on="1"]{ display:block; }
+#hud-uv .btn{
+  pointer-events: auto;
+  user-select:none;
+  cursor:pointer;
+  display:flex; align-items:center; gap:10px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: rgba(2,6,23,.72);
+  border: 1px solid rgba(56,189,248,.35);
+  box-shadow: var(--hudShadow);
+}
+#hud-uv .icon{
+  width: 40px; height: 40px;
+  border-radius: 14px;
+  display:grid; place-items:center;
+  background: rgba(56,189,248,.18);
+  border: 1px solid rgba(56,189,248,.26);
+  font-weight: 900;
+}
+#hud-uv .txt .title{ font-size: 14px; font-weight: 900; }
+#hud-uv .txt .sub{ font-size: 11px; color: var(--hudMuted); margin-top:2px; }
+#hud-uv .energy{
+  display:flex; gap:6px; margin-left: 6px;
+}
+#hud-uv .dot{
+  width: 10px; height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(56,189,248,.40);
+  background: rgba(56,189,248,.18);
+}
+#hud-uv .dot[data-off="1"]{
+  opacity:.25;
+}
+
+/* ===== Boss HP (Center, only in boss) ===== */
+#hud-boss{
+  position: fixed;
+  left: 50%;
+  top: calc(var(--safeTop) + 64px);
+  transform: translateX(-50%) scale(var(--hudScale));
+  transform-origin: top center;
+  width: min(520px, 64vw);
+  display:none;
+}
+#hud-boss[data-on="1"]{ display:block; }
+#hud-boss .hdr{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom: 8px;
+}
+#hud-boss .name{
+  font-size: 13px; font-weight: 900;
+}
+#hud-boss .phase{
+  font-size: 12px; color: var(--hudMuted); font-weight: 800;
+}
+#hud-boss .bar{
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.20);
+  overflow:hidden;
+  border: 1px solid rgba(148,163,184,.18);
+}
+#hud-boss .bar > i{
+  display:block;
+  height:100%;
+  width: 75%;
+  background: rgba(239,68,68,.85);
+}
+
+/* ===== Gentle Toast (Bottom Center) ===== */
+#hud-toast{
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safeBottom) + 92px); /* keep away from crosshair center */
+  transform: translateX(-50%) scale(var(--hudScale));
+  transform-origin: bottom center;
+  display:none;
+}
+#hud-toast[data-on="1"]{ display:block; }
+#hud-toast .toast{
+  pointer-events:none;
+  background: rgba(2,6,23,.76);
+  border: 1px solid rgba(239,68,68,.30);
+  padding: 10px 12px;
+  border-radius: 16px;
+  box-shadow: var(--hudShadow);
+  max-width: min(520px, 82vw);
+}
+#hud-toast .toast .t{
+  font-size: 13px; font-weight: 900;
+}
+#hud-toast .toast .s{
+  font-size: 11px; color: var(--hudMuted); margin-top:3px;
+}
+
+/* Small screens tightening */
+@media (max-width: 420px){
+  #hud-coverage{ width: 156px; }
+  #hud-combo{ width: 170px; }
+  #hud-timer, #hud-boss{ width: min(520px, 76vw); }
+  #hud-toast{ bottom: calc(var(--safeBottom) + 80px); }
+}
+
+/* (ตามด้วย HUD CSS ชุดเต็มที่ส่งให้เมื่อกี้ได้เลย) */
