@@ -18,19 +18,19 @@
     if (desc){
       desc.textContent = (mode === 'normal')
         ? 'Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)'
-        : 'Research: สำหรับเก็บข้อมูลงานวิจัย (กรอกผู้เข้าร่วม/กลุ่มในหน้าเกม แล้วดาวน์โหลด CSV)';
+        : 'Research: สำหรับเก็บข้อมูลงานวิจัย (แนะนำให้กรอกรหัส/กลุ่มในหน้าเกม แล้วดาวน์โหลด CSV)';
     }
   }
 
   function openGame(gameKey){
-    const q = (mode === 'research') ? 'mode=research&from=hub' : 'mode=play&from=hub';
+    const m = (mode === 'research') ? 'research' : 'play';
 
     if (gameKey === 'shadow'){
-      location.href = './shadow-breaker.html?' + q;
+      location.href = `./shadow-breaker.html?from=hub&mode=${m}`;
       return;
     }
     if (gameKey === 'rhythm'){
-      location.href = './rhythm-boxer.html?' + q;
+      location.href = `./rhythm-boxer.html?from=hub&mode=${m}`;
       return;
     }
 

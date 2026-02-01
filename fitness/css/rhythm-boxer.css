@@ -499,10 +499,27 @@ html,body{
   #rb-field{ min-height:240px; }
 }
 
+/* =========================================================
+   AI HUD (Prediction / Coach)
+   ========================================================= */
+.rb-chip-ai{
+  border-color: rgba(56,189,248,.85);
+  background: rgba(15,23,42,.86);
+}
+.rb-chip-tip{
+  width: 100%;
+  border-color: rgba(168,85,247,.75);
+}
+.rb-chip-tip-label{opacity:.85; margin-right:6px;}
 
-/* === AI HUD chips === */
-.rb-hud-row-ai{ gap:8px; flex-wrap:wrap; }
-.rb-chip-ai{ border-color: rgba(168,85,247,.55); background: rgba(15,23,42,.78); }
-.rb-chip-tip{ width:100%; max-width:640px; }
-.rb-chip-tip-label{ opacity:.8; margin-right:6px; }
-#rb-hud-ai-tip.hidden{ display:none; }
+/* Flash overlay from renderer */
+#rb-flash{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at center, rgba(251,113,133,.18), transparent 62%);
+  transition: opacity .12s ease;
+  z-index: 999;
+}
+#rb-flash.active{ opacity: 1; }

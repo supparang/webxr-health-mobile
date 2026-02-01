@@ -1,101 +1,115 @@
-// === fitness/js/ai-predictor.js ===
-// Shadow Breaker — tiny online predictor (ML-ish, lightweight, no training step)
-// Output: probability of near-future miss/overwhelm + difficulty suggestion.
-//
-// Design goals:
-// - No external libs
-// - Stable & fair (smooth features from FeatureTracker)
-// - Explainable: exposes feature contributions for the coach
+// === js/ai-predictor.js — Lightweight AI Prediction (Deterministic, no deps) ===
+// Purpose: provide "AI-like" predictions (fatigue / skill) + micro-coach tips
+// Notes:
+// - Deterministic: output depends only on aggregated gameplay features (no randomness)
+// - Not a trained ML/DL model (yet). We expose a tiny interface so you can swap in a real model later.
+// - Safe for Research mode: does NOT change judging unless allowAdapt=true.
 
-'use strict';
+(function(){
+  'use strict';
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b,v));
+  const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
+  const sigmoid = (x)=> 1/(1+Math.exp(-x));
 
-function sigmoid(x){
-  const z = Math.exp(-clamp(x, -12, 12));
-  return 1 / (1 + z);
-}
+  // Tiny "model" (logistic-ish) with hand-tuned weights.
+  // You can replace weights with trained params later.
+  const W_FATIGUE = { bias:-1.6, missRate: 3.4, hpLow: 2.2, latePct: 1.2, jitter: 1.6, blankTap: 1.1 };
+  const W_SKILL   = { bias:-0.4, acc: 2.2, perfectRate: 1.6, jitter:-1.4, missRate:-2.6, combo: 0.7 };
 
-function tanh(x){
-  const e2 = Math.exp(2*clamp(x, -6, 6));
-  return (e2 - 1) / (e2 + 1);
-}
-
-function dot(w, x){
-  let s = 0;
-  for (let i=0;i<w.length;i++) s += (w[i]||0) * (x[i]||0);
-  return s;
-}
-
-// Order of features vector:
-const FEAT_KEYS = [
-  'rt','vol','miss','streak','aps',
-  'phase','lowHp','timeP',
-  'pressure','control'
-];
-
-export class AIPredictor {
-  constructor(opts={}){
-    this.cfg = Object.assign({
-      // If you want a slightly stronger “DL feel”, raise hiddenScale a bit (<=1.2)
-      hiddenScale: 1.0
-    }, opts);
-
-    // 2-layer perceptron (fixed weights)
-    // Hidden: 6 units
-    this.W1 = [
-      // rt, vol, miss, streak, aps, phase, lowHp, timeP, pressure, control
-      [ 1.15, 0.55, 1.10, 0.90, 0.30, 0.35, 0.60, 0.25, 1.05, -0.75 ],
-      [ 0.80, 0.95, 0.60, 1.05, 0.20, 0.20, 0.85, 0.10, 0.90, -0.60 ],
-      [ 0.35, 0.40, 0.90, 0.50, 0.85, 0.25, 0.25, 0.70, 0.65, -0.45 ],
-      [ 0.25, 0.20, 0.55, 0.80, 0.95, 0.65, 0.35, 0.55, 0.70, -0.50 ],
-      [ 0.60, 0.30, 0.65, 0.35, 0.25, 0.75, 0.90, 0.30, 0.80, -0.40 ],
-      [ 0.20, 0.25, 0.40, 0.55, 0.35, 0.20, 0.55, 0.85, 0.60, -0.55 ]
-    ];
-    this.B1 = [ -0.35, -0.25, -0.20, -0.15, -0.10, -0.05 ];
-
-    // Outputs:
-    // y0 => pMissSoon, y1 => pOverwhelm
-    this.W2 = [
-      [ 1.10, 0.70, 0.55, 0.55, 0.65, 0.50 ],
-      [ 1.25, 0.85, 0.60, 0.70, 0.75, 0.65 ]
-    ];
-    this.B2 = [ -0.15, 0.05 ];
+  function calcFatigueRisk(f){
+    // features should be 0..1-ish
+    const z =
+      W_FATIGUE.bias +
+      W_FATIGUE.missRate * f.missRate +
+      W_FATIGUE.hpLow    * f.hpLow +
+      W_FATIGUE.latePct  * f.latePct +
+      W_FATIGUE.jitter   * f.jitter +
+      W_FATIGUE.blankTap * f.blankTapRate;
+    return clamp(sigmoid(z), 0, 1);
   }
 
-  _vec(features){
-    const x = [];
-    for (const k of FEAT_KEYS) x.push(Number(features?.[k]) || 0);
-    return x;
+  function calcSkillScore(f){
+    const z =
+      W_SKILL.bias +
+      W_SKILL.acc         * f.acc +
+      W_SKILL.perfectRate * f.perfectRate +
+      W_SKILL.jitter      * f.jitter +
+      W_SKILL.missRate    * f.missRate +
+      W_SKILL.combo       * f.comboNorm;
+    return clamp(sigmoid(z), 0, 1);
   }
 
-  // returns {pMiss, pOverwhelm, contrib}
-  predict(features){
-    const x = this._vec(features);
+  function toLabel01(v){
+    if (v >= 0.80) return 'high';
+    if (v >= 0.55) return 'mid';
+    return 'low';
+  }
 
-    // simple explainability: contribution is linear proxy from input layer
-    const contrib = {};
-    for (let i=0;i<FEAT_KEYS.length;i++){
-      // approximate “importance” by averaging absolute weights in W1
-      let wsum = 0;
-      for (let h=0;h<this.W1.length;h++) wsum += Math.abs(this.W1[h][i]||0);
-      contrib[FEAT_KEYS[i]] = (x[i]||0) * (wsum/this.W1.length);
+  function makeTip({fatigueRisk, skillScore, earlyPct, latePct, jitter, missStreak}){
+    // rate-limited upstream; this returns a single short tip
+    if (fatigueRisk >= 0.75) return 'พักไหล่/ข้อมือ 10–15 วิ แล้วค่อยกลับมาเล่น';
+    if (missStreak >= 3) return 'ช้าลงนิด: โฟกัส “จังหวะเส้นตี” มากกว่ารีบกด';
+    if (jitter >= 0.55) return 'จังหวะยังไม่นิ่ง: ลองหายใจลึก แล้วกดให้สม่ำเสมอ';
+    if (latePct - earlyPct >= 0.20) return 'กดช้าไปนิด: ลองกด “ก่อน” เส้นตีเล็กน้อย';
+    if (earlyPct - latePct >= 0.20) return 'กดเร็วไปนิด: รอให้เข้าใกล้เส้นตีอีกหน่อย';
+    if (skillScore >= 0.75) return 'ทำได้ดีมาก! ลองเพิ่มเพลง/ระดับที่ยากขึ้นได้';
+    return 'ดี! รักษาจังหวะให้คงที่ แล้วค่อย ๆ เพิ่มคอมโบ';
+  }
+
+  function suggestDifficulty({fatigueRisk, skillScore}){
+    // suggestion only (does not auto-change unless allowAdapt)
+    if (fatigueRisk >= 0.80) return 'easy';
+    if (skillScore >= 0.85 && fatigueRisk <= 0.45) return 'hard';
+    return 'normal';
+  }
+
+  class AIPredictor{
+    constructor(opts={}){
+      this.allowAdapt = !!opts.allowAdapt;  // play-mode may enable
+      this.lastTipAt = 0;
+      this.tipCooldownMs = opts.tipCooldownMs || 4500;
+      this.state = {
+        fatigueRisk: 0,
+        skillScore:  0.5,
+        fatigueLabel:'low',
+        skillLabel:  'mid',
+        suggestedDifficulty:'normal',
+        tip:''
+      };
     }
 
-    const hs = [];
-    for (let h=0; h<this.W1.length; h++){
-      const a = dot(this.W1[h], x) + (this.B1[h]||0);
-      hs.push(tanh(a) * this.cfg.hiddenScale);
+    update(features, nowMs){
+      const t = Number(nowMs)||0;
+
+      const fatigueRisk = calcFatigueRisk(features);
+      const skillScore  = calcSkillScore(features);
+
+      const out = {
+        fatigueRisk,
+        skillScore,
+        fatigueLabel: toLabel01(fatigueRisk),
+        skillLabel:   toLabel01(skillScore),
+        suggestedDifficulty: suggestDifficulty({fatigueRisk, skillScore}),
+        tip: this.state.tip || ''
+      };
+
+      // generate tip with cooldown
+      if (t - this.lastTipAt >= this.tipCooldownMs){
+        out.tip = makeTip({
+          fatigueRisk,
+          skillScore,
+          earlyPct: features.earlyPct,
+          latePct: features.latePct,
+          jitter: features.jitter,
+          missStreak: features.missStreak
+        });
+        this.lastTipAt = t;
+      }
+
+      this.state = out;
+      return out;
     }
-
-    const y0 = dot(this.W2[0], hs) + this.B2[0];
-    const y1 = dot(this.W2[1], hs) + this.B2[1];
-
-    const pMiss = sigmoid(y0);
-    const pOverwhelm = sigmoid(y1);
-
-    return { pMiss, pOverwhelm, contrib };
   }
-}
 
-export { FEAT_KEYS };
+  window.RB_AIPredictor = AIPredictor;
+})();

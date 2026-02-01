@@ -193,8 +193,22 @@
       if (this._rafId != null) { cancelAnimationFrame(this._rafId); this._rafId = null; }
 
       this.mode = mode || 'normal';
-      // In research mode: keep gameplay parameters fixed (no adaptation)
-      if (this.ai) this.ai.allowAdapt = (this.mode !== 'research');
+      // Research mode: show prediction but lock gameplay parameters fixed (no adaptation)
+      // Normal mode: allow adaptation only when meta.aiAssist=true (set from ?ai=1)
+      const allowAdapt = (this.mode !== 'research') && !!(meta && meta.aiAssist);
+      if (this.ai) this.ai.allowAdapt = allowAdapt;
+
+      // Assist knobs (AI Difficulty Director)
+      this._assistWiden = 0;                 // seconds added to hit windows
+      this._assistDmgMul = 1.0;              // <1 reduces damage
+      this._preSpawnSec = PRE_SPAWN_SEC;     // note travel time (sec)
+      this._assistPreSpawnTarget = PRE_SPAWN_SEC;
+
+      // AI counters
+      this.aiTapCount = 0;
+      this.aiBlankTaps = 0;
+      this.aiMissStreak = 0;
+      this.aiLastUpdateAt = 0;
       this.meta = meta || {};
       this.track = TRACKS.find((t) => t.id === trackId) || TRACKS[0];
 
@@ -257,6 +271,7 @@
 
     handleLaneTap(lane) {
       if (!this.running) return;
+      this.aiTapCount = (this.aiTapCount||0) + 1;
 
       const nowPerf = performance.now();
       const songTime = (nowPerf - this.startPerf) / 1000;
@@ -317,6 +332,7 @@
 
       const dur = this.track.durationSec || 30;
 
+      this._aiTick(songTime);
       this._updateTimeline(songTime, dt);
       this._updateHUD(songTime);
 
@@ -344,7 +360,7 @@
 
     _spawnNotes(songTime) {
       const chart = this.track.chart || [];
-      const pre = PRE_SPAWN_SEC;
+      const pre = (this._preSpawnSec || PRE_SPAWN_SEC);
       while (this._chartIndex < chart.length && chart[this._chartIndex].time <= songTime + pre) {
         this._createNote(chart[this._chartIndex]);
         this._chartIndex++;
@@ -376,7 +392,7 @@
       const rect = this.lanesEl.getBoundingClientRect();
       const h = rect.height || 1;
       const travel = h * 0.85;
-      const pre = PRE_SPAWN_SEC;
+      const pre = (this._preSpawnSec || PRE_SPAWN_SEC);
 
       for (const n of this.notes) {
         if (!n.el || n.state !== 'pending') continue;
@@ -392,7 +408,7 @@
     }
 
     _autoJudgeMiss(songTime) {
-      const missWindow = HIT_WINDOWS.good + 0.05;
+      const missWindow = (HIT_WINDOWS.good + (this._assistWiden||0)) + 0.05;
       for (const n of this.notes) {
         if (n.state !== 'pending') continue;
         if (songTime > n.time + missWindow) this._applyMiss(n, songTime, null, false);
@@ -419,6 +435,8 @@
       if (judgment === 'perfect') this.hitPerfect++;
       else if (judgment === 'great') this.hitGreat++;
       else if (judgment === 'good') this.hitGood++;
+
+      this.aiMissStreak = 0;
 
       let baseScore = (judgment === 'perfect') ? 300 : (judgment === 'great') ? 200 : 100;
       if (this.feverActive) baseScore = Math.round(baseScore * 1.5);
@@ -466,7 +484,10 @@
       this.aiMissStreak = (this.aiMissStreak||0) + 1;
       this.combo = 0;
 
-      this.hp = clamp(this.hp - 5, 0, 100);
+      const baseDmg = 5;
+      const dmgMul = (this._assistDmgMul != null) ? this._assistDmgMul : 1;
+      const dmg = Math.max(1, Math.round(baseDmg * dmgMul));
+      this.hp = clamp(this.hp - dmg, 0, 100);
       this.hpMin = Math.min(this.hpMin, this.hp);
       this._addFeverGauge(-8, songTime);
 
@@ -558,6 +579,90 @@
       if (h.progFill) h.progFill.style.transform = `scaleX(${prog})`;
       if (h.progText) h.progText.textContent = Math.round(prog * 100) + '%';
     }
+
+
+    // ===== AI: Prediction + Director (Play only) =====
+    _aiTick(songTime){
+      if (!this.ai || typeof this.ai.update !== 'function') return;
+
+      const now = performance.now();
+      const last = this.aiLastUpdateAt || 0;
+      if (now - last < 800) return; // throttle ~1.25Hz
+      this.aiLastUpdateAt = now;
+
+      const totalNotes = this.totalNotes || 1;
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
+      const totalJudged = totalHits + this.hitMiss;
+      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) : 0;
+
+      const recentN = 20;
+      const offAbs = (this.offsetsAbs || []).slice(-recentN);
+      const offRaw = (this.offsets || []).slice(-recentN);
+
+      const mean = (arr)=> arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
+      const std = (arr)=>{
+        if(arr.length < 2) return 0;
+        const m = mean(arr);
+        const v = mean(arr.map(x=>(x-m)*(x-m)));
+        return Math.sqrt(v);
+      };
+
+      const blankTapRate = (this.aiTapCount||0) ? (this.aiBlankTaps||0)/(this.aiTapCount||1) : 0;
+
+      const feat = {
+        timeSec: songTime,
+        acc: clamp(acc,0,1),
+        missStreak: this.aiMissStreak||0,
+        blankTapRate: clamp(blankTapRate,0,1),
+        offsetAbsMean: clamp(mean(offAbs),0,0.35),
+        jitterStd: clamp(std(offRaw),0,0.35),
+        hp: clamp((this.hp||0)/100,0,1),
+        feverActive: this.feverActive ? 1 : 0,
+        deviceType: this.deviceType || 'pc'
+      };
+
+      const aiState = this.ai.update(feat) || null;
+      if (aiState) this.aiState = aiState;
+
+      // update HUD if present
+      if (this.hud && aiState){
+        if (this.hud.aiFatigue) this.hud.aiFatigue.textContent = Math.round((aiState.fatigueRisk||0)*100) + '%';
+        if (this.hud.aiSkill)   this.hud.aiSkill.textContent   = Math.round((aiState.skillScore||0)*100) + '%';
+        if (this.hud.aiSuggest) this.hud.aiSuggest.textContent = (aiState.suggestedDifficulty||'normal');
+        if (this.hud.aiTip){
+          this.hud.aiTip.textContent = aiState.tip || '';
+          this.hud.aiTip.classList.toggle('hidden', !aiState.tip);
+        }
+      }
+
+      if (this.hooks && typeof this.hooks.onAIUpdate === 'function' && aiState){
+        this.hooks.onAIUpdate(aiState);
+      }
+
+      // Apply director (assist) only when allowAdapt=true (play/normal)
+      if (!this.ai.allowAdapt || !aiState) return;
+      this._applyAIDirector(aiState);
+    }
+
+    _applyAIDirector(aiState){
+      const fatigue = clamp(aiState.fatigueRisk||0,0,1);
+      const skill = clamp(aiState.skillScore||0,0,1);
+
+      // Assist grows when fatigue is high or skill is low
+      const assist = clamp(fatigue*0.75 + (0.55-skill)*0.65, 0, 1);
+
+      // Targets
+      const widenTarget = assist * 0.06;            // up to +60ms on each window
+      const dmgMulTarget = 1.0 - assist * 0.30;     // up to -30% damage
+      const preSpawnTarget = PRE_SPAWN_SEC * (1.0 + assist * 0.18); // slower notes a bit
+
+      // Smooth (avoid sudden jumps)
+      const lerp = (a,b,t)=>a + (b-a)*t;
+      this._assistWiden = lerp(this._assistWiden||0, widenTarget, 0.18);
+      this._assistDmgMul = lerp(this._assistDmgMul||1, dmgMulTarget, 0.12);
+      this._preSpawnSec = lerp(this._preSpawnSec||PRE_SPAWN_SEC, preSpawnTarget, 0.10);
+    }
+
 
     _logEventRow(extra) {
       const base = {

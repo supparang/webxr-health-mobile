@@ -90,6 +90,20 @@
 
   let engine = null;
 
+  // === AI assist toggle ===
+  // - Research mode: แสดง AI prediction ได้ แต่ "ห้าม" AI ปรับเกม (ล็อก 100%)
+  // - Normal mode: เปิด AI assist ได้ด้วยพารามิเตอร์ ?ai=1
+  //   (ถ้าไม่ใส่ จะยังคงแสดงค่า prediction แต่ไม่ปรับ judge/dmg/scale)
+  let aiAssistEnabled = false;
+  (function readAiFlag(){
+    try{
+      const sp = new URL(location.href).searchParams;
+      aiAssistEnabled = (sp.get('ai') === '1');
+    }catch(_){
+      aiAssistEnabled = false;
+    }
+  })();
+
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
@@ -161,7 +175,7 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd }
+      hooks: { onEnd: handleEngineEnd, onAIUpdate: handleAIUpdate }
     });
   }
 
@@ -180,7 +194,9 @@
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim()
+      note: (inputNote && inputNote.value || '').trim(),
+      // Normal only: allow AI to adapt with ?ai=1
+      aiAssist: (mode !== 'research') && aiAssistEnabled
     };
 
     engine.start(mode, cfg.engineId, meta);
