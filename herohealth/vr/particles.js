@@ -1,198 +1,386 @@
 // === /herohealth/vr/particles.js ===
-// HHA Particles — PRODUCTION (DOM-based lightweight FX) — v20260130a
-// ✅ window.Particles.popText(x,y,text,cls?)
-// ✅ window.Particles.pop(x,y,text)
-// ✅ window.Particles.burst(x,y,opts)
-// ✅ Null-safe mount + auto-heal if body not ready
-// Notes: x,y are viewport pixels.
+// Particles FX Layer — ULTRA (SAFE, shared across all games)
+// ✅ ensureLayer(): fixed FX layer on top
+// ✅ popText(x,y,text,cls?)
+// ✅ burst(x,y,opts?)
+// ✅ sparkle(x,y,opts?)
+// ✅ shockwave(x,y,opts?)
+// ✅ celebrate(opts?)  // confetti-ish
+// Notes:
+// - No deps, never throws.
+// - Respects prefers-reduced-motion.
+// - Uses lightweight DOM + CSS animations.
+// - Designed to work with hha-fx-director.js (body pulse + calls into Particles).
 
-(function(){
+(function (root) {
   'use strict';
 
-  const WIN = window;
-  const DOC = document;
-  if (!DOC || WIN.__HHA_PARTICLES_LOADED__) return;
-  WIN.__HHA_PARTICLES_LOADED__ = true;
+  const DOC = root.document;
+  if (!DOC || root.__HHA_PARTICLES__) return;
+  root.__HHA_PARTICLES__ = true;
 
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const now = () => (root.performance && performance.now) ? performance.now() : Date.now();
 
-  function domReady(fn){
-    if (DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-    else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+  function prefersReduceMotion(){
+    try{
+      return !!root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }catch(_){
+      return false;
+    }
   }
 
-  function safeMount(){
-    // ✅ สำคัญ: body อาจยัง null (บางเคส async/defer แปลก ๆ)
-    return DOC.body || DOC.documentElement;
-  }
-
-  // ---------- Layer ----------
   function ensureLayer(){
-    let layer = DOC.getElementById('hha-particles');
-    if (layer) return layer;
+    try{
+      let layer = DOC.querySelector('.hha-fx-layer');
+      if (layer) return layer;
 
-    const mount = safeMount();
-    if (!mount) return null;
+      layer = DOC.createElement('div');
+      layer.className = 'hha-fx-layer';
+      layer.setAttribute('aria-hidden', 'true');
+      layer.style.cssText =
+        'position:fixed;inset:0;pointer-events:none;z-index:190;overflow:hidden;' +
+        'contain:layout style paint;';
 
-    layer = DOC.createElement('div');
-    layer.id = 'hha-particles';
-    layer.style.cssText = [
-      'position:fixed',
-      'inset:0',
-      'pointer-events:none',
-      'z-index:99999',
-      'overflow:hidden',
-      'contain:layout style paint',
-      'transform:translateZ(0)'
-    ].join(';');
+      DOC.body.appendChild(layer);
+      return layer;
+    }catch(_){
+      return null;
+    }
+  }
 
-    // minimal styles
-    if (!DOC.getElementById('hha-particles-style')){
+  function safeAppend(el){
+    try{
+      const layer = ensureLayer();
+      if (!layer) return null;
+      layer.appendChild(el);
+      return el;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function removeLater(el, ms){
+    try{
+      root.setTimeout(()=>{ try{ el && el.remove && el.remove(); }catch(_){ } }, ms);
+    }catch(_){}
+  }
+
+  // --- CSS ---
+  (function injectCSS(){
+    try{
       const st = DOC.createElement('style');
-      st.id = 'hha-particles-style';
       st.textContent = `
-        .hha-popText{
+        .hha-fx-layer{ isolation:isolate; }
+        .hha-fx-text{
           position:absolute;
-          left:0; top:0;
-          transform: translate(-50%,-50%);
-          font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-          font-weight: 900;
-          font-size: 14px;
-          line-height: 1;
-          color: rgba(229,231,235,.95);
-          text-shadow: 0 10px 24px rgba(0,0,0,.55);
-          filter: drop-shadow(0 10px 26px rgba(0,0,0,.45));
-          will-change: transform, opacity;
-          opacity: 0;
-          white-space: nowrap;
-          padding: 6px 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(148,163,184,.18);
-          background: rgba(2,6,23,.55);
-          backdrop-filter: blur(10px);
-        }
-        .hha-popText.good{ border-color: rgba(34,197,94,.24); background: rgba(34,197,94,.10); }
-        .hha-popText.cyan{ border-color: rgba(34,211,238,.26); background: rgba(34,211,238,.10); }
-        .hha-popText.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.12); }
-        .hha-popText.bad { border-color: rgba(239,68,68,.26); background: rgba(239,68,68,.10); }
-
-        @keyframes hhaPopUp {
-          0%   { opacity: 0; transform: translate(-50%,-50%) scale(.86) translateY(10px); }
-          15%  { opacity: 1; transform: translate(-50%,-50%) scale(1.02) translateY(0px); }
-          60%  { opacity: 1; transform: translate(-50%,-50%) scale(1.00) translateY(-10px); }
-          100% { opacity: 0; transform: translate(-50%,-50%) scale(.98) translateY(-18px); }
+          transform:translate(-50%,-50%);
+          font: 1000 18px/1 system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+          letter-spacing:.2px;
+          color:#fff;
+          text-shadow: 0 10px 26px rgba(0,0,0,.55);
+          opacity:.98;
+          will-change: transform, opacity, filter;
+          filter: saturate(1.05);
+          animation: hhaPop 520ms cubic-bezier(.2,.9,.2,1) forwards;
         }
 
-        .hha-spark{
+        .hha-fx-dot{
           position:absolute;
-          left:0; top:0;
-          width:6px; height:6px;
+          width:10px;height:10px;
           border-radius:999px;
-          opacity:.9;
+          transform:translate(-50%,-50%);
+          opacity:.98;
           will-change: transform, opacity;
-          transform: translate(-50%,-50%);
-          filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
         }
-        @keyframes hhaSpark {
-          0%   { opacity:.95; transform: translate(-50%,-50%) translate(0px,0px) scale(1); }
-          100% { opacity:0;   transform: translate(-50%,-50%) translate(var(--dx,0px), var(--dy,-36px)) scale(.6); }
+
+        .hha-fx-spark{
+          position:absolute;
+          width:6px;height:6px;
+          border-radius:999px;
+          transform:translate(-50%,-50%);
+          opacity:.98;
+          will-change: transform, opacity;
         }
+
+        .hha-fx-ring{
+          position:absolute;
+          width:32px;height:32px;
+          border-radius:999px;
+          border:2px solid rgba(255,255,255,.55);
+          transform:translate(-50%,-50%) scale(.55);
+          opacity:.0;
+          will-change: transform, opacity;
+          animation: hhaRing 520ms ease-out forwards;
+          mix-blend-mode: screen;
+        }
+
+        .hha-fx-conf{
+          position:absolute;
+          width:9px;height:14px;
+          border-radius:3px;
+          transform:translate(-50%,-50%);
+          opacity:.98;
+          will-change: transform, opacity;
+        }
+
+        @keyframes hhaPop{
+          0%{ transform:translate(-50%,-50%) scale(.90); opacity:.00; filter:blur(1px); }
+          35%{ transform:translate(-50%,-70%) scale(1.18); opacity:1; filter:blur(0); }
+          100%{ transform:translate(-50%,-94%) scale(1.05); opacity:0; }
+        }
+
+        @keyframes hhaDot{
+          0%{ transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
+          100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(.55); opacity:0; }
+        }
+
+        @keyframes hhaSpark{
+          0%{ transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
+          100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(.30); opacity:0; }
+        }
+
+        @keyframes hhaRing{
+          0%{ transform:translate(-50%,-50%) scale(.55); opacity:.00; }
+          20%{ opacity:.75; }
+          100%{ transform:translate(-50%,-50%) scale(1.8); opacity:0; }
+        }
+
+        @keyframes hhaConf{
+          0%{ transform:translate(-50%,-50%) translate(0,0) rotate(0deg); opacity:1; }
+          100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity:0; }
+        }
+
+        /* optional semantic helpers (CSS can also live in game CSS) */
+        .fx-good{ color: rgba(234,255,243,.98); }
+        .fx-bad{ color: rgba(255,240,240,.98); }
+        .fx-warn{ color: rgba(255,250,235,.98); }
+        .fx-violet{ color: rgba(245,240,255,.98); }
       `;
-      DOC.head && DOC.head.appendChild(st);
-    }
+      DOC.head.appendChild(st);
+    }catch(_){}
+  })();
 
-    mount.appendChild(layer);
-    return layer;
-  }
-
-  // ---------- Limits ----------
-  const LIMIT = {
-    maxNodes: 120,
-    maxSparks: 22,
-    popDurationMs: 520,
-    sparkDurationMs: 420
-  };
-
-  function cleanupIfNeeded(layer){
-    if (!layer || !layer.children) return;
-    const kids = layer.children;
-    const n = kids.length|0;
-    if (n <= LIMIT.maxNodes) return;
-    const removeCount = n - LIMIT.maxNodes;
-    for (let i=0; i<removeCount; i++){
-      try{ kids[i].remove(); }catch(_){}
-    }
-  }
-
-  // ---------- Public API ----------
+  // --- API ---
   function popText(x, y, text, cls){
-    const layer = ensureLayer();
-    if (!layer) return false;
-    cleanupIfNeeded(layer);
+    try{
+      const layer = ensureLayer();
+      if(!layer) return;
 
-    const el = DOC.createElement('div');
-    el.className = 'hha-popText' + (cls ? ' ' + String(cls) : '');
-    el.textContent = String(text ?? '');
+      const el = DOC.createElement('div');
+      el.className = 'hha-fx-text' + (cls ? (' ' + String(cls)) : '');
+      el.textContent = String(text == null ? '' : text);
 
-    const vx = clamp(x, 0, WIN.innerWidth||999999);
-    const vy = clamp(y, 0, WIN.innerHeight||999999);
-    el.style.left = vx + 'px';
-    el.style.top  = vy + 'px';
-    el.style.animation = `hhaPopUp ${LIMIT.popDurationMs}ms ease-out forwards`;
+      const X = clamp(x, -2000, 200000);
+      const Y = clamp(y, -2000, 200000);
 
-    layer.appendChild(el);
-    el.offsetHeight; // force
-    el.style.opacity = '1';
+      el.style.left = X + 'px';
+      el.style.top  = Y + 'px';
 
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, LIMIT.popDurationMs + 80);
-    return true;
+      safeAppend(el);
+      removeLater(el, prefersReduceMotion() ? 120 : 650);
+    }catch(_){}
+  }
+
+  function shockwave(x, y, opts){
+    try{
+      if(prefersReduceMotion()) return;
+      const layer = ensureLayer();
+      if(!layer) return;
+
+      opts = opts || {};
+      const size = clamp(opts.size || 36, 18, 160);
+      const color = String(opts.color || 'rgba(255,255,255,.55)');
+      const dur = clamp(opts.dur || 520, 180, 1200);
+
+      const ring = DOC.createElement('div');
+      ring.className = 'hha-fx-ring' + (opts.cls ? (' ' + String(opts.cls)) : '');
+      ring.style.left = clamp(x, -2000, 200000) + 'px';
+      ring.style.top  = clamp(y, -2000, 200000) + 'px';
+      ring.style.width = size + 'px';
+      ring.style.height= size + 'px';
+      ring.style.borderColor = color;
+      ring.style.animationDuration = dur + 'ms';
+
+      safeAppend(ring);
+      removeLater(ring, dur + 120);
+    }catch(_){}
   }
 
   function burst(x, y, opts){
-    const layer = ensureLayer();
-    if (!layer) return false;
-    cleanupIfNeeded(layer);
+    try{
+      const layer = ensureLayer();
+      if(!layer) return;
 
-    const count = clamp((opts && opts.count) || 12, 4, LIMIT.maxSparks)|0;
-    const spread = clamp((opts && opts.spread) || 42, 18, 120);
-    const upBias = clamp((opts && opts.upBias) || 0.78, 0, 1);
-    const cls = (opts && opts.className) ? String(opts.className) : '';
+      opts = opts || {};
+      const n = clamp(opts.n || 10, 4, 28);
+      const spread = clamp(opts.spread || 90, 30, 220);
+      const dur = clamp(opts.dur || 520, 180, 1200);
+      const baseSize = clamp(opts.size || 10, 6, 22);
+      const colors = Array.isArray(opts.colors) && opts.colors.length ? opts.colors : [
+        'rgba(34,197,94,.95)',  // green
+        'rgba(34,211,238,.92)', // cyan
+        'rgba(167,139,250,.92)',// violet
+        'rgba(245,158,11,.92)', // amber
+        'rgba(255,255,255,.92)'
+      ];
 
-    const vx = clamp(x, 0, WIN.innerWidth||999999);
-    const vy = clamp(y, 0, WIN.innerHeight||999999);
+      // optional ring
+      if(opts.ring !== false && !prefersReduceMotion()){
+        shockwave(x, y, { size: clamp(opts.ringSize || 34, 18, 120), color:'rgba(255,255,255,.45)', dur: clamp(dur, 220, 900), cls: opts.cls });
+      }
 
-    for (let i=0;i<count;i++){
-      const s = DOC.createElement('div');
-      s.className = 'hha-spark ' + cls;
+      for(let i=0;i<n;i++){
+        const dot = DOC.createElement('div');
+        dot.className = 'hha-fx-dot' + (opts.cls ? (' ' + String(opts.cls)) : '');
+        dot.style.left = clamp(x, -2000, 200000) + 'px';
+        dot.style.top  = clamp(y, -2000, 200000) + 'px';
 
-      const a = (i/count) * Math.PI * 2;
-      const r = spread * (0.35 + Math.random()*0.85);
-      const dx = Math.cos(a) * r;
-      const dy = Math.sin(a) * r * (0.55 + upBias);
+        const ang = (Math.PI * 2) * (i / n) + rnd(-0.12, 0.12);
+        const dist = rnd(spread*0.45, spread);
+        const dx = Math.cos(ang) * dist;
+        const dy = Math.sin(ang) * dist;
 
-      s.style.background = (opts && opts.color) ? String(opts.color) : 'rgba(229,231,235,.92)';
-      if (Math.random() < 0.35) s.style.background = 'rgba(34,211,238,.92)';
-      if (Math.random() < 0.18) s.style.background = 'rgba(34,197,94,.92)';
+        dot.style.setProperty('--dx', dx.toFixed(1) + 'px');
+        dot.style.setProperty('--dy', dy.toFixed(1) + 'px');
 
-      s.style.left = vx + 'px';
-      s.style.top  = vy + 'px';
-      s.style.setProperty('--dx', dx.toFixed(1) + 'px');
-      s.style.setProperty('--dy', (dy*-1).toFixed(1) + 'px');
-      s.style.animation = `hhaSpark ${LIMIT.sparkDurationMs}ms ease-out forwards`;
+        const s = rnd(baseSize*0.75, baseSize*1.25);
+        dot.style.width = s.toFixed(1) + 'px';
+        dot.style.height= s.toFixed(1) + 'px';
 
-      layer.appendChild(s);
-      setTimeout(()=>{ try{ s.remove(); }catch(_){ } }, LIMIT.sparkDurationMs + 80);
-    }
-    return true;
+        dot.style.background = String(colors[Math.floor(Math.random()*colors.length)]);
+
+        if(prefersReduceMotion()){
+          dot.style.opacity = '0';
+          safeAppend(dot);
+          removeLater(dot, 60);
+        }else{
+          dot.style.animation = `hhaDot ${dur}ms ease-out forwards`;
+          safeAppend(dot);
+          removeLater(dot, dur + 120);
+        }
+      }
+    }catch(_){}
   }
 
-  function pop(x,y,text){ return popText(x,y,text,''); }
+  function sparkle(x, y, opts){
+    try{
+      const layer = ensureLayer();
+      if(!layer) return;
 
-  const API = { popText, pop, burst };
-  WIN.Particles = API;
-  WIN.GAME_MODULES = WIN.GAME_MODULES || {};
-  WIN.GAME_MODULES.Particles = API;
+      opts = opts || {};
+      const n = clamp(opts.n || 12, 5, 36);
+      const spread = clamp(opts.spread || 110, 40, 260);
+      const dur = clamp(opts.dur || 620, 220, 1400);
+      const colors = Array.isArray(opts.colors) && opts.colors.length ? opts.colors : [
+        'rgba(255,255,255,.96)',
+        'rgba(245,158,11,.92)',
+        'rgba(34,211,238,.92)'
+      ];
 
-  // ✅ self-heal: ensure layer later too
-  domReady(()=>{ try{ ensureLayer(); }catch(_){ } });
-})();
+      if(prefersReduceMotion()){
+        // fallback: just a tiny popText sparkle
+        popText(x, y, '✨', opts.cls || 'fx-warn');
+        return;
+      }
+
+      for(let i=0;i<n;i++){
+        const sp = DOC.createElement('div');
+        sp.className = 'hha-fx-spark' + (opts.cls ? (' ' + String(opts.cls)) : '');
+        sp.style.left = clamp(x, -2000, 200000) + 'px';
+        sp.style.top  = clamp(y, -2000, 200000) + 'px';
+
+        const ang = rnd(0, Math.PI*2);
+        const dist = rnd(spread*0.35, spread);
+        const dx = Math.cos(ang) * dist;
+        const dy = Math.sin(ang) * dist;
+
+        sp.style.setProperty('--dx', dx.toFixed(1) + 'px');
+        sp.style.setProperty('--dy', dy.toFixed(1) + 'px');
+
+        const s = rnd(4.2, 7.0);
+        sp.style.width = s.toFixed(1) + 'px';
+        sp.style.height= s.toFixed(1) + 'px';
+
+        sp.style.background = String(colors[Math.floor(Math.random()*colors.length)]);
+        sp.style.boxShadow = '0 0 18px rgba(255,255,255,.18)';
+
+        sp.style.animation = `hhaSpark ${dur}ms ease-out forwards`;
+        safeAppend(sp);
+        removeLater(sp, dur + 120);
+      }
+    }catch(_){}
+  }
+
+  function celebrate(opts){
+    try{
+      const layer = ensureLayer();
+      if(!layer) return;
+
+      opts = opts || {};
+      const W = root.innerWidth || 1000;
+      const H = root.innerHeight || 800;
+
+      const n = clamp(opts.n || 26, 10, 80);
+      const dur = clamp(opts.dur || 900, 380, 2000);
+      const spreadX = clamp(opts.spreadX || (W * 0.55), 160, 1200);
+      const dropY = clamp(opts.dropY || (H * 0.70), 180, 1200);
+      const y0 = clamp(opts.y || (H * 0.18), 0, H);
+      const x0 = clamp(opts.x || (W * 0.50), 0, W);
+
+      const colors = Array.isArray(opts.colors) && opts.colors.length ? opts.colors : [
+        'rgba(34,197,94,.92)',
+        'rgba(245,158,11,.92)',
+        'rgba(34,211,238,.92)',
+        'rgba(167,139,250,.92)',
+        'rgba(255,255,255,.92)',
+        'rgba(239,68,68,.92)'
+      ];
+
+      if(prefersReduceMotion()){
+        popText(x0, y0, '🎉', opts.cls || 'fx-warn');
+        return;
+      }
+
+      for(let i=0;i<n;i++){
+        const cf = DOC.createElement('div');
+        cf.className = 'hha-fx-conf' + (opts.cls ? (' ' + String(opts.cls)) : '');
+        cf.style.left = x0 + 'px';
+        cf.style.top  = y0 + 'px';
+
+        const dx = rnd(-spreadX, spreadX);
+        const dy = rnd(dropY*0.70, dropY);
+        const rot = rnd(-540, 540) + 'deg';
+
+        cf.style.setProperty('--dx', dx.toFixed(1) + 'px');
+        cf.style.setProperty('--dy', dy.toFixed(1) + 'px');
+        cf.style.setProperty('--rot', rot);
+
+        cf.style.background = String(colors[Math.floor(Math.random()*colors.length)]);
+        cf.style.opacity = String(rnd(0.75, 0.98));
+
+        const w = rnd(7, 11);
+        const h = rnd(10, 16);
+        cf.style.width = w.toFixed(1) + 'px';
+        cf.style.height= h.toFixed(1) + 'px';
+
+        cf.style.animation = `hhaConf ${dur}ms cubic-bezier(.18,.9,.18,1) forwards`;
+        safeAppend(cf);
+        removeLater(cf, dur + 140);
+      }
+    }catch(_){}
+  }
+
+  // Expose
+  root.Particles = root.Particles || {};
+  root.Particles.ensureLayer = ensureLayer;
+  root.Particles.popText = popText;
+  root.Particles.burst = burst;
+  root.Particles.sparkle = sparkle;
+  root.Particles.shockwave = shockwave;
+  root.Particles.celebrate = celebrate;
+
+  // tiny sanity ping (optional)
+  try{ root.Particles.__ts = now(); }catch(_){}
+})(window);
