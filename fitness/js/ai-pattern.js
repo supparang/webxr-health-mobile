@@ -1,57 +1,23 @@
+// === /fitness/js/ai-pattern.js ===
+// Deterministic-ish pattern generator for fairness (seeded by stable inputs)
+
 'use strict';
 
-/**
- * ai-pattern.js
- * - Pattern Generator สำหรับ spawn bias (เล็กน้อย) เพื่อความ “เร้าใจ”
- * - คุมให้ “ยุติธรรม” ไม่เอียงจนเกินไป
- */
+function hash32(a, b, c) {
+  // simple integer mix
+  let x = (a | 0) ^ 0x9e3779b9;
+  x = Math.imul(x ^ (x >>> 16), 0x85ebca6b);
+  x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
+  x ^= (b | 0);
+  x = Math.imul(x ^ (x >>> 16), 0x27d4eb2d);
+  x ^= (c | 0);
+  x = Math.imul(x ^ (x >>> 15), 0x165667b1);
+  return x | 0;
+}
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
-
-export class AIPatternGen {
-  constructor(){
-    this.reset();
-  }
-
-  reset(){
-    this.bias = { normal:0.64, decoy:0.10, bomb:0.08, heal:0.09, shield:0.09 };
-  }
-
-  /**
-   * updateBiasFromAssist()
-   * assist: {struggle, pace, sizeBoost, relax}
-   * - struggle สูง → เพิ่ม heal/shield เล็กน้อย ลด bomb เล็กน้อย
-   * - combo/skill ดี → เพิ่ม bomb/decoy เล็กน้อย
-   */
-  updateBiasFromAssist(assist, skill=0.5){
-    const s = clamp(assist?.struggle ?? 0.4, 0, 1);
-    const k = clamp(skill, 0, 1);
-
-    const healUp = s*0.06;
-    const shieldUp = s*0.05;
-    const bombUp = k*0.04;
-    const decoyUp = k*0.03;
-
-    let normal = 0.64 - (healUp+shieldUp)*0.6;
-    let heal = 0.09 + healUp;
-    let shield = 0.09 + shieldUp;
-    let bomb = 0.08 + bombUp - s*0.04;
-    let decoy = 0.10 + decoyUp - s*0.03;
-
-    // normalize
-    const sum = normal+heal+shield+bomb+decoy;
-    normal/=sum; heal/=sum; shield/=sum; bomb/=sum; decoy/=sum;
-
-    this.bias = { normal, decoy, bomb, heal, shield };
-  }
-
-  getWeights(){
-    return [
-      { v:'normal', w: this.bias.normal },
-      { v:'decoy',  w: this.bias.decoy },
-      { v:'bomb',   w: this.bias.bomb },
-      { v:'heal',   w: this.bias.heal },
-      { v:'shield', w: this.bias.shield }
-    ];
+export class PatternGen {
+  next01(a, b, c) {
+    const h = hash32(a | 0, b | 0, c | 0) >>> 0;
+    return (h % 100000) / 100000;
   }
 }
