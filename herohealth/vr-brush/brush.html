@@ -4,85 +4,107 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — BrushVR</title>
-  <meta name="color-scheme" content="dark light"/>
+  <meta name="color-scheme" content="dark"/>
   <link rel="icon" href="../favicon.ico"/>
+  <link rel="stylesheet" href="./brush-vr.css"/>
 
-  <link rel="stylesheet" href="./brush.css"/>
-
-  <!-- Universal VR UI (Enter VR/Exit/Recenter + crosshair/tap-to-shoot) -->
-  <script src="../vr/vr-ui.js"></script>
+  <!-- A-Frame minimal scene (for Enter VR reliability) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
 <body data-view="pc">
-  <!-- gameplay layer (DOM targets/notes live here) -->
-  <div id="playLayer" aria-label="play area"></div>
-
-  <!-- HUD overlay -->
-  <div id="hud">
-    <div id="hud-timer" class="hud-panel">
-      <div class="bar"><i id="tFill" style="width:60%"></i></div>
-      <div class="meta">
-        <div class="phase" id="tPhase">INTRO</div>
-        <div class="time" id="tLeft">01:30</div>
-      </div>
-    </div>
-
-    <div id="hud-coverage" class="hud-panel">
-      <div class="hud-label">Coverage</div>
-      <div class="grid">
-        <div class="cov-cell" id="cov-q1" data-ok="0"><div class="t">Q1</div><div class="p">0%</div></div>
-        <div class="cov-cell" id="cov-q2" data-ok="0"><div class="t">Q2</div><div class="p">0%</div></div>
-        <div class="cov-cell" id="cov-q3" data-ok="0"><div class="t">Q3</div><div class="p">0%</div></div>
-        <div class="cov-cell" id="cov-q4" data-ok="0"><div class="t">Q4</div><div class="p">0%</div></div>
-      </div>
-    </div>
-
-    <div id="hud-combo" class="hud-panel">
-      <div class="kpi">
-        <div>
-          <div class="hud-label">Combo</div>
-          <div class="comboN" id="cCombo">0</div>
-        </div>
-        <div>
-          <div class="hud-label">Mul</div>
-          <div class="mul" id="cMul">x1.0</div>
-        </div>
-      </div>
-      <div class="fever">
-        <div class="bar"><i id="fFill" style="width:0%"></i></div>
-        <div class="txt"><span id="fTxt">Fever</span><span id="fN">0/20</span></div>
-      </div>
-    </div>
-
-    <div id="hud-boss" class="hud-panel" data-on="0">
-      <div class="hdr">
-        <div class="name">Tartar Titan</div>
-        <div class="phase" id="bPhase">Phase 1/4</div>
-      </div>
-      <div class="bar"><i id="bFill" style="width:100%"></i></div>
-    </div>
-
-    <div id="hud-uv" data-on="0">
-      <div class="btn" id="uvBtn" role="button" aria-label="UV Scan">
-        <div class="icon">UV</div>
-        <div class="txt">
-          <div class="title">UV Scan</div>
-          <div class="sub" id="uvSub">Reveal stealth plaque</div>
-        </div>
-        <div class="energy" id="uvEnergy">
-          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="hud-toast" data-on="0">
-      <div class="toast">
-        <div class="t" id="toastT">เบามือหน่อย!</div>
-        <div class="s" id="toastS">แปรงแรงเกินไป อาจทำให้เหงือกเจ็บ</div>
-      </div>
+  <!-- Tap-to-start overlay -->
+  <div id="tapStart" class="tapStart" aria-hidden="true">
+    <div class="tapCard">
+      <div class="tapTitle">Tap to Start</div>
+      <div class="tapSub">แตะเพื่อเริ่มเกม (มือถือ/คาร์ดบอร์ด)</div>
+      <button class="tapBtn" id="tapBtn">START</button>
     </div>
   </div>
 
-  <!-- game scripts -->
+  <!-- A-Frame scene (kept tiny/behind) -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: true"
+    renderer="colorManagement: true; physicallyCorrectLights: false; antialias: true"
+    style="position:fixed;inset:0;z-index:0;opacity:0.001;pointer-events:none;">
+    <a-entity position="0 1.6 -1"></a-entity>
+  </a-scene>
+
+  <!-- HUD -->
+  <header class="hud">
+    <section id="hud-timer" class="hudCard hudTimer">
+      <div class="row">
+        <div class="label">TIME</div>
+        <div id="tLeft" class="value">00:00</div>
+      </div>
+      <div class="bar"><div id="tFill" class="fill"></div></div>
+      <div id="tPhase" class="sub">INTRO</div>
+    </section>
+
+    <section id="hud-combo" class="hudCard hudCombo">
+      <div class="row">
+        <div class="label">COMBO</div>
+        <div class="value"><span id="cCombo">0</span></div>
+      </div>
+      <div class="sub">Multiplier <span id="cMul">x1.0</span></div>
+      <div class="miniHint">BANK ใช้คอมโบแลก UV/Shield</div>
+    </section>
+
+    <section id="hud-coverage" class="hudCard hudCoverage">
+      <div class="row">
+        <div class="label">COVERAGE</div>
+        <div class="value">4 Zones</div>
+      </div>
+      <div class="grid">
+        <div id="cov-q1" class="cell"><div class="k">Q1</div><div class="p">0%</div></div>
+        <div id="cov-q2" class="cell"><div class="k">Q2</div><div class="p">0%</div></div>
+        <div id="cov-q3" class="cell"><div class="k">Q3</div><div class="p">0%</div></div>
+        <div id="cov-q4" class="cell"><div class="k">Q4</div><div class="p">0%</div></div>
+      </div>
+      <div class="sub">ผ่านเมื่อครบ ≥ 80% + อยู่โซนขั้นต่ำ</div>
+    </section>
+  </header>
+
+  <aside class="hudFloat">
+    <section id="hud-boss" class="hudCard hudBoss" data-on="0">
+      <div class="row">
+        <div class="label">BOSS</div>
+        <div id="bPhase" class="value">Phase 1/4</div>
+      </div>
+      <div class="bar"><div id="bFill" class="fill"></div></div>
+      <div class="sub">Phase 3–4 มี Weak Spot 🎯</div>
+    </section>
+
+    <section id="hud-uv" class="hudCard hudUV" data-on="0">
+      <div class="row">
+        <div class="label">UV</div>
+        <button id="uvBtn" class="uvBtn" type="button">UV</button>
+      </div>
+      <div id="uvEnergy" class="dots">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div id="uvSub" class="sub">Reveal stealth plaque</div>
+    </section>
+
+    <section id="hud-toast" class="toast" data-on="0">
+      <div id="toastT" class="toastT">แจ้งเตือน</div>
+      <div id="toastS" class="toastS">…</div>
+    </section>
+  </aside>
+
+  <!-- DOM90 play layer -->
+  <main id="playLayer" class="playLayer" aria-label="play"></main>
+
+  <!-- Optional Bank button placeholder (safe.js will auto-create if missing) -->
+  <!-- <button id="bankBtn" class="bankBtn" type="button">BANK</button> -->
+
+  <script>
+    // vr-ui aim tuning (mobile/cvr)
+    window.HHA_VRUI_CONFIG = { lockPx: 30, cooldownMs: 90 };
+  </script>
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- engine + boot -->
   <script src="./brush.safe.js"></script>
   <script src="./brush.boot.js"></script>
 </body>
