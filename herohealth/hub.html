@@ -36,13 +36,12 @@
     }
     a{ color:inherit; text-decoration:none; }
     .wrap{ max-width:1100px; margin:0 auto; }
+
     .top{
       display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
       padding: 14px 14px 0 14px;
     }
-    .brand{
-      display:flex; flex-direction:column; gap:6px;
-    }
+    .brand{ display:flex; flex-direction:column; gap:6px; }
     .title{
       font-size: clamp(22px, 2.2vw, 30px);
       margin:0;
@@ -54,9 +53,8 @@
       font-size: 14px;
       line-height:1.4;
     }
-    .pillrow{
-      display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;
-    }
+
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
     .pill{
       background: rgba(2,6,23,.55);
       border:1px solid var(--stroke);
@@ -68,6 +66,7 @@
       -webkit-backdrop-filter: blur(8px);
     }
     .pill b{ color:var(--text); font-weight:700; }
+
     .panel{
       margin-top:14px;
       background: linear-gradient(180deg, var(--panel), var(--panel2));
@@ -76,6 +75,7 @@
       box-shadow: var(--shadow);
       overflow:hidden;
     }
+
     .zonebar{
       display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
       gap:10px;
@@ -83,6 +83,7 @@
       border-bottom:1px solid var(--stroke);
       background: rgba(2,6,23,.35);
     }
+
     .tabs{ display:flex; gap:10px; flex-wrap:wrap; }
     .tab{
       border:1px solid var(--stroke);
@@ -101,6 +102,7 @@
       border-color: rgba(255,255,255,.18);
       background: rgba(255,255,255,.06);
     }
+
     .actions{ display:flex; gap:8px; flex-wrap:wrap; }
     .btn{
       border:1px solid var(--stroke);
@@ -176,6 +178,7 @@
       font-size:12px;
       background: rgba(2,6,23,.30);
     }
+
     .glow{
       position:absolute; inset:-40% -30% auto auto;
       width:220px; height:220px;
@@ -200,6 +203,7 @@
       min-height: 220px;
     }
     .side h4{ margin:0; font-size:14px; color: var(--text); }
+
     .kv{
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -213,6 +217,7 @@
     }
     .kv .k{ color:var(--muted); font-size:12px; }
     .kv .v{ margin-top:4px; font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
     .note{
       border:1px dashed rgba(148,163,184,.28);
       background: rgba(2,6,23,.24);
@@ -222,6 +227,7 @@
       font-size:12px;
       line-height:1.45;
     }
+
     .footer{
       padding: 12px 14px 16px 14px;
       border-top:1px solid var(--stroke);
@@ -247,7 +253,7 @@
     <div class="top">
       <div class="brand">
         <h1 class="title">🏫 HeroHealth — Hub</h1>
-        <p class="subtitle">เลือกโซน แล้วเข้าเล่นมินิเกมได้ทันที (ส่งต่อพารามิเตอร์การวิจัย/การเล่นครบ + กลับ Hub ได้เสมอ)</p>
+        <p class="subtitle">เลือกโซน แล้วเข้าเล่นมินิเกมได้ทันที (ส่งต่อพารามิเตอร์เดิมครบ + กลับ Hub ได้เสมอ)</p>
       </div>
       <div class="pillrow" id="pillrow"></div>
     </div>
@@ -269,8 +275,8 @@
           <h4>สถานะ & พารามิเตอร์ปัจจุบัน</h4>
           <div class="kv" id="kv"></div>
           <div class="note" id="note">
-            ✅ Hub นี้ “ไม่สร้าง/ไม่แก้” query เอง (นอกจากเพิ่ม hub= ให้เกมเพื่อย้อนกลับ)<br/>
-            ✅ ทุกปุ่มจะพาไปหน้าเกมพร้อมพารามิเตอร์เดิมครบ (run/diff/time/seed/studyId/phase/conditionGroup/log ฯลฯ)
+            ✅ Hub นี้ “ไม่แก้/ไม่ override” query ที่คุณส่งมา (ส่งต่อทั้งหมด)<br/>
+            ✅ ทุกปุ่มจะพาไปหน้าเกมพร้อมพารามิเตอร์เดิมครบ และเติม <b>hub=</b> เพื่อย้อนกลับได้เสมอ
           </div>
         </aside>
       </div>
@@ -286,8 +292,7 @@
 (function(){
   'use strict';
 
-  // ========= CONFIG: แก้ลิงก์เกมให้ตรงโปรเจกต์ของคุณ =========
-  // NOTE: ใส่เป็น path แบบ relative จาก /herohealth/hub.html ได้เลย
+  // ========= CONFIG: 3 ZONES (ตามไฟล์จริงที่คุณให้มา) =========
   const ZONES = [
     {
       id: 'nutrition',
@@ -300,29 +305,29 @@
           title: 'Food Groups VR',
           icon: '🧩',
           desc: 'จัดหมวดอาหารหลัก 5 หมู่ แบบเร็วและแม่น',
-          href: './groups-vr.html', // (ถ้าคุณใช้ launcher) หรือ './vr-groups/groups.html'
-          tags: ['PC/Mobile/VR', 'Aim Assist', 'FX+HUD']
+          href: './groups-vr.html',
+          tags: ['Launcher@root', 'PC/Mobile/VR', 'FX+HUD']
         },
         {
           title: 'Balanced Plate VR',
           icon: '🍽️',
           desc: 'จัดจานอาหารให้สมดุลครบหมู่',
-          href: './plate-vr.html', // ปรับตามของคุณ เช่น './plate/plate.html'
-          tags: ['5 หมู่', 'Adaptive', 'Quest']
+          href: './plate-vr.html',
+          tags: ['Launcher@root', '5 หมู่', 'Quest']
         },
         {
           title: 'Hydration Quest VR',
           icon: '💧',
           desc: 'บริหารการดื่มน้ำตามเวลา/เป้าหมาย',
-          href: './hydration-vr.html', // ปรับตามของคุณ
-          tags: ['Time', 'Streak', 'Logging']
+          href: './hydration-vr.html',
+          tags: ['Launcher@root', 'Streak', 'Logging']
         },
         {
           title: 'GoodJunkVR',
           icon: '🍎',
           desc: 'แยกอาหารดี/ขยะ + เควส + บอส',
-          href: './goodjunk-vr-launcher.html', // ของคุณมี launcher อยู่แล้ว
-          tags: ['Boss', 'Mini Quest', 'Research']
+          href: './goodjunk-vr.html',
+          tags: ['Launcher@root', 'Boss', 'Research']
         }
       ]
     },
@@ -331,35 +336,21 @@
       icon: '🧼',
       name: 'อนามัยส่วนบุคคล',
       color: 'cyan',
-      desc: 'ล้างมือ • แปรงฟัน • ความปลอดภัย • แต่งกาย',
+      desc: 'ล้างมือ • แปรงฟัน • สุขนิสัย',
       games: [
         {
           title: 'Handwash VR',
           icon: '🫧',
-          desc: 'ทำขั้นตอนล้างมือให้ถูกต้องและทันเวลา',
-          href: './hygiene-vr/hygiene.html', // ปรับตามของคุณ
-          tags: ['7 Steps', 'Quiz', 'FX']
+          desc: 'ฝึกล้างมือ + จับเวลา + แบบทดสอบ',
+          href: './hygiene-vr.html',
+          tags: ['Launcher@root', '7 Steps', 'Quiz']
         },
         {
-          title: 'Tooth Brush (Idea)',
+          title: 'Brush VR',
           icon: '🦷',
-          desc: 'แปรงฟันกำจัดคราบ + คอมโบ + บอสหินปูน',
-          href: '#',
-          tags: ['Concept', 'Boss', 'Combo']
-        },
-        {
-          title: 'Safety (Idea)',
-          icon: '🛡️',
-          desc: 'หลบเชื้อโรค/สิ่งอันตราย • ตัดสินใจเร็ว',
-          href: '#',
-          tags: ['Concept', 'Reaction', 'Scoring']
-        },
-        {
-          title: 'Dress (Idea)',
-          icon: '👕',
-          desc: 'เลือกชุดให้เหมาะสถานการณ์/อากาศ • จัดของ',
-          href: '#',
-          tags: ['Concept', 'Logic', 'Timed']
+          desc: 'แปรงฟันกำจัดคราบ + คะแนนความเนี๊ยบ',
+          href: './brush-vr.html',
+          tags: ['Launcher@root', 'Combo', 'Boss-ready']
         }
       ]
     },
@@ -368,35 +359,35 @@
       icon: '🏃',
       name: 'ออกกำลังกาย',
       color: 'violet',
-      desc: 'ฟิตเนสแบบเกม • รีแอคชัน • จังหวะ • บอสหลายเฟส',
+      desc: 'รีแอคชัน • จังหวะ • ความคล่องตัว • การทรงตัว',
       games: [
         {
           title: 'Shadow Breaker',
           icon: '🥊',
-          desc: 'ต่อยเงา/เป้าหมายตามแพทเทิร์น + บอส',
-          href: '../fitness/shadow-breaker.html', // ปรับตามของคุณ
-          tags: ['Boss', 'Stamina', 'VR Ready']
+          desc: 'ต่อยตามแพทเทิร์น + คอมโบ + บอส',
+          href: '../fitness/shadow-breaker.html',
+          tags: ['Boss', 'Reflex', 'VR Ready']
         },
         {
           title: 'Jump-Duck',
           icon: '🦘',
           desc: 'กระโดด/ก้มหลบอุปสรรค + บอส 3 เฟส',
-          href: '../fitness/jump-duck.html', // ปรับตามของคุณ
-          tags: ['Boss 3 Phases', 'AI Predictor', 'Fast']
+          href: '../fitness/jump-duck.html',
+          tags: ['Boss 3 Phases', 'Agility', 'Fast']
         },
         {
           title: 'Rhythm Boxer',
           icon: '🎵',
           desc: 'ชกตามจังหวะ (lane-based) เล่นได้ทุกแพลตฟอร์ม',
-          href: '../fitness/rhythm-boxer.html', // ปรับตามของคุณ
-          tags: ['Rhythm', 'Multi-platform', 'cVR']
+          href: '../fitness/rhythm-boxer.html',
+          tags: ['Rhythm', 'Timing', 'cVR']
         },
         {
-          title: 'Coming Soon',
-          icon: '⚡',
-          desc: 'โหมดฝึก + สรุปผล + บันทึกข้อมูลมาตรฐาน',
-          href: '#',
-          tags: ['Standard', 'Logging', 'Coach']
+          title: 'Balance Hold',
+          icon: '🧘',
+          desc: 'ทรงตัวค้างท่า + วัดความนิ่ง + ความอึด',
+          href: '../fitness/balance-hold.html',
+          tags: ['Balance', 'Stability', 'Endurance']
         }
       ]
     }
@@ -409,7 +400,6 @@
   function parseQS(){
     try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); }
   }
-
   function toObj(sp){
     const o = {};
     for (const [k,v] of sp.entries()) o[k]=v;
@@ -417,20 +407,17 @@
   }
 
   function buildTargetUrl(baseHref){
-    // baseHref อาจเป็น relative (./x.html) หรือ absolute
     const base = new URL(baseHref, location.href);
     const cur = parseQS();
 
     // ส่งต่อทุกพารามิเตอร์เดิมครบ
     for (const [k,v] of cur.entries()){
-      // ไม่ให้วนซ้ำ hub ของปลายทางเดิม (ถ้ามี) แต่ถือว่า override เป็น hub หน้านี้
-      if (k === 'hub') continue;
+      if (k === 'hub') continue;        // ไม่เอา hub เดิมของปลายทาง
       base.searchParams.set(k, v);
     }
 
-    // เพิ่ม hub= เพื่อย้อนกลับมาหน้านี้เสมอ
+    // เพิ่ม hub= ให้ย้อนกลับมาหน้านี้เสมอ
     base.searchParams.set('hub', location.href.split('#')[0]);
-
     return base.toString();
   }
 
@@ -440,11 +427,12 @@
   }
 
   function detectView(){
-    // อ่าน view จาก query ถ้ามี ไม่เดาให้ (ตามแนว “ห้าม override”)
+    // ถ้ามี view ใน query ให้ใช้ตามนั้น (ไม่เดา/ไม่ override)
     const q = parseQS();
     const v = (q.get('view')||'').toLowerCase();
     if (v) return v;
-    // ถ้าไม่มี ค่อยสรุปแบบเบา ๆ เพื่อโชว์บน pill เท่านั้น (ไม่ไปแก้ลิงก์)
+
+    // ถ้าไม่มี view ค่อยแสดงเดาเพื่อ "โชว์" เท่านั้น (ไม่ไปแก้ URL)
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
     return isMobile ? 'mobile' : 'pc';
@@ -456,10 +444,7 @@
   const kvEl = $('#kv');
   const pillRow = $('#pillrow');
 
-  const state = {
-    zoneId: null,
-    debug: false
-  };
+  const state = { zoneId: null, debug: false };
 
   function renderPills(){
     const q = parseQS();
@@ -490,6 +475,7 @@
       .slice(0, 10)
       .map(x => `<span class="pill"><b>${x.k}</b>: ${String(x.v).replace(/</g,'&lt;')}</span>`)
       .join('');
+
     if (!pillRow.innerHTML){
       pillRow.innerHTML = `<span class="pill"><b>params</b>: none</span>`;
     }
@@ -529,6 +515,14 @@
     });
   }
 
+  function zoneGlowClass(zone){
+    if (!zone) return '';
+    if (zone.color === 'cyan') return 'cyan';
+    if (zone.color === 'violet') return 'violet';
+    if (zone.color === 'amber') return 'amber';
+    return '';
+  }
+
   function renderCards(){
     const zone = ZONES.find(z => z.id === state.zoneId) || ZONES[0];
     cardsEl.innerHTML = '';
@@ -536,8 +530,11 @@
     zone.games.forEach(g => {
       const card = document.createElement('div');
       card.className = 'card';
+
+      const glowCls = zoneGlowClass(zone);
+
       card.innerHTML = `
-        <div class="glow ${zone.color === 'cyan' ? 'cyan' : zone.color === 'violet' ? 'violet' : zone.color === 'amber' ? 'amber' : ''}"></div>
+        <div class="glow ${glowCls}"></div>
         <h3>${g.icon} ${g.title}</h3>
         <p>${g.desc}</p>
         <div class="tags">${(g.tags||[]).slice(0,6).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
@@ -546,7 +543,7 @@
       const href = (g.href || '#').trim();
       card.addEventListener('click', ()=>{
         if (!href || href === '#'){
-          toast('ยังไม่ผูกลิงก์เกมนี้ (ตั้งค่า href ใน ZONES ก่อน)');
+          toast('ยังไม่ผูกลิงก์เกมนี้');
           return;
         }
         location.href = buildTargetUrl(href);
