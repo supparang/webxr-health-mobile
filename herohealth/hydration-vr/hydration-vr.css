@@ -1,10 +1,10 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-HydrationVR UI — PRODUCTION
-✅ Playfield full-screen
-✅ Targets visible (no accidental hiding)
-✅ Start overlay + Result overlay
-✅ FX classes (shock / endfx / bossfx)
-✅ HUD Responsive patch merged (mobile-first)
+HydrationVR RUN — PRODUCTION (FULL)
+✅ Playfield always visible (targets won't disappear behind overlays)
+✅ Supports PC / Mobile / cVR / Cardboard (split)
+✅ HUD mobile-first + collapsible quest
+✅ Safe-area support
+✅ FX classes used by hydration.safe.js (hha-endfx, hha-bossfx, hha-hitfx, hha-shock)
 */
 
 :root{
@@ -14,295 +14,371 @@ HydrationVR UI — PRODUCTION
   --sar: env(safe-area-inset-right, 0px);
 
   --bg:#020617;
-  --panel: rgba(2,6,23,.70);
-  --stroke: rgba(148,163,184,.18);
+  --panel:rgba(2,6,23,.62);
+  --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  --hud-gap: 10px;
-  --hud-pad: 12px;
-  --hud-radius: 18px;
-  --hud-bg: rgba(2,6,23,.55);
-  --hud-stroke: rgba(148,163,184,.18);
-  --hud-shadow: 0 18px 70px rgba(0,0,0,.35);
+  --radius:18px;
+  --shadow: 0 22px 90px rgba(0,0,0,.50);
 
-  --mob-topH: 64px;
-  --mob-bottomH: 118px;
+  --hudTopH: 64px;
+  --hudBottomH: 118px;
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; overflow:hidden; }
-
-/* ===== Playfield priority ===== */
-#playfield, #cbPlayfield{
-  position: fixed;
-  inset: 0;
-  z-index: 40;
+html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+body{
   overflow:hidden;
-  touch-action: manipulation;
-  background: transparent;
-}
-#hydration-layer, #hydration-layerL, #hydration-layerR{
-  position:absolute;
-  inset:0;
-  z-index: 41;
-  pointer-events:auto;
-}
-
-/* ===== Targets (base) — safe even if loader injects additional styles ===== */
-.hvr-target{
-  z-index: 42;
-  opacity: 1;
-  visibility: visible;
-}
-
-/* ===== Card styling ===== */
-.hud-card, .statBox, .startCard, .resultCard{
-  border-radius: var(--hud-radius);
-  border:1px solid var(--hud-stroke);
-  background: var(--hud-bg);
-  box-shadow: var(--hud-shadow);
-  backdrop-filter: blur(10px);
-}
-
-/* ===== START OVERLAY ===== */
-.startOverlay{
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 18px;
-  background: rgba(2,6,23,.80);
-}
-.startCard{
-  width:min(520px, 100%);
-  padding: 16px;
-  border-radius: 22px;
-}
-.startTitle{ font-weight: 900; font-size: 18px; letter-spacing:.2px; }
-.startSub{ margin-top:8px; color: rgba(148,163,184,.95); font-size: 13px; line-height:1.4; white-space:pre-line; }
-.startRow{ margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; }
-.startHint{ margin-top:10px; font-size:12px; opacity:.9; color: rgba(229,231,235,.90); }
-
-.btn{
-  appearance:none;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.62);
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 14px;
-  font-weight: 900;
-  font-size: 13px;
-  cursor: pointer;
-  user-select:none;
-}
-.btn.primary{
-  border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.16);
-}
-
-/* ===== HUD TOP ===== */
-.hud-top{
-  position: fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
-  z-index: 70;
-  display:grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  pointer-events:none; /* don't block shots */
-}
-.statBox{
-  padding: 10px 12px;
-  height: var(--mob-topH);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 10px;
-  pointer-events:none;
-}
-.statBox .label{ font-size: 12px; opacity:.78; font-weight:700; }
-.statBox .val{ font-size: 18px; font-weight:900; letter-spacing:.2px; }
-
-/* ===== HUD BOTTOM ===== */
-.hud-bottom{
-  position: fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  bottom: calc(10px + var(--sab));
-  z-index: 70;
-  display:grid;
-  grid-template-columns: 1.2fr .8fr;
-  gap: 10px;
-  pointer-events:auto;
-}
-
-.quest-panel, .water-panel{
-  min-height: var(--mob-bottomH);
-  padding: 10px 12px;
-}
-.quest-panel .title{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 8px;
-  font-weight: 900;
-  font-size: 14px;
-  margin-bottom: 6px;
-}
-.quest-lines{
-  font-size: 12px;
-  line-height: 1.35;
-  opacity: .96;
-}
-.quest-lines .muted{ opacity:.72; }
-
-#btnQuestToggle{
-  pointer-events: auto;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  height: 34px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  color: rgba(226,232,240,.95);
-  font-weight: 900;
-  font-size: 12px;
-  gap: 6px;
-  user-select:none;
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
   -webkit-tap-highlight-color: transparent;
 }
-
-body.hud-collapsed .quest-panel{ max-height: 62px; overflow:hidden; }
-body.hud-collapsed .quest-lines{ display:none !important; }
-
-/* Water panel */
-.waterRow{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-.waterRow .t{ font-weight:900; font-size:14px; }
-.waterRow .p{ font-weight:900; font-size:18px; }
-.badge{
-  font-weight:900;
-  font-size:12px;
-  padding:4px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(34,211,238,.14), transparent 55%),
+    radial-gradient(circle at 82% 70%, rgba(34,197,94,.12), transparent 60%),
+    radial-gradient(circle at 50% 96%, rgba(168,85,247,.10), transparent 60%);
+  pointer-events:none;
+  z-index:0;
 }
-.barWrap{
-  margin-top: 8px;
-  height: 10px;
-  border-radius: 999px;
+
+/* =========================
+   PLAYFIELD (IMPORTANT)
+   ========================= */
+#playfield,
+#cbPlayfield{
+  position:fixed;
+  inset:0;
+  z-index:10;            /* below HUD (70), above background */
   overflow:hidden;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(148,163,184,.16);
+  touch-action: manipulation;
 }
-.bar{ height:100%; border-radius:999px; background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95)); }
-.hint{ margin-top: 8px; font-size: 11px; line-height: 1.25; opacity: .88; white-space: pre-line; }
 
-/* ===== Cardboard halves ===== */
+/* main layer */
+#hydration-layer{
+  position:absolute;
+  inset:0;
+  pointer-events:auto;
+  display:block;         /* guard: never hidden */
+}
+
+/* cardboard split */
 #cbPlayfield{ display:none; }
-body.cardboard #playfield{ display:none; }
-body.cardboard #cbPlayfield{ display:block; }
-.cbHalf{ position:absolute; top:0; bottom:0; width:50%; overflow:hidden; }
+.cbHalf{
+  position:absolute;
+  top:0; bottom:0;
+  width:50%;
+  overflow:hidden;
+  pointer-events:auto;
+}
 .cbHalf.left{ left:0; }
 .cbHalf.right{ right:0; }
 
-/* ===== cVR: top HUD never blocks shots ===== */
-body.view-cvr .hud-top{ pointer-events:none !important; }
-body.view-cvr .hud-bottom{ pointer-events:auto; }
-
-/* ===== FX: shockwave ===== */
-.hha-shock{
+#hydration-layerL,
+#hydration-layerR{
   position:absolute;
-  left: var(--x, 50%);
-  top: var(--y, 50%);
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  transform: translate(-50%,-50%);
-  border: 2px solid rgba(239,68,68,.55);
-  box-shadow: 0 0 0 0 rgba(239,68,68,.35);
-  animation: shock 520ms ease-out forwards;
-  pointer-events:none;
-}
-@keyframes shock{
-  0%{ opacity:1; transform:translate(-50%,-50%) scale(0.6); box-shadow:0 0 0 0 rgba(239,68,68,.35); }
-  100%{ opacity:0; transform:translate(-50%,-50%) scale(6.5); box-shadow:0 0 0 22px rgba(239,68,68,0); }
+  inset:0;
+  pointer-events:auto;
+  display:block;
 }
 
-/* ===== FX: end window blink + shake ===== */
-body.hha-endfx #playfield,
-body.hha-endfx #cbPlayfield{
-  animation: endPulse 220ms ease-in-out infinite alternate;
+/* view switching (loader also toggles, this is CSS fallback) */
+body.cardboard #playfield{ display:none; }
+body.cardboard #cbPlayfield{ display:block; }
+
+/* pc/mobile default */
+body.view-pc #playfield{ display:block; }
+body.view-mobile #playfield{ display:block; }
+body.view-cvr #playfield{ display:block; }
+body.view-pc #cbPlayfield,
+body.view-mobile #cbPlayfield,
+body.view-cvr #cbPlayfield{ display:none; }
+
+/* =========================
+   HUD cards
+   ========================= */
+.hud-card,
+.hha-card,
+.hud-card *{
+  box-sizing:border-box;
 }
-@keyframes endPulse{
-  from{ filter: brightness(1.00); }
-  to{ filter: brightness(1.12); }
+.hud-card{
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 }
 
-/* ===== FX: boss ===== */
-body.hha-bossfx #playfield,
-body.hha-bossfx #cbPlayfield{
-  outline: 2px dashed rgba(239,68,68,.22);
-  outline-offset: -6px;
+/* =========================
+   HUD TOP (stats)
+   ========================= */
+#hudTop{
+  position:fixed;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  top: calc(10px + var(--sat));
+  z-index:70;
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  pointer-events:none;     /* DO NOT block shots */
 }
 
-/* ===== RESULT OVERLAY ===== */
-.resultBackdrop{
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  background: rgba(2,6,23,.82);
+.stat-pill{
+  height: var(--hudTopH);
+  padding: 10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+}
+.stat-pill .label{ font-size:12px; font-weight:800; opacity:.78; }
+.stat-pill .val{ font-size:18px; font-weight:900; letter-spacing:.2px; }
+
+/* =========================
+   HUD BOTTOM (quest + water)
+   ========================= */
+#hudBottom{
+  position:fixed;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  bottom: calc(10px + var(--sab));
+  z-index:70;
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 10px;
+  pointer-events:auto;     /* allow toggle/back */
+}
+
+#questPanel{
+  padding: 10px 12px;
+  min-height: var(--hudBottomH);
+  max-height: 38vh;
+  overflow:hidden;
+}
+#questPanel .title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-weight:900;
+  font-size:14px;
+  margin-bottom:6px;
+}
+#questLines{
+  font-size:12px;
+  line-height:1.35;
+  opacity:.96;
+  white-space:pre-line;
+}
+#questLines .muted{ opacity:.72; }
+
+#btnQuestToggle{
+  pointer-events:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:34px;
+  padding:0 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+  color: rgba(226,232,240,.95);
+  font-weight:900;
+  font-size:12px;
+  gap:6px;
+  user-select:none;
+  cursor:pointer;
+}
+
+/* collapse quest */
+body.hud-collapsed #questPanel{ max-height: 62px; }
+body.hud-collapsed #questLines{ display:none !important; }
+
+#waterPanel{
+  padding: 10px 12px;
+  min-height: var(--hudBottomH);
+}
+.waterRow{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+}
+.waterRow .t{ font-weight:900; font-size:14px; }
+.waterRow .p{ font-weight:900; font-size:18px; }
+.zonePill{
+  margin-left:8px;
+  display:inline-flex;
+  align-items:center;
+  padding: 4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.55);
+  font-weight:900;
+  font-size:12px;
+}
+.barWrap{
+  margin-top:8px;
+  height:10px;
+  border-radius:999px;
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(148,163,184,.16);
+}
+#water-bar{
+  height:100%;
+  width:50%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+}
+
+/* cVR strict: top HUD should never block shots */
+body.view-cvr #hudTop{ pointer-events:none !important; }
+
+/* =========================
+   Start overlay
+   ========================= */
+#startOverlay{
+  position:fixed;
+  inset:0;
+  z-index:100;
   display:flex;
   align-items:center;
   justify-content:center;
   padding: 18px;
+  background: rgba(2,6,23,.70);
+  backdrop-filter: blur(10px);
 }
-.resultCard{
-  width:min(760px, 100%);
-  border-radius: 22px;
-  padding: 16px;
-}
-.resultTitle{ font-weight:900; font-size:18px; }
-.resultGrid{
-  margin-top: 10px;
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.kv{
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
-  border-radius: 16px;
-  padding: 10px 12px;
-}
-.kv .k{ font-size:12px; opacity:.78; font-weight:700; }
-.kv .v{ font-size:16px; font-weight:900; margin-top:4px; }
-.tips{
-  margin-top: 10px;
-  white-space: pre-wrap;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
-  border-radius: 16px;
-  padding: 10px 12px;
-  color: rgba(229,231,235,.92);
-}
-.next{
-  margin-top: 8px;
-  font-weight: 900;
-  opacity:.95;
-}
-.resultRow{
-  margin-top: 12px;
+#startOverlay[aria-hidden="true"]{ display:none; }
+
+/* =========================
+   Result overlay
+   ========================= */
+#resultBackdrop{
+  position:fixed;
+  inset:0;
+  z-index:120;
   display:flex;
-  flex-wrap:wrap;
-  gap: 10px;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+  background: rgba(2,6,23,.78);
+  backdrop-filter: blur(10px);
 }
+#resultBackdrop[hidden]{ display:none; }
+
+/* =========================
+   FX classes used by safe.js
+   ========================= */
+body.hha-hitfx{
+  animation: hhaHit 160ms ease-out;
+}
+@keyframes hhaHit{
+  0%{ filter:none; }
+  35%{ filter: brightness(1.06) saturate(1.08); }
+  100%{ filter:none; }
+}
+
+/* Storm end-window pulse */
+body.hha-endfx{
+  animation: endPulse 520ms ease-in-out infinite;
+}
+@keyframes endPulse{
+  0%{ filter:none; }
+  50%{ filter: brightness(1.03) saturate(1.06); }
+  100%{ filter:none; }
+}
+
+/* Boss glow */
+body.hha-bossfx::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:5;
+  background: radial-gradient(circle at 50% 50%, rgba(239,68,68,.10), transparent 60%);
+}
+
+/* Shock element inserted by safe.js */
+.hha-shock{
+  position:absolute;
+  left: var(--x);
+  top: var(--y);
+  width: 14px; height: 14px;
+  border-radius: 999px;
+  transform: translate(-50%,-50%);
+  pointer-events:none;
+  background: rgba(34,211,238,.95);
+  filter: drop-shadow(0 18px 40px rgba(34,211,238,.25));
+  animation: shock 650ms ease-out forwards;
+  z-index: 90;
+}
+@keyframes shock{
+  0%{ opacity:.95; transform:translate(-50%,-50%) scale(.7); }
+  55%{ opacity:.65; transform:translate(-50%,-50%) scale(2.8); }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(4.0); }
+}
+
+/* =========================
+   Target fallback (if JS inject fails)
+   ========================= */
+.hvr-target{
+  position:absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  transform: translate(-50%,-50%);
+  width: var(--s, 64px);
+  height: var(--s, 64px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: calc(var(--s,64px) * 0.55);
+  border-radius: 999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.50);
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
+  user-select:none;
+  pointer-events:auto;
+  cursor:pointer;
+  z-index: 30; /* must be above playfield base */
+  will-change: transform, filter, opacity;
+}
+.hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
+.hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
+.hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
+.hvr-target.bossbad{
+  outline: 2px dashed rgba(239,68,68,.35);
+  box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
+}
+
+/* =========================
+   Small screens refinements
+   ========================= */
 @media (max-width: 560px){
-  .resultGrid{ grid-template-columns: repeat(2, 1fr); }
+  #hudTop{
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .stat-pill{ height: var(--hudTopH); }
+  #hudBottom{
+    grid-template-columns: 1.15fr .85fr;
+  }
 }
+
+/* =========================
+   Safety: never let HUD hide playfield
+   ========================= */
+/* If someone accidentally adds overflow hidden to body children, keep playfield safe */
+#playfield, #cbPlayfield, #hydration-layer, #hydration-layerL, #hydration-layerR{
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* optional: if any overlay uses transform causing stacking issues, keep playfield on its own layer */
+#playfield, #cbPlayfield{ transform: translateZ(0); }
