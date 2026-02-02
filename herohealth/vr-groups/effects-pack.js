@@ -124,15 +124,12 @@
   }
 
   function burst(x,y, tone){
-    // simple multi dots
     const n = 10;
     for(let i=0;i<n;i++){
       const a = (Math.PI*2) * (i/n);
       const dx = Math.cos(a) * (10 + Math.random()*18);
       const dy = Math.sin(a) * (10 + Math.random()*18);
-      const px = x + dx;
-      const py = y + dy;
-      popDot(px, py, tone);
+      popDot(x + dx, y + dy, tone);
     }
   }
 
@@ -180,7 +177,6 @@
     const good = !!d.good;
     const miss = !!d.miss;
 
-    // choose tone + text
     if(kind === 'hit_good' || (good && !miss)){
       fxBurst(x,y,'good');
       fxPop(x,y,'✅','good');
@@ -192,14 +188,15 @@
     }else if(kind === 'timeout_miss'){
       fxPop(x,y,'⌛','warn');
     }else{
-      // generic
       fxPop(x,y, good ? '✅' : '⚠️', good ? 'good' : 'warn');
     }
   }
 
   function banner(text){
-    const x = Math.max(26, Math.min((WIN.innerWidth||360)-26, (WIN.innerWidth||360)/2));
-    const y = 70 + (Number(getComputedStyle(DOC.body).getPropertyValue('--sat').replace('px',''))||0);
+    // safe top banner-ish ping
+    const w = (WIN.innerWidth||360);
+    const x = Math.max(26, Math.min(w-26, w/2));
+    const y = 70;
     fxPop(x,y, text, 'neutral');
   }
 
@@ -218,7 +215,6 @@
     _ready = true;
 
     if(_selftest){
-      // show ready and demo
       setTimeout(()=>{ banner('FX READY'); }, 200);
       setTimeout(()=>{ fxPop((WIN.innerWidth||360)*0.35, (WIN.innerHeight||640)*0.48, '✅', 'good'); }, 600);
       setTimeout(()=>{ fxPop((WIN.innerWidth||360)*0.50, (WIN.innerHeight||640)*0.48, '❌', 'bad'); }, 900);
