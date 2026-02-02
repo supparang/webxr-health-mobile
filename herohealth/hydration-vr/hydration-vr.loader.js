@@ -40,7 +40,6 @@
   }
 
   function ensurePlayfieldStructure(){
-    // Make sure body can host fixed playfield
     try{
       document.documentElement.style.height = '100%';
       body.style.height = '100%';
@@ -48,7 +47,6 @@
       body.style.overflow = 'hidden';
     }catch(_){}
 
-    // playfield base (PC/Mobile/cVR)
     const pf = ensureEl('div','playfield', body);
     pf.setAttribute('data-playfield','main');
     pf.style.position = 'fixed';
@@ -58,7 +56,6 @@
     pf.style.touchAction = 'manipulation';
     pf.style.background = 'transparent';
 
-    // cardboard base (optional)
     const cb = ensureEl('div','cbPlayfield', body);
     cb.setAttribute('data-playfield','cb');
     cb.style.position='fixed';
@@ -67,13 +64,11 @@
     cb.style.overflow='hidden';
     cb.style.background='transparent';
 
-    // main layer
     const main = ensureEl('div','hydration-layer', pf);
     main.style.position='absolute';
     main.style.inset='0';
     main.style.pointerEvents='auto';
 
-    // cardboard halves
     let left = cb.querySelector('.cbHalf.left');
     if (!left){
       left = document.createElement('div');
@@ -97,7 +92,6 @@
     L.style.position='absolute'; L.style.inset='0'; L.style.pointerEvents='auto';
     R.style.position='absolute'; R.style.inset='0'; R.style.pointerEvents='auto';
 
-    // show/hide by class
     if (body.classList.contains('cardboard')){
       pf.style.display = 'none';
       cb.style.display = 'block';
@@ -135,7 +129,6 @@
         z-index:41 !important;
         pointer-events:auto !important;
       }
-      /* Make sure targets are drawn above backgrounds */
       .hvr-target{ z-index:42 !important; opacity:1 !important; visibility:visible !important; }
     `;
     document.head.appendChild(st);
