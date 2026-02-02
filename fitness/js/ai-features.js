@@ -1,7 +1,7 @@
 // === /fitness/js/ai-features.js ===
 // Bridge helpers for AI in Shadow Breaker
 // ✅ Works with classic ai-predictor.js that exposes window.RB_AI
-// ✅ No imports
+// ✅ No export mismatch issues (engine imports this file only)
 
 'use strict';
 
@@ -13,6 +13,7 @@ function readQueryFlag(key) {
     return false;
   }
 }
+
 function readQueryMode() {
   try {
     const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
@@ -24,18 +25,19 @@ function readQueryMode() {
 }
 
 export const AI = {
-  getMode(){ return readQueryMode(); },
-  isResearch(){ return readQueryMode() === 'research'; },
+  getMode() { return readQueryMode(); },
+  isResearch() { return readQueryMode() === 'research'; },
 
-  // allow AI only in normal mode, and require ?ai=1
-  isAssistEnabled(){
+  // ✅ allow AI only in normal mode, and require ?ai=1
+  isAssistEnabled() {
     if (this.isResearch()) return false;
     return readQueryFlag('ai');
   },
 
-  predict(snapshot){
+  predict(snapshot) {
     const api = window.RB_AI;
     if (!api || typeof api.predict !== 'function') return null;
-    try { return api.predict(snapshot || {}); } catch { return null; }
+    try { return api.predict(snapshot || {}); }
+    catch { return null; }
   }
 };
