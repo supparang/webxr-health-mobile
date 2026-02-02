@@ -1,91 +1,113 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — BrushVR Launcher</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    :root{ color-scheme: dark; --bg:#020617; --txt:#e5e7eb; --muted:#94a3b8; }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-    .wrap{ min-height:100%; display:grid; place-items:center; padding:24px; }
-    .card{ width:min(720px, 92vw); border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.72); border-radius:20px; padding:18px 18px 14px; }
-    .t{ font-size:18px; font-weight:900; letter-spacing:.2px; }
-    .s{ margin-top:6px; color:var(--muted); font-size:13px; line-height:1.5; }
-    .p{ margin-top:14px; color:rgba(229,231,235,.85); font-size:12px; }
-    .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; margin-right:8px; }
+    :root{
+      --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
+      --radius:22px;
+      --sat: env(safe-area-inset-top,0px);
+    }
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 20% 10%, rgba(34,197,94,.16), transparent 60%),
+                                radial-gradient(1000px 700px at 80% 30%, rgba(168,85,247,.14), transparent 55%),
+                                var(--bg);
+      color:var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) 16px 18px;}
+    .card{width:min(720px, 94vw);border:1px solid var(--stroke);border-radius:var(--radius);
+      background:var(--panel); box-shadow:0 18px 60px rgba(0,0,0,.45); padding:18px;}
+    .k{color:var(--muted);font-weight:800;letter-spacing:.5px;font-size:12px}
+    h1{margin:8px 0 6px;font-size:22px}
+    .sub{color:var(--muted);font-size:13px;line-height:1.5}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{appearance:none;border:1px solid var(--stroke);background:rgba(2,6,23,.48);color:var(--text);
+      padding:10px 12px;border-radius:16px;font-weight:900;cursor:pointer}
+    .btn.primary{background:rgba(34,197,94,.22);border-color:rgba(34,197,94,.35)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;
+      border:1px solid var(--stroke);background:rgba(2,6,23,.35);color:var(--muted);font-weight:800;font-size:12px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+    @media (max-width:720px){ .grid{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card" role="status" aria-live="polite">
-      <div class="t"><span class="dot"></span>กำลังเตรียมเข้าเกมแปรงฟัน…</div>
-      <div class="s">ระบบจะตรวจอุปกรณ์และพาเข้าเกมอัตโนมัติ (ไม่เปลี่ยนค่า view ถ้ามีส่งมาแล้ว)</div>
-      <div class="p" id="dbg"></div>
+    <div class="card">
+      <div class="k">HeroHealth • Hygiene Zone</div>
+      <h1>BrushVR — Plaque Hunter (DOM90)</h1>
+      <div class="sub">
+        โหมด DOM90 ยิง/แตะตีโน้ต • ครอบคลุม 4 โซน • บอสหลายเฟส + Weak Spot 🎯 + Combo Bank
+      </div>
+
+      <div class="grid">
+        <div class="pill">✅ Auto detect view (pc/mobile/cvr/vr)</div>
+        <div class="pill">✅ รองรับยิงกลางจอ (hha:shoot) ด้วย vr-ui.js</div>
+        <div class="pill">✅ ไม่ spawn ทับ HUD</div>
+        <div class="pill">✅ มี Tap-to-start กันมือถือกดไม่ติด</div>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" id="goPlay">Play (Normal)</button>
+        <button class="btn" id="goEasy">Play (Easy)</button>
+        <button class="btn" id="goResearch">Research (Seeded)</button>
+      </div>
     </div>
   </div>
 
 <script>
 (function(){
   'use strict';
-  const dbg = document.getElementById('dbg');
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-  function qs(key, def=null){
-    try{ return new URL(location.href).searchParams.get(key) ?? def; }catch(_){ return def; }
+  function detectView(){
+    // DO NOT override if user explicitly provides ?view=
+    const forced = qs('view', '');
+    if(forced) return String(forced).toLowerCase();
+
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+    // If WebXR exists -> "vr" (headset / immersive)
+    const hasXR = !!navigator.xr;
+
+    // Default policy:
+    // - mobile: cvr (aim from center + tap-to-shoot)
+    // - desktop: pc
+    // - if xr available: still let user hit ENTER VR in run (keep view as cvr on mobile, pc on desktop)
+    if(isMobile) return 'cvr';
+    return 'pc';
   }
 
-  function setParamIfMissing(sp, key, val){
-    if(!sp.has(key) && val!=null) sp.set(key, String(val));
+  function go(run, diff){
+    const hub = qs('hub','');
+    const time = qs('time','90');
+    const seed = qs('seed', String(Date.now()));
+    const studyId = qs('studyId','');
+    const phase = qs('phase','');
+    const conditionGroup = qs('conditionGroup','');
+
+    const view = detectView();
+    const url = new URL('./vr-brush/brush.html', location.href);
+    url.searchParams.set('run', run||'play');
+    url.searchParams.set('diff', diff||'normal');
+    url.searchParams.set('time', time);
+    url.searchParams.set('seed', seed);
+    url.searchParams.set('view', view);
+
+    if(hub) url.searchParams.set('hub', hub);
+    if(studyId) url.searchParams.set('studyId', studyId);
+    if(phase) url.searchParams.set('phase', phase);
+    if(conditionGroup) url.searchParams.set('conditionGroup', conditionGroup);
+
+    location.href = url.toString();
   }
 
-  function detectBaseViewSync(){
-    const ua = (navigator.userAgent||'').toLowerCase();
-    const isMobile = /android|iphone|ipad|ipod/.test(ua) || (navigator.maxTouchPoints||0) >= 2;
-    const isLandscape = (window.innerWidth > window.innerHeight);
-    // cVR heuristic: mobile + landscape
-    if(isMobile && isLandscape) return 'cvr';
-    return isMobile ? 'mobile' : 'pc';
-  }
-
-  async function detectViewAsyncFallback(){
-    // If WebXR immersive-vr supported, prefer view=vr
-    try{
-      if(navigator.xr && navigator.xr.isSessionSupported){
-        const ok = await navigator.xr.isSessionSupported('immersive-vr');
-        if(ok) return 'vr';
-      }
-    }catch(_){}
-    return detectBaseViewSync();
-  }
-
-  async function go(){
-    const url = new URL(location.href);
-    const sp = new URLSearchParams(url.search);
-
-    // Defaults (set ONLY if missing)
-    setParamIfMissing(sp, 'run', 'play');
-    setParamIfMissing(sp, 'diff', 'normal');
-    setParamIfMissing(sp, 'time', '90');
-
-    // IMPORTANT: do not override view if provided
-    if(!sp.has('view')){
-      const v = await detectViewAsyncFallback();
-      sp.set('view', v);
-    }
-
-    // Keep everything, just redirect to run page
-    const runUrl = new URL('./vr-brush/brush.html', location.href);
-    runUrl.search = sp.toString();
-
-    if(dbg){
-      dbg.textContent = 'Redirect → ' + runUrl.pathname + '?' + sp.toString();
-    }
-
-    location.replace(runUrl.toString());
-  }
-
-  go();
+  document.getElementById('goPlay').addEventListener('click', ()=>go('play','normal'));
+  document.getElementById('goEasy').addEventListener('click', ()=>go('play','easy'));
+  document.getElementById('goResearch').addEventListener('click', ()=>go('research','normal'));
 })();
 </script>
 </body>
