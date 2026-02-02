@@ -102,16 +102,12 @@
   (function(){
     const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-    // ROOT hub (อยู่โฟลเดอร์เดียวกับไฟล์นี้)
     const hubDefault = './hub.html';
     const hub = String(qs('hub', hubDefault));
 
-    // ปลายทาง RUN (อยู่ในโฟลเดอร์ hydration-vr/)
     const from = new URL(location.href);
     const to = new URL('./hydration-vr/hydration-vr.html', from);
 
-    // passthrough: ยกไปทั้งก้อน (พารามิเตอร์เดิมทั้งหมด)
-    // แต่ถ้าไม่มี hub ให้ใส่ค่า default
     for (const [k,v] of from.searchParams.entries()){
       to.searchParams.set(k, v);
     }
@@ -123,10 +119,9 @@
         (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
         /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
       to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
-      // หมายเหตุ: โหมด cvr/cardboard ให้ผู้ใช้ส่งมาเองด้วย ?view=cvr หรือ ?view=cardboard
+      // โหมด cvr/cardboard ให้ส่งมาเอง: ?view=cvr หรือ ?view=cardboard
     }
 
-    // อัปเดต UI
     const status = document.getElementById('status');
     const destEl = document.getElementById('dest');
     const btnGo = document.getElementById('btnGo');
@@ -137,7 +132,6 @@
     btnHub?.addEventListener('click', ()=>{ location.href = hub; });
     btnGo?.addEventListener('click', ()=>{ location.href = to.toString(); });
 
-    // auto jump
     if (status) status.textContent = 'ตรวจจับอุปกรณ์แล้ว กำลังพาเข้าเกม…';
     setTimeout(()=>{ location.href = to.toString(); }, 80);
   })();
