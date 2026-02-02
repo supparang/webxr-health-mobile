@@ -103,7 +103,7 @@
       background: rgba(255,255,255,.06);
     }
 
-    .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
     .btn{
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.42);
@@ -112,11 +112,12 @@
       color: var(--text);
       cursor:pointer;
       user-select:none;
-      transition: transform .12s ease, background .12s ease;
+      transition: transform .12s ease, background .12s ease, opacity .12s ease;
       display:flex; align-items:center; gap:8px;
     }
     .btn.secondary{ color: var(--muted); }
     .btn:active{ transform: translateY(1px); }
+    .btn.disabled{ opacity:.45; cursor:not-allowed; }
 
     .content{
       padding: 14px;
@@ -127,6 +128,7 @@
     @media (max-width: 900px){
       .content{ grid-template-columns: 1fr; }
       .pillrow{ justify-content:flex-start; }
+      .actions{ justify-content:flex-start; }
     }
 
     .cards{
@@ -262,8 +264,11 @@
       <div class="zonebar">
         <div class="tabs" id="tabs"></div>
         <div class="actions">
+          <div class="btn" id="btnResume">▶️ Resume</div>
+          <div class="btn" id="btnPlay">▶️ Play</div>
+          <div class="btn" id="btnResearch">🧪 Research</div>
           <div class="btn secondary" id="btnCopyLink">🔗 คัดลอกลิงก์ Hub</div>
-          <div class="btn" id="btnReset">♻️ รีเซ็ตโซน</div>
+          <div class="btn secondary" id="btnReset">♻️ รีเซ็ตโซน</div>
         </div>
       </div>
 
@@ -276,7 +281,8 @@
           <div class="kv" id="kv"></div>
           <div class="note" id="note">
             ✅ Hub นี้ “ไม่แก้/ไม่ override” query ที่คุณส่งมา (ส่งต่อทั้งหมด)<br/>
-            ✅ ทุกปุ่มจะพาไปหน้าเกมพร้อมพารามิเตอร์เดิมครบ และเติม <b>hub=</b> เพื่อย้อนกลับได้เสมอ
+            ✅ ปุ่ม Play/Research จะเติม <b>run=</b> เฉพาะตอนที่ยังไม่มีเท่านั้น<br/>
+            ✅ Resume จะพาเข้าเกมล่าสุดทันที (และอัปเดต <b>hub=</b> ให้ถูกหน้า)
           </div>
         </aside>
       </div>
@@ -395,6 +401,8 @@
 
   // ========= HELPERS =========
   const LS_LAST_ZONE = 'HHA_HUB_LAST_ZONE';
+  const LS_LAST_GAME = 'HHA_HUB_LAST_GAME_URL';
+
   const $ = (sel)=>document.querySelector(sel);
 
   function parseQS(){
@@ -404,21 +412,6 @@
     const o = {};
     for (const [k,v] of sp.entries()) o[k]=v;
     return o;
-  }
-
-  function buildTargetUrl(baseHref){
-    const base = new URL(baseHref, location.href);
-    const cur = parseQS();
-
-    // ส่งต่อทุกพารามิเตอร์เดิมครบ
-    for (const [k,v] of cur.entries()){
-      if (k === 'hub') continue;        // ไม่เอา hub เดิมของปลายทาง
-      base.searchParams.set(k, v);
-    }
-
-    // เพิ่ม hub= ให้ย้อนกลับมาหน้านี้เสมอ
-    base.searchParams.set('hub', location.href.split('#')[0]);
-    return base.toString();
   }
 
   function safeText(v, fallback='—'){
@@ -432,10 +425,46 @@
     const v = (q.get('view')||'').toLowerCase();
     if (v) return v;
 
-    // ถ้าไม่มี view ค่อยแสดงเดาเพื่อ "โชว์" เท่านั้น (ไม่ไปแก้ URL)
+    // ถ้าไม่มี view ค่อยเดาเพื่อโชว์บน UI เท่านั้น
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
     return isMobile ? 'mobile' : 'pc';
+  }
+
+  function hubUrl(){
+    return location.href.split('#')[0];
+  }
+
+  function buildTargetUrl(baseHref){
+    const base = new URL(baseHref, location.href);
+    const cur = parseQS();
+
+    // ส่งต่อทุกพารามิเตอร์เดิมครบ
+    for (const [k,v] of cur.entries()){
+      if (k === 'hub') continue;        // ไม่เอา hub เดิมของปลายทาง
+      base.searchParams.set(k, v);
+    }
+
+    // เติม hub= ให้ย้อนกลับมาหน้านี้เสมอ
+    base.searchParams.set('hub', hubUrl());
+    return base.toString();
+  }
+
+  function setParamIfMissing(key, value){
+    const u = new URL(hubUrl());
+    const q = u.searchParams;
+    if (q.has(key) && String(q.get(key)||'').trim() !== ''){
+      return { changed:false, url:u.toString(), current:q.get(key) };
+    }
+    q.set(key, value);
+    return { changed:true, url:u.toString(), current:value };
+  }
+
+  function normalizeResumeUrl(storedUrl){
+    // อัปเดต hub= ให้เป็น Hub ปัจจุบันเสมอ (ไม่แก้ param อื่น)
+    const u = new URL(storedUrl, location.href);
+    u.searchParams.set('hub', hubUrl());
+    return u.toString();
   }
 
   // ========= UI RENDER =========
@@ -493,7 +522,7 @@
       ['phase', q.get('phase')],
       ['conditionGroup', q.get('conditionGroup')],
       ['log', q.get('log')],
-      ['hub', location.href.split('#')[0]]
+      ['hub', hubUrl()]
     ];
 
     kvEl.innerHTML = data.map(([k,v]) => `
@@ -523,6 +552,19 @@
     return '';
   }
 
+  function updateResumeBtn(){
+    const btn = $('#btnResume');
+    let last = null;
+    try{ last = localStorage.getItem(LS_LAST_GAME); }catch{}
+    if (last && String(last).trim()){
+      btn.classList.remove('disabled');
+      btn.title = 'เข้าเกมล่าสุด';
+    } else {
+      btn.classList.add('disabled');
+      btn.title = 'ยังไม่มีเกมล่าสุด (กดเข้าเกมสักครั้งก่อน)';
+    }
+  }
+
   function renderCards(){
     const zone = ZONES.find(z => z.id === state.zoneId) || ZONES[0];
     cardsEl.innerHTML = '';
@@ -546,7 +588,13 @@
           toast('ยังไม่ผูกลิงก์เกมนี้');
           return;
         }
-        location.href = buildTargetUrl(href);
+        const finalUrl = buildTargetUrl(href);
+
+        // จำเกมล่าสุดไว้สำหรับ Resume
+        try{ localStorage.setItem(LS_LAST_GAME, finalUrl); }catch{}
+        updateResumeBtn();
+
+        location.href = finalUrl;
       });
 
       cardsEl.appendChild(card);
@@ -562,6 +610,7 @@
     renderCards();
     renderPills();
     renderKV();
+    updateResumeBtn();
   }
 
   // ========= UX helpers =========
@@ -620,13 +669,49 @@
     }
   });
 
+  $('#btnResume').addEventListener('click', ()=>{
+    const btn = $('#btnResume');
+    if (btn.classList.contains('disabled')){
+      toast('ยังไม่มีเกมล่าสุด — กดเข้าเกมสักครั้งก่อน');
+      return;
+    }
+    let last = null;
+    try{ last = localStorage.getItem(LS_LAST_GAME); }catch{}
+    if (!last){
+      toast('ยังไม่มีเกมล่าสุด');
+      updateResumeBtn();
+      return;
+    }
+    location.href = normalizeResumeUrl(last);
+  });
+
+  $('#btnPlay').addEventListener('click', ()=>{
+    const res = setParamIfMissing('run', 'play');
+    if (!res.changed){
+      toast('มี run อยู่แล้ว: ' + res.current + ' (ไม่ override)');
+      return;
+    }
+    location.href = res.url;
+  });
+
+  $('#btnResearch').addEventListener('click', ()=>{
+    const res = setParamIfMissing('run', 'research');
+    if (!res.changed){
+      toast('มี run อยู่แล้ว: ' + res.current + ' (ไม่ override)');
+      return;
+    }
+    location.href = res.url;
+  });
+
   // ========= INIT =========
   function init(){
     let last = null;
     try{ last = localStorage.getItem(LS_LAST_ZONE); }catch{}
     const zoneId = ZONES.some(z=>z.id===last) ? last : ZONES[0].id;
+
     renderTabs();
     setZone(zoneId, false);
+    updateResumeBtn();
   }
 
   init();
