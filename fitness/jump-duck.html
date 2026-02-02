@@ -6,7 +6,6 @@
   <title>Jump-Duck — VR Fitness Academy</title>
   <link rel="icon" href="favicon.ico"/>
 
-  <!-- สไตล์หลักของ Jump-Duck -->
   <link rel="stylesheet" href="css/jump-duck.css"/>
 </head>
 <body>
@@ -16,18 +15,14 @@
       <!-- ===== VIEW: MENU ===== -->
       <section id="view-menu" class="jd-view">
         <div class="jd-card">
-          <h1 class="jd-title">
-            <span>🦘 Jump-Duck</span>
-          </h1>
+          <h1 class="jd-title"><span>🦘 Jump-Duck</span></h1>
           <p class="jd-subtitle">
             เกมฝึกกระโดด-ก้มหลบสิ่งกีดขวาง เพื่อความคล่องตัว แกนกลางลำตัว และการทรงตัว
           </p>
 
           <div class="jd-menu-grid">
-            <!-- ซ้าย: ตั้งค่าการเล่น -->
             <div class="jd-menu-block">
 
-              <!-- โหมดการเล่น -->
               <div class="jd-field-row">
                 <label for="jd-mode">โหมดการเล่น</label>
                 <select id="jd-mode">
@@ -36,11 +31,10 @@
                   <option value="research">วิจัย (Research) — เก็บข้อมูลผู้เข้าร่วม</option>
                 </select>
                 <p class="jd-hint">
-                  Training: ปรับความถี่/ความเร็วท้ายเกม · Test/Research: พารามิเตอร์คงที่
+                  Training: ปรับความถี่/ความเร็วท้ายเกม · Test/Research: seed คงที่ + มี Practice 15s
                 </p>
               </div>
 
-              <!-- ระดับความยาก -->
               <div class="jd-field-row">
                 <label for="jd-diff">ระดับความยาก</label>
                 <select id="jd-diff">
@@ -50,7 +44,6 @@
                 </select>
               </div>
 
-              <!-- ระยะเวลา -->
               <div class="jd-field-row">
                 <label for="jd-duration">ระยะเวลาเล่นต่อรอบ</label>
                 <select id="jd-duration">
@@ -60,7 +53,6 @@
                 </select>
               </div>
 
-              <!-- Research meta -->
               <div id="jd-research-block" class="jd-research jd-hidden">
                 <div class="jd-field-row">
                   <label for="jd-participant-id">Participant ID</label>
@@ -75,18 +67,16 @@
                   <input id="jd-note" type="text" placeholder="เช่น Pre-test, Post-test รอบ 2"/>
                 </div>
                 <p class="jd-research-hint">
-                  ข้อมูลนี้จะถูกบันทึกลงใน CSV เพื่อใช้จับคู่กับแบบสอบถาม/ตัวแปรอื่น ๆ
+                  ระบบจะบันทึก Summary + Events เป็น CSV (ดาวน์โหลดได้) และสามารถส่งไป ?log= endpoint ได้
                 </p>
               </div>
 
-              <!-- ปุ่มเริ่มเล่น -->
               <div class="jd-btn-row">
                 <button class="jd-btn jd-btn-primary" data-action="start">
                   ▶ เริ่มเล่น Jump-Duck
                 </button>
               </div>
 
-              <!-- ปุ่ม Tutorial -->
               <div class="jd-btn-row">
                 <button class="jd-btn jd-btn-sub" data-action="tutorial">
                   ❓ ทดลองเล่น (Tutorial) — ซ้อม 15 วินาที
@@ -94,13 +84,12 @@
               </div>
 
               <div class="jd-btn-row jd-btn-row-secondary">
-                <a href="hub.html" class="jd-btn jd-btn-sub">
+                <a href="hub.html" class="jd-btn jd-btn-sub jd-backhub">
                   ⬅ กลับ VR Fitness Hub
                 </a>
               </div>
             </div>
 
-            <!-- ขวา: วิธีเล่น -->
             <div class="jd-menu-block">
               <div class="jd-howto-block">
                 <h3 class="jd-section-title">วิธีการเล่น</h3>
@@ -113,7 +102,10 @@
               </div>
 
               <p class="jd-howto-inline">
-                ในโหมด VR ให้ผู้เล่นขยับตัวกระโดด/ก้มจริง แล้วครูหรือผู้ช่วยกด Jump / Duck บนจอควบคู่ไปกับจังหวะ
+                โหมด Test/Research จะมี Practice 15s ก่อนเริ่มรอบจริงอัตโนมัติ เพื่อลดผล novelty
+              </p>
+              <p class="jd-howto-inline">
+                รองรับ seed คงที่ด้วย <code>?seed=12345</code> เพื่อให้รูปแบบสิ่งกีดขวางทำซ้ำได้
               </p>
             </div>
           </div>
@@ -138,7 +130,7 @@
               </div>
             </div>
 
-            <div className="jd-hud-col jd-hud-center">
+            <div class="jd-hud-col jd-hud-center">
               <div class="jd-hud-row">
                 <span class="jd-tag">Duration</span>
                 <span class="jd-hud-chip"><strong id="hud-duration">60s</strong></span>
@@ -169,24 +161,35 @@
             </div>
           </div>
 
-          <!-- พื้นที่เล่น -->
-          <div id="jd-play-area" class="jd-field jd-play-area">
-            <div class="jd-track">
-              <div class="jd-ground"></div>
+          <!-- Bars: Progress + Fever -->
+          <div class="jd-hud-bars">
+            <div class="jd-bar jd-bar--progress" aria-label="progress">
+              <div id="hud-prog-fill" class="jd-bar-fill"></div>
+            </div>
+            <div class="jd-bar-meta">
+              <span>Progress</span>
+              <span id="hud-prog-text">0%</span>
             </div>
 
-            <!-- เส้นบอกตำแหน่งชน -->
+            <div class="jd-bar jd-bar--fever" aria-label="fever">
+              <div id="hud-fever-fill" class="jd-bar-fill"></div>
+            </div>
+            <div class="jd-bar-meta">
+              <span>Fever</span>
+              <span id="hud-fever-status" class="jd-fever-status">Ready</span>
+            </div>
+          </div>
+
+          <!-- พื้นที่เล่น -->
+          <div id="jd-play-area" class="jd-field jd-play-area">
+            <div class="jd-track"><div class="jd-ground"></div></div>
             <div class="jd-hit-line"></div>
 
-            <!-- Avatar ผู้เล่น -->
             <div id="jd-avatar" class="jd-avatar">
               <div class="jd-avatar-body">🧍‍♂️</div>
             </div>
 
-            <!-- สิ่งกีดขวาง -->
             <div id="jd-obstacles" class="jd-obstacles"></div>
-
-            <!-- ข้อความ Judge (GOOD / MISS / COMBO / TIPS) -->
             <div id="jd-judge" class="jd-judge">READY</div>
           </div>
 
@@ -198,7 +201,7 @@
             <button class="jd-btn jd-btn-primary" data-action="stop-early">
               ⏹ หยุดก่อนเวลา
             </button>
-            <a href="hub.html" class="jd-btn jd-btn-sub">
+            <a href="hub.html" class="jd-btn jd-btn-sub jd-backhub">
               ⬅ กลับ Hub
             </a>
           </div>
@@ -215,6 +218,9 @@
             <div class="jd-result-row"><span>Difficulty</span><b id="res-diff">normal</b></div>
             <div class="jd-result-row"><span>Duration</span><b id="res-duration">60s</b></div>
 
+            <div class="jd-result-row"><span>Seed</span><b id="res-seed">-</b></div>
+            <div class="jd-result-row"><span>End reason</span><b id="res-end-reason">-</b></div>
+
             <div class="jd-result-row"><span>Obstacles ทั้งหมด</span><b id="res-total-obs">0</b></div>
             <div class="jd-result-row"><span>Hits รวม</span><b id="res-hits">0</b></div>
             <div class="jd-result-row"><span>Miss รวม</span><b id="res-miss">0</b></div>
@@ -227,24 +233,27 @@
             <div class="jd-result-row"><span>Accuracy</span><b id="res-acc">0.0 %</b></div>
             <div class="jd-result-row"><span>RT เฉลี่ย</span><b id="res-rt-mean">-</b></div>
             <div class="jd-result-row"><span>Stability ต่ำสุด</span><b id="res-stability-min">0.0 %</b></div>
+            <div class="jd-result-row"><span>Max Combo</span><b id="res-max-combo">0</b></div>
             <div class="jd-result-row"><span>Score</span><b id="res-score">0</b></div>
             <div class="jd-result-row"><span>Rank</span><b id="res-rank">C</b></div>
           </div>
 
           <p class="jd-note">
-            ใช้ค่านี้เพื่อประเมินสมรรถภาพการทรงตัว / การตอบสนอง และเปรียบเทียบก่อน–หลังการฝึก หรือระหว่างกลุ่มทดลอง–ควบคุมได้
+            ระบบจะเก็บผลล่าสุดไว้ใน LocalStorage (HHA_LAST_SUMMARY) และเก็บประวัติ (HHA_SUMMARY_HISTORY)
           </p>
 
           <div class="jd-btn-row">
-            <button class="jd-btn jd-btn-primary" data-action="play-again">
-              🔁 เล่นอีกครั้ง
-            </button>
+            <button class="jd-btn jd-btn-primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
           </div>
+
+          <div class="jd-btn-row">
+            <button class="jd-btn jd-btn-sub" data-action="dl-summary">⬇️ Download Summary CSV</button>
+            <button class="jd-btn jd-btn-sub" data-action="dl-events">⬇️ Download Events CSV</button>
+          </div>
+
           <div class="jd-btn-row jd-btn-row-secondary">
-            <button class="jd-btn jd-btn-sub" data-action="back-menu">
-              🏠 กลับเมนู Jump-Duck
-            </button>
-            <a href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
+            <button class="jd-btn jd-btn-sub" data-action="back-menu">🏠 กลับเมนู Jump-Duck</button>
+            <a href="hub.html" class="jd-btn jd-btn-sub jd-backhub">⬅ กลับ Hub</a>
           </div>
         </div>
       </section>
@@ -252,13 +261,14 @@
     </div>
   </div>
 
-  <!-- SFX (คุณสามารถเปลี่ยน path ไฟล์ให้ตรงกับ assets จริงของคุณได้) -->
+  <!-- SFX -->
   <audio id="jd-sfx-hit"   src="audio/jd-hit.mp3"   preload="auto"></audio>
   <audio id="jd-sfx-miss"  src="audio/jd-miss.mp3"  preload="auto"></audio>
   <audio id="jd-sfx-combo" src="audio/jd-combo.mp3" preload="auto"></audio>
   <audio id="jd-sfx-beep"  src="audio/jd-beep.mp3"  preload="auto"></audio>
+  <audio id="jd-sfx-fever" src="audio/jd-fever.mp3" preload="auto"></audio>
 
-  <!-- JS engine หลักของ Jump-Duck -->
+  <!-- JS -->
   <script src="js/jump-duck.js"></script>
 </body>
 </html>
