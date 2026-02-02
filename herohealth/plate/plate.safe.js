@@ -1,33 +1,34 @@
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — SAFE ENGINE (PRODUCTION)
-// HHA Standard + UI Feedback + AI-lite Prediction (Explainable)
+// HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive ON + Storm/Boss ON + AI Coach ON
-//   - research/study: deterministic seed + adaptive OFF + no Storm/Boss + AI Coach minimal
+//   - play: adaptive ON (lightweight)
+//   - research/study: deterministic seed + adaptive OFF
 // ✅ Emits:
 //   hha:start, hha:score, hha:time, quest:update,
 //   hha:coach, hha:judge, hha:end
-// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
+// ✅ Uses mode-factory.js spawner (decorateTarget supported)
+// ✅ FIX: “ออกไม่ครบ 5 หมู่” -> Good targets use BAG (1..5 must appear before repeat)
+// ✅ End game stops spawner + clears timer (no flashing targets)
 // ------------------------------------------------
 
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
-import { FOOD5, JUNK, emojiForGroup, pickEmoji, labelForGroup } from '../vr/food5-th.js';
+import { FOOD5, JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
 
 /* ------------------------------------------------
  * Utilities
  * ------------------------------------------------ */
 const WIN = window;
-const DOC = document;
 
 const clamp = (v, a, b) => {
   v = Number(v) || 0;
   return v < a ? a : (v > b ? b : v);
 };
 
-const pct = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const pctRound = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 function seededRng(seed){
   let t = (Number(seed)||Date.now()) >>> 0;
@@ -39,126 +40,9 @@ function seededRng(seed){
   };
 }
 
-function nowMs(){ return performance.now ? performance.now() : Date.now(); }
-
 function emit(name, detail){
-  WIN.dispatchEvent(new CustomEvent(name, { detail }));
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
-
-function isResearch(){
-  return (STATE.cfg.runMode === 'research' || STATE.cfg.runMode === 'study');
-}
-
-function setStormFx(on){
-  const el = DOC.getElementById('stormFx');
-  if(!el) return;
-  el.classList.toggle('storm-on', !!on);
-  el.setAttribute('aria-hidden', on ? 'false' : 'true');
-}
-
-function setBossFx(on, panic=false){
-  const el = DOC.getElementById('bossFx');
-  if(!el) return;
-  el.classList.toggle('boss-on', !!on);
-  el.classList.toggle('boss-panic', !!panic);
-  el.setAttribute('aria-hidden', on ? 'false' : 'true');
-}
-
-function setSpawnSafePadding(px){
-  const v = `${Math.max(0, Math.round(Number(px)||0))}px`;
-  const root = DOC.documentElement;
-  if(!root) return;
-  root.style.setProperty('--plate-top-safe', v);
-  root.style.setProperty('--plate-bottom-safe', v);
-  root.style.setProperty('--plate-left-safe', v);
-  root.style.setProperty('--plate-right-safe', v);
-}
-
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
-}
-
-function judge(type, msg, meta={}){
-  emit('hha:judge', { type, msg, ...meta });
-}
-
-function popText(x, y, text, cls=''){
-  try{
-    const P = WIN.Particles;
-    if(!P || typeof P.popText !== 'function') return;
-    const px = isFinite(Number(x)) ? Number(x) : Math.round(innerWidth*0.5);
-    const py = isFinite(Number(y)) ? Number(y) : Math.round(innerHeight*0.35);
-    P.popText(Math.round(px), Math.round(py), text, cls);
-  }catch{}
-}
-
-/* ------------------------------------------------
- * AI-lite predictor (Explainable, rate-limited)
- * ------------------------------------------------ */
-const AI = {
-  lastCoachAt: 0,
-  cooldownMs: 2800,
-  // simple counters
-  missByGroup: [0,0,0,0,0],
-  hitByGroup: [0,0,0,0,0],
-  junkHits: 0,
-  expiredGood: 0,
-  suggestCount: 0,
-
-  reset(){
-    this.lastCoachAt = 0;
-    this.missByGroup = [0,0,0,0,0];
-    this.hitByGroup = [0,0,0,0,0];
-    this.junkHits = 0;
-    this.expiredGood = 0;
-    this.suggestCount = 0;
-  },
-
-  maybeCoach(reason){
-    if(isResearch()) return; // keep research cleaner
-    const t = nowMs();
-    if(t - this.lastCoachAt < this.cooldownMs) return;
-
-    // 1) if missing groups exist, push that first
-    const missing = [];
-    for(let i=0;i<5;i++) if((STATE.g[i]||0) <= 0) missing.push(i);
-    if(missing.length){
-      const gi = missing[0];
-      this.lastCoachAt = t;
-      this.suggestCount++;
-      coach(`ลองโฟกัส “${labelForGroup(gi+1)}” ก่อนนะ (ยังขาดอยู่)`, 'AI');
-      return;
-    }
-
-    // 2) highlight most-missed group
-    let worst = -1, worstV = 0;
-    for(let i=0;i<5;i++){
-      const v = this.missByGroup[i] || 0;
-      if(v > worstV){ worstV = v; worst = i; }
-    }
-    if(worst >= 0 && worstV >= 2){
-      this.lastCoachAt = t;
-      this.suggestCount++;
-      coach(`AI เห็นว่าพลาด “${labelForGroup(worst+1)}” บ่อย ลองช้าลงนิด + เล็งกลางเป้า`, 'AI');
-      return;
-    }
-
-    // 3) too much junk
-    if(this.junkHits >= 3){
-      this.lastCoachAt = t;
-      this.suggestCount++;
-      coach('AI เตือน: ช่วงนี้โดนของหวาน/ทอดบ่อย ลองรอ “ของดี” แล้วค่อยยิง', 'AI');
-      return;
-    }
-
-    // fallback: don’t spam
-    if(reason && this.suggestCount < 2){
-      this.lastCoachAt = t;
-      this.suggestCount++;
-      coach(reason, 'AI');
-    }
-  }
-};
 
 /* ------------------------------------------------
  * Engine state
@@ -175,13 +59,13 @@ const STATE = {
   timeLeft:0,
   timer:null,
 
-  // plate groups (5 หมู่)
-  g:[0,0,0,0,0], // index 0-4
+  // plate groups counts (1..5 stored in array index 0..4)
+  g:[0,0,0,0,0],
 
   // quest
   goal:{
     name:'เติมจานให้ครบ 5 หมู่',
-    sub:'เก็บอาหารให้ครบทุกหมู่',
+    sub:'เก็บอาหารให้ครบทุกหมู่ (อย่างน้อยหมู่ละ 1)',
     cur:0,
     target:5,
     done:false
@@ -194,7 +78,7 @@ const STATE = {
     done:false
   },
 
-  // counters
+  // counters (HHA miss = good expired + junk hit)
   hitGood:0,
   hitJunk:0,
   expireGood:0,
@@ -204,34 +88,63 @@ const STATE = {
   rng:Math.random,
 
   // spawn
-  spawner:null,
+  engine:null,
 
-  // Boss
-  bossOn:false,
-  bossDone:false,
-  bossEndsAt:0,
-  bossPerGroupTarget:2,
-  bossDurationMs:12000,
-  bossTimeBonusSec:10,
+  // BAG for good group fairness
+  bag:[],
+  bagCursor:0,
 
-  // Storm
-  stormOn:false,
-  stormEndsAt:0,
-  stormDurationMs:8000,
-  stormEverySec:22,
-  stormNextAtSec:0
+  // adaptive knobs (play only)
+  spawnRateMs:900,
+  wGood:0.70,
+  wJunk:0.30,
+
+  // rate-limit coach
+  coachAt:0,
 };
+
+/* ------------------------------------------------
+ * Coach helper (rate-limited)
+ * ------------------------------------------------ */
+function coach(msg, tag='Coach'){
+  const t = performance.now ? performance.now() : Date.now();
+  if(t - STATE.coachAt < 800) return;
+  STATE.coachAt = t;
+  emit('hha:coach', { msg, tag });
+}
+
+/* ------------------------------------------------
+ * Quest update
+ * ------------------------------------------------ */
+function emitQuest(){
+  emit('quest:update', {
+    goal:{
+      name: STATE.goal.name,
+      sub: STATE.goal.sub,
+      cur: STATE.goal.cur,
+      target: STATE.goal.target
+    },
+    mini:{
+      name: STATE.mini.name,
+      sub: STATE.mini.sub,
+      cur: STATE.mini.cur,
+      target: STATE.mini.target,
+      done: STATE.mini.done
+    },
+    allDone: STATE.goal.done && STATE.mini.done
+  });
+}
 
 /* ------------------------------------------------
  * Score helpers
  * ------------------------------------------------ */
+function emitScore(){
+  emit('hha:score', { score: STATE.score, combo: STATE.combo, comboMax: STATE.comboMax });
+}
+
 function addScore(v){
-  STATE.score += v;
-  emit('hha:score', {
-    score: STATE.score,
-    combo: STATE.combo,
-    comboMax: STATE.comboMax
-  });
+  STATE.score += (Number(v)||0);
+  emitScore();
 }
 
 function addCombo(){
@@ -244,7 +157,7 @@ function resetCombo(){
 }
 
 /* ------------------------------------------------
- * Accuracy
+ * Accuracy (good vs total mistakes)
  * ------------------------------------------------ */
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
@@ -253,74 +166,90 @@ function accuracy(){
 }
 
 /* ------------------------------------------------
- * Quest update
+ * BAG: ensure good targets cover groups 1..5 before repeat
  * ------------------------------------------------ */
-function bossProgressCount(){
-  const t = STATE.bossPerGroupTarget;
-  let ok = 0;
-  for(let i=0;i<5;i++){
-    if((STATE.g[i]||0) >= t) ok++;
+function refillBag(){
+  // bag holds groupId 1..5
+  const arr = [1,2,3,4,5];
+  // shuffle via rng for determinism in research mode
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(STATE.rng() * (i + 1));
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
   }
-  return ok;
+  STATE.bag = arr;
+  STATE.bagCursor = 0;
 }
 
-function emitQuest(){
-  const goal = (STATE.bossOn && !STATE.bossDone)
-    ? {
-        name: '👾 BOSS: ทำให้ “บาลานซ์”',
-        sub: `เติมแต่ละหมู่ ≥ ${STATE.bossPerGroupTarget}`,
-        cur: bossProgressCount(),
-        target: 5
-      }
-    : {
-        name: STATE.goal.name,
-        sub: STATE.goal.sub,
-        cur: STATE.goal.cur,
-        target: STATE.goal.target
-      };
-
-  emit('quest:update', {
-    goal,
-    mini:{
-      name: STATE.mini.name,
-      sub: STATE.mini.sub,
-      cur: STATE.mini.cur,
-      target: STATE.mini.target,
-      done: STATE.mini.done
-    },
-    allDone: (STATE.goal.done && STATE.mini.done) || (STATE.bossDone && STATE.mini.done)
-  });
+function nextGoodGroupId(){
+  if(!STATE.bag || STATE.bagCursor >= STATE.bag.length) refillBag();
+  const gid = STATE.bag[STATE.bagCursor] || 1;
+  STATE.bagCursor++;
+  return gid;
 }
 
 /* ------------------------------------------------
- * Spawner control
+ * Adaptive (play only) — lightweight + fair
  * ------------------------------------------------ */
-function stopSpawner(){
-  if(STATE.spawner && typeof STATE.spawner.stop === 'function'){
-    try{ STATE.spawner.stop(); }catch{}
-  }
-  STATE.spawner = null;
-}
+function applyAdaptive(){
+  if(!STATE.cfg) return;
+  const run = String(STATE.cfg.runMode || 'play').toLowerCase();
+  if(run === 'research' || run === 'study') return; // adaptive OFF
 
-function restartSpawner(mount){
-  stopSpawner();
-  STATE.spawner = makeSpawner(mount);
+  // Use simple signals
+  const acc = accuracy();           // 0..1
+  const combo = STATE.comboMax;     // rising means doing well
+  const timeLeft = STATE.timeLeft;
+
+  // Early phase: help them see all groups (keep good high)
+  if(timeLeft > (STATE.cfg.durationPlannedSec || 90) * 0.55){
+    STATE.wGood = 0.75;
+    STATE.wJunk = 0.25;
+    STATE.spawnRateMs = (STATE.cfg.diff === 'hard') ? 760 : 860;
+    return;
+  }
+
+  // If accuracy low -> reduce junk + slow a bit
+  if(acc < 0.70){
+    STATE.wGood = 0.78;
+    STATE.wJunk = 0.22;
+    STATE.spawnRateMs = (STATE.cfg.diff === 'hard') ? 820 : 920;
+    return;
+  }
+
+  // If doing well -> increase spice
+  if(acc > 0.85 || combo >= 10){
+    STATE.wGood = 0.64;
+    STATE.wJunk = 0.36;
+    STATE.spawnRateMs = (STATE.cfg.diff === 'hard') ? 680 : 780;
+    return;
+  }
+
+  // neutral
+  STATE.wGood = 0.70;
+  STATE.wJunk = 0.30;
+  STATE.spawnRateMs = (STATE.cfg.diff === 'hard') ? 720 : 850;
 }
 
 /* ------------------------------------------------
  * End game
  * ------------------------------------------------ */
+function hardStopSpawner(){
+  try{
+    if(STATE.engine && typeof STATE.engine.stop === 'function') STATE.engine.stop();
+  }catch{}
+  STATE.engine = null;
+}
+
 function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
   STATE.running = false;
-  clearInterval(STATE.timer);
 
-  stopSpawner();
+  try{ clearInterval(STATE.timer); }catch{}
+  STATE.timer = null;
 
-  setBossFx(false,false);
-  setStormFx(false);
-  setSpawnSafePadding(0);
+  // stop spawner NOW (prevent flashing targets)
+  hardStopSpawner();
 
   emit('hha:end', {
     reason,
@@ -328,12 +257,12 @@ function endGame(reason='timeup'){
     comboMax: STATE.comboMax,
     misses: STATE.miss,
 
-    goalsCleared: (STATE.goal.done || STATE.bossDone) ? 1 : 0,
+    goalsCleared: STATE.goal.done ? 1 : 0,
     goalsTotal: 1,
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
-    accuracyGoodPct: pct(accuracy() * 100),
+    accuracyGoodPct: pctRound(accuracy() * 100),
 
     g1: STATE.g[0],
     g2: STATE.g[1],
@@ -344,313 +273,19 @@ function endGame(reason='timeup'){
 }
 
 /* ------------------------------------------------
- * Boss
+ * Timer
  * ------------------------------------------------ */
-function startBoss(mount){
-  if(isResearch()) return;
-  if(STATE.bossOn || STATE.bossDone) return;
-
-  STATE.bossOn = true;
-  STATE.bossEndsAt = nowMs() + STATE.bossDurationMs;
-
-  setBossFx(true,false);
-  coach('👾 บอสมาแล้ว! เติมแต่ละหมู่ให้ได้อย่างน้อย 2 ชิ้น!', 'Boss');
-  judge('BOSS','เริ่มบอส!', { stage:'boss' });
-
-  restartSpawner(mount);
-  emitQuest();
-}
-
-function clearBoss(){
-  if(!STATE.bossOn || STATE.bossDone) return;
-
-  STATE.bossDone = true;
-  STATE.bossOn = false;
-  setBossFx(false,false);
-
-  STATE.timeLeft += STATE.bossTimeBonusSec;
-  addScore(350);
-
-  coach(`ผ่านบอส! +${STATE.bossTimeBonusSec} วิ ⏱️`, 'Boss');
-  judge('CLEAR',`ผ่านบอส +${STATE.bossTimeBonusSec}s`, { stage:'boss' });
-
-  emitQuest();
-}
-
-/* ------------------------------------------------
- * Storm
- * ------------------------------------------------ */
-function startStorm(mount){
-  if(isResearch()) return;
-  if(STATE.stormOn) return;
-  if(STATE.bossOn && !STATE.bossDone) return;
-
-  STATE.stormOn = true;
-  STATE.stormEndsAt = nowMs() + STATE.stormDurationMs;
-
-  setStormFx(true);
-  setSpawnSafePadding(24);
-
-  coach('🌪️ STORM! เป้าไวขึ้น—ตั้งใจนะ!', 'Storm');
-  judge('STORM','STORM!', { stage:'storm' });
-
-  restartSpawner(mount);
-}
-
-function clearStorm(mount){
-  if(!STATE.stormOn) return;
-
-  STATE.stormOn = false;
-  setStormFx(false);
-  setSpawnSafePadding(0);
-
-  coach('พายุจบแล้ว! ไปต่อ 👊', 'Storm');
-  judge('OK','พายุจบ', { stage:'storm' });
-
-  restartSpawner(mount);
-}
-
-/* ------------------------------------------------
- * Decorate target (emoji)
- * ------------------------------------------------ */
-function decorateTarget(el, target){
-  if(target.kind === 'junk'){
-    el.textContent = pickEmoji(target.rng, JUNK.emojis);
-    el.dataset.group = 'junk';
-    return;
-  }
-  const gid = clamp((target.groupIndex ?? 0) + 1, 1, 5);
-  el.textContent = emojiForGroup(target.rng, gid);
-  el.dataset.group = String(gid);
-  el.title = labelForGroup(gid);
-}
-
-/* ------------------------------------------------
- * Choose group index (guarantee 5 groups achievable)
- * ------------------------------------------------ */
-function chooseGoodGroupIndex(rng){
-  // ✅ guarantee missing groups first
-  const missing = [];
-  for(let i=0;i<5;i++){
-    if((STATE.g[i]||0) <= 0) missing.push(i);
-  }
-  if(missing.length){
-    return missing[Math.floor(rng() * missing.length)];
-  }
-
-  // boss bias: fill groups below target
-  if(STATE.bossOn && !STATE.bossDone){
-    const need = [];
-    const t = STATE.bossPerGroupTarget;
-    for(let i=0;i<5;i++){
-      if((STATE.g[i]||0) < t) need.push(i);
-    }
-    if(need.length) return need[Math.floor(rng()*need.length)];
-  }
-
-  return Math.floor(rng()*5);
-}
-
-/* ------------------------------------------------
- * Spawn factory
- * ------------------------------------------------ */
-function makeSpawner(mount){
-  const hard = STATE.cfg.diff === 'hard';
-
-  const baseRate  = hard ? 680 : 880;
-  const stormRate = hard ? 520 : 640;
-  const bossRate  = hard ? 520 : 620;
-
-  let rate = baseRate;
-  if(!isResearch() && STATE.bossOn && !STATE.bossDone) rate = bossRate;
-  else if(!isResearch() && STATE.stormOn) rate = stormRate;
-
-  const baseJunk  = hard ? 0.32 : 0.28;
-  const stormJunk = hard ? 0.42 : 0.36;
-  const bossJunk  = hard ? 0.40 : 0.36;
-
-  let jw = baseJunk;
-  if(!isResearch() && STATE.bossOn && !STATE.bossDone) jw = bossJunk;
-  else if(!isResearch() && STATE.stormOn) jw = stormJunk;
-
-  return spawnBoot({
-    mount,
-    seed: STATE.cfg.seed,
-    spawnRate: rate,
-    sizeRange:[44,64],
-    kinds:[
-      { kind:'good', weight:1 - jw },
-      { kind:'junk', weight:jw }
-    ],
-    decorateTarget,
-
-    onHit:(t)=>{
-      if(t.kind === 'good'){
-        const gi = chooseGoodGroupIndex(t.rng || STATE.rng);
-        onHitGood(gi, t, mount);
-      }else{
-        onHitJunk(t);
-      }
-    },
-    onExpire:(t)=>{
-      if(t.kind === 'good') onExpireGood(t);
-    },
-
-    // shoot tuning (optional)
-    shootLockPx: 28,
-    shootCooldownMs: 90,
-    safeVarPrefix: '--plate'
-  });
-}
-
-/* ------------------------------------------------
- * UI feedback scoring multipliers
- * ------------------------------------------------ */
-function currentMultiplier(){
-  let m = 1;
-
-  // combo gives small lift
-  m += Math.min(0.6, (STATE.combo * 0.03)); // up to +0.6
-
-  // storm/boss are exciting: give extra
-  if(STATE.stormOn) m += 0.25;
-  if(STATE.bossOn && !STATE.bossDone) m += 0.35;
-
-  return m;
-}
-
-/* ------------------------------------------------
- * Hit handlers
- * ------------------------------------------------ */
-function onHitGood(groupIndex, t, mount){
-  STATE.hitGood++;
-  STATE.g[groupIndex]++;
-
-  AI.hitByGroup[groupIndex]++;
-
-  addCombo();
-
-  // base score
-  const base = 100 + STATE.combo * 5;
-  const mult = currentMultiplier();
-  addScore(Math.round(base * mult));
-
-  popText(t?.x, t?.y, `+${Math.round(base*mult)}`, 'good');
-  judge('GOOD', 'ถูก!', { x:t?.x, y:t?.y, group: groupIndex+1 });
-
-  // goal progress
-  if(!STATE.goal.done){
-    STATE.goal.cur = STATE.g.filter(v=>v>0).length;
-    if(STATE.goal.cur >= STATE.goal.target){
-      STATE.goal.done = true;
-      coach('เยี่ยม! ครบ 5 หมู่แล้ว 🎉', 'Goal');
-      judge('PERFECT','ครบ 5 หมู่!', { stage:'goal' });
-
-      // trigger boss (play only)
-      startBoss(mount);
-    }
-  }
-
-  // mini (accuracy)
-  const accPct = accuracy() * 100;
-  STATE.mini.cur = Math.round(accPct);
-  if(!STATE.mini.done && accPct >= STATE.mini.target){
-    STATE.mini.done = true;
-    coach('ความแม่นยำดีมาก! 👍', 'Mini');
-    judge('BONUS','ความแม่นถึงเป้า!', { stage:'mini' });
-
-    // tiny time bonus makes it feel rewarding
-    if(!isResearch()){
-      STATE.timeLeft += 4;
-      popText(innerWidth*0.5, innerHeight*0.25, '+4s', 'good');
-    }
-  }
-
-  // boss clear check
-  if(STATE.bossOn && !STATE.bossDone){
-    if(bossProgressCount() >= 5){
-      clearBoss();
-    }
-  }
-
-  emitQuest();
-
-  // AI coach hint occasionally
-  if(!isResearch() && (STATE.hitGood % 6 === 0)){
-    AI.maybeCoach('');
-  }
-}
-
-function onHitJunk(t){
-  STATE.hitJunk++;
-  STATE.miss++;
-  AI.junkHits++;
-
-  resetCombo();
-  addScore(-50);
-
-  popText(t?.x, t?.y, '-50', 'bad');
-  judge('OOPS', 'ของหวาน/ทอด!', { x:t?.x, y:t?.y });
-
-  coach('ระวัง! ของหวาน/ทอด ⚠️', 'Warn');
-
-  AI.maybeCoach('ลองรอของดีชัด ๆ แล้วค่อยยิงนะ');
-}
-
-function onExpireGood(t){
-  STATE.expireGood++;
-  STATE.miss++;
-
-  // guess group (if available)
-  const gi = clamp(t?.groupIndex ?? 0, 0, 4);
-  AI.missByGroup[gi]++;
-
-  resetCombo();
-
-  judge('MISS', 'พลาด!', {});
-  AI.maybeCoach('');
-}
-
-/* ------------------------------------------------
- * Timer loop
- * ------------------------------------------------ */
-function startTimer(mount){
+function startTimer(){
   emit('hha:time', { leftSec: STATE.timeLeft });
 
+  try{ clearInterval(STATE.timer); }catch{}
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
-
-    // boss panic last 3 sec
-    if(STATE.bossOn && !STATE.bossDone){
-      const left = STATE.bossEndsAt - nowMs();
-      setBossFx(true, left <= 3000);
-      if(left <= 0){
-        // boss ends
-        STATE.bossOn = false;
-        setBossFx(false,false);
-        coach('บอสจบเวลา! ลองใหม่อีกรอบนะ 😆', 'Boss');
-        emitQuest();
-        restartSpawner(mount);
-      }
-    }
-
-    // storm end
-    if(STATE.stormOn){
-      const left = STATE.stormEndsAt - nowMs();
-      if(left <= 0) clearStorm(mount);
-    }
-
-    // storm schedule (play only)
-    if(!isResearch() && !STATE.stormOn && !STATE.bossOn){
-      const elapsed = (STATE.cfg.durationPlannedSec - STATE.timeLeft);
-      if(elapsed >= STATE.stormNextAtSec){
-        startStorm(mount);
-        STATE.stormNextAtSec = elapsed + STATE.stormEverySec;
-      }
-    }
-
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
+
+    // adapt as time progresses (play only)
+    applyAdaptive();
 
     if(STATE.timeLeft <= 0){
       endGame('timeup');
@@ -659,15 +294,146 @@ function startTimer(mount){
 }
 
 /* ------------------------------------------------
+ * Hit handlers
+ * ------------------------------------------------ */
+function onHitGood(groupId){
+  STATE.hitGood++;
+
+  // groupId is 1..5 -> array index 0..4
+  const idx = clamp(groupId, 1, 5) - 1;
+  STATE.g[idx]++;
+
+  addCombo();
+  addScore(100 + STATE.combo * 5);
+
+  // Goal: count how many groups have at least 1
+  if(!STATE.goal.done){
+    STATE.goal.cur = STATE.g.filter(v => v > 0).length;
+    if(STATE.goal.cur >= STATE.goal.target){
+      STATE.goal.done = true;
+      coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
+    } else if(STATE.goal.cur === 3){
+      coach('เหลืออีก 2 หมู่! ลุยต่อ 🍽️');
+    }
+  }
+
+  // Mini: accuracy
+  const accPct = accuracy() * 100;
+  STATE.mini.cur = Math.round(accPct);
+  if(!STATE.mini.done && accPct >= STATE.mini.target){
+    STATE.mini.done = true;
+    coach('ความแม่นยำดีมาก! 👍');
+  }
+
+  emitQuest();
+
+  // Optional judge emit
+  emit('hha:judge', { type:'hit_good', groupId, score: STATE.score, combo: STATE.combo });
+}
+
+function onHitJunk(){
+  STATE.hitJunk++;
+  STATE.miss++;
+  resetCombo();
+  addScore(-50);
+  coach('ระวัง! ของหวาน/ทอด ⚠️');
+  emit('hha:judge', { type:'hit_junk', score: STATE.score, combo: STATE.combo });
+}
+
+function onExpireGood(){
+  STATE.expireGood++;
+  STATE.miss++;
+  resetCombo();
+  emit('hha:judge', { type:'expire_good', score: STATE.score, combo: STATE.combo });
+}
+
+/* ------------------------------------------------
+ * Spawn logic (mode-factory)
+ * ------------------------------------------------ */
+function decorateTarget(el, target){
+  // target.kind: good/junk
+  // target.groupIndex: we will store 1..5 for good; keep 0 for junk
+  const kind = target.kind || 'good';
+
+  // emoji + label
+  let emoji = '🍽️';
+  let label = '';
+
+  if(kind === 'junk'){
+    emoji = pickEmoji(target.rng || STATE.rng, JUNK.emojis);
+    label = JUNK.labelTH;
+  }else{
+    const gid = clamp(target.groupIndex, 1, 5);
+    emoji = emojiForGroup(target.rng || STATE.rng, gid);
+    label = labelForGroup(gid);
+  }
+
+  // set content
+  try{
+    el.textContent = emoji;
+    el.setAttribute('aria-label', label);
+    el.title = label;
+    el.dataset.emoji = emoji;
+    el.dataset.group = String(target.groupIndex || '');
+  }catch{}
+}
+
+function makeSpawner(mount){
+  // choose rates / weights based on current state (adaptive may adjust in play)
+  const spawnRate = clamp(STATE.spawnRateMs, 520, 1400);
+
+  return spawnBoot({
+    mount,
+    seed: STATE.cfg.seed,
+    spawnRate,
+    sizeRange: [44, 64],
+    kinds: [
+      { kind:'good', weight: STATE.wGood },
+      { kind:'junk', weight: STATE.wJunk }
+    ],
+
+    // ✅ decorateTarget hook
+    decorateTarget,
+
+    onHit: (t) => {
+      if(STATE.ended) return;
+
+      if(t.kind === 'good'){
+        // groupIndex stored as 1..5 (guaranteed by BAG)
+        const gid = clamp(t.groupIndex || 1, 1, 5);
+        onHitGood(gid);
+      }else{
+        onHitJunk();
+      }
+
+      // If allDone, you can end early (optional)
+      // if(STATE.goal.done && STATE.mini.done) endGame('all_done');
+    },
+
+    onExpire: (t) => {
+      if(STATE.ended) return;
+      if(t.kind === 'good') onExpireGood();
+    }
+  });
+}
+
+/* ------------------------------------------------
  * Main boot
  * ------------------------------------------------ */
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
+  if(!cfg) cfg = {};
+
+  // stop previous run if any (hot reload safety)
+  try{ hardStopSpawner(); }catch{}
+  try{ clearInterval(STATE.timer); }catch{}
+  STATE.timer = null;
 
   STATE.cfg = cfg;
   STATE.running = true;
   STATE.ended = false;
 
+  // reset stats
   STATE.score = 0;
   STATE.combo = 0;
   STATE.comboMax = 0;
@@ -681,46 +447,97 @@ export function boot({ mount, cfg }){
 
   STATE.goal.cur = 0;
   STATE.goal.done = false;
-
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
-  // Boss reset
-  STATE.bossOn = false;
-  STATE.bossDone = false;
-  STATE.bossEndsAt = 0;
-  setBossFx(false,false);
-
-  // Storm reset
-  STATE.stormOn = false;
-  STATE.stormEndsAt = 0;
-  setStormFx(false);
-  setSpawnSafePadding(0);
-  STATE.stormNextAtSec = 14;
-
-  // AI reset
-  AI.reset();
+  STATE.coachAt = 0;
 
   // RNG
-  STATE.rng = isResearch() ? seededRng(cfg.seed || Date.now()) : Math.random;
+  const runMode = String(cfg.runMode || 'play').toLowerCase();
+  if(runMode === 'research' || runMode === 'study'){
+    STATE.rng = seededRng(cfg.seed || Date.now());
+  }else{
+    STATE.rng = Math.random;
+  }
 
+  // duration
   STATE.timeLeft = Number(cfg.durationPlannedSec) || 90;
+
+  // BAG reset
+  STATE.bag = [];
+  STATE.bagCursor = 999; // force refill
+  refillBag();
+
+  // initial adaptive knobs
+  STATE.spawnRateMs = (cfg.diff === 'hard') ? 820 : 900;
+  STATE.wGood = 0.70;
+  STATE.wJunk = 0.30;
+  applyAdaptive();
 
   emit('hha:start', {
     game:'plate',
-    runMode: cfg.runMode,
+    runMode,
     diff: cfg.diff,
     seed: cfg.seed,
     durationPlannedSec: STATE.timeLeft
   });
 
+  emitScore();
   emitQuest();
+  emit('hha:time', { leftSec: STATE.timeLeft });
 
-  // spawner
-  STATE.spawner = makeSpawner(mount);
+  // Start timer
+  startTimer();
 
-  // timer
-  startTimer(mount);
+  // Spawn engine — IMPORTANT: guarantee good groups come outครบ 1..5
+  // We do this by patching groupIndex at creation time via decorateTarget + using BAG for good targets:
+  // mode-factory creates target.groupIndex randomly; we override it safely inside decorateTarget path? -> better:
+  // We'll use a tiny trick: when decorateTarget is called, target is already created.
+  // So we also ensure the group assignment before decorateTarget runs by intercepting via global hook:
+  // BUT we don't have that here; easiest is: use BAG inside decorateTarget + also inside onHit uses groupIndex.
+  // However we must ensure consistency: set target.groupIndex for good BEFORE decorateTarget uses it.
+  // -> We'll do it by wrapping decorateTarget (below) with an assignment.
 
-  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'System');
+  const decorateTargetWrap = (el, target) => {
+    if(target && target.kind === 'good'){
+      // Force 1..5 cycling
+      target.groupIndex = nextGoodGroupId();
+    } else if(target && target.kind === 'junk'){
+      target.groupIndex = 0;
+    }
+    decorateTarget(el, target);
+  };
+
+  // create spawner with wrapped decorate
+  STATE.engine = spawnBoot({
+    mount,
+    seed: STATE.cfg.seed,
+    spawnRate: clamp(STATE.spawnRateMs, 520, 1400),
+    sizeRange:[44,64],
+    kinds:[
+      { kind:'good', weight: STATE.wGood },
+      { kind:'junk', weight: STATE.wJunk }
+    ],
+    decorateTarget: decorateTargetWrap,
+    onHit:(t)=>{
+      if(STATE.ended) return;
+      if(t.kind === 'good'){
+        const gid = clamp(t.groupIndex || 1, 1, 5);
+        onHitGood(gid);
+      }else{
+        onHitJunk();
+      }
+    },
+    onExpire:(t)=>{
+      if(STATE.ended) return;
+      if(t.kind === 'good') onExpireGood();
+    }
+  });
+
+  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
+
+  // Safety: if engine missing stop() (should not), at least don't crash
+  if(!STATE.engine || typeof STATE.engine.stop !== 'function'){
+    console.warn('[PlateVR] spawner did not return stop()');
+  }
 }
