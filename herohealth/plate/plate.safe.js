@@ -1,3 +1,4 @@
+
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — SAFE ENGINE (PRODUCTION)
 // HHA Standard
