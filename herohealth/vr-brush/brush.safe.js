@@ -1,10 +1,11 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE Engine — DOM90 v0.6
-// ✅ Boss patterns (RING/STORM)
-// ✅ Pickups: Shield/Cleanser
-// ✅ UV refill by Perfect streak
-// ✅ NEW: Boss Weak Spot (Phase 3-4) + Combo Bank (spend combo -> UV or Shield)
-// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, brush:bank, hha:end
+// BrushVR SAFE Engine — DOM90 v0.7 (Boss Pack 1)
+// ✅ Boss Weak Spot (Phase 3-4)
+// ✅ Combo Bank (spend combo -> UV or Shield)
+// ✅ NEW: Boss Ultimate "Laser Sweep" (Do NOT tap during laser)
+// ✅ NEW: Perfect Gate (Phase 4 shield break requires PERFECT streak)
+// ✅ NEW: Badges saved in localStorage (brush-specific)
+// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, brush:bank, brush:badge, hha:end
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -18,6 +19,24 @@
   function makeRNG(seed){
     let x = (Number(seed)||Date.now()) >>> 0;
     return ()=> (x = (1664525*x + 1013904223) >>> 0) / 4294967296;
+  }
+
+  // ---------- badges storage ----------
+  const LS_BADGES = 'HHA_BADGES_V1';
+  function loadBadges(){
+    try{ return JSON.parse(localStorage.getItem(LS_BADGES)||'{}') || {}; }catch(_){ return {}; }
+  }
+  function saveBadges(all){
+    try{ localStorage.setItem(LS_BADGES, JSON.stringify(all)); }catch(_){}
+  }
+  function grantBadge(gameKey, badgeId){
+    const all = loadBadges();
+    all[gameKey] = all[gameKey] || {};
+    if(all[gameKey][badgeId]) return false;
+    all[gameKey][badgeId] = { ts: Date.now() };
+    saveBadges(all);
+    emit('brush:badge', { game: gameKey, badge: badgeId });
+    return true;
   }
 
   // ---------- HUD API ----------
@@ -42,7 +61,6 @@
       bFill: id('bFill'),
       bPhase: id('bPhase'),
 
-      // OPTIONAL (if you have it)
       bankBtn: id('bankBtn')
     };
 
@@ -222,7 +240,6 @@
       el.style.border='1px solid rgba(244,63,94,.35)';
       el.style.opacity='0';
     }else if(kind==='weak'){
-      // NEW: weak spot boss note
       el.style.width='58px';
       el.style.height='58px';
       el.style.borderRadius='22px';
@@ -257,7 +274,13 @@
 
   function popJudgeFx(layer, x, y, judge){
     const fx = DOC.createElement('div');
-    fx.textContent = (judge==='perfect') ? 'PERFECT!' : (judge==='good' ? 'GOOD' : (judge==='PICK' ? 'PICK!' : (judge==='WEAK' ? 'WEAK!' : 'MISS')));
+    fx.textContent =
+      (judge==='perfect') ? 'PERFECT!' :
+      (judge==='good' ? 'GOOD' :
+      (judge==='PICK' ? 'PICK!' :
+      (judge==='WEAK' ? 'WEAK!' :
+      (judge==='LASER' ? 'LASER!' : 'MISS'))));
+
     fx.style.position='absolute';
     fx.style.left = `${x}px`;
     fx.style.top  = `${y}px`;
@@ -350,15 +373,12 @@
         bossPerfect: 9,
         bossGood: 6,
         stealthUV: 12,
-        // NEW: weak spot dmg
         weakPerfect: 14,
         weakGood: 10,
-        // NEW: non-weak dmg in phase3-4 (tiny)
         nonWeakScaleLate: 0.18
       },
 
       noteLifeSec: 2.2,
-
       bossSpawnEverySecBase: 0.90,
       bossSpawnEverySecMin: 0.42,
 
@@ -371,18 +391,40 @@
       stormBurst: 6,
       stormGapSec: 0.12,
 
-      // NEW: weak spot chance (phase3-4)
       weakChanceP3: 0.34,
-      weakChanceP4: 0.42
+      weakChanceP4: 0.42,
+
+      // NEW: Ultimate Laser Sweep
+      laser: {
+        enabled: true,
+        minGapSec: 7.5,        // how often laser can happen (min)
+        maxGapSec: 12.5,
+        durSec: 2.2,           // laser duration
+        warnSec: 0.9,          // pre-warning flash
+        penaltySec: 3.2,       // penalty duration if player taps during laser
+        comboCut: 0.55         // reduce combo to 55%
+      },
+
+      // NEW: Perfect Gate (Phase 4)
+      gate: {
+        enabled: true,
+        phase: 4,
+        needPerfectStreak: 4,
+        windowSec: 7.0
+      }
     },
 
-    // NEW: Combo Bank
     bank: {
       enabled: true,
       costCombo: 8,
       cdSec: 3.5,
-      // If UV not full -> UV +1, else -> Shield
       shieldSec: 4.5
+    },
+
+    // badges thresholds
+    badges: {
+      uvHunterStealthHit: 8,
+      gentleMaxHeavy: 1
     }
   };
 
@@ -404,11 +446,46 @@
       return;
     }
 
+    // ===== Laser overlay (auto-create) =====
+    function ensureLaserOverlay(){
+      let el = DOC.getElementById('laserOverlay');
+      if(el) return el;
+      el = DOC.createElement('div');
+      el.id = 'laserOverlay';
+      el.style.position='fixed';
+      el.style.inset='0';
+      el.style.zIndex='58';
+      el.style.pointerEvents='none';
+      el.style.opacity='0';
+      el.style.transition='opacity .18s ease';
+      el.style.background =
+        'radial-gradient(900px 420px at 50% 45%, rgba(255,255,255,.10), transparent 60%),' +
+        'linear-gradient(110deg, rgba(239,68,68,.0) 0%, rgba(239,68,68,.18) 35%, rgba(239,68,68,.0) 70%)';
+      const label = DOC.createElement('div');
+      label.textContent = 'LASER SWEEP — ห้ามตี!';
+      label.style.position='fixed';
+      label.style.left='50%';
+      label.style.top='50%';
+      label.style.transform='translate(-50%,-50%)';
+      label.style.padding='10px 14px';
+      label.style.borderRadius='999px';
+      label.style.border='1px solid rgba(248,113,113,.35)';
+      label.style.background='rgba(2,6,23,.62)';
+      label.style.color='rgba(229,231,235,.95)';
+      label.style.fontWeight='950';
+      label.style.letterSpacing='.6px';
+      label.style.boxShadow='0 18px 60px rgba(0,0,0,.45)';
+      el.appendChild(label);
+      DOC.body.appendChild(el);
+      return el;
+    }
+    const laserOverlay = ensureLaserOverlay();
+
     const S = {
       ctx, view, rng,
       phase:'INTRO',
       t:0,
-      left: CFG.timeSec,
+      left: clamp(ctx.time || CFG.timeSec, 30, 180),
 
       quadIndex:0,
       q:'q1',
@@ -448,7 +525,6 @@
       lastPickupSpawn: 0,
       shieldLeft: 0,
 
-      // NEW: Bank
       bankCdLeft: 0,
 
       bossOn:false,
@@ -465,6 +541,17 @@
       finisherNeed: CFG.boss.finisherNeed,
       finisherLeft: 0,
       finisherBestStreak: 0,
+
+      // NEW: Laser states
+      laserNextAt: 0,
+      laserWarnLeft: 0,
+      laserLeft: 0,
+      laserViolations: 0,
+
+      // NEW: Perfect Gate states
+      gateOn: false,
+      gateNeed: CFG.boss.gate.needPerfectStreak,
+      gateLeft: 0,
 
       lastTimeEmit:0,
       lastSpawn:0,
@@ -537,7 +624,6 @@
       S.combo -= CFG.bank.costCombo;
       S.bankCdLeft = CFG.bank.cdSec;
 
-      // auto choose reward
       if(CFG.uv.enabled && S.uvEnergy < CFG.uv.energyMax){
         addUVEnergy(1);
         HUD.toast('BANK: UV +1!', `ใช้คอมโบ ${CFG.bank.costCombo}`, 1200);
@@ -700,8 +786,6 @@
       popIn(el);
 
       if(weak){
-        // tiny pulse
-        el.style.transition = 'transform .22s ease, opacity .22s ease';
         el.animate?.(
           [{transform:'translate(-50%,-50%) scale(1)'},{transform:'translate(-50%,-50%) scale(1.06)'},{transform:'translate(-50%,-50%) scale(1)'}],
           {duration:700, iterations:3}
@@ -715,8 +799,6 @@
 
     function spawnBossNote(){
       const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
-
-      // NEW: weak spot only in phase 3-4
       let weak = false;
       if(S.bossOn && S.bossPhase >= 3){
         const ch = (S.bossPhase===3) ? CFG.boss.weakChanceP3 : CFG.boss.weakChanceP4;
@@ -786,6 +868,7 @@
       rebuildNoSpawn();
     }
     if(HUD.el.uvBtn){
+      HUD.el.uvBtn.style.pointerEvents = 'auto';
       HUD.el.uvBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); tryUseUV(); }, {passive:false});
     }
 
@@ -797,11 +880,19 @@
       if(hp <= 25) ph = 4;
       else if(hp <= 50) ph = 3;
       else if(hp <= 75) ph = 2;
-      else ph = 1;
+
       if(ph !== S.bossPhase){
         S.bossPhase = ph;
-        HUD.toast('บอสเปลี่ยนเฟส!', `Phase ${ph}/4 • โหมด weak spot ${ph>=3?'ON':'OFF'}`, 1200);
+        HUD.toast('บอสเปลี่ยนเฟส!', `Phase ${ph}/4 • ${ph>=3?'Weak spot ON 🎯':'ตั้งหลักก่อน!'}`, 1200);
         emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase });
+      }
+
+      // Gate armed only in phase 4
+      if(CFG.boss.gate.enabled && S.bossPhase >= CFG.boss.gate.phase && !S.gateOn){
+        S.gateOn = true;
+        S.gateNeed = CFG.boss.gate.needPerfectStreak;
+        S.gateLeft = CFG.boss.gate.windowSec;
+        HUD.toast('GATE!', `ทำ PERFECT ติดกัน ${S.gateNeed} ครั้งเพื่อเปิดเกราะ!`, 1600);
       }
     }
 
@@ -856,7 +947,7 @@
         const p = { x: c.x + Math.cos(a)*rad, y: c.y + Math.sin(a)*rad };
         p.x = clamp(p.x, sp.x+36, sp.x+sp.w-36);
         p.y = clamp(p.y, sp.y+36, sp.y+sp.h-36);
-        spawnBossAt(p, (S.bossPhase>=3 && S.rng()<0.28)); // ring may include weak notes in late phases
+        spawnBossAt(p, (S.bossPhase>=3 && S.rng()<0.28));
       }
       HUD.toast('RING!', 'กวาดวงแหวนให้ไว!', 900);
     }
@@ -881,6 +972,68 @@
       spawnPickup(kind);
     }
 
+    // ---------- Laser Sweep (Ultimate) ----------
+    function scheduleNextLaser(){
+      const g = CFG.boss.laser;
+      if(!g.enabled) return;
+      const gap = g.minGapSec + (S.rng()*(g.maxGapSec - g.minGapSec));
+      S.laserNextAt = S.t + gap;
+    }
+    function startLaserWarn(){
+      const g = CFG.boss.laser;
+      S.laserWarnLeft = g.warnSec;
+      laserOverlay.style.opacity = '0.55';
+      HUD.toast('⚠️ LASER', 'หยุดตี! รอให้ผ่านไป', 900);
+    }
+    function startLaser(){
+      const g = CFG.boss.laser;
+      S.laserWarnLeft = 0;
+      S.laserLeft = g.durSec;
+      laserOverlay.style.opacity = '1';
+      HUD.toast('LASER SWEEP!', 'ห้ามตีช่วงนี้!', 900);
+    }
+    function stopLaser(){
+      S.laserLeft = 0;
+      laserOverlay.style.opacity = '0';
+      scheduleNextLaser();
+    }
+    function laserPunish(x,y){
+      const g = CFG.boss.laser;
+      S.laserViolations++;
+      S.penaltyLeft = Math.max(S.penaltyLeft, g.penaltySec);
+      S.combo = Math.floor(S.combo * g.comboCut);
+      S.fever = Math.max(0, S.fever - 2);
+      resetPerfectStreak();
+      popJudgeFx(layer, x, y, 'LASER');
+      HUD.toast('โดนเลเซอร์!', 'ช่วงเลเซอร์ต้อง “หยุดตี”', 1200);
+    }
+
+    // ---------- Perfect Gate ----------
+    function gateTick(dt){
+      if(!S.gateOn) return;
+      S.gateLeft = Math.max(0, S.gateLeft - dt);
+      if(S.gateLeft <= 0){
+        // reset gate (give another chance)
+        S.gateNeed = CFG.boss.gate.needPerfectStreak;
+        S.gateLeft = CFG.boss.gate.windowSec;
+        HUD.toast('GATE ต่อ!', `ทำ PERFECT ติดกัน ${S.gateNeed} ครั้ง!`, 1000);
+      }
+    }
+    function gateOnPerfect(){
+      if(!S.gateOn) return;
+      S.gateNeed = Math.max(0, S.gateNeed - 1);
+      if(S.gateNeed <= 0){
+        S.gateOn = false;
+        HUD.toast('เกราะแตก!', 'ตอนนี้ตีบอสได้เต็มแรง!', 1200);
+      }
+    }
+    function gateOnMiss(){
+      if(!S.gateOn) return;
+      S.gateNeed = CFG.boss.gate.needPerfectStreak;
+      HUD.toast('พลาด!', 'GATE รีเซ็ต—ต้อง Perfect ติดกันใหม่!', 900);
+    }
+
+    // ---------- phases ----------
     function setPhase(p){
       S.phase = p;
       if(p==='RUN_Q'){
@@ -892,8 +1045,9 @@
         HUD.showBoss(true);
         rebuildNoSpawn();
         startPattern('DUEL');
-        HUD.toast('บอสโผล่!', 'Tartar Titan มาแล้ว—ลุยยย!', 1200);
+        HUD.toast('บอสโผล่!', 'Tartar Titan มาแล้ว—ลุย!', 1200);
         emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase, pattern:S.bossPattern });
+        scheduleNextLaser();
       }
     }
 
@@ -912,7 +1066,7 @@
 
     function bossWin(){
       S.bossHp = 0;
-      HUD.toast('ชนะบอส!', 'เก็บฟันสะอาดปิ๊ง ✨', 1400);
+      HUD.toast('ชนะบอส!', 'ฟันสะอาดปิ๊ง ✨', 1400);
       endGame('boss_win');
     }
 
@@ -938,6 +1092,16 @@
     function judgeNote(note, hitMs, source){
       if(!note || note.used) return;
       note.used = true;
+
+      // Laser rule: if boss laser is active, any tap/shoot is punished
+      if(S.bossOn && S.laserLeft > 0 && (source==='tap' || source==='shoot')){
+        laserPunish(note.x, note.y);
+        emit('hha:judge', { type:'laser', judge:'violation', boss:true, source });
+        // still remove note (makes laser feel dangerous)
+        try{ note.el.remove(); }catch(_){}
+        S.notes.delete(note.id);
+        return;
+      }
 
       if(source==='tap' || source==='shoot'){
         recordHitAndDetectHeavy(hitMs);
@@ -986,6 +1150,7 @@
           S.fever = Math.max(0, S.fever - 2);
           resetPerfectStreak();
           if(S.finisherOn) finisherMissReset();
+          if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
           emit('hha:judge', { type:'stealth', judge:'miss', q:S.q, uvOn:S.uvOn, source:'expire' });
           removeNote(); return;
@@ -1006,12 +1171,15 @@
             S.lastTouchedAt[S.q] = S.t;
 
             if(S.bossOn){
-              S.bossHp = clamp(S.bossHp - CFG.boss.dmg.stealthUV, 0, CFG.boss.hpMax);
+              // Gate: if on, stealth UV still counts as "perfect progress" but boss dmg reduced until gate breaks
+              const gScale = S.gateOn ? 0.35 : 1.0;
+              S.bossHp = clamp(S.bossHp - Math.round(CFG.boss.dmg.stealthUV * gScale), 0, CFG.boss.hpMax);
               updateBossPhaseFromHp();
               maybeEnterFinisher();
             }
 
             onPerfectProgress();
+            if(S.gateOn) gateOnPerfect();
 
             if(S.finisherOn){
               S.finisherNeed = Math.max(0, S.finisherNeed - 1);
@@ -1033,6 +1201,7 @@
               }
               resetPerfectStreak();
               if(S.finisherOn) finisherMissReset();
+              if(S.gateOn) gateOnMiss();
               HUD.toast('ยังไม่เห็นคราบ!', 'กด UV ก่อนถึงจะปราบคราบล่องหนได้', 1400);
             }
             popJudgeFx(layer, note.x, note.y, 'miss');
@@ -1053,6 +1222,7 @@
           S.fever = Math.max(0, S.fever - 2);
           resetPerfectStreak();
           if(S.finisherOn) finisherMissReset();
+          if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
           emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source:'expire' });
           removeNote(); return;
@@ -1065,6 +1235,7 @@
           S.fever = Math.max(0, S.fever - 3);
           resetPerfectStreak();
           if(S.finisherOn) finisherMissReset();
+          if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
           emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source });
           removeNote(); return;
@@ -1083,22 +1254,28 @@
         const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
         S.score += Math.round(base * cmul * fmul * pmul);
 
-        // NEW: weak spot logic in phase 3-4
         let dmg = 0;
         if(isWeak){
           dmg = (judge==='perfect') ? CFG.boss.dmg.weakPerfect : CFG.boss.dmg.weakGood;
         }else{
           const baseD = (judge==='perfect') ? CFG.boss.dmg.bossPerfect : CFG.boss.dmg.bossGood;
-          if(S.bossPhase >= 3) dmg = Math.round(baseD * CFG.boss.dmg.nonWeakScaleLate);
-          else dmg = baseD;
+          dmg = (S.bossPhase >= 3) ? Math.round(baseD * CFG.boss.dmg.nonWeakScaleLate) : baseD;
         }
+
+        // Gate reduces boss dmg until broken
+        if(S.gateOn) dmg = Math.max(1, Math.round(dmg * 0.28));
 
         S.bossHp = clamp(S.bossHp - dmg, 0, CFG.boss.hpMax);
         updateBossPhaseFromHp();
         maybeEnterFinisher();
 
-        if(judge==='perfect') onPerfectProgress();
-        else resetPerfectStreak();
+        if(judge==='perfect'){
+          onPerfectProgress();
+          if(S.gateOn) gateOnPerfect();
+        }else{
+          resetPerfectStreak();
+          if(S.gateOn) gateOnMiss();
+        }
 
         // FINISHER: only perfect counts
         if(S.finisherOn && judge==='perfect'){
@@ -1110,7 +1287,7 @@
         if(S.bossHp <= 0){ removeNote(); return bossWin(); }
 
         popJudgeFx(layer, note.x, note.y, isWeak ? 'WEAK' : judge);
-        emit('hha:judge', { type:isWeak?'weak':'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, dmg, source });
+        emit('hha:judge', { type:isWeak?'weak':'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, dmg, gateOn:S.gateOn, source });
         removeNote(); return;
       }
 
@@ -1122,6 +1299,7 @@
         S.fever = Math.max(0, S.fever - 2);
         resetPerfectStreak();
         if(S.finisherOn) finisherMissReset();
+        if(S.gateOn) gateOnMiss();
         popJudgeFx(layer, note.x, note.y, 'miss');
         emit('hha:judge', { type:'note', judge:'miss', q:S.q, source:'expire' });
         removeNote(); return;
@@ -1134,6 +1312,7 @@
         S.fever = Math.max(0, S.fever - 3);
         resetPerfectStreak();
         if(S.finisherOn) finisherMissReset();
+        if(S.gateOn) gateOnMiss();
       }else{
         if(judge==='perfect'){ S.perfect++; S.fever += 2; }
         else { S.good++; S.fever += 1; }
@@ -1151,8 +1330,13 @@
         S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
         S.lastTouchedAt[S.q] = S.t;
 
-        if(judge==='perfect') onPerfectProgress();
-        else resetPerfectStreak();
+        if(judge==='perfect'){
+          onPerfectProgress();
+          if(S.gateOn) gateOnPerfect();
+        }else{
+          resetPerfectStreak();
+          if(S.gateOn) gateOnMiss();
+        }
 
         if(S.finisherOn && judge==='perfect'){
           S.finisherNeed = Math.max(0, S.finisherNeed - 1);
@@ -1210,8 +1394,22 @@
       const coverageScore = Math.round(covSum * 2.0);
       const bossBonus = S.bossOn ? Math.round((CFG.boss.hpMax - S.bossHp) * 5) : 0;
       const finBonus = S.finisherOn ? Math.round((CFG.boss.finisherNeed - S.finisherNeed) * 18) : 0;
+      const laserPenalty = S.laserViolations * 45;
 
-      const total = S.score + coverageScore + (S.stealthHit*25) + bossBonus + finBonus;
+      const total = S.score + coverageScore + (S.stealthHit*25) + bossBonus + finBonus - laserPenalty;
+
+      // badges evaluation
+      const earned = [];
+      const gameKey = 'brush';
+      if(reason === 'boss_win'){
+        if(grantBadge(gameKey, 'TARTAR_SLAYER')) earned.push('TARTAR_SLAYER');
+      }
+      if(S.stealthHit >= CFG.badges.uvHunterStealthHit){
+        if(grantBadge(gameKey, 'UV_HUNTER')) earned.push('UV_HUNTER');
+      }
+      if(S.heavyCount <= CFG.badges.gentleMaxHeavy && reason !== 'timeout'){
+        if(grantBadge(gameKey, 'GENTLE_MASTER')) earned.push('GENTLE_MASTER');
+      }
 
       const summary = {
         reason,
@@ -1228,11 +1426,14 @@
           on: S.bossOn,
           hpLeft: S.bossHp,
           phase: S.bossPhase,
+          gateOn: S.gateOn,
           finisherBestStreak: S.finisherBestStreak,
           pattern: S.bossPattern
         },
+        laser: { violations: S.laserViolations, penalty: laserPenalty },
+        badgesEarned: earned,
         meta: ctx,
-        durationSec: CFG.timeSec - S.left
+        durationSec: (clamp(ctx.time || CFG.timeSec, 30, 180) - S.left)
       };
 
       try{
@@ -1251,7 +1452,9 @@
       S.notes.clear();
 
       HUD.showBoss(false);
+      laserOverlay.style.opacity = '0';
 
+      // end overlay
       const done = DOC.createElement('div');
       done.style.position='fixed';
       done.style.inset='0';
@@ -1260,11 +1463,15 @@
       done.style.zIndex='60';
       done.style.background='rgba(2,6,23,.62)';
       done.style.backdropFilter='blur(10px)';
+      const badgeLine = earned.length ? `🎖 Badges: ${earned.join(', ')}` : '🎖 Badges: -';
       done.innerHTML = `
-        <div style="width:min(560px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
+        <div style="width:min(620px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
           <div style="font-weight:900;font-size:18px;">จบเกมแล้ว • Rank ${summary.rank}</div>
           <div style="margin-top:6px;color:rgba(148,163,184,1);font-size:13px;line-height:1.5;">
-            Reason ${summary.reason} • Score ${summary.scoreTotal} • Coverage ${Math.round(covSum)}% • BossHP ${summary.boss.hpLeft}
+            Reason ${summary.reason} • Score ${summary.scoreTotal} • Coverage ${Math.round(covSum)}% • BossHP ${summary.boss.hpLeft} • LaserViol ${summary.laser.violations}
+          </div>
+          <div style="margin-top:8px;color:rgba(229,231,235,.85);font-size:13px;line-height:1.5;">
+            ${badgeLine}
           </div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
             <button id="btnRestart" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(34,197,94,.22);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Restart</button>
@@ -1378,20 +1585,44 @@
       }
 
       if(S.phase==='BOSS'){
+        // Laser timing
+        if(CFG.boss.laser.enabled){
+          if(S.laserWarnLeft > 0){
+            S.laserWarnLeft = Math.max(0, S.laserWarnLeft - dt);
+            laserOverlay.style.opacity = String(0.55 + 0.35*Math.sin(S.t*18));
+            if(S.laserWarnLeft <= 0) startLaser();
+          }else if(S.laserLeft > 0){
+            S.laserLeft = Math.max(0, S.laserLeft - dt);
+            laserOverlay.style.opacity = String(0.95);
+            if(S.laserLeft <= 0) stopLaser();
+          }else{
+            if(S.t >= S.laserNextAt && S.bossHp > 0){
+              startLaserWarn();
+            }
+          }
+        }
+
+        // Gate tick
+        gateTick(dt);
+
+        // patterns
         S.patternLeft -= dt;
         if(S.patternLeft <= 0){
           startPattern(pickPattern());
         }
 
+        // During laser, reduce spawns a bit (readability)
+        const laserActive = (S.laserLeft > 0 || S.laserWarnLeft > 0);
+
         if(S.bossPattern==='DUEL'){
-          const interval = bossSpawnInterval();
+          const interval = bossSpawnInterval() * (laserActive ? 1.35 : 1.0);
           if(S.t - S.lastBossSpawn >= interval){
             S.lastBossSpawn = S.t;
             spawnBossNote();
             if(CFG.uv.enabled && S.uvOn && (S.rng() < (0.40 + 0.10*(S.bossPhase-1)))) spawnStealth();
           }
         }else if(S.bossPattern==='RING'){
-          if(S.t - S.lastBossSpawn >= 0.95){
+          if(S.t - S.lastBossSpawn >= (laserActive ? 1.25 : 0.95)){
             S.lastBossSpawn = S.t;
             spawnRing();
             startPattern('DUEL');
@@ -1400,7 +1631,7 @@
           if(S.stormQueue > 0 && S.t >= S.stormNextAt){
             spawnStormTick();
             S.stormQueue--;
-            S.stormNextAt = S.t + CFG.boss.stormGapSec;
+            S.stormNextAt = S.t + CFG.boss.stormGapSec * (laserActive ? 1.35 : 1.0);
           }
           if(S.stormQueue <= 0 && S.patternLeft < 0.3){
             startPattern('DUEL');
@@ -1431,7 +1662,7 @@
       const phaseLabel =
         (S.phase==='INTRO') ? 'INTRO • Ready' :
         (S.phase==='RUN_Q') ? `${S.q.toUpperCase()} • Quadrant Run` :
-        (S.phase==='BOSS') ? `BOSS • ${S.bossPattern}` :
+        (S.phase==='BOSS') ? `BOSS • ${S.bossPattern}${S.gateOn?' • GATE':''}${(S.laserLeft>0||S.laserWarnLeft>0)?' • LASER':''}` :
         'END';
 
       const cmul = comboMultiplier(S.combo);
@@ -1444,11 +1675,13 @@
       if(S.reclaimFreezeLeft > 0) extra += ` • 💧${S.reclaimFreezeLeft.toFixed(0)}s`;
       if(S.uvOn) extra += ' • UV';
       if(S.finisherOn) extra += ` • FIN ${S.finisherNeed}`;
+      if(S.gateOn) extra += ` • GATE ${S.gateNeed}`;
+      if(S.laserLeft > 0) extra += ` • LASER ${(S.laserLeft).toFixed(0)}s`;
 
-      HUD.setTimer(S.left, CFG.timeSec, phaseLabel + extra);
+      HUD.setTimer(S.left, (clamp(ctx.time||CFG.timeSec, 30, 180)), phaseLabel + extra);
       HUD.setCoverage(S.coverage, CFG.covPass, S.reclaiming);
       HUD.setCombo(S.combo, cmul*fmul*pmul);
-      HUD.setFever(S.fever, CFG.feverMax);
+
       if(CFG.uv.enabled) HUD.setUVEnergy(S.uvEnergy, CFG.uv.energyMax, S.uvOn, S.uvCdLeft);
 
       if(S.bossOn){
@@ -1480,7 +1713,12 @@
           bossPattern:S.bossPattern,
           finisherOn:S.finisherOn,
           finisherNeed:S.finisherNeed,
-          finisherLeft:S.finisherLeft
+          finisherLeft:S.finisherLeft,
+          gateOn:S.gateOn,
+          gateNeed:S.gateNeed,
+          laserLeft:S.laserLeft,
+          laserWarnLeft:S.laserWarnLeft,
+          laserViol:S.laserViolations
         });
       }
 
