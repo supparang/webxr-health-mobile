@@ -1,180 +1,228 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR BOOT — PRODUCTION (v2026-01-31)
-// ✅ Starts goodjunk.safe.js boot()
-// ✅ view auto -> best effort (pc/mobile/cvr/vr) (only if user didn't specify ?view=)
-// ✅ Restores EFFECTS (Particles) via event wiring: hha:judge / hha:coach / hha:end
-// ✅ Safe: never crashes if Particles / Logger / VRUI missing
+// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + CLEAN)
+// ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
+// ✅ Auto base view: pc / mobile (UA-based)
+// ✅ Auto-load ../vr/vr-ui.js only if WebXR exists (navigator.xr) and not already present
+// ✅ Auto-switch on Enter/Exit VR via hha:enter-vr / hha:exit-vr:
+//    - mobile -> cvr
+//    - desktop -> vr
+// ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
+// ✅ Boots engine: ./goodjunk.safe.js (module export boot())
+// Notes:
+// - Recommended: include ../vr/particles.js + ../vr/hha-fx-director.js before this boot (defer ok)
+// - Logger optional: ../vr/hha-cloud-logger.js
 
-import { boot } from './goodjunk.safe.js';
+import { boot as engineBoot } from './goodjunk.safe.js';
 
-const WIN = window;
 const DOC = document;
+const WIN = window;
 
-const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-
-function detectView(){
-  const forced = (qs('view','')||'').toLowerCase();
-  if(forced && forced !== 'auto') return forced;
-
-  const ua = (navigator.userAgent||'').toLowerCase();
-  const isMobile = /android|iphone|ipad|ipod/.test(ua);
-
-  // user explicitly wants cvr (strict) sometimes
-  const isCardboard = (forced === 'cvr');
-  if(isCardboard) return 'cvr';
-
-  const isXRUA = /oculus|quest|vive|pico|webkitxr/.test(ua);
-  if(isXRUA) return 'vr';
-
-  return isMobile ? 'mobile' : 'pc';
+function qs(k, def = null) {
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
 }
 
-function setBodyViewClass(view){
-  try{
-    DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    if(view === 'pc') DOC.body.classList.add('view-pc');
-    else if(view === 'vr') DOC.body.classList.add('view-vr');
-    else if(view === 'cvr') DOC.body.classList.add('view-cvr');
-    else DOC.body.classList.add('view-mobile');
-  }catch(_){}
+function isMobileUA() {
+  const ua = String(navigator.userAgent || '').toLowerCase();
+  return /android|iphone|ipad|ipod/.test(ua);
 }
 
-// ---- Effects wiring (Particles) ----
-function px(n){ return Math.max(0, Math.floor(Number(n)||0)); }
-function centerXY(){
-  const r = DOC.documentElement.getBoundingClientRect();
-  return { x: px(r.left + r.width/2), y: px(r.top + r.height/2) };
-}
-function safePop(text, cls){
-  try{
-    if(WIN.Particles && typeof WIN.Particles.popText === 'function'){
-      const c = centerXY();
-      WIN.Particles.popText(c.x, c.y, text, cls || '');
-      return true;
-    }
-  }catch(_){}
-  return false;
-}
-function safeBurst(){
-  try{
-    if(WIN.Particles && typeof WIN.Particles.burst === 'function'){
-      const c = centerXY();
-      WIN.Particles.burst(c.x, c.y, { count: 14 });
-      return true;
-    }
-  }catch(_){}
-  return false;
+function baseAutoView() {
+  return isMobileUA() ? 'mobile' : 'pc';
 }
 
-// Map judge types -> effect
-function wireEffects(){
-  // GOOD / OOPS / MISS / PERFECT / BOSS CLEAR
-  WIN.addEventListener('hha:judge', (ev)=>{
-    try{
-      const d = ev.detail || {};
-      const type = String(d.type || '').toLowerCase();
-      const label = String(d.label || '').slice(0, 40);
+function setBodyView(view) {
+  const b = DOC.body;
+  if (!b) return;
 
-      if(type === 'good'){
-        safePop(label || 'GOOD', 'good');
-      }else if(type === 'bad'){
-        safePop(label || 'OOPS', 'bad');
-      }else if(type === 'miss'){
-        safePop(label || 'MISS', 'miss');
-      }else if(type === 'perfect'){
-        safePop(label || 'NICE!', 'perfect');
-        safeBurst();
-      }else{
-        // fallback
-        if(label) safePop(label, 'info');
-      }
-    }catch(_){}
-  }, { passive:true });
+  b.classList.add('gj');
+  b.classList.remove('view-pc', 'view-mobile', 'view-vr', 'view-cvr');
 
-  // Coach micro tips
-  WIN.addEventListener('hha:coach', (ev)=>{
-    try{
-      const d = ev.detail || {};
-      const msg = String(d.msg || '').trim();
-      if(!msg) return;
-      // show a subtle pop (no spam: safe.js already rate-limits tip)
-      safePop('💡', 'tip');
-    }catch(_){}
-  }, { passive:true });
+  if (view === 'pc') b.classList.add('view-pc');
+  else if (view === 'vr') b.classList.add('view-vr');
+  else if (view === 'cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
 
-  // End summary fireworks
-  WIN.addEventListener('hha:end', (ev)=>{
-    try{
-      const s = ev.detail || {};
-      const grade = String(s.grade || '');
-      if(grade === 'A'){
-        safePop('🏆 A!', 'perfect'); safeBurst();
-        setTimeout(safeBurst, 220);
-      }else if(grade === 'B'){
-        safePop('✨ B', 'good'); safeBurst();
-      }else if(grade){
-        safePop(`จบเกม ${grade}`, 'info');
-      }else{
-        safePop('จบเกม', 'info');
-      }
-    }catch(_){}
-  }, { passive:true });
+  // aria for right eye (only meaningful in cVR split)
+  const r = DOC.getElementById('gj-layer-r');
+  if (r) r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
+
+  b.dataset.view = view;
 }
 
-// ---- (Optional) logger handshake (if you use hha-cloud-logger.js) ----
-function wireLogger(){
-  // If your logger listens to these events, just emitting is enough.
-  // goodjunk.safe.js already emits: hha:start, hha:time, hha:score, quest:update, hha:end
-  // Here we only ensure page identifies itself.
-  try{
-    WIN.dispatchEvent(new CustomEvent('hha:page', { detail:{ game:'GoodJunkVR', role:'run' } }));
-  }catch(_){}
+function ensureVrUiLoaded() {
+  // load only if WebXR exists
+  if (!('xr' in navigator)) return;
+
+  // if already loaded by <script defer>, don't inject
+  if (WIN.__HHA_VRUI_LOADED__ || WIN.__HHA_VR_UI_LOADED__) return;
+
+  const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
+  if (exists) return;
+
+  // mark to prevent duplicates
+  WIN.__HHA_VRUI_LOADED__ = true;
+
+  const s = DOC.createElement('script');
+  s.src = '../vr/vr-ui.js';
+  s.defer = true;
+  s.onerror = () => console.warn('[GoodJunkVR] vr-ui.js failed to load');
+  DOC.head.appendChild(s);
 }
 
-function start(){
-  const run  = String(qs('run','play')).toLowerCase();
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const time = Number(qs('time','80')) || 80;
+function bindVrAutoSwitch() {
+  const base = baseAutoView();
 
-  const seed = qs('seed', null) || String(Date.now());
-  const view = detectView();
-
-  setBodyViewClass(view);
-
-  // update chip meta text if exists
-  try{
-    const chipMeta = DOC.getElementById('gjChipMeta');
-    if(chipMeta){
-      const v = qs('view','auto');
-      chipMeta.textContent = `view=${v} · run=${run} · diff=${diff} · time=${time}`;
-    }
-  }catch(_){}
-
-  // Ensure initial safe-zone measure happens after layout
-  try{
-    setTimeout(()=> WIN.dispatchEvent(new CustomEvent('gj:measureSafe', {detail:{ reason:'boot' }})), 50);
-    setTimeout(()=> WIN.dispatchEvent(new CustomEvent('gj:measureSafe', {detail:{ reason:'boot2' }})), 250);
-  }catch(_){}
-
-  boot({ view, run, diff, time, seed });
-}
-
-(function(){
-  // global trap
-  WIN.addEventListener('error', (e)=>{
-    try{ console.error('[GoodJunkVR] error', e?.error || e?.message || e); }catch(_){}
-  });
-  WIN.addEventListener('unhandledrejection', (e)=>{
-    try{ console.error('[GoodJunkVR] unhandled', e?.reason || e); }catch(_){}
-  });
-
-  // EFFECTS + Logger wiring (safe)
-  wireEffects();
-  wireLogger();
-
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', start, { once:true });
-  }else{
-    start();
+  function emitViewChanged() {
+    try {
+      WIN.dispatchEvent(new CustomEvent('hha:view', { detail: { view: DOC.body?.dataset?.view || base } }));
+    } catch (_) {}
   }
-})();
+
+  function onEnter() {
+    // Enter VR: mobile => cvr, desktop => vr
+    setBodyView(isMobileUA() ? 'cvr' : 'vr');
+    emitViewChanged();
+  }
+
+  function onExit() {
+    setBodyView(base);
+    emitViewChanged();
+  }
+
+  WIN.addEventListener('hha:enter-vr', onEnter, { passive: true });
+  WIN.addEventListener('hha:exit-vr', onExit, { passive: true });
+
+  // Expose manual reset
+  WIN.HHA_GJ_resetView = onExit;
+}
+
+function bindDebugKeys() {
+  // convenience for PC testing
+  WIN.addEventListener('keydown', (e) => {
+    const k = e.key || '';
+    if (k === ' ' || k === 'Enter') {
+      try { WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail: { source: 'key' } })); } catch (_) {}
+    }
+  }, { passive: true });
+}
+
+function hudSafeMeasure() {
+  const root = DOC.documentElement;
+
+  const px = (n) => Math.max(0, Math.round(Number(n) || 0)) + 'px';
+  const h = (el) => { try { return el ? el.getBoundingClientRect().height : 0; } catch { return 0; } };
+
+  function update() {
+    try {
+      const cs = getComputedStyle(root);
+      const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
+      const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+
+      // elements that can block top/bottom
+      const topbar  = DOC.querySelector('.gj-topbar');
+      const hudTop  = DOC.getElementById('hud') || DOC.getElementById('gjHudTop');
+      const miniHud = DOC.getElementById('vrMiniHud');
+      const fever   = DOC.getElementById('feverBox');
+      const hudBot  = DOC.querySelector('.gj-hud-bot') || DOC.getElementById('gjHudBot');
+      const controls= DOC.querySelector('.hha-controls');
+
+      let topSafe = 0;
+      topSafe = Math.max(topSafe, h(topbar));
+      topSafe = Math.max(topSafe, h(miniHud));
+      topSafe = Math.max(topSafe, h(hudTop) * 0.55);
+      topSafe += (14 + sat);
+
+      let bottomSafe = 0;
+      bottomSafe = Math.max(bottomSafe, h(fever));
+      bottomSafe = Math.max(bottomSafe, h(hudBot) * 0.55);
+      bottomSafe = Math.max(bottomSafe, h(controls));
+      bottomSafe += (16 + sab);
+
+      const hudHidden = DOC.body.classList.contains('hud-hidden');
+      if (hudHidden) {
+        topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
+        bottomSafe = Math.max(76 + sab, h(fever) + 10 + sab);
+      }
+
+      root.style.setProperty('--gj-top-safe', px(topSafe));
+      root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
+    } catch (_) {}
+  }
+
+  WIN.addEventListener('resize', update, { passive: true });
+  WIN.addEventListener('orientationchange', update, { passive: true });
+
+  // when HUD toggles
+  WIN.addEventListener('click', (e) => {
+    if (e?.target?.id === 'btnHideHud' || e?.target?.id === 'btnHideHud2') {
+      setTimeout(update, 30);
+      setTimeout(update, 180);
+      setTimeout(update, 420);
+    }
+  }, { passive: true });
+
+  // when view switches (enter/exit vr)
+  WIN.addEventListener('hha:view', () => {
+    setTimeout(update, 0);
+    setTimeout(update, 120);
+    setTimeout(update, 350);
+  }, { passive: true });
+
+  setTimeout(update, 0);
+  setTimeout(update, 120);
+  setTimeout(update, 350);
+  setInterval(update, 1200);
+}
+
+function waitForFxCore(ms = 900) {
+  // FX is optional but we want it ready early
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    (function tick() {
+      const ok =
+        !!WIN.HHA_FX ||
+        !!WIN.Particles ||
+        (!!WIN.GAME_MODULES && !!WIN.GAME_MODULES.Particles);
+      if (ok) return resolve(true);
+      if (performance.now() - t0 > ms) return resolve(false);
+      requestAnimationFrame(tick);
+    })();
+  });
+}
+
+async function start() {
+  // STRICT AUTO BASE VIEW — never read ?view=
+  const view = baseAutoView();
+  setBodyView(view);
+
+  // ensure vr-ui available if WebXR exists
+  ensureVrUiLoaded();
+  bindVrAutoSwitch();
+  bindDebugKeys();
+  hudSafeMeasure();
+
+  // wait for FX core briefly (safe even if missing)
+  const fxReady = await waitForFxCore(900);
+  if (!fxReady) {
+    console.warn('[GoodJunkVR] FX core not detected yet (particles.js). Game will still run.');
+  }
+
+  engineBoot({
+    view, // base view; will become cvr/vr after enter via events
+    diff: qs('diff', 'normal'),
+    run: qs('run', 'play'),
+    time: qs('time', '80'),
+    seed: qs('seed', null),
+    hub: qs('hub', null),
+    studyId: qs('studyId', qs('study', null)),
+    phase: qs('phase', null),
+    conditionGroup: qs('conditionGroup', qs('cond', null)),
+
+    // optional tuning if safe.js reads it
+    lockPx: Number(qs('lockPx', '0')) || undefined,
+  });
+}
+
+if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', start);
+else start();
