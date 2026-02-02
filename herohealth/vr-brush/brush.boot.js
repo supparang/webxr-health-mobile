@@ -1,61 +1,86 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR Boot — PRODUCTION (auto view, passthrough ctx, starts engine)
+// BrushVR Boot — PRODUCTION (DOM90)
+// ✅ Reads query: view/run/diff/time/seed/hub/studyId/phase/conditionGroup
+// ✅ Sets body data-view
+// ✅ Tap-to-start for mobile/cvr
+// ✅ Calls BrushVR.boot(ctx)
 (function(){
   'use strict';
   const WIN = window, DOC = document;
 
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const asLower = (v,d)=> String(v||d||'').toLowerCase();
 
-  function getView(){
-    const v = asLower(qs('view','pc'),'pc');
-    if(v==='cardboard') return 'cvr';
-    return v;
+  function getCtx(){
+    const view = String(qs('view','pc')).toLowerCase();
+    const run = String(qs('run','play')).toLowerCase();
+    const diff = String(qs('diff','normal')).toLowerCase();
+    const time = clamp(qs('time','90'), 30, 180);
+    const seed = Number(qs('seed', String(Date.now()))) || Date.now();
+
+    const hub = String(qs('hub',''));
+    const studyId = String(qs('studyId',''));
+    const phase = String(qs('phase',''));
+    const conditionGroup = String(qs('conditionGroup',''));
+
+    return { view, run, diff, time, seed, hub, studyId, phase, conditionGroup };
   }
 
-  function buildCtx(){
-    const run = asLower(qs('run','play'),'play');           // play|research
-    const diff = asLower(qs('diff','normal'),'normal');     // easy|normal|hard
-    const time = clamp(qs('time', '90'), 30, 600);
-    const seed = qs('seed', null);
-
-    // passthrough research fields
-    const ctx = {
-      run, diff, time,
-      seed: seed!=null ? Number(seed) : (run==='research' ? 123456 : Date.now()),
-      hub: qs('hub', ''),
-      log: qs('log',''),
-      pid: qs('pid',''),
-      studyId: qs('studyId',''),
-      phase: qs('phase',''),
-      conditionGroup: qs('conditionGroup','')
-    };
-    return ctx;
+  function needsTapOverlay(view){
+    // Mobile + cVR/VR tends to need a user gesture before reliable interactions/audio
+    return (view === 'mobile' || view === 'cvr' || view === 'vr');
   }
 
-  function boot(){
-    const view = getView();
-    DOC.body.setAttribute('data-view', view);
+  function start(){
+    const ctx = getCtx();
+    DOC.body.setAttribute('data-view', ctx.view);
 
-    // tune vr-ui lockPx if needed (mobile/cvr tends to need larger lock)
-    const lockPx = clamp(qs('lockPx', (view==='mobile'||view==='cvr') ? 34 : 28), 12, 60);
-    WIN.HHA_VRUI_CONFIG = Object.assign({ lockPx, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG||{});
-
-    const ctx = buildCtx();
-
-    // start engine
-    if(WIN.BrushVR && typeof WIN.BrushVR.boot === 'function'){
-      WIN.BrushVR.boot(ctx);
-    }else{
-      console.warn('[BrushVR] safe.js not loaded yet');
-      // best-effort retry once
-      setTimeout(()=>{
-        if(WIN.BrushVR && typeof WIN.BrushVR.boot === 'function') WIN.BrushVR.boot(ctx);
-      }, 120);
+    // Apply time to engine (simple hook): override query time by patching global if needed
+    // brush.safe.js uses internal CFG.timeSec=90 by default; we pass ctx.time and let engine read it.
+    // (Engine already stores ctx in summary & start event; if you later want to fully bind time,
+    // you can set window.__BRUSH_TIMESEC__ and read it in safe.js)
+    if(!WIN.BrushVR || typeof WIN.BrushVR.boot !== 'function'){
+      console.warn('[BrushVR] missing BrushVR.boot()');
+      return;
     }
+    WIN.BrushVR.boot(ctx);
   }
 
-  if(DOC.readyState==='loading') DOC.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  function wireTapStart(){
+    const wrap = DOC.getElementById('tapStart');
+    const btn = DOC.getElementById('tapBtn');
+    if(!wrap || !btn) return false;
+
+    wrap.setAttribute('aria-hidden','false');
+    wrap.classList.add('on');
+
+    const go = ()=>{
+      wrap.setAttribute('aria-hidden','true');
+      wrap.classList.remove('on');
+      try{ start(); }catch(_){}
+    };
+
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
+    wrap.addEventListener('click', (e)=>{
+      // click outside card = start too
+      const card = wrap.querySelector('.tapCard');
+      if(card && card.contains(e.target)) return;
+      e.preventDefault();
+      go();
+    }, {passive:false});
+
+    return true;
+  }
+
+  (function init(){
+    const ctx = getCtx();
+    DOC.body.setAttribute('data-view', ctx.view);
+
+    if(needsTapOverlay(ctx.view)){
+      const ok = wireTapStart();
+      if(!ok) start();
+      return;
+    }
+    start();
+  })();
 })();
