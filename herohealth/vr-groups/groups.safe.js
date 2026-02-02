@@ -1,12 +1,12 @@
 // === /herohealth/vr-groups/groups.safe.js ===
 // GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH)
-// ✅ PATCH #1: LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
-//    - if elementFromPoint misses, snap to nearest target within lockPx
-// ✅ PATCH #2: FX restore — emits 'groups:hit' for every case:
-//    hit_good / hit_bad / shot_miss / timeout_miss
+// ✅ FIX #1: ยิงไม่ติด → miss ตลอด
+//    - Uses lockPx from ev.detail.lockPx
+//    - Aim Assist: if elementFromPoint miss -> snap to nearest .tgt within lockPx
+// ✅ FIX #2: เอฟเฟกต์หายเกลี้ยง
+//    - Always emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
 // ✅ API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
-// ✅ Emits: hha:time, hha:score, hha:rank, hha:coach, quest:update,
-//          groups:power, groups:progress, groups:hit, hha:end
+// ✅ Emits: hha:time, hha:score, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:end
 // ✅ Deterministic RNG (seeded) for research/play
 // ✅ Mobile/cVR friendly: hit test via hha:shoot {x,y,lockPx,source}
 // ✅ Lightweight DOM targets in #playLayer
@@ -135,7 +135,7 @@
       'position:relative; width:100%; height:100%; pointer-events:none; ' +
       'contain:layout style paint;';
     S.wrapEl = w;
-    // layerEl is where targets should go (playLayer)
+
     if (S.layerEl){
       S.layerEl.innerHTML = '';
       S.layerEl.appendChild(w);
@@ -173,7 +173,7 @@
       'pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent;';
     el.textContent = emoji;
 
-    // position: avoid top HUD and bottom power/coach roughly
+    // NOTE: spawn uses window dims (works with playLayer clipping)
     const vw = Math.max(320, WIN.innerWidth||360);
     const vh = Math.max(480, WIN.innerHeight||640);
 
@@ -188,7 +188,7 @@
     el.style.left = Math.round(x) + 'px';
     el.style.top  = Math.round(y) + 'px';
 
-    // simple appear anim
+    // appear anim
     el.style.transform = 'scale(.82)';
     el.style.opacity = '0';
     requestAnimationFrame(()=>{
@@ -204,12 +204,12 @@
     return t;
   }
 
-  function elCenterXY(el){
+  function centerOfEl(el){
     try{
       const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2, w:r.width, h:r.height };
+      return { x: r.left + r.width/2, y: r.top + r.height/2 };
     }catch(_){
-      return { x:0, y:0, w:0, h:0 };
+      return { x: 0, y: 0 };
     }
   }
 
@@ -284,7 +284,6 @@
     if (S.runMode === 'practice') return;
     if (S.miniActive) return;
 
-    // start mini occasionally
     if (S.timeLeftSec <= 0) return;
     if (S.timeLeftSec % 11 === 0 && S.timeLeftSec <= (S.timePlannedSec-6)){
       resetMini();
@@ -328,11 +327,9 @@
   function onGoodHit(){
     S.goalNow = Math.min(S.goalTot, S.goalNow + 1);
 
-    // mini logic (streak)
     if (S.miniActive){
       S.miniNow = Math.min(S.miniTot, S.miniNow + 1);
       if (S.miniNow >= S.miniTot){
-        // reward
         S.score += 35;
         coach('MINI สำเร็จ! +โบนัส ✅', 'happy');
         S.miniActive = false;
@@ -343,7 +340,6 @@
 
   function onBadHit(){
     if (S.miniActive){
-      // break streak
       S.miniNow = 0;
       emitQuest(false);
     }
@@ -394,8 +390,8 @@
     }
   }
 
-  // ---------------- hit test (PATCH: lockPx aim assist) ----------------
-  function hitTestRaw(x,y){
+  // ---------------- hit test ----------------
+  function hitTestFromPoint(x,y){
     x = Number(x)||0;
     y = Number(y)||0;
     let el = null;
@@ -410,28 +406,33 @@
     }
   }
 
-  function nearestTargetWithin(x, y, lockPx){
-    const L = Math.max(0, Number(lockPx)||0);
-    if (L <= 0) return null;
+  // ✅ PATCH: lockPx aim assist snap to nearest target
+  function snapNearestTarget(x,y, lockPx){
+    const r = clamp(lockPx, 0, 96);
+    if (r <= 0) return null;
 
+    const r2 = r*r;
     let bestEl = null;
-    let bestD2 = Infinity;
+    let bestD2 = 1e18;
 
-    // Use existing targets list (fast + deterministic)
     for (let i=0;i<S.targets.length;i++){
       const t = S.targets[i];
       if (!t || t.hit || !t.el) continue;
+      // avoid detached
+      if (!DOC.body.contains(t.el)) continue;
 
-      const c = elCenterXY(t.el);
-      // allow a bit extra: target radius helps feel natural
-      const rad = Math.max(18, Math.min(60, (Math.max(c.w, c.h) || 72) * 0.45));
-      const R = L + rad;
+      let cx=0, cy=0;
+      try{
+        const rr = t.el.getBoundingClientRect();
+        cx = rr.left + rr.width/2;
+        cy = rr.top + rr.height/2;
+      }catch(_){ continue; }
 
-      const dx = (c.x - x);
-      const dy = (c.y - y);
+      const dx = (Number(x)||0) - cx;
+      const dy = (Number(y)||0) - cy;
       const d2 = dx*dx + dy*dy;
 
-      if (d2 <= R*R && d2 < bestD2){
+      if (d2 <= r2 && d2 < bestD2){
         bestD2 = d2;
         bestEl = t.el;
       }
@@ -439,17 +440,44 @@
     return bestEl;
   }
 
-  function resolveHitTarget(x, y, lockPx){
-    // 1) direct hit
-    let el = hitTestRaw(x,y);
-    if (el) return el;
-
-    // 2) aim assist
-    el = nearestTargetWithin(x,y,lockPx);
-    return el || null;
+  function emitHitFX(kind, x, y, extra){
+    emit('groups:hit', Object.assign({
+      kind: String(kind||'').toLowerCase(),
+      x: Number(x)||0,
+      y: Number(y)||0
+    }, extra||{}));
   }
 
-  // ---------------- handle shoot ----------------
+  function removeTargetEl(tgtEl){
+    try{
+      tgtEl.style.transition = 'transform 140ms ease, opacity 120ms ease';
+      tgtEl.style.transform = 'scale(.75)';
+      tgtEl.style.opacity = '0';
+      setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
+    }catch(_){
+      try{ tgtEl.remove(); }catch(_2){}
+    }
+  }
+
+  function markAndRemoveTarget(tgtEl){
+    try{
+      const idx = S.targets.findIndex(t=>t.el===tgtEl);
+      if (idx>=0){
+        const t = S.targets[idx];
+        if (!t.hit){
+          t.hit = true;
+          removeTargetEl(tgtEl);
+          S.targets.splice(idx,1);
+          return;
+        }
+      }
+      // not found, still remove
+      removeTargetEl(tgtEl);
+    }catch(_){
+      try{ tgtEl.remove(); }catch(_2){}
+    }
+  }
+
   function handleShoot(ev){
     if (!S.running) return;
     if (!ev || !ev.detail) return;
@@ -457,63 +485,47 @@
     const d = ev.detail||{};
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
-
-    // PATCH: use lockPx from event (vr-ui.js)
-    const lockPx = clamp(Number(d.lockPx ?? 0) || 0, 0, 140);
+    const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
+    const source = String(d.source||'').slice(0,24);
 
     S.shots++;
 
-    const tgtEl = resolveHitTarget(x,y,lockPx);
+    // 1) direct hit-test
+    let tgtEl = hitTestFromPoint(x,y);
+
+    // 2) ✅ PATCH: aim assist if missed
+    if (!tgtEl && lockPx > 0){
+      tgtEl = snapNearestTarget(x,y, lockPx);
+    }
 
     if (!tgtEl){
       // shot miss
       addScore(false);
       onBadHit();
-
-      // PATCH: emit FX event
-      emit('groups:hit', { kind:'shot_miss', miss:true, good:false, x, y, lockPx });
-
+      emitHitFX('shot_miss', x, y, { miss:true, good:false, lockPx, source });
       return;
     }
 
     const tg = String(tgtEl.getAttribute('data-group')||'');
     const cg = currentGroup().key;
 
-    // mark target as hit (remove)
-    try{
-      const idx = S.targets.findIndex(t=>t.el===tgtEl);
-      if (idx>=0){
-        const t = S.targets[idx];
-        if (!t.hit){
-          t.hit = true;
-          try{
-            tgtEl.style.transition = 'transform 140ms ease, opacity 120ms ease';
-            tgtEl.style.transform = 'scale(.75)';
-            tgtEl.style.opacity = '0';
-            setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
-          }catch(_){}
-          S.targets.splice(idx,1);
-        }
-      }else{
-        try{ tgtEl.remove(); }catch(_){}
-      }
-    }catch(_){}
+    // compute center for FX (better than raw point)
+    const c = centerOfEl(tgtEl);
+
+    // remove target
+    markAndRemoveTarget(tgtEl);
 
     const good = (tg === cg);
     addScore(good);
 
-    // PATCH: emit FX event (use real target center for nicer FX)
-    const c = elCenterXY(tgtEl);
-    const fxX = c.x || x;
-    const fxY = c.y || y;
-    emit('groups:hit', { kind: good ? 'hit_good' : 'hit_bad', good: !!good, miss:false, x: fxX, y: fxY, lockPx });
-
     if (good){
       onGoodHit();
       if (S.boss) bossHit();
+      emitHitFX('hit_good', c.x, c.y, { good:true, miss:false, group:tg, current:cg, lockPx, source });
     }else{
       onBadHit();
       coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+      emitHitFX('hit_bad', c.x, c.y, { good:false, miss:false, group:tg, current:cg, lockPx, source });
     }
   }
 
@@ -549,36 +561,28 @@
       startBossIfNeeded();
     }
 
-    // target expiry (timeout miss)
+    // target expiry
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
-
       if (t >= tg.dieAt){
         const cg = currentGroup().key;
 
-        // only count miss if it was current group (fair)
-        const shouldCount = (tg.groupKey === cg);
-
-        // PATCH: emit FX event for timeout miss (at target center)
-        const c = elCenterXY(tg.el);
-        emit('groups:hit', {
-          kind:'timeout_miss',
-          miss: !!shouldCount,
-          good:false,
-          x: c.x,
-          y: c.y
-        });
-
-        if (shouldCount){
+        // missed: count miss only if it was current group (fair)
+        if (tg.groupKey === cg){
           S.miss++;
           S.combo = 0;
           S.score = Math.max(0, S.score - 6);
           emitScore();
           emitRank();
           onBadHit();
+
+          // ✅ PATCH: emit timeout miss FX at target center
+          const c = centerOfEl(tg.el);
+          emitHitFX('timeout_miss', c.x, c.y, { miss:true, good:false, group:tg.groupKey, current:cg });
         }
 
+        // fade out
         try{
           tg.el.style.transition = 'transform 120ms ease, opacity 120ms ease';
           tg.el.style.transform = 'scale(.85)';
@@ -623,7 +627,7 @@
     // mix spawn: mostly random, but bias toward correct group so playable
     let gKey = '';
     const r = S.rng();
-    if (r < 0.58) gKey = cg.key; // majority correct group
+    if (r < 0.58) gKey = cg.key;
     else gKey = pick(S.rng, GROUPS).key;
 
     // in boss: increase correct targets
@@ -704,7 +708,6 @@
 
     emitQuest(true);
 
-    // intro coach
     coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
   }
 
@@ -731,7 +734,7 @@
       FX && FX.init && FX.init({ layerEl: S.layerEl });
     }catch(_){}
 
-    // init Telemetry (optional)
+    // Telemetry (optional)
     try{
       const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
       if (T && T.init){
@@ -747,7 +750,7 @@
       }
     }catch(_){}
 
-    // AI hooks attach (optional) — engine แค่ "ปล่อย event" ให้เขา
+    // AI hooks attach (optional)
     try{
       const AI = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -762,10 +765,9 @@
     S.startT = nowMs();
     S.lastTickT = S.startT;
 
-    // listen shoot
+    // listen shoot (mobile/cVR/vr-ui)
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
 
-    // GO!
     S.rafId = requestAnimationFrame(rafLoop);
     return true;
   }
@@ -777,7 +779,7 @@
       try{ cancelAnimationFrame(S.rafId); }catch(_){}
       S.rafId = 0;
     }
-    WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
+    try{ WIN.removeEventListener('hha:shoot', handleShoot, { passive:true }); }catch(_){}
 
     clearTargets();
     try{ if (S.wrapEl) S.wrapEl.innerHTML = ''; }catch(_){}
@@ -791,9 +793,8 @@
       try{ cancelAnimationFrame(S.rafId); }catch(_){}
       S.rafId = 0;
     }
-    WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
+    try{ WIN.removeEventListener('hha:shoot', handleShoot, { passive:true }); }catch(_){}
 
-    // final stats
     const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
     const grade =
       (acc>=92 && S.score>=220) ? 'S' :
@@ -817,8 +818,6 @@
     };
 
     emit('hha:end', summary);
-
-    // clear
     clearTargets();
   }
 
