@@ -1,89 +1,67 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — PRODUCTION (HHA Standard)
-✅ HUD-safe playfield via --gj-top-safe / --gj-bottom-safe
-✅ FX layer visible (z-index fix)
-✅ Responsive: PC / Mobile / VR / cVR
-✅ Missions peek / Low-time overlay / End overlay aria-hidden driven
+GoodJunkVR UI — PRODUCTION (A+B+V compatible)
+✅ Safe-area aware
+✅ HUD-safe spawn via CSS vars: --gj-top-safe / --gj-bottom-safe (set by boot)
+✅ Works for: pc / mobile / vr / cvr (body classes: view-pc/view-mobile/view-vr/view-cvr)
+✅ Missions Peek + Hide HUD + Low time overlay
+✅ Targets (gj-target) animations: spawn/gone
 */
 
-/* ----------------- Root + Safe area ----------------- */
 :root{
   color-scheme: dark;
-  --bg:#020617;
+  --bg: #020617;
   --panel: rgba(2,6,23,.78);
-  --panel2: rgba(15,23,42,.64);
+  --panel2: rgba(15,23,42,.72);
   --stroke: rgba(148,163,184,.18);
-
-  --text:#e5e7eb;
+  --text: #e5e7eb;
   --muted:#94a3b8;
-
   --accent:#22c55e;
   --warn:#f59e0b;
-  --bad:#fb7185;
+  --danger:#ef4444;
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
   --radius: 18px;
-  --radius2: 22px;
+  --pill: 999px;
 
-  /* safe-area (iOS) */
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* HUD-safe spawn (boot measures and sets these) */
-  --gj-top-safe: calc(128px + var(--sat));
+  /* playfield safe-spawn (boot updates these) */
+  --gj-top-safe: calc(132px + var(--sat));
   --gj-bottom-safe: calc(124px + var(--sab));
-
-  /* target */
-  --t-shadow: 0 14px 35px rgba(0,0,0,.40);
-  --t-glow: 0 0 0 rgba(0,0,0,0);
-
-  --font: system-ui,-apple-system,"Segoe UI","Noto Sans Thai","Noto Sans",sans-serif;
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; }
+html,body{ width:100%; height:100%; }
 body.gj{
   margin:0;
-  font-family: var(--font);
-  background: radial-gradient(1200px 800px at 30% 20%, rgba(34,197,94,.08), transparent 45%),
-              radial-gradient(900px 700px at 80% 30%, rgba(34,211,238,.06), transparent 45%),
-              radial-gradient(900px 700px at 60% 80%, rgba(167,139,250,.05), transparent 45%),
+  background: radial-gradient(1200px 700px at 50% 20%, rgba(34,197,94,.10), transparent 55%),
+              radial-gradient(900px 600px at 70% 90%, rgba(34,211,238,.08), transparent 60%),
               var(--bg);
   color: var(--text);
+  font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
   overflow:hidden;
-  -webkit-tap-highlight-color: transparent;
 }
 
-/* ----------------- IMPORTANT: FX layer z-index -----------------
-   particles.js creates .hha-fx-layer with inline style z-index:90
-   → Some HUD/topbar/layers can sit above/cover it. Force it up safely.
-*/
-.hha-fx-layer{
-  z-index: 170 !important;
-  pointer-events: none !important;
-}
-
-/* ----------------- Topbar ----------------- */
+/* ---------------- TOPBAR ---------------- */
 .gj-topbar{
   position:fixed;
   left:0; right:0;
   top:0;
-  z-index: 185;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) 10px calc(10px + var(--sal));
+  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  z-index: 190;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  background: linear-gradient(to bottom, rgba(2,6,23,.92), rgba(2,6,23,.58));
-  border-bottom: 1px solid rgba(148,163,184,.10);
+  background: linear-gradient(to bottom, rgba(2,6,23,.82), rgba(2,6,23,.40) 60%, transparent);
   backdrop-filter: blur(10px);
 }
-
-.gj-topbar .left,
-.gj-topbar .right{
+.gj-topbar .left, .gj-topbar .right{
   display:flex;
   align-items:center;
   gap:8px;
@@ -93,176 +71,162 @@ body.gj{
 .gj-chip{
   display:inline-flex;
   align-items:center;
-  gap:8px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: rgba(15,23,42,.55);
-  border: 1px solid rgba(148,163,184,.16);
+  gap:6px;
+  padding: 7px 10px;
+  border-radius: var(--pill);
+  background: rgba(2,6,23,.62);
+  border: 1px solid rgba(148,163,184,.18);
   color: var(--text);
   font-weight: 900;
   font-size: 12px;
   letter-spacing: .2px;
-  box-shadow: 0 8px 26px rgba(0,0,0,.28);
 }
 
 .gj-btn{
-  appearance:none;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  color: var(--text);
+  height: 38px;
+  padding: 0 12px;
   border-radius: 14px;
-  padding: 10px 12px;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.50);
+  color: var(--text);
   font-weight: 1000;
   font-size: 13px;
   cursor:pointer;
-  box-shadow: 0 10px 28px rgba(0,0,0,.28);
 }
+.gj-btn:hover{ filter: brightness(1.06); }
 .gj-btn:active{ transform: translateY(1px); }
 .gj-btn.primary{
-  border-color: rgba(34,197,94,.32);
+  border-color: rgba(34,197,94,.35);
   background: rgba(34,197,94,.14);
-  color: #eafff3;
+  color:#eafff3;
 }
 
-/* ----------------- HUD Top ----------------- */
+/* ---------------- HUD TOP ---------------- */
 .gj-hud-top, #hud{
   position:fixed;
   left:0; right:0;
   top: calc(56px + var(--sat));
-  z-index: 160;
-  padding: 10px calc(10px + var(--sar)) 0 calc(10px + var(--sal));
-  pointer-events:none; /* allow playfield taps */
+  z-index: 180;
+  padding: 10px calc(12px + var(--sar)) 8px calc(12px + var(--sal));
+  pointer-events:none; /* keep playfield interactable */
 }
-
 .hud-row{
   display:flex;
-  gap:8px;
+  gap:10px;
   flex-wrap:wrap;
   align-items:stretch;
 }
-
 .hud-pill{
-  min-width: 118px;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
+  pointer-events:none;
+  min-width: 92px;
   padding: 10px 12px;
   border-radius: 16px;
-  background: rgba(15,23,42,.58);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: 0 12px 32px rgba(0,0,0,.28);
+  background: rgba(2,6,23,.62);
+  border: 1px solid rgba(148,163,184,.18);
+  box-shadow: 0 10px 30px rgba(0,0,0,.22);
 }
-
-.hud-pill.warn{
-  border-color: rgba(245,158,11,.22);
-}
-.hud-pill.grade{
-  border-color: rgba(34,197,94,.20);
-}
-
 .hud-label{
-  font-size: 11px;
-  font-weight: 1000;
   color: var(--muted);
-  letter-spacing: .3px;
+  font-weight: 1100;
+  font-size: 11px;
+  letter-spacing: .35px;
 }
 .hud-value{
+  margin-top: 4px;
+  font-weight: 1300;
   font-size: 22px;
-  font-weight: 1200;
-  line-height: 1.0;
+  letter-spacing: .2px;
 }
+.hud-pill.warn .hud-value{ color: #fff; }
+.hud-pill.warn{ border-color: rgba(245,158,11,.26); }
+.hud-pill.grade{ border-color: rgba(167,139,250,.26); }
 
 .quest-row{
-  margin-top: 8px;
+  margin-top: 10px;
   display:grid;
-  grid-template-columns: 1.1fr .9fr;
+  grid-template-columns: 1.25fr .95fr;
   gap: 10px;
 }
-
+@media (max-width: 860px){
+  .quest-row{ grid-template-columns: 1fr; }
+}
 .quest-card{
   pointer-events:none;
-  background: rgba(2,6,23,.56);
-  border: 1px solid rgba(148,163,184,.16);
-  border-radius: var(--radius2);
+  background: rgba(15,23,42,.54);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
   padding: 10px 12px;
-  box-shadow: 0 14px 42px rgba(0,0,0,.30);
 }
 .quest-card.mini{
-  border-color: rgba(34,211,238,.18);
+  border-color: rgba(34,211,238,.20);
 }
-
 .q-title{
   font-weight: 1200;
+  letter-spacing:.25px;
   font-size: 13px;
-  letter-spacing: .2px;
 }
 .q-desc{
   margin-top: 6px;
   color: var(--muted);
   font-weight: 900;
   font-size: 12px;
+  line-height: 1.2;
 }
 .q-bar{
   margin-top: 8px;
   display:flex;
   justify-content:space-between;
-  gap:10px;
-  color: rgba(229,231,235,.92);
+  gap:8px;
+  color: var(--muted);
+  font-weight: 900;
   font-size: 12px;
-  font-weight: 1000;
 }
-.q-num{
-  color: var(--text);
-}
-.q-hint{
-  color: rgba(148,163,184,.92);
-}
+.q-num{ color: #e5e7eb; font-weight: 1100; }
+.q-hint{ color: var(--muted); }
 
-/* ----------------- HUD Bottom ----------------- */
+/* ---------------- HUD BOTTOM ---------------- */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
   bottom: 0;
-  z-index: 160;
-  padding: 10px calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
-  display:flex;
-  gap:10px;
-  align-items:stretch;
-  pointer-events:none; /* allow taps */
+  z-index: 170;
+  padding: 10px calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: linear-gradient(to top, rgba(2,6,23,.78), rgba(2,6,23,.38) 60%, transparent);
+  backdrop-filter: blur(10px);
+  pointer-events:none;
 }
-
+@media (max-width: 860px){
+  .gj-hud-bot{ grid-template-columns: 1fr; }
+}
 .meter{
-  flex:1;
-  min-width: 160px;
-  background: rgba(15,23,42,.58);
-  border: 1px solid rgba(148,163,184,.16);
-  border-radius: var(--radius2);
+  pointer-events:none;
+  background: rgba(2,6,23,.62);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
   padding: 10px 12px;
-  box-shadow: 0 14px 42px rgba(0,0,0,.30);
-}
-.meter.shield{
-  border-color: rgba(34,211,238,.18);
 }
 .meter-title{
-  font-size: 11px;
-  font-weight: 1200;
   color: var(--muted);
-  letter-spacing: .2px;
+  font-weight: 1100;
+  font-size: 12px;
+  letter-spacing:.35px;
 }
 .meter-bar{
   margin-top: 8px;
   height: 12px;
   border-radius: 999px;
-  background: rgba(2,6,23,.55);
-  border: 1px solid rgba(148,163,184,.12);
+  background: rgba(148,163,184,.12);
   overflow:hidden;
 }
 .meter-fill{
   height:100%;
   width:0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(34,211,238,.55));
-  box-shadow: 0 10px 24px rgba(34,197,94,.12);
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.85));
+  transition: width 120ms linear;
 }
 .meter-num{
   margin-top: 8px;
@@ -272,327 +236,182 @@ body.gj{
 }
 .meter-shield{
   margin-top: 6px;
-  font-weight: 1100;
-  font-size: 13px;
+  font-weight: 1000;
+  font-size: 12px;
 }
 .meter-tip{
   margin-top: 8px;
-  color: rgba(148,163,184,.95);
+  color: var(--muted);
   font-weight: 900;
   font-size: 12px;
-  line-height: 1.25;
+  line-height:1.3;
 }
 
-/* ----------------- HUD Hidden Mode ----------------- */
-body.hud-hidden .gj-hud-top,
-body.hud-hidden #hud,
-body.hud-hidden .gj-hud-bot{
-  opacity: .12;
-  filter: blur(.2px);
-}
-body.hud-hidden .gj-hud-top *,
-body.hud-hidden #hud *,
-body.hud-hidden .gj-hud-bot *{
-  opacity: .0;
-}
-body.hud-hidden .gj-hud-top,
-body.hud-hidden #hud,
-body.hud-hidden .gj-hud-bot{
-  pointer-events:none;
-}
-
-/* ----------------- Playfield + layers ----------------- */
+/* ---------------- PLAYFIELD ---------------- */
 .gj-field, #playfield{
   position:fixed;
   inset:0;
-  z-index: 120;
-  /* IMPORTANT: reserve topbar too (playfield taps should work) */
-  padding-top: calc(52px + var(--sat));
+  z-index: 60;
 }
-
 .gj-layer{
   position:absolute;
   inset:0;
-  overflow:hidden;
-  pointer-events:auto;
 }
-
-/* cVR right-eye layer (split) */
 .gj-layer-r{
   display:none;
 }
+
+/* cVR split mode: show two layers (stereo-ish) */
 body.view-cvr .gj-layer-r{
   display:block;
-  opacity: .95;
+  opacity: .98;
+  transform: translateX(2.2%);
+  mix-blend-mode: screen;
+  filter: saturate(1.05);
 }
 
-/* Make cVR split feel: left and right halves */
-body.view-cvr #gj-layer,
-body.view-cvr .gj-layer#gj-layer{
-  width:50%;
-  left:0;
-  right:auto;
-}
-body.view-cvr #gj-layer-r,
-body.view-cvr .gj-layer-r#gj-layer-r{
-  width:50%;
-  left:auto;
-  right:0;
-}
-
-/* ----------------- Targets ----------------- */
+/* ---------------- TARGETS ---------------- */
 .gj-target{
   position:absolute;
-  transform: translate(-50%,-50%);
+  transform: translate(-50%,-50%) scale(.92);
+  opacity: .0;
   user-select:none;
   cursor:pointer;
-  line-height: 1;
-  filter: drop-shadow(var(--t-shadow));
-  will-change: transform, opacity, filter;
-  transition: filter 120ms ease;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.45));
+  transition: transform 140ms ease, opacity 140ms ease;
 }
-
-.gj-target:hover{
-  filter: drop-shadow(0 18px 42px rgba(0,0,0,.45));
-}
-
 .gj-target.spawn{
-  animation: gjPopIn 160ms ease-out;
+  opacity: 1;
+  transform: translate(-50%,-50%) scale(1);
 }
 .gj-target.gone{
-  animation: gjPopOut 140ms ease-in forwards;
-  pointer-events:none;
+  opacity: 0;
+  transform: translate(-50%,-50%) scale(.85);
 }
 
-@keyframes gjPopIn{
-  0%{ transform: translate(-50%,-50%) scale(.70); opacity:.0; }
-  100%{ transform: translate(-50%,-50%) scale(1.0); opacity:1; }
+/* hit feedback classes from safe.js */
+body.gj-mini-clear{ animation: gjPulseGood 220ms ease-out; }
+body.gj-junk-hit{ animation: gjPulseBad 220ms ease-out; }
+body.gj-good-expire{ animation: gjPulseBad 160ms ease-out; }
+body.gj-miss-shot{ animation: gjPulseWarn 120ms ease-out; }
+
+@keyframes gjPulseGood{
+  0%{ filter:none; }
+  50%{ filter: brightness(1.12) saturate(1.08); }
+  100%{ filter:none; }
 }
-@keyframes gjPopOut{
-  0%{ transform: translate(-50%,-50%) scale(1.0); opacity:1; }
-  100%{ transform: translate(-50%,-60%) scale(.80); opacity:0; }
+@keyframes gjPulseBad{
+  0%{ filter:none; }
+  50%{ filter: brightness(1.08) saturate(1.18); }
+  100%{ filter:none; }
+}
+@keyframes gjPulseWarn{
+  0%{ filter:none; }
+  50%{ filter: brightness(1.06); }
+  100%{ filter:none; }
 }
 
-/* feedback pulses (safe.js adds these classes sometimes) */
-body.gj-junk-hit .gj-field{ filter: saturate(1.08); }
-body.gj-good-expire .gj-field{ filter: saturate(1.05); }
-body.gj-mini-clear .gj-field{ filter: saturate(1.06) brightness(1.04); }
-body.gj-miss-shot .gj-field{ filter: brightness(1.02); }
-
-/* ----------------- HUD-safe spawn guide (engine uses these vars) ----------------- */
-/* Visual debug (optional): uncomment to see safe rectangles
-body::before{
-  content:"";
-  position:fixed; left:12%; right:12%;
-  top: var(--gj-top-safe);
-  bottom: var(--gj-bottom-safe);
-  border:1px dashed rgba(34,211,238,.22);
-  border-radius: 14px;
-  pointer-events:none;
-  z-index: 10;
-}
-*/
-
-/* ----------------- Missions Peek ----------------- */
+/* ---------------- MISSIONS PEEK ---------------- */
 .gj-peek{
-  position:fixed;
-  inset:0;
-  z-index: 205;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(16px + var(--sat)) 12px calc(16px + var(--sab));
-  background: rgba(2,6,23,.72);
-  backdrop-filter: blur(10px);
-  opacity:0;
-  pointer-events:none;
-  transition: opacity 160ms ease;
-}
-body.show-missions .gj-peek{
-  opacity:1;
-  pointer-events:auto;
-}
-.peek-card{
-  width: min(560px, 92vw);
-  background: rgba(2,6,23,.86);
-  border: 1px solid rgba(148,163,184,.20);
-  border-radius: 22px;
-  padding: 16px;
-  box-shadow: 0 18px 55px rgba(0,0,0,.45);
-}
-.peek-title{
-  font-size: 18px;
-  font-weight: 1200;
-}
-.peek-sub, .peek-mini{
-  margin-top: 8px;
-  font-weight: 1000;
-  color: rgba(229,231,235,.94);
-}
-.peek-tip{
-  margin-top: 10px;
-  color: rgba(148,163,184,.95);
-  font-weight: 900;
-  font-size: 12px;
-}
-
-/* ----------------- Low time overlay ----------------- */
-.gj-lowtime-overlay{
   position:fixed;
   inset:0;
   z-index: 210;
   display:flex;
-  align-items:center;
+  align-items:flex-end;
   justify-content:center;
+  padding: 18px calc(12px + var(--sar)) calc(18px + var(--sab)) calc(12px + var(--sal));
+  background: rgba(2,6,23,.0);
   pointer-events:none;
-}
-.gj-lowtime-ring{
-  width: 240px;
-  height: 240px;
-  border-radius: 999px;
-  border: 3px solid rgba(255,255,255,.18);
-  box-shadow: 0 0 0 10px rgba(245,158,11,.08);
   opacity:0;
-  transform: scale(.92);
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition: opacity 140ms ease, background 140ms ease;
 }
-.gj-lowtime-num{
-  position:absolute;
-  font-size: 72px;
-  font-weight: 1300;
-  color: rgba(255,255,255,.95);
-  text-shadow: 0 18px 55px rgba(0,0,0,.45);
-  opacity:0;
-  transform: scale(.92);
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-
-/* aria-hidden driven visibility */
-#lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
-#lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
+body.show-missions .gj-peek{
   opacity:1;
-  transform: scale(1);
-}
-
-/* extra urgency tick */
-body.gj-tick .gj-lowtime-ring{
-  box-shadow: 0 0 0 16px rgba(245,158,11,.10);
-}
-
-/* ----------------- End overlay ----------------- */
-.gj-end{
-  position:fixed;
-  inset:0;
-  z-index: 220;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(16px + var(--sat)) 12px calc(16px + var(--sab));
-  background: rgba(2,6,23,.82);
-  backdrop-filter: blur(10px);
-  opacity:0;
-  pointer-events:none;
-  transition: opacity 160ms ease;
-}
-.gj-end[aria-hidden="false"]{
-  opacity:1;
+  background: rgba(2,6,23,.55);
   pointer-events:auto;
 }
-.gj-end .card{
-  width: min(760px, 94vw);
-  background: rgba(2,6,23,.86);
-  border: 1px solid rgba(148,163,184,.22);
-  border-radius: 22px;
-  padding: 18px;
-  box-shadow: 0 18px 55px rgba(0,0,0,.45);
+.peek-card{
+  width: min(720px, 92vw);
+  background: rgba(2,6,23,.78);
+  border: 1px solid rgba(148,163,184,.20);
+  border-radius: 20px;
+  padding: 14px 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
 }
-.gj-end .title{
-  font-size: 22px;
+.peek-title{
   font-weight: 1300;
+  font-size: 16px;
 }
-.gj-end .sub{
-  margin-top: 6px;
-  color: rgba(148,163,184,.95);
+.peek-sub, .peek-mini{
+  margin-top: 8px;
+  color: var(--text);
+  font-weight: 1000;
+  font-size: 13px;
+}
+.peek-tip{
+  margin-top: 10px;
+  color: var(--muted);
   font-weight: 900;
   font-size: 12px;
 }
-.gj-end .grid{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+
+/* ---------------- LOW TIME OVERLAY ---------------- */
+.gj-lowtime-overlay{
+  position:fixed;
+  inset:0;
+  z-index: 205;
+  pointer-events:none;
 }
-.gj-end .stat{
-  background: rgba(15,23,42,.58);
-  border: 1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding: 10px 12px;
+.gj-lowtime-ring, .gj-lowtime-num{
+  position:absolute;
+  left:50%;
+  top:52%;
+  transform: translate(-50%,-50%) scale(.88);
+  opacity:0;
+  transition: opacity 120ms ease, transform 120ms ease;
 }
-.gj-end .stat span{
-  display:block;
-  font-size: 11px;
-  font-weight: 1100;
-  color: rgba(148,163,184,.95);
+.gj-lowtime-ring{
+  width: 180px; height: 180px;
+  border-radius: 999px;
+  border: 3px solid rgba(245,158,11,.65);
+  box-shadow: 0 0 0 12px rgba(245,158,11,.08);
 }
-.gj-end .stat b{
-  display:block;
-  margin-top: 4px;
-  font-size: 20px;
-  font-weight: 1300;
-}
-.gj-end .actions{
-  margin-top: 14px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.gj-end .btn{
-  flex:1;
-  min-width: 220px;
-  height: 54px;
-  border-radius: 16px;
-  border: 1px solid rgba(34,197,94,.30);
-  background: rgba(34,197,94,.14);
-  color: #eafff3;
-  font-weight: 1200;
-  font-size: 16px;
-  cursor:pointer;
-}
-.gj-end .btn.alt{
-  border-color: rgba(148,163,184,.22);
-  background: rgba(2,6,23,.55);
-  color: var(--text);
+.gj-lowtime-num{
+  font-size: 74px;
+  font-weight: 1400;
+  color:#fff;
+  text-shadow: 0 18px 50px rgba(0,0,0,.55);
 }
 
-/* ----------------- Responsive tweaks ----------------- */
-@media (max-width: 520px){
-  .quest-row{ grid-template-columns: 1fr; }
-  .hud-pill{ min-width: 46%; }
-  .gj-end .grid{ grid-template-columns: repeat(2, 1fr); }
+/* safe.js toggles body classes; keep compatibility */
+body.gj-lowtime .gj-lowtime-ring{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
+body.gj-lowtime5 .gj-lowtime-num{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
+body.gj-tick .gj-lowtime-num{ transform: translate(-50%,-50%) scale(1.05); }
+
+/* aria-hidden patch (HTML style block can force visible too) */
+#lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
+#lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
+  opacity:1;
+  transform: translate(-50%,-50%) scale(1);
 }
 
-@media (min-width: 980px){
-  /* PC gives more breathing room */
-  .gj-hud-top, #hud{
-    top: calc(62px + var(--sat));
-    padding-left: calc(18px + var(--sal));
-    padding-right: calc(18px + var(--sar));
-  }
-  .gj-hud-bot{
-    padding-left: calc(18px + var(--sal));
-    padding-right: calc(18px + var(--sar));
-  }
+/* ---------------- HUD HIDE MODE ---------------- */
+body.hud-hidden .gj-hud-top,
+body.hud-hidden #hud{
+  opacity: .08;
+  transform: translateY(-6px);
+}
+body.hud-hidden .gj-hud-bot{
+  opacity: .10;
+  transform: translateY(6px);
 }
 
-/* ----------------- View-specific feel ----------------- */
-body.view-vr .gj-topbar{
-  background: linear-gradient(to bottom, rgba(2,6,23,.96), rgba(2,6,23,.62));
-}
-body.view-vr .gj-target,
-body.view-cvr .gj-target{
-  /* slightly larger/clearer in VR/cVR */
-  filter: drop-shadow(0 18px 42px rgba(0,0,0,.48));
-}
+/* ---------------- VIEW TUNING ---------------- */
+body.view-pc .gj-target{ filter: drop-shadow(0 12px 28px rgba(0,0,0,.45)); }
+body.view-mobile .gj-target{ filter: drop-shadow(0 10px 24px rgba(0,0,0,.45)); }
+body.view-vr .gj-target{ filter: drop-shadow(0 12px 26px rgba(0,0,0,.50)); }
+body.view-cvr .gj-target{ filter: drop-shadow(0 12px 26px rgba(0,0,0,.50)); }
 
-/* Prevent top buttons from being blocked */
-.gj-topbar, .gj-topbar *{ pointer-events:auto; }
+/* prevent selection */
+.gj, .gj *{ -webkit-tap-highlight-color: transparent; }
