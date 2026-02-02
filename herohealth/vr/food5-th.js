@@ -1,9 +1,8 @@
 // === /herohealth/vr/food5-th.js ===
 // Thai Food 5 Groups Mapping (STABLE, DO NOT CHANGE)
-// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, descForGroup, emojiForGroup
-// ✅ Supports seeded rng: pickEmoji(rng, arr) / emojiForGroup(rng, groupId)
+// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, descForGroup, emojiForGroup, isValidGroup
+// ✅ Supports seeded rng: pickEmoji(rng, arr)
 // ✅ Group ids are fixed 1..5 per your rule
-
 'use strict';
 
 // ✅ Fixed Thai food group mapping (must not drift)
@@ -13,7 +12,6 @@ export const FOOD5 = Object.freeze({
     key: 'g1',
     labelTH: 'หมู่ 1 โปรตีน',
     descTH: 'เนื้อ นม ไข่ ถั่วเมล็ดแห้ง',
-    // (โปรตีน)
     emojis: Object.freeze(['🥚','🥛','🍗','🍖','🐟','🫘','🥜','🧀'])
   }),
   2: Object.freeze({
@@ -21,7 +19,6 @@ export const FOOD5 = Object.freeze({
     key: 'g2',
     labelTH: 'หมู่ 2 คาร์โบไฮเดรต',
     descTH: 'ข้าว แป้ง เผือก มัน น้ำตาล',
-    // (คาร์บ/แป้ง)
     emojis: Object.freeze(['🍚','🍞','🥖','🍜','🍝','🥔','🍠','🥟'])
   }),
   3: Object.freeze({
@@ -29,7 +26,6 @@ export const FOOD5 = Object.freeze({
     key: 'g3',
     labelTH: 'หมู่ 3 ผัก',
     descTH: 'ผักสีเขียว เหลือง และหลากสี',
-    // (ผัก)
     emojis: Object.freeze(['🥦','🥬','🥒','🌽','🥕','🍆','🫑','🍅'])
   }),
   4: Object.freeze({
@@ -37,7 +33,6 @@ export const FOOD5 = Object.freeze({
     key: 'g4',
     labelTH: 'หมู่ 4 ผลไม้',
     descTH: 'ผลไม้ให้วิตามินและใยอาหาร',
-    // (ผลไม้)
     emojis: Object.freeze(['🍎','🍌','🍊','🍉','🍇','🍍','🥭','🍓'])
   }),
   5: Object.freeze({
@@ -45,22 +40,24 @@ export const FOOD5 = Object.freeze({
     key: 'g5',
     labelTH: 'หมู่ 5 ไขมัน',
     descTH: 'ไขมันให้พลังงานและความอบอุ่น',
-    // (ไขมัน/น้ำมัน/ถั่ว/อะโวคาโด)
-    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🥜','🌰'])
+    emojis: Object.freeze(['🥑','🫒','🥥','🧈','🌰','🥜','🧀','🍳'])
   })
 });
 
+// Junk / unhealthy set (shared across games)
 export const JUNK = Object.freeze({
-  id: 0,
   key: 'junk',
   labelTH: 'ขยะอาหาร',
   descTH: 'หวาน/ทอด/น้ำอัดลม/ขนมกรุบกรอบ',
-  emojis: Object.freeze(['🍟','🍔','🍕','🌭','🍩','🍪','🧁','🍰','🥤','🧋','🍬'])
+  emojis: Object.freeze(['🍟','🍔','🍕','🌭','🍩','🍪','🧁','🍰','🥤','🧋','🍫','🍬'])
 });
 
-// -----------------------------------------------------
-// helpers
-// -----------------------------------------------------
+// ---------------- helpers ----------------
+export function isValidGroup(groupId){
+  const id = Number(groupId);
+  return id === 1 || id === 2 || id === 3 || id === 4 || id === 5;
+}
+
 export function pickEmoji(rng, arr){
   const a = Array.isArray(arr) ? arr : [];
   if(!a.length) return '❓';
@@ -70,27 +67,22 @@ export function pickEmoji(rng, arr){
 }
 
 export function labelForGroup(groupId){
-  const g = FOOD5[groupId];
+  const g = FOOD5[Number(groupId)];
   return g ? g.labelTH : 'หมู่ ?';
 }
 
 export function descForGroup(groupId){
-  const g = FOOD5[groupId];
+  const g = FOOD5[Number(groupId)];
   return g ? g.descTH : '';
 }
 
 export function emojiForGroup(rng, groupId){
-  const g = FOOD5[groupId];
+  const g = FOOD5[Number(groupId)];
   if(!g) return '🥦';
   return pickEmoji(rng, g.emojis);
 }
 
-// Optional helpers (ใช้สะดวกใน engine)
-export function isValidGroupId(groupId){
-  return !!FOOD5[groupId];
-}
-
-export function normalizeGroupId(groupId){
-  const n = Number(groupId);
-  return isValidGroupId(n) ? n : 3;
+// (optional) convenience: get a random junk emoji
+export function emojiForJunk(rng){
+  return pickEmoji(rng, JUNK.emojis);
 }
