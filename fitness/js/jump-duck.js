@@ -1,4 +1,4 @@
-// === fitness/js/jump-duck.js — Jump Duck Rush (Research-ready v2.1 PATCH) ===
+// === js/jump-duck.js — Jump Duck Rush (Research-ready v2.1 PATCH) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -99,24 +99,15 @@ let judgeTimer = null;
 /* input state */
 let lastAction = null; // { type:'jump'|'duck', time:number }
 
-/* ---------- Helpers ---------- */
+/* ---------- deterministic RNG (for test/research) ---------- */
 
-function qs(key, def=null){
-  try{
-    const v = new URL(location.href).searchParams.get(key);
-    return (v == null ? def : v);
-  }catch{
-    return def;
-  }
+function readQuery(k, d=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; }
 }
-
 function makeRNG(seed){
   // LCG deterministic
   let x = (Number(seed) || Date.now()) >>> 0;
-  return function rng(){
-    x = (1664525 * x + 1013904223) >>> 0;
-    return x / 4294967296;
-  };
+  return ()=> (x = (1664525*x + 1013904223) >>> 0) / 4294967296;
 }
 
 /* ---------- Helper: view switching ---------- */
@@ -144,11 +135,8 @@ function playSfx(id){
 function showJudge(text, kind){
   if (!elJudge) return;
   elJudge.textContent = text;
-
-  // อย่าไปทับ class อื่น ๆ แปลก ๆ ให้คง base ไว้
   elJudge.className = 'jd-judge show';
   if (kind) elJudge.classList.add(kind);
-
   if (judgeTimer) clearTimeout(judgeTimer);
   judgeTimer = setTimeout(()=>{
     elJudge.classList.remove('show');
@@ -209,7 +197,7 @@ function buildSummary(){
     session_id: state.sessionId,
     mode: state.mode,
     diff: state.diffKey,
-    seed: state.seed || '',
+    seed: state.seed,
     duration_planned_s: (state.durationMs||0)/1000,
     duration_actual_s: (state.elapsedMs||0)/1000,
     obstacles_total: totalObs,
@@ -246,33 +234,43 @@ function collectParticipant(metaMode){
   };
 }
 
+function resolveSeed(mode){
+  // ✅ test/research: deterministic by default
+  // - if ?seed= provided use it
+  // - else: use stable-ish generated seed stored in state (Date.now) but still recorded
+  const q = readQuery('seed', '');
+  const n = Number(q);
+  if (Number.isFinite(n) && q !== '') return n;
+
+  // training/tutorial: ok to random, but still store
+  return Date.now();
+}
+
 function startGameBase(opts){
-  const mode      = opts.mode || 'training';
-  const diffKey   = opts.diffKey || (elDiff?.value) || 'normal';
-  const diffCfg   = JD_DIFFS[diffKey] || JD_DIFFS.normal;
-  const durationMs= opts.durationMs ?? (parseInt((elDuration?.value)||'60',10)*1000 || 60000);
-  const isTutorial= !!opts.isTutorial;
+  const mode       = opts.mode || 'training';
+  const diffKey    = opts.diffKey || (elDiff?.value) || 'normal';
+  const diffCfg    = JD_DIFFS[diffKey] || JD_DIFFS.normal;
+  const durationMs = opts.durationMs ?? (parseInt((elDuration?.value)||'60',10)*1000 || 60000);
+  const isTutorial = !!opts.isTutorial;
+
+  const seed = opts.seed ?? resolveSeed(mode);
+  const rng  = makeRNG(seed);
+
   const participant = collectParticipant(mode);
-
-  const t0 = performance.now();
-
-  // deterministic seed for test/research (optional for training too)
-  const seedQ = qs('seed', '');
-  const seed = seedQ !== '' ? Number(seedQ) : Date.now();
-  const rng = makeRNG(seed);
+  const now = performance.now();
 
   state = {
     sessionId: makeSessionId(),
     mode,
     isTutorial,
     diffKey,
-    cfg:diffCfg,
+    cfg: diffCfg,
 
     seed,
     rng,
 
     durationMs,
-    startTime: t0,
+    startTime: now,
     elapsedMs: 0,
     remainingMs: durationMs,
 
@@ -280,7 +278,7 @@ function startGameBase(opts){
     minStability: 100,
 
     obstacles: [],
-    nextSpawnAt: t0 + 600,
+    nextSpawnAt: now + 600,
     obstaclesSpawned: 0,
     hits: 0,
     miss: 0,
@@ -301,17 +299,17 @@ function startGameBase(opts){
   };
 
   running   = true;
-  lastFrame = t0;
+  lastFrame = now;
 
   // Reset UI
-  if (elHudMode) elHudMode.textContent = modeLabel(mode);
-  if (elHudDiff) elHudDiff.textContent = diffKey;
-  if (elHudDur)  elHudDur.textContent  = (durationMs/1000|0)+'s';
-  if (elHudStab) elHudStab.textContent = '100%';
-  if (elHudObs)  elHudObs.textContent  = '0 / 0';
-  if (elHudScore)elHudScore.textContent= '0';
-  if (elHudCombo)elHudCombo.textContent= '0';
-  if (elHudTime) elHudTime.textContent = (durationMs/1000).toFixed(1);
+  if (elHudMode)  elHudMode.textContent = modeLabel(mode);
+  if (elHudDiff)  elHudDiff.textContent = diffKey;
+  if (elHudDur)   elHudDur.textContent  = (durationMs/1000|0)+'s';
+  if (elHudStab)  elHudStab.textContent = '100%';
+  if (elHudObs)   elHudObs.textContent  = '0 / 0';
+  if (elHudScore) elHudScore.textContent= '0';
+  if (elHudCombo) elHudCombo.textContent= '0';
+  if (elHudTime)  elHudTime.textContent = (durationMs/1000).toFixed(1);
 
   if (elObsHost) elObsHost.innerHTML = '';
   if (elAvatar)  elAvatar.classList.remove('jump','duck');
@@ -335,7 +333,6 @@ function startGame(){
 }
 
 function startTutorial(){
-  // Tutorial: Easy, 15s, ใช้ mode = training แต่ isTutorial=true
   startGameBase({
     mode: 'training',
     diffKey: 'easy',
@@ -353,7 +350,7 @@ function endGame(reason){
   // ถ้าเป็น tutorial → กลับเมนู ไม่ต้องขึ้นหน้าสรุป
   if (state.isTutorial){
     showJudge('จบ Tutorial แล้ว ลองเล่นรอบจริงได้เลย! 🎉', 'ok');
-    setTimeout(()=> showView('menu'), 600);
+    setTimeout(()=> showView('menu'), 650);
     return;
   }
 
@@ -377,6 +374,7 @@ function fillResultView(acc, rtMean, totalObs){
   if (resMode)         resMode.textContent         = modeLabel(state?.mode);
   if (resDiff)         resDiff.textContent         = state?.diffKey || 'normal';
   if (resDuration)     resDuration.textContent     = durSec.toFixed(0)+'s';
+
   if (resTotalObs)     resTotalObs.textContent     = String(totalObs);
   if (resHits)         resHits.textContent         = String(state?.hits||0);
   if (resMiss)         resMiss.textContent         = String(state?.miss||0);
@@ -384,12 +382,13 @@ function fillResultView(acc, rtMean, totalObs){
   if (resDuckHit)      resDuckHit.textContent      = String(state?.duckHit||0);
   if (resJumpMiss)     resJumpMiss.textContent     = String(state?.jumpMiss||0);
   if (resDuckMiss)     resDuckMiss.textContent     = String(state?.duckMiss||0);
+
   if (resAcc)          resAcc.textContent          = (acc*100).toFixed(1)+' %';
   if (resRTMean)       resRTMean.textContent       = fmtMs(rtMean);
   if (resStabilityMin) resStabilityMin.textContent = (state?.minStability||0).toFixed(1)+' %';
   if (resScore)        resScore.textContent        = String(Math.round(state?.score||0));
 
-  // คำนวณ rank S / A / B / C / D
+  // Rank S / A / B / C / D
   if (resRank){
     let rank = 'C';
     const stab = state?.minStability ?? 0;
@@ -411,8 +410,8 @@ function loop(ts){
   lastFrame = ts;
 
   // เวลา
-  state.elapsedMs  = ts - state.startTime;
-  state.remainingMs= Math.max(0, state.durationMs - state.elapsedMs);
+  state.elapsedMs   = ts - state.startTime;
+  state.remainingMs = Math.max(0, state.durationMs - state.elapsedMs);
 
   if (elHudTime){
     elHudTime.textContent = (state.remainingMs/1000).toFixed(1);
@@ -428,11 +427,16 @@ function loop(ts){
   // spawn obstacles — Training mode จะค่อย ๆ เร็วขึ้น
   while (ts >= state.nextSpawnAt){
     spawnObstacle(ts);
+
     let interval = cfg.spawnIntervalMs;
+
+    // ✅ Training เร่งขึ้นช่วงท้าย
     if (state.mode === 'training' && !state.isTutorial){
       const factor = 1 - 0.30*progress; // 0–30% เร็วขึ้น
       interval = cfg.spawnIntervalMs * Math.max(0.6, factor);
     }
+
+    // ✅ Test/Research: คงที่
     state.nextSpawnAt += interval;
   }
 
@@ -452,31 +456,23 @@ function loop(ts){
   rafId = requestAnimationFrame(loop);
 }
 
-/* ---------- Obstacles ---------- */
-
 let nextObstacleId = 1;
 
 function spawnObstacle(ts){
   if (!elObsHost || !state) return;
 
-  // ======= ป้องกันไม่ให้กองเป็นกำแพง =======
+  // ======= กันกำแพง: ถ้าตัวล่าสุดยังอยู่ใกล้ขวา (x>72) ไม่ spawn =======
   const last = state.obstacles[state.obstacles.length - 1];
-  if (last && last.x > 70) return;
+  if (last && last.x > 72) return;
 
-  // ✅ deterministic rng
+  // ✅ deterministic ใน test/research (ใช้ rng), training ก็ใช้ rng ที่ seed ไว้ด้วย (เพื่อ replay ได้ถ้าอยาก)
   const r = state.rng ? state.rng() : Math.random();
   const isHigh = r < 0.5;
 
-  const type   = isHigh ? 'high' : 'low';  // high = ต้อง DUCK, low = ต้อง JUMP
+  const type = isHigh ? 'high' : 'low'; // high=DUCK, low=JUMP
 
   const el = document.createElement('div');
-
-  // เผื่อ CSS ของคุณใช้ชื่อแบบไหน ก็ใส่ให้ทั้งคู่
-  el.className = 'jd-obstacle ' +
-    (type === 'high'
-      ? 'high jd-obstacle--high'
-      : 'low  jd-obstacle--low');
-
+  el.className = 'jd-obstacle ' + (type === 'high' ? 'jd-obstacle--high' : 'jd-obstacle--low');
   el.dataset.id = String(nextObstacleId);
 
   const inner = document.createElement('div');
@@ -505,7 +501,7 @@ function spawnObstacle(ts){
     hit:false,
     miss:false,
     element: el,
-    centerTime: null,   // ✅ เวลาที่แตะ CENTER_X ครั้งแรก
+    centerTime: null,
     warned: false
   });
 
@@ -515,10 +511,12 @@ function spawnObstacle(ts){
 function updateObstacles(dt, now, progress){
   if (!state) return;
   const cfg = state.cfg || JD_DIFFS.normal;
+
   let speed = cfg.speedUnitsPerSec;
 
+  // Training mode: เพิ่มความเร็วเล็กน้อยช่วงท้าย
   if (state.mode === 'training' && !state.isTutorial){
-    const speedFactor = 1 + 0.25*progress;
+    const speedFactor = 1 + 0.25*progress; // +0–25%
     speed *= speedFactor;
   }
 
@@ -533,31 +531,29 @@ function updateObstacles(dt, now, progress){
 
     obs.x -= move;
 
+    // update DOM position (left%)
     if (obs.element){
       obs.element.style.left = obs.x + '%';
     }
 
     const needType = (obs.type === 'high') ? 'duck' : 'jump';
 
-    // ✅ mark centerTime เมื่อแตะ CENTER ครั้งแรก
+    // mark centerTime
     if (!obs.centerTime && obs.x <= CENTER_X){
       obs.centerTime = now;
     }
 
-    // เตือนก่อนเข้าเขต
+    // beep ก่อนเข้าเขต
     if (!obs.warned && obs.x <= CENTER_X + 18){
       obs.warned = true;
       playSfx('jd-sfx-beep');
     }
 
-    // ===== HIT window =====
+    // HIT window
     if (!obs.resolved && obs.x <= CENTER_X + 6 && obs.x >= CENTER_X - 6){
       const action = lastAction;
-
       if (action && action.time){
-        // ✅ เทียบกับเวลาที่ obstacle อยู่ CENTER จริง ๆ
-        const tRef = obs.centerTime || now;
-        const dtAction = Math.abs(action.time - tRef);
+        const dtAction = Math.abs(action.time - now);
         const matchPose= (action.type === needType);
 
         if (matchPose && dtAction <= cfg.hitWindowMs){
@@ -578,6 +574,7 @@ function updateObstacles(dt, now, progress){
           if (needType === 'jump') state.jumpHit++; else state.duckHit++;
 
           state.stability = Math.min(100, state.stability + cfg.stabilityGainOnHit);
+          // minStability ควรเป็นค่าต่ำสุดตลอดเกม (hit ไม่ทำให้ต่ำลงอยู่แล้ว)
           state.minStability = Math.min(state.minStability, state.stability);
 
           if (obs.element){
@@ -593,7 +590,7 @@ function updateObstacles(dt, now, progress){
             session_id: state.sessionId,
             mode: state.mode,
             diff: state.diffKey,
-            seed: state.seed || '',
+            seed: state.seed,
             event_type: 'hit',
             obstacle_type: obs.type,
             required_action: needType,
@@ -607,6 +604,9 @@ function updateObstacles(dt, now, progress){
             group:          state.participant?.group || '',
             note:           state.participant?.note || ''
           });
+
+          // ✅ เคลียร์ action ทันที กันกดครั้งเดียวไปโดนสองอัน
+          lastAction = null;
 
           if (state.combo >= 8){
             showJudge('COMBO x'+state.combo+' 🔥', 'combo');
@@ -623,7 +623,7 @@ function updateObstacles(dt, now, progress){
       }
     }
 
-    // ===== MISS =====
+    // MISS – ผ่าน zone แล้ว
     if (!obs.resolved && obs.x <= MISS_X){
       obs.resolved = true;
       obs.miss     = true;
@@ -645,7 +645,7 @@ function updateObstacles(dt, now, progress){
         session_id: state.sessionId,
         mode: state.mode,
         diff: state.diffKey,
-        seed: state.seed || '',
+        seed: state.seed,
         event_type: 'miss',
         obstacle_type: obs.type,
         required_action: needType,
@@ -662,7 +662,6 @@ function updateObstacles(dt, now, progress){
 
       showJudge('MISS ลองใหม่อีกที ✨', 'miss');
       playSfx('jd-sfx-miss');
-
       if (elPlayArea){
         elPlayArea.classList.add('shake');
         setTimeout(()=> elPlayArea.classList.remove('shake'), 180);
@@ -680,10 +679,11 @@ function updateObstacles(dt, now, progress){
   }
 
   if (toRemove.length){
-    state.obstacles = state.obstacles.filter(o => !toRemove.includes(o));
+    const kill = new Set(toRemove);
+    state.obstacles = state.obstacles.filter(o => !kill.has(o));
   }
 
-  // clear action after a short while
+  // เคลียร์ action ถ้าเก่ามาก
   if (lastAction && now - lastAction.time > 260){
     lastAction = null;
   }
@@ -693,8 +693,8 @@ function updateObstacles(dt, now, progress){
 
 function triggerAction(type){
   if (!state || !running) return;
-  const t = performance.now();
-  lastAction = { type, time: t };
+  const now = performance.now();
+  lastAction = { type, time: now };
 
   if (!elAvatar) return;
   elAvatar.classList.remove('jump','duck');
@@ -741,22 +741,30 @@ function updateResearchVisibility(){
 }
 
 function initJD(){
+  // start
   $('[data-action="start"]')?.addEventListener('click', startGame);
+
+  // tutorial
   $('[data-action="tutorial"]')?.addEventListener('click', startTutorial);
 
+  // stop early
   $('[data-action="stop-early"]')?.addEventListener('click', ()=>{
     if (running) endGame('manual');
   });
 
+  // play again
   $('[data-action="play-again"]')?.addEventListener('click', startGame);
 
+  // back menu
   $$('[data-action="back-menu"]').forEach(btn=>{
     btn.addEventListener('click', ()=> showView('menu'));
   });
 
+  // input listeners
   window.addEventListener('keydown', handleKeyDown, {passive:false});
   elPlayArea?.addEventListener('pointerdown', handlePointerDown, {passive:false});
 
+  // mode change
   elMode?.addEventListener('change', updateResearchVisibility);
   updateResearchVisibility();
 
