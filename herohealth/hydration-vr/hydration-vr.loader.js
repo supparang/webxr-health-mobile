@@ -1,7 +1,8 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Folder Loader — PRODUCTION (HARDENED)
+// HydrationVR Folder Loader — PRODUCTION (HARDENED + TARGET-VISIBILITY FIX)
 // ✅ Applies view classes
 // ✅ Ensures playfield + layers exist (auto-create if missing)
+// ✅ Forces layer/target visibility & z-index (fix "targets spawn but invisible")
 // ✅ Imports ./hydration.safe.js (ESM)
 // ✅ Shows readable overlay on failure
 
@@ -39,65 +40,64 @@
   }
 
   function ensurePlayfieldStructure(){
-    // playfield base
-    const pf = ensureEl('div','playfield', document.body);
-    if (!pf.style.position){
-      pf.style.position = 'fixed';
-      pf.style.inset = '0';
-      pf.style.zIndex = '10';
-      pf.style.overflow = 'hidden';
-      pf.style.touchAction = 'manipulation';
-    }
+    // Make sure body can host fixed playfield
+    try{
+      document.documentElement.style.height = '100%';
+      body.style.height = '100%';
+      body.style.margin = '0';
+      body.style.overflow = 'hidden';
+    }catch(_){}
+
+    // playfield base (PC/Mobile/cVR)
+    const pf = ensureEl('div','playfield', body);
+    pf.setAttribute('data-playfield','main');
+    pf.style.position = 'fixed';
+    pf.style.inset = '0';
+    pf.style.zIndex = '40';
+    pf.style.overflow = 'hidden';
+    pf.style.touchAction = 'manipulation';
+    pf.style.background = 'transparent';
 
     // cardboard base (optional)
-    const cb = ensureEl('div','cbPlayfield', document.body);
-    if (!cb.style.position){
-      cb.style.position='fixed';
-      cb.style.inset='0';
-      cb.style.zIndex='10';
-      cb.style.overflow='hidden';
-      cb.style.display='none';
-    }
+    const cb = ensureEl('div','cbPlayfield', body);
+    cb.setAttribute('data-playfield','cb');
+    cb.style.position='fixed';
+    cb.style.inset='0';
+    cb.style.zIndex='40';
+    cb.style.overflow='hidden';
+    cb.style.background='transparent';
 
     // main layer
     const main = ensureEl('div','hydration-layer', pf);
-    if (!main.style.position){
-      main.style.position='absolute';
-      main.style.inset='0';
-      main.style.pointerEvents='auto';
-    }
+    main.style.position='absolute';
+    main.style.inset='0';
+    main.style.pointerEvents='auto';
 
-    // cardboard layers
-    // left
+    // cardboard halves
     let left = cb.querySelector('.cbHalf.left');
     if (!left){
       left = document.createElement('div');
       left.className = 'cbHalf left';
       cb.appendChild(left);
     }
-    // right
     let right = cb.querySelector('.cbHalf.right');
     if (!right){
       right = document.createElement('div');
       right.className = 'cbHalf right';
       cb.appendChild(right);
     }
-    // basic halves style (fallback)
-    if (!left.style.position){
-      left.style.position='absolute'; left.style.top='0'; left.style.bottom='0'; left.style.left='0';
-      left.style.width='50%'; left.style.overflow='hidden'; left.style.pointerEvents='auto';
-    }
-    if (!right.style.position){
-      right.style.position='absolute'; right.style.top='0'; right.style.bottom='0'; right.style.right='0';
-      right.style.width='50%'; right.style.overflow='hidden'; right.style.pointerEvents='auto';
-    }
+    left.style.position='absolute'; left.style.top='0'; left.style.bottom='0'; left.style.left='0';
+    left.style.width='50%'; left.style.overflow='hidden'; left.style.pointerEvents='auto';
+
+    right.style.position='absolute'; right.style.top='0'; right.style.bottom='0'; right.style.right='0';
+    right.style.width='50%'; right.style.overflow='hidden'; right.style.pointerEvents='auto';
 
     const L = ensureEl('div','hydration-layerL', left);
     const R = ensureEl('div','hydration-layerR', right);
-    if (!L.style.position){ L.style.position='absolute'; L.style.inset='0'; L.style.pointerEvents='auto'; }
-    if (!R.style.position){ R.style.position='absolute'; R.style.inset='0'; R.style.pointerEvents='auto'; }
+    L.style.position='absolute'; L.style.inset='0'; L.style.pointerEvents='auto';
+    R.style.position='absolute'; R.style.inset='0'; R.style.pointerEvents='auto';
 
-    // show/hide by class (fallback)
+    // show/hide by class
     if (body.classList.contains('cardboard')){
       pf.style.display = 'none';
       cb.style.display = 'block';
@@ -117,6 +117,28 @@
     } else {
       cfg.layers = ['hydration-layer'];
     }
+  })();
+
+  // ---- CRITICAL: Force visibility/z-index so targets cannot be hidden by css ----
+  (function forceVisibilityCSS(){
+    if (document.getElementById('hydration-visibility-fix')) return;
+    const st = document.createElement('style');
+    st.id = 'hydration-visibility-fix';
+    st.textContent = `
+      #playfield, #cbPlayfield { z-index: 40 !important; background: transparent !important; }
+      #hydration-layer, #hydration-layerL, #hydration-layerR{
+        position:absolute !important;
+        inset:0 !important;
+        display:block !important;
+        opacity:1 !important;
+        visibility:visible !important;
+        z-index:41 !important;
+        pointer-events:auto !important;
+      }
+      /* Make sure targets are drawn above backgrounds */
+      .hvr-target{ z-index:42 !important; opacity:1 !important; visibility:visible !important; }
+    `;
+    document.head.appendChild(st);
   })();
 
   function escapeHtml(s){
@@ -150,7 +172,10 @@
     const tried=[];
     for (const p of candidates){
       tried.push(p);
-      try{ await import(p); return; }catch(_){}
+      try{
+        await import(p);
+        return;
+      }catch(_){}
     }
     showFail(new Error('All candidate imports failed.'), tried);
   })();
