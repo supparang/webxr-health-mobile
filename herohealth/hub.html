@@ -35,7 +35,7 @@
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
     }
     a{ color:inherit; text-decoration:none; }
-    .wrap{ max-width:1100px; margin:0 auto; }
+    .wrap{ max-width:1180px; margin:0 auto; }
 
     .top{
       display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
@@ -103,7 +103,13 @@
       background: rgba(255,255,255,.06);
     }
 
-    .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
     .btn{
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.42);
@@ -114,18 +120,27 @@
       user-select:none;
       transition: transform .12s ease, background .12s ease, opacity .12s ease;
       display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
     }
     .btn.secondary{ color: var(--muted); }
     .btn:active{ transform: translateY(1px); }
     .btn.disabled{ opacity:.45; cursor:not-allowed; }
+    .btn.small{ padding:9px 10px; border-radius:999px; font-size:12px; color:var(--muted); }
+    .btn.small strong{ color:var(--text); }
+
+    .actions .sep{
+      width:1px; height:28px;
+      background: rgba(148,163,184,.18);
+      margin:0 2px;
+    }
 
     .content{
       padding: 14px;
       display:grid;
-      grid-template-columns: 1.1fr .9fr;
+      grid-template-columns: 1.15fr .85fr;
       gap: 14px;
     }
-    @media (max-width: 900px){
+    @media (max-width: 980px){
       .content{ grid-template-columns: 1fr; }
       .pillrow{ justify-content:flex-start; }
       .actions{ justify-content:flex-start; }
@@ -192,7 +207,6 @@
     }
     .glow.cyan{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.32), transparent 60%); }
     .glow.violet{ background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.32), transparent 60%); }
-    .glow.amber{ background: radial-gradient(circle at 30% 30%, rgba(245,158,11,.30), transparent 60%); }
 
     .side{
       border:1px solid var(--stroke);
@@ -255,7 +269,7 @@
     <div class="top">
       <div class="brand">
         <h1 class="title">🏫 HeroHealth — Hub</h1>
-        <p class="subtitle">เลือกโซน แล้วเข้าเล่นมินิเกมได้ทันที (ส่งต่อพารามิเตอร์เดิมครบ + กลับ Hub ได้เสมอ)</p>
+        <p class="subtitle">3 โซน: โภชนาการ • อนามัยส่วนบุคคล • ออกกำลังกาย (ส่งต่อพารามิเตอร์เดิมครบ + กลับ Hub ได้เสมอ)</p>
       </div>
       <div class="pillrow" id="pillrow"></div>
     </div>
@@ -263,11 +277,30 @@
     <div class="panel">
       <div class="zonebar">
         <div class="tabs" id="tabs"></div>
+
         <div class="actions">
           <div class="btn" id="btnResume">▶️ Resume</div>
+
+          <div class="sep"></div>
+
           <div class="btn" id="btnPlay">▶️ Play</div>
           <div class="btn" id="btnResearch">🧪 Research</div>
-          <div class="btn secondary" id="btnCopyLink">🔗 คัดลอกลิงก์ Hub</div>
+
+          <div class="sep"></div>
+
+          <div class="btn small" id="btnDiffEasy">diff=<strong>easy</strong></div>
+          <div class="btn small" id="btnDiffNormal">diff=<strong>normal</strong></div>
+          <div class="btn small" id="btnDiffHard">diff=<strong>hard</strong></div>
+
+          <div class="sep"></div>
+
+          <div class="btn small" id="btnTime60">time=<strong>60</strong></div>
+          <div class="btn small" id="btnTime90">time=<strong>90</strong></div>
+          <div class="btn small" id="btnTime120">time=<strong>120</strong></div>
+
+          <div class="sep"></div>
+
+          <div class="btn secondary" id="btnCopyLink">🔗 คัดลอก Hub</div>
           <div class="btn secondary" id="btnReset">♻️ รีเซ็ตโซน</div>
         </div>
       </div>
@@ -280,9 +313,9 @@
           <h4>สถานะ & พารามิเตอร์ปัจจุบัน</h4>
           <div class="kv" id="kv"></div>
           <div class="note" id="note">
-            ✅ Hub นี้ “ไม่แก้/ไม่ override” query ที่คุณส่งมา (ส่งต่อทั้งหมด)<br/>
-            ✅ ปุ่ม Play/Research จะเติม <b>run=</b> เฉพาะตอนที่ยังไม่มีเท่านั้น<br/>
-            ✅ Resume จะพาเข้าเกมล่าสุดทันที (และอัปเดต <b>hub=</b> ให้ถูกหน้า)
+            ✅ Hub นี้ “ไม่ override” พารามิเตอร์เดิม (ส่งต่อทั้งหมด)<br/>
+            ✅ ปุ่มลัดจะ “เติมค่า” เฉพาะตอนที่ยังไม่มี param นั้นเท่านั้น<br/>
+            ✅ Resume จะพาเข้าเกมล่าสุด และอัปเดต <b>hub=</b> ให้ถูกหน้าเสมอ
           </div>
         </aside>
       </div>
@@ -305,36 +338,11 @@
       icon: '🥗',
       name: 'โภชนาการ',
       color: 'green',
-      desc: 'อาหารหลัก 5 หมู่ • จัดจาน • น้ำ • good vs junk',
       games: [
-        {
-          title: 'Food Groups VR',
-          icon: '🧩',
-          desc: 'จัดหมวดอาหารหลัก 5 หมู่ แบบเร็วและแม่น',
-          href: './groups-vr.html',
-          tags: ['Launcher@root', 'PC/Mobile/VR', 'FX+HUD']
-        },
-        {
-          title: 'Balanced Plate VR',
-          icon: '🍽️',
-          desc: 'จัดจานอาหารให้สมดุลครบหมู่',
-          href: './plate-vr.html',
-          tags: ['Launcher@root', '5 หมู่', 'Quest']
-        },
-        {
-          title: 'Hydration Quest VR',
-          icon: '💧',
-          desc: 'บริหารการดื่มน้ำตามเวลา/เป้าหมาย',
-          href: './hydration-vr.html',
-          tags: ['Launcher@root', 'Streak', 'Logging']
-        },
-        {
-          title: 'GoodJunkVR',
-          icon: '🍎',
-          desc: 'แยกอาหารดี/ขยะ + เควส + บอส',
-          href: './goodjunk-vr.html',
-          tags: ['Launcher@root', 'Boss', 'Research']
-        }
+        { title:'Food Groups VR', icon:'🧩', desc:'จัดหมวดอาหารหลัก 5 หมู่ แบบเร็วและแม่น', href:'./groups-vr.html', tags:['Launcher@root','PC/Mobile/VR','FX+HUD'] },
+        { title:'Balanced Plate VR', icon:'🍽️', desc:'จัดจานอาหารให้สมดุลครบหมู่', href:'./plate-vr.html', tags:['Launcher@root','5 หมู่','Quest'] },
+        { title:'Hydration Quest VR', icon:'💧', desc:'บริหารการดื่มน้ำตามเวลา/เป้าหมาย', href:'./hydration-vr.html', tags:['Launcher@root','Streak','Logging'] },
+        { title:'GoodJunkVR', icon:'🍎', desc:'แยกอาหารดี/ขยะ + เควส + บอส', href:'./goodjunk-vr.html', tags:['Launcher@root','Boss','Research'] },
       ]
     },
     {
@@ -342,22 +350,9 @@
       icon: '🧼',
       name: 'อนามัยส่วนบุคคล',
       color: 'cyan',
-      desc: 'ล้างมือ • แปรงฟัน • สุขนิสัย',
       games: [
-        {
-          title: 'Handwash VR',
-          icon: '🫧',
-          desc: 'ฝึกล้างมือ + จับเวลา + แบบทดสอบ',
-          href: './hygiene-vr.html',
-          tags: ['Launcher@root', '7 Steps', 'Quiz']
-        },
-        {
-          title: 'Brush VR',
-          icon: '🦷',
-          desc: 'แปรงฟันกำจัดคราบ + คะแนนความเนี๊ยบ',
-          href: './brush-vr.html',
-          tags: ['Launcher@root', 'Combo', 'Boss-ready']
-        }
+        { title:'Handwash VR', icon:'🫧', desc:'ฝึกล้างมือ + จับเวลา + แบบทดสอบ', href:'./hygiene-vr.html', tags:['Launcher@root','7 Steps','Quiz'] },
+        { title:'Brush VR', icon:'🦷', desc:'แปรงฟันกำจัดคราบ + คะแนนความเนี๊ยบ', href:'./brush-vr.html', tags:['Launcher@root','Combo','Boss-ready'] },
       ]
     },
     {
@@ -365,49 +360,36 @@
       icon: '🏃',
       name: 'ออกกำลังกาย',
       color: 'violet',
-      desc: 'รีแอคชัน • จังหวะ • ความคล่องตัว • การทรงตัว',
       games: [
-        {
-          title: 'Shadow Breaker',
-          icon: '🥊',
-          desc: 'ต่อยตามแพทเทิร์น + คอมโบ + บอส',
-          href: '../fitness/shadow-breaker.html',
-          tags: ['Boss', 'Reflex', 'VR Ready']
-        },
-        {
-          title: 'Jump-Duck',
-          icon: '🦘',
-          desc: 'กระโดด/ก้มหลบอุปสรรค + บอส 3 เฟส',
-          href: '../fitness/jump-duck.html',
-          tags: ['Boss 3 Phases', 'Agility', 'Fast']
-        },
-        {
-          title: 'Rhythm Boxer',
-          icon: '🎵',
-          desc: 'ชกตามจังหวะ (lane-based) เล่นได้ทุกแพลตฟอร์ม',
-          href: '../fitness/rhythm-boxer.html',
-          tags: ['Rhythm', 'Timing', 'cVR']
-        },
-        {
-          title: 'Balance Hold',
-          icon: '🧘',
-          desc: 'ทรงตัวค้างท่า + วัดความนิ่ง + ความอึด',
-          href: '../fitness/balance-hold.html',
-          tags: ['Balance', 'Stability', 'Endurance']
-        }
+        { title:'Shadow Breaker', icon:'🥊', desc:'ต่อยตามแพทเทิร์น + คอมโบ + บอส', href:'../fitness/shadow-breaker.html', tags:['Boss','Reflex','VR Ready'] },
+        { title:'Jump-Duck', icon:'🦘', desc:'กระโดด/ก้มหลบอุปสรรค + บอส 3 เฟส', href:'../fitness/jump-duck.html', tags:['Boss 3 Phases','Agility','Fast'] },
+        { title:'Rhythm Boxer', icon:'🎵', desc:'ชกตามจังหวะ (lane-based) เล่นได้ทุกแพลตฟอร์ม', href:'../fitness/rhythm-boxer.html', tags:['Rhythm','Timing','cVR'] },
+        { title:'Balance Hold', icon:'🧘', desc:'ทรงตัวค้างท่า + วัดความนิ่ง + ความอึด', href:'../fitness/balance-hold.html', tags:['Balance','Stability','Endurance'] },
       ]
     }
   ];
 
-  // ========= HELPERS =========
+  // ========= STORAGE KEYS =========
   const LS_LAST_ZONE = 'HHA_HUB_LAST_ZONE';
-  const LS_LAST_GAME = 'HHA_HUB_LAST_GAME_URL';
+  const LS_LAST_GAME_URL = 'HHA_HUB_LAST_GAME_URL';
+  const LS_LAST_GAME_TITLE = 'HHA_HUB_LAST_GAME_TITLE';
 
+  // ========= DOM helpers =========
   const $ = (sel)=>document.querySelector(sel);
+  const tabsEl = $('#tabs');
+  const cardsEl = $('#cards');
+  const kvEl = $('#kv');
+  const pillRow = $('#pillrow');
+
+  const state = { zoneId: null, debug:false };
+
+  // ========= URL helpers =========
+  function hubUrl(){ return location.href.split('#')[0]; }
 
   function parseQS(){
-    try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); }
+    try{ return new URL(hubUrl()).searchParams; }catch{ return new URLSearchParams(); }
   }
+
   function toObj(sp){
     const o = {};
     for (const [k,v] of sp.entries()) o[k]=v;
@@ -420,28 +402,21 @@
   }
 
   function detectView(){
-    // ถ้ามี view ใน query ให้ใช้ตามนั้น (ไม่เดา/ไม่ override)
     const q = parseQS();
     const v = (q.get('view')||'').toLowerCase();
     if (v) return v;
-
-    // ถ้าไม่มี view ค่อยเดาเพื่อโชว์บน UI เท่านั้น
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
     return isMobile ? 'mobile' : 'pc';
-  }
-
-  function hubUrl(){
-    return location.href.split('#')[0];
   }
 
   function buildTargetUrl(baseHref){
     const base = new URL(baseHref, location.href);
     const cur = parseQS();
 
-    // ส่งต่อทุกพารามิเตอร์เดิมครบ
+    // ส่งต่อทุกพารามิเตอร์เดิมครบ (ยกเว้น hub เดิม)
     for (const [k,v] of cur.entries()){
-      if (k === 'hub') continue;        // ไม่เอา hub เดิมของปลายทาง
+      if (k === 'hub') continue;
       base.searchParams.set(k, v);
     }
 
@@ -450,6 +425,7 @@
     return base.toString();
   }
 
+  // เติม param เฉพาะตอนยังไม่มี (ไม่ override)
   function setParamIfMissing(key, value){
     const u = new URL(hubUrl());
     const q = u.searchParams;
@@ -460,43 +436,28 @@
     return { changed:true, url:u.toString(), current:value };
   }
 
+  // อัปเดต hub= ใน resume url ให้เป็น hub ปัจจุบันเสมอ
   function normalizeResumeUrl(storedUrl){
-    // อัปเดต hub= ให้เป็น Hub ปัจจุบันเสมอ (ไม่แก้ param อื่น)
     const u = new URL(storedUrl, location.href);
     u.searchParams.set('hub', hubUrl());
     return u.toString();
   }
 
-  // ========= UI RENDER =========
-  const tabsEl = $('#tabs');
-  const cardsEl = $('#cards');
-  const kvEl = $('#kv');
-  const pillRow = $('#pillrow');
-
-  const state = { zoneId: null, debug: false };
-
+  // ========= UI render =========
   function renderPills(){
     const q = parseQS();
     const view = detectView();
-    const run = q.get('run');
-    const diff = q.get('diff');
-    const time = q.get('time');
-    const seed = q.get('seed');
-    const studyId = q.get('studyId');
-    const phase = q.get('phase');
-    const conditionGroup = q.get('conditionGroup');
-    const log = q.get('log');
 
     const pills = [
       {k:'view', v:view},
-      {k:'run', v:run},
-      {k:'diff', v:diff},
-      {k:'time', v:time},
-      {k:'seed', v:seed},
-      {k:'studyId', v:studyId},
-      {k:'phase', v:phase},
-      {k:'condition', v:conditionGroup},
-      {k:'log', v:log},
+      {k:'run', v:q.get('run')},
+      {k:'diff', v:q.get('diff')},
+      {k:'time', v:q.get('time')},
+      {k:'seed', v:q.get('seed')},
+      {k:'studyId', v:q.get('studyId')},
+      {k:'phase', v:q.get('phase')},
+      {k:'condition', v:q.get('conditionGroup')},
+      {k:'log', v:q.get('log')},
     ];
 
     pillRow.innerHTML = pills
@@ -522,7 +483,7 @@
       ['phase', q.get('phase')],
       ['conditionGroup', q.get('conditionGroup')],
       ['log', q.get('log')],
-      ['hub', hubUrl()]
+      ['hub', hubUrl()],
     ];
 
     kvEl.innerHTML = data.map(([k,v]) => `
@@ -548,19 +509,25 @@
     if (!zone) return '';
     if (zone.color === 'cyan') return 'cyan';
     if (zone.color === 'violet') return 'violet';
-    if (zone.color === 'amber') return 'amber';
     return '';
   }
 
   function updateResumeBtn(){
     const btn = $('#btnResume');
-    let last = null;
-    try{ last = localStorage.getItem(LS_LAST_GAME); }catch{}
-    if (last && String(last).trim()){
+    let lastUrl = null, lastTitle = null;
+    try{
+      lastUrl = localStorage.getItem(LS_LAST_GAME_URL);
+      lastTitle = localStorage.getItem(LS_LAST_GAME_TITLE);
+    }catch{}
+
+    if (lastUrl && String(lastUrl).trim()){
       btn.classList.remove('disabled');
+      const t = (lastTitle && String(lastTitle).trim()) ? lastTitle : 'last game';
+      btn.textContent = `▶️ Resume: ${t}`;
       btn.title = 'เข้าเกมล่าสุด';
     } else {
       btn.classList.add('disabled');
+      btn.textContent = '▶️ Resume';
       btn.title = 'ยังไม่มีเกมล่าสุด (กดเข้าเกมสักครั้งก่อน)';
     }
   }
@@ -584,14 +551,15 @@
 
       const href = (g.href || '#').trim();
       card.addEventListener('click', ()=>{
-        if (!href || href === '#'){
-          toast('ยังไม่ผูกลิงก์เกมนี้');
-          return;
-        }
+        if (!href || href === '#'){ toast('ยังไม่ผูกลิงก์เกมนี้'); return; }
+
         const finalUrl = buildTargetUrl(href);
 
-        // จำเกมล่าสุดไว้สำหรับ Resume
-        try{ localStorage.setItem(LS_LAST_GAME, finalUrl); }catch{}
+        // จำเกมล่าสุดสำหรับ Resume
+        try{
+          localStorage.setItem(LS_LAST_GAME_URL, finalUrl);
+          localStorage.setItem(LS_LAST_GAME_TITLE, g.title);
+        }catch{}
         updateResumeBtn();
 
         location.href = finalUrl;
@@ -613,7 +581,7 @@
     updateResumeBtn();
   }
 
-  // ========= UX helpers =========
+  // ========= Toast =========
   let toastTimer = null;
   function toast(msg){
     clearTimeout(toastTimer);
@@ -644,12 +612,8 @@
 
   // ========= Buttons =========
   $('#btnCopyLink').addEventListener('click', async ()=>{
-    try{
-      await navigator.clipboard.writeText(location.href);
-      toast('คัดลอกลิงก์ Hub แล้ว');
-    }catch{
-      toast('คัดลอกไม่สำเร็จ (ลองคัดลอกจากแถบที่อยู่)');
-    }
+    try{ await navigator.clipboard.writeText(hubUrl()); toast('คัดลอกลิงก์ Hub แล้ว'); }
+    catch{ toast('คัดลอกไม่สำเร็จ (ลองคัดลอกจากแถบที่อยู่)'); }
   });
 
   $('#btnReset').addEventListener('click', ()=>{
@@ -660,13 +624,9 @@
 
   $('#btnShowDebug').addEventListener('click', ()=>{
     state.debug = !state.debug;
-    const q = parseQS();
-    const obj = toObj(q);
-    if (state.debug){
-      alert('DEBUG — current query params:\n\n' + JSON.stringify(obj, null, 2));
-    } else {
-      toast('ปิด Debug แล้ว');
-    }
+    const obj = toObj(parseQS());
+    if (state.debug) alert('DEBUG — current query params:\n\n' + JSON.stringify(obj, null, 2));
+    else toast('ปิด Debug แล้ว');
   });
 
   $('#btnResume').addEventListener('click', ()=>{
@@ -675,33 +635,37 @@
       toast('ยังไม่มีเกมล่าสุด — กดเข้าเกมสักครั้งก่อน');
       return;
     }
-    let last = null;
-    try{ last = localStorage.getItem(LS_LAST_GAME); }catch{}
-    if (!last){
-      toast('ยังไม่มีเกมล่าสุด');
-      updateResumeBtn();
-      return;
-    }
-    location.href = normalizeResumeUrl(last);
+    let lastUrl = null;
+    try{ lastUrl = localStorage.getItem(LS_LAST_GAME_URL); }catch{}
+    if (!lastUrl){ toast('ยังไม่มีเกมล่าสุด'); updateResumeBtn(); return; }
+    location.href = normalizeResumeUrl(lastUrl);
   });
 
-  $('#btnPlay').addEventListener('click', ()=>{
-    const res = setParamIfMissing('run', 'play');
-    if (!res.changed){
-      toast('มี run อยู่แล้ว: ' + res.current + ' (ไม่ override)');
-      return;
-    }
-    location.href = res.url;
-  });
+  function bindSetIfMissing(btnId, key, value){
+    const el = $(btnId);
+    el.addEventListener('click', ()=>{
+      const res = setParamIfMissing(key, value);
+      if (!res.changed){
+        toast(`มี ${key} อยู่แล้ว: ${res.current} (ไม่ override)`);
+        return;
+      }
+      location.href = res.url;
+    });
+  }
 
-  $('#btnResearch').addEventListener('click', ()=>{
-    const res = setParamIfMissing('run', 'research');
-    if (!res.changed){
-      toast('มี run อยู่แล้ว: ' + res.current + ' (ไม่ override)');
-      return;
-    }
-    location.href = res.url;
-  });
+  // run=
+  bindSetIfMissing('#btnPlay', 'run', 'play');
+  bindSetIfMissing('#btnResearch', 'run', 'research');
+
+  // diff=
+  bindSetIfMissing('#btnDiffEasy', 'diff', 'easy');
+  bindSetIfMissing('#btnDiffNormal', 'diff', 'normal');
+  bindSetIfMissing('#btnDiffHard', 'diff', 'hard');
+
+  // time=
+  bindSetIfMissing('#btnTime60', 'time', '60');
+  bindSetIfMissing('#btnTime90', 'time', '90');
+  bindSetIfMissing('#btnTime120', 'time', '120');
 
   // ========= INIT =========
   function init(){
@@ -713,8 +677,8 @@
     setZone(zoneId, false);
     updateResumeBtn();
   }
-
   init();
+
 })();
 </script>
 </body>
