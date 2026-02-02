@@ -1,8 +1,10 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE Engine — DOM90 v0.5
-// ✅ Adds: Boss attack patterns (RING/STORM), Shield/Cleanser pickups, UV refill by perfect streak
-// Includes: Tug-of-war reclaim + Gentle (penalty) + UV stealth + Boss 4 phases + Finisher
-// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, hha:end
+// BrushVR SAFE Engine — DOM90 v0.6
+// ✅ Boss patterns (RING/STORM)
+// ✅ Pickups: Shield/Cleanser
+// ✅ UV refill by Perfect streak
+// ✅ NEW: Boss Weak Spot (Phase 3-4) + Combo Bank (spend combo -> UV or Shield)
+// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, brush:bank, hha:end
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -38,7 +40,10 @@
 
       bossWrap: id('hud-boss'),
       bFill: id('bFill'),
-      bPhase: id('bPhase')
+      bPhase: id('bPhase'),
+
+      // OPTIONAL (if you have it)
+      bankBtn: id('bankBtn')
     };
 
     function setTimer(secLeft, secTotal, phaseLabel){
@@ -200,7 +205,6 @@
     el.style.userSelect='none';
     el.style.webkitTapHighlightColor='transparent';
 
-    // defaults
     el.style.width='48px';
     el.style.height='48px';
 
@@ -217,6 +221,16 @@
       el.style.background='rgba(244,63,94,.16)';
       el.style.border='1px solid rgba(244,63,94,.35)';
       el.style.opacity='0';
+    }else if(kind==='weak'){
+      // NEW: weak spot boss note
+      el.style.width='58px';
+      el.style.height='58px';
+      el.style.borderRadius='22px';
+      el.textContent='🎯';
+      el.style.background='rgba(251,191,36,.18)';
+      el.style.border='1px solid rgba(251,191,36,.45)';
+      el.style.opacity='0';
+      el.style.boxShadow='0 0 0 2px rgba(251,191,36,.10), 0 18px 34px rgba(0,0,0,.35)';
     }else if(kind==='shield'){
       el.style.width='52px';
       el.style.height='52px';
@@ -243,7 +257,7 @@
 
   function popJudgeFx(layer, x, y, judge){
     const fx = DOC.createElement('div');
-    fx.textContent = (judge==='perfect') ? 'PERFECT!' : (judge==='good' ? 'GOOD' : (judge==='PICK' ? 'PICK!' : 'MISS'));
+    fx.textContent = (judge==='perfect') ? 'PERFECT!' : (judge==='good' ? 'GOOD' : (judge==='PICK' ? 'PICK!' : (judge==='WEAK' ? 'WEAK!' : 'MISS')));
     fx.style.position='absolute';
     fx.style.left = `${x}px`;
     fx.style.top  = `${y}px`;
@@ -313,13 +327,11 @@
       stealthVisibleOpacity: 0.85,
       stealthHiddenOpacity: 0.10,
       stealthHitWhenOffPenalty: true,
-      // NEW: refill by perfect streak
       refillStreak: 6
     },
 
     pickups: {
       enabled: true,
-      // base spawn pacing (slower in RUN_Q, faster in BOSS)
       spawnEverySecRun: 10.5,
       spawnEverySecBoss: 7.0,
       lifeSec: 2.8,
@@ -333,7 +345,17 @@
       enabled: true,
       hpMax: 100,
       phaseMax: 4,
-      dmg: { bossPerfect: 9, bossGood: 6, stealthUV: 12 },
+
+      dmg: {
+        bossPerfect: 9,
+        bossGood: 6,
+        stealthUV: 12,
+        // NEW: weak spot dmg
+        weakPerfect: 14,
+        weakGood: 10,
+        // NEW: non-weak dmg in phase3-4 (tiny)
+        nonWeakScaleLate: 0.18
+      },
 
       noteLifeSec: 2.2,
 
@@ -344,11 +366,23 @@
       finisherNeed: 5,
       finisherWindowSec: 6.0,
 
-      // NEW: patterns
-      ringCountBase: 6,         // phase 1..4 -> +0..+2
-      ringRadiusFrac: 0.22,     // ring radius as fraction of min(safeW,safeH)
-      stormBurst: 6,            // number of quick spawns in a storm burst
-      stormGapSec: 0.12
+      ringCountBase: 6,
+      ringRadiusFrac: 0.22,
+      stormBurst: 6,
+      stormGapSec: 0.12,
+
+      // NEW: weak spot chance (phase3-4)
+      weakChanceP3: 0.34,
+      weakChanceP4: 0.42
+    },
+
+    // NEW: Combo Bank
+    bank: {
+      enabled: true,
+      costCombo: 8,
+      cdSec: 3.5,
+      // If UV not full -> UV +1, else -> Shield
+      shieldSec: 4.5
     }
   };
 
@@ -398,34 +432,31 @@
       hitTimes:[],
       lastHitMs:0,
 
-      // NEW: perfect streak for UV refill
       perfectStreak: 0,
 
       lastTouchedAt:{ q1:0, q2:0, q3:0, q4:0 },
       reclaiming:{ q1:0, q2:0, q3:0, q4:0 },
 
-      // NEW: reclaim freeze from cleanser
       reclaimFreezeLeft: 0,
 
-      // UV state
       uvEnergy: CFG.uv.energyMax,
       uvOn:false,
       uvLeft:0,
       uvCdLeft:0,
       lastStealthSpawn:0,
 
-      // NEW: pickups
       lastPickupSpawn: 0,
       shieldLeft: 0,
 
-      // BOSS state
+      // NEW: Bank
+      bankCdLeft: 0,
+
       bossOn:false,
       bossHp: CFG.boss.hpMax,
       bossPhase: 1,
       lastBossSpawn: 0,
 
-      // NEW: pattern scheduler
-      bossPattern: 'DUEL', // DUEL | RING | STORM
+      bossPattern: 'DUEL',
       patternLeft: 3.2,
       stormQueue: 0,
       stormNextAt: 0,
@@ -450,9 +481,82 @@
     rebuildNoSpawn();
     WIN.addEventListener('resize', rebuildNoSpawn);
 
+    // ---------- BANK button (auto create if missing) ----------
+    function ensureBankBtn(){
+      if(!CFG.bank.enabled) return null;
+      if(HUD.el.bankBtn) return HUD.el.bankBtn;
+
+      const b = DOC.createElement('button');
+      b.id = 'bankBtnAuto';
+      b.type = 'button';
+      b.textContent = 'BANK';
+      b.style.position='fixed';
+      b.style.right='12px';
+      b.style.bottom='12px';
+      b.style.zIndex='59';
+      b.style.padding='10px 12px';
+      b.style.borderRadius='16px';
+      b.style.border='1px solid rgba(148,163,184,.22)';
+      b.style.background='rgba(2,6,23,.55)';
+      b.style.color='rgba(229,231,235,.95)';
+      b.style.fontWeight='900';
+      b.style.letterSpacing='.6px';
+      b.style.backdropFilter='blur(8px)';
+      b.style.webkitBackdropFilter='blur(8px)';
+      b.style.boxShadow='0 10px 26px rgba(0,0,0,.25)';
+      b.style.cursor='pointer';
+      b.style.opacity='0.95';
+      b.setAttribute('aria-label','Combo Bank');
+
+      DOC.body.appendChild(b);
+      return b;
+    }
+
+    const bankBtn = ensureBankBtn();
+
+    function addUVEnergy(n=1){
+      const before = S.uvEnergy;
+      S.uvEnergy = clamp(S.uvEnergy + n, 0, CFG.uv.energyMax);
+      if(S.uvEnergy > before){
+        HUD.toast('UV +1!', 'พลัง UV เพิ่มแล้ว', 1000);
+        emit('brush:uv', { on:S.uvOn, energy:S.uvEnergy, refill:true });
+      }
+    }
+
+    function applyBank(){
+      if(!CFG.bank.enabled) return;
+      if(S.bankCdLeft > 0){
+        HUD.toast('BANK รอคูลดาวน์', `อีก ${(S.bankCdLeft).toFixed(1)}s`, 1000);
+        return;
+      }
+      if(S.combo < CFG.bank.costCombo){
+        HUD.toast('คอมโบไม่พอ', `ต้องมีคอมโบอย่างน้อย ${CFG.bank.costCombo}`, 1100);
+        return;
+      }
+
+      S.combo -= CFG.bank.costCombo;
+      S.bankCdLeft = CFG.bank.cdSec;
+
+      // auto choose reward
+      if(CFG.uv.enabled && S.uvEnergy < CFG.uv.energyMax){
+        addUVEnergy(1);
+        HUD.toast('BANK: UV +1!', `ใช้คอมโบ ${CFG.bank.costCombo}`, 1200);
+        emit('brush:bank', { kind:'uv', cost:CFG.bank.costCombo, uvEnergy:S.uvEnergy });
+      }else{
+        S.shieldLeft = Math.max(S.shieldLeft, CFG.bank.shieldSec);
+        HUD.toast('BANK: 🛡 Shield!', `ใช้คอมโบ ${CFG.bank.costCombo}`, 1200);
+        emit('brush:bank', { kind:'shield', cost:CFG.bank.costCombo, shieldLeft:S.shieldLeft });
+      }
+
+      rebuildNoSpawn();
+    }
+
+    if(bankBtn){
+      bankBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); applyBank(); }, {passive:false});
+    }
+
     // ---------- reclaim / shield ----------
     function reclaimRateScale(){
-      // base: boss increases reclaim; shield decreases reclaim strongly
       let s = 1.0;
       if(S.bossOn) s *= (1.35 + 0.15*(S.bossPhase-1));
       if(S.shieldLeft > 0) s *= 0.35;
@@ -512,7 +616,7 @@
       S.notes.set(note.id, note);
       const life =
         (note.kind==='stealth') ? CFG.uv.stealthLifeSec :
-        (note.kind==='boss') ? CFG.boss.noteLifeSec :
+        (note.kind==='boss' || note.kind==='weak') ? CFG.boss.noteLifeSec :
         (note.kind==='shield' || note.kind==='cleanser') ? CFG.pickups.lifeSec :
         CFG.noteLifeSec;
 
@@ -579,9 +683,10 @@
       spawnStealthAt(p);
     }
 
-    function spawnBossAt(p){
+    function spawnBossAt(p, weak=false){
       const id = ++S.noteSeq;
-      const el = mkNoteEl('boss');
+      const el = mkNoteEl(weak ? 'weak' : 'boss');
+
       el.style.left = `${p.x}px`;
       el.style.top  = `${p.y}px`;
       el.style.transform = 'translate(-50%,-50%) scale(0.90)';
@@ -593,16 +698,33 @@
       const due = born + clamp(baseDelay + (S.rng()*180), 260, 560);
 
       popIn(el);
-      const note = { id, kind:'boss', bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
+
+      if(weak){
+        // tiny pulse
+        el.style.transition = 'transform .22s ease, opacity .22s ease';
+        el.animate?.(
+          [{transform:'translate(-50%,-50%) scale(1)'},{transform:'translate(-50%,-50%) scale(1.06)'},{transform:'translate(-50%,-50%) scale(1)'}],
+          {duration:700, iterations:3}
+        );
+      }
+
+      const note = { id, kind: weak ? 'weak':'boss', weak, bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
+
     function spawnBossNote(){
       const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
-      spawnBossAt(p);
+
+      // NEW: weak spot only in phase 3-4
+      let weak = false;
+      if(S.bossOn && S.bossPhase >= 3){
+        const ch = (S.bossPhase===3) ? CFG.boss.weakChanceP3 : CFG.boss.weakChanceP4;
+        weak = (S.rng() < ch);
+      }
+      spawnBossAt(p, weak);
     }
 
-    // Pickups
     function spawnPickup(kind){
       const id = ++S.noteSeq;
       const el = mkNoteEl(kind);
@@ -630,14 +752,17 @@
     }
 
     // ---------- UV ----------
-    function addUVEnergy(n=1){
-      const before = S.uvEnergy;
-      S.uvEnergy = clamp(S.uvEnergy + n, 0, CFG.uv.energyMax);
-      if(S.uvEnergy > before){
-        HUD.toast('UV +1!', 'Perfect streak เติมพลัง UV สำเร็จ', 1200);
-        emit('brush:uv', { on:S.uvOn, energy:S.uvEnergy, refill:true });
+    function onPerfectProgress(){
+      S.perfectStreak++;
+      if(S.perfectStreak > 20) S.perfectStreak = 20;
+
+      if(CFG.uv.enabled && S.perfectStreak >= CFG.uv.refillStreak){
+        S.perfectStreak -= CFG.uv.refillStreak;
+        addUVEnergy(1);
+        HUD.toast('UV +1!', 'Perfect streak เติม UV', 1100);
       }
     }
+    function resetPerfectStreak(){ S.perfectStreak = 0; }
 
     function tryUseUV(){
       if(!CFG.uv.enabled) return;
@@ -658,7 +783,6 @@
       HUD.toast('UV ON!', 'ตอนนี้เห็นคราบล่องหนแล้ว!', 1200);
       syncStealthVisibility();
       emit('brush:uv', { on:true, energy:S.uvEnergy });
-
       rebuildNoSpawn();
     }
     if(HUD.el.uvBtn){
@@ -676,7 +800,7 @@
       else ph = 1;
       if(ph !== S.bossPhase){
         S.bossPhase = ph;
-        HUD.toast('บอสเปลี่ยนเฟส!', `Phase ${ph}/4 เร็วขึ้น โหดขึ้น!`, 1100);
+        HUD.toast('บอสเปลี่ยนเฟส!', `Phase ${ph}/4 • โหมด weak spot ${ph>=3?'ON':'OFF'}`, 1200);
         emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase });
       }
     }
@@ -687,11 +811,8 @@
     }
 
     function pickPattern(){
-      // weights change by phase
       const r = S.rng();
       const ph = S.bossPhase;
-      // phase 1: mostly duel, little ring
-      // phase 4: more storm, more ring
       const wD = clamp(0.65 - 0.12*(ph-1), 0.25, 0.70);
       const wR = clamp(0.22 + 0.06*(ph-1), 0.20, 0.45);
       const wS = clamp(1.0 - (wD+wR), 0.10, 0.45);
@@ -723,7 +844,6 @@
     function spawnRing(){
       const sp = S.ns?.safePlay;
       if(!sp) return;
-
       const c = safeCenter();
       const minDim = Math.max(120, Math.min(sp.w, sp.h));
       const rad = minDim * CFG.boss.ringRadiusFrac * clamp(0.88 + S.rng()*0.28, 0.70, 1.15);
@@ -734,18 +854,15 @@
       for(let i=0;i<count;i++){
         const a = a0 + (i*(Math.PI*2/count));
         const p = { x: c.x + Math.cos(a)*rad, y: c.y + Math.sin(a)*rad };
-        // clamp inside safePlay a bit
         p.x = clamp(p.x, sp.x+36, sp.x+sp.w-36);
         p.y = clamp(p.y, sp.y+36, sp.y+sp.h-36);
-        spawnBossAt(p);
+        spawnBossAt(p, (S.bossPhase>=3 && S.rng()<0.28)); // ring may include weak notes in late phases
       }
       HUD.toast('RING!', 'กวาดวงแหวนให้ไว!', 900);
     }
 
     function spawnStormTick(){
-      // storm uses boss notes but with quicker rhythm
       spawnBossNote();
-      // stealth chance if UV on
       if(CFG.uv.enabled && S.uvOn && (S.rng() < (0.40 + 0.10*(S.bossPhase-1)))){
         spawnStealth();
       }
@@ -753,23 +870,17 @@
 
     function maybeSpawnPickups(){
       if(!CFG.pickups.enabled) return;
-
       const every = S.bossOn ? CFG.pickups.spawnEverySecBoss : CFG.pickups.spawnEverySecRun;
       if(S.t - S.lastPickupSpawn < every) return;
-
       S.lastPickupSpawn = S.t;
 
-      // choose pickup type:
-      // if shield active -> prefer cleanser; else random
       const r = S.rng();
       let kind = 'shield';
       if(S.shieldLeft > 0) kind = 'cleanser';
       else kind = (r < 0.55 ? 'shield' : 'cleanser');
-
       spawnPickup(kind);
     }
 
-    // ---------- Phase changes ----------
     function setPhase(p){
       S.phase = p;
       if(p==='RUN_Q'){
@@ -812,10 +923,9 @@
         HUD.toast('🛡 Shield!', 'กันพลาด + tug เบาลงชั่วคราว', 1400);
         emit('brush:pickup', { kind:'shield', dur:S.shieldLeft });
       }else if(kind==='cleanser'){
-        // boost coverage all + freeze reclaim
         for(const q of CFG.quads){
           S.coverage[q] = clamp((S.coverage[q]||0) + CFG.pickups.cleanserBoostAll, 0, 100);
-          S.lastTouchedAt[q] = S.t; // count as recently touched
+          S.lastTouchedAt[q] = S.t;
         }
         S.reclaimFreezeLeft = Math.max(S.reclaimFreezeLeft, CFG.pickups.cleanserFreezeReclaimSec);
         HUD.toast('💧 Cleanser!', 'ล้างคราบ + หยุดยึดคืนชั่วคราว', 1400);
@@ -825,21 +935,6 @@
     }
 
     // ---------- judgement ----------
-    function onPerfectProgress(){
-      S.perfectStreak++;
-      if(S.perfectStreak > 20) S.perfectStreak = 20;
-
-      if(CFG.uv.enabled && S.perfectStreak >= CFG.uv.refillStreak){
-        // refill once and reduce streak by refillStreak (so can chain refill)
-        S.perfectStreak -= CFG.uv.refillStreak;
-        addUVEnergy(1);
-      }
-    }
-
-    function resetPerfectStreak(){
-      S.perfectStreak = 0;
-    }
-
     function judgeNote(note, hitMs, source){
       if(!note || note.used) return;
       note.used = true;
@@ -868,26 +963,13 @@
       const finisherMissReset = ()=>{
         if(S.finisherOn){
           S.finisherNeed = CFG.boss.finisherNeed;
-          HUD.toast('พลาด!', 'ต้องเริ่ม Perfect streak ใหม่!', 900);
+          HUD.toast('พลาด!', 'ต้องเริ่ม Perfect ใหม่!', 900);
         }
       };
 
-      // EXPIRE => soft miss for some types
-      if(source==='expire'){
-        if(note.kind==='shield' || note.kind==='cleanser'){
-          // no punishment if missed pickup
-          removeNote();
-          return;
-        }
-      }
-
       // PICKUPS
       if(note.kind==='shield' || note.kind==='cleanser'){
-        if(source==='expire'){
-          removeNote();
-          return;
-        }
-        // on tap/shoot: collect
+        if(source==='expire'){ removeNote(); return; }
         applyPickup(note.kind);
         popJudgeFx(layer, note.x, note.y, 'PICK');
         emit('hha:judge', { type:'pickup', kind:note.kind, judge:'pick', q:S.q, source });
@@ -899,23 +981,17 @@
       if(note.kind==='stealth'){
         if(source==='expire'){
           S.stealthMiss++;
-          // shield reduces penalty
-          if(S.shieldLeft > 0){
-            S.combo = Math.max(0, Math.floor(S.combo * 0.90));
-          }else{
-            S.combo = Math.max(0, Math.floor(S.combo * 0.70));
-          }
+          if(S.shieldLeft > 0) S.combo = Math.max(0, Math.floor(S.combo * 0.90));
+          else S.combo = Math.max(0, Math.floor(S.combo * 0.70));
           S.fever = Math.max(0, S.fever - 2);
           resetPerfectStreak();
           if(S.finisherOn) finisherMissReset();
           popJudgeFx(layer, note.x, note.y, 'miss');
           emit('hha:judge', { type:'stealth', judge:'miss', q:S.q, uvOn:S.uvOn, source:'expire' });
-          removeNote();
-          return;
+          removeNote(); return;
         }else{
           if(S.uvOn){
             S.stealthHit++;
-
             const base = CFG.pts.stealth;
             const cmul = comboMultiplier(S.combo+1);
             const fmul = (S.feverOn ? 1.25 : 1.0);
@@ -929,17 +1005,14 @@
             S.coverage[S.q] = clamp(S.coverage[S.q] + 10.0, 0, 100);
             S.lastTouchedAt[S.q] = S.t;
 
-            // boss damage helper
             if(S.bossOn){
               S.bossHp = clamp(S.bossHp - CFG.boss.dmg.stealthUV, 0, CFG.boss.hpMax);
               updateBossPhaseFromHp();
               maybeEnterFinisher();
             }
 
-            // perfect streak counts (stealth UV hit = perfect)
             onPerfectProgress();
 
-            // FINISHER progress
             if(S.finisherOn){
               S.finisherNeed = Math.max(0, S.finisherNeed - 1);
               S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
@@ -948,15 +1021,12 @@
 
             popJudgeFx(layer, note.x, note.y, 'perfect');
             emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source });
-            removeNote();
-            return;
+            removeNote(); return;
           }else{
             S.stealthMiss++;
             if(CFG.uv.stealthHitWhenOffPenalty){
-              // shield mitigates
               if(S.shieldLeft > 0){
                 S.combo = Math.max(0, Math.floor(S.combo * 0.92));
-                S.fever = Math.max(0, S.fever - 0);
               }else{
                 S.combo = Math.max(0, Math.floor(S.combo * 0.80));
                 S.fever = Math.max(0, S.fever - 1);
@@ -967,106 +1037,100 @@
             }
             popJudgeFx(layer, note.x, note.y, 'miss');
             emit('hha:judge', { type:'stealth', judge:'blocked', q:S.q, uvOn:false, source });
-            removeNote();
-            return;
+            removeNote(); return;
           }
         }
       }
 
-      // boss note
-      if(note.kind==='boss'){
+      // boss / weak note
+      if(note.kind==='boss' || note.kind==='weak'){
+        const isWeak = (note.kind==='weak' || note.weak);
+
         if(source==='expire'){
           S.miss++;
-          if(S.shieldLeft > 0){
-            S.combo = Math.max(0, Math.floor(S.combo*0.85));
-          }else{
-            S.combo = Math.max(0, Math.floor(S.combo*0.6));
-          }
+          if(S.shieldLeft > 0) S.combo = Math.max(0, Math.floor(S.combo*0.85));
+          else S.combo = Math.max(0, Math.floor(S.combo*0.6));
           S.fever = Math.max(0, S.fever - 2);
           resetPerfectStreak();
           if(S.finisherOn) finisherMissReset();
           popJudgeFx(layer, note.x, note.y, 'miss');
-          emit('hha:judge', { type:'boss', judge:'miss', q:S.q, source:'expire' });
-          removeNote();
-          return;
-        }else{
-          if(judge==='miss'){
-            S.miss++;
-            if(S.shieldLeft > 0){
-              // shield: don't wipe combo
-              S.combo = Math.max(0, Math.floor(S.combo*0.85));
-            }else{
-              S.combo = 0;
-            }
-            S.fever = Math.max(0, S.fever - 3);
-            resetPerfectStreak();
-            if(S.finisherOn) finisherMissReset();
-          }else{
-            if(judge==='perfect'){ S.perfect++; S.fever += 2; }
-            else { S.good++; S.fever += 1; }
-
-            S.combo++;
-            S.maxCombo = Math.max(S.maxCombo, S.combo);
-
-            const base = (judge==='perfect') ? (CFG.pts.perfect+2) : (CFG.pts.good+1);
-            const cmul = comboMultiplier(S.combo);
-            const fmul = (S.feverOn ? 1.25 : 1.0);
-            const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
-            S.score += Math.round(base * cmul * fmul * pmul);
-
-            // boss damage
-            const dmg = (judge==='perfect') ? CFG.boss.dmg.bossPerfect : CFG.boss.dmg.bossGood;
-            S.bossHp = clamp(S.bossHp - dmg, 0, CFG.boss.hpMax);
-            updateBossPhaseFromHp();
-            maybeEnterFinisher();
-
-            // perfect streak progress
-            if(judge==='perfect') onPerfectProgress();
-            else resetPerfectStreak();
-
-            // FINISHER progress: only perfect counts
-            if(S.finisherOn && judge==='perfect'){
-              S.finisherNeed = Math.max(0, S.finisherNeed - 1);
-              S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
-              if(S.finisherNeed <= 0){ removeNote(); return bossWin(); }
-            }
-
-            if(S.bossHp <= 0){ removeNote(); return bossWin(); }
-          }
-
-          popJudgeFx(layer, note.x, note.y, judge);
-          emit('hha:judge', { type:'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, source });
-          removeNote();
-          return;
+          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source:'expire' });
+          removeNote(); return;
         }
+
+        if(judge==='miss'){
+          S.miss++;
+          if(S.shieldLeft > 0) S.combo = Math.max(0, Math.floor(S.combo*0.85));
+          else S.combo = 0;
+          S.fever = Math.max(0, S.fever - 3);
+          resetPerfectStreak();
+          if(S.finisherOn) finisherMissReset();
+          popJudgeFx(layer, note.x, note.y, 'miss');
+          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source });
+          removeNote(); return;
+        }
+
+        // hit
+        if(judge==='perfect'){ S.perfect++; S.fever += 2; }
+        else { S.good++; S.fever += 1; }
+
+        S.combo++;
+        S.maxCombo = Math.max(S.maxCombo, S.combo);
+
+        const base = (judge==='perfect') ? (CFG.pts.perfect+2) : (CFG.pts.good+1);
+        const cmul = comboMultiplier(S.combo);
+        const fmul = (S.feverOn ? 1.25 : 1.0);
+        const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
+        S.score += Math.round(base * cmul * fmul * pmul);
+
+        // NEW: weak spot logic in phase 3-4
+        let dmg = 0;
+        if(isWeak){
+          dmg = (judge==='perfect') ? CFG.boss.dmg.weakPerfect : CFG.boss.dmg.weakGood;
+        }else{
+          const baseD = (judge==='perfect') ? CFG.boss.dmg.bossPerfect : CFG.boss.dmg.bossGood;
+          if(S.bossPhase >= 3) dmg = Math.round(baseD * CFG.boss.dmg.nonWeakScaleLate);
+          else dmg = baseD;
+        }
+
+        S.bossHp = clamp(S.bossHp - dmg, 0, CFG.boss.hpMax);
+        updateBossPhaseFromHp();
+        maybeEnterFinisher();
+
+        if(judge==='perfect') onPerfectProgress();
+        else resetPerfectStreak();
+
+        // FINISHER: only perfect counts
+        if(S.finisherOn && judge==='perfect'){
+          S.finisherNeed = Math.max(0, S.finisherNeed - 1);
+          S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
+          if(S.finisherNeed <= 0){ removeNote(); return bossWin(); }
+        }
+
+        if(S.bossHp <= 0){ removeNote(); return bossWin(); }
+
+        popJudgeFx(layer, note.x, note.y, isWeak ? 'WEAK' : judge);
+        emit('hha:judge', { type:isWeak?'weak':'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, dmg, source });
+        removeNote(); return;
       }
 
       // normal note
       if(source==='expire'){
-        // expire normal => miss (shield mitigates)
         S.miss++;
-        if(S.shieldLeft > 0){
-          S.combo = Math.max(0, Math.floor(S.combo*0.92));
-        }else{
-          S.combo = 0;
-        }
+        if(S.shieldLeft > 0) S.combo = Math.max(0, Math.floor(S.combo*0.92));
+        else S.combo = 0;
         S.fever = Math.max(0, S.fever - 2);
         resetPerfectStreak();
         if(S.finisherOn) finisherMissReset();
         popJudgeFx(layer, note.x, note.y, 'miss');
         emit('hha:judge', { type:'note', judge:'miss', q:S.q, source:'expire' });
-        removeNote();
-        return;
+        removeNote(); return;
       }
 
       if(judge==='miss'){
         S.miss++;
-        if(S.shieldLeft > 0){
-          // shield: keep some combo
-          S.combo = Math.max(0, Math.floor(S.combo*0.85));
-        }else{
-          S.combo = 0;
-        }
+        if(S.shieldLeft > 0) S.combo = Math.max(0, Math.floor(S.combo*0.85));
+        else S.combo = 0;
         S.fever = Math.max(0, S.fever - 3);
         resetPerfectStreak();
         if(S.finisherOn) finisherMissReset();
@@ -1087,11 +1151,9 @@
         S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
         S.lastTouchedAt[S.q] = S.t;
 
-        // perfect streak for UV refill
         if(judge==='perfect') onPerfectProgress();
         else resetPerfectStreak();
 
-        // FINISHER: perfect counts
         if(S.finisherOn && judge==='perfect'){
           S.finisherNeed = Math.max(0, S.finisherNeed - 1);
           S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
@@ -1099,7 +1161,6 @@
         }
       }
 
-      // fever trigger
       if(!S.feverOn && S.fever >= CFG.feverMax){
         S.feverOn = true;
         S.feverLeft = CFG.feverOnSec;
@@ -1127,20 +1188,17 @@
         S.quadIndex++;
         setPhase('RUN_Q');
       }else{
-        if(CFG.boss.enabled){
-          setPhase('BOSS');
-        }else{
-          endGame('quad_done');
-        }
+        if(CFG.boss.enabled) setPhase('BOSS');
+        else endGame('quad_done');
       }
     }
 
     // ---------- end game ----------
     function calcRank(score){
-      if(score >= 1500) return 'S';
-      if(score >= 1200) return 'A';
-      if(score >= 980)  return 'B';
-      if(score >= 780)  return 'C';
+      if(score >= 1550) return 'S';
+      if(score >= 1250) return 'A';
+      if(score >= 1000) return 'B';
+      if(score >= 800)  return 'C';
       return 'D';
     }
 
@@ -1165,6 +1223,7 @@
         gentle: { heavyCount: S.heavyCount },
         uv: { energyLeft: S.uvEnergy },
         pickups: { shieldSecLeft: S.shieldLeft, reclaimFreezeLeft: S.reclaimFreezeLeft },
+        bank: { bankCdLeft: S.bankCdLeft },
         boss: {
           on: S.bossOn,
           hpLeft: S.bossHp,
@@ -1254,7 +1313,7 @@
     // start
     setPhase('INTRO');
 
-    // ---------- main loop ----------
+    // ---------- loop ----------
     let last = nowMs();
     function loop(t){
       const dt = Math.min(0.05, (t - last)/1000);
@@ -1263,19 +1322,17 @@
       S.t += dt;
       S.left = Math.max(0, S.left - dt);
 
-      // timers
       if(S.penaltyLeft > 0) S.penaltyLeft = Math.max(0, S.penaltyLeft - dt);
       if(S.shieldLeft > 0) S.shieldLeft = Math.max(0, S.shieldLeft - dt);
       if(S.reclaimFreezeLeft > 0) S.reclaimFreezeLeft = Math.max(0, S.reclaimFreezeLeft - dt);
+      if(S.bankCdLeft > 0) S.bankCdLeft = Math.max(0, S.bankCdLeft - dt);
 
-      // phase switch
       if(S.phase==='INTRO' && S.t >= CFG.introSec){
         S.phase = 'RUN_Q';
         S.quadIndex = 0;
         setPhase('RUN_Q');
       }
 
-      // fever
       if(S.feverOn){
         S.feverLeft -= dt;
         if(S.feverLeft <= 0){
@@ -1284,7 +1341,6 @@
         }
       }
 
-      // UV cooldown/window
       if(CFG.uv.enabled){
         if(S.uvCdLeft > 0) S.uvCdLeft = Math.max(0, S.uvCdLeft - dt);
 
@@ -1303,13 +1359,11 @@
       if(S.phase==='RUN_Q'){
         S.qTime += dt;
 
-        // spawn normal notes
         if(S.t - S.lastSpawn >= CFG.spawnEverySec){
           S.lastSpawn = S.t;
           spawnNormal();
         }
 
-        // stealth spawn only during UV
         if(CFG.uv.enabled && S.uvOn){
           if(S.t - S.lastStealthSpawn >= CFG.uv.stealthSpawnEverySec){
             S.lastStealthSpawn = S.t;
@@ -1317,23 +1371,18 @@
           }
         }
 
-        // pickups
         maybeSpawnPickups();
-
-        // reclaim
         applyReclaim(dt);
 
         maybeAdvanceQuadrantOrStartBoss();
       }
 
       if(S.phase==='BOSS'){
-        // spawn pattern updates
         S.patternLeft -= dt;
         if(S.patternLeft <= 0){
           startPattern(pickPattern());
         }
 
-        // pattern behaviors
         if(S.bossPattern==='DUEL'){
           const interval = bossSpawnInterval();
           if(S.t - S.lastBossSpawn >= interval){
@@ -1342,14 +1391,12 @@
             if(CFG.uv.enabled && S.uvOn && (S.rng() < (0.40 + 0.10*(S.bossPhase-1)))) spawnStealth();
           }
         }else if(S.bossPattern==='RING'){
-          // ring once at start then revert to duel quickly
           if(S.t - S.lastBossSpawn >= 0.95){
             S.lastBossSpawn = S.t;
             spawnRing();
             startPattern('DUEL');
           }
         }else if(S.bossPattern==='STORM'){
-          // storm queue tick
           if(S.stormQueue > 0 && S.t >= S.stormNextAt){
             spawnStormTick();
             S.stormQueue--;
@@ -1360,17 +1407,12 @@
           }
         }
 
-        // pickups (boss slightly more frequent)
         maybeSpawnPickups();
-
-        // reclaim stronger unless shield/cleanser
         applyReclaim(dt);
 
-        // finisher countdown
         if(S.finisherOn){
           S.finisherLeft = Math.max(0, S.finisherLeft - dt);
           if(S.finisherLeft <= 0){
-            // fail window -> keep trying
             S.finisherNeed = CFG.boss.finisherNeed;
             S.finisherLeft = CFG.boss.finisherWindowSec;
             HUD.toast('FINISHER ต่อ!', 'ยังไม่พอ—ลุย Perfect อีก!', 1100);
@@ -1386,7 +1428,6 @@
         }
       }
 
-      // HUD
       const phaseLabel =
         (S.phase==='INTRO') ? 'INTRO • Ready' :
         (S.phase==='RUN_Q') ? `${S.q.toUpperCase()} • Quadrant Run` :
@@ -1398,6 +1439,7 @@
       const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
 
       let extra = '';
+      if(S.bankCdLeft > 0) extra += ` • BANK ${S.bankCdLeft.toFixed(0)}s`;
       if(S.shieldLeft > 0) extra += ` • 🛡${S.shieldLeft.toFixed(0)}s`;
       if(S.reclaimFreezeLeft > 0) extra += ` • 💧${S.reclaimFreezeLeft.toFixed(0)}s`;
       if(S.uvOn) extra += ' • UV';
@@ -1416,7 +1458,6 @@
         HUD.showBoss(false);
       }
 
-      // time emit
       if((t - S.lastTimeEmit) > 250){
         S.lastTimeEmit = t;
         emit('hha:time', {
@@ -1432,6 +1473,7 @@
           perfectStreak:S.perfectStreak,
           shieldLeft:S.shieldLeft,
           reclaimFreezeLeft:S.reclaimFreezeLeft,
+          bankCdLeft:S.bankCdLeft,
           bossOn:S.bossOn,
           bossHp:S.bossHp,
           bossPhase:S.bossPhase,
