@@ -14,22 +14,33 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- bump version here when deploy -->
+  <script>
+    // cache-bust helper (use ?v=xxx if provided)
+    (function(){
+      try{
+        const q = new URL(location.href).searchParams;
+        window.__HHA_V = q.get('v') || '20260202a';
+      }catch{
+        window.__HHA_V = '20260202a';
+      }
+    })();
+  </script>
+
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260202a" />
 
   <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js?v=20260202a" defer></script>
+  <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
-  <script src="../vr/particles.js?v=20260202a" defer></script>
+  <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js?v=20260202a" defer></script>
-  <script src="../vr/hha-difficulty-director.js?v=20260202a" defer></script>
-  <script src="../vr/hha-badges.js?v=20260202a" defer></script>
+  <script src="../vr/hha-ai-coach.js" defer></script>
+  <script src="../vr/hha-difficulty-director.js" defer></script>
+  <script src="../vr/hha-badges.js" defer></script>
 
   <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
-  <script src="./hygiene-quiz-bank.js?v=20260202a" defer></script>
+  <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260202a"></script>
@@ -112,12 +123,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    document.getElementById('labView').textContent = view;
   }
   setViewClass();
-  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
-  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
