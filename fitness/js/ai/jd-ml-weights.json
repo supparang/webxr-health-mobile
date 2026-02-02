@@ -1,0 +1,12 @@
+{
+  "bias": -0.12,
+  "weights": {
+    "rtRecent": 1.80,
+    "accRecent": -1.40,
+    "missStreak": 0.95,
+    "hitStreak": -0.55,
+    "boss": 0.35,
+    "stability": -0.60
+  },
+  "note": "features normalized..."
+}
