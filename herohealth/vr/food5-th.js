@@ -1,8 +1,9 @@
 // === /herohealth/vr/food5-th.js ===
 // Thai Food 5 Groups Mapping (STABLE, DO NOT CHANGE)
-// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, descForGroup, emojiForGroup, isValidGroup
+// ✅ Exports: FOOD5, JUNK, pickEmoji, labelForGroup, emojiForGroup, groupForKey
 // ✅ Supports seeded rng: pickEmoji(rng, arr)
 // ✅ Group ids are fixed 1..5 per your rule
+
 'use strict';
 
 // ✅ Fixed Thai food group mapping (must not drift)
@@ -44,20 +45,15 @@ export const FOOD5 = Object.freeze({
   })
 });
 
-// Junk / unhealthy set (shared across games)
 export const JUNK = Object.freeze({
+  id: 0,
   key: 'junk',
   labelTH: 'ขยะอาหาร',
   descTH: 'หวาน/ทอด/น้ำอัดลม/ขนมกรุบกรอบ',
-  emojis: Object.freeze(['🍟','🍔','🍕','🌭','🍩','🍪','🧁','🍰','🥤','🧋','🍫','🍬'])
+  emojis: Object.freeze(['🍟','🍔','🍕','🌭','🍩','🍪','🧁','🍰','🥤','🧋'])
 });
 
-// ---------------- helpers ----------------
-export function isValidGroup(groupId){
-  const id = Number(groupId);
-  return id === 1 || id === 2 || id === 3 || id === 4 || id === 5;
-}
-
+// --- helpers ---
 export function pickEmoji(rng, arr){
   const a = Array.isArray(arr) ? arr : [];
   if(!a.length) return '❓';
@@ -67,22 +63,23 @@ export function pickEmoji(rng, arr){
 }
 
 export function labelForGroup(groupId){
-  const g = FOOD5[Number(groupId)];
+  const g = FOOD5[groupId];
   return g ? g.labelTH : 'หมู่ ?';
 }
 
-export function descForGroup(groupId){
-  const g = FOOD5[Number(groupId)];
-  return g ? g.descTH : '';
-}
-
 export function emojiForGroup(rng, groupId){
-  const g = FOOD5[Number(groupId)];
+  const g = FOOD5[groupId];
   if(!g) return '🥦';
   return pickEmoji(rng, g.emojis);
 }
 
-// (optional) convenience: get a random junk emoji
-export function emojiForJunk(rng){
-  return pickEmoji(rng, JUNK.emojis);
+// Optional: lookup by key string ("g1".."g5","junk")
+export function groupForKey(key){
+  const k = String(key || '').toLowerCase().trim();
+  if(k === 'junk') return JUNK;
+  for(const id of [1,2,3,4,5]){
+    const g = FOOD5[id];
+    if(g && g.key === k) return g;
+  }
+  return null;
 }
