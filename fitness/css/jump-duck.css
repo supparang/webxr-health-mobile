@@ -1,4 +1,4 @@
-/* === css/jump-duck.css — Jump Duck Rush UI (2025-12-02) === */
+/* === css/jump-duck.css — Jump Duck Rush UI (PACK 1–3) === */
 
 :root{
   color-scheme: dark;
@@ -12,18 +12,15 @@
   --jd-danger: #fb7185;
   --jd-gold: #facc15;
   --jd-fever: #f97316;
+  --jd-purple:#a78bfa;
 }
 
 *,
 *::before,
-*::after{
-  box-sizing:border-box;
-}
+*::after{ box-sizing:border-box; }
 
 html,body{
-  margin:0;
-  padding:0;
-  height:100%;
+  margin:0; padding:0; height:100%;
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:
     radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
@@ -32,26 +29,15 @@ html,body{
   color:var(--jd-text);
 }
 
-/* Shell */
-
 .jd-shell{
   min-height:100vh;
   max-width:1100px;
   margin:0 auto;
   padding:18px 14px 26px;
 }
+.jd-wrap{ width:100%; }
 
-.jd-wrap{
-  width:100%;
-}
-
-/* Generic view wrapper */
-
-.jd-view{
-  margin-bottom:18px;
-}
-
-/* Card */
+.jd-view{ margin-bottom:18px; }
 
 .jd-card{
   background:
@@ -64,34 +50,11 @@ html,body{
   box-shadow:0 24px 50px rgba(0,0,0,0.7);
 }
 
-/* Typography */
+.jd-title{ margin:0 0 4px; font-size:1.6rem; }
+.jd-subtitle{ margin:0 0 12px; font-size:0.95rem; color:var(--jd-muted); }
 
-.jd-title{
-  margin:0 0 4px;
-  font-size:1.6rem;
-}
-.jd-subtitle{
-  margin:0 0 12px;
-  font-size:0.95rem;
-  color:var(--jd-muted);
-}
-
-.jd-section-title{
-  margin:0 0 12px;
-  font-size:1.3rem;
-}
-.jd-section-subtitle{
-  margin:10px 0 4px;
-  font-size:1rem;
-}
-
-.jd-note{
-  margin:10px 0 12px;
-  font-size:0.85rem;
-  color:var(--jd-muted);
-}
-
-/* Menu layout */
+.jd-section-title{ margin:0 0 12px; font-size:1.3rem; }
+.jd-note{ margin:10px 0 12px; font-size:0.85rem; color:var(--jd-muted); }
 
 .jd-menu-grid{
   display:grid;
@@ -100,17 +63,9 @@ html,body{
   align-items:flex-start;
 }
 
-.jd-menu-block{
-  margin-bottom:10px;
-}
+.jd-menu-block{ margin-bottom:10px; }
 
-.jd-hint{
-  font-size:0.8rem;
-  color:var(--jd-muted);
-  margin:6px 0 0;
-}
-
-/* Field rows / inputs */
+.jd-hint{ font-size:0.8rem; color:var(--jd-muted); margin:6px 0 0; }
 
 .jd-field-row{
   display:flex;
@@ -119,13 +74,10 @@ html,body{
   margin-bottom:8px;
   font-size:0.9rem;
 }
-.jd-field-row label{
-  color:var(--jd-muted);
-}
+.jd-field-row label{ color:var(--jd-muted); }
+
 .jd-field-row input,
-#jd-mode,
-#jd-diff,
-#jd-duration{
+#jd-mode,#jd-diff,#jd-duration,#jd-ai-model{
   border-radius:10px;
   border:1px solid #1f2937;
   padding:6px 8px;
@@ -134,15 +86,19 @@ html,body{
   color:var(--jd-text);
 }
 .jd-field-row input:focus,
-#jd-mode:focus,
-#jd-diff:focus,
-#jd-duration:focus{
+#jd-mode:focus,#jd-diff:focus,#jd-duration:focus,#jd-ai-model:focus{
   outline:none;
   border-color:var(--jd-accent);
   box-shadow:0 0 0 1px rgba(56,189,248,0.55);
 }
 
-/* Research meta box */
+.jd-ai-box{
+  margin:10px 0 8px;
+  padding:10px 10px 8px;
+  border-radius:14px;
+  border:1px solid rgba(30,41,59,.9);
+  background:rgba(2,6,23,.55);
+}
 
 .jd-research{
   background:rgba(15,23,42,0.92);
@@ -157,8 +113,6 @@ html,body{
   color:var(--jd-muted);
 }
 
-/* How-to */
-
 .jd-howto-block{
   padding:10px 12px;
   border-radius:14px;
@@ -170,16 +124,8 @@ html,body{
   padding:0;
   font-size:0.9rem;
 }
-.jd-howto-list li{
-  margin-bottom:4px;
-}
-.jd-howto-inline{
-  margin:8px 0 0;
-  font-size:0.85rem;
-  color:var(--jd-muted);
-}
-
-/* Buttons */
+.jd-howto-list li{ margin-bottom:4px; }
+.jd-howto-inline{ margin:8px 0 0; font-size:0.85rem; color:var(--jd-muted); }
 
 .jd-btn{
   border-radius:999px;
@@ -196,9 +142,7 @@ html,body{
   transition:transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.08s;
   text-decoration:none;
 }
-.jd-btn:hover{
-  transform:translateY(-1px);
-}
+.jd-btn:hover{ transform:translateY(-1px); }
 
 .jd-btn-primary{
   background:linear-gradient(90deg,#22c55e,#38bdf8);
@@ -206,26 +150,13 @@ html,body{
   font-weight:600;
   box-shadow:0 14px 30px rgba(16,185,129,0.55);
 }
-.jd-btn-primary:hover{
-  filter:brightness(1.05);
-}
+.jd-btn-primary:hover{ filter:brightness(1.05); }
 
 .jd-btn-sub{
   border-color:#1f2937;
   background:linear-gradient(90deg,#0f172a,#020617);
 }
-.jd-btn-sub:hover{
-  filter:brightness(1.06);
-}
-
-.jd-btn-ghost{
-  background:transparent;
-  border-color:transparent;
-  color:var(--jd-muted);
-}
-.jd-btn-ghost:hover{
-  color:var(--jd-text);
-}
+.jd-btn-sub:hover{ filter:brightness(1.06); }
 
 .jd-btn-row{
   display:flex;
@@ -233,17 +164,9 @@ html,body{
   gap:8px;
   margin-top:10px;
 }
-.jd-btn-row-secondary{
-  margin-top:6px;
-}
+.jd-btn-row-secondary{ margin-top:6px; }
 
-/* Helpers */
-
-.jd-hidden{
-  display:none !important;
-}
-
-/* HUD */
+.jd-hidden{ display:none !important; }
 
 .jd-hud{
   display:flex;
@@ -251,26 +174,10 @@ html,body{
   gap:10px;
   margin-bottom:10px;
 }
-
-.jd-hud-col{
-  display:flex;
-  flex-direction:column;
-  gap:3px;
-  min-width:0;
-}
-.jd-hud-center{
-  align-items:center;
-}
-.jd-hud-right{
-  align-items:flex-end;
-}
-
-.jd-hud-row{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  font-size:0.85rem;
-}
+.jd-hud-col{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.jd-hud-center{ align-items:center; }
+.jd-hud-right{ align-items:flex-end; }
+.jd-hud-row{ display:flex; align-items:center; gap:6px; font-size:0.85rem; }
 
 .jd-tag{
   font-size:0.75rem;
@@ -278,7 +185,6 @@ html,body{
   letter-spacing:0.06em;
   color:var(--jd-muted);
 }
-
 .jd-hud-chip{
   padding:2px 8px;
   border-radius:999px;
@@ -286,8 +192,6 @@ html,body{
   background:rgba(15,23,42,0.95);
   font-variant-numeric:tabular-nums;
 }
-
-/* Field (ฐานของพื้นที่เล่น) */
 
 .jd-field{
   position:relative;
@@ -300,21 +204,9 @@ html,body{
     #020617;
   box-shadow:0 16px 40px rgba(0,0,0,0.8);
 }
+.jd-play-area{ position:relative; }
 
-/* พื้นที่เล่นหลักของ Jump-Duck */
-
-.jd-play-area{
-  position:relative;
-}
-
-/* track + ground */
-
-.jd-track{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:flex-end;
-}
+.jd-track{ position:absolute; inset:0; display:flex; align-items:flex-end; }
 .jd-ground{
   width:100%;
   height:36px;
@@ -323,7 +215,6 @@ html,body{
 }
 
 /* Avatar */
-
 .jd-avatar{
   position:absolute;
   left:14%;
@@ -336,30 +227,35 @@ html,body{
   font-size:2.4rem;
   filter:drop-shadow(0 8px 12px rgba(0,0,0,0.9));
 }
+.jd-avatar.jump{ transform:translateY(-42px); }
+.jd-avatar.duck{ transform:translateY(16px) scaleY(0.88); }
 
-/* ท่าทาง Jump / Duck */
-
-.jd-avatar.jump{
-  transform:translateY(-40px);
+/* Hold ring (for hold-duck) */
+.jd-hold-ring{
+  position:absolute;
+  left:50%;
+  top:-10px;
+  transform:translateX(-50%);
+  width:46px; height:46px;
+  border-radius:50%;
+  border:2px solid rgba(167,139,250,.65);
+  box-shadow:0 0 18px rgba(167,139,250,.25);
+  overflow:hidden;
 }
-.jd-avatar.duck{
-  transform:translateY(16px) scaleY(0.88);
+.jd-hold-fill{
+  width:100%; height:100%;
+  background:conic-gradient(var(--jd-purple) 0deg, rgba(167,139,250,.12) 0deg);
 }
 
 /* Obstacles */
-
-.jd-obstacles{
-  position:absolute;
-  inset:0;
-  z-index:2;
-}
+.jd-obstacles{ position:absolute; inset:0; z-index:2; }
 
 .jd-obstacle{
   position:absolute;
   left:100%;
   bottom:0;
-  width:60px;
-  height:60px;
+  width:64px;
+  height:64px;
   border-radius:14px;
   background:linear-gradient(135deg,#0f172a,#1f2937);
   border:1px solid rgba(15,23,42,0.95);
@@ -368,51 +264,49 @@ html,body{
   align-items:center;
   justify-content:center;
   color:#e5e7eb;
-  font-size:2rem;
   transform:translate3d(0,0,0);
 }
 
-.jd-obstacle--low{
-  bottom:28px;
-}
-.jd-obstacle--high{
-  bottom:80px;
-}
+.jd-obstacle--low{ bottom:28px; }
+.jd-obstacle--high{ bottom:84px; }
 
-/* ด้านในของสิ่งกีดขวาง: icon + label JUMP/DUCK */
 .jd-obstacle-inner{
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   gap:2px;
+  text-align:center;
 }
-
-.jd-obs-icon{
-  font-size:1.4rem;
-}
-
+.jd-obs-icon{ font-size:1.35rem; }
 .jd-obs-tag{
   font-size:0.7rem;
   text-transform:uppercase;
   letter-spacing:0.06em;
   color:var(--jd-muted);
 }
-
-/* สีเน้นต่างกันระหว่าง JUMP vs DUCK */
-.jd-obstacle--low .jd-obs-tag{
-  color:#22c55e;   /* เขียว = JUMP */
-}
-.jd-obstacle--high .jd-obs-tag{
-  color:#38bdf8;   /* ฟ้า = DUCK */
+.jd-obs-sub{
+  font-size:0.62rem;
+  color:rgba(229,231,235,.85);
+  opacity:.9;
 }
 
-/* เส้นชน */
+.jd-obstacle--low .jd-obs-tag{ color:#22c55e; }
+.jd-obstacle--high .jd-obs-tag{ color:#38bdf8; }
 
+/* Type badges */
+.jd-obstacle.badge-double{ outline:2px solid rgba(250,204,21,.35); }
+.jd-obstacle.badge-hold{ outline:2px solid rgba(167,139,250,.35); }
+.jd-obstacle.badge-fake{ outline:2px solid rgba(56,189,248,.25); }
+
+/* hit/miss visual */
+.jd-obstacle.hit{ filter:brightness(1.15); }
+.jd-obstacle.miss{ filter:grayscale(.4); opacity:.75; }
+
+/* Hit line */
 .jd-hit-line{
   position:absolute;
-  left:0;
-  right:0;
+  left:0; right:0;
   bottom:54px;
   height:2px;
   background:linear-gradient(90deg,transparent,#e5e7eb,transparent);
@@ -420,8 +314,7 @@ html,body{
   box-shadow:0 0 12px rgba(148,163,184,0.9);
 }
 
-/* Judge text (GOOD / MISS / COMBO / Tips) */
-
+/* Judge */
 .jd-judge{
   position:absolute;
   left:50%;
@@ -432,7 +325,7 @@ html,body{
   background:rgba(15,23,42,0.92);
   border:1px solid rgba(31,41,55,0.9);
   font-size:0.95rem;
-  font-weight:600;
+  font-weight:700;
   letter-spacing:0.04em;
   text-transform:uppercase;
   color:#e5e7eb;
@@ -440,22 +333,31 @@ html,body{
   pointer-events:none;
   transition:opacity 0.18s ease-out, transform 0.18s ease-out;
 }
-.jd-judge.show{
-  opacity:1;
-  transform:translate(-50%, 0);
-}
-.jd-judge.ok{
-  color:var(--jd-accent2);
-}
-.jd-judge.miss{
-  color:var(--jd-danger);
-}
-.jd-judge.combo{
+.jd-judge.show{ opacity:1; transform:translate(-50%, 0); }
+.jd-judge.ok{ color:var(--jd-accent2); }
+.jd-judge.miss{ color:var(--jd-danger); }
+.jd-judge.combo{ color:var(--jd-gold); }
+.jd-judge.perfect{ color:var(--jd-gold); text-shadow:0 0 16px rgba(250,204,21,.22); }
+.jd-judge.great{ color:var(--jd-accent); }
+.jd-judge.okay{ color:var(--jd-accent2); }
+
+/* Boss banner */
+.jd-boss{
+  position:absolute;
+  left:50%;
+  top:10px;
+  transform:translateX(-50%);
+  padding:6px 14px;
+  border-radius:999px;
+  border:1px solid rgba(250,204,21,.35);
+  background:linear-gradient(90deg, rgba(250,204,21,.16), rgba(249,115,22,.12));
   color:var(--jd-gold);
+  font-weight:800;
+  letter-spacing:.08em;
+  box-shadow:0 18px 36px rgba(0,0,0,.55);
 }
 
 /* Result */
-
 .jd-result-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
@@ -469,28 +371,24 @@ html,body{
   align-items:center;
   gap:8px;
 }
-.jd-result-row span{
-  color:var(--jd-muted);
-}
-.jd-result-row b{
-  font-variant-numeric:tabular-nums;
+.jd-result-row span{ color:var(--jd-muted); }
+.jd-result-row b{ font-variant-numeric:tabular-nums; }
+
+.jd-export{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:10px 0 8px;
 }
 
-/* Shake on hit/miss */
-
-.jd-field.jd-hit{
-  animation:jd-hit-pulse 0.25s ease-out;
-}
-.jd-field.jd-miss{
-  animation:jd-miss-shake 0.35s ease-out;
-}
-.jd-play-area.shake{
-  animation:jd-miss-shake 0.35s ease-out;
-}
+/* Shake */
+.jd-field.jd-hit{ animation:jd-hit-pulse 0.25s ease-out; }
+.jd-field.jd-miss{ animation:jd-miss-shake 0.35s ease-out; }
+.jd-play-area.shake{ animation:jd-miss-shake 0.35s ease-out; }
 
 @keyframes jd-hit-pulse{
   0%{ box-shadow:0 16px 40px rgba(0,0,0,0.85); }
-  40%{ box-shadow:0 20px 45px rgba(34,197,94,0.7); }
+  40%{ box-shadow:0 22px 48px rgba(34,197,94,0.7); }
   100%{ box-shadow:0 16px 40px rgba(0,0,0,0.85); }
 }
 @keyframes jd-miss-shake{
@@ -501,159 +399,22 @@ html,body{
   100%{ transform:translateX(0); }
 }
 
+/* Advanced */
+.jd-advanced summary{
+  cursor:pointer;
+  color:rgba(229,231,235,.85);
+  margin-top:12px;
+}
+.jd-advanced code{
+  background:rgba(2,6,23,.6);
+  border:1px solid rgba(30,41,59,.8);
+  padding:1px 6px;
+  border-radius:8px;
+}
+
 /* Responsive */
-
 @media (max-width:720px){
-  .jd-shell{
-    padding:10px 8px 18px;
-  }
-  .jd-menu-grid{
-    grid-template-columns:1fr;
-  }
-  .jd-field{
-    min-height:240px;
-  }
+  .jd-shell{ padding:10px 8px 18px; }
+  .jd-menu-grid{ grid-template-columns:1fr; }
+  .jd-field{ min-height:240px; }
 }
-/* ===== Jump-Duck Engine HUD (progress + fever) ===== */
-
-.jd-hud-bars{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  margin:10px 0 12px;
-}
-
-.jd-bar{
-  border:1px solid #1f2937;
-  background:rgba(15,23,42,0.92);
-  border-radius:999px;
-  overflow:hidden;
-  height:14px;
-  position:relative;
-  box-shadow:0 10px 24px rgba(0,0,0,0.55);
-}
-
-.jd-bar-fill{
-  height:100%;
-  transform-origin:left center;
-  transform:scaleX(0);
-  transition:transform 0.12s linear;
-}
-
-.jd-bar--progress .jd-bar-fill{
-  background:linear-gradient(90deg,#38bdf8,#22c55e);
-}
-
-.jd-bar--fever .jd-bar-fill{
-  background:linear-gradient(90deg,#f59e0b,#f97316,#fb7185);
-}
-
-.jd-bar-meta{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  font-size:0.82rem;
-  color:var(--jd-muted);
-  margin-top:2px;
-}
-
-.jd-fever-status{
-  font-weight:700;
-  letter-spacing:0.04em;
-  text-transform:uppercase;
-  color:var(--jd-muted);
-}
-.jd-fever-status.on{
-  color:var(--jd-fever);
-  text-shadow:0 0 14px rgba(249,115,22,0.45);
-}
-
-/* ===== Obstacles animation polish ===== */
-
-.jd-obstacle{
-  will-change: transform, opacity;
-  transition: opacity 0.18s ease-out, filter 0.18s ease-out;
-}
-
-.jd-obstacle.hit{
-  opacity:0;
-  filter:brightness(1.3);
-}
-
-.jd-obstacle.miss{
-  opacity:0.35;
-  filter:saturate(0.3);
-}
-
-/* Optional: slightly different colors per type */
-.jd-obstacle--low{
-  border-color:rgba(34,197,94,0.35);
-}
-.jd-obstacle--high{
-  border-color:rgba(56,189,248,0.35);
-}
-/* ===== Jump-Duck PATCH: Progress + Fever HUD + obstacle polish ===== */
-
-.jd-hud-bars{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  margin:10px 0 12px;
-}
-
-.jd-bar{
-  border:1px solid #1f2937;
-  background:rgba(15,23,42,0.92);
-  border-radius:999px;
-  overflow:hidden;
-  height:14px;
-  position:relative;
-  box-shadow:0 10px 24px rgba(0,0,0,0.55);
-}
-
-.jd-bar-fill{
-  height:100%;
-  transform-origin:left center;
-  transform:scaleX(0);
-  transition:transform 0.12s linear;
-}
-
-.jd-bar--progress .jd-bar-fill{
-  background:linear-gradient(90deg,#38bdf8,#22c55e);
-}
-
-.jd-bar--fever .jd-bar-fill{
-  background:linear-gradient(90deg,#f59e0b,#f97316,#fb7185);
-}
-
-.jd-bar-meta{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  font-size:0.82rem;
-  color:var(--jd-muted);
-  margin-top:2px;
-}
-
-.jd-fever-status{
-  font-weight:700;
-  letter-spacing:0.04em;
-  text-transform:uppercase;
-  color:var(--jd-muted);
-}
-.jd-fever-status.on{
-  color:var(--jd-fever);
-  text-shadow:0 0 14px rgba(249,115,22,0.45);
-}
-
-/* Obstacles animation polish */
-.jd-obstacle{
-  will-change: left, opacity, filter;
-  transition: opacity 0.18s ease-out, filter 0.18s ease-out;
-}
-
-.jd-obstacle.hit{ opacity:0; filter:brightness(1.25); }
-.jd-obstacle.miss{ opacity:0.35; filter:saturate(0.35); }
-
-.jd-obstacle--low{ border-color:rgba(34,197,94,0.35); }
-.jd-obstacle--high{ border-color:rgba(56,189,248,0.35); }
