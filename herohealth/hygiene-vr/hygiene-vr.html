@@ -1,9 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Views: pc/mobile/vr/cvr
+✅ Uses: ../vr/vr-ui.js (hha:shoot)
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
 -->
 <!doctype html>
 <html lang="th">
@@ -14,19 +14,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <script>
-    // cache-bust helper (use ?v=xxx if provided)
-    (function(){
-      try{
-        const q = new URL(location.href).searchParams;
-        window.__HHA_V = q.get('v') || '20260202a';
-      }catch{
-        window.__HHA_V = '20260202a';
-      }
-    })();
-  </script>
-
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260202a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260202b" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
@@ -39,11 +27,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ชื่อไฟล์จริงของคุณ) -->
+  <!-- ✅ Quiz bank (ชื่อไฟล์จริง) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260202a"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260202b"></script>
 </head>
 
 <body class="view-pc">
@@ -75,6 +63,18 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
+
+          <!-- ✅ 4 options -->
+          <div class="hw-quiz-opts" id="quizOpts">
+            <button class="hw-qopt" type="button" data-quizopt="1"><span class="n">1</span><span class="t" id="opt1">—</span></button>
+            <button class="hw-qopt" type="button" data-quizopt="2"><span class="n">2</span><span class="t" id="opt2">—</span></button>
+            <button class="hw-qopt" type="button" data-quizopt="3"><span class="n">3</span><span class="t" id="opt3">—</span></button>
+            <button class="hw-qopt" type="button" data-quizopt="4"><span class="n">4</span><span class="t" id="opt4">—</span></button>
+          </div>
+
+          <div class="hw-quiz-help" id="quizHelp">
+            แตะปุ่ม 1–4 หรือ (cVR) เล็งกากบาทแล้วยิงเพื่อเลือกคำตอบ
+          </div>
         </div>
       </div>
 
