@@ -1,99 +1,87 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (ANTI-HANG)
-// ✅ Start immediately on DOM ready (no start screen)
-// ✅ Auto view detect (no UI override) + allow ?view=
-// ✅ Passthrough research/play params (run/diff/time/seed/studyId/...)
-// ✅ Wires HUD: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
-// ✅ End overlay open/close via aria-hidden only
-// ✅ Restart + Back HUB
-// ✅ Safe guards: never crashes if elements missing
+// PlateVR Boot — PRODUCTION (HARDENED)
+// ✅ Auto view detect (no UI override menu)
+// ✅ Boots engine from ./plate.safe.js
+// ✅ Wires HUD listeners: hha:score, hha:time, quest:update, hha:coach, hha:end
+// ✅ End overlay uses aria-hidden only (no display:none dependency)
+// ✅ Back HUB + Restart
+// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
+// ✅ HARDEN: wait mount + prevent double boot + readable fatal overlay
 
 import { boot as engineBoot } from './plate.safe.js';
 
 const WIN = window;
 const DOC = document;
 
-const qs = (k, def=null)=>{
+const qs = (k, def = null) => {
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 };
 
-function isMobile(){
+const clamp = (v, a, b) => {
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
+};
+
+function isMobile() {
   const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
+  const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && WIN.innerWidth < 920);
 }
 
-async function detectXR(){
-  // best effort: never block boot
-  try{
-    const xr = navigator.xr;
-    if(!xr || typeof xr.isSessionSupported !== 'function') return null;
-    const ok = await xr.isSessionSupported('immersive-vr');
-    return ok ? 'vr' : null;
-  }catch{
-    return null;
-  }
-}
-
-async function getViewAuto(){
-  // ✅ No UI override. Allow caller to force via query only.
-  const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced;
-
-  // best effort: if XR available, prefer 'vr'
-  const xr = await detectXR();
-  if(xr) return xr;
-
+function getViewAuto() {
+  // No UI override. Allow forced by query for experiments only.
+  const forced = String(qs('view', '') || '').toLowerCase();
+  if (forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
 }
 
-function setBodyView(view){
+function setBodyView(view) {
   const b = DOC.body;
-  if(!b) return;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'cvr') b.classList.add('view-cvr');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'mobile') b.classList.add('view-mobile');
+  b.classList.remove('view-pc', 'view-mobile', 'view-vr', 'view-cvr');
+  if (view === 'cvr') b.classList.add('view-cvr');
+  else if (view === 'vr') b.classList.add('view-vr');
+  else if (view === 'mobile') b.classList.add('view-mobile');
   else b.classList.add('view-pc');
 }
 
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function pct(n){
-  n = Number(n)||0;
+function pct(n) {
+  n = Number(n) || 0;
   return `${Math.round(n)}%`;
 }
 
-function setOverlayOpen(open){
+function setOverlayOpen(open) {
   const ov = DOC.getElementById('endOverlay');
-  if(!ov) return;
+  if (!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
 
-function showCoach(msg, meta='Coach', ms=2200){
+function showCoach(msg, meta = 'Coach') {
   const card = DOC.getElementById('coachCard');
   const mEl = DOC.getElementById('coachMsg');
   const metaEl = DOC.getElementById('coachMeta');
-  if(!card || !mEl) return;
+  if (!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = String(meta || 'Coach');
+  if (metaEl) metaEl.textContent = meta;
 
   card.classList.add('show');
-  card.setAttribute('aria-hidden','false');
+  card.setAttribute('aria-hidden', 'false');
 
   clearTimeout(WIN.__HHA_COACH_TO__);
-  WIN.__HHA_COACH_TO__ = setTimeout(()=>{
+  WIN.__HHA_COACH_TO__ = setTimeout(() => {
     card.classList.remove('show');
-    card.setAttribute('aria-hidden','true');
-  }, clamp(ms, 500, 8000));
+    card.setAttribute('aria-hidden', 'true');
+  }, 2200);
 }
 
-function wireHUD(){
+function fatalOverlay(title, detail) {
+  console.error('[PlateVR] FATAL:', title, detail || '');
+  // reuse coachCard if exists (lightweight)
+  showCoach(`${title}${detail ? `\n${detail}` : ''}`, 'System');
+}
+
+function wireHUD() {
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
   const hudCombo = DOC.getElementById('hudCombo');
@@ -108,79 +96,66 @@ function wireHUD(){
   const miniNums = DOC.getElementById('miniNums');
   const miniBar  = DOC.getElementById('miniBar');
 
-  WIN.addEventListener('hha:score', (e)=>{
+  WIN.addEventListener('hha:score', (e) => {
     const d = e.detail || {};
-    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
-    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
+    if (hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
+    if (hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
   });
 
-  WIN.addEventListener('hha:time', (e)=>{
+  WIN.addEventListener('hha:time', (e) => {
     const d = e.detail || {};
     const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
+    if (hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t) || 0)));
   });
 
-  WIN.addEventListener('quest:update', (e)=>{
+  WIN.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
     // shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
-    if(d.goal){
+    if (d.goal) {
       const g = d.goal;
-      if(goalName) goalName.textContent = g.name || 'Goal';
-      if(goalSub)  goalSub.textContent  = g.sub  || '';
+      if (goalName) goalName.textContent = g.name || 'Goal';
+      if (goalSub)  goalSub.textContent  = g.sub  || '';
       const cur = clamp(g.cur ?? 0, 0, 9999);
       const tar = clamp(g.target ?? 1, 1, 9999);
-      if(goalNums) goalNums.textContent = `${cur}/${tar}`;
-      if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
+      if (goalNums) goalNums.textContent = `${cur}/${tar}`;
+      if (goalBar)  goalBar.style.width  = `${Math.round((cur / tar) * 100)}%`;
     }
-    if(d.mini){
+    if (d.mini) {
       const m = d.mini;
-      if(miniName) miniName.textContent = m.name || 'Mini Quest';
-      if(miniSub)  miniSub.textContent  = m.sub  || '';
+      if (miniName) miniName.textContent = m.name || 'Mini Quest';
+      if (miniSub)  miniSub.textContent  = m.sub  || '';
       const cur = clamp(m.cur ?? 0, 0, 9999);
       const tar = clamp(m.target ?? 1, 1, 9999);
-      if(miniNums) miniNums.textContent = `${cur}/${tar}`;
-      if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
+      if (miniNums) miniNums.textContent = `${cur}/${tar}`;
+      if (miniBar)  miniBar.style.width  = `${Math.round((cur / tar) * 100)}%`;
     }
   });
 
-  WIN.addEventListener('hha:coach', (e)=>{
+  WIN.addEventListener('hha:coach', (e) => {
     const d = e.detail || {};
-    if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
-  });
-
-  // optional: judge events can be surfaced as quick toasts
-  WIN.addEventListener('hha:judge', (e)=>{
-    const d = e.detail || {};
-    const type = (d.type || '').toUpperCase();
-    const msg = d.msg || '';
-    if(!msg) return;
-
-    // keep it subtle (avoid spam)
-    if(type === 'PERFECT' || type === 'CLEAR' || type === 'BOSS' || type === 'STORM'){
-      showCoach(msg, type, 1600);
-    }
+    if (d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
 }
 
-function wireEndControls(){
+function wireEndControls() {
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
-  const hub = qs('hub','') || '';
+  const hub = qs('hub', '') || '';
 
-  if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload(); // keep same query
+  if (btnRestart) {
+    btnRestart.addEventListener('click', () => {
+      location.reload(); // keep same query params
     });
   }
-  if(btnBackHub){
-    btnBackHub.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
+  if (btnBackHub) {
+    btnBackHub.addEventListener('click', () => {
+      if (hub) location.href = hub;
       else history.back();
     });
   }
 }
 
-function wireEndSummary(){
+function wireEndSummary() {
   const kScore = DOC.getElementById('kScore');
   const kAcc   = DOC.getElementById('kAcc');
   const kCombo = DOC.getElementById('kCombo');
@@ -188,28 +163,27 @@ function wireEndSummary(){
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
-  WIN.addEventListener('hha:end', (e)=>{
+  WIN.addEventListener('hha:end', (e) => {
     const d = e.detail || {};
-    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
-    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
-    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
+    if (kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+    if (kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
+    if (kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
     const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
+    if (kAcc) kAcc.textContent = (acc == null) ? '—' : pct(acc);
 
-    if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
-    if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
+    if (kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
+    if (kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
     setOverlayOpen(true);
   });
 }
 
-function buildEngineConfig(view){
-  const run  = (qs('run','play')||'play').toLowerCase();
-  const diff = (qs('diff','normal')||'normal').toLowerCase();
-
-  // note: time 90 is a good default for Plate
-  const time = clamp(qs('time','90'), 10, 999);
+function buildEngineConfig() {
+  const view = getViewAuto();
+  const run  = String(qs('run', 'play') || 'play').toLowerCase();
+  const diff = String(qs('diff', 'normal') || 'normal').toLowerCase();
+  const time = clamp(qs('time', '90'), 10, 999); // ✅ default 90 (ตามที่คุย)
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
@@ -219,66 +193,65 @@ function buildEngineConfig(view){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
-    hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '',
+    hub: qs('hub', '') || '',
+    logEndpoint: qs('log', '') || '',
 
-    // passthrough context (for logger)
-    studyId: qs('studyId','') || '',
-    phase: qs('phase','') || '',
-    conditionGroup: qs('conditionGroup','') || '',
-    sessionOrder: qs('sessionOrder','') || '',
-    blockLabel: qs('blockLabel','') || '',
-    siteCode: qs('siteCode','') || '',
-    schoolCode: qs('schoolCode','') || '',
-    schoolName: qs('schoolName','') || '',
-    gradeLevel: qs('gradeLevel','') || '',
-    studentKey: qs('studentKey','') || '',
+    // research passthrough (optional)
+    studyId: qs('studyId', '') || '',
+    phase: qs('phase', '') || '',
+    conditionGroup: qs('conditionGroup', '') || '',
+    sessionOrder: qs('sessionOrder', '') || '',
+    blockLabel: qs('blockLabel', '') || '',
+    siteCode: qs('siteCode', '') || '',
+    schoolCode: qs('schoolCode', '') || '',
+    schoolName: qs('schoolName', '') || '',
+    gradeLevel: qs('gradeLevel', '') || '',
+    studentKey: qs('studentKey', '') || '',
   };
 }
 
-function ready(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+function ready(fn) {
+  if (DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
+  else DOC.addEventListener('DOMContentLoaded', fn, { once: true });
 }
 
-ready(async ()=>{
-  // always close overlay at start
-  setOverlayOpen(false);
+function waitForEl(id, timeoutMs = 1800) {
+  return new Promise((resolve, reject) => {
+    const t0 = performance.now();
+    const tick = () => {
+      const el = DOC.getElementById(id);
+      if (el) return resolve(el);
+      if (performance.now() - t0 > timeoutMs) return reject(new Error(`missing #${id}`));
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
 
-  // wire UI first (never blocks engine)
+ready(async () => {
+  if (WIN.__PLATE_BOOTED__) return; // ✅ prevent double-boot
+  WIN.__PLATE_BOOTED__ = true;
+
+  const cfg = buildEngineConfig();
+  setBodyView(cfg.view);
+
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // decide view (async XR check, but bounded—never hangs)
-  let view = 'pc';
-  try{
-    // cap XR detect time
-    const p = getViewAuto();
-    view = await Promise.race([
-      p,
-      new Promise(res => setTimeout(()=>res(isMobile() ? 'mobile' : 'pc'), 250))
-    ]);
-  }catch{
-    view = isMobile() ? 'mobile' : 'pc';
+  setOverlayOpen(false);
+
+  let mount;
+  try {
+    mount = await waitForEl('plate-layer', 2000);
+  } catch (err) {
+    fatalOverlay('หา playfield ไม่เจอ', String(err && err.message ? err.message : err));
+    return;
   }
 
-  setBodyView(view);
-
-  const cfg = buildEngineConfig(view);
-
-  // boot engine
-  try{
-    const mount = DOC.getElementById('plate-layer');
-    if(!mount){
-      console.error('[PlateVR] mount #plate-layer missing');
-      showCoach('ไม่พบพื้นที่เล่น (#plate-layer)', 'System', 3000);
-      return;
-    }
-
+  try {
     engineBoot({ mount, cfg });
-  }catch(err){
-    console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System', 3200);
+  } catch (err) {
+    fatalOverlay('เริ่มเกมไม่สำเร็จ', String(err && err.message ? err.message : err));
   }
 });
