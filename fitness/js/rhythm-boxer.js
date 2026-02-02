@@ -1,4 +1,4 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// === js/rhythm-boxer.js — UI glue (menu / play / result) ===
 'use strict';
 
 (function () {
@@ -6,20 +6,67 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-  // views
   const wrap = $('#rb-wrap');
   const viewMenu   = $('#rb-view-menu');
   const viewPlay   = $('#rb-view-play');
   const viewResult = $('#rb-view-result');
 
-  // play area
   const flashEl    = $('#rb-flash');
   const fieldEl    = $('#rb-field');
   const lanesEl    = $('#rb-lanes');
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // menu controls
+  // view helper (pc/mobile/cvr)
+  function getView(){
+    try{
+      const v = (new URL(location.href).searchParams.get('view')||'').toLowerCase();
+      if (v === 'cvr' || v === 'cardboard') return 'cvr';
+      if (v === 'mobile') return 'mobile';
+      if (v === 'pc') return 'pc';
+    }catch(_){}
+    // fallback by UA
+    return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||'') ? 'mobile' : 'pc';
+  }
+  function applyViewClass(){
+    const v = getView();
+    document.body.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
+    if (v === 'cvr') { document.body.classList.add('view-cvr','cardboard'); }
+    else if (v === 'mobile') document.body.classList.add('view-mobile');
+    else document.body.classList.add('view-pc');
+  }
+  applyViewClass();
+
+  // show/hide note lanes for cVR (we keep 5 in DOM but CSS hides 0 and 4)
+  const VIEW = getView();
+  const isCVR = (VIEW === 'cvr');
+
+  // optional: cVR big buttons overlay (3 lanes) for Cardboard
+  function ensureCvrPad(){
+    if (!isCVR) return null;
+    if (document.querySelector('.rb-cvr-pad')) return document.querySelector('.rb-cvr-pad');
+
+    const pad = document.createElement('div');
+    pad.className = 'rb-cvr-pad';
+    const labels = ['L1','C','R1'];
+    const lanes  = [1,2,3];
+
+    lanes.forEach((lane, idx)=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rb-cvr-btn';
+      b.textContent = labels[idx];
+      b.addEventListener('click', ()=>{
+        if (engine && typeof engine.handleLaneTap === 'function') engine.handleLaneTap(lane);
+      });
+      pad.appendChild(b);
+    });
+
+    document.body.appendChild(pad);
+    return pad;
+  }
+
+  // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -28,21 +75,17 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // research inputs
+  // ฟอร์มวิจัย
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // play/result buttons
+  // ปุ่มตอนเล่น / สรุปผล
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
-
-  // extra text
-  const playSub = $('#rb-play-sub');
-  const howto = $('#rb-howto');
 
   // HUD elements
   const hud = {
@@ -68,7 +111,7 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // result fields
+  // แสดงผลสรุป
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -95,16 +138,6 @@
 
   let engine = null;
 
-  function readQuery(key, def = '') {
-    try { return new URL(location.href).searchParams.get(key) || def; }
-    catch (_) { return def; }
-  }
-  function getView() {
-    const v = String(readQuery('view','')).toLowerCase();
-    if (v === 'cvr' || v === 'cardboard') return 'cvr';
-    return 'pc';
-  }
-
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
@@ -123,11 +156,10 @@
     const mode = getSelectedMode();
 
     if (mode === 'normal') {
-      if (modeDescEl) modeDescEl.textContent =
+      modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      if (trackModeLbl) trackModeLbl.textContent =
-        'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      if (researchBox) researchBox.classList.add('hidden');
+      trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -138,11 +170,10 @@
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
 
     } else {
-      if (modeDescEl) modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (ล็อกเกม 100%)';
-      if (trackModeLbl) trackModeLbl.textContent =
-        'โหมด Research — เพลงวิจัย Research Track 120';
-      if (researchBox) researchBox.classList.remove('hidden');
+      modeDescEl.textContent =
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+      trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -155,13 +186,13 @@
   }
 
   function switchView(name) {
-    if (viewMenu) viewMenu.classList.add('hidden');
-    if (viewPlay) viewPlay.classList.add('hidden');
-    if (viewResult) viewResult.classList.add('hidden');
+    viewMenu.classList.add('hidden');
+    viewPlay.classList.add('hidden');
+    viewResult.classList.add('hidden');
 
-    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
-    else if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
-    else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
+    if (name === 'menu') viewMenu.classList.remove('hidden');
+    else if (name === 'play') viewPlay.classList.remove('hidden');
+    else if (name === 'result') viewResult.classList.remove('hidden');
   }
 
   function createEngine() {
@@ -178,7 +209,7 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd }
+      hooks: { onEnd: handleEngineEnd, onAIUpdate: handleAIUpdate }
     });
   }
 
@@ -189,24 +220,33 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    if (wrap) wrap.dataset.diff = cfg.diff;
+    wrap.dataset.diff = cfg.diff;
 
-    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
-    if (hud.track) hud.track.textContent = cfg.labelShort;
+    hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    hud.track.textContent = cfg.labelShort;
+
+    // AI assist switch:
+    // - Research: locked always (AI shows prediction but cannot adjust)
+    // - Normal: enable adapt only when ?ai=1
+    let aiAssistEnabled = false;
+    try{
+      const sp = new URL(location.href).searchParams;
+      const q = (sp.get('ai')||'').toLowerCase();
+      aiAssistEnabled = (mode !== 'research') && (q === '1' || q === 'true' || q === 'yes');
+    }catch(_){}
 
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim()
+      note: (inputNote && inputNote.value || '').trim(),
+      aiAssist: aiAssistEnabled ? 1 : 0
     };
 
-    // Hint for CVR
-    if (getView() === 'cvr') {
-      if (playSub) playSub.textContent = 'Cardboard/cVR: 3 เลน (L / C / R) — อ่านง่าย ตีทัน';
-      if (howto) howto.textContent = 'แตะ L/C/R ให้โน้ต “แตะเส้นตี” · เลี่ยงกดรัว (blank tap มีโทษเล็กน้อย)';
-    }
-
     engine.start(mode, cfg.engineId, meta);
+
+    // cVR: optional big buttons
+    ensureCvrPad();
+
     switchView('play');
   }
 
@@ -215,46 +255,40 @@
   }
 
   function handleEngineEnd(summary) {
-    if (!summary) summary = {};
+    res.mode.textContent      = summary.modeLabel;
+    res.track.textContent     = summary.trackName;
+    res.endReason.textContent = summary.endReason;
+    res.score.textContent     = summary.finalScore;
+    res.maxCombo.textContent  = summary.maxCombo;
+    res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
+    res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    res.rank.textContent      = summary.rank;
 
-    if (res.mode) res.mode.textContent = summary.modeLabel || '-';
-    if (res.track) res.track.textContent = summary.trackName || '-';
-    if (res.endReason) res.endReason.textContent = summary.endReason || '-';
-    if (res.score) res.score.textContent = summary.finalScore != null ? String(summary.finalScore) : '0';
-    if (res.maxCombo) res.maxCombo.textContent = summary.maxCombo != null ? String(summary.maxCombo) : '0';
+    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    res.participant.textContent = summary.participant || '-';
 
-    if (res.hits) {
-      res.hits.textContent =
-        `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
-    }
-
-    if (res.acc) res.acc.textContent =
-      (summary.accuracyPct != null ? summary.accuracyPct.toFixed(1) : '0.0') + ' %';
-    if (res.duration) res.duration.textContent =
-      (summary.durationSec != null ? summary.durationSec.toFixed(1) : '0.0') + ' s';
-
-    if (res.rank) res.rank.textContent = summary.rank || '-';
-
-    if (res.offsetAvg) {
-      res.offsetAvg.textContent =
-        (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    }
-    if (res.offsetStd) {
-      res.offsetStd.textContent =
-        (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
-    }
-
-    if (res.participant) res.participant.textContent = summary.participant || '-';
-
-    if (summary.qualityNote && res.qualityNote) {
+    if (summary.qualityNote) {
       res.qualityNote.textContent = summary.qualityNote;
       res.qualityNote.classList.remove('hidden');
-    } else if (res.qualityNote) {
+    } else {
       res.qualityNote.textContent = '';
       res.qualityNote.classList.add('hidden');
     }
 
     switchView('result');
+  }
+
+  function handleAIUpdate(ai){
+    if (!ai || !hud) return;
+    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
+    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
+    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+    if (hud.aiTip){
+      hud.aiTip.textContent = ai.tip || '';
+      hud.aiTip.classList.toggle('hidden', !ai.tip);
+    }
   }
 
   function downloadCsv(csvText, filename) {
@@ -272,23 +306,21 @@
 
   // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
+  btnStart.addEventListener('click', startGame);
+  btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  btnAgain.addEventListener('click', () => startGame());
+  btnBackMenu.addEventListener('click', () => switchView('menu'));
 
-  if (btnStart) btnStart.addEventListener('click', startGame);
-  if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
-
-  if (btnAgain) btnAgain.addEventListener('click', () => startGame());
-  if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
-
-  if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
+  btnDlEvents.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
-  if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
+  btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // apply mode from URL (?mode=research|play)
+  // ==== apply mode from URL (?mode=research|play) ====
   (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
