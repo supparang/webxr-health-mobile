@@ -69,9 +69,11 @@ HygieneVR Launcher — ROOT (AUTO)
 (function(){
   'use strict';
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const hub = String(qs('hub','./hub.html'));
 
-  // ✅ run page path (folder=run)
+  // bump version to bust cache
+  const V = qs('v', '20260202a');
+
+  const hub = String(qs('hub','./hub.html'));
   const RUN_URL = './hygiene-vr/hygiene-vr.html';
 
   function detectView(){
@@ -81,7 +83,7 @@ HygieneVR Launcher — ROOT (AUTO)
     const landscape = w >= h;
 
     if (isTouch){
-      // แนวนอนกว้างมาก => cvr (มือถือใส่ cardboard)
+      // มือถือแนวนอนจอกว้าง: เดาเป็น cVR (cardboard) เพื่อ crosshair + shoot
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
@@ -99,7 +101,12 @@ HygieneVR Launcher — ROOT (AUTO)
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
+
+    // ensure hub exists
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
+
+    // ensure v bust
+    if (!u.searchParams.get('v') && V) u.searchParams.set('v', V);
 
     return u.toString();
   }
