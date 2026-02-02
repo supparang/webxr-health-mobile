@@ -1,8 +1,8 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE Engine — DOM90 v0.4
-// ✅ Adds: BOSS 4 phases + Boss HUD + Finisher streak
-// Includes: Tug-of-war reclaim + Gentle (penalty) + UV stealth
-// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, hha:end
+// BrushVR SAFE Engine — DOM90 v0.5
+// ✅ Adds: Boss attack patterns (RING/STORM), Shield/Cleanser pickups, UV refill by perfect streak
+// Includes: Tug-of-war reclaim + Gentle (penalty) + UV stealth + Boss 4 phases + Finisher
+// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, hha:end
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -200,9 +200,11 @@
     el.style.userSelect='none';
     el.style.webkitTapHighlightColor='transparent';
 
+    // defaults
+    el.style.width='48px';
+    el.style.height='48px';
+
     if(kind==='stealth'){
-      el.style.width='48px';
-      el.style.height='48px';
       el.textContent='🟣';
       el.style.background='rgba(168,85,247,.14)';
       el.style.border='1px solid rgba(168,85,247,.30)';
@@ -215,9 +217,23 @@
       el.style.background='rgba(244,63,94,.16)';
       el.style.border='1px solid rgba(244,63,94,.35)';
       el.style.opacity='0';
+    }else if(kind==='shield'){
+      el.style.width='52px';
+      el.style.height='52px';
+      el.style.borderRadius='20px';
+      el.textContent='🛡️';
+      el.style.background='rgba(34,197,94,.10)';
+      el.style.border='1px solid rgba(34,197,94,.34)';
+      el.style.opacity='0';
+    }else if(kind==='cleanser'){
+      el.style.width='52px';
+      el.style.height='52px';
+      el.style.borderRadius='20px';
+      el.textContent='💧';
+      el.style.background='rgba(34,211,238,.12)';
+      el.style.border='1px solid rgba(34,211,238,.38)';
+      el.style.opacity='0';
     }else{
-      el.style.width='48px';
-      el.style.height='48px';
       el.textContent='🦷';
       el.style.background='rgba(34,197,94,.22)';
       el.style.opacity='0';
@@ -227,7 +243,7 @@
 
   function popJudgeFx(layer, x, y, judge){
     const fx = DOC.createElement('div');
-    fx.textContent = (judge==='perfect') ? 'PERFECT!' : (judge==='good' ? 'GOOD' : 'MISS');
+    fx.textContent = (judge==='perfect') ? 'PERFECT!' : (judge==='good' ? 'GOOD' : (judge==='PICK' ? 'PICK!' : 'MISS'));
     fx.style.position='absolute';
     fx.style.left = `${x}px`;
     fx.style.top  = `${y}px`;
@@ -264,7 +280,7 @@
     minQuadSec: 12,
 
     judgeMs: { perfect: 120, good: 210 },
-    pts: { perfect: 12, good: 7, stealth: 22 },
+    pts: { perfect: 12, good: 7, stealth: 22, pickup: 0 },
 
     feverMax: 20,
     feverOnSec: 6,
@@ -296,23 +312,43 @@
       stealthSpawnEverySec: 0.55,
       stealthVisibleOpacity: 0.85,
       stealthHiddenOpacity: 0.10,
-      stealthHitWhenOffPenalty: true
+      stealthHitWhenOffPenalty: true,
+      // NEW: refill by perfect streak
+      refillStreak: 6
+    },
+
+    pickups: {
+      enabled: true,
+      // base spawn pacing (slower in RUN_Q, faster in BOSS)
+      spawnEverySecRun: 10.5,
+      spawnEverySecBoss: 7.0,
+      lifeSec: 2.8,
+
+      shieldSec: 7.0,
+      cleanserFreezeReclaimSec: 5.0,
+      cleanserBoostAll: 8.0
     },
 
     boss: {
       enabled: true,
       hpMax: 100,
       phaseMax: 4,
-      // phase thresholds based on remaining hp
-      // 1: >75, 2: 75..50, 3: 50..25, 4: <=25
       dmg: { bossPerfect: 9, bossGood: 6, stealthUV: 12 },
+
       noteLifeSec: 2.2,
-      bossSpawnEverySecBase: 0.90, // will speed up by phase
+
+      bossSpawnEverySecBase: 0.90,
       bossSpawnEverySecMin: 0.42,
-      // finisher
-      finisherHp: 14,          // when hp <= this -> finisher
-      finisherNeed: 5,         // perfect-ish hits needed
-      finisherWindowSec: 6.0
+
+      finisherHp: 14,
+      finisherNeed: 5,
+      finisherWindowSec: 6.0,
+
+      // NEW: patterns
+      ringCountBase: 6,         // phase 1..4 -> +0..+2
+      ringRadiusFrac: 0.22,     // ring radius as fraction of min(safeW,safeH)
+      stormBurst: 6,            // number of quick spawns in a storm burst
+      stormGapSec: 0.12
     }
   };
 
@@ -362,8 +398,14 @@
       hitTimes:[],
       lastHitMs:0,
 
+      // NEW: perfect streak for UV refill
+      perfectStreak: 0,
+
       lastTouchedAt:{ q1:0, q2:0, q3:0, q4:0 },
       reclaiming:{ q1:0, q2:0, q3:0, q4:0 },
+
+      // NEW: reclaim freeze from cleanser
+      reclaimFreezeLeft: 0,
 
       // UV state
       uvEnergy: CFG.uv.energyMax,
@@ -372,11 +414,22 @@
       uvCdLeft:0,
       lastStealthSpawn:0,
 
+      // NEW: pickups
+      lastPickupSpawn: 0,
+      shieldLeft: 0,
+
       // BOSS state
       bossOn:false,
       bossHp: CFG.boss.hpMax,
       bossPhase: 1,
       lastBossSpawn: 0,
+
+      // NEW: pattern scheduler
+      bossPattern: 'DUEL', // DUEL | RING | STORM
+      patternLeft: 3.2,
+      stormQueue: 0,
+      stormNextAt: 0,
+
       finisherOn:false,
       finisherNeed: CFG.boss.finisherNeed,
       finisherLeft: 0,
@@ -385,7 +438,7 @@
       lastTimeEmit:0,
       lastSpawn:0,
 
-      notes:new Map(), // id -> note
+      notes:new Map(),
       noteSeq:0,
 
       ns:null
@@ -397,28 +450,22 @@
     rebuildNoSpawn();
     WIN.addEventListener('resize', rebuildNoSpawn);
 
-    function setPhase(p){
-      S.phase = p;
-      if(p==='RUN_Q'){
-        S.q = CFG.quads[S.quadIndex];
-        S.qTime = 0;
-      }
-      if(p==='BOSS'){
-        S.bossOn = true;
-        HUD.showBoss(true);
-        rebuildNoSpawn();
-        HUD.toast('บอสโผล่!', 'Tartar Titan มาแล้ว—ลุยยย!', 1200);
-        emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase });
-      }
+    // ---------- reclaim / shield ----------
+    function reclaimRateScale(){
+      // base: boss increases reclaim; shield decreases reclaim strongly
+      let s = 1.0;
+      if(S.bossOn) s *= (1.35 + 0.15*(S.bossPhase-1));
+      if(S.shieldLeft > 0) s *= 0.35;
+      if(S.reclaimFreezeLeft > 0) s *= 0.0;
+      return s;
     }
 
-    // --- Tug-of-war reclaim ---
     function applyReclaim(dt){
       S.reclaiming.q1 = S.reclaiming.q2 = S.reclaiming.q3 = S.reclaiming.q4 = 0;
       if(!CFG.tug.enabled) return;
 
-      // during boss: reclaim stronger (เพิ่มความกดดัน)
-      const rateScale = S.bossOn ? (1.35 + 0.15*(S.bossPhase-1)) : 1.0;
+      const rateScale = reclaimRateScale();
+      if(rateScale <= 0) return;
 
       const now = S.t;
       for(const q of CFG.quads){
@@ -434,7 +481,7 @@
       }
     }
 
-    // --- Gentle heuristic ---
+    // ---------- gentle ----------
     function recordHitAndDetectHeavy(hitMs){
       S.hitTimes.push(hitMs);
       while(S.hitTimes.length && (hitMs - S.hitTimes[0]) > 1000) S.hitTimes.shift();
@@ -454,17 +501,19 @@
         if(S.heavyCount > CFG.gentle.heavyLimit){
           S.penaltyLeft = Math.max(S.penaltyLeft, CFG.gentle.penaltySec);
           S.combo = Math.floor(S.combo * 0.85);
+          S.perfectStreak = 0;
         }
         emit('brush:gentle', { heavyCount:S.heavyCount, penaltyActive:S.penaltyLeft>0, tapRate });
       }
     }
 
-    // --- Notes ---
+    // ---------- notes registry ----------
     function addNote(note){
       S.notes.set(note.id, note);
       const life =
         (note.kind==='stealth') ? CFG.uv.stealthLifeSec :
         (note.kind==='boss') ? CFG.boss.noteLifeSec :
+        (note.kind==='shield' || note.kind==='cleanser') ? CFG.pickups.lifeSec :
         CFG.noteLifeSec;
 
       setTimeout(()=>{
@@ -474,36 +523,40 @@
       }, Math.round(life*1000));
     }
 
-    function spawnNormal(){
-      const id = ++S.noteSeq;
-      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
-      const el = mkNoteEl('normal');
-
-      el.style.left = `${p.x}px`;
-      el.style.top  = `${p.y}px`;
-      el.style.transform = 'translate(-50%,-50%) scale(0.92)';
-      el.style.opacity = '0';
-      layer.appendChild(el);
-
-      const born = nowMs();
-      const due = born + 520 + (S.rng()*220);
-
+    function popIn(el){
       requestAnimationFrame(()=>{
         el.style.transition = 'transform .22s ease, opacity .22s ease';
         el.style.opacity = '1';
         el.style.transform = 'translate(-50%,-50%) scale(1)';
       });
+    }
 
+    // ---------- spawners ----------
+    function spawnNormalAt(p){
+      const id = ++S.noteSeq;
+      const el = mkNoteEl('normal');
+      el.style.left = `${p.x}px`;
+      el.style.top  = `${p.y}px`;
+      el.style.transform = 'translate(-50%,-50%) scale(0.92)';
+      el.style.opacity='0';
+      layer.appendChild(el);
+
+      const born = nowMs();
+      const due = born + 520 + (S.rng()*220);
+
+      popIn(el);
       const note = { id, kind:'normal', bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
-
-    function spawnStealth(){
-      const id = ++S.noteSeq;
+    function spawnNormal(){
       const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
-      const el = mkNoteEl('stealth');
+      spawnNormalAt(p);
+    }
 
+    function spawnStealthAt(p){
+      const id = ++S.noteSeq;
+      const el = mkNoteEl('stealth');
       el.style.left = `${p.x}px`;
       el.style.top  = `${p.y}px`;
       el.style.transform = 'translate(-50%,-50%) scale(0.92)';
@@ -521,30 +574,51 @@
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
+    function spawnStealth(){
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
+      spawnStealthAt(p);
+    }
 
-    function spawnBossNote(){
+    function spawnBossAt(p){
       const id = ++S.noteSeq;
-      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
       const el = mkNoteEl('boss');
+      el.style.left = `${p.x}px`;
+      el.style.top  = `${p.y}px`;
+      el.style.transform = 'translate(-50%,-50%) scale(0.90)';
+      el.style.opacity='0';
+      layer.appendChild(el);
+
+      const born = nowMs();
+      const baseDelay = 520 - (S.bossPhase-1)*70;
+      const due = born + clamp(baseDelay + (S.rng()*180), 260, 560);
+
+      popIn(el);
+      const note = { id, kind:'boss', bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
+      el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
+      addNote(note);
+    }
+    function spawnBossNote(){
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
+      spawnBossAt(p);
+    }
+
+    // Pickups
+    function spawnPickup(kind){
+      const id = ++S.noteSeq;
+      const el = mkNoteEl(kind);
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
 
       el.style.left = `${p.x}px`;
       el.style.top  = `${p.y}px`;
       el.style.transform = 'translate(-50%,-50%) scale(0.90)';
-      el.style.opacity = '0';
+      el.style.opacity='0';
       layer.appendChild(el);
 
       const born = nowMs();
-      // boss timing tighter in later phases
-      const baseDelay = 520 - (S.bossPhase-1)*70;
-      const due = born + clamp(baseDelay + (S.rng()*180), 260, 560);
+      const due = born + 480 + (S.rng()*220);
 
-      requestAnimationFrame(()=>{
-        el.style.transition = 'transform .22s ease, opacity .22s ease';
-        el.style.opacity = '1';
-        el.style.transform = 'translate(-50%,-50%) scale(1)';
-      });
-
-      const note = { id, kind:'boss', bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
+      popIn(el);
+      const note = { id, kind, bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
@@ -555,7 +629,16 @@
       }
     }
 
-    // --- UV control ---
+    // ---------- UV ----------
+    function addUVEnergy(n=1){
+      const before = S.uvEnergy;
+      S.uvEnergy = clamp(S.uvEnergy + n, 0, CFG.uv.energyMax);
+      if(S.uvEnergy > before){
+        HUD.toast('UV +1!', 'Perfect streak เติมพลัง UV สำเร็จ', 1200);
+        emit('brush:uv', { on:S.uvOn, energy:S.uvEnergy, refill:true });
+      }
+    }
+
     function tryUseUV(){
       if(!CFG.uv.enabled) return;
       if(S.uvOn) return;
@@ -564,7 +647,7 @@
         return;
       }
       if(S.uvEnergy <= 0){
-        HUD.toast('พลังงาน UV หมด', 'ลุยตีโน้ตต่อ—เดี๋ยวเติมพลังให้ในแพตช์ต่อได้', 1400);
+        HUD.toast('พลังงาน UV หมด', `ทำ Perfect streak ${CFG.uv.refillStreak} ครั้งเพื่อเติม UV`, 1500);
         return;
       }
       S.uvEnergy -= 1;
@@ -578,12 +661,11 @@
 
       rebuildNoSpawn();
     }
-
     if(HUD.el.uvBtn){
       HUD.el.uvBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); tryUseUV(); }, {passive:false});
     }
 
-    // --- Boss helpers ---
+    // ---------- Boss + patterns ----------
     function updateBossPhaseFromHp(){
       if(!S.bossOn) return;
       const hp = S.bossHp;
@@ -600,26 +682,111 @@
     }
 
     function bossSpawnInterval(){
-      // faster by phase
-      const mult = 1.0 - 0.18*(S.bossPhase-1); // 1.00, 0.82, 0.64, 0.46
+      const mult = 1.0 - 0.18*(S.bossPhase-1);
       return clamp(CFG.boss.bossSpawnEverySecBase * mult, CFG.boss.bossSpawnEverySecMin, 2.0);
     }
 
-    function maybeStartBoss(){
-      if(!CFG.boss.enabled) return false;
-      if(S.bossOn) return false;
-      // start boss after Q4 cleared conditions
-      if(S.quadIndex === 3){
-        const covOk = (S.coverage[S.q]||0) >= CFG.covPass;
-        const minOk = S.qTime >= CFG.minQuadSec;
-        if((minOk && covOk) || S.qTime > (CFG.minQuadSec + 6)){
-          setPhase('BOSS');
-          return true;
-        }
-      }
-      return false;
+    function pickPattern(){
+      // weights change by phase
+      const r = S.rng();
+      const ph = S.bossPhase;
+      // phase 1: mostly duel, little ring
+      // phase 4: more storm, more ring
+      const wD = clamp(0.65 - 0.12*(ph-1), 0.25, 0.70);
+      const wR = clamp(0.22 + 0.06*(ph-1), 0.20, 0.45);
+      const wS = clamp(1.0 - (wD+wR), 0.10, 0.45);
+      if(r < wD) return 'DUEL';
+      if(r < wD + wR) return 'RING';
+      return 'STORM';
     }
 
+    function startPattern(p){
+      S.bossPattern = p;
+      if(p==='DUEL'){
+        S.patternLeft = 2.7 + S.rng()*1.0;
+      }else if(p==='RING'){
+        S.patternLeft = 1.1 + S.rng()*0.5;
+      }else{
+        S.patternLeft = 1.5 + S.rng()*0.7;
+        S.stormQueue = CFG.boss.stormBurst + (S.bossPhase>=3 ? 2 : 0);
+        S.stormNextAt = S.t;
+      }
+      emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase, pattern:S.bossPattern });
+    }
+
+    function safeCenter(){
+      const sp = S.ns?.safePlay;
+      if(!sp) return { x: WIN.innerWidth*0.5, y: WIN.innerHeight*0.5 };
+      return { x: sp.x + sp.w*0.5, y: sp.y + sp.h*0.5 };
+    }
+
+    function spawnRing(){
+      const sp = S.ns?.safePlay;
+      if(!sp) return;
+
+      const c = safeCenter();
+      const minDim = Math.max(120, Math.min(sp.w, sp.h));
+      const rad = minDim * CFG.boss.ringRadiusFrac * clamp(0.88 + S.rng()*0.28, 0.70, 1.15);
+
+      const count = CFG.boss.ringCountBase + (S.bossPhase>=3 ? 1 : 0) + (S.bossPhase>=4 ? 1 : 0);
+      const a0 = S.rng() * Math.PI * 2;
+
+      for(let i=0;i<count;i++){
+        const a = a0 + (i*(Math.PI*2/count));
+        const p = { x: c.x + Math.cos(a)*rad, y: c.y + Math.sin(a)*rad };
+        // clamp inside safePlay a bit
+        p.x = clamp(p.x, sp.x+36, sp.x+sp.w-36);
+        p.y = clamp(p.y, sp.y+36, sp.y+sp.h-36);
+        spawnBossAt(p);
+      }
+      HUD.toast('RING!', 'กวาดวงแหวนให้ไว!', 900);
+    }
+
+    function spawnStormTick(){
+      // storm uses boss notes but with quicker rhythm
+      spawnBossNote();
+      // stealth chance if UV on
+      if(CFG.uv.enabled && S.uvOn && (S.rng() < (0.40 + 0.10*(S.bossPhase-1)))){
+        spawnStealth();
+      }
+    }
+
+    function maybeSpawnPickups(){
+      if(!CFG.pickups.enabled) return;
+
+      const every = S.bossOn ? CFG.pickups.spawnEverySecBoss : CFG.pickups.spawnEverySecRun;
+      if(S.t - S.lastPickupSpawn < every) return;
+
+      S.lastPickupSpawn = S.t;
+
+      // choose pickup type:
+      // if shield active -> prefer cleanser; else random
+      const r = S.rng();
+      let kind = 'shield';
+      if(S.shieldLeft > 0) kind = 'cleanser';
+      else kind = (r < 0.55 ? 'shield' : 'cleanser');
+
+      spawnPickup(kind);
+    }
+
+    // ---------- Phase changes ----------
+    function setPhase(p){
+      S.phase = p;
+      if(p==='RUN_Q'){
+        S.q = CFG.quads[S.quadIndex];
+        S.qTime = 0;
+      }
+      if(p==='BOSS'){
+        S.bossOn = true;
+        HUD.showBoss(true);
+        rebuildNoSpawn();
+        startPattern('DUEL');
+        HUD.toast('บอสโผล่!', 'Tartar Titan มาแล้ว—ลุยยย!', 1200);
+        emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase, pattern:S.bossPattern });
+      }
+    }
+
+    // ---------- Finisher ----------
     function maybeEnterFinisher(){
       if(!S.bossOn) return;
       if(S.finisherOn) return;
@@ -638,7 +805,41 @@
       endGame('boss_win');
     }
 
-    // --- judgement ---
+    // ---------- Pickups apply ----------
+    function applyPickup(kind){
+      if(kind==='shield'){
+        S.shieldLeft = Math.max(S.shieldLeft, CFG.pickups.shieldSec);
+        HUD.toast('🛡 Shield!', 'กันพลาด + tug เบาลงชั่วคราว', 1400);
+        emit('brush:pickup', { kind:'shield', dur:S.shieldLeft });
+      }else if(kind==='cleanser'){
+        // boost coverage all + freeze reclaim
+        for(const q of CFG.quads){
+          S.coverage[q] = clamp((S.coverage[q]||0) + CFG.pickups.cleanserBoostAll, 0, 100);
+          S.lastTouchedAt[q] = S.t; // count as recently touched
+        }
+        S.reclaimFreezeLeft = Math.max(S.reclaimFreezeLeft, CFG.pickups.cleanserFreezeReclaimSec);
+        HUD.toast('💧 Cleanser!', 'ล้างคราบ + หยุดยึดคืนชั่วคราว', 1400);
+        emit('brush:pickup', { kind:'cleanser', freeze:S.reclaimFreezeLeft, boost:CFG.pickups.cleanserBoostAll });
+      }
+      rebuildNoSpawn();
+    }
+
+    // ---------- judgement ----------
+    function onPerfectProgress(){
+      S.perfectStreak++;
+      if(S.perfectStreak > 20) S.perfectStreak = 20;
+
+      if(CFG.uv.enabled && S.perfectStreak >= CFG.uv.refillStreak){
+        // refill once and reduce streak by refillStreak (so can chain refill)
+        S.perfectStreak -= CFG.uv.refillStreak;
+        addUVEnergy(1);
+      }
+    }
+
+    function resetPerfectStreak(){
+      S.perfectStreak = 0;
+    }
+
     function judgeNote(note, hitMs, source){
       if(!note || note.used) return;
       note.used = true;
@@ -654,7 +855,16 @@
         else if(delta <= CFG.judgeMs.good) judge = 'good';
       }
 
-      // FINISHER timer effect on miss
+      const removeNote = ()=>{
+        try{ note.el.style.transition = 'transform .18s ease, opacity .18s ease'; }catch(_){}
+        try{
+          note.el.style.opacity='0';
+          note.el.style.transform='translate(-50%,-50%) scale(0.85)';
+        }catch(_){}
+        setTimeout(()=>{ try{ note.el.remove(); }catch(_){} }, 220);
+        S.notes.delete(note.id);
+      };
+
       const finisherMissReset = ()=>{
         if(S.finisherOn){
           S.finisherNeed = CFG.boss.finisherNeed;
@@ -662,18 +872,48 @@
         }
       };
 
+      // EXPIRE => soft miss for some types
+      if(source==='expire'){
+        if(note.kind==='shield' || note.kind==='cleanser'){
+          // no punishment if missed pickup
+          removeNote();
+          return;
+        }
+      }
+
+      // PICKUPS
+      if(note.kind==='shield' || note.kind==='cleanser'){
+        if(source==='expire'){
+          removeNote();
+          return;
+        }
+        // on tap/shoot: collect
+        applyPickup(note.kind);
+        popJudgeFx(layer, note.x, note.y, 'PICK');
+        emit('hha:judge', { type:'pickup', kind:note.kind, judge:'pick', q:S.q, source });
+        removeNote();
+        return;
+      }
+
       // stealth
       if(note.kind==='stealth'){
         if(source==='expire'){
           S.stealthMiss++;
-          S.combo = Math.max(0, Math.floor(S.combo * 0.70));
+          // shield reduces penalty
+          if(S.shieldLeft > 0){
+            S.combo = Math.max(0, Math.floor(S.combo * 0.90));
+          }else{
+            S.combo = Math.max(0, Math.floor(S.combo * 0.70));
+          }
           S.fever = Math.max(0, S.fever - 2);
+          resetPerfectStreak();
           if(S.finisherOn) finisherMissReset();
           popJudgeFx(layer, note.x, note.y, 'miss');
           emit('hha:judge', { type:'stealth', judge:'miss', q:S.q, uvOn:S.uvOn, source:'expire' });
+          removeNote();
+          return;
         }else{
           if(S.uvOn){
-            // strong hit (counts as perfect-ish)
             S.stealthHit++;
 
             const base = CFG.pts.stealth;
@@ -689,54 +929,79 @@
             S.coverage[S.q] = clamp(S.coverage[S.q] + 10.0, 0, 100);
             S.lastTouchedAt[S.q] = S.t;
 
-            // boss damage helper from stealth while UV on
+            // boss damage helper
             if(S.bossOn){
               S.bossHp = clamp(S.bossHp - CFG.boss.dmg.stealthUV, 0, CFG.boss.hpMax);
               updateBossPhaseFromHp();
               maybeEnterFinisher();
             }
 
+            // perfect streak counts (stealth UV hit = perfect)
+            onPerfectProgress();
+
             // FINISHER progress
             if(S.finisherOn){
               S.finisherNeed = Math.max(0, S.finisherNeed - 1);
               S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
-              if(S.finisherNeed <= 0) return bossWin();
+              if(S.finisherNeed <= 0){ removeNote(); return bossWin(); }
             }
 
             popJudgeFx(layer, note.x, note.y, 'perfect');
             emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source });
+            removeNote();
+            return;
           }else{
-            // blocked hit
             S.stealthMiss++;
             if(CFG.uv.stealthHitWhenOffPenalty){
-              S.combo = Math.max(0, Math.floor(S.combo * 0.80));
-              S.fever = Math.max(0, S.fever - 1);
+              // shield mitigates
+              if(S.shieldLeft > 0){
+                S.combo = Math.max(0, Math.floor(S.combo * 0.92));
+                S.fever = Math.max(0, S.fever - 0);
+              }else{
+                S.combo = Math.max(0, Math.floor(S.combo * 0.80));
+                S.fever = Math.max(0, S.fever - 1);
+              }
+              resetPerfectStreak();
               if(S.finisherOn) finisherMissReset();
               HUD.toast('ยังไม่เห็นคราบ!', 'กด UV ก่อนถึงจะปราบคราบล่องหนได้', 1400);
             }
             popJudgeFx(layer, note.x, note.y, 'miss');
             emit('hha:judge', { type:'stealth', judge:'blocked', q:S.q, uvOn:false, source });
+            removeNote();
+            return;
           }
         }
       }
+
       // boss note
-      else if(note.kind==='boss'){
+      if(note.kind==='boss'){
         if(source==='expire'){
-          // expire = miss but not too punishing
           S.miss++;
-          S.combo = Math.max(0, Math.floor(S.combo*0.6));
+          if(S.shieldLeft > 0){
+            S.combo = Math.max(0, Math.floor(S.combo*0.85));
+          }else{
+            S.combo = Math.max(0, Math.floor(S.combo*0.6));
+          }
           S.fever = Math.max(0, S.fever - 2);
+          resetPerfectStreak();
           if(S.finisherOn) finisherMissReset();
           popJudgeFx(layer, note.x, note.y, 'miss');
           emit('hha:judge', { type:'boss', judge:'miss', q:S.q, source:'expire' });
+          removeNote();
+          return;
         }else{
           if(judge==='miss'){
             S.miss++;
-            S.combo = 0;
+            if(S.shieldLeft > 0){
+              // shield: don't wipe combo
+              S.combo = Math.max(0, Math.floor(S.combo*0.85));
+            }else{
+              S.combo = 0;
+            }
             S.fever = Math.max(0, S.fever - 3);
+            resetPerfectStreak();
             if(S.finisherOn) finisherMissReset();
           }else{
-            // score
             if(judge==='perfect'){ S.perfect++; S.fever += 2; }
             else { S.good++; S.fever += 1; }
 
@@ -755,57 +1020,83 @@
             updateBossPhaseFromHp();
             maybeEnterFinisher();
 
+            // perfect streak progress
+            if(judge==='perfect') onPerfectProgress();
+            else resetPerfectStreak();
+
             // FINISHER progress: only perfect counts
-            if(S.finisherOn){
-              if(judge==='perfect'){
-                S.finisherNeed = Math.max(0, S.finisherNeed - 1);
-                S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
-                if(S.finisherNeed <= 0) return bossWin();
-              }else{
-                // good doesn't reset, but doesn't help
-              }
+            if(S.finisherOn && judge==='perfect'){
+              S.finisherNeed = Math.max(0, S.finisherNeed - 1);
+              S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
+              if(S.finisherNeed <= 0){ removeNote(); return bossWin(); }
             }
 
-            if(S.bossHp <= 0) return bossWin();
+            if(S.bossHp <= 0){ removeNote(); return bossWin(); }
           }
 
           popJudgeFx(layer, note.x, note.y, judge);
           emit('hha:judge', { type:'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, source });
+          removeNote();
+          return;
         }
       }
+
       // normal note
-      else{
-        if(judge==='miss'){
-          S.miss++;
-          S.combo = 0;
-          S.fever = Math.max(0, S.fever - 3);
-          if(S.finisherOn) finisherMissReset();
+      if(source==='expire'){
+        // expire normal => miss (shield mitigates)
+        S.miss++;
+        if(S.shieldLeft > 0){
+          S.combo = Math.max(0, Math.floor(S.combo*0.92));
         }else{
-          if(judge==='perfect'){ S.perfect++; S.fever += 2; }
-          else { S.good++; S.fever += 1; }
-
-          S.combo++;
-          S.maxCombo = Math.max(S.maxCombo, S.combo);
-
-          const base = (judge==='perfect') ? CFG.pts.perfect : CFG.pts.good;
-          const cmul = comboMultiplier(S.combo);
-          const fmul = (S.feverOn ? 1.25 : 1.0);
-          const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
-          S.score += Math.round(base * cmul * fmul * pmul);
-
-          const add = (judge==='perfect') ? 6.0 : 3.5;
-          S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
-          S.lastTouchedAt[S.q] = S.t;
-
-          // FINISHER: perfect helps, miss resets, good doesn't count
-          if(S.finisherOn && judge==='perfect'){
-            S.finisherNeed = Math.max(0, S.finisherNeed - 1);
-            S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
-            if(S.finisherNeed <= 0) return bossWin();
-          }
+          S.combo = 0;
         }
-        popJudgeFx(layer, note.x, note.y, judge);
-        emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, fever:S.fever, source });
+        S.fever = Math.max(0, S.fever - 2);
+        resetPerfectStreak();
+        if(S.finisherOn) finisherMissReset();
+        popJudgeFx(layer, note.x, note.y, 'miss');
+        emit('hha:judge', { type:'note', judge:'miss', q:S.q, source:'expire' });
+        removeNote();
+        return;
+      }
+
+      if(judge==='miss'){
+        S.miss++;
+        if(S.shieldLeft > 0){
+          // shield: keep some combo
+          S.combo = Math.max(0, Math.floor(S.combo*0.85));
+        }else{
+          S.combo = 0;
+        }
+        S.fever = Math.max(0, S.fever - 3);
+        resetPerfectStreak();
+        if(S.finisherOn) finisherMissReset();
+      }else{
+        if(judge==='perfect'){ S.perfect++; S.fever += 2; }
+        else { S.good++; S.fever += 1; }
+
+        S.combo++;
+        S.maxCombo = Math.max(S.maxCombo, S.combo);
+
+        const base = (judge==='perfect') ? CFG.pts.perfect : CFG.pts.good;
+        const cmul = comboMultiplier(S.combo);
+        const fmul = (S.feverOn ? 1.25 : 1.0);
+        const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
+        S.score += Math.round(base * cmul * fmul * pmul);
+
+        const add = (judge==='perfect') ? 6.0 : 3.5;
+        S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
+        S.lastTouchedAt[S.q] = S.t;
+
+        // perfect streak for UV refill
+        if(judge==='perfect') onPerfectProgress();
+        else resetPerfectStreak();
+
+        // FINISHER: perfect counts
+        if(S.finisherOn && judge==='perfect'){
+          S.finisherNeed = Math.max(0, S.finisherNeed - 1);
+          S.finisherBestStreak = Math.max(S.finisherBestStreak, CFG.boss.finisherNeed - S.finisherNeed);
+          if(S.finisherNeed <= 0){ removeNote(); return bossWin(); }
+        }
       }
 
       // fever trigger
@@ -815,24 +1106,18 @@
         S.fever = 5;
       }
 
-      // remove element
-      try{ note.el.style.transition = 'transform .18s ease, opacity .18s ease'; }catch(_){}
-      try{
-        note.el.style.opacity='0';
-        note.el.style.transform='translate(-50%,-50%) scale(0.85)';
-      }catch(_){}
-      setTimeout(()=>{ try{ note.el.remove(); }catch(_){} }, 220);
-      S.notes.delete(note.id);
-
+      popJudgeFx(layer, note.x, note.y, judge);
+      emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, fever:S.fever, source });
       emit('brush:coverage', { q:S.q, coverage: Object.assign({}, S.coverage) });
+
+      removeNote();
     }
 
-    // --- quadrant rotation / boss start ---
+    // ---------- quadrant / boss start ----------
     function maybeAdvanceQuadrantOrStartBoss(){
       const cov = S.coverage[S.q] || 0;
       const minOk = S.qTime >= CFG.minQuadSec;
       const covOk = cov >= CFG.covPass;
-
       const passNow = ((minOk && covOk) || S.qTime > (CFG.minQuadSec + 6));
       if(!passNow) return;
 
@@ -842,7 +1127,6 @@
         S.quadIndex++;
         setPhase('RUN_Q');
       }else{
-        // after Q4, start boss instead of end (if enabled)
         if(CFG.boss.enabled){
           setPhase('BOSS');
         }else{
@@ -851,12 +1135,12 @@
       }
     }
 
-    // --- end game ---
+    // ---------- end game ----------
     function calcRank(score){
-      if(score >= 1400) return 'S';
-      if(score >= 1100) return 'A';
-      if(score >= 900)  return 'B';
-      if(score >= 720)  return 'C';
+      if(score >= 1500) return 'S';
+      if(score >= 1200) return 'A';
+      if(score >= 980)  return 'B';
+      if(score >= 780)  return 'C';
       return 'D';
     }
 
@@ -880,11 +1164,13 @@
         stealth: { hit:S.stealthHit, miss:S.stealthMiss },
         gentle: { heavyCount: S.heavyCount },
         uv: { energyLeft: S.uvEnergy },
+        pickups: { shieldSecLeft: S.shieldLeft, reclaimFreezeLeft: S.reclaimFreezeLeft },
         boss: {
           on: S.bossOn,
           hpLeft: S.bossHp,
           phase: S.bossPhase,
-          finisherBestStreak: S.finisherBestStreak
+          finisherBestStreak: S.finisherBestStreak,
+          pattern: S.bossPattern
         },
         meta: ctx,
         durationSec: CFG.timeSec - S.left
@@ -916,7 +1202,7 @@
       done.style.background='rgba(2,6,23,.62)';
       done.style.backdropFilter='blur(10px)';
       done.innerHTML = `
-        <div style="width:min(540px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
+        <div style="width:min(560px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
           <div style="font-weight:900;font-size:18px;">จบเกมแล้ว • Rank ${summary.rank}</div>
           <div style="margin-top:6px;color:rgba(148,163,184,1);font-size:13px;line-height:1.5;">
             Reason ${summary.reason} • Score ${summary.scoreTotal} • Coverage ${Math.round(covSum)}% • BossHP ${summary.boss.hpLeft}
@@ -936,7 +1222,7 @@
       });
     }
 
-    // --- input bridge: vr-ui tap-to-shoot ---
+    // ---------- input bridge: vr-ui tap-to-shoot ----------
     function hitTestFromShoot(ev){
       const d = ev?.detail || {};
       const x = Number(d.x), y = Number(d.y);
@@ -955,7 +1241,7 @@
     }
     WIN.addEventListener('hha:shoot', hitTestFromShoot);
 
-    // ---- UV HUD init ----
+    // ---------- HUD init ----------
     if(CFG.uv.enabled){
       HUD.showUV(true);
       HUD.setUVEnergy(S.uvEnergy, CFG.uv.energyMax, S.uvOn, S.uvCdLeft);
@@ -963,14 +1249,12 @@
     }else{
       HUD.showUV(false);
     }
-
-    // boss hud init off
     HUD.showBoss(false);
 
     // start
     setPhase('INTRO');
 
-    // main loop
+    // ---------- main loop ----------
     let last = nowMs();
     function loop(t){
       const dt = Math.min(0.05, (t - last)/1000);
@@ -979,11 +1263,41 @@
       S.t += dt;
       S.left = Math.max(0, S.left - dt);
 
-      // phase switching
+      // timers
+      if(S.penaltyLeft > 0) S.penaltyLeft = Math.max(0, S.penaltyLeft - dt);
+      if(S.shieldLeft > 0) S.shieldLeft = Math.max(0, S.shieldLeft - dt);
+      if(S.reclaimFreezeLeft > 0) S.reclaimFreezeLeft = Math.max(0, S.reclaimFreezeLeft - dt);
+
+      // phase switch
       if(S.phase==='INTRO' && S.t >= CFG.introSec){
         S.phase = 'RUN_Q';
         S.quadIndex = 0;
         setPhase('RUN_Q');
+      }
+
+      // fever
+      if(S.feverOn){
+        S.feverLeft -= dt;
+        if(S.feverLeft <= 0){
+          S.feverOn = false;
+          S.feverLeft = 0;
+        }
+      }
+
+      // UV cooldown/window
+      if(CFG.uv.enabled){
+        if(S.uvCdLeft > 0) S.uvCdLeft = Math.max(0, S.uvCdLeft - dt);
+
+        if(S.uvOn){
+          S.uvLeft = Math.max(0, S.uvLeft - dt);
+          if(S.uvLeft <= 0){
+            S.uvOn = false;
+            S.uvLeft = 0;
+            syncStealthVisibility();
+            HUD.toast('UV OFF', 'จบช่วง UV แล้ว', 900);
+            emit('brush:uv', { on:false, energy:S.uvEnergy });
+          }
+        }
       }
 
       if(S.phase==='RUN_Q'){
@@ -995,101 +1309,74 @@
           spawnNormal();
         }
 
-        // fever countdown
-        if(S.feverOn){
-          S.feverLeft -= dt;
-          if(S.feverLeft <= 0){
-            S.feverOn = false;
-            S.feverLeft = 0;
+        // stealth spawn only during UV
+        if(CFG.uv.enabled && S.uvOn){
+          if(S.t - S.lastStealthSpawn >= CFG.uv.stealthSpawnEverySec){
+            S.lastStealthSpawn = S.t;
+            spawnStealth();
           }
         }
 
-        // gentle penalty countdown
-        if(S.penaltyLeft > 0){
-          S.penaltyLeft = Math.max(0, S.penaltyLeft - dt);
-        }
+        // pickups
+        maybeSpawnPickups();
 
-        // UV cooldown/window + stealth spawns (light)
-        if(CFG.uv.enabled){
-          if(S.uvCdLeft > 0) S.uvCdLeft = Math.max(0, S.uvCdLeft - dt);
-
-          if(S.uvOn){
-            S.uvLeft = Math.max(0, S.uvLeft - dt);
-            if(S.t - S.lastStealthSpawn >= CFG.uv.stealthSpawnEverySec){
-              S.lastStealthSpawn = S.t;
-              spawnStealth();
-            }
-            if(S.uvLeft <= 0){
-              S.uvOn = false;
-              S.uvLeft = 0;
-              syncStealthVisibility();
-              HUD.toast('UV OFF', 'จบช่วง UV แล้ว', 900);
-              emit('brush:uv', { on:false, energy:S.uvEnergy });
-            }
-          }
-        }
-
-        // tug-of-war reclaim
+        // reclaim
         applyReclaim(dt);
 
         maybeAdvanceQuadrantOrStartBoss();
       }
 
       if(S.phase==='BOSS'){
-        // boss spawns
-        const interval = bossSpawnInterval();
-        if(S.t - S.lastBossSpawn >= interval){
-          S.lastBossSpawn = S.t;
-          spawnBossNote();
-          // add pressure: stealth appears more during boss if UV on
-          if(CFG.uv.enabled && S.uvOn && (S.rng() < (0.45 + 0.10*(S.bossPhase-1)))){
-            spawnStealth();
+        // spawn pattern updates
+        S.patternLeft -= dt;
+        if(S.patternLeft <= 0){
+          startPattern(pickPattern());
+        }
+
+        // pattern behaviors
+        if(S.bossPattern==='DUEL'){
+          const interval = bossSpawnInterval();
+          if(S.t - S.lastBossSpawn >= interval){
+            S.lastBossSpawn = S.t;
+            spawnBossNote();
+            if(CFG.uv.enabled && S.uvOn && (S.rng() < (0.40 + 0.10*(S.bossPhase-1)))) spawnStealth();
+          }
+        }else if(S.bossPattern==='RING'){
+          // ring once at start then revert to duel quickly
+          if(S.t - S.lastBossSpawn >= 0.95){
+            S.lastBossSpawn = S.t;
+            spawnRing();
+            startPattern('DUEL');
+          }
+        }else if(S.bossPattern==='STORM'){
+          // storm queue tick
+          if(S.stormQueue > 0 && S.t >= S.stormNextAt){
+            spawnStormTick();
+            S.stormQueue--;
+            S.stormNextAt = S.t + CFG.boss.stormGapSec;
+          }
+          if(S.stormQueue <= 0 && S.patternLeft < 0.3){
+            startPattern('DUEL');
           }
         }
 
-        // Fever / penalty / UV ticking
-        if(S.feverOn){
-          S.feverLeft -= dt;
-          if(S.feverLeft <= 0){
-            S.feverOn = false;
-            S.feverLeft = 0;
-          }
-        }
-        if(S.penaltyLeft > 0){
-          S.penaltyLeft = Math.max(0, S.penaltyLeft - dt);
-        }
+        // pickups (boss slightly more frequent)
+        maybeSpawnPickups();
 
-        if(CFG.uv.enabled){
-          if(S.uvCdLeft > 0) S.uvCdLeft = Math.max(0, S.uvCdLeft - dt);
-
-          if(S.uvOn){
-            S.uvLeft = Math.max(0, S.uvLeft - dt);
-            // stealth bursts in boss are handled above
-            if(S.uvLeft <= 0){
-              S.uvOn = false;
-              S.uvLeft = 0;
-              syncStealthVisibility();
-              HUD.toast('UV OFF', 'จบช่วง UV แล้ว', 900);
-              emit('brush:uv', { on:false, energy:S.uvEnergy });
-            }
-          }
-        }
-
-        // Tug-of-war reclaim stronger in boss
+        // reclaim stronger unless shield/cleanser
         applyReclaim(dt);
 
-        // Finisher countdown
+        // finisher countdown
         if(S.finisherOn){
           S.finisherLeft = Math.max(0, S.finisherLeft - dt);
           if(S.finisherLeft <= 0){
-            // fail finisher window -> reset requirement (but keep boss going)
+            // fail window -> keep trying
             S.finisherNeed = CFG.boss.finisherNeed;
             S.finisherLeft = CFG.boss.finisherWindowSec;
             HUD.toast('FINISHER ต่อ!', 'ยังไม่พอ—ลุย Perfect อีก!', 1100);
           }
         }
 
-        // auto update phase if hp changed by any means
         updateBossPhaseFromHp();
         maybeEnterFinisher();
 
@@ -1099,11 +1386,11 @@
         }
       }
 
-      // HUD updates
+      // HUD
       const phaseLabel =
         (S.phase==='INTRO') ? 'INTRO • Ready' :
         (S.phase==='RUN_Q') ? `${S.q.toUpperCase()} • Quadrant Run` :
-        (S.phase==='BOSS') ? `BOSS • Tartar Titan` :
+        (S.phase==='BOSS') ? `BOSS • ${S.bossPattern}` :
         'END';
 
       const cmul = comboMultiplier(S.combo);
@@ -1111,6 +1398,8 @@
       const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
 
       let extra = '';
+      if(S.shieldLeft > 0) extra += ` • 🛡${S.shieldLeft.toFixed(0)}s`;
+      if(S.reclaimFreezeLeft > 0) extra += ` • 💧${S.reclaimFreezeLeft.toFixed(0)}s`;
       if(S.uvOn) extra += ' • UV';
       if(S.finisherOn) extra += ` • FIN ${S.finisherNeed}`;
 
@@ -1140,9 +1429,13 @@
           penaltyActive:(S.penaltyLeft>0),
           uvOn:S.uvOn,
           uvEnergy:S.uvEnergy,
+          perfectStreak:S.perfectStreak,
+          shieldLeft:S.shieldLeft,
+          reclaimFreezeLeft:S.reclaimFreezeLeft,
           bossOn:S.bossOn,
           bossHp:S.bossHp,
           bossPhase:S.bossPhase,
+          bossPattern:S.bossPattern,
           finisherOn:S.finisherOn,
           finisherNeed:S.finisherNeed,
           finisherLeft:S.finisherLeft
