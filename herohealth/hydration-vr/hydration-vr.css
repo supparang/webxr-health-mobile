@@ -1,3 +1,12 @@
+/* === /herohealth/hydration-vr/hydration-vr.css ===
+HydrationVR UI — PRODUCTION
+✅ Playfield full-screen
+✅ Targets visible (no accidental hiding)
+✅ Start overlay + Result overlay
+✅ FX classes (shock / endfx / bossfx)
+✅ HUD Responsive patch merged (mobile-first)
+*/
+
 :root{
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -5,6 +14,8 @@
   --sar: env(safe-area-inset-right, 0px);
 
   --bg:#020617;
+  --panel: rgba(2,6,23,.70);
+  --stroke: rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -20,109 +31,118 @@
 }
 
 *{ box-sizing:border-box; }
-html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-body{ overflow:hidden; }
+html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; overflow:hidden; }
 
-/* subtle background */
-body::before{
-  content:"";
-  position:fixed; inset:0;
-  background:
-    radial-gradient(circle at 20% 15%, rgba(34,211,238,.10), transparent 55%),
-    radial-gradient(circle at 85% 75%, rgba(34,197,94,.08), transparent 60%),
-    radial-gradient(circle at 40% 90%, rgba(168,85,247,.06), transparent 60%);
-  pointer-events:none;
-  z-index:0;
-}
-
-/* ===== Playfield ===== */
+/* ===== Playfield priority ===== */
 #playfield, #cbPlayfield{
-  position:fixed;
-  inset:0;
-  z-index:10;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
   overflow:hidden;
   touch-action: manipulation;
+  background: transparent;
 }
-
-.layer{
+#hydration-layer, #hydration-layerL, #hydration-layerR{
   position:absolute;
   inset:0;
-  z-index:12;
+  z-index: 41;
+  pointer-events:auto;
 }
 
-/* Cardboard split */
-#cbPlayfield{ display:none; }
-body.cardboard #cbPlayfield{ display:block; }
-body.cardboard #playfield{ display:none; }
-
-.cb-eye{
-  position:absolute;
-  top:0;
-  width:50%;
-  height:100%;
-  overflow:hidden;
+/* ===== Targets (base) — safe even if loader injects additional styles ===== */
+.hvr-target{
+  z-index: 42;
+  opacity: 1;
+  visibility: visible;
 }
-.cb-left{ left:0; }
-.cb-right{ right:0; }
 
-/* ===== HUD common card ===== */
-.hud-card{
+/* ===== Card styling ===== */
+.hud-card, .statBox, .startCard, .resultCard{
   border-radius: var(--hud-radius);
-  border: 1px solid var(--hud-stroke);
+  border:1px solid var(--hud-stroke);
   background: var(--hud-bg);
   box-shadow: var(--hud-shadow);
   backdrop-filter: blur(10px);
 }
 
+/* ===== START OVERLAY ===== */
+.startOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+  background: rgba(2,6,23,.80);
+}
+.startCard{
+  width:min(520px, 100%);
+  padding: 16px;
+  border-radius: 22px;
+}
+.startTitle{ font-weight: 900; font-size: 18px; letter-spacing:.2px; }
+.startSub{ margin-top:8px; color: rgba(148,163,184,.95); font-size: 13px; line-height:1.4; white-space:pre-line; }
+.startRow{ margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; }
+.startHint{ margin-top:10px; font-size:12px; opacity:.9; color: rgba(229,231,235,.90); }
+
+.btn{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.62);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-weight: 900;
+  font-size: 13px;
+  cursor: pointer;
+  user-select:none;
+}
+.btn.primary{
+  border-color: rgba(34,197,94,.26);
+  background: rgba(34,197,94,.16);
+}
+
 /* ===== HUD TOP ===== */
 .hud-top{
-  position:fixed;
+  position: fixed;
   left: calc(10px + var(--sal));
-  top:  calc(10px + var(--sat));
-  z-index:70;
-  display:flex;
-  gap: 10px;
-  align-items:stretch;
+  right: calc(10px + var(--sar));
+  top: calc(10px + var(--sat));
+  z-index: 70;
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
   pointer-events:none; /* don't block shots */
 }
 .statBox{
-  min-width: 110px;
   padding: 10px 12px;
+  height: var(--mob-topH);
   display:flex;
-  flex-direction:column;
-  justify-content:center;
-  gap: 4px;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
   pointer-events:none;
 }
-.statBox .label{
-  font-size: 12px;
-  font-weight: 800;
-  opacity: .76;
-}
-.statBox .val{
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: .2px;
-}
-.gradeBox{ min-width: 96px; }
+.statBox .label{ font-size: 12px; opacity:.78; font-weight:700; }
+.statBox .val{ font-size: 18px; font-weight:900; letter-spacing:.2px; }
 
 /* ===== HUD BOTTOM ===== */
 .hud-bottom{
-  position:fixed;
+  position: fixed;
   left: calc(10px + var(--sal));
   right: calc(10px + var(--sar));
   bottom: calc(10px + var(--sab));
-  z-index:70;
+  z-index: 70;
   display:grid;
   grid-template-columns: 1.2fr .8fr;
   gap: 10px;
-  pointer-events:auto; /* allow toggle tap */
+  pointer-events:auto;
 }
-.quest-panel{
+
+.quest-panel, .water-panel{
+  min-height: var(--mob-bottomH);
   padding: 10px 12px;
-  min-height: 118px;
-  max-height: 38vh;
-  overflow:hidden;
 }
 .quest-panel .title{
   display:flex;
@@ -137,11 +157,11 @@ body.cardboard #playfield{ display:none; }
   font-size: 12px;
   line-height: 1.35;
   opacity: .96;
-  white-space: pre-line;
 }
+.quest-lines .muted{ opacity:.72; }
 
 #btnQuestToggle{
-  pointer-events:auto;
+  pointer-events: auto;
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -158,15 +178,20 @@ body.cardboard #playfield{ display:none; }
   -webkit-tap-highlight-color: transparent;
 }
 
-.water-panel{
-  padding: 10px 12px;
-  min-height: 118px;
-}
-.waterRow{
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
-  gap: 8px;
+body.hud-collapsed .quest-panel{ max-height: 62px; overflow:hidden; }
+body.hud-collapsed .quest-lines{ display:none !important; }
+
+/* Water panel */
+.waterRow{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.waterRow .t{ font-weight:900; font-size:14px; }
+.waterRow .p{ font-weight:900; font-size:18px; }
+.badge{
+  font-weight:900;
+  font-size:12px;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.55);
 }
 .barWrap{
   margin-top: 8px;
@@ -176,184 +201,108 @@ body.cardboard #playfield{ display:none; }
   border: 1px solid rgba(148,163,184,.14);
   background: rgba(148,163,184,.16);
 }
-.bar{
-  height:100%;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-}
-.miniRow{
-  margin-top: 10px;
-  display:flex;
-  gap: 8px;
-  align-items:center;
-  font-weight:900;
-  opacity:.95;
-}
+.bar{ height:100%; border-radius:999px; background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95)); }
+.hint{ margin-top: 8px; font-size: 11px; line-height: 1.25; opacity: .88; white-space: pre-line; }
 
-/* Collapse mode */
-body.hud-collapsed #questPanel{ max-height: 62px; }
-body.hud-collapsed #questLines{ display:none !important; }
+/* ===== Cardboard halves ===== */
+#cbPlayfield{ display:none; }
+body.cardboard #playfield{ display:none; }
+body.cardboard #cbPlayfield{ display:block; }
+.cbHalf{ position:absolute; top:0; bottom:0; width:50%; overflow:hidden; }
+.cbHalf.left{ left:0; }
+.cbHalf.right{ right:0; }
 
-/* Mobile compact */
-@media (max-width: 560px){
-  body{ padding-top: var(--sat); padding-bottom: var(--sab); }
-
-  .hud-top{
-    left: calc(10px + var(--sal));
-    right: calc(10px + var(--sar));
-    width:auto;
-    display:grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-  .gradeBox{ display:none !important; }
-  .statBox{ min-width: 0; height: var(--mob-topH); }
-  .statBox .val{ font-size: 18px; }
-
-  .hud-bottom{
-    grid-template-columns: 1.25fr .75fr;
-  }
-}
-
-/* ===== Start overlay ===== */
-.overlay{
-  position:fixed;
-  inset:0;
-  z-index:100;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-  background: rgba(2,6,23,.78);
-  backdrop-filter: blur(10px);
-}
-.overlay.hide{ display:none; }
-.overlay-card{
-  width:min(560px, 100%);
-  border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.68);
-  box-shadow: 0 22px 90px rgba(0,0,0,.55);
-  padding: 16px;
-}
-.kicker{ font-weight:900; opacity:.92; font-size:12px; letter-spacing:.2px; }
-.overlay-card .title{ font-weight: 900; font-size: 16px; margin-top: 6px; }
-.desc{
-  margin-top: 10px;
-  color: rgba(229,231,235,.90);
-  font-size: 13px;
-  line-height: 1.45;
-  white-space: pre-line;
-}
-.row{ display:flex; gap: 10px; margin-top: 12px; flex-wrap:wrap; }
-.btn{
-  appearance:none;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.62);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius:14px;
-  font-weight:900;
-  font-size:13px;
-  cursor:pointer;
-  user-select:none;
-}
-.btn.primary{
-  border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.16);
-}
-.btn.small{
-  padding: 6px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-}
-.tiny{ margin-top: 10px; font-size: 12px; color: rgba(148,163,184,.95); }
-
-/* ===== Result overlay ===== */
-.result{
-  position:fixed;
-  inset:0;
-  z-index:120;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-  background: rgba(2,6,23,.82);
-  backdrop-filter: blur(10px);
-}
-.result-card{
-  width:min(860px, 100%);
-  border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.70);
-  box-shadow: 0 22px 90px rgba(0,0,0,.55);
-  padding: 14px;
-}
-.r-head{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap: 10px;
-}
-.r-kicker{ font-weight:900; opacity:.9; font-size: 12px; }
-.r-title{ font-weight:900; font-size:16px; margin-top:4px; }
-
-.r-grid{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-.r-box{
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
-  padding: 10px 12px;
-}
-.r-lab{ font-size: 12px; opacity: .78; font-weight: 800; }
-.r-val{ font-size: 16px; font-weight: 900; margin-top: 4px; }
-
-.r-notes{
-  margin-top: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.55);
-  padding: 10px 12px;
-}
-.r-pre{
-  margin: 6px 0 0 0;
-  white-space: pre-line;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-  opacity: .95;
-}
-.r-next{ margin-top: 6px; font-weight: 900; }
-.r-tier{ margin-top: 6px; opacity: .9; font-weight: 900; }
-
-.r-actions{
-  margin-top: 12px;
-  display:flex;
-  gap: 10px;
-  flex-wrap:wrap;
-}
-
-@media (max-width: 720px){
-  .r-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-/* ===== FX hooks from hydration.safe.js ===== */
-body.hha-endfx #playfield,
-body.hha-endfx #cbPlayfield{
-  animation: hhaBlink 220ms infinite alternate;
-}
-body.hha-bossfx{
-  filter: saturate(1.06);
-}
-@keyframes hhaBlink{
-  from{ filter: brightness(1.00); }
-  to{ filter: brightness(1.08); }
-}
-
-/* Ensure HUD doesn’t block shots in cVR */
+/* ===== cVR: top HUD never blocks shots ===== */
 body.view-cvr .hud-top{ pointer-events:none !important; }
 body.view-cvr .hud-bottom{ pointer-events:auto; }
+
+/* ===== FX: shockwave ===== */
+.hha-shock{
+  position:absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  transform: translate(-50%,-50%);
+  border: 2px solid rgba(239,68,68,.55);
+  box-shadow: 0 0 0 0 rgba(239,68,68,.35);
+  animation: shock 520ms ease-out forwards;
+  pointer-events:none;
+}
+@keyframes shock{
+  0%{ opacity:1; transform:translate(-50%,-50%) scale(0.6); box-shadow:0 0 0 0 rgba(239,68,68,.35); }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(6.5); box-shadow:0 0 0 22px rgba(239,68,68,0); }
+}
+
+/* ===== FX: end window blink + shake ===== */
+body.hha-endfx #playfield,
+body.hha-endfx #cbPlayfield{
+  animation: endPulse 220ms ease-in-out infinite alternate;
+}
+@keyframes endPulse{
+  from{ filter: brightness(1.00); }
+  to{ filter: brightness(1.12); }
+}
+
+/* ===== FX: boss ===== */
+body.hha-bossfx #playfield,
+body.hha-bossfx #cbPlayfield{
+  outline: 2px dashed rgba(239,68,68,.22);
+  outline-offset: -6px;
+}
+
+/* ===== RESULT OVERLAY ===== */
+.resultBackdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(2,6,23,.82);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+}
+.resultCard{
+  width:min(760px, 100%);
+  border-radius: 22px;
+  padding: 16px;
+}
+.resultTitle{ font-weight:900; font-size:18px; }
+.resultGrid{
+  margin-top: 10px;
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.kv{
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.55);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+.kv .k{ font-size:12px; opacity:.78; font-weight:700; }
+.kv .v{ font-size:16px; font-weight:900; margin-top:4px; }
+.tips{
+  margin-top: 10px;
+  white-space: pre-wrap;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.55);
+  border-radius: 16px;
+  padding: 10px 12px;
+  color: rgba(229,231,235,.92);
+}
+.next{
+  margin-top: 8px;
+  font-weight: 900;
+  opacity:.95;
+}
+.resultRow{
+  margin-top: 12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap: 10px;
+}
+@media (max-width: 560px){
+  .resultGrid{ grid-template-columns: repeat(2, 1fr); }
+}
