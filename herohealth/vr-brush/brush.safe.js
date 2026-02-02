@@ -1,7 +1,8 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE Engine — DOM90 v0.2
-// ✅ Adds: Tug-of-war reclaim + Gentle (tap-rate heuristic + penalty + toast)
-// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, hha:end
+// BrushVR SAFE Engine — DOM90 v0.3
+// ✅ Adds: UV power (3 charges) + stealth plaque notes (only hittable during UV window)
+// Includes: Tug-of-war reclaim + Gentle (penalty) from v0.2
+// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, hha:end
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -27,7 +28,11 @@
       cov: { q1:id('cov-q1'), q2:id('cov-q2'), q3:id('cov-q3'), q4:id('cov-q4') },
       toastWrap: id('hud-toast'),
       toastT: id('toastT'),
-      toastS: id('toastS')
+      toastS: id('toastS'),
+      uvWrap: id('hud-uv'),
+      uvBtn: id('uvBtn'),
+      uvEnergy: id('uvEnergy'),
+      uvSub: id('uvSub')
     };
 
     function setTimer(secLeft, secTotal, phaseLabel){
@@ -68,14 +73,33 @@
     let toastTimer = null;
     function toast(title, sub, ms=1400){
       if(!el.toastWrap) return;
-      if(el.toastT) el.toastT.textContent = title || 'เบามือหน่อย!';
+      if(el.toastT) el.toastT.textContent = title || 'แจ้งเตือน';
       if(el.toastS) el.toastS.textContent = sub || '';
       el.toastWrap.setAttribute('data-on','1');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(()=> el.toastWrap.setAttribute('data-on','0'), ms);
     }
 
-    return { setTimer, setCombo, setFever, setCoverage, toast };
+    function showUV(on){
+      if(!el.uvWrap) return;
+      el.uvWrap.setAttribute('data-on', on ? '1':'0');
+    }
+    function setUVEnergy(energyLeft, energyMax, uvOn, uvCdLeft){
+      if(el.uvSub){
+        if(uvOn) el.uvSub.textContent = 'UV ON • ปราบคราบล่องหน!';
+        else if(uvCdLeft>0) el.uvSub.textContent = `Cooldown ${(uvCdLeft).toFixed(1)}s`;
+        else el.uvSub.textContent = 'Reveal stealth plaque';
+      }
+      if(el.uvEnergy){
+        const dots = el.uvEnergy.querySelectorAll('.dot');
+        dots.forEach((d,i)=>{
+          const off = (energyLeft||0) <= i;
+          d.setAttribute('data-off', off ? '1':'0');
+        });
+      }
+    }
+
+    return { setTimer, setCombo, setFever, setCoverage, toast, showUV, setUVEnergy, el };
   })();
 
   // ---------- no-spawn zones (HUD aware) ----------
@@ -109,6 +133,7 @@
     for(const id of ids){
       const el = DOC.getElementById(id);
       if(!el) continue;
+      // NOTE: uv/toast might be hidden, but we still keep them as zones ONLY when visible
       if((id==='hud-boss' || id==='hud-uv' || id==='hud-toast') && el.getAttribute('data-on')==='0') continue;
       const rc = rectFromEl(el);
       if(!rc || rc.w<2 || rc.h<2) continue;
@@ -136,18 +161,17 @@
   }
 
   // ---------- DOM notes ----------
-  function mkNoteEl(){
+  function mkNoteEl(kind){
     const el = DOC.createElement('button');
     el.className = 'brush-note';
     el.type = 'button';
-    el.setAttribute('aria-label','note');
+    el.setAttribute('aria-label', kind==='stealth' ? 'stealth plaque' : 'note');
 
     el.style.position='absolute';
     el.style.width='48px';
     el.style.height='48px';
     el.style.borderRadius='18px';
     el.style.border='1px solid rgba(148,163,184,.25)';
-    el.style.background='rgba(34,197,94,.22)';
     el.style.boxShadow='0 10px 26px rgba(0,0,0,.25)';
     el.style.backdropFilter='blur(8px)';
     el.style.webkitBackdropFilter='blur(8px)';
@@ -158,7 +182,17 @@
     el.style.cursor='pointer';
     el.style.userSelect='none';
     el.style.webkitTapHighlightColor='transparent';
-    el.textContent='🦷';
+
+    if(kind==='stealth'){
+      el.textContent='🟣';
+      el.style.background='rgba(168,85,247,.14)';
+      el.style.border='1px solid rgba(168,85,247,.30)';
+      el.style.opacity='0.10'; // mostly hidden by default
+    }else{
+      el.textContent='🦷';
+      el.style.background='rgba(34,197,94,.22)';
+      el.style.opacity='0';
+    }
     return el;
   }
 
@@ -191,7 +225,7 @@
     }, 520);
   }
 
-  // ---------- config (DOM90 baseline ~ normal) ----------
+  // ---------- config ----------
   const CFG = {
     timeSec: 90,
     introSec: 2.5,
@@ -201,30 +235,39 @@
     minQuadSec: 12,
 
     judgeMs: { perfect: 120, good: 210 },
-    pts: { perfect: 12, good: 7 },
+    pts: { perfect: 12, good: 7, stealth: 22 },
 
     feverMax: 20,
     feverOnSec: 6,
 
-    // spawn
     noteRadius: 26,
     noteLifeSec: 1.9,
     spawnEverySec: 0.72,
 
-    // Gentle (tap-rate heuristic)
     gentle: {
-      tapRateHeavyPerSec: 7,     // >7 hits/sec in rolling 1s => heavy
-      spamIntervalMs: 120,       // hits closer than this => heavy
-      heavyLimit: 4,             // allowed heavy count before penalty
-      penaltySec: 4.0,           // penalty duration
-      penaltyMul: 0.80           // multiplier scale while penalty active
+      tapRateHeavyPerSec: 7,
+      spamIntervalMs: 120,
+      heavyLimit: 4,
+      penaltySec: 4.0,
+      penaltyMul: 0.80
     },
 
-    // Tug-of-war reclaim
     tug: {
       enabled: true,
       reclaimDelaySec: 8.0,
-      reclaimRatePerSec: 0.012   // coverage decreases 1.2% per sec (normal)
+      reclaimRatePerSec: 0.012
+    },
+
+    uv: {
+      enabled: true,
+      energyMax: 3,
+      windowSec: 3.5,
+      cooldownSec: 3.0,
+      stealthLifeSec: 2.4,
+      stealthSpawnEverySec: 0.55,  // during UV window
+      stealthVisibleOpacity: 0.85, // when UV ON
+      stealthHiddenOpacity: 0.10,  // when UV OFF
+      stealthHitWhenOffPenalty: true
     }
   };
 
@@ -246,7 +289,6 @@
       return;
     }
 
-    // state
     const S = {
       ctx, view, rng,
       phase:'INTRO',
@@ -262,6 +304,7 @@
 
       score:0,
       perfect:0, good:0, miss:0,
+      stealthHit:0, stealthMiss:0,
 
       combo:0, maxCombo:0,
 
@@ -269,20 +312,25 @@
       feverOn:false,
       feverLeft:0,
 
-      // Gentle
       heavyCount:0,
       penaltyLeft:0,
-      hitTimes:[],        // rolling window for tap rate
+      hitTimes:[],
       lastHitMs:0,
 
-      // Tug-of-war
       lastTouchedAt:{ q1:0, q2:0, q3:0, q4:0 },
       reclaiming:{ q1:0, q2:0, q3:0, q4:0 },
+
+      // UV state
+      uvEnergy: CFG.uv.energyMax,
+      uvOn:false,
+      uvLeft:0,
+      uvCdLeft:0,
+      lastStealthSpawn:0,
 
       lastTimeEmit:0,
       lastSpawn:0,
 
-      notes:new Map(),
+      notes:new Map(), // id -> note
       noteSeq:0,
 
       ns:null
@@ -302,13 +350,12 @@
       }
     }
 
-    // ---- Tug-of-war reclaim tick ----
+    // --- Tug-of-war reclaim ---
     function applyReclaim(dt){
-      // reset flags each tick
       S.reclaiming.q1 = S.reclaiming.q2 = S.reclaiming.q3 = S.reclaiming.q4 = 0;
       if(!CFG.tug.enabled) return;
 
-      const now = S.t; // seconds since start
+      const now = S.t;
       for(const q of CFG.quads){
         if(q === S.q) continue;
         const idle = now - (S.lastTouchedAt[q]||0);
@@ -322,13 +369,12 @@
       }
     }
 
-    // ---- Gentle heuristic ----
+    // --- Gentle heuristic ---
     function recordHitAndDetectHeavy(hitMs){
-      // rolling 1s window
       S.hitTimes.push(hitMs);
       while(S.hitTimes.length && (hitMs - S.hitTimes[0]) > 1000) S.hitTimes.shift();
 
-      const tapRate = S.hitTimes.length; // hits in last 1s
+      const tapRate = S.hitTimes.length;
       const interval = (S.lastHitMs>0) ? (hitMs - S.lastHitMs) : 9999;
       S.lastHitMs = hitMs;
 
@@ -340,26 +386,31 @@
         S.heavyCount++;
         HUD.toast('เบามือหน่อย!', 'กดถี่/รัวเกินไป ลองช้าลงหน่อย', 1400);
 
-        // trigger penalty if exceed limit
         if(S.heavyCount > CFG.gentle.heavyLimit){
           S.penaltyLeft = Math.max(S.penaltyLeft, CFG.gentle.penaltySec);
-          // soften combo (ไม่ให้เด็กท้อ แต่รู้สึกมีผล)
           S.combo = Math.floor(S.combo * 0.85);
         }
-        emit('brush:gentle', {
-          heavyCount: S.heavyCount,
-          penaltyActive: S.penaltyLeft > 0,
-          tapRate
-        });
+        emit('brush:gentle', { heavyCount:S.heavyCount, penaltyActive:S.penaltyLeft>0, tapRate });
       }
     }
 
-    // ---- note spawning ----
-    function spawnNote(){
+    // --- Note spawn helpers ---
+    function addNote(note){
+      S.notes.set(note.id, note);
+      // expire auto
+      const life = (note.kind==='stealth') ? CFG.uv.stealthLifeSec : CFG.noteLifeSec;
+      setTimeout(()=>{
+        if(!note.used){
+          judgeNote(note, nowMs(), 'expire');
+        }
+      }, Math.round(life*1000));
+    }
+
+    function spawnNormal(){
       const id = ++S.noteSeq;
       const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
+      const el = mkNoteEl('normal');
 
-      const el = mkNoteEl();
       el.style.left = `${p.x}px`;
       el.style.top  = `${p.y}px`;
       el.style.transform = 'translate(-50%,-50%) scale(0.92)';
@@ -375,27 +426,76 @@
         el.style.transform = 'translate(-50%,-50%) scale(1)';
       });
 
-      const note = { id, bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
-      S.notes.set(id, note);
-
-      el.addEventListener('click', (ev)=>{
-        ev.preventDefault();
-        judgeNote(note, nowMs(), 'tap');
-      }, {passive:false});
-
-      setTimeout(()=>{
-        if(!note.used){
-          judgeNote(note, nowMs(), 'expire');
-        }
-      }, Math.round(CFG.noteLifeSec*1000));
+      const note = { id, kind:'normal', bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false };
+      el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
+      addNote(note);
     }
 
-    // ---- judging ----
+    function spawnStealth(){
+      const id = ++S.noteSeq;
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
+      const el = mkNoteEl('stealth');
+
+      el.style.left = `${p.x}px`;
+      el.style.top  = `${p.y}px`;
+      el.style.transform = 'translate(-50%,-50%) scale(0.92)';
+      layer.appendChild(el);
+
+      const born = nowMs();
+      const due = born + 420 + (S.rng()*240); // slightly earlier beat
+
+      // make visible only when UV is on
+      function syncOpacity(){
+        el.style.opacity = S.uvOn ? String(CFG.uv.stealthVisibleOpacity) : String(CFG.uv.stealthHiddenOpacity);
+      }
+      syncOpacity();
+
+      const note = { id, kind:'stealth', bornMs:born, dueMs:due, x:p.x, y:p.y, el, used:false, syncOpacity };
+      el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
+      addNote(note);
+    }
+
+    function syncStealthVisibility(){
+      for(const note of S.notes.values()){
+        if(note.kind==='stealth' && typeof note.syncOpacity==='function') note.syncOpacity();
+      }
+    }
+
+    // --- UV control ---
+    function tryUseUV(){
+      if(!CFG.uv.enabled) return;
+      if(S.uvOn) return;
+      if(S.uvCdLeft > 0){
+        HUD.toast('ยังใช้ UV ไม่ได้', `รอคูลดาวน์อีก ${(S.uvCdLeft).toFixed(1)}s`, 1200);
+        return;
+      }
+      if(S.uvEnergy <= 0){
+        HUD.toast('พลังงาน UV หมด', 'เก็บคอมโบ/ทำคะแนนเพื่อเติมในอนาคต (จะใส่ในแพตช์ถัดไป)', 1400);
+        return;
+      }
+      S.uvEnergy -= 1;
+      S.uvOn = true;
+      S.uvLeft = CFG.uv.windowSec;
+      S.uvCdLeft = CFG.uv.cooldownSec;
+
+      HUD.toast('UV ON!', 'ตอนนี้เห็นคราบล่องหนแล้ว!', 1200);
+      syncStealthVisibility();
+
+      emit('brush:uv', { on:true, energy:S.uvEnergy });
+      // rebuild zones because hud-uv visible affects safe spawn
+      rebuildNoSpawn();
+    }
+
+    // bind UV button (safe even if absent)
+    if(HUD.el.uvBtn){
+      HUD.el.uvBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); tryUseUV(); }, {passive:false});
+    }
+
+    // --- judgement ---
     function judgeNote(note, hitMs, source){
       if(!note || note.used) return;
       note.used = true;
 
-      // gentle detection only for intentional actions (tap/shoot)
       if(source==='tap' || source==='shoot'){
         recordHitAndDetectHeavy(hitMs);
       }
@@ -407,36 +507,72 @@
         else if(delta <= CFG.judgeMs.good) judge = 'good';
       }
 
-      // remove note element
-      try{ note.el.style.transition = 'transform .18s ease, opacity .18s ease'; }catch(_){}
-      try{ note.el.style.opacity='0'; note.el.style.transform='translate(-50%,-50%) scale(0.85)'; }catch(_){}
-      setTimeout(()=>{ try{ note.el.remove(); }catch(_){} }, 220);
-      S.notes.delete(note.id);
+      // stealth: only meaningful when UV on
+      if(note.kind==='stealth'){
+        if(source==='expire'){
+          S.stealthMiss++;
+          // soft miss: do not wipe combo entirely
+          S.combo = Math.max(0, Math.floor(S.combo * 0.70));
+          S.fever = Math.max(0, S.fever - 2);
+          judge = 'miss';
+        }else{
+          if(S.uvOn){
+            // good hit
+            S.stealthHit++;
+            // treat as perfect-ish for scoring
+            const base = CFG.pts.stealth;
+            const cmul = comboMultiplier(S.combo+1);
+            const fmul = (S.feverOn ? 1.25 : 1.0);
+            const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
+            S.score += Math.round(base * cmul * fmul * pmul);
 
-      // apply score + combo + fever
-      if(judge==='miss'){
-        S.miss++;
-        S.combo = 0;
-        S.fever = Math.max(0, S.fever - 3);
+            S.combo++;
+            S.maxCombo = Math.max(S.maxCombo, S.combo);
+            S.fever += 3;
+
+            // big coverage burst
+            S.coverage[S.q] = clamp(S.coverage[S.q] + 10.0, 0, 100);
+            S.lastTouchedAt[S.q] = S.t;
+
+            popJudgeFx(layer, note.x, note.y, 'perfect');
+            emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source });
+          }else{
+            // hit while UV off
+            S.stealthMiss++;
+            if(CFG.uv.stealthHitWhenOffPenalty){
+              S.combo = Math.max(0, Math.floor(S.combo * 0.80));
+              S.fever = Math.max(0, S.fever - 1);
+              HUD.toast('ยังไม่เห็นคราบ!', 'กด UV ก่อนถึงจะปราบคราบล่องหนได้', 1400);
+            }
+            popJudgeFx(layer, note.x, note.y, 'miss');
+            emit('hha:judge', { type:'stealth', judge:'blocked', q:S.q, uvOn:false, source });
+          }
+        }
       }else{
-        if(judge==='perfect'){ S.perfect++; S.fever += 2; }
-        else { S.good++; S.fever += 1; }
+        // normal notes
+        if(judge==='miss'){
+          S.miss++;
+          S.combo = 0;
+          S.fever = Math.max(0, S.fever - 3);
+        }else{
+          if(judge==='perfect'){ S.perfect++; S.fever += 2; }
+          else { S.good++; S.fever += 1; }
 
-        S.combo++;
-        S.maxCombo = Math.max(S.maxCombo, S.combo);
+          S.combo++;
+          S.maxCombo = Math.max(S.maxCombo, S.combo);
 
-        const base = (judge==='perfect') ? CFG.pts.perfect : CFG.pts.good;
-        const cmul = comboMultiplier(S.combo);
-        const fmul = (S.feverOn ? 1.25 : 1.0);
-        const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
-        S.score += Math.round(base * cmul * fmul * pmul);
+          const base = (judge==='perfect') ? CFG.pts.perfect : CFG.pts.good;
+          const cmul = comboMultiplier(S.combo);
+          const fmul = (S.feverOn ? 1.25 : 1.0);
+          const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
+          S.score += Math.round(base * cmul * fmul * pmul);
 
-        // coverage increments
-        const add = (judge==='perfect') ? 6.0 : 3.5;
-        S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
-
-        // mark touch time for current quadrant (prevents reclaim)
-        S.lastTouchedAt[S.q] = S.t;
+          const add = (judge==='perfect') ? 6.0 : 3.5;
+          S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
+          S.lastTouchedAt[S.q] = S.t;
+        }
+        popJudgeFx(layer, note.x, note.y, judge);
+        emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, fever:S.fever, source });
       }
 
       // fever trigger
@@ -446,13 +582,19 @@
         S.fever = 5;
       }
 
-      popJudgeFx(layer, note.x, note.y, judge);
+      // remove element
+      try{ note.el.style.transition = 'transform .18s ease, opacity .18s ease'; }catch(_){}
+      try{
+        note.el.style.opacity='0';
+        note.el.style.transform='translate(-50%,-50%) scale(0.85)';
+      }catch(_){}
+      setTimeout(()=>{ try{ note.el.remove(); }catch(_){} }, 220);
+      S.notes.delete(note.id);
 
-      emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, fever:S.fever, source });
       emit('brush:coverage', { q:S.q, coverage: Object.assign({}, S.coverage) });
     }
 
-    // ---- quadrant rotation ----
+    // --- quadrant rotation ---
     function maybeAdvanceQuadrant(){
       const cov = S.coverage[S.q] || 0;
       const minOk = S.qTime >= CFG.minQuadSec;
@@ -468,12 +610,12 @@
       }
     }
 
-    // ---- end game ----
+    // --- end game ---
     function calcRank(score){
-      if(score >= 1000) return 'S';
-      if(score >= 800)  return 'A';
-      if(score >= 650)  return 'B';
-      if(score >= 520)  return 'C';
+      if(score >= 1200) return 'S';
+      if(score >= 950)  return 'A';
+      if(score >= 760)  return 'B';
+      if(score >= 600)  return 'C';
       return 'D';
     }
 
@@ -481,10 +623,9 @@
       if(S.phase==='END') return;
       S.phase='END';
 
-      // total includes coverage sum as bonus (purpose matters)
       const covSum = CFG.quads.reduce((s,q)=>s + (S.coverage[q]||0), 0);
       const coverageScore = Math.round(covSum * 2.0);
-      const total = S.score + coverageScore;
+      const total = S.score + coverageScore + (S.stealthHit*25);
 
       const summary = {
         reason,
@@ -492,12 +633,13 @@
         rank: calcRank(total),
         coverage: Object.assign({}, S.coverage),
         rhythm: { perfect:S.perfect, good:S.good, miss:S.miss, maxCombo:S.maxCombo },
+        stealth: { hit:S.stealthHit, miss:S.stealthMiss },
         gentle: { heavyCount: S.heavyCount },
+        uv: { energyLeft: S.uvEnergy },
         meta: ctx,
         durationSec: CFG.timeSec - S.left
       };
 
-      // store last summary
       try{
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
         const histKey = 'HHA_SUMMARY_HISTORY';
@@ -508,13 +650,11 @@
 
       emit('hha:end', { summary });
 
-      // clear notes
       for(const note of S.notes.values()){
         try{ note.el.remove(); }catch(_){}
       }
       S.notes.clear();
 
-      // overlay
       const done = DOC.createElement('div');
       done.style.position='fixed';
       done.style.inset='0';
@@ -527,7 +667,7 @@
         <div style="width:min(520px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
           <div style="font-weight:900;font-size:18px;">จบเกมแล้ว • Rank ${summary.rank}</div>
           <div style="margin-top:6px;color:rgba(148,163,184,1);font-size:13px;line-height:1.5;">
-            Score ${summary.scoreTotal} • Coverage ${Math.round(covSum)}% • Heavy ${summary.gentle.heavyCount} • ComboMax ${summary.rhythm.maxCombo}
+            Score ${summary.scoreTotal} • Coverage ${Math.round(covSum)}% • Stealth ${summary.stealth.hit}/${summary.stealth.miss} • Heavy ${summary.gentle.heavyCount}
           </div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
             <button id="btnRestart" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(34,197,94,.22);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Restart</button>
@@ -544,7 +684,7 @@
       });
     }
 
-    // ---- input bridge: vr-ui tap-to-shoot ----
+    // --- input bridge: vr-ui tap-to-shoot ---
     function hitTestFromShoot(ev){
       const d = ev?.detail || {};
       const x = Number(d.x), y = Number(d.y);
@@ -562,6 +702,15 @@
       }
     }
     WIN.addEventListener('hha:shoot', hitTestFromShoot);
+
+    // ---- UV HUD init ----
+    if(CFG.uv.enabled){
+      HUD.showUV(true);
+      HUD.setUVEnergy(S.uvEnergy, CFG.uv.energyMax, S.uvOn, S.uvCdLeft);
+      rebuildNoSpawn(); // uv panel now visible affects zones
+    }else{
+      HUD.showUV(false);
+    }
 
     // start
     setPhase('INTRO');
@@ -585,10 +734,10 @@
       if(S.phase==='RUN_Q'){
         S.qTime += dt;
 
-        // spawn notes
+        // spawn normal notes
         if(S.t - S.lastSpawn >= CFG.spawnEverySec){
           S.lastSpawn = S.t;
-          spawnNote();
+          spawnNormal();
         }
 
         // fever countdown
@@ -603,6 +752,28 @@
         // gentle penalty countdown
         if(S.penaltyLeft > 0){
           S.penaltyLeft = Math.max(0, S.penaltyLeft - dt);
+        }
+
+        // UV window + stealth spawns
+        if(CFG.uv.enabled){
+          if(S.uvCdLeft > 0) S.uvCdLeft = Math.max(0, S.uvCdLeft - dt);
+
+          if(S.uvOn){
+            S.uvLeft = Math.max(0, S.uvLeft - dt);
+            if(S.t - S.lastStealthSpawn >= CFG.uv.stealthSpawnEverySec){
+              S.lastStealthSpawn = S.t;
+              spawnStealth();
+            }
+            if(S.uvLeft <= 0){
+              S.uvOn = false;
+              S.uvLeft = 0;
+              syncStealthVisibility();
+              HUD.toast('UV OFF', 'จบช่วง UV แล้ว', 900);
+              emit('brush:uv', { on:false, energy:S.uvEnergy });
+            }
+          }
+          // keep stealth opacity synced (cheap)
+          // syncStealthVisibility(); // optional; we already update on toggle
         }
 
         // tug-of-war reclaim
@@ -620,10 +791,12 @@
       const cmul = comboMultiplier(S.combo);
       const fmul = (S.feverOn ? 1.25 : 1.0);
       const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
-      HUD.setTimer(S.left, CFG.timeSec, phaseLabel);
+
+      HUD.setTimer(S.left, CFG.timeSec, phaseLabel + (S.uvOn ? ' • UV' : ''));
       HUD.setCoverage(S.coverage, CFG.covPass, S.reclaiming);
       HUD.setCombo(S.combo, cmul*fmul*pmul);
       HUD.setFever(S.fever, CFG.feverMax);
+      if(CFG.uv.enabled) HUD.setUVEnergy(S.uvEnergy, CFG.uv.energyMax, S.uvOn, S.uvCdLeft);
 
       // time emit
       if((t - S.lastTimeEmit) > 250){
@@ -634,7 +807,9 @@
           q:S.q,
           coverage:Object.assign({}, S.coverage),
           heavyCount:S.heavyCount,
-          penaltyActive:(S.penaltyLeft>0)
+          penaltyActive:(S.penaltyLeft>0),
+          uvOn:S.uvOn,
+          uvEnergy:S.uvEnergy
         });
       }
 
