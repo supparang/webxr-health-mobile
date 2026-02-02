@@ -42,7 +42,7 @@
       const p = this._screenPosFromLane(lane);
       this.spawnHitParticle(p.x, p.y, judgment);
       this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback((judgment||'good').toUpperCase(), judgment);
+      this._feedback(judgment.toUpperCase(), judgment);
     }
 
     showMissFx({ lane }){
