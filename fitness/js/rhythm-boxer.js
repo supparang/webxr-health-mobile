@@ -23,6 +23,7 @@
   const trackLabels   = $$('#rb-track-options .rb-mode-btn');
   const modeDescEl    = $('#rb-mode-desc');
   const trackModeLbl  = $('#rb-track-mode-label');
+  const trackHintEl   = null; // (เวอร์ชันนี้ใส่ how-to ใน card แล้ว)
   const researchBox   = $('#rb-research-fields');
 
   // ฟอร์มวิจัย
@@ -159,9 +160,23 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd, onAI: handleAIUpdate }
+      hooks: { onEnd: handleEngineEnd }
     });
   }
+
+  function readQuery(key, def = '') {
+    try { return new URL(location.href).searchParams.get(key) ?? def; } catch (_) { return def; }
+  }
+
+  let aiAssistEnabled = false;
+  (function initAiFlag(){
+    try{
+      const sp = new URL(location.href).searchParams;
+      aiAssistEnabled = (sp.get('ai') === '1');
+    }catch(_){
+      aiAssistEnabled = false;
+    }
+  })();
 
   function startGame() {
     if (!engine) createEngine();
@@ -178,8 +193,15 @@
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim()
+      note: (inputNote && inputNote.value || '').trim(),
+      aiAssist: (mode !== 'research') && aiAssistEnabled
     };
+
+    // Final guard: in research never allow assist even if someone adds ?ai=1
+    meta.aiAssist = (mode !== "research") && (function(){
+      const v = (readQuery("ai","")||"").toLowerCase();
+      return v === "1" || v === "true" || v === "yes";
+    })();
 
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
@@ -213,17 +235,6 @@
     }
 
     switchView('result');
-  }
-
-  function handleAIUpdate(ai){
-    if (!ai || !hud) return;
-    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
-    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
-    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
-    if (hud.aiTip){
-      hud.aiTip.textContent = ai.tip || '';
-      hud.aiTip.classList.toggle('hidden', !ai.tip);
-    }
   }
 
   function downloadCsv(csvText, filename) {
