@@ -1,126 +1,213 @@
+<!-- === /herohealth/groups-vr.html ===
+GroupsVR LAUNCHER — ROOT (Difficulty + Time)
+✅ Select: Easy(60) / Normal(90) / Hard(120)
+✅ Pass-through params: hub, log, run, seed, pid, studyId, phase, conditionGroup, style, view, etc.
+✅ Does NOT force view override (keeps existing ?view= if user already passed it)
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR Launcher</title>
+  <title>HeroHealth — GroupsVR (Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --bg:#020617; --text:#e5e7eb; --muted:#94a3b8;
-      --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --accent:#22c55e; --radius:22px;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --radius:22px;
+      --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
     *{ box-sizing:border-box; }
     html,body{ margin:0; width:100%; height:100%; background:var(--bg); color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif; }
+      font-family: system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif; }
+    body{ overflow:hidden; }
     .wrap{
-      min-height:100%;
-      padding: calc(var(--sat) + 16px) 14px calc(var(--sab) + 18px);
+      min-height:100vh;
+      padding: calc(var(--sat) + 18px) calc(var(--sar) + 14px) calc(var(--sab) + 18px) calc(var(--sal) + 14px);
       display:flex; align-items:center; justify-content:center;
     }
     .card{
-      width:min(720px, 100%);
-      border:1px solid var(--stroke);
+      width:min(820px, 100%);
+      background: rgba(2,6,23,.78);
+      border:1px solid rgba(148,163,184,.18);
       border-radius: var(--radius);
-      background: var(--panel);
       padding: 16px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      box-shadow: 0 18px 60px rgba(0,0,0,.42);
+      backdrop-filter: blur(12px);
     }
-    .title{ font-weight:1100; font-size:18px; }
-    .sub{ margin-top:8px; color:rgba(229,231,235,.86); font-weight:900; font-size:13px; line-height:1.35; }
-    .row{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    .head{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      flex-wrap:wrap;
+      padding: 6px 6px 10px;
+    }
+    .title{
+      font-weight: 1200;
+      font-size: 18px;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin-top: 6px;
+      font-weight: 900;
+      font-size: 13px;
+      color: rgba(229,231,235,.84);
+      line-height:1.35;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: var(--pill);
+      padding: 7px 10px;
+      background: rgba(15,23,42,.55);
+      font-weight: 1000;
+      font-size: 12px;
+      color: rgba(229,231,235,.90);
+      white-space:nowrap;
+    }
+    .grid{
+      margin-top: 12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width:720px){ .grid{ grid-template-columns:1fr; } }
+
     .btn{
-      appearance:none; border:1px solid var(--stroke);
-      border-radius: 16px; padding: 12px 14px;
-      background: rgba(15,23,42,.60); color:var(--text);
-      font-weight:1100; cursor:pointer;
-      flex: 1 1 220px;
+      appearance:none;
+      width:100%;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.62);
+      color: var(--text);
+      padding: 14px 14px;
+      cursor:pointer;
+      text-align:left;
+      box-shadow: 0 14px 44px rgba(0,0,0,.30);
+      transition: transform .08s ease, border-color .12s ease;
     }
-    .btn.primary{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.16); }
-    .note{ margin-top:10px; color:rgba(148,163,184,.92); font-weight:900; font-size:12px; }
+    .btn:active{ transform: translateY(1px); }
+    .btn .bTitle{ font-weight: 1200; font-size: 16px; }
+    .btn .bTime{ margin-top: 6px; font-weight: 1100; font-size: 13px; color: rgba(229,231,235,.88); }
+    .btn .bHint{ margin-top: 8px; font-weight: 900; font-size: 12px; color: rgba(148,163,184,.95); line-height:1.3; }
+
+    .easy{ border-color: rgba(34,197,94,.30); }
+    .normal{ border-color: rgba(34,211,238,.26); }
+    .hard{ border-color: rgba(245,158,11,.30); }
+
+    .foot{
+      margin-top: 12px;
+      padding: 10px 6px 0;
+      display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;
+      border-top: 1px solid rgba(148,163,184,.12);
+    }
+    .muted{ color: rgba(148,163,184,.95); font-weight:900; font-size:12px; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="title">Food Groups VR</div>
-      <div class="sub">
-        ระบบจะพาเข้าเกมอัตโนมัติ (Run อยู่ในโฟลเดอร์)<br/>
-        ถ้ามี <b>?view=</b> มาแล้ว จะ <b>ไม่ override</b> ให้เอง
+      <div class="head">
+        <div>
+          <div class="title">Food Groups VR — เลือกระดับ</div>
+          <div class="sub">เลือก “ง่าย / ปกติ / ยาก” ระบบจะตั้งเวลาอัตโนมัติ และส่งไปหน้าเล่นจริง</div>
+        </div>
+        <div class="pill" id="ctxPill">ctx: …</div>
       </div>
 
-      <div class="row">
-        <button class="btn primary" id="go">เข้าเล่น</button>
-        <button class="btn" id="hub">กลับ HUB</button>
+      <div class="grid">
+        <button class="btn easy" data-diff="easy" data-time="60">
+          <div class="bTitle">ง่าย (Easy)</div>
+          <div class="bTime">เวลาเล่น: 60 วินาที</div>
+          <div class="bHint">เหมาะเริ่มต้น / เด็ก ป.5 / เน้นยิงติด & เข้าใจหมู่</div>
+        </button>
+
+        <button class="btn normal" data-diff="normal" data-time="90">
+          <div class="bTitle">ปกติ (Normal)</div>
+          <div class="bTime">เวลาเล่น: 90 วินาที</div>
+          <div class="bHint">ค่าแนะนำหลัก / KPI: Miss ≤ 20 (ดีมากถ้า ≤ 15)</div>
+        </button>
+
+        <button class="btn hard" data-diff="hard" data-time="120">
+          <div class="bTitle">ยาก (Hard)</div>
+          <div class="bTime">เวลาเล่น: 120 วินาที</div>
+          <div class="bHint">ท้าทายขึ้น / เป้าเยอะขึ้น / ต้องคุมคอมโบให้ยาว</div>
+        </button>
       </div>
 
-      <div class="note" id="dbg">กำลังเตรียม…</div>
+      <div class="foot">
+        <div class="muted">Tip: ถ้าเล่นบนมือถือ แนะนำใช้ Normal ก่อน (90s) แล้วค่อย Hard</div>
+        <div class="pill" id="paramPill">params: …</div>
+      </div>
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
+  <script>
+    (function(){
+      'use strict';
 
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+      function getQ(){
+        try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); }
+      }
 
-  function detectBaseView(){
-    // ห้าม override ถ้ามี view มาก่อน (ตามมาตรฐานคุณ)
-    const v = String(qs('view','')||'').toLowerCase();
-    if(v) return v;
+      // Build redirect url to run page, preserving all params.
+      function buildRunUrl(diff, timeSec){
+        const q = getQ();
+        const runUrl = new URL('./vr-groups/groups-vr.html', location.href);
 
-    // auto detect แบบปลอดภัย
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-    return isMobile ? 'mobile' : 'pc';
-  }
+        // pass-through all existing params
+        q.forEach((v,k)=> runUrl.searchParams.set(k, v));
 
-  function buildRunUrl(){
-    const url = new URL(location.href);
-    const p = url.searchParams;
+        // set diff/time explicitly (launcher controls gameplay)
+        runUrl.searchParams.set('diff', diff);
+        runUrl.searchParams.set('time', String(timeSec));
 
-    // จุดหมาย run (โฟลเดอร์)
-    const run = new URL('./vr-groups/groups-vr.html', url);
+        // default run mode if not present
+        if(!runUrl.searchParams.get('run')) runUrl.searchParams.set('run', 'play');
 
-    // pass-through: เอาทุกพารามิเตอร์ไปต่อ (hub/run/diff/time/seed/style/log/studyId/phase/conditionGroup ฯลฯ)
-    // แต่ "view" ถ้าไม่มีค่อยเติมจาก detect
-    const view = detectBaseView();
+        // IMPORTANT: do NOT override view if user already passed it.
+        // (we keep whatever exists; if none, run html can auto-set view-mobile by UA or helper)
+        return runUrl.toString();
+      }
 
-    // clone params
-    const out = new URLSearchParams();
-    for (const [k,v] of p.entries()) out.set(k, v);
+      function prettyParams(){
+        const q = getQ();
+        const diff = q.get('diff') || '(auto)';
+        const time = q.get('time') || '(auto)';
+        const run  = q.get('run')  || 'play';
+        const view = q.get('view') || '(auto)';
+        const seed = q.get('seed') || '(auto)';
+        return { diff, time, run, view, seed };
+      }
 
-    if(!out.get('view')) out.set('view', view);
+      const ctx = prettyParams();
+      const ctxPill = document.getElementById('ctxPill');
+      const paramPill = document.getElementById('paramPill');
+      if(ctxPill) ctxPill.textContent = `run:${ctx.run} view:${ctx.view}`;
+      if(paramPill) paramPill.textContent = `diff:${ctx.diff} time:${ctx.time} seed:${ctx.seed}`;
 
-    // bust cache แบบเบา ๆ
-    if(!out.get('v')) out.set('v', String(Date.now()));
+      document.querySelectorAll('button[data-diff]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const diff = btn.getAttribute('data-diff') || 'normal';
+          const time = Number(btn.getAttribute('data-time') || '90') || 90;
+          location.href = buildRunUrl(diff, time);
+        }, { passive:true });
+      });
 
-    run.search = out.toString();
-    return run.toString();
-  }
-
-  function go(){
-    const runUrl = buildRunUrl();
-    document.getElementById('dbg').textContent = 'ไปที่: ' + runUrl;
-    location.replace(runUrl);
-  }
-
-  function backHub(){
-    const hub = qs('hub','') || '';
-    if(hub) location.href = hub;
-    else history.back();
-  }
-
-  document.getElementById('go').addEventListener('click', go);
-  document.getElementById('hub').addEventListener('click', backHub);
-
-  // auto redirect ทันที (ถ้าต้องการให้มีหน้าเลือก ให้คอมเมนต์บรรทัดนี้)
-  go();
-})();
-</script>
+    })();
+  </script>
 </body>
 </html>
