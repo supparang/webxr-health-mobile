@@ -512,3 +512,283 @@ this.score = 0;
 
       this.notes = this.notes.filter((n) => n.state === 'pending');
     }
+// ===== HIT / MISS =====
+    _applyHit(note, songTime, dt, judgment) {
+      note.state = 'hit';
+      if (note.el) {
+        note.el.remove();
+        note.el = null;
+      }
+
+      const side = sideOfLane(note.lane);
+      const abs = Math.abs(dt);
+
+      this.offsets.push(dt);
+      this.offsetsAbs.push(abs);
+      if (dt < 0) this.earlyHits++;
+      else this.lateHits++;
+
+      if (side === 'L') this.leftHits++;
+      else if (side === 'R') this.rightHits++;
+
+      if (judgment === 'perfect') this.hitPerfect++;
+      else if (judgment === 'great') this.hitGreat++;
+      else if (judgment === 'good') this.hitGood++;
+
+      let baseScore =
+        judgment === 'perfect' ? 300 : judgment === 'great' ? 200 : 100;
+      if (this.feverActive) {
+        baseScore = Math.round(baseScore * 1.5);
+      }
+
+      this.score += baseScore;
+      this.combo++;
+      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+
+      if (judgment === 'perfect') {
+        this.hp = clamp(this.hp + 1, 0, 100);
+      }
+      this.hpMin = Math.min(this.hpMin, this.hp);
+
+      const feverGain =
+        judgment === 'perfect' ? 7 : judgment === 'great' ? 5 : 3;
+      this._addFeverGauge(feverGain, songTime);
+
+      if (this.renderer && typeof this.renderer.showHitFx === 'function') {
+        this.renderer.showHitFx({
+          lane: note.lane,
+          judgment,
+          songTime,
+          scoreDelta: baseScore,
+          scoreTotal: this.score
+        });
+      }
+
+      this._logEventRow({
+        event_type: 'hit',
+        song_time_s: songTime.toFixed(3),
+        lane: note.laneRaw != null ? note.laneRaw : note.lane,
+        lane_mapped: note.lane,
+        side,
+        judgment,
+        raw_offset_s: dt.toFixed(3),
+        abs_offset_s: abs.toFixed(3),
+        is_hit: 1,
+        is_fever: this.feverActive ? 1 : 0,
+        combo_after: this.combo,
+        score_delta: baseScore,
+        score_total: this.score,
+        hp_after: this.hp,
+        shield_after: this.shield,
+        seg_index: segmentIndex(songTime, this.track.durationSec)
+      });
+    }
+
+    _applyMiss(note, songTime, dtOrNull, byTap) {
+      note.state = 'miss';
+      if (note.el) {
+        note.el.remove();
+        note.el = null;
+      }
+
+      this.hitMiss++;
+      this.combo = 0;
+
+      const dmg = 5;
+      this.hp = clamp(this.hp - dmg, 0, 100);
+      this.hpMin = Math.min(this.hpMin, this.hp);
+
+      this._addFeverGauge(-8, songTime);
+
+      if (this.renderer && typeof this.renderer.showMissFx === 'function') {
+        this.renderer.showMissFx({
+          lane: note.lane,
+          songTime
+        });
+      }
+
+      const dt = dtOrNull;
+
+      this._logEventRow({
+        event_type: 'miss',
+        song_time_s: songTime.toFixed(3),
+        lane: note.laneRaw != null ? note.laneRaw : note.lane,
+        lane_mapped: note.lane,
+        side: sideOfLane(note.lane),
+        judgment: 'miss',
+        raw_offset_s: dt == null ? '' : dt.toFixed(3),
+        abs_offset_s: dt == null ? '' : Math.abs(dt).toFixed(3),
+        is_hit: 0,
+        is_fever: this.feverActive ? 1 : 0,
+        combo_after: this.combo,
+        score_delta: 0,
+        score_total: this.score,
+        hp_after: this.hp,
+        shield_after: this.shield,
+        seg_index: segmentIndex(songTime, this.track.durationSec),
+        miss_by_tap: byTap ? 1 : 0
+      });
+    }
+
+    _applyEmptyTapMiss(songTime, lane) {
+      this.combo = 0;
+
+      const dmg = 2;
+      this.hp = clamp(this.hp - dmg, 0, 100);
+      this.hpMin = Math.min(this.hpMin, this.hp);
+
+      this._addFeverGauge(-5, songTime);
+
+      this._logEventRow({
+        event_type: 'blank-tap',
+        song_time_s: songTime.toFixed(3),
+        lane,
+        lane_mapped: lane,
+        side: sideOfLane(lane),
+        judgment: 'miss',
+        is_hit: 0,
+        is_fever: this.feverActive ? 1 : 0,
+        combo_after: this.combo,
+        score_delta: 0,
+        score_total: this.score,
+        hp_after: this.hp,
+        shield_after: this.shield,
+        seg_index: segmentIndex(songTime, this.track.durationSec)
+      });
+    }
+
+    // ===== FEVER =====
+    _addFeverGauge(delta, songTime) {
+      this.feverGauge = clamp(this.feverGauge + delta, 0, 100);
+
+      if (!this.feverActive && this.feverGauge >= 100) {
+        this.feverActive = true;
+        this.feverGauge = 100;
+        this.feverEntryCount++;
+
+        if (this.timeToFirstFeverSec == null) {
+          this.timeToFirstFeverSec = songTime;
+        }
+
+        this.feverEndTime = songTime + 5.0;
+      }
+    }
+
+    // ===== AI (prediction only in research; optional assist in normal ?ai=1) =====
+    _aiTick(songTime){
+      if (!window.RB_AI || typeof window.RB_AI.predict !== 'function') return;
+
+      const totalNotes = this.totalNotes || 1;
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
+      const totalJudged = totalHits + this.hitMiss;
+      const accPct = totalJudged
+        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
+        : 0;
+
+      const offAbsMean = this.offsetsAbs.length ? mean(this.offsetsAbs) : null;
+
+      // compute a "snapshot" for predictor
+      const snap = {
+        accPct,
+        hitPerfect: this.hitPerfect,
+        hitGreat: this.hitGreat,
+        hitGood: this.hitGood,
+        hitMiss: this.hitMiss,
+        combo: this.combo,
+        hp: this.hp,
+        offsetAbsMean: offAbsMean,
+        songTime,
+        durationSec: this.track.durationSec || 0,
+        blankTaps: this.aiBlankTaps,
+        tapCount: this.aiTapCount,
+        missStreak: this.aiMissStreak,
+        deviceType: this.deviceType
+      };
+
+      const pred = window.RB_AI.predict(snap);
+
+      // store for HUD
+      this.aiState = pred || null;
+
+      // assist widening (NORMAL + ?ai=1 only)
+      // research lock: widen = 0 always
+      const assistOn = (window.RB_AI.isAssistEnabled && window.RB_AI.isAssistEnabled()) ? true : false;
+      this._assistWiden = assistOn ? 0.02 : 0.0; // widen windows by +20ms max
+
+      // optional: soft coaching tip rate-limit
+      // (UI reads aiState; we don't push DOM from engine)
+    }
+
+    // ===== HUD =====
+    _updateHUD(songTime) {
+      const h = this.hud;
+      if (h.score) h.score.textContent = this.score;
+      if (h.combo) h.combo.textContent = this.combo;
+      if (h.hp) h.hp.textContent = this.hp;
+      if (h.shield) h.shield.textContent = this.shield;
+      if (h.time) h.time.textContent = songTime.toFixed(1);
+
+      const totalJudged =
+        this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
+      const totalNotes = this.totalNotes || 1;
+      const acc = totalJudged
+        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
+        : 0;
+      if (h.acc) h.acc.textContent = acc.toFixed(1) + '%';
+
+      if (h.countPerfect) h.countPerfect.textContent = this.hitPerfect;
+      if (h.countGreat) h.countGreat.textContent = this.hitGreat;
+      if (h.countGood) h.countGood.textContent = this.hitGood;
+      if (h.countMiss) h.countMiss.textContent = this.hitMiss;
+
+      if (h.feverFill) {
+        const scale = this.feverGauge / 100;
+        h.feverFill.style.transform = `scaleX(${scale})`;
+      }
+      if (h.feverStatus) {
+        if (this.feverActive) {
+          h.feverStatus.textContent = 'FEVER!!';
+          h.feverStatus.classList.add('on');
+        } else {
+          h.feverStatus.textContent = 'READY';
+          h.feverStatus.classList.remove('on');
+        }
+      }
+
+      if (h.progFill || h.progText) {
+        const dur = this.track.durationSec || 1;
+        const prog = clamp(songTime / dur, 0, 1);
+        if (h.progFill) h.progFill.style.transform = `scaleX(${prog})`;
+        if (h.progText) h.progText.textContent = Math.round(prog * 100) + '%';
+      }
+
+      // AI HUD (prediction only in research; assist optional in normal)
+      if (this.aiState){
+        const ai = this.aiState;
+        if (h.aiFatigue) h.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
+        if (h.aiSkill)   h.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
+        if (h.aiSuggest) h.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+        if (h.aiTip){
+          h.aiTip.textContent = ai.tip || '';
+          h.aiTip.classList.toggle('hidden', !ai.tip);
+        }
+      }
+    }
+
+    // ===== CSV LOGGING =====
+    _logEventRow(extra) {
+      const base = {
+        session_id: this.sessionId,
+        participant_id: this.meta.id || this.meta.participant_id || '',
+        group: this.meta.group || '',
+        note: this.meta.note || '',
+        mode: this.mode,
+        track_id: this.track.id,
+        track_name: this.track.name,
+        bpm: this.track.bpm,
+        difficulty: this.track.diff,
+        device_type: this.deviceType,
+        created_at_iso: new Date().toISOString()
+      };
+      this.eventTable.add(Object.assign(base, extra));
+    }
