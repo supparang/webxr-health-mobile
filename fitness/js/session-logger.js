@@ -1,114 +1,145 @@
 // === /fitness/js/session-logger.js ===
-// Session-level CSV logger (Shadow Breaker)
-// ✅ Export: SessionLogger (named export)  <-- PATCH for engine import
-// ✅ Export: downloadSessionCsv(logger, filename)
-// - Stores 1+ session rows (normally 1 per run)
-// - CSV header uses union of keys across rows (stable columns)
+// Session-level CSV logger (Shadow Breaker) — PRODUCTION (PATCH)
+// ✅ Exports: SessionLogger, downloadSessionCsv
+// ✅ Stable schema (union keys) + safe CSV escaping
 
 'use strict';
 
-function isObj(v){ return !!v && typeof v === 'object' && !Array.isArray(v); }
-
-function escCsv(v){
+function escCsv(v) {
   if (v == null) return '';
   const s = String(v);
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
 }
 
-function unionKeys(rows){
-  const set = new Set();
-  for (const r of rows) {
-    if (!isObj(r)) continue;
-    for (const k of Object.keys(r)) set.add(k);
-  }
-  return Array.from(set);
+function uniqPush(arr, key) {
+  if (!key) return;
+  if (!arr.includes(key)) arr.push(key);
+}
+
+function defaultOrder(cols) {
+  const core = [
+    'ts_start_ms',
+    'ts_end_ms',
+    'duration_s',
+    'mode', 'diff',
+    'session_id',
+    'participant_id', 'group', 'note',
+    'bosses_cleared',
+    'final_phase',
+    'score',
+    'max_combo',
+    'miss',
+    'hit_good',
+    'hit_bad',
+    'hit_bomb',
+    'hit_heal',
+    'hit_shield',
+    'accuracy_pct',
+    'grade',
+    'avg_rt_ms',
+    'min_rt_ms',
+    'max_rt_ms',
+    'fever_uses',
+    'shield_gain',
+    'hp_end',
+    'boss_hp_end'
+  ];
+
+  const out = [];
+  for (const k of core) if (cols.includes(k)) out.push(k);
+  for (const k of cols) if (!out.includes(k)) out.push(k);
+  return out;
+}
+
+function makeSessionId() {
+  // short & deterministic enough for local logs
+  const r = Math.random().toString(16).slice(2, 10);
+  return `SB-${Date.now().toString(36)}-${r}`;
 }
 
 export class SessionLogger {
-  constructor(){
-    /**
-     * session rows
-     * 1 row recommended keys:
-     * {
-     *  ts_start_ms, ts_end_ms, duration_sec,
-     *  mode, diff,
-     *  boss_index_end, phase_end, bosses_cleared,
-     *  score, max_combo, miss, accuracy_pct, grade,
-     *  rt_mean_ms, rt_p50_ms, rt_p90_ms,
-     *  hp_end, shield_end, fever_end,
-     *  participant_id, group, note,
-     *  seed, build, device
-     * }
-     */
-    this.rows = [];
+  constructor() {
+    this.sessions = [];   // array of session summary objects
+    this._cols = [];      // union schema for CSV
   }
 
-  clear(){
-    this.rows.length = 0;
+  clear() {
+    this.sessions.length = 0;
+    this._cols.length = 0;
   }
 
   /**
-   * Add a session row
+   * Add 1 session summary row
    * @param {Object} row
    */
-  add(row){
-    if (!isObj(row)) return;
-    this.rows.push(row);
+  add(row) {
+    if (!row || typeof row !== 'object') return;
+
+    // normalize a little
+    if (!row.session_id) row.session_id = makeSessionId();
+    if (row.ts_start_ms == null) row.ts_start_ms = Date.now();
+
+    this.sessions.push(row);
+
+    // union schema
+    for (const k of Object.keys(row)) {
+      uniqPush(this._cols, k);
+    }
   }
 
   /**
-   * Replace last row (common pattern: create row at start, finalize at end)
-   * @param {Object} row
+   * Convenience: build a session summary from engine stats
+   * (engine can call this or just pass raw object to add())
    */
-  setLast(row){
-    if (!isObj(row)) return;
-    if (!this.rows.length) this.rows.push(row);
-    else this.rows[this.rows.length - 1] = row;
+  fromStats(stats = {}) {
+    const row = Object.assign({}, stats);
+
+    // common fallbacks
+    if (row.ts_start_ms == null) row.ts_start_ms = Date.now();
+    if (row.ts_end_ms == null && row.duration_s != null) {
+      row.ts_end_ms = row.ts_start_ms + Math.round(Number(row.duration_s) * 1000);
+    }
+    if (row.duration_s == null && row.ts_end_ms != null) {
+      row.duration_s = Math.max(0, (Number(row.ts_end_ms) - Number(row.ts_start_ms)) / 1000);
+    }
+
+    this.add(row);
+    return row;
   }
 
-  /**
-   * Merge fields into last row
-   * @param {Object} patch
-   */
-  patchLast(patch){
-    if (!isObj(patch)) return;
-    if (!this.rows.length) this.rows.push({});
-    Object.assign(this.rows[this.rows.length - 1], patch);
+  getColumns() {
+    return this._cols.slice();
   }
 
-  /**
-   * Convert rows to CSV text
-   * - header is union of keys across all rows (stable)
-   */
-  toCsv(){
-    if (!this.rows.length) return '';
+  toCsv(opts = {}) {
+    if (!this.sessions.length) return '';
 
-    const cols = unionKeys(this.rows);
+    const cols = (opts.columns && Array.isArray(opts.columns) && opts.columns.length)
+      ? opts.columns.slice()
+      : defaultOrder(this._cols.length ? this._cols : Object.keys(this.sessions[0]));
+
     const lines = [];
     lines.push(cols.join(','));
 
-    for (const row of this.rows) {
-      const line = cols.map(c => escCsv(row ? row[c] : ''));
+    for (const row of this.sessions) {
+      const line = cols.map((c) => escCsv(row[c]));
       lines.push(line.join(','));
     }
+
     return lines.join('\n');
   }
 }
 
-/**
- * Download session CSV
- * @param {SessionLogger} logger
- * @param {string} filename
- */
-export function downloadSessionCsv(logger, filename = 'shadow-breaker-session.csv'){
-  try{
+export function downloadSessionCsv(logger, filename = 'shadow-breaker-session.csv') {
+  try {
     if (!logger || typeof logger.toCsv !== 'function') {
       console.warn('[SessionLogger] invalid logger for download');
       return;
     }
+
     const csv = logger.toCsv();
     if (!csv) {
       alert('ยังไม่มีข้อมูลสรุปรอบนี้');
