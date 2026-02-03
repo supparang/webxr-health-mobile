@@ -1,9 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Views: pc/mobile/vr/cvr
+✅ Uses: ../vr/vr-ui.js + ../vr/particles.js
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)  <-- FIXED
+✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+Tip: add ?v=20260203a on URL to bust caches
 -->
 <!doctype html>
 <html lang="th">
@@ -14,21 +15,30 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <script>
+    // cache bust helper: use ?v=... or ?ts=...
+    (function(){
+      const q = new URLSearchParams(location.search);
+      const v = q.get('v') || q.get('ts') || '';
+      window.__HHA_BUST__ = v;
+    })();
+  </script>
+
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260203a" />
 
-  <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js" defer></script>
+  <!-- Universal VR UI (defer) -->
+  <script src="../vr/vr-ui.js?v=20260203a" defer></script>
 
-  <!-- Optional shared helpers -->
-  <script src="../vr/particles.js" defer></script>
+  <!-- FX (defer) -->
+  <script src="../vr/particles.js?v=20260203a" defer></script>
 
   <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
+  <script src="../vr/hha-ai-coach.js?v=20260203a" defer></script>
+  <script src="../vr/hha-difficulty-director.js?v=20260203a" defer></script>
+  <script src="../vr/hha-badges.js?v=20260203a" defer></script>
 
-  <!-- Quiz bank (MUST exist if you want quiz) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+  <!-- ✅ Quiz bank (ชื่อไฟล์ที่มีจริง) -->
+  <script src="./hygiene-quiz-bank.js?v=20260203a" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260203a"></script>
