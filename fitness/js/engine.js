@@ -1526,3 +1526,493 @@ function wireUI() {
 }
 
 // ... (Part 4 ends here)
+// ===============================
+// Reset / Clear helpers
+// ===============================
+function clearAllTargets(reason) {
+  // remove all spawned targets
+  for (const id of Array.from(State.targets.keys())) {
+    renderer.removeTarget(id, reason || 'clear');
+  }
+  State.targets.clear();
+}
+
+function resetStateForNewRun() {
+  // stop any loop
+  if (State._rafId) {
+    cancelAnimationFrame(State._rafId);
+    State._rafId = null;
+  }
+
+  // core
+  State.running = false;
+  State.paused = false;
+  State.ended = false;
+
+  State.score = 0;
+  State.combo = 0;
+  State.maxCombo = 0;
+  State.miss = 0;
+
+  State.totalHits = 0;
+  State.totalJudged = 0;
+
+  State.youHp = 100;
+  State.bossIndex = 0;
+  State.phaseIndex = 0;
+  State.bossHp = 100;
+  State.bossCleared = 0;
+
+  State.nextSpawnAt = 0;
+  State.nextBossSkillAt = 0;
+
+  State.tStart = 0;
+  State.tNow = 0;
+
+  State.lastAiTipAt = 0;
+  State.lastAiSuggestAt = 0;
+
+  clearAllTargets('reset');
+
+  // reset HUD
+  updateHUD(State.durationSec);
+
+  // reset message
+  setMsg('พร้อมแล้วกด Start', '');
+}
+
+// ===============================
+// Hit / Judge pipeline (ENSURE FX)
+// ===============================
+function judgeHit(target, info = {}) {
+  // target: {id,type,spawnMs,lifeMs,sizePx,bossEmoji}
+  // info: {clientX, clientY}
+
+  const tNow = nowMs();
+  const rtMs = Math.max(0, Math.round(tNow - (target.spawnMs || tNow)));
+
+  const isBossFace = target.type === 'bossface';
+  let grade = 'good';
+  let scoreDelta = 0;
+  let hpDeltaBoss = 0;
+  let hpDeltaYou = 0;
+
+  // default scoring by type
+  if (target.type === 'normal' || isBossFace) {
+    grade = isBossFace ? 'perfect' : 'good';
+    scoreDelta = isBossFace ? 180 : 80;
+    hpDeltaBoss = isBossFace ? 16 : 8;
+
+    // combo reward
+    State.combo += 1;
+    State.maxCombo = Math.max(State.maxCombo, State.combo);
+
+    State.totalHits += 1;
+    State.totalJudged += 1;
+
+  } else if (target.type === 'decoy') {
+    grade = 'bad';
+    scoreDelta = -35;
+    hpDeltaYou = -6;
+
+    State.combo = 0;
+    State.miss += 1;
+    State.totalJudged += 1;
+
+  } else if (target.type === 'bomb') {
+    grade = 'bomb';
+    scoreDelta = -60;
+    hpDeltaYou = -14;
+
+    State.combo = 0;
+    State.miss += 1;
+    State.totalJudged += 1;
+
+  } else if (target.type === 'heal') {
+    grade = 'heal';
+    scoreDelta = 30;
+    hpDeltaYou = +12;
+
+    State.combo += 1;
+    State.maxCombo = Math.max(State.maxCombo, State.combo);
+
+    State.totalHits += 1;
+    State.totalJudged += 1;
+
+  } else if (target.type === 'shield') {
+    grade = 'shield';
+    scoreDelta = 25;
+    State.shield += 1; // shield is used by boss skills
+    State.combo += 1;
+    State.maxCombo = Math.max(State.maxCombo, State.combo);
+
+    State.totalHits += 1;
+    State.totalJudged += 1;
+  }
+
+  // apply deltas
+  State.score = Math.max(0, State.score + scoreDelta);
+
+  if (hpDeltaYou) State.youHp = clamp(State.youHp + hpDeltaYou, 0, 100);
+  if (hpDeltaBoss) State.bossHp = clamp(State.bossHp - hpDeltaBoss, 0, 100);
+
+  // ✅ FX MUST HAPPEN BEFORE REMOVE (otherwise rect is gone)
+  renderer.playHitFx(target.id, {
+    clientX: info.clientX,
+    clientY: info.clientY,
+    grade,
+    scoreDelta
+  });
+
+  // remove
+  renderer.removeTarget(target.id, 'hit');
+  State.targets.delete(target.id);
+
+  // log event
+  eventLogger.add({
+    ts_ms: Date.now(),
+    mode: State.mode,
+    diff: State.diff,
+    boss_index: State.bossIndex,
+    boss_phase: State.phaseIndex + 1,
+    target_id: target.id,
+    target_type: target.type,
+    is_boss_face: isBossFace ? 1 : 0,
+    event_type: 'hit',
+    rt_ms: rtMs,
+    grade,
+    score_delta: scoreDelta,
+    combo_after: State.combo,
+    score_after: State.score,
+    player_hp: State.youHp,
+    boss_hp: State.bossHp
+  });
+
+  // boss progression
+  if (State.bossHp <= 0) {
+    // cleared boss
+    State.bossCleared += 1;
+    nextBossOrPhase();
+  }
+
+  // death check
+  if (State.youHp <= 0) {
+    endGame('dead');
+    return;
+  }
+
+  syncBossUI();
+  updateHUD(State.durationSec);
+  maybeAiMicroTip();
+}
+
+function judgeTimeout(target) {
+  // target disappeared before hit
+  // Treat timeout of normal/bossface as miss; others just vanish
+  let isMiss = (target.type === 'normal' || target.type === 'bossface');
+
+  if (isMiss) {
+    State.combo = 0;
+    State.miss += 1;
+    State.totalJudged += 1;
+
+    // log miss event
+    eventLogger.add({
+      ts_ms: Date.now(),
+      mode: State.mode,
+      diff: State.diff,
+      boss_index: State.bossIndex,
+      boss_phase: State.phaseIndex + 1,
+      target_id: target.id,
+      target_type: target.type,
+      is_boss_face: target.type === 'bossface' ? 1 : 0,
+      event_type: 'timeout_miss',
+      rt_ms: '',
+      grade: 'miss',
+      score_delta: 0,
+      combo_after: State.combo,
+      score_after: State.score,
+      player_hp: State.youHp,
+      boss_hp: State.bossHp
+    });
+
+    // optional small miss FX at target center (call BEFORE remove)
+    renderer.playHitFx(target.id, { grade: 'bad', scoreDelta: 0 });
+  }
+
+  renderer.removeTarget(target.id, 'timeout');
+  State.targets.delete(target.id);
+
+  updateHUD(State.durationSec);
+  maybeAiMicroTip();
+}
+
+function onTargetHit(id, pos) {
+  if (!State.running || State.paused || State.ended) return;
+
+  const target = State.targets.get(id);
+  if (!target) return;
+
+  judgeHit(target, pos || {});
+}
+
+// ===============================
+// Boss progression & skills
+// ===============================
+function nextBossOrPhase() {
+  // simple: 3 phases per boss, then next boss
+  // phase scaling: increase spawn rate + add hazards
+  State.bossHp = 100;
+
+  if (State.phaseIndex < 2) {
+    State.phaseIndex += 1;
+    setMsg(`✅ ผ่าน Phase ${State.phaseIndex}! ระวังเดือดขึ้น!`, 'perfect');
+  } else {
+    State.phaseIndex = 0;
+    State.bossIndex += 1;
+    State.bossCleared += 0; // already counted above
+    setMsg(`🔥 เปลี่ยนบอส!`, 'perfect');
+  }
+
+  // loop bosses
+  if (State.bossIndex >= BOSSES.length) {
+    endGame('win_all');
+    return;
+  }
+
+  syncBossUI();
+}
+
+// A light "boss skill" that punishes if player is spamming / missing
+function maybeBossSkill() {
+  const t = nowMs();
+  if (t < State.nextBossSkillAt) return;
+
+  // cooldown by diff
+  const cd = (State.diff === 'hard') ? 2600 : (State.diff === 'easy' ? 4200 : 3300);
+  State.nextBossSkillAt = t + cd;
+
+  // simple rule: if combo low & miss high => spawn bomb/decoy wave
+  const missRate = State.totalJudged ? (State.miss / State.totalJudged) : 0;
+  const shouldPunish = (State.combo <= 1 && missRate >= 0.22);
+
+  if (shouldPunish) {
+    // spawn 2 hazards quickly
+    spawnOne('decoy');
+    if (State.diff !== 'easy') spawnOne('bomb');
+    setMsg('⚠️ บอสใช้สกิล! ระวังของล่อ/ระเบิด', 'miss');
+  } else {
+    // spawn reward
+    if (State.youHp <= 55 && Math.random() < 0.55) spawnOne('heal');
+    else if (Math.random() < 0.35) spawnOne('shield');
+  }
+}
+
+// ===============================
+// Spawn logic
+// ===============================
+function spawnOne(forceType = '') {
+  const t = nowMs();
+  const id = State.nextId++;
+
+  // choose type
+  let type = forceType || 'normal';
+
+  if (!forceType) {
+    // phase-based distribution
+    const p = Math.random();
+    const phase = State.phaseIndex; // 0..2
+
+    if (phase === 0) {
+      if (p < 0.12) type = 'heal';
+      else if (p < 0.20) type = 'shield';
+      else if (p < 0.28) type = 'decoy';
+      else type = 'normal';
+    } else if (phase === 1) {
+      if (p < 0.10) type = 'heal';
+      else if (p < 0.18) type = 'shield';
+      else if (p < 0.34) type = 'decoy';
+      else if (p < 0.42) type = 'bomb';
+      else type = 'normal';
+    } else {
+      // phase 3 - spicy
+      if (p < 0.08) type = 'heal';
+      else if (p < 0.16) type = 'shield';
+      else if (p < 0.36) type = 'decoy';
+      else if (p < 0.52) type = 'bomb';
+      else type = 'normal';
+    }
+
+    // "boss face" chance when boss low
+    if (State.bossHp <= 26 && Math.random() < 0.16) type = 'bossface';
+  }
+
+  // size by diff
+  const base = (type === 'bossface') ? 150 : 120;
+  const diffMul =
+    (State.diff === 'hard') ? 0.86 :
+    (State.diff === 'easy') ? 1.10 : 1.0;
+
+  const sizePx = clamp(Math.round(base * diffMul), 70, 320);
+
+  // lifetime by diff + phase
+  const phase = State.phaseIndex;
+  const baseLife =
+    (State.diff === 'hard') ? 820 :
+    (State.diff === 'easy') ? 1350 : 1050;
+
+  const lifeMs = clamp(Math.round(baseLife - phase * 90), 520, 1600);
+
+  const boss = BOSSES[State.bossIndex] || BOSSES[0];
+
+  const target = {
+    id,
+    type,
+    spawnMs: t,
+    lifeMs,
+    sizePx,
+    bossEmoji: boss.emoji
+  };
+
+  State.targets.set(id, target);
+  renderer.spawnTarget(target);
+
+  // schedule auto-timeout
+  window.setTimeout(() => {
+    // if still exists and game active, judge timeout
+    if (State.targets.has(id) && State.running && !State.paused && !State.ended) {
+      judgeTimeout(State.targets.get(id));
+    }
+  }, lifeMs);
+}
+
+function spawnTick() {
+  const t = nowMs();
+  if (t < State.nextSpawnAt) return;
+
+  // spawn rate by diff/phase
+  const phase = State.phaseIndex;
+  const base =
+    (State.diff === 'hard') ? 520 :
+    (State.diff === 'easy') ? 820 : 680;
+
+  const jitter = (State.diff === 'hard') ? 120 : 160;
+  const interval = clamp(base - phase * 60 + (Math.random() * jitter), 320, 1200);
+
+  State.nextSpawnAt = t + interval;
+
+  // spawn 1 always
+  spawnOne('');
+
+  // sometimes spawn extra in hard/phase3
+  if (State.diff === 'hard' && phase >= 1 && Math.random() < 0.22) spawnOne('');
+  if (phase >= 2 && Math.random() < 0.18) spawnOne('');
+}
+
+// ===============================
+// AI micro tips (Play only, locked in Research)
+// ===============================
+function snapshotForAI() {
+  const accPct = State.totalJudged ? (State.totalHits / State.totalJudged) * 100 : 0;
+
+  // "offsetAbsMean" isn't from rhythm, but we can approximate by reaction time if needed
+  // Here we do a very light proxy: worse if missRate high
+  const missRate = State.totalJudged ? (State.miss / State.totalJudged) : 0;
+  const offsetAbsMean = clamp(0.04 + missRate * 0.16, 0.04, 0.22);
+
+  return {
+    accPct,
+    hitMiss: State.miss,
+    hitPerfect: 0,
+    hitGreat: 0,
+    hitGood: State.totalHits,
+    combo: State.combo,
+    offsetAbsMean,
+    hp: State.youHp,
+    songTime: (State.tNow - State.tStart) / 1000,
+    durationSec: State.durationSec
+  };
+}
+
+function maybeAiMicroTip() {
+  // Only show in normal mode AND ?ai=1 AND RB_AI exists
+  if (!window.RB_AI || typeof window.RB_AI.predict !== 'function') return;
+  if (!window.RB_AI.isAssistEnabled || !window.RB_AI.isAssistEnabled()) return;
+
+  const t = nowMs();
+  if (t - State.lastAiTipAt < 2200) return;
+  State.lastAiTipAt = t;
+
+  const pred = window.RB_AI.predict(snapshotForAI());
+  if (!pred || !pred.tip) return;
+
+  // show tip as subtle FX text near center
+  FxBurst.popText(window.innerWidth / 2, 118, pred.tip, 'sb-fx-tip');
+}
+
+// ===============================
+// Main loop
+// ===============================
+function tick() {
+  if (!State.running) return;
+
+  State._rafId = requestAnimationFrame(tick);
+
+  if (State.paused || State.ended) return;
+
+  const t = nowMs();
+  State.tNow = t;
+
+  const elapsed = (t - State.tStart) / 1000;
+  const left = Math.max(0, State.durationSec - elapsed);
+
+  updateHUD(left);
+
+  // time end
+  if (left <= 0.01) {
+    endGame('time');
+    return;
+  }
+
+  // spawns
+  spawnTick();
+
+  // boss skills
+  maybeBossSkill();
+}
+
+// ===============================
+// Init / Boot
+// ===============================
+function init() {
+  // wire renderer callback
+  renderer.onTargetHit = onTargetHit;
+
+  // default state
+  State.shield = 0;
+  State.nextId = 1;
+
+  // UI wiring
+  wireUI();
+
+  // initial mode + view
+  setMode('normal');
+  setActiveView('menu');
+
+  // apply initial diff/time from selects if present
+  const selDiff = DOC.getElementById('sb-diff');
+  const selTime = DOC.getElementById('sb-time');
+  if (selDiff) setDiff(selDiff.value);
+  if (selTime) {
+    const t = Number(selTime.value);
+    State.durationSec = clamp(t || 70, 20, 240);
+  }
+
+  syncBossUI();
+  updateHUD(State.durationSec);
+
+  // friendly notice
+  setMsg('เลือกโหมดและกด Start ได้เลย', 'good');
+}
+
+init();
