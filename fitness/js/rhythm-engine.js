@@ -1,28 +1,32 @@
-/* === /fitness/js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV + cVR 3-lane + AI snapshot) === */
+// === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV) ===
 (function () {
   'use strict';
 
   // ===== CONFIG =====
-  const LANES = [0, 1, 2, 3, 4]; // L2, L1, C, R1, R2
-  const NOTE_EMOJI_BY_LANE = ['🎵', '🎶', '🎵', '🎶', '🎼'];
+  // Support 3 lanes (cVR) by default: L, C, R
+  // For future expansion to 5 lanes, extend LANES + NOTE_STYLE/labels in HTML/CSS.
+  const LANES = [0, 1, 2]; // L, C, R
 
-  // Note length (visual tail) — CSS reads --rb-note-len
-  // For Cardboard VR (view=cvr) we set bigger value in CSS to make note visible longer.
-
-  // หน้าต่างการให้คะแนนตาม offset (วินาที)
+  // Scoring windows (seconds)
   const HIT_WINDOWS = {
     perfect: 0.06,
     great: 0.12,
     good: 0.2
   };
 
-  // เวลาโน้ตใช้ตกลงมาถึงเส้นตี (วินาที)
-  const PRE_SPAWN_SEC = 2.0;
+  // Travel time until hitline (seconds)
+  // (Note: the *visual tail* length is CSS-based; this controls spawn-to-hit time)
+  const PRE_SPAWN_SEC = 2.2; // slightly longer for clearer rhythm
+
+  // Long-note visual tail config (engine informs renderer via CSS vars when possible)
+  const NOTE_TAIL_MIN_PX = 140; // baseline tail length (CSS uses this)
+  const NOTE_TAIL_MAX_PX = 240;
 
   // ===== TRACKS =====
   function makeChart(bpm, dur, seq) {
     const out = [];
     const beat = 60 / bpm;
+    // start after 2s for settle-in
     let t = 2.0;
     const total = Math.floor((dur - 3) / beat);
     let i = 0;
@@ -44,7 +48,7 @@
       bpm: 100,
       durationSec: 32,
       diff: 'easy',
-      chart: makeChart(100, 32, [2, 1, 3, 2, 1, 3, 2, 3])
+      chart: makeChart(100, 32, [1, 0, 2, 1, 0, 2])
     },
     {
       id: 'n2',
@@ -54,7 +58,7 @@
       bpm: 120,
       durationSec: 32,
       diff: 'normal',
-      chart: makeChart(120, 32, [2, 3, 1, 2, 3, 4, 2, 3])
+      chart: makeChart(120, 32, [1, 2, 0, 1, 2, 0])
     },
     {
       id: 'n3',
@@ -64,7 +68,7 @@
       bpm: 140,
       durationSec: 32,
       diff: 'hard',
-      chart: makeChart(140, 32, [1, 3, 2, 4, 0, 2, 3, 1])
+      chart: makeChart(140, 32, [0, 2, 1, 2, 0, 1])
     },
     {
       id: 'r1',
@@ -74,11 +78,11 @@
       bpm: 120,
       durationSec: 32,
       diff: 'research',
-      chart: makeChart(120, 32, [2, 1, 3, 2, 1, 3, 2, 3])
+      chart: makeChart(120, 32, [1, 0, 2, 1, 0, 2])
     }
   ];
 
-  // meta ให้ rhythm-boxer.js ใช้เติมชื่อเพลง / HUD
+  // meta for UI
   window.RB_TRACKS_META = TRACKS.map((t) => ({
     id: t.id,
     name: t.name,
@@ -89,6 +93,7 @@
 
   // ===== UTIL =====
   function clamp(v, a, b) {
+    v = Number(v) || 0;
     return v < a ? a : v > b ? b : v;
   }
   function mean(arr) {
@@ -109,8 +114,9 @@
     return 3;
   }
   function sideOfLane(lane) {
-    if (lane === 2) return 'C';
-    if (lane === 0 || lane === 1) return 'L';
+    // for 3-lane: 0=L, 1=C, 2=R
+    if (lane === 1) return 'C';
+    if (lane === 0) return 'L';
     return 'R';
   }
   function makeSessionId() {
@@ -124,28 +130,10 @@
   function detectDeviceType() {
     const ua = (navigator && navigator.userAgent) || '';
     const low = ua.toLowerCase();
-    if (low.includes('vr') || low.includes('oculus')) return 'vr';
+    if (low.includes('oculus') || low.includes('quest') || low.includes('vr')) return 'vr';
     if (low.includes('tablet')) return 'tablet';
     if (low.includes('mobi')) return 'mobile';
     return 'pc';
-  }
-  function getViewMode() {
-    try {
-      const v = (new URL(location.href).searchParams.get('view') || '').toLowerCase();
-      return v || 'pc';
-    } catch (_) {
-      return 'pc';
-    }
-  }
-  function isCVR() {
-    return getViewMode() === 'cvr';
-  }
-  function mapLaneForCvr(lane) {
-    // cVR uses only 3 lanes: L/C/R mapped to lanes 1/2/3
-    // Keep engine lanes (0..4) but we won't spawn into 0,4 when cVR
-    if (lane <= 1) return 1; // L2,L1 -> L(1)
-    if (lane === 2) return 2; // C
-    return 3; // R1,R2 -> R(3)
   }
 
   // ===== CSV TABLE =====
@@ -210,11 +198,11 @@
       this._rafId = null;
       this._chartIndex = 0;
 
+      // AI state snapshot for logging/UI
       this.aiState = null;
       this._aiLastUpdatePerf = 0;
 
       this._bindLanePointer();
-      this._bindCvrPad();
     }
 
     _bindLanePointer() {
@@ -225,20 +213,6 @@
         const lane = parseInt(laneEl.dataset.lane || '0', 10);
         this.handleLaneTap(lane);
       });
-    }
-
-    _bindCvrPad() {
-      // cVR overlay pad: 3 buttons L/C/R => lanes 1/2/3
-      const root = document;
-      root.addEventListener('click', (ev) => {
-        const b = ev.target && ev.target.closest ? ev.target.closest('[data-cvr]') : null;
-        if (!b) return;
-        const k = (b.getAttribute('data-cvr') || '').toUpperCase();
-        if (!k) return;
-        if (k === 'L') this.handleLaneTap(1);
-        else if (k === 'C') this.handleLaneTap(2);
-        else if (k === 'R') this.handleLaneTap(3);
-      }, true);
     }
 
     // ===== PUBLIC API =====
@@ -254,7 +228,16 @@
 
       this.sessionId = makeSessionId();
       this.deviceType = detectDeviceType();
-      this.viewMode = getViewMode();
+
+      // Apply tail hint to CSS (visual)
+      try {
+        if (this.wrap && this.wrap.style) {
+          // slightly adapt tail to difficulty
+          const diff = String(this.track.diff || '').toLowerCase();
+          const base = diff === 'hard' ? NOTE_TAIL_MIN_PX : diff === 'easy' ? NOTE_TAIL_MAX_PX : (NOTE_TAIL_MIN_PX + NOTE_TAIL_MAX_PX) / 2;
+          this.wrap.style.setProperty('--rb-note-tail', Math.round(base) + 'px');
+        }
+      } catch (_) {}
 
       this.songTime = 0;
       this.startPerf = performance.now();
@@ -297,6 +280,8 @@
       this._chartIndex = 0;
 
       this.eventTable.clear();
+      // do not clear sessionTable; it can hold multiple sessions per page load
+      // (download should export all; if you want per-run only, call clear() externally)
 
       this._setupAudio();
       this._updateHUD(0);
@@ -315,14 +300,11 @@
       const songTime = (nowPerf - this.startPerf) / 1000;
       this.songTime = songTime;
 
-      // Map taps for cVR into 3 lanes (1/2/3) only
-      const tapLane = isCVR() ? clamp(mapLaneForCvr(lane), 1, 3) : lane;
-
       let best = null;
       let bestAbs = Infinity;
       for (const n of this.notes) {
         if (n.state !== 'pending') continue;
-        if (n.lane !== tapLane) continue;
+        if (n.lane !== lane) continue;
         const dt = songTime - n.time;
         const adt = Math.abs(dt);
         if (adt < bestAbs) {
@@ -332,7 +314,7 @@
       }
 
       if (!best) {
-        this._applyEmptyTapMiss(songTime, tapLane);
+        this._applyEmptyTapMiss(songTime, lane);
         return;
       }
 
@@ -366,7 +348,7 @@
       const p = this.audio.play();
       if (p && typeof p.catch === 'function') {
         p.catch(() => {
-          /* autoplay fail — เงียบก็ได้ */
+          /* autoplay fail — ignore */
         });
       }
     }
@@ -384,8 +366,11 @@
       const dur = this.track.durationSec || 30;
 
       this._updateTimeline(songTime, dt);
+
+      // AI predictor update (prediction-only; assist is handled by UI/params)
+      this._updateAI(now);
+
       this._updateHUD(songTime);
-      this._updateAI(songTime);
 
       if (songTime >= dur) {
         this._finish('song-end');
@@ -425,12 +410,6 @@
         chart[this._chartIndex].time <= songTime + pre
       ) {
         const info = chart[this._chartIndex];
-
-        // If cVR: map chart lanes into 3 lanes (1/2/3)
-        if (isCVR()) {
-          info.lane = mapLaneForCvr(info.lane);
-        }
-
         this._createNote(info);
         this._chartIndex++;
       }
@@ -439,11 +418,7 @@
     _createNote(info) {
       if (!this.lanesEl) return;
 
-      let laneIndex = clamp(info.lane | 0, 0, 4);
-
-      // In cVR we only use lanes 1..3
-      if (isCVR()) laneIndex = clamp(laneIndex, 1, 3);
-
+      const laneIndex = clamp(info.lane | 0, 0, LANES.length - 1);
       const laneEl = this.lanesEl.querySelector(
         `.rb-lane[data-lane="${laneIndex}"]`
       );
@@ -451,10 +426,16 @@
 
       const noteEl = document.createElement('div');
       noteEl.className = 'rb-note';
+
       const inner = document.createElement('div');
       inner.className = 'rb-note-inner';
-      inner.textContent = NOTE_EMOJI_BY_LANE[laneIndex] || '🎵';
+      inner.textContent = '🎵';
       noteEl.appendChild(inner);
+
+      // tail element for longer note feel
+      const tail = document.createElement('div');
+      tail.className = 'rb-note-tail';
+      noteEl.appendChild(tail);
 
       laneEl.appendChild(noteEl);
 
@@ -475,7 +456,7 @@
       if (!this.lanesEl) return;
       const rect = this.lanesEl.getBoundingClientRect();
       const h = rect.height || 1;
-      const travel = h * 0.85;
+      const travel = h * 0.84; // keep a little margin so hitline is readable
       const pre = PRE_SPAWN_SEC;
 
       for (const n of this.notes) {
@@ -492,7 +473,7 @@
     }
 
     _autoJudgeMiss(songTime) {
-      const missWindow = HIT_WINDOWS.good + 0.05;
+      const missWindow = HIT_WINDOWS.good + 0.06;
 
       for (const n of this.notes) {
         if (n.state !== 'pending') continue;
@@ -501,6 +482,7 @@
         }
       }
 
+      // keep only pending
       this.notes = this.notes.filter((n) => n.state === 'pending');
     }
 
@@ -661,6 +643,49 @@
       }
     }
 
+    // ===== AI (prediction-only) =====
+    _updateAI(nowPerf) {
+      // update at ~4Hz
+      if (nowPerf - this._aiLastUpdatePerf < 250) return;
+      this._aiLastUpdatePerf = nowPerf;
+
+      const totalNotes = this.totalNotes || 1;
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
+      const totalJudged = totalHits + this.hitMiss;
+      const acc = totalJudged
+        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
+        : 0;
+
+      const mAbs = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
+
+      const snap = {
+        accPct: acc,
+        hitPerfect: this.hitPerfect,
+        hitGreat: this.hitGreat,
+        hitGood: this.hitGood,
+        hitMiss: this.hitMiss,
+        combo: this.combo,
+        maxCombo: this.maxCombo,
+        offsetAbsMean: mAbs,
+        hp: this.hp,
+        songTime: this.songTime,
+        durationSec: this.track.durationSec || 0
+      };
+
+      if (window.RB_AI && typeof window.RB_AI.predict === 'function') {
+        try {
+          this.aiState = window.RB_AI.predict(snap);
+        } catch (_) {
+          this.aiState = null;
+        }
+      }
+
+      // push to UI if available
+      if (this.hooks && typeof this.hooks.onAI === 'function') {
+        this.hooks.onAI(this.aiState || {});
+      }
+    }
+
     // ===== HUD =====
     _updateHUD(songTime) {
       const h = this.hud;
@@ -707,51 +732,18 @@
           h.progText.textContent = Math.round(prog * 100) + '%';
         }
       }
-    }
 
-    // ===== AI (prediction only in research; assist optional in normal with ?ai=1) =====
-    _updateAI(songTime) {
-      if (!window.RB_AI || typeof window.RB_AI.predict !== 'function') return;
-
-      // throttle
-      const now = performance.now();
-      if (now - this._aiLastUpdatePerf < 450) return;
-      this._aiLastUpdatePerf = now;
-
-      const totalNotes = this.totalNotes || 1;
-      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
-      const totalJudged = totalHits + this.hitMiss;
-      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) * 100 : 0;
-
-      const snapshot = {
-        accPct: acc,
-        hitPerfect: this.hitPerfect,
-        hitGreat: this.hitGreat,
-        hitGood: this.hitGood,
-        hitMiss: this.hitMiss,
-        combo: this.combo,
-        offsetAbsMean: this.offsetsAbs.length ? mean(this.offsetsAbs) : null,
-        hp: this.hp,
-        songTime: songTime,
-        durationSec: this.track.durationSec || 0
-      };
-
-      const ai = window.RB_AI.predict(snapshot);
-      this.aiState = ai;
-
-      // Update HUD if present
-      const h = this.hud || {};
-      if (h.aiFatigue) h.aiFatigue.textContent = Math.round((ai.fatigueRisk || 0) * 100) + '%';
-      if (h.aiSkill)   h.aiSkill.textContent   = Math.round((ai.skillScore || 0) * 100) + '%';
-      if (h.aiSuggest) h.aiSuggest.textContent = (ai.suggestedDifficulty || 'normal');
-      if (h.aiTip) {
-        h.aiTip.textContent = ai.tip || '';
-        h.aiTip.classList.toggle('hidden', !ai.tip);
+      // AI HUD (if present)
+      if (this.aiState) {
+        const ai = this.aiState;
+        if (h.aiFatigue) h.aiFatigue.textContent = Math.round((ai.fatigueRisk || 0) * 100) + '%';
+        if (h.aiSkill) h.aiSkill.textContent = Math.round((ai.skillScore || 0) * 100) + '%';
+        if (h.aiSuggest) h.aiSuggest.textContent = String(ai.suggestedDifficulty || 'normal');
+        if (h.aiTip) {
+          h.aiTip.textContent = ai.tip || '';
+          h.aiTip.classList.toggle('hidden', !ai.tip);
+        }
       }
-
-      // IMPORTANT: Research is locked 100% => no gameplay changes
-      // Normal can opt-in assist via ?ai=1 (still light-touch; this pack keeps it prediction-only)
-      // (If you want, we can extend to adaptive assist in Normal only.)
     }
 
     // ===== CSV LOGGING =====
@@ -767,7 +759,6 @@
         bpm: this.track.bpm,
         difficulty: this.track.diff,
         device_type: this.deviceType,
-        view_mode: this.viewMode || '',
         created_at_iso: new Date().toISOString()
       };
       this.eventTable.add(Object.assign(base, extra));
@@ -868,7 +859,6 @@
         end_reason: endReason,
         duration_sec: dur,
         device_type: this.deviceType,
-        view_mode: this.viewMode || '',
 
         // AI snapshot at end (prediction only; assist might be off)
         ai_fatigue_risk: this.aiState ? (this.aiState.fatigueRisk ?? '') : '',
@@ -912,6 +902,5 @@
     }
   }
 
-  // ===== expose =====
   window.RhythmBoxerEngine = RhythmBoxerEngine;
 })();
