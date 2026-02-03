@@ -1,43 +1,45 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
-✅ CSS:  ./goodjunk-vr.css
-✅ BOOT: ./goodjunk-vr.boot.js  (STRICT AUTO view + HUD-safe measure)
-✅ FX:   ../vr/particles.js + ../vr/hha-fx-director.js  (MUST come before boot)
+GoodJunkVR RUN (FOLDER) — PRODUCTION (A+B+V • PLAYABLE)
+✅ CSS: ./goodjunk-vr.css
+✅ Boot: ./goodjunk-vr.boot.js (STRICT AUTO view + HUD-safe measure)
+✅ FX:  ../vr/particles.js + ../vr/hha-fx-director.js (load BEFORE boot)
+✅ VR UI: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair/tap-to-shoot -> hha:shoot)
 ✅ Logger (optional): ../vr/hha-cloud-logger.js
-✅ Includes: Progress bar + Boss bar + Missions Peek + LowTime overlay
-✅ No duplicate scripts
+✅ Has: progress bar (#gjProgressFill) + boss bar (#bossBar/#bossFill/#bossHint)
+✅ Has: safe layers (#gj-layer + #gj-layer-r) for cVR split
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR</title>
+  <title>HeroHealth — GoodJunkVR (Run)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional but helps Enter VR reliability on some devices) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- A-Frame (optional; helps some devices with WebXR Enter VR reliability) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
 
-  <!-- CSS -->
+  <!-- CSS (MUST be folder-local) -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- FX core (MUST before boot) -->
+  <!-- Universal VR UI (safe to include; boot will not duplicate) -->
+  <script src="../vr/vr-ui.js" defer></script>
+
+  <!-- FX core (MUST be before boot) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-fx-director.js" defer></script>
 
   <!-- Logger (optional) -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Small HTML-only patches (keep minimal) -->
   <style>
-    /* keep top buttons clickable even if layers overlap */
+    /* keep top buttons clickable */
     .gj-topbar, .gj-topbar * { pointer-events:auto; }
-    .hha-controls, .hha-controls * { pointer-events:auto; }
   </style>
 </head>
 
-<body class="gj">
+<body class="gj view-mobile">
   <!-- =========================================================
        TOPBAR
        ========================================================= -->
@@ -48,23 +50,23 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
       <span class="gj-chip" id="chipDiff">diff: —</span>
     </div>
     <div class="right">
-      <button class="gj-btn" id="btnMissions" type="button" aria-label="ภารกิจ">ภารกิจ</button>
-      <button class="gj-btn" id="btnHideHud" type="button" aria-label="ซ่อน HUD">ซ่อน HUD</button>
-      <button class="gj-btn" id="btnRestartTop" type="button" aria-label="เริ่มใหม่">เริ่มใหม่</button>
-      <button class="gj-btn primary" id="btnHubTop" type="button" aria-label="กลับ HUB">กลับ HUB</button>
+      <button class="gj-btn" id="btnMissions" type="button">ภารกิจ</button>
+      <button class="gj-btn" id="btnHideHud" type="button">ซ่อน HUD</button>
+      <button class="gj-btn" id="btnRestartTop" type="button">เริ่มใหม่</button>
+      <button class="gj-btn primary" id="btnHubTop" type="button">กลับ HUB</button>
     </div>
   </div>
 
   <!-- =========================================================
        PROGRESS BAR (safe.js updates #gjProgressFill)
        ========================================================= -->
-  <div class="gj-progress" aria-label="Progress">
-    <div class="gj-progress-fill" id="gjProgressFill"></div>
+  <div class="gj-progress" aria-label="progress">
+    <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
   </div>
 
   <!-- =========================================================
-       HUD TOP (score/time/miss/grade + goal + mini + boss)
-       NOTE: ids must match safe.js
+       HUD TOP (pointer-events none เพื่อไม่บังการยิง/แตะในสนาม)
+       IDs must match safe.js
        ========================================================= -->
   <div class="gj-hud-top" id="hud" aria-label="HUD">
     <div class="hud-row">
@@ -85,19 +87,20 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
         <div class="hud-value" id="hud-miss">0</div>
       </div>
 
-      <!-- hint used by boot's safe-measure -->
+      <!-- hint used by boot safe-measure -->
       <div id="vrMiniHud" class="gj-chip" style="align-self:center;">
         🎯 VR/cVR: ยิงจากกลางจอ (แตะ/กดเพื่อยิง)
       </div>
     </div>
 
-    <!-- Boss UI (safe.js toggles aria-hidden) -->
+    <!-- BOSS BAR (safe.js toggles aria-hidden) -->
     <div class="gj-boss" id="bossBar" aria-hidden="true">
       <div class="gj-boss-title">⚡ BOSS PHASE</div>
       <div class="gj-boss-meter"><div class="gj-boss-fill" id="bossFill" style="width:100%"></div></div>
       <div class="gj-boss-hint" id="bossHint">—</div>
     </div>
 
+    <!-- GOAL + MINI -->
     <div class="quest-row">
       <div class="quest-card">
         <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
@@ -119,8 +122,8 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
   </div>
 
   <!-- =========================================================
-       PLAYFIELD (targets mount here)
-       NOTE: layer is the real play area (CSS fixed safe-area)
+       PLAYFIELD + LAYERS (สำคัญสุด: ต้องมี 2 ชั้นสำหรับ cVR)
+       safe.js สุ่มพิกัด viewport แล้ววางใน #gj-layer (fixed safe-area โดย CSS)
        ========================================================= -->
   <div class="gj-field" id="playfield" aria-label="Playfield">
     <div class="gj-layer" id="gj-layer" aria-hidden="false"></div>
@@ -129,7 +132,6 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
 
   <!-- =========================================================
        HUD BOTTOM (fever + shield + howto)
-       NOTE: howto box has id="howtoBox" so CSS can auto-hide on small screens
        ========================================================= -->
   <div class="gj-hud-bot" aria-label="Meters">
     <div class="meter" id="feverBox">
@@ -152,14 +154,14 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
     </div>
   </div>
 
-  <!-- Optional quick controls -->
+  <!-- Quick controls (ช่วย UX + boot วัด safe-area) -->
   <div class="hha-controls" aria-label="Quick controls">
     <button class="gj-btn" id="btnMissions2" type="button">ภารกิจ</button>
     <button class="gj-btn" id="btnHideHud2" type="button">ซ่อน HUD</button>
   </div>
 
   <!-- =========================================================
-       MISSIONS PEEK (overlay)
+       MISSIONS PEEK overlay
        ========================================================= -->
   <div class="gj-peek" id="missionsPeek" aria-hidden="true">
     <div class="peek-card" role="dialog" aria-label="Missions">
@@ -171,7 +173,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
   </div>
 
   <!-- =========================================================
-       LOW TIME OVERLAY (safe.js toggles aria-hidden when t<=5)
+       LOW TIME overlay (safe.js toggles aria-hidden)
        ========================================================= -->
   <div class="gj-lowtime-overlay" id="lowTimeOverlay" aria-hidden="true">
     <div class="gj-lowtime-ring"></div>
@@ -179,7 +181,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
   </div>
 
   <!-- =========================================================
-       A-FRAME minimal scene (tiny & hidden)
+       Minimal A-Frame scene (hidden)
        ========================================================= -->
   <a-scene
     id="xrScene"
@@ -191,7 +193,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
   </a-scene>
 
   <!-- =========================================================
-       UI WIRING (minimal)
+       UI Wiring (HUD toggle + missions peek + hub/restart)
        ========================================================= -->
   <script>
     (function(){
@@ -212,12 +214,11 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
       const btnRestartTop = DOC.getElementById('btnRestartTop');
       const btnHubTop     = DOC.getElementById('btnHubTop');
 
-      const missionsPeek = DOC.getElementById('missionsPeek');
-      const peekGoal     = DOC.getElementById('peekGoal');
-      const peekMini     = DOC.getElementById('peekMini');
+      const missionsPeek  = DOC.getElementById('missionsPeek');
+      const peekGoal      = DOC.getElementById('peekGoal');
+      const peekMini      = DOC.getElementById('peekMini');
 
       function hubUrl(){
-        // run อยู่ใน /vr-goodjunk/ → default hub = ../hub.html
         return qs('hub', '../hub.html') || '../hub.html';
       }
 
@@ -239,7 +240,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
       function toggleHud(){
         DOC.body.classList.toggle('hud-hidden');
         syncHudBtn();
-        // ให้ boot วัด safe-area ใหม่
+        // let boot re-measure safely
         try{ window.dispatchEvent(new CustomEvent('gj:measureSafe', {})); }catch(_){}
       }
       btnHideHud && btnHideHud.addEventListener('click', toggleHud);
@@ -267,7 +268,7 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
         if(e.target === missionsPeek) showMissions(false);
       });
 
-      // update peek text from quest:update (safe.js emits)
+      // update peek text from quest:update
       function safeText(x){ return (x==null) ? '—' : String(x); }
       function onQuestUpdate(ev){
         try{
@@ -278,7 +279,8 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
             if(goal){
               const cur = safeText(goal.cur);
               const tar = safeText(goal.target);
-              peekGoal.textContent = `GOAL: ${safeText(goal.name || goal.title)} (${cur}/${tar})`;
+              const title = safeText(goal.name || goal.title || '—');
+              peekGoal.textContent = `GOAL: ${title} (${cur}/${tar})`;
             }else{
               peekGoal.textContent = 'GOAL: —';
             }
@@ -286,7 +288,10 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
 
           if(peekMini){
             if(mini){
-              peekMini.textContent = `MINI: ${safeText(mini.name || mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)})`;
+              const title = safeText(mini.name || mini.title || '—');
+              const cur = safeText(mini.cur);
+              const tar = safeText(mini.target);
+              peekMini.textContent = `MINI: ${title} (${cur}/${tar})`;
             }else{
               peekMini.textContent = 'MINI: —';
             }
@@ -302,5 +307,6 @@ GoodJunkVR RUN — PRODUCTION (CLEAN • A+B+V • HUD-SAFE)
        BOOT (module) — ONLY ONCE
        ========================================================= -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
+
 </body>
 </html>
