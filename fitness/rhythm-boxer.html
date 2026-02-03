@@ -18,7 +18,7 @@
       <div class="rb-head-main">
         <span class="rb-pill">VR Fitness · Rhythm</span>
         <h1 class="rb-title">Rhythm Boxer</h1>
-        <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV</p>
+        <p class="rb-sub">ชกตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV</p>
         <span class="rb-sub-small">Tip: เริ่ม Easy 1–2 รอบก่อน แล้วค่อย Research</span>
       </div>
       <a href="hub.html" class="rb-back">← กลับ HUB</a>
@@ -39,7 +39,9 @@
           </label>
         </div>
 
-        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</p>
+        <p id="rb-mode-desc" class="rb-mode-desc">
+          Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
+        </p>
 
         <div id="rb-research-fields" class="rb-section hidden">
           <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
@@ -58,14 +60,16 @@
           </div>
 
           <p class="rb-hint-inline">
-            Research จะบันทึก Event CSV + Session CSV (offset, side, FEVER, HP) เพื่อใช้วิเคราะห์เชิงสถิติ
+            Research จะบันทึก Event CSV + Session CSV (offset, FEVER, HP) เพื่อใช้วิเคราะห์เชิงสถิติ
           </p>
         </div>
       </div>
 
       <div class="rb-research-box">
         <h2 class="rb-section-title">เพลง / ระดับ</h2>
-        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก</p>
+        <p id="rb-track-mode-label" class="rb-section-subtitle">
+          โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก
+        </p>
 
         <div id="rb-track-options" class="rb-section">
           <label class="rb-mode-btn" data-mode="normal">
@@ -88,11 +92,11 @@
         </div>
 
         <div class="rb-hint-block">
-          <p class="rb-hint-title">วิธีเล่น</p>
+          <p class="rb-hint-title">วิธีเล่น (3 lanes)</p>
           <ul class="rb-hint-list">
-            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี</li>
+            <li>แตะเลน (L / C / R) ให้โน้ตตรงเส้นตี</li>
             <li>Perfect/Great/Good เพิ่ม FEVER; Miss ลด HP</li>
-            <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
+            <li>กดพลาด (blank tap) จะหักเล็กน้อยเพื่อกัน “กดรัว”</li>
           </ul>
         </div>
 
@@ -118,6 +122,7 @@
         <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
         <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
       </div>
+
       <div class="rb-hud-row">
         <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
         <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
@@ -129,8 +134,12 @@
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
         <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-row-ai">
-        <span class="rb-chip rb-chip-ai rb-chip-tip"><span class="rb-chip-tip-label">Coach:</span> <b id="rb-hud-ai-tip" class="hidden"></b></span>
+        <span class="rb-chip rb-chip-ai rb-chip-tip">
+          <span class="rb-chip-tip-label">Coach:</span>
+          <b id="rb-hud-ai-tip" class="hidden"></b>
+        </span>
       </div>
 
       <div class="rb-hud-row">
@@ -164,25 +173,15 @@
       <div id="rb-field">
         <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
 
+        <!-- 3 lanes -->
         <div class="rb-lanes" id="rb-lanes">
-          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
-          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
-          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
-          <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
-          <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
+          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L</div></div>
+          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">C</div></div>
+          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">R</div></div>
         </div>
-
-        <!-- cVR (Cardboard) 3-lane pad -->
-        <div class="rb-cvr-pad" aria-hidden="true">
-          <button class="rb-cvr-btn" data-cvr="L">L</button>
-          <button class="rb-cvr-btn" data-cvr="C">C</button>
-          <button class="rb-cvr-btn" data-cvr="R">R</button>
-        </div>
-
-        <div class="rb-cvr-crosshair" aria-hidden="true"></div>
       </div>
 
-      <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่เหนือป้ายเลน) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
+      <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี · ใช้ได้ทั้งจอสัมผัสและเมาส์ · เหมาะกับ VR Cardboard (cVR)</p>
     </section>
 
     <audio id="rb-audio" preload="auto"></audio>
@@ -196,7 +195,6 @@
         <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
         <p class="rb-sub">ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง</p>
       </div>
-      <a href="hub.html" class="rb-back">← กลับ HUB</a>
     </header>
 
     <section class="rb-result-grid">
@@ -239,6 +237,7 @@
   </main>
 </div>
 
+<!-- order matters -->
 <script src="js/ai-predictor.js"></script>
 <script src="js/dom-renderer-rhythm.js"></script>
 <script src="js/rhythm-engine.js"></script>
