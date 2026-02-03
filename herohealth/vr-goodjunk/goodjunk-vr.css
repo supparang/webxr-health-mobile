@@ -1,8 +1,8 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR (PRODUCTION) — PLAYABLE LAYOUT
-✅ Fix: targets not offset (layer is FIXED play-area)
-✅ Fix: HUD too large (compact on small screens)
-✅ Includes: targets style + progress bar + boss bar + overlays
+GoodJunkVR (PRODUCTION) — PLAYABLE LAYOUT (HUD-SAFE)
+✅ Fix: targets spawn into true SAFE play-area (fixed layers)
+✅ Fix: HUD compact + auto-hide HOWTO on small height
+✅ Supports: PC / Mobile / VR / cVR split
 Targets: /herohealth/vr-goodjunk/goodjunk-vr.html
 */
 
@@ -339,7 +339,7 @@ body.view-vr .gj-target, body.view-cvr .gj-target{ width: var(--t-size-big); hei
 .meter-num{ margin-top:8px; font-weight:1100; font-size:12px; }
 .meter-tip{ margin-top:8px; font-weight:900; font-size:12px; color:rgba(229,231,235,.80); }
 
-/* quick controls cluster (html inline also sets) */
+/* quick controls cluster */
 .hha-controls{
   position:fixed;
   right: calc(10px + var(--sar));
@@ -435,13 +435,13 @@ body.hud-hidden #gj-layer-r{
 }
 
 /* =========================================================
-   Compact on small screens (auto) — สนามเล่นใหญ่ขึ้นเยอะ
+   Compact on small screens — สนามเล่นใหญ่ขึ้นเยอะ
    ========================================================= */
 @media (max-width:520px){
   .gj-btn{ padding:9px 10px; font-size:12px; }
   .gj-chip{ padding:7px 10px; font-size:12px; }
 
-  /* HUD row: ไม่แตกหลายบรรทัด */
+  /* HUD row: ไม่แตกหลายบรรทัด + เลื่อนได้ */
   .hud-row{
     gap:8px;
     flex-wrap:nowrap;
@@ -463,18 +463,19 @@ body.hud-hidden #gj-layer-r{
     bottom: calc(78px + var(--sab));
   }
 }
-/* === PATCH: ultra-compact for small height phones ===
-   Goal: keep playfield big even when Boss/Goal/Mini are visible
-*/
 
+/* =========================================================
+   Ultra-compact for small height phones
+   Goal: keep playfield big even when Boss/Goal/Mini are visible
+   ========================================================= */
 @media (max-height: 760px){
-  /* ลด safe-area ที่ boot วัดไว้ (ช่วยให้สนามสูงขึ้น) */
+  /* ลด safe-area (สำคัญ: ทำให้สนามสูงขึ้น) */
   :root{
     --gj-top-safe: calc(96px + var(--sat));
     --gj-bottom-safe: calc(96px + var(--sab));
   }
 
-  /* TOP HUD: ลด padding + ลดความสูงการ์ด */
+  /* TOP HUD: ลด padding */
   .gj-hud-top, #hud{
     top: calc(64px + var(--sat));
     padding-top: 8px;
@@ -494,14 +495,14 @@ body.hud-hidden #gj-layer-r{
   .q-desc{ font-size: 11.5px; }
   .q-hint{ font-size: 10.5px; }
 
-  /* boss box compact */
+  /* boss compact */
   .gj-boss{
     padding: 8px 10px;
     border-radius: 16px;
   }
   .gj-boss-hint{ font-size: 11.5px; }
 
-  /* bottom HUD: ลดพื้นที่ */
+  /* bottom HUD: ลดพื้นที่ + ซ่อน HOWTO */
   .gj-hud-bot{
     padding-top: 8px;
     padding-bottom: calc(8px + var(--sab));
@@ -510,23 +511,19 @@ body.hud-hidden #gj-layer-r{
     padding: 8px 10px;
     border-radius: 16px;
   }
-
-  /* ซ่อน HOW TO อัตโนมัติในจอเตี้ย (พื้นที่เล่นต้องมาก่อน) */
   .gj-hud-bot .meter:last-child{ display:none; }
 }
 
-/* === PATCH: allow user to show HOWTO via body class (optional) ===
-   If you ever want: document.body.classList.toggle('show-howto')
-*/
+/* Optional: allow user to show HOWTO via body class */
 body.show-howto .gj-hud-bot .meter:last-child{ display:block !important; }
 
-/* === PATCH: make targets a bit larger on mobile for kids === */
+/* Make targets slightly larger on mobile (kid friendly) */
 body.view-mobile .gj-target{
   width: calc(var(--t-size) + 6px);
   height: calc(var(--t-size) + 6px);
 }
 
-/* === PATCH: keep buttons readable and not wrap too much === */
+/* Keep buttons readable and reduce wrapping */
 @media (max-width: 420px){
   .gj-topbar .right{ gap:6px; }
   .gj-btn{ padding:8px 9px; font-size:12px; border-radius:12px; }
