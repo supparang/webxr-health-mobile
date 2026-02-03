@@ -1,139 +1,287 @@
-// === /fitness/js/pattern-generator.js — Boss patterns + micro-burst (A-38) ===
+// === /fitness/js/pattern-generator.js ===
+// Pattern Generator — Shadow Breaker (PRODUCTION)
+// ✅ Fair + fun target type scheduling (normal/decoy/bomb/heal/shield/bossface)
+// ✅ Anti-frustration rules: prevents bomb spam, gives recovery windows
+// ✅ Research deterministic: uses ?mode=research and/or provided seed
+// Export: PatternGenerator
+
 'use strict';
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+function clamp(v, a, b) { return Math.max(a, Math.min(b, Number(v) || 0)); }
 
-function lcg(seed){
-  let s = (seed >>> 0) || 123456789;
+function readQuery(key, d = null) {
+  try { return new URL(location.href).searchParams.get(key) ?? d; } catch { return d; }
+}
+
+function isResearchMode() {
+  const m = String(readQuery('mode', '') || '').toLowerCase();
+  return m === 'research';
+}
+
+function hash32(str) {
+  // FNV-1a 32-bit-ish
+  let h = 2166136261 >>> 0;
+  const s = String(str ?? '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function makeRng(seedU32) {
+  // xorshift32
+  let x = (seedU32 >>> 0) || 123456789;
   return {
-    next(){
-      s = (1664525 * s + 1013904223) >>> 0;
-      return s / 4294967296;
+    nextU32() {
+      x ^= (x << 13) >>> 0;
+      x ^= (x >>> 17) >>> 0;
+      x ^= (x << 5) >>> 0;
+      return x >>> 0;
     },
-    int(a,b){
-      const r = this.next();
-      return Math.floor(a + r * (b - a + 1));
+    next01() {
+      // 0..1
+      return (this.nextU32() >>> 0) / 4294967296;
     }
   };
 }
 
-function pickWeighted(rng, weights){
+function pickWeighted(r01, weights) {
+  // weights: {type: w, ...}
   let total = 0;
-  for (const it of weights) total += it.w;
-  let r = rng.next() * total;
-  for (const it of weights) {
-    if (r < it.w) return it.v;
-    r -= it.w;
+  for (const k in weights) total += Math.max(0, Number(weights[k]) || 0);
+  if (total <= 0) return 'normal';
+
+  let r = r01 * total;
+  for (const k in weights) {
+    r -= Math.max(0, Number(weights[k]) || 0);
+    if (r <= 0) return k;
   }
-  return weights[weights.length - 1].v;
+  // fallback
+  return Object.keys(weights)[0] || 'normal';
 }
 
 export class PatternGenerator {
   constructor(opts = {}) {
-    const seed = opts.seed ?? Date.now();
-    this.rng = lcg(seed);
-    this.step = 0;
-    this.sideFlip = 0;
+    this._seed = 0;
+    this._rng = null;
 
-    // burst scheduler
-    this.nextBurstAt = 0;
-    this.burstUntil = 0;
+    // memory to enforce fairness
+    this._lastTypes = [];          // recent types
+    this._missStreak = 0;
+    this._bombStreak = 0;
+    this._decoyStreak = 0;
+    this._healCooldown = 0;        // blocks too frequent heal
+    this._shieldCooldown = 0;      // blocks too frequent shield
+    this._recoveryWindow = 0;      // pushes more "normal/heal" after pain
+    this._burstWindow = 0;         // high intensity moment
 
-    // tune
-    this.burstEveryMin = opts.burstEveryMin ?? 9500;   // ms
-    this.burstEveryMax = opts.burstEveryMax ?? 14000;  // ms
-    this.burstDuration = opts.burstDuration ?? 2800;   // ms
+    this.reset(opts.seed);
   }
 
-  reset(now){
-    this.step = 0;
-    this.sideFlip = 0;
-    this.nextBurstAt = now + this.rng.int(this.burstEveryMin, this.burstEveryMax);
-    this.burstUntil = 0;
-  }
+  reset(seed = null) {
+    // Deterministic in research:
+    // - if seed provided => use it
+    // - else use ?seed=... if present
+    // - else use a stable-ish derived seed from time (still deterministic per load if you want)
+    let s = seed;
 
-  isBurst(now){
-    return now < this.burstUntil;
-  }
-
-  maybeStartBurst(now){
-    if (this.burstUntil && now < this.burstUntil) return;
-    if (now >= this.nextBurstAt) {
-      this.burstUntil = now + this.burstDuration;
-      this.nextBurstAt = now + this.rng.int(this.burstEveryMin, this.burstEveryMax);
-    }
-  }
-
-  // returns: { kind, posHint?, weightPreset?, spawnBias? }
-  nextSpawnPlan(now, state, baseWeights){
-    this.maybeStartBurst(now);
-
-    const phase = state?.bossPhase || 1;
-    const inBurst = this.isBurst(now);
-
-    // --- weights ---
-    // burst => mostly normal + a bit heal/shield (สะใจ + ไม่โหดเกิน)
-    let weights = baseWeights;
-
-    if (inBurst) {
-      weights = [
-        { v:'normal', w: 78 },
-        { v:'heal',   w: 9 },
-        { v:'shield', w: 9 },
-        { v:'decoy',  w: 3 },
-        { v:'bomb',   w: 1 }
-      ];
+    if (s == null || s === '') {
+      const qSeed = readQuery('seed', '');
+      if (qSeed) s = qSeed;
     }
 
-    // phase 3 เพิ่ม decoy/bomb บ้าง (ท้าทาย)
-    if (!inBurst && phase >= 3) {
-      weights = [
-        { v:'normal', w: 58 },
-        { v:'decoy',  w: 14 },
-        { v:'bomb',   w: 10 },
-        { v:'heal',   w: 9 },
-        { v:'shield', w: 9 }
-      ];
+    if (s == null || s === '') {
+      // if research but no seed, derive a consistent seed from URL (still reproducible for that URL)
+      if (isResearchMode()) s = hash32(location.href);
+      else s = Date.now();
     }
 
-    const kind = pickWeighted(this.rng, weights);
+    const seedU32 = (typeof s === 'number') ? (s >>> 0) : hash32(String(s));
+    this._seed = seedU32 >>> 0;
+    this._rng = makeRng(this._seed);
 
-    // --- position hint (normalized 0..1) ---
-    // NOTE: renderer ต้องรองรับ posHint ถึงจะ “ล็อกตำแหน่ง” ได้
-    let posHint = null;
+    this._lastTypes = [];
+    this._missStreak = 0;
+    this._bombStreak = 0;
+    this._decoyStreak = 0;
+    this._healCooldown = 0;
+    this._shieldCooldown = 0;
+    this._recoveryWindow = 0;
+    this._burstWindow = 0;
 
-    if (phase === 2) {
-      // left-right alternation
-      this.sideFlip ^= 1;
-      posHint = {
-        x: this.sideFlip ? 0.25 : 0.75,
-        y: 0.28 + 0.55 * this.rng.next()
-      };
-    } else if (phase >= 3) {
-      // triangle / ring-ish cycle
-      const t = (this.step++ % 6);
-      const pts = [
-        {x:0.25,y:0.30},{x:0.75,y:0.30},{x:0.50,y:0.62},
-        {x:0.32,y:0.48},{x:0.68,y:0.48},{x:0.50,y:0.36}
-      ];
-      const p = pts[t] || pts[0];
-      posHint = {
-        x: clamp(p.x + (this.rng.next()-0.5)*0.06, 0.12, 0.88),
-        y: clamp(p.y + (this.rng.next()-0.5)*0.08, 0.14, 0.86)
-      };
+    return this._seed;
+  }
+
+  getSeed() { return this._seed >>> 0; }
+
+  noteOutcome(outcome) {
+    // outcome: 'hit' | 'miss' | 'bomb' | 'decoy' | 'heal' | 'shield'
+    const o = String(outcome || '').toLowerCase();
+
+    if (o === 'miss' || o === 'bomb') this._missStreak++;
+    else this._missStreak = Math.max(0, this._missStreak - 1);
+
+    if (o === 'bomb') this._bombStreak++;
+    else this._bombStreak = 0;
+
+    if (o === 'decoy') this._decoyStreak++;
+    else this._decoyStreak = 0;
+
+    // if player struggles, open recovery window
+    if (this._missStreak >= 2) {
+      this._recoveryWindow = clamp(this._recoveryWindow + 2, 0, 8);
     } else {
-      // phase 1: mild random
-      posHint = {
-        x: 0.18 + 0.64 * this.rng.next(),
-        y: 0.18 + 0.68 * this.rng.next()
-      };
+      this._recoveryWindow = Math.max(0, this._recoveryWindow - 1);
     }
 
-    return { kind, posHint, inBurst };
+    // burst moments: if playing well, create short intense windows
+    if (o === 'hit') {
+      this._burstWindow = clamp(this._burstWindow + 1, 0, 6);
+    } else {
+      this._burstWindow = Math.max(0, this._burstWindow - 1);
+    }
   }
 
-  // burst feels faster: reduce delay range
-  spawnDelayMultiplier(now){
-    return this.isBurst(now) ? 0.72 : 1.0;
+  next(params = {}) {
+    // params: { diff, phase, hpYou, hpBoss, shield, fever, feverOn, combo }
+    const diff = String(params.diff || 'normal').toLowerCase();
+    const phase = clamp(params.phase || 1, 1, 9);
+    const hpYou = clamp(params.hpYou ?? 100, 0, 100);
+    const hpBoss = clamp(params.hpBoss ?? 100, 0, 100);
+    const shield = clamp(params.shield ?? 0, 0, 9);
+    const fever = clamp(params.fever ?? 0, 0, 100);
+    const feverOn = !!params.feverOn;
+    const combo = clamp(params.combo ?? 0, 0, 9999);
+
+    // if not research, still okay to use deterministic RNG; gameplay will still feel random.
+    const r01 = this._rng ? this._rng.next01() : Math.random();
+
+    // ---- base weights ----
+    const W = {
+      normal: 62,
+      decoy: 16,
+      bomb:  12,
+      heal:  6,
+      shield: 4,
+      bossface: 0,
+    };
+
+    // ---- escalation by phase ----
+    W.decoy += (phase - 1) * 4;
+    W.bomb  += (phase - 1) * 3;
+
+    // ---- difficulty tuning ----
+    if (diff === 'easy') {
+      W.normal += 12;
+      W.decoy -= 4;
+      W.bomb  -= 5;
+      W.heal  += 4;
+      W.shield+= 2;
+    } else if (diff === 'hard') {
+      W.normal -= 6;
+      W.decoy += 5;
+      W.bomb  += 5;
+      W.heal  -= 1;
+      W.shield-= 1;
+    }
+
+    // ---- bossface trigger ----
+    // show bossface as a “hype moment” when boss low but not dead
+    if (hpBoss <= 28 && hpBoss > 0) W.bossface = 7;
+
+    // ---- recovery logic (fairness) ----
+    // if HP low or miss streak high -> reduce traps and allow recovery
+    const struggling = (hpYou <= 35) || (this._missStreak >= 2);
+    if (struggling) {
+      W.bomb  *= 0.45;
+      W.decoy *= 0.65;
+      W.heal  *= 1.65;
+      W.shield*= 1.25;
+      W.normal*= 1.10;
+    }
+
+    // shield already high -> reduce shield spawns
+    if (shield >= 3) W.shield *= 0.55;
+    if (shield >= 6) W.shield *= 0.35;
+
+    // fever on -> slightly reduce heal/shield and increase challenge
+    if (feverOn) {
+      W.bomb  *= 1.15;
+      W.decoy *= 1.10;
+      W.heal  *= 0.70;
+      W.shield*= 0.75;
+    }
+
+    // fever near ready -> allow a bit more normal to help fill
+    if (!feverOn && fever >= 78) {
+      W.normal *= 1.10;
+      W.bomb  *= 0.90;
+    }
+
+    // combo high -> add spice (but not spam)
+    if (combo >= 10) {
+      W.decoy *= 1.10;
+      W.bomb  *= 1.08;
+    }
+    if (combo >= 20) {
+      W.decoy *= 1.14;
+      W.bomb  *= 1.10;
+    }
+
+    // ---- cooldowns for supports ----
+    if (this._healCooldown > 0) { W.heal *= 0.25; this._healCooldown--; }
+    if (this._shieldCooldown > 0) { W.shield *= 0.30; this._shieldCooldown--; }
+
+    // ---- anti-spam rules ----
+    // prevent bomb spam
+    if (this._bombStreak >= 1) W.bomb *= 0.55;
+    if (this._bombStreak >= 2) W.bomb *= 0.25;
+
+    // prevent decoy spam
+    if (this._decoyStreak >= 2) W.decoy *= 0.55;
+
+    // short recovery window (after pain) -> bias normal/heal
+    if (this._recoveryWindow > 0) {
+      W.normal *= 1.18;
+      W.heal   *= 1.25;
+      W.bomb   *= 0.55;
+      W.decoy  *= 0.72;
+      this._recoveryWindow--;
+    }
+
+    // burst window (playing well) -> allow spicy moments but still fair
+    if (this._burstWindow >= 4 && !struggling) {
+      W.bomb  *= 1.12;
+      W.decoy *= 1.10;
+      W.normal*= 0.94;
+    }
+
+    // ---- last-types smoothing ----
+    const last1 = this._lastTypes[this._lastTypes.length - 1] || '';
+    const last2 = this._lastTypes[this._lastTypes.length - 2] || '';
+
+    // if last two were traps, force a normal/support
+    const lastTwoTraps = (t) => (t === 'bomb' || t === 'decoy');
+    if (lastTwoTraps(last1) && lastTwoTraps(last2)) {
+      W.bomb = 0;
+      W.decoy = 0;
+      W.normal *= 1.25;
+      W.heal *= 1.10;
+      W.shield *= 1.05;
+    }
+
+    // ---- pick ----
+    let type = pickWeighted(r01, W);
+
+    // post-pick enforcement: cooldown supports after use
+    if (type === 'heal') this._healCooldown = 4;
+    if (type === 'shield') this._shieldCooldown = 3;
+
+    // update recent memory
+    this._lastTypes.push(type);
+    if (this._lastTypes.length > 6) this._lastTypes.shift();
+
+    return type;
   }
 }
