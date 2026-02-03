@@ -1,334 +1,376 @@
 // === /herohealth/vr/ai-coach.js ===
-// HHA AI Coach — PRODUCTION (safe, explainable, rate-limited)
-// ✅ ESM export: createAICoach(opts)
-// ✅ Emits via opts.emit('hha:coach', payload)
-// ✅ API: onStart(), onUpdate(state), onEnd(summary), say(payload), reset()
-// ✅ Never throws (best-effort), works across games
+// HHA AI Coach — PRODUCTION (Explainable + Rate-limited)
+// ✅ createAICoach({ emit, game, cooldownMs })
+// ✅ Safe: never throws (best-effort DOM + event)
+// ✅ Explainable micro-tips: short, actionable
+// ✅ Rate-limit + de-dup + urgency override (storm/endWindow)
+// ✅ Works across PC/Mobile/cVR/Cardboard
 //
-// Intended payload example:
-// emit('hha:coach', {
-//   game:'hydration',
-//   type:'tip'|'warn'|'praise'|'stage'|'debug',
-//   code:'H_WATER_GREEN' ...,
-//   message:'...',
-//   why:'...',
-//   data:{...},
-//   ts: Date.now()
-// });
+// Emits (optional):
+// - hha:coach { game, level, code, message, why, action, ts }
+//
+// Optional DOM targets (if present):
+// - #aiCoachToast  (container)
+// - #aiCoachText   (message)
+// - #aiCoachWhy    (why/explain)
+// - #aiCoachAction (action)
+//
+// If not present, it just emits events.
 
 'use strict';
 
-function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-function nowMs(){ try{ return performance.now(); }catch(_){ return Date.now(); } }
-function nowAbs(){ return Date.now(); }
-function safeLower(s){ return String(s||'').toLowerCase(); }
+export function createAICoach(opts = {}) {
+  const WIN = (typeof window !== 'undefined') ? window : globalThis;
+  const DOC = WIN.document;
 
-export function createAICoach(opts={}){
-  const emit = (typeof opts.emit === 'function') ? opts.emit : ()=>{};
-  const game = safeLower(opts.game || 'hha');
-  const cooldownMs = clamp(opts.cooldownMs ?? 3200, 800, 15000);
-  const verbose = !!opts.verbose;
+  const emit = typeof opts.emit === 'function'
+    ? opts.emit
+    : (name, detail) => { try { WIN.dispatchEvent(new CustomEvent(name, { detail })); } catch(_){} };
 
+  const game = String(opts.game || 'game').toLowerCase();
+  const cooldownMs = clampNum(opts.cooldownMs, 3000, 120000, 3500);
+
+  // --- state ---
   const S = {
-    started:false,
-    lastSpeakAt: 0,
-    lastCode: '',
-    lastCodeAt: 0,
-    tick: 0,
+    started: false,
+    ended: false,
+    lastTipAt: 0,
+    lastKey: '',
+    shown: Object.create(null),
 
+    // mild learning: keep a small rolling "skill impression"
     emaSkill: 0.45,
     emaFrustration: 0.25,
-    emaFatigue: 0.15,
 
-    last: {
-      inStorm:false,
-      inEndWindow:false,
-      waterZone:'',
-      shield:0,
-      combo:0,
-      misses:0,
-    },
-
-    codeCooldownMs: 9000,
+    // toast refs
+    toastEl: null,
+    textEl: null,
+    whyEl: null,
+    actionEl: null,
+    hideTimer: null,
+    mounted: false
   };
 
-  function canSpeak(code){
+  function clampNum(v, a, b, d){
+    v = Number(v);
+    if (!Number.isFinite(v)) v = d;
+    return Math.max(a, Math.min(b, v));
+  }
+
+  function nowMs(){ try{ return Date.now(); }catch(_){ return 0; } }
+
+  function qs(id){
+    try{ return DOC && DOC.getElementById(id); }catch(_){ return null; }
+  }
+
+  function clearTimeoutSafe(){
+    try{ if (S.hideTimer) clearTimeout(S.hideTimer); }catch(_){}
+    S.hideTimer = null;
+  }
+
+  function ensureToast(){
+    if (!DOC || S.mounted) return;
+    S.mounted = true;
+
+    // If host page provides its own toast nodes, use them
+    const host = qs('aiCoachToast');
+    const t = qs('aiCoachText');
+    const w = qs('aiCoachWhy');
+    const a = qs('aiCoachAction');
+
+    if (host && t) {
+      S.toastEl = host; S.textEl = t; S.whyEl = w; S.actionEl = a;
+      return;
+    }
+
+    // Otherwise: mount a minimal toast (safe-area aware)
+    try{
+      const wrap = DOC.createElement('div');
+      wrap.id = 'aiCoachToast';
+      wrap.style.cssText = [
+        'position:fixed',
+        'left:calc(12px + env(safe-area-inset-left,0px))',
+        'right:calc(12px + env(safe-area-inset-right,0px))',
+        'top:calc(12px + env(safe-area-inset-top,0px))',
+        'z-index:92',
+        'pointer-events:none',
+        'display:none'
+      ].join(';');
+
+      const card = DOC.createElement('div');
+      card.style.cssText = [
+        'margin:0 auto',
+        'max-width:720px',
+        'border-radius:18px',
+        'border:1px solid rgba(148,163,184,.18)',
+        'background:rgba(2,6,23,.70)',
+        'backdrop-filter:blur(10px)',
+        'box-shadow:0 18px 70px rgba(0,0,0,.35)',
+        'padding:10px 12px',
+        'color:rgba(229,231,235,.95)',
+        'font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial'
+      ].join(';');
+
+      const title = DOC.createElement('div');
+      title.textContent = '🤖 Coach Tip';
+      title.style.cssText = 'font-weight:900;font-size:12px;opacity:.92;letter-spacing:.2px;margin-bottom:6px';
+
+      const msg = DOC.createElement('div');
+      msg.id = 'aiCoachText';
+      msg.style.cssText = 'font-weight:900;font-size:14px;line-height:1.25';
+
+      const why = DOC.createElement('div');
+      why.id = 'aiCoachWhy';
+      why.style.cssText = 'margin-top:6px;font-size:12px;opacity:.86;white-space:pre-line';
+
+      const act = DOC.createElement('div');
+      act.id = 'aiCoachAction';
+      act.style.cssText = 'margin-top:6px;font-size:12px;font-weight:900;opacity:.92';
+
+      card.appendChild(title);
+      card.appendChild(msg);
+      card.appendChild(why);
+      card.appendChild(act);
+      wrap.appendChild(card);
+      DOC.body.appendChild(wrap);
+
+      S.toastEl = wrap;
+      S.textEl = msg;
+      S.whyEl = why;
+      S.actionEl = act;
+    }catch(_){}
+  }
+
+  function showToast(message, why, action, ms=2500){
+    ensureToast();
+    if (!S.toastEl || !S.textEl) return;
+
+    try{
+      clearTimeoutSafe();
+      S.textEl.textContent = String(message || '');
+      if (S.whyEl) S.whyEl.textContent = String(why || '');
+      if (S.actionEl) S.actionEl.textContent = action ? ('ทำเลย: ' + String(action)) : '';
+
+      S.toastEl.style.display = 'block';
+      S.hideTimer = setTimeout(()=>{
+        try{ if (S.toastEl) S.toastEl.style.display = 'none'; }catch(_){}
+      }, clampNum(ms, 900, 7000, 2600));
+    }catch(_){}
+  }
+
+  function dedupKey(key){
+    return String(key || '').slice(0, 120);
+  }
+
+  function canSpeak(key, urgent=false){
     const t = nowMs();
-    if (t - S.lastSpeakAt < cooldownMs) return false;
-    if (code && code === S.lastCode && (t - S.lastCodeAt) < S.codeCooldownMs) return false;
+
+    // urgent: override cooldown (but still avoid repeating exact same key too frequently)
+    if (urgent){
+      if (S.lastKey === key && (t - S.lastTipAt) < 900) return false;
+      return true;
+    }
+
+    if ((t - S.lastTipAt) < cooldownMs) return false;
+    if (S.shown[key]) return false;
     return true;
   }
 
-  function speak(payload){
-    try{
-      const p = Object.assign({ game, ts: nowAbs() }, payload || {});
-      const code = String(p.code || '');
-      if (!canSpeak(code)) return false;
+  function speak(payload, urgent=false){
+    const key = dedupKey(payload.code || payload.key || payload.message);
+    if (!key) return;
+    if (!canSpeak(key, urgent)) return;
 
-      S.lastSpeakAt = nowMs();
-      S.lastCode = code;
-      S.lastCodeAt = nowMs();
+    const t = nowMs();
+    S.lastTipAt = t;
+    S.lastKey = key;
+    S.shown[key] = 1;
 
-      emit('hha:coach', p);
-      return true;
-    }catch(_){
-      return false;
-    }
+    const detail = {
+      game,
+      level: payload.level || 'info',
+      code: key,
+      message: payload.message || '',
+      why: payload.why || '',
+      action: payload.action || '',
+      ts: t
+    };
+
+    emit('hha:coach', detail);
+    showToast(detail.message, detail.why, detail.action, urgent ? 3200 : 2500);
   }
 
-  // ---- Hydration-specific rules ----
-  function hydrationRules(st){
-    const zone = String(st.waterZone || '').toUpperCase();
-    const inStorm = !!st.inStorm;
-    const inEnd = !!st.inEndWindow;
-    const shield = Number(st.shield||0);
-    const skill = clamp(st.skill ?? 0.5, 0, 1);
-    const fr = clamp(st.frustration ?? 0.3, 0, 1);
-    const fat = clamp(st.fatigue ?? 0.2, 0, 1);
-    const combo = Number(st.combo||0);
-    const misses = Number(st.misses||0);
-
-    // End Window: the clutch moment
-    if (inStorm && inEnd && shield > 0){
-      return {
-        type:'warn',
-        code:'H_STORM_END_BLOCK',
-        message:'⏳ End Window! ตอนนี้ต้อง “BLOCK 🥤/🌩️” ให้ได้',
-        why:'ช่วงท้ายพายุเป็นหน้าต่างสำคัญของ Mini/Boss—กันโดน BAD ด้วยโล่จะได้คะแนน/ผ่านสเตจ',
-        data:{ shield, zone }
-      };
-    }
-    if (inStorm && inEnd && shield <= 0){
-      return {
-        type:'warn',
-        code:'H_STORM_END_NEED_SHIELD',
-        message:'🛡️ หมดโล่แล้ว! รอบหน้าก่อนพายุให้เก็บโล่ไว้ 1–2 อัน',
-        why:'Mini ต้อง BLOCK ช่วงท้าย—ถ้าไม่มีโล่จะกัน BAD ไม่ได้และมักไม่ผ่าน Mini',
-        data:{ shield, zone }
-      };
-    }
-
-    // Zone strategy
-    if (!inStorm && zone === 'GREEN' && fat < 0.6 && skill < 0.65){
-      return {
-        type:'tip',
-        code:'H_GREEN_HOLD',
-        message:'✅ อยู่ GREEN ดีแล้ว—พยายาม “คุม GREEN” ให้นานขึ้นเพื่อผ่าน Stage 1',
-        why:'Stage 1 ต้องสะสมเวลาอยู่ GREEN ให้ครบก่อนถึงจะไป Stage 2/3',
-        data:{ zone }
-      };
-    }
-    if (!inStorm && (zone === 'LOW' || zone === 'HIGH') && shield < 1){
-      return {
-        type:'tip',
-        code:'H_PREP_SHIELD',
-        message:'เตรียมพายุนะ! ตอนนี้อยู่นอก GREEN แล้ว—เก็บ 🛡️ ไว้ทำ Storm Mini',
-        why:'Mini ต้อง “LOW/HIGH + pressure + End Window + BLOCK” การมีโล่ช่วยผ่านง่ายขึ้น',
-        data:{ zone, shield }
-      };
-    }
-
-    // Performance-based coaching
-    if (combo >= 10 && skill >= 0.7){
-      return {
-        type:'praise',
-        code:'H_COMBO_PRAISE',
-        message:`🔥 คอมโบ ${combo}! เก็บจังหวะนี้ไว้—ยิง 💧 ให้แม่น แล้วค่อย BLOCK ตอนพายุ`,
-        why:'คอมโบสูง = ความแม่นดี คะแนนจะพุ่ง ถ้าคุมจังหวะตอนพายุได้จะผ่าน Stage 2/3 เร็ว',
-        data:{ combo, zone }
-      };
-    }
-    if (fr >= 0.75 || misses >= 18){
-      return {
-        type:'tip',
-        code:'H_ANTI_SPAM',
-        message:'🎯 ลอง “ชะลอมือ” นิดนึง: เล็งให้ชัวร์ก่อนยิง จะลด MISS ได้ไวมาก',
-        why:'รัวเกินไปทำให้ MISS เพิ่มและคอมโบแตก ส่งผลให้เกรดตกแม้คะแนนรวมสูง',
-        data:{ misses }
-      };
-    }
-
-    // Late-game push
-    if (fat >= 0.80 && skill >= 0.55){
-      return {
-        type:'warn',
-        code:'H_LATE_GAME_PUSH',
-        message:'⏱️ ใกล้จบแล้ว! โฟกัส “Stage ที่ยังไม่ผ่าน” ก่อน (Mini → Boss)',
-        why:'ปลายเกมคือช่วงเคลียร์ภารกิจ—ทำ Mini ให้ได้อย่างน้อย 1 และเก็บโล่ไว้ Boss Window',
-        data:{ fat, zone, shield }
-      };
-    }
-
-    return null;
-  }
-
-  // ---- Generic fallback ----
-  function genericRules(st){
-    const skill = clamp(st.skill ?? 0.5, 0, 1);
-    const fr = clamp(st.frustration ?? 0.3, 0, 1);
-    const fat = clamp(st.fatigue ?? 0.2, 0, 1);
-
-    if (fr >= 0.8){
-      return {
-        type:'tip',
-        code:'G_SLOW_DOWN',
-        message:'ลองช้าลงนิดนึง แล้วเล็งให้ชัวร์ก่อนยิง 👍',
-        why:'ลดพลาด = คอมโบยาวขึ้นและคะแนนนิ่งขึ้น',
-        data:{ fr }
-      };
-    }
-    if (skill >= 0.8 && fat < 0.7){
-      return {
-        type:'praise',
-        code:'G_GOOD_FLOW',
-        message:'🔥 ฟอร์มดีมาก! ลองเพิ่มความท้าทายด้วยคอมโบยาว ๆ',
-        why:'เมื่อแม่นแล้ว การรักษาจังหวะจะทำให้เกรด/คะแนนเพิ่มแบบก้าวกระโดด',
-        data:{ skill }
-      };
-    }
-    if (fat >= 0.85){
-      return {
-        type:'warn',
-        code:'G_END_SOON',
-        message:'⏱️ ใกล้จบแล้ว! โฟกัสเป้าหมายหลักก่อน',
-        why:'ช่วงท้ายให้เก็บแต้ม/เคลียร์ภารกิจให้ครบก่อนเวลา',
-        data:{ fat }
-      };
-    }
-    return null;
-  }
-
-  function pickCoachMessage(st){
-    if (game === 'hydration') return hydrationRules(st) || genericRules(st);
-    return genericRules(st);
-  }
-
+  // ----------------- tip logic (explainable rules) -----------------
   function onStart(){
     S.started = true;
-    S.tick = 0;
-    S.lastSpeakAt = 0;
-    S.lastCode = '';
-    S.lastCodeAt = 0;
-    S.emaSkill = 0.45;
-    S.emaFrustration = 0.25;
-    S.emaFatigue = 0.15;
+    S.ended = false;
+    S.lastTipAt = 0;
+    S.lastKey = '';
+    S.shown = Object.create(null);
 
     speak({
-      type:'tip',
-      code:'COACH_START',
-      message: game==='hydration'
-        ? '💧 โหมดฝึกสมดุลน้ำเริ่มแล้ว! คุม GREEN ให้ผ่าน Stage 1 ก่อนนะ'
-        : 'เริ่มเกมแล้ว! ลองรักษาคอมโบให้ยาวขึ้นนะ',
-      why: 'แนะนำเป้าหมายหลักของรอบเล่น',
-      data:{}
-    });
+      level:'info',
+      code:'start',
+      message: game === 'hydration'
+        ? 'เริ่มแล้ว! ยิง 💧 เพื่อคุม “โซน GREEN” และเก็บ 🛡️ ไว้ทำ Storm Mini'
+        : 'เริ่มแล้ว! โฟกัสความแม่น + คอมโบ',
+      why: 'เริ่มด้วยเป้าหมายง่าย ๆ ก่อน แล้วค่อยทำมินิเควส',
+      action: 'เล็งนิ่ง 0.3–0.5 วิ แล้วค่อยยิง'
+    }, true);
   }
 
-  function onUpdate(state={}){
-    if (!S.started) return;
-    S.tick++;
+  function onEnd(summary){
+    S.ended = true;
 
-    const skill = clamp(state.skill ?? 0.5, 0, 1);
-    const fr = clamp(state.frustration ?? 0.25, 0, 1);
-    const fat = clamp(state.fatigue ?? 0.2, 0, 1);
+    const grade = String(summary?.grade || '').toUpperCase();
+    const acc = Number(summary?.accuracyGoodPct || 0);
+    const miss = Number(summary?.misses || 0);
 
-    S.emaSkill = S.emaSkill*0.90 + skill*0.10;
-    S.emaFrustration = S.emaFrustration*0.90 + fr*0.10;
-    S.emaFatigue = S.emaFatigue*0.92 + fat*0.08;
+    let msg = grade ? `จบเกมแล้ว — เกรด ${grade}` : 'จบเกมแล้ว!';
+    let why = `Accuracy ${acc.toFixed(1)}% • Miss ${miss|0}`;
+    let action = 'ลองอีกรอบ: ลดการรัว + เลือกยิงเป้าที่ชัวร์';
 
-    const st = Object.assign({}, state, {
-      skill: S.emaSkill,
-      frustration: S.emaFrustration,
-      fatigue: S.emaFatigue
-    });
+    if (acc < 60) action = 'โฟกัส “ยิงให้โดน” ก่อนคอมโบ (ช้าลงนิดนึง)';
+    else if (acc >= 80 && miss <= 10) action = 'เยี่ยม! รอบหน้าไปล่าคอมโบยาว ๆ';
 
-    const inStorm = !!st.inStorm;
-    const inEnd = !!st.inEndWindow;
+    speak({ level:'end', code:'end', message: msg, why, action }, true);
+  }
 
-    // transitions
-    if (!S.last.inStorm && inStorm){
+  function onUpdate(m = {}){
+    if (!S.started || S.ended) return;
+
+    // Normalize inputs
+    const skill = clampNum(m.skill, 0, 1, 0.45);
+    const fatigue = clampNum(m.fatigue, 0, 1, 0.0);
+    const frustration = clampNum(m.frustration, 0, 1, 0.25);
+    const inStorm = !!m.inStorm;
+    const inEndWindow = !!m.inEndWindow;
+    const waterZone = String(m.waterZone || '').toUpperCase();
+    const shield = (Number(m.shield)||0)|0;
+    const misses = (Number(m.misses)||0)|0;
+    const combo = (Number(m.combo)||0)|0;
+
+    // Small smoothing
+    S.emaSkill = S.emaSkill*0.88 + skill*0.12;
+    S.emaFrustration = S.emaFrustration*0.90 + frustration*0.10;
+
+    // ---- Urgent storm end-window coaching
+    if (game === 'hydration' && inStorm && inEndWindow){
+      if (shield <= 0){
+        speak({
+          level:'urgent',
+          code:'storm_end_no_shield',
+          message:'⚠️ End Window มาแล้ว แต่ไม่มี 🛡️!',
+          why:'Storm Mini ต้อง “BLOCK ช่วงท้าย” ถ้าไม่มีโล่จะกันไม่ได้',
+          action:'รอบหน้าเก็บ 🛡️ ก่อนพายุ 1–2 อัน'
+        }, true);
+      } else {
+        speak({
+          level:'urgent',
+          code:'storm_end_block_now',
+          message:'⏳ End Window! ใช้ 🛡️ BLOCK เป้า BAD/⚡ ตอนนี้',
+          why:'ผ่าน Mini ต้อง zone OK + pressure OK + end window + block สำเร็จ',
+          action:'เล็ง BAD/⚡ แล้ว “ยิง 1–2 ครั้งแบบชัวร์”'
+        }, true);
+      }
+      return;
+    }
+
+    // ---- Hydration zone guidance
+    if (game === 'hydration'){
+      if (!inStorm && waterZone && waterZone !== 'GREEN'){
+        speak({
+          level:'hint',
+          code:'zone_back_to_green',
+          message:`ตอนนี้โซน ${waterZone} — ดันกลับ GREEN`,
+          why:'Stage 1 ต้องสะสมเวลาอยู่ GREEN ให้ครบตามเป้า',
+          action:'เลือกยิง 💧 ต่อเนื่อง 2–4 เป้า'
+        });
+      }
+
+      if (!inStorm && waterZone === 'GREEN' && combo >= 10){
+        speak({
+          level:'praise',
+          code:'green_combo_keep',
+          message:'ดีมาก! GREEN + คอมโบกำลังสวย 🔥',
+          why:'ความนิ่งทำให้ Accuracy สูงและผ่าน Stage 1 เร็ว',
+          action:'อย่ารัว—คุมจังหวะยิงให้คงที่'
+        });
+      }
+
+      if (!inStorm && shield === 0 && fatigue < 0.75){
+        speak({
+          level:'hint',
+          code:'get_shield',
+          message:'เก็บ 🛡️ ไว้ทำ Storm Mini นะ',
+          why:'Mini ต้อง BLOCK ช่วงท้ายพายุ ถ้าไม่มีโล่จะยากมาก',
+          action:'เห็น 🛡️ ให้ยิงก่อน 1 อัน'
+        });
+      }
+    }
+
+    // ---- Accuracy / frustration coaching (universal)
+    if (S.emaSkill < 0.45 && misses >= 8){
       speak({
-        type:'warn',
-        code:'H_STORM_START',
-        message: game==='hydration'
-          ? '🌀 STORM มาแล้ว! ทำ Mini: LOW/HIGH + pressure + BLOCK ช่วงท้าย'
-          : 'ช่วงพิเศษเริ่มแล้ว!',
-        why: 'เตือนเป้าหมายของช่วงกิจกรรมพิเศษ',
-        data:{}
+        level:'tip',
+        code:'slow_down_accuracy',
+        message:'ลดการรัว แล้ว “ล็อกเป้า” ก่อนยิง',
+        why:'Miss เยอะทำให้คอมโบตกและคะแนนไม่โต',
+        action:'เล็งนิ่ง 0.3–0.5 วิ แล้วยิงทีละนัด'
       });
     }
 
-    if (inStorm && !S.last.inEndWindow && inEnd){
+    if (S.emaFrustration > 0.62 && fatigue < 0.85){
       speak({
-        type:'warn',
-        code:'H_ENTER_ENDWINDOW',
-        message: game==='hydration' ? '⏳ เข้าช่วงท้ายพายุแล้ว! เตรียม BLOCK' : '⏳ ใกล้จบช่วงพิเศษ!',
-        why:'End Window เป็นจุดตัดสินของ Mini/Boss',
-        data:{}
+        level:'tip',
+        code:'reset_breath',
+        message:'พัก 2 วิ แล้วเริ่มใหม่แบบนิ่ง ๆ',
+        why:'ความรีบทำให้หลุดเป้าง่าย โดยเฉพาะบนมือถือ/cVR',
+        action:'โฟกัสเป้ากลางจอ แล้วค่อยยิง'
       });
     }
 
-    // periodic tip
-    const msg = pickCoachMessage(st);
-    if (msg) speak(msg);
-
-    // store last
-    S.last.inStorm = inStorm;
-    S.last.inEndWindow = inEnd;
-    S.last.waterZone = String(st.waterZone||'');
-    S.last.shield = Number(st.shield||0);
-    S.last.combo = Number(st.combo||0);
-    S.last.misses = Number(st.misses||0);
-
-    if (verbose && (S.tick % 180 === 0)){
-      speak({ type:'debug', code:'COACH_DEBUG', message:'coach tick', why:'debug', data:{ st } });
+    if (S.emaSkill > 0.78 && combo >= 14 && misses < 8){
+      speak({
+        level:'praise',
+        code:'push_combo',
+        message:'โห ดุเดือด! ลากคอมโบให้ยาวกว่าเดิม',
+        why:'ตอนนี้นิ่งมาก—คอมโบยาว = เกรดพุ่ง',
+        action:'เลือกยิงเป้าใกล้กัน ลดการส่ายกล้อง'
+      });
     }
   }
 
-  function onEnd(summary={}){
-    const grade = String(summary.grade||'').toUpperCase();
-    const acc = Number(summary.accuracyGoodPct||0);
-    const miss = Number(summary.misses||0);
+  // external stage hook (optional)
+  function onStage(stage){
+    const s = (Number(stage)||0)|0;
 
-    let msg = 'จบรอบแล้ว!';
-    let why = 'สรุปผลแบบสั้น';
-
-    if (grade === 'SSS' || grade === 'SS'){
-      msg = `🏆 เกรด ${grade}! โหดมาก—รักษาความแม่นแบบนี้ไว้`;
-      why = 'คะแนนและความแม่นอยู่ในระดับสูง';
-    } else if (acc >= 75 && miss <= 12){
-      msg = `✅ ฟอร์มดีขึ้น! ลองดันคอมโบให้ยาวขึ้นอีกนิด เกรดจะกระโดด`;
-      why = 'พื้นฐานดี แค่คอมโบ/ความนิ่งเพิ่มอีกนิด';
-    } else if (miss >= 20){
-      msg = `🎯 รอบหน้าโฟกัสลด MISS ก่อนเลย แล้วคะแนนจะพุ่งเอง`;
-      why = 'MISS สูงทำให้คอมโบแตกและเกรดลด';
+    if (s === 2){
+      speak({
+        level:'info',
+        code:'stage2_mini',
+        message:'เข้าสู่ Stage 2: เป้าคือผ่าน Storm Mini อย่างน้อย 1 ครั้ง',
+        why:'ต้องทำ LOW/HIGH + pressure + End Window + BLOCK (ห้ามโดน BAD)',
+        action:'เก็บ 🛡️ แล้วรอพายุ'
+      }, true);
     }
 
-    speak({
-      type:'praise',
-      code:'COACH_END',
-      message: msg,
-      why,
-      data:{ grade, acc, miss }
-    });
+    if (s === 3){
+      speak({
+        level:'info',
+        code:'stage3_boss',
+        message:'เข้าสู่ Stage 3: เตรียมเคลียร์ BOSS ⚡',
+        why:'ช่วงท้ายพายุจะเป็น Boss Window — ต้อง BLOCK ให้ครบ',
+        action:'เก็บ 🛡️ ไว้ แล้วค่อยยิงตอน Boss Window'
+      }, true);
+    }
   }
 
-  function say(payload){ return speak(payload || {}); }
-
-  function reset(){
-    S.started=false;
-    S.tick=0;
-    S.lastSpeakAt=0;
-    S.lastCode='';
-    S.lastCodeAt=0;
-  }
-
-  return { onStart, onUpdate, onEnd, say, reset };
+  return {
+    onStart,
+    onUpdate,
+    onEnd,
+    onStage,
+    speak: (payload, urgent=false) => speak(payload || {}, !!urgent)
+  };
 }
-
-// Optional debug attach (safe)
-try{
-  if (typeof window !== 'undefined'){
-    window.HHA_AI_COACH = { createAICoach };
-  }
-}catch(_){}
