@@ -1,9 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + cache-bust)
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
 // ✅ Warn if particles.js or quiz bank missing
+// ✅ Cache-bust import via ?v= or ?ts= or window.__HHA_BUST__
 //
 'use strict';
 
@@ -64,6 +65,21 @@ function waitForGlobal(getter, ms){
   });
 }
 
+function getBust(){
+  try{
+    const q = new URLSearchParams(location.search);
+    return q.get('v') || q.get('ts') || window.__HHA_BUST__ || '';
+  }catch{
+    return window.__HHA_BUST__ || '';
+  }
+}
+
+function withBust(p){
+  const b = getBust();
+  if(!b) return p;
+  return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(String(b));
+}
+
 async function main(){
   // DOM must exist
   const stage = $id('stage');
@@ -81,15 +97,13 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
-  // Wait a bit for deferred scripts to populate globals
-  // particles.js -> window.Particles
+  // Wait deferred globals
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
   }
 
-  // quiz bank -> window.HHA_HYGIENE_QUIZ_BANK (from hygiene-quiz-bank.js)
   const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
   if(!bank){
     console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
@@ -98,10 +112,12 @@ async function main(){
     try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
   }
 
-  // Import engine safely
+  // Import engine safely (✅ cache-bust)
   let engine;
+  const url = withBust('./hygiene.safe.js');
   try{
-    engine = await import('./hygiene.safe.js');
+    console.log('[HygieneBoot] importing:', url);
+    engine = await import(url);
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
