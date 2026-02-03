@@ -1,10 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR Run — PRODUCTION (HHA Standard) — PATCH LOCKPX + FX
-✅ Auto tune lockPx for Mobile/cVR (ยิงติดจริง)
-✅ Sets window.HHA_VRUI_CONFIG BEFORE loading vr-ui.js
-✅ Fallback tap shooter (emit hha:shoot) if needed
-✅ Loads order: vr-ui -> particles -> effects-pack -> groups.safe
-✅ Wires HUD/Quest/Power/Coach/Overlays + end summary + back hub
+GroupsVR Run — PRODUCTION (HHA Standard) — PATCH LOCKPX ULTIMATE
+✅ lockPx tuned by view (mobile/cvr/vr/pc)
+✅ uses /herohealth/vr/vr-ui.js => emits hha:shoot {x,y,lockPx,source}
+✅ wires HUD/Quest/Coach/Power events
+✅ loads effects-pack.js (groups:hit) + (optional) particles.js
+✅ starts engine automatically (no tap-to-start)
 -->
 <!doctype html>
 <html lang="th">
@@ -12,539 +12,380 @@ GroupsVR Run — PRODUCTION (HHA Standard) — PATCH LOCKPX + FX
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Food Groups VR</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <style>
-    /* tiny helper: keep UI selectable off */
-    .noSel{ -webkit-user-select:none; user-select:none; }
-    /* debug pill */
-    .pill.pillDebug{ opacity:.92; }
-    .pill.pillDebug .lbl{ color: rgba(229,231,235,.72); }
-    .pill.pillDebug .val{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
-  </style>
+  <!-- A-Frame (optional, behind DOM) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
+    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+    const v = String(qs('view','')||'').toLowerCase();
 
-      const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-      const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+    // Apply body view classes early (CSS layout depends on this)
+    function applyViewClass(){
+      const b = document.body;
+      if(!b) return;
+      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
+      if(v === 'pc') b.classList.add('view-pc');
+      else if(v === 'vr') b.classList.add('view-vr');
+      else if(v === 'cvr') { b.classList.add('view-cvr'); b.classList.add('cardboard'); }
+      else b.classList.add('view-mobile');
+    }
 
-      // ---- view detection (do NOT override if view= exists) ----
-      function detectView(){
-        const v = String(qs('view','')||'').toLowerCase();
-        if (v) return v;
+    // lockPx “แบบสุด” (ยิงติดบนมือถือจริง)
+    function pickLockPx(){
+      if(v === 'cvr') return 54;
+      if(v === 'vr')  return 44;
+      if(v === 'pc')  return 26;
+      return 44; // mobile default
+    }
 
-        // lightweight detection
-        const ua = navigator.userAgent || '';
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 820);
-        // if WebXR present and not mobile -> still default pc
-        return isMobile ? 'mobile' : 'pc';
-      }
+    // Provide config BEFORE loading vr-ui.js
+    window.HHA_VRUI_CONFIG = Object.assign({}, window.HHA_VRUI_CONFIG || {}, {
+      lockPx: pickLockPx(),
+      cooldownMs: 70
+    });
 
-      const view = detectView();
+    // Expose for debug
+    window.__HHA_VIEW__ = v || 'mobile';
+    window.__HHA_LOCKPX__ = window.HHA_VRUI_CONFIG.lockPx;
 
-      // ---- lockPx tuning (THE MAIN PATCH) ----
-      // Priority:
-      // 1) ?lockPx= (manual)
-      // 2) per-view default
-      // Notes:
-      // - mobile: 44–56 sweet spot
-      // - cVR:   52–68 sweet spot (มือสั่น/จอกว้าง)
-      // - vr:    28–38 (XR pointer/center aim มักนิ่งกว่า)
-      const qLock = Number(qs('lockPx', ''));
-      const defaultLock =
-        (view === 'cvr') ? 62 :
-        (view === 'mobile') ? 52 :
-        (view === 'vr') ? 34 :
-        28;
-
-      const lockPx = clamp(Number.isFinite(qLock) && qLock>0 ? qLock : defaultLock, 10, 96);
-
-      // expose for vr-ui.js
-      window.HHA_VRUI_CONFIG = Object.assign({}, window.HHA_VRUI_CONFIG || {}, {
-        lockPx,
-        cooldownMs: 90
-      });
-
-      // body view class (CSS uses these)
-      const b = document.documentElement; // temp
-      window.__GROUPS_VIEW__ = view;
-      window.__GROUPS_LOCKPX__ = lockPx;
-    })();
+    // Apply ASAP + again on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', applyViewClass);
+    applyViewClass();
+  })();
   </script>
-
-  <!-- Universal VR UI (must read HHA_VRUI_CONFIG) -->
-  <script src="../vr/vr-ui.js"></script>
-
-  <!-- Optional particles layer (if you have /herohealth/vr/particles.js or similar) -->
-  <!-- If you DON'T have it, it's fine: effects-pack will fallback to DOM FX -->
-  <script>
-    (function(){
-      // If your particles file exists, load it safely. If not, ignore.
-      // Change path here if your actual particles file differs.
-      const path = "../vr/particles.js";
-      const s = document.createElement('script');
-      s.src = path;
-      s.async = true;
-      s.onerror = ()=>{ /* ok */ };
-      document.head.appendChild(s);
-    })();
-  </script>
-
-  <!-- FX pack -->
-  <script src="./effects-pack.js"></script>
-
-  <!-- Engine (standalone) -->
-  <script src="./groups.safe.js"></script>
 </head>
 
-<body class="noSel">
+<body>
+  <!-- XR Scene behind DOM -->
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement:true; physicallyCorrectLights:false">
+    <a-entity position="0 1.6 -2"></a-entity>
+  </a-scene>
 
-  <!-- XR scene behind DOM (optional, keep pointer-events none) -->
-  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: true" renderer="colorManagement: true" background="color: #000"></a-scene>
-
-  <!-- ===== HUD ===== -->
-  <header class="hud">
+  <!-- ===================== HUD TOP ===================== -->
+  <div class="hud" aria-hidden="true">
     <div class="hudLeft">
-      <div class="pill"><span class="lbl">⏱️ เวลา</span><span id="hudTime" class="val">--</span></div>
-      <div class="pill"><span class="lbl">🎯 คอมโบ</span><span id="hudCombo" class="val">0</span></div>
-      <div class="pill"><span class="lbl">💥 MISS</span><span id="hudMiss" class="val">0</span></div>
+      <div class="pill"><span class="lbl">⏱️ เวลา</span><span class="val" id="hudTime">--</span></div>
+      <div class="pill"><span class="lbl">⭐ คะแนน</span><span class="val" id="hudScore">0</span></div>
+      <div class="pill"><span class="lbl">🔥 คอมโบ</span><span class="val" id="hudCombo">0</span></div>
     </div>
     <div class="hudRight">
-      <div class="pill"><span class="lbl">🏁 คะแนน</span><span id="hudScore" class="val">0</span></div>
-      <div class="pill"><span class="lbl">📊 ACC</span><span id="hudAcc" class="val">0%</span></div>
-      <div class="pill"><span class="lbl">🎓 เกรด</span><span id="hudGrade" class="val">-</span></div>
-
-      <!-- DEBUG (lockPx + last source) -->
-      <div class="pill pillDebug">
-        <span class="lbl">lockPx</span><span id="hudLock" class="val">--</span>
-      </div>
-      <div class="pill pillDebug">
-        <span class="lbl">src</span><span id="hudSrc" class="val">--</span>
-      </div>
+      <div class="pill"><span class="lbl">❌ MISS</span><span class="val" id="hudMiss">0</span></div>
+      <div class="pill"><span class="lbl">🎖️ Rank</span><span class="val" id="hudRank">-</span></div>
     </div>
-  </header>
-
-  <!-- ===== QUEST ===== -->
-  <section class="questTop">
-    <div class="questCard">
-      <div class="qTitle">
-        <span id="qGoalTitle">ยิงให้ถูก: --</span>
-        <span id="qGroupTag" class="tag">--</span>
-      </div>
-      <div class="bar"><div id="qGoalFill" class="fill"></div></div>
-      <div id="qGoalSub" class="qSub">0 / 0</div>
-    </div>
-
-    <div class="questCard">
-      <div class="qTitle">
-        <span id="qMiniTitle">MINI: --</span>
-        <span id="qMiniTag" class="tag">⏳</span>
-      </div>
-      <div class="bar"><div id="qMiniFill" class="fill"></div></div>
-      <div id="qMiniSub" class="qSub">0 / 0</div>
-    </div>
-  </section>
-
-  <!-- Big banner -->
-  <div id="bigBanner" class="bigBanner hidden">
-    <div id="bigBannerText" class="bigBannerText">--</div>
   </div>
 
-  <!-- ===== PLAY LAYER (targets) ===== -->
-  <main id="playLayer" class="playLayer" aria-label="play area"></main>
+  <!-- ===================== QUEST TOP ===================== -->
+  <div class="questTop" aria-hidden="true">
+    <!-- GOAL -->
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="goalTitle">ยิงให้ถูก</div>
+        <div class="tag" id="groupTag">หมู่</div>
+      </div>
+      <div class="bar"><div class="fill" id="goalFill"></div></div>
+      <div class="qSub" id="goalSub">0/0</div>
+    </div>
 
-  <!-- ===== POWER ===== -->
-  <section class="powerWrap">
+    <!-- MINI -->
+    <div class="questCard">
+      <div class="qTitle">
+        <div id="miniTitle">MINI</div>
+        <div class="tag" id="miniTag">⏳</div>
+      </div>
+      <div class="bar"><div class="fill" id="miniFill"></div></div>
+      <div class="qSub" id="miniSub">0/0</div>
+    </div>
+  </div>
+
+  <!-- ===================== BIG BANNER ===================== -->
+  <div class="bigBanner hidden" id="bigBanner" aria-hidden="true">
+    <div class="bigBannerText" id="bigBannerText">READY</div>
+  </div>
+
+  <!-- ===================== PLAY LAYER (IMPORTANT) ===================== -->
+  <div id="playLayer" class="playLayer" aria-label="play-layer"></div>
+
+  <!-- ===================== POWER (BOTTOM MID) ===================== -->
+  <div class="powerWrap" aria-hidden="true">
     <div class="powerCard">
-      <div class="pHead">⚡ พลังสลับหมู่</div>
-      <div class="bar powerBar"><div id="powerFill" class="fill"></div></div>
-      <div id="powerSub" class="pFoot">0 / 0</div>
+      <div class="pHead" id="powerTitle">พลังสะสม</div>
+      <div class="bar powerBar"><div class="fill" id="powerFill"></div></div>
+      <div class="pFoot" id="powerSub">0/0</div>
     </div>
-  </section>
+  </div>
 
-  <!-- ===== COACH ===== -->
-  <aside class="coachWrap">
+  <!-- ===================== COACH (BOTTOM LEFT) ===================== -->
+  <div class="coachWrap" aria-hidden="true">
     <div class="coachCard">
-      <img class="coachImg" src="../img/coach-neutral.png" alt="coach" id="coachImg"/>
+      <img class="coachImg" id="coachImg" src="../img/coach-neutral.png" alt="coach"/>
       <div class="coachBubble">
-        <div class="coachName">โค้ช HeroHealth</div>
-        <div class="coachText" id="coachText">พร้อมแล้ว! 🎮</div>
+        <div class="coachName" id="coachName">Coach</div>
+        <div class="coachText" id="coachText">พร้อมแล้ว! 🎯</div>
       </div>
     </div>
-  </aside>
+  </div>
 
-  <!-- ===== OVERLAY: calibration / start ===== -->
-  <section id="overlayStart" class="overlay">
+  <!-- ===================== OVERLAY: END (optional) ===================== -->
+  <div class="overlay hidden" id="endOverlay">
     <div class="panel">
-      <div class="title">🍽️ Food Groups VR</div>
-      <div class="sub">
-        ยิงให้ถูก “หมู่” ที่กำหนด (ดูด้านบน) แล้วเก็บคอมโบให้ยาว!<br/>
-        <b>มือถือ/คาร์ดบอร์ด</b> เล็งกลางจอแล้วแตะยิง 🎯 (มี Aim Assist ช่วยแล้ว)
-      </div>
-
-      <div class="grid2">
-        <div class="stat">
-          <div class="k">โหมด / View</div>
-          <div class="v" id="statMode">--</div>
-        </div>
-        <div class="stat">
-          <div class="k">lockPx (จูนยิงติด)</div>
-          <div class="v" id="statLock">--</div>
-        </div>
-      </div>
-
-      <div class="row2" style="margin-top:12px;">
-        <button id="btnStart" class="btn btn-strong">เริ่มเล่น</button>
-        <button id="btnBackHub" class="btn btn-ghost">กลับ HUB</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        ทิป: ถ้ายังยิงไม่ติด ให้ลองเปิดด้วย <b>&lockPx=62</b> (มือถือ/cVR) หรือ <b>&lockPx=40</b> (VR)
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== OVERLAY: end ===== -->
-  <section id="overlayEnd" class="overlay hidden">
-    <div class="panel">
-      <div class="title">สรุปผล 🎉</div>
-      <div class="sub" id="endSub">--</div>
+      <div class="title">สรุปผล</div>
+      <div class="sub" id="endSub">—</div>
 
       <div class="grid2">
         <div class="stat"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
-        <div class="stat"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-        <div class="stat"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-        <div class="stat"><div class="k">Grade</div><div class="v" id="endGrade">-</div></div>
+        <div class="stat"><div class="k">ความแม่น (Good)</div><div class="v" id="endAcc">0%</div></div>
       </div>
 
       <div class="row2" style="margin-top:12px;">
-        <button id="btnReplay" class="btn btn-strong">เล่นอีกครั้ง</button>
-        <button id="btnBackHub2" class="btn btn-ghost">กลับ HUB</button>
+        <button class="btn btn-strong" id="btnReplay">เล่นอีกครั้ง</button>
+        <button class="btn btn-ghost" id="btnBackHub">กลับ HUB</button>
       </div>
 
-      <div class="note" style="margin-top:10px;">
-        ระบบจะบันทึกผลล่าสุดไว้ในเครื่อง (HHA_LAST_SUMMARY) และ flush log ถ้ามี ?log=
-      </div>
+      <div class="note" style="margin-top:10px;" id="endNote"></div>
     </div>
-  </section>
+  </div>
+
+  <!-- ===================== SCRIPTS ===================== -->
+
+  <!-- Optional particles layer (if you have it). If 404, it won't break. -->
+  <script src="../vr/particles.js"></script>
+
+  <!-- Universal VR UI (must be after HHA_VRUI_CONFIG is set) -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- FX pack: listens groups:hit -->
+  <script src="./effects-pack.js"></script>
+
+  <!-- Engine -->
+  <script src="./groups.safe.js"></script>
 
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const WIN = window;
-      const DOC = document;
+    const WIN = window;
+    const DOC = document;
 
-      const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-      const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-      const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 
-      // ---- apply body class view-* ----
-      const view = String(WIN.__GROUPS_VIEW__ || qs('view','mobile') || 'mobile').toLowerCase();
-      DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
-      if (view === 'pc') DOC.body.classList.add('view-pc');
-      else if (view === 'vr') DOC.body.classList.add('view-vr');
-      else if (view === 'cvr') DOC.body.classList.add('view-cvr','cardboard');
-      else DOC.body.classList.add('view-mobile');
+    // --- DOM refs ---
+    const $ = (id)=>DOC.getElementById(id);
 
-      // ---- core params ----
-      const hub = String(qs('hub','')||'');
-      const diff = String(qs('diff','normal')||'normal').toLowerCase();
-      const runMode = String(qs('run','play')||'play').toLowerCase(); // play|research|practice
-      const time = clamp(Number(qs('time', 90)), 15, 180);
-      const seed = String(qs('seed','')||Date.now());
-      const lockPx = clamp(Number(WIN.__GROUPS_LOCKPX__ || (WIN.HHA_VRUI_CONFIG && WIN.HHA_VRUI_CONFIG.lockPx) || 0), 10, 96);
+    const hudTime  = $('hudTime');
+    const hudScore = $('hudScore');
+    const hudCombo = $('hudCombo');
+    const hudMiss  = $('hudMiss');
+    const hudRank  = $('hudRank');
 
-      // UI refs
-      const hudTime  = DOC.getElementById('hudTime');
-      const hudCombo = DOC.getElementById('hudCombo');
-      const hudMiss  = DOC.getElementById('hudMiss');
-      const hudScore = DOC.getElementById('hudScore');
-      const hudAcc   = DOC.getElementById('hudAcc');
-      const hudGrade = DOC.getElementById('hudGrade');
-      const hudLock  = DOC.getElementById('hudLock');
-      const hudSrc   = DOC.getElementById('hudSrc');
+    const goalTitle = $('goalTitle');
+    const groupTag  = $('groupTag');
+    const goalFill  = $('goalFill');
+    const goalSub   = $('goalSub');
 
-      const qGoalTitle = DOC.getElementById('qGoalTitle');
-      const qGroupTag  = DOC.getElementById('qGroupTag');
-      const qGoalFill  = DOC.getElementById('qGoalFill');
-      const qGoalSub   = DOC.getElementById('qGoalSub');
+    const miniTitle = $('miniTitle');
+    const miniTag   = $('miniTag');
+    const miniFill  = $('miniFill');
+    const miniSub   = $('miniSub');
 
-      const qMiniTitle = DOC.getElementById('qMiniTitle');
-      const qMiniTag   = DOC.getElementById('qMiniTag');
-      const qMiniFill  = DOC.getElementById('qMiniFill');
-      const qMiniSub   = DOC.getElementById('qMiniSub');
+    const powerTitle = $('powerTitle');
+    const powerFill  = $('powerFill');
+    const powerSub   = $('powerSub');
 
-      const powerFill  = DOC.getElementById('powerFill');
-      const powerSub   = DOC.getElementById('powerSub');
+    const coachImg  = $('coachImg');
+    const coachText = $('coachText');
 
-      const coachImg   = DOC.getElementById('coachImg');
-      const coachText  = DOC.getElementById('coachText');
+    const bigBanner = $('bigBanner');
+    const bigBannerText = $('bigBannerText');
 
-      const overlayStart = DOC.getElementById('overlayStart');
-      const overlayEnd   = DOC.getElementById('overlayEnd');
+    const endOverlay = $('endOverlay');
+    const endSub = $('endSub');
+    const endScore = $('endScore');
+    const endAcc = $('endAcc');
+    const endNote = $('endNote');
+    const btnReplay = $('btnReplay');
+    const btnBackHub = $('btnBackHub');
 
-      const statMode = DOC.getElementById('statMode');
-      const statLock = DOC.getElementById('statLock');
+    const playLayer = $('playLayer');
 
-      const btnStart  = DOC.getElementById('btnStart');
-      const btnBackHub= DOC.getElementById('btnBackHub');
-      const btnReplay = DOC.getElementById('btnReplay');
-      const btnBackHub2= DOC.getElementById('btnBackHub2');
+    function pad2(n){ n = (n|0); return (n<10?('0'+n):String(n)); }
+    function fmtTime(sec){
+      sec = Math.max(0, sec|0);
+      const m = (sec/60)|0;
+      const s = sec%60;
+      return m + ':' + pad2(s);
+    }
 
-      const endSub   = DOC.getElementById('endSub');
-      const endScore = DOC.getElementById('endScore');
-      const endAcc   = DOC.getElementById('endAcc');
-      const endMiss  = DOC.getElementById('endMiss');
-      const endGrade = DOC.getElementById('endGrade');
-
-      const bigBanner = DOC.getElementById('bigBanner');
-      const bigBannerText = DOC.getElementById('bigBannerText');
-
-      let lastSummary = null;
-
-      // show debug
-      hudLock.textContent = String(lockPx);
-      hudSrc.textContent = '-';
-      statMode.textContent = `${runMode} / ${view} / ${diff} / ${time}s`;
-      statLock.textContent = String(lockPx);
-
-      // ---- FX pack init (safe) ----
-      try{
-        const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
-        FX && FX.init && FX.init({ layerEl: DOC.getElementById('playLayer') });
-      }catch(_){}
-
-      // ---- connect engine to playLayer ----
-      try{
-        const E = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
-        E && E.setLayerEl && E.setLayerEl(DOC.getElementById('playLayer'));
-      }catch(_){}
-
-      // ---- fallback shooter (CRITICAL for some Androids) ----
-      // Emits hha:shoot even if vr-ui.js missed a tap.
-      // IMPORTANT: does NOT block vr-ui; it just ensures shots exist.
-      let lastFallbackAt = 0;
-      function emitShoot(x,y, source){
+    function showBanner(text, tone){
+      if(!bigBanner || !bigBannerText) return;
+      bigBannerText.textContent = String(text||'');
+      bigBanner.classList.remove('hidden','tone-neutral','tone-good','tone-warn','tone-bad','show');
+      bigBanner.classList.add('tone-' + (tone||'neutral'));
+      // animate
+      requestAnimationFrame(()=> bigBanner.classList.add('show'));
+      setTimeout(()=>{
         try{
-          WIN.dispatchEvent(new CustomEvent('hha:shoot', {
-            detail: { x, y, lockPx, source: source || 'tap-fallback', t: nowMs() }
-          }));
-          hudSrc.textContent = String(source || 'tap-fallback');
-        }catch(_){}
-      }
-
-      function onPointerUp(e){
-        // only when game started (overlay hidden)
-        if (!overlayStart.classList.contains('hidden')) return;
-
-        const t = nowMs();
-        if (t - lastFallbackAt < 85) return; // throttle
-        lastFallbackAt = t;
-
-        let x = 0, y = 0;
-        try{
-          if (e && typeof e.clientX === 'number') { x = e.clientX; y = e.clientY; }
-          else return;
-        }catch(_){ return; }
-
-        emitShoot(x,y,'pointerup');
-      }
-
-      // cVR strict: shoot from center if user taps anywhere (feels right with crosshair)
-      function onClickAnywhere(e){
-        if (!overlayStart.classList.contains('hidden')) return;
-
-        const isCVR = DOC.body.classList.contains('view-cvr');
-        if (!isCVR) return;
-
-        const t = nowMs();
-        if (t - lastFallbackAt < 85) return;
-        lastFallbackAt = t;
-
-        const x = (WIN.innerWidth||360)/2;
-        const y = (WIN.innerHeight||640)/2;
-        emitShoot(x,y,'cvr-center');
-      }
-
-      DOC.getElementById('playLayer').addEventListener('pointerup', onPointerUp, { passive:true });
-      DOC.addEventListener('click', onClickAnywhere, { passive:true });
-
-      // ---- UI events from engine ----
-      WIN.addEventListener('hha:time', (ev)=>{
-        const left = (ev && ev.detail) ? Number(ev.detail.left||0) : 0;
-        hudTime.textContent = `${left}s`;
-      }, { passive:true });
-
-      WIN.addEventListener('hha:score', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        hudScore.textContent = String(d.score ?? 0);
-        hudCombo.textContent = String(d.combo ?? 0);
-        hudMiss.textContent  = String(d.misses ?? 0);
-      }, { passive:true });
-
-      WIN.addEventListener('hha:rank', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        hudAcc.textContent = `${Number(d.accuracy||0)}%`;
-        hudGrade.textContent = String(d.grade||'-');
-      }, { passive:true });
-
-      WIN.addEventListener('quest:update', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        qGoalTitle.textContent = d.goalTitle || 'ยิงให้ถูก';
-        qGroupTag.textContent  = d.groupName || '--';
-        qGoalFill.style.width  = `${clamp(d.goalPct||0,0,100)}%`;
-        qGoalSub.textContent   = `${d.goalNow||0} / ${d.goalTotal||0}`;
-
-        qMiniTitle.textContent = d.miniTitle || 'MINI';
-        const left = Number(d.miniTimeLeftSec||0);
-        qMiniTag.textContent   = left>0 ? `⏳ ${left}s` : '⏳';
-        qMiniFill.style.width  = `${clamp(d.miniPct||0,0,100)}%`;
-        qMiniSub.textContent   = `${d.miniNow||0} / ${d.miniTotal||0}`;
-        // urgent class for css
-        if (left>0 && left<=4) DOC.body.classList.add('mini-urgent');
-        else DOC.body.classList.remove('mini-urgent');
-      }, { passive:true });
-
-      WIN.addEventListener('groups:power', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        const c = Number(d.charge||0);
-        const th= Math.max(1, Number(d.threshold||1));
-        const pct = Math.round((c/th)*100);
-        powerFill.style.width = `${clamp(pct,0,100)}%`;
-        powerSub.textContent = `${c} / ${th}`;
-      }, { passive:true });
-
-      WIN.addEventListener('hha:coach', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        coachText.textContent = String(d.text||'');
-        const mood = String(d.mood||'neutral').toLowerCase();
-        const img =
-          (mood==='happy') ? '../img/coach-happy.png' :
-          (mood==='sad') ? '../img/coach-sad.png' :
-          (mood==='fever') ? '../img/coach-fever.png' :
-          '../img/coach-neutral.png';
-        coachImg.src = img;
-
-        // banner ping
-        showBanner(d.text || '');
-      }, { passive:true });
-
-      WIN.addEventListener('groups:progress', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        const k = String(d.kind||'');
-        if (k==='storm_on') showBanner('🌪️ STORM!');
-        if (k==='storm_off') showBanner('✨ CLEAR!');
-        if (k==='boss_spawn') showBanner('👊 BOSS!');
-        if (k==='boss_down') showBanner('💥 BOSS DOWN!');
-        if (k==='perfect_switch') showBanner('🔄 สลับหมู่!');
-      }, { passive:true });
-
-      WIN.addEventListener('hha:end', (ev)=>{
-        lastSummary = (ev && ev.detail) ? ev.detail : null;
-
-        // store latest summary (HHA Standard)
-        try{
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-            at: Date.now(),
-            game: 'GroupsVR',
-            summary: lastSummary
-          }));
-          const histKey = 'HHA_SUMMARY_HISTORY';
-          const arr = JSON.parse(localStorage.getItem(histKey) || '[]');
-          arr.unshift({ at: Date.now(), game:'GroupsVR', summary:lastSummary });
-          while(arr.length > 50) arr.pop();
-          localStorage.setItem(histKey, JSON.stringify(arr));
-        }catch(_){}
-
-        // show end overlay
-        overlayEnd.classList.remove('hidden');
-        endSub.textContent = `โหมด: ${lastSummary?.runMode||'-'} / diff: ${lastSummary?.diff||'-'} / seed: ${lastSummary?.seed||'-'}`;
-        endScore.textContent = String(lastSummary?.scoreFinal ?? 0);
-        endAcc.textContent   = `${Number(lastSummary?.accuracyGoodPct||0)}%`;
-        endMiss.textContent  = String(lastSummary?.misses ?? 0);
-        endGrade.textContent = String(lastSummary?.grade ?? '-');
-      }, { passive:true });
-
-      // banner helper
-      let bannerT = 0;
-      function showBanner(text){
-        text = String(text||'').trim();
-        if (!text) return;
-        bigBanner.classList.remove('hidden');
-        bigBanner.classList.add('show');
-        bigBannerText.textContent = text.slice(0, 60);
-
-        clearTimeout(bannerT);
-        bannerT = setTimeout(()=>{
           bigBanner.classList.remove('show');
-          setTimeout(()=>bigBanner.classList.add('hidden'), 160);
-        }, 900);
+          setTimeout(()=> bigBanner.classList.add('hidden'), 180);
+        }catch(_){}
+      }, 900);
+    }
+
+    function setCoachMood(mood){
+      // your coach files: coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
+      const m = String(mood||'neutral').toLowerCase();
+      let src = '../img/coach-neutral.png';
+      if(m === 'happy') src = '../img/coach-happy.png';
+      else if(m === 'fever') src = '../img/coach-fever.png';
+      else if(m === 'sad') src = '../img/coach-sad.png';
+      if(coachImg) coachImg.src = src;
+    }
+
+    // --- Event wiring ---
+    WIN.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail||{};
+      if(hudTime) hudTime.textContent = fmtTime(d.left ?? 0);
+    }, { passive:true });
+
+    WIN.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail||{};
+      if(hudScore) hudScore.textContent = String(d.score ?? 0);
+      if(hudCombo) hudCombo.textContent = String(d.combo ?? 0);
+      if(hudMiss)  hudMiss.textContent  = String(d.misses ?? 0);
+    }, { passive:true });
+
+    WIN.addEventListener('hha:rank', (ev)=>{
+      const d = ev.detail||{};
+      if(hudRank) hudRank.textContent = String(d.grade ?? '-');
+    }, { passive:true });
+
+    WIN.addEventListener('hha:coach', (ev)=>{
+      const d = ev.detail||{};
+      if(coachText) coachText.textContent = String(d.text||'');
+      setCoachMood(d.mood||'neutral');
+
+      // tiny banner for strong moods
+      const mood = String(d.mood||'neutral').toLowerCase();
+      if(mood === 'fever') showBanner('🔥 ' + String(d.text||''), 'warn');
+      else if(mood === 'happy') showBanner('✅ เยี่ยม!', 'good');
+    }, { passive:true });
+
+    WIN.addEventListener('quest:update', (ev)=>{
+      const d = ev.detail||{};
+      if(groupTag) groupTag.textContent = String(d.groupName || 'หมู่');
+      if(goalTitle) goalTitle.textContent = String(d.goalTitle || 'ยิงให้ถูก');
+      if(goalSub) goalSub.textContent = String((d.goalNow ?? 0) + '/' + (d.goalTotal ?? 0));
+      if(goalFill) goalFill.style.width = String(clamp(d.goalPct ?? 0,0,100)) + '%';
+
+      if(miniTitle) miniTitle.textContent = String(d.miniTitle || 'MINI');
+      if(miniSub) miniSub.textContent = String((d.miniNow ?? 0) + '/' + (d.miniTotal ?? 0));
+      if(miniFill) miniFill.style.width = String(clamp(d.miniPct ?? 0,0,100)) + '%';
+
+      const left = Number(d.miniTimeLeftSec ?? 0);
+      if(miniTag){
+        miniTag.textContent = left>0 ? ('⏳ ' + left + 's') : '🎯';
       }
-
-      // ---- buttons ----
-      function goHub(){
-        if (hub) location.href = hub;
-        else history.back();
+      // urgency class
+      if(DOC.body){
+        if(left>0 && left<=3) DOC.body.classList.add('mini-urgent');
+        else DOC.body.classList.remove('mini-urgent');
       }
+    }, { passive:true });
 
-      btnBackHub.addEventListener('click', goHub);
-      btnBackHub2.addEventListener('click', goHub);
+    WIN.addEventListener('groups:power', (ev)=>{
+      const d = ev.detail||{};
+      const c = Number(d.charge ?? 0);
+      const thr = Math.max(1, Number(d.threshold ?? 1));
+      const pct = clamp((c/thr)*100, 0, 100);
+      if(powerFill) powerFill.style.width = pct + '%';
+      if(powerSub) powerSub.textContent = c + '/' + thr;
+      if(powerTitle) powerTitle.textContent = (c>=thr) ? 'พร้อมสลับหมู่!' : 'พลังสะสม';
+    }, { passive:true });
 
-      btnStart.addEventListener('click', ()=>{
-        overlayStart.classList.add('hidden');
+    // End overlay (optional)
+    WIN.addEventListener('hha:end', (ev)=>{
+      const d = ev.detail||{};
+      if(endOverlay) endOverlay.classList.remove('hidden');
+      if(endScore) endScore.textContent = String(d.scoreFinal ?? 0);
+      if(endAcc) endAcc.textContent = String(d.accuracyGoodPct ?? 0) + '%';
+      if(endSub) endSub.textContent = `Rank ${d.grade || '-'} • MISS ${d.misses ?? 0} • SHOTS ${d.shots ?? 0}`;
+      if(endNote){
+        endNote.textContent =
+          `seed=${d.seed || '-'} • run=${d.runMode || '-'} • diff=${d.diff || '-'} • view=${d.view || '-'}`;
+      }
+    }, { passive:true });
 
-        // start engine
-        try{
-          const E = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
-          if (!E || !E.start) throw new Error('Engine not ready');
+    // Buttons
+    function hubUrl(){
+      const h = String(qs('hub','')||'');
+      return h || '../hub.html';
+    }
 
-          // flush-harden (if present)
-          try{
-            WIN.GroupsVR.bindFlushOnLeave && WIN.GroupsVR.bindFlushOnLeave(()=>lastSummary);
-          }catch(_){}
-
-          E.start(diff, {
-            runMode,
-            time,
-            seed
-          });
-
-          // tiny ping
-          showBanner('เริ่มแล้ว! 🎯');
-        }catch(err){
-          overlayStart.classList.remove('hidden');
-          alert('เริ่มเกมไม่สำเร็จ: ' + (err && err.message ? err.message : err));
-        }
+    if(btnBackHub){
+      btnBackHub.addEventListener('click', ()=>{
+        location.href = hubUrl();
       });
-
+    }
+    if(btnReplay){
       btnReplay.addEventListener('click', ()=>{
-        overlayEnd.classList.add('hidden');
-        overlayStart.classList.add('hidden');
+        try{ if(endOverlay) endOverlay.classList.add('hidden'); }catch(_){}
         try{
-          const E = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
-          E && E.stop && E.stop();
-          E && E.start && E.start(diff, { runMode, time, seed: String(Date.now()) });
+          const diff = String(qs('diff','normal')||'normal');
+          const ctx = { time: Number(qs('time',90)), seed: String(qs('seed','')||Date.now()), runMode: String(qs('run','play')||'play') };
+          WIN.GroupsVR && WIN.GroupsVR.GameEngine && WIN.GroupsVR.GameEngine.start(diff, ctx);
         }catch(_){}
       });
+    }
 
-      // ---- show start overlay default ----
-      overlayStart.classList.remove('hidden');
+    // Start engine (NO tap-to-start)
+    function startNow(){
+      try{
+        // Ensure layer is correct
+        if(WIN.GroupsVR && WIN.GroupsVR.GameEngine && WIN.GroupsVR.GameEngine.setLayerEl){
+          WIN.GroupsVR.GameEngine.setLayerEl(playLayer);
+        }
+        // FX init again (safe)
+        try{
+          const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
+          FX && FX.init && FX.init({ layerEl: playLayer });
+        }catch(_){}
 
-      // ---- ensure effects-pack selftest if requested ----
-      // (effects-pack.js handles ?selftest=1 itself)
+        // Start
+        const diff = String(qs('diff','normal')||'normal');
+        const ctx = {
+          time: Number(qs('time', 90)),
+          seed: String(qs('seed','')||Date.now()),
+          runMode: String(qs('run','play')||'play')
+        };
+        WIN.GroupsVR.GameEngine.start(diff, ctx);
 
-      // ---- keep debug lockPx in HUD always ----
-      hudLock.textContent = String(lockPx);
-    })();
+        // Flush harden (if telemetry exists)
+        if(WIN.GroupsVR.bindFlushOnLeave){
+          WIN.GroupsVR.bindFlushOnLeave(()=> (WIN.__HHA_LAST_SUMMARY__||null));
+        }
+
+        // Tiny banner: lockPx info (only if debug=1)
+        if(String(qs('debug','0'))==='1'){
+          showBanner('lockPx=' + (WIN.__HHA_LOCKPX__||'?'), 'neutral');
+        }
+      }catch(e){
+        console.error('GroupsVR start error:', e);
+        showBanner('ERROR', 'bad');
+      }
+    }
+
+    DOC.addEventListener('DOMContentLoaded', ()=>{
+      // tiny delay to let vr-ui mount buttons/crosshair
+      setTimeout(startNow, 160);
+    });
+
+  })();
   </script>
-
-  <!-- A-Frame CDN (keep minimal) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </body>
 </html>
