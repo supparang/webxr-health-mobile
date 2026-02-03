@@ -1,9 +1,8 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Folder Loader — PRODUCTION (HARDENED + TARGET-VISIBILITY FIX)
+// HydrationVR Folder Loader — PRODUCTION (HARDENED + BOOT CALL)
 // ✅ Applies view classes
 // ✅ Ensures playfield + layers exist (auto-create if missing)
-// ✅ Forces layer/target visibility & z-index (fix "targets spawn but invisible")
-// ✅ Imports ./hydration.safe.js (ESM)
+// ✅ Imports ./hydration.safe.js (ESM) AND calls boot()
 // ✅ Shows readable overlay on failure
 
 'use strict';
@@ -40,35 +39,35 @@
   }
 
   function ensurePlayfieldStructure(){
-    try{
-      document.documentElement.style.height = '100%';
-      body.style.height = '100%';
-      body.style.margin = '0';
-      body.style.overflow = 'hidden';
-    }catch(_){}
+    // playfield base
+    const pf = ensureEl('div','playfield', document.body);
+    if (!pf.style.position){
+      pf.style.position = 'fixed';
+      pf.style.inset = '0';
+      pf.style.zIndex = '10';
+      pf.style.overflow = 'hidden';
+      pf.style.touchAction = 'manipulation';
+    }
 
-    const pf = ensureEl('div','playfield', body);
-    pf.setAttribute('data-playfield','main');
-    pf.style.position = 'fixed';
-    pf.style.inset = '0';
-    pf.style.zIndex = '40';
-    pf.style.overflow = 'hidden';
-    pf.style.touchAction = 'manipulation';
-    pf.style.background = 'transparent';
+    // cardboard base
+    const cb = ensureEl('div','cbPlayfield', document.body);
+    if (!cb.style.position){
+      cb.style.position='fixed';
+      cb.style.inset='0';
+      cb.style.zIndex='10';
+      cb.style.overflow='hidden';
+      cb.style.display='none';
+    }
 
-    const cb = ensureEl('div','cbPlayfield', body);
-    cb.setAttribute('data-playfield','cb');
-    cb.style.position='fixed';
-    cb.style.inset='0';
-    cb.style.zIndex='40';
-    cb.style.overflow='hidden';
-    cb.style.background='transparent';
-
+    // main layer
     const main = ensureEl('div','hydration-layer', pf);
-    main.style.position='absolute';
-    main.style.inset='0';
-    main.style.pointerEvents='auto';
+    if (!main.style.position){
+      main.style.position='absolute';
+      main.style.inset='0';
+      main.style.pointerEvents='auto';
+    }
 
+    // cardboard halves
     let left = cb.querySelector('.cbHalf.left');
     if (!left){
       left = document.createElement('div');
@@ -81,17 +80,21 @@
       right.className = 'cbHalf right';
       cb.appendChild(right);
     }
-    left.style.position='absolute'; left.style.top='0'; left.style.bottom='0'; left.style.left='0';
-    left.style.width='50%'; left.style.overflow='hidden'; left.style.pointerEvents='auto';
-
-    right.style.position='absolute'; right.style.top='0'; right.style.bottom='0'; right.style.right='0';
-    right.style.width='50%'; right.style.overflow='hidden'; right.style.pointerEvents='auto';
+    if (!left.style.position){
+      left.style.position='absolute'; left.style.top='0'; left.style.bottom='0'; left.style.left='0';
+      left.style.width='50%'; left.style.overflow='hidden'; left.style.pointerEvents='auto';
+    }
+    if (!right.style.position){
+      right.style.position='absolute'; right.style.top='0'; right.style.bottom='0'; right.style.right='0';
+      right.style.width='50%'; right.style.overflow='hidden'; right.style.pointerEvents='auto';
+    }
 
     const L = ensureEl('div','hydration-layerL', left);
     const R = ensureEl('div','hydration-layerR', right);
-    L.style.position='absolute'; L.style.inset='0'; L.style.pointerEvents='auto';
-    R.style.position='absolute'; R.style.inset='0'; R.style.pointerEvents='auto';
+    if (!L.style.position){ L.style.position='absolute'; L.style.inset='0'; L.style.pointerEvents='auto'; }
+    if (!R.style.position){ R.style.position='absolute'; R.style.inset='0'; R.style.pointerEvents='auto'; }
 
+    // show/hide by body class
     if (body.classList.contains('cardboard')){
       pf.style.display = 'none';
       cb.style.display = 'block';
@@ -103,35 +106,12 @@
 
   ensurePlayfieldStructure();
 
-  // map layers for safe.js
+  // map layers for hydration.safe.js
   (function setLayers(){
     const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
-    if (body.classList.contains('cardboard')){
-      cfg.layers = ['hydration-layerL','hydration-layerR'];
-    } else {
-      cfg.layers = ['hydration-layer'];
-    }
-  })();
-
-  // ---- CRITICAL: Force visibility/z-index so targets cannot be hidden by css ----
-  (function forceVisibilityCSS(){
-    if (document.getElementById('hydration-visibility-fix')) return;
-    const st = document.createElement('style');
-    st.id = 'hydration-visibility-fix';
-    st.textContent = `
-      #playfield, #cbPlayfield { z-index: 40 !important; background: transparent !important; }
-      #hydration-layer, #hydration-layerL, #hydration-layerR{
-        position:absolute !important;
-        inset:0 !important;
-        display:block !important;
-        opacity:1 !important;
-        visibility:visible !important;
-        z-index:41 !important;
-        pointer-events:auto !important;
-      }
-      .hvr-target{ z-index:42 !important; opacity:1 !important; visibility:visible !important; }
-    `;
-    document.head.appendChild(st);
+    cfg.layers = body.classList.contains('cardboard')
+      ? ['hydration-layerL','hydration-layerR']
+      : ['hydration-layer'];
   })();
 
   function escapeHtml(s){
@@ -145,10 +125,10 @@
     el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
     el.innerHTML = `
       <div style="max-width:900px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (folder loader)</h2>
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR loader failed</h2>
         <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
         <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
-        <div style="margin:12px 0 8px 0;font-weight:700">Tried paths:</div>
+        <div style="margin:12px 0 8px 0;font-weight:700">Tried:</div>
         <ol style="line-height:1.55">${tried.map(s=>`<li><code>${escapeHtml(s)}</code></li>`).join('')}</ol>
         <div style="margin:12px 0 6px 0;font-weight:700">Error:</div>
         <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(String(err && (err.stack || err.message || err)))}</pre>
@@ -166,10 +146,24 @@
     for (const p of candidates){
       tried.push(p);
       try{
-        await import(p);
+        const mod = await import(p);
+
+        // ✅ CRITICAL: call boot() if exported
+        if (mod && typeof mod.boot === 'function'){
+          await mod.boot();
+        } else if (mod && typeof mod.default === 'function'){
+          // allow default export boot
+          await mod.default();
+        } else {
+          // ถ้าไม่มี boot() แปลว่า safe.js ต้อง auto-run เอง
+          // แต่เพื่อกันนิ่งเกินไป เราจะแจ้งเตือนแบบไม่พัง
+          console.warn('[HydrationVR] hydration.safe.js loaded but no boot() export found.');
+        }
         return;
-      }catch(_){}
+      }catch(e){
+        // keep trying next candidate
+      }
     }
-    showFail(new Error('All candidate imports failed.'), tried);
+    showFail(new Error('All candidate imports failed or boot() threw.'), tried);
   })();
 })();
