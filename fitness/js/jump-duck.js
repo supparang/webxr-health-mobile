@@ -1,11 +1,10 @@
-// === fitness/js/jump-duck.js — Jump Duck Rush (BOSS + QUEST + AI v2.2) ===
+// === fitness/js/jump-duck.js — Jump Duck Rush (Boss 3-phase + Rank + CSV Summary) v2.3 ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
 
 /* ---------- DOM refs ---------- */
-
 const viewMenu   = $('#view-menu');
 const viewPlay   = $('#view-play');
 const viewResult = $('#view-result');
@@ -32,7 +31,8 @@ const elHudPhase  = $('#hud-phase');
 const elHudAI     = $('#hud-ai');
 const elHudQuest  = $('#hud-quest');
 
-const elBossPhase = $('#boss-phase');
+const elBossBar  = $('#jd-bossbar');
+const elBossPhase= $('#boss-phase');
 const elBossHpTxt = $('#boss-hp-text');
 const elBossHpFill= $('#boss-hp-fill');
 
@@ -66,13 +66,12 @@ const JD_DIFFS = {
   hard:   { speedUnitsPerSec: 62, spawnIntervalMs:  800, hitWindowMs: 200, stabilityDamageOnMiss: 16, stabilityGainOnHit: 4, scorePerHit: 16 }
 };
 
-// spawn / hit line in % of field
 const SPAWN_X   = 100;
 const CENTER_X  = 24;
 const MISS_X    = 4;
 
-// phases by progress
-const PHASE_THRESH = [0.33, 0.70]; // <0.33 => 1, <0.70 => 2, else 3
+// เกมมี 3 เฟส: 1 warmup / 2 challenge / 3 boss
+const PHASE_THRESH = [0.33, 0.70];
 
 /* ---------- Seeded RNG ---------- */
 
@@ -93,7 +92,6 @@ function getSeed(){
     if(s != null && s !== ''){
       const n = Number(s);
       if(Number.isFinite(n)) return Math.floor(n) >>> 0;
-      // hash string
       let h = 2166136261;
       const str = String(s);
       for(let i=0;i<str.length;i++){
@@ -106,7 +104,7 @@ function getSeed(){
   return (Date.now() >>> 0);
 }
 
-/* ---------- SFX / UI helpers ---------- */
+/* ---------- Utils ---------- */
 
 function showView(name){
   [viewMenu,viewPlay,viewResult].forEach(v=> v && v.classList.add('jd-hidden'));
@@ -118,10 +116,7 @@ function showView(name){
 function playSfx(id){
   const el = document.getElementById(id);
   if (!el) return;
-  try{
-    el.currentTime = 0;
-    el.play().catch(()=>{});
-  }catch{}
+  try{ el.currentTime = 0; el.play().catch(()=>{}); }catch{}
 }
 
 let judgeTimer = null;
@@ -131,7 +126,7 @@ function showJudge(text, kind){
   elJudge.className = 'jd-judge show';
   if (kind) elJudge.classList.add(kind);
   if (judgeTimer) clearTimeout(judgeTimer);
-  judgeTimer = setTimeout(()=>{ elJudge.classList.remove('show'); }, 520);
+  judgeTimer = setTimeout(()=>{ elJudge.classList.remove('show'); }, 560);
 }
 
 function safeRemoveEl(el){
@@ -156,6 +151,8 @@ function fmtMs(ms){
   return ms.toFixed(0)+' ms';
 }
 
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
 function hardClearPlayfield(){
   if(elObsHost) elObsHost.innerHTML = '';
   if(elPlayArea) elPlayArea.classList.remove('shake','jd-boss-warn');
@@ -164,6 +161,37 @@ function hardClearPlayfield(){
     elJudge.classList.remove('show','ok','miss','combo');
     elJudge.textContent = 'READY';
   }
+}
+
+/* ---------- CSV helpers ---------- */
+
+function toCsv(rows){
+  if(!rows || !rows.length) return '';
+  const cols = Object.keys(rows[0]);
+  const esc = (v)=>{
+    if(v == null) return '';
+    const s = String(v);
+    if (s.includes('"') || s.includes(',') || s.includes('\n')){
+      return '"' + s.replace(/"/g,'""') + '"';
+    }
+    return s;
+  };
+  const lines = [cols.join(',')];
+  for(const r of rows){
+    lines.push(cols.map(c=>esc(r[c])).join(','));
+  }
+  return lines.join('\n');
+}
+
+function downloadText(filename, text){
+  const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); safeRemoveEl(a); }, 0);
 }
 
 /* ---------- AI Predictor (online + deterministic) ---------- */
@@ -182,7 +210,6 @@ function createAIPredictor(rng){
     lastTypes: [],
   };
 
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function sigmoid(z){ return 1/(1+Math.exp(-z)); }
 
   function features(state){
@@ -242,13 +269,12 @@ function createAIPredictor(rng){
     if(tooSame){
       pick = (last==='jump') ? 'duck' : 'jump';
     }else{
-      // mild randomness
       if(rng() < 0.18) pick = (pick==='jump') ? 'duck' : 'jump';
     }
 
-    // phase3: force both
+    // phase3 ให้สลับ “ทั้งคู่” ชัดขึ้น
     if(state.phase === 3){
-      if(rng() < 0.60) pick = (last==='jump') ? 'duck' : 'jump';
+      if(rng() < 0.62) pick = (last==='jump') ? 'duck' : 'jump';
     }
     return pick;
   }
@@ -262,6 +288,7 @@ function createAIPredictor(rng){
       duckRtEMA: Math.round(S.duckRtEMA),
       wJump: S.wJump.map(v=>+v.toFixed(3)),
       wDuck: S.wDuck.map(v=>+v.toFixed(3)),
+      targetP: S.targetP
     };
   }
 
@@ -275,48 +302,55 @@ function createAIPredictor(rng){
   };
 }
 
-/* ---------- QUEST / BADGES (เน้นทั้งคู่) ---------- */
+/* ---------- Quest system (เน้นทั้ง Jump+Duck) ---------- */
 
 function createQuestSystem(rng){
   const Q = {
     id: 'perfect_both_3',
     title: 'PerfectBoth 3',
-    desc: 'ต้องถูก 3 ครั้งติด โดยมีทั้ง Jump และ Duck',
     target: 3,
     streak: 0,
     used: {jump:0, duck:0},
     done: false,
-    fail: 0
+    fail: 0,
+    _startBossLayer: 1,
+    _startBossHp: 100,
+    _startMs: 0
   };
 
   function pickNewQuest(state){
-    // phase-based quest pool
-    const poolP1 = ['perfect_both_3','alternate_6'];
-    const poolP2 = ['alternate_6','no_miss_8'];
-    const poolP3 = ['boss_burst_10s','alternate_8'];
-
-    let pool = poolP1;
-    if(state.phase === 2) pool = poolP2;
-    if(state.phase === 3) pool = poolP3;
+    // pool by phase + boss layer
+    let pool = ['perfect_both_3','alternate_6'];
+    if(state.phase === 2) pool = ['alternate_6','no_miss_8'];
+    if(state.phase === 3){
+      if(state.boss.layer === 1) pool = ['boss_burst_10s','alternate_8'];
+      if(state.boss.layer === 2) pool = ['boss_burst_8s','alternate_10'];
+      if(state.boss.layer === 3) pool = ['boss_burst_6s','alternate_12'];
+    }
 
     const id = pool[Math.floor(rng()*pool.length)];
-    if(id === 'perfect_both_3'){
-      Q.id='perfect_both_3'; Q.title='PerfectBoth 3'; Q.desc='ถูก 3 ครั้งติด และต้องมีทั้ง Jump+Duck'; Q.target=3;
-      Q.streak=0; Q.used={jump:0,duck:0}; Q.done=false; Q.fail=0;
-    }else if(id === 'alternate_6'){
-      Q.id='alternate_6'; Q.title='Alternate 6'; Q.desc='สลับ Jump/Duck ให้ถูกติดกัน 6 ครั้ง'; Q.target=6;
-      Q.streak=0; Q.used={jump:0,duck:0}; Q.done=false; Q.fail=0;
-    }else if(id === 'no_miss_8'){
-      Q.id='no_miss_8'; Q.title='NoMiss 8'; Q.desc='ถูก 8 ครั้งก่อนพลาด'; Q.target=8;
-      Q.streak=0; Q.used={jump:0,duck:0}; Q.done=false; Q.fail=0;
-    }else if(id === 'boss_burst_10s'){
-      Q.id='boss_burst_10s'; Q.title='BossBurst 10s'; Q.desc='Phase 3: ลดเลือดบอส 25% ภายใน 10 วินาที'; Q.target=25;
-      Q.streak=0; Q.used={jump:0,duck:0}; Q.done=false; Q.fail=0;
-      Q._startHp = state.bossHp;
-      Q._startMs = state.elapsedMs;
-    }else if(id === 'alternate_8'){
-      Q.id='alternate_8'; Q.title='Alternate 8'; Q.desc='Phase 3: สลับถูก 8 ครั้งติด'; Q.target=8;
-      Q.streak=0; Q.used={jump:0,duck:0}; Q.done=false; Q.fail=0;
+    Q.id = id;
+    Q.done = false;
+    Q.streak = 0;
+    Q.used = {jump:0,duck:0};
+    Q.fail = 0;
+
+    Q._startBossLayer = state.boss.layer;
+    Q._startBossHp = state.boss.hp;
+    Q._startMs = state.elapsedMs;
+
+    if(id === 'perfect_both_3'){ Q.title='PerfectBoth 3'; Q.target=3; }
+    if(id === 'alternate_6'){    Q.title='Alternate 6';   Q.target=6; }
+    if(id === 'no_miss_8'){      Q.title='NoMiss 8';      Q.target=8; }
+    if(id === 'alternate_8'){    Q.title='Alternate 8';   Q.target=8; }
+    if(id === 'alternate_10'){   Q.title='Alternate 10';  Q.target=10; }
+    if(id === 'alternate_12'){   Q.title='Alternate 12';  Q.target=12; }
+
+    if(id.startsWith('boss_burst')){
+      Q.title = id === 'boss_burst_10s' ? 'BossBurst 10s'
+              : id === 'boss_burst_8s'  ? 'BossBurst 8s'
+              : 'BossBurst 6s';
+      Q.target = 25; // ลด HP 25 ใน window
     }
     return Q;
   }
@@ -325,12 +359,15 @@ function createQuestSystem(rng){
     if(!elHudQuest) return;
     if(Q.done){
       elHudQuest.textContent = Q.title + ' ✓';
+      return;
+    }
+    if(Q.id.startsWith('boss_burst')){
+      const dt = (state.elapsedMs - Q._startMs);
+      const left = Math.max(0, Math.ceil((Q.id==='boss_burst_10s'?10000:Q.id==='boss_burst_8s'?8000:6000) - dt)/1000);
+      const drop = Math.max(0, Math.round(Q._startBossHp - state.boss.hp));
+      elHudQuest.textContent = `${Q.title} ${drop}/${Q.target} (${left}s)`;
     }else{
-      if(Q.id === 'boss_burst_10s'){
-        elHudQuest.textContent = `${Q.title} ${Math.max(0, Math.round((Q._startHp - (window.__JD_STATE__?.bossHp ?? 100))))}/${Q.target}`;
-      }else{
-        elHudQuest.textContent = `${Q.title} ${Q.streak}/${Q.target}`;
-      }
+      elHudQuest.textContent = `${Q.title} ${Q.streak}/${Q.target}`;
     }
   }
 
@@ -356,33 +393,34 @@ function createQuestSystem(rng){
       }
     }
 
-    if(Q.id === 'alternate_6' || Q.id === 'alternate_8'){
-      // ต้องสลับ action ติดกัน
+    if(Q.id.startsWith('alternate_')){
       const last = state._questLastAct || '';
-      if(last && last === action){
-        Q.streak = 1; // รีสตาร์ท (เริ่มนับใหม่จากครั้งนี้)
-      }else{
-        Q.streak++;
-      }
+      if(last && last === action) Q.streak = 1;
+      else Q.streak++;
       state._questLastAct = action;
       if(Q.streak >= Q.target){
         Q.done = true;
-        state.score += (Q.target>=8 ? 180 : 150);
+        state.score += (Q.target>=10 ? 220 : Q.target>=8 ? 180 : 150);
         showJudge('ALTERNATE CLEAR! +BONUS', 'combo');
       }
     }
 
-    if(Q.id === 'boss_burst_10s'){
+    if(Q.id.startsWith('boss_burst')){
+      const windowMs = Q.id==='boss_burst_10s'?10000:Q.id==='boss_burst_8s'?8000:6000;
       const dt = (state.elapsedMs - Q._startMs);
-      if(dt <= 10000){
-        const drop = (Q._startHp - state.bossHp);
+      if(state.boss.layer !== Q._startBossLayer){
+        // ถ้าข้ามชั้นแล้ว ถือว่าผ่านทันที
+        Q.done = true;
+        state.score += 260;
+        showJudge('BOSS BURST! +260', 'combo');
+      }else if(dt <= windowMs){
+        const drop = (Q._startBossHp - state.boss.hp);
         if(drop >= Q.target){
           Q.done = true;
           state.score += 220;
           showJudge('BOSS BURST! +220', 'combo');
         }
       }else{
-        // time window missed -> reroll quest once
         if(Q.fail === 0){
           Q.fail = 1;
           pickNewQuest(state);
@@ -397,37 +435,26 @@ function createQuestSystem(rng){
   function onMiss(state){
     if(Q.done) return;
 
-    // miss reset for most quests
     if(Q.id === 'perfect_both_3' || Q.id === 'no_miss_8' || Q.id.startsWith('alternate_')){
       Q.streak = 0;
       Q.used = {jump:0,duck:0};
       state._questLastAct = '';
     }
-
     updateHUD();
   }
 
   return { Q, pickNewQuest, updateHUD, onHit, onMiss };
 }
 
-/* ---------- Boss Skill Director (3 skills) ---------- */
-/**
- * Skills:
- * 1) WALL: ยิงชุดเดียวกัน 3–4 ลูกถี่ ๆ (ทดสอบความอึด)
- * 2) SWITCH: เป้า flip ใกล้เส้นชน (เฟ้นท์หนัก)
- * 3) FAKE-COMBO: ปล่อยคู่ติด + อันแรกหลอกให้คิดว่าเหมือนเดิม
- */
+/* ---------- Boss Director (3 skills) ---------- */
+
 function createBossDirector(rng){
-  const B = {
-    nextSkillAtMs: 0,
-    cooldownMs: 5200,
-    lastSkill: '',
-  };
+  const B = { nextSkillAtMs: 0, cooldownMs: 5200, lastSkill:'' };
 
   function schedule(state){
     if(state.phase !== 3) return;
     if(B.nextSkillAtMs === 0){
-      B.nextSkillAtMs = state.elapsedMs + 2800;
+      B.nextSkillAtMs = state.elapsedMs + 2200;
     }
   }
 
@@ -441,20 +468,22 @@ function createBossDirector(rng){
     else if(roll < 0.66) skill='switch';
     else skill='fakecombo';
 
-    // avoid repeating same skill
-    if(skill === B.lastSkill){
-      skill = (skill === 'wall') ? 'switch' : 'wall';
-    }
+    if(skill === B.lastSkill) skill = (skill === 'wall') ? 'switch' : 'wall';
     B.lastSkill = skill;
 
-    B.nextSkillAtMs = state.elapsedMs + B.cooldownMs + Math.floor(rng()*1800);
+    // layer ลึกขึ้น -> skill ถี่ขึ้น
+    const layer = state.boss.layer;
+    const baseCd = (layer===1?5200:layer===2?4300:3600);
+    B.cooldownMs = baseCd;
+
+    B.nextSkillAtMs = state.elapsedMs + B.cooldownMs + Math.floor(rng()*1600);
     return skill;
   }
 
   return { schedule, tryFire };
 }
 
-/* ---------- State ---------- */
+/* ---------- Game state ---------- */
 
 let running   = false;
 let state     = null;
@@ -466,45 +495,75 @@ let AI  = null;
 let QS  = null;
 let BOSS= null;
 
-let lastAction = null; // {type, time}
+let lastAction = null;
 let nextObstacleId = 1;
 
-/* ---------- Logging (events CSV) ---------- */
+/* ---------- Logging ---------- */
 
 function pushEvent(row){
-  if (!state) return;
   state.events.push(row);
 }
 
-function buildEventsCsv(){
-  if (!state || !state.events.length) return '';
-  const rows = state.events;
-  const cols = Object.keys(rows[0]);
-  const esc = (v)=>{
-    if (v == null) return '';
-    const s = String(v);
-    if (s.includes('"') || s.includes(',') || s.includes('\n')){
-      return '"' + s.replace(/"/g,'""') + '"';
-    }
-    return s;
+/* ---------- Boss (3 layers) ---------- */
+
+function initBoss(){
+  state.boss = {
+    layer: 1,
+    hp: 100,
+    defeated: false
   };
-  const lines = [cols.join(',')];
-  for (const r of rows){
-    lines.push(cols.map(c=>esc(r[c])).join(','));
+  updateBossUI();
+}
+
+function bossBarVisible(v){
+  if(!elBossBar) return;
+  if(v) elBossBar.classList.remove('jd-hidden');
+  else elBossBar.classList.add('jd-hidden');
+}
+
+function updateBossUI(){
+  if(!state || !state.boss) return;
+  if(elBossPhase) elBossPhase.textContent = String(state.boss.layer);
+  if(elBossHpTxt) elBossHpTxt.textContent = String(Math.round(state.boss.hp));
+  if(elBossHpFill) elBossHpFill.style.transform = `scaleX(${(state.boss.hp/100).toFixed(3)})`;
+}
+
+function bossDamage(amount){
+  if(!state || state.phase !== 3) return;
+  const b = state.boss;
+  if(b.defeated) return;
+
+  b.hp = clamp(b.hp - amount, 0, 100);
+  updateBossUI();
+
+  if(b.hp <= 0){
+    if(b.layer < 3){
+      b.layer++;
+      b.hp = 100;
+      showJudge(`💥 เกราะแตก! เข้า Boss Phase ${b.layer}/3`, 'combo');
+      playSfx('jd-sfx-combo');
+      if(elPlayArea){
+        elPlayArea.classList.add('jd-boss-warn');
+        setTimeout(()=> elPlayArea && elPlayArea.classList.remove('jd-boss-warn'), 520);
+      }
+      // เพิ่มความยากแบบ “ทั้งคู่”
+      QS.pickNewQuest(state);
+      QS.updateHUD();
+      updateBossUI();
+    }else{
+      b.defeated = true;
+      state.bossDefeated = true;
+      showJudge('🏆 BOSS DEFEATED! +300', 'combo');
+      state.score += 300;
+    }
   }
-  return lines.join('\n');
 }
 
 /* ---------- HUD ---------- */
 
-function setBossHp(v){
-  state.bossHp = Math.max(0, Math.min(100, v));
-  if(elBossHpTxt) elBossHpTxt.textContent = String(Math.round(state.bossHp));
-  if(elBossHpFill) elBossHpFill.style.transform = `scaleX(${(state.bossHp/100).toFixed(3)})`;
-}
-
 function updateHUD(){
   if(!state) return;
+
   if (elHudMode)  elHudMode.textContent = modeLabel(state.mode);
   if (elHudDiff)  elHudDiff.textContent = state.diffKey;
   if (elHudDur)   elHudDur.textContent  = (state.durationMs/1000|0)+'s';
@@ -514,12 +573,16 @@ function updateHUD(){
   if (elHudCombo) elHudCombo.textContent= String(state.combo);
   if (elHudTime)  elHudTime.textContent = (state.remainingMs/1000).toFixed(1);
   if (elHudPhase) elHudPhase.textContent= String(state.phase);
-  if (elBossPhase) elBossPhase.textContent = String(state.phase);
-  if (elHudAI) elHudAI.textContent = state.aiEnabled ? 'ON' : 'OFF';
-  if (QS) QS.updateHUD();
+  if (elHudAI)    elHudAI.textContent   = state.aiEnabled ? 'ON' : 'OFF';
+
+  if(state.phase === 3) bossBarVisible(true);
+  else bossBarVisible(false);
+
+  if(QS) QS.updateHUD();
+  updateBossUI();
 }
 
-/* ---------- Controls (fix clutter + ensure once) ---------- */
+/* ---------- Controls ---------- */
 
 function installPlayControls(){
   if(!elPlayArea) return;
@@ -563,34 +626,25 @@ function installPlayControls(){
   elPlayArea.appendChild(controls);
 }
 
-/* ---------- Mode UI ---------- */
+/* ---------- Menu UI ---------- */
 
 function updateResearchVisibility(){
   const mode = (elMode?.value) || 'training';
-  if (!elResearchBlock) return;
-  if (mode === 'research') elResearchBlock.classList.remove('jd-hidden');
-  else elResearchBlock.classList.add('jd-hidden');
+  if (elResearchBlock){
+    if (mode === 'research') elResearchBlock.classList.remove('jd-hidden');
+    else elResearchBlock.classList.add('jd-hidden');
+  }
 
-  // suggest AI off in test/research unless user touched
   if(elAiToggle){
-    if(mode !== 'training'){
-      if(!elAiToggle.dataset.touched) elAiToggle.checked = false;
-    }else{
-      if(!elAiToggle.dataset.touched) elAiToggle.checked = true;
+    // แนะนำค่าเริ่มต้น
+    if(!elAiToggle.dataset.touched){
+      elAiToggle.checked = (mode === 'training');
     }
   }
 }
 
-/* ---------- Game start/stop ---------- */
-
-function computePhase(progress){
-  if(progress < PHASE_THRESH[0]) return 1;
-  if(progress < PHASE_THRESH[1]) return 2;
-  return 3;
-}
-
-function collectParticipant(metaMode){
-  if (metaMode !== 'research') return {id:'', group:'', note:''};
+function collectParticipant(mode){
+  if(mode !== 'research') return {id:'', group:'', note:''};
   return {
     id:    (elPid?.value || '').trim(),
     group: (elGroup?.value || '').trim(),
@@ -603,6 +657,14 @@ function makeSessionId(){
   const pad = (n)=>String(n).padStart(2,'0');
   return `JD-${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
 }
+
+function computePhase(progress){
+  if(progress < PHASE_THRESH[0]) return 1;
+  if(progress < PHASE_THRESH[1]) return 2;
+  return 3;
+}
+
+/* ---------- Start/Stop ---------- */
 
 function startGameBase(opts){
   const mode       = opts.mode || 'training';
@@ -624,11 +686,14 @@ function startGameBase(opts){
   state = {
     sessionId: makeSessionId(),
     seed,
+    created_at_iso: new Date().toISOString(),
+
     mode,
     diffKey,
     cfg,
     isTutorial,
     aiEnabled,
+
     durationMs,
     startTime: performance.now(),
     elapsedMs: 0,
@@ -642,7 +707,6 @@ function startGameBase(opts){
 
     hits: 0,
     miss: 0,
-
     jumpHit: 0,
     duckHit: 0,
     jumpMiss: 0,
@@ -654,35 +718,30 @@ function startGameBase(opts){
     hitRTs: [],
 
     phase: 1,
-    bossHp: 100,
-    bossDefeated: false,
-
-    // spawn timing
-    nextSpawnAt: performance.now() + 650,
-
-    // quest helper
-    _questLastAct: '',
-
-    // boss skill flags
-    bossSkill: { active:false, type:'', untilMs:0, wallRemain:0, wallReq:'jump' },
-
     participant: collectParticipant(mode),
 
-    events: []
-  };
+    nextSpawnAt: performance.now() + 650,
 
-  // allow QS to see state in HUD builder
-  window.__JD_STATE__ = state;
+    _questLastAct: '',
+    _lastReq: '',
+
+    bossSkill: { active:false, type:'', untilMs:0, wallRemain:0, wallReq:'jump' },
+    boss: { layer:1, hp:100, defeated:false },
+    bossDefeated: false,
+
+    events: [],
+    sessionSummaryRow: null
+  };
 
   running = true;
   lastFrame = state.startTime;
-
   nextObstacleId = 1;
   lastAction = null;
 
   hardClearPlayfield();
   setPhaseClass(1);
-  setBossHp(100);
+  initBoss();
+  bossBarVisible(false);
 
   installPlayControls();
   showView('play');
@@ -717,20 +776,52 @@ function endGame(reason){
     return;
   }
 
-  // result summary
   const totalObs = state.obstaclesSpawned || 0;
   const hits     = state.hits || 0;
   const acc      = totalObs ? hits/totalObs : 0;
   const rtMean   = state.hitRTs.length ? state.hitRTs.reduce((a,b)=>a+b,0)/state.hitRTs.length : 0;
 
-  fillResultView(acc, rtMean, totalObs);
+  const rank = computeRank({
+    acc,
+    rtMean,
+    stabilityMin: state.minStability || 0,
+    bossDefeated: !!state.bossDefeated,
+    diffKey: state.diffKey
+  });
+
+  fillResultView(acc, rtMean, totalObs, rank);
+
+  // build session summary row
+  state.sessionSummaryRow = buildSessionSummaryRow(reason, acc, rtMean, rank);
 
   showView('result');
 }
 
+/* ---------- Rank ---------- */
+
+function computeRank({acc, rtMean, stabilityMin, bossDefeated, diffKey}){
+  const diffM = (diffKey==='hard') ? 1.06 : (diffKey==='easy') ? 0.94 : 1.0;
+
+  // score out of 100 (normalize)
+  const accScore = clamp(acc*100, 0, 100);
+  const rtScore  = clamp(100 - (rtMean - 160)*0.20, 0, 100); // 160ms ดีมาก / >600ms ตก
+  const stScore  = clamp(stabilityMin, 0, 100);
+
+  let total = (accScore*0.52 + rtScore*0.28 + stScore*0.20) * diffM;
+
+  if(bossDefeated) total += 6;
+
+  // map
+  if(total >= 92 && acc >= 0.88 && stabilityMin >= 80) return 'S';
+  if(total >= 84 && acc >= 0.78) return 'A';
+  if(total >= 72) return 'B';
+  if(total >= 55) return 'C';
+  return 'D';
+}
+
 /* ---------- Result view ---------- */
 
-function fillResultView(acc, rtMean, totalObs){
+function fillResultView(acc, rtMean, totalObs, rank){
   const durSec = (state.durationMs||60000)/1000;
 
   if (resMode)         resMode.textContent         = modeLabel(state.mode);
@@ -747,18 +838,7 @@ function fillResultView(acc, rtMean, totalObs){
   if (resRTMean)       resRTMean.textContent       = fmtMs(rtMean);
   if (resStabilityMin) resStabilityMin.textContent = (state.minStability||0).toFixed(1)+' %';
   if (resScore)        resScore.textContent        = String(Math.round(state.score));
-
-  if (resRank){
-    let rank = 'C';
-    const stab = state.minStability ?? 0;
-    if (acc >= 0.90 && stab >= 85) rank='S';
-    else if (acc >= 0.80 && stab >= 75) rank='A';
-    else if (acc >= 0.65 && stab >= 60) rank='B';
-    else if (acc < 0.40 || stab < 40)   rank='D';
-    // boss defeated bonus badge
-    if(state.bossDefeated && (rank==='A' || rank==='S')) rank = 'S';
-    resRank.textContent = rank;
-  }
+  if (resRank)         resRank.textContent         = rank;
 }
 
 /* ---------- Input ---------- */
@@ -786,15 +866,13 @@ function handleKeyDown(ev){
 function spawnObstacle(ts, progress){
   if (!elObsHost || !state) return;
 
-  // spacing: prevent overlap too much
   const last = state.obstacles[state.obstacles.length - 1];
-  if (last && last.x > (state.phase === 3 ? 85 : 72)) return;
+  if (last && last.x > (state.phase === 3 ? 86 : 74)) return;
 
-  // boss skill may override spawn pattern
   const bs = state.bossSkill;
   let required = '';
 
-  // BOSS WALL: enforce same required for N spawns
+  // boss wall override
   if(state.phase === 3 && bs.active && bs.type === 'wall' && bs.wallRemain > 0){
     required = bs.wallReq;
     bs.wallRemain--;
@@ -805,7 +883,6 @@ function spawnObstacle(ts, progress){
     }
   }
 
-  // normal decision if not overridden
   if(!required){
     if(state.aiEnabled && AI && AI.isEnabled()){
       required = AI.chooseNextRequiredAction({
@@ -822,35 +899,41 @@ function spawnObstacle(ts, progress){
   }
   state._lastReq = required;
 
-  // phase-based feint
-  const feintChance = state.isTutorial ? 0 : (state.phase === 2 ? 0.16 : (state.phase === 3 ? 0.28 : 0));
-  let isFeint = (rng() < feintChance);
+  const type = (required === 'duck') ? 'high' : 'low';
 
-  // BOSS SWITCH skill: feint forced + flip late
+  // feint chance (boss layer ยิ่งสูง ยิ่งหลอก)
+  const baseFeint = state.isTutorial ? 0 : (state.phase === 2 ? 0.16 : (state.phase === 3 ? 0.24 : 0));
+  const layerBoost = (state.phase === 3) ? (state.boss.layer === 1 ? 0.04 : state.boss.layer === 2 ? 0.10 : 0.16) : 0;
+  let feint = (rng() < (baseFeint + layerBoost));
+
   if(state.phase === 3 && bs.active && bs.type === 'switch'){
-    isFeint = true;
+    feint = true;
   }
 
-  // BOSS FAKECOMBO: spawn double with first being feint-ish
-  const doDouble = (!state.isTutorial && state.phase === 3 && (rng() < 0.18));
+  const predP = (state.aiEnabled && AI && AI.isEnabled())
+    ? AI.predictP(required, {combo: state.combo, stability: state.stability, phase: state.phase})
+    : '';
 
-  createObstacleDom(ts, required, isFeint, false);
+  createObstacleDom(ts, required, type, feint, false, predP);
 
+  // fake-combo / double
+  const doDouble = (!state.isTutorial && state.phase === 3 && (rng() < (0.16 + state.boss.layer*0.04)));
   if(doDouble){
     setTimeout(()=>{
       if(!running || !state) return;
       const req2 = (required === 'jump') ? 'duck' : 'jump';
-      // fakecombo: first is usually feint, second is clean
-      createObstacleDom(performance.now(), req2, (rng()<0.12), true);
+      const type2 = (req2 === 'duck') ? 'high' : 'low';
+      const pred2 = (state.aiEnabled && AI && AI.isEnabled())
+        ? AI.predictP(req2, {combo: state.combo, stability: state.stability, phase: state.phase})
+        : '';
+      createObstacleDom(performance.now(), req2, type2, (rng()<0.12), true, pred2);
     }, 130);
   }
 
   state.obstaclesSpawned++;
 }
 
-function createObstacleDom(ts, required, feint, burst){
-  const type = (required === 'duck') ? 'high' : 'low';
-
+function createObstacleDom(ts, required, type, feint, burst, predP){
   const el = document.createElement('div');
   el.className = 'jd-obstacle ' + (type === 'high' ? 'jd-obstacle--high' : 'jd-obstacle--low');
   el.dataset.id = String(nextObstacleId);
@@ -889,22 +972,25 @@ function createObstacleDom(ts, required, feint, burst){
     warned: false,
     feint: !!feint,
     flipped: false,
-    burst: !!burst
+    burst: !!burst,
+    predP
   });
 }
 
 function maybeFlipFeint(obs){
   if(!obs || !obs.element || !obs.feint || obs.flipped) return;
-  // flip near the line (switch can flip later)
-  const bs = state.bossSkill;
-  const flipGate = (state.phase === 3 && bs.active && bs.type === 'switch') ? (CENTER_X + 4) : (CENTER_X + 12);
+
+  // layer สูง flip ใกล้ขึ้น (หลอกหนักขึ้น)
+  const layer = state.phase === 3 ? state.boss.layer : 1;
+  const flipGate = (state.phase === 3 && state.bossSkill.active && state.bossSkill.type === 'switch')
+    ? (CENTER_X + 4)
+    : (CENTER_X + (layer===1?12:layer===2?9:7));
 
   if(obs.x <= flipGate){
     obs.flipped = true;
     obs.required = (obs.required === 'jump') ? 'duck' : 'jump';
     obs.type = (obs.required === 'duck') ? 'high' : 'low';
 
-    // update class
     obs.element.classList.toggle('jd-obstacle--high', obs.type === 'high');
     obs.element.classList.toggle('jd-obstacle--low',  obs.type === 'low');
 
@@ -913,7 +999,6 @@ function maybeFlipFeint(obs){
     if(icon) icon.textContent = (obs.required === 'duck') ? '⬇' : '⬆';
     if(tag)  tag.textContent  = (obs.required === 'duck') ? 'DUCK' : 'JUMP';
 
-    // warn flash
     if(elPlayArea){
       elPlayArea.classList.add('jd-boss-warn');
       setTimeout(()=> elPlayArea && elPlayArea.classList.remove('jd-boss-warn'), 220);
@@ -930,7 +1015,11 @@ function updateObstacles(dt, now, progress){
     speed *= (1 + 0.25*progress);
   }
   if(state.phase === 2) speed *= 1.05;
-  if(state.phase === 3) speed *= 1.12;
+  if(state.phase === 3){
+    // boss layer ยิ่งสูง speed ยิ่งแรง
+    const layerM = state.boss.layer === 1 ? 1.12 : state.boss.layer === 2 ? 1.20 : 1.28;
+    speed *= layerM;
+  }
 
   const move = speed * (dt/1000);
   const toRemove = [];
@@ -953,7 +1042,7 @@ function updateObstacles(dt, now, progress){
       playSfx('jd-sfx-beep');
     }
 
-    // HIT check
+    // HIT check zone
     if (!obs.resolved && obs.x <= CENTER_X + 6 && obs.x >= CENTER_X - 6){
       const action = lastAction;
       if (action && action.time){
@@ -970,9 +1059,14 @@ function updateObstacles(dt, now, progress){
           const base   = cfg.scorePerHit;
           const stabil = state.stability > 80 ? 1.10 : 1.0;
           const comboM = 1 + Math.min(state.combo-1, 6)*0.15;
-          const phaseM = (state.phase === 1) ? 1.0 : (state.phase === 2 ? 1.12 : 1.25);
-          const gain   = Math.round(base * stabil * comboM * phaseM);
 
+          let phaseM = 1.0;
+          if(state.phase === 2) phaseM = 1.12;
+          if(state.phase === 3){
+            phaseM = (state.boss.layer===1?1.25:state.boss.layer===2?1.34:1.45);
+          }
+
+          const gain = Math.round(base * stabil * comboM * phaseM);
           state.score += gain;
 
           state.hits++;
@@ -981,46 +1075,56 @@ function updateObstacles(dt, now, progress){
           state.stability = Math.min(100, state.stability + cfg.stabilityGainOnHit);
           state.minStability = Math.min(state.minStability, state.stability);
 
-          // boss hp melt in phase3: ต้องทั้งคู่ถึงจะละลายไว
+          // boss damage: ต้อง “ทั้งคู่” → combo ช่วยละลาย
           if(state.phase === 3){
-            const dmg = 6.5 + Math.min(6, state.combo)*0.35 + (obs.required==='jump' ? 0.5 : 0.5);
-            setBossHp(state.bossHp - dmg);
+            const layer = state.boss.layer;
+            const dmgBase = (layer===1?6.6:layer===2?7.6:8.8);
+            const dmg = dmgBase + Math.min(8, state.combo)*0.32;
+            bossDamage(dmg);
           }
 
-          // remove DOM
-          if(obs.element){
-            const old = obs.element;
-            obs.element = null;
-            setTimeout(()=> safeRemoveEl(old), 210);
-          }
+          const oldEl = obs.element;
+          obs.element = null;
+          setTimeout(()=> safeRemoveEl(oldEl), 210);
 
           state.hitRTs.push(dtAction);
 
-          // AI update
           if(state.aiEnabled && AI && AI.isEnabled()){
             AI.update(obs.required, {combo: state.combo, stability: state.stability, phase: state.phase}, true, dtAction);
           }
 
-          // QUEST update (เน้นทั้งคู่)
           QS.onHit(obs.required, state);
 
           pushEvent({
             session_id: state.sessionId,
+            created_at_iso: state.created_at_iso,
             seed: state.seed,
             mode: state.mode,
             diff: state.diffKey,
             phase: state.phase,
-            ai_enabled: state.aiEnabled ? 1 : 0,
-            event_type: 'hit',
+
+            boss_layer: (state.phase===3 ? state.boss.layer : ''),
+            boss_hp_after: (state.phase===3 ? +state.boss.hp.toFixed(1) : ''),
+            boss_skill: state.bossSkill?.type || '',
+            quest_id: QS?.Q?.id || '',
+
+            obstacle_id: obs.id,
             required_action: obs.required,
+            feint: obs.feint ? 1 : 0,
+            flipped: obs.flipped ? 1 : 0,
+            burst: obs.burst ? 1 : 0,
+            pred_p: obs.predP !== '' ? (+obs.predP).toFixed(3) : '',
+
+            event_type: 'hit',
             rt_ms: Math.round(dtAction),
+            hit_window_ms: cfg.hitWindowMs,
             time_ms: Math.round(state.elapsedMs),
+
             combo_after: state.combo,
             score_delta: gain,
             score_after: Math.round(state.score),
             stability_after_pct: +state.stability.toFixed(1),
-            boss_hp_after: +state.bossHp.toFixed(1),
-            feint: obs.feint ? 1 : 0,
+
             participant_id: state.participant.id || '',
             group: state.participant.group || '',
             note: state.participant.note || ''
@@ -1052,18 +1156,17 @@ function updateObstacles(dt, now, progress){
       state.stability = Math.max(0, state.stability - cfg.stabilityDamageOnMiss);
       state.minStability = Math.min(state.minStability, state.stability);
 
-      // boss punish (heal a bit)
+      // boss punish: layer สูง heal แรงขึ้น (ทำให้เฟส 3 “เร้าใจ”)
       if(state.phase === 3){
-        setBossHp(state.bossHp + 3.5);
+        const heal = (state.boss.layer===1?3.5:state.boss.layer===2?4.4:5.2);
+        state.boss.hp = clamp(state.boss.hp + heal, 0, 100);
+        updateBossUI();
       }
 
-      if(obs.element){
-        const old = obs.element;
-        obs.element = null;
-        setTimeout(()=> safeRemoveEl(old), 210);
-      }
+      const oldEl = obs.element;
+      obs.element = null;
+      setTimeout(()=> safeRemoveEl(oldEl), 210);
 
-      // AI update
       if(state.aiEnabled && AI && AI.isEnabled()){
         AI.update(obs.required, {combo: state.combo, stability: state.stability, phase: state.phase}, false, 0);
       }
@@ -1072,21 +1175,34 @@ function updateObstacles(dt, now, progress){
 
       pushEvent({
         session_id: state.sessionId,
+        created_at_iso: state.created_at_iso,
         seed: state.seed,
         mode: state.mode,
         diff: state.diffKey,
         phase: state.phase,
-        ai_enabled: state.aiEnabled ? 1 : 0,
-        event_type: 'miss',
+
+        boss_layer: (state.phase===3 ? state.boss.layer : ''),
+        boss_hp_after: (state.phase===3 ? +state.boss.hp.toFixed(1) : ''),
+        boss_skill: state.bossSkill?.type || '',
+        quest_id: QS?.Q?.id || '',
+
+        obstacle_id: obs.id,
         required_action: obs.required,
+        feint: obs.feint ? 1 : 0,
+        flipped: obs.flipped ? 1 : 0,
+        burst: obs.burst ? 1 : 0,
+        pred_p: obs.predP !== '' ? (+obs.predP).toFixed(3) : '',
+
+        event_type: 'miss',
         rt_ms: '',
+        hit_window_ms: cfg.hitWindowMs,
         time_ms: Math.round(state.elapsedMs),
+
         combo_after: state.combo,
         score_delta: 0,
         score_after: Math.round(state.score),
         stability_after_pct: +state.stability.toFixed(1),
-        boss_hp_after: +state.bossHp.toFixed(1),
-        feint: obs.feint ? 1 : 0,
+
         participant_id: state.participant.id || '',
         group: state.participant.group || '',
         note: state.participant.note || ''
@@ -1094,6 +1210,7 @@ function updateObstacles(dt, now, progress){
 
       showJudge('MISS ลองใหม่อีกที ✨', 'miss');
       playSfx('jd-sfx-miss');
+
       if (elPlayArea){
         elPlayArea.classList.add('shake');
         setTimeout(()=> elPlayArea.classList.remove('shake'), 180);
@@ -1101,10 +1218,7 @@ function updateObstacles(dt, now, progress){
     }
 
     if (obs.x < -20){
-      if (obs.element){
-        safeRemoveEl(obs.element);
-        obs.element = null;
-      }
+      if (obs.element){ safeRemoveEl(obs.element); obs.element = null; }
       toRemove.push(obs);
     }
   }
@@ -1113,13 +1227,12 @@ function updateObstacles(dt, now, progress){
     state.obstacles = state.obstacles.filter(o => !toRemove.includes(o));
   }
 
-  // clear action after short time
   if (lastAction && now - lastAction.time > 260){
     lastAction = null;
   }
 }
 
-/* ---------- Boss Skill triggers ---------- */
+/* ---------- Boss skills ---------- */
 
 function fireBossSkill(skill){
   const bs = state.bossSkill;
@@ -1128,15 +1241,16 @@ function fireBossSkill(skill){
 
   if(skill === 'wall'){
     bs.wallReq = (rng() < 0.5) ? 'jump' : 'duck';
-    bs.wallRemain = 3 + (rng() < 0.45 ? 1 : 0); // 3–4
+    const layer = state.boss.layer;
+    bs.wallRemain = (layer===1 ? 3 : layer===2 ? 4 : 5);
     showJudge(`BOSS: WALL (${bs.wallReq.toUpperCase()} x${bs.wallRemain})`, 'combo');
   }
   if(skill === 'switch'){
-    bs.untilMs = state.elapsedMs + 2300;
-    showJudge('BOSS: SWITCH (มันจะหลอกใกล้ ๆ) 👀', 'combo');
+    bs.untilMs = state.elapsedMs + (state.boss.layer===1 ? 2300 : state.boss.layer===2 ? 2600 : 2900);
+    showJudge('BOSS: SWITCH (ใกล้เส้นชน!) 👀', 'combo');
   }
   if(skill === 'fakecombo'){
-    bs.untilMs = state.elapsedMs + 2400;
+    bs.untilMs = state.elapsedMs + (state.boss.layer===1 ? 2400 : state.boss.layer===2 ? 2700 : 3000);
     showJudge('BOSS: FAKE-COMBO (คู่ติดมาแล้ว!) ⚡', 'combo');
   }
 
@@ -1159,7 +1273,7 @@ function loop(ts){
 
   const progress = Math.min(1, state.elapsedMs / state.durationMs);
 
-  // phase update
+  // phase transition
   const newPhase = computePhase(progress);
   if(newPhase !== state.phase){
     state.phase = newPhase;
@@ -1170,30 +1284,28 @@ function loop(ts){
       QS.pickNewQuest(state);
     }
     if(newPhase === 3){
-      showJudge('🔥 BOSS PHASE! สลับ Jump/Duck ให้ไว!', 'combo');
+      showJudge('🔥 BOSS! เกราะ 3 ชั้น มาแล้ว!', 'combo');
+      initBoss();
+      bossBarVisible(true);
       QS.pickNewQuest(state);
       BOSS.schedule(state);
     }
   }
 
-  // end by time
+  // time end
   if(state.elapsedMs >= state.durationMs){
     endGame('timeout');
     return;
   }
 
-  // boss defeated early
-  if(state.phase === 3 && state.bossHp <= 0 && !state.bossDefeated){
-    state.bossDefeated = true;
-    state.score += 250;
-    showJudge('🏆 BOSS DEFEATED! +250', 'combo');
+  // boss defeated end
+  if(state.phase === 3 && state.boss.defeated){
     endGame('boss-defeated');
     return;
   }
 
-  // boss director
+  // boss skills
   if(state.phase === 3){
-    // expire some skills
     const bs = state.bossSkill;
     if(bs.active && (bs.type === 'switch' || bs.type === 'fakecombo')){
       if(state.elapsedMs >= bs.untilMs){
@@ -1201,27 +1313,26 @@ function loop(ts){
         bs.type = '';
       }
     }
-
     const skill = BOSS.tryFire(state);
     if(skill) fireBossSkill(skill);
   }
 
-  // spawn obstacles (interval + ramp)
+  // spawn
   while(ts >= state.nextSpawnAt){
     spawnObstacle(ts, progress);
 
     let interval = state.cfg.spawnIntervalMs;
 
     if(state.mode === 'training' && !state.isTutorial){
-      const factor = 1 - 0.30*progress;
-      interval = interval * Math.max(0.58, factor);
+      interval *= Math.max(0.58, 1 - 0.30*progress);
     }
 
     if(state.phase === 2) interval *= 0.92;
-    if(state.phase === 3) interval *= 0.78;
-
-    // if boss skill active: slightly faster
-    if(state.phase === 3 && state.bossSkill.active) interval *= 0.86;
+    if(state.phase === 3){
+      const layer = state.boss.layer;
+      interval *= (layer===1 ? 0.78 : layer===2 ? 0.70 : 0.62);
+      if(state.bossSkill.active) interval *= 0.86;
+    }
 
     state.nextSpawnAt += interval;
   }
@@ -1232,7 +1343,62 @@ function loop(ts){
   rafId = requestAnimationFrame(loop);
 }
 
-/* ---------- Export ---------- */
+/* ---------- Session Summary row ---------- */
+
+function buildSessionSummaryRow(endReason, acc, rtMean, rank){
+  const aiSnap = (AI && state.aiEnabled) ? AI.snapshot() : null;
+  const durationSec = (state.durationMs/1000).toFixed(1);
+
+  return {
+    session_id: state.sessionId,
+    created_at_iso: state.created_at_iso,
+    seed: state.seed,
+    mode: state.mode,
+    diff: state.diffKey,
+    duration_planned_s: (state.durationMs/1000|0),
+    duration_played_s: durationSec,
+
+    obstacles_total: state.obstaclesSpawned,
+    hits_total: state.hits,
+    miss_total: state.miss,
+    acc_pct: (acc*100).toFixed(2),
+
+    rt_mean_ms: rtMean ? rtMean.toFixed(1) : '',
+    stability_min_pct: (state.minStability||0).toFixed(1),
+
+    score_final: Math.round(state.score),
+    max_combo: state.maxCombo,
+
+    boss_defeated: state.bossDefeated ? 1 : 0,
+    boss_layer_reached: (state.phase===3 ? state.boss.layer : 0),
+
+    rank,
+    end_reason: endReason,
+
+    ai_enabled: state.aiEnabled ? 1 : 0,
+    ai_jump_acc_ema: aiSnap ? aiSnap.jumpAccEMA : '',
+    ai_duck_acc_ema: aiSnap ? aiSnap.duckAccEMA : '',
+    ai_jump_rt_ema:  aiSnap ? aiSnap.jumpRtEMA : '',
+    ai_duck_rt_ema:  aiSnap ? aiSnap.duckRtEMA : '',
+    ai_target_p:     aiSnap ? aiSnap.targetP : '',
+
+    participant_id: state.participant.id || '',
+    group: state.participant.group || '',
+    note: state.participant.note || ''
+  };
+}
+
+/* ---------- Public export ---------- */
+
+function getEventsCsv(){
+  return toCsv(state?.events || []);
+}
+function getSessionCsv(){
+  const row = state?.sessionSummaryRow;
+  return row ? toCsv([row]) : '';
+}
+
+/* ---------- Init & Buttons ---------- */
 
 function initJD(){
   installPlayControls();
@@ -1254,6 +1420,20 @@ function initJD(){
     btn.addEventListener('click', ()=> showView('menu'));
   });
 
+  $('[data-action="export-events"]')?.addEventListener('click', ()=>{
+    const csv = getEventsCsv();
+    if(!csv){ showJudge('ยังไม่มีข้อมูล Events', 'miss'); return; }
+    downloadText(`jumpduck_events_${state.sessionId}.csv`, csv);
+    showJudge('Export Events CSV ✓', 'ok');
+  });
+
+  $('[data-action="export-session"]')?.addEventListener('click', ()=>{
+    const csv = getSessionCsv();
+    if(!csv){ showJudge('ยังไม่มีข้อมูล Session', 'miss'); return; }
+    downloadText(`jumpduck_session_${state.sessionId}.csv`, csv);
+    showJudge('Export Session CSV ✓', 'ok');
+  });
+
   window.addEventListener('keydown', handleKeyDown, {passive:false});
 
   elMode?.addEventListener('change', updateResearchVisibility);
@@ -1263,9 +1443,10 @@ function initJD(){
 }
 
 window.JD_EXPORT = {
-  getEventsCsv(){ return buildEventsCsv(); },
-  getModel(){ try{ return AI ? AI.snapshot() : null; }catch{ return null; } },
-  getState(){ return state ? JSON.parse(JSON.stringify(state)) : null; }
+  getEventsCsv: ()=>getEventsCsv(),
+  getSessionCsv: ()=>getSessionCsv(),
+  getModel: ()=>{ try{ return AI ? AI.snapshot() : null; }catch{ return null; } },
+  getState: ()=> state ? JSON.parse(JSON.stringify(state)) : null
 };
 
 window.addEventListener('DOMContentLoaded', initJD);
