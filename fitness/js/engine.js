@@ -857,3 +857,353 @@ function getSkillSizeMul(type) {
 }
 
 // ... (Part 2 ends here)
+// ===============================
+// Hit handling (FX + scoring + damage + logs)
+// ===============================
+function onTargetHit(id, pt = {}) {
+  if (!State.running || State.ended || State.paused) return;
+
+  const tMs = State.tNow || nowMs();
+  const d = State.liveTargets.get(id);
+  if (!d) return;
+
+  // prevent double hit
+  State.liveTargets.delete(id);
+  renderer.removeTarget(id, 'hit');
+
+  // reaction time
+  const rtMs = clamp(tMs - d.bornMs, 0, 5000);
+
+  // judge
+  const judge = judgeHit(rtMs, d.type);
+  // judge: { grade:'perfect'|'good'|'bad'|'bomb'|'heal'|'shield', scoreDelta, bossDmg, youDmg, feverDelta }
+
+  // combo logic
+  const wasMissLike = (judge.grade === 'bad' || judge.grade === 'bomb');
+  if (wasMissLike) {
+    State.combo = 0;
+    State.miss += 1;
+  } else {
+    State.combo += 1;
+    State.maxCombo = Math.max(State.maxCombo, State.combo);
+  }
+
+  // totals for accuracy
+  State.totalJudged += 1;
+  if (!wasMissLike) State.totalHits += 1;
+
+  // apply score
+  State.score += judge.scoreDelta;
+
+  // FEVER
+  if (!State.feverOn) {
+    State.fever = clamp01(State.fever + judge.feverDelta);
+    if (State.fever >= 1) {
+      State.fever = 1;
+      // auto-trigger FEVER when full
+      State.feverOn = true;
+      State.feverTtlMs = clamp((DIFF[State.diff]?.feverDurMs || 2500), 1200, 6500);
+      setMsg('FEVER ON!', 'perfect');
+      // tiny FX at center to celebrate
+      FxBurstSafeBurst(window.innerWidth * 0.5, window.innerHeight * 0.22, 'sb-fx-fever');
+    }
+  }
+
+  // apply boss/player damage with shield rules
+  if (judge.bossDmg > 0) {
+    const actual = applyBossDamage(judge.bossDmg, d.type);
+    // boss damage might be reduced by bossShield
+    if (actual > 0 && State.bossHp <= 0) {
+      // clear boss now
+      nextBossOrPhase();
+    }
+  }
+
+  if (judge.youDmg > 0) {
+    damagePlayer(judge.youDmg, 'hit_' + judge.grade);
+    if (State.ended) return; // player died -> endGame invoked
+  }
+
+  // heal/shield pickups
+  if (judge.grade === 'heal') {
+    State.youHp = clamp(State.youHp + judge.healHp, 0, State.youHpMax);
+  }
+  if (judge.grade === 'shield') {
+    State.shield = clamp((State.shield || 0) + judge.addShield, 0, 9);
+  }
+
+  // FX (IMPORTANT: this is why effects can "disappear" if we forget to call playHitFx)
+  renderer.playHitFx(id, {
+    clientX: pt.clientX,
+    clientY: pt.clientY,
+    grade: judge.grade === 'timeout_miss' ? 'bad' : judge.grade,
+    scoreDelta: judge.scoreDelta
+  });
+
+  // message
+  if (judge.grade === 'perfect') setMsg('PERFECT!', 'perfect');
+  else if (judge.grade === 'good') setMsg('GOOD!', 'good');
+  else if (judge.grade === 'bad') setMsg('OOPS!', 'bad');
+  else if (judge.grade === 'bomb') setMsg('BOMB!', 'bad');
+  else if (judge.grade === 'heal') setMsg('+HP', 'good');
+  else if (judge.grade === 'shield') setMsg('+SHIELD', 'good');
+
+  // log event
+  eventLogger.add({
+    ts_ms: Date.now(),
+    mode: State.mode,
+    diff: State.diff,
+    boss_index: State.bossIndex,
+    boss_phase: State.phaseIndex + 1,
+    target_id: d.id,
+    target_type: d.type,
+    is_boss_face: d.type === 'bossface' ? 1 : 0,
+    event_type: 'hit',
+    rt_ms: Math.round(rtMs),
+    grade: judge.grade,
+    score_delta: judge.scoreDelta,
+    combo_after: State.combo,
+    score_after: State.score,
+    player_hp: State.youHp,
+    boss_hp: State.bossHp
+  });
+
+  // AI micro tip (play only)
+  maybeAiTip();
+
+  // update instantly
+  const elapsedSec = (tMs - State.tStart) / 1000;
+  const remainSec = Math.max(0, State.durationSec - elapsedSec);
+  updateHUD(remainSec);
+}
+
+function judgeHit(rtMs, type) {
+  const dp = DIFF[State.diff] || DIFF.normal;
+
+  // base judgement windows (ms)
+  const wPerfect = dp.wPerfectMs ?? 230;
+  const wGood = dp.wGoodMs ?? 420;
+
+  // fever multiplier
+  const feverMul = State.feverOn ? (dp.feverScoreMul ?? 1.35) : 1;
+
+  // base score and damage
+  let grade = 'good';
+  let scoreDelta = 0;
+  let bossDmg = 0;
+  let youDmg = 0;
+  let feverDelta = 0;
+
+  // special target types
+  if (type === 'bomb') {
+    grade = 'bomb';
+    scoreDelta = -Math.round(22 * dp.scoreMul);
+    youDmg = Math.round(12 * dp.youDmg);
+    bossDmg = 0;
+    feverDelta = -0.22;
+    return { grade, scoreDelta, bossDmg, youDmg, feverDelta };
+  }
+  if (type === 'decoy') {
+    // decoy: not a full miss, but hurts combo/tempo
+    const p = (rtMs <= wPerfect) ? 'perfect' : (rtMs <= wGood ? 'good' : 'bad');
+    grade = (p === 'bad') ? 'bad' : p; // allow perfect/good
+    scoreDelta = (p === 'perfect') ? Math.round(6 * dp.scoreMul * feverMul)
+              : (p === 'good') ? Math.round(3 * dp.scoreMul * feverMul)
+              : -Math.round(10 * dp.scoreMul);
+    bossDmg = (p === 'bad') ? 0 : Math.round(4 * dp.bossDmg * (p === 'perfect' ? 1.2 : 1) * (State.feverOn ? 1.12 : 1));
+    youDmg = (p === 'bad') ? Math.round(6 * dp.youDmg) : 0;
+    feverDelta = (p === 'perfect') ? 0.10 : (p === 'good' ? 0.06 : -0.12);
+    return { grade, scoreDelta, bossDmg, youDmg, feverDelta };
+  }
+  if (type === 'heal') {
+    grade = 'heal';
+    scoreDelta = Math.round(4 * dp.scoreMul);
+    bossDmg = 0;
+    youDmg = 0;
+    feverDelta = 0.08;
+    return { grade, scoreDelta, bossDmg, youDmg, feverDelta, healHp: Math.round(12) };
+  }
+  if (type === 'shield') {
+    grade = 'shield';
+    scoreDelta = Math.round(4 * dp.scoreMul);
+    bossDmg = 0;
+    youDmg = 0;
+    feverDelta = 0.08;
+    return { grade, scoreDelta, bossDmg, youDmg, feverDelta, addShield: 1 };
+  }
+
+  // bossface behaves like normal but bigger reward
+  const isBossFace = (type === 'bossface');
+
+  // normal judgement by RT
+  if (rtMs <= wPerfect) grade = 'perfect';
+  else if (rtMs <= wGood) grade = 'good';
+  else grade = 'bad';
+
+  if (grade === 'perfect') {
+    scoreDelta = Math.round((isBossFace ? 20 : 12) * dp.scoreMul * feverMul);
+    bossDmg = Math.round((isBossFace ? 24 : 14) * dp.bossDmg * (State.feverOn ? 1.25 : 1));
+    feverDelta = isBossFace ? 0.18 : 0.12;
+  } else if (grade === 'good') {
+    scoreDelta = Math.round((isBossFace ? 12 : 8) * dp.scoreMul * feverMul);
+    bossDmg = Math.round((isBossFace ? 14 : 9) * dp.bossDmg * (State.feverOn ? 1.15 : 1));
+    feverDelta = isBossFace ? 0.12 : 0.08;
+  } else {
+    scoreDelta = -Math.round((isBossFace ? 14 : 10) * dp.scoreMul);
+    bossDmg = 0;
+    youDmg = Math.round((isBossFace ? 10 : 7) * dp.youDmg);
+    feverDelta = -0.12;
+  }
+
+  return { grade, scoreDelta, bossDmg, youDmg, feverDelta };
+}
+
+function applyBossDamage(dmg, type) {
+  const n = Math.max(0, Math.round(Number(dmg) || 0));
+  if (n <= 0) return 0;
+
+  // boss shield reduces incoming
+  let actual = n;
+  if ((State.bossShield || 0) > 0) {
+    // each shield point absorbs a chunk
+    const absorb = Math.min(actual, 6);
+    actual = Math.max(0, actual - absorb);
+    State.bossShield = Math.max(0, (State.bossShield || 0) - 1);
+    if (actual <= 0) {
+      setMsg('BOSS SHIELD!', 'miss');
+      // log block
+      eventLogger.add({
+        ts_ms: Date.now(),
+        mode: State.mode,
+        diff: State.diff,
+        boss_index: State.bossIndex,
+        boss_phase: State.phaseIndex + 1,
+        target_id: '',
+        target_type: type || '',
+        is_boss_face: type === 'bossface' ? 1 : 0,
+        event_type: 'boss_shield_block',
+        rt_ms: '',
+        grade: 'boss_shield_block',
+        score_delta: 0,
+        combo_after: State.combo,
+        score_after: State.score,
+        player_hp: State.youHp,
+        boss_hp: State.bossHp
+      });
+      return 0;
+    }
+  }
+
+  State.bossHp = clamp(State.bossHp - actual, 0, State.bossHpMax);
+  return actual;
+}
+
+function nextBossOrPhase() {
+  const boss = BOSSES[State.bossIndex];
+  if (!boss) return;
+
+  // clear current boss
+  State.bossCleared += 1;
+
+  // advance boss index
+  State.bossIndex += 1;
+  if (State.bossIndex >= BOSSES.length) {
+    // win
+    endGame('win_all_bosses');
+    return;
+  }
+
+  // set new boss with phase 1
+  State.phaseIndex = 0;
+  const nb = BOSSES[State.bossIndex];
+  const ph = nb.phases[State.phaseIndex];
+
+  State.bossHpMax = ph.bossHp;
+  State.bossHp = ph.bossHp;
+  State.bossShield = 0;
+  State._bossFaceShown = false;
+
+  // reset skill flags for new boss
+  State.skillFlags = {};
+
+  syncBossUI();
+  setMsg(`บอสถัดไป: ${nb.name} ${nb.emoji}`, 'good');
+
+  // spawn delay
+  State.nextSpawnAt = (State.tNow || nowMs()) + 520;
+}
+
+// ===============================
+// AI micro-tip (DL-lite predictor)
+// ===============================
+let _aiLastTipAt = 0;
+
+function maybeAiTip() {
+  // locked in research mode
+  if (State.mode === 'research') return;
+  // allow only when ?ai=1 (or by design you can flip to true)
+  if (!WIN.RB_AI || typeof WIN.RB_AI.isAssistEnabled !== 'function') return;
+  if (!WIN.RB_AI.isAssistEnabled()) return;
+
+  const t = nowMs();
+  if (t - _aiLastTipAt < 1600) return;
+
+  const elapsedSec = (t - State.tStart) / 1000;
+  if (elapsedSec < 6) return;
+
+  const accPct = State.totalJudged > 0 ? (State.totalHits / State.totalJudged) * 100 : 0;
+
+  const snap = {
+    accPct,
+    hitMiss: State.miss,
+    combo: State.combo,
+    hp: State.youHpMax ? (State.youHp / State.youHpMax) * 100 : 100,
+    offsetAbsMean: '', // not used here
+    songTime: elapsedSec,
+    durationSec: State.durationSec
+  };
+
+  const p = WIN.RB_AI.predict(snap);
+  if (!p || !p.tip) return;
+
+  _aiLastTipAt = t;
+
+  // show subtle tip near top center
+  FxBurstSafeText(window.innerWidth * 0.5, window.innerHeight * 0.14, p.tip, 'sb-fx-tip');
+}
+
+// ===============================
+// FX safe wrappers (in case FxBurst isn't ready)
+// ===============================
+function FxBurstSafeBurst(x, y, cls) {
+  try {
+    if (FxBurst && typeof FxBurst.burst === 'function') FxBurst.burst(x, y, { n: 10, spread: 58, ttlMs: 560, cls });
+  } catch {}
+}
+function FxBurstSafeText(x, y, text, cls) {
+  try {
+    if (FxBurst && typeof FxBurst.popText === 'function') FxBurst.popText(x, y, text, cls);
+  } catch {}
+}
+
+// ===============================
+// Grade compute
+// ===============================
+function computeGrade(s) {
+  const acc = Number(s.accPct) || 0;
+  const miss = Number(s.miss) || 0;
+  const combo = Number(s.maxCombo) || 0;
+  const cleared = Number(s.bossCleared) || 0;
+
+  // simple rubric
+  let g = 'C';
+  if (cleared >= 3 && acc >= 88 && miss <= 6 && combo >= 18) g = 'SSS';
+  else if (cleared >= 2 && acc >= 84 && miss <= 9 && combo >= 14) g = 'SS';
+  else if (cleared >= 2 && acc >= 78 && miss <= 12) g = 'S';
+  else if (acc >= 70 && miss <= 16) g = 'A';
+  else if (acc >= 58) g = 'B';
+  else g = 'C';
+  return g;
+}
+
+// ... (Part 3 ends here)
