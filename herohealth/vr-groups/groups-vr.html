@@ -10,11 +10,12 @@
   <!-- GUARD: ต่อให้ CSS หลักโหลดพัง .hidden ต้องซ่อนอยู่ -->
   <style>
     .hidden{ display:none !important; }
-    html,body{ margin:0; width:100%; height:100%; background:#020617; color:#e5e7eb; font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif; }
+    html,body{ margin:0; width:100%; height:100%; background:#020617; color:#e5e7eb;
+      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif; }
   </style>
 
-  <!-- MAIN CSS -->
-  <link id="cssMain" rel="stylesheet" href="./groups-vr.css?v=20260203-1" />
+  <!-- MAIN CSS (อยู่โฟลเดอร์เดียวกัน) -->
+  <link id="cssMain" rel="stylesheet" href="./groups-vr.css?v=20260203-2" />
   <script>
     (function(){
       const link = document.getElementById('cssMain');
@@ -24,20 +25,18 @@
     })();
   </script>
 
-  <!-- Tune VR UI aim assist (มือถือยิงติด) -->
+  <!-- ✅ จูนยิงติดบนมือถือ: lockPx -->
   <script>
     window.HHA_VRUI_CONFIG = {
-      lockPx: 44,        // ✅ จูนยิงติดบนมือถือ (แนะนำ 36–54)
+      lockPx: 44,     // ★ ค่าแนะนำมือถือ (36–54). ถ้าอยาก "ดูดแรงสุด" ใส่ 54
       cooldownMs: 80
     };
   </script>
 </head>
 
 <body class="view-mobile">
-  <!-- XR scene (optional) -->
   <div class="xr-scene" aria-hidden="true"></div>
 
-  <!-- HUD -->
   <header class="hud">
     <div class="hudLeft">
       <div class="pill"><span class="lbl">⏳ TIME</span><span class="val" id="hudTime">90</span></div>
@@ -51,7 +50,6 @@
     </div>
   </header>
 
-  <!-- Quest -->
   <section class="questTop">
     <div class="questCard">
       <div class="qTitle">
@@ -72,15 +70,13 @@
     </div>
   </section>
 
-  <!-- Big Banner -->
   <div class="bigBanner hidden" id="bigBanner">
     <div class="bigBannerText" id="bigBannerText">READY</div>
   </div>
 
-  <!-- Play Layer (targets spawn here) -->
+  <!-- สำคัญสุด: targets spawn ที่นี่ -->
   <main class="playLayer" id="playLayer" aria-label="Play layer"></main>
 
-  <!-- Power -->
   <section class="powerWrap">
     <div class="powerCard">
       <div class="pHead">⚡ Power</div>
@@ -89,7 +85,6 @@
     </div>
   </section>
 
-  <!-- Coach -->
   <section class="coachWrap">
     <div class="coachCard">
       <img class="coachImg" id="coachImg" alt="Coach" src="../img/coach-neutral.png" />
@@ -100,7 +95,6 @@
     </div>
   </section>
 
-  <!-- Overlay End -->
   <section class="overlay hidden" id="endOverlay">
     <div class="panel">
       <div class="title">สรุปผล</div>
@@ -113,7 +107,6 @@
     </div>
   </section>
 
-  <!-- Boot button (tap-to-start) -->
   <div style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:80; pointer-events:auto;" id="startGate">
     <button class="btn btn-strong" style="width:min(360px, 92vw); padding:16px 14px; font-size:16px;" id="btnStart">
       เริ่มเล่น
@@ -121,62 +114,46 @@
   </div>
 
   <script>
-    // ---------- robust loader (try 2 possible paths) ----------
-    function loadScriptTry(urls){
-      const DOC = document;
+    function loadScript(src){
       return new Promise((res, rej)=>{
-        let i = 0;
-        const tryNext = ()=>{
-          if(i >= urls.length) return rej(new Error('All script paths failed: ' + urls.join(', ')));
-          const src = urls[i++];
-          const s = DOC.createElement('script');
-          s.src = src;
-          s.defer = true;
-          s.onload = ()=>res(src);
-          s.onerror = ()=>{ try{ s.remove(); }catch(_){}; tryNext(); };
-          DOC.head.appendChild(s);
-        };
-        tryNext();
+        const s = document.createElement('script');
+        s.src = src;
+        s.defer = true;
+        s.onload = ()=>res(src);
+        s.onerror = ()=>rej(new Error('โหลดไม่ได้: ' + src));
+        document.head.appendChild(s);
       });
     }
 
-    function qs(k, d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
-
-    // ---------- UI bindings ----------
     const $ = (id)=>document.getElementById(id);
+    function qs(k, d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
 
     function setViewClass(){
       const v = String(qs('view','mobile')||'mobile').toLowerCase();
       document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
       document.body.classList.add('view-' + (v==='pc'?'pc':v==='vr'?'vr':v==='cvr'?'cvr':'mobile'));
     }
-
     function pctFill(el, pct){
       pct = Math.max(0, Math.min(100, Number(pct)||0));
       el.style.width = pct + '%';
     }
 
-    // HUD events from engine
-    window.addEventListener('hha:time', (e)=>{
-      const left = (e.detail && e.detail.left)|0;
-      $('hudTime').textContent = String(left);
-    }, {passive:true});
-
+    // HUD events
+    window.addEventListener('hha:time', (e)=>{ $('hudTime').textContent = String((e.detail&&e.detail.left)|0); }, {passive:true});
     window.addEventListener('hha:score', (e)=>{
-      const d = e.detail||{};
-      $('hudScore').textContent = String(d.score|0);
-      $('hudCombo').textContent = String(d.combo|0);
-      $('hudMiss').textContent  = String(d.misses|0);
+      const d=e.detail||{};
+      $('hudScore').textContent=String(d.score|0);
+      $('hudCombo').textContent=String(d.combo|0);
+      $('hudMiss').textContent =String(d.misses|0);
     }, {passive:true});
-
     window.addEventListener('hha:rank', (e)=>{
-      const d = e.detail||{};
+      const d=e.detail||{};
       $('hudAcc').textContent = String((d.accuracy|0)) + '%';
-      $('hudRank').textContent = String(d.grade||'D');
+      $('hudRank').textContent= String(d.grade||'D');
     }, {passive:true});
 
     window.addEventListener('quest:update', (e)=>{
-      const d = e.detail||{};
+      const d=e.detail||{};
       $('qGoalTitle').textContent = d.goalTitle || 'GOAL';
       $('qGoalCount').textContent = `${d.goalNow|0}/${d.goalTotal|0}`;
       pctFill($('qGoalFill'), d.goalPct|0);
@@ -187,40 +164,35 @@
       pctFill($('qMiniFill'), d.miniPct|0);
       $('qMiniSub').textContent = (d.miniTimeLeftSec>0) ? `เหลือเวลา ${d.miniTimeLeftSec|0}s` : '—';
 
-      // urgent style
       if((d.miniTimeLeftSec|0) > 0 && (d.miniTimeLeftSec|0) <= 4) document.body.classList.add('mini-urgent');
       else document.body.classList.remove('mini-urgent');
     }, {passive:true});
 
     window.addEventListener('groups:power', (e)=>{
-      const d = e.detail||{};
-      const c = (d.charge|0), th = Math.max(1, (d.threshold|0));
-      const pct = Math.round((c/th)*100);
-      pctFill($('pFill'), pct);
+      const d=e.detail||{};
+      const c=(d.charge|0), th=Math.max(1,(d.threshold|0));
+      pctFill($('pFill'), Math.round((c/th)*100));
       $('pText').textContent = `${c}/${th} → ครบแล้วจะสลับหมู่`;
     }, {passive:true});
 
     window.addEventListener('hha:coach', (e)=>{
-      const d = e.detail||{};
+      const d=e.detail||{};
       $('coachText').textContent = String(d.text||'—');
-      // mood => image
       const mood = String(d.mood||'neutral').toLowerCase();
-      const img =
+      $('coachImg').src =
         mood==='happy' ? '../img/coach-happy.png' :
         mood==='sad'   ? '../img/coach-sad.png' :
         mood==='fever' ? '../img/coach-fever.png' :
                          '../img/coach-neutral.png';
-      $('coachImg').src = img;
     }, {passive:true});
 
     window.addEventListener('hha:end', (e)=>{
-      const s = e.detail||{};
+      const s=e.detail||{};
       $('endSub').textContent =
         `คะแนน ${s.scoreFinal|0} • ยิง ${s.goodShots|0}/${s.shots|0} (${s.accuracyGoodPct|0}%) • Miss ${s.misses|0} • Rank ${s.grade||'D'}`;
       $('endOverlay').classList.remove('hidden');
     }, {passive:true});
 
-    // buttons
     $('btnRetry').addEventListener('click', ()=>location.reload());
     $('btnHub').addEventListener('click', ()=>{
       const hub = qs('hub','')||'';
@@ -228,28 +200,19 @@
       else history.back();
     });
 
-    // ---------- BOOT ----------
     (async function main(){
       setViewClass();
 
-      // 1) vr-ui (crosshair + hha:shoot)
-      await loadScriptTry(['../vr/vr-ui.js','./vr/vr-ui.js']);
+      // ✅ โครงสร้าง root=launcher, run=folder:
+      // run อยู่ /herohealth/vr-groups/  => ขึ้นไป ../vr/ และ ../img/ ได้ถูก
+      await loadScript('../vr/vr-ui.js');
+      await loadScript('../vr/particles.js').catch(()=>{}); // optional
+      await loadScript('./effects-pack.js');
+      await loadScript('./groups.safe.js'); // ใช้ PATCH ของคุณ
 
-      // 2) particles (optional, ok if missing)
-      await loadScriptTry(['../vr/particles.js','./vr/particles.js']).catch(()=>{});
-
-      // 3) effects pack (uses groups:hit)
-      await loadScriptTry(['./effects-pack.js','./vr-groups/effects-pack.js']);
-
-      // 4) engine
-      await loadScriptTry(['./groups.safe.js','./vr-groups/groups.safe.js']);
-
-      // hook start
       $('btnStart').addEventListener('click', ()=>{
         $('startGate').style.display = 'none';
-
         try{
-          // Engine start
           const diff = String(qs('diff','normal')||'normal');
           const ctx = { time:Number(qs('time',90)||90), seed:qs('seed','')||Date.now(), runMode:qs('run','play')||'play' };
           window.GroupsVR.GameEngine.setLayerEl(document.getElementById('playLayer'));
