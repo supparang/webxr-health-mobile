@@ -1207,3 +1207,322 @@ function computeGrade(s) {
 }
 
 // ... (Part 3 ends here)
+// ===============================
+// Menu / View switching
+// ===============================
+function setActiveView(viewKey) {
+  // viewKey: 'menu' | 'play' | 'result'
+  const vMenu = DOC.getElementById('sb-view-menu');
+  const vPlay = DOC.getElementById('sb-view-play');
+  const vRes  = DOC.getElementById('sb-view-result');
+
+  const on = (el) => { if (el) el.classList.add('is-active'); };
+  const off = (el) => { if (el) el.classList.remove('is-active'); };
+
+  off(vMenu); off(vPlay); off(vRes);
+  if (viewKey === 'menu') on(vMenu);
+  else if (viewKey === 'play') on(vPlay);
+  else on(vRes);
+}
+
+function setMode(m) {
+  State.mode = (m === 'research') ? 'research' : 'normal';
+
+  const btnN = DOC.getElementById('sb-mode-normal');
+  const btnR = DOC.getElementById('sb-mode-research');
+  if (btnN) btnN.classList.toggle('is-active', State.mode === 'normal');
+  if (btnR) btnR.classList.toggle('is-active', State.mode === 'research');
+
+  const desc = DOC.getElementById('sb-mode-desc');
+  if (desc) {
+    desc.textContent = (State.mode === 'research')
+      ? 'Research: บันทึกผลแบบมี Participant ID/Group/Note (ล็อกการปรับ AI และ pacing)'
+      : 'Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
+  }
+
+  const rb = DOC.getElementById('sb-research-box');
+  if (rb) rb.classList.toggle('is-on', State.mode === 'research');
+
+  // Show/hide buttons
+  const bPlay = DOC.getElementById('sb-btn-play');
+  const bRes  = DOC.getElementById('sb-btn-research');
+  if (bPlay) bPlay.style.display = (State.mode === 'research') ? 'none' : '';
+  if (bRes)  bRes.style.display  = (State.mode === 'research') ? '' : 'none';
+}
+
+function setDiff(d) {
+  const k = (d || 'normal').toLowerCase();
+  State.diff = (k === 'easy' || k === 'hard') ? k : 'normal';
+  wrapEl.dataset.diff = State.diff;
+  renderer.setDifficulty(State.diff);
+}
+
+function readMenuSettings() {
+  // diff
+  const selDiff = DOC.getElementById('sb-diff');
+  setDiff(selDiff ? selDiff.value : 'normal');
+
+  // time
+  const selTime = DOC.getElementById('sb-time');
+  const t = Number(selTime ? selTime.value : 70);
+  State.durationSec = clamp(t || 70, 20, 240);
+
+  // research meta
+  State.participantId = '';
+  State.participantGroup = '';
+  State.participantNote = '';
+
+  if (State.mode === 'research') {
+    const pid = DOC.getElementById('sb-part-id');
+    const grp = DOC.getElementById('sb-part-group');
+    const note = DOC.getElementById('sb-part-note');
+    State.participantId = (pid && pid.value ? String(pid.value).trim() : '');
+    State.participantGroup = (grp && grp.value ? String(grp.value).trim() : '');
+    State.participantNote = (note && note.value ? String(note.value).trim() : '');
+  }
+}
+
+// ===============================
+// Start / Stop / Pause / Back
+// ===============================
+function startFromMenu() {
+  readMenuSettings();
+
+  // In research, require participant id minimally (you can relax later)
+  if (State.mode === 'research') {
+    if (!State.participantId) {
+      alert('Research mode: กรุณากรอก Participant ID');
+      return;
+    }
+  }
+
+  // reset engine
+  resetStateForNewRun();
+
+  // enter play view
+  setActiveView('play');
+
+  // start loop
+  State.running = true;
+  State.paused = false;
+  State.ended = false;
+  State.tStart = nowMs();
+  State.tNow = State.tStart;
+  State.nextSpawnAt = State.tStart + 500;
+
+  // initial HUD + boss UI
+  syncBossUI();
+  updateHUD(State.durationSec);
+
+  // auto clear center msg after a bit
+  setMsg('เริ่มเลย! แตะ/ชกให้ทัน!', 'good');
+
+  // record session start
+  State.sessionStartTs = Date.now();
+  sessionLogger.start({
+    ts_ms: State.sessionStartTs,
+    mode: State.mode,
+    diff: State.diff,
+    duration_sec: State.durationSec,
+    participant_id: State.participantId,
+    group: State.participantGroup,
+    note: State.participantNote
+  });
+
+  eventLogger.add({
+    ts_ms: Date.now(),
+    mode: State.mode,
+    diff: State.diff,
+    boss_index: State.bossIndex,
+    boss_phase: State.phaseIndex + 1,
+    target_id: '',
+    target_type: '',
+    is_boss_face: 0,
+    event_type: 'start',
+    rt_ms: '',
+    grade: '',
+    score_delta: 0,
+    combo_after: 0,
+    score_after: 0,
+    player_hp: State.youHp,
+    boss_hp: State.bossHp
+  });
+
+  tick();
+}
+
+function stopToMenu() {
+  // stop loop
+  State.running = false;
+  State.paused = false;
+
+  if (State._rafId) {
+    cancelAnimationFrame(State._rafId);
+    State._rafId = null;
+  }
+
+  // clear targets
+  clearAllTargets('stop');
+  setMsg('', '');
+
+  // go menu
+  setActiveView('menu');
+
+  // reset pause checkbox
+  const pause = DOC.getElementById('sb-btn-pause');
+  if (pause) pause.checked = false;
+}
+
+function togglePause(isOn) {
+  State.paused = !!isOn;
+
+  if (State.paused) {
+    setMsg('⏸ หยุดชั่วคราว', 'miss');
+  } else {
+    setMsg('▶ ไปต่อ!', 'good');
+  }
+}
+
+function endGame(reason) {
+  if (State.ended) return;
+  State.ended = true;
+  State.running = false;
+
+  if (State._rafId) {
+    cancelAnimationFrame(State._rafId);
+    State._rafId = null;
+  }
+
+  // compute final
+  const tEnd = nowMs();
+  const elapsedSec = Math.min(State.durationSec, (tEnd - State.tStart) / 1000);
+
+  const accPct = State.totalJudged > 0 ? (State.totalHits / State.totalJudged) * 100 : 0;
+  const grade = computeGrade({
+    accPct,
+    miss: State.miss,
+    maxCombo: State.maxCombo,
+    bossCleared: State.bossCleared
+  });
+
+  // session finalize
+  sessionLogger.finish({
+    ts_ms_end: Date.now(),
+    end_reason: reason || 'end',
+    elapsed_sec: Number(elapsedSec.toFixed(2)),
+    score: State.score,
+    miss: State.miss,
+    max_combo: State.maxCombo,
+    boss_cleared: State.bossCleared,
+    acc_pct: Number(accPct.toFixed(2)),
+    grade
+  });
+
+  // log end event
+  eventLogger.add({
+    ts_ms: Date.now(),
+    mode: State.mode,
+    diff: State.diff,
+    boss_index: State.bossIndex,
+    boss_phase: State.phaseIndex + 1,
+    target_id: '',
+    target_type: '',
+    is_boss_face: 0,
+    event_type: 'end',
+    rt_ms: '',
+    grade: reason || 'end',
+    score_delta: 0,
+    combo_after: State.combo,
+    score_after: State.score,
+    player_hp: State.youHp,
+    boss_hp: State.bossHp
+  });
+
+  // fill result UI
+  const set = (id, v) => { const el = DOC.getElementById(id); if (el) el.textContent = v; };
+
+  set('sb-res-time', `${elapsedSec.toFixed(1)} s`);
+  set('sb-res-score', String(State.score));
+  set('sb-res-max-combo', String(State.maxCombo));
+  set('sb-res-miss', String(State.miss));
+  set('sb-res-phase', String(State.phaseIndex + 1));
+  set('sb-res-boss-cleared', String(State.bossCleared));
+  set('sb-res-acc', `${accPct.toFixed(1)} %`);
+  set('sb-res-grade', grade);
+
+  // switch view
+  setActiveView('result');
+
+  // end message
+  if ((reason || '').startsWith('win')) setMsg('ชนะ! เก่งมาก 🔥', 'perfect');
+  else if (reason === 'dead') setMsg('แพ้… ลองใหม่ได้!', 'bad');
+  else setMsg('จบรอบ!', 'good');
+}
+
+// ===============================
+// Buttons / UI wiring
+// ===============================
+function wireUI() {
+  // Mode buttons
+  const btnN = DOC.getElementById('sb-mode-normal');
+  const btnR = DOC.getElementById('sb-mode-research');
+  if (btnN) btnN.addEventListener('click', () => setMode('normal'));
+  if (btnR) btnR.addEventListener('click', () => setMode('research'));
+
+  // Start buttons
+  const bPlay = DOC.getElementById('sb-btn-play');
+  const bRes  = DOC.getElementById('sb-btn-research');
+
+  if (bPlay) bPlay.addEventListener('click', () => {
+    setMode('normal');
+    startFromMenu();
+  });
+  if (bRes) bRes.addEventListener('click', () => {
+    setMode('research');
+    startFromMenu();
+  });
+
+  // How to toggle
+  const howBtn = DOC.getElementById('sb-btn-howto');
+  const howBox = DOC.getElementById('sb-howto');
+  if (howBtn && howBox) {
+    howBtn.addEventListener('click', () => {
+      howBox.classList.toggle('is-on');
+    });
+  }
+
+  // Back menu (during play)
+  const back = DOC.getElementById('sb-btn-back-menu');
+  if (back) back.addEventListener('click', () => stopToMenu());
+
+  // Pause checkbox
+  const pause = DOC.getElementById('sb-btn-pause');
+  if (pause) pause.addEventListener('change', (e) => togglePause(!!e.target.checked));
+
+  // Result actions
+  const retry = DOC.getElementById('sb-btn-result-retry');
+  const rmenu = DOC.getElementById('sb-btn-result-menu');
+  if (retry) retry.addEventListener('click', () => {
+    // keep same mode/diff/time from menu UI
+    setActiveView('menu');
+    startFromMenu();
+  });
+  if (rmenu) rmenu.addEventListener('click', () => {
+    setActiveView('menu');
+  });
+
+  // Downloads
+  const dlE = DOC.getElementById('sb-btn-download-events');
+  const dlS = DOC.getElementById('sb-btn-download-session');
+
+  if (dlE) dlE.addEventListener('click', () => {
+    const fn = `shadow-breaker-events_${State.mode}_${State.diff}.csv`;
+    downloadEventCsv(eventLogger, fn);
+  });
+  if (dlS) dlS.addEventListener('click', () => {
+    const fn = `shadow-breaker-session_${State.mode}_${State.diff}.csv`;
+    downloadSessionCsv(sessionLogger, fn);
+  });
+}
+
+// ... (Part 4 ends here)
