@@ -1,183 +1,664 @@
-// === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets
-// ✅ spawn/remove targets in #sb-target-layer
-// ✅ pointerdown hit -> calls onTargetHit(id, {x,y})
-// ✅ supports xPct/yPct from engine for deterministic patterns
-// ✅ PATCH: safe spawn zone avoids HUD/meta/bars + bigger targets on small screens
-
+// === /fitness/js/engine.js ===
+// Shadow Breaker Engine — PRODUCTION (Boss Targets)
+// PC/Mobile (DOM) | Normal + Research mode
+// Modules: dom-renderer-shadow + event/session loggers + AI predictor
 'use strict';
 
-import { FxBurst } from './fx-burst.js';
+import { DomRendererShadow } from './dom-renderer-shadow.js';
+import { EventLogger, downloadEventsCsv } from './event-logger.js';
+import { SessionLogger, downloadSessionCsv } from './session-logger.js';
+import { AIPredictor } from './ai-predictor.js';
 
-function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
-function rand(min,max){ return min + Math.random()*(max-min); }
+function fatalOverlay(msg, err){
+  try{
+    const el = document.createElement('div');
+    el.style.position='fixed';
+    el.style.inset='0';
+    el.style.zIndex='99999';
+    el.style.background='rgba(2,6,23,.92)';
+    el.style.color='#e5e7eb';
+    el.style.fontFamily='system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+    el.style.padding='18px';
+    el.style.display='flex';
+    el.style.alignItems='flex-start';
+    el.style.justifyContent='center';
+    el.style.overflow='auto';
+    el.innerHTML = `
+      <div style="max-width:860px;width:100%;border:1px solid rgba(148,163,184,.25);border-radius:18px;padding:14px;background:rgba(15,23,42,.75)">
+        <div style="font-weight:900;font-size:1.1rem;margin-bottom:6px">Shadow Breaker: โหลดไม่สำเร็จ</div>
+        <div style="color:rgba(226,232,240,.9);margin-bottom:10px">${msg || 'ไม่ทราบสาเหตุ'}</div>
+        <pre style="white-space:pre-wrap;color:#cbd5e1;background:rgba(2,6,23,.55);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${(err && (err.stack||err.message)) ? (err.stack||err.message) : ''}</pre>
+        <div style="margin-top:10px;font-size:.9rem;color:#94a3b8">ลองกด Refresh หรือเปิด DevTools ดู error ที่ Console</div>
+      </div>`;
+    document.body.appendChild(el);
+  }catch(_){}
+}
 
-export class DomRendererShadow {
-  constructor(layerEl, opts = {}) {
-    this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;
-    this.feedbackEl = opts.feedbackEl || null;
-    this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
+// ---------- tiny helpers ----------
+const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+const clamp01 = (v)=>clamp(v,0,1);
+const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+const now = ()=>performance.now();
 
-    this.targets = new Map();
-    this._onPointer = this._onPointer.bind(this);
+function setView(menu, play, result, which){
+  menu.classList.toggle('is-active', which==='menu');
+  play.classList.toggle('is-active', which==='play');
+  result.classList.toggle('is-active', which==='result');
+}
+
+function fmt1(v){ return (Number(v)||0).toFixed(1); }
+
+function computeGrade(accPct){
+  const a = Number(accPct)||0;
+  if (a >= 92) return 'S';
+  if (a >= 85) return 'A';
+  if (a >= 75) return 'B';
+  if (a >= 60) return 'C';
+  return 'D';
+}
+
+// ---------- difficulty presets ----------
+const DIFF = {
+  easy:   { spawnEveryMs: 760, ttlMs: 1550, baseSize: 150, bombRate: 0.10, decoyRate: 0.10, healRate: 0.14, shieldRate: 0.12 },
+  normal: { spawnEveryMs: 650, ttlMs: 1320, baseSize: 128, bombRate: 0.14, decoyRate: 0.14, healRate: 0.12, shieldRate: 0.10 },
+  hard:   { spawnEveryMs: 560, ttlMs: 1120, baseSize: 112, bombRate: 0.18, decoyRate: 0.18, healRate: 0.10, shieldRate: 0.08 },
+};
+
+const BOSSES = [
+  { name:'Bubble Glove', emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', hp: 1200, phases: 3 },
+  { name:'Shadow Wisp',  emoji:'👻', desc:'เป้าหลอกมาเป็นชุด—อย่าเผลอตีผิด', hp: 1400, phases: 3 },
+  { name:'Iron Fang',    emoji:'🐺', desc:'บอมบ์แรงขึ้น—เก็บโล่ไว้กันจังหวะ', hp: 1600, phases: 3 },
+];
+
+function init(){
+  const wrap = document.getElementById('sb-wrap');
+
+  const viewMenu = document.getElementById('sb-view-menu');
+  const viewPlay = document.getElementById('sb-view-play');
+  const viewResult = document.getElementById('sb-view-result');
+
+  const btnModeNormal = document.getElementById('sb-mode-normal');
+  const btnModeResearch = document.getElementById('sb-mode-research');
+  const modeDesc = document.getElementById('sb-mode-desc');
+  const boxResearch = document.getElementById('sb-research-box');
+
+  const selDiff = document.getElementById('sb-diff');
+  const selTime = document.getElementById('sb-time');
+
+  const inpPid = document.getElementById('sb-part-id');
+  const inpGroup = document.getElementById('sb-part-group');
+  const inpNote = document.getElementById('sb-part-note');
+
+  const btnPlay = document.getElementById('sb-btn-play');
+  const btnResearch = document.getElementById('sb-btn-research');
+  const btnHowto = document.getElementById('sb-btn-howto');
+  const howto = document.getElementById('sb-howto');
+
+  const btnBackMenu = document.getElementById('sb-btn-back-menu');
+  const chkStop = document.getElementById('sb-btn-pause');
+
+  const layer = document.getElementById('sb-target-layer');
+  const msgMain = document.getElementById('sb-msg-main');
+
+  const txtTime = document.getElementById('sb-text-time');
+  const txtScore = document.getElementById('sb-text-score');
+  const txtCombo = document.getElementById('sb-text-combo');
+  const txtPhase = document.getElementById('sb-text-phase');
+  const txtMiss = document.getElementById('sb-text-miss');
+  const txtShield = document.getElementById('sb-text-shield');
+
+  const hpYouTop = document.getElementById('sb-hp-you-top');
+  const hpBossTop = document.getElementById('sb-hp-boss-top');
+  const hpYouBottom = document.getElementById('sb-hp-you-bottom');
+  const hpBossBottom = document.getElementById('sb-hp-boss-bottom');
+
+  const feverBar = document.getElementById('sb-fever-bar');
+  const feverLabel = document.getElementById('sb-label-fever');
+
+  const bossNameHud = document.getElementById('sb-current-boss-name');
+  const metaEmoji = document.getElementById('sb-meta-emoji');
+  const metaName = document.getElementById('sb-meta-name');
+  const metaDesc = document.getElementById('sb-meta-desc');
+  const metaPhase = document.getElementById('sb-boss-phase-label');
+  const metaShield = document.getElementById('sb-boss-shield-label');
+
+  const resTime = document.getElementById('sb-res-time');
+  const resScore = document.getElementById('sb-res-score');
+  const resMaxCombo = document.getElementById('sb-res-max-combo');
+  const resMiss = document.getElementById('sb-res-miss');
+  const resPhase = document.getElementById('sb-res-phase');
+  const resBossCleared = document.getElementById('sb-res-boss-cleared');
+  const resAcc = document.getElementById('sb-res-acc');
+  const resGrade = document.getElementById('sb-res-grade');
+
+  const btnRetry = document.getElementById('sb-btn-result-retry');
+  const btnMenu = document.getElementById('sb-btn-result-menu');
+  const btnDlEvents = document.getElementById('sb-btn-download-events');
+  const btnDlSession = document.getElementById('sb-btn-download-session');
+
+  if (!wrap || !viewMenu || !viewPlay || !viewResult || !layer) {
+    throw new Error('Missing required DOM nodes');
   }
 
-  destroy(){
-    try { this.layer && this.layer.removeEventListener('pointerdown', this._onPointer); } catch {}
-    for (const [, el] of this.targets.entries()) { try{ el.remove(); }catch{} }
-    this.targets.clear();
+  // --- initial query passthrough ---
+  const qPid = qs('pid','') || '';
+  const qDiff = (qs('diff','normal')||'normal').toLowerCase();
+  const qTime = Number(qs('time','70')||70);
+
+  if (qPid) inpPid.value = qPid;
+  if (qDiff && DIFF[qDiff]) selDiff.value = qDiff;
+  if (Number.isFinite(qTime)) selTime.value = String(clamp(qTime, 30, 180));
+
+  // --- state ---
+  let mode = 'normal'; // 'normal' | 'research'
+  let running = false;
+  let rafId = null;
+
+  let tStart = 0;
+  let tLastSpawn = 0;
+
+  let timeLimitSec = Number(selTime.value)||70;
+  let diffKey = selDiff.value || 'normal';
+  let cfg = DIFF[diffKey] || DIFF.normal;
+
+  // gameplay stats
+  let score = 0;
+  let combo = 0;
+  let maxCombo = 0;
+  let miss = 0;
+
+  // health/fever
+  let youHp = 100;
+  let youHpMax = 100;
+  let bossHp = 1;
+  let bossHpMax = 1;
+  let fever = 0;       // 0..1
+  let feverOn = false; // active buff
+  let feverUntil = 0;
+
+  // boss progression
+  let bossIndex = 0;
+  let phase = 1;
+  let bossesCleared = 0;
+  let bossFaceShown = false;
+
+  // defense
+  let shield = 0;
+
+  // accuracy
+  let judged = 0;
+  let hitGood = 0;
+  let hitPerfect = 0;
+
+  // logs
+  const evLogger = new EventLogger();
+  const sesLogger = new SessionLogger();
+
+  // AI
+  const ai = new AIPredictor();
+
+  // renderer
+  const renderer = new DomRendererShadow(layer, {
+    wrapEl: viewPlay,
+    onTargetHit: handleTargetHit,
+  });
+  renderer.bind();
+
+  function setMode(next){
+    mode = next === 'research' ? 'research' : 'normal';
+    const isR = mode === 'research';
+    btnModeNormal.classList.toggle('is-active', !isR);
+    btnModeResearch.classList.toggle('is-active', isR);
+    boxResearch.classList.toggle('is-on', isR);
+
+    modeDesc.textContent = isR
+      ? 'Research: ต้องกรอก Participant ID / Group เพื่อเก็บข้อมูล'
+      : 'Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
   }
 
-  bind(){
-    if (!this.layer) return;
-    this.layer.addEventListener('pointerdown', this._onPointer, { passive: true });
+  function uiSetMsg(text, cls=''){
+    msgMain.className = 'sb-msg-main' + (cls ? ' ' + cls : '');
+    msgMain.textContent = text || '';
   }
 
-  _emojiForType(t, bossEmoji){
-    if (t === 'normal') return '🎯';
-    if (t === 'decoy') return '👀';
-    if (t === 'bomb') return '💣';
-    if (t === 'heal') return '🩹';
-    if (t === 'shield') return '🛡️';
-    if (t === 'bossface') return bossEmoji || '👊';
-    return '🎯';
+  function updateBars(){
+    const youP = clamp01(youHp / youHpMax);
+    const bossP = clamp01(bossHp / bossHpMax);
+
+    hpYouTop.style.transform = `scaleX(${youP})`;
+    hpBossTop.style.transform = `scaleX(${bossP})`;
+    hpYouBottom.style.transform = `scaleX(${youP})`;
+    hpBossBottom.style.transform = `scaleX(${bossP})`;
+
+    feverBar.style.transform = `scaleX(${clamp01(fever)})`;
+    feverLabel.classList.toggle('on', feverOn);
+    feverLabel.textContent = feverOn ? 'ON FIRE' : (fever >= 1 ? 'READY' : 'BUILD');
   }
 
-  spawnTarget(data){
-    if (!this.layer || !data) return;
+  function updateHud(tSec){
+    txtTime.textContent = `${fmt1(tSec)} s`;
+    txtScore.textContent = String(score|0);
+    txtCombo.textContent = String(combo|0);
+    txtPhase.textContent = String(phase|0);
+    txtMiss.textContent = String(miss|0);
+    txtShield.textContent = String(shield|0);
+  }
 
-    const rect = this.layer.getBoundingClientRect();
+  function setBossUI(){
+    const b = BOSSES[bossIndex] || BOSSES[0];
+    bossNameHud.textContent = `${b.name} ${b.emoji}`;
+    metaEmoji.textContent = b.emoji;
+    metaName.textContent = b.name;
+    metaDesc.textContent = b.desc;
+    metaPhase.textContent = String(phase);
+    metaShield.textContent = String(shield);
+  }
 
-    // ---- SAFE spawn zone (avoid HUD/meta/bars) ----
-    const pad = Math.min(56, Math.max(16, rect.width * 0.045));
-    let safeL = pad;
-    let safeT = pad;
-    let safeR = rect.width - pad;
-    let safeB = rect.height - pad;
+  function startGame(startAsResearch){
+    setMode(startAsResearch ? 'research' : mode);
 
-    const wrap = this.wrapEl || document;
+    diffKey = selDiff.value || 'normal';
+    cfg = DIFF[diffKey] || DIFF.normal;
+    timeLimitSec = Number(selTime.value)||70;
 
-    const hud = wrap.querySelector('.sb-hud-top');
-    const barsTop = wrap.querySelector('.sb-bars-top');
-    const barsBottom = wrap.querySelector('.sb-bars-bottom');
-    const meta = wrap.querySelector('.sb-meta');
+    if (mode === 'research') {
+      const pid = (inpPid.value||'').trim();
+      const grp = (inpGroup.value||'').trim();
+      if (!pid || !grp) {
+        alert('Research mode ต้องกรอก Participant ID และ Group');
+        return;
+      }
+    }
 
-    const toLocal = (r2)=>({
-      left: r2.left - rect.left,
-      top: r2.top - rect.top,
-      right: r2.right - rect.left,
-      bottom: r2.bottom - rect.top
+    // reset
+    score = 0; combo = 0; maxCombo = 0; miss = 0;
+    judged = 0; hitGood = 0; hitPerfect = 0;
+    youHp = 100; youHpMax = 100;
+    shield = 0;
+    fever = 0; feverOn = false; feverUntil = 0;
+
+    bossIndex = 0;
+    bossesCleared = 0;
+    phase = 1;
+    bossFaceShown = false;
+
+    const b = BOSSES[bossIndex];
+    bossHpMax = b.hp;
+    bossHp = bossHpMax;
+
+    evLogger.clear();
+    sesLogger.clear();
+
+    renderer.destroy();
+    // re-bind (destroy removes listener)
+    renderer.bind();
+
+    setBossUI();
+    updateBars();
+
+    tStart = now();
+    tLastSpawn = tStart;
+    running = true;
+    chkStop.checked = false;
+
+    setView(viewMenu, viewPlay, viewResult, 'play');
+    uiSetMsg('แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!', '');
+
+    loop();
+  }
+
+  function endGame(reason='timeup'){
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+
+    // cleanup targets
+    renderer.destroy();
+
+    const dur = clamp((now() - tStart) / 1000, 0, timeLimitSec);
+    const acc = judged ? ((hitGood + hitPerfect) / judged) * 100 : 0;
+    const grade = computeGrade(acc);
+
+    // session row
+    const pid = (inpPid.value||'').trim();
+    const grp = (inpGroup.value||'').trim();
+    const note = (inpNote.value||'').trim();
+
+    sesLogger.add({
+      ts: Date.now(),
+      mode,
+      reason,
+      pid,
+      group: grp,
+      note,
+      diff: diffKey,
+      timeLimitSec,
+      durSec: dur.toFixed(2),
+      score,
+      maxCombo,
+      miss,
+      judged,
+      hitGood,
+      hitPerfect,
+      accPct: acc.toFixed(2),
+      grade,
+      phase,
+      bossesCleared
     });
 
-    try{
-      let maxTop = safeT;
-      if (hud) {
-        const hr = toLocal(hud.getBoundingClientRect());
-        maxTop = Math.max(maxTop, hr.bottom + 10);
-      }
-      if (barsTop) {
-        const br = toLocal(barsTop.getBoundingClientRect());
-        maxTop = Math.max(maxTop, br.bottom + 8);
-      }
-      safeT = maxTop;
-    }catch(_){}
+    // fill result
+    resTime.textContent = `${fmt1(dur)} s`;
+    resScore.textContent = String(score|0);
+    resMaxCombo.textContent = String(maxCombo|0);
+    resMiss.textContent = String(miss|0);
+    resPhase.textContent = String(phase|0);
+    resBossCleared.textContent = String(bossesCleared|0);
+    resAcc.textContent = `${acc.toFixed(1)} %`;
+    resGrade.textContent = grade;
 
-    try{
-      if (barsBottom) {
-        const rr = toLocal(barsBottom.getBoundingClientRect());
-        safeB = Math.min(safeB, rr.top - 10);
-      }
-    }catch(_){}
-
-    try{
-      if (meta) {
-        const mr = toLocal(meta.getBoundingClientRect());
-        safeR = Math.min(safeR, mr.left - 10);
-      }
-    }catch(_){}
-
-    // ---- Target size ----
-    let size = clamp(Number(data.sizePx) || 120, 80, 240);
-    // Slightly larger targets on small screens for usability
-    if (window.innerWidth <= 520) size = clamp(size * 1.18, 90, 280);
-
-    // keep safe area sane vs size
-    safeR = Math.max(safeL + size + 10, safeR);
-    safeB = Math.max(safeT + size + 10, safeB);
-
-    let x = 0;
-    let y = 0;
-    // If engine provides xPct/yPct (0..1), use it for deterministic patterns.
-    if (Number.isFinite(Number(data.xPct)) && Number.isFinite(Number(data.yPct))) {
-      x = safeL + clamp(Number(data.xPct) || 0, 0, 1) * Math.max(0, (safeR - safeL - size));
-      y = safeT + clamp(Number(data.yPct) || 0, 0, 1) * Math.max(0, (safeB - safeT - size));
-    } else {
-      x = rand(safeL, safeR - size);
-      y = rand(safeT, safeB - size);
-    }
-
-    const el = document.createElement('div');
-    el.className = 'sb-target sb-target--' + (data.type || 'normal');
-    el.dataset.id = String(data.id);
-    el.style.width = Math.round(size) + 'px';
-    el.style.height = Math.round(size) + 'px';
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
-
-    el.textContent = this._emojiForType(data.type, data.bossEmoji);
-
-    this.layer.appendChild(el);
-    this.targets.set(Number(data.id), el);
+    setView(viewMenu, viewPlay, viewResult, 'result');
   }
 
-  removeTarget(id){
-    const el = this.targets.get(Number(id));
+  function nextBossOrPhase(){
+    const b = BOSSES[bossIndex];
+    if (phase < b.phases) {
+      phase++;
+      bossFaceShown = false;
+      bossHpMax = Math.round(b.hp * (1 + (phase-1)*0.22));
+      bossHp = bossHpMax;
+      uiSetMsg(`PHASE ${phase}!`, 'good');
+      setBossUI();
+      return;
+    }
+    // next boss
+    bossesCleared++;
+    bossIndex++;
+    if (bossIndex >= BOSSES.length) {
+      endGame('cleared_all');
+      return;
+    }
+    phase = 1;
+    bossFaceShown = false;
+    bossHpMax = BOSSES[bossIndex].hp;
+    bossHp = bossHpMax;
+    uiSetMsg(`NEW BOSS: ${BOSSES[bossIndex].name}!`, 'good');
+    setBossUI();
+  }
+
+  function scheduleSpawn(t){
+    const every = cfg.spawnEveryMs;
+    if (t - tLastSpawn < every) return;
+
+    tLastSpawn = t;
+
+    // choose type
+    const r = Math.random();
+    let type = 'normal';
+    if (r < cfg.bombRate) type = 'bomb';
+    else if (r < cfg.bombRate + cfg.decoyRate) type = 'decoy';
+    else if (r < cfg.bombRate + cfg.decoyRate + cfg.healRate) type = 'heal';
+    else if (r < cfg.bombRate + cfg.decoyRate + cfg.healRate + cfg.shieldRate) type = 'shield';
+
+    // boss face once when boss almost dead
+    if (!bossFaceShown && bossHp / bossHpMax < 0.12) {
+      bossFaceShown = true;
+      type = 'bossface';
+    }
+
+    const id = evLogger.nextId();
+    const sizePx = cfg.baseSize * (type === 'bossface' ? 1.25 : 1.0);
+
+    renderer.spawnTarget({
+      id,
+      type,
+      bossEmoji: BOSSES[bossIndex].emoji,
+      sizePx
+    });
+
+    // timeout miss (if not hit)
+    const ttl = cfg.ttlMs * (type === 'bossface' ? 1.18 : 1.0);
+    setTimeout(()=>{
+      // if still exists -> miss
+      if (renderer.targets && renderer.targets.has(id)) {
+        renderer.removeTarget(id);
+        judged++;
+        miss++;
+        combo = 0;
+
+        // punish a bit
+        if (type === 'bomb') youHp = clamp(youHp - 12, 0, youHpMax);
+        else youHp = clamp(youHp - 4, 0, youHpMax);
+
+        uiSetMsg('MISS!', 'miss');
+
+        evLogger.add({
+          ts: Date.now(),
+          tMs: Math.round(t - tStart),
+          id,
+          type,
+          action: 'timeout_miss',
+          scoreDelta: 0,
+          combo,
+          youHp,
+          bossHp,
+          phase,
+          bossIndex
+        });
+
+        updateBars();
+        if (youHp <= 0) endGame('dead');
+      }
+    }, Math.round(ttl));
+  }
+
+  function resolveHit(type){
+    judged++;
+
+    // grade
+    let grade = 'good';
+    let scoreDelta = 10;
+
+    if (type === 'decoy') {
+      grade = 'bad';
+      scoreDelta = 0;
+      combo = 0;
+      miss++;
+      youHp = clamp(youHp - 7, 0, youHpMax);
+      uiSetMsg('DECOY!', 'bad');
+    } else if (type === 'bomb') {
+      grade = 'bomb';
+      scoreDelta = -8;
+      if (shield > 0) {
+        shield--;
+        scoreDelta = 0;
+        uiSetMsg('SHIELD BLOCK!', 'good');
+      } else {
+        youHp = clamp(youHp - 16, 0, youHpMax);
+        combo = 0;
+        miss++;
+        uiSetMsg('BOMB!', 'bad');
+      }
+    } else if (type === 'heal') {
+      grade = 'heal';
+      scoreDelta = 6;
+      youHp = clamp(youHp + 10, 0, youHpMax);
+      combo++;
+      hitGood++;
+      uiSetMsg('HEAL +HP', 'good');
+    } else if (type === 'shield') {
+      grade = 'shield';
+      scoreDelta = 6;
+      shield = clamp(shield + 1, 0, 9);
+      combo++;
+      hitGood++;
+      uiSetMsg('SHIELD +1', 'good');
+    } else {
+      // normal / bossface
+      // perfect chance when fever on
+      if (feverOn) {
+        grade = 'perfect';
+        scoreDelta = 18;
+        hitPerfect++;
+      } else {
+        hitGood++;
+      }
+
+      combo++;
+      // fever build
+      fever = clamp01(fever + (type === 'bossface' ? 0.22 : 0.10));
+
+      // boss damage
+      let dmg = type === 'bossface' ? 150 : 60;
+      if (feverOn) dmg = Math.round(dmg * 1.35);
+      bossHp = clamp(bossHp - dmg, 0, bossHpMax);
+
+      // trigger fever
+      if (!feverOn && fever >= 1) {
+        feverOn = true;
+        feverUntil = now() + 4200;
+        fever = 1;
+        uiSetMsg('FEVER!', 'perfect');
+      }
+    }
+
+    // apply score
+    score += scoreDelta;
+    if (combo > maxCombo) maxCombo = combo;
+
+    return { grade, scoreDelta };
+  }
+
+  function handleTargetHit(id, pos){
+    if (!running) return;
+    const t = now();
+    const el = renderer.targets.get(id);
     if (!el) return;
-    try{ el.remove(); }catch{}
-    this.targets.delete(Number(id));
-  }
 
-  _onPointer(e){
-    if (!this.layer) return;
+    // find type from class
+    let type = 'normal';
+    try{
+      const cn = el.className || '';
+      if (cn.includes('--decoy')) type = 'decoy';
+      else if (cn.includes('--bomb')) type = 'bomb';
+      else if (cn.includes('--heal')) type = 'heal';
+      else if (cn.includes('--shield')) type = 'shield';
+      else if (cn.includes('--bossface')) type = 'bossface';
+    }catch(_){}
 
-    const x = e.clientX;
-    const y = e.clientY;
+    renderer.removeTarget(id);
 
-    // find target at point
-    const el = document.elementFromPoint(x, y);
-    if (!el || !el.classList || !el.classList.contains('sb-target')) return;
+    const { grade, scoreDelta } = resolveHit(type);
 
-    const id = Number(el.dataset.id);
-    if (!Number.isFinite(id)) return;
+    // FX
+    renderer.playHitFx(pos.clientX, pos.clientY, { grade, scoreDelta });
 
-    if (this.onTargetHit) this.onTargetHit(id, { clientX: x, clientY: y });
-  }
+    // event log
+    evLogger.add({
+      ts: Date.now(),
+      tMs: Math.round(t - tStart),
+      id,
+      type,
+      action: 'hit',
+      grade,
+      scoreDelta,
+      combo,
+      youHp,
+      bossHp,
+      phase,
+      bossIndex
+    });
 
-  playHitFx(x, y, info = {}){
-    const grade = info.grade || 'good';
-    const scoreDelta = Number(info.scoreDelta) || 0;
-
-    if (grade === 'perfect') {
-      FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
-      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
-    } else if (grade === 'good') {
-      FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
-    } else if (grade === 'bad') {
-      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
-    } else if (grade === 'bomb') {
-      FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
-      FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
-    } else if (grade === 'heal') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
-      FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
-    } else if (grade === 'shield') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
-      FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
-    } else {
-      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
+    // fever time out
+    if (feverOn && now() >= feverUntil) {
+      feverOn = false;
+      fever = 0;
+      uiSetMsg('FEVER END', '');
     }
+
+    // boss down?
+    if (bossHp <= 0) nextBossOrPhase();
+
+    updateBars();
+    updateHud((t - tStart)/1000);
+
+    if (youHp <= 0) endGame('dead');
   }
+
+  function loop(){
+    if (!running) return;
+
+    const t = now();
+    const tSec = (t - tStart) / 1000;
+
+    if (chkStop.checked) {
+      endGame('stopped');
+      return;
+    }
+
+    // fever expiry
+    if (feverOn && t >= feverUntil) {
+      feverOn = false;
+      fever = 0;
+      uiSetMsg('FEVER END', '');
+    }
+
+    scheduleSpawn(t);
+
+    // AI (play-only suggestion) — kept lightweight
+    // NOTE: In research mode, do NOT auto-adjust difficulty.
+    if (mode !== 'research') {
+      ai.tick({
+        tSec,
+        score,
+        combo,
+        miss,
+        youHp,
+        bossHp,
+        phase,
+        diffKey
+      });
+    }
+
+    updateHud(tSec);
+    updateBars();
+
+    if (tSec >= timeLimitSec) {
+      endGame('timeup');
+      return;
+    }
+
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // ---- bindings ----
+  btnModeNormal.addEventListener('click', ()=>setMode('normal'));
+  btnModeResearch.addEventListener('click', ()=>setMode('research'));
+
+  btnHowto.addEventListener('click', ()=>{
+    howto.classList.toggle('is-on');
+  });
+
+  btnPlay.addEventListener('click', ()=>startGame(false));
+  btnResearch.addEventListener('click', ()=>startGame(true));
+
+  btnBackMenu.addEventListener('click', ()=>{
+    if (running) endGame('back_menu');
+    setView(viewMenu, viewPlay, viewResult, 'menu');
+  });
+
+  btnRetry.addEventListener('click', ()=>startGame(mode==='research'));
+  btnMenu.addEventListener('click', ()=>setView(viewMenu, viewPlay, viewResult, 'menu'));
+
+  btnDlEvents.addEventListener('click', ()=>downloadEventsCsv(evLogger));
+  btnDlSession.addEventListener('click', ()=>downloadSessionCsv(sesLogger));
+
+  // initial view
+  setMode('normal');
+  setView(viewMenu, viewPlay, viewResult, 'menu');
+  setBossUI();
+  updateHud(0);
+  updateBars();
 }
+
+// boot
+try{ init(); }catch(err){ fatalOverlay('เกิดข้อผิดพลาดระหว่างเริ่มเกม', err); }
