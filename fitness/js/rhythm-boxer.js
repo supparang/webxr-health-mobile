@@ -217,17 +217,6 @@
     switchView('result');
   }
 
-
-  function handleAIUpdate(ai){
-    if (!ai || !hud) return;
-    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
-    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
-    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
-    if (hud.aiTip){
-      hud.aiTip.textContent = ai.tip || '';
-      hud.aiTip.classList.toggle('hidden', !ai.tip);
-    }
-  }
   function downloadCsv(csvText, filename) {
     if (!csvText) return;
     const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
@@ -271,7 +260,6 @@
       }
     }catch(_){}
   })();
-
 
   updateModeUI();
   switchView('menu');
