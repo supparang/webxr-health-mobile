@@ -1,44 +1,49 @@
-// === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV) ===
+// === /fitness/js/rhythm-engine.js — Rhythm Boxer Engine (3-LANE + NoteTail + AI Predict + CSV) ===
 (function () {
   'use strict';
 
   // ===== CONFIG =====
-  // Support 3 lanes (cVR) by default: L, C, R
-  // For future expansion to 5 lanes, extend LANES + NOTE_STYLE/labels in HTML/CSS.
-  const LANES = [0, 1, 2]; // L, C, R
+  // 3 lanes: L, C, R
+  const LANES = [0, 1, 2];
+  const NOTE_EMOJI_BY_LANE = ['🥊', '🎵', '🥊']; // L, C, R (ปรับได้)
 
-  // Scoring windows (seconds)
+  // หน้าต่างการให้คะแนนตาม offset (วินาที)
   const HIT_WINDOWS = {
     perfect: 0.06,
     great: 0.12,
-    good: 0.2
+    good: 0.20
   };
 
-  // Travel time until hitline (seconds)
-  // (Note: the *visual tail* length is CSS-based; this controls spawn-to-hit time)
-  const PRE_SPAWN_SEC = 2.2; // slightly longer for clearer rhythm
+  // เวลาล่วงหน้าที่ปล่อยโน้ตก่อนถึงเส้นตี (วินาที)
+  // เพิ่มขึ้นเล็กน้อยให้เห็น “ช่วงหล่น” ชัดขึ้น
+  const PRE_SPAWN_SEC = 2.6;
 
-  // Long-note visual tail config (engine informs renderer via CSS vars when possible)
-  const NOTE_TAIL_MIN_PX = 140; // baseline tail length (CSS uses this)
-  const NOTE_TAIL_MAX_PX = 240;
+  // NOTE TAIL (ความยาวหางโน้ต; เป็น px)
+  // จะตั้งทุกครั้งตามความสูงสนาม แต่มีขั้นต่ำ
+  const NOTE_TAIL_MIN_PX = 86;
 
   // ===== TRACKS =====
   function makeChart(bpm, dur, seq) {
     const out = [];
     const beat = 60 / bpm;
-    // start after 2s for settle-in
+
+    // เริ่มหลัง 2 วินาที (กันช่วงเริ่ม)
     let t = 2.0;
-    const total = Math.floor((dur - 3) / beat);
+
+    // กันท้ายเพลงอีก ~2s
+    const endT = Math.max(0, dur - 2.0);
     let i = 0;
 
-    while (t < dur - 2 && i < total) {
-      out.push({ time: t, lane: seq[i % seq.length], type: 'note' });
+    while (t < endT) {
+      const lane = seq[i % seq.length] | 0;
+      out.push({ time: t, lane, type: 'note' });
       t += beat;
       i++;
     }
     return out;
   }
 
+  // 3-lane sequences (0=L,1=C,2=R)
   const TRACKS = [
     {
       id: 'n1',
@@ -48,7 +53,7 @@
       bpm: 100,
       durationSec: 32,
       diff: 'easy',
-      chart: makeChart(100, 32, [1, 0, 2, 1, 0, 2])
+      chart: makeChart(100, 32, [1, 0, 2, 1, 0, 2, 1, 2])
     },
     {
       id: 'n2',
@@ -58,7 +63,7 @@
       bpm: 120,
       durationSec: 32,
       diff: 'normal',
-      chart: makeChart(120, 32, [1, 2, 0, 1, 2, 0])
+      chart: makeChart(120, 32, [1, 2, 0, 1, 2, 1, 0, 2])
     },
     {
       id: 'n3',
@@ -68,7 +73,7 @@
       bpm: 140,
       durationSec: 32,
       diff: 'hard',
-      chart: makeChart(140, 32, [0, 2, 1, 2, 0, 1])
+      chart: makeChart(140, 32, [0, 2, 1, 2, 0, 1, 2, 1])
     },
     {
       id: 'r1',
@@ -78,11 +83,11 @@
       bpm: 120,
       durationSec: 32,
       diff: 'research',
-      chart: makeChart(120, 32, [1, 0, 2, 1, 0, 2])
+      chart: makeChart(120, 32, [1, 0, 2, 1, 0, 2, 1, 2])
     }
   ];
 
-  // meta for UI
+  // meta ให้ rhythm-boxer.js ใช้เติมชื่อเพลง / HUD
   window.RB_TRACKS_META = TRACKS.map((t) => ({
     id: t.id,
     name: t.name,
@@ -97,11 +102,11 @@
     return v < a ? a : v > b ? b : v;
   }
   function mean(arr) {
-    if (!arr.length) return 0;
+    if (!arr || !arr.length) return 0;
     return arr.reduce((s, v) => s + v, 0) / arr.length;
   }
   function std(arr) {
-    if (arr.length < 2) return 0;
+    if (!arr || arr.length < 2) return 0;
     const m = mean(arr);
     const v = mean(arr.map((x) => (x - m) * (x - m)));
     return Math.sqrt(v);
@@ -114,9 +119,8 @@
     return 3;
   }
   function sideOfLane(lane) {
-    // for 3-lane: 0=L, 1=C, 2=R
-    if (lane === 1) return 'C';
     if (lane === 0) return 'L';
+    if (lane === 1) return 'C';
     return 'R';
   }
   function makeSessionId() {
@@ -130,31 +134,24 @@
   function detectDeviceType() {
     const ua = (navigator && navigator.userAgent) || '';
     const low = ua.toLowerCase();
-    if (low.includes('oculus') || low.includes('quest') || low.includes('vr')) return 'vr';
-    if (low.includes('tablet')) return 'tablet';
+    if (low.includes('oculus') || low.includes('quest')) return 'vr';
     if (low.includes('mobi')) return 'mobile';
+    if (low.includes('tablet')) return 'tablet';
     return 'pc';
   }
 
   // ===== CSV TABLE =====
   class CsvTable {
-    constructor() {
-      this.rows = [];
-    }
-    clear() {
-      this.rows = [];
-    }
-    add(row) {
-      this.rows.push(row);
-    }
+    constructor() { this.rows = []; }
+    clear() { this.rows = []; }
+    add(row) { this.rows.push(row); }
     toCsv() {
       const rows = this.rows;
       if (!rows.length) return '';
       const keysSet = new Set();
-      for (const r of rows) {
-        Object.keys(r).forEach((k) => keysSet.add(k));
-      }
+      for (const r of rows) Object.keys(r).forEach((k) => keysSet.add(k));
       const keys = Array.from(keysSet);
+
       const esc = (v) => {
         if (v == null) return '';
         const s = String(v);
@@ -163,11 +160,10 @@
         }
         return s;
       };
+
       const lines = [];
       lines.push(keys.join(','));
-      for (const r of rows) {
-        lines.push(keys.map((k) => esc(r[k])).join(','));
-      }
+      for (const r of rows) lines.push(keys.map((k) => esc(r[k])).join(','));
       return lines.join('\n');
     }
   }
@@ -198,9 +194,8 @@
       this._rafId = null;
       this._chartIndex = 0;
 
-      // AI state snapshot for logging/UI
       this.aiState = null;
-      this._aiLastUpdatePerf = 0;
+      this._aiLastPerf = 0;
 
       this._bindLanePointer();
     }
@@ -208,7 +203,7 @@
     _bindLanePointer() {
       if (!this.lanesEl) return;
       this.lanesEl.addEventListener('pointerdown', (ev) => {
-        const laneEl = ev.target.closest('.rb-lane');
+        const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
         if (!laneEl) return;
         const lane = parseInt(laneEl.dataset.lane || '0', 10);
         this.handleLaneTap(lane);
@@ -228,16 +223,6 @@
 
       this.sessionId = makeSessionId();
       this.deviceType = detectDeviceType();
-
-      // Apply tail hint to CSS (visual)
-      try {
-        if (this.wrap && this.wrap.style) {
-          // slightly adapt tail to difficulty
-          const diff = String(this.track.diff || '').toLowerCase();
-          const base = diff === 'hard' ? NOTE_TAIL_MIN_PX : diff === 'easy' ? NOTE_TAIL_MAX_PX : (NOTE_TAIL_MIN_PX + NOTE_TAIL_MAX_PX) / 2;
-          this.wrap.style.setProperty('--rb-note-tail', Math.round(base) + 'px');
-        }
-      } catch (_) {}
 
       this.songTime = 0;
       this.startPerf = performance.now();
@@ -279,9 +264,10 @@
       this.nextNoteId = 1;
       this._chartIndex = 0;
 
+      this.aiState = null;
+      this._aiLastPerf = 0;
+
       this.eventTable.clear();
-      // do not clear sessionTable; it can hold multiple sessions per page load
-      // (download should export all; if you want per-run only, call clear() externally)
 
       this._setupAudio();
       this._updateHUD(0);
@@ -296,12 +282,16 @@
     handleLaneTap(lane) {
       if (!this.running) return;
 
+      // guard lane range
+      lane = clamp(lane | 0, 0, 2);
+
       const nowPerf = performance.now();
       const songTime = (nowPerf - this.startPerf) / 1000;
       this.songTime = songTime;
 
       let best = null;
       let bestAbs = Infinity;
+
       for (const n of this.notes) {
         if (n.state !== 'pending') continue;
         if (n.lane !== lane) continue;
@@ -326,15 +316,13 @@
       } else {
         this._applyHit(note, songTime, dt, judgment);
       }
+
+      // AI update immediately after action
+      this._updateAI(nowPerf);
     }
 
-    getEventsCsv() {
-      return this.eventTable.toCsv();
-    }
-
-    getSessionCsv() {
-      return this.sessionTable.toCsv();
-    }
+    getEventsCsv() { return this.eventTable.toCsv(); }
+    getSessionCsv() { return this.sessionTable.toCsv(); }
 
     // ===== INTERNAL: AUDIO & LOOP =====
     _setupAudio() {
@@ -348,7 +336,7 @@
       const p = this.audio.play();
       if (p && typeof p.catch === 'function') {
         p.catch(() => {
-          /* autoplay fail — ignore */
+          /* autoplay fail — เงียบได้ */
         });
       }
     }
@@ -366,11 +354,10 @@
       const dur = this.track.durationSec || 30;
 
       this._updateTimeline(songTime, dt);
-
-      // AI predictor update (prediction-only; assist is handled by UI/params)
-      this._updateAI(now);
-
       this._updateHUD(songTime);
+
+      // periodic AI (ทุก ~250ms)
+      this._updateAI(now);
 
       if (songTime >= dur) {
         this._finish('song-end');
@@ -418,24 +405,30 @@
     _createNote(info) {
       if (!this.lanesEl) return;
 
-      const laneIndex = clamp(info.lane | 0, 0, LANES.length - 1);
-      const laneEl = this.lanesEl.querySelector(
-        `.rb-lane[data-lane="${laneIndex}"]`
-      );
+      const laneIndex = clamp(info.lane | 0, 0, 2);
+      const laneEl = this.lanesEl.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
       if (!laneEl) return;
 
+      // NOTE element: head + tail
       const noteEl = document.createElement('div');
       noteEl.className = 'rb-note';
 
-      const inner = document.createElement('div');
-      inner.className = 'rb-note-inner';
-      inner.textContent = '🎵';
-      noteEl.appendChild(inner);
-
-      // tail element for longer note feel
       const tail = document.createElement('div');
       tail.className = 'rb-note-tail';
+
+      const head = document.createElement('div');
+      head.className = 'rb-note-inner';
+      head.textContent = NOTE_EMOJI_BY_LANE[laneIndex] || '🎵';
+
       noteEl.appendChild(tail);
+      noteEl.appendChild(head);
+
+      // tail length based on lane height (set later in update positions too)
+      try {
+        const rect = laneEl.getBoundingClientRect();
+        const tailPx = Math.max(NOTE_TAIL_MIN_PX, Math.round((rect.height || 300) * 0.32));
+        noteEl.style.setProperty('--rb-tail', tailPx + 'px');
+      } catch (_) {}
 
       laneEl.appendChild(noteEl);
 
@@ -454,26 +447,37 @@
 
     _updateNotePositions(songTime) {
       if (!this.lanesEl) return;
+
       const rect = this.lanesEl.getBoundingClientRect();
       const h = rect.height || 1;
-      const travel = h * 0.84; // keep a little margin so hitline is readable
+
+      // travel distance
+      const travel = h * 0.85;
       const pre = PRE_SPAWN_SEC;
+
+      // tail target (สัมพันธ์กับ field height)
+      const tailPx = Math.max(NOTE_TAIL_MIN_PX, Math.round(h * 0.28));
 
       for (const n of this.notes) {
         if (!n.el || n.state === 'hit' || n.state === 'miss') continue;
 
         const dt = n.time - songTime;
-        const progress = 1 - dt / pre;
-        const pClamp = clamp(progress, 0, 1.2);
+        const progress = 1 - dt / pre;         // 0..1 at hit
+        const pClamp = clamp(progress, 0, 1.25);
 
+        // y: move from top(-travel) to near hit line (0)
         const y = (pClamp - 1) * travel;
+
         n.el.style.transform = `translateY(${y}px)`;
-        n.el.style.opacity = pClamp <= 1.0 ? 1 : clamp(1.2 - pClamp, 0, 1);
+        n.el.style.opacity = pClamp <= 1.0 ? 1 : clamp(1.25 - pClamp, 0, 1);
+
+        // update tail length for consistency
+        n.el.style.setProperty('--rb-tail', tailPx + 'px');
       }
     }
 
     _autoJudgeMiss(songTime) {
-      const missWindow = HIT_WINDOWS.good + 0.06;
+      const missWindow = HIT_WINDOWS.good + 0.05;
 
       for (const n of this.notes) {
         if (n.state !== 'pending') continue;
@@ -509,11 +513,8 @@
       else if (judgment === 'great') this.hitGreat++;
       else if (judgment === 'good') this.hitGood++;
 
-      let baseScore =
-        judgment === 'perfect' ? 300 : judgment === 'great' ? 200 : 100;
-      if (this.feverActive) {
-        baseScore = Math.round(baseScore * 1.5);
-      }
+      let baseScore = (judgment === 'perfect') ? 300 : (judgment === 'great') ? 200 : 100;
+      if (this.feverActive) baseScore = Math.round(baseScore * 1.5);
 
       this.score += baseScore;
       this.combo++;
@@ -524,8 +525,7 @@
       }
       this.hpMin = Math.min(this.hpMin, this.hp);
 
-      const feverGain =
-        judgment === 'perfect' ? 7 : judgment === 'great' ? 5 : 3;
+      const feverGain = (judgment === 'perfect') ? 7 : (judgment === 'great') ? 5 : 3;
       this._addFeverGauge(feverGain, songTime);
 
       if (this.renderer && typeof this.renderer.showHitFx === 'function') {
@@ -603,6 +603,7 @@
 
     _applyEmptyTapMiss(songTime, lane) {
       this.combo = 0;
+
       const dmg = 2;
       this.hp = clamp(this.hp - dmg, 0, 100);
       this.hpMin = Math.min(this.hpMin, this.hp);
@@ -643,70 +644,24 @@
       }
     }
 
-    // ===== AI (prediction-only) =====
-    _updateAI(nowPerf) {
-      // update at ~4Hz
-      if (nowPerf - this._aiLastUpdatePerf < 250) return;
-      this._aiLastUpdatePerf = nowPerf;
-
-      const totalNotes = this.totalNotes || 1;
-      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
-      const totalJudged = totalHits + this.hitMiss;
-      const acc = totalJudged
-        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
-        : 0;
-
-      const mAbs = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
-
-      const snap = {
-        accPct: acc,
-        hitPerfect: this.hitPerfect,
-        hitGreat: this.hitGreat,
-        hitGood: this.hitGood,
-        hitMiss: this.hitMiss,
-        combo: this.combo,
-        maxCombo: this.maxCombo,
-        offsetAbsMean: mAbs,
-        hp: this.hp,
-        songTime: this.songTime,
-        durationSec: this.track.durationSec || 0
-      };
-
-      if (window.RB_AI && typeof window.RB_AI.predict === 'function') {
-        try {
-          this.aiState = window.RB_AI.predict(snap);
-        } catch (_) {
-          this.aiState = null;
-        }
-      }
-
-      // push to UI if available
-      if (this.hooks && typeof this.hooks.onAI === 'function') {
-        this.hooks.onAI(this.aiState || {});
-      }
-    }
-
     // ===== HUD =====
     _updateHUD(songTime) {
-      const h = this.hud;
+      const h = this.hud || {};
       if (h.score) h.score.textContent = this.score;
       if (h.combo) h.combo.textContent = this.combo;
       if (h.hp) h.hp.textContent = this.hp;
       if (h.shield) h.shield.textContent = this.shield;
       if (h.time) h.time.textContent = songTime.toFixed(1);
 
-      const totalJudged =
-        this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
+      const totalJudged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
       const totalNotes = this.totalNotes || 1;
-      const acc = totalJudged
-        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
-        : 0;
+      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) * 100 : 0;
       if (h.acc) h.acc.textContent = acc.toFixed(1) + '%';
 
       if (h.countPerfect) h.countPerfect.textContent = this.hitPerfect;
-      if (h.countGreat) h.countGreat.textContent = this.hitGreat;
-      if (h.countGood) h.countGood.textContent = this.hitGood;
-      if (h.countMiss) h.countMiss.textContent = this.hitMiss;
+      if (h.countGreat)   h.countGreat.textContent   = this.hitGreat;
+      if (h.countGood)    h.countGood.textContent    = this.hitGood;
+      if (h.countMiss)    h.countMiss.textContent    = this.hitMiss;
 
       if (h.feverFill) {
         const scale = this.feverGauge / 100;
@@ -725,25 +680,56 @@
       if (h.progFill || h.progText) {
         const dur = this.track.durationSec || 1;
         const prog = clamp(songTime / dur, 0, 1);
-        if (h.progFill) {
-          h.progFill.style.transform = `scaleX(${prog})`;
-        }
-        if (h.progText) {
-          h.progText.textContent = Math.round(prog * 100) + '%';
-        }
+        if (h.progFill) h.progFill.style.transform = `scaleX(${prog})`;
+        if (h.progText) h.progText.textContent = Math.round(prog * 100) + '%';
+      }
+    }
+
+    // ===== AI PREDICTION =====
+    _updateAI(nowPerf) {
+      // throttle
+      if (!nowPerf) nowPerf = performance.now();
+      if (this._aiLastPerf && (nowPerf - this._aiLastPerf) < 250) return;
+      this._aiLastPerf = nowPerf;
+
+      // AI module exists?
+      const AI = window.RB_AI;
+      if (!AI || typeof AI.predict !== 'function') return;
+
+      // snapshot
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
+      const totalJudged = totalHits + this.hitMiss;
+      const totalNotes = this.totalNotes || 1;
+
+      const accPct = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) * 100 : 0;
+      const offsetAbsMean = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
+
+      const snap = {
+        accPct,
+        hitPerfect: this.hitPerfect,
+        hitGreat: this.hitGreat,
+        hitGood: this.hitGood,
+        hitMiss: this.hitMiss,
+        combo: this.combo,
+        offsetAbsMean,
+        hp: this.hp,
+        songTime: this.songTime,
+        durationSec: this.track.durationSec || 0
+      };
+
+      try {
+        this.aiState = AI.predict(snap);
+      } catch (_) {
+        return;
       }
 
-      // AI HUD (if present)
-      if (this.aiState) {
-        const ai = this.aiState;
-        if (h.aiFatigue) h.aiFatigue.textContent = Math.round((ai.fatigueRisk || 0) * 100) + '%';
-        if (h.aiSkill) h.aiSkill.textContent = Math.round((ai.skillScore || 0) * 100) + '%';
-        if (h.aiSuggest) h.aiSuggest.textContent = String(ai.suggestedDifficulty || 'normal');
-        if (h.aiTip) {
-          h.aiTip.textContent = ai.tip || '';
-          h.aiTip.classList.toggle('hidden', !ai.tip);
-        }
+      // push to UI
+      if (this.hooks && typeof this.hooks.onAI === 'function') {
+        this.hooks.onAI(this.aiState);
       }
+
+      // IMPORTANT: research lock -> no gameplay adjustment here
+      // Normal assist (?ai=1) ถ้าจะ “ปรับเกม” ให้ไปทำในอนาคตเป็น patch แยก (ตามมาตรฐานงานวิจัย)
     }
 
     // ===== CSV LOGGING =====
@@ -902,5 +888,6 @@
     }
   }
 
+  // ===== expose =====
   window.RhythmBoxerEngine = RhythmBoxerEngine;
 })();
