@@ -1,15 +1,12 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH)
-// ✅ FIX #1: ยิงไม่ติด → miss ตลอด
-//    - Uses lockPx from ev.detail.lockPx
-//    - Aim Assist: if elementFromPoint miss -> snap to nearest .tgt within lockPx
-// ✅ FIX #2: เอฟเฟกต์หายเกลี้ยง
-//    - Always emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
-// ✅ API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
-// ✅ Emits: hha:time, hha:score, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:end
-// ✅ Deterministic RNG (seeded) for research/play
-// ✅ Mobile/cVR friendly: hit test via hha:shoot {x,y,lockPx,source}
-// ✅ Lightweight DOM targets in #playLayer
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH LOCKPX + FX)
+// ✅ Fix 1: Aim Assist lockPx real (uses ev.detail.lockPx from vr-ui.js / run)
+//    - if elementFromPoint misses => snap to nearest target within lockPx
+// ✅ Fix 2: FX events restored
+//    - always emits 'groups:hit' for hit_good / hit_bad / shot_miss / timeout_miss
+// ✅ Bonus: Spawn positions based on real playLayer size (not full viewport)
+// API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
+
 (function(){
   'use strict';
 
@@ -116,7 +113,10 @@
 
     // throttles
     lastCoachAt:0,
-    lastQuestEmitAt:0
+    lastQuestEmitAt:0,
+
+    // last lockPx seen (debug / consistency)
+    lastLockPx: 0
   };
 
   function cfgForDiff(diff){
@@ -136,6 +136,7 @@
       'contain:layout style paint;';
     S.wrapEl = w;
 
+    // layerEl is where targets should go (playLayer)
     if (S.layerEl){
       S.layerEl.innerHTML = '';
       S.layerEl.appendChild(w);
@@ -159,31 +160,55 @@
     S.targets.length = 0;
   }
 
+  function getPlaySize(){
+    // Prefer real playLayer size so hit/aim aligns with DOM layer
+    const el = S.layerEl || DOC.getElementById('playLayer');
+    if (!el) return { w: Math.max(320, WIN.innerWidth||360), h: Math.max(480, WIN.innerHeight||640) };
+    const w = Math.max(240, el.clientWidth || 0);
+    const h = Math.max(240, el.clientHeight || 0);
+    if (w && h) return { w, h };
+    const r = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    if (r && r.width && r.height) return { w: Math.max(240, r.width), h: Math.max(240, r.height) };
+    return { w: Math.max(320, WIN.innerWidth||360), h: Math.max(480, WIN.innerHeight||640) };
+  }
+
+  function getTargetSizePx(){
+    // Read from CSS variable --tSize (set by view) if available
+    try{
+      const v = getComputedStyle(DOC.body).getPropertyValue('--tSize').trim();
+      const n = Number(String(v).replace('px','').trim());
+      if (Number.isFinite(n) && n>10) return n;
+    }catch(_){}
+    // fallback by view
+    if (S.view === 'pc') return 96;
+    if (S.view === 'vr' || S.view === 'cvr') return 118;
+    return 108;
+  }
+
   function mkTarget(groupKey, emoji, lifeMs){
+    ensureWrap();
+
     const el = DOC.createElement('div');
     el.className = 'tgt';
     el.setAttribute('data-group', groupKey);
     el.setAttribute('role','button');
+    // Let CSS drive width/height via --tSize (do NOT hardcode 72px here)
     el.style.cssText =
-      'position:absolute; width:72px; height:72px; border-radius:18px; '+
+      'position:absolute; border-radius:18px; '+
       'display:flex; align-items:center; justify-content:center; '+
       'font-size:34px; font-weight:900; '+
       'background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.22); '+
       'box-shadow:0 12px 30px rgba(0,0,0,.22); '+
       'pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent;';
+
     el.textContent = emoji;
 
-    // NOTE: spawn uses window dims (works with playLayer clipping)
-    const vw = Math.max(320, WIN.innerWidth||360);
-    const vh = Math.max(480, WIN.innerHeight||640);
+    const { w, h } = getPlaySize();
+    const size = getTargetSizePx();
 
-    const topSafe = 120;
-    const botSafe = 210;
-    const leftSafe = 14;
-    const rightSafe = 14;
-
-    const x = leftSafe + (S.rng() * (vw - leftSafe - rightSafe - 72));
-    const y = topSafe + (S.rng() * (vh - topSafe - botSafe - 72));
+    const pad = 10;
+    const x = pad + (S.rng() * Math.max(1, (w - pad*2 - size)));
+    const y = pad + (S.rng() * Math.max(1, (h - pad*2 - size)));
 
     el.style.left = Math.round(x) + 'px';
     el.style.top  = Math.round(y) + 'px';
@@ -202,15 +227,6 @@
     S.wrapEl.appendChild(el);
 
     return t;
-  }
-
-  function centerOfEl(el){
-    try{
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    }catch(_){
-      return { x: 0, y: 0 };
-    }
   }
 
   // ---------------- events (HUD/Quest/Coach) ----------------
@@ -283,8 +299,8 @@
   function maybeStartMini(){
     if (S.runMode === 'practice') return;
     if (S.miniActive) return;
-
     if (S.timeLeftSec <= 0) return;
+
     if (S.timeLeftSec % 11 === 0 && S.timeLeftSec <= (S.timePlannedSec-6)){
       resetMini();
       coach('MINI มาแล้ว! ยิงให้ “ถูกหมู่” ติดกันเร็ว ๆ ⚡', 'fever');
@@ -390,49 +406,43 @@
     }
   }
 
-  // ---------------- hit test ----------------
-  function hitTestFromPoint(x,y){
-    x = Number(x)||0;
-    y = Number(y)||0;
-    let el = null;
+  // ---------------- hit test + AIM ASSIST ----------------
+  function hitTestPoint(x,y){
     try{
-      el = DOC.elementFromPoint(x,y);
+      const el = DOC.elementFromPoint(x,y);
       if (!el) return null;
       if (el.classList && el.classList.contains('tgt')) return el;
-      const p = el.closest ? el.closest('.tgt') : null;
-      return p || null;
+      return el.closest ? (el.closest('.tgt') || null) : null;
     }catch(_){
       return null;
     }
   }
 
-  // ✅ PATCH: lockPx aim assist snap to nearest target
-  function snapNearestTarget(x,y, lockPx){
-    const r = clamp(lockPx, 0, 96);
-    if (r <= 0) return null;
+  function centerOfEl(el){
+    try{
+      const r = el.getBoundingClientRect();
+      return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
+    }catch(_){
+      return { cx: 0, cy: 0 };
+    }
+  }
 
-    const r2 = r*r;
+  function aimAssistPick(x,y, lockPx){
+    // Find nearest live target center within lockPx
+    lockPx = clamp(lockPx, 0, 120);
+    if (!lockPx || !S.targets.length) return null;
+
     let bestEl = null;
-    let bestD2 = 1e18;
+    let bestD2 = (lockPx * lockPx) + 0.0001;
 
     for (let i=0;i<S.targets.length;i++){
       const t = S.targets[i];
       if (!t || t.hit || !t.el) continue;
-      // avoid detached
-      if (!DOC.body.contains(t.el)) continue;
-
-      let cx=0, cy=0;
-      try{
-        const rr = t.el.getBoundingClientRect();
-        cx = rr.left + rr.width/2;
-        cy = rr.top + rr.height/2;
-      }catch(_){ continue; }
-
-      const dx = (Number(x)||0) - cx;
-      const dy = (Number(y)||0) - cy;
+      const { cx, cy } = centerOfEl(t.el);
+      const dx = cx - x;
+      const dy = cy - y;
       const d2 = dx*dx + dy*dy;
-
-      if (d2 <= r2 && d2 < bestD2){
+      if (d2 <= bestD2){
         bestD2 = d2;
         bestEl = t.el;
       }
@@ -440,12 +450,15 @@
     return bestEl;
   }
 
-  function emitHitFX(kind, x, y, extra){
-    emit('groups:hit', Object.assign({
-      kind: String(kind||'').toLowerCase(),
+  function emitHitFX(kind, good, miss, x, y){
+    // Always emit for effects-pack.js
+    emit('groups:hit', {
+      kind: String(kind||''),
+      good: !!good,
+      miss: !!miss,
       x: Number(x)||0,
       y: Number(y)||0
-    }, extra||{}));
+    });
   }
 
   function removeTargetEl(tgtEl){
@@ -455,26 +468,38 @@
       tgtEl.style.opacity = '0';
       setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
     }catch(_){
-      try{ tgtEl.remove(); }catch(_2){}
+      try{ tgtEl.remove(); }catch(__){}
     }
   }
 
-  function markAndRemoveTarget(tgtEl){
+  function processHit(tgtEl, shotX, shotY){
+    const tg = String(tgtEl.getAttribute('data-group')||'');
+    const cg = currentGroup().key;
+    const good = (tg === cg);
+
+    // remove from list
     try{
-      const idx = S.targets.findIndex(t=>t.el===tgtEl);
+      const idx = S.targets.findIndex(t=>t && t.el===tgtEl);
       if (idx>=0){
         const t = S.targets[idx];
-        if (!t.hit){
-          t.hit = true;
-          removeTargetEl(tgtEl);
-          S.targets.splice(idx,1);
-          return;
-        }
+        if (!t.hit) t.hit = true;
+        S.targets.splice(idx,1);
       }
-      // not found, still remove
-      removeTargetEl(tgtEl);
-    }catch(_){
-      try{ tgtEl.remove(); }catch(_2){}
+    }catch(_){}
+
+    // visual remove
+    removeTargetEl(tgtEl);
+
+    // scoring
+    addScore(good);
+    if (good){
+      onGoodHit();
+      if (S.boss) bossHit();
+      emitHitFX('hit_good', true, false, shotX, shotY);
+    }else{
+      onBadHit();
+      coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+      emitHitFX('hit_bad', false, false, shotX, shotY);
     }
   }
 
@@ -485,48 +510,30 @@
     const d = ev.detail||{};
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
-    const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
-    const source = String(d.source||'').slice(0,24);
+
+    // lockPx from vr-ui.js / run (per-shot)
+    const lockPx = clamp(Number(d.lockPx ?? S.lastLockPx ?? 0), 0, 120);
+    if (lockPx) S.lastLockPx = lockPx;
 
     S.shots++;
 
-    // 1) direct hit-test
-    let tgtEl = hitTestFromPoint(x,y);
+    // 1) direct hit test
+    let tgtEl = hitTestPoint(x,y);
 
-    // 2) ✅ PATCH: aim assist if missed
+    // 2) aim assist (snap) if missed
     if (!tgtEl && lockPx > 0){
-      tgtEl = snapNearestTarget(x,y, lockPx);
+      tgtEl = aimAssistPick(x,y, lockPx);
     }
 
+    // 3) miss
     if (!tgtEl){
-      // shot miss
       addScore(false);
       onBadHit();
-      emitHitFX('shot_miss', x, y, { miss:true, good:false, lockPx, source });
+      emitHitFX('shot_miss', false, true, x, y);
       return;
     }
 
-    const tg = String(tgtEl.getAttribute('data-group')||'');
-    const cg = currentGroup().key;
-
-    // compute center for FX (better than raw point)
-    const c = centerOfEl(tgtEl);
-
-    // remove target
-    markAndRemoveTarget(tgtEl);
-
-    const good = (tg === cg);
-    addScore(good);
-
-    if (good){
-      onGoodHit();
-      if (S.boss) bossHit();
-      emitHitFX('hit_good', c.x, c.y, { good:true, miss:false, group:tg, current:cg, lockPx, source });
-    }else{
-      onBadHit();
-      coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
-      emitHitFX('hit_bad', c.x, c.y, { good:false, miss:false, group:tg, current:cg, lockPx, source });
-    }
+    processHit(tgtEl, x, y);
   }
 
   // ---------------- RAF loop ----------------
@@ -565,10 +572,10 @@
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
-      if (t >= tg.dieAt){
-        const cg = currentGroup().key;
 
-        // missed: count miss only if it was current group (fair)
+      if (t >= tg.dieAt){
+        // timeout: count miss only if it was current group (fair)
+        const cg = currentGroup().key;
         if (tg.groupKey === cg){
           S.miss++;
           S.combo = 0;
@@ -577,12 +584,12 @@
           emitRank();
           onBadHit();
 
-          // ✅ PATCH: emit timeout miss FX at target center
+          // FX event for timeout miss (use target center)
           const c = centerOfEl(tg.el);
-          emitHitFX('timeout_miss', c.x, c.y, { miss:true, good:false, group:tg.groupKey, current:cg });
+          emitHitFX('timeout_miss', false, true, c.cx, c.cy);
         }
 
-        // fade out
+        // remove visual
         try{
           tg.el.style.transition = 'transform 120ms ease, opacity 120ms ease';
           tg.el.style.transform = 'scale(.85)';
@@ -624,13 +631,13 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
-    // mix spawn: mostly random, but bias toward correct group so playable
+    // mix spawn: mostly correct group so playable
     let gKey = '';
     const r = S.rng();
     if (r < 0.58) gKey = cg.key;
     else gKey = pick(S.rng, GROUPS).key;
 
-    // in boss: increase correct targets
+    // boss: increase correct targets
     if (S.boss && S.rng() < 0.70) gKey = cg.key;
 
     const g = GROUPS.find(x=>x.key===gKey) || cg;
@@ -646,7 +653,6 @@
     // cap targets (mobile-safe)
     const cap = (S.view==='pc') ? 12 : 10;
     if (S.targets.length > cap){
-      // remove oldest (prefer wrong group)
       let idx = S.targets.findIndex(x=>x.groupKey !== currentGroup().key);
       if (idx < 0) idx = 0;
       const old = S.targets[idx];
@@ -705,7 +711,6 @@
     emitScore();
     emitRank();
     emitTime();
-
     emitQuest(true);
 
     coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
@@ -734,7 +739,7 @@
       FX && FX.init && FX.init({ layerEl: S.layerEl });
     }catch(_){}
 
-    // Telemetry (optional)
+    // init Telemetry (optional)
     try{
       const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
       if (T && T.init){
@@ -765,9 +770,10 @@
     S.startT = nowMs();
     S.lastTickT = S.startT;
 
-    // listen shoot (mobile/cVR/vr-ui)
+    // listen shoot
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
 
+    // GO!
     S.rafId = requestAnimationFrame(rafLoop);
     return true;
   }
@@ -779,7 +785,7 @@
       try{ cancelAnimationFrame(S.rafId); }catch(_){}
       S.rafId = 0;
     }
-    try{ WIN.removeEventListener('hha:shoot', handleShoot, { passive:true }); }catch(_){}
+    WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
 
     clearTargets();
     try{ if (S.wrapEl) S.wrapEl.innerHTML = ''; }catch(_){}
@@ -793,7 +799,7 @@
       try{ cancelAnimationFrame(S.rafId); }catch(_){}
       S.rafId = 0;
     }
-    try{ WIN.removeEventListener('hha:shoot', handleShoot, { passive:true }); }catch(_){}
+    WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
 
     const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
     const grade =
@@ -818,6 +824,7 @@
     };
 
     emit('hha:end', summary);
+
     clearTargets();
   }
 
