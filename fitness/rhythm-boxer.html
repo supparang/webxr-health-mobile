@@ -108,7 +108,7 @@
     <header class="rb-play-header">
       <div>
         <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
-        <p class="rb-sub-sm">แตะเลนให้โน้ตตรงเส้นตี · ดู FEVER / ACC / HP</p>
+        <p class="rb-sub-sm">แตะเลนให้ตรงจังหวะ · ดู FEVER / ACC / HP</p>
       </div>
       <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
     </header>
@@ -123,6 +123,7 @@
         <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
         <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai">AI Fatigue: <b id="rb-hud-ai-fatigue">0%</b></span>
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
@@ -131,12 +132,13 @@
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai rb-chip-tip"><span class="rb-chip-tip-label">Coach:</span> <b id="rb-hud-ai-tip" class="hidden"></b></span>
       </div>
-      </div>
+
       <div class="rb-hud-row">
         <span class="rb-chip">HP: <b id="rb-hud-hp">100</b></span>
         <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
         <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-judge-row">
         <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
         <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
@@ -161,6 +163,7 @@
     <section class="rb-field-wrap">
       <div id="rb-field">
         <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
+
         <div class="rb-lanes" id="rb-lanes">
           <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
           <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
@@ -168,7 +171,17 @@
           <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
           <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
         </div>
+
+        <!-- cVR (Cardboard) 3-lane pad -->
+        <div class="rb-cvr-pad" aria-hidden="true">
+          <button class="rb-cvr-btn" data-cvr="L">L</button>
+          <button class="rb-cvr-btn" data-cvr="C">C</button>
+          <button class="rb-cvr-btn" data-cvr="R">R</button>
+        </div>
+
+        <div class="rb-cvr-crosshair" aria-hidden="true"></div>
       </div>
+
       <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่เหนือป้ายเลน) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
     </section>
 
@@ -183,6 +196,7 @@
         <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
         <p class="rb-sub">ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง</p>
       </div>
+      <a href="hub.html" class="rb-back">← กลับ HUB</a>
     </header>
 
     <section class="rb-result-grid">
