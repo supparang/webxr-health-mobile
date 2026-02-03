@@ -3,6 +3,7 @@
 // ✅ FIX 1: LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
 // ✅ FIX 2: FX restored — emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
 // ✅ EXTRA: direct tap/click on target also works (pointerdown => same pipeline)
+// ✅ BADGES: first_play, streak_10, mini_clear_1, boss_clear_1, score_80p, perfect_run
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
 (function(){
   'use strict';
@@ -52,6 +53,43 @@
     return arr[(rng()*arr.length)|0];
   }
 
+  // ---------------- BADGES (classic bridge) ----------------
+  function badgeMeta(extra){
+    let pid = '';
+    try{
+      const B = WIN.HHA_Badges;
+      pid = (B && typeof B.getPid === 'function') ? (B.getPid()||'') : '';
+    }catch(_){}
+
+    let q;
+    try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
+
+    const base = {
+      pid,
+      run: String(q.get('run')||'').toLowerCase() || 'play',
+      diff: String(q.get('diff')||'').toLowerCase() || 'normal',
+      time: Number(q.get('time')||0) || 0,
+      seed: Number(q.get('seed')||0) || 0,
+      view: String(q.get('view')||'').toLowerCase() || '',
+      style: String(q.get('style')||'').toLowerCase() || '',
+      game: 'groups'
+    };
+    if(extra && typeof extra === 'object'){
+      for(const k of Object.keys(extra)) base[k] = extra[k];
+    }
+    return base;
+  }
+
+  function awardOnce(gameKey, badgeId, meta){
+    try{
+      const B = WIN.HHA_Badges;
+      if(!B || typeof B.awardBadge !== 'function') return false;
+      return !!B.awardBadge(gameKey, badgeId, badgeMeta(meta));
+    }catch(_){
+      return false;
+    }
+  }
+
   // ---------------- food groups (ไทย) ----------------
   // mapping ที่คุณล็อกไว้: หมู่ 1 โปรตีน, หมู่ 2 คาร์บ, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
   const GROUPS = [
@@ -86,6 +124,12 @@
     miss:0,
     shots:0,
     goodShots:0,
+
+    // badges runtime flags
+    maxCombo:0,
+    streak10Awarded:false,
+    miniAwarded:false,
+    bossAwarded:false,
 
     // power / group cycle
     groupIdx:0,
@@ -311,6 +355,14 @@
     if (isGood){
       S.goodShots++;
       S.combo = Math.min(99, (S.combo|0) + 1);
+      S.maxCombo = Math.max(S.maxCombo|0, S.combo|0);
+
+      // badge: streak_10 once
+      if (!S.streak10Awarded && S.combo >= 10){
+        S.streak10Awarded = true;
+        awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, score:S.score|0 });
+      }
+
       const comboBonus = Math.min(25, (S.combo>=3)? (S.combo*2) : 0);
       S.score += (10 + comboBonus);
       S.powerCur = Math.min(S.powerThr, S.powerCur + 1);
@@ -337,6 +389,17 @@
         S.score += 35;
         coach('MINI สำเร็จ! +โบนัส ✅', 'happy');
         S.miniActive = false;
+
+        // badge: mini_clear_1 once per run
+        if(!S.miniAwarded){
+          S.miniAwarded = true;
+          awardOnce('groups','mini_clear_1', {
+            miniKind:S.miniKind,
+            miniTot:S.miniTot|0,
+            score:S.score|0,
+            maxCombo:S.maxCombo|0
+          });
+        }
       }
     }
     emitQuest(false);
@@ -391,6 +454,12 @@
       emitRank();
       emit('groups:progress', { kind:'boss_down' });
       coach('บอสแตก! โคตรดี 💥', 'happy');
+
+      // badge: boss_clear_1 (this game has 1 boss moment)
+      if(!S.bossAwarded){
+        S.bossAwarded = true;
+        awardOnce('groups','boss_clear_1', { score:S.score|0, maxCombo:S.maxCombo|0, misses:S.miss|0 });
+      }
     }
   }
 
@@ -660,6 +729,12 @@
     S.score = 0; S.combo = 0; S.miss = 0;
     S.shots = 0; S.goodShots = 0;
 
+    // badges runtime flags reset per run
+    S.maxCombo = 0;
+    S.streak10Awarded = false;
+    S.miniAwarded = false;
+    S.bossAwarded = false;
+
     S.groupIdx = 0;
     S.powerCur = 0;
     S.powerThr = C.powerThr;
@@ -745,6 +820,9 @@
     // reset + run
     resetRun(ctx||{});
 
+    // badge: first play (safe, no override)
+    awardOnce('groups','first_play',{});
+
     S.running = true;
     S.startT = nowMs();
     S.lastTickT = S.startT;
@@ -787,6 +865,14 @@
       (acc>=76 && S.score>=120) ? 'B' :
       (acc>=62) ? 'C' : 'D';
 
+    // badges on end:
+    if (acc >= 80){
+      awardOnce('groups','score_80p', { accuracyGoodPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, misses:S.miss|0, scoreFinal:S.score|0, maxCombo:S.maxCombo|0 });
+    }
+    if ((S.miss|0) === 0){
+      awardOnce('groups','perfect_run', { accuracyGoodPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, misses:S.miss|0, scoreFinal:S.score|0, maxCombo:S.maxCombo|0 });
+    }
+
     const summary = {
       reason: reason || 'end',
       scoreFinal: S.score|0,
@@ -799,7 +885,10 @@
       runMode: S.runMode,
       diff: S.diff,
       style: S.style,
-      view: S.view
+      view: S.view,
+      maxCombo: S.maxCombo|0,
+      miniCleared: !!S.miniAwarded,
+      bossCleared: !!S.bossAwarded
     };
 
     emit('hha:end', summary);
