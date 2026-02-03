@@ -1,124 +1,83 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — PRODUCTION (SAFE + FULL LAYOUT)
-✅ Fix: z-index layering (HUD vs targets vs FX vs overlays)
-✅ Fix: playfield safe padding with --gj-top-safe / --gj-bottom-safe
-✅ Fix: cVR split support (L/R layers)
-✅ Fix: hud-hidden expands play area
-✅ Fix: Missions peek + End overlay + Low-time overlay
+FIX for: CSS not applying / layout looks like plain text
+Targets: /herohealth/goodjunk-vr.html (RUN) structure you posted
 */
 
-/* ------------------------------
-   Root tokens / safe areas
--------------------------------- */
 :root{
   color-scheme: dark;
-
-  --bg: #020617;
-  --panel: rgba(2,6,23,.74);
-  --panel2: rgba(15,23,42,.62);
-  --stroke: rgba(148,163,184,.18);
-
-  --text: #e5e7eb;
+  --bg:#020617;
+  --panel:rgba(2,6,23,.72);
+  --stroke:rgba(148,163,184,.18);
+  --text:#e5e7eb;
   --muted:#94a3b8;
+  --accent:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
 
-  --accent: #22c55e;  /* good */
-  --bad:    #ef4444;  /* junk/miss */
-  --warn:   #f59e0b;  /* time */
-  --violet: #a78bfa;
-  --cyan:   #22d3ee;
+  --radius:22px;
+  --pill:999px;
 
-  --radius: 22px;
-  --pill: 999px;
-
-  /* safe-area insets */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* boot will set these (measured) */
-  --gj-top-safe: calc(118px + var(--sat));
-  --gj-bottom-safe: calc(126px + var(--sab));
+  /* boot จะวัดมาใส่ให้ ถ้ายังไม่ใส่ก็มี fallback */
+  --gj-top-safe: calc(120px + var(--sat));
+  --gj-bottom-safe: calc(140px + var(--sab));
 
-  /* target sizes */
-  --t-size: 74px;
-  --t-size-big: 86px;
-
-  /* playfield padding */
-  --field-pad-x: 14px;
-  --field-pad-y: 14px;
-
-  /* outline */
-  --glow: 0 14px 42px rgba(0,0,0,.45);
-  --glow2: 0 10px 26px rgba(0,0,0,.35);
+  --t-size: 76px;
+  --t-size-big: 92px;
 }
 
 *{ box-sizing:border-box; }
 html,body{
   height:100%;
   margin:0;
-  background: radial-gradient(1200px 800px at 50% 20%, rgba(34,197,94,.10), transparent 60%),
-              radial-gradient(900px 540px at 15% 90%, rgba(56,189,248,.10), transparent 62%),
-              radial-gradient(900px 540px at 85% 90%, rgba(168,85,247,.10), transparent 62%),
+  background: radial-gradient(1000px 700px at 50% 15%, rgba(34,197,94,.10), transparent 60%),
+              radial-gradient(900px 600px at 20% 90%, rgba(56,189,248,.10), transparent 62%),
+              radial-gradient(900px 600px at 85% 85%, rgba(168,85,247,.10), transparent 62%),
               var(--bg);
   color:var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-  overflow:hidden; /* IMPORTANT: game is fixed layout */
+  overflow:hidden;
 }
 
-body.gj{
-  position:relative;
-  -webkit-tap-highlight-color: transparent;
-}
+body.gj{ position:relative; }
+.gj *{ user-select:none; -webkit-tap-highlight-color:transparent; }
 
-/* Prevent accidental selection */
-.gj *{
-  user-select:none;
-}
+/* ===== view classes ===== */
+body.view-pc{ --t-size:78px; --t-size-big:96px; }
+body.view-mobile{ --t-size:76px; --t-size-big:92px; }
+body.view-vr, body.view-cvr{ --t-size:84px; --t-size-big:102px; }
 
-/* ------------------------------
-   View classes
--------------------------------- */
-body.view-pc{ --t-size: 78px; --t-size-big: 92px; }
-body.view-mobile{ --t-size: 76px; --t-size-big: 90px; }
-body.view-vr{ --t-size: 84px; --t-size-big: 98px; }
-body.view-cvr{ --t-size: 84px; --t-size-big: 98px; }
+/* ===== z-index plan =====
+field targets  : 80
+HUD+topbar     : 170-190
+overlays       : 230-260
+FX layer       : 260 (particles.js sets .hha-fx-layer) */
+.hha-fx-layer{ z-index:260 !important; pointer-events:none !important; }
 
-/* ------------------------------
-   Layering map (z-index)
---------------------------------
-  - A-Frame scene hidden (z:-1 or offscreen)
-  - Field targets: z 80
-  - HUD: z 160-190
-  - Overlays (missions/end/lowtime): z 220-250
-  - FX layer: z 260 (pointer-events:none)
--------------------------------- */
-.hha-fx-layer{ z-index:260 !important; }
-
-/* ------------------------------
-   Topbar
--------------------------------- */
+/* ===== TOPBAR ===== */
 .gj-topbar{
   position:fixed;
   left:0; right:0;
   top:0;
   padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  z-index:190;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  z-index:190;
   pointer-events:auto;
 }
-
 .gj-topbar::before{
   content:"";
   position:absolute; inset:0;
-  background: linear-gradient(to bottom, rgba(2,6,23,.82), rgba(2,6,23,.48), transparent);
+  background: linear-gradient(to bottom, rgba(2,6,23,.86), rgba(2,6,23,.55), transparent);
   border-bottom: 1px solid rgba(148,163,184,.12);
   pointer-events:none;
 }
-
 .gj-topbar .left,
 .gj-topbar .right{
   position:relative;
@@ -127,61 +86,50 @@ body.view-cvr{ --t-size: 84px; --t-size-big: 98px; }
   gap:8px;
   flex-wrap:wrap;
 }
-
 .gj-chip{
   display:inline-flex;
   align-items:center;
-  gap:8px;
   padding:8px 12px;
   border-radius: var(--pill);
   background: rgba(2,6,23,.62);
-  border: 1px solid rgba(148,163,184,.14);
-  box-shadow: var(--glow2);
-  color: var(--text);
-  font-weight: 800;
-  font-size: 12.5px;
-  letter-spacing: .2px;
+  border:1px solid rgba(148,163,184,.14);
+  color:var(--text);
+  font-weight:900;
+  font-size:12.5px;
   backdrop-filter: blur(10px);
 }
-
 .gj-btn{
   appearance:none;
-  border: 1px solid rgba(148,163,184,.18);
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.66);
   color: var(--text);
-  padding: 10px 12px;
+  padding:10px 12px;
   border-radius: 14px;
-  font-weight: 900;
+  font-weight: 1000;
   font-size: 12.5px;
-  letter-spacing: .2px;
-  box-shadow: var(--glow2);
   cursor:pointer;
 }
-.gj-btn:active{ transform: translateY(1px); }
 .gj-btn.primary{
   border-color: rgba(34,197,94,.35);
   background: rgba(34,197,94,.16);
 }
+.gj-btn:active{ transform: translateY(1px); }
 
-/* ------------------------------
-   HUD TOP
--------------------------------- */
-.gj-hud-top{
+/* ===== HUD TOP (your HTML uses .gj-hud-top#hud) ===== */
+.gj-hud-top, #hud{
   position:fixed;
   left:0; right:0;
   top: calc(56px + var(--sat));
   padding: 10px calc(12px + var(--sar)) 10px calc(12px + var(--sal));
   z-index:170;
-  pointer-events:none; /* keep playfield tappable */
+  pointer-events:none; /* ให้ยิง/แตะในสนามได้ */
 }
 
-.gj-hud-top .hud-row{
+.hud-row{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
   align-items:stretch;
-  justify-content:flex-start;
-  pointer-events:none;
 }
 
 .hud-pill{
@@ -189,80 +137,79 @@ body.view-cvr{ --t-size: 84px; --t-size-big: 98px; }
   padding: 10px 12px;
   border-radius: 16px;
   background: var(--panel);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: var(--glow2);
+  border:1px solid rgba(148,163,184,.16);
   backdrop-filter: blur(10px);
-  pointer-events:none;
 }
-.hud-pill .hud-label{
-  font-size: 10.5px;
-  font-weight: 900;
+.hud-label{
+  font-size:10.5px;
+  font-weight:1000;
   color: var(--muted);
-  letter-spacing: .35px;
+  letter-spacing:.35px;
 }
-.hud-pill .hud-value{
-  font-size: 18px;
-  font-weight: 1000;
-  margin-top: 4px;
+.hud-value{
+  margin-top:4px;
+  font-size:18px;
+  font-weight:1100;
   line-height:1.1;
 }
-.hud-pill.warn .hud-value{ color: #fbbf24; }
-.hud-pill.grade .hud-value{ color: #a7f3d0; }
+.hud-pill.warn .hud-value{ color:#fbbf24; }
+.hud-pill.grade .hud-value{ color:#a7f3d0; }
 
+/* quest cards */
 .quest-row{
   display:grid;
   grid-template-columns: 1.2fr .8fr;
   gap:10px;
   margin-top:10px;
 }
-
 .quest-card{
   border-radius: 18px;
   background: rgba(2,6,23,.66);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: var(--glow2);
+  border:1px solid rgba(148,163,184,.16);
   padding: 10px 12px;
   backdrop-filter: blur(10px);
-  pointer-events:none;
 }
+.q-title{ font-weight:1100; font-size:12.5px; }
+.q-desc{ margin-top:6px; color:var(--muted); font-weight:900; font-size:12px; }
+.q-bar{ margin-top:8px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.q-num{ font-weight:1100; font-size:12px; }
+.q-hint{ font-weight:900; font-size:11px; color:rgba(229,231,235,.78); }
 
-.quest-card .q-title{
-  font-weight: 1000;
-  letter-spacing:.2px;
-  font-size: 12.5px;
-}
-.quest-card .q-desc{
-  margin-top:6px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-}
-.quest-card .q-bar{
-  margin-top:8px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.quest-card .q-num{
-  font-weight: 1000;
-  font-size: 12px;
-}
-.quest-card .q-hint{
-  font-size: 11px;
-  color: rgba(229,231,235,.78);
-  font-weight: 800;
-}
-
-/* mini card highlight */
 .quest-card.mini{
   background: rgba(15,23,42,.62);
-  border-color: rgba(34,211,238,.18);
+  border-color: rgba(56,189,248,.18);
 }
 
-/* ------------------------------
-   HUD BOTTOM
--------------------------------- */
+/* ===== PLAYFIELD (your HTML uses #playfield) ===== */
+.gj-field, #playfield{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  padding-top: var(--gj-top-safe);
+  padding-bottom: var(--gj-bottom-safe);
+  padding-left: calc(14px + var(--sal));
+  padding-right: calc(14px + var(--sar));
+}
+
+.gj-layer{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  pointer-events:auto;
+}
+
+/* cVR split */
+.gj-layer-r{ display:none; }
+body.view-cvr #gj-layer{ width:50%; left:0; right:auto; }
+body.view-cvr #gj-layer-r{
+  display:block;
+  position:absolute;
+  top:0; bottom:0;
+  left:50%; width:50%;
+  pointer-events:auto;
+}
+
+/* ===== BOTTOM HUD ===== */
 .gj-hud-bot{
   position:fixed;
   left:0; right:0;
@@ -276,27 +223,18 @@ body.view-cvr{ --t-size: 84px; --t-size-big: 98px; }
   align-items:flex-end;
   justify-content:space-between;
 }
-
 .meter{
   min-width: 220px;
   flex: 1 1 320px;
   border-radius: 18px;
   background: rgba(2,6,23,.66);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: var(--glow2);
+  border:1px solid rgba(148,163,184,.16);
   padding: 10px 12px;
   backdrop-filter: blur(10px);
 }
-
-.meter-title{
-  font-size: 11px;
-  font-weight: 1000;
-  color: rgba(229,231,235,.85);
-  letter-spacing:.35px;
-}
+.meter-title{ font-size:11px; font-weight:1100; letter-spacing:.35px; }
 .meter-bar{
-  height: 12px;
-  border-radius: 999px;
+  height:12px; border-radius:999px;
   background: rgba(148,163,184,.16);
   overflow:hidden;
   margin-top:8px;
@@ -304,128 +242,15 @@ body.view-cvr{ --t-size: 84px; --t-size-big: 98px; }
 .meter-fill{
   height:100%;
   width:0%;
-  border-radius: 999px;
+  border-radius:999px;
   background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(56,189,248,.85));
-  box-shadow: 0 10px 22px rgba(34,197,94,.12);
 }
-.meter-num{
-  margin-top:8px;
-  font-weight: 1000;
-  font-size: 12px;
-  color: rgba(229,231,235,.92);
-}
-.meter-tip{
-  margin-top:8px;
-  font-weight: 800;
-  font-size: 12px;
-  color: rgba(229,231,235,.80);
-}
+.meter-num{ margin-top:8px; font-weight:1100; font-size:12px; }
+.meter-tip{ margin-top:8px; font-weight:900; font-size:12px; color:rgba(229,231,235,.80); }
 
-.meter.shield .meter-title{ color: rgba(167,243,208,.9); }
-.meter-shield{
-  margin-top:6px;
-  font-weight: 1000;
-  font-size: 12px;
-  color: rgba(229,231,235,.9);
-}
-
-/* ------------------------------
-   Playfield
--------------------------------- */
-.gj-field{
-  position:fixed;
-  inset: 0;
-  z-index:80;
-  /* safe padding to avoid HUD overlap */
-  padding-top: var(--gj-top-safe);
-  padding-bottom: var(--gj-bottom-safe);
-  padding-left: calc(var(--field-pad-x) + var(--sal));
-  padding-right: calc(var(--field-pad-x) + var(--sar));
-}
-
-.gj-layer{
-  position:absolute;
-  inset: 0;
-  pointer-events:auto; /* targets clickable */
-  overflow:hidden;
-}
-
-/* cVR: split into two halves */
-.gj-layer-r{
-  display:none;
-}
-body.view-cvr .gj-layer{
-  width:50%;
-  left:0;
-}
-body.view-cvr .gj-layer-r{
-  display:block;
-  width:50%;
-  left:50%;
-  right:0;
-  position:absolute;
-  top:0; bottom:0;
-  pointer-events:auto;
-}
-
-/* ------------------------------
-   Targets (DOM sprites)
--------------------------------- */
-.gj-target{
-  position:absolute;
-  width: var(--t-size);
-  height: var(--t-size);
-  border-radius: 18px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size: 34px;
-  font-weight: 1000;
-  cursor:pointer;
-
-  background: rgba(2,6,23,.55);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 16px 38px rgba(0,0,0,.35);
-  backdrop-filter: blur(8px);
-  transform: translateZ(0);
-  will-change: transform, opacity;
-}
-
-.gj-target.big{
-  width: var(--t-size-big);
-  height: var(--t-size-big);
-  border-radius: 22px;
-  font-size: 38px;
-}
-
-/* Good vs Junk decoration helpers (engine can set dataset/type) */
-.gj-target[data-kind="good"]{
-  border-color: rgba(34,197,94,.35);
-  box-shadow: 0 18px 44px rgba(34,197,94,.12), 0 16px 38px rgba(0,0,0,.35);
-}
-.gj-target[data-kind="junk"]{
-  border-color: rgba(239,68,68,.35);
-  box-shadow: 0 18px 44px rgba(239,68,68,.10), 0 16px 38px rgba(0,0,0,.35);
-}
-.gj-target:active{
-  transform: scale(.96);
-}
-
-/* optional little float animation (engine may toggle class) */
-.gj-target.float{
-  animation: gjFloat 1.35s ease-in-out infinite;
-}
-@keyframes gjFloat{
-  0%,100%{ transform: translateY(0); }
-  50%{ transform: translateY(-6px); }
-}
-
-/* ------------------------------
-   Missions Peek overlay
--------------------------------- */
+/* ===== Missions Peek overlay ===== */
 .gj-peek{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   z-index:230;
   display:none;
   align-items:flex-start;
@@ -433,156 +258,101 @@ body.view-cvr .gj-layer-r{
   padding-top: calc(var(--gj-top-safe) + 8px);
   pointer-events:auto;
 }
-body.show-missions .gj-peek{
-  display:flex;
-}
+body.show-missions .gj-peek{ display:flex; }
 .gj-peek::before{
   content:"";
   position:absolute; inset:0;
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
-
 .peek-card{
   position:relative;
-  width: min(560px, calc(100vw - 24px));
+  width:min(560px, calc(100vw - 24px));
   border-radius: 22px;
   background: rgba(15,23,42,.74);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: var(--glow);
-  padding: 14px 14px;
+  border:1px solid rgba(148,163,184,.18);
+  padding: 14px;
 }
-.peek-title{
-  font-size: 16px;
-  font-weight: 1000;
-}
-.peek-sub, .peek-mini{
-  margin-top: 8px;
-  font-weight: 900;
-  color: rgba(229,231,235,.92);
-}
-.peek-tip{
-  margin-top: 10px;
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(229,231,235,.78);
-}
+.peek-title{ font-size:16px; font-weight:1100; }
+.peek-sub, .peek-mini{ margin-top:8px; font-weight:1000; }
+.peek-tip{ margin-top:10px; font-size:12px; font-weight:900; color:rgba(229,231,235,.78); }
 
-/* ------------------------------
-   Low time overlay (t<=5)
--------------------------------- */
+/* ===== Low time overlay ===== */
 .gj-lowtime-overlay{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   z-index:240;
   display:flex;
   align-items:center;
   justify-content:center;
   pointer-events:none;
 }
-.gj-lowtime-ring,
-.gj-lowtime-num{
+.gj-lowtime-ring, .gj-lowtime-num{
   opacity:0;
   transform: scale(.88);
   transition: opacity 160ms ease, transform 160ms ease;
 }
 .gj-lowtime-ring{
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  border: 4px solid rgba(251,191,36,.35);
-  box-shadow: 0 22px 60px rgba(245,158,11,.16);
-  position:absolute;
+  width:180px; height:180px;
+  border-radius:999px;
+  border:4px solid rgba(251,191,36,.35);
   animation: gjRing 1s ease-in-out infinite;
 }
-@keyframes gjRing{
-  0%,100%{ transform: scale(.98); }
-  50%{ transform: scale(1.04); }
-}
+@keyframes gjRing{ 0%,100%{transform:scale(.98)} 50%{transform:scale(1.04)} }
 .gj-lowtime-num{
-  font-size: 74px;
-  font-weight: 1100;
-  color: #fbbf24;
+  font-size:74px;
+  font-weight:1200;
+  color:#fbbf24;
   text-shadow: 0 18px 42px rgba(0,0,0,.45);
 }
-
-/* aria-hidden drives visibility */
 #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
 #lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
   opacity:1;
-  transform: scale(1);
+  transform:scale(1);
 }
 
-/* ------------------------------
-   End overlay
--------------------------------- */
+/* ===== End overlay ===== */
 .gj-end{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   z-index:250;
   display:none;
   align-items:center;
   justify-content:center;
-  padding: 18px;
+  padding:18px;
   pointer-events:auto;
 }
 .gj-end[aria-hidden="false"]{ display:flex; }
-
 .gj-end::before{
   content:"";
   position:absolute; inset:0;
   background: rgba(2,6,23,.62);
   backdrop-filter: blur(12px);
 }
-
 .gj-end .card{
   position:relative;
-  width: min(620px, calc(100vw - 24px));
+  width:min(620px, calc(100vw - 24px));
   border-radius: 26px;
   background: rgba(15,23,42,.78);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: var(--glow);
-  padding: 16px 16px 14px;
+  border:1px solid rgba(148,163,184,.18);
+  padding: 16px;
 }
-
-.gj-end .title{
-  font-size: 20px;
-  font-weight: 1100;
-}
-.gj-end .sub{
-  margin-top: 6px;
-  color: rgba(229,231,235,.78);
-  font-weight: 800;
-  font-size: 12px;
-}
+.gj-end .title{ font-size:20px; font-weight:1200; }
+.gj-end .sub{ margin-top:6px; font-size:12px; font-weight:900; color:rgba(229,231,235,.78); }
 .gj-end .grid{
-  margin-top: 12px;
+  margin-top:12px;
   display:grid;
   grid-template-columns: repeat(4, 1fr);
   gap:10px;
 }
 .gj-end .stat{
-  border-radius: 16px;
+  border-radius:16px;
   background: rgba(2,6,23,.55);
-  border: 1px solid rgba(148,163,184,.14);
-  padding: 10px 10px;
+  border:1px solid rgba(148,163,184,.14);
+  padding:10px;
 }
-.gj-end .stat span{
-  display:block;
-  font-size: 10.5px;
-  color: rgba(148,163,184,.95);
-  font-weight: 1000;
-  letter-spacing:.35px;
-}
-.gj-end .stat b{
-  display:block;
-  margin-top: 6px;
-  font-size: 18px;
-  font-weight: 1100;
-}
-
+.gj-end .stat span{ font-size:10.5px; font-weight:1100; color:rgba(148,163,184,.95); }
+.gj-end .stat b{ display:block; margin-top:6px; font-size:18px; font-weight:1200; }
 .gj-end .actions{
-  margin-top: 14px;
+  margin-top:14px;
   display:flex;
   gap:10px;
   justify-content:flex-end;
@@ -590,12 +360,12 @@ body.show-missions .gj-peek{
 }
 .gj-end .btn{
   appearance:none;
-  border: 1px solid rgba(148,163,184,.18);
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.62);
-  color: var(--text);
-  padding: 12px 14px;
-  border-radius: 16px;
-  font-weight: 1000;
+  color:var(--text);
+  padding:12px 14px;
+  border-radius:16px;
+  font-weight:1100;
   cursor:pointer;
 }
 .gj-end .btn.alt{
@@ -603,9 +373,7 @@ body.show-missions .gj-peek{
   background: rgba(34,197,94,.14);
 }
 
-/* ------------------------------
-   HUD hidden (expand playfield)
--------------------------------- */
+/* ===== HUD hidden expands field ===== */
 body.hud-hidden .gj-hud-top,
 body.hud-hidden .gj-hud-bot{
   opacity:0;
@@ -613,36 +381,18 @@ body.hud-hidden .gj-hud-bot{
   transition: opacity 160ms ease, transform 160ms ease;
   pointer-events:none;
 }
-body.hud-hidden .gj-hud-bot{
-  transform: translateY(6px);
-}
-
-/* When HUD hidden, let the playfield use more space (boot also updates safe vars) */
-body.hud-hidden .gj-field{
-  padding-top: calc(72px + var(--sat)); /* keep topbar breathing room */
+body.hud-hidden .gj-hud-bot{ transform: translateY(6px); }
+body.hud-hidden .gj-field,
+body.hud-hidden #playfield{
+  padding-top: calc(72px + var(--sat));
   padding-bottom: calc(76px + var(--sab));
 }
 
-/* ------------------------------
-   Responsive tweaks
--------------------------------- */
-@media (max-width: 520px){
-  .gj-topbar{ gap:8px; }
-  .gj-btn{ padding: 9px 10px; font-size: 12px; }
-  .gj-chip{ padding: 7px 10px; font-size: 12px; }
+/* ===== responsive ===== */
+@media (max-width:520px){
+  .gj-btn{ padding:9px 10px; font-size:12px; }
+  .gj-chip{ padding:7px 10px; font-size:12px; }
   .quest-row{ grid-template-columns: 1fr; }
-  .meter{ min-width: 0; flex: 1 1 100%; }
+  .meter{ min-width:0; flex:1 1 100%; }
   .gj-end .grid{ grid-template-columns: repeat(2, 1fr); }
 }
-
-@media (min-width: 900px){
-  .gj-hud-top{ padding-left: calc(18px + var(--sal)); padding-right: calc(18px + var(--sar)); }
-  .gj-hud-bot{ padding-left: calc(18px + var(--sal)); padding-right: calc(18px + var(--sar)); }
-  .gj-field{ padding-left: calc(18px + var(--sal)); padding-right: calc(18px + var(--sar)); }
-}
-
-/* ------------------------------
-   Compatibility / safety
--------------------------------- */
-#xrScene{ display:none !important; } /* if you keep A-Frame offscreen, prevent odd overlaps */
-a-scene[embedded]{ pointer-events:none !important; }
