@@ -1,13 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (HARDENED)
 // ✅ Auto view detect (no UI override)
-// ✅ Start immediately (no need Start button) but supports optional Start overlay if you add it
-// ✅ Loads engine from ./plate.safe.js
-// ✅ Wires HUD listeners (hha:score, hha:time, quest:update, hha:coach, hha:end)
+// ✅ Boots engine from ./plate.safe.js
+// ✅ Wires HUD (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params: run/diff/time/seed/studyId/... etc.
-// ✅ Anti-freeze: startOnce + mount check + readable fatal message
+// ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
+// ✅ HARDEN: guard against "start button freeze" + robust mount check + visible error
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -26,8 +25,7 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Do not offer UI override.
-  // Allow forced by query for experiments (?view=pc/mobile/vr/cvr) but no menu.
+  // No menu override. Allow query param for experiments.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -52,47 +50,6 @@ function pct(n){
   return `${Math.round(n)}%`;
 }
 
-/* ------------------------------
- * Minimal “fatal” message (no freeze)
- * ------------------------------ */
-function ensureFatalBox(){
-  let box = DOC.getElementById('hhaFatal');
-  if(box) return box;
-
-  box = DOC.createElement('div');
-  box.id = 'hhaFatal';
-  box.style.position = 'fixed';
-  box.style.left = '12px';
-  box.style.right = '12px';
-  box.style.bottom = '12px';
-  box.style.zIndex = '9999';
-  box.style.padding = '12px 14px';
-  box.style.borderRadius = '16px';
-  box.style.border = '1px solid rgba(148,163,184,.22)';
-  box.style.background = 'rgba(2,6,23,.82)';
-  box.style.backdropFilter = 'blur(10px)';
-  box.style.color = '#e5e7eb';
-  box.style.fontFamily = 'system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif';
-  box.style.display = 'none';
-  box.innerHTML = `
-    <div style="font-weight:900; margin-bottom:6px;">⚠️ PlateVR</div>
-    <div id="hhaFatalMsg" style="font-size:13px; line-height:1.4; opacity:.95;"></div>
-  `;
-  DOC.body.appendChild(box);
-  return box;
-}
-
-function fatal(msg){
-  const box = ensureFatalBox();
-  const m = DOC.getElementById('hhaFatalMsg');
-  if(m) m.textContent = String(msg || 'เกิดข้อผิดพลาด');
-  box.style.display = 'block';
-  console.error('[PlateVR] FATAL:', msg);
-}
-
-/* ------------------------------
- * Overlays / Coach
- * ------------------------------ */
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
@@ -107,7 +64,6 @@ function showCoach(msg, meta='Coach'){
 
   mEl.textContent = String(msg || '');
   if(metaEl) metaEl.textContent = meta;
-
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -115,12 +71,9 @@ function showCoach(msg, meta='Coach'){
   WIN.__HHA_COACH_TO__ = setTimeout(()=>{
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
-  }, 2200);
+  }, 2400);
 }
 
-/* ------------------------------
- * HUD wiring
- * ------------------------------ */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -150,7 +103,6 @@ function wireHUD(){
 
   WIN.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    // Expect shape: { goal:{name,sub,cur,target}, mini:{name,sub,cur,target,done}, allDone }
     if(d.goal){
       const g = d.goal;
       if(goalName) goalName.textContent = g.name || 'Goal';
@@ -177,16 +129,16 @@ function wireHUD(){
   });
 }
 
-/* ------------------------------
- * End controls + summary
- * ------------------------------ */
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
   if(btnRestart){
-    btnRestart.addEventListener('click', ()=> location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      // keep same query params
+      location.reload();
+    });
   }
   if(btnBackHub){
     btnBackHub.addEventListener('click', ()=>{
@@ -220,9 +172,6 @@ function wireEndSummary(){
   });
 }
 
-/* ------------------------------
- * Config builder
- * ------------------------------ */
 function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
@@ -237,10 +186,10 @@ function buildEngineConfig(){
     durationPlannedSec: Number(time),
     seed: Number(seed),
 
+    // passthrough
     hub: qs('hub','') || '',
     logEndpoint: qs('log','') || '',
 
-    // passthrough research ctx
     studyId: qs('studyId','') || '',
     phase: qs('phase','') || '',
     conditionGroup: qs('conditionGroup','') || '',
@@ -259,48 +208,35 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-/* ------------------------------
- * Start (anti-freeze)
- * ------------------------------ */
-let __started = false;
-
-function startOnce(){
-  if(__started) return;
-  __started = true;
-
+ready(()=>{
+  // 1) init view
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
-  // wire UI
+  // 2) wire UI first (so errors are visible)
   wireHUD();
   wireEndControls();
   wireEndSummary();
 
-  // ensure end overlay closed at start
+  // 3) ensure overlay closed at start
   setOverlayOpen(false);
 
+  // 4) mount check (prevents "clicked start but nothing spawned")
   const mount = DOC.getElementById('plate-layer');
   if(!mount){
-    fatal('หา #plate-layer ไม่เจอ — ตรวจ plate-vr.html ว่ามี <div id="plate-layer"> อยู่จริง');
+    console.error('[PlateVR] mount #plate-layer missing');
+    showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
     return;
   }
 
+  // 5) boot engine with hard guard
   try{
-    engineBoot({ mount, cfg });
+    // small microtask yield helps some mobile browsers settle layout
+    Promise.resolve().then(()=>{
+      engineBoot({ mount, cfg });
+    });
   }catch(err){
     console.error('[PlateVR] boot error', err);
-    fatal('เริ่มเกมไม่สำเร็จ: ' + (err?.message || String(err)));
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม', 'System');
-  }
-}
-
-ready(()=>{
-  // ✅ start immediately
-  startOnce();
-
-  // (Optional) if you later add a Start overlay/button, it can call this safely:
-  const btn = DOC.getElementById('btnStart');
-  if(btn){
-    btn.addEventListener('click', ()=> startOnce());
+    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู Console)', 'System');
   }
 });
