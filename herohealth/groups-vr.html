@@ -1,212 +1,425 @@
-<!-- === /herohealth/groups-vr.html ===
-GroupsVR LAUNCHER — ROOT (Production)
-✅ Auto-detect view: pc / mobile / cvr
-✅ DO NOT override if ?view= already exists
-✅ Pass-through: hub/run/diff/time/seed/style/studyId/conditionGroup/log/practice/ai (+others)
-✅ Remembers last view (localStorage) if no explicit ?view=
-✅ Clear entry buttons (PC/Mobile/Cardboard) BUT auto redirect by default
-✅ Safe: guards matchMedia / missing buttons
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+GroupsVR Run (PC/Mobile/Cardboard)
+✅ HHA Standard layers + playLayer
+✅ vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
+✅ PATCH: lockPx tuned for mobile/cVR (aim assist radius)
+✅ PATCH: effects-pack restored (groups:hit)
+✅ Tap-to-start (no menu) for mobile autoplay restrictions
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GroupsVR Launcher</title>
-  <meta name="color-scheme" content="dark"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Food Groups VR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- A-Frame: minimal scene for WebXR Enter VR reliability (kept behind DOM) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
   <style>
-    :root{
-      --bg:#020617; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
-      --accent:#22c55e; --warn:#f59e0b; --radius:22px; --pill:999px;
-      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    /* Tap overlay (super light) */
+    #tapToStart{
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(var(--sat) + 20px) calc(var(--sar) + 16px) calc(var(--sab) + 20px) calc(var(--sal) + 16px);
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(8px);
     }
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
-    .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding: calc(var(--sat) + 18px) 14px calc(var(--sab) + 18px); }
-    .card{
-      width:min(760px, 100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:16px;
-      box-shadow: 0 18px 44px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-    }
-    h1{ margin:0; font-size:18px; letter-spacing:.2px; }
-    .sub{ margin-top:6px; color:rgba(229,231,235,.86); font-size:13px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px; border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
-      font-weight:900; font-size:12px;
-    }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
-    @media (min-width: 780px){ .grid{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
-    button{
-      width:100%;
-      border-radius:18px;
-      padding:12px 12px;
+    #tapToStart.hidden{ display:none; }
+    #tapToStart .box{
+      width: min(720px, 100%);
+      border-radius: 22px;
       border:1px solid rgba(148,163,184,.20);
-      background:rgba(15,23,42,.68);
-      color:var(--text);
-      font-weight:1000;
-      cursor:pointer;
+      background: rgba(2,6,23,.82);
+      box-shadow: 0 18px 60px rgba(0,0,0,.42);
+      padding: 14px;
+      text-align:center;
     }
-    button.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.35); }
-    button.warn{ background:rgba(245,158,11,.16); border-color:rgba(245,158,11,.35); }
-    .note{ margin-top:10px; color:var(--muted); font-size:12px; }
-    .small{ font-size:12px; color:rgba(229,231,235,.78); }
-    .hr{ height:1px; background:rgba(148,163,184,.12); margin:14px 0; border-radius:999px; }
-    code{ font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    #tapToStart .h1{
+      font-weight: 1200;
+      font-size: 18px;
+      margin: 2px 0 6px;
+    }
+    #tapToStart .p{
+      font-weight: 950;
+      font-size: 13px;
+      line-height: 1.35;
+      color: rgba(229,231,235,.86);
+      margin: 0 0 12px;
+    }
+    #tapToStart .btn{
+      appearance:none;
+      width: 100%;
+      border-radius: 16px;
+      padding: 12px 12px;
+      border:1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.16);
+      color: #e5e7eb;
+      font-weight: 1100;
+      cursor:pointer;
+      user-select:none;
+    }
+    #tapToStart .note{
+      margin-top: 10px;
+      font-weight: 900;
+      font-size: 12px;
+      color: rgba(229,231,235,.75);
+      line-height: 1.35;
+    }
   </style>
 </head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>🥦 HeroHealth — Food Groups VR</h1>
-      <div class="sub">Auto detect อุปกรณ์แล้วเข้าเล่นเอง (แต่ยังมีปุ่มให้เลือกเข้าแบบชัดเจน)</div>
 
-      <div class="row">
-        <span class="pill">🎮 run: <span id="vRun">play</span></span>
-        <span class="pill">⚙️ diff: <span id="vDiff">normal</span></span>
-        <span class="pill">⏱️ time: <span id="vTime">90</span>s</span>
-        <span class="pill">🪪 view: <span id="vView">auto</span></span>
-        <span class="pill">🧠 ai: <span id="vAI">off</span></span>
-      </div>
+<body class="view-mobile">
 
-      <div class="hr"></div>
+  <!-- XR scene (behind DOM) -->
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:true;">
+    <a-entity position="0 1.6 0"></a-entity>
+  </a-scene>
 
-      <div class="grid">
-        <button id="btnAuto" class="primary" type="button">🚀 เข้าเล่น (Auto)</button>
-        <button id="btnPC" type="button">🖥️ PC</button>
-        <button id="btnMobile" type="button">📱 Mobile</button>
-        <button id="btnVR" class="warn" type="button">🥽 VR / Cardboard</button>
-      </div>
-
-      <div class="note">
-        • ถ้ามี <b>?view=</b> อยู่แล้วจะ <b>ไม่ override</b><br/>
-        • Cardboard (cVR): แนะนำ <b>?practice=15</b> (หรือ practice=1) เพื่อฝึก 15 วิ แล้วค่อยเริ่มจริง<br/>
-        <span class="small">ตัวอย่าง: <code>?run=play&diff=normal&time=90&ai=1&practice=15</code></span>
-      </div>
+  <!-- ===== HUD ===== -->
+  <header class="hud" aria-hidden="true">
+    <div class="hudLeft">
+      <div class="pill"><span class="lbl">SCORE</span><span class="val" id="hudScore">0</span></div>
+      <div class="pill"><span class="lbl">COMBO</span><span class="val" id="hudCombo">0</span></div>
+      <div class="pill"><span class="lbl">MISS</span><span class="val" id="hudMiss">0</span></div>
     </div>
+    <div class="hudRight">
+      <div class="pill"><span class="lbl">TIME</span><span class="val" id="hudTime">90</span></div>
+      <div class="pill"><span class="lbl">ACC</span><span class="val" id="hudAcc">0%</span></div>
+      <div class="pill"><span class="lbl">RANK</span><span class="val" id="hudRank">D</span></div>
+    </div>
+  </header>
+
+  <!-- ===== Quest ===== -->
+  <section class="questTop" aria-hidden="true">
+    <article class="questCard">
+      <div class="qTitle">
+        <div id="goalTitle">ยิงให้ถูก: หมู่ 1 โปรตีน</div>
+        <div class="tag" id="goalTag">GOAL</div>
+      </div>
+      <div class="bar"><div class="fill" id="goalFill"></div></div>
+      <div class="qSub" id="goalSub">0 / 12</div>
+    </article>
+
+    <article class="questCard">
+      <div class="qTitle">
+        <div id="miniTitle">MINI: คอมโบติดกัน 5 ครั้ง</div>
+        <div class="tag" id="miniTag">MINI</div>
+      </div>
+      <div class="bar"><div class="fill" id="miniFill"></div></div>
+      <div class="qSub" id="miniSub">0 / 5</div>
+    </article>
+  </section>
+
+  <!-- ===== Big Banner ===== -->
+  <div class="bigBanner hidden tone-neutral" id="bigBanner" aria-hidden="true">
+    <div class="bigBannerText" id="bigBannerText">พร้อม!</div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const DOC = document;
-  const LS_VIEW = 'HHA_GROUPS_LAST_VIEW';
+  <!-- ===== Play Layer (targets spawn here) ===== -->
+  <main class="playLayer" id="playLayer" aria-label="play layer"></main>
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
+  <!-- ===== Power ===== -->
+  <section class="powerWrap" aria-hidden="true">
+    <div class="powerCard">
+      <div class="pHead" id="powerTitle">POWER: สะสมเพื่อสลับหมู่</div>
+      <div class="bar powerBar"><div class="fill" id="powerFill"></div></div>
+      <div class="pFoot" id="powerSub">0 / 8</div>
+    </div>
+  </section>
 
-  function setText(id, v){
-    const el = DOC.getElementById(id);
-    if (el) el.textContent = String(v ?? '');
-  }
+  <!-- ===== Coach ===== -->
+  <section class="coachWrap" aria-hidden="true">
+    <div class="coachCard">
+      <img class="coachImg" id="coachImg" src="../img/coach-neutral.png" alt="coach"/>
+      <div class="coachBubble">
+        <div class="coachName" id="coachName">Coach</div>
+        <div class="coachText" id="coachText">แตะเริ่มเกม แล้วเล็งกลางจอค่อยยิง 🎯</div>
+      </div>
+    </div>
+  </section>
 
-  function mm(q){
-    try{ return !!(window.matchMedia && window.matchMedia(q).matches); }
-    catch{ return false; }
-  }
+  <!-- ===== End/Calibration overlays (optional placeholders) ===== -->
+  <section class="overlay hidden" id="overlayEnd" aria-hidden="true">
+    <div class="panel">
+      <div class="title">สรุปผล</div>
+      <div class="sub" id="endSub">—</div>
+      <div class="grid2" id="endGrid"></div>
+      <div class="row2" style="margin-top:12px;">
+        <button class="btn btn-strong" id="btnReplay">เล่นอีกครั้ง</button>
+        <button class="btn btn-ghost" id="btnBackHub">กลับ HUB</button>
+      </div>
+      <div class="note" style="margin-top:10px;" id="endNote">บันทึกผลล่าสุดแล้ว</div>
+    </div>
+  </section>
 
-  function isLikelyMobile(){
-    const ua = navigator.userAgent || '';
-    const coarse = mm('(pointer: coarse)');
-    const small  = Math.min(window.innerWidth||360, window.innerHeight||640) <= 520;
-    return /Android|iPhone|iPad|iPod/i.test(ua) || coarse || small;
-  }
+  <!-- ===== Tap to Start (NO menu) ===== -->
+  <section id="tapToStart">
+    <div class="box">
+      <div class="h1">Food Groups VR</div>
+      <div class="p">แตะ 1 ครั้งเพื่อเริ่มเกม (มือถือ/แท็บเล็ตต้องมี gesture ก่อน)</div>
+      <button class="btn" id="btnStart">เริ่มเลย</button>
+      <div class="note">
+        เคล็ดลับมือถือ: เล็งกลางจอแล้วค่อยยิง<br/>
+        Aim Assist เปิดให้แล้ว ✅
+      </div>
+    </div>
+  </section>
 
-  function isLikelyCardboard(){
-    // heuristic: mobile + coarse pointer (มือถือ) → default cVR
-    return isLikelyMobile() && mm('(pointer: coarse)');
-  }
+  <script>
+  (function(){
+    'use strict';
+    const WIN = window, DOC = document;
 
-  function detectView(){
-    // ✅ if explicit ?view= exists, do not override
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v) return v;
+    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+    const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
 
-    // ✅ else read remembered
-    try{
-      const saved = String(localStorage.getItem(LS_VIEW)||'').toLowerCase();
-      if (saved) return saved;
-    }catch{}
+    // ---- View detect (pc / mobile / vr / cvr) ----
+    function detectView(){
+      const v = String(qs('view','')||'').toLowerCase().trim();
+      if(v) return v;
 
-    // ✅ heuristic
-    if (isLikelyCardboard()) return 'cvr';
-    if (isLikelyMobile()) return 'mobile';
-    return 'pc';
-  }
+      // If WebXR & running in headset, pages often have "immersive" later; keep simple UA fallback
+      const ua = (navigator.userAgent||'').toLowerCase();
+      const isMobile = /android|iphone|ipad|ipod/.test(ua);
+      return isMobile ? 'mobile' : 'pc';
+    }
 
-  function buildRunUrl(viewOverride){
-    // ✅ RUN file เดียวใน vr-groups
-    const runPath = './vr-groups/groups-vr.html';
-    const u = new URL(runPath, location.href);
+    function applyViewClass(view){
+      DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      const v = (view==='cvr') ? 'view-cvr'
+              : (view==='vr')  ? 'view-vr'
+              : (view==='pc')  ? 'view-pc' : 'view-mobile';
+      DOC.body.classList.add(v);
+    }
 
-    const sp = new URL(location.href).searchParams;
+    const VIEW = detectView();
+    applyViewClass(VIEW);
 
-    // pass-through all params
-    sp.forEach((v,k)=> u.searchParams.set(k,v));
+    // ---- PATCH: lockPx tuned (mobile/cVR stronger) ----
+    // You can override by URL: ?lockPx=48
+    function tunedLockPx(view){
+      // "สุด" แต่ยังไม่เวอร์จนดูดผิดเป้า:
+      // mobile: 44  | cvr: 52 | vr: 34 | pc: 28
+      if(view === 'cvr') return 52;
+      if(view === 'mobile') return 44;
+      if(view === 'vr') return 34;
+      return 28;
+    }
+    const lockOverride = qs('lockPx', null);
+    const LOCKPX = clamp(lockOverride != null ? Number(lockOverride) : tunedLockPx(VIEW), 0, 96);
 
-    // decide view
-    const explicit = String(sp.get('view')||'').toLowerCase();
-    const view = explicit ? explicit : (viewOverride || detectView());
+    // vr-ui.js reads this config
+    WIN.HHA_VRUI_CONFIG = Object.assign({}, WIN.HHA_VRUI_CONFIG||{}, {
+      lockPx: LOCKPX,
+      cooldownMs: 90
+    });
 
-    if (!explicit) u.searchParams.set('view', view);
+    // ---- (Optional) show banner helper ----
+    const bannerEl = DOC.getElementById('bigBanner');
+    const bannerText = DOC.getElementById('bigBannerText');
+    let _bannerTimer = 0;
+    function showBanner(text, tone){
+      try{
+        bannerEl.classList.remove('hidden','tone-neutral','tone-good','tone-warn','tone-bad','show');
+        bannerEl.classList.add('tone-' + (tone||'neutral'));
+        bannerText.textContent = String(text||'');
+        bannerEl.classList.add('show');
+        clearTimeout(_bannerTimer);
+        _bannerTimer = setTimeout(()=>{
+          try{ bannerEl.classList.add('hidden'); bannerEl.classList.remove('show'); }catch(_){}
+        }, 900);
+      }catch(_){}
+    }
 
-    // remember
-    try{ localStorage.setItem(LS_VIEW, view); }catch{}
+    // ---- DOM bindings ----
+    const $ = (id)=>DOC.getElementById(id);
 
-    return u.toString();
-  }
+    function setFill(el, pct){
+      pct = clamp(pct,0,100);
+      if(el) el.style.width = pct + '%';
+    }
 
-  function bind(id, fn){
-    const el = DOC.getElementById(id);
-    if (!el) return;
-    el.addEventListener('click', fn);
-  }
+    WIN.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail||{};
+      $('hudScore').textContent = String(d.score ?? 0);
+      $('hudCombo').textContent = String(d.combo ?? 0);
+      $('hudMiss').textContent = String(d.misses ?? 0);
+    }, { passive:true });
 
-  // HUD
-  setText('vRun',  String(qs('run','play')||'play'));
-  setText('vDiff', String(qs('diff','normal')||'normal'));
-  setText('vTime', String(qs('time','90')||'90'));
+    WIN.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail||{};
+      $('hudTime').textContent = String(d.left ?? 0);
+    }, { passive:true });
 
-  const aiRaw = String(qs('ai','0')||'0').toLowerCase();
-  const aiOn  = (aiRaw==='1'||aiRaw==='true'||aiRaw==='yes'||aiRaw==='on');
-  setText('vAI', aiOn ? 'on' : 'off');
+    WIN.addEventListener('hha:rank', (ev)=>{
+      const d = ev.detail||{};
+      $('hudAcc').textContent = String((d.accuracy ?? 0)) + '%';
+      $('hudRank').textContent = String(d.grade ?? 'D');
+    }, { passive:true });
 
-  const view = detectView();
-  setText('vView', view);
+    WIN.addEventListener('quest:update', (ev)=>{
+      const d = ev.detail||{};
+      $('goalTitle').textContent = d.goalTitle || 'GOAL';
+      $('goalSub').textContent = `${d.goalNow||0} / ${d.goalTotal||0}`;
+      setFill($('goalFill'), d.goalPct||0);
 
-  function go(viewOverride){
-    location.href = buildRunUrl(viewOverride);
-  }
+      $('miniTitle').textContent = d.miniTitle || 'MINI';
+      $('miniSub').textContent = `${d.miniNow||0} / ${d.miniTotal||0}` + (d.miniTimeLeftSec ? ` • ${d.miniTimeLeftSec}s` : '');
+      setFill($('miniFill'), d.miniPct||0);
 
-  bind('btnAuto',   ()=> go(null));
-  bind('btnPC',     ()=> go('pc'));
-  bind('btnMobile', ()=> go('mobile'));
-  bind('btnVR',     ()=> go('cvr'));
+      // urgent mini glow
+      if((d.miniTimeLeftSec||0) > 0 && (d.miniTimeLeftSec||0) <= 3) DOC.body.classList.add('mini-urgent');
+      else DOC.body.classList.remove('mini-urgent');
+    }, { passive:true });
 
-  // ✅ auto redirect quickly (unless user explicitly wants to stay: ?stay=1)
-  const stayRaw = String(qs('stay','0')||'0').toLowerCase();
-  const stay = (stayRaw==='1'||stayRaw==='true'||stayRaw==='yes'||stayRaw==='on');
+    WIN.addEventListener('groups:power', (ev)=>{
+      const d = ev.detail||{};
+      const cur = Number(d.charge||0), thr = Number(d.threshold||1);
+      $('powerSub').textContent = `${cur} / ${thr}`;
+      setFill($('powerFill'), Math.round((cur/Math.max(1,thr))*100));
+    }, { passive:true });
 
-  if (!stay){
-    setTimeout(()=> go(null), 350);
-  }
-})();
-</script>
+    WIN.addEventListener('hha:coach', (ev)=>{
+      const d = ev.detail||{};
+      $('coachText').textContent = d.text || '';
+      const mood = String(d.mood||'neutral');
+      const map = {
+        happy: '../img/coach-happy.png',
+        fever: '../img/coach-fever.png',
+        sad: '../img/coach-sad.png',
+        neutral: '../img/coach-neutral.png'
+      };
+      $('coachImg').src = map[mood] || map.neutral;
+      if(mood==='happy') showBanner('👍 ดีมาก!', 'good');
+      else if(mood==='fever') showBanner('⚡ เร็วเข้า!', 'warn');
+    }, { passive:true });
+
+    // ---- End summary (optional basic) ----
+    function showEnd(summary){
+      const o = $('overlayEnd');
+      if(!o) return;
+      const sub = $('endSub');
+      const grid = $('endGrid');
+      try{
+        const s = summary || {};
+        sub.textContent = `Score: ${s.scoreFinal||0} • Acc: ${s.accuracyGoodPct||0}% • Rank: ${s.grade||'D'} • Miss: ${s.misses||0}`;
+        grid.innerHTML = '';
+        const items = [
+          ['คะแนน', s.scoreFinal||0],
+          ['ความแม่น (ของถูก)', (s.accuracyGoodPct||0) + '%'],
+          ['ยิงทั้งหมด', s.shots||0],
+          ['ยิงถูก', s.goodShots||0],
+          ['MISS', s.misses||0],
+          ['Seed', s.seed||'']
+        ];
+        items.forEach(([k,v])=>{
+          const box = DOC.createElement('div');
+          box.className = 'stat';
+          box.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+          grid.appendChild(box);
+        });
+        o.classList.remove('hidden');
+      }catch(_){}
+    }
+
+    WIN.addEventListener('hha:end', (ev)=>{
+      showEnd(ev.detail||{});
+    }, { passive:true });
+
+    // ---- Hub param passthrough ----
+    const HUB = qs('hub','') || '../hub.html';
+    $('btnBackHub')?.addEventListener('click', ()=>{
+      location.href = HUB;
+    });
+
+    // ---- Start flow (tap-to-start) ----
+    let started = false;
+    function startGame(){
+      if(started) return;
+      started = true;
+      $('tapToStart')?.classList.add('hidden');
+
+      // Start engine
+      try{
+        const GE = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
+        if(GE && GE.setLayerEl) GE.setLayerEl(DOC.getElementById('playLayer'));
+        const diff = qs('diff','normal') || 'normal';
+        const ctx = {
+          seed: qs('seed','') || Date.now(),
+          time: Number(qs('time', 90)),
+          runMode: qs('run','play') || 'play'
+        };
+        GE && GE.start && GE.start(diff, ctx);
+        showBanner(`LOCKPX ${LOCKPX}`, 'neutral');
+      }catch(e){
+        console.error(e);
+        alert('Start failed: ' + (e && e.message ? e.message : e));
+      }
+    }
+
+    $('btnStart')?.addEventListener('click', startGame);
+    DOC.addEventListener('pointerdown', (e)=>{
+      // allow first gesture anywhere
+      if(!started) startGame();
+    }, { passive:true });
+
+    // Replay
+    $('btnReplay')?.addEventListener('click', ()=>{
+      try{
+        const GE = WIN.GroupsVR && WIN.GroupsVR.GameEngine;
+        GE && GE.stop && GE.stop();
+      }catch(_){}
+      $('overlayEnd')?.classList.add('hidden');
+      started = false;
+      startGame();
+    });
+
+    // ---- Load scripts in correct order ----
+    function loadScript(src){
+      return new Promise((res, rej)=>{
+        const s = DOC.createElement('script');
+        s.src = src;
+        s.defer = true;
+        s.onload = ()=>res(true);
+        s.onerror = ()=>rej(new Error('Failed to load: ' + src));
+        DOC.head.appendChild(s);
+      });
+    }
+
+    (async function boot(){
+      // OPTIONAL particles (if you use it in your repo)
+      // await loadScript('../vr/particles.js').catch(()=>{});
+
+      // vr-ui: must load early (it emits hha:shoot, has crosshair)
+      await loadScript('../vr/vr-ui.js');
+
+      // Effects pack: listens to groups:hit
+      await loadScript('./effects-pack.js');
+
+      // Engine (PATCH version you just pasted)
+      await loadScript('./groups.safe.js');
+
+      // kick init of EffectsPack (safe even if already init)
+      try{
+        const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
+        FX && FX.init && FX.init({ layerEl: DOC.getElementById('playLayer') });
+      }catch(_){}
+
+      // show small hint
+      showBanner('พร้อมเล่น ✅', 'good');
+    })();
+
+  })();
+  </script>
+
 </body>
 </html>
