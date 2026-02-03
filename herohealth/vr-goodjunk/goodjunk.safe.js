@@ -10,6 +10,7 @@
 'use strict';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
+import { awardBadge, hasBadge, getPid } from '../badges.safe.js';
 
 const WIN = window;
 const DOC = document;
@@ -22,6 +23,36 @@ function makeRNG(seed){
   let x = (Number(seed)||Date.now()) % 2147483647;
   if (x <= 0) x += 2147483646;
   return ()=> (x = x * 16807 % 2147483647) / 2147483647;
+}
+
+/** BADGES helper */
+function badgeMeta(extra){
+  let pid = '';
+  try{ pid = (typeof getPid === 'function') ? (getPid()||'') : ''; }catch(_){}
+  let q;
+  try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
+  const base = {
+    pid,
+    run: String(q.get('run')||'').toLowerCase() || 'play',
+    diff: String(q.get('diff')||'').toLowerCase() || 'normal',
+    time: Number(q.get('time')||0) || 0,
+    seed: Number(q.get('seed')||0) || 0,
+    view: String(q.get('view')||'').toLowerCase() || '',
+    style: String(q.get('style')||'').toLowerCase() || '',
+    game: 'goodjunk'
+  };
+  if(extra && typeof extra === 'object'){
+    for(const k of Object.keys(extra)) base[k] = extra[k];
+  }
+  return base;
+}
+
+function awardOnce(gameKey, badgeId, meta){
+  try{
+    return !!awardBadge(gameKey, badgeId, badgeMeta(meta));
+  }catch(_){
+    return false;
+  }
 }
 
 /** อ่าน safe vars แล้วคืนค่าเป็น number px */
@@ -201,7 +232,12 @@ export function boot(opts={}){
       hp: 100,
       hpMax: 100,
       cleared: false
-    }
+    },
+
+    // BADGES runtime flags
+    badge_streak10:false,
+    badge_mini:false,
+    badge_boss:false
   };
 
   const adaptiveOn = (run === 'play');
@@ -317,6 +353,18 @@ export function boot(opts={}){
       if(S.mini.groups.size >= tar){
         S.mini.done = true;
 
+        // BADGE: mini_clear_1 (once per run)
+        if(!S.badge_mini){
+          S.badge_mini = true;
+          awardOnce('goodjunk','mini_clear_1',{
+            miniTar:tar,
+            miniWindowSec:S.mini.windowSec|0,
+            score:S.score|0,
+            miss:S.miss|0,
+            comboMax:S.comboMax|0
+          });
+        }
+
         const preferShield = (S.miss >= 2);
         if(preferShield){
           S.shield = Math.min(3, S.shield + 1);
@@ -389,6 +437,19 @@ export function boot(opts={}){
     setBossUI(false);
 
     if(success){
+      // BADGE: boss_clear_1
+      if(!S.badge_boss){
+        S.badge_boss = true;
+        awardOnce('goodjunk','boss_clear_1', {
+          score:S.score|0,
+          miss:S.miss|0,
+          comboMax:S.comboMax|0,
+          hitGood:S.hitGood|0,
+          hitJunk:S.hitJunk|0,
+          expireGood:S.expireGood|0
+        });
+      }
+
       addScore(120);
       setFever(Math.max(0, S.fever - 18));
       emit('hha:judge', { type:'perfect', label:'BOSS CLEAR!' });
@@ -410,6 +471,18 @@ export function boot(opts={}){
       S.hitGood++;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
+
+      // BADGE: streak_10
+      if(!S.badge_streak10 && S.combo >= 10){
+        S.badge_streak10 = true;
+        awardOnce('goodjunk','streak_10',{
+          combo:S.combo|0,
+          comboMax:S.comboMax|0,
+          score:S.score|0,
+          miss:S.miss|0
+        });
+      }
+
       addScore(10 + Math.min(10, S.combo));
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
@@ -626,6 +699,37 @@ export function boot(opts={}){
     if(S.boss.active) endBoss(false);
 
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
+
+    // --- badges on end (score_80p, perfect_run) ---
+    // accuracy = hitGood / (hitGood + hitJunk + expireGood + miss)
+    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0) + (S.miss|0));
+    const acc = (S.hitGood|0) / denom;
+
+    if(acc >= 0.80){
+      awardOnce('goodjunk','score_80p',{
+        accuracy: Number(acc.toFixed(4)),
+        hitGood:S.hitGood|0,
+        hitJunk:S.hitJunk|0,
+        expireGood:S.expireGood|0,
+        miss:S.miss|0,
+        scoreFinal:S.score|0,
+        comboMax:S.comboMax|0,
+        bossCleared: !!S.boss.cleared
+      });
+    }
+    if((S.miss|0) === 0){
+      awardOnce('goodjunk','perfect_run',{
+        accuracy: Number(acc.toFixed(4)),
+        hitGood:S.hitGood|0,
+        hitJunk:S.hitJunk|0,
+        expireGood:S.expireGood|0,
+        miss:S.miss|0,
+        scoreFinal:S.score|0,
+        comboMax:S.comboMax|0,
+        bossCleared: !!S.boss.cleared
+      });
+    }
+
     const summary = {
       game:'GoodJunkVR',
       pack:'fair-v4.2-boss-layout',
@@ -732,6 +836,9 @@ export function boot(opts={}){
   updateQuestUI();
   updateProgress();
   setBossUI(false);
+
+  // BADGE: first_play
+  awardOnce('goodjunk','first_play',{});
 
   // listen both shoot events
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
