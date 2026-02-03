@@ -1,5 +1,5 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Quiz 1-4 + FX)
+// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Quiz 1-4 + FX + Boss + Streak)
 // ✅ Exports: boot()
 // Emits: hha:start, hha:time, hha:judge, hha:end
 // Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
@@ -148,6 +148,19 @@ export function boot(){
   let slowmoUntil = 0;   // ms timestamp
   let slowmoK = 1.0;     // 1 normal, <1 slower spawns
 
+  // ------------------ NEW: Shield + Streak ------------------
+  // Quiz Boss: correct streak >= 3 => gain 1 shield (caps)
+  let shield = 0;               // charges
+  let shieldGained = 0;
+  let shieldUsed = 0;
+
+  // Perfect step: complete step without mistakes (wrong/haz that counts) => +2s + streak
+  let stepMistThis = 0;         // wrongStep hits this step
+  let stepHazThis = 0;          // haz hits this step (not blocked)
+  let perfectStepStreak = 0;
+  let perfectStepStreakMax = 0;
+  let perfectStepsTotal = 0;
+
   // quiz state
   let quizOpen = false;
   let quizRight = 0;
@@ -155,6 +168,10 @@ export function boot(){
   let quizObj = null;          // current quiz object
   let quizCorrectIdx = -1;     // 0..3
   let quizOptions = [];        // 4 strings
+
+  // quiz boss streak
+  let quizCorrectStreak = 0;
+  let quizCorrectStreakMax = 0;
 
   // active targets
   const targets = []; // {id, el, kind, stepIdx, bornMs}
@@ -183,13 +200,15 @@ export function boot(){
     }else if(kind === 'haz'){
       P.popText(c.x, c.y, '🦠 โดนเชื้อ!', 'bad');
       P.burst(c.x, c.y, { count: 14, spread: 54, upBias: 0.90 });
+    }else if(kind === 'shield'){
+      P.popText(c.x, c.y, '🛡 กันไว้!', 'cyan');
+      P.burst(c.x, c.y, { count: 18, spread: 74, upBias: 0.95 });
     }
   }
 
   function fxComboMilestone(){
     const P = WIN.Particles;
     if(!P) return;
-    // milestone every 5 combo
     if(combo > 0 && combo % 5 === 0){
       const x = WIN.innerWidth*0.5;
       const y = Math.max(80, WIN.innerHeight*0.24);
@@ -205,7 +224,6 @@ export function boot(){
     const x = WIN.innerWidth*0.5;
     const y = Math.max(96, WIN.innerHeight*0.22);
     P.popText(x, y, title || '🎉 7 STEPS CLEAR!', 'good');
-    // multi bursts like confetti
     for(let i=0;i<5;i++){
       const dx = (rng()*2-1) * 120;
       const dy = (rng()*2-1) * 40;
@@ -213,11 +231,28 @@ export function boot(){
     }
   }
 
+  function fxPerfectStep(){
+    const P = WIN.Particles;
+    if(!P) return;
+    const x = WIN.innerWidth*0.5;
+    const y = Math.max(96, WIN.innerHeight*0.26);
+    P.popText(x, y, `✨ PERFECT STEP! (+2s)`, 'good');
+    P.burst(x, y, { count: 18, spread: 84, upBias: 0.95 });
+  }
+
+  function fxShieldGain(){
+    const P = WIN.Particles;
+    if(!P) return;
+    const x = WIN.innerWidth*0.5;
+    const y = Math.max(96, WIN.innerHeight*0.22);
+    P.popText(x, y, `🛡 SHIELD +1`, 'cyan');
+    P.burst(x, y, { count: 22, spread: 96, upBias: 0.95 });
+  }
+
   function setQuizVisible(on){
     quizOpen = !!on;
     if(!quizBox) return;
     quizBox.style.display = on ? 'block' : 'none';
-    // reset opt button styles
     if(on){
       optBtns.forEach(b=>{ b.classList.remove('correct','wrong'); b.disabled = false; });
     }else{
@@ -228,8 +263,7 @@ export function boot(){
   function pickQuiz(){
     const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
     if(!Array.isArray(bank) || !bank.length) return null;
-    const q = bank[Math.floor(rng()*bank.length)];
-    return q || null;
+    return bank[Math.floor(rng()*bank.length)] || null;
   }
 
   function openRandomQuiz(){
@@ -240,9 +274,7 @@ export function boot(){
     quizQ.textContent = `🧠 Quiz: ${q.q}`;
     quizSub.textContent = 'เลือกคำตอบให้ถูก (1–4)';
 
-    // build 4 options (1 correct + 3 wrong)
     const options = [q.a].concat((q.wrong||[]).slice(0,3));
-    // shuffle options
     for(let i=options.length-1;i>0;i--){
       const j = Math.floor(rng()*(i+1));
       [options[i],options[j]] = [options[j],options[i]];
@@ -256,11 +288,11 @@ export function boot(){
 
     setQuizVisible(true);
 
-    // gameplay feel: when quiz open, slightly slow spawns for focus
+    // focus mode: slow spawns a bit
     slowmoUntil = Math.max(slowmoUntil, nowMs() + 1200);
     slowmoK = Math.min(slowmoK, 0.72);
 
-    showBanner('🧠 Quiz มาแล้ว!');
+    showBanner(`🧠 Quiz มาแล้ว! (Boss streak: ${quizCorrectStreak}/3)`);
   }
 
   function closeQuiz(msg){
@@ -272,39 +304,57 @@ export function boot(){
     if(msg) showBanner(msg);
   }
 
+  // ------------------ NEW: Quiz Boss (streak -> shield) ------------------
+  function maybeGrantShieldFromQuizBoss(){
+    // award when reaching 3 streak, caps at 1 (simple for kids)
+    if(quizCorrectStreak >= 3 && shield < 1){
+      shield = 1;
+      shieldGained++;
+      fxShieldGain();
+      showBanner('🛡 ได้โล่! กัน 🦠 ได้ 1 ครั้ง (ไม่เสีย MISS)');
+      // keep streak (so it shows mastery), but prevent repeated grants by cap
+    }
+  }
+
   function judgeQuizPick(idx){
     if(!quizOpen) return;
-    const P = WIN.Particles;
 
-    // lock buttons fast to prevent double
+    // lock fast to prevent double
     optBtns.forEach(b=>{ b.disabled = true; });
 
+    const P = WIN.Particles;
     const x = WIN.innerWidth*0.5;
     const y = Math.max(96, WIN.innerHeight*0.28);
 
     if(idx === quizCorrectIdx){
       quizRight++;
+      quizCorrectStreak++;
+      quizCorrectStreakMax = Math.max(quizCorrectStreakMax, quizCorrectStreak);
       optBtns[idx]?.classList.add('correct');
       P?.popText(x, y, '✅ ถูกต้อง!', 'good');
       P?.burst(x, y, { count: 18, spread: 84, upBias: 0.95 });
 
-      // reward: small time bonus + quest progress
+      // reward: time bonus
       timeLeft = Math.min(timePlannedSec, timeLeft + 3);
       questDone = 1;
 
-      setTimeout(()=>closeQuiz('✅ Quiz ผ่าน! +3s'), 520);
+      maybeGrantShieldFromQuizBoss();
+
+      setTimeout(()=>closeQuiz(`✅ Quiz ผ่าน! +3s (streak ${quizCorrectStreak}/3)`), 520);
     }else{
       quizWrong++;
+      quizCorrectStreak = 0; // boss reset on wrong
       optBtns[idx]?.classList.add('wrong');
       optBtns[quizCorrectIdx]?.classList.add('correct');
       P?.popText(x, y, '❌ ยังไม่ถูก', 'bad');
       P?.burst(x, y, { count: 16, spread: 76, upBias: 0.92 });
 
-      // penalty: miss+1 but not instantly end (still respects missLimit)
+      // penalty: counts as wrong-step miss (kid-friendly, still respects missLimit)
       wrongStepHits++;
+      stepMistThis++;
       combo = 0;
 
-      setTimeout(()=>closeQuiz('❌ Quiz พลาด!'), 650);
+      setTimeout(()=>closeQuiz('❌ Quiz พลาด! (streak reset)'), 650);
 
       if(getMissCount() >= missLimit) endGame('fail');
     }
@@ -342,7 +392,11 @@ export function boot(){
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
 
-    pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
+    // ✅ show shield & perfect step streak in quest pill (no HTML changes needed)
+    const shieldTxt = shield > 0 ? ` • 🛡${shield}` : '';
+    const psTxt = perfectStepStreak > 0 ? ` • ✨${perfectStepStreak}` : '';
+    pillQuest && (pillQuest.textContent = `QUEST ${questText}${shieldTxt}${psTxt}`);
+
     hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
   }
 
@@ -379,7 +433,6 @@ export function boot(){
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs() };
     targets.push(obj);
 
-    // tap/click only when not cVR strict
     if(view !== 'cvr'){
       el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'), { passive:true });
     }
@@ -415,7 +468,7 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // ✅ cVR shoot: (1) quiz pick by elementFromPoint (2) else nearest target by real centers
+  // ✅ cVR shoot: (1) quiz pick by elementFromPoint (2) else nearest target by centers
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
@@ -426,7 +479,6 @@ export function boot(){
     const cx = WIN.innerWidth/2;
     const cy = WIN.innerHeight/2;
 
-    // (1) If quiz open, allow shooting the HUD option
     if(quizOpen){
       const el = DOC.elementFromPoint(cx, cy);
       const btn = el && (el.closest ? el.closest('[data-quizopt]') : null);
@@ -437,10 +489,8 @@ export function boot(){
           return;
         }
       }
-      // if not pointing at option, continue to targets (so kids can ignore quiz)
     }
 
-    // (2) nearest target within lockPx
     let best=null, bestDist=1e9;
     for(const t of targets){
       if(!t.el) continue;
@@ -508,11 +558,47 @@ export function boot(){
   function applySlowmoTick(){
     const t = nowMs();
     if(t < slowmoUntil){
-      slowmoK = Math.max(0.55, slowmoK - 0.02); // ease in
+      slowmoK = Math.max(0.55, slowmoK - 0.02);
       return;
     }
-    // ease out
     slowmoK = Math.min(1.0, slowmoK + 0.03);
+  }
+
+  function onStepStart(){
+    stepMistThis = 0;
+    stepHazThis = 0;
+  }
+
+  function onStepCompleted(prevStepIdx){
+    // ✅ Perfect Step Streak reward
+    if(stepMistThis === 0 && stepHazThis === 0){
+      perfectStepsTotal++;
+      perfectStepStreak++;
+      perfectStepStreakMax = Math.max(perfectStepStreakMax, perfectStepStreak);
+
+      // reward: +2s and tiny slowmo pop
+      timeLeft = Math.min(timePlannedSec, timeLeft + 2);
+      slowmoUntil = Math.max(slowmoUntil, nowMs() + 600);
+      slowmoK = Math.min(slowmoK, 0.78);
+
+      fxPerfectStep();
+      showBanner(`✨ PERFECT STEP! สตรีค ${perfectStepStreak} (+2s)`);
+    }else{
+      // break streak
+      perfectStepStreak = 0;
+    }
+
+    // reset counters for next step
+    onStepStart();
+
+    // quest fast-step check (kept)
+    if(bumpQuestOnGoodHit._fastStepIdx === prevStepIdx){
+      const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
+      if(dt <= 6500){
+        questDone = 1;
+        showBanner('🏅 QUEST ผ่าน! (ไวมาก)');
+      }
+    }
   }
 
   function judgeHit(obj, source, extra){
@@ -541,19 +627,14 @@ export function boot(){
         stepIdx++;
         hitsInStep=0;
 
-        if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
-          const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
-          if(dt <= 6500){
-            questDone = 1;
-            showBanner('🏅 QUEST ผ่าน! (ไวมาก)');
-          }
-        }
+        // ✅ evaluate perfect step for the step we just finished
+        onStepCompleted(prevStep);
 
         if(stepIdx >= STEPS.length){
           stepIdx=0;
           loopsDone++;
 
-          // ✅ BIG MOMENT: slowmo + confetti
+          // BIG MOMENT: slowmo + confetti
           slowmoUntil = nowMs() + 900;
           slowmoK = Math.min(slowmoK, 0.70);
           fxConfettiCenter(`🎉 ครบ 7 ขั้น! (loops ${loopsDone})`);
@@ -575,8 +656,12 @@ export function boot(){
 
     if(obj.kind === 'wrong'){
       wrongStepHits++;
+      stepMistThis++;
       totalStepHits++;
       combo = 0;
+
+      // wrong resets quiz boss streak (but only if quiz open? keep simple: wrong gameplay doesn't reset quiz streak)
+      // (we leave quizCorrectStreak unchanged here)
 
       coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
       dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
@@ -593,7 +678,22 @@ export function boot(){
     }
 
     if(obj.kind === 'haz'){
+      // ✅ Shield blocks haz and does NOT count as miss
+      if(shield > 0){
+        shield--;
+        shieldUsed++;
+        combo = 0;
+
+        showBanner('🛡 โล่กันเชื้อ! (ไม่เสีย MISS)');
+        fxHit('shield', obj);
+
+        removeTarget(obj);
+        setHud();
+        return;
+      }
+
       hazHits++;
+      stepHazThis++;
       combo = 0;
 
       coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
@@ -601,7 +701,7 @@ export function boot(){
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
 
-      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
+      showBanner('🦠 โดนเชื้อ! ระวัง!');
       fxHit('haz', obj);
 
       removeTarget(obj);
@@ -619,7 +719,6 @@ export function boot(){
 
     if(paused){ requestAnimationFrame(tick); return; }
 
-    // time left decreases real-time (fair)
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
 
@@ -630,14 +729,12 @@ export function boot(){
 
     applySlowmoTick();
 
-    // spawns are affected by slowmoK (feel effect)
     const P0 = dd ? dd.getParams() : base;
-    const P = Object.assign({}, P0);
 
-    // when quiz open: spawn slightly reduced (focus)
+    // when quiz open: reduce spawn slightly
     const quizK = quizOpen ? 0.80 : 1.0;
 
-    spawnAcc += (P.spawnPerSec * dt * slowmoK * quizK);
+    spawnAcc += (P0.spawnPerSec * dt * slowmoK * quizK);
 
     while(spawnAcc >= 1){
       spawnAcc -= 1;
@@ -670,9 +767,23 @@ export function boot(){
     questText = 'ทำ STEP ให้ถูก!';
     questDone = 0;
 
+    // quiz
     quizRight = 0;
     quizWrong = 0;
+    quizCorrectStreak = 0;
+    quizCorrectStreakMax = 0;
     closeQuiz(null);
+
+    // shield + streak
+    shield = 0;
+    shieldGained = 0;
+    shieldUsed = 0;
+
+    stepMistThis = 0;
+    stepHazThis = 0;
+    perfectStepStreak = 0;
+    perfectStepStreakMax = 0;
+    perfectStepsTotal = 0;
 
     slowmoUntil = 0;
     slowmoK = 1.0;
@@ -688,6 +799,8 @@ export function boot(){
 
     startOverlay && (startOverlay.style.display = 'none');
     endOverlay && (endOverlay.style.display = 'none');
+
+    onStepStart();
 
     emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
     showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
@@ -723,7 +836,7 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.0.3-prod',
+      version:'1.0.4-prod',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
@@ -751,6 +864,14 @@ export function boot(){
 
       quizRight,
       quizWrong,
+      quizCorrectStreakMax,
+
+      // new
+      shieldGained,
+      shieldUsed,
+      perfectStepsTotal,
+      perfectStepStreakMax,
+
       questText,
       questDone,
 
@@ -773,7 +894,8 @@ export function boot(){
     emit('hha:end', summary);
 
     if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
-    if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
+    if(endSub) endSub.textContent =
+      `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • 🛡${shieldGained}/${shieldUsed} • ✨max ${perfectStepStreakMax} • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
     if(endOverlay) endOverlay.style.display = 'grid';
   }
@@ -783,7 +905,7 @@ export function boot(){
     else location.href = '../hub.html';
   }
 
-  // UI binds: start/reset/end
+  // UI binds
   btnStart?.addEventListener('click', startGame, { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
   btnPlayAgain?.addEventListener('click', startGame, { passive:true });
@@ -798,7 +920,7 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // ✅ quiz buttons (tap)
+  // quiz buttons
   optBtns.forEach(btn=>{
     btn.addEventListener('click', ()=>{
       if(!quizOpen) return;
