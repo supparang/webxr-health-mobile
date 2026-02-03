@@ -1,9 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr
-✅ Uses: ../vr/vr-ui.js (hha:shoot)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+✅ Quiz bank: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Quiz UI: buttons 1-4 with data-quizopt + opt1..opt4
 -->
 <!doctype html>
 <html lang="th">
@@ -14,12 +15,12 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260202b" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260203a" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
+  <!-- Shared FX -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -31,7 +32,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260202b"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260203a"></script>
 </head>
 
 <body class="view-pc">
@@ -59,21 +60,29 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box -->
+        <!-- ✅ Quiz box (Boss) -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
 
-          <!-- ✅ 4 options -->
+          <!-- ✅ Options 1–4 -->
           <div class="hw-quiz-opts" id="quizOpts">
-            <button class="hw-qopt" type="button" data-quizopt="1"><span class="n">1</span><span class="t" id="opt1">—</span></button>
-            <button class="hw-qopt" type="button" data-quizopt="2"><span class="n">2</span><span class="t" id="opt2">—</span></button>
-            <button class="hw-qopt" type="button" data-quizopt="3"><span class="n">3</span><span class="t" id="opt3">—</span></button>
-            <button class="hw-qopt" type="button" data-quizopt="4"><span class="n">4</span><span class="t" id="opt4">—</span></button>
+            <button class="hw-quiz-opt" type="button" data-quizopt="1">
+              <span class="n">1</span><span class="t" id="opt1">—</span>
+            </button>
+            <button class="hw-quiz-opt" type="button" data-quizopt="2">
+              <span class="n">2</span><span class="t" id="opt2">—</span>
+            </button>
+            <button class="hw-quiz-opt" type="button" data-quizopt="3">
+              <span class="n">3</span><span class="t" id="opt3">—</span>
+            </button>
+            <button class="hw-quiz-opt" type="button" data-quizopt="4">
+              <span class="n">4</span><span class="t" id="opt4">—</span>
+            </button>
           </div>
 
-          <div class="hw-quiz-help" id="quizHelp">
-            แตะปุ่ม 1–4 หรือ (cVR) เล็งกากบาทแล้วยิงเพื่อเลือกคำตอบ
+          <div class="hw-quiz-hint" id="quizHint">
+            PC/Mobile: แตะเลือกข้อ • cVR: เล็ง crosshair ที่ปุ่มแล้ว “ยิง”
           </div>
         </div>
       </div>
@@ -119,15 +128,33 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
+    document.body.classList.add(
+      view==='mobile' ? 'view-mobile' :
+      (view==='vr' ? 'view-vr' :
+      (view==='cvr' ? 'view-cvr' : 'view-pc'))
+    );
+    const labView = document.getElementById('labView');
+    if(labView) labView.textContent = view;
   }
+
   setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+  const labMode = document.getElementById('labMode');
+  const labDiff = document.getElementById('labDiff');
+  if(labMode) labMode.textContent = (qs('run','play')||'play');
+  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
+
+  // quick hint if quiz bank missing
+  window.addEventListener('load', ()=>{
+    if(!Array.isArray(window.HHA_HYGIENE_QUIZ_BANK)){
+      const hudSub = document.getElementById('hudSub');
+      if(hudSub) hudSub.textContent = '⚠️ Quiz bank ไม่พบ (ตรวจชื่อไฟล์ hygiene-quiz-bank.js)';
+      console.warn('[HygieneRUN] HHA_HYGIENE_QUIZ_BANK missing');
+    }
+  }, { once:true });
 })();
 </script>
 </body>
