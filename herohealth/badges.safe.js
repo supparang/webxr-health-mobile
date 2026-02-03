@@ -149,3 +149,12 @@ export function migrateGlobalToPid(pidArg=''){
   saveJSON(LS_V2, v2);
   return { ok:true, moved };
 }
+// expose to classic scripts (NO modules) — SAFE
+try{
+  window.HHA_Badges = window.HHA_Badges || {};
+  window.HHA_Badges.getPid = getPid;
+  window.HHA_Badges.awardBadge = awardBadge;
+  window.HHA_Badges.hasBadge = hasBadge;
+  window.HHA_Badges.listBadges = listBadges;
+  window.HHA_Badges.migrateGlobalToPid = migrateGlobalToPid;
+}catch(_){}
