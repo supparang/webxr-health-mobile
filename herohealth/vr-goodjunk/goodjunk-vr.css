@@ -463,3 +463,72 @@ body.hud-hidden #gj-layer-r{
     bottom: calc(78px + var(--sab));
   }
 }
+/* === PATCH: ultra-compact for small height phones ===
+   Goal: keep playfield big even when Boss/Goal/Mini are visible
+*/
+
+@media (max-height: 760px){
+  /* ลด safe-area ที่ boot วัดไว้ (ช่วยให้สนามสูงขึ้น) */
+  :root{
+    --gj-top-safe: calc(96px + var(--sat));
+    --gj-bottom-safe: calc(96px + var(--sab));
+  }
+
+  /* TOP HUD: ลด padding + ลดความสูงการ์ด */
+  .gj-hud-top, #hud{
+    top: calc(64px + var(--sat));
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .hud-pill{
+    padding: 8px 10px;
+    border-radius: 14px;
+  }
+  .hud-value{ font-size: 17px; }
+
+  .quest-card{
+    padding: 8px 10px;
+    border-radius: 16px;
+  }
+  .q-desc{ font-size: 11.5px; }
+  .q-hint{ font-size: 10.5px; }
+
+  /* boss box compact */
+  .gj-boss{
+    padding: 8px 10px;
+    border-radius: 16px;
+  }
+  .gj-boss-hint{ font-size: 11.5px; }
+
+  /* bottom HUD: ลดพื้นที่ */
+  .gj-hud-bot{
+    padding-top: 8px;
+    padding-bottom: calc(8px + var(--sab));
+  }
+  .meter{
+    padding: 8px 10px;
+    border-radius: 16px;
+  }
+
+  /* ซ่อน HOW TO อัตโนมัติในจอเตี้ย (พื้นที่เล่นต้องมาก่อน) */
+  .gj-hud-bot .meter:last-child{ display:none; }
+}
+
+/* === PATCH: allow user to show HOWTO via body class (optional) ===
+   If you ever want: document.body.classList.toggle('show-howto')
+*/
+body.show-howto .gj-hud-bot .meter:last-child{ display:block !important; }
+
+/* === PATCH: make targets a bit larger on mobile for kids === */
+body.view-mobile .gj-target{
+  width: calc(var(--t-size) + 6px);
+  height: calc(var(--t-size) + 6px);
+}
+
+/* === PATCH: keep buttons readable and not wrap too much === */
+@media (max-width: 420px){
+  .gj-topbar .right{ gap:6px; }
+  .gj-btn{ padding:8px 9px; font-size:12px; border-radius:12px; }
+  .gj-chip{ padding:7px 9px; font-size:12px; }
+}
