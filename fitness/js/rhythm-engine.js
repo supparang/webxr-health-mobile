@@ -1,3 +1,4 @@
+
 // === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV) ===
 (function () {
   'use strict';
@@ -792,3 +793,144 @@ this.score = 0;
       };
       this.eventTable.add(Object.assign(base, extra));
     }
+_finish(endReason) {
+      this.running = false;
+      this.ended = true;
+
+      if (this._rafId != null) {
+        cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+      }
+
+      if (this.audio) {
+        this.audio.pause();
+      }
+
+      const dur = Math.min(
+        this.songTime,
+        this.track.durationSec || this.songTime
+      );
+
+      const totalNotes = this.totalNotes || 1;
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
+      const totalJudged = totalHits + this.hitMiss;
+
+      const acc = totalJudged
+        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
+        : 0;
+
+      const mOffset = this.offsets.length ? mean(this.offsets) : 0;
+      const sOffset = this.offsets.length ? std(this.offsets) : 0;
+      const mAbs = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
+
+      const earlyPct = totalHits ? (this.earlyHits / totalHits) * 100 : 0;
+      const latePct  = totalHits ? (this.lateHits  / totalHits) * 100 : 0;
+
+      const leftHitPct  = totalHits ? (this.leftHits  / totalHits) * 100 : 0;
+      const rightHitPct = totalHits ? (this.rightHits / totalHits) * 100 : 0;
+
+      const feverTimePct = dur > 0 ? (this.feverTotalTimeSec / dur) * 100 : 0;
+
+      const rank =
+        acc >= 95 ? 'SSS' :
+        acc >= 90 ? 'SS'  :
+        acc >= 85 ? 'S'   :
+        acc >= 75 ? 'A'   :
+        acc >= 65 ? 'B'   : 'C';
+
+      // quality gate for research
+      const trialValid = totalJudged >= 10 && acc >= 40 ? 1 : 0;
+
+      // ---- session row ----
+      const sessionRow = {
+        session_id: this.sessionId,
+        mode: this.mode,
+        track_id: this.track.id,
+        track_name: this.track.name,
+        bpm: this.track.bpm,
+        difficulty: this.track.diff,
+
+        participant_id: this.meta.id || this.meta.participant_id || '',
+        group: this.meta.group || '',
+        note: this.meta.note || '',
+
+        score_final: this.score,
+        max_combo: this.maxCombo,
+
+        hit_perfect: this.hitPerfect,
+        hit_great:   this.hitGreat,
+        hit_good:    this.hitGood,
+        hit_miss:    this.hitMiss,
+
+        total_notes: this.totalNotes,
+        acc_pct: acc,
+
+        offset_mean_s: mOffset,
+        offset_std_s: sOffset,
+        offset_abs_mean_s: mAbs,
+        offset_early_pct: earlyPct,
+        offset_late_pct: latePct,
+
+        left_hit_pct: leftHitPct,
+        right_hit_pct: rightHitPct,
+
+        fever_entry_count: this.feverEntryCount,
+        fever_total_time_s: this.feverTotalTimeSec,
+        fever_time_pct: feverTimePct,
+        time_to_first_fever_s:
+          this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : '',
+
+        hp_start: 100,
+        hp_end: this.hp,
+        hp_min: this.hpMin,
+        hp_under50_time_s: this.hpUnder50Time,
+
+        end_reason: endReason,
+        duration_sec: dur,
+        device_type: this.deviceType,
+
+        // AI snapshot at end (prediction only; assist might be off)
+        ai_fatigue_risk: this.aiState ? (this.aiState.fatigueRisk ?? '') : '',
+        ai_skill_score:  this.aiState ? (this.aiState.skillScore  ?? '') : '',
+        ai_suggest:      this.aiState ? (this.aiState.suggestedDifficulty ?? '') : '',
+        ai_locked: (window.RB_AI && window.RB_AI.isLocked && window.RB_AI.isLocked()) ? 1 : 0,
+        ai_assist_on: (window.RB_AI && window.RB_AI.isAssistEnabled && window.RB_AI.isAssistEnabled()) ? 1 : 0,
+
+        trial_valid: trialValid,
+        rank,
+        created_at_iso: new Date().toISOString()
+      };
+
+      this.sessionTable.add(sessionRow);
+
+      // ---- summary for UI ----
+      const summary = {
+        modeLabel: this.mode === 'research' ? 'Research' : 'Normal',
+        trackName: this.track.name,
+        endReason,
+        finalScore: this.score,
+        maxCombo: this.maxCombo,
+        hitPerfect: this.hitPerfect,
+        hitGreat: this.hitGreat,
+        hitGood: this.hitGood,
+        hitMiss: this.hitMiss,
+        accuracyPct: acc,
+        offsetMean: mOffset,
+        offsetStd: sOffset,
+        durationSec: dur,
+        participant: this.meta.id || this.meta.participant_id || '',
+        rank,
+        qualityNote: trialValid
+          ? ''
+          : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
+      };
+
+      if (this.hooks && typeof this.hooks.onEnd === 'function') {
+        this.hooks.onEnd(summary);
+      }
+    }
+  }
+
+  // ===== expose =====
+  window.RhythmBoxerEngine = RhythmBoxerEngine;
+})();
