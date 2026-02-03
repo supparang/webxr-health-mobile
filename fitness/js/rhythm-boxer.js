@@ -17,55 +17,6 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // view helper (pc/mobile/cvr)
-  function getView(){
-    try{
-      const v = (new URL(location.href).searchParams.get('view')||'').toLowerCase();
-      if (v === 'cvr' || v === 'cardboard') return 'cvr';
-      if (v === 'mobile') return 'mobile';
-      if (v === 'pc') return 'pc';
-    }catch(_){}
-    // fallback by UA
-    return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||'') ? 'mobile' : 'pc';
-  }
-  function applyViewClass(){
-    const v = getView();
-    document.body.classList.remove('view-pc','view-mobile','view-cvr','cardboard');
-    if (v === 'cvr') { document.body.classList.add('view-cvr','cardboard'); }
-    else if (v === 'mobile') document.body.classList.add('view-mobile');
-    else document.body.classList.add('view-pc');
-  }
-  applyViewClass();
-
-  // show/hide note lanes for cVR (we keep 5 in DOM but CSS hides 0 and 4)
-  const VIEW = getView();
-  const isCVR = (VIEW === 'cvr');
-
-  // optional: cVR big buttons overlay (3 lanes) for Cardboard
-  function ensureCvrPad(){
-    if (!isCVR) return null;
-    if (document.querySelector('.rb-cvr-pad')) return document.querySelector('.rb-cvr-pad');
-
-    const pad = document.createElement('div');
-    pad.className = 'rb-cvr-pad';
-    const labels = ['L1','C','R1'];
-    const lanes  = [1,2,3];
-
-    lanes.forEach((lane, idx)=>{
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'rb-cvr-btn';
-      b.textContent = labels[idx];
-      b.addEventListener('click', ()=>{
-        if (engine && typeof engine.handleLaneTap === 'function') engine.handleLaneTap(lane);
-      });
-      pad.appendChild(b);
-    });
-
-    document.body.appendChild(pad);
-    return pad;
-  }
-
   // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
@@ -73,6 +24,7 @@
   const trackLabels   = $$('#rb-track-options .rb-mode-btn');
   const modeDescEl    = $('#rb-mode-desc');
   const trackModeLbl  = $('#rb-track-mode-label');
+  const trackHintEl   = null; // (เวอร์ชันนี้ใส่ how-to ใน card แล้ว)
   const researchBox   = $('#rb-research-fields');
 
   // ฟอร์มวิจัย
@@ -209,7 +161,7 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd, onAIUpdate: handleAIUpdate }
+      hooks: { onEnd: handleEngineEnd }
     });
   }
 
@@ -225,28 +177,13 @@
     hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     hud.track.textContent = cfg.labelShort;
 
-    // AI assist switch:
-    // - Research: locked always (AI shows prediction but cannot adjust)
-    // - Normal: enable adapt only when ?ai=1
-    let aiAssistEnabled = false;
-    try{
-      const sp = new URL(location.href).searchParams;
-      const q = (sp.get('ai')||'').toLowerCase();
-      aiAssistEnabled = (mode !== 'research') && (q === '1' || q === 'true' || q === 'yes');
-    }catch(_){}
-
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim(),
-      aiAssist: aiAssistEnabled ? 1 : 0
+      note: (inputNote && inputNote.value || '').trim()
     };
 
     engine.start(mode, cfg.engineId, meta);
-
-    // cVR: optional big buttons
-    ensureCvrPad();
-
     switchView('play');
   }
 
@@ -280,6 +217,7 @@
     switchView('result');
   }
 
+
   function handleAIUpdate(ai){
     if (!ai || !hud) return;
     if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
@@ -290,7 +228,6 @@
       hud.aiTip.classList.toggle('hidden', !ai.tip);
     }
   }
-
   function downloadCsv(csvText, filename) {
     if (!csvText) return;
     const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
@@ -334,6 +271,7 @@
       }
     }catch(_){}
   })();
+
 
   updateModeUI();
   switchView('menu');
