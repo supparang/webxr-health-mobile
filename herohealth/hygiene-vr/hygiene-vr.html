@@ -1,132 +1,168 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr
-✅ Uses: ../vr/vr-ui.js + ../vr/particles.js
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
-Tip: add ?v=20260203a on URL to bust caches
+HygieneVR Run — PRODUCTION (HHA Standard)
+✅ Loads: particles.js -> hygiene-quiz-bank.js -> vr-ui.js -> hygiene-vr.boot.js (ordered)
+✅ Cache-bust via ?v= or ?ts=
+✅ IDs match hygiene.safe.js
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Handwash Survival — HeroHealth</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico"/>
 
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="./hygiene-vr.css"/>
+
+  <!-- Optional: config for vr-ui.js -->
   <script>
-    // cache bust helper: use ?v=... or ?ts=...
-    (function(){
-      const q = new URLSearchParams(location.search);
-      const v = q.get('v') || q.get('ts') || '';
-      window.__HHA_BUST__ = v;
-    })();
+    // lockPx for cVR aim assist; keep same concept as other games
+    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
-
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260203a" />
-
-  <!-- Universal VR UI (defer) -->
-  <script src="../vr/vr-ui.js?v=20260203a" defer></script>
-
-  <!-- FX (defer) -->
-  <script src="../vr/particles.js?v=20260203a" defer></script>
-
-  <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js?v=20260203a" defer></script>
-  <script src="../vr/hha-difficulty-director.js?v=20260203a" defer></script>
-  <script src="../vr/hha-badges.js?v=20260203a" defer></script>
-
-  <!-- ✅ Quiz bank (ชื่อไฟล์ที่มีจริง) -->
-  <script src="./hygiene-quiz-bank.js?v=20260203a" defer></script>
-
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260203a"></script>
 </head>
 
-<body class="view-pc">
-  <div id="gameRoot" class="hw-root">
-    <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
+<body class="hw-body">
+  <!-- Banner / toast -->
+  <div id="banner" class="hw-banner" aria-live="polite"></div>
 
-    <!-- HUD -->
-    <div class="hw-hud">
-      <div class="hw-top">
-        <div class="hw-title">🧼 Handwash Survival</div>
-        <div class="hw-sub" id="hudSub">ready…</div>
-
-        <div class="hw-row">
-          <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
-          <div class="hw-pill" id="pillHits">HITS 0/6</div>
-          <div class="hw-pill" id="pillCombo">COMBO 0</div>
-          <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
+  <!-- HUD -->
+  <header class="hw-hud" id="hud">
+    <div class="hw-card">
+      <div class="hw-titleRow">
+        <div class="hw-title">
+          <span class="hw-emoji">🧼</span>
+          <span>Handwash Survival</span>
         </div>
-
-        <div class="hw-row">
-          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillTime">TIME 70</div>
-          <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
-          <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
-          <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
-        </div>
-
-        <!-- Quiz box -->
-        <div class="hw-quiz" id="quizBox" style="display:none">
-          <div class="hw-quiz-q" id="quizQ">QUIZ</div>
-          <div class="hw-quiz-sub" id="quizSub">—</div>
-        </div>
+        <div class="hw-sub" id="hudSub">PLAY • diff=normal • seed=... • view=pc</div>
       </div>
 
-      <div class="hw-banner" id="banner" aria-live="polite"></div>
-    </div>
+      <div class="hw-pills">
+        <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
+        <div class="hw-pill" id="pillHits">HITS 0/6</div>
+        <div class="hw-pill" id="pillCombo">COMBO 0</div>
 
-    <!-- Start Overlay -->
-    <div class="hw-overlay" id="startOverlay">
-      <div class="hw-card">
-        <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
-        </div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
+        <div class="hw-pill danger" id="pillMiss">MISS 0 / 3</div>
+        <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
+        <div class="hw-pill" id="pillTime">TIME 60</div>
+      </div>
+
+      <div class="hw-actions">
+        <div class="hw-pill quest" id="pillQuest">QUEST ทำ STEP ให้ถูก!</div>
+        <button class="hw-btn" id="btnPause" type="button">⏸ Pause</button>
+        <button class="hw-btn ghost" id="btnBack" type="button">↩ HUB</button>
       </div>
     </div>
+  </header>
 
-    <!-- End Overlay -->
-    <div class="hw-overlay" id="endOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
-        <div class="hw-card-sub" id="endSub">—</div>
-        <pre class="hw-pre" id="endJson"></pre>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
-        </div>
+  <!-- Stage -->
+  <main id="stage" class="hw-stage" aria-label="playfield"></main>
+
+  <!-- Quiz box -->
+  <section id="quizBox" class="hw-quiz" style="display:none">
+    <div class="hw-quiz-card">
+      <div class="hw-quiz-q" id="quizQ">🧠 Quiz: ...</div>
+      <div class="hw-quiz-sub" id="quizSub">ตัวเลือก: ...</div>
+    </div>
+  </section>
+
+  <!-- Start Overlay -->
+  <section id="startOverlay" class="hw-overlay" style="display:grid">
+    <div class="hw-overlay-card">
+      <div class="hw-overlay-title">เริ่มเกม 🧼</div>
+      <div class="hw-card-sub">
+        ทำให้ครบ 7 ขั้นตอนให้ถูกต้อง ระวัง 🦠 และอย่าพลาดเกิน 3 ครั้ง
+      </div>
+
+      <div class="hw-overlay-actions">
+        <button class="hw-btn primary" id="btnStart" type="button">▶ Start</button>
+        <button class="hw-btn" id="btnRestart" type="button">↺ Reset</button>
+      </div>
+
+      <div class="hw-overlay-foot">
+        <small>Tip: ถ้าอยากกัน cache ให้ใส่ <b>?v=เลข</b> เช่น <b>?v=20260203</b></small>
       </div>
     </div>
-  </div>
+  </section>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-})();
-</script>
+  <!-- End Overlay -->
+  <section id="endOverlay" class="hw-overlay" style="display:none">
+    <div class="hw-overlay-card wide">
+      <div class="hw-overlay-title" id="endTitle">จบเกม ✅</div>
+      <div class="hw-card-sub" id="endSub">Grade A • ...</div>
+
+      <pre class="hw-json" id="endJson">{}</pre>
+
+      <div class="hw-overlay-actions">
+        <button class="hw-btn primary" id="btnPlayAgain" type="button">▶ Play again</button>
+        <button class="hw-btn" id="btnCopyJson" type="button">📋 Copy JSON</button>
+        <button class="hw-btn ghost" id="btnBack2" type="button">↩ HUB</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================
+       Ordered Loader (cache-bust)
+       ========================= -->
+  <script>
+    (function(){
+      'use strict';
+
+      const DOC = document;
+      const q = new URLSearchParams(location.search);
+      const bust = q.get('v') || q.get('ts') || '';
+
+      function withBust(p){
+        if(!bust) return p;
+        return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(bust);
+      }
+
+      function showBootError(msg){
+        console.error('[HygieneHTML]', msg);
+        const banner = DOC.getElementById('banner');
+        const startOverlay = DOC.getElementById('startOverlay');
+        const hudSub = DOC.getElementById('hudSub');
+        if(hudSub) hudSub.textContent = 'BOOT ERROR: ' + msg;
+
+        if(banner){
+          banner.textContent = '❌ ' + msg;
+          banner.classList.add('show');
+        }
+        if(startOverlay){
+          const card = startOverlay.querySelector('.hw-card-sub');
+          if(card){
+            card.innerHTML = `
+              <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
+              <span style="color:#94a3b8">${msg}</span><br>
+              <span style="color:#94a3b8">เช็ค Network ว่ามีไฟล์ 404 หรือพาธผิด</span>
+            `;
+          }
+          startOverlay.style.display = 'grid';
+        }
+      }
+
+      function loadScript(src){
+        return new Promise((resolve, reject)=>{
+          const s = DOC.createElement('script');
+          s.defer = true;
+          s.src = withBust(src);
+          s.onload = ()=>resolve(true);
+          s.onerror = ()=>reject(new Error('โหลดไม่สำเร็จ: ' + src));
+          DOC.head.appendChild(s);
+        });
+      }
+
+      // ✅ ordered: particles -> quiz bank -> vr-ui -> boot
+      Promise.resolve()
+        .then(()=>loadScript('../vr/particles.js'))
+        .then(()=>loadScript('./hygiene-quiz-bank.js'))  // ✅ ชื่อถูกต้อง (ไม่มี hygiene.quiz-bank.js)
+        .then(()=>loadScript('../vr/vr-ui.js'))
+        .then(()=>loadScript('./hygiene-vr.boot.js'))
+        .catch((err)=>{
+          showBootError(err && err.message ? err.message : String(err||'unknown'));
+        });
+    })();
+  </script>
 </body>
 </html>
