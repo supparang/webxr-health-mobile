@@ -1,71 +1,109 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (STRICT PASS-THROUGH)
-✅ Redirects to ./vr-goodjunk/goodjunk-vr.html
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/lockPx/...
-✅ Does NOT force or override ?view= (boot ignores view anyway)
+GoodJunkVR LAUNCHER — ROOT (STRICT AUTO • NO MENU)
+✅ Redirects to: ./vr-goodjunk/goodjunk-vr.html
+✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/lockPx/etc.
+✅ Does NOT set/override ?view= (boot ฝั่ง run จะ auto เอง และ ignore ?view= อยู่แล้ว)
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunkVR</title>
-  <meta name="color-scheme" content="dark"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ color-scheme:dark; }
-    body{
-      margin:0; min-height:100vh;
-      display:flex; align-items:center; justify-content:center;
-      background:#020617; color:#e5e7eb;
-      font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-      padding:16px;
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.74);
+      --stroke:rgba(148,163,184,.16);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --radius:22px;
+    }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    .wrap{
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
     }
     .card{
-      width:min(620px, 100%);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      background: rgba(2,6,23,.72);
+      width:min(560px, 100%);
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
       padding:16px;
     }
     .title{ font-weight:1000; font-size:18px; }
-    .sub{ margin-top:6px; color:#94a3b8; font-weight:800; font-size:13px; line-height:1.4; }
-    .hint{ margin-top:10px; font-size:12px; color:#cbd5e1; opacity:.9; }
-    .btn{
-      margin-top:14px;
-      appearance:none; border:1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.16);
-      color:#e5e7eb; font-weight:1000;
-      padding:12px 14px; border-radius:14px;
-      cursor:pointer;
+    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.45; }
+    .bar{
+      margin-top:12px;
+      height:10px;
+      background: rgba(148,163,184,.14);
+      border-radius: 999px;
+      overflow:hidden;
     }
+    .fill{
+      height:100%;
+      width:35%;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(56,189,248,.85));
+      animation: load 900ms ease-in-out infinite alternate;
+      border-radius: 999px;
+    }
+    @keyframes load{ from{ width:22%; opacity:.75; } to{ width:78%; opacity:1; } }
+    .hint{ margin-top:10px; font-size:12.5px; color:rgba(229,231,235,.78); font-weight:800; }
+    code{ color:#a7f3d0; font-weight:900; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="title">🍀 GoodJunkVR</div>
-    <div class="sub">กำลังพาเข้าเกม… ถ้าไม่เด้งอัตโนมัติให้กดปุ่มด้านล่าง</div>
-    <button class="btn" id="go">เข้าเกม</button>
-    <div class="hint">Tip: ถ้าใช้มือถือ/VR บางรุ่น ให้ลอง “รีเฟรช 1 ครั้ง” หลังเข้าเกม</div>
+  <div class="wrap">
+    <div class="card" role="status" aria-live="polite">
+      <div class="title">🍀 กำลังเข้าเล่น GoodJunkVR…</div>
+      <div class="sub">กำลังโหลดหน้าเล่น (run) และส่งค่าตั้งค่าเดิมต่อให้อัตโนมัติ</div>
+      <div class="bar"><div class="fill"></div></div>
+      <div class="hint">ถ้าค้างนาน ลองรีเฟรช หรือเช็คว่าไฟล์อยู่ที่ <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code></div>
+    </div>
   </div>
 
   <script>
     (function(){
-      function go(){
-        try{
-          const url = new URL(location.href);
-          const target = new URL('./vr-goodjunk/goodjunk-vr.html', url);
+      const TARGET = './vr-goodjunk/goodjunk-vr.html';
 
-          // pass every query param as-is
-          url.searchParams.forEach((v,k)=> target.searchParams.set(k, v));
+      function buildTargetUrl(){
+        const cur = new URL(location.href);
+        const out = new URL(TARGET, cur);
 
-          location.replace(target.toString());
-        }catch(_){
-          location.href = './vr-goodjunk/goodjunk-vr.html' + location.search;
-        }
+        // pass-through ALL params (strict)
+        cur.searchParams.forEach((v,k)=> out.searchParams.set(k,v));
+
+        // do NOT inject/override view (boot ฝั่ง run จะ auto + ignore ?view= อยู่แล้ว)
+        return out.toString();
       }
-      document.getElementById('go')?.addEventListener('click', go);
-      setTimeout(go, 60);
+
+      function go(){
+        const url = buildTargetUrl();
+
+        // prevent accidental loop (if someone copied launcher into run path)
+        try{
+          if (location.pathname.endsWith('/vr-goodjunk/goodjunk-vr.html')) return;
+        }catch(_){}
+
+        location.replace(url);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ()=> setTimeout(go, 60));
+      } else {
+        setTimeout(go, 60);
+      }
     })();
   </script>
 </body>
