@@ -1,13 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4.1 (Boss+Progress+Missions+End Summary)
-// ✅ FIX: AI hooks compat with CLASSIC script (window.HHA.createAIHooks)
-// ✅ FIX: Never crash if AI missing (stub getDifficulty/getTip/onEvent)
+// GoodJunkVR SAFE — v4.2 (Boss+Progress+Missions+End Summary + LAYOUT FIX)
+// ✅ FIX: target position uses LAYER rect (no more top-left bug)
+// ✅ FIX: force position:absolute in JS (robust even if CSS delayed)
+// ✅ FIX: cVR spawns paired targets (left+right) with same uid, counted once
+// ✅ FIX: onShoot uses ev.detail.x/y when provided
+// ✅ AI hooks compat with CLASSIC script (window.HHA.createAIHooks)
+// ✅ Never crash if AI missing (stub getDifficulty/getTip/onEvent)
 // ✅ Supports shoot from both: hha:shoot and gj:shoot
-// ✅ Mobile HUD fix + safe-zone remeasure via gj:measureSafe
 'use strict';
-
-// ❌ DO NOT import ai-hooks as module (your ai-hooks.js is classic script)
-// import { createAIHooks } from '../vr/ai-hooks.js';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
 
@@ -24,23 +24,37 @@ function makeRNG(seed){
   return ()=> (x = x * 16807 % 2147483647) / 2147483647;
 }
 
-function getSafeRect(){
-  const r = DOC.documentElement.getBoundingClientRect();
-  const top = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-top-safe')) || 90;
-  const bot = parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--gj-bottom-safe')) || 95;
-
-  const x = 22;
-  const y = Math.max(64, top);
-  const w = Math.max(140, r.width - 44);
-  const h = Math.max(190, r.height - y - bot);
-  return { x,y,w,h };
+/** อ่าน safe vars แล้วคืนค่าเป็น number px */
+function cssPx(varName, fallback){
+  try{
+    const v = getComputedStyle(DOC.documentElement).getPropertyValue(varName);
+    const n = parseFloat(String(v || '').trim());
+    return Number.isFinite(n) ? n : fallback;
+  }catch{
+    return fallback;
+  }
 }
 
-function pickByShoot(lockPx=28){
-  const r = DOC.documentElement.getBoundingClientRect();
-  const cx = r.left + r.width/2;
-  const cy = r.top  + r.height/2;
+/** ✅ Safe rect relative to a specific layer element */
+function getSafeRectForLayer(layerEl){
+  const r = layerEl.getBoundingClientRect();
+  const topSafe = cssPx('--gj-top-safe', 90);
+  const botSafe = cssPx('--gj-bottom-safe', 95);
 
+  // safe padding inside layer
+  const padX = 14;
+
+  // coordinates are RELATIVE TO layer (not viewport)
+  const x = padX;
+  const y = Math.max(8, topSafe); // keep away from HUD
+  const w = Math.max(140, r.width - padX*2);
+  const h = Math.max(190, r.height - y - botSafe);
+
+  return { x,y,w,h, rect:r };
+}
+
+/** ยิงจากจุด (x,y) viewport แล้ว pick target ที่ใกล้สุดใน lockPx */
+function pickByShootAt(x, y, lockPx=28){
   const els = Array.from(DOC.querySelectorAll('.gj-target'));
   let best = null;
 
@@ -49,15 +63,15 @@ function pickByShoot(lockPx=28){
     if(!b.width || !b.height) continue;
 
     const inside =
-      (cx >= b.left - lockPx && cx <= b.right + lockPx) &&
-      (cy >= b.top  - lockPx && cy <= b.bottom + lockPx);
+      (x >= b.left - lockPx && x <= b.right + lockPx) &&
+      (y >= b.top  - lockPx && y <= b.bottom + lockPx);
 
     if(!inside) continue;
 
     const ex = (b.left + b.right) / 2;
     const ey = (b.top  + b.bottom) / 2;
-    const dx = (ex - cx);
-    const dy = (ey - cy);
+    const dx = (ex - x);
+    const dy = (ey - y);
     const d2 = dx*dx + dy*dy;
 
     if(!best || d2 < best.d2) best = { el, d2 };
@@ -98,8 +112,6 @@ function makeGoals(){
 // ✅ AI safe wrapper (CLASSIC script compat)
 function makeAI(opts){
   let ai = null;
-
-  // Preferred: window.HHA.AIHooks.create
   try{
     if(WIN.HHA && WIN.HHA.AIHooks && typeof WIN.HHA.AIHooks.create === 'function'){
       ai = WIN.HHA.AIHooks.create(opts || {});
@@ -147,13 +159,19 @@ export function boot(opts={}){
   // ✅ progress
   const elProgFill = DOC.getElementById('gjProgressFill');
 
-  // ✅ boss UI
+  // ✅ boss UI (optional in HTML; safe if missing)
   const elBossBar  = DOC.getElementById('bossBar');
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
 
-  const layer = DOC.getElementById('gj-layer');
+  const layerL = DOC.getElementById('gj-layer');
+  const layerR = DOC.getElementById('gj-layer-r');
+
   const rng = makeRNG(seed);
+
+  // map uid -> { els:[...], alive:boolean, kind:string, groupId:number|null }
+  const Pair = new Map();
+  let uidSeq = 1;
 
   const S = {
     started:false, ended:false,
@@ -176,7 +194,6 @@ export function boot(opts={}){
 
     mini: { windowSec: 12, windowStartAt: 0, groups: new Set(), done: false },
 
-    // ✅ boss phase
     boss: {
       active:false,
       startedAtSec: null,
@@ -190,7 +207,6 @@ export function boot(opts={}){
   const adaptiveOn = (run === 'play');
   const aiOn = (run === 'play');
 
-  // ✅ create AI from window (classic) — safe always
   const AI = makeAI({ game:'GoodJunkVR', mode: run, rng, enabled: true });
 
   function setFever(p){
@@ -269,8 +285,8 @@ export function boot(opts={}){
     }
 
     emit('quest:update', {
-      goal:{ name:g?.name||'—', sub:g?.desc||'—', cur, target, done:false },
-      mini:{ name:`ครบ ${miniTar} หมู่ใน ${S.mini.windowSec} วิ`, sub:'โบนัส ⭐/🛡️', cur:miniCur, target:miniTar, done:S.mini.done },
+      goal:{ title:g?.name||'—', desc:g?.desc||'—', cur, target, done:false },
+      mini:{ title:`ครบ ${miniTar} หมู่ใน ${S.mini.windowSec} วิ`, cur:miniCur, target:miniTar, done:S.mini.done },
       allDone:false
     });
   }
@@ -280,9 +296,10 @@ export function boot(opts={}){
     let done = false;
     if(g?.targetGood) done = (S.hitGood >= g.targetGood) && (S.miss <= g.maxMiss);
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
+
     if(done){
       const prev = S.goalIndex;
-      S.goalIndex = Math.min(S.goals.length - 1, S.goalIndex + 1);
+      S.goalIndex = Math.min(S.goals.length - 1, S.goals.length>0 ? (S.goalIndex + 1) : 0);
       if(S.goalIndex !== prev){
         emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
       }
@@ -340,7 +357,7 @@ export function boot(opts={}){
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
-    emit('gj:measureSafe', {});
+    emit('gj:measureSafe', {}); // boot will remeasure now
   }
   function updateBossUI(){
     if(!elBossFill) return;
@@ -387,7 +404,6 @@ export function boot(opts={}){
   // --- hits ---
   function onHit(kind, extra = {}){
     if(S.ended) return;
-
     const tNow = performance.now();
 
     if(kind==='good'){
@@ -406,7 +422,6 @@ export function boot(opts={}){
         if(S.boss.hp <= 0) endBoss(true);
       }
     }
-
     else if(kind==='junk'){
       if(S.shield>0){
         S.shield--;
@@ -427,7 +442,6 @@ export function boot(opts={}){
         }
       }
     }
-
     else if(kind==='star'){
       const before = S.miss;
       S.miss = Math.max(0, S.miss - 1);
@@ -435,7 +449,6 @@ export function boot(opts={}){
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
     }
-
     else if(kind==='shield'){
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
@@ -454,54 +467,105 @@ export function boot(opts={}){
     advanceGoalIfDone();
   }
 
-  function spawn(kind){
-    if(S.ended || !layer) return;
+  /** ลบ/ฆ่าเป้าแบบ uid (รองรับ cVR pair) */
+  function killUid(uid){
+    const p = Pair.get(uid);
+    if(!p || !p.alive) return;
+    p.alive = false;
+    for(const el of p.els){
+      try{ el.remove(); }catch(_){}
+    }
+    Pair.delete(uid);
+  }
 
-    const safe = getSafeRect();
-    const x = safe.x + S.rng()*safe.w;
-    const y = safe.y + S.rng()*safe.h;
-
+  /** สร้าง element target (ใช้ได้ทั้ง L/R) */
+  function makeTargetEl(kind, obj, sizePx){
     const t = DOC.createElement('div');
     t.className = 'gj-target spawn';
     t.dataset.kind = kind;
 
-    const obj = { kind, rng: S.rng, groupId:null };
+    // ✅ robustness even if CSS delayed
+    t.style.position = 'absolute';
+    t.style.lineHeight = '1';
+    t.style.willChange = 'transform,left,top';
 
-    if(kind === 'good'){
-      obj.groupId = chooseGroupId(S.rng);
-      decorateTarget(t, obj);
-    }else if(kind === 'junk'){
+    if(kind === 'good' || kind === 'junk'){
       decorateTarget(t, obj);
     }else{
       t.textContent = (kind==='star') ? '⭐' : '🛡️';
     }
 
+    t.style.fontSize = sizePx + 'px';
+    return t;
+  }
+
+  /** spawn หนึ่งเป้า (ใน PC/mobile = 1 element, ใน cVR = 2 elements UID เดียว) */
+  function spawn(kind){
+    if(S.ended) return;
+    if(!layerL) return;
+
+    const isCVR = DOC.body.classList.contains('view-cvr') && !!layerR;
+
     const size = (kind==='good') ? 56 : (kind==='junk') ? 58 : 52;
-    t.style.left = x+'px';
-    t.style.top  = y+'px';
-    t.style.fontSize = size+'px';
 
-    let alive = true;
-    const kill = ()=>{
-      if(!alive) return;
-      alive=false;
-      try{ t.remove(); }catch(_){}
-    };
+    const obj = { kind, rng: S.rng, groupId:null };
+    if(kind === 'good') obj.groupId = chooseGroupId(S.rng);
 
-    t.addEventListener('pointerdown', ()=>{
-      if(!alive || S.ended) return;
-      kill();
+    const uid = String(uidSeq++);
+
+    // เลือกตำแหน่งจาก layerL เสมอ แล้ว map ไป layerR (ให้เหมือนกันทั้งสองตา)
+    const safeL = getSafeRectForLayer(layerL);
+    const xL = safeL.x + S.rng()*safeL.w;
+    const yL = safeL.y + S.rng()*safeL.h;
+
+    const elL = makeTargetEl(kind, obj, size);
+    elL.dataset.uid = uid;
+
+    elL.style.left = Math.round(xL) + 'px';
+    elL.style.top  = Math.round(yL) + 'px';
+
+    let els = [elL];
+
+    if(isCVR){
+      const safeR = getSafeRectForLayer(layerR);
+      // scale x to right layer width (in case widths differ a bit)
+      const xRatio = safeR.w / Math.max(1, safeL.w);
+      const xR = safeR.x + (xL - safeL.x) * xRatio;
+      const yR = yL; // same y
+
+      const elR = makeTargetEl(kind, obj, size);
+      elR.dataset.uid = uid;
+      elR.style.left = Math.round(xR) + 'px';
+      elR.style.top  = Math.round(yR) + 'px';
+      els.push(elR);
+    }
+
+    Pair.set(uid, { els, alive:true, kind, groupId: obj.groupId });
+
+    function hitThis(){
+      const p = Pair.get(uid);
+      if(!p || !p.alive || S.ended) return;
+      killUid(uid);
       if(kind === 'good') onHit('good', { groupId: obj.groupId });
       else onHit(kind);
-    });
+    }
 
-    layer.appendChild(t);
+    for(const el of els){
+      el.addEventListener('pointerdown', hitThis, { passive:true });
+    }
+
+    layerL.appendChild(elL);
+    if(isCVR && els[1] && layerR) layerR.appendChild(els[1]);
 
     const ttl = (kind==='star' || kind==='shield') ? 1700 : 1600;
 
     setTimeout(()=>{
-      if(!alive || S.ended) return;
-      kill();
+      const p = Pair.get(uid);
+      if(!p || !p.alive || S.ended) return;
+
+      // timeout: only "good" counts as miss on expire (your original rule)
+      killUid(uid);
+
       if(kind==='good'){
         S.expireGood++;
         S.miss++;
@@ -523,16 +587,34 @@ export function boot(opts={}){
 
   function onShoot(ev){
     if(S.ended || !S.started) return;
+
     const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
+
+    // ✅ use explicit xy if provided; fallback to center
+    let x = Number(ev?.detail?.x);
+    let y = Number(ev?.detail?.y);
+    if(!Number.isFinite(x) || !Number.isFinite(y)){
+      const r = DOC.documentElement.getBoundingClientRect();
+      x = r.left + r.width/2;
+      y = r.top  + r.height/2;
+    }
+
     if(aiOn) AI.onEvent('shoot', { t:performance.now() });
 
-    const picked = pickByShoot(lockPx);
+    const picked = pickByShootAt(x, y, lockPx);
     if(!picked) return;
 
+    const uid = picked.dataset.uid || null;
     const kind = picked.dataset.kind || 'good';
     const groupId = picked.dataset.group ? Number(picked.dataset.group) : null;
 
-    try{ picked.remove(); }catch(_){}
+    if(uid){
+      // remove both eyes
+      killUid(uid);
+    }else{
+      try{ picked.remove(); }catch(_){}
+    }
+
     if(kind === 'good') onHit('good', { groupId });
     else onHit(kind);
   }
@@ -546,7 +628,7 @@ export function boot(opts={}){
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
     const summary = {
       game:'GoodJunkVR',
-      pack:'fair-v4.1-boss',
+      pack:'fair-v4.2-boss-layout',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -612,6 +694,7 @@ export function boot(opts={}){
                 pShield: base.pShield
               } : { ...base });
 
+    // normalize
     {
       let s = D.pGood + D.pJunk + D.pStar + D.pShield;
       if(s <= 0) s = 1;
@@ -650,10 +733,10 @@ export function boot(opts={}){
   updateProgress();
   setBossUI(false);
 
-  // ✅ listen both shoot events
+  // listen both shoot events
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
   WIN.addEventListener('gj:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.1-boss', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.2-boss-layout', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
