@@ -8,6 +8,7 @@
 // ✅ Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
 // ✅ CSV download + JSON copy from result overlay buttons
 // ✅ Research deterministic (seeded), Play adaptive (difficulty director lite)
+// ✅ PATCH: Force-hide result overlay on boot + lock [hidden] + hardened auto-start when overlay exists but not visible
 
 'use strict';
 
@@ -570,7 +571,6 @@ function step(t) {
     if (Engine.zone === 'GREEN') Engine._endGreenMs += dt * 1000;
 
     if (Engine.endWindowMs <= 0) {
-      // go boss
       DOC.body.classList.remove('hha-endfx');
       enterBoss(cfg);
     }
@@ -624,7 +624,10 @@ function buildSummary() {
   const acc = shots ? Math.round((hits / shots) * 100) : 0;
 
   const grade = gradeFromScore(Engine.score);
-  const tier = (grade === 'S' || grade === 'A') ? '🔥 Elite' : (grade === 'B') ? '⚡ Skilled' : (grade === 'C') ? '✅ Ok' : '🧊 Warm-up';
+  const tier = (grade === 'S' || grade === 'A') ? '🔥 Elite'
+    : (grade === 'B') ? '⚡ Skilled'
+    : (grade === 'C') ? '✅ Ok'
+    : '🧊 Warm-up';
 
   return {
     game: 'hydration',
@@ -720,7 +723,9 @@ function bindResultButtons(summary) {
     safeDownload(`hydration-${summary.diff}-${summary.run}-${summary.ts}.csv`, summaryToCSV(summary), 'text/csv');
   });
 
-  DOC.querySelectorAll('.btnBackHub')?.forEach((b) => b.addEventListener('click', () => { location.href = hub; }));
+  DOC.querySelectorAll('.btnBackHub')?.forEach((b) =>
+    b.addEventListener('click', () => { location.href = hub; })
+  );
 }
 
 function showResult(summary) {
@@ -732,11 +737,6 @@ function showResult(summary) {
 
   safeText('rGoals', `${Math.round(summary.greenHoldSec)}s GREEN`);
   safeText('rMinis', `${summary.stormOk}/${summary.stormCycles}`);
-
-  safeText('rGreen', `${summary.greenHoldSec}s`);
-  safeText('rStormCycles', summary.stormCycles);
-  safeText('rStormOk', summary.stormOk);
-  safeText('rStormRate', summary.stormCycles ? `${Math.round((summary.stormOk / summary.stormCycles) * 100)}%` : '0%');
   safeText('rTier', summary.tier);
 
   const tips = [];
@@ -768,7 +768,6 @@ function startGame() {
 
   readCtx();
   Engine.layers = resolveLayers();
-
   Engine.rng = makeRNG(Engine.seed);
 
   Engine.score = 0;
@@ -794,6 +793,12 @@ function startGame() {
   Engine.running = true;
   Engine.started = true;
 
+  // ✅ hide summary when starting (extra safety)
+  try{
+    const back = DOC.getElementById('resultBackdrop');
+    if (back) back.hidden = true;
+  }catch(_){}
+
   setWaterUI(Engine.waterPct);
   setQuestUI();
 
@@ -810,7 +815,6 @@ function startGame() {
   }
 
   Engine.rafId = requestAnimationFrame(step);
-
   coachTip('เริ่มเลย! คุมให้อยู่ GREEN แล้วเตรียมรับ STORM', 0);
 }
 
@@ -858,30 +862,55 @@ function onLayerPointerDown(e) {
 }
 
 /* =========================
-   AUTO-BOOT
+   AUTO-BOOT (HARDENED)
 ========================= */
 
 (function boot(){
-  // ⚠️ กัน CSS อื่นซ่อนเป้า
+  // ✅ Fix: summary overlay should never show on boot
+  try{
+    const back = DOC.getElementById('resultBackdrop');
+    if (back) back.hidden = true;
+  }catch(_){}
+
+  // ✅ Lock hidden behavior + force targets visible
   try {
     if (!DOC.getElementById('hydration-safe-style')) {
       const st = DOC.createElement('style');
       st.id = 'hydration-safe-style';
       st.textContent = `
         .hvr-target{ opacity:1 !important; visibility:visible !important; display:flex !important; }
+        [hidden]{ display:none !important; }
       `;
       DOC.head.appendChild(st);
     }
   } catch {}
 
-  // start by event
+  // Start by event from page overlay
   WIN.addEventListener('hha:start', () => startGame(), { passive: true });
+
+  // HARDEN: startOverlay might exist but not visible -> auto start anyway
+  function isOverlayActuallyVisible(el){
+    try{
+      if (!el) return false;
+      if (el.hidden) return false;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none') return false;
+      if (cs.visibility === 'hidden') return false;
+      if (Number(cs.opacity || '1') <= 0) return false;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return false;
+      return true;
+    }catch(_){
+      return true;
+    }
+  }
 
   // fallback auto start
   setTimeout(() => {
     const ov = DOC.getElementById('startOverlay');
-    if (!ov && !Engine.started) startGame();
-  }, 200);
+    const visible = isOverlayActuallyVisible(ov);
+    if (!visible && !Engine.started) startGame();
+  }, 260);
 
   // expose debug
   try {
