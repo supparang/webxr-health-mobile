@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + CLEAN)
+// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX for v4.2)
 // ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
 // ✅ Auto base view: pc / mobile (UA-based)
 // ✅ Auto-load ../vr/vr-ui.js only if WebXR exists (navigator.xr) and not already present
@@ -7,8 +7,7 @@
 //    - mobile -> cvr
 //    - desktop -> vr
 // ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
-// ✅ Listens gj:measureSafe (from safe.js) to remeasure instantly
-// ✅ Auto HUD Compact on mobile (class: hud-compact) — makes playfield usable
+// ✅ Listens gj:measureSafe (emitted by safe.js boss toggle) to re-measure instantly
 // ✅ Boots engine: ./goodjunk.safe.js (module export boot())
 
 import { boot as engineBoot } from './goodjunk.safe.js';
@@ -119,33 +118,31 @@ function hudSafeMeasure() {
       const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
 
       // elements that can block top/bottom
-      const topbar  = DOC.querySelector('.gj-topbar');
-      const hudTop  = DOC.getElementById('hud') || DOC.getElementById('gjHudTop');
-      const miniHud = DOC.getElementById('vrMiniHud');
-      const fever   = DOC.getElementById('feverBox');
-      const hudBot  = DOC.querySelector('.gj-hud-bot') || DOC.getElementById('gjHudBot');
-      const controls= DOC.querySelector('.hha-controls');
+      const topbar   = DOC.querySelector('.gj-topbar');
+      const progress = DOC.querySelector('.gj-progress');
+      const hudTop   = DOC.getElementById('hud') || DOC.getElementById('gjHudTop');
+      const fever    = DOC.getElementById('feverBox');
+      const hudBot   = DOC.querySelector('.gj-hud-bot') || DOC.getElementById('gjHudBot');
+      const controls = DOC.querySelector('.hha-controls');
 
-      const isCompact = DOC.body.classList.contains('hud-compact');
-      const hudHidden = DOC.body.classList.contains('hud-hidden');
-
+      // ✅ IMPORTANT: อย่าเผื่อ HUD สูงเกิน (มันจะกินสนามจน “ไม่มีที่เกิดเป้า”)
+      // ให้เผื่อ “พอประมาณ” + safe-area
       let topSafe = 0;
       topSafe = Math.max(topSafe, h(topbar));
-      topSafe = Math.max(topSafe, h(miniHud));
-
-      // compact: ลดการเอา hudTop มาคิด safe เพื่อไม่ให้สนามหาย
-      topSafe = Math.max(topSafe, h(hudTop) * (isCompact ? 0.32 : 0.55));
+      topSafe = Math.max(topSafe, h(progress));
+      topSafe = Math.max(topSafe, h(hudTop) * 0.30); // เดิม 0.55 → บังสนามมากไป
       topSafe += (12 + sat);
 
       let bottomSafe = 0;
-      bottomSafe = Math.max(bottomSafe, h(fever));
-      bottomSafe = Math.max(bottomSafe, h(hudBot) * (isCompact ? 0.28 : 0.55));
+      bottomSafe = Math.max(bottomSafe, h(fever) * 0.65); // กันแค่ส่วนสำคัญ
+      bottomSafe = Math.max(bottomSafe, h(hudBot) * 0.25);
       bottomSafe = Math.max(bottomSafe, h(controls));
       bottomSafe += (14 + sab);
 
+      const hudHidden = DOC.body.classList.contains('hud-hidden');
       if (hudHidden) {
-        topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
-        bottomSafe = Math.max(76 + sab, h(fever) + 10 + sab);
+        topSafe = Math.max(68 + sat, h(topbar) + h(progress) + 8 + sat);
+        bottomSafe = Math.max(72 + sab, h(fever) * 0.40 + 8 + sab);
       }
 
       root.style.setProperty('--gj-top-safe', px(topSafe));
@@ -153,6 +150,7 @@ function hudSafeMeasure() {
     } catch (_) {}
   }
 
+  // base triggers
   WIN.addEventListener('resize', update, { passive: true });
   WIN.addEventListener('orientationchange', update, { passive: true });
 
@@ -172,19 +170,18 @@ function hudSafeMeasure() {
     setTimeout(update, 350);
   }, { passive: true });
 
-  // ✅ safe.js can request remeasure
+  // ✅ when safe.js asks to re-measure (boss bar show/hide)
   WIN.addEventListener('gj:measureSafe', () => {
     setTimeout(update, 0);
-    setTimeout(update, 80);
-    setTimeout(update, 220);
+    setTimeout(update, 120);
+    setTimeout(update, 360);
   }, { passive: true });
 
+  // initial + periodic (กัน delayed layout)
   setTimeout(update, 0);
   setTimeout(update, 120);
   setTimeout(update, 350);
   setInterval(update, 1200);
-
-  return update;
 }
 
 function waitForFxCore(ms = 900) {
@@ -207,9 +204,6 @@ async function start() {
   // STRICT AUTO BASE VIEW — never read ?view=
   const view = baseAutoView();
   setBodyView(view);
-
-  // ✅ auto compact on mobile so field usable
-  if (isMobileUA()) DOC.body.classList.add('hud-compact');
 
   // ensure vr-ui available if WebXR exists
   ensureVrUiLoaded();
