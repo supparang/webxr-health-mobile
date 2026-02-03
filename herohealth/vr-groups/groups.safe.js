@@ -1,12 +1,9 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH LOCKPX + FX)
-// ✅ Fix 1: Aim Assist lockPx real (uses ev.detail.lockPx from vr-ui.js / run)
-//    - if elementFromPoint misses => snap to nearest target within lockPx
-// ✅ Fix 2: FX events restored
-//    - always emits 'groups:hit' for hit_good / hit_bad / shot_miss / timeout_miss
-// ✅ Bonus: Spawn positions based on real playLayer size (not full viewport)
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH)
+// ✅ FIX 1: LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
+// ✅ FIX 2: FX restored — emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
+// ✅ EXTRA: direct tap/click on target also works (pointerdown => same pipeline)
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
-
 (function(){
   'use strict';
 
@@ -113,10 +110,7 @@
 
     // throttles
     lastCoachAt:0,
-    lastQuestEmitAt:0,
-
-    // last lockPx seen (debug / consistency)
-    lastLockPx: 0
+    lastQuestEmitAt:0
   };
 
   function cfgForDiff(diff){
@@ -136,7 +130,6 @@
       'contain:layout style paint;';
     S.wrapEl = w;
 
-    // layerEl is where targets should go (playLayer)
     if (S.layerEl){
       S.layerEl.innerHTML = '';
       S.layerEl.appendChild(w);
@@ -160,41 +153,28 @@
     S.targets.length = 0;
   }
 
-  function getPlaySize(){
-    // Prefer real playLayer size so hit/aim aligns with DOM layer
-    const el = S.layerEl || DOC.getElementById('playLayer');
-    if (!el) return { w: Math.max(320, WIN.innerWidth||360), h: Math.max(480, WIN.innerHeight||640) };
-    const w = Math.max(240, el.clientWidth || 0);
-    const h = Math.max(240, el.clientHeight || 0);
-    if (w && h) return { w, h };
-    const r = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
-    if (r && r.width && r.height) return { w: Math.max(240, r.width), h: Math.max(240, r.height) };
-    return { w: Math.max(320, WIN.innerWidth||360), h: Math.max(480, WIN.innerHeight||640) };
-  }
-
-  function getTargetSizePx(){
-    // Read from CSS variable --tSize (set by view) if available
-    try{
-      const v = getComputedStyle(DOC.body).getPropertyValue('--tSize').trim();
-      const n = Number(String(v).replace('px','').trim());
-      if (Number.isFinite(n) && n>10) return n;
-    }catch(_){}
-    // fallback by view
-    if (S.view === 'pc') return 96;
-    if (S.view === 'vr' || S.view === 'cvr') return 118;
-    return 108;
+  // direct tap/click => same shoot pipeline
+  function wireDirectTap(el){
+    if(!el) return;
+    el.addEventListener('pointerdown', (e)=>{
+      if(!S.running) return;
+      // Use the real pointer coordinate
+      const x = Number(e.clientX)||0;
+      const y = Number(e.clientY)||0;
+      // "direct" hit should not need aim-assist, but keep small lock to be forgiving
+      emit('hha:shoot', { x, y, lockPx: 8, source:'direct' });
+    }, { passive:true });
   }
 
   function mkTarget(groupKey, emoji, lifeMs){
-    ensureWrap();
-
     const el = DOC.createElement('div');
     el.className = 'tgt';
     el.setAttribute('data-group', groupKey);
     el.setAttribute('role','button');
-    // Let CSS drive width/height via --tSize (do NOT hardcode 72px here)
+
+    // NOTE: size is controlled by CSS in groups-vr.css; inline here is just fallback
     el.style.cssText =
-      'position:absolute; border-radius:18px; '+
+      'position:absolute; width:72px; height:72px; border-radius:18px; '+
       'display:flex; align-items:center; justify-content:center; '+
       'font-size:34px; font-weight:900; '+
       'background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.22); '+
@@ -203,17 +183,23 @@
 
     el.textContent = emoji;
 
-    const { w, h } = getPlaySize();
-    const size = getTargetSizePx();
+    // position inside playLayer area, not the whole viewport
+    const host = S.layerEl || DOC.body;
+    const r = host.getBoundingClientRect ? host.getBoundingClientRect() : { left:0, top:0, width:(WIN.innerWidth||360), height:(WIN.innerHeight||640) };
 
+    const w = Math.max(240, r.width||360);
+    const h = Math.max(240, r.height||520);
+
+    const size = 72; // fallback; CSS may override
     const pad = 10;
+
     const x = pad + (S.rng() * Math.max(1, (w - pad*2 - size)));
     const y = pad + (S.rng() * Math.max(1, (h - pad*2 - size)));
 
     el.style.left = Math.round(x) + 'px';
     el.style.top  = Math.round(y) + 'px';
 
-    // appear anim
+    // simple appear anim
     el.style.transform = 'scale(.82)';
     el.style.opacity = '0';
     requestAnimationFrame(()=>{
@@ -224,8 +210,10 @@
 
     const born = nowMs();
     const t = { el, groupKey, born, dieAt: born + lifeMs, hit:false };
+    ensureWrap();
     S.wrapEl.appendChild(el);
 
+    wireDirectTap(el);
     return t;
   }
 
@@ -406,101 +394,84 @@
     }
   }
 
-  // ---------------- hit test + AIM ASSIST ----------------
-  function hitTestPoint(x,y){
+  // ---------------- hit test + lockPx aim assist ----------------
+  function hitTest(x,y){
+    x = Number(x)||0;
+    y = Number(y)||0;
+    let el = null;
     try{
-      const el = DOC.elementFromPoint(x,y);
+      el = DOC.elementFromPoint(x,y);
       if (!el) return null;
       if (el.classList && el.classList.contains('tgt')) return el;
-      return el.closest ? (el.closest('.tgt') || null) : null;
+      const p = el.closest ? el.closest('.tgt') : null;
+      return p || null;
     }catch(_){
       return null;
     }
   }
 
-  function centerOfEl(el){
-    try{
-      const r = el.getBoundingClientRect();
-      return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
-    }catch(_){
-      return { cx: 0, cy: 0 };
-    }
-  }
+  // Find nearest target center within radius rPx (in viewport coordinates)
+  function nearestTargetWithin(x, y, rPx){
+    rPx = Number(rPx)||0;
+    if (rPx <= 0) return null;
 
-  function aimAssistPick(x,y, lockPx){
-    // Find nearest live target center within lockPx
-    lockPx = clamp(lockPx, 0, 120);
-    if (!lockPx || !S.targets.length) return null;
-
-    let bestEl = null;
-    let bestD2 = (lockPx * lockPx) + 0.0001;
+    const r2 = rPx * rPx;
+    let best = null;
+    let bestD2 = r2 + 1;
 
     for (let i=0;i<S.targets.length;i++){
       const t = S.targets[i];
       if (!t || t.hit || !t.el) continue;
-      const { cx, cy } = centerOfEl(t.el);
-      const dx = cx - x;
-      const dy = cy - y;
-      const d2 = dx*dx + dy*dy;
-      if (d2 <= bestD2){
-        bestD2 = d2;
-        bestEl = t.el;
-      }
+      try{
+        const rect = t.el.getBoundingClientRect();
+        const cx = rect.left + rect.width/2;
+        const cy = rect.top  + rect.height/2;
+        const dx = cx - x;
+        const dy = cy - y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 <= r2 && d2 < bestD2){
+          bestD2 = d2;
+          best = t.el;
+        }
+      }catch(_){}
     }
-    return bestEl;
+    return best;
   }
 
-  function emitHitFX(kind, good, miss, x, y){
-    // Always emit for effects-pack.js
+  function emitFx(kind, x, y, good){
     emit('groups:hit', {
-      kind: String(kind||''),
+      kind, x, y,
       good: !!good,
-      miss: !!miss,
-      x: Number(x)||0,
-      y: Number(y)||0
+      miss: (kind === 'shot_miss' || kind === 'timeout_miss')
     });
   }
 
   function removeTargetEl(tgtEl){
     try{
-      tgtEl.style.transition = 'transform 140ms ease, opacity 120ms ease';
-      tgtEl.style.transform = 'scale(.75)';
-      tgtEl.style.opacity = '0';
-      setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
-    }catch(_){
-      try{ tgtEl.remove(); }catch(__){}
-    }
-  }
-
-  function processHit(tgtEl, shotX, shotY){
-    const tg = String(tgtEl.getAttribute('data-group')||'');
-    const cg = currentGroup().key;
-    const good = (tg === cg);
-
-    // remove from list
-    try{
-      const idx = S.targets.findIndex(t=>t && t.el===tgtEl);
+      const idx = S.targets.findIndex(t=>t.el===tgtEl);
       if (idx>=0){
         const t = S.targets[idx];
-        if (!t.hit) t.hit = true;
-        S.targets.splice(idx,1);
+        if (!t.hit){
+          t.hit = true;
+          try{
+            tgtEl.style.transition = 'transform 140ms ease, opacity 120ms ease';
+            tgtEl.style.transform = 'scale(.75)';
+            tgtEl.style.opacity = '0';
+            setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
+          }catch(_){}
+          S.targets.splice(idx,1);
+        }
+      }else{
+        try{
+          tgtEl.style.transition = 'transform 140ms ease, opacity 120ms ease';
+          tgtEl.style.transform = 'scale(.75)';
+          tgtEl.style.opacity = '0';
+          setTimeout(()=>{ try{ tgtEl.remove(); }catch(_){ } }, 140);
+        }catch(_){
+          try{ tgtEl.remove(); }catch(__){}
+        }
       }
     }catch(_){}
-
-    // visual remove
-    removeTargetEl(tgtEl);
-
-    // scoring
-    addScore(good);
-    if (good){
-      onGoodHit();
-      if (S.boss) bossHit();
-      emitHitFX('hit_good', true, false, shotX, shotY);
-    }else{
-      onBadHit();
-      coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
-      emitHitFX('hit_bad', false, false, shotX, shotY);
-    }
   }
 
   function handleShoot(ev){
@@ -511,29 +482,44 @@
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
 
-    // lockPx from vr-ui.js / run (per-shot)
-    const lockPx = clamp(Number(d.lockPx ?? S.lastLockPx ?? 0), 0, 120);
-    if (lockPx) S.lastLockPx = lockPx;
+    // lockPx from vr-ui.js (mobile/cvr tuned in groups-vr.html)
+    const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
 
     S.shots++;
 
-    // 1) direct hit test
-    let tgtEl = hitTestPoint(x,y);
+    // 1) try direct hit
+    let tgtEl = hitTest(x,y);
 
-    // 2) aim assist (snap) if missed
+    // 2) aim-assist: nearest within lockPx
     if (!tgtEl && lockPx > 0){
-      tgtEl = aimAssistPick(x,y, lockPx);
+      tgtEl = nearestTargetWithin(x, y, lockPx);
     }
 
-    // 3) miss
     if (!tgtEl){
       addScore(false);
       onBadHit();
-      emitHitFX('shot_miss', false, true, x, y);
+      emitFx('shot_miss', x, y, false);
       return;
     }
 
-    processHit(tgtEl, x, y);
+    const tg = String(tgtEl.getAttribute('data-group')||'');
+    const cg = currentGroup().key;
+
+    removeTargetEl(tgtEl);
+
+    const good = (tg === cg);
+    addScore(good);
+
+    // FX
+    if (good){
+      emitFx('hit_good', x, y, true);
+      onGoodHit();
+      if (S.boss) bossHit();
+    }else{
+      emitFx('hit_bad', x, y, false);
+      onBadHit();
+      coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+    }
   }
 
   // ---------------- RAF loop ----------------
@@ -549,7 +535,7 @@
     const left = Math.max(0, Math.ceil(S.timePlannedSec - elapsed));
     if (left !== S.timeLeftSec){
       S.timeLeftSec = left;
-      emitTime();
+      emit('hha:time', { left:S.timeLeftSec });
 
       // mini countdown
       if (S.miniActive){
@@ -568,15 +554,15 @@
       startBossIfNeeded();
     }
 
-    // target expiry
+    // target expiry => timeout miss (only if current group for fairness)
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
-
       if (t >= tg.dieAt){
-        // timeout: count miss only if it was current group (fair)
         const cg = currentGroup().key;
-        if (tg.groupKey === cg){
+        const isFairMiss = (tg.groupKey === cg);
+
+        if (isFairMiss){
           S.miss++;
           S.combo = 0;
           S.score = Math.max(0, S.score - 6);
@@ -584,12 +570,13 @@
           emitRank();
           onBadHit();
 
-          // FX event for timeout miss (use target center)
-          const c = centerOfEl(tg.el);
-          emitHitFX('timeout_miss', false, true, c.cx, c.cy);
+          // FX for timeout miss — use target center in viewport coords
+          try{
+            const r = tg.el.getBoundingClientRect();
+            emitFx('timeout_miss', r.left + r.width/2, r.top + r.height/2, false);
+          }catch(_){}
         }
 
-        // remove visual
         try{
           tg.el.style.transition = 'transform 120ms ease, opacity 120ms ease';
           tg.el.style.transform = 'scale(.85)';
@@ -631,13 +618,13 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
-    // mix spawn: mostly correct group so playable
+    // bias toward correct group so playable
     let gKey = '';
     const r = S.rng();
     if (r < 0.58) gKey = cg.key;
     else gKey = pick(S.rng, GROUPS).key;
 
-    // boss: increase correct targets
+    // in boss: increase correct targets
     if (S.boss && S.rng() < 0.70) gKey = cg.key;
 
     const g = GROUPS.find(x=>x.key===gKey) || cg;
@@ -733,7 +720,7 @@
       H && H.init && H.init({ view:S.view });
     }catch(_){}
 
-    // init FX (optional)
+    // init FX pack (optional) — but safe
     try{
       const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
       FX && FX.init && FX.init({ layerEl: S.layerEl });
@@ -755,14 +742,6 @@
       }
     }catch(_){}
 
-    // AI hooks attach (optional)
-    try{
-      const AI = WIN.GroupsVR && WIN.GroupsVR.AIHooks;
-      if (AI && AI.attach){
-        AI.attach({ runMode:S.runMode, seed:S.seed, enabled:false });
-      }
-    }catch(_){}
-
     // reset + run
     resetRun(ctx||{});
 
@@ -770,7 +749,7 @@
     S.startT = nowMs();
     S.lastTickT = S.startT;
 
-    // listen shoot
+    // listen shoot (from vr-ui crosshair / tap-to-shoot)
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
 
     // GO!
@@ -829,7 +808,7 @@
   }
 
   // ---------------- flush harden hook (optional for your html) ----------------
-  function bindFlushOnLeave(getSummaryFn){
+  WIN.GroupsVR.bindFlushOnLeave = function bindFlushOnLeave(getSummaryFn){
     function safeCall(){
       try{
         const s = getSummaryFn ? getSummaryFn() : null;
@@ -842,15 +821,10 @@
     DOC.addEventListener('visibilitychange', ()=>{
       if (DOC.visibilityState === 'hidden') safeCall();
     });
-  }
+  };
 
   // ---------------- expose ----------------
-  WIN.GroupsVR.GameEngine = {
-    setLayerEl,
-    start,
-    stop
-  };
-  WIN.GroupsVR.bindFlushOnLeave = bindFlushOnLeave;
+  WIN.GroupsVR.GameEngine = { setLayerEl, start, stop };
 
   WIN.GroupsVR.getResearchCtx = function(){
     try{
