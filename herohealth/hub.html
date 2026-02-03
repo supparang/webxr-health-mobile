@@ -35,7 +35,7 @@
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
     }
     a{ color:inherit; text-decoration:none; }
-    .wrap{ max-width:1220px; margin:0 auto; }
+    .wrap{ max-width:1260px; margin:0 auto; }
 
     .top{ display:flex; gap:12px; align-items:flex-start; justify-content:space-between; padding: 14px 14px 0 14px; }
     .brand{ display:flex; flex-direction:column; gap:6px; }
@@ -136,7 +136,6 @@
     }
     .card:hover{ transform: translateY(-1px); background: rgba(255,255,255,.045); border-color: rgba(255,255,255,.18); }
     .card:active{ transform: translateY(1px); }
-
     .card h3{ margin:0 0 6px 0; font-size:16px; letter-spacing:.2px; }
     .card p{ margin:0; color:var(--muted); font-size: 13px; line-height: 1.45; }
     .tags{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
@@ -241,6 +240,17 @@
 
           <div class="sep"></div>
 
+          <div class="btn small" id="btnPhaseFollowup">phase=<strong>followup</strong></div>
+          <div class="btn small" id="btnCondC">cond=<strong>C</strong></div>
+          <div class="btn small" id="btnCondD">cond=<strong>D</strong></div>
+
+          <div class="sep"></div>
+
+          <div class="btn" id="btnNewPid">🆔 New participant</div>
+          <div class="btn secondary" id="btnClearPid">🧹 Clear pid</div>
+
+          <div class="sep"></div>
+
           <div class="btn secondary" id="btnClearRDT">🧹 Clear run/diff/time</div>
 
           <div class="sep"></div>
@@ -260,8 +270,8 @@
           <div class="note" id="note">
             ✅ ไม่ override พารามิเตอร์เดิม (ส่งต่อทั้งหมด)<br/>
             ✅ ปุ่มลัดจะ “เติมค่า” เฉพาะตอนที่ยังไม่มี param นั้น<br/>
-            ✅ Preset วิจัยจะเติม: <b>studyId/phase/conditionGroup/log</b> เฉพาะที่ยังว่าง<br/>
-            ✅ Clear จะลบแค่ <b>run/diff/time</b> อย่างเดียว
+            ✅ Preset วิจัยเติม: <b>studyId/phase/conditionGroup/log</b> เฉพาะที่ว่าง<br/>
+            ✅ New participant เติม <b>pid</b> เฉพาะตอนที่ยังไม่มี (ไม่ override)
           </div>
         </aside>
       </div>
@@ -277,7 +287,7 @@
 (function(){
   'use strict';
 
-  // ========= CONFIG: 3 ZONES (ตามไฟล์จริง) =========
+  // ========= CONFIG: 3 ZONES =========
   const ZONES = [
     {
       id: 'nutrition', icon:'🥗', name:'โภชนาการ', color:'green',
@@ -345,7 +355,6 @@
     return base.toString();
   }
 
-  // set one param only if missing (no override)
   function setParamIfMissing(key, value){
     const u = new URL(hubUrl());
     const q = u.searchParams;
@@ -356,7 +365,6 @@
     return { changed:true, url:u.toString(), current:value };
   }
 
-  // set many params only if missing (no override)
   function setManyIfMissing(pairs){
     const u = new URL(hubUrl());
     const q = u.searchParams;
@@ -369,16 +377,12 @@
     return { changed: changedKeys.length>0, url:u.toString(), changedKeys, current: toObj(q) };
   }
 
-  // remove keys (only)
   function removeKeys(keys){
     const u = new URL(hubUrl());
     const q = u.searchParams;
     let changed = false;
     keys.forEach(k=>{
-      if (q.has(k)){
-        q.delete(k);
-        changed = true;
-      }
+      if (q.has(k)){ q.delete(k); changed = true; }
     });
     return { changed, url: u.toString() };
   }
@@ -389,11 +393,49 @@
     return u.toString();
   }
 
+  // ========= PID generator =========
+  function makePid(){
+    // short, readable, unique-enough (no deps)
+    // example: P-8K2FQ-7D
+    const a = Math.random().toString(36).slice(2,7).toUpperCase();
+    const b = Math.random().toString(36).slice(2,4).toUpperCase();
+    return `P-${a}-${b}`;
+  }
+
+  // ========= Presets =========
+  const PRESET_A = { run:'research', studyId:'HHA-Study-001', phase:'pre',  conditionGroup:'A', log:'1' };
+  const PRESET_B = { run:'research', studyId:'HHA-Study-001', phase:'post', conditionGroup:'B', log:'1' };
+
+  function getPresetLabel(q){
+    const o = toObj(q);
+    const isA =
+      (o.run||'')===PRESET_A.run &&
+      (o.studyId||'')===PRESET_A.studyId &&
+      (o.phase||'')===PRESET_A.phase &&
+      (o.conditionGroup||'')===PRESET_A.conditionGroup &&
+      (o.log||'')===PRESET_A.log;
+
+    const isB =
+      (o.run||'')===PRESET_B.run &&
+      (o.studyId||'')===PRESET_B.studyId &&
+      (o.phase||'')===PRESET_B.phase &&
+      (o.conditionGroup||'')===PRESET_B.conditionGroup &&
+      (o.log||'')===PRESET_B.log;
+
+    if (isA) return 'Preset-A';
+    if (isB) return 'Preset-B';
+    return '';
+  }
+
   // ========= RENDER =========
   function renderPills(){
     const q = parseQS();
+    const presetLabel = getPresetLabel(q);
+
     const pills = [
       {k:'view', v:detectView()},
+      presetLabel ? {k:'preset', v:presetLabel} : null,
+      {k:'pid', v:q.get('pid')},
       {k:'run', v:q.get('run')},
       {k:'diff', v:q.get('diff')},
       {k:'time', v:q.get('time')},
@@ -402,10 +444,11 @@
       {k:'phase', v:q.get('phase')},
       {k:'condition', v:q.get('conditionGroup')},
       {k:'log', v:q.get('log')},
-    ];
+    ].filter(Boolean);
+
     pillRow.innerHTML = pills
       .filter(x => x.v != null && String(x.v).trim() !== '')
-      .slice(0, 12)
+      .slice(0, 14)
       .map(x => `<span class="pill"><b>${x.k}</b>: ${String(x.v).replace(/</g,'&lt;')}</span>`)
       .join('') || `<span class="pill"><b>params</b>: none</span>`;
   }
@@ -414,6 +457,8 @@
     const q = parseQS();
     const data = [
       ['view', detectView()],
+      ['preset', getPresetLabel(q)],
+      ['pid', q.get('pid')],
       ['run', q.get('run')],
       ['diff', q.get('diff')],
       ['time', q.get('time')],
@@ -593,42 +638,48 @@
   bindSetIfMissing('#btnTime90', 'time', '90');
   bindSetIfMissing('#btnTime120', 'time', '120');
 
-  // seed=auto (Date.now) only if missing
+  // seed auto
   $('#btnSeedAuto').addEventListener('click', ()=>{
     const res = setParamIfMissing('seed', String(Date.now()));
     if (!res.changed){ toast(`มี seed อยู่แล้ว: ${res.current} (ไม่ override)`); return; }
     location.href = res.url;
   });
 
-  // Preset research: fill only missing keys
-  // (คุณสามารถแก้ค่าพวกนี้ให้ตรงงานวิจัยได้ทันที)
-  const PRESET_A = {
-    run: 'research',
-    studyId: 'HHA-Study-001',
-    phase: 'pre',
-    conditionGroup: 'A',
-    log: '1'
-  };
-  const PRESET_B = {
-    run: 'research',
-    studyId: 'HHA-Study-001',
-    phase: 'post',
-    conditionGroup: 'B',
-    log: '1'
-  };
-
+  // preset apply (fill only missing)
   function applyPreset(preset){
     const res = setManyIfMissing(preset);
-    if (!res.changed){
-      toast('Preset: ไม่มีช่องว่างให้เติม (ไม่ override)');
-      return;
-    }
+    if (!res.changed){ toast('Preset: ไม่มีช่องว่างให้เติม (ไม่ override)'); return; }
     toast('Preset เติมแล้ว: ' + res.changedKeys.join(', '));
     location.href = res.url;
   }
-
   $('#btnPresetResearchA').addEventListener('click', ()=> applyPreset(PRESET_A));
   $('#btnPresetResearchB').addEventListener('click', ()=> applyPreset(PRESET_B));
+
+  // phase followup
+  bindSetIfMissing('#btnPhaseFollowup', 'phase', 'followup');
+
+  // condition C/D
+  bindSetIfMissing('#btnCondC', 'conditionGroup', 'C');
+  bindSetIfMissing('#btnCondD', 'conditionGroup', 'D');
+
+  // New participant (pid) only if missing
+  $('#btnNewPid').addEventListener('click', ()=>{
+    const pid = makePid();
+    const res = setParamIfMissing('pid', pid);
+    if (!res.changed){
+      toast(`มี pid อยู่แล้ว: ${res.current} (ไม่ override) — ถ้าจะเปลี่ยนให้กด Clear pid ก่อน`);
+      return;
+    }
+    toast('สร้าง participant: ' + pid);
+    location.href = res.url;
+  });
+
+  // Clear pid only
+  $('#btnClearPid').addEventListener('click', ()=>{
+    const res = removeKeys(['pid']);
+    if (!res.changed){ toast('ไม่มี pid ให้ลบ'); return; }
+    location.href = res.url;
+  });
 
   // Clear only run/diff/time
   $('#btnClearRDT').addEventListener('click', ()=>{
@@ -642,7 +693,6 @@
     let last=null;
     try{ last = localStorage.getItem(LS_LAST_ZONE); }catch{}
     const zoneId = ZONES.some(z=>z.id===last) ? last : ZONES[0].id;
-
     renderTabs();
     setZone(zoneId, false);
     updateResumeBtn();
