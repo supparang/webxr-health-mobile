@@ -427,3 +427,433 @@ function startGame(mode) {
 }
 
 // ... (Part 1 ends here)
+// ===============================
+// Loop + time/spawn/expire
+// ===============================
+function loop() {
+  if (!State.running || State.ended) return;
+
+  const t = nowMs();
+  State.tNow = t;
+
+  // lazy init for properties that may be introduced by patches
+  if (State.shield == null) State.shield = 0;
+
+  if (!State.paused) {
+    const elapsedSec = (t - State.tStart) / 1000;
+    const remainSec = Math.max(0, State.durationSec - elapsedSec);
+
+    // end by time
+    if (remainSec <= 0) {
+      endGame('time_up');
+      return;
+    }
+
+    // spawn
+    if (t >= State.nextSpawnAt) {
+      spawnOne();
+      // schedule next spawn
+      const boss = BOSSES[State.bossIndex];
+      const ph = boss.phases[State.phaseIndex];
+      const dp = DIFF[State.diff] || DIFF.normal;
+
+      const baseSpawn = ph.spawnMs;
+      const spawnMs = clamp(baseSpawn * dp.spawnMul * getSkillSpawnMul(), 240, 1400);
+      State.nextSpawnAt = t + spawnMs;
+    }
+
+    // expire targets
+    expireTargets(t);
+
+    // boss skills
+    checkBossSkills();
+
+    // fever timer
+    if (State.feverOn) {
+      State.feverTtlMs -= (t - (State._lastTickMs || t));
+      if (State.feverTtlMs <= 0) {
+        State.feverOn = false;
+        State.feverTtlMs = 0;
+        setMsg('FEVER หมดเวลา', 'miss');
+      }
+    }
+
+    // update HUD
+    updateHUD(remainSec);
+  }
+
+  State._lastTickMs = t;
+  requestAnimationFrame(loop);
+}
+
+function stopGame(reason = 'stop') {
+  // stop without result view (used when back to menu)
+  State.running = false;
+  State.ended = true;
+
+  // remove all targets
+  for (const [id] of State.liveTargets.entries()) {
+    renderer.removeTarget(id, reason);
+  }
+  State.liveTargets.clear();
+
+  // renderer cleanup (keep instance)
+  setMsg('พร้อมเริ่มใหม่', '');
+}
+
+function endGame(endReason = 'end') {
+  State.running = false;
+  State.ended = true;
+
+  // finalize session stats
+  const elapsedSec = clamp((State.tNow - State.tStart) / 1000, 0, State.durationSec);
+
+  // compute accuracy: hits / judged
+  const acc = State.totalJudged > 0 ? (State.totalHits / State.totalJudged) * 100 : 0;
+
+  const grade = computeGrade({
+    accPct: acc,
+    miss: State.miss,
+    maxCombo: State.maxCombo,
+    bossCleared: State.bossCleared,
+    youHpPct: State.youHpMax ? (State.youHp / State.youHpMax) : 0
+  });
+
+  // session summary
+  sessionLogger.setSummary({
+    ts_end_ms: Date.now(),
+    end_reason: endReason,
+    time_sec: Number(elapsedSec.toFixed(2)),
+    score: State.score,
+    max_combo: State.maxCombo,
+    miss: State.miss,
+    boss_cleared: State.bossCleared,
+    phase_reached: State.phaseIndex + 1,
+    acc_pct: Number(acc.toFixed(2)),
+    grade: grade
+  });
+
+  // ensure targets removed
+  for (const [id] of State.liveTargets.entries()) {
+    renderer.removeTarget(id, 'end');
+  }
+  State.liveTargets.clear();
+
+  // result UI
+  if (UI.resTime) UI.resTime.textContent = `${fmt1(elapsedSec)} s`;
+  if (UI.resScore) UI.resScore.textContent = String(int(State.score));
+  if (UI.resMaxCombo) UI.resMaxCombo.textContent = String(int(State.maxCombo));
+  if (UI.resMiss) UI.resMiss.textContent = String(int(State.miss));
+  if (UI.resPhase) UI.resPhase.textContent = String(int(State.phaseIndex + 1));
+  if (UI.resBossCleared) UI.resBossCleared.textContent = String(int(State.bossCleared));
+  if (UI.resAcc) UI.resAcc.textContent = `${fmt1(acc)} %`;
+  if (UI.resGrade) UI.resGrade.textContent = grade;
+
+  setActiveView('sb-view-result');
+  setMsg('จบเกม!', 'good');
+}
+
+function updateHUD(remainSec) {
+  // time
+  if (UI.textTime) UI.textTime.textContent = `${fmt1(State.durationSec - remainSec)} s`;
+  if (UI.textScore) UI.textScore.textContent = String(int(State.score));
+  if (UI.textCombo) UI.textCombo.textContent = String(int(State.combo));
+  if (UI.textPhase) UI.textPhase.textContent = String(int(State.phaseIndex + 1));
+  if (UI.textMiss) UI.textMiss.textContent = String(int(State.miss));
+  if (UI.textShield) UI.textShield.textContent = String(int(State.shield || 0));
+
+  // hp bars
+  setBar(UI.hpYouTop, State.youHpMax ? (State.youHp / State.youHpMax) : 0);
+  setBar(UI.hpBossTop, State.bossHpMax ? (State.bossHp / State.bossHpMax) : 0);
+  setBar(UI.hpYouBottom, State.youHpMax ? (State.youHp / State.youHpMax) : 0);
+  setBar(UI.hpBossBottom, State.bossHpMax ? (State.bossHp / State.bossHpMax) : 0);
+
+  // fever
+  const f = clamp01(State.fever);
+  if (UI.feverBar) UI.feverBar.style.transform = `scaleX(${f})`;
+  if (UI.feverLabel) {
+    if (State.feverOn) {
+      UI.feverLabel.textContent = 'ON';
+      UI.feverLabel.classList.add('on');
+    } else if (f >= 1) {
+      UI.feverLabel.textContent = 'READY';
+      UI.feverLabel.classList.remove('on');
+    } else {
+      UI.feverLabel.textContent = 'BUILD';
+      UI.feverLabel.classList.remove('on');
+    }
+  }
+
+  // boss meta side
+  if (UI.bossPhaseLabel) UI.bossPhaseLabel.textContent = String(int(State.phaseIndex + 1));
+  if (UI.bossShieldLabel) UI.bossShieldLabel.textContent = String(int(State.bossShield || 0));
+}
+
+function setBar(el, pct01) {
+  if (!el) return;
+  const p = clamp01(pct01);
+  el.style.transform = `scaleX(${p})`;
+}
+
+// ===============================
+// Spawn / target lifecycle
+// ===============================
+function spawnOne() {
+  const boss = BOSSES[State.bossIndex];
+  const ph = boss.phases[State.phaseIndex];
+  const dp = DIFF[State.diff] || DIFF.normal;
+
+  const id = State.nextTargetId++;
+  const type = pickTargetType(ph.mix);
+
+  const baseSize = Number(ph.sizePx) || 120;
+  const sizePx = clamp(baseSize * dp.sizeMul * getSkillSizeMul(type), 70, 320);
+
+  const baseTtl = Number(ph.ttlMs) || 900;
+  const ttlMs = clamp(baseTtl * dp.ttlMul * getSkillTtlMul(type), 320, 2200);
+
+  // sometimes show bossface when boss low
+  const bossHpPct = State.bossHpMax ? (State.bossHp / State.bossHpMax) : 1;
+  const canBossFace = bossHpPct <= 0.15 && !State._bossFaceShown;
+  const finalType = canBossFace ? 'bossface' : type;
+
+  const data = {
+    id,
+    type: finalType,
+    bossEmoji: boss.emoji,
+    bornMs: State.tNow,
+    expireMs: State.tNow + ttlMs,
+    sizePx
+  };
+
+  State.liveTargets.set(id, data);
+  renderer.spawnTarget(data);
+
+  if (finalType === 'bossface') {
+    State._bossFaceShown = true;
+  }
+}
+
+function pickTargetType(mix) {
+  // mix: {normal:0.8, bomb:0.1, heal:0.05, shield:0.05, decoy:0.0}
+  const m = mix || { normal: 1 };
+  const keys = Object.keys(m);
+  let sum = 0;
+  for (const k of keys) sum += Math.max(0, Number(m[k]) || 0);
+  if (sum <= 0) return 'normal';
+
+  let r = Math.random() * sum;
+  for (const k of keys) {
+    r -= Math.max(0, Number(m[k]) || 0);
+    if (r <= 0) return k;
+  }
+  return keys[0] || 'normal';
+}
+
+function expireTargets(tMs) {
+  if (!State.liveTargets.size) return;
+
+  const expired = [];
+  for (const [id, d] of State.liveTargets.entries()) {
+    if (tMs >= d.expireMs) expired.push(id);
+  }
+
+  for (const id of expired) {
+    const d = State.liveTargets.get(id);
+    if (!d) continue;
+
+    // timeout miss (only if it was hittable)
+    if (d.type !== 'heal' && d.type !== 'shield') {
+      State.miss += 1;
+      State.combo = 0;
+
+      State.totalJudged += 1;
+      // no hit
+
+      // log event for research
+      eventLogger.add({
+        ts_ms: Date.now(),
+        mode: State.mode,
+        diff: State.diff,
+        boss_index: State.bossIndex,
+        boss_phase: State.phaseIndex + 1,
+        target_id: d.id,
+        target_type: d.type,
+        is_boss_face: d.type === 'bossface' ? 1 : 0,
+        event_type: 'timeout_miss',
+        rt_ms: '',
+        grade: 'timeout_miss',
+        score_delta: 0,
+        combo_after: State.combo,
+        score_after: State.score,
+        player_hp: State.youHp,
+        boss_hp: State.bossHp
+      });
+
+      // user feedback
+      setMsg('MISS (ช้าไป!)', 'miss');
+    }
+
+    renderer.removeTarget(id, 'timeout');
+    State.liveTargets.delete(id);
+
+    // small penalty in hard (optional)
+    applyTimeoutPenalty(d);
+  }
+}
+
+function applyTimeoutPenalty(d) {
+  // optional: punish slightly if hard and you keep missing
+  if (State.diff !== 'hard') return;
+  if (!d) return;
+
+  // if normal target timed out -> small chip damage
+  if (d.type === 'normal' || d.type === 'bossface') {
+    const dp = DIFF[State.diff] || DIFF.normal;
+    const dmg = Math.round(3 * dp.youDmg);
+    damagePlayer(dmg, 'timeout_chip');
+  }
+}
+
+function damagePlayer(dmg, reason) {
+  const n = Math.max(0, Math.round(Number(dmg) || 0));
+  if (n <= 0) return;
+
+  // shield blocks first
+  if ((State.shield || 0) > 0) {
+    State.shield = Math.max(0, (State.shield || 0) - 1);
+    // log as blocked damage
+    eventLogger.add({
+      ts_ms: Date.now(),
+      mode: State.mode,
+      diff: State.diff,
+      boss_index: State.bossIndex,
+      boss_phase: State.phaseIndex + 1,
+      target_id: '',
+      target_type: '',
+      is_boss_face: 0,
+      event_type: 'shield_block',
+      rt_ms: '',
+      grade: 'shield_block',
+      score_delta: 0,
+      combo_after: State.combo,
+      score_after: State.score,
+      player_hp: State.youHp,
+      boss_hp: State.bossHp,
+      note: reason || ''
+    });
+    setMsg('SHIELD BLOCK!', 'good');
+    return;
+  }
+
+  State.youHp = clamp(State.youHp - n, 0, State.youHpMax);
+  if (State.youHp <= 0) {
+    endGame('player_dead');
+  }
+}
+
+function syncBossUI() {
+  const boss = BOSSES[State.bossIndex];
+  if (!boss) return;
+
+  if (UI.bossName) UI.bossName.textContent = `${boss.name} ${boss.emoji}`;
+  if (UI.metaEmoji) UI.metaEmoji.textContent = boss.emoji;
+  if (UI.metaName) UI.metaName.textContent = boss.name;
+  if (UI.metaDesc) UI.metaDesc.textContent = boss.desc || '';
+
+  State._bossFaceShown = false;
+
+  if (UI.bossPhaseLabel) UI.bossPhaseLabel.textContent = String(int(State.phaseIndex + 1));
+  if (UI.bossShieldLabel) UI.bossShieldLabel.textContent = String(int(State.bossShield || 0));
+}
+
+// ===============================
+// Boss skills system (PackA hooks)
+// ===============================
+function checkBossSkills() {
+  const boss = BOSSES[State.bossIndex];
+  if (!boss) return;
+  const skills = boss.skills || [];
+  if (!skills.length) return;
+
+  const hpPct = State.bossHpMax ? (State.bossHp / State.bossHpMax) : 1;
+
+  for (let i = 0; i < skills.length; i++) {
+    const s = skills[i];
+    const key = `b${State.bossIndex}_p${State.phaseIndex}_s${i}`;
+    if (State.skillFlags[key]) continue;
+
+    const at = Number(s.atHpPct);
+    if (!Number.isFinite(at)) continue;
+
+    if (hpPct <= at) {
+      State.skillFlags[key] = true;
+      triggerSkill(s);
+    }
+  }
+
+  // decay active skill timers
+  if (State._skillActiveUntilMs && State.tNow >= State._skillActiveUntilMs) {
+    State._skillActiveUntilMs = 0;
+    State._skillKind = '';
+    State._skillNote = '';
+    State._skillBoost = null;
+  }
+}
+
+function triggerSkill(s) {
+  const kind = s.kind || '';
+  const durMs = clamp(Number(s.durMs) || 2200, 800, 7000);
+  State._skillKind = kind;
+  State._skillNote = s.note || '';
+  State._skillActiveUntilMs = State.tNow + durMs;
+
+  // show message
+  if (State._skillNote) setMsg(State._skillNote, 'perfect');
+
+  if (kind === 'shieldUp') {
+    // boss shield points: reduce boss damage for a while
+    State.bossShield = clamp((State.bossShield || 0) + 2, 0, 9);
+  }
+
+  if (kind === 'storm') {
+    // immediate burst of spawns
+    const n = 6;
+    for (let i = 0; i < n; i++) spawnOne();
+  }
+
+  if (kind === 'fakeouts') {
+    // mark boost: increase decoy for duration
+    State._skillBoost = { decoyPlus: 0.12 };
+  }
+
+  if (kind === 'rage') {
+    // mark boost: faster spawn + shorter ttl
+    State._skillBoost = { spawnMul: 0.82, ttlMul: 0.88, sizeMul: 0.94 };
+  }
+}
+
+function getSkillSpawnMul() {
+  const b = State._skillBoost || null;
+  if (!b) return 1;
+  return Number.isFinite(b.spawnMul) ? b.spawnMul : 1;
+}
+function getSkillTtlMul(type) {
+  const b = State._skillBoost || null;
+  if (!b) return 1;
+  // rage: global ttl
+  if (Number.isFinite(b.ttlMul)) return b.ttlMul;
+  // storm: a bit shorter on bombs
+  if (State._skillKind === 'storm' && type === 'bomb') return 0.92;
+  return 1;
+}
+function getSkillSizeMul(type) {
+  const b = State._skillBoost || null;
+  if (!b) return 1;
+  if (Number.isFinite(b.sizeMul)) return b.sizeMul;
+  // fakeouts: decoy slightly smaller
+  if (State._skillKind === 'fakeouts' && type === 'decoy') return 0.92;
+  return 1;
+}
+
+// ... (Part 2 ends here)
