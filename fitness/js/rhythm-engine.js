@@ -1,765 +1,735 @@
-// === /fitness/js/rhythm-engine.js — Rhythm Boxer Engine (3-LANE + NoteTail + AI Predict + CSV) ===
-(function () {
-  'use strict';
+// === /fitness/js/rhythm-engine.js ===
+// Rhythm Boxer Engine — PRODUCTION (patched: cVR note travel + longer pre-spawn + hitline-aligned notes)
+// ✅ Notes reach the hit line (y=0 aligns with hitline)
+// ✅ cVR/cardboard: longer fall time + longer travel distance
+// ✅ Keeps AI prediction logging (prediction-only if research lock)
 
-  // ===== CONFIG =====
-  // 3 lanes: L, C, R
-  const LANES = [0, 1, 2];
-  const NOTE_EMOJI_BY_LANE = ['🥊', '🎵', '🥊']; // L, C, R (ปรับได้)
+'use strict';
 
-  // หน้าต่างการให้คะแนนตาม offset (วินาที)
-  const HIT_WINDOWS = {
-    perfect: 0.06,
-    great: 0.12,
-    good: 0.20
-  };
+(function(){
+  const WIN = window;
 
-  // เวลาล่วงหน้าที่ปล่อยโน้ตก่อนถึงเส้นตี (วินาที)
-  // เพิ่มขึ้นเล็กน้อยให้เห็น “ช่วงหล่น” ชัดขึ้น
-  const PRE_SPAWN_SEC = 2.6;
+  // ----- tiny utils -----
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const clamp01 = (v)=>clamp(v,0,1);
+  const nowMs = ()=> (WIN.performance && performance.now) ? performance.now() : Date.now();
 
-  // NOTE TAIL (ความยาวหางโน้ต; เป็น px)
-  // จะตั้งทุกครั้งตามความสูงสนาม แต่มีขั้นต่ำ
-  const NOTE_TAIL_MIN_PX = 86;
-
-  // ===== TRACKS =====
-  function makeChart(bpm, dur, seq) {
-    const out = [];
-    const beat = 60 / bpm;
-
-    // เริ่มหลัง 2 วินาที (กันช่วงเริ่ม)
-    let t = 2.0;
-
-    // กันท้ายเพลงอีก ~2s
-    const endT = Math.max(0, dur - 2.0);
-    let i = 0;
-
-    while (t < endT) {
-      const lane = seq[i % seq.length] | 0;
-      out.push({ time: t, lane, type: 'note' });
-      t += beat;
-      i++;
-    }
-    return out;
+  function mean(arr){
+    if(!arr || !arr.length) return 0;
+    let s=0; for(const x of arr) s += x;
+    return s/arr.length;
   }
-
-  // 3-lane sequences (0=L,1=C,2=R)
-  const TRACKS = [
-    {
-      id: 'n1',
-      name: 'Warm-up Groove (ง่าย · 100 BPM)',
-      nameShort: 'Warm-up Groove',
-      audio: './audio/warmup-groove.mp3',
-      bpm: 100,
-      durationSec: 32,
-      diff: 'easy',
-      chart: makeChart(100, 32, [1, 0, 2, 1, 0, 2, 1, 2])
-    },
-    {
-      id: 'n2',
-      name: 'Focus Combo (ปกติ · 120 BPM)',
-      nameShort: 'Focus Combo',
-      audio: './audio/focus-combo.mp3',
-      bpm: 120,
-      durationSec: 32,
-      diff: 'normal',
-      chart: makeChart(120, 32, [1, 2, 0, 1, 2, 1, 0, 2])
-    },
-    {
-      id: 'n3',
-      name: 'Speed Rush (ยาก · 140 BPM)',
-      nameShort: 'Speed Rush',
-      audio: './audio/speed-rush.mp3',
-      bpm: 140,
-      durationSec: 32,
-      diff: 'hard',
-      chart: makeChart(140, 32, [0, 2, 1, 2, 0, 1, 2, 1])
-    },
-    {
-      id: 'r1',
-      name: 'Research Track 120 (ทดลอง · 120 BPM)',
-      nameShort: 'Research 120',
-      audio: './audio/research-120.mp3',
-      bpm: 120,
-      durationSec: 32,
-      diff: 'research',
-      chart: makeChart(120, 32, [1, 0, 2, 1, 0, 2, 1, 2])
-    }
-  ];
-
-  // meta ให้ rhythm-boxer.js ใช้เติมชื่อเพลง / HUD
-  window.RB_TRACKS_META = TRACKS.map((t) => ({
-    id: t.id,
-    name: t.name,
-    nameShort: t.nameShort || t.name,
-    bpm: t.bpm,
-    diff: t.diff
-  }));
-
-  // ===== UTIL =====
-  function clamp(v, a, b) {
-    v = Number(v) || 0;
-    return v < a ? a : v > b ? b : v;
-  }
-  function mean(arr) {
-    if (!arr || !arr.length) return 0;
-    return arr.reduce((s, v) => s + v, 0) / arr.length;
-  }
-  function std(arr) {
-    if (!arr || arr.length < 2) return 0;
+  function std(arr){
+    if(!arr || arr.length<2) return 0;
     const m = mean(arr);
-    const v = mean(arr.map((x) => (x - m) * (x - m)));
-    return Math.sqrt(v);
-  }
-  function segmentIndex(songTime, duration) {
-    if (!duration || duration <= 0) return 1;
-    const r = songTime / duration;
-    if (r < 1 / 3) return 1;
-    if (r < 2 / 3) return 2;
-    return 3;
-  }
-  function sideOfLane(lane) {
-    if (lane === 0) return 'L';
-    if (lane === 1) return 'C';
-    return 'R';
-  }
-  function makeSessionId() {
-    const t = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return (
-      `RB-${t.getFullYear()}${pad(t.getMonth() + 1)}${pad(t.getDate())}` +
-      `-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`
-    );
-  }
-  function detectDeviceType() {
-    const ua = (navigator && navigator.userAgent) || '';
-    const low = ua.toLowerCase();
-    if (low.includes('oculus') || low.includes('quest')) return 'vr';
-    if (low.includes('mobi')) return 'mobile';
-    if (low.includes('tablet')) return 'tablet';
-    return 'pc';
+    let s=0; for(const x of arr){ const d=x-m; s += d*d; }
+    return Math.sqrt(s/(arr.length-1));
   }
 
-  // ===== CSV TABLE =====
-  class CsvTable {
-    constructor() { this.rows = []; }
-    clear() { this.rows = []; }
-    add(row) { this.rows.push(row); }
-    toCsv() {
-      const rows = this.rows;
-      if (!rows.length) return '';
-      const keysSet = new Set();
-      for (const r of rows) Object.keys(r).forEach((k) => keysSet.add(k));
-      const keys = Array.from(keysSet);
-
-      const esc = (v) => {
-        if (v == null) return '';
-        const s = String(v);
-        if (s.includes('"') || s.includes(',') || s.includes('\n')) {
-          return '"' + s.replace(/"/g, '""') + '"';
-        }
-        return s;
-      };
-
+  // CSV helper
+  function toCsvRow(obj, headers){
+    const esc = (v)=>{
+      const s = (v==null) ? '' : String(v);
+      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+      return s;
+    };
+    return headers.map(h=>esc(obj[h])).join(',');
+  }
+  class CsvTable{
+    constructor(headers){
+      this.headers = headers.slice();
+      this.rows = [];
+    }
+    add(rowObj){
+      this.rows.push(rowObj || {});
+    }
+    toCsv(){
       const lines = [];
-      lines.push(keys.join(','));
-      for (const r of rows) lines.push(keys.map((k) => esc(r[k])).join(','));
+      lines.push(this.headers.join(','));
+      for(const r of this.rows){
+        lines.push(toCsvRow(r, this.headers));
+      }
       return lines.join('\n');
     }
   }
 
-  // ===== JUDGE =====
-  function judgeFromOffset(dt) {
-    const adt = Math.abs(dt);
-    if (adt <= HIT_WINDOWS.perfect) return 'perfect';
-    if (adt <= HIT_WINDOWS.great) return 'great';
-    if (adt <= HIT_WINDOWS.good) return 'good';
-    return 'miss';
+  // ---- AI predictor wiring ----
+  // We support either:
+  // - window.RB_AI.predict(snapshot)  (your current ai-predictor.js)
+  // - window.RbAIPredictor class (older builds)
+  function predictAI(snapshot){
+    try{
+      if (WIN.RB_AI && typeof WIN.RB_AI.predict === 'function'){
+        return WIN.RB_AI.predict(snapshot || {});
+      }
+      if (typeof WIN.RbAIPredictor === 'function'){
+        const p = new WIN.RbAIPredictor();
+        return p.predict(snapshot || {});
+      }
+    }catch(_){}
+    return null;
   }
 
-  // ===== ENGINE CLASS =====
-  class RhythmBoxerEngine {
-    constructor(opts) {
+  // ----- Engine -----
+  const PRE_SPAWN_SEC = 3.4; // base (desktop normal)
+  const HIT_WINDOW_S = { perfect:0.055, great:0.090, good:0.120 }; // seconds
+  const HP_START = 100;
+
+  class RhythmBoxerEngine{
+    constructor(opts){
       this.wrap = opts.wrap;
       this.field = opts.field;
       this.lanesEl = opts.lanesEl;
       this.audio = opts.audio;
-      this.renderer = opts.renderer || null;
-      this.hud = opts.hud || {};
+      this.renderer = opts.renderer;
+      this.hud = opts.hud;
       this.hooks = opts.hooks || {};
 
-      this.eventTable = new CsvTable();
-      this.sessionTable = new CsvTable();
-
-      this._rafId = null;
-      this._chartIndex = 0;
-
-      this.aiState = null;
-      this._aiLastPerf = 0;
-
-      this._bindLanePointer();
-    }
-
-    _bindLanePointer() {
-      if (!this.lanesEl) return;
-      this.lanesEl.addEventListener('pointerdown', (ev) => {
-        const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
-        if (!laneEl) return;
-        const lane = parseInt(laneEl.dataset.lane || '0', 10);
-        this.handleLaneTap(lane);
-      });
-    }
-
-    // ===== PUBLIC API =====
-    start(mode, trackId, meta) {
-      if (this._rafId != null) {
-        cancelAnimationFrame(this._rafId);
-        this._rafId = null;
-      }
-
-      this.mode = mode || 'normal';
-      this.meta = meta || {};
-      this.track = TRACKS.find((t) => t.id === trackId) || TRACKS[0];
-
-      this.sessionId = makeSessionId();
-      this.deviceType = detectDeviceType();
-
-      this.songTime = 0;
-      this.startPerf = performance.now();
-      this.running = true;
+      this.running = false;
       this.ended = false;
+      this._rafId = null;
 
+      this._ms0 = 0;
+      this._lastTs = 0;
+
+      this.sessionId = '';
+      this.mode = 'normal';
+      this.diff = 'normal';
+      this.deviceType = 'desktop';
+
+      this.track = null;
+      this.meta = {};
+
+      // state
+      this.songTime = 0;
       this.score = 0;
       this.combo = 0;
       this.maxCombo = 0;
-      this.hp = 100;
-      this.hpMin = 100;
-      this.hpUnder50Time = 0;
-      this.shield = 0;
 
-      this.totalNotes = 0;
       this.hitPerfect = 0;
       this.hitGreat = 0;
       this.hitGood = 0;
       this.hitMiss = 0;
 
-      this.offsets = [];
-      this.offsetsAbs = [];
-      this.earlyHits = 0;
-      this.lateHits = 0;
+      this.totalNotes = 0;
 
-      this.leftHits = 0;
-      this.rightHits = 0;
+      this.hp = HP_START;
+      this.hpMin = HP_START;
+      this.hpUnder50Time = 0;
 
-      this.feverGauge = 0;
+      this.fever = 0;
       this.feverActive = false;
       this.feverEntryCount = 0;
       this.feverTotalTimeSec = 0;
       this.timeToFirstFeverSec = null;
-      this.feverEndTime = 0;
+      this._feverEnterAt = null;
 
-      this.lastUpdatePerf = performance.now();
+      // timing offsets
+      this.offsets = [];
+      this.offsetsAbs = [];
+      this.earlyHits = 0;
+      this.lateHits  = 0;
+      this.leftHits  = 0;
+      this.rightHits = 0;
 
-      this.notes = [];
-      this.nextNoteId = 1;
-      this._chartIndex = 0;
+      // AI snapshot
+      this.aiState = null;
+      this._aiLastUpdateMs = 0;
+      this._aiCooldownMs = 220;
+
+      // notes
+      this.notes = [];      // {t, lane, side, id, el, state}
+      this._noteIdx = 0;
+
+      // render cache
+      this._laneRects = null;
+
+      // CSV tables
+      this.eventsTable = new CsvTable([
+        'session_id','t_s','lane','side','judge','offset_s','combo','score','hp','fever','device','mode','track_id'
+      ]);
+      this.sessionTable = new CsvTable([
+        'session_id','mode','track_id','track_name','bpm','difficulty',
+        'participant_id','group','note',
+        'score_final','max_combo',
+        'hit_perfect','hit_great','hit_good','hit_miss',
+        'total_notes','acc_pct',
+        'offset_mean_s','offset_std_s','offset_abs_mean_s','offset_early_pct','offset_late_pct',
+        'left_hit_pct','right_hit_pct',
+        'fever_entry_count','fever_total_time_s','fever_time_pct','time_to_first_fever_s',
+        'hp_start','hp_end','hp_min','hp_under50_time_s',
+        'end_reason','duration_sec','device_type',
+        'ai_fatigue_risk','ai_skill_score','ai_suggest','ai_locked','ai_assist_on',
+        'trial_valid','rank','created_at_iso'
+      ]);
+
+      // bind input
+      this._onLaneTap = this._onLaneTap.bind(this);
+      this._onResize = this._onResize.bind(this);
+    }
+
+    start(mode, trackId, meta){
+      this.stop('restart');
+
+      this.mode = (mode === 'research') ? 'research' : 'normal';
+      this.meta = meta || {};
+      this.sessionId = `rb_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
+
+      // detect difficulty from wrapper data
+      try{
+        const d = (this.wrap && this.wrap.dataset && this.wrap.dataset.diff) ? this.wrap.dataset.diff : 'normal';
+        this.diff = (d==='easy'||d==='hard'||d==='normal') ? d : 'normal';
+      }catch(_){ this.diff = 'normal'; }
+
+      // deviceType
+      const ua = (navigator.userAgent||'').toLowerCase();
+      const isMobileUA = /android|iphone|ipad|ipod/.test(ua);
+      this.deviceType = isMobileUA ? 'mobile' : 'desktop';
+
+      // track
+      this.track = this._makeTrack(trackId);
+
+      // per-mode fall timing & tail (UI)
+      // in research: keep PRE_SPAWN_SEC deterministic baseline
+      // in normal: cVR/mobile needs longer for readability
+      const view = (new URL(location.href).searchParams.get('view')||'').toLowerCase();
+      const isCVR = (view === 'cvr' || view === 'cardboard');
+      const isMobile = (this.deviceType === 'mobile');
+
+      // Longer pre-spawn for small screens / Cardboard so notes have time to fall
+      this._preSpawnSec = (this.mode === 'research')
+        ? PRE_SPAWN_SEC
+        // Cardboard/cVR: slowest (needs more reaction time)
+        : (isCVR ? 5.4 : (isMobile ? 3.9 : PRE_SPAWN_SEC));
+
+      // Tail length (pure UI) — improves timing visibility
+      this._noteTailPx = (isCVR ? 280 : (isMobile ? 150 : 110));
+
+      // reset state
+      this.running = true;
+      this.ended = false;
+      this.songTime = 0;
+      this.score = 0;
+      this.combo = 0;
+      this.maxCombo = 0;
+
+      this.hitPerfect = 0;
+      this.hitGreat = 0;
+      this.hitGood = 0;
+      this.hitMiss = 0;
+
+      this.totalNotes = 0;
+
+      this.hp = HP_START;
+      this.hpMin = HP_START;
+      this.hpUnder50Time = 0;
+
+      this.fever = 0;
+      this.feverActive = false;
+      this.feverEntryCount = 0;
+      this.feverTotalTimeSec = 0;
+      this.timeToFirstFeverSec = null;
+      this._feverEnterAt = null;
+
+      this.offsets = [];
+      this.offsetsAbs = [];
+      this.earlyHits = 0;
+      this.lateHits  = 0;
+      this.leftHits  = 0;
+      this.rightHits = 0;
 
       this.aiState = null;
-      this._aiLastPerf = 0;
+      this._aiLastUpdateMs = 0;
 
-      this.eventTable.clear();
+      this.notes = [];
+      this._noteIdx = 0;
 
-      this._setupAudio();
-      this._updateHUD(0);
+      // build notes
+      this._buildNotes();
+
+      // input
+      this._attachInput();
+
+      // audio
+      if (this.audio){
+        this.audio.currentTime = 0;
+        this.audio.src = this.track.url;
+        this.audio.playbackRate = 1;
+        this.audio.loop = false;
+
+        const p = this.audio.play();
+        if (p && typeof p.catch === 'function') p.catch(()=>{});
+      }
+
+      // timing start
+      this._ms0 = nowMs();
+      this._lastTs = this._ms0;
+
+      // start loop
       this._loop();
     }
 
-    stop(reason) {
-      if (this.ended) return;
-      this._finish(reason || 'manual-stop');
-    }
-
-    handleLaneTap(lane) {
-      if (!this.running) return;
-
-      // guard lane range
-      lane = clamp(lane | 0, 0, 2);
-
-      const nowPerf = performance.now();
-      const songTime = (nowPerf - this.startPerf) / 1000;
-      this.songTime = songTime;
-
-      let best = null;
-      let bestAbs = Infinity;
-
-      for (const n of this.notes) {
-        if (n.state !== 'pending') continue;
-        if (n.lane !== lane) continue;
-        const dt = songTime - n.time;
-        const adt = Math.abs(dt);
-        if (adt < bestAbs) {
-          bestAbs = adt;
-          best = { note: n, dt };
-        }
-      }
-
-      if (!best) {
-        this._applyEmptyTapMiss(songTime, lane);
-        return;
-      }
-
-      const { note, dt } = best;
-      const judgment = judgeFromOffset(dt);
-
-      if (judgment === 'miss') {
-        this._applyMiss(note, songTime, dt, true);
-      } else {
-        this._applyHit(note, songTime, dt, judgment);
-      }
-
-      // AI update immediately after action
-      this._updateAI(nowPerf);
-    }
-
-    getEventsCsv() { return this.eventTable.toCsv(); }
-    getSessionCsv() { return this.sessionTable.toCsv(); }
-
-    // ===== INTERNAL: AUDIO & LOOP =====
-    _setupAudio() {
-      if (!this.audio) return;
-
-      this.audio.pause();
-      this.audio.currentTime = 0;
-      this.audio.src = this.track.audio || '';
-      this.audio.onended = () => {};
-
-      const p = this.audio.play();
-      if (p && typeof p.catch === 'function') {
-        p.catch(() => {
-          /* autoplay fail — เงียบได้ */
-        });
+    stop(reason){
+      if (!this.running && !this.ended) return;
+      if (this.running){
+        this._finish(reason || 'stop');
       }
     }
 
-    _loop() {
-      if (!this.running) return;
-
-      const now = performance.now();
-      const dt = (now - this.lastUpdatePerf) / 1000;
-      this.lastUpdatePerf = now;
-
-      const songTime = (now - this.startPerf) / 1000;
-      this.songTime = songTime;
-
-      const dur = this.track.durationSec || 30;
-
-      this._updateTimeline(songTime, dt);
-      this._updateHUD(songTime);
-
-      // periodic AI (ทุก ~250ms)
-      this._updateAI(now);
-
-      if (songTime >= dur) {
-        this._finish('song-end');
-        return;
-      }
-
-      this._rafId = requestAnimationFrame(() => this._loop());
+    getEventsCsv(){
+      return this.eventsTable.toCsv();
+    }
+    getSessionCsv(){
+      return this.sessionTable.toCsv();
     }
 
-    // ===== INTERNAL: TIMELINE / NOTES =====
-    _updateTimeline(songTime, dt) {
-      this._spawnNotes(songTime);
-      this._updateNotePositions(songTime);
-      this._autoJudgeMiss(songTime);
-
-      if (this.feverActive) {
-        this.feverTotalTimeSec += dt;
-        if (songTime >= this.feverEndTime) {
-          this.feverActive = false;
-          this.feverGauge = 0;
-        }
-      }
-
-      if (this.hp < 50) {
-        this.hpUnder50Time += dt;
-      }
-    }
-
-    _spawnNotes(songTime) {
-      const chart = this.track.chart || [];
-      const pre = PRE_SPAWN_SEC;
-
-      if (this._chartIndex == null) this._chartIndex = 0;
-
-      while (
-        this._chartIndex < chart.length &&
-        chart[this._chartIndex].time <= songTime + pre
-      ) {
-        const info = chart[this._chartIndex];
-        this._createNote(info);
-        this._chartIndex++;
-      }
-    }
-
-    _createNote(info) {
-      if (!this.lanesEl) return;
-
-      const laneIndex = clamp(info.lane | 0, 0, 2);
-      const laneEl = this.lanesEl.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
-      if (!laneEl) return;
-
-      // NOTE element: head + tail
-      const noteEl = document.createElement('div');
-      noteEl.className = 'rb-note';
-
-      const tail = document.createElement('div');
-      tail.className = 'rb-note-tail';
-
-      const head = document.createElement('div');
-      head.className = 'rb-note-inner';
-      head.textContent = NOTE_EMOJI_BY_LANE[laneIndex] || '🎵';
-
-      noteEl.appendChild(tail);
-      noteEl.appendChild(head);
-
-      // tail length based on lane height (set later in update positions too)
-      try {
-        const rect = laneEl.getBoundingClientRect();
-        const tailPx = Math.max(NOTE_TAIL_MIN_PX, Math.round((rect.height || 300) * 0.32));
-        noteEl.style.setProperty('--rb-tail', tailPx + 'px');
-      } catch (_) {}
-
-      laneEl.appendChild(noteEl);
-
-      const id = this.nextNoteId++;
-      const n = {
-        id,
-        lane: laneIndex,
-        time: info.time,
-        type: info.type || 'note',
-        state: 'pending',
-        el: noteEl
+    // ----- tracks -----
+    _makeTrack(id){
+      // NOTE: your html uses these ids:
+      // n1 warmup-groove.mp3, n2 focus-combo.mp3, n3 speed-rush.mp3, r1 research-120.mp3
+      const base = './audio/';
+      const t = {
+        id: id,
+        name: id,
+        bpm: 120,
+        diff: this.diff,
+        durationSec: 60,
+        url: base + 'research-120.mp3',
+        // pattern defined by beat grid
+        beats: []
       };
-      this.notes.push(n);
-      this.totalNotes++;
-    }
 
-    _updateNotePositions(songTime) {
-      if (!this.lanesEl) return;
-
-      const rect = this.lanesEl.getBoundingClientRect();
-      const h = rect.height || 1;
-
-      // travel distance
-      const travel = h * 0.85;
-      const pre = PRE_SPAWN_SEC;
-
-      // tail target (สัมพันธ์กับ field height)
-      const tailPx = Math.max(NOTE_TAIL_MIN_PX, Math.round(h * 0.28));
-
-      for (const n of this.notes) {
-        if (!n.el || n.state === 'hit' || n.state === 'miss') continue;
-
-        const dt = n.time - songTime;
-        const progress = 1 - dt / pre;         // 0..1 at hit
-        const pClamp = clamp(progress, 0, 1.25);
-
-        // y: move from top(-travel) to near hit line (0)
-        const y = (pClamp - 1) * travel;
-
-        n.el.style.transform = `translateY(${y}px)`;
-        n.el.style.opacity = pClamp <= 1.0 ? 1 : clamp(1.25 - pClamp, 0, 1);
-
-        // update tail length for consistency
-        n.el.style.setProperty('--rb-tail', tailPx + 'px');
+      if (id === 'n1'){
+        t.name = 'Warm-up Groove';
+        t.bpm = 100;
+        t.durationSec = 35;
+        t.url = base + 'warmup-groove.mp3';
+      }else if (id === 'n2'){
+        t.name = 'Focus Combo';
+        t.bpm = 120;
+        t.durationSec = 40;
+        t.url = base + 'focus-combo.mp3';
+      }else if (id === 'n3'){
+        t.name = 'Speed Rush';
+        t.bpm = 140;
+        t.durationSec = 45;
+        t.url = base + 'speed-rush.mp3';
+      }else if (id === 'r1'){
+        t.name = 'Research Track 120';
+        t.bpm = 120;
+        t.durationSec = 60;
+        t.url = base + 'research-120.mp3';
       }
+
+      return t;
     }
 
-    _autoJudgeMiss(songTime) {
-      const missWindow = HIT_WINDOWS.good + 0.05;
+    _buildNotes(){
+      // 5-lane base pattern; cVR view may render as 3 lanes in DOM (L,C,R) via html/css
+      // We'll map lanes by DOM count later in renderer.
+      const bpm = this.track.bpm || 120;
+      const beatSec = 60 / bpm;
 
-      for (const n of this.notes) {
-        if (n.state !== 'pending') continue;
-        if (songTime > n.time + missWindow) {
-          this._applyMiss(n, songTime, null, false);
+      // Simple deterministic rhythm: every beat, with occasional syncopation based on diff
+      const dur = this.track.durationSec || 40;
+
+      const density = (this.diff === 'hard') ? 1.25 : (this.diff === 'easy' ? 0.75 : 1.0);
+
+      let t = 1.0;
+      let i = 0;
+      while (t < dur - 0.5){
+        const lane = (i % 5);
+        const side = (lane <= 1) ? 'L' : (lane >= 3 ? 'R' : 'C');
+
+        // add one note
+        this.notes.push({
+          id: 'n' + (i+1),
+          t,
+          lane,
+          side,
+          state: 'pending',
+          el: null
+        });
+
+        // sometimes add extra note
+        if (this.diff === 'hard' && (i % 4 === 1)){
+          const lane2 = (lane + 2) % 5;
+          const side2 = (lane2 <= 1) ? 'L' : (lane2 >= 3 ? 'R' : 'C');
+          this.notes.push({
+            id: 'n' + (i+1) + 'b',
+            t: t + beatSec*0.5,
+            lane: lane2,
+            side: side2,
+            state: 'pending',
+            el: null
+          });
+        }
+
+        t += beatSec / density;
+        i++;
+      }
+
+      this.notes.sort((a,b)=>a.t-b.t);
+      this.totalNotes = this.notes.length;
+    }
+
+    _attachInput(){
+      if (!this.lanesEl) return;
+      this.lanesEl.addEventListener('pointerdown', this._onLaneTap, { passive:true });
+      WIN.addEventListener('resize', this._onResize, { passive:true });
+    }
+    _detachInput(){
+      if (!this.lanesEl) return;
+      this.lanesEl.removeEventListener('pointerdown', this._onLaneTap);
+      WIN.removeEventListener('resize', this._onResize);
+    }
+    _onResize(){
+      this._laneRects = null;
+    }
+
+    _onLaneTap(ev){
+      if (!this.running) return;
+      const x = ev.clientX, y = ev.clientY;
+      const laneIdx = this._pickLaneFromPoint(x,y);
+      if (laneIdx == null) return;
+      this._judgeTap(laneIdx);
+    }
+
+    _pickLaneFromPoint(x,y){
+      if (!this.lanesEl) return null;
+      if (!this._laneRects){
+        const lanes = Array.from(this.lanesEl.querySelectorAll('.rb-lane'));
+        this._laneRects = lanes.map(el=>el.getBoundingClientRect());
+      }
+      let best = null;
+      for (let i=0;i<this._laneRects.length;i++){
+        const r = this._laneRects[i];
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom){
+          best = i;
+          break;
+        }
+      }
+      if (best != null) return best;
+      // fallback: nearest x
+      let minD = 1e9, idx = null;
+      for (let i=0;i<this._laneRects.length;i++){
+        const r = this._laneRects[i];
+        const cx = (r.left+r.right)/2;
+        const d = Math.abs(cx - x);
+        if (d < minD){ minD = d; idx = i; }
+      }
+      return idx;
+    }
+
+    _judgeTap(laneIdx){
+      // find nearest pending note in that lane within window
+      const t = this.songTime;
+      let best = null;
+      let bestDt = 1e9;
+
+      for (const n of this.notes){
+        if (n.state !== 'live') continue;
+        if (n.lane !== laneIdx) continue;
+        const dt = t - n.t; // positive = late
+        const adt = Math.abs(dt);
+        if (adt < bestDt){
+          bestDt = adt;
+          best = { n, dt, adt };
         }
       }
 
-      // keep only pending
-      this.notes = this.notes.filter((n) => n.state === 'pending');
-    }
-
-    // ===== INTERNAL: HIT / MISS =====
-    _applyHit(note, songTime, dt, judgment) {
-      note.state = 'hit';
-      if (note.el) {
-        note.el.remove();
-        note.el = null;
+      if (!best){
+        // blank tap penalty (small)
+        this._addEvent('blank', laneIdx, '', '', 0);
+        this.score = Math.max(0, this.score - 10);
+        this.combo = 0;
+        this._updateHud();
+        return;
       }
 
-      const side = sideOfLane(note.lane);
-      const abs = Math.abs(dt);
+      const dt = best.dt;
+      const adt = best.adt;
+      let judge = 'miss';
+      if (adt <= HIT_WINDOW_S.perfect) judge = 'perfect';
+      else if (adt <= HIT_WINDOW_S.great) judge = 'great';
+      else if (adt <= HIT_WINDOW_S.good) judge = 'good';
+      else judge = 'miss';
 
-      this.offsets.push(dt);
-      this.offsetsAbs.push(abs);
-      if (dt < 0) this.earlyHits++;
-      else this.lateHits++;
+      // consume note
+      best.n.state = (judge === 'miss') ? 'missed' : 'hit';
+      if (best.n.el){
+        best.n.el.classList.remove('is-live');
+        best.n.el.classList.add(judge === 'miss' ? 'is-miss' : 'is-hit');
+      }
 
-      if (side === 'L') this.leftHits++;
-      else if (side === 'R') this.rightHits++;
+      // stats
+      if (judge === 'perfect'){ this.hitPerfect++; this.score += 120; this.combo++; }
+      else if (judge === 'great'){ this.hitGreat++; this.score += 80; this.combo++; }
+      else if (judge === 'good'){ this.hitGood++; this.score += 50; this.combo++; }
+      else { this.hitMiss++; this.score = Math.max(0, this.score - 20); this.combo = 0; }
 
-      if (judgment === 'perfect') this.hitPerfect++;
-      else if (judgment === 'great') this.hitGreat++;
-      else if (judgment === 'good') this.hitGood++;
-
-      let baseScore = (judgment === 'perfect') ? 300 : (judgment === 'great') ? 200 : 100;
-      if (this.feverActive) baseScore = Math.round(baseScore * 1.5);
-
-      this.score += baseScore;
-      this.combo++;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-      if (judgment === 'perfect') {
-        this.hp = clamp(this.hp + 1, 0, 100);
+      // offsets
+      if (judge !== 'miss'){
+        this.offsets.push(dt);
+        this.offsetsAbs.push(adt);
+        if (dt < 0) this.earlyHits++; else this.lateHits++;
+        if (best.n.side === 'L') this.leftHits++;
+        if (best.n.side === 'R') this.rightHits++;
+      }
+
+      // hp/fever
+      if (judge === 'miss'){
+        this.hp = clamp(this.hp - 6, 0, 100);
+      }else{
+        // gain fever
+        const gain = (judge==='perfect') ? 0.08 : (judge==='great' ? 0.05 : 0.03);
+        this.fever = clamp01(this.fever + gain);
       }
       this.hpMin = Math.min(this.hpMin, this.hp);
 
-      const feverGain = (judgment === 'perfect') ? 7 : (judgment === 'great') ? 5 : 3;
-      this._addFeverGauge(feverGain, songTime);
-
-      if (this.renderer && typeof this.renderer.showHitFx === 'function') {
-        this.renderer.showHitFx({
-          lane: note.lane,
-          judgment,
-          songTime,
-          scoreDelta: baseScore,
-          scoreTotal: this.score
-        });
-      }
-
-      this._logEventRow({
-        event_type: 'hit',
-        song_time_s: songTime.toFixed(3),
-        lane: note.lane,
-        side,
-        judgment,
-        raw_offset_s: dt.toFixed(3),
-        abs_offset_s: abs.toFixed(3),
-        is_hit: 1,
-        is_fever: this.feverActive ? 1 : 0,
-        combo_after: this.combo,
-        score_delta: baseScore,
-        score_total: this.score,
-        hp_after: this.hp,
-        shield_after: this.shield,
-        seg_index: segmentIndex(songTime, this.track.durationSec)
-      });
-    }
-
-    _applyMiss(note, songTime, dtOrNull, byTap) {
-      note.state = 'miss';
-      if (note.el) {
-        note.el.remove();
-        note.el = null;
-      }
-
-      this.hitMiss++;
-      this.combo = 0;
-
-      const dmg = 5;
-      this.hp = clamp(this.hp - dmg, 0, 100);
-      this.hpMin = Math.min(this.hpMin, this.hp);
-
-      this._addFeverGauge(-8, songTime);
-
-      if (this.renderer && typeof this.renderer.showMissFx === 'function') {
-        this.renderer.showMissFx({
-          lane: note.lane,
-          songTime
-        });
-      }
-
-      const dt = dtOrNull;
-      this._logEventRow({
-        event_type: 'miss',
-        song_time_s: songTime.toFixed(3),
-        lane: note.lane,
-        side: sideOfLane(note.lane),
-        judgment: 'miss',
-        raw_offset_s: dt == null ? '' : dt.toFixed(3),
-        abs_offset_s: dt == null ? '' : Math.abs(dt).toFixed(3),
-        is_hit: 0,
-        is_fever: this.feverActive ? 1 : 0,
-        combo_after: this.combo,
-        score_delta: 0,
-        score_total: this.score,
-        hp_after: this.hp,
-        shield_after: this.shield,
-        seg_index: segmentIndex(songTime, this.track.durationSec),
-        miss_by_tap: byTap ? 1 : 0
-      });
-    }
-
-    _applyEmptyTapMiss(songTime, lane) {
-      this.combo = 0;
-
-      const dmg = 2;
-      this.hp = clamp(this.hp - dmg, 0, 100);
-      this.hpMin = Math.min(this.hpMin, this.hp);
-
-      this._addFeverGauge(-5, songTime);
-
-      this._logEventRow({
-        event_type: 'blank-tap',
-        song_time_s: songTime.toFixed(3),
-        lane,
-        side: sideOfLane(lane),
-        judgment: 'miss',
-        is_hit: 0,
-        is_fever: this.feverActive ? 1 : 0,
-        combo_after: this.combo,
-        score_delta: 0,
-        score_total: this.score,
-        hp_after: this.hp,
-        shield_after: this.shield,
-        seg_index: segmentIndex(songTime, this.track.durationSec)
-      });
-    }
-
-    // ===== FEVER =====
-    _addFeverGauge(delta, songTime) {
-      this.feverGauge = clamp(this.feverGauge + delta, 0, 100);
-
-      if (!this.feverActive && this.feverGauge >= 100) {
+      // fever activation
+      if (!this.feverActive && this.fever >= 1){
         this.feverActive = true;
-        this.feverGauge = 100;
         this.feverEntryCount++;
-
-        if (this.timeToFirstFeverSec == null) {
-          this.timeToFirstFeverSec = songTime;
-        }
-
-        this.feverEndTime = songTime + 5.0;
+        this._feverEnterAt = this.songTime;
+        if (this.timeToFirstFeverSec == null) this.timeToFirstFeverSec = this.songTime;
       }
-    }
-
-    // ===== HUD =====
-    _updateHUD(songTime) {
-      const h = this.hud || {};
-      if (h.score) h.score.textContent = this.score;
-      if (h.combo) h.combo.textContent = this.combo;
-      if (h.hp) h.hp.textContent = this.hp;
-      if (h.shield) h.shield.textContent = this.shield;
-      if (h.time) h.time.textContent = songTime.toFixed(1);
-
-      const totalJudged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
-      const totalNotes = this.totalNotes || 1;
-      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) * 100 : 0;
-      if (h.acc) h.acc.textContent = acc.toFixed(1) + '%';
-
-      if (h.countPerfect) h.countPerfect.textContent = this.hitPerfect;
-      if (h.countGreat)   h.countGreat.textContent   = this.hitGreat;
-      if (h.countGood)    h.countGood.textContent    = this.hitGood;
-      if (h.countMiss)    h.countMiss.textContent    = this.hitMiss;
-
-      if (h.feverFill) {
-        const scale = this.feverGauge / 100;
-        h.feverFill.style.transform = `scaleX(${scale})`;
-      }
-      if (h.feverStatus) {
-        if (this.feverActive) {
-          h.feverStatus.textContent = 'FEVER!!';
-          h.feverStatus.classList.add('on');
-        } else {
-          h.feverStatus.textContent = 'READY';
-          h.feverStatus.classList.remove('on');
+      if (this.feverActive){
+        // fever drains slowly
+        this.fever = clamp01(this.fever - 0.015);
+        if (this.fever <= 0.02){
+          this.feverActive = false;
+          if (this._feverEnterAt != null){
+            this.feverTotalTimeSec += Math.max(0, this.songTime - this._feverEnterAt);
+            this._feverEnterAt = null;
+          }
         }
       }
 
-      if (h.progFill || h.progText) {
-        const dur = this.track.durationSec || 1;
-        const prog = clamp(songTime / dur, 0, 1);
-        if (h.progFill) h.progFill.style.transform = `scaleX(${prog})`;
-        if (h.progText) h.progText.textContent = Math.round(prog * 100) + '%';
+      // log
+      this._addEvent(judge, laneIdx, best.n.side, dt, this.combo);
+
+      // fx
+      if (this.renderer && typeof this.renderer.onJudge === 'function'){
+        this.renderer.onJudge(judge, laneIdx);
       }
+
+      this._updateHud();
     }
 
-    // ===== AI PREDICTION =====
-    _updateAI(nowPerf) {
-      // throttle
-      if (!nowPerf) nowPerf = performance.now();
-      if (this._aiLastPerf && (nowPerf - this._aiLastPerf) < 250) return;
-      this._aiLastPerf = nowPerf;
+    _addEvent(judge, laneIdx, side, offsetS, combo){
+      const row = {
+        session_id: this.sessionId,
+        t_s: this.songTime.toFixed(3),
+        lane: laneIdx,
+        side: side || '',
+        judge: judge,
+        offset_s: (offsetS==null) ? '' : Number(offsetS).toFixed(4),
+        combo: combo || 0,
+        score: this.score,
+        hp: this.hp,
+        fever: this.fever.toFixed(3),
+        device: this.deviceType,
+        mode: this.mode,
+        track_id: this.track ? this.track.id : ''
+      };
+      this.eventsTable.add(row);
+    }
 
-      // AI module exists?
-      const AI = window.RB_AI;
-      if (!AI || typeof AI.predict !== 'function') return;
-
-      // snapshot
+    _updateHud(){
+      const hud = this.hud || {};
+      if (hud.score) hud.score.textContent = String(this.score);
+      if (hud.combo) hud.combo.textContent = String(this.combo);
       const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
-      const totalJudged = totalHits + this.hitMiss;
-      const totalNotes = this.totalNotes || 1;
+      const judged = totalHits + this.hitMiss;
+      const accPct = judged ? (totalHits / (this.totalNotes||1))*100 : 0;
+      if (hud.acc) hud.acc.textContent = accPct.toFixed(1) + '%';
+      if (hud.hp) hud.hp.textContent = String(Math.round(this.hp));
+      if (hud.time) hud.time.textContent = this.songTime.toFixed(1);
 
-      const accPct = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) * 100 : 0;
-      const offsetAbsMean = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
+      if (hud.countPerfect) hud.countPerfect.textContent = String(this.hitPerfect);
+      if (hud.countGreat) hud.countGreat.textContent = String(this.hitGreat);
+      if (hud.countGood) hud.countGood.textContent = String(this.hitGood);
+      if (hud.countMiss) hud.countMiss.textContent = String(this.hitMiss);
 
-      const snap = {
+      if (hud.feverFill) hud.feverFill.style.width = Math.round(this.fever*100) + '%';
+      if (hud.feverStatus) hud.feverStatus.textContent = this.feverActive ? 'ON' : 'READY';
+
+      const prog = this.track && this.track.durationSec ? clamp01(this.songTime / this.track.durationSec) : 0;
+      if (hud.progFill) hud.progFill.style.width = Math.round(prog*100) + '%';
+      if (hud.progText) hud.progText.textContent = Math.round(prog*100) + '%';
+    }
+
+    _updateAI(){
+      const t = nowMs();
+      if (t - this._aiLastUpdateMs < this._aiCooldownMs) return;
+      this._aiLastUpdateMs = t;
+
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
+      const judged = totalHits + this.hitMiss;
+      const accPct = judged ? (totalHits / (this.totalNotes||1))*100 : 0;
+      const offAbs = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
+
+      const snapshot = {
         accPct,
+        hitMiss: this.hitMiss,
         hitPerfect: this.hitPerfect,
         hitGreat: this.hitGreat,
         hitGood: this.hitGood,
-        hitMiss: this.hitMiss,
         combo: this.combo,
-        offsetAbsMean,
+        offsetAbsMean: offAbs,
         hp: this.hp,
         songTime: this.songTime,
-        durationSec: this.track.durationSec || 0
+        durationSec: this.track ? this.track.durationSec : 0
       };
 
-      try {
-        this.aiState = AI.predict(snap);
-      } catch (_) {
+      const ai = predictAI(snapshot);
+      if (ai){
+        this.aiState = ai;
+        // update HUD if present
+        try{
+          if (this.hud && typeof this.hud === 'object'){
+            if (this.hud.aiFatigue) this.hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
+            if (this.hud.aiSkill)   this.hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
+            if (this.hud.aiSuggest) this.hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+            if (this.hud.aiTip){
+              this.hud.aiTip.textContent = ai.tip || '';
+              this.hud.aiTip.classList.toggle('hidden', !ai.tip);
+            }
+          }
+        }catch(_){}
+      }
+    }
+
+    _loop(){
+      if (!this.running) return;
+
+      const ts = nowMs();
+      const dt = Math.max(0.001, (ts - this._lastTs)/1000);
+      this._lastTs = ts;
+
+      // advance song time from audio if available
+      if (this.audio && Number.isFinite(this.audio.currentTime)){
+        this.songTime = this.audio.currentTime;
+      }else{
+        this.songTime += dt;
+      }
+
+      // hp under 50 time
+      if (this.hp < 50) this.hpUnder50Time += dt;
+
+      // fever time accumulate if active
+      if (this.feverActive) this.feverTotalTimeSec += dt;
+
+      // spawn/advance notes
+      this._updateNotes();
+
+      // AI update (prediction)
+      this._updateAI();
+
+      // hud time/prog etc
+      this._updateHud();
+
+      // end
+      const dur = this.track ? this.track.durationSec : 0;
+      if (dur > 0 && this.songTime >= dur){
+        this._finish('song-end');
+        return;
+      }
+      if (this.hp <= 0){
+        this._finish('hp-zero');
         return;
       }
 
-      // push to UI
-      if (this.hooks && typeof this.hooks.onAI === 'function') {
-        this.hooks.onAI(this.aiState);
+      this._rafId = requestAnimationFrame(()=>this._loop());
+    }
+
+    _updateNotes(){
+      const t = this.songTime;
+      const pre = this._preSpawnSec || PRE_SPAWN_SEC;
+
+      // activate notes into live window
+      for (const n of this.notes){
+        if (n.state === 'pending' && (n.t - t) <= pre){
+          n.state = 'live';
+          // create el
+          if (!n.el && this.renderer && typeof this.renderer.makeNoteEl === 'function'){
+            n.el = this.renderer.makeNoteEl(n.lane, { tailPx: this._noteTailPx });
+            if (n.el){
+              n.el.dataset.noteId = n.id;
+            }
+          }
+        }
       }
 
-      // IMPORTANT: research lock -> no gameplay adjustment here
-      // Normal assist (?ai=1) ถ้าจะ “ปรับเกม” ให้ไปทำในอนาคตเป็น patch แยก (ตามมาตรฐานงานวิจัย)
+      // render live notes positions
+      this._renderNotes();
+
+      // miss notes past window
+      for (const n of this.notes){
+        if (n.state !== 'live') continue;
+        const late = t - n.t;
+        if (late > HIT_WINDOW_S.good){
+          n.state = 'missed';
+          this.hitMiss++;
+          this.score = Math.max(0, this.score - 20);
+          this.combo = 0;
+          this.hp = clamp(this.hp - 6, 0, 100);
+          this.hpMin = Math.min(this.hpMin, this.hp);
+
+          if (n.el){
+            n.el.classList.remove('is-live');
+            n.el.classList.add('is-miss');
+          }
+          this._addEvent('miss', n.lane, n.side, late, this.combo);
+
+          if (this.renderer && typeof this.renderer.onJudge === 'function'){
+            this.renderer.onJudge('miss', n.lane);
+          }
+        }
+      }
     }
 
-    // ===== CSV LOGGING =====
-    _logEventRow(extra) {
-      const base = {
-        session_id: this.sessionId,
-        participant_id: this.meta.id || this.meta.participant_id || '',
-        group: this.meta.group || '',
-        note: this.meta.note || '',
-        mode: this.mode,
-        track_id: this.track.id,
-        track_name: this.track.name,
-        bpm: this.track.bpm,
-        difficulty: this.track.diff,
-        device_type: this.deviceType,
-        created_at_iso: new Date().toISOString()
-      };
-      this.eventTable.add(Object.assign(base, extra));
+    _renderNotes(){
+      if (!this.renderer || typeof this.renderer.setNotePos !== 'function') return;
+
+      const pre = this._preSpawnSec || PRE_SPAWN_SEC;
+
+      // lane area rect
+      const rect = this.lanesEl.getBoundingClientRect();
+      const h = rect.height || 1;
+
+      // Travel distance controls how early a note becomes visible.
+      // Cardboard/cVR needs a longer "fall" path (more reaction time).
+      let travel = h * 0.85;
+      if (this.deviceType === 'cvr' || this.deviceType === 'cardboard'){
+        travel = Math.max(travel, h - 70);
+      } else if (this.deviceType === 'mobile'){
+        travel = Math.max(travel, h - 110);
+      }
+
+      for (const n of this.notes){
+        if (n.state !== 'live' || !n.el) continue;
+        // progress: 0..1 (0 at spawn, 1 at hit line)
+        const p = clamp01((pre - (n.t - this.songTime)) / pre);
+        const y = (p - 1) * travel; // -travel .. 0
+        this.renderer.setNotePos(n.el, y);
+        n.el.classList.add('is-live');
+      }
     }
 
-    _finish(endReason) {
+    _finish(endReason){
       this.running = false;
       this.ended = true;
 
-      if (this._rafId != null) {
+      if (this._rafId != null){
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
 
-      if (this.audio) {
+      if (this.audio){
         this.audio.pause();
       }
 
@@ -882,7 +852,9 @@
           : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
-      if (this.hooks && typeof this.hooks.onEnd === 'function') {
+      this._detachInput();
+
+      if (this.hooks && typeof this.hooks.onEnd === 'function'){
         this.hooks.onEnd(summary);
       }
     }
