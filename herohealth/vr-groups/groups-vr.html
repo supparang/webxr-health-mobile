@@ -1,391 +1,264 @@
-<!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR Run — PRODUCTION (HHA Standard) — PATCH LOCKPX ULTIMATE
-✅ lockPx tuned by view (mobile/cvr/vr/pc)
-✅ uses /herohealth/vr/vr-ui.js => emits hha:shoot {x,y,lockPx,source}
-✅ wires HUD/Quest/Coach/Power events
-✅ loads effects-pack.js (groups:hit) + (optional) particles.js
-✅ starts engine automatically (no tap-to-start)
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups VR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <title>HeroHealth — Food Groups VR (Run)</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" />
 
-  <link rel="stylesheet" href="./groups-vr.css" />
+  <!-- GUARD: ต่อให้ CSS หลักโหลดพัง .hidden ต้องซ่อนอยู่ -->
+  <style>
+    .hidden{ display:none !important; }
+    html,body{ margin:0; width:100%; height:100%; background:#020617; color:#e5e7eb; font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif; }
+  </style>
 
-  <!-- A-Frame (optional, behind DOM) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
+  <!-- MAIN CSS -->
+  <link id="cssMain" rel="stylesheet" href="./groups-vr.css?v=20260203-1" />
   <script>
-  (function(){
-    'use strict';
-    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-    const v = String(qs('view','')||'').toLowerCase();
+    (function(){
+      const link = document.getElementById('cssMain');
+      link.addEventListener('error', ()=>{
+        alert('CSS โหลดไม่สำเร็จ: ./groups-vr.css (เช็ก path/ตัวพิมพ์เล็กใหญ่บน GitHub Pages)');
+      });
+    })();
+  </script>
 
-    // Apply body view classes early (CSS layout depends on this)
-    function applyViewClass(){
-      const b = document.body;
-      if(!b) return;
-      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
-      if(v === 'pc') b.classList.add('view-pc');
-      else if(v === 'vr') b.classList.add('view-vr');
-      else if(v === 'cvr') { b.classList.add('view-cvr'); b.classList.add('cardboard'); }
-      else b.classList.add('view-mobile');
-    }
-
-    // lockPx “แบบสุด” (ยิงติดบนมือถือจริง)
-    function pickLockPx(){
-      if(v === 'cvr') return 54;
-      if(v === 'vr')  return 44;
-      if(v === 'pc')  return 26;
-      return 44; // mobile default
-    }
-
-    // Provide config BEFORE loading vr-ui.js
-    window.HHA_VRUI_CONFIG = Object.assign({}, window.HHA_VRUI_CONFIG || {}, {
-      lockPx: pickLockPx(),
-      cooldownMs: 70
-    });
-
-    // Expose for debug
-    window.__HHA_VIEW__ = v || 'mobile';
-    window.__HHA_LOCKPX__ = window.HHA_VRUI_CONFIG.lockPx;
-
-    // Apply ASAP + again on DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', applyViewClass);
-    applyViewClass();
-  })();
+  <!-- Tune VR UI aim assist (มือถือยิงติด) -->
+  <script>
+    window.HHA_VRUI_CONFIG = {
+      lockPx: 44,        // ✅ จูนยิงติดบนมือถือ (แนะนำ 36–54)
+      cooldownMs: 80
+    };
   </script>
 </head>
 
-<body>
-  <!-- XR Scene behind DOM -->
-  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement:true; physicallyCorrectLights:false">
-    <a-entity position="0 1.6 -2"></a-entity>
-  </a-scene>
+<body class="view-mobile">
+  <!-- XR scene (optional) -->
+  <div class="xr-scene" aria-hidden="true"></div>
 
-  <!-- ===================== HUD TOP ===================== -->
-  <div class="hud" aria-hidden="true">
+  <!-- HUD -->
+  <header class="hud">
     <div class="hudLeft">
-      <div class="pill"><span class="lbl">⏱️ เวลา</span><span class="val" id="hudTime">--</span></div>
-      <div class="pill"><span class="lbl">⭐ คะแนน</span><span class="val" id="hudScore">0</span></div>
-      <div class="pill"><span class="lbl">🔥 คอมโบ</span><span class="val" id="hudCombo">0</span></div>
+      <div class="pill"><span class="lbl">⏳ TIME</span><span class="val" id="hudTime">90</span></div>
+      <div class="pill"><span class="lbl">⭐ SCORE</span><span class="val" id="hudScore">0</span></div>
+      <div class="pill"><span class="lbl">🔥 COMBO</span><span class="val" id="hudCombo">0</span></div>
+      <div class="pill"><span class="lbl">❌ MISS</span><span class="val" id="hudMiss">0</span></div>
     </div>
     <div class="hudRight">
-      <div class="pill"><span class="lbl">❌ MISS</span><span class="val" id="hudMiss">0</span></div>
-      <div class="pill"><span class="lbl">🎖️ Rank</span><span class="val" id="hudRank">-</span></div>
+      <div class="pill"><span class="lbl">🎯 ACC</span><span class="val" id="hudAcc">0%</span></div>
+      <div class="pill"><span class="lbl">🏅 RANK</span><span class="val" id="hudRank">D</span></div>
     </div>
-  </div>
+  </header>
 
-  <!-- ===================== QUEST TOP ===================== -->
-  <div class="questTop" aria-hidden="true">
-    <!-- GOAL -->
+  <!-- Quest -->
+  <section class="questTop">
     <div class="questCard">
       <div class="qTitle">
-        <div id="goalTitle">ยิงให้ถูก</div>
-        <div class="tag" id="groupTag">หมู่</div>
+        <span id="qGoalTitle">GOAL</span>
+        <span class="tag" id="qGoalCount">0/12</span>
       </div>
-      <div class="bar"><div class="fill" id="goalFill"></div></div>
-      <div class="qSub" id="goalSub">0/0</div>
+      <div class="bar"><div class="fill" id="qGoalFill"></div></div>
+      <div class="qSub" id="qGoalSub">—</div>
     </div>
 
-    <!-- MINI -->
     <div class="questCard">
       <div class="qTitle">
-        <div id="miniTitle">MINI</div>
-        <div class="tag" id="miniTag">⏳</div>
+        <span id="qMiniTitle">MINI</span>
+        <span class="tag" id="qMiniCount">0/5</span>
       </div>
-      <div class="bar"><div class="fill" id="miniFill"></div></div>
-      <div class="qSub" id="miniSub">0/0</div>
+      <div class="bar"><div class="fill" id="qMiniFill"></div></div>
+      <div class="qSub" id="qMiniSub">—</div>
     </div>
-  </div>
+  </section>
 
-  <!-- ===================== BIG BANNER ===================== -->
-  <div class="bigBanner hidden" id="bigBanner" aria-hidden="true">
+  <!-- Big Banner -->
+  <div class="bigBanner hidden" id="bigBanner">
     <div class="bigBannerText" id="bigBannerText">READY</div>
   </div>
 
-  <!-- ===================== PLAY LAYER (IMPORTANT) ===================== -->
-  <div id="playLayer" class="playLayer" aria-label="play-layer"></div>
+  <!-- Play Layer (targets spawn here) -->
+  <main class="playLayer" id="playLayer" aria-label="Play layer"></main>
 
-  <!-- ===================== POWER (BOTTOM MID) ===================== -->
-  <div class="powerWrap" aria-hidden="true">
+  <!-- Power -->
+  <section class="powerWrap">
     <div class="powerCard">
-      <div class="pHead" id="powerTitle">พลังสะสม</div>
-      <div class="bar powerBar"><div class="fill" id="powerFill"></div></div>
-      <div class="pFoot" id="powerSub">0/0</div>
+      <div class="pHead">⚡ Power</div>
+      <div class="bar powerBar"><div class="fill" id="pFill"></div></div>
+      <div class="pFoot" id="pText">0/8 → ครบแล้วจะสลับหมู่</div>
     </div>
-  </div>
+  </section>
 
-  <!-- ===================== COACH (BOTTOM LEFT) ===================== -->
-  <div class="coachWrap" aria-hidden="true">
+  <!-- Coach -->
+  <section class="coachWrap">
     <div class="coachCard">
-      <img class="coachImg" id="coachImg" src="../img/coach-neutral.png" alt="coach"/>
+      <img class="coachImg" id="coachImg" alt="Coach" src="../img/coach-neutral.png" />
       <div class="coachBubble">
-        <div class="coachName" id="coachName">Coach</div>
-        <div class="coachText" id="coachText">พร้อมแล้ว! 🎯</div>
+        <div class="coachName">Coach</div>
+        <div class="coachText" id="coachText">แตะเริ่มเกม แล้วเล็งกลางจอค่อยยิง 🎯</div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ===================== OVERLAY: END (optional) ===================== -->
-  <div class="overlay hidden" id="endOverlay">
+  <!-- Overlay End -->
+  <section class="overlay hidden" id="endOverlay">
     <div class="panel">
       <div class="title">สรุปผล</div>
       <div class="sub" id="endSub">—</div>
-
-      <div class="grid2">
-        <div class="stat"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
-        <div class="stat"><div class="k">ความแม่น (Good)</div><div class="v" id="endAcc">0%</div></div>
-      </div>
-
       <div class="row2" style="margin-top:12px;">
-        <button class="btn btn-strong" id="btnReplay">เล่นอีกครั้ง</button>
-        <button class="btn btn-ghost" id="btnBackHub">กลับ HUB</button>
+        <button class="btn btn-strong" id="btnRetry">เล่นอีกครั้ง</button>
+        <button class="btn btn-ghost" id="btnHub">กลับ HUB</button>
       </div>
-
-      <div class="note" style="margin-top:10px;" id="endNote"></div>
+      <div class="note" style="margin-top:10px;">บันทึกผลล่าสุดแล้ว</div>
     </div>
+  </section>
+
+  <!-- Boot button (tap-to-start) -->
+  <div style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:80; pointer-events:auto;" id="startGate">
+    <button class="btn btn-strong" style="width:min(360px, 92vw); padding:16px 14px; font-size:16px;" id="btnStart">
+      เริ่มเล่น
+    </button>
   </div>
 
-  <!-- ===================== SCRIPTS ===================== -->
-
-  <!-- Optional particles layer (if you have it). If 404, it won't break. -->
-  <script src="../vr/particles.js"></script>
-
-  <!-- Universal VR UI (must be after HHA_VRUI_CONFIG is set) -->
-  <script src="../vr/vr-ui.js"></script>
-
-  <!-- FX pack: listens groups:hit -->
-  <script src="./effects-pack.js"></script>
-
-  <!-- Engine -->
-  <script src="./groups.safe.js"></script>
-
   <script>
-  (function(){
-    'use strict';
-
-    const WIN = window;
-    const DOC = document;
-
-    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-
-    // --- DOM refs ---
-    const $ = (id)=>DOC.getElementById(id);
-
-    const hudTime  = $('hudTime');
-    const hudScore = $('hudScore');
-    const hudCombo = $('hudCombo');
-    const hudMiss  = $('hudMiss');
-    const hudRank  = $('hudRank');
-
-    const goalTitle = $('goalTitle');
-    const groupTag  = $('groupTag');
-    const goalFill  = $('goalFill');
-    const goalSub   = $('goalSub');
-
-    const miniTitle = $('miniTitle');
-    const miniTag   = $('miniTag');
-    const miniFill  = $('miniFill');
-    const miniSub   = $('miniSub');
-
-    const powerTitle = $('powerTitle');
-    const powerFill  = $('powerFill');
-    const powerSub   = $('powerSub');
-
-    const coachImg  = $('coachImg');
-    const coachText = $('coachText');
-
-    const bigBanner = $('bigBanner');
-    const bigBannerText = $('bigBannerText');
-
-    const endOverlay = $('endOverlay');
-    const endSub = $('endSub');
-    const endScore = $('endScore');
-    const endAcc = $('endAcc');
-    const endNote = $('endNote');
-    const btnReplay = $('btnReplay');
-    const btnBackHub = $('btnBackHub');
-
-    const playLayer = $('playLayer');
-
-    function pad2(n){ n = (n|0); return (n<10?('0'+n):String(n)); }
-    function fmtTime(sec){
-      sec = Math.max(0, sec|0);
-      const m = (sec/60)|0;
-      const s = sec%60;
-      return m + ':' + pad2(s);
-    }
-
-    function showBanner(text, tone){
-      if(!bigBanner || !bigBannerText) return;
-      bigBannerText.textContent = String(text||'');
-      bigBanner.classList.remove('hidden','tone-neutral','tone-good','tone-warn','tone-bad','show');
-      bigBanner.classList.add('tone-' + (tone||'neutral'));
-      // animate
-      requestAnimationFrame(()=> bigBanner.classList.add('show'));
-      setTimeout(()=>{
-        try{
-          bigBanner.classList.remove('show');
-          setTimeout(()=> bigBanner.classList.add('hidden'), 180);
-        }catch(_){}
-      }, 900);
-    }
-
-    function setCoachMood(mood){
-      // your coach files: coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
-      const m = String(mood||'neutral').toLowerCase();
-      let src = '../img/coach-neutral.png';
-      if(m === 'happy') src = '../img/coach-happy.png';
-      else if(m === 'fever') src = '../img/coach-fever.png';
-      else if(m === 'sad') src = '../img/coach-sad.png';
-      if(coachImg) coachImg.src = src;
-    }
-
-    // --- Event wiring ---
-    WIN.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail||{};
-      if(hudTime) hudTime.textContent = fmtTime(d.left ?? 0);
-    }, { passive:true });
-
-    WIN.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail||{};
-      if(hudScore) hudScore.textContent = String(d.score ?? 0);
-      if(hudCombo) hudCombo.textContent = String(d.combo ?? 0);
-      if(hudMiss)  hudMiss.textContent  = String(d.misses ?? 0);
-    }, { passive:true });
-
-    WIN.addEventListener('hha:rank', (ev)=>{
-      const d = ev.detail||{};
-      if(hudRank) hudRank.textContent = String(d.grade ?? '-');
-    }, { passive:true });
-
-    WIN.addEventListener('hha:coach', (ev)=>{
-      const d = ev.detail||{};
-      if(coachText) coachText.textContent = String(d.text||'');
-      setCoachMood(d.mood||'neutral');
-
-      // tiny banner for strong moods
-      const mood = String(d.mood||'neutral').toLowerCase();
-      if(mood === 'fever') showBanner('🔥 ' + String(d.text||''), 'warn');
-      else if(mood === 'happy') showBanner('✅ เยี่ยม!', 'good');
-    }, { passive:true });
-
-    WIN.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail||{};
-      if(groupTag) groupTag.textContent = String(d.groupName || 'หมู่');
-      if(goalTitle) goalTitle.textContent = String(d.goalTitle || 'ยิงให้ถูก');
-      if(goalSub) goalSub.textContent = String((d.goalNow ?? 0) + '/' + (d.goalTotal ?? 0));
-      if(goalFill) goalFill.style.width = String(clamp(d.goalPct ?? 0,0,100)) + '%';
-
-      if(miniTitle) miniTitle.textContent = String(d.miniTitle || 'MINI');
-      if(miniSub) miniSub.textContent = String((d.miniNow ?? 0) + '/' + (d.miniTotal ?? 0));
-      if(miniFill) miniFill.style.width = String(clamp(d.miniPct ?? 0,0,100)) + '%';
-
-      const left = Number(d.miniTimeLeftSec ?? 0);
-      if(miniTag){
-        miniTag.textContent = left>0 ? ('⏳ ' + left + 's') : '🎯';
-      }
-      // urgency class
-      if(DOC.body){
-        if(left>0 && left<=3) DOC.body.classList.add('mini-urgent');
-        else DOC.body.classList.remove('mini-urgent');
-      }
-    }, { passive:true });
-
-    WIN.addEventListener('groups:power', (ev)=>{
-      const d = ev.detail||{};
-      const c = Number(d.charge ?? 0);
-      const thr = Math.max(1, Number(d.threshold ?? 1));
-      const pct = clamp((c/thr)*100, 0, 100);
-      if(powerFill) powerFill.style.width = pct + '%';
-      if(powerSub) powerSub.textContent = c + '/' + thr;
-      if(powerTitle) powerTitle.textContent = (c>=thr) ? 'พร้อมสลับหมู่!' : 'พลังสะสม';
-    }, { passive:true });
-
-    // End overlay (optional)
-    WIN.addEventListener('hha:end', (ev)=>{
-      const d = ev.detail||{};
-      if(endOverlay) endOverlay.classList.remove('hidden');
-      if(endScore) endScore.textContent = String(d.scoreFinal ?? 0);
-      if(endAcc) endAcc.textContent = String(d.accuracyGoodPct ?? 0) + '%';
-      if(endSub) endSub.textContent = `Rank ${d.grade || '-'} • MISS ${d.misses ?? 0} • SHOTS ${d.shots ?? 0}`;
-      if(endNote){
-        endNote.textContent =
-          `seed=${d.seed || '-'} • run=${d.runMode || '-'} • diff=${d.diff || '-'} • view=${d.view || '-'}`;
-      }
-    }, { passive:true });
-
-    // Buttons
-    function hubUrl(){
-      const h = String(qs('hub','')||'');
-      return h || '../hub.html';
-    }
-
-    if(btnBackHub){
-      btnBackHub.addEventListener('click', ()=>{
-        location.href = hubUrl();
-      });
-    }
-    if(btnReplay){
-      btnReplay.addEventListener('click', ()=>{
-        try{ if(endOverlay) endOverlay.classList.add('hidden'); }catch(_){}
-        try{
-          const diff = String(qs('diff','normal')||'normal');
-          const ctx = { time: Number(qs('time',90)), seed: String(qs('seed','')||Date.now()), runMode: String(qs('run','play')||'play') };
-          WIN.GroupsVR && WIN.GroupsVR.GameEngine && WIN.GroupsVR.GameEngine.start(diff, ctx);
-        }catch(_){}
-      });
-    }
-
-    // Start engine (NO tap-to-start)
-    function startNow(){
-      try{
-        // Ensure layer is correct
-        if(WIN.GroupsVR && WIN.GroupsVR.GameEngine && WIN.GroupsVR.GameEngine.setLayerEl){
-          WIN.GroupsVR.GameEngine.setLayerEl(playLayer);
-        }
-        // FX init again (safe)
-        try{
-          const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
-          FX && FX.init && FX.init({ layerEl: playLayer });
-        }catch(_){}
-
-        // Start
-        const diff = String(qs('diff','normal')||'normal');
-        const ctx = {
-          time: Number(qs('time', 90)),
-          seed: String(qs('seed','')||Date.now()),
-          runMode: String(qs('run','play')||'play')
+    // ---------- robust loader (try 2 possible paths) ----------
+    function loadScriptTry(urls){
+      const DOC = document;
+      return new Promise((res, rej)=>{
+        let i = 0;
+        const tryNext = ()=>{
+          if(i >= urls.length) return rej(new Error('All script paths failed: ' + urls.join(', ')));
+          const src = urls[i++];
+          const s = DOC.createElement('script');
+          s.src = src;
+          s.defer = true;
+          s.onload = ()=>res(src);
+          s.onerror = ()=>{ try{ s.remove(); }catch(_){}; tryNext(); };
+          DOC.head.appendChild(s);
         };
-        WIN.GroupsVR.GameEngine.start(diff, ctx);
-
-        // Flush harden (if telemetry exists)
-        if(WIN.GroupsVR.bindFlushOnLeave){
-          WIN.GroupsVR.bindFlushOnLeave(()=> (WIN.__HHA_LAST_SUMMARY__||null));
-        }
-
-        // Tiny banner: lockPx info (only if debug=1)
-        if(String(qs('debug','0'))==='1'){
-          showBanner('lockPx=' + (WIN.__HHA_LOCKPX__||'?'), 'neutral');
-        }
-      }catch(e){
-        console.error('GroupsVR start error:', e);
-        showBanner('ERROR', 'bad');
-      }
+        tryNext();
+      });
     }
 
-    DOC.addEventListener('DOMContentLoaded', ()=>{
-      // tiny delay to let vr-ui mount buttons/crosshair
-      setTimeout(startNow, 160);
+    function qs(k, d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
+
+    // ---------- UI bindings ----------
+    const $ = (id)=>document.getElementById(id);
+
+    function setViewClass(){
+      const v = String(qs('view','mobile')||'mobile').toLowerCase();
+      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      document.body.classList.add('view-' + (v==='pc'?'pc':v==='vr'?'vr':v==='cvr'?'cvr':'mobile'));
+    }
+
+    function pctFill(el, pct){
+      pct = Math.max(0, Math.min(100, Number(pct)||0));
+      el.style.width = pct + '%';
+    }
+
+    // HUD events from engine
+    window.addEventListener('hha:time', (e)=>{
+      const left = (e.detail && e.detail.left)|0;
+      $('hudTime').textContent = String(left);
+    }, {passive:true});
+
+    window.addEventListener('hha:score', (e)=>{
+      const d = e.detail||{};
+      $('hudScore').textContent = String(d.score|0);
+      $('hudCombo').textContent = String(d.combo|0);
+      $('hudMiss').textContent  = String(d.misses|0);
+    }, {passive:true});
+
+    window.addEventListener('hha:rank', (e)=>{
+      const d = e.detail||{};
+      $('hudAcc').textContent = String((d.accuracy|0)) + '%';
+      $('hudRank').textContent = String(d.grade||'D');
+    }, {passive:true});
+
+    window.addEventListener('quest:update', (e)=>{
+      const d = e.detail||{};
+      $('qGoalTitle').textContent = d.goalTitle || 'GOAL';
+      $('qGoalCount').textContent = `${d.goalNow|0}/${d.goalTotal|0}`;
+      pctFill($('qGoalFill'), d.goalPct|0);
+      $('qGoalSub').textContent = d.groupName ? `ยิงให้ถูก: ${d.groupName}` : (d.goalTitle||'—');
+
+      $('qMiniTitle').textContent = d.miniTitle || 'MINI';
+      $('qMiniCount').textContent = `${d.miniNow|0}/${d.miniTotal|0}`;
+      pctFill($('qMiniFill'), d.miniPct|0);
+      $('qMiniSub').textContent = (d.miniTimeLeftSec>0) ? `เหลือเวลา ${d.miniTimeLeftSec|0}s` : '—';
+
+      // urgent style
+      if((d.miniTimeLeftSec|0) > 0 && (d.miniTimeLeftSec|0) <= 4) document.body.classList.add('mini-urgent');
+      else document.body.classList.remove('mini-urgent');
+    }, {passive:true});
+
+    window.addEventListener('groups:power', (e)=>{
+      const d = e.detail||{};
+      const c = (d.charge|0), th = Math.max(1, (d.threshold|0));
+      const pct = Math.round((c/th)*100);
+      pctFill($('pFill'), pct);
+      $('pText').textContent = `${c}/${th} → ครบแล้วจะสลับหมู่`;
+    }, {passive:true});
+
+    window.addEventListener('hha:coach', (e)=>{
+      const d = e.detail||{};
+      $('coachText').textContent = String(d.text||'—');
+      // mood => image
+      const mood = String(d.mood||'neutral').toLowerCase();
+      const img =
+        mood==='happy' ? '../img/coach-happy.png' :
+        mood==='sad'   ? '../img/coach-sad.png' :
+        mood==='fever' ? '../img/coach-fever.png' :
+                         '../img/coach-neutral.png';
+      $('coachImg').src = img;
+    }, {passive:true});
+
+    window.addEventListener('hha:end', (e)=>{
+      const s = e.detail||{};
+      $('endSub').textContent =
+        `คะแนน ${s.scoreFinal|0} • ยิง ${s.goodShots|0}/${s.shots|0} (${s.accuracyGoodPct|0}%) • Miss ${s.misses|0} • Rank ${s.grade||'D'}`;
+      $('endOverlay').classList.remove('hidden');
+    }, {passive:true});
+
+    // buttons
+    $('btnRetry').addEventListener('click', ()=>location.reload());
+    $('btnHub').addEventListener('click', ()=>{
+      const hub = qs('hub','')||'';
+      if(hub) location.href = hub;
+      else history.back();
     });
 
-  })();
+    // ---------- BOOT ----------
+    (async function main(){
+      setViewClass();
+
+      // 1) vr-ui (crosshair + hha:shoot)
+      await loadScriptTry(['../vr/vr-ui.js','./vr/vr-ui.js']);
+
+      // 2) particles (optional, ok if missing)
+      await loadScriptTry(['../vr/particles.js','./vr/particles.js']).catch(()=>{});
+
+      // 3) effects pack (uses groups:hit)
+      await loadScriptTry(['./effects-pack.js','./vr-groups/effects-pack.js']);
+
+      // 4) engine
+      await loadScriptTry(['./groups.safe.js','./vr-groups/groups.safe.js']);
+
+      // hook start
+      $('btnStart').addEventListener('click', ()=>{
+        $('startGate').style.display = 'none';
+
+        try{
+          // Engine start
+          const diff = String(qs('diff','normal')||'normal');
+          const ctx = { time:Number(qs('time',90)||90), seed:qs('seed','')||Date.now(), runMode:qs('run','play')||'play' };
+          window.GroupsVR.GameEngine.setLayerEl(document.getElementById('playLayer'));
+          window.GroupsVR.GameEngine.start(diff, ctx);
+        }catch(err){
+          alert('เริ่มเกมไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+        }
+      });
+    })();
   </script>
 </body>
 </html>
