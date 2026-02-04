@@ -41,6 +41,52 @@ const STEPS = [
 ];
 const ICON_HAZ = '🦠';
 
+// ---------- Hit helpers: FX position + instant vanish ----------
+function getTargetCenterPx(obj){
+  try{
+    const el = obj && obj.el;
+    if(el && el.getBoundingClientRect){
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    }
+  }catch(_){}
+  return { x: Number(obj?.x || WIN.innerWidth*0.5), y: Number(obj?.y || WIN.innerHeight*0.5) };
+}
+function vanishNow(obj){
+  try{
+    if(!obj || !obj.el) return;
+    if(obj._hitOnce) return; // guard double-hit (pointerdown + click)
+    obj._hitOnce = true;
+    obj.el.classList.add('is-hit');
+    obj.el.style.pointerEvents = 'none';
+    obj.el.disabled = true;
+  }catch(_){}
+}
+
+// ✅ FX on hit (particles.js) — accepts {x,y} or obj
+function fxHit(kind, objOrPos){
+  const P = WIN.Particles;
+  if(!P) return;
+
+  const pos = (objOrPos && typeof objOrPos.x === 'number' && typeof objOrPos.y === 'number')
+    ? objOrPos
+    : getTargetCenterPx(objOrPos);
+
+  const x = Number(pos.x || WIN.innerWidth*0.5);
+  const y = Number(pos.y || WIN.innerHeight*0.5);
+
+  if(kind === 'good'){
+    P.popText(x, y, '✅ +1', 'good');
+    P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
+  }else if(kind === 'wrong'){
+    P.popText(x, y, '⚠️ ผิด!', 'warn');
+    P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
+  }else if(kind === 'haz'){
+    P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
+    P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
+  }
+}
+
 export function boot(){
   const stage = DOC.getElementById('stage');
   if(!stage){
@@ -127,20 +173,12 @@ export function boot(){
   // quest/quiz
   let questText = 'ทำ STEP ให้ถูก!';
   let questDone = 0;
-
-  // ✅ FIX: quiz state must be object (not boolean)
-  const quiz = {
-    open: false,
-    armed: false,
-    t0: 0,
-    needStreak: 2,
-    streak: 0,
-  };
+  let quizOpen = false;
   let quizRight = 0;
   let quizWrong = 0;
 
   // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead?}
+  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
   let nextId=1;
 
   function showBanner(msg){
@@ -152,7 +190,7 @@ export function boot(){
   }
 
   function setQuizVisible(on){
-    quiz.open = !!on;
+    quizOpen = !!on;
     if(!quizBox) return;
     quizBox.style.display = on ? 'block' : 'none';
   }
@@ -177,22 +215,20 @@ export function boot(){
       [options[i],options[j]] = [options[j],options[i]];
     }
 
-    quizSub.textContent =
-      'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
+    quizSub.textContent = 'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
       + '  (ตอบโดย “ถูกต่อเนื่อง 2 ครั้ง” เพื่อยืนยัน)';
 
-    // ✅ arm as object
-    quiz.armed = true;
-    quiz.t0 = nowMs();
-    quiz.needStreak = 2;
-    quiz.streak = 0;
+    quizOpen._armed = true;
+    quizOpen._t0 = nowMs();
+    quizOpen._needStreak = 2;
+    quizOpen._streak = 0;
   }
 
   function closeQuiz(msg){
-    if(quiz.open){
+    if(quizOpen){
       setQuizVisible(false);
-      quiz.armed = false;
-      quiz.streak = 0;
+      quizOpen = false;
+      quizOpen._armed = false;
       if(msg) showBanner(msg);
     }
   }
@@ -235,68 +271,14 @@ export function boot(){
   function clearTargets(){
     while(targets.length){
       const t = targets.pop();
-      try{ t.el?.remove(); }catch{}
+      t.el?.remove();
     }
   }
 
-  // ✅ compute FX position at the target center (real DOM position)
-  function getTargetCenter(obj){
-    try{
-      const el = obj && obj.el;
-      if(el && el.getBoundingClientRect){
-        const r = el.getBoundingClientRect();
-        // center, clamped
-        const x = clamp(r.left + r.width/2, 0, WIN.innerWidth||999999);
-        const y = clamp(r.top + r.height/2, 0, WIN.innerHeight||999999);
-        return { x, y };
-      }
-    }catch{}
-    // fallback to stored spawn coords
-    return {
-      x: Number(obj?.x || WIN.innerWidth*0.5),
-      y: Number(obj?.y || WIN.innerHeight*0.5)
-    };
-  }
-
-  // ✅ FX on hit (particles.js)
-  function fxHit(kind, obj){
-    const P = WIN.Particles;
-    if(!P || !obj) return;
-    const c = getTargetCenter(obj);
-    const x = c.x, y = c.y;
-
-    if(kind === 'good'){
-      P.popText(x, y, '✅ +1', 'good');
-      P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
-    }else if(kind === 'wrong'){
-      P.popText(x, y, '⚠️ ผิด!', 'warn');
-      P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
-    }else if(kind === 'haz'){
-      P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
-      P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
-    }
-  }
-
-  // ✅ remove target "immediately" (hide now, remove soon)
   function removeTarget(obj){
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
-
-    const el = obj.el;
-    if(!el) return;
-
-    // prevent double-hit + hide instantly
-    obj.dead = true;
-    try{
-      el.style.pointerEvents = 'none';
-      el.style.opacity = '0';
-      el.style.transition = 'opacity 80ms linear, transform 80ms ease-out';
-      el.style.transform = 'translate(-50%,-50%) scale(.80)';
-      // remove quickly after frame
-      setTimeout(()=>{ try{ el.remove(); }catch{} }, 90);
-    }catch{
-      try{ el.remove(); }catch{}
-    }
+    obj.el?.remove();
   }
 
   function createTarget(kind, emoji, stepRef){
@@ -316,22 +298,41 @@ export function boot(){
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
-    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, _hitOnce:false };
     targets.push(obj);
 
-    // tap/click only when not cVR strict
+    // ✅ Fast tap: pointerdown (mobile), plus click fallback
     if(view !== 'cvr'){
+      const onPress = (ev)=>{
+        if(!running || paused) return;
+        if(obj._hitOnce) return;
+
+        // vanish instantly before logic to feel immediate
+        vanishNow(obj);
+
+        const pos = getTargetCenterPx(obj);
+        judgeHit(obj, 'tap', { evType: ev?.type, x: pos.x, y: pos.y });
+
+        try{ ev.preventDefault(); }catch(_){}
+      };
+
+      el.addEventListener('pointerdown', onPress, { passive:false });
+
       el.addEventListener('click', (ev)=>{
-        // guard: already removed
-        if(obj.dead) return;
-        ev.preventDefault();
-        onHitByPointer(obj, 'tap');
-      }, { passive:false });
+        if(!running || paused) return;
+        if(obj._hitOnce) return;
+
+        vanishNow(obj);
+        const pos = getTargetCenterPx(obj);
+        judgeHit(obj, 'tap', { evType:'click', x: pos.x, y: pos.y });
+      }, { passive:true });
     }
+
     return obj;
   }
 
   function spawnOne(){
+    const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
 
     const r = rng();
@@ -345,44 +346,13 @@ export function boot(){
       }
       return createTarget('wrong', STEPS[j].icon, j);
     }else{
-      return createTarget('good', STEPS[stepIdx].icon, stepIdx);
+      return createTarget('good', s.icon, stepIdx);
     }
   }
 
   function computeRt(obj){
     const dt = nowMs() - obj.bornMs;
     return clamp(dt, 0, 60000);
-  }
-
-  function onHitByPointer(obj, source){
-    if(!running || paused) return;
-    if(!obj || obj.dead) return;
-    judgeHit(obj, source, null);
-  }
-
-  // cVR shoot: pick nearest target within lockPx
-  function onShoot(e){
-    if(!running || paused) return;
-    if(view !== 'cvr') return;
-
-    const d = (e && e.detail) || {};
-    const lockPx = Number(d.lockPx||28);
-
-    const cx = WIN.innerWidth/2;
-    const cy = WIN.innerHeight/2;
-
-    let best=null, bestDist=1e9;
-    for(const t of targets){
-      if(!t || t.dead) continue;
-      const dx = (t.x - cx), dy = (t.y - cy);
-      const dist = Math.hypot(dx, dy);
-      if(dist < lockPx && dist < bestDist){
-        best = t; bestDist = dist;
-      }
-    }
-    if(best){
-      judgeHit(best, 'shoot', { lockPx, dist: bestDist });
-    }
   }
 
   function getStepAcc(){
@@ -435,7 +405,13 @@ export function boot(){
   }
 
   function judgeHit(obj, source, extra){
-    if(!obj || obj.dead) return;
+    // ✅ pos for FX always precise
+    const hitPos = (extra && typeof extra.x === 'number' && typeof extra.y === 'number')
+      ? { x: extra.x, y: extra.y }
+      : getTargetCenterPx(obj);
+
+    // ✅ if not yet vanished (e.g., cVR shoot), vanish now
+    vanishNow(obj);
 
     const rt = computeRt(obj);
 
@@ -447,12 +423,11 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      // ✅ quiz confirm without crashing
-      if(quiz.open && quiz.armed){
-        const within = (nowMs() - quiz.t0) <= 4000;
+      if(quizOpen && quizOpen._armed){
+        const within = (nowMs() - quizOpen._t0) <= 4000;
         if(within){
-          quiz.streak++;
-          if(quiz.streak >= (quiz.needStreak||2)){
+          quizOpen._streak++;
+          if(quizOpen._streak >= (quizOpen._needStreak||2)){
             quizRight++;
             closeQuiz('✅ Quiz ผ่าน!');
           }
@@ -467,10 +442,8 @@ export function boot(){
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
 
       bumpQuestOnGoodHit();
-      fxHit('good', obj); // ✅ FX at target center
-
-      // ✅ remove target immediately (hide now)
-      removeTarget(obj);
+      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
+      fxHit('good', hitPos);
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
@@ -490,15 +463,15 @@ export function boot(){
           stepIdx=0;
           loopsDone++;
           showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
-          if(!quiz.open) openRandomQuiz();
+          if(!quizOpen) openRandomQuiz();
         }else{
           showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-          if(!quiz.open && rng() < 0.25) openRandomQuiz();
+          if(!quizOpen && rng() < 0.25) openRandomQuiz();
         }
-      }else{
-        showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
       }
 
+      // ✅ remove next frame (vanish already happened)
+      requestAnimationFrame(()=> removeTarget(obj));
       setHud();
       return;
     }
@@ -508,7 +481,7 @@ export function boot(){
       totalStepHits++;
       combo = 0;
 
-      if(quiz.open && quiz.armed){
+      if(quizOpen && quizOpen._armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
       }
@@ -517,11 +490,10 @@ export function boot(){
       dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
-
-      fxHit('wrong', obj); // ✅ FX at target center
-      removeTarget(obj);
-
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+      fxHit('wrong', hitPos);
+
+      requestAnimationFrame(()=> removeTarget(obj));
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
@@ -531,7 +503,7 @@ export function boot(){
       hazHits++;
       combo = 0;
 
-      if(quiz.open && quiz.armed){
+      if(quizOpen && quizOpen._armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
       }
@@ -540,11 +512,10 @@ export function boot(){
       dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
-
-      fxHit('haz', obj); // ✅ FX at target center
-      removeTarget(obj);
-
       showBanner(`🦠 โดนเชื้อ! ระวัง!`);
+      fxHit('haz', hitPos);
+
+      requestAnimationFrame(()=> removeTarget(obj));
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
@@ -600,13 +571,8 @@ export function boot(){
 
     questText = 'ทำ STEP ให้ถูก!';
     questDone = 0;
-
     quizRight = 0;
     quizWrong = 0;
-    quiz.open = false;
-    quiz.armed = false;
-    quiz.streak = 0;
-
     setQuizVisible(false);
     setHud();
   }
@@ -631,7 +597,6 @@ export function boot(){
     running=false;
     clearTargets();
     setQuizVisible(false);
-    quiz.armed = false;
 
     const durationPlayedSec = Math.max(0, Math.round(elapsedSec()));
     const stepAcc = getStepAcc();
@@ -730,10 +695,34 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // cVR shoot support
+  // cVR shoot: pick nearest target within lockPx
+  function onShoot(e){
+    if(!running || paused) return;
+    if(view !== 'cvr') return;
+
+    const d = (e && e.detail) || {};
+    const lockPx = Number(d.lockPx||28);
+
+    const cx = WIN.innerWidth/2;
+    const cy = WIN.innerHeight/2;
+
+    let best=null, bestDist=1e9;
+    for(const t of targets){
+      const dx = (t.x - cx), dy = (t.y - cy);
+      const dist = Math.hypot(dx, dy);
+      if(dist < lockPx && dist < bestDist){
+        best = t; bestDist = dist;
+      }
+    }
+    if(best){
+      // vanish + FX center of the actual target
+      const pos = getTargetCenterPx(best);
+      judgeHit(best, 'shoot', { lockPx, dist: bestDist, x: pos.x, y: pos.y });
+    }
+  }
+
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // badge/coach visuals
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(WIN.Particles && WIN.Particles.popText){
