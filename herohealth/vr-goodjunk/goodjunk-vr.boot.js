@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX for v4.2)
+// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX for v4.2 + LOGGER INIT)
 // ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
 // ✅ Auto base view: pc / mobile (UA-based)
 // ✅ Auto-load ../vr/vr-ui.js only if WebXR exists (navigator.xr) and not already present
@@ -8,6 +8,7 @@
 //    - desktop -> vr
 // ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
 // ✅ Listens gj:measureSafe (emitted by safe.js boss toggle) to re-measure instantly
+// ✅ INIT logger ctx (HHA_LOGGER) before engineBoot()
 // ✅ Boots engine: ./goodjunk.safe.js (module export boot())
 
 import { boot as engineBoot } from './goodjunk.safe.js';
@@ -103,6 +104,43 @@ function bindDebugKeys() {
       try { WIN.dispatchEvent(new CustomEvent('hha:shoot', { detail: { source: 'key' } })); } catch (_) {}
     }
   }, { passive: true });
+}
+
+/** ✅ INIT LOGGER (safe no-op if not present or already inited) */
+function initLoggerCtx(baseView) {
+  try {
+    const L = WIN.HHA_LOGGER;
+    if (!L || typeof L.init !== 'function') return;
+
+    const cfg = {
+      game: 'GoodJunkVR',
+      // useful for dashboards / filters
+      run: qs('run', 'play'),
+      diff: qs('diff', 'normal'),
+      time: Number(qs('time', '80') || 80),
+      seed: qs('seed', null),
+      hub: qs('hub', null),
+      studyId: qs('studyId', qs('study', null)),
+      phase: qs('phase', null),
+      conditionGroup: qs('conditionGroup', qs('cond', null)),
+      viewBase: baseView || baseAutoView(),
+      pageKey: 'vr-goodjunk/goodjunk-vr.html'
+    };
+
+    L.init(cfg);
+
+    if (typeof L.log === 'function') {
+      L.log('boot', {
+        page: 'goodjunk-vr.boot.js',
+        baseView: cfg.viewBase,
+        run: cfg.run,
+        diff: cfg.diff,
+        time: cfg.time,
+        seed: cfg.seed,
+        hasXR: ('xr' in navigator)
+      });
+    }
+  } catch (_) {}
 }
 
 function hudSafeMeasure() {
@@ -204,6 +242,9 @@ async function start() {
   // STRICT AUTO BASE VIEW — never read ?view=
   const view = baseAutoView();
   setBodyView(view);
+
+  // ✅ logger ctx MUST come early (before engine emits hha:start)
+  initLoggerCtx(view);
 
   // ensure vr-ui available if WebXR exists
   ensureVrUiLoaded();
