@@ -1,263 +1,84 @@
+<!-- === /fitness/jump-duck.html ===
+Jump-Duck Launcher — ROOT (WebXR-ready)
+✅ Auto-detect view (pc/mobile/cvr) but NEVER override if ?view= exists
+✅ Pass-through: pid, diff, time, mode, seed, hub
+✅ Redirect to ./jd/jump-duck-vr.html
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Jump-Duck — VR Fitness Academy</title>
-  <link rel="icon" href="favicon.ico"/>
-
-  <link rel="stylesheet" href="css/jump-duck.css"/>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{ color-scheme: dark; }
+    body{ margin:0; background:#020617; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    .wrap{ min-height:100vh; display:grid; place-items:center; padding:16px; }
+    .card{
+      width:min(820px, 100%);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:16px;
+      background:rgba(15,23,42,.88);
+      box-shadow:0 24px 60px rgba(0,0,0,.55);
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .pill{ padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.6); }
+    .muted{ color:#94a3b8; font-size:.95rem; }
+  </style>
 </head>
 <body>
-  <div id="jd-app" class="jd-shell">
-    <div class="jd-wrap">
-
-      <!-- ===== VIEW: MENU ===== -->
-      <section id="view-menu" class="jd-view">
-        <div class="jd-card">
-          <h1 class="jd-title"><span>🦘 Jump-Duck</span></h1>
-          <p class="jd-subtitle">
-            เกมฝึกกระโดด-ก้มหลบสิ่งกีดขวาง เพื่อความคล่องตัว แกนกลางลำตัว และการทรงตัว
-          </p>
-
-          <div class="jd-menu-grid">
-            <!-- Left -->
-            <div class="jd-menu-block">
-              <div class="jd-field-row">
-                <label for="jd-mode">โหมดการเล่น</label>
-                <select id="jd-mode">
-                  <option value="training" selected>ฝึก (Training) — ซ้อม / เล่นสนุก (Adaptive ON)</option>
-                  <option value="test">ทดสอบ (Test) — พารามิเตอร์คงที่ (Adaptive OFF)</option>
-                  <option value="research">วิจัย (Research) — deterministic + เก็บข้อมูล (Adaptive OFF)</option>
-                </select>
-                <p class="jd-hint">
-                  Training จะเร่งจังหวะ + Boss Storm ตามฟอร์มผู้เล่น · Test/Research คงที่และ reproducible
-                </p>
-              </div>
-
-              <div class="jd-field-row">
-                <label for="jd-diff">ระดับความยาก</label>
-                <select id="jd-diff">
-                  <option value="easy">Easy — จังหวะช้า เน้นทำให้ถูก</option>
-                  <option value="normal" selected>Normal — สมดุลความเร็วและความท้าทาย</option>
-                  <option value="hard">Hard — เร็วและท้าทายมาก</option>
-                </select>
-              </div>
-
-              <div class="jd-field-row">
-                <label for="jd-duration">ระยะเวลาเล่นต่อรอบ</label>
-                <select id="jd-duration">
-                  <option value="45">45 วินาที</option>
-                  <option value="60" selected>60 วินาที</option>
-                  <option value="90">90 วินาที</option>
-                </select>
-              </div>
-
-              <!-- AI -->
-              <div class="jd-ai-box">
-                <div class="jd-field-row">
-                  <label>
-                    <input id="jd-ai-enable" type="checkbox" checked/>
-                    เปิด AI (Predictor/Director/Coach)
-                  </label>
-                  <p class="jd-hint">
-                    Research: AI จะทำงานแบบ “วิเคราะห์+โค้ช” แต่ไม่ปรับยาก (Adaptive OFF)
-                  </p>
-                </div>
-                <div class="jd-field-row">
-                  <label for="jd-ai-model">AI Model</label>
-                  <select id="jd-ai-model">
-                    <option value="heuristic" selected>Heuristic (เร็ว/เสถียร)</option>
-                    <option value="ml-weights">ML Weights JSON (จาก tools/train)</option>
-                    <option value="tfjs">TFJS Model (DL) (ถ้ามีไฟล์)</option>
-                  </select>
-                  <p class="jd-hint">ถ้าไม่พบโมเดล จะ fallback ไป heuristic อัตโนมัติ</p>
-                </div>
-              </div>
-
-              <!-- Research meta -->
-              <div id="jd-research-block" class="jd-research jd-hidden">
-                <div class="jd-field-row">
-                  <label for="jd-participant-id">Participant ID</label>
-                  <input id="jd-participant-id" type="text" placeholder="เช่น P001, STU-01"/>
-                </div>
-                <div class="jd-field-row">
-                  <label for="jd-group">กลุ่มทดลอง / กลุ่มควบคุม</label>
-                  <input id="jd-group" type="text" placeholder="เช่น EXP, CTRL, G1, G2"/>
-                </div>
-                <div class="jd-field-row">
-                  <label for="jd-note">หมายเหตุ</label>
-                  <input id="jd-note" type="text" placeholder="เช่น Pre-test, Post-test รอบ 2"/>
-                </div>
-                <p class="jd-research-hint">
-                  Export ได้: Summary + Events CSV (ใช้จับคู่แบบสอบถาม/ตัวแปรอื่น)
-                </p>
-              </div>
-
-              <div class="jd-btn-row">
-                <button class="jd-btn jd-btn-primary" data-action="start">▶ เริ่มเล่น Jump-Duck</button>
-                <button class="jd-btn jd-btn-sub" data-action="tutorial">❓ Tutorial — ซ้อม 15 วินาที</button>
-              </div>
-
-              <div class="jd-btn-row jd-btn-row-secondary">
-                <a href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ VR Fitness Hub</a>
-              </div>
-
-              <details class="jd-advanced">
-                <summary>⚙ Advanced / Query Params</summary>
-                <div class="jd-note">
-                  ใช้พารามิเตอร์ได้ เช่น <code>?mode=research&diff=normal&time=60&seed=123&ai=1&aimodel=heuristic</code><br/>
-                  Research จะ deterministic ตาม seed
-                </div>
-              </details>
-            </div>
-
-            <!-- Right -->
-            <div class="jd-menu-block">
-              <div class="jd-howto-block">
-                <h3 class="jd-section-title">วิธีการเล่น</h3>
-                <ul class="jd-howto-list">
-                  <li>แตะครึ่งบนของจอ = <b>Jump</b> 🦘</li>
-                  <li>แตะครึ่งล่างของจอ = <b>Duck</b> 🛡️</li>
-                  <li>คีย์บอร์ด: ⬆ = Jump, ⬇ = Duck</li>
-                  <li><b>Perfect/Great/OK</b> ได้คะแนนต่างกัน</li>
-                  <li><b>Double</b> ต้องกด 2 ครั้งติดกัน (เช่น Jump→Duck)</li>
-                  <li><b>Hold Duck</b> ต้องก้มค้างจนพ้น (มีวงแสดงเวลา)</li>
-                  <li>ท้ายเกมมี <b>Boss Storm</b> เร็ว+รัว แต่คะแนนพุ่ง!</li>
-                </ul>
-              </div>
-
-              <p class="jd-howto-inline">
-                โหมด VR: ให้ผู้เล่นขยับตัวจริง (กระโดด/ก้ม) แล้วครู/ผู้ช่วยกด Jump/Duck ตามจังหวะ
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ===== VIEW: PLAY ===== -->
-      <section id="view-play" class="jd-view jd-hidden">
-        <div class="jd-card">
-          <h2 class="jd-section-title">โหมดเล่น Jump-Duck</h2>
-
-          <!-- HUD -->
-          <div class="jd-hud">
-            <div class="jd-hud-col">
-              <div class="jd-hud-row"><span class="jd-tag">Mode</span><span class="jd-hud-chip"><strong id="hud-mode">Training</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Diff</span><span class="jd-hud-chip"><strong id="hud-diff">normal</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">AI</span><span class="jd-hud-chip"><strong id="hud-ai">ON</strong></span></div>
-            </div>
-
-            <div class="jd-hud-col jd-hud-center">
-              <div class="jd-hud-row"><span class="jd-tag">Duration</span><span class="jd-hud-chip"><strong id="hud-duration">60s</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Stability</span><span class="jd-hud-chip"><strong id="hud-stability">100%</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Quest</span><span class="jd-hud-chip"><strong id="hud-quest">-</strong></span></div>
-            </div>
-
-            <div class="jd-hud-col jd-hud-right">
-              <div class="jd-hud-row"><span class="jd-tag">Obstacles</span><span class="jd-hud-chip"><strong id="hud-obstacles">0 / 0</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Score</span><span class="jd-hud-chip"><strong id="hud-score">0</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Combo</span><span class="jd-hud-chip"><strong id="hud-combo">0</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Time left</span><span class="jd-hud-chip"><strong id="hud-time">60.0</strong>s</span></div>
-            </div>
-          </div>
-
-          <!-- PLAY FIELD -->
-          <div id="jd-play-area" class="jd-field jd-play-area">
-            <div class="jd-track"><div class="jd-ground"></div></div>
-
-            <div class="jd-hit-line"></div>
-
-            <div id="jd-avatar" class="jd-avatar">
-              <div class="jd-avatar-body">🧍‍♂️</div>
-              <div id="jd-hold-ring" class="jd-hold-ring jd-hidden">
-                <div id="jd-hold-fill" class="jd-hold-fill"></div>
-              </div>
-            </div>
-
-            <div id="jd-obstacles" class="jd-obstacles"></div>
-
-            <div id="jd-judge" class="jd-judge">READY</div>
-
-            <div id="jd-boss-banner" class="jd-boss jd-hidden">⚡ BOSS STORM ⚡</div>
-          </div>
-
-          <p class="jd-howto-inline">
-            แตะครึ่งบน = Jump · ครึ่งล่าง = Duck · หรือ ⬆ / ⬇
-          </p>
-
-          <div class="jd-btn-row">
-            <button class="jd-btn jd-btn-primary" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
-            <a href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
-          </div>
-        </div>
-      </section>
-
-      <!-- ===== VIEW: RESULT ===== -->
-      <section id="view-result" class="jd-view jd-hidden">
-        <div class="jd-card">
-          <h2 class="jd-section-title">📊 สรุปผล Jump-Duck</h2>
-
-          <div class="jd-result-grid">
-            <div class="jd-result-row"><span>Mode</span><b id="res-mode">Training</b></div>
-            <div class="jd-result-row"><span>Difficulty</span><b id="res-diff">normal</b></div>
-            <div class="jd-result-row"><span>Duration</span><b id="res-duration">60s</b></div>
-
-            <div class="jd-result-row"><span>Obstacles ทั้งหมด</span><b id="res-total-obs">0</b></div>
-            <div class="jd-result-row"><span>Hits รวม</span><b id="res-hits">0</b></div>
-            <div class="jd-result-row"><span>Miss รวม</span><b id="res-miss">0</b></div>
-
-            <div class="jd-result-row"><span>Jump ถูก</span><b id="res-jump-hit">0</b></div>
-            <div class="jd-result-row"><span>Duck ถูก</span><b id="res-duck-hit">0</b></div>
-            <div class="jd-result-row"><span>Jump พลาด</span><b id="res-jump-miss">0</b></div>
-            <div class="jd-result-row"><span>Duck พลาด</span><b id="res-duck-miss">0</b></div>
-
-            <div class="jd-result-row"><span>Perfect</span><b id="res-perfect">0</b></div>
-            <div class="jd-result-row"><span>Great</span><b id="res-great">0</b></div>
-            <div class="jd-result-row"><span>OK</span><b id="res-ok">0</b></div>
-
-            <div class="jd-result-row"><span>Accuracy</span><b id="res-acc">0.0 %</b></div>
-            <div class="jd-result-row"><span>RT เฉลี่ย</span><b id="res-rt-mean">-</b></div>
-            <div class="jd-result-row"><span>Stability ต่ำสุด</span><b id="res-stability-min">0.0 %</b></div>
-            <div class="jd-result-row"><span>Score</span><b id="res-score">0</b></div>
-            <div class="jd-result-row"><span>Rank</span><b id="res-rank">C</b></div>
-          </div>
-
-          <div class="jd-export">
-            <button class="jd-btn jd-btn-sub" data-action="export-summary">⬇ Export Summary JSON</button>
-            <button class="jd-btn jd-btn-sub" data-action="export-events">⬇ Export Events CSV</button>
-          </div>
-
-          <p class="jd-note">
-            ใช้เปรียบเทียบก่อน–หลังฝึก หรือระหว่างกลุ่มทดลอง–ควบคุมได้ (Research: deterministic ตาม seed)
-          </p>
-
-          <div class="jd-btn-row">
-            <button class="jd-btn jd-btn-primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
-          </div>
-          <div class="jd-btn-row jd-btn-row-secondary">
-            <button class="jd-btn jd-btn-sub" data-action="back-menu">🏠 กลับเมนู Jump-Duck</button>
-            <a href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
-          </div>
-        </div>
-      </section>
-
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div class="pill">🦘 Jump-Duck</div>
+        <div class="pill muted" id="jd-view-pill">detecting…</div>
+      </div>
+      <p class="muted" style="margin:10px 0 0;">
+        กำลังเข้าเกมอัตโนมัติ…
+      </p>
     </div>
   </div>
 
-  <!-- SFX -->
-  <audio id="jd-sfx-hit"   src="audio/jd-hit.mp3"   preload="auto"></audio>
-  <audio id="jd-sfx-miss"  src="audio/jd-miss.mp3"  preload="auto"></audio>
-  <audio id="jd-sfx-combo" src="audio/jd-combo.mp3" preload="auto"></audio>
-  <audio id="jd-sfx-beep"  src="audio/jd-beep.mp3"  preload="auto"></audio>
-  <audio id="jd-sfx-boss"  src="audio/jd-boss.mp3"  preload="auto"></audio>
+  <script>
+  (function(){
+    'use strict';
+    function getViewFromUA(){
+      // heuristic: mobile => mobile, otherwise pc
+      const ua = navigator.userAgent || '';
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 820);
+      return isMobile ? 'mobile' : 'pc';
+    }
 
-  <!-- AI modules (plain scripts) -->
-  <script src="js/ai/jd-ai-predictor.js"></script>
-  <script src="js/ai/jd-ai-director.js"></script>
-  <script src="js/ai/jd-ai-coach.js"></script>
+    const url = new URL(location.href);
+    const sp  = url.searchParams;
 
-  <!-- Main -->
-  <script src="js/jump-duck.js"></script>
+    // NEVER override if user already set ?view=
+    const view = (sp.get('view') || '').toLowerCase() || getViewFromUA();
+    const pill = document.getElementById('jd-view-pill');
+    if (pill) pill.textContent = 'view=' + view;
+
+    // pass-through params
+    const pass = ['pid','diff','time','mode','seed','hub','studyId','phase','conditionGroup','log','view'];
+    const run = new URL('./jd/jump-duck-vr.html', location.href);
+
+    for (const k of pass){
+      const v = sp.get(k);
+      if (v != null && v !== '') run.searchParams.set(k, v);
+    }
+    // ensure view exists
+    if (!run.searchParams.get('view')) run.searchParams.set('view', view);
+
+    // default duration key: ?time=60
+    if (!run.searchParams.get('time')) run.searchParams.set('time', '60');
+    if (!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
+    if (!run.searchParams.get('mode')) run.searchParams.set('mode', 'training');
+
+    // go
+    location.replace(run.toString());
+  })();
+  </script>
 </body>
 </html>
