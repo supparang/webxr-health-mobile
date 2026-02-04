@@ -1,31 +1,72 @@
-// === /fitness/js/ai-director.js ===
-// Fair adaptive pacing director (lightweight)
-
 'use strict';
 
-export function computeAssist(pred, snap) {
-  const fatigue = Number(pred?.fatigueRisk) || 0;
-  const skill = Number(pred?.skillScore) || 0;
+// AiDirector — fair adaptive pacing (play only)
+// Research: should be disabled by caller
+export class AiDirector {
+  constructor(opts = {}) {
+    this.enabled = !!opts.enabled;
+    this.diff = (opts.diff || 'normal');
+    this._spawnRateMul = 1.0;
+    this._ttlMul = 1.0;
+    this._sizeMul = 1.0;
 
-  // spawn multiplier: fatigue high => slower; skill high => faster (small range)
-  let spawnMul = 1.0;
-  spawnMul += (skill - 0.5) * 0.35;
-  spawnMul -= (fatigue - 0.4) * 0.40;
-  spawnMul = Math.max(0.85, Math.min(1.25, spawnMul));
-
-  return { spawnMul, fatigue, skill };
-}
-
-export class AIDirector {
-  constructor() {
-    this.spawnMul = 1.0;
+    this._hits = 0;
+    this._miss = 0;
+    this._lastAdjustAt = 0;
   }
 
-  step(assist, dt) {
-    const target = Number(assist?.spawnMul) || 1.0;
-    const k = Math.min(1, (Number(dt) || 0.016) * 3.2); // smoothing
-    this.spawnMul = this.spawnMul + (target - this.spawnMul) * k;
+  setEnabled(v){ this.enabled = !!v; }
+  setDiff(d){ this.diff = d || 'normal'; }
 
-    return { spawnMul: this.spawnMul };
+  getSpawnRateMul(){ return this._spawnRateMul; }
+  getTtlMul(){ return this._ttlMul; }
+  getSizeMul(){ return this._sizeMul; }
+
+  onHit(info = {}) {
+    if (!this.enabled) return;
+    this._hits++;
+    this._maybeAdjust();
+  }
+
+  onMiss() {
+    if (!this.enabled) return;
+    this._miss++;
+    this._maybeAdjust();
+  }
+
+  _maybeAdjust() {
+    const now = performance.now();
+    if (now - this._lastAdjustAt < 900) return; // rate limit
+    this._lastAdjustAt = now;
+
+    const h = this._hits;
+    const m = this._miss;
+    const total = h + m;
+    if (total < 8) return;
+
+    const missRate = m / total;
+
+    // Target: missRate ~ 0.18–0.28
+    if (missRate > 0.38) {
+      // too hard -> easier
+      this._spawnRateMul = Math.max(0.78, this._spawnRateMul * 0.94);
+      this._ttlMul = Math.min(1.22, this._ttlMul * 1.06);
+      this._sizeMul = Math.min(1.18, this._sizeMul * 1.04);
+      // soften memory a bit
+      this._hits = Math.floor(h * 0.6);
+      this._miss = Math.floor(m * 0.6);
+    } else if (missRate < 0.12) {
+      // too easy -> harder
+      this._spawnRateMul = Math.min(1.28, this._spawnRateMul * 1.05);
+      this._ttlMul = Math.max(0.82, this._ttlMul * 0.96);
+      this._sizeMul = Math.max(0.88, this._sizeMul * 0.98);
+      this._hits = Math.floor(h * 0.6);
+      this._miss = Math.floor(m * 0.6);
+    } else {
+      // within band: drift back to 1
+      this._spawnRateMul += (1.0 - this._spawnRateMul) * 0.08;
+      this._ttlMul += (1.0 - this._ttlMul) * 0.08;
+      this._sizeMul += (1.0 - this._sizeMul) * 0.08;
+    }
   }
 }
