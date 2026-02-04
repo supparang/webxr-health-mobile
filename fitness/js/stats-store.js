@@ -1,24 +1,40 @@
-// === /fitness/js/stats-store.js ===
-// Minimal local stats store (latest session)
-// Export: recordSession(gameKey, payload), getLatest(gameKey)
-
 'use strict';
 
-const KEY = 'VRFIT_STATS_LATEST_V1';
+export class StatsStore {
+  constructor(key){
+    this.key = key || 'SB_STATS';
+  }
 
-function safeParse(s){
-  try{ return JSON.parse(s); }catch{ return null; }
-}
+  _load(){
+    try{
+      const raw = localStorage.getItem(this.key);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    }catch(_){
+      return [];
+    }
+  }
 
-export function recordSession(gameKey, payload){
-  const raw = localStorage.getItem(KEY);
-  const all = safeParse(raw) || {};
-  all[gameKey] = payload || {};
-  localStorage.setItem(KEY, JSON.stringify(all));
-}
+  _save(arr){
+    try{
+      localStorage.setItem(this.key, JSON.stringify(arr || []));
+    }catch(_){}
+  }
 
-export function getLatest(gameKey){
-  const raw = localStorage.getItem(KEY);
-  const all = safeParse(raw) || {};
-  return all[gameKey] || null;
+  append(summary){
+    const arr = this._load();
+    arr.push({ ts: Date.now(), ...(summary||{}) });
+    // keep last 50
+    while (arr.length > 50) arr.shift();
+    this._save(arr);
+  }
+
+  list(){
+    return this._load();
+  }
+
+  clear(){
+    try{ localStorage.removeItem(this.key); }catch(_){}
+  }
 }
