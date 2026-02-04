@@ -1,5 +1,5 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HARDENED)
+// PlateVR Boot — PRODUCTION (HARDENED + MISS BREAKDOWN)
 // ✅ Auto view detect (no UI override)
 // ✅ Boots engine from ./plate.safe.js
 // ✅ Wires HUD (hha:score, hha:time, quest:update, hha:coach, hha:end)
@@ -7,6 +7,7 @@
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
 // ✅ HARDEN: guard against "start button freeze" + robust mount check + visible error
+// ✅ NEW: Miss breakdown (shot/junk/timeout) from hha:judge stream
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -25,7 +26,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // No menu override. Allow query param for experiments.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -74,6 +74,33 @@ function showCoach(msg, meta='Coach'){
   }, 2400);
 }
 
+/* ------------------------------------------------
+ * Miss breakdown state (per run)
+ * ------------------------------------------------ */
+const MISS = {
+  shot: 0,     // ยิงแล้วไม่โดน (requires judge kind:'shot_miss')
+  junk: 0,     // กดโดน junk
+  timeout: 0,  // good หมดเวลา (expire)
+};
+
+function resetMiss(){
+  MISS.shot = 0;
+  MISS.junk = 0;
+  MISS.timeout = 0;
+}
+
+function updateMissUI(){
+  const elShot = DOC.getElementById('kMissShot');
+  const elJunk = DOC.getElementById('kMissJunk');
+  const elTime = DOC.getElementById('kMissTimeout');
+  if(elShot) elShot.textContent = String(MISS.shot|0);
+  if(elJunk) elJunk.textContent = String(MISS.junk|0);
+  if(elTime) elTime.textContent = String(MISS.timeout|0);
+}
+
+/* ------------------------------------------------
+ * HUD wiring
+ * ------------------------------------------------ */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -127,6 +154,22 @@ function wireHUD(){
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
+
+  // ✅ Judge stream → breakdown
+  WIN.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind || '').toLowerCase();
+    if(kind === 'shot_miss'){
+      MISS.shot++;
+    }else if(kind === 'junk'){
+      MISS.junk++;
+    }else if(kind === 'expire_good'){
+      MISS.timeout++;
+    }else{
+      return;
+    }
+    updateMissUI();
+  });
 }
 
 function wireEndControls(){
@@ -136,7 +179,6 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      // keep same query params
       location.reload();
     });
   }
@@ -150,6 +192,7 @@ function wireEndControls(){
 
 function wireEndSummary(){
   const kScore = DOC.getElementById('kScore');
+  const kRank  = DOC.getElementById('kRank');
   const kAcc   = DOC.getElementById('kAcc');
   const kCombo = DOC.getElementById('kCombo');
   const kGoals = DOC.getElementById('kGoals');
@@ -158,15 +201,28 @@ function wireEndSummary(){
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+
+    // score / combo
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
-    if(kMiss)  kMiss.textContent  = String(d.misses ?? d.miss ?? 0);
 
-    const acc = (d.accuracyGoodPct ?? d.accuracyPct ?? null);
+    // rank/grade
+    if(kRank)  kRank.textContent  = String(d.grade ?? '—');
+
+    // accuracy
+    const acc = (d.accuracyPct ?? d.accuracyGoodPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
+    // quests
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
+
+    // miss total (new key: miss)
+    const missTotal = (d.miss ?? d.misses ?? d.missCount ?? 0);
+    if(kMiss) kMiss.textContent = String(missTotal);
+
+    // ensure breakdown is visible at end too
+    updateMissUI();
 
     setOverlayOpen(true);
   });
@@ -209,6 +265,10 @@ function ready(fn){
 }
 
 ready(()=>{
+  // reset breakdown per load
+  resetMiss();
+  updateMissUI();
+
   // 1) init view
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
@@ -221,7 +281,7 @@ ready(()=>{
   // 3) ensure overlay closed at start
   setOverlayOpen(false);
 
-  // 4) mount check (prevents "clicked start but nothing spawned")
+  // 4) mount check
   const mount = DOC.getElementById('plate-layer');
   if(!mount){
     console.error('[PlateVR] mount #plate-layer missing');
@@ -229,9 +289,8 @@ ready(()=>{
     return;
   }
 
-  // 5) boot engine with hard guard
+  // 5) boot engine (microtask yield helps some browsers)
   try{
-    // small microtask yield helps some mobile browsers settle layout
     Promise.resolve().then(()=>{
       engineBoot({ mount, cfg });
     });
