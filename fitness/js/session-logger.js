@@ -1,72 +1,42 @@
-// === /fitness/js/session-logger.js ===
-// Session-level CSV logger (Shadow Breaker)
-// ✅ EXPORTS: SessionLogger, downloadSessionCsv
-
 'use strict';
 
-export class SessionLogger {
-  constructor() {
-    this.rows = [];
-  }
-
-  add(row) {
-    if (!row || typeof row !== 'object') return;
-    this.rows.push(row);
-  }
-
-  clear() {
-    this.rows.length = 0;
-  }
-
-  toCsv() {
-    if (!this.rows.length) return '';
-
-    // รวมคอลัมน์ทั้งหมดที่เคยโผล่ (กัน key ไม่เท่ากัน)
-    const colSet = new Set();
-    for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
-    const cols = Array.from(colSet);
-
-    const esc = (v) => {
-      if (v == null) return '';
-      const s = String(v);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
-    };
-
-    const lines = [];
-    lines.push(cols.join(','));
-    for (const r of this.rows) {
-      lines.push(cols.map(c => esc(r[c])).join(','));
-    }
-    return lines.join('\n');
-  }
+function toCsv(rows){
+  const esc = (v)=>{
+    const s = String(v ?? '');
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  };
+  if (!rows.length) return '';
+  const keys = Object.keys(rows[0]);
+  const head = keys.map(esc).join(',');
+  const body = rows.map(r=>keys.map(k=>esc(r[k])).join(',')).join('\n');
+  return head + '\n' + body;
 }
 
-export function downloadSessionCsv(logger, filename = 'shadow-breaker-session.csv') {
-  try {
-    if (!logger || typeof logger.toCsv !== 'function') {
-      console.warn('[SessionLogger] invalid logger for download');
-      return;
-    }
-    const csv = logger.toCsv();
-    if (!csv) {
-      alert('ยังไม่มีข้อมูลสรุป session ในรอบนี้');
-      return;
-    }
+function dlText(filename, text){
+  const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error('Download session CSV failed', err);
-    alert('ไม่สามารถดาวน์โหลดไฟล์ CSV (session) ได้');
+export class SessionLogger {
+  constructor(meta = {}) {
+    this.meta = meta;
+    this.summary = null;
+  }
+
+  setSummary(obj){
+    this.summary = obj || null;
+  }
+
+  downloadCsv(prefix='session'){
+    const name = `${prefix}_${Date.now()}.csv`;
+    const row = { ...this.meta, ...(this.summary || {}) };
+    dlText(name, toCsv([row]));
   }
 }
