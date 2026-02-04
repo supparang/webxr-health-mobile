@@ -6,18 +6,20 @@
 //   - play: adaptive ON (heuristic director)
 //   - research/study: deterministic seed + adaptive OFF
 // ✅ Fix: "ออกไม่ครบ 5 หมู่" => spawn bias toward missing groups early game
-// ✅ Uses decorateTarget(el,target) from mode-factory.js to set emoji/icon + group
+// ✅ Uses decorateTarget(el,target) to set emoji/icon + group
 // ✅ Emits:
 //   hha:start, hha:score, hha:time, quest:update,
 //   hha:coach, hha:judge, hha:end
-// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
+// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot) (handled inside mode-factory)
 // ✅ End: stop spawner so targets won't "blink" after finish
+// ✅ PATCH BADGES: first_play, streak_10, mini_clear_1, boss_clear_1(all_done), score_80p, perfect_run
 // ------------------------------------------------
 
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
 import { FOOD5, JUNK, pickEmoji, emojiForGroup, labelForGroup } from '../vr/food5-th.js';
+import { awardBadge, getPid } from '../badges.safe.js';
 
 /* ------------------------------------------------
  * Utilities
@@ -37,6 +39,36 @@ function seededRng(seed){
     r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+function qs(k, d=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; }
+}
+
+/* ------------------------------------------------
+ * BADGES
+ * ------------------------------------------------ */
+function badgeMeta(extra){
+  let pid = '';
+  try{ pid = (typeof getPid === 'function') ? (getPid()||'') : ''; }catch(_){}
+  const base = {
+    pid,
+    game: 'plate',
+    runMode: String(STATE.cfg?.runMode || qs('run','play') || 'play').toLowerCase(),
+    diff: String(STATE.cfg?.diff || qs('diff','normal') || 'normal').toLowerCase(),
+    time: Number(STATE.cfg?.durationPlannedSec || qs('time',0)) || 0,
+    seed: Number(STATE.cfg?.seed || qs('seed',0)) || 0,
+    view: String(qs('view','')).toLowerCase(),
+    style: String(qs('style','')).toLowerCase(),
+  };
+  if(extra && typeof extra === 'object'){
+    for(const k of Object.keys(extra)) base[k] = extra[k];
+  }
+  return base;
+}
+
+function awardOnce(badgeId, meta){
+  try{ return !!awardBadge('plate', badgeId, badgeMeta(meta)); }catch(_){ return false; }
 }
 
 /* ------------------------------------------------
@@ -89,6 +121,12 @@ const STATE = {
   seen:[false,false,false,false,false], // whether each group has appeared/collected
   spawnSeen:[false,false,false,false,false], // whether each group has spawned at least once
   spawnTick:0,
+
+  // ✅ badges guards (per-run)
+  badge_first:false,
+  badge_streak10:false,
+  badge_goal:false,
+  badge_allDone:false,
 };
 
 /* ------------------------------------------------
@@ -111,7 +149,8 @@ function emitQuest(){
       name: STATE.goal.name,
       sub: STATE.goal.sub,
       cur: STATE.goal.cur,
-      target: STATE.goal.target
+      target: STATE.goal.target,
+      done: STATE.goal.done
     },
     mini:{
       name: STATE.mini.name,
@@ -139,6 +178,17 @@ function addScore(v){
 function addCombo(){
   STATE.combo++;
   STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
+
+  // ✅ BADGE: streak_10 (once per run)
+  if(!STATE.badge_streak10 && STATE.combo >= 10){
+    STATE.badge_streak10 = true;
+    awardOnce('streak_10', {
+      combo: STATE.combo|0,
+      comboMax: STATE.comboMax|0,
+      score: STATE.score|0,
+      miss: STATE.miss|0
+    });
+  }
 }
 
 function resetCombo(){
@@ -158,9 +208,28 @@ function accuracy(){
 function updateMiniFromAccuracy(){
   const accPct = accuracy() * 100;
   STATE.mini.cur = clamp(Math.round(accPct), 0, 100);
+
   if(!STATE.mini.done && accPct >= STATE.mini.target){
     STATE.mini.done = true;
     coach('ความแม่นยำดีมาก! 👍');
+  }
+}
+
+/* ------------------------------------------------
+ * Badge: all done (goal + mini)
+ * ------------------------------------------------ */
+function maybeAwardAllDone(){
+  if(STATE.badge_allDone) return;
+  if(STATE.goal.done && STATE.mini.done){
+    STATE.badge_allDone = true;
+    // map to boss_clear_1 (Plate has no boss; "ครบทุกเงื่อนไข" = clear)
+    awardOnce('boss_clear_1', {
+      score: STATE.score|0,
+      miss: STATE.miss|0,
+      comboMax: STATE.comboMax|0,
+      accuracyPct: Math.round(accuracy()*1000)/10,
+      g1: STATE.g[0], g2: STATE.g[1], g3: STATE.g[2], g4: STATE.g[3], g5: STATE.g[4]
+    });
   }
 }
 
@@ -185,6 +254,28 @@ function endGame(reason='timeup'){
   // stop spawn immediately (prevents target blink after finish)
   stopSpawner();
 
+  // ✅ end badges (score_80p + perfect_run) + allDone
+  const accPct1 = Math.round(accuracy() * 1000) / 10; // 1 decimal
+  const accPct0 = Math.round(accuracy() * 100);       // integer
+
+  if(accPct0 >= 80){
+    awardOnce('score_80p', {
+      accuracyPct: accPct0,
+      score: STATE.score|0,
+      miss: STATE.miss|0,
+      comboMax: STATE.comboMax|0
+    });
+  }
+  if((STATE.miss|0) === 0){
+    awardOnce('perfect_run', {
+      score: STATE.score|0,
+      miss: 0,
+      comboMax: STATE.comboMax|0,
+      accuracyPct: accPct0
+    });
+  }
+  maybeAwardAllDone();
+
   emit('hha:end', {
     reason,
     scoreFinal: STATE.score,
@@ -196,7 +287,7 @@ function endGame(reason='timeup'){
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
-    accuracyGoodPct: Math.round(accuracy() * 1000) / 10, // 1 decimal
+    accuracyGoodPct: accPct1,
 
     g1: STATE.g[0],
     g2: STATE.g[1],
@@ -233,6 +324,18 @@ function recomputeGoal(){
   if(!STATE.goal.done && distinct >= STATE.goal.target){
     STATE.goal.done = true;
     coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
+
+    // ✅ BADGE: mini_clear_1 (Plate main mission clear)
+    if(!STATE.badge_goal){
+      STATE.badge_goal = true;
+      awardOnce('mini_clear_1', {
+        score: STATE.score|0,
+        miss: STATE.miss|0,
+        comboMax: STATE.comboMax|0,
+        accuracyPct: Math.round(accuracy()*100),
+        g1: STATE.g[0], g2: STATE.g[1], g3: STATE.g[2], g4: STATE.g[3], g5: STATE.g[4]
+      });
+    }
   }
 }
 
@@ -248,6 +351,10 @@ function onHitGood(groupIndex){
 
   recomputeGoal();
   updateMiniFromAccuracy();
+
+  // if both done => award all-done badge (boss_clear_1 mapping)
+  maybeAwardAllDone();
+
   emitQuest();
 
   emit('hha:judge', {
@@ -258,7 +365,7 @@ function onHitGood(groupIndex){
   });
 
   // optional: end early when both goal & mini done in play mode
-  if(STATE.cfg && STATE.cfg.runMode === 'play'){
+  if(STATE.cfg && String(STATE.cfg.runMode || 'play').toLowerCase() === 'play'){
     if(STATE.goal.done && STATE.mini.done){
       // give tiny celebration time then end
       setTimeout(()=>{ if(!STATE.ended) endGame('all_done'); }, 420);
@@ -472,6 +579,12 @@ export function boot({ mount, cfg }){
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
+  // ✅ reset badge flags each run
+  STATE.badge_first = false;
+  STATE.badge_streak10 = false;
+  STATE.badge_goal = false;
+  STATE.badge_allDone = false;
+
   // RNG policy
   const runMode = (cfg?.runMode || 'play').toLowerCase();
   if(runMode === 'research' || runMode === 'study'){
@@ -491,6 +604,12 @@ export function boot({ mount, cfg }){
     durationPlannedSec: STATE.timeLeft
   });
 
+  // ✅ BADGE: first_play (once per run)
+  if(!STATE.badge_first){
+    STATE.badge_first = true;
+    awardOnce('first_play', {});
+  }
+
   emitQuest();
   startTimer();
 
@@ -502,7 +621,6 @@ export function boot({ mount, cfg }){
   // Safety: stop spawner on page hide/unload (prevents dangling targets)
   const onHide = ()=>{
     if(STATE.ended) return;
-    // don't auto-end in research unless you want; but stop spawner for safety
     stopSpawner();
   };
   WIN.removeEventListener('pagehide', onHide);
