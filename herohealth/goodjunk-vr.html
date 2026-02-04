@@ -1,214 +1,26 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR Launcher</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
-
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --radius:22px;
-      --pill:999px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{
-      height:100%; margin:0;
-      background:
-        radial-gradient(1000px 700px at 50% 12%, rgba(34,197,94,.12), transparent 60%),
-        radial-gradient(900px 600px at 20% 90%, rgba(56,189,248,.10), transparent 62%),
-        radial-gradient(900px 600px at 85% 85%, rgba(168,85,247,.10), transparent 62%),
-        var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-      overflow:hidden;
-    }
-    .wrap{
-      height:100%;
-      padding: calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-    .card{
-      width:min(720px, 100%);
-      border-radius: var(--radius);
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      padding: 18px;
-      box-shadow: 0 24px 70px rgba(0,0,0,.38);
-      backdrop-filter: blur(12px);
-    }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    .title{ font-weight:1100; font-size:18px; letter-spacing:.2px; }
-    .sub{ margin-top:8px; color:rgba(229,231,235,.78); font-weight:900; font-size:13px; line-height:1.35; }
-    .chips{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
-    .chip{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius: var(--pill);
-      background: rgba(2,6,23,.62);
-      border:1px solid rgba(148,163,184,.14);
-      font-weight:1000; font-size:12.5px;
-    }
-    .chip b{ font-weight:1200; }
-    .hint{ margin-top:12px; color:var(--muted); font-weight:900; font-size:12px; }
-    .actions{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.66);
-      color: var(--text);
-      padding:12px 14px;
-      border-radius: 16px;
-      font-weight:1100;
-      font-size: 13px;
-      cursor:pointer;
-    }
-    .btn.primary{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.16);
-    }
-    .btn:active{ transform: translateY(1px); }
-    .bar{
-      margin-top:14px;
-      height:10px; border-radius:999px;
-      background: rgba(148,163,184,.16);
-      overflow:hidden;
-    }
-    .bar > i{
-      display:block; height:100%; width:35%;
-      background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(56,189,248,.88));
-      border-radius:999px;
-      animation: move 1.05s ease-in-out infinite;
-    }
-    @keyframes move{
-      0%{ transform: translateX(-40%); opacity:.65; }
-      50%{ opacity:1; }
-      100%{ transform: translateX(240%); opacity:.65; }
-    }
-  </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — GoodJunkVR</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="row">
-        <div class="title">🚀 Launching GoodJunkVR…</div>
-        <div class="chip" id="statusChip">status: <b id="statusVal">preparing</b></div>
-      </div>
+<script type="module">
+  import { hhGo } from './launch/launcher-core.js';
 
-      <div class="sub">
-        กำลังพาเข้าเกมแบบอัตโนมัติ (ไม่มีเมนู) • ระบบจะ auto-detect โหมดเอง<br/>
-        ถ้าเบราว์เซอร์บล็อกการ redirect ให้กดปุ่ม “Open game”
-      </div>
-
-      <div class="chips" aria-label="params">
-        <div class="chip">run: <b id="pRun">—</b></div>
-        <div class="chip">diff: <b id="pDiff">—</b></div>
-        <div class="chip">time: <b id="pTime">—</b></div>
-        <div class="chip">seed: <b id="pSeed">—</b></div>
-      </div>
-
-      <div class="bar" aria-label="loading"><i></i></div>
-
-      <div class="actions">
-        <button class="btn primary" id="btnOpen" type="button">Open game</button>
-        <button class="btn" id="btnBackHub" type="button">Back HUB</button>
-      </div>
-
-      <div class="hint" id="hint">กำลัง redirect…</div>
-    </div>
-  </div>
-
-  <script>
-  (function(){
-    'use strict';
-
-    const $ = (id)=>document.getElementById(id);
-    const statusVal = $('statusVal');
-    const hint = $('hint');
-
-    function qs(){
-      try{ return new URL(location.href).searchParams; }
-      catch(_){ return new URLSearchParams(); }
+  // run file จริงของเกม (ปรับตรงนี้ที่เดียว)
+  hhGo('./vr-goodjunk/goodjunk-vr.html', {
+    defaults: {
+      // เติมเฉพาะตอนยังไม่มี (NO OVERRIDE)
+      // run: 'play',
+      // diff: 'normal',
+      // time: '90',
+      // seed: String(Date.now())
     }
-
-    // ✅ Build target URL (RUN lives in folder: /vr-goodjunk/goodjunk-vr.html)
-    function buildTargetUrl(){
-      const base = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-      const q = qs();
-
-      // --- defaults (only if missing) ---
-      if(!q.get('run'))  q.set('run', 'play');
-      if(!q.get('diff')) q.set('diff', 'normal');
-      if(!q.get('time')) q.set('time', '80');
-
-      // ✅ IMPORTANT:
-      // - DO NOT set/override ?view=
-      // - DO NOT remove user params
-      // - pass-through everything
-      base.search = q.toString();
-      return base;
-    }
-
-    function updateParamChips(u){
-      const q = u.searchParams;
-      $('pRun').textContent  = q.get('run')  || '—';
-      $('pDiff').textContent = q.get('diff') || '—';
-      $('pTime').textContent = q.get('time') || '—';
-      $('pSeed').textContent = q.get('seed') || '—';
-    }
-
-    function goHub(){
-      const q = qs();
-      const hub = q.get('hub');
-      if(hub){
-        location.href = hub;
-      }else{
-        location.href = './hub.html';
-      }
-    }
-
-    const target = buildTargetUrl();
-    updateParamChips(target);
-
-    $('btnOpen').addEventListener('click', ()=>{ location.href = String(target); }, { passive:true });
-    $('btnBackHub').addEventListener('click', goHub, { passive:true });
-
-    // ✅ fast redirect (no async)
-    function redirectNow(){
-      statusVal.textContent = 'redirecting';
-      hint.textContent = 'กำลังเข้าเกม…';
-      // use replace so back goes to hub (or previous), not stuck at launcher
-      try{
-        location.replace(String(target));
-      }catch(_){
-        location.href = String(target);
-      }
-    }
-
-    // Try immediately + fallback after short delay
-    redirectNow();
-    setTimeout(()=>{
-      statusVal.textContent = 'waiting';
-      hint.textContent = 'ถ้ายังไม่เข้าเกม ให้กด “Open game”';
-    }, 500);
-
-  })();
-  </script>
+  });
+</script>
 </body>
 </html>
