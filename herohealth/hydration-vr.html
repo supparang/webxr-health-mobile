@@ -75,7 +75,7 @@
       background: rgba(245,158,11,.14);
     }
     .tiny{ margin-top:12px; font-size:12px; color:rgba(229,231,235,.85); line-height:1.35; }
-    code{ background:rgba(15,23,42,.62); border:1px solid rgba(148,163,184,.14); padding:1px 6px; border-radius:10px; }
+    code{ background:rgba(15,23,42,.62); border:1px solid rgba(148,163,184,.14); padding:1px 6px; border-radius:10px; word-break:break-all; }
   </style>
 </head>
 <body>
@@ -100,6 +100,8 @@
 
   <script>
   (function(){
+    'use strict';
+
     const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
     const hubDefault = './hub.html';
@@ -108,18 +110,23 @@
     const from = new URL(location.href);
     const to = new URL('./hydration-vr/hydration-vr.html', from);
 
+    // pass-through ทุกพารามิเตอร์
     for (const [k,v] of from.searchParams.entries()){
       to.searchParams.set(k, v);
     }
+
+    // default hub เฉพาะเมื่อยังไม่มี
     if (!to.searchParams.has('hub')) to.searchParams.set('hub', hubDefault);
 
     // ✅ Auto-detect เฉพาะเมื่อ "ยังไม่มี view" (ไม่ override ถ้าผู้ใช้กำหนดมาแล้ว)
     if (!to.searchParams.has('view')){
-      const isMobile =
+      const coarse =
         (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
-        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
-      to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
-      // โหมด cvr/cardboard ให้ส่งมาเอง: ?view=cvr หรือ ?view=cardboard
+        (navigator.maxTouchPoints || 0) >= 2;
+
+      // มาตรฐานเรา: มือถือ = cvr, desktop = pc
+      to.searchParams.set('view', coarse ? 'cvr' : 'pc');
+      // ถ้าต้องการบังคับ: ส่งเอง ?view=cvr หรือ ?view=cardboard หรือ ?view=pc
     }
 
     const status = document.getElementById('status');
@@ -127,13 +134,13 @@
     const btnGo = document.getElementById('btnGo');
     const btnHub = document.getElementById('btnHub');
 
-    if (destEl) destEl.textContent = to.pathname + to.search;
+    if (destEl) destEl.textContent = to.href;
 
     btnHub?.addEventListener('click', ()=>{ location.href = hub; });
     btnGo?.addEventListener('click', ()=>{ location.href = to.toString(); });
 
     if (status) status.textContent = 'ตรวจจับอุปกรณ์แล้ว กำลังพาเข้าเกม…';
-    setTimeout(()=>{ location.href = to.toString(); }, 80);
+    setTimeout(()=>{ location.replace(to.toString()); }, 80);
   })();
   </script>
 </body>
