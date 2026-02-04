@@ -1,122 +1,538 @@
-<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+<!-- === /herohealth/hydration-vr/hydration-vr.html ===
+HydrationVR Run (PC/Mobile/cVR/Cardboard)
+✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
+✅ Uses hydration.safe.js (ESM) — PRODUCTION
+✅ Start overlay (tap to start) + hardened (safe also auto-starts if overlay not visible)
+✅ Result overlay hidden on boot + IDs match hydration.safe.js
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <title>HeroHealth — Hydration VR</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260204a" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.68);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
+      --bad:#ef4444;
 
-  <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js" defer></script>
+      --radius:22px;
+      --pill:999px;
 
-  <!-- Optional shared helpers -->
-  <script src="../vr/particles.js" defer></script>
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(34,211,238,.15), transparent 55%),
+                  radial-gradient(900px 600px at 80% 30%, rgba(34,197,94,.14), transparent 55%),
+                  linear-gradient(180deg, #020617, #071126 60%, #020617);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+      overflow:hidden;
+    }
 
-  <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
+    /* harden */
+    [hidden]{ display:none !important; }
 
-  <!-- Quiz bank (✅ name fixed) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+    /* Minimal A-Frame scene for WebXR enter reliability */
+    #xr-scene{
+      position:fixed;
+      inset:0;
+      pointer-events:none; /* we use DOM targets, not 3D interaction */
+      opacity:0.001;
+      z-index:0;
+    }
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260204a"></script>
+    /* App shell */
+    #app{
+      position:fixed;
+      inset:0;
+      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+      z-index:2;
+    }
+    #playfield{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      z-index:1;
+    }
+
+    /* target layer (DOM) */
+    #hydration-layer{
+      position:absolute;
+      inset:0;
+      pointer-events:auto;
+      z-index:2;
+    }
+
+    /* HUD */
+    #hud{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:10;
+    }
+
+    .hud-top{
+      display:flex;
+      gap:10px;
+      align-items:stretch;
+      justify-content:space-between;
+      pointer-events:none;
+    }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: 0 18px 60px rgba(0,0,0,.40);
+      backdrop-filter: blur(10px);
+      padding:12px 12px;
+      pointer-events:none;
+    }
+
+    .water-card{
+      flex: 1 1 auto;
+      min-width: 210px;
+    }
+    .stats-card{
+      width: min(360px, 52vw);
+    }
+
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .label{ color:var(--muted); font-size:12px; }
+    .big{ font-size:18px; font-weight:800; letter-spacing:.2px; }
+    .mono{ font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+    .bar-wrap{
+      margin-top:10px;
+      height: 12px;
+      border-radius: var(--pill);
+      background: rgba(148,163,184,.12);
+      border: 1px solid rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+    #water-bar{
+      height:100%;
+      width:50%;
+      border-radius: var(--pill);
+      background: linear-gradient(90deg, rgba(34,211,238,.9), rgba(34,197,94,.9));
+      box-shadow: 0 10px 28px rgba(34,211,238,.20);
+    }
+
+    .stats-grid{
+      margin-top:8px;
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap:8px;
+    }
+    .stat{
+      padding:10px 10px;
+      border-radius:18px;
+      background: var(--panel2);
+      border:1px solid rgba(148,163,184,.14);
+      text-align:center;
+    }
+    .stat .v{ font-weight:800; font-size:16px; }
+    .stat .k{ font-size:11px; color:var(--muted); margin-top:3px; }
+
+    /* Quest box */
+    #questBox{
+      position:absolute;
+      left: calc(10px + var(--sal));
+      bottom: calc(10px + var(--sab));
+      width: min(520px, calc(100vw - 20px - var(--sal) - var(--sar)));
+      pointer-events:none;
+    }
+    .quest-lines{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.35;
+      color:#dbeafe;
+      white-space:pre-line;
+    }
+    .quest-meta{
+      margin-top:10px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .pill{
+      background: rgba(148,163,184,.12);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: var(--pill);
+      padding:6px 10px;
+    }
+
+    /* FX: shock */
+    .hha-shock{
+      position:absolute;
+      left: var(--x);
+      top: var(--y);
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      transform: translate(-50%,-50%);
+      pointer-events:none;
+      z-index: 999;
+      box-shadow: 0 0 0 0 rgba(34,211,238,.55);
+      animation: shock 650ms ease-out forwards;
+    }
+    @keyframes shock{
+      0%{ box-shadow: 0 0 0 0 rgba(34,211,238,.55); opacity:1; }
+      100%{ box-shadow: 0 0 0 42px rgba(34,211,238,0); opacity:0; }
+    }
+
+    /* Phase tints */
+    body.hha-endfx #playfield{
+      filter: saturate(1.08) hue-rotate(-10deg);
+    }
+    body.hha-bossfx #playfield{
+      filter: saturate(1.15) hue-rotate(18deg);
+    }
+
+    /* Start overlay */
+    #startOverlay{
+      position:fixed;
+      inset:0;
+      z-index:50;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+      background: radial-gradient(900px 600px at 30% 20%, rgba(34,211,238,.18), transparent 60%),
+                  radial-gradient(900px 600px at 80% 20%, rgba(34,197,94,.18), transparent 60%),
+                  rgba(2,6,23,.65);
+      backdrop-filter: blur(14px);
+    }
+    .start-card{
+      width:min(640px, 100%);
+      border-radius: 28px;
+      background: rgba(2,6,23,.78);
+      border:1px solid rgba(148,163,184,.20);
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      padding: 18px;
+    }
+    .start-title{
+      font-weight: 900;
+      font-size: 22px;
+      letter-spacing: .2px;
+    }
+    .start-sub{
+      margin-top: 8px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+    .start-cta{
+      margin-top: 14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .btn{
+      pointer-events:auto;
+      border: 1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.72);
+      color: var(--text);
+      border-radius: 18px;
+      padding: 12px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btnPrimary{
+      background: linear-gradient(135deg, rgba(34,211,238,.90), rgba(34,197,94,.90));
+      border: 0;
+      color: #041018;
+      box-shadow: 0 18px 50px rgba(34,197,94,.18);
+    }
+    .small{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Result overlay */
+    #resultBackdrop{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+      background: rgba(2,6,23,.70);
+      backdrop-filter: blur(12px);
+    }
+    .result-card{
+      width:min(760px, 100%);
+      border-radius: 28px;
+      background: rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.20);
+      box-shadow: 0 22px 90px rgba(0,0,0,.60);
+      padding: 18px;
+    }
+    .result-top{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .result-grid{
+      margin-top: 12px;
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap:10px;
+    }
+    .rstat{
+      border-radius: 18px;
+      background: rgba(15,23,42,.74);
+      border:1px solid rgba(148,163,184,.16);
+      padding: 12px 10px;
+      text-align:center;
+    }
+    .rstat .v{ font-weight:900; font-size:16px; }
+    .rstat .k{ font-size:11px; color:var(--muted); margin-top:3px; }
+
+    #rTips{
+      margin-top: 10px;
+      white-space: pre-line;
+      color: #dbeafe;
+      font-size: 13px;
+      line-height: 1.4;
+      background: rgba(34,211,238,.08);
+      border: 1px solid rgba(34,211,238,.16);
+      border-radius: 18px;
+      padding: 10px 12px;
+    }
+    #rNext{
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .result-actions{
+      margin-top: 12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    /* Responsive */
+    @media (max-width: 720px){
+      .stats-card{ width: 100%; }
+      .stats-grid{ grid-template-columns: repeat(5, 1fr); }
+      .result-grid{ grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
 </head>
 
-<body class="view-pc">
-  <div id="gameRoot" class="hw-root">
-    <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
+<body>
+  <!-- A-Frame (optional but recommended for Enter VR reliability) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <a-scene id="xr-scene" embedded vr-mode-ui="enabled: false" renderer="antialias: true; alpha: true">
+    <a-entity camera position="0 1.6 0"></a-entity>
+  </a-scene>
 
-    <!-- HUD -->
-    <div class="hw-hud">
-      <div class="hw-top">
-        <div class="hw-title">🧼 Handwash Survival</div>
-        <div class="hw-sub" id="hudSub">ready…</div>
+  <div id="app">
+    <div id="playfield">
+      <div id="hydration-layer"></div>
 
-        <div class="hw-row">
-          <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
-          <div class="hw-pill" id="pillHits">HITS 0/6</div>
-          <div class="hw-pill" id="pillCombo">COMBO 0</div>
-          <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
+      <div id="hud">
+        <div class="hud-top">
+          <div class="card water-card">
+            <div class="row">
+              <div>
+                <div class="label">Hydration</div>
+                <div class="big mono"><span id="water-pct">50</span>%</div>
+              </div>
+              <div style="text-align:right">
+                <div class="label">Zone</div>
+                <div class="big" id="water-zone">GREEN</div>
+              </div>
+            </div>
+            <div class="bar-wrap" aria-label="water bar">
+              <div id="water-bar"></div>
+            </div>
+          </div>
+
+          <div class="card stats-card">
+            <div class="label">Stats</div>
+            <div class="stats-grid">
+              <div class="stat"><div class="v mono" id="stat-score">0</div><div class="k">Score</div></div>
+              <div class="stat"><div class="v mono" id="stat-combo">0</div><div class="k">Combo</div></div>
+              <div class="stat"><div class="v mono" id="stat-time">0</div><div class="k">Time</div></div>
+              <div class="stat"><div class="v mono" id="stat-miss">0</div><div class="k">Miss</div></div>
+              <div class="stat"><div class="v" id="stat-grade">D</div><div class="k">Grade</div></div>
+            </div>
+          </div>
         </div>
 
-        <div class="hw-row">
-          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillTime">TIME 70</div>
-          <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
-          <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
-          <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
-        </div>
-
-        <!-- Quiz box -->
-        <div class="hw-quiz" id="quizBox" style="display:none">
-          <div class="hw-quiz-q" id="quizQ">QUIZ</div>
-          <div class="hw-quiz-sub" id="quizSub">—</div>
-        </div>
-      </div>
-
-      <div class="hw-banner" id="banner" aria-live="polite"></div>
-    </div>
-
-    <!-- Start Overlay -->
-    <div class="hw-overlay" id="startOverlay">
-      <div class="hw-card">
-        <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
-        </div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- End Overlay -->
-    <div class="hw-overlay" id="endOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
-        <div class="hw-card-sub" id="endSub">—</div>
-        <pre class="hw-pre" id="endJson"></pre>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
+        <div id="questBox" class="card">
+          <div class="row">
+            <div>
+              <div class="label">Quest</div>
+              <div class="big" id="quest-line1">คุมให้อยู่โซน GREEN ให้นานที่สุด</div>
+            </div>
+            <div class="pill mono">
+              STORM: <span id="storm-left">0</span>s
+            </div>
+          </div>
+          <div class="quest-lines">
+            <div id="quest-line2">ตอนนี้: โซน GREEN</div>
+            <div id="quest-line3">Storm cycles: 0 | Storm OK: 0</div>
+            <div id="quest-line4">ComboMax: 0</div>
+          </div>
+          <div class="quest-meta">
+            <div class="pill">Shield: <span class="mono" id="shield-count">0</span></div>
+            <div class="pill">Tip: ยิง 💧 เพื่อดึงกลับเข้า GREEN</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-})();
-</script>
+  <!-- Start Overlay -->
+  <div id="startOverlay">
+    <div class="start-card">
+      <div class="start-title">💧 Hydration VR</div>
+      <div class="start-sub">
+ภารกิจ: รักษาให้อยู่โซน GREEN (40–70%) ให้นานที่สุด
+ระวัง 🥤 จะดึงน้ำออกจาก GREEN
+ถ้าหลุด GREEN นานไป จะเจอ 🌀 STORM และช่วงท้ายมี END + BOSS
+      </div>
+      <div class="start-cta">
+        <button id="btnStart" class="btn btnPrimary">แตะเพื่อเริ่ม</button>
+        <div class="small">
+          รองรับ: PC / Mobile / Cardboard / cVR (ยิงด้วย crosshair)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Overlay (HARDENED: hidden on boot) -->
+  <div id="resultBackdrop" hidden>
+    <div class="result-card">
+      <div class="result-top">
+        <div>
+          <div class="label">Result</div>
+          <div class="start-title">สรุปการเล่น</div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btnBackHub">กลับ HUB</button>
+          <button id="btnRetry" class="btn btnPrimary">เล่นอีกครั้ง</button>
+        </div>
+      </div>
+
+      <div class="result-grid">
+        <div class="rstat"><div class="v mono" id="rScore">0</div><div class="k">Score</div></div>
+        <div class="rstat"><div class="v" id="rGrade">D</div><div class="k">Grade</div></div>
+        <div class="rstat"><div class="v mono" id="rAcc">0%</div><div class="k">Accuracy</div></div>
+        <div class="rstat"><div class="v mono" id="rComboMax">0</div><div class="k">ComboMax</div></div>
+        <div class="rstat"><div class="v mono" id="rMiss">0</div><div class="k">Miss</div></div>
+
+        <div class="rstat"><div class="v mono" id="rGoals">0s</div><div class="k">GREEN</div></div>
+        <div class="rstat"><div class="v mono" id="rMinis">0/0</div><div class="k">Storm OK</div></div>
+        <div class="rstat"><div class="v" id="rTier">—</div><div class="k">Tier</div></div>
+        <div class="rstat"><div class="v">💧</div><div class="k">Hydration</div></div>
+        <div class="rstat"><div class="v">🌀</div><div class="k">Boss</div></div>
+      </div>
+
+      <div id="rTips">• เคล็ดลับจะขึ้นตรงนี้</div>
+      <div id="rNext"></div>
+
+      <div class="result-actions">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btnCopyJSON" class="btn">Copy JSON</button>
+          <button id="btnDownloadCSV" class="btn">Download CSV</button>
+          <button id="btnCloseSummary" class="btn">ปิดหน้าสรุป</button>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btnBackHub">กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Universal VR UI -->
+  <script>
+    // lockPx default for aim assist (used by vr-ui.js -> hha:shoot detail.lockPx)
+    window.HHA_VRUI_CONFIG = Object.assign({ lockPx: 28, cooldownMs: 90 }, window.HHA_VRUI_CONFIG || {});
+  </script>
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- Game (ESM) -->
+  <script type="module">
+    // ✅ HARDEN: make sure result is hidden even before safe runs
+    try{
+      const back = document.getElementById('resultBackdrop');
+      if (back) back.hidden = true;
+    }catch(_){}
+
+    // Import engine (boot auto-runs in safe)
+    import './hydration.safe.js';
+
+    // Tap-to-start => dispatch hha:start
+    const btn = document.getElementById('btnStart');
+    const overlay = document.getElementById('startOverlay');
+
+    function startNow(){
+      try{
+        if (overlay) overlay.hidden = true;
+      }catch(_){}
+      // safe listens to hha:start and will startGame()
+      try{
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      }catch(_){}
+    }
+
+    // Accept click/tap anywhere on overlay
+    if (btn) btn.addEventListener('click', (e)=>{ e.preventDefault(); startNow(); }, { passive:false });
+    if (overlay) overlay.addEventListener('pointerdown', (e)=>{
+      // ignore if clicking inside result overlay (not here) – but keep safe
+      if (e && e.target && (e.target.closest && e.target.closest('#startOverlay'))) {
+        e.preventDefault();
+        startNow();
+      }
+    }, { passive:false });
+
+    // Quality-of-life: prevent double-tap zoom on iOS-ish browsers
+    let lastTouch = 0;
+    window.addEventListener('touchend', (e)=>{
+      const now = Date.now();
+      if (now - lastTouch <= 350) e.preventDefault();
+      lastTouch = now;
+    }, { passive:false });
+  </script>
 </body>
 </html>
