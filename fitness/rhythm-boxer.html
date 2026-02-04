@@ -90,14 +90,16 @@
         <div class="rb-hint-block">
           <p class="rb-hint-title">วิธีเล่น</p>
           <ul class="rb-hint-list">
-            <li>แตะเลน (L,C,R) ให้โน้ตตรงเส้นตี</li>
+            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี</li>
             <li>Perfect/Great/Good เพิ่ม FEVER; Miss ลด HP</li>
             <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
           </ul>
         </div>
 
-        <div class="rb-section">
+        <div class="rb-section rb-btn-row">
           <button id="rb-btn-start" class="rb-btn rb-btn-primary">▶ เริ่มเล่น Rhythm Boxer</button>
+          <button id="rb-btn-calibrate" class="rb-btn rb-btn-sm">🎯 Calibration (ตั้งค่า offset)</button>
+          <a id="rb-btn-cvr" class="rb-btn rb-btn-sm" href="rhythm-boxer.html?view=cvr">🕶️ Cardboard (cVR)</a>
         </div>
       </div>
     </section>
@@ -123,7 +125,6 @@
         <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
         <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
       </div>
-
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai">AI Fatigue: <b id="rb-hud-ai-fatigue">0%</b></span>
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
@@ -132,13 +133,12 @@
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai rb-chip-tip"><span class="rb-chip-tip-label">Coach:</span> <b id="rb-hud-ai-tip" class="hidden"></b></span>
       </div>
-
+      </div>
       <div class="rb-hud-row">
         <span class="rb-chip">HP: <b id="rb-hud-hp">100</b></span>
         <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
         <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
       </div>
-
       <div class="rb-hud-row rb-hud-judge-row">
         <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
         <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
@@ -163,14 +163,14 @@
     <section class="rb-field-wrap">
       <div id="rb-field">
         <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
-
         <div class="rb-lanes" id="rb-lanes">
-          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L</div></div>
-          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">C</div></div>
-          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">R</div></div>
+          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
+          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
+          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
+          <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
+          <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
         </div>
       </div>
-
       <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่เหนือป้ายเลน) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
     </section>
 
@@ -225,6 +225,27 @@
       </div>
     </section>
   </main>
+</div>
+
+<!-- ===== CALIBRATION MODAL ===== -->
+<div id="rb-calib-modal" class="rb-modal hidden" aria-hidden="true">
+  <div class="rb-modal-card">
+    <h2 class="rb-modal-title">Calibration · ตั้งค่า Timing Offset</h2>
+    <p class="rb-modal-sub">แตะตาม “เสียงติ๊ก” ให้ตรงจังหวะ (ประมาณ 12–16 ครั้ง) ระบบจะคำนวณค่า offset ของอุปกรณ์ให้เอง</p>
+    <div class="rb-modal-meter">
+      <div id="rb-calib-beat" class="rb-beat-dot"></div>
+      <div class="rb-modal-text">
+        <div>Beats: <b id="rb-calib-count">0</b></div>
+        <div>Captured: <b id="rb-calib-taps">0</b></div>
+        <div>Result: <b id="rb-calib-result">-</b></div>
+      </div>
+    </div>
+    <div class="rb-modal-actions">
+      <button id="rb-calib-start" class="rb-btn rb-btn-primary">▶ เริ่ม Calibration</button>
+      <button id="rb-calib-close" class="rb-btn">ปิด</button>
+    </div>
+    <p class="rb-modal-foot">Tip: ถ้าเล่นใน Cardboard/cVR ให้ทำ Calibration ในโหมดเดียวกัน (เปิดลิงก์ Cardboard ก่อน)</p>
+  </div>
 </div>
 
 <script src="js/ai-predictor.js"></script>
