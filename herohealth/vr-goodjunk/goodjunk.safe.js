@@ -7,6 +7,9 @@
 // ✅ AI hooks compat with CLASSIC script (window.HHA.createAIHooks)
 // ✅ Never crash if AI missing (stub getDifficulty/getTip/onEvent)
 // ✅ Supports shoot from both: hha:shoot and gj:shoot
+// ✅ PATCH (Step 2): Standardize hha:end schema:
+//    { game, reason, runMode, diff, seed, timePlannedSec, scoreFinal, comboMax, miss, accuracyPct, grade, ... }
+//    + keep legacy aliases (durationPlannedSec, accuracyGoodPct, misses, etc.)
 'use strict';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
@@ -255,6 +258,26 @@ export function boot(opts={}){
     elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';
   }
 
+  // ✅ Standard accuracy policy for end summary:
+  // judged = hitGood + hitJunk + expireGood
+  function calcAccuracyPct(){
+    const judged = (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0);
+    if (judged <= 0) return 100;
+    const acc = (S.hitGood|0) / judged;
+    return clamp(Math.round(acc * 100), 0, 100);
+  }
+
+  // ✅ Standard grade policy (same family as Groups/Hydration/Plate)
+  function gradeFrom(accPct, score){
+    score = Number(score)||0;
+    accPct = Number(accPct)||0;
+    return (accPct>=92 && score>=220) ? 'S'
+      : (accPct>=86 && score>=170) ? 'A'
+      : (accPct>=76 && score>=120) ? 'B'
+      : (accPct>=62) ? 'C' : 'D';
+  }
+
+  // NOTE: HUD grade can remain “game-tuned” if you want; end-summary grade will be standardized.
   function gradeNow(){
     if(S.score >= 190 && S.miss <= 3) return 'A';
     if(S.score >= 125 && S.miss <= 6) return 'B';
@@ -698,16 +721,14 @@ export function boot(opts={}){
 
     if(S.boss.active) endBoss(false);
 
-    const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
-
     // --- badges on end (score_80p, perfect_run) ---
-    // accuracy = hitGood / (hitGood + hitJunk + expireGood + miss)
-    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0) + (S.miss|0));
-    const acc = (S.hitGood|0) / denom;
+    // keep old badge policy (fine)
+    const judged = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0));
+    const acc01 = (S.hitGood|0) / judged;
 
-    if(acc >= 0.80){
+    if(acc01 >= 0.80){
       awardOnce('goodjunk','score_80p',{
-        accuracy: Number(acc.toFixed(4)),
+        accuracy: Number(acc01.toFixed(4)),
         hitGood:S.hitGood|0,
         hitJunk:S.hitJunk|0,
         expireGood:S.expireGood|0,
@@ -719,7 +740,7 @@ export function boot(opts={}){
     }
     if((S.miss|0) === 0){
       awardOnce('goodjunk','perfect_run',{
-        accuracy: Number(acc.toFixed(4)),
+        accuracy: Number(acc01.toFixed(4)),
         hitGood:S.hitGood|0,
         hitJunk:S.hitJunk|0,
         expireGood:S.expireGood|0,
@@ -730,25 +751,39 @@ export function boot(opts={}){
       });
     }
 
+    // ✅ STANDARD END SUMMARY (Step 2)
+    const accuracyPct = calcAccuracyPct();
+    const grade = gradeFrom(accuracyPct, S.score);
+
     const summary = {
-      game:'GoodJunkVR',
-      pack:'fair-v4.2-boss-layout',
-      view:S.view,
-      runMode:S.run,
-      diff:S.diff,
-      seed:S.seed,
-      durationPlannedSec:S.timePlan,
-      durationPlayedSec: Math.round(S.timePlan - S.timeLeft),
-      scoreFinal:S.score,
-      miss:S.miss,
-      comboMax:S.comboMax,
-      hitGood:S.hitGood,
-      hitJunk:S.hitJunk,
-      expireGood:S.expireGood,
-      shieldRemaining:S.shield,
-      bossCleared:S.boss.cleared,
+      // --- STANDARD keys (เหมือน Hydration/Groups/Plate) ---
+      game: 'goodjunk',
+      reason: reason || 'end',
+      runMode: S.run,
+      diff: S.diff,
+      seed: S.seed,
+      timePlannedSec: S.timePlan,
+      scoreFinal: S.score|0,
+      comboMax: S.comboMax|0,
+      miss: S.miss|0,
+      accuracyPct,
       grade,
-      reason
+
+      // --- extra useful context ---
+      pack: 'fair-v4.2-boss-layout',
+      view: S.view,
+      durationPlayedSec: Math.round(S.timePlan - S.timeLeft),
+      hitGood: S.hitGood|0,
+      hitJunk: S.hitJunk|0,
+      expireGood: S.expireGood|0,
+      shieldRemaining: S.shield|0,
+      bossCleared: !!S.boss.cleared,
+
+      // --- LEGACY aliases (กันของเดิมพัง) ---
+      durationPlannedSec: S.timePlan,
+      run: S.run,
+      misses: S.miss|0,
+      accuracyGoodPct: Math.round(((judged>0)?((S.hitGood/judged)*100):100)*10)/10 // 1 decimal
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
