@@ -3,8 +3,7 @@
 // ✅ Pass-through all params (NO override)
 // ✅ Always attaches hub backlink (?hub=...)
 // ✅ Auto-fill view if missing (pc/mobile/cvr) but never override
-// ✅ Optional: default run/diff/time/seed (fill only missing)
-// ✅ Supports redirect to anywhere (inside /herohealth or /fitness)
+// ✅ Optional defaults (fill only missing)
 
 export function hhDetectView() {
   try {
@@ -26,7 +25,6 @@ export function hhDetectView() {
 }
 
 function hubUrlClean() {
-  // launcher itself might have hub already; keep it
   try { return location.href.split('#')[0]; } catch { return location.href; }
 }
 
@@ -45,10 +43,7 @@ function setIfMissing(sp, k, v) {
 
 export function hhBuildRedirectUrl(targetHref, options = {}) {
   const {
-    // fill only missing
-    defaults = {
-      // run: 'play', diff:'normal', time:'90', seed: String(Date.now())
-    },
+    defaults = {},
     ensureHub = true,
     ensureView = true,
   } = options;
@@ -56,26 +51,21 @@ export function hhBuildRedirectUrl(targetHref, options = {}) {
   const from = hubUrlClean();
   const cur = parseQS(from);
 
-  // build target absolute URL
   const target = new URL(targetHref, location.href);
 
-  // pass-through everything (except hub itself)
   for (const [k, v] of cur.entries()) {
     if (k === 'hub') continue;
     target.searchParams.set(k, v);
   }
 
-  // ensure hub backlink
   if (ensureHub) target.searchParams.set('hub', from);
 
-  // ensure view exists (but never override)
   if (ensureView) {
     const hasView = target.searchParams.has('view') && String(target.searchParams.get('view') || '').trim() !== '';
     const hubHasView = cur.has('view') && String(cur.get('view') || '').trim() !== '';
     if (!hasView && !hubHasView) target.searchParams.set('view', hhDetectView());
   }
 
-  // apply defaults (fill only missing)
   if (defaults && typeof defaults === 'object') {
     for (const [k, v] of Object.entries(defaults)) {
       setIfMissing(target.searchParams, k, v);
