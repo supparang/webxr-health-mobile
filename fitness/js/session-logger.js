@@ -1,27 +1,30 @@
 // === /fitness/js/session-logger.js ===
 // Session-level CSV logger (Shadow Breaker)
-// ✅ Named export: SessionLogger (fixes: "does not provide an export named 'SessionLogger'")
+// ✅ EXPORTS: SessionLogger, downloadSessionCsv
 
 'use strict';
 
 export class SessionLogger {
   constructor() {
-    this.sessions = [];
+    this.rows = [];
   }
 
   add(row) {
     if (!row || typeof row !== 'object') return;
-    this.sessions.push(row);
+    this.rows.push(row);
   }
 
   clear() {
-    this.sessions.length = 0;
+    this.rows.length = 0;
   }
 
   toCsv() {
-    if (!this.sessions.length) return '';
+    if (!this.rows.length) return '';
 
-    const cols = Object.keys(this.sessions[0]);
+    // รวมคอลัมน์ทั้งหมดที่เคยโผล่ (กัน key ไม่เท่ากัน)
+    const colSet = new Set();
+    for (const r of this.rows) Object.keys(r).forEach(k => colSet.add(k));
+    const cols = Array.from(colSet);
 
     const esc = (v) => {
       if (v == null) return '';
@@ -34,22 +37,22 @@ export class SessionLogger {
 
     const lines = [];
     lines.push(cols.join(','));
-
-    for (const row of this.sessions) {
-      lines.push(cols.map(c => esc(row[c])).join(','));
+    for (const r of this.rows) {
+      lines.push(cols.map(c => esc(r[c])).join(','));
     }
-
     return lines.join('\n');
   }
 }
 
 export function downloadSessionCsv(logger, filename = 'shadow-breaker-session.csv') {
   try {
-    if (!logger || typeof logger.toCsv !== 'function') return;
-
+    if (!logger || typeof logger.toCsv !== 'function') {
+      console.warn('[SessionLogger] invalid logger for download');
+      return;
+    }
     const csv = logger.toCsv();
     if (!csv) {
-      alert('ยังไม่มีข้อมูลสรุปรอบนี้');
+      alert('ยังไม่มีข้อมูลสรุป session ในรอบนี้');
       return;
     }
 
