@@ -3,14 +3,276 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Shadow Breaker</title>
-  <meta name="color-scheme" content="dark light"/>
+  <title>VR Fitness — Shadow Breaker</title>
+  <meta name="color-scheme" content="dark"/>
   <link rel="icon" href="./favicon.ico"/>
+  <link rel="stylesheet" href="./css/shadow-breaker.css"/>
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
-  hhGo('../fitness/shadow-breaker.html', { defaults: {} });
-</script>
+  <div id="sb-wrap" class="sb-wrap" data-phase="1" data-boss="0" data-diff="normal">
+    <!-- ===== Header ===== -->
+    <header class="sb-header">
+      <div class="sb-header-left">
+        <div class="sb-kicker">VR Fitness • Boss Targets</div>
+        <h1 class="sb-title">Shadow Breaker</h1>
+        <div class="sb-sub">
+          เกมตีเป้า Boss หลายเฟส • RT/Combo/FEVER/Shield • รองรับ Normal/Research
+        </div>
+      </div>
+
+      <div class="sb-header-right">
+        <div class="sb-support">รองรับ: <strong>PC</strong> • <strong>Mobile</strong></div>
+        <div class="sb-tip">ทิป: เปิดเสียง + ลองโหมด Hard จะ “เดือด” มาก</div>
+        <div class="sb-links">
+          <a class="sb-link" href="./hub.html">← กลับ Hub</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== Views ===== -->
+    <main class="sb-main">
+      <!-- ================= MENU ================= -->
+      <section id="sb-view-menu" class="sb-view is-active">
+        <div class="sb-panel">
+          <!-- Mode toggle -->
+          <div class="sb-mode-row">
+            <button id="sb-mode-normal" class="sb-mode-btn is-active" type="button">
+              <span class="icon">🎮</span><span>Normal</span>
+            </button>
+            <button id="sb-mode-research" class="sb-mode-btn" type="button">
+              <span class="icon">📊</span><span>Research</span>
+            </button>
+          </div>
+
+          <div id="sb-mode-desc" class="sb-mode-desc">
+            Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม
+          </div>
+
+          <!-- Settings -->
+          <div class="sb-form">
+            <div class="sb-field">
+              <label class="sb-label" for="sb-diff">Difficulty</label>
+              <select id="sb-diff" class="sb-input">
+                <option value="easy">Easy</option>
+                <option value="normal" selected>Normal</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div class="sb-field">
+              <label class="sb-label" for="sb-time">Time (sec)</label>
+              <select id="sb-time" class="sb-input">
+                <option value="45">45</option>
+                <option value="60">60</option>
+                <option value="70" selected>70</option>
+                <option value="90">90</option>
+              </select>
+            </div>
+
+            <!-- Research meta (only shown in research mode via JS) -->
+            <div id="sb-research-box" class="sb-research-box">
+              <div class="sb-field">
+                <label class="sb-label" for="sb-part-id">Participant ID</label>
+                <input id="sb-part-id" class="sb-input" placeholder="เช่น S05-001"/>
+              </div>
+
+              <div class="sb-field">
+                <label class="sb-label" for="sb-part-group">Group</label>
+                <input id="sb-part-group" class="sb-input" placeholder="เช่น Control/Exp-A"/>
+              </div>
+
+              <div class="sb-field">
+                <label class="sb-label" for="sb-part-note">Note</label>
+                <input id="sb-part-note" class="sb-input" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)"/>
+              </div>
+            </div>
+
+            <!-- AI chips (play only) -->
+            <div class="sb-ai-box">
+              <div class="sb-ai-title">AI (Play only)</div>
+              <div class="sb-ai-chips">
+                <span class="sb-chip">DL-lite Predictor</span>
+                <span class="sb-chip">Explainable micro-tips</span>
+                <span class="sb-chip">Pattern Generator</span>
+                <span class="sb-chip">Fair adaptive pacing</span>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="sb-actions">
+              <button id="sb-btn-play" class="sb-btn sb-btn-primary" type="button">
+                ▶ Start Game
+              </button>
+
+              <button id="sb-btn-research" class="sb-btn" type="button">
+                📊 Start Research
+              </button>
+
+              <button id="sb-btn-howto" class="sb-btn sb-btn-ghost" type="button">
+                ❓ How to play
+              </button>
+            </div>
+
+            <div id="sb-howto" class="sb-howto">
+              <ul>
+                <li>ชก/แตะเป้า “Normal” เพื่อทำดาเมจบอส + เพิ่มคะแนน</li>
+                <li>เป้า “Decoy/Bomb” ทำให้เสียจังหวะ (ถ้ามี Shield จะกันได้)</li>
+                <li>เป้า “Heal/Shield” ช่วยเอาตัวรอด + ทำคอมโบ</li>
+                <li>FEVER เต็ม → คะแนน/ดาเมจบอสเพิ่มช่วงสั้น ๆ</li>
+                <li>HP บอสใกล้หมด → จะเรียกหน้า Boss (Boss Face) โผล่ 1 ครั้ง</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PLAY ================= -->
+      <section id="sb-view-play" class="sb-view">
+        <div class="sb-play">
+          <!-- HUD top -->
+          <div class="sb-hud sb-hud-top">
+            <div class="sb-hud-left">
+              <div class="sb-stat"><span class="k">Time</span><span id="sb-text-time" class="v">0.0 s</span></div>
+              <div class="sb-stat"><span class="k">Score</span><span id="sb-text-score" class="v">0</span></div>
+              <div class="sb-stat"><span class="k">Combo</span><span id="sb-text-combo" class="v">0</span></div>
+            </div>
+
+            <div class="sb-hud-center">
+              <div id="sb-current-boss-name" class="sb-boss-name">Bubble Glove 🐣</div>
+            </div>
+
+            <div class="sb-hud-right">
+              <div class="sb-stat"><span class="k">Phase</span><span id="sb-text-phase" class="v">1</span></div>
+              <div class="sb-stat"><span class="k">Miss</span><span id="sb-text-miss" class="v">0</span></div>
+              <div class="sb-stat"><span class="k">Shield</span><span id="sb-text-shield" class="v">0</span></div>
+            </div>
+          </div>
+
+          <!-- HP bars -->
+          <div class="sb-bars sb-bars-top">
+            <div class="sb-bar">
+              <div class="sb-bar-label">YOU</div>
+              <div class="sb-bar-track"><div id="sb-hp-you-top" class="sb-bar-fill"></div></div>
+            </div>
+            <div class="sb-bar">
+              <div class="sb-bar-label">BOSS</div>
+              <div class="sb-bar-track"><div id="sb-hp-boss-top" class="sb-bar-fill boss"></div></div>
+            </div>
+          </div>
+
+          <!-- play field -->
+          <div class="sb-stage">
+            <div id="sb-target-layer" class="sb-target-layer"></div>
+            <div class="sb-center-msg">
+              <div id="sb-msg-main" class="sb-msg-main">
+                แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!
+              </div>
+            </div>
+
+            <!-- boss meta side panel -->
+            <aside class="sb-meta">
+              <div class="sb-meta-emoji" id="sb-meta-emoji">🐣</div>
+              <div class="sb-meta-name" id="sb-meta-name">Bubble Glove</div>
+              <div class="sb-meta-desc" id="sb-meta-desc">โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน</div>
+
+              <div class="sb-meta-row">
+                <span>Phase</span>
+                <strong id="sb-boss-phase-label">1</strong>
+              </div>
+              <div class="sb-meta-row">
+                <span>Shield</span>
+                <strong id="sb-boss-shield-label">0</strong>
+              </div>
+            </aside>
+          </div>
+
+          <!-- fever + hp bottom -->
+          <div class="sb-bars sb-bars-bottom">
+            <div class="sb-fever">
+              <div class="sb-fever-head">
+                <span class="k">FEVER</span>
+                <span id="sb-label-fever" class="v">READY</span>
+              </div>
+              <div class="sb-fever-track">
+                <div id="sb-fever-bar" class="sb-fever-fill"></div>
+              </div>
+            </div>
+
+            <div class="sb-bars-compact">
+              <div class="sb-bar">
+                <div class="sb-bar-label">YOU</div>
+                <div class="sb-bar-track"><div id="sb-hp-you-bottom" class="sb-bar-fill"></div></div>
+              </div>
+              <div class="sb-bar">
+                <div class="sb-bar-label">BOSS</div>
+                <div class="sb-bar-track"><div id="sb-hp-boss-bottom" class="sb-bar-fill boss"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- play controls -->
+          <div class="sb-controls">
+            <button id="sb-btn-back-menu" class="sb-btn sb-btn-ghost" type="button">← Menu</button>
+            <label class="sb-toggle">
+              <input id="sb-btn-pause" type="checkbox"/>
+              <span>Stop</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= RESULT ================= -->
+      <section id="sb-view-result" class="sb-view">
+        <div class="sb-panel sb-result">
+          <h2 class="sb-result-title">Result</h2>
+
+          <div class="sb-result-grid">
+            <div class="sb-result-card">
+              <div class="k">Time</div>
+              <div id="sb-res-time" class="v">0.0 s</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">Score</div>
+              <div id="sb-res-score" class="v">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">Max Combo</div>
+              <div id="sb-res-max-combo" class="v">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">Miss</div>
+              <div id="sb-res-miss" class="v">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">Phase</div>
+              <div id="sb-res-phase" class="v">1</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">Bosses Cleared</div>
+              <div id="sb-res-boss-cleared" class="v">0</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">Accuracy</div>
+              <div id="sb-res-acc" class="v">0.0 %</div>
+            </div>
+            <div class="sb-result-card">
+              <div class="k">Grade</div>
+              <div id="sb-res-grade" class="v">C</div>
+            </div>
+          </div>
+
+          <div class="sb-result-actions">
+            <button id="sb-btn-result-retry" class="sb-btn sb-btn-primary" type="button">▶ Retry</button>
+            <button id="sb-btn-download-events" class="sb-btn" type="button">⬇ Events CSV</button>
+            <button id="sb-btn-download-session" class="sb-btn" type="button">⬇ Session CSV</button>
+            <button id="sb-btn-result-menu" class="sb-btn sb-btn-ghost" type="button">← Menu</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modules -->
+  <script type="module" src="./js/engine.js"></script>
 </body>
 </html>
