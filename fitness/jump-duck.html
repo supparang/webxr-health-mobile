@@ -1,84 +1,16 @@
-<!-- === /fitness/jump-duck.html ===
-Jump-Duck Launcher — ROOT (WebXR-ready)
-✅ Auto-detect view (pc/mobile/cvr) but NEVER override if ?view= exists
-✅ Pass-through: pid, diff, time, mode, seed, hub
-✅ Redirect to ./jd/jump-duck-vr.html
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Jump-Duck — VR Fitness Academy</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
-  <style>
-    :root{ color-scheme: dark; }
-    body{ margin:0; background:#020617; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
-    .wrap{ min-height:100vh; display:grid; place-items:center; padding:16px; }
-    .card{
-      width:min(820px, 100%);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      padding:16px;
-      background:rgba(15,23,42,.88);
-      box-shadow:0 24px 60px rgba(0,0,0,.55);
-    }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .pill{ padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.6); }
-    .muted{ color:#94a3b8; font-size:.95rem; }
-  </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Jump-Duck</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="row">
-        <div class="pill">🦘 Jump-Duck</div>
-        <div class="pill muted" id="jd-view-pill">detecting…</div>
-      </div>
-      <p class="muted" style="margin:10px 0 0;">
-        กำลังเข้าเกมอัตโนมัติ…
-      </p>
-    </div>
-  </div>
-
-  <script>
-  (function(){
-    'use strict';
-    function getViewFromUA(){
-      // heuristic: mobile => mobile, otherwise pc
-      const ua = navigator.userAgent || '';
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 820);
-      return isMobile ? 'mobile' : 'pc';
-    }
-
-    const url = new URL(location.href);
-    const sp  = url.searchParams;
-
-    // NEVER override if user already set ?view=
-    const view = (sp.get('view') || '').toLowerCase() || getViewFromUA();
-    const pill = document.getElementById('jd-view-pill');
-    if (pill) pill.textContent = 'view=' + view;
-
-    // pass-through params
-    const pass = ['pid','diff','time','mode','seed','hub','studyId','phase','conditionGroup','log','view'];
-    const run = new URL('./jd/jump-duck-vr.html', location.href);
-
-    for (const k of pass){
-      const v = sp.get(k);
-      if (v != null && v !== '') run.searchParams.set(k, v);
-    }
-    // ensure view exists
-    if (!run.searchParams.get('view')) run.searchParams.set('view', view);
-
-    // default duration key: ?time=60
-    if (!run.searchParams.get('time')) run.searchParams.set('time', '60');
-    if (!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
-    if (!run.searchParams.get('mode')) run.searchParams.set('mode', 'training');
-
-    // go
-    location.replace(run.toString());
-  })();
-  </script>
+<script type="module">
+  import { hhGo } from './launch/launcher-core.js';
+  hhGo('../fitness/jump-duck.html', { defaults: {} });
+</script>
 </body>
 </html>
