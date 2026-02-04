@@ -3,78 +3,14 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Balance-Hold — VR Fitness</title>
-  <link rel="icon" href="favicon.ico"/>
-  <link rel="stylesheet" href="hub.css"/>
-  <style>
-    .bh-wrap{
-      max-width:900px;
-      margin:20px auto 32px;
-      padding:0 16px 24px;
-      color:#e5e7eb;
-    }
-    .bh-header{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:center;
-      margin-bottom:12px;
-    }
-    .bh-title-block h1{margin:0 0 4px;font-size:24px;}
-    .bh-sub{margin:0;font-size:13px;opacity:.82;}
-    .bh-back{color:#e5e7eb;text-decoration:none;
-      border-radius:999px;padding:6px 12px;
-      border:1px solid rgba(148,163,184,0.7);
-      background:rgba(15,23,42,0.96);}
-    .bh-card{
-      border-radius:22px;
-      padding:18px 16px 20px;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.22),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(236,72,153,0.20),transparent 55%),
-        rgba(15,23,42,0.96);
-      box-shadow:0 22px 54px rgba(15,23,42,0.96);
-      font-size:14px;
-    }
-    .bh-placeholder{
-      margin-top:10px;
-      padding:16px 12px;
-      border-radius:18px;
-      background:rgba(15,23,42,0.96);
-      border:1px dashed rgba(148,163,184,0.7);
-      text-align:center;
-      font-size:13px;
-      opacity:.92;
-    }
-  </style>
+  <title>HeroHealth — Balance Hold</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
 </head>
 <body>
-  <main class="bh-wrap">
-    <header class="bh-header">
-      <div class="bh-title-block">
-        <h1>Balance-Hold</h1>
-        <p class="bh-sub">ต้นแบบเกมฝึกการทรงตัว / ถือท่านาน ๆ (ยังไม่เชื่อม engine เต็ม)</p>
-      </div>
-      <a href="hub.html" class="bh-back">⬅ กลับ HUB</a>
-    </header>
-
-    <section class="bh-card">
-      <p>
-        หน้านี้เป็น <strong>placeholder</strong> สำหรับเกม Balance-Hold ในชุด VR Fitness Academy<br/>
-        รองรับการเชื่อมต่อกับเซ็นเซอร์/กล้องวิเคราะห์ท่าทางในอนาคต
-        (เช่นผ่าน WebRTC หรือ WebUSB).
-      </p>
-      <ol>
-        <li>กำหนดชุดท่า (pose) และเวลาที่ต้องถือท่าในแต่ละรอบ</li>
-        <li>ตรวจจับการเสียสมดุล / หลุดท่า</li>
-        <li>เก็บสถิติคะแนน, เวลาถือท่า, จำนวนครั้งที่เสียบาลานซ์</li>
-      </ol>
-
-      <div class="bh-placeholder">
-        Prototype only — ยังไม่ใช่ build สุดท้ายของเกม Balance-Hold<br/>
-        (ใช้สำหรับทดสอบ flow ของ Hub ก่อน)
-      </div>
-    </section>
-  </main>
+<script type="module">
+  import { hhGo } from './launch/launcher-core.js';
+  hhGo('../fitness/balance-hold.html', { defaults: {} });
+</script>
 </body>
 </html>
