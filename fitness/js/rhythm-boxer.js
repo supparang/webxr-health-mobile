@@ -19,12 +19,24 @@
 
   // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
+  const btnCalibrate  = $('#rb-btn-calibrate');
+  const btnCVR        = $('#rb-btn-cvr');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
   const trackLabels   = $$('#rb-track-options .rb-mode-btn');
   const modeDescEl    = $('#rb-mode-desc');
   const trackModeLbl  = $('#rb-track-mode-label');
+  const trackHintEl   = null; // (เวอร์ชันนี้ใส่ how-to ใน card แล้ว)
   const researchBox   = $('#rb-research-fields');
+
+  // Calibration modal
+  const calibModal  = $('#rb-calib-modal');
+  const calibBeatEl = $('#rb-calib-beat');
+  const calibCountEl= $('#rb-calib-count');
+  const calibTapsEl = $('#rb-calib-taps');
+  const calibResEl  = $('#rb-calib-result');
+  const calibStartBtn = $('#rb-calib-start');
+  const calibCloseBtn = $('#rb-calib-close');
 
   // ฟอร์มวิจัย
   const inputParticipant = $('#rb-participant');
@@ -160,8 +172,12 @@
       audio: audioEl,
       renderer: renderer,
       hud: hud,
-      hooks: { onEnd: handleEngineEnd, onAI: handleAIUpdate }
+      hooks: { onEnd: handleEngineEnd }
     });
+
+    // expose for external bridge (e.g., cardboard helpers)
+    window.__RB_ENGINE__ = engine;
+    window.__RB_TAP_LANE__ = (lane)=>{ try{ engine && engine.handleLaneTap && engine.handleLaneTap(lane); }catch(_){} };
   }
 
   function startGame() {
@@ -216,6 +232,7 @@
     switchView('result');
   }
 
+
   function handleAIUpdate(ai){
     if (!ai || !hud) return;
     if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
@@ -225,6 +242,99 @@
       hud.aiTip.textContent = ai.tip || '';
       hud.aiTip.classList.toggle('hidden', !ai.tip);
     }
+  }
+
+
+  // ===== Calibration (timing offset) =====
+  function showCalibModal(show){
+    if(!calibModal) return;
+    calibModal.classList.toggle('hidden', !show);
+    calibModal.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
+
+  function beepTick(ctx){
+    try{
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.value = 880;
+      g.gain.value = 0.06;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.05);
+    }catch(_){}
+  }
+
+  async function runCalibration(){
+    // 120 BPM = 0.5s per beat (stable)
+    const BPM = 120;
+    const beatSec = 60 / BPM;
+    const beats = 16; // ~8s
+    const offsets = [];
+
+    calibCountEl && (calibCountEl.textContent = '0');
+    calibTapsEl && (calibTapsEl.textContent = '0');
+    calibResEl && (calibResEl.textContent = '-');
+
+    // ensure audio permission
+    let ac = null;
+    try{ ac = new (window.AudioContext || window.webkitAudioContext)(); await ac.resume(); }catch(_){}
+
+    const t0 = performance.now();
+    let beatIndex = 0;
+    let running = true;
+
+    const onTap = (ev)=>{
+      if(!running) return;
+      const t = performance.now();
+      // nearest beat time
+      const rel = (t - t0) / 1000;
+      const k = Math.round(rel / beatSec);
+      const beatT = k * beatSec;
+      const offMs = (rel - beatT) * 1000;
+      // accept if within +-180ms (reject accidental taps)
+      if(Math.abs(offMs) <= 180){
+        offsets.push(offMs);
+        if(calibTapsEl) calibTapsEl.textContent = String(offsets.length);
+      }
+      ev.preventDefault();
+    };
+
+    calibModal.addEventListener('pointerdown', onTap, {passive:false});
+
+    const timer = setInterval(()=>{
+      beatIndex++;
+      if(calibCountEl) calibCountEl.textContent = String(Math.min(beatIndex, beats));
+      if(calibBeatEl){
+        calibBeatEl.classList.remove('is-beat');
+        void calibBeatEl.offsetWidth;
+        calibBeatEl.classList.add('is-beat');
+      }
+      if(ac) beepTick(ac);
+      if(beatIndex >= beats){
+        clearInterval(timer);
+        running = false;
+        calibModal.removeEventListener('pointerdown', onTap);
+
+        // compute median
+        let med = 0;
+        if(offsets.length >= 6){
+          offsets.sort((a,b)=>a-b);
+          const mid = Math.floor(offsets.length/2);
+          med = offsets.length%2 ? offsets[mid] : (offsets[mid-1]+offsets[mid])/2;
+        }
+        med = Math.max(-180, Math.min(180, med));
+
+        // store
+        try{ localStorage.setItem('RB_CAL_OFFSET_MS', String(Math.round(med))); }catch(_){}
+        calibResEl && (calibResEl.textContent = `${Math.round(med)} ms`);
+
+        // apply to engine (if created)
+        if(engine && typeof engine.setCalibrationOffsetMs === 'function'){
+          engine.setCalibrationOffsetMs(Math.round(med));
+        }
+      }
+    }, beatSec*1000);
   }
 
   function downloadCsv(csvText, filename) {
@@ -243,6 +353,12 @@
   // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
   btnStart.addEventListener('click', startGame);
+  if(btnCalibrate){
+    btnCalibrate.addEventListener('click', ()=>{ showCalibModal(true); });
+  }
+  if(calibCloseBtn){ calibCloseBtn.addEventListener('click', ()=>showCalibModal(false)); }
+  if(calibStartBtn){ calibStartBtn.addEventListener('click', ()=>runCalibration()); }
+
   btnStop.addEventListener('click', () => stopGame('manual-stop'));
   btnAgain.addEventListener('click', () => startGame());
   btnBackMenu.addEventListener('click', () => switchView('menu'));
@@ -270,6 +386,7 @@
       }
     }catch(_){}
   })();
+
 
   updateModeUI();
   switchView('menu');
