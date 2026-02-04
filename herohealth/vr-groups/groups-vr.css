@@ -1,530 +1,228 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-   GroupsVR UI — PRODUCTION (HHA Standard)
-   ✅ FIX: playLayer has real usable area (prevents "blank screen")
-   ✅ HUD / Quest / Power / Coach layout for PC/Mobile/VR/cVR
-   ✅ Big Banner + Overlays (calibration/end)
+GroupsVR CSS — PRODUCTION (safe layout)
+✅ PlayLayer behind HUD, targets clickable
+✅ Safe top/bottom zones so HUD/Quest/Coach won’t block targets
+✅ view-pc / view-mobile / view-vr / view-cvr
+✅ Targets: .tgt (size scales by view)
+✅ Mini urgent pulse helper (optional)
 */
 
+/* ---------- base ---------- */
 :root{
-  --bg:#020617;
+  color-scheme: dark light;
 
-  --panel:rgba(2,6,23,.72);
-  --panel2:rgba(15,23,42,.70);
-  --stroke:rgba(148,163,184,.18);
+  --bg0:#020617;
+  --panel: rgba(2,6,23,.70);
+  --panel2: rgba(15,23,42,.66);
+  --stroke: rgba(148,163,184,.18);
+  --text: rgba(229,231,235,.96);
+  --muted: rgba(148,163,184,.92);
 
-  --text:#e5e7eb;
-  --muted:#94a3b8;
+  --good: rgba(34,197,94,.95);
+  --bad: rgba(239,68,68,.95);
+  --warn: rgba(245,158,11,.95);
+  --cyan: rgba(34,211,238,.95);
 
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --danger:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
-
-  --radius:18px;
-  --pill:999px;
+  --radius: 22px;
+  --pill: 999px;
 
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Layout rails (tuned for “เด็ก ป.5 เห็นชัด”) */
-  --hudH: 54px;
-  --questH: 118px;
+  /* SAFE ZONES (สำคัญ: ให้ engine ใช้คำนวณ spawn ได้ง่าย) */
+  --safeTop: calc(152px + var(--sat));   /* HUD + QuestTop */
+  --safeBottom: calc(132px + var(--sab));/* Coach/Power */
+  --safeLeft:  12px;
+  --safeRight: 12px;
 
-  --bottomRail: 168px;   /* power+coach zone */
-  --sidePad: 12px;
+  /* target size baseline */
+  --tSize: 72px;
+  --tFont: 34px;
+  --tRadius: 18px;
 
-  /* Target sizing defaults */
-  --tSize: 108px;        /* mobile target size */
-  --tSizePc: 96px;
-  --tSizeVr: 118px;
+  /* crosshair center bias (cVR) */
+  --cvrCenterPad: 0px;
 }
 
 *{ box-sizing:border-box; }
 html,body{
+  height:100%;
   margin:0;
-  width:100%;
-  height:100%;
-  background: var(--bg);
+  background: radial-gradient(1200px 900px at 30% 10%, #0b1226, #020617);
   color: var(--text);
-  font-family: system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
-  overscroll-behavior: none;
-}
-
-body{
-  position: relative;
-  overflow: hidden;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-/* -------------------------
-   XR Scene behind DOM
-------------------------- */
-.xr-scene{
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* -------------------------
-   HUD (Top)
-------------------------- */
-.hud{
-  position: fixed;
-  top: calc(var(--sat) + 8px);
-  left: calc(var(--sal) + 10px);
-  right: calc(var(--sar) + 10px);
-  height: var(--hudH);
-  display:flex;
-  justify-content: space-between;
-  align-items:center;
-  gap: 10px;
-  z-index: 30;
-  pointer-events: none; /* keep play layer tappable */
-}
-
-.hudLeft,.hudRight{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.pill{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  height: 38px;
-  padding: 0 12px;
-  border-radius: var(--pill);
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  box-shadow: 0 8px 24px rgba(0,0,0,.22);
-  backdrop-filter: blur(10px);
-  pointer-events: none;
-  user-select: none;
-}
-
-.pill .lbl{
-  font-weight: 1000;
-  font-size: 11px;
-  letter-spacing: .2px;
-  color: rgba(229,231,235,.84);
-}
-.pill .val{
-  font-weight: 1100;
-  font-size: 13px;
-  color: #fff;
-}
-
-/* -------------------------
-   Quest (Top mid)
-------------------------- */
-.questTop{
-  position: fixed;
-  top: calc(var(--sat) + var(--hudH) + 14px);
-  left: calc(var(--sal) + 10px);
-  right: calc(var(--sar) + 10px);
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  z-index: 25;
-  pointer-events: none;
-}
-
-.questCard{
-  background: rgba(2,6,23,.62);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 16px;
-  padding: 10px 12px;
-  box-shadow: 0 12px 34px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-  min-height: 82px;
-}
-
-.qTitle{
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
-  gap:10px;
-  font-weight: 1100;
-  font-size: 12px;
-}
-
-.tag{
-  border-radius: var(--pill);
-  padding: 5px 10px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  font-weight: 1100;
-  font-size: 12px;
-  color: rgba(229,231,235,.92);
-  white-space: nowrap;
-}
-
-.bar{
-  margin-top: 8px;
-  height: 10px;
-  border-radius: 999px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
   overflow:hidden;
-  background: rgba(148,163,184,.14);
 }
-.bar .fill{
-  height:100%;
-  width: 0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-  transition: width .12s ease;
+body{
+  /* default */
 }
 
-.qSub{
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 950;
-  color: rgba(229,231,235,.86);
-  line-height: 1.2;
-  min-height: 18px;
+/* ---------- view modes ---------- */
+body.view-pc{
+  --tSize: 74px;
+  --tFont: 34px;
+  --safeTop: calc(150px + var(--sat));
+  --safeBottom: calc(120px + var(--sab));
+}
+body.view-mobile{
+  --tSize: 70px;
+  --tFont: 33px;
+  --safeTop: calc(158px + var(--sat));
+  --safeBottom: calc(136px + var(--sab));
+}
+body.view-vr{
+  --tSize: 74px;
+  --tFont: 34px;
+  --safeTop: calc(150px + var(--sat));
+  --safeBottom: calc(128px + var(--sab));
+}
+body.view-cvr{
+  /* cVR: อยากให้เป้า “กึ่งกลาง” มากขึ้นเล็กน้อย + ขนาดใหญ่ขึ้น */
+  --tSize: 80px;
+  --tFont: 36px;
+  --cvrCenterPad: 18px;
+  --safeTop: calc(156px + var(--sat));
+  --safeBottom: calc(140px + var(--sab));
 }
 
-/* MINI urgent */
-body.mini-urgent .questCard:nth-child(2){
-  border-color: rgba(245,158,11,.45);
-  box-shadow: 0 14px 44px rgba(245,158,11,.10);
-}
-body.mini-urgent .questCard:nth-child(2) .bar .fill{
-  background: linear-gradient(90deg, rgba(245,158,11,.98), rgba(239,68,68,.95));
+/* ---------- A-Frame scene behind everything (ถ้ามี) ---------- */
+.xr-scene{
+  position:absolute !important;
+  inset:0;
+  z-index: 0;
 }
 
-/* -------------------------
-   Big Banner (NEW)
-------------------------- */
-.bigBanner{
-  position: fixed;
-  top: calc(var(--sat) + var(--hudH) + var(--questH) + 18px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  pointer-events: none;
-}
-.bigBanner.hidden{ display:none; }
-
-.bigBannerText{
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 1100;
-  font-size: 13px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.70);
-  box-shadow: 0 14px 46px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-  opacity: 0;
-  transform: translateY(-6px) scale(.98);
-  transition: opacity .12s ease, transform .12s ease;
-  white-space: nowrap;
-}
-.bigBanner.show .bigBannerText{
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-.bigBanner.tone-neutral .bigBannerText{ border-color: rgba(148,163,184,.20); }
-.bigBanner.tone-good .bigBannerText{ border-color: rgba(34,197,94,.42); }
-.bigBanner.tone-warn .bigBannerText{ border-color: rgba(245,158,11,.42); }
-.bigBanner.tone-bad  .bigBannerText{ border-color: rgba(239,68,68,.42); }
-
-/* -------------------------
-   Power (bottom mid)
-------------------------- */
-.powerWrap{
-  position: fixed;
-  left: calc(var(--sal) + 10px);
-  right: calc(var(--sar) + 10px);
-  bottom: calc(var(--sab) + 78px);
-  z-index: 24;
-  pointer-events: none;
-  display:flex;
-  justify-content:center;
-}
-.powerCard{
-  width: min(640px, 100%);
-  background: rgba(2,6,23,.62);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 16px;
-  padding: 10px 12px;
-  box-shadow: 0 12px 34px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-}
-.pHead{
-  font-weight: 1100;
-  font-size: 12px;
-  margin-bottom: 8px;
-}
-.powerBar{ height: 10px; }
-.pFoot{
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 950;
-  color: rgba(229,231,235,.84);
-}
-
-/* -------------------------
-   Coach (bottom left)
-------------------------- */
-.coachWrap{
-  position: fixed;
-  left: calc(var(--sal) + 10px);
-  bottom: calc(var(--sab) + 10px);
-  z-index: 26;
-  pointer-events: none;
-}
-.coachCard{
-  display:flex;
-  gap: 10px;
-  align-items:flex-end;
-  background: rgba(2,6,23,.58);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: 18px;
-  padding: 10px 10px;
-  box-shadow: 0 12px 34px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-  max-width: min(520px, calc(100vw - 22px));
-}
-.coachImg{
-  width: 52px;
-  height: 52px;
-  object-fit: contain;
-  flex: 0 0 auto;
-}
-.coachBubble{
-  display:flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.coachName{
-  font-weight: 1100;
-  font-size: 12px;
-  color: rgba(229,231,235,.92);
-}
-.coachText{
-  font-weight: 950;
-  font-size: 12.5px;
-  line-height: 1.25;
-  color: rgba(229,231,235,.88);
-}
-
-/* -------------------------
-   Play Layer (MOST IMPORTANT FIX)
-   ✅ gives engine a real spawn area
-------------------------- */
-.playLayer{
-  position: fixed;
-  left: calc(var(--sal) + var(--sidePad));
-  right: calc(var(--sar) + var(--sidePad));
-  top: calc(var(--sat) + var(--hudH) + var(--questH) + 22px);
-  bottom: calc(var(--sab) + var(--bottomRail));
-  z-index: 10;
-  border-radius: 18px;
-  overflow: hidden;
-  /* keep it tappable */
-  pointer-events: auto;
-}
-
-/* Fallback visual hint (very subtle) */
-.playLayer::before{
-  content:'';
+/* ---------- HUD layer ---------- */
+.hud, #hud{
   position:absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 18%, rgba(34,197,94,.06), transparent 50%),
-    radial-gradient(circle at 90% 84%, rgba(34,211,238,.05), transparent 55%);
+  inset:0;
+  z-index: 20;
   pointer-events:none;
 }
 
-/* -------------------------
-   Targets (generic — supports multiple engine class names)
-------------------------- */
-.playLayer .target,
-.playLayer .tgt,
-.playLayer .hha-target,
-.playLayer [data-target]{
-  position: absolute;
+/* in case you use old layout classes */
+.hudLeft, .hudRight, .questTop, .powerWrap, .coachWrap{
+  pointer-events:none;
+}
+
+/* ---------- play layer (targets live here) ---------- */
+.playLayer, #playLayer{
+  position:absolute;
+  inset:0;
+  z-index: 10;
+  overflow:hidden;
+  pointer-events:none; /* important: only targets capture events */
+  contain: layout style paint;
+}
+
+/* wrapper inside playLayer if safe.js creates it */
+#groupsPlayWrap{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+/* ---------- target ---------- */
+.tgt{
   width: var(--tSize);
   height: var(--tSize);
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  box-shadow: 0 16px 46px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-  display:grid;
-  place-items:center;
-  user-select:none;
-  cursor: pointer;
-  transform: translateZ(0);
-}
-
-/* emoji / label inside */
-.playLayer .target .emoji,
-.playLayer .tgt .emoji,
-.playLayer .hha-target .emoji,
-.playLayer [data-target] .emoji{
-  font-size: 42px;
-  line-height: 1;
-  filter: drop-shadow(0 8px 14px rgba(0,0,0,.24));
-}
-.playLayer .target .label,
-.playLayer .tgt .label,
-.playLayer .hha-target .label,
-.playLayer [data-target] .label{
-  position:absolute;
-  bottom: 8px;
-  left: 10px;
-  right: 10px;
-  font-weight: 1100;
-  font-size: 12px;
-  text-align:center;
-  color: rgba(229,231,235,.92);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Hit / good / bad (if engine toggles classes) */
-.playLayer .good{ border-color: rgba(34,197,94,.40); }
-.playLayer .bad{ border-color: rgba(239,68,68,.42); }
-.playLayer .warn{ border-color: rgba(245,158,11,.42); }
-
-/* -------------------------
-   Overlays (Calibration / End)
-------------------------- */
-.overlay{
-  position: fixed;
-  inset: 0;
-  z-index: 60;
+  border-radius: var(--tRadius);
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(var(--sat) + 18px) calc(var(--sar) + 14px) calc(var(--sab) + 18px) calc(var(--sal) + 14px);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(8px);
-}
-.overlay.hidden{ display:none; }
-
-.panel{
-  width: min(720px, 100%);
-  background: rgba(2,6,23,.84);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius: 22px;
-  padding: 14px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.42);
-}
-
-.panel .title{
-  font-weight: 1200;
-  font-size: 18px;
-  margin-bottom: 8px;
-}
-.panel .sub{
-  font-weight: 950;
-  font-size: 13px;
-  line-height: 1.35;
-  color: rgba(229,231,235,.86);
-}
-
-.grid2{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-@media (max-width:560px){ .grid2{ grid-template-columns:1fr; } }
-
-.stat{
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.55);
-  padding: 10px 12px;
-}
-.stat .k{ font-weight: 1000; font-size: 12px; color: rgba(229,231,235,.80); }
-.stat .v{ font-weight: 1200; font-size: 18px; margin-top: 6px; }
-
-.row{
-  display:flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width:520px){ .row2{ grid-template-columns:1fr; } }
-
-.btn{
-  appearance: none;
-  width: 100%;
-  border-radius: 16px;
-  padding: 12px 12px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.65);
-  color: var(--text);
-  font-weight: 1100;
-  cursor: pointer;
-  user-select:none;
-}
-.btn:active{ transform: translateY(1px); }
-.btn-strong{
-  border-color: rgba(34,197,94,.35);
-  background: rgba(34,197,94,.16);
-}
-.btn-ghost{
-  border-color: rgba(148,163,184,.18);
-  background: rgba(2,6,23,.45);
-}
-
-.note{
-  color: rgba(229,231,235,.82);
+  font-size: var(--tFont);
   font-weight: 900;
-  font-size: 12px;
-  line-height: 1.35;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+
+  pointer-events:auto;        /* clickable */
+  touch-action: manipulation; /* faster taps */
+
+  background: rgba(15,23,42,.70);
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 14px 34px rgba(0,0,0,.30);
+  backdrop-filter: blur(10px);
+
+  transform: translateZ(0);
+  will-change: transform, opacity;
 }
 
-/* -------------------------
-   View-specific tuning
-------------------------- */
-body.view-pc{
-  --hudH: 54px;
-  --questH: 108px;
-  --bottomRail: 150px;
-  --tSize: var(--tSizePc);
+/* optional: make targets more legible in bright environments */
+.tgt::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+  pointer-events:none;
 }
 
-body.view-mobile{
-  --hudH: 58px;
-  --questH: 124px;
-  --bottomRail: 178px;
+/* motion classes from safe.js */
+.tgt.spawn{ filter: saturate(1.06); }
+.tgt.hit{ opacity:0; transform: scale(.78); }
+.tgt.out{ opacity:0; transform: scale(.86); }
+
+/* ---------- utilities for “don’t block targets” ---------- */
+/* Make these areas ignore clicks; targets should never spawn beneath anyway */
+.noHitTop{
+  position:absolute;
+  left:0; right:0;
+  top:0;
+  height: var(--safeTop);
+  pointer-events:auto; /* capture (as blocker) */
+  background: transparent;
+  z-index: 19;
+}
+.noHitBottom{
+  position:absolute;
+  left:0; right:0;
+  bottom:0;
+  height: var(--safeBottom);
+  pointer-events:auto; /* capture (as blocker) */
+  background: transparent;
+  z-index: 19;
 }
 
-body.view-vr{
-  --hudH: 52px;
-  --questH: 104px;
-  --bottomRail: 150px;
-  --tSize: var(--tSizeVr);
+/* If you want: add these blockers in HTML (optional)
+<div class="noHitTop"></div><div class="noHitBottom"></div>
+*/
+
+/* ---------- mini urgent pulse (your HTML toggles body.mini-urgent) ---------- */
+body.mini-urgent .questCard,
+body.mini-urgent .questTop .questCard{
+  animation: miniPulse .55s ease-in-out infinite alternate;
+}
+@keyframes miniPulse{
+  from{ transform: translateY(0); box-shadow: 0 18px 60px rgba(0,0,0,.45); }
+  to{   transform: translateY(-1px); box-shadow: 0 20px 70px rgba(245,158,11,.18); }
 }
 
-body.view-cvr{
-  --hudH: 50px;
-  --questH: 96px;
-  --bottomRail: 150px;
-  --tSize: var(--tSizeVr);
+/* ---------- pressure FX hooks (if engine toggles press-1/2/3) ---------- */
+body.press-1 .tgt{ filter: saturate(1.02); }
+body.press-2 .tgt{ filter: saturate(1.06) contrast(1.02); }
+body.press-3 .tgt{ filter: saturate(1.10) contrast(1.04); }
+
+/* ---------- storm/boss helper classes (if you use them) ---------- */
+body.groups-storm .tgt{
+  box-shadow: 0 16px 44px rgba(34,211,238,.10), 0 14px 34px rgba(0,0,0,.30);
+}
+body.fx-boss .tgt{
+  box-shadow: 0 18px 52px rgba(167,139,250,.14), 0 14px 34px rgba(0,0,0,.30);
 }
 
-/* In cVR, reduce visual clutter a bit */
-body.view-cvr .coachCard{ max-width: min(420px, calc(100vw - 22px)); }
-body.view-cvr .powerCard{ width: min(520px, 100%); }
+/* ---------- safety: ensure any overlay is above everything ---------- */
+.overlay, .overlay-end, .overlay-cal{
+  z-index: 60 !important;
+}
 
-/* Ensure particles overlay stays above everything but overlays */
-#hha-particles{
-  position: fixed !important;
-  inset: 0 !important;
-  pointer-events: none !important;
-  z-index: 55 !important;
+/* ---------- mobile tap comfort ---------- */
+@media (max-width: 420px){
+  body.view-mobile{
+    --tSize: 76px;
+    --tFont: 36px;
+    --safeTop: calc(164px + var(--sat));
+    --safeBottom: calc(144px + var(--sab));
+  }
 }
