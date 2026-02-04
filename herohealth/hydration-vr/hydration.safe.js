@@ -9,11 +9,9 @@
 // ✅ CSV download + JSON copy from result overlay buttons
 // ✅ Research deterministic (seeded), Play adaptive (difficulty director lite)
 // ✅ PATCH: Force-hide result overlay on boot + lock [hidden] + hardened auto-start when overlay exists but not visible
-// ✅ PATCH BADGES: first_play, streak_10, mini_clear_1(storm pass), boss_clear_1, score_80p, perfect_run
+// ✅ PATCH: Standardize summary schema (runMode/timePlannedSec/scoreFinal/miss/accuracyPct/comboMax) + keep backward aliases
 
 'use strict';
-
-import { awardBadge, getPid } from '../badges.safe.js';
 
 const WIN = window;
 const DOC = document;
@@ -77,33 +75,6 @@ function safeDownload(filename, text, mime = 'text/plain') {
 
 function safeCopy(text) {
   try { navigator.clipboard?.writeText(String(text)); } catch {}
-}
-
-/* =========================
-   BADGES HELPERS
-========================= */
-
-function badgeMeta(extra){
-  let pid = '';
-  try{ pid = (typeof getPid === 'function') ? (getPid()||'') : ''; }catch(_){}
-  const base = {
-    pid,
-    run: String(qs('run','play')).toLowerCase(),
-    diff: String(qs('diff','normal')).toLowerCase(),
-    time: Number(qs('time',0))||0,
-    seed: Number(qs('seed',0))||0,
-    view: String(qs('view','')).toLowerCase(),
-    style: String(qs('style','')).toLowerCase(),
-    game: 'hydration'
-  };
-  if(extra && typeof extra === 'object'){
-    for(const k of Object.keys(extra)) base[k] = extra[k];
-  }
-  return base;
-}
-
-function awardOnce(gameKey, badgeId, meta){
-  try{ return !!awardBadge(gameKey, badgeId, badgeMeta(meta)); }catch(_){ return false; }
 }
 
 /* =========================
@@ -205,9 +176,11 @@ const Engine = {
   lastT: 0,
   rafId: 0,
 
-  run: 'play',       // play | research
+  run: 'play',       // play | research  (legacy alias)
+  runMode: 'play',   // ✅ canonical
   diff: 'normal',    // easy | normal | hard
-  timeSec: 70,
+  timeSec: 70,       // legacy alias
+  timePlannedSec: 70,// ✅ canonical
   seed: 0,
 
   layers: [],
@@ -239,11 +212,6 @@ const Engine = {
 
   logs: [],
   coachLastMs: 0,
-
-  // ✅ BADGES (per-run guards)
-  badge_streak10: false,
-  badge_storm: false,
-  badge_boss: false,
 };
 
 function cfgByDiff(diff) {
@@ -257,9 +225,13 @@ function cfgByDiff(diff) {
 
 function readCtx() {
   Engine.run = String(qs('run', 'play')).toLowerCase() === 'research' ? 'research' : 'play';
+  Engine.runMode = Engine.run; // ✅ canonical mirror
+
   const diff = String(qs('diff', 'normal')).toLowerCase();
   Engine.diff = (diff === 'easy' || diff === 'hard') ? diff : 'normal';
+
   Engine.timeSec = clamp(qn('time', 70), 20, 600) | 0;
+  Engine.timePlannedSec = Engine.timeSec; // ✅ canonical mirror
 
   const seedQ = qn('seed', 0);
   Engine.seed = seedQ ? seedQ : Date.now();
@@ -432,18 +404,6 @@ function hitTarget(el, info) {
   if (kind === 'GOOD') {
     Engine.combo += 1;
     Engine.comboMax = Math.max(Engine.comboMax, Engine.combo);
-
-    // ✅ BADGE: streak_10
-    if (!Engine.badge_streak10 && Engine.combo >= 10) {
-      Engine.badge_streak10 = true;
-      awardOnce('hydration','streak_10',{
-        combo: Engine.combo|0,
-        comboMax: Engine.comboMax|0,
-        score: Engine.score|0,
-        miss: Engine.miss|0
-      });
-    }
-
     adjustWater(+cfg.goodDelta);
 
     const bonus = 60 + Math.min(240, Engine.combo * 10);
@@ -528,20 +488,6 @@ function exitStorm(success) {
   Engine.phase = 'MAIN';
   DOC.body.classList.remove('hha-bossfx');
   if (success) Engine.stormOk += 1;
-
-  // ✅ BADGE: mini_clear_1 (first storm pass)
-  if (success && !Engine.badge_storm) {
-    Engine.badge_storm = true;
-    awardOnce('hydration','mini_clear_1',{
-      stormCycles: Engine.stormCycles|0,
-      stormOk: Engine.stormOk|0,
-      need: Engine.stormNeed|0,
-      hit: Engine.stormHit|0,
-      score: Engine.score|0,
-      miss: Engine.miss|0
-    });
-  }
-
   coachTip(success ? 'ผ่าน STORM! กลับไปคุม GREEN ต่อ' : 'STORM ไม่ผ่าน! ระวัง BAD', 0);
   logEv('phase', { phase: 'MAIN', stormSuccess: !!success });
 }
@@ -578,20 +524,20 @@ function step(t) {
   Engine.lastT = t;
 
   const elapsed = (t - Engine.t0) / 1000;
-  const left = Math.max(0, Engine.timeSec - elapsed);
+  const left = Math.max(0, Engine.timePlannedSec - elapsed);
 
   emit('hha:time', { t: elapsed, left, phase: Engine.phase });
   setStatsUI(left);
 
   // difficulty director lite (play only)
   let spawnRate = cfg.spawnPerSec;
-  if (Engine.run === 'play') {
+  if (Engine.runMode === 'play') {
     const perf = clamp01((Engine.score / Math.max(1, elapsed)) / 55);
     spawnRate = cfg.spawnPerSec * (0.9 + perf * 0.35);
   }
 
   // drift toward 55
-  if (Engine.run === 'play') {
+  if (Engine.runMode === 'play') {
     const target = 55;
     Engine.waterPct += (target - Engine.waterPct) * cfg.drift * dt;
     Engine.waterPct = clamp(Engine.waterPct, 0, 100);
@@ -690,15 +636,18 @@ function buildSummary() {
     : (grade === 'C') ? '✅ Ok'
     : '🧊 Warm-up';
 
+  // ✅ canonical summary schema + legacy aliases
   return {
     game: 'hydration',
     ts: Date.now(),
-    run: Engine.run,
+
+    // canonical
+    runMode: Engine.runMode,
     diff: Engine.diff,
-    timeSec: Engine.timeSec,
+    timePlannedSec: Engine.timePlannedSec,
     seed: Engine.seed,
 
-    score: Engine.score | 0,
+    scoreFinal: Engine.score | 0,
     grade,
     tier,
     comboMax: Engine.comboMax | 0,
@@ -712,6 +661,12 @@ function buildSummary() {
     bossHit: Engine.bossHit | 0,
 
     logs: Engine.logs.slice(0, 4000),
+
+    // legacy (keep)
+    run: Engine.runMode,
+    timeSec: Engine.timePlannedSec,
+    score: Engine.score | 0,
+    accuracyPctLegacy: acc
   };
 }
 
@@ -719,7 +674,13 @@ function saveSummary(summary) {
   try {
     localStorage.setItem(LS_LAST, JSON.stringify(summary));
     const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
-    hist.unshift({ ts: summary.ts, score: summary.score, grade: summary.grade, diff: summary.diff, run: summary.run });
+    hist.unshift({
+      ts: summary.ts,
+      scoreFinal: summary.scoreFinal,
+      grade: summary.grade,
+      diff: summary.diff,
+      runMode: summary.runMode
+    });
     localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
   } catch {}
 }
@@ -729,11 +690,11 @@ function summaryToCSV(summary) {
   const sessionRows = [
     ['ts', s.ts],
     ['game', s.game],
-    ['run', s.run],
+    ['runMode', s.runMode],
     ['diff', s.diff],
-    ['timeSec', s.timeSec],
+    ['timePlannedSec', s.timePlannedSec],
     ['seed', s.seed],
-    ['score', s.score],
+    ['scoreFinal', s.scoreFinal],
     ['grade', s.grade],
     ['tier', s.tier],
     ['accuracyPct', s.accuracyPct],
@@ -781,7 +742,7 @@ function bindResultButtons(summary) {
 
   DOC.getElementById('btnCopyJSON')?.addEventListener('click', () => safeCopy(JSON.stringify(summary, null, 2)));
   DOC.getElementById('btnDownloadCSV')?.addEventListener('click', () => {
-    safeDownload(`hydration-${summary.diff}-${summary.run}-${summary.ts}.csv`, summaryToCSV(summary), 'text/csv');
+    safeDownload(`hydration-${summary.diff}-${summary.runMode}-${summary.ts}.csv`, summaryToCSV(summary), 'text/csv');
   });
 
   DOC.querySelectorAll('.btnBackHub')?.forEach((b) =>
@@ -790,7 +751,8 @@ function bindResultButtons(summary) {
 }
 
 function showResult(summary) {
-  safeText('rScore', summary.score);
+  // UI ใช้คีย์ canonical
+  safeText('rScore', summary.scoreFinal);
   safeText('rGrade', summary.grade);
   safeText('rAcc', `${summary.accuracyPct}%`);
   safeText('rComboMax', summary.comboMax);
@@ -812,7 +774,7 @@ function showResult(summary) {
   if (tipsEl) tipsEl.textContent = tips.join('\n');
 
   const nextEl = DOC.getElementById('rNext');
-  if (nextEl) nextEl.textContent = `Next: diff=${summary.diff} | run=${summary.run} | seed=${summary.seed}`;
+  if (nextEl) nextEl.textContent = `Next: diff=${summary.diff} | runMode=${summary.runMode} | seed=${summary.seed}`;
 
   const back = DOC.getElementById('resultBackdrop');
   if (back) back.hidden = false;
@@ -854,11 +816,6 @@ function startGame() {
   Engine.running = true;
   Engine.started = true;
 
-  // ✅ reset badge flags each run
-  Engine.badge_streak10 = false;
-  Engine.badge_storm = false;
-  Engine.badge_boss = false;
-
   // ✅ hide summary when starting (extra safety)
   try{
     const back = DOC.getElementById('resultBackdrop');
@@ -871,11 +828,20 @@ function startGame() {
   Engine.t0 = nowMs();
   Engine.lastT = Engine.t0;
 
-  logEv('start', { run: Engine.run, diff: Engine.diff, timeSec: Engine.timeSec, seed: Engine.seed });
-  emit('hha:start', { game: 'hydration', run: Engine.run, diff: Engine.diff, time: Engine.timeSec, seed: Engine.seed });
+  logEv('start', { runMode: Engine.runMode, diff: Engine.diff, timePlannedSec: Engine.timePlannedSec, seed: Engine.seed });
 
-  // ✅ BADGE: first_play
-  awardOnce('hydration','first_play',{});
+  // ✅ start event standard keys + keep aliases
+  emit('hha:start', {
+    game: 'hydration',
+    runMode: Engine.runMode,
+    diff: Engine.diff,
+    timePlannedSec: Engine.timePlannedSec,
+    seed: Engine.seed,
+
+    // legacy
+    run: Engine.runMode,
+    time: Engine.timePlannedSec
+  });
 
   WIN.addEventListener('hha:shoot', onShoot, { passive: true });
 
@@ -905,49 +871,12 @@ function endGame() {
   if (Engine.ended) return;
   Engine.ended = true;
 
-  // ✅ boss clear badge decision BEFORE stop clears anything visual
-  const bossCleared = (Engine.phase === 'BOSS') && ((Engine.bossHit|0) >= (Engine.bossNeed|0));
-  if (bossCleared && !Engine.badge_boss) {
-    Engine.badge_boss = true;
-    awardOnce('hydration','boss_clear_1',{
-      bossNeed: Engine.bossNeed|0,
-      bossHit: Engine.bossHit|0,
-      score: Engine.score|0,
-      miss: Engine.miss|0,
-      comboMax: Engine.comboMax|0
-    });
-  }
-
   stopGame();
 
   const summary = buildSummary();
-
-  // ✅ end badges from summary
-  if ((summary.accuracyPct|0) >= 80) {
-    awardOnce('hydration','score_80p',{
-      accuracyPct: summary.accuracyPct|0,
-      score: summary.score|0,
-      miss: summary.miss|0,
-      comboMax: summary.comboMax|0,
-      stormOk: summary.stormOk|0,
-      stormCycles: summary.stormCycles|0,
-      bossNeed: summary.bossNeed|0,
-      bossHit: summary.bossHit|0
-    });
-  }
-  if ((summary.miss|0) === 0) {
-    awardOnce('hydration','perfect_run',{
-      accuracyPct: summary.accuracyPct|0,
-      score: summary.score|0,
-      miss: 0,
-      comboMax: summary.comboMax|0,
-      greenHoldSec: summary.greenHoldSec
-    });
-  }
-
   saveSummary(summary);
 
-  logEv('end', { score: summary.score, grade: summary.grade, miss: summary.miss });
+  logEv('end', { scoreFinal: summary.scoreFinal, grade: summary.grade, miss: summary.miss });
   emit('hha:end', summary);
 
   showResult(summary);
@@ -1025,7 +954,7 @@ function onLayerPointerDown(e) {
       stop: stopGame,
       end: endGame,
       getState: () => JSON.parse(JSON.stringify({
-        run: Engine.run, diff: Engine.diff, timeSec: Engine.timeSec, seed: Engine.seed,
+        runMode: Engine.runMode, diff: Engine.diff, timePlannedSec: Engine.timePlannedSec, seed: Engine.seed,
         score: Engine.score, combo: Engine.combo, miss: Engine.miss,
         waterPct: Engine.waterPct, zone: Engine.zone, phase: Engine.phase
       }))
