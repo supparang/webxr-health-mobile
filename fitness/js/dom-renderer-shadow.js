@@ -1,15 +1,15 @@
 // === /fitness/js/dom-renderer-shadow.js ===
 // DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
-// ✅ pointerdown hit -> calls onTargetHit(id, {x,y})
-// ✅ supports xPct/yPct from engine for deterministic patterns
-// ✅ PATCH: safe spawn zone avoids HUD/meta/bars + bigger targets on small screens
+// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ FX via FxBurst
+// ✅ PATCH: remember last position so FX still works even after remove
 
 'use strict';
 
 import { FxBurst } from './fx-burst.js';
 
-function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rand(min,max){ return min + Math.random()*(max-min); }
 
 export class DomRendererShadow {
@@ -19,19 +19,32 @@ export class DomRendererShadow {
     this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
+    this.diffKey = 'normal';
     this.targets = new Map();
+    this.lastPos = new Map(); // id -> {x,y}
     this._onPointer = this._onPointer.bind(this);
   }
 
+  setDifficulty(k){ this.diffKey = k || 'normal'; }
+
   destroy(){
-    try { this.layer && this.layer.removeEventListener('pointerdown', this._onPointer); } catch {}
-    for (const [, el] of this.targets.entries()) { try{ el.remove(); }catch{} }
+    for (const [id, el] of this.targets.entries()) {
+      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+      try { el.remove(); } catch {}
+    }
     this.targets.clear();
+    this.lastPos.clear();
   }
 
-  bind(){
-    if (!this.layer) return;
-    this.layer.addEventListener('pointerdown', this._onPointer, { passive: true });
+  _safeAreaRect(){
+    const r = this.layer.getBoundingClientRect();
+    // keep margins away from HUD/meta (simple safe pad)
+    const pad = Math.min(42, Math.max(18, r.width * 0.04));
+    const top = pad + 10;
+    const left = pad + 10;
+    const right = r.width - pad - 10;
+    const bottom = r.height - pad - 10;
+    return { r, left, top, right, bottom };
   }
 
   _emojiForType(t, bossEmoji){
@@ -47,114 +60,72 @@ export class DomRendererShadow {
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const rect = this.layer.getBoundingClientRect();
-
-    // ---- SAFE spawn zone (avoid HUD/meta/bars) ----
-    const pad = Math.min(56, Math.max(16, rect.width * 0.045));
-    let safeL = pad;
-    let safeT = pad;
-    let safeR = rect.width - pad;
-    let safeB = rect.height - pad;
-
-    const wrap = this.wrapEl || document;
-
-    const hud = wrap.querySelector('.sb-hud-top');
-    const barsTop = wrap.querySelector('.sb-bars-top');
-    const barsBottom = wrap.querySelector('.sb-bars-bottom');
-    const meta = wrap.querySelector('.sb-meta');
-
-    const toLocal = (r2)=>({
-      left: r2.left - rect.left,
-      top: r2.top - rect.top,
-      right: r2.right - rect.left,
-      bottom: r2.bottom - rect.top
-    });
-
-    try{
-      let maxTop = safeT;
-      if (hud) {
-        const hr = toLocal(hud.getBoundingClientRect());
-        maxTop = Math.max(maxTop, hr.bottom + 10);
-      }
-      if (barsTop) {
-        const br = toLocal(barsTop.getBoundingClientRect());
-        maxTop = Math.max(maxTop, br.bottom + 8);
-      }
-      safeT = maxTop;
-    }catch(_){}
-
-    try{
-      if (barsBottom) {
-        const rr = toLocal(barsBottom.getBoundingClientRect());
-        safeB = Math.min(safeB, rr.top - 10);
-      }
-    }catch(_){}
-
-    try{
-      if (meta) {
-        const mr = toLocal(meta.getBoundingClientRect());
-        safeR = Math.min(safeR, mr.left - 10);
-      }
-    }catch(_){}
-
-    // ---- Target size ----
-    let size = clamp(Number(data.sizePx) || 120, 80, 240);
-    // Slightly larger targets on small screens for usability
-    if (window.innerWidth <= 520) size = clamp(size * 1.18, 90, 280);
-
-    // keep safe area sane vs size
-    safeR = Math.max(safeL + size + 10, safeR);
-    safeB = Math.max(safeT + size + 10, safeB);
-
-    let x = 0;
-    let y = 0;
-    // If engine provides xPct/yPct (0..1), use it for deterministic patterns.
-    if (Number.isFinite(Number(data.xPct)) && Number.isFinite(Number(data.yPct))) {
-      x = safeL + clamp(Number(data.xPct) || 0, 0, 1) * Math.max(0, (safeR - safeL - size));
-      y = safeT + clamp(Number(data.yPct) || 0, 0, 1) * Math.max(0, (safeB - safeT - size));
-    } else {
-      x = rand(safeL, safeR - size);
-      y = rand(safeT, safeB - size);
-    }
+    const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
-    el.style.width = Math.round(size) + 'px';
-    el.style.height = Math.round(size) + 'px';
+
+    const size = clamp(Number(data.sizePx) || 120, 70, 320);
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+
+    // random position
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
-    el.textContent = this._emojiForType(data.type, data.bossEmoji);
+    // remember center for FX
+    this.lastPos.set(data.id, { x: Math.round(x + size/2), y: Math.round(y + size/2) });
+
+    // content
+    const emoji = this._emojiForType(data.type, data.bossEmoji);
+    el.textContent = emoji;
+
+    el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(Number(data.id), el);
-  }
-
-  removeTarget(id){
-    const el = this.targets.get(Number(id));
-    if (!el) return;
-    try{ el.remove(); }catch{}
-    this.targets.delete(Number(id));
+    this.targets.set(data.id, el);
   }
 
   _onPointer(e){
-    if (!this.layer) return;
-
-    const x = e.clientX;
-    const y = e.clientY;
-
-    // find target at point
-    const el = document.elementFromPoint(x, y);
-    if (!el || !el.classList || !el.classList.contains('sb-target')) return;
-
+    const el = e.currentTarget;
+    if (!el) return;
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
-    if (this.onTargetHit) this.onTargetHit(id, { clientX: x, clientY: y });
+    // forward hit
+    if (this.onTargetHit) {
+      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
+    }
   }
 
-  playHitFx(x, y, info = {}){
+  removeTarget(id, reason){
+    const el = this.targets.get(id);
+    if (!el) return;
+
+    // update lastPos one last time
+    try{
+      const rect = el.getBoundingClientRect();
+      this.lastPos.set(id, { x: rect.left + rect.width/2, y: rect.top + rect.height/2 });
+    }catch{}
+
+    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+    try { el.remove(); } catch {}
+    this.targets.delete(id);
+    // NOTE: do NOT delete lastPos here (FX may still use it)
+  }
+
+  playHitFx(id, info = {}){
+    const el = this.targets.get(id);
+    const rect = el ? el.getBoundingClientRect() : null;
+
+    // prefer pointer coords, then rect center, then lastPos
+    const lp = this.lastPos.get(id);
+    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : (lp ? lp.x : window.innerWidth/2));
+    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : (lp ? lp.y : window.innerHeight/2));
+
     const grade = info.grade || 'good';
     const scoreDelta = Number(info.scoreDelta) || 0;
 
