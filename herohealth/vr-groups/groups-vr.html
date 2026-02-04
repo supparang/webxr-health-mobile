@@ -1,367 +1,492 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR RUN — PRODUCTION (HHA Standard)
-✅ lockPx tuned for mobile/cVR by diff (Easy/Normal/Hard)
-✅ Starts reliably (Tap/Click Start => GameEngine.start)
-✅ Loads: groups-vr.css, vr-ui.js, effects-pack.js, groups.safe.js
+GroupsVR Run — PRODUCTION (HHA Standard)
+✅ Root=launcher, run=folder friendly
+✅ LockPx tuned for Mobile/cVR (set BEFORE vr-ui.js)
+✅ Tap-to-start overlay (reliable user gesture)
+✅ Fatal overlay (prevents “stuck screen” with no info)
+✅ HUD/Quest/Power/Coach + BigBanner + End Summary
+✅ FX restored: listens to groups:hit (effects-pack.js)
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark light"/>
   <title>HeroHealth — Food Groups VR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 
-  <link rel="stylesheet" href="./groups-vr.css" />
+  <link rel="stylesheet" href="./groups-vr.css"/>
+
+  <style>
+    /* Minimal extras (safe) */
+    .hidden{ display:none !important; }
+    .tapOverlay .panel{ text-align:center; }
+    .tapOverlay .title{ font-size:20px; }
+    .tapOverlay .sub{ margin-top:6px; }
+    .tapPill{
+      display:inline-flex; align-items:center; justify-content:center;
+      border-radius:999px; padding:10px 14px;
+      background:rgba(15,23,42,.65); border:1px solid rgba(148,163,184,.22);
+      font-weight:1100; margin-top:12px;
+    }
+    .mini-urg{ color:rgba(245,158,11,.98); font-weight:1200; }
+  </style>
 
   <script>
+    // -------------------------
+    // Query helpers + view apply
+    // -------------------------
     (function(){
-      'use strict';
-      function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
-      const diff = String(qs('diff','normal')||'normal').toLowerCase();
-      const view = String(qs('view','')||'').toLowerCase(); // may be empty (auto)
+      const q = new URL(location.href).searchParams;
 
-      // If view not provided, do a light UA guess (kept simple & safe)
-      const ua = (navigator.userAgent||'').toLowerCase();
-      const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
+      function detectBaseView(){
+        // Respect explicit view if provided
+        const v = String(q.get('view')||'').toLowerCase();
+        if (v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
 
-      // decide effective view for lockPx tuning
-      const effectiveView = view || (isMobile ? 'mobile' : 'pc');
-
-      // lockPx table (what we agreed)
-      // mobile/cvr should be forgiving; pc smaller
-      const LOCK_TABLE = {
-        easy:   { mobile:52, cvr:52, vr:28, pc:16 },
-        normal: { mobile:48, cvr:48, vr:26, pc:14 },
-        hard:   { mobile:42, cvr:42, vr:24, pc:12 }
-      };
-
-      function viewKey(v){
-        v = String(v||'').toLowerCase();
-        if(v === 'cvr') return 'cvr';
-        if(v === 'vr')  return 'vr';
-        if(v === 'pc')  return 'pc';
-        return 'mobile';
+        // Auto detect
+        const coarse = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
+        const isMobileUA = /android|iphone|ipad|ipod/i.test(navigator.userAgent||'');
+        return (coarse || isMobileUA) ? 'mobile' : 'pc';
       }
 
-      const d = (LOCK_TABLE[diff] ? diff : 'normal');
-      const vkey = viewKey(effectiveView);
+      const view = detectBaseView();
 
-      // IMPORTANT: set BEFORE vr-ui.js loads
-      window.HHA_VRUI_CONFIG = Object.assign({}, window.HHA_VRUI_CONFIG || {}, {
-        lockPx: LOCK_TABLE[d][vkey],
-        cooldownMs: 90
+      // body class for CSS rails
+      document.addEventListener('DOMContentLoaded', ()=>{
+        document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+        document.body.classList.add('view-' + view);
       });
 
-      // Also set a body class hint early (optional; final view classes can be set later by helper)
-      // Do not force override; just add a baseline.
-      document.documentElement.classList.add('booted');
+      // -------------------------
+      // VR-UI lockPx tuning (IMPORTANT: BEFORE loading vr-ui.js)
+      // -------------------------
+      // "แบบสุด" สำหรับมือถือ/คาร์ดบอร์ด
+      let lockPx = 18;     // pc default
+      let cooldownMs = 80;
 
+      if (view === 'mobile'){ lockPx = 34; cooldownMs = 75; }
+      if (view === 'cvr')   { lockPx = 44; cooldownMs = 70; } // สุด
+
+      // Optional debug override: ?lock=40
+      const lockQ = Number(q.get('lock')||0);
+      if (lockQ > 0) lockPx = Math.max(6, Math.min(96, lockQ));
+
+      window.HHA_VRUI_CONFIG = { lockPx, cooldownMs };
+
+      // expose for UI debug
+      window.__GROUPS_VIEW__ = view;
+      window.__LOCKPX__ = lockPx;
     })();
   </script>
 
-  <!-- Universal VR UI (adds Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot) -->
-  <script defer src="../vr/vr-ui.js"></script>
+  <!-- Optional particles (used by EffectsPack if available) -->
+  <script src="../vr/particles.js?v=1" defer></script>
 
-  <!-- Optional particles (if you use it) -->
-  <!-- <script defer src="../vr/particles.js"></script> -->
+  <!-- Effects Pack (listens groups:hit) -->
+  <script src="./effects-pack.js?v=1" defer></script>
 
-  <!-- FX pack (listens groups:hit) -->
-  <script defer src="./effects-pack.js"></script>
+  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
+  <script src="../vr/vr-ui.js?v=1" defer></script>
 
-  <!-- Engine -->
-  <script defer src="./groups.safe.js"></script>
+  <!-- Engine (IIFE) -->
+  <script src="./groups.safe.js?v=1" defer></script>
 </head>
 
-<body class="view-mobile">
-  <!-- XR scene (optional, can be kept minimal if you already have it in your old run file)
-       If you already use A-Frame in your project, you can re-add it here.
-  -->
-  <div class="xr-scene" aria-hidden="true"></div>
+<body>
+  <!-- XR Scene behind DOM (kept pointer-events:none by CSS) -->
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled:false" renderer="colorManagement:true" background="color:#000">
+    <a-entity camera position="0 1.6 0"></a-entity>
+  </a-scene>
 
-  <!-- HUD -->
+  <!-- ===== HUD TOP ===== -->
   <header class="hud">
     <div class="hudLeft">
-      <div class="pill"><span class="lbl">เวลา</span><span class="val" id="hudTime">90</span></div>
-      <div class="pill"><span class="lbl">คะแนน</span><span class="val" id="hudScore">0</span></div>
-      <div class="pill"><span class="lbl">คอมโบ</span><span class="val" id="hudCombo">0</span></div>
-      <div class="pill"><span class="lbl">MISS</span><span class="val" id="hudMiss">0</span></div>
+      <div class="pill"><span class="lbl">SCORE</span><span id="hudScore" class="val">0</span></div>
+      <div class="pill"><span class="lbl">COMBO</span><span id="hudCombo" class="val">0</span></div>
+      <div class="pill"><span class="lbl">MISS</span><span id="hudMiss" class="val">0</span></div>
     </div>
     <div class="hudRight">
-      <div class="pill"><span class="lbl">ACC</span><span class="val" id="hudAcc">0%</span></div>
-      <div class="pill"><span class="lbl">RANK</span><span class="val" id="hudRank">D</span></div>
+      <div class="pill"><span class="lbl">TIME</span><span id="hudTime" class="val">90</span></div>
+      <div class="pill"><span class="lbl">ACC</span><span id="hudAcc" class="val">0%</span></div>
+      <div class="pill"><span class="lbl">RANK</span><span id="hudRank" class="val">-</span></div>
     </div>
   </header>
 
-  <!-- Quest -->
+  <!-- ===== QUEST TOP MID ===== -->
   <section class="questTop">
+    <!-- GOAL -->
     <div class="questCard">
       <div class="qTitle">
-        <span id="goalTitle">ยิงให้ถูก: หมู่ 1 โปรตีน</span>
-        <span class="tag" id="groupTag">g1</span>
+        <div id="goalTitle">ยิงให้ถูก: หมู่ 1 โปรตีน</div>
+        <div id="goalTag" class="tag">หมู่</div>
       </div>
-      <div class="bar"><div class="fill" id="goalFill"></div></div>
-      <div class="qSub" id="goalSub">0 / 12</div>
+      <div class="bar"><div id="goalFill" class="fill"></div></div>
+      <div id="goalSub" class="qSub">0/12</div>
     </div>
 
+    <!-- MINI -->
     <div class="questCard">
       <div class="qTitle">
-        <span id="miniTitle">MINI: คอมโบติดกัน 5 ครั้ง</span>
-        <span class="tag" id="miniTag">10s</span>
+        <div id="miniTitle">MINI: คอมโบติดกัน 5 ครั้ง</div>
+        <div id="miniTag" class="tag">MINI</div>
       </div>
-      <div class="bar"><div class="fill" id="miniFill"></div></div>
-      <div class="qSub" id="miniSub">0 / 5</div>
+      <div class="bar"><div id="miniFill" class="fill"></div></div>
+      <div id="miniSub" class="qSub">0/5</div>
     </div>
   </section>
 
-  <!-- Big banner -->
-  <div class="bigBanner hidden" id="bigBanner">
-    <div class="bigBannerText" id="bigBannerText">พร้อม!</div>
+  <!-- ===== BIG BANNER ===== -->
+  <div id="bigBanner" class="bigBanner hidden">
+    <div id="bigBannerText" class="bigBannerText">—</div>
   </div>
 
-  <!-- Play layer -->
-  <main class="playLayer" id="playLayer" aria-label="play layer"></main>
+  <!-- ===== PLAY LAYER (engine spawns targets here) ===== -->
+  <main id="playLayer" class="playLayer" aria-label="play area"></main>
 
-  <!-- Power -->
+  <!-- ===== POWER ===== -->
   <section class="powerWrap">
     <div class="powerCard">
-      <div class="pHead">พลังสลับหมู่</div>
-      <div class="bar powerBar"><div class="fill" id="powerFill"></div></div>
-      <div class="pFoot" id="powerText">0 / 8</div>
+      <div class="pHead">POWER (ครบแล้วสลับหมู่)</div>
+      <div class="bar powerBar"><div id="powerFill" class="fill"></div></div>
+      <div id="powerSub" class="pFoot">0/8</div>
     </div>
   </section>
 
-  <!-- Coach -->
+  <!-- ===== COACH ===== -->
   <section class="coachWrap">
     <div class="coachCard">
-      <img class="coachImg" src="../img/coach-neutral.png" alt="coach" id="coachImg">
+      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach"/>
       <div class="coachBubble">
-        <div class="coachName">Hero Coach</div>
-        <div class="coachText" id="coachText">กดเริ่ม แล้วลุยเลย!</div>
+        <div class="coachName">HeroHealth Coach</div>
+        <div id="coachText" class="coachText">แตะ “เริ่มเล่น” ก่อนนะ 🎯</div>
       </div>
     </div>
   </section>
 
-  <!-- Start overlay (สำคัญมาก กัน “กดเริ่มแล้วค้างหน้าเดิม”) -->
-  <section class="overlay" id="startOverlay">
+  <!-- ===== TAP TO START overlay (reliable) ===== -->
+  <section id="tapOverlay" class="overlay tapOverlay">
     <div class="panel">
-      <div class="title" id="ovTitle">พร้อมเล่น Food Groups VR</div>
-      <div class="sub" id="ovSub">
-        เลือกระดับจาก Launcher แล้วจะมาที่นี่อัตโนมัติ<br/>
-        มือถือแนะนำ: เล็งกลางจอแล้วแตะยิง (มี Aim Assist)
+      <div class="title">Food Groups VR</div>
+      <div class="sub">
+        โหมด: <b id="tapMode">play</b> · ระดับ: <b id="tapDiff">normal</b> · เวลา: <b id="tapTime">90</b>s<br/>
+        View: <b id="tapView">mobile</b> · lockPx: <b id="tapLock">34</b>
       </div>
 
-      <div class="grid2">
-        <div class="stat">
-          <div class="k">ระดับ</div>
-          <div class="v" id="ovDiff">normal</div>
-        </div>
-        <div class="stat">
-          <div class="k">เวลา</div>
-          <div class="v"><span id="ovTime">90</span> วิ</div>
-        </div>
+      <div class="tapPill">แตะเพื่อเริ่ม (Tap-to-start)</div>
+
+      <div class="grid2" style="margin-top:14px">
+        <button id="btnStart" class="btn btn-strong">เริ่มเล่น</button>
+        <button id="btnBackHub" class="btn btn-ghost">กลับ HUB</button>
       </div>
 
-      <div class="row2" style="margin-top:12px;">
-        <button class="btn btn-strong" id="btnStart">เริ่มเล่น</button>
-        <button class="btn btn-ghost" id="btnBackHub">กลับ HUB</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        Normal 90s KPI แนะนำ: Miss ≤ 20 (ดีมากถ้า ≤ 15)
+      <div class="note" style="margin-top:10px">
+        ถ้า “กดเริ่มแล้วค้าง” ระบบจะโชว์เหตุผลที่อ่านได้ (Fatal Overlay) ให้ทันที ✅
       </div>
     </div>
   </section>
 
-  <!-- End overlay -->
-  <section class="overlay hidden" id="endOverlay">
+  <!-- ===== END overlay ===== -->
+  <section id="endOverlay" class="overlay hidden">
     <div class="panel">
       <div class="title">สรุปผล</div>
       <div class="sub" id="endSub">—</div>
 
       <div class="grid2">
-        <div class="stat"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
-        <div class="stat"><div class="k">ACC</div><div class="v" id="endAcc">0%</div></div>
-        <div class="stat"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
-        <div class="stat"><div class="k">RANK</div><div class="v" id="endRank">D</div></div>
+        <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
+        <div class="stat"><div class="k">Rank</div><div id="endRank" class="v">-</div></div>
+        <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
+        <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
       </div>
 
-      <div class="row2" style="margin-top:12px;">
-        <button class="btn btn-strong" id="btnReplay">เล่นอีกครั้ง</button>
-        <button class="btn btn-ghost" id="btnHub2">กลับ HUB</button>
+      <div class="row2" style="margin-top:12px">
+        <button id="btnReplay" class="btn btn-strong">เล่นอีกครั้ง</button>
+        <button id="btnHub2" class="btn btn-ghost">กลับ HUB</button>
+      </div>
+
+      <div class="note" style="margin-top:10px" id="endNote">—</div>
+    </div>
+  </section>
+
+  <!-- ===== FATAL overlay (prevents silent stuck) ===== -->
+  <section id="fatalOverlay" class="overlay hidden">
+    <div class="panel">
+      <div class="title">เกิดข้อผิดพลาด</div>
+      <div class="sub" id="fatalMsg">—</div>
+      <div class="row2" style="margin-top:12px">
+        <button class="btn btn-strong" onclick="location.reload()">รีโหลด</button>
+        <button class="btn btn-ghost" id="btnHubFatal">กลับ HUB</button>
+      </div>
+      <div class="note" style="margin-top:10px">
+        ทิป: เปิด DevTools/Console จะเห็น error แบบเต็ม ๆ (ถ้ามี) แต่ตอนนี้อย่างน้อยไม่ค้างนิ่งแล้ว ✅
       </div>
     </div>
   </section>
 
   <script>
     (function(){
-      'use strict';
+      const DOC = document;
+      const WIN = window;
 
-      const WIN = window, DOC = document;
-      const $ = (id)=>DOC.getElementById(id);
-
+      // ---------- helpers ----------
       function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
-      function num(v, d=0){ v = Number(v); return Number.isFinite(v) ? v : d; }
+      function show(el){ el && el.classList.remove('hidden'); }
+      function hide(el){ el && el.classList.add('hidden'); }
+      function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
 
-      const hub = String(qs('hub','')||'');
-      const diff = String(qs('diff','normal')||'normal').toLowerCase();
-      const time = num(qs('time', diff==='easy'?60:diff==='hard'?120:90), 90);
+      const tapOverlay = DOC.getElementById('tapOverlay');
+      const endOverlay = DOC.getElementById('endOverlay');
+      const fatalOverlay = DOC.getElementById('fatalOverlay');
 
-      // show overlay info
-      $('ovDiff').textContent = diff;
-      $('ovTime').textContent = String(time);
+      const hudScore = DOC.getElementById('hudScore');
+      const hudCombo = DOC.getElementById('hudCombo');
+      const hudMiss  = DOC.getElementById('hudMiss');
+      const hudTime  = DOC.getElementById('hudTime');
+      const hudAcc   = DOC.getElementById('hudAcc');
+      const hudRank  = DOC.getElementById('hudRank');
 
-      function setBanner(text, tone){
-        const box = $('bigBanner');
-        const t = $('bigBannerText');
-        if(!box || !t) return;
+      const goalTitle= DOC.getElementById('goalTitle');
+      const goalTag  = DOC.getElementById('goalTag');
+      const goalFill = DOC.getElementById('goalFill');
+      const goalSub  = DOC.getElementById('goalSub');
 
-        box.classList.remove('hidden');
-        box.classList.remove('tone-neutral','tone-good','tone-warn','tone-bad');
-        box.classList.add('show');
-        box.classList.add(tone ? ('tone-' + tone) : 'tone-neutral');
-        t.textContent = text;
+      const miniTitle= DOC.getElementById('miniTitle');
+      const miniFill = DOC.getElementById('miniFill');
+      const miniSub  = DOC.getElementById('miniSub');
 
-        setTimeout(()=>{
-          box.classList.remove('show');
-        }, 800);
+      const powerFill= DOC.getElementById('powerFill');
+      const powerSub = DOC.getElementById('powerSub');
 
-        setTimeout(()=>{
-          box.classList.add('hidden');
-        }, 1100);
+      const coachImg = DOC.getElementById('coachImg');
+      const coachText= DOC.getElementById('coachText');
+
+      const bigBanner= DOC.getElementById('bigBanner');
+      const bigBannerText= DOC.getElementById('bigBannerText');
+
+      let lastSummary = null;
+      let started = false;
+
+      function hubUrl(){
+        const h = String(qs('hub','')||'');
+        return h || '../hub.html';
       }
-
-      function setCoach(text, mood){
-        $('coachText').textContent = text || '';
-        const img = $('coachImg');
-        if(!img) return;
-        // safe: use your known file names
-        if(mood === 'happy') img.src = '../img/coach-happy.png';
-        else if(mood === 'sad') img.src = '../img/coach-sad.png';
-        else if(mood === 'fever') img.src = '../img/coach-fever.png';
-        else img.src = '../img/coach-neutral.png';
-      }
-
-      function applyViewClass(){
-        // if you already have a better view helper, keep it — this is safe fallback
-        const v = String(qs('view','')||'').toLowerCase();
-        const ua = (navigator.userAgent||'').toLowerCase();
-        const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
-        const view = v || (isMobile ? 'mobile' : 'pc');
-
-        DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-        DOC.body.classList.add('view-' + (view==='cvr'?'cvr':view==='vr'?'vr':view==='pc'?'pc':'mobile'));
-      }
-
-      function startGame(){
-        applyViewClass();
-
-        const playLayer = $('playLayer');
-        try{
-          if (WIN.GroupsVR && WIN.GroupsVR.GameEngine && WIN.GroupsVR.GameEngine.setLayerEl) {
-            WIN.GroupsVR.GameEngine.setLayerEl(playLayer);
-          }
-        }catch(_){}
-
-        // hide overlay then start
-        $('startOverlay').classList.add('hidden');
-
-        setBanner('เริ่ม!', 'good');
-        setCoach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
-
-        // start engine
-        try{
-          WIN.GroupsVR.GameEngine.start(diff, { time: time, runMode: String(qs('run','play')||'play'), seed: qs('seed','')||'' });
-        }catch(e){
-          $('startOverlay').classList.remove('hidden');
-          $('ovTitle').textContent = 'เริ่มเกมไม่สำเร็จ';
-          $('ovSub').textContent = String(e && e.message ? e.message : e);
-        }
-      }
-
-      // buttons
-      $('btnStart').addEventListener('click', startGame, { passive:true });
 
       function goHub(){
-        if(hub){ location.href = hub; return; }
-        // fallback: go to /herohealth/hub.html if exists
-        location.href = '../hub.html';
+        location.href = hubUrl();
       }
-      $('btnBackHub').addEventListener('click', goHub, { passive:true });
-      $('btnHub2').addEventListener('click', goHub, { passive:true });
 
-      $('btnReplay').addEventListener('click', ()=>{
-        $('endOverlay').classList.add('hidden');
-        // restart with same params
-        startGame();
-      }, { passive:true });
+      function showFatal(msg){
+        DOC.getElementById('fatalMsg').textContent = String(msg||'Unknown error');
+        hide(tapOverlay);
+        hide(endOverlay);
+        show(fatalOverlay);
+      }
 
-      // HUD wiring
-      WIN.addEventListener('hha:time', (ev)=>{
-        const left = (ev && ev.detail) ? ev.detail.left : time;
-        $('hudTime').textContent = String(left|0);
-      }, { passive:true });
+      function setCoach(mood, text){
+        const m = String(mood||'neutral').toLowerCase();
+        const img =
+          (m === 'happy') ? '../img/coach-happy.png' :
+          (m === 'sad')   ? '../img/coach-sad.png' :
+          (m === 'fever') ? '../img/coach-fever.png' :
+                            '../img/coach-neutral.png';
+        coachImg.src = img;
+        coachText.textContent = String(text||'');
+      }
 
+      // Big banner helper
+      let bannerTimer = 0;
+      function banner(text, tone){
+        bigBannerText.textContent = String(text||'');
+        bigBanner.classList.remove('hidden','show','tone-neutral','tone-good','tone-warn','tone-bad');
+        bigBanner.classList.add('show', 'tone-' + (tone||'neutral'));
+        clearTimeout(bannerTimer);
+        bannerTimer = setTimeout(()=>{
+          bigBanner.classList.remove('show');
+          setTimeout(()=> bigBanner.classList.add('hidden'), 160);
+        }, 950);
+      }
+
+      // ---------- event wiring ----------
       WIN.addEventListener('hha:score', (ev)=>{
         const d = (ev && ev.detail) ? ev.detail : {};
-        $('hudScore').textContent = String(d.score|0);
-        $('hudCombo').textContent = String(d.combo|0);
-        $('hudMiss').textContent = String(d.misses|0);
+        hudScore.textContent = String(d.score ?? 0);
+        hudCombo.textContent = String(d.combo ?? 0);
+        hudMiss.textContent  = String(d.misses ?? 0);
+      }, { passive:true });
+
+      WIN.addEventListener('hha:time', (ev)=>{
+        const d = (ev && ev.detail) ? ev.detail : {};
+        hudTime.textContent = String(d.left ?? 0);
       }, { passive:true });
 
       WIN.addEventListener('hha:rank', (ev)=>{
         const d = (ev && ev.detail) ? ev.detail : {};
-        $('hudAcc').textContent = String(d.accuracy|0) + '%';
-        $('hudRank').textContent = String(d.grade||'D');
+        hudAcc.textContent  = String((d.accuracy ?? 0)) + '%';
+        hudRank.textContent = String(d.grade ?? '-');
       }, { passive:true });
 
       WIN.addEventListener('quest:update', (ev)=>{
         const d = (ev && ev.detail) ? ev.detail : {};
+        goalTitle.textContent = String(d.goalTitle || 'ยิงให้ถูก');
+        goalTag.textContent   = String(d.groupName || 'หมู่');
+        goalFill.style.width  = clamp(d.goalPct ?? 0, 0, 100) + '%';
+        goalSub.textContent   = `${d.goalNow ?? 0}/${d.goalTotal ?? 0}`;
 
-        $('goalTitle').textContent = d.goalTitle || '';
-        $('groupTag').textContent = d.groupKey || '';
-        $('goalSub').textContent = `${d.goalNow||0} / ${d.goalTotal||0}`;
-        $('goalFill').style.width = String(d.goalPct||0) + '%';
+        miniTitle.textContent = String(d.miniTitle || 'MINI');
+        miniFill.style.width  = clamp(d.miniPct ?? 0, 0, 100) + '%';
 
-        $('miniTitle').textContent = d.miniTitle || '';
-        $('miniSub').textContent = `${d.miniNow||0} / ${d.miniTotal||0}`;
-        $('miniFill').style.width = String(d.miniPct||0) + '%';
-
-        const tl = d.miniTimeLeftSec|0;
-        $('miniTag').textContent = tl ? (tl + 's') : '—';
-        if(tl && tl <= 3) DOC.body.classList.add('mini-urgent');
-        else DOC.body.classList.remove('mini-urgent');
+        const left = Number(d.miniTimeLeftSec||0);
+        if (left > 0){
+          miniSub.innerHTML = `${d.miniNow ?? 0}/${d.miniTotal ?? 0} <span class="mini-urg">· ${left}s</span>`;
+          if (left <= 3) DOC.body.classList.add('mini-urgent');
+          else DOC.body.classList.remove('mini-urgent');
+        }else{
+          DOC.body.classList.remove('mini-urgent');
+          miniSub.textContent = `${d.miniNow ?? 0}/${d.miniTotal ?? 0}`;
+        }
       }, { passive:true });
 
       WIN.addEventListener('groups:power', (ev)=>{
         const d = (ev && ev.detail) ? ev.detail : {};
-        const c = (d.charge|0), th = Math.max(1, d.threshold|0);
-        const pct = Math.round((c/th)*100);
-        $('powerFill').style.width = pct + '%';
-        $('powerText').textContent = `${c} / ${th}`;
+        const c = Number(d.charge||0), thr = Math.max(1, Number(d.threshold||8));
+        powerFill.style.width = clamp((c/thr)*100, 0, 100) + '%';
+        powerSub.textContent = `${c}/${thr}`;
       }, { passive:true });
 
       WIN.addEventListener('hha:coach', (ev)=>{
         const d = (ev && ev.detail) ? ev.detail : {};
-        setCoach(d.text||'', d.mood||'neutral');
+        setCoach(d.mood||'neutral', d.text||'');
       }, { passive:true });
 
-      // END
-      WIN.addEventListener('hha:end', (ev)=>{
+      // Optional progress banners (storm/boss/switch)
+      WIN.addEventListener('groups:progress', (ev)=>{
         const d = (ev && ev.detail) ? ev.detail : {};
-        $('endScore').textContent = String(d.scoreFinal|0);
-        $('endAcc').textContent = String(d.accuracyGoodPct|0) + '%';
-        $('endMiss').textContent = String(d.misses|0);
-        $('endRank').textContent = String(d.grade||'D');
-        $('endSub').textContent = `diff:${d.diff||diff} time:${d.time||time}s seed:${d.seed||''}`;
-
-        $('endOverlay').classList.remove('hidden');
+        const k = String(d.kind||'');
+        if (k === 'storm_on') banner('พายุมาแล้ว! 🌪️', 'warn');
+        else if (k === 'storm_off') banner('พายุจบ! ✨', 'good');
+        else if (k === 'boss_spawn') banner('บอสมา! 👊', 'warn');
+        else if (k === 'boss_down') banner('บอสแตก! 💥', 'good');
+        else if (k === 'perfect_switch') banner('สลับหมู่! 🎯', 'neutral');
       }, { passive:true });
 
-      // initial text
-      $('hudTime').textContent = String(time|0);
+      WIN.addEventListener('hha:end', (ev)=>{
+        lastSummary = (ev && ev.detail) ? ev.detail : null;
 
+        // show end overlay
+        const s = lastSummary || {};
+        DOC.getElementById('endScore').textContent = String(s.scoreFinal ?? 0);
+        DOC.getElementById('endRank').textContent  = String(s.grade ?? '-');
+        DOC.getElementById('endAcc').textContent   = String(s.accuracyGoodPct ?? 0) + '%';
+        DOC.getElementById('endMiss').textContent  = String(s.misses ?? 0);
+
+        DOC.getElementById('endSub').textContent =
+          `โหมด ${s.runMode||'play'} · ระดับ ${s.diff||'normal'} · view ${s.view||''} · seed ${s.seed||''}`;
+
+        DOC.getElementById('endNote').textContent =
+          `Tip: ถ้า MISS เยอะ ให้เพิ่ม lockPx (ทดสอบด้วย ?lock=48) หรือเน้นยิง “เป้าที่เป็นหมู่ปัจจุบัน” ให้ชัวร์`;
+
+        show(endOverlay);
+      }, { passive:true });
+
+      // ---------- boot logic ----------
+      function bootEngine(){
+        try{
+          if (!WIN.GroupsVR || !WIN.GroupsVR.GameEngine || typeof WIN.GroupsVR.GameEngine.start !== 'function'){
+            throw new Error('GroupsVR.GameEngine ยังไม่พร้อม (เช็คว่า groups.safe.js โหลดสำเร็จไหม)');
+          }
+
+          const diff = String(qs('diff','normal')||'normal').toLowerCase();
+          const ctx = {
+            runMode: String(qs('run','play')||'play').toLowerCase(),
+            seed: qs('seed','') || '',
+            time: Number(qs('time',90)||90)
+          };
+
+          // Ensure playLayer is the target layer
+          const playLayer = DOC.getElementById('playLayer');
+          WIN.GroupsVR.GameEngine.setLayerEl(playLayer);
+
+          const ok = WIN.GroupsVR.GameEngine.start(diff, ctx);
+          if (!ok) throw new Error('GameEngine.start() คืนค่าไม่สำเร็จ');
+
+          // Flush harden (optional)
+          if (WIN.GroupsVR.bindFlushOnLeave){
+            WIN.GroupsVR.bindFlushOnLeave(()=>lastSummary);
+          }
+
+          started = true;
+          hide(tapOverlay);
+          hide(fatalOverlay);
+          hide(endOverlay);
+
+          // tiny coach hint
+          setCoach('neutral', 'เริ่มแล้ว! เล็งกลางจอแล้วค่อยยิง 🎯');
+          return true;
+        }catch(e){
+          showFatal(e && e.message ? e.message : String(e));
+          return false;
+        }
+      }
+
+      function stopEngine(){
+        try{
+          WIN.GroupsVR && WIN.GroupsVR.GameEngine && WIN.GroupsVR.GameEngine.stop && WIN.GroupsVR.GameEngine.stop();
+        }catch(_){}
+      }
+
+      // ---------- buttons ----------
+      DOC.getElementById('btnStart').addEventListener('click', ()=>{
+        // wait a tick to ensure deferred scripts are parsed
+        setTimeout(bootEngine, 0);
+      });
+
+      DOC.getElementById('btnBackHub').addEventListener('click', goHub);
+      DOC.getElementById('btnHub2').addEventListener('click', goHub);
+      DOC.getElementById('btnHubFatal').addEventListener('click', goHub);
+
+      DOC.getElementById('btnReplay').addEventListener('click', ()=>{
+        hide(endOverlay);
+        stopEngine();
+        setTimeout(()=> bootEngine(), 50);
+      });
+
+      // Tap overlay summary
+      function fillTapInfo(){
+        const view = (WIN.__GROUPS_VIEW__ || '').toString();
+        DOC.getElementById('tapView').textContent = view || 'mobile';
+        DOC.getElementById('tapLock').textContent = String(WIN.__LOCKPX__ ?? '');
+        DOC.getElementById('tapMode').textContent = String(qs('run','play')||'play');
+        DOC.getElementById('tapDiff').textContent = String(qs('diff','normal')||'normal');
+        DOC.getElementById('tapTime').textContent = String(qs('time',90)||90);
+      }
+
+      // Auto: show overlay, but also allow autostart if ?autostart=1
+      DOC.addEventListener('DOMContentLoaded', ()=>{
+        fillTapInfo();
+        setCoach('neutral', 'แตะ “เริ่มเล่น” เพื่อให้ระบบยิง/เสียง/เอฟเฟกต์ทำงานเต็มที่ ✅');
+
+        const auto = String(qs('autostart','0')||'0') === '1';
+        if (auto){
+          // give time for defer scripts to load
+          setTimeout(()=> bootEngine(), 120);
+        }else{
+          show(tapOverlay);
+        }
+      });
+
+      // Catch global errors => show fatal (prevents silent stuck)
+      WIN.addEventListener('error', (e)=>{
+        if (started) return;
+        const msg = (e && e.message) ? e.message : 'Unknown JS error';
+        showFatal(msg);
+      });
+
+      WIN.addEventListener('unhandledrejection', (e)=>{
+        if (started) return;
+        const msg = (e && e.reason) ? (e.reason.message || String(e.reason)) : 'Unhandled promise rejection';
+        showFatal(msg);
+      });
     })();
   </script>
 </body>
