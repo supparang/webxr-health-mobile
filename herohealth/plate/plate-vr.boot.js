@@ -1,13 +1,12 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HARDENED + MISS BREAKDOWN)
+// PlateVR Boot — PRODUCTION (HARDENED)
 // ✅ Auto view detect (no UI override)
 // ✅ Boots engine from ./plate.safe.js
 // ✅ Wires HUD (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
+// ✅ End overlay: aria-hidden only + shows Miss breakdown + grade
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
-// ✅ HARDEN: guard against "start button freeze" + robust mount check + visible error
-// ✅ NEW: Miss breakdown (shot/junk/timeout) from hha:judge stream
+// ✅ HARDEN: guard against "start freeze" + robust mount check + visible error
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -26,6 +25,7 @@ function isMobile(){
 }
 
 function getViewAuto(){
+  // No menu override. Allow query param for experiments.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -74,33 +74,6 @@ function showCoach(msg, meta='Coach'){
   }, 2400);
 }
 
-/* ------------------------------------------------
- * Miss breakdown state (per run)
- * ------------------------------------------------ */
-const MISS = {
-  shot: 0,     // ยิงแล้วไม่โดน (requires judge kind:'shot_miss')
-  junk: 0,     // กดโดน junk
-  timeout: 0,  // good หมดเวลา (expire)
-};
-
-function resetMiss(){
-  MISS.shot = 0;
-  MISS.junk = 0;
-  MISS.timeout = 0;
-}
-
-function updateMissUI(){
-  const elShot = DOC.getElementById('kMissShot');
-  const elJunk = DOC.getElementById('kMissJunk');
-  const elTime = DOC.getElementById('kMissTimeout');
-  if(elShot) elShot.textContent = String(MISS.shot|0);
-  if(elJunk) elJunk.textContent = String(MISS.junk|0);
-  if(elTime) elTime.textContent = String(MISS.timeout|0);
-}
-
-/* ------------------------------------------------
- * HUD wiring
- * ------------------------------------------------ */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -154,22 +127,6 @@ function wireHUD(){
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
-
-  // ✅ Judge stream → breakdown
-  WIN.addEventListener('hha:judge', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind || '').toLowerCase();
-    if(kind === 'shot_miss'){
-      MISS.shot++;
-    }else if(kind === 'junk'){
-      MISS.junk++;
-    }else if(kind === 'expire_good'){
-      MISS.timeout++;
-    }else{
-      return;
-    }
-    updateMissUI();
-  });
 }
 
 function wireEndControls(){
@@ -192,37 +149,45 @@ function wireEndControls(){
 
 function wireEndSummary(){
   const kScore = DOC.getElementById('kScore');
-  const kRank  = DOC.getElementById('kRank');
   const kAcc   = DOC.getElementById('kAcc');
   const kCombo = DOC.getElementById('kCombo');
   const kGoals = DOC.getElementById('kGoals');
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
+  // ✅ NEW
+  const kMissJunk   = DOC.getElementById('kMissJunk');
+  const kMissExpire = DOC.getElementById('kMissExpire');
+  const kGrade      = DOC.getElementById('kGrade');
+
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
 
-    // score / combo
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
 
-    // rank/grade
-    if(kRank)  kRank.textContent  = String(d.grade ?? '—');
+    // total miss (standard key = miss)
+    const missTotal = (d.miss ?? d.misses ?? 0);
+    if(kMiss) kMiss.textContent = String(missTotal);
 
-    // accuracy
+    // accuracy (standard key = accuracyPct)
     const acc = (d.accuracyPct ?? d.accuracyGoodPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
-    // quests
+    // goals/minis
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    // miss total (new key: miss)
-    const missTotal = (d.miss ?? d.misses ?? d.missCount ?? 0);
-    if(kMiss) kMiss.textContent = String(missTotal);
+    // ✅ Miss breakdown
+    const missJunk = (d.hitJunk ?? d.missJunk ?? null);
+    const missExpire = (d.expireGood ?? d.missExpireGood ?? null);
 
-    // ensure breakdown is visible at end too
-    updateMissUI();
+    // หาก safe ยังไม่ส่งสองค่านี้ ก็ fallback ให้เป็น —
+    if(kMissJunk)   kMissJunk.textContent   = (missJunk==null) ? '—' : String(missJunk);
+    if(kMissExpire) kMissExpire.textContent = (missExpire==null) ? '—' : String(missExpire);
+
+    // ✅ grade
+    if(kGrade) kGrade.textContent = String(d.grade ?? '—');
 
     setOverlayOpen(true);
   });
@@ -265,15 +230,11 @@ function ready(fn){
 }
 
 ready(()=>{
-  // reset breakdown per load
-  resetMiss();
-  updateMissUI();
-
   // 1) init view
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
-  // 2) wire UI first (so errors are visible)
+  // 2) wire UI first
   wireHUD();
   wireEndControls();
   wireEndSummary();
@@ -289,7 +250,7 @@ ready(()=>{
     return;
   }
 
-  // 5) boot engine (microtask yield helps some browsers)
+  // 5) boot engine (harden)
   try{
     Promise.resolve().then(()=>{
       engineBoot({ mount, cfg });
