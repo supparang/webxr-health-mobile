@@ -1,9 +1,9 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-✅ HUD safe zones (top/bottom) for spawn logic
-✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
-✅ Targets: uses --x (vw%), --y (vh%), --s scale
-✅ Quiz: 4 big buttons (opt1..opt4) + cVR aim friendly
+PATCH v20260204b
+✅ add fast "hit vanish" animation class (.is-hit)
+✅ reduce ghost-click by disabling pointer events on hit
+✅ keep targets snappy on mobile
 */
 
 :root{
@@ -112,7 +112,7 @@ button{ font: inherit; }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
 .hw-pill.btn{
-  pointer-events: auto; /* ✅ allow click */
+  pointer-events: auto;
   cursor: pointer;
   background: rgba(15,23,42,.70);
 }
@@ -217,7 +217,7 @@ button{ font: inherit; }
 
 /* ===== Targets ===== */
 .hw-tgt{
-  position: fixed; /* ✅ place in viewport so obj.x/y align */
+  position: fixed;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -236,6 +236,8 @@ button{ font: inherit; }
   -webkit-tap-highlight-color: transparent;
   z-index: 10;
   animation: hwPopIn 180ms ease-out both;
+  touch-action: manipulation;
+  will-change: transform, opacity, filter;
 }
 
 .hw-tgt .emoji{
@@ -259,6 +261,16 @@ button{ font: inherit; }
 
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
+}
+
+/* ✅ new: vanish instantly but smooth (if JS adds .is-hit, optional) */
+.hw-tgt.is-hit{
+  pointer-events: none !important;
+  animation: hwVanish 90ms ease-out both;
+}
+@keyframes hwVanish{
+  from{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1.05); }
+  to  { opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .86)); filter: blur(1px); }
 }
 
 /* subtle float */
@@ -291,60 +303,6 @@ button{ font: inherit; }
   line-height: 1.35;
 }
 
-.hw-quiz-opts{
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.hw-quiz-opt{
-  pointer-events: auto;
-  width: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.94);
-  padding: 12px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  box-shadow: 0 16px 50px rgba(0,0,0,.35);
-  min-height: 54px;
-}
-
-.hw-quiz-opt .n{
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-weight: 950;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.45);
-}
-
-.hw-quiz-opt .t{
-  font-weight: 900;
-  font-size: 13px;
-  line-height: 1.25;
-  text-align: left;
-}
-
-.hw-quiz-opt:hover{ filter: brightness(1.05); }
-.hw-quiz-opt:active{ transform: translateY(1px); }
-
-/* optional states (if you add class later) */
-.hw-quiz-opt.is-right{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
-.hw-quiz-opt.is-wrong{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
-
-.hw-quiz-hint{
-  margin-top: 10px;
-  font-size: 11px;
-  color: rgba(148,163,184,.92);
-}
-
 /* ===== View tweaks ===== */
 body.view-mobile{
   --hw-top-safe: 180px;
@@ -354,21 +312,17 @@ body.view-mobile{
 }
 
 body.view-cvr{
-  /* cVR: HUD มักกินพื้นที่มาก ให้ปล่อยพื้นที่เล่นเพิ่ม */
   --hw-top-safe: 160px;
   --hw-bottom-safe: 240px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
 }
 
-/* VR: ลด HUD และขยายปุ่ม */
 body.view-vr{
   --hw-top-safe: 150px;
   --hw-bottom-safe: 210px;
 }
 
-/* Quiz on small screens => 1 column */
 @media (max-width: 520px){
-  .hw-quiz-opts{ grid-template-columns: 1fr; }
   .hw-banner{ top: calc(130px + var(--sat)); }
 }
