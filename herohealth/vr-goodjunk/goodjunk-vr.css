@@ -1,9 +1,10 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR (PRODUCTION) — PLAYABLE LAYOUT (HUD-SAFE)
-✅ Fix: targets spawn into true SAFE play-area (fixed layers)
-✅ Fix: HUD compact + auto-hide HOWTO on small height
-✅ Supports: PC / Mobile / VR / cVR split
-Targets: /herohealth/vr-goodjunk/goodjunk-vr.html
+GoodJunkVR (PRODUCTION) — PLAYABLE LAYOUT (FINAL)
+✅ Fix: targets not offset (layer is FIXED play-area)
+✅ Fix: HUD not blocking playfield (pointer-events none)
+✅ Fix: small screens compact + small-height ultra-compact
+✅ Supports: pc / mobile / vr / cvr split layers
+✅ Includes: targets + progress + boss bar + overlays
 */
 
 :root{
@@ -68,7 +69,9 @@ overlays        : 230-260
 FX layer        : 260 */
 .hha-fx-layer{ z-index:260 !important; pointer-events:none !important; }
 
-/* ===== TOPBAR ===== */
+/* =========================================================
+   TOPBAR
+   ========================================================= */
 .gj-topbar{
   position:fixed;
   left:0; right:0;
@@ -79,7 +82,7 @@ FX layer        : 260 */
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  pointer-events:auto;
+  pointer-events:auto; /* buttons clickable */
 }
 .gj-topbar::before{
   content:"";
@@ -125,7 +128,9 @@ FX layer        : 260 */
 }
 .gj-btn:active{ transform: translateY(1px); }
 
-/* ===== PROGRESS BAR ===== */
+/* =========================================================
+   PROGRESS BAR
+   ========================================================= */
 .gj-progress{
   position:fixed;
   left: calc(12px + var(--sal));
@@ -145,14 +150,16 @@ FX layer        : 260 */
   background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(56,189,248,.88));
 }
 
-/* ===== HUD TOP ===== */
+/* =========================================================
+   HUD TOP (MUST NOT BLOCK)
+   ========================================================= */
 .gj-hud-top, #hud{
   position:fixed;
   left:0; right:0;
   top: calc(70px + var(--sat)); /* เผื่อ topbar+progress */
   padding: 10px calc(12px + var(--sar)) 10px calc(12px + var(--sal));
   z-index:170;
-  pointer-events:none; /* ให้ยิง/แตะสนามได้ */
+  pointer-events:none; /* ✅ ให้ยิง/แตะสนามได้ */
 }
 
 .hud-row{
@@ -185,7 +192,9 @@ FX layer        : 260 */
 .hud-pill.warn .hud-value{ color:#fbbf24; }
 .hud-pill.grade .hud-value{ color:#a7f3d0; }
 
-/* ===== BOSS BAR ===== */
+/* =========================================================
+   BOSS BAR
+   ========================================================= */
 .gj-boss{
   margin-top:10px;
   border-radius: 18px;
@@ -211,7 +220,9 @@ FX layer        : 260 */
 }
 .gj-boss-hint{ margin-top:8px; font-weight:900; font-size:12px; color:rgba(229,231,235,.82); }
 
-/* ===== quests ===== */
+/* =========================================================
+   QUESTS
+   ========================================================= */
 .quest-row{
   display:grid;
   grid-template-columns: 1.2fr .8fr;
@@ -237,7 +248,7 @@ FX layer        : 260 */
 
 /* =========================================================
    PLAYFIELD + LAYERS (KEY FIX)
-   safe.js สุ่ม left/top เป็นพิกัด viewport → layer ต้องเป็น fixed play-area
+   safe.js สุ่ม left/top เป็นพิกัด layer → layer ต้อง fixed
    ========================================================= */
 .gj-field, #playfield{
   position:fixed;
@@ -289,6 +300,7 @@ body.view-cvr #gj-layer-r{
   transform: translate(-50%, -50%);
   touch-action: manipulation;
   will-change: transform;
+  line-height: 1;
 }
 .gj-target.spawn{ animation: gjPop 140ms ease-out; }
 @keyframes gjPop{
@@ -307,7 +319,7 @@ body.view-vr .gj-target, body.view-cvr .gj-target{ width: var(--t-size-big); hei
   bottom:0;
   padding: 10px calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
   z-index:160;
-  pointer-events:none;
+  pointer-events:none; /* ✅ ไม่บังสนาม */
   display:flex;
   gap:10px;
   flex-wrap:wrap;
@@ -339,7 +351,7 @@ body.view-vr .gj-target, body.view-cvr .gj-target{ width: var(--t-size-big); hei
 .meter-num{ margin-top:8px; font-weight:1100; font-size:12px; }
 .meter-tip{ margin-top:8px; font-weight:900; font-size:12px; color:rgba(229,231,235,.80); }
 
-/* quick controls cluster */
+/* quick controls cluster (clickable, doesn't block playfield) */
 .hha-controls{
   position:fixed;
   right: calc(10px + var(--sar));
@@ -418,6 +430,72 @@ body.show-missions .gj-peek{ display:flex; }
 }
 
 /* =========================================================
+   END OVERLAY (optional)
+   ========================================================= */
+.gj-end{
+  position:fixed; inset:0;
+  z-index:250;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+  padding: 18px;
+}
+.gj-end[aria-hidden="true"]{ display:none; }
+.gj-end::before{
+  content:"";
+  position:absolute; inset:0;
+  background: rgba(2,6,23,.66);
+  backdrop-filter: blur(12px);
+}
+.gj-end .card{
+  position:relative;
+  width:min(620px, calc(100vw - 24px));
+  border-radius: 24px;
+  background: rgba(15,23,42,.78);
+  border:1px solid rgba(148,163,184,.18);
+  padding: 16px;
+  box-shadow: 0 18px 54px rgba(0,0,0,.45);
+}
+.gj-end .title{ font-size:18px; font-weight:1200; }
+.gj-end .sub{ margin-top:8px; color:rgba(229,231,235,.78); font-weight:900; font-size:12.5px; }
+.gj-end .grid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:10px;
+}
+.gj-end .stat{
+  border-radius: 18px;
+  background: rgba(2,6,23,.58);
+  border:1px solid rgba(148,163,184,.14);
+  padding: 12px;
+}
+.gj-end .stat span{ display:block; color:var(--muted); font-weight:1000; font-size:11px; letter-spacing:.35px; }
+.gj-end .stat b{ display:block; margin-top:6px; font-size:22px; font-weight:1200; }
+.gj-end .actions{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+.gj-end .btn{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.66);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-weight: 1100;
+  cursor:pointer;
+}
+.gj-end .btn.alt{
+  border-color: rgba(34,197,94,.30);
+  background: rgba(34,197,94,.16);
+}
+
+/* =========================================================
    HUD hidden (expand playfield)
    ========================================================= */
 body.hud-hidden .gj-hud-top,
@@ -441,7 +519,7 @@ body.hud-hidden #gj-layer-r{
   .gj-btn{ padding:9px 10px; font-size:12px; }
   .gj-chip{ padding:7px 10px; font-size:12px; }
 
-  /* HUD row: ไม่แตกหลายบรรทัด + เลื่อนได้ */
+  /* HUD row: ไม่แตกหลายบรรทัด */
   .hud-row{
     gap:8px;
     flex-wrap:nowrap;
@@ -466,16 +544,14 @@ body.hud-hidden #gj-layer-r{
 
 /* =========================================================
    Ultra-compact for small height phones
-   Goal: keep playfield big even when Boss/Goal/Mini are visible
+   Goal: keep playfield big even when Boss/Goal/Mini visible
    ========================================================= */
 @media (max-height: 760px){
-  /* ลด safe-area (สำคัญ: ทำให้สนามสูงขึ้น) */
   :root{
     --gj-top-safe: calc(96px + var(--sat));
     --gj-bottom-safe: calc(96px + var(--sab));
   }
 
-  /* TOP HUD: ลด padding */
   .gj-hud-top, #hud{
     top: calc(64px + var(--sat));
     padding-top: 8px;
@@ -495,14 +571,12 @@ body.hud-hidden #gj-layer-r{
   .q-desc{ font-size: 11.5px; }
   .q-hint{ font-size: 10.5px; }
 
-  /* boss compact */
   .gj-boss{
     padding: 8px 10px;
     border-radius: 16px;
   }
   .gj-boss-hint{ font-size: 11.5px; }
 
-  /* bottom HUD: ลดพื้นที่ + ซ่อน HOWTO */
   .gj-hud-bot{
     padding-top: 8px;
     padding-bottom: calc(8px + var(--sab));
@@ -511,19 +585,21 @@ body.hud-hidden #gj-layer-r{
     padding: 8px 10px;
     border-radius: 16px;
   }
+
+  /* ซ่อน HOW TO อัตโนมัติในจอเตี้ย */
   .gj-hud-bot .meter:last-child{ display:none; }
 }
 
-/* Optional: allow user to show HOWTO via body class */
+/* allow user to show HOWTO via body class */
 body.show-howto .gj-hud-bot .meter:last-child{ display:block !important; }
 
-/* Make targets slightly larger on mobile (kid friendly) */
+/* targets a bit larger on mobile for kids */
 body.view-mobile .gj-target{
   width: calc(var(--t-size) + 6px);
   height: calc(var(--t-size) + 6px);
 }
 
-/* Keep buttons readable and reduce wrapping */
+/* keep buttons readable and not wrap too much */
 @media (max-width: 420px){
   .gj-topbar .right{ gap:6px; }
   .gj-btn{ padding:8px 9px; font-size:12px; border-radius:12px; }
