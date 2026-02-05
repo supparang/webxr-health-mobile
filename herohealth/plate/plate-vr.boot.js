@@ -1,9 +1,10 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HARDENED)
+// PlateVR Boot — PRODUCTION (HARDENED + KPI PATCH)
 // ✅ Auto view detect (no UI override)
 // ✅ Boots engine from ./plate.safe.js
 // ✅ Wires HUD (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only + shows Miss breakdown + grade
+// ✅ End overlay: aria-hidden only
+// ✅ End KPI PATCH: Miss breakdown + Grade (kMissJunk/kMissExpire/kGrade)
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
 // ✅ HARDEN: guard against "start freeze" + robust mount check + visible error
@@ -47,6 +48,8 @@ function clamp(v, a, b){
 
 function pct(n){
   n = Number(n)||0;
+  // accept either 0..1 or 0..100
+  if(n <= 1) n = n * 100;
   return `${Math.round(n)}%`;
 }
 
@@ -136,6 +139,7 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
+      // keep same query params
       location.reload();
     });
   }
@@ -153,41 +157,61 @@ function wireEndSummary(){
   const kCombo = DOC.getElementById('kCombo');
   const kGoals = DOC.getElementById('kGoals');
   const kMini  = DOC.getElementById('kMini');
-  const kMiss  = DOC.getElementById('kMiss');
 
-  // ✅ NEW
+  const kMiss       = DOC.getElementById('kMiss');
   const kMissJunk   = DOC.getElementById('kMissJunk');
   const kMissExpire = DOC.getElementById('kMissExpire');
   const kGrade      = DOC.getElementById('kGrade');
 
+  // We can derive miss breakdown from judge stream
+  // - junk hit => missJunk++
+  // - expire_good => missExpire++
+  // Reset on start so restart works reliably.
+  let missJunk = 0;
+  let missExpire = 0;
+
+  WIN.addEventListener('hha:start', ()=>{
+    missJunk = 0;
+    missExpire = 0;
+    if(kMissJunk) kMissJunk.textContent = '0';
+    if(kMissExpire) kMissExpire.textContent = '0';
+    if(kGrade) kGrade.textContent = '—';
+  });
+
+  WIN.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind || '').toLowerCase();
+    if(kind === 'junk'){
+      missJunk++;
+      if(kMissJunk) kMissJunk.textContent = String(missJunk);
+    }else if(kind === 'expire_good'){
+      missExpire++;
+      if(kMissExpire) kMissExpire.textContent = String(missExpire);
+    }
+  });
+
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
 
-    // total miss (standard key = miss)
-    const missTotal = (d.miss ?? d.misses ?? 0);
-    if(kMiss) kMiss.textContent = String(missTotal);
+    // overall miss: prefer canonical key 'miss', fallback legacy
+    const miss = (d.miss ?? d.misses ?? 0);
+    if(kMiss)  kMiss.textContent  = String(miss);
 
-    // accuracy (standard key = accuracyPct)
+    // accuracy: prefer canonical 'accuracyPct', fallback legacy
     const acc = (d.accuracyPct ?? d.accuracyGoodPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
-    // goals/minis
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    // ✅ Miss breakdown
-    const missJunk = (d.hitJunk ?? d.missJunk ?? null);
-    const missExpire = (d.expireGood ?? d.missExpireGood ?? null);
-
-    // หาก safe ยังไม่ส่งสองค่านี้ ก็ fallback ให้เป็น —
-    if(kMissJunk)   kMissJunk.textContent   = (missJunk==null) ? '—' : String(missJunk);
-    if(kMissExpire) kMissExpire.textContent = (missExpire==null) ? '—' : String(missExpire);
-
     // ✅ grade
     if(kGrade) kGrade.textContent = String(d.grade ?? '—');
+
+    // ✅ breakdown: if safe.js ever sends explicit fields later, they can override
+    if(kMissJunk) kMissJunk.textContent = String(d.missJunk ?? missJunk ?? 0);
+    if(kMissExpire) kMissExpire.textContent = String(d.missExpire ?? missExpire ?? 0);
 
     setOverlayOpen(true);
   });
@@ -234,7 +258,7 @@ ready(()=>{
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
-  // 2) wire UI first
+  // 2) wire UI first (so errors are visible)
   wireHUD();
   wireEndControls();
   wireEndSummary();
@@ -242,7 +266,7 @@ ready(()=>{
   // 3) ensure overlay closed at start
   setOverlayOpen(false);
 
-  // 4) mount check
+  // 4) mount check (prevents "clicked start but nothing spawned")
   const mount = DOC.getElementById('plate-layer');
   if(!mount){
     console.error('[PlateVR] mount #plate-layer missing');
@@ -250,8 +274,9 @@ ready(()=>{
     return;
   }
 
-  // 5) boot engine (harden)
+  // 5) boot engine with hard guard
   try{
+    // microtask yield helps some mobile browsers settle layout before getBoundingClientRect()
     Promise.resolve().then(()=>{
       engineBoot({ mount, cfg });
     });
