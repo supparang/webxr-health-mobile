@@ -1,44 +1,31 @@
+// === /fitness/js/dl-features.js ===
+// DL-lite feature extractor (for explainable predictor)
+// ✅ No hard import of RB_AI (works with global bridge)
 'use strict';
 
-import { AiCoach } from './ai-coach.js';
-import { AiPattern } from './ai-pattern.js';
-import { RB_AI } from './ai-predictor.js';
+function clamp01(v){ return Math.max(0, Math.min(1, Number(v)||0)); }
 
-// DlFeatures — orchestrates predictor+coach+pattern (play only)
-export const DlFeatures = {
-  _lastTipAt: 0,
+export function buildFeatures(state) {
+  const totalTrials = (state.totalHits || 0) + (state.miss || 0);
+  const accPct = totalTrials ? ((state.totalHits || 0) / totalTrials) * 100 : 0;
 
-  maybeCoachTip(mode, snapshot = {}) {
-    if (String(mode) === 'research') return;
+  const judged = totalTrials || 1;
+  const missRate = clamp01((state.miss || 0) / judged);
 
-    const now = performance.now();
-    if (now - this._lastTipAt < 1400) return; // rate limit tips
-    this._lastTipAt = now;
+  return {
+    accPct,
+    missRate,
+    combo: state.combo || 0,
+    maxCombo: state.maxCombo || 0,
+    hp: Math.round((state.playerHp || 0) * 100),
+    bossHp: Math.round((state.bossHp || 0) * 100),
+    bossPhase: state.bossPhase || 1,
+    clearedBosses: state.clearedBosses || 0,
+    avgRtNormalMs: state.rtNormalCount ? (state.rtNormalSum / state.rtNormalCount) : null,
+    avgRtDecoyMs: state.rtDecoyCount ? (state.rtDecoySum / state.rtDecoyCount) : null,
 
-    // If predictor exists, use it; else fallback
-    let tip = '';
-    try{
-      const api = (window.RB_AI || RB_AI);
-      if (api && api.isAssistEnabled && api.isAssistEnabled()){
-        const pred = api.predict({
-          accPct: snapshot.accPct ?? 0,
-          hitMiss: snapshot.miss ?? 0,
-          combo: snapshot.combo ?? 0,
-          hp: snapshot.youHp ?? 100,
-          offsetAbsMean: snapshot.offsetAbsMean ?? 0.09
-        });
-        tip = pred?.tip || '';
-      }
-    }catch(_){}
-
-    if (!tip) {
-      tip = AiCoach.quickTip(snapshot);
-    }
-
-    if (tip) AiCoach.toast(tip);
-  },
-
-  pickPattern(seedStr, phase, diff){
-    return AiPattern.pick(seedStr, phase, diff);
-  }
-};
+    // optional AI flags (best-effort)
+    aiMode: (window.RB_AI && typeof window.RB_AI.getMode === 'function') ? window.RB_AI.getMode() : 'normal',
+    aiEnabled: (window.RB_AI && typeof window.RB_AI.isAssistEnabled === 'function') ? window.RB_AI.isAssistEnabled() : false
+  };
+}
