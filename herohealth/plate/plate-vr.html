@@ -1,10 +1,9 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-PlateVR RUN — PRODUCTION (HARDENED)
-✅ Views: pc/mobile/vr/cvr (via body classes set by plate.boot.js)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: ./plate.safe.js (module export boot)
-✅ HUD + Quest + Coach + End summary
-✅ End summary: adds Miss breakdown (junk hit + good expired)
+HeroHealth — Balanced Plate VR (RUN)
+✅ Playfield: #plate-layer (targets spawn here)
+✅ HUD: score/time/combo + quests
+✅ End Summary: adds Miss breakdown (junk vs expire) + grade
+✅ Uses: plate-vr.css + plate.boot.js (module)
 -->
 <!doctype html>
 <html lang="th">
@@ -98,7 +97,7 @@ PlateVR RUN — PRODUCTION (HARDENED)
       </div>
     </div>
 
-    <!-- Coach bubble -->
+    <!-- Coach bubble (optional) -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
@@ -118,14 +117,17 @@ PlateVR RUN — PRODUCTION (HARDENED)
           <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
           <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
           <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
+
           <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
           <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
-          <div class="kpi"><div class="k">Miss</div><div class="v" id="kMiss">0</div></div>
 
-          <!-- ✅ NEW: Miss breakdown -->
-          <div class="kpi"><div class="k">Miss • ตี Junk</div><div class="v" id="kMissJunk">0</div></div>
-          <div class="kpi"><div class="k">Miss • ดีหมดเวลา</div><div class="v" id="kMissExpire">0</div></div>
-          <div class="kpi"><div class="k">เกรด</div><div class="v" id="kGrade">—</div></div>
+          <!-- ✅ Miss breakdown -->
+          <div class="kpi"><div class="k">Miss (รวม)</div><div class="v" id="kMiss">0</div></div>
+          <div class="kpi"><div class="k">Miss: กดโดน JUNK</div><div class="v" id="kMissJunk">0</div></div>
+          <div class="kpi"><div class="k">Miss: GOOD หมดเวลา</div><div class="v" id="kMissExpire">0</div></div>
+
+          <!-- ✅ Grade (from plate.safe.js summary.grade) -->
+          <div class="kpi"><div class="k">Grade</div><div class="v" id="kGrade">—</div></div>
         </div>
 
         <div class="endBtns">
