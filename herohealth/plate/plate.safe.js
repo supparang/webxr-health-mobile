@@ -1,5 +1,5 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION)
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION v3.1-std)
 // HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
@@ -12,18 +12,21 @@
 //   hha:coach, hha:judge, hha:end
 // ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
 // ✅ End: stop spawner so targets won't "blink" after finish
-// ✅ PATCH (Step 4): Standardize hha:end schema + save HHA_LAST_SUMMARY + legacy keys
+// ✅ PATCH: Standardize hha:end schema + save HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY + legacy keys
 // ------------------------------------------------
 
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
-import { FOOD5, JUNK, pickEmoji, emojiForGroup, labelForGroup } from '../vr/food5-th.js';
+import { JUNK, pickEmoji, emojiForGroup, labelForGroup } from '../vr/food5-th.js';
 
 /* ------------------------------------------------
  * Utilities
  * ------------------------------------------------ */
 const WIN = window;
+
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
 const clamp = (v, a, b) => {
   v = Number(v) || 0;
@@ -38,6 +41,22 @@ function seededRng(seed){
     r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+function saveLastAndHistory(summary){
+  try{
+    localStorage.setItem(LS_LAST, JSON.stringify(summary));
+    const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
+    hist.unshift({
+      ts: summary.ts || Date.now(),
+      game: summary.game || 'plate',
+      score: summary.scoreFinal ?? summary.score ?? 0,
+      grade: summary.grade || '',
+      diff: summary.diff || '',
+      run: summary.runMode || ''
+    });
+    localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
+  }catch(_){}
 }
 
 /* ------------------------------------------------
@@ -157,10 +176,6 @@ function accuracy(){
   return STATE.hitGood / total;
 }
 
-function accuracyPct(){
-  return clamp(Math.round(accuracy() * 100), 0, 100);
-}
-
 function updateMiniFromAccuracy(){
   const accPct = accuracy() * 100;
   STATE.mini.cur = clamp(Math.round(accPct), 0, 100);
@@ -180,6 +195,23 @@ function stopSpawner(){
   STATE.engine = null;
 }
 
+function gradeFrom(score, accPct, miss){
+  // ปรับเกณฑ์ได้ทีหลัง (ตอนนี้ให้คุมง่าย/อ่านง่าย)
+  if(score >= 520 && accPct >= 90 && miss <= 2) return 'S';
+  if(score >= 380 && accPct >= 85) return 'A';
+  if(score >= 260 && accPct >= 75) return 'B';
+  if(score >= 160) return 'C';
+  return 'D';
+}
+
+function tierFrom(grade){
+  return (grade === 'S') ? '🏆 Master'
+    : (grade === 'A') ? '🔥 Elite'
+    : (grade === 'B') ? '⚡ Skilled'
+    : (grade === 'C') ? '✅ Ok'
+    : '🧊 Warm-up';
+}
+
 function endGame(reason='timeup'){
   if(STATE.ended) return;
   STATE.ended = true;
@@ -191,45 +223,54 @@ function endGame(reason='timeup'){
   // stop spawn immediately (prevents target blink after finish)
   stopSpawner();
 
-  const accPct = accuracyPct();
+  const accPct = Math.round(accuracy() * 1000) / 10; // 1 decimal
+  const grade = gradeFrom(STATE.score|0, accPct, STATE.miss|0);
 
   const summary = {
-    // ✅ STANDARD
     game:'plate',
+    ts: Date.now(),
+    pack:'plate-v3.1-std',
     reason,
-    runMode: STATE.cfg?.runMode,
-    diff: STATE.cfg?.diff,
-    seed: STATE.cfg?.seed,
+
+    runMode: STATE.cfg?.runMode || 'play',
+    diff: STATE.cfg?.diff || 'normal',
+    seed: STATE.cfg?.seed || 0,
+
     timePlannedSec: Number(STATE.cfg?.durationPlannedSec) || 90,
-    scoreFinal: STATE.score,
-    comboMax: STATE.comboMax,
-    miss: STATE.miss,
-    accuracyPct: accPct,
+    timePlayedSec: Number(STATE.cfg?.durationPlannedSec) || 90, // timer แบบ countdown -> end คือครบตามแผน/หรือ all_done
+
+    scoreFinal: STATE.score|0,
+    grade,
+    tier: tierFrom(grade),
+
+    miss: STATE.miss|0,
+    comboMax: STATE.comboMax|0,
+
+    accuracyPct: Math.round((accuracy() * 1000)) / 10, // 1 decimal (เหมือน accPct)
+    accuracyGoodPct: Math.round((accuracy() * 1000)) / 10, // legacy alias
 
     goalsCleared: STATE.goal.done ? 1 : 0,
     goalsTotal: 1,
     miniCleared: STATE.mini.done ? 1 : 0,
     miniTotal: 1,
 
-    // plate group counts
-    g1: STATE.g[0],
-    g2: STATE.g[1],
-    g3: STATE.g[2],
-    g4: STATE.g[3],
-    g5: STATE.g[4],
+    // per-group counts
+    g1: STATE.g[0]|0,
+    g2: STATE.g[1]|0,
+    g3: STATE.g[2]|0,
+    g4: STATE.g[3]|0,
+    g5: STATE.g[4]|0,
 
-    // extra counters (useful for analytics)
-    hitGood: STATE.hitGood,
-    hitJunk: STATE.hitJunk,
-    expireGood: STATE.expireGood,
+    // extra counters (useful for research/log)
+    hitGood: STATE.hitGood|0,
+    hitJunk: STATE.hitJunk|0,
+    expireGood: STATE.expireGood|0,
 
-    // ✅ legacy aliases (กันของเดิมพัง)
-    misses: STATE.miss,
-    accuracyGoodPct: Math.round(accuracy() * 1000) / 10, // เดิมเป็นทศนิยม 1 ตำแหน่ง
-    durationPlannedSec: Number(STATE.cfg?.durationPlannedSec) || 90
+    // ✅ legacy keys กันของเดิมพัง
+    misses: STATE.miss|0
   };
 
-  try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
+  saveLastAndHistory(summary);
 
   emit('hha:end', summary);
 }
@@ -339,21 +380,18 @@ function pickGroupIndexForGood(t){
   const missingCollect = [];
   for(let i=0;i<5;i++) if(STATE.g[i] <= 0) missingCollect.push(i);
 
-  // Phase A: until each group has spawned at least once, bias strongly to missingSpawn
   if(missingSpawn.length){
     if(rng() < 0.85){
       return missingSpawn[Math.floor(rng()*missingSpawn.length)];
     }
   }
 
-  // Phase B: until player collects all 5, bias to missingCollect
   if(missingCollect.length){
     if(rng() < 0.75){
       return missingCollect[Math.floor(rng()*missingCollect.length)];
     }
   }
 
-  // Phase C: after collected all 5
   const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
   const adaptiveOn = (runMode === 'play');
 
@@ -374,7 +412,7 @@ function pickGroupIndexForGood(t){
  * ------------------------------------------------ */
 function decorateTarget(el, t){
   if(t.kind === 'good'){
-    const gi = pickGroupIndexForGood(t);
+    const gi = pickGroupIndexForGood(t);   // 0..4
     t.groupIndex = gi;
     STATE.spawnSeen[gi] = true;
 
@@ -448,7 +486,6 @@ function makeSpawner(mount){
 export function boot({ mount, cfg }){
   if(!mount) throw new Error('PlateVR: mount missing');
 
-  // stop any previous run
   stopSpawner();
   try{ clearInterval(STATE.timer); }catch{}
   STATE.timer = null;
@@ -457,7 +494,6 @@ export function boot({ mount, cfg }){
   STATE.running = true;
   STATE.ended = false;
 
-  // reset counters
   STATE.score = 0;
   STATE.combo = 0;
   STATE.comboMax = 0;
@@ -491,21 +527,19 @@ export function boot({ mount, cfg }){
 
   emit('hha:start', {
     game:'plate',
-    runMode: cfg.runMode,
-    diff: cfg.diff,
-    seed: cfg.seed,
+    runMode: cfg?.runMode || 'play',
+    diff: cfg?.diff || 'normal',
+    seed: cfg?.seed || 0,
     durationPlannedSec: STATE.timeLeft
   });
 
   emitQuest();
   startTimer();
 
-  // start spawner
   STATE.engine = makeSpawner(mount);
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
 
-  // Safety: stop spawner on page hide/unload (prevents dangling targets)
   const onHide = ()=>{
     if(STATE.ended) return;
     stopSpawner();
