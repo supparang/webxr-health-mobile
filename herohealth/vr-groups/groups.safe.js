@@ -1,16 +1,20 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH)
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH v3.1-std)
 // ✅ FIX 1: LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
 // ✅ FIX 2: FX restored — emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
 // ✅ EXTRA: direct tap/click on target also works (pointerdown => same pipeline)
 // ✅ BADGES: first_play, streak_10, mini_clear_1, boss_clear_1, score_80p, perfect_run
-// ✅ PATCH (Step 3): Standardize hha:end schema + save HHA_LAST_SUMMARY
+// ✅ PATCH: Standardize hha:end schema + save HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY + legacy keys
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
+
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
+
+  const LS_LAST = 'HHA_LAST_SUMMARY';
+  const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
   WIN.GroupsVR = WIN.GroupsVR || {};
 
@@ -52,6 +56,22 @@
 
   function pick(rng, arr){
     return arr[(rng()*arr.length)|0];
+  }
+
+  function saveLastAndHistory(summary){
+    try{
+      localStorage.setItem(LS_LAST, JSON.stringify(summary));
+      const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
+      hist.unshift({
+        ts: summary.ts || Date.now(),
+        game: summary.game || 'groups',
+        score: summary.scoreFinal ?? summary.score ?? 0,
+        grade: summary.grade || '',
+        diff: summary.diff || summary.runDiff || '',
+        run: summary.runMode || summary.run || ''
+      });
+      localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
+    }catch(_){}
   }
 
   // ---------------- BADGES (classic bridge) ----------------
@@ -203,10 +223,8 @@
     if(!el) return;
     el.addEventListener('pointerdown', (e)=>{
       if(!S.running) return;
-      // Use the real pointer coordinate
       const x = Number(e.clientX)||0;
       const y = Number(e.clientY)||0;
-      // "direct" hit should not need aim-assist, but keep small lock to be forgiving
       emit('hha:shoot', { x, y, lockPx: 8, source:'direct' });
     }, { passive:true });
   }
@@ -217,7 +235,6 @@
     el.setAttribute('data-group', groupKey);
     el.setAttribute('role','button');
 
-    // NOTE: size is controlled by CSS in groups-vr.css; inline here is just fallback
     el.style.cssText =
       'position:absolute; width:72px; height:72px; border-radius:18px; '+
       'display:flex; align-items:center; justify-content:center; '+
@@ -228,14 +245,13 @@
 
     el.textContent = emoji;
 
-    // position inside playLayer area, not the whole viewport
     const host = S.layerEl || DOC.body;
     const r = host.getBoundingClientRect ? host.getBoundingClientRect() : { left:0, top:0, width:(WIN.innerWidth||360), height:(WIN.innerHeight||640) };
 
     const w = Math.max(240, r.width||360);
     const h = Math.max(240, r.height||520);
 
-    const size = 72; // fallback; CSS may override
+    const size = 72;
     const pad = 10;
 
     const x = pad + (S.rng() * Math.max(1, (w - pad*2 - size)));
@@ -244,7 +260,6 @@
     el.style.left = Math.round(x) + 'px';
     el.style.top  = Math.round(y) + 'px';
 
-    // simple appear anim
     el.style.transform = 'scale(.82)';
     el.style.opacity = '0';
     requestAnimationFrame(()=>{
@@ -269,28 +284,15 @@
   function emitTime(){
     emit('hha:time', { left:S.timeLeftSec });
   }
-
-  function calcAccuracyPct(){
-    // judged = shots; good = goodShots
-    if ((S.shots|0) <= 0) return 100;
-    return clamp(Math.round((S.goodShots / Math.max(1,S.shots)) * 100), 0, 100);
-  }
-
-  function gradeFrom(accPct, score){
-    score = Number(score)||0;
-    accPct = Number(accPct)||0;
-    return (accPct>=92 && score>=220) ? 'S'
-      : (accPct>=86 && score>=170) ? 'A'
-      : (accPct>=76 && score>=120) ? 'B'
-      : (accPct>=62) ? 'C' : 'D';
-  }
-
   function emitRank(){
-    const acc = calcAccuracyPct();
-    const grade = gradeFrom(acc, S.score);
+    const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
+    const grade =
+      (acc>=92 && S.score>=220) ? 'S' :
+      (acc>=86 && S.score>=170) ? 'A' :
+      (acc>=76 && S.score>=120) ? 'B' :
+      (acc>=62) ? 'C' : 'D';
     emit('hha:rank', { accuracy: acc, grade });
   }
-
   function emitPower(){
     emit('groups:power', { charge:S.powerCur, threshold:S.powerThr });
   }
@@ -371,7 +373,6 @@
       S.combo = Math.min(99, (S.combo|0) + 1);
       S.maxCombo = Math.max(S.maxCombo|0, S.combo|0);
 
-      // badge: streak_10 once
       if (!S.streak10Awarded && S.combo >= 10){
         S.streak10Awarded = true;
         awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, score:S.score|0 });
@@ -404,7 +405,6 @@
         coach('MINI สำเร็จ! +โบนัส ✅', 'happy');
         S.miniActive = false;
 
-        // badge: mini_clear_1 once per run
         if(!S.miniAwarded){
           S.miniAwarded = true;
           awardOnce('groups','mini_clear_1', {
@@ -469,7 +469,6 @@
       emit('groups:progress', { kind:'boss_down' });
       coach('บอสแตก! โคตรดี 💥', 'happy');
 
-      // badge: boss_clear_1 (this game has 1 boss moment)
       if(!S.bossAwarded){
         S.bossAwarded = true;
         awardOnce('groups','boss_clear_1', { score:S.score|0, maxCombo:S.maxCombo|0, misses:S.miss|0 });
@@ -493,7 +492,6 @@
     }
   }
 
-  // Find nearest target center within radius rPx (in viewport coordinates)
   function nearestTargetWithin(x, y, rPx){
     rPx = Number(rPx)||0;
     if (rPx <= 0) return null;
@@ -565,15 +563,12 @@
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
 
-    // lockPx from vr-ui.js (mobile/cvr tuned in groups-vr.html)
     const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
 
     S.shots++;
 
-    // 1) try direct hit
     let tgtEl = hitTest(x,y);
 
-    // 2) aim-assist: nearest within lockPx
     if (!tgtEl && lockPx > 0){
       tgtEl = nearestTargetWithin(x, y, lockPx);
     }
@@ -593,7 +588,6 @@
     const good = (tg === cg);
     addScore(good);
 
-    // FX
     if (good){
       emitFx('hit_good', x, y, true);
       onGoodHit();
@@ -613,14 +607,12 @@
     const dt = Math.min(0.06, Math.max(0.001, (t - S.lastTickT) / 1000));
     S.lastTickT = t;
 
-    // timer
     const elapsed = (t - S.startT) / 1000;
     const left = Math.max(0, Math.ceil(S.timePlannedSec - elapsed));
     if (left !== S.timeLeftSec){
       S.timeLeftSec = left;
       emit('hha:time', { left:S.timeLeftSec });
 
-      // mini countdown
       if (S.miniActive){
         S.miniLeft = Math.max(0, (S.miniLeft|0) - 1);
         if (S.miniLeft <= 0){
@@ -637,7 +629,6 @@
       startBossIfNeeded();
     }
 
-    // target expiry => timeout miss (only if current group for fairness)
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
@@ -653,7 +644,6 @@
           emitRank();
           onBadHit();
 
-          // FX for timeout miss — use target center in viewport coords
           try{
             const r = tg.el.getBoundingClientRect();
             emitFx('timeout_miss', r.left + r.width/2, r.top + r.height/2, false);
@@ -670,7 +660,6 @@
       }
     }
 
-    // spawn pacing
     if (S.running){
       S.spawnIt -= dt;
       if (S.spawnIt <= 0){
@@ -685,7 +674,6 @@
       }
     }
 
-    // end
     if (S.timeLeftSec <= 0){
       endRun('time');
       return;
@@ -701,13 +689,11 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
-    // bias toward correct group so playable
     let gKey = '';
     const r = S.rng();
     if (r < 0.58) gKey = cg.key;
     else gKey = pick(S.rng, GROUPS).key;
 
-    // in boss: increase correct targets
     if (S.boss && S.rng() < 0.70) gKey = cg.key;
 
     const g = GROUPS.find(x=>x.key===gKey) || cg;
@@ -720,7 +706,6 @@
     const t = mkTarget(g.key, em, life);
     S.targets.push(t);
 
-    // cap targets (mobile-safe)
     const cap = (S.view==='pc') ? 12 : 10;
     if (S.targets.length > cap){
       let idx = S.targets.findIndex(x=>x.groupKey !== currentGroup().key);
@@ -743,7 +728,6 @@
     S.score = 0; S.combo = 0; S.miss = 0;
     S.shots = 0; S.goodShots = 0;
 
-    // badges runtime flags reset per run
     S.maxCombo = 0;
     S.streak10Awarded = false;
     S.miniAwarded = false;
@@ -770,17 +754,14 @@
     S.lastCoachAt = 0;
     S.lastQuestEmitAt = 0;
 
-    // seed / rng
     S.seed = String(ctx && ctx.seed ? ctx.seed : (qs('seed','')||Date.now()));
     const u32 = strSeedToU32(S.seed);
     S.rng = makeRng(u32);
 
-    // time
     const t = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
     S.timePlannedSec = clamp(t, 15, 180);
     S.timeLeftSec = S.timePlannedSec;
 
-    // spawn timer
     S.spawnIt = 0;
 
     emitPower();
@@ -803,19 +784,16 @@
 
     setLayerEl(S.layerEl || DOC.getElementById('playLayer') || DOC.body);
 
-    // init ViewHelper (optional)
     try{
       const H = WIN.GroupsVR && WIN.GroupsVR.ViewHelper;
       H && H.init && H.init({ view:S.view });
     }catch(_){}
 
-    // init FX pack (optional) — but safe
     try{
       const FX = WIN.GroupsVR && WIN.GroupsVR.EffectsPack;
       FX && FX.init && FX.init({ layerEl: S.layerEl });
     }catch(_){}
 
-    // init Telemetry (optional)
     try{
       const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
       if (T && T.init){
@@ -831,20 +809,16 @@
       }
     }catch(_){}
 
-    // reset + run
     resetRun(ctx||{});
 
-    // badge: first play (safe, no override)
     awardOnce('groups','first_play',{});
 
     S.running = true;
     S.startT = nowMs();
     S.lastTickT = S.startT;
 
-    // listen shoot (from vr-ui crosshair / tap-to-shoot)
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
 
-    // GO!
     S.rafId = requestAnimationFrame(rafLoop);
     return true;
   }
@@ -872,61 +846,64 @@
     }
     WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
 
-    const accPct = calcAccuracyPct();
-    const grade = gradeFrom(accPct, S.score);
+    const accPct = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
+    const grade =
+      (accPct>=92 && S.score>=220) ? 'S' :
+      (accPct>=86 && S.score>=170) ? 'A' :
+      (accPct>=76 && S.score>=120) ? 'B' :
+      (accPct>=62) ? 'C' : 'D';
 
     // badges on end:
     if (accPct >= 80){
-      awardOnce('groups','score_80p', {
-        accuracyPct: accPct|0,
-        shots:S.shots|0,
-        goodShots:S.goodShots|0,
-        miss:S.miss|0,
-        scoreFinal:S.score|0,
-        comboMax:S.maxCombo|0
-      });
+      awardOnce('groups','score_80p', { accuracyGoodPct: accPct|0, shots:S.shots|0, goodShots:S.goodShots|0, misses:S.miss|0, scoreFinal:S.score|0, maxCombo:S.maxCombo|0 });
     }
     if ((S.miss|0) === 0){
-      awardOnce('groups','perfect_run', {
-        accuracyPct: accPct|0,
-        shots:S.shots|0,
-        goodShots:S.goodShots|0,
-        miss:S.miss|0,
-        scoreFinal:S.score|0,
-        comboMax:S.maxCombo|0
-      });
+      awardOnce('groups','perfect_run', { accuracyGoodPct: accPct|0, shots:S.shots|0, goodShots:S.goodShots|0, misses:S.miss|0, scoreFinal:S.score|0, maxCombo:S.maxCombo|0 });
     }
 
-    // ✅ STANDARD summary schema (Step 3)
+    // ✅ STANDARD hha:end summary
     const summary = {
       game: 'groups',
+      ts: Date.now(),
+      pack: 'groups-v3.1-std',
       reason: reason || 'end',
+
       runMode: S.runMode,
       diff: S.diff,
-      seed: S.seed,
-      timePlannedSec: S.timePlannedSec|0,
-      scoreFinal: S.score|0,
-      comboMax: S.maxCombo|0,
-      miss: S.miss|0,
-      accuracyPct: accPct|0,
-      grade,
-
-      // extras
       view: S.view,
-      style: S.style,
-      shots: S.shots|0,
-      goodShots: S.goodShots|0,
+      seed: S.seed,
+
+      timePlannedSec: S.timePlannedSec,
+      timePlayedSec: S.timePlannedSec, // เกมนี้นับด้วย countdown -> ถือว่าเล่นครบตามแผนเมื่อ end ด้วย time
+
+      scoreFinal: S.score|0,
+      grade,
+      tier: (grade === 'S') ? '🏆 Master' : (grade === 'A') ? '🔥 Elite' : (grade === 'B') ? '⚡ Skilled' : (grade === 'C') ? '✅ Ok' : '🧊 Warm-up',
+
+      miss: S.miss|0,
+      comboMax: S.maxCombo|0,
+      accuracyPct: accPct|0,
+
+      goalsCleared: clamp(S.goalNow, 0, S.goalTot),
+      goalsTotal: S.goalTot|0,
+
       miniCleared: !!S.miniAwarded,
+      miniTotal: 1,
+
       bossCleared: !!S.bossAwarded,
 
-      // legacy aliases (กันของเดิมพัง)
+      shots: S.shots|0,
+      goodShots: S.goodShots|0,
+
+      // ✅ legacy keys (กัน UI/โค้ดเดิม)
       misses: S.miss|0,
       accuracyGoodPct: accPct|0,
       maxCombo: S.maxCombo|0,
-      timeLeft: S.timeLeftSec|0
+      style: S.style,
+      run: S.runMode
     };
 
-    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
+    saveLastAndHistory(summary);
     emit('hha:end', summary);
 
     clearTargets();
