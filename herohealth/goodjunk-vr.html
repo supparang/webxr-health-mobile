@@ -1,16 +1,50 @@
+<!-- === /herohealth/goodjunk-vr.html ===
+GoodJunkVR LAUNCHER — ROOT (STRICT AUTO)
+✅ Redirects to ./vr-goodjunk/goodjunk-vr.html
+✅ Pass-through ALL query params (diff/run/time/seed/hub/log/...)
+✅ NO MENU, NO view override (safe: boot ignores ?view= anyway)
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunkVR</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{ color-scheme: dark; }
+    html,body{ margin:0; height:100%; background:#020617; color:#e5e7eb; font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; }
+    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding:18px; text-align:center; }
+    .card{ width:min(520px, 100%); border:1px solid rgba(148,163,184,.18); border-radius:22px; background:rgba(2,6,23,.72); padding:16px; }
+    .t{ font-weight:1100; font-size:18px; }
+    .s{ margin-top:8px; color:rgba(229,231,235,.78); font-weight:900; font-size:12.5px; }
+    .spinner{ margin:14px auto 0; width:34px; height:34px; border-radius:999px; border:3px solid rgba(148,163,184,.22); border-top-color: rgba(34,197,94,.88); animation:spin .9s linear infinite; }
+    @keyframes spin{ to{ transform:rotate(360deg);} }
+  </style>
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
-  hhGo('./vr-goodjunk/goodjunk-vr.html', { defaults: {} });
-</script>
+  <div class="wrap">
+    <div class="card">
+      <div class="t">กำลังเข้าเกม GoodJunkVR…</div>
+      <div class="s">ระบบจะพาไปหน้าเล่นอัตโนมัติ</div>
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+      try{
+        const u = new URL(location.href);
+        // ✅ pass-through all params exactly (including hub/log/seed/etc.)
+        const q = u.search ? u.search : '';
+        const to = './vr-goodjunk/goodjunk-vr.html' + q;
+        location.replace(to);
+      }catch(_){
+        location.href = './vr-goodjunk/goodjunk-vr.html' + (location.search||'');
+      }
+    })();
+  </script>
 </body>
 </html>
