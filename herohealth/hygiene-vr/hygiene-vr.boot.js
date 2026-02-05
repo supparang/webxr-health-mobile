@@ -1,12 +1,16 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + cache-bust)
-//
-// ✅ Imports engine: hygiene.safe.js (must export boot)
-// ✅ If missing DOM or import fails -> show readable error on screen
-// ✅ Warn if particles.js or quiz bank missing
-// ✅ Cache-bust import via ?v= or ?ts= or window.__HHA_BUST__
-//
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
+// PATCH v20260204b
+// ✅ Global handlers: error + unhandledrejection => on-screen fatal
+// ✅ Guard double-boot
+// ✅ Keeps your existing checks (CSS/Particles/QuizBank) intact
 'use strict';
+
+if(window.__HYG_BOOT__) {
+  console.warn('[HygieneBoot] already booted');
+}else{
+  window.__HYG_BOOT__ = true;
+}
 
 function $id(id){ return document.getElementById(id); }
 
@@ -43,6 +47,16 @@ function showFatal(msg, err){
   }
 }
 
+window.addEventListener('error', (e)=>{
+  const m = (e && (e.message || e.error?.message)) || 'Unknown error';
+  showFatal(`runtime error: ${m}`, e.error || e);
+});
+
+window.addEventListener('unhandledrejection', (e)=>{
+  const m = (e && (e.reason?.message || String(e.reason))) || 'Unhandled promise rejection';
+  showFatal(`unhandledrejection: ${m}`, e.reason || e);
+});
+
 function hasCssHref(part){
   try{
     return [...document.styleSheets].some(s=>{
@@ -65,30 +79,13 @@ function waitForGlobal(getter, ms){
   });
 }
 
-function getBust(){
-  try{
-    const q = new URLSearchParams(location.search);
-    return q.get('v') || q.get('ts') || window.__HHA_BUST__ || '';
-  }catch{
-    return window.__HHA_BUST__ || '';
-  }
-}
-
-function withBust(p){
-  const b = getBust();
-  if(!b) return p;
-  return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(String(b));
-}
-
 async function main(){
-  // DOM must exist
   const stage = $id('stage');
   if(!stage){
     showFatal('ไม่พบ #stage (hygiene-vr.html ไม่ครบหรือ id ไม่ตรง)');
     return;
   }
 
-  // CSS hint
   const cssOk = hasCssHref('/hygiene-vr.css');
   if(!cssOk){
     console.warn('[HygieneBoot] hygiene-vr.css may be missing or blocked');
@@ -97,7 +94,6 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
-  // Wait deferred globals
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
@@ -112,12 +108,9 @@ async function main(){
     try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
   }
 
-  // Import engine safely (✅ cache-bust)
   let engine;
-  const url = withBust('./hygiene.safe.js');
   try{
-    console.log('[HygieneBoot] importing:', url);
-    engine = await import(url);
+    engine = await import('./hygiene.safe.js');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
@@ -128,7 +121,6 @@ async function main(){
     return;
   }
 
-  // Run engine boot
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
