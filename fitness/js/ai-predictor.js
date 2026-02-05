@@ -1,7 +1,7 @@
 // === /fitness/js/ai-predictor.js ===
-// ES Module + Global bridge (export + window.RB_AI)
-// ✅ provides named export: RB_AI
-// ✅ also sets window.RB_AI for reuse across games
+// HYBRID MODULE (ESM + global) — works with:
+// 1) import { RB_AI } from './ai-predictor.js'
+// 2) classic access window.RB_AI
 'use strict';
 
 // ---- small helpers ----
@@ -26,14 +26,20 @@ function readQueryMode() {
   }
 }
 
-// ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
-// Inputs we "expect" (best effort) from engine snapshot:
-// { accPct, hitMiss, hitPerfect, hitGreat, hitGood, offsetAbsMean, hp }
+// ---- Predictor (lightweight heuristic; reusable across games) ----
+// Snapshot keys (best effort):
+// { accPct, hp, hitMiss, hitPerfect, hitGreat, hitGood, offsetAbsMean }
+// - accPct: 0..100
+// - hp: 0..100 (or 0..1 ok)
+// - offsetAbsMean: seconds
 function predictFromSnapshot(s) {
   const acc = clamp01((Number(s.accPct) || 0) / 100);
-  const hp = clamp01((Number(s.hp) || 100) / 100);
 
-  // offsetAbsMean in seconds; smaller => better
+  // accept hp in 0..1 or 0..100
+  let hpRaw = Number(s.hp);
+  if (!Number.isFinite(hpRaw)) hpRaw = 100;
+  const hp = hpRaw <= 1.2 ? clamp01(hpRaw) : clamp01(hpRaw / 100);
+
   const off = Number(s.offsetAbsMean);
   const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5;
 
@@ -46,43 +52,35 @@ function predictFromSnapshot(s) {
 
   const missRate = judged > 0 ? clamp01(miss / judged) : 0;
 
-  const fatigueRisk = clamp01(
-    (1 - hp) * 0.45 +
-    missRate * 0.35 +
-    (1 - offScore) * 0.20
-  );
+  const fatigueRisk = clamp01((1 - hp) * 0.45 + missRate * 0.35 + (1 - offScore) * 0.20);
 
-  const skillScore = clamp01(
-    acc * 0.55 +
-    offScore * 0.30 +
-    (1 - missRate) * 0.15
-  );
+  const skillScore = clamp01(acc * 0.55 + offScore * 0.30 + (1 - missRate) * 0.15);
 
   let suggestedDifficulty = 'normal';
   if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
   else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
 
   let tip = '';
-  if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
-  else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
-  else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
-  else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+  if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเป้าก่อน แล้วค่อยตี';
+  else if (offScore < 0.45) tip = 'ลอง “รอให้เป้าอยู่กลาง” ก่อนตี จะตรงขึ้น';
+  else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความยาก/ความเร็วได้';
+  else if (hp < 0.45) tip = 'ระวัง HP—อย่าตีรัว ให้ตีเฉพาะเป้าที่ชัวร์';
 
-  return { fatigueRisk, skillScore, suggestedDifficulty, tip, missRate, accPct: acc * 100 };
+  return { fatigueRisk, skillScore, suggestedDifficulty, tip };
 }
 
 // ---- Public bridge used by engine/UI ----
 // Research lock rule:
-// - if mode=research => lock adjustments ALWAYS
-// - if normal => allow adjustments only when ?ai=1
-export const RB_AI = {
+// - mode=research => lock adjustments ALWAYS
+// - normal => allow assist only when ?ai=1
+const API = {
   getMode() {
     return readQueryMode(); // 'research' | 'normal'
   },
   isAssistEnabled() {
     const mode = readQueryMode();
     if (mode === 'research') return false;
-    return readQueryFlag('ai'); // normal: require ?ai=1
+    return readQueryFlag('ai');
   },
   isLocked() {
     return readQueryMode() === 'research';
@@ -92,5 +90,11 @@ export const RB_AI = {
   }
 };
 
-// also expose globally (for other games / non-module usage)
-try { window.RB_AI = RB_AI; } catch {}
+// ✅ ESM export (fixes: "does not provide an export named RB_AI")
+export const RB_AI = API;
+export default API;
+
+// ✅ Global fallback (keeps compatibility with classic callers)
+try {
+  if (typeof window !== 'undefined') window.RB_AI = API;
+} catch {}
