@@ -4,12 +4,8 @@
 // ✅ FIX 2: FX restored — emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
 // ✅ EXTRA: direct tap/click on target also works (pointerdown => same pipeline)
 // ✅ BADGES: first_play, streak_10, mini_clear_1, boss_clear_1, score_80p, perfect_run
-// ✅ PATCH: Badge meta schema normalized (runMode/diff/seed/timePlannedSec + ctx passthrough) for consistency with other games
-// ✅ PATCH: End badges meta uses scoreFinal/miss/accuracyPct/comboMax keys
-// ✅ PATCH #1.1: shot_miss does NOT increment miss (prevents miss spike on mobile/cVR)
-// ✅ PATCH #1.2: timeout_miss increments miss ONLY in runMode=play (practice/research clean)
+// ✅ PATCH (Step 3): Standardize hha:end schema + save HHA_LAST_SUMMARY
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
-
 (function(){
   'use strict';
 
@@ -57,6 +53,53 @@
   function pick(rng, arr){
     return arr[(rng()*arr.length)|0];
   }
+
+  // ---------------- BADGES (classic bridge) ----------------
+  function badgeMeta(extra){
+    let pid = '';
+    try{
+      const B = WIN.HHA_Badges;
+      pid = (B && typeof B.getPid === 'function') ? (B.getPid()||'') : '';
+    }catch(_){}
+
+    let q;
+    try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
+
+    const base = {
+      pid,
+      run: String(q.get('run')||'').toLowerCase() || 'play',
+      diff: String(q.get('diff')||'').toLowerCase() || 'normal',
+      time: Number(q.get('time')||0) || 0,
+      seed: Number(q.get('seed')||0) || 0,
+      view: String(q.get('view')||'').toLowerCase() || '',
+      style: String(q.get('style')||'').toLowerCase() || '',
+      game: 'groups'
+    };
+    if(extra && typeof extra === 'object'){
+      for(const k of Object.keys(extra)) base[k] = extra[k];
+    }
+    return base;
+  }
+
+  function awardOnce(gameKey, badgeId, meta){
+    try{
+      const B = WIN.HHA_Badges;
+      if(!B || typeof B.awardBadge !== 'function') return false;
+      return !!B.awardBadge(gameKey, badgeId, badgeMeta(meta));
+    }catch(_){
+      return false;
+    }
+  }
+
+  // ---------------- food groups (ไทย) ----------------
+  // mapping ที่คุณล็อกไว้: หมู่ 1 โปรตีน, หมู่ 2 คาร์บ, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
+  const GROUPS = [
+    { key:'g1', name:'หมู่ 1 โปรตีน', emoji:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
+    { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', emoji:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
+    { key:'g3', name:'หมู่ 3 ผัก', emoji:['🥦','🥬','🥒','🥕','🌽','🍅','🫛'] },
+    { key:'g4', name:'หมู่ 4 ผลไม้', emoji:['🍌','🍎','🍉','🍇','🍍','🍊','🥭'] },
+    { key:'g5', name:'หมู่ 5 ไขมัน', emoji:['🥑','🧈','🥜','🫒','🍳','🥥','🧴'] }
+  ];
 
   // ---------------- engine state ----------------
   const S = {
@@ -122,83 +165,6 @@
     return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5 };
   }
 
-  // ---------------- BADGES (classic bridge) ----------------
-  function badgeMeta(extra){
-    let pid = '';
-    try{
-      const B = WIN.HHA_Badges;
-      pid = (B && typeof B.getPid === 'function') ? (B.getPid()||'') : '';
-    }catch(_){}
-
-    let q;
-    try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
-
-    // ✅ Standardized keys across games
-    const runMode =
-      String((S && S.runMode) || q.get('runMode') || q.get('run') || 'play').toLowerCase();
-
-    const diff =
-      String((S && S.diff) || q.get('diff') || 'normal').toLowerCase();
-
-    const seed =
-      (S && S.seed) ? String(S.seed) : String(q.get('seed') || '');
-
-    const timePlannedSec =
-      Number((S && S.timePlannedSec) || q.get('time') || 0) || 0;
-
-    const base = {
-      pid,
-      game: 'groups',
-
-      // canonical
-      runMode,
-      diff,
-      seed,
-      timePlannedSec,
-
-      // aliases for backward compatibility
-      run: runMode,
-      time: timePlannedSec,
-
-      view: String((S && S.view) || q.get('view') || '').toLowerCase(),
-      style: String((S && S.style) || q.get('style') || '').toLowerCase(),
-
-      // ctx passthrough (safe if missing)
-      hub: String(q.get('hub') || ''),
-      studyId: String(q.get('studyId') || ''),
-      phase: String(q.get('phase') || ''),
-      conditionGroup: String(q.get('conditionGroup') || ''),
-      siteCode: String(q.get('siteCode') || ''),
-      schoolYear: String(q.get('schoolYear') || ''),
-      semester: String(q.get('semester') || ''),
-    };
-
-    if(extra && typeof extra === 'object'){
-      for(const k of Object.keys(extra)) base[k] = extra[k];
-    }
-    return base;
-  }
-
-  function awardOnce(gameKey, badgeId, meta){
-    try{
-      const B = WIN.HHA_Badges;
-      if(!B || typeof B.awardBadge !== 'function') return false;
-      return !!B.awardBadge(gameKey, badgeId, badgeMeta(meta));
-    }catch(_){
-      return false;
-    }
-  }
-
-  // ---------------- food groups (ไทย) ----------------
-  // mapping ที่คุณล็อกไว้: หมู่ 1 โปรตีน, หมู่ 2 คาร์บ, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
-  const GROUPS = [
-    { key:'g1', name:'หมู่ 1 โปรตีน', emoji:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
-    { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', emoji:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
-    { key:'g3', name:'หมู่ 3 ผัก', emoji:['🥦','🥬','🥒','🥕','🌽','🍅','🫛'] },
-    { key:'g4', name:'หมู่ 4 ผลไม้', emoji:['🍌','🍎','🍉','🍇','🍍','🍊','🥭'] },
-    { key:'g5', name:'หมู่ 5 ไขมัน', emoji:['🥑','🧈','🥜','🫒','🍳','🥥','🧴'] }
-  ];
-
   // ---------------- DOM helpers ----------------
   function ensureWrap(){
     if (S.wrapEl && DOC.body.contains(S.wrapEl)) return;
@@ -237,8 +203,10 @@
     if(!el) return;
     el.addEventListener('pointerdown', (e)=>{
       if(!S.running) return;
+      // Use the real pointer coordinate
       const x = Number(e.clientX)||0;
       const y = Number(e.clientY)||0;
+      // "direct" hit should not need aim-assist, but keep small lock to be forgiving
       emit('hha:shoot', { x, y, lockPx: 8, source:'direct' });
     }, { passive:true });
   }
@@ -301,15 +269,28 @@
   function emitTime(){
     emit('hha:time', { left:S.timeLeftSec });
   }
+
+  function calcAccuracyPct(){
+    // judged = shots; good = goodShots
+    if ((S.shots|0) <= 0) return 100;
+    return clamp(Math.round((S.goodShots / Math.max(1,S.shots)) * 100), 0, 100);
+  }
+
+  function gradeFrom(accPct, score){
+    score = Number(score)||0;
+    accPct = Number(accPct)||0;
+    return (accPct>=92 && score>=220) ? 'S'
+      : (accPct>=86 && score>=170) ? 'A'
+      : (accPct>=76 && score>=120) ? 'B'
+      : (accPct>=62) ? 'C' : 'D';
+  }
+
   function emitRank(){
-    const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
-    const grade =
-      (acc>=92 && S.score>=220) ? 'S' :
-      (acc>=86 && S.score>=170) ? 'A' :
-      (acc>=76 && S.score>=120) ? 'B' :
-      (acc>=62) ? 'C' : 'D';
+    const acc = calcAccuracyPct();
+    const grade = gradeFrom(acc, S.score);
     emit('hha:rank', { accuracy: acc, grade });
   }
+
   function emitPower(){
     emit('groups:power', { charge:S.powerCur, threshold:S.powerThr });
   }
@@ -393,7 +374,7 @@
       // badge: streak_10 once
       if (!S.streak10Awarded && S.combo >= 10){
         S.streak10Awarded = true;
-        awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, scoreFinal:S.score|0 });
+        awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, score:S.score|0 });
       }
 
       const comboBonus = Math.min(25, (S.combo>=3)? (S.combo*2) : 0);
@@ -429,8 +410,8 @@
           awardOnce('groups','mini_clear_1', {
             miniKind:S.miniKind,
             miniTot:S.miniTot|0,
-            scoreFinal:S.score|0,
-            comboMax:S.maxCombo|0
+            score:S.score|0,
+            maxCombo:S.maxCombo|0
           });
         }
       }
@@ -491,7 +472,7 @@
       // badge: boss_clear_1 (this game has 1 boss moment)
       if(!S.bossAwarded){
         S.bossAwarded = true;
-        awardOnce('groups','boss_clear_1', { scoreFinal:S.score|0, comboMax:S.maxCombo|0, miss:S.miss|0 });
+        awardOnce('groups','boss_clear_1', { score:S.score|0, maxCombo:S.maxCombo|0, misses:S.miss|0 });
       }
     }
   }
@@ -598,11 +579,7 @@
     }
 
     if (!tgtEl){
-      // ✅ PATCH #1.1: shot_miss does NOT increment miss (prevents miss spike on mobile/cVR)
-      S.combo = 0;
-      S.score = Math.max(0, (S.score|0) - 2); // optional tiny penalty
-      emitScore();
-      emitRank();
+      addScore(false);
       onBadHit();
       emitFx('shot_miss', x, y, false);
       return;
@@ -668,8 +645,7 @@
         const cg = currentGroup().key;
         const isFairMiss = (tg.groupKey === cg);
 
-        // ✅ PATCH #1.2: timeout_miss increments miss ONLY in runMode=play
-        if (isFairMiss && S.runMode === 'play'){
+        if (isFairMiss){
           S.miss++;
           S.combo = 0;
           S.score = Math.max(0, S.score - 6);
@@ -800,8 +776,8 @@
     S.rng = makeRng(u32);
 
     // time
-    const tt = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
-    S.timePlannedSec = clamp(tt, 15, 180);
+    const t = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
+    S.timePlannedSec = clamp(t, 15, 180);
     S.timeLeftSec = S.timePlannedSec;
 
     // spawn timer
@@ -859,7 +835,7 @@
     resetRun(ctx||{});
 
     // badge: first play (safe, no override)
-    awardOnce('groups','first_play',{ startedAt: Date.now() });
+    awardOnce('groups','first_play',{});
 
     S.running = true;
     S.startT = nowMs();
@@ -896,53 +872,61 @@
     }
     WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
 
-    const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
-    const grade =
-      (acc>=92 && S.score>=220) ? 'S' :
-      (acc>=86 && S.score>=170) ? 'A' :
-      (acc>=76 && S.score>=120) ? 'B' :
-      (acc>=62) ? 'C' : 'D';
+    const accPct = calcAccuracyPct();
+    const grade = gradeFrom(accPct, S.score);
 
-    // badges on end (normalized meta keys):
-    if (acc >= 80){
+    // badges on end:
+    if (accPct >= 80){
       awardOnce('groups','score_80p', {
-        scoreFinal: S.score|0,
-        miss: S.miss|0,
-        accuracyPct: acc|0,
-        shots: S.shots|0,
-        goodShots: S.goodShots|0,
-        comboMax: S.maxCombo|0
+        accuracyPct: accPct|0,
+        shots:S.shots|0,
+        goodShots:S.goodShots|0,
+        miss:S.miss|0,
+        scoreFinal:S.score|0,
+        comboMax:S.maxCombo|0
       });
     }
     if ((S.miss|0) === 0){
       awardOnce('groups','perfect_run', {
-        scoreFinal: S.score|0,
-        miss: 0,
-        accuracyPct: acc|0,
-        shots: S.shots|0,
-        goodShots: S.goodShots|0,
-        comboMax: S.maxCombo|0
+        accuracyPct: accPct|0,
+        shots:S.shots|0,
+        goodShots:S.goodShots|0,
+        miss:S.miss|0,
+        scoreFinal:S.score|0,
+        comboMax:S.maxCombo|0
       });
     }
 
+    // ✅ STANDARD summary schema (Step 3)
     const summary = {
+      game: 'groups',
       reason: reason || 'end',
-      scoreFinal: S.score|0,
-      miss: S.miss|0,
-      shots: S.shots|0,
-      goodShots: S.goodShots|0,
-      accuracyPct: acc|0,
-      grade,
-      seed: S.seed,
       runMode: S.runMode,
       diff: S.diff,
-      style: S.style,
-      view: S.view,
+      seed: S.seed,
+      timePlannedSec: S.timePlannedSec|0,
+      scoreFinal: S.score|0,
       comboMax: S.maxCombo|0,
+      miss: S.miss|0,
+      accuracyPct: accPct|0,
+      grade,
+
+      // extras
+      view: S.view,
+      style: S.style,
+      shots: S.shots|0,
+      goodShots: S.goodShots|0,
       miniCleared: !!S.miniAwarded,
-      bossCleared: !!S.bossAwarded
+      bossCleared: !!S.bossAwarded,
+
+      // legacy aliases (กันของเดิมพัง)
+      misses: S.miss|0,
+      accuracyGoodPct: accPct|0,
+      maxCombo: S.maxCombo|0,
+      timeLeft: S.timeLeftSec|0
     };
 
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
     emit('hha:end', summary);
 
     clearTargets();
