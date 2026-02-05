@@ -1,3 +1,11 @@
+<!-- === /herohealth/plate/plate-vr.html ===
+PlateVR RUN — PRODUCTION (HARDENED)
+✅ Views: pc/mobile/vr/cvr (via body classes set by plate.boot.js)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: ./plate.safe.js (module export boot)
+✅ HUD + Quest + Coach + End summary
+✅ End summary: adds Miss breakdown (junk hit + good expired)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -34,11 +42,11 @@
       <a-entity camera position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <!-- FX layers -->
+    <!-- FX layers (optional hooks) -->
     <div id="bossFx" aria-hidden="true"></div>
     <div id="stormFx" aria-hidden="true"></div>
 
-    <!-- Playfield -->
+    <!-- Playfield (targets spawn inside this rect) -->
     <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
@@ -107,25 +115,17 @@
         </div>
 
         <div class="endGrid">
-          <div class="kpi"><div class="k">Score</div><div class="v" id="kScore">0</div></div>
-
-          <!-- ✅ RANK from safe (summary.grade) -->
-          <div class="kpi"><div class="k">Rank</div><div class="v" id="kRank">—</div></div>
-
-          <!-- ✅ Accuracy from safe (accuracyPct / accuracyGoodPct alias) -->
-          <div class="kpi"><div class="k">Accuracy</div><div class="v" id="kAcc">0%</div></div>
-
+          <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
+          <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
           <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
           <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
           <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
+          <div class="kpi"><div class="k">Miss</div><div class="v" id="kMiss">0</div></div>
 
-          <!-- ✅ Miss total (safe uses miss + aliases misses) -->
-          <div class="kpi"><div class="k">Miss (รวม)</div><div class="v" id="kMiss">0</div></div>
-
-          <!-- ✅ Miss breakdown (UI ready; counters wired in next files) -->
-          <div class="kpi"><div class="k">ยิงพลาด</div><div class="v" id="kMissShot">0</div></div>
-          <div class="kpi"><div class="k">โดนของหวาน/ทอด</div><div class="v" id="kMissJunk">0</div></div>
-          <div class="kpi"><div class="k">ปล่อยหมดเวลา</div><div class="v" id="kMissTimeout">0</div></div>
+          <!-- ✅ NEW: Miss breakdown -->
+          <div class="kpi"><div class="k">Miss • ตี Junk</div><div class="v" id="kMissJunk">0</div></div>
+          <div class="kpi"><div class="k">Miss • ดีหมดเวลา</div><div class="v" id="kMissExpire">0</div></div>
+          <div class="kpi"><div class="k">เกรด</div><div class="v" id="kGrade">—</div></div>
         </div>
 
         <div class="endBtns">
@@ -137,8 +137,8 @@
   </div>
 
   <!-- NOTE:
-    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js boots the engine.
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
