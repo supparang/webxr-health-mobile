@@ -1,102 +1,96 @@
 // === /fitness/js/ai-predictor.js ===
-// Classic Script (NO export) — safe for <script src="...">
+// ES Module + Global bridge (export + window.RB_AI)
+// ✅ provides named export: RB_AI
+// ✅ also sets window.RB_AI for reuse across games
 'use strict';
 
-(function () {
-  const WIN = window;
+// ---- small helpers ----
+const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
 
-  // ---- small helpers ----
-  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
-
-  function readQueryFlag(key) {
-    try {
-      const v = new URL(location.href).searchParams.get(key);
-      return v === '1' || v === 'true' || v === 'yes';
-    } catch (_) {
-      return false;
-    }
+function readQueryFlag(key) {
+  try {
+    const v = new URL(location.href).searchParams.get(key);
+    return v === '1' || v === 'true' || v === 'yes';
+  } catch (_) {
+    return false;
   }
-  function readQueryMode() {
-    try {
-      const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
-      if (m === 'research') return 'research';
-      return 'normal';
-    } catch (_) {
-      return 'normal';
-    }
+}
+function readQueryMode() {
+  try {
+    const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
+    if (m === 'research') return 'research';
+    return 'normal';
+  } catch (_) {
+    return 'normal';
   }
+}
 
-  // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
-  // Inputs we "expect" (best effort) from engine snapshot:
-  // { accPct, hitMiss, combo, offsetAbsMean, hp, songTime, durationSec }
-  function predictFromSnapshot(s) {
-    const acc = clamp01((Number(s.accPct) || 0) / 100);
-    const hp = clamp01((Number(s.hp) || 100) / 100);
+// ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
+// Inputs we "expect" (best effort) from engine snapshot:
+// { accPct, hitMiss, hitPerfect, hitGreat, hitGood, offsetAbsMean, hp }
+function predictFromSnapshot(s) {
+  const acc = clamp01((Number(s.accPct) || 0) / 100);
+  const hp = clamp01((Number(s.hp) || 100) / 100);
 
-    // offsetAbsMean in seconds; smaller => better
-    const off = Number(s.offsetAbsMean);
-    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ fairly loose cap
+  // offsetAbsMean in seconds; smaller => better
+  const off = Number(s.offsetAbsMean);
+  const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5;
 
-    const miss = Number(s.hitMiss) || 0;
-    const judged = (Number(s.hitPerfect)||0) + (Number(s.hitGreat)||0) + (Number(s.hitGood)||0) + miss;
-    const missRate = judged > 0 ? clamp01(miss / judged) : 0;
+  const miss = Number(s.hitMiss) || 0;
+  const judged =
+    (Number(s.hitPerfect) || 0) +
+    (Number(s.hitGreat) || 0) +
+    (Number(s.hitGood) || 0) +
+    miss;
 
-    // fatigueRisk: rises if hp low, missRate high, offset large
-    const fatigueRisk = clamp01(
-      (1 - hp) * 0.45 +
-      missRate * 0.35 +
-      (1 - offScore) * 0.20
-    );
+  const missRate = judged > 0 ? clamp01(miss / judged) : 0;
 
-    // skillScore: high if accuracy high + offset good + miss low
-    const skillScore = clamp01(
-      acc * 0.55 +
-      offScore * 0.30 +
-      (1 - missRate) * 0.15
-    );
+  const fatigueRisk = clamp01(
+    (1 - hp) * 0.45 +
+    missRate * 0.35 +
+    (1 - offScore) * 0.20
+  );
 
-    // suggest difficulty (string)
-    let suggestedDifficulty = 'normal';
-    if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
-    else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
+  const skillScore = clamp01(
+    acc * 0.55 +
+    offScore * 0.30 +
+    (1 - missRate) * 0.15
+  );
 
-    // micro tip
-    let tip = '';
-    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
-    else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
-    else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
-    else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+  let suggestedDifficulty = 'normal';
+  if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
+  else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
 
-    return {
-      fatigueRisk,
-      skillScore,
-      suggestedDifficulty,
-      tip
-    };
+  let tip = '';
+  if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
+  else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
+  else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
+  else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+
+  return { fatigueRisk, skillScore, suggestedDifficulty, tip, missRate, accPct: acc * 100 };
+}
+
+// ---- Public bridge used by engine/UI ----
+// Research lock rule:
+// - if mode=research => lock adjustments ALWAYS
+// - if normal => allow adjustments only when ?ai=1
+export const RB_AI = {
+  getMode() {
+    return readQueryMode(); // 'research' | 'normal'
+  },
+  isAssistEnabled() {
+    const mode = readQueryMode();
+    if (mode === 'research') return false;
+    return readQueryFlag('ai'); // normal: require ?ai=1
+  },
+  isLocked() {
+    return readQueryMode() === 'research';
+  },
+  predict(snapshot) {
+    return predictFromSnapshot(snapshot || {});
   }
+};
 
-  // ---- Public bridge used by engine/UI ----
-  // Research lock rule:
-  // - if mode=research => lock adjustments ALWAYS
-  // - if normal => allow adjustments only when ?ai=1
-  const API = {
-    getMode() {
-      return readQueryMode(); // 'research' | 'normal'
-    },
-    isAssistEnabled() {
-      const mode = readQueryMode();
-      if (mode === 'research') return false;   // locked
-      return readQueryFlag('ai');              // normal: require ?ai=1
-    },
-    isLocked() {
-      return readQueryMode() === 'research';
-    },
-    predict(snapshot) {
-      return predictFromSnapshot(snapshot || {});
-    }
-  };
-
-  // expose globally
-  WIN.RB_AI = API;
-})();
+// also expose globally (for other games / non-module usage)
+try { window.RB_AI = RB_AI; } catch {}
