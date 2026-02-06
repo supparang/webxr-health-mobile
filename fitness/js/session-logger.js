@@ -1,42 +1,38 @@
+// === /fitness/js/session-logger.js ===
+// Session summary logger (single-row CSV)
+// ✅ Export: SessionLogger
+
 'use strict';
 
-function toCsv(rows){
-  const esc = (v)=>{
-    const s = String(v ?? '');
-    if (/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
-    return s;
-  };
-  if (!rows.length) return '';
-  const keys = Object.keys(rows[0]);
-  const head = keys.map(esc).join(',');
-  const body = rows.map(r=>keys.map(k=>esc(r[k])).join(',')).join('\n');
-  return head + '\n' + body;
-}
-
-function dlText(filename, text){
-  const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+function csvEscape(v){
+  const s = String(v ?? '');
+  if (/[\",\\n]/.test(s)) return '\"' + s.replace(/\"/g,'\"\"') + '\"';
+  return s;
 }
 
 export class SessionLogger {
-  constructor(meta = {}) {
-    this.meta = meta;
-    this.summary = null;
+  constructor(){
+    this.reset();
   }
 
-  setSummary(obj){
-    this.summary = obj || null;
+  reset(){
+    this.meta = {};
+    this.summary = {};
   }
 
-  downloadCsv(prefix='session'){
-    const name = `${prefix}_${Date.now()}.csv`;
-    const row = { ...this.meta, ...(this.summary || {}) };
-    dlText(name, toCsv([row]));
+  setMeta(meta = {}){
+    this.meta = Object.assign({}, this.meta, meta||{});
+  }
+
+  setSummary(sum = {}){
+    this.summary = Object.assign({}, this.summary, sum||{});
+  }
+
+  toCSV(){
+    const row = Object.assign({}, this.meta||{}, this.summary||{});
+    const cols = Object.keys(row);
+    const head = cols.map(csvEscape).join(',');
+    const body = cols.map(k => csvEscape(row[k])).join(',');
+    return head + '\\n' + body;
   }
 }
