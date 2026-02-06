@@ -1,52 +1,37 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR ROOT Launcher — PRODUCTION
-✅ Redirect -> ./vr-goodjunk/goodjunk-vr.html
-✅ Pass-through query params
+GoodJunkVR ROOT LAUNCHER — PRODUCTION (HHA Standard)
+Redirects -> ./vr-goodjunk/goodjunk-vr.html
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR (Launcher)</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — GoodJunk VR (Launcher)</title>
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-  <style>
-    :root{ color-scheme: dark; }
-    html,body{ height:100%; margin:0; background:#020617; color:#e5e7eb; font-family:system-ui,"Noto Sans Thai",sans-serif; }
-    .wrap{ height:100%; display:grid; place-items:center; padding:18px; text-align:center; }
-    .card{ width:min(560px, 100%); border:1px solid rgba(148,163,184,.18); border-radius:18px; background:rgba(2,6,23,.72); padding:16px; }
-    .t{ font-weight:1000; font-size:18px; }
-    .m{ margin-top:8px; color:rgba(229,231,235,.78); font-weight:800; }
-    .btn{ margin-top:14px; appearance:none; border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.72);
-          color:#e5e7eb; padding:12px 14px; border-radius:14px; font-weight:1000; cursor:pointer; }
-  </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="t">กำลังเข้าเกม GoodJunkVR…</div>
-      <div class="m">ถ้าไม่เด้งอัตโนมัติ กดปุ่มด้านล่าง</div>
-      <button class="btn" id="go">เข้าเกม</button>
-    </div>
-  </div>
+<script>
+(function(){
+  const RUN_PATH = './vr-goodjunk/goodjunk-vr.html';
+  const HUB_DEFAULT = './hub.html';
 
-  <script>
-    (function(){
-      'use strict';
-      const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-      const cur = new URL(location.href);
+  const from = new URL(location.href);
+  const to = new URL(RUN_PATH, from);
 
-      // pass-through all params
-      cur.searchParams.forEach((v,k)=> runUrl.searchParams.set(k,v));
+  for (const [k,v] of from.searchParams.entries()) to.searchParams.set(k, v);
+  if (!to.searchParams.has('hub')) to.searchParams.set('hub', HUB_DEFAULT);
 
-      function go(){ location.replace(runUrl.toString()); }
-      document.getElementById('go').addEventListener('click', go, { passive:true });
+  if (!to.searchParams.has('view')) {
+    const isMobile =
+      (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+    to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
+  }
 
-      // auto go
-      setTimeout(go, 60);
-    })();
-  </script>
+  location.replace(to.toString());
+})();
+</script>
 </body>
 </html>
