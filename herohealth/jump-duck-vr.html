@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Jump-Duck (Launcher)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
+</head>
+<body>
+<script type="module">
+  // ✅ FIX: path ถูกแล้ว (อยู่ใน /herohealth/launch/launcher-core.js)
+  import { hhGo } from './launch/launcher-core.js';
+
+  // ✅ ไป RUN ที่ /fitness/jump-duck.html (อยู่นอก herohealth)
+  // defaults จะ "เติมเฉพาะที่ขาด" เท่านั้น (NO override)
+  hhGo('../fitness/jump-duck.html', {
+    defaults: {
+      // ค่าเริ่มต้นที่ปลอดภัย
+      mode: 'training',
+      diff: 'normal',
+      duration: '60',
+      ai: '1'
+    }
+  });
+</script>
+</body>
+</html>
