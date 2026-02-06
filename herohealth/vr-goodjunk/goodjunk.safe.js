@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4.3-std (Boss+Progress+Missions+End Summary + HISTORY)
+// GoodJunkVR SAFE — v4.3-std+PATCH1 (Boss+Progress+Missions+End Summary + HISTORY)
 // ✅ FIX: target position uses LAYER rect (no more top-left bug)
 // ✅ FIX: force position:absolute in JS (robust even if CSS delayed)
 // ✅ FIX: cVR spawns paired targets (left+right) with same uid, counted once
@@ -8,6 +8,8 @@
 // ✅ Never crash if AI missing (stub getDifficulty/getTip/onEvent)
 // ✅ Supports shoot from both: hha:shoot and gj:shoot
 // ✅ PATCH: Standardize hha:end summary + save HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY + legacy keys
+// ✅ PATCH1: Safe rect INSIDE layer (do NOT subtract --gj-top-safe/--gj-bottom-safe again) + soft top clamp
+
 'use strict';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
@@ -90,20 +92,24 @@ function cssPx(varName, fallback){
   }
 }
 
-/** ✅ Safe rect relative to a specific layer element */
+/** ✅ PATCH1: Safe rect INSIDE layer (do NOT subtract --gj-top-safe/--gj-bottom-safe again)
+    เพราะ CSS ทำ layer ให้เป็น safe-area แล้ว:
+    #gj-layer { top: var(--gj-top-safe); bottom: var(--gj-bottom-safe); ... }
+*/
 function getSafeRectForLayer(layerEl){
   const r = layerEl.getBoundingClientRect();
-  const topSafe = cssPx('--gj-top-safe', 90);
-  const botSafe = cssPx('--gj-bottom-safe', 95);
 
+  // padding ภายใน layer กันเป้าชนขอบเล็กน้อย
   const padX = 14;
+  const padY = 10;
 
   const x = padX;
-  const y = Math.max(8, topSafe);
-  const w = Math.max(140, r.width - padX*2);
-  const h = Math.max(190, r.height - y - botSafe);
+  const y = padY;
 
-  return { x,y,w,h, rect:r };
+  const w = Math.max(160, r.width  - padX*2);
+  const h = Math.max(220, r.height - padY*2);
+
+  return { x, y, w, h, rect:r };
 }
 
 /** ยิงจากจุด (x,y) viewport แล้ว pick target ที่ใกล้สุดใน lockPx */
@@ -598,9 +604,13 @@ export function boot(opts={}){
 
     const uid = String(uidSeq++);
 
+    // ✅ PATCH1: pick inside layer safe rect (layer already excludes HUD-safe via CSS)
     const safeL = getSafeRectForLayer(layerL);
     const xL = safeL.x + S.rng()*safeL.w;
-    const yL = safeL.y + S.rng()*safeL.h;
+
+    // ✅ soft top clamp: กันอัดแน่นใกล้ขอบบนของ layer (มือถือจอเตี้ย)
+    const topBias = 6; // 0-14 ได้
+    const yL = safeL.y + topBias + S.rng()*(Math.max(10, safeL.h - topBias));
 
     const elL = makeTargetEl(kind, obj, size);
     elL.dataset.uid = uid;
@@ -744,7 +754,7 @@ export function boot(opts={}){
     const summary = {
       game:'goodjunk',
       ts: Date.now(),
-      pack:'goodjunk-v4.3-std',
+      pack:'goodjunk-v4.3-std+patch1',
 
       reason,
 
@@ -870,6 +880,6 @@ export function boot(opts={}){
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
   WIN.addEventListener('gj:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'goodjunk', pack:'goodjunk-v4.3-std', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', { game:'goodjunk', pack:'goodjunk-v4.3-std+patch1', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
