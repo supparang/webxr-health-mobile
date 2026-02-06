@@ -1,7 +1,7 @@
 // === /fitness/js/ai-pattern.js ===
 // Shadow Breaker — Pattern + Target Size Policy (PATCH F)
 // ✅ Size policy A: Easy 160 / Normal 135 / Hard 120
-// ✅ Auto-scale by viewport (small phones -> bigger targets, large screens -> slightly smaller)
+// ✅ Auto-scale by viewport (small phones -> bigger targets)
 // Export: AIPattern
 'use strict';
 
