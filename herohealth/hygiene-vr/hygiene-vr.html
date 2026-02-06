@@ -4,7 +4,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ PATCH: Auto-safe-zones from HUD height (fix spawn under HUD / mobile overlay)
 -->
 <!doctype html>
 <html lang="th">
@@ -104,70 +103,20 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
-  <!-- ===== View + labels + AUTO SAFE ZONES ===== -->
-  <script>
-  (function(){
-    'use strict';
-
-    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
-    function setViewClass(){
-      const view = (qs('view','pc')||'pc').toLowerCase();
-      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      document.body.classList.add(
-        view==='mobile' ? 'view-mobile' :
-        (view==='vr' ? 'view-vr' :
-        (view==='cvr' ? 'view-cvr' : 'view-pc'))
-      );
-
-      const el = document.getElementById('labView');
-      if(el) el.textContent = view;
-    }
-
-    function setLabels(){
-      const m = (qs('run','play')||'play');
-      const d = (qs('diff','normal')||'normal');
-      const v = (qs('view','pc')||'pc');
-
-      const a = document.getElementById('labMode'); if(a) a.textContent = m;
-      const b = document.getElementById('labDiff'); if(b) b.textContent = d;
-      const c = document.getElementById('labView'); if(c) c.textContent = v;
-    }
-
-    // ✅ 핵: วัด HUD จริงแล้วอัปเดต safe-zone ให้ JS spawn ไม่ไปอยู่ใต้ HUD
-    function updateSafeZones(){
-      try{
-        const hudTop = document.querySelector('.hw-top');
-        if(!hudTop) return;
-
-        const r = hudTop.getBoundingClientRect();
-
-        // กันแถบ vr-ui.js (ENTER VR/EXIT/RECENTER) ที่อยู่ชิดบน
-        const extraTop = 12;
-
-        // bottom เผื่อ gesture bar + ปุ่ม/แถบบางเครื่อง
-        const sab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
-        const extraBottom = 12;
-
-        const topSafe = Math.ceil(r.bottom + extraTop);
-        const bottomSafe = Math.ceil(140 + sab + extraBottom);
-
-        document.documentElement.style.setProperty('--hw-top-safe', topSafe + 'px');
-        document.documentElement.style.setProperty('--hw-bottom-safe', bottomSafe + 'px');
-      }catch(_){}
-    }
-
-    setViewClass();
-    setLabels();
-
-    // run after layout + after vr-ui injected
-    setTimeout(updateSafeZones, 0);
-    setTimeout(updateSafeZones, 200);
-    setTimeout(updateSafeZones, 600);
-
-    window.addEventListener('resize', updateSafeZones, { passive:true });
-    window.addEventListener('orientationchange', updateSafeZones, { passive:true });
-  })();
-  </script>
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
+  }
+  setViewClass();
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+})();
+</script>
 </body>
 </html>
