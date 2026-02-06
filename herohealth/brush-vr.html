@@ -1,16 +1,50 @@
+<!-- === /herohealth/brush-vr.html ===
+BrushVR ROOT LAUNCHER — PRODUCTION (HHA Standard)
+Redirects -> ./brush-vr/brush-vr.html
+✅ Pass-through all params
+✅ Always attaches hub backlink (?hub=./hub.html) if missing
+✅ Auto-fill view if missing (pc/mobile) but never override
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — BrushVR</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Brush VR (Launcher)</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
-  hhGo('./brush-vr/brush-vr.html', { defaults: {} });
+<script>
+(function(){
+  'use strict';
+
+  const RUN_PATH = './brush-vr/brush-vr.html';
+  const HUB_DEFAULT = './hub.html';
+
+  const from = new URL(location.href);
+  const to = new URL(RUN_PATH, from);
+
+  // pass-through all params (NO override logic)
+  for (const [k,v] of from.searchParams.entries()){
+    to.searchParams.set(k, v);
+  }
+
+  // ensure hub exists
+  if (!to.searchParams.has('hub')) to.searchParams.set('hub', HUB_DEFAULT);
+
+  // fill view only if missing (never override user)
+  if (!to.searchParams.has('view')) {
+    const isMobile =
+      (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
+    // if user wants cvr/cardboard, they must pass ?view=cvr or ?view=cardboard explicitly
+  }
+
+  // hard redirect (avoid history loop)
+  location.replace(to.toString());
+})();
 </script>
 </body>
 </html>
