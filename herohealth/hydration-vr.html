@@ -1,16 +1,37 @@
+<!-- === /herohealth/hydration-vr.html ===
+HydrationVR ROOT LAUNCHER — PRODUCTION (HHA Standard)
+Redirects -> ./hydration-vr/hydration-vr.html
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Hydration Quest VR</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Hydration VR (Launcher)</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
-  hhGo('./hydration-vr/hydration-vr.html', { defaults: {} });
+<script>
+(function(){
+  const RUN_PATH = './hydration-vr/hydration-vr.html';
+  const HUB_DEFAULT = './hub.html';
+
+  const from = new URL(location.href);
+  const to = new URL(RUN_PATH, from);
+
+  for (const [k,v] of from.searchParams.entries()) to.searchParams.set(k, v);
+  if (!to.searchParams.has('hub')) to.searchParams.set('hub', HUB_DEFAULT);
+
+  if (!to.searchParams.has('view')) {
+    const isMobile =
+      (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+    to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
+  }
+
+  location.replace(to.toString());
+})();
 </script>
 </body>
 </html>
