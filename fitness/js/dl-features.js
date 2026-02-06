@@ -24,7 +24,6 @@ export const DLFeatures = {
     }
   },
 
-  // engine ส่ง snapshot เข้ามา แล้วเราคืน pred
   predict(snapshot) {
     try {
       if (!RB_AI || !RB_AI.predict) return null;
@@ -34,7 +33,6 @@ export const DLFeatures = {
     }
   },
 
-  // tip helper (คืน string สั้น ๆ)
   tip(snapshot) {
     const p = this.predict(snapshot);
     return p && p.tip ? String(p.tip) : '';
