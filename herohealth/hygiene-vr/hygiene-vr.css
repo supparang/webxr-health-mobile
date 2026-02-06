@@ -1,5 +1,5 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION (HHA Standard) v20260204b
+HygieneVR CSS — PRODUCTION (HHA Standard)
 ✅ HUD safe zones (top/bottom) for spawn logic
 ✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
 ✅ Targets: uses --x (vw%), --y (vh%), --s scale
@@ -38,21 +38,12 @@ HygieneVR CSS — PRODUCTION (HHA Standard) v20260204b
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  height:100%;
-  margin:0;
-  background:var(--bg0);
-  color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
+html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 
 button{ font: inherit; }
 
-.hw-root{
-  position: relative;
-  min-height: 100%;
-  overflow: hidden;
-}
+.hw-root{ position: relative; min-height: 100%; overflow: hidden; }
 
 /* ===== Stage (playfield) ===== */
 .hw-stage{
@@ -63,7 +54,6 @@ button{ font: inherit; }
     radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
     radial-gradient(900px 600px at 50% 90%, rgba(245,158,11,.05), transparent 65%),
     linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.86));
-  touch-action: manipulation; /* PATCH */
 }
 
 /* ===== HUD ===== */
@@ -80,24 +70,10 @@ button{ font: inherit; }
   padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 12px calc(12px + var(--sal));
 }
 
-.hw-title{
-  font-weight: 950;
-  letter-spacing: .2px;
-  font-size: 16px;
-}
+.hw-title{ font-weight: 950; letter-spacing: .2px; font-size: 16px; }
+.hw-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); }
 
-.hw-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.hw-row{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
+.hw-row{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
 .hw-pill{
   pointer-events: none;
@@ -117,7 +93,7 @@ button{ font: inherit; }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
 .hw-pill.btn{
-  pointer-events: auto; /* ✅ allow click */
+  pointer-events: auto;
   cursor: pointer;
   background: rgba(15,23,42,.70);
 }
@@ -143,10 +119,7 @@ button{ font: inherit; }
   max-width: min(680px, calc(100% - 24px));
   text-align: center;
 }
-.hw-banner.show{
-  opacity: 1;
-  transform: translateX(-50%) translateY(0px);
-}
+.hw-banner.show{ opacity: 1; transform: translateX(-50%) translateY(0px); }
 
 /* ===== Overlays ===== */
 .hw-overlay{
@@ -170,25 +143,10 @@ button{ font: inherit; }
   backdrop-filter: blur(12px);
 }
 
-.hw-card-title{
-  font-weight: 950;
-  font-size: 18px;
-  letter-spacing: .2px;
-}
+.hw-card-title{ font-weight: 950; font-size: 18px; letter-spacing: .2px; }
+.hw-card-sub{ margin-top: 10px; color: var(--muted); line-height: 1.4; font-size: 13px; }
 
-.hw-card-sub{
-  margin-top: 10px;
-  color: var(--muted);
-  line-height: 1.4;
-  font-size: 13px;
-}
-
-.hw-card-row{
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
+.hw-card-row{ display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
 
 .hw-cta, .hw-ghost{
   cursor: pointer;
@@ -197,15 +155,8 @@ button{ font: inherit; }
   font-weight: 950;
   border: 1px solid var(--stroke);
 }
-.hw-cta{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.28);
-  color: rgba(229,231,235,.96);
-}
-.hw-ghost{
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.94);
-}
+.hw-cta{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); color: rgba(229,231,235,.96); }
+.hw-ghost{ background: rgba(15,23,42,.70); color: rgba(229,231,235,.94); }
 .hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
@@ -222,7 +173,7 @@ button{ font: inherit; }
 
 /* ===== Targets ===== */
 .hw-tgt{
-  position: fixed; /* ✅ place in viewport so obj.x/y align */
+  position: fixed;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -241,7 +192,6 @@ button{ font: inherit; }
   -webkit-tap-highlight-color: transparent;
   z-index: 10;
   animation: hwPopIn 180ms ease-out both;
-  will-change: transform, opacity; /* PATCH */
 }
 
 .hw-tgt .emoji{
@@ -250,24 +200,22 @@ button{ font: inherit; }
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.38));
 }
 
-.hw-tgt.good{
-  border-color: rgba(34,197,94,.28);
-  background: rgba(34,197,94,.10);
-}
-.hw-tgt.wrong{
-  border-color: rgba(245,158,11,.28);
-  background: rgba(245,158,11,.10);
-}
-.hw-tgt.haz{
-  border-color: rgba(239,68,68,.30);
-  background: rgba(239,68,68,.10);
-}
+.hw-tgt.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
+.hw-tgt.wrong{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
+.hw-tgt.haz{ border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
 
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-/* subtle float */
+/* ✅ hit feedback: hide immediately (feels instant) */
+.hw-tgt.is-hit{
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85));
+  transition: opacity 70ms linear, transform 70ms ease;
+}
+
 @keyframes hwPopIn{
   from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
   to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
@@ -284,18 +232,8 @@ button{ font: inherit; }
   padding: 12px;
   max-width: min(760px, calc(100% - 2px));
 }
-
-.hw-quiz-q{
-  font-weight: 950;
-  font-size: 14px;
-}
-
-.hw-quiz-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.35;
-}
+.hw-quiz-q{ font-weight: 950; font-size: 14px; }
+.hw-quiz-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
 /* ===== View tweaks ===== */
 body.view-mobile{
@@ -320,13 +258,3 @@ body.view-vr{
 @media (max-width: 520px){
   .hw-banner{ top: calc(130px + var(--sat)); }
 }
-
-/* === PATCH v20260204b: instant vanish + no double-hit === */
-.hw-tgt.is-hit{
-  pointer-events: none !important;
-  opacity: 0 !important;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78)) !important;
-  transition: opacity 90ms ease-out, transform 90ms ease-out !important;
-}
-.hw-tgt:focus{ outline: none; }
-.hw-tgt:focus-visible{ outline: none; }
