@@ -1,16 +1,11 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
-// PATCH v20260204b
-// ✅ Global handlers: error + unhandledrejection => on-screen fatal
-// ✅ Guard double-boot
-// ✅ Keeps your existing checks (CSS/Particles/QuizBank) intact
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics) v20260204b
+//
+// ✅ Imports engine: hygiene.safe.js (must export boot)
+// ✅ If missing DOM or import fails -> show readable error on screen
+// ✅ Warn if particles.js or quiz bank missing
+//
 'use strict';
-
-if(window.__HYG_BOOT__) {
-  console.warn('[HygieneBoot] already booted');
-}else{
-  window.__HYG_BOOT__ = true;
-}
 
 function $id(id){ return document.getElementById(id); }
 
@@ -46,16 +41,6 @@ function showFatal(msg, err){
     startOverlay.style.display = 'grid';
   }
 }
-
-window.addEventListener('error', (e)=>{
-  const m = (e && (e.message || e.error?.message)) || 'Unknown error';
-  showFatal(`runtime error: ${m}`, e.error || e);
-});
-
-window.addEventListener('unhandledrejection', (e)=>{
-  const m = (e && (e.reason?.message || String(e.reason))) || 'Unhandled promise rejection';
-  showFatal(`unhandledrejection: ${m}`, e.reason || e);
-});
 
 function hasCssHref(part){
   try{
@@ -110,7 +95,7 @@ async function main(){
 
   let engine;
   try{
-    engine = await import('./hygiene.safe.js');
+    engine = await import('./hygiene.safe.js?v=20260204b');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
