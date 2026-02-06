@@ -3,6 +3,7 @@
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
 // ✅ FX via FxBurst
+// ✅ Safe-spawn: avoid overlapping targets
 
 'use strict';
 
@@ -35,7 +36,6 @@ export class DomRendererShadow {
 
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
-    // keep margins away from HUD/meta
     const pad = Math.min(42, Math.max(18, r.width * 0.04));
     const top = pad + 10;
     const left = pad + 10;
@@ -54,10 +54,40 @@ export class DomRendererShadow {
     return '🎯';
   }
 
+  _pickSpawnPoint(left, top, right, bottom, size, maxTry = 18){
+    const r2 = size * 0.52; // collision radius
+    const pts = [];
+    for (const el of this.targets.values()){
+      try{
+        const b = el.getBoundingClientRect();
+        const cx = b.left + b.width/2;
+        const cy = b.top + b.height/2;
+        pts.push({ x: cx, y: cy, r: (b.width/2) });
+      }catch{}
+    }
+
+    for(let i=0;i<maxTry;i++){
+      const x = rand(left, Math.max(left, right - size));
+      const y = rand(top,  Math.max(top,  bottom - size));
+      const cx = x + size/2;
+      const cy = y + size/2;
+
+      let ok = true;
+      for(const p of pts){
+        const dx = cx - p.x;
+        const dy = cy - p.y;
+        const rr = (p.r + r2);
+        if ((dx*dx + dy*dy) < rr*rr){ ok = false; break; }
+      }
+      if (ok) return { x, y };
+    }
+    return { x: left, y: top };
+  }
+
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const { r, left, top, right, bottom } = this._safeAreaRect();
+    const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
@@ -67,13 +97,10 @@ export class DomRendererShadow {
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    const pt = this._pickSpawnPoint(left, top, right, bottom, size);
+    el.style.left = Math.round(pt.x) + 'px';
+    el.style.top  = Math.round(pt.y) + 'px';
 
-    // content
     const emoji = this._emojiForType(data.type, data.bossEmoji);
     el.textContent = emoji;
 
@@ -89,7 +116,6 @@ export class DomRendererShadow {
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
-    // forward hit
     if (this.onTargetHit) {
       this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
     }
