@@ -1,10 +1,9 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN)
-✅ Playfield: #plate-layer (targets spawn here)
-✅ HUD: score/time/combo + quest (goal/mini)
-✅ Coach bubble
-✅ End overlay: KPIs + Miss breakdown (รวม / junk / หมดเวลา)
-✅ Loads: plate-vr.css + particles + logger + vr-ui + plate.boot.js
+     HeroHealth — Balanced Plate VR (RUN)
+     ✅ Uses: plate-vr.css
+     ✅ Boots: plate.boot.js (module)
+     ✅ Includes: particles + cloud logger + vr-ui
+     ✅ Adds: Miss breakdown slots (junk / expireGood) in End Overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -98,7 +97,7 @@ HeroHealth — Balanced Plate VR (RUN)
       </div>
     </div>
 
-    <!-- Coach bubble -->
+    <!-- Coach bubble (optional) -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">…</div>
@@ -118,17 +117,18 @@ HeroHealth — Balanced Plate VR (RUN)
           <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
           <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
           <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
+
           <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
           <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
 
-          <!-- Miss total -->
+          <!-- ✅ Miss (total) -->
           <div class="kpi"><div class="k">Miss (รวม)</div><div class="v" id="kMiss">0</div></div>
 
-          <!-- ✅ Miss breakdown (computed by boot.js from hha:judge stream) -->
-          <div class="kpi"><div class="k">Miss: กดโดนขยะ</div><div class="v" id="kMissJunk">0</div></div>
-          <div class="kpi"><div class="k">Miss: ปล่อยหมดเวลา</div><div class="v" id="kMissTimeout">0</div></div>
+          <!-- ✅ Miss breakdown -->
+          <div class="kpi"><div class="k">Miss: โดนของหวาน/ทอด</div><div class="v" id="kMissJunk">0</div></div>
+          <div class="kpi"><div class="k">Miss: ปล่อยดีหมดเวลา</div><div class="v" id="kMissExpire">0</div></div>
 
-          <!-- Optional: Grade -->
+          <!-- (optional) Grade -->
           <div class="kpi"><div class="k">เกรด</div><div class="v" id="kGrade">—</div></div>
         </div>
 
@@ -141,8 +141,8 @@ HeroHealth — Balanced Plate VR (RUN)
   </div>
 
   <!-- NOTE:
-    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js sets view class, boots engine, wires HUD, and computes Miss breakdown.
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
   -->
 </body>
 </html>
