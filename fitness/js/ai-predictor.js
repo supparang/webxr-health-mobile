@@ -28,14 +28,14 @@ function readQueryMode() {
 
 // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
 // Inputs we "expect" (best effort) from engine snapshot:
-// { accPct, hitMiss, combo, offsetAbsMean, hp, songTime, durationSec }
+// { accPct, hitMiss, combo, offsetAbsMean, hp }
 function predictFromSnapshot(s) {
   const acc = clamp01((Number(s.accPct) || 0) / 100);
   const hp = clamp01((Number(s.hp) || 100) / 100);
 
   // offsetAbsMean in seconds; smaller => better
   const off = Number(s.offsetAbsMean);
-  const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s cap
+  const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5;
 
   const miss = Number(s.hitMiss) || 0;
   const judged =
@@ -63,18 +63,15 @@ function predictFromSnapshot(s) {
   else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
 
   let tip = '';
-  if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
-  else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
-  else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
-  else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะจังหวะที่ชัวร์';
+  if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเป้า แล้วค่อยแตะ';
+  else if (offScore < 0.45) tip = 'รอจังหวะ “นิ่ง ๆ” ก่อนแตะ จะตรงขึ้น';
+  else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความยากได้';
+  else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้แตะเฉพาะจังหวะที่ชัวร์';
 
   return { fatigueRisk, skillScore, suggestedDifficulty, tip };
 }
 
-// ---- Public bridge used by engine/UI ----
-// Research lock rule:
-// - if mode=research => lock adjustments ALWAYS
-// - if normal => allow adjustments only when ?ai=1
+// ---- Public bridge ----
 export const RB_AI = {
   getMode() {
     return readQueryMode(); // 'research' | 'normal'
@@ -92,7 +89,5 @@ export const RB_AI = {
   }
 };
 
-// expose globally too (safe)
-try {
-  window.RB_AI = RB_AI;
-} catch {}
+// expose globally too
+try { window.RB_AI = RB_AI; } catch {}
