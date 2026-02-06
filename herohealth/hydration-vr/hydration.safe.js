@@ -10,6 +10,7 @@
 // ✅ Research deterministic (seeded), Play adaptive (difficulty director lite)
 // ✅ PATCH: Force-hide result overlay on boot + lock [hidden] + hardened auto-start when overlay exists but not visible
 // ✅ PATCH: Standardize summary schema (runMode/timePlannedSec/scoreFinal/miss/accuracyPct/comboMax) + keep backward aliases
+// ✅ PATCH (STORM): drift only assists in GREEN, off-green triggers with threshold+cooldown => storm actually happens
 
 'use strict';
 
@@ -176,7 +177,7 @@ const Engine = {
   lastT: 0,
   rafId: 0,
 
-  run: 'play',       // play | research  (legacy alias)
+  run: 'play',       // legacy alias
   runMode: 'play',   // ✅ canonical
   diff: 'normal',    // easy | normal | hard
   timeSec: 70,       // legacy alias
@@ -212,6 +213,12 @@ const Engine = {
 
   logs: [],
   coachLastMs: 0,
+
+  // STORM trigger helpers
+  _offGreenMs: 0,
+  _stormCooldownMs: 0,
+  _endGreenMs: 0,
+  _gcAcc: 0,
 };
 
 function cfgByDiff(diff) {
@@ -329,9 +336,10 @@ function spawnOne(rng, cfg) {
 
     let kind;
     const z = Engine.zone;
+
     let pBad = (z === 'GREEN') ? 0.26 : 0.36;
     if (isStorm) pBad = 0.22;
-    if (isBoss) pBad = 0.40;
+    if (isBoss)  pBad = 0.40;
 
     kind = (rng() < pBad) ? 'BAD' : 'GOOD';
     if (isStorm && rng() < 0.08) kind = 'STORM';
@@ -410,7 +418,7 @@ function hitTarget(el, info) {
     addScore(80 + bonus);
 
     if (Engine.phase === 'STORM') Engine.stormHit += 1;
-    if (Engine.phase === 'BOSS') Engine.bossHit += 1;
+    if (Engine.phase === 'BOSS')  Engine.bossHit += 1;
 
     coachTip('ดีมาก! รักษาให้อยู่ GREEN ต่อเนื่อง', 2300);
   } else if (kind === 'BAD') {
@@ -479,6 +487,10 @@ function enterStorm(cfg) {
   Engine.stormLeftMs = cfg.stormDur;
   Engine.stormNeed = cfg.stormNeed;
   Engine.stormHit = 0;
+
+  // cooldown so it doesn't spam
+  Engine._stormCooldownMs = 5200;
+
   DOC.body.classList.add('hha-bossfx');
   coachTip('🌀 STORM! เก็บ GOOD ให้ครบ!', 0);
   logEv('phase', { phase: 'STORM', stormNeed: Engine.stormNeed });
@@ -536,8 +548,8 @@ function step(t) {
     spawnRate = cfg.spawnPerSec * (0.9 + perf * 0.35);
   }
 
-  // drift toward 55
-  if (Engine.runMode === 'play') {
+  // ✅ PATCH (STORM): drift assists ONLY when already GREEN (prevents "never off-green")
+  if (Engine.runMode === 'play' && Engine.zone === 'GREEN') {
     const target = 55;
     Engine.waterPct += (target - Engine.waterPct) * cfg.drift * dt;
     Engine.waterPct = clamp(Engine.waterPct, 0, 100);
@@ -553,10 +565,21 @@ function step(t) {
     enterEndWindow(cfg);
   }
 
-  // storm trigger when off-green too long
+  // storm trigger when off-green long enough
   if (Engine.phase === 'MAIN') {
-    Engine._offGreenMs = (Engine.zone === 'GREEN') ? 0 : ((Engine._offGreenMs || 0) + dt * 1000);
-    if ((Engine._offGreenMs || 0) > 2200) {
+    // cooldown tick
+    if (Engine._stormCooldownMs > 0) Engine._stormCooldownMs = Math.max(0, Engine._stormCooldownMs - dt * 1000);
+
+    // ✅ PATCH: count off-green time robustly
+    if (Engine.zone === 'GREEN') {
+      Engine._offGreenMs = 0;
+    } else {
+      Engine._offGreenMs = (Engine._offGreenMs || 0) + dt * 1000;
+    }
+
+    // ✅ PATCH: lower threshold so storm can happen naturally + respect cooldown
+    const THRESH_MS = 1400; // was 2200 -> too rare w/ drift + skill
+    if ((Engine._offGreenMs || 0) >= THRESH_MS && Engine._stormCooldownMs <= 0) {
       Engine._offGreenMs = 0;
       enterStorm(cfg);
     }
@@ -595,7 +618,7 @@ function step(t) {
   // spawn accel
   Engine.spawnAcc += dt * spawnRate;
   if (Engine.phase === 'STORM') Engine.spawnAcc += dt * 0.45;
-  if (Engine.phase === 'BOSS') Engine.spawnAcc += dt * 0.65;
+  if (Engine.phase === 'BOSS')  Engine.spawnAcc += dt * 0.65;
 
   const rng = Engine.rng;
   while (Engine.spawnAcc >= 1) {
@@ -816,6 +839,11 @@ function startGame() {
   Engine.running = true;
   Engine.started = true;
 
+  // reset storm helper state
+  Engine._offGreenMs = 0;
+  Engine._stormCooldownMs = 900; // small initial grace
+  Engine._endGreenMs = 0;
+
   // ✅ hide summary when starting (extra safety)
   try{
     const back = DOC.getElementById('resultBackdrop');
@@ -956,10 +984,11 @@ function onLayerPointerDown(e) {
       getState: () => JSON.parse(JSON.stringify({
         runMode: Engine.runMode, diff: Engine.diff, timePlannedSec: Engine.timePlannedSec, seed: Engine.seed,
         score: Engine.score, combo: Engine.combo, miss: Engine.miss,
-        waterPct: Engine.waterPct, zone: Engine.zone, phase: Engine.phase
+        waterPct: Engine.waterPct, zone: Engine.zone, phase: Engine.phase,
+        stormCycles: Engine.stormCycles, stormOk: Engine.stormOk,
+        offGreenMs: Engine._offGreenMs|0, stormCooldownMs: Engine._stormCooldownMs|0
       }))
     };
   } catch {}
 })();
-
 export {}; // ESM marker
