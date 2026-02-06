@@ -1,72 +1,75 @@
+// === /fitness/js/ai-director.js ===
+// AI Difficulty Director (fair adaptive pacing; deterministic-friendly)
+// ✅ Export: AIDirector
+// - In research mode you should disable adaptation (lock)
+// - In normal/play, adaptation is allowed when ai enabled
+
 'use strict';
 
-// AiDirector — fair adaptive pacing (play only)
-// Research: should be disabled by caller
-export class AiDirector {
-  constructor(opts = {}) {
-    this.enabled = !!opts.enabled;
-    this.diff = (opts.diff || 'normal');
-    this._spawnRateMul = 1.0;
-    this._ttlMul = 1.0;
-    this._sizeMul = 1.0;
+function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
 
-    this._hits = 0;
-    this._miss = 0;
-    this._lastAdjustAt = 0;
+export class AIDirector {
+  constructor(opts = {}){
+    this.cfg = Object.assign({
+      // smoothing
+      emaA: 0.12,
+
+      // baseline spawn pacing (sec)
+      paceEasy: 1.10,
+      paceNormal: 0.92,
+      paceHard: 0.78,
+
+      // adaptation range
+      minPaceMul: 0.80,
+      maxPaceMul: 1.25,
+
+      // drivers
+      fatigueWeight: 0.55,
+      skillWeight: 0.45
+    }, opts||{});
+
+    this.reset();
   }
 
-  setEnabled(v){ this.enabled = !!v; }
-  setDiff(d){ this.diff = d || 'normal'; }
-
-  getSpawnRateMul(){ return this._spawnRateMul; }
-  getTtlMul(){ return this._ttlMul; }
-  getSizeMul(){ return this._sizeMul; }
-
-  onHit(info = {}) {
-    if (!this.enabled) return;
-    this._hits++;
-    this._maybeAdjust();
+  reset(){
+    this.skillEma = 0.55;
+    this.fatigueEma = 0.20;
+    this.paceMul = 1.0;
+    this.lastSuggested = 'normal';
   }
 
-  onMiss() {
-    if (!this.enabled) return;
-    this._miss++;
-    this._maybeAdjust();
+  update(pred){
+    if (!pred) return;
+    const a = this.cfg.emaA;
+
+    const skill = clamp(pred.skillScore, 0, 1);
+    const fat = clamp(pred.fatigueRisk, 0, 1);
+
+    this.skillEma = (1-a)*this.skillEma + a*skill;
+    this.fatigueEma = (1-a)*this.fatigueEma + a*fat;
+
+    // paceMul: higher fatigue -> slower (bigger pace), higher skill -> faster
+    const drive = (this.cfg.skillWeight*(this.skillEma - 0.55)) - (this.cfg.fatigueWeight*(this.fatigueEma - 0.25));
+    const mul = 1.0 - drive * 0.35;
+
+    this.paceMul = clamp(mul, this.cfg.minPaceMul, this.cfg.maxPaceMul);
+    this.lastSuggested = pred.suggestedDifficulty || this.lastSuggested;
   }
 
-  _maybeAdjust() {
-    const now = performance.now();
-    if (now - this._lastAdjustAt < 900) return; // rate limit
-    this._lastAdjustAt = now;
+  basePaceForDiff(diff){
+    const d = (diff||'normal').toLowerCase();
+    if (d === 'easy') return this.cfg.paceEasy;
+    if (d === 'hard') return this.cfg.paceHard;
+    return this.cfg.paceNormal;
+  }
 
-    const h = this._hits;
-    const m = this._miss;
-    const total = h + m;
-    if (total < 8) return;
+  // final pace seconds for next spawn
+  getNextPaceSec(diff){
+    const base = this.basePaceForDiff(diff);
+    return clamp(base * this.paceMul, 0.35, 2.2);
+  }
 
-    const missRate = m / total;
-
-    // Target: missRate ~ 0.18–0.28
-    if (missRate > 0.38) {
-      // too hard -> easier
-      this._spawnRateMul = Math.max(0.78, this._spawnRateMul * 0.94);
-      this._ttlMul = Math.min(1.22, this._ttlMul * 1.06);
-      this._sizeMul = Math.min(1.18, this._sizeMul * 1.04);
-      // soften memory a bit
-      this._hits = Math.floor(h * 0.6);
-      this._miss = Math.floor(m * 0.6);
-    } else if (missRate < 0.12) {
-      // too easy -> harder
-      this._spawnRateMul = Math.min(1.28, this._spawnRateMul * 1.05);
-      this._ttlMul = Math.max(0.82, this._ttlMul * 0.96);
-      this._sizeMul = Math.max(0.88, this._sizeMul * 0.98);
-      this._hits = Math.floor(h * 0.6);
-      this._miss = Math.floor(m * 0.6);
-    } else {
-      // within band: drift back to 1
-      this._spawnRateMul += (1.0 - this._spawnRateMul) * 0.08;
-      this._ttlMul += (1.0 - this._ttlMul) * 0.08;
-      this._sizeMul += (1.0 - this._sizeMul) * 0.08;
-    }
+  getSuggestedDifficulty(){
+    return this.lastSuggested || 'normal';
   }
 }
