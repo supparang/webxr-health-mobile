@@ -1,13 +1,15 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HARDENED + KPI PATCH)
+// PlateVR Boot — PRODUCTION (HARDENED)
 // ✅ Auto view detect (no UI override)
 // ✅ Boots engine from ./plate.safe.js
 // ✅ Wires HUD (hha:score, hha:time, quest:update, hha:coach, hha:end)
 // ✅ End overlay: aria-hidden only
-// ✅ End KPI PATCH: Miss breakdown + Grade (kMissJunk/kMissExpire/kGrade)
 // ✅ Back HUB + Restart
 // ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
 // ✅ HARDEN: guard against "start freeze" + robust mount check + visible error
+// ✅ PATCH: Miss breakdown (junk vs timeout) from hha:judge stream
+
+'use strict';
 
 import { boot as engineBoot } from './plate.safe.js';
 
@@ -26,7 +28,7 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // No menu override. Allow query param for experiments.
+  // Allow query param for experiments; otherwise auto.
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -48,8 +50,6 @@ function clamp(v, a, b){
 
 function pct(n){
   n = Number(n)||0;
-  // accept either 0..1 or 0..100
-  if(n <= 1) n = n * 100;
   return `${Math.round(n)}%`;
 }
 
@@ -75,6 +75,34 @@ function showCoach(msg, meta='Coach'){
     card.classList.remove('show');
     card.setAttribute('aria-hidden','true');
   }, 2400);
+}
+
+/* ------------------------------------------------
+ * Miss breakdown (reset per run)
+ * ------------------------------------------------ */
+const MISS = {
+  junk: 0,
+  timeout: 0,
+  // (optional future) shot:0
+};
+
+function resetMissBreakdown(){
+  MISS.junk = 0;
+  MISS.timeout = 0;
+  // MISS.shot = 0;
+}
+
+function wireMissStream(){
+  // Count from judge stream so it's "what happened", not just final number.
+  WIN.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind || '').toLowerCase();
+    if(kind === 'junk'){
+      MISS.junk++;
+    }else if(kind === 'expire_good'){
+      MISS.timeout++;
+    }
+  });
 }
 
 function wireHUD(){
@@ -139,7 +167,6 @@ function wireEndControls(){
 
   if(btnRestart){
     btnRestart.addEventListener('click', ()=>{
-      // keep same query params
       location.reload();
     });
   }
@@ -157,61 +184,37 @@ function wireEndSummary(){
   const kCombo = DOC.getElementById('kCombo');
   const kGoals = DOC.getElementById('kGoals');
   const kMini  = DOC.getElementById('kMini');
+  const kMiss  = DOC.getElementById('kMiss');
 
-  const kMiss       = DOC.getElementById('kMiss');
-  const kMissJunk   = DOC.getElementById('kMissJunk');
-  const kMissExpire = DOC.getElementById('kMissExpire');
-  const kGrade      = DOC.getElementById('kGrade');
-
-  // We can derive miss breakdown from judge stream
-  // - junk hit => missJunk++
-  // - expire_good => missExpire++
-  // Reset on start so restart works reliably.
-  let missJunk = 0;
-  let missExpire = 0;
-
-  WIN.addEventListener('hha:start', ()=>{
-    missJunk = 0;
-    missExpire = 0;
-    if(kMissJunk) kMissJunk.textContent = '0';
-    if(kMissExpire) kMissExpire.textContent = '0';
-    if(kGrade) kGrade.textContent = '—';
-  });
-
-  WIN.addEventListener('hha:judge', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind || '').toLowerCase();
-    if(kind === 'junk'){
-      missJunk++;
-      if(kMissJunk) kMissJunk.textContent = String(missJunk);
-    }else if(kind === 'expire_good'){
-      missExpire++;
-      if(kMissExpire) kMissExpire.textContent = String(missExpire);
-    }
-  });
+  // breakdown nodes (optional in HTML but we support if present)
+  const kMissJunk    = DOC.getElementById('kMissJunk');
+  const kMissTimeout = DOC.getElementById('kMissTimeout');
+  const kGrade       = DOC.getElementById('kGrade');
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+
     if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
     if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
 
-    // overall miss: prefer canonical key 'miss', fallback legacy
-    const miss = (d.miss ?? d.misses ?? 0);
-    if(kMiss)  kMiss.textContent  = String(miss);
+    // ✅ total miss from engine (source of truth)
+    const missTotal = (d.miss ?? d.misses ?? d.missTotal ?? 0);
+    if(kMiss)  kMiss.textContent  = String(missTotal);
 
-    // accuracy: prefer canonical 'accuracyPct', fallback legacy
+    // accuracy
     const acc = (d.accuracyPct ?? d.accuracyGoodPct ?? null);
     if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
+    // quests
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    // ✅ grade
-    if(kGrade) kGrade.textContent = String(d.grade ?? '—');
+    // ✅ breakdown from judge stream
+    if(kMissJunk)    kMissJunk.textContent    = String(MISS.junk|0);
+    if(kMissTimeout) kMissTimeout.textContent = String(MISS.timeout|0);
 
-    // ✅ breakdown: if safe.js ever sends explicit fields later, they can override
-    if(kMissJunk) kMissJunk.textContent = String(d.missJunk ?? missJunk ?? 0);
-    if(kMissExpire) kMissExpire.textContent = String(d.missExpire ?? missExpire ?? 0);
+    // grade if provided
+    if(kGrade) kGrade.textContent = String(d.grade || '—');
 
     setOverlayOpen(true);
   });
@@ -254,12 +257,16 @@ function ready(fn){
 }
 
 ready(()=>{
+  // 0) reset per-run counters
+  resetMissBreakdown();
+
   // 1) init view
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
   // 2) wire UI first (so errors are visible)
   wireHUD();
+  wireMissStream();
   wireEndControls();
   wireEndSummary();
 
@@ -276,7 +283,7 @@ ready(()=>{
 
   // 5) boot engine with hard guard
   try{
-    // microtask yield helps some mobile browsers settle layout before getBoundingClientRect()
+    // microtask yield helps some mobile browsers settle layout
     Promise.resolve().then(()=>{
       engineBoot({ mount, cfg });
     });
