@@ -1,4 +1,9 @@
-// === /fitness/js/jump-duck.js — Jump-Duck (HHA Standard PACK 1-3) v20260206a ===
+// === /fitness/js/jump-duck.js — Jump-Duck (HHA Standard PACK 1-3) v20260206b ===
+// PATCH v20260206b
+// ✅ Fix VRUI overlay: add body.hha-has-vrui after vr-ui.js loaded
+// ✅ Fix RT: measure from obstacle center crossing (research-ready)
+// ✅ Fair Stability: training floor + softer dmg (avoid minStability = 0 too easily)
+
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -97,6 +102,13 @@ async function ensureVrUi(){
   }
 }
 
+// ✅ PATCH: mark body when vr-ui is present, so CSS can avoid overlap
+function applyVrUiBodyClass(){
+  try{
+    if (window.__HHA_VRUI_LOADED__) document.body.classList.add('hha-has-vrui');
+  }catch{}
+}
+
 /* -------------------------
    Seeded RNG (deterministic if seed provided)
 ------------------------- */
@@ -190,10 +202,11 @@ function playSfx(id){
 /* -------------------------
    Config (3 phases + boss-ready hooks)
 ------------------------- */
+// ✅ PATCH: soften stability dmg so it won't drop to 0 too easily (esp. 60s)
 const JD_DIFFS = {
-  easy:   { speed: 38, spawnMs: 1300, hitWinMs: 260, stabDmg: 10, stabGain: 3, score: 12 },
-  normal: { speed: 48, spawnMs: 1000, hitWinMs: 220, stabDmg: 13, stabGain: 3, score: 14 },
-  hard:   { speed: 62, spawnMs:  800, hitWinMs: 200, stabDmg: 16, stabGain: 4, score: 16 }
+  easy:   { speed: 38, spawnMs: 1300, hitWinMs: 260, stabDmg:  6, stabGain: 3, score: 12 },
+  normal: { speed: 48, spawnMs: 1000, hitWinMs: 220, stabDmg:  8, stabGain: 3, score: 14 },
+  hard:   { speed: 62, spawnMs:  800, hitWinMs: 200, stabDmg: 11, stabGain: 4, score: 16 }
 };
 
 // phase thresholds: 1 warmup / 2 challenge / 3 boss
@@ -202,6 +215,9 @@ const PHASE_THRESH = [0.33, 0.70];
 const SPAWN_X  = 100;
 const CENTER_X = 24;
 const MISS_X   = 4;
+
+// ✅ PATCH: center window width (percent) for detecting "entered center"
+const CENTER_BAND = 6; // +/- in percent around CENTER_X
 
 /* -------------------------
    State
@@ -217,8 +233,6 @@ let nextObstacleId = 1;
 
 /* -------------------------
    AI Predictor hooks (lightweight)
-   - สะสม error pattern แล้วปรับ mix/spacing แบบ "แฟร์"
-   - research/test: deterministic ได้เมื่อใส่ seed
 ------------------------- */
 function createAIPredictor(){
   const mem = {
@@ -226,16 +240,14 @@ function createAIPredictor(){
     streakMiss: 0,
     missJump: 0,
     missDuck: 0,
-    lastRT: 220,
-    // bias: 0 => 50/50, + => duck more, - => jump more
+    lastRT: 260,
     bias: 0
   };
 
-  function onHit(needType, rt){
+  function onHit(needType, rtAbs){
     mem.streakMiss = 0;
     mem.lastNeeded = needType;
-    if (Number.isFinite(rt)) mem.lastRT = 0.85*mem.lastRT + 0.15*rt;
-    // ค่อย ๆ กลับสู่สมดุล
+    if (Number.isFinite(rtAbs)) mem.lastRT = 0.85*mem.lastRT + 0.15*rtAbs;
     mem.bias *= 0.92;
   }
 
@@ -245,39 +257,33 @@ function createAIPredictor(){
     if (needType === 'jump') mem.missJump++;
     else mem.missDuck++;
 
-    // ถ้าพลาดด้านใดบ่อย ให้ “ช่วยฝึกด้านนั้น” เพิ่มนิด (ไม่หนักจนเดาง่าย)
     const total = mem.missJump + mem.missDuck + 1;
     const dj = mem.missDuck / total;
     const jj = mem.missJump / total;
-    mem.bias = (dj - jj) * 0.35; // จำกัด bias
+    mem.bias = (dj - jj) * 0.35;
     mem.bias = Math.max(-0.35, Math.min(0.35, mem.bias));
   }
 
   function pickType(baseRand){
-    // baseRand: 0..1
-    // bias + => duck มากขึ้น
     const t = baseRand + mem.bias;
     return (t >= 0.5) ? 'high' : 'low';
   }
 
   function adjustSpawnInterval(ms, phase, mode){
-    // training ช่วงท้ายเกม: เร่งขึ้น, แต่ถ้าพลาดติด ๆ กัน ช่วยผ่อนนิด
     let out = ms;
     if (mode === 'training'){
-      if (phase === 3) out *= 0.90; // boss เร้าใจขึ้น
-      if (mem.streakMiss >= 2) out *= 1.12; // ผ่อนเล็กน้อย
+      if (phase === 3) out *= 0.90;
+      if (mem.streakMiss >= 2) out *= 1.12;
     }
-    // จำกัดไม่ให้ช้า/เร็วเกิน
     out = Math.max(520, Math.min(1800, out));
     return out;
   }
 
   function getHint(){
-    // hint แบบ explainable micro-tip
     if (mem.streakMiss >= 2){
       return 'ทิป: ดูป้าย JUMP/DUCK แล้วกดให้ “ก่อนถึงเส้น” นิดเดียว ✨';
     }
-    if (mem.lastRT > 260){
+    if (mem.lastRT > 300){
       return 'ทิป: ลองกดให้เร็วขึ้นอีกนิด จะได้ PERFECT ง่ายขึ้น 🔥';
     }
     return '';
@@ -362,7 +368,6 @@ function startGameBase(opts){
   const durationMs = opts.durationMs ?? 60000;
   const isTutorial = !!opts.isTutorial;
 
-  // reseed (ต่อรอบ) ถ้ามี seed มากับ URL ให้ deterministic
   RNG = mulberry32(getSeed());
 
   const now = performance.now();
@@ -394,18 +399,18 @@ function startGameBase(opts){
     combo: 0,
     maxCombo: 0,
     score: 0,
+
+    // ✅ PATCH: store abs RT (ms) from center crossing; also keep signed RT in future if needed
     hitRTs: [],
 
     participant: collectParticipant(mode),
 
-    // ctx passthrough
     ctx: { ...HHA_CTX }
   };
 
   running = true;
   lastFrame = now;
 
-  // UI reset
   elObsHost && (elObsHost.innerHTML = '');
   elAvatar && elAvatar.classList.remove('jump','duck');
 
@@ -450,7 +455,10 @@ function endGame(){
   const total = state.obstaclesSpawned || 0;
   const hits  = state.hits || 0;
   const acc   = total ? hits/total : 0;
-  const rtMean = state.hitRTs.length ? state.hitRTs.reduce((a,b)=>a+b,0)/state.hitRTs.length : 0;
+
+  const rtMean = state.hitRTs.length
+    ? state.hitRTs.reduce((a,b)=>a+b,0)/state.hitRTs.length
+    : 0;
 
   // fill result
   resMode && (resMode.textContent = modeLabel(state.mode));
@@ -516,7 +524,6 @@ function loop(ts){
     let interval = state.cfg0.spawnMs;
 
     if (state.mode === 'training'){
-      // เร่งท้ายเกม + boss เร้าใจ
       const factor = 1 - 0.30*progress;
       interval = interval * Math.max(0.58, factor);
       interval = AI.adjustSpawnInterval(interval, phase, state.mode);
@@ -551,16 +558,13 @@ function spawnObstacle(ts, phase){
   const last = state.obstacles[state.obstacles.length - 1];
   if (last && last.x > 70) return;
 
-  // base random
   const r = RNG();
-  const type = AI.pickType(r); // 'high' or 'low' (predictor bias)
+  const type = AI.pickType(r); // 'high' or 'low'
 
-  // boss phase: บางครั้งให้ “คู่” (ท้าทายขึ้นแต่ยังแฟร์)
   const spawnPair = (phase === 3 && state.mode === 'training' && RNG() < 0.14);
 
   makeOne(type, ts);
   if (spawnPair){
-    // เว้นระยะเล็กน้อยให้รับรู้ได้ (ไม่ใช่ spam)
     setTimeout(()=> {
       if (running && state) makeOne(RNG()<0.5?'high':'low', performance.now());
     }, 120);
@@ -599,7 +603,11 @@ function makeOne(type, ts){
     createdAt: ts,
     resolved:false,
     element: el,
-    warned:false
+    warned:false,
+
+    // ✅ PATCH: record center crossing timestamp (perf ms)
+    centerPerf: null,
+    centerRecorded: false
   });
 
   state.obstaclesSpawned++;
@@ -610,7 +618,6 @@ function updateObstacles(dt, now, phase, progress){
   const cfg = state.cfg0;
   let speed = cfg.speed;
 
-  // training: เร่งตาม phase
   if (state.mode === 'training'){
     if (phase === 2) speed *= 1.12;
     if (phase === 3) speed *= 1.26;
@@ -621,15 +628,30 @@ function updateObstacles(dt, now, phase, progress){
   const keep = [];
 
   for (const obs of state.obstacles){
+    const prevX = obs.x;
     obs.x -= move;
+
     if (obs.element) obs.element.style.left = obs.x + '%';
 
-    // HIT window near center
-    if (!obs.resolved && obs.x <= CENTER_X + 6 && obs.x >= CENTER_X - 6){
+    // ✅ PATCH: record the first time obstacle enters center band
+    // Detect crossing/enter band: when it goes from > (CENTER_X + band) to <= (CENTER_X + band),
+    // or simply first time within band.
+    const inBand = (obs.x <= CENTER_X + CENTER_BAND && obs.x >= CENTER_X - CENTER_BAND);
+    if (!obs.centerRecorded && inBand){
+      obs.centerRecorded = true;
+      obs.centerPerf = now; // performance.now() based time (same domain as action time)
+    }
+
+    // HIT decision only when in band
+    if (!obs.resolved && obs.centerRecorded && inBand){
       const a = lastAction;
-      if (a && a.time){
-        const rt = Math.abs(a.time - now);
-        if (a.type === obs.need && rt <= cfg.hitWinMs){
+
+      // ต้องมี action และต้องเป็น action หลังๆ (ยังไม่ decay)
+      if (a && Number.isFinite(a.time) && Number.isFinite(obs.centerPerf)){
+        const signed = a.time - obs.centerPerf;         // negative = กดก่อนถึงเส้น, positive = กดหลังถึงเส้น
+        const rtAbs  = Math.abs(signed);
+
+        if (a.type === obs.need && rtAbs <= cfg.hitWinMs){
           // HIT
           obs.resolved = true;
 
@@ -643,11 +665,13 @@ function updateObstacles(dt, now, phase, progress){
           state.score += gain;
 
           if (obs.need === 'jump') state.jumpHit++; else state.duckHit++;
+
           state.stability = Math.min(100, state.stability + cfg.stabGain);
           state.minStability = Math.min(state.minStability, state.stability);
 
-          state.hitRTs.push(rt);
-          AI.onHit(obs.need, rt);
+          // ✅ PATCH: store abs RT from center
+          state.hitRTs.push(rtAbs);
+          AI.onHit(obs.need, rtAbs);
 
           obs.element && obs.element.remove();
           obs.element = null;
@@ -670,7 +694,10 @@ function updateObstacles(dt, now, phase, progress){
 
       if (obs.need === 'jump') state.jumpMiss++; else state.duckMiss++;
 
-      state.stability = Math.max(0, state.stability - cfg.stabDmg);
+      // ✅ PATCH: fair stability floor in Training (not tutorial)
+      const floor = (state.mode === 'training' && !state.isTutorial) ? 25 : 0;
+
+      state.stability = Math.max(floor, state.stability - cfg.stabDmg);
       state.minStability = Math.min(state.minStability, state.stability);
 
       AI.onMiss(obs.need);
@@ -695,11 +722,11 @@ function updateObstacles(dt, now, phase, progress){
 
   state.obstacles = keep;
 
-  // action decay
-  if (lastAction && now - lastAction.time > 260) lastAction = null;
+  // action decay (ให้ใกล้เคียง window จริง)
+  if (lastAction && now - lastAction.time > Math.max(260, cfg.hitWinMs + 60)) lastAction = null;
 
-  // end if stability 0 (optional)
-  if (state.stability <= 0){
+  // end if stability 0 (only for test/research; training has floor)
+  if ((state.mode === 'test' || state.mode === 'research') && state.stability <= 0){
     showJudge('หมดแรงทรงตัว! ⛔', 'miss');
     endGame();
   }
@@ -724,7 +751,6 @@ function handleKeyDown(ev){
   if (!running) return;
   if (ev.code === 'ArrowUp'){ ev.preventDefault(); triggerAction('jump'); }
   else if (ev.code === 'ArrowDown'){ ev.preventDefault(); triggerAction('duck'); }
-  // รองรับ WASD
   else if (ev.code === 'KeyW'){ ev.preventDefault(); triggerAction('jump'); }
   else if (ev.code === 'KeyS'){ ev.preventDefault(); triggerAction('duck'); }
 }
@@ -765,11 +791,9 @@ function pollGamepad(ts){
   const a    = !!gp.buttons[0]?.pressed;  // A
   const b    = !!gp.buttons[1]?.pressed;  // B
 
-  // edge-trigger (กดครั้งเดียว)
   if (up && !gpPrev.up) triggerAction('jump');
   if (down && !gpPrev.down) triggerAction('duck');
 
-  // fallback: A=jump, B=duck
   if (a && !gpPrev.a) triggerAction('jump');
   if (b && !gpPrev.b) triggerAction('duck');
 
@@ -801,7 +825,7 @@ async function initJD(){
   $('[data-action="play-again"]')?.addEventListener('click', startGameFromMenu);
   $$('[data-action="back-menu"]').forEach(btn=> btn.addEventListener('click', ()=> showView('menu')));
 
-  // actionbar buttons
+  // actionbar buttons (ถ้ามีใน HTML)
   $('[data-action="jump"]')?.addEventListener('click', ()=> triggerAction('jump'));
   $('[data-action="duck"]')?.addEventListener('click', ()=> triggerAction('duck'));
 
@@ -810,6 +834,7 @@ async function initJD(){
 
   // VR UI integration (optional)
   await ensureVrUi();
+  applyVrUiBodyClass();
   window.addEventListener('hha:shoot', onHhaShoot);
 
   showView('menu');
