@@ -1,16 +1,37 @@
+<!-- === /herohealth/plate-vr.html ===
+PlateVR ROOT LAUNCHER — PRODUCTION (HHA Standard)
+Redirects -> ./plate/plate-vr.html
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Balanced Plate VR</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Plate VR (Launcher)</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
-  hhGo('./plate/plate-vr.html', { defaults: {} });
+<script>
+(function(){
+  const RUN_PATH = './plate/plate-vr.html';
+  const HUB_DEFAULT = './hub.html';
+
+  const from = new URL(location.href);
+  const to = new URL(RUN_PATH, from);
+
+  for (const [k,v] of from.searchParams.entries()) to.searchParams.set(k, v);
+  if (!to.searchParams.has('hub')) to.searchParams.set('hub', HUB_DEFAULT);
+
+  if (!to.searchParams.has('view')) {
+    const isMobile =
+      (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+    to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
+  }
+
+  location.replace(to.toString());
+})();
 </script>
 </body>
 </html>
