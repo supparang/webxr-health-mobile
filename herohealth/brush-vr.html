@@ -1,50 +1,44 @@
-<!-- === /herohealth/brush-vr.html ===
-BrushVR ROOT LAUNCHER — PRODUCTION (HHA Standard)
-Redirects -> ./brush-vr/brush-vr.html
-✅ Pass-through all params
-✅ Always attaches hub backlink (?hub=./hub.html) if missing
-✅ Auto-fill view if missing (pc/mobile) but never override
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Brush VR (Launcher)</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <title>HeroHealth — BrushVR Launcher</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{color-scheme:dark;background:#020617}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto;display:grid;place-items:center;min-height:100vh;color:#e5e7eb}
+    .card{max-width:720px;width:min(92vw,720px);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:16px;background:rgba(2,6,23,.72)}
+    .t{font-weight:900;font-size:18px}
+    .s{margin-top:6px;color:#94a3b8;font-size:13px;line-height:1.5}
+  </style>
 </head>
 <body>
-<script>
-(function(){
-  'use strict';
+  <div class="card">
+    <div class="t">กำลังพาไป BrushVR…</div>
+    <div class="s">ถ้าไม่เด้งอัตโนมัติ ให้รีเฟรช 1 ครั้ง</div>
+  </div>
 
-  const RUN_PATH = './brush-vr/brush-vr.html';
-  const HUB_DEFAULT = './hub.html';
+  <script>
+    (function(){
+      'use strict';
+      const url = new URL(location.href);
 
-  const from = new URL(location.href);
-  const to = new URL(RUN_PATH, from);
+      // keep all query params, only change path
+      const target = new URL('./vr-brush/brush-vr.html', url);
 
-  // pass-through all params (NO override logic)
-  for (const [k,v] of from.searchParams.entries()){
-    to.searchParams.set(k, v);
-  }
+      // pass-through params
+      // (hub/run/diff/time/seed/studyId/phase/conditionGroup/view/log/game etc.)
+      for (const [k,v] of url.searchParams.entries()){
+        target.searchParams.set(k, v);
+      }
 
-  // ensure hub exists
-  if (!to.searchParams.has('hub')) to.searchParams.set('hub', HUB_DEFAULT);
+      // (optional) mark game key
+      if(!target.searchParams.get('game')) target.searchParams.set('game','brush');
 
-  // fill view only if missing (never override user)
-  if (!to.searchParams.has('view')) {
-    const isMobile =
-      (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
-      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-    to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
-    // if user wants cvr/cardboard, they must pass ?view=cvr or ?view=cardboard explicitly
-  }
-
-  // hard redirect (avoid history loop)
-  location.replace(to.toString());
-})();
-</script>
+      location.replace(target.toString());
+    })();
+  </script>
 </body>
 </html>
