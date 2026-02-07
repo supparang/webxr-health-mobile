@@ -1,12 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX)
+// ✅ Guard: prevent double boot (fix: time ends too fast)
 // ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
 // ✅ Auto base view: pc / mobile (UA-based)
 // ✅ Auto-load ../vr/vr-ui.js only if WebXR exists (navigator.xr) and not already present
 // ✅ Auto-switch on Enter/Exit VR via hha:enter-vr / hha:exit-vr:
 //    - mobile -> cvr
 //    - desktop -> vr
-// ✅ HUD-safe measure (PATCH): measures ONLY #hudMainRow (not GOAL/MINI cards)
+// ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
 // ✅ Listens gj:measureSafe to re-measure instantly
 // ✅ Boots engine: ./goodjunk.safe.js (module export boot())
 
@@ -14,6 +15,8 @@ import { boot as engineBoot } from './goodjunk.safe.js';
 
 const DOC = document;
 const WIN = window;
+
+const BOOT_GUARD = '__HHA_GJ_BOOT_STARTED__';
 
 function qs(k, def = null) {
   try { return new URL(location.href).searchParams.get(k) ?? def; }
@@ -49,7 +52,6 @@ function setBodyView(view) {
 
 function ensureVrUiLoaded() {
   if (!('xr' in navigator)) return;
-
   if (WIN.__HHA_VRUI_LOADED__ || WIN.__HHA_VR_UI_LOADED__) return;
 
   const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
@@ -98,7 +100,6 @@ function bindDebugKeys() {
   }, { passive: true });
 }
 
-/** ✅ PATCH: measure safe-top using ONLY #hudMainRow (not GOAL/MINI cards) */
 function hudSafeMeasure() {
   const root = DOC.documentElement;
 
@@ -113,32 +114,28 @@ function hudSafeMeasure() {
 
       const topbar   = DOC.querySelector('.gj-topbar');
       const progress = DOC.querySelector('.gj-progress');
-
-      // ✅ only main HUD row
-      const hudMain  = DOC.getElementById('hudMainRow');
-
+      const hudTop   = DOC.getElementById('hud') || DOC.getElementById('gjHudTop');
       const fever    = DOC.getElementById('feverBox');
       const hudBot   = DOC.querySelector('.gj-hud-bot') || DOC.getElementById('gjHudBot');
       const controls = DOC.querySelector('.hha-controls');
 
-      // TOP SAFE
+      // ✅ keep playfield big: do NOT over-reserve
       let topSafe = 0;
       topSafe = Math.max(topSafe, h(topbar));
       topSafe = Math.max(topSafe, h(progress));
-      topSafe = Math.max(topSafe, h(hudMain) * 0.22);
+      topSafe = Math.max(topSafe, h(hudTop) * 0.28);
       topSafe += (10 + sat);
 
-      // BOTTOM SAFE
       let bottomSafe = 0;
-      bottomSafe = Math.max(bottomSafe, h(fever) * 0.40);
-      bottomSafe = Math.max(bottomSafe, h(hudBot) * 0.18);
+      bottomSafe = Math.max(bottomSafe, h(fever) * 0.62);
+      bottomSafe = Math.max(bottomSafe, h(hudBot) * 0.22);
       bottomSafe = Math.max(bottomSafe, h(controls));
       bottomSafe += (12 + sab);
 
       const hudHidden = DOC.body.classList.contains('hud-hidden');
       if (hudHidden) {
-        topSafe = Math.max(56 + sat, h(topbar) + h(progress) + 6 + sat);
-        bottomSafe = Math.max(64 + sab, h(fever) * 0.28 + 8 + sab);
+        topSafe = Math.max(66 + sat, h(topbar) + h(progress) + 6 + sat);
+        bottomSafe = Math.max(70 + sab, h(fever) * 0.38 + 6 + sab);
       }
 
       root.style.setProperty('--gj-top-safe', px(topSafe));
@@ -175,22 +172,11 @@ function hudSafeMeasure() {
   setInterval(update, 1200);
 }
 
-function waitForFxCore(ms = 900) {
-  return new Promise((resolve) => {
-    const t0 = performance.now();
-    (function tick() {
-      const ok =
-        !!WIN.HHA_FX ||
-        !!WIN.Particles ||
-        (!!WIN.GAME_MODULES && !!WIN.GAME_MODULES.Particles);
-      if (ok) return resolve(true);
-      if (performance.now() - t0 > ms) return resolve(false);
-      requestAnimationFrame(tick);
-    })();
-  });
-}
-
 async function start() {
+  // ✅ Guard: avoid duplicate start
+  if (WIN[BOOT_GUARD]) return;
+  WIN[BOOT_GUARD] = true;
+
   const view = baseAutoView();
   setBodyView(view);
 
@@ -198,11 +184,6 @@ async function start() {
   bindVrAutoSwitch();
   bindDebugKeys();
   hudSafeMeasure();
-
-  const fxReady = await waitForFxCore(900);
-  if (!fxReady) {
-    console.warn('[GoodJunkVR] FX core not detected yet (particles.js). Game will still run.');
-  }
 
   engineBoot({
     view,
