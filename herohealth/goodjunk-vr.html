@@ -1,8 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR ROOT Launcher — PRODUCTION (HHA_LAUNCH)
-✅ Redirects to: ./vr-goodjunk/goodjunk-vr.html
-✅ Uses: ./vr/hha-ctx.js + ./vr/hha-launch.js
-✅ Pass-through: all query params (hub/run/diff/time/seed/studyId/phase/conditionGroup/log/...)
+GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
+✅ Reads ctx from ./vr/hha-ctx.js (HHA_CTX.readCtx)
+✅ Uses ./vr/hha-launch.js (HHA_LAUNCH.go) if available
+✅ Always redirects to ./vr-goodjunk/goodjunk-vr.html with ctx/query passthrough
+✅ Path: /herohealth/goodjunk-vr.html -> /herohealth/vr-goodjunk/goodjunk-vr.html
 -->
 <!doctype html>
 <html lang="th">
@@ -14,121 +15,233 @@ GoodJunkVR ROOT Launcher — PRODUCTION (HHA_LAUNCH)
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
       --radius:22px;
+      --pill:999px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
-    html,body{ height:100%; }
     body{
       margin:0;
-      background: radial-gradient(1200px 700px at 50% 10%, rgba(34,197,94,.10), transparent 55%),
-                  radial-gradient(900px 600px at 20% 80%, rgba(59,130,246,.10), transparent 60%),
+      min-height:100vh;
+      background: radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.10), transparent 55%),
+                  radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.10), transparent 50%),
+                  radial-gradient(900px 650px at 85% 25%, rgba(168,85,247,.10), transparent 55%),
                   var(--bg);
       color:var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      padding-top: var(--sat);
-      padding-bottom: var(--sab);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
       display:flex;
       align-items:center;
       justify-content:center;
+      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
     }
     .card{
-      width:min(560px, calc(100% - 24px));
-      background: var(--panel);
+      width:min(560px, 92vw);
+      background:var(--panel);
       border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      padding: 18px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 24px 80px rgba(0,0,0,.35);
+      border-radius:var(--radius);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      padding:18px;
+    }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .title{
+      font-size:20px;
+      font-weight:800;
+      letter-spacing:.2px;
+      margin:2px 0 6px;
+    }
+    .sub{
+      margin:0 0 12px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.35;
     }
     .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding: 10px 14px;
-      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:var(--pill);
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.55);
-      font-weight:900;
-      letter-spacing:.2px;
+      color:var(--text);
+      font-size:12px;
+      font-weight:700;
+      user-select:none;
+      white-space:nowrap;
     }
-    .title{ margin:12px 0 6px; font-size: 22px; font-weight:1000; }
-    .sub{ margin:0 0 14px; color:var(--muted); font-weight:700; line-height:1.35; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
     .kv{
-      flex:1 1 160px;
       border:1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
       border-radius: 16px;
-      padding: 10px 12px;
-      background: rgba(15,23,42,.45);
+      padding:10px 12px;
+      min-height:52px;
     }
-    .k{ color:var(--muted); font-weight:900; font-size:12px; letter-spacing:.25px; }
-    .v{ font-weight:1000; margin-top:2px; }
-    .hint{ margin-top:12px; color:var(--muted); font-weight:700; font-size:13px; }
-    .spin{
-      width:18px; height:18px; border-radius:999px;
-      border:2px solid rgba(148,163,184,.25);
-      border-top-color: rgba(34,197,94,.95);
-      animation: spin 1s linear infinite;
+    .k{ color:var(--muted); font-size:11px; margin-bottom:4px; }
+    .v{ font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .btn{
+      margin-top:14px;
+      width:100%;
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.16);
+      color:var(--text);
+      font-weight:900;
+      font-size:14px;
     }
-    @keyframes spin{ to{ transform: rotate(360deg); } }
+    .btn:active{ transform: translateY(1px); }
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.35;
+    }
+    @media (max-width:520px){
+      .grid{ grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <main class="card" role="main" aria-label="GoodJunkVR launcher">
-    <div class="pill"><span class="spin" aria-hidden="true"></span> กำลังเปิดเกม…</div>
-    <div class="title">GoodJunkVR</div>
-    <p class="sub">ระบบจะพาไปหน้าเล่นอัตโนมัติ และส่งพารามิเตอร์การวิจัย/การเล่นต่อให้ครบ</p>
-
-    <div class="row" id="metaRow" aria-label="params preview">
-      <div class="kv"><div class="k">TARGET</div><div class="v">./vr-goodjunk/goodjunk-vr.html</div></div>
-      <div class="kv"><div class="k">RUN</div><div class="v" id="vRun">—</div></div>
-      <div class="kv"><div class="k">DIFF</div><div class="v" id="vDiff">—</div></div>
-      <div class="kv"><div class="k">TIME</div><div class="v" id="vTime">—</div></div>
+  <main class="card" role="main" aria-label="GoodJunkVR Launcher">
+    <div class="row">
+      <div>
+        <div class="title">🥗 GoodJunkVR</div>
+        <p class="sub">กำลังเข้าสู่เกม… ระบบจะส่งต่อค่าทดลอง (run/diff/time/seed/studyId/phase/conditionGroup/log/hub) ให้อัตโนมัติ</p>
+      </div>
+      <span class="pill" id="statusPill">LOADING</span>
     </div>
 
-    <div class="hint" id="hint">ถ้ายังไม่เด้ง ให้รีเฟรช 1 ครั้ง หรือเปิดผ่าน HTTPS</div>
+    <section class="grid" aria-label="Context preview">
+      <div class="kv"><div class="k">run</div><div class="v" id="pv-run">—</div></div>
+      <div class="kv"><div class="k">diff</div><div class="v" id="pv-diff">—</div></div>
+      <div class="kv"><div class="k">time</div><div class="v" id="pv-time">—</div></div>
+      <div class="kv"><div class="k">seed</div><div class="v" id="pv-seed">—</div></div>
+      <div class="kv"><div class="k">studyId</div><div class="v" id="pv-studyId">—</div></div>
+      <div class="kv"><div class="k">phase</div><div class="v" id="pv-phase">—</div></div>
+      <div class="kv"><div class="k">conditionGroup</div><div class="v" id="pv-cond">—</div></div>
+      <div class="kv"><div class="k">log</div><div class="v" id="pv-log">—</div></div>
+      <div class="kv"><div class="k">hub</div><div class="v" id="pv-hub">—</div></div>
+    </section>
+
+    <button class="btn" id="btnGo" type="button">เข้าเกมทันที</button>
+    <div class="hint">ถ้าอยู่บนมือถือและกด Enter VR ระบบในหน้า RUN จะ auto-load vr-ui.js เมื่อเครื่องรองรับ WebXR</div>
   </main>
 
-  <!-- HHA context + launcher -->
+  <!-- HHA Standard ctx + launcher -->
   <script src="./vr/hha-ctx.js"></script>
   <script src="./vr/hha-launch.js"></script>
 
   <script>
-    (function(){
-      'use strict';
-      const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+  (function(){
+    'use strict';
 
-      // preview only (no logic dependency)
+    const qs = (k, def=null)=>{
+      try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+    };
+
+    const $ = (id)=>document.getElementById(id);
+    const pill = $('statusPill');
+
+    function readCtxSafe(){
       try{
-        const run  = (qs('run','play') || 'play').toUpperCase();
-        const diff = (qs('diff','normal') || 'normal').toUpperCase();
-        const time = (qs('time','80') || '80');
-        const el = (id)=>document.getElementById(id);
-        el('vRun').textContent  = run;
-        el('vDiff').textContent = diff;
-        el('vTime').textContent = time + 's';
+        if(window.HHA_CTX && typeof HHA_CTX.readCtx === 'function'){
+          return HHA_CTX.readCtx() || null;
+        }
+      }catch(_){}
+      return null;
+    }
+
+    function mergeCtxWithQuery(ctx){
+      // ctx preferred; fallback to query
+      const out = Object.assign({}, ctx || {});
+      out.run  = out.run  ?? qs('run','play');
+      out.diff = out.diff ?? qs('diff','normal');
+      out.time = out.time ?? qs('time','80');
+      out.seed = out.seed ?? qs('seed', null);
+
+      out.studyId = out.studyId ?? (qs('studyId', qs('study', null)));
+      out.phase   = out.phase   ?? qs('phase', null);
+      out.conditionGroup = out.conditionGroup ?? (qs('conditionGroup', qs('cond', null)));
+      out.log = out.log ?? qs('log', null);
+      out.hub = out.hub ?? qs('hub', null);
+
+      // keep any other ctx fields too (pid, style, etc.)
+      return out;
+    }
+
+    function preview(ctx){
+      const set = (id,v)=>{ const el=$(id); if(el) el.textContent = (v==null||v==='') ? '—' : String(v); };
+      set('pv-run', ctx.run);
+      set('pv-diff', ctx.diff);
+      set('pv-time', ctx.time);
+      set('pv-seed', ctx.seed);
+      set('pv-studyId', ctx.studyId);
+      set('pv-phase', ctx.phase);
+      set('pv-cond', ctx.conditionGroup);
+      set('pv-log', ctx.log ? 'ON' : '—');
+      set('pv-hub', ctx.hub ? 'SET' : '—');
+    }
+
+    function buildRunUrl(ctx){
+      // IMPORTANT: root -> ./vr-goodjunk/goodjunk-vr.html
+      const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+
+      // send only known keys (clean)
+      if(ctx.run) u.searchParams.set('run', ctx.run);
+      if(ctx.diff) u.searchParams.set('diff', ctx.diff);
+      if(ctx.time) u.searchParams.set('time', ctx.time);
+      if(ctx.seed) u.searchParams.set('seed', ctx.seed);
+
+      if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
+      if(ctx.phase) u.searchParams.set('phase', ctx.phase);
+      if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
+      if(ctx.log) u.searchParams.set('log', ctx.log);
+      if(ctx.hub) u.searchParams.set('hub', ctx.hub);
+
+      return u.toString();
+    }
+
+    function go(){
+      const ctx0 = readCtxSafe();
+      const ctx = mergeCtxWithQuery(ctx0);
+      preview(ctx);
+
+      const runUrl = buildRunUrl(ctx);
+
+      // Prefer HHA_LAUNCH.go if available (keeps your launch conventions)
+      try{
+        if(window.HHA_LAUNCH && typeof HHA_LAUNCH.go === 'function'){
+          pill.textContent = 'LAUNCH';
+          HHA_LAUNCH.go(runUrl);
+          return;
+        }
       }catch(_){}
 
-      // HARD requirement: call your launcher exactly as requested
-      try{
-        if (window.HHA_LAUNCH && typeof window.HHA_LAUNCH.go === 'function') {
-          window.HHA_LAUNCH.go('./vr-goodjunk/goodjunk-vr.html');
-        } else {
-          // fallback (still pass-through params)
-          const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-          try{
-            const cur = new URL(location.href);
-            cur.searchParams.forEach((v,k)=>u.searchParams.set(k,v));
-          }catch(_){}
-          location.replace(u.toString());
-        }
-      }catch(err){
-        console.error('[GoodJunkVR launcher] launch failed', err);
-        const h = document.getElementById('hint');
-        if(h) h.textContent = 'Launch error: ' + (err && err.message ? err.message : String(err));
-      }
-    })();
+      pill.textContent = 'REDIRECT';
+      location.replace(runUrl);
+    }
+
+    // button = manual
+    const btn = $('btnGo');
+    if(btn) btn.addEventListener('click', go, { passive:true });
+
+    // auto launch quickly (but allow DOM paint)
+    pill.textContent = 'READY';
+    setTimeout(go, 60);
+  })();
   </script>
 </body>
 </html>
