@@ -1,228 +1,193 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-GroupsVR CSS — PRODUCTION (safe layout)
-✅ PlayLayer behind HUD, targets clickable
-✅ Safe top/bottom zones so HUD/Quest/Coach won’t block targets
-✅ view-pc / view-mobile / view-vr / view-cvr
-✅ Targets: .tgt (size scales by view)
-✅ Mini urgent pulse helper (optional)
+   GroupsVR UI + Safe Zones (PATCH A)
+   ✅ HUD-safe zones: top/bottom/left (prevents target under HUD)
+   ✅ Works with engine occlusion-skip + spawn within playLayer
+   ✅ Mobile/VR friendly target sizing + hit affordance
 */
 
-/* ---------- base ---------- */
 :root{
-  color-scheme: dark light;
+  --bg:#020617;
+  --panel:rgba(2,6,23,.78);
+  --stroke:rgba(148,163,184,.18);
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --accent:#22c55e;
 
-  --bg0:#020617;
-  --panel: rgba(2,6,23,.70);
-  --panel2: rgba(15,23,42,.66);
-  --stroke: rgba(148,163,184,.18);
-  --text: rgba(229,231,235,.96);
-  --muted: rgba(148,163,184,.92);
-
-  --good: rgba(34,197,94,.95);
-  --bad: rgba(239,68,68,.95);
-  --warn: rgba(245,158,11,.95);
-  --cyan: rgba(34,211,238,.95);
-
-  --radius: 22px;
-  --pill: 999px;
+  --radius:22px;
+  --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* SAFE ZONES (สำคัญ: ให้ engine ใช้คำนวณ spawn ได้ง่าย) */
-  --safeTop: calc(152px + var(--sat));   /* HUD + QuestTop */
-  --safeBottom: calc(132px + var(--sab));/* Coach/Power */
-  --safeLeft:  12px;
-  --safeRight: 12px;
+  /* ✅ Safe zone defaults (tuned to your HUD layout) */
+  --hudTop: 148px;
+  --hudBot: 132px;
+  --hudLeft: 210px;
+  --hudRight: 18px;
 
-  /* target size baseline */
-  --tSize: 72px;
+  /* Targets */
+  --tSize: 76px;
   --tFont: 34px;
-  --tRadius: 18px;
-
-  /* crosshair center bias (cVR) */
-  --cvrCenterPad: 0px;
+  --tRad: 18px;
+  --tShadow: 0 12px 30px rgba(0,0,0,.22);
 }
 
-*{ box-sizing:border-box; }
 html,body{
   height:100%;
   margin:0;
-  background: radial-gradient(1200px 900px at 30% 10%, #0b1226, #020617);
-  color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  overflow:hidden;
-}
-body{
-  /* default */
+  background:var(--bg);
+  color:var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+  overscroll-behavior:none;
 }
 
-/* ---------- view modes ---------- */
+/* ===== Views (optional classes) ===== */
 body.view-pc{
-  --tSize: 74px;
-  --tFont: 34px;
-  --safeTop: calc(150px + var(--sat));
-  --safeBottom: calc(120px + var(--sab));
-}
-body.view-mobile{
-  --tSize: 70px;
-  --tFont: 33px;
-  --safeTop: calc(158px + var(--sat));
-  --safeBottom: calc(136px + var(--sab));
-}
-body.view-vr{
-  --tSize: 74px;
-  --tFont: 34px;
-  --safeTop: calc(150px + var(--sat));
-  --safeBottom: calc(128px + var(--sab));
-}
-body.view-cvr{
-  /* cVR: อยากให้เป้า “กึ่งกลาง” มากขึ้นเล็กน้อย + ขนาดใหญ่ขึ้น */
+  --hudLeft: 260px;
   --tSize: 80px;
   --tFont: 36px;
-  --cvrCenterPad: 18px;
-  --safeTop: calc(156px + var(--sat));
-  --safeBottom: calc(140px + var(--sab));
+}
+body.view-vr, body.view-cvr{
+  --hudTop: 138px;
+  --hudBot: 120px;
+  --hudLeft: 200px;
+  --tSize: 82px;
+  --tFont: 36px;
 }
 
-/* ---------- A-Frame scene behind everything (ถ้ามี) ---------- */
-.xr-scene{
-  position:absolute !important;
-  inset:0;
-  z-index: 0;
-}
-
-/* ---------- HUD layer ---------- */
-.hud, #hud{
-  position:absolute;
-  inset:0;
-  z-index: 20;
-  pointer-events:none;
-}
-
-/* in case you use old layout classes */
-.hudLeft, .hudRight, .questTop, .powerWrap, .coachWrap{
-  pointer-events:none;
-}
-
-/* ---------- play layer (targets live here) ---------- */
-.playLayer, #playLayer{
-  position:absolute;
-  inset:0;
-  z-index: 10;
+/* ===== Main layout wrappers (adapt to your HTML ids) ===== */
+#groups-wrap{
+  position:relative;
+  width:100%;
+  height:100%;
   overflow:hidden;
-  pointer-events:none; /* important: only targets capture events */
-  contain: layout style paint;
 }
 
-/* wrapper inside playLayer if safe.js creates it */
+/* Playfield layer (where engine spawns) */
+#playLayer, #groups-playlayer, .groups-playlayer{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  /* ✅ Ensure layer is the coordinate space */
+  pointer-events:none;
+}
+
+/* ✅ REAL playable region: we carve out HUD with padding */
+#playLayer{
+  padding-top: calc(var(--hudTop) + var(--sat));
+  padding-bottom: calc(var(--hudBot) + var(--sab));
+  padding-left: calc(var(--hudLeft) + var(--sal));
+  padding-right: calc(var(--hudRight) + var(--sar));
+  box-sizing:border-box;
+}
+
+/* Optional: show safe-zone debug if body has .debug-safe */
+body.debug-safe #playLayer{
+  outline:2px dashed rgba(34,197,94,.5);
+  outline-offset:-6px;
+}
+
+/* ===== HUD containers (keep them above playLayer) ===== */
+.groups-hud, #groups-hud{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:50;
+}
+
+.groups-topbar{
+  position:absolute;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  top: calc(10px + var(--sat));
+  display:flex;
+  gap:10px;
+  align-items:center;
+  pointer-events:none;
+  z-index:60;
+}
+
+.groups-coach{
+  position:absolute;
+  left: calc(10px + var(--sal));
+  top: calc(var(--hudTop) - 118px + var(--sat)); /* stays inside top safe area */
+  width: min(240px, calc(var(--hudLeft) - 18px));
+  pointer-events:none;
+  z-index:60;
+}
+
+.groups-quest{
+  position:absolute;
+  top: calc(62px + var(--sat));
+  left: calc(10px + var(--sal));
+  width: min(320px, calc(var(--hudLeft) - 18px));
+  pointer-events:none;
+  z-index:60;
+}
+
+.groups-bottombar{
+  position:absolute;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  bottom: calc(10px + var(--sab));
+  pointer-events:none;
+  z-index:60;
+}
+
+/* ===== Targets ===== */
 #groupsPlayWrap{
   position:absolute;
   inset:0;
-  pointer-events:none;
+  width:100%;
+  height:100%;
+  pointer-events:none; /* engine turns each target pointer-events:auto */
 }
 
-/* ---------- target ---------- */
 .tgt{
   width: var(--tSize);
   height: var(--tSize);
-  border-radius: var(--tRadius);
+  border-radius: var(--tRad);
   display:flex;
   align-items:center;
   justify-content:center;
   font-size: var(--tFont);
-  font-weight: 900;
+  font-weight:900;
+  background: rgba(15,23,42,.72);
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: var(--tShadow);
   user-select:none;
   -webkit-tap-highlight-color: transparent;
+  pointer-events:auto;
 
-  pointer-events:auto;        /* clickable */
-  touch-action: manipulation; /* faster taps */
-
-  background: rgba(15,23,42,.70);
-  border: 1px solid rgba(148,163,184,.22);
-  box-shadow: 0 14px 34px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-
-  transform: translateZ(0);
-  will-change: transform, opacity;
+  /* Make taps easier */
+  touch-action: manipulation;
 }
 
-/* optional: make targets more legible in bright environments */
-.tgt::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
-  pointer-events:none;
+.tgt:active{
+  transform: scale(.96);
 }
 
-/* motion classes from safe.js */
-.tgt.spawn{ filter: saturate(1.06); }
-.tgt.hit{ opacity:0; transform: scale(.78); }
-.tgt.out{ opacity:0; transform: scale(.86); }
+/* ✅ Visual pressure (optional; matches your engine classes if used) */
+body.fx-miss{ animation: fxmiss .22s ease; }
+@keyframes fxmiss{ 0%{ filter:none } 45%{ filter:brightness(1.18) saturate(1.08) } 100%{ filter:none } }
 
-/* ---------- utilities for “don’t block targets” ---------- */
-/* Make these areas ignore clicks; targets should never spawn beneath anyway */
-.noHitTop{
-  position:absolute;
-  left:0; right:0;
-  top:0;
-  height: var(--safeTop);
-  pointer-events:auto; /* capture (as blocker) */
-  background: transparent;
-  z-index: 19;
-}
-.noHitBottom{
-  position:absolute;
-  left:0; right:0;
-  bottom:0;
-  height: var(--safeBottom);
-  pointer-events:auto; /* capture (as blocker) */
-  background: transparent;
-  z-index: 19;
-}
+body.fx-bad{ animation: fxbad .24s ease; }
+@keyframes fxbad{ 0%{ filter:none } 45%{ filter:brightness(1.08) saturate(1.18) } 100%{ filter:none } }
 
-/* If you want: add these blockers in HTML (optional)
-<div class="noHitTop"></div><div class="noHitBottom"></div>
-*/
-
-/* ---------- mini urgent pulse (your HTML toggles body.mini-urgent) ---------- */
-body.mini-urgent .questCard,
-body.mini-urgent .questTop .questCard{
-  animation: miniPulse .55s ease-in-out infinite alternate;
-}
-@keyframes miniPulse{
-  from{ transform: translateY(0); box-shadow: 0 18px 60px rgba(0,0,0,.45); }
-  to{   transform: translateY(-1px); box-shadow: 0 20px 70px rgba(245,158,11,.18); }
-}
-
-/* ---------- pressure FX hooks (if engine toggles press-1/2/3) ---------- */
-body.press-1 .tgt{ filter: saturate(1.02); }
-body.press-2 .tgt{ filter: saturate(1.06) contrast(1.02); }
-body.press-3 .tgt{ filter: saturate(1.10) contrast(1.04); }
-
-/* ---------- storm/boss helper classes (if you use them) ---------- */
-body.groups-storm .tgt{
-  box-shadow: 0 16px 44px rgba(34,211,238,.10), 0 14px 34px rgba(0,0,0,.30);
-}
-body.fx-boss .tgt{
-  box-shadow: 0 18px 52px rgba(167,139,250,.14), 0 14px 34px rgba(0,0,0,.30);
-}
-
-/* ---------- safety: ensure any overlay is above everything ---------- */
-.overlay, .overlay-end, .overlay-cal{
-  z-index: 60 !important;
-}
-
-/* ---------- mobile tap comfort ---------- */
+/* ===== Tiny responsive tweaks ===== */
 @media (max-width: 420px){
-  body.view-mobile{
-    --tSize: 76px;
-    --tFont: 36px;
-    --safeTop: calc(164px + var(--sat));
-    --safeBottom: calc(144px + var(--sab));
+  :root{
+    --hudLeft: 190px;
+    --tSize: 74px;
+    --tFont: 34px;
+  }
+}
+@media (max-width: 360px){
+  :root{
+    --hudLeft: 170px;
+    --tSize: 70px;
+    --tFont: 32px;
   }
 }
