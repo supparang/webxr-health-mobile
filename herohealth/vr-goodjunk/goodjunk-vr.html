@@ -1,13 +1,16 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
-✅ Patches:
-  - Add id="hudMainRow" to measure safe-top correctly (no GOAL/MINI included)
+GoodJunkVR RUN — PRODUCTION (PATCH v4.3-std)
 ✅ Pairs with:
-  - ./goodjunk-vr.css
-  - ./goodjunk-vr.boot.js
-  - ./goodjunk.safe.js (module)
-  - ../vr/vr-ui.js (auto via boot when WebXR exists)
-  - (optional) ../vr/ai-hooks.js , ../vr/hha-cloud-logger.js
+   /herohealth/vr-goodjunk/goodjunk-vr.css
+   /herohealth/vr-goodjunk/goodjunk-vr.boot.js
+   /herohealth/vr-goodjunk/goodjunk.safe.js (v4.3-std)
+   /herohealth/vr/vr-ui.js (auto-loaded by boot when WebXR exists)
+   /herohealth/vr/ai-hooks.js (optional)
+   /herohealth/vr/hha-cloud-logger.js (optional)
+
+✅ Required IDs exist: hud-score, hud-time, hud-miss, hud-goal, goalDesc, hud-goal-cur, hud-goal-target,
+   hud-mini, miniTimer, feverFill, feverText, shieldPills, lowTimeOverlay, gj-lowtime-num,
+   gjProgressFill, bossBar, bossFill, bossHint, gj-layer, gj-layer-r
 -->
 <!doctype html>
 <html lang="th">
@@ -15,160 +18,494 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunkVR</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- Optional (Classic globals): AI Hooks + Cloud Logger -->
+  <style>
+    /* safety vars used by boot (read via getComputedStyle) */
+    :root{
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    body.gj{
+      margin:0; background:#020617; color:#e5e7eb;
+      -webkit-tap-highlight-color: transparent;
+      padding-top: var(--sat);
+      padding-bottom: var(--sab);
+    }
+
+    /* tiny fallback UI if CSS not loaded yet (won't fight your main CSS) */
+    .gj-topbar, .gj-progress, .gj-hud-bot, .gj-missions, .gj-stage{ box-sizing:border-box; }
+    .gj-topbar{
+      position:fixed; left:0; right:0; top:0;
+      padding: calc(10px + var(--sat)) 12px 10px;
+      z-index: 50;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      pointer-events:auto;
+    }
+    .gj-chip{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:10px 14px; border-radius:999px;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
+      color:#e5e7eb; font-weight:700; letter-spacing:.2px;
+      backdrop-filter: blur(10px);
+      user-select:none;
+    }
+    .gj-chip.btn{ cursor:pointer; }
+    .gj-chip.btn:active{ transform: translateY(1px); }
+
+    .gj-progress{
+      position:fixed; left:12px; right:12px;
+      top: calc(62px + var(--sat));
+      height: 12px;
+      border-radius:999px;
+      background: rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.16);
+      overflow:hidden;
+      z-index: 45;
+    }
+    #gjProgressFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(16,185,129,.95), rgba(59,130,246,.85));
+    }
+
+    /* top HUD block */
+    #hud{
+      position:fixed; left:12px; right:12px;
+      top: calc(82px + var(--sat));
+      z-index: 40;
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+    }
+    .hud-card{
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:16px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      min-height: 54px;
+    }
+    .hud-k{ font-size:12px; color:#94a3b8; font-weight:700; letter-spacing:.25px; }
+    .hud-v{ font-size:22px; font-weight:900; margin-top:2px; }
+
+    /* mission panel */
+    .gj-missions{
+      position:fixed; left:12px; right:12px;
+      top: calc(152px + var(--sat));
+      z-index: 35;
+      display:grid; gap:10px;
+      pointer-events:none;
+    }
+    .gj-missions .panel{
+      pointer-events:auto;
+      background:rgba(2,6,23,.68);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:12px;
+      backdrop-filter: blur(10px);
+    }
+    .panel .ttl{ font-weight:900; margin-bottom:6px; }
+    .panel .sub{ color:#cbd5e1; opacity:.95; }
+    .panel .row{
+      margin-top:8px;
+      display:flex; align-items:center; justify-content:space-between;
+      color:#e5e7eb;
+      font-weight:800;
+    }
+
+    /* play field */
+    .gj-stage{
+      position:fixed; left:0; right:0;
+      top: 0; bottom: 0;
+      z-index: 10;
+      overflow:hidden;
+      pointer-events:auto;
+    }
+    #gj-layer, #gj-layer-r{
+      position:absolute;
+      left:0; top:0; right:0; bottom:0;
+      pointer-events:auto;
+    }
+    body.view-cvr #gj-layer{
+      width:50%; right:auto;
+    }
+    body.view-cvr #gj-layer-r{
+      display:block;
+      width:50%; left:auto;
+      border-left: 1px solid rgba(148,163,184,.12);
+    }
+    body:not(.view-cvr) #gj-layer-r{ display:none; }
+
+    /* bottom HUD */
+    #feverBox{
+      position:fixed; left:12px; right:12px;
+      bottom: calc(14px + var(--sab));
+      z-index: 32;
+      background:rgba(2,6,23,.68);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:12px;
+      backdrop-filter: blur(10px);
+    }
+    .fever-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .fever-k{ font-weight:900; color:#e5e7eb; letter-spacing:.2px; }
+    .fever-bar{
+      margin-top:8px;
+      height: 12px;
+      border-radius:999px;
+      background: rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.16);
+      overflow:hidden;
+    }
+    #feverFill{
+      height:100%; width:18%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(14,165,233,.90));
+    }
+    .fever-meta{
+      margin-top:8px;
+      display:flex; align-items:flex-end; justify-content:space-between;
+      color:#cbd5e1;
+      font-weight:800;
+    }
+    #feverText{ color:#e5e7eb; }
+
+    /* boss bar (optional) */
+    #bossBar{
+      position:fixed; left:12px; right:12px;
+      top: calc(128px + var(--sat));
+      z-index: 42;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:16px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+    }
+    #bossBar[aria-hidden="true"]{ display:none; }
+    .boss-k{ font-weight:900; }
+    .boss-bar{
+      margin-top:8px;
+      height: 10px;
+      border-radius:999px;
+      background: rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.16);
+      overflow:hidden;
+    }
+    #bossFill{ height:100%; width:100%; background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(251,191,36,.90)); }
+    #bossHint{ margin-top:6px; color:#cbd5e1; font-weight:700; }
+
+    /* low time overlay */
+    #lowTimeOverlay{
+      position:fixed; inset:0;
+      z-index: 80;
+      display:flex; align-items:center; justify-content:center;
+      background: radial-gradient(circle at center, rgba(2,6,23,.15), rgba(2,6,23,.85));
+      backdrop-filter: blur(2px);
+      pointer-events:none;
+    }
+    #lowTimeOverlay[aria-hidden="true"]{ display:none; }
+    #gj-lowtime-num{
+      font-size: 96px;
+      font-weight: 1000;
+      color: rgba(251,191,36,.95);
+      text-shadow: 0 12px 40px rgba(0,0,0,.45);
+    }
+
+    /* HUD hide mode */
+    body.hud-hidden #hud,
+    body.hud-hidden .gj-missions,
+    body.hud-hidden #bossBar{
+      display:none !important;
+    }
+
+    /* end modal */
+    #endModal{
+      position:fixed; inset:0;
+      z-index: 120;
+      display:none;
+      align-items:center; justify-content:center;
+      padding: 18px;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+    }
+    #endModal.show{ display:flex; }
+    .end-card{
+      width:min(560px, 100%);
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:16px;
+    }
+    .end-title{ font-size:18px; font-weight:1000; }
+    .end-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .end-item{
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:16px;
+      padding:10px 12px;
+      background: rgba(15,23,42,.45);
+    }
+    .end-item .k{ color:#94a3b8; font-weight:800; font-size:12px; }
+    .end-item .v{ font-weight:1000; font-size:18px; margin-top:2px; }
+    .end-actions{
+      margin-top:12px;
+      display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+    }
+    .end-actions button{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      color:#e5e7eb;
+      padding:10px 14px;
+      font-weight:900;
+    }
+    .end-actions button.primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.35);
+    }
+  </style>
+
+  <!-- Optional: AI hooks (safe if missing) -->
   <script defer src="../vr/ai-hooks.js"></script>
-  <script defer src="../vr/hha-cloud-logger.js"></script>
+
+  <!-- Optional: Cloud logger (safe if missing) -->
+  <!-- <script defer src="../vr/hha-cloud-logger.js"></script> -->
 </head>
 
-<body class="gj view-mobile" data-view="mobile">
-  <!-- TOP BAR -->
-  <header class="gj-topbar" aria-label="Top Bar">
-    <div class="gj-brand">
-      <span class="gj-badge">🥗</span>
-      <span class="gj-title">GoodJunkVR</span>
+<body class="gj">
+  <!-- Top bar -->
+  <div class="gj-topbar">
+    <div class="gj-chip" id="btnMode">GoodJunkVR</div>
+
+    <div style="display:flex; gap:10px; align-items:center;">
+      <div class="gj-chip btn" id="btnMissions">MISSIONS</div>
+      <div class="gj-chip btn" id="btnHideHud">HUD</div>
+      <div class="gj-chip btn" id="btnHub">HUB</div>
     </div>
-
-    <nav class="gj-top-actions" aria-label="Top Actions">
-      <button class="gj-pill" type="button" id="btnMode">RESEARCH</button>
-      <button class="gj-pill" type="button" id="btnMissions">MISSIONS</button>
-      <button class="gj-pill" type="button" id="btnHideHud">HUD</button>
-    </nav>
-  </header>
-
-  <!-- PROGRESS BAR -->
-  <div class="gj-progress" aria-label="Progress">
-    <div class="gj-progress-track">
-      <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
-    </div>
-
-    <a class="gj-hub" id="btnHub" href="#" role="button" aria-label="Back to HUB">HUB</a>
   </div>
 
-  <!-- HUD (TOP) -->
-  <section class="gj-hud-top" id="gjHudTop" aria-label="HUD">
-    <!-- ✅ PATCH: วัดเฉพาะแถวนี้ -->
-    <div class="hud-row" id="hudMainRow" aria-label="HUD Main Row">
-      <div class="hud-card">
-        <div class="hud-k">SCORE</div>
-        <div class="hud-v" id="hud-score">0</div>
-      </div>
+  <!-- Progress -->
+  <div class="gj-progress" aria-label="progress">
+    <div id="gjProgressFill"></div>
+  </div>
 
-      <div class="hud-card">
-        <div class="hud-k">TIME</div>
-        <div class="hud-v" id="hud-time">0</div>
-      </div>
+  <!-- HUD (top cards) -->
+  <section id="hud" aria-label="hud-top">
+    <div class="hud-card">
+      <div class="hud-k">SCORE</div>
+      <div class="hud-v" id="hud-score">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-k">TIME</div>
+      <div class="hud-v" id="hud-time">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-k">MISS</div>
+      <div class="hud-v" id="hud-miss">0</div>
+    </div>
+  </section>
 
-      <div class="hud-card">
-        <div class="hud-k">MISS</div>
-        <div class="hud-v" id="hud-miss">0</div>
-      </div>
+  <!-- Boss bar (optional UI; safe.js toggles aria-hidden) -->
+  <section id="bossBar" aria-hidden="true">
+    <div class="boss-k">BOSS</div>
+    <div class="boss-bar"><div id="bossFill"></div></div>
+    <div id="bossHint"></div>
+  </section>
 
-      <div class="hud-card hud-card-mini">
-        <div class="hud-k">GRADE</div>
-        <div class="hud-v" id="hud-grade">—</div>
-        <div class="hud-sub">SHIELD: <span id="shieldPills">—</span></div>
+  <!-- Missions panel -->
+  <section class="gj-missions" id="missionsPanel" aria-label="missions">
+    <div class="panel">
+      <div class="ttl">GOAL: <span id="hud-goal">—</span></div>
+      <div class="sub" id="goalDesc">—</div>
+      <div class="row">
+        <div><span id="hud-goal-cur">0</span> / <span id="hud-goal-target">0</span></div>
+        <div style="opacity:.85; font-weight:900;">Goal</div>
       </div>
     </div>
 
-    <!-- Missions / Quests cards (ไม่ให้ boot เอาไปคิด safe-top) -->
-    <div class="quest-row" aria-label="Quests">
-      <div class="quest-card" aria-label="Goal">
-        <div class="q-h">GOAL: <span id="hud-goal">—</span></div>
-        <div class="q-desc" id="goalDesc">—</div>
-        <div class="q-meta">
-          <span><span id="hud-goal-cur">0</span> / <span id="hud-goal-target">0</span></span>
-          <span class="q-tag">Goal</span>
-        </div>
-      </div>
-
-      <div class="quest-card" aria-label="Mini Quest">
-        <div class="q-h">MINI QUEST</div>
-        <div class="q-desc" id="hud-mini">—</div>
-        <div class="q-meta">
-          <span id="miniTimer">—</span>
-          <span class="q-tag">Mini</span>
-        </div>
+    <div class="panel">
+      <div class="ttl">MINI QUEST</div>
+      <div class="sub" id="hud-mini">—</div>
+      <div class="row">
+        <div id="miniTimer">—</div>
+        <div style="opacity:.85; font-weight:900;">Mini</div>
       </div>
     </div>
   </section>
 
-  <!-- PLAYFIELD -->
-  <main class="gj-stage" aria-label="Playfield">
-    <!-- low time overlay -->
-    <div class="gj-lowtime" id="lowTimeOverlay" aria-hidden="true">
-      <div class="gj-lowtime-box">
-        <div class="gj-lowtime-title">⏳</div>
-        <div class="gj-lowtime-num" id="gj-lowtime-num">3</div>
-      </div>
-    </div>
-
-    <!-- boss bar (optional) -->
-    <div class="gj-boss" id="bossBar" aria-hidden="true" aria-label="Boss Bar">
-      <div class="gj-boss-top">
-        <div class="gj-boss-title">BOSS</div>
-        <div class="gj-boss-hint" id="bossHint"></div>
-      </div>
-      <div class="gj-boss-track">
-        <div class="gj-boss-fill" id="bossFill" style="width:100%"></div>
-      </div>
-    </div>
-
-    <!-- Layers: left eye / right eye (right only used in cVR) -->
-    <div class="gj-layer-wrap" aria-label="Layers">
-      <div class="gj-layer" id="gj-layer" aria-label="Layer L"></div>
-      <div class="gj-layer gj-layer-r" id="gj-layer-r" aria-label="Layer R" aria-hidden="true"></div>
-    </div>
+  <!-- Playfield -->
+  <main class="gj-stage" aria-label="stage">
+    <div id="gj-layer" aria-label="layer-left"></div>
+    <div id="gj-layer-r" aria-label="layer-right" aria-hidden="true"></div>
   </main>
 
-  <!-- HUD (BOTTOM) -->
-  <footer class="gj-hud-bot" id="gjHudBot" aria-label="Bottom HUD">
-    <div class="fever" id="feverBox" aria-label="Fever">
-      <div class="fever-head">
-        <div class="fever-title">FEVER</div>
-        <button class="gj-pill" type="button" id="btnHideHud2">Toggle HUD</button>
-      </div>
-      <div class="fever-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-        <div class="fever-fill" id="feverFill" style="width:0%"></div>
-      </div>
-      <div class="fever-meta">
-        <div class="fever-v" id="feverText">0%</div>
-        <div class="fever-desc">เก็บของดีต่อเนื่องเพื่อทำคอมโบ / อย่าโดนของเสีย</div>
+  <!-- Bottom HUD: fever -->
+  <section id="feverBox" class="gj-hud-bot" aria-label="fever">
+    <div class="fever-top">
+      <div class="fever-k">FEVER</div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="gj-chip" style="padding:8px 12px;">
+          🛡️ <span id="shieldPills" style="margin-left:6px;">—</span>
+        </div>
       </div>
     </div>
-  </footer>
+    <div class="fever-bar"><div id="feverFill"></div></div>
+    <div class="fever-meta">
+      <div><span id="feverText">0%</span></div>
+      <div style="opacity:.85; font-weight:800;">เก็บของดีต่อเนื่องเพื่อทำคอมโบ / อย่าโดนของเสีย</div>
+    </div>
+  </section>
 
-  <!-- BOOT (module) -->
-  <script type="module" src="./goodjunk-vr.boot.js"></script>
+  <!-- Low time overlay -->
+  <div id="lowTimeOverlay" aria-hidden="true">
+    <div id="gj-lowtime-num">3</div>
+  </div>
 
-  <!-- small runtime helpers -->
+  <!-- End modal -->
+  <div id="endModal" role="dialog" aria-modal="true" aria-label="End summary">
+    <div class="end-card">
+      <div class="end-title" id="endTitle">สรุปผล</div>
+
+      <div class="end-grid">
+        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
+        <div class="end-item"><div class="k">Grade</div><div class="v" id="endGrade">—</div></div>
+        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
+      </div>
+
+      <div class="end-actions">
+        <button id="btnReplay">เล่นอีกครั้ง</button>
+        <button class="primary" id="btnBackHub">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // HUB button: use ?hub= if provided
     (function(){
+      'use strict';
+      const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+
+      const btnHub = document.getElementById('btnHub');
+      const btnBackHub = document.getElementById('btnBackHub');
+      const btnReplay = document.getElementById('btnReplay');
+      const btnHideHud = document.getElementById('btnHideHud');
+      const btnMissions = document.getElementById('btnMissions');
+      const btnMode = document.getElementById('btnMode');
+
+      const missionsPanel = document.getElementById('missionsPanel');
+
+      const endModal = document.getElementById('endModal');
+      const endScore = document.getElementById('endScore');
+      const endGrade = document.getElementById('endGrade');
+      const endMiss  = document.getElementById('endMiss');
+      const endAcc   = document.getElementById('endAcc');
+      const endTitle = document.getElementById('endTitle');
+
+      const hubUrl = qs('hub', '') || '';
+
+      function goHub(){
+        if(hubUrl){
+          location.href = hubUrl;
+        }else{
+          // fallback: go to hub in same folder if exists
+          location.href = '../hub.html';
+        }
+      }
+
+      function replay(){
+        // keep all query params, but force reload clean
+        const u = new URL(location.href);
+        u.searchParams.set('v', String(Date.now()));
+        location.href = u.toString();
+      }
+
+      btnHub && btnHub.addEventListener('click', goHub, {passive:true});
+      btnBackHub && btnBackHub.addEventListener('click', goHub, {passive:true});
+      btnReplay && btnReplay.addEventListener('click', replay, {passive:true});
+
+      // HUD toggle (boot listens for btnHideHud id)
+      btnHideHud && btnHideHud.addEventListener('click', ()=>{
+        document.body.classList.toggle('hud-hidden');
+      }, {passive:true});
+
+      // Missions toggle (just hide the panels, not HUD cards)
+      btnMissions && btnMissions.addEventListener('click', ()=>{
+        if(!missionsPanel) return;
+        const hidden = missionsPanel.style.display === 'none';
+        missionsPanel.style.display = hidden ? '' : 'none';
+        // re-measure safe rect after layout change
+        try{ window.dispatchEvent(new CustomEvent('gj:measureSafe',{})); }catch(_){}
+      }, {passive:true});
+
+      // Update title chip with run/diff/time (cosmetic)
+      function updateChip(){
+        const run  = String(qs('run','play')).toUpperCase();
+        const diff = String(qs('diff','normal')).toUpperCase();
+        const time = String(qs('time','80'));
+        if(btnMode) btnMode.textContent = `GoodJunkVR • ${run} • ${diff} • ${time}s`;
+      }
+      updateChip();
+
+      // Listen summary and show modal
+      window.addEventListener('hha:end', (e)=>{
+        const s = e.detail || {};
+        const score = (s.scoreFinal ?? s.score ?? 0) | 0;
+        const miss  = (s.miss ?? s.misses ?? 0) | 0;
+        const grade = String(s.grade || '—');
+        const acc   = (s.accuracyPct != null) ? String(s.accuracyPct) : (s.accuracy != null ? String(Math.round(Number(s.accuracy)*100)) : '0');
+        if(endScore) endScore.textContent = String(score);
+        if(endMiss)  endMiss.textContent  = String(miss);
+        if(endGrade) endGrade.textContent = grade;
+        if(endAcc)   endAcc.textContent   = String(acc) + '%';
+
+        if(endTitle){
+          const mode = String(s.runMode || '').toUpperCase() || 'PLAY';
+          const df = String(s.diff || '').toUpperCase() || 'NORMAL';
+          endTitle.textContent = `สรุปผล • ${mode} • ${df}`;
+        }
+
+        if(endModal){
+          endModal.classList.add('show');
+        }
+      }, {passive:true});
+
+      // Close modal by tapping outside card
+      endModal && endModal.addEventListener('click', (ev)=>{
+        if(ev.target === endModal){
+          endModal.classList.remove('show');
+        }
+      });
+
+      // Debug: warn if critical HUD ids missing (prevents TIME stuck at 0 confusion)
+      (function assertHudIds(){
+        const must = ['hud-score','hud-time','hud-miss','gj-layer'];
+        const miss = must.filter(id => !document.getElementById(id));
+        if(miss.length){
+          console.warn('[GoodJunkVR RUN] Missing required IDs:', miss);
+        }
+      })();
+
+      // Optional: init cloud logger if present
       try{
-        const q = new URL(location.href).searchParams;
-        const hub = q.get('hub');
-        const a = document.getElementById('btnHub');
-        if(a){
-          a.href = hub || '../hub.html';
+        if(window.HHA_LOGGER && typeof window.HHA_LOGGER.init === 'function'){
+          window.HHA_LOGGER.init({ game:'goodjunk', logEndpoint: qs('log','') || '' });
         }
       }catch(_){}
     })();
-
-    // simple HUD toggle (adds body class hud-hidden)
-    (function(){
-      const toggle = ()=>{
-        try{ document.body.classList.toggle('hud-hidden'); }catch(_){}
-      };
-      const b1 = document.getElementById('btnHideHud');
-      const b2 = document.getElementById('btnHideHud2');
-      if(b1) b1.addEventListener('click', toggle, {passive:true});
-      if(b2) b2.addEventListener('click', toggle, {passive:true});
-    })();
   </script>
+
+  <!-- Boot (module) -->
+  <script type="module" src="./goodjunk-vr.boot.js"></script>
 </body>
 </html>
