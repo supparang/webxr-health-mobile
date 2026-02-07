@@ -1,8 +1,8 @@
 // === /fitness/js/rhythm-engine.js ===
 // Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction (locked in research) + CSV
+// ✅ PATCH A: Note travel anchored to CSS hitline-bottom (real hit line position)
+// ✅ PATCH B: Mobile-friendly lead time (noteSpeedSec) + miss grace at beginning
 // ✅ Notes fall to hit line (visual sync)
-// ✅ 5-lane (or 3-lane preset supported by CSS/HTML)
-// ✅ Calibration offset (Cal: ms)
 // ✅ Research lock: prediction shown but no adaptive changes
 // ✅ Normal assist: enable with ?ai=1
 // ✅ Events CSV + Sessions CSV
@@ -36,7 +36,6 @@
       let v = (obj && obj[k] != null) ? obj[k] : '';
       if (typeof v === 'number' && Number.isFinite(v)) v = String(v);
       v = String(v);
-      // quote if needed
       if(/[",\n\r]/.test(v)) v = '"' + v.replace(/"/g,'""') + '"';
       return v;
     }).join(',');
@@ -47,9 +46,7 @@
       this.columns = columns.slice(0);
       this.rows = [];
     }
-    add(row){
-      this.rows.push(Object.assign({}, row));
-    }
+    add(row){ this.rows.push(Object.assign({}, row)); }
     toCsv(){
       const head = this.columns.join(',');
       const body = this.rows.map(r=>toCsvRow(r, this.columns)).join('\n');
@@ -60,32 +57,14 @@
 
   // ---- Track config ----
   const TRACKS = {
-    n1: {
-      id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',
-      durationSec: 60,
-      audio: './audio/warmup-groove.mp3'
-    },
-    n2: {
-      id:'n2', name:'Focus Combo', bpm:120, diff:'normal',
-      durationSec: 60,
-      audio: './audio/focus-combo.mp3'
-    },
-    n3: {
-      id:'n3', name:'Speed Rush', bpm:140, diff:'hard',
-      durationSec: 60,
-      audio: './audio/speed-rush.mp3'
-    },
-    r1: {
-      id:'r1', name:'Research Track 120', bpm:120, diff:'normal',
-      durationSec: 60,
-      audio: './audio/research-120.mp3'
-    }
+    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec: 60, audio: './audio/warmup-groove.mp3' },
+    n2: { id:'n2', name:'Focus Combo',     bpm:120, diff:'normal', durationSec: 60, audio: './audio/focus-combo.mp3' },
+    n3: { id:'n3', name:'Speed Rush',      bpm:140, diff:'hard',   durationSec: 60, audio: './audio/speed-rush.mp3' },
+    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec: 60, audio: './audio/research-120.mp3' }
   };
 
   // ---- Note patterns (placeholder timeline; replace with authored beat map later) ----
-  // lane: 0..4 (L2 L1 C R1 R2) or 0..2 (L C R)
   function buildPattern(track, laneCount){
-    // deterministic-ish per track id for repeatability (research friendly)
     const seedStr = (track && track.id) ? track.id : 'n1';
     let seed = 0;
     for(let i=0;i<seedStr.length;i++) seed = (seed*31 + seedStr.charCodeAt(i)) >>> 0;
@@ -99,17 +78,15 @@
     const dur = track.durationSec || 60;
 
     const notes = [];
-    // density by diff
     const diff = track.diff || 'normal';
     const base = (diff==='easy') ? 0.55 : (diff==='hard') ? 0.95 : 0.75;
 
-    // lead in
-    const startT = 2.0;
+    // ✅ PATCH: start later so player sees notes + HUD settles (reduces early auto-miss feeling)
+    const startT = 3.2;
+
     for(let t=startT; t<dur-1.0; t+=beat){
-      // random skip
       if(rnd() > base) continue;
       let lane = Math.floor(rnd() * laneCount);
-      // occasionally add doubles for challenge
       const isDouble = (diff!=='easy') && (rnd()<0.10);
       notes.push({ t: +t.toFixed(3), lane, kind:'tap' });
       if(isDouble){
@@ -118,9 +95,18 @@
       }
     }
 
-    // sort by time then lane
     notes.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
     return notes;
+  }
+
+  function cssNum(el, prop, fallback){
+    try{
+      const v = getComputedStyle(el).getPropertyValue(prop);
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : fallback;
+    }catch(_){
+      return fallback;
+    }
   }
 
   class RhythmBoxerEngine{
@@ -141,8 +127,7 @@
       this.meta = {};
 
       // timing/calibration
-      this.calOffsetSec = 0; // + => hits judged later; user can tune
-      this._calHold = 0;
+      this.calOffsetSec = 0;
 
       // gameplay state
       this.songTime = 0;
@@ -174,7 +159,7 @@
       this.rightHits = 0;
 
       // fever
-      this.fever = 0; // 0..1
+      this.fever = 0;
       this.feverEntryCount = 0;
       this.feverActive = false;
       this.feverTotalTimeSec = 0;
@@ -190,8 +175,14 @@
       this.notes = [];
       this.noteIdx = 0;
       this.live = [];
-      this.noteSpeedSec = 2.20; // lead time in seconds (visual fall time)
-      this.noteBaseLen = 160;   // px (tail length baseline)
+
+      // ✅ PATCH: mobile-friendly lead time (more time to see & hit)
+      this.noteSpeedSec = 2.80;
+
+      this.noteBaseLen = 160;
+
+      // ✅ PATCH: early grace period for timeout-miss (sec)
+      this.missGraceSec = 2.0;
 
       // CSV tables
       this.sessionId = '';
@@ -219,13 +210,11 @@
         'trial_valid','rank','created_at_iso'
       ]);
 
-      // bind input
       this._bindLaneInput();
       this._detectDeviceType();
     }
 
     _detectDeviceType(){
-      // simple: pc vs mobile; cVR would be same page but view param could exist
       try{
         const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints>0);
         this.deviceType = touch ? 'mobile' : 'pc';
@@ -236,6 +225,8 @@
 
     _bindLaneInput(){
       if(!this.lanesEl) return;
+
+      // pointerdown per lane
       this.lanesEl.addEventListener('pointerdown', (ev)=>{
         const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
         if(!laneEl) return;
@@ -244,16 +235,14 @@
         this.hitLane(lane, 'tap');
       }, {passive:true});
 
-      // allow keyboard (A S D J K) for 5-lane
+      // keyboard
       DOC.addEventListener('keydown', (ev)=>{
         if(!this.running) return;
         const k = (ev.key||'').toLowerCase();
         const map5 = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
         const map3 = { 'a':0, 's':1, 'd':2 };
         const map = (this.laneCount===3) ? map3 : map5;
-        if(map[k] != null){
-          this.hitLane(map[k], 'key');
-        }
+        if(map[k] != null) this.hitLane(map[k], 'key');
       });
     }
 
@@ -268,10 +257,11 @@
       this.meta = meta || {};
       this.track = TRACKS[trackId] || TRACKS.n1;
 
-      // lane count from DOM (supports 3-lane layout)
       this.laneCount = (this.lanesEl && this.lanesEl.querySelectorAll('.rb-lane').length) || 5;
 
-      // reset state
+      // ✅ PATCH: adjust lead time a bit by device
+      this.noteSpeedSec = (this.deviceType === 'mobile') ? 3.05 : 2.70;
+
       this.running = true;
       this.ended = false;
 
@@ -309,38 +299,29 @@
       this._aiNext = 0;
       this._aiTipNext = 0;
 
-      // notes
       this.notes = buildPattern(this.track, this.laneCount);
       this.totalNotes = this.notes.length;
       this.noteIdx = 0;
       this.live.length = 0;
 
-      // DOM clear
       this._clearNotesDom();
 
-      // CSV reset
       this.sessionId = this._makeSessionId();
       this.eventsTable.clear();
 
-      // load audio
       if(this.audio){
         this.audio.src = this.track.audio;
         this.audio.currentTime = 0;
         this.audio.loop = false;
-        // do not autoplay until user click already happened in UI
         const p = this.audio.play();
         if(p && typeof p.catch==='function') p.catch(()=>{});
       }
 
-      // start loop
       this._rafId = requestAnimationFrame(()=>this._loop());
 
-      // initial HUD
       this._updateHud();
       this._updateBars();
-      this._updateCalibrationHud();
 
-      // emit start hook
       if(this.hooks && typeof this.hooks.onStart==='function'){
         this.hooks.onStart({ sessionId:this.sessionId, mode:this.mode, track:this.track });
       }
@@ -366,15 +347,12 @@
       el.dataset.t = String(note.t);
       el.dataset.lane = String(note.lane);
 
-      // NOTE LENGTH: make it long enough to visually reach hit line
-      // (tail looks long; head is still hittable by time)
       const diff = this.track.diff || 'normal';
       const base = this.noteBaseLen;
       const mul = (diff==='easy') ? 0.95 : (diff==='hard') ? 1.25 : 1.10;
       const lenPx = Math.round(base * mul);
       el.style.setProperty('--rb-note-len', lenPx + 'px');
 
-      // icon
       const ico = DOC.createElement('div');
       ico.className = 'rb-note-ico';
       ico.textContent = '🥊';
@@ -382,7 +360,6 @@
 
       laneEl.appendChild(el);
 
-      // keep handle
       note.el = el;
       note.spawned = true;
     }
@@ -403,35 +380,23 @@
       const dt = Math.max(0, t - this._lastTs);
       this._lastTs = t;
 
-      // song time from audio if available (prefer audio clock)
       if(this.audio && Number.isFinite(this.audio.currentTime)){
         this.songTime = this.audio.currentTime;
       }else{
         this.songTime = t - this._t0;
       }
 
-      // fever time accumulation
       if(this.feverActive) this.feverTotalTimeSec += dt;
-
-      // hp under 50 time
       if(this.hp < 50) this.hpUnder50Time += dt;
 
-      // spawn notes ahead of time
       this._spawnAhead();
-
-      // update note positions (visual fall)
       this._updateNotePositions();
-
-      // auto miss if passed too late
       this._resolveTimeoutMiss();
 
-      // update AI + HUD
       this._updateAI();
       this._updateHud();
       this._updateBars();
-      this._updateCalibrationHud();
 
-      // end condition
       if(this.hp <= 0){
         this._finish('hp-zero');
         return;
@@ -446,7 +411,7 @@
     }
 
     _spawnAhead(){
-      const lead = this.noteSpeedSec; // seconds for note to travel to hit line
+      const lead = this.noteSpeedSec;
       while(this.noteIdx < this.notes.length){
         const n = this.notes[this.noteIdx];
         if(n.t - this.songTime > lead) break;
@@ -457,8 +422,10 @@
     }
 
     _updateNotePositions(){
-      // We position notes relative to the HIT LINE (bottom: --rb-hitline-bottom in CSS)
-      // Movement: translateY from -travelPx -> 0, so head reaches hit line at n.t
+      // ✅ PATCH A: anchor travel to REAL hit line using CSS --rb-hitline-bottom
+      // Note element itself already anchored at hitline (bottom: calc(hitline-bottom + thickness/2))
+      // We only need translateY so that it starts above and reaches 0 at hit time.
+
       const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
 
@@ -469,33 +436,43 @@
         if(!laneEl) continue;
 
         const rect = laneEl.getBoundingClientRect();
-        const laneH = rect.height || 420;
+        const laneH = rect.height || 520;
 
-        // travel distance: enough to start above and reach hit line
-        const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
-        const travel = laneH + noteLen * 0.35;
+        const hitlineBottom = cssNum(laneEl, '--rb-hitline-bottom', 72);
+        const hitlineY = laneH - hitlineBottom; // from top to hitline
 
-        const p = (this.songTime - (n.t - lead)) / lead; // 0..1 over lead window
+        // start above top: add extra so note head begins off-screen then enters smoothly
+        const extraStart = Math.max(120, hitlineY * 0.20);
+        const travel = hitlineY + extraStart;
+
+        const p = (this.songTime - (n.t - lead)) / lead; // 0..1
         const pClamp = clamp01(p);
 
-        // y: negative above -> 0 at hit line
-        const y = (pClamp - 1) * travel;
-
-        // center on lane X, move vertically with translateY
+        const y = (pClamp - 1) * travel; // -travel .. 0
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
-        n.el.style.opacity = (pClamp < 0.02) ? '0' : '1';
+
+        // fade in slightly at the start to avoid pop
+        n.el.style.opacity = (pClamp < 0.03) ? '0' : '1';
       }
     }
 
     _resolveTimeoutMiss(){
       // if note passed beyond miss window => MISS
-      const missLate = 0.18; // seconds after hit time (before auto miss)
+      const missLate = 0.22;
+
       const keep = [];
       for(const n of this.live){
         if(n.done) continue;
+
         const dt = (this.songTime - n.t) - this.calOffsetSec;
+
+        // ✅ PATCH B: grace period near game start (avoid “miss ไหล” ตอนยังตั้งตัว)
+        if(this.songTime < this.missGraceSec){
+          keep.push(n);
+          continue;
+        }
+
         if(dt > missLate){
-          // timeout miss
           this._applyMiss(n.lane, 'timeout');
           this._despawnNote(n);
           continue;
@@ -508,7 +485,6 @@
     hitLane(lane, source){
       if(!this.running || this.ended) return;
 
-      // find nearest active note in that lane
       let best = null;
       let bestAbs = 999;
 
@@ -523,7 +499,6 @@
         }
       }
 
-      // windows
       const wPerfect = 0.045;
       const wGreat   = 0.080;
       const wGood    = 0.120;
@@ -538,41 +513,32 @@
 
         this._applyHit(lane, judgment, dt, scoreDelta);
 
-        // remove note
         this._despawnNote(best.note);
-        // purge from live
         this.live = this.live.filter(x=>x && !x.done);
 
       }else{
-        // blank tap miss (small penalty)
         this._applyBlankMiss(lane);
       }
     }
 
     _applyHit(lane, judgment, offsetSec, scoreDelta){
-      // counts
       if(judgment==='perfect') this.hitPerfect++;
       else if(judgment==='great') this.hitGreat++;
       else this.hitGood++;
 
-      // offset stats
       this.offsets.push(offsetSec);
       this.offsetsAbs.push(Math.abs(offsetSec));
       if(offsetSec < 0) this.earlyHits++; else if(offsetSec > 0) this.lateHits++;
 
-      // side stats
       const mid = (this.laneCount===3) ? 1 : 2;
       if(lane < mid) this.leftHits++;
       else if(lane > mid) this.rightHits++;
 
-      // combo/score
       this.combo++;
       this.maxCombo = Math.max(this.maxCombo, this.combo);
       this.score += scoreDelta;
 
-      // fever build
       const add = (judgment==='perfect') ? 0.090 : (judgment==='great') ? 0.060 : 0.035;
-      const prev = this.fever;
       this.fever = clamp01(this.fever + add);
 
       if(!this.feverActive && this.fever >= 1){
@@ -581,12 +547,10 @@
         if(this.timeToFirstFeverSec == null) this.timeToFirstFeverSec = this.songTime;
       }
 
-      // renderer fx
       if(this.renderer && typeof this.renderer.showHitFx==='function'){
         this.renderer.showHitFx({ lane, judgment, scoreDelta });
       }
 
-      // log event
       this._logEvent({
         event: 'hit',
         lane,
@@ -600,12 +564,10 @@
       this.hitMiss++;
       this.combo = 0;
 
-      // hp penalty
       const dmg = (kind==='timeout') ? 10 : 8;
       this.hp = Math.max(0, this.hp - dmg);
       this.hpMin = Math.min(this.hpMin, this.hp);
 
-      // fever drops a bit
       this.fever = clamp01(this.fever - 0.10);
       if(this.feverActive && this.fever < 0.60) this.feverActive = false;
 
@@ -623,7 +585,6 @@
     }
 
     _applyBlankMiss(lane){
-      // tiny penalty to prevent spam
       this.hitMiss++;
       this.combo = 0;
 
@@ -697,7 +658,7 @@
       if(hud.acc){
         const judged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
         const hit = judged - this.hitMiss;
-        const acc = judged ? (hit / this.totalNotes) * 100 : 0;
+        const acc = judged ? (hit / (this.totalNotes||1)) * 100 : 0;
         hud.acc.textContent = acc.toFixed(1) + '%';
       }
       if(hud.hp) hud.hp.textContent = String(Math.round(this.hp));
@@ -709,7 +670,6 @@
       if(hud.countGood)    hud.countGood.textContent    = String(this.hitGood);
       if(hud.countMiss)    hud.countMiss.textContent    = String(this.hitMiss);
 
-      // AI HUD (if UI wires it)
       if(this.aiState){
         if(hud.aiFatigue) hud.aiFatigue.textContent = Math.round((this.aiState.fatigueRisk||0)*100) + '%';
         if(hud.aiSkill)   hud.aiSkill.textContent   = Math.round((this.aiState.skillScore||0)*100) + '%';
@@ -737,24 +697,14 @@
       }
     }
 
-    _updateCalibrationHud(){
-      // optional calibration display: hud.cal or an element id rb-hud-cal
-      const el = DOC.querySelector('#rb-hud-cal');
-      if(el){
-        el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
-      }
-    }
-
     _updateAI(){
       const t = this.songTime;
-
-      // snapshot
       if(t < this._aiNext) return;
       this._aiNext = t + 0.40;
 
       const judged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
       const hit = judged - this.hitMiss;
-      const accPct = judged ? (hit / this.totalNotes) * 100 : 0;
+      const accPct = judged ? (hit / (this.totalNotes||1)) * 100 : 0;
 
       const snap = {
         accPct,
@@ -769,26 +719,20 @@
         durationSec: this.track.durationSec || 60
       };
 
-      // prediction (classic global)
       if(WIN.RB_AI && typeof WIN.RB_AI.predict === 'function'){
         this.aiState = WIN.RB_AI.predict(snap);
       }else{
         this.aiState = { fatigueRisk:0, skillScore:0.5, suggestedDifficulty:'normal', tip:'' };
       }
 
-      // optional coach rate-limit (only affects text; no gameplay changes in research)
       if(this.aiState){
         if(t >= this._aiTipNext){
           this._aiTipNext = t + 2.5;
-          // keep tip as-is; UI reads it
         }else{
-          // prevent tip flicker: hide tip text between updates if empty
           if(!this.aiState.tip) this.aiState.tip = '';
         }
       }
-
-      // IMPORTANT: no adaptive changes here for research lock
-      // Normal mode may use ?ai=1 later if you want (spawn density, windows, etc.)
+      // research lock: no adaptive changes
     }
 
     _finish(endReason) {
@@ -799,23 +743,15 @@
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
+      if (this.audio) this.audio.pause();
 
-      if (this.audio) {
-        this.audio.pause();
-      }
-
-      const dur = Math.min(
-        this.songTime,
-        this.track.durationSec || this.songTime
-      );
+      const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
 
       const totalNotes = this.totalNotes || 1;
       const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
       const totalJudged = totalHits + this.hitMiss;
 
-      const acc = totalJudged
-        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
-        : 0;
+      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) * 100 : 0;
 
       const mOffset = this.offsets.length ? mean(this.offsets) : 0;
       const sOffset = this.offsets.length ? std(this.offsets) : 0;
@@ -836,10 +772,8 @@
         acc >= 75 ? 'A'   :
         acc >= 65 ? 'B'   : 'C';
 
-      // quality gate for research
       const trialValid = totalJudged >= 10 && acc >= 40 ? 1 : 0;
 
-      // ---- session row ----
       const sessionRow = {
         session_id: this.sessionId,
         mode: this.mode,
@@ -875,8 +809,7 @@
         fever_entry_count: this.feverEntryCount,
         fever_total_time_s: this.feverTotalTimeSec,
         fever_time_pct: feverTimePct,
-        time_to_first_fever_s:
-          this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : '',
+        time_to_first_fever_s: (this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : ''),
 
         hp_start: 100,
         hp_end: this.hp,
@@ -887,7 +820,6 @@
         duration_sec: dur,
         device_type: this.deviceType,
 
-        // AI snapshot at end (prediction only; assist might be off)
         ai_fatigue_risk: this.aiState ? (this.aiState.fatigueRisk ?? '') : '',
         ai_skill_score:  this.aiState ? (this.aiState.skillScore  ?? '') : '',
         ai_suggest:      this.aiState ? (this.aiState.suggestedDifficulty ?? '') : '',
@@ -901,7 +833,6 @@
 
       this.sessionTable.add(sessionRow);
 
-      // ---- summary for UI ----
       const summary = {
         modeLabel: this.mode === 'research' ? 'Research' : 'Normal',
         trackName: this.track.name,
@@ -918,9 +849,7 @@
         durationSec: dur,
         participant: this.meta.id || this.meta.participant_id || '',
         rank,
-        qualityNote: trialValid
-          ? ''
-          : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
+        qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
       if (this.hooks && typeof this.hooks.onEnd === 'function') {
@@ -928,11 +857,9 @@
       }
     }
 
-    // ---- public CSV ----
     getEventsCsv(){ return this.eventsTable.toCsv(); }
     getSessionCsv(){ return this.sessionTable.toCsv(); }
   }
 
-  // ===== expose =====
   WIN.RhythmBoxerEngine = RhythmBoxerEngine;
 })();
