@@ -1,11 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
-// PATCH v20260206a
-// ✅ Fix HUD-safe: measure from #hudTop and write to BODY CSS vars
-// ✅ Fix spawnRect: read CSS vars from BODY
-// ✅ Fix "ตีแล้วเหมือนไม่หาย": add kill animation (immediate) + remove overlay-safe
-// ✅ Fix "เป้าซ้อน/เต็ม": simple collision avoidance
-// ✅ Anti-freeze: tick guarded; crash => banner + endGame('crash')
+// PATCH v20260206b
+// ✅ Mobile tap reliability: use pointerdown (not click) + prevent ghost
+// ✅ FX position: use real element center at hit time (not stale obj.x/y)
+// ✅ Spawn limiter: cap spawns per frame + FPS guard to prevent target flood
+// ✅ Keep HUD-safe measure (body vars) + collision avoidance + kill animation
 'use strict';
 
 const WIN = window;
@@ -32,7 +31,6 @@ function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
 function nowMs(){ return performance.now ? performance.now() : Date.now(); }
 function copyText(text){ return navigator.clipboard?.writeText(String(text)).catch(()=>{}); }
 
-// ------------------ Steps (emoji mapping) ------------------
 const STEPS = [
   { key:'palm',  icon:'🫧', label:'ฝ่ามือ', hitsNeed:6 },
   { key:'back',  icon:'🤚', label:'หลังมือ', hitsNeed:6 },
@@ -92,14 +90,14 @@ export function boot(){
   const seed = Number(qs('seed', Date.now()));
   const rng = makeRNG(seed);
 
-  // difficulty presets (base)
+  // base difficulty
   const base = (()=> {
     if(diff==='easy') return { spawnPerSec:1.8, hazardRate:0.08, decoyRate:0.16 };
     if(diff==='hard') return { spawnPerSec:2.6, hazardRate:0.14, decoyRate:0.26 };
     return { spawnPerSec:2.2, hazardRate:0.11, decoyRate:0.22 };
   })();
 
-  // AI instances (optional)
+  // AI optional
   const coachOn = (qs('coach','1') !== '0');
   const ddOn    = (qs('dd','1') !== '0');
   const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
@@ -125,7 +123,7 @@ export function boot(){
 
   let correctHits=0;
   let totalStepHits=0;
-  const rtOk = []; // ms
+  const rtOk = [];
   let spawnAcc=0;
 
   // quest/quiz
@@ -135,9 +133,16 @@ export function boot(){
   let quizRight = 0;
   let quizWrong = 0;
 
-  // active targets
+  // targets
   const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
   let nextId=1;
+
+  // performance guard
+  const PERF = {
+    slowFrames: 0,
+    spawnMul: 1.0,
+    lastDt: 0
+  };
 
   function showBanner(msg){
     if(!banner) return;
@@ -147,47 +152,56 @@ export function boot(){
     showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
-  // ✅ HUD safe: measure and write CSS vars to BODY so spawnRect never goes under HUD
+  // HUD safe: measure and write CSS vars to BODY
   function measureHudSafe(){
     try{
       if(!DOC.body) return;
       let topPx = 170;
       let bottomPx = 190;
 
-      // measure actual HUD top block (includes quiz when visible)
       if(hudTop){
         const r = hudTop.getBoundingClientRect();
         if(r && Number.isFinite(r.bottom)){
-          topPx = Math.max(120, Math.min(WIN.innerHeight*0.75, r.bottom + 18)); // + buffer
+          topPx = Math.max(120, Math.min(WIN.innerHeight*0.80, r.bottom + 18));
         }
       }
 
-      // bottom: leave room for safe-area + VR UI bar (rough)
       const sab = (WIN.visualViewport && WIN.visualViewport.height)
         ? Math.max(0, (WIN.innerHeight - WIN.visualViewport.height))
         : 0;
 
       bottomPx = Math.max(bottomPx, 140 + sab);
 
-      // write to body (important)
       DOC.body.style.setProperty('--hw-top-safe', topPx.toFixed(0) + 'px');
       DOC.body.style.setProperty('--hw-bottom-safe', bottomPx.toFixed(0) + 'px');
     }catch{}
   }
 
-  // run once + on resize
   measureHudSafe();
   WIN.addEventListener('resize', ()=>{ measureHudSafe(); }, { passive:true });
   if(WIN.visualViewport){
     WIN.visualViewport.addEventListener('resize', ()=>{ measureHudSafe(); }, { passive:true });
   }
 
-  // ✅ FX on hit (particles.js)
+  // FX: take real element center (always correct)
   function fxHit(kind, obj){
     const P = WIN.Particles;
     if(!P || !obj) return;
-    const x = Number(obj.x || WIN.innerWidth*0.5);
-    const y = Number(obj.y || WIN.innerHeight*0.5);
+
+    let x = WIN.innerWidth*0.5;
+    let y = WIN.innerHeight*0.5;
+
+    try{
+      if(obj.el){
+        const r = obj.el.getBoundingClientRect();
+        if(r && Number.isFinite(r.left)){
+          x = r.left + r.width/2;
+          y = r.top + r.height/2;
+        }
+      }else if(Number.isFinite(obj.x) && Number.isFinite(obj.y)){
+        x = obj.x; y = obj.y;
+      }
+    }catch{}
 
     if(kind === 'good'){
       P.popText(x, y, '✅ +1', 'good');
@@ -205,7 +219,6 @@ export function boot(){
     quizOpen = !!on;
     if(!quizBox) return;
     quizBox.style.display = on ? 'block' : 'none';
-    // HUD height changes -> re-measure
     setTimeout(measureHudSafe, 0);
     setTimeout(measureHudSafe, 60);
   }
@@ -247,7 +260,6 @@ export function boot(){
     }
   }
 
-  // ✅ PATCH: read safe zones from BODY (because view-* classes are on body)
   function readBodySafeVars(){
     let topSafe = 170;
     let bottomSafe = 190;
@@ -266,30 +278,20 @@ export function boot(){
   function getSpawnRect(){
     const w = WIN.innerWidth || 0;
     const h = WIN.innerHeight || 0;
-
     const sv = readBodySafeVars();
-    const topSafe = sv.topSafe;
-    const bottomSafe = sv.bottomSafe;
-
     const pad = 16;
-    let x0 = pad, x1 = w - pad;
-    let y0 = topSafe + pad;
-    let y1 = h - (bottomSafe + pad);
 
-    // safety: if HUD takes too much space, fall back
+    let x0 = pad, x1 = w - pad;
+    let y0 = sv.topSafe + pad;
+    let y1 = h - (sv.bottomSafe + pad);
+
     if(y1 < y0 + 90){
       const mid = h * 0.58;
       y0 = clamp(mid - 160, pad, h - pad);
       y1 = clamp(mid + 160, pad, h - pad);
     }
 
-    return {
-      x0: clamp(x0, 0, w),
-      x1: clamp(x1, 0, w),
-      y0: clamp(y0, 0, h),
-      y1: clamp(y1, 0, h),
-      w, h
-    };
+    return { x0: clamp(x0,0,w), x1: clamp(x1,0,w), y0: clamp(y0,0,h), y1: clamp(y1,0,h), w, h };
   }
 
   function getMissCount(){
@@ -311,7 +313,7 @@ export function boot(){
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
 
     pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
-    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
+    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view} • mul=${PERF.spawnMul.toFixed(2)}`);
   }
 
   function clearTargets(){
@@ -321,7 +323,6 @@ export function boot(){
     }
   }
 
-  // ✅ kill animation: instant feedback, remove shortly (prevents "เหมือนไม่หาย")
   function killTarget(obj){
     try{
       if(!obj || !obj.el) return;
@@ -337,7 +338,6 @@ export function boot(){
     killTarget(obj);
   }
 
-  // collision check (avoid stacking targets)
   function isTooClose(x,y,minDist){
     for(const t of targets){
       const d = Math.hypot((t.x-x),(t.y-y));
@@ -355,39 +355,41 @@ export function boot(){
 
     stage.appendChild(el);
 
-    // pick position with simple retries
     const rect = getSpawnRect();
     let x=0, y=0;
-    const minDist = (Math.min(rect.w, rect.h) * 0.10); // ~10% viewport
+    const minDist = (Math.min(rect.w, rect.h) * 0.10);
+
     for(let tries=0; tries<7; tries++){
       const px = rect.x0 + (rect.x1-rect.x0)*rng();
       const py = rect.y0 + (rect.y1-rect.y0)*rng();
-      if(!isTooClose(px, py, minDist)){
-        x = px; y = py; break;
-      }
+      if(!isTooClose(px, py, minDist)){ x = px; y = py; break; }
       x = px; y = py;
     }
 
-    // store px for FX and cVR aim
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
     targets.push(obj);
 
-    // set CSS percent for vw/vh placement
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
+    // ✅ Mobile reliable: pointerdown (no 300ms delay, less missed taps)
     if(view !== 'cvr'){
-      el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'));
+      el.addEventListener('pointerdown', (ev)=>{
+        // prevent ghost/double
+        try{ ev.preventDefault(); ev.stopPropagation(); }catch{}
+        onHitByPointer(obj, 'tap');
+      }, { passive:false });
     }
+
     return obj;
   }
 
   function spawnOne(){
     const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
-
     const r = rng();
+
     if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
     }else if(r < P.hazardRate + P.decoyRate){
@@ -412,6 +414,7 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
+  // cVR aim
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
@@ -520,7 +523,6 @@ export function boot(){
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
-
         stepIdx++;
         hitsInStep=0;
 
@@ -595,7 +597,24 @@ export function boot(){
     }
   }
 
-  // ✅ anti-freeze tick (guarded)
+  // FPS guard + spawn limiter
+  function adjustPerf(dt){
+    PERF.lastDt = dt;
+
+    // dt > 0.050 ~ <20fps
+    if(dt > 0.050) PERF.slowFrames++;
+    else PERF.slowFrames = Math.max(0, PERF.slowFrames - 1);
+
+    // if slow for a while => reduce spawn multiplier
+    if(PERF.slowFrames > 18){
+      PERF.spawnMul = Math.max(0.60, PERF.spawnMul - 0.06);
+      PERF.slowFrames = 10;
+    }else{
+      // recover slowly
+      PERF.spawnMul = Math.min(1.00, PERF.spawnMul + 0.01);
+    }
+  }
+
   function tick(){
     if(!running) return;
 
@@ -606,10 +625,9 @@ export function boot(){
 
       if(paused){ requestAnimationFrame(tick); return; }
 
-      // keep HUD safe in case viewport changes (mobile address bar)
-      if((tick._n = (tick._n||0) + 1) % 45 === 0){
-        measureHudSafe();
-      }
+      if((tick._n = (tick._n||0) + 1) % 45 === 0) measureHudSafe();
+
+      adjustPerf(dt);
 
       timeLeft -= dt;
       emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
@@ -620,11 +638,19 @@ export function boot(){
       }
 
       const P = dd ? dd.getParams() : base;
-      spawnAcc += (P.spawnPerSec * dt);
 
-      while(spawnAcc >= 1){
+      // apply perf multiplier + hard cap by target count
+      const spawnPerSec = P.spawnPerSec * PERF.spawnMul;
+      spawnAcc += (spawnPerSec * dt);
+
+      // ✅ cap spawns per frame (prevents flood if dt spikes)
+      let spawnedThisFrame = 0;
+      const MAX_SPAWNS_FRAME = 3;
+
+      while(spawnAcc >= 1 && spawnedThisFrame < MAX_SPAWNS_FRAME){
         spawnAcc -= 1;
         spawnOne();
+        spawnedThisFrame++;
 
         // cap targets
         if(targets.length > 18){
@@ -632,6 +658,9 @@ export function boot(){
           if(oldest) removeTarget(oldest);
         }
       }
+
+      // if still accumulating too much, bleed it
+      if(spawnAcc > 3) spawnAcc = 2.2;
 
       dd?.onEvent('tick', { elapsedSec: elapsedSec() });
       updateQuestTick();
@@ -661,6 +690,10 @@ export function boot(){
     quizRight = 0;
     quizWrong = 0;
     setQuizVisible(false);
+
+    PERF.slowFrames = 0;
+    PERF.spawnMul = 1.0;
+
     measureHudSafe();
     setHud();
   }
@@ -709,38 +742,31 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.0.3-prod',
+      version:'1.0.4-prod',
       game:'hygiene',
       gameMode:'hygiene',
-      runMode,
-      diff,
-      view,
-      seed,
+      runMode, diff, view, seed,
       sessionId,
       timestampIso: nowIso(),
-
       reason,
       durationPlannedSec: timePlannedSec,
       durationPlayedSec,
-
       loopsDone,
       stepIdxEnd: stepIdx,
       hitsCorrect: correctHits,
       hitsWrongStep: wrongStepHits,
       hazHits,
-
       stepAcc,
       riskIncomplete,
       riskUnsafe,
       comboMax,
       misses: getMissCount(),
-
       quizRight,
       quizWrong,
       questText,
       questDone,
-
-      medianStepMs: rtMed
+      medianStepMs: rtMed,
+      spawnMulEnd: PERF.spawnMul
     };
 
     if(coach) Object.assign(summary, coach.getSummaryExtras());
@@ -758,7 +784,10 @@ export function boot(){
 
     emit('hha:end', summary);
 
-    if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : (reason==='crash' ? 'จบเกม ❌ (Crash)' : 'จบเกม ✅');
+    if(endTitle) endTitle.textContent =
+      (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' :
+      (reason==='crash') ? 'จบเกม ❌ (Crash)' : 'จบเกม ✅';
+
     if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
     if(endOverlay) endOverlay.style.display = 'grid';
