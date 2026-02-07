@@ -1,115 +1,128 @@
 // === /herohealth/vr/hha-flush.js ===
-// HHA Flush-Hardened Leave Guard — v1.0.0
-// ✅ Calls available flushers safely on leave:
-//    - window.GroupsVR.Telemetry.flush(summary?)
-//    - window.HydrationVR.Telemetry.flush(summary?)
-//    - window.GoodJunkVR.Telemetry.flush(summary?)   (if exists)
-//    - window.HHA_Log.flush(summary?)                (generic)
-// ✅ Also tries: navigator.sendBeacon fallback if you provide window.HHA_BEACON_ENDPOINT
-// ✅ Hooks: pagehide, beforeunload, visibilitychange(hidden), freeze (if supported)
-// ✅ Provides: window.HHA_Flush.bind(getSummaryFn, extraFlushFns?)
-// NOTE: Never throws.
+// HHA Flush-Hardened Pack — v1.0.0
+// ✅ pagehide / beforeunload / visibilitychange(hidden)
+// ✅ sendBeacon first, then fetch keepalive
+// ✅ safe no-op when no endpoint
+// ✅ small queue batching helper (optional)
+// API:
+//   HHA_Flush.install({ getPayload, endpoint, getSummary, onFlush })
+//   HHA_Flush.send(endpoint, payload)
+//   HHA_Flush.makeQueue({ maxBytes, maxItems })
 
 (function(){
   'use strict';
   const WIN = window;
   const DOC = document;
 
-  function nowMs(){ try{ return performance.now(); }catch(_){ return Date.now(); } }
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+  const now = ()=>Date.now();
 
-  function safe(fn){
-    try{ fn && fn(); }catch(_){}
+  function safeJson(obj){
+    try{ return JSON.stringify(obj); }catch(_){ return '{}'; }
   }
 
-  function getMaybeSummary(getSummaryFn){
-    let s = null;
-    try{ s = getSummaryFn ? getSummaryFn() : null; }catch(_){ s = null; }
-    if (s && typeof s === 'object'){
-      if (!s.ts) s.ts = Date.now();
-      if (!s._flushAt) s._flushAt = Date.now();
+  async function send(endpoint, payload){
+    try{
+      if(!endpoint) return false;
+      const url = String(endpoint);
+      const body = safeJson(payload);
+      const blob = new Blob([body], { type:'application/json' });
+
+      // 1) best for unload
+      if(navigator && typeof navigator.sendBeacon === 'function'){
+        const ok = navigator.sendBeacon(url, blob);
+        if(ok) return true;
+      }
+
+      // 2) fetch keepalive (best effort)
+      if(typeof fetch === 'function'){
+        await fetch(url, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body,
+          keepalive:true,
+          credentials:'omit'
+        }).catch(()=>{});
+        return true;
+      }
+    }catch(_){}
+    return false;
+  }
+
+  // Optional: simple queue (for engines that want buffering)
+  function makeQueue({ maxBytes=220000, maxItems=2000 } = {}){
+    const Q = {
+      items:[],
+      bytes:0,
+      push(ev){
+        try{
+          const s = safeJson(ev);
+          const b = s.length;
+          if(Q.items.length >= maxItems) return false;
+          if(Q.bytes + b > maxBytes) return false;
+          Q.items.push(ev);
+          Q.bytes += b;
+          return true;
+        }catch(_){ return false; }
+      },
+      drain(){
+        const out = Q.items.slice();
+        Q.items.length = 0;
+        Q.bytes = 0;
+        return out;
+      }
+    };
+    return Q;
+  }
+
+  function install(opts){
+    const O = opts || {};
+    const endpoint = String(O.endpoint || qs('log','') || '');
+    const getPayload = (typeof O.getPayload === 'function')
+      ? O.getPayload
+      : ()=>({ ts:now(), kind:'flush', payload:null });
+
+    const getSummary = (typeof O.getSummary === 'function') ? O.getSummary : ()=>null;
+    const onFlush = (typeof O.onFlush === 'function') ? O.onFlush : ()=>{};
+
+    let did = false;
+
+    function flushOnce(reason){
+      if(did) return;
+      did = true;
+      try{ onFlush(reason); }catch(_){}
+
+      const summary = (function(){ try{ return getSummary(); }catch(_){ return null; } })();
+      const payload = (function(){ try{ return getPayload(reason, summary); }catch(_){ return { ts:now(), reason, summary:null }; } })();
+
+      // attach standard fields if missing
+      if(payload && typeof payload === 'object'){
+        if(payload.ts == null) payload.ts = now();
+        if(!payload.reason) payload.reason = reason || 'leave';
+        if(summary && payload.summary == null) payload.summary = summary;
+        payload.href = payload.href || String(location.href);
+        payload.ua = payload.ua || (navigator && navigator.userAgent ? navigator.userAgent : '');
+      }
+
+      // Best effort send (even if no endpoint, still okay)
+      if(endpoint){
+        send(endpoint, payload);
+      }
     }
-    return s;
-  }
 
-  // ---------- flusher discovery ----------
-  function flushTelemetry(summary){
-    // Known modules (optional)
-    safe(()=>{ WIN.GroupsVR?.Telemetry?.flush?.(summary); });
-    safe(()=>{ WIN.HydrationVR?.Telemetry?.flush?.(summary); });
-    safe(()=>{ WIN.GoodJunkVR?.Telemetry?.flush?.(summary); });
-    safe(()=>{ WIN.PlateVR?.Telemetry?.flush?.(summary); });
-
-    // Generic
-    safe(()=>{ WIN.HHA_Log?.flush?.(summary); });
-    safe(()=>{ WIN.HHA_Telemetry?.flush?.(summary); });
-  }
-
-  function beaconFallback(summary){
-    // Optional: if you want last-resort beacon send
-    // Set: window.HHA_BEACON_ENDPOINT = 'https://.../collect'
-    // And summary will be POSTed as JSON blob.
-    const ep = String(WIN.HHA_BEACON_ENDPOINT || '');
-    if (!ep) return;
-
-    safe(()=>{
-      const payload = JSON.stringify(summary || { ts:Date.now(), note:'no-summary' });
-      if (navigator.sendBeacon){
-        const ok = navigator.sendBeacon(ep, new Blob([payload], {type:'application/json'}));
-        if (ok) return;
-      }
-      // If no sendBeacon, do nothing (don't block unload)
-    });
-  }
-
-  // ---------- bind ----------
-  let bound = false;
-  let lastFlushAt = 0;
-
-  function bind(getSummaryFn, extraFlushFns){
-    if (bound) return;
-    bound = true;
-
-    function doFlush(tag){
-      const t = nowMs();
-      if ((t - lastFlushAt) < 350) return; // rate-limit double events
-      lastFlushAt = t;
-
-      const summary = getMaybeSummary(getSummaryFn);
-      if (summary && typeof summary === 'object'){
-        summary._leaveTag = tag || '';
-      }
-
-      flushTelemetry(summary);
-
-      if (Array.isArray(extraFlushFns)){
-        for(const fn of extraFlushFns){
-          safe(()=>fn && fn(summary));
-        }
-      }
-
-      // last resort beacon (optional)
-      beaconFallback(summary);
-    }
-
-    // pagehide: best for mobile (iOS/Android)
-    WIN.addEventListener('pagehide', ()=>doFlush('pagehide'));
-
-    // beforeunload: desktop fallback
-    WIN.addEventListener('beforeunload', ()=>doFlush('beforeunload'));
-
-    // visibility hidden: backgrounding
+    // pagehide is the #1 reliable
+    WIN.addEventListener('pagehide', ()=>flushOnce('pagehide'), { capture:true });
+    // beforeunload fallback
+    WIN.addEventListener('beforeunload', ()=>flushOnce('beforeunload'), { capture:true });
+    // mobile app switch
     DOC.addEventListener('visibilitychange', ()=>{
-      if (DOC.visibilityState === 'hidden') doFlush('hidden');
-    });
+      if(DOC.visibilityState === 'hidden') flushOnce('visibility:hidden');
+    }, { capture:true });
 
-    // freeze: Chrome can fire when page is being frozen
-    WIN.addEventListener('freeze', ()=>doFlush('freeze'));
-
-    // expose manual flush
-    WIN.HHA_Flush = WIN.HHA_Flush || {};
-    WIN.HHA_Flush.flushNow = ()=>doFlush('manual');
+    // manual trigger
+    return { flush:(reason)=>flushOnce(reason||'manual'), endpoint };
   }
 
-  WIN.HHA_Flush = WIN.HHA_Flush || {};
-  WIN.HHA_Flush.bind = bind;
+  WIN.HHA_Flush = { install, send, makeQueue };
+
 })();
