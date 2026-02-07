@@ -1,438 +1,400 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result / calibration) ===
+// === /fitness/js/rhythm-boxer.js ===
+// Rhythm Boxer UI Controller — PRODUCTION
+// ✅ Wires Menu/Play/Result views
+// ✅ Mode toggle (normal/research) + research fields show/hide
+// ✅ Track options filtered by mode (normal: n1/n2/n3, research: r1)
+// ✅ Starts engine with meta (participant/group/note)
+// ✅ Stop early
+// ✅ Result view + CSV download (events + sessions)
+// ✅ Safe if renderer not present
+
 'use strict';
 
-(function () {
+(function(){
+  const WIN = window;
+  const DOC = document;
 
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const qs = (s, p=DOC)=>p.querySelector(s);
+  const qsa = (s, p=DOC)=>Array.from(p.querySelectorAll(s));
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-  const wrap = $('#rb-wrap');
-  const viewMenu   = $('#rb-view-menu');
-  const viewPlay   = $('#rb-view-play');
-  const viewResult = $('#rb-view-result');
+  // ----- views -----
+  const wrap = qs('#rb-wrap');
 
-  const flashEl    = $('#rb-flash');
-  const fieldEl    = $('#rb-field');
-  const lanesEl    = $('#rb-lanes');
-  const feedbackEl = $('#rb-feedback');
-  const audioEl    = $('#rb-audio');
+  const viewMenu   = qs('#rb-view-menu');
+  const viewPlay   = qs('#rb-view-play');
+  const viewResult = qs('#rb-view-result');
 
-  // buttons menu
-  const btnStart      = $('#rb-btn-start');
-  const btnCalibOpen  = $('#rb-btn-calib');
-  const calibStatusEl = $('#rb-calib-status');
+  // ----- menu controls -----
+  const modeDesc = qs('#rb-mode-desc');
+  const researchFields = qs('#rb-research-fields');
+  const trackModeLabel = qs('#rb-track-mode-label');
+  const trackOptionsWrap = qs('#rb-track-options');
+  const btnStart = qs('#rb-btn-start');
 
-  const modeRadios    = $$('input[name="rb-mode"]');
-  const trackRadios   = $$('input[name="rb-track"]');
-  const trackLabels   = $$('#rb-track-options .rb-mode-btn');
-  const modeDescEl    = $('#rb-mode-desc');
-  const trackModeLbl  = $('#rb-track-mode-label');
-  const researchBox   = $('#rb-research-fields');
+  const inPid   = qs('#rb-participant');
+  const inGroup = qs('#rb-group');
+  const inNote  = qs('#rb-note');
 
-  // research fields
-  const inputParticipant = $('#rb-participant');
-  const inputGroup       = $('#rb-group');
-  const inputNote        = $('#rb-note');
+  // ----- play controls -----
+  const btnStop = qs('#rb-btn-stop');
+  const lanesEl = qs('#rb-lanes');
+  const audioEl = qs('#rb-audio');
 
-  // play / result buttons
-  const btnStop        = $('#rb-btn-stop');
-  const btnAgain       = $('#rb-btn-again');
-  const btnBackMenu    = $('#rb-btn-back-menu');
-  const btnDlEvents    = $('#rb-btn-dl-events');
-  const btnDlSessions  = $('#rb-btn-dl-sessions');
-
-  // result extra fields
-  const resCalib = $('#rb-res-calib');
-
-  // HUD elements
+  // ----- HUD -----
   const hud = {
-    mode:   $('#rb-hud-mode'),
-    track:  $('#rb-hud-track'),
-    score:  $('#rb-hud-score'),
-    combo:  $('#rb-hud-combo'),
-    acc:    $('#rb-hud-acc'),
-    hp:     $('#rb-hud-hp'),
-    shield: $('#rb-hud-shield'),
-    time:   $('#rb-hud-time'),
-    countPerfect: $('#rb-hud-perfect'),
-    countGreat:   $('#rb-hud-great'),
-    countGood:    $('#rb-hud-good'),
-    countMiss:    $('#rb-hud-miss'),
-    feverFill:    $('#rb-fever-fill'),
-    feverStatus:  $('#rb-fever-status'),
-    progFill:     $('#rb-progress-fill'),
-    progText:     $('#rb-progress-text'),
-    aiFatigue:    $('#rb-hud-ai-fatigue'),
-    aiSkill:      $('#rb-hud-ai-skill'),
-    aiSuggest:    $('#rb-hud-ai-suggest'),
-    aiTip:        $('#rb-hud-ai-tip'),
-    calib:        $('#rb-hud-calib')
+    mode: qs('#rb-hud-mode'),
+    track: qs('#rb-hud-track'),
+
+    score: qs('#rb-hud-score'),
+    combo: qs('#rb-hud-combo'),
+    acc: qs('#rb-hud-acc'),
+
+    aiFatigue: qs('#rb-hud-ai-fatigue'),
+    aiSkill: qs('#rb-hud-ai-skill'),
+    aiSuggest: qs('#rb-hud-ai-suggest'),
+    aiTip: qs('#rb-hud-ai-tip'),
+
+    hp: qs('#rb-hud-hp'),
+    shield: qs('#rb-hud-shield'),
+    time: qs('#rb-hud-time'),
+
+    countPerfect: qs('#rb-hud-perfect'),
+    countGreat: qs('#rb-hud-great'),
+    countGood: qs('#rb-hud-good'),
+    countMiss: qs('#rb-hud-miss'),
+
+    feverFill: qs('#rb-fever-fill'),
+    feverStatus: qs('#rb-fever-status'),
+
+    progFill: qs('#rb-progress-fill'),
+    progText: qs('#rb-progress-text'),
   };
 
-  // Result mapping
-  const res = {
-    mode:        $('#rb-res-mode'),
-    track:       $('#rb-res-track'),
-    endReason:   $('#rb-res-endreason'),
-    score:       $('#rb-res-score'),
-    maxCombo:    $('#rb-res-maxcombo'),
-    hits:        $('#rb-res-detail-hit'),
-    acc:         $('#rb-res-acc'),
-    duration:    $('#rb-res-duration'),
-    rank:        $('#rb-res-rank'),
-    offsetAvg:   $('#rb-res-offset-avg'),
-    offsetStd:   $('#rb-res-offset-std'),
-    participant: $('#rb-res-participant'),
-    qualityNote: $('#rb-res-quality-note')
-  };
+  // ----- result controls -----
+  const resMode = qs('#rb-res-mode');
+  const resTrack = qs('#rb-res-track');
+  const resEnd = qs('#rb-res-endreason');
+  const resScore = qs('#rb-res-score');
+  const resMaxCombo = qs('#rb-res-maxcombo');
+  const resHit = qs('#rb-res-detail-hit');
+  const resAcc = qs('#rb-res-acc');
+  const resDur = qs('#rb-res-duration');
+  const resRank = qs('#rb-res-rank');
 
-  // Track config from UI -> engine
-  const TRACK_CONFIG = {
-    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
-    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
-    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard'   },
-    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal' }
-  };
+  const resOffAvg = qs('#rb-res-offset-avg');
+  const resOffStd = qs('#rb-res-offset-std');
+  const resParticipant = qs('#rb-res-participant');
+
+  const resQuality = qs('#rb-res-quality-note');
+
+  const btnAgain = qs('#rb-btn-again');
+  const btnBackMenu = qs('#rb-btn-back-menu');
+  const btnDlEvents = qs('#rb-btn-dl-events');
+  const btnDlSessions = qs('#rb-btn-dl-sessions');
+
+  // ----- feedback flash (optional) -----
+  const flashEl = qs('#rb-flash');
+  const feedbackEl = qs('#rb-feedback');
+
+  // ----- renderer (optional) -----
+  // dom-renderer-rhythm.js should expose something; but we stay safe.
+  const renderer = (WIN.RhythmDomRenderer && typeof WIN.RhythmDomRenderer.create === 'function')
+    ? WIN.RhythmDomRenderer.create({ lanesEl, feedbackEl, flashEl })
+    : (WIN.domRendererRhythm && typeof WIN.domRendererRhythm.create === 'function')
+      ? WIN.domRendererRhythm.create({ lanesEl, feedbackEl, flashEl })
+      : {
+          showHitFx(){},
+          showMissFx(){},
+          setFeedback(msg){ if(feedbackEl) feedbackEl.textContent = msg || ''; }
+        };
+
+  // ----- engine -----
+  if(!WIN.RhythmBoxerEngine){
+    console.error('RhythmBoxerEngine not found. Check js/rhythm-engine.js loaded.');
+  }
 
   let engine = null;
 
-  // ---- calibration store ----
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
+  const STATE = {
+    mode: 'normal',
+    trackId: 'n1',
+    lastTrackByMode: { normal:'n1', research:'r1' },
+    lastMeta: { id:'', group:'', note:'' },
+  };
 
-  function getCalibMs(){
-    try{
-      const v = localStorage.getItem('RB_CAL_OFFSET_MS');
-      const n = Number(v);
-      if(Number.isFinite(n)) return clamp(n, -180, 180);
-    }catch(_){}
-    return 0;
-  }
-  function setCalibMs(ms){
-    const n = clamp(ms, -180, 180);
-    try{ localStorage.setItem('RB_CAL_OFFSET_MS', String(n)); }catch(_){}
-    return n;
-  }
+  function setView(which){
+    viewMenu.classList.toggle('hidden', which !== 'menu');
+    viewPlay.classList.toggle('hidden', which !== 'play');
+    viewResult.classList.toggle('hidden', which !== 'result');
 
-  function updateCalibStatus(){
-    const ms = getCalibMs();
-    if (calibStatusEl){
-      calibStatusEl.textContent = `Calibration: ${ms} ms (เก็บในเครื่องนี้)`;
-    }
+    // scroll to top for mobile
+    try { window.scrollTo(0,0); } catch {}
   }
 
-  // ---- UI selectors ----
-  function getSelectedMode() {
-    const r = modeRadios.find(x => x.checked);
-    return r ? r.value : 'normal';
-  }
-  function getSelectedTrackKey() {
-    const r = trackRadios.find(x => x.checked);
-    return r ? r.value : 'n1';
-  }
-  function setSelectedTrackKey(key) {
-    trackRadios.forEach(r => { r.checked = (r.value === key); });
+  function getSelectedMode(){
+    const el = qs('input[name="rb-mode"]:checked');
+    return (el && el.value === 'research') ? 'research' : 'normal';
   }
 
-  function updateModeUI() {
-    const mode = getSelectedMode();
-
-    if (mode === 'normal') {
-      modeDescEl.textContent =
-        'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      researchBox.classList.add('hidden');
-
-      trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
-        if (m === 'research') lbl.classList.add('hidden');
-        else lbl.classList.remove('hidden');
-      });
-
-      if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
-
-    } else {
-      modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI prediction แสดงได้ แต่ล็อกไม่ให้ช่วยปรับเกม)';
-      trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
-      researchBox.classList.remove('hidden');
-
-      trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
-        if (m === 'research') lbl.classList.remove('hidden');
-        else lbl.classList.add('hidden');
-      });
-
-      setSelectedTrackKey('r1');
-    }
+  function getSelectedTrack(){
+    const el = qs('input[name="rb-track"]:checked');
+    return el ? el.value : 'n1';
   }
 
-  function switchView(name) {
-    viewMenu.classList.add('hidden');
-    viewPlay.classList.add('hidden');
-    viewResult.classList.add('hidden');
-
-    if (name === 'menu') viewMenu.classList.remove('hidden');
-    else if (name === 'play') viewPlay.classList.remove('hidden');
-    else if (name === 'result') viewResult.classList.remove('hidden');
+  function setSelectedTrack(trackId){
+    const radio = qs(`input[name="rb-track"][value="${trackId}"]`);
+    if(radio) radio.checked = true;
   }
 
-  function createEngine() {
-    const renderer = new window.RbDomRenderer(fieldEl, {
-      flashEl,
-      feedbackEl,
-      wrapEl: document.body
+  function updateModeUI(mode){
+    STATE.mode = mode;
+
+    const isResearch = mode === 'research';
+    researchFields.classList.toggle('hidden', !isResearch);
+
+    modeDesc.textContent = isResearch
+      ? 'Research: เก็บข้อมูลเชิงทดลอง (แนะนำกรอก Participant/กลุ่ม/หมายเหตุ)'
+      : 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+
+    trackModeLabel.textContent = isResearch
+      ? 'โหมด Research — เพลงทดลองสำหรับวิจัย'
+      : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+
+    // filter visible tracks by data-mode
+    qsa('label.rb-mode-btn[data-mode]').forEach(lb=>{
+      const m = (lb.getAttribute('data-mode') || '').toLowerCase();
+      lb.classList.toggle('hidden', (m !== mode));
     });
 
-    engine = new window.RhythmBoxerEngine({
-      wrap: wrap,
-      field: fieldEl,
-      lanesEl: lanesEl,
-      audio: audioEl,
-      renderer: renderer,
-      hud: hud,
-      hooks: { onEnd: handleEngineEnd }
-    });
+    // ensure a valid track is selected for the mode
+    const desired = STATE.lastTrackByMode[mode] || (isResearch ? 'r1' : 'n1');
+    setSelectedTrack(desired);
+    STATE.trackId = getSelectedTrack();
   }
 
-  function startGame() {
-    if (!engine) createEngine();
-
-    const mode = getSelectedMode();
-    const trackKey = getSelectedTrackKey();
-    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
-
-    wrap.dataset.diff = cfg.diff;
-
-    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
-    if (hud.track) hud.track.textContent = cfg.labelShort;
-
-    const cm = getCalibMs();
-    if (hud.calib) hud.calib.textContent = `${cm}ms`;
-
-    const meta = {
-      id:   (inputParticipant && inputParticipant.value || '').trim(),
-      group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim()
+  function readMetaFromUI(){
+    return {
+      id: (inPid && inPid.value || '').trim(),
+      group: (inGroup && inGroup.value || '').trim(),
+      note: (inNote && inNote.value || '').trim(),
+      participant_id: (inPid && inPid.value || '').trim(),
     };
-
-    // IMPORTANT: research lock — RB_AI already locks assist when mode=research
-    engine.start(mode, cfg.engineId, meta);
-    switchView('play');
   }
 
-  function stopGame(reason) {
-    if (engine) engine.stop(reason || 'manual-stop');
+  function rememberSelections(){
+    try{
+      const payload = {
+        mode: STATE.mode,
+        trackId: STATE.trackId,
+        lastTrackByMode: STATE.lastTrackByMode,
+        meta: STATE.lastMeta
+      };
+      localStorage.setItem('RB_UI_STATE', JSON.stringify(payload));
+    }catch{}
   }
 
-  function handleEngineEnd(summary) {
-    res.mode.textContent      = summary.modeLabel;
-    res.track.textContent     = summary.trackName;
-    res.endReason.textContent = summary.endReason;
-    res.score.textContent     = summary.finalScore;
-    res.maxCombo.textContent  = summary.maxCombo;
-    res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
-    res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
-    res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
-    res.rank.textContent      = summary.rank;
-
-    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
-      ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
-      ? summary.offsetStd.toFixed(3) + ' s' : '-';
-
-    res.participant.textContent = summary.participant || '-';
-
-    const cm = getCalibMs();
-    if (resCalib) resCalib.textContent = `${cm} ms`;
-
-    if (summary.qualityNote) {
-      res.qualityNote.textContent = summary.qualityNote;
-      res.qualityNote.classList.remove('hidden');
-    } else {
-      res.qualityNote.textContent = '';
-      res.qualityNote.classList.add('hidden');
-    }
-
-    switchView('result');
+  function restoreSelections(){
+    try{
+      const raw = localStorage.getItem('RB_UI_STATE');
+      if(!raw) return;
+      const s = JSON.parse(raw);
+      if(s && typeof s === 'object'){
+        if(s.lastTrackByMode) STATE.lastTrackByMode = Object.assign(STATE.lastTrackByMode, s.lastTrackByMode);
+        if(s.meta) STATE.lastMeta = Object.assign(STATE.lastMeta, s.meta);
+        if(typeof s.mode === 'string') STATE.mode = (s.mode === 'research') ? 'research' : 'normal';
+        if(typeof s.trackId === 'string') STATE.trackId = s.trackId;
+      }
+    }catch{}
   }
 
-  function downloadCsv(csvText, filename) {
-    if (!csvText) return;
-    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  function applyMetaToUI(){
+    if(inPid) inPid.value = STATE.lastMeta.id || STATE.lastMeta.participant_id || '';
+    if(inGroup) inGroup.value = STATE.lastMeta.group || '';
+    if(inNote) inNote.value = STATE.lastMeta.note || '';
+  }
+
+  function showFeedback(msg){
+    try{ renderer.setFeedback(msg); }catch{}
+  }
+
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = DOC.createElement('a');
     a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
+    DOC.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(()=>URL.revokeObjectURL(url), 500);
   }
 
-  // ===== Calibration Modal =====
-  function openCalibrationModal(){
-    // create overlay
-    const modal = document.createElement('div');
-    modal.className = 'rb-modal';
-    modal.innerHTML = `
-      <div class="rb-modal-card" role="dialog" aria-modal="true">
-        <h2 class="rb-modal-title">⏱ Calibration (Offset)</h2>
-        <p class="rb-modal-sub">
-          เป้าหมาย: ตั้งค่า “offset (ms)” ให้การกดตรงเส้นตีมากขึ้น<br/>
-          วิธีทำ: เมื่อเห็นจุดเต้น (beat) ให้แตะหน้าจอ/คลิกตามจังหวะ 10–14 ครั้ง แล้วระบบจะสรุปค่า offset
-        </p>
+  // ----- hooks from engine -----
+  function onStart(info){
+    // update HUD labels
+    if(hud.mode) hud.mode.textContent = (STATE.mode === 'research') ? 'Research' : 'Normal';
+    if(hud.track) hud.track.textContent = info && info.track ? info.track.name : '';
 
-        <div class="rb-modal-meter">
-          <div id="rb-cal-dot" class="rb-beat-dot"></div>
-          <div class="rb-modal-text">
-            <div>Beat: <b id="rb-cal-bpm">120</b> BPM · Interval: <b id="rb-cal-int">500</b> ms</div>
-            <div>Samples: <b id="rb-cal-n">0</b> · Mean offset: <b id="rb-cal-mean">0</b> ms</div>
-            <div style="color:#9ca3af;font-size:.86rem">
-              * offset บวก = คุณกดช้ากว่าจังหวะ (late) / offset ลบ = กดเร็วกว่าจังหวะ (early)
-            </div>
-          </div>
-        </div>
+    showFeedback('เริ่ม!');
+  }
 
-        <div class="rb-modal-actions">
-          <button class="rb-btn rb-btn-primary" id="rb-cal-save" type="button">💾 Save offset</button>
-          <button class="rb-btn" id="rb-cal-reset" type="button">♻ Reset</button>
-          <button class="rb-btn rb-btn-ghost" id="rb-cal-close" type="button">✖ Close</button>
-        </div>
+  function onEnd(summary){
+    // fill result view
+    resMode.textContent = summary.modeLabel || '-';
+    resTrack.textContent = summary.trackName || '-';
+    resEnd.textContent = summary.endReason || '-';
+    resScore.textContent = String(summary.finalScore ?? 0);
+    resMaxCombo.textContent = String(summary.maxCombo ?? 0);
+    resHit.textContent =
+      `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`;
+    resAcc.textContent = (summary.accuracyPct != null ? summary.accuracyPct.toFixed(1) : '0.0') + ' %';
+    resDur.textContent = (summary.durationSec != null ? summary.durationSec.toFixed(1) : '0.0') + ' s';
+    resRank.textContent = summary.rank || '-';
 
-        <p class="rb-modal-foot">
-          Tip: ทำ calibration ในสภาพแวดล้อมที่จะใช้จริง (มือถือ/คอม/โหมด cVR)
-        </p>
-      </div>
-    `;
-    document.body.appendChild(modal);
+    resOffAvg.textContent = (summary.offsetMean != null ? (summary.offsetMean.toFixed(4) + ' s') : '-');
+    resOffStd.textContent = (summary.offsetStd != null ? (summary.offsetStd.toFixed(4) + ' s') : '-');
+    resParticipant.textContent = summary.participant || '-';
 
-    const dot  = modal.querySelector('#rb-cal-dot');
-    const elBpm= modal.querySelector('#rb-cal-bpm');
-    const elInt= modal.querySelector('#rb-cal-int');
-    const elN  = modal.querySelector('#rb-cal-n');
-    const elMean = modal.querySelector('#rb-cal-mean');
-
-    const btnSave = modal.querySelector('#rb-cal-save');
-    const btnReset= modal.querySelector('#rb-cal-reset');
-    const btnClose= modal.querySelector('#rb-cal-close');
-
-    const bpm = 120;
-    const intervalMs = Math.round(60000 / bpm);
-    elBpm.textContent = String(bpm);
-    elInt.textContent = String(intervalMs);
-
-    let t0 = performance.now();
-    let beatIdx = 0;
-    let samples = []; // tapTime - beatTime (ms)
-
-    function beat(){
-      beatIdx++;
-      dot.classList.add('is-beat');
-      setTimeout(()=>dot.classList.remove('is-beat'), 80);
-
-      // schedule next
-      if(modal.isConnected){
-        setTimeout(beat, intervalMs);
-      }
-    }
-    // start beat loop
-    setTimeout(beat, 180);
-
-    function currentBeatTimeMs(){
-      // approximate by using t0 and beatIdx
-      // We align to nearest beat time.
-      const now = performance.now();
-      const dt = now - t0;
-      const k = Math.round(dt / intervalMs);
-      return t0 + k*intervalMs;
+    if(summary.qualityNote){
+      resQuality.textContent = summary.qualityNote;
+      resQuality.classList.remove('hidden');
+    }else{
+      resQuality.classList.add('hidden');
     }
 
-    function updateStats(){
-      elN.textContent = String(samples.length);
-      const m = samples.length ? (samples.reduce((s,x)=>s+x,0)/samples.length) : 0;
-      elMean.textContent = String(Math.round(m));
-    }
+    setView('result');
+  }
 
-    function onTap(){
-      const now = performance.now();
-      const bt = currentBeatTimeMs();
-      const off = now - bt; // ms (late positive)
-      samples.push(off);
-      if(samples.length > 20) samples.shift();
-      updateStats();
-    }
+  // ----- start/stop -----
+  function ensureEngine(){
+    if(engine) return engine;
+    engine = new WIN.RhythmBoxerEngine({
+      wrap,
+      field: qs('#rb-field'),
+      lanesEl,
+      audio: audioEl,
+      renderer,
+      hud,
+      hooks: { onStart, onEnd }
+    });
+    return engine;
+  }
 
-    modal.addEventListener('pointerdown', (e)=>{
-      // ignore if clicking buttons
-      const t = e.target;
-      if(t && t.closest && t.closest('.rb-modal-actions')) return;
-      onTap();
-    }, {passive:true});
+  function startGame(){
+    const mode = getSelectedMode();
+    const trackId = getSelectedTrack();
+    const meta = readMetaFromUI();
 
-    btnReset.addEventListener('click', ()=>{
-      samples = [];
-      updateStats();
+    STATE.mode = mode;
+    STATE.trackId = trackId;
+    STATE.lastTrackByMode[mode] = trackId;
+    STATE.lastMeta = meta;
+
+    rememberSelections();
+
+    setView('play');
+
+    // user gesture already happened by click
+    const e = ensureEngine();
+    e.start(mode, trackId, meta);
+  }
+
+  function stopGame(){
+    if(engine) engine.stop('manual-stop');
+  }
+
+  // ----- UI wiring -----
+  function bindUI(){
+    // mode radio change
+    qsa('input[name="rb-mode"]').forEach(r=>{
+      r.addEventListener('change', ()=>{
+        const mode = getSelectedMode();
+        updateModeUI(mode);
+        rememberSelections();
+      });
     });
 
-    btnSave.addEventListener('click', ()=>{
-      const m = samples.length ? (samples.reduce((s,x)=>s+x,0)/samples.length) : 0;
-      const save = setCalibMs(Math.round(m));
-      updateCalibStatus();
-      if(hud.calib) hud.calib.textContent = `${save}ms`;
-      btnSave.textContent = `💾 Saved (${save}ms)`;
-      setTimeout(()=>{ btnSave.textContent = '💾 Save offset'; }, 900);
+    // track change
+    qsa('input[name="rb-track"]').forEach(r=>{
+      r.addEventListener('change', ()=>{
+        STATE.trackId = getSelectedTrack();
+        STATE.lastTrackByMode[STATE.mode] = STATE.trackId;
+        rememberSelections();
+      });
     });
 
-    function close(){
-      modal.remove();
-    }
-    btnClose.addEventListener('click', close);
-
-    // close on ESC
-    window.addEventListener('keydown', function esc(e){
-      if(e.key === 'Escape'){
-        window.removeEventListener('keydown', esc);
-        close();
+    // start
+    btnStart.addEventListener('click', ()=>{
+      // minimal validation for research
+      const mode = getSelectedMode();
+      if(mode === 'research'){
+        const pid = (inPid && inPid.value || '').trim();
+        // allow empty but gently nudge (no block)
+        if(!pid){
+          // quick hint
+          showFeedback('Tip: Research แนะนำใส่ Participant ID');
+        }
       }
+      startGame();
+    });
+
+    // stop
+    btnStop.addEventListener('click', ()=>{
+      stopGame();
+    });
+
+    // result actions
+    btnAgain.addEventListener('click', ()=>{
+      setView('play');
+      const e = ensureEngine();
+      // replay same mode/track/meta
+      e.start(STATE.mode, STATE.trackId, STATE.lastMeta || {});
+    });
+
+    btnBackMenu.addEventListener('click', ()=>{
+      setView('menu');
+    });
+
+    btnDlEvents.addEventListener('click', ()=>{
+      if(!engine) return;
+      const csv = engine.getEventsCsv();
+      const fn = `RB_events_${engine.sessionId || 'session'}.csv`;
+      downloadText(fn, csv);
+    });
+
+    btnDlSessions.addEventListener('click', ()=>{
+      if(!engine) return;
+      const csv = engine.getSessionCsv();
+      const fn = `RB_sessions_${engine.sessionId || 'session'}.csv`;
+      downloadText(fn, csv);
     });
   }
 
-  // ==== apply mode from URL (?mode=research|play) ====
-  (function applyModeFromQuery(){
-    try{
-      const sp = new URL(location.href).searchParams;
-      const m = (sp.get('mode')||'').toLowerCase();
-      if (m === 'research'){
-        const r = modeRadios.find(x => x.value === 'research');
-        if (r) r.checked = true;
-      } else if (m === 'play' || m === 'normal'){
-        const r = modeRadios.find(x => x.value === 'normal');
-        if (r) r.checked = true;
-      }
-    }catch(_){}
-  })();
+  // ----- init -----
+  function init(){
+    restoreSelections();
+    applyMetaToUI();
 
-  // wiring
-  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-  if(btnStart) btnStart.addEventListener('click', startGame);
-  if(btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
-  if(btnAgain) btnAgain.addEventListener('click', () => startGame());
-  if(btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
+    // set initial radio for mode
+    const m = STATE.mode === 'research' ? 'research' : 'normal';
+    const mr = qs(`input[name="rb-mode"][value="${m}"]`);
+    if(mr) mr.checked = true;
 
-  if(btnDlEvents) btnDlEvents.addEventListener('click', () => {
-    if (!engine) return;
-    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
-  });
-  if(btnDlSessions) btnDlSessions.addEventListener('click', () => {
-    if (!engine) return;
-    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
-  });
+    updateModeUI(m);
 
-  if(btnCalibOpen) btnCalibOpen.addEventListener('click', openCalibrationModal);
+    // restore last track for that mode
+    const tid = STATE.lastTrackByMode[m] || (m==='research'?'r1':'n1');
+    setSelectedTrack(tid);
+    STATE.trackId = getSelectedTrack();
 
-  // init UI
-  updateModeUI();
-  switchView('menu');
-  updateCalibStatus();
+    bindUI();
+    setView('menu');
+  }
 
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', init);
+  }else{
+    init();
+  }
 })();
