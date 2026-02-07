@@ -1,9 +1,9 @@
-// === C: /herohealth/groups-vr.boot.js ===
-// GroupsVR Launcher Boot — PRODUCTION
-// ✅ Detect view: pc | mobile | cvr (cardboard)
-// ✅ Auto-redirect to run file: /herohealth/vr-groups/groups-vr.html
-// ✅ Tap-to-start fallback (for autoplay/audio/fullscreen restrictions)
-// ✅ Keeps query params: run/diff/style/time/seed/ai/hub/log + passthrough others
+// === /herohealth/vr-groups/groups-vr.boot.js ===
+// GroupsVR Boot (PATCH B)
+// ✅ Practice 15s auto (unless ?practice=0 or run=practice already)
+// ✅ Preserves ctx passthrough + deterministic seed if provided
+// ✅ No override of view (auto detect stays in your html / vr-ui.js)
+// ✅ Safe: never crash if engine missing
 
 (function(){
   'use strict';
@@ -11,137 +11,132 @@
   const DOC = document;
 
   const qs = (k, def=null)=>{
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; }
   };
 
-  function isMobile(){
-    const ua = navigator.userAgent || '';
-    return /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.innerWidth < 860);
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+
+  function readCtx(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const time = clamp(qs('time', 90), 15, 180);
+    const seed = String(qs('seed','')||'');
+    return {
+      runMode: run,
+      diff,
+      time,
+      seed,
+
+      // passthrough
+      hub: String(qs('hub','')||''),
+      studyId: String(qs('studyId','')||''),
+      phase: String(qs('phase','')||''),
+      conditionGroup: String(qs('conditionGroup','')||''),
+      log: String(qs('log','')||''),
+      view: String(qs('view','')||''),
+      style: String(qs('style','')||''),
+      ai: String(qs('ai','')||'') // optional
+    };
   }
 
-  function detectCardboardHint(){
-    // heuristic: if user passes ?view=cvr or ?cvr=1, honor it
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v === 'cvr' || v === 'cardboard') return true;
-    const cvr = String(qs('cvr','0')||'0');
-    if (cvr === '1' || cvr === 'true') return true;
-    return false;
+  function banner(text){
+    let el = DOC.getElementById('groups-practice-banner');
+    if(!el){
+      el = DOC.createElement('div');
+      el.id = 'groups-practice-banner';
+      el.style.cssText =
+        'position:fixed; z-index:9999; left:50%; top:calc(10px + env(safe-area-inset-top,0px));' +
+        'transform:translateX(-50%); padding:8px 12px; border-radius:999px;' +
+        'background:rgba(2,6,23,.82); border:1px solid rgba(148,163,184,.22);' +
+        'color:#e5e7eb; font:700 13px/1 system-ui; letter-spacing:.2px; '+
+        'pointer-events:none; box-shadow:0 12px 24px rgba(0,0,0,.25)';
+      DOC.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.display = 'block';
+    return el;
   }
 
-  function detectView(){
-    // priority: explicit view param
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
-
-    // heuristic:
-    if (detectCardboardHint()) return 'cvr';
-    return isMobile() ? 'mobile' : 'pc';
+  function hideBanner(){
+    const el = DOC.getElementById('groups-practice-banner');
+    if(el) el.style.display = 'none';
   }
 
-  function buildRunUrl(view){
-    // run file lives in /herohealth/vr-groups/groups-vr.html (folder-run)
-    const base = new URL('./vr-groups/groups-vr.html', location.href);
-
-    // standard params
-    const run   = String(qs('run','play')||'play');      // play | research
-    const diff  = String(qs('diff','normal')||'normal');
-    const style = String(qs('style','feel')||'feel');
-    const time  = String(qs('time','90')||'90');
-    const seed  = String(qs('seed', Date.now()) || Date.now());
-    const ai    = String(qs('ai','0')||'0');
-    const hub   = String(qs('hub','')||'');
-    const log   = String(qs('log','')||'');
-
-    base.searchParams.set('view', view);
-    base.searchParams.set('run', run);
-    base.searchParams.set('diff', diff);
-    base.searchParams.set('style', style);
-    base.searchParams.set('time', time);
-    base.searchParams.set('seed', seed);
-    base.searchParams.set('ai', ai);
-
-    if (hub) base.searchParams.set('hub', hub);
-    if (log) base.searchParams.set('log', log);
-
-    // passthrough anything else (except duplicates)
+  function getEngine(){
     try{
-      const sp = new URL(location.href).searchParams;
-      sp.forEach((v,k)=>{
-        if (['view','run','diff','style','time','seed','ai','hub','log','cvr'].includes(k)) return;
-        base.searchParams.set(k, v);
-      });
+      return WIN.GroupsVR && WIN.GroupsVR.GameEngine;
+    }catch(_){ return null; }
+  }
+
+  function startRun(diff, ctx){
+    const eng = getEngine();
+    if(!eng || typeof eng.start !== 'function'){
+      console.warn('[GroupsVR.boot] Engine missing');
+      return false;
+    }
+    // layer binding
+    try{
+      const layer = DOC.getElementById('playLayer') || DOC.querySelector('#playLayer') || DOC.body;
+      eng.setLayerEl && eng.setLayerEl(layer);
     }catch(_){}
 
-    return base.toString();
+    return !!eng.start(diff, ctx);
   }
 
-  function needsTapGate(view){
-    // If user explicitly wants tap gate: ?tap=1
-    const tap = String(qs('tap','0')||'0');
-    if (tap === '1' || tap === 'true') return true;
+  // -------- Practice flow --------
+  const base = readCtx();
+  const wantPractice = String(qs('practice','1')) !== '0';
 
-    // cVR often needs gesture for fullscreen/immersive + audio
-    if (view === 'cvr') return true;
+  // If already practice in URL, do not auto-chain.
+  const alreadyPractice = (base.runMode === 'practice');
 
-    // mobile sometimes: safer to gate (but we still try auto first)
-    return false;
-  }
+  let chained = false;
 
-  function setStatus(text){
-    const el = DOC.getElementById('bootStatus');
-    if (el) el.textContent = text;
-  }
+  function onEnd(ev){
+    const d = ev && ev.detail ? ev.detail : null;
+    if(!d) return;
 
-  function showTap(on, runUrl){
-    const box = DOC.getElementById('tapGate');
-    const btn = DOC.getElementById('btnTapStart');
-    if (!box || !btn) return;
+    // If practice finished and we haven't chained yet -> start real run.
+    if(wantPractice && !alreadyPractice && !chained && String(d.runMode||'') === 'practice'){
+      chained = true;
+      hideBanner();
 
-    box.style.display = on ? 'flex' : 'none';
-    if (on){
-      btn.onclick = ()=>{
-        try{ setStatus('กำลังเข้าเกม…'); }catch{}
-        location.href = runUrl;
-      };
-    }else{
-      btn.onclick = null;
+      // Start REAL run (restore original runMode, time)
+      const realCtx = Object.assign({}, base, {
+        runMode: (base.runMode === 'research') ? 'research' : 'play',
+        time: base.time
+      });
+
+      // small countdown feel
+      banner('พร้อม! เข้าเกมจริง…');
+      setTimeout(()=>{
+        hideBanner();
+        startRun(base.diff, realCtx);
+      }, 650);
     }
   }
 
-  function tryAutoRedirect(runUrl, view){
-    // attempt auto; if blocked by policy we fallback to tap gate
-    // Note: location.href redirect usually works, but gesture may be needed for later APIs.
-    // We'll still do tap gate for cVR or explicit tap.
-    const gate = needsTapGate(view);
+  WIN.addEventListener('hha:end', onEnd);
 
-    if (gate){
-      setStatus('แตะเพื่อเริ่ม (Tap-to-start)');
-      showTap(true, runUrl);
+  // Boot now
+  function boot(){
+    if(!wantPractice || alreadyPractice){
+      // direct start
+      startRun(base.diff, base);
       return;
     }
 
-    // non-gated: redirect immediately
-    setStatus('กำลังเข้าเกมอัตโนมัติ…');
-    location.replace(runUrl);
+    // Practice first: 15 sec
+    banner('โหมดฝึก 15 วิ: ลองเล็งแล้วแตะยิง 🎯');
+    const practiceCtx = Object.assign({}, base, {
+      runMode: 'practice',
+      time: 15,
+      // keep same seed so it feels consistent, but ok if blank
+    });
+    startRun(base.diff, practiceCtx);
   }
 
-  // ---- start ----
-  function boot(){
-    const view = detectView();
-    const runUrl = buildRunUrl(view);
-
-    // update UI
-    try{
-      const vEl = DOC.getElementById('detView');
-      if (vEl) vEl.textContent = view.toUpperCase();
-    }catch(_){}
-
-    // If user requests "detect then auto run", do it.
-    tryAutoRedirect(runUrl, view);
-  }
-
-  if (DOC.readyState === 'loading'){
+  if(DOC.readyState === 'loading'){
     DOC.addEventListener('DOMContentLoaded', boot);
   }else{
     boot();
