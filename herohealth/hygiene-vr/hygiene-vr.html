@@ -1,10 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
+HygieneVR RUN — PRODUCTION (HHA Standard) v20260206c
 ✅ Views: pc/mobile/vr/cvr  (via body classes)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ PATCH: cache-bust all scripts to prevent mobile stale files
 -->
 <!doctype html>
 <html lang="th">
@@ -15,24 +14,19 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS cache-bust -->
+  <!-- ✅ cache bust via ?v=... -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260206c" />
 
-  <!-- ✅ Universal VR UI (defer) -->
-  <script src="../vr/vr-ui.js?v=20260206c" defer></script>
+  <script src="../vr/vr-ui.js" defer></script>
+  <script src="../vr/particles.js" defer></script>
 
-  <!-- ✅ FX -->
-  <script src="../vr/particles.js?v=20260206c" defer></script>
+  <script src="../vr/hha-ai-coach.js" defer></script>
+  <script src="../vr/hha-difficulty-director.js" defer></script>
+  <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js?v=20260206c" defer></script>
-  <script src="../vr/hha-difficulty-director.js?v=20260206c" defer></script>
-  <script src="../vr/hha-badges.js?v=20260206c" defer></script>
-
-  <!-- ✅ Quiz bank (name fixed) -->
+  <!-- ✅ name fixed -->
   <script src="./hygiene-quiz-bank.js?v=20260206c" defer></script>
 
-  <!-- ✅ Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260206c"></script>
 </head>
 
@@ -40,9 +34,8 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <div id="gameRoot" class="hw-root">
     <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
 
-    <!-- HUD -->
     <div class="hw-hud">
-      <div class="hw-top">
+      <div class="hw-top" id="hudTop">
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
@@ -61,7 +54,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -71,7 +63,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       <div class="hw-banner" id="banner" aria-live="polite"></div>
     </div>
 
-    <!-- Start Overlay -->
     <div class="hw-overlay" id="startOverlay">
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
@@ -90,7 +81,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
       </div>
     </div>
 
-    <!-- End Overlay -->
     <div class="hw-overlay" id="endOverlay" style="display:none">
       <div class="hw-card">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
@@ -114,17 +104,18 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
-      view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc'))
+      view==='mobile'?'view-mobile':
+      (view==='vr'?'view-vr':
+      (view==='cvr'?'view-cvr':'view-pc'))
     );
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    document.getElementById('labView').textContent = view;
   }
   setViewClass();
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 
-  const m = document.getElementById('labMode');
-  const d = document.getElementById('labDiff');
-  if(m) m.textContent = (qs('run','play')||'play');
-  if(d) d.textContent = (qs('diff','normal')||'normal');
+  // ✅ HUD safe-zone auto hint (CSS still uses vars, JS spawn reads vars)
+  // ถ้าภายหลังอยากให้ "วัดจริง" จะเพิ่ม JS วัดความสูง hudTop แล้ว set CSS var ได้
 })();
 </script>
 </body>
