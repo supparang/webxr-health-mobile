@@ -1,40 +1,43 @@
 // === /fitness/js/dl-features.js ===
-// PATCH F: Robust AI wiring (never crash boot)
-// ✅ Uses ESM import (RB_AI export) + fallback to window.RB_AI
+// DL-lite features bridge (safe for Research; AI only in Play when ?ai=1)
+// ✅ FIX: ai-predictor.js is Classic (no exports) => import side-effect then read window.RB_AI
+// Export helpers used by engine.
+
 'use strict';
 
-let RB_AI = null;
-try {
-  const mod = await import('./ai-predictor.js');
-  RB_AI = (mod && mod.RB_AI) ? mod.RB_AI : (window.RB_AI || null);
-} catch {
-  RB_AI = window.RB_AI || null;
+// Load predictor as side-effect module (it sets window.RB_AI)
+async function loadPredictor(){
+  try{
+    await import('./ai-predictor.js'); // classic IIFE runs, sets window.RB_AI
+  }catch(e){
+    // ignore; engine must not crash if AI missing
+    console.warn('[dl-features] ai-predictor load failed', e);
+  }
+  return (typeof window !== 'undefined') ? (window.RB_AI || null) : null;
 }
 
-export const DLFeatures = {
-  hasAI() {
-    return !!(RB_AI && typeof RB_AI.predict === 'function');
-  },
+let _AI_PROMISE = null;
+export function getAI(){
+  if(!_AI_PROMISE) _AI_PROMISE = loadPredictor();
+  return _AI_PROMISE;
+}
 
-  isAssistEnabled() {
-    try {
-      return !!(RB_AI && RB_AI.isAssistEnabled && RB_AI.isAssistEnabled());
-    } catch {
-      return false;
-    }
-  },
+export async function isAssistEnabled(){
+  const ai = await getAI();
+  try{ return !!ai?.isAssistEnabled?.(); }catch{ return false; }
+}
 
-  predict(snapshot) {
-    try {
-      if (!RB_AI || !RB_AI.predict) return null;
-      return RB_AI.predict(snapshot || {});
-    } catch {
-      return null;
-    }
-  },
+export async function predict(snapshot){
+  const ai = await getAI();
+  try{ return ai?.predict?.(snapshot || {}) || null; }catch{ return null; }
+}
 
-  tip(snapshot) {
-    const p = this.predict(snapshot);
-    return p && p.tip ? String(p.tip) : '';
-  }
-};
+export async function getMode(){
+  const ai = await getAI();
+  try{ return ai?.getMode?.() || 'normal'; }catch{ return 'normal'; }
+}
+
+export async function isLocked(){
+  const ai = await getAI();
+  try{ return !!ai?.isLocked?.(); }catch{ return false; }
+}
