@@ -1,10 +1,9 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets — PATCH A
+// DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
-// ✅ SAFE SPAWN: avoids HUD top/bottom + meta side
-// ✅ RESPONSIVE SIZE: scales by diff + viewport + playfield size
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst (optional)
+// ✅ FX via FxBurst
+// ✅ PATCH: smaller targets + avoid HUD/meta overlays (safe-area)
 
 'use strict';
 
@@ -16,27 +15,16 @@ function rand(min,max){ return min + Math.random()*(max-min); }
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
     this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;         // (optional) #sb-wrap
-    this.stageEl = opts.stageEl || null;       // (optional) .sb-stage (recommended)
-    this.hudTopEl = opts.hudTopEl || null;     // (optional) .sb-hud-top
-    this.barsTopEl = opts.barsTopEl || null;   // (optional) .sb-bars-top
-    this.barsBottomEl = opts.barsBottomEl || null; // (optional) .sb-bars-bottom
-    this.metaEl = opts.metaEl || null;         // (optional) .sb-meta
+    this.wrapEl = opts.wrapEl || null;
+    this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
     this.targets = new Map();
     this._onPointer = this._onPointer.bind(this);
-
-    // harden: ensure layer is positioned
-    try{
-      const cs = window.getComputedStyle(this.layer);
-      if (cs.position === 'static') this.layer.style.position = 'absolute';
-      if (!this.layer.style.inset) this.layer.style.inset = '0';
-    }catch{}
   }
 
-  setDifficulty(k){ this.diffKey = (k || 'normal'); }
+  setDifficulty(k){ this.diffKey = (k || 'normal').toLowerCase(); }
 
   destroy(){
     for (const [id, el] of this.targets.entries()) {
@@ -46,89 +34,62 @@ export class DomRendererShadow {
     this.targets.clear();
   }
 
-  // ---- compute safe spawn area inside stage/layer, excluding HUD + meta ----
-  _safeAreaRect(){
-    const layer = this.layer;
-    const stage = this.stageEl || layer;
+  _pickSizePx(data){
+    // Base sizes tuned for Mobile-first (เป้าห้าม “กินจอ”)
+    // easy > normal > hard
+    const diff = this.diffKey;
+    const base =
+      diff === 'easy' ? 104 :
+      diff === 'hard' ?  86 :
+                        96;
 
-    const rStage = stage.getBoundingClientRect();
-    const rLayer = layer.getBoundingClientRect();
+    // types: bossface a bit bigger, bomb/decoy slightly smaller
+    const t = (data?.type || 'normal');
+    let s = base;
+    if (t === 'bossface') s += 12;
+    if (t === 'bomb' || t === 'decoy') s -= 6;
 
-    // base padding from edges (responsive)
-    const basePad = clamp(Math.round(Math.min(rStage.width, rStage.height) * 0.045), 14, 34);
+    // allow engine override (sizePx) but clamp to sane range
+    const want = Number(data?.sizePx);
+    if (Number.isFinite(want)) s = want;
 
-    // reserve top area for HUD + bars (if provided)
-    const hudTop = this.hudTopEl ? this.hudTopEl.getBoundingClientRect() : null;
-    const barsTop = this.barsTopEl ? this.barsTopEl.getBoundingClientRect() : null;
-    const barsBottom = this.barsBottomEl ? this.barsBottomEl.getBoundingClientRect() : null;
-
-    // convert reserved bands into stage local offsets
-    // (we just need a rough "no-spawn zone" band inside stage)
-    let topBan = basePad;
-    if (hudTop) topBan = Math.max(topBan, Math.round((hudTop.bottom - rStage.top) + 10));
-    if (barsTop) topBan = Math.max(topBan, Math.round((barsTop.bottom - rStage.top) + 8));
-
-    let bottomBan = basePad;
-    if (barsBottom) bottomBan = Math.max(bottomBan, Math.round((rStage.bottom - barsBottom.top) + 10));
-
-    // reserve right area for meta panel
-    const meta = this.metaEl ? this.metaEl.getBoundingClientRect() : null;
-    let rightBan = basePad;
-    if (meta && meta.width > 0) {
-      // meta sits inside stage (absolute). Reserve its width + small gap
-      const metaLeftFromStage = meta.left - rStage.left;
-      // If meta overlaps stage interior, reserve from metaLeft to stageRight.
-      if (metaLeftFromStage > 0 && metaLeftFromStage < rStage.width) {
-        const reserve = Math.round(rStage.width - metaLeftFromStage + 10);
-        rightBan = Math.max(rightBan, reserve);
-      } else {
-        // fallback: reserve meta width
-        rightBan = Math.max(rightBan, Math.round(meta.width + 10));
-      }
-    }
-
-    // left ban slightly smaller (no big UI there)
-    const leftBan = basePad;
-
-    // final safe box in stage coords
-    const safeLeft = leftBan;
-    const safeTop = topBan;
-    const safeRight = Math.max(safeLeft + 40, Math.round(rStage.width - rightBan));
-    const safeBottom = Math.max(safeTop + 40, Math.round(rStage.height - bottomBan));
-
-    // also return stage/layer rects for conversions
-    return { rStage, rLayer, safeLeft, safeTop, safeRight, safeBottom, basePad };
+    // FINAL CLAMP (นี่แหละที่ทำให้ “ไม่ใหญ่เกิน”)
+    return clamp(s, 72, 132);
   }
 
-  // ---- target size: responsive + per difficulty + per stage size ----
-  _sizePx(type){
-    // baseline by difficulty
-    const diff = (this.diffKey || 'normal').toLowerCase();
-    let base = 112; // normal baseline (was feeling too big)
-    if (diff === 'easy') base = 104;
-    if (diff === 'hard') base = 96;
+  _safeAreaRect(){
+    const r = this.layer.getBoundingClientRect();
 
-    // type tweaks
-    if (type === 'bossface') base += 10;
-    if (type === 'bomb') base -= 6;      // smaller but scary
-    if (type === 'decoy') base -= 4;     // slightly smaller
-    if (type === 'heal' || type === 'shield') base -= 2;
+    // dynamic HUD avoidance (best effort)
+    const hud = document.querySelector('.sb-hud');
+    const barsTop = document.querySelector('.sb-bars-top');
+    const barsBottom = document.querySelector('.sb-bars-bottom');
+    const meta = document.querySelector('.sb-meta');
 
-    // responsive scale by stage size
-    const stage = this.stageEl || this.layer;
-    const r = stage.getBoundingClientRect();
-    const minSide = Math.min(r.width, r.height);
+    const hudH = hud ? hud.getBoundingClientRect().height : 0;
+    const topBarsH = barsTop ? barsTop.getBoundingClientRect().height : 0;
+    const bottomBarsH = barsBottom ? barsBottom.getBoundingClientRect().height : 0;
 
-    // scale down on small phones
-    let s = 1;
-    if (minSide < 420) s = 0.78;
-    else if (minSide < 520) s = 0.86;
-    else if (minSide < 680) s = 0.94;
-    else s = 1.0;
+    // pad scales with viewport
+    const padX = clamp(r.width * 0.05, 16, 34);
+    const padY = clamp(r.height * 0.05, 16, 34);
 
-    // clamp final
-    const out = clamp(Math.round(base * s), 66, 150);
-    return out;
+    // reserve top/bottom zones so targets don't sit under HUD/bars
+    const top = padY + hudH + topBarsH + 10;
+    const bottom = r.height - (padY + bottomBarsH + 10);
+
+    // meta avoidance: keep away from right side where meta panel sits
+    let right = r.width - padX;
+    if (meta) {
+      const mr = meta.getBoundingClientRect();
+      // if meta overlaps stage region, reserve its width + margin
+      const reserve = clamp(mr.width + 14, 160, 320);
+      right = Math.max(padX + 40, r.width - reserve);
+    }
+
+    const left = padX;
+
+    return { r, left, top, right, bottom };
   }
 
   _emojiForType(t, bossEmoji){
@@ -144,43 +105,29 @@ export class DomRendererShadow {
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const { rStage, rLayer, safeLeft, safeTop, safeRight, safeBottom } = this._safeAreaRect();
-
-    // ensure we can spawn (avoid negative area)
-    const size = this._sizePx(data.type || 'normal');
-    const maxX = Math.max(safeLeft, safeRight - size);
-    const maxY = Math.max(safeTop, safeBottom - size);
-
-    // if area too tight, soften bans instead of "no spawn"
-    let left = safeLeft, top = safeTop, right = safeRight, bottom = safeBottom;
-    if ((right - left) < (size + 16)) { left = 10; right = Math.max(20, Math.round(rStage.width - 10)); }
-    if ((bottom - top) < (size + 16)) { top = 10; bottom = Math.max(20, Math.round(rStage.height - 10)); }
+    const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
 
+    const size = this._pickSizePx(data);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random pos inside safe area (stage coords)
-    const xStage = rand(left, Math.max(left, right - size));
-    const yStage = rand(top, Math.max(top, bottom - size));
-
-    // convert stage coords -> layer absolute coords
-    // layer is inside stage; use rect offset
-    const x = (rStage.left + xStage) - rLayer.left;
-    const y = (rStage.top + yStage) - rLayer.top;
-
+    // random position inside safe zone
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top,  Math.max(top,  bottom - size));
     el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    el.style.top  = Math.round(y) + 'px';
 
     // content
     el.textContent = this._emojiForType(data.type, data.bossEmoji);
 
-    // pointer
-    el.addEventListener('pointerdown', this._onPointer, { passive: true });
+    // mobile feel
+    el.style.touchAction = 'manipulation';
 
+    el.addEventListener('pointerdown', this._onPointer, { passive: true });
     this.layer.appendChild(el);
     this.targets.set(data.id, el);
   }
@@ -214,25 +161,25 @@ export class DomRendererShadow {
     const scoreDelta = Number(info.scoreDelta) || 0;
 
     if (grade === 'perfect') {
-      FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
+      FxBurst.burst(x, y, { n: 14, spread: 64, ttlMs: 640, cls: 'sb-fx-fever' });
       FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
     } else if (grade === 'good') {
-      FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
+      FxBurst.burst(x, y, { n: 10, spread: 46, ttlMs: 540, cls: 'sb-fx-hit' });
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
     } else if (grade === 'bad') {
       FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
     } else if (grade === 'bomb') {
-      FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
+      FxBurst.burst(x, y, { n: 16, spread: 80, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
     } else if (grade === 'heal') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
+      FxBurst.burst(x, y, { n: 12, spread: 58, ttlMs: 620, cls: 'sb-fx-heal' });
       FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
     } else if (grade === 'shield') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
+      FxBurst.burst(x, y, { n: 12, spread: 58, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
     } else {
-      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
+      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520 });
     }
   }
 }
