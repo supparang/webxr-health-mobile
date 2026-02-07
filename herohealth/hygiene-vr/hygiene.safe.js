@@ -171,7 +171,6 @@ export function boot(){
       if(!DOC.body) return;
       const cs = getComputedStyle(DOC.documentElement);
       const sat = Number(String(cs.getPropertyValue('--sat')||'0').replace('px',''))||0;
-      // fallback if you don't have dedicated nodes
       const topPx = 170 + sat;
       const bottomPx = 190;
       DOC.body.style.setProperty('--hw-top-safe', topPx.toFixed(0)+'px');
@@ -477,7 +476,6 @@ export function boot(){
         slowMo(150, 0.35);
         vibrate([12, 20, 12]);
 
-        const prevStep = stepIdx;
         stepIdx++;
         hitsInStep=0;
 
