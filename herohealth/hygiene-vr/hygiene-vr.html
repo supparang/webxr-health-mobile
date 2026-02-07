@@ -4,6 +4,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
 ✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ PATCH: cache-bust all scripts to prevent mobile stale files
 -->
 <!doctype html>
 <html lang="th">
@@ -14,24 +15,25 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260206a" />
+  <!-- ✅ CSS cache-bust -->
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260206c" />
 
-  <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js" defer></script>
+  <!-- ✅ Universal VR UI (defer) -->
+  <script src="../vr/vr-ui.js?v=20260206c" defer></script>
 
-  <!-- FX -->
-  <script src="../vr/particles.js" defer></script>
+  <!-- ✅ FX -->
+  <script src="../vr/particles.js?v=20260206c" defer></script>
 
   <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
+  <script src="../vr/hha-ai-coach.js?v=20260206c" defer></script>
+  <script src="../vr/hha-difficulty-director.js?v=20260206c" defer></script>
+  <script src="../vr/hha-badges.js?v=20260206c" defer></script>
 
-  <!-- Quiz bank (name fixed) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+  <!-- ✅ Quiz bank (name fixed) -->
+  <script src="./hygiene-quiz-bank.js?v=20260206c" defer></script>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260206a"></script>
+  <!-- ✅ Boot (module) -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260206c"></script>
 </head>
 
 <body class="view-pc">
@@ -40,7 +42,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 
     <!-- HUD -->
     <div class="hw-hud">
-      <div class="hw-top" id="hudTop">
+      <div class="hw-top">
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
@@ -107,14 +109,18 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.body.classList.add(
+      view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc'))
+    );
     const el = document.getElementById('labView');
     if(el) el.textContent = view;
   }
   setViewClass();
+
   const m = document.getElementById('labMode');
   const d = document.getElementById('labDiff');
   if(m) m.textContent = (qs('run','play')||'play');
