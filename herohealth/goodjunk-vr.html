@@ -1,31 +1,134 @@
+<!-- === /herohealth/goodjunk-vr.html ===
+GoodJunkVR ROOT Launcher — PRODUCTION (HHA_LAUNCH)
+✅ Redirects to: ./vr-goodjunk/goodjunk-vr.html
+✅ Uses: ./vr/hha-ctx.js + ./vr/hha-launch.js
+✅ Pass-through: all query params (hub/run/diff/time/seed/studyId/phase/conditionGroup/log/...)
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth — GoodJunkVR</title>
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ color-scheme: dark; --bg:#020617; --panel:rgba(2,6,23,.72); --text:#e5e7eb; --muted:#94a3b8; --stroke:rgba(148,163,184,.18); }
-    body{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto; }
-    .box{ width:min(720px,92vw); padding:18px; border:1px solid var(--stroke); border-radius:16px; background:var(--panel); }
-    .muted{ color:var(--muted); }
-    #fatal{ white-space:pre-wrap; color:#fecaca; }
+    :root{
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 50% 10%, rgba(34,197,94,.10), transparent 55%),
+                  radial-gradient(900px 600px at 20% 80%, rgba(59,130,246,.10), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding-top: var(--sat);
+      padding-bottom: var(--sab);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .card{
+      width:min(560px, calc(100% - 24px));
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 24px 80px rgba(0,0,0,.35);
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 10px 14px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.55);
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    .title{ margin:12px 0 6px; font-size: 22px; font-weight:1000; }
+    .sub{ margin:0 0 14px; color:var(--muted); font-weight:700; line-height:1.35; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .kv{
+      flex:1 1 160px;
+      border:1px solid var(--stroke);
+      border-radius: 16px;
+      padding: 10px 12px;
+      background: rgba(15,23,42,.45);
+    }
+    .k{ color:var(--muted); font-weight:900; font-size:12px; letter-spacing:.25px; }
+    .v{ font-weight:1000; margin-top:2px; }
+    .hint{ margin-top:12px; color:var(--muted); font-weight:700; font-size:13px; }
+    .spin{
+      width:18px; height:18px; border-radius:999px;
+      border:2px solid rgba(148,163,184,.25);
+      border-top-color: rgba(34,197,94,.95);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="box">
-    <div style="font-weight:800; font-size:18px;">กำลังเข้าเกม…</div>
-    <div class="muted">GoodJunkVR</div>
-    <div id="fatal"></div>
-  </div>
+  <main class="card" role="main" aria-label="GoodJunkVR launcher">
+    <div class="pill"><span class="spin" aria-hidden="true"></span> กำลังเปิดเกม…</div>
+    <div class="title">GoodJunkVR</div>
+    <p class="sub">ระบบจะพาไปหน้าเล่นอัตโนมัติ และส่งพารามิเตอร์การวิจัย/การเล่นต่อให้ครบ</p>
 
-  <script src="./vr/research-ctx.js"></script>
-  <script src="./vr/launcher-redirect.js"></script>
+    <div class="row" id="metaRow" aria-label="params preview">
+      <div class="kv"><div class="k">TARGET</div><div class="v">./vr-goodjunk/goodjunk-vr.html</div></div>
+      <div class="kv"><div class="k">RUN</div><div class="v" id="vRun">—</div></div>
+      <div class="kv"><div class="k">DIFF</div><div class="v" id="vDiff">—</div></div>
+      <div class="kv"><div class="k">TIME</div><div class="v" id="vTime">—</div></div>
+    </div>
+
+    <div class="hint" id="hint">ถ้ายังไม่เด้ง ให้รีเฟรช 1 ครั้ง หรือเปิดผ่าน HTTPS</div>
+  </main>
+
+  <!-- HHA context + launcher -->
+  <script src="./vr/hha-ctx.js"></script>
+  <script src="./vr/hha-launch.js"></script>
+
   <script>
-    const RUN_URL = './vr-goodjunk/goodjunk-vr.html';
-    HHA_LauncherRedirect.go(RUN_URL, { autoViewIfMissing:false, overrides:{ game:'goodjunk' } });
+    (function(){
+      'use strict';
+      const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+
+      // preview only (no logic dependency)
+      try{
+        const run  = (qs('run','play') || 'play').toUpperCase();
+        const diff = (qs('diff','normal') || 'normal').toUpperCase();
+        const time = (qs('time','80') || '80');
+        const el = (id)=>document.getElementById(id);
+        el('vRun').textContent  = run;
+        el('vDiff').textContent = diff;
+        el('vTime').textContent = time + 's';
+      }catch(_){}
+
+      // HARD requirement: call your launcher exactly as requested
+      try{
+        if (window.HHA_LAUNCH && typeof window.HHA_LAUNCH.go === 'function') {
+          window.HHA_LAUNCH.go('./vr-goodjunk/goodjunk-vr.html');
+        } else {
+          // fallback (still pass-through params)
+          const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+          try{
+            const cur = new URL(location.href);
+            cur.searchParams.forEach((v,k)=>u.searchParams.set(k,v));
+          }catch(_){}
+          location.replace(u.toString());
+        }
+      }catch(err){
+        console.error('[GoodJunkVR launcher] launch failed', err);
+        const h = document.getElementById('hint');
+        if(h) h.textContent = 'Launch error: ' + (err && err.message ? err.message : String(err));
+      }
+    })();
   </script>
 </body>
 </html>
