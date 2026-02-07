@@ -1,9 +1,16 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
-✅ Reads ctx from ./vr/hha-ctx.js (HHA_CTX.readCtx)
-✅ Uses ./vr/hha-launch.js (HHA_LAUNCH.go) if available
-✅ Always redirects to ./vr-goodjunk/goodjunk-vr.html with ctx/query passthrough
-✅ Path: /herohealth/goodjunk-vr.html -> /herohealth/vr-goodjunk/goodjunk-vr.html
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
+GoodJunkVR RUN — PRODUCTION (PATCH v4.3-std)
+✅ Pairs with:
+   /herohealth/vr-goodjunk/goodjunk-vr.css
+   /herohealth/vr-goodjunk/goodjunk-vr.boot.js
+   /herohealth/vr-goodjunk/goodjunk.safe.js (v4.3-std)
+   /herohealth/vr/vr-ui.js (auto-loaded by boot when WebXR exists)
+   /herohealth/vr/ai-hooks.js (optional)
+   /herohealth/vr/hha-cloud-logger.js (optional)
+
+✅ Required IDs exist: hud-score, hud-time, hud-miss, hud-goal, goalDesc, hud-goal-cur, hud-goal-target,
+   hud-mini, miniTimer, feverFill, feverText, shieldPills, lowTimeOverlay, gj-lowtime-num,
+   gjProgressFill, bossBar, bossFill, bossHint, gj-layer, gj-layer-r
 -->
 <!doctype html>
 <html lang="th">
@@ -12,236 +19,493 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunkVR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="./goodjunk-vr.css" />
+
   <style>
+    /* safety vars used by boot (read via getComputedStyle) */
     :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --radius:22px;
-      --pill:999px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    body{
-      margin:0;
-      min-height:100vh;
-      background: radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.10), transparent 55%),
-                  radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.10), transparent 50%),
-                  radial-gradient(900px 650px at 85% 25%, rgba(168,85,247,.10), transparent 55%),
-                  var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
+    body.gj{
+      margin:0; background:#020617; color:#e5e7eb;
+      -webkit-tap-highlight-color: transparent;
+      padding-top: var(--sat);
+      padding-bottom: var(--sab);
     }
-    .card{
-      width:min(560px, 92vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      padding:18px;
+
+    /* tiny fallback UI if CSS not loaded yet (won't fight your main CSS) */
+    .gj-topbar, .gj-progress, .gj-hud-bot, .gj-missions, .gj-stage{ box-sizing:border-box; }
+    .gj-topbar{
+      position:fixed; left:0; right:0; top:0;
+      padding: calc(10px + var(--sat)) 12px 10px;
+      z-index: 50;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      pointer-events:auto;
     }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .title{
-      font-size:20px;
-      font-weight:800;
-      letter-spacing:.2px;
-      margin:2px 0 6px;
-    }
-    .sub{
-      margin:0 0 12px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.35;
-    }
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.55);
-      color:var(--text);
-      font-size:12px;
-      font-weight:700;
+    .gj-chip{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:10px 14px; border-radius:999px;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
+      color:#e5e7eb; font-weight:700; letter-spacing:.2px;
+      backdrop-filter: blur(10px);
       user-select:none;
-      white-space:nowrap;
     }
-    .grid{
+    .gj-chip.btn{ cursor:pointer; }
+    .gj-chip.btn:active{ transform: translateY(1px); }
+
+    .gj-progress{
+      position:fixed; left:12px; right:12px;
+      top: calc(62px + var(--sat));
+      height: 12px;
+      border-radius:999px;
+      background: rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.16);
+      overflow:hidden;
+      z-index: 45;
+    }
+    #gjProgressFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(16,185,129,.95), rgba(59,130,246,.85));
+    }
+
+    /* top HUD block */
+    #hud{
+      position:fixed; left:12px; right:12px;
+      top: calc(82px + var(--sat));
+      z-index: 40;
       display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns: 1fr 1fr 1fr;
       gap:10px;
-      margin-top:10px;
     }
-    .kv{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding:10px 12px;
-      min-height:52px;
-    }
-    .k{ color:var(--muted); font-size:11px; margin-bottom:4px; }
-    .v{ font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .btn{
-      margin-top:14px;
-      width:100%;
-      padding:12px 14px;
+    .hud-card{
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
       border-radius:16px;
-      border:1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.16);
-      color:var(--text);
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      min-height: 54px;
+    }
+    .hud-k{ font-size:12px; color:#94a3b8; font-weight:700; letter-spacing:.25px; }
+    .hud-v{ font-size:22px; font-weight:900; margin-top:2px; }
+
+    /* mission panel */
+    .gj-missions{
+      position:fixed; left:12px; right:12px;
+      top: calc(152px + var(--sat));
+      z-index: 35;
+      display:grid; gap:10px;
+      pointer-events:none;
+    }
+    .gj-missions .panel{
+      pointer-events:auto;
+      background:rgba(2,6,23,.68);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:12px;
+      backdrop-filter: blur(10px);
+    }
+    .panel .ttl{ font-weight:900; margin-bottom:6px; }
+    .panel .sub{ color:#cbd5e1; opacity:.95; }
+    .panel .row{
+      margin-top:8px;
+      display:flex; align-items:center; justify-content:space-between;
+      color:#e5e7eb;
+      font-weight:800;
+    }
+
+    /* play field */
+    .gj-stage{
+      position:fixed; left:0; right:0;
+      top: 0; bottom: 0;
+      z-index: 10;
+      overflow:hidden;
+      pointer-events:auto;
+    }
+    #gj-layer, #gj-layer-r{
+      position:absolute;
+      left:0; top:0; right:0; bottom:0;
+      pointer-events:auto;
+    }
+    body.view-cvr #gj-layer{
+      width:50%; right:auto;
+    }
+    body.view-cvr #gj-layer-r{
+      display:block;
+      width:50%; left:auto;
+      border-left: 1px solid rgba(148,163,184,.12);
+    }
+    body:not(.view-cvr) #gj-layer-r{ display:none; }
+
+    /* bottom HUD */
+    #feverBox{
+      position:fixed; left:12px; right:12px;
+      bottom: calc(14px + var(--sab));
+      z-index: 32;
+      background:rgba(2,6,23,.68);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:12px;
+      backdrop-filter: blur(10px);
+    }
+    .fever-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .fever-k{ font-weight:900; color:#e5e7eb; letter-spacing:.2px; }
+    .fever-bar{
+      margin-top:8px;
+      height: 12px;
+      border-radius:999px;
+      background: rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.16);
+      overflow:hidden;
+    }
+    #feverFill{
+      height:100%; width:18%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(14,165,233,.90));
+    }
+    .fever-meta{
+      margin-top:8px;
+      display:flex; align-items:flex-end; justify-content:space-between;
+      color:#cbd5e1;
+      font-weight:800;
+    }
+    #feverText{ color:#e5e7eb; }
+
+    /* boss bar (optional) */
+    #bossBar{
+      position:fixed; left:12px; right:12px;
+      top: calc(128px + var(--sat));
+      z-index: 42;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:16px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+    }
+    #bossBar[aria-hidden="true"]{ display:none; }
+    .boss-k{ font-weight:900; }
+    .boss-bar{
+      margin-top:8px;
+      height: 10px;
+      border-radius:999px;
+      background: rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.16);
+      overflow:hidden;
+    }
+    #bossFill{ height:100%; width:100%; background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(251,191,36,.90)); }
+    #bossHint{ margin-top:6px; color:#cbd5e1; font-weight:700; }
+
+    /* low time overlay */
+    #lowTimeOverlay{
+      position:fixed; inset:0;
+      z-index: 80;
+      display:flex; align-items:center; justify-content:center;
+      background: radial-gradient(circle at center, rgba(2,6,23,.15), rgba(2,6,23,.85));
+      backdrop-filter: blur(2px);
+      pointer-events:none;
+    }
+    #lowTimeOverlay[aria-hidden="true"]{ display:none; }
+    #gj-lowtime-num{
+      font-size: 96px;
+      font-weight: 1000;
+      color: rgba(251,191,36,.95);
+      text-shadow: 0 12px 40px rgba(0,0,0,.45);
+    }
+
+    /* HUD hide mode */
+    body.hud-hidden #hud,
+    body.hud-hidden .gj-missions,
+    body.hud-hidden #bossBar{
+      display:none !important;
+    }
+
+    /* end modal */
+    #endModal{
+      position:fixed; inset:0;
+      z-index: 120;
+      display:none;
+      align-items:center; justify-content:center;
+      padding: 18px;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+    }
+    #endModal.show{ display:flex; }
+    .end-card{
+      width:min(560px, 100%);
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:16px;
+    }
+    .end-title{ font-size:18px; font-weight:1000; }
+    .end-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .end-item{
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:16px;
+      padding:10px 12px;
+      background: rgba(15,23,42,.45);
+    }
+    .end-item .k{ color:#94a3b8; font-weight:800; font-size:12px; }
+    .end-item .v{ font-weight:1000; font-size:18px; margin-top:2px; }
+    .end-actions{
+      margin-top:12px;
+      display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+    }
+    .end-actions button{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      color:#e5e7eb;
+      padding:10px 14px;
       font-weight:900;
-      font-size:14px;
     }
-    .btn:active{ transform: translateY(1px); }
-    .hint{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.35;
-    }
-    @media (max-width:520px){
-      .grid{ grid-template-columns: 1fr; }
+    .end-actions button.primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.35);
     }
   </style>
+
+  <!-- Optional: AI hooks (safe if missing) -->
+  <script defer src="../vr/ai-hooks.js"></script>
+
+  <!-- Optional: Cloud logger (safe if missing) -->
+  <!-- <script defer src="../vr/hha-cloud-logger.js"></script> -->
 </head>
-<body>
-  <main class="card" role="main" aria-label="GoodJunkVR Launcher">
-    <div class="row">
-      <div>
-        <div class="title">🥗 GoodJunkVR</div>
-        <p class="sub">กำลังเข้าสู่เกม… ระบบจะส่งต่อค่าทดลอง (run/diff/time/seed/studyId/phase/conditionGroup/log/hub) ให้อัตโนมัติ</p>
+
+<body class="gj">
+  <!-- Top bar -->
+  <div class="gj-topbar">
+    <div class="gj-chip" id="btnMode">GoodJunkVR</div>
+
+    <div style="display:flex; gap:10px; align-items:center;">
+      <div class="gj-chip btn" id="btnMissions">MISSIONS</div>
+      <div class="gj-chip btn" id="btnHideHud">HUD</div>
+      <div class="gj-chip btn" id="btnHub">HUB</div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="gj-progress" aria-label="progress">
+    <div id="gjProgressFill"></div>
+  </div>
+
+  <!-- HUD (top cards) -->
+  <section id="hud" aria-label="hud-top">
+    <div class="hud-card">
+      <div class="hud-k">SCORE</div>
+      <div class="hud-v" id="hud-score">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-k">TIME</div>
+      <div class="hud-v" id="hud-time">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-k">MISS</div>
+      <div class="hud-v" id="hud-miss">0</div>
+    </div>
+  </section>
+
+  <!-- Boss bar (optional UI; safe.js toggles aria-hidden) -->
+  <section id="bossBar" aria-hidden="true">
+    <div class="boss-k">BOSS</div>
+    <div class="boss-bar"><div id="bossFill"></div></div>
+    <div id="bossHint"></div>
+  </section>
+
+  <!-- Missions panel -->
+  <section class="gj-missions" id="missionsPanel" aria-label="missions">
+    <div class="panel">
+      <div class="ttl">GOAL: <span id="hud-goal">—</span></div>
+      <div class="sub" id="goalDesc">—</div>
+      <div class="row">
+        <div><span id="hud-goal-cur">0</span> / <span id="hud-goal-target">0</span></div>
+        <div style="opacity:.85; font-weight:900;">Goal</div>
       </div>
-      <span class="pill" id="statusPill">LOADING</span>
     </div>
 
-    <section class="grid" aria-label="Context preview">
-      <div class="kv"><div class="k">run</div><div class="v" id="pv-run">—</div></div>
-      <div class="kv"><div class="k">diff</div><div class="v" id="pv-diff">—</div></div>
-      <div class="kv"><div class="k">time</div><div class="v" id="pv-time">—</div></div>
-      <div class="kv"><div class="k">seed</div><div class="v" id="pv-seed">—</div></div>
-      <div class="kv"><div class="k">studyId</div><div class="v" id="pv-studyId">—</div></div>
-      <div class="kv"><div class="k">phase</div><div class="v" id="pv-phase">—</div></div>
-      <div class="kv"><div class="k">conditionGroup</div><div class="v" id="pv-cond">—</div></div>
-      <div class="kv"><div class="k">log</div><div class="v" id="pv-log">—</div></div>
-      <div class="kv"><div class="k">hub</div><div class="v" id="pv-hub">—</div></div>
-    </section>
+    <div class="panel">
+      <div class="ttl">MINI QUEST</div>
+      <div class="sub" id="hud-mini">—</div>
+      <div class="row">
+        <div id="miniTimer">—</div>
+        <div style="opacity:.85; font-weight:900;">Mini</div>
+      </div>
+    </div>
+  </section>
 
-    <button class="btn" id="btnGo" type="button">เข้าเกมทันที</button>
-    <div class="hint">ถ้าอยู่บนมือถือและกด Enter VR ระบบในหน้า RUN จะ auto-load vr-ui.js เมื่อเครื่องรองรับ WebXR</div>
+  <!-- Playfield -->
+  <main class="gj-stage" aria-label="stage">
+    <div id="gj-layer" aria-label="layer-left"></div>
+    <div id="gj-layer-r" aria-label="layer-right" aria-hidden="true"></div>
   </main>
 
-  <!-- HHA Standard ctx + launcher -->
-  <script src="./vr/hha-ctx.js"></script>
-  <script src="./vr/hha-launch.js"></script>
+  <!-- Bottom HUD: fever -->
+  <section id="feverBox" class="gj-hud-bot" aria-label="fever">
+    <div class="fever-top">
+      <div class="fever-k">FEVER</div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="gj-chip" style="padding:8px 12px;">
+          🛡️ <span id="shieldPills" style="margin-left:6px;">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="fever-bar"><div id="feverFill"></div></div>
+    <div class="fever-meta">
+      <div><span id="feverText">0%</span></div>
+      <div style="opacity:.85; font-weight:800;">เก็บของดีต่อเนื่องเพื่อทำคอมโบ / อย่าโดนของเสีย</div>
+    </div>
+  </section>
+
+  <!-- Low time overlay -->
+  <div id="lowTimeOverlay" aria-hidden="true">
+    <div id="gj-lowtime-num">3</div>
+  </div>
+
+  <!-- End modal -->
+  <div id="endModal" role="dialog" aria-modal="true" aria-label="End summary">
+    <div class="end-card">
+      <div class="end-title" id="endTitle">สรุปผล</div>
+
+      <div class="end-grid">
+        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
+        <div class="end-item"><div class="k">Grade</div><div class="v" id="endGrade">—</div></div>
+        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
+      </div>
+
+      <div class="end-actions">
+        <button id="btnReplay">เล่นอีกครั้ง</button>
+        <button class="primary" id="btnBackHub">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-  (function(){
-    'use strict';
+    (function(){
+      'use strict';
+      const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 
-    const qs = (k, def=null)=>{
-      try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
-    };
+      const btnHub = document.getElementById('btnHub');
+      const btnBackHub = document.getElementById('btnBackHub');
+      const btnReplay = document.getElementById('btnReplay');
+      const btnHideHud = document.getElementById('btnHideHud');
+      const btnMissions = document.getElementById('btnMissions');
+      const btnMode = document.getElementById('btnMode');
 
-    const $ = (id)=>document.getElementById(id);
-    const pill = $('statusPill');
+      const missionsPanel = document.getElementById('missionsPanel');
 
-    function readCtxSafe(){
+      const endModal = document.getElementById('endModal');
+      const endScore = document.getElementById('endScore');
+      const endGrade = document.getElementById('endGrade');
+      const endMiss  = document.getElementById('endMiss');
+      const endAcc   = document.getElementById('endAcc');
+      const endTitle = document.getElementById('endTitle');
+
+      const hubUrl = qs('hub', '') || '';
+
+      function goHub(){
+        if(hubUrl){
+          location.href = hubUrl;
+        }else{
+          // fallback: go to hub in same folder if exists
+          location.href = '../hub.html';
+        }
+      }
+
+      function replay(){
+        // keep all query params, but force reload clean
+        const u = new URL(location.href);
+        u.searchParams.set('v', String(Date.now()));
+        location.href = u.toString();
+      }
+
+      btnHub && btnHub.addEventListener('click', goHub, {passive:true});
+      btnBackHub && btnBackHub.addEventListener('click', goHub, {passive:true});
+      btnReplay && btnReplay.addEventListener('click', replay, {passive:true});
+
+      // HUD toggle (boot listens for btnHideHud id)
+      btnHideHud && btnHideHud.addEventListener('click', ()=>{
+        document.body.classList.toggle('hud-hidden');
+      }, {passive:true});
+
+      // Missions toggle (just hide the panels, not HUD cards)
+      btnMissions && btnMissions.addEventListener('click', ()=>{
+        if(!missionsPanel) return;
+        const hidden = missionsPanel.style.display === 'none';
+        missionsPanel.style.display = hidden ? '' : 'none';
+        // re-measure safe rect after layout change
+        try{ window.dispatchEvent(new CustomEvent('gj:measureSafe',{})); }catch(_){}
+      }, {passive:true});
+
+      // Update title chip with run/diff/time (cosmetic)
+      function updateChip(){
+        const run  = String(qs('run','play')).toUpperCase();
+        const diff = String(qs('diff','normal')).toUpperCase();
+        const time = String(qs('time','80'));
+        if(btnMode) btnMode.textContent = `GoodJunkVR • ${run} • ${diff} • ${time}s`;
+      }
+      updateChip();
+
+      // Listen summary and show modal
+      window.addEventListener('hha:end', (e)=>{
+        const s = e.detail || {};
+        const score = (s.scoreFinal ?? s.score ?? 0) | 0;
+        const miss  = (s.miss ?? s.misses ?? 0) | 0;
+        const grade = String(s.grade || '—');
+        const acc   = (s.accuracyPct != null) ? String(s.accuracyPct) : (s.accuracy != null ? String(Math.round(Number(s.accuracy)*100)) : '0');
+        if(endScore) endScore.textContent = String(score);
+        if(endMiss)  endMiss.textContent  = String(miss);
+        if(endGrade) endGrade.textContent = grade;
+        if(endAcc)   endAcc.textContent   = String(acc) + '%';
+
+        if(endTitle){
+          const mode = String(s.runMode || '').toUpperCase() || 'PLAY';
+          const df = String(s.diff || '').toUpperCase() || 'NORMAL';
+          endTitle.textContent = `สรุปผล • ${mode} • ${df}`;
+        }
+
+        if(endModal){
+          endModal.classList.add('show');
+        }
+      }, {passive:true});
+
+      // Close modal by tapping outside card
+      endModal && endModal.addEventListener('click', (ev)=>{
+        if(ev.target === endModal){
+          endModal.classList.remove('show');
+        }
+      });
+
+      // Debug: warn if critical HUD ids missing (prevents TIME stuck at 0 confusion)
+      (function assertHudIds(){
+        const must = ['hud-score','hud-time','hud-miss','gj-layer'];
+        const miss = must.filter(id => !document.getElementById(id));
+        if(miss.length){
+          console.warn('[GoodJunkVR RUN] Missing required IDs:', miss);
+        }
+      })();
+
+      // Optional: init cloud logger if present
       try{
-        if(window.HHA_CTX && typeof HHA_CTX.readCtx === 'function'){
-          return HHA_CTX.readCtx() || null;
+        if(window.HHA_LOGGER && typeof window.HHA_LOGGER.init === 'function'){
+          window.HHA_LOGGER.init({ game:'goodjunk', logEndpoint: qs('log','') || '' });
         }
       }catch(_){}
-      return null;
-    }
-
-    function mergeCtxWithQuery(ctx){
-      // ctx preferred; fallback to query
-      const out = Object.assign({}, ctx || {});
-      out.run  = out.run  ?? qs('run','play');
-      out.diff = out.diff ?? qs('diff','normal');
-      out.time = out.time ?? qs('time','80');
-      out.seed = out.seed ?? qs('seed', null);
-
-      out.studyId = out.studyId ?? (qs('studyId', qs('study', null)));
-      out.phase   = out.phase   ?? qs('phase', null);
-      out.conditionGroup = out.conditionGroup ?? (qs('conditionGroup', qs('cond', null)));
-      out.log = out.log ?? qs('log', null);
-      out.hub = out.hub ?? qs('hub', null);
-
-      // keep any other ctx fields too (pid, style, etc.)
-      return out;
-    }
-
-    function preview(ctx){
-      const set = (id,v)=>{ const el=$(id); if(el) el.textContent = (v==null||v==='') ? '—' : String(v); };
-      set('pv-run', ctx.run);
-      set('pv-diff', ctx.diff);
-      set('pv-time', ctx.time);
-      set('pv-seed', ctx.seed);
-      set('pv-studyId', ctx.studyId);
-      set('pv-phase', ctx.phase);
-      set('pv-cond', ctx.conditionGroup);
-      set('pv-log', ctx.log ? 'ON' : '—');
-      set('pv-hub', ctx.hub ? 'SET' : '—');
-    }
-
-    function buildRunUrl(ctx){
-      // IMPORTANT: root -> ./vr-goodjunk/goodjunk-vr.html
-      const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-
-      // send only known keys (clean)
-      if(ctx.run) u.searchParams.set('run', ctx.run);
-      if(ctx.diff) u.searchParams.set('diff', ctx.diff);
-      if(ctx.time) u.searchParams.set('time', ctx.time);
-      if(ctx.seed) u.searchParams.set('seed', ctx.seed);
-
-      if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-      if(ctx.phase) u.searchParams.set('phase', ctx.phase);
-      if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
-      if(ctx.log) u.searchParams.set('log', ctx.log);
-      if(ctx.hub) u.searchParams.set('hub', ctx.hub);
-
-      return u.toString();
-    }
-
-    function go(){
-      const ctx0 = readCtxSafe();
-      const ctx = mergeCtxWithQuery(ctx0);
-      preview(ctx);
-
-      const runUrl = buildRunUrl(ctx);
-
-      // Prefer HHA_LAUNCH.go if available (keeps your launch conventions)
-      try{
-        if(window.HHA_LAUNCH && typeof HHA_LAUNCH.go === 'function'){
-          pill.textContent = 'LAUNCH';
-          HHA_LAUNCH.go(runUrl);
-          return;
-        }
-      }catch(_){}
-
-      pill.textContent = 'REDIRECT';
-      location.replace(runUrl);
-    }
-
-    // button = manual
-    const btn = $('btnGo');
-    if(btn) btn.addEventListener('click', go, { passive:true });
-
-    // auto launch quickly (but allow DOM paint)
-    pill.textContent = 'READY';
-    setTimeout(go, 60);
-  })();
+    })();
   </script>
+
+  <!-- Boot (module) -->
+  <script type="module" src="./goodjunk-vr.boot.js"></script>
 </body>
 </html>
