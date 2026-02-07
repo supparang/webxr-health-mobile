@@ -1,11 +1,16 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH v2.2-std)
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH)
 // ✅ FIX 1: LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
 // ✅ FIX 2: FX restored — emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
 // ✅ EXTRA: direct tap/click on target also works (pointerdown => same pipeline)
 // ✅ BADGES: first_play, streak_10, mini_clear_1, boss_clear_1, score_80p, perfect_run
-// ✅ PATCH: Standardize hha:end summary + save HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY + legacy keys
+// ✅ PATCH: Badge meta schema normalized (runMode/diff/seed/timePlannedSec + ctx passthrough)
+// ✅ PATCH: End badges meta uses scoreFinal/miss/accuracyPct/comboMax keys
+// ✅ 6M: Debug MISS breakdown overlay (?debug=1)
+// ✅ 6N: Highlight current group via 'groups:group' event (html/css listen)
+// ✅ 6O: Difficulty Director (PLAY only; soft, non-jarring) + groups:director event
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
+
 (function(){
   'use strict';
 
@@ -13,9 +18,6 @@
   const DOC = document;
 
   WIN.GroupsVR = WIN.GroupsVR || {};
-
-  const LS_LAST = 'HHA_LAST_SUMMARY';
-  const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
   // ---------------- utils ----------------
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
@@ -28,22 +30,6 @@
 
   function emit(name, detail){
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
-
-  function saveLastAndHistory(summary){
-    try{
-      localStorage.setItem(LS_LAST, JSON.stringify(summary));
-      const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
-      hist.unshift({
-        ts: summary.ts || Date.now(),
-        game: summary.game || 'groups',
-        score: summary.scoreFinal ?? summary.score ?? 0,
-        grade: summary.grade || '',
-        diff: summary.diff || '',
-        run: summary.runMode || ''
-      });
-      localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
-    }catch(_){}
   }
 
   function strSeedToU32(s){
@@ -73,52 +59,10 @@
     return arr[(rng()*arr.length)|0];
   }
 
-  // ---------------- BADGES (classic bridge) ----------------
-  function badgeMeta(extra){
-    let pid = '';
-    try{
-      const B = WIN.HHA_Badges;
-      pid = (B && typeof B.getPid === 'function') ? (B.getPid()||'') : '';
-    }catch(_){}
-
-    let q;
-    try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
-
-    const base = {
-      pid,
-      run: String(q.get('run')||'').toLowerCase() || 'play',
-      diff: String(q.get('diff')||'').toLowerCase() || 'normal',
-      time: Number(q.get('time')||0) || 0,
-      seed: Number(q.get('seed')||0) || 0,
-      view: String(q.get('view')||'').toLowerCase() || '',
-      style: String(q.get('style')||'').toLowerCase() || '',
-      game: 'groups'
-    };
-    if(extra && typeof extra === 'object'){
-      for(const k of Object.keys(extra)) base[k] = extra[k];
-    }
-    return base;
+  function dbgOn(){
+    const d = String(qs('debug','0')||'0').toLowerCase();
+    return (d==='1' || d==='true');
   }
-
-  function awardOnce(gameKey, badgeId, meta){
-    try{
-      const B = WIN.HHA_Badges;
-      if(!B || typeof B.awardBadge !== 'function') return false;
-      return !!B.awardBadge(gameKey, badgeId, badgeMeta(meta));
-    }catch(_){
-      return false;
-    }
-  }
-
-  // ---------------- food groups (ไทย) ----------------
-  // mapping ที่คุณล็อกไว้: หมู่ 1 โปรตีน, หมู่ 2 คาร์บ, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
-  const GROUPS = [
-    { key:'g1', name:'หมู่ 1 โปรตีน', emoji:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
-    { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', emoji:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
-    { key:'g3', name:'หมู่ 3 ผัก', emoji:['🥦','🥬','🥒','🥕','🌽','🍅','🫛'] },
-    { key:'g4', name:'หมู่ 4 ผลไม้', emoji:['🍌','🍎','🍉','🍇','🍍','🍊','🥭'] },
-    { key:'g5', name:'หมู่ 5 ไขมัน', emoji:['🥑','🧈','🥜','🫒','🍳','🥥','🧴'] }
-  ];
 
   // ---------------- engine state ----------------
   const S = {
@@ -174,7 +118,21 @@
 
     // throttles
     lastCoachAt:0,
-    lastQuestEmitAt:0
+    lastQuestEmitAt:0,
+
+    // --- debug breakdown (6M) ---
+    missShot:0,
+    missTimeoutGood:0,
+    missWrong:0,
+    missJunk:0,
+    lastDbg:'',
+
+    // --- director (6O) ---
+    dirLevel:0,        // -2..+2
+    dirLastEvalAt:0,
+
+    // hint throttle (6N)
+    lastWrongHintAt:0
   };
 
   function cfgForDiff(diff){
@@ -183,6 +141,80 @@
     if (diff === 'hard') return { spawnMs: 620, lifeMs:[1600,2500], powerThr:9, goalTot:14, miniTot:6 };
     return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5 };
   }
+
+  // ---------------- BADGES (classic bridge) ----------------
+  function badgeMeta(extra){
+    let pid = '';
+    try{
+      const B = WIN.HHA_Badges;
+      pid = (B && typeof B.getPid === 'function') ? (B.getPid()||'') : '';
+    }catch(_){}
+
+    let q;
+    try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
+
+    const runMode =
+      String((S && S.runMode) || q.get('runMode') || q.get('run') || 'play').toLowerCase();
+
+    const diff =
+      String((S && S.diff) || q.get('diff') || 'normal').toLowerCase();
+
+    const seed =
+      (S && S.seed) ? String(S.seed) : String(q.get('seed') || '');
+
+    const timePlannedSec =
+      Number((S && S.timePlannedSec) || q.get('time') || 0) || 0;
+
+    const base = {
+      pid,
+      game: 'groups',
+
+      runMode,
+      diff,
+      seed,
+      timePlannedSec,
+
+      // aliases for backward compatibility
+      run: runMode,
+      time: timePlannedSec,
+
+      view: String((S && S.view) || q.get('view') || '').toLowerCase(),
+      style: String((S && S.style) || q.get('style') || '').toLowerCase(),
+
+      hub: String(q.get('hub') || ''),
+      studyId: String(q.get('studyId') || ''),
+      phase: String(q.get('phase') || ''),
+      conditionGroup: String(q.get('conditionGroup') || ''),
+      siteCode: String(q.get('siteCode') || ''),
+      schoolYear: String(q.get('schoolYear') || ''),
+      semester: String(q.get('semester') || ''),
+    };
+
+    if(extra && typeof extra === 'object'){
+      for(const k of Object.keys(extra)) base[k] = extra[k];
+    }
+    return base;
+  }
+
+  function awardOnce(gameKey, badgeId, meta){
+    try{
+      const B = WIN.HHA_Badges;
+      if(!B || typeof B.awardBadge !== 'function') return false;
+      return !!B.awardBadge(gameKey, badgeId, badgeMeta(meta));
+    }catch(_){
+      return false;
+    }
+  }
+
+  // ---------------- food groups (ไทย) ----------------
+  // mapping ที่คุณล็อกไว้: หมู่ 1 โปรตีน, หมู่ 2 คาร์บ, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
+  const GROUPS = [
+    { key:'g1', name:'หมู่ 1 โปรตีน', emoji:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
+    { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', emoji:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
+    { key:'g3', name:'หมู่ 3 ผัก', emoji:['🥦','🥬','🥒','🥕','🌽','🍅','🫛'] },
+    { key:'g4', name:'หมู่ 4 ผลไม้', emoji:['🍌','🍎','🍉','🍇','🍍','🍊','🥭'] },
+    { key:'g5', name:'หมู่ 5 ไขมัน', emoji:['🥑','🧈','🥜','🫒','🍳','🥥','🧴'] }
+  ];
 
   // ---------------- DOM helpers ----------------
   function ensureWrap(){
@@ -231,9 +263,11 @@
   function mkTarget(groupKey, emoji, lifeMs){
     const el = DOC.createElement('div');
     el.className = 'tgt';
+    el.classList.add(groupKey); // ✅ 6N ring color by group
     el.setAttribute('data-group', groupKey);
     el.setAttribute('role','button');
 
+    // NOTE: size is controlled by CSS in groups-vr.css; inline here is just fallback
     el.style.cssText =
       'position:absolute; width:72px; height:72px; border-radius:18px; '+
       'display:flex; align-items:center; justify-content:center; '+
@@ -244,13 +278,14 @@
 
     el.textContent = emoji;
 
+    // position inside playLayer area, not the whole viewport
     const host = S.layerEl || DOC.body;
     const r = host.getBoundingClientRect ? host.getBoundingClientRect() : { left:0, top:0, width:(WIN.innerWidth||360), height:(WIN.innerHeight||640) };
 
     const w = Math.max(240, r.width||360);
     const h = Math.max(240, r.height||520);
 
-    const size = 72;
+    const size = 72; // fallback; CSS may override
     const pad = 10;
 
     const x = pad + (S.rng() * Math.max(1, (w - pad*2 - size)));
@@ -259,6 +294,7 @@
     el.style.left = Math.round(x) + 'px';
     el.style.top  = Math.round(y) + 'px';
 
+    // simple appear anim
     el.style.transform = 'scale(.82)';
     el.style.opacity = '0';
     requestAnimationFrame(()=>{
@@ -279,9 +315,11 @@
   // ---------------- events (HUD/Quest/Coach) ----------------
   function emitScore(){
     emit('hha:score', { score:S.score, combo:S.combo, misses:S.miss });
+    updateDebugOverlay();
   }
   function emitTime(){
     emit('hha:time', { left:S.timeLeftSec });
+    updateDebugOverlay();
   }
   function emitRank(){
     const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
@@ -291,21 +329,27 @@
       (acc>=76 && S.score>=120) ? 'B' :
       (acc>=62) ? 'C' : 'D';
     emit('hha:rank', { accuracy: acc, grade });
+    updateDebugOverlay();
   }
   function emitPower(){
     emit('groups:power', { charge:S.powerCur, threshold:S.powerThr });
-  }
-
-  function tierFrom(grade){
-    return (grade === 'S') ? '🏆 Master'
-      : (grade === 'A') ? '🔥 Elite'
-      : (grade === 'B') ? '⚡ Skilled'
-      : (grade === 'C') ? '✅ Ok'
-      : '🧊 Warm-up';
+    updateDebugOverlay();
   }
 
   function currentGroup(){
     return GROUPS[clamp(S.groupIdx, 0, GROUPS.length-1)];
+  }
+
+  function emitGroup(){ // ✅ 6N
+    const g = currentGroup();
+    emit('groups:group', { key:g.key, name:g.name, idx:S.groupIdx });
+  }
+
+  function emitDirector(){ // ✅ 6O
+    emit('groups:director', {
+      level: S.dirLevel|0,
+      text: (S.runMode==='play') ? `PLAY D${S.dirLevel|0}` : String(S.runMode||'PLAY').toUpperCase()
+    });
   }
 
   function emitQuest(force){
@@ -334,21 +378,22 @@
       miniPct,
       miniTimeLeftSec: S.miniActive ? S.miniLeft : 0
     });
+
+    updateDebugOverlay();
   }
 
   function coach(text, mood){
     const t = nowMs();
     if ((t - S.lastCoachAt) < 520) return;
     S.lastCoachAt = t;
-
-    // compat 2 schemas:
-    emit('hha:coach', { text, mood: mood||'neutral', msg: String(text||''), tag:'Coach' });
+    emit('hha:coach', { text, mood: mood||'neutral' });
+    updateDebugOverlay();
   }
 
   // ---------------- gameplay rules ----------------
   function resetMini(){
     S.miniActive = true;
-    S.miniLeft = 10;
+    S.miniLeft = 10; // seconds
     S.miniNow = 0;
     S.miniKind = 'streak';
   }
@@ -372,6 +417,7 @@
     resetMini();
     emit('groups:progress', { kind:'perfect_switch' });
     emitPower();
+    emitGroup();     // ✅ 6N
     emitQuest(true);
     coach('สลับหมู่แล้ว! ดูชื่อหมู่แล้วค่อยยิง 🎯', 'neutral');
   }
@@ -382,9 +428,10 @@
       S.combo = Math.min(99, (S.combo|0) + 1);
       S.maxCombo = Math.max(S.maxCombo|0, S.combo|0);
 
+      // badge: streak_10 once
       if (!S.streak10Awarded && S.combo >= 10){
         S.streak10Awarded = true;
-        awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, score:S.score|0 });
+        awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, scoreFinal:S.score|0 });
       }
 
       const comboBonus = Math.min(25, (S.combo>=3)? (S.combo*2) : 0);
@@ -414,13 +461,14 @@
         coach('MINI สำเร็จ! +โบนัส ✅', 'happy');
         S.miniActive = false;
 
+        // badge: mini_clear_1 once per run
         if(!S.miniAwarded){
           S.miniAwarded = true;
           awardOnce('groups','mini_clear_1', {
             miniKind:S.miniKind,
             miniTot:S.miniTot|0,
-            score:S.score|0,
-            maxCombo:S.maxCombo|0
+            scoreFinal:S.score|0,
+            comboMax:S.maxCombo|0
           });
         }
       }
@@ -478,9 +526,10 @@
       emit('groups:progress', { kind:'boss_down' });
       coach('บอสแตก! โคตรดี 💥', 'happy');
 
+      // badge: boss_clear_1
       if(!S.bossAwarded){
         S.bossAwarded = true;
-        awardOnce('groups','boss_clear_1', { score:S.score|0, maxCombo:S.maxCombo|0, misses:S.miss|0 });
+        awardOnce('groups','boss_clear_1', { scoreFinal:S.score|0, comboMax:S.maxCombo|0, miss:S.miss|0 });
       }
     }
   }
@@ -501,6 +550,7 @@
     }
   }
 
+  // Find nearest target center within radius rPx (in viewport coordinates)
   function nearestTargetWithin(x, y, rPx){
     rPx = Number(rPx)||0;
     if (rPx <= 0) return null;
@@ -564,6 +614,12 @@
     }catch(_){}
   }
 
+  function dbgSetLast(msg){
+    if (!dbgOn()) return;
+    S.lastDbg = String(msg||'');
+    updateDebugOverlay();
+  }
+
   function handleShoot(ev){
     if (!S.running) return;
     if (!ev || !ev.detail) return;
@@ -572,17 +628,23 @@
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
 
+    // lockPx from vr-ui.js (mobile/cvr tuned in groups-vr.html)
     const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
 
     S.shots++;
 
+    // 1) try direct hit
     let tgtEl = hitTest(x,y);
 
+    // 2) aim-assist: nearest within lockPx
     if (!tgtEl && lockPx > 0){
       tgtEl = nearestTargetWithin(x, y, lockPx);
     }
 
     if (!tgtEl){
+      // shot miss
+      S.missShot = (S.missShot|0) + 1;
+      dbgSetLast(`shot_miss lockPx=${lockPx}`);
       addScore(false);
       onBadHit();
       emitFx('shot_miss', x, y, false);
@@ -598,14 +660,66 @@
     addScore(good);
 
     if (good){
+      dbgSetLast('hit_good');
       emitFx('hit_good', x, y, true);
       onGoodHit();
       if (S.boss) bossHit();
     }else{
+      // wrong hit
+      S.missWrong = (S.missWrong|0) + 1;
+      dbgSetLast('hit_bad(wrong)');
       emitFx('hit_bad', x, y, false);
       onBadHit();
-      coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+
+      const tNow = nowMs();
+      if (tNow - (S.lastWrongHintAt||0) > 1600){
+        S.lastWrongHintAt = tNow;
+        const g = currentGroup();
+        coach(`ยังไม่ใช่ 😅 ตอนนี้ต้องยิง: “${g.name}”`, 'neutral');
+      }
     }
+  }
+
+  // ---------------- Difficulty Director (6O) ----------------
+  function accPctRaw(){
+    return (S.shots>0) ? (S.goodShots/S.shots)*100 : 0;
+  }
+  function missRatePct(){
+    const denom = Math.max(1, S.shots);
+    return (S.miss/denom)*100;
+  }
+
+  function evalDirector(){
+    if (S.runMode !== 'play') return;
+    const t = nowMs();
+    if ((t - (S.dirLastEvalAt||0)) < 2500) return;
+    S.dirLastEvalAt = t;
+
+    const acc = accPctRaw();
+    const mr  = missRatePct();
+    const c   = S.combo|0;
+
+    let score = 0;
+    if (acc >= 86) score += 1;
+    if (acc >= 92) score += 1;
+    if (c >= 6) score += 1;
+    if (c >= 10) score += 1;
+    if (mr >= 18) score -= 1;
+    if (mr >= 26) score -= 1;
+    if (S.miss >= 8) score -= 1;
+
+    let target = 0;
+    if (score >= 3) target = +2;
+    else if (score >= 2) target = +1;
+    else if (score <= -2) target = -2;
+    else if (score <= -1) target = -1;
+    else target = 0;
+
+    if (target > S.dirLevel) S.dirLevel += 1;
+    else if (target < S.dirLevel) S.dirLevel -= 1;
+
+    emitDirector();
+    dbgSetLast(`dir=${S.dirLevel} acc=${acc.toFixed(0)} combo=${c} mr=${mr.toFixed(0)}%`);
   }
 
   // ---------------- RAF loop ----------------
@@ -621,8 +735,9 @@
     const left = Math.max(0, Math.ceil(S.timePlannedSec - elapsed));
     if (left !== S.timeLeftSec){
       S.timeLeftSec = left;
-      emit('hha:time', { left:S.timeLeftSec });
+      emitTime();
 
+      // mini countdown
       if (S.miniActive){
         S.miniLeft = Math.max(0, (S.miniLeft|0) - 1);
         if (S.miniLeft <= 0){
@@ -639,7 +754,10 @@
       startBossIfNeeded();
     }
 
-    // target expiry => timeout miss (only if current group for fairness)
+    // director evaluate (6O)
+    evalDirector();
+
+    // target expiry => timeout miss (fair: only if it's current group)
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
@@ -648,6 +766,9 @@
         const isFairMiss = (tg.groupKey === cg);
 
         if (isFairMiss){
+          S.missTimeoutGood = (S.missTimeoutGood|0) + 1;
+          dbgSetLast('timeout_miss(fair)');
+
           S.miss++;
           S.combo = 0;
           S.score = Math.max(0, S.score - 6);
@@ -676,16 +797,25 @@
       S.spawnIt -= dt;
       if (S.spawnIt <= 0){
         const base = cfgForDiff(S.diff).spawnMs;
+
+        const dir = (S.runMode==='play') ? (S.dirLevel|0) : 0;
+        const dirMul =
+          (dir=== 2) ? 0.80 :
+          (dir=== 1) ? 0.90 :
+          (dir===-1) ? 1.08 :
+          (dir===-2) ? 1.18 : 1.0;
+
         const stormMul = S.storm ? 0.70 : 1.0;
         const bossMul  = S.boss ? 0.80 : 1.0;
 
-        const intervalMs = clamp(base * stormMul * bossMul, 360, 1400);
+        const intervalMs = clamp(base * dirMul * stormMul * bossMul, 360, 1400);
         S.spawnIt = intervalMs / 1000;
 
         spawnOne();
       }
     }
 
+    // end
     if (S.timeLeftSec <= 0){
       endRun('time');
       return;
@@ -701,11 +831,21 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
+    const dir = (S.runMode==='play') ? (S.dirLevel|0) : 0;
+
+    // bias toward correct group so playable (director adjusts softly)
+    let correctBias = 0.58;
+    if (dir=== 2) correctBias = 0.50;
+    if (dir=== 1) correctBias = 0.54;
+    if (dir===-1) correctBias = 0.62;
+    if (dir===-2) correctBias = 0.66;
+
     let gKey = '';
     const r = S.rng();
-    if (r < 0.58) gKey = cg.key;
+    if (r < correctBias) gKey = cg.key;
     else gKey = pick(S.rng, GROUPS).key;
 
+    // in boss: increase correct targets
     if (S.boss && S.rng() < 0.70) gKey = cg.key;
 
     const g = GROUPS.find(x=>x.key===gKey) || cg;
@@ -715,9 +855,18 @@
     const lifeMax = C.lifeMs[1];
     const life = clamp(lifeMin + S.rng()*(lifeMax-lifeMin), 900, 5200);
 
-    const t = mkTarget(g.key, em, life);
-    S.targets.push(t);
+    const lifeMul =
+      (dir=== 2) ? 0.82 :
+      (dir=== 1) ? 0.90 :
+      (dir===-1) ? 1.08 :
+      (dir===-2) ? 1.18 : 1.0;
 
+    const life2 = clamp(life * lifeMul, 850, 5600);
+
+    const tg = mkTarget(g.key, em, life2);
+    S.targets.push(tg);
+
+    // cap targets (mobile-safe)
     const cap = (S.view==='pc') ? 12 : 10;
     if (S.targets.length > cap){
       let idx = S.targets.findIndex(x=>x.groupKey !== currentGroup().key);
@@ -725,6 +874,55 @@
       const old = S.targets[idx];
       try{ old.el.remove(); }catch(_){}
       S.targets.splice(idx,1);
+    }
+  }
+
+  // ---------------- Debug overlay (6M) ----------------
+  let dbgEl = null;
+
+  function mountDebugOverlay(){
+    if (!dbgOn()) return;
+    if (dbgEl && DOC.body.contains(dbgEl)) return;
+
+    dbgEl = DOC.createElement('div');
+    dbgEl.id = 'dbgOverlay';
+    dbgEl.style.cssText =
+      'position:fixed; left:10px; bottom:10px; z-index:99999; '+
+      'pointer-events:none; font-family:ui-sans-serif,system-ui; '+
+      'background:rgba(2,6,23,.72); border:1px solid rgba(148,163,184,.22); '+
+      'color:#e5e7eb; padding:10px 12px; border-radius:12px; '+
+      'box-shadow:0 14px 36px rgba(0,0,0,.32); min-width:220px; '+
+      'line-height:1.25; font-size:12px;';
+
+    dbgEl.innerHTML =
+      '<div style="font-weight:800; margin-bottom:6px;">🧪 DEBUG MISS</div>'+
+      '<div id="dbgLine1"></div>'+
+      '<div id="dbgLine2" style="margin-top:4px;"></div>'+
+      '<div id="dbgLine3" style="margin-top:4px; opacity:.9;"></div>';
+
+    DOC.body.appendChild(dbgEl);
+    updateDebugOverlay();
+  }
+
+  function updateDebugOverlay(){
+    if (!dbgOn()) return;
+    if (!dbgEl) return;
+
+    const l1 = dbgEl.querySelector('#dbgLine1');
+    const l2 = dbgEl.querySelector('#dbgLine2');
+    const l3 = dbgEl.querySelector('#dbgLine3');
+
+    if (l1){
+      l1.textContent =
+        `MISS=${S.miss|0} | shot=${S.missShot|0} | timeout=${S.missTimeoutGood|0}`;
+    }
+    if (l2){
+      l2.textContent =
+        `wrong=${S.missWrong|0} | junk=${S.missJunk|0} | targets=${(S.targets?S.targets.length:0)} | D=${S.dirLevel|0}`;
+    }
+    if (l3){
+      l3.textContent =
+        `last: ${S.lastDbg || '-'}`;
     }
   }
 
@@ -740,6 +938,7 @@
     S.score = 0; S.combo = 0; S.miss = 0;
     S.shots = 0; S.goodShots = 0;
 
+    // badges runtime flags reset per run
     S.maxCombo = 0;
     S.streak10Awarded = false;
     S.miniAwarded = false;
@@ -766,6 +965,20 @@
     S.lastCoachAt = 0;
     S.lastQuestEmitAt = 0;
 
+    // 6M reset
+    S.missShot = 0;
+    S.missTimeoutGood = 0;
+    S.missWrong = 0;
+    S.missJunk = 0;
+    S.lastDbg = '';
+
+    // 6O reset
+    S.dirLevel = 0;
+    S.dirLastEvalAt = 0;
+
+    // hint throttle
+    S.lastWrongHintAt = 0;
+
     // seed / rng
     S.seed = String(ctx && ctx.seed ? ctx.seed : (qs('seed','')||Date.now()));
     const u32 = strSeedToU32(S.seed);
@@ -776,15 +989,20 @@
     S.timePlannedSec = clamp(t, 15, 180);
     S.timeLeftSec = S.timePlannedSec;
 
+    // spawn timer
     S.spawnIt = 0;
 
     emitPower();
     emitScore();
     emitRank();
     emitTime();
+    emitGroup();        // ✅ 6N
+    emitDirector();     // ✅ 6O
     emitQuest(true);
 
     coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
+    mountDebugOverlay();
+    dbgSetLast('start');
   }
 
   function start(diff, ctx){
@@ -826,28 +1044,20 @@
       }
     }catch(_){}
 
+    // reset + run
     resetRun(ctx||{});
 
     // badge: first play
-    awardOnce('groups','first_play',{});
+    awardOnce('groups','first_play',{ startedAt: Date.now() });
 
     S.running = true;
     S.startT = nowMs();
     S.lastTickT = S.startT;
 
+    // listen shoot (from vr-ui crosshair / tap-to-shoot)
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
 
-    emit('hha:start', {
-      game:'groups',
-      pack:'groups-v2.2-std',
-      runMode:S.runMode,
-      diff:S.diff,
-      seed:S.seed,
-      timePlannedSec:S.timePlannedSec,
-      view:S.view,
-      style:S.style
-    });
-
+    // GO!
     S.rafId = requestAnimationFrame(rafLoop);
     return true;
   }
@@ -859,7 +1069,7 @@
       try{ cancelAnimationFrame(S.rafId); }catch(_){}
       S.rafId = 0;
     }
-    WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
+    try{ WIN.removeEventListener('hha:shoot', handleShoot, { passive:true }); }catch(_){}
 
     clearTargets();
     try{ if (S.wrapEl) S.wrapEl.innerHTML = ''; }catch(_){}
@@ -873,7 +1083,7 @@
       try{ cancelAnimationFrame(S.rafId); }catch(_){}
       S.rafId = 0;
     }
-    WIN.removeEventListener('hha:shoot', handleShoot, { passive:true });
+    try{ WIN.removeEventListener('hha:shoot', handleShoot, { passive:true }); }catch(_){}
 
     const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
     const grade =
@@ -882,74 +1092,58 @@
       (acc>=76 && S.score>=120) ? 'B' :
       (acc>=62) ? 'C' : 'D';
 
-    // badges on end:
+    // badges on end
     if (acc >= 80){
       awardOnce('groups','score_80p', {
-        accuracyGoodPct: acc|0,
-        shots:S.shots|0,
-        goodShots:S.goodShots|0,
-        misses:S.miss|0,
-        scoreFinal:S.score|0,
-        maxCombo:S.maxCombo|0
+        scoreFinal: S.score|0,
+        miss: S.miss|0,
+        accuracyPct: acc|0,
+        shots: S.shots|0,
+        goodShots: S.goodShots|0,
+        comboMax: S.maxCombo|0
       });
     }
     if ((S.miss|0) === 0){
       awardOnce('groups','perfect_run', {
-        accuracyGoodPct: acc|0,
-        shots:S.shots|0,
-        goodShots:S.goodShots|0,
-        misses:S.miss|0,
-        scoreFinal:S.score|0,
-        maxCombo:S.maxCombo|0
+        scoreFinal: S.score|0,
+        miss: 0,
+        accuracyPct: acc|0,
+        shots: S.shots|0,
+        goodShots: S.goodShots|0,
+        comboMax: S.maxCombo|0
       });
     }
 
-    const playedSec = clamp((S.timePlannedSec - S.timeLeftSec), 0, S.timePlannedSec) | 0;
-    const tier = tierFrom(grade);
-
     const summary = {
-      game:'groups',
-      ts: Date.now(),
-      pack:'groups-v2.2-std',
-
       reason: reason || 'end',
-
       scoreFinal: S.score|0,
-      grade,
-      tier,
-
       miss: S.miss|0,
-      comboMax: S.maxCombo|0,
-
       shots: S.shots|0,
       goodShots: S.goodShots|0,
       accuracyPct: acc|0,
-
+      grade,
       seed: S.seed,
       runMode: S.runMode,
       diff: S.diff,
       style: S.style,
       view: S.view,
-
+      comboMax: S.maxCombo|0,
       miniCleared: !!S.miniAwarded,
       bossCleared: !!S.bossAwarded,
 
-      timePlannedSec: S.timePlannedSec|0,
-      timePlayedSec: playedSec|0,
+      // debug breakdown
+      missShot: S.missShot|0,
+      missTimeoutGood: S.missTimeoutGood|0,
+      missWrong: S.missWrong|0,
+      missJunk: S.missJunk|0,
 
-      // ✅ legacy keys (กันของเดิม)
-      misses: S.miss|0,
-      accuracyGoodPct: acc|0,
-      durationPlannedSec: S.timePlannedSec|0,
-      durationPlayedSec: playedSec|0,
-      maxCombo: S.maxCombo|0
+      directorLevel: S.dirLevel|0
     };
-
-    saveLastAndHistory(summary);
 
     emit('hha:end', summary);
 
     clearTargets();
+    dbgSetLast('end');
   }
 
   // ---------------- flush harden hook (optional for your html) ----------------
