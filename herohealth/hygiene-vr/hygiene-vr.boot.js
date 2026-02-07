@@ -1,10 +1,8 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics) v20260204b
-//
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
 // ✅ Warn if particles.js or quiz bank missing
-//
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -79,13 +77,13 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
-  const P = await waitForGlobal(()=>window.Particles, 900);
+  const P = await waitForGlobal(()=>window.Particles, 1000);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
   }
 
-  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
+  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 1000);
   if(!bank){
     console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
     showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
@@ -95,7 +93,7 @@ async function main(){
 
   let engine;
   try{
-    engine = await import('./hygiene.safe.js?v=20260204b');
+    engine = await import('./hygiene.safe.js?v=20260206a');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
