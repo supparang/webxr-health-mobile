@@ -1,260 +1,539 @@
-// === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HARDENED)
-// ✅ Auto view detect (no UI override UI)
-// ✅ Boots engine from ./plate.safe.js
-// ✅ Wires HUD (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
-// ✅ Back HUB + Restart
-// ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
-// ✅ HARDEN: guard against "start button freeze" + robust mount check + visible error
-// ✅ PATCH: Miss breakdown (kMissJunk / kMissExpire) + grade + new schema compat
+// === /herohealth/plate/plate.safe.js ===
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION)
+// HHA Standard
+// ------------------------------------------------
+// ✅ Play / Research modes
+//   - play: adaptive ON (heuristic director)
+//   - research/study: deterministic seed + adaptive OFF
+// ✅ Fix: "ออกไม่ครบ 5 หมู่" => spawn bias toward missing groups early game
+// ✅ Uses decorateTarget(el,target) from mode-factory.js to set emoji/icon + group
+// ✅ Emits:
+//   hha:start, hha:score, hha:time, quest:update,
+//   hha:coach, hha:judge, hha:end
+// ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
+// ✅ End: stop spawner so targets won't "blink" after finish
+// ✅ PATCH: Standardize end summary schema to match Groups/Hydration
+// ✅ PATCH: End summary adds missJunk/missExpire (for UI breakdown)
+// ------------------------------------------------
 
 'use strict';
 
-import { boot as engineBoot } from './plate.safe.js';
+import { boot as spawnBoot } from '../vr/mode-factory.js';
+import { FOOD5, JUNK, pickEmoji, emojiForGroup, labelForGroup } from '../vr/food5-th.js';
 
+/* ------------------------------------------------
+ * Utilities
+ * ------------------------------------------------ */
 const WIN = window;
-const DOC = document;
 
-const qs = (k, def=null)=>{
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
+const clamp = (v, a, b) => {
+  v = Number(v) || 0;
+  return v < a ? a : (v > b ? b : v);
 };
 
-function isMobile(){
-  const ua = navigator.userAgent || '';
-  const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
-  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && innerWidth < 920);
-}
-
-function getViewAuto(){
-  // allow forced view for experiments, otherwise auto
-  const forced = (qs('view','')||'').toLowerCase();
-  if(forced) return forced;
-  return isMobile() ? 'mobile' : 'pc';
-}
-
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'cvr') b.classList.add('view-cvr');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'mobile') b.classList.add('view-mobile');
-  else b.classList.add('view-pc');
-}
-
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function pct(n){
-  n = Number(n)||0;
-  return `${Math.round(n)}%`;
-}
-
-function setOverlayOpen(open){
-  const ov = DOC.getElementById('endOverlay');
-  if(!ov) return;
-  ov.setAttribute('aria-hidden', open ? 'false' : 'true');
-}
-
-function showCoach(msg, meta='Coach'){
-  const card = DOC.getElementById('coachCard');
-  const mEl = DOC.getElementById('coachMsg');
-  const metaEl = DOC.getElementById('coachMeta');
-  if(!card || !mEl) return;
-
-  mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = meta;
-  card.classList.add('show');
-  card.setAttribute('aria-hidden','false');
-
-  clearTimeout(WIN.__HHA_COACH_TO__);
-  WIN.__HHA_COACH_TO__ = setTimeout(()=>{
-    card.classList.remove('show');
-    card.setAttribute('aria-hidden','true');
-  }, 2400);
-}
-
-function wireHUD(){
-  const hudScore = DOC.getElementById('hudScore');
-  const hudTime  = DOC.getElementById('hudTime');
-  const hudCombo = DOC.getElementById('hudCombo');
-
-  const goalName = DOC.getElementById('goalName');
-  const goalSub  = DOC.getElementById('goalSub');
-  const goalNums = DOC.getElementById('goalNums');
-  const goalBar  = DOC.getElementById('goalBar');
-
-  const miniName = DOC.getElementById('miniName');
-  const miniSub  = DOC.getElementById('miniSub');
-  const miniNums = DOC.getElementById('miniNums');
-  const miniBar  = DOC.getElementById('miniBar');
-
-  WIN.addEventListener('hha:score', (e)=>{
-    const d = e.detail || {};
-    if(hudScore) hudScore.textContent = String(d.score ?? d.value ?? 0);
-    if(hudCombo) hudCombo.textContent = String(d.combo ?? d.comboNow ?? 0);
-  });
-
-  WIN.addEventListener('hha:time', (e)=>{
-    const d = e.detail || {};
-    const t = (d.leftSec ?? d.timeLeftSec ?? d.value ?? 0);
-    if(hudTime) hudTime.textContent = String(Math.max(0, Math.ceil(Number(t)||0)));
-  });
-
-  WIN.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    if(d.goal){
-      const g = d.goal;
-      if(goalName) goalName.textContent = g.name || 'Goal';
-      if(goalSub)  goalSub.textContent  = g.sub  || '';
-      const cur = clamp(g.cur ?? 0, 0, 9999);
-      const tar = clamp(g.target ?? 1, 1, 9999);
-      if(goalNums) goalNums.textContent = `${cur}/${tar}`;
-      if(goalBar)  goalBar.style.width  = `${Math.round((cur/tar)*100)}%`;
-    }
-    if(d.mini){
-      const m = d.mini;
-      if(miniName) miniName.textContent = m.name || 'Mini Quest';
-      if(miniSub)  miniSub.textContent  = m.sub  || '';
-      const cur = clamp(m.cur ?? 0, 0, 9999);
-      const tar = clamp(m.target ?? 1, 1, 9999);
-      if(miniNums) miniNums.textContent = `${cur}/${tar}`;
-      if(miniBar)  miniBar.style.width  = `${Math.round((cur/tar)*100)}%`;
-    }
-  });
-
-  WIN.addEventListener('hha:coach', (e)=>{
-    const d = e.detail || {};
-    if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
-  });
-}
-
-function wireEndControls(){
-  const btnRestart = DOC.getElementById('btnRestart');
-  const btnBackHub = DOC.getElementById('btnBackHub');
-  const hub = qs('hub','') || '';
-
-  if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload();
-    });
-  }
-  if(btnBackHub){
-    btnBackHub.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
-      else history.back();
-    });
-  }
-}
-
-function wireEndSummary(){
-  const kScore = DOC.getElementById('kScore');
-  const kAcc   = DOC.getElementById('kAcc');
-  const kCombo = DOC.getElementById('kCombo');
-  const kGoals = DOC.getElementById('kGoals');
-  const kMini  = DOC.getElementById('kMini');
-
-  const kMiss  = DOC.getElementById('kMiss');
-  const kMissJunk   = DOC.getElementById('kMissJunk');
-  const kMissExpire = DOC.getElementById('kMissExpire');
-
-  const kGrade = DOC.getElementById('kGrade');
-
-  WIN.addEventListener('hha:end', (e)=>{
-    const d = e.detail || {};
-
-    // score/combos
-    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
-    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
-
-    // accuracy (new: accuracyPct, legacy: accuracyGoodPct)
-    const acc = (d.accuracyPct ?? d.accuracyGoodPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
-
-    // goals/mini
-    if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
-    if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
-
-    // miss total (new: miss, legacy: misses)
-    const missTotal = (d.miss ?? d.misses ?? d.missesTotal ?? d.missTotal ?? 0);
-    if(kMiss) kMiss.textContent = String(missTotal ?? 0);
-
-    // breakdown (preferred keys: missJunk/missExpire; fallback: hitJunk/expireGood)
-    const missJ = (d.missJunk ?? d.hitJunk ?? null);
-    const missE = (d.missExpire ?? d.expireGood ?? null);
-
-    if(kMissJunk)   kMissJunk.textContent   = (missJ==null) ? '—' : String(missJ);
-    if(kMissExpire) kMissExpire.textContent = (missE==null) ? '—' : String(missE);
-
-    // grade (if provided by safe.js)
-    if(kGrade) kGrade.textContent = String(d.grade ?? '—');
-
-    setOverlayOpen(true);
-  });
-}
-
-function buildEngineConfig(){
-  const view = getViewAuto();
-  const run  = (qs('run','play')||'play').toLowerCase();
-  const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);
-  const seed = Number(qs('seed', Date.now())) || Date.now();
-
-  return {
-    view,
-    runMode: run,
-    diff,
-    durationPlannedSec: Number(time), // legacy key consumed by safe.js
-    seed: Number(seed),
-
-    // passthrough
-    hub: qs('hub','') || '',
-    logEndpoint: qs('log','') || '',
-
-    studyId: qs('studyId','') || '',
-    phase: qs('phase','') || '',
-    conditionGroup: qs('conditionGroup','') || '',
-    sessionOrder: qs('sessionOrder','') || '',
-    blockLabel: qs('blockLabel','') || '',
-    siteCode: qs('siteCode','') || '',
-    schoolCode: qs('schoolCode','') || '',
-    schoolName: qs('schoolName','') || '',
-    gradeLevel: qs('gradeLevel','') || '',
-    studentKey: qs('studentKey','') || '',
+function seededRng(seed){
+  let t = (Number(seed)||Date.now()) >>> 0;
+  return function(){
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-function ready(fn){
-  if(DOC.readyState === 'complete' || DOC.readyState === 'interactive') fn();
-  else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
+function gradeFromScore(score){
+  score = Number(score)||0;
+  // tune ได้ตามจริงของเกม plate
+  if (score >= 2200) return 'S';
+  if (score >= 1700) return 'A';
+  if (score >= 1200) return 'B';
+  if (score >= 700)  return 'C';
+  return 'D';
 }
 
-ready(()=>{
-  const cfg = buildEngineConfig();
-  setBodyView(cfg.view);
+/* ------------------------------------------------
+ * Engine state
+ * ------------------------------------------------ */
+const STATE = {
+  running:false,
+  ended:false,
 
-  wireHUD();
-  wireEndControls();
-  wireEndSummary();
+  score:0,
+  combo:0,
+  comboMax:0,
+  miss:0,
 
-  setOverlayOpen(false);
+  timeLeft:0,
+  timePlannedSec:0, // canonical
+  timer:null,
 
-  const mount = DOC.getElementById('plate-layer');
-  if(!mount){
-    console.error('[PlateVR] mount #plate-layer missing');
-    showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
-    return;
+  // plate groups counts (index 0..4 => groupId 1..5)
+  g:[0,0,0,0,0],
+
+  // quest
+  goal:{
+    name:'เติมจานให้ครบ 5 หมู่',
+    sub:'เก็บอาหารให้ครบทุกหมู่ (อย่างน้อยหมู่ละ 1)',
+    cur:0,
+    target:5,
+    done:false
+  },
+  mini:{
+    name:'ความแม่นยำ',
+    sub:'คุมความแม่น ≥ 80%',
+    cur:0,
+    target:80,
+    done:false
+  },
+
+  // counters
+  hitGood:0,
+  hitJunk:0,       // = miss by junk
+  expireGood:0,    // = miss by expire
+
+  // mode / cfg
+  cfg:null,
+  rng:Math.random,
+
+  // spawn engine
+  engine:null,
+
+  // spawn director
+  seen:[false,false,false,false,false],       // collected
+  spawnSeen:[false,false,false,false,false],  // spawned at least once
+  spawnTick:0,
+};
+
+/* ------------------------------------------------
+ * Event helpers
+ * ------------------------------------------------ */
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
+}
+
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
+}
+
+/* ------------------------------------------------
+ * Quest update
+ * ------------------------------------------------ */
+function emitQuest(){
+  emit('quest:update', {
+    goal:{
+      name: STATE.goal.name,
+      sub: STATE.goal.sub,
+      cur: STATE.goal.cur,
+      target: STATE.goal.target,
+      done: STATE.goal.done
+    },
+    mini:{
+      name: STATE.mini.name,
+      sub: STATE.mini.sub,
+      cur: STATE.mini.cur,
+      target: STATE.mini.target,
+      done: STATE.mini.done
+    },
+    allDone: STATE.goal.done && STATE.mini.done
+  });
+}
+
+/* ------------------------------------------------
+ * Score helpers
+ * ------------------------------------------------ */
+function addScore(v){
+  STATE.score += v;
+  emit('hha:score', {
+    score: STATE.score,
+    combo: STATE.combo,
+    comboMax: STATE.comboMax
+  });
+}
+
+function addCombo(){
+  STATE.combo++;
+  STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
+}
+
+function resetCombo(){
+  STATE.combo = 0;
+}
+
+/* ------------------------------------------------
+ * Accuracy
+ * ------------------------------------------------
+ * นับ "judged" ตามที่ตั้งใจ: hitGood + hitJunk + expireGood
+ * (อยากให้นับยิงพลาดแบบ “shot miss” เพิ่ม ค่อยใส่ตอนเพิ่ม event จาก mode-factory)
+ */
+function accuracy(){
+  const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
+  if(total <= 0) return 1;
+  return STATE.hitGood / total;
+}
+
+function updateMiniFromAccuracy(){
+  const accPct = accuracy() * 100;
+  STATE.mini.cur = clamp(Math.round(accPct), 0, 100);
+  if(!STATE.mini.done && accPct >= STATE.mini.target){
+    STATE.mini.done = true;
+    coach('ความแม่นยำดีมาก! 👍');
+  }
+}
+
+/* ------------------------------------------------
+ * End game
+ * ------------------------------------------------ */
+function stopSpawner(){
+  if(STATE.engine && typeof STATE.engine.stop === 'function'){
+    try{ STATE.engine.stop(); }catch{}
+  }
+  STATE.engine = null;
+}
+
+function endGame(reason='timeup'){
+  if(STATE.ended) return;
+  STATE.ended = true;
+  STATE.running = false;
+
+  try{ clearInterval(STATE.timer); }catch{}
+  STATE.timer = null;
+
+  // stop spawn immediately (prevents target blink after finish)
+  stopSpawner();
+
+  const accPct1Dec = Math.round(accuracy() * 1000) / 10; // 1 decimal
+  const grade = gradeFromScore(STATE.score);
+
+  // Standard schema (match Groups/Hydration) + UI breakdown keys
+  const summary = {
+    reason,
+
+    runMode: (STATE.cfg?.runMode || 'play'),
+    diff: (STATE.cfg?.diff || 'normal'),
+    seed: (STATE.cfg?.seed || 0),
+    timePlannedSec: Number(STATE.timePlannedSec || 0) || 0,
+
+    scoreFinal: STATE.score | 0,
+    comboMax: STATE.comboMax | 0,
+
+    // canonical miss
+    miss: STATE.miss | 0,
+
+    // ✅ breakdown (for boot UI)
+    missJunk: STATE.hitJunk | 0,
+    missExpire: STATE.expireGood | 0,
+
+    // accuracy
+    accuracyPct: accPct1Dec,
+    grade,
+
+    goalsCleared: STATE.goal.done ? 1 : 0,
+    goalsTotal: 1,
+    miniCleared: STATE.mini.done ? 1 : 0,
+    miniTotal: 1,
+
+    g1: STATE.g[0],
+    g2: STATE.g[1],
+    g3: STATE.g[2],
+    g4: STATE.g[3],
+    g5: STATE.g[4],
+
+    // legacy aliases (keep old dashboards safe)
+    misses: STATE.miss | 0,
+    accuracyGoodPct: accPct1Dec,
+    durationPlannedSec: Number(STATE.timePlannedSec || 0) || 0,
+
+    // extra legacy-ish (บางหน้าใช้ตรงนี้)
+    hitGood: STATE.hitGood | 0,
+    hitJunk: STATE.hitJunk | 0,
+    expireGood: STATE.expireGood | 0,
+  };
+
+  emit('hha:end', summary);
+}
+
+/* ------------------------------------------------
+ * Timer
+ * ------------------------------------------------ */
+function startTimer(){
+  emit('hha:time', { leftSec: STATE.timeLeft });
+
+  STATE.timer = setInterval(()=>{
+    if(!STATE.running) return;
+    STATE.timeLeft--;
+    emit('hha:time', { leftSec: STATE.timeLeft });
+    if(STATE.timeLeft <= 0){
+      endGame('timeup');
+    }
+  }, 1000);
+}
+
+/* ------------------------------------------------
+ * Hit handlers
+ * ------------------------------------------------ */
+function recomputeGoal(){
+  const distinct = STATE.g.filter(v=>v>0).length;
+  STATE.goal.cur = distinct;
+
+  if(!STATE.goal.done && distinct >= STATE.goal.target){
+    STATE.goal.done = true;
+    coach('เยี่ยม! เติมครบทุกหมู่แล้ว 🎉');
+  }
+}
+
+function onHitGood(groupIndex){
+  STATE.hitGood++;
+  const gi = clamp(groupIndex, 0, 4);
+  STATE.g[gi]++;
+  STATE.seen[gi] = true;
+
+  addCombo();
+  addScore(100 + STATE.combo * 5);
+
+  recomputeGoal();
+  updateMiniFromAccuracy();
+  emitQuest();
+
+  emit('hha:judge', {
+    kind:'good',
+    groupId: gi+1,
+    score: STATE.score,
+    combo: STATE.combo
+  });
+
+  // end early when both done in play mode
+  if(STATE.cfg && String(STATE.cfg.runMode||'play').toLowerCase() === 'play'){
+    if(STATE.goal.done && STATE.mini.done){
+      setTimeout(()=>{ if(!STATE.ended) endGame('all_done'); }, 420);
+    }
+  }
+}
+
+function onHitJunk(){
+  STATE.hitJunk++;
+  STATE.miss++;
+  resetCombo();
+  addScore(-50);
+
+  updateMiniFromAccuracy();
+  emitQuest();
+
+  emit('hha:judge', {
+    kind:'junk',
+    score: STATE.score,
+    combo: STATE.combo
+  });
+
+  coach('ระวัง! ของหวาน/ทอด ⚠️');
+}
+
+function onExpireGood(groupIndex){
+  STATE.expireGood++;
+  STATE.miss++;
+  resetCombo();
+
+  updateMiniFromAccuracy();
+  emitQuest();
+
+  emit('hha:judge', {
+    kind:'expire_good',
+    groupId: clamp(groupIndex,0,4)+1,
+    score: STATE.score,
+    combo: STATE.combo
+  });
+}
+
+/* ------------------------------------------------
+ * Spawn Director (Fix: "ไม่ออกครบ 5 หมู่")
+ * ------------------------------------------------ */
+function pickGroupIndexForGood(t){
+  const rng = (t && typeof t.rng === 'function') ? t.rng : STATE.rng;
+
+  const missingSpawn = [];
+  for(let i=0;i<5;i++) if(!STATE.spawnSeen[i]) missingSpawn.push(i);
+
+  const missingCollect = [];
+  for(let i=0;i<5;i++) if(STATE.g[i] <= 0) missingCollect.push(i);
+
+  // Phase A: until each group has spawned at least once
+  if(missingSpawn.length){
+    if(rng() < 0.85){
+      return missingSpawn[Math.floor(rng()*missingSpawn.length)];
+    }
   }
 
-  try{
-    Promise.resolve().then(()=>{
-      engineBoot({ mount, cfg });
-    });
-  }catch(err){
-    console.error('[PlateVR] boot error', err);
-    showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู Console)', 'System');
+  // Phase B: until player collects all 5
+  if(missingCollect.length){
+    if(rng() < 0.75){
+      return missingCollect[Math.floor(rng()*missingCollect.length)];
+    }
   }
-});
+
+  // Phase C: after collected all 5
+  const runMode = (STATE.cfg?.runMode || 'play').toLowerCase();
+  const adaptiveOn = (runMode === 'play');
+
+  if(adaptiveOn){
+    const counts = STATE.g.map((c,i)=>({i,c}));
+    counts.sort((a,b)=>a.c-b.c);
+    const pool = counts.slice(0,2).map(x=>x.i);
+    if(rng() < 0.70){
+      return pool[Math.floor(rng()*pool.length)];
+    }
+  }
+
+  return Math.floor(rng()*5);
+}
+
+/* ------------------------------------------------
+ * Target decorator (emoji/icon + group binding)
+ * ------------------------------------------------ */
+function decorateTarget(el, t){
+  if(t.kind === 'good'){
+    const gi = pickGroupIndexForGood(t);   // 0..4
+    t.groupIndex = gi;
+    STATE.spawnSeen[gi] = true;
+
+    const groupId = gi + 1;
+    const emoji = emojiForGroup(t.rng, groupId);
+
+    el.dataset.group = String(groupId);
+    el.dataset.kind = 'good';
+    el.textContent = emoji;
+
+    try{ el.setAttribute('aria-label', labelForGroup(groupId)); }catch{}
+  }else{
+    const emoji = pickEmoji(t.rng, JUNK.emojis);
+    el.dataset.group = 'junk';
+    el.dataset.kind = 'junk';
+    el.textContent = emoji;
+    try{ el.setAttribute('aria-label', JUNK.labelTH); }catch{}
+  }
+}
+
+/* ------------------------------------------------
+ * Spawner boot
+ * ------------------------------------------------ */
+function makeSpawner(mount){
+  const diff = (STATE.cfg?.diff || 'normal').toLowerCase();
+
+  let spawnRate = 900;
+  if(diff === 'hard') spawnRate = 720;
+  else if(diff === 'easy') spawnRate = 1020;
+
+  const runMode = (STATE.cfg?.runMode || 'play').toLowerCase();
+  const adaptiveOn = (runMode === 'play');
+
+  if(adaptiveOn){
+    const acc = accuracy();
+    const combo = STATE.comboMax;
+    if(acc > 0.88 && combo >= 10) spawnRate = Math.max(620, spawnRate - 120);
+    if(acc < 0.70) spawnRate = Math.min(1100, spawnRate + 120);
+  }
+
+  return spawnBoot({
+    mount,
+    seed: STATE.cfg.seed,
+    spawnRate,
+    sizeRange:[44,64],
+    kinds:[
+      { kind:'good', weight:0.72 },
+      { kind:'junk', weight:0.28 }
+    ],
+    decorateTarget,
+
+    onHit:(hit)=>{
+      if(hit.kind === 'good'){
+        onHitGood(hit.groupIndex ?? 0);
+      }else{
+        onHitJunk();
+      }
+    },
+
+    onExpire:(t)=>{
+      if(t.kind === 'good'){
+        onExpireGood(t.groupIndex ?? 0);
+      }
+    }
+  });
+}
+
+/* ------------------------------------------------
+ * Boot (public)
+ * ------------------------------------------------ */
+export function boot({ mount, cfg }){
+  if(!mount) throw new Error('PlateVR: mount missing');
+
+  // stop any previous run
+  stopSpawner();
+  try{ clearInterval(STATE.timer); }catch{}
+  STATE.timer = null;
+
+  STATE.cfg = cfg || {};
+  STATE.running = true;
+  STATE.ended = false;
+
+  // reset counters
+  STATE.score = 0;
+  STATE.combo = 0;
+  STATE.comboMax = 0;
+  STATE.miss = 0;
+
+  STATE.hitGood = 0;
+  STATE.hitJunk = 0;
+  STATE.expireGood = 0;
+
+  STATE.g = [0,0,0,0,0];
+  STATE.seen = [false,false,false,false,false];
+  STATE.spawnSeen = [false,false,false,false,false];
+  STATE.spawnTick = 0;
+
+  STATE.goal.cur = 0;
+  STATE.goal.done = false;
+
+  STATE.mini.cur = 0;
+  STATE.mini.done = false;
+
+  // RNG policy
+  const runMode = (cfg?.runMode || 'play').toLowerCase();
+  if(runMode === 'research' || runMode === 'study'){
+    STATE.rng = seededRng(cfg.seed || Date.now());
+  }else{
+    STATE.rng = Math.random;
+  }
+
+  // duration
+  STATE.timeLeft = Number(cfg?.durationPlannedSec) || 90;
+  STATE.timePlannedSec = STATE.timeLeft;
+
+  // start event (standard keys + keep legacy alias)
+  emit('hha:start', {
+    game:'plate',
+    runMode: cfg.runMode,
+    diff: cfg.diff,
+    seed: cfg.seed,
+    timePlannedSec: STATE.timePlannedSec,
+
+    // legacy
+    durationPlannedSec: STATE.timePlannedSec
+  });
+
+  emitQuest();
+  startTimer();
+
+  // start spawner
+  STATE.engine = makeSpawner(mount);
+
+  coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
+
+  // Safety: stop spawner on page hide/unload
+  const onHide = ()=>{
+    if(STATE.ended) return;
+    stopSpawner();
+  };
+  WIN.removeEventListener('pagehide', onHide);
+  WIN.addEventListener('pagehide', onHide, { once:false });
+}
+
+// Optional helper if you want external manual end:
+// export function end(reason='manual'){ endGame(reason); }
